@@ -3,263 +3,201 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14213d">
 <title>פרטי רכב</title>
-<meta name="description" content="איתור פרטי רכב לפי מספר רישוי ממאגרי משרד התחבורה ב-data.gov.il">
+<meta name="description" content="כל הפרטים על רכב לפי מספר רישוי, ממאגרי משרד התחבורה">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Hebrew:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
-/* Layout: one narrow column. A yellow Israeli plate is the search box; below it a summary, the towing figures, then one block per registry dataset. */
+/* Layout: an app screen. Navy header band holding the yellow plate search; below it one column of cards: identity, key numbers, then grouped facts. */
 :root{
-  --bg:#f3f4f1; --surface:#ffffff; --fg:#1b1f1d; --muted:#5f6763; --line:#dcdfda;
-  --plate:#f7c600; --plate-ink:#111; --il:#1f4fa8; --accent:#1f4fa8;
-  --ok:#1d7a45; --ok-bg:#e3f3e9; --warn:#9a5b00; --warn-bg:#fdf0d8; --bad:#b3261e; --bad-bg:#fbe5e3;
-  --f-body:"IBM Plex Sans Hebrew",system-ui,"Segoe UI",Arial,sans-serif;
-  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --bg:#eef0f4; --card:#ffffff; --fg:#151a24; --muted:#5d6676; --line:#e1e4ea;
+  --band:#14213d; --band-fg:#ffffff; --band-muted:#aab4c8;
+  --plate:#f6c500; --plate-ink:#111; --il:#1d4ea8; --accent:#1d4ea8;
+  --ok:#147a43; --ok-bg:#dff3e7; --warn:#995400; --warn-bg:#fcefd6; --bad:#b42318; --bad-bg:#fde4e1;
+  --f-body:"Assistant",system-ui,"Segoe UI",Arial,sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
   color-scheme:light;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#121514; --surface:#1b1f1d; --fg:#e8ebe8; --muted:#9aa29e; --line:#2e3431;
-  --accent:#7fa5ec; --ok:#6fd39a; --ok-bg:#16301f; --warn:#f0b75e; --warn-bg:#33270f; --bad:#f08a82; --bad-bg:#3a1916;
+  --bg:#0d1118; --card:#161c27; --fg:#e9edf3; --muted:#97a1b3; --line:#252d3b;
+  --band:#0a0f1a; --band-fg:#ffffff; --band-muted:#8d98ad; --accent:#86a9f0;
+  --ok:#6ad49b; --ok-bg:#12301f; --warn:#f2b55c; --warn-bg:#34260e; --bad:#f4877c; --bad-bg:#3b1815;
   color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#121514; --surface:#1b1f1d; --fg:#e8ebe8; --muted:#9aa29e; --line:#2e3431;
-  --accent:#7fa5ec; --ok:#6fd39a; --ok-bg:#16301f; --warn:#f0b75e; --warn-bg:#33270f; --bad:#f08a82; --bad-bg:#3a1916;
+  --bg:#0d1118; --card:#161c27; --fg:#e9edf3; --muted:#97a1b3; --line:#252d3b;
+  --band:#0a0f1a; --band-fg:#ffffff; --band-muted:#8d98ad; --accent:#86a9f0;
+  --ok:#6ad49b; --ok-bg:#12301f; --warn:#f2b55c; --warn-bg:#34260e; --bad:#f4877c; --bad-bg:#3b1815;
   color-scheme:dark}
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 var(--f-body);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-.wrap{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:24px 48px;display:flex;flex-direction:column;gap:20px}
-h1{font-size:1.15rem;margin:0;font-weight:700;letter-spacing:.01em}
-h2{font-size:1.02rem;margin:0;font-weight:700;text-wrap:balance}
-.sub{color:var(--muted);font-size:.86rem;margin:0}
-header{display:flex;flex-direction:column;gap:14px}
+html{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 var(--f-body);min-height:100vh}
+.band{background:var(--band);color:var(--band-fg);padding-top:env(safe-area-inset-top,0px)}
+.band-in{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:18px 22px;display:flex;flex-direction:column;gap:14px}
+.brand{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.brand h1{margin:0;font-size:1.25rem;font-weight:800;letter-spacing:.01em}
+.brand span{color:var(--band-muted);font-size:.85rem}
+form{display:flex;gap:10px}
+.plate{flex:1;min-width:0;display:flex;direction:ltr;background:var(--plate);border:3px solid #0b0b0b;border-radius:9px;overflow:hidden;height:66px}
+.plate .il{background:var(--il);color:#fff;width:40px;flex:0 0 40px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:7px;font:700 11px/1.15 var(--f-body)}
+.plate input{flex:1;min-width:0;border:0;background:transparent;color:var(--plate-ink);font:600 clamp(1.7rem,8vw,2.35rem)/1 var(--f-num);letter-spacing:.05em;text-align:center;padding:0 6px;outline:none}
+.plate input::placeholder{color:rgba(0,0,0,.3)}
+.plate:focus-within{box-shadow:0 0 0 3px var(--band),0 0 0 5px var(--plate)}
+button{font:inherit;cursor:pointer;color:inherit}
+.go{flex:0 0 auto;width:66px;height:66px;border-radius:9px;border:0;background:var(--plate);color:#111;display:grid;place-items:center}
+.go svg{width:26px;height:26px}
+.go[disabled]{opacity:.6;cursor:progress}
+.go:focus-visible,.chip:focus-visible{outline:3px solid var(--plate);outline-offset:2px}
+.recent{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.chip{background:transparent;border:1px solid #33415f;color:var(--band-fg);border-radius:6px;padding:3px 9px;font:500 .85rem var(--f-num);direction:ltr}
 
-/* plate */
-form{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap}
-.plate{flex:1 1 260px;display:flex;direction:ltr;background:var(--plate);border:3px solid #111;border-radius:8px;overflow:hidden;min-height:64px}
-.plate .il{background:var(--il);color:#fff;width:38px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:6px 0;font:700 11px/1.1 var(--f-body);gap:2px}
-.plate input{flex:1;min-width:0;border:0;background:transparent;color:var(--plate-ink);font:500 clamp(1.6rem,7vw,2.3rem)/1 var(--f-mono);letter-spacing:.06em;text-align:center;padding:0 8px;outline:none}
-.plate input::placeholder{color:rgba(0,0,0,.35)}
-.plate:focus-within{box-shadow:0 0 0 3px var(--bg),0 0 0 5px var(--accent)}
-button{font:inherit;cursor:pointer}
-.go{flex:0 0 auto;background:var(--fg);color:var(--bg);border:0;border-radius:8px;padding:0 22px;font-weight:700;min-height:64px}
-.go:focus-visible,.chip-btn:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
-.go[disabled]{opacity:.55;cursor:progress}
-.recent{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:.82rem;color:var(--muted)}
-.chip-btn{background:var(--surface);border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:2px 8px;font:500 .82rem var(--f-mono);direction:ltr}
+main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;display:flex;flex-direction:column;gap:12px;padding-bottom:calc(40px + env(safe-area-inset-bottom,0px))}
+.card{background:var(--card);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card h2{margin:0;font-size:.82rem;font-weight:700;color:var(--muted);letter-spacing:.04em}
+.msg{background:var(--card);border-radius:14px;padding:16px}
+.msg.err{background:var(--bad-bg);color:var(--bad)}
+.note{font-size:.85rem;color:var(--muted);margin:0}
 
-/* status + summary */
-.msg{padding:12px 14px;border-radius:8px;background:var(--surface);border:1px solid var(--line)}
-.msg.err{background:var(--bad-bg);border-color:transparent;color:var(--bad)}
-.progress{display:flex;flex-wrap:wrap;gap:6px;font-size:.78rem;color:var(--muted)}
-.progress span{border:1px solid var(--line);border-radius:999px;padding:1px 8px}
-.progress span.done{color:var(--ok);border-color:var(--ok)}
-.progress span.hit{background:var(--ok-bg);color:var(--ok);border-color:transparent;font-weight:700}
-
-.summary{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:12px}
-.summary .title{font-size:1.45rem;font-weight:700;line-height:1.25;margin:0;text-wrap:balance}
-.summary .meta{color:var(--muted);margin:0}
+/* identity */
+.id-title{margin:0;font-size:1.6rem;font-weight:800;line-height:1.2;text-wrap:balance}
+.id-sub{margin:0;color:var(--muted)}
 .pills{display:flex;flex-wrap:wrap;gap:6px}
-.pill{font-size:.78rem;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--bg);color:var(--fg)}
-.pill.ok{background:var(--ok-bg);color:var(--ok)}
-.pill.warn{background:var(--warn-bg);color:var(--warn)}
-.pill.bad{background:var(--bad-bg);color:var(--bad)}
-.keyfacts{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px 16px;margin:0}
-.keyfacts div{min-width:0}
-.keyfacts dt{font-size:.75rem;color:var(--muted)}
-.keyfacts dd{margin:0;font-weight:500;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.pill{font-size:.82rem;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--bg)}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.warn{background:var(--warn-bg);color:var(--warn)}.pill.bad{background:var(--bad-bg);color:var(--bad)}
 
-.tow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.tow div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px}
-.tow b{display:block;font:500 1.7rem/1.1 var(--f-mono);font-variant-numeric:tabular-nums;margin-top:4px}
-.tow small{color:var(--muted)}
-.tow .lbl{font-size:.82rem;color:var(--muted)}
+/* key numbers */
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.stat{background:var(--card);border-radius:14px;padding:14px 16px;min-width:0}
+.stat .k{font-size:.85rem;color:var(--muted)}
+.stat .v{font:600 1.65rem/1.15 var(--f-num);font-variant-numeric:tabular-nums;margin-top:4px;overflow-wrap:anywhere}
+.stat .u{font-size:.8rem;color:var(--muted);margin-inline-start:4px;font-family:var(--f-body)}
 
-/* sections */
-.sec{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.sec>summary{list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 16px;cursor:pointer}
-.sec>summary::-webkit-details-marker{display:none}
-.sec>summary::after{content:"";width:8px;height:8px;border-inline-start:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(-45deg);transition:transform .15s;flex:0 0 auto}
-.sec[open]>summary::after{transform:rotate(135deg)}
-.sec .src{font-size:.75rem;color:var(--muted);font-weight:400}
-.sec .body{padding:0 16px 16px;display:flex;flex-direction:column;gap:14px;min-width:0}
-.group h3{font-size:.78rem;letter-spacing:.04em;color:var(--muted);margin:0 0 6px;font-weight:700}
-.kv{display:grid;grid-template-columns:minmax(120px,40%) 1fr;margin:0;border-top:1px solid var(--line)}
-.kv dt,.kv dd{padding:7px 0;border-bottom:1px solid var(--line);margin:0;min-width:0;overflow-wrap:anywhere}
-.kv dt{color:var(--muted);font-size:.88rem;padding-inline-end:10px}
-.kv dd{font-variant-numeric:tabular-nums}
-.yes{color:var(--ok);font-weight:500}.no{color:var(--muted)}
+/* facts */
+.facts{display:grid;grid-template-columns:1fr 1fr;gap:14px 16px;margin:0}
+.facts div{min-width:0}
+.facts dt{font-size:.82rem;color:var(--muted)}
+.facts dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.facts .wide{grid-column:1/-1}
+.mono{font-family:var(--f-num);font-weight:500;direction:ltr;unicode-bidi:isolate}
+.flag-bad{color:var(--warn)}
+.systems{display:flex;flex-wrap:wrap;gap:6px}
+.systems span{font-size:.85rem;padding:4px 10px;border-radius:8px;background:var(--ok-bg);color:var(--ok);font-weight:600}
 .timeline{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
-.timeline li{display:grid;grid-template-columns:96px 1fr;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);align-items:baseline}
-.timeline time{font:500 .92rem var(--f-mono);font-variant-numeric:tabular-nums;color:var(--muted);direction:ltr;text-align:right}
-.timeline .n{font-size:.75rem;color:var(--muted);margin-inline-start:6px}
-.recall{border-inline-start:3px solid var(--bad);padding-inline-start:12px;display:flex;flex-direction:column;gap:2px}
-.note{font-size:.82rem;color:var(--muted);margin:0}
-footer{font-size:.78rem;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+.timeline li{display:grid;grid-template-columns:82px 1fr;gap:12px;padding:9px 0;border-top:1px solid var(--line);align-items:baseline}
+.timeline li:first-child{border-top:0}
+.timeline time{font:500 .92rem var(--f-num);color:var(--muted);direction:ltr;text-align:right}
+.timeline .now{font-size:.75rem;font-weight:700;color:var(--ok);background:var(--ok-bg);padding:1px 7px;border-radius:999px;margin-inline-start:8px}
+.recall{border-inline-start:3px solid var(--bad);padding-inline-start:12px}
+.recall b{display:block}
+.progress{height:4px;background:var(--line);border-radius:4px;overflow:hidden}
+.progress i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
+footer{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:0 32px;font-size:.8rem;color:var(--muted)}
 footer a{color:var(--accent)}
+@media (max-width:360px){.facts{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div>
-      <h1>פרטי רכב</h1>
-      <p class="sub">כל מה שמאגרי משרד התחבורה ב-data.gov.il יודעים על הרכב, לפי מספר רישוי.</p>
-    </div>
+<div class="band">
+  <div class="band-in">
+    <div class="brand"><h1>פרטי רכב</h1><span>ממאגרי משרד התחבורה</span></div>
     <form id="f" autocomplete="off">
       <label class="plate" for="plate">
         <span class="il" aria-hidden="true"><span>IL</span><span>ישראל</span></span>
-        <input id="plate" name="plate" inputmode="numeric" pattern="[0-9\- ]*" placeholder="12-345-67" maxlength="10" aria-label="מספר רישוי">
+        <input id="plate" name="plate" inputmode="numeric" placeholder="12-345-67" maxlength="10" aria-label="מספר רישוי" enterkeyhint="search">
       </label>
-      <button class="go" id="go" type="submit">חיפוש</button>
+      <button class="go" id="go" type="submit" aria-label="חיפוש"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.8-4.8"/></svg></button>
     </form>
     <div class="recent" id="recent" hidden></div>
-  </header>
-  <main id="out" aria-live="polite"></main>
-  <footer>
-    <span>המידע נשלף ישירות מהמאגרים הפתוחים של משרד התחבורה ב-<a href="https://data.gov.il/dataset?organization=ministry_of_transport" target="_blank" rel="noopener">data.gov.il</a>. המאגרים מתעדכנים מעת לעת ואינם מחליפים נסח רישום רשמי.</span>
-    <span>היסטוריית הבעלות במאגר הפתוח כוללת את סוג הבעלות ותאריך השינוי בלבד, בלי פרטים מזהים של בעלים.</span>
-  </footer>
+  </div>
 </div>
+<main id="out" aria-live="polite"></main>
+<footer>המידע מגיע מהמאגרים הפתוחים של משרד התחבורה ב-<a href="https://data.gov.il/dataset?organization=ministry_of_transport" target="_blank" rel="noopener">data.gov.il</a>, ואינו מחליף נסח רישום רשמי.</footer>
 
 <script>
 "use strict";
 const API = "https://data.gov.il/api/3/action/datastore_search";
 
-/* Datasets keyed by plate number. role: main = vehicle record, extra = per-plate add-on */
+/* Datasets keyed by plate. role main = the vehicle record itself. */
 const PLATE_SETS = [
-  {key:"active",       id:"053cea08-09bc-40ec-8f7a-156f0677aff3", name:"כלי רכב פרטיים ומסחריים (פעילים)", role:"main", status:"פעיל"},
-  {key:"moto",         id:"bf9df4e2-d90d-4c0a-a400-19e15af8e95f", name:"כלי רכב דו-גלגליים", role:"main", status:"פעיל"},
-  {key:"heavy",        id:"cd3acc5c-03c3-4c89-9c54-d40f93c0d790", name:"רכב כבד (מעל 3.5 טון)", role:"main", status:"פעיל"},
-  {key:"public",       id:"cf29862d-ca25-4691-84f6-1be60dcb4a1e", name:"רכב ציבורי", role:"main", status:"פעיל"},
-  {key:"import",       id:"03adc637-b6fe-402b-9937-7c3d3afc9140", name:"רכב ביבוא אישי", role:"main", status:"פעיל"},
-  {key:"inactive",     id:"f6efe89a-fb3d-43a4-bb61-9bf12a9b9099", name:"כלי רכב לא פעילים", role:"main", status:"לא פעיל", tone:"warn"},
-  {key:"inactive2",    id:"6f6acd03-f351-4a8f-8ecf-df792f4f573a", name:"כלי רכב לא פעילים (ללא קוד דגם)", role:"main", status:"לא פעיל", tone:"warn"},
-  {key:"cancel",       id:"851ecab1-0622-4dbe-a6c7-f950cf82abf9", name:"ביטול סופי (ירד מהכביש)", role:"main", status:"בוטל סופית", tone:"bad", pad:true},
-  {key:"cancel2010",   id:"4e6b9724-4c1e-43f0-909a-154d4cc4e046", name:"ביטול סופי 2010–2016", role:"main", status:"בוטל סופית", tone:"bad", pad:true},
-  {key:"cancel2000",   id:"ec8cbc34-72e1-4b69-9c48-22821ba0bd6c", name:"ביטול סופי 2000–2009", role:"main", status:"בוטל סופית", tone:"bad", pad:true},
-  {key:"cont",         id:"0866573c-40cd-4ca8-91d2-9dd2d7a492e5", name:"נתוני רישום משלימים (צמיגים, גרירה)", role:"extra"},
-  {key:"tech",         id:"56063a99-8a3e-4ff4-912e-5966c0279bad", name:"היסטוריית רכב (ק״מ, שינויים, מקוריות)", role:"extra", pad:true},
-  {key:"owners",       id:"bb2355dc-9ec7-4f06-9c3f-3344672171da", name:"היסטוריית בעלויות", role:"extra", pad:true},
-  {key:"recall",       id:"36bf1404-0be4-49d2-82dc-2f1ead4a8b93", name:"ריקולים פתוחים לרכב", role:"extra", field:"MISPAR_RECHEV"},
-  {key:"safety",       id:"83bfb278-7be1-4dab-ae2d-40125a923da1", name:"זכאות להנחת מערכות בטיחות", role:"extra"},
+  {key:"active",     id:"053cea08-09bc-40ec-8f7a-156f0677aff3", role:"main", status:"פעיל"},
+  {key:"moto",       id:"bf9df4e2-d90d-4c0a-a400-19e15af8e95f", role:"main", status:"פעיל", kind:"דו-גלגלי"},
+  {key:"heavy",      id:"cd3acc5c-03c3-4c89-9c54-d40f93c0d790", role:"main", status:"פעיל", kind:"רכב כבד"},
+  {key:"public",     id:"cf29862d-ca25-4691-84f6-1be60dcb4a1e", role:"main", status:"פעיל", kind:"רכב ציבורי"},
+  {key:"import",     id:"03adc637-b6fe-402b-9937-7c3d3afc9140", role:"main", status:"פעיל", kind:"יבוא אישי"},
+  {key:"inactive",   id:"f6efe89a-fb3d-43a4-bb61-9bf12a9b9099", role:"main", status:"לא פעיל", tone:"warn"},
+  {key:"inactive2",  id:"6f6acd03-f351-4a8f-8ecf-df792f4f573a", role:"main", status:"לא פעיל", tone:"warn"},
+  {key:"cancel",     id:"851ecab1-0622-4dbe-a6c7-f950cf82abf9", role:"main", status:"ירד מהכביש", tone:"bad", pad:true},
+  {key:"cancel2010", id:"4e6b9724-4c1e-43f0-909a-154d4cc4e046", role:"main", status:"ירד מהכביש", tone:"bad", pad:true},
+  {key:"cancel2000", id:"ec8cbc34-72e1-4b69-9c48-22821ba0bd6c", role:"main", status:"ירד מהכביש", tone:"bad", pad:true},
+  {key:"cont",       id:"0866573c-40cd-4ca8-91d2-9dd2d7a492e5", role:"extra"},
+  {key:"tech",       id:"56063a99-8a3e-4ff4-912e-5966c0279bad", role:"extra", pad:true},
+  {key:"owners",     id:"bb2355dc-9ec7-4f06-9c3f-3344672171da", role:"extra", pad:true},
+  {key:"recall",     id:"36bf1404-0be4-49d2-82dc-2f1ead4a8b93", role:"extra", field:"MISPAR_RECHEV"},
 ];
 /* Datasets keyed by model (tozeret_cd + degem_cd + shnat_yitzur) */
 const MODEL_SETS = {
-  wltp:   {id:"142afde2-6228-49f9-8a29-9b6c3a0cbe40", name:"נתוני דגם (WLTP)"},
-  counts: {id:"5e87a7a1-2f6f-41c1-8aec-7216d52a6cf6", name:"כמות כלי רכב מהדגם"},
-  price:  {id:"39f455bf-6db0-4926-859d-017f34eacbcb", name:"מחירון רכב חדש"},
+  wltp:   "142afde2-6228-49f9-8a29-9b6c3a0cbe40",
+  counts: "5e87a7a1-2f6f-41c1-8aec-7216d52a6cf6",
+  price:  "39f455bf-6db0-4926-859d-017f34eacbcb",
 };
 
-const L = {
-  mispar_rechev:"מספר רכב",MISPAR_RECHEV:"מספר רכב",tozeret_cd:"קוד יצרן",tozeret_nm:"יצרן",tozar:"תוצר",tozeret_eretz_nm:"ארץ ייצור",
-  sug_degem:"סוג דגם",degem_cd:"קוד דגם",degem_nm:"שם דגם",kinuy_mishari:"כינוי מסחרי",ramat_gimur:"רמת גימור",
-  ramat_eivzur_betihuty:"רמת אבזור בטיחותי",kvutzat_zihum:"קבוצת זיהום",shnat_yitzur:"שנת ייצור",degem_manoa:"דגם מנוע",
-  mispar_manoa:"מספר מנוע",tozar_manoa:"יצרן מנוע",mivchan_acharon_dt:"טסט אחרון",tokef_dt:"תוקף רישיון רכב",baalut:"סוג בעלות",
-  baalut_dt:"תאריך בעלות",misgeret:"מספר שלדה (VIN)",mispar_shilda:"מספר שלדה (VIN)",shilda:"מספר שלדה (VIN)",tzeva_cd:"קוד צבע",
-  tzeva_rechev:"צבע",zmig_kidmi:"צמיג קדמי",zmig_ahori:"צמיג אחורי",mida_zmig_kidmi:"מידת צמיג קדמי",mida_zmig_ahori:"מידת צמיג אחורי",
-  kod_omes_zmig_kidmi:"קוד עומס צמיג קדמי",kod_omes_zmig_ahori:"קוד עומס צמיג אחורי",kod_omes_tzmig_kidmi:"קוד עומס צמיג קדמי",kod_omes_tzmig_ahori:"קוד עומס צמיג אחורי",
-  kod_mehirut_zmig_kidmi:"קוד מהירות צמיג קדמי",kod_mehirut_zmig_ahori:"קוד מהירות צמיג אחורי",kod_mehirut_tzmig_kidmi:"קוד מהירות צמיג קדמי",kod_mehirut_tzmig_ahori:"קוד מהירות צמיג אחורי",
-  sug_delek_cd:"קוד דלק",sug_delek_nm:"סוג דלק",delek_cd:"קוד דלק",delek_nm:"סוג דלק",horaat_rishum:"הוראת רישום",
-  moed_aliya_lakvish:"עלייה לכביש",grira_nm:"גרירה",kilometer_test_aharon:"ק״מ בטסט האחרון",shinui_mivne_ind:"שינוי מבנה",
-  gapam_ind:"הותקן גפ״מ",shnui_zeva_ind:"שינוי צבע",shinui_zmig_ind:"שינוי צמיגים",rishum_rishon_dt:"רישום ראשון",mkoriut_nm:"מקוריות",
-  sug_rechev_cd:"קוד סוג רכב",sug_rechev_nm:"סוג רכב",sug_rechev_EU_cd:"קוד סיווג אירופי",sug_rechev_EU_nm:"סיווג אירופי",
-  bitul_dt:"תאריך ביטול",bitul_cd:"קוד ביטול",bitul_nm:"סיבת ביטול",mishkal_kolel:"משקל כולל (ק״ג)",mishkal_azmi:"משקל עצמי (ק״ג)",
-  mishkal_mitan_harama:"משקל מטען / הרמה (ק״ג)",nefach_manoa:"נפח מנוע (סמ״ק)",nefah_manoa:"נפח מנוע (סמ״ק)",hespek:"הספק",
-  hanaa_cd:"קוד הנעה",hanaa_nm:"הנעה",tkina_EU:"תקינה אירופית",mispar_mekomot:"מספר מקומות",mispar_mekomot_leyd_nahag:"מקומות ליד הנהג",
-  kvutzat_sug_rechev:"קבוצת סוג רכב",sranim:"סרנים",sug_yevu:"סוג יבוא",updated_dt:"תאריך עדכון",
-  RECALL_ID:"מספר ריקול",SUG_RECALL:"סוג ריקול",SUG_TAKALA:"סוג תקלה",TEUR_TAKALA:"תיאור התקלה",TAARICH_PTICHA:"תאריך פתיחה",
-  kvuzat_agra_cd:"קבוצת אגרה",gova:"גובה (ס״מ)",mazgan_ind:"מזגן",abs_ind:"ABS",kariot_avir_source:"מקור כריות אוויר",
-  mispar_kariot_avir:"כריות אוויר",hege_koah_ind:"הגה כוח",automatic_ind:"תיבת הילוכים אוטומטית",halonot_hashmal_source:"מקור חלונות חשמל",
-  mispar_halonot_hashmal:"חלונות חשמל",halon_bagg_ind:"חלון גג",galgaley_sagsoget_kala_ind:"חישוקי סגסוגת",argaz_ind:"ארגז",merkav:"מרכב",
-  mispar_dlatot:"דלתות",koah_sus:"כוח סוס",mispar_moshavim:"מושבים",bakarat_yatzivut_ind:"בקרת יציבות",
-  kosher_grira_im_blamim:"כושר גרירה עם בלמים (ק״ג)",kosher_grira_bli_blamim:"כושר גרירה בלי בלמים (ק״ג)",
-  sug_tkina_cd:"קוד תקינה",sug_tkina_nm:"סוג תקינה",sug_mamir_cd:"קוד ממיר",sug_mamir_nm:"סוג ממיר",
-  technologiat_hanaa_cd:"קוד טכנולוגיית הנעה",technologiat_hanaa_nm:"טכנולוגיית הנעה",
-  kamut_CO2:"CO2 משולב (גר׳/ק״מ)",kamut_NOX:"NOx",kamut_PM10:"PM10",kamut_HC:"HC",kamut_HC_NOX:"HC+NOx",kamut_CO:"CO",
-  kamut_CO2_city:"CO2 עירוני",kamut_NOX_city:"NOx עירוני",kamut_PM10_city:"PM10 עירוני",kamut_HC_city:"HC עירוני",kamut_CO_city:"CO עירוני",
-  kamut_CO2_hway:"CO2 בינעירוני",kamut_NOX_hway:"NOx בינעירוני",kamut_PM10_hway:"PM10 בינעירוני",kamut_HC_hway:"HC בינעירוני",kamut_CO_hway:"CO בינעירוני",
-  CO2_WLTP:"CO2 (WLTP)",HC_WLTP:"HC (WLTP)",PM_WLTP:"PM (WLTP)",NOX_WLTP:"NOx (WLTP)",CO_WLTP:"CO (WLTP)",CO2_WLTP_NEDC:"CO2 (WLTP→NEDC)",
-  madad_yarok:"מדד ירוק",nikud_betihut:"ניקוד בטיחות",
-  bakarat_stiya_menativ_ind:"בקרת סטייה מנתיב",bakarat_stiya_menativ_makor_hatkana:"מקור התקנה: סטייה מנתיב",
-  nitur_merhak_milfanim_ind:"ניטור מרחק מלפנים",nitur_merhak_milfanim_makor_hatkana:"מקור התקנה: ניטור מרחק",
-  zihuy_beshetah_nistar_ind:"זיהוי בשטח מת",bakarat_shyut_adaptivit_ind:"בקרת שיוט אדפטיבית",zihuy_holchey_regel_ind:"זיהוי הולכי רגל",
-  zihuy_holchey_regel_makor_hatkana:"מקור התקנה: הולכי רגל",maarechet_ezer_labalam_ind:"מערכת עזר לבלימה",matzlemat_reverse_ind:"מצלמת רוורס",
-  hayshaney_lahatz_avir_batzmigim_ind:"חיישני לחץ אוויר בצמיגים",hayshaney_hagorot_ind:"חיישני חגורות",
-  teura_automatit_benesiya_kadima_ind:"תאורה אוטומטית בנסיעה קדימה",shlita_automatit_beorot_gvohim_ind:"שליטה אוטומטית באורות גבוהים",
-  shlita_automatit_beorot_gvohim_makor_hatkana:"מקור התקנה: אורות גבוהים",zihuy_matzav_hitkarvut_mesukenet_ind:"זיהוי התקרבות מסוכנת",
-  zihuy_tamrurey_tnua_ind:"זיהוי תמרורים",zihuy_tamrurey_tnua_makor_hatkana:"מקור התקנה: תמרורים",zihuy_rechev_do_galgali:"זיהוי דו-גלגלי",
-  bakarat_stiya_activ_s:"בקרת סטייה אקטיבית",blima_otomatit_nesia_leahor:"בלימה אוטומטית ברוורס",bakarat_mehirut_isa:"בקרת מהירות חכמה (ISA)",
-  blimat_hirum_lifnei_holhei_regel_ofanaim:"בלימת חירום להולכי רגל ואופניים",hitnagshut_cad_shetah_met:"התנגשות צד בשטח מת",
-  alco_lock:"אלכו-לוק",dg_metach_solela:"מתח סוללה",
-  mispar_rechavim_pailim:"כלי רכב פעילים מהדגם",mispar_rechavim_le_pailim:"כלי רכב לא פעילים מהדגם",
-  semel_yevuan:"קוד יבואן",shem_yevuan:"יבואן",mehir:"מחיר מחירון (₪)",
+/* Safety systems listed by name when the model has them */
+const SYSTEMS = {
+  abs_ind:"ABS", bakarat_yatzivut_ind:"בקרת יציבות", maarechet_ezer_labalam_ind:"בלימה אוטונומית",
+  bakarat_stiya_menativ_ind:"התרעת סטייה מנתיב", bakarat_stiya_activ_s:"שמירה על נתיב",
+  nitur_merhak_milfanim_ind:"שמירת מרחק", zihuy_beshetah_nistar_ind:"ניטור שטח מת",
+  bakarat_shyut_adaptivit_ind:"בקרת שיוט אדפטיבית", zihuy_holchey_regel_ind:"זיהוי הולכי רגל",
+  blimat_hirum_lifnei_holhei_regel_ofanaim:"בלימה להולכי רגל ורוכבי אופניים", zihuy_rechev_do_galgali:"זיהוי דו-גלגלי",
+  matzlemat_reverse_ind:"מצלמת רוורס", blima_otomatit_nesia_leahor:"בלימה אוטומטית ברוורס",
+  hayshaney_lahatz_avir_batzmigim_ind:"חיישני לחץ אוויר", hayshaney_hagorot_ind:"חיישני חגורות",
+  shlita_automatit_beorot_gvohim_ind:"אורות גבוהים אוטומטיים", teura_automatit_benesiya_kadima_ind:"תאורה אוטומטית",
+  zihuy_tamrurey_tnua_ind:"זיהוי תמרורים", zihuy_matzav_hitkarvut_mesukenet_ind:"התרעת התקרבות מסוכנת",
+  bakarat_mehirut_isa:"בקרת מהירות חכמה", hitnagshut_cad_shetah_met:"מניעת התנגשות צד", alco_lock:"אלכו-לוק",
 };
-const label = k => L[k] || k.replace(/_/g," ");
-
-const WLTP_GROUPS = [
-  ["גרירה ומשקלים",["kosher_grira_im_blamim","kosher_grira_bli_blamim","mishkal_kolel","gova"]],
-  ["מנוע והנעה",["nefah_manoa","koah_sus","delek_nm","technologiat_hanaa_nm","hanaa_nm","automatic_ind","sug_tkina_nm","sug_mamir_nm"]],
-  ["מרכב ונוחות",["merkav","mispar_dlatot","mispar_moshavim","mazgan_ind","hege_koah_ind","mispar_halonot_hashmal","halon_bagg_ind","galgaley_sagsoget_kala_ind","argaz_ind","ramat_gimur","kinuy_mishari"]],
-  ["בטיחות",["nikud_betihut","ramat_eivzur_betihuty","mispar_kariot_avir","abs_ind","bakarat_yatzivut_ind","maarechet_ezer_labalam_ind","bakarat_stiya_menativ_ind","nitur_merhak_milfanim_ind","zihuy_beshetah_nistar_ind","bakarat_shyut_adaptivit_ind","zihuy_holchey_regel_ind","matzlemat_reverse_ind","hayshaney_lahatz_avir_batzmigim_ind","hayshaney_hagorot_ind","teura_automatit_benesiya_kadima_ind","shlita_automatit_beorot_gvohim_ind","zihuy_matzav_hitkarvut_mesukenet_ind","zihuy_tamrurey_tnua_ind","zihuy_rechev_do_galgali","bakarat_stiya_activ_s","blima_otomatit_nesia_leahor","bakarat_mehirut_isa","blimat_hirum_lifnei_holhei_regel_ofanaim","hitnagshut_cad_shetah_met","alco_lock"]],
-  ["זיהום ופליטות",["madad_yarok","kvutzat_zihum","CO2_WLTP","kamut_CO2","kamut_CO2_city","kamut_CO2_hway","NOX_WLTP","CO_WLTP","HC_WLTP","PM_WLTP","CO2_WLTP_NEDC"]],
-];
-const HIDE = new Set(["_id","rank","_full_text"]);
 
 /* ---------- helpers ---------- */
 const $ = s => document.querySelector(s);
 const esc = v => String(v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const empty = v => v === null || v === undefined || String(v).trim() === "";
+const empty = v => v === null || v === undefined || String(v).trim() === "" || String(v).trim() === "0000-00-00";
 const digits = s => String(s || "").replace(/\D/g, "");
+const num = v => Number(String(v).replace(/,/g, ""));
+const isNum = v => !empty(v) && !isNaN(num(v));
+const fmtN = v => isNum(v) ? num(v).toLocaleString("he-IL") : String(v);
+const yes = v => String(v).trim() === "1";
 function fmtPlate(d){ d = String(d);
   if (d.length === 7) return d.slice(0,2)+"-"+d.slice(2,5)+"-"+d.slice(5);
   if (d.length === 8) return d.slice(0,3)+"-"+d.slice(3,5)+"-"+d.slice(5);
   return d; }
 function fmtDate(v){
-  const s = String(v).trim();
-  let m;
+  const s = String(v).trim(); let m;
   if ((m = s.match(/^(\d{4})-(\d{2})-(\d{2})/))) return `${m[3]}/${m[2]}/${m[1]}`;
   if ((m = s.match(/^(\d{4})-(\d{1,2})$/))) return `${m[2].padStart(2,"0")}/${m[1]}`;
   if ((m = s.match(/^(\d{4})(\d{2})$/))) return `${m[2]}/${m[1]}`;
   if ((m = s.match(/^(\d{4})(\d{2})(\d{2})$/))) return `${m[3]}/${m[2]}/${m[1]}`;
   return s;
 }
-function fmtVal(k, v){
-  if (empty(v)) return "";
-  if (/_ind$|^(alco_lock|bakarat_stiya_activ_s|blima_otomatit_nesia_leahor|bakarat_mehirut_isa|blimat_hirum_lifnei_holhei_regel_ofanaim|hitnagshut_cad_shetah_met|zihuy_rechev_do_galgali)$/.test(k)) {
-    const s = String(v).trim();
-    if (s === "1") return '<span class="yes">יש</span>';
-    if (s === "0") return '<span class="no">אין</span>';
-  }
-  if (/(_dt|moed_aliya_lakvish|TAARICH_PTICHA)$/.test(k)) return esc(fmtDate(v));
-  if (/^(mispar_rechev|MISPAR_RECHEV)$/.test(k)) return `<span dir="ltr">${esc(fmtPlate(digits(v)))}</span>`;
-  if (/^(mishkal|kosher_grira|kilometer|mehir|mispar_rechavim)/.test(k) && /^\d+(\.\d+)?$/.test(String(v).trim()))
-    return Number(v).toLocaleString("he-IL");
-  if (/^(misgeret|mispar_shilda|shilda|mispar_manoa|degem_manoa)$/.test(k)) return `<span dir="ltr" style="font-family:var(--f-mono)">${esc(v)}</span>`;
-  return esc(v);
-}
-function kv(rec, keys){
-  keys = keys || Object.keys(rec);
-  const rows = keys.filter(k => !HIDE.has(k) && k in rec && !empty(rec[k]))
-    .map(k => `<dt>${esc(label(k))}</dt><dd>${fmtVal(k, rec[k])}</dd>`).join("");
-  return rows ? `<dl class="kv">${rows}</dl>` : "";
-}
-function section(title, src, inner, open){
-  return `<details class="sec"${open?" open":""}><summary><h2>${esc(title)}</h2>${src && src !== title ? `<span class="src">${esc(src)}</span>` : ""}</summary><div class="body">${inner}</div></details>`;
+function toDate(v){ const m = String(v).match(/^(\d{4})-?(\d{2})-?(\d{2})/); return m ? new Date(+m[1], +m[2]-1, +m[3]) : null; }
+function titleCase(s){ return String(s).trim(); }
+/* Make names arrive like "טויוטה יפן" / "פולקסווגן גרמניה": drop the trailing country the record already carries */
+function makeName(v){
+  let n = String(v.tozeret_nm || "").trim();
+  const c = String(v.tozeret_eretz_nm || "").trim();
+  if (c && n.endsWith(" " + c)) n = n.slice(0, -c.length - 1);
+  return n;
 }
 
 /* ---------- API ---------- */
-async function ds(resource_id, filters, limit = 100, signal){
-  const p = new URLSearchParams({resource_id, filters: JSON.stringify(filters), limit: String(limit)});
+async function ds(resource_id, filters, limit, signal){
+  const p = new URLSearchParams({resource_id, filters: JSON.stringify(filters), limit: String(limit || 100)});
   const r = await fetch(`${API}?${p}`, {signal, headers:{Accept:"application/json"}});
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   const j = await r.json();
   if (!j.success) throw new Error((j.error && (j.error.message || JSON.stringify(j.error))) || "CKAN error");
   return j.result.records || [];
 }
-/* Plate columns are text in some datasets and numeric in others; old archives zero-pad. Try forms until one hits. */
+/* Plate columns are text in some datasets and numeric in others; old archives zero-pad. */
 async function byPlate(set, plate, signal){
   const field = set.field || "mispar_rechev";
   const forms = [plate, Number(plate)];
@@ -272,7 +210,7 @@ async function byPlate(set, plate, signal){
   if (!ok && lastErr) throw lastErr;
   return [];
 }
-async function byModel(set, rec, signal){
+async function byModel(id, rec, signal){
   const base = {tozeret_cd: rec.tozeret_cd, degem_cd: rec.degem_cd};
   const tries = [];
   if (!empty(rec.shnat_yitzur)) {
@@ -283,21 +221,33 @@ async function byModel(set, rec, signal){
   for (const f of tries) {
     for (const cast of [String, Number]) {
       const ff = {}; for (const k in f) ff[k] = k === "sug_degem" ? String(f[k]) : cast(f[k]);
-      try { const rows = await ds(set.id, ff, 50, signal); if (rows.length) return {rows, exact: "shnat_yitzur" in f}; break; }
+      try { const rows = await ds(id, ff, 50, signal); if (rows.length) return {rows, exact: "shnat_yitzur" in f}; break; }
       catch (e) { if (e.name === "AbortError") throw e; }
     }
   }
   return {rows: [], exact: false};
 }
-function bestModelRow(rows, rec){
-  const norm = s => String(s || "").trim().toLowerCase();
-  return rows.find(r => norm(r.ramat_gimur) && norm(r.ramat_gimur) === norm(rec.ramat_gimur) && norm(r.kinuy_mishari) === norm(rec.kinuy_mishari))
-      || rows.find(r => norm(r.ramat_gimur) && norm(r.ramat_gimur) === norm(rec.ramat_gimur))
-      || rows.find(r => norm(r.kinuy_mishari) && norm(r.kinuy_mishari) === norm(rec.kinuy_mishari))
+function bestRow(rows, rec){
+  const n = s => String(s || "").trim().toLowerCase();
+  return rows.find(r => n(r.ramat_gimur) && n(r.ramat_gimur) === n(rec.ramat_gimur) && n(r.kinuy_mishari) === n(rec.kinuy_mishari))
+      || rows.find(r => n(r.ramat_gimur) && n(r.ramat_gimur) === n(rec.ramat_gimur))
+      || rows.find(r => n(r.kinuy_mishari) && n(r.kinuy_mishari) === n(rec.kinuy_mishari))
       || rows[0];
 }
 
-/* ---------- render ---------- */
+/* ---------- render helpers ---------- */
+function facts(list){
+  const items = list.filter(f => f && !empty(f[1]))
+    .map(([k, v, cls]) => `<div class="${cls||""}"><dt>${esc(k)}</dt><dd>${v}</dd></div>`);
+  return items.length ? `<dl class="facts">${items.join("")}</dl>` : "";
+}
+const card = (title, inner) => inner ? `<section class="card"><h2>${esc(title)}</h2>${inner}</section>` : "";
+const e = v => empty(v) ? "" : esc(v);
+const unit = (v, u) => empty(v) ? "" : `${esc(fmtN(v))} ${u}`;
+const mono = v => empty(v) ? "" : `<span class="mono">${esc(v)}</span>`;
+function changed(v){ if (empty(v)) return ""; return yes(v) ? `<span class="flag-bad">כן</span>` : "לא"; }
+
+/* ---------- lookup ---------- */
 let ctrl = null;
 async function lookup(raw){
   const plate = digits(raw).replace(/^0+(?=\d{5})/, "");
@@ -305,156 +255,187 @@ async function lookup(raw){
   if (plate.length < 5 || plate.length > 8) { out.innerHTML = `<div class="msg err">מספר רישוי צריך להכיל 5 עד 8 ספרות.</div>`; return; }
   if (ctrl) ctrl.abort();
   ctrl = new AbortController(); const signal = ctrl.signal;
-  $("#plate").value = fmtPlate(plate);
+  $("#plate").value = fmtPlate(plate); $("#plate").blur();
   $("#go").disabled = true;
   try { history.replaceState(null, "", "#" + plate); } catch {}
-  out.innerHTML = `<div class="msg"><p class="sub" style="margin:0 0 8px">מחפש את <span dir="ltr">${fmtPlate(plate)}</span> ב-${PLATE_SETS.length} מאגרים…</p><div class="progress" id="prog">${PLATE_SETS.map(s=>`<span data-k="${s.key}">${esc(s.name)}</span>`).join("")}</div></div>`;
+  out.innerHTML = `<div class="msg"><p class="note" style="margin-bottom:10px">מחפש את <span class="mono">${fmtPlate(plate)}</span> במאגרי משרד התחבורה…</p><div class="progress"><i id="bar"></i></div></div>`;
 
-  const res = {};
-  await Promise.all(PLATE_SETS.map(async s => {
-    try { res[s.key] = {rows: await byPlate(s, plate, signal)}; }
-    catch (e) { if (e.name === "AbortError") throw e; res[s.key] = {rows: [], err: e.message}; }
-    const el = document.querySelector(`#prog [data-k="${s.key}"]`);
-    if (el) el.className = res[s.key].rows.length ? "hit" : "done";
-  })).catch(e => { if (e.name !== "AbortError") throw e; });
-  if (signal.aborted) return;
+  const res = {}; let done = 0;
+  try {
+    await Promise.all(PLATE_SETS.map(async s => {
+      try { res[s.key] = {rows: await byPlate(s, plate, signal)}; }
+      catch (err) { if (err.name === "AbortError") throw err; res[s.key] = {rows: [], err: err.message}; }
+      const bar = $("#bar"); if (bar) bar.style.width = (++done / (PLATE_SETS.length + 1) * 100) + "%";
+    }));
+  } catch (err) { if (err.name === "AbortError") return; throw err; }
 
   const errs = PLATE_SETS.filter(s => res[s.key].err);
   const mains = PLATE_SETS.filter(s => s.role === "main" && res[s.key].rows.length);
-  const extrasFound = PLATE_SETS.filter(s => s.role === "extra" && res[s.key].rows.length);
+  const extras = PLATE_SETS.filter(s => s.role === "extra" && res[s.key].rows.length);
+  $("#go").disabled = false;
 
   if (errs.length === PLATE_SETS.length) {
-    out.innerHTML = `<div class="msg err">לא הצלחתי להתחבר ל-data.gov.il (${esc(errs[0].err)}). בדקו את החיבור לאינטרנט ונסו שוב. אם הדף נפתח מתוך תצוגה מקדימה שחוסמת בקשות לאתרים חיצוניים, פתחו אותו ישירות בדפדפן.</div>`;
-    $("#go").disabled = false; return;
+    out.innerHTML = `<div class="msg err">אין חיבור למאגרי משרד התחבורה כרגע. בדקו את החיבור לאינטרנט ונסו שוב.</div>`; return;
   }
-  if (!mains.length && !extrasFound.length) {
-    out.innerHTML = `<div class="msg">לא נמצא רכב עם המספר <span dir="ltr">${fmtPlate(plate)}</span> באף אחד מהמאגרים.${errs.length?` <br><span class="note">${errs.length} מאגרים לא ענו: ${esc(errs.map(s=>s.name).join(", "))}.</span>`:""}</div>`;
-    $("#go").disabled = false; return;
+  if (!mains.length && !extras.length) {
+    out.innerHTML = `<div class="msg">לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.</div>`; return;
   }
 
-  // merge main record: first main dataset wins, others fill gaps
-  const rec = {};
-  for (const s of mains) for (const [k,v] of Object.entries(res[s.key].rows[0])) if (!(k in rec) || empty(rec[k])) rec[k] = v;
-  for (const s of extrasFound) if (s.key === "cont" || s.key === "tech") for (const [k,v] of Object.entries(res[s.key].rows[0])) if (!(k in rec) || empty(rec[k])) rec[k] = v;
+  // one merged record: first main dataset wins, the rest fill gaps
+  const v = {};
+  const fill = r => { for (const [k,x] of Object.entries(r)) if (empty(v[k]) && !empty(x)) v[k] = x; };
+  mains.forEach(s => fill(res[s.key].rows[0]));
+  ["cont","tech"].forEach(k => res[k].rows[0] && fill(res[k].rows[0]));
   const primary = mains[0];
 
-  // model-level data
-  let wltp = null, wltpRows = [], wltpExact = false, counts = null, price = null;
-  if (!empty(rec.tozeret_cd) && !empty(rec.degem_cd)) {
-    const [w, c, p] = await Promise.all([
-      byModel(MODEL_SETS.wltp, rec, signal).catch(()=>({rows:[]})),
-      byModel(MODEL_SETS.counts, rec, signal).catch(()=>({rows:[]})),
-      byModel(MODEL_SETS.price, rec, signal).catch(()=>({rows:[]})),
+  let w = {}, wRows = [], wExact = true, counts = null, price = null;
+  if (!empty(v.tozeret_cd) && !empty(v.degem_cd)) {
+    const [a, b, c] = await Promise.all([
+      byModel(MODEL_SETS.wltp, v, signal).catch(() => ({rows:[]})),
+      byModel(MODEL_SETS.counts, v, signal).catch(() => ({rows:[]})),
+      byModel(MODEL_SETS.price, v, signal).catch(() => ({rows:[]})),
     ]);
     if (signal.aborted) return;
-    wltpRows = w.rows; wltpExact = w.exact; wltp = wltpRows.length ? bestModelRow(wltpRows, rec) : null;
-    counts = c.rows[0] || null;
-    price = p.rows.length ? bestModelRow(p.rows, rec) : null;
+    wRows = a.rows; wExact = a.exact !== false; if (wRows.length) w = bestRow(wRows, v);
+    counts = b.rows[0] || null;
+    price = c.rows.length ? bestRow(c.rows, v) : null;
   }
+  const pick = (...vals) => vals.find(x => !empty(x));
 
   const html = [];
-  // summary
-  const make = rec.tozeret_nm || "", model = rec.kinuy_mishari || rec.degem_nm || "";
+
+  /* identity */
+  const make = makeName(v), model = pick(v.kinuy_mishari, w.kinuy_mishari, v.degem_nm) || "";
   const pills = [];
-  const st = primary ? primary : null;
-  if (st) pills.push(`<span class="pill ${st.tone||"ok"}">${esc(st.status)}</span>`);
-  if (primary && primary.key !== "active" && primary.key !== "inactive" && primary.key !== "inactive2" && !/^cancel/.test(primary.key)) pills.push(`<span class="pill">${esc(primary.name)}</span>`);
-  if (!empty(rec.tokef_dt)) { const t = new Date(String(rec.tokef_dt).slice(0,10)); if (!isNaN(t)) pills.push(t < new Date() ? `<span class="pill bad">רישיון רכב פג תוקף</span>` : `<span class="pill ok">רישיון בתוקף עד ${esc(fmtDate(rec.tokef_dt))}</span>`); }
+  if (primary) pills.push(`<span class="pill ${primary.tone||"ok"}">${esc(primary.status)}</span>`);
+  if (primary && primary.kind) pills.push(`<span class="pill">${esc(primary.kind)}</span>`);
+  const exp = toDate(v.tokef_dt);
+  if (exp && !/^cancel/.test(primary ? primary.key : "")) pills.push(exp < new Date() ? `<span class="pill bad">טסט לא בתוקף</span>` : `<span class="pill ok">טסט בתוקף</span>`);
   const recalls = res.recall.rows;
   if (recalls.length) pills.push(`<span class="pill bad">${recalls.length === 1 ? "ריקול פתוח" : recalls.length + " ריקולים פתוחים"}</span>`);
-  if (res.safety.rows.length) pills.push(`<span class="pill ok">זכאי להנחת מערכות בטיחות</span>`);
-  const own = res.owners.rows.slice().sort((a,b)=>String(a.baalut_dt).localeCompare(String(b.baalut_dt)));
-  if (own.length) pills.push(`<span class="pill">${own.length} רשומות בעלות</span>`);
-
-  const facts = [
-    ["שנת ייצור", rec.shnat_yitzur], ["עלייה לכביש", rec.moed_aliya_lakvish && fmtDate(rec.moed_aliya_lakvish)],
-    ["בעלות נוכחית", rec.baalut], ["צבע", rec.tzeva_rechev], ["סוג דלק", rec.sug_delek_nm || (wltp && wltp.delek_nm)],
-    ["טסט אחרון", rec.mivchan_acharon_dt && fmtDate(rec.mivchan_acharon_dt)],
-    ["ק״מ בטסט האחרון", !empty(rec.kilometer_test_aharon) ? Number(rec.kilometer_test_aharon).toLocaleString("he-IL") : ""],
-    ["נפח מנוע", rec.nefach_manoa || (wltp && wltp.nefah_manoa)], ["כוח סוס", wltp && wltp.koah_sus],
-    ["רמת גימור", rec.ramat_gimur], ["מקוריות", rec.mkoriut_nm], ["תאריך ביטול", rec.bitul_dt && fmtDate(rec.bitul_dt)],
-  ].filter(([,v]) => !empty(v));
-  html.push(`<section class="summary">
-    <div><p class="title">${esc([make, model].filter(Boolean).join(" · ") || "רכב " + fmtPlate(plate))}</p>
-    <p class="meta"><span dir="ltr">${fmtPlate(plate)}</span>${rec.degem_nm && rec.degem_nm !== model ? " · דגם " + esc(rec.degem_nm) : ""}${rec.tozeret_eretz_nm ? " · " + esc(rec.tozeret_eretz_nm) : ""}</p></div>
-    <div class="pills">${pills.join("")}</div>
-    <dl class="keyfacts">${facts.map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>
+  const sub = [v.shnat_yitzur, pick(v.ramat_gimur, w.ramat_gimur), v.tzeva_rechev].filter(x => !empty(x)).map(esc).join(" · ");
+  html.push(`<section class="card">
+    <div><p class="id-title">${esc([make, model].filter(Boolean).join(" ") || "רכב " + fmtPlate(plate))}</p>
+    <p class="id-sub">${sub}</p></div>
+    ${pills.length ? `<div class="pills">${pills.join("")}</div>` : ""}
   </section>`);
 
-  // towing
-  const towB = wltp && wltp.kosher_grira_im_blamim, towU = wltp && wltp.kosher_grira_bli_blamim;
-  const towRec = rec.grira_nm;
-  if (!empty(towB) || !empty(towU)) {
-    const n = v => empty(v) ? "—" : Number(v).toLocaleString("he-IL");
-    html.push(`<section class="tow" aria-label="כושר גרירה">
-      <div><span class="lbl">גרירה עם בלמים</span><b>${n(towB)}</b><small>ק״ג</small></div>
-      <div><span class="lbl">גרירה בלי בלמים</span><b>${n(towU)}</b><small>ק״ג</small></div>
-    </section>${!empty(towRec)?`<p class="note">ברישום הרכב: גרירה ${esc(towRec)}.</p>`:""}${!wltpExact?`<p class="note">נתוני הגרירה לקוחים מהדגם בלי התאמה לשנת הייצור, כי לא נמצאה רשומה לשנה המדויקת.</p>`:""}`);
-  } else if (!empty(towRec)) {
-    html.push(`<div class="msg">גרירה לפי רישום הרכב: <b>${esc(towRec)}</b></div>`);
+  /* recalls first: they need action */
+  if (recalls.length) html.push(card("ריקולים פתוחים", recalls.map(r =>
+    `<div class="recall"><b>${esc(pick(r.TEUR_TAKALA, r.SUG_TAKALA) || "ריקול")}</b><span class="note">${[r.SUG_RECALL, !empty(r.TAARICH_PTICHA) && "נפתח ב-" + fmtDate(r.TAARICH_PTICHA)].filter(Boolean).map(esc).join(" · ")}</span></div>`).join("") +
+    `<p class="note">לתיאום התיקון פנו ליבואן הרכב.</p>`));
+
+  /* key numbers */
+  const stats = [];
+  const tb = w.kosher_grira_im_blamim, tu = w.kosher_grira_bli_blamim;
+  if (!empty(tb) || !empty(tu)) {
+    stats.push(["גרירה עם בלמים", empty(tb) ? "—" : fmtN(tb), "ק״ג"], ["גרירה בלי בלמים", empty(tu) ? "—" : fmtN(tu), "ק״ג"]);
+  }
+  if (!empty(v.kilometer_test_aharon)) stats.push(["ק״מ בטסט האחרון", fmtN(v.kilometer_test_aharon), "ק״מ"]);
+  const hp = pick(w.koah_sus, v.hespek);
+  if (!empty(hp)) stats.push(["כוח", fmtN(hp), empty(w.koah_sus) ? "" : "כ״ס"]);
+  if (price && !empty(price.mehir)) stats.push(["מחיר מחירון כחדש", fmtN(price.mehir), "₪"]);
+  if (counts && !empty(counts.mispar_rechavim_pailim)) stats.push(["רכבים כאלה על הכביש", fmtN(counts.mispar_rechavim_pailim), ""]);
+  if (stats.length % 2) stats.pop();
+  if (stats.length) html.push(`<div class="stats">${stats.map(([k,val,u]) => `<div class="stat"><div class="k">${esc(k)}</div><div class="v">${esc(val)}${u ? `<span class="u">${esc(u)}</span>` : ""}</div></div>`).join("")}</div>`);
+  if (!empty(v.grira_nm)) html.push(`<p class="note">ברישיון הרכב: גרירה ${esc(v.grira_nm)}.</p>`);
+  if ((!empty(tb) || !empty(tu)) && !wExact) html.push(`<p class="note">כושר הגרירה לקוח מנתוני הדגם, כי לא נמצאה רשומה לשנת הייצור המדויקת.</p>`);
+
+  /* licence & test */
+  const isCancelled = primary && /^cancel/.test(primary.key);
+  html.push(card("רישוי וטסט", facts([
+    ["טסט אחרון", e(v.mivchan_acharon_dt && fmtDate(v.mivchan_acharon_dt))],
+    ["רישיון בתוקף עד", e(v.tokef_dt && fmtDate(v.tokef_dt))],
+    ["עלה לכביש", e(v.moed_aliya_lakvish && fmtDate(v.moed_aliya_lakvish))],
+    ["רישום ראשון", e(v.rishum_rishon_dt && fmtDate(v.rishum_rishon_dt))],
+    isCancelled && ["ירד מהכביש", e(v.bitul_dt && fmtDate(v.bitul_dt))],
+    isCancelled && ["סיבה", e(v.bitul_nm)],
+    ["סוג יבוא", e(v.sug_yevu)],
+  ])));
+
+  /* ownership */
+  const own = res.owners.rows.slice().sort((a,b) => String(a.baalut_dt).localeCompare(String(b.baalut_dt)));
+  if (own.length) {
+    html.push(card(`היסטוריית בעלויות · ${own.length === 1 ? "יד ראשונה" : own.length + " רשומות"}`,
+      `<ol class="timeline">${own.slice().reverse().map((r,i) => `<li><time>${esc(fmtDate(r.baalut_dt))}</time><span>${esc(r.baalut || "")}${i === 0 ? `<span class="now">נוכחי</span>` : ""}</span></li>`).join("")}</ol>
+       <p class="note">כל רשומה היא העברת בעלות. המאגר מציין את סוג הבעלות בלבד, בלי שמות.</p>`));
+  } else if (!empty(v.baalut)) {
+    html.push(card("בעלות", facts([["בעלות נוכחית", e(v.baalut)]])));
   }
 
-  // recalls
-  if (recalls.length) html.push(section("ריקולים פתוחים", "ריקולים פתוחים לרכב", recalls.map(r =>
-    `<div class="recall"><b>${esc(r.TEUR_TAKALA || r.SUG_TAKALA || "ריקול")}</b><span class="note">${[r.SUG_RECALL, r.RECALL_ID && "מספר " + r.RECALL_ID, r.TAARICH_PTICHA && "נפתח " + fmtDate(r.TAARICH_PTICHA)].filter(Boolean).map(esc).join(" · ")}</span></div>`).join(""), true));
+  /* vehicle condition */
+  html.push(card("מצב הרכב", facts([
+    ["מקוריות", e(v.mkoriut_nm)],
+    ["שינוי מבנה", changed(v.shinui_mivne_ind)],
+    ["הותקן גפ״מ", changed(v.gapam_ind)],
+    ["שינוי צבע", changed(v.shnui_zeva_ind)],
+    ["שינוי צמיגים", changed(v.shinui_zmig_ind)],
+  ])));
 
-  // registration record(s)
-  for (const s of mains) html.push(section(s === primary ? "פרטי רישום" : s.name, s.name, kv(res[s.key].rows[0]), s === primary));
+  /* the car */
+  const gearbox = empty(w.automatic_ind) ? "" : yes(w.automatic_ind) ? "אוטומטית" : "ידנית";
+  const seats = pick(w.mispar_moshavim, v.mispar_mekomot);
+  html.push(card("הרכב", facts([
+    ["יצרן", e(make)], ["ארץ ייצור", e(v.tozeret_eretz_nm)],
+    ["דגם", e(model)], ["שנת ייצור", e(v.shnat_yitzur)],
+    ["סוג רכב", e(v.sug_rechev_nm)], ["מרכב", e(w.merkav)],
+    ["דלתות", e(w.mispar_dlatot)], ["מושבים", e(seats)],
+    ["צבע", e(v.tzeva_rechev)], ["רמת גימור", e(pick(v.ramat_gimur, w.ramat_gimur))],
+  ])));
 
-  // ownership history
-  if (own.length) html.push(section("היסטוריית בעלויות", "היסטוריית בעלויות",
-    `<ol class="timeline">${own.map((r,i)=>`<li><time>${esc(fmtDate(r.baalut_dt))}</time><span>${esc(r.baalut || "")}${i===own.length-1?'<span class="n">נוכחי</span>':""}</span></li>`).join("")}</ol>
-     <p class="note">המאגר הפתוח מפרט את סוג הבעלות ותאריך תחילתה. שמות הבעלים אינם מפורסמים.</p>`, true));
+  html.push(card("מנוע והנעה", facts([
+    ["דלק", e(pick(v.sug_delek_nm, w.delek_nm))], ["נפח מנוע", unit(pick(v.nefach_manoa, w.nefah_manoa), "סמ״ק")],
+    ["כוח", empty(w.koah_sus) ? e(v.hespek) : unit(w.koah_sus, "כ״ס")], ["תיבת הילוכים", e(gearbox)],
+    ["הנעה", e(pick(v.hanaa_nm, w.hanaa_nm))], ["דגם מנוע", mono(v.degem_manoa)],
+  ])));
 
-  // tech history + continuation
-  for (const k of ["tech","cont"]) if (res[k].rows.length) {
-    const s = PLATE_SETS.find(x=>x.key===k);
-    html.push(section(s.name, s.name, res[k].rows.map(r => kv(r)).join(""), false));
-  }
+  html.push(card("משקלים וצמיגים", facts([
+    ["משקל כולל מותר", unit(pick(v.mishkal_kolel, w.mishkal_kolel), "ק״ג")], ["משקל עצמי", unit(v.mishkal_azmi, "ק״ג")],
+    ["כושר העמסה", unit(v.mishkal_mitan_harama, "ק״ג")], ["סרנים", e(v.sranim)],
+    ["צמיג קדמי", mono(pick(v.zmig_kidmi, v.mida_zmig_kidmi))], ["צמיג אחורי", mono(pick(v.zmig_ahori, v.mida_zmig_ahori))],
+  ])));
 
-  // model specs
-  if (wltp) {
-    const used = new Set();
-    const groups = WLTP_GROUPS.map(([t, keys]) => { keys.forEach(k=>used.add(k)); const body = kv(wltp, keys); return body ? `<div class="group"><h3>${esc(t)}</h3>${body}</div>` : ""; }).join("");
-    const rest = Object.keys(wltp).filter(k => !used.has(k) && !HIDE.has(k));
-    const restBody = kv(wltp, rest);
-    html.push(section("מפרט הדגם", MODEL_SETS.wltp.name,
-      groups + (restBody ? `<div class="group"><h3>שאר הנתונים</h3>${restBody}</div>` : "") +
-      (wltpRows.length > 1 ? `<p class="note">נמצאו ${wltpRows.length} גרסאות לדגם הזה. מוצגת הגרסה שרמת הגימור שלה תואמת לרכב${wltp.ramat_gimur && wltp.ramat_gimur === rec.ramat_gimur ? "" : " ככל האפשר"}.</p>` : ""), false));
-  }
-  if (counts || price) {
-    let inner = "";
-    if (counts) inner += kv(counts, ["mispar_rechavim_pailim","mispar_rechavim_le_pailim"]);
-    if (price) inner += kv(price, ["mehir","shem_yevuan","kinuy_mishari","shnat_yitzur"]);
-    html.push(section("הדגם בשוק", [counts && MODEL_SETS.counts.name, price && MODEL_SETS.price.name].filter(Boolean).join(" · "), inner, false));
-  }
-  if (res.safety.rows.length) html.push(section(PLATE_SETS.find(s=>s.key==="safety").name, "", kv(res.safety.rows[0]), false));
+  /* safety */
+  const present = Object.keys(SYSTEMS).filter(k => yes(w[k])).map(k => SYSTEMS[k]);
+  const safetyFacts = facts([
+    ["ניקוד בטיחות", e(w.nikud_betihut)], ["רמת אבזור בטיחותי", e(pick(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty)) && `${esc(pick(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty))} מתוך 8`],
+    ["כריות אוויר", e(w.mispar_kariot_avir)],
+  ]);
+  html.push(card("בטיחות", safetyFacts + (present.length ? `<div class="systems">${present.map(s => `<span>${esc(s)}</span>`).join("")}</div>` : "")));
 
-  // sources
-  const found = [...mains, ...extrasFound].map(s=>s.name);
-  if (wltp) found.push(MODEL_SETS.wltp.name);
-  html.push(`<p class="note">נמצא ב: ${esc(found.join(" · "))}.${errs.length ? ` לא ענו: ${esc(errs.map(s=>s.name).join(" · "))}.` : ""}</p>`);
+  /* environment */
+  html.push(card("סביבה", facts([
+    ["קבוצת זיהום", e(pick(v.kvutzat_zihum, w.kvutzat_zihum)) && `${esc(pick(v.kvutzat_zihum, w.kvutzat_zihum))} <span class="note">(1 הנקי ביותר, 15 המזהם ביותר)</span>`, "wide"],
+    ["פליטת CO₂", unit(pick(w.CO2_WLTP, w.kamut_CO2), "גר׳ לק״מ")], ["מדד ירוק", e(w.madad_yarok)],
+  ])));
+
+  /* identifiers */
+  html.push(card("מספרי זיהוי", facts([
+    ["מספר רישוי", mono(fmtPlate(plate))],
+    ["מספר שלדה (VIN)", mono(pick(v.misgeret, v.mispar_shilda, v.shilda)), "wide"],
+  ])));
 
   out.innerHTML = html.join("");
-  $("#go").disabled = false;
   remember(plate);
+  window.scrollTo({top: 0});
 }
 
-/* recent searches (this browser only) */
+/* recent searches, kept in this browser only */
 function getRecent(){ try { return JSON.parse(localStorage.getItem("recentPlates") || "[]"); } catch { return []; } }
-function remember(p){ try { localStorage.setItem("recentPlates", JSON.stringify([p, ...getRecent().filter(x=>x!==p)].slice(0,6))); } catch {} showRecent(); }
+function remember(p){ try { localStorage.setItem("recentPlates", JSON.stringify([p, ...getRecent().filter(x => x !== p)].slice(0,5))); } catch {} showRecent(); }
 function showRecent(){
   const r = getRecent(), el = $("#recent");
   if (!r.length) { el.hidden = true; return; }
   el.hidden = false;
-  el.innerHTML = `<span>חיפושים אחרונים:</span>` + r.map(p=>`<button type="button" class="chip-btn" data-p="${p}">${fmtPlate(p)}</button>`).join("");
+  el.innerHTML = r.map(p => `<button type="button" class="chip" data-p="${p}">${fmtPlate(p)}</button>`).join("");
 }
-$("#recent").addEventListener("click", e => { const b = e.target.closest("[data-p]"); if (b) lookup(b.dataset.p); });
-$("#f").addEventListener("submit", e => { e.preventDefault(); lookup($("#plate").value).catch(err => { $("#out").innerHTML = `<div class="msg err">${esc(err.message)}</div>`; $("#go").disabled = false; }); });
+function run(p){ lookup(p).catch(err => { $("#out").innerHTML = `<div class="msg err">${esc(err.message)}</div>`; $("#go").disabled = false; }); }
+$("#recent").addEventListener("click", ev => { const b = ev.target.closest("[data-p]"); if (b) run(b.dataset.p); });
+$("#f").addEventListener("submit", ev => { ev.preventDefault(); run($("#plate").value); });
 showRecent();
 const start = digits(location.hash) || digits(new URLSearchParams(location.search).get("plate"));
-if (start) lookup(start);
-else $("#out").innerHTML = `<div class="msg"><p style="margin:0 0 6px"><b>מה תקבלו:</b> פרטי רישום, סטטוס (פעיל, לא פעיל, ירד מהכביש), היסטוריית בעלויות, ק״מ בטסט, שינויים ומקוריות, ריקולים פתוחים, כושר גרירה עם ובלי בלמים, מפרט דגם מלא, מחיר מחירון וכמה רכבים כאלה על הכביש.</p><p class="note">הקלידו מספר רישוי של 7 או 8 ספרות ולחצו חיפוש.</p></div>`;
+if (start) run(start);
+else $("#out").innerHTML = `<section class="card"><h2>מה תקבלו</h2><p style="margin:0">סטטוס הרכב ותוקף הטסט, היסטוריית בעלויות, ק״מ בטסט האחרון, שינויים ומקוריות, ריקולים פתוחים, כושר גרירה עם ובלי בלמים, מפרט, מערכות בטיחות, מחיר מחירון וכמה רכבים כאלה על הכביש.</p><p class="note">הקלידו מספר רישוי ולחצו על החיפוש.</p></section>`;
 </script>
 </body>
 </html>
