@@ -3,9 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#14213d">
+<meta name="theme-color" content="#ffffff">
 <title>פרטי רכב</title>
 <meta name="description" content="כל הפרטים על רכב לפי מספר רישוי, ממאגרי משרד התחבורה">
+<script>
+/* Background choice: light (default), dark, or follow the phone. Kept in this browser only. */
+(function(){
+  var c = "light"; try { c = localStorage.getItem("theme") || "light"; } catch (e) {}
+  if (c === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", c);
+})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap">
@@ -13,7 +20,7 @@
 /* Layout: an app screen. Navy header band holding the yellow plate search; below it one column of cards: identity, key numbers, then grouped facts. */
 :root{
   --bg:#eef0f4; --card:#ffffff; --fg:#151a24; --muted:#5d6676; --line:#e1e4ea;
-  --band:#14213d; --band-fg:#ffffff; --band-muted:#aab4c8;
+  --band:#ffffff; --band-fg:#151a24; --band-muted:#5d6676; --band-line:#d5dae3;
   --plate:#f6c500; --plate-ink:#111; --il:#1d4ea8; --accent:#1d4ea8;
   --ok:#147a43; --ok-bg:#dff3e7; --warn:#995400; --warn-bg:#fcefd6; --bad:#b42318; --bad-bg:#fde4e1;
   --f-body:"Assistant",system-ui,"Segoe UI",Arial,sans-serif;
@@ -22,18 +29,18 @@
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#0d1118; --card:#161c27; --fg:#e9edf3; --muted:#97a1b3; --line:#252d3b;
-  --band:#0a0f1a; --band-fg:#ffffff; --band-muted:#8d98ad; --accent:#86a9f0;
+  --band:#0a0f1a; --band-fg:#ffffff; --band-muted:#8d98ad; --band-line:#33415f; --accent:#86a9f0;
   --ok:#6ad49b; --ok-bg:#12301f; --warn:#f2b55c; --warn-bg:#34260e; --bad:#f4877c; --bad-bg:#3b1815;
   color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0d1118; --card:#161c27; --fg:#e9edf3; --muted:#97a1b3; --line:#252d3b;
-  --band:#0a0f1a; --band-fg:#ffffff; --band-muted:#8d98ad; --accent:#86a9f0;
+  --band:#0a0f1a; --band-fg:#ffffff; --band-muted:#8d98ad; --band-line:#33415f; --accent:#86a9f0;
   --ok:#6ad49b; --ok-bg:#12301f; --warn:#f2b55c; --warn-bg:#34260e; --bad:#f4877c; --bad-bg:#3b1815;
   color-scheme:dark}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 var(--f-body);min-height:100vh}
-.band{background:var(--band);color:var(--band-fg);padding-top:env(safe-area-inset-top,0px)}
+.band{background:var(--band);color:var(--band-fg);padding-top:env(safe-area-inset-top,0px);border-bottom:1px solid var(--line)}
 .band-in{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:18px 22px;display:flex;flex-direction:column;gap:14px}
 .brand{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
 .brand h1{margin:0;font-size:1.25rem;font-weight:800;letter-spacing:.01em}
@@ -43,14 +50,14 @@ form{display:flex;gap:10px}
 .plate .il{background:var(--il);color:#fff;width:40px;flex:0 0 40px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:7px;font:700 11px/1.15 var(--f-body)}
 .plate input{flex:1;min-width:0;border:0;background:transparent;color:var(--plate-ink);font:600 clamp(1.7rem,8vw,2.35rem)/1 var(--f-num);letter-spacing:.05em;text-align:center;padding:0 6px;outline:none}
 .plate input::placeholder{color:rgba(0,0,0,.3)}
-.plate:focus-within{box-shadow:0 0 0 3px var(--band),0 0 0 5px var(--plate)}
+.plate:focus-within{box-shadow:0 0 0 3px var(--band),0 0 0 5px var(--accent)}
 button{font:inherit;cursor:pointer;color:inherit}
 .go{flex:0 0 auto;width:66px;height:66px;border-radius:9px;border:0;background:var(--plate);color:#111;display:grid;place-items:center}
 .go svg{width:26px;height:26px}
 .go[disabled]{opacity:.6;cursor:progress}
-.go:focus-visible,.chip:focus-visible{outline:3px solid var(--plate);outline-offset:2px}
+.go:focus-visible,.chip:focus-visible,.gear:focus-visible,.seg button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .recent{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-.chip{background:transparent;border:1px solid #33415f;color:var(--band-fg);border-radius:6px;padding:3px 9px;font:500 .85rem var(--f-num);direction:ltr}
+.chip{background:transparent;border:1px solid var(--band-line);color:var(--band-fg);border-radius:6px;padding:3px 9px;font:500 .85rem var(--f-num);direction:ltr}
 
 main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;display:flex;flex-direction:column;gap:12px;padding-bottom:calc(40px + env(safe-area-inset-bottom,0px))}
 .card{background:var(--card);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
@@ -94,6 +101,21 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .progress i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
 footer{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:0 32px;font-size:.8rem;color:var(--muted)}
 footer a{color:var(--accent)}
+
+/* towing */
+.tow-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tow-grid>div{background:var(--bg);border-radius:10px;padding:12px 14px}
+.tow-grid .k{font-size:.9rem;color:var(--muted);font-weight:600}
+.tow-grid .v{font:600 2rem/1.15 var(--f-num);font-variant-numeric:tabular-nums;margin-top:2px}
+.tow-grid .u,.stat .u{font-size:.8rem;color:var(--muted);margin-inline-start:4px;font-family:var(--f-body)}
+/* settings */
+.brand-actions{display:flex;align-items:center;gap:10px}
+.gear{width:38px;height:38px;border-radius:9px;border:1px solid var(--band-line);background:transparent;display:grid;place-items:center}
+.gear svg{width:20px;height:20px}
+.settings{background:var(--card);border-radius:12px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;color:var(--fg);border:1px solid var(--line)}
+.seg{display:flex;background:var(--bg);border-radius:9px;padding:3px;gap:3px}
+.seg button{border:0;background:transparent;border-radius:7px;padding:6px 12px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--card);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.15)}
 @media (max-width:360px){.facts{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -101,7 +123,8 @@ footer a{color:var(--accent)}
 <body>
 <div class="band">
   <div class="band-in">
-    <div class="brand"><h1>פרטי רכב</h1><span>ממאגרי משרד התחבורה</span></div>
+    <div class="brand"><h1>פרטי רכב</h1><div class="brand-actions"><span>ממאגרי משרד התחבורה</span><button class="gear" id="gear" type="button" aria-label="הגדרות" aria-expanded="false" aria-controls="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div></div>
+    <div class="settings" id="settings" hidden><span>רקע</span><div class="seg" role="group" aria-label="רקע"><button type="button" data-theme-choice="light">בהיר</button><button type="button" data-theme-choice="dark">כהה</button><button type="button" data-theme-choice="auto">לפי הטלפון</button></div></div>
     <form id="f" autocomplete="off">
       <label class="plate" for="plate">
         <span class="il" aria-hidden="true"><span>IL</span><span>ישראל</span></span>
@@ -210,30 +233,34 @@ async function byPlate(set, plate, signal){
   if (!ok && lastErr) throw lastErr;
   return [];
 }
-async function byModel(id, rec, signal){
-  const base = {tozeret_cd: rec.tozeret_cd, degem_cd: rec.degem_cd};
-  const tries = [];
-  if (!empty(rec.shnat_yitzur)) {
-    if (!empty(rec.sug_degem)) tries.push({...base, shnat_yitzur: rec.shnat_yitzur, sug_degem: rec.sug_degem});
-    tries.push({...base, shnat_yitzur: rec.shnat_yitzur});
+/* Model datasets: fetch every row for maker + model code (all years), numeric filters first like the
+   ministry's own columns, then text. Rows are ranked in JS so a year or trim mismatch never hides data. */
+async function modelRows(id, rec, signal){
+  const forms = [
+    {tozeret_cd: num(rec.tozeret_cd), degem_cd: num(rec.degem_cd)},
+    {tozeret_cd: String(rec.tozeret_cd).trim(), degem_cd: String(rec.degem_cd).trim()},
+  ];
+  for (const f of forms) {
+    try { const rows = await ds(id, f, 300, signal); if (rows.length) return rows; }
+    catch (e) { if (e.name === "AbortError") throw e; }
   }
-  tries.push(base);
-  for (const f of tries) {
-    for (const cast of [String, Number]) {
-      const ff = {}; for (const k in f) ff[k] = k === "sug_degem" ? String(f[k]) : cast(f[k]);
-      try { const rows = await ds(id, ff, 50, signal); if (rows.length) return {rows, exact: "shnat_yitzur" in f}; break; }
-      catch (e) { if (e.name === "AbortError") throw e; }
-    }
-  }
-  return {rows: [], exact: false};
+  return [];
 }
-function bestRow(rows, rec){
+function rankRows(rows, rec){
   const n = s => String(s || "").trim().toLowerCase();
-  return rows.find(r => n(r.ramat_gimur) && n(r.ramat_gimur) === n(rec.ramat_gimur) && n(r.kinuy_mishari) === n(rec.kinuy_mishari))
-      || rows.find(r => n(r.ramat_gimur) && n(r.ramat_gimur) === n(rec.ramat_gimur))
-      || rows.find(r => n(r.kinuy_mishari) && n(r.kinuy_mishari) === n(rec.kinuy_mishari))
-      || rows[0];
+  const year = num(rec.shnat_yitzur);
+  const score = r => {
+    let sc = 0;
+    const dy = Math.abs(num(r.shnat_yitzur) - year);
+    sc -= isNaN(dy) ? 50 : dy * 10;
+    if (n(r.sug_degem) && n(r.sug_degem) === n(rec.sug_degem)) sc += 3;
+    if (n(r.ramat_gimur) && n(r.ramat_gimur) === n(rec.ramat_gimur)) sc += 5;
+    if (n(r.kinuy_mishari) && n(r.kinuy_mishari) === n(rec.kinuy_mishari)) sc += 2;
+    return sc;
+  };
+  return rows.slice().sort((a, b) => score(b) - score(a));
 }
+const hasTow = r => r && (isNum(r.kosher_grira_im_blamim) && num(r.kosher_grira_im_blamim) > 0 || isNum(r.kosher_grira_bli_blamim) && num(r.kosher_grira_bli_blamim) > 0);
 
 /* ---------- render helpers ---------- */
 function facts(list){
@@ -288,17 +315,19 @@ async function lookup(raw){
   ["cont","tech"].forEach(k => res[k].rows[0] && fill(res[k].rows[0]));
   const primary = mains[0];
 
-  let w = {}, wRows = [], wExact = true, counts = null, price = null;
+  let w = {}, towRow = null, counts = null, price = null;
   if (!empty(v.tozeret_cd) && !empty(v.degem_cd)) {
     const [a, b, c] = await Promise.all([
-      byModel(MODEL_SETS.wltp, v, signal).catch(() => ({rows:[]})),
-      byModel(MODEL_SETS.counts, v, signal).catch(() => ({rows:[]})),
-      byModel(MODEL_SETS.price, v, signal).catch(() => ({rows:[]})),
+      modelRows(MODEL_SETS.wltp, v, signal).catch(() => []),
+      modelRows(MODEL_SETS.counts, v, signal).catch(() => []),
+      modelRows(MODEL_SETS.price, v, signal).catch(() => []),
     ]);
     if (signal.aborted) return;
-    wRows = a.rows; wExact = a.exact !== false; if (wRows.length) w = bestRow(wRows, v);
-    counts = b.rows[0] || null;
-    price = c.rows.length ? bestRow(c.rows, v) : null;
+    const ranked = rankRows(a, v);
+    if (ranked.length) w = ranked[0];
+    towRow = ranked.find(hasTow) || null;
+    counts = rankRows(b, v)[0] || null;
+    price = rankRows(c, v)[0] || null;
   }
   const pick = (...vals) => vals.find(x => !empty(x));
 
@@ -327,19 +356,26 @@ async function lookup(raw){
 
   /* key numbers */
   const stats = [];
-  const tb = w.kosher_grira_im_blamim, tu = w.kosher_grira_bli_blamim;
-  if (!empty(tb) || !empty(tu)) {
-    stats.push(["גרירה עם בלמים", empty(tb) ? "—" : fmtN(tb), "ק״ג"], ["גרירה בלי בלמים", empty(tu) ? "—" : fmtN(tu), "ק״ג"]);
-  }
+  // Towing: the model's own figures, else any towing field the vehicle record itself carries
+  const tSrc = towRow || (hasTow(v) ? v : null);
+  const tb = tSrc && tSrc.kosher_grira_im_blamim, tu = tSrc && tSrc.kosher_grira_bli_blamim;
+  const tv = x => isNum(x) && num(x) > 0 ? fmtN(x) : "—";
   if (!empty(v.kilometer_test_aharon)) stats.push(["ק״מ בטסט האחרון", fmtN(v.kilometer_test_aharon), "ק״מ"]);
   const hp = pick(w.koah_sus, v.hespek);
   if (!empty(hp)) stats.push(["כוח", fmtN(hp), empty(w.koah_sus) ? "" : "כ״ס"]);
   if (price && !empty(price.mehir)) stats.push(["מחיר מחירון כחדש", fmtN(price.mehir), "₪"]);
   if (counts && !empty(counts.mispar_rechavim_pailim)) stats.push(["רכבים כאלה על הכביש", fmtN(counts.mispar_rechavim_pailim), ""]);
   if (stats.length % 2) stats.pop();
-  if (stats.length) html.push(`<div class="stats">${stats.map(([k,val,u]) => `<div class="stat"><div class="k">${esc(k)}</div><div class="v">${esc(val)}${u ? `<span class="u">${esc(u)}</span>` : ""}</div></div>`).join("")}</div>`);
-  if (!empty(v.grira_nm)) html.push(`<p class="note">ברישיון הרכב: גרירה ${esc(v.grira_nm)}.</p>`);
-  if ((!empty(tb) || !empty(tu)) && !wExact) html.push(`<p class="note">כושר הגרירה לקוח מנתוני הדגם, כי לא נמצאה רשומה לשנת הייצור המדויקת.</p>`);
+  const towNote = [];
+  if (towRow && !empty(towRow.shnat_yitzur) && num(towRow.shnat_yitzur) !== num(v.shnat_yitzur)) towNote.push(`לפי נתוני הדגם משנת ${esc(towRow.shnat_yitzur)}, כי לשנת הייצור של הרכב אין נתון.`);
+  if (!empty(v.grira_nm)) towNote.push(`ברישיון הרכב: גרירה ${esc(v.grira_nm)}.`);
+  html.push(`<section class="card tow"><h2>כמה מותר לגרור</h2>${tSrc ? `<div class="tow-grid">
+      <div><div class="k">עם בלמים</div><div class="v">${tv(tb)}<span class="u">ק״ג</span></div></div>
+      <div><div class="k">בלי בלמים</div><div class="v">${tv(tu)}<span class="u">ק״ג</span></div></div>
+    </div>` : `<p style="margin:0">אין במאגר של משרד התחבורה נתוני גרירה לדגם הזה.</p>`}
+    ${towNote.map(t => `<p class="note">${t}</p>`).join("")}
+    <p class="note">משקל הנגרר המותר כולל את המטען שבו. כדי לגרור צריך וו גרירה מאושר ורשום ברישיון הרכב.</p></section>`);
+  html.push(stats.length ? `<div class="stats">${stats.map(([k,val,u]) => `<div class="stat"><div class="k">${esc(k)}</div><div class="v">${esc(val)}${u ? `<span class="u">${esc(u)}</span>` : ""}</div></div>`).join("")}</div>` : "");
 
   /* licence & test */
   const isCancelled = primary && /^cancel/.test(primary.key);
@@ -432,6 +468,24 @@ function showRecent(){
 function run(p){ lookup(p).catch(err => { $("#out").innerHTML = `<div class="msg err">${esc(err.message)}</div>`; $("#go").disabled = false; }); }
 $("#recent").addEventListener("click", ev => { const b = ev.target.closest("[data-p]"); if (b) run(b.dataset.p); });
 $("#f").addEventListener("submit", ev => { ev.preventDefault(); run($("#plate").value); });
+
+/* settings */
+function themeChoice(){ try { return localStorage.getItem("theme") || "light"; } catch { return "light"; } }
+function applyTheme(c){
+  const root = document.documentElement;
+  if (c === "auto") root.removeAttribute("data-theme"); else root.setAttribute("data-theme", c);
+  const dark = c === "dark" || (c === "auto" && matchMedia("(prefers-color-scheme: dark)").matches);
+  document.querySelector('meta[name="theme-color"]').setAttribute("content", dark ? "#0a0f1a" : "#ffffff");
+  try { window.AndroidApp && window.AndroidApp.setDark(dark); } catch {}
+  document.querySelectorAll("[data-theme-choice]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.themeChoice === c)));
+}
+document.querySelectorAll("[data-theme-choice]").forEach(b => b.addEventListener("click", () => {
+  try { localStorage.setItem("theme", b.dataset.themeChoice); } catch {}
+  applyTheme(b.dataset.themeChoice);
+}));
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => applyTheme(themeChoice()));
+$("#gear").addEventListener("click", () => { const p = $("#settings"); p.hidden = !p.hidden; $("#gear").setAttribute("aria-expanded", String(!p.hidden)); });
+applyTheme(themeChoice());
 showRecent();
 const start = digits(location.hash) || digits(new URLSearchParams(location.search).get("plate"));
 if (start) run(start);

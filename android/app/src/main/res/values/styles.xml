@@ -3,9 +3,10 @@
     <color name="band">#14213D</color>
     <color name="plate">#F6C500</color>
     <style name="AppTheme" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@color/band</item>
-        <item name="android:statusBarColor">@color/band</item>
-        <item name="android:navigationBarColor">@color/band</item>
+        <item name="android:windowBackground">@android:color/white</item>
+        <item name="android:statusBarColor">@android:color/white</item>
+        <item name="android:navigationBarColor">@android:color/white</item>
+        <item name="android:windowLightStatusBar">true</item>
         <item name="android:colorAccent">@color/plate</item>
     </style>
 </resources>

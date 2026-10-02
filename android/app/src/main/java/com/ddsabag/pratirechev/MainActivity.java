@@ -7,6 +7,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 import android.view.WindowInsets;
+import android.view.WindowInsetsController;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
@@ -21,17 +23,19 @@ public class MainActivity extends Activity {
     private static final String START_URL = "https://" + HOST + "/assets/index.html";
 
     private WebView webView;
+    private FrameLayout root;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        FrameLayout root = new FrameLayout(this);
-        root.setBackgroundColor(Color.parseColor("#14213D"));
+        root = new FrameLayout(this);
+        root.setBackgroundColor(Color.WHITE);
         webView = new WebView(this);
         root.addView(webView, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         setContentView(root);
+        setDark(false);
 
         // Keep the page clear of the status and navigation bars (edge-to-edge is enforced on new Android versions)
         root.setOnApplyWindowInsetsListener((View v, WindowInsets insets) -> {
@@ -48,6 +52,14 @@ public class MainActivity extends Activity {
         s.setAllowContentAccess(false);
 
         // Serve the bundled page from an https origin so API calls to data.gov.il pass CORS
+        // Lets the page tell us its light/dark choice so the system bars match it
+        webView.addJavascriptInterface(new Object() {
+            @JavascriptInterface
+            public void setDark(boolean dark) {
+                runOnUiThread(() -> MainActivity.this.setDark(dark));
+            }
+        }, "AndroidApp");
+
         WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
                 .setDomain(HOST)
                 .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
@@ -75,6 +87,25 @@ public class MainActivity extends Activity {
             webView.restoreState(savedInstanceState);
         } else {
             webView.loadUrl(START_URL);
+        }
+    }
+
+    private void setDark(boolean dark) {
+        root.setBackgroundColor(dark ? Color.parseColor("#0A0F1A") : Color.WHITE);
+        int light = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            WindowInsetsController c = getWindow().getInsetsController();
+            if (c != null) c.setSystemBarsAppearance(dark ? 0 : light, light);
+        } else {
+            int flags = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            View d = getWindow().getDecorView();
+            int cur = d.getSystemUiVisibility();
+            d.setSystemUiVisibility(dark ? (cur & ~flags) : (cur | flags));
+        }
+        if (android.os.Build.VERSION.SDK_INT < 35) {
+            int bar = dark ? Color.parseColor("#0A0F1A") : Color.WHITE;
+            getWindow().setStatusBarColor(bar);
+            getWindow().setNavigationBarColor(bar);
         }
     }
 
