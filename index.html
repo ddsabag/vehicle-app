@@ -371,7 +371,7 @@ body.land .band{display:none}
     <div class="set-row"><span>מחירי דלק לחישוב העלויות</span>
       <div class="fuel-set"><label for="fuelPrice">בנזין (₪ לליטר)</label><input id="fuelPrice" inputmode="decimal" placeholder="8.27"></div>
       <div class="fuel-set"><label for="dieselPrice">סולר (₪ לליטר)</label><input id="dieselPrice" inputmode="decimal" placeholder="לא הוגדר"></div>
-      <p class="note">ברירת המחדל לבנזין היא המחיר המפוקח לאוקטובר 2026.</p>
+      <p class="note" id="fuelNote">כשהשדה ריק, האפליקציה משתמשת במחיר המפוקח העדכני, שמתעדכן אוטומטית בכל חודש.</p>
     </div>
     <div class="set-row"><span>נתונים במכשיר</span>
       <button class="link-btn" type="button" id="clearRecent">מחיקת היסטוריית החיפושים</button>
@@ -620,7 +620,29 @@ function toggleSaved(item){
 function remember(p){ store.set("recentPlates", [p, ...store.get("recentPlates").filter(x => x !== p)].slice(0, 6)); }
 
 /* ---------- costs (estimates) ---------- */
-const FUEL_PRICE_DEFAULT = 8.27;   // 95 octane, regulated price for October 2026
+const FUEL_PRICE_DEFAULT = 8.27;   // 95 octane, regulated price for October 2026; fuel.json (updated by a daily GitHub Action) overrides it
+let fuelLive = null; try { fuelLive = JSON.parse(localStorage.getItem("fuelLive") || "null"); } catch {}
+const MONTHS_HE = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
+const monthHe = ym => { const m = String(ym || "").match(/^(\d{4})-(\d{2})$/); return m ? `${MONTHS_HE[+m[2] - 1]} ${m[1]}` : ""; };
+function fuelDefault(kind){
+  if (kind === "diesel") return fuelLive && fuelLive.diesel > 0 ? fuelLive.diesel : "";
+  return fuelLive && fuelLive.petrol95 > 0 ? fuelLive.petrol95 : FUEL_PRICE_DEFAULT;
+}
+function showFuelDefaults(){
+  const f = $("#fuelPrice"), d = $("#dieselPrice"); if (!f) return;
+  f.placeholder = String(fuelDefault("petrol")); d.placeholder = fuelDefault("diesel") ? String(fuelDefault("diesel")) : "לא הוגדר";
+  if (fuelLive && fuelLive.month) $("#fuelNote").textContent = `כשהשדה ריק, האפליקציה משתמשת במחיר העדכני (${monthHe(fuelLive.month)}), שמתעדכן אוטומטית בכל חודש.`;
+}
+async function loadFuel(){
+  try {
+    const r = await fetch(SITE + "fuel.json", {cache: "no-cache"}); if (!r.ok) return;
+    const j = await r.json(); if (!(j.petrol95 > 0)) return;
+    const changed = !fuelLive || fuelLive.petrol95 !== j.petrol95 || fuelLive.diesel !== j.diesel || fuelLive.month !== j.month;
+    fuelLive = j; try { localStorage.setItem("fuelLive", JSON.stringify(j)); } catch {}
+    showFuelDefaults();
+    if (changed && current && !inCompare) { current.cost = costs(current); renderResult(); }
+  } catch {}
+}
 const FEE_TABLE = {                // private car licence fee by price group, from 1 April 2026 (₪, before the 135 ₪ broadcast levy)
   1:[1266,1109,972,849], 2:[1610,1404,1230,1076], 3:[1941,1698,1487,1297], 4:[2315,1968,1674,1422],
   5:[2651,2184,1802,1490], 6:[3764,2823,2117,1585], 7:[5364,3753,2627,1840],
@@ -637,8 +659,8 @@ function costs(D){
   if (co2 && kind !== "ev") {
     c.l100 = co2 / (kind === "diesel" ? 26.4 : 23.2);
     c.litres = c.l100 * kmYear / 100;
-    const price = num(setting(kind === "diesel" ? "dieselPrice" : "fuelPrice", kind === "diesel" ? "" : String(FUEL_PRICE_DEFAULT)));
-    if (price > 0) { c.fuelPrice = price; c.fuelYear = c.litres * price; }
+    const price = num(setting(kind === "diesel" ? "dieselPrice" : "fuelPrice", String(fuelDefault(kind))));
+    if (price > 0) { c.fuelPrice = price; c.fuelYear = c.litres * price; c.fuelMonth = setting(kind === "diesel" ? "dieselPrice" : "fuelPrice", "") ? "" : fuelLive && fuelLive.month || "2026-10"; }
   }
   const grp = num(D.w.kvuzat_agra_cd), year = num(D.v.shnat_yitzur);
   if (FEE_TABLE[grp] && !isNaN(year) && String(D.v.sug_degem || "P").toUpperCase() === "P") {
@@ -681,17 +703,38 @@ function costs(D){
 /* Importer recall-check pages (verified on the importers' own sites). The plate is copied before opening,
    because these pages have no public API and do not accept the plate in the link. */
 const IMPORTER_RECALL = [
-  {re:/יונדאי|מיצובישי|מרצדס|סמארט/, name:"כלמוביל", url:"https://www.colmobil.co.il/recall/"},
+  {re:/יונדאי|מיצובישי|מרצדס|סמארט|ג'?נסיס/, name:"כלמוביל", url:"https://www.colmobil.co.il/recall/"},
   {re:/קיה/, name:"קיה ישראל", url:"https://kia-israel.co.il/recall"},
   {re:/מאזדה/, name:"מאזדה ישראל", url:"https://www.mazda.co.il/recall"},
-  {re:/פיג'ו|פיגו/, name:"פיג'ו ישראל", url:"https://online.peugeot.co.il/recall/"},
+  {re:/טויוטה/, name:"טויוטה ישראל", url:"https://www.toyota.co.il/owners/parts-and-accessories/accessories/recall"},
+  {re:/לקסוס/, name:"לקסוס ישראל", url:"https://www.lexus.co.il/owners/maintenance/calls-for-repair"},
+  {re:/פיג'?ו/, name:"פיג'ו ישראל", url:"https://online.peugeot.co.il/recall/"},
+  {re:/סיטרואן/, name:"סיטרואן ישראל", url:"https://online.citroen.co.il/recall/"},
+  {re:/אופל/, name:"אופל ישראל", url:"https://online.opel.co.il/recall/"},
+  {re:/\bMG\b|אם\.? ?ג'?י/, name:"MG ישראל", url:"https://mg-israel.co.il/service/recall/"},
+  {re:/ניסאן|ניסן|רנו|דאצ'?יה|צ'?רי/, name:"פריסבי", url:"https://service.freesbe.com/recall"},
+  {re:/פורד/, name:"פורד ישראל", url:"https://www.ford.co.il/" + encodeURI("קריאות-חוזרות/שירות")},
+  {re:/מיני/, name:"מיני ישראל", url:"https://campaigns.mini.co.il/Service-forms_newDesign/recall-mini.html"},
+  {re:/ב\.? ?מ\.? ?וו|BMW/, name:"BMW ישראל", url:"https://campaigns.bmw.co.il/Service-forms-new/recall-bmw.html"},
+  {re:/וולוו|הונדה|לינק/, name:"מאיר", url:"https://recall.mct.co.il/"},
+  {re:/ג'?יפ/, name:"סמלת", url:"https://samelet.com/form/find-recall/jeep"},
+  {re:/פיאט/, name:"סמלת", url:"https://samelet.com/form/find-recall/fiat"},
+  {re:/אלפא/, name:"סמלת", url:"https://samelet.com/form/find-recall/alfaromeo"},
+  {re:/סובארו/, name:"סובארו ישראל", url:"https://samelet.com/form/find-recall/subaru"},
+  {re:/סוזוקי/, name:"סוזוקי ישראל", url:"https://suzuki.co.il/recall"},
+  {re:/ג'?ילי/, name:"ג'ילי ישראל", url:"https://geely.co.il/recall/"},
+  {re:/סאנג|ssang|KGM/i, name:"KGM ישראל", url:"https://kgm.co.il/" + encodeURI("קריאת-שירות") + "/"},
+  {re:/איסוזו/, name:"UTI", url:"https://www.uti.co.il/recall/"},
+  {re:/שברולט/, name:"שברולט ישראל", url:"https://www.chevrolet.co.il/" + encodeURI("שירות-שברולט/שירות-recall") + "/", note:"אצל שברולט זה טופס פנייה (מבקשים גם צילום רישיון), ולא בדיקה מיידית."},
+  {re:/פורשה/, name:"פורשה ישראל", url:"https://www.porsche.co.il/", note:"בעמוד הבית של פורשה, בתחתית העמוד: \"קריאות שירות לרכבי פורשה\"."},
+  {re:/טסלה/, name:"טסלה", url:"https://service.tesla.com/he-IL/vin-recall-search", vin:true, note:"טסלה בודקת לפי מספר שלדה (VIN) ולא לפי מספר רישוי. מספר השלדה מופיע בלשונית הפרטים."},
 ];
 function importerRecall(D){
   const m = String(D.v.tozeret_nm || "");
   const hit = IMPORTER_RECALL.find(x => x.re.test(m));
   if (hit) return hit;
   const who = D.pick(D.price && D.price.shem_yevuan, D.modelRecalls[0] && D.modelRecalls[0].YEVUAN_TEUR, D.make);
-  return {name: who, url: "https://www.google.com/search?q=" + encodeURIComponent(`${who} בדיקת ריקול לפי מספר רישוי`), search: true};
+  return {name: who, url: "https://www.gov.il/he/departments/dynamiccollectors/cars-recall?skip=0", gov: true};
 }
 const norm = s => String(s || "").toUpperCase().replace(/[^A-Z0-9֐-׿]/g, "");
 function isBlocking(r){ return /הגבל|מגביל|חסימ|חוסם/.test([r.SUG_RECALL, r.SUG_TAKALA, r.TEUR_TAKALA].join(" ")); }
@@ -1003,8 +1046,8 @@ function tabRecalls(D){
   const imp = importerRecall(D);
   html.push(card("בדיקה באתר היבואן", "search", "teal",
     `<p style="margin:0">היבואנים מציגים באתר שלהם גם קמפיינים ותיקונים שלא תמיד מופיעים במאגר של משרד התחבורה. הבדיקה נעשית באתר היבואן: מספר הרישוי יועתק, ותדביקו אותו שם.</p>
-     <button type="button" class="link-btn" data-url="${esc(imp.url)}" data-copyfirst="${D.plate}">${ico(imp.search ? "google" : "search")}${imp.search ? `חיפוש עמוד בדיקת הריקולים של ${esc(imp.name)}` : `בדיקת ריקולים וקמפיינים באתר ${esc(imp.name)}`}</button>
-     ${imp.search ? `<p class="note">אין לי עדיין קישור מאומת לעמוד הבדיקה של היבואן הזה, ולכן הכפתור פותח חיפוש.</p>` : ""}`));
+     <button type="button" class="link-btn" data-url="${esc(imp.url)}" data-copyfirst="${imp.vin ? esc(D.vin || D.plate) : D.plate}">${ico("search")}${imp.gov ? "חיפוש במאגר הריקולים של משרד התחבורה" : `בדיקת ריקולים וקמפיינים באתר ${esc(imp.name)}`}</button>
+     ${imp.gov ? `<p class="note">ל${esc(imp.name || "יבואן הזה")} לא מצאתי עמוד בדיקה לפי מספר רישוי. במאגר של משרד התחבורה מחפשים לפי יצרן ודגם.</p>` : imp.note ? `<p class="note">${esc(imp.note)}</p>` : ""}`));
   if (D.modelRecalls.length) {
     const fits = D.modelRecalls.filter(r => r.fits !== false);
     html.push(card("היסטוריית ריקולים לדגם", "clock", "blue",
@@ -1036,12 +1079,12 @@ function tabCosts(D){
         <div><div class="k">צריכה משוערת</div><div class="v">${c.l100.toFixed(1)}<span class="u">ליטר ל-100 ק״מ</span></div></div>
         <div><div class="k">${c.fuelYear ? "עלות דלק בשנה" : "ליטרים בשנה"}</div><div class="v">${c.fuelYear ? fmtN(Math.round(c.fuelYear / 100) * 100) : fmtN(Math.round(c.litres))}<span class="u">${c.fuelYear ? "₪" : "ליטר"}</span></div></div>
       </div>
-      <p class="note">לפי פליטת ה-CO₂ של הדגם ו-${fmtN(c.kmYear)} ק״מ בשנה (${c.kmFromCar ? "הממוצע של הרכב הזה" : "ממוצע ארצי"})${c.fuelPrice ? `, במחיר ${c.fuelPrice.toFixed(2)} ₪ לליטר` : ""}. נסיעה אמיתית צורכת בדרך כלל יותר מהנתון הרשמי.${c.kind === "diesel" && !c.fuelPrice ? " כדי לראות עלות בשקלים, הגדירו מחיר סולר בהגדרות." : " אפשר לשנות את מחיר הדלק בהגדרות."}</p>` :
+      <p class="note">לפי פליטת ה-CO₂ של הדגם ו-${fmtN(c.kmYear)} ק״מ בשנה (${c.kmFromCar ? "הממוצע של הרכב הזה" : "ממוצע ארצי"})${c.fuelPrice ? `, במחיר ${c.fuelPrice.toFixed(2)} ₪ לליטר${c.fuelMonth ? ` (${monthHe(c.fuelMonth)})` : ""}` : ""}. נסיעה אמיתית צורכת בדרך כלל יותר מהנתון הרשמי.${c.kind === "diesel" && !c.fuelPrice ? " כדי לראות עלות בשקלים, הגדירו מחיר סולר בהגדרות." : " אפשר לשנות את מחיר הדלק בהגדרות."}</p>` :
     `<p style="margin:0">אין במאגר נתוני פליטה לדגם הזה, ולכן אין הערכת צריכה.</p>`;
   html.push(card("דלק", "fuel", "red", fuelInner));
   html.push(card("אגרת רישוי שנתית", "doc", "violet", c.fee ?
     `<div class="tow-grid"><div><div class="k">הערכה</div><div class="v">${fmtN(c.fee)}<span class="u">₪</span></div></div><div><div class="k">קבוצת מחיר</div><div class="v">${c.feeGroup}<span class="u">מתוך 7</span></div></div></div>
-     <p class="note">לפי תעריפי אפריל 2026 לרכב פרטי, כולל 135 ₪ לרשות השידור. הנחות (נכים, משרתי מילואים ועוד) לא נכללות.</p>
+     <p class="note">לפי התעריף הרשמי לרכב פרטי שבתוקף מ-1 באפריל 2026, כולל 135 ₪ לרשות השידור. האגרה מתעדכנת פעם בשנה, באפריל${new Date() >= new Date(2027, 3, 1) ? ", וייתכן שכבר עודכנה מאז" : ""}. הנחות (נכים, משרתי מילואים ועוד) לא נכללות.</p>
      <button type="button" class="link-btn" data-url="${FEE_SOURCE}">${ico("doc")}טבלת האגרות הרשמית של משרד התחבורה</button>` :
     `<p style="margin:0">לא נמצאה קבוצת אגרה לרכב הזה. ההערכה זמינה לרכב פרטי בלבד.</p>`));
   html.push(card("שווי משוער", "tag", "pink", (c.newPrice ?
@@ -1740,6 +1783,7 @@ document.addEventListener("keydown", ev => { if (ev.key === "Escape") { sheet.hi
 $("#clearRecent").addEventListener("click", () => { store.set("recentPlates", []); toast("היסטוריית החיפושים נמחקה"); if (!current) renderHome(); });
 $("#clearSaved").addEventListener("click", () => { store.set("savedVehicles", []); toast("הרכבים השמורים נמחקו"); if (!current) renderHome(); });
 $("#ver").textContent = APP_VERSION;
+showFuelDefaults(); loadFuel();
 ["fuelPrice","dieselPrice"].forEach(id => {
   const el = $("#" + id); try { el.value = localStorage.getItem(id) || ""; } catch {}
   el.addEventListener("change", () => {
