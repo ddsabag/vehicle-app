@@ -703,7 +703,9 @@ function costs(D){
 /* Importer recall-check pages (verified on the importers' own sites). The plate is copied before opening,
    because these pages have no public API and do not accept the plate in the link. */
 const IMPORTER_RECALL = [
-  {re:/יונדאי|מיצובישי|מרצדס|סמארט|ג'?נסיס/, name:"כלמוביל", url:"https://www.colmobil.co.il/recall/"},
+  {re:/יונדאי|מיצובישי|מרצדס|סמארט|ג'?נסיס|ג'?א?קו|JAECOO|אומודה|OMODA|\bORA\b|אורה/i, name:"כלמוביל", url:"https://www.colmobil.co.il/recall/"},
+  {re:/סקודה|סיאט|פולקסווגן|פולקסוואגן|אאודי|קופרה|SKODA|SEAT|VOLKSWAGEN|AUDI|CUPRA/i, name:"צ'מפיון מוטורס", url:"https://www.championmotors.co.il/recall/"},
+  {re:/\bBYD\b|בי ?ווי ?די|ב\.?י\.?ד/i, name:"BYD ישראל", url:"https://bydauto.co.il/recall/"},
   {re:/קיה/, name:"קיה ישראל", url:"https://kia-israel.co.il/recall"},
   {re:/מאזדה/, name:"מאזדה ישראל", url:"https://www.mazda.co.il/recall"},
   {re:/טויוטה/, name:"טויוטה ישראל", url:"https://www.toyota.co.il/owners/parts-and-accessories/accessories/recall"},
@@ -730,7 +732,7 @@ const IMPORTER_RECALL = [
   {re:/טסלה/, name:"טסלה", url:"https://service.tesla.com/he-IL/vin-recall-search", vin:true, note:"טסלה בודקת לפי מספר שלדה (VIN) ולא לפי מספר רישוי. מספר השלדה מופיע בלשונית הפרטים."},
 ];
 function importerRecall(D){
-  const m = String(D.v.tozeret_nm || "");
+  const m = [D.v.tozeret_nm, D.v.kinuy_mishari, D.v.degem_nm, D.make].filter(x => !empty(x)).join(" ");
   const hit = IMPORTER_RECALL.find(x => x.re.test(m));
   if (hit) return hit;
   const who = D.pick(D.price && D.price.shem_yevuan, D.modelRecalls[0] && D.modelRecalls[0].YEVUAN_TEUR, D.make);
