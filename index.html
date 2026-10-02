@@ -193,6 +193,10 @@ footer a{color:var(--accent)}
 .link-list{display:flex;flex-direction:column;gap:8px}
 .link-btn{display:flex;align-items:center;gap:8px;color:var(--fg)}
 .link-btn svg.i{color:var(--accent)}
+.adj{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.adj li{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--line);font-size:.92rem}
+.adj li:first-child{border-top:0}
+.adj .neg{color:var(--bad)}.adj .pos{color:var(--ok)}
 .fuel-set{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .fuel-set input{width:110px;border:1px solid var(--line);background:var(--soft);color:var(--fg);border-radius:9px;padding:8px 10px;font:500 1rem var(--f-num);text-align:center}
 /* comparison */
@@ -490,10 +494,27 @@ function costs(D){
     c.feeGroup = grp; c.fee = FEE_TABLE[grp][col] + 135;
   }
   if (D.price && isNum(D.price.mehir) && !isNaN(year)) {
+    // Base: list price and an average depreciation curve. Then the app's own adjustments for
+    // mileage, number of owners and previous use, shown to the user line by line.
     const age = Math.max(0, new Date().getFullYear() - year);
     const factor = age === 0 ? 0.9 : 0.8 * Math.pow(0.88, age - 1);
-    const mid = num(D.price.mehir) * factor;
-    c.newPrice = num(D.price.mehir); c.valueLow = Math.round(mid * 0.85 / 1000) * 1000; c.valueHigh = Math.round(mid * 1.15 / 1000) * 1000; c.age = age;
+    const base = num(D.price.mehir) * factor;
+    const adj = [];
+    if (D.km && D.kmYears) {
+      const diff = D.km - AVG_KM_YEAR * D.kmYears;
+      const pct = Math.max(-20, Math.min(10, -diff / 10000 * 2.5));
+      if (Math.abs(pct) >= 1) adj.push([pct, `ק״מ: ${fmtN(Math.round(Math.abs(diff) / 1000) * 1000)} ${diff > 0 ? "מעל" : "מתחת ל"}ממוצע לגיל הרכב`]);
+    }
+    const hands = D.own.length;
+    if (hands > 1) adj.push([-Math.min(12, (hands - 1) * 3), `${D.ownersFloor ? "לפחות " : ""}${hands} רשומות בעלות`]);
+    const past = D.own.slice(0, -1).map(r => String(r.baalut || ""));
+    if (past.some(t => t.includes("השכר"))) adj.push([-7, "היה רכב השכרה"]);
+    else if (past.some(t => t.includes("ליסינג"))) adj.push([-3, "היה רכב ליסינג"]);
+    if (!empty(D.v.mkoriut_nm) && !String(D.v.mkoriut_nm).includes("מקורי")) adj.push([-10, "רכב לא מקורי"]);
+    const total = adj.reduce((a, [p]) => a + p, 0);
+    const mid = base * (1 + total / 100);
+    c.newPrice = num(D.price.mehir); c.age = age; c.baseValue = Math.round(base / 1000) * 1000; c.adj = adj;
+    c.valueLow = Math.round(mid * 0.88 / 1000) * 1000; c.valueHigh = Math.round(mid * 1.12 / 1000) * 1000;
   }
   if (D.counts && (isNum(D.counts.mispar_rechavim_pailim) || isNum(D.counts.mispar_rechavim_le_pailim))) {
     const a = num(D.counts.mispar_rechavim_pailim) || 0, gone = num(D.counts.mispar_rechavim_le_pailim) || 0;
@@ -503,6 +524,21 @@ function costs(D){
 }
 
 /* ---------- recalls ---------- */
+/* Importer recall-check pages (verified on the importers' own sites). The plate is copied before opening,
+   because these pages have no public API and do not accept the plate in the link. */
+const IMPORTER_RECALL = [
+  {re:/יונדאי|מיצובישי|מרצדס|סמארט/, name:"כלמוביל", url:"https://www.colmobil.co.il/recall/"},
+  {re:/קיה/, name:"קיה ישראל", url:"https://kia-israel.co.il/recall"},
+  {re:/מאזדה/, name:"מאזדה ישראל", url:"https://www.mazda.co.il/recall"},
+  {re:/פיג'ו|פיגו/, name:"פיג'ו ישראל", url:"https://online.peugeot.co.il/recall/"},
+];
+function importerRecall(D){
+  const m = String(D.v.tozeret_nm || "");
+  const hit = IMPORTER_RECALL.find(x => x.re.test(m));
+  if (hit) return hit;
+  const who = D.pick(D.price && D.price.shem_yevuan, D.modelRecalls[0] && D.modelRecalls[0].YEVUAN_TEUR, D.make);
+  return {name: who, url: "https://www.google.com/search?q=" + encodeURIComponent(`${who} בדיקת ריקול לפי מספר רישוי`), search: true};
+}
 const norm = s => String(s || "").toUpperCase().replace(/[^A-Z0-9֐-׿]/g, "");
 function isBlocking(r){ return /הגבל|מגביל|חסימ|חוסם/.test([r.SUG_RECALL, r.SUG_TAKALA, r.TEUR_TAKALA].join(" ")); }
 function recallYear(x){ const m = String(x || "").match(/(19|20)\d{2}/); return m ? +m[0] : null; }
@@ -779,6 +815,11 @@ function tabRecalls(D){
   } else {
     html.push(card("ריקולים פתוחים לרכב הזה", "check", "green", `<p style="margin:0">לפי המאגר אין לרכב הזה ריקול פתוח.</p>`));
   }
+  const imp = importerRecall(D);
+  html.push(card("בדיקה באתר היבואן", "search", "teal",
+    `<p style="margin:0">היבואנים מציגים באתר שלהם גם קמפיינים ותיקונים שלא תמיד מופיעים במאגר של משרד התחבורה. הבדיקה נעשית באתר היבואן: מספר הרישוי יועתק, ותדביקו אותו שם.</p>
+     <button type="button" class="link-btn" data-url="${esc(imp.url)}" data-copyfirst="${D.plate}">${ico(imp.search ? "google" : "search")}${imp.search ? `חיפוש עמוד בדיקת הריקולים של ${esc(imp.name)}` : `בדיקת ריקולים וקמפיינים באתר ${esc(imp.name)}`}</button>
+     ${imp.search ? `<p class="note">אין לי עדיין קישור מאומת לעמוד הבדיקה של היבואן הזה, ולכן הכפתור פותח חיפוש.</p>` : ""}`));
   if (D.modelRecalls.length) {
     const fits = D.modelRecalls.filter(r => r.fits !== false);
     html.push(card("היסטוריית ריקולים לדגם", "clock", "blue",
@@ -818,10 +859,13 @@ function tabCosts(D){
      <p class="note">לפי תעריפי אפריל 2026 לרכב פרטי, כולל 135 ₪ לרשות השידור. הנחות (נכים, משרתי מילואים ועוד) לא נכללות.</p>
      <button type="button" class="link-btn" data-url="${FEE_SOURCE}">${ico("doc")}טבלת האגרות הרשמית של משרד התחבורה</button>` :
     `<p style="margin:0">לא נמצאה קבוצת אגרה לרכב הזה. ההערכה זמינה לרכב פרטי בלבד.</p>`));
-  html.push(card("שווי וירידת ערך", "tag", "pink", c.newPrice ?
-    `<div class="tow-grid"><div><div class="k">מחיר מחירון כחדש</div><div class="v">${fmtN(c.newPrice)}<span class="u">₪</span></div></div><div><div class="k">שווי משוער היום</div><div class="v" style="font-size:1.2rem"><span dir="ltr" style="unicode-bidi:isolate">${fmtN(c.valueLow)}–${fmtN(c.valueHigh)}</span><span class="u">₪</span></div></div></div>
-     <p class="note">הערכה גסה בלבד לפי גיל הרכב (${c.age} שנים) וירידת ערך ממוצעת. היא לא מביאה בחשבון ק״מ, יד, מצב הרכב וביקוש לדגם. למחיר אמיתי בדקו במחירון רכב משומש.</p>` :
-    `<p style="margin:0">אין במאגר מחיר מחירון לדגם הזה, ולכן אין הערכת שווי.</p>`));
+  html.push(card("שווי משוער", "tag", "pink", (c.newPrice ?
+    `<div class="tow-grid"><div><div class="k">מחיר מחירון כחדש</div><div class="v">${fmtN(c.newPrice)}<span class="u">₪</span></div></div><div><div class="k">שווי משוער היום</div><div class="v" style="font-size:1.15rem;line-height:1.35"><span dir="ltr" style="unicode-bidi:isolate;white-space:nowrap">${fmtN(c.valueLow)}</span> עד<br><span dir="ltr" style="unicode-bidi:isolate;white-space:nowrap">${fmtN(c.valueHigh)}</span><span class="u">₪</span></div></div></div>
+     <ul class="adj"><li><span>ירידת ערך ממוצעת לגיל ${c.age} שנים</span><b class="mono">${fmtN(c.baseValue)} ₪</b></li>${c.adj.map(([p, t]) => `<li><span>${esc(t)}</span><b class="mono ${p < 0 ? "neg" : "pos"}">${p > 0 ? "+" : "−"}${Math.abs(p).toFixed(0)}%</b></li>`).join("")}</ul>
+     <p class="note">ההערכה מחושבת באפליקציה: ירידת ערך ממוצעת לפי גיל, ואחריה התאמות לק״מ (כ-2.5% לכל 10,000 ק״מ מעל או מתחת לממוצע), למספר הבעלים ולשימוש קודם בהשכרה או בליסינג. היא לא מביאה בחשבון את מצב הרכב ואת הביקוש לדגם.</p>` :
+    `<p style="margin:0">אין במאגר מחיר מחירון לדגם הזה, ולכן אין הערכת שווי.</p>`) +
+    `<button type="button" class="link-btn" data-url="https://carlistprice.mot.gov.il/" data-copyfirst="${D.plate}">${ico("tag")}מחירון העם של משרד התחבורה: מחירי עסקאות אמיתיות</button>
+     <p class="note">מחירון העם מבוסס על מחירים וק״מ שדווחו בהעברות בעלות. הוא אתר ולא מאגר פתוח, ולכן האפליקציה פותחת אותו במקום למשוך ממנו נתונים.</p>`));
   html.push(card("הדגם על הכביש", "car", "blue", c.active !== undefined ?
     facts([["רכבים פעילים מהדגם", esc(fmtN(c.active))], ["כבר לא פעילים", esc(fmtN(c.gone))], c.gonePct !== null && ["שיעור שירד מהכביש", `${c.gonePct.toFixed(1)}%`, "wide"]]) +
     `<p class="note">לפי דגם ושנת ייצור. שיעור גבוה של רכבים שירדו מהכביש ביחס לגיל הדגם יכול לרמוז על אמינות נמוכה או על תאונות, אבל הוא מושפע גם מייצוא ומפירוק רכבי צי.</p>` :
@@ -906,6 +950,7 @@ function renderCompare(){
     ["דלק בשנה (הערכה)", A.cost.fuelYear ? Math.round(A.cost.fuelYear / 100) * 100 : null, B.cost.fuelYear ? Math.round(B.cost.fuelYear / 100) * 100 : null, "lo", "₪"],
     ["אגרת רישוי (הערכה)", A.cost.fee || null, B.cost.fee || null, "lo", "₪"],
     ["מחיר מחירון כחדש", A.cost.newPrice || null, B.cost.newPrice || null, null, "₪"],
+    ["שווי משוער (אמצע הטווח)", A.cost.valueLow ? Math.round((A.cost.valueLow + A.cost.valueHigh) / 2000) * 1000 : null, B.cost.valueLow ? Math.round((B.cost.valueLow + B.cost.valueHigh) / 2000) * 1000 : null, null, "₪"],
   ];
   const fmtCell = (x, u, plain) => x === null || x === undefined || (typeof x === "number" && isNaN(x)) ? "—" : `${plain ? x : fmtN(x)}${u ? ` <span class="u">${u}</span>` : ""}`;
   const better = (a, b, dir) => { if (!dir || a === null || b === null || isNaN(a) || isNaN(b) || a === b) return [false, false]; return dir === "hi" ? [a > b, b > a] : [a < b, b < a]; };
@@ -938,7 +983,10 @@ function summaryText(D){
 $("#out").addEventListener("click", ev => {
   const b = ev.target.closest("button"); if (!b) return;
   if (b.dataset.copy) { copyText(b.dataset.copy, b.dataset.label); return; }
-  if (b.dataset.url) { openExternal(b.dataset.url); return; }
+  if (b.dataset.url) {
+    if (b.dataset.copyfirst) { copyText(b.dataset.copyfirst, "מספר הרישוי").then(() => setTimeout(() => openExternal(b.dataset.url), 600)); return; }
+    openExternal(b.dataset.url); return;
+  }
   if (b.dataset.open) { run(b.dataset.open); return; }
   if (b.dataset.unsave) { store.set("savedVehicles", store.get("savedVehicles").filter(x => x.plate !== b.dataset.unsave)); renderHome(); return; }
   if (!current) return;
