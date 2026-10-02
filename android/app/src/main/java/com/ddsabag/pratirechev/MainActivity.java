@@ -1,6 +1,8 @@
 package com.ddsabag.pratirechev;
 
 import android.app.Activity;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
@@ -58,7 +60,42 @@ public class MainActivity extends Activity {
             public void setDark(boolean dark) {
                 runOnUiThread(() -> MainActivity.this.setDark(dark));
             }
+
+            @JavascriptInterface
+            public void copy(String text) {
+                runOnUiThread(() -> {
+                    ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                    if (cm != null) cm.setPrimaryClip(ClipData.newPlainText("פרטי רכב", text));
+                });
+            }
+
+            @JavascriptInterface
+            public void share(String title, String text) {
+                runOnUiThread(() -> {
+                    Intent send = new Intent(Intent.ACTION_SEND);
+                    send.setType("text/plain");
+                    send.putExtra(Intent.EXTRA_SUBJECT, title);
+                    send.putExtra(Intent.EXTRA_TEXT, text);
+                    startActivity(Intent.createChooser(send, "שיתוף"));
+                });
+            }
+
+            @JavascriptInterface
+            public void openUrl(String url) {
+                runOnUiThread(() -> {
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                    } catch (Exception ignored) {
+                    }
+                });
+            }
         }, "AndroidApp");
+
+        // Back: let the page close settings or return to the home screen first
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                    android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, this::handleBack);
+        }
 
         WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
                 .setDomain(HOST)
@@ -88,6 +125,21 @@ public class MainActivity extends Activity {
         } else {
             webView.loadUrl(START_URL);
         }
+    }
+
+    private void handleBack() {
+        webView.evaluateJavascript("(window.appBack && window.appBack()) ? 'y' : 'n'", result -> {
+            if (result == null || !result.contains("y")) finish();
+        });
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, android.view.KeyEvent event) {
+        if (keyCode == android.view.KeyEvent.KEYCODE_BACK && android.os.Build.VERSION.SDK_INT < 33) {
+            handleBack();
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
     }
 
     private void setDark(boolean dark) {
