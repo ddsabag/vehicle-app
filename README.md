@@ -7,3 +7,9 @@
 קובץ אחד (`index.html`), בלי שרת. הדפדפן פונה ל-API של data.gov.il (CKAN `datastore_search`) ומחבר את המאגרים לפי מספר הרכב ולפי קוד היצרן, קוד הדגם ושנת הייצור.
 
 אפשר לפתוח רכב ישירות בכתובת: `https://ddsabag.github.io/vehicle-app/#1234567`
+
+## אפליקציית אנדרואיד
+
+התיקייה `android/` עוטפת את `index.html` באפליקציית אנדרואיד (WebView). כל דחיפה ל-`main` שמשנה את הדף או את `android/` בונה APK ו-AAB לא חתומים ב-GitHub Actions ומפרסמת אותם בענף `android-builds`. החתימה נעשית מחוץ ל-CI עם מפתח ההעלאה הפרטי.
+
+מדיניות פרטיות: https://ddsabag.github.io/vehicle-app/privacy.html
