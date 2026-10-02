@@ -413,7 +413,7 @@ const SYSTEMS = {
   hayshaney_lahatz_avir_batzmigim_ind:"חיישני לחץ אוויר", hayshaney_hagorot_ind:"חיישני חגורות",
   shlita_automatit_beorot_gvohim_ind:"אורות גבוהים אוטומטיים", teura_automatit_benesiya_kadima_ind:"תאורה אוטומטית",
   zihuy_tamrurey_tnua_ind:"זיהוי תמרורים", zihuy_matzav_hitkarvut_mesukenet_ind:"התרעת התקרבות מסוכנת",
-  bakarat_mehirut_isa:"בקרת מהירות חכמה", hitnagshut_cad_shetah_met:"מניעת התנגשות צד", alco_lock:"אלכו-לוק",
+  bakarat_mehirut_isa:"בקרת מהירות חכמה", hitnagshut_cad_shetah_met:"מניעת התנגשות צד", alco_lock:"הכנה לאלכו-לוק",
 };
 
 /* ---------- helpers ---------- */
@@ -509,14 +509,16 @@ function ownerKind(t){
   if (/פרטי/.test(t)) return {k: "private", pct: 0, text: "הרכב נקנה חדש מהיבואן על ידי אדם פרטי. זה המצב המועדף בשוק היד השנייה."};
   return {k: "other", pct: 0, text: ""};
 }
-/* Towing not allowed: a licence/registry remark, or model data where both towing limits are explicitly 0 */
-function towBan(D){
-  for (const [k, val] of Object.entries(D.v || {})) {
+/* Towing not allowed: only when the model data writes both towing limits as 0 (the maker approved no towing).
+   A "no" in the registration's towing field means no hook is fitted, not that towing is forbidden. */
+function towBan(D){ return !D.tSrc && D.zeroTow ? {from: "model"} : null; }
+/* The registration's own towing-hook field, whatever its exact name in the dataset */
+function hookField(v){
+  for (const [k, val] of Object.entries(v || {})) {
     if (!/grira|gerira|vav/i.test(k) || /kosher_grira/i.test(k) || empty(val)) continue;
     const t = String(val).trim();
-    if (/אסור|ללא|אין|^לא$|לא מותר|לא לגרירה/.test(t)) return {from: "licence", text: t};
+    return {text: t, none: /^(0|לא|אין|ללא)$|ללא|אין|לא מותקן/.test(t)};
   }
-  if (!D.tSrc && D.zeroTow) return {from: "model", text: ""};
   return null;
 }
 const hasTow = r => r && (isNum(r.kosher_grira_im_blamim) && num(r.kosher_grira_im_blamim) > 0 || isNum(r.kosher_grira_bli_blamim) && num(r.kosher_grira_bli_blamim) > 0);
@@ -787,7 +789,7 @@ function buildInsights(D){
   else if (fk && fk.k === "special") add("warn", `התחיל את דרכו כ${fo}`, fk.text);
   else if (fk && fk.k === "company" && !/חברה/.test(logText)) add("info", "התחיל את דרכו כרכב חברה", fk.text);
   const ban = towBan(D);
-  if (ban) add("warn", "אסור להתקין וו גרירה", ban.from === "licence" ? `ברישום הרכב מופיע: "${ban.text}". אי אפשר לאשר לרכב הזה וו גרירה.` : "לפי נתוני הדגם, כושר הגרירה שאושר ליצרן הוא 0. לכן אי אפשר לרשום לרכב וו גרירה, וגרירה אסורה.");
+  if (ban) add("warn", "אסור להתקין וו גרירה", "לפי נתוני הדגם, כושר הגרירה שאושר ליצרן הוא 0. לכן אי אפשר לרשום לרכב וו גרירה, וגרירה אסורה.");
   if (yes(v.shinui_mivne_ind)) add("warn", "בוצע שינוי מבנה", "שינוי מבנה דורש אישור ורישום. כדאי לברר מה שונה.");
   if (yes(v.gapam_ind)) add("warn", "הותקנה מערכת גפ״מ", "הרכב הוסב לנסיעה על גז.");
   if (yes(v.shnui_zeva_ind)) add("info", "הצבע שונה", "צבע הרכב שונה מהצבע המקורי. לפעמים זה סימן לתיקון פחחות.");
@@ -901,9 +903,10 @@ function tabOverview(D){
   const tv = x => isNum(x) && num(x) > 0 ? fmtN(x) : "—";
   const towNote = [];
   if (D.towRow && !empty(D.towRow.shnat_yitzur) && num(D.towRow.shnat_yitzur) !== num(v.shnat_yitzur)) towNote.push(`לפי נתוני הדגם משנת ${esc(D.towRow.shnat_yitzur)}, כי לשנת הייצור של הרכב אין נתון.`);
-  if (!empty(v.grira_nm)) towNote.push(`ברישיון הרכב: גרירה ${esc(v.grira_nm)}.`);
+  const hook = hookField(v);
+  if (hook && !towBan(D)) towNote.push(hook.none ? "לפי רישום הרכב, כרגע לא מותקן בו וו גרירה." : `לפי רישום הרכב מותקן בו וו גרירה (${esc(hook.text)}).`);
   const ban = towBan(D);
-  html.push(card("כמה מותר לגרור", "tow", "amber", `${ban ? `<div class="tow-ban">${ico("alert")}<div><b>אסור להתקין וו גרירה</b><span>${ban.from === "licence" ? `ברישום הרכב מופיע: "${esc(ban.text)}".` : "לפי נתוני הדגם במשרד התחבורה, כושר הגרירה המותר הוא 0 ק״ג עם בלמים ובלי בלמים. היצרן לא אישר גרירה, ולכן אי אפשר לרשום לרכב וו גרירה."}</span></div></div>` : D.tSrc ? `<div class="tow-grid">
+  html.push(card("כמה מותר לגרור", "tow", "amber", `${ban ? `<div class="tow-ban">${ico("alert")}<div><b>אסור להתקין וו גרירה</b><span>לפי נתוני הדגם במשרד התחבורה, כושר הגרירה המותר הוא 0 ק״ג עם בלמים ובלי בלמים. היצרן לא אישר גרירה, ולכן אי אפשר לרשום לרכב וו גרירה.</span></div></div>` : D.tSrc ? `<div class="tow-grid">
       <div><div class="k">עם בלמים</div><div class="v">${tv(tb)}<span class="u">ק״ג</span></div></div>
       <div><div class="k">בלי בלמים</div><div class="v">${tv(tu)}<span class="u">ק״ג</span></div></div>
     </div>` : `<p style="margin:0">אין במאגר של משרד התחבורה נתוני גרירה לדגם הזה.</p>`}
@@ -1041,7 +1044,8 @@ function tabSpecs(D){
   html.push(card("בטיחות", "shield", "green", facts([
     ["ניקוד בטיחות", e(w.nikud_betihut)], ["רמת אבזור בטיחותי", empty(safetyLvl) ? "" : `${esc(safetyLvl)} מתוך 8`],
     ["כריות אוויר", e(w.mispar_kariot_avir)],
-  ]) + (present.length ? `<div class="systems">${present.map(s => `<span>${esc(s)}</span>`).join("")}</div>` : "")));
+  ]) + (present.length ? `<div class="systems">${present.map(s => `<span>${esc(s)}</span>`).join("")}</div>` : "")
+    + (yes(w.alco_lock) ? `<p class="note">הכנה לאלכו-לוק: ברכב יש חיבור מוכן להתקנת מנעול אלכוהול, מכשיר שהנהג נושף לתוכו ושלא מאפשר להתניע אחרי שתיית אלכוהול. החיבור נדרש בכל רכב חדש. המכשיר עצמו מותקן רק כשצריך, למשל לנהג שבית משפט חייב.</p>` : "")));
   const zihum = D.pick(v.kvutzat_zihum, w.kvutzat_zihum);
   html.push(card("סביבה", "leaf", "leaf", facts([
     ["קבוצת זיהום", empty(zihum) ? "" : `${esc(zihum)} <span class="note">(1 הנקי ביותר, 15 המזהם ביותר)</span>`, "wide"],
