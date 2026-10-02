@@ -253,6 +253,8 @@ section[style*="--n:3"] .cmp-k{font-size:.76rem}
 .msearch input,.msearch select{min-width:0;border:1px solid var(--line);border-radius:10px;background:var(--soft);color:var(--fg);font:inherit;padding:10px 12px}
 .msearch input{flex:1}
 .msearch select{flex:0 0 auto;max-width:112px}
+.msearch .go2{flex:0 0 auto;width:46px;border:0;border-radius:10px;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center}
+.insp .row .copy-btn{flex:0 0 auto}
 .go.sm{width:48px;height:auto;min-height:46px}
 #mres .row small{color:var(--muted);display:block}
 #mres .row > svg.i{margin-inline-start:auto;color:var(--muted)}
@@ -318,6 +320,7 @@ body.land .band{display:none}
   <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></symbol>
   <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V16h8v-1.3A7 7 0 0 0 12 2z"/></symbol>
   <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-6"/></symbol>
   <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
   <symbol id="i-tow" viewBox="0 0 24 24"><path d="M3 16h11V8H3zM14 11h4l3 3v2h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></symbol>
@@ -547,10 +550,10 @@ function firstOwner(v){ const t = String(v.mkoriut_nm || "").trim(); return t ||
 /* Plain meaning of each first-ownership type, and how much it usually costs in resale value */
 function ownerKind(t){
   t = String(t || "");
-  if (/השכר/.test(t)) return {k: "rental", pct: -7, text: "הרכב שימש חברת השכרה, עם נהגים רבים לתקופות קצרות. זה מוריד את ערך הרכב יותר מכל סוג בעלות אחר."};
-  if (/ליסינג|החכר|חכיר/.test(t)) return {k: "lease", pct: -3, text: "הרכב נקנה על ידי חברת ליסינג והוחכר לנהג או לחברה לתקופה ארוכה, לרוב 3 שנים."};
-  if (/מונית|ממשל|סיור|תיור|הסעה|לימוד/.test(t)) return {k: "special", pct: -8, text: "הרכב שימש לשימוש ייעודי (" + t + "). שימוש כזה מוריד את ערך הרכב."};
-  if (/חברה|חברת|תאגיד/.test(t)) return {k: "company", pct: -3, text: "הרכב נרשם על שם חברה, לרוב כרכב תפעולי של העסק ולא כליסינג."};
+  if (/השכר/.test(t)) return {k: "rental", pct: -22, text: "הרכב שימש חברת השכרה, עם נהגים רבים לתקופות קצרות. זה מוריד את ערך הרכב יותר מכל סוג בעלות אחר."};
+  if (/ליסינג|החכר|חכיר/.test(t)) return {k: "lease", pct: -17, text: "הרכב נקנה על ידי חברת ליסינג והוחכר לנהג או לחברה לתקופה ארוכה, לרוב 3 שנים."};
+  if (/מונית|ממשל|סיור|תיור|הסעה|לימוד/.test(t)) return {k: "special", pct: -30, text: "הרכב שימש לשימוש ייעודי (" + t + "). שימוש כזה מוריד את ערך הרכב."};
+  if (/חברה|חברת|תאגיד/.test(t)) return {k: "company", pct: -8, text: "הרכב נרשם על שם חברה, לרוב כרכב תפעולי של העסק ולא כליסינג."};
   if (/פרטי/.test(t)) return {k: "private", pct: 0, text: "הרכב נקנה חדש מהיבואן על ידי אדם פרטי. זה המצב המועדף בשוק היד השנייה."};
   return {k: "other", pct: 0, text: ""};
 }
@@ -674,29 +677,36 @@ function costs(D){
     c.feeGroup = grp; c.fee = FEE_TABLE[grp][col] + 135;
   }
   if (D.price && isNum(D.price.mehir) && !isNaN(year)) {
-    // Base: list price and an average depreciation curve. Then the app's own adjustments for
-    // mileage, number of owners and previous use, shown to the user line by line.
+    // Base: list price and an average depreciation curve (first year steeper; electric and luxury cars
+    // lose value faster, per published Israeli market figures). Then adjustments in the way the trade
+    // price lists apply them: compounded one after another, past use counted in full when it was the
+    // car's first ownership and at half when it came later, history capped at 40%, mileage last.
     const age = Math.max(0, new Date().getFullYear() - year);
-    const factor = age === 0 ? 0.9 : 0.8 * Math.pow(0.88, age - 1);
+    const lux = num(D.price.mehir) > 300000, ev = kind === "ev";
+    const [y1, yr] = ev ? [0.80, 0.87] : lux ? [0.76, 0.86] : [0.85, 0.90];
+    const factor = age === 0 ? (1 + y1) / 2 : y1 * Math.pow(yr, age - 1);
     const base = num(D.price.mehir) * factor;
     const adj = [];
+    // first ownership: the registry's "מקוריות" field; failing that the oldest ownership record, unless the log
+    // starts after the car's first years (it begins in 2017), when that record may not be the first owner
+    const fo = ownerKind(firstOwner(D.v));
+    const first = fo.k !== "other" ? fo : !D.ownersFloor ? ownerKind(D.own[0] && D.own[0].baalut) : fo;
+    let hist = 0;
+    if (first.pct < 0) { adj.push([first.pct, {rental: "התחיל כרכב השכרה", lease: "התחיל כרכב ליסינג", special: "התחיל בשימוש ייעודי", company: "התחיל כרכב חברה"}[first.k]]); hist += first.pct; }
+    const later = D.own.slice(first === fo && fo.k !== "other" || !D.ownersFloor ? 1 : 0, -1).map(r => ownerKind(r.baalut)).filter(o => o.pct < 0 && o.k !== first.k).sort((a, b) => a.pct - b.pct)[0];
+    if (later) { const p = Math.round(later.pct / 2); adj.push([p, {rental: "היה בהמשך רכב השכרה", lease: "היה בהמשך רכב ליסינג", special: "היה בהמשך בשימוש ייעודי", company: "היה בהמשך רכב חברה"}[later.k]]); hist += p; }
+    if (hist < -40) { adj.forEach(a => a[0] = Math.round(a[0] * 40 / -hist)); }
+    const hands = D.own.length;
+    if (hands > 1) adj.push([-Math.min(16, (hands - 1) * 4), `${D.ownersFloor ? "לפחות " : ""}${hands} רשומות בעלות`]);
+    else if (hands === 1 && first.k === "private") adj.push([1, "יד ראשונה פרטית"]);
     if (D.km && D.kmYears) {
       const diff = D.km - AVG_KM_YEAR * D.kmYears;
-      const pct = Math.max(-20, Math.min(10, -diff / 10000 * 2.5));
+      const pct = Math.round(Math.max(-8, Math.min(6, -diff / 10000 * 1.5)));
       if (Math.abs(pct) >= 1) adj.push([pct, `ק״מ: ${fmtN(Math.round(Math.abs(diff) / 1000) * 1000)} ${diff > 0 ? "מעל" : "מתחת"} לממוצע לגיל הרכב`]);
     }
-    const hands = D.own.length;
-    if (hands > 1) adj.push([-Math.min(12, (hands - 1) * 3), `${D.ownersFloor ? "לפחות " : ""}${hands} רשומות בעלות`]);
-    // the worst past use counts once: from the ownership log or from the first ownership type
-    const past = D.own.slice(0, -1).map(r => String(r.baalut || "")).concat(firstOwner(D.v) || []).map(ownerKind).filter(o => o.pct < 0);
-    if (past.length) {
-      const worst = past.sort((a, b) => a.pct - b.pct)[0];
-      adj.push([worst.pct, {rental: "היה רכב השכרה", lease: "היה רכב ליסינג", special: "היה בשימוש ייעודי", company: "היה רכב חברה"}[worst.k]]);
-    }
-    const total = adj.reduce((a, [p]) => a + p, 0);
-    const mid = base * (1 + total / 100);
+    const mid = adj.reduce((v, [p]) => v * (1 + p / 100), base);
     c.newPrice = num(D.price.mehir); c.age = age; c.baseValue = Math.round(base / 1000) * 1000; c.adj = adj;
-    c.valueLow = Math.round(mid * 0.88 / 1000) * 1000; c.valueHigh = Math.round(mid * 1.12 / 1000) * 1000;
+    c.valueLow = Math.round(mid * 0.9 / 1000) * 1000; c.valueHigh = Math.round(mid * 1.1 / 1000) * 1000;
   }
   if (D.counts && (isNum(D.counts.mispar_rechavim_pailim) || isNum(D.counts.mispar_rechavim_le_pailim))) {
     const a = num(D.counts.mispar_rechavim_pailim) || 0, gone = num(D.counts.mispar_rechavim_le_pailim) || 0;
@@ -1093,8 +1103,8 @@ function tabCosts(D){
     `<p style="margin:0">לא נמצאה קבוצת אגרה לרכב הזה. ההערכה זמינה לרכב פרטי בלבד.</p>`));
   html.push(card("שווי משוער", "tag", "pink", (c.newPrice ?
     `<div class="tow-grid"><div><div class="k">מחיר מחירון כחדש</div><div class="v">${fmtN(c.newPrice)}<span class="u">₪</span></div></div><div><div class="k">שווי משוער היום</div><div class="v"><span dir="ltr" style="unicode-bidi:isolate;white-space:nowrap">${Math.round(c.valueLow / 1000)}–${Math.round(c.valueHigh / 1000)}</span><span class="u">אלף ₪</span></div></div></div>
-     <ul class="adj"><li><span>ירידת ערך ממוצעת לגיל ${c.age} שנים</span><b class="mono">${fmtN(c.baseValue)} ₪</b></li>${c.adj.map(([p, t]) => `<li><span>${esc(t)}</span><b class="mono ${p < 0 ? "neg" : "pos"}">${p > 0 ? "+" : "−"}${Math.abs(p).toFixed(0)}%</b></li>`).join("")}</ul>
-     <p class="note">ההערכה מחושבת באפליקציה: ירידת ערך ממוצעת לפי גיל, ואחריה התאמות לק״מ (כ-2.5% לכל 10,000 ק״מ מעל או מתחת לממוצע), למספר הבעלים ולשימוש קודם בהשכרה או בליסינג. היא לא מביאה בחשבון את מצב הרכב ואת הביקוש לדגם.</p>` :
+     <ul class="adj"><li><span>שווי ממוצע לרכב בגיל ${c.age} (לפני התאמות)</span><b class="mono">${fmtN(c.baseValue)} ₪</b></li>${c.adj.map(([p, t]) => `<li><span>${esc(t)}</span><b class="mono ${p < 0 ? "neg" : "pos"}">${p > 0 ? "+" : "−"}${Math.abs(p).toFixed(0)}%</b></li>`).join("")}</ul>
+     <p class="note">ההערכה מחושבת באפליקציה, בשיטה שדומה למחירונים המקצועיים: ירידת ערך ממוצעת לפי גיל (מהירה יותר ברכב חשמלי ויוקרתי), ואחריה התאמות זו אחר זו לשימוש קודם (מלא אם זו הייתה הבעלות הראשונה, חצי אם הגיעה מאוחר יותר), למספר הידיים ולק״מ. היא לא מביאה בחשבון את מצב הרכב, תאונות והביקוש לדגם, ולכן היא הערכה בלבד.</p>` :
     `<p style="margin:0">אין במאגר מחיר מחירון לדגם הזה, ולכן אין הערכת שווי.</p>`) +
     `<button type="button" class="link-btn" data-url="https://carlistprice.mot.gov.il/" data-copyfirst="${D.plate}">${ico("tag")}מחירון העם: מחירי עסקאות אמיתיות</button>
      <p class="note">מחירון העם מבוסס על מחירים וק״מ שדווחו בהעברות בעלות. הוא אתר ולא מאגר פתוח, ולכן האפליקציה פותחת אותו במקום למשוך ממנו נתונים.</p>`));
@@ -1102,8 +1112,35 @@ function tabCosts(D){
     facts([["רכבים פעילים מהדגם", esc(fmtN(c.active))], ["כבר לא פעילים", esc(fmtN(c.gone))], c.gonePct !== null && ["שיעור שירד מהכביש", `${c.gonePct.toFixed(1)}%`, "wide"]]) +
     `<p class="note">לפי דגם ושנת ייצור. שיעור גבוה של רכבים שירדו מהכביש ביחס לגיל הדגם יכול לרמוז על אמינות נמוכה או על תאונות, אבל הוא מושפע גם מייצוא ומפירוק רכבי צי.</p>` :
     `<p style="margin:0">אין במאגר נתוני כמויות לדגם הזה.</p>`));
+  html.push(card("לפני שקונים", "check", "green",
+    `<p style="margin:0">שלושה דברים שכדאי לעשות לפני שסוגרים עסקה:</p>
+     <button type="button" class="link-btn" data-url="https://www.gov.il/apps/police/stolencar/" data-copyfirst="${D.plate}">${ico("search")}בדיקה במאגר הרכבים הגנובים (משטרה)</button>
+     <button type="button" class="link-btn" data-url="https://car.cma.gov.il/">${ico("doc")}השוואת מחירי ביטוח חובה</button>
+     <div class="insp"><p class="note" style="margin:0 0 6px">מכוני בדיקה לפני קנייה, מתוך רשימת המוסכים המורשים של משרד התחבורה:</p>
+       <form class="msearch" data-insp><input id="inspCity" placeholder="עיר, למשל חולון" value="${esc(setting("inspCity", ""))}" aria-label="עיר"><button type="submit" class="go sm" aria-label="חיפוש">${ico("search")}</button></form>
+       <div id="inspRes" style="margin-top:10px"></div></div>`));
   return html.join("");
 }
+
+/* pre-purchase inspection centres from the ministry's licensed-garage list, by city */
+const GARAGES = "bb68386a-a331-4bbc-b668-bba2766d517d";
+async function findInspection(city){
+  const out = $("#inspRes"); if (!out) return;
+  city = city.trim(); if (!city) { out.innerHTML = ""; return; }
+  try { localStorage.setItem("inspCity", city); } catch {}
+  out.innerHTML = `<p class="note">מחפש…</p>`;
+  const words = searchWords(city);
+  let rows = await dsSearch(GARAGES, words, {miktzoa: "בדיקות-רכב )קניה ומכירה)"}, 50).catch(() => []);
+  if (!rows.length) rows = (await dsSearch(GARAGES, words.concat("בדיקות"), null, 100).catch(() => [])).filter(r => /בדיק/.test(r.miktzoa || "") && /קני|מכיר/.test(r.miktzoa || ""));
+  const want = city.replace(/[-\s]/g, "");
+  rows = rows.filter(r => String(r.yishuv || "").replace(/[-\s]/g, "").includes(want) || !r.yishuv);
+  const seen = new Set(); rows = rows.filter(r => { const k = r.mispar_mosah || r.shem_mosah; if (seen.has(k)) return false; seen.add(k); return true; });
+  out.innerHTML = rows.length ? `<div class="list">${rows.slice(0, 15).map(r => {
+      const tel = String(r.telephone || "").replace(/[^\d+]/g, "");
+      return `<div class="row"><span class="t"><b>${esc(r.shem_mosah || "מכון בדיקה")}</b><small>${esc([r.ktovet, r.yishuv].filter(x => !empty(x)).join(", "))}</small></span>${tel.length >= 9 ? `<button type="button" class="copy-btn" data-url="tel:${tel}">${ico("phone")}חיוג</button>` : ""}</div>`;
+    }).join("")}</div>` : `<p class="note">לא מצאתי מכון בדיקה ב${esc(city)}. נסו עיר קרובה או שם אחר לעיר (למשל "תל אביב יפו").</p>`;
+}
+document.addEventListener("submit", ev => { if (ev.target.matches("[data-insp]")) { ev.preventDefault(); findInspection($("#inspCity").value); } });
 
 function tabSpecs(D){
   const v = D.v, w = D.w, html = [];
