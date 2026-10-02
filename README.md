@@ -1,4 +1,4 @@
-# פרטי רכב
+# CheckCar · פרטי רכב
 
 איתור פרטי רכב לפי מספר רישוי, ישירות מהמאגרים הפתוחים של משרד התחבורה ב-[data.gov.il](https://data.gov.il/dataset?organization=ministry_of_transport).
 

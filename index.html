@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#ffffff">
-<title>פרטי רכב</title>
+<title>CheckCar · פרטי רכב</title>
 <meta name="description" content="כל הפרטים על רכב לפי מספר רישוי, ממאגרי משרד התחבורה">
 <script>
 /* Background choice: light (default), dark, or follow the phone. Kept in this browser only. */
@@ -80,6 +80,13 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .card{background:var(--card);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0;box-shadow:var(--shadow)}
 .head{display:flex;align-items:center;gap:10px}
 .head h2{margin:0;font-size:1.02rem;font-weight:800}
+.head[data-fold]{cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;margin:-6px;padding:6px;border-radius:12px}
+.head[data-fold]:focus-visible{outline:2px solid var(--tc)}
+.head .chev{margin-inline-start:auto;color:var(--muted);transition:transform .2s}
+.head .count + .chev{margin-inline-start:0}
+.fold-body{display:flex;flex-direction:column;gap:12px;min-width:0}
+.card.folded .fold-body{display:none}
+.card.folded .chev{transform:rotate(90deg)}
 .head .badge{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:var(--tc);background:var(--tb)}
 .head .count{margin-inline-start:auto;font-size:.8rem;font-weight:700;color:var(--tc);background:var(--tb);padding:2px 9px;border-radius:999px}
 .blue{--tc:var(--t-blue);--tb:var(--t-blue-bg)} .violet{--tc:var(--t-violet);--tb:var(--t-violet-bg)} .teal{--tc:var(--t-teal);--tb:var(--t-teal-bg)}
@@ -235,6 +242,7 @@ footer a{color:var(--accent)}
   <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 4 13c0-6 7-10 16-10 0 9-4 16-10 16"/><path d="M4 21c4-4 7-7 11-10"/></symbol>
   <symbol id="i-id" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 10h4M6 14h8M16 10h2"/></symbol>
   <symbol id="i-tag" viewBox="0 0 24 24"><path d="M20.6 13.4L13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
   <symbol id="i-compare" viewBox="0 0 24 24"><path d="M8 3v18M16 3v18M3 8h5M16 16h5M3 16h5M16 8h5"/></symbol>
   <symbol id="i-fuel" viewBox="0 0 24 24"><path d="M3 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18M3 22h12M6 6h6v5H6zM15 10h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V8l-3-3"/></symbol>
@@ -244,7 +252,7 @@ footer a{color:var(--accent)}
 <div class="band">
   <div class="band-in">
     <div class="brand">
-      <h1>פרטי רכב <small>ממאגרי משרד התחבורה</small></h1>
+      <h1>CheckCar <small>פרטי רכב ממאגרי משרד התחבורה</small></h1>
       <button class="icon-btn" id="openSettings" type="button" aria-label="הגדרות"><svg class="i"><use href="#i-gear"/></svg></button>
     </div>
     <form id="f" autocomplete="off">
@@ -426,7 +434,13 @@ function facts(list){
     .map(([k, v, cls]) => `<div class="${cls||""}"><dt>${esc(k)}</dt><dd>${v}</dd></div>`);
   return items.length ? `<dl class="facts">${items.join("")}</dl>` : "";
 }
-const card = (title, icon, color, inner, extra) => inner ? `<section class="card ${color}"><div class="head"><span class="badge">${ico(icon)}</span><h2>${esc(title)}</h2>${extra||""}</div>${inner}</section>` : "";
+const foldKey = t => "fold:" + t;
+const isFolded = t => { try { return localStorage.getItem(foldKey(t)) === "1"; } catch { return false; } };
+const card = (title, icon, color, inner, extra) => {
+  if (!inner) return "";
+  const closed = isFolded(title);
+  return `<section class="card ${color}${closed ? " folded" : ""}"><div class="head" role="button" tabindex="0" aria-expanded="${!closed}" data-fold="${esc(title)}"><span class="badge">${ico(icon)}</span><h2>${esc(title)}</h2>${extra||""}<svg class="i chev" aria-hidden="true"><use href="#i-chev"/></svg></div><div class="fold-body">${inner}</div></section>`;
+};
 const e = v => empty(v) ? "" : esc(v);
 const unit = (v, u) => empty(v) ? "" : `${esc(fmtN(v))} ${u}`;
 const mono = v => empty(v) ? "" : `<span class="mono">${esc(v)}</span>`;
@@ -503,7 +517,7 @@ function costs(D){
     if (D.km && D.kmYears) {
       const diff = D.km - AVG_KM_YEAR * D.kmYears;
       const pct = Math.max(-20, Math.min(10, -diff / 10000 * 2.5));
-      if (Math.abs(pct) >= 1) adj.push([pct, `ק״מ: ${fmtN(Math.round(Math.abs(diff) / 1000) * 1000)} ${diff > 0 ? "מעל" : "מתחת ל"}ממוצע לגיל הרכב`]);
+      if (Math.abs(pct) >= 1) adj.push([pct, `ק״מ: ${fmtN(Math.round(Math.abs(diff) / 1000) * 1000)} ${diff > 0 ? "מעל" : "מתחת"} לממוצע לגיל הרכב`]);
     }
     const hands = D.own.length;
     if (hands > 1) adj.push([-Math.min(12, (hands - 1) * 3), `${D.ownersFloor ? "לפחות " : ""}${hands} רשומות בעלות`]);
@@ -980,7 +994,14 @@ function summaryText(D){
   return lines.join("\n");
 }
 
+function toggleFold(h){
+  const c = h.closest(".card"); const closed = c.classList.toggle("folded");
+  h.setAttribute("aria-expanded", String(!closed));
+  try { closed ? localStorage.setItem(foldKey(h.dataset.fold), "1") : localStorage.removeItem(foldKey(h.dataset.fold)); } catch {}
+}
+$("#out").addEventListener("keydown", ev => { const h = ev.target.closest && ev.target.closest("[data-fold]"); if (h && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); toggleFold(h); } });
 $("#out").addEventListener("click", ev => {
+  const h = ev.target.closest("[data-fold]"); if (h && !ev.target.closest("button")) { toggleFold(h); return; }
   const b = ev.target.closest("button"); if (!b) return;
   if (b.dataset.copy) { copyText(b.dataset.copy, b.dataset.label); return; }
   if (b.dataset.url) {
