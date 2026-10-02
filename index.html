@@ -52,6 +52,7 @@
   --t-green:#6ad49b; --t-green-bg:#12301f; --t-leaf:#a8d46a; --t-leaf-bg:#243014; --t-pink:#f08fbd; --t-pink-bg:#3a1a2a;
   --shadow:none; color-scheme:dark}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 var(--f-body);min-height:100vh}
 button{font:inherit;cursor:pointer;color:inherit}
@@ -207,10 +208,46 @@ footer a{color:var(--accent)}
 .fuel-set{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .fuel-set input{width:110px;border:1px solid var(--line);background:var(--soft);color:var(--fg);border-radius:9px;padding:8px 10px;font:500 1rem var(--f-num);text-align:center}
 /* comparison */
-.cmp{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.cmp-h{display:flex;flex-direction:column;gap:4px;align-items:flex-start;background:var(--soft);border-radius:12px;padding:10px;min-width:0}
+.cmp{display:grid;grid-template-columns:minmax(68px,.85fr) repeat(var(--n),minmax(0,1fr));gap:6px;align-items:stretch}
+.cmp-h{position:relative}
+.cmp-h b{font-size:.92rem;line-height:1.25;word-break:normal;overflow-wrap:normal;hyphens:none}
+.cmp-h .mini-plate{font-size:.7rem;white-space:nowrap;padding:1px 4px 1px 2px;gap:3px;max-width:100%}
+.cmp-h .mini-plate i{width:5px}
+.cmp[style],.cmp-table{font-size:.95rem}
+section[style*="--n:3"] .cmp-v{font-size:.82rem}
+section[style*="--n:3"] .cmp-h b{font-size:.8rem}
+section[style*="--n:3"] .cmp-h small{font-size:.72rem}
+section[style*="--n:3"] .cmp-k{font-size:.76rem}
+.cmp-h .x{position:absolute;inset-inline-end:4px;top:4px;width:26px;height:26px;border:0;border-radius:8px;background:transparent;color:var(--muted);display:grid;place-items:center}
+.cmp-h .x svg.i{width:16px;height:16px}
+.cmp-h .tag{font-size:.72rem;font-weight:700;color:var(--t-violet);background:var(--t-violet-bg);border-radius:999px;padding:0 8px}
+.cmp-add{border:2px dashed var(--line);background:transparent;border-radius:12px;color:var(--accent);font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px}
+.cmp-sec{grid-column:1/-1;font-weight:800;font-size:.85rem;color:var(--tc);padding-top:14px!important}
+.in-alt{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.in-btn{display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--band-line);background:transparent;border-radius:10px;padding:9px 8px;font-weight:700;color:var(--band-fg)}
+.in-btn[aria-busy="true"]{opacity:.6}
+.in-btn[aria-pressed="true"]{background:var(--bad);color:#fff;border-color:var(--bad)}
+.in-msg{margin:0;font-size:.9rem;color:var(--band-muted)}
+.seg.two{grid-template-columns:1fr 1fr}
+.msearch{display:flex;gap:8px}
+.msearch input,.msearch select{min-width:0;border:1px solid var(--line);border-radius:10px;background:var(--soft);color:var(--fg);font:inherit;padding:10px 12px}
+.msearch input{flex:1}
+.msearch select{flex:0 0 auto;max-width:112px}
+.go.sm{width:48px;height:auto;min-height:46px}
+#mres .row small{color:var(--muted);display:block}
+.share-opts .row{padding:12px}
+.share-opts small{color:var(--muted);display:block;font-size:.85rem}
+.badge-s{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;flex:0 0 auto;color:var(--tc);background:var(--tb)}
+.report{position:fixed;left:-10000px;top:0;width:430px;background:var(--bg);padding:16px;display:flex;flex-direction:column;gap:12px}
+.report .actions,.report .chev,.report .link-btn,.report [data-url],.report [data-copy]{display:none!important}
+.report .tabs{display:none}
+.rep-head{display:flex;justify-content:space-between;align-items:baseline;padding:0 4px}
+.rep-head b{font-size:1.3rem;font-weight:800}.rep-head span{color:var(--muted);font-size:.85rem}
+.rep-sec{margin:8px 4px 0;font-size:1.05rem;font-weight:800;color:var(--accent)}
+.rep-foot{color:var(--muted);font-size:.78rem;padding:0 4px}
+.cmp-h{display:flex;flex-direction:column;gap:4px;align-items:flex-start;background:var(--soft);border-radius:12px;padding:30px 8px 10px;min-width:0}
 .cmp-h b{overflow-wrap:anywhere}.cmp-h small{color:var(--muted)}
-.cmp-table{display:grid;grid-template-columns:minmax(90px,1.1fr) 1fr 1fr;gap:0}
+.cmp-table{display:grid;grid-template-columns:minmax(68px,.85fr) repeat(var(--n),minmax(0,1fr));gap:0 6px}
 .cmp-table>div{padding:8px 6px;border-top:1px solid var(--line);min-width:0;overflow-wrap:anywhere}
 .cmp-k{font-size:.85rem;color:var(--muted)}
 .cmp-v{font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:normal!important;font-size:.95rem}
@@ -220,7 +257,7 @@ footer a{color:var(--accent)}
 </style>
 </head>
 <body>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<svg id="sprite" width="0" height="0" style="position:absolute" aria-hidden="true">
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.8-4.8"/></symbol>
   <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
   <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></symbol>
@@ -242,6 +279,10 @@ footer a{color:var(--accent)}
   <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 4 13c0-6 7-10 16-10 0 9-4 16-10 16"/><path d="M4 21c4-4 7-7 11-10"/></symbol>
   <symbol id="i-id" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 10h4M6 14h8M16 10h2"/></symbol>
   <symbol id="i-tag" viewBox="0 0 24 24"><path d="M20.6 13.4L13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 1 2-2h2.5l1.5-2h6l1.5 2H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="4"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
   <symbol id="i-compare" viewBox="0 0 24 24"><path d="M8 3v18M16 3v18M3 8h5M16 16h5M3 16h5M16 8h5"/></symbol>
@@ -262,6 +303,12 @@ footer a{color:var(--accent)}
       </label>
       <button class="go" id="go" type="submit" aria-label="חיפוש"><svg class="i"><use href="#i-search"/></svg></button>
     </form>
+    <div class="in-alt">
+      <button type="button" class="in-btn" id="camBtn"><svg class="i"><use href="#i-camera"/></svg>צילום לוחית</button>
+      <button type="button" class="in-btn" id="micBtn"><svg class="i"><use href="#i-mic"/></svg>אמירת המספר</button>
+      <input type="file" id="camFile" accept="image/*" hidden>
+    </div>
+    <p class="in-msg" id="inMsg" role="status" hidden></p>
   </div>
 </div>
 <main id="out" aria-live="polite"></main>
@@ -287,19 +334,37 @@ footer a{color:var(--accent)}
 </div>
 <div class="sheet" id="compareSheet" hidden role="dialog" aria-modal="true" aria-labelledby="cmpTitle">
   <div class="sheet-in">
-    <div class="sheet-head"><h2 id="cmpTitle">השוואה לרכב אחר</h2><button class="icon-btn" type="button" id="closeCompareSheet" aria-label="סגירה"><svg class="i"><use href="#i-x"/></svg></button></div>
-    <form id="cf" autocomplete="off" style="display:flex;gap:10px">
-      <label class="plate" for="plate2"><span class="il" aria-hidden="true"><span>IL</span><span>ישראל</span></span><input id="plate2" inputmode="numeric" placeholder="12-345-67" maxlength="10" aria-label="מספר רישוי של הרכב השני" enterkeyhint="search"></label>
-      <button class="go" id="go2" type="submit" aria-label="השוואה"><svg class="i"><use href="#i-search"/></svg></button>
+    <div class="sheet-head"><h2 id="cmpTitle">הוספת רכב להשוואה</h2><button class="icon-btn" type="button" id="closeCompareSheet" aria-label="סגירה"><svg class="i"><use href="#i-x"/></svg></button></div>
+    <div class="seg two" role="group" aria-label="איך להוסיף"><button type="button" data-cmp-mode="model">לפי דגם</button><button type="button" data-cmp-mode="plate">לפי מספר רישוי</button></div>
+    <form id="mf" class="msearch" autocomplete="off">
+      <input id="mq" type="search" placeholder="יצרן או דגם: טויוטה, קורולה, TUCSON…" aria-label="יצרן או דגם" enterkeyhint="search">
+      <select id="my" aria-label="שנת ייצור"><option value="">כל השנים</option></select>
+      <button class="go sm" type="submit" aria-label="חיפוש דגם"><svg class="i"><use href="#i-search"/></svg></button>
+    </form>
+    <form id="cf" autocomplete="off" style="display:flex;gap:10px" hidden>
+      <label class="plate" for="plate2"><span class="il" aria-hidden="true"><span>IL</span><span>ישראל</span></span><input id="plate2" inputmode="numeric" placeholder="12-345-67" maxlength="10" aria-label="מספר רישוי של הרכב להשוואה" enterkeyhint="search"></label>
+      <button class="go" id="go2" type="submit" aria-label="הוספה להשוואה"><svg class="i"><use href="#i-search"/></svg></button>
     </form>
     <p class="note" id="compareMsg" role="status"></p>
+    <div class="list" id="mres"></div>
+  </div>
+</div>
+<div class="sheet" id="shareSheet" hidden role="dialog" aria-modal="true" aria-labelledby="shareTitle">
+  <div class="sheet-in">
+    <div class="sheet-head"><h2 id="shareTitle">שיתוף הדוח</h2><button class="icon-btn" type="button" id="closeShare" aria-label="סגירה"><svg class="i"><use href="#i-x"/></svg></button></div>
+    <div class="list share-opts">
+      <button type="button" class="row" data-share="image"><span class="badge-s blue"><svg class="i"><use href="#i-image"/></svg></span><span class="t"><b>תמונה</b><small>צילום של הדוח כפי שהוא על המסך, לשליחה בוואטסאפ</small></span></button>
+      <button type="button" class="row" data-share="pdf"><span class="badge-s red"><svg class="i"><use href="#i-doc"/></svg></span><span class="t"><b>קובץ PDF</b><small>דוח מלא: סקירה, ריקולים, עלויות ומפרט</small></span></button>
+      <button type="button" class="row" data-share="text"><span class="badge-s slate"><svg class="i"><use href="#i-copy"/></svg></span><span class="t"><b>טקסט</b><small>סיכום קצר בהודעה</small></span></button>
+    </div>
+    <p class="note" id="shareMsg" role="status"></p>
   </div>
 </div>
 <div class="toast" id="toast" hidden role="status"></div>
 
 <script>
 "use strict";
-const APP_VERSION = "1.2";
+const APP_VERSION = "1.3";
 const SITE = "https://ddsabag.github.io/vehicle-app/";
 const API = "https://data.gov.il/api/3/action/datastore_search";
 
@@ -458,10 +523,11 @@ async function copyText(t, label){
   if (!ok) try { const ta = document.createElement("textarea"); ta.value = t; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); ok = document.execCommand("copy"); ta.remove(); } catch {}
   toast(ok ? `${label || "הטקסט"} הועתק` : "לא הצלחתי להעתיק");
 }
-async function shareText(title, text, url){
-  try { if (bridge() && bridge().share) { bridge().share(title, text + "\n" + url); return; } } catch {}
-  if (navigator.share) { try { await navigator.share({title, text, url}); return; } catch (err) { if (err && err.name === "AbortError") return; } }
-  copyText(text + "\n" + url, "הסיכום");
+async function shareText(title, text){
+  text += "\n\nמקור: מאגרי משרד התחבורה, דרך CheckCar";
+  try { if (bridge() && bridge().share) { bridge().share(title, text); return; } } catch {}
+  if (navigator.share) { try { await navigator.share({title, text}); return; } catch (err) { if (err && err.name === "AbortError") return; } }
+  copyText(text, "הסיכום");
 }
 function openExternal(url){
   try { if (bridge() && bridge().openUrl) { bridge().openUrl(url); return; } } catch {}
@@ -568,25 +634,8 @@ function matchModelRecalls(rows, v){
     .sort((a, b) => String(b.TAARICH_PTICHA).localeCompare(String(a.TAARICH_PTICHA)));
 }
 
-/* ---------- fetch one vehicle ---------- */
-async function fetchVehicle(plate, signal, onProgress){
-  const res = {}; let done = 0;
-  await Promise.all(PLATE_SETS.map(async s => {
-    try { res[s.key] = {rows: await byPlate(s, plate, signal)}; }
-    catch (err) { if (err.name === "AbortError") throw err; res[s.key] = {rows: [], err: err.message}; }
-    if (onProgress) onProgress(++done / (PLATE_SETS.length + 1));
-  }));
-  const errs = PLATE_SETS.filter(s => res[s.key].err);
-  const mains = PLATE_SETS.filter(s => s.role === "main" && res[s.key].rows.length);
-  const extras = PLATE_SETS.filter(s => s.role === "extra" && res[s.key].rows.length);
-  if (errs.length === PLATE_SETS.length) return {plate, offline: true};
-  if (!mains.length && !extras.length) return {plate, notFound: true};
-
-  const v = {};
-  const fill = r => { for (const [k,x] of Object.entries(r)) if (empty(v[k]) && !empty(x)) v[k] = x; };
-  mains.forEach(s => fill(res[s.key].rows[0]));
-  ["cont","tech"].forEach(k => res[k].rows[0] && fill(res[k].rows[0]));
-
+/* Model-level data (specs, towing, counts, price list, recalls) for a maker + model code */
+async function fetchModelData(v, signal){
   let w = {}, towRow = null, counts = null, price = null, modelRecalls = [];
   if (!empty(v.tozeret_cd) && !empty(v.degem_cd)) {
     const recallsByMaker = (async () => {
@@ -609,6 +658,29 @@ async function fetchVehicle(plate, signal, onProgress){
     price = rankRows(c, v)[0] || null;
     modelRecalls = matchModelRecalls(r, v);
   }
+  return {w, towRow, counts, price, modelRecalls};
+}
+
+/* ---------- fetch one vehicle ---------- */
+async function fetchVehicle(plate, signal, onProgress){
+  const res = {}; let done = 0;
+  await Promise.all(PLATE_SETS.map(async s => {
+    try { res[s.key] = {rows: await byPlate(s, plate, signal)}; }
+    catch (err) { if (err.name === "AbortError") throw err; res[s.key] = {rows: [], err: err.message}; }
+    if (onProgress) onProgress(++done / (PLATE_SETS.length + 1));
+  }));
+  const errs = PLATE_SETS.filter(s => res[s.key].err);
+  const mains = PLATE_SETS.filter(s => s.role === "main" && res[s.key].rows.length);
+  const extras = PLATE_SETS.filter(s => s.role === "extra" && res[s.key].rows.length);
+  if (errs.length === PLATE_SETS.length) return {plate, offline: true};
+  if (!mains.length && !extras.length) return {plate, notFound: true};
+
+  const v = {};
+  const fill = r => { for (const [k,x] of Object.entries(r)) if (empty(v[k]) && !empty(x)) v[k] = x; };
+  mains.forEach(s => fill(res[s.key].rows[0]));
+  ["cont","tech"].forEach(k => res[k].rows[0] && fill(res[k].rows[0]));
+
+  const {w, towRow, counts, price, modelRecalls} = await fetchModelData(v, signal);
   const pick = (...vals) => vals.find(x => !empty(x));
   const own = res.owners.rows.slice().sort((a,b) => String(a.baalut_dt).localeCompare(String(b.baalut_dt)));
   const recalls = res.recall.rows.map(r => ({...r, detail: modelRecalls.find(m => String(m.RECALL_ID) === String(r.RECALL_ID)) || null}));
@@ -722,6 +794,7 @@ async function lookup(raw){
 const loadingHtml = plate => `<div class="msg"><p class="note" style="margin-bottom:10px">מחפש את <span class="mono">${fmtPlate(plate)}</span> במאגרי משרד התחבורה…</p><div class="progress"><i id="bar"></i></div></div>`;
 
 function renderResult(){
+  inCompare = false;
   const D = current, v = D.v, w = D.w;
   const html = [];
   const exp = toDate(v.tokef_dt);
@@ -924,62 +997,194 @@ function tabSpecs(D){
   return html.join("");
 }
 
-/* ---------- comparison ---------- */
-let compareB = null;
-function openCompare(){
-  const sheet = $("#compareSheet"); sheet.hidden = false;
-  $("#plate2").value = ""; $("#compareMsg").textContent = ""; $("#plate2").focus();
+/* ---------- model search ---------- */
+/* Commercial names are stored in English (COROLLA) and makers in Hebrew (טויוטה), so common
+   Hebrew model names and English maker names are translated before searching. */
+const MODEL_ALIASES = {"קורולה":"COROLLA","קאמרי":"CAMRY","יאריס":"YARIS","ראב":"RAV4","ראב4":"RAV4","סי-אייצ'אר":"C-HR","פריוס":"PRIUS","היילנדר":"HIGHLANDER","לנד":"LAND",
+  "טוסון":"TUCSON","איוניק":"IONIQ","אלנטרה":"ELANTRA","i10":"I10","i20":"I20","i30":"I30","סונטה":"SONATA","סנטה":"SANTA","קונה":"KONA","באיון":"BAYON",
+  "ספורטאז'":"SPORTAGE","ספורטאז":"SPORTAGE","פיקנטו":"PICANTO","ריו":"RIO","סיד":"CEED","נירו":"NIRO","סורנטו":"SORENTO","סטוניק":"STONIC","סלטוס":"SELTOS",
+  "אוקטביה":"OCTAVIA","פביה":"FABIA","קודיאק":"KODIAQ","קארוק":"KAROQ","סופרב":"SUPERB","קאמיק":"KAMIQ","סקאלה":"SCALA","אניאק":"ENYAQ",
+  "גולף":"GOLF","פולו":"POLO","טיגואן":"TIGUAN","פאסאט":"PASSAT","טי-רוק":"T-ROC","ג'טה":"JETTA","ג'ולי":"GEELY",
+  "סוויפט":"SWIFT","ויטרה":"VITARA","בלנו":"BALENO","איגניס":"IGNIS","קרוס":"CROSS","ג'ימני":"JIMNY","SX4":"SX4",
+  "מאזדה3":"MAZDA3","CX5":"CX-5","אקליפס":"ECLIPSE","אאוטלנדר":"OUTLANDER","ספייס":"SPACE","אטראז'":"ATTRAGE","מיראז'":"MIRAGE",
+  "סיוויק":"CIVIC","ג'אז":"JAZZ","אקורד":"ACCORD","HRV":"HR-V","CRV":"CR-V",
+  "קשקאי":"QASHQAI","ג'וק":"JUKE","מיקרה":"MICRA","אקס-טרייל":"X-TRAIL","ליף":"LEAF","טידה":"TIIDA","נוט":"NOTE",
+  "אסטרה":"ASTRA","קורסה":"CORSA","מוקה":"MOKKA","גרנדלנד":"GRANDLAND","קליאו":"CLIO","קפצ'ור":"CAPTUR","מגאן":"MEGANE","סנדרו":"SANDERO","דאסטר":"DUSTER","ג'וגר":"JOGGER",
+  "ספייסטאר":"SPACE","פוקוס":"FOCUS","פיאסטה":"FIESTA","קוגה":"KUGA","פומה":"PUMA","מוסטנג":"MUSTANG","טסלה":"TESLA","מודל":"MODEL",
+  "אטו":"ATTO","דולפין":"DOLPHIN","סיל":"SEAL","טאנג":"TANG","יואן":"YUAN","גלקסי":"GALAXY","קודה":"KODA"};
+const MAKE_ALIASES = {toyota:"טויוטה",hyundai:"יונדאי",kia:"קיה",mazda:"מאזדה",skoda:"סקודה",volkswagen:"פולקסווגן",vw:"פולקסווגן",suzuki:"סוזוקי",mitsubishi:"מיצובישי",
+  honda:"הונדה",nissan:"ניסאן",renault:"רנו",dacia:"דאצ'יה",peugeot:"פיג'ו",citroen:"סיטרואן",opel:"אופל",ford:"פורד",chevrolet:"שברולט",seat:"סיאט",cupra:"קופרה",
+  bmw:"ב.מ.וו",mercedes:"מרצדס",audi:"אאודי",volvo:"וולוו",lexus:"לקסוס",subaru:"סובארו",tesla:"טסלה",byd:"בי.ווי.די",geely:"ג'ילי",chery:"צ'רי",mg:"אם.ג'י",
+  jeep:"ג'יפ",fiat:"פיאט",mini:"מיני",porsche:"פורשה",jaguar:"יגואר",land:"לנד",isuzu:"איסוזו",ssangyong:"סאנגיונג",lynk:"לינק",polestar:"פולסטאר",smart:"סמארט"};
+function searchWords(text){
+  return String(text).trim().split(/\s+/).filter(Boolean)
+    .map(t => MODEL_ALIASES[t] || MAKE_ALIASES[t.toLowerCase()] || t)
+    .map(t => t.replace(/[&|!:*()'"\\<>]/g, "")).filter(Boolean);
+}
+async function dsSearch(id, words, filters, limit, signal){
+  const base = {resource_id: id, limit: String(limit)};
+  if (filters) base.filters = JSON.stringify(filters);
+  const tries = [
+    {q: words.map(w => w + ":*").join(" & "), plain: "false", sort: "shnat_yitzur desc"},
+    {q: words.join(" "), sort: "shnat_yitzur desc"},
+    {q: words.join(" ")},
+  ];
+  for (const t of tries) {
+    try {
+      const r = await fetch(`${API}?${new URLSearchParams({...base, ...t})}`, {signal, headers: {Accept: "application/json"}});
+      const j = await r.json();
+      if (j.success && j.result.records.length) return j.result.records;
+    } catch (err) { if (err.name === "AbortError") throw err; }
+  }
+  return [];
+}
+const rowMake = r => { let n = String(r.tozeret_nm || r.tozar || "").trim(); const c = String(r.tozeret_eretz_nm || "").trim(); if (c && n.endsWith(" " + c)) n = n.slice(0, -c.length - 1); return n; };
+const rowModel = r => String(r.kinuy_mishari || r.degem_nm || "").trim();
+const rowLabel = r => [rowMake(r), rowModel(r)].filter(Boolean).join(" ");
+const rowKey = r => [r.tozeret_cd, r.degem_cd, r.shnat_yitzur, r.ramat_gimur].map(x => String(x ?? "").trim()).join("|");
+async function searchModels(text, year, signal){
+  const words = searchWords(text); if (!words.length) return [];
+  const f = year ? {shnat_yitzur: Number(year)} : null;
+  let rows = await dsSearch(MODEL_SETS.wltp, words, f, 400, signal);
+  if (!rows.length) rows = await dsSearch(MODEL_SETS.price, words, f, 400, signal);
+  const seen = new Map();
+  for (const r of rows) { if (empty(r.tozeret_cd) || empty(r.degem_cd)) continue; const k = rowKey(r); if (!seen.has(k)) seen.set(k, r); }
+  return [...seen.values()]
+    .sort((a, b) => (num(b.shnat_yitzur) || 0) - (num(a.shnat_yitzur) || 0) || rowLabel(a).localeCompare(rowLabel(b), "he"))
+    .slice(0, 80);
+}
+/* A model (not a specific car) shaped like a vehicle, so costs and the comparison treat both alike */
+async function fetchModel(r, signal){
+  const v = {...r, sug_degem: r.sug_degem || "P"};
+  const md = await fetchModelData(v, signal);
+  const pick = (...vals) => vals.find(x => !empty(x));
+  const w = Object.keys(md.w).length ? md.w : r;
+  const D = {kind: "model", plate: null, key: rowKey(r), v, ...md, w, tSrc: md.towRow || (hasTow(r) ? r : null),
+    own: [], ownersFloor: false, recalls: [], tag: null, pick, make: rowMake(r), model: rowModel(r), km: null, kmYears: null, kmPerYear: null,
+    title: rowLabel(r) || "דגם", sub: [r.shnat_yitzur, pick(r.ramat_gimur, w.ramat_gimur)].filter(x => !empty(x)).join(" · ")};
+  D.cost = costs(D);
+  return D;
+}
+
+/* ---------- comparison (up to 3 cars or models) ---------- */
+const CMP_MAX = 3;
+let cmp = [], inCompare = false, cmpMode = "model", mResults = [], mCtrl = null;
+function openCompare(mode){
+  cmpMode = mode || cmpMode;
+  $("#compareSheet").hidden = false; $("#compareMsg").textContent = "";
+  $("#mq").value = ""; $("#mres").innerHTML = ""; mResults = [];
+  setCmpMode(cmpMode);
+}
+function setCmpMode(m){
+  cmpMode = m;
+  document.querySelectorAll("[data-cmp-mode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.cmpMode === m)));
+  $("#mf").hidden = m !== "model"; $("#mres").hidden = m !== "model"; $("#cf").hidden = m !== "plate";
+  $("#compareMsg").textContent = "";
+  if (m === "model") { $("#mq").focus(); } else { $("#plate2").value = ""; $("#plate2").focus(); }
+}
+function addToCompare(D){
+  const id = x => x.plate || x.key;
+  if (cmp.some(x => id(x) === id(D))) { $("#compareMsg").textContent = "הרכב הזה כבר בהשוואה."; return false; }
+  cmp.push(D); if (cmp.length > CMP_MAX) cmp.shift();
+  $("#compareSheet").hidden = true; renderCompare(); window.scrollTo({top: 0});
+  return true;
+}
+async function runModelSearch(){
+  const q = $("#mq").value.trim(), year = $("#my").value, msg = $("#compareMsg"), list = $("#mres");
+  if (q.length < 2) { msg.textContent = "הקלידו לפחות 2 אותיות של יצרן או דגם."; list.innerHTML = ""; return; }
+  if (mCtrl) mCtrl.abort(); mCtrl = new AbortController(); const signal = mCtrl.signal;
+  msg.textContent = "מחפש…";
+  try {
+    mResults = await searchModels(q, year, signal);
+    if (signal.aborted) return;
+    msg.textContent = mResults.length ? `${mResults.length >= 80 ? "80+" : mResults.length} דגמים. בחרו דגם להוספה להשוואה.` : "לא נמצאו דגמים. נסו שם אחר, למשל שם הדגם באנגלית.";
+    list.innerHTML = mResults.map((r, i) => {
+      const bits = [r.shnat_yitzur, r.ramat_gimur, isNum(r.koah_sus) ? `${fmtN(r.koah_sus)} כ״ס` : "", r.delek_nm, r.merkav].filter(x => !empty(x));
+      return `<button type="button" class="row" data-mi="${i}"><span class="t"><b>${esc(rowLabel(r))}</b><small>${esc(bits.join(" · "))}</small></span></button>`;
+    }).join("");
+  } catch (err) { if (err.name !== "AbortError") msg.textContent = "החיפוש נכשל. בדקו את החיבור ונסו שוב."; }
+}
+async function pickModel(i){
+  const r = mResults[i]; if (!r) return;
+  const msg = $("#compareMsg"); msg.textContent = `טוען את ${rowLabel(r)}…`;
+  try { addToCompare(await fetchModel(r)); }
+  catch (err) { msg.textContent = "הטעינה נכשלה. נסו שוב."; }
 }
 async function runCompare(raw){
   const plate = digits(raw).replace(/^0+(?=\d{5})/, "");
   const msg = $("#compareMsg");
   if (plate.length < 5 || plate.length > 8) { msg.textContent = "מספר רישוי צריך להכיל 5 עד 8 ספרות."; return; }
-  if (plate === current.plate) { msg.textContent = "זה אותו רכב. הקלידו מספר של רכב אחר."; return; }
   msg.textContent = "מחפש…"; $("#go2").disabled = true;
   try {
     const D = await fetchVehicle(plate, undefined);
     if (D.offline) { msg.textContent = "אין חיבור למאגרים כרגע."; return; }
     if (D.notFound) { msg.textContent = "לא נמצא רכב עם המספר הזה."; return; }
-    compareB = D; $("#compareSheet").hidden = true; renderCompare(); window.scrollTo({top: 0});
+    addToCompare(D);
   } catch (err) { msg.textContent = "החיפוש נכשל. נסו שוב."; }
   finally { $("#go2").disabled = false; }
 }
 function renderCompare(){
-  const A = current, B = compareB;
-  const tow = (D, k) => D.tSrc && isNum(D.tSrc[k]) && num(D.tSrc[k]) > 0 ? num(D.tSrc[k]) : null;
-  // [label, valueA, valueB, which is better: "hi" | "lo" | null, unit]
+  inCompare = true;
+  const L = cmp, n = L.length;
+  const anyCar = L.some(D => D.kind !== "model");
+  const N = x => x === null || x === undefined || x === "" || (typeof x === "number" && isNaN(x)) ? null : x;
+  const nf = (o, k) => o && isNum(o[k]) && num(o[k]) > 0 ? num(o[k]) : null;
+  const tow = (D, k) => D.tSrc ? nf(D.tSrc, k) : null;
+  const gear = D => empty(D.w.automatic_ind) ? "" : yes(D.w.automatic_ind) ? "אוטומטית" : "ידנית";
+  // [label, value(D), better: "hi" | "lo" | null, unit, plain, carOnly]  — a string label alone opens a section
   const rows = [
-    ["שנת ייצור", num(A.v.shnat_yitzur), num(B.v.shnat_yitzur), "hi", "", true],
-    ["ק״מ בטסט האחרון", A.km, B.km, "lo"],
-    ["ק״מ לשנה", A.kmPerYear, B.kmPerYear, "lo"],
-    ["רשומות בעלות", A.own.length || null, B.own.length || null, "lo"],
-    ["ריקולים פתוחים", A.recalls.length, B.recalls.length, "lo"],
-    ["גרירה עם בלמים", tow(A, "kosher_grira_im_blamim"), tow(B, "kosher_grira_im_blamim"), "hi", "ק״ג"],
-    ["גרירה בלי בלמים", tow(A, "kosher_grira_bli_blamim"), tow(B, "kosher_grira_bli_blamim"), "hi", "ק״ג"],
-    ["כוח", isNum(A.w.koah_sus) ? num(A.w.koah_sus) : null, isNum(B.w.koah_sus) ? num(B.w.koah_sus) : null, "hi", "כ״ס"],
-    ["נפח מנוע", num(A.pick(A.v.nefach_manoa, A.w.nefah_manoa)) || null, num(B.pick(B.v.nefach_manoa, B.w.nefah_manoa)) || null, null, "סמ״ק"],
-    ["רמת אבזור בטיחותי", num(A.pick(A.v.ramat_eivzur_betihuty, A.w.ramat_eivzur_betihuty)), num(B.pick(B.v.ramat_eivzur_betihuty, B.w.ramat_eivzur_betihuty)), "hi"],
-    ["כריות אוויר", isNum(A.w.mispar_kariot_avir) ? num(A.w.mispar_kariot_avir) : null, isNum(B.w.mispar_kariot_avir) ? num(B.w.mispar_kariot_avir) : null, "hi"],
-    ["קבוצת זיהום", num(A.pick(A.v.kvutzat_zihum, A.w.kvutzat_zihum)), num(B.pick(B.v.kvutzat_zihum, B.w.kvutzat_zihum)), "lo"],
-    ["דלק בשנה (הערכה)", A.cost.fuelYear ? Math.round(A.cost.fuelYear / 100) * 100 : null, B.cost.fuelYear ? Math.round(B.cost.fuelYear / 100) * 100 : null, "lo", "₪"],
-    ["אגרת רישוי (הערכה)", A.cost.fee || null, B.cost.fee || null, "lo", "₪"],
-    ["מחיר מחירון כחדש", A.cost.newPrice || null, B.cost.newPrice || null, null, "₪"],
-    ["שווי משוער (אמצע הטווח)", A.cost.valueLow ? Math.round((A.cost.valueLow + A.cost.valueHigh) / 2000) * 1000 : null, B.cost.valueLow ? Math.round((B.cost.valueLow + B.cost.valueHigh) / 2000) * 1000 : null, null, "₪"],
+    "מחיר ועלויות",
+    ["מחיר מחירון כחדש", D => D.cost.newPrice || null, null, "₪"],
+    ["שווי משוער היום", D => D.cost.valueLow ? Math.round((D.cost.valueLow + D.cost.valueHigh) / 2000) * 1000 : null, null, "₪"],
+    ["ליטר ל-100 ק״מ (הערכה)", D => D.cost.l100 ? Math.round(D.cost.l100 * 10) / 10 : null, "lo", "", true],
+    ["דלק בשנה (הערכה)", D => D.cost.fuelYear ? Math.round(D.cost.fuelYear / 100) * 100 : null, "lo", "₪"],
+    ["אגרת רישוי (הערכה)", D => D.cost.fee || null, "lo", "₪"],
+    "מנוע וגרירה",
+    ["שנת ייצור", D => num(D.v.shnat_yitzur), "hi", "", true],
+    ["כוח (כ״ס)", D => nf(D.w, "koah_sus"), "hi", ""],
+    ["נפח מנוע (סמ״ק)", D => num(D.pick(D.v.nefach_manoa, D.w.nefah_manoa)) || null, null, ""],
+    ["דלק", D => D.pick(D.v.sug_delek_nm, D.w.delek_nm)],
+    ["תיבת הילוכים", gear],
+    ["הנעה", D => D.w.hanaa_nm],
+    ["גרירה עם בלמים (ק״ג)", D => tow(D, "kosher_grira_im_blamim"), "hi", ""],
+    ["גרירה בלי בלמים (ק״ג)", D => tow(D, "kosher_grira_bli_blamim"), "hi", ""],
+    "מרכב ובטיחות",
+    ["מרכב", D => D.w.merkav],
+    ["מושבים", D => nf(D.w, "mispar_moshavim"), null, ""],
+    ["משקל כולל (ק״ג)", D => nf(D.w, "mishkal_kolel"), null, ""],
+    ["רמת אבזור בטיחותי", D => num(D.pick(D.v.ramat_eivzur_betihuty, D.w.ramat_eivzur_betihuty)), "hi"],
+    ["כריות אוויר", D => nf(D.w, "mispar_kariot_avir"), "hi"],
+    ["קבוצת זיהום", D => num(D.pick(D.v.kvutzat_zihum, D.w.kvutzat_zihum)), "lo"],
+    "אמינות",
+    ["ריקולים לדגם", D => D.modelRecalls.filter(r => r.fits !== false).length, "lo"],
+    ["רכבים כאלה על הכביש", D => D.cost.active || null, null, ""],
+    ["ירדו מהכביש", D => D.cost.gonePct === null || D.cost.gonePct === undefined ? null : Math.round(D.cost.gonePct * 10) / 10, "lo", "%", true],
+    ...(anyCar ? ["הרכב הספציפי",
+      ["ק״מ בטסט האחרון", D => D.km, "lo", "", false, true],
+      ["ק״מ לשנה", D => D.kmPerYear, "lo", "", false, true],
+      ["רשומות בעלות", D => D.own.length || null, "lo", "", false, true],
+      ["ריקולים פתוחים", D => D.recalls.length, "lo", "", false, true],
+      ["טסט בתוקף עד", D => D.v.tokef_dt ? fmtDate(D.v.tokef_dt) : "", null, "", false, true],
+      ["מקוריות", D => D.v.mkoriut_nm, null, "", false, true]] : []),
   ];
-  const fmtCell = (x, u, plain) => x === null || x === undefined || (typeof x === "number" && isNaN(x)) ? "—" : `${plain ? x : fmtN(x)}${u ? ` <span class="u">${u}</span>` : ""}`;
-  const better = (a, b, dir) => { if (!dir || a === null || b === null || isNaN(a) || isNaN(b) || a === b) return [false, false]; return dir === "hi" ? [a > b, b > a] : [a < b, b < a]; };
-  const textRows = [
-    ["דלק", A.pick(A.v.sug_delek_nm, A.w.delek_nm), B.pick(B.v.sug_delek_nm, B.w.delek_nm)],
-    ["תיבת הילוכים", empty(A.w.automatic_ind) ? "" : yes(A.w.automatic_ind) ? "אוטומטית" : "ידנית", empty(B.w.automatic_ind) ? "" : yes(B.w.automatic_ind) ? "אוטומטית" : "ידנית"],
-    ["טסט בתוקף עד", A.v.tokef_dt && fmtDate(A.v.tokef_dt), B.v.tokef_dt && fmtDate(B.v.tokef_dt)],
-    ["מקוריות", A.v.mkoriut_nm, B.v.mkoriut_nm],
-  ];
-  const head = D => `<div class="cmp-h"><span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span><b>${esc(D.title)}</b><small>${esc(D.sub)}</small></div>`;
-  $("#out").innerHTML = `<section class="card blue"><div class="head"><span class="badge">${ico("compare")}</span><h2>השוואה בין שני רכבים</h2><button type="button" class="count" data-act="closeCompare" style="border:0">חזרה</button></div>
-    <div class="cmp">${head(A)}${head(B)}</div>
-    <div class="cmp-table">${rows.map(([k, a, b, dir, u, plain]) => { const [ga, gb] = better(a, b, dir); return `<div class="cmp-k">${esc(k)}</div><div class="cmp-v${ga ? " win" : ""}">${fmtCell(a, u, plain)}</div><div class="cmp-v${gb ? " win" : ""}">${fmtCell(b, u, plain)}</div>`; }).join("")}
-    ${textRows.map(([k, a, b]) => `<div class="cmp-k">${esc(k)}</div><div class="cmp-v">${empty(a) ? "—" : esc(a)}</div><div class="cmp-v">${empty(b) ? "—" : esc(b)}</div>`).join("")}</div>
-    <p class="note">ירוק מסמן את הערך העדיף בכל שורה. ההערכות (דלק, אגרה) מחושבות באותה שיטה כמו בלשונית העלויות.</p></section>`;
+  const cell = (x, u, plain) => x === null ? "—" : typeof x === "number" ? `${plain ? x : fmtN(x)}${u ? ` <span class="u">${u}</span>` : ""}` : esc(x);
+  const body = rows.map(r => {
+    if (typeof r === "string") return `<div class="cmp-sec">${esc(r)}</div>`;
+    const [k, f, dir, u, plain, carOnly] = r;
+    const vals = L.map(D => carOnly && D.kind === "model" ? null : N(f(D)));
+    if (vals.every(x => x === null)) return "";
+    const nums = vals.filter(x => typeof x === "number");
+    let best = null;
+    if (dir && n > 1 && nums.length > 1 && new Set(nums).size > 1) best = dir === "hi" ? Math.max(...nums) : Math.min(...nums);
+    return `<div class="cmp-k">${esc(k)}</div>` + vals.map(x => `<div class="cmp-v${best !== null && x === best ? " win" : ""}">${cell(x, u, plain)}</div>`).join("");
+  }).join("");
+  const head = (D, i) => `<div class="cmp-h">${D.kind === "model" ? `<span class="tag">דגם</span>` : `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>`}<b>${esc(D.title)}</b><small>${esc(D.sub)}</small><button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div>`;
+  $("#out").innerHTML = `<section class="card blue" style="--n:${Math.max(n, 1)}"><div class="head"><span class="badge">${ico("compare")}</span><h2>השוואת רכבים</h2><button type="button" class="count" data-act="closeCompare" style="border:0">חזרה</button></div>
+    ${n ? "" : `<p style="margin:0">מחפשים רכב? הוסיפו עד ${CMP_MAX} דגמים או רכבים ספציפיים, וההשוואה תראה מחיר, עלויות, כוח, גרירה, בטיחות ואמינות זה לצד זה.</p>`}
+    ${n ? `<div class="cmp"><div></div>${L.map(head).join("")}</div>` : ""}
+    ${n < CMP_MAX ? `<button type="button" class="cmp-add" data-act="addCompare">${ico("plus")}${n ? `הוספת רכב להשוואה (עד ${CMP_MAX})` : "בחירת רכב ראשון"}</button>` : ""}
+    ${n ? `<div class="cmp-table">${body}</div>` : ""}
+    ${n > 1 ? `<p class="note">ירוק מסמן את הערך העדיף בכל שורה. ההערכות (דלק, אגרה, שווי) מחושבות באותה שיטה כמו בלשונית העלויות. לדגם, השווי הוא ממוצע לגיל בלי נתוני ק״מ ובעלויות.</p>` : ""}</section>`;
 }
 
 function summaryText(D){
@@ -1010,13 +1215,16 @@ $("#out").addEventListener("click", ev => {
   }
   if (b.dataset.open) { run(b.dataset.open); return; }
   if (b.dataset.unsave) { store.set("savedVehicles", store.get("savedVehicles").filter(x => x.plate !== b.dataset.unsave)); renderHome(); return; }
+  if (b.dataset.rm) { cmp.splice(+b.dataset.rm, 1); renderCompare(); return; }
+  if (b.dataset.act === "addCompare") { openCompare(); return; }
+  if (b.dataset.act === "compareHome") { cmp = []; renderCompare(); openCompare("model"); return; }
+  if (b.dataset.act === "closeCompare") { closeCompare(); return; }
   if (!current) return;
   if (b.dataset.tab) { currentTab = b.dataset.tab; renderResult(); const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"}); return; }
   const act = b.dataset.act;
-  if (act === "share") shareText(current.title, summaryText(current), SITE + "#" + current.plate);
+  if (act === "share") { $("#shareMsg").textContent = ""; $("#shareSheet").hidden = false; }
   if (act === "copy") copyText(summaryText(current), "הסיכום");
-  if (act === "compare") openCompare();
-  if (act === "closeCompare") { compareB = null; renderResult(); }
+  if (act === "compare") { cmp = [current]; openCompare("model"); }
   if (act === "google") openExternal("https://www.google.com/search?q=" + encodeURIComponent([current.make, current.model, current.v.shnat_yitzur].filter(x => !empty(x)).join(" ")));
   if (act === "save") {
     const on = toggleSaved({plate: current.plate, title: current.title, sub: current.sub, at: Date.now()});
@@ -1025,15 +1233,280 @@ $("#out").addEventListener("click", ev => {
   }
 });
 $("#cf").addEventListener("submit", ev => { ev.preventDefault(); runCompare($("#plate2").value); });
+$("#mf").addEventListener("submit", ev => { ev.preventDefault(); runModelSearch(); });
+let mTimer = null;
+$("#mq").addEventListener("input", () => { clearTimeout(mTimer); if ($("#mq").value.trim().length >= 2) mTimer = setTimeout(runModelSearch, 450); });
+$("#my").addEventListener("change", () => { if ($("#mq").value.trim().length >= 2) runModelSearch(); });
+$("#my").insertAdjacentHTML("beforeend", Array.from({length: new Date().getFullYear() - 2004}, (_, i) => new Date().getFullYear() + 1 - i).map(y => `<option>${y}</option>`).join(""));
+$("#mres").addEventListener("click", ev => { const b = ev.target.closest("[data-mi]"); if (b) pickModel(+b.dataset.mi); });
+document.querySelectorAll("[data-cmp-mode]").forEach(b => b.addEventListener("click", () => setCmpMode(b.dataset.cmpMode)));
+function closeCompare(){ inCompare = false; if (current) renderResult(); else renderHome(); window.scrollTo({top: 0}); }
 $("#closeCompareSheet").addEventListener("click", () => { $("#compareSheet").hidden = true; });
 $("#compareSheet").addEventListener("click", ev => { if (ev.target.id === "compareSheet") ev.target.hidden = true; });
 
+/* ---------- share as image / PDF ---------- */
+/* Libraries load from a CDN only when first needed, so the app itself stays one small file */
+const LIBS = {
+  img: "https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js",
+  pdf: "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js",
+  ocr: "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js",
+};
+const OCR_PATHS = {
+  workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js",
+  corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1",
+  langPath: "https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int",
+};
+const scriptCache = {};
+function loadScript(src){
+  return scriptCache[src] || (scriptCache[src] = new Promise((ok, fail) => {
+    const el = document.createElement("script"); el.src = src; el.async = true;
+    el.onload = ok; el.onerror = () => { delete scriptCache[src]; el.remove(); fail(new Error("load " + src)); };
+    document.head.appendChild(el);
+  }));
+}
+const TAB_FN = () => ({overview: tabOverview, recalls: tabRecalls, costs: tabCosts, specs: tabSpecs});
+/* The report is built off-screen from the same cards the app shows, with every card open */
+function buildReport(D, full){
+  const el = document.createElement("div"); el.className = "report";
+  const today = new Date().toLocaleDateString("he-IL");
+  const parts = [`<div class="rep-head"><b>CheckCar</b><span>דוח רכב · ${today}</span></div>`];
+  const idc = $("#out .id-card"), banner = $("#out .alert-banner");
+  if (idc) parts.push(idc.outerHTML);
+  if (banner) parts.push(banner.outerHTML.replace(/^<button/, "<div").replace(/<\/button>$/, "</div>"));
+  const tabs = full ? TABS : TABS.filter(([k]) => k === currentTab);
+  for (const [k, t] of tabs) { if (full) parts.push(`<h3 class="rep-sec">${t}</h3>`); parts.push(TAB_FN()[k](D)); }
+  parts.push(`<p class="rep-foot">המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il, ואינו מחליף נסח רישום רשמי. הופק באפליקציית CheckCar.</p>`);
+  el.innerHTML = parts.join("");
+  el.querySelectorAll(".card.folded").forEach(c => c.classList.remove("folded"));
+  // icons are inlined: a snapshot cannot follow <use> references to the page's icon sprite
+  el.querySelectorAll("svg use").forEach(u => {
+    const sym = document.getElementById((u.getAttribute("href") || "").slice(1)), svg = u.closest("svg");
+    if (!sym || !svg) return;
+    svg.setAttribute("viewBox", sym.getAttribute("viewBox"));
+    for (const [k, v] of [["fill", "none"], ["stroke", "currentColor"], ["stroke-width", "2"], ["stroke-linecap", "round"], ["stroke-linejoin", "round"]]) svg.setAttribute(k, v);
+    svg.innerHTML = sym.innerHTML;
+  });
+  return el;
+}
+async function captureReport(D, full){
+  await loadScript(LIBS.img);
+  const el = buildReport(D, full); if (full) el.style.width = "720px";
+  document.body.appendChild(el);
+  try {
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    // page-break candidates for the PDF: below cards and below the blocks inside them, never right after a section title
+    const top = el.getBoundingClientRect().top, set = new Set();
+    el.querySelectorAll(".card, .alert-banner, .rep-foot, .fold-body > *, .fold-body > * > *, .grid2 > *").forEach(c => {
+      if (!c.offsetHeight) return; const r = c.getBoundingClientRect(); set.add(Math.round(r.bottom - top + 4));
+    });
+    const breaks = [...set].sort((a, b) => a - b);
+    const bg = getComputedStyle(document.body).backgroundColor;
+    const canvas = await window.htmlToImage.toCanvas(el, {pixelRatio: 2, backgroundColor: bg, skipFonts: true,
+      style: {position: "static", left: "0", top: "0"}, width: el.offsetWidth, height: el.offsetHeight});
+    return {canvas, breaks: breaks.map(b => b * 2)};
+  } finally { el.remove(); }
+}
+function canvasToBlob(c, type, q){ return new Promise(ok => c.toBlob(ok, type, q)); }
+function blobToBase64(b){ return new Promise((ok, fail) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = fail; r.readAsDataURL(b); }); }
+async function shareFile(blob, name, title){
+  const br = bridge();
+  if (br && br.shareFile) { br.shareFile(name, blob.type, await blobToBase64(blob), title); return; }
+  const file = new File([blob], name, {type: blob.type});
+  if (navigator.canShare && navigator.canShare({files: [file]})) {
+    try { await navigator.share({files: [file], title}); return; } catch (err) { if (err && err.name === "AbortError") return; }
+  }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  toast("הקובץ נשמר בהורדות");
+}
+async function makePdf(D){
+  const [{canvas, breaks}] = await Promise.all([captureReport(D, true), loadScript(LIBS.pdf)]);
+  const pdf = new window.jspdf.jsPDF({unit: "pt", format: "a4", compress: true});
+  const W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight(), M = 24;
+  const scale = (W - 2 * M) / canvas.width, pageH = Math.floor((H - 2 * M) / scale);
+  let y = 0, first = true;
+  while (y < canvas.height - 4) {
+    let end = Math.min(y + pageH, canvas.height);
+    if (end < canvas.height) { const b = breaks.filter(x => x > y + pageH * 0.4 && x <= end).pop(); if (b) end = b; }
+    const part = document.createElement("canvas"); part.width = canvas.width; part.height = end - y;
+    const ctx = part.getContext("2d"); ctx.fillStyle = getComputedStyle(document.body).backgroundColor; ctx.fillRect(0, 0, part.width, part.height);
+    ctx.drawImage(canvas, 0, y, canvas.width, end - y, 0, 0, canvas.width, end - y);
+    if (!first) pdf.addPage();
+    pdf.addImage(part.toDataURL("image/jpeg", 0.88), "JPEG", M, M, W - 2 * M, (end - y) * scale);
+    first = false; y = end;
+  }
+  return pdf.output("blob");
+}
+async function doShare(kind){
+  const D = current; if (!D) return;
+  const msg = $("#shareMsg"), name = `CheckCar-${D.plate}`;
+  if (kind === "text") { $("#shareSheet").hidden = true; shareText(D.title, summaryText(D)); return; }
+  document.querySelectorAll("[data-share]").forEach(b => b.disabled = true);
+  msg.textContent = kind === "pdf" ? "מכין קובץ PDF…" : "מכין תמונה…";
+  try {
+    if (kind === "pdf") await shareFile(await makePdf(D), name + ".pdf", D.title);
+    else { const {canvas} = await captureReport(D, false); await shareFile(await canvasToBlob(canvas, "image/png"), name + ".png", D.title); }
+    $("#shareSheet").hidden = true;
+  } catch (err) {
+    msg.textContent = "לא הצלחתי להכין את הקובץ. בדקו את החיבור לאינטרנט ונסו שוב.";
+  } finally { document.querySelectorAll("[data-share]").forEach(b => b.disabled = false); }
+}
+$("#shareSheet").addEventListener("click", ev => {
+  if (ev.target.id === "shareSheet") { ev.target.hidden = true; return; }
+  const b = ev.target.closest("[data-share]"); if (b) doShare(b.dataset.share);
+});
+$("#closeShare").addEventListener("click", () => { $("#shareSheet").hidden = true; });
+
+/* ---------- plate from a photo ---------- */
+function inMsg(t){ const el = $("#inMsg"); el.textContent = t || ""; el.hidden = !t; }
+function loadImage(file){
+  return new Promise((ok, fail) => { const img = new Image(); img.onload = () => ok(img); img.onerror = fail; img.src = URL.createObjectURL(file); });
+}
+/* Israeli plates are black digits on yellow: find the yellow area, crop it and turn it black-on-white */
+function plateCanvases(img){
+  const maxW = 1600, sc = Math.min(1, maxW / img.naturalWidth);
+  const W = Math.round(img.naturalWidth * sc), H = Math.round(img.naturalHeight * sc);
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const ctx = c.getContext("2d", {willReadFrequently: true}); ctx.drawImage(img, 0, 0, W, H);
+  const d = ctx.getImageData(0, 0, W, H).data;
+  const rows = new Array(H).fill(0);
+  const isY = i => { const r = d[i], g = d[i + 1], b = d[i + 2]; return r > 130 && g > 100 && r - b > 60 && g - b > 40 && Math.abs(r - g) < 90; };
+  for (let y = 0; y < H; y += 2) for (let x = 0; x < W; x += 2) if (isY((y * W + x) * 4)) rows[y]++;
+  const band = (arr) => {
+    const mx = Math.max(...arr); if (mx < 8) return null;
+    const peak = arr.indexOf(mx), lim = mx * 0.25;
+    let a = peak, b = peak; while (a > 0 && arr[a - 1] + arr[Math.max(0, a - 2)] > lim) a--; while (b < arr.length - 1 && arr[b + 1] + arr[Math.min(arr.length - 1, b + 2)] > lim) b++;
+    return [a, b];
+  };
+  // longest run of columns that hold some yellow inside the row band (digits interrupt it, so short gaps are bridged)
+  const run = (y0, y1) => {
+    const cnt = new Array(W).fill(0);
+    for (let y = y0; y <= y1; y += 2) for (let x = 0; x < W; x += 2) if (isY((y * W + x) * 4)) cnt[x]++;
+    const th = Math.max(2, (y1 - y0) / 2 * 0.06), gap = Math.max(12, W * 0.03);
+    let best = null, start = -1, last = -1;
+    for (let x = 0; x < W; x += 2) {
+      if (cnt[x] > th) { if (start < 0 || x - last > gap) start = x; last = x; if (!best || last - start > best[1] - best[0]) best = [start, last]; }
+    }
+    return best;
+  };
+  const out = [];
+  const rb = band(rows);
+  const cb = rb && run(rb[0], rb[1]);
+  if (rb && cb) {
+    const h0 = rb[1] - rb[0], w0 = cb[1] - cb[0];
+    const y0 = Math.round(rb[0] + h0 * 0.04), y1 = Math.round(rb[1] - h0 * 0.04), x0 = Math.round(cb[0] + w0 * 0.01), x1 = Math.round(cb[1] - w0 * 0.01);
+    const w = x1 - x0, h = y1 - y0;
+    if (w > 60 && h > 15 && w / h > 1.6) {
+      const tH = 110, k = tH / h, pad = 24;
+      const cc = document.createElement("canvas"); cc.width = Math.round(w * k) + pad * 2; cc.height = tH + pad * 2;
+      const cx = cc.getContext("2d", {willReadFrequently: true}); cx.fillStyle = "#f6c500"; cx.fillRect(0, 0, cc.width, cc.height);
+      cx.drawImage(c, x0, y0, w, h, pad, pad, cc.width - pad * 2, tH);
+      out.push(binarize(cc));
+    }
+  }
+  const full = document.createElement("canvas"); full.width = W; full.height = H; full.getContext("2d").drawImage(c, 0, 0);
+  out.push(binarize(full));
+  return out;
+}
+function binarize(c, soft){
+  const ctx = c.getContext("2d", {willReadFrequently: true}), im = ctx.getImageData(0, 0, c.width, c.height), d = im.data;
+  const hist = new Array(256).fill(0), L = new Uint8Array(d.length / 4);
+  for (let i = 0, j = 0; i < d.length; i += 4, j++) { const l = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000 | 0; L[j] = l; hist[l]++; }
+  // Otsu threshold
+  let sum = 0, total = L.length; for (let t = 0; t < 256; t++) sum += t * hist[t];
+  let sB = 0, wB = 0, best = 0, th = 128;
+  for (let t = 0; t < 256; t++) { wB += hist[t]; if (!wB) continue; const wF = total - wB; if (!wF) break; sB += t * hist[t];
+    const mB = sB / wB, mF = (sum - sB) / wF, v = wB * wF * (mB - mF) * (mB - mF); if (v > best) { best = v; th = t; } }
+  for (let i = 0, j = 0; i < d.length; i += 4, j++) { const v = soft ? L[j] : (L[j] > th ? 255 : 0); d[i] = d[i + 1] = d[i + 2] = v; }
+  ctx.putImageData(im, 0, 0); return c;
+}
+function pickPlate(text){
+  const t = String(text || "");
+  const pat = t.match(/(?<!\d)(\d{3})\D{0,2}(\d{2})\D{0,2}(\d{3})(?!\d)|(?<!\d)(\d{2})\D{0,2}(\d{3})\D{0,2}(\d{2})(?!\d)/);
+  if (pat) return pat.slice(1).filter(Boolean).join("");
+  for (const line of t.split(/\n/)) { const dg = line.replace(/\D/g, ""); if (dg.length === 7 || dg.length === 8) return dg; }
+  return null;
+}
+async function plateFromPhoto(file){
+  const btn = $("#camBtn"); btn.setAttribute("aria-busy", "true");
+  inMsg("מזהה את המספר בתמונה…");
+  let worker = null;
+  try {
+    const [img] = await Promise.all([loadImage(file), loadScript(LIBS.ocr)]);
+    const imgs = plateCanvases(img);
+    worker = await window.Tesseract.createWorker("eng", 1, OCR_PATHS);
+    await worker.setParameters({tessedit_char_whitelist: "0123456789-"});
+    let plate = null;
+    for (const [i, c] of imgs.entries()) {
+      await worker.setParameters({tessedit_pageseg_mode: i === 0 && imgs.length > 1 ? "7" : "11"});
+      const {data} = await worker.recognize(c);
+      plate = pickPlate(data.text); if (plate) break;
+    }
+    if (!plate) { inMsg("לא הצלחתי לזהות מספר. צלמו את הלוחית מקרוב, ישר ובאור טוב, או הקלידו את המספר."); return; }
+    inMsg(`זוהה המספר ${fmtPlate(plate)}. אם הוא לא נכון, תקנו אותו וחפשו שוב.`);
+    $("#plate").value = fmtPlate(plate); run(plate);
+  } catch (err) {
+    inMsg("זיהוי מתמונה דורש חיבור לאינטרנט. נסו שוב.");
+  } finally { btn.removeAttribute("aria-busy"); if (worker) worker.terminate().catch(() => {}); }
+}
+$("#camBtn").addEventListener("click", () => { $("#camFile").value = ""; $("#camFile").click(); });
+$("#camFile").addEventListener("change", ev => { const f = ev.target.files && ev.target.files[0]; if (f) plateFromPhoto(f); });
+
+/* ---------- plate by voice ---------- */
+/* Speech recognisers usually return digits, but sometimes Hebrew number words: "שתים עשרה שלוש מאות ארבעים וחמש" */
+const HEB_NUM = {"אפס":[0,"u"],"אחת":[1,"u"],"אחד":[1,"u"],"שתיים":[2,"u"],"שתים":[2,"u"],"שניים":[2,"u"],"שנים":[2,"u"],"שתי":[2,"u"],"שני":[2,"u"],
+  "שלוש":[3,"u"],"שלושה":[3,"u"],"ארבע":[4,"u"],"ארבעה":[4,"u"],"חמש":[5,"u"],"חמישה":[5,"u"],"שש":[6,"u"],"שישה":[6,"u"],"שבע":[7,"u"],"שבעה":[7,"u"],
+  "שמונה":[8,"u"],"תשע":[9,"u"],"תשעה":[9,"u"],"עשר":[10,"ten"],"עשרה":[10,"ten"],"עשרים":[20,"t"],"שלושים":[30,"t"],"ארבעים":[40,"t"],"חמישים":[50,"t"],
+  "שישים":[60,"t"],"שבעים":[70,"t"],"שמונים":[80,"t"],"תשעים":[90,"t"],"מאה":[100,"h"],"מאתיים":[200,"h"],"מאות":[100,"hs"]};
+function spokenDigits(text){
+  const out = []; let g = null;
+  const flush = () => { if (g) out.push(String(g.val)); g = null; };
+  for (let t of String(text).replace(/[,.\-–_/]/g, " ").split(/\s+/).filter(Boolean)) {
+    if (/^\d+$/.test(t)) { flush(); out.push(t); continue; }
+    let vav = false;
+    if (!HEB_NUM[t] && t.startsWith("ו") && HEB_NUM[t.slice(1)]) { t = t.slice(1); vav = true; }
+    const e = HEB_NUM[t]; if (!e) continue;
+    const [val, k] = e;
+    if (k === "ten" && g && g.last === "u" && g.val % 10 === g.val % 100 && g.val % 10 > 0 && !g.teen) { g.val += 10; g.last = "teen"; g.teen = true; continue; }
+    if (k === "hs") { if (g && g.last === "u" && g.val < 10) { g.val *= 100; g.last = "h"; } continue; }
+    const cont = g && ((g.last === "h" && (k === "t" || k === "u" || k === "ten")) || (g.last === "t" && k === "u" && vav));
+    if (cont) { g.val += val; g.last = k === "ten" ? "t" : k; }
+    else { flush(); g = {val, last: k === "ten" ? "t" : k}; }
+  }
+  flush();
+  return out.join("");
+}
+let rec = null;
+window.onVoiceResult = text => {
+  $("#micBtn").setAttribute("aria-pressed", "false");
+  if (text === null || text === undefined) { inMsg("זיהוי קולי לא זמין במכשיר הזה."); return; }
+  const alts = String(text).split("\n").filter(Boolean);
+  for (const a of alts) { const p = spokenDigits(a); if (p.length >= 5 && p.length <= 8) { inMsg(`שמעתי ${fmtPlate(p)}.`); $("#plate").value = fmtPlate(p); run(p); return; } }
+  inMsg(alts.length ? `שמעתי "${alts[0]}" ולא זיהיתי מספר רישוי. נסו שוב, ספרה אחרי ספרה.` : "לא שמעתי מספר. נסו שוב.");
+};
+function startVoice(){
+  const br = bridge(), btn = $("#micBtn");
+  if (br && br.voice) { inMsg("אמרו את מספר הרישוי…"); btn.setAttribute("aria-pressed", "true"); br.voice(); return; }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { inMsg("הדפדפן הזה לא תומך בהקלטה קולית. נסו בכרום או באפליקציה."); return; }
+  if (rec) { rec.abort(); return; }
+  rec = new SR(); rec.lang = "he-IL"; rec.interimResults = false; rec.maxAlternatives = 5;
+  let got = false;
+  rec.onresult = ev => { got = true; window.onVoiceResult([...ev.results[0]].map(a => a.transcript).join("\n")); };
+  rec.onerror = ev => { got = true; btn.setAttribute("aria-pressed", "false"); inMsg(ev.error === "not-allowed" || ev.error === "service-not-allowed" ? "אין הרשאה למיקרופון. אפשרו אותה בהגדרות הדפדפן." : "לא שמעתי מספר. נסו שוב."); };
+  rec.onend = () => { btn.setAttribute("aria-pressed", "false"); if (!got) inMsg(""); rec = null; };
+  btn.setAttribute("aria-pressed", "true"); inMsg("אמרו את מספר הרישוי…");
+  try { rec.start(); } catch { btn.setAttribute("aria-pressed", "false"); rec = null; }
+}
+$("#micBtn").addEventListener("click", startVoice);
+
 function renderHome(){
-  current = null; compareB = null;
+  current = null; inCompare = false;
   const saved = store.get("savedVehicles"), recent = store.get("recentPlates");
   const html = [];
   if (saved.length) html.push(card("רכבים שמורים", "star", "amber", `<div class="list">${saved.map(s => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-open="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b>${esc(s.title)}</b><small>${esc(s.sub || "")}</small></span></button><button type="button" class="x" data-unsave="${s.plate}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div>`));
   if (recent.length) html.push(card("חיפושים אחרונים", "clock", "blue", `<div class="chips">${recent.map(p => `<button type="button" class="chip" data-open="${p}">${fmtPlate(p)}</button>`).join("")}</div>`));
+  html.push(card("השוואת דגמים לפני קנייה", "compare", "violet", `<p style="margin:0">מחפשים רכב? חפשו לפי יצרן או דגם והשוו עד ${CMP_MAX} דגמים: מחיר, צריכת דלק, אגרה, כוח, גרירה, בטיחות וכמה ריקולים היו לדגם.</p><button type="button" class="link-btn" data-act="compareHome">${ico("search")}התחלת השוואה</button>`));
   html.push(card("מה תקבלו", "bulb", "teal", `<p style="margin:0">סטטוס הרכב ותוקף הטסט, היסטוריית בעלויות, ק״מ בטסט האחרון, תובנות חשובות, ריקולים פתוחים, כושר גרירה עם ובלי בלמים, מפרט, מערכות בטיחות, מחיר מחירון וכמה רכבים כאלה על הכביש.</p>`));
   $("#out").innerHTML = html.join("");
 }
@@ -1060,7 +1533,7 @@ const sheet = $("#settings");
 $("#openSettings").addEventListener("click", () => { sheet.hidden = false; $("#closeSettings").focus(); });
 $("#closeSettings").addEventListener("click", () => { sheet.hidden = true; $("#openSettings").focus(); });
 sheet.addEventListener("click", ev => { if (ev.target === sheet) sheet.hidden = true; });
-document.addEventListener("keydown", ev => { if (ev.key === "Escape") { sheet.hidden = true; $("#compareSheet").hidden = true; } });
+document.addEventListener("keydown", ev => { if (ev.key === "Escape") { sheet.hidden = true; $("#compareSheet").hidden = true; $("#shareSheet").hidden = true; } });
 $("#clearRecent").addEventListener("click", () => { store.set("recentPlates", []); toast("היסטוריית החיפושים נמחקה"); if (!current) renderHome(); });
 $("#clearSaved").addEventListener("click", () => { store.set("savedVehicles", []); toast("הרכבים השמורים נמחקו"); if (!current) renderHome(); });
 $("#ver").textContent = APP_VERSION;
@@ -1069,13 +1542,15 @@ $("#ver").textContent = APP_VERSION;
   el.addEventListener("change", () => {
     const val = el.value.replace(",", ".").trim();
     try { if (val === "" || !(Number(val) > 0)) localStorage.removeItem(id); else localStorage.setItem(id, String(Number(val))); } catch {}
-    if (current) { current.cost = costs(current); if (compareB) compareB.cost = costs(compareB); compareB ? renderCompare() : renderResult(); }
+    if (current) current.cost = costs(current);
+    cmp.forEach(D => { if (D !== current) D.cost = costs(D); });
+    if (inCompare) renderCompare(); else if (current) renderResult();
     toast("מחיר הדלק עודכן");
   });
 });
 applyTheme(themeChoice());
 /* Android back button: close settings, then return from a result to the home screen */
-window.appBack = () => { if (!sheet.hidden) { sheet.hidden = true; return true; } if (!$("#compareSheet").hidden) { $("#compareSheet").hidden = true; return true; } if (compareB) { compareB = null; renderResult(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} return true; } return false; };
+window.appBack = () => { if (!sheet.hidden) { sheet.hidden = true; return true; } for (const id of ["#compareSheet", "#shareSheet"]) if (!$(id).hidden) { $(id).hidden = true; return true; } if (inCompare) { closeCompare(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} return true; } return false; };
 
 const start = digits(location.hash) || digits(new URLSearchParams(location.search).get("plate"));
 if (start) run(start); else renderHome();
