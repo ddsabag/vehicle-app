@@ -413,7 +413,7 @@ const SYSTEMS = {
   hayshaney_lahatz_avir_batzmigim_ind:"חיישני לחץ אוויר", hayshaney_hagorot_ind:"חיישני חגורות",
   shlita_automatit_beorot_gvohim_ind:"אורות גבוהים אוטומטיים", teura_automatit_benesiya_kadima_ind:"תאורה אוטומטית",
   zihuy_tamrurey_tnua_ind:"זיהוי תמרורים", zihuy_matzav_hitkarvut_mesukenet_ind:"התרעת התקרבות מסוכנת",
-  bakarat_mehirut_isa:"בקרת מהירות חכמה", hitnagshut_cad_shetah_met:"מניעת התנגשות צד", alco_lock:"הכנה לאלכו-לוק",
+  bakarat_mehirut_isa:"בקרת מהירות חכמה", hitnagshut_cad_shetah_met:"מניעת התנגשות צד",
 };
 
 /* ---------- helpers ---------- */
@@ -1044,8 +1044,7 @@ function tabSpecs(D){
   html.push(card("בטיחות", "shield", "green", facts([
     ["ניקוד בטיחות", e(w.nikud_betihut)], ["רמת אבזור בטיחותי", empty(safetyLvl) ? "" : `${esc(safetyLvl)} מתוך 8`],
     ["כריות אוויר", e(w.mispar_kariot_avir)],
-  ]) + (present.length ? `<div class="systems">${present.map(s => `<span>${esc(s)}</span>`).join("")}</div>` : "")
-    + (yes(w.alco_lock) ? `<p class="note">הכנה לאלכו-לוק: ברכב יש חיבור מוכן להתקנת מנעול אלכוהול, מכשיר שהנהג נושף לתוכו ושלא מאפשר להתניע אחרי שתיית אלכוהול. החיבור נדרש בכל רכב חדש. המכשיר עצמו מותקן רק כשצריך, למשל לנהג שבית משפט חייב.</p>` : "")));
+  ]) + (present.length ? `<div class="systems">${present.map(s => `<span>${esc(s)}</span>`).join("")}</div>` : "")));
   const zihum = D.pick(v.kvutzat_zihum, w.kvutzat_zihum);
   html.push(card("סביבה", "leaf", "leaf", facts([
     ["קבוצת זיהום", empty(zihum) ? "" : `${esc(zihum)} <span class="note">(1 הנקי ביותר, 15 המזהם ביותר)</span>`, "wide"],
