@@ -69,7 +69,7 @@ svg.i{width:20px;height:20px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-
 form{display:flex;gap:10px}
 .plate{flex:1;min-width:0;display:flex;direction:ltr;background:var(--plate);border:3px solid #0b0b0b;border-radius:9px;overflow:hidden;height:64px}
 .plate .il{background:var(--il);color:#fff;width:40px;flex:0 0 40px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:7px;font:700 11px/1.15 var(--f-body)}
-.plate input{flex:1;min-width:0;border:0;background:transparent;color:var(--plate-ink);font:600 clamp(1.7rem,8vw,2.3rem)/1 var(--f-num);letter-spacing:.05em;text-align:center;padding:0 6px;outline:none}
+.plate input{flex:1;min-width:0;border:0;background:transparent;color:var(--plate-ink);font:600 clamp(1.7rem,8vw,2.3rem)/1 var(--f-num);letter-spacing:.05em;text-align:center;padding:0 4px;outline:none;text-overflow:clip}
 .plate input::placeholder{color:rgba(0,0,0,.3)}
 .plate:focus-within{box-shadow:0 0 0 3px var(--band),0 0 0 5px var(--accent)}
 .go{flex:0 0 auto;width:64px;height:64px;border-radius:9px;border:0;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center}
@@ -108,7 +108,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .pills{display:flex;flex-wrap:wrap;gap:6px}
 .pill{font-size:.82rem;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--soft)}
 .pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.warn{background:var(--warn-bg);color:var(--warn)}.pill.bad{background:var(--bad-bg);color:var(--bad)}
-.actions{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;border-top:1px solid var(--line);padding-top:12px}
+.actions{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;border-top:1px solid var(--line);padding-top:12px}
 .act{display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--soft);border:0;border-radius:12px;padding:10px 2px;font-size:.78rem;font-weight:700;color:var(--fg)}
 .act svg.i{color:var(--accent)}
 .act[aria-pressed="true"] svg.i{fill:var(--t-amber);stroke:var(--t-amber)}
@@ -208,15 +208,20 @@ footer a{color:var(--accent)}
 .fuel-set{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .fuel-set input{width:110px;border:1px solid var(--line);background:var(--soft);color:var(--fg);border-radius:9px;padding:8px 10px;font:500 1rem var(--f-num);text-align:center}
 /* comparison */
-.cmp{display:grid;grid-template-columns:minmax(68px,.85fr) repeat(var(--n),minmax(0,1fr));gap:6px;align-items:stretch}
+.cmp{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:6px;align-items:stretch;position:sticky;top:0;z-index:3;background:var(--card);padding-block:8px;margin-block:-8px}
+.cmp>.ph{display:none}
+.cmp-bar{display:flex;gap:8px;flex-wrap:wrap}
+.cmp-bar .cmp-add{flex:1 1 auto}
+.cmp-land{border:1px solid var(--line);background:var(--soft);color:var(--fg);border-radius:12px;font-weight:700;display:flex;align-items:center;gap:6px;padding:10px 14px;min-height:46px}
+.cmp-land svg.i{width:18px;height:18px}
 .cmp-h{position:relative}
 .tow-ban{display:flex;gap:10px;align-items:flex-start;background:var(--bad-bg);color:var(--bad);border-radius:12px;padding:12px 14px}
 .tow-ban b{display:block}.tow-ban span{color:var(--fg);font-size:.92rem}
 .mods-sum{margin:0;font-weight:600}
 .first-own{background:var(--soft);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
 .first-own span{color:var(--muted);font-size:.9rem}
-.plate .clr{flex:0 0 auto;width:44px;border:0;background:transparent;color:#111;display:grid;place-items:center;opacity:.7}
-.plate .clr svg.i{width:22px;height:22px;stroke-width:2.6}
+.plate .clr{flex:0 0 auto;width:34px;padding:0;margin-inline-start:-2px;border:0;background:transparent;color:#111;display:grid;place-items:center;opacity:.7}
+.plate .clr svg.i{width:20px;height:20px;stroke-width:2.6}
 .cmp-h b{font-size:.92rem;line-height:1.25;word-break:normal;overflow-wrap:normal;hyphens:none}
 .cmp-h .mini-plate{font-size:.7rem;white-space:nowrap;padding:1px 4px 1px 2px;gap:3px;max-width:100%}
 .cmp-h .mini-plate i{width:5px}
@@ -225,7 +230,9 @@ section[style*="--n:3"] .cmp-v{font-size:.82rem}
 section[style*="--n:3"] .cmp-h b{font-size:.8rem}
 section[style*="--n:3"] .cmp-h small{font-size:.72rem}
 section[style*="--n:3"] .cmp-k{font-size:.76rem}
-.cmp-h .x{position:absolute;inset-inline-end:4px;top:4px;width:26px;height:26px;border:0;border-radius:8px;background:transparent;color:var(--muted);display:grid;place-items:center}
+.cmp-top{display:flex;align-items:center;justify-content:space-between;gap:4px;width:100%;min-width:0;margin:-4px 0 0}
+.cmp-top>span{min-width:0;overflow:hidden}
+.cmp-h .x{flex:0 0 auto;margin-inline-end:-6px;width:34px;height:34px;border:0;border-radius:8px;background:transparent;color:var(--muted);display:grid;place-items:center}
 .cmp-h .x svg.i{width:16px;height:16px}
 .cmp-h .tag{font-size:.72rem;font-weight:700;color:var(--t-violet);background:var(--t-violet-bg);border-radius:999px;padding:0 8px}
 .cmp-add{border:2px dashed var(--line);background:transparent;border-radius:12px;color:var(--accent);font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px}
@@ -242,24 +249,56 @@ section[style*="--n:3"] .cmp-k{font-size:.76rem}
 .msearch select{flex:0 0 auto;max-width:112px}
 .go.sm{width:48px;height:auto;min-height:46px}
 #mres .row small{color:var(--muted);display:block}
+#mres .row > svg.i{margin-inline-start:auto;color:var(--muted)}
+#mres .row > svg.i use[href="#i-chev"]{}
+#mres .row .t{flex:1;min-width:0}
+.crumbs{display:flex;align-items:center;gap:10px;justify-content:space-between;padding-bottom:4px}
+.crumbs .link-btn{padding:6px 10px;width:auto}
+.crumbs .link-btn svg.i{transform:rotate(90deg)}
+.years{gap:8px}.years .chip{font-size:1rem;padding:8px 14px}
 .share-opts .row{padding:12px}
 .share-opts small{color:var(--muted);display:block;font-size:.85rem}
 .badge-s{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;flex:0 0 auto;color:var(--tc);background:var(--tb)}
-.report{position:fixed;left:-10000px;top:0;width:430px;background:var(--bg);padding:16px;display:flex;flex-direction:column;gap:12px}
+.report{  --bg:#f2f4f8; --card:#ffffff; --fg:#151a24; --muted:#5d6676; --line:#e3e7ee; --soft:#f5f7fa;   --band:#ffffff; --band-fg:#151a24; --band-muted:#5d6676; --band-line:#d5dae3;   --plate:#f6c500; --plate-ink:#111; --il:#1d4ea8; --accent:#2457c5; --accent-fg:#ffffff;   --ok:#147a43; --ok-bg:#e1f4e8; --warn:#9a5300; --warn-bg:#fdf0d9; --bad:#b42318; --bad-bg:#fde6e3; --info:#2457c5; --info-bg:#e5edfc;   /* topic colours */   --t-blue:#2f6fde; --t-blue-bg:#e7effd; --t-violet:#7a4fd6; --t-violet-bg:#f0eafc; --t-teal:#0f8a83; --t-teal-bg:#e0f4f2;   --t-amber:#c27400; --t-amber-bg:#fdf1dc; --t-red:#d0473b; --t-red-bg:#fdeae8; --t-slate:#52637d; --t-slate-bg:#eceff4;   --t-green:#22894a; --t-green-bg:#e3f4e9; --t-leaf:#5f8f1f; --t-leaf-bg:#eef5e2; --t-pink:#c2407e; --t-pink-bg:#fbe9f2;
+  --f-body:Arial,"Noto Sans Hebrew","Noto Sans",sans-serif; --f-num:monospace; --shadow:none; color-scheme:light;
+  position:fixed;left:-10000px;top:0;width:430px;background:var(--bg);color:var(--fg);font:16px/1.5 var(--f-body);padding:16px;display:flex;flex-direction:column;gap:12px}
+/* the snapshot cannot carry web fonts, so the report is laid out in system fonts: what is measured is what gets drawn */
+.report *{font-family:var(--f-body)!important;letter-spacing:normal!important}
+.report .mono,.report .mini-plate,.report .mini-plate *{font-family:var(--f-num)!important}
+.report.pdf{width:720px;background:#fff;padding:0;gap:14px}
+.report.pdf .card,.report.pdf .alert-banner{box-shadow:none;border:1px solid #dde2ea;border-radius:10px}
+.report.pdf .alert-banner{border-color:transparent}
+.report.pdf .rep-head{border-bottom:2px solid var(--fg);padding:0 0 10px;align-items:flex-end}
+.report.pdf .rep-head b{font-size:1.6rem}
+.report.pdf .rep-sec{margin:14px 0 0;padding:0 0 6px;border-bottom:2px solid var(--accent);font-size:1.15rem}
+.report.pdf .rep-foot{border-top:1px solid #dde2ea;padding-top:10px}
 .report .actions,.report .chev,.report .link-btn,.report [data-url],.report [data-copy]{display:none!important}
 .report .tabs{display:none}
 .rep-head{display:flex;justify-content:space-between;align-items:baseline;padding:0 4px}
 .rep-head b{font-size:1.3rem;font-weight:800}.rep-head span{color:var(--muted);font-size:.85rem}
 .rep-sec{margin:8px 4px 0;font-size:1.05rem;font-weight:800;color:var(--accent)}
 .rep-foot{color:var(--muted);font-size:.78rem;padding:0 4px}
-.cmp-h{display:flex;flex-direction:column;gap:4px;align-items:flex-start;background:var(--soft);border-radius:12px;padding:30px 8px 10px;min-width:0}
+.cmp-h{display:flex;flex-direction:column;gap:3px;align-items:flex-start;background:var(--soft);border-radius:12px;padding:8px 8px 8px;min-width:0}
+.cmp-h b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cmp-h small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .cmp-h b{overflow-wrap:anywhere}.cmp-h small{color:var(--muted)}
-.cmp-table{display:grid;grid-template-columns:minmax(68px,.85fr) repeat(var(--n),minmax(0,1fr));gap:0 6px}
+.cmp-table{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:0 6px}
 .cmp-table>div{padding:8px 6px;border-top:1px solid var(--line);min-width:0;overflow-wrap:anywhere}
 .cmp-k{font-size:.85rem;color:var(--muted)}
+.cmp-table>.cmp-k{grid-column:1/-1;padding-bottom:0;padding-top:7px;font-weight:600}
+.cmp-table>.cmp-v{border-top:0;padding-top:2px;padding-bottom:7px}
+section[style*="--n:3"] .cmp-table>.cmp-k{font-size:.8rem}
+/* wide: label column on the side (landscape or tablet) */
+.cmp-wide .cmp,.cmp-wide .cmp-table{grid-template-columns:minmax(150px,1.1fr) repeat(var(--n),minmax(0,1fr))}
+.cmp-wide .cmp>.ph{display:block}
+.cmp-wide .cmp-table>.cmp-k{grid-column:auto;padding-bottom:8px;font-weight:400}
+.cmp-wide .cmp-table>.cmp-v{border-top:1px solid var(--line);padding-top:8px}
+.cmp-wide .cmp-v,.cmp-wide .cmp-h b,.cmp-wide .cmp-k{font-size:.95rem!important}
+body.land main{max-width:1100px}
+body.land .band{display:none}
 .cmp-v{font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:normal!important;font-size:.95rem}
 .cmp-v.win{color:var(--ok);background:var(--ok-bg);border-radius:8px}
-@media (max-width:360px){.facts{grid-template-columns:1fr}.actions{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:360px){.facts{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -292,6 +331,7 @@ section[style*="--n:3"] .cmp-k{font-size:.76rem}
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+  <symbol id="i-rotate" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="11" rx="2"/><path d="M8 4h5a4 4 0 0 1 4 4M15 6l2 2 2-2"/></symbol>
   <symbol id="i-compare" viewBox="0 0 24 24"><path d="M8 3v18M16 3v18M3 8h5M16 16h5M3 16h5M16 8h5"/></symbol>
   <symbol id="i-fuel" viewBox="0 0 24 24"><path d="M3 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18M3 22h12M6 6h6v5H6zM15 10h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V8l-3-3"/></symbol>
   <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
@@ -346,7 +386,6 @@ section[style*="--n:3"] .cmp-k{font-size:.76rem}
     <div class="seg two" role="group" aria-label="איך להוסיף"><button type="button" data-cmp-mode="model">לפי דגם</button><button type="button" data-cmp-mode="plate">לפי מספר רישוי</button></div>
     <form id="mf" class="msearch" autocomplete="off">
       <input id="mq" type="search" placeholder="יצרן או דגם: טויוטה, קורולה, TUCSON…" aria-label="יצרן או דגם" enterkeyhint="search">
-      <select id="my" aria-label="שנת ייצור"><option value="">כל השנים</option></select>
       <button class="go sm" type="submit" aria-label="חיפוש דגם"><svg class="i"><use href="#i-search"/></svg></button>
     </form>
     <form id="cf" autocomplete="off" style="display:flex;gap:10px" hidden>
@@ -840,6 +879,7 @@ async function lookup(raw){
 const loadingHtml = plate => `<div class="msg"><p class="note" style="margin-bottom:10px">מחפש את <span class="mono">${fmtPlate(plate)}</span> במאגרי משרד התחבורה…</p><div class="progress"><i id="bar"></i></div></div>`;
 
 function renderResult(){
+  if (land) setLand(false, false);
   inCompare = false;
   const D = current, v = D.v, w = D.w;
   const html = [];
@@ -859,7 +899,6 @@ function renderResult(){
       <button class="act" type="button" data-act="share">${ico("share")}שיתוף</button>
       <button class="act" type="button" data-act="save" aria-pressed="${isSaved(D.plate)}">${ico("star")}<span>${isSaved(D.plate) ? "נשמר" : "שמירה"}</span></button>
       <button class="act" type="button" data-act="compare">${ico("compare")}השוואה</button>
-      <button class="act" type="button" data-act="google">${ico("google")}גוגל</button>
       <button class="act" type="button" data-act="copy">${ico("copy")}העתקה</button>
     </div>
   </section>`);
@@ -1148,24 +1187,73 @@ function addToCompare(D){
   $("#compareSheet").hidden = true; renderCompare(); window.scrollTo({top: 0});
   return true;
 }
+/* Picking a model, in steps: maker + model, then year, then trim. Each step stays a short list. */
+let mGroups = [], mGroup = null, mYear = null;
+const groupKey = r => [rowMake(r), rowModel(r)].join("|").toUpperCase();
 async function runModelSearch(){
-  const q = $("#mq").value.trim(), year = $("#my").value, msg = $("#compareMsg"), list = $("#mres");
+  const q = $("#mq").value.trim(), msg = $("#compareMsg"), list = $("#mres");
   if (q.length < 2) { msg.textContent = "הקלידו לפחות 2 אותיות של יצרן או דגם."; list.innerHTML = ""; return; }
   if (mCtrl) mCtrl.abort(); mCtrl = new AbortController(); const signal = mCtrl.signal;
-  msg.textContent = "מחפש…";
+  msg.textContent = "מחפש…"; mGroup = null; mYear = null;
   try {
-    mResults = await searchModels(q, year, signal);
+    const words = searchWords(q);
+    let rows = await dsSearch(MODEL_SETS.wltp, words, null, 1000, signal);
+    if (!rows.length) rows = await dsSearch(MODEL_SETS.price, words, null, 1000, signal);
     if (signal.aborted) return;
-    msg.textContent = mResults.length ? `${mResults.length >= 80 ? "80+" : mResults.length} דגמים. בחרו דגם להוספה להשוואה.` : "לא נמצאו דגמים. נסו שם אחר, למשל שם הדגם באנגלית.";
-    list.innerHTML = mResults.map((r, i) => {
-      const bits = [r.shnat_yitzur, r.ramat_gimur, isNum(r.koah_sus) ? `${fmtN(r.koah_sus)} כ״ס` : "", r.delek_nm, r.merkav].filter(x => !empty(x));
-      return `<button type="button" class="row" data-mi="${i}"><span class="t"><b>${esc(rowLabel(r))}</b><small>${esc(bits.join(" · "))}</small></span></button>`;
-    }).join("");
+    const g = new Map();
+    for (const r of rows) {
+      if (empty(r.tozeret_cd) || !rowModel(r)) continue;
+      const k = groupKey(r); if (!g.has(k)) g.set(k, {make: rowMake(r), model: rowModel(r), tozeret_cd: r.tozeret_cd, rows: []});
+      g.get(k).rows.push(r);
+    }
+    mGroups = [...g.values()].map(x => { const ys = x.rows.map(r => num(r.shnat_yitzur)).filter(y => !isNaN(y)); return {...x, from: Math.min(...ys), to: Math.max(...ys)}; })
+      .sort((a, b) => b.to - a.to || (a.make + a.model).localeCompare(b.make + b.model, "he")).slice(0, 40);
+    msg.textContent = mGroups.length ? "בחרו דגם:" : "לא נמצאו דגמים. נסו שם אחר, למשל שם הדגם באנגלית.";
+    list.innerHTML = mGroups.map((x, i) => `<button type="button" class="row" data-mg="${i}"><span class="t"><b>${esc(x.make)} ${esc(x.model)}</b><small>${isFinite(x.from) ? (x.from === x.to ? x.from : `<span dir="ltr">${x.from}–${x.to}</span>`) : ""}</small></span>${ico("chev")}</button>`).join("");
   } catch (err) { if (err.name !== "AbortError") msg.textContent = "החיפוש נכשל. בדקו את החיבור ונסו שוב."; }
+}
+/* all rows of one maker + commercial name, every year and trim */
+async function groupRows(x){
+  const tries = [{tozeret_cd: num(x.tozeret_cd), kinuy_mishari: x.model}, {tozeret_cd: String(x.tozeret_cd), kinuy_mishari: x.model}, {tozeret_cd: num(x.tozeret_cd), degem_nm: x.model}];
+  for (const f of tries) { try { const r = await ds(MODEL_SETS.wltp, f, 1000); if (r.length) return r; } catch {} }
+  return x.rows;
+}
+const crumbs = () => `<div class="crumbs"><button type="button" class="link-btn" data-mback="1">${ico("chev")}חזרה</button><b>${esc(mGroup.make)} ${esc(mGroup.model)}${mYear ? ` · ${mYear}` : ""}</b></div>`;
+async function pickGroup(i){
+  mGroup = mGroups[i]; mYear = null; if (!mGroup) return;
+  const msg = $("#compareMsg"); msg.textContent = "טוען שנים…";
+  mGroup.all = await groupRows(mGroup);
+  showYears();
+}
+function showYears(){
+  const years = [...new Set(mGroup.all.map(r => num(r.shnat_yitzur)).filter(y => !isNaN(y)))].sort((a, b) => b - a);
+  $("#compareMsg").textContent = "בחרו שנת ייצור:";
+  $("#mres").innerHTML = crumbs() + `<div class="chips years">${years.map(y => `<button type="button" class="chip" data-my="${y}">${y}</button>`).join("")}</div>`;
+  if (years.length === 1) pickYear(String(years[0]));
+}
+function pickYear(y){
+  mYear = y;
+  // one entry per trim; engines that differ in power or fuel stay separate, everything else is merged
+  const seen = new Map();
+  for (const r of mGroup.all.filter(r => String(num(r.shnat_yitzur)) === String(y))) {
+    const k = [String(r.ramat_gimur || "").trim().toUpperCase(), num(r.koah_sus) || "", r.delek_nm || ""].join("|");
+    if (!seen.has(k)) seen.set(k, r);
+  }
+  mResults = [...seen.values()].sort((a, b) => String(a.ramat_gimur || "").localeCompare(String(b.ramat_gimur || "")) || (num(a.koah_sus) || 0) - (num(b.koah_sus) || 0));
+  $("#compareMsg").textContent = mResults.length > 1 ? "בחרו רמת גימור:" : "";
+  $("#mres").innerHTML = crumbs() + mResults.map((r, i) => {
+    const bits = [isNum(r.koah_sus) ? `${fmtN(r.koah_sus)} כ״ס` : "", r.delek_nm, empty(r.automatic_ind) ? "" : yes(r.automatic_ind) ? "אוטומטית" : "ידנית"].filter(x => !empty(x));
+    return `<button type="button" class="row" data-mi="${i}"><span class="t"><b>${esc(String(r.ramat_gimur || "").trim() || "גרסה בסיסית")}</b><small>${esc(bits.join(" · "))}</small></span>${ico("plus")}</button>`;
+  }).join("");
+  if (mResults.length === 1) pickModel(0);
+}
+function stepBack(){
+  if (mYear) { mYear = null; showYears(); return; }
+  mGroup = null; runModelSearch();
 }
 async function pickModel(i){
   const r = mResults[i]; if (!r) return;
-  const msg = $("#compareMsg"); msg.textContent = `טוען את ${rowLabel(r)}…`;
+  const msg = $("#compareMsg"); msg.textContent = `טוען את ${rowLabel(r)} ${r.shnat_yitzur || ""}…`;
   try { addToCompare(await fetchModel(r)); }
   catch (err) { msg.textContent = "הטעינה נכשלה. נסו שוב."; }
 }
@@ -1237,11 +1325,12 @@ function renderCompare(){
     if (dir && n > 1 && nums.length > 1 && new Set(nums).size > 1) best = dir === "hi" ? Math.max(...nums) : Math.min(...nums);
     return `<div class="cmp-k">${esc(k)}</div>` + vals.map(x => `<div class="cmp-v${best !== null && x === best ? " win" : ""}">${cell(x, u, plain)}</div>`).join("");
   }).join("");
-  const head = (D, i) => `<div class="cmp-h">${D.kind === "model" ? `<span class="tag">דגם</span>` : `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>`}<b>${esc(D.title)}</b><small>${esc(D.sub)}</small><button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div>`;
-  $("#out").innerHTML = `<section class="card blue" style="--n:${Math.max(n, 1)}"><div class="head"><span class="badge">${ico("compare")}</span><h2>השוואת רכבים</h2><button type="button" class="count" data-act="closeCompare" style="border:0">חזרה</button></div>
+  const head = (D, i) => `<div class="cmp-h"><div class="cmp-top">${D.kind === "model" ? `<span class="tag">דגם</span>` : `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>`}<button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><b>${esc(D.title)}</b><small>${esc(D.sub)}</small></div>`;
+  const wide = cmpWide();
+  $("#out").innerHTML = `<section class="card blue${wide ? " cmp-wide" : ""}" style="--n:${Math.max(n, 1)}"><div class="head"><span class="badge">${ico("compare")}</span><h2>השוואת רכבים</h2><button type="button" class="count" data-act="closeCompare" style="border:0">חזרה</button></div>
     ${n ? "" : `<p style="margin:0">מחפשים רכב? הוסיפו עד ${CMP_MAX} דגמים או רכבים ספציפיים, וההשוואה תראה מחיר, עלויות, כוח, גרירה, בטיחות ואמינות זה לצד זה.</p>`}
-    ${n ? `<div class="cmp"><div></div>${L.map(head).join("")}</div>` : ""}
-    ${n < CMP_MAX ? `<button type="button" class="cmp-add" data-act="addCompare">${ico("plus")}${n ? `הוספת רכב להשוואה (עד ${CMP_MAX})` : "בחירת רכב ראשון"}</button>` : ""}
+    ${n < CMP_MAX || n > 1 ? `<div class="cmp-bar">${n < CMP_MAX ? `<button type="button" class="cmp-add" data-act="addCompare">${ico("plus")}${n ? `הוספת רכב (עד ${CMP_MAX})` : "בחירת רכב ראשון"}</button>` : ""}${n > 1 ? `<button type="button" class="cmp-land" data-act="land" aria-pressed="${land}">${ico("rotate")}${land ? "תצוגה רגילה" : "תצוגה לרוחב"}</button>` : ""}</div>` : ""}
+    ${n ? `<div class="cmp"><div class="ph"></div>${L.map(head).join("")}</div>` : ""}
     ${n ? `<div class="cmp-table">${body}</div>` : ""}
     ${n > 1 ? `<p class="note">ירוק מסמן את הערך העדיף בכל שורה. ההערכות (דלק, אגרה, שווי) מחושבות באותה שיטה כמו בלשונית העלויות. לדגם, השווי הוא ממוצע לגיל בלי נתוני ק״מ ובעלויות.</p>` : ""}</section>`;
 }
@@ -1280,13 +1369,13 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "addCompare") { openCompare(); return; }
   if (b.dataset.act === "compareHome") { cmp = []; renderCompare(); openCompare("model"); return; }
   if (b.dataset.act === "closeCompare") { closeCompare(); return; }
+  if (b.dataset.act === "land") { setLand(!land); return; }
   if (!current) return;
   if (b.dataset.tab) { currentTab = b.dataset.tab; renderResult(); const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"}); return; }
   const act = b.dataset.act;
   if (act === "share") { $("#shareMsg").textContent = ""; $("#shareSheet").hidden = false; }
   if (act === "copy") copyText(summaryText(current), "הסיכום");
   if (act === "compare") { cmp = [current]; openCompare("model"); }
-  if (act === "google") openExternal("https://www.google.com/search?q=" + encodeURIComponent([current.make, current.model, current.v.shnat_yitzur].filter(x => !empty(x)).join(" ")));
   if (act === "save") {
     const on = toggleSaved({plate: current.plate, title: current.title, sub: current.sub, at: Date.now()});
     b.setAttribute("aria-pressed", String(on)); b.querySelector("span").textContent = on ? "נשמר" : "שמירה";
@@ -1297,11 +1386,33 @@ $("#cf").addEventListener("submit", ev => { ev.preventDefault(); runCompare($("#
 $("#mf").addEventListener("submit", ev => { ev.preventDefault(); runModelSearch(); });
 let mTimer = null;
 $("#mq").addEventListener("input", () => { clearTimeout(mTimer); if ($("#mq").value.trim().length >= 2) mTimer = setTimeout(runModelSearch, 450); });
-$("#my").addEventListener("change", () => { if ($("#mq").value.trim().length >= 2) runModelSearch(); });
-$("#my").insertAdjacentHTML("beforeend", Array.from({length: new Date().getFullYear() - 2004}, (_, i) => new Date().getFullYear() + 1 - i).map(y => `<option>${y}</option>`).join(""));
-$("#mres").addEventListener("click", ev => { const b = ev.target.closest("[data-mi]"); if (b) pickModel(+b.dataset.mi); });
+$("#mres").addEventListener("click", ev => {
+  const b = ev.target.closest("button"); if (!b) return;
+  if (b.dataset.mg) pickGroup(+b.dataset.mg);
+  else if (b.dataset.my) pickYear(b.dataset.my);
+  else if (b.dataset.mi) pickModel(+b.dataset.mi);
+  else if (b.dataset.mback) stepBack();
+});
 document.querySelectorAll("[data-cmp-mode]").forEach(b => b.addEventListener("click", () => setCmpMode(b.dataset.cmpMode)));
-function closeCompare(){ inCompare = false; if (current) renderResult(); else renderHome(); window.scrollTo({top: 0}); }
+let land = false;
+const cmpWide = () => land || matchMedia("(min-width:640px)").matches;
+addEventListener("resize", () => { if (inCompare && !!$("#out .cmp-wide") !== cmpWide()) renderCompare(); });
+function setLand(on, redraw = true){
+  if (land === on) { if (redraw) renderCompare(); return; }
+  land = on; document.body.classList.toggle("land", on);
+  if (window.AndroidApp && AndroidApp.setLandscape) AndroidApp.setLandscape(on);
+  else if (on) {
+    (async () => {
+      try { if (document.documentElement.requestFullscreen && !document.fullscreenElement) await document.documentElement.requestFullscreen(); await screen.orientation.lock("landscape"); }
+      catch { if (innerHeight > innerWidth) toast("אפשר לסובב את הטלפון לרוחב"); }
+    })();
+  } else {
+    try { screen.orientation.unlock(); } catch {}
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  }
+  if (redraw) renderCompare();
+}
+function closeCompare(){ if (land) setLand(false, false); inCompare = false; if (current) renderResult(); else renderHome(); window.scrollTo({top: 0}); }
 $("#closeCompareSheet").addEventListener("click", () => { $("#compareSheet").hidden = true; });
 $("#compareSheet").addEventListener("click", ev => { if (ev.target.id === "compareSheet") ev.target.hidden = true; });
 
@@ -1330,7 +1441,7 @@ const TAB_FN = () => ({overview: tabOverview, recalls: tabRecalls, costs: tabCos
 function buildReport(D, full){
   const el = document.createElement("div"); el.className = "report";
   const today = new Date().toLocaleDateString("he-IL");
-  const parts = [`<div class="rep-head"><b>CheckCar</b><span>דוח רכב · ${today}</span></div>`];
+  const parts = [`<div class="rep-head"><b>${full ? "דוח רכב" : "CheckCar"}</b><span>${full ? `${fmtPlate(D.plate)} · ` : "דוח רכב · "}${today}</span></div>`];
   const idc = $("#out .id-card"), banner = $("#out .alert-banner");
   if (idc) parts.push(idc.outerHTML);
   if (banner) parts.push(banner.outerHTML.replace(/^<button/, "<div").replace(/<\/button>$/, "</div>"));
@@ -1351,7 +1462,7 @@ function buildReport(D, full){
 }
 async function captureReport(D, full){
   await loadScript(LIBS.img);
-  const el = buildReport(D, full); if (full) el.style.width = "720px";
+  const el = buildReport(D, full); if (full) el.classList.add("pdf");
   document.body.appendChild(el);
   try {
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -1361,7 +1472,7 @@ async function captureReport(D, full){
       if (!c.offsetHeight) return; const r = c.getBoundingClientRect(); set.add(Math.round(r.bottom - top + 4));
     });
     const breaks = [...set].sort((a, b) => a - b);
-    const bg = getComputedStyle(document.body).backgroundColor;
+    const bg = getComputedStyle(el).backgroundColor;
     const canvas = await window.htmlToImage.toCanvas(el, {pixelRatio: 2, backgroundColor: bg, skipFonts: true,
       style: {position: "static", left: "0", top: "0"}, width: el.offsetWidth, height: el.offsetHeight});
     return {canvas, breaks: breaks.map(b => b * 2)};
@@ -1380,22 +1491,39 @@ async function shareFile(blob, name, title){
   document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
   toast("הקובץ נשמר בהורדות");
 }
+/* header and footer lines are drawn on a canvas: the PDF library has no Hebrew font, the browser does */
+function pdfBand(text, left, w, h, rule){
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, w, h);
+  x.font = `${Math.round(h * .42)}px Arial, "Noto Sans Hebrew", sans-serif`; x.fillStyle = "#5d6676"; x.textBaseline = "middle";
+  x.direction = "rtl"; x.textAlign = "right"; x.fillText(text, w - 2, h / 2);
+  if (left) { x.direction = "ltr"; x.textAlign = "left"; x.fillText(left, 2, h / 2); }
+  if (rule) { x.fillStyle = "#dde2ea"; x.fillRect(0, rule > 0 ? h - 2 : 0, w, 2); }
+  return c.toDataURL("image/png");
+}
 async function makePdf(D){
   const [{canvas, breaks}] = await Promise.all([captureReport(D, true), loadScript(LIBS.pdf)]);
   const pdf = new window.jspdf.jsPDF({unit: "pt", format: "a4", compress: true});
-  const W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight(), M = 24;
-  const scale = (W - 2 * M) / canvas.width, pageH = Math.floor((H - 2 * M) / scale);
-  let y = 0, first = true;
+  const W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight();
+  const MX = 36, TOP = 58, BOT = 50, CW = W - 2 * MX;
+  const scale = CW / canvas.width, pageH = Math.floor((H - TOP - BOT) / scale);
+  const slices = []; let y = 0;
   while (y < canvas.height - 4) {
     let end = Math.min(y + pageH, canvas.height);
-    if (end < canvas.height) { const b = breaks.filter(x => x > y + pageH * 0.4 && x <= end).pop(); if (b) end = b; }
-    const part = document.createElement("canvas"); part.width = canvas.width; part.height = end - y;
-    const ctx = part.getContext("2d"); ctx.fillStyle = getComputedStyle(document.body).backgroundColor; ctx.fillRect(0, 0, part.width, part.height);
-    ctx.drawImage(canvas, 0, y, canvas.width, end - y, 0, 0, canvas.width, end - y);
-    if (!first) pdf.addPage();
-    pdf.addImage(part.toDataURL("image/jpeg", 0.88), "JPEG", M, M, W - 2 * M, (end - y) * scale);
-    first = false; y = end;
+    if (end < canvas.height) { const b = breaks.filter(x => x > y + pageH * 0.45 && x <= end).pop(); if (b) end = b; }
+    slices.push([y, end]); y = end;
   }
+  const BW = Math.round(CW * 3), BH = 60, bh = BH / 3;
+  const head = pdfBand(`CheckCar · ${D.title}${empty(D.v.shnat_yitzur) ? "" : " " + D.v.shnat_yitzur}`, fmtPlate(D.plate), BW, BH, 1);
+  slices.forEach(([a, b], i) => {
+    if (i) pdf.addPage();
+    const part = document.createElement("canvas"); part.width = canvas.width; part.height = b - a;
+    const ctx = part.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, part.width, part.height);
+    ctx.drawImage(canvas, 0, a, canvas.width, b - a, 0, 0, canvas.width, b - a);
+    if (i) pdf.addImage(head, "PNG", MX, 22, CW, bh);
+    pdf.addImage(part.toDataURL("image/jpeg", 0.92), "JPEG", MX, i ? TOP : 30, CW, (b - a) * scale);
+    pdf.addImage(pdfBand("מאגרי משרד התחבורה (data.gov.il) · אינו מחליף נסח רישום רשמי", `${i + 1} / ${slices.length}`, BW, BH, -1), "PNG", MX, H - 34, CW, bh);
+  });
   return pdf.output("blob");
 }
 async function doShare(kind){
@@ -1562,6 +1690,7 @@ function startVoice(){
 $("#micBtn").addEventListener("click", startVoice);
 
 function renderHome(){
+  if (land) setLand(false, false);
   current = null; inCompare = false;
   const saved = store.get("savedVehicles"), recent = store.get("recentPlates");
   const html = [];
@@ -1574,7 +1703,16 @@ function renderHome(){
 
 function run(p){ lookup(p).catch(err => { $("#out").innerHTML = `<div class="msg err">${esc(err.message)}</div>`; $("#go").disabled = false; }); }
 $("#f").addEventListener("submit", ev => { ev.preventDefault(); run($("#plate").value); });
-const syncClr = () => { $("#clrPlate").hidden = !$("#plate").value; };
+let lastPlateVal = null;
+const syncClr = () => {
+  const el = $("#plate"), c = $("#clrPlate");
+  if (el.value === lastPlateVal && c.hidden === !el.value) return;
+  lastPlateVal = el.value; c.hidden = !el.value;
+  // shrink the digits until they fit next to the clear button, so nothing is cut off
+  el.style.fontSize = "";
+  let fs = parseFloat(getComputedStyle(el).fontSize);
+  while (el.value && el.scrollWidth > el.clientWidth + 1 && fs > 15) { fs -= 1; el.style.fontSize = fs + "px"; }
+};
 $("#plate").addEventListener("input", syncClr);
 setInterval(syncClr, 500); // value set from code (search, photo, voice) fires no input event
 $("#clrPlate").addEventListener("click", ev => { ev.preventDefault(); $("#plate").value = ""; syncClr(); inMsg(""); $("#plate").focus(); });

@@ -81,6 +81,13 @@ public class MainActivity extends Activity {
             }
 
             @JavascriptInterface
+            public void setLandscape(boolean on) {
+                runOnUiThread(() -> setRequestedOrientation(on
+                        ? android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                        : android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED));
+            }
+
+            @JavascriptInterface
             public void copy(String text) {
                 runOnUiThread(() -> {
                     ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
