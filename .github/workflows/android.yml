@@ -1,0 +1,54 @@
+name: Android build
+
+# Builds unsigned release APK and AAB from the web app, and publishes them on the
+# "android-builds" branch. Signing happens outside CI with the private upload key.
+on:
+  push:
+    branches: [main]
+    paths: ["index.html", "android/**", ".github/workflows/android.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.13"
+
+      - name: Build
+        working-directory: android
+        run: |
+          gradle --no-daemon assembleRelease bundleRelease \
+            -PversionCode=${{ github.run_number }} -PversionName=1.0.${{ github.run_number }}
+
+      - name: Collect outputs
+        run: |
+          mkdir -p out
+          cp android/app/build/outputs/apk/release/app-release-unsigned.apk out/
+          cp android/app/build/outputs/bundle/release/app-release.aab out/app-release-unsigned.aab
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          cp "$BT/lib/apksigner.jar" out/
+          echo "versionCode=${{ github.run_number }}" > out/version.txt
+          echo "versionName=1.0.${{ github.run_number }}" >> out/version.txt
+          echo "commit=${{ github.sha }}" >> out/version.txt
+          ls -la out
+
+      - name: Publish to android-builds branch
+        run: |
+          cd out
+          git init -q
+          git checkout -q -b android-builds
+          git add -A
+          git -c user.name="github-actions" -c user.email="github-actions@users.noreply.github.com" commit -qm "Build ${{ github.run_number }} from ${{ github.sha }}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" android-builds
