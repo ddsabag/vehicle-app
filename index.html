@@ -213,6 +213,8 @@ footer a{color:var(--accent)}
 .tow-ban{display:flex;gap:10px;align-items:flex-start;background:var(--bad-bg);color:var(--bad);border-radius:12px;padding:12px 14px}
 .tow-ban b{display:block}.tow-ban span{color:var(--fg);font-size:.92rem}
 .mods-sum{margin:0;font-weight:600}
+.first-own{background:var(--soft);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.first-own span{color:var(--muted);font-size:.9rem}
 .plate .clr{flex:0 0 auto;width:44px;border:0;background:transparent;color:#111;display:grid;place-items:center;opacity:.7}
 .plate .clr svg.i{width:22px;height:22px;stroke-width:2.6}
 .cmp-h b{font-size:.92rem;line-height:1.25;word-break:normal;overflow-wrap:normal;hyphens:none}
@@ -494,12 +496,18 @@ function rankRows(rows, rec){
   };
   return rows.slice().sort((a, b) => score(b) - score(a));
 }
-/* "מקוריות" in the ministry's vehicle history. "לא מקורי" also contains "מקורי", so test the negation first. */
-function originState(v){
-  const t = String(v.mkoriut_nm || "").trim();
-  if (!t) return null;
-  const not = /לא|אינו|שאינו|non/i.test(t);
-  return {value: t, original: !not && /מקורי/.test(t)};
+/* "מקוריות" in the ministry's records is the first ownership type, when the car went on the road new
+   (פרטי, ליסינג, השכרה…). It fills the gap for cars older than the January 2017 ownership log. */
+function firstOwner(v){ const t = String(v.mkoriut_nm || "").trim(); return t || null; }
+/* Plain meaning of each first-ownership type, and how much it usually costs in resale value */
+function ownerKind(t){
+  t = String(t || "");
+  if (/השכר/.test(t)) return {k: "rental", pct: -7, text: "הרכב שימש חברת השכרה, עם נהגים רבים לתקופות קצרות. זה מוריד את ערך הרכב יותר מכל סוג בעלות אחר."};
+  if (/ליסינג|החכר|חכיר/.test(t)) return {k: "lease", pct: -3, text: "הרכב נקנה על ידי חברת ליסינג והוחכר לנהג או לחברה לתקופה ארוכה, לרוב 3 שנים."};
+  if (/מונית|ממשל|סיור|תיור|הסעה|לימוד/.test(t)) return {k: "special", pct: -8, text: "הרכב שימש לשימוש ייעודי (" + t + "). שימוש כזה מוריד את ערך הרכב."};
+  if (/חברה|חברת|תאגיד/.test(t)) return {k: "company", pct: -3, text: "הרכב נרשם על שם חברה, לרוב כרכב תפעולי של העסק ולא כליסינג."};
+  if (/פרטי/.test(t)) return {k: "private", pct: 0, text: "הרכב נקנה חדש מהיבואן על ידי אדם פרטי. זה המצב המועדף בשוק היד השנייה."};
+  return {k: "other", pct: 0, text: ""};
 }
 /* Towing not allowed: a licence/registry remark, or model data where both towing limits are explicitly 0 */
 function towBan(D){
@@ -610,11 +618,12 @@ function costs(D){
     }
     const hands = D.own.length;
     if (hands > 1) adj.push([-Math.min(12, (hands - 1) * 3), `${D.ownersFloor ? "לפחות " : ""}${hands} רשומות בעלות`]);
-    const past = D.own.slice(0, -1).map(r => String(r.baalut || ""));
-    if (past.some(t => t.includes("השכר"))) adj.push([-7, "היה רכב השכרה"]);
-    else if (past.some(t => t.includes("ליסינג"))) adj.push([-3, "היה רכב ליסינג"]);
-    const og = originState(D.v);
-    if (og && !og.original) adj.push([-10, `רשום במשרד הרישוי כ"${og.value}"`]);
+    // the worst past use counts once: from the ownership log or from the first ownership type
+    const past = D.own.slice(0, -1).map(r => String(r.baalut || "")).concat(firstOwner(D.v) || []).map(ownerKind).filter(o => o.pct < 0);
+    if (past.length) {
+      const worst = past.sort((a, b) => a.pct - b.pct)[0];
+      adj.push([worst.pct, {rental: "היה רכב השכרה", lease: "היה רכב ליסינג", special: "היה בשימוש ייעודי", company: "היה רכב חברה"}[worst.k]]);
+    }
     const total = adj.reduce((a, [p]) => a + p, 0);
     const mid = base * (1 + total / 100);
     c.newPrice = num(D.price.mehir); c.age = age; c.baseValue = Math.round(base / 1000) * 1000; c.adj = adj;
@@ -763,15 +772,20 @@ function buildInsights(D){
   const own = D.own;
   if (own.length) {
     const past = own.slice(0, -1).map(r => String(r.baalut || ""));
-    if (own.length === 1 && !D.ownersFloor) add("ok", "יד ראשונה", `לפי רשומות הבעלות הרכב לא החליף בעלים מאז ${fmtDate(own[0].baalut_dt)}.`);
+    if (isFirstHand(D)) add("ok", "יד ראשונה", `לפי רשומות הבעלות הרכב לא החליף בעלים מאז ${fmtDate(own[0].baalut_dt)}.`);
     else if (own.length >= 4) add("warn", `${D.ownersFloor ? "לפחות " : ""}${own.length} רשומות בעלות`, "הרכב עבר הרבה ידיים. כדאי לבקש היסטוריית טיפולים.");
     if (past.some(t => t.includes("השכר"))) add("warn", "היה רכב השכרה", "בעבר הרכב היה בבעלות חברת השכרה. ברכבי השכרה נוהגים נהגים רבים.");
     if (past.some(t => t.includes("ליסינג"))) add("info", "היה רכב ליסינג", "בעבר הרכב היה בליסינג. רכבי ליסינג מטופלים לרוב במוסך מורשה, אבל צוברים ק״מ מהר.");
     const last = parseYM(own[own.length - 1].baalut_dt);
     if (last && own.length > 1 && monthsBetween(last, now) < 6) add("info", "החליף בעלים לאחרונה", `העברת הבעלות האחרונה הייתה ב-${fmtDate(own[own.length - 1].baalut_dt)}.`);
   }
-  const og = originState(v);
-  if (og && !og.original) add("warn", "הרכב לא רשום כמקורי", `במשרד הרישוי רשום: "${og.value}". זה אומר שהרכב כפי שהוא היום שונה מהרכב שנרשם במקור. כדאי לשאול את המוכר מה שונה ולבדוק ברישיון הרכב ובמכון בדיקה.`);
+  // first ownership type: only adds news when the ownership log does not already show it
+  const fo = firstOwner(v), logText = D.own.map(r => String(r.baalut || "")).join(" ");
+  const fk = fo && ownerKind(fo);
+  if (fk && fk.k === "rental" && !logText.includes("השכר")) add("warn", "התחיל את דרכו כרכב השכרה", fk.text);
+  else if (fk && fk.k === "lease" && !/ליסינג|החכר/.test(logText)) add("info", "התחיל את דרכו כרכב ליסינג", fk.text);
+  else if (fk && fk.k === "special") add("warn", `התחיל את דרכו כ${fo}`, fk.text);
+  else if (fk && fk.k === "company" && !/חברה/.test(logText)) add("info", "התחיל את דרכו כרכב חברה", fk.text);
   const ban = towBan(D);
   if (ban) add("warn", "אסור להתקין וו גרירה", ban.from === "licence" ? `ברישום הרכב מופיע: "${ban.text}". אי אפשר לאשר לרכב הזה וו גרירה.` : "לפי נתוני הדגם, כושר הגרירה שאושר ליצרן הוא 0. לכן אי אפשר לרשום לרכב וו גרירה, וגרירה אסורה.");
   if (yes(v.shinui_mivne_ind)) add("warn", "בוצע שינוי מבנה", "שינוי מבנה דורש אישור ורישום. כדאי לברר מה שונה.");
@@ -859,24 +873,19 @@ function renderResult(){
   html.push(`<div class="tab-body">${({overview: tabOverview, recalls: tabRecalls, costs: tabCosts, specs: tabSpecs})[currentTab](D)}</div>`);
   $("#out").innerHTML = html.join("");
 }
-const ownersLabel = D => D.own.length === 1 && !D.ownersFloor ? "יד ראשונה" : `${D.ownersFloor ? "לפחות " : ""}${D.own.length} ${D.own.length === 1 ? "רשומת בעלות" : "רשומות בעלות"}`;
+/* One ownership record, and the first ownership type (מקוריות) agrees with it */
+const isFirstHand = D => D.own.length === 1 && !D.ownersFloor && (!firstOwner(D.v) || ownerKind(firstOwner(D.v)).k === ownerKind(D.own[0].baalut).k);
+const ownersLabel = D => isFirstHand(D) ? "יד ראשונה" : `${D.ownersFloor ? "לפחות " : ""}${D.own.length} ${D.own.length === 1 ? "רשומת בעלות" : "רשומות בעלות"}`;
 
-/* The registry's "מקוריות" next to the four things it tracks: body/structure, LPG, colour, tyre size */
+/* What changed since the car left the factory: structure, LPG, colour, tyre size */
 function modsCard(v){
-  const og = originState(v);
   const items = [["שינוי מבנה", v.shinui_mivne_ind], ["התקנת גפ״מ (גז)", v.gapam_ind], ["שינוי צבע", v.shnui_zeva_ind], ["שינוי מידת צמיגים", v.shinui_zmig_ind]]
     .filter(([, x]) => !empty(x));
-  if (!og && !items.length) return "";
+  if (!items.length) return "";
   const done = items.filter(([, x]) => yes(x)).map(([k]) => k);
-  let sum;
-  if (og && og.original && !done.length) sum = "הרכב רשום כמקורי: לא נרשם בו שינוי מבנה, לא הותקן בו גפ״מ, והצבע ומידת הצמיגים כמו ביציאה מהמפעל.";
-  else if (og && !og.original) sum = `הרכב רשום במשרד הרישוי כ"${esc(og.value)}". כלומר, הרכב היום שונה מהרכב שנרשם במקור${done.length ? ` (נרשם: ${done.join(", ")})` : ""}. כדאי לשאול את המוכר מה שונה ולבדוק ברישיון הרכב.`;
-  else if (done.length) sum = `נרשמו ברכב שינויים: ${done.join(", ")}. שינוי כזה חייב אישור של משרד הרישוי ורישום ברישיון.`;
-  else sum = "לא נרשמו ברכב שינויים במבנה, בגפ״מ, בצבע או במידת הצמיגים.";
-  return `<p class="mods-sum">${sum}</p>` + facts([
-    og ? ["מקוריות (כפי שרשום)", esc(og.value)] : null,
-    ...items.map(([k, x]) => [k, changed(x)]),
-  ]) + `<p class="note">"מקורי" במשרד הרישוי פירושו שהרכב במצב שבו נרשם לראשונה. שינויים כמו גפ״מ, צבע או מבנה נרשמים כאן אחרי שאושרו.</p>`;
+  const sum = done.length ? `נרשמו ברכב שינויים: ${done.join(", ")}. שינוי כזה מחייב אישור של משרד הרישוי.`
+    : "לא נרשמו ברכב שינויים: המבנה, הצבע ומידת הצמיגים כמו ביציאה מהמפעל, ולא הותקן גפ״מ.";
+  return `<p class="mods-sum">${sum}</p>` + facts(items.map(([k, x]) => [k, changed(x)]));
 }
 
 function tabOverview(D){
@@ -921,15 +930,17 @@ function tabOverview(D){
     ["תג חניה לנכה", D.tag ? `יש${empty(D.tag["TAARICH HAFAKAT TAG"]) ? "" : " (הונפק " + esc(fmtDate(D.tag["TAARICH HAFAKAT TAG"])) + ")"}` : "אין"],
   ])));
 
+  const fo = firstOwner(v);
+  const foLine = fo ? `<div class="first-own"><b>בעלות ראשונה (״מקוריות״): ${esc(fo)}</b>${ownerKind(fo).text ? `<span>${esc(ownerKind(fo).text)}</span>` : ""}</div>` : "";
   if (D.own.length) {
     html.push(card("היסטוריית בעלויות", "users", "violet",
-      `<ol class="timeline">${D.own.slice().reverse().map((r,i) => `<li><span class="dot"></span><time>${esc(fmtDate(r.baalut_dt))}</time><span>${esc(r.baalut || "")}${i === 0 ? `<span class="now">נוכחי</span>` : ""}</span></li>`).join("")}</ol>
+      `${foLine}<ol class="timeline">${D.own.slice().reverse().map((r,i) => `<li><span class="dot"></span><time>${esc(fmtDate(r.baalut_dt))}</time><span>${esc(r.baalut || "")}${i === 0 ? `<span class="now">נוכחי</span>` : ""}</span></li>`).join("")}</ol>
        <p class="note">כל רשומה היא העברת בעלות, לפי סוג הבעלות בלבד ובלי שמות.${D.ownersFloor ? " יומן הבעלויות מתחיל בינואר 2017, ולכן ברכבים ותיקים יותר ייתכן שהיו בעלים נוספים לפני כן." : ""}</p>`,
       `<span class="count">${ownersLabel(D)}</span>`));
   } else if (!empty(v.baalut)) {
-    html.push(card("בעלות", "users", "violet", facts([["בעלות נוכחית", e(v.baalut)]])));
+    html.push(card("בעלות", "users", "violet", foLine + facts([["בעלות נוכחית", e(v.baalut)]])));
   }
-  html.push(card("שינויים ברכב מאז הייצור", "wrench", "teal", modsCard(v)));
+  html.push(card("שינויים ברכב", "wrench", "teal", modsCard(v)));
   return html.join("");
 }
 
@@ -1210,7 +1221,7 @@ function renderCompare(){
       ["רשומות בעלות", D => D.own.length || null, "lo", "", false, true],
       ["ריקולים פתוחים", D => D.recalls.length, "lo", "", false, true],
       ["טסט בתוקף עד", D => D.v.tokef_dt ? fmtDate(D.v.tokef_dt) : "", null, "", false, true],
-      ["רשום כמקורי", D => { const og = originState(D.v); return og ? (og.original ? "כן" : og.value) : ""; }, null, "", false, true]] : []),
+      ["בעלות ראשונה", D => firstOwner(D.v) || "", null, "", false, true]] : []),
   ];
   const cell = (x, u, plain) => x === null ? "—" : typeof x === "number" ? `${plain ? x : fmtN(x)}${u ? ` <span class="u">${u}</span>` : ""}` : esc(x);
   const body = rows.map(r => {
@@ -1237,6 +1248,7 @@ function summaryText(D){
   if (!empty(v.tokef_dt)) lines.push(`טסט בתוקף עד ${fmtDate(v.tokef_dt)}`);
   if (D.km) lines.push(`ק״מ בטסט האחרון: ${fmtN(D.km)}${empty(v.mivchan_acharon_dt) ? "" : " (" + fmtDate(v.mivchan_acharon_dt) + ")"}`);
   if (D.own.length) lines.push(ownersLabel(D));
+  if (firstOwner(v)) lines.push(`בעלות ראשונה: ${firstOwner(v)}`);
   const tb = D.tSrc && D.tSrc.kosher_grira_im_blamim, tu = D.tSrc && D.tSrc.kosher_grira_bli_blamim;
   if (towBan(D)) lines.push("אסור להתקין וו גרירה");
   else if (isNum(tb) || isNum(tu)) lines.push(`גרירה: ${isNum(tb) ? fmtN(tb) : "—"} ק״ג עם בלמים, ${isNum(tu) ? fmtN(tu) : "—"} ק״ג בלי בלמים`);
