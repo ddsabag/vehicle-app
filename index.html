@@ -281,7 +281,9 @@ section[style*="--n:3"] .cmp-k{font-size:.76rem}
 .years.big .chip{padding:12px 0;font-size:1.05rem;font-weight:700;text-align:center;border-radius:12px}
 .qrow{display:flex;align-items:center;gap:10px;width:100%;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:10px 12px;text-align:start;color:var(--fg)}
 .qrow .t{flex:1;min-width:0}.qrow small{display:block;color:var(--muted)}
-.qrow.cur{border-color:var(--accent);background:var(--info-bg)}
+.qrow.cur{border-color:var(--accent)}
+.qadd{flex:0 0 auto;display:flex;align-items:center;gap:4px;background:var(--accent);color:var(--accent-fg);border-radius:999px;padding:6px 12px;font-weight:700;font-size:.85rem}
+.qadd svg.i{width:16px;height:16px}
 .slots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .slots button{border:2px dashed var(--line);background:transparent;border-radius:14px;min-height:118px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--muted);font-weight:700}
 .slots button:first-child{border-color:var(--accent);color:var(--accent);background:var(--info-bg)}
@@ -321,6 +323,10 @@ section[style*="--n:3"] .cmp-k{font-size:.76rem}
 .report .tabs{display:none}
 .report .cmp{position:static;margin-block:0}
 .report .cmp-wide .cmp-v,.report .cmp-wide .cmp-k{font-size:.9rem!important}
+.rep-brand{display:flex;align-items:center;gap:12px;background:#FFC400;color:#111;border-radius:14px;padding:12px 16px}
+.rep-brand svg{width:48px;height:48px;flex:0 0 auto;border-radius:11px;box-shadow:0 0 0 2px #111}
+.rep-brand b{display:block;font-size:1.5rem;font-weight:900;line-height:1.1}.rep-brand span{font-size:.85rem;font-weight:600}
+.rep-brand em{margin-inline-start:auto;font-style:normal;font-weight:800;font-size:.8rem;background:#111;color:#FFC400;border-radius:999px;padding:6px 12px;white-space:nowrap}
 .rep-head{display:flex;justify-content:space-between;align-items:baseline;padding:0 4px}
 .rep-head b{font-size:1.3rem;font-weight:800}.rep-head span{color:var(--muted);font-size:.85rem}
 .rep-sec{margin:8px 4px 0;font-size:1.05rem;font-weight:800;color:var(--accent)}
@@ -430,7 +436,7 @@ body.land .band{display:none}
       <button class="link-btn" type="button" id="clearSaved">מחיקת כל הרכבים השמורים</button>
     </div>
     <p class="note">המידע מגיע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il. החיפושים והרכבים השמורים נשמרים רק במכשיר הזה. גרסה <span id="ver"></span>.</p>
-    <p class="credit">לוחית · פותחה על ידי דודו סבג</p>
+    <p class="credit">לוחית · פותחה על ידי דודו סבאג</p>
   </div>
 </div>
 <div class="sheet full" id="compareSheet" hidden role="dialog" aria-modal="true" aria-labelledby="cmpTitle">
@@ -1366,10 +1372,10 @@ function renderQuick(){
   const inCmp = p => cmp.some(x => x.plate === p);
   const parts = [];
   const mine = [];
-  if (current && !inCmp(current.plate)) mine.push(`<button type="button" class="qrow cur" data-qcur="1"><span class="mini-plate"><i></i>${fmtPlate(current.plate)}</span><span class="t"><b>${esc(current.title)}</b><small>הרכב שחיפשת</small></span>${ico("plus")}</button>`);
+  if (current && !inCmp(current.plate)) mine.push(`<button type="button" class="qrow cur" data-qcur="1"><span class="mini-plate"><i></i>${fmtPlate(current.plate)}</span><span class="t"><b>${esc(current.title)}</b><small>הרכב שחיפשת</small></span><span class="qadd">${ico("plus")}הוספה</span></button>`);
   for (const s of store.get("savedVehicles").filter(s => !inCmp(s.plate) && !(current && s.plate === current.plate)).slice(0, 3))
-    mine.push(`<button type="button" class="qrow" data-qplate="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b>${esc(s.title)}</b><small>${esc(s.sub || "רכב שמור")}</small></span>${ico("plus")}</button>`);
-  if (mine.length) parts.push(`<div class="qsec">הרכבים שלך</div><div class="list">${mine.join("")}</div>`);
+    mine.push(`<button type="button" class="qrow" data-qplate="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b>${esc(s.title)}</b><small>${esc(s.sub || "רכב שמור")}</small></span><span class="qadd">${ico("plus")}הוספה</span></button>`);
+  if (mine.length) parts.push(`<div class="qsec">להוספה מהירה מהרכבים שלך</div><div class="list">${mine.join("")}</div>`);
   if (cmpMode === "model") parts.push(`<div class="qsec">יצרנים נפוצים</div><div class="makers">${MAKERS.map(m => `<button type="button" data-maker="${m}">${m}</button>`).join("")}</div>`);
   box.innerHTML = parts.join("");
 }
@@ -1675,13 +1681,13 @@ const TAB_FN = () => ({overview: tabOverview, recalls: tabRecalls, costs: tabCos
 function buildReport(D, full){
   const el = document.createElement("div"); el.className = "report";
   const today = new Date().toLocaleDateString("he-IL");
-  const parts = [`<div class="rep-head"><b>${full ? "דוח רכב" : "לוחית"}</b><span>${full ? `${fmtPlate(D.plate)} · ` : "דוח רכב · "}${today}</span></div>`];
+  const parts = [brandHead(), `<div class="rep-head"><b>דוח רכב</b><span>${fmtPlate(D.plate)} · ${today}</span></div>`];
   const idc = $("#out .id-card"), banner = $("#out .alert-banner");
   if (idc) parts.push(idc.outerHTML);
   if (banner) parts.push(banner.outerHTML.replace(/^<button/, "<div").replace(/<\/button>$/, "</div>"));
   const tabs = full ? TABS : TABS.filter(([k]) => k === currentTab);
   for (const [k, t] of tabs) { if (full) parts.push(`<h3 class="rep-sec">${t}</h3>`); parts.push(TAB_FN()[k](D)); }
-  parts.push(`<p class="rep-foot">המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il, ואינו מחליף נסח רישום רשמי. הופק באפליקציית לוחית.</p>`);
+  parts.push(`<p class="rep-foot">המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il, ואינו מחליף נסח רישום רשמי. ${BRAND_FOOT}</p>`);
   el.innerHTML = parts.join("");
   el.querySelectorAll(".card.folded").forEach(c => c.classList.remove("folded"));
   return inlineIcons(el);
@@ -1732,20 +1738,32 @@ async function shareFile(blob, name, title){
   toast("הקובץ נשמר בהורדות");
 }
 /* header and footer lines are drawn on a canvas: the PDF library has no Hebrew font, the browser does */
-function pdfBand(text, left, w, h, rule){
+/* branding on every shared report: the app's name, logo and where to get it */
+const PLAY_URL = "https://play.google.com/store/apps/details?id=com.ddsabag.pratirechev";
+const logoSvg = () => { const l = $(".brand .logo"); return l ? l.outerHTML.replace("<svg ", '<svg xmlns="http://www.w3.org/2000/svg" ') : ""; };
+const brandHead = () => `<div class="rep-brand">${logoSvg()}<div><b>לוחית</b><span>בדיקת רכב לפי מספר רישוי</span></div><em>חינם ב-Google Play</em></div>`;
+const BRAND_FOOT = "הופק באפליקציית לוחית, בדיקת רכב לפי מספר רישוי. להורדה חינם ב-Google Play.";
+function loadLogo(){
+  return new Promise(ok => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null);
+    im.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(logoSvg().replace(/class="logo"/, 'width="120" height="120"')); });
+}
+function pdfBand(text, left, w, h, rule, logo){
   const c = document.createElement("canvas"); c.width = w; c.height = h;
   const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, w, h);
+  let right = w - 2;
+  if (logo) { const s = Math.round(h * .8); x.drawImage(logo, w - s - 2, (h - s) / 2, s, s); right = w - s - 14; }
   x.font = `${Math.round(h * .42)}px Arial, "Noto Sans Hebrew", sans-serif`; x.fillStyle = "#5d6676"; x.textBaseline = "middle";
-  x.direction = "rtl"; x.textAlign = "right"; x.fillText(text, w - 2, h / 2);
+  x.direction = "rtl"; x.textAlign = "right"; x.fillText(text, right, h / 2);
   if (left) { x.direction = "ltr"; x.textAlign = "left"; x.fillText(left, 2, h / 2); }
   if (rule) { x.fillStyle = "#dde2ea"; x.fillRect(0, rule > 0 ? h - 2 : 0, w, 2); }
   return c.toDataURL("image/png");
 }
 async function makePdf(D){
   const [{canvas, breaks}] = await Promise.all([captureReport(D, true), loadScript(LIBS.pdf)]);
-  return pdfFromCanvas(canvas, breaks, `לוחית · ${D.title}${empty(D.v.shnat_yitzur) ? "" : " " + D.v.shnat_yitzur}`, fmtPlate(D.plate));
+  return await pdfFromCanvas(canvas, breaks, `לוחית · ${D.title}${empty(D.v.shnat_yitzur) ? "" : " " + D.v.shnat_yitzur}`, fmtPlate(D.plate));
 }
-function pdfFromCanvas(canvas, breaks, headText, headLeft){
+async function pdfFromCanvas(canvas, breaks, headText, headLeft){
+  const logo = await loadLogo();
   const pdf = new window.jspdf.jsPDF({unit: "pt", format: "a4", compress: true});
   const W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight();
   const MX = 36, TOP = 58, BOT = 50, CW = W - 2 * MX;
@@ -1757,7 +1775,8 @@ function pdfFromCanvas(canvas, breaks, headText, headLeft){
     slices.push([y, end]); y = end;
   }
   const BW = Math.round(CW * 3), BH = 60, bh = BH / 3;
-  const head = pdfBand(headText, headLeft, BW, BH, 1);
+  const head = pdfBand(headText, headLeft, BW, BH, 1, logo);
+  const foot = n => pdfBand("לוחית · בדיקת רכב לפי מספר רישוי · חינם ב-Google Play", n, BW, BH, -1, logo);
   slices.forEach(([a, b], i) => {
     if (i) pdf.addPage();
     const part = document.createElement("canvas"); part.width = canvas.width; part.height = b - a;
@@ -1765,7 +1784,8 @@ function pdfFromCanvas(canvas, breaks, headText, headLeft){
     ctx.drawImage(canvas, 0, a, canvas.width, b - a, 0, 0, canvas.width, b - a);
     if (i) pdf.addImage(head, "PNG", MX, 22, CW, bh);
     pdf.addImage(part.toDataURL("image/jpeg", 0.92), "JPEG", MX, i ? TOP : 30, CW, (b - a) * scale);
-    pdf.addImage(pdfBand("מאגרי משרד התחבורה (data.gov.il) · אינו מחליף נסח רישום רשמי", `${i + 1} / ${slices.length}`, BW, BH, -1), "PNG", MX, H - 34, CW, bh);
+    pdf.addImage(foot(`${i + 1} / ${slices.length}`), "PNG", MX, H - 34, CW, bh);
+    pdf.link(MX, H - 34, CW, bh, {url: PLAY_URL});
   });
   return pdf.output("blob");
 }
@@ -1777,12 +1797,12 @@ async function makeComparePdf(){
   const el = document.createElement("div"); el.className = "report pdf";
   const card = sec.cloneNode(true); card.classList.add("cmp-wide");
   card.querySelectorAll(".cmp-bar, .head .count, .cmp-top .x").forEach(x => x.remove());
-  el.innerHTML = `<div class="rep-head"><b>השוואת רכבים</b><span>${today}</span></div>`;
+  el.innerHTML = brandHead() + `<div class="rep-head"><b>השוואת רכבים</b><span>${today}</span></div>`;
   el.appendChild(card);
-  el.insertAdjacentHTML("beforeend", `<p class="rep-foot">המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il. הערכות העלות והשווי משוערות. הופק באפליקציית לוחית.</p>`);
+  el.insertAdjacentHTML("beforeend", `<p class="rep-foot">המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il. הערכות העלות והשווי משוערות. ${BRAND_FOOT}</p>`);
   inlineIcons(el);
   const {canvas, breaks} = await captureEl(el, ".cmp, .cmp-table > .cmp-k, .cmp-table > .cmp-v, .rep-foot");
-  return pdfFromCanvas(canvas, breaks, "לוחית · השוואת רכבים", today);
+  return await pdfFromCanvas(canvas, breaks, "לוחית · השוואת רכבים", today);
 }
 async function shareComparePdf(btn){
   const old = btn.innerHTML; btn.disabled = true; btn.textContent = "מכין PDF…";
