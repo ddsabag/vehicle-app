@@ -112,7 +112,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .pills{display:flex;flex-wrap:wrap;gap:6px}
 .pill{font-size:.82rem;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--soft)}
 .pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.warn{background:var(--warn-bg);color:var(--warn)}.pill.bad{background:var(--bad-bg);color:var(--bad)}
-.actions{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;border-top:1px solid var(--line);padding-top:12px}
+.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;border-top:1px solid var(--line);padding-top:12px}
 .act{display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--soft);border:0;border-radius:12px;padding:10px 2px;font-size:.78rem;font-weight:700;color:var(--fg)}
 .act svg.i{color:var(--accent)}
 .act[aria-pressed="true"] svg.i{fill:var(--t-amber);stroke:var(--t-amber)}
@@ -127,6 +127,13 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 
 /* towing + stats */
 .tow-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fix{display:flex;flex-direction:column;gap:4px;margin-top:6px;background:var(--soft);border-radius:10px;padding:8px 12px;font-size:.92rem}
+.fix span{color:var(--muted);font-weight:700;margin-inline-end:8px}
+.hook-box{display:flex;align-items:center;gap:8px;margin-top:10px;padding:11px 14px;border-radius:12px;font-size:1.05rem;border:2px solid}
+.hook-box svg.i{width:20px;height:20px;flex:0 0 auto}
+.hook-box span{color:var(--muted);font-size:.9rem;margin-inline-start:auto}
+.hook-box.yes{background:var(--ok-bg,#e7f6ec);border-color:var(--ok,#15803d);color:var(--ok,#15803d)}
+.hook-box.no{background:var(--soft);border-color:var(--line);color:var(--fg)}
 .tow-grid>div,.tow-grid>.unit-flip{background:var(--tb);border-radius:12px;padding:12px 14px}
 .unit-flip{border:0;text-align:start;font:inherit;color:inherit;width:100%}
 .unit-flip .flip{font-weight:800;opacity:.75;margin-inline-start:4px}
@@ -284,6 +291,8 @@ section[style*="--n:3"] .cmp-k{font-size:.76rem}
 .report.pdf .rep-foot{border-top:1px solid #dde2ea;padding-top:10px}
 .report .actions,.report .chev,.report .link-btn,.report [data-url],.report [data-copy]{display:none!important}
 .report .tabs{display:none}
+.report .cmp{position:static;margin-block:0}
+.report .cmp-wide .cmp-v,.report .cmp-wide .cmp-k{font-size:.9rem!important}
 .rep-head{display:flex;justify-content:space-between;align-items:baseline;padding:0 4px}
 .rep-head b{font-size:1.3rem;font-weight:800}.rep-head span{color:var(--muted);font-size:.85rem}
 .rep-sec{margin:8px 4px 0;font-size:1.05rem;font-weight:800;color:var(--accent)}
@@ -424,7 +433,7 @@ body.land .band{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "1.3";
+const APP_VERSION = "1.4";
 const SITE = "https://ddsabag.github.io/vehicle-app/";
 const API = "https://data.gov.il/api/3/action/datastore_search";
 
@@ -962,6 +971,13 @@ async function lookup(raw){
   remember(plate);
   window.scrollTo({top: 0});
 }
+// What the recall fixes, from the MoT fields: the affected system and the repair method
+function fixRows(r, d) {
+  const sys = empty(D_pick(r.TEUR_TAKALA, d.TEUR_TAKALA)) ? "" : D_pick(r.SUG_TAKALA, d.SUG_TAKALA), fix = d.OFEN_TIKUN;
+  const rows = [["מערכת", sys], ["התיקון", fix]].filter(([, x]) => !empty(x));
+  return rows.length ? `<div class="fix">${rows.map(([k, x]) => `<div><span>${k}</span>${esc(x)}</div>`).join("")}</div>` : "";
+}
+const D_pick = (...a) => a.find(x => !empty(x));
 const loadingHtml = plate => `<div class="msg"><p class="note" style="margin-bottom:10px">מחפש את <span class="mono">${fmtPlate(plate)}</span> במאגרי משרד התחבורה…</p><div class="progress"><i id="bar"></i></div></div>`;
 
 function renderResult(){
@@ -985,7 +1001,6 @@ function renderResult(){
       <button class="act" type="button" data-act="share">${ico("share")}שיתוף</button>
       <button class="act" type="button" data-act="save" aria-pressed="${isSaved(D.plate)}">${ico("star")}<span>${isSaved(D.plate) ? "נשמר" : "שמירה"}</span></button>
       <button class="act" type="button" data-act="compare">${ico("compare")}השוואה</button>
-      <button class="act" type="button" data-act="copy">${ico("copy")}העתקה</button>
     </div>
   </section>`);
 
@@ -1022,19 +1037,20 @@ function tabOverview(D){
     const icon = {bad:"alert", warn:"alert", info:"info", ok:"check"};
     html.push(card("מידע חשוב שעלה מהנתונים", "bulb", "amber",
       `<ul class="insights">${ins.map(i => `<li class="ins ${i.level}">${ico(icon[i.level])}<div><b>${esc(i.title)}</b><span>${esc(i.text)}</span></div></li>`).join("")}</ul>
-       <p class="note">התובנות מחושבות אוטומטית מהנתונים הפתוחים, לפי סדר חשיבות. הן אינן תחליף לבדיקת רכב במכון מורשה.</p>`));
+       <p class="note">התובנות אינן תחליף לבדיקת רכב במכון מורשה.</p>`));
   }
   const tb = D.tSrc && D.tSrc.kosher_grira_im_blamim, tu = D.tSrc && D.tSrc.kosher_grira_bli_blamim;
   const tv = x => isNum(x) && num(x) > 0 ? fmtN(x) : "—";
   const towNote = [];
   if (D.towRow && !empty(D.towRow.shnat_yitzur) && num(D.towRow.shnat_yitzur) !== num(v.shnat_yitzur)) towNote.push(`לפי נתוני הדגם משנת ${esc(D.towRow.shnat_yitzur)}, כי לשנת הייצור של הרכב אין נתון.`);
   const hook = hookField(v);
-  if (hook && !towBan(D)) towNote.push(hook.none ? "לפי רישום הרכב, כרגע לא מותקן בו וו גרירה." : `לפי רישום הרכב מותקן בו וו גרירה (${esc(hook.text)}).`);
   const ban = towBan(D);
+  const hookBox = hook && !ban ? `<div class="hook-box ${hook.none ? "no" : "yes"}">${ico(hook.none ? "x" : "check")}<b>${hook.none ? "לא מותקן וו גרירה" : "מותקן וו גרירה"}</b>${hook.none ? "" : `<span>${esc(hook.text)}</span>`}</div>` : "";
   html.push(card("כמה מותר לגרור", "tow", "amber", `${ban ? `<div class="tow-ban">${ico("alert")}<div><b>אסור להתקין וו גרירה</b><span>לפי נתוני הדגם במשרד התחבורה, כושר הגרירה המותר הוא 0 ק״ג עם בלמים ובלי בלמים. היצרן לא אישר גרירה, ולכן אי אפשר לרשום לרכב וו גרירה.</span></div></div>` : D.tSrc ? `<div class="tow-grid">
       <div><div class="k">עם בלמים</div><div class="v">${tv(tb)}<span class="u">ק״ג</span></div></div>
       <div><div class="k">בלי בלמים</div><div class="v">${tv(tu)}<span class="u">ק״ג</span></div></div>
     </div>` : `<p style="margin:0">אין במאגר של משרד התחבורה נתוני גרירה לדגם הזה.</p>`}
+    ${hookBox}
     ${towNote.map(t => `<p class="note">${t}</p>`).join("")}
     ${ban ? "" : `<p class="note">משקל הנגרר המותר כולל את המטען שבו. כדי לגרור צריך וו גרירה מאושר ורשום ברישיון הרכב.</p>`}`));
 
@@ -1063,7 +1079,7 @@ function tabOverview(D){
   if (D.own.length) {
     html.push(card("היסטוריית בעלויות", "users", "violet",
       `${foLine}<ol class="timeline">${D.own.slice().reverse().map((r,i) => `<li><span class="dot"></span><time>${esc(fmtDate(r.baalut_dt))}</time><span>${esc(r.baalut || "")}${i === 0 ? `<span class="now">נוכחי</span>` : ""}</span></li>`).join("")}</ol>
-       <p class="note">כל רשומה היא העברת בעלות, לפי סוג הבעלות בלבד ובלי שמות.${D.ownersFloor ? " יומן הבעלויות מתחיל בינואר 2017, ולכן ברכבים ותיקים יותר ייתכן שהיו בעלים נוספים לפני כן." : ""}</p>`,
+       <p class="note">${D.ownersFloor ? "יומן הבעלויות מתחיל בינואר 2017, ולכן ברכבים ותיקים יותר ייתכן שהיו בעלים נוספים לפני כן." : ""}</p>`,
       `<span class="count">${ownersLabel(D)}</span>`));
   } else if (!empty(v.baalut)) {
     html.push(card("בעלות", "users", "violet", foLine + facts([["בעלות נוכחית", e(v.baalut)]])));
@@ -1080,7 +1096,7 @@ function tabRecalls(D){
       const contact = [d.YEVUAN_TEUR, d.TELEPHONE && `טלפון ${d.TELEPHONE}`].filter(x => !empty(x)).map(esc).join(" · ");
       return `<div class="recall"><b>${isBlocking(r) ? `<span class="pill bad">מגביל חידוש רישיון</span> ` : ""}${esc(D.pick(r.TEUR_TAKALA, d.TEUR_TAKALA, r.SUG_TAKALA) || "ריקול")}</b>
         <span class="note">${[r.SUG_RECALL, !empty(r.TAARICH_PTICHA) && "נפתח ב-" + fmtDate(r.TAARICH_PTICHA), !empty(r.RECALL_ID) && "מספר " + r.RECALL_ID].filter(Boolean).map(esc).join(" · ")}</span>
-        ${empty(d.OFEN_TIKUN) ? "" : `<p class="note">אופן התיקון: ${esc(d.OFEN_TIKUN)}</p>`}
+        ${fixRows(r, d)}
         ${contact ? `<p class="note">${contact}</p>` : ""}</div>`;
     }).join("") + `<p class="note">התיקון ניתן בחינם אצל היבואן. ריקול בטיחותי פתוח עלול למנוע חידוש רישיון.</p>`));
   } else {
@@ -1088,7 +1104,7 @@ function tabRecalls(D){
   }
   const imp = importerRecall(D);
   html.push(card("בדיקה באתר היבואן", "search", "teal",
-    `<p style="margin:0">היבואנים מציגים באתר שלהם גם קמפיינים ותיקונים שלא תמיד מופיעים במאגר של משרד התחבורה. הבדיקה נעשית באתר היבואן: מספר הרישוי יועתק, ותדביקו אותו שם.</p>
+    `<p style="margin:0">באתר היבואן מופיעים גם קמפיינים שלא תמיד נמצאים במאגר. מספר הרישוי יועתק, ותדביקו אותו שם.</p>
      <button type="button" class="link-btn" data-url="${esc(imp.url)}" data-copyfirst="${imp.vin ? esc(D.vin || D.plate) : D.plate}">${ico("search")}${imp.gov ? "חיפוש במאגר הריקולים של משרד התחבורה" : `בדיקת ריקולים וקמפיינים באתר ${esc(imp.name)}`}</button>
      ${imp.gov ? `<p class="note">ל${esc(imp.name || "יבואן הזה")} לא מצאתי עמוד בדיקה לפי מספר רישוי. במאגר של משרד התחבורה מחפשים לפי יצרן ודגם.</p>` : imp.note ? `<p class="note">${esc(imp.note)}</p>` : ""}`));
   if (D.modelRecalls.length) {
@@ -1099,7 +1115,7 @@ function tabRecalls(D){
          <b>${esc(D.pick(r.TEUR_TAKALA, r.SUG_TAKALA) || "ריקול")}</b>
          <span class="note">${[r.SUG_RECALL, r.DEGEM, ].filter(x => !empty(x)).map(esc).join(" · ")}${(r.BUILD_BEGIN_A || r.BUILD_END_A) ? ` · ייצור <span dir="ltr" style="unicode-bidi:isolate">${esc(fmtDate(r.BUILD_BEGIN_A || ""))} – ${esc(fmtDate(r.BUILD_END_A || ""))}</span>` : ""}</span>
        </li>`).join("")}</ul>
-       <p class="note">${D.modelRecalls.length} ריקולים נמצאו לדגם, ${fits.length} מהם עשויים לחול על שנת הייצור של הרכב. ריקול שבוצע ברכב הזה לא מופיע ברשימת הריקולים הפתוחים.</p>`,
+       <p class="note">${D.modelRecalls.length} ריקולים נמצאו לדגם, ${fits.length} מהם עשויים לחול על שנת הייצור של הרכב.</p>`,
       `<span class="count">${D.modelRecalls.length}</span>`));
   } else {
     html.push(card("היסטוריית ריקולים לדגם", "clock", "blue", `<p style="margin:0">לא נמצאו ריקולים קודמים לדגם הזה במאגר.</p>`));
@@ -1107,7 +1123,7 @@ function tabRecalls(D){
   const who = D.pick(D.price && D.price.shem_yevuan, D.modelRecalls[0] && D.modelRecalls[0].YEVUAN_TEUR, D.make);
   const q = `"${who}" ("תובענה ייצוגית" OR "הסדר פשרה")`;
   html.push(card("תובענות ייצוגיות והסדרי פשרה", "scale", "slate",
-    `<p style="margin:0">אין מאגר פתוח ומהימן שמקשר תובענות ייצוגיות לדגם או לרכב מסוים, ולכן האפליקציה לא מציגה אותן אוטומטית. אפשר לחפש לפי היבואן או היצרן:</p>
+    `<p style="margin:0">חיפוש תובענות ייצוגיות לפי היבואן או היצרן:</p>
      <div class="link-list">
        <button type="button" class="link-btn" data-url="https://www.google.com/search?q=${encodeURIComponent(q)}">${ico("google")}חיפוש "${esc(who)}" עם תובענה ייצוגית או הסדר פשרה</button>
        <button type="button" class="link-btn" data-url="https://elyon1.court.gov.il/heb/tovanot_yezugiyot/main.htm">${ico("doc")}פנקס התובענות הייצוגיות של בתי המשפט</button>
@@ -1122,30 +1138,29 @@ function tabCosts(D){
         <button type="button" class="unit-flip" data-act="fuelUnit" aria-label="החלפת יחידה"><div class="k">צריכה משוערת <span class="flip">⇄</span></div><div class="v">${kmlUnit() ? (100 / c.l100).toFixed(1) : c.l100.toFixed(1)}<span class="u">${kmlUnit() ? "ק״מ לליטר" : "ל׳/100 ק״מ"}</span></div></button>
         <div><div class="k">${c.fuelYear ? "עלות דלק בשנה" : "ליטרים בשנה"}</div><div class="v">${c.fuelYear ? fmtN(Math.round(c.fuelYear / 100) * 100) : fmtN(Math.round(c.litres))}<span class="u">${c.fuelYear ? "₪" : "ליטר"}</span></div></div>
       </div>
-      <p class="note">לפי פליטת ה-CO₂ של הדגם ו-${fmtN(c.kmYear)} ק״מ בשנה (${c.kmFromCar ? "הממוצע של הרכב הזה" : "ממוצע ארצי"})${c.fuelPrice ? `, במחיר ${c.fuelPrice.toFixed(2)} ₪ לליטר${c.fuelMonth ? ` (${monthHe(c.fuelMonth)})` : ""}` : ""}. נסיעה אמיתית צורכת בדרך כלל יותר מהנתון הרשמי.${c.kind === "diesel" && !c.fuelPrice ? " כדי לראות עלות בשקלים, הגדירו מחיר סולר בהגדרות." : " אפשר לשנות את מחיר הדלק בהגדרות."}</p>` :
+      <p class="note">נסיעה אמיתית צורכת בדרך כלל יותר מהנתון הרשמי.${c.kind === "diesel" && !c.fuelPrice ? " כדי לראות עלות בשקלים, הגדירו מחיר סולר בהגדרות." : " אפשר לשנות את מחיר הדלק בהגדרות."}</p>` :
     `<p style="margin:0">אין במאגר נתוני פליטה לדגם הזה, ולכן אין הערכת צריכה.</p>`;
   html.push(card("דלק", "fuel", "red", fuelInner));
   html.push(card("אגרת רישוי שנתית", "doc", "violet", c.fee ?
     `<div class="tow-grid"><div><div class="k">הערכה</div><div class="v">${fmtN(c.fee)}<span class="u">₪</span></div></div><div><div class="k">קבוצת מחיר</div><div class="v">${c.feeGroup}<span class="u">מתוך 7</span></div></div></div>
-     <p class="note">לפי התעריף הרשמי לרכב פרטי שבתוקף מ-1 באפריל 2026, כולל 135 ₪ לרשות השידור. האגרה מתעדכנת פעם בשנה, באפריל${new Date() >= new Date(2027, 3, 1) ? ", וייתכן שכבר עודכנה מאז" : ""}. הנחות (נכים, משרתי מילואים ועוד) לא נכללות.</p>
+     <p class="note">לפי התעריף הרשמי לשנת 2026${new Date() >= new Date(2027, 3, 1) ? ", וייתכן שכבר עודכן מאז" : ""}. לא כולל הנחות.</p>
      <button type="button" class="link-btn" data-url="${FEE_SOURCE}">${ico("doc")}טבלת האגרות הרשמית של משרד התחבורה</button>` :
     `<p style="margin:0">לא נמצאה קבוצת אגרה לרכב הזה. ההערכה זמינה לרכב פרטי בלבד.</p>`));
   const u = c.usage;
   html.push(card("שווי שימוש (רכב צמוד)", "users", "teal", u ?
     `<div class="tow-grid"><div><div class="k">לחודש (הערכה)</div><div class="v">${fmtN(u.monthly)}<span class="u">₪</span></div></div><div><div class="k">לשנה</div><div class="v">${fmtN(u.monthly * 12)}<span class="u">₪</span></div></div></div>
-     <p class="note">${u.capped ? "לפי תקרת המחיר של רשות המסים" : `לפי מחיר מחירון ${u.regYear} צמוד למדד (${fmtN(u.price)} ₪)`} × 2.48%${u.green ? `, פחות ${fmtN(u.green[1])} ₪ הפחתה לרכב ${u.green[0]}` : ""}, לפי לוח הניכויים של רשות המסים לשנת 2026.${u.green && u.green[0] === "היברידי" ? ` ברכב פלאג-אין ההפחתה ${fmtN(USAGE.phev)} ₪.` : ""} זה הסכום שמתווסף למשכורת לצורך מס, לא המס עצמו. הסכום המחייב הוא במחשבון של רשות המסים, לפי קוד תוצר ${esc(D.v.tozeret_cd)}, קוד דגם ${esc(D.v.degem_cd)} ושנת רישום ${u.regYear}.</p>
+     <p class="note">זה הסכום שמתווסף למשכורת לצורך מס, לא המס עצמו. הסכום המחייב מופיע במחשבון של רשות המסים.</p>
      <button type="button" class="link-btn" data-url="${USAGE.calc}" data-copyfirst="${esc(`קוד תוצר ${D.v.tozeret_cd} קוד דגם ${D.v.degem_cd} שנה ${u.regYear}`)}" data-copylabel="הקודים">${ico("doc")}המחשבון הרשמי של רשות המסים</button>` :
     `<p style="margin:0">אין מספיק נתונים לחישוב שווי השימוש של הרכב הזה (החישוב כאן לרכב פרטי שעלה לכביש מ-2010).</p><button type="button" class="link-btn" data-url="${USAGE.calc}">${ico("doc")}המחשבון הרשמי של רשות המסים</button>`));
   html.push(card("שווי משוער", "tag", "pink", (c.newPrice ?
     `<div class="tow-grid"><div><div class="k">מחיר מחירון כחדש</div><div class="v">${fmtN(c.newPrice)}<span class="u">₪</span></div></div><div><div class="k">שווי משוער היום</div><div class="v"><span dir="ltr" style="unicode-bidi:isolate;white-space:nowrap">${Math.round(c.valueLow / 1000)}–${Math.round(c.valueHigh / 1000)}</span><span class="u">אלף ₪</span></div></div></div>
-     <ul class="adj"><li><span>שווי ממוצע לרכב בגיל ${c.age} (לפני התאמות)</span><b class="mono">${fmtN(c.baseValue)} ₪</b></li>${c.adj.map(([p, t]) => `<li><span>${esc(t)}</span><b class="mono ${p < 0 ? "neg" : "pos"}">${p > 0 ? "+" : "−"}${Math.abs(p).toFixed(0)}%</b></li>`).join("")}</ul>
-     <p class="note">ההערכה מחושבת באפליקציה, בשיטה שדומה למחירונים המקצועיים: ירידת ערך ממוצעת לפי גיל (מהירה יותר ברכב חשמלי ויוקרתי), ואחריה התאמות זו אחר זו לשימוש קודם (מלא אם זו הייתה הבעלות הראשונה, חצי אם הגיעה מאוחר יותר), למספר הידיים ולק״מ. היא לא מביאה בחשבון את מצב הרכב, תאונות והביקוש לדגם, ולכן היא הערכה בלבד.</p>` :
+     
+     <p class="note">הערכה בלבד. היא לא מביאה בחשבון את מצב הרכב, תאונות והביקוש לדגם.</p>` :
     `<p style="margin:0">אין במאגר מחיר מחירון לדגם הזה, ולכן אין הערכת שווי.</p>`) +
-    `<button type="button" class="link-btn" data-url="https://carlistprice.mot.gov.il/" data-copyfirst="${D.plate}">${ico("tag")}מחירון העם: מחירי עסקאות אמיתיות</button>
-     <p class="note">מחירון העם מבוסס על מחירים וק״מ שדווחו בהעברות בעלות. הוא אתר ולא מאגר פתוח, ולכן האפליקציה פותחת אותו במקום למשוך ממנו נתונים.</p>`));
+    `<button type="button" class="link-btn" data-url="https://carlistprice.mot.gov.il/" data-copyfirst="${D.plate}">${ico("tag")}מחירון העם: מחירי עסקאות אמיתיות</button>`));
   html.push(card("הדגם על הכביש", "car", "blue", c.active !== undefined ?
     facts([["רכבים פעילים מהדגם", esc(fmtN(c.active))], ["כבר לא פעילים", esc(fmtN(c.gone))], c.gonePct !== null && ["שיעור שירד מהכביש", `${c.gonePct.toFixed(1)}%`, "wide"]]) +
-    `<p class="note">לפי דגם ושנת ייצור. שיעור גבוה של רכבים שירדו מהכביש ביחס לגיל הדגם יכול לרמוז על אמינות נמוכה או על תאונות, אבל הוא מושפע גם מייצוא ומפירוק רכבי צי.</p>` :
+    `<p class="note">שיעור גבוה ביחס לגיל הדגם עשוי לרמוז על אמינות נמוכה או על תאונות.</p>` :
     `<p style="margin:0">אין במאגר נתוני כמויות לדגם הזה.</p>`));
   html.push(card("לפני שקונים", "check", "green",
     `<p style="margin:0">שלושה דברים שכדאי לעשות לפני שסוגרים עסקה:</p>
@@ -1204,7 +1219,7 @@ function tabSpecs(D){
     ["כריות אוויר", e(w.mispar_kariot_avir)],
   ]) + (present.length ? `<div class="systems">${present.map(s => `<span>${esc(s)}</span>`).join("")}</div>` : "")));
   const equip = Object.keys(EQUIP).filter(k => !empty(w[k]) && num(w[k]) > 0).map(k => EQUIP[k] + (k === "mispar_halonot_hashmal" && num(w[k]) > 1 ? ` (${num(w[k])})` : ""));
-  if (equip.length) html.push(card("אבזור", "star", "amber", `<div class="systems">${equip.map(s => `<span>${esc(s)}</span>`).join("")}</div><p class="note">לפי מה שהיבואן דיווח למשרד התחבורה. האבזור המלא ברמת הגימור מופיע בקטלוג של היבואן.</p>`));
+  if (equip.length) html.push(card("אבזור", "star", "amber", `<div class="systems">${equip.map(s => `<span>${esc(s)}</span>`).join("")}</div><p class="note">האבזור המלא מופיע בקטלוג של היבואן.</p>`));
   const zihum = D.pick(v.kvutzat_zihum, w.kvutzat_zihum);
   html.push(card("סביבה", "leaf", "leaf", facts([
     ["קבוצת זיהום", empty(zihum) ? "" : `${esc(zihum)} <span class="note">(1 הנקי ביותר, 15 המזהם ביותר)</span>`, "wide"],
@@ -1457,10 +1472,10 @@ function renderCompare(){
   const wide = cmpWide();
   $("#out").innerHTML = `<section class="card blue${wide ? " cmp-wide" : ""}" style="--n:${Math.max(n, 1)}"><div class="head"><span class="badge">${ico("compare")}</span><h2>השוואת רכבים</h2><button type="button" class="count" data-act="closeCompare" style="border:0">חזרה</button></div>
     ${n ? "" : `<p style="margin:0">מחפשים רכב? הוסיפו עד ${CMP_MAX} דגמים או רכבים ספציפיים, וההשוואה תראה מחיר, עלויות, כוח, גרירה, בטיחות ואמינות זה לצד זה.</p>`}
-    ${n < CMP_MAX || n > 1 ? `<div class="cmp-bar">${n < CMP_MAX ? `<button type="button" class="cmp-add" data-act="addCompare">${ico("plus")}${n ? `הוספת רכב (עד ${CMP_MAX})` : "בחירת רכב ראשון"}</button>` : ""}${n > 1 ? `<button type="button" class="cmp-land" data-act="land" aria-pressed="${land}">${ico("rotate")}${land ? "תצוגה רגילה" : "תצוגה לרוחב"}</button>` : ""}</div>` : ""}
+    ${n < CMP_MAX || n > 1 ? `<div class="cmp-bar">${n < CMP_MAX ? `<button type="button" class="cmp-add" data-act="addCompare">${ico("plus")}${n ? `הוספת רכב (עד ${CMP_MAX})` : "בחירת רכב ראשון"}</button>` : ""}${n > 1 ? `<button type="button" class="cmp-land" data-act="land" aria-pressed="${land}">${ico("rotate")}${land ? "תצוגה רגילה" : "תצוגה לרוחב"}</button><button type="button" class="cmp-land" data-act="cmpPdf">${ico("doc")}PDF</button>` : ""}</div>` : ""}
     ${n ? `<div class="cmp"><div class="ph"></div>${L.map(head).join("")}</div>` : ""}
     ${n ? `<div class="cmp-table">${body}</div>` : ""}
-    ${n > 1 ? `<p class="note">ירוק מסמן את הערך העדיף בכל שורה. ההערכות (דלק, אגרה, שווי) מחושבות באותה שיטה כמו בלשונית העלויות. לדגם, השווי הוא ממוצע לגיל בלי נתוני ק״מ ובעלויות.</p>` : ""}</section>`;
+    ${n > 1 ? `<p class="note">ירוק מסמן את הערך העדיף בכל שורה.</p>` : ""}</section>`;
 }
 
 function summaryText(D){
@@ -1497,6 +1512,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "addCompare") { openCompare(); return; }
   if (b.dataset.act === "compareHome") { cmp = []; renderCompare(); openCompare("model"); return; }
   if (b.dataset.act === "closeCompare") { closeCompare(); return; }
+  if (b.dataset.act === "cmpPdf") { shareComparePdf(b); return; }
   if (b.dataset.act === "land") { setLand(!land); return; }
   if (!current) return;
   if (b.dataset.tab) { currentTab = b.dataset.tab; renderResult(); const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"}); return; }
@@ -1580,7 +1596,10 @@ function buildReport(D, full){
   parts.push(`<p class="rep-foot">המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il, ואינו מחליף נסח רישום רשמי. הופק באפליקציית CheckCar.</p>`);
   el.innerHTML = parts.join("");
   el.querySelectorAll(".card.folded").forEach(c => c.classList.remove("folded"));
-  // icons are inlined: a snapshot cannot follow <use> references to the page's icon sprite
+  return inlineIcons(el);
+}
+// icons are inlined: a snapshot cannot follow <use> references to the page's icon sprite
+function inlineIcons(el){
   el.querySelectorAll("svg use").forEach(u => {
     const sym = document.getElementById((u.getAttribute("href") || "").slice(1)), svg = u.closest("svg");
     if (!sym || !svg) return;
@@ -1593,12 +1612,15 @@ function buildReport(D, full){
 async function captureReport(D, full){
   await loadScript(LIBS.img);
   const el = buildReport(D, full); if (full) el.classList.add("pdf");
+  // page-break candidates for the PDF: below cards and below the blocks inside them, never right after a section title
+  return captureEl(el, ".card, .alert-banner, .rep-foot, .fold-body > *, .fold-body > * > *, .grid2 > *");
+}
+async function captureEl(el, breakSel){
   document.body.appendChild(el);
   try {
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-    // page-break candidates for the PDF: below cards and below the blocks inside them, never right after a section title
     const top = el.getBoundingClientRect().top, set = new Set();
-    el.querySelectorAll(".card, .alert-banner, .rep-foot, .fold-body > *, .fold-body > * > *, .grid2 > *").forEach(c => {
+    el.querySelectorAll(breakSel).forEach(c => {
       if (!c.offsetHeight) return; const r = c.getBoundingClientRect(); set.add(Math.round(r.bottom - top + 4));
     });
     const breaks = [...set].sort((a, b) => a - b);
@@ -1633,6 +1655,9 @@ function pdfBand(text, left, w, h, rule){
 }
 async function makePdf(D){
   const [{canvas, breaks}] = await Promise.all([captureReport(D, true), loadScript(LIBS.pdf)]);
+  return pdfFromCanvas(canvas, breaks, `CheckCar · ${D.title}${empty(D.v.shnat_yitzur) ? "" : " " + D.v.shnat_yitzur}`, fmtPlate(D.plate));
+}
+function pdfFromCanvas(canvas, breaks, headText, headLeft){
   const pdf = new window.jspdf.jsPDF({unit: "pt", format: "a4", compress: true});
   const W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight();
   const MX = 36, TOP = 58, BOT = 50, CW = W - 2 * MX;
@@ -1644,7 +1669,7 @@ async function makePdf(D){
     slices.push([y, end]); y = end;
   }
   const BW = Math.round(CW * 3), BH = 60, bh = BH / 3;
-  const head = pdfBand(`CheckCar · ${D.title}${empty(D.v.shnat_yitzur) ? "" : " " + D.v.shnat_yitzur}`, fmtPlate(D.plate), BW, BH, 1);
+  const head = pdfBand(headText, headLeft, BW, BH, 1);
   slices.forEach(([a, b], i) => {
     if (i) pdf.addPage();
     const part = document.createElement("canvas"); part.width = canvas.width; part.height = b - a;
@@ -1655,6 +1680,27 @@ async function makePdf(D){
     pdf.addImage(pdfBand("מאגרי משרד התחבורה (data.gov.il) · אינו מחליף נסח רישום רשמי", `${i + 1} / ${slices.length}`, BW, BH, -1), "PNG", MX, H - 34, CW, bh);
   });
   return pdf.output("blob");
+}
+// the comparison as a PDF: the wide layout (labels column + one column per car), printed on white
+async function makeComparePdf(){
+  const sec = $("#out section.card"); if (!sec) return;
+  await Promise.all([loadScript(LIBS.img), loadScript(LIBS.pdf)]);
+  const today = new Date().toLocaleDateString("he-IL");
+  const el = document.createElement("div"); el.className = "report pdf";
+  const card = sec.cloneNode(true); card.classList.add("cmp-wide");
+  card.querySelectorAll(".cmp-bar, .head .count, .cmp-top .x").forEach(x => x.remove());
+  el.innerHTML = `<div class="rep-head"><b>השוואת רכבים</b><span>${today}</span></div>`;
+  el.appendChild(card);
+  el.insertAdjacentHTML("beforeend", `<p class="rep-foot">המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il. הערכות העלות והשווי משוערות. הופק באפליקציית CheckCar.</p>`);
+  inlineIcons(el);
+  const {canvas, breaks} = await captureEl(el, ".cmp, .cmp-table > .cmp-k, .cmp-table > .cmp-v, .rep-foot");
+  return pdfFromCanvas(canvas, breaks, "CheckCar · השוואת רכבים", today);
+}
+async function shareComparePdf(btn){
+  const old = btn.innerHTML; btn.disabled = true; btn.textContent = "מכין PDF…";
+  try { await shareFile(await makeComparePdf(), `CheckCar-compare-${new Date().toISOString().slice(0, 10)}.pdf`, "השוואת רכבים"); }
+  catch { toast("לא הצלחתי להכין את הקובץ. בדקו את החיבור לאינטרנט ונסו שוב."); }
+  finally { btn.disabled = false; btn.innerHTML = old; }
 }
 async function doShare(kind){
   const D = current; if (!D) return;
