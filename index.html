@@ -668,6 +668,14 @@ const FEE_TABLE = {                // private car licence fee by price group, fr
 };
 const FEE_SOURCE = "https://www.gov.il/BlobFolder/policy/car_fees_2026/he/%D7%93%D7%A3%20%D7%90%D7%92%D7%A8%D7%95%D7%AA%20%2001.04.2026.pdf";
 const kmlUnit = () => setting("fuelUnit", "l100") === "kml";
+/* Tax Authority 2026 figures (monthly deductions booklet, January 2026): 2.48% a month, price cap,
+   green reductions (temporary order to 31.12.2028). CPI: yearly change, Dec to Dec, for indexing the
+   registration-year price; approximate, the official calculator is the binding figure. */
+const USAGE = {year: 2026, rate: 0.0248, cap: 596860, hybrid: 580, phev: 1150, ev: 1380,
+  calc: "https://www.misim.gov.il/mm_usecar10/UseCarScreen.aspx",
+  source: "https://www.gov.il/BlobFolder/generalpage/income-tax-monthly-deductions-booklet/he/generalInformation_income-tax-monthly-deductions-booklet_monthly-deductions-booklet-2026.pdf"};
+const CPI = {2010:2.7, 2011:2.2, 2012:1.6, 2013:1.8, 2014:-0.2, 2015:-1.0, 2016:-0.2, 2017:0.4, 2018:0.8, 2019:0.6,
+  2020:-0.7, 2021:2.8, 2022:5.3, 2023:3.0, 2024:3.2, 2025:2.6};
 function setting(k, d){ try { const x = localStorage.getItem(k); return x === null || x === "" ? d : x; } catch { return d; } }
 function fuelKind(D){ const t = String(D.pick(D.v.sug_delek_nm, D.w.delek_nm) || ""); if (t.includes("חשמל") && !t.includes("בנזין")) return "ev"; if (t.includes("דיזל") || t.includes("סולר")) return "diesel"; return "petrol"; }
 function costs(D){
@@ -718,6 +726,16 @@ function costs(D){
     const mid = adj.reduce((v, [p]) => v * (1 + p / 100), base);
     c.newPrice = num(D.price.mehir); c.age = age; c.baseValue = Math.round(base / 1000) * 1000; c.adj = adj;
     c.valueLow = Math.round(mid * 0.9 / 1000) * 1000; c.valueHigh = Math.round(mid * 1.1 / 1000) * 1000;
+  }
+  // company-car taxable benefit (שווי שימוש), cars first registered from 2010: list price in the registration
+  // year, indexed to the consumer price index, capped, × 2.48% a month, minus the green-car reduction
+  const regYear = recallYear(D.v.moed_aliya_lakvish) || year;
+  if (D.price && isNum(D.price.mehir) && regYear >= 2010 && String(D.v.sug_degem || "P").toUpperCase() === "P") {
+    let idx = 1; for (let y = regYear; y < USAGE.year; y++) idx *= 1 + (CPI[y] || 0) / 100;
+    const price = Math.min(num(D.price.mehir) * idx, USAGE.cap);
+    const fuel = String(D.pick(D.v.sug_delek_nm, D.w.delek_nm) || "");
+    const green = kind === "ev" ? ["חשמלי", USAGE.ev] : /חשמל/.test(fuel) ? ["היברידי", USAGE.hybrid] : null;
+    c.usage = {monthly: Math.max(0, Math.round((price * USAGE.rate - (green ? green[1] : 0)) / 10) * 10), price: Math.round(price), green, regYear, capped: price >= USAGE.cap};
   }
   if (D.counts && (isNum(D.counts.mispar_rechavim_pailim) || isNum(D.counts.mispar_rechavim_le_pailim))) {
     const a = num(D.counts.mispar_rechavim_pailim) || 0, gone = num(D.counts.mispar_rechavim_le_pailim) || 0;
@@ -1112,6 +1130,12 @@ function tabCosts(D){
      <p class="note">לפי התעריף הרשמי לרכב פרטי שבתוקף מ-1 באפריל 2026, כולל 135 ₪ לרשות השידור. האגרה מתעדכנת פעם בשנה, באפריל${new Date() >= new Date(2027, 3, 1) ? ", וייתכן שכבר עודכנה מאז" : ""}. הנחות (נכים, משרתי מילואים ועוד) לא נכללות.</p>
      <button type="button" class="link-btn" data-url="${FEE_SOURCE}">${ico("doc")}טבלת האגרות הרשמית של משרד התחבורה</button>` :
     `<p style="margin:0">לא נמצאה קבוצת אגרה לרכב הזה. ההערכה זמינה לרכב פרטי בלבד.</p>`));
+  const u = c.usage;
+  html.push(card("שווי שימוש (רכב צמוד)", "users", "teal", u ?
+    `<div class="tow-grid"><div><div class="k">לחודש (הערכה)</div><div class="v">${fmtN(u.monthly)}<span class="u">₪</span></div></div><div><div class="k">לשנה</div><div class="v">${fmtN(u.monthly * 12)}<span class="u">₪</span></div></div></div>
+     <p class="note">${u.capped ? "לפי תקרת המחיר של רשות המסים" : `לפי מחיר מחירון ${u.regYear} צמוד למדד (${fmtN(u.price)} ₪)`} × 2.48%${u.green ? `, פחות ${fmtN(u.green[1])} ₪ הפחתה לרכב ${u.green[0]}` : ""}, לפי לוח הניכויים של רשות המסים לשנת 2026.${u.green && u.green[0] === "היברידי" ? ` ברכב פלאג-אין ההפחתה ${fmtN(USAGE.phev)} ₪.` : ""} זה הסכום שמתווסף למשכורת לצורך מס, לא המס עצמו. הסכום המחייב הוא במחשבון של רשות המסים, לפי קוד תוצר ${esc(D.v.tozeret_cd)}, קוד דגם ${esc(D.v.degem_cd)} ושנת רישום ${u.regYear}.</p>
+     <button type="button" class="link-btn" data-url="${USAGE.calc}" data-copyfirst="${esc(`קוד תוצר ${D.v.tozeret_cd} קוד דגם ${D.v.degem_cd} שנה ${u.regYear}`)}" data-copylabel="הקודים">${ico("doc")}המחשבון הרשמי של רשות המסים</button>` :
+    `<p style="margin:0">אין מספיק נתונים לחישוב שווי השימוש של הרכב הזה (החישוב כאן לרכב פרטי שעלה לכביש מ-2010).</p><button type="button" class="link-btn" data-url="${USAGE.calc}">${ico("doc")}המחשבון הרשמי של רשות המסים</button>`));
   html.push(card("שווי משוער", "tag", "pink", (c.newPrice ?
     `<div class="tow-grid"><div><div class="k">מחיר מחירון כחדש</div><div class="v">${fmtN(c.newPrice)}<span class="u">₪</span></div></div><div><div class="k">שווי משוער היום</div><div class="v"><span dir="ltr" style="unicode-bidi:isolate;white-space:nowrap">${Math.round(c.valueLow / 1000)}–${Math.round(c.valueHigh / 1000)}</span><span class="u">אלף ₪</span></div></div></div>
      <ul class="adj"><li><span>שווי ממוצע לרכב בגיל ${c.age} (לפני התאמות)</span><b class="mono">${fmtN(c.baseValue)} ₪</b></li>${c.adj.map(([p, t]) => `<li><span>${esc(t)}</span><b class="mono ${p < 0 ? "neg" : "pos"}">${p > 0 ? "+" : "−"}${Math.abs(p).toFixed(0)}%</b></li>`).join("")}</ul>
@@ -1384,6 +1408,7 @@ function renderCompare(){
               : ["ליטר ל-100 ק״מ (הערכה)", D => D.cost.l100 ? Math.round(D.cost.l100 * 10) / 10 : null, "lo", "", true],
     ["דלק בשנה (הערכה)", D => D.cost.fuelYear ? Math.round(D.cost.fuelYear / 100) * 100 : null, "lo", "₪"],
     ["אגרת רישוי (הערכה)", D => D.cost.fee || null, "lo", "₪"],
+    ["שווי שימוש לחודש", D => D.cost.usage ? D.cost.usage.monthly : null, "lo", "₪"],
     "מנוע וגרירה",
     ["שנת ייצור", D => num(D.v.shnat_yitzur), "hi", "", true],
     ["כוח (כ״ס)", D => nf(D.w, "koah_sus"), "hi", ""],
@@ -1463,7 +1488,7 @@ $("#out").addEventListener("click", ev => {
   const b = ev.target.closest("button"); if (!b) return;
   if (b.dataset.copy) { copyText(b.dataset.copy, b.dataset.label); return; }
   if (b.dataset.url) {
-    if (b.dataset.copyfirst) { copyText(b.dataset.copyfirst, "מספר הרישוי").then(() => setTimeout(() => openExternal(b.dataset.url), 600)); return; }
+    if (b.dataset.copyfirst) { copyText(b.dataset.copyfirst, b.dataset.copylabel || "מספר הרישוי").then(() => setTimeout(() => openExternal(b.dataset.url), 600)); return; }
     openExternal(b.dataset.url); return;
   }
   if (b.dataset.open) { run(b.dataset.open); return; }
