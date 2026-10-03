@@ -29,8 +29,11 @@ jobs:
       - name: Build
         working-directory: android
         run: |
+          # the user-facing version comes from the app itself (APP_VERSION in index.html)
+          VN=$(grep -oP 'APP_VERSION = "\K[^"]+' ../index.html)
+          echo "VN=$VN" >> "$GITHUB_ENV"
           gradle --no-daemon assembleRelease bundleRelease \
-            -PversionCode=${{ github.run_number }} -PversionName=1.0.${{ github.run_number }}
+            -PversionCode=${{ github.run_number }} -PversionName=$VN
 
       - name: Collect outputs
         run: |
@@ -40,7 +43,7 @@ jobs:
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           cp "$BT/lib/apksigner.jar" out/
           echo "versionCode=${{ github.run_number }}" > out/version.txt
-          echo "versionName=1.0.${{ github.run_number }}" >> out/version.txt
+          echo "versionName=$VN" >> out/version.txt
           echo "commit=${{ github.sha }}" >> out/version.txt
           ls -la out
 
