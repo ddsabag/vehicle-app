@@ -1,13 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- CheckCar: Israeli plate with a green check -->
+<!-- לוחית: black car on yellow, magnifier revealing data lines -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#0B0B0B" android:pathData="M29,33h50a5,5 0 0 1 5,5v16a5,5 0 0 1 -5,5h-50a5,5 0 0 1 -5,-5v-16a5,5 0 0 1 5,-5z"/>
-    <path android:fillColor="#F6C500" android:pathData="M29.5,35h49.0a3.5,3.5 0 0 1 3.5,3.5v15.0a3.5,3.5 0 0 1 -3.5,3.5h-49.0a3.5,3.5 0 0 1 -3.5,-3.5v-15.0a3.5,3.5 0 0 1 3.5,-3.5z"/>
-    <path android:fillColor="#1D4EA8" android:pathData="M29.5,35h5.5v22h-5.5a3.5,3.5 0 0 1 -3.5,-3.5v-15a3.5,3.5 0 0 1 3.5,-3.5z"/>
-    <path android:fillColor="#111111" android:pathData="M40,39.5h2.5999999999999996a1,1 0 0 1 1,1v11a1,1 0 0 1 -1,1h-2.5999999999999996a1,1 0 0 1 -1,-1v-11a1,1 0 0 1 1,-1z M46.6,39.5h2.5999999999999996a1,1 0 0 1 1,1v11a1,1 0 0 1 -1,1h-2.5999999999999996a1,1 0 0 1 -1,-1v-11a1,1 0 0 1 1,-1z M59.6,39.5h2.5999999999999996a1,1 0 0 1 1,1v11a1,1 0 0 1 -1,1h-2.5999999999999996a1,1 0 0 1 -1,-1v-11a1,1 0 0 1 1,-1z M66.2,39.5h2.5999999999999996a1,1 0 0 1 1,1v11a1,1 0 0 1 -1,1h-2.5999999999999996a1,1 0 0 1 -1,-1v-11a1,1 0 0 1 1,-1z M72.8,39.5h2.5999999999999996a1,1 0 0 1 1,1v11a1,1 0 0 1 -1,1h-2.5999999999999996a1,1 0 0 1 -1,-1v-11a1,1 0 0 1 1,-1z M53.4,45h2.0a0.8,0.8 0 0 1 0.8,0.8v0.3999999999999999a0.8,0.8 0 0 1 -0.8,0.8h-2.0a0.8,0.8 0 0 1 -0.8,-0.8v-0.3999999999999999a0.8,0.8 0 0 1 0.8,-0.8z"/>
-    <path android:fillColor="#14213D" android:pathData="M59,65a13,13 0 1 0 26,0a13,13 0 1 0 -26,0z"/>
-    <path android:fillColor="#22A55A" android:pathData="M61.5,65a10.5,10.5 0 1 0 21.0,0a10.5,10.5 0 1 0 -21.0,0z"/>
-    <path android:strokeColor="#FFFFFF" android:strokeWidth="2.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" android:pathData="M66.8,65.2l3.4,3.4l6.6,-6.8"/>
+    <group android:pivotX="56" android:pivotY="54" android:scaleX="1.06" android:scaleY="1.06" android:translateX="-2">
+        <group android:pivotX="54" android:pivotY="67" android:scaleX="0.8" android:scaleY="0.8" android:translateY="1">
+            <path android:pathData="M24,70l6,-15c1.6,-4 4.4,-6 9,-6h30c4.6,0 7.4,2 9,6l6,15v12a3,3 0 0 1 -3,3h-7a3,3 0 0 1 -3,-3v-3h-36v3a3,3 0 0 1 -3,3h-7a3,3 0 0 1 -3,-3z" android:fillColor="#111111"/>
+            <path android:pathData="M33,65l4.5,-10.5c0.8,-2 2,-3 4,-3h25c2,0 3.2,1 4,3l4.5,10.5z" android:fillColor="#FFC400"/>
+            <path android:pathData="M29,72a4.5,4.5 0 1 0 9,0a4.5,4.5 0 1 0 -9,0z M70,72a4.5,4.5 0 1 0 9,0a4.5,4.5 0 1 0 -9,0z" android:fillColor="#FFFFFF"/>
+            <path android:pathData="M42.5,68h23a1.5,1.5 0 0 1 1.5,1.5v6a1.5,1.5 0 0 1 -1.5,1.5h-23a1.5,1.5 0 0 1 -1.5,-1.5v-6a1.5,1.5 0 0 1 1.5,-1.5z" android:fillColor="#FFFFFF"/>
+            <path android:pathData="M42.5,68h3.5v9h-3.5a1.5,1.5 0 0 1 -1.5,-1.5v-6a1.5,1.5 0 0 1 1.5,-1.5z" android:fillColor="#1D4EA8"/>
+        </group>
+        <path android:pathData="M75.5,48.5L83,56" android:fillColor="#00000000" android:strokeColor="#111111" android:strokeWidth="7" android:strokeLineCap="round"/>
+        <path android:pathData="M53,39a14,14 0 1 0 28,0a14,14 0 1 0 -28,0z" android:fillColor="#FFFFFF" android:strokeColor="#111111" android:strokeWidth="5"/>
+        <path android:pathData="M60.7,32.6h13a1.7,1.7 0 0 1 0,3.4h-13a1.7,1.7 0 0 1 0,-3.4z" android:fillColor="#E53935"/>
+        <path android:pathData="M60.7,37.3h9a1.7,1.7 0 0 1 0,3.4h-9a1.7,1.7 0 0 1 0,-3.4z" android:fillColor="#22A355"/>
+        <path android:pathData="M60.7,42h11a1.7,1.7 0 0 1 0,3.4h-11a1.7,1.7 0 0 1 0,-3.4z" android:fillColor="#2457C5"/>
+    </group>
 </vector>

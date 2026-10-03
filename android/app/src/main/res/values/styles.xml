@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="band">#14213D</color>
+    <color name="brand">#FFC400</color>
     <color name="plate">#F6C500</color>
     <style name="AppTheme" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@android:color/white</item>
