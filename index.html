@@ -2300,6 +2300,12 @@ function renderMarket(M){
     const om = M.ownershipMakers[P.year] || {};
     html.push(card(`מי קונה · רכבי שנתון ${P.year}`, "users", "teal", `<div class="mk-stack">${OWN.map(([k, , c]) => `<i style="width:${(own[k] || 0) / t * 100}%;background:${c}"></i>`).join("")}</div><div class="mk-leg">${OWN.map(([k, l, c]) => `<span style="--c:${c}">${l} ${((own[k] || 0) / t * 100).toFixed(0)}%</span>`).join("")}</div><table class="mk-tbl"><tr><th>יצרן</th>${OWN.slice(0, 4).map(o => `<th>${o[1]}</th>`).join("")}</tr>${Object.entries(om).slice(0, 10).map(([mk, o]) => { const s = Object.values(o).reduce((a, b) => a + b, 0); return `<tr><td>${esc(mk)}</td>${OWN.slice(0, 4).map(([k]) => `<td>${Math.round((o[k] || 0) / s * 100)}%</td>`).join("")}</tr>`; }).join("")}</table><p class="note">לפי סוג הבעלות הרשום היום של כל הרכבים שיוצרו באותה שנה, כך שחלק מרכבי הליסינג וההשכרה כבר עברו לבעלים פרטיים.</p>`));
   }
+  const ag = M.aging && M.aging[P.year];
+  if (ag && ag.n) {
+    const am = Object.entries(M.agingMakers[P.year] || {}).filter(([, x]) => x.n >= 500).map(([k, x]) => [k, x.late / x.n, x.dealer / x.n, x.n]).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    const pc = x => (x * 100).toFixed(x < .1 ? 1 : 0) + "%";
+    html.push(card(`גיול · רכבי שנתון ${P.year}`, "clock", "pink", `<div class="mk-big">${pc(ag.late / ag.n)}</div><div>מהרכבים נרשמו לכביש רק אחרי שנת הייצור · ${pc(ag.dealer / ag.n)} רשומים עדיין על סוחר</div><table class="mk-tbl"><tr><th>יצרן</th><th>נרשמו מאוחר</th><th>על סוחר</th></tr>${am.map(([k, l, d]) => `<tr><td>${esc(k)}</td><td>${pc(l)}</td><td>${pc(d)}</td></tr>`).join("")}</table><p class="note">סימנים לגיול בלבד: רכב שנרשם לכביש שנה או יותר אחרי שנת ייצורו, או שעדיין רשום על סוחר. הם מעידים על סבירות גבוהה, לא על ודאות. בשנתון האחרון חלק מהרכבים עוד לא נרשמו.</p>`));
+  }
   const fu = M.fuel[P.year];
   if (fu) {
     const G = [["בנזין", ["בנזין"], "#2556c8"], ["דיזל", ["דיזל"], "#8a93a6"], ["חשמלי", ["חשמל"], "#1a8f4a"], ["היברידי ופלאג-אין", ["חשמל/בנזין", "חשמל/דיזל"], "#e0a100"]];
