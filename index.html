@@ -909,6 +909,14 @@ async function fetchVehicle(plate, signal, onProgress){
   const pick = (...vals) => vals.find(x => !empty(x));
   const own = res.owners.rows.slice().sort((a,b) => String(a.baalut_dt).localeCompare(String(b.baalut_dt)));
   const recalls = res.recall.rows.map(r => ({...r, detail: modelRecalls.find(m => String(m.RECALL_ID) === String(r.RECALL_ID)) || null}));
+  // the repair details live in the manufacturers' recall list; when the model name there differs from the
+  // car's (or the maker has many recalls), look the open recall up directly by its number
+  await Promise.all(recalls.filter(r => !r.detail && !empty(r.RECALL_ID)).map(async r => {
+    for (const id of [num(r.RECALL_ID), String(r.RECALL_ID).trim()]) {
+      try { const rows = await ds(MODEL_SETS.recalls, {RECALL_ID: id}, 5, signal); if (rows.length) { r.detail = rows[0]; return; } }
+      catch (err) { if (err.name === "AbortError") throw err; }
+    }
+  }));
   const tag = res.tag.rows[0] || null;
   const tSrc = towRow || (hasTow(v) ? v : null);
   const make = makeName(v), model = pick(v.kinuy_mishari, w.kinuy_mishari, v.degem_nm) || "";
