@@ -286,7 +286,7 @@ section[style*="--n:3"] .cmp-k{font-size:.76rem}
 .mk-chips button[aria-pressed="true"]{background:var(--fg);color:var(--card);border-color:var(--fg)}
 .mk-big{font-size:2rem;font-weight:800;line-height:1.1}.mk-chg{font-weight:700;font-size:.95rem}.mk-chg.up{color:#1a8f4a}.mk-chg.dn{color:#c93c3c}
 .mk-bars{display:flex;align-items:flex-end;gap:4px;height:110px;margin-top:12px}
-.mk-bars div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;font-size:.68rem;color:var(--muted);gap:3px}
+.mk-bars div{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;font-size:.68rem;color:var(--muted);gap:3px}
 .mk-bars i{display:block;width:100%;background:var(--accent,#2556c8);border-radius:4px 4px 0 0;min-height:2px}
 .mk-row{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:7px 0;border-top:1px solid var(--line);align-items:center}
 .mk-row:first-of-type{border-top:0}.mk-row b{font-weight:700}.mk-row small{color:var(--muted)}
@@ -2286,7 +2286,7 @@ function renderMarket(M){
   html.push(card("שוק הרכב", "chart", "blue", `<p class="note" style="margin-top:0">מסירות של רכבים פרטיים חדשים בישראל, לפי נתוני משרד התחבורה.</p><div class="seg two mk-seg" role="group"><button type="button" data-mkmode="year" aria-pressed="${MK.mode === "year"}">לפי שנה</button><button type="button" data-mkmode="quarter" aria-pressed="${MK.mode === "quarter"}">לפי רבעון</button></div><div class="mk-chips">${chips.map(([k, t]) => `<button type="button" data-mksel="${k}" aria-pressed="${k === P.sel}">${t}</button>`).join("")}</div>`));
   const total = sumM(M.months, P.ms), prevTotal = P.prevMs.length ? sumM(M.months, P.prevMs) : 0;
   const mx = Math.max(...P.ms.map(m => M.months[m] || 0), 1);
-  html.push(card("מסירות בתקופה", "chart", "blue", `<div class="mk-big">${fmtN(total)}</div><div>רכבים חדשים · ${periodLabel(P)} ${chgHtml(total, prevTotal)}${prevTotal ? ` <small style="color:var(--muted)">מול התקופה המקבילה אשתקד</small>` : ""}</div><div class="mk-bars">${P.ms.map(m => `<div title="${fmtN(M.months[m] || 0)}"><span>${fmtN(M.months[m] || 0)}</span><i style="height:${Math.max(2, (M.months[m] || 0) / mx * 78)}%"></i><span>${MON[+m.slice(4) - 1]}</span></div>`).join("")}</div>`));
+  html.push(card("מסירות בתקופה", "chart", "blue", `<div class="mk-big">${fmtN(total)}</div><div>רכבים חדשים · ${periodLabel(P)} ${chgHtml(total, prevTotal)}${prevTotal ? ` <small style="color:var(--muted)">מול התקופה המקבילה אשתקד</small>` : ""}</div><div class="mk-bars">${P.ms.map(m => `<div title="${fmtN(M.months[m] || 0)}"><span>${((M.months[m] || 0) / 1000).toFixed(1)}K</span><i style="height:${Math.max(2, (M.months[m] || 0) / mx * 78)}%"></i><span>${MON[+m.slice(4) - 1]}</span></div>`).join("")}</div>`));
   const mkTop = (obj, ms, pms, n, nameFn) => {
     const rows = Object.entries(obj).map(([k, v]) => [k, sumM(v, ms), sumM(v, pms)]).filter(r => r[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, n), top = rows[0] ? rows[0][1] : 1;
     return rows.map(([k, c, p]) => `<div class="mk-row"><b>${esc(nameFn(k))}</b><span>${fmtN(c)} <small>· ${(c / total * 100).toFixed(1)}%</small> ${chgHtml(c, p)}</span><div class="tr"><i style="width:${c / top * 100}%"></i></div></div>`).join("");
@@ -2302,9 +2302,10 @@ function renderMarket(M){
   }
   const ag = M.aging && M.aging[P.year];
   if (ag && ag.n) {
-    const am = Object.entries(M.agingMakers[P.year] || {}).filter(([, x]) => x.n >= 500).map(([k, x]) => [k, x.late / x.n, x.dealer / x.n, x.n]).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    const am = Object.entries(M.agingMakers[P.year] || {}).filter(([, x]) => x.n >= 500).map(([k, x]) => [k, x.dealer / x.n, x.dealer]).sort((a, b) => b[1] - a[1]).slice(0, 8);
     const pc = x => (x * 100).toFixed(x < .1 ? 1 : 0) + "%";
-    html.push(card(`גיול · רכבי שנתון ${P.year}`, "clock", "pink", `<div class="mk-big">${pc(ag.late / ag.n)}</div><div>מהרכבים נרשמו לכביש רק אחרי שנת הייצור · ${pc(ag.dealer / ag.n)} רשומים עדיין על סוחר</div><table class="mk-tbl"><tr><th>יצרן</th><th>נרשמו מאוחר</th><th>על סוחר</th></tr>${am.map(([k, l, d]) => `<tr><td>${esc(k)}</td><td>${pc(l)}</td><td>${pc(d)}</td></tr>`).join("")}</table><p class="note">סימנים לגיול בלבד: רכב שנרשם לכביש שנה או יותר אחרי שנת ייצורו, או שעדיין רשום על סוחר. הם מעידים על סבירות גבוהה, לא על ודאות. בשנתון האחרון חלק מהרכבים עוד לא נרשמו.</p>`));
+    const old = +P.year < +P.all[P.all.length - 1].slice(0, 4) - 1;
+    html.push(card(`סימני גיול · רכבי שנתון ${P.year}`, "clock", "pink", `<div class="mk-big">${pc(ag.dealer / ag.n)}</div><div>מהרכבים עדיין רשומים על סוחר · ${fmtN(ag.dealer)} רכבים</div><table class="mk-tbl"><tr><th>יצרן</th><th>על סוחר</th><th>רכבים</th></tr>${am.map(([k, d, n]) => `<tr><td>${esc(k)}</td><td>${pc(d)}</td><td>${fmtN(n)}</td></tr>`).join("")}</table><p class="note">${old ? "רכב משנתון ישן שעדיין רשום על סוחר מעיד בסבירות גבוהה על גיול: רכב שנרשם כדי להישאר במלאי." : "בשנתון חדש חלק מהרכבים הם פשוט מלאי שעוד לא נמכר, לכן המדד משמעותי יותר בשנתונים ישנים."} זה סימן לסבירות ולא קביעה.</p>`));
   }
   const fu = M.fuel[P.year];
   if (fu) {
