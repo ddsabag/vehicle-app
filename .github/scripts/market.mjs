@@ -69,12 +69,12 @@ for (const y of [2022, 2023, 2024, 2025, 2026]) {
 }
 
 // 3. personal import
-const imp = {}; let impFields = null;
+const imp = {}, impYear = {}; let impFields = null;
 try {
-  await scan(IMPORT, {}, rows => { for (const r of rows) { inc(imp, r.sug_yevu || "יבוא אישי"); } });
-  const f = await call({resource_id: IMPORT, limit: "2"}); impFields = f.fields.map(x => x.id); out.importSample = f.records;
+  await scan(IMPORT, {}, rows => { for (const r of rows) { const k = r.sug_yevu || "יבוא אישי", y = String(r.moed_aliya_lakvish || "").slice(0, 4); inc(imp, k); if (y >= "2018") ((impYear[y] ||= {})[k] = (impYear[y][k] || 0) + 1); } });
+  const f = await call({resource_id: IMPORT, limit: "2"}); impFields = f.fields.map(x => x.id); 
 } catch (e) { console.log("import", e.message); }
-out.import = imp; console.log("import", JSON.stringify(imp), impFields);
+out.import = imp; out.importYear = impYear; delete out.importSample; console.log("import", JSON.stringify(imp), impFields);
 
 // 4. EVs by area
 try { const r = await call({resource_id: EVAREA, limit: "200"}); out.evArea = r.records.map(x => ({own: x.baalut, district: x.mahoz_nm, area: x.nafa_nm, n: x.car_num})); } catch (e) { console.log("ev", e.message); }
