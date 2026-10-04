@@ -7,7 +7,9 @@ import android.content.ClipboardManager;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.provider.CalendarContract;
 import android.provider.MediaStore;
 import android.speech.RecognizerIntent;
 import android.text.TextUtils;
@@ -28,11 +30,18 @@ import android.widget.FrameLayout;
 import androidx.core.content.FileProvider;
 import androidx.webkit.WebViewAssetLoader;
 
+import com.google.android.play.core.review.ReviewInfo;
+import com.google.android.play.core.review.ReviewManager;
+import com.google.android.play.core.review.ReviewManagerFactory;
+
 import org.json.JSONObject;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.Locale;
 
 public class MainActivity extends Activity {
     private static final String HOST = "appassets.androidplatform.net";
@@ -40,6 +49,7 @@ public class MainActivity extends Activity {
 
     private static final int REQ_FILE = 1;
     private static final int REQ_VOICE = 2;
+    private static final int REQ_NOTIFY = 3;
 
     private WebView webView;
     private FrameLayout root;
@@ -145,6 +155,65 @@ public class MainActivity extends Activity {
                 });
             }
 
+            /** Opens the phone's calendar with an all-day event filled in; the user just taps save */
+            @JavascriptInterface
+            public void addCalendar(String title, String desc, String ymd) {
+                runOnUiThread(() -> {
+                    try {
+                        Date d = new SimpleDateFormat("yyyyMMdd", Locale.US).parse(ymd);
+                        // all-day events are stored at UTC midnight
+                        long start = d.getTime() + java.util.TimeZone.getDefault().getOffset(d.getTime());
+                        Intent i = new Intent(Intent.ACTION_INSERT)
+                                .setData(CalendarContract.Events.CONTENT_URI)
+                                .putExtra(CalendarContract.Events.TITLE, title)
+                                .putExtra(CalendarContract.Events.DESCRIPTION, desc)
+                                .putExtra(CalendarContract.EXTRA_EVENT_ALL_DAY, true)
+                                .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, start)
+                                .putExtra(CalendarContract.EXTRA_EVENT_END_TIME, start + 86400000L);
+                        startActivity(i);
+                    } catch (Exception e) {
+                        webView.evaluateJavascript("window.calendarFallback && calendarFallback()", null);
+                    }
+                });
+            }
+
+            /** The page hands over the saved cars so the daily check can run without it */
+            @JavascriptInterface
+            public void syncSaved(String json) {
+                SavedCheckWorker.prefs(MainActivity.this).edit().putString("saved", json == null ? "[]" : json).apply();
+                SavedCheckWorker.schedule(MainActivity.this);
+            }
+
+            /** "on", "off", or "blocked" when the phone does not allow notifications */
+            @JavascriptInterface
+            public String alertsState() {
+                if (!SavedCheckWorker.enabled(MainActivity.this)) return "off";
+                return notificationsAllowed() ? "on" : "blocked";
+            }
+
+            @JavascriptInterface
+            public void setAlerts(boolean on) {
+                SavedCheckWorker.prefs(MainActivity.this).edit().putBoolean("enabled", on).apply();
+                SavedCheckWorker.schedule(MainActivity.this);
+                if (on && !notificationsAllowed() && android.os.Build.VERSION.SDK_INT >= 33) {
+                    runOnUiThread(() -> requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, REQ_NOTIFY));
+                }
+            }
+
+            /** Google decides whether the rating card actually appears, and limits how often */
+            @JavascriptInterface
+            public void askReview() {
+                runOnUiThread(() -> {
+                    ReviewManager rm = ReviewManagerFactory.create(MainActivity.this);
+                    rm.requestReviewFlow().addOnCompleteListener(t -> {
+                        if (t.isSuccessful()) {
+                            ReviewInfo info = t.getResult();
+                            rm.launchReviewFlow(MainActivity.this, info);
+                        }
+                    });
+                });
+            }
+
             @JavascriptInterface
             public void openUrl(String url) {
                 runOnUiThread(() -> {
@@ -216,10 +285,48 @@ public class MainActivity extends Activity {
             }
         });
 
-        if (savedInstanceState != null) {
+        SavedCheckWorker.ensureChannel(this);
+        SavedCheckWorker.schedule(this);
+        String plate = plateFrom(getIntent());
+        if (plate != null) {
+            webView.loadUrl(START_URL + "#" + plate);
+        } else if (savedInstanceState != null) {
             webView.restoreState(savedInstanceState);
         } else {
             webView.loadUrl(START_URL);
+        }
+    }
+
+    private boolean notificationsAllowed() {
+        if (android.os.Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+            return false;
+        return androidx.core.app.NotificationManagerCompat.from(this).areNotificationsEnabled();
+    }
+
+    // a tapped notification carries the plate of the saved car
+    private static String plateFrom(Intent i) {
+        if (i == null) return null;
+        String p = i.getStringExtra("plate");
+        if (p == null) return null;
+        p = p.replaceAll("[^0-9]", "");
+        return p.isEmpty() ? null : p;
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        String plate = plateFrom(intent);
+        if (plate != null) webView.evaluateJavascript("window.run && run('" + plate + "')", null);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode == REQ_NOTIFY) {
+            boolean ok = results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED;
+            webView.evaluateJavascript("window.onAlertsPermission && onAlertsPermission(" + ok + ")", null);
         }
     }
 

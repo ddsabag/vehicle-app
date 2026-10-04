@@ -229,6 +229,15 @@ footer a{color:var(--accent)}
 .cmp>.ph{display:none}
 .cmp-bar{display:flex;gap:8px;flex-wrap:wrap}
 .cmp-bar .cmp-add{flex:1 1 auto}
+.cmp-tool{border:1px solid var(--line);background:var(--soft);color:var(--fg);border-radius:999px;font-weight:700;font-size:.88rem;display:flex;align-items:center;gap:6px;padding:8px 14px;min-height:40px}
+.cmp-tool svg.i{width:17px;height:17px}
+.cmp-tool.add{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.cmp-tool.ic{padding:8px 11px}
+.cmp-tool[aria-pressed="true"]{background:var(--info-bg);color:var(--accent);border-color:var(--accent)}
+.verdict{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.verdict span{background:var(--t-leaf-bg);border-radius:12px;padding:8px 12px;min-width:0}
+.verdict small{display:block;font-size:.75rem;font-weight:700;color:var(--muted)}
+.verdict b{display:block;color:var(--t-leaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cmp-land{border:1px solid var(--line);background:var(--soft);color:var(--fg);border-radius:12px;font-weight:700;display:flex;align-items:center;gap:6px;padding:10px 14px;min-height:46px}
 .cmp-land svg.i{width:18px;height:18px}
 .cmp-h{position:relative}
@@ -437,6 +446,10 @@ body.land .band{display:none}
       <div class="fuel-set"><label for="elecPrice">חשמל (₪ לקוט״ש)</label><input id="elecPrice" inputmode="decimal" placeholder="0.64"></div>
       <p class="note" id="fuelNote">כשהשדה ריק, האפליקציה משתמשת במחיר המפוקח העדכני, שמתעדכן אוטומטית בכל חודש.</p>
     </div>
+    <div class="set-row" id="alertsRow" hidden><span>התראות לרכבים שמורים</span>
+      <div class="seg two" role="group" aria-label="התראות לרכבים שמורים"><button type="button" data-alerts="on">פועלות</button><button type="button" data-alerts="off">כבויות</button></div>
+      <p class="note" id="alertsNote"></p>
+    </div>
     <div class="set-row"><span>נתונים במכשיר</span>
       <button class="link-btn" type="button" id="clearRecent">מחיקת היסטוריית החיפושים</button>
       <button class="link-btn" type="button" id="clearSaved">מחיקת כל הרכבים השמורים</button>
@@ -472,7 +485,7 @@ body.land .band{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "1.7";
+const APP_VERSION = "1.8";
 const SITE = "https://ddsabag.github.io/vehicle-app/";
 const API = "https://data.gov.il/api/3/action/datastore_search";
 
@@ -676,15 +689,38 @@ function openExternal(url){
 /* ---------- saved & recent (this device only) ---------- */
 const store = {
   get(k){ try { return JSON.parse(localStorage.getItem(k) || "[]"); } catch { return []; } },
-  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} if (k === "savedVehicles") syncSaved(v); },
 };
+/* the app checks saved cars once a day for a new recall or a test about to expire */
+function syncSaved(list){
+  const b = window.AndroidApp; if (!b || !b.syncSaved) return;
+  try { b.syncSaved(JSON.stringify((list || []).map(x => ({plate: x.plate, title: x.title || ""})))); } catch {}
+}
+const alertsSupported = () => !!(window.AndroidApp && window.AndroidApp.setAlerts);
+window.onAlertsPermission = ok => { toast(ok ? "ההתראות פועלות: נעדכן אותך על ריקול חדש או טסט שעומד לפוג" : "ההתראות כבויות. אפשר להפעיל אותן בהגדרות."); syncAlertsSeg(); };
+function syncAlertsSeg(){
+  const row = document.getElementById("alertsRow"); if (!row) return;
+  row.hidden = !alertsSupported(); if (row.hidden) return;
+  let st = "off"; try { st = window.AndroidApp.alertsState(); } catch {}
+  document.querySelectorAll("[data-alerts]").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.alerts === "on") === (st !== "off"))));
+  $("#alertsNote").textContent = st === "blocked" ? "ההתראות חסומות בהגדרות הטלפון. כדי לקבל אותן, אפשרו התראות ללוחית בהגדרות האפליקציה בטלפון." : "התראה כשנפתח ריקול חדש לרכב שמור, וחודש ושבוע לפני שהטסט שלו פג.";
+}
 const isSaved = p => store.get("savedVehicles").some(x => x.plate === p);
 function toggleSaved(item){
   const list = store.get("savedVehicles");
   if (list.some(x => x.plate === item.plate)) { store.set("savedVehicles", list.filter(x => x.plate !== item.plate)); return false; }
   store.set("savedVehicles", [item, ...list].slice(0, 50)); return true;
 }
-function remember(p){ store.set("recentPlates", [p, ...store.get("recentPlates").filter(x => x !== p)].slice(0, 6)); }
+function remember(p){
+  store.set("recentPlates", [p, ...store.get("recentPlates").filter(x => x !== p)].slice(0, 6));
+  // after the third car the app found, Google's rating card is offered once (Google decides if it shows)
+  try {
+    const n = Number(localStorage.getItem("lookups") || 0) + 1; localStorage.setItem("lookups", String(n));
+    if (n >= 3 && !localStorage.getItem("reviewAsked") && window.AndroidApp && window.AndroidApp.askReview) {
+      localStorage.setItem("reviewAsked", "1"); setTimeout(() => { try { window.AndroidApp.askReview(); } catch {} }, 4000);
+    }
+  } catch {}
+}
 
 /* ---------- costs (estimates) ---------- */
 const FUEL_PRICE_DEFAULT = 8.27;   // 95 octane, regulated price for October 2026; fuel.json (updated by a daily GitHub Action) overrides it
@@ -1144,7 +1180,7 @@ function tabOverview(D){
     D.isCancelled && ["סיבה", e(v.bitul_nm)],
     ["סוג יבוא", e(v.sug_yevu)],
     ["תג חניה לנכה", D.tag ? `יש${empty(D.tag["TAARICH HAFAKAT TAG"]) ? "" : " (הונפק " + esc(fmtDate(D.tag["TAARICH HAFAKAT TAG"])) + ")"}` : "אין"],
-  ]) + (toDate(v.tokef_dt) && toDate(v.tokef_dt) > new Date() && !D.isCancelled ? `<button type="button" class="link-btn" data-act="calendar">${ico("clock")}תזכורת ביומן לפני שהטסט פג</button>` : "")));
+  ]) + (toDate(v.tokef_dt) && toDate(v.tokef_dt) > new Date() && !D.isCancelled ? `<button type="button" class="link-btn" data-act="calendar">${ico("clock")}הוספת תזכורת ליומן</button>` : "")));
 
   const fo = firstOwner(v);
   const foLine = fo ? `<div class="first-own"><b>בעלות ראשונה (״מקוריות״): ${esc(fo)}</b>${ownerKind(fo).text ? `<span>${esc(ownerKind(fo).text)}</span>` : ""}</div>` : "";
@@ -1584,18 +1620,40 @@ function renderCompare(){
     const [k, f, dir, u, plain, carOnly] = r;
     const vals = L.map(D => carOnly && D.kind === "model" ? null : N(f(D)));
     if (vals.every(x => x === null)) return "";
+    if (diffOnly && n > 1 && new Set(vals.map(x => JSON.stringify(x))).size === 1) return "";
     const nums = vals.filter(x => typeof x === "number");
     let best = null;
     if (dir === "yes") { if (n > 1 && vals.some(x => x === true) && vals.some(x => x !== true)) best = true; }
     else if (dir && n > 1 && nums.length > 1 && new Set(nums).size > 1) best = dir === "hi" ? Math.max(...nums) : Math.min(...nums);
     return `<div class="cmp-k">${esc(k)}</div>` + vals.map(x => `<div class="cmp-v${best !== null && x === best ? " win" : ""}">${cell(x, u, plain)}</div>`).join("");
+  }).filter((h, i, all) => {
+    // a section title stays only when at least one row follows it
+    if (!h.startsWith(`<div class="cmp-sec">`)) return !!h;
+    const next = all.slice(i + 1).find(Boolean);
+    return !!next && !next.startsWith(`<div class="cmp-sec">`);
   }).join("");
+  // the bottom line: one short verdict per topic, only when one car clearly leads
+  const short = D => D.model || D.title;
+  const lead = (label, f, dir) => {
+    const v = L.map(D => { const x = f(D); return typeof x === "number" && isFinite(x) && x > 0 ? x : null; });
+    if (v.filter(x => x !== null).length < 2) return "";
+    const best = dir === "hi" ? Math.max(...v.filter(x => x !== null)) : Math.min(...v.filter(x => x !== null));
+    const who = L.filter((D, i) => v[i] === best);
+    return who.length === 1 ? `<span><small>${label}</small><b>${esc(short(who[0]))}</b></span>` : "";
+  };
+  const verdict = n > 1 ? [
+    lead("הכי זול לקנייה", D => D.cost.newPrice || (D.cost.valueLow ? (D.cost.valueLow + D.cost.valueHigh) / 2 : null), "lo"),
+    lead("הכי חסכוני בשנה", D => (D.cost.fuelYear || 0) + (D.cost.fee || 0) || null, "lo"),
+    lead("הכי חזק", D => nf(D.w, "koah_sus"), "hi"),
+    lead("הכי בטיחותי", D => num(D.pick(D.v.ramat_eivzur_betihuty, D.w.ramat_eivzur_betihuty)), "hi"),
+  ].filter(Boolean).join("") : "";
   const head = (D, i) => `<div class="cmp-h"><div class="cmp-top">${D.kind === "model" ? `<span class="tag">דגם</span>` : `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>`}<button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><b>${esc(D.title)}</b><small>${esc(D.alts && D.alts.length > 1 ? String(D.v.shnat_yitzur || "") : D.sub)}</small>${D.alts && D.alts.length > 1 ? `<select class="trim-sel" data-trim="${i}" aria-label="רמת גימור">${D.alts.map((r, j) => `<option value="${j}"${rowKey(r) === D.key ? " selected" : ""}>${esc(String(r.ramat_gimur || "").trim() || "גרסה בסיסית")}</option>`).join("")}</select>` : ""}</div>`;
   const wide = cmpWide();
   $("#out").innerHTML = `<section class="card blue${wide ? " cmp-wide" : ""}" style="--n:${Math.max(n, 1)}"><div class="head"><span class="badge">${ico("compare")}</span><h2>השוואת רכבים</h2><button type="button" class="count" data-act="closeCompare" style="border:0">חזרה</button></div>
     ${n ? "" : `<p style="margin:0">הוסיפו עד ${CMP_MAX} דגמים או רכבים, וההשוואה תראה מחיר, עלויות, כוח, גרירה, בטיחות ואמינות זה לצד זה.</p>
     <div class="slots">${[1, 2, 3].map(i => `<button type="button" data-act="addCompare">${ico("plus")}רכב ${i}</button>`).join("")}</div>`}
-    ${n && (n < CMP_MAX || n > 1) ? `<div class="cmp-bar">${n < CMP_MAX ? `<button type="button" class="cmp-add" data-act="addCompare">${ico("plus")}${n ? `הוספת רכב (עד ${CMP_MAX})` : "בחירת רכב ראשון"}</button>` : ""}${n > 1 ? `<button type="button" class="cmp-land" data-act="land" aria-pressed="${land}">${ico("rotate")}${land ? "תצוגה רגילה" : "תצוגה לרוחב"}</button><button type="button" class="cmp-land" data-act="cmpPdf">${ico("doc")}PDF</button>` : ""}</div>` : ""}
+    ${n ? `<div class="cmp-bar">${n < CMP_MAX ? `<button type="button" class="cmp-tool add" data-act="addCompare">${ico("plus")}הוספה</button>` : ""}${n > 1 ? `<button type="button" class="cmp-tool" data-act="diffOnly" aria-pressed="${diffOnly}">${ico("compare")}רק הבדלים</button><button type="button" class="cmp-tool ic" data-act="land" aria-pressed="${land}" aria-label="${land ? "תצוגה רגילה" : "תצוגה לרוחב"}" title="${land ? "תצוגה רגילה" : "תצוגה לרוחב"}">${ico("rotate")}</button><button type="button" class="cmp-tool ic" data-act="cmpPdf" aria-label="PDF" title="PDF">${ico("doc")}</button>` : ""}</div>` : ""}
+    ${verdict ? `<div class="verdict">${verdict}</div>` : ""}
     ${n ? `<div class="cmp"><div class="ph"></div>${L.map(head).join("")}</div>` : ""}
     ${n ? `<div class="cmp-table">${body}</div>` : ""}
     ${n > 1 ? `<p class="note">ירוק מסמן את הערך העדיף בכל שורה.</p>` : ""}</section>`;
@@ -1636,6 +1694,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "compareHome") { cmp = []; renderCompare(); openCompare("model"); return; }
   if (b.dataset.act === "closeCompare") { closeCompare(); return; }
   if (b.dataset.act === "cmpPdf") { shareComparePdf(b); return; }
+  if (b.dataset.act === "diffOnly") { diffOnly = !diffOnly; try { localStorage.setItem("cmpDiffOnly", diffOnly ? "1" : ""); } catch {} renderCompare(); return; }
   if (b.dataset.act === "land") { setLand(!land); return; }
   if (!current) return;
   if (b.dataset.tab) { currentTab = b.dataset.tab; renderResult(); const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"}); return; }
@@ -1649,6 +1708,7 @@ $("#out").addEventListener("click", ev => {
     const on = toggleSaved({plate: current.plate, title: current.title, sub: current.sub, at: Date.now(), tokef: current.v.tokef_dt || "", recalls: current.recalls.length, checked: Date.now()});
     b.setAttribute("aria-pressed", String(on)); b.querySelector("span").textContent = on ? "נשמר" : "שמירה";
     toast(on ? "הרכב נשמר ברשימה שלך" : "הרכב הוסר מהרשימה");
+    if (on && alertsSupported()) { let asked = false; try { asked = !!localStorage.getItem("alertsAsked"); localStorage.setItem("alertsAsked", "1"); } catch {} if (!asked) try { window.AndroidApp.setAlerts(true); } catch {} }
   }
 });
 $("#out").addEventListener("change", ev => { const s = ev.target.closest("[data-trim]"); if (s) switchTrim(+s.dataset.trim, +s.value); });
@@ -1670,7 +1730,8 @@ $("#mres").addEventListener("click", ev => {
   else if (b.dataset.mi) pickModel(+b.dataset.mi);
   else if (b.dataset.mback) stepBack();
 });
-let land = false;
+let land = false, diffOnly = false;
+try { diffOnly = localStorage.getItem("cmpDiffOnly") === "1"; } catch {}
 const cmpWide = () => land || matchMedia("(min-width:640px)").matches;
 addEventListener("resize", () => { if (inCompare && !!$("#out .cmp-wide") !== cmpWide()) renderCompare(); });
 function setLand(on, redraw = true){
@@ -1869,8 +1930,20 @@ $("#shareSheet").addEventListener("click", ev => {
 });
 $("#closeShare").addEventListener("click", () => { $("#shareSheet").hidden = true; });
 
-/* test-expiry reminder as a calendar file: all-day event on the expiry date, alerts 30 and 7 days before */
+/* test-expiry reminder: in the app the phone's calendar opens with the event filled in;
+   on the web it opens Google Calendar; a calendar file is the last resort */
 function testReminder(D){
+  const d = toDate(D.v.tokef_dt); if (!d) return;
+  const ymd = x => `${x.getFullYear()}${String(x.getMonth() + 1).padStart(2, "0")}${String(x.getDate()).padStart(2, "0")}`;
+  const next = new Date(d); next.setDate(next.getDate() + 1);
+  const title = `טסט לרכב ${fmtPlate(D.plate)} (${D.title})`, desc = "תוקף רישיון הרכב מסתיים היום. כדאי לקבוע טסט מראש.";
+  window.calendarFallback = () => testReminderFile(D);
+  const b = bridge();
+  if (b && b.addCalendar) { try { b.addCalendar(title, desc, ymd(d)); return; } catch {} }
+  openExternal(`https://calendar.google.com/calendar/render?${new URLSearchParams({action: "TEMPLATE", text: title, details: desc, dates: `${ymd(d)}/${ymd(next)}`})}`);
+}
+/* calendar file: all-day event on the expiry date, alerts 30 and 7 days before */
+function testReminderFile(D){
   const d = toDate(D.v.tokef_dt); if (!d) return;
   const ymd = x => `${x.getFullYear()}${String(x.getMonth() + 1).padStart(2, "0")}${String(x.getDate()).padStart(2, "0")}`;
   const next = new Date(d); next.setDate(next.getDate() + 1);
@@ -2061,7 +2134,7 @@ function renderHome(){
   if (saved.length) html.push(card("רכבים שמורים", "star", "amber", `<div class="list">${saved.map(s => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-open="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b>${esc(s.title)}</b><small>${esc(s.sub || "")}</small>${savedFlags(s)}</span></button><button type="button" class="x" data-unsave="${s.plate}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div>`));
   if (recent.length) html.push(card("חיפושים אחרונים", "clock", "blue", `<div class="chips">${recent.map(p => `<button type="button" class="chip" data-open="${p}">${fmtPlate(p)}</button>`).join("")}</div>`));
   html.push(card("השוואת דגמים לפני קנייה", "compare", "violet", `<p style="margin:0">מחפשים רכב? חפשו לפי יצרן או דגם והשוו עד ${CMP_MAX} דגמים: מחיר, צריכת דלק, אגרה, כוח, גרירה, בטיחות וכמה ריקולים היו לדגם.</p><button type="button" class="link-btn" data-act="compareHome">${ico("search")}התחלת השוואה</button>`));
-  html.push(card("מה תקבלו", "bulb", "teal", `<p style="margin:0">סטטוס הרכב ותוקף הטסט, היסטוריית בעלויות, ק״מ בטסט האחרון, תובנות חשובות, ריקולים פתוחים, כושר גרירה עם ובלי בלמים, מפרט, מערכות בטיחות, מחיר מחירון וכמה רכבים כאלה על הכביש.</p>`));
+  if (!saved.length && !recent.length) html.push(card("מה תקבלו", "bulb", "teal", `<p style="margin:0">סטטוס הרכב ותוקף הטסט, היסטוריית בעלויות, ק״מ בטסט האחרון, תובנות חשובות, ריקולים פתוחים, כושר גרירה עם ובלי בלמים, מפרט, מערכות בטיחות, מחיר מחירון וכמה רכבים כאלה על הכביש.</p>`));
   $("#out").innerHTML = html.join("");
   if (saved.length) checkSaved();
 }
@@ -2098,7 +2171,8 @@ document.querySelectorAll("[data-theme-choice]").forEach(b => b.addEventListener
 }));
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => applyTheme(themeChoice()));
 const sheet = $("#settings");
-$("#openSettings").addEventListener("click", () => { sheet.hidden = false; $("#closeSettings").focus(); });
+$("#openSettings").addEventListener("click", () => { syncAlertsSeg(); sheet.hidden = false; $("#closeSettings").focus(); });
+document.querySelectorAll("[data-alerts]").forEach(b => b.addEventListener("click", () => { try { window.AndroidApp.setAlerts(b.dataset.alerts === "on"); localStorage.setItem("alertsAsked", "1"); } catch {} syncAlertsSeg(); }));
 $("#closeSettings").addEventListener("click", () => { sheet.hidden = true; $("#openSettings").focus(); });
 sheet.addEventListener("click", ev => { if (ev.target === sheet) sheet.hidden = true; });
 document.addEventListener("keydown", ev => { if (ev.key === "Escape") { sheet.hidden = true; $("#compareSheet").hidden = true; $("#shareSheet").hidden = true; } });
@@ -2128,6 +2202,7 @@ applyTheme(themeChoice());
 $(".brand h1").addEventListener("click", () => { if (!current && !inCompare) return; if (land) setLand(false, false); inCompare = false; renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} window.scrollTo({top: 0}); });
 window.appBack = () => { if (!sheet.hidden) { sheet.hidden = true; return true; } if (!$("#compareSheet").hidden) { if (mGroup) stepBack(); else hideCmpSheet(); return true; } if (!$("#shareSheet").hidden) { $("#shareSheet").hidden = true; return true; } if (inCompare) { closeCompare(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} return true; } return false; };
 
+syncSaved(store.get("savedVehicles"));
 const start = digits(location.hash) || digits(new URLSearchParams(location.search).get("plate"));
 if (start) run(start); else renderHome();
 </script>
