@@ -234,6 +234,13 @@ footer a{color:var(--accent)}
 .cmp-tool.add{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
 .cmp-tool.ic{padding:8px 11px}
 .cmp-tool[aria-pressed="true"]{background:var(--info-bg);color:var(--accent);border-color:var(--accent)}
+.month-big{font-size:2rem;font-weight:900;color:var(--accent)}.month-big small{font-size:.95rem;color:var(--muted);font-weight:600}
+.month-bar{display:flex;height:12px;border-radius:999px;overflow:hidden;margin:8px 0}
+.month-lg{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.88rem}.month-lg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:5px}
+.sim-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.sim-row button{border:1.5px dashed var(--accent);background:var(--info-bg);border-radius:12px;padding:9px 10px;text-align:start;color:var(--fg);min-width:0;display:flex;flex-direction:column;gap:2px}
+.sim-row b{font-size:.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sim-row small{color:var(--muted);font-size:.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sim-row span{display:flex;align-items:center;gap:3px;color:var(--accent);font-weight:800;font-size:.8rem;margin-top:3px}.sim-row span svg.i{width:14px;height:14px}
 .verdict{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
 .verdict span{background:var(--t-leaf-bg);border-radius:12px;padding:8px 12px;min-width:0}
 .verdict small{display:block;font-size:.75rem;font-weight:700;color:var(--muted)}
@@ -485,7 +492,7 @@ body.land .band{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "1.8";
+const APP_VERSION = "1.9";
 const SITE = "https://ddsabag.github.io/vehicle-app/";
 const API = "https://data.gov.il/api/3/action/datastore_search";
 
@@ -675,8 +682,10 @@ async function copyText(t, label){
   if (!ok) try { const ta = document.createElement("textarea"); ta.value = t; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); ok = document.execCommand("copy"); ta.remove(); } catch {}
   toast(ok ? `${label || "הטקסט"} הועתק` : "לא הצלחתי להעתיק");
 }
-async function shareText(title, text){
-  text += "\n\nמקור: מאגרי משרד התחבורה, דרך האפליקציה לוחית";
+/* every share carries a store link; whoever installs from it lands on the same car on first launch */
+const carLink = plate => `${PLAY_URL}&referrer=${encodeURIComponent("plate=" + plate)}`;
+async function shareText(title, text, plate){
+  text += plate ? `\n\nהדוח המלא באפליקציה לוחית:\n${carLink(plate)}` : "\n\nמקור: מאגרי משרד התחבורה, דרך האפליקציה לוחית";
   try { if (bridge() && bridge().share) { bridge().share(title, text); return; } } catch {}
   if (navigator.share) { try { await navigator.share({title, text}); return; } catch (err) { if (err && err.name === "AbortError") return; } }
   copyText(text, "הסיכום");
@@ -833,6 +842,14 @@ function costs(D){
     const mid = adj.reduce((v, [p]) => v * (1 + p / 100), base);
     c.newPrice = num(D.price.mehir); c.age = age; c.baseValue = Math.round(base / 1000) * 1000; c.adj = adj;
     c.valueLow = Math.round(mid * 0.9 / 1000) * 1000; c.valueHigh = Math.round(mid * 1.1 / 1000) * 1000;
+    // value lost over the coming year: a model is bought new, so its steeper first year counts
+    c.deprYear = D.kind === "model" ? num(D.price.mehir) * (1 - y1) : mid * (1 - yr);
+  }
+  // one monthly figure: energy, licence fee and loss of value (insurance and servicing are not in the data)
+  if (c.fuelYear || c.fee || c.deprYear) {
+    const parts = [["דלק", c.fuelYear, "#e53935"], ["אגרה", c.fee, "#7c4dff"], ["ירידת ערך", c.deprYear, "#f0a020"]].filter(x => x[1] > 0);
+    if (kind === "ev" && parts[0] && parts[0][0] === "דלק") parts[0][0] = "חשמל";
+    if (parts.length >= 2) c.monthly = {total: Math.round(parts.reduce((t, x) => t + x[1], 0) / 12 / 10) * 10, parts: parts.map(([k, v, col]) => [k, Math.round(v / 12 / 10) * 10, col])};
   }
   // company-car taxable benefit (שווי שימוש), cars first registered from 2010: list price in the registration
   // year, indexed to the consumer price index, capped, × 2.48% a month, minus the green-car reduction
@@ -1253,6 +1270,13 @@ function tabCosts(D){
       </div>
       <p class="note">נסיעה אמיתית צורכת בדרך כלל יותר מהנתון הרשמי.${c.kind === "diesel" && !c.fuelPrice ? " כדי לראות עלות בשקלים, הגדירו מחיר סולר בהגדרות." : " אפשר לשנות את מחיר הדלק בהגדרות."}</p>` :
     `<p style="margin:0">אין במאגר נתוני פליטה לדגם הזה, ולכן אין הערכת צריכה.</p>`;
+  if (c.monthly) {
+    const m = c.monthly;
+    html.push(card("כמה הרכב עולה בחודש", "tag", "blue", `<div class="month-big">כ-${fmtN(m.total)} ₪ <small>בחודש</small></div>
+      <div class="month-bar">${m.parts.map(([, v, col]) => `<span style="flex:${v};background:${col}"></span>`).join("")}</div>
+      <div class="month-lg">${m.parts.map(([k, v, col]) => `<span><i style="background:${col}"></i>${k} ${fmtN(v)} ₪</span>`).join("")}</div>
+      <p class="note">לפי ${fmtN(c.kmYear)} ק״מ בשנה. בלי ביטוח וטיפולים.</p>`));
+  }
   html.push(c.kind === "ev" ? card("חשמל", "bolt", "teal", fuelInner) : card("דלק", "fuel", "red", fuelInner));
   html.push(card("אגרת רישוי שנתית", "doc", "violet", c.fee ?
     `<div class="tow-grid"><div><div class="k">הערכה</div><div class="v">${fmtN(c.fee)}<span class="u">₪</span></div></div><div><div class="k">קבוצת מחיר</div><div class="v">${c.feeGroup}<span class="u">מתוך 7</span></div></div></div>
@@ -1545,6 +1569,46 @@ async function pickModel(i, j = 0, at = -1){
   try { const D = await fetchModel(l[j]); D.alts = l; addToCompare(D); }
   catch (err) { msg.textContent = "הטעינה נכשלה. נסו שוב."; }
 }
+/* Similar models: same body and drive technology, same year, close in power and weight.
+   Shown under the comparison while there is room for another car. */
+let simFor = null, simList = [];
+async function loadSimilar(D){
+  const key = D.key || D.plate; if (simFor === key) return;
+  simFor = key; simList = [];
+  const w = D.w || {}, y = num(D.v.shnat_yitzur), body = w.merkav;
+  if (!body || isNaN(y)) return;
+  const f = {shnat_yitzur: y, merkav: body}; if (!empty(w.technologiat_hanaa_nm)) f.technologiat_hanaa_nm = w.technologiat_hanaa_nm;
+  let rows = [];
+  try { rows = await ds(MODEL_SETS.wltp, f, 1000); } catch {}
+  if (!rows.length) return;
+  const hp = num(w.koah_sus), kg = num(w.mishkal_kolel), own = groupKey({...D.v, kinuy_mishari: D.model || D.v.kinuy_mishari});
+  const taken = new Set(cmp.map(x => groupKey({...x.v, kinuy_mishari: x.model || x.v.kinuy_mishari})));
+  const groups = new Map();
+  for (const r of rows) {
+    if (empty(r.tozeret_cd) || !rowModel(r)) continue;
+    const k = groupKey(r); if (k === own || taken.has(k)) continue;
+    const h = num(r.koah_sus);
+    if (hp > 0 && h > 0 && Math.abs(h - hp) / hp > 0.35) continue;
+    const score = (hp > 0 && h > 0 ? Math.abs(h - hp) / hp : 0.2) + (kg > 0 && num(r.mishkal_kolel) > 0 ? Math.abs(num(r.mishkal_kolel) - kg) / kg : 0.1);
+    if (!groups.has(k)) groups.set(k, {make: rowMake(r), model: normModel(rowModel(r)), rows: []});
+    const g = groups.get(k); g.rows.push(r); if (g.best === undefined || score < g.score) { g.best = r; g.score = score; }
+  }
+  const list = [...groups.values()].sort((a, b) => a.score - b.score).slice(0, 3).map(g => {
+    const ek = engKey(g.best), seen = new Set();
+    const alts = g.rows.filter(r => engKey(r) === ek).filter(r => { const t = String(r.ramat_gimur || "").trim().toUpperCase(); if (seen.has(t)) return false; seen.add(t); return true; })
+      .sort((a, b) => String(a.ramat_gimur || "").localeCompare(String(b.ramat_gimur || "")));
+    return {...g, alts};
+  });
+  if (simFor !== key) return;
+  simList = list;
+  if (inCompare && list.length) renderCompare();
+}
+async function addSimilar(i){
+  const g = simList[i]; if (!g) return;
+  const btn = document.querySelector(`[data-sim="${i}"] span`); if (btn) btn.textContent = "טוען…";
+  try { const D = await fetchModel(g.alts[0]); D.alts = g.alts; addToCompare(D); }
+  catch { toast("הטעינה נכשלה. נסו שוב."); }
+}
 /* switching trim inside the comparison keeps the column in place */
 async function switchTrim(i, j){
   const D = cmp[i]; if (!D || !D.alts || !D.alts[j]) return;
@@ -1574,6 +1638,7 @@ function renderCompare(){
   // [label, value(D), better: "hi" | "lo" | null, unit, plain, carOnly]  — a string label alone opens a section
   const rows = [
     "מחיר ועלויות",
+    ["עלות חודשית (הערכה)", D => D.cost.monthly ? D.cost.monthly.total : null, "lo", "₪"],
     ["מחיר מחירון כחדש", D => D.cost.newPrice || null, null, "₪"],
     ["שווי משוער היום", D => D.cost.valueLow ? Math.round((D.cost.valueLow + D.cost.valueHigh) / 2000) * 1000 : null, null, "₪"],
     kmlUnit() ? ["ק״מ לליטר (הערכה)", D => D.cost.l100 ? Math.round(1000 / D.cost.l100) / 10 : null, "hi", "", true]
@@ -1643,17 +1708,24 @@ function renderCompare(){
   };
   const verdict = n > 1 ? [
     lead("הכי זול לקנייה", D => D.cost.newPrice || (D.cost.valueLow ? (D.cost.valueLow + D.cost.valueHigh) / 2 : null), "lo"),
-    lead("הכי חסכוני בשנה", D => (D.cost.fuelYear || 0) + (D.cost.fee || 0) || null, "lo"),
+    lead("הכי זול לאחזקה", D => D.cost.monthly ? D.cost.monthly.total : null, "lo"),
     lead("הכי חזק", D => nf(D.w, "koah_sus"), "hi"),
     lead("הכי בטיחותי", D => num(D.pick(D.v.ramat_eivzur_betihuty, D.w.ramat_eivzur_betihuty)), "hi"),
   ].filter(Boolean).join("") : "";
   const head = (D, i) => `<div class="cmp-h"><div class="cmp-top">${D.kind === "model" ? `<span class="tag">דגם</span>` : `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>`}<button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><b>${esc(D.title)}</b><small>${esc(D.alts && D.alts.length > 1 ? String(D.v.shnat_yitzur || "") : D.sub)}</small>${D.alts && D.alts.length > 1 ? `<select class="trim-sel" data-trim="${i}" aria-label="רמת גימור">${D.alts.map((r, j) => `<option value="${j}"${rowKey(r) === D.key ? " selected" : ""}>${esc(String(r.ramat_gimur || "").trim() || "גרסה בסיסית")}</option>`).join("")}</select>` : ""}</div>`;
+  const base = n && n < CMP_MAX ? L[n - 1] : null;
+  if (base) loadSimilar(base);
+  const simHtml = base && simFor === (base.key || base.plate) && simList.length ? `<div class="sim-box"><div class="qsec">דגמים דומים, להוספה בלחיצה</div><div class="sim-row">${simList.map((g, i) => {
+    const r = g.alts[0], dt = driveType(rowD(r));
+    return `<button type="button" data-sim="${i}"><b>${esc(g.make)} ${esc(g.model)}</b><small>${esc([dt && dt.label, isNum(r.koah_sus) ? `${fmtN(r.koah_sus)} כ״ס` : ""].filter(Boolean).join(" · "))}</small><span>${ico("plus")}הוספה</span></button>`;
+  }).join("")}</div></div>` : "";
   const wide = cmpWide();
   $("#out").innerHTML = `<section class="card blue${wide ? " cmp-wide" : ""}" style="--n:${Math.max(n, 1)}"><div class="head"><span class="badge">${ico("compare")}</span><h2>השוואת רכבים</h2><button type="button" class="count" data-act="closeCompare" style="border:0">חזרה</button></div>
     ${n ? "" : `<p style="margin:0">הוסיפו עד ${CMP_MAX} דגמים או רכבים, וההשוואה תראה מחיר, עלויות, כוח, גרירה, בטיחות ואמינות זה לצד זה.</p>
     <div class="slots">${[1, 2, 3].map(i => `<button type="button" data-act="addCompare">${ico("plus")}רכב ${i}</button>`).join("")}</div>`}
     ${n ? `<div class="cmp-bar">${n < CMP_MAX ? `<button type="button" class="cmp-tool add" data-act="addCompare">${ico("plus")}הוספה</button>` : ""}${n > 1 ? `<button type="button" class="cmp-tool" data-act="diffOnly" aria-pressed="${diffOnly}">${ico("compare")}רק הבדלים</button><button type="button" class="cmp-tool ic" data-act="land" aria-pressed="${land}" aria-label="${land ? "תצוגה רגילה" : "תצוגה לרוחב"}" title="${land ? "תצוגה רגילה" : "תצוגה לרוחב"}">${ico("rotate")}</button><button type="button" class="cmp-tool ic" data-act="cmpPdf" aria-label="PDF" title="PDF">${ico("doc")}</button>` : ""}</div>` : ""}
     ${verdict ? `<div class="verdict">${verdict}</div>` : ""}
+    ${simHtml}
     ${n ? `<div class="cmp"><div class="ph"></div>${L.map(head).join("")}</div>` : ""}
     ${n ? `<div class="cmp-table">${body}</div>` : ""}
     ${n > 1 ? `<p class="note">ירוק מסמן את הערך העדיף בכל שורה.</p>` : ""}</section>`;
@@ -1694,6 +1766,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "compareHome") { cmp = []; renderCompare(); openCompare("model"); return; }
   if (b.dataset.act === "closeCompare") { closeCompare(); return; }
   if (b.dataset.act === "cmpPdf") { shareComparePdf(b); return; }
+  if (b.dataset.sim) { addSimilar(+b.dataset.sim); return; }
   if (b.dataset.act === "diffOnly") { diffOnly = !diffOnly; try { localStorage.setItem("cmpDiffOnly", diffOnly ? "1" : ""); } catch {} renderCompare(); return; }
   if (b.dataset.act === "land") { setLand(!land); return; }
   if (!current) return;
@@ -1825,8 +1898,9 @@ async function captureEl(el, breakSel){
 }
 function canvasToBlob(c, type, q){ return new Promise(ok => c.toBlob(ok, type, q)); }
 function blobToBase64(b){ return new Promise((ok, fail) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = fail; r.readAsDataURL(b); }); }
-async function shareFile(blob, name, title){
+async function shareFile(blob, name, title, caption){
   const br = bridge();
+  if (br && br.shareFileText && caption) { br.shareFileText(name, blob.type, await blobToBase64(blob), title, caption); return; }
   if (br && br.shareFile) { br.shareFile(name, blob.type, await blobToBase64(blob), title); return; }
   const file = new File([blob], name, {type: blob.type});
   if (navigator.canShare && navigator.canShare({files: [file]})) {
@@ -1896,7 +1970,7 @@ async function makeComparePdf(){
   const el = document.createElement("div"); el.className = "report pdf";
   const card = sec.cloneNode(true); card.classList.add("cmp-wide");
   card.querySelectorAll(".trim-sel").forEach(x => { const o = x.querySelector("option[selected]") || x.options[0], sm = x.parentElement.querySelector("small"); if (o && sm) sm.textContent += " · " + o.textContent; });
-  card.querySelectorAll(".cmp-bar, .head .count, .cmp-top .x, .trim-sel").forEach(x => x.remove());
+  card.querySelectorAll(".cmp-bar, .head .count, .cmp-top .x, .trim-sel, .sim-box").forEach(x => x.remove());
   el.innerHTML = brandHead() + `<div class="rep-head"><b>השוואת רכבים</b><span>${today}</span></div>`;
   el.appendChild(card);
   el.insertAdjacentHTML("beforeend", `<p class="rep-foot">המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il. הערכות העלות והשווי משוערות. ${BRAND_FOOT}</p>`);
@@ -1913,12 +1987,13 @@ async function shareComparePdf(btn){
 async function doShare(kind){
   const D = current; if (!D) return;
   const msg = $("#shareMsg"), name = `Luchit-${D.plate}`;
-  if (kind === "text") { $("#shareSheet").hidden = true; shareText(D.title, summaryText(D)); return; }
+  if (kind === "text") { $("#shareSheet").hidden = true; shareText(D.title, summaryText(D), D.plate); return; }
   document.querySelectorAll("[data-share]").forEach(b => b.disabled = true);
   msg.textContent = kind === "pdf" ? "מכין קובץ PDF…" : "מכין תמונה…";
   try {
-    if (kind === "pdf") await shareFile(await makePdf(D), name + ".pdf", D.title);
-    else { const {canvas} = await captureReport(D, false); await shareFile(await canvasToBlob(canvas, "image/png"), name + ".png", D.title); }
+    const caption = `${D.title} · ${fmtPlate(D.plate)}\nהדוח המלא באפליקציה לוחית:\n${carLink(D.plate)}`;
+    if (kind === "pdf") await shareFile(await makePdf(D), name + ".pdf", D.title, caption);
+    else { const {canvas} = await captureReport(D, false); await shareFile(await canvasToBlob(canvas, "image/png"), name + ".png", D.title, caption); }
     $("#shareSheet").hidden = true;
   } catch (err) {
     msg.textContent = "לא הצלחתי להכין את הקובץ. בדקו את החיבור לאינטרנט ונסו שוב.";
@@ -2202,6 +2277,34 @@ applyTheme(themeChoice());
 $(".brand h1").addEventListener("click", () => { if (!current && !inCompare) return; if (land) setLand(false, false); inCompare = false; renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} window.scrollTo({top: 0}); });
 window.appBack = () => { if (!sheet.hidden) { sheet.hidden = true; return true; } if (!$("#compareSheet").hidden) { if (mGroup) stepBack(); else hideCmpSheet(); return true; } if (!$("#shareSheet").hidden) { $("#shareSheet").hidden = true; return true; } if (inCompare) { closeCompare(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} return true; } return false; };
 
+/* Text shared from another app (an ad, a message): find a plate number in it.
+   Phone numbers, prices and mileage are skipped; a number next to the words רכב/רישוי/לוחית wins. */
+function plateInText(text){
+  const t = String(text || ""), found = [];
+  for (const m of t.matchAll(/(?<![\d,.])(\d{2,3}[-\s.]?\d{2,3}[-\s.]?\d{2,3})(?![\d,])/g)) {
+    const d = digits(m[1]); if (d.length < 7 || d.length > 8) continue;
+    const before = t.slice(Math.max(0, m.index - 30), m.index);
+    if (/0\d{1,2}[-\s]?$/.test(before) || /טל|נייד|פלאפון|phone|₪|ש"ח|ק"מ|ק״מ/i.test(before.slice(-12))) continue;
+    found.push({d, near: /רכב|רישוי|לוחית|מספר/.test(before)});
+  }
+  return (found.find(x => x.near) || found[0] || {}).d || null;
+}
+window.onSharedText = text => {
+  const p = plateInText(text);
+  if (p) { run(p); return; }
+  renderHome(); toast("לא מצאתי מספר רישוי במה ששיתפת. אפשר לשתף צילום של הלוחית או להקליד את המספר.");
+};
+window.onSharedImage = async dataUrl => {
+  renderHome();
+  try { const blob = await (await fetch(dataUrl)).blob(); plateFromPhoto(blob); } catch { toast("לא הצלחתי לפתוח את התמונה"); }
+};
+/* launcher shortcuts */
+window.appAction = what => {
+  if (!$("#compareSheet").hidden) $("#compareSheet").hidden = true;
+  if (what === "compare") { cmp = []; renderCompare(); openCompare(); }
+  else if (what === "camera") { renderHome(); $("#camBtn").click(); }
+  else if (what === "saved") { renderHome(); const c = [...document.querySelectorAll("#out .card")].find(x => x.textContent.includes("רכבים שמורים")); if (c) c.scrollIntoView({block: "start"}); else toast("עוד לא שמרת רכבים. אחרי חיפוש, לחצו על \"שמירה\"."); }
+};
 syncSaved(store.get("savedVehicles"));
 const start = digits(location.hash) || digits(new URLSearchParams(location.search).get("plate"));
 if (start) run(start); else renderHome();

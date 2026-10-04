@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">לוחית</string>
+    <string name="sc_camera">צילום לוחית</string>
+    <string name="sc_compare">השוואת דגמים</string>
+    <string name="sc_saved">הרכבים שלי</string>
 </resources>
