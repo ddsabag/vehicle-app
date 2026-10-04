@@ -2126,7 +2126,7 @@ document.querySelectorAll("[data-unit]").forEach(b => b.addEventListener("click"
 applyTheme(themeChoice());
 /* Android back button: close settings, then return from a result to the home screen */
 $(".brand h1").addEventListener("click", () => { if (!current && !inCompare) return; if (land) setLand(false, false); inCompare = false; renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} window.scrollTo({top: 0}); });
-window.appBack = () => { if (!sheet.hidden) { sheet.hidden = true; return true; } if (!$("#compareSheet").hidden) { hideCmpSheet(); return true; } if (!$("#shareSheet").hidden) { $("#shareSheet").hidden = true; return true; } if (inCompare) { closeCompare(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} return true; } return false; };
+window.appBack = () => { if (!sheet.hidden) { sheet.hidden = true; return true; } if (!$("#compareSheet").hidden) { if (mGroup) stepBack(); else hideCmpSheet(); return true; } if (!$("#shareSheet").hidden) { $("#shareSheet").hidden = true; return true; } if (inCompare) { closeCompare(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} return true; } return false; };
 
 const start = digits(location.hash) || digits(new URLSearchParams(location.search).get("plate"));
 if (start) run(start); else renderHome();
