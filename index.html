@@ -1292,30 +1292,30 @@ function tabCosts(D){
         <div><div class="k">צריכה</div><div class="v">${c.kwh100}<span class="u">קוט״ש/100 ק״מ</span></div></div>
         <div><div class="k">טעינה בבית בשנה</div><div class="v">${fmtN(r100(c.fuelYear))}<span class="u">₪</span></div></div>
       </div>
-      <p class="note">בטעינה ציבורית מהירה העלות כ-${fmtN(r100(c.fastYear))} ₪ בשנה.</p>` :
+      <p class="note">לפי ${fmtN(c.kmYear)} ק״מ בשנה ו-${c.elecPrice.toFixed(2)} ₪ לקוט״ש. בטעינה ציבורית מהירה (כ-${ELEC.fastDc.toFixed(0)} ₪ לקוט״ש) העלות כ-${fmtN(r100(c.fastYear))} ₪ בשנה. אפשר לשנות את מחיר החשמל בהגדרות.</p>` :
     c.l100 ? `<div class="tow-grid">
         <button type="button" class="unit-flip" data-act="fuelUnit" aria-label="החלפת יחידה"><div class="k">צריכה <span class="flip">⇄</span></div><div class="v">${kmlUnit() ? (100 / c.l100).toFixed(1) : c.l100.toFixed(1)}<span class="u">${kmlUnit() ? "ק״מ לליטר" : "ל׳/100 ק״מ"}</span></div></button>
         <div><div class="k">${c.fuelYear ? "עלות דלק בשנה" : "ליטרים בשנה"}</div><div class="v">${c.fuelYear ? fmtN(Math.round(c.fuelYear / 100) * 100) : fmtN(Math.round(c.litres))}<span class="u">${c.fuelYear ? "₪" : "ליטר"}</span></div></div>
       </div>
-      <p class="note">נסיעה אמיתית צורכת בדרך כלל יותר מהנתון הרשמי.${c.kind === "diesel" && !c.fuelPrice ? " כדי לראות עלות בשקלים, הגדירו מחיר סולר בהגדרות." : ""}</p>` :
+      <p class="note">נסיעה אמיתית צורכת בדרך כלל יותר מהנתון הרשמי.${c.kind === "diesel" && !c.fuelPrice ? " כדי לראות עלות בשקלים, הגדירו מחיר סולר בהגדרות." : " אפשר לשנות את מחיר הדלק בהגדרות."}</p>` :
     `<p style="margin:0">אין במאגר נתוני פליטה לדגם הזה, ולכן אין הערכת צריכה.</p>`;
   if (c.monthly) {
     const m = c.monthly;
     html.push(card("כמה הרכב עולה בחודש", "tag", "blue", `<div class="month-big">כ-${fmtN(m.total)} ₪ <small>בחודש</small></div>
       <div class="month-bar">${m.parts.map(([, v, col]) => `<span style="flex:${v};background:${col}"></span>`).join("")}</div>
       <div class="month-lg">${m.parts.map(([k, v, col]) => `<span><i style="background:${col}"></i>${k} ${fmtN(v)} ₪</span>`).join("")}</div>
-      <p class="note">בלי ביטוח וטיפולים.</p>`));
+      <p class="note">לפי ${fmtN(c.kmYear)} ק״מ בשנה. בלי ביטוח וטיפולים.</p>`));
   }
   html.push(c.kind === "ev" ? card("חשמל", "bolt", "teal", fuelInner) : card("דלק", "fuel", "red", fuelInner));
   html.push(card("אגרת רישוי שנתית", "doc", "violet", c.fee ?
     `<div class="tow-grid"><div><div class="k">אגרה שנתית</div><div class="v">${fmtN(c.fee)}<span class="u">₪</span></div></div><div><div class="k">קבוצת מחיר</div><div class="v">${c.feeGroup}<span class="u">מתוך 7</span></div></div></div>
-     ${new Date() >= new Date(2027, 3, 1) ? `<p class="note">התעריף לשנת 2026, וייתכן שכבר עודכן.</p>` : ""}
+     <p class="note">לפי התעריף הרשמי לשנת 2026${new Date() >= new Date(2027, 3, 1) ? ", וייתכן שכבר עודכן מאז" : ""}. לא כולל הנחות.</p>
      <button type="button" class="link-btn" data-url="${FEE_SOURCE}">${ico("doc")}טבלת האגרות הרשמית של משרד התחבורה</button>` :
     `<p style="margin:0">לא נמצאה קבוצת אגרה לרכב הזה. האגרה מחושבת לרכב פרטי בלבד.</p>`));
   const u = c.usage;
   html.push(card("שווי שימוש (רכב צמוד)", "users", "teal", u ?
     `<div class="tow-grid"><div><div class="k">לחודש</div><div class="v">${fmtN(u.monthly)}<span class="u">₪</span></div></div><div><div class="k">לשנה</div><div class="v">${fmtN(u.monthly * 12)}<span class="u">₪</span></div></div></div>
-     <p class="note">${u.green ? `כולל הפחתה של ${fmtN(u.green[1])} ₪ לרכב ${u.green[0]}. ` : ""}הסכום המחייב מופיע במחשבון של רשות המסים.</p>
+     <p class="note">${u.green ? `כולל הפחתה של ${fmtN(u.green[1])} ₪ לרכב ${u.green[0]}. ` : ""}זה הסכום שמתווסף למשכורת לצורך מס, לא המס עצמו. הסכום המחייב מופיע במחשבון של רשות המסים.</p>
      <button type="button" class="link-btn" data-url="${USAGE.calc}" data-copyfirst="${esc(`קוד תוצר ${D.v.tozeret_cd} קוד דגם ${D.v.degem_cd} שנה ${u.regYear}`)}" data-copylabel="הקודים">${ico("doc")}המחשבון הרשמי של רשות המסים</button>` :
     `<p style="margin:0">אין מספיק נתונים לחישוב שווי השימוש של הרכב הזה (החישוב כאן לרכב פרטי שעלה לכביש מ-2010).</p><button type="button" class="link-btn" data-url="${USAGE.calc}">${ico("doc")}המחשבון הרשמי של רשות המסים</button>`));
   html.push(card("שווי משוער", "tag", "pink", (c.newPrice ?
@@ -1326,7 +1326,7 @@ function tabCosts(D){
     `<button type="button" class="link-btn" data-url="https://carlistprice.mot.gov.il/" data-copyfirst="${D.plate}">${ico("tag")}מחירון העם: מחירי עסקאות אמיתיות</button>`));
   html.push(card("הדגם על הכביש", "car", "blue", c.active !== undefined ?
     facts([["רכבים פעילים מהדגם", esc(fmtN(c.active))], ["כבר לא פעילים", esc(fmtN(c.gone))], c.gonePct !== null && ["שיעור שירד מהכביש", `${c.gonePct.toFixed(1)}%`, "wide"]]) +
-    `` :
+    `<p class="note">שיעור גבוה ביחס לגיל הדגם עשוי לרמוז על אמינות נמוכה או על תאונות.</p>` :
     `<p style="margin:0">אין במאגר נתוני כמויות לדגם הזה.</p>`));
   html.push(card("לפני שקונים", "check", "green",
     `<p style="margin:0">שלושה דברים שכדאי לעשות לפני שסוגרים עסקה:</p>
@@ -2292,7 +2292,7 @@ function renderMarket(M){
     return rows.map(([k, c, p]) => `<div class="mk-row"><b>${esc(nameFn(k))}</b><span>${fmtN(c)} <small>· ${(c / total * 100).toFixed(1)}%</small> ${chgHtml(c, p)}</span><div class="tr"><i style="width:${c / top * 100}%"></i></div></div>`).join("");
   };
   html.push(card("יצרנים מובילים", "star", "amber", mkTop(M.makers, P.ms, P.prevMs, 10, k => k)));
-  html.push(card("דגמים מובילים", "car", "violet", mkTop(M.models, P.ms, P.prevMs, 10, k => k.split("|").join(" "))));
+  html.push(card("דגמים מובילים", "car", "violet", mkTop(M.models, P.ms, P.prevMs, 10, k => k.split("|").join(" ")) + `<p class="note">לפי הכינוי המסחרי, כל המנועים והגימורים יחד.</p>`));
   const OWN = [["פרטי", "פרטי", "#2556c8"], ["ליסינג", "ליסינג", "#e0a100"], ["חברה", "חברה", "#7a4fd1"], ["השכרה", "השכרה", "#1a8f4a"], ["סוחר", "סוחר", "#8a93a6"]];
   const own = M.ownership[P.year];
   if (own) {
@@ -2307,11 +2307,11 @@ function renderMarket(M){
     html.push(card(`סוג הנעה · רכבי שנתון ${P.year}`, "bolt", "green", `<div class="mk-stack">${G.map((g, i) => `<i style="width:${vals[i] / t * 100}%;background:${g[2]}"></i>`).join("")}${rest > 0 ? `<i style="width:${rest / t * 100}%;background:#c9cfdb"></i>` : ""}</div><div class="mk-leg">${G.map((g, i) => `<span style="--c:${g[2]}">${g[0]} ${(vals[i] / t * 100).toFixed(0)}%</span>`).join("")}</div>`));
   }
   const iy = M.importYear || {}, iys = Object.keys(iy).sort().reverse().slice(0, 6);
-  if (iys.length) html.push(card("ייבוא אישי", "globe", "teal", `<table class="mk-tbl"><tr><th>שנת עלייה לכביש</th><th>חדש</th><th>משומש</th></tr>${iys.map(y => `<tr><td>${y}</td><td>${fmtN(iy[y]["יבוא אישי-חדש"] || 0)}</td><td>${fmtN(iy[y]["יבוא אישי-משומש"] || 0)}</td></tr>`).join("")}</table>`));
+  if (iys.length) html.push(card("ייבוא אישי", "globe", "teal", `<table class="mk-tbl"><tr><th>שנת עלייה לכביש</th><th>חדש</th><th>משומש</th></tr>${iys.map(y => `<tr><td>${y}</td><td>${fmtN(iy[y]["יבוא אישי-חדש"] || 0)}</td><td>${fmtN(iy[y]["יבוא אישי-משומש"] || 0)}</td></tr>`).join("")}</table><p class="note">רכבים שנרשמו כיבוא אישי ועדיין רשומים במאגר.</p>`));
   if ((M.evArea || []).length) {
     const by = {}; for (const r of M.evArea) inc2(by, r.area, r.n);
     const rows = Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 10), top = rows[0][1];
-    html.push(card("רכבים חשמליים לפי אזור", "bolt", "green", rows.map(([a, n]) => `<div class="mk-row"><b>${esc(a)}</b><span>${fmtN(n)}</span><div class="tr"><i style="width:${n / top * 100}%"></i></div></div>`).join("")));
+    html.push(card("רכבים חשמליים לפי אזור", "bolt", "green", rows.map(([a, n]) => `<div class="mk-row"><b>${esc(a)}</b><span>${fmtN(n)}</span><div class="tr"><i style="width:${n / top * 100}%"></i></div></div>`).join("") + `<p class="note">כל הרכבים החשמליים הרשומים היום, לפי אזור הרישוי.</p>`));
   }
   html.push(`<p class="note" style="text-align:center">עודכן ${esc(M.updated)} · מקור: מאגרי משרד התחבורה</p><button type="button" class="link-btn" data-act="marketBack">${ico("back")}חזרה</button>`);
   $("#out").innerHTML = html.join("");
@@ -2328,7 +2328,7 @@ function renderHome(){
   current = null; inCompare = false;
   const saved = store.get("savedVehicles"), recent = store.get("recentPlates");
   const html = [];
-  if (saved.length) html.push(card("רכבים שמורים", "star", "amber", `<div class="list">${saved.map(s => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-open="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b>${esc(s.title)}</b><small>${esc(s.sub || "")}</small>${savedFlags(s)}</span></button><button type="button" class="x bell" data-bell="${s.plate}" aria-pressed="${s.alerts !== false}" aria-label="התראות לרכב הזה">${ico("bell")}</button><button type="button" class="x" data-unsave="${s.plate}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div>`));
+  if (saved.length) html.push(card("רכבים שמורים", "star", "amber", `<div class="list">${saved.map(s => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-open="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b>${esc(s.title)}</b><small>${esc(s.sub || "")}</small>${savedFlags(s)}</span></button><button type="button" class="x bell" data-bell="${s.plate}" aria-pressed="${s.alerts !== false}" aria-label="התראות לרכב הזה">${ico("bell")}</button><button type="button" class="x" data-unsave="${s.plate}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div><p class="note">הפעמון קובע על אילו רכבים תקבלו התראה על ריקול חדש או טסט שעומד לפוג.</p>`));
   if (recent.length) html.push(card("חיפושים אחרונים", "clock", "blue", `<div class="chips">${recent.map(p => `<button type="button" class="chip" data-open="${p}">${fmtPlate(p)}</button>`).join("")}</div>`));
   html.push(card("השוואת דגמים לפני קנייה", "compare", "violet", `<p style="margin:0">מחפשים רכב? חפשו לפי יצרן או דגם והשוו עד ${CMP_MAX} דגמים: מחיר, צריכת דלק, אגרה, כוח, גרירה, בטיחות וכמה ריקולים היו לדגם.</p><button type="button" class="link-btn" data-act="compareHome">${ico("search")}התחלת השוואה</button>`));
   html.push(card("שוק הרכב", "chart", "blue", `<p style="margin:0">כמה רכבים חדשים נמסרו, אילו יצרנים ודגמים מובילים, מי קונה (פרטי, ליסינג, חברה, השכרה) ואיזה סוג הנעה. לפי שנה או רבעון.</p><button type="button" class="link-btn" data-act="market">${ico("chart")}לנתוני השוק</button>`));
