@@ -111,6 +111,8 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .mini-plate i{background:var(--il);width:8px;align-self:stretch;border-radius:2px}
 .pills{display:flex;flex-wrap:wrap;gap:6px}
 .pill{font-size:.82rem;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--soft)}
+.pill.drive{display:inline-flex;align-items:center;gap:4px;background:var(--info-bg);color:var(--info)}.pill.drive svg.i{width:14px;height:14px}
+.pill.drive.green{background:var(--t-leaf-bg);color:var(--t-leaf)}
 .pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.warn{background:var(--warn-bg);color:var(--warn)}.pill.bad{background:var(--bad-bg);color:var(--bad)}
 .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;border-top:1px solid var(--line);padding-top:12px}
 .act{display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--soft);border:0;border-radius:12px;padding:10px 2px;font-size:.78rem;font-weight:700;color:var(--fg)}
@@ -730,7 +732,20 @@ const USAGE = {year: 2026, rate: 0.0248, cap: 596860, hybrid: 580, phev: 1150, e
 const CPI = {2010:2.7, 2011:2.2, 2012:1.6, 2013:1.8, 2014:-0.2, 2015:-1.0, 2016:-0.2, 2017:0.4, 2018:0.8, 2019:0.6,
   2020:-0.7, 2021:2.8, 2022:5.3, 2023:3.0, 2024:3.2, 2025:2.6};
 function setting(k, d){ try { const x = localStorage.getItem(k); return x === null || x === "" ? d : x; } catch { return d; } }
-function fuelKind(D){ const t = String(D.pick(D.v.sug_delek_nm, D.w.delek_nm) || ""); if (t.includes("חשמל") && !t.includes("בנזין")) return "ev"; if (t.includes("דיזל") || t.includes("סולר")) return "diesel"; return "petrol"; }
+function fuelKind(D){ const t = String(D.pick(D.v.sug_delek_nm, D.w.delek_nm) || ""); if (t.includes("חשמל") && !t.includes("בנזין") && !t.includes("דיזל")) return "ev"; if (t.includes("דיזל") || t.includes("סולר")) return "diesel"; return "petrol"; }
+/* Drive type for the label and the tax reduction. The model catalogue's drive technology is the reliable
+   source ("PLUG IN" / "היברידי רגיל" / "רכב חשמלי"); the register codes regular hybrids as plain petrol
+   and keeps "חשמל/בנזין" for plug-ins only. */
+function driveType(D){
+  const tech = String(D.w.technologiat_hanaa_nm || D.v.technologiat_hanaa_nm || "").toUpperCase();
+  const reg = String(D.v.sug_delek_nm || ""), fuel = String(D.pick(D.v.sug_delek_nm, D.w.delek_nm) || "");
+  if (fuelKind(D) === "ev" || tech.includes("חשמלי")) return {k: "ev", label: "חשמלי"};
+  if (tech.includes("PLUG") || /חשמל\//.test(reg)) return {k: "phev", label: "פלאג-אין"};
+  if (tech.includes("היברידי") || (!reg && /חשמל/.test(fuel))) return {k: "hybrid", label: "היברידי"};
+  if (/דיזל|סולר/.test(fuel)) return {k: "diesel", label: "דיזל"};
+  if (/גפ"?מ|גז/.test(fuel)) return {k: "lpg", label: "גפ״מ"};
+  return fuel ? {k: "petrol", label: "בנזין"} : null;
+}
 function costs(D){
   const c = {};
   const kind = fuelKind(D);
@@ -791,13 +806,8 @@ function costs(D){
   if (D.price && isNum(D.price.mehir) && regYear >= 2010 && String(D.v.sug_degem || "P").toUpperCase() === "P") {
     let idx = 1; for (let y = regYear; y < USAGE.year; y++) idx *= 1 + (CPI[y] || 0) / 100;
     const price = Math.min(num(D.price.mehir) * idx, USAGE.cap);
-    // drive technology from the model catalogue ("PLUG IN" / "היברידי רגיל" / "רכב חשמלי"); the register
-    // codes regular hybrids as plain petrol and keeps "חשמל/בנזין" for plug-ins only
-    const tech = String(D.w.technologiat_hanaa_nm || D.v.technologiat_hanaa_nm || "").toUpperCase();
-    const reg = String(D.v.sug_delek_nm || "");
-    const green = kind === "ev" || tech.includes("חשמלי") ? ["חשמלי", USAGE.ev]
-      : tech.includes("PLUG") || /חשמל\//.test(reg) ? ["פלאג-אין", USAGE.phev]
-      : tech.includes("היברידי") ? ["היברידי", USAGE.hybrid] : null;
+    const dt = driveType(D);
+    const green = dt && {ev: ["חשמלי", USAGE.ev], phev: ["פלאג-אין", USAGE.phev], hybrid: ["היברידי", USAGE.hybrid]}[dt.k] || null;
     c.usage = {monthly: Math.max(0, Math.round((price * USAGE.rate - (green ? green[1] : 0)) / 10) * 10), price: Math.round(price), green, regYear, capped: price >= USAGE.cap};
   }
   if (D.counts && (isNum(D.counts.mispar_rechavim_pailim) || isNum(D.counts.mispar_rechavim_le_pailim))) {
@@ -1051,6 +1061,8 @@ function renderResult(){
   const pills = [];
   if (D.primary) pills.push(`<span class="pill ${D.primary.tone||"ok"}">${esc(D.primary.status)}</span>`);
   if (D.primary && D.primary.kind) pills.push(`<span class="pill">${esc(D.primary.kind)}</span>`);
+  const dt = driveType(D);
+  if (dt) pills.push(`<span class="pill drive ${["ev", "phev", "hybrid"].includes(dt.k) ? "green" : ""}">${ico(["ev", "phev", "hybrid"].includes(dt.k) ? "bolt" : "fuel")}${dt.label}</span>`);
   if (exp && !D.isCancelled) pills.push(exp < new Date() ? `<span class="pill bad">טסט לא בתוקף</span>` : `<span class="pill ok">טסט בתוקף</span>`);
   if (D.recalls.length) pills.push(`<span class="pill bad">${D.recalls.length === 1 ? "ריקול פתוח" : D.recalls.length + " ריקולים פתוחים"}</span>`);
   if (D.own.length) pills.push(`<span class="pill">${ownersLabel(D)}</span>`);
