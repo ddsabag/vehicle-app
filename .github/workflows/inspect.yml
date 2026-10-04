@@ -8,6 +8,8 @@ on:
       queries:
         description: "Comma-separated dataset search words"
         default: "שעבוד,משועבד,יבוא אישי,רישום רכב,מסירות"
+permissions:
+  contents: write
 jobs:
   inspect:
     runs-on: ubuntu-latest
@@ -16,7 +18,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: node .github/scripts/inspect.mjs
+      - run: |
+          mkdir -p out
+          node .github/scripts/inspect.mjs | tee out/report.txt
         env:
           PLATES: ${{ inputs.plates }}
           QUERIES: ${{ inputs.queries }}
+      - name: Publish the report on the inspect-output branch
+        run: |
+          cd out && git init -q && git checkout -q -b inspect-output && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Report"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" inspect-output
