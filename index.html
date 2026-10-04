@@ -23,7 +23,7 @@
 :root{
   --bg:#f2f4f8; --card:#ffffff; --fg:#151a24; --muted:#5d6676; --line:#e3e7ee; --soft:#f5f7fa;
   --band:#ffffff; --band-fg:#151a24; --band-muted:#5d6676; --band-line:#d5dae3;
-  --plate:#f6c500; --plate-ink:#111; --il:#1d4ea8; --accent:#2457c5; --accent-fg:#ffffff;
+  --plate:#f6.5; --plate-ink:#111; --il:#1d4ea8; --accent:#2457c5; --accent-fg:#ffffff;
   --ok:#147a43; --ok-bg:#e1f4e8; --warn:#9a5300; --warn-bg:#fdf0d9; --bad:#b42318; --bad-bg:#fde6e3; --info:#2457c5; --info-bg:#e5edfc;
   /* topic colours */
   --t-blue:#2f6fde; --t-blue-bg:#e7effd; --t-violet:#7a4fd6; --t-violet-bg:#f0eafc; --t-teal:#0f8a83; --t-teal-bg:#e0f4f2;
@@ -281,6 +281,20 @@ section[style*="--n:3"] .cmp-k{font-size:.76rem}
 .in-btn[aria-pressed="true"]{background:var(--bad);color:#fff;border-color:var(--bad)}
 .in-msg{margin:0;font-size:.9rem;color:var(--band-muted)}
 .seg.two{grid-template-columns:1fr 1fr}
+.mk-seg{margin-bottom:10px}.mk-chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 2px}
+.mk-chips button{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:999px;padding:6px 12px;font-weight:700}
+.mk-chips button[aria-pressed="true"]{background:var(--fg);color:var(--card);border-color:var(--fg)}
+.mk-big{font-size:2rem;font-weight:800;line-height:1.1}.mk-chg{font-weight:700;font-size:.95rem}.mk-chg.up{color:#1a8f4a}.mk-chg.dn{color:#c93c3c}
+.mk-bars{display:flex;align-items:flex-end;gap:4px;height:110px;margin-top:12px}
+.mk-bars div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;font-size:.68rem;color:var(--muted);gap:3px}
+.mk-bars i{display:block;width:100%;background:var(--accent,#2556c8);border-radius:4px 4px 0 0;min-height:2px}
+.mk-row{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:7px 0;border-top:1px solid var(--line);align-items:center}
+.mk-row:first-of-type{border-top:0}.mk-row b{font-weight:700}.mk-row small{color:var(--muted)}
+.mk-row .tr{grid-column:1/-1;height:6px;border-radius:3px;background:var(--soft);overflow:hidden}.mk-row .tr i{display:block;height:100%;background:var(--accent,#2556c8);border-radius:3px}
+.mk-stack{display:flex;height:22px;border-radius:7px;overflow:hidden;margin:8px 0}.mk-stack i{display:block;height:100%}
+.mk-leg{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.88rem}.mk-leg span:before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:5px;background:var(--c)}
+.mk-tbl{width:100%;border-collapse:collapse;font-size:.88rem;margin-top:6px}.mk-tbl td,.mk-tbl th{padding:6px 4px;text-align:center;border-top:1px solid var(--line)}.mk-tbl td:first-child,.mk-tbl th:first-child{text-align:start;font-weight:700}.mk-tbl th{font-size:.78rem;color:var(--muted);font-weight:600;border-top:0}
+
 .sheet.full{align-items:stretch}
 .sheet.full .sheet-in{max-height:none;height:100%;border-radius:0;padding-top:calc(14px + env(safe-area-inset-top,0px));gap:14px}
 @media (min-width:700px){.sheet.full{align-items:center}.sheet.full .sheet-in{height:auto;max-height:88vh;min-height:560px;border-radius:18px}}
@@ -333,7 +347,7 @@ section[style*="--n:3"] .cmp-k{font-size:.76rem}
 .share-opts .row{padding:12px}
 .share-opts small{color:var(--muted);display:block;font-size:.85rem}
 .badge-s{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;flex:0 0 auto;color:var(--tc);background:var(--tb)}
-.report{  --bg:#f2f4f8; --card:#ffffff; --fg:#151a24; --muted:#5d6676; --line:#e3e7ee; --soft:#f5f7fa;   --band:#ffffff; --band-fg:#151a24; --band-muted:#5d6676; --band-line:#d5dae3;   --plate:#f6c500; --plate-ink:#111; --il:#1d4ea8; --accent:#2457c5; --accent-fg:#ffffff;   --ok:#147a43; --ok-bg:#e1f4e8; --warn:#9a5300; --warn-bg:#fdf0d9; --bad:#b42318; --bad-bg:#fde6e3; --info:#2457c5; --info-bg:#e5edfc;   /* topic colours */   --t-blue:#2f6fde; --t-blue-bg:#e7effd; --t-violet:#7a4fd6; --t-violet-bg:#f0eafc; --t-teal:#0f8a83; --t-teal-bg:#e0f4f2;   --t-amber:#c27400; --t-amber-bg:#fdf1dc; --t-red:#d0473b; --t-red-bg:#fdeae8; --t-slate:#52637d; --t-slate-bg:#eceff4;   --t-green:#22894a; --t-green-bg:#e3f4e9; --t-leaf:#5f8f1f; --t-leaf-bg:#eef5e2; --t-pink:#c2407e; --t-pink-bg:#fbe9f2;
+.report{  --bg:#f2f4f8; --card:#ffffff; --fg:#151a24; --muted:#5d6676; --line:#e3e7ee; --soft:#f5f7fa;   --band:#ffffff; --band-fg:#151a24; --band-muted:#5d6676; --band-line:#d5dae3;   --plate:#f6.5; --plate-ink:#111; --il:#1d4ea8; --accent:#2457c5; --accent-fg:#ffffff;   --ok:#147a43; --ok-bg:#e1f4e8; --warn:#9a5300; --warn-bg:#fdf0d9; --bad:#b42318; --bad-bg:#fde6e3; --info:#2457c5; --info-bg:#e5edfc;   /* topic colours */   --t-blue:#2f6fde; --t-blue-bg:#e7effd; --t-violet:#7a4fd6; --t-violet-bg:#f0eafc; --t-teal:#0f8a83; --t-teal-bg:#e0f4f2;   --t-amber:#c27400; --t-amber-bg:#fdf1dc; --t-red:#d0473b; --t-red-bg:#fdeae8; --t-slate:#52637d; --t-slate-bg:#eceff4;   --t-green:#22894a; --t-green-bg:#e3f4e9; --t-leaf:#5f8f1f; --t-leaf-bg:#eef5e2; --t-pink:#c2407e; --t-pink-bg:#fbe9f2;
   --f-body:Arial,"Noto Sans Hebrew","Noto Sans",sans-serif; --f-num:monospace; --shadow:none; color-scheme:light;
   position:fixed;left:-10000px;top:0;width:430px;background:var(--bg);color:var(--fg);font:16px/1.5 var(--f-body);padding:16px;display:flex;flex-direction:column;gap:12px}
 /* the snapshot cannot carry web fonts, so the report is laid out in system fonts: what is measured is what gets drawn */
@@ -418,6 +432,9 @@ body.land .band{display:none}
   <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></symbol>
   <symbol id="i-fuel" viewBox="0 0 24 24"><path d="M3 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18M3 22h12M6 6h6v5H6zM15 10h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V8l-3-3"/></symbol>
   <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 9a6 6 0 1 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9z"/><path d="M10 20a2 2 0 0 0 4 0"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2c3 3 4.5 6.5 4.5 10S15 19 12 22c-3-3-4.5-6.5-4.5-10S9 5 12 2z"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
   <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
 </svg>
 
@@ -1782,6 +1799,10 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.rm) { cmp.splice(+b.dataset.rm, 1); renderCompare(); return; }
   if (b.dataset.act === "addCompare") { openCompare(); return; }
   if (b.dataset.act === "compareHome") { cmp = []; renderCompare(); openCompare("model"); return; }
+  if (b.dataset.act === "market") { openMarket(); return; }
+  if (b.dataset.act === "marketBack") { renderHome(); window.scrollTo({top: 0}); return; }
+  if (b.dataset.mkmode) { MK.mode = b.dataset.mkmode; MK.sel = null; if (MARKET) renderMarket(MARKET); return; }
+  if (b.dataset.mksel) { MK.sel = b.dataset.mksel; if (MARKET) renderMarket(MARKET); return; }
   if (b.dataset.act === "closeCompare") { closeCompare(); return; }
   if (b.dataset.act === "cmpPdf") { shareComparePdf(b); return; }
   if (b.dataset.sim) { addSimilar(+b.dataset.sim); return; }
@@ -2092,7 +2113,7 @@ function plateCanvases(img){
     if (w > 60 && h > 15 && w / h > 1.6) {
       const tH = 110, k = tH / h, pad = 24;
       const cc = document.createElement("canvas"); cc.width = Math.round(w * k) + pad * 2; cc.height = tH + pad * 2;
-      const cx = cc.getContext("2d", {willReadFrequently: true}); cx.fillStyle = "#f6c500"; cx.fillRect(0, 0, cc.width, cc.height);
+      const cx = cc.getContext("2d", {willReadFrequently: true}); cx.fillStyle = "#f6.5"; cx.fillRect(0, 0, cc.width, cc.height);
       cx.drawImage(c, x0, y0, w, h, pad, pad, cc.width - pad * 2, tH);
       out.push(binarize(cc));
     }
@@ -2230,6 +2251,78 @@ for (const nm of ["renderResult", "renderCompare", "renderHome"]) {
   const w = function(...a){ const r = f.apply(this, a); updateSavedBar(); return r; };
   if (nm === "renderResult") renderResult = w; else if (nm === "renderCompare") renderCompare = w; else renderHome = w;
 }
+
+/* ---------- market screen ("שוק הרכב"): reads market.json, built monthly by a GitHub Action from the Ministry's delivery datasets ---------- */
+const PREMIUM_MARKET = false;   // later: require a purchase here
+let MARKET = null, MK = {mode: "year", sel: null};
+async function loadMarket(){
+  if (MARKET) return MARKET;
+  for (const u of [SITE + "market.json", "market.json"]) {
+    try { const r = await fetch(u, {cache: "no-cache"}); if (r.ok) return MARKET = await r.json(); } catch {}
+  }
+  throw new Error("market");
+}
+const MON = ["ינו׳","פבר׳","מרץ","אפר׳","מאי","יוני","יולי","אוג׳","ספט׳","אוק׳","נוב׳","דצמ׳"];
+const sumM = (o, ms) => ms.reduce((t, m) => t + ((o && o[m]) || 0), 0);
+const pctTxt = (a, b) => b > 0 ? "\u200e" + (a >= b ? "+" : "−") + Math.abs(Math.round((a - b) / b * 100)) + "%" : "";
+const chgHtml = (a, b) => b > 0 ? `<span class="mk-chg ${a >= b ? "up" : "dn"}">${pctTxt(a, b)}</span>` : "";
+function mkPeriod(M){
+  const all = Object.keys(M.months).sort(), last = all[all.length - 1], ly = +last.slice(0, 4), lm = +last.slice(4);
+  const years = [...new Set(all.map(m => +m.slice(0, 4)))];
+  const quarters = []; for (let y = years[0]; y <= ly; y++) for (let q = 1; q <= 4; q++) { const end = String(y) + String(q * 3).padStart(2, "0"); if (end <= last) quarters.push(`${y}-Q${q}`); }
+  const sel = MK.mode === "year" ? (years.includes(+MK.sel) ? MK.sel : String(ly)) : (quarters.includes(MK.sel) ? MK.sel : quarters[quarters.length - 1]);
+  let ms;
+  if (MK.mode === "year") ms = all.filter(m => m.startsWith(sel)); else { const [y, q] = sel.split("-Q"); ms = [1, 2, 3].map(i => y + String((+q - 1) * 3 + i).padStart(2, "0")); }
+  const prev = ms.map(m => String(+m.slice(0, 4) - 1) + m.slice(4)).filter(m => M.months[m] !== undefined);
+  const prevMs = prev.length === ms.length ? prev : [];
+  return {all, years, quarters: quarters.slice(-8), sel, ms, prevMs, year: sel.slice(0, 4), partial: MK.mode === "year" && +sel === ly && lm < 12, lm};
+}
+const periodLabel = P => MK.mode === "year" ? (P.partial ? `${P.sel} (עד ${MON[P.lm - 1]})` : P.sel) : (() => { const [y, q] = P.sel.split("-Q"); return `רבעון ${q} ${y}`; })();
+function renderMarket(M){
+  if (land) setLand(false, false);
+  current = null; inCompare = false;
+  const P = mkPeriod(M), html = [];
+  const chips = MK.mode === "year" ? P.years.slice().reverse().map(y => [String(y), y === +P.all[P.all.length - 1].slice(0, 4) && P.lm < 12 ? `${y} (עד ${MON[P.lm - 1]})` : String(y)]) : P.quarters.slice().reverse().map(q => { const [y, n] = q.split("-Q"); return [q, `רבעון ${n} ${y}`]; });
+  html.push(card("שוק הרכב", "chart", "blue", `<p class="note" style="margin-top:0">מסירות של רכבים פרטיים חדשים בישראל, לפי נתוני משרד התחבורה.</p><div class="seg two mk-seg" role="group"><button type="button" data-mkmode="year" aria-pressed="${MK.mode === "year"}">לפי שנה</button><button type="button" data-mkmode="quarter" aria-pressed="${MK.mode === "quarter"}">לפי רבעון</button></div><div class="mk-chips">${chips.map(([k, t]) => `<button type="button" data-mksel="${k}" aria-pressed="${k === P.sel}">${t}</button>`).join("")}</div>`));
+  const total = sumM(M.months, P.ms), prevTotal = P.prevMs.length ? sumM(M.months, P.prevMs) : 0;
+  const mx = Math.max(...P.ms.map(m => M.months[m] || 0), 1);
+  html.push(card("מסירות בתקופה", "chart", "blue", `<div class="mk-big">${fmtN(total)}</div><div>רכבים חדשים · ${periodLabel(P)} ${chgHtml(total, prevTotal)}${prevTotal ? ` <small style="color:var(--muted)">מול התקופה המקבילה אשתקד</small>` : ""}</div><div class="mk-bars">${P.ms.map(m => `<div title="${fmtN(M.months[m] || 0)}"><span>${fmtN(M.months[m] || 0)}</span><i style="height:${Math.max(2, (M.months[m] || 0) / mx * 78)}%"></i><span>${MON[+m.slice(4) - 1]}</span></div>`).join("")}</div>`));
+  const mkTop = (obj, ms, pms, n, nameFn) => {
+    const rows = Object.entries(obj).map(([k, v]) => [k, sumM(v, ms), sumM(v, pms)]).filter(r => r[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, n), top = rows[0] ? rows[0][1] : 1;
+    return rows.map(([k, c, p]) => `<div class="mk-row"><b>${esc(nameFn(k))}</b><span>${fmtN(c)} <small>· ${(c / total * 100).toFixed(1)}%</small> ${chgHtml(c, p)}</span><div class="tr"><i style="width:${c / top * 100}%"></i></div></div>`).join("");
+  };
+  html.push(card("יצרנים מובילים", "star", "amber", mkTop(M.makers, P.ms, P.prevMs, 10, k => k)));
+  html.push(card("דגמים מובילים", "car", "violet", mkTop(M.models, P.ms, P.prevMs, 10, k => k.split("|").join(" ")) + `<p class="note">לפי הכינוי המסחרי, כל המנועים והגימורים יחד.</p>`));
+  const OWN = [["פרטי", "פרטי", "#2556c8"], ["ליסינג", "ליסינג", "#e0a100"], ["חברה", "חברה", "#7a4fd1"], ["השכרה", "השכרה", "#1a8f4a"], ["סוחר", "סוחר", "#8a93a6"]];
+  const own = M.ownership[P.year];
+  if (own) {
+    const t = Object.values(own).reduce((a, b) => a + b, 0);
+    const om = M.ownershipMakers[P.year] || {};
+    html.push(card(`מי קונה · רכבי שנתון ${P.year}`, "users", "teal", `<div class="mk-stack">${OWN.map(([k, , c]) => `<i style="width:${(own[k] || 0) / t * 100}%;background:${c}"></i>`).join("")}</div><div class="mk-leg">${OWN.map(([k, l, c]) => `<span style="--c:${c}">${l} ${((own[k] || 0) / t * 100).toFixed(0)}%</span>`).join("")}</div><table class="mk-tbl"><tr><th>יצרן</th>${OWN.slice(0, 4).map(o => `<th>${o[1]}</th>`).join("")}</tr>${Object.entries(om).slice(0, 10).map(([mk, o]) => { const s = Object.values(o).reduce((a, b) => a + b, 0); return `<tr><td>${esc(mk)}</td>${OWN.slice(0, 4).map(([k]) => `<td>${Math.round((o[k] || 0) / s * 100)}%</td>`).join("")}</tr>`; }).join("")}</table><p class="note">לפי סוג הבעלות הרשום היום של כל הרכבים שיוצרו באותה שנה, כך שחלק מרכבי הליסינג וההשכרה כבר עברו לבעלים פרטיים.</p>`));
+  }
+  const fu = M.fuel[P.year];
+  if (fu) {
+    const G = [["בנזין", ["בנזין"], "#2556c8"], ["דיזל", ["דיזל"], "#8a93a6"], ["חשמלי", ["חשמל"], "#1a8f4a"], ["היברידי ופלאג-אין", ["חשמל/בנזין", "חשמל/דיזל"], "#e0a100"]];
+    const t = Object.values(fu).reduce((a, b) => a + b, 0), vals = G.map(([n, ks]) => ks.reduce((a, k) => a + (fu[k] || 0), 0)), rest = t - vals.reduce((a, b) => a + b, 0);
+    html.push(card(`סוג הנעה · רכבי שנתון ${P.year}`, "bolt", "green", `<div class="mk-stack">${G.map((g, i) => `<i style="width:${vals[i] / t * 100}%;background:${g[2]}"></i>`).join("")}${rest > 0 ? `<i style="width:${rest / t * 100}%;background:#c9cfdb"></i>` : ""}</div><div class="mk-leg">${G.map((g, i) => `<span style="--c:${g[2]}">${g[0]} ${(vals[i] / t * 100).toFixed(0)}%</span>`).join("")}</div>`));
+  }
+  const iy = M.importYear || {}, iys = Object.keys(iy).sort().reverse().slice(0, 6);
+  if (iys.length) html.push(card("ייבוא אישי", "globe", "teal", `<table class="mk-tbl"><tr><th>שנת עלייה לכביש</th><th>חדש</th><th>משומש</th></tr>${iys.map(y => `<tr><td>${y}</td><td>${fmtN(iy[y]["יבוא אישי-חדש"] || 0)}</td><td>${fmtN(iy[y]["יבוא אישי-משומש"] || 0)}</td></tr>`).join("")}</table><p class="note">רכבים שנרשמו כיבוא אישי ועדיין רשומים במאגר.</p>`));
+  if ((M.evArea || []).length) {
+    const by = {}; for (const r of M.evArea) inc2(by, r.area, r.n);
+    const rows = Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 10), top = rows[0][1];
+    html.push(card("רכבים חשמליים לפי אזור", "bolt", "green", rows.map(([a, n]) => `<div class="mk-row"><b>${esc(a)}</b><span>${fmtN(n)}</span><div class="tr"><i style="width:${n / top * 100}%"></i></div></div>`).join("") + `<p class="note">כל הרכבים החשמליים הרשומים היום, לפי אזור הרישוי.</p>`));
+  }
+  html.push(`<p class="note" style="text-align:center">עודכן ${esc(M.updated)} · מקור: מאגרי משרד התחבורה</p><button type="button" class="link-btn" data-act="marketBack">${ico("back")}חזרה</button>`);
+  $("#out").innerHTML = html.join("");
+  updateSavedBar();
+}
+const inc2 = (o, k, n) => { o[k] = (o[k] || 0) + Number(n || 0); };
+async function openMarket(){
+  $("#out").innerHTML = `<section class="card"><div class="body"><p>טוען נתוני שוק…</p></div></section>`;
+  try { renderMarket(await loadMarket()); window.scrollTo({top: 0}); }
+  catch { $("#out").innerHTML = `<section class="card"><div class="body"><p>לא הצלחנו לטעון את נתוני השוק כרגע. נסו שוב מאוחר יותר.</p><button type="button" class="link-btn" data-act="marketBack">חזרה</button></div></section>`; }
+}
 function renderHome(){
   if (land) setLand(false, false);
   current = null; inCompare = false;
@@ -2238,6 +2331,7 @@ function renderHome(){
   if (saved.length) html.push(card("רכבים שמורים", "star", "amber", `<div class="list">${saved.map(s => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-open="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b>${esc(s.title)}</b><small>${esc(s.sub || "")}</small>${savedFlags(s)}</span></button><button type="button" class="x bell" data-bell="${s.plate}" aria-pressed="${s.alerts !== false}" aria-label="התראות לרכב הזה">${ico("bell")}</button><button type="button" class="x" data-unsave="${s.plate}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div><p class="note">הפעמון קובע על אילו רכבים תקבלו התראה על ריקול חדש או טסט שעומד לפוג.</p>`));
   if (recent.length) html.push(card("חיפושים אחרונים", "clock", "blue", `<div class="chips">${recent.map(p => `<button type="button" class="chip" data-open="${p}">${fmtPlate(p)}</button>`).join("")}</div>`));
   html.push(card("השוואת דגמים לפני קנייה", "compare", "violet", `<p style="margin:0">מחפשים רכב? חפשו לפי יצרן או דגם והשוו עד ${CMP_MAX} דגמים: מחיר, צריכת דלק, אגרה, כוח, גרירה, בטיחות וכמה ריקולים היו לדגם.</p><button type="button" class="link-btn" data-act="compareHome">${ico("search")}התחלת השוואה</button>`));
+  html.push(card("שוק הרכב", "chart", "blue", `<p style="margin:0">כמה רכבים חדשים נמסרו, אילו יצרנים ודגמים מובילים, מי קונה (פרטי, ליסינג, חברה, השכרה) ואיזה סוג הנעה. לפי שנה או רבעון.</p><button type="button" class="link-btn" data-act="market">${ico("chart")}לנתוני השוק</button>`));
   if (!saved.length && !recent.length) html.push(card("מה תקבלו", "bulb", "teal", `<p style="margin:0">סטטוס הרכב ותוקף הטסט, היסטוריית בעלויות, ק״מ בטסט האחרון, תובנות חשובות, ריקולים פתוחים, כושר גרירה עם ובלי בלמים, מפרט, מערכות בטיחות, מחיר מחירון וכמה רכבים כאלה על הכביש.</p>`));
   $("#out").innerHTML = html.join("");
   if (saved.length) checkSaved();
