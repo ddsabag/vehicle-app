@@ -31,6 +31,7 @@ android {
 
 val copyWebApp by tasks.registering(Copy::class) {
     from(rootProject.file("../index.html"))
+    from(rootProject.file("../market.json"))   // bundled copy, used when the site copy cannot be fetched
     into(layout.buildDirectory.dir("generated/webassets"))
 }
 tasks.named("preBuild") { dependsOn(copyWebApp) }

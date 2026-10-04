@@ -23,7 +23,7 @@
 :root{
   --bg:#f2f4f8; --card:#ffffff; --fg:#151a24; --muted:#5d6676; --line:#e3e7ee; --soft:#f5f7fa;
   --band:#ffffff; --band-fg:#151a24; --band-muted:#5d6676; --band-line:#d5dae3;
-  --plate:#f6c500; --plate-ink:#111; --il:#1d4ea8; --accent:#2457c5; --accent-fg:#ffffff;
+  --plate:#f6.5; --plate-ink:#111; --il:#1d4ea8; --accent:#2457c5; --accent-fg:#ffffff;
   --ok:#147a43; --ok-bg:#e1f4e8; --warn:#9a5300; --warn-bg:#fdf0d9; --bad:#b42318; --bad-bg:#fde6e3; --info:#2457c5; --info-bg:#e5edfc;
   /* topic colours */
   --t-blue:#2f6fde; --t-blue-bg:#e7effd; --t-violet:#7a4fd6; --t-violet-bg:#f0eafc; --t-teal:#0f8a83; --t-teal-bg:#e0f4f2;
@@ -111,6 +111,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .mini-plate i{background:var(--il);width:8px;align-self:stretch;border-radius:2px}
 .pills{display:flex;flex-wrap:wrap;gap:6px}
 .pill{font-size:.82rem;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--soft)}
+.pill.info{background:var(--info-bg);color:var(--info)}
 .pill.drive{display:inline-flex;align-items:center;gap:4px;background:var(--info-bg);color:var(--info)}.pill.drive svg.i{width:14px;height:14px}
 .pill.drive.green{background:var(--t-leaf-bg);color:var(--t-leaf)}
 .pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.warn{background:var(--warn-bg);color:var(--warn)}.pill.bad{background:var(--bad-bg);color:var(--bad)}
@@ -179,6 +180,10 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .row .t{flex:1;min-width:0}
 .row .t b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .row .t small{color:var(--muted)}
+.row .x.bell[aria-pressed="false"]{opacity:.4}
+.row .x.bell[aria-pressed="true"]{color:var(--accent)}
+.savedbar{display:flex;align-items:center;gap:8px;margin:10px 16px 0;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:8px 14px;font-weight:700;color:var(--fg);width:calc(100% - 32px)}
+.savedbar svg.i{width:18px;height:18px;color:#d99a00}
 .row .x{border:0;background:transparent;color:var(--muted);padding:6px;border-radius:8px}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:4px 10px;font:500 .9rem var(--f-num);direction:ltr}
@@ -276,6 +281,20 @@ section[style*="--n:3"] .cmp-k{font-size:.76rem}
 .in-btn[aria-pressed="true"]{background:var(--bad);color:#fff;border-color:var(--bad)}
 .in-msg{margin:0;font-size:.9rem;color:var(--band-muted)}
 .seg.two{grid-template-columns:1fr 1fr}
+.mk-seg{margin-bottom:10px}.mk-chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 2px}
+.mk-chips button{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:999px;padding:6px 12px;font-weight:700}
+.mk-chips button[aria-pressed="true"]{background:var(--fg);color:var(--card);border-color:var(--fg)}
+.mk-big{font-size:2rem;font-weight:800;line-height:1.1}.mk-chg{font-weight:700;font-size:.95rem}.mk-chg.up{color:#1a8f4a}.mk-chg.dn{color:#c93c3c}
+.mk-bars{display:flex;align-items:flex-end;gap:4px;height:110px;margin-top:12px}
+.mk-bars div{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;font-size:.68rem;color:var(--muted);gap:3px}
+.mk-bars i{display:block;width:100%;background:var(--accent,#2556c8);border-radius:4px 4px 0 0;min-height:2px}
+.mk-row{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:7px 0;border-top:1px solid var(--line);align-items:center}
+.mk-row:first-of-type{border-top:0}.mk-row b{font-weight:700}.mk-row small{color:var(--muted)}
+.mk-row .tr{grid-column:1/-1;height:6px;border-radius:3px;background:var(--soft);overflow:hidden}.mk-row .tr i{display:block;height:100%;background:var(--accent,#2556c8);border-radius:3px}
+.mk-stack{display:flex;height:22px;border-radius:7px;overflow:hidden;margin:8px 0}.mk-stack i{display:block;height:100%}
+.mk-leg{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.88rem}.mk-leg span:before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:5px;background:var(--c)}
+.mk-tbl{width:100%;border-collapse:collapse;font-size:.88rem;margin-top:6px}.mk-tbl td,.mk-tbl th{padding:6px 4px;text-align:center;border-top:1px solid var(--line)}.mk-tbl td:first-child,.mk-tbl th:first-child{text-align:start;font-weight:700}.mk-tbl th{font-size:.78rem;color:var(--muted);font-weight:600;border-top:0}
+
 .sheet.full{align-items:stretch}
 .sheet.full .sheet-in{max-height:none;height:100%;border-radius:0;padding-top:calc(14px + env(safe-area-inset-top,0px));gap:14px}
 @media (min-width:700px){.sheet.full{align-items:center}.sheet.full .sheet-in{height:auto;max-height:88vh;min-height:560px;border-radius:18px}}
@@ -328,7 +347,7 @@ section[style*="--n:3"] .cmp-k{font-size:.76rem}
 .share-opts .row{padding:12px}
 .share-opts small{color:var(--muted);display:block;font-size:.85rem}
 .badge-s{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;flex:0 0 auto;color:var(--tc);background:var(--tb)}
-.report{  --bg:#f2f4f8; --card:#ffffff; --fg:#151a24; --muted:#5d6676; --line:#e3e7ee; --soft:#f5f7fa;   --band:#ffffff; --band-fg:#151a24; --band-muted:#5d6676; --band-line:#d5dae3;   --plate:#f6c500; --plate-ink:#111; --il:#1d4ea8; --accent:#2457c5; --accent-fg:#ffffff;   --ok:#147a43; --ok-bg:#e1f4e8; --warn:#9a5300; --warn-bg:#fdf0d9; --bad:#b42318; --bad-bg:#fde6e3; --info:#2457c5; --info-bg:#e5edfc;   /* topic colours */   --t-blue:#2f6fde; --t-blue-bg:#e7effd; --t-violet:#7a4fd6; --t-violet-bg:#f0eafc; --t-teal:#0f8a83; --t-teal-bg:#e0f4f2;   --t-amber:#c27400; --t-amber-bg:#fdf1dc; --t-red:#d0473b; --t-red-bg:#fdeae8; --t-slate:#52637d; --t-slate-bg:#eceff4;   --t-green:#22894a; --t-green-bg:#e3f4e9; --t-leaf:#5f8f1f; --t-leaf-bg:#eef5e2; --t-pink:#c2407e; --t-pink-bg:#fbe9f2;
+.report{  --bg:#f2f4f8; --card:#ffffff; --fg:#151a24; --muted:#5d6676; --line:#e3e7ee; --soft:#f5f7fa;   --band:#ffffff; --band-fg:#151a24; --band-muted:#5d6676; --band-line:#d5dae3;   --plate:#f6.5; --plate-ink:#111; --il:#1d4ea8; --accent:#2457c5; --accent-fg:#ffffff;   --ok:#147a43; --ok-bg:#e1f4e8; --warn:#9a5300; --warn-bg:#fdf0d9; --bad:#b42318; --bad-bg:#fde6e3; --info:#2457c5; --info-bg:#e5edfc;   /* topic colours */   --t-blue:#2f6fde; --t-blue-bg:#e7effd; --t-violet:#7a4fd6; --t-violet-bg:#f0eafc; --t-teal:#0f8a83; --t-teal-bg:#e0f4f2;   --t-amber:#c27400; --t-amber-bg:#fdf1dc; --t-red:#d0473b; --t-red-bg:#fdeae8; --t-slate:#52637d; --t-slate-bg:#eceff4;   --t-green:#22894a; --t-green-bg:#e3f4e9; --t-leaf:#5f8f1f; --t-leaf-bg:#eef5e2; --t-pink:#c2407e; --t-pink-bg:#fbe9f2;
   --f-body:Arial,"Noto Sans Hebrew","Noto Sans",sans-serif; --f-num:monospace; --shadow:none; color-scheme:light;
   position:fixed;left:-10000px;top:0;width:430px;background:var(--bg);color:var(--fg);font:16px/1.5 var(--f-body);padding:16px;display:flex;flex-direction:column;gap:12px}
 /* the snapshot cannot carry web fonts, so the report is laid out in system fonts: what is measured is what gets drawn */
@@ -412,6 +431,10 @@ body.land .band{display:none}
   <symbol id="i-compare" viewBox="0 0 24 24"><path d="M8 3v18M16 3v18M3 8h5M16 16h5M3 16h5M16 8h5"/></symbol>
   <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></symbol>
   <symbol id="i-fuel" viewBox="0 0 24 24"><path d="M3 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18M3 22h12M6 6h6v5H6zM15 10h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V8l-3-3"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 9a6 6 0 1 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9z"/><path d="M10 20a2 2 0 0 0 4 0"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2c3 3 4.5 6.5 4.5 10S15 19 12 22c-3-3-4.5-6.5-4.5-10S9 5 12 2z"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
   <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
 </svg>
 
@@ -437,6 +460,7 @@ body.land .band{display:none}
     <p class="in-msg" id="inMsg" role="status" hidden></p>
   </div>
 </div>
+<button type="button" class="savedbar" id="savedBar" hidden><svg class="i"><use href="#i-star"/></svg><span id="savedBarTxt"></span></button>
 <main id="out" aria-live="polite"></main>
 <footer>המידע מגיע מהמאגרים הפתוחים של משרד התחבורה ב-<a href="https://data.gov.il/dataset?organization=ministry_of_transport" target="_blank" rel="noopener">data.gov.il</a>, ואינו מחליף נסח רישום רשמי.</footer>
 
@@ -492,7 +516,7 @@ body.land .band{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "1.9";
+const APP_VERSION = "1.10";
 const SITE = "https://ddsabag.github.io/vehicle-app/";
 const API = "https://data.gov.il/api/3/action/datastore_search";
 
@@ -703,7 +727,7 @@ const store = {
 /* the app checks saved cars once a day for a new recall or a test about to expire */
 function syncSaved(list){
   const b = window.AndroidApp; if (!b || !b.syncSaved) return;
-  try { b.syncSaved(JSON.stringify((list || []).map(x => ({plate: x.plate, title: x.title || ""})))); } catch {}
+  try { b.syncSaved(JSON.stringify((list || []).map(x => ({plate: x.plate, title: x.title || "", alerts: x.alerts !== false})))); } catch {}
 }
 const alertsSupported = () => !!(window.AndroidApp && window.AndroidApp.setAlerts);
 window.onAlertsPermission = ok => { toast(ok ? "ההתראות פועלות: נעדכן אותך על ריקול חדש או טסט שעומד לפוג" : "ההתראות כבויות. אפשר להפעיל אותן בהגדרות."); syncAlertsSeg(); };
@@ -717,8 +741,8 @@ function syncAlertsSeg(){
 const isSaved = p => store.get("savedVehicles").some(x => x.plate === p);
 function toggleSaved(item){
   const list = store.get("savedVehicles");
-  if (list.some(x => x.plate === item.plate)) { store.set("savedVehicles", list.filter(x => x.plate !== item.plate)); return false; }
-  store.set("savedVehicles", [item, ...list].slice(0, 50)); return true;
+  if (list.some(x => x.plate === item.plate)) { store.set("savedVehicles", list.filter(x => x.plate !== item.plate)); updateSavedBar(); return false; }
+  store.set("savedVehicles", [item, ...list].slice(0, 50)); updateSavedBar(); return true;
 }
 function remember(p){
   store.set("recentPlates", [p, ...store.get("recentPlates").filter(x => x !== p)].slice(0, 6));
@@ -996,7 +1020,7 @@ async function fetchVehicle(plate, signal, onProgress){
   const onRoad = parseYM(v.moed_aliya_lakvish) || (isNum(v.shnat_yitzur) ? new Date(num(v.shnat_yitzur), 0, 1) : null);
   const ownersFloor = !onRoad || onRoad < new Date(2017, 0, 1); // the ownership log starts in January 2017
 
-  const D = {plate, v, w, towRow, zeroTow, tSrc, counts, price, own, ownersFloor, recalls, modelRecalls, tag, primary: mains[0], errs, pick, make, model,
+  const D = {plate, v, w, towRow, zeroTow, tSrc, counts, price, own, ownersFloor, recalls, modelRecalls, tag, primary: mains[0], importKind: res.import.rows[0] ? String(res.import.rows[0].sug_yevu || "יבוא אישי").replace(/-/g, " · ") : null, errs, pick, make, model,
     title: [make, model].filter(Boolean).join(" ") || "רכב " + fmtPlate(plate),
     sub: [v.shnat_yitzur, pick(v.ramat_gimur, w.ramat_gimur), v.tzeva_rechev].filter(x => !empty(x)).join(" · "),
     vin: pick(v.misgeret, v.mispar_shilda, v.shilda), km, kmYears, kmPerYear,
@@ -1050,7 +1074,8 @@ function buildInsights(D){
   if (yes(v.shinui_mivne_ind)) add("warn", "בוצע שינוי מבנה", "שינוי מבנה דורש אישור ורישום. כדאי לברר מה שונה.");
   if (yes(v.gapam_ind)) add("warn", "הותקנה מערכת גפ״מ", "הרכב הוסב לנסיעה על גז.");
   if (yes(v.shnui_zeva_ind)) add("info", "הצבע שונה", "צבע הרכב שונה מהצבע המקורי. לפעמים זה סימן לתיקון פחחות.");
-  if (D.primary && D.primary.key === "import") add("info", "יבוא אישי", "הרכב יובא ביבוא אישי. חלפים ושירות עשויים להיות פחות זמינים.");
+  if (D.importKind) add("info", "יבוא אישי", "הרכב יובא ביבוא אישי, ולא דרך יבואן רשמי. חלפים, שירות וריקולים עשויים להיות פחות זמינים, וחלק מהנתונים על הדגם חסרים במאגר.");
+  if (D.primary && D.primary.key === "heavy") add("info", "רכב כבד: מידע חלקי", "במאגר של משרד התחבורה לרכבים כבדים (מעל 3.5 טון) יש פחות פרטים: אין תאריך טסט אחרון, קילומטראז', היסטוריית בעלויות ונתוני דגם כמו מערכות בטיחות וריקולים. מוצג כל מה שקיים.");
   if (D.tag) add("info", "לרכב יש תג חניה לנכה", `התג הונפק${empty(D.tag["TAARICH HAFAKAT TAG"]) ? "" : " ב-" + fmtDate(D.tag["TAARICH HAFAKAT TAG"])}. בהעברת בעלות התג לא עובר לבעלים החדשים.`);
   if (D.cost.gonePct !== null && D.cost.gonePct !== undefined && D.cost.active + D.cost.gone >= 200) {
     if (D.cost.gonePct >= 15) add("warn", "שיעור גבוה של רכבים שירדו מהכביש", `${D.cost.gonePct.toFixed(0)}% מרכבי הדגם משנת הייצור הזו כבר אינם פעילים.`);
@@ -1095,9 +1120,12 @@ async function lookup(raw){
   window.scrollTo({top: 0});
 }
 // What the recall fixes, from the MoT fields: the affected system and the repair method
+// generic words say nothing about what is repaired, so they are left out
+const VAGUE_FIX = /^(אחר|אחרת|אחרים|לא ידוע|כללי|טיפול|תיקון|טיפול\/תיקון|בדיקה|החלפה|ריקול|-|\.|\?)$/;
+const saysSomething = x => !empty(x) && String(x).trim().length > 2 && !VAGUE_FIX.test(String(x).trim());
 function fixRows(r, d) {
   const sys = empty(D_pick(r.TEUR_TAKALA, d.TEUR_TAKALA)) ? "" : D_pick(r.SUG_TAKALA, d.SUG_TAKALA), fix = d.OFEN_TIKUN;
-  const rows = [["מערכת", sys], ["התיקון", fix]].filter(([, x]) => !empty(x));
+  const rows = [["מערכת", sys], ["התיקון", fix]].filter(([, x]) => saysSomething(x));
   return rows.length ? `<div class="fix">${rows.map(([k, x]) => `<div><span>${k}</span>${esc(x)}</div>`).join("")}</div>` : "";
 }
 const D_pick = (...a) => a.find(x => !empty(x));
@@ -1111,7 +1139,8 @@ function renderResult(){
   const exp = toDate(v.tokef_dt);
   const pills = [];
   if (D.primary) pills.push(`<span class="pill ${D.primary.tone||"ok"}">${esc(D.primary.status)}</span>`);
-  if (D.primary && D.primary.kind) pills.push(`<span class="pill">${esc(D.primary.kind)}</span>`);
+  if (D.importKind) pills.push(`<span class="pill info">${esc(D.importKind)}</span>`);
+  else if (D.primary && D.primary.kind) pills.push(`<span class="pill">${esc(D.primary.kind)}</span>`);
   const dt = driveType(D);
   if (dt) pills.push(`<span class="pill drive ${["ev", "phev", "hybrid"].includes(dt.k) ? "green" : ""}">${ico(["ev", "phev", "hybrid"].includes(dt.k) ? "bolt" : "fuel")}${dt.label}</span>`);
   if (exp && !D.isCancelled) pills.push(exp < new Date() ? `<span class="pill bad">טסט לא בתוקף</span>` : `<span class="pill ok">טסט בתוקף</span>`);
@@ -1150,7 +1179,7 @@ function modsCard(v){
     .filter(([, x]) => !empty(x));
   if (!items.length) return "";
   const done = items.filter(([, x]) => yes(x)).map(([k]) => k);
-  const sum = done.length ? `נרשמו ברכב שינויים: ${done.join(", ")}. שינוי כזה מחייב אישור של משרד הרישוי.`
+  const sum = done.length ? `נרשמו ברכב שינויים: ${done.join(", ")}. שינוי כזה מחייב אישור של משרד הרישוי.${done.includes("שינוי מבנה") ? " שינוי מבנה יכול להיות למשל הגבהה או התקנת כננת, ופירוט השינוי מופיע ברישיון הרכב עצמו." : ""}`
     : "לא נרשמו ברכב שינויים: המבנה, הצבע ומידת הצמיגים כמו ביציאה מהמפעל, ולא הותקן גפ״מ.";
   return `<p class="mods-sum">${sum}</p>` + facts(items.map(([k, x]) => [k, changed(x)]));
 }
@@ -1285,7 +1314,7 @@ function tabCosts(D){
     `<p style="margin:0">לא נמצאה קבוצת אגרה לרכב הזה. ההערכה זמינה לרכב פרטי בלבד.</p>`));
   const u = c.usage;
   html.push(card("שווי שימוש (רכב צמוד)", "users", "teal", u ?
-    `<div class="tow-grid"><div><div class="k">לחודש (הערכה)</div><div class="v">${fmtN(u.monthly)}<span class="u">₪</span></div></div><div><div class="k">לשנה</div><div class="v">${fmtN(u.monthly * 12)}<span class="u">₪</span></div></div></div>
+    `<div class="tow-grid"><div><div class="k">לחודש</div><div class="v">${fmtN(u.monthly)}<span class="u">₪</span></div></div><div><div class="k">לשנה</div><div class="v">${fmtN(u.monthly * 12)}<span class="u">₪</span></div></div></div>
      <p class="note">${u.green ? `כולל הפחתה של ${fmtN(u.green[1])} ₪ לרכב ${u.green[0]}. ` : ""}זה הסכום שמתווסף למשכורת לצורך מס, לא המס עצמו. הסכום המחייב מופיע במחשבון של רשות המסים.</p>
      <button type="button" class="link-btn" data-url="${USAGE.calc}" data-copyfirst="${esc(`קוד תוצר ${D.v.tozeret_cd} קוד דגם ${D.v.degem_cd} שנה ${u.regYear}`)}" data-copylabel="הקודים">${ico("doc")}המחשבון הרשמי של רשות המסים</button>` :
     `<p style="margin:0">אין מספיק נתונים לחישוב שווי השימוש של הרכב הזה (החישוב כאן לרכב פרטי שעלה לכביש מ-2010).</p><button type="button" class="link-btn" data-url="${USAGE.calc}">${ico("doc")}המחשבון הרשמי של רשות המסים</button>`));
@@ -1434,7 +1463,7 @@ async function fetchModel(r, signal){
   const w = Object.keys(md.w).length ? md.w : r;
   const D = {kind: "model", plate: null, key: rowKey(r), v, ...md, w, tSrc: md.towRow || (hasTow(r) ? r : null),
     own: [], ownersFloor: false, recalls: [], tag: null, pick, make: rowMake(r), model: rowModel(r), km: null, kmYears: null, kmPerYear: null,
-    title: rowLabel(r) || "דגם", sub: [r.shnat_yitzur, pick(r.ramat_gimur, w.ramat_gimur)].filter(x => !empty(x)).join(" · ")};
+    title: [rowMake(r), normModel(rowModel(r))].filter(Boolean).join(" ") || "דגם", sub: [r.shnat_yitzur, pick(r.ramat_gimur, w.ramat_gimur)].filter(x => !empty(x)).join(" · ")};
   D.cost = costs(D);
   return D;
 }
@@ -1474,9 +1503,14 @@ function addToCompare(D){
    Trims of the same engine differ mostly in equipment, so the base one is added and can be switched in the comparison. */
 let mGroups = [], mGroup = null, mYear = null, mShowAll = false;
 const MODEL_SHOWN = 8;
-// body-style suffixes split one car into several entries in the catalogue
-const BODY_SFX = /\s+(HB|H\/B|HATCHBACK|SEDAN|SDN|SD|SW|S\/W|WAGON|ESTATE|STATION|LIFTBACK|[2-5]D|[2-5]DR|[2-5] DOORS?|האצ'בק|סדאן|סטיישן)$/i;
-const normModel = m => { let x = String(m || "").trim().toUpperCase().replace(/\s+/g, " "); for (let i = 0; i < 3 && BODY_SFX.test(x); i++) x = x.replace(BODY_SFX, ""); return x; };
+// body-style and drive words split one car into several catalogue entries (COROLLA SDN HSD, COROLLA HSD SDN, COROLLA HEV);
+// for the buyer they are one model, and the drive type is chosen later by engine
+const NOISE_TOKENS = new Set(["HB", "H/B", "HATCHBACK", "SEDAN", "SDN", "SD", "SW", "S/W", "WAGON", "ESTATE", "STATION", "LIFTBACK", "TS", "TOURING", "SPORTS", "HSD", "HEV", "HYBRID", "HV", "PHEV", "PLUG-IN", "2D", "3D", "4D", "5D", "2DR", "3DR", "4DR", "5DR", "האצ'בק", "סדאן", "סטיישן", "היברידי"]);
+const normModel = m => {
+  const toks = String(m || "").trim().toUpperCase().replace(/\s+/g, " ").split(" ");
+  const kept = toks.filter(t => !NOISE_TOKENS.has(t));
+  return (kept.length ? kept : toks).join(" ");
+};
 // the same car built in two countries has two maker codes; it is still one model for the buyer
 const groupKey = r => [rowMake(r), normModel(rowModel(r))].join("|").toUpperCase();
 const plateLike = q => /^[\d\s-]+$/.test(q) && digits(q).length >= 5;
@@ -1715,9 +1749,9 @@ function renderCompare(){
   const head = (D, i) => `<div class="cmp-h"><div class="cmp-top">${D.kind === "model" ? `<span class="tag">דגם</span>` : `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>`}<button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><b>${esc(D.title)}</b><small>${esc(D.alts && D.alts.length > 1 ? String(D.v.shnat_yitzur || "") : D.sub)}</small>${D.alts && D.alts.length > 1 ? `<select class="trim-sel" data-trim="${i}" aria-label="רמת גימור">${D.alts.map((r, j) => `<option value="${j}"${rowKey(r) === D.key ? " selected" : ""}>${esc(String(r.ramat_gimur || "").trim() || "גרסה בסיסית")}</option>`).join("")}</select>` : ""}</div>`;
   const base = n && n < CMP_MAX ? L[n - 1] : null;
   if (base) loadSimilar(base);
-  const simHtml = base && simFor === (base.key || base.plate) && simList.length ? `<div class="sim-box"><div class="qsec">דגמים דומים, להוספה בלחיצה</div><div class="sim-row">${simList.map((g, i) => {
+  const simHtml = base && simFor === (base.key || base.plate) && simList.length ? `<div class="sim-box"><div class="qsec">דגמים דומים, להוספה בלחיצה</div><div class="list">${simList.map((g, i) => {
     const r = g.alts[0], dt = driveType(rowD(r));
-    return `<button type="button" data-sim="${i}"><b>${esc(g.make)} ${esc(g.model)}</b><small>${esc([dt && dt.label, isNum(r.koah_sus) ? `${fmtN(r.koah_sus)} כ״ס` : ""].filter(Boolean).join(" · "))}</small><span>${ico("plus")}הוספה</span></button>`;
+    return `<button type="button" class="qrow" data-sim="${i}"><span class="t"><b>${esc(g.make)} ${esc(g.model)}</b><small>${esc([dt && dt.label, isNum(r.koah_sus) ? `${fmtN(r.koah_sus)} כ״ס` : ""].filter(Boolean).join(" · "))}</small></span><span class="qadd">${ico("plus")}הוספה</span></button>`;
   }).join("")}</div></div>` : "";
   const wide = cmpWide();
   $("#out").innerHTML = `<section class="card blue${wide ? " cmp-wide" : ""}" style="--n:${Math.max(n, 1)}"><div class="head"><span class="badge">${ico("compare")}</span><h2>השוואת רכבים</h2><button type="button" class="count" data-act="closeCompare" style="border:0">חזרה</button></div>
@@ -1760,10 +1794,15 @@ $("#out").addEventListener("click", ev => {
     openExternal(b.dataset.url); return;
   }
   if (b.dataset.open) { run(b.dataset.open); return; }
+  if (b.dataset.bell) { const list = store.get("savedVehicles"), it = list.find(x => x.plate === b.dataset.bell); if (it) { it.alerts = it.alerts === false; store.set("savedVehicles", list); toast(it.alerts === false ? "ההתראות לרכב הזה כבויות" : "תקבלו התראות על הרכב הזה"); renderHome(); } return; }
   if (b.dataset.unsave) { store.set("savedVehicles", store.get("savedVehicles").filter(x => x.plate !== b.dataset.unsave)); renderHome(); return; }
   if (b.dataset.rm) { cmp.splice(+b.dataset.rm, 1); renderCompare(); return; }
   if (b.dataset.act === "addCompare") { openCompare(); return; }
   if (b.dataset.act === "compareHome") { cmp = []; renderCompare(); openCompare("model"); return; }
+  if (b.dataset.act === "market") { openMarket(); return; }
+  if (b.dataset.act === "marketBack") { renderHome(); window.scrollTo({top: 0}); return; }
+  if (b.dataset.mkmode) { MK.mode = b.dataset.mkmode; MK.sel = null; if (MARKET) renderMarket(MARKET); return; }
+  if (b.dataset.mksel) { MK.sel = b.dataset.mksel; if (MARKET) renderMarket(MARKET); return; }
   if (b.dataset.act === "closeCompare") { closeCompare(); return; }
   if (b.dataset.act === "cmpPdf") { shareComparePdf(b); return; }
   if (b.dataset.sim) { addSimilar(+b.dataset.sim); return; }
@@ -2074,7 +2113,7 @@ function plateCanvases(img){
     if (w > 60 && h > 15 && w / h > 1.6) {
       const tH = 110, k = tH / h, pad = 24;
       const cc = document.createElement("canvas"); cc.width = Math.round(w * k) + pad * 2; cc.height = tH + pad * 2;
-      const cx = cc.getContext("2d", {willReadFrequently: true}); cx.fillStyle = "#f6c500"; cx.fillRect(0, 0, cc.width, cc.height);
+      const cx = cc.getContext("2d", {willReadFrequently: true}); cx.fillStyle = "#f6.5"; cx.fillRect(0, 0, cc.width, cc.height);
       cx.drawImage(c, x0, y0, w, h, pad, pad, cc.width - pad * 2, tH);
       out.push(binarize(cc));
     }
@@ -2201,14 +2240,105 @@ async function checkSaved(){
     if (changed && !current && !inCompare) renderHome();
   } finally { savedChecking = false; }
 }
+function updateSavedBar(){
+  const n = store.get("savedVehicles").length, bar = $("#savedBar");
+  bar.hidden = !n || !(current || inCompare);
+  if (n) $("#savedBarTxt").textContent = `הרכבים השמורים שלי (${n})`;
+}
+$("#savedBar").addEventListener("click", () => { renderHome(); const c = [...document.querySelectorAll("#out .card")].find(x => x.textContent.includes("רכבים שמורים")); if (c) c.scrollIntoView({block: "start"}); });
+for (const nm of ["renderResult", "renderCompare", "renderHome"]) {
+  const f = window[nm] || eval(nm);
+  const w = function(...a){ const r = f.apply(this, a); updateSavedBar(); return r; };
+  if (nm === "renderResult") renderResult = w; else if (nm === "renderCompare") renderCompare = w; else renderHome = w;
+}
+
+/* ---------- market screen ("שוק הרכב"): reads market.json, built monthly by a GitHub Action from the Ministry's delivery datasets ---------- */
+const PREMIUM_MARKET = false;   // later: require a purchase here
+let MARKET = null, MK = {mode: "year", sel: null};
+async function loadMarket(){
+  if (MARKET) return MARKET;
+  for (const u of [SITE + "market.json", "market.json"]) {
+    try { const r = await fetch(u, {cache: "no-cache"}); if (r.ok) return MARKET = await r.json(); } catch {}
+  }
+  throw new Error("market");
+}
+const MON = ["ינו׳","פבר׳","מרץ","אפר׳","מאי","יוני","יולי","אוג׳","ספט׳","אוק׳","נוב׳","דצמ׳"];
+const sumM = (o, ms) => ms.reduce((t, m) => t + ((o && o[m]) || 0), 0);
+const pctTxt = (a, b) => b > 0 ? "\u200e" + (a >= b ? "+" : "−") + Math.abs(Math.round((a - b) / b * 100)) + "%" : "";
+const chgHtml = (a, b) => b > 0 ? `<span class="mk-chg ${a >= b ? "up" : "dn"}">${pctTxt(a, b)}</span>` : "";
+function mkPeriod(M){
+  const all = Object.keys(M.months).sort(), last = all[all.length - 1], ly = +last.slice(0, 4), lm = +last.slice(4);
+  const years = [...new Set(all.map(m => +m.slice(0, 4)))];
+  const quarters = []; for (let y = years[0]; y <= ly; y++) for (let q = 1; q <= 4; q++) { const end = String(y) + String(q * 3).padStart(2, "0"); if (end <= last) quarters.push(`${y}-Q${q}`); }
+  const sel = MK.mode === "year" ? (years.includes(+MK.sel) ? MK.sel : String(ly)) : (quarters.includes(MK.sel) ? MK.sel : quarters[quarters.length - 1]);
+  let ms;
+  if (MK.mode === "year") ms = all.filter(m => m.startsWith(sel)); else { const [y, q] = sel.split("-Q"); ms = [1, 2, 3].map(i => y + String((+q - 1) * 3 + i).padStart(2, "0")); }
+  const prev = ms.map(m => String(+m.slice(0, 4) - 1) + m.slice(4)).filter(m => M.months[m] !== undefined);
+  const prevMs = prev.length === ms.length ? prev : [];
+  return {all, years, quarters: quarters.slice(-8), sel, ms, prevMs, year: sel.slice(0, 4), partial: MK.mode === "year" && +sel === ly && lm < 12, lm};
+}
+const periodLabel = P => MK.mode === "year" ? (P.partial ? `${P.sel} (עד ${MON[P.lm - 1]})` : P.sel) : (() => { const [y, q] = P.sel.split("-Q"); return `רבעון ${q} ${y}`; })();
+function renderMarket(M){
+  if (land) setLand(false, false);
+  current = null; inCompare = false;
+  const P = mkPeriod(M), html = [];
+  const chips = MK.mode === "year" ? P.years.slice().reverse().map(y => [String(y), y === +P.all[P.all.length - 1].slice(0, 4) && P.lm < 12 ? `${y} (עד ${MON[P.lm - 1]})` : String(y)]) : P.quarters.slice().reverse().map(q => { const [y, n] = q.split("-Q"); return [q, `רבעון ${n} ${y}`]; });
+  html.push(card("שוק הרכב", "chart", "blue", `<p class="note" style="margin-top:0">מסירות של רכבים פרטיים חדשים בישראל, לפי נתוני משרד התחבורה.</p><div class="seg two mk-seg" role="group"><button type="button" data-mkmode="year" aria-pressed="${MK.mode === "year"}">לפי שנה</button><button type="button" data-mkmode="quarter" aria-pressed="${MK.mode === "quarter"}">לפי רבעון</button></div><div class="mk-chips">${chips.map(([k, t]) => `<button type="button" data-mksel="${k}" aria-pressed="${k === P.sel}">${t}</button>`).join("")}</div>`));
+  const total = sumM(M.months, P.ms), prevTotal = P.prevMs.length ? sumM(M.months, P.prevMs) : 0;
+  const mx = Math.max(...P.ms.map(m => M.months[m] || 0), 1);
+  html.push(card("מסירות בתקופה", "chart", "blue", `<div class="mk-big">${fmtN(total)}</div><div>רכבים חדשים · ${periodLabel(P)} ${chgHtml(total, prevTotal)}${prevTotal ? ` <small style="color:var(--muted)">מול התקופה המקבילה אשתקד</small>` : ""}</div><div class="mk-bars">${P.ms.map(m => `<div title="${fmtN(M.months[m] || 0)}"><span>${((M.months[m] || 0) / 1000).toFixed(1)}K</span><i style="height:${Math.max(2, (M.months[m] || 0) / mx * 78)}%"></i><span>${MON[+m.slice(4) - 1]}</span></div>`).join("")}</div>`));
+  const mkTop = (obj, ms, pms, n, nameFn) => {
+    const rows = Object.entries(obj).map(([k, v]) => [k, sumM(v, ms), sumM(v, pms)]).filter(r => r[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, n), top = rows[0] ? rows[0][1] : 1;
+    return rows.map(([k, c, p]) => `<div class="mk-row"><b>${esc(nameFn(k))}</b><span>${fmtN(c)} <small>· ${(c / total * 100).toFixed(1)}%</small> ${chgHtml(c, p)}</span><div class="tr"><i style="width:${c / top * 100}%"></i></div></div>`).join("");
+  };
+  html.push(card("יצרנים מובילים", "star", "amber", mkTop(M.makers, P.ms, P.prevMs, 10, k => k)));
+  html.push(card("דגמים מובילים", "car", "violet", mkTop(M.models, P.ms, P.prevMs, 10, k => k.split("|").join(" ")) + `<p class="note">לפי הכינוי המסחרי, כל המנועים והגימורים יחד.</p>`));
+  const OWN = [["פרטי", "פרטי", "#2556c8"], ["ליסינג", "ליסינג", "#e0a100"], ["חברה", "חברה", "#7a4fd1"], ["השכרה", "השכרה", "#1a8f4a"], ["סוחר", "סוחר", "#8a93a6"]];
+  const own = M.ownership[P.year];
+  if (own) {
+    const t = Object.values(own).reduce((a, b) => a + b, 0);
+    const om = M.ownershipMakers[P.year] || {};
+    html.push(card(`מי קונה · רכבי שנתון ${P.year}`, "users", "teal", `<div class="mk-stack">${OWN.map(([k, , c]) => `<i style="width:${(own[k] || 0) / t * 100}%;background:${c}"></i>`).join("")}</div><div class="mk-leg">${OWN.map(([k, l, c]) => `<span style="--c:${c}">${l} ${((own[k] || 0) / t * 100).toFixed(0)}%</span>`).join("")}</div><table class="mk-tbl"><tr><th>יצרן</th>${OWN.slice(0, 4).map(o => `<th>${o[1]}</th>`).join("")}</tr>${Object.entries(om).slice(0, 10).map(([mk, o]) => { const s = Object.values(o).reduce((a, b) => a + b, 0); return `<tr><td>${esc(mk)}</td>${OWN.slice(0, 4).map(([k]) => `<td>${Math.round((o[k] || 0) / s * 100)}%</td>`).join("")}</tr>`; }).join("")}</table><p class="note">לפי סוג הבעלות הרשום היום של כל הרכבים שיוצרו באותה שנה, כך שחלק מרכבי הליסינג וההשכרה כבר עברו לבעלים פרטיים.</p>`));
+  }
+  const ag = M.aging && M.aging[P.year];
+  if (ag && ag.n) {
+    const am = Object.entries(M.agingMakers[P.year] || {}).filter(([, x]) => x.n >= 500).map(([k, x]) => [k, x.dealer / x.n, x.dealer]).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    const pc = x => (x * 100).toFixed(x < .1 ? 1 : 0) + "%";
+    const old = +P.year < +P.all[P.all.length - 1].slice(0, 4) - 1;
+    html.push(card(`סימני גיול · רכבי שנתון ${P.year}`, "clock", "pink", `<div class="mk-big">${pc(ag.dealer / ag.n)}</div><div>מהרכבים עדיין רשומים על סוחר · ${fmtN(ag.dealer)} רכבים</div><table class="mk-tbl"><tr><th>יצרן</th><th>על סוחר</th><th>רכבים</th></tr>${am.map(([k, d, n]) => `<tr><td>${esc(k)}</td><td>${pc(d)}</td><td>${fmtN(n)}</td></tr>`).join("")}</table><p class="note">${old ? "רכב משנתון ישן שעדיין רשום על סוחר מעיד בסבירות גבוהה על גיול: רכב שנרשם כדי להישאר במלאי." : "בשנתון חדש חלק מהרכבים הם פשוט מלאי שעוד לא נמכר, לכן המדד משמעותי יותר בשנתונים ישנים."} זה סימן לסבירות ולא קביעה.</p>`));
+  }
+  const fu = M.fuel[P.year];
+  if (fu) {
+    const G = [["בנזין", ["בנזין"], "#2556c8"], ["דיזל", ["דיזל"], "#8a93a6"], ["חשמלי", ["חשמל"], "#1a8f4a"], ["היברידי ופלאג-אין", ["חשמל/בנזין", "חשמל/דיזל"], "#e0a100"]];
+    const t = Object.values(fu).reduce((a, b) => a + b, 0), vals = G.map(([n, ks]) => ks.reduce((a, k) => a + (fu[k] || 0), 0)), rest = t - vals.reduce((a, b) => a + b, 0);
+    html.push(card(`סוג הנעה · רכבי שנתון ${P.year}`, "bolt", "green", `<div class="mk-stack">${G.map((g, i) => `<i style="width:${vals[i] / t * 100}%;background:${g[2]}"></i>`).join("")}${rest > 0 ? `<i style="width:${rest / t * 100}%;background:#c9cfdb"></i>` : ""}</div><div class="mk-leg">${G.map((g, i) => `<span style="--c:${g[2]}">${g[0]} ${(vals[i] / t * 100).toFixed(0)}%</span>`).join("")}</div>`));
+  }
+  const iy = M.importYear || {}, iys = Object.keys(iy).sort().reverse().slice(0, 6);
+  if (iys.length) html.push(card("ייבוא אישי", "globe", "teal", `<table class="mk-tbl"><tr><th>שנת עלייה לכביש</th><th>חדש</th><th>משומש</th></tr>${iys.map(y => `<tr><td>${y}</td><td>${fmtN(iy[y]["יבוא אישי-חדש"] || 0)}</td><td>${fmtN(iy[y]["יבוא אישי-משומש"] || 0)}</td></tr>`).join("")}</table><p class="note">רכבים שנרשמו כיבוא אישי ועדיין רשומים במאגר.</p>`));
+  if ((M.evArea || []).length) {
+    const by = {}; for (const r of M.evArea) inc2(by, r.area, r.n);
+    const rows = Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 10), top = rows[0][1];
+    html.push(card("רכבים חשמליים לפי אזור", "bolt", "green", rows.map(([a, n]) => `<div class="mk-row"><b>${esc(a)}</b><span>${fmtN(n)}</span><div class="tr"><i style="width:${n / top * 100}%"></i></div></div>`).join("") + `<p class="note">כל הרכבים החשמליים הרשומים היום, לפי אזור הרישוי.</p>`));
+  }
+  html.push(`<p class="note" style="text-align:center">עודכן ${esc(M.updated)} · מקור: מאגרי משרד התחבורה</p><button type="button" class="link-btn" data-act="marketBack">${ico("back")}חזרה</button>`);
+  $("#out").innerHTML = html.join("");
+  updateSavedBar();
+}
+const inc2 = (o, k, n) => { o[k] = (o[k] || 0) + Number(n || 0); };
+async function openMarket(){
+  $("#out").innerHTML = `<section class="card"><div class="body"><p>טוען נתוני שוק…</p></div></section>`;
+  try { renderMarket(await loadMarket()); window.scrollTo({top: 0}); }
+  catch { $("#out").innerHTML = `<section class="card"><div class="body"><p>לא הצלחנו לטעון את נתוני השוק כרגע. נסו שוב מאוחר יותר.</p><button type="button" class="link-btn" data-act="marketBack">חזרה</button></div></section>`; }
+}
 function renderHome(){
   if (land) setLand(false, false);
   current = null; inCompare = false;
   const saved = store.get("savedVehicles"), recent = store.get("recentPlates");
   const html = [];
-  if (saved.length) html.push(card("רכבים שמורים", "star", "amber", `<div class="list">${saved.map(s => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-open="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b>${esc(s.title)}</b><small>${esc(s.sub || "")}</small>${savedFlags(s)}</span></button><button type="button" class="x" data-unsave="${s.plate}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div>`));
+  if (saved.length) html.push(card("רכבים שמורים", "star", "amber", `<div class="list">${saved.map(s => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-open="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b>${esc(s.title)}</b><small>${esc(s.sub || "")}</small>${savedFlags(s)}</span></button><button type="button" class="x bell" data-bell="${s.plate}" aria-pressed="${s.alerts !== false}" aria-label="התראות לרכב הזה">${ico("bell")}</button><button type="button" class="x" data-unsave="${s.plate}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div><p class="note">הפעמון קובע על אילו רכבים תקבלו התראה על ריקול חדש או טסט שעומד לפוג.</p>`));
   if (recent.length) html.push(card("חיפושים אחרונים", "clock", "blue", `<div class="chips">${recent.map(p => `<button type="button" class="chip" data-open="${p}">${fmtPlate(p)}</button>`).join("")}</div>`));
   html.push(card("השוואת דגמים לפני קנייה", "compare", "violet", `<p style="margin:0">מחפשים רכב? חפשו לפי יצרן או דגם והשוו עד ${CMP_MAX} דגמים: מחיר, צריכת דלק, אגרה, כוח, גרירה, בטיחות וכמה ריקולים היו לדגם.</p><button type="button" class="link-btn" data-act="compareHome">${ico("search")}התחלת השוואה</button>`));
+  html.push(card("שוק הרכב", "chart", "blue", `<p style="margin:0">כמה רכבים חדשים נמסרו, אילו יצרנים ודגמים מובילים, מי קונה (פרטי, ליסינג, חברה, השכרה) ואיזה סוג הנעה. לפי שנה או רבעון.</p><button type="button" class="link-btn" data-act="market">${ico("chart")}לנתוני השוק</button>`));
   if (!saved.length && !recent.length) html.push(card("מה תקבלו", "bulb", "teal", `<p style="margin:0">סטטוס הרכב ותוקף הטסט, היסטוריית בעלויות, ק״מ בטסט האחרון, תובנות חשובות, ריקולים פתוחים, כושר גרירה עם ובלי בלמים, מפרט, מערכות בטיחות, מחיר מחירון וכמה רכבים כאלה על הכביש.</p>`));
   $("#out").innerHTML = html.join("");
   if (saved.length) checkSaved();

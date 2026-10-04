@@ -86,7 +86,7 @@ public class SavedCheckWorker extends Worker {
             for (int i = 0; i < saved.length() && i < 20; i++) {
                 JSONObject car = saved.getJSONObject(i);
                 String plate = car.optString("plate");
-                if (plate.isEmpty()) continue;
+                if (plate.isEmpty() || !car.optBoolean("alerts", true)) continue;
                 String name = car.optString("title", "");
                 try {
                     checkRecalls(c, p, plate, name);
