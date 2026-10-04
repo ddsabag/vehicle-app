@@ -5,6 +5,9 @@ on:
       plates:
         description: "Comma-separated plates"
         default: "75350003,46644401"
+      script:
+        description: "Script in .github/scripts"
+        default: "inspect.mjs"
       queries:
         description: "Comma-separated dataset search words"
         default: "שעבוד,משועבד,יבוא אישי,רישום רכב,מסירות"
@@ -20,7 +23,7 @@ jobs:
           node-version: 20
       - run: |
           mkdir -p out
-          node .github/scripts/inspect.mjs | tee out/report.txt
+          node .github/scripts/${{ inputs.script }} | tee out/report.txt
         env:
           PLATES: ${{ inputs.plates }}
           QUERIES: ${{ inputs.queries }}
