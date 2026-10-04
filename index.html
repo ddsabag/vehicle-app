@@ -472,7 +472,7 @@ body.land .band{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "1.5";
+const APP_VERSION = "1.6";
 const SITE = "https://ddsabag.github.io/vehicle-app/";
 const API = "https://data.gov.il/api/3/action/datastore_search";
 
@@ -791,8 +791,13 @@ function costs(D){
   if (D.price && isNum(D.price.mehir) && regYear >= 2010 && String(D.v.sug_degem || "P").toUpperCase() === "P") {
     let idx = 1; for (let y = regYear; y < USAGE.year; y++) idx *= 1 + (CPI[y] || 0) / 100;
     const price = Math.min(num(D.price.mehir) * idx, USAGE.cap);
-    const fuel = String(D.pick(D.v.sug_delek_nm, D.w.delek_nm) || "");
-    const green = kind === "ev" ? ["חשמלי", USAGE.ev] : /חשמל/.test(fuel) ? ["היברידי", USAGE.hybrid] : null;
+    // drive technology from the model catalogue ("PLUG IN" / "היברידי רגיל" / "רכב חשמלי"); the register
+    // codes regular hybrids as plain petrol and keeps "חשמל/בנזין" for plug-ins only
+    const tech = String(D.w.technologiat_hanaa_nm || D.v.technologiat_hanaa_nm || "").toUpperCase();
+    const reg = String(D.v.sug_delek_nm || "");
+    const green = kind === "ev" || tech.includes("חשמלי") ? ["חשמלי", USAGE.ev]
+      : tech.includes("PLUG") || /חשמל\//.test(reg) ? ["פלאג-אין", USAGE.phev]
+      : tech.includes("היברידי") ? ["היברידי", USAGE.hybrid] : null;
     c.usage = {monthly: Math.max(0, Math.round((price * USAGE.rate - (green ? green[1] : 0)) / 10) * 10), price: Math.round(price), green, regYear, capped: price >= USAGE.cap};
   }
   if (D.counts && (isNum(D.counts.mispar_rechavim_pailim) || isNum(D.counts.mispar_rechavim_le_pailim))) {
@@ -1211,7 +1216,7 @@ function tabCosts(D){
   const u = c.usage;
   html.push(card("שווי שימוש (רכב צמוד)", "users", "teal", u ?
     `<div class="tow-grid"><div><div class="k">לחודש (הערכה)</div><div class="v">${fmtN(u.monthly)}<span class="u">₪</span></div></div><div><div class="k">לשנה</div><div class="v">${fmtN(u.monthly * 12)}<span class="u">₪</span></div></div></div>
-     <p class="note">זה הסכום שמתווסף למשכורת לצורך מס, לא המס עצמו. הסכום המחייב מופיע במחשבון של רשות המסים.</p>
+     <p class="note">${u.green ? `כולל הפחתה של ${fmtN(u.green[1])} ₪ לרכב ${u.green[0]}. ` : ""}זה הסכום שמתווסף למשכורת לצורך מס, לא המס עצמו. הסכום המחייב מופיע במחשבון של רשות המסים.</p>
      <button type="button" class="link-btn" data-url="${USAGE.calc}" data-copyfirst="${esc(`קוד תוצר ${D.v.tozeret_cd} קוד דגם ${D.v.degem_cd} שנה ${u.regYear}`)}" data-copylabel="הקודים">${ico("doc")}המחשבון הרשמי של רשות המסים</button>` :
     `<p style="margin:0">אין מספיק נתונים לחישוב שווי השימוש של הרכב הזה (החישוב כאן לרכב פרטי שעלה לכביש מ-2010).</p><button type="button" class="link-btn" data-url="${USAGE.calc}">${ico("doc")}המחשבון הרשמי של רשות המסים</button>`));
   html.push(card("שווי משוער", "tag", "pink", (c.newPrice ?
