@@ -1213,7 +1213,7 @@ function tabOverview(D){
   if (D.kmPerYear) stats.push(["ממוצע לשנה", fmtN(D.kmPerYear), "ק״מ", "teal"]);
   const hp = D.pick(w.koah_sus, v.hespek);
   if (!empty(hp)) stats.push(["כוח", fmtN(hp), empty(w.koah_sus) ? "" : "כ״ס", "red"]);
-  if (D.cost.fee) stats.push(["אגרה שנתית", fmtN(D.cost.fee), "₪", "violet"]);
+  if (D.cost.fee) stats.push(["אגרה שנתית (הערכה)", fmtN(D.cost.fee), "₪", "violet"]);
   if (stats.length % 2) stats.pop();
   if (stats.length) html.push(`<div class="stats">${stats.map(([k,val,u,c]) => `<div class="stat ${c}"><div class="k">${esc(k)}</div><div class="v">${esc(val)}${u ? `<span class="u">${esc(u)}</span>` : ""}</div></div>`).join("")}</div>`);
 
@@ -1289,12 +1289,12 @@ function tabCosts(D){
   const c = D.cost, html = [];
   const r100 = x => Math.round(x / 100) * 100;
   const fuelInner = c.kind === "ev" ? `<div class="tow-grid">
-        <div><div class="k">צריכה</div><div class="v">${c.kwh100}<span class="u">קוט״ש/100 ק״מ</span></div></div>
+        <div><div class="k">צריכה משוערת</div><div class="v">${c.kwh100}<span class="u">קוט״ש/100 ק״מ</span></div></div>
         <div><div class="k">טעינה בבית בשנה</div><div class="v">${fmtN(r100(c.fuelYear))}<span class="u">₪</span></div></div>
       </div>
       <p class="note">לפי ${fmtN(c.kmYear)} ק״מ בשנה ו-${c.elecPrice.toFixed(2)} ₪ לקוט״ש. בטעינה ציבורית מהירה (כ-${ELEC.fastDc.toFixed(0)} ₪ לקוט״ש) העלות כ-${fmtN(r100(c.fastYear))} ₪ בשנה. אפשר לשנות את מחיר החשמל בהגדרות.</p>` :
     c.l100 ? `<div class="tow-grid">
-        <button type="button" class="unit-flip" data-act="fuelUnit" aria-label="החלפת יחידה"><div class="k">צריכה <span class="flip">⇄</span></div><div class="v">${kmlUnit() ? (100 / c.l100).toFixed(1) : c.l100.toFixed(1)}<span class="u">${kmlUnit() ? "ק״מ לליטר" : "ל׳/100 ק״מ"}</span></div></button>
+        <button type="button" class="unit-flip" data-act="fuelUnit" aria-label="החלפת יחידה"><div class="k">צריכה משוערת <span class="flip">⇄</span></div><div class="v">${kmlUnit() ? (100 / c.l100).toFixed(1) : c.l100.toFixed(1)}<span class="u">${kmlUnit() ? "ק״מ לליטר" : "ל׳/100 ק״מ"}</span></div></button>
         <div><div class="k">${c.fuelYear ? "עלות דלק בשנה" : "ליטרים בשנה"}</div><div class="v">${c.fuelYear ? fmtN(Math.round(c.fuelYear / 100) * 100) : fmtN(Math.round(c.litres))}<span class="u">${c.fuelYear ? "₪" : "ליטר"}</span></div></div>
       </div>
       <p class="note">נסיעה אמיתית צורכת בדרך כלל יותר מהנתון הרשמי.${c.kind === "diesel" && !c.fuelPrice ? " כדי לראות עלות בשקלים, הגדירו מחיר סולר בהגדרות." : " אפשר לשנות את מחיר הדלק בהגדרות."}</p>` :
@@ -1308,10 +1308,10 @@ function tabCosts(D){
   }
   html.push(c.kind === "ev" ? card("חשמל", "bolt", "teal", fuelInner) : card("דלק", "fuel", "red", fuelInner));
   html.push(card("אגרת רישוי שנתית", "doc", "violet", c.fee ?
-    `<div class="tow-grid"><div><div class="k">אגרה שנתית</div><div class="v">${fmtN(c.fee)}<span class="u">₪</span></div></div><div><div class="k">קבוצת מחיר</div><div class="v">${c.feeGroup}<span class="u">מתוך 7</span></div></div></div>
+    `<div class="tow-grid"><div><div class="k">הערכה</div><div class="v">${fmtN(c.fee)}<span class="u">₪</span></div></div><div><div class="k">קבוצת מחיר</div><div class="v">${c.feeGroup}<span class="u">מתוך 7</span></div></div></div>
      <p class="note">לפי התעריף הרשמי לשנת 2026${new Date() >= new Date(2027, 3, 1) ? ", וייתכן שכבר עודכן מאז" : ""}. לא כולל הנחות.</p>
      <button type="button" class="link-btn" data-url="${FEE_SOURCE}">${ico("doc")}טבלת האגרות הרשמית של משרד התחבורה</button>` :
-    `<p style="margin:0">לא נמצאה קבוצת אגרה לרכב הזה. האגרה מחושבת לרכב פרטי בלבד.</p>`));
+    `<p style="margin:0">לא נמצאה קבוצת אגרה לרכב הזה. ההערכה זמינה לרכב פרטי בלבד.</p>`));
   const u = c.usage;
   html.push(card("שווי שימוש (רכב צמוד)", "users", "teal", u ?
     `<div class="tow-grid"><div><div class="k">לחודש</div><div class="v">${fmtN(u.monthly)}<span class="u">₪</span></div></div><div><div class="k">לשנה</div><div class="v">${fmtN(u.monthly * 12)}<span class="u">₪</span></div></div></div>
@@ -1672,14 +1672,14 @@ function renderCompare(){
   // [label, value(D), better: "hi" | "lo" | null, unit, plain, carOnly]  — a string label alone opens a section
   const rows = [
     "מחיר ועלויות",
-    ["עלות חודשית", D => D.cost.monthly ? D.cost.monthly.total : null, "lo", "₪"],
+    ["עלות חודשית (הערכה)", D => D.cost.monthly ? D.cost.monthly.total : null, "lo", "₪"],
     ["מחיר מחירון כחדש", D => D.cost.newPrice || null, null, "₪"],
     ["שווי משוער היום", D => D.cost.valueLow ? Math.round((D.cost.valueLow + D.cost.valueHigh) / 2000) * 1000 : null, null, "₪"],
-    kmlUnit() ? ["ק״מ לליטר", D => D.cost.l100 ? Math.round(1000 / D.cost.l100) / 10 : null, "hi", "", true]
-              : ["ליטר ל-100 ק״מ", D => D.cost.l100 ? Math.round(D.cost.l100 * 10) / 10 : null, "lo", "", true],
-    ["קוט״ש ל-100 ק״מ", D => D.cost.kwh100 || null, "lo", "", true],
-    [L.some(D => D.cost.kind === "ev") ? "דלק או חשמל בשנה" : "דלק בשנה", D => D.cost.fuelYear ? Math.round(D.cost.fuelYear / 100) * 100 : null, "lo", "₪"],
-    ["אגרת רישוי", D => D.cost.fee || null, "lo", "₪"],
+    kmlUnit() ? ["ק״מ לליטר (הערכה)", D => D.cost.l100 ? Math.round(1000 / D.cost.l100) / 10 : null, "hi", "", true]
+              : ["ליטר ל-100 ק״מ (הערכה)", D => D.cost.l100 ? Math.round(D.cost.l100 * 10) / 10 : null, "lo", "", true],
+    ["קוט״ש ל-100 ק״מ (הערכה)", D => D.cost.kwh100 || null, "lo", "", true],
+    [L.some(D => D.cost.kind === "ev") ? "דלק או חשמל בשנה (הערכה)" : "דלק בשנה (הערכה)", D => D.cost.fuelYear ? Math.round(D.cost.fuelYear / 100) * 100 : null, "lo", "₪"],
+    ["אגרת רישוי (הערכה)", D => D.cost.fee || null, "lo", "₪"],
     ["שווי שימוש לחודש", D => D.cost.usage ? D.cost.usage.monthly : null, "lo", "₪"],
     "מנוע וגרירה",
     ["שנת ייצור", D => num(D.v.shnat_yitzur), "hi", "", true],
@@ -2012,7 +2012,7 @@ async function makeComparePdf(){
   card.querySelectorAll(".cmp-bar, .head .count, .cmp-top .x, .trim-sel, .sim-box").forEach(x => x.remove());
   el.innerHTML = brandHead() + `<div class="rep-head"><b>השוואת רכבים</b><span>${today}</span></div>`;
   el.appendChild(card);
-  el.insertAdjacentHTML("beforeend", `<p class="rep-foot">המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il. שווי הרכב משוער. ${BRAND_FOOT}</p>`);
+  el.insertAdjacentHTML("beforeend", `<p class="rep-foot">המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il. הערכות העלות והשווי משוערות. ${BRAND_FOOT}</p>`);
   inlineIcons(el);
   const {canvas, breaks} = await captureEl(el, ".cmp, .cmp-table > .cmp-k, .cmp-table > .cmp-v, .rep-foot");
   return await pdfFromCanvas(canvas, breaks, "לוחית · השוואת רכבים", today);
