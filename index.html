@@ -2264,8 +2264,8 @@ async function loadMarket(){
 }
 const MON = ["ינו׳","פבר׳","מרץ","אפר׳","מאי","יוני","יולי","אוג׳","ספט׳","אוק׳","נוב׳","דצמ׳"];
 const sumM = (o, ms) => ms.reduce((t, m) => t + ((o && o[m]) || 0), 0);
-const pctTxt = (a, b) => b >= 300 ? "\u200e" + (a >= b ? "+" : "−") + Math.abs(Math.round((a - b) / b * 100)) + "%" : "";
-const chgHtml = (a, b) => b >= 300 ? `<span class="mk-chg ${a >= b ? "up" : "dn"}">${pctTxt(a, b)}</span>` : "";
+const pctTxt = (a, b) => b >= 300 && a < b * 4 ? "\u200e" + (a >= b ? "+" : "−") + Math.abs(Math.round((a - b) / b * 100)) + "%" : "";
+const chgHtml = (a, b) => b >= 300 && a < b * 4 ? `<span class="mk-chg ${a >= b ? "up" : "dn"}">${pctTxt(a, b)}</span>` : "";
 function mkPeriod(M){
   const all = Object.keys(M.months).sort(), last = all[all.length - 1], ly = +last.slice(0, 4), lm = +last.slice(4);
   const years = [...new Set(all.map(m => +m.slice(0, 4)))];
