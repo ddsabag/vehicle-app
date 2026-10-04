@@ -52,17 +52,22 @@ out.models = Object.fromEntries(Object.entries(models).sort((a, b) => Object.val
 console.log("months", Object.keys(months).length, "makers", Object.keys(makers).length, "models", Object.keys(models).length);
 
 // 2. ownership and fuel of cars by production year (current registered owner type, a proxy for who bought)
-out.ownership = {}; out.fuel = {}; out.ownershipMakers = {};
+out.ownership = {}; out.fuel = {}; out.ownershipMakers = {}; out.aging = {}; out.agingMakers = {};
 for (const y of [2022, 2023, 2024, 2025, 2026]) {
-  const own = {}, fuel = {}, om = {}; let n = 0;
+  const own = {}, fuel = {}, om = {}, ag = {}; let n = 0, late = 0, dealer = 0;
   try {
-    await scan(ACTIVE, {filters: JSON.stringify({shnat_yitzur: y}), fields: "baalut,sug_delek_nm,tozeret_cd,tozeret_nm"}, rows => {
+    await scan(ACTIVE, {filters: JSON.stringify({shnat_yitzur: y}), fields: "baalut,sug_delek_nm,tozeret_cd,tozeret_nm,moed_aliya_lakvish"}, rows => {
       for (const r of rows) {
         n++; const b = r.baalut || "אחר"; inc(own, b); inc(fuel, r.sug_delek_nm || "אחר");
         const mk = brand[r.tozeret_cd] || String(r.tozeret_nm || "").split(" ")[0]; (om[mk] ||= {}); inc(om[mk], b);
+        // aged ("גיול") signals: first registered in a later year than the production year, or held by a dealer
+        const ay = Number(String(r.moed_aliya_lakvish || "").slice(0, 4)), isLate = ay > y ? 1 : 0, isDealer = b === "סוחר" ? 1 : 0;
+        late += isLate; dealer += isDealer; const a = (ag[mk] ||= {n: 0, late: 0, dealer: 0}); a.n++; a.late += isLate; a.dealer += isDealer;
       }
     });
   } catch (e) { console.log("active", y, e.message); }
+  out.aging[y] = {n, late, dealer};
+  out.agingMakers[y] = Object.fromEntries(Object.entries(ag).filter(([, a]) => a.n >= 300).sort((a, b) => b[1].n - a[1].n).slice(0, 25));
   out.ownership[y] = own; out.fuel[y] = fuel;
   out.ownershipMakers[y] = Object.fromEntries(Object.entries(om).sort((a, b) => Object.values(b[1]).reduce((s, x) => s + x, 0) - Object.values(a[1]).reduce((s, x) => s + x, 0)).slice(0, 25));
   console.log("year", y, n, JSON.stringify(own));
