@@ -1,0 +1,22 @@
+name: Inspect datasets
+on:
+  workflow_dispatch:
+    inputs:
+      plates:
+        description: "Comma-separated plates"
+        default: "75350003,46644401"
+      queries:
+        description: "Comma-separated dataset search words"
+        default: "שעבוד,משועבד,יבוא אישי,רישום רכב,מסירות"
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node .github/scripts/inspect.mjs
+        env:
+          PLATES: ${{ inputs.plates }}
+          QUERIES: ${{ inputs.queries }}
