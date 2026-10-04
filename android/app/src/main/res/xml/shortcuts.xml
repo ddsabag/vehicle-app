@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long press on the app icon: straight to the plate camera, the model comparison, or the saved cars -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="camera" android:enabled="true" android:icon="@drawable/ic_sc_camera"
+        android:shortcutShortLabel="@string/sc_camera">
+        <intent android:action="android.intent.action.VIEW" android:data="luchit://camera"
+            android:targetPackage="com.ddsabag.pratirechev" android:targetClass="com.ddsabag.pratirechev.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="compare" android:enabled="true" android:icon="@drawable/ic_sc_compare"
+        android:shortcutShortLabel="@string/sc_compare">
+        <intent android:action="android.intent.action.VIEW" android:data="luchit://compare"
+            android:targetPackage="com.ddsabag.pratirechev" android:targetClass="com.ddsabag.pratirechev.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="saved" android:enabled="true" android:icon="@drawable/ic_sc_saved"
+        android:shortcutShortLabel="@string/sc_saved">
+        <intent android:action="android.intent.action.VIEW" android:data="luchit://saved"
+            android:targetPackage="com.ddsabag.pratirechev" android:targetClass="com.ddsabag.pratirechev.MainActivity" />
+    </shortcut>
+</shortcuts>

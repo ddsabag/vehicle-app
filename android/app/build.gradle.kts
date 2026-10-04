@@ -38,4 +38,7 @@ tasks.named("preBuild") { dependsOn(copyWebApp) }
 dependencies {
     implementation("androidx.webkit:webkit:1.12.1")
     implementation("androidx.core:core:1.13.1")
+    implementation("androidx.work:work-runtime:2.9.1")
+    implementation("com.google.android.play:review:2.0.2")
+    implementation("com.android.installreferrer:installreferrer:2.2")
 }

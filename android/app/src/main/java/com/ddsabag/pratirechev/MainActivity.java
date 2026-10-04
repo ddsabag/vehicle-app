@@ -7,7 +7,9 @@ import android.content.ClipboardManager;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.provider.CalendarContract;
 import android.provider.MediaStore;
 import android.speech.RecognizerIntent;
 import android.text.TextUtils;
@@ -28,11 +30,18 @@ import android.widget.FrameLayout;
 import androidx.core.content.FileProvider;
 import androidx.webkit.WebViewAssetLoader;
 
+import com.google.android.play.core.review.ReviewInfo;
+import com.google.android.play.core.review.ReviewManager;
+import com.google.android.play.core.review.ReviewManagerFactory;
+
 import org.json.JSONObject;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.Locale;
 
 public class MainActivity extends Activity {
     private static final String HOST = "appassets.androidplatform.net";
@@ -40,6 +49,11 @@ public class MainActivity extends Activity {
 
     private static final int REQ_FILE = 1;
     private static final int REQ_VOICE = 2;
+    private static final int REQ_NOTIFY = 3;
+    private static final int REQ_CAMERA = 4;
+
+    private boolean pageReady = false;
+    private String pendingJs = null;
 
     private WebView webView;
     private FrameLayout root;
@@ -108,6 +122,12 @@ public class MainActivity extends Activity {
 
             @JavascriptInterface
             public void shareFile(String name, String mime, String base64, String title) {
+                shareFileText(name, mime, base64, title, null);
+            }
+
+            /** Same, with a message beside the file (WhatsApp shows it as the caption) */
+            @JavascriptInterface
+            public void shareFileText(String name, String mime, String base64, String title, String text) {
                 try {
                     byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
                     File f = new File(sharedDir(), name.replaceAll("[^A-Za-z0-9._-]", "_"));
@@ -120,6 +140,7 @@ public class MainActivity extends Activity {
                         send.setType(mime);
                         send.putExtra(Intent.EXTRA_STREAM, uri);
                         send.putExtra(Intent.EXTRA_SUBJECT, title);
+                        if (text != null) send.putExtra(Intent.EXTRA_TEXT, text);
                         send.setClipData(ClipData.newRawUri(title, uri));
                         send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                         startActivity(Intent.createChooser(send, "שיתוף"));
@@ -142,6 +163,65 @@ public class MainActivity extends Activity {
                     } catch (ActivityNotFoundException e) {
                         webView.evaluateJavascript("window.onVoiceResult && window.onVoiceResult(null)", null);
                     }
+                });
+            }
+
+            /** Opens the phone's calendar with an all-day event filled in; the user just taps save */
+            @JavascriptInterface
+            public void addCalendar(String title, String desc, String ymd) {
+                runOnUiThread(() -> {
+                    try {
+                        Date d = new SimpleDateFormat("yyyyMMdd", Locale.US).parse(ymd);
+                        // all-day events are stored at UTC midnight
+                        long start = d.getTime() + java.util.TimeZone.getDefault().getOffset(d.getTime());
+                        Intent i = new Intent(Intent.ACTION_INSERT)
+                                .setData(CalendarContract.Events.CONTENT_URI)
+                                .putExtra(CalendarContract.Events.TITLE, title)
+                                .putExtra(CalendarContract.Events.DESCRIPTION, desc)
+                                .putExtra(CalendarContract.EXTRA_EVENT_ALL_DAY, true)
+                                .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, start)
+                                .putExtra(CalendarContract.EXTRA_EVENT_END_TIME, start + 86400000L);
+                        startActivity(i);
+                    } catch (Exception e) {
+                        webView.evaluateJavascript("window.calendarFallback && calendarFallback()", null);
+                    }
+                });
+            }
+
+            /** The page hands over the saved cars so the daily check can run without it */
+            @JavascriptInterface
+            public void syncSaved(String json) {
+                SavedCheckWorker.prefs(MainActivity.this).edit().putString("saved", json == null ? "[]" : json).apply();
+                SavedCheckWorker.schedule(MainActivity.this);
+            }
+
+            /** "on", "off", or "blocked" when the phone does not allow notifications */
+            @JavascriptInterface
+            public String alertsState() {
+                if (!SavedCheckWorker.enabled(MainActivity.this)) return "off";
+                return notificationsAllowed() ? "on" : "blocked";
+            }
+
+            @JavascriptInterface
+            public void setAlerts(boolean on) {
+                SavedCheckWorker.prefs(MainActivity.this).edit().putBoolean("enabled", on).apply();
+                SavedCheckWorker.schedule(MainActivity.this);
+                if (on && !notificationsAllowed() && android.os.Build.VERSION.SDK_INT >= 33) {
+                    runOnUiThread(() -> requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, REQ_NOTIFY));
+                }
+            }
+
+            /** Google decides whether the rating card actually appears, and limits how often */
+            @JavascriptInterface
+            public void askReview() {
+                runOnUiThread(() -> {
+                    ReviewManager rm = ReviewManagerFactory.create(MainActivity.this);
+                    rm.requestReviewFlow().addOnCompleteListener(t -> {
+                        if (t.isSuccessful()) {
+                            ReviewInfo info = t.getResult();
+                            rm.launchReviewFlow(MainActivity.this, info);
+                        }
+                    });
                 });
             }
 
@@ -205,6 +285,16 @@ public class MainActivity extends Activity {
             }
 
             @Override
+            public void onPageFinished(WebView view, String url) {
+                pageReady = true;
+                if (pendingJs != null) {
+                    String js = pendingJs;
+                    pendingJs = null;
+                    view.evaluateJavascript(js, null);
+                }
+            }
+
+            @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
                 if (HOST.equals(uri.getHost())) return false;
@@ -216,10 +306,162 @@ public class MainActivity extends Activity {
             }
         });
 
-        if (savedInstanceState != null) {
+        SavedCheckWorker.ensureChannel(this);
+        SavedCheckWorker.schedule(this);
+        String plate = plateFrom(getIntent());
+        if (plate != null) {
+            webView.loadUrl(START_URL + "#" + plate);
+        } else if (savedInstanceState != null) {
             webView.restoreState(savedInstanceState);
         } else {
             webView.loadUrl(START_URL);
+        }
+        handleIncoming(getIntent());
+        checkInstallReferrer();
+    }
+
+    /** Installed from a shared link: the store passes "plate=…", and the first launch opens that car */
+    private void checkInstallReferrer() {
+        android.content.SharedPreferences p = getSharedPreferences("install", MODE_PRIVATE);
+        if (p.getBoolean("referrerChecked", false)) return;
+        com.android.installreferrer.api.InstallReferrerClient client =
+                com.android.installreferrer.api.InstallReferrerClient.newBuilder(this).build();
+        try {
+            client.startConnection(new com.android.installreferrer.api.InstallReferrerStateListener() {
+                @Override
+                public void onInstallReferrerSetupFinished(int code) {
+                    p.edit().putBoolean("referrerChecked", true).apply();
+                    if (code != com.android.installreferrer.api.InstallReferrerClient.InstallReferrerResponse.OK) {
+                        client.endConnection();
+                        return;
+                    }
+                    try {
+                        String ref = client.getInstallReferrer().getInstallReferrer();
+                        String plate = null;
+                        if (ref != null) for (String part : Uri.decode(ref).split("&")) {
+                            if (part.startsWith("plate=")) plate = part.substring(6).replaceAll("[^0-9]", "");
+                        }
+                        if (plate != null && plate.length() >= 5 && plate.length() <= 8) {
+                            String js = "window.run && run('" + plate + "')";
+                            runOnUiThread(() -> runJs(js));
+                        }
+                    } catch (Exception ignored) {
+                    }
+                    client.endConnection();
+                }
+
+                @Override
+                public void onInstallReferrerServiceDisconnected() {
+                }
+            });
+        } catch (Exception ignored) {
+            p.edit().putBoolean("referrerChecked", true).apply();
+        }
+    }
+
+    /** Runs page code now, or once the page has loaded */
+    private void runJs(String js) {
+        if (pageReady) webView.evaluateJavascript(js, null);
+        else pendingJs = js;
+    }
+
+    /** Text or a picture shared from another app, and the launcher shortcuts */
+    private void handleIncoming(Intent i) {
+        if (i == null) return;
+        String action = i.getAction();
+        if (Intent.ACTION_SEND.equals(action)) {
+            String type = i.getType() == null ? "" : i.getType();
+            if (type.startsWith("image/")) {
+                Uri uri = i.getParcelableExtra(Intent.EXTRA_STREAM);
+                if (uri != null) sendImage(uri);
+            } else {
+                CharSequence t = i.getCharSequenceExtra(Intent.EXTRA_TEXT);
+                String sub = i.getStringExtra(Intent.EXTRA_SUBJECT);
+                String text = (sub == null ? "" : sub + "\n") + (t == null ? "" : t);
+                runJs("window.onSharedText && onSharedText(" + JSONObject.quote(text) + ")");
+            }
+            i.setAction(null);
+        } else if (Intent.ACTION_VIEW.equals(action) && i.getData() != null && "luchit".equals(i.getData().getScheme())) {
+            String what = i.getData().getHost();
+            if ("camera".equals(what)) openCamera();
+            else runJs("window.appAction && appAction(" + JSONObject.quote(what == null ? "" : what) + ")");
+            i.setAction(null);
+        }
+    }
+
+    private void openCamera() {
+        try {
+            File photo = new File(sharedDir(), "plate-photo.jpg");
+            cameraUri = FileProvider.getUriForFile(this, getPackageName() + ".files", photo);
+            Intent cam = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            cam.putExtra(MediaStore.EXTRA_OUTPUT, cameraUri);
+            cam.setClipData(ClipData.newRawUri("photo", cameraUri));
+            cam.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivityForResult(cam, REQ_CAMERA);
+        } catch (Exception e) {
+            runJs("window.appAction && appAction('camera')");
+        }
+    }
+
+    /** Hands a picture to the page, scaled down so the plate reader gets a manageable image */
+    private void sendImage(Uri uri) {
+        new Thread(() -> {
+            try {
+                android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+                o.inJustDecodeBounds = true;
+                try (java.io.InputStream in = getContentResolver().openInputStream(uri)) {
+                    android.graphics.BitmapFactory.decodeStream(in, null, o);
+                }
+                int sample = 1;
+                while (Math.max(o.outWidth, o.outHeight) / (sample * 2) >= 1600) sample *= 2;
+                android.graphics.BitmapFactory.Options o2 = new android.graphics.BitmapFactory.Options();
+                o2.inSampleSize = sample;
+                android.graphics.Bitmap bmp;
+                try (java.io.InputStream in = getContentResolver().openInputStream(uri)) {
+                    bmp = android.graphics.BitmapFactory.decodeStream(in, null, o2);
+                }
+                if (bmp == null) throw new Exception("decode");
+                java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+                bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 88, out);
+                String data = "data:image/jpeg;base64," + Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP);
+                runOnUiThread(() -> runJs("window.onSharedImage && onSharedImage(" + JSONObject.quote(data) + ")"));
+            } catch (Exception e) {
+                runOnUiThread(() -> runJs("window.toast && toast('לא הצלחתי לפתוח את התמונה')"));
+            }
+        }).start();
+    }
+
+    private boolean notificationsAllowed() {
+        if (android.os.Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+            return false;
+        return androidx.core.app.NotificationManagerCompat.from(this).areNotificationsEnabled();
+    }
+
+    // a tapped notification carries the plate of the saved car
+    private static String plateFrom(Intent i) {
+        if (i == null) return null;
+        String p = i.getStringExtra("plate");
+        if (p == null) return null;
+        p = p.replaceAll("[^0-9]", "");
+        return p.isEmpty() ? null : p;
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        String plate = plateFrom(intent);
+        if (plate != null) webView.evaluateJavascript("window.run && run('" + plate + "')", null);
+        handleIncoming(intent);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode == REQ_NOTIFY) {
+            boolean ok = results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED;
+            webView.evaluateJavascript("window.onAlertsPermission && onAlertsPermission(" + ok + ")", null);
         }
     }
 
@@ -240,6 +482,8 @@ public class MainActivity extends Activity {
             }
             if (fileCallback != null) fileCallback.onReceiveValue(result);
             fileCallback = null;
+        } else if (requestCode == REQ_CAMERA) {
+            if (resultCode == RESULT_OK && cameraUri != null) sendImage(cameraUri);
         } else if (requestCode == REQ_VOICE) {
             String text = "";
             if (resultCode == RESULT_OK && data != null) {

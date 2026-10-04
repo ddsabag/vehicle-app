@@ -111,6 +111,8 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .mini-plate i{background:var(--il);width:8px;align-self:stretch;border-radius:2px}
 .pills{display:flex;flex-wrap:wrap;gap:6px}
 .pill{font-size:.82rem;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--soft)}
+.pill.drive{display:inline-flex;align-items:center;gap:4px;background:var(--info-bg);color:var(--info)}.pill.drive svg.i{width:14px;height:14px}
+.pill.drive.green{background:var(--t-leaf-bg);color:var(--t-leaf)}
 .pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.warn{background:var(--warn-bg);color:var(--warn)}.pill.bad{background:var(--bad-bg);color:var(--bad)}
 .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;border-top:1px solid var(--line);padding-top:12px}
 .act{display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--soft);border:0;border-radius:12px;padding:10px 2px;font-size:.78rem;font-weight:700;color:var(--fg)}
@@ -227,6 +229,22 @@ footer a{color:var(--accent)}
 .cmp>.ph{display:none}
 .cmp-bar{display:flex;gap:8px;flex-wrap:wrap}
 .cmp-bar .cmp-add{flex:1 1 auto}
+.cmp-tool{border:1px solid var(--line);background:var(--soft);color:var(--fg);border-radius:999px;font-weight:700;font-size:.88rem;display:flex;align-items:center;gap:6px;padding:8px 14px;min-height:40px}
+.cmp-tool svg.i{width:17px;height:17px}
+.cmp-tool.add{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.cmp-tool.ic{padding:8px 11px}
+.cmp-tool[aria-pressed="true"]{background:var(--info-bg);color:var(--accent);border-color:var(--accent)}
+.month-big{font-size:2rem;font-weight:900;color:var(--accent)}.month-big small{font-size:.95rem;color:var(--muted);font-weight:600}
+.month-bar{display:flex;height:12px;border-radius:999px;overflow:hidden;margin:8px 0}
+.month-lg{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.88rem}.month-lg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:5px}
+.sim-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.sim-row button{border:1.5px dashed var(--accent);background:var(--info-bg);border-radius:12px;padding:9px 10px;text-align:start;color:var(--fg);min-width:0;display:flex;flex-direction:column;gap:2px}
+.sim-row b{font-size:.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sim-row small{color:var(--muted);font-size:.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sim-row span{display:flex;align-items:center;gap:3px;color:var(--accent);font-weight:800;font-size:.8rem;margin-top:3px}.sim-row span svg.i{width:14px;height:14px}
+.verdict{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.verdict span{background:var(--t-leaf-bg);border-radius:12px;padding:8px 12px;min-width:0}
+.verdict small{display:block;font-size:.75rem;font-weight:700;color:var(--muted)}
+.verdict b{display:block;color:var(--t-leaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cmp-land{border:1px solid var(--line);background:var(--soft);color:var(--fg);border-radius:12px;font-weight:700;display:flex;align-items:center;gap:6px;padding:10px 14px;min-height:46px}
 .cmp-land svg.i{width:18px;height:18px}
 .cmp-h{position:relative}
@@ -265,14 +283,18 @@ section[style*="--n:3"] .cmp-k{font-size:.76rem}
 #mf{position:relative}
 #mf .mq-ico{position:absolute;inset-inline-start:14px;top:50%;transform:translateY(-50%);width:20px;height:20px;color:var(--muted);pointer-events:none}
 #mf input{padding:14px 14px 14px 14px;padding-inline-start:44px;font-size:1.05rem;border-radius:14px}
-.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-.steps button{border:1px solid var(--line);background:var(--soft);border-radius:12px;padding:8px 10px;text-align:start;color:var(--muted);min-width:0}
-.steps button small{display:block;font-size:.72rem;font-weight:700}
-.steps button b{display:block;font-size:.92rem;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.steps button.on{border-color:var(--accent);background:var(--info-bg);color:var(--accent)}
-.steps button.done b{color:var(--accent)}
-.steps button:disabled{opacity:.55}
 #compareMsg:empty,#mres:empty,#mquick:empty{display:none}
+.mhead{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.mhead b{flex:1;font-size:1.15rem;min-width:0}
+.mback{border:1px solid var(--line);background:var(--soft);color:var(--fg);border-radius:999px;padding:6px 12px;font-weight:700;font-size:.85rem;flex:0 0 auto}
+.yrow{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.yrow .chip{flex:0 0 auto;font-size:1rem;padding:9px 16px;border-radius:999px}
+.yrow .chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.eng{display:flex;align-items:center;gap:12px}
+.eng .pill{flex:0 0 auto}
+.eng .qadd{padding:8px}
+.more{border:0;background:transparent;color:var(--accent);font-weight:700;padding:10px;width:100%}
+.trim-sel{margin-top:6px;max-width:100%;border:1px solid var(--line);background:var(--soft);color:var(--fg);border-radius:8px;font:inherit;font-size:.8rem;padding:4px 6px}
 .credit{margin:4px 0 0;text-align:center;font-size:.85rem;font-weight:700;color:var(--muted)}
 .qsec{font-size:.85rem;font-weight:800;color:var(--muted);margin:4px 0 8px}
 .makers{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
@@ -431,6 +453,10 @@ body.land .band{display:none}
       <div class="fuel-set"><label for="elecPrice">חשמל (₪ לקוט״ש)</label><input id="elecPrice" inputmode="decimal" placeholder="0.64"></div>
       <p class="note" id="fuelNote">כשהשדה ריק, האפליקציה משתמשת במחיר המפוקח העדכני, שמתעדכן אוטומטית בכל חודש.</p>
     </div>
+    <div class="set-row" id="alertsRow" hidden><span>התראות לרכבים שמורים</span>
+      <div class="seg two" role="group" aria-label="התראות לרכבים שמורים"><button type="button" data-alerts="on">פועלות</button><button type="button" data-alerts="off">כבויות</button></div>
+      <p class="note" id="alertsNote"></p>
+    </div>
     <div class="set-row"><span>נתונים במכשיר</span>
       <button class="link-btn" type="button" id="clearRecent">מחיקת היסטוריית החיפושים</button>
       <button class="link-btn" type="button" id="clearSaved">מחיקת כל הרכבים השמורים</button>
@@ -442,15 +468,9 @@ body.land .band{display:none}
 <div class="sheet full" id="compareSheet" hidden role="dialog" aria-modal="true" aria-labelledby="cmpTitle">
   <div class="sheet-in">
     <div class="sheet-head"><h2 id="cmpTitle">הוספת רכב להשוואה</h2><button class="icon-btn" type="button" id="closeCompareSheet" aria-label="סגירה"><svg class="i"><use href="#i-x"/></svg></button></div>
-    <div class="seg two" role="group" aria-label="איך להוסיף"><button type="button" data-cmp-mode="model">לפי דגם</button><button type="button" data-cmp-mode="plate">לפי מספר רישוי</button></div>
     <form id="mf" class="msearch" autocomplete="off">
       <svg class="i mq-ico" aria-hidden="true"><use href="#i-search"/></svg>
-      <input id="mq" type="search" placeholder="יצרן או דגם: טויוטה, קורולה, TUCSON…" aria-label="יצרן או דגם" enterkeyhint="search">
-    </form>
-    <div id="msteps" class="steps" hidden></div>
-    <form id="cf" autocomplete="off" style="display:flex;gap:10px" hidden>
-      <label class="plate" for="plate2"><span class="il" aria-hidden="true"><span>IL</span><span>ישראל</span></span><input id="plate2" inputmode="numeric" placeholder="12-345-67" maxlength="10" aria-label="מספר רישוי של הרכב להשוואה" enterkeyhint="search"></label>
-      <button class="go" id="go2" type="submit" aria-label="הוספה להשוואה"><svg class="i"><use href="#i-search"/></svg></button>
+      <input id="mq" type="search" placeholder="דגם או מספר רישוי" aria-label="דגם או מספר רישוי" enterkeyhint="search">
     </form>
     <p class="note" id="compareMsg" role="status"></p>
     <div class="list" id="mres"></div>
@@ -472,7 +492,7 @@ body.land .band{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "1.5";
+const APP_VERSION = "1.9";
 const SITE = "https://ddsabag.github.io/vehicle-app/";
 const API = "https://data.gov.il/api/3/action/datastore_search";
 
@@ -662,8 +682,10 @@ async function copyText(t, label){
   if (!ok) try { const ta = document.createElement("textarea"); ta.value = t; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); ok = document.execCommand("copy"); ta.remove(); } catch {}
   toast(ok ? `${label || "הטקסט"} הועתק` : "לא הצלחתי להעתיק");
 }
-async function shareText(title, text){
-  text += "\n\nמקור: מאגרי משרד התחבורה, דרך האפליקציה לוחית";
+/* every share carries a store link; whoever installs from it lands on the same car on first launch */
+const carLink = plate => `${PLAY_URL}&referrer=${encodeURIComponent("plate=" + plate)}`;
+async function shareText(title, text, plate){
+  text += plate ? `\n\nהדוח המלא באפליקציה לוחית:\n${carLink(plate)}` : "\n\nמקור: מאגרי משרד התחבורה, דרך האפליקציה לוחית";
   try { if (bridge() && bridge().share) { bridge().share(title, text); return; } } catch {}
   if (navigator.share) { try { await navigator.share({title, text}); return; } catch (err) { if (err && err.name === "AbortError") return; } }
   copyText(text, "הסיכום");
@@ -676,15 +698,38 @@ function openExternal(url){
 /* ---------- saved & recent (this device only) ---------- */
 const store = {
   get(k){ try { return JSON.parse(localStorage.getItem(k) || "[]"); } catch { return []; } },
-  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} if (k === "savedVehicles") syncSaved(v); },
 };
+/* the app checks saved cars once a day for a new recall or a test about to expire */
+function syncSaved(list){
+  const b = window.AndroidApp; if (!b || !b.syncSaved) return;
+  try { b.syncSaved(JSON.stringify((list || []).map(x => ({plate: x.plate, title: x.title || ""})))); } catch {}
+}
+const alertsSupported = () => !!(window.AndroidApp && window.AndroidApp.setAlerts);
+window.onAlertsPermission = ok => { toast(ok ? "ההתראות פועלות: נעדכן אותך על ריקול חדש או טסט שעומד לפוג" : "ההתראות כבויות. אפשר להפעיל אותן בהגדרות."); syncAlertsSeg(); };
+function syncAlertsSeg(){
+  const row = document.getElementById("alertsRow"); if (!row) return;
+  row.hidden = !alertsSupported(); if (row.hidden) return;
+  let st = "off"; try { st = window.AndroidApp.alertsState(); } catch {}
+  document.querySelectorAll("[data-alerts]").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.alerts === "on") === (st !== "off"))));
+  $("#alertsNote").textContent = st === "blocked" ? "ההתראות חסומות בהגדרות הטלפון. כדי לקבל אותן, אפשרו התראות ללוחית בהגדרות האפליקציה בטלפון." : "התראה כשנפתח ריקול חדש לרכב שמור, וחודש ושבוע לפני שהטסט שלו פג.";
+}
 const isSaved = p => store.get("savedVehicles").some(x => x.plate === p);
 function toggleSaved(item){
   const list = store.get("savedVehicles");
   if (list.some(x => x.plate === item.plate)) { store.set("savedVehicles", list.filter(x => x.plate !== item.plate)); return false; }
   store.set("savedVehicles", [item, ...list].slice(0, 50)); return true;
 }
-function remember(p){ store.set("recentPlates", [p, ...store.get("recentPlates").filter(x => x !== p)].slice(0, 6)); }
+function remember(p){
+  store.set("recentPlates", [p, ...store.get("recentPlates").filter(x => x !== p)].slice(0, 6));
+  // after the third car the app found, Google's rating card is offered once (Google decides if it shows)
+  try {
+    const n = Number(localStorage.getItem("lookups") || 0) + 1; localStorage.setItem("lookups", String(n));
+    if (n >= 3 && !localStorage.getItem("reviewAsked") && window.AndroidApp && window.AndroidApp.askReview) {
+      localStorage.setItem("reviewAsked", "1"); setTimeout(() => { try { window.AndroidApp.askReview(); } catch {} }, 4000);
+    }
+  } catch {}
+}
 
 /* ---------- costs (estimates) ---------- */
 const FUEL_PRICE_DEFAULT = 8.27;   // 95 octane, regulated price for October 2026; fuel.json (updated by a daily GitHub Action) overrides it
@@ -730,7 +775,20 @@ const USAGE = {year: 2026, rate: 0.0248, cap: 596860, hybrid: 580, phev: 1150, e
 const CPI = {2010:2.7, 2011:2.2, 2012:1.6, 2013:1.8, 2014:-0.2, 2015:-1.0, 2016:-0.2, 2017:0.4, 2018:0.8, 2019:0.6,
   2020:-0.7, 2021:2.8, 2022:5.3, 2023:3.0, 2024:3.2, 2025:2.6};
 function setting(k, d){ try { const x = localStorage.getItem(k); return x === null || x === "" ? d : x; } catch { return d; } }
-function fuelKind(D){ const t = String(D.pick(D.v.sug_delek_nm, D.w.delek_nm) || ""); if (t.includes("חשמל") && !t.includes("בנזין")) return "ev"; if (t.includes("דיזל") || t.includes("סולר")) return "diesel"; return "petrol"; }
+function fuelKind(D){ const t = String(D.pick(D.v.sug_delek_nm, D.w.delek_nm) || ""); if (t.includes("חשמל") && !t.includes("בנזין") && !t.includes("דיזל")) return "ev"; if (t.includes("דיזל") || t.includes("סולר")) return "diesel"; return "petrol"; }
+/* Drive type for the label and the tax reduction. The model catalogue's drive technology is the reliable
+   source ("PLUG IN" / "היברידי רגיל" / "רכב חשמלי"); the register codes regular hybrids as plain petrol
+   and keeps "חשמל/בנזין" for plug-ins only. */
+function driveType(D){
+  const tech = String(D.w.technologiat_hanaa_nm || D.v.technologiat_hanaa_nm || "").toUpperCase();
+  const reg = String(D.v.sug_delek_nm || ""), fuel = String(D.pick(D.v.sug_delek_nm, D.w.delek_nm) || "");
+  if (fuelKind(D) === "ev" || tech.includes("חשמלי")) return {k: "ev", label: "חשמלי"};
+  if (tech.includes("PLUG") || /חשמל\//.test(reg)) return {k: "phev", label: "פלאג-אין"};
+  if (tech.includes("היברידי") || (!reg && /חשמל/.test(fuel))) return {k: "hybrid", label: "היברידי"};
+  if (/דיזל|סולר/.test(fuel)) return {k: "diesel", label: "דיזל"};
+  if (/גפ"?מ|גז/.test(fuel)) return {k: "lpg", label: "גפ״מ"};
+  return fuel ? {k: "petrol", label: "בנזין"} : null;
+}
 function costs(D){
   const c = {};
   const kind = fuelKind(D);
@@ -784,6 +842,14 @@ function costs(D){
     const mid = adj.reduce((v, [p]) => v * (1 + p / 100), base);
     c.newPrice = num(D.price.mehir); c.age = age; c.baseValue = Math.round(base / 1000) * 1000; c.adj = adj;
     c.valueLow = Math.round(mid * 0.9 / 1000) * 1000; c.valueHigh = Math.round(mid * 1.1 / 1000) * 1000;
+    // value lost over the coming year: a model is bought new, so its steeper first year counts
+    c.deprYear = D.kind === "model" ? num(D.price.mehir) * (1 - y1) : mid * (1 - yr);
+  }
+  // one monthly figure: energy, licence fee and loss of value (insurance and servicing are not in the data)
+  if (c.fuelYear || c.fee || c.deprYear) {
+    const parts = [["דלק", c.fuelYear, "#e53935"], ["אגרה", c.fee, "#7c4dff"], ["ירידת ערך", c.deprYear, "#f0a020"]].filter(x => x[1] > 0);
+    if (kind === "ev" && parts[0] && parts[0][0] === "דלק") parts[0][0] = "חשמל";
+    if (parts.length >= 2) c.monthly = {total: Math.round(parts.reduce((t, x) => t + x[1], 0) / 12 / 10) * 10, parts: parts.map(([k, v, col]) => [k, Math.round(v / 12 / 10) * 10, col])};
   }
   // company-car taxable benefit (שווי שימוש), cars first registered from 2010: list price in the registration
   // year, indexed to the consumer price index, capped, × 2.48% a month, minus the green-car reduction
@@ -791,8 +857,8 @@ function costs(D){
   if (D.price && isNum(D.price.mehir) && regYear >= 2010 && String(D.v.sug_degem || "P").toUpperCase() === "P") {
     let idx = 1; for (let y = regYear; y < USAGE.year; y++) idx *= 1 + (CPI[y] || 0) / 100;
     const price = Math.min(num(D.price.mehir) * idx, USAGE.cap);
-    const fuel = String(D.pick(D.v.sug_delek_nm, D.w.delek_nm) || "");
-    const green = kind === "ev" ? ["חשמלי", USAGE.ev] : /חשמל/.test(fuel) ? ["היברידי", USAGE.hybrid] : null;
+    const dt = driveType(D);
+    const green = dt && {ev: ["חשמלי", USAGE.ev], phev: ["פלאג-אין", USAGE.phev], hybrid: ["היברידי", USAGE.hybrid]}[dt.k] || null;
     c.usage = {monthly: Math.max(0, Math.round((price * USAGE.rate - (green ? green[1] : 0)) / 10) * 10), price: Math.round(price), green, regYear, capped: price >= USAGE.cap};
   }
   if (D.counts && (isNum(D.counts.mispar_rechavim_pailim) || isNum(D.counts.mispar_rechavim_le_pailim))) {
@@ -909,6 +975,14 @@ async function fetchVehicle(plate, signal, onProgress){
   const pick = (...vals) => vals.find(x => !empty(x));
   const own = res.owners.rows.slice().sort((a,b) => String(a.baalut_dt).localeCompare(String(b.baalut_dt)));
   const recalls = res.recall.rows.map(r => ({...r, detail: modelRecalls.find(m => String(m.RECALL_ID) === String(r.RECALL_ID)) || null}));
+  // the repair details live in the manufacturers' recall list; when the model name there differs from the
+  // car's (or the maker has many recalls), look the open recall up directly by its number
+  await Promise.all(recalls.filter(r => !r.detail && !empty(r.RECALL_ID)).map(async r => {
+    for (const id of [num(r.RECALL_ID), String(r.RECALL_ID).trim()]) {
+      try { const rows = await ds(MODEL_SETS.recalls, {RECALL_ID: id}, 5, signal); if (rows.length) { r.detail = rows[0]; return; } }
+      catch (err) { if (err.name === "AbortError") throw err; }
+    }
+  }));
   const tag = res.tag.rows[0] || null;
   const tSrc = towRow || (hasTow(v) ? v : null);
   const make = makeName(v), model = pick(v.kinuy_mishari, w.kinuy_mishari, v.degem_nm) || "";
@@ -1038,6 +1112,8 @@ function renderResult(){
   const pills = [];
   if (D.primary) pills.push(`<span class="pill ${D.primary.tone||"ok"}">${esc(D.primary.status)}</span>`);
   if (D.primary && D.primary.kind) pills.push(`<span class="pill">${esc(D.primary.kind)}</span>`);
+  const dt = driveType(D);
+  if (dt) pills.push(`<span class="pill drive ${["ev", "phev", "hybrid"].includes(dt.k) ? "green" : ""}">${ico(["ev", "phev", "hybrid"].includes(dt.k) ? "bolt" : "fuel")}${dt.label}</span>`);
   if (exp && !D.isCancelled) pills.push(exp < new Date() ? `<span class="pill bad">טסט לא בתוקף</span>` : `<span class="pill ok">טסט בתוקף</span>`);
   if (D.recalls.length) pills.push(`<span class="pill bad">${D.recalls.length === 1 ? "ריקול פתוח" : D.recalls.length + " ריקולים פתוחים"}</span>`);
   if (D.own.length) pills.push(`<span class="pill">${ownersLabel(D)}</span>`);
@@ -1121,7 +1197,7 @@ function tabOverview(D){
     D.isCancelled && ["סיבה", e(v.bitul_nm)],
     ["סוג יבוא", e(v.sug_yevu)],
     ["תג חניה לנכה", D.tag ? `יש${empty(D.tag["TAARICH HAFAKAT TAG"]) ? "" : " (הונפק " + esc(fmtDate(D.tag["TAARICH HAFAKAT TAG"])) + ")"}` : "אין"],
-  ]) + (toDate(v.tokef_dt) && toDate(v.tokef_dt) > new Date() && !D.isCancelled ? `<button type="button" class="link-btn" data-act="calendar">${ico("clock")}תזכורת ביומן לפני שהטסט פג</button>` : "")));
+  ]) + (toDate(v.tokef_dt) && toDate(v.tokef_dt) > new Date() && !D.isCancelled ? `<button type="button" class="link-btn" data-act="calendar">${ico("clock")}הוספת תזכורת ליומן</button>` : "")));
 
   const fo = firstOwner(v);
   const foLine = fo ? `<div class="first-own"><b>בעלות ראשונה (״מקוריות״): ${esc(fo)}</b>${ownerKind(fo).text ? `<span>${esc(ownerKind(fo).text)}</span>` : ""}</div>` : "";
@@ -1194,6 +1270,13 @@ function tabCosts(D){
       </div>
       <p class="note">נסיעה אמיתית צורכת בדרך כלל יותר מהנתון הרשמי.${c.kind === "diesel" && !c.fuelPrice ? " כדי לראות עלות בשקלים, הגדירו מחיר סולר בהגדרות." : " אפשר לשנות את מחיר הדלק בהגדרות."}</p>` :
     `<p style="margin:0">אין במאגר נתוני פליטה לדגם הזה, ולכן אין הערכת צריכה.</p>`;
+  if (c.monthly) {
+    const m = c.monthly;
+    html.push(card("כמה הרכב עולה בחודש", "tag", "blue", `<div class="month-big">כ-${fmtN(m.total)} ₪ <small>בחודש</small></div>
+      <div class="month-bar">${m.parts.map(([, v, col]) => `<span style="flex:${v};background:${col}"></span>`).join("")}</div>
+      <div class="month-lg">${m.parts.map(([k, v, col]) => `<span><i style="background:${col}"></i>${k} ${fmtN(v)} ₪</span>`).join("")}</div>
+      <p class="note">לפי ${fmtN(c.kmYear)} ק״מ בשנה. בלי ביטוח וטיפולים.</p>`));
+  }
   html.push(c.kind === "ev" ? card("חשמל", "bolt", "teal", fuelInner) : card("דלק", "fuel", "red", fuelInner));
   html.push(card("אגרת רישוי שנתית", "doc", "violet", c.fee ?
     `<div class="tow-grid"><div><div class="k">הערכה</div><div class="v">${fmtN(c.fee)}<span class="u">₪</span></div></div><div><div class="k">קבוצת מחיר</div><div class="v">${c.feeGroup}<span class="u">מתוך 7</span></div></div></div>
@@ -1203,7 +1286,7 @@ function tabCosts(D){
   const u = c.usage;
   html.push(card("שווי שימוש (רכב צמוד)", "users", "teal", u ?
     `<div class="tow-grid"><div><div class="k">לחודש (הערכה)</div><div class="v">${fmtN(u.monthly)}<span class="u">₪</span></div></div><div><div class="k">לשנה</div><div class="v">${fmtN(u.monthly * 12)}<span class="u">₪</span></div></div></div>
-     <p class="note">זה הסכום שמתווסף למשכורת לצורך מס, לא המס עצמו. הסכום המחייב מופיע במחשבון של רשות המסים.</p>
+     <p class="note">${u.green ? `כולל הפחתה של ${fmtN(u.green[1])} ₪ לרכב ${u.green[0]}. ` : ""}זה הסכום שמתווסף למשכורת לצורך מס, לא המס עצמו. הסכום המחייב מופיע במחשבון של רשות המסים.</p>
      <button type="button" class="link-btn" data-url="${USAGE.calc}" data-copyfirst="${esc(`קוד תוצר ${D.v.tozeret_cd} קוד דגם ${D.v.degem_cd} שנה ${u.regYear}`)}" data-copylabel="הקודים">${ico("doc")}המחשבון הרשמי של רשות המסים</button>` :
     `<p style="margin:0">אין מספיק נתונים לחישוב שווי השימוש של הרכב הזה (החישוב כאן לרכב פרטי שעלה לכביש מ-2010).</p><button type="button" class="link-btn" data-url="${USAGE.calc}">${ico("doc")}המחשבון הרשמי של רשות המסים</button>`));
   html.push(card("שווי משוער", "tag", "pink", (c.newPrice ?
@@ -1326,7 +1409,9 @@ async function dsSearch(id, words, filters, limit, signal){
   }
   return [];
 }
-const rowMake = r => { let n = String(r.tozeret_nm || r.tozar || "").trim(); const c = String(r.tozeret_eretz_nm || "").trim(); if (c && n.endsWith(" " + c)) n = n.slice(0, -c.length - 1); return n; };
+// maker names carry the factory country ("טויוטה יפן"); without it, one maker is one entry
+const COUNTRY_SFX = /\s+(יפן|בריטניה|אנגליה|צרפת|גרמניה|קוריאה|ספרד|צ'כיה|צכיה|טורקיה|סין|ארה"ב|ארהב|איטליה|תאילנד|הודו|מקסיקו|הונגריה|סלובקיה|פולין|רומניה|בלגיה|שבדיה|אוסטריה|פורטוגל|דרום אפריקה|ברזיל|קנדה|הולנד|סלובניה|רוסיה|מרוקו|אינדונזיה|טייוואן|מלזיה|ארגנטינה|סרביה|פינלנד|אוזבקיסטן|וייטנאם)$/;
+const rowMake = r => { let n = String(r.tozeret_nm || r.tozar || "").trim(); const c = String(r.tozeret_eretz_nm || "").trim(); if (c && n.endsWith(" " + c)) n = n.slice(0, -c.length - 1); return n.replace(COUNTRY_SFX, ""); };
 const rowModel = r => String(r.kinuy_mishari || r.degem_nm || "").trim();
 const rowLabel = r => [rowMake(r), rowModel(r)].filter(Boolean).join(" ");
 const rowKey = r => [r.tozeret_cd, r.degem_cd, r.shnat_yitzur, r.ramat_gimur].map(x => String(x ?? "").trim()).join("|");
@@ -1356,19 +1441,18 @@ async function fetchModel(r, signal){
 
 /* ---------- comparison (up to 3 cars or models) ---------- */
 const CMP_MAX = 3;
-let cmp = [], inCompare = false, cmpMode = "model", mResults = [], mCtrl = null;
-function openCompare(mode){
-  cmpMode = mode || cmpMode;
+let cmp = [], inCompare = false, mResults = [], mCtrl = null;
+function openCompare(){
   $("#compareSheet").hidden = false; $("#compareMsg").textContent = "";
-  $("#mq").value = ""; $("#mres").innerHTML = ""; mResults = []; mGroup = null; mYear = null;
+  $("#mq").value = ""; $("#mres").innerHTML = ""; mResults = []; mGroup = null; mYear = null; mShowAll = false;
   $("#cmpTitle").textContent = cmp.length ? `הוספת רכב ${cmp.length + 1} להשוואה` : "בחירת רכב להשוואה";
-  setCmpMode(cmpMode); renderSteps(); renderQuick();
+  renderQuick(); $("#mq").focus();
 }
 const MAKERS = ["טויוטה", "יונדאי", "קיה", "סקודה", "מאזדה", "טסלה", "שברולט", "מיצובישי", "סוזוקי", "ניסאן", "פולקסווגן", "רנו"];
 /* before typing: the car you just looked up, saved cars, and popular makers, so most picks are one tap */
 function renderQuick(){
   const box = $("#mquick"), q = $("#mq").value.trim();
-  if ((cmpMode === "model" && (q.length >= 2 || mGroup)) ) { box.innerHTML = ""; return; }
+  if (q.length >= 2 || mGroup) { box.innerHTML = ""; return; }
   const inCmp = p => cmp.some(x => x.plate === p);
   const parts = [];
   const mine = [];
@@ -1376,25 +1460,8 @@ function renderQuick(){
   for (const s of store.get("savedVehicles").filter(s => !inCmp(s.plate) && !(current && s.plate === current.plate)).slice(0, 3))
     mine.push(`<button type="button" class="qrow" data-qplate="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b>${esc(s.title)}</b><small>${esc(s.sub || "רכב שמור")}</small></span><span class="qadd">${ico("plus")}הוספה</span></button>`);
   if (mine.length) parts.push(`<div class="qsec">להוספה מהירה מהרכבים שלך</div><div class="list">${mine.join("")}</div>`);
-  if (cmpMode === "model") parts.push(`<div class="qsec">יצרנים נפוצים</div><div class="makers">${MAKERS.map(m => `<button type="button" data-maker="${m}">${m}</button>`).join("")}</div>`);
+  parts.push(`<div class="qsec">יצרנים נפוצים</div><div class="makers">${MAKERS.map(m => `<button type="button" data-maker="${m}">${m}</button>`).join("")}</div>`);
   box.innerHTML = parts.join("");
-}
-/* the three picking steps, always visible once a model is chosen; a finished step can be tapped to go back */
-function renderSteps(){
-  const el = $("#msteps");
-  if (cmpMode !== "model" || !mGroup) { el.hidden = true; return; }
-  const st = [["1 · דגם", mGroup.model, "model"], ["2 · שנה", mYear || "בחירה", "year"], ["3 · גימור", "בחירה", "trim"]];
-  const cur = mYear ? 2 : 1;
-  el.hidden = false;
-  el.innerHTML = st.map(([k, v, id], i) => `<button type="button" data-step="${id}" class="${i < cur ? "done" : i === cur ? "on" : ""}" ${i > cur ? "disabled" : ""}><small>${k}</small><b>${esc(String(v))}</b></button>`).join("");
-}
-function setCmpMode(m){
-  cmpMode = m;
-  document.querySelectorAll("[data-cmp-mode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.cmpMode === m)));
-  $("#mf").hidden = m !== "model"; $("#mres").hidden = m !== "model"; $("#cf").hidden = m !== "plate";
-  $("#compareMsg").textContent = "";
-  if (m === "model") { $("#mq").focus(); } else { $("#plate2").value = ""; $("#plate2").focus(); }
-  renderSteps(); renderQuick();
 }
 function addToCompare(D){
   const id = x => x.plate || x.key;
@@ -1403,14 +1470,27 @@ function addToCompare(D){
   $("#compareSheet").hidden = true; renderCompare(); window.scrollTo({top: 0});
   return true;
 }
-/* Picking a model, in steps: maker + model, then year, then trim. Each step stays a short list. */
-let mGroups = [], mGroup = null, mYear = null;
-const groupKey = r => [rowMake(r), rowModel(r)].join("|").toUpperCase();
+/* Picking a model: one search box, one list of models, then one screen with the year and the engine.
+   Trims of the same engine differ mostly in equipment, so the base one is added and can be switched in the comparison. */
+let mGroups = [], mGroup = null, mYear = null, mShowAll = false;
+const MODEL_SHOWN = 8;
+// body-style suffixes split one car into several entries in the catalogue
+const BODY_SFX = /\s+(HB|H\/B|HATCHBACK|SEDAN|SDN|SD|SW|S\/W|WAGON|ESTATE|STATION|LIFTBACK|[2-5]D|[2-5]DR|[2-5] DOORS?|האצ'בק|סדאן|סטיישן)$/i;
+const normModel = m => { let x = String(m || "").trim().toUpperCase().replace(/\s+/g, " "); for (let i = 0; i < 3 && BODY_SFX.test(x); i++) x = x.replace(BODY_SFX, ""); return x; };
+// the same car built in two countries has two maker codes; it is still one model for the buyer
+const groupKey = r => [rowMake(r), normModel(rowModel(r))].join("|").toUpperCase();
+const plateLike = q => /^[\d\s-]+$/.test(q) && digits(q).length >= 5;
 async function runModelSearch(){
   const q = $("#mq").value.trim(), msg = $("#compareMsg"), list = $("#mres");
+  mGroup = null; mYear = null;
   if (q.length < 2) { msg.textContent = ""; list.innerHTML = ""; renderQuick(); return; }
+  if (plateLike(q)) {
+    renderQuick(); msg.textContent = "";
+    list.innerHTML = `<button type="button" class="qrow" data-qplate="${digits(q)}"><span class="mini-plate"><i></i>${fmtPlate(digits(q))}</span><span class="t"><b>לפי מספר רישוי</b><small>הרכב הספציפי</small></span><span class="qadd">${ico("plus")}הוספה</span></button>`;
+    return;
+  }
   if (mCtrl) mCtrl.abort(); mCtrl = new AbortController(); const signal = mCtrl.signal;
-  msg.textContent = "מחפש…"; mGroup = null; mYear = null;
+  msg.textContent = "מחפש…"; renderQuick();
   try {
     const words = searchWords(q);
     let rows = await dsSearch(MODEL_SETS.wltp, words, null, 1000, signal);
@@ -1419,75 +1499,133 @@ async function runModelSearch(){
     const g = new Map();
     for (const r of rows) {
       if (empty(r.tozeret_cd) || !rowModel(r)) continue;
-      const k = groupKey(r); if (!g.has(k)) g.set(k, {make: rowMake(r), model: rowModel(r), tozeret_cd: r.tozeret_cd, rows: []});
-      g.get(k).rows.push(r);
+      const k = groupKey(r);
+      if (!g.has(k)) g.set(k, {make: rowMake(r), model: normModel(rowModel(r)), names: new Set(), cds: new Set(), rows: []});
+      const x = g.get(k); x.rows.push(r); x.names.add(rowModel(r)); x.cds.add(String(r.tozeret_cd));
     }
     mGroups = [...g.values()].map(x => { const ys = x.rows.map(r => num(r.shnat_yitzur)).filter(y => !isNaN(y)); return {...x, from: Math.min(...ys), to: Math.max(...ys)}; })
-      .sort((a, b) => b.to - a.to || (a.make + a.model).localeCompare(b.make + b.model, "he")).slice(0, 40);
-    msg.textContent = mGroups.length ? "איזה דגם?" : "לא נמצאו דגמים. נסו שם אחר, למשל שם הדגם באנגלית.";
-    renderSteps(); renderQuick();
-    list.innerHTML = mGroups.map((x, i) => `<button type="button" class="row" data-mg="${i}"><span class="t"><b>${esc(x.make)} ${esc(x.model)}</b><small>${isFinite(x.from) ? (x.from === x.to ? x.from : `<span dir="ltr">${x.from}–${x.to}</span>`) : ""}</small></span>${ico("chev")}</button>`).join("");
+      .sort((a, b) => b.to - a.to || (a.make + a.model).localeCompare(b.make + b.model, "he"));
+    mShowAll = false; showGroups();
   } catch (err) { if (err.name !== "AbortError") msg.textContent = "החיפוש נכשל. בדקו את החיבור ונסו שוב."; }
 }
-/* all rows of one maker + commercial name, every year and trim */
-async function groupRows(x){
-  const tries = [{tozeret_cd: num(x.tozeret_cd), kinuy_mishari: x.model}, {tozeret_cd: String(x.tozeret_cd), kinuy_mishari: x.model}, {tozeret_cd: num(x.tozeret_cd), degem_nm: x.model}];
-  for (const f of tries) { try { const r = await ds(MODEL_SETS.wltp, f, 1000); if (r.length) return r; } catch {} }
-  return x.rows;
+function showGroups(){
+  const msg = $("#compareMsg"), shown = mShowAll ? mGroups : mGroups.slice(0, MODEL_SHOWN), rest = mGroups.length - shown.length;
+  msg.textContent = mGroups.length ? "" : "לא נמצאו דגמים. נסו שם אחר, למשל שם הדגם באנגלית.";
+  $("#mres").innerHTML = shown.map(x => `<button type="button" class="row" data-mg="${mGroups.indexOf(x)}"><span class="t"><b>${esc(x.make)} ${esc(x.model)}</b><small>${isFinite(x.from) ? (x.from === x.to ? x.from : `<span dir="ltr">${x.from}–${x.to}</span>`) : ""}</small></span>${ico("chev")}</button>`).join("")
+    + (rest > 0 ? `<button type="button" class="more" data-more="1">עוד ${rest} דגמים ישנים יותר</button>` : "");
+  renderQuick();
 }
-const crumbs = () => "";
+/* all rows of one model, every maker code, year and trim */
+async function groupRows(x){
+  const out = [];
+  for (const cd of x.cds) {
+    let got = [];
+    for (const name of x.names) {
+      for (const f of [{tozeret_cd: num(cd), kinuy_mishari: name}, {tozeret_cd: String(cd), kinuy_mishari: name}]) {
+        try { const r = await ds(MODEL_SETS.wltp, f, 1000); if (r.length) { got.push(...r); break; } } catch {}
+      }
+    }
+    out.push(...got);
+  }
+  const seen = new Set(), all = [...out, ...x.rows].filter(r => { const k = rowKey(r) + "|" + num(r.koah_sus); if (seen.has(k)) return false; seen.add(k); return true; });
+  return all;
+}
+const rowD = r => ({w: r, v: {}, pick: (...a) => a.find(x => !empty(x))});
+const engKey = r => { const dt = driveType(rowD(r)); return [dt ? dt.k : "", num(r.koah_sus) || ""].join("|"); };
 async function pickGroup(i){
   mGroup = mGroups[i]; mYear = null; if (!mGroup) return;
-  const msg = $("#compareMsg"); msg.textContent = "טוען שנים…";
+  $("#mres").innerHTML = ""; $("#compareMsg").textContent = "טוען…"; renderQuick();
   mGroup.all = await groupRows(mGroup);
-  showYears();
-}
-function showYears(){
   const years = [...new Set(mGroup.all.map(r => num(r.shnat_yitzur)).filter(y => !isNaN(y)))].sort((a, b) => b - a);
-  $("#compareMsg").textContent = "באיזו שנת ייצור?";
-  renderSteps(); renderQuick();
-  $("#mres").innerHTML = crumbs() + `<div class="chips years big">${years.map(y => `<button type="button" class="chip" data-my="${y}">${y}</button>`).join("")}</div>`;
-  if (years.length === 1) pickYear(String(years[0]));
+  mGroup.years = years; showModel(String(years[0] || ""));
 }
-function pickYear(y){
+// one screen: years along the top (newest picked), then one row per engine
+function showModel(y){
   mYear = y;
-  // one entry per trim; engines that differ in power or fuel stay separate, everything else is merged
-  const seen = new Map();
+  const engines = new Map();
   for (const r of mGroup.all.filter(r => String(num(r.shnat_yitzur)) === String(y))) {
-    const k = [String(r.ramat_gimur || "").trim().toUpperCase(), num(r.koah_sus) || "", r.delek_nm || ""].join("|");
-    if (!seen.has(k)) seen.set(k, r);
+    const k = engKey(r); if (!engines.has(k)) engines.set(k, []);
+    const list = engines.get(k), t = String(r.ramat_gimur || "").trim().toUpperCase();
+    if (!list.some(x => String(x.ramat_gimur || "").trim().toUpperCase() === t)) list.push(r);
   }
-  mResults = [...seen.values()].sort((a, b) => String(a.ramat_gimur || "").localeCompare(String(b.ramat_gimur || "")) || (num(a.koah_sus) || 0) - (num(b.koah_sus) || 0));
-  $("#compareMsg").textContent = mResults.length > 1 ? "איזו רמת גימור?" : "";
-  renderSteps();
-  $("#mres").innerHTML = crumbs() + mResults.map((r, i) => {
-    const bits = [isNum(r.koah_sus) ? `${fmtN(r.koah_sus)} כ״ס` : "", r.delek_nm, empty(r.automatic_ind) ? "" : yes(r.automatic_ind) ? "אוטומטית" : "ידנית"].filter(x => !empty(x));
-    return `<button type="button" class="row" data-mi="${i}"><span class="t"><b>${esc(String(r.ramat_gimur || "").trim() || "גרסה בסיסית")}</b><small>${esc(bits.join(" · "))}</small></span>${ico("plus")}</button>`;
-  }).join("");
-  if (mResults.length === 1) pickModel(0);
+  mResults = [...engines.values()].map(l => l.sort((a, b) => String(a.ramat_gimur || "").localeCompare(String(b.ramat_gimur || ""))))
+    .sort((a, b) => (num(a[0].koah_sus) || 0) - (num(b[0].koah_sus) || 0));
+  $("#compareMsg").textContent = "";
+  const years = mGroup.years;
+  $("#mres").innerHTML = `<div class="mhead"><b>${esc(mGroup.make)} ${esc(mGroup.model)}</b><button type="button" class="mback" data-mback="1">כל הדגמים</button></div>`
+    + (years.length > 1 ? `<div class="qsec">שנת ייצור</div><div class="yrow">${years.map(v => `<button type="button" class="chip" data-my="${v}" aria-pressed="${String(v) === String(y)}">${v}</button>`).join("")}</div>` : `<div class="qsec">שנת ייצור ${esc(String(y))}</div>`)
+    + `<div class="qsec">${mResults.length > 1 ? "איזה מנוע?" : "מנוע"}</div>`
+    + mResults.map((l, i) => {
+      const r = l[0], dt = driveType(rowD(r)), green = dt && ["ev", "phev", "hybrid"].includes(dt.k);
+      const gear = !empty(r.automatic_ind) && !yes(r.automatic_ind) ? "ידנית" : "";
+      const trims = [gear, l.length > 1 ? `${l.length} רמות גימור` : String(r.ramat_gimur || "").trim()].filter(Boolean).join(" · ");
+      return `<button type="button" class="row eng" data-mi="${i}">${dt ? `<span class="pill drive ${green ? "green" : ""}">${ico(green ? "bolt" : "fuel")}${dt.label}</span>` : ""}<span class="t"><b>${isNum(r.koah_sus) ? `${fmtN(r.koah_sus)} כ״ס` : "גרסה"}</b><small>${esc(trims)}</small></span><span class="qadd" aria-label="הוספה">${ico("plus")}</span></button>`;
+    }).join("");
 }
-function stepBack(to){
-  if (to === "year" || (!to && mYear)) { mYear = null; showYears(); return; }
-  mGroup = null; mYear = null; renderSteps(); runModelSearch();
-}
-async function pickModel(i){
-  const r = mResults[i]; if (!r) return;
-  const msg = $("#compareMsg"); msg.textContent = `טוען את ${rowLabel(r)} ${r.shnat_yitzur || ""}…`;
-  try { addToCompare(await fetchModel(r)); }
+function stepBack(){ mGroup = null; mYear = null; showGroups(); }
+async function pickModel(i, j = 0, at = -1){
+  const l = mResults[i]; if (!l) return;
+  const msg = $("#compareMsg"); msg.textContent = `טוען את ${rowLabel(l[j])} ${l[j].shnat_yitzur || ""}…`;
+  try { const D = await fetchModel(l[j]); D.alts = l; addToCompare(D); }
   catch (err) { msg.textContent = "הטעינה נכשלה. נסו שוב."; }
+}
+/* Similar models: same body and drive technology, same year, close in power and weight.
+   Shown under the comparison while there is room for another car. */
+let simFor = null, simList = [];
+async function loadSimilar(D){
+  const key = D.key || D.plate; if (simFor === key) return;
+  simFor = key; simList = [];
+  const w = D.w || {}, y = num(D.v.shnat_yitzur), body = w.merkav;
+  if (!body || isNaN(y)) return;
+  const f = {shnat_yitzur: y, merkav: body}; if (!empty(w.technologiat_hanaa_nm)) f.technologiat_hanaa_nm = w.technologiat_hanaa_nm;
+  let rows = [];
+  try { rows = await ds(MODEL_SETS.wltp, f, 1000); } catch {}
+  if (!rows.length) return;
+  const hp = num(w.koah_sus), kg = num(w.mishkal_kolel), own = groupKey({...D.v, kinuy_mishari: D.model || D.v.kinuy_mishari});
+  const taken = new Set(cmp.map(x => groupKey({...x.v, kinuy_mishari: x.model || x.v.kinuy_mishari})));
+  const groups = new Map();
+  for (const r of rows) {
+    if (empty(r.tozeret_cd) || !rowModel(r)) continue;
+    const k = groupKey(r); if (k === own || taken.has(k)) continue;
+    const h = num(r.koah_sus);
+    if (hp > 0 && h > 0 && Math.abs(h - hp) / hp > 0.35) continue;
+    const score = (hp > 0 && h > 0 ? Math.abs(h - hp) / hp : 0.2) + (kg > 0 && num(r.mishkal_kolel) > 0 ? Math.abs(num(r.mishkal_kolel) - kg) / kg : 0.1);
+    if (!groups.has(k)) groups.set(k, {make: rowMake(r), model: normModel(rowModel(r)), rows: []});
+    const g = groups.get(k); g.rows.push(r); if (g.best === undefined || score < g.score) { g.best = r; g.score = score; }
+  }
+  const list = [...groups.values()].sort((a, b) => a.score - b.score).slice(0, 3).map(g => {
+    const ek = engKey(g.best), seen = new Set();
+    const alts = g.rows.filter(r => engKey(r) === ek).filter(r => { const t = String(r.ramat_gimur || "").trim().toUpperCase(); if (seen.has(t)) return false; seen.add(t); return true; })
+      .sort((a, b) => String(a.ramat_gimur || "").localeCompare(String(b.ramat_gimur || "")));
+    return {...g, alts};
+  });
+  if (simFor !== key) return;
+  simList = list;
+  if (inCompare && list.length) renderCompare();
+}
+async function addSimilar(i){
+  const g = simList[i]; if (!g) return;
+  const btn = document.querySelector(`[data-sim="${i}"] span`); if (btn) btn.textContent = "טוען…";
+  try { const D = await fetchModel(g.alts[0]); D.alts = g.alts; addToCompare(D); }
+  catch { toast("הטעינה נכשלה. נסו שוב."); }
+}
+/* switching trim inside the comparison keeps the column in place */
+async function switchTrim(i, j){
+  const D = cmp[i]; if (!D || !D.alts || !D.alts[j]) return;
+  try { const N = await fetchModel(D.alts[j]); N.alts = D.alts; cmp[i] = N; renderCompare(); }
+  catch { toast("הטעינה נכשלה. נסו שוב."); }
 }
 async function runCompare(raw){
   const plate = digits(raw).replace(/^0+(?=\d{5})/, "");
   const msg = $("#compareMsg");
   if (plate.length < 5 || plate.length > 8) { msg.textContent = "מספר רישוי צריך להכיל 5 עד 8 ספרות."; return; }
-  msg.textContent = "מחפש…"; $("#go2").disabled = true;
+  msg.textContent = "מחפש…";
   try {
     const D = await fetchVehicle(plate, undefined);
     if (D.offline) { msg.textContent = "אין חיבור למאגרים כרגע."; return; }
     if (D.notFound) { msg.textContent = "לא נמצא רכב עם המספר הזה."; return; }
     addToCompare(D);
   } catch (err) { msg.textContent = "החיפוש נכשל. נסו שוב."; }
-  finally { $("#go2").disabled = false; }
 }
 function renderCompare(){
   inCompare = true;
@@ -1500,6 +1638,7 @@ function renderCompare(){
   // [label, value(D), better: "hi" | "lo" | null, unit, plain, carOnly]  — a string label alone opens a section
   const rows = [
     "מחיר ועלויות",
+    ["עלות חודשית (הערכה)", D => D.cost.monthly ? D.cost.monthly.total : null, "lo", "₪"],
     ["מחיר מחירון כחדש", D => D.cost.newPrice || null, null, "₪"],
     ["שווי משוער היום", D => D.cost.valueLow ? Math.round((D.cost.valueLow + D.cost.valueHigh) / 2000) * 1000 : null, null, "₪"],
     kmlUnit() ? ["ק״מ לליטר (הערכה)", D => D.cost.l100 ? Math.round(1000 / D.cost.l100) / 10 : null, "hi", "", true]
@@ -1546,18 +1685,47 @@ function renderCompare(){
     const [k, f, dir, u, plain, carOnly] = r;
     const vals = L.map(D => carOnly && D.kind === "model" ? null : N(f(D)));
     if (vals.every(x => x === null)) return "";
+    if (diffOnly && n > 1 && new Set(vals.map(x => JSON.stringify(x))).size === 1) return "";
     const nums = vals.filter(x => typeof x === "number");
     let best = null;
     if (dir === "yes") { if (n > 1 && vals.some(x => x === true) && vals.some(x => x !== true)) best = true; }
     else if (dir && n > 1 && nums.length > 1 && new Set(nums).size > 1) best = dir === "hi" ? Math.max(...nums) : Math.min(...nums);
     return `<div class="cmp-k">${esc(k)}</div>` + vals.map(x => `<div class="cmp-v${best !== null && x === best ? " win" : ""}">${cell(x, u, plain)}</div>`).join("");
+  }).filter((h, i, all) => {
+    // a section title stays only when at least one row follows it
+    if (!h.startsWith(`<div class="cmp-sec">`)) return !!h;
+    const next = all.slice(i + 1).find(Boolean);
+    return !!next && !next.startsWith(`<div class="cmp-sec">`);
   }).join("");
-  const head = (D, i) => `<div class="cmp-h"><div class="cmp-top">${D.kind === "model" ? `<span class="tag">דגם</span>` : `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>`}<button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><b>${esc(D.title)}</b><small>${esc(D.sub)}</small></div>`;
+  // the bottom line: one short verdict per topic, only when one car clearly leads
+  const short = D => D.model || D.title;
+  const lead = (label, f, dir) => {
+    const v = L.map(D => { const x = f(D); return typeof x === "number" && isFinite(x) && x > 0 ? x : null; });
+    if (v.filter(x => x !== null).length < 2) return "";
+    const best = dir === "hi" ? Math.max(...v.filter(x => x !== null)) : Math.min(...v.filter(x => x !== null));
+    const who = L.filter((D, i) => v[i] === best);
+    return who.length === 1 ? `<span><small>${label}</small><b>${esc(short(who[0]))}</b></span>` : "";
+  };
+  const verdict = n > 1 ? [
+    lead("הכי זול לקנייה", D => D.cost.newPrice || (D.cost.valueLow ? (D.cost.valueLow + D.cost.valueHigh) / 2 : null), "lo"),
+    lead("הכי זול לאחזקה", D => D.cost.monthly ? D.cost.monthly.total : null, "lo"),
+    lead("הכי חזק", D => nf(D.w, "koah_sus"), "hi"),
+    lead("הכי בטיחותי", D => num(D.pick(D.v.ramat_eivzur_betihuty, D.w.ramat_eivzur_betihuty)), "hi"),
+  ].filter(Boolean).join("") : "";
+  const head = (D, i) => `<div class="cmp-h"><div class="cmp-top">${D.kind === "model" ? `<span class="tag">דגם</span>` : `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>`}<button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><b>${esc(D.title)}</b><small>${esc(D.alts && D.alts.length > 1 ? String(D.v.shnat_yitzur || "") : D.sub)}</small>${D.alts && D.alts.length > 1 ? `<select class="trim-sel" data-trim="${i}" aria-label="רמת גימור">${D.alts.map((r, j) => `<option value="${j}"${rowKey(r) === D.key ? " selected" : ""}>${esc(String(r.ramat_gimur || "").trim() || "גרסה בסיסית")}</option>`).join("")}</select>` : ""}</div>`;
+  const base = n && n < CMP_MAX ? L[n - 1] : null;
+  if (base) loadSimilar(base);
+  const simHtml = base && simFor === (base.key || base.plate) && simList.length ? `<div class="sim-box"><div class="qsec">דגמים דומים, להוספה בלחיצה</div><div class="sim-row">${simList.map((g, i) => {
+    const r = g.alts[0], dt = driveType(rowD(r));
+    return `<button type="button" data-sim="${i}"><b>${esc(g.make)} ${esc(g.model)}</b><small>${esc([dt && dt.label, isNum(r.koah_sus) ? `${fmtN(r.koah_sus)} כ״ס` : ""].filter(Boolean).join(" · "))}</small><span>${ico("plus")}הוספה</span></button>`;
+  }).join("")}</div></div>` : "";
   const wide = cmpWide();
   $("#out").innerHTML = `<section class="card blue${wide ? " cmp-wide" : ""}" style="--n:${Math.max(n, 1)}"><div class="head"><span class="badge">${ico("compare")}</span><h2>השוואת רכבים</h2><button type="button" class="count" data-act="closeCompare" style="border:0">חזרה</button></div>
     ${n ? "" : `<p style="margin:0">הוסיפו עד ${CMP_MAX} דגמים או רכבים, וההשוואה תראה מחיר, עלויות, כוח, גרירה, בטיחות ואמינות זה לצד זה.</p>
     <div class="slots">${[1, 2, 3].map(i => `<button type="button" data-act="addCompare">${ico("plus")}רכב ${i}</button>`).join("")}</div>`}
-    ${n && (n < CMP_MAX || n > 1) ? `<div class="cmp-bar">${n < CMP_MAX ? `<button type="button" class="cmp-add" data-act="addCompare">${ico("plus")}${n ? `הוספת רכב (עד ${CMP_MAX})` : "בחירת רכב ראשון"}</button>` : ""}${n > 1 ? `<button type="button" class="cmp-land" data-act="land" aria-pressed="${land}">${ico("rotate")}${land ? "תצוגה רגילה" : "תצוגה לרוחב"}</button><button type="button" class="cmp-land" data-act="cmpPdf">${ico("doc")}PDF</button>` : ""}</div>` : ""}
+    ${n ? `<div class="cmp-bar">${n < CMP_MAX ? `<button type="button" class="cmp-tool add" data-act="addCompare">${ico("plus")}הוספה</button>` : ""}${n > 1 ? `<button type="button" class="cmp-tool" data-act="diffOnly" aria-pressed="${diffOnly}">${ico("compare")}רק הבדלים</button><button type="button" class="cmp-tool ic" data-act="land" aria-pressed="${land}" aria-label="${land ? "תצוגה רגילה" : "תצוגה לרוחב"}" title="${land ? "תצוגה רגילה" : "תצוגה לרוחב"}">${ico("rotate")}</button><button type="button" class="cmp-tool ic" data-act="cmpPdf" aria-label="PDF" title="PDF">${ico("doc")}</button>` : ""}</div>` : ""}
+    ${verdict ? `<div class="verdict">${verdict}</div>` : ""}
+    ${simHtml}
     ${n ? `<div class="cmp"><div class="ph"></div>${L.map(head).join("")}</div>` : ""}
     ${n ? `<div class="cmp-table">${body}</div>` : ""}
     ${n > 1 ? `<p class="note">ירוק מסמן את הערך העדיף בכל שורה.</p>` : ""}</section>`;
@@ -1598,6 +1766,8 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "compareHome") { cmp = []; renderCompare(); openCompare("model"); return; }
   if (b.dataset.act === "closeCompare") { closeCompare(); return; }
   if (b.dataset.act === "cmpPdf") { shareComparePdf(b); return; }
+  if (b.dataset.sim) { addSimilar(+b.dataset.sim); return; }
+  if (b.dataset.act === "diffOnly") { diffOnly = !diffOnly; try { localStorage.setItem("cmpDiffOnly", diffOnly ? "1" : ""); } catch {} renderCompare(); return; }
   if (b.dataset.act === "land") { setLand(!land); return; }
   if (!current) return;
   if (b.dataset.tab) { currentTab = b.dataset.tab; renderResult(); const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"}); return; }
@@ -1611,13 +1781,13 @@ $("#out").addEventListener("click", ev => {
     const on = toggleSaved({plate: current.plate, title: current.title, sub: current.sub, at: Date.now(), tokef: current.v.tokef_dt || "", recalls: current.recalls.length, checked: Date.now()});
     b.setAttribute("aria-pressed", String(on)); b.querySelector("span").textContent = on ? "נשמר" : "שמירה";
     toast(on ? "הרכב נשמר ברשימה שלך" : "הרכב הוסר מהרשימה");
+    if (on && alertsSupported()) { let asked = false; try { asked = !!localStorage.getItem("alertsAsked"); localStorage.setItem("alertsAsked", "1"); } catch {} if (!asked) try { window.AndroidApp.setAlerts(true); } catch {} }
   }
 });
-$("#cf").addEventListener("submit", ev => { ev.preventDefault(); runCompare($("#plate2").value); });
-$("#mf").addEventListener("submit", ev => { ev.preventDefault(); runModelSearch(); });
+$("#out").addEventListener("change", ev => { const s = ev.target.closest("[data-trim]"); if (s) switchTrim(+s.dataset.trim, +s.value); });
+$("#mf").addEventListener("submit", ev => { ev.preventDefault(); const q = $("#mq").value.trim(); if (plateLike(q)) runCompare(q); else runModelSearch(); });
 let mTimer = null;
-$("#mq").addEventListener("input", () => { clearTimeout(mTimer); mGroup = null; mYear = null; renderSteps(); if ($("#mq").value.trim().length >= 2) mTimer = setTimeout(runModelSearch, 350); else { $("#mres").innerHTML = ""; $("#compareMsg").textContent = ""; renderQuick(); } });
-$("#msteps").addEventListener("click", ev => { const b = ev.target.closest("[data-step]"); if (!b || b.disabled) return; if (b.dataset.step === "model") stepBack("model"); else if (b.dataset.step === "year" && mYear) stepBack("year"); });
+$("#mq").addEventListener("input", () => { clearTimeout(mTimer); mGroup = null; mYear = null; if ($("#mq").value.trim().length >= 2) mTimer = setTimeout(runModelSearch, 350); else { $("#mres").innerHTML = ""; $("#compareMsg").textContent = ""; renderQuick(); } });
 $("#mquick").addEventListener("click", ev => {
   const b = ev.target.closest("button"); if (!b) return;
   if (b.dataset.qcur) addToCompare(current);
@@ -1626,13 +1796,15 @@ $("#mquick").addEventListener("click", ev => {
 });
 $("#mres").addEventListener("click", ev => {
   const b = ev.target.closest("button"); if (!b) return;
-  if (b.dataset.mg) pickGroup(+b.dataset.mg);
-  else if (b.dataset.my) pickYear(b.dataset.my);
+  if (b.dataset.qplate) runCompare(b.dataset.qplate);
+  else if (b.dataset.more) { mShowAll = true; showGroups(); }
+  else if (b.dataset.mg) pickGroup(+b.dataset.mg);
+  else if (b.dataset.my) showModel(b.dataset.my);
   else if (b.dataset.mi) pickModel(+b.dataset.mi);
   else if (b.dataset.mback) stepBack();
 });
-document.querySelectorAll("[data-cmp-mode]").forEach(b => b.addEventListener("click", () => setCmpMode(b.dataset.cmpMode)));
-let land = false;
+let land = false, diffOnly = false;
+try { diffOnly = localStorage.getItem("cmpDiffOnly") === "1"; } catch {}
 const cmpWide = () => land || matchMedia("(min-width:640px)").matches;
 addEventListener("resize", () => { if (inCompare && !!$("#out .cmp-wide") !== cmpWide()) renderCompare(); });
 function setLand(on, redraw = true){
@@ -1726,8 +1898,9 @@ async function captureEl(el, breakSel){
 }
 function canvasToBlob(c, type, q){ return new Promise(ok => c.toBlob(ok, type, q)); }
 function blobToBase64(b){ return new Promise((ok, fail) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = fail; r.readAsDataURL(b); }); }
-async function shareFile(blob, name, title){
+async function shareFile(blob, name, title, caption){
   const br = bridge();
+  if (br && br.shareFileText && caption) { br.shareFileText(name, blob.type, await blobToBase64(blob), title, caption); return; }
   if (br && br.shareFile) { br.shareFile(name, blob.type, await blobToBase64(blob), title); return; }
   const file = new File([blob], name, {type: blob.type});
   if (navigator.canShare && navigator.canShare({files: [file]})) {
@@ -1796,7 +1969,8 @@ async function makeComparePdf(){
   const today = new Date().toLocaleDateString("he-IL");
   const el = document.createElement("div"); el.className = "report pdf";
   const card = sec.cloneNode(true); card.classList.add("cmp-wide");
-  card.querySelectorAll(".cmp-bar, .head .count, .cmp-top .x").forEach(x => x.remove());
+  card.querySelectorAll(".trim-sel").forEach(x => { const o = x.querySelector("option[selected]") || x.options[0], sm = x.parentElement.querySelector("small"); if (o && sm) sm.textContent += " · " + o.textContent; });
+  card.querySelectorAll(".cmp-bar, .head .count, .cmp-top .x, .trim-sel, .sim-box").forEach(x => x.remove());
   el.innerHTML = brandHead() + `<div class="rep-head"><b>השוואת רכבים</b><span>${today}</span></div>`;
   el.appendChild(card);
   el.insertAdjacentHTML("beforeend", `<p class="rep-foot">המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il. הערכות העלות והשווי משוערות. ${BRAND_FOOT}</p>`);
@@ -1813,12 +1987,13 @@ async function shareComparePdf(btn){
 async function doShare(kind){
   const D = current; if (!D) return;
   const msg = $("#shareMsg"), name = `Luchit-${D.plate}`;
-  if (kind === "text") { $("#shareSheet").hidden = true; shareText(D.title, summaryText(D)); return; }
+  if (kind === "text") { $("#shareSheet").hidden = true; shareText(D.title, summaryText(D), D.plate); return; }
   document.querySelectorAll("[data-share]").forEach(b => b.disabled = true);
   msg.textContent = kind === "pdf" ? "מכין קובץ PDF…" : "מכין תמונה…";
   try {
-    if (kind === "pdf") await shareFile(await makePdf(D), name + ".pdf", D.title);
-    else { const {canvas} = await captureReport(D, false); await shareFile(await canvasToBlob(canvas, "image/png"), name + ".png", D.title); }
+    const caption = `${D.title} · ${fmtPlate(D.plate)}\nהדוח המלא באפליקציה לוחית:\n${carLink(D.plate)}`;
+    if (kind === "pdf") await shareFile(await makePdf(D), name + ".pdf", D.title, caption);
+    else { const {canvas} = await captureReport(D, false); await shareFile(await canvasToBlob(canvas, "image/png"), name + ".png", D.title, caption); }
     $("#shareSheet").hidden = true;
   } catch (err) {
     msg.textContent = "לא הצלחתי להכין את הקובץ. בדקו את החיבור לאינטרנט ונסו שוב.";
@@ -1830,8 +2005,20 @@ $("#shareSheet").addEventListener("click", ev => {
 });
 $("#closeShare").addEventListener("click", () => { $("#shareSheet").hidden = true; });
 
-/* test-expiry reminder as a calendar file: all-day event on the expiry date, alerts 30 and 7 days before */
+/* test-expiry reminder: in the app the phone's calendar opens with the event filled in;
+   on the web it opens Google Calendar; a calendar file is the last resort */
 function testReminder(D){
+  const d = toDate(D.v.tokef_dt); if (!d) return;
+  const ymd = x => `${x.getFullYear()}${String(x.getMonth() + 1).padStart(2, "0")}${String(x.getDate()).padStart(2, "0")}`;
+  const next = new Date(d); next.setDate(next.getDate() + 1);
+  const title = `טסט לרכב ${fmtPlate(D.plate)} (${D.title})`, desc = "תוקף רישיון הרכב מסתיים היום. כדאי לקבוע טסט מראש.";
+  window.calendarFallback = () => testReminderFile(D);
+  const b = bridge();
+  if (b && b.addCalendar) { try { b.addCalendar(title, desc, ymd(d)); return; } catch {} }
+  openExternal(`https://calendar.google.com/calendar/render?${new URLSearchParams({action: "TEMPLATE", text: title, details: desc, dates: `${ymd(d)}/${ymd(next)}`})}`);
+}
+/* calendar file: all-day event on the expiry date, alerts 30 and 7 days before */
+function testReminderFile(D){
   const d = toDate(D.v.tokef_dt); if (!d) return;
   const ymd = x => `${x.getFullYear()}${String(x.getMonth() + 1).padStart(2, "0")}${String(x.getDate()).padStart(2, "0")}`;
   const next = new Date(d); next.setDate(next.getDate() + 1);
@@ -2022,7 +2209,7 @@ function renderHome(){
   if (saved.length) html.push(card("רכבים שמורים", "star", "amber", `<div class="list">${saved.map(s => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-open="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b>${esc(s.title)}</b><small>${esc(s.sub || "")}</small>${savedFlags(s)}</span></button><button type="button" class="x" data-unsave="${s.plate}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div>`));
   if (recent.length) html.push(card("חיפושים אחרונים", "clock", "blue", `<div class="chips">${recent.map(p => `<button type="button" class="chip" data-open="${p}">${fmtPlate(p)}</button>`).join("")}</div>`));
   html.push(card("השוואת דגמים לפני קנייה", "compare", "violet", `<p style="margin:0">מחפשים רכב? חפשו לפי יצרן או דגם והשוו עד ${CMP_MAX} דגמים: מחיר, צריכת דלק, אגרה, כוח, גרירה, בטיחות וכמה ריקולים היו לדגם.</p><button type="button" class="link-btn" data-act="compareHome">${ico("search")}התחלת השוואה</button>`));
-  html.push(card("מה תקבלו", "bulb", "teal", `<p style="margin:0">סטטוס הרכב ותוקף הטסט, היסטוריית בעלויות, ק״מ בטסט האחרון, תובנות חשובות, ריקולים פתוחים, כושר גרירה עם ובלי בלמים, מפרט, מערכות בטיחות, מחיר מחירון וכמה רכבים כאלה על הכביש.</p>`));
+  if (!saved.length && !recent.length) html.push(card("מה תקבלו", "bulb", "teal", `<p style="margin:0">סטטוס הרכב ותוקף הטסט, היסטוריית בעלויות, ק״מ בטסט האחרון, תובנות חשובות, ריקולים פתוחים, כושר גרירה עם ובלי בלמים, מפרט, מערכות בטיחות, מחיר מחירון וכמה רכבים כאלה על הכביש.</p>`));
   $("#out").innerHTML = html.join("");
   if (saved.length) checkSaved();
 }
@@ -2059,7 +2246,8 @@ document.querySelectorAll("[data-theme-choice]").forEach(b => b.addEventListener
 }));
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => applyTheme(themeChoice()));
 const sheet = $("#settings");
-$("#openSettings").addEventListener("click", () => { sheet.hidden = false; $("#closeSettings").focus(); });
+$("#openSettings").addEventListener("click", () => { syncAlertsSeg(); sheet.hidden = false; $("#closeSettings").focus(); });
+document.querySelectorAll("[data-alerts]").forEach(b => b.addEventListener("click", () => { try { window.AndroidApp.setAlerts(b.dataset.alerts === "on"); localStorage.setItem("alertsAsked", "1"); } catch {} syncAlertsSeg(); }));
 $("#closeSettings").addEventListener("click", () => { sheet.hidden = true; $("#openSettings").focus(); });
 sheet.addEventListener("click", ev => { if (ev.target === sheet) sheet.hidden = true; });
 document.addEventListener("keydown", ev => { if (ev.key === "Escape") { sheet.hidden = true; $("#compareSheet").hidden = true; $("#shareSheet").hidden = true; } });
@@ -2087,8 +2275,37 @@ document.querySelectorAll("[data-unit]").forEach(b => b.addEventListener("click"
 applyTheme(themeChoice());
 /* Android back button: close settings, then return from a result to the home screen */
 $(".brand h1").addEventListener("click", () => { if (!current && !inCompare) return; if (land) setLand(false, false); inCompare = false; renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} window.scrollTo({top: 0}); });
-window.appBack = () => { if (!sheet.hidden) { sheet.hidden = true; return true; } if (!$("#compareSheet").hidden) { hideCmpSheet(); return true; } if (!$("#shareSheet").hidden) { $("#shareSheet").hidden = true; return true; } if (inCompare) { closeCompare(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} return true; } return false; };
+window.appBack = () => { if (!sheet.hidden) { sheet.hidden = true; return true; } if (!$("#compareSheet").hidden) { if (mGroup) stepBack(); else hideCmpSheet(); return true; } if (!$("#shareSheet").hidden) { $("#shareSheet").hidden = true; return true; } if (inCompare) { closeCompare(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} return true; } return false; };
 
+/* Text shared from another app (an ad, a message): find a plate number in it.
+   Phone numbers, prices and mileage are skipped; a number next to the words רכב/רישוי/לוחית wins. */
+function plateInText(text){
+  const t = String(text || ""), found = [];
+  for (const m of t.matchAll(/(?<![\d,.])(\d{2,3}[-\s.]?\d{2,3}[-\s.]?\d{2,3})(?![\d,])/g)) {
+    const d = digits(m[1]); if (d.length < 7 || d.length > 8) continue;
+    const before = t.slice(Math.max(0, m.index - 30), m.index);
+    if (/0\d{1,2}[-\s]?$/.test(before) || /טל|נייד|פלאפון|phone|₪|ש"ח|ק"מ|ק״מ/i.test(before.slice(-12))) continue;
+    found.push({d, near: /רכב|רישוי|לוחית|מספר/.test(before)});
+  }
+  return (found.find(x => x.near) || found[0] || {}).d || null;
+}
+window.onSharedText = text => {
+  const p = plateInText(text);
+  if (p) { run(p); return; }
+  renderHome(); toast("לא מצאתי מספר רישוי במה ששיתפת. אפשר לשתף צילום של הלוחית או להקליד את המספר.");
+};
+window.onSharedImage = async dataUrl => {
+  renderHome();
+  try { const blob = await (await fetch(dataUrl)).blob(); plateFromPhoto(blob); } catch { toast("לא הצלחתי לפתוח את התמונה"); }
+};
+/* launcher shortcuts */
+window.appAction = what => {
+  if (!$("#compareSheet").hidden) $("#compareSheet").hidden = true;
+  if (what === "compare") { cmp = []; renderCompare(); openCompare(); }
+  else if (what === "camera") { renderHome(); $("#camBtn").click(); }
+  else if (what === "saved") { renderHome(); const c = [...document.querySelectorAll("#out .card")].find(x => x.textContent.includes("רכבים שמורים")); if (c) c.scrollIntoView({block: "start"}); else toast("עוד לא שמרת רכבים. אחרי חיפוש, לחצו על \"שמירה\"."); }
+};
+syncSaved(store.get("savedVehicles"));
 const start = digits(location.hash) || digits(new URLSearchParams(location.search).get("plate"));
 if (start) run(start); else renderHome();
 </script>
