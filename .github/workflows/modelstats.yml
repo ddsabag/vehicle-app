@@ -1,0 +1,24 @@
+name: Model statistics
+on:
+  schedule:
+    - cron: "20 5 6 * *"   # monthly, a day after the market data
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node --max-old-space-size=6000 .github/scripts/modelstats.mjs
+      - run: |
+          cp out/modelstats.json modelstats.json
+          if [ -n "$(git status --porcelain modelstats.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add modelstats.json && git commit -m "Update model statistics" && git push
+          fi
