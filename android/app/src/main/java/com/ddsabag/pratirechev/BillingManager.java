@@ -90,8 +90,8 @@ class BillingManager implements PurchasesUpdatedListener {
         for (String id : new String[]{PRO_M, PRO_Y, BIZ})
             subs.add(QueryProductDetailsParams.Product.newBuilder().setProductId(id).setProductType(BillingClient.ProductType.SUBS).build());
         inapp.add(QueryProductDetailsParams.Product.newBuilder().setProductId(BUYER).setProductType(BillingClient.ProductType.INAPP).build());
-        client.queryProductDetailsAsync(QueryProductDetailsParams.newBuilder().setProductList(subs).build(), (r, list) -> collect(r, list));
-        client.queryProductDetailsAsync(QueryProductDetailsParams.newBuilder().setProductList(inapp).build(), (r, list) -> collect(r, list));
+        client.queryProductDetailsAsync(QueryProductDetailsParams.newBuilder().setProductList(subs).build(), (r, res) -> collect(r, res.getProductDetailsList()));
+        client.queryProductDetailsAsync(QueryProductDetailsParams.newBuilder().setProductList(inapp).build(), (r, res) -> collect(r, res.getProductDetailsList()));
     }
 
     private void collect(BillingResult r, List<ProductDetails> list) {

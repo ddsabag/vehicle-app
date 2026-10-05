@@ -44,5 +44,5 @@ dependencies {
     implementation("androidx.work:work-runtime:2.9.1")
     implementation("com.google.android.play:review:2.0.2")
     implementation("com.android.installreferrer:installreferrer:2.2")
-    implementation("com.android.billingclient:billing:7.1.1")
+    implementation("com.android.billingclient:billing:8.0.0")
 }
