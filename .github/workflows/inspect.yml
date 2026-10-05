@@ -23,7 +23,7 @@ jobs:
           node-version: 20
       - run: |
           mkdir -p out
-          node .github/scripts/${{ inputs.script }} | tee out/report.txt
+          node .github/scripts/${{ inputs.script }} 2>&1 | tee out/report.txt
         env:
           PLATES: ${{ inputs.plates }}
           QUERIES: ${{ inputs.queries }}

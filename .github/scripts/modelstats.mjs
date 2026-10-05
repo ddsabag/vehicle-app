@@ -9,13 +9,13 @@ const ID = {
 };
 const PAGE = 30000, T0 = Date.now();
 const log = m => console.log(`[${Math.round((Date.now() - T0) / 1000)}s] ${m}`);
-async function call(params, tries = 5) {
+async function call(params, tries = 8) {
   for (let i = 0; i < tries; i++) {
     try {
       const r = await fetch(API + "?" + new URLSearchParams(params), {signal: AbortSignal.timeout(120000)});
       const j = await r.json(); if (j.success) return j.result;
     } catch {}
-    await new Promise(r => setTimeout(r, 3000 * (i + 1)));
+    await new Promise(r => setTimeout(r, 4000 * (i + 1)));
   }
   throw new Error("failed " + JSON.stringify(params).slice(0, 120));
 }
@@ -43,26 +43,26 @@ log("active: " + await scan(ID.active, "mispar_rechev,tozeret_cd,kinuy_mishari,s
   }
 }));
 // 2. cars taken off the road (final cancellation)
-for (const id of ID.cancel) log("cancel: " + await scan(id, "tozeret_cd,kinuy_mishari,shnat_yitzur", rows => {
+for (const id of ID.cancel) try { log("cancel: " + await scan(id, "tozeret_cd,kinuy_mishari,shnat_yitzur", rows => {
   for (const r of rows) {
     const y = Number(r.shnat_yitzur), m = norm(r.kinuy_mishari); if (!y || !m || !r.tozeret_cd) continue;
     cohorts[idOf(r.tozeret_cd, m, y)].c++;
   }
-}));
+})); } catch (e) { log("cancel FAILED " + e.message); }
 // 3. km at the last test (active cars only)
-log("tech: " + await scan(ID.tech, "mispar_rechev,kilometer_test_aharon", rows => {
+try { log("tech: " + await scan(ID.tech, "mispar_rechev,kilometer_test_aharon", rows => {
   for (const r of rows) {
     const i = plate.get(Number(r.mispar_rechev)), km = Number(r.kilometer_test_aharon); if (i === undefined || !(km > 0) || km > 999999) continue;
     cohorts[i].kmSum += km; cohorts[i].kmN++;
   }
-}));
+})); } catch (e) { log("tech FAILED " + e.message); }
 // 4. ownership records per car (log starts 2017: a floor, but comparable between models)
 const seen = new Map();
 log("owners: " + await scan(ID.owners, "mispar_rechev", rows => { for (const r of rows) { const k = Number(r.mispar_rechev); seen.set(k, (seen.get(k) || 0) + 1); }; }));
 for (const [p, n] of seen) { const i = plate.get(p); if (i !== undefined) { cohorts[i].own += n; cohorts[i].ownN++; } }
 // 5. open recalls (cars with at least one)
 const rc = new Set();
-log("recall: " + await scan(ID.recall, "MISPAR_RECHEV", rows => { for (const r of rows) rc.add(Number(r.MISPAR_RECHEV)); }));
+try { log("recall: " + await scan(ID.recall, "MISPAR_RECHEV", rows => { for (const r of rows) rc.add(Number(r.MISPAR_RECHEV)); })); } catch (e) { log("recall FAILED " + e.message); }
 for (const p of rc) { const i = plate.get(p); if (i !== undefined) cohorts[i].rec++; }
 
 // output: models with >= 500 active cars, cohorts with >= 100
