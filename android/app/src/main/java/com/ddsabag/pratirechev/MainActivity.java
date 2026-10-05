@@ -225,6 +225,17 @@ public class MainActivity extends Activity {
                 });
             }
 
+            /** Plans: the page asks, Google Play decides, and the result comes back through onEntitlement */
+            @JavascriptInterface
+            public void billingInit() {
+                runOnUiThread(() -> billing().init());
+            }
+
+            @JavascriptInterface
+            public void purchase(String sku) {
+                runOnUiThread(() -> billing().purchase(MainActivity.this, sku));
+            }
+
             @JavascriptInterface
             public void openUrl(String url) {
                 runOnUiThread(() -> {
@@ -357,6 +368,13 @@ public class MainActivity extends Activity {
         } catch (Exception ignored) {
             p.edit().putBoolean("referrerChecked", true).apply();
         }
+    }
+
+    private BillingManager billingMgr;
+
+    private BillingManager billing() {
+        if (billingMgr == null) billingMgr = new BillingManager(this, js -> runOnUiThread(() -> runJs(js)));
+        return billingMgr;
     }
 
     /** Runs page code now, or once the page has loaded */

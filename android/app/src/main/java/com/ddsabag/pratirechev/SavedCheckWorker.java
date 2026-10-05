@@ -97,13 +97,16 @@ public class SavedCheckWorker extends Worker {
                     checkTest(c, p, plate, name);
                 } catch (Exception ignored) {
                 }
-                try {
-                    checkOwners(c, p, plate, name);
-                } catch (Exception ignored) {
-                }
-                try {
-                    checkStatus(c, p, plate, name);
-                } catch (Exception ignored) {
+                // new owner and left-the-road alerts belong to the paid plans; the page marks each car
+                if (car.optBoolean("ext", true)) {
+                    try {
+                        checkOwners(c, p, plate, name);
+                    } catch (Exception ignored) {
+                    }
+                    try {
+                        checkStatus(c, p, plate, name);
+                    } catch (Exception ignored) {
+                    }
                 }
             }
         } catch (Exception e) {
