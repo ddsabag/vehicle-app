@@ -2460,8 +2460,8 @@ const newSavedItem = D => ({plate: D.plate, title: D.title, sub: D.sub, at: Date
 function askVerdict(ask, fair){
   if (!ask || !fair) return null;
   const [lo, hi] = fair, r = x => fmtN(Math.round(x / 100) * 100) + " ₪";
-  if (ask > hi) return {k: "bad", s: "מעל הטווח", t: `המחיר המבוקש גבוה מהטווח ב-${r(ask - hi)}`};
-  if (ask < lo) return {k: "ok", s: "מתחת לטווח", t: `המחיר המבוקש נמוך מהטווח ב-${r(lo - ask)}`};
+  if (ask > hi) return {k: "bad", s: "גבוה מהטווח", t: `המחיר המבוקש גבוה מהטווח ב-${r(ask - hi)}`};
+  if (ask < lo) return {k: "ok", s: "נמוך מהטווח", t: `המחיר המבוקש נמוך מהטווח ב-${r(lo - ask)}`};
   return {k: "ok", s: "בתוך הטווח", t: "המחיר המבוקש בתוך הטווח"};
 }
 function buyerCard(D){
@@ -2501,9 +2501,9 @@ function renderCandidates(){
       return {s, vd, tot: s.c5 && s.ask && mid ? s.c5 + (s.ask - mid) : null};
     });
     const best = rows.filter(r => r.tot).sort((a, b) => a.tot - b.tot)[0];
-    const tbl = rows.map(({s, vd, tot}) => `<tr><td><button type="button" class="lnk" data-open="${s.plate}"><b>${fmtPlate(s.plate)}</b><small style="color:var(--muted)">${esc(s.title)}</small></button></td><td>${s.ask ? fmtN(s.ask) : "—"}</td><td${vd ? ` class="vd ${vd.k}"` : ""}>${vd ? vd.s : "—"}</td><td>${tot ? Math.round(tot / 1000) + "K" : "—"}</td></tr>`).join("");
-    html.push(card("רשימת מועמדים", "star", "amber", rows.length ? `<table class="ft"><tr><th>רכב</th><th>מבוקש</th><th>מחיר מול הטווח</th><th>עלות ל-5 שנים</th></tr>${tbl}</table>
-      <p class="note">עלות ל-5 שנים כוללת דלק, אגרה וירידת ערך, ואת ההפרש בין המחיר המבוקש למחיר ההוגן. הערכה בלבד.</p>
+    const tbl = rows.map(({s, vd, tot}) => `<tr><td><button type="button" class="lnk" data-open="${s.plate}"><b>${fmtPlate(s.plate)}</b><small style="color:var(--muted)">${esc(s.title)}</small></button></td><td>${s.ask ? fmtN(s.ask) : "—"}${vd ? `<small class="vd ${vd.k}" style="display:block">${vd.s}</small>` : ""}</td><td>${s.fair ? `<span dir="ltr">${Math.round(s.fair[0] / 1000)}–${Math.round(s.fair[1] / 1000)}K</span>` : "—"}</td><td>${tot ? Math.round(tot / 1000) + "K" : "—"}</td></tr>`).join("");
+    html.push(card("רשימת מועמדים", "star", "amber", rows.length ? `<table class="ft"><tr><th>רכב</th><th>מבוקש</th><th>טווח הוגן</th><th>עלות ל-5 שנים</th></tr>${tbl}</table>
+      <p class="note">טווח הוגן הוא הערכת שווי הרכב לפי מחירון, שנתון, בעלויות וק״מ. מתחת למחיר המבוקש כתוב אם הוא גבוה מהטווח, בתוכו או נמוך ממנו. עלות ל-5 שנים כוללת דלק, אגרה וירידת ערך, ואת ההפרש בין המחיר המבוקש למחיר ההוגן. הערכה בלבד.</p>
       ${best && rows.filter(r => r.tot).length > 1 ? `<p style="margin:8px 0 0"><b>הכי משתלם לפי העלות הכוללת: ${esc(best.s.title)}</b></p>` : ""}`
       : `<p style="margin:0">כדי להוסיף מועמד, פתחו רכב ובכרטיס "ליווי קנייה" הזינו את המחיר שהמוכר מבקש ולחצו על "שמירה כמועמד".</p>`, `<span class="pro-tag">PRO</span>`));
   }
