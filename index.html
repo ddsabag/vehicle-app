@@ -281,6 +281,10 @@ section[style*="--n:3"] .cmp-k{font-size:.76rem}
 .in-btn[aria-pressed="true"]{background:var(--bad);color:#fff;border-color:var(--bad)}
 .in-msg{margin:0;font-size:.9rem;color:var(--band-muted)}
 .seg.two{grid-template-columns:1fr 1fr}
+.card.many{overflow-x:auto}.many .cmp,.many .cmp-table{min-width:calc(var(--n)*116px)}
+.ph-svg{width:100%;height:auto;display:block}.pro-tag{display:inline-block;background:#ffc400;color:#111;font-weight:800;font-size:.7rem;border-radius:6px;padding:1px 6px;margin-inline-start:6px}
+.ev{display:flex;gap:10px;justify-content:space-between;padding:7px 0;border-top:1px solid var(--line);align-items:flex-start}.ev:first-of-type{border-top:0}.ev small{color:var(--muted);white-space:nowrap}
+.ft{width:100%;border-collapse:collapse;font-size:.9rem}.ft td,.ft th{padding:8px 4px;border-top:1px solid var(--line);text-align:center}.ft td:first-child,.ft th:first-child{text-align:start}.ft th{font-size:.78rem;color:var(--muted);font-weight:600;border-top:0}.ft button.lnk{border:0;background:none;color:inherit;font:inherit;text-align:start;padding:0;display:block}
 .mk-seg{margin-bottom:10px}.mk-chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 2px}
 .mk-chips button{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:999px;padding:6px 12px;font-weight:700}
 .mk-chips button[aria-pressed="true"]{background:var(--fg);color:var(--card);border-color:var(--fg)}
@@ -516,8 +520,12 @@ body.land .band{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "1.10";
+const APP_VERSION = "1.11";
 const SITE = "https://ddsabag.github.io/vehicle-app/";
+/* PRO: while PRO_LOCK is false (beta) every feature is open to everyone. Later it is tied to a Google Play subscription. */
+const PRO_LOCK = false;
+const isPro = () => { if (!PRO_LOCK) return true; try { return localStorage.getItem("proActive") === "1"; } catch { return false; } };
+const FREE_SAVED_ALERTS = 3, FREE_CMP = 3, PRO_CMP = 6, FLEET_MAX = 10;
 const API = "https://data.gov.il/api/3/action/datastore_search";
 
 /* Datasets keyed by plate. role main = the vehicle record itself. */
@@ -682,6 +690,25 @@ function facts(list){
     .map(([k, v, cls]) => `<div class="${cls||""}"><dt>${esc(k)}</dt><dd>${v}</dd></div>`);
   return items.length ? `<dl class="facts">${items.join("")}</dl>` : "";
 }
+function proLockCard(title, text){
+  return card(title, "star", "amber", `<p style="margin:0">${esc(text)}</p><button type="button" class="link-btn" data-act="proInfo">הצטרפות ל-PRO</button>`, `<span class="pro-tag">PRO</span>`);
+}
+function priceHistoryCard(D){
+  const by = {};
+  for (const r of D.priceRows || []) { const y = num(r.shnat_yitzur), m = num(r.mehir); if (y > 1990 && m > 0) (by[y] ||= []).push(m); }
+  const pts = Object.keys(by).map(Number).sort((a, b) => a - b).map(y => [y, Math.round(by[y].reduce((a, b) => a + b, 0) / by[y].length / 100) * 100]);
+  if (pts.length < 2) return "";
+  if (PRO_LOCK && !isPro()) return proLockCard("מחיר מחירון לפי שנתון", "איך מחיר המחירון של הדגם השתנה משנתון לשנתון.");
+  const W = 300, H = 120, lo = Math.min(...pts.map(p => p[1])), hi = Math.max(...pts.map(p => p[1])), span = Math.max(hi - lo, 1);
+  const X = i => 14 + i * (W - 28) / (pts.length - 1), Y = v => 14 + (H - 28) * (1 - (v - lo) / span);
+  const line = pts.map((p, i) => `${X(i).toFixed(1)},${Y(p[1]).toFixed(1)}`).join(" ");
+  const first = pts[0], last = pts[pts.length - 1], chg = Math.round((last[1] - first[1]) / first[1] * 100);
+  const lab = (i) => `<text x="${X(i).toFixed(1)}" y="${H + 12}" text-anchor="middle" font-size="10" fill="currentColor" opacity=".6">${pts[i][0]}</text>`;
+  return card("מחיר מחירון לפי שנתון", "tag", "blue",
+    `<svg class="ph-svg" viewBox="0 0 ${W} ${H + 18}" dir="ltr" role="img" aria-label="מחיר מחירון לפי שנתון"><polyline points="${line}" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linejoin="round"/>${pts.map((p, i) => `<circle cx="${X(i).toFixed(1)}" cy="${Y(p[1]).toFixed(1)}" r="3.5" fill="var(--accent)"/>`).join("")}${lab(0)}${lab(pts.length - 1)}</svg>
+     <dl class="facts"><div><dt>${first[0]}</dt><dd>${fmtN(first[1])} ₪</dd></div><div><dt>${last[0]}</dt><dd>${fmtN(last[1])} ₪</dd></div><div><dt>שינוי</dt><dd>${"\u200e"}${chg >= 0 ? "+" : "−"}${Math.abs(chg)}%</dd></div></dl>
+     <p class="note">ממוצע המחירים של כל הגימורים בכל שנתון.</p>`, `<span class="pro-tag">PRO</span>`);
+}
 const foldKey = t => "fold:" + t;
 const isFolded = t => { try { return localStorage.getItem(foldKey(t)) === "1"; } catch { return false; } };
 const card = (title, icon, color, inner, extra) => {
@@ -727,7 +754,7 @@ const store = {
 /* the app checks saved cars once a day for a new recall or a test about to expire */
 function syncSaved(list){
   const b = window.AndroidApp; if (!b || !b.syncSaved) return;
-  try { b.syncSaved(JSON.stringify((list || []).map(x => ({plate: x.plate, title: x.title || "", alerts: x.alerts !== false})))); } catch {}
+  try { b.syncSaved(JSON.stringify((list || []).map((x, i) => ({plate: x.plate, title: x.title || "", alerts: x.alerts !== false && (isPro() || i < FREE_SAVED_ALERTS)})))); } catch {}
 }
 const alertsSupported = () => !!(window.AndroidApp && window.AndroidApp.setAlerts);
 window.onAlertsPermission = ok => { toast(ok ? "ההתראות פועלות: נעדכן אותך על ריקול חדש או טסט שעומד לפוג" : "ההתראות כבויות. אפשר להפעיל אותן בהגדרות."); syncAlertsSeg(); };
@@ -738,6 +765,7 @@ function syncAlertsSeg(){
   document.querySelectorAll("[data-alerts]").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.alerts === "on") === (st !== "off"))));
   $("#alertsNote").textContent = st === "blocked" ? "ההתראות חסומות בהגדרות הטלפון. כדי לקבל אותן, אפשרו התראות ללוחית בהגדרות האפליקציה בטלפון." : "התראה כשנפתח ריקול חדש לרכב שמור, וחודש ושבוע לפני שהטסט שלו פג.";
 }
+const trackedOk = p => isPro() || store.get("savedVehicles").findIndex(x => x.plate === p) < FREE_SAVED_ALERTS;
 const isSaved = p => store.get("savedVehicles").some(x => x.plate === p);
 function toggleSaved(item){
   const list = store.get("savedVehicles");
@@ -948,7 +976,7 @@ function matchModelRecalls(rows, v){
 
 /* Model-level data (specs, towing, counts, price list, recalls) for a maker + model code */
 async function fetchModelData(v, signal){
-  let w = {}, towRow = null, zeroTow = false, counts = null, price = null, modelRecalls = [];
+  let w = {}, towRow = null, zeroTow = false, counts = null, price = null, priceRows = [], modelRecalls = [];
   if (!empty(v.tozeret_cd) && !empty(v.degem_cd)) {
     const recallsByMaker = (async () => {
       for (const val of [num(v.tozeret_cd), String(v.tozeret_cd).trim()]) {
@@ -970,10 +998,10 @@ async function fetchModelData(v, signal){
     zeroTow = !towRow && ranked.length > 0 && isNum(ranked[0].kosher_grira_im_blamim) && isNum(ranked[0].kosher_grira_bli_blamim)
       && num(ranked[0].kosher_grira_im_blamim) === 0 && num(ranked[0].kosher_grira_bli_blamim) === 0;
     counts = rankRows(b, v)[0] || null;
-    price = rankRows(c, v)[0] || null;
+    price = rankRows(c, v)[0] || null; priceRows = c;
     modelRecalls = matchModelRecalls(r, v);
   }
-  return {w, towRow, zeroTow, counts, price, modelRecalls};
+  return {w, towRow, zeroTow, counts, price, priceRows, modelRecalls};
 }
 
 /* ---------- fetch one vehicle ---------- */
@@ -995,7 +1023,7 @@ async function fetchVehicle(plate, signal, onProgress){
   mains.forEach(s => fill(res[s.key].rows[0]));
   ["cont","tech"].forEach(k => res[k].rows[0] && fill(res[k].rows[0]));
 
-  const {w, towRow, zeroTow, counts, price, modelRecalls} = await fetchModelData(v, signal);
+  const {w, towRow, zeroTow, counts, price, priceRows, modelRecalls} = await fetchModelData(v, signal);
   const pick = (...vals) => vals.find(x => !empty(x));
   const own = res.owners.rows.slice().sort((a,b) => String(a.baalut_dt).localeCompare(String(b.baalut_dt)));
   const recalls = res.recall.rows.map(r => ({...r, detail: modelRecalls.find(m => String(m.RECALL_ID) === String(r.RECALL_ID)) || null}));
@@ -1020,7 +1048,7 @@ async function fetchVehicle(plate, signal, onProgress){
   const onRoad = parseYM(v.moed_aliya_lakvish) || (isNum(v.shnat_yitzur) ? new Date(num(v.shnat_yitzur), 0, 1) : null);
   const ownersFloor = !onRoad || onRoad < new Date(2017, 0, 1); // the ownership log starts in January 2017
 
-  const D = {plate, v, w, towRow, zeroTow, tSrc, counts, price, own, ownersFloor, recalls, modelRecalls, tag, primary: mains[0], importKind: res.import.rows[0] ? String(res.import.rows[0].sug_yevu || "יבוא אישי").replace(/-/g, " · ") : null, errs, pick, make, model,
+  const D = {plate, v, w, towRow, zeroTow, tSrc, counts, price, priceRows, own, ownersFloor, recalls, modelRecalls, tag, primary: mains[0], importKind: res.import.rows[0] ? String(res.import.rows[0].sug_yevu || "יבוא אישי").replace(/-/g, " · ") : null, errs, pick, make, model,
     title: [make, model].filter(Boolean).join(" ") || "רכב " + fmtPlate(plate),
     sub: [v.shnat_yitzur, pick(v.ramat_gimur, w.ramat_gimur), v.tzeva_rechev].filter(x => !empty(x)).join(" · "),
     vin: pick(v.misgeret, v.mispar_shilda, v.shilda), km, kmYears, kmPerYear,
@@ -1184,6 +1212,16 @@ function modsCard(v){
   return `<p class="mods-sum">${sum}</p>` + facts(items.map(([k, x]) => [k, changed(x)]));
 }
 
+const EV_ICON = {owner: "🔔", recall: "⚠️", test: "✅", status: "🔄"};
+function eventsCard(D){
+  const it = store.get("savedVehicles").find(x => x.plate === D.plate);
+  if (!it) return "";
+  if (!trackedOk(D.plate)) return proLockCard("יומן אירועים", "מעקב אחרי בעלות חדשה, ריקולים, טסט ושינוי סטטוס לכל הרכבים השמורים.");
+  const ev = it.events || [];
+  const body = ev.length ? ev.slice(0, 8).map(e => `<div class="ev"><span>${EV_ICON[e.k] || "•"} ${esc(e.x)}</span><small>${esc(new Date(e.t).toLocaleDateString("he-IL", {day: "numeric", month: "numeric"}))}</small></div>`).join("")
+    : `<p style="margin:0">הרכב במעקב. שינוי בבעלות, בריקולים, בטסט או בסטטוס יירשם כאן.</p>`;
+  return card("יומן אירועים", "clock", "teal", body, `<span class="pro-tag">PRO</span>`);
+}
 function tabOverview(D){
   const v = D.v, w = D.w, html = [];
   const ins = buildInsights(D);
@@ -1193,6 +1231,7 @@ function tabOverview(D){
       `<ul class="insights">${ins.map(i => `<li class="ins ${i.level}">${ico(icon[i.level])}<div><b>${esc(i.title)}</b><span>${esc(i.text)}</span></div></li>`).join("")}</ul>
        <p class="note">התובנות אינן תחליף לבדיקת רכב במכון מורשה.</p>`));
   }
+  html.push(eventsCard(D));
   const tb = D.tSrc && D.tSrc.kosher_grira_im_blamim, tu = D.tSrc && D.tSrc.kosher_grira_bli_blamim;
   const tv = x => isNum(x) && num(x) > 0 ? fmtN(x) : "—";
   const towNote = [];
@@ -1324,6 +1363,7 @@ function tabCosts(D){
      <p class="note">הערכה בלבד. היא לא מביאה בחשבון את מצב הרכב, תאונות והביקוש לדגם.</p>` :
     `<p style="margin:0">אין במאגר מחיר מחירון לדגם הזה, ולכן אין הערכת שווי.</p>`) +
     `<button type="button" class="link-btn" data-url="https://carlistprice.mot.gov.il/" data-copyfirst="${D.plate}">${ico("tag")}מחירון העם: מחירי עסקאות אמיתיות</button>`));
+  html.push(priceHistoryCard(D));
   html.push(card("הדגם על הכביש", "car", "blue", c.active !== undefined ?
     facts([["רכבים פעילים מהדגם", esc(fmtN(c.active))], ["כבר לא פעילים", esc(fmtN(c.gone))], c.gonePct !== null && ["שיעור שירד מהכביש", `${c.gonePct.toFixed(1)}%`, "wide"]]) +
     `<p class="note">שיעור גבוה ביחס לגיל הדגם עשוי לרמוז על אמינות נמוכה או על תאונות.</p>` :
@@ -1469,7 +1509,7 @@ async function fetchModel(r, signal){
 }
 
 /* ---------- comparison (up to 3 cars or models) ---------- */
-const CMP_MAX = 3;
+const cmpMax = () => isPro() ? PRO_CMP : FREE_CMP;
 let cmp = [], inCompare = false, mResults = [], mCtrl = null;
 function openCompare(){
   $("#compareSheet").hidden = false; $("#compareMsg").textContent = "";
@@ -1495,7 +1535,7 @@ function renderQuick(){
 function addToCompare(D){
   const id = x => x.plate || x.key;
   if (cmp.some(x => id(x) === id(D))) { $("#compareMsg").textContent = "הרכב הזה כבר בהשוואה."; return false; }
-  cmp.push(D); if (cmp.length > CMP_MAX) cmp.shift();
+  cmp.push(D); if (cmp.length > cmpMax()) cmp.shift();
   $("#compareSheet").hidden = true; renderCompare(); window.scrollTo({top: 0});
   return true;
 }
@@ -1747,17 +1787,17 @@ function renderCompare(){
     lead("הכי בטיחותי", D => num(D.pick(D.v.ramat_eivzur_betihuty, D.w.ramat_eivzur_betihuty)), "hi"),
   ].filter(Boolean).join("") : "";
   const head = (D, i) => `<div class="cmp-h"><div class="cmp-top">${D.kind === "model" ? `<span class="tag">דגם</span>` : `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>`}<button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><b>${esc(D.title)}</b><small>${esc(D.alts && D.alts.length > 1 ? String(D.v.shnat_yitzur || "") : D.sub)}</small>${D.alts && D.alts.length > 1 ? `<select class="trim-sel" data-trim="${i}" aria-label="רמת גימור">${D.alts.map((r, j) => `<option value="${j}"${rowKey(r) === D.key ? " selected" : ""}>${esc(String(r.ramat_gimur || "").trim() || "גרסה בסיסית")}</option>`).join("")}</select>` : ""}</div>`;
-  const base = n && n < CMP_MAX ? L[n - 1] : null;
+  const base = n && n < cmpMax() ? L[n - 1] : null;
   if (base) loadSimilar(base);
   const simHtml = base && simFor === (base.key || base.plate) && simList.length ? `<div class="sim-box"><div class="qsec">דגמים דומים, להוספה בלחיצה</div><div class="list">${simList.map((g, i) => {
     const r = g.alts[0], dt = driveType(rowD(r));
     return `<button type="button" class="qrow" data-sim="${i}"><span class="t"><b>${esc(g.make)} ${esc(g.model)}</b><small>${esc([dt && dt.label, isNum(r.koah_sus) ? `${fmtN(r.koah_sus)} כ״ס` : ""].filter(Boolean).join(" · "))}</small></span><span class="qadd">${ico("plus")}הוספה</span></button>`;
   }).join("")}</div></div>` : "";
   const wide = cmpWide();
-  $("#out").innerHTML = `<section class="card blue${wide ? " cmp-wide" : ""}" style="--n:${Math.max(n, 1)}"><div class="head"><span class="badge">${ico("compare")}</span><h2>השוואת רכבים</h2><button type="button" class="count" data-act="closeCompare" style="border:0">חזרה</button></div>
-    ${n ? "" : `<p style="margin:0">הוסיפו עד ${CMP_MAX} דגמים או רכבים, וההשוואה תראה מחיר, עלויות, כוח, גרירה, בטיחות ואמינות זה לצד זה.</p>
+  $("#out").innerHTML = `<section class="card blue${wide ? " cmp-wide" : ""}${n > 3 ? " many" : ""}" style="--n:${Math.max(n, 1)}"><div class="head"><span class="badge">${ico("compare")}</span><h2>השוואת רכבים</h2><button type="button" class="count" data-act="closeCompare" style="border:0">חזרה</button></div>
+    ${n ? "" : `<p style="margin:0">הוסיפו עד ${cmpMax()} דגמים או רכבים, וההשוואה תראה מחיר, עלויות, כוח, גרירה, בטיחות ואמינות זה לצד זה.</p>
     <div class="slots">${[1, 2, 3].map(i => `<button type="button" data-act="addCompare">${ico("plus")}רכב ${i}</button>`).join("")}</div>`}
-    ${n ? `<div class="cmp-bar">${n < CMP_MAX ? `<button type="button" class="cmp-tool add" data-act="addCompare">${ico("plus")}הוספה</button>` : ""}${n > 1 ? `<button type="button" class="cmp-tool" data-act="diffOnly" aria-pressed="${diffOnly}">${ico("compare")}רק הבדלים</button><button type="button" class="cmp-tool ic" data-act="land" aria-pressed="${land}" aria-label="${land ? "תצוגה רגילה" : "תצוגה לרוחב"}" title="${land ? "תצוגה רגילה" : "תצוגה לרוחב"}">${ico("rotate")}</button><button type="button" class="cmp-tool ic" data-act="cmpPdf" aria-label="PDF" title="PDF">${ico("doc")}</button>` : ""}</div>` : ""}
+    ${n ? `<div class="cmp-bar">${n < cmpMax() ? `<button type="button" class="cmp-tool add" data-act="addCompare">${ico("plus")}הוספה</button>` : ""}${n > 1 ? `<button type="button" class="cmp-tool" data-act="diffOnly" aria-pressed="${diffOnly}">${ico("compare")}רק הבדלים</button><button type="button" class="cmp-tool ic" data-act="land" aria-pressed="${land}" aria-label="${land ? "תצוגה רגילה" : "תצוגה לרוחב"}" title="${land ? "תצוגה רגילה" : "תצוגה לרוחב"}">${ico("rotate")}</button><button type="button" class="cmp-tool ic" data-act="saveCmp" aria-label="שמירת השוואה" title="שמירת השוואה">${ico("star")}</button><button type="button" class="cmp-tool ic" data-act="cmpPdf" aria-label="PDF" title="PDF">${ico("doc")}</button>` : ""}</div>` : ""}
     ${verdict ? `<div class="verdict">${verdict}</div>` : ""}
     ${simHtml}
     ${n ? `<div class="cmp"><div class="ph"></div>${L.map(head).join("")}</div>` : ""}
@@ -1794,12 +1834,17 @@ $("#out").addEventListener("click", ev => {
     openExternal(b.dataset.url); return;
   }
   if (b.dataset.open) { run(b.dataset.open); return; }
-  if (b.dataset.bell) { const list = store.get("savedVehicles"), it = list.find(x => x.plate === b.dataset.bell); if (it) { it.alerts = it.alerts === false; store.set("savedVehicles", list); toast(it.alerts === false ? "ההתראות לרכב הזה כבויות" : "תקבלו התראות על הרכב הזה"); renderHome(); } return; }
+  if (b.dataset.bell) { const list = store.get("savedVehicles"), it = list.find(x => x.plate === b.dataset.bell); if (it && it.alerts === false && !trackedOk(it.plate)) { toast("התראות ליותר מ-3 רכבים זמינות ב-PRO"); return; } if (it) { it.alerts = it.alerts === false; store.set("savedVehicles", list); toast(it.alerts === false ? "ההתראות לרכב הזה כבויות" : "תקבלו התראות על הרכב הזה"); renderHome(); } return; }
   if (b.dataset.unsave) { store.set("savedVehicles", store.get("savedVehicles").filter(x => x.plate !== b.dataset.unsave)); renderHome(); return; }
   if (b.dataset.rm) { cmp.splice(+b.dataset.rm, 1); renderCompare(); return; }
   if (b.dataset.act === "addCompare") { openCompare(); return; }
   if (b.dataset.act === "compareHome") { cmp = []; renderCompare(); openCompare("model"); return; }
   if (b.dataset.act === "market") { openMarket(); return; }
+  if (b.dataset.act === "fleet") { renderFleet(); return; }
+  if (b.dataset.act === "proInfo") { toast("PRO יהיה זמין בקרוב"); return; }
+  if (b.dataset.act === "saveCmp") { saveCompare(); return; }
+  if (b.dataset.loadcmp) { loadCompare(+b.dataset.loadcmp); return; }
+  if (b.dataset.delcmp) { const l = store.get("savedCompares"); l.splice(+b.dataset.delcmp, 1); store.set("savedCompares", l); renderHome(); return; }
   if (b.dataset.act === "marketBack") { renderHome(); window.scrollTo({top: 0}); return; }
   if (b.dataset.mkmode) { MK.mode = b.dataset.mkmode; MK.sel = null; if (MARKET) renderMarket(MARKET); return; }
   if (b.dataset.mksel) { MK.sel = b.dataset.mksel; if (MARKET) renderMarket(MARKET); return; }
@@ -1817,9 +1862,10 @@ $("#out").addEventListener("click", ev => {
   if (act === "fuelUnit") { try { localStorage.setItem("fuelUnit", kmlUnit() ? "l100" : "kml"); } catch {} syncUnit(); renderResult(); }
   if (act === "compare") { cmp = []; renderCompare(); openCompare("model"); }
   if (act === "save") {
-    const on = toggleSaved({plate: current.plate, title: current.title, sub: current.sub, at: Date.now(), tokef: current.v.tokef_dt || "", recalls: current.recalls.length, checked: Date.now()});
+    const on = toggleSaved({plate: current.plate, title: current.title, sub: current.sub, at: Date.now(), tokef: current.v.tokef_dt || "", recalls: current.recalls.length, checked: Date.now(), owners: current.own.length, active: !current.isCancelled, events: []});
     b.setAttribute("aria-pressed", String(on)); b.querySelector("span").textContent = on ? "נשמר" : "שמירה";
     toast(on ? "הרכב נשמר ברשימה שלך" : "הרכב הוסר מהרשימה");
+    { const y = window.scrollY; renderResult(); window.scrollTo(0, y); }
     if (on && alertsSupported()) { let asked = false; try { asked = !!localStorage.getItem("alertsAsked"); localStorage.setItem("alertsAsked", "1"); } catch {} if (!asked) try { window.AndroidApp.setAlerts(true); } catch {} }
   }
 });
@@ -2227,14 +2273,22 @@ let savedChecking = false;
 async function checkSaved(){
   if (savedChecking) return; savedChecking = true;
   try {
-    const set = PLATE_SETS.find(x => x.key === "recall"); let changed = false;
+    const set = k => PLATE_SETS.find(x => x.key === k); let changed = false;
     for (const s of store.get("savedVehicles").slice(0, 20)) {
       if (s.checked && Date.now() - s.checked < 864e5) continue;
       try {
-        const rows = await byPlate(set, s.plate);
+        const [rec, own, act] = await Promise.all([byPlate(set("recall"), s.plate).catch(() => null), byPlate(set("owners"), s.plate).catch(() => null), byPlate(set("active"), s.plate).catch(() => null)]);
         const list = store.get("savedVehicles"), it = list.find(x => x.plate === s.plate); if (!it) continue;
-        if (it.recalls !== rows.length) changed = true;
-        it.recalls = rows.length; it.checked = Date.now(); store.set("savedVehicles", list);
+        const ev = [], add = (k, x) => ev.push({t: Date.now(), k, x});
+        if (rec) { if (it.recalls !== undefined && rec.length > it.recalls) add("recall", "ריקול חדש נפתח לרכב"); else if (it.recalls !== undefined && rec.length < it.recalls) add("recall", "ריקול נסגר"); if (it.recalls !== rec.length) changed = true; it.recalls = rec.length; }
+        if (own) { if (it.owners !== undefined && own.length > it.owners) add("owner", "בעלות חדשה נרשמה"); it.owners = own.length; }
+        if (act) {
+          const isAct = act.length > 0;
+          if (it.active === true && !isAct) add("status", "הרכב ירד מהכביש");
+          if (isAct) { it.active = true; const t = String(act[0].tokef_dt || "").slice(0, 10); if (t && it.tokef && t > String(it.tokef).slice(0, 10)) add("test", "הטסט חודש עד " + fmtDate(t)); if (t) it.tokef = act[0].tokef_dt; }
+        }
+        if (ev.length) { it.events = [...ev, ...(it.events || [])].slice(0, 30); changed = true; }
+        it.checked = Date.now(); store.set("savedVehicles", list);
       } catch {}
     }
     if (changed && !current && !inCompare) renderHome();
@@ -2320,6 +2374,7 @@ function renderMarket(M){
     const rows = Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 10), top = rows[0][1];
     html.push(card("רכבים חשמליים לפי אזור", "bolt", "green", rows.map(([a, n]) => `<div class="mk-row"><b>${esc(a)}</b><span>${fmtN(n)}</span><div class="tr"><i style="width:${n / top * 100}%"></i></div></div>`).join("") + `<p class="note">כל הרכבים החשמליים הרשומים היום, לפי אזור הרישוי.</p>`));
   }
+  if (PRO_LOCK && !isPro()) { html.splice(3, html.length - 3, proLockCard("שוק הרכב המלא", "דגמים, חלוקת בעלות, סוג הנעה, סימני גיול, ייבוא אישי, חשמליים לפי אזור, בחירת רבעון והיסטוריה מלאה.")); }
   html.push(`<p class="note" style="text-align:center">עודכן ${esc(M.updated)} · מקור: מאגרי משרד התחבורה</p><button type="button" class="link-btn" data-act="marketBack">${ico("back")}חזרה</button>`);
   $("#out").innerHTML = html.join("");
   updateSavedBar();
@@ -2330,6 +2385,35 @@ async function openMarket(){
   try { renderMarket(await loadMarket()); window.scrollTo({top: 0}); }
   catch { $("#out").innerHTML = `<section class="card"><div class="body"><p>לא הצלחנו לטעון את נתוני השוק כרגע. נסו שוב מאוחר יותר.</p><button type="button" class="link-btn" data-act="marketBack">חזרה</button></div></section>`; }
 }
+function saveCompare(){
+  if (cmp.length < 2) { toast("הוסיפו לפחות שני רכבים"); return; }
+  if (PRO_LOCK && !isPro()) { toast("שמירת השוואות זמינה ב-PRO"); return; }
+  const items = cmp.map(D => D.plate ? {plate: D.plate} : {model: D.v});
+  const name = cmp.map(D => D.title).join(" · ").slice(0, 60), list = store.get("savedCompares").filter(x => x.name !== name);
+  store.set("savedCompares", [{name, items, at: Date.now()}, ...list].slice(0, 10)); toast("ההשוואה נשמרה");
+}
+async function loadCompare(i){
+  const e = store.get("savedCompares")[i]; if (!e) return;
+  toast("טוען השוואה…");
+  try {
+    const res = await Promise.all(e.items.map(it => it.plate ? fetchVehicle(it.plate) : fetchModel(it.model)));
+    cmp = res.filter(D => D && !D.notFound && !D.offline); renderCompare(); window.scrollTo({top: 0});
+  } catch { toast("לא הצלחנו לטעון את ההשוואה"); }
+}
+function renderFleet(){
+  if (land) setLand(false, false);
+  current = null; inCompare = false;
+  const list = store.get("savedVehicles").slice(0, FLEET_MAX), now = new Date();
+  const need = s => { const d = toDate(s.tokef), days = d ? Math.ceil((d - now) / 864e5) : null; return {days, bad: (days !== null && days < 0) || s.recalls > 0, warn: days !== null && days >= 0 && days <= 45}; };
+  const n = list.filter(s => { const x = need(s); return x.bad || x.warn; }).length;
+  const rows = list.map(s => { const x = need(s), col = x.days === null ? "" : x.days < 0 ? "color:#c93c3c" : x.days <= 45 ? "color:#c27400" : "color:#1a8f4a";
+    return `<tr><td><button type="button" class="lnk" data-open="${s.plate}"><b>${fmtPlate(s.plate)}</b><small style="color:var(--muted)">${esc(s.title)}</small></button></td><td style="${col}">${s.tokef ? (x.days < 0 ? "עבר" : fmtDate(s.tokef)) : "—"}</td><td>${s.recalls > 0 ? s.recalls : "—"}</td></tr>`; }).join("");
+  const html = [];
+  if (PRO_LOCK && !isPro()) html.push(proLockCard("הצי שלי", "כל הרכבים שלך בטבלה אחת, עם טסט, ריקולים וסימון מה דורש טיפול."));
+  else html.push(card("הצי שלי", "car", "blue", list.length ? `<p style="margin:0 0 6px"><b>${n ? `${n} רכבים דורשים טיפול` : "הכול בסדר"}</b>${n ? `<br><small style="color:var(--muted)">טסט שעבר או קרוב, או ריקול פתוח</small>` : ""}</p><table class="ft"><tr><th>רכב</th><th>טסט</th><th>ריקולים</th></tr>${rows}</table>${store.get("savedVehicles").length > FLEET_MAX ? `<p class="note">מוצגים ${FLEET_MAX} הרכבים הראשונים.</p>` : ""}` : `<p style="margin:0">שמרו רכבים כדי לראות אותם כאן בטבלה אחת.</p>`, `<span class="pro-tag">PRO</span>`));
+  html.push(`<button type="button" class="link-btn" data-act="marketBack">${ico("back")}חזרה</button>`);
+  $("#out").innerHTML = html.join(""); updateSavedBar(); window.scrollTo({top: 0});
+}
 function renderHome(){
   if (land) setLand(false, false);
   current = null; inCompare = false;
@@ -2337,7 +2421,8 @@ function renderHome(){
   const html = [];
   if (saved.length) html.push(card("רכבים שמורים", "star", "amber", `<div class="list">${saved.map(s => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-open="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b>${esc(s.title)}</b><small>${esc(s.sub || "")}</small>${savedFlags(s)}</span></button><button type="button" class="x bell" data-bell="${s.plate}" aria-pressed="${s.alerts !== false}" aria-label="התראות לרכב הזה">${ico("bell")}</button><button type="button" class="x" data-unsave="${s.plate}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div><p class="note">הפעמון קובע על אילו רכבים תקבלו התראה על ריקול חדש או טסט שעומד לפוג.</p>`));
   if (recent.length) html.push(card("חיפושים אחרונים", "clock", "blue", `<div class="chips">${recent.map(p => `<button type="button" class="chip" data-open="${p}">${fmtPlate(p)}</button>`).join("")}</div>`));
-  html.push(card("השוואת דגמים לפני קנייה", "compare", "violet", `<p style="margin:0">מחפשים רכב? חפשו לפי יצרן או דגם והשוו עד ${CMP_MAX} דגמים: מחיר, צריכת דלק, אגרה, כוח, גרירה, בטיחות וכמה ריקולים היו לדגם.</p><button type="button" class="link-btn" data-act="compareHome">${ico("search")}התחלת השוואה</button>`));
+  html.push(card("השוואת דגמים לפני קנייה", "compare", "violet", `<p style="margin:0">מחפשים רכב? חפשו לפי יצרן או דגם והשוו עד ${cmpMax()} דגמים: מחיר, צריכת דלק, אגרה, כוח, גרירה, בטיחות וכמה ריקולים היו לדגם.</p><button type="button" class="link-btn" data-act="compareHome">${ico("search")}התחלת השוואה</button>${store.get("savedCompares").length ? `<div class="qsec" style="margin-top:12px">השוואות שמורות</div><div class="list">${store.get("savedCompares").map((c, i) => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-loadcmp="${i}"><span class="t"><b>${esc(c.name)}</b><small>${c.items.length} רכבים</small></span></button><button type="button" class="x" data-delcmp="${i}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div>` : ""}`));
+  if (saved.length >= 2) html.push(card("הצי שלי", "car", "blue", `<p style="margin:0">כל הרכבים השמורים בטבלה אחת: טסט, ריקולים ומה דורש טיפול.</p><button type="button" class="link-btn" data-act="fleet">${ico("car")}לצי שלי</button>`, `<span class="pro-tag">PRO</span>`));
   html.push(card("שוק הרכב", "chart", "blue", `<p style="margin:0">כמה רכבים חדשים נמסרו, אילו יצרנים ודגמים מובילים, מי קונה (פרטי, ליסינג, חברה, השכרה) ואיזה סוג הנעה. לפי שנה או רבעון.</p><button type="button" class="link-btn" data-act="market">${ico("chart")}לנתוני השוק</button>`));
   if (!saved.length && !recent.length) html.push(card("מה תקבלו", "bulb", "teal", `<p style="margin:0">סטטוס הרכב ותוקף הטסט, היסטוריית בעלויות, ק״מ בטסט האחרון, תובנות חשובות, ריקולים פתוחים, כושר גרירה עם ובלי בלמים, מפרט, מערכות בטיחות, מחיר מחירון וכמה רכבים כאלה על הכביש.</p>`));
   $("#out").innerHTML = html.join("");

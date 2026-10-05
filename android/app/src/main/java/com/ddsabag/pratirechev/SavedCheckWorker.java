@@ -47,6 +47,7 @@ public class SavedCheckWorker extends Worker {
     private static final String API = "https://data.gov.il/api/3/action/datastore_search";
     private static final String RECALLS = "36bf1404-0be4-49d2-82dc-2f1ead4a8b93";
     private static final String ACTIVE = "053cea08-09bc-40ec-8f7a-156f0677aff3";
+    private static final String OWNERS = "bb2355dc-9ec7-4f06-9c3f-3344672171da";
 
     public SavedCheckWorker(@NonNull Context c, @NonNull WorkerParameters p) {
         super(c, p);
@@ -96,6 +97,14 @@ public class SavedCheckWorker extends Worker {
                     checkTest(c, p, plate, name);
                 } catch (Exception ignored) {
                 }
+                try {
+                    checkOwners(c, p, plate, name);
+                } catch (Exception ignored) {
+                }
+                try {
+                    checkStatus(c, p, plate, name);
+                } catch (Exception ignored) {
+                }
             }
         } catch (Exception e) {
             return Result.retry();
@@ -121,6 +130,30 @@ public class SavedCheckWorker extends Worker {
             }
         }
         p.edit().putStringSet(key, now).apply();
+    }
+
+    /** A new row in the ownership log means the car changed hands (the log is monthly) */
+    private void checkOwners(Context c, SharedPreferences p, String plate, String name) throws Exception {
+        int now = query(OWNERS, "mispar_rechev", plate).length();
+        String key = "owners_" + plate;
+        if (p.contains(key) && now > p.getInt(key, now)) {
+            notify(c, plate, ("owner" + plate).hashCode(),
+                    "בעלות חדשה לרכב " + fmtPlate(plate),
+                    (name.isEmpty() ? "" : name + ": ") + "נרשמה בעלות חדשה ברכב.");
+        }
+        p.edit().putInt(key, now).apply();
+    }
+
+    /** A car that was active and is no longer in the active register has left the road */
+    private void checkStatus(Context c, SharedPreferences p, String plate, String name) throws Exception {
+        boolean active = query(ACTIVE, "mispar_rechev", plate).length() > 0;
+        String key = "active_" + plate;
+        if (p.getBoolean(key, false) && !active) {
+            notify(c, plate, ("status" + plate).hashCode(),
+                    "הרכב " + fmtPlate(plate) + " ירד מהכביש",
+                    (name.isEmpty() ? "" : name + ": ") + "הרכב כבר לא מופיע במאגר הרכבים הפעילים.");
+        }
+        p.edit().putBoolean(key, active).apply();
     }
 
     private void checkTest(Context c, SharedPreferences p, String plate, String name) throws Exception {
