@@ -39,7 +39,7 @@ log("active: " + await scan(ID.active, "mispar_rechev,tozeret_cd,kinuy_mishari,s
   for (const r of rows) {
     const y = Number(r.shnat_yitzur), m = norm(r.kinuy_mishari); if (!y || !m || !r.tozeret_cd) continue;
     const i = idOf(r.tozeret_cd, m, y); cohorts[i].n++; if (!cohorts[i].name) cohorts[i].name = String(r.tozeret_nm || "").trim();
-    plate.set(r.mispar_rechev, i);
+    plate.set(Number(r.mispar_rechev), i);
   }
 }));
 // 2. cars taken off the road (final cancellation)
@@ -52,17 +52,17 @@ for (const id of ID.cancel) log("cancel: " + await scan(id, "tozeret_cd,kinuy_mi
 // 3. km at the last test (active cars only)
 log("tech: " + await scan(ID.tech, "mispar_rechev,kilometer_test_aharon", rows => {
   for (const r of rows) {
-    const i = plate.get(r.mispar_rechev), km = Number(r.kilometer_test_aharon); if (i === undefined || !(km > 0) || km > 999999) continue;
+    const i = plate.get(Number(r.mispar_rechev)), km = Number(r.kilometer_test_aharon); if (i === undefined || !(km > 0) || km > 999999) continue;
     cohorts[i].kmSum += km; cohorts[i].kmN++;
   }
 }));
 // 4. ownership records per car (log starts 2017: a floor, but comparable between models)
 const seen = new Map();
-log("owners: " + await scan(ID.owners, "mispar_rechev", rows => { for (const r of rows) seen.set(r.mispar_rechev, (seen.get(r.mispar_rechev) || 0) + 1); }));
+log("owners: " + await scan(ID.owners, "mispar_rechev", rows => { for (const r of rows) { const k = Number(r.mispar_rechev); seen.set(k, (seen.get(k) || 0) + 1); }; }));
 for (const [p, n] of seen) { const i = plate.get(p); if (i !== undefined) { cohorts[i].own += n; cohorts[i].ownN++; } }
 // 5. open recalls (cars with at least one)
 const rc = new Set();
-log("recall: " + await scan(ID.recall, "MISPAR_RECHEV", rows => { for (const r of rows) rc.add(r.MISPAR_RECHEV); }));
+log("recall: " + await scan(ID.recall, "MISPAR_RECHEV", rows => { for (const r of rows) rc.add(Number(r.MISPAR_RECHEV)); }));
 for (const p of rc) { const i = plate.get(p); if (i !== undefined) cohorts[i].rec++; }
 
 // output: models with >= 500 active cars, cohorts with >= 100
