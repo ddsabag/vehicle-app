@@ -2477,10 +2477,12 @@ function buyerCard(D){
   if (yes(v.shinui_mivne_ind)) qs.push("מה שונה במבנה הרכב, ויש אישור רשום?");
   if (yes(v.shnui_zeva_ind)) qs.push("למה הצבע שונה? האם היה תיקון פחחות?");
   if (D.importKind) qs.push("מי נותן שירות וחלפים לרכב, כיוון שהוא יבוא אישי?");
+  const dtk = driveType(D);
+  if (dtk && ["ev", "phev", "hybrid"].includes(dtk.k)) qs.unshift("עד מתי ועד כמה ק״מ יש אחריות יצרן על הסוללה?", "אפשר לעשות ביטוח לסוללה או להאריך את האחריות, ובכמה זה עולה?", ...(dtk.k === "hybrid" ? [] : ["יש דוח בדיקת בריאות סוללה?"]));
   qs.push("יש היסטוריית טיפולים במוסך מורשה?", "אפשר לבדוק את הרכב במכון בדיקה לפני שסוגרים?");
   const it = savedItem(D.plate), ask = it && it.ask || null, f = candFields(D), vd = askVerdict(ask, f.fair);
   const body = `${flags.length ? `<div class="qsec">דגלים לבדיקה</div><ul class="bflags">${flags.slice(0, 5).map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul>` : `<p style="margin:0 0 8px">לא עלו דגלים אדומים בנתונים.</p>`}
-    <div class="qsec">מה לשאול את המוכר</div><ul class="bq">${qs.slice(0, 5).map(q => `<li>${esc(q)}</li>`).join("")}</ul>
+    <div class="qsec">מה לשאול את המוכר</div><ul class="bq">${qs.slice(0, 6).map(q => `<li>${esc(q)}</li>`).join("")}</ul>
     ${f.fair ? `<div class="qsec">טווח מחיר הוגן (הערכה)</div><p style="margin:0"><b>${fmtN(f.fair[0])} – ${fmtN(f.fair[1])} ₪</b></p><p class="note" style="margin:2px 0 0">לפי מחירון, שנתון, בעלויות וקילומטראז'.</p>` : ""}
     ${f.c5 ? `<div class="qsec" style="margin-top:10px">עלות בעלות ל-5 שנים (הערכה)</div><p style="margin:0"><b>כ-${fmtN(Math.round(f.c5 / 1000) * 1000)} ₪</b></p><p class="note" style="margin:2px 0 0">דלק, אגרה וירידת ערך. ביטוח וטיפולים לא נכללים.</p>` : ""}
     <div class="qsec" style="margin-top:10px">המחיר שהמוכר מבקש</div>
@@ -2500,7 +2502,7 @@ function renderCandidates(){
     });
     const best = rows.filter(r => r.tot).sort((a, b) => a.tot - b.tot)[0];
     const tbl = rows.map(({s, vd, tot}) => `<tr><td><button type="button" class="lnk" data-open="${s.plate}"><b>${fmtPlate(s.plate)}</b><small style="color:var(--muted)">${esc(s.title)}</small></button></td><td>${s.ask ? fmtN(s.ask) : "—"}</td><td${vd ? ` class="vd ${vd.k}"` : ""}>${vd ? vd.s : "—"}</td><td>${tot ? Math.round(tot / 1000) + "K" : "—"}</td></tr>`).join("");
-    html.push(card("רשימת מועמדים", "star", "amber", rows.length ? `<table class="ft"><tr><th>רכב</th><th>מבוקש</th><th>מול הוגן</th><th>עלות ל-5 שנים</th></tr>${tbl}</table>
+    html.push(card("רשימת מועמדים", "star", "amber", rows.length ? `<table class="ft"><tr><th>רכב</th><th>מבוקש</th><th>מחיר מול הטווח</th><th>עלות ל-5 שנים</th></tr>${tbl}</table>
       <p class="note">עלות ל-5 שנים כוללת דלק, אגרה וירידת ערך, ואת ההפרש בין המחיר המבוקש למחיר ההוגן. הערכה בלבד.</p>
       ${best && rows.filter(r => r.tot).length > 1 ? `<p style="margin:8px 0 0"><b>הכי משתלם לפי העלות הכוללת: ${esc(best.s.title)}</b></p>` : ""}`
       : `<p style="margin:0">כדי להוסיף מועמד, פתחו רכב ובכרטיס "ליווי קנייה" הזינו את המחיר שהמוכר מבקש ולחצו על "שמירה כמועמד".</p>`, `<span class="pro-tag">PRO</span>`));
