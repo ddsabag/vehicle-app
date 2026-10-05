@@ -58,7 +58,7 @@ try { log("tech: " + await scan(ID.tech, "mispar_rechev,kilometer_test_aharon", 
 })); } catch (e) { log("tech FAILED " + e.message); }
 // 4. ownership records per car (log starts 2017: a floor, but comparable between models)
 const seen = new Map();
-log("owners: " + await scan(ID.owners, "mispar_rechev", rows => { for (const r of rows) { const k = Number(r.mispar_rechev); seen.set(k, (seen.get(k) || 0) + 1); }; }));
+try { log("owners: " + await scan(ID.owners, "mispar_rechev", rows => { for (const r of rows) { const k = Number(r.mispar_rechev); seen.set(k, (seen.get(k) || 0) + 1); }; })); } catch (e) { log("owners FAILED " + e.message); }
 for (const [p, n] of seen) { const i = plate.get(p); if (i !== undefined) { cohorts[i].own += n; cohorts[i].ownN++; } }
 // 5. open recalls (cars with at least one)
 const rc = new Set();
