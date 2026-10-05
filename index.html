@@ -563,6 +563,7 @@ function plan(){
   if (e.buyer > now) return "buyer";
   return "free";
 }
+const PT = t => PRO_LOCK ? `<span class="pro-tag">${t}</span>` : "";
 const atLeast = n => RANK[plan()] >= RANK[n];
 const isPro = () => atLeast("buyer");
 const FREE_SAVED_ALERTS = 3, FREE_CMP = 3, PRO_CMP = 6, FLEET_MAX = 10, BUYER_ALERTS = 10;
@@ -733,7 +734,7 @@ function facts(list){
   return items.length ? `<dl class="facts">${items.join("")}</dl>` : "";
 }
 function proLockCard(title, text){
-  return card(title, "star", "amber", `<p style="margin:0">${esc(text)}</p><button type="button" class="link-btn" data-act="proInfo">הצטרפות ל-PRO</button>`, `<span class="pro-tag">PRO</span>`);
+  return card(title, "star", "amber", `<p style="margin:0">${esc(text)}</p><button type="button" class="link-btn" data-act="proInfo">הצטרפות ל-PRO</button>`, `${PT("PRO")}`);
 }
 function priceHistoryCard(D){
   const by = {};
@@ -749,7 +750,7 @@ function priceHistoryCard(D){
   return card("מחיר מחירון לפי שנתון", "tag", "blue",
     `<svg class="ph-svg" viewBox="0 0 ${W} ${H + 18}" dir="ltr" role="img" aria-label="מחיר מחירון לפי שנתון"><polyline points="${line}" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linejoin="round"/>${pts.map((p, i) => `<circle cx="${X(i).toFixed(1)}" cy="${Y(p[1]).toFixed(1)}" r="3.5" fill="var(--accent)"/>`).join("")}${lab(0)}${lab(pts.length - 1)}</svg>
      <dl class="facts"><div><dt>${first[0]}</dt><dd>${fmtN(first[1])} ₪</dd></div><div><dt>${last[0]}</dt><dd>${fmtN(last[1])} ₪</dd></div><div><dt>שינוי</dt><dd>${"\u200e"}${chg >= 0 ? "+" : "−"}${Math.abs(chg)}%</dd></div></dl>
-     <p class="note">ממוצע המחירים של כל הגימורים בכל שנתון.</p>`, `<span class="pro-tag">PRO</span>`);
+     <p class="note">ממוצע המחירים של כל הגימורים בכל שנתון.</p>`, `${PT("PRO")}`);
 }
 const foldKey = t => "fold:" + t;
 const isFolded = t => { try { return localStorage.getItem(foldKey(t)) === "1"; } catch { return false; } };
@@ -1262,7 +1263,7 @@ function eventsCard(D){
   const ev = it.events || [];
   const body = ev.length ? ev.slice(0, 8).map(e => `<div class="ev"><span>${EV_ICON[e.k] || "•"} ${esc(e.x)}</span><small>${esc(new Date(e.t).toLocaleDateString("he-IL", {day: "numeric", month: "numeric"}))}</small></div>`).join("")
     : `<p style="margin:0">הרכב במעקב. שינוי בבעלות, בריקולים, בטסט או בסטטוס יירשם כאן.</p>`;
-  return card("יומן אירועים", "clock", "teal", body, `<span class="pro-tag">PRO</span>`);
+  return card("יומן אירועים", "clock", "teal", body, `${PT("PRO")}`);
 }
 function tabOverview(D){
   const v = D.v, w = D.w, html = [];
@@ -1909,7 +1910,7 @@ $("#out").addEventListener("click", ev => {
   if (!current) return;
   if (b.dataset.tab) { currentTab = b.dataset.tab; renderResult(); const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"}); return; }
   const act = b.dataset.act;
-  if (act === "share") { $("#shareMsg").textContent = ""; $("[data-share=bizpdf]").hidden = !isBiz(); $("#shareSheet").hidden = false; }
+  if (act === "share") { $("#shareMsg").textContent = ""; $("[data-share=bizpdf]").hidden = !(PRO_LOCK && isBiz()); $("#shareSheet").hidden = false; }
   if (act === "candSave") {
     const raw = digits(($("#askIn") || {}).value), ask = raw ? Number(raw) : null;
     if (!isSaved(current.plate)) toggleSaved(newSavedItem(current));
@@ -2487,7 +2488,7 @@ function renderFleet(){
     return `<tr><td><button type="button" class="lnk" data-open="${s.plate}"><b>${fmtPlate(s.plate)}</b><small style="color:var(--muted)">${esc(s.title)}</small></button></td><td style="${col}">${s.tokef ? (x.days < 0 ? "עבר" : fmtDate(s.tokef)) : "—"}</td><td>${s.recalls > 0 ? s.recalls : "—"}</td></tr>`; }).join("");
   const html = [];
   if (PRO_LOCK && !atLeast("pro")) html.push(proLockCard("הצי שלי", "כל הרכבים שלך בטבלה אחת, עם טסט, ריקולים וסימון מה דורש טיפול."));
-  else html.push(card("הצי שלי", "car", "blue", list.length ? `<p style="margin:0 0 6px"><b>${n ? `${n} רכבים דורשים טיפול` : "הכול בסדר"}</b>${n ? `<br><small style="color:var(--muted)">טסט שעבר או קרוב, או ריקול פתוח</small>` : ""}</p><table class="ft"><tr><th>רכב</th><th>טסט</th><th>ריקולים</th></tr>${rows}</table>${store.get("savedVehicles").length > fleetMax() ? `<p class="note">מוצגים ${fleetMax()} הרכבים הראשונים.</p>` : ""}` : `<p style="margin:0">שמרו רכבים כדי לראות אותם כאן בטבלה אחת.</p>`, `<span class="pro-tag">PRO</span>`));
+  else html.push(card("הצי שלי", "car", "blue", list.length ? `<p style="margin:0 0 6px"><b>${n ? `${n} רכבים דורשים טיפול` : "הכול בסדר"}</b>${n ? `<br><small style="color:var(--muted)">טסט שעבר או קרוב, או ריקול פתוח</small>` : ""}</p><table class="ft"><tr><th>רכב</th><th>טסט</th><th>ריקולים</th></tr>${rows}</table>${store.get("savedVehicles").length > fleetMax() ? `<p class="note">מוצגים ${fleetMax()} הרכבים הראשונים.</p>` : ""}` : `<p style="margin:0">שמרו רכבים כדי לראות אותם כאן בטבלה אחת.</p>`, `${PT("PRO")}`));
   html.push(`<button type="button" class="link-btn" data-act="marketBack">${ico("back")}חזרה</button>`);
   $("#out").innerHTML = html.join(""); updateSavedBar(); window.scrollTo({top: 0});
 }
@@ -2519,7 +2520,7 @@ function buyerCard(D){
   qs.push("יש היסטוריית טיפולים במוסך מורשה?", "אפשר לבדוק את הרכב במכון בדיקה לפני שסוגרים?");
   if (PRO_LOCK && !isPro()) {
     const top = flags.slice(0, 2), more = Math.max(0, flags.length - 2);
-    return `<div class="buyer-card">${card("ליווי קנייה", "bulb", "amber", `${top.length ? `<div class="qsec">דגלים לבדיקה</div><ul class="bflags">${top.map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul>` : `<p style="margin:0 0 8px">לא עלו דגלים אדומים בנתונים.</p>`}<p class="note" style="margin:6px 0 8px">${more ? `יש עוד ${more} דגלים, ` : ""}שאלות למוכר, טווח מחיר הוגן ועלות ל-5 שנים נמצאים בחבילת קנייה.</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לפרטים על חבילת קנייה</button>`, `<span class="pro-tag">PRO</span>`)}</div>`;
+    return `<div class="buyer-card">${card("ליווי קנייה", "bulb", "amber", `${top.length ? `<div class="qsec">דגלים לבדיקה</div><ul class="bflags">${top.map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul>` : `<p style="margin:0 0 8px">לא עלו דגלים אדומים בנתונים.</p>`}<p class="note" style="margin:6px 0 8px">${more ? `יש עוד ${more} דגלים, ` : ""}שאלות למוכר, טווח מחיר הוגן ועלות ל-5 שנים נמצאים בחבילת קנייה.</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לפרטים על חבילת קנייה</button>`, `${PT("PRO")}`)}</div>`;
   }
   const it = savedItem(D.plate), ask = it && it.ask || null, f = candFields(D), vd = askVerdict(ask, f.fair);
   const body = `${flags.length ? `<div class="qsec">דגלים לבדיקה</div><ul class="bflags">${flags.slice(0, 5).map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul>` : `<p style="margin:0 0 8px">לא עלו דגלים אדומים בנתונים.</p>`}
@@ -2529,7 +2530,7 @@ function buyerCard(D){
     <div class="qsec" style="margin-top:10px">המחיר שהמוכר מבקש</div>
     <div class="askrow"><input class="inp" id="askIn" inputmode="numeric" placeholder="₪" value="${ask || ""}" aria-label="המחיר המבוקש"><button type="button" class="link-btn" data-act="candSave">${ico("star")}${it ? "עדכון" : "שמירה כמועמד"}</button></div>
     ${vd ? `<p class="vd ${vd.k}" style="margin:6px 0 0">${esc(vd.t)}</p>` : ""}`;
-  return `<div class="buyer-card">${card("ליווי קנייה", "bulb", "amber", body, `<span class="pro-tag">PRO</span>`)}</div>`;
+  return `<div class="buyer-card">${card("ליווי קנייה", "bulb", "amber", body, `${PT("PRO")}`)}</div>`;
 }
 function renderCandidates(){
   if (land) setLand(false, false);
@@ -2546,7 +2547,7 @@ function renderCandidates(){
     html.push(card("רשימת מועמדים", "star", "amber", rows.length ? `<table class="ft"><tr><th>רכב</th><th>מבוקש</th><th>טווח הוגן</th><th>עלות ל-5 שנים</th></tr>${tbl}</table>
       <p class="note">טווח הוגן הוא הערכת שווי הרכב לפי מחירון, שנתון, בעלויות וק״מ. מתחת למחיר המבוקש כתוב אם הוא גבוה מהטווח, בתוכו או נמוך ממנו. עלות ל-5 שנים כוללת דלק, אגרה וירידת ערך, ואת ההפרש בין המחיר המבוקש למחיר ההוגן. הערכה בלבד.</p>
       ${best && rows.filter(r => r.tot).length > 1 ? `<p style="margin:8px 0 0"><b>הכי משתלם לפי העלות הכוללת: ${esc(best.s.title)}</b></p>` : ""}`
-      : `<p style="margin:0">כדי להוסיף מועמד, פתחו רכב ובכרטיס "ליווי קנייה" הזינו את המחיר שהמוכר מבקש ולחצו על "שמירה כמועמד".</p>`, `<span class="pro-tag">PRO</span>`));
+      : `<p style="margin:0">כדי להוסיף מועמד, פתחו רכב ובכרטיס "ליווי קנייה" הזינו את המחיר שהמוכר מבקש ולחצו על "שמירה כמועמד".</p>`, `${PT("PRO")}`));
   }
   html.push(`<button type="button" class="link-btn" data-act="marketBack">${ico("back")}חזרה</button>`);
   $("#out").innerHTML = html.join(""); updateSavedBar(); window.scrollTo({top: 0});
@@ -2590,7 +2591,7 @@ function renderBulk(){
   else html.push(card("בדיקת רשימת לוחיות", "doc", "blue", `<p style="margin:0 0 8px">הדביקו לוחית בכל שורה (או מופרדות בפסיק), עד ${BULK_MAX}. אפשר להדביק ישר מאקסל.</p>
     <textarea class="inp" id="bulkIn" rows="6" placeholder="12-345-67&#10;234-56-789" dir="ltr">${esc(BULK_TEXT)}</textarea>
     <button type="button" class="link-btn" data-act="bulkRun" style="margin-top:8px">${ico("search")}בדיקת הרשימה</button>
-    <div id="bulkOut">${BULK.length ? bulkTable(false) : ""}</div>`, `<span class="pro-tag">PRO עסקי</span>`));
+    <div id="bulkOut">${BULK.length ? bulkTable(false) : ""}</div>`, `${PT("PRO עסקי")}`));
   html.push(`<button type="button" class="link-btn" data-act="marketBack">${ico("back")}חזרה</button>`);
   $("#out").innerHTML = html.join(""); updateSavedBar(); window.scrollTo({top: 0});
 }
@@ -2642,10 +2643,10 @@ function renderHome(){
   if (saved.length) html.push(card("רכבים שמורים", "star", "amber", `<div class="list">${saved.map(s => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-open="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b>${esc(s.title)}</b><small>${esc(s.sub || "")}</small>${savedFlags(s)}</span></button><button type="button" class="x bell" data-bell="${s.plate}" aria-pressed="${s.alerts !== false}" aria-label="התראות לרכב הזה">${ico("bell")}</button><button type="button" class="x" data-unsave="${s.plate}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div><p class="note">הפעמון קובע על אילו רכבים תקבלו התראה על ריקול חדש או טסט שעומד לפוג.</p>`));
   if (recent.length) html.push(card("חיפושים אחרונים", "clock", "blue", `<div class="chips">${recent.map(p => `<button type="button" class="chip" data-open="${p}">${fmtPlate(p)}</button>`).join("")}</div>`));
   html.push(card("השוואת דגמים לפני קנייה", "compare", "violet", `<p style="margin:0">מחפשים רכב? חפשו לפי יצרן או דגם והשוו עד ${cmpMax()} דגמים: מחיר, צריכת דלק, אגרה, כוח, גרירה, בטיחות וכמה ריקולים היו לדגם.</p><button type="button" class="link-btn" data-act="compareHome">${ico("search")}התחלת השוואה</button>${store.get("savedCompares").length ? `<div class="qsec" style="margin-top:12px">השוואות שמורות</div><div class="list">${store.get("savedCompares").map((c, i) => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-loadcmp="${i}"><span class="t"><b>${esc(c.name)}</b><small>${c.items.length} רכבים</small></span></button><button type="button" class="x" data-delcmp="${i}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div>` : ""}`));
-  if (saved.length >= 2) html.push(card("הצי שלי", "car", "blue", `<p style="margin:0">כל הרכבים השמורים בטבלה אחת: טסט, ריקולים ומה דורש טיפול.</p><button type="button" class="link-btn" data-act="fleet">${ico("car")}לצי שלי</button>`, `<span class="pro-tag">PRO</span>`));
-  if (saved.some(s => s.ask || s.fair)) html.push(card("רשימת מועמדים", "star", "amber", `<p style="margin:0">הרכבים ששמרתם מול המחיר שהמוכר מבקש, הטווח ההוגן והעלות ל-5 שנים.</p><button type="button" class="link-btn" data-act="cands">${ico("star")}לרשימת המועמדים</button>`, `<span class="pro-tag">PRO</span>`));
+  if (saved.length >= 2) html.push(card("הצי שלי", "car", "blue", `<p style="margin:0">כל הרכבים השמורים בטבלה אחת: טסט, ריקולים ומה דורש טיפול.</p><button type="button" class="link-btn" data-act="fleet">${ico("car")}לצי שלי</button>`, `${PT("PRO")}`));
+  if (saved.some(s => s.ask || s.fair)) html.push(card("רשימת מועמדים", "star", "amber", `<p style="margin:0">הרכבים ששמרתם מול המחיר שהמוכר מבקש, הטווח ההוגן והעלות ל-5 שנים.</p><button type="button" class="link-btn" data-act="cands">${ico("star")}לרשימת המועמדים</button>`, `${PT("PRO")}`));
   html.push(card("שוק הרכב", "chart", "blue", `<p style="margin:0">כמה רכבים חדשים נמסרו, אילו יצרנים ודגמים מובילים, מי קונה (פרטי, ליסינג, חברה, השכרה) ואיזה סוג הנעה. לפי שנה או רבעון.</p><button type="button" class="link-btn" data-act="market">${ico("chart")}לנתוני השוק</button>`));
-  html.push(card("בדיקת רשימת לוחיות", "doc", "slate", `<p style="margin:0">לסוחרים, מתווכים ומנהלי צי: בדיקת עד ${BULK_MAX} רכבים בבת אחת, ייצוא לאקסל ודוח PDF עם המיתוג שלכם.</p><button type="button" class="link-btn" data-act="bulk">${ico("doc")}לבדיקת רשימה</button>`, `<span class="pro-tag">PRO עסקי</span>`));
+  html.push(card("בדיקת רשימת לוחיות", "doc", "slate", `<p style="margin:0">לסוחרים, מתווכים ומנהלי צי: בדיקת עד ${BULK_MAX} רכבים בבת אחת, ייצוא לאקסל ודוח PDF עם המיתוג שלכם.</p><button type="button" class="link-btn" data-act="bulk">${ico("doc")}לבדיקת רשימה</button>`, `${PT("PRO עסקי")}`));
   if (!saved.length && !recent.length) html.push(card("מה תקבלו", "bulb", "teal", `<p style="margin:0">סטטוס הרכב ותוקף הטסט, היסטוריית בעלויות, ק״מ בטסט האחרון, תובנות חשובות, ריקולים פתוחים, כושר גרירה עם ובלי בלמים, מפרט, מערכות בטיחות, מחיר מחירון וכמה רכבים כאלה על הכביש.</p>`));
   html.push(`<i id="homeMark" hidden></i>`);
   $("#out").innerHTML = html.join("");
@@ -2716,7 +2717,7 @@ const BIZ_FIELDS = {bizName: "name", bizPhone: "phone", bizAddr: "addr", bizNote
 function syncBiz(){
   const b = bizProfile();
   for (const [id, k] of Object.entries(BIZ_FIELDS)) $("#" + id).value = b[k] || "";
-  $("#bizLogoClear").hidden = !b.logo; $("#bizRow").hidden = !isBiz();
+  $("#bizLogoClear").hidden = !b.logo; $("#bizRow").hidden = !(PRO_LOCK && isBiz());
 }
 for (const [id, k] of Object.entries(BIZ_FIELDS)) $("#" + id).addEventListener("change", () => { const b = bizProfile(); b[k] = $("#" + id).value.trim(); bizSave(b); });
 $("#bizLogo").addEventListener("change", async ev => {
