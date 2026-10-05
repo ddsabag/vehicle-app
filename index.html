@@ -117,6 +117,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .pill.drive.green{background:var(--t-leaf-bg);color:var(--t-leaf)}
 .pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.warn{background:var(--warn-bg);color:var(--warn)}.pill.bad{background:var(--bad-bg);color:var(--bad)}
 .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;border-top:1px solid var(--line);padding-top:12px}
+.mst td{vertical-align:middle}.mst small{white-space:nowrap;font-size:.74rem;color:var(--muted)}.mst b.ok{color:var(--ok)}.mst b.bad{color:var(--bad)}
 .act[data-act=share]{background:var(--plate);color:var(--plate-ink)}.act[data-act=share] svg.i{color:var(--plate-ink)}
 .hero{padding:6px 4px 2px}.hero h2{margin:0 0 4px;font-size:1.15rem;font-weight:800;line-height:1.3}.hero h2::after{content:"";display:block;width:36px;height:4px;border-radius:2px;background:var(--plate);margin-top:8px}.hero p{margin:6px 0 0;color:var(--muted);font-size:.95rem}.hero ul{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px 14px}.hero li{display:flex;align-items:center;gap:6px;font-size:.88rem;color:var(--muted);font-weight:600}.hero li svg.i{width:16px;height:16px;flex:0 0 auto;color:var(--accent)}
 .act{display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--soft);border:0;border-radius:12px;padding:10px 2px;font-size:.78rem;font-weight:700;color:var(--fg)}
@@ -932,9 +933,11 @@ function costs(D){
     if (hands > 1) adj.push([-Math.min(16, (hands - 1) * 4), `${D.ownersFloor ? "לפחות " : ""}${hands} רשומות בעלות`]);
     else if (hands === 1 && first.k === "private") adj.push([1, "יד ראשונה פרטית"]);
     if (D.km && D.kmYears) {
-      const diff = D.km - AVG_KM_YEAR * D.kmYears;
+      const mc = msCohort(D), ageNow = new Date().getFullYear() - mc_y(D);
+      const typ = mc && mc.km ? mc.km * (ageNow > 0 && D.kmYears ? Math.min(1.5, Math.max(0.7, D.kmYears / Math.max(ageNow - 0.5, 0.5))) : 1) : null;
+      const diff = D.km - (typ || AVG_KM_YEAR * D.kmYears);
       const pct = Math.round(Math.max(-8, Math.min(6, -diff / 10000 * 1.5)));
-      if (Math.abs(pct) >= 1) adj.push([pct, `ק״מ: ${fmtN(Math.round(Math.abs(diff) / 1000) * 1000)} ${diff > 0 ? "מעל" : "מתחת"} לממוצע לגיל הרכב`]);
+      if (Math.abs(pct) >= 1) adj.push([pct, `ק״מ: ${fmtN(Math.round(Math.abs(diff) / 1000) * 1000)} ${diff > 0 ? "מעל" : "מתחת"} ${typ ? "לממוצע הדגם והשנתון" : "לממוצע לגיל הרכב"}`]);
     }
     const mid = adj.reduce((v, [p]) => v * (1 + p / 100), base);
     c.newPrice = num(D.price.mehir); c.age = age; c.baseValue = Math.round(base / 1000) * 1000; c.adj = adj;
@@ -1103,6 +1106,7 @@ async function fetchVehicle(plate, signal, onProgress){
 }
 
 /* ---------- insights ---------- */
+const mc_y = D => num(D.v.shnat_yitzur) || new Date().getFullYear();
 const AVG_KM_YEAR = 15000; // typical private car in Israel, rough benchmark
 function buildInsights(D){
   const v = D.v, out = []; const add = (level, title, text) => out.push({level, title, text});
@@ -1180,6 +1184,7 @@ async function lookup(raw){
   $("#go").disabled = true;
   try { history.replaceState(null, "", "#" + plate); } catch {}
   out.innerHTML = loadingHtml(plate);
+  await Promise.race([loadModelStats().catch(() => null), new Promise(r => setTimeout(r, 1500))]);
   let D;
   try { D = await fetchVehicle(plate, signal, f => { const bar = $("#bar"); if (bar) bar.style.width = f * 100 + "%"; }); }
   catch (err) { if (err.name === "AbortError") return; throw err; }
@@ -1280,6 +1285,7 @@ function tabOverview(D){
   }
   html.push(buyerCard(D));
   html.push(eventsCard(D));
+  html.push(`<div id="mstat">${msCard(D)}</div>`);
   const tb = D.tSrc && D.tSrc.kosher_grira_im_blamim, tu = D.tSrc && D.tSrc.kosher_grira_bli_blamim;
   const tv = x => isNum(x) && num(x) > 0 ? fmtN(x) : "—";
   const towNote = [];
@@ -2374,12 +2380,52 @@ function updateSavedBar(){
 $("#savedBar").addEventListener("click", () => { renderHome(); const c = [...document.querySelectorAll("#out .card")].find(x => x.textContent.includes("רכבים שמורים")); if (c) c.scrollIntoView({block: "start"}); });
 for (const nm of ["renderResult", "renderCompare", "renderHome"]) {
   const f = window[nm] || eval(nm);
-  const w = function(...a){ const r = f.apply(this, a); updateSavedBar(); return r; };
+  const w = function(...a){ const r = f.apply(this, a); updateSavedBar(); if (nm === "renderResult") fillModelStats(); return r; };
   if (nm === "renderResult") renderResult = w; else if (nm === "renderCompare") renderCompare = w; else renderHome = w;
 }
 
 /* ---------- market screen ("שוק הרכב"): reads market.json, built monthly by a GitHub Action from the Ministry's delivery datasets ---------- */
 const PREMIUM_MARKET = false;   // later: require a purchase here
+/* per-model statistics (modelstats.json, built monthly): typical km, off-road rate, ownership records, open recalls, by model and production year */
+let MSTATS = null, msP = null;
+function loadModelStats(){
+  if (MSTATS) return Promise.resolve(MSTATS);
+  return msP || (msP = (async () => {
+    for (const u of [SITE + "modelstats.json", "modelstats.json"]) {
+      try { const r = await fetch(u, {cache: "no-cache"}); if (r.ok) { const j = await r.json(); if (j && j.m) return MSTATS = j; } } catch {}
+    }
+    msP = null; return null;
+  })());
+}
+const msKey = D => D && D.v && D.v.tozeret_cd && D.v.kinuy_mishari ? D.v.tozeret_cd + "|" + String(D.v.kinuy_mishari).trim().toUpperCase() : null;
+function msCohort(D){
+  if (!MSTATS || D.kind === "model") return null;
+  const k = msKey(D), y = num(D.v.shnat_yitzur), m = k && MSTATS.m[k], row = m && y && m.y[y];
+  return row ? {n: row[0], c: row[1], km: row[2], own: row[3], rec: row[4], year: y} : null;
+}
+function msYearAvg(y){
+  if (!MSTATS) return null;
+  if (!MSTATS._avg) MSTATS._avg = {};
+  if (MSTATS._avg[y]) return MSTATS._avg[y];
+  let n = 0, c = 0, rn = 0, rs = 0, on = 0, os = 0;
+  for (const m of Object.values(MSTATS.m)) { const r = m.y[y]; if (!r) continue; n += r[0]; c += r[1]; rs += r[4] * r[0]; rn += r[0]; if (r[3] != null) { os += r[3] * r[0]; on += r[0]; } }
+  return MSTATS._avg[y] = n ? {off: c / (n + c), rec: rn ? rs / rn : 0, own: on ? os / on : null} : null;
+}
+function msCard(D){
+  const c = msCohort(D); if (!c) return "";
+  const avg = msYearAvg(c.year), rows = [], pc = x => (x * 100).toFixed(x < .1 ? 1 : 0) + "%";
+  const off = c.c / (c.n + c.c);
+  rows.push(["ירדו מהכביש", pc(off), avg ? `ממוצע לשנתון: ${pc(avg.off)}` : "", avg ? (off <= avg.off ? "ok" : "bad") : ""]);
+  if (c.km) rows.push(["ק״מ אופייני בטסט האחרון", fmtN(c.km), D.km ? `הרכב הזה: ${fmtN(D.km)}` : "", D.km ? (D.km <= c.km * 1.1 ? "ok" : "bad") : ""]);
+  if (c.own) rows.push(["רשומות בעלות לרכב", c.own.toFixed(1), avg && avg.own ? `ממוצע לשנתון: ${avg.own.toFixed(1)}` : "", avg && avg.own ? (c.own <= avg.own ? "ok" : "bad") : ""]);
+  if (avg) rows.push(["ריקולים פתוחים, לכל 1,000", c.rec.toFixed(c.rec < 10 ? 1 : 0), `ממוצע לשנתון: ${avg.rec.toFixed(avg.rec < 10 ? 1 : 0)}`, c.rec <= avg.rec ? "ok" : "bad"]);
+  return card("איך הדגם הזה מחזיק", "chart", "teal", `<table class="ft mst">${rows.map(([a, b, n, k]) => `<tr><td>${a}</td><td><b class="${k}">${b}</b></td><td><small>${n}</small></td></tr>`).join("")}</table><p class="note">${fmtN(c.n)} רכבים פעילים משנתון ${c.year} של הדגם. מבוסס על מאגרי משרד התחבורה, עד כמה שהם מתעדים.</p>`);
+}
+function fillModelStats(){
+  const el = document.getElementById("mstat"); if (!el || !current) return;
+  const D = current;
+  loadModelStats().then(() => { if (current === D && el.isConnected && !el.innerHTML) el.innerHTML = msCard(D); });
+}
 let MARKET = null, MK = {mode: "year", sel: null};
 async function loadMarket(){
   if (MARKET) return MARKET;

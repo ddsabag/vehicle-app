@@ -5,7 +5,7 @@ name: Android build
 on:
   push:
     branches: [main]
-    paths: ["index.html", "market.json", "android/**", ".github/workflows/android.yml"]
+    paths: ["index.html", "market.json", "modelstats.json", "android/**", ".github/workflows/android.yml"]
   workflow_dispatch:
 
 permissions:
