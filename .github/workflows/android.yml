@@ -26,6 +26,18 @@ jobs:
         with:
           gradle-version: "8.13"
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Minify the page for the release build
+        run: |
+          mkdir -p /tmp/minify && cd /tmp/minify && npm init -y >/dev/null && npm i terser@5 >/dev/null
+          cd "$GITHUB_WORKSPACE"
+          ln -sfn /tmp/minify/node_modules .github/scripts/node_modules
+          node .github/scripts/obfuscate.mjs
+          rm .github/scripts/node_modules
+
       - name: Build
         working-directory: android
         run: |
