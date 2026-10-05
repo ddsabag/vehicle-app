@@ -915,8 +915,9 @@ function costs(D){
     // price lists apply them: compounded one after another, past use counted in full when it was the
     // car's first ownership and at half when it came later, history capped at 40%, mileage last.
     const age = Math.max(0, new Date().getFullYear() - year);
-    const lux = num(D.price.mehir) > 300000, ev = kind === "ev";
-    const [y1, yr] = ev ? [0.80, 0.87] : lux ? [0.76, 0.86] : [0.85, 0.90];
+    const lux = num(D.price.mehir) > 300000, ev = kind === "ev", cheap = num(D.price.mehir) < 100000;
+    // calibrated 2026-10 against ~170 asking prices (cheapest first page per model and year): small cheap cars hold value better, electric cars lose it faster
+    const [y1, yr] = ev ? [0.78, 0.85] : lux ? [0.76, 0.86] : cheap ? [0.88, 0.925] : [0.85, 0.90];
     const factor = age === 0 ? (1 + y1) / 2 : y1 * Math.pow(yr, age - 1);
     const base = num(D.price.mehir) * factor;
     const adj = [];
