@@ -228,6 +228,7 @@ footer a{color:var(--accent)}
 .adj li:first-child{border-top:0}
 .adj .neg{color:var(--bad)}.adj .pos{color:var(--ok)}
 .fuel-set{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.fuel-set input.wide{width:170px;text-align:start;font-family:var(--f-body)}
 .fuel-set input{width:110px;border:1px solid var(--line);background:var(--soft);color:var(--fg);border-radius:9px;padding:8px 10px;font:500 1rem var(--f-num);text-align:center}
 /* comparison */
 .cmp{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:6px;align-items:stretch;position:sticky;top:0;z-index:3;background:var(--card);padding-block:8px;margin-block:-8px}
@@ -284,7 +285,15 @@ section[style*="--n:3"] .cmp-k{font-size:.76rem}
 .card.many{overflow-x:auto}.many .cmp,.many .cmp-table{min-width:calc(var(--n)*116px)}
 .ph-svg{width:100%;height:auto;display:block}.pro-tag{display:inline-block;background:#ffc400;color:#111;font-weight:800;font-size:.7rem;border-radius:6px;padding:1px 6px;margin-inline-start:6px}
 .ev{display:flex;gap:10px;justify-content:space-between;padding:7px 0;border-top:1px solid var(--line);align-items:flex-start}.ev:first-of-type{border-top:0}.ev small{color:var(--muted);white-space:nowrap}
-.ft{width:100%;border-collapse:collapse;font-size:.9rem}.ft td,.ft th{padding:8px 4px;border-top:1px solid var(--line);text-align:center}.ft td:first-child,.ft th:first-child{text-align:start}.ft th{font-size:.78rem;color:var(--muted);font-weight:600;border-top:0}.ft button.lnk{border:0;background:none;color:inherit;font:inherit;text-align:start;padding:0;display:block}
+.inp{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--soft);color:var(--fg);font:inherit}
+textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
+.askrow{display:flex;gap:8px;align-items:stretch}.askrow .inp{flex:1;min-width:0;font-family:var(--f-num)}.askrow .link-btn{width:auto;white-space:nowrap}
+.bflags,.bq{margin:0 0 10px;padding-inline-start:20px}.bflags li.bad{color:var(--bad);font-weight:700}.bflags li.warn{color:var(--warn);font-weight:700}.bq li{margin:2px 0}
+.vd.ok{color:var(--ok);font-weight:700}.vd.bad{color:var(--bad);font-weight:700}.ft .g,.sum3 .g{color:var(--ok)}.ft .w,.sum3 .w{color:var(--warn)}.ft .r,.sum3 .r{color:var(--bad)}.ft td.g,.ft td.w,.ft td.r{font-weight:700}
+.sum3{display:flex;gap:6px;margin:10px 0}.sum3 div{flex:1;background:var(--soft);border-radius:10px;padding:6px;text-align:center;font-size:.8rem;color:var(--muted)}.sum3 b{display:block;font-size:1.3rem}
+.bulk-acts{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.rep-brand.biz{background:var(--soft,#f2f4f8);border-bottom:3px solid #1d4ea8;border-radius:10px}.rep-brand.biz img{width:48px;height:48px;object-fit:contain;border-radius:8px;box-shadow:none}.rep-brand.biz b{font-size:1.3rem}
+.ft{width:100%;border-collapse:collapse;font-size:.9rem}.ft td,.ft th{padding:8px 4px;border-top:1px solid var(--line);text-align:center}.ft td:first-child,.ft th:first-child{text-align:start}.ft th{font-size:.78rem;color:var(--muted);font-weight:600;border-top:0}.ft button.lnk small{display:block}.ft button.lnk{border:0;background:none;color:inherit;font:inherit;text-align:start;padding:0;display:block}
 .mk-seg{margin-bottom:10px}.mk-chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 2px}
 .mk-chips button{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:999px;padding:6px 12px;font-weight:700}
 .mk-chips button[aria-pressed="true"]{background:var(--fg);color:var(--card);border-color:var(--fg)}
@@ -481,6 +490,15 @@ body.land .band{display:none}
       <div class="fuel-set"><label for="elecPrice">חשמל (₪ לקוט״ש)</label><input id="elecPrice" inputmode="decimal" placeholder="0.64"></div>
       <p class="note" id="fuelNote">כשהשדה ריק, האפליקציה משתמשת במחיר המפוקח העדכני, שמתעדכן אוטומטית בכל חודש.</p>
     </div>
+    <div class="set-row" id="bizRow"><span>פרטי העסק (PRO עסקי)</span>
+      <div class="fuel-set"><label for="bizName">שם העסק</label><input id="bizName" class="wide"></div>
+      <div class="fuel-set"><label for="bizPhone">טלפון</label><input id="bizPhone" class="wide" inputmode="tel"></div>
+      <div class="fuel-set"><label for="bizAddr">כתובת</label><input id="bizAddr" class="wide"></div>
+      <div class="fuel-set"><label for="bizNote">הערה בדוח</label><input id="bizNote" class="wide"></div>
+      <div class="fuel-set"><label for="bizLogo">לוגו</label><input id="bizLogo" class="wide" type="file" accept="image/*"></div>
+      <button class="link-btn" type="button" id="bizLogoClear" hidden>הסרת הלוגו</button>
+      <p class="note">הפרטים מופיעים בדוחות ה-PDF הממותגים: בלי לוגו של לוחית ובלי קישור לחנות.</p>
+    </div>
     <div class="set-row" id="alertsRow" hidden><span>התראות לרכבים שמורים</span>
       <div class="seg two" role="group" aria-label="התראות לרכבים שמורים"><button type="button" data-alerts="on">פועלות</button><button type="button" data-alerts="off">כבויות</button></div>
       <p class="note" id="alertsNote"></p>
@@ -511,6 +529,7 @@ body.land .band{display:none}
     <div class="list share-opts">
       <button type="button" class="row" data-share="image"><span class="badge-s blue"><svg class="i"><use href="#i-image"/></svg></span><span class="t"><b>תמונה</b><small>צילום של הדוח כפי שהוא על המסך, לשליחה בוואטסאפ</small></span></button>
       <button type="button" class="row" data-share="pdf"><span class="badge-s red"><svg class="i"><use href="#i-doc"/></svg></span><span class="t"><b>קובץ PDF</b><small>דוח מלא: סקירה, ריקולים, עלויות ומפרט</small></span></button>
+      <button type="button" class="row" data-share="bizpdf" hidden><span class="badge-s green"><svg class="i"><use href="#i-doc"/></svg></span><span class="t"><b>PDF ממותג (PRO עסקי)</b><small>עם פרטי העסק שלכם, בלי לוגו ובלי קישור של לוחית</small></span></button>
       <button type="button" class="row" data-share="text"><span class="badge-s slate"><svg class="i"><use href="#i-copy"/></svg></span><span class="t"><b>טקסט</b><small>סיכום קצר בהודעה</small></span></button>
     </div>
     <p class="note" id="shareMsg" role="status"></p>
@@ -520,7 +539,7 @@ body.land .band{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "1.11";
+const APP_VERSION = "1.12";
 const SITE = "https://ddsabag.github.io/vehicle-app/";
 /* PRO: while PRO_LOCK is false (beta) every feature is open to everyone. Later it is tied to a Google Play subscription. */
 const PRO_LOCK = false;
@@ -1231,6 +1250,7 @@ function tabOverview(D){
       `<ul class="insights">${ins.map(i => `<li class="ins ${i.level}">${ico(icon[i.level])}<div><b>${esc(i.title)}</b><span>${esc(i.text)}</span></div></li>`).join("")}</ul>
        <p class="note">התובנות אינן תחליף לבדיקת רכב במכון מורשה.</p>`));
   }
+  html.push(buyerCard(D));
   html.push(eventsCard(D));
   const tb = D.tSrc && D.tSrc.kosher_grira_im_blamim, tu = D.tSrc && D.tSrc.kosher_grira_bli_blamim;
   const tv = x => isNum(x) && num(x) > 0 ? fmtN(x) : "—";
@@ -1509,6 +1529,7 @@ async function fetchModel(r, signal){
 }
 
 /* ---------- comparison (up to 3 cars or models) ---------- */
+const isBiz = () => { if (!PRO_LOCK) return true; try { return localStorage.getItem("bizActive") === "1"; } catch { return false; } };
 const cmpMax = () => isPro() ? PRO_CMP : FREE_CMP;
 let cmp = [], inCompare = false, mResults = [], mCtrl = null;
 function openCompare(){
@@ -1841,6 +1862,11 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "compareHome") { cmp = []; renderCompare(); openCompare("model"); return; }
   if (b.dataset.act === "market") { openMarket(); return; }
   if (b.dataset.act === "fleet") { renderFleet(); return; }
+  if (b.dataset.act === "cands") { renderCandidates(); return; }
+  if (b.dataset.act === "bulk") { renderBulk(); return; }
+  if (b.dataset.act === "bulkRun") { runBulk(b); return; }
+  if (b.dataset.act === "bulkCsv") { bulkCsv(); return; }
+  if (b.dataset.act === "bulkPdf") { bulkPdf(b); return; }
   if (b.dataset.act === "proInfo") { toast("PRO יהיה זמין בקרוב"); return; }
   if (b.dataset.act === "saveCmp") { saveCompare(); return; }
   if (b.dataset.loadcmp) { loadCompare(+b.dataset.loadcmp); return; }
@@ -1856,13 +1882,21 @@ $("#out").addEventListener("click", ev => {
   if (!current) return;
   if (b.dataset.tab) { currentTab = b.dataset.tab; renderResult(); const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"}); return; }
   const act = b.dataset.act;
-  if (act === "share") { $("#shareMsg").textContent = ""; $("#shareSheet").hidden = false; }
+  if (act === "share") { $("#shareMsg").textContent = ""; $("[data-share=bizpdf]").hidden = !isBiz(); $("#shareSheet").hidden = false; }
+  if (act === "candSave") {
+    const raw = digits(($("#askIn") || {}).value), ask = raw ? Number(raw) : null;
+    if (!isSaved(current.plate)) toggleSaved(newSavedItem(current));
+    const list = store.get("savedVehicles"), it = list.find(x => x.plate === current.plate);
+    Object.assign(it, {ask, ...candFields(current)}); store.set("savedVehicles", list);
+    toast(ask ? "הרכב נשמר ברשימת המועמדים" : "הרכב נשמר");
+    { const y = window.scrollY; renderResult(); window.scrollTo(0, y); }
+  }
   if (act === "copy") copyText(summaryText(current), "הסיכום");
   if (act === "calendar") testReminder(current);
   if (act === "fuelUnit") { try { localStorage.setItem("fuelUnit", kmlUnit() ? "l100" : "kml"); } catch {} syncUnit(); renderResult(); }
   if (act === "compare") { cmp = []; renderCompare(); openCompare("model"); }
   if (act === "save") {
-    const on = toggleSaved({plate: current.plate, title: current.title, sub: current.sub, at: Date.now(), tokef: current.v.tokef_dt || "", recalls: current.recalls.length, checked: Date.now(), owners: current.own.length, active: !current.isCancelled, events: []});
+    const on = toggleSaved(newSavedItem(current));
     b.setAttribute("aria-pressed", String(on)); b.querySelector("span").textContent = on ? "נשמר" : "שמירה";
     toast(on ? "הרכב נשמר ברשימה שלך" : "הרכב הוסר מהרשימה");
     { const y = window.scrollY; renderResult(); window.scrollTo(0, y); }
@@ -1935,17 +1969,18 @@ function loadScript(src){
 }
 const TAB_FN = () => ({overview: tabOverview, recalls: tabRecalls, costs: tabCosts, specs: tabSpecs});
 /* The report is built off-screen from the same cards the app shows, with every card open */
-function buildReport(D, full){
+function buildReport(D, full, biz){
   const el = document.createElement("div"); el.className = "report";
   const today = new Date().toLocaleDateString("he-IL");
-  const parts = [brandHead(), `<div class="rep-head"><b>דוח רכב</b><span>${fmtPlate(D.plate)} · ${today}</span></div>`];
+  const parts = [biz ? bizHead(biz) : brandHead(), `<div class="rep-head"><b>דוח רכב</b><span>${fmtPlate(D.plate)} · ${today}</span></div>`];
   const idc = $("#out .id-card"), banner = $("#out .alert-banner");
   if (idc) parts.push(idc.outerHTML);
   if (banner) parts.push(banner.outerHTML.replace(/^<button/, "<div").replace(/<\/button>$/, "</div>"));
   const tabs = full ? TABS : TABS.filter(([k]) => k === currentTab);
   for (const [k, t] of tabs) { if (full) parts.push(`<h3 class="rep-sec">${t}</h3>`); parts.push(TAB_FN()[k](D)); }
-  parts.push(`<p class="rep-foot">המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il, ואינו מחליף נסח רישום רשמי. ${BRAND_FOOT}</p>`);
+  parts.push(`<p class="rep-foot">${biz ? bizFoot(biz) : "המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il, ואינו מחליף נסח רישום רשמי. " + BRAND_FOOT}</p>`);
   el.innerHTML = parts.join("");
+  el.querySelectorAll(".buyer-card").forEach(x => x.remove());
   el.querySelectorAll(".card.folded").forEach(c => c.classList.remove("folded"));
   return inlineIcons(el);
 }
@@ -1960,9 +1995,9 @@ function inlineIcons(el){
   });
   return el;
 }
-async function captureReport(D, full){
+async function captureReport(D, full, biz){
   await loadScript(LIBS.img);
-  const el = buildReport(D, full); if (full) el.classList.add("pdf");
+  const el = buildReport(D, full, biz); if (full) el.classList.add("pdf");
   // page-break candidates for the PDF: below cards and below the blocks inside them, never right after a section title
   return captureEl(el, ".card, .alert-banner, .rep-foot, .fold-body > *, .fold-body > * > *, .grid2 > *");
 }
@@ -2016,12 +2051,13 @@ function pdfBand(text, left, w, h, rule, logo){
   if (rule) { x.fillStyle = "#dde2ea"; x.fillRect(0, rule > 0 ? h - 2 : 0, w, 2); }
   return c.toDataURL("image/png");
 }
-async function makePdf(D){
-  const [{canvas, breaks}] = await Promise.all([captureReport(D, true), loadScript(LIBS.pdf)]);
-  return await pdfFromCanvas(canvas, breaks, `לוחית · ${D.title}${empty(D.v.shnat_yitzur) ? "" : " " + D.v.shnat_yitzur}`, fmtPlate(D.plate));
+async function makePdf(D, biz){
+  const [{canvas, breaks}] = await Promise.all([captureReport(D, true, biz), loadScript(LIBS.pdf)]);
+  const yr = empty(D.v.shnat_yitzur) ? "" : " " + D.v.shnat_yitzur;
+  return await pdfFromCanvas(canvas, breaks, `${biz ? biz.name : "לוחית"} · ${D.title}${yr}`, fmtPlate(D.plate), biz ? await bizPdfOpts(biz) : undefined);
 }
-async function pdfFromCanvas(canvas, breaks, headText, headLeft){
-  const logo = await loadLogo();
+async function pdfFromCanvas(canvas, breaks, headText, headLeft, opts = {}){
+  const logo = "logo" in opts ? opts.logo : await loadLogo();
   const pdf = new window.jspdf.jsPDF({unit: "pt", format: "a4", compress: true});
   const W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight();
   const MX = 36, TOP = 58, BOT = 50, CW = W - 2 * MX;
@@ -2034,7 +2070,7 @@ async function pdfFromCanvas(canvas, breaks, headText, headLeft){
   }
   const BW = Math.round(CW * 3), BH = 60, bh = BH / 3;
   const head = pdfBand(headText, headLeft, BW, BH, 1, logo);
-  const foot = n => pdfBand("לוחית · בדיקת רכב לפי מספר רישוי · חינם ב-Google Play", n, BW, BH, -1, logo);
+  const foot = n => pdfBand(opts.foot || "לוחית · בדיקת רכב לפי מספר רישוי · חינם ב-Google Play", n, BW, BH, -1, opts.foot ? null : logo);
   slices.forEach(([a, b], i) => {
     if (i) pdf.addPage();
     const part = document.createElement("canvas"); part.width = canvas.width; part.height = b - a;
@@ -2043,7 +2079,7 @@ async function pdfFromCanvas(canvas, breaks, headText, headLeft){
     if (i) pdf.addImage(head, "PNG", MX, 22, CW, bh);
     pdf.addImage(part.toDataURL("image/jpeg", 0.92), "JPEG", MX, i ? TOP : 30, CW, (b - a) * scale);
     pdf.addImage(foot(`${i + 1} / ${slices.length}`), "PNG", MX, H - 34, CW, bh);
-    pdf.link(MX, H - 34, CW, bh, {url: PLAY_URL});
+    if (!opts.foot) pdf.link(MX, H - 34, CW, bh, {url: PLAY_URL});
   });
   return pdf.output("blob");
 }
@@ -2073,11 +2109,14 @@ async function doShare(kind){
   const D = current; if (!D) return;
   const msg = $("#shareMsg"), name = `Luchit-${D.plate}`;
   if (kind === "text") { $("#shareSheet").hidden = true; shareText(D.title, summaryText(D), D.plate); return; }
+  const biz = kind === "bizpdf" ? bizProfile() : null;
+  if (biz && !biz.name) { msg.textContent = "כדי לקבל דוח ממותג, הוסיפו את פרטי העסק בהגדרות."; return; }
   document.querySelectorAll("[data-share]").forEach(b => b.disabled = true);
-  msg.textContent = kind === "pdf" ? "מכין קובץ PDF…" : "מכין תמונה…";
+  msg.textContent = kind === "pdf" || kind === "bizpdf" ? "מכין קובץ PDF…" : "מכין תמונה…";
   try {
     const caption = `${D.title} · ${fmtPlate(D.plate)}\nהדוח המלא באפליקציה לוחית:\n${carLink(D.plate)}`;
-    if (kind === "pdf") await shareFile(await makePdf(D), name + ".pdf", D.title, caption);
+    if (biz) await shareFile(await makePdf(D, biz), name + ".pdf", D.title);
+    else if (kind === "pdf") await shareFile(await makePdf(D), name + ".pdf", D.title, caption);
     else { const {canvas} = await captureReport(D, false); await shareFile(await canvasToBlob(canvas, "image/png"), name + ".png", D.title, caption); }
     $("#shareSheet").hidden = true;
   } catch (err) {
@@ -2414,6 +2453,143 @@ function renderFleet(){
   html.push(`<button type="button" class="link-btn" data-act="marketBack">${ico("back")}חזרה</button>`);
   $("#out").innerHTML = html.join(""); updateSavedBar(); window.scrollTo({top: 0});
 }
+/* ---------- buying companion (PRO / buyer pack) ---------- */
+const savedItem = p => store.get("savedVehicles").find(x => x.plate === p);
+const candFields = D => ({fair: D.cost && D.cost.valueLow ? [D.cost.valueLow, D.cost.valueHigh] : null, c5: D.cost && D.cost.monthly ? D.cost.monthly.total * 60 : null});
+const newSavedItem = D => ({plate: D.plate, title: D.title, sub: D.sub, at: Date.now(), tokef: D.v.tokef_dt || "", recalls: D.recalls.length, checked: Date.now(), owners: D.own.length, active: !D.isCancelled, events: [], ...candFields(D)});
+function askVerdict(ask, fair){
+  if (!ask || !fair) return null;
+  const [lo, hi] = fair, r = x => fmtN(Math.round(x / 100) * 100) + " ₪";
+  if (ask > hi) return {k: "bad", s: "מעל הטווח", t: `המחיר המבוקש גבוה מהטווח ב-${r(ask - hi)}`};
+  if (ask < lo) return {k: "ok", s: "מתחת לטווח", t: `המחיר המבוקש נמוך מהטווח ב-${r(lo - ask)}`};
+  return {k: "ok", s: "בתוך הטווח", t: "המחיר המבוקש בתוך הטווח"};
+}
+function buyerCard(D){
+  if (D.isCancelled || D.kind === "model") return "";
+  if (PRO_LOCK && !isPro()) return `<div class="buyer-card">${proLockCard("ליווי קנייה", "דגלים אדומים, שאלות למוכר, טווח מחיר הוגן ועלות ל-5 שנים, לפני שסוגרים עסקה.")}</div>`;
+  const v = D.v, flags = [], qs = [];
+  if (D.recalls.length) { flags.push(["bad", D.recalls.length === 1 ? "ריקול פתוח" : `${D.recalls.length} ריקולים פתוחים`]); qs.push("האם הריקול תוקן? כדאי לבקש אישור תיקון מהיבואן."); }
+  for (const i of buildInsights(D)) if (i.level === "bad" || i.level === "warn") flags.push([i.level, i.title]);
+  const past = D.own.map(r => String(r.baalut || ""));
+  if (D.own.length >= 3) qs.push("למה הרכב החליף כל כך הרבה בעלים?");
+  if (past.some(t => t.includes("השכר"))) qs.push("איך טיפלו ברכב בתקופת ההשכרה? יש חשבוניות?");
+  if (D.kmPerYear && D.kmPerYear / AVG_KM_YEAR >= 1.25) qs.push("הק״מ גבוה לשנתון: האם הוא תואם ללוח המחוונים ולטסט האחרון?");
+  if (yes(v.shinui_mivne_ind)) qs.push("מה שונה במבנה הרכב, ויש אישור רשום?");
+  if (yes(v.shnui_zeva_ind)) qs.push("למה הצבע שונה? האם היה תיקון פחחות?");
+  if (D.importKind) qs.push("מי נותן שירות וחלפים לרכב, כיוון שהוא יבוא אישי?");
+  qs.push("יש היסטוריית טיפולים במוסך מורשה?", "אפשר לבדוק את הרכב במכון בדיקה לפני שסוגרים?");
+  const it = savedItem(D.plate), ask = it && it.ask || null, f = candFields(D), vd = askVerdict(ask, f.fair);
+  const body = `${flags.length ? `<div class="qsec">דגלים לבדיקה</div><ul class="bflags">${flags.slice(0, 5).map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul>` : `<p style="margin:0 0 8px">לא עלו דגלים אדומים בנתונים.</p>`}
+    <div class="qsec">מה לשאול את המוכר</div><ul class="bq">${qs.slice(0, 5).map(q => `<li>${esc(q)}</li>`).join("")}</ul>
+    ${f.fair ? `<div class="qsec">טווח מחיר הוגן (הערכה)</div><p style="margin:0"><b>${fmtN(f.fair[0])} – ${fmtN(f.fair[1])} ₪</b></p><p class="note" style="margin:2px 0 0">לפי מחירון, שנתון, בעלויות וקילומטראז'.</p>` : ""}
+    ${f.c5 ? `<div class="qsec" style="margin-top:10px">עלות בעלות ל-5 שנים (הערכה)</div><p style="margin:0"><b>כ-${fmtN(Math.round(f.c5 / 1000) * 1000)} ₪</b></p><p class="note" style="margin:2px 0 0">דלק, אגרה וירידת ערך. ביטוח וטיפולים לא נכללים.</p>` : ""}
+    <div class="qsec" style="margin-top:10px">המחיר שהמוכר מבקש</div>
+    <div class="askrow"><input class="inp" id="askIn" inputmode="numeric" placeholder="₪" value="${ask || ""}" aria-label="המחיר המבוקש"><button type="button" class="link-btn" data-act="candSave">${ico("star")}${it ? "עדכון" : "שמירה כמועמד"}</button></div>
+    ${vd ? `<p class="vd ${vd.k}" style="margin:6px 0 0">${esc(vd.t)}</p>` : ""}`;
+  return `<div class="buyer-card">${card("ליווי קנייה", "bulb", "amber", body, `<span class="pro-tag">PRO</span>`)}</div>`;
+}
+function renderCandidates(){
+  if (land) setLand(false, false);
+  current = null; inCompare = false;
+  const html = [];
+  if (PRO_LOCK && !isPro()) html.push(proLockCard("רשימת מועמדים", "משווים רכבים שמורים לפי המחיר המבוקש, הטווח ההוגן והעלות ל-5 שנים."));
+  else {
+    const rows = store.get("savedVehicles").filter(s => s.ask || s.fair).map(s => {
+      const vd = askVerdict(s.ask, s.fair), mid = s.fair ? (s.fair[0] + s.fair[1]) / 2 : null;
+      return {s, vd, tot: s.c5 && s.ask && mid ? s.c5 + (s.ask - mid) : null};
+    });
+    const best = rows.filter(r => r.tot).sort((a, b) => a.tot - b.tot)[0];
+    const tbl = rows.map(({s, vd, tot}) => `<tr><td><button type="button" class="lnk" data-open="${s.plate}"><b>${fmtPlate(s.plate)}</b><small style="color:var(--muted)">${esc(s.title)}</small></button></td><td>${s.ask ? fmtN(s.ask) : "—"}</td><td${vd ? ` class="vd ${vd.k}"` : ""}>${vd ? vd.s : "—"}</td><td>${tot ? Math.round(tot / 1000) + "K" : "—"}</td></tr>`).join("");
+    html.push(card("רשימת מועמדים", "star", "amber", rows.length ? `<table class="ft"><tr><th>רכב</th><th>מבוקש</th><th>מול הוגן</th><th>עלות ל-5 שנים</th></tr>${tbl}</table>
+      <p class="note">עלות ל-5 שנים כוללת דלק, אגרה וירידת ערך, ואת ההפרש בין המחיר המבוקש למחיר ההוגן. הערכה בלבד.</p>
+      ${best && rows.filter(r => r.tot).length > 1 ? `<p style="margin:8px 0 0"><b>הכי משתלם לפי העלות הכוללת: ${esc(best.s.title)}</b></p>` : ""}`
+      : `<p style="margin:0">כדי להוסיף מועמד, פתחו רכב ובכרטיס "ליווי קנייה" הזינו את המחיר שהמוכר מבקש ולחצו על "שמירה כמועמד".</p>`, `<span class="pro-tag">PRO</span>`));
+  }
+  html.push(`<button type="button" class="link-btn" data-act="marketBack">${ico("back")}חזרה</button>`);
+  $("#out").innerHTML = html.join(""); updateSavedBar(); window.scrollTo({top: 0});
+}
+
+/* ---------- business: profile, bulk check, branded PDF ---------- */
+const bizProfile = () => { try { return JSON.parse(localStorage.getItem("bizProfile") || "{}") || {}; } catch { return {}; } };
+const bizSave = o => { try { localStorage.setItem("bizProfile", JSON.stringify(o)); } catch {} };
+const bizHead = b => `<div class="rep-brand biz">${b.logo ? `<img src="${b.logo}" alt="">` : ""}<div><b>${esc(b.name)}</b><span>${esc([b.addr, b.phone].filter(Boolean).join(" · "))}</span></div></div>`;
+const bizFoot = b => `המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il, ואינו מחליף נסח רישום רשמי.${b.note ? " " + esc(b.note) : ""}`;
+const loadImg = src => new Promise(ok => { if (!src) return ok(null); const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null); im.src = src; });
+async function bizPdfOpts(b){
+  return {foot: [b.name, b.phone].filter(Boolean).join(" · "), logo: await loadImg(b.logo)};
+}
+let BULK = [], BULK_TEXT = "";
+const BULK_MAX = 100;
+const parsePlates = t => [...new Set(String(t).split(/[\n\r,;]+/).map(x => digits(x).replace(/^0+(?=\d{5})/, "")).filter(d => d.length >= 5 && d.length <= 8))].slice(0, BULK_MAX);
+function bulkRow(D){
+  if (D.notFound) return {plate: D.plate, title: "לא נמצא במאגר", lvl: 1, status: "לא נמצא", test: "", days: "", recalls: "", owners: "", km: "", year: ""};
+  if (D.offline) return {plate: D.plate, title: "שגיאת חיבור", lvl: 1, status: "לא נבדק", test: "", days: "", recalls: "", owners: "", km: "", year: ""};
+  const exp = toDate(D.v.tokef_dt), days = exp ? Math.round((exp - new Date()) / 864e5) : null;
+  const bad = D.isCancelled || (days !== null && days < 0) || D.recalls.length > 0;
+  const warn = days !== null && days >= 0 && days <= 45;
+  return {plate: D.plate, title: D.title, year: D.v.shnat_yitzur || "", lvl: bad ? 2 : warn ? 1 : 0, status: D.isCancelled ? "בוטל" : D.primary ? D.primary.status : "",
+    test: exp ? fmtDate(D.v.tokef_dt) : "", days: days === null ? "" : days, recalls: D.recalls.length, owners: D.own.length, km: D.km || ""};
+}
+function bulkTable(running, total){
+  const rows = BULK.slice().sort((a, b) => b.lvl - a.lvl || a.plate.localeCompare(b.plate));
+  const n = l => BULK.filter(r => r.lvl === l).length;
+  const cls = ["g", "w", "r"], tx = r => r.days === "" ? "—" : r.days < 0 ? "עבר" : r.test;
+  return `${running ? `<p class="note" role="status">נבדקו ${BULK.length} מתוך ${total}…</p>` : ""}
+    <div class="sum3"><div><b class="g">${n(0)}</b>תקין</div><div><b class="w">${n(1)}</b>לתשומת לב</div><div><b class="r">${n(2)}</b>בעיה</div></div>
+    <table class="ft"><tr><th>לוחית</th><th>טסט</th><th>ריקולים</th><th>בעלויות</th></tr>${rows.map(r => `<tr><td><button type="button" class="lnk" data-open="${r.plate}"><b>${fmtPlate(r.plate)}</b><small style="color:var(--muted)">${esc(r.title)}${r.year ? " " + esc(r.year) : ""}</small></button></td><td class="${cls[r.days === "" ? 0 : r.days < 0 ? 2 : r.days <= 45 ? 1 : 0]}">${tx(r)}</td><td>${r.recalls ? `<b class="r">${r.recalls}</b>` : "—"}</td><td>${r.owners === "" ? "—" : r.owners}</td></tr>`).join("")}</table>
+    ${running ? "" : `<p class="note">מסודר לפי מה שדורש טיפול קודם.</p><div class="bulk-acts"><button type="button" class="link-btn" data-act="bulkCsv">${ico("doc")}ייצוא לאקסל (CSV)</button><button type="button" class="link-btn" data-act="bulkPdf">${ico("share")}${bizProfile().name ? "דוח PDF עם המיתוג שלי" : "דוח PDF"}</button></div>`}`;
+}
+function renderBulk(){
+  if (land) setLand(false, false);
+  current = null; inCompare = false;
+  const html = [];
+  if (PRO_LOCK && !isBiz()) html.push(proLockCard("בדיקת רשימת לוחיות", "בודקים עד 100 רכבים בבת אחת, מייצאים לאקסל ומפיקים דוח PDF עם המיתוג שלכם."));
+  else html.push(card("בדיקת רשימת לוחיות", "doc", "blue", `<p style="margin:0 0 8px">הדביקו לוחית בכל שורה (או מופרדות בפסיק), עד ${BULK_MAX}. אפשר להדביק ישר מאקסל.</p>
+    <textarea class="inp" id="bulkIn" rows="6" placeholder="12-345-67&#10;234-56-789" dir="ltr">${esc(BULK_TEXT)}</textarea>
+    <button type="button" class="link-btn" data-act="bulkRun" style="margin-top:8px">${ico("search")}בדיקת הרשימה</button>
+    <div id="bulkOut">${BULK.length ? bulkTable(false) : ""}</div>`, `<span class="pro-tag">PRO עסקי</span>`));
+  html.push(`<button type="button" class="link-btn" data-act="marketBack">${ico("back")}חזרה</button>`);
+  $("#out").innerHTML = html.join(""); updateSavedBar(); window.scrollTo({top: 0});
+}
+async function runBulk(btn){
+  const ta = $("#bulkIn"); BULK_TEXT = ta.value;
+  const plates = parsePlates(ta.value);
+  if (!plates.length) { toast("לא מצאתי מספרי רישוי ברשימה"); return; }
+  BULK = []; btn.disabled = true;
+  const queue = plates.slice(), ac = new AbortController();
+  const worker = async () => { while (queue.length) {
+    const p = queue.shift(); let D;
+    try { D = await fetchVehicle(p, ac.signal); } catch { D = {plate: p, offline: true}; }
+    BULK.push(bulkRow(D));
+    const o = $("#bulkOut"); if (o) o.innerHTML = bulkTable(true, plates.length);
+  } };
+  await Promise.all([worker(), worker(), worker()]);
+  const o = $("#bulkOut"); if (o) o.innerHTML = bulkTable(false);
+  btn.disabled = false;
+}
+function bulkCsv(){
+  const q = x => `"${String(x).replace(/"/g, '""')}"`, lv = ["תקין", "לתשומת לב", "בעיה"];
+  const head = ["לוחית", "רכב", "שנה", "סטטוס", "תוקף טסט", "ימים לטסט", "ריקולים פתוחים", "רשומות בעלות", "ק״מ בטסט אחרון", "סימון"];
+  const rows = BULK.slice().sort((a, b) => b.lvl - a.lvl || a.plate.localeCompare(b.plate)).map(r => [fmtPlate(r.plate), r.title, r.year, r.status, r.test, r.days, r.recalls, r.owners, r.km, lv[r.lvl]]);
+  const csv = "﻿" + [head, ...rows].map(r => r.map(q).join(",")).join("\r\n");
+  shareFile(new Blob([csv], {type: "text/csv"}), `Luchit-list-${new Date().toISOString().slice(0, 10)}.csv`, "רשימת רכבים");
+}
+async function bulkPdf(btn){
+  const old = btn.innerHTML; btn.disabled = true; btn.textContent = "מכין PDF…";
+  try {
+    await Promise.all([loadScript(LIBS.img), loadScript(LIBS.pdf)]);
+    const b = bizProfile(), has = !!b.name, today = new Date().toLocaleDateString("he-IL");
+    const el = document.createElement("div"); el.className = "report pdf";
+    el.innerHTML = (has ? bizHead(b) : brandHead()) + `<div class="rep-head"><b>בדיקת רשימת רכבים</b><span>${BULK.length} רכבים · ${today}</span></div><section class="card">${bulkTable(false).replace(/<div class="bulk-acts">.*$/s, "")}</section><p class="rep-foot">${has ? bizFoot(b) : "המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il. " + BRAND_FOOT}</p>`;
+    el.querySelectorAll("button.lnk").forEach(x => { const s = document.createElement("span"); s.innerHTML = x.innerHTML; x.replaceWith(s); });
+    inlineIcons(el);
+    const {canvas, breaks} = await captureEl(el, ".card, tr, .rep-foot");
+    const blob = has ? await pdfFromCanvas(canvas, breaks, `${b.name} · בדיקת רשימת רכבים`, today, await bizPdfOpts(b)) : await pdfFromCanvas(canvas, breaks, "לוחית · בדיקת רשימת רכבים", today);
+    await shareFile(blob, `Luchit-list-${new Date().toISOString().slice(0, 10)}.pdf`, "רשימת רכבים");
+  } catch { toast("לא הצלחתי להכין את הקובץ. בדקו את החיבור לאינטרנט ונסו שוב."); }
+  finally { btn.disabled = false; btn.innerHTML = old; }
+}
+
 function renderHome(){
   if (land) setLand(false, false);
   current = null; inCompare = false;
@@ -2423,7 +2599,9 @@ function renderHome(){
   if (recent.length) html.push(card("חיפושים אחרונים", "clock", "blue", `<div class="chips">${recent.map(p => `<button type="button" class="chip" data-open="${p}">${fmtPlate(p)}</button>`).join("")}</div>`));
   html.push(card("השוואת דגמים לפני קנייה", "compare", "violet", `<p style="margin:0">מחפשים רכב? חפשו לפי יצרן או דגם והשוו עד ${cmpMax()} דגמים: מחיר, צריכת דלק, אגרה, כוח, גרירה, בטיחות וכמה ריקולים היו לדגם.</p><button type="button" class="link-btn" data-act="compareHome">${ico("search")}התחלת השוואה</button>${store.get("savedCompares").length ? `<div class="qsec" style="margin-top:12px">השוואות שמורות</div><div class="list">${store.get("savedCompares").map((c, i) => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-loadcmp="${i}"><span class="t"><b>${esc(c.name)}</b><small>${c.items.length} רכבים</small></span></button><button type="button" class="x" data-delcmp="${i}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div>` : ""}`));
   if (saved.length >= 2) html.push(card("הצי שלי", "car", "blue", `<p style="margin:0">כל הרכבים השמורים בטבלה אחת: טסט, ריקולים ומה דורש טיפול.</p><button type="button" class="link-btn" data-act="fleet">${ico("car")}לצי שלי</button>`, `<span class="pro-tag">PRO</span>`));
+  if (saved.some(s => s.ask || s.fair)) html.push(card("רשימת מועמדים", "star", "amber", `<p style="margin:0">הרכבים ששמרתם מול המחיר שהמוכר מבקש, הטווח ההוגן והעלות ל-5 שנים.</p><button type="button" class="link-btn" data-act="cands">${ico("star")}לרשימת המועמדים</button>`, `<span class="pro-tag">PRO</span>`));
   html.push(card("שוק הרכב", "chart", "blue", `<p style="margin:0">כמה רכבים חדשים נמסרו, אילו יצרנים ודגמים מובילים, מי קונה (פרטי, ליסינג, חברה, השכרה) ואיזה סוג הנעה. לפי שנה או רבעון.</p><button type="button" class="link-btn" data-act="market">${ico("chart")}לנתוני השוק</button>`));
+  html.push(card("בדיקת רשימת לוחיות", "doc", "slate", `<p style="margin:0">לסוחרים, מתווכים ומנהלי צי: בדיקת עד ${BULK_MAX} רכבים בבת אחת, ייצוא לאקסל ודוח PDF עם המיתוג שלכם.</p><button type="button" class="link-btn" data-act="bulk">${ico("doc")}לבדיקת רשימה</button>`, `<span class="pro-tag">PRO עסקי</span>`));
   if (!saved.length && !recent.length) html.push(card("מה תקבלו", "bulb", "teal", `<p style="margin:0">סטטוס הרכב ותוקף הטסט, היסטוריית בעלויות, ק״מ בטסט האחרון, תובנות חשובות, ריקולים פתוחים, כושר גרירה עם ובלי בלמים, מפרט, מערכות בטיחות, מחיר מחירון וכמה רכבים כאלה על הכביש.</p>`));
   $("#out").innerHTML = html.join("");
   if (saved.length) checkSaved();
@@ -2488,6 +2666,27 @@ document.querySelectorAll("[data-unit]").forEach(b => b.addEventListener("click"
   });
 });
 applyTheme(themeChoice());
+/* business profile */
+const BIZ_FIELDS = {bizName: "name", bizPhone: "phone", bizAddr: "addr", bizNote: "note"};
+function syncBiz(){
+  const b = bizProfile();
+  for (const [id, k] of Object.entries(BIZ_FIELDS)) $("#" + id).value = b[k] || "";
+  $("#bizLogoClear").hidden = !b.logo; $("#bizRow").hidden = !isBiz();
+}
+for (const [id, k] of Object.entries(BIZ_FIELDS)) $("#" + id).addEventListener("change", () => { const b = bizProfile(); b[k] = $("#" + id).value.trim(); bizSave(b); });
+$("#bizLogo").addEventListener("change", async ev => {
+  const f = ev.target.files[0]; if (!f) return;
+  try {
+    const im = await loadImg(URL.createObjectURL(f)); if (!im) throw 0;
+    const sc = Math.min(1, 160 / Math.max(im.width, im.height)), c = document.createElement("canvas");
+    c.width = Math.round(im.width * sc); c.height = Math.round(im.height * sc);
+    c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+    const b = bizProfile(); b.logo = c.toDataURL("image/png"); bizSave(b); syncBiz(); toast("הלוגו נשמר");
+  } catch { toast("לא הצלחתי לפתוח את התמונה"); }
+  ev.target.value = "";
+});
+$("#bizLogoClear").addEventListener("click", () => { const b = bizProfile(); delete b.logo; bizSave(b); syncBiz(); });
+syncBiz();
 /* Android back button: close settings, then return from a result to the home screen */
 $(".brand h1").addEventListener("click", () => { if (!current && !inCompare) return; if (land) setLand(false, false); inCompare = false; renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} window.scrollTo({top: 0}); });
 window.appBack = () => { if (!sheet.hidden) { sheet.hidden = true; return true; } if (!$("#compareSheet").hidden) { if (mGroup) stepBack(); else hideCmpSheet(); return true; } if (!$("#shareSheet").hidden) { $("#shareSheet").hidden = true; return true; } if (inCompare) { closeCompare(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} return true; } return false; };
