@@ -1146,6 +1146,9 @@ function buildInsights(D){
     else if (own.length >= 4) add("warn", `${D.ownersFloor ? "לפחות " : ""}${own.length} רשומות בעלות`, "הרכב עבר הרבה ידיים. כדאי לבקש היסטוריית טיפולים.");
     if (past.some(t => t.includes("השכר"))) add("warn", "היה רכב השכרה", "בעבר הרכב היה בבעלות חברת השכרה. רכבי השכרה עוברים בין נהגים רבים.");
     if (past.some(t => t.includes("ליסינג"))) add("info", "היה רכב ליסינג", "בעבר הרכב היה בליסינג. רכבי ליסינג מטופלים לרוב במוסך מורשה, אבל צוברים ק״מ מהר.");
+    const curOwn = String(own[own.length - 1].baalut || "");
+    if (/סוחר|יבואן|מסחר/.test(curOwn)) add("warn", "הרכב רשום כעת על סוחר", "המוכר כנראה סוחר רכבים: מחיר הרכב כולל מרווח, ועל עסקה עם סוחר חלים חובות גילוי ואחריות. בקשו מסמכים בכתב ובררו מי היו הבעלים הקודמים.");
+    else if (own.length > 1 && /חברה|חברת|תאגיד|השכר|ליסינג/.test(curOwn)) add("info", "הרכב רשום כעת על חברה", "הבעלות הנוכחית על שם חברה, ולא אדם פרטי. אם המוכר מציג את עצמו כבעלים פרטי, בקשו הסבר והסדירו את העברת הבעלות מול החברה.");
     const last = parseYM(own[own.length - 1].baalut_dt);
     if (last && own.length > 1 && monthsBetween(last, now) < 6) add("info", "החליף בעלים לאחרונה", `העברת הבעלות האחרונה הייתה ב-${fmtDate(own[own.length - 1].baalut_dt)}.`);
   }
@@ -1681,9 +1684,23 @@ function tabCosts(D){
 }
 
 /* the buyer view: buying help, estimated value, how the model holds up, what to do before paying */
+/* what the open registers were checked for, with ticks, and what they cannot answer */
+function checksCard(D){
+  const v = D.v, exp = toDate(v.tokef_dt), now = new Date(), rows = [];
+  const row = (ok, t) => rows.push(`<li class="ins ${ok ? "ok" : "warn"}">${ico(ok ? "check" : "alert")}<div><b>${esc(t)}</b></div></li>`);
+  row(!D.isCancelled, D.isCancelled ? "הרכב ירד מהכביש" : "הרכב פעיל ולא בוטל");
+  if (exp) row(exp >= now, exp >= now ? `טסט בתוקף עד ${fmtDate(v.tokef_dt)}` : `הטסט פג ב-${fmtDate(v.tokef_dt)}`);
+  row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")}` : "אין ריקול פתוח");
+  if (D.own.length) row(true, `נבדקה היסטוריית הבעלות (${ownersLabel(D)})`);
+  const mods = ["shinui_mivne_ind", "gapam_ind", "shnui_zeva_ind", "shinui_zmig_ind"].filter(k => yes(v[k]));
+  row(!mods.length, mods.length ? "נרשמו שינויים ברכב" : "לא נרשמו שינויי מבנה, גפ״מ או צבע");
+  return card("מה נבדק", "check", "green", `<ul class="insights">${rows.join("")}</ul>
+    <p class="note" style="margin:0"><b>מה אי אפשר לדעת ממאגרי משרד התחבורה:</b> שעבודים, תאונות, אובדן גמור וירידת ערך מביטוח, וגניבה. את שעבוד וגניבה אפשר לבדוק בקישורים למטה. נתוני תביעות וביטוח נמצאים אצל חברות הביטוח.</p>`);
+}
 function tabBuy(D){
   const c = D.cost, html = [];
   html.push(buyerCard(D));
+  html.push(checksCard(D));
   html.push(card("שווי משוער", "tag", "pink", (c.newPrice ?
     `<div class="tow-grid"><div><div class="k">מחיר מחירון כחדש</div><div class="v">${fmtN(c.newPrice)}<span class="u">₪</span></div></div><div><div class="k">שווי משוער היום</div><div class="v"><span dir="ltr" style="unicode-bidi:isolate;white-space:nowrap">${Math.round(c.valueLow / 1000)}–${Math.round(c.valueHigh / 1000)}</span><span class="u">אלף ₪</span></div></div></div>
      
@@ -1693,6 +1710,7 @@ function tabBuy(D){
   html.push(`<div id="mstat">${msCard(D)}</div>`);
   html.push(card("לפני שקונים", "check", "green",
     `<p style="margin:0">כמה דברים שכדאי לעשות לפני שסוגרים עסקה:</p>
+     <ul class="bq"><li>ודאו שמי שמציג את הרכב הוא הבעלים הרשום (גם בן או בת זוג), ושהשם ברישיון הרכב תואם לתעודת הזהות שלו.</li><li>אם הרכב משועבד, השעבוד נשאר גם אחרי העברת הבעלות: דרשו הסרה לפני התשלום.</li><li>בעסקה עם סוחר, בקשו בכתב מסמכי רכישה ואחריות.</li></ul>
      <button type="button" class="link-btn" data-url="https://www.gov.il/he/service/pawn_perusal" data-copyfirst="${D.plate}">${ico("search")}בדיקת שעבוד ברשם המשכונות</button>
      <button type="button" class="link-btn" data-url="https://www.gov.il/apps/police/stolencar/" data-copyfirst="${D.plate}">${ico("search")}בדיקה במאגר הרכבים הגנובים (משטרה)</button>
      <button type="button" class="link-btn" data-url="https://car.cma.gov.il/">${ico("doc")}השוואת מחירי ביטוח חובה</button>
