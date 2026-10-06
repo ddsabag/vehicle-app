@@ -2715,7 +2715,7 @@ async function loadMarket(){
   throw new Error("market");
 }
 /* maker names in the market data come in the registry's spelling; one display form per maker */
-const MK_NAMES = {"במוו": "BMW", "מג": "MG", "אםגי": "MG", "בייווידי": "BYD", "גילי": "ג׳ילי", "צרי": "צ׳רי"};
+const MK_NAMES = {"במוו": "BMW", "מג": "MG", "אםגי": "MG", "בייווידי": "BYD", "ביווידי": "BYD", "גילי": "ג׳ילי", "צרי": "צ׳רי"};
 const mkMake = k => MK_NAMES[String(k).replace(/[\s.'"׳״`-]/g, "")] || k;
 const mkLocked = () => PRO_LOCK && !isPro();
 const MON = ["ינו׳","פבר׳","מרץ","אפר׳","מאי","יוני","יולי","אוג׳","ספט׳","אוק׳","נוב׳","דצמ׳"];
@@ -2748,7 +2748,7 @@ function renderMarket(M){
     return rows.map(([k, c, p]) => `<div class="mk-row"><b>${esc(nameFn(k))}</b><span>${fmtN(c)} <small>· ${(c / total * 100).toFixed(1)}%</small> ${chgHtml(c, p)}</span><div class="tr"><i style="width:${c / top * 100}%"></i></div></div>`).join("");
   };
   html.push(card("יצרנים מובילים", "star", "amber", mkTop(M.makers, P.ms, P.prevMs, 10, mkMake)));
-  html.push(card("דגמים מובילים", "car", "violet", mkTop(M.models, P.ms, P.prevMs, 10, k => k.split("|").join(" ")) + `<p class="note">לפי הכינוי המסחרי, כל המנועים והגימורים יחד.</p>`));
+  html.push(card("דגמים מובילים", "car", "violet", mkTop(M.models, P.ms, P.prevMs, 10, k => { const [mk, ...r] = k.split("|"); return [mkMake(mk), ...r].join(" "); }) + `<p class="note">לפי הכינוי המסחרי, כל המנועים והגימורים יחד.</p>`));
   const OWN = [["פרטי", "פרטי", "#2556c8"], ["ליסינג", "ליסינג", "#e0a100"], ["חברה", "חברה", "#7a4fd1"], ["השכרה", "השכרה", "#1a8f4a"], ["סוחר", "סוחר", "#8a93a6"]];
   const own = M.ownership[P.year];
   if (own) {
@@ -2787,7 +2787,7 @@ let MK_LAST = null;
 function marketCsv(){
   if (!MK_LAST) return; const {M, P} = MK_LAST, q = x => `"${String(x).replace(/"/g, '""')}"`;
   const rows = [["סוג", "שם", "מסירות בתקופה", "תקופה מקבילה אשתקד"]];
-  for (const [t, o, nm] of [["יצרן", M.makers, mkMake], ["דגם", M.models, k => k.split("|").join(" ")]])
+  for (const [t, o, nm] of [["יצרן", M.makers, mkMake], ["דגם", M.models, k => { const [mk, ...r] = k.split("|"); return [mkMake(mk), ...r].join(" "); }]])
     Object.entries(o).map(([k, v]) => [t, nm(k), sumM(v, P.ms), sumM(v, P.prevMs)]).filter(r => r[2] > 0).sort((a, b) => b[2] - a[2]).forEach(r => rows.push(r));
   shareFile(new Blob(["\ufeff" + rows.map(r => r.map(q).join(",")).join("\r\n")], {type: "text/csv"}), `Luchit-market-${P.sel}.csv`, "נתוני שוק הרכב");
 }
