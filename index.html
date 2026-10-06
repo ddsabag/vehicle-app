@@ -1018,7 +1018,7 @@ const IMPORTER_RECALL = [
   {re:/פיג'?ו/, name:"פיג'ו ישראל", url:"https://online.peugeot.co.il/recall/"},
   {re:/סיטרואן/, name:"סיטרואן ישראל", url:"https://online.citroen.co.il/recall/"},
   {re:/אופל/, name:"אופל ישראל", url:"https://online.opel.co.il/recall/"},
-  {re:/\bMG\b|אם\.? ?ג'?י/, name:"MG ישראל", url:"https://mg-israel.co.il/service/recall/"},
+  {re:/\bMG\b|\bMG ?\d|אם\.? ?ג'?י|SAIC|סאיק|מוריס|MORRIS|MARVEL|CYBERSTER|\bEHS\b/i, name:"MG ישראל", url:"https://mg-israel.co.il/recall/"},
   {re:/ניסאן|ניסן|רנו|דאצ'?יה|צ'?רי/, name:"פריסבי", url:"https://service.freesbe.com/recall"},
   {re:/פורד/, name:"פורד ישראל", url:"https://www.ford.co.il/" + encodeURI("קריאות-חוזרות/שירות")},
   {re:/מיני/, name:"מיני ישראל", url:"https://campaigns.mini.co.il/Service-forms_newDesign/recall-mini.html"},
@@ -1073,7 +1073,7 @@ function settlementCard(D){
     `<p style="margin:0 0 8px">${pl(list.length, "נמצא הסדר פשרה אחד", "נמצאו הסדרי פשרה")} שעשויים לחול על הרכב.</p><ul class="stls">${items}</ul>${full ? `<p class="note">לפי הודעות היבואנים והעיתונות, נכון ל-10/2026. הזכאות נקבעת לפי הרכב (לפעמים לפי מספר שלדה), וייתכן שהמועד חלף. לפני תיקון בתשלום כדאי לבדוק מול היבואן.</p>` : `<p class="note">פרטי ההטבה, התנאים והקישור ליבואן זמינים ב-PRO.</p><button type="button" class="link-btn" data-act="proInfo">הצטרפות ל-PRO</button>`}`, `<span class="count">${list.length}</span>`);
 }
 function importerRecall(D){
-  const m = [D.v.tozeret_nm, D.v.kinuy_mishari, D.v.degem_nm, D.make].filter(x => !empty(x)).join(" ");
+  const m = [D.v.tozeret_nm, D.v.kinuy_mishari, D.v.degem_nm, D.make, D.price && D.price.shem_yevuan].filter(x => !empty(x)).join(" ");
   const hit = IMPORTER_RECALL.find(x => x.re.test(m));
   if (hit) return hit;
   const who = D.pick(D.price && D.price.shem_yevuan, D.modelRecalls[0] && D.modelRecalls[0].YEVUAN_TEUR, D.make);
