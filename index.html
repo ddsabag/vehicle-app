@@ -1187,7 +1187,7 @@ async function lookup(raw){
   $("#go").disabled = true;
   try { history.replaceState(null, "", "#" + plate); } catch {}
   out.innerHTML = loadingHtml(plate);
-  await Promise.race([loadModelStats().catch(() => null), new Promise(r => setTimeout(r, 1500))]);
+  await Promise.race([Promise.all([loadModelStats().catch(() => null), loadService().catch(() => null)]), new Promise(r => setTimeout(r, 1500))]);
   let D;
   try { D = await fetchVehicle(plate, signal, f => { const bar = $("#bar"); if (bar) bar.style.width = f * 100 + "%"; }); }
   catch (err) { if (err.name === "AbortError") return; throw err; }
@@ -1285,19 +1285,59 @@ const SERVICE_RULES = [
 ];
 const isCommercial = D => /משא|מסחרי|אוטובוס|מונית|טנדר/.test(String(D.v.sug_rechev_nm || "")) && !/פרטי/.test(String(D.v.sug_rechev_nm || ""))
   || /TRANSPORTER|CADDY|CRAFTER|AMAROK|טרנספורטר|קאדי|קראפטר|אמארוק/i.test([D.v.kinuy_mishari, D.v.degem_nm].join(" "));
+/* service.json: importer service-interval rows by maker + model words + drive + engine size ([maker, words, drive e/h/i, cc, km, months]) */
+let SERVICE = null, svP = null;
+function loadService(){
+  if (SERVICE) return Promise.resolve(SERVICE);
+  return svP || (svP = (async () => {
+    for (const u of [SITE + "service.json", "service.json"]) {
+      try { const r = await fetch(u, {cache: "no-cache"}); if (r.ok) { const j = await r.json(); if (j && j.rows) return SERVICE = j; } } catch {}
+    }
+    svP = null; return null;
+  })());
+}
+const svWords = t => String(t || "").toUpperCase().split(/[^A-Z0-9]+/).filter(x => x.length > 1);
+const SV_GENERIC = new Set(["HSD", "HEV", "PHEV", "HYBRID", "EV", "FL", "4X4", "AWD", "LONG", "RANGE"]);
+function serviceFromTable(D){
+  if (!SERVICE) return null;
+  const mk = makeName(D.v).replace(/[^֐-׿A-Za-z]/g, ""); if (!mk) return null;
+  if ((SERVICE.noFixed || []).some(x => x[0].replace(/[^֐-׿A-Za-z]/g, "") === mk && svWords(x[1]).every(w => svWords(D.model || D.v.kinuy_mishari).includes(w)))) return {none: true};
+  const rows = SERVICE.rows.filter(r => r[0].replace(/[^֐-׿A-Za-z]/g, "") === mk);
+  if (!rows.length) return null;
+  const full = svWords(D.model || D.v.kinuy_mishari);
+  let mw = full;
+  const has = (r, ws) => ws.length && ws.every(w => r[1].split(" ").includes(w));
+  let hit = rows.filter(r => has(r, mw));
+  if (!hit.length) { mw = full.filter(w => !SV_GENERIC.has(w)); hit = rows.filter(r => has(r, mw)); }
+  if (!hit.length) return null;
+  const dt = driveType(D), dk = dt ? (dt.k === "ev" ? "e" : dt.k === "hybrid" || dt.k === "phev" ? "h" : "i") : null;
+  const byDrive = hit.filter(r => r[2] === "" || r[2] === dk); if (byDrive.length) hit = byDrive;
+  const cc = num(D.pick(D.v.nefach_manoa, D.w.nefah_manoa));
+  if (cc > 0) { const byCc = hit.filter(r => !r[3] || Math.abs(r[3] - cc) <= 60); if (byCc.length) hit = byCc; }
+  const set = new Map(hit.map(r => [r[4] + "|" + r[5], {km: r[4], months: r[5]}]));
+  return {opts: [...set.values()].sort((a, b) => a.km - b.km)};
+}
 function serviceRule(D){
   const m = [D.v.tozeret_nm, D.v.kinuy_mishari, D.v.degem_nm, D.make].filter(x => !empty(x)).join(" ");
-  if (isCommercial(D)) return null;
   return SERVICE_RULES.find(r => r.re.test(m) && (!r.except || !r.except.test(m)) && (!r.only || r.only.test(m))) || null;
 }
+const svMonths = m => m === 12 ? "שנה" : m === 6 ? "חצי שנה" : m === 24 ? "שנתיים" : m + " חודשים";
+const svWhen = o => `כל ${fmtN(o.km)} ק״מ${o.months ? ` או ${svMonths(o.months)} (המוקדם מביניהם)` : ""}`;
 function serviceCard(D){
-  const r = serviceRule(D); if (!r) return "";
-  const when = `כל ${fmtN(r.km)} ק״מ${r.months ? ` או ${r.months === 12 ? "שנה" : r.months === 6 ? "חצי שנה" : r.months + " חודשים"} (המוקדם מביניהם)` : ""}`;
+  if (D.kind === "model" || isCommercial(D)) return "";
+  const t = serviceFromTable(D);
+  let opts = null, src = "טבלת מרווחי טיפולים של יבואנים", url = "";
+  if (t && t.none) return card("מרווח טיפולים", "wrench", "teal", `<p style="margin:0"><b>אין טיפול תקופתי קבוע</b></p><p class="note">היצרן ממליץ על בדיקות לפי רכיב: נוזל בלמים כל 4 שנים, מסנן מזגן כל שנתיים, וניקוי קליפרים אחת לשנה או 20,000 ק״מ. לפרטים ראה את הנחיות היצרן.</p>`);
+  if (t && t.opts && t.opts.length) opts = t.opts;
+  else { const r = serviceRule(D); if (r) { opts = [{km: r.km, months: r.months || 0}]; src = r.src; url = r.url || ""; } }
+  if (!opts) return "";
+  const when = opts.length === 1 ? `<b>${svWhen(opts[0])}</b>` : `<b>לפי הגרסה: ${opts.map(svWhen).join(" · ")}</b>`;
   const km = isNum(D.v.kilometer_test_aharon) ? num(D.v.kilometer_test_aharon) : null;
-  const next = km != null && km > 0 ? Math.ceil((km + 1) / r.km) * r.km : null;
+  const step = Math.min(...opts.map(o => o.km));
+  const next = opts.length === 1 && km != null && km > 0 ? Math.ceil((km + 1) / step) * step : null;
   const nextRow = next ? `<p style="margin:8px 0 0">לפי הק״מ בטסט האחרון (${fmtN(km)}), הטיפול הבא לפי המרווח הוא סביב <b>${fmtN(next)} ק״מ</b> (הערכה).</p>` : "";
-  const src = r.url ? `<button type="button" class="lnk" data-url="${r.url}">${esc(r.src)}</button>` : esc(r.src);
-  return card("מרווח טיפולים", "wrench", "teal", `<p style="margin:0"><b>${when}</b></p>${nextRow}<p class="note">מקור: ${src}. המרווח המדויק לרכב שלך מופיע בספר הרכב.</p>`);
+  const srcEl = url ? `<button type="button" class="lnk" data-url="${url}">${esc(src)}</button>` : esc(src);
+  return card("מרווח טיפולים", "wrench", "teal", `<p style="margin:0">${when}</p>${nextRow}<p class="note">מקור: ${srcEl}. ${opts.length > 1 ? "לא ניתן לקבוע את הגרסה המדויקת מהנתונים. " : ""}המרווח המדויק לרכב שלך מופיע בספר הרכב.</p>`);
 }
 function tabOverview(D){
   const v = D.v, w = D.w, html = [];
