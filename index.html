@@ -309,6 +309,7 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .doc-view img{max-width:100%;max-height:100%;object-fit:contain}
 .doc-view .x{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));inset-inline-start:12px;background:#fff3;color:#fff;border-radius:10px;width:40px;height:40px;display:grid;place-items:center;border:0}
 .bsteps{list-style:none;margin:0;padding:0;display:grid;gap:16px}.bsteps>li{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start}.bsteps .n{width:28px;height:28px;border-radius:50%;background:var(--t-green-bg);color:var(--t-green);display:grid;place-items:center;font-weight:800;font-size:.9rem}.bsteps .n .i{width:16px;height:16px}.bsteps>li>div{display:grid;gap:6px;min-width:0}.bsteps .note{margin:0}
+.ins .todo{font-weight:600;color:var(--fg);margin-top:4px}
 .chk{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}.chk span{display:flex;gap:6px;align-items:center;font-size:.92rem;min-width:0}.chk .i{width:16px;height:16px}.chk .y .i{color:var(--ok)}.chk .n{color:var(--muted)}.chk .n .i{color:var(--muted);opacity:.7}
 .zscale{display:grid;grid-template-columns:repeat(15,1fr);gap:2px}.zscale i{height:22px;border-radius:4px;opacity:.35;font:700 .7rem/22px var(--f-num);text-align:center;color:#fff;font-style:normal}.zscale i.on{opacity:1;height:30px;margin-top:-4px;box-shadow:0 0 0 2px var(--card),0 0 0 3px var(--fg)}.zlbl{display:flex;justify-content:space-between;font-size:.78rem;color:var(--muted);margin-top:4px}
 .insights.plain .ins{background:transparent;padding:4px 0;border:0}.insights.plain .ins b{font-weight:600;color:var(--fg)}.insights.plain .ins.ok svg.i{color:var(--ok)}.insights.plain .ins.warn svg.i{color:var(--warn)}
@@ -1120,6 +1121,23 @@ async function fetchVehicle(plate, signal, onProgress){
 }
 
 /* ---------- insights ---------- */
+/* a concrete next step for the findings a buyer can act on */
+const INSIGHT_TODO = [
+  [/הטסט לא בתוקף/, "לא ניתן להעביר בעלות ללא טסט בתוקף. בקשו מהמוכר לבצע טסט לפני העסקה."],
+  [/הטסט מתקרב/, "קחו בחשבון את עלות הטסט, האגרה וההכנה לטסט בשקלול המחיר."],
+  [/רשומות בעלות/, "בקשו היסטוריית טיפולים מסודרת ושאלו למה הרכב הוחלף."],
+  [/השכרה/, "בקשו הנחה במחיר ובדיקה יסודית במכון."],
+  [/ליסינג/, "בקשו פירוט טיפולים ממוסך מורשה."],
+  [/קילומטראז' גבוה/, "בדקו שהק״מ במד המרחק תואם לטסטים ולחשבוניות הטיפול, ובצעו בדיקה במכון."],
+  [/שינוי מבנה/, "בקשו את אישור השינוי ובדקו שהוא רשום ברישיון."],
+  [/גפ״מ/, "בקשו אישור התקנה ובדיקת גפ״מ בתוקף."],
+  [/הצבע שונה/, "בדקו במכון אם יש סימני פחחות."],
+  [/יבוא אישי/, "בררו זמינות חלפים ושירות לפני הקנייה."],
+  [/תג חניה לנכה/, "ייתכן שלא ניתן להעביר בעלות לפני שהבעלים מסיר את התג במשרד הרישוי."],
+  [/החליף בעלים לאחרונה/, "שאלו למה הרכב נמכר שוב כל כך מהר."],
+  [/הרכב לא פעיל|ירד מהכביש/, "אל תשלמו לפני שהרכב חוזר להיות פעיל וברשימה כשיר לנסיעה."],
+];
+const insightTodo = t => { const m = INSIGHT_TODO.find(([re]) => re.test(t)); return m ? m[1] : ""; };
 const mc_y = D => num(D.v.shnat_yitzur) || new Date().getFullYear();
 const AVG_KM_YEAR = 15000; // typical private car in Israel, rough benchmark
 function buildInsights(D){
@@ -1555,7 +1573,7 @@ function tabOverview(D){
   if (ins.length) {
     const icon = {bad:"alert", warn:"alert", info:"info", ok:"check"};
     html.push(card("מידע חשוב שעלה מהנתונים", "bulb", "amber",
-      `<ul class="insights">${ins.map(i => `<li class="ins ${i.level}">${ico(icon[i.level])}<div><b>${esc(i.title)}</b><span>${esc(i.text)}</span></div></li>`).join("")}</ul>
+      `<ul class="insights">${ins.map(i => `<li class="ins ${i.level}">${ico(icon[i.level])}<div><b>${esc(i.title)}</b><span>${esc(i.text)}</span>${insightTodo(i.title) ? `<span class="todo">מה לעשות: ${esc(insightTodo(i.title))}</span>` : ""}</div></li>`).join("")}</ul>
        <p class="note">התובנות אינן תחליף לבדיקת רכב במכון מורשה. אין במאגרים מידע על שעבודים, תאונות או נזקי שלדה: בדקו שעבוד ברשם המשכונות (הקישור בלשונית קנייה) ובצעו בדיקה במכון.</p>`));
   }
   html.push(eventsCard(D));
@@ -1698,7 +1716,7 @@ function checksCard(D){
   if (D.own.length) row(true, `נבדקה היסטוריית הבעלות (${ownersLabel(D)})`);
   const mods = ["shinui_mivne_ind", "gapam_ind", "shnui_zeva_ind", "shinui_zmig_ind"].filter(k => yes(v[k]));
   row(!mods.length, mods.length ? "נרשמו שינויים ברכב" : "לא נרשמו שינויי מבנה, גפ״מ או צבע");
-  return card("מה נבדק", "check", "green", `<ul class="insights plain">${rows.join("")}</ul>
+  return card(`מה נבדק (${rows.length} בדיקות)`, "check", "green", `<ul class="insights plain">${rows.join("")}</ul>
     <p class="note" style="margin:0"><b>מה אי אפשר לדעת ממאגרי משרד התחבורה:</b> שעבודים, תאונות, אובדן גמור וירידת ערך מביטוח, וגניבה. את העבר הביטוחי (תביעות, אובדן גמור) אפשר לבדוק במרכז הסליקה של חברות הביטוח, בקישור למטה.</p>`);
 }
 function tabBuy(D){
@@ -1721,12 +1739,15 @@ function tabBuy(D){
        ${lk("https://www.gov.il/he/service/pawn_perusal", "search", "בדיקת שעבוד ברשם המשכונות", true)}
        ${lk("https://infocar.co.il/", "search", "בדיקת עבר ביטוחי (מרכז הסליקה של חברות הביטוח)", true)}
        ${lk("https://www.gov.il/apps/police/stolencar/", "search", "בדיקה במאגר הרכבים הגנובים (משטרה)", true)}`)}
-     ${step(2, "בפגישה עם המוכר", `<ul class="bq"><li>ודאו שמי שמציג את הרכב הוא הבעלים הרשום (גם בן או בת זוג), ושהשם ברישיון הרכב תואם לתעודת הזהות שלו.</li><li>השוו את מספר השלדה ברישיון לזה שעל הרכב.</li><li>בקשו היסטוריית טיפולים וחשבוניות, ונסעו נסיעת מבחן.</li><li>בעסקה עם סוחר, בקשו בכתב מסמכי רכישה ואחריות.</li></ul>`)}
-     ${step(3, "בדיקה במכון", `<div class="insp"><p class="note" style="margin:0 0 6px">מכוני בדיקה לפני קנייה, מתוך רשימת המוסכים המורשים של משרד התחבורה:</p>
+     ${step(2, "המוכר והמסמכים", `<ul class="bq"><li>ודאו שמי שמציג את הרכב הוא הבעלים החוקי: שמו ומספר תעודת הזהות שלו מופיעים ברישיון הרכב העדכני. אם הוא מיופה כוח, כדאי לדבר גם עם הבעלים.</li><li>במוכר פרטי, מומלץ להיפגש בבית המוכר ובאור יום.</li><li>בעסקה עם סוחר, בקשו בכתב מסמכי רכישה ואחריות.</li></ul>`)}
+     ${step(3, "בפגישה עם הרכב", `<ul class="bq"><li>הניעו את הרכב, הפעילו מזגן ותנו לו לעבוד כמה דקות בזמן שאתם בודקים אותו מבחוץ.</li><li>בדקו בלוח המחוונים שהמנוע מתחמם ושומר על טמפרטורה תקינה.</li><li>חפשו עשן לבן או אפור מהאגזוז, ונזילות מים או שמן תחת המנוע.</li></ul>`)}
+     ${step(4, "בדיקה במכון", `<div class="insp"><p class="note" style="margin:0 0 6px">מומלץ לבדוק במכון מורשה אחרי שהסכמתם על מחיר עם המוכר, וליידע מראש שתיקונים שיתגלו יקוזזו מהמחיר. סכמו מראש מי משלם על הבדיקה אם יתגלו תקלות קריטיות במנוע, בגיר או בשלדה. מכונים מתוך רשימת המוסכים המורשים של משרד התחבורה:</p>
        <form class="msearch" data-insp><input id="inspCity" placeholder="עיר, למשל חולון" value="${esc(setting("inspCity", ""))}" aria-label="עיר"><button type="submit" class="go sm" aria-label="חיפוש">${ico("search")}</button></form>
        <div id="inspRes" style="margin-top:10px"></div></div>`)}
-     ${step(4, "לפני התשלום", `<ul class="bq"><li>אם נמצא שעבוד, הוא נשאר גם אחרי העברת הבעלות: דרשו הסרה לפני התשלום.</li><li>סגרו את תנאי העסקה והמחיר בכתב.</li></ul>
-       ${lk("https://car.cma.gov.il/", "doc", "השוואת מחירי ביטוח חובה")}`)}
+     ${step(5, "מה לשקלל במחיר", `<ul class="bq"><li><b>מצבר:</b> לרוב מחליפים אחרי 30 עד 36 חודשים. בדקו את גילו ואם הוא עדיין באחריות.</li><li><b>צמיגים:</b> בדקו מצב וגיל (התאריך מוטבע על הצמיג). בשימוש רגיל הם מחזיקים כ-40 עד 50 אלף ק״מ.</li><li><b>טסט קרוב:</b> חשבו אגרה, עלות טסט, הכנה ויום חופש.</li><li><b>טיפולים:</b> בקשו פירוט מהמוסך ובדקו שהתאריכים והק״מ הגיוניים מול המד. בררו מתי הטיפול הבא ומה עלותו.</li></ul>`)}
+     ${step(6, "לפני התשלום", `<p class="note">ייתכן שלא ניתן יהיה להעביר בעלות, ולכן הסדירו מראש:</p><ul class="bq"><li>טסט בתוקף.</li><li>ריקול פתוח שטופל.</li><li>הסרת שעבוד או עיקול מול הגורם המשעבד.</li><li>הסרת תו נכה, כשרשום, במשרד הרישוי.</li><li>רישום היורשים, אם הבעלים נפטר.</li></ul>
+       ${lk("https://car.cma.gov.il/", "doc", "השוואת מחירי ביטוח חובה")}
+       <p class="note"><b>אל תעבירו תשלום לפני שפעלתם לפי השלבים, ושלמו רק במעמד העברת הבעלות.</b></p>`)}
      <li class="bsteps-end"><span class="n">${ico("check")}</span><div><b>אחרי העסקה</b><p class="note">בצעו העברת בעלות ועדכנו את הביטוח מיד, ורק אז התחילו לנהוג ברכב.</p></div></li>
      </ol>`));
   return html.join("");
