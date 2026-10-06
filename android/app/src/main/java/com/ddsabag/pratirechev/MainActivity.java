@@ -266,8 +266,16 @@ public class MainActivity extends Activity {
                 fileCallback = callback;
                 Intent pick = new Intent(Intent.ACTION_GET_CONTENT);
                 pick.addCategory(Intent.CATEGORY_OPENABLE);
-                pick.setType("image/*");
-                Intent chooser = Intent.createChooser(pick, "תמונה של לוחית הרישוי");
+                boolean docs = false;
+                for (String t : params.getAcceptTypes()) if (t != null && t.contains("pdf")) docs = true;
+                if (docs) {
+                    pick.setType("*/*");
+                    pick.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"image/*", "application/pdf"});
+                    if (params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE) pick.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                } else {
+                    pick.setType("image/*");
+                }
+                Intent chooser = Intent.createChooser(pick, docs ? "מסמך לתיק הרכב" : "תמונה של לוחית הרישוי");
                 try {
                     File photo = new File(sharedDir(), "plate-photo.jpg");
                     cameraUri = FileProvider.getUriForFile(MainActivity.this, getPackageName() + ".files", photo);
@@ -495,7 +503,11 @@ public class MainActivity extends Activity {
         if (requestCode == REQ_FILE) {
             Uri[] result = null;
             if (resultCode == RESULT_OK) {
-                if (data != null && data.getData() != null) result = new Uri[]{data.getData()};
+                if (data != null && data.getClipData() != null && data.getClipData().getItemCount() > 0) {
+                    int n = data.getClipData().getItemCount();
+                    result = new Uri[n];
+                    for (int i = 0; i < n; i++) result[i] = data.getClipData().getItemAt(i).getUri();
+                } else if (data != null && data.getData() != null) result = new Uri[]{data.getData()};
                 else if (cameraUri != null) result = new Uri[]{cameraUri};
             }
             if (fileCallback != null) fileCallback.onReceiveValue(result);

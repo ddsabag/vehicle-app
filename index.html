@@ -22,7 +22,7 @@
    each topic with its own colour so the page is easy to scan. */
 :root{
   --bg:#f2f4f8; --card:#ffffff; --fg:#151a24; --muted:#5d6676; --line:#e3e7ee; --soft:#f5f7fa;
-  --band:#ffffff; --band-fg:#151a24; --band-muted:#5d6676; --band-line:#d5dae3;
+  --band-tint:#e2ecfd; --band:#ffffff; --band-fg:#151a24; --band-muted:#5d6676; --band-line:#d5dae3;
   --plate:#f6c500; --plate-ink:#111; --il:#1d4ea8; --accent:#2457c5; --accent-fg:#ffffff;
   --ok:#147a43; --ok-bg:#e1f4e8; --warn:#9a5300; --warn-bg:#fdf0d9; --bad:#b42318; --bad-bg:#fde6e3; --info:#2457c5; --info-bg:#e5edfc;
   /* topic colours */
@@ -36,7 +36,7 @@
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#0e121a; --card:#171d28; --fg:#e9edf3; --muted:#98a2b4; --line:#262e3c; --soft:#1e2532;
-  --band:#121722; --band-fg:#ffffff; --band-muted:#8d98ad; --band-line:#2c3546;
+  --band-tint:#182338; --band:#121722; --band-fg:#ffffff; --band-muted:#8d98ad; --band-line:#2c3546;
   --accent:#7ea3f2; --accent-fg:#0e121a;
   --ok:#6ad49b; --ok-bg:#12301f; --warn:#f2b55c; --warn-bg:#35270e; --bad:#f4877c; --bad-bg:#3c1916; --info:#8fb0f5; --info-bg:#1a2742;
   --t-blue:#7ea3f2; --t-blue-bg:#1b2843; --t-violet:#b399f2; --t-violet-bg:#2a2140; --t-teal:#5fd0c6; --t-teal-bg:#123331;
@@ -45,7 +45,7 @@
   --shadow:none; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0e121a; --card:#171d28; --fg:#e9edf3; --muted:#98a2b4; --line:#262e3c; --soft:#1e2532;
-  --band:#121722; --band-fg:#ffffff; --band-muted:#8d98ad; --band-line:#2c3546;
+  --band-tint:#182338; --band:#121722; --band-fg:#ffffff; --band-muted:#8d98ad; --band-line:#2c3546;
   --accent:#7ea3f2; --accent-fg:#0e121a;
   --ok:#6ad49b; --ok-bg:#12301f; --warn:#f2b55c; --warn-bg:#35270e; --bad:#f4877c; --bad-bg:#3c1916; --info:#8fb0f5; --info-bg:#1a2742;
   --t-blue:#7ea3f2; --t-blue-bg:#1b2843; --t-violet:#b399f2; --t-violet-bg:#2a2140; --t-teal:#5fd0c6; --t-teal-bg:#123331;
@@ -61,7 +61,7 @@ button{font:inherit;cursor:pointer;color:inherit}
 svg.i{width:20px;height:20px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
 /* header */
-.band{background:var(--band);color:var(--band-fg);padding-top:env(safe-area-inset-top,0px);border-bottom:1px solid var(--line)}
+.band{background:linear-gradient(180deg,var(--band-tint,var(--band)),var(--band));color:var(--band-fg);padding-top:env(safe-area-inset-top,0px);border-bottom:1px solid var(--line)}
 .band-in{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:14px 18px;display:flex;flex-direction:column;gap:12px}
 .brand{display:flex;justify-content:space-between;align-items:center;gap:12px}
 .brand h1{margin:0;font-size:1.45rem;font-weight:800;display:flex;align-items:center;gap:8px}
@@ -302,9 +302,15 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .bflags,.bq{margin:0 0 10px;padding-inline-start:20px}.bflags li.bad{color:var(--bad);font-weight:700}.bflags li.warn{color:var(--warn);font-weight:700}.bq li{margin:2px 0}
 .vd.ok{color:var(--ok);font-weight:700}.vd.bad{color:var(--bad);font-weight:700}.ft .g,.sum3 .g{color:var(--ok)}.ft .w,.sum3 .w{color:var(--warn)}.ft .r,.sum3 .r{color:var(--bad)}.ft td.g,.ft td.w,.ft td.r{font-weight:700}
 .sum3{display:flex;gap:6px;margin:10px 0}.sum3 div{flex:1;background:var(--soft);border-radius:10px;padding:6px;text-align:center;font-size:.8rem;color:var(--muted)}.sum3 b{display:block;font-size:1.3rem}
+.doc-add{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.doc-add .inp{flex:1 1 160px;min-width:0}
+.doc-acts{display:flex;gap:2px;flex:0 0 auto}
+.doc-view{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.92);display:grid;place-items:center;padding:12px}
+.doc-view img{max-width:100%;max-height:100%;object-fit:contain}
+.doc-view .x{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));inset-inline-start:12px;background:#fff3;color:#fff;border-radius:10px;width:40px;height:40px;display:grid;place-items:center;border:0}
 .tools{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 .tool{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:start;border:0;background:var(--card);box-shadow:var(--shadow);border-radius:14px;padding:12px;font-weight:700;color:var(--fg)}
-.tool .i{width:22px;height:22px;color:var(--muted)}
+.tool .tb{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:var(--tb);color:var(--tc);font-style:normal}
+.tool .tb .i{width:21px;height:21px}
 .tool small{font-weight:400;color:var(--muted);line-height:1.35}
 .bulk-acts{display:flex;flex-direction:column;gap:8px;margin-top:8px}
 .rep-brand.biz{background:var(--soft,#f2f4f8);border-bottom:3px solid #1d4ea8;border-radius:10px}.rep-brand.biz img{width:48px;height:48px;object-fit:contain;border-radius:8px;box-shadow:none}.rep-brand.biz b{font-size:1.3rem}
@@ -1445,8 +1451,79 @@ function costLogCard(D){
   return card("עלות אחזקה מצטברת", "tag", "green", `<dl class="facts"><div><dt>סה״כ</dt><dd>${fmtN(Math.round(total))} ₪</dd></div><div><dt>ממוצע לחודש</dt><dd>${fmtN(Math.round(total / months / 10) * 10)} ₪</dd></div></dl>
     <dl class="facts" style="margin-top:12px">${Object.keys(by).sort().reverse().map(y => `<div><dt>${y}</dt><dd>${fmtN(Math.round(by[y]))} ₪</dd></div>`).join("")}</dl><p class="note">לפי הטיפולים שרשמת ביומן, בלי דלק, ביטוח ואגרות.</p>`);
 }
+/* vehicle file ("תיק רכב"): invoices, licence photos and other papers, kept only on this phone (IndexedDB) */
+const DOC_CATS = ["חשבונית טיפול או תיקון", "רישיון רכב", "רישיון נהיגה", "ביטוח", "טסט", "קנייה ומכירה", "אחר"];
+const FREE_DOCS = 5, DOC_MAX_BYTES = 12 * 1048576;
+const docsOk = n => !PRO_LOCK || isPro() || n < FREE_DOCS;
+const DocDB = {
+  db: null,
+  open(){ return this.db || (this.db = new Promise((ok, no) => { const r = indexedDB.open("luchitDocs", 1); r.onupgradeneeded = () => r.result.createObjectStore("docs", {keyPath: "id", autoIncrement: true}).createIndex("plate", "plate"); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); })); },
+  async tx(mode, fn){ const db = await this.open(); return new Promise((ok, no) => { const t = db.transaction("docs", mode), st = t.objectStore("docs"), rq = fn(st); t.oncomplete = () => ok(rq && rq.result); t.onerror = () => no(t.error); t.onabort = () => no(t.error); }); },
+  put(rec){ return this.tx("readwrite", st => st.add(rec)); },
+  del(id){ return this.tx("readwrite", st => st.delete(id)); },
+  get(id){ return this.tx("readonly", st => st.get(id)); },
+  all(){ return this.tx("readonly", st => st.getAll()); },
+  byPlate(p){ return this.tx("readonly", st => st.index("plate").getAll(p)); },
+};
+async function docPrepare(file){
+  if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) return file.size > DOC_MAX_BYTES ? null : {blob: file, type: "application/pdf", name: file.name};
+  if (!/^image\//.test(file.type)) return null;
+  const url = URL.createObjectURL(file);
+  try {
+    const im = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = url; });
+    const k = Math.min(1, 1800 / Math.max(im.naturalWidth, im.naturalHeight)), c = document.createElement("canvas");
+    c.width = Math.round(im.naturalWidth * k); c.height = Math.round(im.naturalHeight * k);
+    c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+    const blob = await new Promise(ok => c.toBlob(ok, "image/jpeg", .82));
+    return blob ? {blob, type: "image/jpeg", name: (file.name || "תמונה").replace(/\.[^.]+$/, "") + ".jpg"} : null;
+  } catch { return null; } finally { URL.revokeObjectURL(url); }
+}
+async function docsAdd(files, plate, cat){
+  let n = (await DocDB.byPlate(plate)).length, added = 0, skipped = 0, locked = false;
+  for (const f of files) {
+    if (!docsOk(n)) { locked = true; break; }
+    const d = await docPrepare(f).catch(() => null);
+    if (!d) { skipped++; continue; }
+    await DocDB.put({plate, cat, name: d.name, type: d.type, size: d.blob.size, at: Date.now(), blob: d.blob}); n++; added++;
+  }
+  toast(locked ? `בחינם אפשר לשמור עד ${FREE_DOCS} מסמכים לרכב. ${added ? "נשמרו " + added + "." : ""}` : added ? (added === 1 ? "המסמך נשמר בתיק הרכב" : `נשמרו ${added} מסמכים בתיק הרכב`) + (skipped ? `, ${skipped} לא נתמכו או גדולים מדי` : "") : "לא הצלחתי לשמור. אפשר תמונות ו-PDF עד 12MB.");
+  fillDocs();
+}
+function docsCard(D){
+  return card("תיק הרכב", "doc", "teal", `<p style="margin:0">חשבוניות תיקון, רישיון הרכב, רישיון נהיגה, ביטוח ועוד, במקום אחד.</p>
+    <div id="docList"></div>
+    <div class="doc-add"><select class="inp" id="docCat" aria-label="סוג המסמך">${DOC_CATS.map(c => `<option>${c}</option>`).join("")}</select>
+    <button type="button" class="link-btn" data-doc="add">${ico("plus")}הוספת מסמך או צילום</button></div>
+    <input type="file" id="docFile" accept="image/*,application/pdf" multiple hidden>
+    <p class="note">המסמכים נשמרים רק בטלפון הזה, לא נשלחים לשום מקום ולא נכללים בדוחות ששיתפת. אם תמחקו את האפליקציה או תחליפו מכשיר הם יימחקו, ולכן כדאי לשמור גם עותק במקום אחר.${PRO_LOCK && !isPro() ? ` בחינם עד ${FREE_DOCS} מסמכים לרכב.` : ""}</p>`, PT(`PRO · בלי הגבלה`));
+}
+async function fillDocs(){
+  const el = document.getElementById("docList"); if (!el || !current) return;
+  const D = current; let list = [];
+  try { list = (await DocDB.byPlate(D.plate)).sort((a, b) => b.at - a.at); } catch { el.innerHTML = `<p class="note">שמירת מסמכים לא זמינה במכשיר הזה.</p>`; return; }
+  if (current !== D || !el.isConnected) return;
+  const kb = b => b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB";
+  el.innerHTML = list.length ? `<ul class="svc-list">${list.map(x => `<li><div><b>${esc(x.cat)}</b><span>${esc(x.name)} · ${esc(new Date(x.at).toLocaleDateString("he-IL"))} · ${kb(x.size)}</span></div><span class="doc-acts"><button type="button" class="x" data-doc="open" data-id="${x.id}" aria-label="פתיחה">${ico(x.type === "application/pdf" ? "doc" : "image")}</button><button type="button" class="x" data-doc="share" data-id="${x.id}" aria-label="שיתוף">${ico("share")}</button><button type="button" class="x" data-doc="del" data-id="${x.id}" aria-label="מחיקה">${ico("x")}</button></span></li>`).join("")}</ul>` : "";
+}
+function docViewer(blob, name){
+  const url = URL.createObjectURL(blob), el = document.createElement("div"); el.className = "doc-view";
+  el.innerHTML = `<button type="button" class="x" aria-label="סגירה">${ico("x")}</button><img alt="${esc(name)}" src="${url}">`;
+  const close = () => { URL.revokeObjectURL(url); el.remove(); };
+  el.addEventListener("click", close); document.body.appendChild(el);
+}
+document.addEventListener("click", async ev => {
+  const b = ev.target.closest("[data-doc]"); if (!b || !current) return;
+  const a = b.dataset.doc;
+  if (a === "add") { const f = $("#docFile"); if (f) f.click(); return; }
+  const rec = b.dataset.id ? await DocDB.get(+b.dataset.id).catch(() => null) : null; if (!rec) return;
+  if (a === "open") { if (rec.type === "application/pdf") shareFile(rec.blob, rec.name, rec.cat); else docViewer(rec.blob, rec.name); }
+  else if (a === "share") shareFile(rec.blob, rec.name, rec.cat);
+  else if (a === "del" && confirm("למחוק את המסמך מהתיק?")) { await DocDB.del(rec.id); fillDocs(); }
+});
+document.addEventListener("change", ev => { const f = ev.target.closest("#docFile"); if (!f || !current) return; const files = [...f.files]; f.value = ""; if (files.length) docsAdd(files, current.plate, ($("#docCat") || {}).value || "אחר"); });
+
 function tabMaint(D){
-  const info = serviceInfo(D), html = [];
+  const info = serviceInfo(D), html = [docsCard(D)];
   if (!maintOk()) {
     html.push(proLockCard("תחזוקה", "מרווח טיפולים לדגם, הטיפול הבא, יומן טיפולים, ציר ק״מ ועלות אחזקה מצטברת, עם תזכורות בהתראה."));
   } else {
@@ -2530,6 +2607,7 @@ function savedFlags(s){
   if (d) { const days = Math.ceil((d - now) / 864e5);
     if (days < 0) f.push(`<span class="pill bad">הטסט פג</span>`);
     else if (days <= 45) f.push(`<span class="pill warn">טסט עד ${fmtDate(s.tokef)}</span>`); }
+  if (!f.length && d && !s.recalls) f.push(`<span class="pill ok">הכול תקין</span>`);
   return f.length ? `<span class="flags">${f.join("")}</span>` : "";
 }
 let savedChecking = false;
@@ -2566,7 +2644,7 @@ function updateSavedBar(){
 $("#savedBar").addEventListener("click", () => { renderHome(); const c = [...document.querySelectorAll("#out .card")].find(x => x.textContent.includes("רכבים שמורים")); if (c) c.scrollIntoView({block: "start"}); });
 for (const nm of ["renderResult", "renderCompare", "renderHome"]) {
   const f = window[nm] || eval(nm);
-  const w = function(...a){ const r = f.apply(this, a); updateSavedBar(); if (nm === "renderResult") fillModelStats(); return r; };
+  const w = function(...a){ const r = f.apply(this, a); updateSavedBar(); if (nm === "renderResult") { fillModelStats(); fillDocs(); } return r; };
   if (nm === "renderResult") renderResult = w; else if (nm === "renderCompare") renderCompare = w; else renderHome = w;
 }
 
@@ -2887,13 +2965,13 @@ function renderHome(){
   const pn = planNotice(); if (pn) html.push(pn);
   if (saved.length) html.push(card("הרכבים שלי", "star", "amber", `<div class="list">${saved.map(s => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-open="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b>${esc(s.title)}</b><small>${esc(s.sub || "")}</small>${savedFlags(s)}</span></button><button type="button" class="x bell" data-bell="${s.plate}" aria-pressed="${s.alerts !== false}" aria-label="התראות לרכב הזה">${ico("bell")}</button><button type="button" class="x" data-unsave="${s.plate}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div><p class="note">הפעמון קובע על אילו רכבים תקבלו התראה על ריקול חדש או טסט שעומד לפוג.</p>`));
   if (recent.length) html.push(card("חיפושים אחרונים", "clock", "blue", `<div class="chips">${recent.map(p => `<button type="button" class="chip" data-open="${p}">${fmtPlate(p)}</button>`).join("")}</div>`));
-  const tool = (act, icon, title, text, tag) => `<button type="button" class="tool" data-act="${act}">${ico(icon)}<span>${title}${tag ? PT(tag) : ""}</span><small>${text}</small></button>`;
+  const tool = (act, icon, title, text, tag, col) => `<button type="button" class="tool ${col}" data-act="${act}"><i class="tb">${ico(icon)}</i><span>${title}${tag ? PT(tag) : ""}</span><small>${text}</small></button>`;
   html.push(`<div class="qsec">כלים</div><div class="tools">${[
-    tool("compareHome", "compare", "השוואת דגמים", "עד " + cmpMax() + " דגמים: מחיר, צריכה, אגרה וריקולים"),
-    tool("market", "chart", "שוק הרכב", "מה נמכר, מי מוביל ומי קונה"),
-    saved.length >= 2 ? tool("fleet", "car", "הצי שלי", "כל הרכבים השמורים בטבלה אחת", "PRO") : "",
-    saved.some(s => s.ask || s.fair) ? tool("cands", "star", "רשימת מועמדים", "הרכבים ששמרתם מול המחיר המבוקש", "PRO") : "",
-    tool("bulk", "doc", "בדיקת כמה רכבים", "הדביקו רשימת מספרי רישוי וקבלו טבלה אחת", "PRO עסקי"),
+    tool("compareHome", "compare", "השוואת דגמים", "עד " + cmpMax() + " דגמים: מחיר, צריכה, אגרה וריקולים", "", "violet"),
+    tool("market", "chart", "שוק הרכב", "מה נמכר, מי מוביל ומי קונה", "", "blue"),
+    saved.length >= 2 ? tool("fleet", "car", "הצי שלי", "כל הרכבים השמורים בטבלה אחת", "PRO", "teal") : "",
+    saved.some(s => s.ask || s.fair) ? tool("cands", "star", "רשימת מועמדים", "הרכבים ששמרתם מול המחיר המבוקש", "PRO", "amber") : "",
+    tool("bulk", "doc", "בדיקת כמה רכבים", "הדביקו רשימת מספרי רישוי וקבלו טבלה אחת", "PRO עסקי", "slate"),
   ].join("")}</div>`);
   if (store.get("savedCompares").length) html.push(card("השוואות שמורות", "compare", "violet", `<div class="list">${store.get("savedCompares").map((c, i) => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-loadcmp="${i}"><span class="t"><b>${esc(c.name)}</b><small>${c.items.length} רכבים</small></span></button><button type="button" class="x" data-delcmp="${i}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div>`));
   html.push(`<i id="homeMark" hidden></i>`);
