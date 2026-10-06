@@ -1065,7 +1065,7 @@ function settlementsFor(D){
 }
 function settlementCard(D){
   const list = D.kind === "model" ? [] : settlementsFor(D);
-  if (!list.length) return card("הסדרי פשרה", "scale", "slate", `<p style="margin:0">לא מצאנו אצלנו הסדר פשרה פתוח שמתאים לדגם ולשנתון של הרכב. הרשימה שלנו כוללת את ההסדרים הידועים של היבואנים הגדולים.</p>`);
+  if (!list.length) return "";
   const full = !PRO_LOCK || isPro();
   const items = list.map(s => `<li class="stl ${s.st === "ok" ? "ok" : "wait"}"><div class="stl-h"><b>${esc(s.t)}</b><span class="stl-st">${s.st === "ok" ? ico("check") + "אושר" : ico("clock") + "ממתין לאישור"}</span></div>${full
     ? `<div class="stl-b"><small>מה מגיע</small>${esc(s.b)}</div><p class="note" style="margin:6px 0 0">${esc(s.cond)}${s.low ? " הרשימה פחות ודאית." : ""}</p><button type="button" class="link-btn" data-url="${esc(s.url)}">${ico("search")}לדף ההסדר אצל היבואן</button>` : ""}</li>`).join("");
@@ -1180,12 +1180,9 @@ async function fetchVehicle(plate, signal, onProgress){
 /* ---------- insights ---------- */
 /* a concrete next step for the findings a buyer can act on */
 const INSIGHT_TODO = [
-  [/הטסט לא בתוקף/, "לא ניתן להעביר בעלות ללא טסט בתוקף. בקשו מהמוכר לבצע טסט לפני העסקה."],
-  [/הטסט מתקרב/, "קחו בחשבון את עלות הטסט, האגרה וההכנה לטסט בשקלול המחיר."],
-  [/רשומות בעלות/, "בקשו היסטוריית טיפולים מסודרת ושאלו למה הרכב הוחלף."],
+  [/רשומות בעלות/, "שאלו למה הרכב הוחלף כל כך הרבה."],
   [/השכרה/, "בקשו הנחה במחיר ובדיקה יסודית במכון."],
-  [/ליסינג/, "בקשו פירוט טיפולים ממוסך מורשה."],
-  [/קילומטראז' גבוה/, "בדקו שהק״מ במד המרחק תואם לטסטים ולחשבוניות הטיפול, ובצעו בדיקה במכון."],
+  [/קילומטראז' גבוה/, "בדקו שהק״מ במד המרחק תואם לטסטים ולחשבוניות הטיפול."],
   [/שינוי מבנה/, "בקשו את אישור השינוי ובדקו שהוא רשום ברישיון."],
   [/גפ״מ/, "בקשו אישור התקנה ובדיקת גפ״מ בתוקף."],
   [/הצבע שונה/, "בדקו במכון אם יש סימני פחחות."],
@@ -1212,8 +1209,8 @@ function buildInsights(D){
   }
   if (D.kmPerYear) {
     const ratio = D.kmPerYear / AVG_KM_YEAR;
-    const base = `${fmtN(D.km)} ק״מ ב-${D.kmYears.toFixed(1)} שנים, כ-${fmtN(D.kmPerYear)} ק״מ בשנה (ממוצע לרכב פרטי בישראל: כ-${fmtN(AVG_KM_YEAR)}).`;
-    const caveat = ` הנתון מבוסס על הדיווח בטסט האחרון${empty(v.mivchan_acharon_dt) ? "" : " (" + fmtDate(v.mivchan_acharon_dt) + ")"}, והקילומטראז' העדכני עלול להיות שונה משמעותית.`;
+    const base = `כ-${fmtN(D.kmPerYear)} ק״מ בשנה, לעומת ממוצע של כ-${fmtN(AVG_KM_YEAR)} לרכב פרטי`;
+    const caveat = ` (לפי הטסט האחרון${empty(v.mivchan_acharon_dt) ? "" : ", " + fmtDate(v.mivchan_acharon_dt)}).`;
     if (ratio >= 1.6) add("warn", "קילומטראז' גבוה מאוד ביחס לשנתון", base + caveat);
     else if (ratio >= 1.25) add("warn", "קילומטראז' גבוה ביחס לשנתון", base + caveat);
     else if (ratio <= 0.5) add("info", "קילומטראז' נמוך ביחס לשנתון", base + caveat);
@@ -1222,10 +1219,9 @@ function buildInsights(D){
   const own = D.own;
   if (own.length) {
     const past = own.slice(0, -1).map(r => String(r.baalut || ""));
-    if (isFirstHand(D)) add("ok", "יד ראשונה", `לפי רשומות הבעלות הרכב לא החליף בעלים מאז ${fmtDate(own[0].baalut_dt)}.`);
-    else if (own.length >= 4) add("warn", `${D.ownersFloor ? "לפחות " : ""}${own.length} רשומות בעלות`, "הרכב עבר הרבה ידיים. כדאי לבקש היסטוריית טיפולים.");
+    if (!isFirstHand(D) && own.length >= 4) add("warn", `${D.ownersFloor ? "לפחות " : ""}${own.length} רשומות בעלות`, "הרכב עבר הרבה ידיים.");
     if (past.some(t => t.includes("השכר"))) add("warn", "היה רכב השכרה", "בעבר הרכב היה בבעלות חברת השכרה. רכבי השכרה עוברים בין נהגים רבים.");
-    if (past.some(t => t.includes("ליסינג"))) add("info", "היה רכב ליסינג", "בעבר הרכב היה בליסינג. רכבי ליסינג מטופלים לרוב במוסך מורשה, אבל צוברים ק״מ מהר.");
+    if (past.some(t => t.includes("ליסינג"))) add("info", "היה רכב ליסינג", "בעבר הרכב היה בליסינג. רכבי ליסינג צוברים ק״מ מהר.");
     const curOwn = String(own[own.length - 1].baalut || "");
     if (/סוחר|יבואן|מסחר/.test(curOwn)) add("warn", "הרכב רשום כעת על סוחר", "המוכר כנראה סוחר רכבים: מחיר הרכב כולל מרווח, ועל עסקה עם סוחר חלים חובות גילוי ואחריות. בקשו מסמכים בכתב ובררו מי היו הבעלים הקודמים.");
     else if (own.length > 1 && /חברה|חברת|תאגיד|השכר|ליסינג/.test(curOwn)) add("info", "הרכב רשום כעת על חברה", "הבעלות הנוכחית על שם חברה, ולא אדם פרטי. אם המוכר מציג את עצמו כבעלים פרטי, בקשו הסבר והסדירו את העברת הבעלות מול החברה.");
@@ -1239,17 +1235,12 @@ function buildInsights(D){
   else if (fk && fk.k === "lease" && !/ליסינג|החכר/.test(logText)) add("info", "התחיל את דרכו כרכב ליסינג", fk.text);
   else if (fk && fk.k === "special") add("warn", `התחיל את דרכו כ${fo}`, fk.text);
   else if (fk && fk.k === "company" && !/חברה/.test(logText)) add("info", "התחיל את דרכו כרכב חברה", fk.text);
-  const ban = towBan(D);
-  if (ban) add("warn", "אסור להתקין וו גרירה", "לפי נתוני הדגם, כושר הגרירה שאושר ליצרן הוא 0. לכן אי אפשר לרשום לרכב וו גרירה, וגרירה אסורה.");
-  if (yes(v.shinui_mivne_ind)) add("warn", "בוצע שינוי מבנה", "שינוי מבנה דורש אישור ורישום. כדאי לברר מה שונה.");
+  if (yes(v.shinui_mivne_ind)) add("warn", "בוצע שינוי מבנה", "נרשם שינוי במבנה הרכב.");
   if (yes(v.gapam_ind)) add("warn", "הותקנה מערכת גפ״מ", "הרכב הוסב לנסיעה על גז.");
-  if (yes(v.shnui_zeva_ind)) add("info", "הצבע שונה", "צבע הרכב שונה מהצבע המקורי. לפעמים זה סימן לתיקון פחחות.");
+  if (yes(v.shnui_zeva_ind)) add("info", "הצבע שונה", "צבע הרכב שונה מהצבע המקורי.");
   if (D.importKind) add("info", "יבוא אישי", "הרכב יובא ביבוא אישי, ולא דרך יבואן רשמי. חלפים, שירות וריקולים עשויים להיות פחות זמינים, וחלק מהנתונים על הדגם חסרים במאגר.");
   if (D.primary && D.primary.key === "heavy") add("info", "רכב כבד: מידע חלקי", "במאגר של משרד התחבורה לרכבים כבדים (מעל 3.5 טון) יש פחות פרטים: אין תאריך טסט אחרון, קילומטראז', היסטוריית בעלויות ונתוני דגם כמו מערכות בטיחות וריקולים. מוצג כל מה שקיים.");
-  if (D.tag) add("info", "לרכב יש תג חניה לנכה", `התג הונפק${empty(D.tag["TAARICH HAFAKAT TAG"]) ? "" : " ב-" + fmtDate(D.tag["TAARICH HAFAKAT TAG"])}. בהעברת בעלות התג לא עובר לבעלים החדשים.`);
-  if (D.cost.gonePct !== null && D.cost.gonePct !== undefined && D.cost.active + D.cost.gone >= 200) {
-    if (D.cost.gonePct >= 15) add("warn", "שיעור גבוה של רכבים שירדו מהכביש", `${D.cost.gonePct.toFixed(0)}% מרכבי הדגם משנת הייצור הזו כבר אינם פעילים.`);
-  }
+  if (D.tag) add("info", "לרכב יש תג חניה לנכה", `התג הונפק${empty(D.tag["TAARICH HAFAKAT TAG"]) ? "" : " ב-" + fmtDate(D.tag["TAARICH HAFAKAT TAG"])}.`);
   const lvl = num(v.ramat_eivzur_betihuty);
   if (!isNaN(lvl) && !empty(v.ramat_eivzur_betihuty)) {
     if (lvl >= 6) add("ok", "אבזור בטיחות מתקדם", `רמת אבזור בטיחותי ${lvl} מתוך 8.`);
@@ -1257,8 +1248,6 @@ function buildInsights(D){
   }
   const age = isNum(v.shnat_yitzur) ? now.getFullYear() - num(v.shnat_yitzur) : null;
   if (age !== null && age >= 15) add("info", `רכב בן ${age}`, "ברכבים ותיקים כדאי לבדוק במיוחד בלמים, מתלים וחלודה.");
-  if (D.modelRecalls.length >= 3) add("info", `${D.modelRecalls.length} ריקולים לדגם לאורך השנים`, "פירוט בלשונית הריקולים.");
-  if (!D.tSrc && !towBan(D)) add("info", "אין נתוני גרירה", "במאגר משרד התחבורה אין כושר גרירה לדגם הזה. אפשר לבדוק ברישיון הרכב או אצל היבואן.");
   const order = {bad:0, warn:1, info:2, ok:3};
   return out.sort((a, b) => order[a.level] - order[b.level]);
 }
@@ -1317,7 +1306,6 @@ function renderResult(){
   const dt = driveType(D);
   if (dt) pills.push(`<span class="pill drive ${["ev", "phev", "hybrid"].includes(dt.k) ? "green" : ""}">${ico(["ev", "phev", "hybrid"].includes(dt.k) ? "bolt" : "fuel")}${dt.label}</span>`);
   if (exp && !D.isCancelled) pills.push(exp < new Date() ? `<span class="pill bad">טסט לא בתוקף</span>` : `<span class="pill ok">טסט בתוקף</span>`);
-  if (D.recalls.length) pills.push(`<span class="pill bad">${D.recalls.length === 1 ? "ריקול פתוח" : D.recalls.length + " ריקולים פתוחים"}</span>`);
   const vIns = buildInsights(D), clean = !(D.errs && D.errs.length) && !D.isCancelled && !D.recalls.length && !vIns.some(x => x.level === "bad" || x.level === "warn");
   if (D.own.length) pills.push(`<span class="pill">${ownersLabel(D)}</span>`);
   if (clean) pills.push(`<span class="pill ok">${ico("check")}לא נמצאו בעיות במאגרי משרד התחבורה</span>`);
@@ -1629,8 +1617,7 @@ function tabOverview(D){
   if (ins.length) {
     const icon = {bad:"alert", warn:"alert", info:"info", ok:"check"};
     html.push(card("מידע חשוב שעלה מהנתונים", "bulb", "amber",
-      `<ul class="insights">${ins.map(i => `<li class="ins ${i.level}">${ico(icon[i.level])}<div><b>${esc(i.title)}</b><span>${esc(i.text)}</span>${insightTodo(i.title) ? `<span class="todo">מה לעשות: ${esc(insightTodo(i.title))}</span>` : ""}</div></li>`).join("")}</ul>
-       <p class="note">התובנות אינן תחליף לבדיקת רכב במכון מורשה. אין במאגרים מידע על שעבודים, תאונות או נזקי שלדה: בדקו שעבוד ברשם המשכונות (הקישור בלשונית קנייה) ובצעו בדיקה במכון.</p>`));
+      `<ul class="insights">${ins.map(i => `<li class="ins ${i.level}">${ico(icon[i.level])}<div><b>${esc(i.title)}</b><span>${esc(i.text)}</span>${insightTodo(i.title) ? `<span class="todo">מה לעשות: ${esc(insightTodo(i.title))}</span>` : ""}</div></li>`).join("")}</ul>`));
   }
   const evCard = tier("ב-PRO: מעקב אחרי הרכב", eventsCard(D)), evFirst = !PRO_LOCK || isPro();
   if (evFirst) html.push(evCard);
@@ -1654,7 +1641,6 @@ function tabOverview(D){
   if (D.kmPerYear) stats.push(["ממוצע לשנה", fmtN(D.kmPerYear), "ק״מ", "teal"]);
   const hp = D.pick(w.koah_sus, v.hespek);
   if (!empty(hp)) stats.push(["כוח", fmtN(hp), empty(w.koah_sus) ? "" : "כ״ס", "red"]);
-  if (D.cost.fee) stats.push(["אגרה שנתית (הערכה)", fmtN(D.cost.fee), "₪", "violet"]);
   if (stats.length % 2) stats.pop();
   if (stats.length) html.push(`<div class="stats">${stats.map(([k,val,u,c]) => `<div class="stat ${c}"><div class="k">${esc(k)}</div><div class="v">${esc(val)}${u ? `<span class="u">${esc(u)}</span>` : ""}</div></div>`).join("")}</div>`);
 
@@ -1694,7 +1680,7 @@ function tabRecalls(D){
         <span class="note">${[r.SUG_RECALL, !empty(r.TAARICH_PTICHA) && "נפתח ב-" + fmtDate(r.TAARICH_PTICHA), !empty(r.RECALL_ID) && "מספר " + r.RECALL_ID].filter(Boolean).map(esc).join(" · ")}</span>
         ${fixRows(r, d)}
         ${contact ? `<p class="note">${contact}</p>` : ""}</div>`;
-    }).join("") + `<p class="note">התיקון ניתן בחינם אצל היבואן. ריקול בטיחותי פתוח עלול למנוע חידוש רישיון.</p>`));
+    }).join("") + `<p class="note">התיקון ניתן בחינם אצל היבואן.</p>`));
   } else {
     html.push(card("ריקולים פתוחים לרכב הזה", "check", "green", `<p style="margin:0">לפי המאגר אין לרכב הזה ריקול פתוח.</p>`));
   }
@@ -1762,18 +1748,17 @@ function checksCard(D){
   row(!D.isCancelled, D.isCancelled ? "הרכב ירד מהכביש" : "הרכב פעיל ולא בוטל");
   if (exp) row(exp >= now, exp >= now ? `טסט בתוקף עד ${fmtDate(v.tokef_dt)}` : `הטסט פג ב-${fmtDate(v.tokef_dt)}`);
   row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")}` : "אין ריקול פתוח");
-  if (D.own.length) row(true, `נבדקה היסטוריית הבעלות (${ownersLabel(D)})`);
+  if (D.own.length) row(true, "נבדקה היסטוריית הבעלות");
   const mods = ["shinui_mivne_ind", "gapam_ind", "shnui_zeva_ind", "shinui_zmig_ind"].filter(k => yes(v[k]));
   row(!mods.length, mods.length ? "נרשמו שינויים ברכב" : "לא נרשמו שינויי מבנה, גפ״מ או צבע");
   return card(`מה נבדק (${rows.length} בדיקות)`, "check", "green", `<ul class="insights plain">${rows.join("")}</ul>
-    <p class="note" style="margin:0"><b>מה אי אפשר לדעת ממאגרי משרד התחבורה:</b> שעבודים, תאונות, אובדן גמור וירידת ערך מביטוח, וגניבה. את העבר הביטוחי (תביעות, אובדן גמור) אפשר לבדוק במרכז הסליקה של חברות הביטוח, בקישור למטה.</p>`);
+    <p class="note" style="margin:0"><b>מה אי אפשר לדעת ממאגרי משרד התחבורה:</b> שעבודים, תאונות, אובדן גמור וירידת ערך מביטוח, וגניבה. את העבר הביטוחי (תביעות, אובדן גמור) אפשר לבדוק במרכז הסליקה של חברות הביטוח, בשלב הראשון ברשימה "לפני שקונים".</p>`);
 }
 function tabBuy(D){
   const c = D.cost, html = [];
   const paid = tier("ב-PRO ובחבילת הקנייה", buyerCard(D));
   const entitled = !PRO_LOCK || isPro();
   if (entitled) html.push(paid);
-  html.push(checksCard(D));
   html.push(card("שווי משוער", "tag", "pink", (c.newPrice ?
     `<div class="tow-grid"><div><div class="k">מחיר מחירון כחדש</div><div class="v">${fmtN(c.newPrice)}<span class="u">₪</span></div></div><div><div class="k">שווי משוער היום</div><div class="v"><span dir="ltr" style="unicode-bidi:isolate;white-space:nowrap">${Math.round(c.valueLow / 1000)}–${Math.round(c.valueHigh / 1000)}</span><span class="u">אלף ₪</span></div></div></div>
      
@@ -1781,13 +1766,12 @@ function tabBuy(D){
     `<p style="margin:0">אין במאגר מחיר מחירון לדגם הזה, ולכן אין הערכת שווי.</p>`) +
     `<button type="button" class="link-btn" data-url="https://carlistprice.mot.gov.il/" data-copyfirst="${D.plate}">${ico("tag")}מחירון העם של משרד התחבורה</button>`));
   html.push(`<div id="mstat">${msCard(D)}</div>`);
+  html.push(checksCard(D));
   const lk = (url, icon, text, copy) => `<button type="button" class="link-btn" data-url="${url}"${copy ? ` data-copyfirst="${D.plate}"` : ""}>${ico(icon)}${text}</button>`;
   const step = (n, title, body) => `<li><span class="n">${n}</span><div><b>${title}</b>${body}</div></li>`;
   html.push(card("לפני שקונים", "check", "green",
-    `<p style="margin:0">הסדר המומלץ, משלב החיפוש ועד העברת הבעלות:</p>
-     <ol class="bsteps">
-     ${step(1, "בבית, לפני שנפגשים", `<p class="note">בדיקות שאפשר לעשות לפי מספר הרישוי בלבד.</p>
-       ${lk("https://www.gov.il/he/service/pawn_perusal", "search", "בדיקת שעבוד ברשם המשכונות", true)}
+    `<ol class="bsteps">
+     ${step(1, "בבית, לפני שנפגשים", `${lk("https://www.gov.il/he/service/pawn_perusal", "search", "בדיקת שעבוד ברשם המשכונות", true)}
        ${lk("https://infocar.co.il/", "search", "בדיקת עבר ביטוחי (מרכז הסליקה של חברות הביטוח)", true)}
        ${lk("https://www.gov.il/apps/police/stolencar/", "search", "בדיקה במאגר הרכבים הגנובים (משטרה)", true)}`)}
      ${step(2, "המוכר והמסמכים", `<ul class="bq"><li>ודאו שמי שמציג את הרכב הוא הבעלים החוקי: שמו ומספר תעודת הזהות שלו מופיעים ברישיון הרכב העדכני. אם הוא מיופה כוח, כדאי לדבר גם עם הבעלים.</li><li>במוכר פרטי, מומלץ להיפגש בבית המוכר ובאור יום.</li><li>בעסקה עם סוחר, בקשו בכתב מסמכי רכישה ואחריות.</li></ul>`)}
@@ -1797,9 +1781,9 @@ function tabBuy(D){
        <div id="inspRes" style="margin-top:10px"></div></div>`)}
      ${step(5, "מה לשקלל במחיר", `<ul class="bq"><li><b>מצבר:</b> לרוב מחליפים אחרי 30 עד 36 חודשים. בדקו את גילו ואם הוא עדיין באחריות.</li><li><b>צמיגים:</b> בדקו מצב וגיל (התאריך מוטבע על הצמיג). בשימוש רגיל הם מחזיקים כ-40 עד 50 אלף ק״מ.</li><li><b>טסט קרוב:</b> חשבו אגרה, עלות טסט, הכנה ויום חופש.</li><li><b>טיפולים:</b> בקשו פירוט מהמוסך ובדקו שהתאריכים והק״מ הגיוניים מול המד. בררו מתי הטיפול הבא ומה עלותו.</li></ul>`)}
      ${step(6, "לפני התשלום", `<p class="note">ייתכן שלא ניתן יהיה להעביר בעלות, ולכן הסדירו מראש:</p><ul class="bq"><li>טסט בתוקף.</li><li>ריקול פתוח שטופל.</li><li>הסרת שעבוד או עיקול מול הגורם המשעבד.</li><li>הסרת תו נכה, כשרשום, במשרד הרישוי.</li><li>רישום היורשים, אם הבעלים נפטר.</li></ul>
-       ${lk("https://car.cma.gov.il/", "doc", "השוואת מחירי ביטוח חובה")}
        <p class="note"><b>אל תעבירו תשלום לפני שפעלתם לפי השלבים, ושלמו רק במעמד העברת הבעלות.</b></p>`)}
-     <li class="bsteps-end"><span class="n">${ico("check")}</span><div><b>אחרי העסקה</b><p class="note">בצעו העברת בעלות ועדכנו את הביטוח מיד, ורק אז התחילו לנהוג ברכב.</p></div></li>
+     <li class="bsteps-end"><span class="n">${ico("check")}</span><div><b>אחרי העסקה</b><p class="note">בצעו העברת בעלות ועדכנו את הביטוח מיד, ורק אז התחילו לנהוג ברכב.</p>
+       ${lk("https://car.cma.gov.il/", "doc", "השוואת מחירי ביטוח חובה")}</div></li>
      </ol>
      <button type="button" class="link-btn" data-act="checklistPdf">${ico("doc")}הורדה או הדפסה של הצ'ק ליסט (PDF)</button>`));
   if (!entitled) html.push(paid);
@@ -2959,13 +2943,6 @@ function buyerCard(D){
   const v = D.v, flags = [], qs = [];
   if (D.recalls.length) { flags.push(["bad", D.recalls.length === 1 ? "ריקול פתוח" : `${D.recalls.length} ריקולים פתוחים`]); qs.push("האם הריקול תוקן? כדאי לבקש אישור תיקון מהיבואן."); }
   for (const i of buildInsights(D)) if (i.level === "bad" || i.level === "warn") flags.push([i.level, i.title]);
-  const past = D.own.map(r => String(r.baalut || ""));
-  if (D.own.length >= 3) qs.push("למה הרכב החליף כל כך הרבה בעלים?");
-  if (past.some(t => t.includes("השכר"))) qs.push("איך טיפלו ברכב בתקופת ההשכרה? יש חשבוניות?");
-  if (D.kmPerYear && D.kmPerYear / AVG_KM_YEAR >= 1.25) qs.push("הק״מ גבוה לשנתון: האם הוא תואם ללוח המחוונים ולטסט האחרון?");
-  if (yes(v.shinui_mivne_ind)) qs.push("מה שונה במבנה הרכב, ויש אישור רשום?");
-  if (yes(v.shnui_zeva_ind)) qs.push("למה הצבע שונה? האם היה תיקון פחחות?");
-  if (D.importKind) qs.push("מי נותן שירות וחלפים לרכב, כיוון שהוא יבוא אישי?");
   const dtk = driveType(D);
   if (dtk && ["ev", "phev", "hybrid"].includes(dtk.k)) qs.unshift("עד מתי ועד כמה ק״מ יש אחריות יצרן על הסוללה?", "אפשר לעשות ביטוח לסוללה או להאריך את האחריות, ובכמה זה עולה?", ...(dtk.k === "hybrid" ? [] : ["יש דוח בדיקת בריאות סוללה?"]));
   if (PRO_LOCK && !isPro()) {
