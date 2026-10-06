@@ -294,7 +294,18 @@ section[style*="--n:3"] .cmp-k{font-size:.76rem}
 .pro-tag .i{width:10px;height:10px}
 .tier{margin:14px 0;padding:0 0 1px;border-top:2px solid #e3c25a}
 .tier-h{display:flex;align-items:center;gap:6px;font-size:.78rem;font-weight:700;color:#8a6500;padding:6px 2px 8px}
-.stls{list-style:none;margin:0;padding:0}.stl{padding:8px 0;border-top:1px solid var(--line,#e7e7e7)}.stl:first-child{border-top:0}.stl .pill{margin-inline-start:6px}
+.stls{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.stl{border:1px solid var(--line,#e7e7e7);border-inline-start:4px solid #d9a600;border-radius:12px;padding:10px 12px;background:var(--card,#fff)}
+.stl.ok{border-inline-start-color:#2e9e5b}
+.stl-h{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.stl-h b{font-size:.98rem}
+.stl-st{display:inline-flex;align-items:center;gap:4px;flex:none;font-size:.74rem;font-weight:700;color:#8a6500;background:#fdf1d0;border-radius:999px;padding:2px 8px}
+.stl.ok .stl-st{color:#1d7a43;background:#e3f4ea}
+.stl-st .i{width:12px;height:12px}
+.stl-b{margin-top:8px;padding:8px 10px;border-radius:10px;background:#eef8f1;color:#17492c;font-weight:600}
+.stl.wait .stl-b{background:#fdf6e3;color:#5c4400}
+.stl-b small{display:block;font-weight:700;font-size:.72rem;opacity:.75;margin-bottom:2px}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .stl-b{background:#16301f;color:#cfe9d8}:root:not([data-theme="light"]) .stl.wait .stl-b{background:#33290f;color:#f0dca0}:root:not([data-theme="light"]) .stl-st{background:#33290f;color:#e6b93a}:root:not([data-theme="light"]) .stl.ok .stl-st{background:#16301f;color:#7fd3a0}}
 .tier-h .i{width:13px;height:13px}
 .tier .pro-tag{display:none}
 .tier>.card,.tier>.buyer-card>.card{background:linear-gradient(#fffaf0,#fffaf0)}
@@ -1053,15 +1064,12 @@ function settlementsFor(D){
 }
 function settlementCard(D){
   const list = D.kind === "model" ? [] : settlementsFor(D);
-  const reg = `<button type="button" class="link-btn" data-url="https://elyon1.court.gov.il/heb/tovanot_yezugiyot/main.htm">${ico("doc")}פנקס התובענות הייצוגיות של בתי המשפט</button>`;
-  const note = `<p class="note">לפי הודעות היבואנים והעיתונות, נכון ל-10/2026. הזכאות בפועל נקבעת לפי הרכב (לפעמים לפי מספר שלדה) ותנאי ההסדר, וייתכן שהמועד חלף. לפני תיקון בתשלום כדאי לבדוק מול היבואן.</p>`;
-  if (!list.length) return card("הסדרי פשרה", "scale", "slate", `<p style="margin:0">לא מצאנו אצלנו הסדר פשרה פתוח שמתאים לדגם ולשנתון של הרכב. הרשימה שלנו כוללת את ההסדרים הידועים של היבואנים הגדולים.</p>${reg}`);
+  if (!list.length) return card("הסדרי פשרה", "scale", "slate", `<p style="margin:0">לא מצאנו אצלנו הסדר פשרה פתוח שמתאים לדגם ולשנתון של הרכב. הרשימה שלנו כוללת את ההסדרים הידועים של היבואנים הגדולים.</p>`);
   const full = !PRO_LOCK || isPro();
-  const items = list.map(s => full
-    ? `<li class="stl"><b>${esc(s.t)}</b><span class="pill ${s.st === "ok" ? "ok" : ""}">${s.st === "ok" ? "אושר" : "ממתין לאישור"}</span><p style="margin:4px 0 0">${esc(s.b)}</p><p class="note" style="margin:2px 0 0">${esc(s.cond)}${s.low ? " הרשימה פחות ודאית." : ""}</p><button type="button" class="link-btn" data-url="${esc(s.url)}">${ico("search")}לדף היבואן</button></li>`
-    : `<li class="stl"><b>${esc(s.t)}</b></li>`).join("");
+  const items = list.map(s => `<li class="stl ${s.st === "ok" ? "ok" : "wait"}"><div class="stl-h"><b>${esc(s.t)}</b><span class="stl-st">${s.st === "ok" ? ico("check") + "אושר" : ico("clock") + "ממתין לאישור"}</span></div>${full
+    ? `<div class="stl-b"><small>מה מגיע</small>${esc(s.b)}</div><p class="note" style="margin:6px 0 0">${esc(s.cond)}${s.low ? " הרשימה פחות ודאית." : ""}</p><button type="button" class="link-btn" data-url="${esc(s.url)}">${ico("search")}לדף ההסדר אצל היבואן</button>` : ""}</li>`).join("");
   return card("ייתכן שמגיע לכם תיקון בחינם", "scale", "amber",
-    `<p style="margin:0 0 6px">${pl(list.length, "נמצא הסדר פשרה אחד", "נמצאו הסדרי פשרה")} שעשויים לחול על הרכב:</p><ul class="stls">${items}</ul>${full ? note + reg : `<p class="note">פרטי ההטבה, התנאים והקישור ליבואן זמינים ב-PRO.</p><button type="button" class="link-btn" data-act="proInfo">הצטרפות ל-PRO</button>`}`, `<span class="count">${list.length}</span>`);
+    `<p style="margin:0 0 8px">${pl(list.length, "נמצא הסדר פשרה אחד", "נמצאו הסדרי פשרה")} שעשויים לחול על הרכב.</p><ul class="stls">${items}</ul>${full ? `<p class="note">לפי הודעות היבואנים והעיתונות, נכון ל-10/2026. הזכאות נקבעת לפי הרכב (לפעמים לפי מספר שלדה), וייתכן שהמועד חלף. לפני תיקון בתשלום כדאי לבדוק מול היבואן.</p>` : `<p class="note">פרטי ההטבה, התנאים והקישור ליבואן זמינים ב-PRO.</p><button type="button" class="link-btn" data-act="proInfo">הצטרפות ל-PRO</button>`}`, `<span class="count">${list.length}</span>`);
 }
 function importerRecall(D){
   const m = [D.v.tozeret_nm, D.v.kinuy_mishari, D.v.degem_nm, D.make].filter(x => !empty(x)).join(" ");
