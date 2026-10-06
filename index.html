@@ -1340,7 +1340,7 @@ function serviceCard(D){
   const next = opts.length === 1 && km != null && km > 0 ? Math.ceil((km + 1) / step) * step : null;
   const nextRow = next ? `<p style="margin:8px 0 0">לפי הק״מ בטסט האחרון (${fmtN(km)}), הטיפול הבא לפי המרווח הוא סביב <b>${fmtN(next)} ק״מ</b> (הערכה).</p>` : "";
   const srcEl = url ? `<button type="button" class="lnk" data-url="${url}">${esc(src)}</button>` : esc(src);
-  return card("מרווח טיפולים", "wrench", "teal", `<p style="margin:0">${when}</p>${nextRow}<p class="note">מקור: ${srcEl}. ${opts.length > 1 ? "לא ניתן לקבוע את הגרסה המדויקת מהנתונים. " : ""}המרווח המדויק לרכב שלך מופיע בספר הרכב.</p>`);
+  return card("מרווח טיפולים", "wrench", "teal", `<p style="margin:0">${when}</p>${nextRow}<p class="note">מקור: ${srcEl}. ${opts.length > 1 ? "לא ניתן לקבוע את הגרסה המדויקת מהנתונים. " : ""}המרווחים מבוססים על מאגר שנאסף מנתוני יבואנים, ועשויים להשתנות בין גרסאות ושנתונים. את המרווח המדויק לרכב שלך כדאי לאמת מול ספר הרכב או היבואן.</p>`);
 }
 function tabOverview(D){
   const v = D.v, w = D.w, html = [];
