@@ -1696,7 +1696,7 @@ function checksCard(D){
   const mods = ["shinui_mivne_ind", "gapam_ind", "shnui_zeva_ind", "shinui_zmig_ind"].filter(k => yes(v[k]));
   row(!mods.length, mods.length ? "נרשמו שינויים ברכב" : "לא נרשמו שינויי מבנה, גפ״מ או צבע");
   return card("מה נבדק", "check", "green", `<ul class="insights plain">${rows.join("")}</ul>
-    <p class="note" style="margin:0"><b>מה אי אפשר לדעת ממאגרי משרד התחבורה:</b> שעבודים, תאונות, אובדן גמור וירידת ערך מביטוח, וגניבה. את שעבוד וגניבה אפשר לבדוק בקישורים למטה. נתוני תביעות וביטוח נמצאים אצל חברות הביטוח.</p>`);
+    <p class="note" style="margin:0"><b>מה אי אפשר לדעת ממאגרי משרד התחבורה:</b> שעבודים, תאונות, אובדן גמור וירידת ערך מביטוח, וגניבה. את העבר הביטוחי (תביעות, אובדן גמור) אפשר לבדוק במרכז הסליקה של חברות הביטוח, בקישור למטה.</p>`);
 }
 function tabBuy(D){
   const c = D.cost, html = [];
@@ -1713,6 +1713,7 @@ function tabBuy(D){
     `<p style="margin:0">כמה דברים שכדאי לעשות לפני שסוגרים עסקה:</p>
      <ul class="bq"><li>ודאו שמי שמציג את הרכב הוא הבעלים הרשום (גם בן או בת זוג), ושהשם ברישיון הרכב תואם לתעודת הזהות שלו.</li><li>אם הרכב משועבד, השעבוד נשאר גם אחרי העברת הבעלות: דרשו הסרה לפני התשלום.</li><li>בעסקה עם סוחר, בקשו בכתב מסמכי רכישה ואחריות.</li></ul>
      <button type="button" class="link-btn" data-url="https://www.gov.il/he/service/pawn_perusal" data-copyfirst="${D.plate}">${ico("search")}בדיקת שעבוד ברשם המשכונות</button>
+     <button type="button" class="link-btn" data-url="https://www.slika-ins.co.il/">${ico("search")}בדיקת עבר ביטוחי (מרכז הסליקה של חברות הביטוח)</button>
      <button type="button" class="link-btn" data-url="https://www.gov.il/apps/police/stolencar/" data-copyfirst="${D.plate}">${ico("search")}בדיקה במאגר הרכבים הגנובים (משטרה)</button>
      <button type="button" class="link-btn" data-url="https://car.cma.gov.il/">${ico("doc")}השוואת מחירי ביטוח חובה</button>
      <div class="insp"><p class="note" style="margin:0 0 6px">מכוני בדיקה לפני קנייה, מתוך רשימת המוסכים המורשים של משרד התחבורה:</p>
