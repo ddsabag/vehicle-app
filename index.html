@@ -309,6 +309,8 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .doc-view img{max-width:100%;max-height:100%;object-fit:contain}
 .doc-view .x{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));inset-inline-start:12px;background:#fff3;color:#fff;border-radius:10px;width:40px;height:40px;display:grid;place-items:center;border:0}
 .bsteps{list-style:none;margin:0;padding:0;display:grid;gap:16px}.bsteps>li{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start}.bsteps .n{width:28px;height:28px;border-radius:50%;background:var(--t-green-bg);color:var(--t-green);display:grid;place-items:center;font-weight:800;font-size:.9rem}.bsteps .n .i{width:16px;height:16px}.bsteps>li>div{display:grid;gap:6px;min-width:0}.bsteps .note{margin:0}
+.chk{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}.chk span{display:flex;gap:6px;align-items:center;font-size:.92rem;min-width:0}.chk .i{width:16px;height:16px}.chk .y .i{color:var(--ok)}.chk .n{color:var(--muted)}.chk .n .i{color:var(--muted);opacity:.7}
+.zscale{display:grid;grid-template-columns:repeat(15,1fr);gap:2px}.zscale i{height:22px;border-radius:4px;opacity:.35;font:700 .7rem/22px var(--f-num);text-align:center;color:#fff;font-style:normal}.zscale i.on{opacity:1;height:30px;margin-top:-4px;box-shadow:0 0 0 2px var(--card),0 0 0 3px var(--fg)}.zlbl{display:flex;justify-content:space-between;font-size:.78rem;color:var(--muted);margin-top:4px}
 .insights.plain .ins{background:transparent;padding:4px 0;border:0}.insights.plain .ins b{font-weight:600;color:var(--fg)}.insights.plain .ins.ok svg.i{color:var(--ok)}.insights.plain .ins.warn svg.i{color:var(--warn)}
 .tools{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 .tool{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:start;border:0;background:var(--card);box-shadow:var(--shadow);border-radius:14px;padding:12px;font-weight:700;color:var(--fg)}
@@ -1750,6 +1752,18 @@ async function findInspection(city){
 }
 document.addEventListener("submit", ev => { if (ev.target.matches("[data-insp]")) { ev.preventDefault(); findInspection($("#inspCity").value); } });
 
+/* every system the model data speaks about, with a tick when it is fitted and a dash when it is not; unknown ones are left out */
+function chkList(w, map){
+  const items = Object.keys(map).filter(k => !empty(w[k])).map(k => {
+    const on = k === "mispar_halonot_hashmal" ? num(w[k]) > 0 : yes(w[k]);
+    return `<span class="${on ? "y" : "n"}">${ico(on ? "check" : "x")}${esc(map[k])}${on && k === "mispar_halonot_hashmal" && num(w[k]) > 1 ? ` (${num(w[k])})` : ""}</span>`;
+  });
+  return items.length ? `<div class="chk">${items.join("")}</div>` : "";
+}
+function zihumScale(g){
+  const n = Math.round(num(g)); if (!(n >= 1 && n <= 15)) return "";
+  return `<div class="zscale" role="img" aria-label="קבוצת זיהום ${n} מתוך 15">${Array.from({length: 15}, (_, i) => `<i class="${i + 1 === n ? "on" : ""}" style="background:hsl(${Math.round(120 - i * 120 / 14)},55%,50%)">${i + 1 === n ? n : ""}</i>`).join("")}</div><div class="zlbl"><span>הנקי ביותר</span><span>המזהם ביותר</span></div>`;
+}
 function tabSpecs(D){
   const v = D.v, w = D.w, html = [];
   const gearbox = empty(w.automatic_ind) ? "" : yes(w.automatic_ind) ? "אוטומטית" : "ידנית";
@@ -1770,19 +1784,17 @@ function tabSpecs(D){
     ["כושר העמסה", unit(v.mishkal_mitan_harama, "ק״ג")], ["סרנים", e(v.sranim)],
     ["צמיג קדמי", mono(D.pick(v.zmig_kidmi, v.mida_zmig_kidmi))], ["צמיג אחורי", mono(D.pick(v.zmig_ahori, v.mida_zmig_ahori))],
   ])));
-  const present = Object.keys(SYSTEMS).filter(k => yes(w[k])).map(k => SYSTEMS[k]);
   const safetyLvl = D.pick(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty);
   html.push(card("בטיחות", "shield", "green", facts([
     ["ניקוד בטיחות", e(w.nikud_betihut)], ["רמת אבזור בטיחותי", empty(safetyLvl) ? "" : `${esc(safetyLvl)} מתוך 8`],
     ["כריות אוויר", e(w.mispar_kariot_avir)],
-  ]) + (present.length ? `<div class="systems">${present.map(s => `<span>${esc(s)}</span>`).join("")}</div>` : "")));
-  const equip = Object.keys(EQUIP).filter(k => !empty(w[k]) && num(w[k]) > 0).map(k => EQUIP[k] + (k === "mispar_halonot_hashmal" && num(w[k]) > 1 ? ` (${num(w[k])})` : ""));
-  if (equip.length) html.push(card("אבזור", "star", "amber", `<div class="systems">${equip.map(s => `<span>${esc(s)}</span>`).join("")}</div><p class="note">האבזור המלא מופיע בקטלוג של היבואן.</p>`));
+  ]) + chkList(w, SYSTEMS)));
+  const equip = chkList(w, EQUIP);
+  if (equip) html.push(card("אבזור", "star", "amber", `${equip}<p class="note">האבזור המלא מופיע בקטלוג של היבואן.</p>`));
   const zihum = D.pick(v.kvutzat_zihum, w.kvutzat_zihum);
   html.push(card("סביבה", "leaf", "leaf", facts([
-    ["קבוצת זיהום", empty(zihum) ? "" : `${esc(zihum)} <span class="note">(1 הנקי ביותר, 15 המזהם ביותר)</span>`, "wide"],
     ["פליטת CO₂", unit(D.pick(w.CO2_WLTP, w.kamut_CO2), "גר׳ לק״מ")], ["מדד ירוק", e(w.madad_yarok)],
-  ])));
+  ]) + (empty(zihum) ? "" : `<div class="qsec" style="margin:10px 0 6px">קבוצת זיהום ${esc(zihum)} מתוך 15</div>${zihumScale(zihum)}`)));
   html.push(card("מספרי זיהוי", "id", "slate",
     (D.vin ? `<div><p class="note" style="margin-bottom:6px">מספר שלדה (VIN)</p><div class="copy-row"><span class="mono">${esc(D.vin)}</span><button class="copy-btn" type="button" data-copy="${esc(D.vin)}" data-label="מספר השלדה">${ico("copy")}העתקה</button></div></div>` : "") +
     `<div><p class="note" style="margin-bottom:6px">מספר רישוי</p><div class="copy-row"><span class="mono">${fmtPlate(D.plate)}</span><button class="copy-btn" type="button" data-copy="${D.plate}" data-label="מספר הרישוי">${ico("copy")}העתקה</button></div></div>`));
