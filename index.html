@@ -294,6 +294,8 @@ section[style*="--n:3"] .cmp-k{font-size:.76rem}
 .ev{display:flex;gap:10px;justify-content:space-between;padding:7px 0;border-top:1px solid var(--line);align-items:flex-start}.ev:first-of-type{border-top:0}.ev small{color:var(--muted);white-space:nowrap}
 .inp{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--soft);color:var(--fg);font:inherit}
 textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
+.svc-form{display:grid;gap:10px;margin-top:10px}.svc-form label{display:grid;gap:4px;font-size:.85rem;color:var(--muted)}.svc-form .link-btn{justify-content:center}
+.svc-list{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:8px}.svc-list li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--soft)}.svc-list li div{display:grid;gap:2px}.svc-list li span{font-size:.85rem;color:var(--muted)}.svc-list li small{color:var(--muted)}.svc-list .x{flex:0 0 auto}
 .askrow{display:flex;gap:8px;align-items:stretch}.askrow .inp{flex:1;min-width:0;font-family:var(--f-num)}.askrow .link-btn{width:auto;white-space:nowrap}
 .bflags,.bq{margin:0 0 10px;padding-inline-start:20px}.bflags li.bad{color:var(--bad);font-weight:700}.bflags li.warn{color:var(--warn);font-weight:700}.bq li{margin:2px 0}
 .vd.ok{color:var(--ok);font-weight:700}.vd.bad{color:var(--bad);font-weight:700}.ft .g,.sum3 .g{color:var(--ok)}.ft .w,.sum3 .w{color:var(--warn)}.ft .r,.sum3 .r{color:var(--bad)}.ft td.g,.ft td.w,.ft td.r{font-weight:700}
@@ -802,7 +804,7 @@ const store = {
 /* the app checks saved cars once a day for a new recall or a test about to expire */
 function syncSaved(list){
   const b = window.AndroidApp; if (!b || !b.syncSaved) return;
-  try { b.syncSaved(JSON.stringify((list || []).map((x, i) => ({plate: x.plate, title: x.title || "", alerts: x.alerts !== false && i < alertCap(), ext: plan() !== "free"})))); } catch {}
+  try { b.syncSaved(JSON.stringify((list || []).map((x, i) => ({plate: x.plate, title: x.title || "", alerts: x.alerts !== false && i < alertCap(), ext: plan() !== "free", svcDue: svcDue(x.plate)})))); } catch {}
 }
 const alertsSupported = () => !!(window.AndroidApp && window.AndroidApp.setAlerts);
 window.onAlertsPermission = ok => { toast(ok ? "ההתראות פועלות: נעדכן אותך על ריקול חדש או טסט שעומד לפוג" : "ההתראות כבויות. אפשר להפעיל אותן בהגדרות."); syncAlertsSeg(); };
@@ -1175,7 +1177,7 @@ function buildInsights(D){
 
 /* ---------- result screen ---------- */
 let ctrl = null, current = null, currentTab = "overview";
-const TABS = [["overview","סקירה"],["recalls","ריקולים"],["costs","עלויות"],["specs","מפרט"]];
+const TABS = [["overview","סקירה"],["recalls","ריקולים"],["costs","עלויות"],["maint","תחזוקה"],["specs","מפרט"]];
 
 async function lookup(raw){
   const plate = digits(raw).replace(/^0+(?=\d{5})/, "");
@@ -1249,7 +1251,7 @@ function renderResult(){
 
   const recallCount = D.recalls.length;
   html.push(`<div class="tabs" role="tablist">${TABS.map(([k, t]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${k === currentTab}">${t}${k === "recalls" && recallCount ? `<i class="hot">${recallCount}</i>` : ""}</button>`).join("")}</div>`);
-  html.push(`<div class="tab-body">${({overview: tabOverview, recalls: tabRecalls, costs: tabCosts, specs: tabSpecs})[currentTab](D)}</div>`);
+  html.push(`<div class="tab-body">${({overview: tabOverview, recalls: tabRecalls, costs: tabCosts, maint: tabMaint, specs: tabSpecs})[currentTab](D)}</div>`);
   $("#out").innerHTML = html.join("");
 }
 /* One ownership record, and the first ownership type (מקוריות) agrees with it */
@@ -1326,21 +1328,140 @@ function serviceRule(D){
 }
 const svMonths = m => m === 12 ? "שנה" : m === 6 ? "חצי שנה" : m === 24 ? "שנתיים" : m + " חודשים";
 const svWhen = o => `כל ${fmtN(o.km)} ק״מ${o.months ? ` או ${svMonths(o.months)} (המוקדם מביניהם)` : ""}`;
-function serviceCard(D){
-  if (D.kind === "model" || isCommercial(D)) return "";
+function serviceInfo(D){
+  if (D.kind === "model" || isCommercial(D)) return null;
   const t = serviceFromTable(D);
-  let opts = null, src = "טבלת מרווחי טיפולים של יבואנים", url = "";
-  if (t && t.none) return card("מרווח טיפולים", "wrench", "teal", `<p style="margin:0"><b>אין טיפול תקופתי קבוע</b></p><p class="note">היצרן ממליץ על בדיקות לפי רכיב: נוזל בלמים כל 4 שנים, מסנן מזגן כל שנתיים, וניקוי קליפרים אחת לשנה או 20,000 ק״מ. לפרטים ראה את הנחיות היצרן.</p>`);
-  if (t && t.opts && t.opts.length) opts = t.opts;
-  else { const r = serviceRule(D); if (r) { opts = [{km: r.km, months: r.months || 0}]; src = r.src; url = r.url || ""; } }
-  if (!opts) return "";
+  if (t && t.none) return {none: true};
+  if (t && t.opts && t.opts.length) return {opts: t.opts, src: "טבלת מרווחי טיפולים של יבואנים", url: ""};
+  const r = serviceRule(D);
+  return r ? {opts: [{km: r.km, months: r.months || 0}], src: r.src, url: r.url || ""} : null;
+}
+function intervalCard(D, info){
+  if (!info) return "";
+  if (info.none) return card("מרווח טיפולים", "wrench", "teal", `<p style="margin:0"><b>אין טיפול תקופתי קבוע</b></p><p class="note">היצרן ממליץ על בדיקות לפי רכיב: נוזל בלמים כל 4 שנים, מסנן מזגן כל שנתיים, וניקוי קליפרים אחת לשנה או 20,000 ק״מ. לפרטים ראה את הנחיות היצרן.</p>`);
+  const opts = info.opts;
   const when = opts.length === 1 ? `<b>${svWhen(opts[0])}</b>` : `<b>לפי הגרסה: ${opts.map(svWhen).join(" · ")}</b>`;
-  const km = isNum(D.v.kilometer_test_aharon) ? num(D.v.kilometer_test_aharon) : null;
-  const step = Math.min(...opts.map(o => o.km));
-  const next = opts.length === 1 && km != null && km > 0 ? Math.ceil((km + 1) / step) * step : null;
-  const nextRow = next ? `<p style="margin:8px 0 0">לפי הק״מ בטסט האחרון (${fmtN(km)}), הטיפול הבא לפי המרווח הוא סביב <b>${fmtN(next)} ק״מ</b> (הערכה).</p>` : "";
-  const srcEl = url ? `<button type="button" class="lnk" data-url="${url}">${esc(src)}</button>` : esc(src);
-  return card("מרווח טיפולים", "wrench", "teal", `<p style="margin:0">${when}</p>${nextRow}<p class="note">מקור: ${srcEl}. ${opts.length > 1 ? "לא ניתן לקבוע את הגרסה המדויקת מהנתונים. " : ""}המרווחים מבוססים על מאגר שנאסף מנתוני יבואנים, ועשויים להשתנות בין גרסאות ושנתונים. את המרווח המדויק לרכב שלך כדאי לאמת מול ספר הרכב או היבואן.</p>`);
+  const srcEl = info.url ? `<button type="button" class="lnk" data-url="${info.url}">${esc(info.src)}</button>` : esc(info.src);
+  return card("מרווח טיפולים", "wrench", "teal", `<p style="margin:0">${when}</p><p class="note">מקור: ${srcEl}. ${opts.length > 1 ? "לא ניתן לקבוע את הגרסה המדויקת מהנתונים. " : ""}המרווחים מבוססים על מאגר שנאסף מנתוני יבואנים, ועשויים להשתנות בין גרסאות ושנתונים. את המרווח המדויק לרכב שלך כדאי לאמת מול ספר הרכב או היבואן.</p>`);
+}
+
+/* ---------- maintenance tab: service log, next service, km timeline, cumulative cost (the log stays on the phone) ---------- */
+const SVC_TYPES = ["טיפול תקופתי", "שמן ומסננים", "בלמים", "צמיגים", "מצבר", "מזגן", "אחר"];
+const maintOk = () => !PRO_LOCK || isPro();
+const svcAll = () => { try { return JSON.parse(localStorage.getItem("svc") || "{}") || {}; } catch { return {}; } };
+const svcOf = p => { const s = svcAll()[p]; return s && Array.isArray(s.log) ? s : {log: [], meta: null}; };
+function svcSave(p, s){ const all = svcAll(); all[p] = s; try { localStorage.setItem("svc", JSON.stringify(all)); } catch {} syncSaved(store.get("savedVehicles")); }
+const ymdOf = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + Math.round(n)); return x; };
+const dayDiff = (a, b) => Math.round((b - a) / 864e5);
+function svcRate(s){
+  const pts = s.log.filter(x => x.km > 0 && x.d).map(x => [new Date(x.d).getTime(), x.km]).sort((a, b) => a[0] - b[0]);
+  if (pts.length >= 2) { const dd = (pts[pts.length - 1][0] - pts[0][0]) / 864e5, dk = pts[pts.length - 1][1] - pts[0][1]; if (dd >= 30 && dk > 0) return dk / dd; }
+  return (s.meta && s.meta.rate) || null;
+}
+function svcNext(s){
+  const m = s.meta, periodic = s.log.filter(x => x.type === "טיפול תקופתי" || x.type === "שמן ומסננים");
+  if (!m || !periodic.length) return null;
+  const last = periodic.sort((a, b) => a.d < b.d ? 1 : -1)[0], d0 = new Date(last.d);
+  if (isNaN(d0)) return null;
+  let due = m.months ? addDays(d0, m.months * 30.44) : null;
+  const rate = svcRate(s), dueKm = last.km > 0 ? last.km + m.km : null;
+  if (rate) { const byKm = addDays(d0, m.km / rate); if (!due || byKm < due) due = byKm; }
+  return {last, due, dueKm};
+}
+function svcDue(p){ if (!maintOk()) return null; const n = svcNext(svcOf(p)); return n && n.due ? ymdOf(n.due) : null; }
+/* remember the car's interval and a km-per-day estimate, so the daily reminder check works without opening the car */
+function svcRemember(D, info){
+  if (!maintOk() || !info || !info.opts || info.opts.length !== 1) return;
+  const o = info.opts[0], s = svcOf(D.plate);
+  const km = isNum(D.v.kilometer_test_aharon) ? num(D.v.kilometer_test_aharon) : 0, reg = parseYM(D.v.moed_aliya_lakvish);
+  const days = reg ? Math.max(dayDiff(reg, new Date()), 0) : 0;
+  const rate = km > 0 && days > 180 ? Math.min(km / days, 150) : AVG_KM_YEAR / 365;
+  const meta = {km: o.km, months: o.months || 0, rate: Math.round(rate * 10) / 10};
+  if (!s.meta || s.meta.km !== meta.km || s.meta.months !== meta.months || s.meta.rate !== meta.rate) { s.meta = meta; svcSave(D.plate, s); }
+}
+function svcCalendar(D, due){
+  const ymd = x => `${x.getFullYear()}${String(x.getMonth() + 1).padStart(2, "0")}${String(x.getDate()).padStart(2, "0")}`;
+  const next = addDays(due, 1), title = `טיפול לרכב ${fmtPlate(D.plate)} (${D.title})`, desc = "מועד משוער לטיפול הבא לפי יומן הטיפולים והמרווח.";
+  const b = bridge();
+  if (b && b.addCalendar) { try { b.addCalendar(title, desc, ymd(due)); return; } catch {} }
+  openExternal(`https://calendar.google.com/calendar/render?${new URLSearchParams({action: "TEMPLATE", text: title, details: desc, dates: `${ymd(due)}/${ymd(next)}`})}`);
+}
+const BRAND_MANUAL = [
+  {re: /יונדאי/, name: "יונדאי", url: "https://www.hyundaimotors.co.il/maintenance/"},
+  {re: /טויוטה/, name: "טויוטה", url: "https://www.toyota.co.il/customer/manuals"},
+];
+function manualCard(D){
+  const m = [D.v.tozeret_nm, D.make].filter(x => !empty(x)).join(" "), hit = BRAND_MANUAL.find(x => x.re.test(m));
+  if (!hit) return "";
+  return card("ספר הרכב", "doc", "blue", `<p style="margin:0">ספר הרכב להורדה נמצא באתר היבואן של ${esc(hit.name)}.</p><button type="button" class="link-btn" data-url="${hit.url}">לדף ההורדה באתר היבואן</button>`);
+}
+function seasonCard(){
+  const mo = new Date().getMonth() + 1, summer = mo >= 4 && mo <= 9;
+  const items = summer ? ["מזגן: בדיקת קירור ומסנן מזגן", "נוזל קירור ומפלס שמן", "לחץ אוויר ובלאי בצמיגים", "מצבר, שחום קשה מקצר את חייו"]
+    : ["מגבים וניקוי שמשות", "פנסים ומצבר לפני הקור והגשם", "בלמים ועומק חריץ בצמיגים", "נוזל שמשות ומפלס שמן"];
+  return card(summer ? "בדיקות לפני הקיץ" : "בדיקות לפני החורף", "check", "green", `<ul class="insights">${items.map(x => `<li class="ins ok">${ico("check")}<div><b>${esc(x)}</b></div></li>`).join("")}</ul><p class="note">רשימה כללית, לא תלויה בדגם.</p>`);
+}
+function nextCard(D, info){
+  const s = svcOf(D.plate), n = svcNext(s), saved = isSaved(D.plate);
+  if (!info || !info.opts) return card("הטיפול הבא", "clock", "teal", `<p style="margin:0">אין לרכב הזה מרווח טיפולים במאגר, ולכן אי אפשר לחשב את הטיפול הבא. אפשר עדיין לרשום טיפולים ביומן.</p>`);
+  if (info.opts.length !== 1) return card("הטיפול הבא", "clock", "teal", `<p style="margin:0">הגרסאות של הדגם מחזיקות מרווחים שונים, ולכן לא ניתן לחשב את הטיפול הבא. בדוק בספר הרכב וקבע מרווח.</p>`);
+  const o = info.opts[0], hint = saved ? "" : `<p class="note">כדי לקבל תזכורות בהתראה, שמור את הרכב (כוכב בראש הדף) והפעל התראות.</p>`;
+  if (!n) {
+    const km = isNum(D.v.kilometer_test_aharon) ? num(D.v.kilometer_test_aharon) : null, est = km > 0 ? Math.ceil((km + 1) / o.km) * o.km : null;
+    return card("הטיפול הבא", "clock", "teal", `${est ? `<p style="margin:0">לפי הק״מ בטסט האחרון (${fmtN(km)}), הטיפול הבא לפי המרווח הוא סביב <b>${fmtN(est)} ק״מ</b> (הערכה).</p>` : ""}<p class="note">רשום ביומן למטה את הטיפול התקופתי האחרון (טיפול תקופתי או שמן ומסננים), ונחשב מתי הטיפול הבא ונזכיר לך.</p>`);
+  }
+  const days = n.due ? dayDiff(new Date(new Date().setHours(0, 0, 0, 0)), n.due) : null;
+  const status = days == null ? "" : days < 0 ? `באיחור של ${-days} ימים` : days === 0 ? "היום" : `בעוד ${days} ימים`;
+  const rows = [["טיפול אחרון", `${fmtDate(n.last.d)}${n.last.km ? " · " + fmtN(n.last.km) + " ק״מ" : ""}`], ["הטיפול הבא עד", n.due ? `${fmtDate(ymdOf(n.due))}${status ? " (" + status + ")" : ""}` : "—"], ["או בק״מ", n.dueKm ? fmtN(n.dueKm) + " ק״מ" : "—"]];
+  const cls = days != null && days < 0 ? "bad" : days != null && days <= 30 ? "warn" : "";
+  return card("הטיפול הבא", "clock", "teal", `<dl class="facts">${rows.map(([k, v], i) => `<div class="${i === 1 ? cls : ""}"><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>${n.due ? `<button type="button" class="link-btn" data-svc="cal">הוספה ליומן</button>` : ""}<p class="note">התאריך הוא הערכה לפי המרווח (${svWhen(o)}) וקצב הנסיעה שלך. תזכורת בהתראה: חודש לפני, שבוע לפני ושבוע אחרי.</p>${hint}`);
+}
+function logCard(D){
+  const s = svcOf(D.plate), list = [...s.log].sort((a, b) => a.d < b.d ? 1 : -1), today = ymdOf(new Date());
+  const form = `<div id="svcForm" class="svc-form" hidden>
+    <label>תאריך<input class="inp" id="svcDate" type="date" value="${today}" max="${today}"></label>
+    <label>ק״מ בטיפול<input class="inp" id="svcKm" type="number" inputmode="numeric" min="0" placeholder="לא חובה"></label>
+    <label>סוג<select class="inp" id="svcType">${SVC_TYPES.map(t => `<option>${t}</option>`).join("")}</select></label>
+    <label>עלות (₪)<input class="inp" id="svcCost" type="number" inputmode="decimal" min="0" placeholder="לא חובה"></label>
+    <label>הערה<input class="inp" id="svcNote" type="text" maxlength="80" placeholder="לא חובה"></label>
+    <button type="button" class="link-btn" data-svc="save">שמירה ביומן</button></div>`;
+  const rows = list.length ? `<ul class="svc-list">${list.map(x => `<li><div><b>${esc(x.type)}</b><span>${esc(fmtDate(x.d))}${x.km ? " · " + fmtN(x.km) + " ק״מ" : ""}${x.cost ? " · " + fmtN(x.cost) + " ₪" : ""}</span>${x.note ? `<small>${esc(x.note)}</small>` : ""}</div><button type="button" class="x" data-svc="del" data-id="${x.id}" aria-label="מחיקה">${ico("x")}</button></li>`).join("")}</ul>` : `<p style="margin:0">עוד לא נרשמו טיפולים לרכב הזה.</p>`;
+  return card("יומן טיפולים", "wrench", "amber", `${rows}<button type="button" class="link-btn" data-svc="toggle">${ico("plus")}הוספת טיפול</button>${form}<p class="note">היומן נשמר רק בטלפון שלך ולא נשלח לשום מקום.</p>`);
+}
+function kmCard(D){
+  const s = svcOf(D.plate), pts = s.log.filter(x => x.km > 0 && x.d).map(x => [new Date(x.d), x.km, "טיפול"]);
+  const tk = isNum(D.v.kilometer_test_aharon) ? num(D.v.kilometer_test_aharon) : 0, td = toDate(D.v.mivchan_acharon_dt);
+  if (tk > 0 && td) pts.push([td, tk, "טסט"]);
+  pts.sort((a, b) => a[0] - b[0]);
+  const coh = msCohort(D), typical = coh && coh.km > 0 ? `<p class="note">לשם השוואה, בדגם ובשנתון הזה הק״מ האופייני בטסט הוא כ-${fmtN(Math.round(coh.km / 1000) * 1000)}.</p>` : "";
+  if (pts.length < 2) return card("ציר ק״מ", "chart", "blue", `<p style="margin:0">במאגר הממשלתי יש רק קריאת ק״מ אחת לרכב (בטסט האחרון${tk ? `: ${fmtN(tk)}` : ""}), ולכן הציר נבנה מהטיפולים שתרשום עם ק״מ. רשום עוד טיפול כדי לראות את הקצב.</p>${typical}`);
+  const W = 300, H = 120, t0 = pts[0][0].getTime(), t1 = pts[pts.length - 1][0].getTime(), kmLo = Math.min(...pts.map(p => p[1])), kmHi = Math.max(...pts.map(p => p[1])), sp = Math.max(kmHi - kmLo, 1), ts = Math.max(t1 - t0, 1);
+  const X = p => 14 + (p[0].getTime() - t0) / ts * (W - 28), Y = p => 14 + (H - 28) * (1 - (p[1] - kmLo) / sp);
+  const line = pts.map(p => `${X(p).toFixed(1)},${Y(p).toFixed(1)}`).join(" ");
+  const yrs = Math.max((t1 - t0) / 864e5 / 365, 0.1), perYear = Math.round((pts[pts.length - 1][1] - pts[0][1]) / yrs / 100) * 100;
+  return card("ציר ק״מ", "chart", "blue", `<svg class="ph-svg" viewBox="0 0 ${W} ${H + 18}" dir="ltr" role="img" aria-label="ק״מ לאורך זמן"><polyline points="${line}" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linejoin="round"/>${pts.map(p => `<circle cx="${X(p).toFixed(1)}" cy="${Y(p).toFixed(1)}" r="3.5" fill="var(--accent)"/>`).join("")}<text x="14" y="${H + 12}" font-size="10" fill="currentColor" opacity=".6">${pts[0][0].getFullYear()}</text><text x="${W - 14}" y="${H + 12}" text-anchor="end" font-size="10" fill="currentColor" opacity=".6">${pts[pts.length - 1][0].getFullYear()}</text></svg>
+    <dl class="facts"><div><dt>קריאה ראשונה</dt><dd>${fmtN(pts[0][1])}</dd></div><div><dt>קריאה אחרונה</dt><dd>${fmtN(pts[pts.length - 1][1])}</dd></div>${perYear > 0 ? `<div><dt>קצב</dt><dd>${fmtN(perYear)} ק״מ בשנה</dd></div>` : ""}</dl>${typical}<p class="note">הנקודות הן הטיפולים שרשמת והטסט האחרון מהמאגר.</p>`);
+}
+function costLogCard(D){
+  const s = svcOf(D.plate), items = s.log.filter(x => x.cost > 0 && x.d);
+  if (!items.length) return "";
+  const total = items.reduce((t, x) => t + x.cost, 0), by = {};
+  for (const x of items) { const y = x.d.slice(0, 4); by[y] = (by[y] || 0) + x.cost; }
+  const first = new Date(items.reduce((m, x) => x.d < m ? x.d : m, items[0].d)), months = Math.max(monthsBetween(first, new Date()), 1);
+  return card("עלות אחזקה מצטברת", "tag", "green", `<dl class="facts"><div><dt>סה״כ</dt><dd>${fmtN(Math.round(total))} ₪</dd></div><div><dt>ממוצע לחודש</dt><dd>${fmtN(Math.round(total / months / 10) * 10)} ₪</dd></div></dl>
+    <dl class="facts" style="margin-top:12px">${Object.keys(by).sort().reverse().map(y => `<div><dt>${y}</dt><dd>${fmtN(Math.round(by[y]))} ₪</dd></div>`).join("")}</dl><p class="note">לפי הטיפולים שרשמת ביומן, בלי דלק, ביטוח ואגרות.</p>`);
+}
+function tabMaint(D){
+  const info = serviceInfo(D), html = [];
+  if (!maintOk()) {
+    html.push(proLockCard("תחזוקה", "מרווח טיפולים לדגם, הטיפול הבא, יומן טיפולים, ציר ק״מ ועלות אחזקה מצטברת, עם תזכורות בהתראה."));
+  } else {
+    svcRemember(D, info);
+    html.push(intervalCard(D, info), nextCard(D, info), logCard(D), kmCard(D), costLogCard(D));
+  }
+  html.push(manualCard(D), seasonCard());
+  return html.join("");
 }
 function tabOverview(D){
   const v = D.v, w = D.w, html = [];
@@ -1352,7 +1473,6 @@ function tabOverview(D){
        <p class="note">התובנות אינן תחליף לבדיקת רכב במכון מורשה.</p>`));
   }
   html.push(buyerCard(D));
-  html.push(serviceCard(D));
   html.push(eventsCard(D));
   html.push(`<div id="mstat">${msCard(D)}</div>`);
   const tb = D.tSrc && D.tSrc.kosher_grira_im_blamim, tu = D.tSrc && D.tSrc.kosher_grira_bli_blamim;
@@ -2074,7 +2194,7 @@ function loadScript(src){
     document.head.appendChild(el);
   }));
 }
-const TAB_FN = () => ({overview: tabOverview, recalls: tabRecalls, costs: tabCosts, specs: tabSpecs});
+const TAB_FN = () => ({overview: tabOverview, recalls: tabRecalls, costs: tabCosts, maint: tabMaint, specs: tabSpecs});
 /* The report is built off-screen from the same cards the app shows, with every card open */
 function buildReport(D, full, biz){
   const el = document.createElement("div"); el.className = "report";
@@ -2083,7 +2203,8 @@ function buildReport(D, full, biz){
   const idc = $("#out .id-card"), banner = $("#out .alert-banner");
   if (idc) parts.push(idc.outerHTML);
   if (banner) parts.push(banner.outerHTML.replace(/^<button/, "<div").replace(/<\/button>$/, "</div>"));
-  const tabs = full ? TABS : TABS.filter(([k]) => k === currentTab);
+  // the maintenance tab holds the private service log and interval table, so it is never part of a shared report
+  const tabs = (full ? TABS : TABS.filter(([k]) => k === (currentTab === "maint" ? "overview" : currentTab))).filter(([k]) => k !== "maint");
   for (const [k, t] of tabs) { if (full) parts.push(`<h3 class="rep-sec">${t}</h3>`); parts.push(TAB_FN()[k](D)); }
   parts.push(`<p class="rep-foot">${biz ? bizFoot(biz) : "המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il, ואינו מחליף נסח רישום רשמי. " + BRAND_FOOT}</p>`);
   el.innerHTML = parts.join("");
@@ -2978,6 +3099,21 @@ if (PRO_LOCK && UPGRADE_UI) { try { const b = bridge(); if (b && b.billingInit) 
 syncSaved(store.get("savedVehicles"));
 const start = digits(location.hash) || digits(new URLSearchParams(location.search).get("plate"));
 if (start) run(start); else renderHome();
+
+/* maintenance tab actions: add / delete a service entry, calendar */
+$("#out").addEventListener("click", ev => {
+  const b = ev.target.closest("[data-svc]"); if (!b || !current) return;
+  const p = current.plate, a = b.dataset.svc;
+  if (a === "toggle") { const f = $("#svcForm"); if (f) f.hidden = !f.hidden; return; }
+  if (a === "cal") { const n = svcNext(svcOf(p)); if (n && n.due) svcCalendar(current, n.due); return; }
+  if (a === "del") { const s = svcOf(p); s.log = s.log.filter(x => String(x.id) !== b.dataset.id); svcSave(p, s); renderResult(); toast("נמחק מהיומן"); return; }
+  if (a === "save") {
+    const d = $("#svcDate").value, km = Math.round(Number($("#svcKm").value) || 0), cost = Math.round((Number($("#svcCost").value) || 0) * 100) / 100;
+    if (!d || isNaN(new Date(d))) { toast("בחר תאריך לטיפול"); return; }
+    const s = svcOf(p); s.log.push({id: Date.now(), d, km: km > 0 ? km : 0, type: $("#svcType").value, cost: cost > 0 ? cost : 0, note: $("#svcNote").value.trim().slice(0, 80)});
+    s.log = s.log.slice(-200); svcSave(p, s); renderResult(); toast("הטיפול נשמר ביומן");
+  }
+});
 </script>
 </body>
 </html>

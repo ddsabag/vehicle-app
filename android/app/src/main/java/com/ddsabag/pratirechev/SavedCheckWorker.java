@@ -90,6 +90,10 @@ public class SavedCheckWorker extends Worker {
                 if (plate.isEmpty() || !car.optBoolean("alerts", true)) continue;
                 String name = car.optString("title", "");
                 try {
+                    checkService(c, p, plate, name, car.optString("svcDue", ""));
+                } catch (Exception ignored) {
+                }
+                try {
                     checkRecalls(c, p, plate, name);
                 } catch (Exception ignored) {
                 }
@@ -113,6 +117,43 @@ public class SavedCheckWorker extends Worker {
             return Result.retry();
         }
         return Result.success();
+    }
+
+    /**
+     * Service reminder from the date the page computed out of the service log (the log itself stays on the phone):
+     * a month before, a week before and a week after. Sent in the daytime only, each stage once per due date.
+     */
+    private void checkService(Context c, SharedPreferences p, String plate, String name, String due) throws Exception {
+        if (due == null || due.length() < 10) return;
+        int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
+        if (hour < 9 || hour >= 21) return;
+        Date end = new SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(due.substring(0, 10));
+        if (end == null) return;
+        long days = TimeUnit.MILLISECONDS.toDays(end.getTime() - startOfToday());
+        int stage;
+        if (days <= -7 && days >= -14) stage = -7;
+        else if (days >= 0 && days <= 7) stage = 7;
+        else if (days > 7 && days <= 30) stage = 30;
+        else return;
+        String key = "svc_" + plate, mark = due.substring(0, 10) + "|" + stage;
+        Set<String> sent = new HashSet<>(p.getStringSet(key, new HashSet<>()));
+        if (sent.contains(mark)) return;
+        String when = new SimpleDateFormat("d.M.yyyy", Locale.US).format(end);
+        String prefix = name.isEmpty() ? "" : name + ": ";
+        String title, text;
+        if (stage == 30) {
+            title = "טיפול לרכב " + fmtPlate(plate) + " בעוד כחודש";
+            text = prefix + "מועד הטיפול הבא לפי היומן: " + when + ". כדאי לתאם מראש.";
+        } else if (stage == 7) {
+            title = "טיפול לרכב " + fmtPlate(plate) + (days == 0 ? " היום" : " בעוד " + days + " ימים");
+            text = prefix + "מועד הטיפול הבא לפי היומן: " + when + ".";
+        } else {
+            title = "הטיפול לרכב " + fmtPlate(plate) + " מתעכב";
+            text = prefix + "עבר שבוע מהמועד המשוער לטיפול (" + when + "). אם כבר טיפלת, רשום את זה ביומן.";
+        }
+        notify(c, plate, ("svc" + plate).hashCode(), title, text);
+        sent.add(mark);
+        p.edit().putStringSet(key, sent).apply();
     }
 
     private void checkRecalls(Context c, SharedPreferences p, String plate, String name) throws Exception {
