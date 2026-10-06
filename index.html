@@ -308,6 +308,7 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .doc-view{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.92);display:grid;place-items:center;padding:12px}
 .doc-view img{max-width:100%;max-height:100%;object-fit:contain}
 .doc-view .x{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));inset-inline-start:12px;background:#fff3;color:#fff;border-radius:10px;width:40px;height:40px;display:grid;place-items:center;border:0}
+.bsteps{list-style:none;margin:0;padding:0;display:grid;gap:16px}.bsteps>li{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start}.bsteps .n{width:28px;height:28px;border-radius:50%;background:var(--t-green-bg);color:var(--t-green);display:grid;place-items:center;font-weight:800;font-size:.9rem}.bsteps .n .i{width:16px;height:16px}.bsteps>li>div{display:grid;gap:6px;min-width:0}.bsteps .note{margin:0}
 .insights.plain .ins{background:transparent;padding:4px 0;border:0}.insights.plain .ins b{font-weight:600;color:var(--fg)}.insights.plain .ins.ok svg.i{color:var(--ok)}.insights.plain .ins.warn svg.i{color:var(--warn)}
 .tools{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 .tool{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:start;border:0;background:var(--card);box-shadow:var(--shadow);border-radius:14px;padding:12px;font-weight:700;color:var(--fg)}
@@ -1709,16 +1710,23 @@ function tabBuy(D){
     `<p style="margin:0">אין במאגר מחיר מחירון לדגם הזה, ולכן אין הערכת שווי.</p>`) +
     `<button type="button" class="link-btn" data-url="https://carlistprice.mot.gov.il/" data-copyfirst="${D.plate}">${ico("tag")}מחירון העם של משרד התחבורה</button>`));
   html.push(`<div id="mstat">${msCard(D)}</div>`);
+  const lk = (url, icon, text, copy) => `<button type="button" class="link-btn" data-url="${url}"${copy ? ` data-copyfirst="${D.plate}"` : ""}>${ico(icon)}${text}</button>`;
+  const step = (n, title, body) => `<li><span class="n">${n}</span><div><b>${title}</b>${body}</div></li>`;
   html.push(card("לפני שקונים", "check", "green",
-    `<p style="margin:0">כמה דברים שכדאי לעשות לפני שסוגרים עסקה:</p>
-     <ul class="bq"><li>ודאו שמי שמציג את הרכב הוא הבעלים הרשום (גם בן או בת זוג), ושהשם ברישיון הרכב תואם לתעודת הזהות שלו.</li><li>אם הרכב משועבד, השעבוד נשאר גם אחרי העברת הבעלות: דרשו הסרה לפני התשלום.</li><li>בעסקה עם סוחר, בקשו בכתב מסמכי רכישה ואחריות.</li></ul>
-     <button type="button" class="link-btn" data-url="https://www.gov.il/he/service/pawn_perusal" data-copyfirst="${D.plate}">${ico("search")}בדיקת שעבוד ברשם המשכונות</button>
-     <button type="button" class="link-btn" data-url="https://infocar.co.il/" data-copyfirst="${D.plate}">${ico("search")}בדיקת עבר ביטוחי (מרכז הסליקה של חברות הביטוח)</button>
-     <button type="button" class="link-btn" data-url="https://www.gov.il/apps/police/stolencar/" data-copyfirst="${D.plate}">${ico("search")}בדיקה במאגר הרכבים הגנובים (משטרה)</button>
-     <button type="button" class="link-btn" data-url="https://car.cma.gov.il/">${ico("doc")}השוואת מחירי ביטוח חובה</button>
-     <div class="insp"><p class="note" style="margin:0 0 6px">מכוני בדיקה לפני קנייה, מתוך רשימת המוסכים המורשים של משרד התחבורה:</p>
+    `<p style="margin:0">הסדר המומלץ, משלב החיפוש ועד העברת הבעלות:</p>
+     <ol class="bsteps">
+     ${step(1, "בבית, לפני שנפגשים", `<p class="note">בדיקות שאפשר לעשות לפי מספר הרישוי בלבד.</p>
+       ${lk("https://www.gov.il/he/service/pawn_perusal", "search", "בדיקת שעבוד ברשם המשכונות", true)}
+       ${lk("https://infocar.co.il/", "search", "בדיקת עבר ביטוחי (מרכז הסליקה של חברות הביטוח)", true)}
+       ${lk("https://www.gov.il/apps/police/stolencar/", "search", "בדיקה במאגר הרכבים הגנובים (משטרה)", true)}`)}
+     ${step(2, "בפגישה עם המוכר", `<ul class="bq"><li>ודאו שמי שמציג את הרכב הוא הבעלים הרשום (גם בן או בת זוג), ושהשם ברישיון הרכב תואם לתעודת הזהות שלו.</li><li>השוו את מספר השלדה ברישיון לזה שעל הרכב.</li><li>בקשו היסטוריית טיפולים וחשבוניות, ונסעו נסיעת מבחן.</li><li>בעסקה עם סוחר, בקשו בכתב מסמכי רכישה ואחריות.</li></ul>`)}
+     ${step(3, "בדיקה במכון", `<div class="insp"><p class="note" style="margin:0 0 6px">מכוני בדיקה לפני קנייה, מתוך רשימת המוסכים המורשים של משרד התחבורה:</p>
        <form class="msearch" data-insp><input id="inspCity" placeholder="עיר, למשל חולון" value="${esc(setting("inspCity", ""))}" aria-label="עיר"><button type="submit" class="go sm" aria-label="חיפוש">${ico("search")}</button></form>
-       <div id="inspRes" style="margin-top:10px"></div></div>`));
+       <div id="inspRes" style="margin-top:10px"></div></div>`)}
+     ${step(4, "לפני התשלום", `<ul class="bq"><li>אם נמצא שעבוד, הוא נשאר גם אחרי העברת הבעלות: דרשו הסרה לפני התשלום.</li><li>סגרו את תנאי העסקה והמחיר בכתב.</li></ul>
+       ${lk("https://car.cma.gov.il/", "doc", "השוואת מחירי ביטוח חובה")}`)}
+     <li class="bsteps-end"><span class="n">${ico("check")}</span><div><b>אחרי העסקה</b><p class="note">בצעו העברת בעלות ועדכנו את הביטוח מיד, ורק אז התחילו לנהוג ברכב.</p></div></li>
+     </ol>`));
   return html.join("");
 }
 
