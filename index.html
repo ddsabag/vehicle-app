@@ -521,6 +521,8 @@ body.land .band{display:none}
       <div class="fuel-set"><label for="bizAddr">כתובת</label><input id="bizAddr" class="wide"></div>
       <div class="fuel-set"><label for="bizNote">הערה בדוח</label><input id="bizNote" class="wide"></div>
       <div class="fuel-set"><label for="bizLogo">לוגו</label><input id="bizLogo" class="wide" type="file" accept="image/*"></div>
+      <div class="fuel-set"><label for="bizCosts">להוסיף לדוח: עלויות ושווי שימוש</label><input id="bizCosts" type="checkbox"></div>
+      <div class="fuel-set"><label for="bizValue">להוסיף לדוח: שווי משוער</label><input id="bizValue" type="checkbox"></div>
       <button class="link-btn" type="button" id="bizLogoClear" hidden>הסרת הלוגו</button>
       <p class="note">הפרטים מופיעים בדוחות ה-PDF הממותגים: בלי לוגו של לוחית ובלי קישור לחנות.</p>
     </div>
@@ -589,7 +591,8 @@ const atLeast = n => RANK[plan()] >= RANK[n];
 const isPro = () => atLeast("buyer");
 const FREE_SAVED_ALERTS = 3, FREE_CMP = 3, PRO_CMP = 6, FLEET_MAX = 10, BUYER_ALERTS = 10;
 const alertCap = () => { const p = plan(); return p === "free" ? FREE_SAVED_ALERTS : p === "buyer" ? BUYER_ALERTS : Infinity; };
-const fleetMax = () => plan() === "biz" ? 1e6 : FLEET_MAX;
+const fleetMax = () => plan() === "biz" ? 200 : FLEET_MAX;
+const savedCap = () => plan() === "biz" ? 200 : 50;
 const API = "https://data.gov.il/api/3/action/datastore_search";
 
 /* Datasets keyed by plate. role main = the vehicle record itself. */
@@ -821,7 +824,8 @@ const isSaved = p => store.get("savedVehicles").some(x => x.plate === p);
 function toggleSaved(item){
   const list = store.get("savedVehicles");
   if (list.some(x => x.plate === item.plate)) { store.set("savedVehicles", list.filter(x => x.plate !== item.plate)); updateSavedBar(); return false; }
-  store.set("savedVehicles", [item, ...list].slice(0, 50)); updateSavedBar(); return true;
+  if (list.length >= savedCap()) { toast(`הרשימה מלאה (${savedCap()} רכבים). הסירו רכב כדי להוסיף.`); return false; }
+  store.set("savedVehicles", [item, ...list]); updateSavedBar(); return true;
 }
 function remember(p){
   store.set("recentPlates", [p, ...store.get("recentPlates").filter(x => x !== p)].slice(0, 6));
@@ -918,11 +922,11 @@ function costs(D){
     // Base: list price and an average depreciation curve (first year steeper; electric and luxury cars
     // lose value faster, per published Israeli market figures). Then adjustments in the way the trade
     // price lists apply them: compounded one after another, past use counted in full when it was the
-    // car's first ownership and at half when it came later, history capped at 40%, mileage last.
+    // car's first ownership and at half when it came later, history capped at 30%, mileage last.
     const age = Math.max(0, new Date().getFullYear() - year);
     const lux = num(D.price.mehir) > 300000, ev = kind === "ev", cheap = num(D.price.mehir) < 100000;
-    // calibrated 2026-10 against ~170 asking prices (cheapest first page per model and year): small cheap cars hold value better, electric cars lose it faster
-    const [y1, yr] = ev ? [0.78, 0.85] : lux ? [0.76, 0.86] : cheap ? [0.88, 0.925] : [0.85, 0.90];
+    // first calibration (2026-10) used the cheapest listing page per model and ran low, so the curve was eased: ordinary cars lose ~13% in the first year and ~6% a year after; small cheap cars hold value better, electric cars lose it faster
+    const [y1, yr] = ev ? [0.80, 0.88] : lux ? [0.78, 0.90] : cheap ? [0.90, 0.95] : [0.87, 0.94];
     const factor = age === 0 ? (1 + y1) / 2 : y1 * Math.pow(yr, age - 1);
     const base = num(D.price.mehir) * factor;
     const adj = [];
@@ -934,9 +938,9 @@ function costs(D){
     if (first.pct < 0) { adj.push([first.pct, {rental: "התחיל כרכב השכרה", lease: "התחיל כרכב ליסינג", special: "התחיל בשימוש ייעודי", company: "התחיל כרכב חברה"}[first.k]]); hist += first.pct; }
     const later = D.own.slice(first === fo && fo.k !== "other" || !D.ownersFloor ? 1 : 0, -1).map(r => ownerKind(r.baalut)).filter(o => o.pct < 0 && o.k !== first.k).sort((a, b) => a.pct - b.pct)[0];
     if (later) { const p = Math.round(later.pct / 2); adj.push([p, {rental: "היה בהמשך רכב השכרה", lease: "היה בהמשך רכב ליסינג", special: "היה בהמשך בשימוש ייעודי", company: "היה בהמשך רכב חברה"}[later.k]]); hist += p; }
-    if (hist < -40) { adj.forEach(a => a[0] = Math.round(a[0] * 40 / -hist)); }
+    if (hist < -30) { adj.forEach(a => a[0] = Math.round(a[0] * 30 / -hist)); }
     const hands = D.own.length;
-    if (hands > 1) adj.push([-Math.min(16, (hands - 1) * 4), `${D.ownersFloor ? "לפחות " : ""}${hands} רשומות בעלות`]);
+    if (hands > 1) adj.push([-Math.min(12, (hands - 1) * 3), `${D.ownersFloor ? "לפחות " : ""}${hands} רשומות בעלות`]);
     else if (hands === 1 && first.k === "private") adj.push([1, "יד ראשונה פרטית"]);
     if (D.km && D.kmYears) {
       const mc = msCohort(D), ageNow = new Date().getFullYear() - mc_y(D);
@@ -2282,7 +2286,7 @@ function buildReport(D, full, biz){
   if (idc) parts.push(idc.outerHTML);
   if (banner) parts.push(banner.outerHTML.replace(/^<button/, "<div").replace(/<\/button>$/, "</div>"));
   // the maintenance tab holds the private service log and interval table, so it is never part of a shared report
-  const tabs = full ? REPORT_TABS : REPORT_TABS.filter(([k]) => k === (currentTab === "maint" ? "overview" : currentTab));
+  const tabs = (full ? REPORT_TABS : REPORT_TABS.filter(([k]) => k === (currentTab === "maint" ? "overview" : currentTab))).filter(([k]) => !biz || k !== "costs" || biz.costs);
   for (const [k, t] of tabs) { if (full) parts.push(`<h3 class="rep-sec">${t}</h3>`); parts.push(TAB_FN()[k](D)); }
   parts.push(`<p class="rep-foot">${biz ? bizFoot(biz) : "המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il, ואינו מחליף נסח רישום רשמי. " + BRAND_FOOT}</p>`);
   el.innerHTML = parts.join("");
@@ -2292,8 +2296,8 @@ function buildReport(D, full, biz){
   // the disabled-parking tag is personal, so it is never printed
   el.querySelectorAll(".pill").forEach(x => { if (x.textContent.trim() === "תג נכה") x.remove(); });
   el.querySelectorAll(".facts > div").forEach(x => { if (/תג חניה לנכה/.test(x.textContent)) x.remove(); });
-  // a dealer's own branded PDF carries no value estimates or tax values
-  if (biz) el.querySelectorAll(".card").forEach(c => { const t = (c.querySelector(".head h2") || {}).textContent || ""; if (/^(שווי משוער|שווי שימוש)/.test(t.trim())) c.remove(); });
+  // a dealer's own branded PDF carries no value estimate or costs unless the dealer switched them on in settings
+  if (biz && !biz.value) el.querySelectorAll(".card").forEach(c => { const t = (c.querySelector(".head h2") || {}).textContent || ""; if (/^שווי משוער/.test(t.trim())) c.remove(); });
   el.querySelectorAll(".card.folded").forEach(c => c.classList.remove("folded"));
   return inlineIcons(el);
 }
@@ -2825,9 +2829,9 @@ const newSavedItem = D => ({plate: D.plate, title: D.title, sub: D.sub, at: Date
 function askVerdict(ask, fair){
   if (!ask || !fair) return null;
   const [lo, hi] = fair, r = x => fmtN(Math.round(x / 100) * 100) + " ₪";
-  if (ask > hi) return {k: "bad", s: "גבוה מהטווח", t: `המחיר המבוקש גבוה מהטווח ב-${r(ask - hi)}`};
-  if (ask < lo) return {k: "ok", s: "נמוך מהטווח", t: `המחיר המבוקש נמוך מהטווח ב-${r(lo - ask)}`};
-  return {k: "ok", s: "בתוך הטווח", t: "המחיר המבוקש בתוך הטווח"};
+  if (ask > hi) return {k: "bad", s: "גבוה מהטווח", t: `המחיר המבוקש מעל ההערכה שלנו ב-${r(ask - hi)}. השוו למחירון ולמודעות דומות.`};
+  if (ask < lo) return {k: "ok", s: "נמוך מהטווח", t: `המחיר המבוקש מתחת להערכה שלנו ב-${r(lo - ask)}. כדאי לבדוק למה.`};
+  return {k: "ok", s: "בתוך הטווח", t: "המחיר המבוקש בתוך ההערכה שלנו"};
 }
 function buyerCard(D){
   if (D.isCancelled || D.kind === "model") return "";
@@ -2846,17 +2850,16 @@ function buyerCard(D){
   qs.push("יש היסטוריית טיפולים במוסך מורשה?", "אפשר לבדוק את הרכב במכון בדיקה לפני שסוגרים?");
   if (PRO_LOCK && !isPro()) {
     const top = flags.slice(0, 2), more = Math.max(0, flags.length - 2);
-    return `<div class="buyer-card">${card("ליווי קנייה", "bulb", "amber", `${top.length ? `<div class="qsec">דגלים לבדיקה</div><ul class="bflags">${top.map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul>` : `<p style="margin:0 0 8px">לא עלו דגלים אדומים בנתונים.</p>`}<p class="note" style="margin:6px 0 8px">${more ? (more === 1 ? "יש עוד דגל אחד, " : `יש עוד ${more} דגלים, `) : ""}שאלות למוכר, ועלות ל-5 שנים נמצאים בחבילת קנייה.</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לפרטים על חבילת קנייה</button>`, `${PT("PRO")}`)}</div>`;
+    return `<div class="buyer-card">${card("ליווי קנייה", "bulb", "amber", `${top.length ? `<div class="qsec">דגלים לבדיקה</div><ul class="bflags">${top.map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul>` : `<p style="margin:0 0 8px">לא עלו דגלים אדומים בנתונים.</p>`}<p class="note" style="margin:6px 0 8px">${more ? (more === 1 ? "יש עוד דגל אחד, " : `יש עוד ${more} דגלים, `) : ""}שאלות למוכר, ועלות ל-5 שנים נמצאים בחבילת קנייה.</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לפרטים על חבילת קנייה</button>`, `${PT("חבילת קנייה")}`)}</div>`;
   }
   const it = savedItem(D.plate), ask = it && it.ask || null, f = candFields(D), vd = askVerdict(ask, f.fair);
   const body = `${flags.length ? `<div class="qsec">דגלים לבדיקה</div><ul class="bflags">${flags.slice(0, 5).map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul>` : `<p style="margin:0 0 8px">לא עלו דגלים אדומים בנתונים.</p>`}
     <div class="qsec">מה לשאול את המוכר</div><ul class="bq">${qs.slice(0, 6).map(q => `<li>${esc(q)}</li>`).join("")}</ul>
-    ${f.fair ? `<div class="qsec">טווח מחיר משוער (הערכה גסה)</div><p style="margin:0"><b>${fmtN(f.fair[0])} – ${fmtN(f.fair[1])} ₪</b></p><p class="note" style="margin:2px 0 0">לפי מחיר מחירון ופחת ממוצע, לא לפי עסקאות בפועל.</p>` : ""}
     ${f.c5 ? `<div class="qsec" style="margin-top:10px">עלות בעלות ל-5 שנים (הערכה)</div><p style="margin:0"><b>כ-${fmtN(Math.round(f.c5 / 1000) * 1000)} ₪</b></p><p class="note" style="margin:2px 0 0">דלק, אגרה וירידת ערך. ביטוח וטיפולים לא נכללים.</p>` : ""}
     <div class="qsec" style="margin-top:10px">המחיר שהמוכר מבקש</div>
     <div class="askrow"><input class="inp" id="askIn" inputmode="numeric" placeholder="₪" value="${ask || ""}" aria-label="המחיר המבוקש"><button type="button" class="link-btn" data-act="candSave">${ico("star")}${it ? "עדכון" : "שמירה כמועמד"}</button></div>
     ${vd ? `<p class="vd ${vd.k}" style="margin:6px 0 0">${esc(vd.t)}</p>` : ""}`;
-  return `<div class="buyer-card">${card("ליווי קנייה", "bulb", "amber", body, `${PT("PRO")}`)}</div>`;
+  return `<div class="buyer-card">${card("ליווי קנייה", "bulb", "amber", body, `${PT("חבילת קנייה")}`)}</div>`
 }
 function renderCandidates(){
   if (land) setLand(false, false);
@@ -2892,21 +2895,21 @@ let BULK = [], BULK_TEXT = "", BULK_D = {};
 const BULK_MAX = 100;
 const parsePlates = t => [...new Set(String(t).split(/[\n\r,;]+/).map(x => digits(x).replace(/^0+(?=\d{5})/, "")).filter(d => d.length >= 5 && d.length <= 8))].slice(0, BULK_MAX);
 function bulkRow(D){
-  if (D.notFound) return {plate: D.plate, title: "לא נמצא במאגר", lvl: 1, status: "לא נמצא", test: "", days: "", recalls: "", owners: "", km: "", year: ""};
-  if (D.offline) return {plate: D.plate, title: "שגיאת חיבור", lvl: 1, status: "לא נבדק", test: "", days: "", recalls: "", owners: "", km: "", year: ""};
+  if (D.notFound) return {plate: D.plate, title: "לא נמצא במאגר", lvl: 1, nf: "לא נמצא", status: "לא נמצא", test: "", days: "", recalls: "", owners: "", km: "", year: ""};
+  if (D.offline) return {plate: D.plate, title: "שגיאת חיבור", lvl: 1, nf: "לא נבדק", status: "לא נבדק", test: "", days: "", recalls: "", owners: "", km: "", year: ""};
   const exp = toDate(D.v.tokef_dt), days = exp ? Math.round((exp - new Date()) / 864e5) : null;
   const bad = D.isCancelled || (days !== null && days < 0) || D.recalls.length > 0;
   const warn = days !== null && days >= 0 && days <= 45;
   return {plate: D.plate, title: D.title, year: D.v.shnat_yitzur || "", lvl: bad ? 2 : warn ? 1 : 0, status: D.isCancelled ? "בוטל" : D.primary ? D.primary.status : "",
-    test: exp ? fmtDate(D.v.tokef_dt) : "", days: days === null ? "" : days, recalls: D.recalls.length, owners: D.own.length, km: D.km || ""};
+    test: exp ? fmtDate(D.v.tokef_dt) : "", days: days === null ? "" : days, recalls: D.recalls.length, block: D.recalls.some(isBlocking), first: firstOwner(D.v) || "", owners: D.own.length, km: D.km || ""};
 }
 function bulkTable(running, total){
   const rows = BULK.slice().sort((a, b) => b.lvl - a.lvl || a.plate.localeCompare(b.plate));
-  const n = l => BULK.filter(r => r.lvl === l).length;
+  const n = l => BULK.filter(r => !r.nf && r.lvl === l).length, nfc = BULK.filter(r => r.nf).length;
   const cls = ["g", "w", "r"], tx = r => r.days === "" ? "—" : r.days < 0 ? "עבר" : r.test;
   return `${running ? `<p class="note" role="status">נבדקו ${BULK.length} מתוך ${total}…</p>` : ""}
-    <div class="sum3"><div><b class="g">${n(0)}</b>תקין</div><div><b class="w">${n(1)}</b>לתשומת לב</div><div><b class="r">${n(2)}</b>בעיה</div></div>
-    <table class="ft"><tr><th>לוחית</th><th>טסט</th><th>ריקולים</th><th>בעלויות</th></tr>${rows.map(r => `<tr><td><button type="button" class="lnk" data-open="${r.plate}"><b>${fmtPlate(r.plate)}</b><small style="color:var(--muted)">${esc(r.title)}${r.year ? " " + esc(r.year) : ""}</small></button></td><td class="${cls[r.days === "" ? 0 : r.days < 0 ? 2 : r.days <= 45 ? 1 : 0]}">${tx(r)}</td><td>${r.recalls ? `<b class="r">${r.recalls}</b>` : "—"}</td><td>${r.owners === "" ? "—" : r.owners}</td></tr>`).join("")}</table>
+    <div class="sum3"><div><b class="g">${n(0)}</b>תקין</div><div><b class="w">${n(1)}</b>לתשומת לב</div><div><b class="r">${n(2)}</b>בעיה</div>${nfc ? `<div><b>${nfc}</b>לא נבדקו</div>` : ""}</div>
+    <table class="ft"><tr><th>לוחית</th><th>טסט</th><th>ריקולים</th><th>בעלויות</th></tr>${rows.map(r => `<tr><td><button type="button" class="lnk" data-open="${r.plate}"><b>${fmtPlate(r.plate)}</b><small style="color:var(--muted)">${esc(r.title)}${r.year ? " " + esc(r.year) : ""}</small>${r.nf ? "" : `<small style="color:var(--muted)">${[r.km ? `<bdi>${fmtN(r.km)} ק״מ</bdi>` : "", r.first ? "מקוריות: " + esc(r.first) : ""].filter(Boolean).join(" · ")}</small>`}</button></td><td class="${r.nf ? "" : cls[r.days === "" ? 0 : r.days < 0 ? 2 : r.days <= 45 ? 1 : 0]}">${r.nf || tx(r)}</td><td>${r.recalls ? `<b class="r">${r.recalls}${r.block ? " (מגביל)" : ""}</b>` : "—"}</td><td>${r.owners === "" ? "—" : r.owners}</td></tr>`).join("")}</table>
     ${running ? "" : `<p class="note">מסודר לפי מה שדורש טיפול קודם.</p><div class="bulk-acts"><button type="button" class="link-btn" data-act="bulkSave">${ico("star")}שמירת כל הרכבים לרכבים שלי</button><button type="button" class="link-btn" data-act="bulkCsv">${ico("doc")}ייצוא לאקסל (CSV)</button><button type="button" class="link-btn" data-act="bulkPdf">${ico("share")}${bizProfile().name ? "דוח PDF עם המיתוג שלי" : "דוח PDF"}</button><button type="button" class="link-btn" data-act="bulkClear">${ico("x")}ניקוי הרשימה ובדיקה חדשה</button></div>`}`;
 }
 function renderBulk(){
@@ -2941,14 +2944,14 @@ function bulkSave(){
   const list = store.get("savedVehicles"), have = new Set(list.map(x => x.plate));
   const add = Object.values(BULK_D).filter(D => !have.has(D.plate)).map(newSavedItem);
   if (!add.length) { toast("כל הרכבים שנמצאו כבר שמורים אצלך"); return; }
-  const room = Math.max(0, 50 - list.length);
-  store.set("savedVehicles", [...add.slice(0, room), ...list].slice(0, 50)); updateSavedBar();
-  toast(add.length > room ? `נשמרו ${room} רכבים. הרשימה מוגבלת ל-50 רכבים.` : add.length === 1 ? `רכב אחד נשמר ב"הרכבים שלי"` : `נשמרו ${add.length} רכבים ב"הרכבים שלי"`);
+  const room = Math.max(0, savedCap() - list.length);
+  store.set("savedVehicles", [...add.slice(0, room), ...list]); updateSavedBar();
+  toast(add.length > room ? `נשמרו ${room} רכבים. הרשימה מוגבלת ל-${savedCap()} רכבים.` : add.length === 1 ? `רכב אחד נשמר ב"הרכבים שלי"` : `נשמרו ${add.length} רכבים ב"הרכבים שלי"`);
 }
 function bulkCsv(){
   const q = x => `"${String(x).replace(/"/g, '""')}"`, lv = ["תקין", "לתשומת לב", "בעיה"];
-  const head = ["לוחית", "רכב", "שנה", "סטטוס", "תוקף טסט", "ימים לטסט", "ריקולים פתוחים", "רשומות בעלות", "ק״מ בטסט אחרון", "סימון"];
-  const rows = BULK.slice().sort((a, b) => b.lvl - a.lvl || a.plate.localeCompare(b.plate)).map(r => [fmtPlate(r.plate), r.title, r.year, r.status, r.test, r.days, r.recalls, r.owners, r.km, lv[r.lvl]]);
+  const head = ["לוחית", "רכב", "שנה", "סטטוס", "תוקף טסט", "ימים לטסט", "ריקולים פתוחים", "רשומות בעלות", "ק״מ בטסט אחרון", "בעלות ראשונה", "ריקול מגביל", "סימון"];
+  const rows = BULK.slice().sort((a, b) => b.lvl - a.lvl || a.plate.localeCompare(b.plate)).map(r => [fmtPlate(r.plate), r.title, r.year, r.status, r.test, r.days, r.recalls, r.owners, r.km, r.first || "", r.block ? "כן" : "", r.nf || lv[r.lvl]]);
   const csv = "﻿" + [head, ...rows].map(r => r.map(q).join(",")).join("\r\n");
   shareFile(new Blob([csv], {type: "text/csv"}), `Luchit-list-${new Date().toISOString().slice(0, 10)}.csv`, "רשימת רכבים");
 }
@@ -3055,8 +3058,10 @@ const BIZ_FIELDS = {bizName: "name", bizPhone: "phone", bizAddr: "addr", bizNote
 function syncBiz(){
   const b = bizProfile();
   for (const [id, k] of Object.entries(BIZ_FIELDS)) $("#" + id).value = b[k] || "";
+  $("#bizCosts").checked = !!b.costs; $("#bizValue").checked = !!b.value;
   $("#bizLogoClear").hidden = !b.logo; $("#bizRow").hidden = !(PRO_LOCK && isBiz());
 }
+for (const [id, k] of [["bizCosts", "costs"], ["bizValue", "value"]]) $("#" + id).addEventListener("change", () => { const b = bizProfile(); b[k] = $("#" + id).checked; bizSave(b); });
 for (const [id, k] of Object.entries(BIZ_FIELDS)) $("#" + id).addEventListener("change", () => { const b = bizProfile(); b[k] = $("#" + id).value.trim(); bizSave(b); });
 $("#bizLogo").addEventListener("change", async ev => {
   const f = ev.target.files[0]; if (!f) return;
@@ -3123,7 +3128,7 @@ function planNotice(){
   if (!PRO_LOCK || !UPGRADE_UI) return "";
   const e = entGet(), now = Date.now();
   if (e.gift > now && !e.giftSeen) return card("חודש PRO במתנה", "star", "amber", `<p style="margin:0 0 8px">תודה שהייתם איתנו מההתחלה. קיבלתם חודש PRO במתנה, עד ${esc(new Date(e.gift).toLocaleDateString("he-IL"))}, עם כל התכונות. אחרי זה האפליקציה נשארת חינמית עם הבדיקה המלאה.</p><button type="button" class="link-btn" data-act="giftOk">${ico("star")}מעולה, תודה</button><button type="button" class="link-btn" data-act="upgrade" style="margin-top:6px">מה כולל PRO</button>`);
-  if (e.buyer > now && e.buyer - now < 7 * 864e5 && plan() === "buyer") return card("חבילת הקנייה מסתיימת בקרוב", "clock", "amber", `<p style="margin:0 0 8px">נשארו ${daysLeft(e.buyer)} ימים. אפשר לעבור ל-PRO שנתי ולקבל זיכוי על מה ששילמתם.</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לאפשרויות</button>`);
+  if (e.buyer > now && e.buyer - now < 7 * 864e5 && plan() === "buyer") return card("חבילת הקנייה מסתיימת בקרוב", "clock", "amber", `<p style="margin:0 0 8px">נשארו ${daysLeft(e.buyer)} ימים. אפשר לעבור ל-PRO שנתי${PRODUCTS && PRODUCTS._credit ? " ולקבל זיכוי על מה ששילמתם" : ""}.</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לאפשרויות</button>`);
   return "";
 }
 function syncPlanUi(){
@@ -3135,7 +3140,7 @@ function syncPlanUi(){
   else if (e.gift > Date.now() && RANK[p] <= RANK.pro && !(e.pro > Date.now())) t += ` (מתנה, עוד ${daysLeft(e.gift)} ימים)`;
   $("#planNote").textContent = t;
 }
-const priceOf = sku => PRODUCTS[sku] || (PRICES[sku] + " ₪");
+const priceOf = sku => PRODUCTS[sku] || (Number(PRICES[sku]).toFixed(Number.isInteger(PRICES[sku]) ? 0 : 2) + " ₪");
 window.onPrices = s => { try { PRODUCTS = typeof s === "string" ? JSON.parse(s) : s; } catch {} if ($("#upg")) renderUpgrade(); };
 window.onEntitlement = s => {
   try {
@@ -3163,9 +3168,9 @@ function renderUpgrade(){
   const y = PRICES.pro_yearly, m = PRICES.pro_monthly, save = Math.round((1 - y / (m * 12)) * 100);
   html.push(`<div id="upg">${card("החבילות של לוחית", "star", "amber", `${st ? `<p style="margin:0 0 4px">${st}</p>` : ""}<p class="note" style="margin:0 0 4px">בדיקת הרכב, ה-PDF והשיתוף נשארים חינמיים תמיד.</p>
     ${opt("buyer_pack", "חבילת קנייה", esc(priceOf("buyer_pack")) + " · 60 יום", "תשלום חד-פעמי, בלי חידוש. ליווי קנייה מלא, רשימת מועמדים, השוואה עד 6 דגמים ושוק הרכב.")}
-    ${opt("pro_yearly", "PRO שנתי", esc(priceOf("pro_yearly")) + " לשנה", `חיסכון של ${save}% מול חודשי. 7 ימי ניסיון חינם.${credit ? " כולל זיכוי על חבילת הקנייה." : ""}`, true)}
-    ${opt("pro_monthly", "PRO חודשי", esc(priceOf("pro_monthly")) + " לחודש", "7 ימי ניסיון חינם, ביטול בכל רגע.")}
-    ${opt("biz_monthly", "PRO עסקי", esc(priceOf("biz_monthly")) + " לחודש", "לסוחרים ולמנהלי צי: בדיקת עד 100 לוחיות, ייצוא CSV, דוח PDF עם המיתוג שלכם וצי ללא הגבלה.")}`)}
+    ${opt("pro_yearly", "PRO שנתי", esc(priceOf("pro_yearly")) + " לשנה", `מעקב מלא אחרי הרכב: טיפול הבא ותזכורות, יומן טיפולים, תיק מסמכים והתראות ללא הגבלה. חיסכון של ${save}% מול חודשי. 7 ימי ניסיון חינם.${credit ? " כולל זיכוי על חבילת הקנייה." : ""}`, true)}
+    ${opt("pro_monthly", "PRO חודשי", esc(priceOf("pro_monthly")) + " לחודש", "אותם יתרונות כמו השנתי, בתשלום חודשי. 7 ימי ניסיון חינם, ביטול בכל רגע.")}
+    ${opt("biz_monthly", "PRO עסקי", esc(priceOf("biz_monthly")) + " לחודש", "לסוחרים ולמנהלי צי: בדיקת עד 100 לוחיות, ייצוא CSV, דוח PDF עם המיתוג שלכם וצי של עד 200 רכבים.")}`)}
   ${card("מה בכל חבילה", "bulb", "teal", `<table class="mk-tbl cmpp"><tr><th></th><th>חינם</th><th>קנייה</th><th>PRO</th><th>עסקי</th></tr>
     <tr><td>בדיקת רכב מלאה ו-PDF</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
     <tr><td>השוואת דגמים</td><td>עד 3</td><td>עד 6</td><td>עד 6</td><td>עד 6</td></tr>
@@ -3175,7 +3180,7 @@ function renderUpgrade(){
     <tr><td>התראה על בעלות חדשה או ירידה מהכביש</td><td>—</td><td>✓</td><td>✓</td><td>✓</td></tr>
     <tr><td>אחזקה: טיפול הבא, יומן ותזכורות</td><td>—</td><td>—</td><td>✓</td><td>✓</td></tr>
     <tr><td>תיק הרכב (מסמכים)</td><td>עד 5</td><td>עד 5</td><td>ללא הגבלה</td><td>ללא הגבלה</td></tr>
-    <tr><td>הצי שלי</td><td>—</td><td>—</td><td>עד 10</td><td>ללא הגבלה</td></tr>
+    <tr><td>הצי שלי</td><td>—</td><td>—</td><td>עד 10</td><td>עד 200</td></tr>
     <tr><td>ייצוא שוק הרכב</td><td>—</td><td>—</td><td>✓</td><td>✓</td></tr>
     <tr><td>בדיקת 100 לוחיות, PDF ממותג</td><td>—</td><td>—</td><td>—</td><td>✓</td></tr></table>`)}
   <p class="note" style="margin:12px 0 8px">מנויים מתחדשים אוטומטית עד שמבטלים, וניתן לבטל בכל רגע ב-Google Play. חבילת הקנייה היא תשלום חד-פעמי ולא מתחדשת. החיוב וכל ההחזרים דרך Google Play.</p>
