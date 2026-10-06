@@ -1277,6 +1277,28 @@ function eventsCard(D){
     : `<p style="margin:0">הרכב במעקב. שינוי בבעלות, בריקולים, בטסט או בסטטוס יירשם כאן.</p>`;
   return card("יומן אירועים", "clock", "teal", body, `${PT("PRO")}`);
 }
+/* service interval by maker: only rows with a stated source; anything else shows nothing */
+const SERVICE_RULES = [
+  {re:/טויוטה/, except:/לנד ?קרוזר|LAND ?CRUISER|היילקס|HILUX|פרואייס|פרוייס|PROACE|סיטי|CITY/i, km:15000, months:12, src:"אתר טויוטה ישראל", url:"https://www.toyota.co.il/servicebooking"},
+  {re:/טויוטה/, only:/לנד ?קרוזר|LAND ?CRUISER|היילקס|HILUX|פרואייס|פרוייס|PROACE|סיטי|CITY/i, km:10000, months:6, src:"אתר טויוטה ישראל", url:"https://www.toyota.co.il/servicebooking"},
+  {re:/סקודה|סיאט|פולקסווגן|פולקסוואגן|אאודי|קופרה|SKODA|SEAT|VOLKSWAGEN|AUDI|CUPRA/i, km:15000, src:"צ'מפיון מוטורס (רכבי נוסעים)"},
+];
+const isCommercial = D => /משא|מסחרי|אוטובוס|מונית|טנדר/.test(String(D.v.sug_rechev_nm || "")) && !/פרטי/.test(String(D.v.sug_rechev_nm || ""))
+  || /TRANSPORTER|CADDY|CRAFTER|AMAROK|טרנספורטר|קאדי|קראפטר|אמארוק/i.test([D.v.kinuy_mishari, D.v.degem_nm].join(" "));
+function serviceRule(D){
+  const m = [D.v.tozeret_nm, D.v.kinuy_mishari, D.v.degem_nm, D.make].filter(x => !empty(x)).join(" ");
+  if (isCommercial(D)) return null;
+  return SERVICE_RULES.find(r => r.re.test(m) && (!r.except || !r.except.test(m)) && (!r.only || r.only.test(m))) || null;
+}
+function serviceCard(D){
+  const r = serviceRule(D); if (!r) return "";
+  const when = `כל ${fmtN(r.km)} ק״מ${r.months ? ` או ${r.months === 12 ? "שנה" : r.months === 6 ? "חצי שנה" : r.months + " חודשים"} (המוקדם מביניהם)` : ""}`;
+  const km = isNum(D.v.kilometer_test_aharon) ? num(D.v.kilometer_test_aharon) : null;
+  const next = km != null && km > 0 ? Math.ceil((km + 1) / r.km) * r.km : null;
+  const nextRow = next ? `<p style="margin:8px 0 0">לפי הק״מ בטסט האחרון (${fmtN(km)}), הטיפול הבא לפי המרווח הוא סביב <b>${fmtN(next)} ק״מ</b> (הערכה).</p>` : "";
+  const src = r.url ? `<button type="button" class="lnk" data-url="${r.url}">${esc(r.src)}</button>` : esc(r.src);
+  return card("מרווח טיפולים", "wrench", "teal", `<p style="margin:0"><b>${when}</b></p>${nextRow}<p class="note">מקור: ${src}. המרווח המדויק לרכב שלך מופיע בספר הרכב.</p>`);
+}
 function tabOverview(D){
   const v = D.v, w = D.w, html = [];
   const ins = buildInsights(D);
@@ -1287,6 +1309,7 @@ function tabOverview(D){
        <p class="note">התובנות אינן תחליף לבדיקת רכב במכון מורשה.</p>`));
   }
   html.push(buyerCard(D));
+  html.push(serviceCard(D));
   html.push(eventsCard(D));
   html.push(`<div id="mstat">${msCard(D)}</div>`);
   const tb = D.tSrc && D.tSrc.kosher_grira_im_blamim, tu = D.tSrc && D.tSrc.kosher_grira_bli_blamim;
