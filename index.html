@@ -190,7 +190,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .row .x.bell[aria-pressed="true"]{color:var(--accent)}
 .savedbar{display:flex;align-items:center;gap:8px;margin:10px 16px 0;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:8px 14px;font-weight:700;color:var(--fg);width:calc(100% - 32px)}
 .savedbar svg.i{width:18px;height:18px;color:#d99a00}
-.row .x{border:0;background:transparent;color:var(--muted);padding:6px;border-radius:8px}
+.row .x{border:0;background:transparent;color:var(--muted);padding:10px;min-width:44px;min-height:44px;border-radius:8px;display:grid;place-items:center}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:4px 10px;font:500 .9rem var(--f-num);direction:ltr}
 
@@ -211,11 +211,11 @@ footer{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:0 32px;fo
 footer a{color:var(--accent)}
 
 /* recall banner, tabs */
-.alert-banner{display:flex;gap:12px;align-items:flex-start;text-align:start;width:100%;border:0;border-radius:16px;padding:14px 16px;background:#b42318;color:#fff;font-size:.95rem}
-.alert-banner b{display:block;font-size:1.05rem}
-.alert-banner svg.i{width:26px;height:26px;margin-top:2px}
+.alert-banner{display:flex;gap:12px;align-items:flex-start;text-align:start;width:100%;border:0;border-radius:16px;padding:14px 16px;background:var(--bad-bg);color:var(--fg);border-inline-start:5px solid var(--bad);font-size:.95rem}
+.alert-banner b{display:block;font-size:1.05rem;color:var(--bad)}
+.alert-banner svg.i{width:26px;height:26px;margin-top:2px;color:var(--bad)}
 .tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;background:var(--card);border-radius:14px;padding:5px;box-shadow:var(--shadow);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
-.tabs button{border:0;background:transparent;border-radius:10px;padding:9px 2px;font-size:.86rem;font-weight:700;white-space:nowrap;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:5px}
+.tabs button{border:0;background:transparent;border-radius:10px;padding:12px 2px;min-height:44px;font-size:.86rem;font-weight:700;white-space:nowrap;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:5px}
 .tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-fg)}
 .tabs i{font-style:normal;font-size:.72rem;min-width:18px;padding:0 5px;border-radius:999px;background:var(--soft);color:var(--fg)}
 .tabs i.hot{background:var(--bad);color:#fff}
@@ -292,14 +292,15 @@ section[style*="--n:3"] .cmp-k{font-size:.76rem}
 .ph-svg{width:100%;height:auto;display:block}.opt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:start;border:1.5px solid var(--line);border-radius:14px;padding:12px;background:var(--card);margin-top:8px;position:relative;color:var(--fg)}.opt b{font-size:1rem}.opt .pr{font-weight:800}.opt small{color:var(--muted)}.opt.best{border-color:#ffc400;box-shadow:0 0 0 2px #ffc40055}.opt em{position:absolute;inset-block-start:-9px;inset-inline-end:12px;background:#ffc400;color:#111;font-style:normal;font-weight:800;font-size:.7rem;border-radius:6px;padding:1px 8px}.cmpp td,.cmpp th{font-size:.8rem;padding:6px 2px}
 .pro-tag{display:inline-flex;align-items:center;gap:3px;border:1px solid #d9a600;color:#8a6500;font-weight:700;font-size:.68rem;border-radius:6px;padding:0 6px;margin-inline-start:6px;vertical-align:middle}
 .pro-tag .i{width:10px;height:10px}
-@media (prefers-color-scheme: dark){.pro-tag{color:#e6b93a;border-color:#8a6500}}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .pro-tag{color:#e6b93a;border-color:#8a6500}}
+:root[data-theme="dark"] .pro-tag{color:#e6b93a;border-color:#8a6500}
 .ev{display:flex;gap:10px;justify-content:space-between;padding:7px 0;border-top:1px solid var(--line);align-items:flex-start}.ev:first-of-type{border-top:0}.ev small{color:var(--muted);white-space:nowrap}
 .inp{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--soft);color:var(--fg);font:inherit}
 textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .svc-form{display:grid;gap:10px;margin-top:10px}.svc-form label{display:grid;gap:4px;font-size:.85rem;color:var(--muted)}.svc-form .link-btn{justify-content:center}
 .svc-list{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:8px}.svc-list li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--soft)}.svc-list li div{display:grid;gap:2px}.svc-list li span{font-size:.85rem;color:var(--muted)}.svc-list li small{color:var(--muted)}.svc-list .x{flex:0 0 auto}
 .askrow{display:flex;gap:8px;align-items:stretch}.askrow .inp{flex:1;min-width:0;font-family:var(--f-num)}.askrow .link-btn{width:auto;white-space:nowrap}
-.bflags,.bq{margin:0 0 10px;padding-inline-start:20px}.bflags li.bad{color:var(--bad);font-weight:700}.bflags li.warn{color:var(--warn);font-weight:700}.bq li{margin:2px 0}
+.bflags,.bq{margin:0 0 10px;padding-inline-start:20px}.bflags li{font-weight:600}.bflags li.bad::marker{color:var(--bad)}.bflags li.warn::marker{color:var(--warn)}.bq li{margin:2px 0}
 .vd.ok{color:var(--ok);font-weight:700}.vd.bad{color:var(--bad);font-weight:700}.ft .g,.sum3 .g{color:var(--ok)}.ft .w,.sum3 .w{color:var(--warn)}.ft .r,.sum3 .r{color:var(--bad)}.ft td.g,.ft td.w,.ft td.r{font-weight:700}
 .sum3{display:flex;gap:6px;margin:10px 0}.sum3 div{flex:1;background:var(--soft);border-radius:10px;padding:6px;text-align:center;font-size:.8rem;color:var(--muted)}.sum3 b{display:block;font-size:1.3rem}
 .doc-add{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.doc-add .inp{flex:1 1 160px;min-width:0}
@@ -747,6 +748,7 @@ const hasTow = r => r && (isNum(r.kosher_grira_im_blamim) && num(r.kosher_grira_
 
 
 /* ---------- small UI helpers ---------- */
+const pl = (n, one, many) => n === 1 ? one : `${n} ${many}`;
 const ico = id => `<svg class="i"><use href="#i-${id}"/></svg>`;
 function facts(list){
   const items = list.filter(f => f && !empty(f[1]))
@@ -778,7 +780,7 @@ async function copyText(t, label){
   try { if (bridge() && bridge().copy) { bridge().copy(t); ok = true; } } catch {}
   if (!ok) try { await navigator.clipboard.writeText(t); ok = true; } catch {}
   if (!ok) try { const ta = document.createElement("textarea"); ta.value = t; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); ok = document.execCommand("copy"); ta.remove(); } catch {}
-  toast(ok ? `${label || "הטקסט"} הועתק` : "לא הצלחתי להעתיק");
+  toast(ok ? `${label || "הטקסט"} הועתק` : "לא הצלחנו להעתיק");
 }
 /* every share carries a store link; whoever installs from it lands on the same car on first launch */
 const carLink = plate => `${PLAY_URL}&referrer=${encodeURIComponent("plate=" + plate)}`;
@@ -801,7 +803,7 @@ const store = {
 /* the app checks saved cars once a day for a new recall or a test about to expire */
 function syncSaved(list){
   const b = window.AndroidApp; if (!b || !b.syncSaved) return;
-  try { b.syncSaved(JSON.stringify((list || []).map((x, i) => ({plate: x.plate, title: x.title || "", alerts: x.alerts !== false && i < alertCap(), ext: plan() !== "free", svcDue: svcDue(x.plate)})))); } catch {}
+  try { b.syncSaved(JSON.stringify((list || []).map((x, i) => ({plate: x.plate, title: x.title || "", alerts: alertSet().includes(x.plate), ext: plan() !== "free", svcDue: svcDue(x.plate)})))); } catch {}
 }
 const alertsSupported = () => !!(window.AndroidApp && window.AndroidApp.setAlerts);
 window.onAlertsPermission = ok => { toast(ok ? "ההתראות פועלות: נעדכן אותך על ריקול חדש או טסט שעומד לפוג" : "ההתראות כבויות. אפשר להפעיל אותן בהגדרות."); syncAlertsSeg(); };
@@ -812,7 +814,9 @@ function syncAlertsSeg(){
   document.querySelectorAll("[data-alerts]").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.alerts === "on") === (st !== "off"))));
   $("#alertsNote").textContent = st === "blocked" ? "ההתראות חסומות בהגדרות הטלפון. כדי לקבל אותן, אפשרו התראות ללוחית בהגדרות האפליקציה בטלפון." : "התראה כשנפתח ריקול חדש לרכב שמור, וחודש ושבוע לפני שהטסט שלו פג.";
 }
-const trackedOk = p => store.get("savedVehicles").findIndex(x => x.plate === p) < alertCap();
+// alert slots go to the cars that were saved first, so a new car never takes the slot of one the user already follows
+const alertSet = () => store.get("savedVehicles").filter(x => x.alerts !== false).slice(-alertCap()).map(x => x.plate);
+const trackedOk = p => alertSet().includes(p);
 const isSaved = p => store.get("savedVehicles").some(x => x.plate === p);
 function toggleSaved(item){
   const list = store.get("savedVehicles");
@@ -949,7 +953,7 @@ function costs(D){
   }
   // one monthly figure: energy, licence fee and loss of value (insurance and servicing are not in the data)
   if (c.fuelYear || c.fee || c.deprYear) {
-    const parts = [["דלק", c.fuelYear, "#e53935"], ["אגרה", c.fee, "#7c4dff"], ["ירידת ערך", c.deprYear, "#f0a020"]].filter(x => x[1] > 0);
+    const parts = [["דלק", c.fuelYear, "#5b7bd5"], ["אגרה", c.fee, "#8e7cc3"], ["ירידת ערך", c.deprYear, "#c9a25a"]].filter(x => x[1] > 0);
     if (kind === "ev" && parts[0] && parts[0][0] === "דלק") parts[0][0] = "חשמל";
     if (parts.length >= 2) c.monthly = {total: Math.round(parts.reduce((t, x) => t + x[1], 0) / 12 / 10) * 10, parts: parts.map(([k, v, col]) => [k, Math.round(v / 12 / 10) * 10, col])};
   }
@@ -1000,7 +1004,7 @@ const IMPORTER_RECALL = [
   {re:/איסוזו/, name:"UTI", url:"https://www.uti.co.il/recall/"},
   {re:/שברולט/, name:"שברולט ישראל", url:"https://www.chevrolet.co.il/" + encodeURI("שירות-שברולט/שירות-recall") + "/", note:"אצל שברולט זה טופס פנייה (מבקשים גם צילום רישיון), ולא בדיקה מיידית."},
   {re:/פורשה/, name:"פורשה ישראל", url:"https://www.porsche.co.il/", note:"בעמוד הבית של פורשה, בתחתית העמוד: \"קריאות שירות לרכבי פורשה\"."},
-  {re:/טסלה/, name:"טסלה", url:"https://service.tesla.com/he-IL/vin-recall-search", vin:true, note:"טסלה בודקת לפי מספר שלדה (VIN) ולא לפי מספר רישוי. מספר השלדה מופיע בלשונית הפרטים."},
+  {re:/טסלה/, name:"טסלה", url:"https://service.tesla.com/he-IL/vin-recall-search", vin:true, note:"טסלה בודקת לפי מספר שלדה (VIN) ולא לפי מספר רישוי. מספר השלדה מופיע בלשונית מפרט."},
 ];
 function importerRecall(D){
   const m = [D.v.tozeret_nm, D.v.kinuy_mishari, D.v.degem_nm, D.make].filter(x => !empty(x)).join(" ");
@@ -1120,7 +1124,7 @@ function buildInsights(D){
   if (exp && !D.isCancelled) {
     const days = Math.round((exp - now) / 864e5);
     if (days < 0) add("bad", "הטסט לא בתוקף", `רישיון הרכב פג ב-${fmtDate(v.tokef_dt)}.`);
-    else if (days <= 60) add("warn", "הטסט מתקרב", `רישיון הרכב בתוקף עד ${fmtDate(v.tokef_dt)}, בעוד ${days} ימים.`);
+    else if (days <= 60) add("warn", "הטסט מתקרב", `רישיון הרכב בתוקף עד ${fmtDate(v.tokef_dt)}, ${days === 1 ? "מחר" : "בעוד " + days + " ימים"}.`);
   }
   if (D.kmPerYear) {
     const ratio = D.kmPerYear / AVG_KM_YEAR;
@@ -1136,7 +1140,7 @@ function buildInsights(D){
     const past = own.slice(0, -1).map(r => String(r.baalut || ""));
     if (isFirstHand(D)) add("ok", "יד ראשונה", `לפי רשומות הבעלות הרכב לא החליף בעלים מאז ${fmtDate(own[0].baalut_dt)}.`);
     else if (own.length >= 4) add("warn", `${D.ownersFloor ? "לפחות " : ""}${own.length} רשומות בעלות`, "הרכב עבר הרבה ידיים. כדאי לבקש היסטוריית טיפולים.");
-    if (past.some(t => t.includes("השכר"))) add("warn", "היה רכב השכרה", "בעבר הרכב היה בבעלות חברת השכרה. ברכבי השכרה נוהגים נהגים רבים.");
+    if (past.some(t => t.includes("השכר"))) add("warn", "היה רכב השכרה", "בעבר הרכב היה בבעלות חברת השכרה. רכבי השכרה עוברים בין נהגים רבים.");
     if (past.some(t => t.includes("ליסינג"))) add("info", "היה רכב ליסינג", "בעבר הרכב היה בליסינג. רכבי ליסינג מטופלים לרוב במוסך מורשה, אבל צוברים ק״מ מהר.");
     const last = parseYM(own[own.length - 1].baalut_dt);
     if (last && own.length > 1 && monthsBetween(last, now) < 6) add("info", "החליף בעלים לאחרונה", `העברת הבעלות האחרונה הייתה ב-${fmtDate(own[own.length - 1].baalut_dt)}.`);
@@ -1161,7 +1165,7 @@ function buildInsights(D){
   }
   const lvl = num(v.ramat_eivzur_betihuty);
   if (!isNaN(lvl) && !empty(v.ramat_eivzur_betihuty)) {
-    if (lvl >= 6) add("ok", "רמת בטיחות גבוהה", `רמת אבזור בטיחותי ${lvl} מתוך 8.`);
+    if (lvl >= 6) add("ok", "אבזור בטיחות מתקדם", `רמת אבזור בטיחותי ${lvl} מתוך 8.`);
     else if (lvl <= 2) add("warn", "רמת בטיחות נמוכה", `רמת אבזור בטיחותי ${lvl} מתוך 8.`);
   }
   const age = isNum(v.shnat_yitzur) ? now.getFullYear() - num(v.shnat_yitzur) : null;
@@ -1227,9 +1231,9 @@ function renderResult(){
   if (dt) pills.push(`<span class="pill drive ${["ev", "phev", "hybrid"].includes(dt.k) ? "green" : ""}">${ico(["ev", "phev", "hybrid"].includes(dt.k) ? "bolt" : "fuel")}${dt.label}</span>`);
   if (exp && !D.isCancelled) pills.push(exp < new Date() ? `<span class="pill bad">טסט לא בתוקף</span>` : `<span class="pill ok">טסט בתוקף</span>`);
   if (D.recalls.length) pills.push(`<span class="pill bad">${D.recalls.length === 1 ? "ריקול פתוח" : D.recalls.length + " ריקולים פתוחים"}</span>`);
-  const vIns = buildInsights(D), clean = !D.isCancelled && !D.recalls.length && !vIns.some(x => x.level === "bad" || x.level === "warn");
+  const vIns = buildInsights(D), clean = !(D.errs && D.errs.length) && !D.isCancelled && !D.recalls.length && !vIns.some(x => x.level === "bad" || x.level === "warn");
   if (D.own.length) pills.push(`<span class="pill">${ownersLabel(D)}</span>`);
-  if (clean) pills.push(`<span class="pill ok">${ico("check")}לא נמצאו בעיות בנתונים</span>`);
+  if (clean) pills.push(`<span class="pill ok">${ico("check")}לא נמצאו בעיות במאגרי משרד התחבורה</span>`);
   if (D.tag) pills.push(`<span class="pill">תג נכה</span>`);
   html.push(`<section class="card id-card">
     <div class="id-top"><div><p class="id-title">${esc(D.title)}</p><p class="id-sub">${esc(D.sub)}</p></div>
@@ -1245,9 +1249,10 @@ function renderResult(){
   // An open recall is the one thing that must never be missed: banner above the tabs
   if (D.recalls.length) {
     const blocking = D.recalls.some(isBlocking);
-    html.push(`<button type="button" class="alert-banner" data-tab="recalls">${ico("alert")}<span><b>${blocking ? "ריקול פתוח שמגביל חידוש רישיון" : D.recalls.length === 1 ? "לרכב יש ריקול פתוח" : `לרכב ${D.recalls.length} ריקולים פתוחים`}</b>${blocking ? "לא ניתן לחדש רישיון עד ביצוע התיקון." : "ריקול בטיחותי פתוח עלול למנוע חידוש רישיון. התיקון בחינם אצל היבואן."}</span></button>`);
+    html.push(`<button type="button" class="alert-banner" data-tab="recalls">${ico("alert")}<span><b>${blocking ? (D.recalls.length > 1 ? "אחד הריקולים הפתוחים מגביל חידוש רישיון" : "ריקול פתוח שמגביל חידוש רישיון") : D.recalls.length === 1 ? "לרכב יש ריקול פתוח" : `לרכב ${D.recalls.length} ריקולים פתוחים`}</b>${blocking ? "לא ניתן לחדש רישיון עד ביצוע התיקון." : "ריקול בטיחותי פתוח עלול למנוע חידוש רישיון. התיקון בחינם אצל היבואן."}</span></button>`);
   }
 
+  if (D.errs && D.errs.length) html.push(`<p class="msg">חלק ממאגרי משרד התחבורה לא ענו כרגע, והמידע על הרכב חלקי. נסו שוב בעוד דקה.</p>`);
   const recallCount = D.recalls.length;
   html.push(`<div class="tabs" role="tablist">${TABS.map(([k, t]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${k === currentTab}">${t}${k === "recalls" && recallCount ? `<i class="hot">${recallCount}</i>` : ""}</button>`).join("")}</div>`);
   html.push(`<div class="tab-body">${TAB_FN()[currentTab](D)}</div>`);
@@ -1337,7 +1342,7 @@ function serviceInfo(D){
 }
 function intervalCard(D, info){
   if (!info) return "";
-  if (info.none) return card("מרווח טיפולים", "wrench", "teal", `<p style="margin:0"><b>אין טיפול תקופתי קבוע</b></p><p class="note">היצרן ממליץ על בדיקות לפי רכיב: נוזל בלמים כל 4 שנים, מסנן מזגן כל שנתיים, וניקוי קליפרים אחת לשנה או 20,000 ק״מ. לפרטים ראה את הנחיות היצרן.</p>`);
+  if (info.none) return card("מרווח טיפולים", "wrench", "teal", `<p style="margin:0"><b>אין טיפול תקופתי קבוע</b></p><p class="note">היצרן ממליץ על בדיקות לפי רכיב: נוזל בלמים כל 4 שנים, מסנן מזגן כל שנתיים, וניקוי קליפרים אחת לשנה או 20,000 ק״מ. לפרטים ראו את הנחיות היצרן.</p>`);
   const opts = info.opts;
   const when = opts.length === 1 ? `<b>${svWhen(opts[0])}</b>` : `<b>לפי הגרסה: ${opts.map(svWhen).join(" · ")}</b>`;
   const srcEl = info.url ? `<button type="button" class="lnk" data-url="${info.url}">${esc(info.src)}</button>` : esc(info.src);
@@ -1399,22 +1404,22 @@ function seasonCard(){
   const mo = new Date().getMonth() + 1, summer = mo >= 4 && mo <= 9;
   const items = summer ? ["מזגן: בדיקת קירור ומסנן מזגן", "נוזל קירור ומפלס שמן", "לחץ אוויר ובלאי בצמיגים", "מצבר, שחום קשה מקצר את חייו"]
     : ["מגבים וניקוי שמשות", "פנסים ומצבר לפני הקור והגשם", "בלמים ועומק חריץ בצמיגים", "נוזל שמשות ומפלס שמן"];
-  return card(summer ? "בדיקות לפני הקיץ" : "בדיקות לפני החורף", "check", "green", `<ul class="insights">${items.map(x => `<li class="ins ok">${ico("check")}<div><b>${esc(x)}</b></div></li>`).join("")}</ul><p class="note">רשימה כללית, לא תלויה בדגם.</p>`);
+  return card(summer ? "בדיקות לפני הקיץ" : "בדיקות לפני החורף", "check", "green", `<ul class="insights">${items.map(x => `<li class="ins info">${ico("info")}<div><b>${esc(x)}</b></div></li>`).join("")}</ul><p class="note">רשימה כללית, לא תלויה בדגם.</p>`);
 }
 function nextCard(D, info){
   const s = svcOf(D.plate), n = svcNext(s), saved = isSaved(D.plate);
   if (!info || !info.opts) return card("הטיפול הבא", "clock", "teal", `<p style="margin:0">אין לרכב הזה מרווח טיפולים במאגר, ולכן אי אפשר לחשב את הטיפול הבא. אפשר עדיין לרשום טיפולים ביומן.</p>`);
-  if (info.opts.length !== 1) return card("הטיפול הבא", "clock", "teal", `<p style="margin:0">הגרסאות של הדגם מחזיקות מרווחים שונים, ולכן לא ניתן לחשב את הטיפול הבא. בדוק בספר הרכב וקבע מרווח.</p>`);
-  const o = info.opts[0], hint = saved ? "" : `<p class="note">כדי לקבל תזכורות בהתראה, שמור את הרכב (כוכב בראש הדף) והפעל התראות.</p>`;
+  if (info.opts.length !== 1) return card("הטיפול הבא", "clock", "teal", `<p style="margin:0">הגרסאות של הדגם מחזיקות מרווחים שונים, ולכן לא ניתן לחשב את הטיפול הבא. בדקו בספר הרכב וקבעו מרווח.</p>`);
+  const o = info.opts[0], hint = saved ? "" : `<p class="note">כדי לקבל תזכורות בהתראה, שמרו את הרכב (כפתור "שמירה" למעלה) והפעילו התראות.</p>`;
   if (!n) {
     const km = isNum(D.v.kilometer_test_aharon) ? num(D.v.kilometer_test_aharon) : null, est = km > 0 ? Math.ceil((km + 1) / o.km) * o.km : null;
-    return card("הטיפול הבא", "clock", "teal", `${est ? `<p style="margin:0">לפי הק״מ בטסט האחרון (${fmtN(km)}), הטיפול הבא לפי המרווח הוא סביב <b>${fmtN(est)} ק״מ</b> (הערכה).</p>` : ""}<p class="note">רשום ביומן למטה את הטיפול התקופתי האחרון (טיפול תקופתי או שמן ומסננים), ונחשב מתי הטיפול הבא ונזכיר לך.</p>`);
+    return card("הטיפול הבא", "clock", "teal", `${est ? `<p style="margin:0">לפי הק״מ בטסט האחרון (${fmtN(km)}), הטיפול הבא לפי המרווח הוא סביב <b>${fmtN(est)} ק״מ</b> (הערכה).</p>` : ""}<p class="note">רשמו ביומן למטה את הטיפול התקופתי האחרון (טיפול תקופתי או שמן ומסננים), ונחשב מתי הטיפול הבא ונזכיר לך.</p>`);
   }
   const days = n.due ? dayDiff(new Date(new Date().setHours(0, 0, 0, 0)), n.due) : null;
-  const status = days == null ? "" : days < 0 ? `באיחור של ${-days} ימים` : days === 0 ? "היום" : `בעוד ${days} ימים`;
+  const status = days == null ? "" : days < 0 ? days === -1 ? "באיחור של יום" : `באיחור של ${-days} ימים` : days === 0 ? "היום" : days === 1 ? "מחר" : `בעוד ${days} ימים`;
   const rows = [["טיפול אחרון", `${fmtDate(n.last.d)}${n.last.km ? " · " + fmtN(n.last.km) + " ק״מ" : ""}`], ["הטיפול הבא עד", n.due ? `${fmtDate(ymdOf(n.due))}${status ? " (" + status + ")" : ""}` : "—"], ["או בק״מ", n.dueKm ? fmtN(n.dueKm) + " ק״מ" : "—"]];
   const cls = days != null && days < 0 ? "bad" : days != null && days <= 30 ? "warn" : "";
-  return card("הטיפול הבא", "clock", "teal", `<dl class="facts">${rows.map(([k, v], i) => `<div class="${i === 1 ? cls : ""}"><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>${n.due ? `<button type="button" class="link-btn" data-svc="cal">הוספה ליומן</button>` : ""}<p class="note">התאריך הוא הערכה לפי המרווח (${svWhen(o)}) וקצב הנסיעה שלך. תזכורת בהתראה: חודש לפני, שבוע לפני ושבוע אחרי.</p>${hint}`);
+  return card("הטיפול הבא", "clock", "teal", `<dl class="facts">${rows.map(([k, v], i) => `<div class="${i === 1 ? cls : ""}"><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>${n.due ? `<button type="button" class="link-btn" data-svc="cal">הוספה ליומן</button>` : ""}<p class="note">התאריך הוא הערכה לפי המרווח (${svWhen(o)}) וקצב הנסיעה שלכם. תזכורת בהתראה: חודש לפני, שבוע לפני ושבוע אחרי.</p>${hint}`);
 }
 function logCard(D){
   const s = svcOf(D.plate), list = [...s.log].sort((a, b) => a.d < b.d ? 1 : -1), today = ymdOf(new Date());
@@ -1434,7 +1439,7 @@ function kmCard(D){
   if (tk > 0 && td) pts.push([td, tk, "טסט"]);
   pts.sort((a, b) => a[0] - b[0]);
   const coh = msCohort(D), typical = coh && coh.km > 0 ? `<p class="note">לשם השוואה, בדגם ובשנתון הזה הק״מ האופייני בטסט הוא כ-${fmtN(Math.round(coh.km / 1000) * 1000)}.</p>` : "";
-  if (pts.length < 2) return card("ציר ק״מ", "chart", "blue", `<p style="margin:0">במאגר הממשלתי יש רק קריאת ק״מ אחת לרכב (בטסט האחרון${tk ? `: ${fmtN(tk)}` : ""}), ולכן הציר נבנה מהטיפולים שתרשום עם ק״מ. רשום עוד טיפול כדי לראות את הקצב.</p>${typical}`);
+  if (pts.length < 2) return card("ציר ק״מ", "chart", "blue", `<p style="margin:0">במאגר הממשלתי יש רק קריאת ק״מ אחת לרכב (בטסט האחרון${tk ? `: ${fmtN(tk)}` : ""}), ולכן הציר נבנה מהטיפולים שתרשמו עם ק״מ. רשמו עוד טיפול כדי לראות את הקצב.</p>${typical}`);
   const W = 300, H = 120, t0 = pts[0][0].getTime(), t1 = pts[pts.length - 1][0].getTime(), kmLo = Math.min(...pts.map(p => p[1])), kmHi = Math.max(...pts.map(p => p[1])), sp = Math.max(kmHi - kmLo, 1), ts = Math.max(t1 - t0, 1);
   const X = p => 14 + (p[0].getTime() - t0) / ts * (W - 28), Y = p => 14 + (H - 28) * (1 - (p[1] - kmLo) / sp);
   const line = pts.map(p => `${X(p).toFixed(1)},${Y(p).toFixed(1)}`).join(" ");
@@ -1523,14 +1528,14 @@ document.addEventListener("click", async ev => {
 document.addEventListener("change", ev => { const f = ev.target.closest("#docFile"); if (!f || !current) return; const files = [...f.files]; f.value = ""; if (files.length) docsAdd(files, current.plate, ($("#docCat") || {}).value || "אחר"); });
 
 function tabMaint(D){
-  const info = serviceInfo(D), html = [docsCard(D)];
+  const info = serviceInfo(D), html = [];
   if (!maintOk()) {
-    html.push(proLockCard("תחזוקה", "מרווח טיפולים לדגם, הטיפול הבא, יומן טיפולים, ציר ק״מ ועלות אחזקה מצטברת, עם תזכורות בהתראה."));
+    html.push(proLockCard("אחזקה", "מרווח טיפולים לדגם, הטיפול הבא, יומן טיפולים, ציר ק״מ ועלות אחזקה מצטברת, עם תזכורות בהתראה."));
   } else {
     svcRemember(D, info);
     html.push(intervalCard(D, info), nextCard(D, info), logCard(D), kmCard(D), costLogCard(D));
   }
-  html.push(manualCard(D), seasonCard());
+  html.push(docsCard(D), manualCard(D), seasonCard());
   return html.join("");
 }
 function tabOverview(D){
@@ -1540,7 +1545,7 @@ function tabOverview(D){
     const icon = {bad:"alert", warn:"alert", info:"info", ok:"check"};
     html.push(card("מידע חשוב שעלה מהנתונים", "bulb", "amber",
       `<ul class="insights">${ins.map(i => `<li class="ins ${i.level}">${ico(icon[i.level])}<div><b>${esc(i.title)}</b><span>${esc(i.text)}</span></div></li>`).join("")}</ul>
-       <p class="note">התובנות אינן תחליף לבדיקת רכב במכון מורשה.</p>`));
+       <p class="note">התובנות אינן תחליף לבדיקת רכב במכון מורשה. אין במאגרים מידע על שעבודים, תאונות או נזקי שלדה: בדקו שעבוד ברשם המשכונות ובצעו בדיקה במכון.</p>`));
   }
   html.push(eventsCard(D));
   const tb = D.tSrc && D.tSrc.kosher_grira_im_blamim, tu = D.tSrc && D.tSrc.kosher_grira_bli_blamim;
@@ -1579,7 +1584,7 @@ function tabOverview(D){
   ]) + (toDate(v.tokef_dt) && toDate(v.tokef_dt) > new Date() && !D.isCancelled ? `<button type="button" class="link-btn" data-act="calendar">${ico("clock")}הוספת תזכורת ליומן</button>` : "")));
 
   const fo = firstOwner(v);
-  const foLine = fo ? `<div class="first-own"><b>בעלות ראשונה (״מקוריות״): ${esc(fo)}</b>${ownerKind(fo).text ? `<span>${esc(ownerKind(fo).text)}</span>` : ""}</div>` : "";
+  const foLine = fo ? `<div class="first-own"><b>בעלות ראשונה: ${esc(fo)}</b>${ownerKind(fo).text ? `<span>${esc(ownerKind(fo).text)}</span>` : ""}</div>` : "";
   if (D.own.length) {
     html.push(card("היסטוריית בעלויות", "users", "violet",
       `${foLine}<ol class="timeline">${D.own.slice().reverse().map((r,i) => `<li><span class="dot"></span><time>${esc(fmtDate(r.baalut_dt))}</time><span>${esc(r.baalut || "")}${i === 0 ? `<span class="now">נוכחי</span>` : ""}</span></li>`).join("")}</ol>
@@ -1610,7 +1615,7 @@ function tabRecalls(D){
   html.push(card("בדיקה באתר היבואן", "search", "teal",
     `<p style="margin:0">באתר היבואן מופיעים גם קמפיינים שלא תמיד נמצאים במאגר. מספר הרישוי יועתק, ותדביקו אותו שם.</p>
      <button type="button" class="link-btn" data-url="${esc(imp.url)}" data-copyfirst="${imp.vin ? esc(D.vin || D.plate) : D.plate}">${ico("search")}${imp.gov ? "חיפוש במאגר הריקולים של משרד התחבורה" : `בדיקת ריקולים וקמפיינים באתר ${esc(imp.name)}`}</button>
-     ${imp.gov ? `<p class="note">ל${esc(imp.name || "יבואן הזה")} לא מצאתי עמוד בדיקה לפי מספר רישוי. במאגר של משרד התחבורה מחפשים לפי יצרן ודגם.</p>` : imp.note ? `<p class="note">${esc(imp.note)}</p>` : ""}`));
+     ${imp.gov ? `<p class="note">ל${esc(imp.name || "יבואן הזה")} לא מצאנו עמוד בדיקה לפי מספר רישוי. במאגר של משרד התחבורה מחפשים לפי יצרן ודגם.</p>` : imp.note ? `<p class="note">${esc(imp.note)}</p>` : ""}`));
   if (D.modelRecalls.length) {
     const fits = D.modelRecalls.filter(r => r.fits !== false);
     html.push(card("היסטוריית ריקולים לדגם", "clock", "blue",
@@ -1651,7 +1656,7 @@ function tabCosts(D){
     `<p style="margin:0">אין במאגר נתוני פליטה לדגם הזה, ולכן אין הערכת צריכה.</p>`;
   if (c.monthly) {
     const m = c.monthly;
-    html.push(card("כמה הרכב עולה בחודש", "tag", "blue", `<div class="month-big">כ-${fmtN(m.total)} ₪ <small>בחודש</small></div>
+    html.push(card("כמה הרכב עולה בחודש (הערכה)", "tag", "blue", `<div class="month-big">כ-${fmtN(m.total)} ₪ <small>בחודש</small></div>
       <div class="month-bar">${m.parts.map(([, v, col]) => `<span style="flex:${v};background:${col}"></span>`).join("")}</div>
       <div class="month-lg">${m.parts.map(([k, v, col]) => `<span><i style="background:${col}"></i>${k} ${fmtN(v)} ₪</span>`).join("")}</div>
       <p class="note">לפי ${fmtN(c.kmYear)} ק״מ בשנה. בלי ביטוח וטיפולים.</p>`));
@@ -1708,7 +1713,7 @@ async function findInspection(city){
   out.innerHTML = rows.length ? `<div class="list">${rows.slice(0, 15).map(r => {
       const tel = String(r.telephone || "").replace(/[^\d+]/g, "");
       return `<div class="row"><span class="t"><b>${esc(r.shem_mosah || "מכון בדיקה")}</b><small>${esc([r.ktovet, r.yishuv].filter(x => !empty(x)).join(", "))}</small></span>${tel.length >= 9 ? `<button type="button" class="copy-btn" data-url="tel:${tel}">${ico("phone")}חיוג</button>` : ""}</div>`;
-    }).join("")}</div>` : `<p class="note">לא מצאתי מכון בדיקה ב${esc(city)}. נסו עיר קרובה או שם אחר לעיר (למשל "תל אביב יפו").</p>`;
+    }).join("")}</div>` : `<p class="note">לא מצאנו מכון בדיקה ב${esc(city)}. נסו עיר קרובה או שם אחר לעיר (למשל "תל אביב יפו").</p>`;
 }
 document.addEventListener("submit", ev => { if (ev.target.matches("[data-insp]")) { ev.preventDefault(); findInspection($("#inspCity").value); } });
 
@@ -2099,7 +2104,7 @@ function renderCompare(){
     lead("הכי זול לקנייה", D => D.cost.newPrice || (D.cost.valueLow ? (D.cost.valueLow + D.cost.valueHigh) / 2 : null), "lo"),
     lead("הכי זול לאחזקה", D => D.cost.monthly ? D.cost.monthly.total : null, "lo"),
     lead("הכי חזק", D => nf(D.w, "koah_sus"), "hi"),
-    lead("הכי בטיחותי", D => num(D.pick(D.v.ramat_eivzur_betihuty, D.w.ramat_eivzur_betihuty)), "hi"),
+    lead("הכי מאובזר בבטיחות", D => num(D.pick(D.v.ramat_eivzur_betihuty, D.w.ramat_eivzur_betihuty)), "hi"),
   ].filter(Boolean).join("") : "";
   const head = (D, i) => `<div class="cmp-h"><div class="cmp-top">${D.kind === "model" ? `<span class="tag">דגם</span>` : `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>`}<button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><b>${esc(D.title)}</b><small>${esc(D.alts && D.alts.length > 1 ? String(D.v.shnat_yitzur || "") : D.sub)}</small>${D.alts && D.alts.length > 1 ? `<select class="trim-sel" data-trim="${i}" aria-label="רמת גימור">${D.alts.map((r, j) => `<option value="${j}"${rowKey(r) === D.key ? " selected" : ""}>${esc(String(r.ramat_gimur || "").trim() || "גרסה בסיסית")}</option>`).join("")}</select>` : ""}</div>`;
   const base = n && n < cmpMax() ? L[n - 1] : null;
@@ -2149,7 +2154,7 @@ $("#out").addEventListener("click", ev => {
     openExternal(b.dataset.url); return;
   }
   if (b.dataset.open) { run(b.dataset.open); return; }
-  if (b.dataset.bell) { const list = store.get("savedVehicles"), it = list.find(x => x.plate === b.dataset.bell); if (it && it.alerts === false && !trackedOk(it.plate)) { toast(`התראות ליותר מ-${alertCap()} רכבים זמינות בחבילה גבוהה יותר`); return; } if (it) { it.alerts = it.alerts === false; store.set("savedVehicles", list); toast(it.alerts === false ? "ההתראות לרכב הזה כבויות" : "תקבלו התראות על הרכב הזה"); renderHome(); } return; }
+  if (b.dataset.bell) { const list = store.get("savedVehicles"), it = list.find(x => x.plate === b.dataset.bell); if (it && it.alerts === false && list.filter(x => x.alerts !== false).length >= alertCap()) { toast(`התראות ליותר מ-${alertCap()} רכבים זמינות בחבילה גבוהה יותר`); return; } if (it) { it.alerts = it.alerts === false; store.set("savedVehicles", list); toast(it.alerts === false ? "ההתראות לרכב הזה כבויות" : "תקבלו התראות על הרכב הזה"); renderHome(); } return; }
   if (b.dataset.unsave) { store.set("savedVehicles", store.get("savedVehicles").filter(x => x.plate !== b.dataset.unsave)); renderHome(); return; }
   if (b.dataset.rm) { cmp.splice(+b.dataset.rm, 1); renderCompare(); return; }
   if (b.dataset.act === "addCompare") { openCompare(); return; }
@@ -2198,7 +2203,7 @@ $("#out").addEventListener("click", ev => {
   if (act === "save") {
     const on = toggleSaved(newSavedItem(current));
     b.setAttribute("aria-pressed", String(on)); b.querySelector("span").textContent = on ? "נשמר" : "שמירה";
-    toast(on ? "הרכב נשמר ברשימה שלך" : "הרכב הוסר מהרשימה");
+    toast(on ? "הרכב נשמר ב'הרכבים שלי'" : "הרכב הוסר מהרשימה");
     { const y = window.scrollY; renderResult(); window.scrollTo(0, y); }
     if (on && alertsSupported()) { let asked = false; try { asked = !!localStorage.getItem("alertsAsked"); localStorage.setItem("alertsAsked", "1"); } catch {} if (!asked) try { window.AndroidApp.setAlerts(true); } catch {} }
   }
@@ -2281,7 +2286,14 @@ function buildReport(D, full, biz){
   for (const [k, t] of tabs) { if (full) parts.push(`<h3 class="rep-sec">${t}</h3>`); parts.push(TAB_FN()[k](D)); }
   parts.push(`<p class="rep-foot">${biz ? bizFoot(biz) : "המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il, ואינו מחליף נסח רישום רשמי. " + BRAND_FOOT}</p>`);
   el.innerHTML = parts.join("");
-  el.querySelectorAll(".buyer-card").forEach(x => x.remove());
+  el.querySelectorAll(".buyer-card, .insp, .alert-banner button").forEach(x => x.remove());
+  // cards that only point to a website make no sense on paper
+  el.querySelectorAll(".card").forEach(c => { const t = (c.querySelector(".head h2") || {}).textContent || ""; if (/^(לפני שקונים|בדיקה באתר היבואן|ספר הרכב)/.test(t.trim())) c.remove(); });
+  // the disabled-parking tag is personal, so it is never printed
+  el.querySelectorAll(".pill").forEach(x => { if (x.textContent.trim() === "תג נכה") x.remove(); });
+  el.querySelectorAll(".facts > div").forEach(x => { if (/תג חניה לנכה/.test(x.textContent)) x.remove(); });
+  // a dealer's own branded PDF carries no value estimates or tax values
+  if (biz) el.querySelectorAll(".card").forEach(c => { const t = (c.querySelector(".head h2") || {}).textContent || ""; if (/^(שווי משוער|שווי שימוש)/.test(t.trim())) c.remove(); });
   el.querySelectorAll(".card.folded").forEach(c => c.classList.remove("folded"));
   return inlineIcons(el);
 }
@@ -2403,7 +2415,7 @@ async function makeComparePdf(){
 async function shareComparePdf(btn){
   const old = btn.innerHTML; btn.disabled = true; btn.textContent = "מכין PDF…";
   try { await shareFile(await makeComparePdf(), `Luchit-compare-${new Date().toISOString().slice(0, 10)}.pdf`, "השוואת רכבים"); }
-  catch { toast("לא הצלחתי להכין את הקובץ. בדקו את החיבור לאינטרנט ונסו שוב."); }
+  catch { toast("לא הצלחנו להכין את הקובץ. בדקו את החיבור לאינטרנט ונסו שוב."); }
   finally { btn.disabled = false; btn.innerHTML = old; }
 }
 async function doShare(kind){
@@ -2421,7 +2433,7 @@ async function doShare(kind){
     else { const {canvas} = await captureReport(D, false); await shareFile(await canvasToBlob(canvas, "image/png"), name + ".png", D.title, caption); }
     $("#shareSheet").hidden = true;
   } catch (err) {
-    msg.textContent = "לא הצלחתי להכין את הקובץ. בדקו את החיבור לאינטרנט ונסו שוב.";
+    msg.textContent = "לא הצלחנו להכין את הקובץ. בדקו את החיבור לאינטרנט ונסו שוב.";
   } finally { document.querySelectorAll("[data-share]").forEach(b => b.disabled = false); }
 }
 $("#shareSheet").addEventListener("click", ev => {
@@ -2542,7 +2554,7 @@ async function plateFromPhoto(file){
       const {data} = await worker.recognize(c);
       plate = pickPlate(data.text); if (plate) break;
     }
-    if (!plate) { inMsg("לא הצלחתי לזהות מספר. צלמו את הלוחית מקרוב, ישר ובאור טוב, או הקלידו את המספר."); return; }
+    if (!plate) { inMsg("לא הצלחנו לזהות מספר. צלמו את הלוחית מקרוב, ישר ובאור טוב, או הקלידו את המספר."); return; }
     inMsg(`זוהה המספר ${fmtPlate(plate)}. אם הוא לא נכון, תקנו אותו וחפשו שוב.`);
     $("#plate").value = fmtPlate(plate); run(plate);
   } catch (err) {
@@ -2588,7 +2600,7 @@ function startVoice(){
   const br = bridge(), btn = $("#micBtn");
   if (br && br.voice) { inMsg("אמרו את מספר הרישוי…"); btn.setAttribute("aria-pressed", "true"); br.voice(); return; }
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { inMsg("הדפדפן הזה לא תומך בהקלטה קולית. נסו בכרום או באפליקציה."); return; }
+  if (!SR) { inMsg("הדפדפן הזה לא תומך בהקלטה קולית. נסו להקליד את המספר."); return; }
   if (rec) { rec.abort(); return; }
   rec = new SR(); rec.lang = "he-IL"; rec.interimResults = false; rec.maxAlternatives = 5;
   let got = false;
@@ -2607,7 +2619,7 @@ function savedFlags(s){
   if (d) { const days = Math.ceil((d - now) / 864e5);
     if (days < 0) f.push(`<span class="pill bad">הטסט פג</span>`);
     else if (days <= 45) f.push(`<span class="pill warn">טסט עד ${fmtDate(s.tokef)}</span>`); }
-  if (!f.length && d && !s.recalls) f.push(`<span class="pill ok">הכול תקין</span>`);
+  if (!f.length && d && !s.recalls) f.push(`<span class="pill ok">אין התראות</span>`);
   return f.length ? `<span class="flags">${f.join("")}</span>` : "";
 }
 let savedChecking = false;
@@ -2639,9 +2651,9 @@ function updateSavedBar(){
   const hb = $("#homeBtn"); if (hb) hb.hidden = !!$("#homeMark");
   const n = store.get("savedVehicles").length, bar = $("#savedBar");
   bar.hidden = !n || !(current || inCompare);
-  if (n) $("#savedBarTxt").textContent = `הרכבים השמורים שלי (${n})`;
+  if (n) $("#savedBarTxt").textContent = `הרכבים שלי (${n})`;
 }
-$("#savedBar").addEventListener("click", () => { renderHome(); const c = [...document.querySelectorAll("#out .card")].find(x => x.textContent.includes("רכבים שמורים")); if (c) c.scrollIntoView({block: "start"}); });
+$("#savedBar").addEventListener("click", () => { renderHome(); const c = [...document.querySelectorAll("#out .card")].find(x => x.textContent.includes("הרכבים שלי")); if (c) c.scrollIntoView({block: "start"}); });
 for (const nm of ["renderResult", "renderCompare", "renderHome"]) {
   const f = window[nm] || eval(nm);
   const w = function(...a){ const r = f.apply(this, a); updateSavedBar(); if (nm === "renderResult") { fillModelStats(); fillDocs(); } return r; };
@@ -2759,7 +2771,7 @@ function renderMarket(M){
   if (PRO_LOCK && !isPro()) { html.splice(3, html.length - 3, proLockCard("שוק הרכב המלא", "דגמים, חלוקת בעלות, סוג הנעה, סימני גיול, ייבוא אישי, חשמליים לפי אזור, בחירת רבעון והיסטוריה מלאה.")); }
   MK_LAST = {M, P};
   if (atLeast("pro")) html.push(`<button type="button" class="link-btn" data-act="mkCsv">${ico("doc")}ייצוא נתוני התקופה לאקסל (CSV)</button>`);
-  html.push(`<p class="note" style="text-align:center">עודכן ${esc(M.updated)} · מקור: מאגרי משרד התחבורה</p><button type="button" class="link-btn" data-act="marketBack">${ico("back")}חזרה</button>`);
+  html.push(`<p class="note" style="text-align:center">עודכן ${esc(fmtDate(M.updated))} · מקור: מאגרי משרד התחבורה</p><button type="button" class="link-btn" data-act="marketBack">${ico("back")}חזרה</button>`);
   $("#out").innerHTML = html.join("");
   updateSavedBar();
 }
@@ -2802,7 +2814,7 @@ function renderFleet(){
     return `<tr><td><button type="button" class="lnk" data-open="${s.plate}"><b>${fmtPlate(s.plate)}</b><small style="color:var(--muted)">${esc(s.title)}</small></button></td><td style="${col}">${s.tokef ? (x.days < 0 ? "עבר" : fmtDate(s.tokef)) : "—"}</td><td>${s.recalls > 0 ? s.recalls : "—"}</td></tr>`; }).join("");
   const html = [];
   if (PRO_LOCK && !atLeast("pro")) html.push(proLockCard("הצי שלי", "כל הרכבים שלך בטבלה אחת, עם טסט, ריקולים וסימון מה דורש טיפול."));
-  else html.push(card("הצי שלי", "car", "blue", list.length ? `<p style="margin:0 0 6px"><b>${n ? `${n} רכבים דורשים טיפול` : "הכול בסדר"}</b>${n ? `<br><small style="color:var(--muted)">טסט שעבר או קרוב, או ריקול פתוח</small>` : ""}</p><table class="ft"><tr><th>רכב</th><th>טסט</th><th>ריקולים</th></tr>${rows}</table>${store.get("savedVehicles").length > fleetMax() ? `<p class="note">מוצגים ${fleetMax()} הרכבים הראשונים.</p>` : ""}` : `<p style="margin:0">שמרו רכבים כדי לראות אותם כאן בטבלה אחת.</p>`, `${PT("PRO")}`));
+  else html.push(card("הצי שלי", "car", "blue", list.length ? `<p style="margin:0 0 6px"><b>${n ? (n === 1 ? "רכב אחד דורש טיפול" : `${n} רכבים דורשים טיפול`) : "הכול בסדר"}</b>${n ? `<br><small style="color:var(--muted)">טסט שעבר או קרוב, או ריקול פתוח</small>` : ""}</p><table class="ft"><tr><th>רכב</th><th>טסט</th><th>ריקולים</th></tr>${rows}</table>${store.get("savedVehicles").length > fleetMax() ? `<p class="note">מוצגים ${fleetMax()} הרכבים הראשונים.</p>` : ""}` : `<p style="margin:0">שמרו רכבים כדי לראות אותם כאן בטבלה אחת.</p>`, `${PT("PRO")}`));
   html.push(`<button type="button" class="link-btn" data-act="marketBack">${ico("back")}חזרה</button>`);
   $("#out").innerHTML = html.join(""); updateSavedBar(); window.scrollTo({top: 0});
 }
@@ -2834,12 +2846,12 @@ function buyerCard(D){
   qs.push("יש היסטוריית טיפולים במוסך מורשה?", "אפשר לבדוק את הרכב במכון בדיקה לפני שסוגרים?");
   if (PRO_LOCK && !isPro()) {
     const top = flags.slice(0, 2), more = Math.max(0, flags.length - 2);
-    return `<div class="buyer-card">${card("ליווי קנייה", "bulb", "amber", `${top.length ? `<div class="qsec">דגלים לבדיקה</div><ul class="bflags">${top.map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul>` : `<p style="margin:0 0 8px">לא עלו דגלים אדומים בנתונים.</p>`}<p class="note" style="margin:6px 0 8px">${more ? `יש עוד ${more} דגלים, ` : ""}שאלות למוכר, טווח מחיר הוגן ועלות ל-5 שנים נמצאים בחבילת קנייה.</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לפרטים על חבילת קנייה</button>`, `${PT("PRO")}`)}</div>`;
+    return `<div class="buyer-card">${card("ליווי קנייה", "bulb", "amber", `${top.length ? `<div class="qsec">דגלים לבדיקה</div><ul class="bflags">${top.map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul>` : `<p style="margin:0 0 8px">לא עלו דגלים אדומים בנתונים.</p>`}<p class="note" style="margin:6px 0 8px">${more ? (more === 1 ? "יש עוד דגל אחד, " : `יש עוד ${more} דגלים, `) : ""}שאלות למוכר, ועלות ל-5 שנים נמצאים בחבילת קנייה.</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לפרטים על חבילת קנייה</button>`, `${PT("PRO")}`)}</div>`;
   }
   const it = savedItem(D.plate), ask = it && it.ask || null, f = candFields(D), vd = askVerdict(ask, f.fair);
   const body = `${flags.length ? `<div class="qsec">דגלים לבדיקה</div><ul class="bflags">${flags.slice(0, 5).map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul>` : `<p style="margin:0 0 8px">לא עלו דגלים אדומים בנתונים.</p>`}
     <div class="qsec">מה לשאול את המוכר</div><ul class="bq">${qs.slice(0, 6).map(q => `<li>${esc(q)}</li>`).join("")}</ul>
-    ${f.fair ? `<div class="qsec">טווח מחיר הוגן (הערכה)</div><p style="margin:0"><b>${fmtN(f.fair[0])} – ${fmtN(f.fair[1])} ₪</b></p><p class="note" style="margin:2px 0 0">לפי מחירון, שנתון, בעלויות וקילומטראז'.</p>` : ""}
+    ${f.fair ? `<div class="qsec">טווח מחיר משוער (הערכה גסה)</div><p style="margin:0"><b>${fmtN(f.fair[0])} – ${fmtN(f.fair[1])} ₪</b></p><p class="note" style="margin:2px 0 0">לפי מחיר מחירון ופחת ממוצע, לא לפי עסקאות בפועל.</p>` : ""}
     ${f.c5 ? `<div class="qsec" style="margin-top:10px">עלות בעלות ל-5 שנים (הערכה)</div><p style="margin:0"><b>כ-${fmtN(Math.round(f.c5 / 1000) * 1000)} ₪</b></p><p class="note" style="margin:2px 0 0">דלק, אגרה וירידת ערך. ביטוח וטיפולים לא נכללים.</p>` : ""}
     <div class="qsec" style="margin-top:10px">המחיר שהמוכר מבקש</div>
     <div class="askrow"><input class="inp" id="askIn" inputmode="numeric" placeholder="₪" value="${ask || ""}" aria-label="המחיר המבוקש"><button type="button" class="link-btn" data-act="candSave">${ico("star")}${it ? "עדכון" : "שמירה כמועמד"}</button></div>
@@ -2850,7 +2862,7 @@ function renderCandidates(){
   if (land) setLand(false, false);
   current = null; inCompare = false;
   const html = [];
-  if (PRO_LOCK && !isPro()) html.push(proLockCard("רשימת מועמדים", "משווים רכבים שמורים לפי המחיר המבוקש, הטווח ההוגן והעלות ל-5 שנים."));
+  if (PRO_LOCK && !isPro()) html.push(proLockCard("רשימת מועמדים", "משווים רכבים שמורים לפי המחיר המבוקש, הטווח המשוער והעלות ל-5 שנים."));
   else {
     const rows = store.get("savedVehicles").filter(s => s.ask || s.fair).map(s => {
       const vd = askVerdict(s.ask, s.fair), mid = s.fair ? (s.fair[0] + s.fair[1]) / 2 : null;
@@ -2858,8 +2870,8 @@ function renderCandidates(){
     });
     const best = rows.filter(r => r.tot).sort((a, b) => a.tot - b.tot)[0];
     const tbl = rows.map(({s, vd, tot}) => `<tr><td><button type="button" class="lnk" data-open="${s.plate}"><b>${fmtPlate(s.plate)}</b><small style="color:var(--muted)">${esc(s.title)}</small></button></td><td>${s.ask ? fmtN(s.ask) : "—"}${vd ? `<small class="vd ${vd.k}" style="display:block">${vd.s}</small>` : ""}</td><td>${s.fair ? `<span dir="ltr">${Math.round(s.fair[0] / 1000)}–${Math.round(s.fair[1] / 1000)}K</span>` : "—"}</td><td>${tot ? Math.round(tot / 1000) + "K" : "—"}</td></tr>`).join("");
-    html.push(card("רשימת מועמדים", "star", "amber", rows.length ? `<table class="ft"><tr><th>רכב</th><th>מבוקש</th><th>טווח הוגן</th><th>עלות ל-5 שנים</th></tr>${tbl}</table>
-      <p class="note">טווח הוגן הוא הערכת שווי הרכב לפי מחירון, שנתון, בעלויות וק״מ. מתחת למחיר המבוקש כתוב אם הוא גבוה מהטווח, בתוכו או נמוך ממנו. עלות ל-5 שנים כוללת דלק, אגרה וירידת ערך, ואת ההפרש בין המחיר המבוקש למחיר ההוגן. הערכה בלבד.</p>
+    html.push(card("רשימת מועמדים", "star", "amber", rows.length ? `<table class="ft"><tr><th>רכב</th><th>מבוקש</th><th>טווח משוער</th><th>עלות ל-5 שנים</th></tr>${tbl}</table>
+      <p class="note">טווח משוער הוא הערכת שווי הרכב לפי מחירון, שנתון, בעלויות וק״מ. מתחת למחיר המבוקש כתוב אם הוא גבוה מהטווח, בתוכו או נמוך ממנו. עלות ל-5 שנים כוללת דלק, אגרה וירידת ערך, ואת ההפרש בין המחיר המבוקש למחיר ההוגן. הערכה בלבד.</p>
       ${best && rows.filter(r => r.tot).length > 1 ? `<p style="margin:8px 0 0"><b>הכי משתלם לפי העלות הכוללת: ${esc(best.s.title)}</b></p>` : ""}`
       : `<p style="margin:0">כדי להוסיף מועמד, פתחו רכב ובכרטיס "ליווי קנייה" הזינו את המחיר שהמוכר מבקש ולחצו על "שמירה כמועמד".</p>`, `${PT("PRO")}`));
   }
@@ -2912,7 +2924,7 @@ function renderBulk(){
 async function runBulk(btn){
   const ta = $("#bulkIn"); BULK_TEXT = ta.value;
   const plates = parsePlates(ta.value);
-  if (!plates.length) { toast("לא מצאתי מספרי רישוי ברשימה"); return; }
+  if (!plates.length) { toast("לא מצאנו מספרי רישוי ברשימה"); return; }
   BULK = []; BULK_D = {}; btn.disabled = true;
   const queue = plates.slice(), ac = new AbortController();
   const worker = async () => { while (queue.length) {
@@ -2931,7 +2943,7 @@ function bulkSave(){
   if (!add.length) { toast("כל הרכבים שנמצאו כבר שמורים אצלך"); return; }
   const room = Math.max(0, 50 - list.length);
   store.set("savedVehicles", [...add.slice(0, room), ...list].slice(0, 50)); updateSavedBar();
-  toast(add.length > room ? `נשמרו ${room} רכבים. הרשימה מוגבלת ל-50 רכבים.` : `נשמרו ${add.length} רכבים ב"הרכבים שלי"`);
+  toast(add.length > room ? `נשמרו ${room} רכבים. הרשימה מוגבלת ל-50 רכבים.` : add.length === 1 ? `רכב אחד נשמר ב"הרכבים שלי"` : `נשמרו ${add.length} רכבים ב"הרכבים שלי"`);
 }
 function bulkCsv(){
   const q = x => `"${String(x).replace(/"/g, '""')}"`, lv = ["תקין", "לתשומת לב", "בעיה"];
@@ -2952,7 +2964,7 @@ async function bulkPdf(btn){
     const {canvas, breaks} = await captureEl(el, ".card, tr, .rep-foot");
     const blob = has ? await pdfFromCanvas(canvas, breaks, `${b.name} · בדיקת רשימת רכבים`, today, await bizPdfOpts(b)) : await pdfFromCanvas(canvas, breaks, "לוחית · בדיקת רשימת רכבים", today);
     await shareFile(blob, `Luchit-list-${new Date().toISOString().slice(0, 10)}.pdf`, "רשימת רכבים");
-  } catch { toast("לא הצלחתי להכין את הקובץ. בדקו את החיבור לאינטרנט ונסו שוב."); }
+  } catch { toast("לא הצלחנו להכין את הקובץ. בדקו את החיבור לאינטרנט ונסו שוב."); }
   finally { btn.disabled = false; btn.innerHTML = old; }
 }
 
@@ -2961,9 +2973,9 @@ function renderHome(){
   current = null; inCompare = false;
   const saved = store.get("savedVehicles"), recent = store.get("recentPlates");
   const html = [];
-  if (!saved.length && !recent.length) html.push(`<section class="hero"><h2>לפני שקונים רכב, בודקים אותו כאן</h2><p>מספר רישוי אחד, וכל מה שחשוב לדעת בשניות.</p><ul><li>${ico("alert")}ריקולים פתוחים ותקלות מוכרות</li><li>${ico("users")}כמה בעלים היו ומה סוג הבעלות</li><li>${ico("chart")}ק״מ, עלויות ומחיר הוגן</li></ul></section>`);
+  if (!saved.length && !recent.length) html.push(`<section class="hero"><h2>לפני שקונים רכב, בודקים אותו כאן</h2><p>מספר רישוי אחד, וכל מה שחשוב לדעת בשניות.</p><ul><li>${ico("alert")}ריקולים פתוחים והיסטוריית ריקולים לדגם</li><li>${ico("users")}כמה בעלים היו ומה סוג הבעלות</li><li>${ico("chart")}ק״מ, עלויות ומחיר הוגן</li></ul></section>`);
   const pn = planNotice(); if (pn) html.push(pn);
-  if (saved.length) html.push(card("הרכבים שלי", "star", "amber", `<div class="list">${saved.map(s => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-open="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b>${esc(s.title)}</b><small>${esc(s.sub || "")}</small>${savedFlags(s)}</span></button><button type="button" class="x bell" data-bell="${s.plate}" aria-pressed="${s.alerts !== false}" aria-label="התראות לרכב הזה">${ico("bell")}</button><button type="button" class="x" data-unsave="${s.plate}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div><p class="note">הפעמון קובע על אילו רכבים תקבלו התראה על ריקול חדש או טסט שעומד לפוג.</p>`));
+  if (saved.length) html.push(card("הרכבים שלי", "star", "amber", `<div class="list">${saved.map(s => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-open="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b><bdi>${esc(s.title)}</bdi></b><small>${esc(s.sub || "")}</small>${savedFlags(s)}</span></button><button type="button" class="x bell" data-bell="${s.plate}" aria-pressed="${s.alerts !== false}" aria-label="התראות לרכב הזה">${ico("bell")}</button><button type="button" class="x" data-unsave="${s.plate}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div><p class="note">הפעמון קובע על אילו רכבים תקבלו התראה על ריקול חדש או טסט שעומד לפוג.</p>`));
   if (recent.length) html.push(card("חיפושים אחרונים", "clock", "blue", `<div class="chips">${recent.map(p => `<button type="button" class="chip" data-open="${p}">${fmtPlate(p)}</button>`).join("")}</div>`));
   const tool = (act, icon, title, text, tag, col) => `<button type="button" class="tool ${col}" data-act="${act}"><i class="tb">${ico(icon)}</i><span>${title}${tag ? PT(tag) : ""}</span><small>${text}</small></button>`;
   html.push(`<div class="qsec">כלים</div><div class="tools">${[
@@ -3054,7 +3066,7 @@ $("#bizLogo").addEventListener("change", async ev => {
     c.width = Math.round(im.width * sc); c.height = Math.round(im.height * sc);
     c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
     const b = bizProfile(); b.logo = c.toDataURL("image/png"); bizSave(b); syncBiz(); toast("הלוגו נשמר");
-  } catch { toast("לא הצלחתי לפתוח את התמונה"); }
+  } catch { toast("לא הצלחנו לפתוח את התמונה"); }
   ev.target.value = "";
 });
 $("#bizLogoClear").addEventListener("click", () => { const b = bizProfile(); delete b.logo; bizSave(b); syncBiz(); });
@@ -3080,18 +3092,18 @@ function plateInText(text){
 window.onSharedText = text => {
   const p = plateInText(text);
   if (p) { run(p); return; }
-  renderHome(); toast("לא מצאתי מספר רישוי במה ששיתפת. אפשר לשתף צילום של הלוחית או להקליד את המספר.");
+  renderHome(); toast("לא מצאנו מספר רישוי במה ששיתפת. אפשר לשתף צילום של הלוחית או להקליד את המספר.");
 };
 window.onSharedImage = async dataUrl => {
   renderHome();
-  try { const blob = await (await fetch(dataUrl)).blob(); plateFromPhoto(blob); } catch { toast("לא הצלחתי לפתוח את התמונה"); }
+  try { const blob = await (await fetch(dataUrl)).blob(); plateFromPhoto(blob); } catch { toast("לא הצלחנו לפתוח את התמונה"); }
 };
 /* launcher shortcuts */
 window.appAction = what => {
   if (!$("#compareSheet").hidden) $("#compareSheet").hidden = true;
   if (what === "compare") { cmp = []; renderCompare(); openCompare(); }
   else if (what === "camera") { renderHome(); $("#camBtn").click(); }
-  else if (what === "saved") { renderHome(); const c = [...document.querySelectorAll("#out .card")].find(x => x.textContent.includes("רכבים שמורים")); if (c) c.scrollIntoView({block: "start"}); else toast("עוד לא שמרת רכבים. אחרי חיפוש, לחצו על \"שמירה\"."); }
+  else if (what === "saved") { renderHome(); const c = [...document.querySelectorAll("#out .card")].find(x => x.textContent.includes("הרכבים שלי")); if (c) c.scrollIntoView({block: "start"}); else toast("עוד לא שמרת רכבים. אחרי חיפוש, לחצו על \"שמירה\"."); }
 };
 
 /* ---------- plans, gift and upgrade screen ---------- */
@@ -3110,7 +3122,7 @@ function initEnt(){
 function planNotice(){
   if (!PRO_LOCK || !UPGRADE_UI) return "";
   const e = entGet(), now = Date.now();
-  if (e.gift > now && !e.giftSeen) return card("מתנה למשתמשי הבטא", "star", "amber", `<p style="margin:0 0 8px">תודה שהייתם איתנו מההתחלה. קיבלתם חודש PRO במתנה, עד ${esc(new Date(e.gift).toLocaleDateString("he-IL"))}, עם כל התכונות. אחרי זה האפליקציה נשארת חינמית עם הבדיקה המלאה.</p><button type="button" class="link-btn" data-act="giftOk">${ico("star")}מעולה, תודה</button><button type="button" class="link-btn" data-act="upgrade" style="margin-top:6px">מה כולל PRO</button>`);
+  if (e.gift > now && !e.giftSeen) return card("חודש PRO במתנה", "star", "amber", `<p style="margin:0 0 8px">תודה שהייתם איתנו מההתחלה. קיבלתם חודש PRO במתנה, עד ${esc(new Date(e.gift).toLocaleDateString("he-IL"))}, עם כל התכונות. אחרי זה האפליקציה נשארת חינמית עם הבדיקה המלאה.</p><button type="button" class="link-btn" data-act="giftOk">${ico("star")}מעולה, תודה</button><button type="button" class="link-btn" data-act="upgrade" style="margin-top:6px">מה כולל PRO</button>`);
   if (e.buyer > now && e.buyer - now < 7 * 864e5 && plan() === "buyer") return card("חבילת הקנייה מסתיימת בקרוב", "clock", "amber", `<p style="margin:0 0 8px">נשארו ${daysLeft(e.buyer)} ימים. אפשר לעבור ל-PRO שנתי ולקבל זיכוי על מה ששילמתם.</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לאפשרויות</button>`);
   return "";
 }
@@ -3144,12 +3156,12 @@ function renderUpgrade(){
   if (PRO_LOCK) {
     st = `אתם בחבילה: <b>${PLAN_NAME[p]}</b>`;
     if (p === "buyer") st += ` · עוד ${daysLeft(e.buyer)} ימים`;
-    else if (e.gift > Date.now() && !(e.pro > Date.now())) st += ` · מתנה לבטא, עוד ${daysLeft(e.gift)} ימים`;
+    else if (e.gift > Date.now() && !(e.pro > Date.now())) st += ` · מתנה, עוד ${daysLeft(e.gift)} ימים`;
   }
   const credit = !!PRODUCTS._credit && e.buyer > Date.now();
   const opt = (sku, name, price, sub, best) => `<button type="button" class="opt${best ? " best" : ""}" data-buy="${sku}">${best ? `<em>הכי משתלם</em>` : ""}<b>${name}</b><span class="pr">${price}</span><small>${sub}</small></button>`;
   const y = PRICES.pro_yearly, m = PRICES.pro_monthly, save = Math.round((1 - y / (m * 12)) * 100);
-  html.push(`<div id="upg">${card("החבילות של לוחית", "star", "amber", `${st ? `<p style="margin:0 0 4px">${st}</p>` : ""}<p class="note" style="margin:0 0 4px">הבדיקה המלאה, ה-PDF והשיתוף נשארים חינמיים תמיד.</p>
+  html.push(`<div id="upg">${card("החבילות של לוחית", "star", "amber", `${st ? `<p style="margin:0 0 4px">${st}</p>` : ""}<p class="note" style="margin:0 0 4px">בדיקת הרכב, ה-PDF והשיתוף נשארים חינמיים תמיד.</p>
     ${opt("buyer_pack", "חבילת קנייה", esc(priceOf("buyer_pack")) + " · 60 יום", "תשלום חד-פעמי, בלי חידוש. ליווי קנייה מלא, רשימת מועמדים, השוואה עד 6 דגמים ושוק הרכב.")}
     ${opt("pro_yearly", "PRO שנתי", esc(priceOf("pro_yearly")) + " לשנה", `חיסכון של ${save}% מול חודשי. 7 ימי ניסיון חינם.${credit ? " כולל זיכוי על חבילת הקנייה." : ""}`, true)}
     ${opt("pro_monthly", "PRO חודשי", esc(priceOf("pro_monthly")) + " לחודש", "7 ימי ניסיון חינם, ביטול בכל רגע.")}
@@ -3160,7 +3172,9 @@ function renderUpgrade(){
     <tr><td>ליווי קנייה</td><td>2 דגלים</td><td>✓</td><td>✓</td><td>✓</td></tr>
     <tr><td>רשימת מועמדים ושוק הרכב</td><td>—</td><td>✓</td><td>✓</td><td>✓</td></tr>
     <tr><td>התראות על רכבים שמורים</td><td>3</td><td>10</td><td>ללא הגבלה</td><td>ללא הגבלה</td></tr>
-    <tr><td>בעלות חדשה וסטטוס</td><td>—</td><td>✓</td><td>✓</td><td>✓</td></tr>
+    <tr><td>התראה על בעלות חדשה או ירידה מהכביש</td><td>—</td><td>✓</td><td>✓</td><td>✓</td></tr>
+    <tr><td>אחזקה: טיפול הבא, יומן ותזכורות</td><td>—</td><td>—</td><td>✓</td><td>✓</td></tr>
+    <tr><td>תיק הרכב (מסמכים)</td><td>עד 5</td><td>עד 5</td><td>ללא הגבלה</td><td>ללא הגבלה</td></tr>
     <tr><td>הצי שלי</td><td>—</td><td>—</td><td>עד 10</td><td>ללא הגבלה</td></tr>
     <tr><td>ייצוא שוק הרכב</td><td>—</td><td>—</td><td>✓</td><td>✓</td></tr>
     <tr><td>בדיקת 100 לוחיות, PDF ממותג</td><td>—</td><td>—</td><td>—</td><td>✓</td></tr></table>`)}
@@ -3195,7 +3209,7 @@ $("#out").addEventListener("click", ev => {
   if (a === "del") { const s = svcOf(p); s.log = s.log.filter(x => String(x.id) !== b.dataset.id); svcSave(p, s); renderResult(); toast("נמחק מהיומן"); return; }
   if (a === "save") {
     const d = $("#svcDate").value, km = Math.round(Number($("#svcKm").value) || 0), cost = Math.round((Number($("#svcCost").value) || 0) * 100) / 100;
-    if (!d || isNaN(new Date(d))) { toast("בחר תאריך לטיפול"); return; }
+    if (!d || isNaN(new Date(d))) { toast("בחרו תאריך לטיפול"); return; }
     const s = svcOf(p); s.log.push({id: Date.now(), d, km: km > 0 ? km : 0, type: $("#svcType").value, cost: cost > 0 ? cost : 0, note: $("#svcNote").value.trim().slice(0, 80)});
     s.log = s.log.slice(-200); svcSave(p, s); renderResult(); toast("הטיפול נשמר ביומן");
   }
