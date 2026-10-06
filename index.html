@@ -1689,7 +1689,7 @@ function tabBuy(D){
      
      <p class="note">הערכה בלבד. היא לא מביאה בחשבון את מצב הרכב, תאונות והביקוש לדגם.</p>` :
     `<p style="margin:0">אין במאגר מחיר מחירון לדגם הזה, ולכן אין הערכת שווי.</p>`) +
-    `<button type="button" class="link-btn" data-url="https://carlistprice.mot.gov.il/" data-copyfirst="${D.plate}">${ico("tag")}מחירון העם: מחירי עסקאות אמיתיות</button>`));
+    `<button type="button" class="link-btn" data-url="https://carlistprice.mot.gov.il/" data-copyfirst="${D.plate}">${ico("tag")}מחירון העם של משרד התחבורה</button>`));
   html.push(`<div id="mstat">${msCard(D)}</div>`);
   html.push(card("לפני שקונים", "check", "green",
     `<p style="margin:0">שלושה דברים שכדאי לעשות לפני שסוגרים עסקה:</p>
@@ -2181,7 +2181,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.loadcmp) { loadCompare(+b.dataset.loadcmp); return; }
   if (b.dataset.delcmp) { const l = store.get("savedCompares"); l.splice(+b.dataset.delcmp, 1); store.set("savedCompares", l); renderHome(); return; }
   if (b.dataset.act === "marketBack") { renderHome(); window.scrollTo({top: 0}); return; }
-  if (b.dataset.mkmode) { MK.mode = b.dataset.mkmode; MK.sel = null; if (MARKET) renderMarket(MARKET); return; }
+  if (b.dataset.mkmode) { if (b.dataset.mkmode === "quarter" && mkLocked()) { toast("בחירת רבעון זמינה ב-PRO"); return; } MK.mode = b.dataset.mkmode; MK.sel = null; if (MARKET) renderMarket(MARKET); return; }
   if (b.dataset.mksel) { MK.sel = b.dataset.mksel; if (MARKET) renderMarket(MARKET); return; }
   if (b.dataset.act === "closeCompare") { closeCompare(); return; }
   if (b.dataset.act === "cmpPdf") { shareComparePdf(b); return; }
@@ -2714,6 +2714,10 @@ async function loadMarket(){
   }
   throw new Error("market");
 }
+/* maker names in the market data come in the registry's spelling; one display form per maker */
+const MK_NAMES = {"במוו": "BMW", "מג": "MG", "אםגי": "MG", "בייווידי": "BYD", "גילי": "ג׳ילי", "צרי": "צ׳רי"};
+const mkMake = k => MK_NAMES[String(k).replace(/[\s.'"׳״`-]/g, "")] || k;
+const mkLocked = () => PRO_LOCK && !isPro();
 const MON = ["ינו׳","פבר׳","מרץ","אפר׳","מאי","יוני","יולי","אוג׳","ספט׳","אוק׳","נוב׳","דצמ׳"];
 const sumM = (o, ms) => ms.reduce((t, m) => t + ((o && o[m]) || 0), 0);
 const pctTxt = (a, b) => b >= 300 && a < b * 4 ? "\u200e" + (a >= b ? "+" : "−") + Math.abs(Math.round((a - b) / b * 100)) + "%" : "";
@@ -2735,7 +2739,7 @@ function renderMarket(M){
   current = null; inCompare = false;
   const P = mkPeriod(M), html = [];
   const chips = MK.mode === "year" ? P.years.slice().reverse().map(y => [String(y), y === +P.all[P.all.length - 1].slice(0, 4) && P.lm < 12 ? `${y} (עד ${MON[P.lm - 1]})` : String(y)]) : P.quarters.slice().reverse().map(q => { const [y, n] = q.split("-Q"); return [q, `רבעון ${n} ${y}`]; });
-  html.push(card("שוק הרכב", "chart", "blue", `<p class="note" style="margin-top:0">מסירות של רכבים פרטיים חדשים בישראל, לפי נתוני משרד התחבורה.</p><div class="seg two mk-seg" role="group"><button type="button" data-mkmode="year" aria-pressed="${MK.mode === "year"}">לפי שנה</button><button type="button" data-mkmode="quarter" aria-pressed="${MK.mode === "quarter"}">לפי רבעון</button></div><div class="mk-chips">${chips.map(([k, t]) => `<button type="button" data-mksel="${k}" aria-pressed="${k === P.sel}">${t}</button>`).join("")}</div>`));
+  html.push(card("שוק הרכב", "chart", "blue", `<p class="note" style="margin-top:0">מסירות של רכבים פרטיים חדשים בישראל, לפי נתוני משרד התחבורה.</p><div class="seg two mk-seg" role="group"><button type="button" data-mkmode="year" aria-pressed="${MK.mode === "year"}">לפי שנה</button><button type="button" data-mkmode="quarter" aria-pressed="${MK.mode === "quarter"}">${mkLocked() ? ico("lock") : ""}לפי רבעון</button></div><div class="mk-chips">${(mkLocked() ? chips.slice(0, 1) : chips).map(([k, t]) => `<button type="button" data-mksel="${k}" aria-pressed="${k === P.sel}">${t}</button>`).join("")}</div>`));
   const total = sumM(M.months, P.ms), prevTotal = P.prevMs.length ? sumM(M.months, P.prevMs) : 0;
   const mx = Math.max(...P.ms.map(m => M.months[m] || 0), 1);
   html.push(card("מסירות בתקופה", "chart", "blue", `<div class="mk-big">${fmtN(total)}</div><div>רכבים חדשים · ${periodLabel(P)} ${chgHtml(total, prevTotal)}${prevTotal ? ` <small style="color:var(--muted)">מול התקופה המקבילה אשתקד</small>` : ""}</div><div class="mk-bars">${P.ms.map(m => `<div title="${fmtN(M.months[m] || 0)}"><span>${((M.months[m] || 0) / 1000).toFixed(1)}K</span><i style="height:${Math.max(2, (M.months[m] || 0) / mx * 78)}%"></i><span>${MON[+m.slice(4) - 1]}</span></div>`).join("")}</div>`));
@@ -2743,7 +2747,7 @@ function renderMarket(M){
     const rows = Object.entries(obj).map(([k, v]) => [k, sumM(v, ms), sumM(v, pms)]).filter(r => r[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, n), top = rows[0] ? rows[0][1] : 1;
     return rows.map(([k, c, p]) => `<div class="mk-row"><b>${esc(nameFn(k))}</b><span>${fmtN(c)} <small>· ${(c / total * 100).toFixed(1)}%</small> ${chgHtml(c, p)}</span><div class="tr"><i style="width:${c / top * 100}%"></i></div></div>`).join("");
   };
-  html.push(card("יצרנים מובילים", "star", "amber", mkTop(M.makers, P.ms, P.prevMs, 10, k => k)));
+  html.push(card("יצרנים מובילים", "star", "amber", mkTop(M.makers, P.ms, P.prevMs, 10, mkMake)));
   html.push(card("דגמים מובילים", "car", "violet", mkTop(M.models, P.ms, P.prevMs, 10, k => k.split("|").join(" ")) + `<p class="note">לפי הכינוי המסחרי, כל המנועים והגימורים יחד.</p>`));
   const OWN = [["פרטי", "פרטי", "#2556c8"], ["ליסינג", "ליסינג", "#e0a100"], ["חברה", "חברה", "#7a4fd1"], ["השכרה", "השכרה", "#1a8f4a"], ["סוחר", "סוחר", "#8a93a6"]];
   const own = M.ownership[P.year];
@@ -2757,7 +2761,7 @@ function renderMarket(M){
     const am = Object.entries(M.agingMakers[P.year] || {}).filter(([, x]) => x.n >= 500).map(([k, x]) => [k, x.dealer / x.n, x.dealer]).sort((a, b) => b[1] - a[1]).slice(0, 8);
     const pc = x => (x * 100).toFixed(x < .1 ? 1 : 0) + "%";
     const old = +P.year < +P.all[P.all.length - 1].slice(0, 4) - 1;
-    html.push(card(`סימני גיול · רכבי שנתון ${P.year}`, "clock", "pink", `<div class="mk-big">${pc(ag.dealer / ag.n)}</div><div>מהרכבים עדיין רשומים על סוחר · ${fmtN(ag.dealer)} רכבים</div><table class="mk-tbl"><tr><th>יצרן</th><th>על סוחר</th><th>רכבים</th></tr>${am.map(([k, d, n]) => `<tr><td>${esc(k)}</td><td>${pc(d)}</td><td>${fmtN(n)}</td></tr>`).join("")}</table><p class="note">${old ? "רכב משנתון ישן שעדיין רשום על סוחר מעיד בסבירות גבוהה על גיול: רכב שנרשם כדי להישאר במלאי." : "בשנתון חדש חלק מהרכבים הם פשוט מלאי שעוד לא נמכר, לכן המדד משמעותי יותר בשנתונים ישנים."} זה סימן לסבירות ולא קביעה.</p>`));
+    html.push(card(`סימני גיול · רכבי שנתון ${P.year}`, "clock", "pink", `<div class="mk-big">${pc(ag.dealer / ag.n)}</div><div>מהרכבים עדיין רשומים על סוחר · ${fmtN(ag.dealer)} רכבים</div><table class="mk-tbl"><tr><th>יצרן</th><th>על סוחר</th><th>רכבים</th></tr>${am.map(([k, d, n]) => `<tr><td>${esc(mkMake(k))}</td><td>${pc(d)}</td><td>${fmtN(n)}</td></tr>`).join("")}</table><p class="note">${old ? "רכב משנתון ישן שעדיין רשום על סוחר עשוי להעיד על גיול: רכב שנרשם כדי להישאר במלאי." : "בשנתון חדש חלק מהרכבים הם פשוט מלאי שעוד לא נמכר, לכן המדד משמעותי יותר בשנתונים ישנים."} זה סימן לסבירות ולא קביעה.</p>`));
   }
   const fu = M.fuel[P.year];
   if (fu) {
@@ -2783,7 +2787,7 @@ let MK_LAST = null;
 function marketCsv(){
   if (!MK_LAST) return; const {M, P} = MK_LAST, q = x => `"${String(x).replace(/"/g, '""')}"`;
   const rows = [["סוג", "שם", "מסירות בתקופה", "תקופה מקבילה אשתקד"]];
-  for (const [t, o, nm] of [["יצרן", M.makers, k => k], ["דגם", M.models, k => k.split("|").join(" ")]])
+  for (const [t, o, nm] of [["יצרן", M.makers, mkMake], ["דגם", M.models, k => k.split("|").join(" ")]])
     Object.entries(o).map(([k, v]) => [t, nm(k), sumM(v, P.ms), sumM(v, P.prevMs)]).filter(r => r[2] > 0).sort((a, b) => b[2] - a[2]).forEach(r => rows.push(r));
   shareFile(new Blob(["\ufeff" + rows.map(r => r.map(q).join(",")).join("\r\n")], {type: "text/csv"}), `Luchit-market-${P.sel}.csv`, "נתוני שוק הרכב");
 }
