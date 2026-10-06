@@ -1,2 +1,3 @@
 android/build-web/
 .github/scripts/node_modules
+service.json

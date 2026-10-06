@@ -38,6 +38,12 @@ jobs:
           node .github/scripts/obfuscate.mjs
           rm .github/scripts/node_modules
 
+      - name: Private service-interval data (kept out of the public repo)
+        env:
+          SERVICE_JSON_B64: ${{ secrets.SERVICE_JSON_B64 }}
+        run: |
+          if [ -n "$SERVICE_JSON_B64" ]; then echo "$SERVICE_JSON_B64" | base64 -d > service.json; echo "service.json added to the build"; else echo "no service data secret; building without it"; fi
+
       - name: Build
         working-directory: android
         run: |
