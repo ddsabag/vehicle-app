@@ -294,6 +294,7 @@ section[style*="--n:3"] .cmp-k{font-size:.76rem}
 .pro-tag .i{width:10px;height:10px}
 .tier{margin:14px 0;padding:0 0 1px;border-top:2px solid #e3c25a}
 .tier-h{display:flex;align-items:center;gap:6px;font-size:.78rem;font-weight:700;color:#8a6500;padding:6px 2px 8px}
+.stls{list-style:none;margin:0;padding:0}.stl{padding:8px 0;border-top:1px solid var(--line,#e7e7e7)}.stl:first-child{border-top:0}.stl .pill{margin-inline-start:6px}
 .tier-h .i{width:13px;height:13px}
 .tier .pro-tag{display:none}
 .tier>.card,.tier>.buyer-card>.card{background:linear-gradient(#fffaf0,#fffaf0)}
@@ -1024,6 +1025,44 @@ const IMPORTER_RECALL = [
   {re:/פורשה/, name:"פורשה ישראל", url:"https://www.porsche.co.il/", note:"בעמוד הבית של פורשה, בתחתית העמוד: \"קריאות שירות לרכבי פורשה\"."},
   {re:/טסלה/, name:"טסלה", url:"https://service.tesla.com/he-IL/vin-recall-search", vin:true, note:"טסלה בודקת לפי מספר שלדה (VIN) ולא לפי מספר רישוי. מספר השלדה מופיע בלשונית מפרט."},
 ];
+/* class-action settlements (הסדרי פשרה): matched by maker + model + year. Compiled 6.10.2026 from importer notices and press, second-hand and not legal advice. Review every April/October; drop entries after `until`. */
+const SETTLEMENTS = [
+  {id:"hy-paint", mk:/יונדאי/, md:/SANTAFE|ACCENT|ELANTRA|SONATA/, ok:(v,y,x)=>(/SANTAFE/.test(x.md)&&y>=2013&&y<=2019||/ACCENT/.test(x.md)&&y>=2011&&y<=2018||/ELANTRA/.test(x.md)&&y>=2011&&y<=2016||/SONATA/.test(x.md)&&y>=2016&&y<=2019)&&/לבן/.test(v.tzeva_rechev||""), t:"קילוף צבע ברכב לבן", b:"צביעה מחדש או החזר, שובר 1,250 ₪ או החזר עד 5,000 ₪.", cond:"רכבי סנטה פה, אקסנט, אלנטרה ו-סונטה בצבע לבן. תקף 12 חודשים ממועד הזכאות או עד גיל 10 שנים.", st:"ok", until:"2027-04-30", url:"https://www.colmobil.co.il/messages/"},
+  {id:"mi-outl22", mk:/מיצובישי/, md:/OUTLANDER/, ok:(v,y)=>y===2022, t:"רעש מכסה מנוע", b:"החלפת מכסה מנוע מחוזק ללא עלות והארכת אחריות ל-30 חודשים.", cond:"אאוטלנדר שנתון 2022 שיוצר עד 16.11.2021.", st:"ok", until:"2027-06-30", url:"https://www.colmobil.co.il/messages/"},
+  {id:"kia-ceed", mk:/קיה/, md:/CEED|סיד/, y:[2013,2018], t:"סדקים בלוח המחוונים ליד כרית האוויר", b:"החלפת לוח מחוונים ב-1,872 ₪ במקום כ-5,600 ₪, והנחה על חלפים.", cond:"תקף כשנתיים מהמועד שבו נולדה הזכאות.", st:"ok", until:"2027-03-31", url:"https://kia-israel.co.il/הודעה-בדבר-הסכם-פשרה"},
+  {id:"kia-sport-dash", mk:/קיה/, md:/SPORTAGE|ספורטז/, y:[2012,2021], t:"סדקים בלוח המחוונים ליד כרית האוויר", b:"החלפת לוח מחוונים ב-2,574 ₪ והנחה על חלפים.", cond:"תקף 6 שנים מהייצור או שנתיים מהמועד שבו נולדה הזכאות, המאוחר מביניהם.", st:"ok", until:"2027-12-31", url:"https://kia-israel.co.il/הודעה-בדבר-הסכם-פשרה"},
+  {id:"kia-sport-lamp", mk:/קיה/, md:/SPORTAGE|ספורטז/, y:[2016,2018], t:"עכירות בפנסים קדמיים", b:"שובר שירות של 252 ₪.", cond:"ייצור סלובקיה. נשלחת הודעת SMS לבעלים שנכשלו בטסט בשנים 2018 עד 2021.", st:"ok", until:"2027-06-30", url:"https://kia-israel.co.il/הודעה-בדבר-הסכם-פשרה"},
+  {id:"kia-niro", mk:/קיה/, md:/NIRO|נירו/, y:[2016,2019], t:"עמעום פנסים קדמיים", b:"החלפת פנס ללא עלות.", cond:"ההסדר מחכה לאישור בית המשפט.", st:"wait", until:"2027-12-31", url:"https://kia-israel.co.il/הודעה-בדבר-הסכם-פשרה"},
+  {id:"kia-coil", mk:/קיה/, md:/SORENTO|FORTE|RIO|סורנטו|פורטה|ריו/, ok:(v,y,x)=>/SORENTO|סורנטו/.test(x.md)&&y>=2009&&y<=2013||/FORTE|פורטה/.test(x.md)&&y>=2012&&y<=2014||/RIO|ריו/.test(x.md)&&y>=2010&&y<=2013, t:"תקלת סליל", b:"שובר 192 ₪ לחלפים.", cond:"ההסדר מחכה לאישור בית המשפט.", st:"wait", until:"2027-12-31", url:"https://kia-israel.co.il/הודעה-בדבר-הסכם-פשרה"},
+  {id:"toy-dash", mk:/טויוטה|לקסוס/, md:/AVENSIS|COROLLA|CAMRY|LANDCRUISER|^(GS|IS|LS|RX)/, y:[2007,2017], t:"דבקות או סדקים בלוח המחוונים", b:"החלפה בהשתתפות עצמית של 1,250 עד 1,350 ₪ (לנד קרוזר 2,500 עד 2,700 ₪), או החזר על החלפה קודמת.", cond:"ייצור 1.1.2007 עד 29.5.2017 ורק לשלדות שברשימה של היבואן.", st:"ok", until:"2027-04-03", url:"https://www.toyota.co.il/owners/dashbord"},
+  {id:"toy-dpf", mk:/טויוטה/, md:/HILUX|היילקס/, y:[2015,2016], ok:(v)=>/דיזל|סולר/.test(v.sug_delek_nm||""), t:"תקלות במסנן חלקיקים (DPF)", b:"החלפת מסנן ללא עלות, והחזר על החלפה קודמת.", cond:"דיזל יורו 5 שיוצר בין 1.5.2015 ל-30.4.2016. תקף 18 חודשים מכניסת ההסדר לתוקף.", st:"ok", until:"2026-12-31", url:"https://www.toyota.co.il/owners/dashbord"},
+  {id:"sub-cvt", mk:/סובארו/, y:[2010,2018], t:"תיבת CVT", b:"אחריות מורחבת ל-10 שנים או 160,000 ק״מ, ובדיקה אחת ללא עלות.", cond:"רכב עם תיבת CVT (TR580, TR690). מועד ההחזר על תיקונים קודמים חלף.", st:"ok", until:"2030-12-31", url:"https://subaru.co.il/compromise-arrangements/"},
+  {id:"vag-pump", mk:/פולקסווגן|פולקסוואגן|סקודה|אאודי|סיאט|קופרה/, ok:(v,y)=>{ const cc = num(v.nefach_manoa); return y>=2013&&y<=2021&&cc>=1150&&cc<=2000&&!/דיזל|סולר|חשמל/.test(v.sug_delek_nm||""); }, t:"משאבת מים (מנועי TSI/TFSI)", b:"הארכת אחריות על משאבת המים ב-18 חודשים או עד 200,000 ק״מ.", cond:"מנועי EA888 (1.8 ו-2.0) שיוצרו 2013 עד 2020, ומנועי EA211 (1.2 ו-1.4) שיוצרו 2014 עד 2021. מועד ההחזר על תיקונים קודמים חלף.", st:"ok", until:"2027-04-19", url:"https://championmotors.co.il/arrangements/waterpumps/"},
+  {id:"suz-swift", mk:/סוזוקי/, md:/SWIFT|סוויפט/, y:[2017,2025], t:"מדחס מזגן (Denso)", b:"אחריות מורחבת ל-10 שנים והחזר עד 3,600 ₪ על תיקונים קודמים.", cond:"ההסדר מחכה לאישור בית המשפט. ההגשה נפתחת 90 יום אחרי העלאת אתר ייעודי.", st:"wait", until:"2027-12-31", url:"https://suzuki.co.il/pshara"},
+  {id:"suz-hybrid", mk:/סוזוקי/, md:/SWIFT|IGNIS|VITARA|SCROSS|CROSS|סוויפט|איגניס|ויטרה/, y:[2017,2024], ok:(v)=>/היברידי|HYBRID/i.test([v.sug_delek_nm, v.ramat_gimur, v.kinuy_mishari, v.degem_nm].join(" ")), t:"שיווק מטעה של רכב \"היברידי\"", b:"בחירה בין הטבות: טיפולים, הארכת אחריות, שובר צמיגים או הנחה.", cond:"גרסאות מייל-היברידיות שנמכרו עד ינואר 2024. ההסדר מחכה לאישור בית המשפט.", st:"wait", until:"2027-12-31", url:"https://suzuki.co.il/pshara"},
+  {id:"mazda-screen", mk:/מאזדה/, y:[2015,2022], ok:(v,y,x)=>!(/MAZDA3|מאזדה3/.test(x.md)&&y<=2016), t:"מסך מגע לא מגיב", b:"החלפת עדשת מסך ללא עלות, וגם החזר על תיקון קודם.", cond:"עד 6 שנים מהמסירה ו-160,000 ק״מ. ההסדר מחכה לאישור בית המשפט.", st:"wait", until:"2027-12-31", url:"https://www.delek-motors.co.il/"},
+  {id:"chev-urea", mk:/שברולט|שברולה/, md:/SILVERADO|SAVANA|סילברדו|סוואנה/, y:[2010,2016], t:"מערכת האוריאה", b:"אחריות ל-10 שנים או 193,000 ק״מ, ורק לשנתון 2016 גם החזר עד 4,846 ₪.", cond:"שנתונים 2010 עד 2013 אינם זכאים.", st:"ok", until:"2030-12-31", url:"https://www.chevrolet.co.il/"},
+  {id:"honda-oil", mk:/הונדה/, md:/CIVIC|CRV|סיוויק/, y:[2017,2023], ok:(v,y,x)=>(y<=2021||/TYPER|CIVICTYPE/.test(x.md))&&num(v.nefach_manoa)<=1600, t:"החלפת שמן תדירה במנועי טורבו", b:"החלפת שמן ללא עלות במרכזי הונדה והנחה במוסכים מורשים אחרים.", cond:"סיוויק וסי-אר-וי טורבו 2017 עד 2021, וסיוויק טייפ-R 2022 עד 2023. תקף 17.7.2024 עד 16.7.2027.", st:"ok", until:"2027-07-16", url:"https://honda.co.il/"},
+  {id:"honda-belt", mk:/הונדה/, md:/CIVIC|סיוויק/, y:[2017,2021], ok:(v)=>{ const cc = num(v.nefach_manoa); return cc>0&&cc<1100; }, t:"בלאי מוקדם של רצועת תזמון", b:"הארכת אחריות על המנוע והטורבו ל-12 חודשים.", cond:"סיוויק 1.0 טורבו. אושר 26.4.2026.", st:"ok", until:"2027-04-26", url:"https://hondacars.co.il/"},
+  {id:"opel-lspi", mk:/אופל/, md:/ASTRA|MERIVA|MOKKA|ZAFIRA|אסטרה|מריבה|מוקה|זפירה/, y:[2012,2018], ok:(v)=>{ const cc = num(v.nefach_manoa); return cc>=1300&&cc<=1500; }, t:"הצתה מוקדמת במנועי טורבו (LSPI)", b:"אחריות מורחבת עד 7 שנים והחזר על תיקון בוכנות.", cond:"רשימת הדגמים המדויקת אינה מפורסמת בצורה שיכולנו לקרוא. בדקו לפי מספר רכב בדף הבדיקה של אופל.", st:"ok", until:"2027-12-31", url:"https://hesderim.opel.co.il/", low:true}
+];
+const normS = t => String(t || "").toUpperCase().replace(/[^A-Z0-9א-ת]/g, "");
+function settlementsFor(D){
+  const v = D.v, y = num(v.shnat_yitzur), now = new Date(), x = {mk: normS([v.tozeret_nm, D.make].join(" ")), md: normS([v.kinuy_mishari, v.degem_nm].join(" "))};
+  return SETTLEMENTS.filter(s => !(new Date(s.until) < now) && s.mk.test(x.mk) && (!s.md || s.md.test(x.md)) && (!s.y || y >= s.y[0] && y <= s.y[1]) && (!s.ok || s.ok(v, y, x)));
+}
+function settlementCard(D){
+  const list = D.kind === "model" ? [] : settlementsFor(D);
+  const reg = `<button type="button" class="link-btn" data-url="https://elyon1.court.gov.il/heb/tovanot_yezugiyot/main.htm">${ico("doc")}פנקס התובענות הייצוגיות של בתי המשפט</button>`;
+  const note = `<p class="note">לפי הודעות היבואנים והעיתונות, נכון ל-10/2026. הזכאות בפועל נקבעת לפי הרכב (לפעמים לפי מספר שלדה) ותנאי ההסדר, וייתכן שהמועד חלף. לפני תיקון בתשלום כדאי לבדוק מול היבואן.</p>`;
+  if (!list.length) return card("הסדרי פשרה", "scale", "slate", `<p style="margin:0">לא מצאנו אצלנו הסדר פשרה פתוח שמתאים לדגם ולשנתון של הרכב. הרשימה שלנו כוללת את ההסדרים הידועים של היבואנים הגדולים.</p>${reg}`);
+  const full = !PRO_LOCK || isPro();
+  const items = list.map(s => full
+    ? `<li class="stl"><b>${esc(s.t)}</b><span class="pill ${s.st === "ok" ? "ok" : ""}">${s.st === "ok" ? "אושר" : "ממתין לאישור"}</span><p style="margin:4px 0 0">${esc(s.b)}</p><p class="note" style="margin:2px 0 0">${esc(s.cond)}${s.low ? " הרשימה פחות ודאית." : ""}</p><button type="button" class="link-btn" data-url="${esc(s.url)}">${ico("search")}לדף היבואן</button></li>`
+    : `<li class="stl"><b>${esc(s.t)}</b></li>`).join("");
+  return card("ייתכן שמגיע לכם תיקון בחינם", "scale", "amber",
+    `<p style="margin:0 0 6px">${pl(list.length, "נמצא הסדר פשרה אחד", "נמצאו הסדרי פשרה")} שעשויים לחול על הרכב:</p><ul class="stls">${items}</ul>${full ? note + reg : `<p class="note">פרטי ההטבה, התנאים והקישור ליבואן זמינים ב-PRO.</p><button type="button" class="link-btn" data-act="proInfo">הצטרפות ל-PRO</button>`}`, `<span class="count">${list.length}</span>`);
+}
 function importerRecall(D){
   const m = [D.v.tozeret_nm, D.v.kinuy_mishari, D.v.degem_nm, D.make].filter(x => !empty(x)).join(" ");
   const hit = IMPORTER_RECALL.find(x => x.re.test(m));
@@ -1155,6 +1194,7 @@ function buildInsights(D){
   if (D.isCancelled) add("bad", "הרכב ירד מהכביש", `הרכב בוטל סופית${empty(v.bitul_dt) ? "" : " ב-" + fmtDate(v.bitul_dt)} ואינו יכול לנסוע.`);
   else if (D.primary && /^inactive/.test(D.primary.key)) add("warn", "הרכב לא פעיל", "הרכב רשום כלא פעיל במאגר משרד התחבורה.");
   // open recalls are not repeated here: the red banner above the tabs already says it
+  { const n = D.kind === "model" || D.isCancelled ? 0 : settlementsFor(D).length; if (n) add("info", "ייתכן שמגיע לכם תיקון בחינם", `${pl(n, "נמצא הסדר פשרה אחד", "נמצאו הסדרי פשרה")} שעשויים לחול על הרכב. הפרטים בלשונית ריקולים.`); }
   const exp = toDate(v.tokef_dt);
   if (exp && !D.isCancelled) {
     const days = Math.round((exp - now) / 864e5);
@@ -1667,14 +1707,7 @@ function tabRecalls(D){
   } else {
     html.push(card("היסטוריית ריקולים לדגם", "clock", "blue", `<p style="margin:0">לא נמצאו ריקולים קודמים לדגם הזה במאגר.</p>`));
   }
-  const who = D.pick(D.price && D.price.shem_yevuan, D.modelRecalls[0] && D.modelRecalls[0].YEVUAN_TEUR, D.make);
-  const q = `"${who}" ("תובענה ייצוגית" OR "הסדר פשרה")`;
-  html.push(card("תובענות ייצוגיות והסדרי פשרה", "scale", "slate",
-    `<p style="margin:0">חיפוש תובענות ייצוגיות לפי היבואן או היצרן:</p>
-     <div class="link-list">
-       <button type="button" class="link-btn" data-url="https://www.google.com/search?q=${encodeURIComponent(q)}">${ico("google")}חיפוש "${esc(who)}" עם תובענה ייצוגית או הסדר פשרה</button>
-       <button type="button" class="link-btn" data-url="https://elyon1.court.gov.il/heb/tovanot_yezugiyot/main.htm">${ico("doc")}פנקס התובענות הייצוגיות של בתי המשפט</button>
-     </div>`));
+  html.push(settlementCard(D));
   return html.join("");
 }
 
