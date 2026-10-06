@@ -214,8 +214,8 @@ footer a{color:var(--accent)}
 .alert-banner{display:flex;gap:12px;align-items:flex-start;text-align:start;width:100%;border:0;border-radius:16px;padding:14px 16px;background:#b42318;color:#fff;font-size:.95rem}
 .alert-banner b{display:block;font-size:1.05rem}
 .alert-banner svg.i{width:26px;height:26px;margin-top:2px}
-.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:var(--card);border-radius:14px;padding:5px;box-shadow:var(--shadow);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
-.tabs button{border:0;background:transparent;border-radius:10px;padding:9px 4px;font-weight:700;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:5px}
+.tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;background:var(--card);border-radius:14px;padding:5px;box-shadow:var(--shadow);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.tabs button{border:0;background:transparent;border-radius:10px;padding:9px 2px;font-size:.86rem;font-weight:700;white-space:nowrap;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:5px}
 .tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-fg)}
 .tabs i{font-style:normal;font-size:.72rem;min-width:18px;padding:0 5px;border-radius:999px;background:var(--soft);color:var(--fg)}
 .tabs i.hot{background:var(--bad);color:#fff}
@@ -290,7 +290,9 @@ section[style*="--n:3"] .cmp-k{font-size:.76rem}
 .seg.two{grid-template-columns:1fr 1fr}
 .card.many{overflow-x:auto}.many .cmp,.many .cmp-table{min-width:calc(var(--n)*116px)}
 .ph-svg{width:100%;height:auto;display:block}.opt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:start;border:1.5px solid var(--line);border-radius:14px;padding:12px;background:var(--card);margin-top:8px;position:relative;color:var(--fg)}.opt b{font-size:1rem}.opt .pr{font-weight:800}.opt small{color:var(--muted)}.opt.best{border-color:#ffc400;box-shadow:0 0 0 2px #ffc40055}.opt em{position:absolute;inset-block-start:-9px;inset-inline-end:12px;background:#ffc400;color:#111;font-style:normal;font-weight:800;font-size:.7rem;border-radius:6px;padding:1px 8px}.cmpp td,.cmpp th{font-size:.8rem;padding:6px 2px}
-.pro-tag{display:inline-block;background:#ffc400;color:#111;font-weight:800;font-size:.7rem;border-radius:6px;padding:1px 6px;margin-inline-start:6px}
+.pro-tag{display:inline-flex;align-items:center;gap:3px;border:1px solid #d9a600;color:#8a6500;font-weight:700;font-size:.68rem;border-radius:6px;padding:0 6px;margin-inline-start:6px;vertical-align:middle}
+.pro-tag .i{width:10px;height:10px}
+@media (prefers-color-scheme: dark){.pro-tag{color:#e6b93a;border-color:#8a6500}}
 .ev{display:flex;gap:10px;justify-content:space-between;padding:7px 0;border-top:1px solid var(--line);align-items:flex-start}.ev:first-of-type{border-top:0}.ev small{color:var(--muted);white-space:nowrap}
 .inp{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--soft);color:var(--fg);font:inherit}
 textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
@@ -300,6 +302,10 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .bflags,.bq{margin:0 0 10px;padding-inline-start:20px}.bflags li.bad{color:var(--bad);font-weight:700}.bflags li.warn{color:var(--warn);font-weight:700}.bq li{margin:2px 0}
 .vd.ok{color:var(--ok);font-weight:700}.vd.bad{color:var(--bad);font-weight:700}.ft .g,.sum3 .g{color:var(--ok)}.ft .w,.sum3 .w{color:var(--warn)}.ft .r,.sum3 .r{color:var(--bad)}.ft td.g,.ft td.w,.ft td.r{font-weight:700}
 .sum3{display:flex;gap:6px;margin:10px 0}.sum3 div{flex:1;background:var(--soft);border-radius:10px;padding:6px;text-align:center;font-size:.8rem;color:var(--muted)}.sum3 b{display:block;font-size:1.3rem}
+.tools{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.tool{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:start;border:0;background:var(--card);box-shadow:var(--shadow);border-radius:14px;padding:12px;font-weight:700;color:var(--fg)}
+.tool .i{width:22px;height:22px;color:var(--muted)}
+.tool small{font-weight:400;color:var(--muted);line-height:1.35}
 .bulk-acts{display:flex;flex-direction:column;gap:8px;margin-top:8px}
 .rep-brand.biz{background:var(--soft,#f2f4f8);border-bottom:3px solid #1d4ea8;border-radius:10px}.rep-brand.biz img{width:48px;height:48px;object-fit:contain;border-radius:8px;box-shadow:none}.rep-brand.biz b{font-size:1.3rem}
 .ft{width:100%;border-collapse:collapse;font-size:.9rem}.ft td,.ft th{padding:8px 4px;border-top:1px solid var(--line);text-align:center}.ft td:first-child,.ft th:first-child{text-align:start}.ft th{font-size:.78rem;color:var(--muted);font-weight:600;border-top:0}.ft button.lnk small{display:block}.ft button.lnk{border:0;background:none;color:inherit;font:inherit;text-align:start;padding:0;display:block}
@@ -456,6 +462,7 @@ body.land .band{display:none}
   <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 9a6 6 0 1 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9z"/><path d="M10 20a2 2 0 0 0 4 0"/></symbol>
   <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
   <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2c3 3 4.5 6.5 4.5 10S15 19 12 22c-3-3-4.5-6.5-4.5-10S9 5 12 2z"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 11V8a4 4 0 018 0v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
   <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/></symbol>
   <symbol id="i-back" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
   <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
@@ -570,7 +577,7 @@ function plan(){
   if (e.buyer > now) return "buyer";
   return "free";
 }
-const PT = t => PRO_LOCK ? `<span class="pro-tag">${t}</span>` : "";
+const PT = t => PRO_LOCK ? `<span class="pro-tag">${ico("lock")}${t}</span>` : "";
 const atLeast = n => RANK[plan()] >= RANK[n];
 const isPro = () => atLeast("buyer");
 const FREE_SAVED_ALERTS = 3, FREE_CMP = 3, PRO_CMP = 6, FLEET_MAX = 10, BUYER_ALERTS = 10;
@@ -742,22 +749,6 @@ function facts(list){
 }
 function proLockCard(title, text){
   return card(title, "star", "amber", `<p style="margin:0">${esc(text)}</p><button type="button" class="link-btn" data-act="proInfo">הצטרפות ל-PRO</button>`, `${PT("PRO")}`);
-}
-function priceHistoryCard(D){
-  const by = {};
-  for (const r of D.priceRows || []) { const y = num(r.shnat_yitzur), m = num(r.mehir); if (y > 1990 && m > 0) (by[y] ||= []).push(m); }
-  const pts = Object.keys(by).map(Number).sort((a, b) => a - b).map(y => [y, Math.round(by[y].reduce((a, b) => a + b, 0) / by[y].length / 100) * 100]);
-  if (pts.length < 2) return "";
-  if (PRO_LOCK && !isPro()) return proLockCard("מחיר מחירון לפי שנתון", "איך מחיר המחירון של הדגם השתנה משנתון לשנתון.");
-  const W = 300, H = 120, lo = Math.min(...pts.map(p => p[1])), hi = Math.max(...pts.map(p => p[1])), span = Math.max(hi - lo, 1);
-  const X = i => 14 + i * (W - 28) / (pts.length - 1), Y = v => 14 + (H - 28) * (1 - (v - lo) / span);
-  const line = pts.map((p, i) => `${X(i).toFixed(1)},${Y(p[1]).toFixed(1)}`).join(" ");
-  const first = pts[0], last = pts[pts.length - 1], chg = Math.round((last[1] - first[1]) / first[1] * 100);
-  const lab = (i) => `<text x="${X(i).toFixed(1)}" y="${H + 12}" text-anchor="middle" font-size="10" fill="currentColor" opacity=".6">${pts[i][0]}</text>`;
-  return card("מחיר מחירון לפי שנתון", "tag", "blue",
-    `<svg class="ph-svg" viewBox="0 0 ${W} ${H + 18}" dir="ltr" role="img" aria-label="מחיר מחירון לפי שנתון"><polyline points="${line}" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linejoin="round"/>${pts.map((p, i) => `<circle cx="${X(i).toFixed(1)}" cy="${Y(p[1]).toFixed(1)}" r="3.5" fill="var(--accent)"/>`).join("")}${lab(0)}${lab(pts.length - 1)}</svg>
-     <dl class="facts"><div><dt>${first[0]}</dt><dd>${fmtN(first[1])} ₪</dd></div><div><dt>${last[0]}</dt><dd>${fmtN(last[1])} ₪</dd></div><div><dt>שינוי</dt><dd>${"\u200e"}${chg >= 0 ? "+" : "−"}${Math.abs(chg)}%</dd></div></dl>
-     <p class="note">ממוצע המחירים של כל הגימורים בכל שנתון.</p>`, `${PT("PRO")}`);
 }
 const foldKey = t => "fold:" + t;
 const isFolded = t => { try { return localStorage.getItem(foldKey(t)) === "1"; } catch { return false; } };
@@ -1177,7 +1168,9 @@ function buildInsights(D){
 
 /* ---------- result screen ---------- */
 let ctrl = null, current = null, currentTab = "overview";
-const TABS = [["overview","סקירה"],["recalls","ריקולים"],["costs","עלויות"],["maint","תחזוקה"],["specs","מפרט"]];
+const TABS = [["overview","סקירה"],["buy","קנייה"],["maint","אחזקה"],["recalls","ריקולים"],["specs","מפרט"]];
+// the report lists the buyer view and the costs, never the private maintenance log
+const REPORT_TABS = [["overview","סקירה"],["buy","קנייה"],["costs","עלויות"],["recalls","ריקולים"],["specs","מפרט"]];
 
 async function lookup(raw){
   const plate = digits(raw).replace(/^0+(?=\d{5})/, "");
@@ -1251,7 +1244,7 @@ function renderResult(){
 
   const recallCount = D.recalls.length;
   html.push(`<div class="tabs" role="tablist">${TABS.map(([k, t]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${k === currentTab}">${t}${k === "recalls" && recallCount ? `<i class="hot">${recallCount}</i>` : ""}</button>`).join("")}</div>`);
-  html.push(`<div class="tab-body">${({overview: tabOverview, recalls: tabRecalls, costs: tabCosts, maint: tabMaint, specs: tabSpecs})[currentTab](D)}</div>`);
+  html.push(`<div class="tab-body">${TAB_FN()[currentTab](D)}</div>`);
   $("#out").innerHTML = html.join("");
 }
 /* One ownership record, and the first ownership type (מקוריות) agrees with it */
@@ -1472,9 +1465,7 @@ function tabOverview(D){
       `<ul class="insights">${ins.map(i => `<li class="ins ${i.level}">${ico(icon[i.level])}<div><b>${esc(i.title)}</b><span>${esc(i.text)}</span></div></li>`).join("")}</ul>
        <p class="note">התובנות אינן תחליף לבדיקת רכב במכון מורשה.</p>`));
   }
-  html.push(buyerCard(D));
   html.push(eventsCard(D));
-  html.push(`<div id="mstat">${msCard(D)}</div>`);
   const tb = D.tSrc && D.tSrc.kosher_grira_im_blamim, tu = D.tSrc && D.tSrc.kosher_grira_bli_blamim;
   const tv = x => isNum(x) && num(x) > 0 ? fmtN(x) : "—";
   const towNote = [];
@@ -1600,17 +1591,20 @@ function tabCosts(D){
      <p class="note">${u.green ? `כולל הפחתה של ${fmtN(u.green[1])} ₪ לרכב ${u.green[0]}. ` : ""}זה הסכום שמתווסף למשכורת לצורך מס, לא המס עצמו. הסכום המחייב מופיע במחשבון של רשות המסים.</p>
      <button type="button" class="link-btn" data-url="${USAGE.calc}" data-copyfirst="${esc(`קוד תוצר ${D.v.tozeret_cd} קוד דגם ${D.v.degem_cd} שנה ${u.regYear}`)}" data-copylabel="הקודים">${ico("doc")}המחשבון הרשמי של רשות המסים</button>` :
     `<p style="margin:0">אין מספיק נתונים לחישוב שווי השימוש של הרכב הזה (החישוב כאן לרכב פרטי שעלה לכביש מ-2010).</p><button type="button" class="link-btn" data-url="${USAGE.calc}">${ico("doc")}המחשבון הרשמי של רשות המסים</button>`));
+  return html.join("");
+}
+
+/* the buyer view: buying help, estimated value, how the model holds up, what to do before paying */
+function tabBuy(D){
+  const c = D.cost, html = [];
+  html.push(buyerCard(D));
   html.push(card("שווי משוער", "tag", "pink", (c.newPrice ?
     `<div class="tow-grid"><div><div class="k">מחיר מחירון כחדש</div><div class="v">${fmtN(c.newPrice)}<span class="u">₪</span></div></div><div><div class="k">שווי משוער היום</div><div class="v"><span dir="ltr" style="unicode-bidi:isolate;white-space:nowrap">${Math.round(c.valueLow / 1000)}–${Math.round(c.valueHigh / 1000)}</span><span class="u">אלף ₪</span></div></div></div>
      
      <p class="note">הערכה בלבד. היא לא מביאה בחשבון את מצב הרכב, תאונות והביקוש לדגם.</p>` :
     `<p style="margin:0">אין במאגר מחיר מחירון לדגם הזה, ולכן אין הערכת שווי.</p>`) +
     `<button type="button" class="link-btn" data-url="https://carlistprice.mot.gov.il/" data-copyfirst="${D.plate}">${ico("tag")}מחירון העם: מחירי עסקאות אמיתיות</button>`));
-  html.push(priceHistoryCard(D));
-  html.push(card("הדגם על הכביש", "car", "blue", c.active !== undefined ?
-    facts([["רכבים פעילים מהדגם", esc(fmtN(c.active))], ["כבר לא פעילים", esc(fmtN(c.gone))], c.gonePct !== null && ["שיעור שירד מהכביש", `${c.gonePct.toFixed(1)}%`, "wide"]]) +
-    `<p class="note">שיעור גבוה ביחס לגיל הדגם עשוי לרמוז על אמינות נמוכה או על תאונות.</p>` :
-    `<p style="margin:0">אין במאגר נתוני כמויות לדגם הזה.</p>`));
+  html.push(`<div id="mstat">${msCard(D)}</div>`);
   html.push(card("לפני שקונים", "check", "green",
     `<p style="margin:0">שלושה דברים שכדאי לעשות לפני שסוגרים עסקה:</p>
      <button type="button" class="link-btn" data-url="https://www.gov.il/apps/police/stolencar/" data-copyfirst="${D.plate}">${ico("search")}בדיקה במאגר הרכבים הגנובים (משטרה)</button>
@@ -2086,8 +2080,10 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "market") { openMarket(); return; }
   if (b.dataset.act === "fleet") { renderFleet(); return; }
   if (b.dataset.act === "cands") { renderCandidates(); return; }
-  if (b.dataset.act === "bulk") { renderBulk(); return; }
+  if (b.dataset.act === "bulk") { BULK = []; BULK_D = {}; BULK_TEXT = ""; renderBulk(); return; }
   if (b.dataset.act === "bulkRun") { runBulk(b); return; }
+  if (b.dataset.act === "bulkClear") { BULK = []; BULK_D = {}; BULK_TEXT = ""; renderBulk(); return; }
+  if (b.dataset.act === "bulkSave") { bulkSave(); return; }
   if (b.dataset.act === "bulkCsv") { bulkCsv(); return; }
   if (b.dataset.act === "bulkPdf") { bulkPdf(b); return; }
   if (b.dataset.act === "proInfo" || b.dataset.act === "upgrade") { if (UPGRADE_UI) renderUpgrade(); else toast("זמין בקרוב"); return; }
@@ -2194,7 +2190,7 @@ function loadScript(src){
     document.head.appendChild(el);
   }));
 }
-const TAB_FN = () => ({overview: tabOverview, recalls: tabRecalls, costs: tabCosts, maint: tabMaint, specs: tabSpecs});
+const TAB_FN = () => ({overview: tabOverview, buy: tabBuy, recalls: tabRecalls, costs: tabCosts, maint: D => tabMaint(D) + tabCosts(D), specs: tabSpecs});
 /* The report is built off-screen from the same cards the app shows, with every card open */
 function buildReport(D, full, biz){
   const el = document.createElement("div"); el.className = "report";
@@ -2204,7 +2200,7 @@ function buildReport(D, full, biz){
   if (idc) parts.push(idc.outerHTML);
   if (banner) parts.push(banner.outerHTML.replace(/^<button/, "<div").replace(/<\/button>$/, "</div>"));
   // the maintenance tab holds the private service log and interval table, so it is never part of a shared report
-  const tabs = (full ? TABS : TABS.filter(([k]) => k === (currentTab === "maint" ? "overview" : currentTab))).filter(([k]) => k !== "maint");
+  const tabs = full ? REPORT_TABS : REPORT_TABS.filter(([k]) => k === (currentTab === "maint" ? "overview" : currentTab));
   for (const [k, t] of tabs) { if (full) parts.push(`<h3 class="rep-sec">${t}</h3>`); parts.push(TAB_FN()[k](D)); }
   parts.push(`<p class="rep-foot">${biz ? bizFoot(biz) : "המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il, ואינו מחליף נסח רישום רשמי. " + BRAND_FOOT}</p>`);
   el.innerHTML = parts.join("");
@@ -2802,7 +2798,7 @@ const loadImg = src => new Promise(ok => { if (!src) return ok(null); const im =
 async function bizPdfOpts(b){
   return {foot: [b.name, b.phone].filter(Boolean).join(" · "), logo: await loadImg(b.logo)};
 }
-let BULK = [], BULK_TEXT = "";
+let BULK = [], BULK_TEXT = "", BULK_D = {};
 const BULK_MAX = 100;
 const parsePlates = t => [...new Set(String(t).split(/[\n\r,;]+/).map(x => digits(x).replace(/^0+(?=\d{5})/, "")).filter(d => d.length >= 5 && d.length <= 8))].slice(0, BULK_MAX);
 function bulkRow(D){
@@ -2821,14 +2817,14 @@ function bulkTable(running, total){
   return `${running ? `<p class="note" role="status">נבדקו ${BULK.length} מתוך ${total}…</p>` : ""}
     <div class="sum3"><div><b class="g">${n(0)}</b>תקין</div><div><b class="w">${n(1)}</b>לתשומת לב</div><div><b class="r">${n(2)}</b>בעיה</div></div>
     <table class="ft"><tr><th>לוחית</th><th>טסט</th><th>ריקולים</th><th>בעלויות</th></tr>${rows.map(r => `<tr><td><button type="button" class="lnk" data-open="${r.plate}"><b>${fmtPlate(r.plate)}</b><small style="color:var(--muted)">${esc(r.title)}${r.year ? " " + esc(r.year) : ""}</small></button></td><td class="${cls[r.days === "" ? 0 : r.days < 0 ? 2 : r.days <= 45 ? 1 : 0]}">${tx(r)}</td><td>${r.recalls ? `<b class="r">${r.recalls}</b>` : "—"}</td><td>${r.owners === "" ? "—" : r.owners}</td></tr>`).join("")}</table>
-    ${running ? "" : `<p class="note">מסודר לפי מה שדורש טיפול קודם.</p><div class="bulk-acts"><button type="button" class="link-btn" data-act="bulkCsv">${ico("doc")}ייצוא לאקסל (CSV)</button><button type="button" class="link-btn" data-act="bulkPdf">${ico("share")}${bizProfile().name ? "דוח PDF עם המיתוג שלי" : "דוח PDF"}</button></div>`}`;
+    ${running ? "" : `<p class="note">מסודר לפי מה שדורש טיפול קודם.</p><div class="bulk-acts"><button type="button" class="link-btn" data-act="bulkSave">${ico("star")}שמירת כל הרכבים לרכבים שלי</button><button type="button" class="link-btn" data-act="bulkCsv">${ico("doc")}ייצוא לאקסל (CSV)</button><button type="button" class="link-btn" data-act="bulkPdf">${ico("share")}${bizProfile().name ? "דוח PDF עם המיתוג שלי" : "דוח PDF"}</button><button type="button" class="link-btn" data-act="bulkClear">${ico("x")}ניקוי הרשימה ובדיקה חדשה</button></div>`}`;
 }
 function renderBulk(){
   if (land) setLand(false, false);
   current = null; inCompare = false;
   const html = [];
-  if (PRO_LOCK && !isBiz()) html.push(proLockCard("בדיקת רשימת לוחיות", "בודקים עד 100 רכבים בבת אחת, מייצאים לאקסל ומפיקים דוח PDF עם המיתוג שלכם."));
-  else html.push(card("בדיקת רשימת לוחיות", "doc", "blue", `<p style="margin:0 0 8px">הדביקו לוחית בכל שורה (או מופרדות בפסיק), עד ${BULK_MAX}. אפשר להדביק ישר מאקסל.</p>
+  if (PRO_LOCK && !isBiz()) html.push(proLockCard("בדיקת כמה רכבים בבת אחת", "הדביקו רשימת מספרי רישוי וקבלו טבלה אחת עם טסט, ריקולים ובעלויות לכל רכב. אפשר לייצא לאקסל ולהפיק דוח PDF עם המיתוג שלכם."));
+  else html.push(card("בדיקת כמה רכבים בבת אחת", "doc", "blue", `<p style="margin:0 0 8px">הדביקו רשימת מספרי רישוי, אחד בכל שורה או מופרדים בפסיק (עד ${BULK_MAX}), ותקבלו טבלה אחת: טסט, ריקולים ובעלויות לכל רכב. אפשר להדביק ישר מאקסל.</p>
     <textarea class="inp" id="bulkIn" rows="6" placeholder="12-345-67&#10;234-56-789" dir="ltr">${esc(BULK_TEXT)}</textarea>
     <button type="button" class="link-btn" data-act="bulkRun" style="margin-top:8px">${ico("search")}בדיקת הרשימה</button>
     <div id="bulkOut">${BULK.length ? bulkTable(false) : ""}</div>`, `${PT("PRO עסקי")}`));
@@ -2839,17 +2835,25 @@ async function runBulk(btn){
   const ta = $("#bulkIn"); BULK_TEXT = ta.value;
   const plates = parsePlates(ta.value);
   if (!plates.length) { toast("לא מצאתי מספרי רישוי ברשימה"); return; }
-  BULK = []; btn.disabled = true;
+  BULK = []; BULK_D = {}; btn.disabled = true;
   const queue = plates.slice(), ac = new AbortController();
   const worker = async () => { while (queue.length) {
     const p = queue.shift(); let D;
     try { D = await fetchVehicle(p, ac.signal); } catch { D = {plate: p, offline: true}; }
-    BULK.push(bulkRow(D));
+    BULK.push(bulkRow(D)); if (!D.notFound && !D.offline) BULK_D[D.plate] = D;
     const o = $("#bulkOut"); if (o) o.innerHTML = bulkTable(true, plates.length);
   } };
   await Promise.all([worker(), worker(), worker()]);
   const o = $("#bulkOut"); if (o) o.innerHTML = bulkTable(false);
   btn.disabled = false;
+}
+function bulkSave(){
+  const list = store.get("savedVehicles"), have = new Set(list.map(x => x.plate));
+  const add = Object.values(BULK_D).filter(D => !have.has(D.plate)).map(newSavedItem);
+  if (!add.length) { toast("כל הרכבים שנמצאו כבר שמורים אצלך"); return; }
+  const room = Math.max(0, 50 - list.length);
+  store.set("savedVehicles", [...add.slice(0, room), ...list].slice(0, 50)); updateSavedBar();
+  toast(add.length > room ? `נשמרו ${room} רכבים. הרשימה מוגבלת ל-50 רכבים.` : `נשמרו ${add.length} רכבים ב"הרכבים שלי"`);
 }
 function bulkCsv(){
   const q = x => `"${String(x).replace(/"/g, '""')}"`, lv = ["תקין", "לתשומת לב", "בעיה"];
@@ -2881,13 +2885,17 @@ function renderHome(){
   const html = [];
   if (!saved.length && !recent.length) html.push(`<section class="hero"><h2>לפני שקונים רכב, בודקים אותו כאן</h2><p>מספר רישוי אחד, וכל מה שחשוב לדעת בשניות.</p><ul><li>${ico("alert")}ריקולים פתוחים ותקלות מוכרות</li><li>${ico("users")}כמה בעלים היו ומה סוג הבעלות</li><li>${ico("chart")}ק״מ, עלויות ומחיר הוגן</li></ul></section>`);
   const pn = planNotice(); if (pn) html.push(pn);
-  if (saved.length) html.push(card("רכבים שמורים", "star", "amber", `<div class="list">${saved.map(s => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-open="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b>${esc(s.title)}</b><small>${esc(s.sub || "")}</small>${savedFlags(s)}</span></button><button type="button" class="x bell" data-bell="${s.plate}" aria-pressed="${s.alerts !== false}" aria-label="התראות לרכב הזה">${ico("bell")}</button><button type="button" class="x" data-unsave="${s.plate}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div><p class="note">הפעמון קובע על אילו רכבים תקבלו התראה על ריקול חדש או טסט שעומד לפוג.</p>`));
+  if (saved.length) html.push(card("הרכבים שלי", "star", "amber", `<div class="list">${saved.map(s => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-open="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b>${esc(s.title)}</b><small>${esc(s.sub || "")}</small>${savedFlags(s)}</span></button><button type="button" class="x bell" data-bell="${s.plate}" aria-pressed="${s.alerts !== false}" aria-label="התראות לרכב הזה">${ico("bell")}</button><button type="button" class="x" data-unsave="${s.plate}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div><p class="note">הפעמון קובע על אילו רכבים תקבלו התראה על ריקול חדש או טסט שעומד לפוג.</p>`));
   if (recent.length) html.push(card("חיפושים אחרונים", "clock", "blue", `<div class="chips">${recent.map(p => `<button type="button" class="chip" data-open="${p}">${fmtPlate(p)}</button>`).join("")}</div>`));
-  html.push(card("השוואת דגמים לפני קנייה", "compare", "violet", `<p style="margin:0">מחפשים רכב? חפשו לפי יצרן או דגם והשוו עד ${cmpMax()} דגמים: מחיר, צריכת דלק, אגרה, כוח, גרירה, בטיחות וכמה ריקולים היו לדגם.</p><button type="button" class="link-btn" data-act="compareHome">${ico("search")}התחלת השוואה</button>${store.get("savedCompares").length ? `<div class="qsec" style="margin-top:12px">השוואות שמורות</div><div class="list">${store.get("savedCompares").map((c, i) => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-loadcmp="${i}"><span class="t"><b>${esc(c.name)}</b><small>${c.items.length} רכבים</small></span></button><button type="button" class="x" data-delcmp="${i}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div>` : ""}`));
-  if (saved.length >= 2) html.push(card("הצי שלי", "car", "blue", `<p style="margin:0">כל הרכבים השמורים בטבלה אחת: טסט, ריקולים ומה דורש טיפול.</p><button type="button" class="link-btn" data-act="fleet">${ico("car")}לצי שלי</button>`, `${PT("PRO")}`));
-  if (saved.some(s => s.ask || s.fair)) html.push(card("רשימת מועמדים", "star", "amber", `<p style="margin:0">הרכבים ששמרתם מול המחיר שהמוכר מבקש, הטווח ההוגן והעלות ל-5 שנים.</p><button type="button" class="link-btn" data-act="cands">${ico("star")}לרשימת המועמדים</button>`, `${PT("PRO")}`));
-  html.push(card("שוק הרכב", "chart", "blue", `<p style="margin:0">כמה רכבים חדשים נמסרו, אילו יצרנים ודגמים מובילים, מי קונה (פרטי, ליסינג, חברה, השכרה) ואיזה סוג הנעה. לפי שנה או רבעון.</p><button type="button" class="link-btn" data-act="market">${ico("chart")}לנתוני השוק</button>`));
-  html.push(card("בדיקת רשימת לוחיות", "doc", "slate", `<p style="margin:0">לסוחרים, מתווכים ומנהלי צי: בדיקת עד ${BULK_MAX} רכבים בבת אחת, ייצוא לאקסל ודוח PDF עם המיתוג שלכם.</p><button type="button" class="link-btn" data-act="bulk">${ico("doc")}לבדיקת רשימה</button>`, `${PT("PRO עסקי")}`));
+  const tool = (act, icon, title, text, tag) => `<button type="button" class="tool" data-act="${act}">${ico(icon)}<span>${title}${tag ? PT(tag) : ""}</span><small>${text}</small></button>`;
+  html.push(`<div class="qsec">כלים</div><div class="tools">${[
+    tool("compareHome", "compare", "השוואת דגמים", "עד " + cmpMax() + " דגמים: מחיר, צריכה, אגרה וריקולים"),
+    tool("market", "chart", "שוק הרכב", "מה נמכר, מי מוביל ומי קונה"),
+    saved.length >= 2 ? tool("fleet", "car", "הצי שלי", "כל הרכבים השמורים בטבלה אחת", "PRO") : "",
+    saved.some(s => s.ask || s.fair) ? tool("cands", "star", "רשימת מועמדים", "הרכבים ששמרתם מול המחיר המבוקש", "PRO") : "",
+    tool("bulk", "doc", "בדיקת כמה רכבים", "הדביקו רשימת מספרי רישוי וקבלו טבלה אחת", "PRO עסקי"),
+  ].join("")}</div>`);
+  if (store.get("savedCompares").length) html.push(card("השוואות שמורות", "compare", "violet", `<div class="list">${store.get("savedCompares").map((c, i) => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-loadcmp="${i}"><span class="t"><b>${esc(c.name)}</b><small>${c.items.length} רכבים</small></span></button><button type="button" class="x" data-delcmp="${i}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div>`));
   html.push(`<i id="homeMark" hidden></i>`);
   $("#out").innerHTML = html.join("");
   if (saved.length) checkSaved();
