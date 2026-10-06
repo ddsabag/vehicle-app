@@ -292,6 +292,13 @@ section[style*="--n:3"] .cmp-k{font-size:.76rem}
 .ph-svg{width:100%;height:auto;display:block}.opt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:start;border:1.5px solid var(--line);border-radius:14px;padding:12px;background:var(--card);margin-top:8px;position:relative;color:var(--fg)}.opt b{font-size:1rem}.opt .pr{font-weight:800}.opt small{color:var(--muted)}.opt.best{border-color:#ffc400;box-shadow:0 0 0 2px #ffc40055}.opt em{position:absolute;inset-block-start:-9px;inset-inline-end:12px;background:#ffc400;color:#111;font-style:normal;font-weight:800;font-size:.7rem;border-radius:6px;padding:1px 8px}.cmpp td,.cmpp th{font-size:.8rem;padding:6px 2px}
 .pro-tag{display:inline-flex;align-items:center;gap:3px;border:1px solid #d9a600;color:#8a6500;font-weight:700;font-size:.68rem;border-radius:6px;padding:0 6px;margin-inline-start:6px;vertical-align:middle}
 .pro-tag .i{width:10px;height:10px}
+.tier{margin:14px 0;padding:0 0 1px;border-top:2px solid #e3c25a}
+.tier-h{display:flex;align-items:center;gap:6px;font-size:.78rem;font-weight:700;color:#8a6500;padding:6px 2px 8px}
+.tier-h .i{width:13px;height:13px}
+.tier .pro-tag{display:none}
+.tier>.card,.tier>.buyer-card>.card{background:linear-gradient(#fffaf0,#fffaf0)}
+.tier-h.free{color:var(--muted,#667)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .tier{border-color:#8a6500}:root:not([data-theme="light"]) .tier-h{color:#e6b93a}:root:not([data-theme="light"]) .tier>.card,:root:not([data-theme="light"]) .tier>.buyer-card>.card{background:inherit}}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .pro-tag{color:#e6b93a;border-color:#8a6500}}
 :root[data-theme="dark"] .pro-tag{color:#e6b93a;border-color:#8a6500}
 .ev{display:flex;gap:10px;justify-content:space-between;padding:7px 0;border-top:1px solid var(--line);align-items:flex-start}.ev:first-of-type{border-top:0}.ev small{color:var(--muted);white-space:nowrap}
@@ -592,6 +599,7 @@ function plan(){
   if (e.buyer > now) return "buyer";
   return "free";
 }
+const tier = (label, inner) => PRO_LOCK && inner ? `<div class="tier"><div class="tier-h">${ico("lock")}${label}</div>${inner}</div>` : inner;
 const PT = t => PRO_LOCK ? `<span class="pro-tag">${ico("lock")}${t}</span>` : "";
 const atLeast = n => RANK[plan()] >= RANK[n];
 const isPro = () => atLeast("buyer");
@@ -1558,15 +1566,13 @@ document.addEventListener("click", async ev => {
 document.addEventListener("change", ev => { const f = ev.target.closest("#docFile"); if (!f || !current) return; const files = [...f.files]; f.value = ""; if (files.length) docsAdd(files, current.plate, ($("#docCat") || {}).value || "אחר"); });
 
 function tabMaint(D){
-  const info = serviceInfo(D), html = [];
-  if (!maintOk()) {
-    html.push(proLockCard("אחזקה", "מרווח טיפולים לדגם, הטיפול הבא, יומן טיפולים, ציר ק״מ ועלות אחזקה מצטברת, עם תזכורות בהתראה."));
-  } else {
-    svcRemember(D, info);
-    html.push(intervalCard(D, info), nextCard(D, info), logCard(D), kmCard(D), costLogCard(D));
-  }
-  html.push(docsCard(D), manualCard(D), seasonCard());
-  return html.join("");
+  const info = serviceInfo(D);
+  let paid;
+  if (!maintOk()) paid = proLockCard("אחזקה", "מרווח טיפולים לדגם, הטיפול הבא, יומן טיפולים, ציר ק״מ ועלות אחזקה מצטברת, עם תזכורות בהתראה.");
+  else { svcRemember(D, info); paid = [intervalCard(D, info), nextCard(D, info), logCard(D), kmCard(D), costLogCard(D)].join(""); }
+  const free = [docsCard(D), manualCard(D), seasonCard()].join("");
+  const pg = tier("ב-PRO: מעקב טיפולים", paid);
+  return maintOk() ? pg + free : free + pg;
 }
 function tabOverview(D){
   const v = D.v, w = D.w, html = [];
@@ -1577,7 +1583,8 @@ function tabOverview(D){
       `<ul class="insights">${ins.map(i => `<li class="ins ${i.level}">${ico(icon[i.level])}<div><b>${esc(i.title)}</b><span>${esc(i.text)}</span>${insightTodo(i.title) ? `<span class="todo">מה לעשות: ${esc(insightTodo(i.title))}</span>` : ""}</div></li>`).join("")}</ul>
        <p class="note">התובנות אינן תחליף לבדיקת רכב במכון מורשה. אין במאגרים מידע על שעבודים, תאונות או נזקי שלדה: בדקו שעבוד ברשם המשכונות (הקישור בלשונית קנייה) ובצעו בדיקה במכון.</p>`));
   }
-  html.push(eventsCard(D));
+  const evCard = tier("ב-PRO: מעקב אחרי הרכב", eventsCard(D)), evFirst = !PRO_LOCK || isPro();
+  if (evFirst) html.push(evCard);
   const tb = D.tSrc && D.tSrc.kosher_grira_im_blamim, tu = D.tSrc && D.tSrc.kosher_grira_bli_blamim;
   const tv = x => isNum(x) && num(x) > 0 ? fmtN(x) : "—";
   const towNote = [];
@@ -1624,6 +1631,7 @@ function tabOverview(D){
     html.push(card("בעלות", "users", "violet", foLine + facts([["בעלות נוכחית", e(v.baalut)]])));
   }
   html.push(card("שינויים ברכב", "wrench", "teal", modsCard(v)));
+  if (!evFirst) html.push(evCard);
   return html.join("");
 }
 
@@ -1722,7 +1730,9 @@ function checksCard(D){
 }
 function tabBuy(D){
   const c = D.cost, html = [];
-  html.push(buyerCard(D));
+  const paid = tier("ב-PRO ובחבילת הקנייה", buyerCard(D));
+  const entitled = !PRO_LOCK || isPro();
+  if (entitled) html.push(paid);
   html.push(checksCard(D));
   html.push(card("שווי משוער", "tag", "pink", (c.newPrice ?
     `<div class="tow-grid"><div><div class="k">מחיר מחירון כחדש</div><div class="v">${fmtN(c.newPrice)}<span class="u">₪</span></div></div><div><div class="k">שווי משוער היום</div><div class="v"><span dir="ltr" style="unicode-bidi:isolate;white-space:nowrap">${Math.round(c.valueLow / 1000)}–${Math.round(c.valueHigh / 1000)}</span><span class="u">אלף ₪</span></div></div></div>
@@ -1752,6 +1762,7 @@ function tabBuy(D){
      <li class="bsteps-end"><span class="n">${ico("check")}</span><div><b>אחרי העסקה</b><p class="note">בצעו העברת בעלות ועדכנו את הביטוח מיד, ורק אז התחילו לנהוג ברכב.</p></div></li>
      </ol>
      <button type="button" class="link-btn" data-act="checklistPdf">${ico("doc")}הורדה או הדפסה של הצ'ק ליסט (PDF)</button>`));
+  if (!entitled) html.push(paid);
   return html.join("");
 }
 
