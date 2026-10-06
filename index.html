@@ -111,7 +111,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .mini-plate{flex:0 0 auto;direction:ltr;background:var(--plate);color:#111;border:2px solid #0b0b0b;border-radius:6px;font:600 .95rem var(--f-num);padding:2px 8px 2px 4px;display:flex;align-items:center;gap:6px}
 .mini-plate i{background:var(--il);width:8px;align-self:stretch;border-radius:2px}
 .pills{display:flex;flex-wrap:wrap;gap:6px}
-.pill{font-size:.82rem;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--soft)}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:.82rem;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--soft)}.pill svg.i{width:14px;height:14px}
 .pill.info{background:var(--info-bg);color:var(--info)}
 .pill.drive{display:inline-flex;align-items:center;gap:4px;background:var(--info-bg);color:var(--info)}.pill.drive svg.i{width:14px;height:14px}
 .pill.drive.green{background:var(--t-leaf-bg);color:var(--t-leaf)}
@@ -309,6 +309,7 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .doc-view img{max-width:100%;max-height:100%;object-fit:contain}
 .doc-view .x{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));inset-inline-start:12px;background:#fff3;color:#fff;border-radius:10px;width:40px;height:40px;display:grid;place-items:center;border:0}
 .bsteps{list-style:none;margin:0;padding:0;display:grid;gap:16px}.bsteps>li{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start}.bsteps .n{width:28px;height:28px;border-radius:50%;background:var(--t-green-bg);color:var(--t-green);display:grid;place-items:center;font-weight:800;font-size:.9rem}.bsteps .n .i{width:16px;height:16px}.bsteps>li>div{display:grid;gap:6px;min-width:0}.bsteps .note{margin:0}
+.mst small.ok{color:var(--ok);font-weight:700}.mst small.bad{color:var(--bad);font-weight:700}
 .ins .todo{font-weight:600;color:var(--fg);margin-top:4px}
 .chk{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}.chk span{display:flex;gap:6px;align-items:center;font-size:.92rem;min-width:0}.chk .i{width:16px;height:16px}.chk .y .i{color:var(--ok)}.chk .n{color:var(--muted)}.chk .n .i{color:var(--muted);opacity:.7}
 .zscale{display:grid;grid-template-columns:repeat(15,1fr);gap:2px}.zscale i{height:22px;border-radius:4px;opacity:.35;font:700 .7rem/22px var(--f-num);text-align:center;color:#fff;font-style:normal}.zscale i.on{opacity:1;height:30px;margin-top:-4px;box-shadow:0 0 0 2px var(--card),0 0 0 3px var(--fg)}.zlbl{display:flex;justify-content:space-between;font-size:.78rem;color:var(--muted);margin-top:4px}
@@ -1749,7 +1750,8 @@ function tabBuy(D){
        ${lk("https://car.cma.gov.il/", "doc", "השוואת מחירי ביטוח חובה")}
        <p class="note"><b>אל תעבירו תשלום לפני שפעלתם לפי השלבים, ושלמו רק במעמד העברת הבעלות.</b></p>`)}
      <li class="bsteps-end"><span class="n">${ico("check")}</span><div><b>אחרי העסקה</b><p class="note">בצעו העברת בעלות ועדכנו את הביטוח מיד, ורק אז התחילו לנהוג ברכב.</p></div></li>
-     </ol>`));
+     </ol>
+     <button type="button" class="link-btn" data-act="checklistPdf">${ico("doc")}הורדה או הדפסה של הצ'ק ליסט (PDF)</button>`));
   return html.join("");
 }
 
@@ -2234,6 +2236,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "bulkSave") { bulkSave(); return; }
   if (b.dataset.act === "bulkCsv") { bulkCsv(); return; }
   if (b.dataset.act === "bulkPdf") { bulkPdf(b); return; }
+  if (b.dataset.act === "checklistPdf") { checklistPdf(b); return; }
   if (b.dataset.act === "proInfo" || b.dataset.act === "upgrade") { if (UPGRADE_UI) renderUpgrade(); else toast("זמין בקרוב"); return; }
   if (b.dataset.act === "mkCsv") { marketCsv(); return; }
   if (b.dataset.buy) { buyPlan(b.dataset.buy); return; }
@@ -2757,11 +2760,12 @@ function msCard(D){
   const c = msCohort(D); if (!c) return "";
   const avg = msYearAvg(c.year), rows = [], pc = x => (x * 100).toFixed(x < .1 ? 1 : 0) + "%";
   const off = c.c / (c.n + c.c);
-  rows.push(["ירדו מהכביש", pc(off), avg ? `ממוצע לשנתון: ${pc(avg.off)}` : "", avg ? (off <= avg.off ? "ok" : "bad") : ""]);
+  rows.push(["רכבים שירדו מהכביש", pc(off), avg ? `בממוצע לשנתון: ${pc(avg.off)}` : "", avg ? (off <= avg.off ? "ok" : "bad") : ""]);
   if (c.km) rows.push(["ק״מ אופייני בטסט האחרון", fmtN(c.km), D.km ? `הרכב הזה: ${fmtN(D.km)}` : "", D.km ? (D.km <= c.km * 1.1 ? "ok" : "bad") : ""]);
-  if (c.own) rows.push(["רשומות בעלות לרכב", c.own.toFixed(1), avg && avg.own ? `ממוצע לשנתון: ${avg.own.toFixed(1)}` : "", avg && avg.own ? (c.own <= avg.own ? "ok" : "bad") : ""]);
-  if (avg) rows.push(["ריקולים פתוחים, לכל 1,000", c.rec.toFixed(c.rec < 10 ? 1 : 0), `ממוצע לשנתון: ${avg.rec.toFixed(avg.rec < 10 ? 1 : 0)}`, c.rec <= avg.rec ? "ok" : "bad"]);
-  return card("איך הדגם הזה מחזיק", "chart", "teal", `<table class="ft mst">${rows.map(([a, b, n, k]) => `<tr><td>${a}</td><td><b class="${k}">${b}</b></td><td><small>${n}</small></td></tr>`).join("")}</table><p class="note">${fmtN(c.n)} רכבים פעילים משנתון ${c.year} של הדגם. מבוסס על מאגרי משרד התחבורה, עד כמה שהם מתעדים.</p>`);
+  if (avg) rows.push(["ריקולים פתוחים לכל 1,000 רכבים", c.rec.toFixed(c.rec < 10 ? 1 : 0), `בממוצע לשנתון: ${avg.rec.toFixed(avg.rec < 10 ? 1 : 0)}`, c.rec <= avg.rec ? "ok" : "bad"]);
+  const good = rows.filter(r => r[3] === "ok").length, bad = rows.filter(r => r[3] === "bad").length;
+  const verdict = !good && !bad ? "" : bad === 0 ? "הדגם הזה, בשנתון הזה, טוב מהממוצע בכל המדדים." : good > bad ? "בסך הכול הדגם הזה טוב מהממוצע." : good === bad ? "הדגם הזה קרוב לממוצע." : "הדגם הזה פחות טוב מהממוצע.";
+  return card("איך הדגם הזה מחזיק", "chart", "teal", `${verdict ? `<p style="margin:0"><b>${verdict}</b></p>` : ""}<table class="ft mst">${rows.map(([a, b, n, k]) => `<tr><td>${a}</td><td><b>${b}</b></td><td><small class="${k}">${n}</small></td></tr>`).join("")}</table><p class="note">ההשוואה היא מול כל הדגמים מאותו שנתון (${fmtN(c.n)} רכבים פעילים משנתון ${c.year} של הדגם). ירוק: טוב מהממוצע, אדום: פחות טוב. מבוסס על מאגרי משרד התחבורה, עד כמה שהם מתעדים.</p>`);
 }
 function fillModelStats(){
   const el = document.getElementById("mstat"); if (!el || !current) return;
@@ -2921,7 +2925,7 @@ function buyerCard(D){
   const it = savedItem(D.plate), ask = it && it.ask || null, f = candFields(D), vd = askVerdict(ask, f.fair);
   const body = `${flags.length ? `<div class="qsec">דגלים לבדיקה</div><ul class="bflags">${flags.slice(0, 5).map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul>` : `<p style="margin:0 0 8px">לא עלו דגלים אדומים בנתונים.</p>`}
     <div class="qsec">מה לשאול את המוכר</div><ul class="bq">${qs.slice(0, 6).map(q => `<li>${esc(q)}</li>`).join("")}</ul>
-    ${f.c5 ? `<div class="qsec" style="margin-top:10px">עלות בעלות ל-5 שנים (הערכה)</div><p style="margin:0"><b>כ-${fmtN(Math.round(f.c5 / 1000) * 1000)} ₪</b></p><p class="note" style="margin:2px 0 0">דלק, אגרה וירידת ערך. ביטוח וטיפולים לא נכללים.</p>` : ""}
+    ${f.c5 ? `<div class="qsec" style="margin-top:10px">עלות בעלות ל-5 שנים (הערכה)</div><p style="margin:0"><b>כ-${fmtN(Math.round(f.c5 / 1000) * 1000)} ₪</b></p><p class="note" style="margin:2px 0 0">${D.cost.kind === "ev" ? "חשמל" : "דלק"}, אגרה וירידת ערך. ביטוח וטיפולים לא נכללים.</p>` : ""}
     <div class="qsec" style="margin-top:10px">המחיר שהמוכר מבקש</div>
     <div class="askrow"><input class="inp" id="askIn" inputmode="numeric" placeholder="₪" value="${ask || ""}" aria-label="המחיר המבוקש"><button type="button" class="link-btn" data-act="candSave">${ico("star")}${it ? "עדכון" : "שמירה כמועמד"}</button></div>
     ${vd ? `<p class="vd ${vd.k}" style="margin:6px 0 0">${esc(vd.t)}</p>` : ""}`;
@@ -3020,6 +3024,27 @@ function bulkCsv(){
   const rows = BULK.slice().sort((a, b) => b.lvl - a.lvl || a.plate.localeCompare(b.plate)).map(r => [fmtPlate(r.plate), r.title, r.year, r.status, r.test, r.days, r.recalls, r.owners, r.km, r.first || "", r.block ? "כן" : "", r.nf || lv[r.lvl]]);
   const csv = "﻿" + [head, ...rows].map(r => r.map(q).join(",")).join("\r\n");
   shareFile(new Blob([csv], {type: "text/csv"}), `Luchit-list-${new Date().toISOString().slice(0, 10)}.csv`, "רשימת רכבים");
+}
+/* the purchase checklist as a printable PDF; links become plain lines to tick off */
+async function checklistPdf(btn){
+  const src = $(".bsteps"); if (!src) return;
+  const old = btn.innerHTML; btn.disabled = true; btn.textContent = "מכין PDF…";
+  try {
+    await Promise.all([loadScript(LIBS.img), loadScript(LIBS.pdf)]);
+    const today = new Date().toLocaleDateString("he-IL"), D = current;
+    const list = src.cloneNode(true);
+    list.querySelectorAll(".link-btn").forEach(x => { const p = document.createElement("p"); p.className = "note"; p.textContent = "☐ " + x.textContent.trim(); x.replaceWith(p); });
+    list.querySelectorAll(".insp").forEach(x => { const p = document.createElement("p"); p.className = "note"; p.textContent = "☐ בדיקה במכון בדיקה מורשה, אחרי שהסכמתם על מחיר."; x.replaceWith(p); });
+    list.querySelectorAll("li li, .bq li").forEach(x => { x.insertAdjacentText("afterbegin", "☐ "); });
+    list.querySelectorAll(".bq").forEach(u => { u.style.listStyle = "none"; u.style.paddingInlineStart = "0"; });
+    const el = document.createElement("div"); el.className = "report pdf";
+    el.innerHTML = brandHead() + `<div class="rep-head"><b>צ'ק ליסט לקניית רכב משומש</b><span>${D ? fmtPlate(D.plate) + " · " : ""}${today}</span></div><section class="card">${list.outerHTML}</section><p class="rep-foot">רשימה כללית, ואינה ייעוץ משפטי. ${BRAND_FOOT}</p>`;
+    inlineIcons(el);
+    const {canvas, breaks} = await captureEl(el, ".card, li, .rep-foot");
+    const blob = await pdfFromCanvas(canvas, breaks, "לוחית · צ'ק ליסט לקניית רכב", today);
+    await shareFile(blob, `Luchit-checklist-${new Date().toISOString().slice(0, 10)}.pdf`, "צ'ק ליסט לקניית רכב");
+  } catch { toast("לא הצלחנו להכין את הקובץ. בדקו את החיבור לאינטרנט ונסו שוב."); }
+  finally { btn.disabled = false; btn.innerHTML = old; }
 }
 async function bulkPdf(btn){
   const old = btn.innerHTML; btn.disabled = true; btn.textContent = "מכין PDF…";
