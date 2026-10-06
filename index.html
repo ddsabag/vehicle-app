@@ -1708,8 +1708,7 @@ function tabCosts(D){
   const u = c.usage;
   html.push(card("שווי שימוש (רכב צמוד)", "users", "teal", u ?
     `<div class="tow-grid"><div><div class="k">לחודש</div><div class="v">${fmtN(u.monthly)}<span class="u">₪</span></div></div><div><div class="k">לשנה</div><div class="v">${fmtN(u.monthly * 12)}<span class="u">₪</span></div></div></div>
-     <p class="note">${u.green ? `כולל הפחתה של ${fmtN(u.green[1])} ₪ לרכב ${u.green[0]}. ` : ""}זה הסכום שמתווסף למשכורת לצורך מס, לא המס עצמו. הסכום המחייב מופיע במחשבון של רשות המסים.</p>
-     <button type="button" class="link-btn" data-url="${USAGE.calc}" data-copyfirst="${esc(`קוד תוצר ${D.v.tozeret_cd} קוד דגם ${D.v.degem_cd} שנה ${u.regYear}`)}" data-copylabel="הקודים">${ico("doc")}המחשבון הרשמי של רשות המסים</button>` :
+     <p class="note">${u.green ? `כולל הפחתה של ${fmtN(u.green[1])} ₪ לרכב ${u.green[0]}. ` : ""}זה הסכום שמתווסף למשכורת לצורך מס, לא המס עצמו.</p>` :
     `<p style="margin:0">אין מספיק נתונים לחישוב שווי השימוש של הרכב הזה (החישוב כאן לרכב פרטי שעלה לכביש מ-2010).</p><button type="button" class="link-btn" data-url="${USAGE.calc}">${ico("doc")}המחשבון הרשמי של רשות המסים</button>`));
   return html.join("");
 }
