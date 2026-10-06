@@ -1300,10 +1300,13 @@ const svWords = t => String(t || "").toUpperCase().split(/[^A-Z0-9]+/).filter(x 
 const SV_GENERIC = new Set(["HSD", "HEV", "PHEV", "HYBRID", "EV", "FL", "4X4", "AWD", "LONG", "RANGE"]);
 function serviceFromTable(D){
   if (!SERVICE) return null;
-  const mk = makeName(D.v).replace(/[^֐-׿A-Za-z]/g, ""); if (!mk) return null;
-  if ((SERVICE.noFixed || []).some(x => x[0].replace(/[^֐-׿A-Za-z]/g, "") === mk && svWords(x[1]).every(w => svWords(D.model || D.v.kinuy_mishari).includes(w)))) return {none: true};
-  const rows = SERVICE.rows.filter(r => r[0].replace(/[^֐-׿A-Za-z]/g, "") === mk);
-  if (!rows.length) return null;
+  const cl = x => String(x || "").replace(/[^֐-׿A-Za-z ]/g, "").trim();
+  const mname = cl(D.v.tozeret_nm); if (!mname) return null;
+  const makers = [...new Set(SERVICE.rows.map(r => r[0]).concat((SERVICE.noFixed || []).map(x => x[0])))];
+  const mk = makers.filter(m => { const c = cl(m); return c && (mname === c || mname.startsWith(c + " ")); }).sort((a, b) => b.length - a.length)[0];
+  if (!mk) return null;
+  if ((SERVICE.noFixed || []).some(x => x[0] === mk && svWords(x[1]).every(w => svWords(D.model || D.v.kinuy_mishari).includes(w)))) return {none: true};
+  const rows = SERVICE.rows.filter(r => r[0] === mk);
   const full = svWords(D.model || D.v.kinuy_mishari);
   let mw = full;
   const has = (r, ws) => ws.length && ws.every(w => r[1].split(" ").includes(w));
