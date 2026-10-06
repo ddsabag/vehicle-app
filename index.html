@@ -1549,7 +1549,7 @@ function tabOverview(D){
     const icon = {bad:"alert", warn:"alert", info:"info", ok:"check"};
     html.push(card("מידע חשוב שעלה מהנתונים", "bulb", "amber",
       `<ul class="insights">${ins.map(i => `<li class="ins ${i.level}">${ico(icon[i.level])}<div><b>${esc(i.title)}</b><span>${esc(i.text)}</span></div></li>`).join("")}</ul>
-       <p class="note">התובנות אינן תחליף לבדיקת רכב במכון מורשה. אין במאגרים מידע על שעבודים, תאונות או נזקי שלדה: בדקו שעבוד ברשם המשכונות ובצעו בדיקה במכון.</p>`));
+       <p class="note">התובנות אינן תחליף לבדיקת רכב במכון מורשה. אין במאגרים מידע על שעבודים, תאונות או נזקי שלדה: בדקו שעבוד ברשם המשכונות (הקישור בלשונית קנייה) ובצעו בדיקה במכון.</p>`));
   }
   html.push(eventsCard(D));
   const tb = D.tSrc && D.tSrc.kosher_grira_im_blamim, tu = D.tSrc && D.tSrc.kosher_grira_bli_blamim;
@@ -1692,7 +1692,8 @@ function tabBuy(D){
     `<button type="button" class="link-btn" data-url="https://carlistprice.mot.gov.il/" data-copyfirst="${D.plate}">${ico("tag")}מחירון העם של משרד התחבורה</button>`));
   html.push(`<div id="mstat">${msCard(D)}</div>`);
   html.push(card("לפני שקונים", "check", "green",
-    `<p style="margin:0">שלושה דברים שכדאי לעשות לפני שסוגרים עסקה:</p>
+    `<p style="margin:0">כמה דברים שכדאי לעשות לפני שסוגרים עסקה:</p>
+     <button type="button" class="link-btn" data-url="https://www.gov.il/he/service/pawn_perusal" data-copyfirst="${D.plate}">${ico("search")}בדיקת שעבוד ברשם המשכונות</button>
      <button type="button" class="link-btn" data-url="https://www.gov.il/apps/police/stolencar/" data-copyfirst="${D.plate}">${ico("search")}בדיקה במאגר הרכבים הגנובים (משטרה)</button>
      <button type="button" class="link-btn" data-url="https://car.cma.gov.il/">${ico("doc")}השוואת מחירי ביטוח חובה</button>
      <div class="insp"><p class="note" style="margin:0 0 6px">מכוני בדיקה לפני קנייה, מתוך רשימת המוסכים המורשים של משרד התחבורה:</p>
