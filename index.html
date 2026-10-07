@@ -564,6 +564,10 @@ body.land .band{display:none}
       <div id="alertKinds" class="kinds"></div>
       <p class="note">לא נשלחות יותר מ-4 התראות בשבוע.</p>
     </div>
+    <div class="set-row" id="anaRow" hidden><span>סטטיסטיקה אנונימית</span>
+      <div class="kinds"><label><input type="checkbox" id="anaChk">שיתוף נתוני שימוש אנונימיים</label></div>
+      <p class="note">עוזר לשפר את האפליקציה. לא נשלחים מספרי רישוי או פרטים אישיים.</p>
+    </div>
     <div class="set-row"><span>נתונים במכשיר</span>
       <button class="link-btn" type="button" id="clearRecent">מחיקת היסטוריית החיפושים</button>
       <button class="link-btn" type="button" id="clearSaved">מחיקת כל הרכבים השמורים</button>
@@ -605,6 +609,9 @@ const APP_VERSION = "1.14";
 const SITE = "https://luchit.app/";
 /* PRO: while PRO_LOCK is false (beta) every feature is open to everyone. Later it is tied to a Google Play subscription. */
 const PRO_LOCK = false;
+/* anonymous usage events (Android only, Firebase Analytics): what people do in the app, never a plate number or anything personal. The user can switch it off in settings. */
+const analyticsOn = () => { try { return localStorage.getItem("analyticsOff") !== "1"; } catch { return true; } };
+const track = (name, params) => { try { const b = window.AndroidApp; if (b && b.logEvent && analyticsOn()) b.logEvent(name, JSON.stringify(params || {})); } catch {} };
 const UPGRADE_UI = true;   // false for a store build that has no billing products yet
 const PRICES = {buyer_pack: 29, pro_monthly: 14.9, pro_yearly: 99, biz_monthly: 79};
 const GIFT_DAYS = 30, BUYER_DAYS = 60;
@@ -848,6 +855,12 @@ function syncSaved(list){
 const ALERT_KINDS = [["test", "טסט שעומד לפוג או שפג"], ["recall", "ריקול חדש או שנסגר"], ["service", "תזכורות טיפול"], ["docs", "תוקף ביטוח ומסמכים"], ["owner", "בעלות חדשה (PRO)"], ["status", "ירידה מהכביש ושינוי רשום (PRO)"], ["settlement", "הסדר פשרה חדש (PRO)"]];
 const alertPrefs = () => { try { return Object.assign({}, JSON.parse(localStorage.getItem("alertPrefs") || "{}")); } catch { return {}; } };
 const prefOn = k => alertPrefs()[k] !== false;
+function fillAnalytics(){
+  const row = $("#anaRow"); if (!row) return;
+  row.hidden = !(window.AndroidApp && window.AndroidApp.logEvent); if (row.hidden) return;
+  $("#anaChk").checked = analyticsOn();
+}
+document.addEventListener("change", ev => { if (ev.target.id !== "anaChk") return; try { localStorage.setItem("analyticsOff", ev.target.checked ? "0" : "1"); } catch {} try { window.AndroidApp.setAnalytics(ev.target.checked); } catch {} });
 function fillAlertKinds(){
   const row = $("#kindsRow"); if (!row) return;
   row.hidden = !alertsSupported(); if (row.hidden) return;
@@ -856,7 +869,7 @@ function fillAlertKinds(){
 }
 document.addEventListener("change", ev => {
   const c = ev.target.closest && ev.target.closest("[data-kind]"); if (!c) return;
-  const pr = alertPrefs(); pr[c.dataset.kind] = c.checked;
+  const pr = alertPrefs(); pr[c.dataset.kind] = c.checked; track("alert_kind", {kind: c.dataset.kind, on: c.checked ? 1 : 0});
   try { localStorage.setItem("alertPrefs", JSON.stringify(pr)); } catch {}
   syncSaved(store.get("savedVehicles"));
 });
@@ -1098,9 +1111,11 @@ function settlementsFor(D){
   const v = D.v, y = num(v.shnat_yitzur), now = new Date(), x = {mk: normS([v.tozeret_nm, D.make].join(" ")), md: normS([v.kinuy_mishari, v.degem_nm].join(" "))};
   return SETTLEMENTS.filter(s => !(new Date(s.until + "T23:59:59") < now) && s.mk.test(x.mk) && (!s.md || s.md.test(x.md)) && (!s.y || y >= s.y[0] && y <= s.y[1]) && (!s.ok || s.ok(v, y, x)));
 }
+const stlSeen = new Set();
 const STL_SIG = SETTLEMENTS.map(x => x.id).join(",");
 function settlementCard(D){
   const list = D.kind === "model" || D.isCancelled ? [] : settlementsFor(D);
+  if (list.length && !stlSeen.has(D.plate)) { stlSeen.add(D.plate); track("settlement_shown", {n: list.length}); }
   if (!list.length) return "";
   const full = !PRO_LOCK || atLeast("pro");
   const items = list.map(s => `<li class="stl ${s.st === "ok" ? "ok" : "wait"}"><div class="stl-h"><b>${esc(s.t)}</b><span class="stl-st">${s.st === "ok" ? ico("check") + "אושר" : ico("clock") + "ממתין לאישור"}</span></div>${full
@@ -1316,6 +1331,7 @@ async function lookup(raw){
   if (D.notFound) { out.innerHTML = `<div class="msg">לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.</div>`; return; }
   current = D; currentTab = "overview";
   renderResult();
+  track("car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0});
   remember(plate);
   window.scrollTo({top: 0});
 }
@@ -1597,7 +1613,7 @@ async function docPrepare(file){
   } catch { return null; } finally { URL.revokeObjectURL(url); }
 }
 const DOC_EXP_CATS = ["רישיון רכב", "רישיון נהיגה", "ביטוח", "טסט"];
-async function docsAdd(files, plate, cat, exp){ try { await docsAdd0(files, plate, cat, exp); } catch { toast("לא הצלחנו לשמור את המסמך בטלפון"); } }
+async function docsAdd(files, plate, cat, exp){ track("doc_add", {cat, exp: exp ? 1 : 0}); try { await docsAdd0(files, plate, cat, exp); } catch { toast("לא הצלחנו לשמור את המסמך בטלפון"); } }
 async function docsAdd0(files, plate, cat, exp){
   let n = (await DocDB.byPlate(plate)).length, added = 0, skipped = 0, locked = false;
   for (const f of files) {
@@ -2318,8 +2334,8 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "bulkSave") { bulkSave(); return; }
   if (b.dataset.act === "bulkCsv") { bulkCsv(); return; }
   if (b.dataset.act === "bulkPdf") { bulkPdf(b); return; }
-  if (b.dataset.act === "checklistPdf") { checklistPdf(b); return; }
-  if (b.dataset.act === "proInfo" || b.dataset.act === "upgrade") { if (UPGRADE_UI) renderUpgrade(); else toast("זמין בקרוב"); return; }
+  if (b.dataset.act === "checklistPdf") { track("checklist_pdf"); checklistPdf(b); return; }
+  if (b.dataset.act === "proInfo" || b.dataset.act === "upgrade") { track("upgrade_open", {from: currentTab || "home"}); if (UPGRADE_UI) renderUpgrade(); else toast("זמין בקרוב"); return; }
   if (b.dataset.act === "mkCsv") { marketCsv(); return; }
   if (b.dataset.buy) { buyPlan(b.dataset.buy); return; }
   if (b.dataset.act === "restore") { restorePurchases(); return; }
@@ -2336,7 +2352,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "diffOnly") { diffOnly = !diffOnly; try { localStorage.setItem("cmpDiffOnly", diffOnly ? "1" : ""); } catch {} renderCompare(); return; }
   if (b.dataset.act === "land") { setLand(!land); return; }
   if (!current) return;
-  if (b.dataset.tab) { currentTab = b.dataset.tab; renderResult(); const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"}); return; }
+  if (b.dataset.tab) { currentTab = b.dataset.tab; track("tab_view", {tab: b.dataset.tab}); renderResult(); const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"}); return; }
   const act = b.dataset.act;
   if (act === "share") { $("#shareMsg").textContent = ""; $("[data-share=bizpdf]").hidden = !(PRO_LOCK && isBiz()); $("#shareSheet").hidden = false; }
   if (act === "candSave") {
@@ -2350,9 +2366,10 @@ $("#out").addEventListener("click", ev => {
   if (act === "copy") copyText(summaryText(current), "הסיכום");
   if (act === "calendar") testReminder(current);
   if (act === "fuelUnit") { try { localStorage.setItem("fuelUnit", kmlUnit() ? "l100" : "kml"); } catch {} syncUnit(); renderResult(); }
-  if (act === "compare") { cmp = []; renderCompare(); openCompare("model"); }
+  if (act === "compare") { track("compare_open"); cmp = []; renderCompare(); openCompare("model"); }
   if (act === "save") {
     const on = toggleSaved(newSavedItem(current));
+    track(on ? "car_save" : "car_unsave");
     b.setAttribute("aria-pressed", String(on)); b.querySelector("span").textContent = on ? "נשמר" : "שמירה";
     toast(on ? "הרכב נשמר ב־\"הרכבים שלי\"" : "הרכב הוסר מהרשימה");
     { const y = window.scrollY; renderResult(); window.scrollTo(0, y); }
@@ -2570,6 +2587,7 @@ async function shareComparePdf(btn){
   finally { btn.disabled = false; btn.innerHTML = old; }
 }
 async function doShare(kind){
+  track("share", {kind});
   const D = current; if (!D) return;
   const msg = $("#shareMsg"), name = `Luchit-${D.plate}`;
   if (kind === "text") { $("#shareSheet").hidden = true; shareText(D.title, summaryText(D), D.plate); return; }
@@ -3199,7 +3217,7 @@ document.querySelectorAll("[data-theme-choice]").forEach(b => b.addEventListener
 }));
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => applyTheme(themeChoice()));
 const sheet = $("#settings");
-$("#openSettings").addEventListener("click", () => { syncAlertsSeg(); fillAlertKinds(); syncPlanUi(); sheet.hidden = false; $("#closeSettings").focus(); });
+$("#openSettings").addEventListener("click", () => { syncAlertsSeg(); fillAlertKinds(); fillAnalytics(); syncPlanUi(); sheet.hidden = false; $("#closeSettings").focus(); });
 document.querySelectorAll("[data-alerts]").forEach(b => b.addEventListener("click", () => { try { window.AndroidApp.setAlerts(b.dataset.alerts === "on"); localStorage.setItem("alertsAsked", "1"); } catch {} syncAlertsSeg(); }));
 $("#closeSettings").addEventListener("click", () => { sheet.hidden = true; $("#openSettings").focus(); });
 sheet.addEventListener("click", ev => { if (ev.target === sheet) sheet.hidden = true; });
@@ -3376,6 +3394,10 @@ $("#planBtn").addEventListener("click", () => { sheet.hidden = true; if (UPGRADE
 initEnt(); syncPlanUi();
 if (PRO_LOCK && UPGRADE_UI) { try { const b = bridge(); if (b && b.billingInit) b.billingInit(); } catch {} }
 syncSaved(store.get("savedVehicles"));
+try { if (window.AndroidApp && window.AndroidApp.setAnalytics) window.AndroidApp.setAnalytics(analyticsOn()); } catch {}
+/* web: Cloudflare Web Analytics (page views only, no cookies, no personal data); the token is added when the site is registered there */
+const CF_BEACON_TOKEN = "";
+if (CF_BEACON_TOKEN && !window.AndroidApp && analyticsOn()) { const sc = document.createElement("script"); sc.defer = true; sc.src = "https://static.cloudflareinsights.com/beacon.min.js"; sc.setAttribute("data-cf-beacon", JSON.stringify({token: CF_BEACON_TOKEN})); document.head.appendChild(sc); }
 const start = digits(location.hash) || digits(new URLSearchParams(location.search).get("plate"));
 if (start) run(start); else renderHome();
 

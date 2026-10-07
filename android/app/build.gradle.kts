@@ -2,6 +2,11 @@ plugins {
     id("com.android.application")
 }
 
+// Firebase Analytics is switched on only when the project's google-services.json is present (added by CI from a secret)
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 android {
     namespace = "com.ddsabag.pratirechev"
     compileSdk = 36
@@ -48,4 +53,6 @@ dependencies {
     implementation("com.android.billingclient:billing:8.0.0")
     implementation("androidx.fragment:fragment:1.8.5")
     implementation("androidx.activity:activity:1.9.3")
+    implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
+    implementation("com.google.firebase:firebase-analytics")
 }

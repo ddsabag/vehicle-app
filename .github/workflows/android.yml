@@ -44,6 +44,12 @@ jobs:
         run: |
           if [ -n "$SERVICE_JSON_B64" ]; then echo "$SERVICE_JSON_B64" | base64 -d > service.json; echo "service.json added to the build"; else echo "no service data secret; building without it"; fi
 
+      - name: Firebase config for anonymous usage statistics (optional)
+        env:
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON_B64" ]; then echo "$GOOGLE_SERVICES_JSON_B64" | base64 -d > android/app/google-services.json; echo "firebase config added"; else echo "no firebase secret; analytics stays off"; fi
+
       - name: Build
         working-directory: android
         run: |

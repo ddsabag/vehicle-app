@@ -98,6 +98,37 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> MainActivity.this.setDark(dark));
             }
 
+            /** Anonymous usage event from the page (no plate, no personal data); ignored when Firebase is not configured */
+            @JavascriptInterface
+            public void logEvent(String name, String json) {
+                try {
+                    if (name == null || !name.matches("[a-z][a-z0-9_]{0,39}")) return;
+                    android.os.Bundle b = new android.os.Bundle();
+                    org.json.JSONObject o = new org.json.JSONObject(json == null ? "{}" : json);
+                    java.util.Iterator<String> it = o.keys();
+                    int n = 0;
+                    while (it.hasNext() && n++ < 8) {
+                        String k = it.next();
+                        if (!k.matches("[a-z][a-z0-9_]{0,39}")) continue;
+                        Object v = o.get(k);
+                        if (v instanceof Number) b.putLong(k, ((Number) v).longValue());
+                        else if (v instanceof Boolean) b.putLong(k, ((Boolean) v) ? 1 : 0);
+                        else b.putString(k, String.valueOf(v).substring(0, Math.min(String.valueOf(v).length(), 60)));
+                    }
+                    com.google.firebase.analytics.FirebaseAnalytics.getInstance(MainActivity.this).logEvent(name, b);
+                } catch (Throwable ignored) {
+                    // analytics must never break the app
+                }
+            }
+
+            @JavascriptInterface
+            public void setAnalytics(boolean on) {
+                try {
+                    com.google.firebase.analytics.FirebaseAnalytics.getInstance(MainActivity.this).setAnalyticsCollectionEnabled(on);
+                } catch (Throwable ignored) {
+                }
+            }
+
             @JavascriptInterface
             public void setLandscape(boolean on) {
                 runOnUiThread(() -> setRequestedOrientation(on
