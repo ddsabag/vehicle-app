@@ -102,27 +102,48 @@ public class SavedCheckWorker extends Worker {
                 if (plate.isEmpty() || !car.optBoolean("alerts", true)) continue;
                 checked++;
                 String name = car.optString("title", "");
-                try {
-                    checkService(c, p, plate, name, car.optString("svcDue", ""));
-                } catch (Exception ignored) {
-                }
-                try {
-                    checkRecalls(c, p, plate, name);
-                } catch (Exception ignored) {
-                }
-                try {
-                    checkTest(c, p, plate, name);
-                } catch (Exception ignored) {
-                }
-                // new owner and left-the-road alerts belong to the paid plans; the page marks each car
-                if (car.optBoolean("ext", true)) {
+                JSONObject pr = car.optJSONObject("prefs");
+                if (on(pr, "service")) {
                     try {
-                        checkOwners(c, p, plate, name);
+                        checkService(c, p, plate, name, car.optString("svcDue", ""));
                     } catch (Exception ignored) {
                     }
+                }
+                if (on(pr, "recall")) {
                     try {
-                        checkStatus(c, p, plate, name);
+                        checkRecalls(c, p, plate, name);
                     } catch (Exception ignored) {
+                    }
+                }
+                if (on(pr, "test")) {
+                    try {
+                        checkTest(c, p, plate, name);
+                    } catch (Exception ignored) {
+                    }
+                }
+                if (on(pr, "docs")) {
+                    try {
+                        checkDocs(c, p, plate, name, car.optJSONArray("docs"));
+                    } catch (Exception ignored) {
+                    }
+                }
+                // new owner, left-the-road and registered-change alerts belong to the paid plans; the page marks each car
+                if (car.optBoolean("ext", true)) {
+                    if (on(pr, "owner")) {
+                        try {
+                            checkOwners(c, p, plate, name);
+                        } catch (Exception ignored) {
+                        }
+                    }
+                    if (on(pr, "status")) {
+                        try {
+                            checkStatus(c, p, plate, name);
+                        } catch (Exception ignored) {
+                        }
+                        try {
+                            checkMods(c, p, plate, name);
+                        } catch (Exception ignored) {
+                        }
                     }
                 }
             }
@@ -137,6 +158,7 @@ public class SavedCheckWorker extends Worker {
      * a month before, a week before and a week after. Sent in the daytime only, each stage once per due date.
      */
     private void checkService(Context c, SharedPreferences p, String plate, String name, String due) throws Exception {
+        if (!budget(c)) return;
         if (due == null || due.length() < 10) return;
         int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
         if (hour < 8 || hour >= 22) return;
@@ -170,6 +192,7 @@ public class SavedCheckWorker extends Worker {
     }
 
     private void checkRecalls(Context c, SharedPreferences p, String plate, String name) throws Exception {
+        if (!budget(c)) return;
         JSONArray rows = query(RECALLS, "MISPAR_RECHEV", plate);
         Set<String> now = new HashSet<>();
         for (int i = 0; i < rows.length(); i++) now.add(rows.getJSONObject(i).optString("RECALL_ID"));
@@ -177,6 +200,13 @@ public class SavedCheckWorker extends Worker {
         // the first check only records what is already known, so saving a car never triggers an alert
         if (p.contains(key)) {
             Set<String> known = p.getStringSet(key, new HashSet<>());
+            boolean fresh = false;
+            for (String id : now) if (!known.contains(id)) fresh = true;
+            if (!fresh && known.size() > now.size()) {
+                notify(c, plate, ("recall" + plate).hashCode(),
+                        "ריקול נסגר ברכב " + fmtPlate(plate),
+                        (name.isEmpty() ? "" : name + ": ") + "ריקול שהיה פתוח כבר לא מופיע ברשימה. כדאי לוודא שהתיקון בוצע.");
+            }
             for (String id : now) {
                 if (!known.contains(id)) {
                     notify(c, plate, ("recall" + plate).hashCode(),
@@ -191,6 +221,7 @@ public class SavedCheckWorker extends Worker {
 
     /** A new row in the ownership log means the car changed hands (the log is monthly) */
     private void checkOwners(Context c, SharedPreferences p, String plate, String name) throws Exception {
+        if (!budget(c)) return;
         int now = query(OWNERS, "mispar_rechev", plate).length();
         String key = "owners_" + plate;
         if (p.contains(key) && now > p.getInt(key, now)) {
@@ -203,6 +234,7 @@ public class SavedCheckWorker extends Worker {
 
     /** A car that was active and is no longer in the active register has left the road */
     private void checkStatus(Context c, SharedPreferences p, String plate, String name) throws Exception {
+        if (!budget(c)) return;
         boolean active = query(ACTIVE, "mispar_rechev", plate).length() > 0;
         String key = "active_" + plate;
         if (p.getBoolean(key, false) && !active) {
@@ -214,6 +246,7 @@ public class SavedCheckWorker extends Worker {
     }
 
     private void checkTest(Context c, SharedPreferences p, String plate, String name) throws Exception {
+        if (!budget(c)) return;
         JSONArray rows = query(ACTIVE, "mispar_rechev", plate);
         if (rows.length() == 0) return;
         String tokef = rows.getJSONObject(0).optString("tokef_dt", "");
@@ -221,16 +254,107 @@ public class SavedCheckWorker extends Worker {
         Date end = new SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(tokef.substring(0, 10));
         if (end == null) return;
         long days = TimeUnit.MILLISECONDS.toDays(end.getTime() - startOfToday());
-        if (days < 0 || days > 30) return;
-        int stage = days <= 7 ? 7 : 30;
+        if (days < -7 || days > 30) return;
+        int stage = days < 0 ? -1 : days <= 7 ? 7 : 30;
         String key = "test_" + plate;
         String mark = tokef.substring(0, 10) + "|" + stage;
         if (mark.equals(p.getString(key, ""))) return;
         String when = new SimpleDateFormat("d.M.yyyy", Locale.US).format(end);
-        notify(c, plate, ("test" + plate).hashCode(),
-                "הטסט לרכב " + fmtPlate(plate) + (days == 0 ? " פג היום" : " פג בעוד " + days + " ימים"),
-                (name.isEmpty() ? "" : name + ": ") + "תוקף הרישיון עד " + when + ". כדאי לקבוע טסט.");
+        if (days < 0) {
+            notify(c, plate, ("test" + plate).hashCode(),
+                    "הטסט לרכב " + fmtPlate(plate) + " פג",
+                    (name.isEmpty() ? "" : name + ": ") + "תוקף הרישיון הסתיים ב-" + when + ". נסיעה בלי רישיון בתוקף עלולה לסכן את הביטוח ולגרור קנס.");
+        } else {
+            notify(c, plate, ("test" + plate).hashCode(),
+                    "הטסט לרכב " + fmtPlate(plate) + (days == 0 ? " פג היום" : " פג בעוד " + days + " ימים"),
+                    (name.isEmpty() ? "" : name + ": ") + "תוקף הרישיון עד " + when + ". כדאי לקבוע טסט.");
+        }
         p.edit().putString(key, mark).apply();
+    }
+
+    /** Vehicle-file documents with an expiry date (insurance, licences): a month before, a week before, on the day and a few days after */
+    private void checkDocs(Context c, SharedPreferences p, String plate, String name, JSONArray docs) throws Exception {
+        if (docs == null || docs.length() == 0) return;
+        int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
+        if (hour < 8 || hour >= 22) return;
+        Set<String> sent = new HashSet<>(p.getStringSet("docs_" + plate, new HashSet<>()));
+        boolean dirty = false;
+        for (int i = 0; i < docs.length(); i++) {
+            if (!budget(c)) break;
+            JSONObject d = docs.getJSONObject(i);
+            String exp = d.optString("exp", ""), cat = d.optString("cat", "מסמך");
+            if (exp.length() < 10) continue;
+            Date end = new SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(exp.substring(0, 10));
+            if (end == null) continue;
+            long days = TimeUnit.MILLISECONDS.toDays(end.getTime() - startOfToday());
+            int stage;
+            if (days < 0 && days >= -3) stage = -1;
+            else if (days == 0) stage = 0;
+            else if (days > 0 && days <= 7) stage = 7;
+            else if (days > 7 && days <= 30) stage = 30;
+            else continue;
+            String mark = cat + "|" + exp.substring(0, 10) + "|" + stage;
+            if (sent.contains(mark)) continue;
+            String when = new SimpleDateFormat("d.M.yyyy", Locale.US).format(end);
+            String prefix = name.isEmpty() ? "" : name + ": ";
+            String title;
+            if (stage == -1) title = cat + " לרכב " + fmtPlate(plate) + " פג";
+            else if (stage == 0) title = cat + " לרכב " + fmtPlate(plate) + " פג היום";
+            else title = cat + " לרכב " + fmtPlate(plate) + " פג בעוד " + days + " ימים";
+            String text = prefix + "התוקף ב-תיק הרכב: " + when + (stage == -1 ? ". כדאי לחדש בהקדם." : ". כדאי לחדש מראש.");
+            notify(c, plate, ("doc" + plate + cat).hashCode(), title, text);
+            sent.add(mark);
+            dirty = true;
+        }
+        if (dirty) p.edit().putStringSet("docs_" + plate, sent).apply();
+    }
+
+    /** Structure, colour or gas-conversion flags changed in the register since the last check */
+    private void checkMods(Context c, SharedPreferences p, String plate, String name) throws Exception {
+        if (!budget(c)) return;
+        JSONArray rows = query(ACTIVE, "mispar_rechev", plate);
+        if (rows.length() == 0) return;
+        JSONObject r = rows.getJSONObject(0);
+        String sig = r.optString("shinui_mivne_ind", "") + "|" + r.optString("gapam_ind", "") + "|" + r.optString("shnui_zeva_ind", "") + "|" + r.optString("shinui_zmig_ind", "");
+        String key = "mods_" + plate;
+        String old = p.getString(key, null);
+        if (old != null && !old.equals(sig)) {
+            notify(c, plate, ("mods" + plate).hashCode(),
+                    "נרשם שינוי ברכב " + fmtPlate(plate),
+                    (name.isEmpty() ? "" : name + ": ") + "במאגר הרכבים נרשם שינוי במבנה, בצבע, בגפ״מ או בצמיגים.");
+        }
+        p.edit().putString(key, sig).apply();
+    }
+
+    private static boolean on(JSONObject prefs, String kind) {
+        return prefs == null || prefs.optBoolean(kind, true);
+    }
+
+    /** At most 4 notifications in any 7 days, so the phone is never flooded; skipped checks run again the next day */
+    private static boolean budget(Context c) {
+        SharedPreferences p = prefs(c);
+        long now = System.currentTimeMillis(), week = TimeUnit.DAYS.toMillis(7), n = 0;
+        for (String t : p.getString("sent_log", "").split(",")) {
+            try {
+                if (now - Long.parseLong(t) < week) n++;
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return n < 4;
+    }
+
+    private static void logSent(Context c) {
+        SharedPreferences p = prefs(c);
+        long now = System.currentTimeMillis(), week = TimeUnit.DAYS.toMillis(7);
+        StringBuilder sb = new StringBuilder();
+        for (String t : p.getString("sent_log", "").split(",")) {
+            try {
+                if (now - Long.parseLong(t) < week) sb.append(t).append(',');
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        sb.append(now);
+        p.edit().putString("sent_log", sb.toString()).apply();
     }
 
     private static long startOfToday() {
@@ -285,7 +409,7 @@ public class SavedCheckWorker extends Worker {
         NotificationManager nm = c.getSystemService(NotificationManager.class);
         if (nm != null && nm.getNotificationChannel(CHANNEL) == null) {
             NotificationChannel ch = new NotificationChannel(CHANNEL, "רכבים שמורים", NotificationManager.IMPORTANCE_DEFAULT);
-            ch.setDescription("ריקול חדש או טסט שעומד לפוג ברכב ששמרת");
+            ch.setDescription("טסט, ריקולים, טיפולים ותוקף מסמכים ברכבים ששמרת");
             nm.createNotificationChannel(ch);
         }
     }
@@ -307,6 +431,7 @@ public class SavedCheckWorker extends Worker {
                 .setAutoCancel(true);
         try {
             NotificationManagerCompat.from(c).notify(id, b.build());
+            logSent(c);
         } catch (SecurityException ignored) {
             // notifications were not allowed
         }
