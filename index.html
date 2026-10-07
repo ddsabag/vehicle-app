@@ -3396,7 +3396,7 @@ if (PRO_LOCK && UPGRADE_UI) { try { const b = bridge(); if (b && b.billingInit) 
 syncSaved(store.get("savedVehicles"));
 try { if (window.AndroidApp && window.AndroidApp.setAnalytics) window.AndroidApp.setAnalytics(analyticsOn()); } catch {}
 /* web: Cloudflare Web Analytics (page views only, no cookies, no personal data); the token is added when the site is registered there */
-const CF_BEACON_TOKEN = "";
+const CF_BEACON_TOKEN = '9bb0e756882c478a808d95596e0deade';
 if (CF_BEACON_TOKEN && !window.AndroidApp && analyticsOn()) { const sc = document.createElement("script"); sc.defer = true; sc.src = "https://static.cloudflareinsights.com/beacon.min.js"; sc.setAttribute("data-cf-beacon", JSON.stringify({token: CF_BEACON_TOKEN})); document.head.appendChild(sc); }
 const start = digits(location.hash) || digits(new URLSearchParams(location.search).get("plate"));
 if (start) run(start); else renderHome();
