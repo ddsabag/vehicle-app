@@ -46,4 +46,6 @@ dependencies {
     implementation("com.google.android.play:review:2.0.2")
     implementation("com.android.installreferrer:installreferrer:2.2")
     implementation("com.android.billingclient:billing:8.0.0")
+    implementation("androidx.fragment:fragment:1.8.5")
+    implementation("androidx.activity:activity:1.9.3")
 }

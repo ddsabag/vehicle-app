@@ -327,7 +327,7 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .bflags,.bq{margin:0 0 10px;padding-inline-start:20px}.bflags li{font-weight:600}.bflags li.bad::marker{color:var(--bad)}.bflags li.warn::marker{color:var(--warn)}.bq li{margin:2px 0}
 .vd.ok{color:var(--ok);font-weight:700}.vd.bad{color:var(--bad);font-weight:700}.ft .g,.sum3 .g{color:var(--ok)}.ft .w,.sum3 .w{color:var(--warn)}.ft .r,.sum3 .r{color:var(--bad)}.ft td.g,.ft td.w,.ft td.r{font-weight:700}
 .sum3{display:flex;gap:6px;margin:10px 0}.sum3 div{flex:1;background:var(--soft);border-radius:10px;padding:6px;text-align:center;font-size:.8rem;color:var(--muted)}.sum3 b{display:block;font-size:1.3rem}
-.doc-add{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.doc-add .inp{flex:1 1 160px;min-width:0}
+.kinds{display:flex;flex-direction:column;gap:6px}.kinds label{display:flex;align-items:center;gap:10px;font-size:.92rem}.kinds input{width:18px;height:18px;accent-color:var(--accent)}.doc-add .exp{flex:1 1 100%;display:flex;align-items:center;gap:8px;font-size:.88rem;color:var(--muted)}.doc-add{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.doc-add .inp{flex:1 1 160px;min-width:0}
 .doc-acts{display:flex;gap:2px;flex:0 0 auto}
 .doc-view{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.92);display:grid;place-items:center;padding:12px}
 .doc-view img{max-width:100%;max-height:100%;object-fit:contain}
@@ -560,6 +560,10 @@ body.land .band{display:none}
       <div class="seg two" role="group" aria-label="התראות לרכבים שמורים"><button type="button" data-alerts="on">פועלות</button><button type="button" data-alerts="off">כבויות</button></div>
       <p class="note" id="alertsNote"></p>
     </div>
+    <div class="set-row" id="kindsRow" hidden><span>על מה להתריע</span>
+      <div id="alertKinds" class="kinds"></div>
+      <p class="note">לא נשלחות יותר מ-4 התראות בשבוע.</p>
+    </div>
     <div class="set-row"><span>נתונים במכשיר</span>
       <button class="link-btn" type="button" id="clearRecent">מחיקת היסטוריית החיפושים</button>
       <button class="link-btn" type="button" id="clearSaved">מחיקת כל הרכבים השמורים</button>
@@ -597,8 +601,8 @@ body.land .band{display:none}
 <script>
 "use strict";
 /*! © 2026 Dudu Sabag. All rights reserved. */
-const APP_VERSION = "1.13";
-const SITE = "https://ddsabag.github.io/vehicle-app/";
+const APP_VERSION = "1.14";
+const SITE = "https://luchit.app/";
 /* PRO: while PRO_LOCK is false (beta) every feature is open to everyone. Later it is tied to a Google Play subscription. */
 const PRO_LOCK = false;
 const UPGRADE_UI = true;   // false for a store build that has no billing products yet
@@ -793,7 +797,8 @@ function proLockCard(title, text){
   return card(title, "star", "amber", `<p style="margin:0">${esc(text)}</p><button type="button" class="link-btn" data-act="proInfo">הצטרפות ל-PRO</button>`, `${PT("PRO")}`);
 }
 const foldKey = t => "fold:" + t;
-const isFolded = t => { try { return localStorage.getItem(foldKey(t)) === "1"; } catch { return false; } };
+const FOLD_DEFAULT = new Set(["בעלות", "מסירות בתקופה", "שינויים ברכב", "היסטוריית בעלויות", "היסטוריית ריקולים לדגם", "לפני שקונים", "מרווח טיפולים", "ציר ק״מ", "עלות אחזקה מצטברת", "משקלים וצמיגים", "בטיחות", "אבזור", "סביבה", "מספרי זיהוי", "כמה מותר לגרור"]);
+const isFolded = t => { try { const k = localStorage.getItem(foldKey(t)); return k === null ? FOLD_DEFAULT.has(t) : k === "1"; } catch { return FOLD_DEFAULT.has(t); } };
 const card = (title, icon, color, inner, extra) => {
   if (!inner) return "";
   const closed = isFolded(title);
@@ -837,8 +842,26 @@ const store = {
 /* the app checks saved cars once a day for a new recall or a test about to expire */
 function syncSaved(list){
   const b = window.AndroidApp; if (!b || !b.syncSaved) return;
-  try { b.syncSaved(JSON.stringify((list || []).map((x, i) => ({plate: x.plate, title: x.title || "", alerts: alertSet().includes(x.plate), ext: plan() !== "free", svcDue: svcDue(x.plate)})))); } catch {}
+  try { b.syncSaved(JSON.stringify((list || []).map((x, i) => ({plate: x.plate, title: x.title || "", alerts: alertSet().includes(x.plate), ext: plan() !== "free", svcDue: svcDue(x.plate), prefs: alertPrefs(), docs: docExpAll().filter(d => d.plate === x.plate).map(d => ({cat: d.cat, exp: d.exp}))})))); } catch {}
 }
+/* what to be alerted about: every kind is on by default and the user can switch each one off in settings */
+const ALERT_KINDS = [["test", "טסט שעומד לפוג או שפג"], ["recall", "ריקול חדש או שנסגר"], ["service", "תזכורות טיפול"], ["docs", "תוקף ביטוח ומסמכים"], ["owner", "בעלות חדשה (PRO)"], ["status", "ירידה מהכביש ושינוי רשום (PRO)"], ["settlement", "הסדר פשרה חדש (PRO)"]];
+const alertPrefs = () => { try { return Object.assign({}, JSON.parse(localStorage.getItem("alertPrefs") || "{}")); } catch { return {}; } };
+const prefOn = k => alertPrefs()[k] !== false;
+function fillAlertKinds(){
+  const row = $("#kindsRow"); if (!row) return;
+  row.hidden = !alertsSupported(); if (row.hidden) return;
+  const pr = alertPrefs();
+  $("#alertKinds").innerHTML = ALERT_KINDS.map(([k, t]) => `<label><input type="checkbox" data-kind="${k}"${pr[k] === false ? "" : " checked"}>${esc(t)}</label>`).join("");
+}
+document.addEventListener("change", ev => {
+  const c = ev.target.closest && ev.target.closest("[data-kind]"); if (!c) return;
+  const pr = alertPrefs(); pr[c.dataset.kind] = c.checked;
+  try { localStorage.setItem("alertPrefs", JSON.stringify(pr)); } catch {}
+  syncSaved(store.get("savedVehicles"));
+});
+const docExpAll = () => { try { return JSON.parse(localStorage.getItem("docExp") || "[]"); } catch { return []; } };
+const docExpSave = a => { try { localStorage.setItem("docExp", JSON.stringify(a)); } catch {} syncSaved(store.get("savedVehicles")); };
 const alertsSupported = () => !!(window.AndroidApp && window.AndroidApp.setAlerts);
 window.onAlertsPermission = ok => { toast(ok ? "ההתראות פועלות: נעדכן אתכם על ריקול חדש או טסט שעומד לפוג" : "ההתראות כבויות. אפשר להפעיל אותן בהגדרות."); syncAlertsSeg(); };
 function syncAlertsSeg(){
@@ -1075,6 +1098,7 @@ function settlementsFor(D){
   const v = D.v, y = num(v.shnat_yitzur), now = new Date(), x = {mk: normS([v.tozeret_nm, D.make].join(" ")), md: normS([v.kinuy_mishari, v.degem_nm].join(" "))};
   return SETTLEMENTS.filter(s => !(new Date(s.until + "T23:59:59") < now) && s.mk.test(x.mk) && (!s.md || s.md.test(x.md)) && (!s.y || y >= s.y[0] && y <= s.y[1]) && (!s.ok || s.ok(v, y, x)));
 }
+const STL_SIG = SETTLEMENTS.map(x => x.id).join(",");
 function settlementCard(D){
   const list = D.kind === "model" || D.isCancelled ? [] : settlementsFor(D);
   if (!list.length) return "";
@@ -1362,7 +1386,7 @@ function modsCard(v){
   return `<p class="mods-sum">${sum}</p>` + facts(items.map(([k, x]) => [k, changed(x)]));
 }
 
-const EV_ICON = {owner: "🔔", recall: "⚠️", test: "✅", status: "🔄"};
+const EV_ICON = {owner: "🔔", recall: "⚠️", test: "✅", status: "🔄", settlement: "⚖️"};
 function eventsCard(D){
   const it = store.get("savedVehicles").find(x => x.plate === D.plate);
   if (!it) return "";
@@ -1572,23 +1596,27 @@ async function docPrepare(file){
     return blob ? {blob, type: "image/jpeg", name: (file.name || "תמונה").replace(/\.[^.]+$/, "") + ".jpg"} : null;
   } catch { return null; } finally { URL.revokeObjectURL(url); }
 }
-async function docsAdd(files, plate, cat){ try { await docsAdd0(files, plate, cat); } catch { toast("לא הצלחנו לשמור את המסמך בטלפון"); } }
-async function docsAdd0(files, plate, cat){
+const DOC_EXP_CATS = ["רישיון רכב", "רישיון נהיגה", "ביטוח", "טסט"];
+async function docsAdd(files, plate, cat, exp){ try { await docsAdd0(files, plate, cat, exp); } catch { toast("לא הצלחנו לשמור את המסמך בטלפון"); } }
+async function docsAdd0(files, plate, cat, exp){
   let n = (await DocDB.byPlate(plate)).length, added = 0, skipped = 0, locked = false;
   for (const f of files) {
     if (!docsOk(n)) { locked = true; break; }
     const d = await docPrepare(f).catch(() => null);
     if (!d) { skipped++; continue; }
-    await DocDB.put({plate, cat, name: d.name, type: d.type, size: d.blob.size, at: Date.now(), blob: d.blob}); n++; added++;
+    const id = await DocDB.put({plate, cat, name: d.name, type: d.type, size: d.blob.size, at: Date.now(), exp: exp || "", blob: d.blob}); n++; added++;
+    if (exp) docExpSave([...docExpAll(), {id, plate, cat, exp}]);
   }
   toast(locked ? `בחינם אפשר לשמור עד ${FREE_DOCS} מסמכים לרכב. ${added ? "נשמרו " + added + "." : ""}` : added ? (added === 1 ? "המסמך נשמר בתיק הרכב" : `נשמרו ${added} מסמכים בתיק הרכב`) + (skipped ? `, ${skipped} לא נתמכו או גדולים מדי` : "") : "לא הצלחנו לשמור. אפשר תמונות ו-PDF עד 12MB.");
   fillDocs();
+  if (added && exp && !trackedOk(plate)) setTimeout(() => toast("כדי לקבל התראה על התוקף, שמרו את הרכב ב\"הרכבים שלי\""), 2600);
 }
 function docsCard(D){
   return card("תיק הרכב", "doc", "teal", `<p style="margin:0">חשבוניות תיקון, רישיון הרכב, רישיון נהיגה, ביטוח ועוד, במקום אחד.</p>
     <div id="docList"></div>
     <div class="doc-add"><select class="inp" id="docCat" aria-label="סוג המסמך">${DOC_CATS.map(c => `<option>${c}</option>`).join("")}</select>
-    <button type="button" class="link-btn" data-doc="add">${ico("plus")}הוספת מסמך או צילום</button></div>
+    <button type="button" class="link-btn" data-doc="add">${ico("plus")}הוספת מסמך או צילום</button>
+    <label class="exp" id="docExpRow" hidden>תוקף עד <input class="inp" id="docExp" type="date" aria-label="תאריך תוקף"> <small>לא חובה. נתריע חודש לפני.</small></label></div>
     <input type="file" id="docFile" accept="image/*,application/pdf" multiple hidden>
     <p class="note">המסמכים נשמרים רק בטלפון הזה, לא נשלחים לשום מקום ולא נכללים בדוחות ששיתפתם. אם תמחקו את האפליקציה או תחליפו מכשיר הם יימחקו, ולכן כדאי לשמור גם עותק במקום אחר.${PRO_LOCK && !isPro() ? ` בחינם עד ${FREE_DOCS} מסמכים לרכב.` : ""}</p>`, PT(`PRO · בלי הגבלה`));
 }
@@ -1598,7 +1626,7 @@ async function fillDocs(){
   try { list = (await DocDB.byPlate(D.plate)).sort((a, b) => b.at - a.at); } catch { el.innerHTML = `<p class="note">שמירת מסמכים לא זמינה במכשיר הזה.</p>`; return; }
   if (current !== D || !el.isConnected) return;
   const kb = b => b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB";
-  el.innerHTML = list.length ? `<ul class="svc-list">${list.map(x => `<li><div><b>${esc(x.cat)}</b><span>${esc(x.name)} · ${esc(new Date(x.at).toLocaleDateString("he-IL"))} · ${kb(x.size)}</span></div><span class="doc-acts"><button type="button" class="x" data-doc="open" data-id="${x.id}" aria-label="פתיחה">${ico(x.type === "application/pdf" ? "doc" : "image")}</button><button type="button" class="x" data-doc="share" data-id="${x.id}" aria-label="שיתוף">${ico("share")}</button><button type="button" class="x" data-doc="del" data-id="${x.id}" aria-label="מחיקה">${ico("x")}</button></span></li>`).join("")}</ul>` : "";
+  el.innerHTML = list.length ? `<ul class="svc-list">${list.map(x => `<li><div><b>${esc(x.cat)}</b><span>${esc(x.name)} · ${esc(new Date(x.at).toLocaleDateString("he-IL"))} · ${kb(x.size)}${x.exp ? " · תוקף עד " + esc(fmtDate(x.exp)) : ""}</span></div><span class="doc-acts"><button type="button" class="x" data-doc="open" data-id="${x.id}" aria-label="פתיחה">${ico(x.type === "application/pdf" ? "doc" : "image")}</button><button type="button" class="x" data-doc="share" data-id="${x.id}" aria-label="שיתוף">${ico("share")}</button><button type="button" class="x" data-doc="del" data-id="${x.id}" aria-label="מחיקה">${ico("x")}</button></span></li>`).join("")}</ul>` : "";
 }
 function docViewer(blob, name){
   const url = URL.createObjectURL(blob), el = document.createElement("div"); el.className = "doc-view";
@@ -1613,17 +1641,19 @@ document.addEventListener("click", async ev => {
   const rec = b.dataset.id ? await DocDB.get(+b.dataset.id).catch(() => null) : null; if (!rec) return;
   if (a === "open") { if (rec.type === "application/pdf") shareFile(rec.blob, rec.name, rec.cat); else docViewer(rec.blob, rec.name); }
   else if (a === "share") shareFile(rec.blob, rec.name, rec.cat);
-  else if (a === "del" && confirm("למחוק את המסמך מהתיק?")) { await DocDB.del(rec.id); fillDocs(); }
+  else if (a === "del" && confirm("למחוק את המסמך מהתיק?")) { await DocDB.del(rec.id); docExpSave(docExpAll().filter(d => d.id !== rec.id)); fillDocs(); }
 });
 document.addEventListener("click", ev => { const b = ev.target.closest("[data-retry]"); if (b) lookup(b.dataset.retry); });
-document.addEventListener("change", ev => { const f = ev.target.closest("#docFile"); if (!f || !current) return; const files = [...f.files]; f.value = ""; if (files.length) docsAdd(files, current.plate, ($("#docCat") || {}).value || "אחר"); });
+document.addEventListener("change", ev => { const f = ev.target.closest("#docFile"); if (!f || !current) return; const files = [...f.files]; f.value = ""; if (files.length) { const ex = $("#docExp"); docsAdd(files, current.plate, ($("#docCat") || {}).value || "אחר", ex && DOC_EXP_CATS.includes(($("#docCat") || {}).value) ? ex.value : ""); if (ex) ex.value = ""; } });
+document.addEventListener("change", ev => { const c = ev.target.closest("#docCat"); const r = $("#docExpRow"); if (c && r) r.hidden = !DOC_EXP_CATS.includes(c.value); });
 
 function tabMaint(D){
   const info = serviceInfo(D);
   let paid;
   if (!maintOk()) paid = proLockCard("אחזקה", "מרווח טיפולים לדגם, הטיפול הבא, יומן טיפולים, ציר ק״מ ועלות אחזקה מצטברת, עם תזכורות בהתראה.");
   else { svcRemember(D, info); paid = [intervalCard(D, info), nextCard(D, info), logCard(D), kmCard(D), costLogCard(D)].join(""); }
-  const free = [docsCard(D), manualCard(D), seasonCard()].join("");
+  const webNote = !window.AndroidApp && !SERVICE ? card("מרווחי טיפול מלאים", "wrench", "teal", `<p style="margin:0">הטבלה המלאה של מרווחי הטיפול לפי דגם, גרסה ונפח מנוע זמינה באפליקציית לוחית באנדרואיד.</p><button type="button" class="link-btn" data-url="${PLAY_URL}">${ico("share")}להורדה מ-Google Play</button>`) : "";
+  const free = [docsCard(D), manualCard(D), seasonCard(), webNote].join("");
   const pg = tier("ב-PRO: מעקב טיפולים", paid);
   return maintOk() ? pg + free : free + pg;
 }
@@ -1752,7 +1782,7 @@ function tabCosts(D){
   html.push(card("שווי שימוש (רכב צמוד)", "users", "teal", u ?
     `<div class="tow-grid"><div><div class="k">לחודש</div><div class="v">${fmtN(u.monthly)}<span class="u">₪</span></div></div><div><div class="k">לשנה</div><div class="v">${fmtN(u.monthly * 12)}<span class="u">₪</span></div></div></div>
      <p class="note">${u.green ? `כולל הפחתה של ${fmtN(u.green[1])} ₪ לרכב ${u.green[0]}. ` : ""}זה הסכום שמתווסף למשכורת לצורך מס, לא המס עצמו.</p>` :
-    `<p style="margin:0">אין מספיק נתונים לחישוב שווי השימוש של הרכב הזה (החישוב כאן לרכב פרטי שעלה לכביש מ-2010).</p><button type="button" class="link-btn" data-url="${USAGE.calc}">${ico("doc")}המחשבון הרשמי של רשות המסים</button>`));
+    `<p style="margin:0">אין מספיק נתונים לחישוב שווי השימוש של הרכב הזה (החישוב כאן לרכב פרטי שעלה לכביש מ-2010).</p>`));
   return html.join("");
 }
 
@@ -1767,6 +1797,8 @@ function checksCard(D){
   if (D.own.length) row(true, "נבדקה היסטוריית הבעלות");
   const mods = ["shinui_mivne_ind", "gapam_ind", "shnui_zeva_ind", "shinui_zmig_ind"].filter(k => yes(v[k]));
   row(!mods.length, mods.length ? "נרשמו שינויים ברכב" : "לא נרשמו שינויי מבנה, גפ״מ או צבע");
+  const stl = settlementsFor(D).length;
+  row(!stl, stl ? "ייתכן שהרכב נכלל בהסדר פשרה מול היבואן" : "לא נמצא הסדר פשרה מוכר לדגם ולשנתון");
   return card(`מה נבדק (${rows.length} בדיקות)`, "check", "green", `<ul class="insights plain">${rows.join("")}</ul>
     <p class="note" style="margin:0"><b>מה אי אפשר לדעת ממאגרי משרד התחבורה:</b> שעבודים, תאונות, אובדן גמור וירידת ערך מביטוח, וגניבה. את העבר הביטוחי (תביעות, אובדן גמור) אפשר לבדוק במרכז הסליקה של חברות הביטוח, בשלב הראשון ברשימה "לפני שקונים".</p>`);
 }
@@ -2260,7 +2292,7 @@ function summaryText(D){
 function toggleFold(h){
   const c = h.closest(".card"); const closed = c.classList.toggle("folded");
   h.setAttribute("aria-expanded", String(!closed));
-  try { closed ? localStorage.setItem(foldKey(h.dataset.fold), "1") : localStorage.removeItem(foldKey(h.dataset.fold)); } catch {}
+  try { localStorage.setItem(foldKey(h.dataset.fold), closed ? "1" : "0"); } catch {}
 }
 $("#out").addEventListener("keydown", ev => { const h = ev.target.closest && ev.target.closest("[data-fold]"); if (h && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); toggleFold(h); } });
 $("#out").addEventListener("click", ev => {
@@ -2759,6 +2791,14 @@ async function checkSaved(){
           if (it.active === true && !isAct) add("status", "הרכב ירד מהכביש");
           if (isAct) { it.active = true; const t = String(act[0].tokef_dt || "").slice(0, 10); if (t && it.tokef && t > String(it.tokef).slice(0, 10)) add("test", "הטסט חודש עד " + fmtDate(t)); if (t) it.tokef = act[0].tokef_dt; }
         }
+        if (ext && prefOn("settlement") && it.stlSig !== STL_SIG) {
+          const D = await fetchVehicle(s.plate).catch(() => null);
+          if (D && !D.offline && !D.notFound && D.kind !== "model" && !D.isCancelled) {
+            const ids = settlementsFor(D).map(x => x.id), fresh = it.stl ? ids.filter(i => !it.stl.includes(i)) : [];
+            if (fresh.length) add("settlement", "ייתכן שהרכב נכלל בהסדר פשרה חדש");
+            it.stl = ids; it.stlSig = STL_SIG;
+          }
+        }
         if (ev.length) { it.events = [...ev, ...(it.events || [])].slice(0, 30); changed = true; }
         it.checked = Date.now(); store.set("savedVehicles", list);
       } catch {}
@@ -3159,7 +3199,7 @@ document.querySelectorAll("[data-theme-choice]").forEach(b => b.addEventListener
 }));
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => applyTheme(themeChoice()));
 const sheet = $("#settings");
-$("#openSettings").addEventListener("click", () => { syncAlertsSeg(); syncPlanUi(); sheet.hidden = false; $("#closeSettings").focus(); });
+$("#openSettings").addEventListener("click", () => { syncAlertsSeg(); fillAlertKinds(); syncPlanUi(); sheet.hidden = false; $("#closeSettings").focus(); });
 document.querySelectorAll("[data-alerts]").forEach(b => b.addEventListener("click", () => { try { window.AndroidApp.setAlerts(b.dataset.alerts === "on"); localStorage.setItem("alertsAsked", "1"); } catch {} syncAlertsSeg(); }));
 $("#closeSettings").addEventListener("click", () => { sheet.hidden = true; $("#openSettings").focus(); });
 sheet.addEventListener("click", ev => { if (ev.target === sheet) sheet.hidden = true; });
