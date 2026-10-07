@@ -71,9 +71,20 @@ public class SavedCheckWorker extends Worker {
         }
         PeriodicWorkRequest req = new PeriodicWorkRequest.Builder(SavedCheckWorker.class, 1, TimeUnit.DAYS)
                 .setConstraints(new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-                .setInitialDelay(2, TimeUnit.HOURS)
+                .setInitialDelay(msUntilMorning(), TimeUnit.MILLISECONDS)
                 .build();
         wm.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.KEEP, req);
+    }
+
+    /** First run at about 10:00 local time, so the daytime-only service reminders are not skipped every day */
+    private static long msUntilMorning() {
+        Calendar t = Calendar.getInstance();
+        t.set(Calendar.HOUR_OF_DAY, 10);
+        t.set(Calendar.MINUTE, 0);
+        t.set(Calendar.SECOND, 0);
+        long d = t.getTimeInMillis() - System.currentTimeMillis();
+        if (d < TimeUnit.HOURS.toMillis(1)) d += TimeUnit.DAYS.toMillis(1);
+        return d;
     }
 
     @NonNull
@@ -84,10 +95,12 @@ public class SavedCheckWorker extends Worker {
         SharedPreferences p = prefs(c);
         try {
             JSONArray saved = new JSONArray(p.getString("saved", "[]"));
-            for (int i = 0; i < saved.length() && i < 20; i++) {
+            int checked = 0;
+            for (int i = 0; i < saved.length() && checked < 20; i++) {
                 JSONObject car = saved.getJSONObject(i);
                 String plate = car.optString("plate");
                 if (plate.isEmpty() || !car.optBoolean("alerts", true)) continue;
+                checked++;
                 String name = car.optString("title", "");
                 try {
                     checkService(c, p, plate, name, car.optString("svcDue", ""));
@@ -126,7 +139,7 @@ public class SavedCheckWorker extends Worker {
     private void checkService(Context c, SharedPreferences p, String plate, String name, String due) throws Exception {
         if (due == null || due.length() < 10) return;
         int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
-        if (hour < 9 || hour >= 21) return;
+        if (hour < 8 || hour >= 22) return;
         Date end = new SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(due.substring(0, 10));
         if (end == null) return;
         long days = TimeUnit.MILLISECONDS.toDays(end.getTime() - startOfToday());
@@ -232,6 +245,7 @@ public class SavedCheckWorker extends Worker {
     /** Plate columns are numeric in some datasets and text in others, so both are tried */
     private static JSONArray query(String resource, String field, String plate) throws Exception {
         Exception last = null;
+        boolean ok = false;
         for (Object v : new Object[]{Long.parseLong(plate), plate}) {
             try {
                 JSONObject f = new JSONObject().put(field, v);
@@ -246,10 +260,10 @@ public class SavedCheckWorker extends Worker {
                     int n;
                     while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
                     JSONObject j = new JSONObject(out.toString("UTF-8"));
-                    if (j.optBoolean("success")) {
-                        JSONArray r = j.getJSONObject("result").getJSONArray("records");
-                        if (r.length() > 0) return r;
-                    }
+                    if (!j.optBoolean("success")) throw new Exception("api error");
+                    ok = true;
+                    JSONArray r = j.getJSONObject("result").getJSONArray("records");
+                    if (r.length() > 0) return r;
                 } finally {
                     con.disconnect();
                 }
@@ -257,7 +271,7 @@ public class SavedCheckWorker extends Worker {
                 last = e;
             }
         }
-        if (last != null) throw last;
+        if (!ok && last != null) throw last;
         return new JSONArray();
     }
 

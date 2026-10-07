@@ -74,10 +74,14 @@ public class MainActivity extends Activity {
 
         // Keep the page clear of the status and navigation bars (edge-to-edge is enforced on new Android versions)
         root.setOnApplyWindowInsetsListener((View v, WindowInsets insets) -> {
-            int types = WindowInsets.Type.systemBars() | WindowInsets.Type.ime();
-            android.graphics.Insets i = insets.getInsets(types);
-            v.setPadding(i.left, i.top, i.right, i.bottom);
-            return WindowInsets.CONSUMED;
+            if (android.os.Build.VERSION.SDK_INT >= 30) {
+                int types = WindowInsets.Type.systemBars() | WindowInsets.Type.ime();
+                android.graphics.Insets i = insets.getInsets(types);
+                v.setPadding(i.left, i.top, i.right, i.bottom);
+                return WindowInsets.CONSUMED;
+            }
+            v.setPadding(insets.getSystemWindowInsetLeft(), insets.getSystemWindowInsetTop(), insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom());
+            return insets.consumeSystemWindowInsets();
         });
 
         WebSettings s = webView.getSettings();
