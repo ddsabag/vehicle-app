@@ -793,7 +793,8 @@ function proLockCard(title, text){
   return card(title, "star", "amber", `<p style="margin:0">${esc(text)}</p><button type="button" class="link-btn" data-act="proInfo">הצטרפות ל-PRO</button>`, `${PT("PRO")}`);
 }
 const foldKey = t => "fold:" + t;
-const isFolded = t => { try { return localStorage.getItem(foldKey(t)) === "1"; } catch { return false; } };
+const FOLD_DEFAULT = new Set(["בעלות", "מסירות בתקופה", "שינויים ברכב", "היסטוריית בעלויות", "היסטוריית ריקולים לדגם", "לפני שקונים", "מרווח טיפולים", "ציר ק״מ", "עלות אחזקה מצטברת", "משקלים וצמיגים", "בטיחות", "אבזור", "סביבה", "מספרי זיהוי", "כמה מותר לגרור"]);
+const isFolded = t => { try { const k = localStorage.getItem(foldKey(t)); return k === null ? FOLD_DEFAULT.has(t) : k === "1"; } catch { return FOLD_DEFAULT.has(t); } };
 const card = (title, icon, color, inner, extra) => {
   if (!inner) return "";
   const closed = isFolded(title);
@@ -1752,7 +1753,7 @@ function tabCosts(D){
   html.push(card("שווי שימוש (רכב צמוד)", "users", "teal", u ?
     `<div class="tow-grid"><div><div class="k">לחודש</div><div class="v">${fmtN(u.monthly)}<span class="u">₪</span></div></div><div><div class="k">לשנה</div><div class="v">${fmtN(u.monthly * 12)}<span class="u">₪</span></div></div></div>
      <p class="note">${u.green ? `כולל הפחתה של ${fmtN(u.green[1])} ₪ לרכב ${u.green[0]}. ` : ""}זה הסכום שמתווסף למשכורת לצורך מס, לא המס עצמו.</p>` :
-    `<p style="margin:0">אין מספיק נתונים לחישוב שווי השימוש של הרכב הזה (החישוב כאן לרכב פרטי שעלה לכביש מ-2010).</p><button type="button" class="link-btn" data-url="${USAGE.calc}">${ico("doc")}המחשבון הרשמי של רשות המסים</button>`));
+    `<p style="margin:0">אין מספיק נתונים לחישוב שווי השימוש של הרכב הזה (החישוב כאן לרכב פרטי שעלה לכביש מ-2010).</p>`));
   return html.join("");
 }
 
@@ -1767,6 +1768,8 @@ function checksCard(D){
   if (D.own.length) row(true, "נבדקה היסטוריית הבעלות");
   const mods = ["shinui_mivne_ind", "gapam_ind", "shnui_zeva_ind", "shinui_zmig_ind"].filter(k => yes(v[k]));
   row(!mods.length, mods.length ? "נרשמו שינויים ברכב" : "לא נרשמו שינויי מבנה, גפ״מ או צבע");
+  const stl = settlementsFor(D).length;
+  row(!stl, stl ? "ייתכן שהרכב נכלל בהסדר פשרה מול היבואן" : "לא נמצא הסדר פשרה מוכר לדגם ולשנתון");
   return card(`מה נבדק (${rows.length} בדיקות)`, "check", "green", `<ul class="insights plain">${rows.join("")}</ul>
     <p class="note" style="margin:0"><b>מה אי אפשר לדעת ממאגרי משרד התחבורה:</b> שעבודים, תאונות, אובדן גמור וירידת ערך מביטוח, וגניבה. את העבר הביטוחי (תביעות, אובדן גמור) אפשר לבדוק במרכז הסליקה של חברות הביטוח, בשלב הראשון ברשימה "לפני שקונים".</p>`);
 }
@@ -2260,7 +2263,7 @@ function summaryText(D){
 function toggleFold(h){
   const c = h.closest(".card"); const closed = c.classList.toggle("folded");
   h.setAttribute("aria-expanded", String(!closed));
-  try { closed ? localStorage.setItem(foldKey(h.dataset.fold), "1") : localStorage.removeItem(foldKey(h.dataset.fold)); } catch {}
+  try { localStorage.setItem(foldKey(h.dataset.fold), closed ? "1" : "0"); } catch {}
 }
 $("#out").addEventListener("keydown", ev => { const h = ev.target.closest && ev.target.closest("[data-fold]"); if (h && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); toggleFold(h); } });
 $("#out").addEventListener("click", ev => {
