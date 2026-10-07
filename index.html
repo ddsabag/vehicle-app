@@ -601,7 +601,7 @@ body.land .band{display:none}
 <script>
 "use strict";
 /*! © 2026 Dudu Sabag. All rights reserved. */
-const APP_VERSION = "1.13";
+const APP_VERSION = "1.14";
 const SITE = "https://luchit.app/";
 /* PRO: while PRO_LOCK is false (beta) every feature is open to everyone. Later it is tied to a Google Play subscription. */
 const PRO_LOCK = false;
@@ -1652,7 +1652,8 @@ function tabMaint(D){
   let paid;
   if (!maintOk()) paid = proLockCard("אחזקה", "מרווח טיפולים לדגם, הטיפול הבא, יומן טיפולים, ציר ק״מ ועלות אחזקה מצטברת, עם תזכורות בהתראה.");
   else { svcRemember(D, info); paid = [intervalCard(D, info), nextCard(D, info), logCard(D), kmCard(D), costLogCard(D)].join(""); }
-  const free = [docsCard(D), manualCard(D), seasonCard()].join("");
+  const webNote = !window.AndroidApp && !SERVICE ? card("מרווחי טיפול מלאים", "wrench", "teal", `<p style="margin:0">הטבלה המלאה של מרווחי הטיפול לפי דגם, גרסה ונפח מנוע זמינה באפליקציית לוחית באנדרואיד.</p><button type="button" class="link-btn" data-url="${PLAY_URL}">${ico("share")}להורדה מ-Google Play</button>`) : "";
+  const free = [docsCard(D), manualCard(D), seasonCard(), webNote].join("");
   const pg = tier("ב-PRO: מעקב טיפולים", paid);
   return maintOk() ? pg + free : free + pg;
 }
