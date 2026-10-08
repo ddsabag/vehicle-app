@@ -63,14 +63,14 @@ svg.i{width:20px;height:20px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-
 /* header */
 .band{background:linear-gradient(180deg,var(--band-tint,var(--band)),var(--band));color:var(--band-fg);padding-top:env(safe-area-inset-top,0px);border-bottom:1px solid var(--line)}
 .band-in{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:14px 18px;display:flex;flex-direction:column;gap:12px}
-.brand{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.brand{display:flex;justify-content:space-between;align-items:center;gap:8px 12px;flex-wrap:wrap}
 .brand h1{margin:0;font-size:1.45rem;font-weight:800;display:flex;align-items:center;gap:8px}
 .brand h1 .name{display:flex;flex-direction:column;line-height:1.1;align-items:flex-start}
 .brand h1 small{font-size:.78rem;font-weight:600;color:var(--band-muted);direction:rtl}
 .brand .logo{width:40px;height:40px;flex:0 0 auto}
 .brand h1{cursor:pointer;-webkit-user-select:none;user-select:none}
-.brand-r{display:flex;align-items:center;gap:8px}.home-btn{white-space:nowrap;display:flex;align-items:center;gap:6px;height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--band-line);background:transparent;font-weight:700;color:var(--band-fg)}.home-btn[hidden]{display:none}
-.icon-btn{width:40px;height:40px;border-radius:10px;border:1px solid var(--band-line);background:transparent;display:grid;place-items:center}
+.brand-r{display:flex;align-items:center;gap:8px}.home-btn{white-space:nowrap;display:flex;align-items:center;gap:6px;height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--band-line);background:transparent;font-weight:700;color:var(--band-fg)}.home-btn[hidden]{display:none}
+.icon-btn{width:44px;height:44px;border-radius:10px;border:1px solid var(--band-line);background:transparent;display:grid;place-items:center}
 form{display:flex;gap:10px}
 .plate{flex:1;min-width:0;display:flex;direction:ltr;background:var(--plate);border:3px solid #0b0b0b;border-radius:9px;overflow:hidden;height:64px}
 .plate .il{background:var(--il);color:#fff;width:40px;flex:0 0 40px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:7px;font:700 11px/1.15 var(--f-body)}
@@ -94,7 +94,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .card.folded .fold-body{display:none}
 .card.folded .chev{transform:rotate(90deg)}
 .head .badge{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:var(--tc);background:var(--tb)}
-.head .count{margin-inline-start:auto;font-size:.8rem;font-weight:700;color:var(--tc);background:var(--tb);padding:2px 9px;border-radius:999px}
+.head .count{margin-inline-start:auto;font-size:.8rem;font-weight:700;color:color-mix(in srgb,var(--tc) 72%,var(--fg));background:var(--tb);padding:2px 9px;border-radius:999px}
 .blue{--tc:var(--t-blue);--tb:var(--t-blue-bg)} .violet{--tc:var(--t-violet);--tb:var(--t-violet-bg)} .teal{--tc:var(--t-teal);--tb:var(--t-teal-bg)}
 .amber{--tc:var(--t-amber);--tb:var(--t-amber-bg)} .red{--tc:var(--t-red);--tb:var(--t-red-bg)} .slate{--tc:var(--t-slate);--tb:var(--t-slate-bg)}
 .green{--tc:var(--t-green);--tb:var(--t-green-bg)} .leaf{--tc:var(--t-leaf);--tb:var(--t-leaf-bg)} .pink{--tc:var(--t-pink);--tb:var(--t-pink-bg)}
@@ -105,7 +105,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 
 /* identity */
 .id-card{gap:14px}
-.id-top{display:flex;gap:12px;align-items:flex-start;justify-content:space-between}
+.id-top{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}.id-top>div{min-width:0}
 .id-title{margin:0;font-size:1.6rem;font-weight:800;line-height:1.2;text-wrap:balance}
 .id-sub{margin:2px 0 0;color:var(--muted)}
 .mini-plate{flex:0 0 auto;direction:ltr;background:var(--plate);color:#111;border:2px solid #0b0b0b;border-radius:6px;font:600 .95rem var(--f-num);padding:2px 8px 2px 4px;display:flex;align-items:center;gap:6px}
@@ -214,6 +214,10 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .seg button[aria-pressed="true"]{background:var(--card);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.15)}
 .link-btn{border:1px solid var(--line);background:transparent;border-radius:10px;padding:10px 12px;font-weight:700;text-align:start}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:30;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+footer a{display:inline-block;padding:12px 2px}
+.mini-plate{max-width:100%}.card table{display:block;max-width:100%;overflow-x:auto}
+.head button.count{position:relative}.head button.count::after{content:"";position:absolute;inset:-12px -6px}
+.inp{min-height:44px}
 footer{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:0 32px;font-size:.8rem;color:var(--muted)}
 footer a{color:var(--accent)}
 
@@ -223,7 +227,7 @@ footer a{color:var(--accent)}
 .alert-banner b{display:block;font-size:1.05rem;color:var(--bad)}
 .alert-banner.warn{background:var(--warn-bg)}.alert-banner.warn::before{background:var(--warn)}.alert-banner.warn b,.alert-banner.warn svg.i{color:var(--warn)}
 .alert-banner svg.i{width:26px;height:26px;margin-top:2px;color:var(--bad)}
-.tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;background:var(--card);border-radius:14px;padding:5px;box-shadow:var(--shadow);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.tabs{display:grid;grid-template-columns:repeat(5,minmax(max-content,1fr));overflow-x:auto;scrollbar-width:none;gap:4px;background:var(--card);border-radius:14px;padding:5px;box-shadow:var(--shadow);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
 .tabs button{border:0;background:transparent;border-radius:10px;padding:12px 2px;min-height:44px;font-size:.86rem;font-weight:700;white-space:nowrap;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:5px}
 .tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-fg)}
 .tabs i{font-style:normal;font-size:.72rem;min-width:18px;padding:0 5px;border-radius:999px;background:var(--soft);color:var(--fg)}
@@ -274,7 +278,7 @@ footer a{color:var(--accent)}
 .mods-sum{margin:0;font-weight:600}
 .first-own{background:var(--soft);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
 .first-own span{color:var(--muted);font-size:.9rem}
-.plate .clr{flex:0 0 auto;width:34px;padding:0;margin-inline-start:-2px;border:0;background:transparent;color:#111;display:grid;place-items:center;opacity:.7}
+.plate .clr{flex:0 0 auto;width:44px;padding:0;margin-inline-start:-2px;border:0;background:transparent;color:#111;display:grid;place-items:center;opacity:.7}
 .plate .clr svg.i{width:20px;height:20px;stroke-width:2.6}
 .cmp-h b{font-size:.92rem;line-height:1.25;word-break:normal;overflow-wrap:normal;hyphens:none}
 .cmp-h .mini-plate{font-size:.7rem;white-space:nowrap;padding:1px 4px 1px 2px;gap:3px;max-width:100%}
@@ -725,13 +729,27 @@ function makeName(v){
 }
 
 /* ---------- API ---------- */
+const DS_CACHE = new Map();   // identical queries (also while still in flight) are answered once: fewer requests, instant repeat lookups
+function dsFetch(url){
+  const hit = DS_CACHE.get(url); if (hit && Date.now() - hit.t < 60000) return hit.p;
+  const pr = (async () => {
+    const r = await fetch(url, {headers:{Accept:"application/json"}});
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const j = await r.json();
+    if (!j.success) throw new Error((j.error && (j.error.message || JSON.stringify(j.error))) || "CKAN error");
+    return j.result.records || [];
+  })();
+  if (DS_CACHE.size > 300) DS_CACHE.clear();
+  DS_CACHE.set(url, {t: Date.now(), p: pr});
+  pr.catch(() => { if (DS_CACHE.get(url) && DS_CACHE.get(url).p === pr) DS_CACHE.delete(url); });
+  return pr;
+}
 async function ds(resource_id, filters, limit, signal){
   const p = new URLSearchParams({resource_id, filters: JSON.stringify(filters), limit: String(limit || 100)});
-  const r = await fetch(`${API}?${p}`, {signal, headers:{Accept:"application/json"}});
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  const j = await r.json();
-  if (!j.success) throw new Error((j.error && (j.error.message || JSON.stringify(j.error))) || "CKAN error");
-  return j.result.records || [];
+  if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
+  const rows = await dsFetch(`${API}?${p}`);
+  if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
+  return rows;
 }
 /* Plate columns are text in some datasets and numeric in others; old archives zero-pad. */
 async function byPlate(set, plate, signal){
