@@ -136,7 +136,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .ins.bad::before,.ins.warn::before{content:"";position:absolute;inset-inline-start:0;top:9px;bottom:9px;width:4px;border-radius:4px;background:var(--ic)}
 .ins.bad b,.ins.warn b{font-weight:800}
 .ins.info,.ins.ok{background:var(--soft)}
-.ins.info b,.ins.ok b{color:var(--fg);font-weight:700}
+.ins.info b,.ins.ok b{color:var(--fg);font-weight:600}
 .ins.info svg.i{color:var(--muted)}
 .insights.plain .ins::before{display:none}
 .ins.bad{--ic:var(--bad);--ib:var(--bad-bg)} .ins.warn{--ic:var(--warn);--ib:var(--warn-bg)} .ins.ok{--ic:var(--ok)} .ins.info{--ic:var(--info)}
@@ -236,7 +236,7 @@ footer a{color:var(--accent)}
 .rhead{display:flex;align-items:center;gap:8px;justify-content:space-between}
 .rhead time{font:500 .85rem var(--f-num);color:var(--muted)}
 .link-list{display:flex;flex-direction:column;gap:8px}
-.link-btn{display:flex;align-items:center;gap:8px;color:var(--fg)}
+.link-btn{display:flex;align-items:center;gap:8px;color:var(--fg);width:100%}
 .link-btn svg.i{color:var(--accent)}
 .adj{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
 .adj li{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--line);font-size:.92rem}
@@ -343,10 +343,11 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .doc-view .x{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));inset-inline-start:12px;background:#fff3;color:#fff;border-radius:10px;width:40px;height:40px;display:grid;place-items:center;border:0}
 .bsteps{list-style:none;margin:0;padding:0;display:grid;gap:16px}.bsteps>li{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start}.bsteps .n{width:28px;height:28px;border-radius:50%;background:var(--t-green-bg);color:var(--t-green);display:grid;place-items:center;font-weight:800;font-size:.9rem}.bsteps .n .i{width:16px;height:16px}.bsteps>li>div{display:grid;gap:6px;min-width:0}.bsteps .note{margin:0}
 .mst small.ok{color:var(--ok);font-weight:700}.mst small.bad{color:var(--bad);font-weight:700}
-.ins .todo{font-weight:600;color:var(--fg);margin-top:4px}
+.ins .todo{font-weight:400;color:var(--fg);margin-top:4px}.ins .todo strong{font-weight:800}
+.todo-d{margin-top:2px}.todo-d summary{cursor:pointer;color:var(--accent);font-weight:700;font-size:.88rem;list-style:none;padding:4px 0}.todo-d summary::-webkit-details-marker{display:none}.todo-d summary::after{content:" ›"}.todo-d[open] summary::after{content:" ‹"}
 .chk{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}.chk span{display:flex;gap:6px;align-items:center;font-size:.92rem;min-width:0}.chk .i{width:16px;height:16px}.chk .y .i{color:var(--ok)}.chk .n{color:var(--muted)}.chk .n .i{color:var(--muted);opacity:.7}
 .zscale{display:grid;grid-template-columns:repeat(15,1fr);gap:2px}.zscale i{height:22px;border-radius:4px;opacity:.35;font:700 .7rem/22px var(--f-num);text-align:center;color:#fff;font-style:normal}.zscale i.on{opacity:1;height:30px;margin-top:-4px;box-shadow:0 0 0 2px var(--card),0 0 0 3px var(--fg)}.zlbl{display:flex;justify-content:space-between;font-size:.78rem;color:var(--muted);margin-top:4px}
-.insights.plain .ins{background:transparent;padding:4px 0;border:0}.insights.plain .ins b{font-weight:600;color:var(--fg)}.insights.plain .ins.ok svg.i{color:var(--ok)}.insights.plain .ins.warn svg.i{color:var(--warn)}
+.insights.plain .ins{background:transparent;padding:4px 0;border:0}.insights.plain .ins b{font-weight:500;color:var(--fg)}.insights.plain .ins.ok svg.i{color:var(--ok)}.insights.plain .ins.warn svg.i{color:var(--warn)}
 .tools{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 .tool{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:start;border:0;background:var(--card);box-shadow:var(--shadow);border-radius:14px;padding:12px;font-weight:700;color:var(--fg)}
 .tool .tb{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:var(--tb);color:var(--tc);font-style:normal}
@@ -1692,7 +1693,7 @@ function tabOverview(D){
   if (ins.length) {
     const icon = {bad:"alert", warn:"alert", info:"info", ok:"check"};
     html.push(card("מידע חשוב שעלה מהנתונים", "bulb", "amber",
-      `<ul class="insights">${ins.map(i => `<li class="ins ${i.level}">${ico(icon[i.level])}<div><b>${esc(i.title)}</b><span>${esc(i.text)}</span>${insightTodo(i.title) ? `<span class="todo">מה לעשות: ${esc(insightTodo(i.title))}</span>` : ""}</div></li>`).join("")}</ul>`));
+      `<ul class="insights">${ins.map(i => `<li class="ins ${i.level}">${ico(icon[i.level])}<div><b>${esc(i.title)}</b><span>${esc(i.text)}</span>${insightTodo(i.title) ? (i.level === "info" || i.level === "ok" ? `<details class="todo-d"><summary>מה לעשות</summary><span class="todo">${esc(insightTodo(i.title))}</span></details>` : `<span class="todo"><strong>מה לעשות:</strong> ${esc(insightTodo(i.title))}</span>`) : ""}</div></li>`).join("")}</ul>`));
   }
   const evCard = tier("ב-PRO: מעקב אחרי הרכב", eventsCard(D)), evFirst = !PRO_LOCK || isPro();
   if (evFirst) html.push(evCard);
