@@ -2729,6 +2729,14 @@ function buildReport(D, full, biz){
   el.querySelectorAll(".buyer-card, .insp, .alert-banner button, .vsw, .simple-more, .simple .copy-btn").forEach(x => x.remove());
   // cards that only point to a website make no sense on paper
   el.querySelectorAll(".card").forEach(c => { const t = (c.querySelector(".head h2") || {}).textContent || ""; if (/^(לפני שקונים|בדיקה באתר היבואן|ספר הרכב)/.test(t.trim())) c.remove(); });
+  // the personal tracking log is not for sharing
+  el.querySelectorAll(".card").forEach(c => { if (/^יומן אירועים/.test(((c.querySelector(".head h2") || {}).textContent || "").trim())) c.remove(); });
+  // a clean recall result is already stated in the recalls section of a full report, so it is not repeated in the checks list
+  if (full) el.querySelectorAll(".insights.plain li").forEach(li => {
+    if (li.textContent.trim() !== "אין ריקול פתוח") return;
+    const c = li.closest(".card"), h = c && c.querySelector(".head h2"), m = h && h.textContent.match(/\((\d+) בדיקות\)/);
+    li.remove(); if (m) h.textContent = h.textContent.replace(m[0], `(${m[1] - 1} בדיקות)`);
+  });
   // the disabled-parking tag is personal, so it is never printed
   el.querySelectorAll(".pill").forEach(x => { if (x.textContent.trim() === "תג נכה") x.remove(); });
   el.querySelectorAll(".facts > div").forEach(x => { if (/תג חניה לנכה/.test(x.textContent)) x.remove(); });
