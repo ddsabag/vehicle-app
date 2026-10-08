@@ -213,6 +213,7 @@ footer a{color:var(--accent)}
 /* recall banner, tabs */
 .alert-banner{display:flex;gap:12px;align-items:flex-start;text-align:start;width:100%;border:0;border-radius:16px;padding:14px 16px;background:var(--bad-bg);color:var(--fg);border-inline-start:5px solid var(--bad);font-size:.95rem}
 .alert-banner b{display:block;font-size:1.05rem;color:var(--bad)}
+.alert-banner.warn{background:var(--warn-bg);border-inline-start-color:var(--warn)}.alert-banner.warn b,.alert-banner.warn svg.i{color:var(--warn)}
 .alert-banner svg.i{width:26px;height:26px;margin-top:2px;color:var(--bad)}
 .tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;background:var(--card);border-radius:14px;padding:5px;box-shadow:var(--shadow);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
 .tabs button{border:0;background:transparent;border-radius:10px;padding:12px 2px;min-height:44px;font-size:.86rem;font-weight:700;white-space:nowrap;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:5px}
@@ -1354,9 +1355,9 @@ function renderResult(){
   const html = [];
   const exp = toDate(v.tokef_dt);
   const pills = [];
-  if (D.primary) pills.push(`<span class="pill ${D.primary.tone||"ok"}">${esc(D.primary.status)}</span>`);
+  // pills show only what is not the norm (a plain "active" status adds nothing) plus drive type and test
+  if (D.primary && (D.primary.tone || "ok") !== "ok") pills.push(`<span class="pill ${D.primary.tone}">${esc(D.primary.status)}</span>`);
   if (D.importKind) pills.push(`<span class="pill info">${esc(D.importKind)}</span>`);
-  else if (D.primary && D.primary.kind) pills.push(`<span class="pill">${esc(D.primary.kind)}</span>`);
   const dt = driveType(D);
   if (dt) pills.push(`<span class="pill drive ${["ev", "phev", "hybrid"].includes(dt.k) ? "green" : ""}">${ico(["ev", "phev", "hybrid"].includes(dt.k) ? "bolt" : "fuel")}${dt.label}</span>`);
   if (exp && !D.isCancelled) pills.push(exp < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) ? `<span class="pill bad">טסט לא בתוקף</span>` : `<span class="pill ok">טסט בתוקף</span>`);
@@ -1381,6 +1382,10 @@ function renderResult(){
     html.push(`<button type="button" class="alert-banner" data-tab="recalls">${ico("alert")}<span><b>${blocking ? (D.recalls.length > 1 ? "אחד הריקולים הפתוחים מגביל חידוש רישיון" : "ריקול פתוח שמגביל חידוש רישיון") : D.recalls.length === 1 ? "לרכב יש ריקול פתוח" : `לרכב ${D.recalls.length} ריקולים פתוחים`}</b>${blocking ? "לא ניתן לחדש רישיון עד ביצוע התיקון." : "ריקול בטיחותי פתוח עלול למנוע חידוש רישיון. התיקון בחינם אצל היבואן."}</span></button>`);
   }
 
+  if (D.kind !== "model" && !D.isCancelled) {
+    const stl = settlementsFor(D);
+    if (stl.length) html.push(`<button type="button" class="alert-banner warn" data-tab="recalls">${ico("scale")}<span><b>${stl.length === 1 ? "ייתכן שמגיעה הטבה מהסדר פשרה" : `ייתכן שמגיעות ${stl.length} הטבות מהסדרי פשרה`}</b>ההטבה תלויה בהתאמה לרכב שלכם. הפרטים בלשונית ריקולים.</span></button>`);
+  }
   if (D.errs && D.errs.length) html.push(`<p class="msg">חלק ממאגרי משרד התחבורה לא ענו כרגע, והמידע על הרכב חלקי. נסו שוב בעוד דקה.</p>`);
   const recallCount = D.recalls.length;
   html.push(`<div class="tabs" role="tablist">${TABS.map(([k, t]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${k === currentTab}">${t}${k === "recalls" && recallCount ? `<i class="hot">${recallCount}</i>` : ""}</button>`).join("")}</div>`);
@@ -3342,13 +3347,13 @@ function renderHome(){
   current = null; inCompare = false;
   const saved = store.get("savedVehicles"), recent = store.get("recentPlates");
   const html = [];
-  if (!saved.length && !recent.length) html.push(`<section class="hero"><h2>לפני שקונים רכב, בודקים אותו כאן</h2><p>מספר רישוי אחד, וכל מה שחשוב לדעת בשניות.</p><ul><li>${ico("alert")}ריקולים פתוחים והיסטוריית ריקולים לדגם</li><li>${ico("users")}כמה בעלים היו ומה סוג הבעלות</li><li>${ico("chart")}ק״מ, עלויות ומחיר הוגן</li></ul></section>`);
+  if (!saved.length && !recent.length) html.push(`<section class="hero"><h2>לפני שקונים רכב, בודקים אותו כאן</h2><p>מספר רישוי אחד: ריקולים, בעלים, ק״מ ומחיר משוער, בשניות.</p></section>`);
   const pn = planNotice(); if (pn) html.push(pn);
   if (saved.length) html.push(card("הרכבים שלי", "star", "amber", `<div class="list">${saved.map(s => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-open="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b><bdi>${esc(s.title)}</bdi></b><small>${esc(s.sub || "")}</small>${savedFlags(s)}</span></button><button type="button" class="x bell" data-bell="${s.plate}" aria-pressed="${s.alerts !== false && (!PRO_LOCK || alertSet().includes(s.plate))}" aria-label="התראות לרכב הזה">${ico("bell")}</button><button type="button" class="x" data-unsave="${s.plate}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div><p class="note">הפעמון קובע על אילו רכבים תקבלו התראה על ריקול חדש או טסט שעומד לפוג.</p>`));
   if (recent.length) html.push(card("חיפושים אחרונים", "clock", "blue", `<div class="chips">${recent.map(p => `<button type="button" class="chip" data-open="${p}">${fmtPlate(p)}</button>`).join("")}</div>`));
   const tool = (act, icon, title, text, tag, col) => `<button type="button" class="tool ${col}" data-act="${act}"><i class="tb">${ico(icon)}</i><span>${title}${tag ? PT(tag) : ""}</span><small>${text}</small></button>`;
   html.push(`<div class="qsec">כלים</div><div class="tools">${[
-    tool("compareHome", "compare", "השוואת דגמים", "עד " + cmpMax() + " דגמים: מחיר, צריכה, אגרה וריקולים", "", "violet"),
+    tool("compareHome", "compare", "חיפוש דגמים", "בלי מספר רישוי: חפשו דגם והשוו עד " + cmpMax(), "", "violet"),
     tool("market", "chart", "שוק הרכב", "מה נמכר, מי מוביל ומי קונה", "", "blue"),
     saved.length >= 2 ? tool("fleet", "car", "הצי שלי", "כל הרכבים השמורים בטבלה אחת", "PRO", "teal") : "",
     saved.some(s => s.ask || s.fair) ? tool("cands", "star", "רשימת מועמדים", "הרכבים ששמרתם מול המחיר המבוקש", "PRO", "amber") : "",
