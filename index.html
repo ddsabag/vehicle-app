@@ -2180,7 +2180,7 @@ function renderQuick(){
   const box = $("#mquick"), q = $("#mq").value.trim();
   if (q.length >= 2 || mGroup) { box.innerHTML = ""; return; }
   const inCmp = p => cmp.some(x => x.plate === p);
-  const parts = [];
+  const parts = [`<p class="note" style="margin:0 0 6px">אפשר לחפש חופשי: דגם ("קורולה"), יצרן ודגם, או סוג, דלק ותקציב ("SUV חשמלי עד 250 אלף").</p>`];
   const mine = [];
   if (current && !inCmp(current.plate)) mine.push(`<button type="button" class="qrow cur" data-qcur="1"><span class="mini-plate"><i></i>${fmtPlate(current.plate)}</span><span class="t"><b>${esc(current.title)}</b><small>הרכב שחיפשתם</small></span><span class="qadd">${ico("plus")}הוספה</span></button>`);
   for (const s of store.get("savedVehicles").filter(s => !inCmp(s.plate) && !(current && s.plate === current.plate)).slice(0, 3))
@@ -3418,7 +3418,7 @@ function renderHome(){
   if (recent.length) html.push(card("חיפושים אחרונים", "clock", "blue", `<div class="chips">${recent.map(p => `<button type="button" class="chip" data-open="${p}">${fmtPlate(p)}</button>`).join("")}</div>`));
   const tool = (act, icon, title, text, tag, col) => `<button type="button" class="tool ${col}" data-act="${act}"><i class="tb">${ico(icon)}</i><span>${title}${tag ? PT(tag) : ""}</span><small>${text}</small></button>`;
   html.push(`<div class="qsec">כלים</div><div class="tools">${[
-    tool("compareHome", "compare", "חיפוש דגמים", "בלי מספר רישוי: חפשו דגם והשוו עד " + cmpMax(), "", "violet"),
+    tool("compareHome", "compare", "חיפוש דגמים", "חיפוש חופשי: דגם, או סוג ותקציב. אפשר גם להשוות עד " + cmpMax(), "", "violet"),
     tool("market", "chart", "שוק הרכב", "מה נמכר, מי מוביל ומי קונה", "", "blue"),
     saved.length >= 2 ? tool("fleet", "car", "הצי שלי", "כל הרכבים השמורים בטבלה אחת", "PRO", "teal") : "",
     saved.some(s => s.ask || s.fair) ? tool("cands", "star", "רשימת מועמדים", "הרכבים ששמרתם מול המחיר המבוקש", "PRO", "amber") : "",
