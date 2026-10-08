@@ -2108,7 +2108,7 @@ function smartQueries(text){
   return out;
 }
 /* smart (sound-matched) queries first, then the plain words as before */
-async function modelRows(text, words, filters, limit, signal){
+async function searchModelRows(text, words, filters, limit, signal){
   const sq = smartQueries(text);
   if (sq) {
     const got = await Promise.all(sq.map(q => dsSearch(MODEL_SETS.wltp, q.words, filters, limit, signal).then(r => r.length ? r : dsSearch(MODEL_SETS.price, q.words, filters, limit, signal)).then(r => r.filter(x => { const m = rowMake(x); return m === q.mk || m.startsWith(q.mk) || q.mk.startsWith(m); }))));
@@ -2143,7 +2143,7 @@ const rowKey = r => [r.tozeret_cd, r.degem_cd, r.shnat_yitzur, r.ramat_gimur].ma
 async function searchModels(text, year, signal){
   const words = searchWords(text); if (!words.length) return [];
   const f = year ? {shnat_yitzur: Number(year)} : null;
-  let rows = await modelRows(text, words, f, 400, signal);
+  let rows = await searchModelRows(text, words, f, 400, signal);
   const seen = new Map();
   for (const r of rows) { if (empty(r.tozeret_cd) || empty(r.degem_cd)) continue; const k = rowKey(r); if (!seen.has(k)) seen.set(k, r); }
   return [...seen.values()]
@@ -2257,7 +2257,7 @@ async function runModelSearch(){
       mGroups = filterGroups(F); mNote = F.label; mShowAll = false; showGroups(); return;
     }
     mNote = "";
-    let rows = await modelRows(q, searchWords(q), null, 1000, signal);
+    let rows = await searchModelRows(q, searchWords(q), null, 1000, signal);
     if (signal.aborted) return;
     const g = new Map();
     for (const r of rows) {
