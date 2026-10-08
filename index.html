@@ -1982,7 +1982,7 @@ function loadModelIndex(){
         const r = await fetch(u, {cache: "no-cache"}); if (!r.ok) continue;
         const j = await r.json(); if (!j.rows || !j.rows.length) continue;
         MODELIDX = j.rows.map(([mk, md, y0, y1, pr, bd, fl]) => ({
-          mk, md, y0, y1, pr: pr || 0, bd: bd || "", fl: fl ? String(fl).split("|") : [], mkw: (ws => [...ws.map(w => skOf(w)), ws.length > 1 ? skOf(ws.join("")) : ""].filter(Boolean))(mk.split(/[\s.\-\/]+/).map(w => w.replace(/[^א-תA-Za-z0-9']/g, "")).filter(Boolean)),
+          mk, md, y0, y1, pr: pr || 0, bd: bd || "", fp: Object.fromEntries((fl ? String(fl).split("|") : []).map(x => [x[0], parseFloat(x.slice(1))])), mkw: (ws => [...ws.map(w => skOf(w)), ws.length > 1 ? skOf(ws.join("")) : ""].filter(Boolean))(mk.split(/[\s.\-\/]+/).map(w => w.replace(/[^א-תA-Za-z0-9']/g, "")).filter(Boolean)),
           mtok: md.replace(/([A-Z])(\d)/g, "$1 $2").replace(/(\d)([A-Z])/g, "$1 $2").split(/[\s\-\/]+/).filter(Boolean)
         }));
         return MODELIDX;
@@ -2155,13 +2155,14 @@ function parseFilters(text){
   if (!maxP && !body.length && !fuel.size) return null;
   return {maxP, body, fuel, rest, label: labels.join(" · ")};
 }
-const fuelOk = (fl, k) => k === "ev" ? fl.includes("חשמל") : k === "hyb" ? fl.some(x => x.includes("/")) : k === "diesel" ? fl.some(x => x.includes("דיזל")) : fl.some(x => x.includes("בנזין"));
+const FUEL_CODE = {ev: "e", hyb: "h", diesel: "d", petrol: "p"};
 function filterGroups(F){
   if (!MODELIDX) return [];
-  const minY = new Date().getFullYear() - 1, rt = F.rest.map(w => skOf(w)).filter(Boolean);
-  const out = MODELIDX.filter(e => e.y1 >= minY && e.pr > 0 && (!F.maxP || e.pr <= F.maxP) && (!F.body.length || F.body.includes(e.bd)) && (![...F.fuel].length || [...F.fuel].every(k => fuelOk(e.fl, k)))
+  const minY = new Date().getFullYear() - 1, rt = F.rest.map(w => skOf(w)).filter(Boolean), fk = [...F.fuel].map(k => FUEL_CODE[k]);
+  const priceOf = e => fk.length ? Math.min(...fk.map(c => e.fp[c] || Infinity)) : e.pr;
+  const out = MODELIDX.filter(e => e.y1 >= minY && (!F.body.length || F.body.includes(e.bd)) && isFinite(priceOf(e)) && priceOf(e) > 0 && (!F.maxP || priceOf(e) <= F.maxP)
     && rt.every(t => e.mkw.some(w => skScore(t, w) >= 2) || e.mtok.some(x => skScore(t, skOf(x)) >= 2)));
-  return out.map(e => ({make: e.mk, model: cleanModelName(normModel(e.md)), names: new Set(), cds: new Set(), rows: [], from: e.y0, to: e.y1, price: e.pr, fromFilter: true}))
+  return out.map(e => ({make: e.mk, model: cleanModelName(normModel(e.md)), names: new Set(), cds: new Set(), rows: [], from: e.y1, to: e.y1, price: priceOf(e), fromFilter: true}))
     .sort((a, b) => a.make.localeCompare(b.make, "he") || a.price - b.price);
 }
 const MODEL_SHOWN = 8;
@@ -2222,7 +2223,7 @@ function showGroups(){
   msg.textContent = mGroups.length ? "" : (mNote ? "לא נמצאו דגמים שמתאימים לתנאים. נסו תקציב גבוה יותר או פחות תנאים." : "לא נמצאו דגמים. נסו שם אחר, למשל שם הדגם באנגלית.");
   let lastMake = null;
   $("#mres").innerHTML = (mNote && mGroups.length ? `<div class="qsec" style="margin-top:0">${mGroups.length} דגמים: ${esc(mNote)}</div>` : "") + shown.map(x => (x.make !== lastMake ? (lastMake = x.make, `<div class="qsec">${esc(x.make)}</div>`) : "") + `<button type="button" class="row" data-mg="${mGroups.indexOf(x)}"><span class="t"><b>${esc(x.model)}</b><small>${isFinite(x.from) ? (x.from === x.to ? x.from : `<span dir="ltr">${x.from}–${x.to}</span>`) : ""}${x.price ? ` · החל מ-${fmtN(x.price)} אלף ₪` : ""}</small></span>${ico("chev")}</button>`).join("")
-    + (rest > 0 ? `<button type="button" class="more" data-more="1">עוד ${rest} דגמים ישנים יותר</button>` : "");
+    + (rest > 0 ? `<button type="button" class="more" data-more="1">${mNote ? `עוד ${rest} דגמים` : `עוד ${rest} דגמים ישנים יותר`}</button>` : "");
   renderQuick();
 }
 /* all rows of one model, every maker code, year and trim */
