@@ -128,11 +128,18 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 
 /* insights */
 .insights{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
-.ins{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:var(--ib);color:var(--fg)}
-.ins svg.i{color:var(--ic);margin-top:2px}
+.ins{display:flex;gap:10px;align-items:flex-start;padding:11px 14px;border-radius:12px;background:var(--ib);color:var(--fg);position:relative}
+.ins svg.i{color:var(--ic);margin-top:2px;flex:0 0 auto}
 .ins b{display:block;color:var(--ic)}
 .ins span{font-size:.92rem}
-.ins.bad{--ic:var(--bad);--ib:var(--bad-bg)} .ins.warn{--ic:var(--warn);--ib:var(--warn-bg)} .ins.ok{--ic:var(--ok);--ib:var(--ok-bg)} .ins.info{--ic:var(--info);--ib:var(--info-bg)}
+/* flags (bad, warn) get a coloured edge so they read as flags; info and ok stay quiet */
+.ins.bad::before,.ins.warn::before{content:"";position:absolute;inset-inline-start:0;top:9px;bottom:9px;width:4px;border-radius:4px;background:var(--ic)}
+.ins.bad b,.ins.warn b{font-weight:800}
+.ins.info,.ins.ok{background:var(--soft)}
+.ins.info b,.ins.ok b{color:var(--fg);font-weight:700}
+.ins.info svg.i{color:var(--muted)}
+.insights.plain .ins::before{display:none}
+.ins.bad{--ic:var(--bad);--ib:var(--bad-bg)} .ins.warn{--ic:var(--warn);--ib:var(--warn-bg)} .ins.ok{--ic:var(--ok)} .ins.info{--ic:var(--info)}
 
 /* towing + stats */
 .tow-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -211,9 +218,10 @@ footer{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:0 32px;fo
 footer a{color:var(--accent)}
 
 /* recall banner, tabs */
-.alert-banner{display:flex;gap:12px;align-items:flex-start;text-align:start;width:100%;border:0;border-radius:16px;padding:14px 16px;background:var(--bad-bg);color:var(--fg);border-inline-start:5px solid var(--bad);font-size:.95rem}
+.alert-banner{display:flex;gap:12px;align-items:flex-start;text-align:start;width:100%;border:0;border-radius:16px;padding:14px 18px;background:var(--bad-bg);color:var(--fg);font-size:.95rem;position:relative}
+.alert-banner::before{content:"";position:absolute;inset-inline-start:0;top:12px;bottom:12px;width:5px;border-radius:5px;background:var(--bad)}
 .alert-banner b{display:block;font-size:1.05rem;color:var(--bad)}
-.alert-banner.warn{background:var(--warn-bg);border-inline-start-color:var(--warn)}.alert-banner.warn b,.alert-banner.warn svg.i{color:var(--warn)}
+.alert-banner.warn{background:var(--warn-bg)}.alert-banner.warn::before{background:var(--warn)}.alert-banner.warn b,.alert-banner.warn svg.i{color:var(--warn)}
 .alert-banner svg.i{width:26px;height:26px;margin-top:2px;color:var(--bad)}
 .tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;background:var(--card);border-radius:14px;padding:5px;box-shadow:var(--shadow);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
 .tabs button{border:0;background:transparent;border-radius:10px;padding:12px 2px;min-height:44px;font-size:.86rem;font-weight:700;white-space:nowrap;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:5px}
