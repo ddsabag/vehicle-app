@@ -2152,6 +2152,10 @@ const normModel = m => {
 };
 // the same car built in two countries has two maker codes; it is still one model for the buyer
 const groupKey = r => [rowMake(r), normModel(rowModel(r))].join("|").toUpperCase();
+/* the catalogue sometimes repeats the maker inside the model ("TOYOTA COROLLA"); the list shows the model alone */
+const LATIN_MAKERS = new Set(Object.keys(MAKE_ALIASES).map(k => k.toUpperCase()).concat(["MERCEDES-BENZ", "LANDROVER", "ROVER", "LAND-ROVER"]));
+const cleanModelName = m => { const t = String(m).split(" "); if (t.length > 1 && LATIN_MAKERS.has(t[0]) && !/^\d+$/.test(t.slice(1).join(" ")) && t.slice(1).join(" ").length > 1) return t.slice(1).join(" "); return m; };
+const listKey = r => [rowMake(r), cleanModelName(normModel(rowModel(r)))].join("|").toUpperCase();
 const plateLike = q => /^[\d\s-]+$/.test(q) && digits(q).length >= 5;
 async function runModelSearch(){
   const q = $("#mq").value.trim(), msg = $("#compareMsg"), list = $("#mres");
@@ -2171,19 +2175,23 @@ async function runModelSearch(){
     const g = new Map();
     for (const r of rows) {
       if (empty(r.tozeret_cd) || !rowModel(r)) continue;
-      const k = groupKey(r);
-      if (!g.has(k)) g.set(k, {make: rowMake(r), model: normModel(rowModel(r)), names: new Set(), cds: new Set(), rows: []});
+      const k = listKey(r);
+      if (!g.has(k)) g.set(k, {make: rowMake(r), model: cleanModelName(normModel(rowModel(r))), names: new Set(), cds: new Set(), rows: []});
       const x = g.get(k); x.rows.push(r); x.names.add(rowModel(r)); x.cds.add(String(r.tozeret_cd));
     }
     mGroups = [...g.values()].map(x => { const ys = x.rows.map(r => num(r.shnat_yitzur)).filter(y => !isNaN(y)); return {...x, from: Math.min(...ys), to: Math.max(...ys)}; })
       .sort((a, b) => b.to - a.to || (a.make + a.model).localeCompare(b.make + b.model, "he"));
+    // maker first, then its models; makers keep the order of their best match
+    const mkOrder = []; for (const x of mGroups) if (!mkOrder.includes(x.make)) mkOrder.push(x.make);
+    mGroups.sort((a, b) => mkOrder.indexOf(a.make) - mkOrder.indexOf(b.make));
     mShowAll = false; showGroups();
   } catch (err) { if (err.name !== "AbortError") msg.textContent = "החיפוש נכשל. בדקו את החיבור ונסו שוב."; }
 }
 function showGroups(){
   const msg = $("#compareMsg"), shown = mShowAll ? mGroups : mGroups.slice(0, MODEL_SHOWN), rest = mGroups.length - shown.length;
   msg.textContent = mGroups.length ? "" : "לא נמצאו דגמים. נסו שם אחר, למשל שם הדגם באנגלית.";
-  $("#mres").innerHTML = shown.map(x => `<button type="button" class="row" data-mg="${mGroups.indexOf(x)}"><span class="t"><b>${esc(x.make)} ${esc(x.model)}</b><small>${isFinite(x.from) ? (x.from === x.to ? x.from : `<span dir="ltr">${x.from}–${x.to}</span>`) : ""}</small></span>${ico("chev")}</button>`).join("")
+  let lastMake = null;
+  $("#mres").innerHTML = shown.map(x => (x.make !== lastMake ? (lastMake = x.make, `<div class="qsec">${esc(x.make)}</div>`) : "") + `<button type="button" class="row" data-mg="${mGroups.indexOf(x)}"><span class="t"><b>${esc(x.model)}</b><small>${isFinite(x.from) ? (x.from === x.to ? x.from : `<span dir="ltr">${x.from}–${x.to}</span>`) : ""}</small></span>${ico("chev")}</button>`).join("")
     + (rest > 0 ? `<button type="button" class="more" data-more="1">עוד ${rest} דגמים ישנים יותר</button>` : "");
   renderQuick();
 }
