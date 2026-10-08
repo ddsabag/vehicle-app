@@ -39,6 +39,7 @@ val copyWebApp by tasks.registering(Copy::class) {
     from(rootProject.file("build-web/index.html").takeIf { it.exists() } ?: rootProject.file("../index.html"))
     from(rootProject.file("../market.json"))   // bundled copy, used when the site copy cannot be fetched
     from(rootProject.file("../modelstats.json"))
+    from(rootProject.file("../models.json"))
     from(rootProject.file("../service.json"))
     into(layout.buildDirectory.dir("generated/webassets"))
 }
