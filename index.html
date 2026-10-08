@@ -1547,7 +1547,7 @@ function seasonCard(){
   const mo = new Date().getMonth() + 1, summer = mo >= 4 && mo <= 9;
   const items = summer ? ["מזגן: בדיקת קירור ומסנן מזגן", "נוזל קירור ומפלס שמן", "לחץ אוויר ובלאי בצמיגים", "מצבר, שחום קשה מקצר את חייו"]
     : ["מגבים וניקוי שמשות", "פנסים ומצבר לפני הקור והגשם", "בלמים ועומק חריץ בצמיגים", "נוזל שמשות ומפלס שמן"];
-  return card(summer ? "בדיקות לפני הקיץ" : "בדיקות לפני החורף", "check", "green", `<ul class="insights">${items.map(x => `<li class="ins info">${ico("info")}<div><b>${esc(x)}</b></div></li>`).join("")}</ul><p class="note">רשימה כללית, לא תלויה בדגם.</p>`);
+  return card(summer ? "בדיקות לפני הקיץ" : "בדיקות לפני החורף", "check", "green", `<ul class="insights plain">${items.map(x => `<li class="ins ok">${ico("check")}<div><b>${esc(x)}</b></div></li>`).join("")}</ul><p class="note">רשימה כללית, לא תלויה בדגם.</p>`);
 }
 function nextCard(D, info){
   const s = svcOf(D.plate), n = svcNext(s), saved = isSaved(D.plate);
