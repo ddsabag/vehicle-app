@@ -116,7 +116,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .pill.drive{display:inline-flex;align-items:center;gap:4px;background:var(--info-bg);color:var(--info)}.pill.drive svg.i{width:14px;height:14px}
 .pill.drive.green{background:var(--t-leaf-bg);color:var(--t-leaf)}
 .pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.warn{background:var(--warn-bg);color:var(--warn)}.pill.bad{background:var(--bad-bg);color:var(--bad)}
-.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;border-top:1px solid var(--line);padding-top:12px}
+.actions{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;border-top:1px solid var(--line);padding-top:12px}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .act[data-act=share]{background:#3a3213;box-shadow:inset 0 0 0 1.5px #7a6a24}:root:not([data-theme="light"]) .act[data-act=share] svg.i{color:#f2c94c}}
 :root[data-theme="dark"] .act[data-act=share]{background:#3a3213;box-shadow:inset 0 0 0 1.5px #7a6a24}:root[data-theme="dark"] .act[data-act=share] svg.i{color:#f2c94c}
 .mst td{vertical-align:middle}.mst small{white-space:nowrap;font-size:.74rem;color:var(--muted)}.mst b.ok{color:var(--ok)}.mst b.bad{color:var(--bad)}
@@ -225,7 +225,7 @@ footer a{color:var(--accent)}
 .alert-banner{display:flex;gap:12px;align-items:flex-start;text-align:start;width:100%;border:0;border-radius:16px;padding:14px 18px;background:var(--bad-bg);color:var(--fg);font-size:.95rem;position:relative}
 .alert-banner::before{content:"";position:absolute;inset-inline-start:0;top:12px;bottom:12px;width:5px;border-radius:5px;background:var(--bad)}
 .alert-banner b{display:block;font-size:1.05rem;color:var(--bad)}
-.vsw{display:flex;gap:2px;background:var(--soft);border-radius:10px;padding:2px;margin-top:10px}.vsw button{flex:1;border:0;background:transparent;border-radius:8px;min-height:36px;font-weight:600;color:var(--muted)}.vsw button[aria-pressed="true"]{background:var(--card);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.12)}.simple-more{width:100%;margin-top:6px;border:0;background:transparent;color:var(--accent,#2556c8);font-weight:700;min-height:44px}.simple td .copy-btn{display:inline-flex;align-items:center;margin-inline-start:8px;padding:0 9px;min-height:32px;background:var(--soft);color:var(--muted);border:1px solid var(--line);border-radius:8px;vertical-align:middle}.simple td .copy-btn svg{width:16px;height:16px}.report .vsw,.report .simple-more,.report .simple td .copy-btn{display:none}.simple{width:100%;border-collapse:collapse;font-size:.92rem}.simple th,.simple td{padding:6px 4px;border-top:1px solid var(--line);text-align:start;vertical-align:top}.simple tr:first-child th,.simple tr:first-child td{border-top:0}.simple th{color:var(--muted);font-weight:400;width:34%}.simple td{font-weight:600;overflow-wrap:anywhere}
+.simple-more{width:100%;margin-top:6px;border:0;background:transparent;color:var(--accent,#2556c8);font-weight:700;min-height:44px}.simple td .copy-btn{display:inline-flex;align-items:center;margin-inline-start:8px;padding:0 9px;min-height:32px;background:var(--soft);color:var(--muted);border:1px solid var(--line);border-radius:8px;vertical-align:middle}.simple td .copy-btn svg{width:16px;height:16px}.act[aria-pressed="true"][data-act="simple"]{background:var(--card);box-shadow:inset 0 0 0 1.5px var(--line)}.report .simple-more,.report .simple td .copy-btn{display:none}.simple{width:100%;border-collapse:collapse;font-size:.92rem}.simple th,.simple td{padding:6px 4px;border-top:1px solid var(--line);text-align:start;vertical-align:top}.simple tr:first-child th,.simple tr:first-child td{border-top:0}.simple th{color:var(--muted);font-weight:400;width:34%}.simple td{font-weight:600;overflow-wrap:anywhere}
 .alert-banner.warn{background:var(--warn-bg)}.alert-banner.warn::before{background:var(--warn)}.alert-banner.warn b,.alert-banner.warn svg.i{color:var(--warn)}
 .alert-banner svg.i{width:26px;height:26px;margin-top:2px;color:var(--bad)}
 .tabs{display:grid;grid-template-columns:repeat(5,minmax(max-content,1fr));overflow-x:auto;scrollbar-width:none;gap:4px;background:var(--card);border-radius:14px;padding:5px;box-shadow:var(--shadow);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
@@ -992,7 +992,7 @@ function driveType(D){
   const tech = String(D.w.technologiat_hanaa_nm || D.v.technologiat_hanaa_nm || "").toUpperCase();
   const reg = String(D.v.sug_delek_nm || ""), fuel = String(D.pick(D.v.sug_delek_nm, D.w.delek_nm) || "");
   if (fuelKind(D) === "ev" || tech.includes("חשמלי")) return {k: "ev", label: "חשמלי"};
-  if (tech.includes("PLUG") || /חשמל\//.test(reg)) return {k: "phev", label: "פלאג-אין"};
+  if (/PLUG|פלאג|נטען/.test(tech) || /חשמל\//.test(reg)) return {k: "phev", label: "פלאג-אין"};
   if (tech.includes("היברידי") || (!reg && /חשמל/.test(fuel))) return {k: "hybrid", label: "היברידי"};
   if (/דיזל|סולר/.test(fuel)) return {k: "diesel", label: "דיזל"};
   if (/גפ"?מ|גז/.test(fuel)) return {k: "lpg", label: "גפ״מ"};
@@ -1435,8 +1435,8 @@ function renderResult(){
       <button class="act" type="button" data-act="share">${ico("share")}שיתוף</button>
       <button class="act" type="button" data-act="save" aria-pressed="${isSaved(D.plate)}">${ico("star")}<span>${isSaved(D.plate) ? "נשמר" : "שמירה"}</span></button>
       <button class="act" type="button" data-act="compare">${ico("compare")}השוואה</button>
+      <button class="act" type="button" data-act="simple" aria-pressed="${simpleOn()}">${ico("doc")}<span>${simpleOn() ? "תצוגה מלאה" : "תצוגה פשוטה"}</span></button>
     </div>
-    <div class="vsw" role="group" aria-label="תצוגה"><button type="button" data-act="simple" data-v="0" aria-pressed="${!simpleOn()}">תצוגה מלאה</button><button type="button" data-act="simple" data-v="1" aria-pressed="${simpleOn()}">תצוגה פשוטה</button></div>
   </section>`);
 
   // An open recall is the one thing that must never be missed: banner above the tabs
@@ -2244,7 +2244,13 @@ function filterGroups(F){
   const priceOf = e => fk.length ? Math.min(...fk.map(c => e.fp[c] || Infinity)) : e.pr;
   const out = MODELIDX.filter(e => e.y1 >= minY && (!F.body.length || F.body.includes(e.bd)) && isFinite(priceOf(e)) && priceOf(e) > 0 && (!F.maxP || priceOf(e) <= F.maxP)
     && rt.every(t => e.mkw.some(w => skScore(t, w) >= 2) || e.mtok.some(x => skScore(t, skOf(x)) >= 2)));
-  return out.map(e => ({make: e.mk, model: cleanModelName(normModel(e.md)), names: new Set(), cds: new Set(), rows: [], from: e.y1, to: e.y1, price: priceOf(e), fromFilter: true}))
+  const merged = new Map();
+  for (const e of out) {
+    const nm = cleanModelName(normModel(e.md)), k = e.mk + "|" + modelBase(nm), x = merged.get(k);
+    if (!x) merged.set(k, {make: e.mk, model: nm, names: new Set(), cds: new Set(), rows: [], from: e.y1, to: e.y1, price: priceOf(e), fromFilter: true});
+    else { x.model = spaced(x.model, nm); x.to = Math.max(x.to, e.y1); x.price = Math.min(x.price, priceOf(e)); }
+  }
+  return [...merged.values()]
     .sort((a, b) => a.make.localeCompare(b.make, "he") || a.price - b.price);
 }
 const MODEL_SHOWN = 8;
@@ -2262,6 +2268,12 @@ const groupKey = r => [rowMake(r), normModel(rowModel(r))].join("|").toUpperCase
 const LATIN_MAKERS = new Set(Object.keys(MAKE_ALIASES).map(k => k.toUpperCase()).concat(["MERCEDES-BENZ", "LANDROVER", "ROVER", "LAND-ROVER"]));
 const cleanModelName = m => { const t = String(m).split(" "); if (t.length > 1 && LATIN_MAKERS.has(t[0]) && !/^\d+$/.test(t.slice(1).join(" ")) && t.slice(1).join(" ").length > 1) return t.slice(1).join(" "); return m; };
 const listKey = r => [rowMake(r), cleanModelName(normModel(rowModel(r)))].join("|").toUpperCase();
+/* the register writes one model several ways ("TIGGO 7 PRO", "TIGGO7 PRO") and one model name covers petrol and plug-in versions:
+   spelling variants are one entry, and drive versions of the same name are told apart by a suffix (PHEV / HEV / EV) */
+const modelBase = m => String(m).toUpperCase().replace(/[\s\-_.]+/g, "");
+const spaced = (a, b) => (b.split(" ").length > a.split(" ").length ? b : a);
+const DRIVE_SFX = {ev: "EV", phev: "PHEV", hybrid: "HEV"};
+const driveCls = r => { const dt = driveType(rowD(r)); return dt ? DRIVE_SFX[dt.k] || "" : ""; };
 const plateLike = q => /^[\d\s-]+$/.test(q) && digits(q).length >= 5;
 async function runModelSearch(){
   const q = $("#mq").value.trim(), msg = $("#compareMsg"), list = $("#mres");
@@ -2286,17 +2298,24 @@ async function runModelSearch(){
     const g = new Map();
     for (const r of rows) {
       if (empty(r.tozeret_cd) || !rowModel(r)) continue;
-      const k = listKey(r);
-      if (!g.has(k)) g.set(k, {make: rowMake(r), model: cleanModelName(normModel(rowModel(r))), names: new Set(), cds: new Set(), rows: []});
-      const x = g.get(k); x.rows.push(r); x.names.add(rowModel(r)); x.cds.add(String(r.tozeret_cd));
+      const nm = cleanModelName(normModel(rowModel(r))), cls = driveCls(r), k = [rowMake(r), modelBase(nm), cls].join("|");
+      if (!g.has(k)) g.set(k, {make: rowMake(r), model: nm, base: nm, cls, names: new Set(), cds: new Set(), rows: []});
+      const x = g.get(k); x.model = x.base = spaced(x.model, nm); x.rows.push(r); x.names.add(rowModel(r)); x.cds.add(String(r.tozeret_cd));
     }
+    // a name that exists in more than one drive version gets the version in its title, and keeps only that version's rows
+    const versions = new Map();
+    for (const x of g.values()) { const b = x.make + "|" + modelBase(x.base); if (!versions.has(b)) versions.set(b, new Set()); versions.get(b).add(x.cls); }
+    const spelling = new Map();
+    for (const x of g.values()) { const b = x.make + "|" + modelBase(x.base); spelling.set(b, spaced(spelling.get(b) || x.base, x.base)); }
+    for (const x of g.values()) x.model = x.base = spelling.get(x.make + "|" + modelBase(x.base));
+    for (const x of g.values()) if (versions.get(x.make + "|" + modelBase(x.base)).size > 1) { x.split = true; if (x.cls) x.model = x.base + " " + x.cls; }
     mGroups = [...g.values()].map(x => { const ys = x.rows.map(r => num(r.shnat_yitzur)).filter(y => !isNaN(y)); return {...x, from: Math.min(...ys), to: Math.max(...ys)}; })
       .sort((a, b) => b.to - a.to || (a.make + a.model).localeCompare(b.make + b.model, "he"));
     // maker first, then its models; makers keep the order of their best match
     const mkOrder = []; for (const x of mGroups) if (!mkOrder.includes(x.make)) mkOrder.push(x.make);
     mGroups.sort((a, b) => mkOrder.indexOf(a.make) - mkOrder.indexOf(b.make));
     mShowAll = false;
-    if (mPending) { const i = mGroups.findIndex(x => x.model === mPending.model && x.make === mPending.make) ; const j = i >= 0 ? i : mGroups.findIndex(x => x.model === mPending.model); mPending = null; if (j >= 0) { pickGroup(j); return; } }
+    if (mPending) { const i = mGroups.findIndex(x => x.model === mPending.model && x.make === mPending.make) ; const j = i >= 0 ? i : mGroups.findIndex(x => x.model === mPending.model || x.base === mPending.model); mPending = null; if (j >= 0) { pickGroup(j); return; } }
     showGroups();
   } catch (err) { if (err.name !== "AbortError") msg.textContent = "החיפוש נכשל. בדקו את החיבור ונסו שוב."; }
 }
@@ -2328,7 +2347,7 @@ const engKey = r => { const dt = driveType(rowD(r)); return [dt ? dt.k : "", num
 async function pickGroup(i){
   const g0 = mGroups[i]; mGroup = g0; mYear = null; if (!mGroup) return;
   $("#mres").innerHTML = ""; $("#compareMsg").textContent = "טוען…"; renderQuick();
-  const all0 = await groupRows(g0); if (mGroup !== g0) return; mGroup.all = all0;
+  const all0 = await groupRows(g0); if (mGroup !== g0) return; mGroup.all = g0.split ? all0.filter(r => driveCls(r) === g0.cls) : all0;
   const years = [...new Set(mGroup.all.map(r => num(r.shnat_yitzur)).filter(y => !isNaN(y)))].sort((a, b) => b - a);
   mGroup.years = years; showModel(String(years[0] || ""));
 }
@@ -2548,7 +2567,7 @@ $("#out").addEventListener("click", ev => {
   const h = ev.target.closest("[data-fold]"); if (h && !ev.target.closest("button")) { toggleFold(h); return; }
   const b = ev.target.closest("button"); if (!b) return;
   if (b.dataset.copy) { copyText(b.dataset.copy, b.dataset.label); return; }
-  if (b.dataset.act === "simple") { const want = b.dataset.v == null ? !simpleOn() : b.dataset.v === "1"; if (want === simpleOn()) return; try { localStorage.setItem("simpleView", want ? "1" : "0"); } catch {} track("simple_view", {on: simpleOn()}); renderResult(); return; }
+  if (b.dataset.act === "simple") { const want = !simpleOn(); try { localStorage.setItem("simpleView", want ? "1" : "0"); } catch {} track("simple_view", {on: simpleOn()}); renderResult(); return; }
   if (b.dataset.act === "simpleMore") { simpleMore = !simpleMore; track("simple_more", {on: simpleMore}); renderResult(); return; }
   if (b.dataset.url) {
     if (b.dataset.copyfirst) { copyText(b.dataset.copyfirst, b.dataset.copylabel || "מספר הרישוי").then(() => setTimeout(() => openExternal(b.dataset.url), 600)); return; }
