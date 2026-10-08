@@ -2755,9 +2755,9 @@ async function captureReport(D, full, biz){
   await loadScript(LIBS.img);
   const el = buildReport(D, full, biz); if (full) el.classList.add("pdf");
   // page-break candidates for the PDF: below cards and below the blocks inside them, never right after a section title
-  return captureEl(el, ".card, .alert-banner, .rep-foot, .fold-body > *, .fold-body > * > *, .grid2 > *");
+  return captureEl(el, ".card, .alert-banner, .rep-foot, .fold-body > *, .fold-body > * > *, .grid2 > *", full ? 1.5 : 2);
 }
-async function captureEl(el, breakSel){
+async function captureEl(el, breakSel, ratio = 2){
   document.body.appendChild(el);
   try {
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -2767,9 +2767,9 @@ async function captureEl(el, breakSel){
     });
     const breaks = [...set].sort((a, b) => a - b);
     const bg = getComputedStyle(el).backgroundColor;
-    const canvas = await window.htmlToImage.toCanvas(el, {pixelRatio: 2, backgroundColor: bg, skipFonts: true, includeStyleProperties: SNAP_PROPS,
+    const canvas = await window.htmlToImage.toCanvas(el, {pixelRatio: ratio, backgroundColor: bg, skipFonts: true, includeStyleProperties: SNAP_PROPS,
       style: {position: "static", left: "0", top: "0"}, width: el.offsetWidth, height: el.offsetHeight});
-    return {canvas, breaks: breaks.map(b => b * 2)};
+    return {canvas, breaks: breaks.map(b => b * ratio)};
   } finally { el.remove(); }
 }
 function canvasToBlob(c, type, q){ return new Promise(ok => c.toBlob(ok, type, q)); }
@@ -2805,10 +2805,10 @@ function pdfBand(text, left, w, h, rule, logo){
   x.direction = "rtl"; x.textAlign = "right"; x.fillText(text, right, h / 2);
   if (left) { x.direction = "ltr"; x.textAlign = "left"; x.fillText(left, 2, h / 2); }
   if (rule) { x.fillStyle = "#dde2ea"; x.fillRect(0, rule > 0 ? h - 2 : 0, w, 2); }
-  return c.toDataURL("image/png");
+  return c.toDataURL("image/jpeg", 0.95);
 }
-async function makePdf(D, biz){
-  const [{canvas, breaks}] = await Promise.all([captureReport(D, true, biz), loadScript(LIBS.pdf)]);
+async function makePdf(D, biz, cap){
+  const [{canvas, breaks}] = await Promise.all([cap || captureReport(D, true, biz), loadScript(LIBS.pdf)]);
   const yr = empty(D.v.shnat_yitzur) ? "" : " " + D.v.shnat_yitzur;
   return await pdfFromCanvas(canvas, breaks, `${biz ? biz.name : "לוחית"} · ${D.title}${yr}`, fmtPlate(D.plate), biz ? await bizPdfOpts(biz) : undefined);
 }
@@ -2832,9 +2832,9 @@ async function pdfFromCanvas(canvas, breaks, headText, headLeft, opts = {}){
     const part = document.createElement("canvas"); part.width = canvas.width; part.height = b - a;
     const ctx = part.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, part.width, part.height);
     ctx.drawImage(canvas, 0, a, canvas.width, b - a, 0, 0, canvas.width, b - a);
-    if (i) pdf.addImage(head, "PNG", MX, 22, CW, bh);
-    pdf.addImage(part.toDataURL("image/jpeg", 0.92), "JPEG", MX, i ? TOP : 30, CW, (b - a) * scale);
-    pdf.addImage(foot(`${i + 1} / ${slices.length}`), "PNG", MX, H - 34, CW, bh);
+    if (i) pdf.addImage(head, "JPEG", MX, 22, CW, bh, "head");
+    pdf.addImage(part.toDataURL("image/jpeg", 0.88), "JPEG", MX, i ? TOP : 30, CW, (b - a) * scale, "page" + i);
+    pdf.addImage(foot(`${i + 1} / ${slices.length}`), "JPEG", MX, H - 34, CW, bh, "foot" + i);
     if (!opts.foot) pdf.link(MX, H - 34, CW, bh, {url: PLAY_URL});
   });
   return pdf.output("blob");
@@ -2861,14 +2861,20 @@ async function shareComparePdf(btn){
   catch { toast("לא הצלחנו להכין את הקובץ. בדקו את החיבור לאינטרנט ונסו שוב."); }
   finally { btn.disabled = false; btn.innerHTML = old; }
 }
-/* the image is prepared while the share sheet is open, so choosing it is usually instant */
+/* what the user shared last time is prepared while the share sheet is open, so choosing it is usually instant */
 let shareWarm = null;
-const shareKey = () => [current && current.plate, simpleOn(), currentTab, simpleMore].join("|");
+const lastShare = () => { try { return localStorage.getItem("lastShare") === "pdf" ? "pdf" : "image"; } catch { return "image"; } };
+const shareKey = kind => kind === "pdf" ? [current && current.plate, "pdf"].join("|") : [current && current.plate, "image", simpleOn(), currentTab, simpleMore].join("|");
 function warmShare(){
   const D = current; if (!D) return;
-  const key = shareKey(); if (shareWarm && shareWarm.key === key) return;
-  const p = loadScript(LIBS.img).then(() => new Promise(r => setTimeout(r, 60))).then(() => captureReport(D, false)); p.catch(() => {});
+  const kind = lastShare(), key = shareKey(kind); if (shareWarm && shareWarm.key === key) return;
+  const p = Promise.all([loadScript(LIBS.img), kind === "pdf" ? loadScript(LIBS.pdf) : null]).then(() => new Promise(r => setTimeout(r, 60))).then(() => captureReport(D, kind === "pdf")); p.catch(() => {});
   shareWarm = {key, p};
+}
+async function warmCap(kind){
+  const w = shareWarm; shareWarm = null;
+  if (w && w.key === shareKey(kind)) { try { return await w.p; } catch {} }
+  return null;
 }
 async function doShare(kind){
   track("share", {kind});
@@ -2881,13 +2887,11 @@ async function doShare(kind){
   msg.textContent = kind === "pdf" || kind === "bizpdf" ? "מכין קובץ PDF…" : "מכין תמונה…";
   try {
     const caption = `${D.title} · ${fmtPlate(D.plate)}\nהדוח המלא באפליקציה לוחית:\n${carLink(D.plate)}`;
+    if (!biz) { try { localStorage.setItem("lastShare", kind === "pdf" ? "pdf" : "image"); } catch {} }
     if (biz) await shareFile(await makePdf(D, biz), name + ".pdf", D.title);
-    else if (kind === "pdf") await shareFile(await makePdf(D), name + ".pdf", D.title, caption);
+    else if (kind === "pdf") await shareFile(await makePdf(D, undefined, await warmCap("pdf")), name + ".pdf", D.title, caption);
     else {
-      let cap = null;
-      if (shareWarm && shareWarm.key === shareKey()) { try { cap = await shareWarm.p; } catch {} }
-      shareWarm = null;
-      if (!cap) cap = await captureReport(D, false);
+      const cap = (await warmCap("image")) || await captureReport(D, false);
       await shareFile(await canvasToBlob(cap.canvas, "image/png"), name + ".png", D.title, caption);
     }
     $("#shareSheet").hidden = true;
