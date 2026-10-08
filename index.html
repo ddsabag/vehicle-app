@@ -3270,7 +3270,18 @@ async function bizPdfOpts(b){
 }
 let BULK = [], BULK_TEXT = "", BULK_D = {};
 const BULK_MAX = 100;
-const parsePlates = t => [...new Set(String(t).split(/[\n\r,;]+/).map(x => digits(x).replace(/^0+(?=\d{5})/, "")).filter(d => d.length >= 5 && d.length <= 8))].slice(0, BULK_MAX);
+/* plates pasted any way: one per line, comma/semicolon separated, or several on one line separated by spaces/tabs.
+   A line with space-separated groups is split into plates only when every group is a full plate (7-8 digits);
+   otherwise it is one plate written with spaces ("12 345 67"). */
+const parsePlates = t => {
+  const out = [];
+  for (const seg of String(t).replace(/[\u200e\u200f\u202a-\u202e]/g, "").split(/[\n\r,;]+/)) {
+    const parts = seg.trim().split(/[\s\u00a0]+/).filter(Boolean);
+    const full = parts.length > 1 && parts.every(x => { const n = digits(x).length; return n >= 7 && n <= 8; });
+    for (const x of (full ? parts : [seg])) out.push(digits(x).replace(/^0+(?=\d{5})/, ""));
+  }
+  return [...new Set(out.filter(d => d.length >= 5 && d.length <= 8))].slice(0, BULK_MAX);
+};
 function bulkRow(D){
   if (D.notFound) return {plate: D.plate, title: "לא נמצא במאגר", lvl: 1, nf: "לא נמצא", status: "לא נמצא", test: "", days: "", recalls: "", owners: "", km: "", year: ""};
   if (D.offline) return {plate: D.plate, title: "שגיאת חיבור", lvl: 1, nf: "לא נבדק", status: "לא נבדק", test: "", days: "", recalls: "", owners: "", km: "", year: ""};
