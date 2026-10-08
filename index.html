@@ -349,7 +349,7 @@ section[style*="--n:3"] .cmp-k{font-size:.76rem}
 .inp{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--soft);color:var(--fg);font:inherit}
 textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .svc-form{display:grid;gap:10px;margin-top:10px}.svc-form label{display:grid;gap:4px;font-size:.85rem;color:var(--muted)}.svc-form .link-btn{justify-content:center}
-.svc-list{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:8px}.svc-list li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--soft)}.svc-list li div{display:grid;gap:2px}.svc-list li span{font-size:.85rem;color:var(--muted)}.svc-list li small{color:var(--muted)}.svc-list .x{flex:0 0 auto}
+.svc-list{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:8px}.svc-list li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--soft)}.svc-list li div{display:grid;gap:2px}.svc-list li span{font-size:.85rem;color:var(--muted)}.svc-list li small{color:var(--muted)}.svc-list .x,.doc-acts .x{flex:0 0 auto;width:40px;height:40px;border:0;background:transparent;color:var(--muted);border-radius:10px;display:grid;place-items:center;padding:0}.svc-list .x:active,.doc-acts .x:active{background:var(--line)}.svc-list .x .i,.doc-acts .x .i{width:20px;height:20px}.svc-list li small{overflow-wrap:anywhere}
 .askrow{display:flex;gap:8px;align-items:stretch}.askrow .inp{flex:1;min-width:0;font-family:var(--f-num)}.askrow .link-btn{width:auto;white-space:nowrap}
 .bflags,.bq{margin:0 0 10px;padding-inline-start:20px}.bflags li{font-weight:600}.bflags li.bad::marker{color:var(--bad)}.bflags li.warn::marker{color:var(--warn)}.bq li{margin:2px 0}
 .vd.ok{color:var(--ok);font-weight:700}.vd.bad{color:var(--bad);font-weight:700}.ft .g,.sum3 .g{color:var(--ok)}.ft .w,.sum3 .w{color:var(--warn)}.ft .r,.sum3 .r{color:var(--bad)}.ft td.g,.ft td.w,.ft td.r{font-weight:700}
@@ -520,6 +520,7 @@ body.land .band{display:none}
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l.9 12.2a1 1 0 0 0 1 .8h7.2a1 1 0 0 0 1-.8L17.5 7M10 11v6M14 11v6"/></symbol>
   <symbol id="i-rotate" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="11" rx="2"/><path d="M8 4h5a4 4 0 0 1 4 4M15 6l2 2 2-2"/></symbol>
   <symbol id="i-compare" viewBox="0 0 24 24"><path d="M8 3v18M16 3v18M3 8h5M16 16h5M3 16h5M16 8h5"/></symbol>
   <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></symbol>
@@ -1583,10 +1584,11 @@ function svcNext(s){
   if (!m || !periodic.length) return null;
   const last = periodic.sort((a, b) => a.d < b.d ? 1 : -1)[0], d0 = new Date(last.d);
   if (isNaN(d0)) return null;
-  let due = m.months ? addDays(d0, m.months * 30.44) : null;
+  const byMonths = m.months ? addDays(d0, m.months * 30.44) : null;
   const rate = svcRate(s), dueKm = last.km > 0 ? last.km + m.km : null;
-  if (rate) { const byKm = addDays(d0, m.km / rate); if (!due || byKm < due) due = byKm; }
-  return {last, due, dueKm};
+  const byKm = rate ? addDays(d0, m.km / rate) : null;
+  const due = byMonths && byKm ? (byKm < byMonths ? byKm : byMonths) : byMonths || byKm;
+  return {last, due, dueKm, byMonths, byKm, rate, basis: due && byKm && due === byKm && byMonths ? "km" : "months"};
 }
 function svcDue(p){ if (!maintOk()) return null; const n = svcNext(svcOf(p)); return n && n.due ? ymdOf(n.due) : null; }
 /* remember the car's interval and a km-per-day estimate, so the daily reminder check works without opening the car */
@@ -1633,8 +1635,10 @@ function nextCard(D, info){
   const days = n.due ? dayDiff(new Date(new Date().setHours(0, 0, 0, 0)), n.due) : null;
   const status = days == null ? "" : days < 0 ? days === -1 ? "באיחור של יום" : `באיחור של ${-days} ימים` : days === 0 ? "היום" : days === 1 ? "מחר" : `בעוד ${days} ימים`;
   const rows = [["טיפול אחרון", `${fmtDate(n.last.d)}${n.last.km ? " · " + fmtN(n.last.km) + " ק״מ" : ""}`], ["הטיפול הבא עד", n.due ? `${fmtDate(ymdOf(n.due))}${status ? " (" + status + ")" : ""}` : "—"], ["או בק״מ", n.dueKm ? fmtN(n.dueKm) + " ק״מ" : "—"]];
+  // the date is the earlier of "months since the last service" and "km at the driving pace": say which one decided
+  const why = !n.due ? "" : n.basis === "km" ? `התאריך מוקדם מהמרווח בחודשים (${svMonths(o.months)}) כי לפי קצב הנסיעה שלכם (כ-${fmtN(Math.round(n.rate * 365 / 100) * 100)} ק״מ בשנה) תגיעו ל-${fmtN(o.km)} ק״מ קודם.` : o.months ? `התאריך הוא ${svMonths(o.months)} אחרי הטיפול האחרון.` : "";
   const cls = days != null && days < 0 ? "bad" : days != null && days <= 30 ? "warn" : "";
-  return card("הטיפול הבא", "clock", "teal", `<dl class="facts">${rows.map(([k, v], i) => `<div class="${i === 1 ? cls : ""}"><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>${n.due ? `<button type="button" class="link-btn" data-svc="cal">הוספה ליומן</button>` : ""}<p class="note">התאריך הוא הערכה לפי המרווח (${svWhen(o)}) וקצב הנסיעה שלכם. תזכורת בהתראה: חודש לפני, שבוע לפני ושבוע אחרי.</p>${hint}`);
+  return card("הטיפול הבא", "clock", "teal", `<dl class="facts">${rows.map(([k, v], i) => `<div class="${i === 1 ? cls : ""}"><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>${n.due ? `<button type="button" class="link-btn" data-svc="cal">הוספה ליומן</button>` : ""}<p class="note">${why ? why + " " : ""}המרווח של היצרן: ${svWhen(o).replace(" (המוקדם מביניהם)", ", המוקדם מביניהם")}. תזכורת בהתראה: חודש לפני, שבוע לפני ושבוע אחרי.</p>${hint}`);
 }
 function logCard(D){
   const s = svcOf(D.plate), list = [...s.log].sort((a, b) => a.d < b.d ? 1 : -1), today = ymdOf(new Date());
@@ -1645,7 +1649,7 @@ function logCard(D){
     <label>עלות (₪)<input class="inp" id="svcCost" type="number" inputmode="decimal" min="0" placeholder="לא חובה"></label>
     <label>הערה<input class="inp" id="svcNote" type="text" maxlength="80" placeholder="לא חובה"></label>
     <button type="button" class="link-btn" data-svc="save">שמירה ביומן</button></div>`;
-  const rows = list.length ? `<ul class="svc-list">${list.map(x => `<li><div><b>${esc(x.type)}</b><span>${esc(fmtDate(x.d))}${x.km ? " · " + fmtN(x.km) + " ק״מ" : ""}${x.cost ? " · " + fmtN(x.cost) + " ₪" : ""}</span>${x.note ? `<small>${esc(x.note)}</small>` : ""}</div><button type="button" class="x" data-svc="del" data-id="${x.id}" aria-label="מחיקה">${ico("x")}</button></li>`).join("")}</ul>` : `<p style="margin:0">עוד לא נרשמו טיפולים לרכב הזה.</p>`;
+  const rows = list.length ? `<ul class="svc-list">${list.map(x => `<li><div><b>${esc(x.type)}</b><span>${esc(fmtDate(x.d))}${x.km ? " · " + fmtN(x.km) + " ק״מ" : ""}${x.cost ? " · " + fmtN(x.cost) + " ₪" : ""}</span>${x.note ? `<small>${esc(x.note)}</small>` : ""}</div><button type="button" class="x" data-svc="del" data-id="${x.id}" aria-label="מחיקה">${ico("trash")}</button></li>`).join("")}</ul>` : `<p style="margin:0">עוד לא נרשמו טיפולים לרכב הזה.</p>`;
   return card("יומן טיפולים", "wrench", "amber", `${rows}<button type="button" class="link-btn" data-svc="toggle">${ico("plus")}הוספת טיפול</button>${form}<p class="note">היומן נשמר רק בטלפון שלכם ולא נשלח לשום מקום.</p>`);
 }
 function kmCard(D){
@@ -1728,7 +1732,7 @@ async function fillDocs(){
   try { list = (await DocDB.byPlate(D.plate)).sort((a, b) => b.at - a.at); } catch { el.innerHTML = `<p class="note">שמירת מסמכים לא זמינה במכשיר הזה.</p>`; return; }
   if (current !== D || !el.isConnected) return;
   const kb = b => b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB";
-  el.innerHTML = list.length ? `<ul class="svc-list">${list.map(x => `<li><div><b>${esc(x.cat)}</b><span>${esc(x.name)} · ${esc(new Date(x.at).toLocaleDateString("he-IL"))} · ${kb(x.size)}${x.exp ? " · תוקף עד " + esc(fmtDate(x.exp)) : ""}</span></div><span class="doc-acts"><button type="button" class="x" data-doc="open" data-id="${x.id}" aria-label="פתיחה">${ico(x.type === "application/pdf" ? "doc" : "image")}</button><button type="button" class="x" data-doc="share" data-id="${x.id}" aria-label="שיתוף">${ico("share")}</button><button type="button" class="x" data-doc="del" data-id="${x.id}" aria-label="מחיקה">${ico("x")}</button></span></li>`).join("")}</ul>` : "";
+  el.innerHTML = list.length ? `<ul class="svc-list">${list.map(x => `<li><div><b>${esc(x.cat)}</b><span>${esc(x.name)} · ${esc(new Date(x.at).toLocaleDateString("he-IL"))} · ${kb(x.size)}${x.exp ? " · תוקף עד " + esc(fmtDate(x.exp)) : ""}</span></div><span class="doc-acts"><button type="button" class="x" data-doc="open" data-id="${x.id}" aria-label="פתיחה">${ico(x.type === "application/pdf" ? "doc" : "image")}</button><button type="button" class="x" data-doc="share" data-id="${x.id}" aria-label="שיתוף">${ico("share")}</button><button type="button" class="x" data-doc="del" data-id="${x.id}" aria-label="מחיקה">${ico("trash")}</button></span></li>`).join("")}</ul>` : "";
 }
 function docViewer(blob, name){
   const url = URL.createObjectURL(blob), el = document.createElement("div"); el.className = "doc-view";
