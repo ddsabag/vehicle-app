@@ -1495,8 +1495,8 @@ function eventsCard(D){
   if (!it) return "";
   if (!trackedOk(D.plate)) return proLockCard("יומן אירועים", "מעקב אחרי בעלות חדשה, ריקולים, טסט ושינוי סטטוס לכל הרכבים השמורים.");
   const ev = it.events || [];
-  const body = ev.length ? ev.slice(0, 8).map(e => `<div class="ev"><span>${EV_ICON[e.k] || "•"} ${esc(e.x)}</span><small>${esc(new Date(e.t).toLocaleDateString("he-IL", {day: "numeric", month: "numeric"}))}</small></div>`).join("")
-    : `<p style="margin:0">הרכב במעקב. שינוי בבעלות, בריקולים, בטסט או בסטטוס יירשם כאן.</p>`;
+  if (!ev.length) return "";
+  const body = ev.slice(0, 8).map(e => `<div class="ev"><span>${EV_ICON[e.k] || "•"} ${esc(e.x)}</span><small>${esc(new Date(e.t).toLocaleDateString("he-IL", {day: "numeric", month: "numeric"}))}</small></div>`).join("");
   return card("יומן אירועים", "clock", "teal", body, `${PT("PRO")}`);
 }
 /* service interval by maker: only rows with a stated source; anything else shows nothing */
