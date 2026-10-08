@@ -581,7 +581,7 @@ body.land .band{display:none}
     <div class="sheet-head"><h2 id="cmpTitle">הוספת רכב להשוואה</h2><button class="icon-btn" type="button" id="closeCompareSheet" aria-label="סגירה"><svg class="i"><use href="#i-x"/></svg></button></div>
     <form id="mf" class="msearch" autocomplete="off">
       <svg class="i mq-ico" aria-hidden="true"><use href="#i-search"/></svg>
-      <input id="mq" type="search" placeholder="דגם או מספר רישוי" aria-label="דגם או מספר רישוי" enterkeyhint="search">
+      <input id="mq" type="search" placeholder="למשל: טויוטה קורולה, או מספר רישוי" aria-label="דגם או מספר רישוי" enterkeyhint="search">
     </form>
     <p class="note" id="compareMsg" role="status"></p>
     <div class="list" id="mres"></div>
@@ -1982,7 +1982,7 @@ function loadModelIndex(){
         const r = await fetch(u, {cache: "no-cache"}); if (!r.ok) continue;
         const j = await r.json(); if (!j.rows || !j.rows.length) continue;
         MODELIDX = j.rows.map(([mk, md, y0, y1]) => ({
-          mk, md, y1, mkw: mk.split(/[\s.\-\/]+/).map(w => w.replace(/[^א-תA-Za-z0-9']/g, "")).filter(Boolean).map(w => skOf(w)).filter(Boolean),
+          mk, md, y1, mkw: (ws => [...ws.map(w => skOf(w)), ws.length > 1 ? skOf(ws.join("")) : ""].filter(Boolean))(mk.split(/[\s.\-\/]+/).map(w => w.replace(/[^א-תA-Za-z0-9']/g, "")).filter(Boolean)),
           mtok: md.replace(/([A-Z])(\d)/g, "$1 $2").replace(/(\d)([A-Z])/g, "$1 $2").split(/[\s\-\/]+/).filter(Boolean)
         }));
         return MODELIDX;
@@ -1997,43 +1997,50 @@ function smartQueries(text){
   const toks = String(text).replace(/[׳’`]/g, "'").trim().split(/\s+/).map(t => t.replace(/[^א-תA-Za-z0-9'\-]/g, "").replace(/^'+|'+$/g, "")).filter(Boolean)
     .flatMap(t => /^[A-Za-z]+\d+$/.test(t) ? t.split(/(?<=[A-Za-z])(?=\d)/) : /^[א-ת]+\d+$/.test(t) ? t.split(/(?<=[א-ת])(?=\d)/) : [t]);
   if (!toks.length) return null;
-  const qs = toks.map(t => {
-    const al = MODEL_ALIASES[t] || MODEL_ALIASES[t.replace(/'/g, "")];
-    const lat = MAKE_ALIASES[t.toLowerCase()] || null;
-    return {t, digits: /^\d+$/.test(t), sk: /^\d+$/.test(t) ? "" : skOf(al || t), al, mkAlias: lat};
-  });
-  const hits = [];
-  for (const e of MODELIDX) {
-    let total = 0, modelTokens = 0, ok = true; const used = new Set();
-    for (const q of qs) {
-      let best = 0, onModel = false, idx = -1;
-      if (q.digits) {
-        const i = e.mtok.findIndex((m, k) => !used.has(k) && m === q.t); if (i < 0) { ok = false; break; }
-        used.add(i); total += 3; modelTokens++; continue;
+  // makers written as separate short words ("ב מ וו", "בי ווי די") are also tried glued together
+  const merged = []; let run = [];
+  const flush = () => { if (run.length) merged.push(run.join("")); run = []; };
+  for (const t of toks) { if (isHeb(t) && t.length <= 3) run.push(t); else { flush(); merged.push(t); } }
+  flush();
+  const seqs = [toks]; if (merged.length < toks.length) seqs.push(merged);
+  const hits = new Map();
+  for (const seq of seqs) {
+    const qs = seq.map(t => {
+      const al = MODEL_ALIASES[t] || MODEL_ALIASES[t.replace(/'/g, "")];
+      return {t, digits: /^\d+$/.test(t), sk: /^\d+$/.test(t) ? "" : skOf(al || t), al, mkAlias: MAKE_ALIASES[t.toLowerCase()] || null};
+    });
+    for (const e of MODELIDX) {
+      let total = 0, modelTokens = 0, ok = true; const used = new Set();
+      for (const q of qs) {
+        let best = 0, onModel = false, idx = -1;
+        if (q.digits) {
+          const i = e.mtok.findIndex((m, k) => !used.has(k) && m === q.t); if (i < 0) { ok = false; break; }
+          used.add(i); total += 3; modelTokens++; continue;
+        }
+        if (q.mkAlias && q.mkAlias === e.mk) best = 3;
+        for (const w of e.mkw) best = Math.max(best, skScore(q.sk, w));
+        let mBest = 0;
+        const up = q.t.toUpperCase();
+        e.mtok.forEach((m, k) => {
+          if (used.has(k) || /^\d+$/.test(m)) return;
+          let sc;
+          if (q.al && m === q.al) sc = 3;
+          else if (!isHeb(q.t) && (m === up || (up.length >= 2 && m.startsWith(up)))) sc = m === up ? 3 : 2;
+          else { const km = skLat(m); sc = km.length >= 2 ? skScore(q.sk, km) : 0; }
+          if (sc > mBest) { mBest = sc; idx = k; }
+        });
+        if (mBest >= best && mBest > 0) { best = mBest; onModel = true; }
+        if (!best) { ok = false; break; }
+        if (onModel) { used.add(idx); modelTokens++; }
+        total += best;
       }
-      if (q.mkAlias && q.mkAlias === e.mk) best = 3;
-      for (const w of e.mkw) best = Math.max(best, skScore(q.sk, w));
-      let mBest = 0;
-      const up = q.t.toUpperCase();
-      e.mtok.forEach((m, k) => {
-        if (used.has(k) || /^\d+$/.test(m)) return;
-        let sc;
-        if (q.al && m === q.al) sc = 3;
-        else if (!isHeb(q.t) && (m === up || (up.length >= 2 && m.startsWith(up)))) sc = m === up ? 3 : 2;
-        else { const km = skLat(m); sc = km.length >= 2 ? skScore(q.sk, km) : 0; }
-        if (sc > mBest) { mBest = sc; idx = k; }
-      });
-      if (mBest >= best && mBest > 0) { best = mBest; onModel = true; }
-      if (!best) { ok = false; break; }
-      if (onModel) { used.add(idx); modelTokens++; }
-      total += best;
+      if (ok && modelTokens) { const h = hits.get(e); if (!h || h.total < total) hits.set(e, {e, total}); }
     }
-    if (ok && modelTokens) hits.push({e, total});
   }
-  if (!hits.length) return null;
-  hits.sort((a, b) => b.total - a.total || b.e.y1 - a.e.y1);
+  if (!hits.size) return null;
+  const list = [...hits.values()].sort((a, b) => b.total - a.total || b.e.y1 - a.e.y1);
   const seen = new Set(), out = [];
-  for (const h of hits) {
+  for (const h of list) {
     const words = h.e.md.split(/\s+/).map(w => w.replace(/[&|!:*()'"\\<>]/g, "")).filter(Boolean);
     const k = h.e.mk + "|" + words.join(" ");
     if (seen.has(k)) continue; seen.add(k);
@@ -2046,7 +2053,7 @@ function smartQueries(text){
 async function modelRows(text, words, filters, limit, signal){
   const sq = smartQueries(text);
   if (sq) {
-    const got = await Promise.all(sq.map(q => dsSearch(MODEL_SETS.wltp, q.words, filters, limit, signal).then(r => r.length ? r : dsSearch(MODEL_SETS.price, q.words, filters, limit, signal)).then(r => r.filter(x => rowMake(x) === q.mk))));
+    const got = await Promise.all(sq.map(q => dsSearch(MODEL_SETS.wltp, q.words, filters, limit, signal).then(r => r.length ? r : dsSearch(MODEL_SETS.price, q.words, filters, limit, signal)).then(r => r.filter(x => { const m = rowMake(x); return m === q.mk || m.startsWith(q.mk) || q.mk.startsWith(m); }))));
     const rows = got.flat(); if (rows.length) return rows;
   }
   const rows = await dsSearch(MODEL_SETS.wltp, words, filters, limit, signal);
