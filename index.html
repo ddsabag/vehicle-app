@@ -581,7 +581,7 @@ body.land .band{display:none}
     <div class="sheet-head"><h2 id="cmpTitle">הוספת רכב להשוואה</h2><button class="icon-btn" type="button" id="closeCompareSheet" aria-label="סגירה"><svg class="i"><use href="#i-x"/></svg></button></div>
     <form id="mf" class="msearch" autocomplete="off">
       <svg class="i mq-ico" aria-hidden="true"><use href="#i-search"/></svg>
-      <input id="mq" type="search" placeholder="טויוטה קורולה, מספר רישוי, או משפחתי חשמלי עד 200 אלף" aria-label="דגם או מספר רישוי" enterkeyhint="search">
+      <input id="mq" type="search" placeholder="דגם, מספר רישוי, או למשל: SUV חשמלי עד 200 אלף" aria-label="דגם או מספר רישוי" enterkeyhint="search">
     </form>
     <p class="note" id="compareMsg" role="status"></p>
     <div class="list" id="mres"></div>
@@ -2142,7 +2142,7 @@ function addToCompare(D){
    Trims of the same engine differ mostly in equipment, so the base one is added and can be switched in the comparison. */
 let mGroups = [], mGroup = null, mYear = null, mShowAll = false, mNote = "", mPending = null;
 /* free text with a budget and/or a type ("משפחתי חשמלי עד 200 אלף") answered from the catalogue (price, body, fuel) */
-const BODY_WORDS = [[/^(משפחתי|משפחתית|משפחה)$/, ["סדאן", "הצ'בק", "קומבי", "סטיישן", "MPV", "פנאי-שטח"], "משפחתי"], [/^(ג'יפ|גיפ|ג׳יפ|סוv|suv|פנאי|שטח|ג'יפון|קרוסאובר)$/i, ["פנאי-שטח"], "SUV"], [/^(סדאן|סלון)$/, ["סדאן"], "סדאן"], [/^(האצ'בק|הצ'בק|האצבק|הצבק|האצ׳בק)$/, ["הצ'בק"], "הצ'בק"], [/^(סטיישן|קומבי|סטישן)$/, ["סטיישן", "קומבי"], "סטיישן"], [/^(מיניוואן|מיניוון|mpv|גדול)$/i, ["MPV"], "מיניוואן"], [/^(קופה|ספורט)$/, ["קופה"], "קופה"], [/^(קבריולט|קבריולט)$/, ["קבריולט"], "קבריולט"]];
+const BODY_WORDS = [[/^(ג'יפ|גיפ|ג׳יפ|סוv|suv|פנאי|שטח|ג'יפון|קרוסאובר)$/i, ["פנאי-שטח"], "SUV"], [/^(סדאן|סלון)$/, ["סדאן"], "סדאן"], [/^(האצ'בק|הצ'בק|האצבק|הצבק|האצ׳בק)$/, ["הצ'בק"], "הצ'בק"], [/^(סטיישן|קומבי|סטישן)$/, ["סטיישן", "קומבי"], "סטיישן"], [/^(מיניוואן|מיניוון|mpv|גדול)$/i, ["MPV"], "מיניוואן"], [/^(קופה|ספורט)$/, ["קופה"], "קופה"], [/^(קבריולט|קבריולט)$/, ["קבריולט"], "קבריולט"]];
 const FUEL_WORDS = [[/^(חשמלי|חשמלית|חשמל|ev)$/i, "ev", "חשמלי"], [/^(היברידי|היברידית|היבריד|הייבריד|פלאגין|פלאג-אין|phev)$/i, "hyb", "היברידי"], [/^(דיזל|סולר)$/, "diesel", "דיזל"], [/^(בנזין)$/, "petrol", "בנזין"]];
 function parseFilters(text){
   let t = String(text).replace(/[׳’`]/g, "'"), maxP = 0; const body = [], fuel = new Set(), labels = [];
