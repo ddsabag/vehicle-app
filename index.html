@@ -1946,6 +1946,112 @@ function searchWords(text){
     .map(t => MODEL_ALIASES[t] || MAKE_ALIASES[t.toLowerCase()] || t)
     .map(t => t.replace(/[&|!:*()'"\\<>]/g, "")).filter(Boolean);
 }
+/* Free-text Hebrew search: "צ'רי טיגו 7" and "טויוטה קורולה" are matched to the catalogue spelling (CHERY TIGGO 7) by sound.
+   Both sides are reduced to a consonant skeleton (vowels dropped, similar letters merged), then compared with a small tolerance.
+   The catalogue of names (models.json, built monthly) is loaded once; without it the plain word search below is used. */
+const HEB_SK = {ב:"B",ג:"G",ד:"T",ז:"S",ח:"",ט:"T",כ:"K",ך:"K",ל:"L",מ:"M",ם:"M",נ:"N",ן:"N",ס:"S",פ:"P",ף:"P",צ:"S",ק:"K",ר:"R",ש:"S",ת:"T",ו:"",י:"",א:"",ע:"",ה:""};
+const collapse = t => t.replace(/(.)\1+/g, "$1");
+const skHeb = t => collapse([...String(t)].map(c => HEB_SK[c] ?? "").join(""));
+function skLat(t){
+  let x = String(t).toUpperCase().replace(/[^A-Z]/g, "");
+  x = x.replace(/PH/g, "P").replace(/CH|SH|TS/g, "S").replace(/CK/g, "K").replace(/QU/g, "K").replace(/X/g, "KS").replace(/C(?=[AOU]|[^AEIOUY]|$)/g, "K").replace(/C/g, "S");
+  x = x.replace(/Q/g, "K").replace(/Z/g, "S").replace(/D/g, "T").replace(/F/g, "P").replace(/[VW]/g, "B").replace(/J/g, "G").replace(/[AEIOUYH]/g, "");
+  return collapse(x);
+}
+const isHeb = t => /[א-ת]/.test(t);
+const skOf = t => isHeb(t) ? skHeb(t) : skLat(t);
+function editLe1(a, b){
+  if (a === b) return true; if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0; while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  if (a.length === b.length) return a.slice(i + 1) === b.slice(i + 1);
+  return a.length > b.length ? a.slice(i + 1) === b.slice(i) : b.slice(i + 1) === a.slice(i);
+}
+/* 3 = same sound, 2 = typed so far matches the start, 1 = one letter off (only for 3+ letter sounds), 0 = no match */
+function skScore(q, m){
+  if (!q || !m) return 0; if (q === m) return 3;
+  if (q.length >= 2 && m.startsWith(q)) return 2;
+  if (q.length >= 3 && m.length >= 3 && editLe1(q, m)) return 1;
+  return 0;
+}
+let MODELIDX = null, modelIdxP = null;
+function loadModelIndex(){
+  if (MODELIDX) return Promise.resolve(MODELIDX);
+  return modelIdxP || (modelIdxP = (async () => {
+    for (const u of [SITE + "models.json", "models.json"]) {
+      try {
+        const r = await fetch(u, {cache: "no-cache"}); if (!r.ok) continue;
+        const j = await r.json(); if (!j.rows || !j.rows.length) continue;
+        MODELIDX = j.rows.map(([mk, md, y0, y1]) => ({
+          mk, md, y1, mkw: mk.split(/[\s.\-\/]+/).map(w => w.replace(/[^א-תA-Za-z0-9']/g, "")).filter(Boolean).map(w => skOf(w)).filter(Boolean),
+          mtok: md.replace(/([A-Z])(\d)/g, "$1 $2").replace(/(\d)([A-Z])/g, "$1 $2").split(/[\s\-\/]+/).filter(Boolean)
+        }));
+        return MODELIDX;
+      } catch {}
+    }
+    modelIdxP = null; return null;
+  })());
+}
+/* up to a few catalogue entries that fit what was typed, as word lists for the dataset search */
+function smartQueries(text){
+  if (!MODELIDX) return null;
+  const toks = String(text).replace(/[׳’`]/g, "'").trim().split(/\s+/).map(t => t.replace(/[^א-תA-Za-z0-9'\-]/g, "").replace(/^'+|'+$/g, "")).filter(Boolean)
+    .flatMap(t => /^[A-Za-z]+\d+$/.test(t) ? t.split(/(?<=[A-Za-z])(?=\d)/) : /^[א-ת]+\d+$/.test(t) ? t.split(/(?<=[א-ת])(?=\d)/) : [t]);
+  if (!toks.length) return null;
+  const qs = toks.map(t => {
+    const al = MODEL_ALIASES[t] || MODEL_ALIASES[t.replace(/'/g, "")];
+    const lat = MAKE_ALIASES[t.toLowerCase()] || null;
+    return {t, digits: /^\d+$/.test(t), sk: /^\d+$/.test(t) ? "" : skOf(al || t), al, mkAlias: lat};
+  });
+  const hits = [];
+  for (const e of MODELIDX) {
+    let total = 0, modelTokens = 0, ok = true; const used = new Set();
+    for (const q of qs) {
+      let best = 0, onModel = false, idx = -1;
+      if (q.digits) {
+        const i = e.mtok.findIndex((m, k) => !used.has(k) && m === q.t); if (i < 0) { ok = false; break; }
+        used.add(i); total += 3; modelTokens++; continue;
+      }
+      if (q.mkAlias && q.mkAlias === e.mk) best = 3;
+      for (const w of e.mkw) best = Math.max(best, skScore(q.sk, w));
+      let mBest = 0;
+      const up = q.t.toUpperCase();
+      e.mtok.forEach((m, k) => {
+        if (used.has(k) || /^\d+$/.test(m)) return;
+        let sc;
+        if (q.al && m === q.al) sc = 3;
+        else if (!isHeb(q.t) && (m === up || (up.length >= 2 && m.startsWith(up)))) sc = m === up ? 3 : 2;
+        else { const km = skLat(m); sc = km.length >= 2 ? skScore(q.sk, km) : 0; }
+        if (sc > mBest) { mBest = sc; idx = k; }
+      });
+      if (mBest >= best && mBest > 0) { best = mBest; onModel = true; }
+      if (!best) { ok = false; break; }
+      if (onModel) { used.add(idx); modelTokens++; }
+      total += best;
+    }
+    if (ok && modelTokens) hits.push({e, total});
+  }
+  if (!hits.length) return null;
+  hits.sort((a, b) => b.total - a.total || b.e.y1 - a.e.y1);
+  const seen = new Set(), out = [];
+  for (const h of hits) {
+    const words = h.e.md.split(/\s+/).map(w => w.replace(/[&|!:*()'"\\<>]/g, "")).filter(Boolean);
+    const k = h.e.mk + "|" + words.join(" ");
+    if (seen.has(k)) continue; seen.add(k);
+    out.push({mk: h.e.mk, words});
+    if (out.length >= 4) break;
+  }
+  return out;
+}
+/* smart (sound-matched) queries first, then the plain words as before */
+async function modelRows(text, words, filters, limit, signal){
+  const sq = smartQueries(text);
+  if (sq) {
+    const got = await Promise.all(sq.map(q => dsSearch(MODEL_SETS.wltp, q.words, filters, limit, signal).then(r => r.length ? r : dsSearch(MODEL_SETS.price, q.words, filters, limit, signal)).then(r => r.filter(x => rowMake(x) === q.mk))));
+    const rows = got.flat(); if (rows.length) return rows;
+  }
+  const rows = await dsSearch(MODEL_SETS.wltp, words, filters, limit, signal);
+  return rows.length ? rows : dsSearch(MODEL_SETS.price, words, filters, limit, signal);
+}
 async function dsSearch(id, words, filters, limit, signal){
   const base = {resource_id: id, limit: String(limit)};
   if (filters) base.filters = JSON.stringify(filters);
@@ -1972,8 +2078,7 @@ const rowKey = r => [r.tozeret_cd, r.degem_cd, r.shnat_yitzur, r.ramat_gimur].ma
 async function searchModels(text, year, signal){
   const words = searchWords(text); if (!words.length) return [];
   const f = year ? {shnat_yitzur: Number(year)} : null;
-  let rows = await dsSearch(MODEL_SETS.wltp, words, f, 400, signal);
-  if (!rows.length) rows = await dsSearch(MODEL_SETS.price, words, f, 400, signal);
+  let rows = await modelRows(text, words, f, 400, signal);
   const seen = new Map();
   for (const r of rows) { if (empty(r.tozeret_cd) || empty(r.degem_cd)) continue; const k = rowKey(r); if (!seen.has(k)) seen.set(k, r); }
   return [...seen.values()]
@@ -1998,6 +2103,7 @@ const isBiz = () => atLeast("biz");
 const cmpMax = () => isPro() ? PRO_CMP : FREE_CMP;
 let cmp = [], inCompare = false, mResults = [], mCtrl = null;
 function openCompare(){
+  loadModelIndex();
   $("#compareSheet").hidden = false; $("#compareMsg").textContent = "";
   $("#mq").value = ""; $("#mres").innerHTML = ""; mResults = []; mGroup = null; mYear = null; mShowAll = false;
   $("#cmpTitle").textContent = cmp.length ? `הוספת רכב ${cmp.length + 1} להשוואה` : "בחירת רכב להשוואה";
@@ -2052,9 +2158,8 @@ async function runModelSearch(){
   if (mCtrl) mCtrl.abort(); mCtrl = new AbortController(); const signal = mCtrl.signal;
   msg.textContent = "מחפש…"; renderQuick();
   try {
-    const words = searchWords(q);
-    let rows = await dsSearch(MODEL_SETS.wltp, words, null, 1000, signal);
-    if (!rows.length) rows = await dsSearch(MODEL_SETS.price, words, null, 1000, signal);
+    await Promise.race([loadModelIndex(), new Promise(r => setTimeout(r, 2500))]);
+    let rows = await modelRows(q, searchWords(q), null, 1000, signal);
     if (signal.aborted) return;
     const g = new Map();
     for (const r of rows) {

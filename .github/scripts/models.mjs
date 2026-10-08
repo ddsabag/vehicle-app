@@ -20,7 +20,9 @@ const norm = m => { const t = String(m || "").trim().toUpperCase().replace(/\s+/
 const acc = new Map();
 for (const id of SETS) {
   for (let off = 0; ; off += PAGE) {
-    const r = await call({resource_id: id, limit: String(PAGE), offset: String(off), fields: "tozeret_nm,tozeret_eretz_nm,kinuy_mishari,degem_nm,shnat_yitzur"});
+    let r;
+    try { r = await call({resource_id: id, limit: String(PAGE), offset: String(off), fields: "tozeret_nm,tozeret_eretz_nm,kinuy_mishari,degem_nm,shnat_yitzur"}, 2); }
+    catch { try { r = await call({resource_id: id, limit: String(PAGE), offset: String(off)}); } catch (e) { console.log("skipped", id, String(e).slice(0, 100)); break; } }
     for (const x of r.records) {
       let mk = String(x.tozeret_nm || "").trim(); const c = String(x.tozeret_eretz_nm || "").trim();
       if (c && mk.endsWith(" " + c)) mk = mk.slice(0, -c.length - 1);
