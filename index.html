@@ -1637,7 +1637,7 @@ function nextCard(D, info){
   const status = days == null ? "" : days < 0 ? days === -1 ? "באיחור של יום" : `באיחור של ${-days} ימים` : days === 0 ? "היום" : days === 1 ? "מחר" : `בעוד ${days} ימים`;
   const rows = [["טיפול אחרון", `${fmtDate(n.last.d)}${n.last.km ? " · " + fmtN(n.last.km) + " ק״מ" : ""}`], ["הטיפול הבא עד", n.due ? `${fmtDate(ymdOf(n.due))}${status ? " (" + status + ")" : ""}` : "—"], ["או בק״מ", n.dueKm ? fmtN(n.dueKm) + " ק״מ" : "—"]];
   const cls = days != null && days < 0 ? "bad" : days != null && days <= 30 ? "warn" : "";
-  return card("הטיפול הבא", "clock", "teal", `<dl class="facts">${rows.map(([k, v], i) => `<div class="${i === 1 ? cls : ""}"><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>${n.due ? `<button type="button" class="link-btn" data-svc="cal">הוספה ליומן</button>` : ""}<p class="note">${o.months ? `התאריך הוא ${svMonths(o.months)} אחרי הטיפול שרשמתם. ` : "התאריך הוא הערכה לפי קצב הנסיעה. "}המרווח של היצרן הוא ${svWhen(o).replace(" (המוקדם מביניהם)", ", המוקדם מביניהם")}, ולכן אם תגיעו קודם לק״מ הזה, כדאי לטפל אז. תזכורת בהתראה: חודש לפני, שבוע לפני ושבוע אחרי.</p>${hint}`);
+  return card("הטיפול הבא", "clock", "teal", `<dl class="facts">${rows.map(([k, v], i) => `<div class="${i === 1 ? cls : ""}"><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>${n.due ? `<button type="button" class="link-btn" data-svc="cal">הוספה ליומן</button>` : ""}<p class="note">${o.months ? `התאריך הוא ${svMonths(o.months)} אחרי הטיפול שרשמתם. אם תגיעו קודם ל-${fmtN(o.km)} ק״מ, כדאי לטפל אז.` : "התאריך הוא הערכה לפי קצב הנסיעה."}</p>${hint}`);
 }
 function logCard(D){
   const s = svcOf(D.plate), list = [...s.log].sort((a, b) => a.d < b.d ? 1 : -1), today = ymdOf(new Date());
@@ -2625,7 +2625,7 @@ $("#out").addEventListener("click", ev => {
   if (!current) return;
   if (b.dataset.tab) { currentTab = b.dataset.tab; track("tab_view", {tab: b.dataset.tab}); renderResult(); const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"}); return; }
   const act = b.dataset.act;
-  if (act === "share") { $("#shareMsg").textContent = ""; $("[data-share=bizpdf]").hidden = !(PRO_LOCK && isBiz()); $("#shareSheet").hidden = false; }
+  if (act === "share") { $("#shareMsg").textContent = ""; $("[data-share=bizpdf]").hidden = !(PRO_LOCK && isBiz()); $("#shareSheet").hidden = false; warmShare(); }
   if (act === "candSave") {
     const raw = digits(($("#askIn") || {}).value), ask = raw ? Number(raw) : null;
     if (!isSaved(current.plate)) toggleSaved(newSavedItem(current));
@@ -2861,6 +2861,15 @@ async function shareComparePdf(btn){
   catch { toast("לא הצלחנו להכין את הקובץ. בדקו את החיבור לאינטרנט ונסו שוב."); }
   finally { btn.disabled = false; btn.innerHTML = old; }
 }
+/* the image is prepared while the share sheet is open, so choosing it is usually instant */
+let shareWarm = null;
+const shareKey = () => [current && current.plate, simpleOn(), currentTab, simpleMore].join("|");
+function warmShare(){
+  const D = current; if (!D) return;
+  const key = shareKey(); if (shareWarm && shareWarm.key === key) return;
+  const p = loadScript(LIBS.img).then(() => new Promise(r => setTimeout(r, 60))).then(() => captureReport(D, false)); p.catch(() => {});
+  shareWarm = {key, p};
+}
 async function doShare(kind){
   track("share", {kind});
   const D = current; if (!D) return;
@@ -2874,17 +2883,23 @@ async function doShare(kind){
     const caption = `${D.title} · ${fmtPlate(D.plate)}\nהדוח המלא באפליקציה לוחית:\n${carLink(D.plate)}`;
     if (biz) await shareFile(await makePdf(D, biz), name + ".pdf", D.title);
     else if (kind === "pdf") await shareFile(await makePdf(D), name + ".pdf", D.title, caption);
-    else { const {canvas} = await captureReport(D, false); await shareFile(await canvasToBlob(canvas, "image/png"), name + ".png", D.title, caption); }
+    else {
+      let cap = null;
+      if (shareWarm && shareWarm.key === shareKey()) { try { cap = await shareWarm.p; } catch {} }
+      shareWarm = null;
+      if (!cap) cap = await captureReport(D, false);
+      await shareFile(await canvasToBlob(cap.canvas, "image/png"), name + ".png", D.title, caption);
+    }
     $("#shareSheet").hidden = true;
   } catch (err) {
     msg.textContent = "לא הצלחנו להכין את הקובץ. בדקו את החיבור לאינטרנט ונסו שוב.";
   } finally { document.querySelectorAll("[data-share]").forEach(b => b.disabled = false); }
 }
 $("#shareSheet").addEventListener("click", ev => {
-  if (ev.target.id === "shareSheet") { ev.target.hidden = true; return; }
+  if (ev.target.id === "shareSheet") { ev.target.hidden = true; shareWarm = null; return; }
   const b = ev.target.closest("[data-share]"); if (b) doShare(b.dataset.share);
 });
-$("#closeShare").addEventListener("click", () => { $("#shareSheet").hidden = true; });
+$("#closeShare").addEventListener("click", () => { $("#shareSheet").hidden = true; shareWarm = null; });
 
 /* test-expiry reminder: in the app the phone's calendar opens with the event filled in;
    on the web it opens Google Calendar; a calendar file is the last resort */
