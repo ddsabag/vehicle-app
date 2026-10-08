@@ -225,7 +225,7 @@ footer a{color:var(--accent)}
 .alert-banner{display:flex;gap:12px;align-items:flex-start;text-align:start;width:100%;border:0;border-radius:16px;padding:14px 18px;background:var(--bad-bg);color:var(--fg);font-size:.95rem;position:relative}
 .alert-banner::before{content:"";position:absolute;inset-inline-start:0;top:12px;bottom:12px;width:5px;border-radius:5px;background:var(--bad)}
 .alert-banner b{display:block;font-size:1.05rem;color:var(--bad)}
-.view-sw{display:flex;justify-content:flex-end;margin:2px 0 -4px}.simple{width:100%;border-collapse:collapse;font-size:.95rem}.simple th,.simple td{padding:9px 4px;border-top:1px solid var(--line);text-align:start;vertical-align:top}.simple tr:first-child th,.simple tr:first-child td{border-top:0}.simple th{color:var(--muted);font-weight:400;width:42%}.simple td{font-weight:600;overflow-wrap:anywhere}
+.vsw{display:flex;gap:2px;background:var(--soft);border-radius:10px;padding:2px;margin-top:10px}.vsw button{flex:1;border:0;background:transparent;border-radius:8px;min-height:36px;font-weight:600;color:var(--muted)}.vsw button[aria-pressed="true"]{background:var(--card);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.12)}.simple-more{width:100%;margin-top:6px;border:0;background:transparent;color:var(--accent,#2556c8);font-weight:700;min-height:44px}.simple td .copy-btn{display:inline-flex;align-items:center;margin-inline-start:8px;padding:0 9px;min-height:32px;background:var(--soft);color:var(--muted);border:1px solid var(--line);border-radius:8px;vertical-align:middle}.simple td .copy-btn svg{width:16px;height:16px}.report .vsw,.report .simple-more,.report .simple td .copy-btn{display:none}.simple{width:100%;border-collapse:collapse;font-size:.92rem}.simple th,.simple td{padding:6px 4px;border-top:1px solid var(--line);text-align:start;vertical-align:top}.simple tr:first-child th,.simple tr:first-child td{border-top:0}.simple th{color:var(--muted);font-weight:400;width:34%}.simple td{font-weight:600;overflow-wrap:anywhere}
 .alert-banner.warn{background:var(--warn-bg)}.alert-banner.warn::before{background:var(--warn)}.alert-banner.warn b,.alert-banner.warn svg.i{color:var(--warn)}
 .alert-banner svg.i{width:26px;height:26px;margin-top:2px;color:var(--bad)}
 .tabs{display:grid;grid-template-columns:repeat(5,minmax(max-content,1fr));overflow-x:auto;scrollbar-width:none;gap:4px;background:var(--card);border-radius:14px;padding:5px;box-shadow:var(--shadow);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
@@ -1383,19 +1383,32 @@ const D_pick = (...a) => a.find(x => !empty(x));
 const loadingHtml = plate => `<div class="msg"><p class="note" style="margin-bottom:10px">מחפש את <span class="mono">${fmtPlate(plate)}</span> במאגרי משרד התחבורה…</p><div class="progress"><i id="bar"></i></div></div>`;
 
 /* Plain view: the same data as dry rows, no insights, tabs or explanations */
+let simpleMore = false;
 function simpleCard(D){
   const v = D.v, w = D.w || {}, pick = (...a) => a.find(x => !empty(x));
   const own = D.own.length ? ownersLabel(D) : "";
-  const rows = [
+  const gear = empty(w.automatic_ind) ? "" : yes(w.automatic_ind) ? "אוטומטית" : "ידנית", vin = pick(D.vin, v.misgeret);
+  const kg = x => empty(x) ? "" : fmtN(x) + " ק״ג";
+  const main = [
     ["יצרן", D.make], ["דגם", D.model], ["שנת ייצור", v.shnat_yitzur], ["רמת גימור", pick(v.ramat_gimur, w.ramat_gimur)], ["צבע", v.tzeva_rechev],
     ["סוג דלק", pick(v.sug_delek_nm, w.delek_nm)], ["נפח מנוע", pick(v.nefach_manoa, w.nefah_manoa) && fmtN(pick(v.nefach_manoa, w.nefah_manoa)) + " סמ״ק"], ["כוח", isNum(w.koah_sus) ? fmtN(w.koah_sus) + " כ״ס" : ""],
-    ["הנעה", w.hanaa_nm], ["תיבת הילוכים", empty(w.automatic_ind) ? "" : yes(w.automatic_ind) ? "אוטומטית" : "ידנית"], ["מרכב", w.merkav], ["מושבים", w.mispar_moshavim], ["דלתות", w.mispar_dlatot],
+    ["הנעה", pick(v.hanaa_nm, w.hanaa_nm)], ["תיבת הילוכים", gear], ["מרכב", w.merkav], ["מושבים", pick(w.mispar_moshavim, v.mispar_mekomot)], ["דלתות", w.mispar_dlatot],
     ["עלה לכביש", v.moed_aliya_lakvish], ["סוג יבוא", D.importKind], ["בעלות נוכחית", v.baalut], ["בעלות ראשונה", firstOwner(v)], ["מספר בעלים", own],
     ["טסט אחרון", empty(v.mivchan_acharon_dt) ? "" : fmtDate(v.mivchan_acharon_dt)], ["תוקף רישיון", empty(v.tokef_dt) ? "" : fmtDate(v.tokef_dt)], ["ק״מ בטסט האחרון", D.km ? fmtN(D.km) : ""],
-    ["ריקולים פתוחים", D.recalls.length ? String(D.recalls.length) : "אין"], ["תג נכה", D.tag ? "יש" : ""], ["מספר שלדה", pick(D.vin, v.misgeret)],
-  ].filter(([, x]) => !empty(x) && x !== false);
-  return `<section class="card"><div class="view-sw" style="margin:0 0 6px"><button type="button" class="cmp-tool" data-act="simple">${ico("doc")}תצוגה מלאה</button></div>
-    <table class="simple"><tbody>${rows.map(([k, x]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(String(x))}</td></tr>`).join("")}</tbody></table></section>`;
+    ["ריקולים פתוחים", D.recalls.length ? String(D.recalls.length) : "אין"], ["תג נכה", D.tag ? "יש" : ""], ["מספר שלדה", vin, vin],
+  ];
+  const safety = pick(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty), zihum = pick(v.kvutzat_zihum, w.kvutzat_zihum);
+  const more = [
+    ["ארץ ייצור", v.tozeret_eretz_nm], ["סוג רכב", v.sug_rechev_nm], ["דגם מנוע", v.degem_manoa],
+    ["משקל כולל מותר", kg(pick(v.mishkal_kolel, w.mishkal_kolel))], ["משקל עצמי", kg(v.mishkal_azmi)], ["כושר העמסה", kg(v.mishkal_mitan_harama)],
+    ["צמיג קדמי", pick(v.zmig_kidmi, v.mida_zmig_kidmi)], ["צמיג אחורי", pick(v.zmig_ahori, v.mida_zmig_ahori)],
+    ["ניקוד בטיחות", w.nikud_betihut], ["רמת אבזור בטיחותי", empty(safety) ? "" : safety + " מתוך 8"], ["כריות אוויר", w.mispar_kariot_avir],
+    ["קבוצת זיהום", empty(zihum) ? "" : zihum + " מתוך 15"], ["פליטת CO₂", empty(pick(w.CO2_WLTP, w.kamut_CO2)) ? "" : pick(w.CO2_WLTP, w.kamut_CO2) + " גר׳ לק״מ"],
+  ];
+  const ok = r => !empty(r[1]) && r[1] !== false;
+  const row = ([k, x, cp]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(String(x))}${cp ? `<button class="copy-btn" type="button" data-copy="${esc(cp)}" data-label="מספר השלדה" aria-label="העתקת מספר שלדה">${ico("copy")}</button>` : ""}</td></tr>`;
+  const ex = more.filter(ok);
+  return `<section class="card"><table class="simple"><tbody>${main.filter(ok).map(row).join("")}${simpleMore ? ex.map(row).join("") : ""}</tbody></table>${ex.length ? `<button type="button" class="simple-more" data-act="simpleMore" aria-expanded="${simpleMore}">${simpleMore ? "הצגת פחות נתונים" : "הצגת עוד נתונים"}</button>` : ""}</section>`;
 }
 function renderResult(){
   if (land) setLand(false, false);
@@ -1423,6 +1436,7 @@ function renderResult(){
       <button class="act" type="button" data-act="save" aria-pressed="${isSaved(D.plate)}">${ico("star")}<span>${isSaved(D.plate) ? "נשמר" : "שמירה"}</span></button>
       <button class="act" type="button" data-act="compare">${ico("compare")}השוואה</button>
     </div>
+    <div class="vsw" role="group" aria-label="תצוגה"><button type="button" data-act="simple" data-v="0" aria-pressed="${!simpleOn()}">תצוגה מלאה</button><button type="button" data-act="simple" data-v="1" aria-pressed="${simpleOn()}">תצוגה פשוטה</button></div>
   </section>`);
 
   // An open recall is the one thing that must never be missed: banner above the tabs
@@ -1439,11 +1453,12 @@ function renderResult(){
   const recallCount = D.recalls.length;
   if (simpleOn()) html.push(simpleCard(D));
   else {
-    html.push(`<div class="view-sw"><button type="button" class="cmp-tool" data-act="simple">${ico("doc")}תצוגה פשוטה</button></div>`);
       html.push(`<div class="tabs" role="tablist">${TABS.map(([k, t]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${k === currentTab}">${t}${k === "recalls" && recallCount ? `<i class="hot">${recallCount}</i>` : ""}</button>`).join("")}</div>`);
       html.push(`<div class="tab-body">${TAB_FN()[currentTab](D)}</div>`);
   }
   $("#out").innerHTML = html.join("");
+  // the image library is fetched in the background so that sharing does not wait for it
+  setTimeout(() => { loadScript(LIBS.img).catch(() => {}); }, 1200);
 }
 /* One ownership record, and the first ownership type (מקוריות) agrees with it */
 const isFirstHand = D => D.own.length === 1 && !D.ownersFloor && (!firstOwner(D.v) || ownerKind(firstOwner(D.v)).k === ownerKind(D.own[0].baalut).k);
@@ -2039,8 +2054,8 @@ function loadModelIndex(){
       try {
         const r = await fetch(u, {cache: "no-cache"}); if (!r.ok) continue;
         const j = await r.json(); if (!j.rows || !j.rows.length) continue;
-        MODELIDX = j.rows.map(([mk, md, y0, y1, pr, bd, fl]) => ({
-          mk, md, y0, y1, pr: pr || 0, bd: bd || "", fp: Object.fromEntries((fl ? String(fl).split("|") : []).map(x => [x[0], parseFloat(x.slice(1))])), mkw: (ws => [...ws.map(w => skOf(w)), ws.length > 1 ? skOf(ws.join("")) : ""].filter(Boolean))(mk.split(/[\s.\-\/]+/).map(w => w.replace(/[^א-תA-Za-z0-9']/g, "")).filter(Boolean)),
+        MODELIDX = j.rows.map(([mk0, md, y0, y1, pr, bd, fl]) => ({
+          mk: canonMake(mk0.replace(COUNTRY_SFX, "")), md, y0, y1, pr: pr || 0, bd: bd || "", fp: Object.fromEntries((fl ? String(fl).split("|") : []).map(x => [x[0], parseFloat(x.slice(1))])), mkw: (ws => [...ws.map(w => skOf(w)), ws.length > 1 ? skOf(ws.join("")) : ""].filter(Boolean))((canonMake(mk0.replace(COUNTRY_SFX, "")) === "FAW" ? "FAW פאו הונגצי אף אי דאבל יו" : canonMake(mk0.replace(COUNTRY_SFX, ""))).split(/[\s.\-\/]+/).map(w => w.replace(/[^א-תA-Za-z0-9']/g, "")).filter(Boolean)),
           mtok: md.replace(/([A-Z])(\d)/g, "$1 $2").replace(/(\d)([A-Z])/g, "$1 $2").split(/[\s\-\/]+/).filter(Boolean)
         }));
         return MODELIDX;
@@ -2136,7 +2151,16 @@ async function dsSearch(id, words, filters, limit, signal){
 }
 // maker names carry the factory country ("טויוטה יפן"); without it, one maker is one entry
 const COUNTRY_SFX = /\s+(יפן|בריטניה|אנגליה|צרפת|גרמניה|קוריאה|ספרד|צ'כיה|צכיה|טורקיה|סין|ארה"ב|ארהב|איטליה|תאילנד|הודו|מקסיקו|הונגריה|סלובקיה|פולין|רומניה|בלגיה|שבדיה|אוסטריה|פורטוגל|דרום אפריקה|ברזיל|קנדה|הולנד|סלובניה|רוסיה|מרוקו|אינדונזיה|טייוואן|מלזיה|ארגנטינה|סרביה|פינלנד|אוזבקיסטן|וייטנאם)$/;
-const rowMake = r => { let n = String(r.tozeret_nm || r.tozar || "").trim(); const c = String(r.tozeret_eretz_nm || "").trim(); if (c && n.endsWith(" " + c)) n = n.slice(0, -c.length - 1); return n.replace(COUNTRY_SFX, ""); };
+/* the register spells one maker many ways (אאודי / אודי, "ב מ וו ארהב"", "ג'יפ-ישראל"): one name per maker for the buyer */
+const MAKE_BASES = ["מרצדס בנץ", "ב מ וו", "אלפא רומיאו", "אסטון מרטין", "רולס רויס", "למבורגיני", "ג'י.אמ.סי", "ג'י.אמ.", "סאנגיונג", "פולקסווגן", "מיצובישי", "שברולט", "סיטרואן", "קרייזלר", "קאדילאק", "פונטיאק", "לינקולן", "לנדרובר", "דאצ'יה", "לנצ'יה", "פיג'ו", "ביואיק", "סובארו", "סוזוקי", "יונדאי", "טויוטה", "וולבו", "הונדה", "ניסאן", "מזדה", "דודג'", "האמר", "איסוזו", "סמארט", "פיאט", "פורד", "אופל", "סאאב", "ג'יפ", "דייהו", "רנו", "קיה", "ניאו", "טסלה", "אאודי"];
+const MAKE_FIX = [[/^אודי(?=$|[\s_\-\/])/, "אאודי"], [/^ג'יי\.אמ\.סי/, "ג'י.אמ.סי"], [/^גמס(?=$|[\s_\-\/])/, "ג'י.אמ.סי"], [/^לנציה(?=$|[\s_\-\/])/, "לנצ'יה"], [/^דאציה(?=$|[\s_\-\/])/, "דאצ'יה"], [/^פיגו(?=$|[\s_\-\/])/, "פיג'ו"], [/^(מרוטי סוזוקי|סוזוקי-מרוטי)/, "סוזוקי"], [/^דימלרקריזלר/, "דיימלר קרייזלר"], [/^דיימלר קרייזלר/, "דיימלר קרייזלר"], [/^אף אי דאבל יו(?=$|[\s_\-\/])/, "FAW"], [/^ג'יפ-ישראל/, "ג'יפ"], [/^גיפ-ישראל/, "ג'יפ"]];
+const canonMake = raw => {
+  let n = String(raw || "").trim().replace(/_/g, " ").replace(/\s+/g, " ");
+  for (const [re, to] of MAKE_FIX) if (re.test(n)) return to;
+  for (const b of MAKE_BASES) if (n === b || (n.startsWith(b) && /[\s\-\/]/.test(n[b.length]))) return b;
+  return n;
+};
+const rowMake = r => { let n = String(r.tozeret_nm || r.tozar || "").trim(); const c = String(r.tozeret_eretz_nm || "").trim(); if (c && n.endsWith(" " + c)) n = n.slice(0, -c.length - 1); return canonMake(n.replace(COUNTRY_SFX, "")); };
 const rowModel = r => String(r.kinuy_mishari || r.degem_nm || "").trim();
 const rowLabel = r => [rowMake(r), rowModel(r)].filter(Boolean).join(" ");
 const rowKey = r => [r.tozeret_cd, r.degem_cd, r.shnat_yitzur, r.ramat_gimur].map(x => String(x ?? "").trim()).join("|");
@@ -2524,7 +2548,8 @@ $("#out").addEventListener("click", ev => {
   const h = ev.target.closest("[data-fold]"); if (h && !ev.target.closest("button")) { toggleFold(h); return; }
   const b = ev.target.closest("button"); if (!b) return;
   if (b.dataset.copy) { copyText(b.dataset.copy, b.dataset.label); return; }
-  if (b.dataset.act === "simple") { try { localStorage.setItem("simpleView", simpleOn() ? "0" : "1"); } catch {} track("simple_view", {on: simpleOn()}); renderResult(); return; }
+  if (b.dataset.act === "simple") { const want = b.dataset.v == null ? !simpleOn() : b.dataset.v === "1"; if (want === simpleOn()) return; try { localStorage.setItem("simpleView", want ? "1" : "0"); } catch {} track("simple_view", {on: simpleOn()}); renderResult(); return; }
+  if (b.dataset.act === "simpleMore") { simpleMore = !simpleMore; track("simple_more", {on: simpleMore}); renderResult(); return; }
   if (b.dataset.url) {
     if (b.dataset.copyfirst) { copyText(b.dataset.copyfirst, b.dataset.copylabel || "מספר הרישוי").then(() => setTimeout(() => openExternal(b.dataset.url), 600)); return; }
     openExternal(b.dataset.url); return;
@@ -2662,15 +2687,17 @@ function buildReport(D, full, biz){
   if (banner) parts.push(banner.outerHTML.replace(/^<button/, "<div").replace(/<\/button>$/, "</div>"));
   // the maintenance tab holds the private service log and interval table, so it is never part of a shared report
   const tabs = (full ? REPORT_TABS : REPORT_TABS.filter(([k]) => k === (currentTab === "maint" ? "overview" : currentTab))).filter(([k]) => !biz || k !== "costs" || biz.costs);
-  for (const [k, t] of tabs) { if (full) parts.push(`<h3 class="rep-sec">${t}</h3>`); parts.push(TAB_FN()[k](D)); }
+  if (!full && !biz && simpleOn()) parts.push(simpleCard(D));
+  else for (const [k, t] of tabs) { if (full) parts.push(`<h3 class="rep-sec">${t}</h3>`); parts.push(TAB_FN()[k](D)); }
   parts.push(`<p class="rep-foot">${biz ? bizFoot(biz) : "המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il, ואינו מחליף נסח רישום רשמי. " + BRAND_FOOT}</p>`);
   el.innerHTML = parts.join("");
-  el.querySelectorAll(".buyer-card, .insp, .alert-banner button").forEach(x => x.remove());
+  el.querySelectorAll(".buyer-card, .insp, .alert-banner button, .vsw, .simple-more, .simple .copy-btn").forEach(x => x.remove());
   // cards that only point to a website make no sense on paper
   el.querySelectorAll(".card").forEach(c => { const t = (c.querySelector(".head h2") || {}).textContent || ""; if (/^(לפני שקונים|בדיקה באתר היבואן|ספר הרכב)/.test(t.trim())) c.remove(); });
   // the disabled-parking tag is personal, so it is never printed
   el.querySelectorAll(".pill").forEach(x => { if (x.textContent.trim() === "תג נכה") x.remove(); });
   el.querySelectorAll(".facts > div").forEach(x => { if (/תג חניה לנכה/.test(x.textContent)) x.remove(); });
+  el.querySelectorAll(".simple tr").forEach(x => { if (/^תג נכה/.test(x.textContent.trim())) x.remove(); });
   // a dealer's own branded PDF carries no value estimate or costs unless the dealer switched them on in settings
   if (biz && !biz.value) el.querySelectorAll(".card").forEach(c => { const t = (c.querySelector(".head h2") || {}).textContent || ""; if (/^שווי משוער/.test(t.trim())) c.remove(); });
   el.querySelectorAll(".card.folded").forEach(c => c.classList.remove("folded"));
