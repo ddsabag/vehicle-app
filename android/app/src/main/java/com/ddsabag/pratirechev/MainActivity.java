@@ -75,7 +75,7 @@ public class MainActivity extends Activity {
         // Keep the page clear of the status and navigation bars (edge-to-edge is enforced on new Android versions)
         root.setOnApplyWindowInsetsListener((View v, WindowInsets insets) -> {
             if (android.os.Build.VERSION.SDK_INT >= 30) {
-                int types = WindowInsets.Type.systemBars() | WindowInsets.Type.ime();
+                int types = WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout() | WindowInsets.Type.ime();
                 android.graphics.Insets i = insets.getInsets(types);
                 v.setPadding(i.left, i.top, i.right, i.bottom);
                 return WindowInsets.CONSUMED;
@@ -586,11 +586,8 @@ public class MainActivity extends Activity {
             int cur = d.getSystemUiVisibility();
             d.setSystemUiVisibility(dark ? (cur & ~flags) : (cur | flags));
         }
-        if (android.os.Build.VERSION.SDK_INT < 35) {
-            int bar = dark ? Color.parseColor("#0A0F1A") : Color.WHITE;
-            getWindow().setStatusBarColor(bar);
-            getWindow().setNavigationBarColor(bar);
-        }
+        // the bars are transparent (theme): the window background shows through them, so no deprecated bar-colour calls are needed
+        getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(dark ? Color.parseColor("#0A0F1A") : Color.WHITE));
     }
 
     @Override
