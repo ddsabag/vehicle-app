@@ -1587,8 +1587,9 @@ function svcNext(s){
   const byMonths = m.months ? addDays(d0, m.months * 30.44) : null;
   const rate = svcRate(s), dueKm = last.km > 0 ? last.km + m.km : null;
   const byKm = rate ? addDays(d0, m.km / rate) : null;
-  const due = byMonths && byKm ? (byKm < byMonths ? byKm : byMonths) : byMonths || byKm;
-  return {last, due, dueKm, byMonths, byKm, rate, basis: due && byKm && due === byKm && byMonths ? "km" : "months"};
+  // the date is simply the interval in months after the service the user logged; the km pace only fills in when the table has no months
+  const due = byMonths || byKm;
+  return {last, due, dueKm, rate};
 }
 function svcDue(p){ if (!maintOk()) return null; const n = svcNext(svcOf(p)); return n && n.due ? ymdOf(n.due) : null; }
 /* remember the car's interval and a km-per-day estimate, so the daily reminder check works without opening the car */
@@ -1635,10 +1636,8 @@ function nextCard(D, info){
   const days = n.due ? dayDiff(new Date(new Date().setHours(0, 0, 0, 0)), n.due) : null;
   const status = days == null ? "" : days < 0 ? days === -1 ? "באיחור של יום" : `באיחור של ${-days} ימים` : days === 0 ? "היום" : days === 1 ? "מחר" : `בעוד ${days} ימים`;
   const rows = [["טיפול אחרון", `${fmtDate(n.last.d)}${n.last.km ? " · " + fmtN(n.last.km) + " ק״מ" : ""}`], ["הטיפול הבא עד", n.due ? `${fmtDate(ymdOf(n.due))}${status ? " (" + status + ")" : ""}` : "—"], ["או בק״מ", n.dueKm ? fmtN(n.dueKm) + " ק״מ" : "—"]];
-  // the date is the earlier of "months since the last service" and "km at the driving pace": say which one decided
-  const why = !n.due ? "" : n.basis === "km" ? `התאריך מוקדם מהמרווח בחודשים (${svMonths(o.months)}) כי לפי קצב הנסיעה שלכם (כ-${fmtN(Math.round(n.rate * 365 / 100) * 100)} ק״מ בשנה) תגיעו ל-${fmtN(o.km)} ק״מ קודם.` : o.months ? `התאריך הוא ${svMonths(o.months)} אחרי הטיפול האחרון.` : "";
   const cls = days != null && days < 0 ? "bad" : days != null && days <= 30 ? "warn" : "";
-  return card("הטיפול הבא", "clock", "teal", `<dl class="facts">${rows.map(([k, v], i) => `<div class="${i === 1 ? cls : ""}"><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>${n.due ? `<button type="button" class="link-btn" data-svc="cal">הוספה ליומן</button>` : ""}<p class="note">${why ? why + " " : ""}המרווח של היצרן: ${svWhen(o).replace(" (המוקדם מביניהם)", ", המוקדם מביניהם")}. תזכורת בהתראה: חודש לפני, שבוע לפני ושבוע אחרי.</p>${hint}`);
+  return card("הטיפול הבא", "clock", "teal", `<dl class="facts">${rows.map(([k, v], i) => `<div class="${i === 1 ? cls : ""}"><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>${n.due ? `<button type="button" class="link-btn" data-svc="cal">הוספה ליומן</button>` : ""}<p class="note">${o.months ? `התאריך הוא ${svMonths(o.months)} אחרי הטיפול שרשמתם. ` : "התאריך הוא הערכה לפי קצב הנסיעה. "}המרווח של היצרן הוא ${svWhen(o).replace(" (המוקדם מביניהם)", ", המוקדם מביניהם")}, ולכן אם תגיעו קודם לק״מ הזה, כדאי לטפל אז. תזכורת בהתראה: חודש לפני, שבוע לפני ושבוע אחרי.</p>${hint}`);
 }
 function logCard(D){
   const s = svcOf(D.plate), list = [...s.log].sort((a, b) => a.d < b.d ? 1 : -1), today = ymdOf(new Date());
@@ -2695,7 +2694,7 @@ $("#compareSheet").addEventListener("click", ev => { if (ev.target.id === "compa
 /* ---------- share as image / PDF ---------- */
 /* Libraries load from a CDN only when first needed, so the app itself stays one small file */
 const LIBS = {
-  img: "https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js",
+  img: "https://cdn.jsdelivr.net/npm/html-to-image@1.11.13/dist/html-to-image.js",
   pdf: "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js",
   ocr: "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js",
 };
@@ -2750,6 +2749,8 @@ function inlineIcons(el){
   });
   return el;
 }
+/* copying every computed style of every node is what makes the snapshot slow on a phone: only the properties the cards use are copied */
+const SNAP_PROPS = ["display", "position", "top", "right", "bottom", "left", "inset-inline-start", "inset-inline-end", "z-index", "float", "width", "height", "min-width", "min-height", "max-width", "max-height", "box-sizing", "aspect-ratio", "margin-top", "margin-right", "margin-bottom", "margin-left", "padding-top", "padding-right", "padding-bottom", "padding-left", "border-top-width", "border-right-width", "border-bottom-width", "border-left-width", "border-top-style", "border-right-style", "border-bottom-style", "border-left-style", "border-top-color", "border-right-color", "border-bottom-color", "border-left-color", "border-top-left-radius", "border-top-right-radius", "border-bottom-left-radius", "border-bottom-right-radius", "background-color", "background-image", "background-size", "background-position", "background-repeat", "box-shadow", "opacity", "overflow", "overflow-x", "overflow-y", "visibility", "color", "font-family", "font-size", "font-weight", "font-style", "font-variant-numeric", "line-height", "letter-spacing", "text-align", "text-decoration", "text-transform", "text-overflow", "text-wrap", "white-space", "word-break", "overflow-wrap", "direction", "unicode-bidi", "vertical-align", "list-style", "flex", "flex-direction", "flex-wrap", "flex-grow", "flex-shrink", "flex-basis", "justify-content", "align-items", "align-self", "align-content", "justify-items", "justify-self", "order", "gap", "row-gap", "column-gap", "grid-template-columns", "grid-template-rows", "grid-column", "grid-row", "grid-auto-flow", "grid-auto-columns", "grid-auto-rows", "transform", "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin", "object-fit", "outline", "content", "-webkit-line-clamp", "-webkit-box-orient"];
 async function captureReport(D, full, biz){
   await loadScript(LIBS.img);
   const el = buildReport(D, full, biz); if (full) el.classList.add("pdf");
@@ -2766,7 +2767,7 @@ async function captureEl(el, breakSel){
     });
     const breaks = [...set].sort((a, b) => a - b);
     const bg = getComputedStyle(el).backgroundColor;
-    const canvas = await window.htmlToImage.toCanvas(el, {pixelRatio: 2, backgroundColor: bg, skipFonts: true,
+    const canvas = await window.htmlToImage.toCanvas(el, {pixelRatio: 2, backgroundColor: bg, skipFonts: true, includeStyleProperties: SNAP_PROPS,
       style: {position: "static", left: "0", top: "0"}, width: el.offsetWidth, height: el.offsetHeight});
     return {canvas, breaks: breaks.map(b => b * 2)};
   } finally { el.remove(); }
