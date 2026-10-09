@@ -2640,7 +2640,7 @@ $("#out").addEventListener("click", ev => {
   if (act === "compare") { track("compare_open"); cmp = []; renderCompare(); openCompare("model"); }
   if (act === "save") {
     const on = toggleSaved(newSavedItem(current));
-    track(on ? "car_save" : "car_unsave");
+    track(on ? "car_save" : "car_unsave", {n: String(Math.min(store.get("savedVehicles").length, 4)) + (store.get("savedVehicles").length > 3 ? "+" : ""), from: currentTab || "home"});
     b.setAttribute("aria-pressed", String(on)); b.querySelector("span").textContent = on ? "נשמר" : "שמירה";
     toast(on ? "הרכב נשמר ב־\"הרכבים שלי\"" : "הרכב הוסר מהרשימה");
     { const y = window.scrollY; renderResult(); window.scrollTo(0, y); }
