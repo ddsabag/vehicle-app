@@ -30,6 +30,14 @@ import android.widget.FrameLayout;
 import androidx.core.content.FileProvider;
 import androidx.webkit.WebViewAssetLoader;
 
+import com.google.android.play.core.appupdate.AppUpdateInfo;
+import com.google.android.play.core.appupdate.AppUpdateManager;
+import com.google.android.play.core.appupdate.AppUpdateManagerFactory;
+import com.google.android.play.core.appupdate.AppUpdateOptions;
+import com.google.android.play.core.install.InstallStateUpdatedListener;
+import com.google.android.play.core.install.model.AppUpdateType;
+import com.google.android.play.core.install.model.InstallStatus;
+import com.google.android.play.core.install.model.UpdateAvailability;
 import com.google.android.play.core.review.ReviewInfo;
 import com.google.android.play.core.review.ReviewManager;
 import com.google.android.play.core.review.ReviewManagerFactory;
@@ -51,6 +59,11 @@ public class MainActivity extends Activity {
     private static final int REQ_VOICE = 2;
     private static final int REQ_NOTIFY = 3;
     private static final int REQ_CAMERA = 4;
+    private static final int REQ_UPDATE = 5;
+
+    private AppUpdateManager updateManager;
+    private AppUpdateInfo updateInfo;
+    private InstallStateUpdatedListener updateListener;
 
     private boolean pageReady = false;
     private String pendingJs = null;
@@ -258,6 +271,47 @@ public class MainActivity extends Activity {
                         }
                     });
                 });
+            }
+
+            /** In-app update: only installs from Google Play can answer. The page learns the result through onUpdateState */
+            @JavascriptInterface
+            public void checkUpdate() {
+                runOnUiThread(() -> {
+                    try {
+                        if (updateManager == null) updateManager = AppUpdateManagerFactory.create(MainActivity.this);
+                        updateManager.getAppUpdateInfo().addOnSuccessListener(info -> {
+                            updateInfo = info;
+                            if (info.installStatus() == InstallStatus.DOWNLOADED) runJs("window.onUpdateState && onUpdateState('downloaded')");
+                            else if (info.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE && info.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE)) runJs("window.onUpdateState && onUpdateState('available')");
+                            else runJs("window.onUpdateState && onUpdateState('none')");
+                        }).addOnFailureListener(e -> runJs("window.onUpdateState && onUpdateState('none')"));
+                    } catch (Exception e) {
+                        runJs("window.onUpdateState && onUpdateState('none')");
+                    }
+                });
+            }
+
+            @JavascriptInterface
+            public void startUpdate() {
+                runOnUiThread(() -> {
+                    try {
+                        if (updateManager == null || updateInfo == null) return;
+                        if (updateListener == null) {
+                            updateListener = state -> {
+                                if (state.installStatus() == InstallStatus.DOWNLOADED) runJs("window.onUpdateState && onUpdateState('downloaded')");
+                            };
+                            updateManager.registerListener(updateListener);
+                        }
+                        updateManager.startUpdateFlowForResult(updateInfo, MainActivity.this, AppUpdateOptions.newBuilder(AppUpdateType.FLEXIBLE).build(), REQ_UPDATE);
+                    } catch (Exception e) {
+                        runJs("window.onUpdateState && onUpdateState('none')");
+                    }
+                });
+            }
+
+            @JavascriptInterface
+            public void completeUpdate() {
+                runOnUiThread(() -> { if (updateManager != null) updateManager.completeUpdate(); });
             }
 
             /** Plans: the page asks, Google Play decides, and the result comes back through onEntitlement */

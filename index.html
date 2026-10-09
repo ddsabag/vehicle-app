@@ -319,7 +319,7 @@ section[style*="--n:3"] .cmp-k{font-size:.76rem}
 .ph-svg{width:100%;height:auto;display:block}.opt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:start;border:1.5px solid var(--line);border-radius:14px;padding:12px;background:var(--card);margin-top:8px;position:relative;color:var(--fg)}.opt b{font-size:1rem}.opt .pr{font-weight:800}.opt small{color:var(--muted)}.opt.best{border-color:#ffc400;box-shadow:0 0 0 2px #ffc40055}.opt em{position:absolute;inset-block-start:-9px;inset-inline-end:12px;background:#ffc400;color:#111;font-style:normal;font-weight:800;font-size:.7rem;border-radius:6px;padding:1px 8px}.cmpp td,.cmpp th{font-size:.8rem;padding:6px 2px}
 .pro-tag{display:inline-flex;align-items:center;gap:3px;border:1px solid #d9a600;color:#8a6500;font-weight:700;font-size:.68rem;border-radius:6px;padding:0 6px;margin-inline-start:6px;vertical-align:middle}
 .pro-tag .i{width:10px;height:10px}
-.more-plans{margin-top:10px}.more-plans summary{cursor:pointer;color:var(--muted);font-size:.88rem;padding:6px 0}.blur{filter:blur(5px);user-select:none;font-weight:700;font-size:1.1rem}
+.snack{position:fixed;inset-inline:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:31;background:var(--fg);color:var(--bg);border-radius:14px;padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 14px rgba(0,0,0,.25)}.snack span{flex:1;font-weight:700;font-size:.92rem}.snack button{border:0;border-radius:10px;padding:8px 14px;font-weight:800;background:#ffc400;color:#111;min-height:40px}.snack button.q{background:transparent;color:inherit;font-weight:600;padding:8px}.more-plans{margin-top:10px}.more-plans summary{cursor:pointer;color:var(--muted);font-size:.88rem;padding:6px 0}.blur{filter:blur(5px);user-select:none;font-weight:700;font-size:1.1rem}
 .tier{margin:14px 0;padding:0 0 1px;border-top:2px solid #e3c25a}
 .tier-h{display:flex;align-items:center;gap:6px;font-size:.78rem;font-weight:700;color:#8a6500;padding:6px 2px 8px}
 .stls{list-style:none;margin:0;padding:0;display:grid;gap:10px}
@@ -607,6 +607,7 @@ body.land .band{display:none}
       <button class="link-btn" type="button" id="clearSaved">מחיקת כל הרכבים השמורים</button>
     </div>
     <p class="note">החיפושים והרכבים השמורים נשמרים רק במכשיר הזה. גרסה <span id="ver"></span>.</p>
+    <button type="button" class="link-btn" id="chkUpd" hidden>בדיקת עדכון</button>
     <p class="credit">לוחית · פותחה על ידי דודו סבאג<br>© 2026 כל הזכויות שמורות</p>
   </div>
 </div>
@@ -3568,6 +3569,31 @@ document.addEventListener("keydown", ev => { if (ev.key === "Escape") { sheet.hi
 $("#clearRecent").addEventListener("click", () => { store.set("recentPlates", []); toast("היסטוריית החיפושים נמחקה"); if (!current) renderHome(); });
 $("#clearSaved").addEventListener("click", () => { store.set("savedVehicles", []); toast("הרכבים השמורים נמחקו"); if (!current) renderHome(); });
 $("#ver").textContent = APP_VERSION;
+/* in-app update (Google Play installs only): one quiet offer per version, plus a manual check in settings */
+let updManual = false;
+function snack(text, label, act){
+  const old = $("#snack"); if (old) old.remove();
+  const d = document.createElement("div"); d.id = "snack"; d.className = "snack"; d.setAttribute("role", "status");
+  d.innerHTML = `<span>${esc(text)}</span><button type="button" data-s="go">${esc(label)}</button><button type="button" class="q" data-s="x" aria-label="סגירה">${ico("x")}</button>`;
+  d.addEventListener("click", ev => { const b = ev.target.closest("[data-s]"); if (!b) return; d.remove(); if (b.dataset.s === "go") act(); });
+  document.body.appendChild(d);
+}
+window.onUpdateState = st => {
+  const b = window.AndroidApp, man = updManual; updManual = false;
+  if (!b) return;
+  if (st === "available") {
+    let asked = false; try { asked = localStorage.getItem("updAsked") === APP_VERSION; localStorage.setItem("updAsked", APP_VERSION); } catch {}
+    if (asked && !man) return;
+    track("update_prompt", {from: man ? "settings" : "auto"});
+    snack("יש גרסה חדשה של לוחית", "עדכון", () => { track("update_start"); try { b.startUpdate(); } catch {} toast("העדכון יורד ברקע"); });
+  } else if (st === "downloaded") {
+    snack("העדכון מוכן להתקנה", "התקנה", () => { track("update_done"); try { b.completeUpdate(); } catch {} });
+  } else if (man) toast("האפליקציה מעודכנת");
+};
+if (window.AndroidApp && window.AndroidApp.checkUpdate) {
+  const cu = $("#chkUpd"); if (cu) { cu.hidden = false; cu.addEventListener("click", () => { updManual = true; try { window.AndroidApp.checkUpdate(); } catch {} }); }
+  setTimeout(() => { try { window.AndroidApp.checkUpdate(); } catch {} }, 3500);
+}
 showFuelDefaults(); loadFuel();
 const syncUnit = () => document.querySelectorAll("[data-unit]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.unit === (kmlUnit() ? "kml" : "l100"))));
 syncUnit();
