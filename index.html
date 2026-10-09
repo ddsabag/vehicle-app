@@ -2587,10 +2587,10 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "simpleMore") { simpleMore = !simpleMore; track("simple_more", {on: simpleMore}); renderResult(); return; }
   if (b.dataset.url) {
     if (b.dataset.copyfirst) { copyText(b.dataset.copyfirst, b.dataset.copylabel || "מספר הרישוי").then(() => setTimeout(() => openExternal(b.dataset.url), 600)); return; }
-    openExternal(b.dataset.url); return;
+    track("link_out", {kind: (b.dataset.copyfirst ? "importer" : "other")}); openExternal(b.dataset.url); return;
   }
   if (b.dataset.open) { run(b.dataset.open); return; }
-  if (b.dataset.bell) { const list = store.get("savedVehicles"), it = list.find(x => x.plate === b.dataset.bell); if (it && it.alerts === false && list.filter(x => x.alerts !== false).length >= alertCap()) { toast(`התראות ליותר מ-${alertCap()} רכבים זמינות בחבילה גבוהה יותר`); return; } if (it) { it.alerts = it.alerts === false; store.set("savedVehicles", list); toast(it.alerts === false ? "ההתראות לרכב הזה כבויות" : "תקבלו התראות על הרכב הזה"); renderHome(); } return; }
+  if (b.dataset.bell) { const list = store.get("savedVehicles"), it = list.find(x => x.plate === b.dataset.bell); if (it && it.alerts === false && list.filter(x => x.alerts !== false).length >= alertCap()) { toast(`התראות ליותר מ-${alertCap()} רכבים זמינות בחבילה גבוהה יותר`); return; } if (it) { it.alerts = it.alerts === false; track("alerts_toggle", {on: it.alerts !== false ? "1" : "0"}); store.set("savedVehicles", list); toast(it.alerts === false ? "ההתראות לרכב הזה כבויות" : "תקבלו התראות על הרכב הזה"); renderHome(); } return; }
   if (b.dataset.unsave) { store.set("savedVehicles", store.get("savedVehicles").filter(x => x.plate !== b.dataset.unsave)); renderHome(); return; }
   if (b.dataset.rm) { cmp.splice(+b.dataset.rm, 1); renderCompare(); return; }
   if (b.dataset.act === "addCompare") { openCompare(); return; }
@@ -3068,6 +3068,7 @@ window.onVoiceResult = text => {
   inMsg(alts.length ? `שמעתי "${alts[0]}" ולא זיהיתי מספר רישוי. נסו שוב, ספרה אחרי ספרה.` : "לא שמעתי מספר. נסו שוב.");
 };
 function startVoice(){
+  track("voice_search");
   const br = bridge(), btn = $("#micBtn");
   if (br && br.voice) { inMsg("אמרו את מספר הרישוי…"); btn.setAttribute("aria-pressed", "true"); br.voice(); return; }
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -3431,6 +3432,7 @@ function renderBulk(){
   $("#out").innerHTML = html.join(""); updateSavedBar(); window.scrollTo({top: 0});
 }
 async function runBulk(btn){
+  track("bulk_check");
   const ta = $("#bulkIn"); BULK_TEXT = ta.value;
   const plates = parsePlates(ta.value);
   if (!plates.length) { toast("לא מצאנו מספרי רישוי ברשימה"); return; }
@@ -3717,6 +3719,7 @@ function renderUpgrade(){
   $("#out").innerHTML = html.join(""); updateSavedBar(); window.scrollTo({top: 0});
 }
 function buyPlan(sku){
+  track("upgrade_purchase_start", {plan: sku});
   const b = bridge();
   if (b && b.purchase) { try { b.purchase(sku); return; } catch {} }
   toast("הרכישה זמינה באפליקציה מחנות Google Play");
