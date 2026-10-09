@@ -5,6 +5,7 @@ plugins {
 // Firebase Analytics is switched on only when the project's google-services.json is present (added by CI from a secret)
 if (file("google-services.json").exists()) {
     apply(plugin = "com.google.gms.google-services")
+    apply(plugin = "com.google.firebase.crashlytics")   // crash reports and the R8 mapping file are uploaded with the release build
 }
 
 android {
@@ -60,4 +61,5 @@ dependencies {
     implementation("androidx.activity:activity:1.9.3")
     implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
     implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-crashlytics")
 }
