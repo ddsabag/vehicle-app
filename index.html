@@ -3513,7 +3513,7 @@ function renderHome(){
   const html = [];
   if (!saved.length && !recent.length) html.push(`<section class="hero"><h2>לפני שקונים רכב, בודקים אותו כאן</h2><p>מספר רישוי אחד: ריקולים, בעלים, ק״מ ומחיר משוער, בשניות.</p></section>`);
   const pn = planNotice(); if (pn) html.push(pn);
-  if (saved.length) html.push(card("הרכבים שלי", "star", "amber", `<div class="list">${saved.map(s => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-open="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b><bdi>${esc(s.title)}</bdi></b><small>${esc(s.sub || "")}</small>${savedFlags(s)}</span></button><button type="button" class="x bell" data-bell="${s.plate}" aria-pressed="${s.alerts !== false && (!PRO_LOCK || alertSet().includes(s.plate))}" aria-label="התראות לרכב הזה">${ico("bell")}</button><button type="button" class="x" data-unsave="${s.plate}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div><p class="note">הפעמון קובע על אילו רכבים תקבלו התראה על ריקול חדש או טסט שעומד לפוג.</p>`));
+  if (saved.length) html.push(card("הרכבים שלי", "star", "amber", `<div class="list">${saved.map(s => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-open="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b><bdi>${esc(s.title)}</bdi></b><small>${esc(s.sub || "")}</small>${savedFlags(s)}</span></button><button type="button" class="x bell" data-bell="${s.plate}" aria-pressed="${s.alerts !== false && (!PRO_LOCK || alertSet().includes(s.plate))}" aria-label="התראות לרכב הזה">${ico("bell")}</button><button type="button" class="x" data-unsave="${s.plate}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div><p class="note">${alertsSupported() ? "הפעמון קובע על אילו רכבים תקבלו התראה על ריקול חדש או טסט שעומד לפוג." : `התראות על ריקול חדש ועל טסט שעומד לפוג זמינות באפליקציית לוחית באנדרואיד. <button type="button" class="lnk" data-url="${PLAY_URL}">להתקנה</button>`}</p>`));
   if (recent.length) html.push(card("חיפושים אחרונים", "clock", "blue", `<div class="chips">${recent.map(p => `<button type="button" class="chip" data-open="${p}">${fmtPlate(p)}</button>`).join("")}</div>`));
   const tool = (act, icon, title, text, tag, col) => `<button type="button" class="tool ${col}" data-act="${act}"><i class="tb">${ico(icon)}</i><span>${title}${tag ? PT(tag) : ""}</span><small>${text}</small></button>`;
   html.push(`<div class="qsec">כלים</div><div class="tools">${[
@@ -3590,6 +3590,15 @@ window.onUpdateState = st => {
     snack("העדכון מוכן להתקנה", "התקנה", () => { track("update_done"); try { b.completeUpdate(); } catch {} });
   } else if (man) toast("האפליקציה מעודכנת");
 };
+/* the website is the way in; on an Android phone it offers the app once in a while, quietly */
+if (!window.AndroidApp && /Android/i.test(navigator.userAgent)) {
+  let last = 0; try { last = +localStorage.getItem("webInstallAt") || 0; } catch {}
+  if (Date.now() - last > 14 * 864e5) setTimeout(() => {
+    try { localStorage.setItem("webInstallAt", String(Date.now())); } catch {}
+    track("web_install_prompt");
+    snack("באפליקציה יש התראות על ריקול וטסט", "להתקנה", () => { track("web_install_click"); openExternal(PLAY_URL); });
+  }, 12000);
+}
 if (window.AndroidApp && window.AndroidApp.checkUpdate) {
   const cu = $("#chkUpd"); if (cu) { cu.hidden = false; cu.addEventListener("click", () => { updManual = true; try { window.AndroidApp.checkUpdate(); } catch {} }); }
   setTimeout(() => { try { window.AndroidApp.checkUpdate(); } catch {} }, 3500);
