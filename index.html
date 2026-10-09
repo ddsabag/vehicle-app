@@ -319,6 +319,7 @@ section[style*="--n:3"] .cmp-k{font-size:.76rem}
 .ph-svg{width:100%;height:auto;display:block}.opt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:start;border:1.5px solid var(--line);border-radius:14px;padding:12px;background:var(--card);margin-top:8px;position:relative;color:var(--fg)}.opt b{font-size:1rem}.opt .pr{font-weight:800}.opt small{color:var(--muted)}.opt.best{border-color:#ffc400;box-shadow:0 0 0 2px #ffc40055}.opt em{position:absolute;inset-block-start:-9px;inset-inline-end:12px;background:#ffc400;color:#111;font-style:normal;font-weight:800;font-size:.7rem;border-radius:6px;padding:1px 8px}.cmpp td,.cmpp th{font-size:.8rem;padding:6px 2px}
 .pro-tag{display:inline-flex;align-items:center;gap:3px;border:1px solid #d9a600;color:#8a6500;font-weight:700;font-size:.68rem;border-radius:6px;padding:0 6px;margin-inline-start:6px;vertical-align:middle}
 .pro-tag .i{width:10px;height:10px}
+.more-plans{margin-top:10px}.more-plans summary{cursor:pointer;color:var(--muted);font-size:.88rem;padding:6px 0}.blur{filter:blur(5px);user-select:none;font-weight:700;font-size:1.1rem}
 .tier{margin:14px 0;padding:0 0 1px;border-top:2px solid #e3c25a}
 .tier-h{display:flex;align-items:center;gap:6px;font-size:.78rem;font-weight:700;color:#8a6500;padding:6px 2px 8px}
 .stls{list-style:none;margin:0;padding:0;display:grid;gap:10px}
@@ -647,8 +648,8 @@ const simpleOn = () => { try { return localStorage.getItem("simpleView") === "1"
 const analyticsOn = () => { try { return localStorage.getItem("analyticsOff") !== "1"; } catch { return true; } };
 const track = (name, params) => { try { const b = window.AndroidApp; if (b && b.logEvent && analyticsOn()) b.logEvent(name, JSON.stringify(params || {})); } catch {} };
 const UPGRADE_UI = true;   // false for a store build that has no billing products yet
-const PRICES = {buyer_pack: 29, pro_monthly: 14.9, pro_yearly: 99, biz_monthly: 79};
-const GIFT_DAYS = 30, BUYER_DAYS = 60;
+const PRICES = {buyer_pack: 29, pro_monthly: 12.9, pro_yearly: 69, biz_monthly: 79};
+const GIFT_DAYS = 30, BUYER_DAYS = 60, TRIAL_DAYS = 14;
 const RANK = {free: 0, buyer: 1, pro: 2, biz: 3};
 const PLAN_NAME = {free: "החבילה החינמית", buyer: "חבילת קנייה", pro: "PRO", biz: "PRO עסקי"};
 const entGet = () => { try { return JSON.parse(localStorage.getItem("ent") || "{}") || {}; } catch { return {}; } };
@@ -657,7 +658,7 @@ function plan(){
   if (!PRO_LOCK) return "biz";
   const e = entGet(), now = Date.now();
   if (e.biz > now) return "biz";
-  if (e.pro > now || e.gift > now) return "pro";
+  if (e.pro > now || e.gift > now || e.trial > now) return "pro";
   if (e.buyer > now) return "buyer";
   return "free";
 }
@@ -665,7 +666,7 @@ const tier = (label, inner) => PRO_LOCK && !isPro() && inner ? `<div class="tier
 const PT = t => PRO_LOCK ? `<span class="pro-tag">${ico("lock")}${t}</span>` : "";
 const atLeast = n => RANK[plan()] >= RANK[n];
 const isPro = () => atLeast("buyer");
-const FREE_SAVED_ALERTS = 3, FREE_CMP = 3, PRO_CMP = 6, FLEET_MAX = 10, BUYER_ALERTS = 10;
+const FREE_SAVED_ALERTS = 2, FREE_CMP = 3, PRO_CMP = 6, FLEET_MAX = 10, BUYER_ALERTS = 10;
 const alertCap = () => { const p = plan(); return p === "free" ? FREE_SAVED_ALERTS : p === "buyer" ? BUYER_ALERTS : Infinity; };
 const fleetMax = () => plan() === "biz" ? 200 : FLEET_MAX;
 const savedCap = () => plan() === "biz" ? 200 : 50;
@@ -1755,12 +1756,14 @@ document.addEventListener("change", ev => { const c = ev.target.closest("#docCat
 function tabMaint(D){
   const info = serviceInfo(D);
   let paid;
-  if (!maintOk()) paid = proLockCard("אחזקה", "מרווח טיפולים לדגם, הטיפול הבא, יומן טיפולים, ציר ק״מ ועלות אחזקה מצטברת, עם תזכורות בהתראה.");
+  if (!maintOk()) paid = info && !info.none
+    ? card("הטיפול הבא", "wrench", "amber", `<p style="margin:0 0 6px"><span class="blur" aria-hidden="true">••/•••• · ••,••• ק״מ</span></p><p class="note" style="margin:0 0 8px">יש לדגם הזה מרווח טיפולים מוכר. ב-PRO תראו מתי הטיפול הבא, תנהלו יומן טיפולים ותקבלו תזכורת.</p><button type="button" class="link-btn" data-act="proInfo">${ico("star")}מה כולל PRO</button>`, PT("PRO"))
+    : proLockCard("אחזקה", "יומן טיפולים, הטיפול הבא, ציר ק״מ ועלות אחזקה מצטברת, עם תזכורות בהתראה.");
   else { svcRemember(D, info); paid = [intervalCard(D, info), nextCard(D, info), logCard(D), kmCard(D), costLogCard(D)].join(""); }
   const webNote = !window.AndroidApp && !SERVICE ? card("מרווחי טיפול מלאים", "wrench", "teal", `<p style="margin:0">הטבלה המלאה של מרווחי הטיפול לפי דגם, גרסה ונפח מנוע זמינה באפליקציית לוחית באנדרואיד.</p><button type="button" class="link-btn" data-url="${PLAY_URL}">${ico("share")}להורדה מ-Google Play</button>`) : "";
   const free = [docsCard(D), manualCard(D), seasonCard(), webNote].join("");
   const pg = tier("ב-PRO: מעקב טיפולים", paid);
-  return maintOk() ? pg + free : free + pg;
+  return maintOk() || (info && !info.none) ? pg + free : free + pg;
 }
 function tabOverview(D){
   const v = D.v, w = D.w, html = [];
@@ -2609,6 +2612,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "mkCsv") { marketCsv(); return; }
   if (b.dataset.buy) { buyPlan(b.dataset.buy); return; }
   if (b.dataset.act === "restore") { restorePurchases(); return; }
+  if (b.dataset.act === "trialOk") { const e = entGet(); e.trialSeen = 1; entSet(e); renderHome(); return; }
   if (b.dataset.act === "giftOk") { const e = entGet(); e.giftSeen = 1; entSet(e); renderHome(); return; }
   if (b.dataset.act === "saveCmp") { saveCompare(); return; }
   if (b.dataset.act === "shareCmp") { shareCompare(); return; }
@@ -2640,6 +2644,7 @@ $("#out").addEventListener("click", ev => {
   if (act === "compare") { track("compare_open"); cmp = []; renderCompare(); openCompare("model"); }
   if (act === "save") {
     const on = toggleSaved(newSavedItem(current));
+    if (on) startTrial();
     track(on ? "car_save" : "car_unsave", {n: String(Math.min(store.get("savedVehicles").length, 4)) + (store.get("savedVehicles").length > 3 ? "+" : ""), from: currentTab || "home"});
     b.setAttribute("aria-pressed", String(on)); b.querySelector("span").textContent = on ? "נשמר" : "שמירה";
     toast(on ? "הרכב נשמר ב־\"הרכבים שלי\"" : "הרכב הוסר מהרשימה");
@@ -3653,9 +3658,19 @@ function initEnt(){
   if (legacy) e.gift = Date.now() + GIFT_DAYS * 864e5;
   entSet(e);
 }
+/* reverse trial: the first saved car starts 14 days of full PRO, no card; it is given once per install */
+function startTrial(){
+  if (!PRO_LOCK || !UPGRADE_UI) return;
+  const e = entGet(), now = Date.now();
+  if (e.trialStart || e.pro > now || e.biz > now || e.buyer > now) return;
+  e.trialStart = now; e.trial = now + TRIAL_DAYS * 864e5; entSet(e);
+  track("trial_start"); toast(`קיבלתם ${TRIAL_DAYS} ימי PRO במתנה`); syncPlanUi();
+}
 function planNotice(){
   if (!PRO_LOCK || !UPGRADE_UI) return "";
   const e = entGet(), now = Date.now();
+  if (e.trial > now && !(e.pro > now)) { const n = daysLeft(e.trial); return card(n <= 4 ? `ה-PRO במתנה מסתיים בעוד ${n} ${n === 1 ? "יום" : "ימים"}` : "PRO במתנה", "star", "amber", `<p style="margin:0 0 8px">${n <= 4 ? "אחרי זה האפליקציה נשארת חינמית עם הבדיקה המלאה, תזכורות לטסט וריקולים." : `נשארו ${n} ימים עם כל התכונות: מעקב אחרי בעלות, טיפול הבא ויומן טיפולים, מסמכים והתראות.`}</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לאפשרויות</button>`); }
+  if (e.trialStart && e.trial <= now && !e.trialSeen && plan() === "free") { track("trial_end_shown"); return card("הניסיון הסתיים", "clock", "amber", `<p style="margin:0 0 8px">הבדיקה המלאה, ריקולים ותזכורת טסט נשארים חינם. מעקב בעלות, טיפול הבא ויומן טיפולים ממשיכים ב-PRO.</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לאפשרויות</button><button type="button" class="link-btn" data-act="trialOk" style="margin-top:6px">סגירה</button>`); }
   if (e.gift > now && !e.giftSeen) return card("חודש PRO במתנה", "star", "amber", `<p style="margin:0 0 8px">תודה שהייתם איתנו מההתחלה. קיבלתם חודש PRO במתנה, עד ${esc(new Date(e.gift).toLocaleDateString("he-IL"))}, עם כל התכונות. אחרי זה האפליקציה נשארת חינמית עם הבדיקה המלאה.</p><button type="button" class="link-btn" data-act="giftOk">${ico("star")}מעולה, תודה</button><button type="button" class="link-btn" data-act="upgrade" style="margin-top:6px">מה כולל PRO</button>`);
   if (e.buyer > now && e.buyer - now < 7 * 864e5 && plan() === "buyer") return card("חבילת הקנייה מסתיימת בקרוב", "clock", "amber", `<p style="margin:0 0 8px">נשארו ${daysLeft(e.buyer)} ימים. אפשר לעבור ל-PRO שנתי${PRODUCTS && PRODUCTS._credit ? " ולקבל זיכוי על מה ששילמתם" : ""}.</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לאפשרויות</button>`);
   return "";
@@ -3666,6 +3681,7 @@ function syncPlanUi(){
   const e = entGet(), p = plan();
   let t = "אתם בחבילה: " + PLAN_NAME[p];
   if (p === "buyer") t += ` · עוד ${daysLeft(e.buyer)} ימים`;
+  else if (e.trial > Date.now() && !(e.pro > Date.now())) t += ` (ניסיון, עוד ${daysLeft(e.trial)} ימים)`;
   else if (e.gift > Date.now() && RANK[p] <= RANK.pro && !(e.pro > Date.now())) t += ` (מתנה, עוד ${daysLeft(e.gift)} ימים)`;
   $("#planNote").textContent = t;
 }
@@ -3690,29 +3706,28 @@ function renderUpgrade(){
   if (PRO_LOCK) {
     st = `אתם בחבילה: <b>${PLAN_NAME[p]}</b>`;
     if (p === "buyer") st += ` · עוד ${daysLeft(e.buyer)} ימים`;
+    else if (e.trial > Date.now() && !(e.pro > Date.now())) st += ` · ניסיון, עוד ${daysLeft(e.trial)} ימים`;
     else if (e.gift > Date.now() && !(e.pro > Date.now())) st += ` · מתנה, עוד ${daysLeft(e.gift)} ימים`;
   }
   const credit = !!PRODUCTS._credit && e.buyer > Date.now();
   const opt = (sku, name, price, sub, best) => `<button type="button" class="opt${best ? " best" : ""}" data-buy="${sku}">${best ? `<em>הכי משתלם</em>` : ""}<b>${name}</b><span class="pr">${price}</span><small>${sub}</small></button>`;
-  const y = PRICES.pro_yearly, m = PRICES.pro_monthly, save = Math.round((1 - y / (m * 12)) * 100);
-  html.push(`<div id="upg">${card("החבילות של לוחית", "star", "amber", `${st ? `<p style="margin:0 0 4px">${st}</p>` : ""}<p class="note" style="margin:0 0 4px">בדיקת הרכב, ה-PDF והשיתוף חינמיים.</p>
-    ${opt("buyer_pack", "חבילת קנייה", esc(priceOf("buyer_pack")) + " · 60 יום", "תשלום חד-פעמי, בלי חידוש. ליווי קנייה מלא, רשימת מועמדים, השוואה עד 6 דגמים ושוק הרכב.")}
-    ${opt("pro_yearly", "PRO שנתי", esc(priceOf("pro_yearly")) + " לשנה", `מעקב מלא אחרי הרכב: טיפול הבא ותזכורות, יומן טיפולים, תיק מסמכים והתראות ללא הגבלה. חיסכון של ${save}% מול חודשי. 7 ימי ניסיון חינם.${credit ? " כולל זיכוי על חבילת הקנייה." : ""}`, true)}
-    ${opt("pro_monthly", "PRO חודשי", esc(priceOf("pro_monthly")) + " לחודש", "אותם יתרונות כמו השנתי, בתשלום חודשי. 7 ימי ניסיון חינם, ביטול בכל רגע.")}
-    ${opt("biz_monthly", "PRO עסקי", esc(priceOf("biz_monthly")) + " לחודש", "לסוחרים ולמנהלי צי: בדיקת עד 100 לוחיות, ייצוא CSV, דוח PDF עם המיתוג שלכם וצי של עד 200 רכבים.")}`)}
-  ${card("מה בכל חבילה", "bulb", "teal", `<table class="mk-tbl cmpp"><tr><th></th><th>חינם</th><th>קנייה</th><th>PRO</th><th>עסקי</th></tr>
-    <tr><td>בדיקת רכב מלאה ו-PDF</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
-    <tr><td>השוואת דגמים</td><td>עד 3</td><td>עד 6</td><td>עד 6</td><td>עד 6</td></tr>
-    <tr><td>ליווי קנייה</td><td>2 דגלים</td><td>✓</td><td>✓</td><td>✓</td></tr>
-    <tr><td>רשימת מועמדים ושוק הרכב</td><td>—</td><td>✓</td><td>✓</td><td>✓</td></tr>
-    <tr><td>התראות על רכבים שמורים</td><td>3</td><td>10</td><td>ללא הגבלה</td><td>ללא הגבלה</td></tr>
-    <tr><td>התראה על בעלות חדשה או ירידה מהכביש</td><td>—</td><td>✓</td><td>✓</td><td>✓</td></tr>
-    <tr><td>הסדרי פשרה: פרטי הטבה וקישור</td><td>—</td><td>—</td><td>✓</td><td>✓</td></tr>
-    <tr><td>אחזקה: טיפול הבא, יומן ותזכורות</td><td>—</td><td>—</td><td>✓</td><td>✓</td></tr>
-    <tr><td>תיק הרכב (מסמכים)</td><td>עד 5</td><td>עד 5</td><td>ללא הגבלה</td><td>ללא הגבלה</td></tr>
-    <tr><td>הצי שלי</td><td>—</td><td>—</td><td>עד 10</td><td>עד 200</td></tr>
-    <tr><td>ייצוא שוק הרכב</td><td>—</td><td>—</td><td>✓</td><td>✓</td></tr>
-    <tr><td>בדיקת 100 לוחיות, PDF ממותג</td><td>—</td><td>—</td><td>—</td><td>✓</td></tr></table>`)}
+  const y = PRICES.pro_yearly, perMonth = (y / 12).toFixed(2).replace(/\.00$/, "");
+  html.push(`<div id="upg">${card("לוחית PRO", "star", "amber", `${st ? `<p style="margin:0 0 4px">${st}</p>` : ""}<p style="margin:0 0 4px"><b>לא תפספסו טסט, ריקול או שינוי בעלות</b></p>
+    <ul class="insights plain"><li class="ins ok">${ico("check")}<div><b>התראה כשהרכב עובר בעלות או יורד מהכביש</b></div></li><li class="ins ok">${ico("check")}<div><b>מתי הטיפול הבא, ויומן טיפולים</b></div></li><li class="ins ok">${ico("check")}<div><b>תיק מסמכים ורכבים ללא הגבלה</b></div></li></ul>
+    <p class="note" style="margin:0 0 8px">בדיקת הרכב, ה-PDF והשיתוף נשארים חינם, בלי פרסומות.</p>
+    ${opt("pro_yearly", "PRO שנתי", esc(priceOf("pro_yearly")) + " לשנה", `כ-${perMonth} ₪ לחודש. ${TRIAL_DAYS} ימי ניסיון חינם.${credit ? " כולל זיכוי על חבילת הקנייה." : ""}`, true)}
+    ${opt("buyer_pack", "חבילת קנייה", esc(priceOf("buyer_pack")) + " · 60 יום", "לבודקים רכב לפני קנייה: כל דגלי ליווי הקנייה, רשימת מועמדים, שוק הרכב והשוואה עד 6. תשלום חד-פעמי, בלי חידוש.")}
+    <details class="more-plans"><summary>PRO חודשי ותוכניות לעסקים</summary>
+      ${opt("pro_monthly", "PRO חודשי", esc(priceOf("pro_monthly")) + " לחודש", "אותם יתרונות, בתשלום חודשי. ביטול בכל רגע.")}
+      ${opt("biz_monthly", "PRO עסקי", esc(priceOf("biz_monthly")) + " לחודש", "לסוחרים ולמנהלי צי: בדיקת עד 100 לוחיות, ייצוא CSV, דוח PDF עם המיתוג שלכם וצי של עד 200 רכבים.")}
+    </details>`)}
+  ${card("חינם מול PRO", "bulb", "teal", `<table class="mk-tbl cmpp"><tr><th></th><th>חינם</th><th>PRO</th></tr>
+    <tr><td>בדיקת רכב מלאה, PDF ושיתוף</td><td>✓</td><td>✓</td></tr>
+    <tr><td>ריקולים ותזכורת טסט</td><td>2 רכבים</td><td>ללא הגבלה</td></tr>
+    <tr><td>התראה על בעלות חדשה וירידה מהכביש</td><td>—</td><td>✓</td></tr>
+    <tr><td>הטיפול הבא ויומן טיפולים</td><td>—</td><td>✓</td></tr>
+    <tr><td>תיק מסמכים</td><td>עד 5</td><td>ללא הגבלה</td></tr>
+    <tr><td>השוואה ושוק הרכב</td><td>עד 3, כרטיס אחד</td><td>עד 6, מלא</td></tr></table>`)}
   <p class="note" style="margin:12px 0 8px">מנויים מתחדשים אוטומטית עד שמבטלים, וניתן לבטל בכל רגע ב-Google Play. חבילת הקנייה היא תשלום חד-פעמי ולא מתחדשת. החיוב וכל ההחזרים דרך Google Play.</p>
   <button type="button" class="link-btn" data-act="restore">שחזור רכישות</button>
   <button type="button" class="link-btn" data-act="marketBack">${ico("back")}חזרה</button></div>`);
