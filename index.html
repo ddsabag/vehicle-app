@@ -120,6 +120,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 
 /* identity */
 .id-card{gap:14px}
+#out .id-card .mini-plate{display:none}   /* the plate is already in the search field above; the shared report keeps it */
 .id-top{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}.id-top>div{min-width:0}
 .id-title{margin:0;font-size:1.6rem;font-weight:800;line-height:1.2;text-wrap:balance}
 .id-sub{margin:2px 0 0;color:var(--muted)}
@@ -154,6 +155,12 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .ins.info b,.ins.ok b{color:var(--fg);font-weight:600}
 .ins.info svg.i{color:var(--muted)}
 .insights.plain .ins::before{display:none}
+.ins-d{width:100%}.ins-d summary{display:flex;gap:10px;align-items:center;cursor:pointer;list-style:none;min-height:24px}.ins-d summary::-webkit-details-marker{display:none}.ins-d summary b{flex:1}
+.ins-d summary::after{content:"";width:8px;height:8px;border-inline-end:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);margin-inline-end:4px;flex:none;transition:transform .15s}.ins-d[open] summary::after{transform:rotate(-135deg)}
+.ins-d .ins-body{display:flex;flex-direction:column;gap:6px;padding:8px 0 2px 0;margin-inline-start:30px}
+.ins:has(.ins-d){padding-block:9px}
+.report .ins-d summary::after{display:none}
+@media (prefers-reduced-motion:reduce){.ins-d summary::after{transition:none}}
 .ins.bad{--ic:var(--bad);--ib:var(--bad-bg)} .ins.warn{--ic:var(--warn);--ib:var(--warn-bg)} .ins.ok{--ic:var(--ok)} .ins.info{--ic:var(--info)}
 
 /* towing + stats */
@@ -369,7 +376,7 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .chk{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}.chk span{display:flex;gap:6px;align-items:center;font-size:.92rem;min-width:0}.chk .i{width:16px;height:16px}.chk .y .i{color:var(--ok)}.chk .n{color:var(--muted)}.chk .n .i{color:var(--muted);opacity:.7}
 .zscale{display:grid;grid-template-columns:repeat(15,1fr);gap:2px}.zscale i{height:22px;border-radius:4px;opacity:.35;font:700 .7rem/22px var(--f-num);text-align:center;color:#fff;font-style:normal}.zscale i.on{opacity:1;height:30px;margin-top:-4px;box-shadow:0 0 0 2px var(--card),0 0 0 3px var(--fg)}.zlbl{display:flex;justify-content:space-between;font-size:.78rem;color:var(--muted);margin-top:4px}
 .insights.plain .ins{background:transparent;padding:4px 0;border:0}.insights.plain .ins b{font-weight:500;color:var(--fg)}.insights.plain .ins.ok svg.i{color:var(--ok)}.insights.plain .ins.warn svg.i{color:var(--warn)}
-.tools{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.tools{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.tools>:last-child:nth-child(odd){grid-column:1/-1}
 .tool{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:start;border:0;background:var(--card);box-shadow:var(--shadow);border-radius:14px;padding:12px;font-weight:700;color:var(--fg)}
 .tool .tb{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:var(--tb);color:var(--tc);font-style:normal}
 .tool .tb .i{width:21px;height:21px}
@@ -1481,7 +1488,7 @@ function renderResult(){
   if (D.importKind) pills.push(`<span class="pill info">${esc(D.importKind)}</span>`);
   const dt = driveType(D);
   if (dt) pills.push(`<span class="pill drive ${["ev", "phev", "hybrid"].includes(dt.k) ? "green" : ""}">${ico(["ev", "phev", "hybrid"].includes(dt.k) ? "bolt" : "fuel")}${dt.label}</span>`);
-  if (exp && !D.isCancelled) pills.push(exp < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) ? `<span class="pill bad">טסט לא בתוקף</span>` : `<span class="pill ok">טסט בתוקף</span>`);
+  if (exp && !D.isCancelled) pills.push(exp < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) ? `<span class="pill bad">טסט לא בתוקף</span>` : `<span class="pill ok">טסט בתוקף עד ${String(exp.getMonth() + 1).padStart(2, "0")}/${exp.getFullYear()}</span>`);
   const vIns = buildInsights(D), clean = !(D.errs && D.errs.length) && !D.isCancelled && !D.recalls.length && !vIns.some(x => x.level === "bad" || x.level === "warn");
   if (D.own.length) pills.push(`<span class="pill">${ownersLabel(D)}</span>`);
   if (clean) pills.push(`<span class="pill ok">${ico("check")}לא נמצאו בעיות במאגרי משרד התחבורה</span>`);
@@ -1501,7 +1508,7 @@ function renderResult(){
   // An open recall is the one thing that must never be missed: banner above the tabs
   if (D.recalls.length) {
     const blocking = D.recalls.some(isBlocking);
-    html.push(`<button type="button" class="alert-banner" data-tab="recalls">${ico("alert")}<span><b>${blocking ? (D.recalls.length > 1 ? "אחד הריקולים הפתוחים מגביל חידוש רישיון" : "ריקול פתוח שמגביל חידוש רישיון") : D.recalls.length === 1 ? "לרכב יש ריקול פתוח" : `לרכב ${D.recalls.length} ריקולים פתוחים`}</b>${blocking ? "לא ניתן לחדש רישיון עד ביצוע התיקון." : "ריקול בטיחותי פתוח עלול למנוע חידוש רישיון. התיקון בחינם אצל היבואן."}</span></button>`);
+    html.push(`<button type="button" class="alert-banner" data-tab="recalls">${ico("alert")}<span><b>${blocking ? "ריקול פתוח מגביל חידוש רישיון" : D.recalls.length === 1 ? "לרכב יש ריקול פתוח" : `לרכב ${D.recalls.length} ריקולים פתוחים`}</b>${blocking ? "לא ניתן לחדש רישיון עד ביצוע התיקון." : "ריקול בטיחותי פתוח עלול למנוע חידוש רישיון. התיקון בחינם אצל היבואן."}</span></button>`);
   }
 
   if (D.kind !== "model" && !D.isCancelled) {
@@ -1814,7 +1821,12 @@ function tabOverview(D){
   if (ins.length) {
     const icon = {bad:"alert", warn:"alert", info:"info", ok:"check"};
     html.push(card("מידע חשוב שעלה מהנתונים", "bulb", "amber",
-      `<ul class="insights">${ins.map(i => `<li class="ins ${i.level}">${ico(icon[i.level])}<div><b>${esc(i.title)}</b><span>${esc(i.text)}</span>${insightTodo(i.title) ? (i.level === "info" || i.level === "ok" ? `<details class="todo-d"><summary>מה לעשות</summary><span class="todo">${esc(insightTodo(i.title))}</span></details>` : `<span class="todo"><strong>מה לעשות:</strong> ${esc(insightTodo(i.title))}</span>`) : ""}</div></li>`).join("")}</ul>`));
+      `<ul class="insights">${ins.map(i => {
+        const todo = insightTodo(i.title);
+        // flags (bad, warn) stay open; notes (info, ok) are one line each and open on tap, so the screen is not a wall of text
+        if (i.level === "info" || i.level === "ok") return `<li class="ins ${i.level}"><details class="ins-d"><summary>${ico(icon[i.level])}<b>${esc(i.title)}</b></summary><div class="ins-body"><span>${esc(i.text)}</span>${todo ? `<span class="todo"><strong>מה לעשות:</strong> ${esc(todo)}</span>` : ""}</div></details></li>`;
+        return `<li class="ins ${i.level}">${ico(icon[i.level])}<div><b>${esc(i.title)}</b><span>${esc(i.text)}</span>${todo ? `<span class="todo"><strong>מה לעשות:</strong> ${esc(todo)}</span>` : ""}</div></li>`;
+      }).join("")}</ul>`));
   }
   const evCard = tier("ב-PRO: מעקב אחרי הרכב", eventsCard(D)), evFirst = !PRO_LOCK || isPro();
   if (evFirst) html.push(evCard);
@@ -1849,7 +1861,6 @@ function tabOverview(D){
     D.isCancelled && ["ירד מהכביש", e(v.bitul_dt && fmtDate(v.bitul_dt))],
     D.isCancelled && ["סיבה", e(v.bitul_nm)],
     ["סוג יבוא", e(v.sug_yevu)],
-    ["תג חניה לנכה", D.tag ? `יש${empty(D.tag["TAARICH HAFAKAT TAG"]) ? "" : " (הונפק " + esc(fmtDate(D.tag["TAARICH HAFAKAT TAG"])) + ")"}` : "אין"],
   ]) + (toDate(v.tokef_dt) && toDate(v.tokef_dt) > new Date() && !D.isCancelled ? `<button type="button" class="link-btn" data-act="calendar">${ico("clock")}הוספת תזכורת ליומן</button>` : "")));
 
   const fo = firstOwner(v);
@@ -2801,6 +2812,7 @@ function buildReport(D, full, biz){
   el.querySelectorAll(".simple tr").forEach(x => { if (/^תג נכה/.test(x.textContent.trim())) x.remove(); });
   // a dealer's own branded PDF carries no value estimate or costs unless the dealer switched them on in settings
   if (biz && !biz.value) el.querySelectorAll(".card").forEach(c => { const t = (c.querySelector(".head h2") || {}).textContent || ""; if (/^שווי משוער/.test(t.trim())) c.remove(); });
+  el.querySelectorAll("details").forEach(d => d.setAttribute("open", ""));
   el.querySelectorAll(".card.folded").forEach(c => c.classList.remove("folded"));
   return inlineIcons(el);
 }
