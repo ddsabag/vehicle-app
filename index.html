@@ -109,7 +109,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .card.folded .fold-body{display:none}
 .card.folded .chev{transform:rotate(90deg)}
 .head .badge{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:var(--tc);background:var(--tb)}
-.head .count{margin-inline-start:auto;font-size:.8rem;font-weight:700;color:color-mix(in srgb,var(--tc) 72%,var(--fg));background:var(--tb);padding:2px 9px;border-radius:999px}
+.head .count{margin-inline-start:auto;font-size:.8rem;font-weight:700;color:var(--tc);color:color-mix(in srgb,var(--tc) 72%,var(--fg));background:var(--tb);padding:2px 9px;border-radius:999px}
 .blue{--tc:var(--t-blue);--tb:var(--t-blue-bg)} .violet{--tc:var(--t-violet);--tb:var(--t-violet-bg)} .teal{--tc:var(--t-teal);--tb:var(--t-teal-bg)}
 .amber{--tc:var(--t-amber);--tb:var(--t-amber-bg)} .red{--tc:var(--t-red);--tb:var(--t-red-bg)} .slate{--tc:var(--t-slate);--tb:var(--t-slate-bg)}
 .green{--tc:var(--t-green);--tb:var(--t-green-bg)} .leaf{--tc:var(--t-leaf);--tb:var(--t-leaf-bg)} .pink{--tc:var(--t-pink);--tb:var(--t-pink-bg)}
@@ -170,7 +170,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .ins.bad{--ic:var(--bad);--ib:var(--bad-bg)} .ins.warn{--ic:var(--warn);--ib:var(--warn-bg)} .ins.ok{--ic:var(--ok)} .ins.info{--ic:var(--info)}
 
 /* towing + stats */
-.tow-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tow-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:10px}
 .fix{display:flex;flex-direction:column;gap:4px;margin-top:6px;background:var(--soft);border-radius:10px;padding:8px 12px;font-size:.92rem}
 .fix span{color:var(--muted);font-weight:700;margin-inline-end:8px}
 .hook-box{display:flex;align-items:center;gap:8px;margin-top:10px;padding:11px 14px;border-radius:12px;font-size:1.05rem;border:2px solid}
@@ -178,11 +178,12 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .hook-box span{color:var(--muted);font-size:.9rem;margin-inline-start:auto}
 .hook-box.yes{background:var(--ok-bg,#e7f6ec);border-color:var(--ok,#15803d);color:var(--ok,#15803d)}
 .hook-box.no{background:var(--soft);border-color:var(--line);color:var(--fg)}
-.tow-grid>div,.tow-grid>.unit-flip{background:var(--tb);border-radius:12px;padding:12px 14px}
+.tow-grid>div,.tow-grid>.unit-flip{background:var(--tb);border-radius:12px;padding:12px 14px;min-width:0}
+@media(max-width:340px){.tow-grid .v{font-size:1.3rem}.tow-grid>div,.tow-grid>.unit-flip{padding:10px}}
 .unit-flip{border:0;text-align:start;font:inherit;color:inherit;width:100%}
 .unit-flip .flip{font-weight:800;opacity:.75;margin-inline-start:4px}
 .tow-grid .k{font-size:.9rem;color:var(--tc);font-weight:700}
-.tow-grid .v{font:600 clamp(1.5rem,7vw,2rem)/1.15 var(--f-num);white-space:nowrap;font-variant-numeric:tabular-nums;margin-top:2px}
+.tow-grid .v{font:600 clamp(1.5rem,7vw,2rem)/1.15 var(--f-num);font-variant-numeric:tabular-nums;margin-top:2px}
 .u{font-size:.8rem;color:var(--muted);margin-inline-start:4px;font-family:var(--f-body);font-weight:600}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .stat{background:var(--card);border-radius:16px;padding:14px 16px;min-width:0;box-shadow:var(--shadow);border-top:4px solid var(--tc)}
@@ -268,7 +269,6 @@ footer a{color:var(--accent)}
 .rlist li.dim{opacity:.6}
 .rhead{display:flex;align-items:center;gap:8px;justify-content:space-between}
 .rhead time{font:500 .85rem var(--f-num);color:var(--muted)}
-.link-list{display:flex;flex-direction:column;gap:8px}
 .link-btn{display:flex;align-items:center;gap:8px;color:var(--fg);width:100%}
 .link-btn svg.i{color:var(--accent)}
 .adj{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
@@ -282,7 +282,6 @@ footer a{color:var(--accent)}
 .cmp{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:6px;align-items:stretch;position:sticky;top:0;z-index:3;background:var(--card);padding-block:8px;margin-block:-8px}
 .cmp>.ph{display:none}
 .cmp-bar{display:flex;gap:8px;flex-wrap:wrap}
-.cmp-bar .cmp-add{flex:1 1 auto}
 .cmp-tool{border:1px solid var(--line);background:var(--soft);color:var(--fg);border-radius:999px;font-weight:700;font-size:.88rem;display:flex;align-items:center;gap:6px;padding:8px 14px;min-height:40px}
 .cmp-tool svg.i{width:17px;height:17px}
 .cmp-tool.add{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
@@ -291,16 +290,10 @@ footer a{color:var(--accent)}
 .month-big{font-size:2rem;font-weight:900;color:var(--accent)}.month-big small{font-size:.95rem;color:var(--muted);font-weight:600}
 .month-bar{display:flex;height:12px;border-radius:999px;overflow:hidden;margin:8px 0}
 .month-lg{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.88rem}.month-lg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:5px}
-.sim-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.sim-row button{border:1.5px dashed var(--accent);background:var(--info-bg);border-radius:12px;padding:9px 10px;text-align:start;color:var(--fg);min-width:0;display:flex;flex-direction:column;gap:2px}
-.sim-row b{font-size:.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sim-row small{color:var(--muted);font-size:.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sim-row span{display:flex;align-items:center;gap:3px;color:var(--accent);font-weight:800;font-size:.8rem;margin-top:3px}.sim-row span svg.i{width:14px;height:14px}
 .verdict{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
 .verdict span{background:var(--t-leaf-bg);border-radius:12px;padding:8px 12px;min-width:0}
 .verdict small{display:block;font-size:.75rem;font-weight:700;color:var(--muted)}
 .verdict b{display:block;color:var(--t-leaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cmp-land{border:1px solid var(--line);background:var(--soft);color:var(--fg);border-radius:12px;font-weight:700;display:flex;align-items:center;gap:6px;padding:10px 14px;min-height:46px}
-.cmp-land svg.i{width:18px;height:18px}
 .cmp-h{position:relative}
 .tow-ban{display:flex;gap:10px;align-items:flex-start;background:var(--bad-bg);color:var(--bad);border-radius:12px;padding:12px 14px}
 .tow-ban b{display:block}.tow-ban span{color:var(--fg);font-size:.92rem}
@@ -322,7 +315,6 @@ section[style*="--n:3"] .cmp-k{font-size:.76rem}
 .cmp-h .x{flex:0 0 auto;margin-inline-end:-6px;width:34px;height:34px;border:0;border-radius:8px;background:transparent;color:var(--muted);display:grid;place-items:center}
 .cmp-h .x svg.i{width:16px;height:16px}
 .cmp-h .tag{font-size:.72rem;font-weight:700;color:var(--t-violet);background:var(--t-violet-bg);border-radius:999px;padding:0 8px}
-.cmp-add{border:2px dashed var(--line);background:transparent;border-radius:12px;color:var(--accent);font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px}
 .cmp-sec{grid-column:1/-1;font-weight:800;font-size:.85rem;color:var(--tc);padding-top:14px!important}
 .in-alt{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .in-btn{display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--band-line);background:transparent;border-radius:10px;padding:9px 8px;font-weight:700;color:var(--band-fg)}
@@ -378,7 +370,6 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .bsteps{list-style:none;margin:0;padding:0;display:grid;gap:16px}.bsteps>li{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start}.bsteps .n{width:28px;height:28px;border-radius:50%;background:var(--t-green-bg);color:var(--t-green);display:grid;place-items:center;font-weight:800;font-size:.9rem}.bsteps .n .i{width:16px;height:16px}.bsteps>li>div{display:grid;gap:6px;min-width:0}.bsteps .note{margin:0}
 .mst small.ok{color:var(--ok);font-weight:700}.mst small.bad{color:var(--bad);font-weight:700}
 .ins .todo{font-weight:400;color:var(--fg);margin-top:4px}.ins .todo strong{font-weight:800}
-.todo-d{margin-top:2px}.todo-d summary{cursor:pointer;color:var(--accent);font-weight:700;font-size:.88rem;list-style:none;padding:4px 0}.todo-d summary::-webkit-details-marker{display:none}.todo-d summary::after{content:" ›"}.todo-d[open] summary::after{content:" ‹"}
 .chk{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}.chk span{display:flex;gap:6px;align-items:center;font-size:.92rem;min-width:0}.chk .i{width:16px;height:16px}.chk .y .i{color:var(--ok)}.chk .n{color:var(--muted)}.chk .n .i{color:var(--muted);opacity:.7}
 .zscale{display:grid;grid-template-columns:repeat(15,1fr);gap:2px}.zscale i{height:22px;border-radius:4px;opacity:.35;font:700 .7rem/22px var(--f-num);text-align:center;color:#fff;font-style:normal}.zscale i.on{opacity:1;height:30px;margin-top:-4px;box-shadow:0 0 0 2px var(--card),0 0 0 3px var(--fg)}.zlbl{display:flex;justify-content:space-between;font-size:.78rem;color:var(--muted);margin-top:4px}
 .insights.plain .ins{background:transparent;padding:4px 0;border:0}.insights.plain .ins b{font-weight:500;color:var(--fg)}.insights.plain .ins.ok svg.i{color:var(--ok)}.insights.plain .ins.warn svg.i{color:var(--warn)}
@@ -449,9 +440,6 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 #mres .row > svg.i{margin-inline-start:auto;color:var(--muted)}
 #mres .row > svg.i use[href="#i-chev"]{}
 #mres .row .t{flex:1;min-width:0}
-.crumbs{display:flex;align-items:center;gap:10px;justify-content:space-between;padding-bottom:4px}
-.crumbs .link-btn{padding:6px 10px;width:auto}
-.crumbs .link-btn svg.i{transform:rotate(90deg)}
 .years{gap:8px}.years .chip{font-size:1rem;padding:8px 14px}
 .share-opts .row{padding:12px}
 .share-opts small{color:var(--muted);display:block;font-size:.85rem}
@@ -575,7 +563,7 @@ body.land .band{display:none}
 <button type="button" class="savedbar" id="savedBar" hidden><svg class="i"><use href="#i-star"/></svg><span id="savedBarTxt"></span></button>
 <main id="out" aria-live="polite"></main>
 <footer>המידע מגיע מהמאגרים הפתוחים של משרד התחבורה ב-<a href="https://data.gov.il/dataset?organization=ministry_of_transport" target="_blank" rel="noopener">data.gov.il</a>, ואינו מחליף נסח רישום רשמי. האפליקציה אינה קשורה למשרד התחבורה או לגוף ממשלתי.<span id="mdlLink"> <a href="model/">דגמים נפוצים בישראל</a></span></footer>
-<script>if(window.AndroidApp){var e=document.getElementById("mdlLink");if(e)e.remove()}</script>
+<script>(function(){if(window.AndroidApp){var x=document.getElementById("mdlLink");if(x)x.remove()}})()</script>
 
 <div class="sheet" id="settings" hidden role="dialog" aria-modal="true" aria-labelledby="setTitle">
   <div class="sheet-in">
@@ -764,7 +752,6 @@ function fmtDate(v){
   return s.replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
 }
 function toDate(v){ const m = String(v).match(/^(\d{4})-?(\d{2})-?(\d{2})/); return m ? new Date(+m[1], +m[2]-1, +m[3]) : null; }
-function titleCase(s){ return String(s).trim(); }
 /* Make names arrive like "טויוטה יפן" / "פולקסווגן גרמניה": drop the trailing country the record already carries */
 function makeName(v){
   let n = String(v.tozeret_nm || "").trim();
@@ -2286,16 +2273,6 @@ const rowMake = r => { let n = String(r.tozeret_nm || r.tozar || "").trim(); con
 const rowModel = r => String(r.kinuy_mishari || r.degem_nm || "").trim();
 const rowLabel = r => [rowMake(r), rowModel(r)].filter(Boolean).join(" ");
 const rowKey = r => [r.tozeret_cd, r.degem_cd, r.shnat_yitzur, r.ramat_gimur].map(x => String(x ?? "").trim()).join("|");
-async function searchModels(text, year, signal){
-  const words = searchWords(text); if (!words.length) return [];
-  const f = year ? {shnat_yitzur: Number(year)} : null;
-  let rows = await searchModelRows(text, words, f, 400, signal);
-  const seen = new Map();
-  for (const r of rows) { if (empty(r.tozeret_cd) || empty(r.degem_cd)) continue; const k = rowKey(r); if (!seen.has(k)) seen.set(k, r); }
-  return [...seen.values()]
-    .sort((a, b) => (num(b.shnat_yitzur) || 0) - (num(a.shnat_yitzur) || 0) || rowLabel(a).localeCompare(rowLabel(b), "he"))
-    .slice(0, 80);
-}
 /* A model (not a specific car) shaped like a vehicle, so costs and the comparison treat both alike */
 async function fetchModel(r, signal){
   const v = {...r, sug_degem: r.sug_degem || "P"};
@@ -2389,7 +2366,6 @@ const groupKey = r => [rowMake(r), normModel(rowModel(r))].join("|").toUpperCase
 /* the catalogue sometimes repeats the maker inside the model ("TOYOTA COROLLA"); the list shows the model alone */
 const LATIN_MAKERS = new Set(Object.keys(MAKE_ALIASES).map(k => k.toUpperCase()).concat(["MERCEDES-BENZ", "LANDROVER", "ROVER", "LAND-ROVER"]));
 const cleanModelName = m => { const t = String(m).split(" "); if (t.length > 1 && LATIN_MAKERS.has(t[0]) && !/^\d+$/.test(t.slice(1).join(" ")) && t.slice(1).join(" ").length > 1) return t.slice(1).join(" "); return m; };
-const listKey = r => [rowMake(r), cleanModelName(normModel(rowModel(r)))].join("|").toUpperCase();
 /* the register writes one model several ways ("TIGGO 7 PRO", "TIGGO7 PRO") and one model name covers petrol and plug-in versions:
    spelling variants are one entry, and drive versions of the same name are told apart by a suffix (PHEV / HEV / EV) */
 const modelBase = m => String(m).toUpperCase().replace(/[\s\-_.]+/g, "");
@@ -3084,7 +3060,7 @@ function testReminderFile(D){
   const title = `טסט לרכב ${fmtPlate(D.plate)} (${D.title})`;
   const alarm = days => ["BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${title}`, `TRIGGER:-P${days}D`, "END:VALARM"];
   const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Luchit//HE", "CALSCALE:GREGORIAN", "BEGIN:VEVENT",
-    `UID:test-${D.plate}-${ymd(d)}@checkcar`, `DTSTAMP:${stamp}`, `DTSTART;VALUE=DATE:${ymd(d)}`, `DTEND;VALUE=DATE:${ymd(next)}`,
+    `UID:test-${D.plate}-${ymd(d)}@luchit`, `DTSTAMP:${stamp}`, `DTSTART;VALUE=DATE:${ymd(d)}`, `DTEND;VALUE=DATE:${ymd(next)}`,
     `SUMMARY:${title}`, "DESCRIPTION:תוקף רישיון הרכב מסתיים היום. כדאי לקבוע טסט מראש.",
     ...alarm(30), ...alarm(7), "END:VEVENT", "END:VCALENDAR"].join("\r\n");
   shareFile(new Blob([ics], {type: "text/calendar"}), `Luchit-test-${D.plate}.ics`, title);
