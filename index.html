@@ -275,6 +275,7 @@ footer a{color:var(--accent)}
 .adj li{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--line);font-size:.92rem}
 .adj li:first-child{border-top:0}
 .adj .neg{color:var(--bad)}.adj .pos{color:var(--ok)}
+.pick{border:1px solid var(--line);background:var(--soft);border-radius:10px;padding:8px 14px;font-weight:700;font-size:.9rem;cursor:pointer;color:var(--fg)}.link-btn.danger{color:var(--bad)}
 .fuel-set{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .fuel-set input.wide{width:170px;text-align:start;font-family:var(--f-body)}
 .fuel-set input{width:110px;border:1px solid var(--line);background:var(--soft);color:var(--fg);border-radius:9px;padding:8px 10px;font:500 1rem var(--f-num);text-align:center}
@@ -571,6 +572,18 @@ body.land .band{display:none}
     <div class="set-row"><span>רקע</span>
       <div class="seg" role="group" aria-label="רקע"><button type="button" data-theme-choice="light">בהיר</button><button type="button" data-theme-choice="dark">כהה</button><button type="button" data-theme-choice="auto">לפי הטלפון</button></div>
     </div>
+    <div class="set-row"><span>תצוגה</span>
+      <div class="kinds"><label><input type="checkbox" id="simpleChk">תצוגה פשוטה: נתונים יבשים בלבד</label></div>
+      <p class="note">בדוח הרכב תוצג טבלה אחת, בלי תובנות והסברים. אפשר להחליף בכל דוח.</p>
+    </div>
+    <div class="set-row" id="alertsRow" hidden><span>התראות לרכבים שמורים</span>
+      <div class="seg two" role="group" aria-label="התראות לרכבים שמורים"><button type="button" data-alerts="on">פועלות</button><button type="button" data-alerts="off">כבויות</button></div>
+      <p class="note" id="alertsNote"></p>
+    </div>
+    <div class="set-row" id="kindsRow" hidden><span>על מה להתריע</span>
+      <div id="alertKinds" class="kinds"></div>
+      <p class="note">לא נשלחות יותר מ-4 התראות בשבוע.</p>
+    </div>
     <div class="set-row"><span>מחירי דלק וחשמל לחישוב העלויות</span>
       <div class="seg two" role="group" aria-label="יחידת צריכת דלק" id="unitSeg" style="margin-bottom:8px"><button type="button" data-unit="l100">ליטר ל-100 ק״מ</button><button type="button" data-unit="kml">ק״מ לליטר</button></div>
       <div class="fuel-set"><label for="fuelPrice">בנזין (₪ לליטר)</label><input id="fuelPrice" inputmode="decimal" placeholder="8.27"></div>
@@ -584,23 +597,10 @@ body.land .band{display:none}
       <div class="fuel-set"><label for="bizPhone">טלפון</label><input id="bizPhone" class="wide" inputmode="tel"></div>
       <div class="fuel-set"><label for="bizAddr">כתובת</label><input id="bizAddr" class="wide"></div>
       <div class="fuel-set"><label for="bizNote">הערה בדוח</label><input id="bizNote" class="wide"></div>
-      <div class="fuel-set"><label for="bizLogo">לוגו</label><input id="bizLogo" class="wide" type="file" accept="image/*"></div>
-      <div class="fuel-set"><label for="bizCosts">להוסיף לדוח: עלויות ושווי שימוש</label><input id="bizCosts" type="checkbox"></div>
-      <div class="fuel-set"><label for="bizValue">להוסיף לדוח: שווי משוער</label><input id="bizValue" type="checkbox"></div>
-      <button class="link-btn" type="button" id="bizLogoClear" hidden>הסרת הלוגו</button>
+      <div class="fuel-set"><span>לוגו</span><label class="pick" for="bizLogo">בחירת קובץ</label><input id="bizLogo" type="file" accept="image/*" hidden></div>
+      <div class="kinds"><label><input id="bizCosts" type="checkbox">להוסיף לדוח: עלויות ושווי שימוש</label><label><input id="bizValue" type="checkbox">להוסיף לדוח: שווי משוער</label></div>
+      <button class="link-btn danger" type="button" id="bizLogoClear" hidden>הסרת הלוגו</button>
       <p class="note">הפרטים מופיעים בדוחות ה-PDF הממותגים: בלי לוגו של לוחית ובלי קישור לחנות.</p>
-    </div>
-    <div class="set-row" id="alertsRow" hidden><span>התראות לרכבים שמורים</span>
-      <div class="seg two" role="group" aria-label="התראות לרכבים שמורים"><button type="button" data-alerts="on">פועלות</button><button type="button" data-alerts="off">כבויות</button></div>
-      <p class="note" id="alertsNote"></p>
-    </div>
-    <div class="set-row" id="kindsRow" hidden><span>על מה להתריע</span>
-      <div id="alertKinds" class="kinds"></div>
-      <p class="note">לא נשלחות יותר מ-4 התראות בשבוע.</p>
-    </div>
-    <div class="set-row"><span>תצוגה</span>
-      <div class="kinds"><label><input type="checkbox" id="simpleChk">תצוגה פשוטה: נתונים יבשים בלבד</label></div>
-      <p class="note">בדוח הרכב תוצג טבלה אחת, בלי תובנות והסברים. אפשר להחליף בכל דוח.</p>
     </div>
     <div class="set-row" id="anaRow" hidden><span>סטטיסטיקה אנונימית</span>
       <div class="kinds"><label><input type="checkbox" id="anaChk">שיתוף נתוני שימוש אנונימיים</label></div>
@@ -611,8 +611,8 @@ body.land .band{display:none}
       <p class="note">גרסה מותקנת: <span id="ver2"></span>.</p>
     </div>
     <div class="set-row"><span>נתונים במכשיר</span>
-      <button class="link-btn" type="button" id="clearRecent">מחיקת היסטוריית החיפושים</button>
-      <button class="link-btn" type="button" id="clearSaved">מחיקת כל הרכבים השמורים</button>
+      <button class="link-btn danger" type="button" id="clearRecent">מחיקת היסטוריית החיפושים</button>
+      <button class="link-btn danger" type="button" id="clearSaved">מחיקת כל הרכבים השמורים</button>
     </div>
     <p class="note">החיפושים והרכבים השמורים נשמרים רק במכשיר הזה. גרסה <span id="ver"></span>.</p>
     <p class="credit">לוחית · פותחה על ידי דודו סבאג<br>© 2026 כל הזכויות שמורות</p>
@@ -1626,7 +1626,7 @@ function serviceInfo(D){
   if (D.kind === "model" || isCommercial(D)) return null;
   const t = serviceFromTable(D);
   if (t && t.none) return {none: true};
-  if (t && t.opts && t.opts.length) return {opts: t.opts, src: "טבלת מרווחי טיפולים של יבואנים", url: ""};
+  if (t && t.opts && t.opts.length) return {opts: t.opts, src: "מרווחי הטיפול שמפרסמים היבואנים", url: ""};
   const r = serviceRule(D);
   return r ? {opts: [{km: r.km, months: r.months || 0}], src: r.src, url: r.url || ""} : null;
 }
@@ -1636,7 +1636,7 @@ function intervalCard(D, info){
   const opts = info.opts;
   const when = opts.length === 1 ? `<b>${svWhen(opts[0])}</b>` : `<b>לפי הגרסה: ${opts.map(svWhen).join(" · ")}</b>`;
   const srcEl = info.url ? `<button type="button" class="lnk" data-url="${info.url}">${esc(info.src)}</button>` : esc(info.src);
-  return card("מרווח טיפולים", "wrench", "teal", `<p style="margin:0">${when}</p><p class="note">מקור: ${srcEl}. ${opts.length > 1 ? "לא ניתן לקבוע את הגרסה המדויקת מהנתונים. " : ""}המרווחים מבוססים על מאגר שנאסף מנתוני יבואנים, ועשויים להשתנות בין גרסאות ושנתונים. את המרווח המדויק לרכב שלכם כדאי לאמת מול ספר הרכב או היבואן.</p>`);
+  return card("מרווח טיפולים", "wrench", "teal", `<p style="margin:0">${when}</p><p class="note">מקור: ${srcEl}. ${opts.length > 1 ? "לא ניתן לקבוע את הגרסה המדויקת מהנתונים. " : ""}המרווחים עשויים להשתנות בין גרסאות ושנתונים, ולכן כדאי לאמת את המרווח המדויק מול ספר הרכב או היבואן.</p>`);
 }
 
 /* ---------- maintenance tab: service log, next service, km timeline, cumulative cost (the log stays on the phone) ---------- */
@@ -2010,7 +2010,7 @@ function tabBuy(D){
      ${step(1, "בבית, לפני שנפגשים", `${lk("https://www.gov.il/he/service/pawn_perusal", "search", "בדיקת שעבוד ברשם המשכונות", true)}
        ${lk("https://infocar.co.il/", "search", "בדיקת עבר ביטוחי (מרכז הסליקה של חברות הביטוח)", true)}
        ${lk("https://www.gov.il/apps/police/stolencar/", "search", "בדיקה במאגר הרכבים הגנובים (משטרה)", true)}`)}
-     ${step(2, "המוכר והמסמכים", `<ul class="bq"><li>ודאו שמי שמציג את הרכב הוא הבעלים החוקי: שמו ומספר תעודת הזהות שלו מופיעים ברישיון הרכב העדכני. אם הוא מיופה כוח, כדאי לדבר גם עם הבעלים.</li><li>במוכר פרטי, מומלץ להיפגש בבית המוכר ובאור יום.</li><li>בעסקה עם סוחר, בקשו בכתב מסמכי רכישה ואחריות.</li></ul>`)}
+     ${step(2, "המוכר והמסמכים", `<ul class="bq"><li>ודאו שמי שמציג את הרכב הוא הבעלים החוקי: שמו ומספר תעודת הזהות שלו מופיעים ברישיון הרכב העדכני. אם הוא מיופה כוח, כדאי לדבר גם עם הבעלים.</li><li>במכירה פרטית, מומלץ להיפגש בבית המוכר ובאור יום.</li><li>בעסקה עם סוחר, בקשו בכתב מסמכי רכישה ואחריות.</li></ul>`)}
      ${step(3, "בפגישה עם הרכב", `<ul class="bq"><li>הניעו את הרכב, הפעילו מזגן ותנו לו לעבוד כמה דקות בזמן שאתם בודקים אותו מבחוץ.</li><li>בדקו בלוח המחוונים שהמנוע מתחמם ושומר על טמפרטורה תקינה.</li><li>חפשו עשן לבן או אפור מהאגזוז, ונזילות מים או שמן תחת המנוע.</li></ul>`)}
      ${step(4, "בדיקה במכון", `<div class="insp"><p class="note" style="margin:0 0 6px">מומלץ לבדוק במכון מורשה אחרי שהסכמתם על מחיר עם המוכר, וליידע מראש שתיקונים שיתגלו יקוזזו מהמחיר. סכמו מראש מי משלם על הבדיקה אם יתגלו תקלות קריטיות במנוע, בגיר או בשלדה. מכונים מתוך רשימת המוסכים המורשים של משרד התחבורה:</p>
        <form class="msearch" data-insp><input id="inspCity" placeholder="עיר, למשל חולון" value="${esc(setting("inspCity", ""))}" aria-label="עיר"><button type="submit" class="go sm" aria-label="חיפוש">${ico("search")}</button></form>
@@ -2021,7 +2021,7 @@ function tabBuy(D){
      <li class="bsteps-end"><span class="n">${ico("check")}</span><div><b>אחרי העסקה</b><p class="note">בצעו העברת בעלות ועדכנו את הביטוח מיד, ורק אז התחילו לנהוג ברכב.</p>
        ${lk("https://car.cma.gov.il/", "doc", "השוואת מחירי ביטוח חובה")}</div></li>
      </ol>
-     <button type="button" class="link-btn" data-act="checklistPdf">${ico("doc")}הורדה או הדפסה של הרשימת בדיקה (PDF)</button>`));
+     <button type="button" class="link-btn" data-act="checklistPdf">${ico("doc")}הורדה או הדפסה של רשימת הבדיקות (PDF)</button>`));
   if (!entitled) html.push(paid);
   return html.join("");
 }
