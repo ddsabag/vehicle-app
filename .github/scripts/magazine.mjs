@@ -49,7 +49,8 @@ const template = () => ({
 });
 
 async function gemini() {
-  const key = process.env.GEMINI_API_KEY; if (!key) return null;
+  // off by default: the 2026-09 drafts had a repeated typo and clumsy wording, the data template reads better. Set MAGAZINE_AI=1 to try again.
+  const key = process.env.GEMINI_API_KEY; if (!key || process.env.MAGAZINE_AI !== "1") return null;
   const prompt = `כתוב כתבה קצרה בעברית בסגנון עיתונאי עניייני על מסירות רכבים חדשים בישראל, על בסיס העובדות שב-JSON בלבד.
 כללים: אל תוסיף שום עובדה, מספר, אחוז, סיבה, תחזית או השוואה שלא מופיעים ב-JSON. אל תנחש למה משהו קרה. כתוב מספרים בדיוק כפי שהם. אל תזכיר מקורות או אתרים. בדוק איות ודקדוק לפני שאתה מחזיר. הטבלאות והגרפים מוצגים בנפרד, אז אל תפרט כל מספר, אבל כל מספר שתכתוב חייב להופיע ב-JSON.
 החזר JSON בלבד עם השדות: title (כותרת עד 90 תווים), lead (פסקת פתיחה של 2 עד 3 משפטים), models_p, makers_p, bodies_p, ytd_p (כל אחד 1 עד 2 משפטים).
