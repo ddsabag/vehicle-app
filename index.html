@@ -245,7 +245,9 @@ a.row{color:var(--fg);text-decoration:none}a.row .t small{text-decoration:none}a
 .link-btn{border:1px solid var(--line);background:transparent;border-radius:10px;padding:10px 12px;font-weight:700;text-align:start}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:30;box-shadow:0 4px 14px rgba(0,0,0,.2)}
 footer a{display:inline;padding:0;text-decoration:underline}
-.mini-plate{max-width:100%}.card table{display:block;max-width:100%;overflow-x:auto}
+.mini-plate{max-width:100%}.card table{display:block;max-width:100%;overflow-x:auto}.card table>tbody{display:table;width:100%}
+/* website: photo and voice entry stay in the app (the side card says so) */
+html.web .in-alt{display:none}
 .head button.count{position:relative}.head button.count::after{content:"";position:absolute;inset:-12px -6px}
 .inp{min-height:44px}
 footer{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:4px 24px;font-size:.78rem;line-height:1.5;color:var(--muted)}
@@ -1509,8 +1511,10 @@ const fmtDay = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLoca
 function srcFoot(){
   const st = DATA_STATUS, a = st && st.sets && st.sets.active;
   const names = {active: "רכבים פעילים", tech: "היסטוריה טכנית", owners: "בעלויות", recalls: "ריקולים", wltp: "מפרטים"};
-  const down = st ? Object.keys(st.sets).filter(k => !st.sets[k].ok).map(k => names[k]) : [];
-  return `<p class="src-foot" id="srcFoot">המידע נשלף מנתוני משרד התחבורה ב-data.gov.il${a && a.modified ? `, המאגר הראשי עודכן ב-${fmtDay(a.modified)}` : ""}.${down.length ? `<br>כרגע המאגר אינו זמין אצל המשרד: ${down.join(", ")}.` : ""}<br>האפליקציה אינה קשורה למשרד התחבורה, והמידע אינו מחליף נסח רישום רשמי או בדיקה במכון מורשה.</p>`;
+  // the ownership register is empty at the ministry for now and our own copy fills in; only warn when this car really lacks the data
+  const hasOwn = current && current.own && current.own.length;
+  const down = st ? Object.keys(st.sets).filter(k => !st.sets[k].ok && !(k === "owners" && hasOwn)).map(k => names[k]) : [];
+  return `<p class="src-foot" id="srcFoot">המידע נשלף מנתוני משרד התחבורה ב-data.gov.il${a && a.modified ? `, המאגר הראשי עודכן ב-${fmtDay(a.modified)}` : ""}.${down.length ? `<br>מאגרי המשרד האלה אינם מגיבים כרגע, ולכן ייתכן שחסר מידע: ${down.join(", ")}.` : ""}<br>האפליקציה אינה קשורה למשרד התחבורה, והמידע אינו מחליף נסח רישום רשמי או בדיקה במכון מורשה.</p>`;
 }
 async function loadStatus(){
   if (DATA_STATUS) return;
