@@ -792,7 +792,7 @@ async function byPlate(set, plate, signal){
   for (const v of [...new Set(forms)]) {
     for (let attempt = 0; attempt < 2; attempt++) {
       try { const rows = await ds(set.id, {[field]: v}, 100, signal); ok = true; if (rows.length) return rows; break; }
-      catch (e) { if (e.name === "AbortError") throw e; lastErr = e; if (attempt === 0) await new Promise(r => setTimeout(r, 700)); }
+      catch (e) { if (e.name === "AbortError") throw e; lastErr = e; if (/HTTP 4\d\d/.test(e.message)) break; /* a text column rejects the numeric form: next form, no retry */ if (attempt === 0) await new Promise(r => setTimeout(r, 700)); }
     }
   }
   if (!ok && lastErr) throw lastErr;
@@ -1462,7 +1462,7 @@ function simpleCard(D){
     ["ארץ ייצור", v.tozeret_eretz_nm], ["סוג רכב", v.sug_rechev_nm], ["דגם מנוע", v.degem_manoa],
     ["משקל כולל מותר", kg(pick(v.mishkal_kolel, w.mishkal_kolel))], ["משקל עצמי", kg(v.mishkal_azmi)], ["כושר העמסה", kg(v.mishkal_mitan_harama)],
     ["צמיג קדמי", pick(v.zmig_kidmi, v.mida_zmig_kidmi)], ["צמיג אחורי", pick(v.zmig_ahori, v.mida_zmig_ahori)],
-    ["ניקוד בטיחות", w.nikud_betihut], ["רמת אבזור בטיחותי", empty(safety) ? "" : safety + " מתוך 8"], ["כריות אוויר", w.mispar_kariot_avir],
+    ["רמת אבזור בטיחותי", empty(safety) ? "" : safety + " מתוך 8"], ["כריות אוויר", w.mispar_kariot_avir],
     ["קבוצת זיהום", empty(zihum) ? "" : zihum + " מתוך 15"], ["פליטת CO₂", empty(pick(w.CO2_WLTP, w.kamut_CO2)) ? "" : pick(w.CO2_WLTP, w.kamut_CO2) + " גר׳ לק״מ"],
   ];
   const ok = r => !empty(r[1]) && r[1] !== false;
@@ -2089,7 +2089,7 @@ function tabSpecs(D){
   ])));
   const safetyLvl = D.pick(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty);
   html.push(card("בטיחות", "shield", "green", facts([
-    ["ניקוד בטיחות", e(w.nikud_betihut)], ["רמת אבזור בטיחותי", empty(safetyLvl) ? "" : `${esc(safetyLvl)} מתוך 8`],
+    ["רמת אבזור בטיחותי", empty(safetyLvl) ? "" : `${esc(safetyLvl)} מתוך 8`],
     ["כריות אוויר", e(w.mispar_kariot_avir)],
   ]) + chkList(w, SYSTEMS)));
   const equip = chkList(w, EQUIP);
