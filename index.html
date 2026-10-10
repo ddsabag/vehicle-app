@@ -879,7 +879,8 @@ function proLockCard(title, text){
 }
 const foldKey = t => "fold:" + t;
 const FOLD_DEFAULT = new Set(["שאלות נפוצות", "בעלות", "מסירות בתקופה", "שינויים ברכב", "היסטוריית בעלויות", "היסטוריית ריקולים לדגם", "לפני שקונים", "מרווח טיפולים", "ציר ק״מ", "עלות אחזקה מצטברת", "משקלים וצמיגים", "בטיחות", "אבזור", "סביבה", "מספרי זיהוי", "כמה מותר לגרור"]);
-const isFolded = t => { try { const k = localStorage.getItem(foldKey(t)); return k === null ? FOLD_DEFAULT.has(t) : k === "1"; } catch { return FOLD_DEFAULT.has(t); } };
+const foldDef = t => FOLD_DEFAULT.has(t) || /^סימני גיול/.test(t);
+const isFolded = t => { try { const k = localStorage.getItem(foldKey(t)); return k === null ? foldDef(t) : k === "1"; } catch { return foldDef(t); } };
 const card = (title, icon, color, inner, extra) => {
   if (!inner) return "";
   const closed = isFolded(title);
@@ -1541,9 +1542,10 @@ function renderResult(){
 let stripObs = null;
 function watchStrip(){
   if (stripObs) { stripObs.disconnect(); stripObs = null; }
-  const idc = $("#out .id-card"), st = $("#plateStrip");
+  // the plate lives in the search field at the top; once that has scrolled out of view, the slim bar keeps plate and model on screen
+  const idc = $("#f") || $("#plate"), st = $("#plateStrip");
   if (!idc || !st || !("IntersectionObserver" in window)) return;
-  stripObs = new IntersectionObserver(([e]) => st.classList.toggle("on", !e.isIntersecting && e.boundingClientRect.bottom < 0), {threshold: 0});
+  stripObs = new IntersectionObserver(([e]) => st.classList.toggle("on", e.intersectionRatio < 0.5 && e.boundingClientRect.top < 0), {threshold: [0, 0.25, 0.5, 0.75, 1]});
   stripObs.observe(idc);
 }
 /* One ownership record, and the first ownership type (מקוריות) agrees with it */
