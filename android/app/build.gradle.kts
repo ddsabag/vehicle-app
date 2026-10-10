@@ -45,6 +45,7 @@ val copyWebApp by tasks.registering(Copy::class) {
     from(rootProject.file("../modelstats.json"))
     from(rootProject.file("../models.json"))
     from(rootProject.file("../service.json"))
+    from(rootProject.file("../lib")) { into("lib") }   // libraries the page loads from its own origin (jsPDF)
     into(layout.buildDirectory.dir("generated/webassets"))
 }
 tasks.named("preBuild") { dependsOn(copyWebApp) }

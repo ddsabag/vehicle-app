@@ -1515,7 +1515,6 @@ function renderResult(){
   }
   $("#out").innerHTML = html.join("");
   // the image library is fetched in the background so that sharing does not wait for it
-  setTimeout(() => { loadScript(LIBS.img).catch(() => {}); }, 1200);
 }
 /* One ownership record, and the first ownership type (מקוריות) agrees with it */
 const isFirstHand = D => D.own.length === 1 && !D.ownersFloor && (!firstOwner(D.v) || ownerKind(firstOwner(D.v)).k === ownerKind(D.own[0].baalut).k);
@@ -2744,7 +2743,7 @@ $("#compareSheet").addEventListener("click", ev => { if (ev.target.id === "compa
 /* Libraries load from a CDN only when first needed, so the app itself stays one small file */
 const LIBS = {
   img: "https://cdn.jsdelivr.net/npm/html-to-image@1.11.13/dist/html-to-image.js",
-  pdf: "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js",
+  pdf: "lib/jspdf.umd.min.js",   // shipped with the app (same file as jspdf@2.5.2 on jsDelivr), so a PDF needs no download
   ocr: "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js",
 };
 const OCR_PATHS = {
@@ -2752,12 +2751,18 @@ const OCR_PATHS = {
   corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1",
   langPath: "https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int",
 };
+const LIB_FALLBACK = {pdf: "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"};
 const LIB_SRI = {"img": "sha384-Tha/42qsYmpYmQ07pX+nJzkKumO0BzKJxK/uzVc7xyBQxVCUgQBhQIG8L7vXK+9C", "pdf": "sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/", "ocr": "sha384-GJqSu7vueQ9qN0E9yLPb3Wtpd7OrgK8KmYzC8T1IysG1bcvxvIO4qtYR/D3A991F"};
 const scriptCache = {};
 function loadScript(src){
+  const k0 = Object.keys(LIBS).find(x => LIBS[x] === src), fb = k0 && LIB_FALLBACK[k0];
+  if (!fb) return loadScriptOnce(src);
+  return loadScriptOnce(src).catch(() => loadScriptOnce(fb, k0));
+}
+function loadScriptOnce(src, key){
   return scriptCache[src] || (scriptCache[src] = new Promise((ok, fail) => {
     const el = document.createElement("script"); el.src = src; el.async = true;
-    const k = Object.keys(LIBS).find(x => LIBS[x] === src); if (k && LIB_SRI[k]) { el.integrity = LIB_SRI[k]; el.crossOrigin = "anonymous"; }
+    const k = key || Object.keys(LIBS).find(x => LIBS[x] === src); if (k && LIB_SRI[k]) { el.integrity = LIB_SRI[k]; el.crossOrigin = "anonymous"; }
     el.onload = ok; el.onerror = () => { reportErr("lib_load"); delete scriptCache[src]; el.remove(); fail(new Error("load " + src)); };
     document.head.appendChild(el);
   }));
@@ -2811,7 +2816,6 @@ function inlineIcons(el){
 /* copying every computed style of every node is what makes the snapshot slow on a phone: only the properties the cards use are copied */
 const SNAP_PROPS = ["display", "position", "top", "right", "bottom", "left", "inset-inline-start", "inset-inline-end", "z-index", "float", "width", "height", "min-width", "min-height", "max-width", "max-height", "box-sizing", "aspect-ratio", "margin-top", "margin-right", "margin-bottom", "margin-left", "padding-top", "padding-right", "padding-bottom", "padding-left", "border-top-width", "border-right-width", "border-bottom-width", "border-left-width", "border-top-style", "border-right-style", "border-bottom-style", "border-left-style", "border-top-color", "border-right-color", "border-bottom-color", "border-left-color", "border-top-left-radius", "border-top-right-radius", "border-bottom-left-radius", "border-bottom-right-radius", "background-color", "background-image", "background-size", "background-position", "background-repeat", "box-shadow", "opacity", "overflow", "overflow-x", "overflow-y", "visibility", "color", "font-family", "font-size", "font-weight", "font-style", "font-variant-numeric", "line-height", "letter-spacing", "text-align", "text-decoration", "text-transform", "text-overflow", "text-wrap", "white-space", "word-break", "overflow-wrap", "direction", "unicode-bidi", "vertical-align", "list-style", "flex", "flex-direction", "flex-wrap", "flex-grow", "flex-shrink", "flex-basis", "justify-content", "align-items", "align-self", "align-content", "justify-items", "justify-self", "order", "gap", "row-gap", "column-gap", "grid-template-columns", "grid-template-rows", "grid-column", "grid-row", "grid-auto-flow", "grid-auto-columns", "grid-auto-rows", "transform", "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin", "object-fit", "outline", "content", "-webkit-line-clamp", "-webkit-box-orient"];
 async function captureReport(D, full, biz){
-  await loadScript(LIBS.img);
   const el = buildReport(D, full, biz); if (full) el.classList.add("pdf");
   // page-break candidates for the PDF: below cards and below the blocks inside them, never right after a section title
   return captureEl(el, ".card, .alert-banner, .rep-foot, .fold-body > *, .fold-body > * > *, .grid2 > *", full ? 1.5 : 2);
@@ -2858,8 +2862,8 @@ async function captureEl(el, breakSel, ratio = 2){
     let canvas = null;
     // fast path: the page's own stylesheet travels once inside the snapshot, so no element needs its styles copied one by one
     try { canvas = await snapFast(el, ratio, bg); } catch (e) { reportErr("snap_fast"); }
-    if (!canvas) canvas = await window.htmlToImage.toCanvas(el, {pixelRatio: ratio, backgroundColor: bg, skipFonts: true, includeStyleProperties: SNAP_PROPS,
-      style: {position: "static", left: "0", top: "0"}, width: el.offsetWidth, height: el.offsetHeight});
+    if (!canvas) { await loadScript(LIBS.img); canvas = await window.htmlToImage.toCanvas(el, {pixelRatio: ratio, backgroundColor: bg, skipFonts: true, includeStyleProperties: SNAP_PROPS,
+      style: {position: "static", left: "0", top: "0"}, width: el.offsetWidth, height: el.offsetHeight}); }
     return {canvas, breaks: breaks.map(b => b * ratio)};
   } finally { el.remove(); }
 }
@@ -2933,7 +2937,7 @@ async function pdfFromCanvas(canvas, breaks, headText, headLeft, opts = {}){
 // the comparison as a PDF: the wide layout (labels column + one column per car), printed on white
 async function makeComparePdf(){
   const sec = $("#out section.card"); if (!sec) return;
-  await Promise.all([loadScript(LIBS.img), loadScript(LIBS.pdf)]);
+  await loadScript(LIBS.pdf);
   const today = new Date().toLocaleDateString("he-IL");
   const el = document.createElement("div"); el.className = "report pdf";
   const card = sec.cloneNode(true); card.classList.add("cmp-wide");
@@ -2959,7 +2963,7 @@ const shareKey = kind => kind === "pdf" ? [current && current.plate, "pdf"].join
 function warmShare(){
   const D = current; if (!D) return;
   const kind = lastShare(), key = shareKey(kind); if (shareWarm && shareWarm.key === key) return;
-  const p = Promise.all([loadScript(LIBS.img), kind === "pdf" ? loadScript(LIBS.pdf) : null]).then(() => new Promise(r => setTimeout(r, 60))).then(() => captureReport(D, kind === "pdf")); p.catch(() => {});
+  const p = Promise.all([kind === "pdf" ? loadScript(LIBS.pdf) : null]).then(() => new Promise(r => setTimeout(r, 60))).then(() => captureReport(D, kind === "pdf")); p.catch(() => {});
   shareWarm = {key, p};
 }
 async function warmCap(kind){
@@ -2983,7 +2987,8 @@ async function doShare(kind){
     else if (kind === "pdf") await shareFile(await makePdf(D, undefined, await warmCap("pdf")), name + ".pdf", D.title, caption);
     else {
       const cap = (await warmCap("image")) || await captureReport(D, false);
-      await shareFile(await canvasToBlob(cap.canvas, "image/png"), name + ".png", D.title, caption);
+      // JPEG encodes several times faster than PNG on a phone and chat apps recompress to JPEG anyway
+      await shareFile(await canvasToBlob(cap.canvas, "image/jpeg", 0.92), name + ".jpg", D.title, caption);
     }
     $("#shareSheet").hidden = true;
   } catch (err) {
@@ -3551,7 +3556,7 @@ async function checklistPdf(btn){
   const src = $(".bsteps"); if (!src) return;
   const old = btn.innerHTML; btn.disabled = true; btn.textContent = "מכין PDF…";
   try {
-    await Promise.all([loadScript(LIBS.img), loadScript(LIBS.pdf)]);
+    await loadScript(LIBS.pdf);
     const today = new Date().toLocaleDateString("he-IL"), D = current;
     const list = src.cloneNode(true);
     list.querySelectorAll(".link-btn").forEach(x => { const p = document.createElement("p"); p.className = "note"; p.textContent = "☐ " + x.textContent.trim(); x.replaceWith(p); });
@@ -3570,7 +3575,7 @@ async function checklistPdf(btn){
 async function bulkPdf(btn){
   const old = btn.innerHTML; btn.disabled = true; btn.textContent = "מכין PDF…";
   try {
-    await Promise.all([loadScript(LIBS.img), loadScript(LIBS.pdf)]);
+    await loadScript(LIBS.pdf);
     const b = bizProfile(), has = !!b.name, today = new Date().toLocaleDateString("he-IL");
     const el = document.createElement("div"); el.className = "report pdf";
     el.innerHTML = (has ? bizHead(b) : brandHead()) + `<div class="rep-head"><b>בדיקת רשימת רכבים</b><span>${BULK.length} רכבים · ${today}</span></div><section class="card">${bulkTable(false).replace(/<div class="bulk-acts">.*$/s, "")}</section><p class="rep-foot">${has ? bizFoot(b) : "המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il. " + BRAND_FOOT}</p>`;
