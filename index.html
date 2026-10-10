@@ -1520,7 +1520,7 @@ async function loadStatus(){
     const el = $("#srcFoot"); if (el) el.outerHTML = srcFoot();
   } catch {}
 }
-const appBox = D => `<section class="appbox"><h3>באתר רואים את הרכב. באפליקציה הוא עובד בשבילכם</h3><p>אותה בדיקה, ועוד:</p><ul><li>התראה כשהטסט מתקרב או שנפתח ריקול</li><li>הודעה אם הרכב עבר בעלות או ירד מהכביש</li><li>יומן טיפולים ועלויות על הטלפון</li><li>צילום לוחית ואמירת מספר, במקום להקליד</li></ul><button type="button" class="btn" data-url="${PLAY_URL}" data-hint="side">להורדה ב-Google Play</button></section>`;
+const appBox = D => `<section class="appbox"><h3>באתר רואים את הרכב. באפליקציה הוא עובד בשבילכם</h3><p>אותה בדיקה, ועוד:</p><ul><li>התראה כשהטסט מתקרב או שנפתח ריקול</li><li>הודעה אם הרכב עבר בעלות או ירד מהכביש</li><li>הסדרי פשרה: בדיקה אם הרכב שלכם זכאי להטבה מהיבואן</li><li>יומן טיפולים ועלויות על הטלפון</li><li>צילום לוחית ואמירת מספר, במקום להקליד</li></ul><button type="button" class="btn" data-url="${PLAY_URL}" data-hint="side">להורדה ב-Google Play</button></section>`;
 const appHint = D => {
   if (window.AndroidApp || D.kind === "model" || D.isCancelled) return "";
   const t = D.recalls && D.recalls.length ? "התראה כשיוצא ריקול חדש לרכב הזה" : "תזכורת לפני שהטסט פג";
