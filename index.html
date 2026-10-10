@@ -602,12 +602,15 @@ body.land .band{display:none}
       <div class="kinds"><label><input type="checkbox" id="anaChk">שיתוף נתוני שימוש אנונימיים</label></div>
       <p class="note">עוזר לשפר את האפליקציה. לא נשלחים מספרי רישוי או פרטים אישיים.</p>
     </div>
+    <div class="set-row" id="updRow" hidden><span>עדכון האפליקציה</span>
+      <button class="link-btn" type="button" id="chkUpd">בדיקת עדכון</button>
+      <p class="note">גרסה מותקנת: <span id="ver2"></span>.</p>
+    </div>
     <div class="set-row"><span>נתונים במכשיר</span>
       <button class="link-btn" type="button" id="clearRecent">מחיקת היסטוריית החיפושים</button>
       <button class="link-btn" type="button" id="clearSaved">מחיקת כל הרכבים השמורים</button>
     </div>
     <p class="note">החיפושים והרכבים השמורים נשמרים רק במכשיר הזה. גרסה <span id="ver"></span>.</p>
-    <button type="button" class="link-btn" id="chkUpd" hidden>בדיקת עדכון</button>
     <p class="credit">לוחית · פותחה על ידי דודו סבאג<br>© 2026 כל הזכויות שמורות</p>
   </div>
 </div>
@@ -3621,7 +3624,7 @@ if (!window.AndroidApp && /Android/i.test(navigator.userAgent)) {
   }, 12000);
 }
 if (window.AndroidApp && window.AndroidApp.checkUpdate) {
-  const cu = $("#chkUpd"); if (cu) { cu.hidden = false; cu.addEventListener("click", () => { updManual = true; try { window.AndroidApp.checkUpdate(); } catch {} }); }
+  const cu = $("#chkUpd"); if (cu) { $("#updRow").hidden = false; $("#ver2").textContent = APP_VERSION; cu.addEventListener("click", () => { updManual = true; try { window.AndroidApp.checkUpdate(); } catch {} }); }
   setTimeout(() => { try { window.AndroidApp.checkUpdate(); } catch {} }, 3500);
 }
 showFuelDefaults(); loadFuel();
