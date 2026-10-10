@@ -1,0 +1,23 @@
+name: Ownership data mirror
+# The ministry's datastore for the ownership-history file sometimes comes back empty. This keeps a daily copy of the
+# file as small static shards on the own-data branch; the app reads them only when the ministry's API gives nothing.
+on:
+  schedule:
+    - cron: "40 3 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --max-old-space-size=6144 .github/scripts/own-build.mjs
+      - name: Publish on the own-data branch
+        run: |
+          cd own-out && git init -q && git checkout -q -b own-data && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Ownership mirror $(date -u +%F)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" own-data

@@ -27,6 +27,7 @@ jobs:
         env:
           PLATES: ${{ inputs.plates }}
           QUERIES: ${{ inputs.queries }}
+          NODE_OPTIONS: --max-old-space-size=6144
       - name: Publish the report on the inspect-output branch
         run: |
           cd out && git init -q && git checkout -q -b inspect-output && git add -A
