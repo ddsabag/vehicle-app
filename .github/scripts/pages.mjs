@@ -15,6 +15,15 @@ const normModel = m => { const t = m.toUpperCase().replace(/\s+/g, " ").split(" 
 const hebKey = m => m.replace(/\s+/g, "");
 const HEB = {"COROLLA": "קורולה", "PICANTO": "פיקנטו", "MAZDA 3": "מאזדה 3", "MAZDA 2": "מאזדה 2", "MAZDA 6": "מאזדה 6", "SPORTAGE": "ספורטאז׳", "OCTAVIA": "אוקטביה", "OUTLANDER": "אאוטלנדר", "TUCSON": "טוסון", "IBIZA": "איביזה", "FOCUS": "פוקוס", "QASHQAI": "קשקאי", "CIVIC": "סיוויק", "YARIS": "יאריס", "ATTO 3": "אטו 3", "SWIFT": "סוויפט", "MICRA": "מיקרה", "BERLINGO": "ברלינגו", "STONIC": "סטוניק", "GOLF": "גולף", "ARONA": "ארונה", "FABIA": "פביה", "NIRO": "נירו", "FORESTER": "פורסטר", "RIO": "ריו", "HILUX": "היילקס", "VITARA": "ויטרה", "KODIAQ": "קודיאק", "ACCENT": "אקסנט", "FORTE": "פורטה", "SELTOS": "סלטוס", "MEGANE": "מגאן", "MODEL 3": "מודל 3", "MODEL Y": "מודל Y", "CEED": "סיד", "JUKE": "ג׳וק", "X-TRAIL": "אקס-טרייל", "CLIO": "קליאו", "POLO": "פולו", "LANCER": "לנסר", "JAZZ": "ג׳אז", "ELANTRA": "אלנטרה", "SANTA FE": "סנטה פה", "KONA": "קונה", "LEON": "לאון", "ATECA": "אטקה", "SUPERB": "סופרב", "KAROQ": "קארוק", "KAMIQ": "קאמיק", "SORENTO": "סורנטו", "CORSA": "קורסה", "DUSTER": "דאסטר", "SENTRA": "סנטרה", "LAND CRUISER": "לנד קרוזר", "SPACE STAR": "ספייס סטאר", "ATTRAGE": "אטראז׳", "IONIQ": "איוניק", "SPARK": "ספארק", "TRAX": "טראקס", "PRIUS": "פריוס", "IGNIS": "איגניס", "GETZ": "גטס", "SONATA": "סונטה", "ECLIPSE CROSS": "אקליפס קרוס", "S-CROSS": "אס-קרוס", "COROLLA CROSS": "קורולה קרוס", "YARIS CROSS": "יאריס קרוס"};
 const HEBN = Object.fromEntries(Object.entries(HEB).map(([k, v]) => [hebKey(normModel(k)), v]));
+// class-action settlements live in index.html (SETTLEMENTS); pages list the ones that may apply to the model
+const num = x => { const n = parseFloat(x); return isNaN(n) ? 0 : n; };
+const normS = t => String(t || "").toUpperCase().replace(/[^A-Z0-9א-ת]/g, "");
+const SETTLEMENTS = new Function("num", fs.readFileSync("index.html", "utf8").match(/const SETTLEMENTS = \[[\s\S]*?\n\];/)[0] + "\nreturn SETTLEMENTS;")(num);
+const VARIANTS = [{}, {tzeva_rechev: "לבן"}, {sug_delek_nm: "בנזין", nefach_manoa: 1500}, {sug_delek_nm: "דיזל", nefach_manoa: 2000}, {sug_delek_nm: "היברידי", ramat_gimur: "HYBRID", nefach_manoa: 1500}, {sug_delek_nm: "חשמל"}];
+const stlFor = (make, model, years) => {
+  const x = {mk: normS(make), md: normS(model)}, now = new Date();
+  return SETTLEMENTS.filter(s => !(new Date(s.until + "T23:59:59") < now) && s.mk.test(x.mk) && (s.md ? s.md.test(x.md) : s.y) && years.some(y => (!s.y || y >= s.y[0] && y <= s.y[1]) && (!s.ok || VARIANTS.some(v => { try { return s.ok(v, y, x); } catch { return false; } }))));
+};
 const g = new Map();
 for (const [key, v] of Object.entries(ms.m)) {
   const [cd, raw] = key.split("|"), model = normModel(raw);
@@ -52,6 +61,7 @@ for (const m of models) {
   const lo = rows[0].yr, hi = rows[rows.length - 1].yr, heb = HEBN[hebKey(m.model)], name = heb && heb.startsWith("מאזדה") ? `מזדה ${heb.slice(6)} (${m.disp})` : `${m.make} ${heb ? heb + " (" + m.disp + ")" : m.disp}`;
   const url = `${SITE}model/${slugOf(m)}/`, title = `${name}: כמה רכבים על הכביש, ק״מ ושנתונים | לוחית`;
   const desc = `${name} בישראל לפי נתוני משרד התחבורה: ${fmt(act)} רכבים פעילים בשנתונים ${lo}–${hi}, ק״מ טיפוסי לפי שנתון וכמה ירדו מהכביש. בדיקת רכב לפי מספר רישוי.`;
+  const stl = stlFor(m.make, m.model, years.map(Number));
   const peak = rows.reduce((a, b) => b.act > a.act ? b : a);
   const body = `${head(title, desc, url)}<p class="muted"><a href="${SITE}model/">כל הדגמים</a> › ${esc(m.make)}</p><h1>${esc(name)}</h1>
 <p>לפי מאגרי משרד התחבורה יש בישראל כ-${fmt(act)} רכבים פעילים מדגם ${esc(name)} בשנתונים ${lo} עד ${hi}.${bodies.length ? ` סוגי מרכב בקטלוג: ${bodies.map(esc).join(", ")}.` : ""} השנתון הנפוץ ביותר הוא ${peak.yr} (${fmt(peak.act)} רכבים).</p>
@@ -59,7 +69,7 @@ for (const m of models) {
 <h2>רכבים פעילים וקילומטראז׳ לפי שנתון</h2><div class="wrap"><table><thead><tr><th>שנתון</th><th class="n">פעילים</th><th class="n">ירדו מהכביש</th><th class="n">ק״מ טיפוסי</th><th class="n">רשומות בעלות לרכב</th></tr></thead><tbody>
 ${rows.slice().reverse().map(r => `<tr><td>${r.yr}</td><td class="n">${fmt(r.act)}</td><td class="n">${fmt(r.off)}</td><td class="n">${r.km ? fmt(r.km) : "–"}</td><td class="n">${r.ow ? r.ow.toFixed(1) : "–"}</td></tr>`).join("\n")}
 </tbody></table></div><p class="muted">הק״מ הטיפוסי הוא הממוצע בטסט האחרון של רכבים מהשנתון, ומוצג רק כשיש מספיק נתונים. רשומות בעלות כוללות גם מעברים בין חברות ליסינג וסוחרים, ולכן אינן בהכרח מספר בעלים פרטיים. סה״כ ירדו מהכביש ${fmt(off)} רכבים מהדגם בשנתונים האלה.</p>
-<h2>לפני שקונים ${esc(name)}</h2><p>בדקו את הרכב הספציפי לפי מספר רישוי: ריקול פתוח, תוקף טסט, קילומטראז׳ לאורך השנים והיסטוריית בעלויות, והשוו למחיר ביד שנייה.</p>
+${stl.length ? `<h2>הסדרי פשרה שעשויים לחול על ${esc(name)}</h2><p class="muted">לפי הודעות היבואנים והעיתונות נכון ל-10/2026. הזכאות תלויה בשנתון, בגרסה ולפעמים במספר שלדה, והרשימה אינה מקיפה ואינה ייעוץ משפטי. לבדיקה לפי מספר רישוי השתמשו באפליקציה.</p>${stl.map(t => `<div class="card"><b>${esc(t.t)}</b> <span class="muted">${t.st === "ok" ? "אושר" : "ממתין לאישור בית המשפט"}</span><p style="margin:6px 0 0">${esc(t.b)}</p><p class="muted" style="margin:6px 0 0">${esc(t.cond)}</p></div>`).join("")}` : ""}<h2>לפני שקונים ${esc(name)}</h2><p>בדקו את הרכב הספציפי לפי מספר רישוי: ריקול פתוח, תוקף טסט, קילומטראז׳ לאורך השנים והיסטוריית בעלויות, והשוו למחיר ביד שנייה.</p>
 <p><a class="cta" href="${SITE}">בדיקת רכב בלוחית</a></p>${foot}`;
   fs.mkdirSync(`model/${slugOf(m)}`, {recursive: true}); fs.writeFileSync(`model/${slugOf(m)}/index.html`, body);
   urls.push(url); m.slug = slugOf(m); m.act = act;
