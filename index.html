@@ -1458,7 +1458,7 @@ function simpleCard(D){
   ];
   const safety = pick(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty), zihum = pick(v.kvutzat_zihum, w.kvutzat_zihum);
   const more = [
-    ["ארץ ייצור", v.tozeret_eretz_nm], ["סוג רכב", v.sug_rechev_nm], ["דגם מנוע", v.degem_manoa],
+    ["סוג רכב", v.sug_rechev_nm], ["דגם מנוע", v.degem_manoa],
     ["משקל כולל מותר", kg(pick(v.mishkal_kolel, w.mishkal_kolel))], ["משקל עצמי", kg(v.mishkal_azmi)], ["כושר העמסה", kg(v.mishkal_mitan_harama)],
     ["צמיג קדמי", pick(v.zmig_kidmi, v.mida_zmig_kidmi)], ["צמיג אחורי", pick(v.zmig_ahori, v.mida_zmig_ahori)],
     ["רמת אבזור בטיחותי", empty(safety) ? "" : safety + " מתוך 8"], ["כריות אוויר", w.mispar_kariot_avir],
@@ -2072,11 +2072,11 @@ function tabSpecs(D){
   const v = D.v, w = D.w, html = [];
   const gearbox = empty(w.automatic_ind) ? "" : yes(w.automatic_ind) ? "אוטומטית" : "ידנית";
   html.push(card("הרכב", "car", "pink", facts([
-    ["יצרן", e(D.make)], ["ארץ ייצור", e(v.tozeret_eretz_nm)],
-    ["דגם", e(D.model)], ["שנת ייצור", e(v.shnat_yitzur)],
+    ["יצרן", e(D.make)], ["דגם", e(D.model)],
+    ["שנת ייצור", e(v.shnat_yitzur)], ["רמת גימור", e(D.pick(v.ramat_gimur, w.ramat_gimur))],
     ["סוג רכב", e(v.sug_rechev_nm)], ["מרכב", e(w.merkav)],
     ["דלתות", e(w.mispar_dlatot)], ["מושבים", e(D.pick(w.mispar_moshavim, v.mispar_mekomot))],
-    ["צבע", e(v.tzeva_rechev)], ["רמת גימור", e(D.pick(v.ramat_gimur, w.ramat_gimur))],
+    ["צבע", e(v.tzeva_rechev)],
   ])));
   html.push(card("מנוע והנעה", "engine", "red", facts([
     ["דלק", e(D.pick(v.sug_delek_nm, w.delek_nm))], ["נפח מנוע", unit(D.pick(v.nefach_manoa, w.nefah_manoa), "סמ״ק")],
