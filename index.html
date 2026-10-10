@@ -700,6 +700,7 @@ const PLATE_SETS = [
   {key:"owners",     id:"bb2355dc-9ec7-4f06-9c3f-3344672171da", role:"extra", pad:true},
   {key:"recall",     id:"36bf1404-0be4-49d2-82dc-2f1ead4a8b93", role:"extra", field:"MISPAR_RECHEV"},
   {key:"tag",        id:"c8b9f9c8-4612-4068-934f-d4acd2e3c06e", role:"extra", field:"MISPAR RECHEV"},
+  {key:"dpf",        id:"7cb2bd95-bf2e-49b6-aea1-fcb5ff6f0473", role:"extra"},   /* vehicles fitted with a particulate filter (retrofit) */
 ];
 /* Datasets keyed by model (tozeret_cd + degem_cd, ranked by year in the page) */
 const MODEL_SETS = {
@@ -1309,7 +1310,7 @@ async function fetchVehicle(plate, signal, onProgress){
       catch (err) { if (err.name === "AbortError") throw err; }
     }
   }));
-  const tag = res.tag.rows[0] || null;
+  const tag = res.tag.rows[0] || null, dpf = res.dpf.rows[0] || null;
   const tSrc = towRow || (hasTow(v) ? v : null);
   const make = makeName(v), model = pick(v.kinuy_mishari, w.kinuy_mishari, v.degem_nm) || "";
 
@@ -1322,7 +1323,7 @@ async function fetchVehicle(plate, signal, onProgress){
   const onRoad = parseYM(v.moed_aliya_lakvish) || (isNum(v.shnat_yitzur) ? new Date(num(v.shnat_yitzur), 0, 1) : null);
   const ownersFloor = !onRoad || onRoad < new Date(2017, 0, 1); // the ownership log starts in January 2017
 
-  const D = {plate, v, w, towRow, zeroTow, tSrc, counts, price, priceRows, own, ownersFloor, recalls, modelRecalls, tag, primary: mains[0], importKind: res.import.rows[0] ? String(res.import.rows[0].sug_yevu || "יבוא אישי").replace(/-/g, " · ") : null, errs, pick, make, model,
+  const D = {plate, v, w, towRow, zeroTow, tSrc, counts, price, priceRows, own, ownersFloor, recalls, modelRecalls, tag, dpf, primary: mains[0], importKind: res.import.rows[0] ? String(res.import.rows[0].sug_yevu || "יבוא אישי").replace(/-/g, " · ") : null, errs, pick, make, model,
     title: [make, model].filter(Boolean).join(" ") || "רכב " + fmtPlate(plate),
     sub: [v.shnat_yitzur, pick(v.ramat_gimur, w.ramat_gimur), v.tzeva_rechev].filter(x => !empty(x)).join(" · "),
     vin: pick(v.misgeret, v.mispar_shilda, v.shilda), km, kmYears, kmPerYear,
@@ -2108,6 +2109,7 @@ function tabSpecs(D){
   const zihum = D.pick(v.kvutzat_zihum, w.kvutzat_zihum);
   html.push(card("סביבה", "leaf", "leaf", facts([
     ["פליטת CO₂", unit(D.pick(w.CO2_WLTP, w.kamut_CO2), "גר׳ לק״מ")], ["מדד ירוק", e(w.madad_yarok)],
+    ["מסנן חלקיקים", D.dpf ? `הותקן${empty(D.dpf.taarich_hatkana) ? "" : " ב-" + fmtDate(D.dpf.taarich_hatkana)}` : ""],
   ]) + (empty(zihum) ? "" : `<div class="qsec" style="margin:10px 0 6px">קבוצת זיהום ${esc(zihum)} מתוך 15</div>${zihumScale(zihum)}`)));
   html.push(card("מספרי זיהוי", "id", "slate",
     (D.vin ? `<div><p class="note" style="margin-bottom:6px">מספר שלדה (VIN)</p><div class="copy-row"><span class="mono">${esc(D.vin)}</span><button class="copy-btn" type="button" data-copy="${esc(D.vin)}" data-label="מספר השלדה">${ico("copy")}העתקה</button></div></div>` : "") +
