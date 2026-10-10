@@ -1,0 +1,3 @@
+versionCode=77
+versionName=1.18
+commit=8c91075b9ccbda5b606baf328093ca02b773efa3
