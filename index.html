@@ -780,8 +780,10 @@ async function byPlate(set, plate, signal){
   if (set.pad && plate.length < 8) forms.push(plate.padStart(7,"0"), plate.padStart(8,"0"));
   let lastErr = null, ok = false;
   for (const v of [...new Set(forms)]) {
-    try { const rows = await ds(set.id, {[field]: v}, 100, signal); ok = true; if (rows.length) return rows; }
-    catch (e) { if (e.name === "AbortError") throw e; lastErr = e; }
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try { const rows = await ds(set.id, {[field]: v}, 100, signal); ok = true; if (rows.length) return rows; break; }
+      catch (e) { if (e.name === "AbortError") throw e; lastErr = e; if (attempt === 0) await new Promise(r => setTimeout(r, 700)); }
+    }
   }
   if (!ok && lastErr) throw lastErr;
   return [];
@@ -1818,7 +1820,8 @@ function tabOverview(D){
        <p class="note">${D.ownersFloor ? "יומן הבעלויות מתחיל בינואר 2017, ולכן ברכבים ותיקים יותר ייתכן שהיו בעלים נוספים לפני כן." : ""}</p>`,
       `<span class="count">${ownersLabel(D)}</span>`));
   } else if (!empty(v.baalut)) {
-    html.push(card("בעלות", "users", "violet", foLine + facts([["בעלות נוכחית", e(v.baalut)]])));
+    const ownErr = D.errs && D.errs.some(x => x.key === "owners");
+    html.push(card("בעלות", "users", "violet", foLine + facts([["בעלות נוכחית", e(v.baalut)]]) + (ownErr ? `<p class="note">היסטוריית הבעלויות לא נטענה כרגע ממאגר משרד התחבורה. בדקו שוב בעוד רגע.</p>` : "")));
   }
   html.push(card("שינויים ברכב", "wrench", "teal", modsCard(v)));
   if (!evFirst) html.push(evCard);
@@ -2781,6 +2784,8 @@ async function captureEl(el, breakSel, ratio = 2){
     });
     const breaks = [...set].sort((a, b) => a - b);
     const bg = getComputedStyle(el).backgroundColor;
+    // a very tall report is rendered at a lower scale so a phone's WebView does not choke on the pixel count
+    ratio = Math.max(1, Math.min(ratio, Math.sqrt(5e6 / Math.max(1, el.offsetWidth * el.offsetHeight))));
     const canvas = await window.htmlToImage.toCanvas(el, {pixelRatio: ratio, backgroundColor: bg, skipFonts: true, includeStyleProperties: SNAP_PROPS,
       style: {position: "static", left: "0", top: "0"}, width: el.offsetWidth, height: el.offsetHeight});
     return {canvas, breaks: breaks.map(b => b * ratio)};
