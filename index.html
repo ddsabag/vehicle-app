@@ -2233,6 +2233,9 @@ function smartQueries(text){
   for (const t of toks) { if (isHeb(t) && t.length <= 3) run.push(t); else { flush(); merged.push(t); } }
   flush();
   const seqs = [toks]; if (merged.length < toks.length) seqs.push(merged);
+  // only a maker was typed ("סקודה", "skoda"): list that maker's models, not fuzzy sound-alikes from other makers
+  const isMakerWord = t => { if (/^\d+$/.test(t)) return false; const al = MAKE_ALIASES[t.toLowerCase()], sk = skOf(t); return MODELIDX.some(e => (al && al === e.mk) || e.mkw.some(w => skScore(sk, w) >= 3)); };
+  if (seqs.some(seq => seq.length && seq.every(isMakerWord))) return null;
   const hits = new Map();
   for (const seq of seqs) {
     const qs = seq.map(t => {
@@ -2404,9 +2407,15 @@ const MODEL_SHOWN = 8, CUR_Y = new Date().getFullYear();
 // body-style and drive words split one car into several catalogue entries (COROLLA SDN HSD, COROLLA HSD SDN, COROLLA HEV);
 // for the buyer they are one model, and the drive type is chosen later by engine
 const NOISE_TOKENS = new Set(["HB", "H/B", "HATCHBACK", "SEDAN", "SDN", "SD", "SW", "S/W", "WAGON", "ESTATE", "STATION", "LIFTBACK", "TS", "TOURING", "SPORTS", "HSD", "HEV", "HYBRID", "HV", "PHEV", "PLUG-IN", "2D", "3D", "4D", "5D", "2DR", "3DR", "4DR", "5DR", "האצ'בק", "סדאן", "סטיישן", "היברידי"]);
+// generation / facelift / body suffixes (OCTAVIA FL, OCTAVIA IV, NEW OCTAVIA, OCTAVIA SPACE) are the same family for the buyer
+const GEN_TOKENS = new Set(["FL", "FACELIFT", "II", "III", "IV", "V", "VI", "VII", "VIII", "SPACE", "S", "COMBI", "KOMBI", "NEW", "החדש", "חדש"]);
+const NOT_FAMILY = new Set(["MODEL", "CLASS", "SERIES", "TYPE"]);
 const normModel = m => {
   const toks = String(m || "").trim().toUpperCase().replace(/\s+/g, " ").split(" ");
-  const kept = toks.filter(t => !NOISE_TOKENS.has(t));
+  let kept = toks.filter(t => !NOISE_TOKENS.has(t));
+  if (!kept.length) kept = toks;
+  if (kept.length > 1) kept = kept.filter(t => t !== "NEW" && t !== "החדש" && t !== "חדש");
+  while (kept.length > 1 && GEN_TOKENS.has(kept[kept.length - 1]) && /^[A-Z]{4,}$/.test(kept[0]) && !NOT_FAMILY.has(kept[0])) kept.pop();
   return (kept.length ? kept : toks).join(" ");
 };
 // the same car built in two countries has two maker codes; it is still one model for the buyer
@@ -2620,16 +2629,6 @@ function renderCompare(){
   const gear = D => empty(D.w.automatic_ind) ? "" : yes(D.w.automatic_ind) ? "אוטומטית" : "ידנית";
   // [label, value(D), better: "hi" | "lo" | null, unit, plain, carOnly]  — a string label alone opens a section
   const rows = [
-    "מחיר ועלויות",
-    ["עלות חודשית (הערכה)", D => D.cost.monthly ? D.cost.monthly.total : null, "lo", "₪"],
-    ["מחיר מחירון כחדש", D => D.cost.newPrice || null, null, "₪"],
-    ["שווי משוער היום", D => D.cost.valueLow ? Math.round((D.cost.valueLow + D.cost.valueHigh) / 2000) * 1000 : null, null, "₪"],
-    kmlUnit() ? ["ק״מ לליטר (הערכה)", D => D.cost.l100 ? Math.round(1000 / D.cost.l100) / 10 : null, "hi", "", true]
-              : ["ליטר ל-100 ק״מ (הערכה)", D => D.cost.l100 ? Math.round(D.cost.l100 * 10) / 10 : null, "lo", "", true],
-    ["קוט״ש ל-100 ק״מ (הערכה)", D => D.cost.kwh100 || null, "lo", "", true],
-    [L.some(D => D.cost.kind === "ev") ? "דלק או חשמל בשנה (הערכה)" : "דלק בשנה (הערכה)", D => D.cost.fuelYear ? Math.round(D.cost.fuelYear / 100) * 100 : null, "lo", "₪"],
-    ["אגרת רישוי (הערכה)", D => D.cost.fee || null, "lo", "₪"],
-    ["שווי שימוש לחודש", D => D.cost.usage ? D.cost.usage.monthly : null, "lo", "₪"],
     "מנוע וגרירה",
     ["שנת ייצור", D => num(D.v.shnat_yitzur), "hi", "", true],
     ["כוח (כ״ס)", D => nf(D.w, "koah_sus"), "hi", ""],
@@ -2650,6 +2649,16 @@ function renderCompare(){
     ["מערכות בטיחות מתקדמות", D => Object.keys(SYSTEMS).some(k => !empty(D.w[k])) ? Object.keys(SYSTEMS).filter(k => yes(D.w[k])).length : null, "hi", ""],
     ...[...Object.entries(SYSTEMS), ...Object.entries(EQUIP)].filter(([k]) => L.some(D => !empty(D.w[k]) && num(D.w[k]) > 0))
       .map(([k, t]) => [t, D => empty(D.w[k]) ? null : num(D.w[k]) > 0, "yes"]),
+    "מחיר ועלויות",
+    ["עלות חודשית (הערכה)", D => D.cost.monthly ? D.cost.monthly.total : null, "lo", "₪"],
+    ["מחיר מחירון כחדש", D => D.cost.newPrice || null, null, "₪"],
+    ["שווי משוער היום", D => D.cost.valueLow ? Math.round((D.cost.valueLow + D.cost.valueHigh) / 2000) * 1000 : null, null, "₪"],
+    kmlUnit() ? ["ק״מ לליטר (הערכה)", D => D.cost.l100 ? Math.round(1000 / D.cost.l100) / 10 : null, "hi", "", true]
+              : ["ליטר ל-100 ק״מ (הערכה)", D => D.cost.l100 ? Math.round(D.cost.l100 * 10) / 10 : null, "lo", "", true],
+    ["קוט״ש ל-100 ק״מ (הערכה)", D => D.cost.kwh100 || null, "lo", "", true],
+    [L.some(D => D.cost.kind === "ev") ? "דלק או חשמל בשנה (הערכה)" : "דלק בשנה (הערכה)", D => D.cost.fuelYear ? Math.round(D.cost.fuelYear / 100) * 100 : null, "lo", "₪"],
+    ["אגרת רישוי (הערכה)", D => D.cost.fee || null, "lo", "₪"],
+    ["שווי שימוש לחודש", D => D.cost.usage ? D.cost.usage.monthly : null, "lo", "₪"],
     "אמינות",
     ["ריקולים לדגם", D => D.modelRecalls.filter(r => r.fits !== false).length, "lo"],
     ["רכבים כאלה על הכביש", D => D.cost.active || null, null, ""],
