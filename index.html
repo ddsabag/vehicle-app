@@ -3323,7 +3323,7 @@ async function loadMarket(){
   throw new Error("market");
 }
 /* maker names in the market data come in the registry's spelling; one display form per maker */
-const MK_NAMES = {"במוו": "BMW", "מג": "MG", "אםגי": "MG", "בייווידי": "BYD", "ביווידי": "BYD", "גילי": "ג׳ילי", "צרי": "צ׳רי"};
+const MK_NAMES = {"במוו": "BMW", "מג": "MG", "אםגי": "MG", "בייווידי": "BYD", "ביווידי": "BYD", "גילי": "ג׳ילי", "צרי": "צ׳רי", "גאקו": "ג׳אקו"};
 const mkMake = k => MK_NAMES[String(k).replace(/[\s.'"׳״`-]/g, "")] || k;
 const mkLocked = () => PRO_LOCK && !isPro();
 const MON = ["ינו׳","פבר׳","מרץ","אפר׳","מאי","יוני","יולי","אוג׳","ספט׳","אוק׳","נוב׳","דצמ׳"];
@@ -3362,7 +3362,7 @@ function renderMarket(M){
   if (own) {
     const t = Object.values(own).reduce((a, b) => a + b, 0);
     const om = M.ownershipMakers[P.year] || {};
-    html.push(card(`מי קונה · רכבי שנתון ${P.year}`, "users", "teal", `<div class="mk-stack">${OWN.map(([k, , c]) => `<i style="width:${(own[k] || 0) / t * 100}%;background:${c}"></i>`).join("")}</div><div class="mk-leg">${OWN.map(([k, l, c]) => `<span style="--c:${c}">${l} ${((own[k] || 0) / t * 100).toFixed(0)}%</span>`).join("")}</div><table class="mk-tbl"><tr><th>יצרן</th>${OWN.slice(0, 4).map(o => `<th>${o[1]}</th>`).join("")}</tr>${Object.entries(om).slice(0, 10).map(([mk, o]) => { const s = Object.values(o).reduce((a, b) => a + b, 0); return `<tr><td>${esc(mk)}</td>${OWN.slice(0, 4).map(([k]) => `<td>${Math.round((o[k] || 0) / s * 100)}%</td>`).join("")}</tr>`; }).join("")}</table><p class="note">לפי סוג הבעלות הרשום היום של כל הרכבים שיוצרו באותה שנה, כך שחלק מרכבי הליסינג וההשכרה כבר עברו לבעלים פרטיים.</p>`));
+    html.push(card(`מי קונה · רכבי שנתון ${P.year}`, "users", "teal", `<div class="mk-stack">${OWN.map(([k, , c]) => `<i style="width:${(own[k] || 0) / t * 100}%;background:${c}"></i>`).join("")}</div><div class="mk-leg">${OWN.map(([k, l, c]) => `<span style="--c:${c}">${l} ${((own[k] || 0) / t * 100).toFixed(0)}%</span>`).join("")}</div><table class="mk-tbl"><tr><th>יצרן</th>${OWN.slice(0, 4).map(o => `<th>${o[1]}</th>`).join("")}</tr>${Object.entries(om).slice(0, 10).map(([mk, o]) => { const s = Object.values(o).reduce((a, b) => a + b, 0); return `<tr><td>${esc(mkMake(mk))}</td>${OWN.slice(0, 4).map(([k]) => `<td>${Math.round((o[k] || 0) / s * 100)}%</td>`).join("")}</tr>`; }).join("")}</table><p class="note">לפי סוג הבעלות הרשום היום של כל הרכבים שיוצרו באותה שנה, כך שחלק מרכבי הליסינג וההשכרה כבר עברו לבעלים פרטיים.</p>`));
   }
   const ag = M.aging && M.aging[P.year];
   if (ag && ag.n) {
