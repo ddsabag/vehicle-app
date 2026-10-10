@@ -99,7 +99,7 @@ if (ai) {
   for (const f of ["lead", "models_p", "makers_p", "bodies_p", "ytd_p"]) art[f] = art[f].replace(/(?<![\d,.])\d{4,}(?![\d,.])/g, m => +m === year || +m === year - 1 ? m : fmt(+m));
 }
 fs.mkdirSync(`magazine/${slug}`, {recursive: true});
-const url = `${SITE}magazine/${slug}/`, desc = art.lead.slice(0, 200), published = now.toISOString().slice(0, 10);
+const url = `${SITE}magazine/${slug}/`, desc = (art.lead.length <= 200 ? art.lead : art.lead.slice(0, 200).replace(/[^.]*$/, "") || art.lead.slice(0, 200)), published = now.toISOString().slice(0, 10);
 const ld = {"@context": "https://schema.org", "@type": "Article", headline: art.title, datePublished: published, inLanguage: "he", author: {"@type": "Organization", name: "מערכת לוחית"}, publisher: {"@type": "Organization", name: "לוחית", url: SITE}, mainEntityOfPage: url};
 const body = `${head(art.title + " | לוחית", desc, url).replace("</head>", `<script type="application/ld+json">${JSON.stringify(ld)}</script></head>`)}<p class="muted"><a href="${SITE}magazine/">מגזין לוחית</a></p><p><span class="tag">שוק הרכב</span> <span class="muted">${esc(label)}</span></p><h1>${pr(art.title)}</h1>
 <p>${pr(art.lead)}</p>
@@ -107,7 +107,7 @@ const body = `${head(art.title + " | לוחית", desc, url).replace("</head>", 
 <h2>היצרנים המובילים</h2><div class="card">${bars(makers.map(m => ({...m, key: ""})), false)}</div><p>${pr(art.makers_p)}</p>
 <h2>סוגי מרכב</h2><p>${pr(art.bodies_p)}</p>${art.ytd_p ? `<h2>מתחילת השנה</h2><p>${pr(art.ytd_p)}</p>` : ""}
 <div class="card"><b>בדקו רכב מסוים</b><p class="muted" style="margin:6px 0 12px">הקלידו מספר רישוי וקבלו ריקולים, הסדרי פשרה, טסט, היסטוריית בעלויות ומחיר משוער, בחינם.</p><a class="cta" href="${SITE}">לבדיקה לפי מספר רישוי</a></div>
-<p class="muted">מקור הנתונים: מאגרי משרד התחבורה, מסירות של רכבים פרטיים חדשים. ${usedAi ? "הכתבה נוצרה בעזרת מודל שפה מעובדות שחושבו מהנתונים, ונבדקה לפני פרסום." : "הכתבה נוצרה אוטומטית מהנתונים."} פורסם ב-${esc(published)}.</p>${foot}`;
+<p class="muted">מקור הנתונים: מאגרי משרד התחבורה, מסירות של רכבים פרטיים חדשים. ${usedAi ? "הכתבה נכתבה בעזרת מודל שפה על בסיס הנתונים, ונבדקה לפני פרסום." : "הכתבה נוצרה אוטומטית מהנתונים."} פורסם ב-${esc(published)}.</p>${foot}`;
 fs.writeFileSync(`magazine/${slug}/index.html`, body);
 
 // index, posts list and sitemap
