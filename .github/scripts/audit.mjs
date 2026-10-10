@@ -15,9 +15,9 @@ for (const [id, fs_] of ids) {
   const out = {id, used: [...fs_].join(",")};
   try {
     const j = await (await fetch(API + "datastore_search?limit=1&resource_id=" + id, {signal: AbortSignal.timeout(40000)})).json();
-    out.ok = j.success; out.total = j.result?.total; out.fields = (j.result?.fields || []).map(f => f.id).filter(x => x !== "_id").slice(0, 60).join(",");
+    out.ok = j.success; out.total = j.result?.total; out.fields = (j.result?.fields || []).map(f => f.id).filter(x => x !== "_id").slice(0, 200).join(",");
     if (j.success && out.fields.split(",").includes("mispar_rechev")) {
-      const k = await (await fetch(API + "datastore_search?limit=1&resource_id=" + id + "&filters=" + encodeURIComponent(JSON.stringify({mispar_rechev: PLATE})))).json();
+      let k; for (let t = 0; t < 4; t++) { try { k = await (await fetch(API + "datastore_search?limit=1&resource_id=" + id + "&filters=" + encodeURIComponent(JSON.stringify({mispar_rechev: PLATE})))).json(); break; } catch { await new Promise(r => setTimeout(r, 3000)); } }
       out.plateRows = k.result?.total;
     }
     if (!j.success) out.err = JSON.stringify(j.error).slice(0, 200);
