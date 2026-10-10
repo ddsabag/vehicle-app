@@ -1194,8 +1194,7 @@ function settlementCard(D){
   const list = D.kind === "model" || D.isCancelled ? [] : settlementsFor(D);
   if (list.length && !stlSeen.has(D.plate)) { stlSeen.add(D.plate); track("settlement_shown", {n: list.length}); }
   if (D.kind === "model" || D.isCancelled) return "";
-  if (!list.length) return card("הסדרי פשרה (ייצוגיות)", "scale", "green",
-    `<p style="margin:0">לא נמצא הסדר פשרה מוכר שחל על הדגם והשנתון של הרכב הזה.</p><p class="note">בדקנו מול ${SETTLEMENTS.length} הסדרים פעילים של יותר מ-10 יבואנים, לפי הודעות היבואנים והעיתונות נכון ל-10/2026. הרשימה אינה מקיפה, ואם הרכב הגיע ממקור אחר או בעל מנוע חריג, כדאי לשאול את היבואן.</p>`);
+  if (!list.length) return "";
   const full = !PRO_LOCK || atLeast("pro");
   const items = list.map(s => `<li class="stl ${s.st === "ok" ? "ok" : "wait"}"><div class="stl-h"><b>${esc(s.t)}</b><span class="stl-st">${s.st === "ok" ? ico("check") + "אושר" : ico("clock") + "ממתין לאישור"}</span></div>${full
     ? `<div class="stl-b"><small>מה מגיע</small>${esc(s.b)}</div><p class="note" style="margin:6px 0 0">${esc(s.cond)}${s.low ? " ההתאמה לרכב הזה פחות ודאית." : ""}</p><button type="button" class="link-btn" data-url="${esc(s.url)}">${ico("search")}לדף ההסדר אצל היבואן</button>` : ""}</li>`).join("");
@@ -1908,7 +1907,8 @@ function tabOverview(D){
 }
 
 function tabRecalls(D){
-  const html = [];
+  const html = [], imp = importerRecall(D), stl = D.kind === "model" || D.isCancelled ? [] : settlementsFor(D);
+  const mr = D.modelRecalls, fits = mr.filter(r => r.fits !== false), blocking = D.recalls.some(isBlocking);
   if (D.recalls.length) {
     html.push(card("ריקולים פתוחים לרכב הזה", "alert", "red", D.recalls.map(r => {
       const d = r.detail || {};
@@ -1918,27 +1918,24 @@ function tabRecalls(D){
         ${fixRows(r, d)}
         ${contact ? `<p class="note">${contact}</p>` : ""}</div>`;
     }).join("") + `<p class="note">התיקון ניתן בחינם אצל היבואן.</p>`));
-  } else {
-    html.push(card("ריקולים פתוחים לרכב הזה", "check", "green", `<p style="margin:0">לפי המאגר אין לרכב הזה ריקול פתוח.</p>`));
   }
   html.push(settlementCard(D));
-  const imp = importerRecall(D);
-  html.push(card("בדיקה באתר היבואן", "search", "teal",
-    `<p style="margin:0">באתר היבואן מופיעים גם קמפיינים שלא תמיד נמצאים במאגר. מספר הרישוי יועתק, ותדביקו אותו שם.</p>
-     <button type="button" class="link-btn" data-url="${esc(imp.url)}" data-copyfirst="${imp.vin ? esc(D.vin || D.plate) : D.plate}">${ico("search")}${imp.gov ? "חיפוש במאגר הריקולים של משרד התחבורה" : `בדיקת ריקולים וקמפיינים באתר ${esc(imp.name)}`}</button>
-     ${imp.gov ? `<p class="note">ל${esc(imp.name || "יבואן הזה")} לא מצאנו עמוד בדיקה לפי מספר רישוי. במאגר של משרד התחבורה מחפשים לפי יצרן ודגם.</p>` : imp.note ? `<p class="note">${esc(imp.note)}</p>` : ""}`));
-  if (D.modelRecalls.length) {
-    const fits = D.modelRecalls.filter(r => r.fits !== false);
+  const rows = [], row = (ok, t) => rows.push(`<li class="ins ${ok ? "ok" : "warn"}">${ico(ok ? "check" : "alert")}<div><b>${esc(t)}</b></div></li>`);
+  row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")} (פירוט למעלה)` : "אין ריקול פתוח במאגר משרד התחבורה");
+  row(!blocking, blocking ? "ריקול מגביל חידוש רישיון" : "אין ריקול שמגביל חידוש רישיון");
+  row(!fits.length, !mr.length ? "לא נמצאו ריקולים קודמים לדגם" : fits.length ? `${pl(fits.length, "ריקול קודם לדגם עשוי לחול", "ריקולים קודמים לדגם עשויים לחול")} על שנת הייצור` : `${pl(mr.length, "ריקול קודם לדגם, לא חל", "ריקולים קודמים לדגם, אף אחד לא חל")} על שנת הייצור`);
+  if (D.kind !== "model" && !D.isCancelled) row(!stl.length, stl.length ? `ייתכן שהרכב נכלל ב${pl(stl.length, "הסדר פשרה", "הסדרי פשרה")} (פירוט למעלה)` : "לא נמצא הסדר פשרה מוכר לדגם ולשנתון");
+  html.push(card(`מה נבדק (${rows.length} בדיקות)`, "check", D.recalls.length || fits.length || stl.length ? "amber" : "green", `<ul class="insights plain">${rows.join("")}</ul>
+    <p class="note">הסדרי פשרה: נבדקו מול ${SETTLEMENTS.length} הסדרים של יבואנים, לפי הודעותיהם והעיתונות נכון ל-10/2026. הרשימה אינה מקיפה. באתר היבואן מופיעים גם קמפיינים שלא תמיד נמצאים במאגר.</p>
+    <button type="button" class="link-btn" data-url="${esc(imp.url)}" data-copyfirst="${imp.vin ? esc(D.vin || D.plate) : D.plate}">${ico("search")}${imp.gov ? "חיפוש במאגר הריקולים של משרד התחבורה" : `בדיקת ריקולים וקמפיינים באתר ${esc(imp.name)}`}</button>
+    <p class="note" style="margin:6px 0 0">מספר הרישוי יועתק, ותדביקו אותו באתר.${imp.gov ? ` ל${esc(imp.name || "יבואן הזה")} לא מצאנו עמוד בדיקה לפי מספר רישוי, ובמאגר של משרד התחבורה מחפשים לפי יצרן ודגם.` : imp.note ? " " + esc(imp.note) : ""}</p>`));
+  if (mr.length) {
     html.push(card("היסטוריית ריקולים לדגם", "clock", "blue",
-      `<ul class="rlist">${D.modelRecalls.map(r => `<li class="${r.fits === false ? "dim" : ""}">
+      `<ul class="rlist">${mr.map(r => `<li class="${r.fits === false ? "dim" : ""}">
          <div class="rhead"><time>${esc(fmtDate(r.TAARICH_PTICHA || ""))}</time>${r.fits === true ? `<span class="pill warn">כולל את שנת הייצור</span>` : r.fits === false ? `<span class="pill">שנים אחרות</span>` : ""}</div>
          <b>${esc(D.pick(r.TEUR_TAKALA, r.SUG_TAKALA) || "ריקול")}</b>
          <span class="note">${[r.SUG_RECALL, r.DEGEM, ].filter(x => !empty(x)).map(esc).join(" · ")}${(r.BUILD_BEGIN_A || r.BUILD_END_A) ? ` · ייצור <span dir="ltr" style="unicode-bidi:isolate">${esc(fmtDate(r.BUILD_BEGIN_A || ""))} – ${esc(fmtDate(r.BUILD_END_A || ""))}</span>` : ""}</span>
-       </li>`).join("")}</ul>
-       <p class="note">${D.modelRecalls.length} ריקולים נמצאו לדגם, ${fits.length} מהם עשויים לחול על שנת הייצור של הרכב.</p>`,
-      `<span class="count">${D.modelRecalls.length}</span>`));
-  } else {
-    html.push(card("היסטוריית ריקולים לדגם", "clock", "blue", `<p style="margin:0">לא נמצאו ריקולים קודמים לדגם הזה במאגר.</p>`));
+       </li>`).join("")}</ul>`, `<span class="count">${mr.length}</span>`));
   }
   return html.join("");
 }
