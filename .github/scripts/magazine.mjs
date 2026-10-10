@@ -51,7 +51,7 @@ const template = () => ({
 async function gemini() {
   const key = process.env.GEMINI_API_KEY; if (!key) return null;
   const prompt = `כתוב כתבה קצרה בעברית בסגנון עיתונאי עניייני על מסירות רכבים חדשים בישראל, על בסיס העובדות שב-JSON בלבד.
-כללים: אל תוסיף שום עובדה, מספר, אחוז, סיבה, תחזית או השוואה שלא מופיעים ב-JSON. אל תנחש למה משהו קרה. כתוב מספרים בדיוק כפי שהם. אל תזכיר מקורות או אתרים. הטבלאות והגרפים מוצגים בנפרד, אז אל תפרט כל מספר, אבל כל מספר שתכתוב חייב להופיע ב-JSON.
+כללים: אל תוסיף שום עובדה, מספר, אחוז, סיבה, תחזית או השוואה שלא מופיעים ב-JSON. אל תנחש למה משהו קרה. כתוב מספרים בדיוק כפי שהם. אל תזכיר מקורות או אתרים. בדוק איות ודקדוק לפני שאתה מחזיר. הטבלאות והגרפים מוצגים בנפרד, אז אל תפרט כל מספר, אבל כל מספר שתכתוב חייב להופיע ב-JSON.
 החזר JSON בלבד עם השדות: title (כותרת עד 90 תווים), lead (פסקת פתיחה של 2 עד 3 משפטים), models_p, makers_p, bodies_p, ytd_p (כל אחד 1 עד 2 משפטים).
 העובדות:\n${JSON.stringify(facts)}`;
   for (const model of (process.env.GEMINI_MODEL ? [process.env.GEMINI_MODEL] : ["gemini-flash-lite-latest", "gemini-flash-latest"])) {
@@ -92,7 +92,12 @@ const bars = (list, label2) => { const mx = list[0].n; return list.map((x, i) =>
 
 // a trailing % flips in right-to-left text, so prose spells it out
 const pr = t => esc(t).replace(/(\d+)%/g, "$1 אחוזים");
+// Gemini writes the body only: the title always comes from the data (it names the leader), and numbers get thousands separators (never years)
 const ai = await gemini(), art = ai || template(), usedAi = !!ai;
+if (ai) {
+  art.title = template().title;
+  for (const f of ["lead", "models_p", "makers_p", "bodies_p", "ytd_p"]) art[f] = art[f].replace(/(?<![\d,.])\d{4,}(?![\d,.])/g, m => +m === year || +m === year - 1 ? m : fmt(+m));
+}
 fs.mkdirSync(`magazine/${slug}`, {recursive: true});
 const url = `${SITE}magazine/${slug}/`, desc = art.lead.slice(0, 200), published = now.toISOString().slice(0, 10);
 const ld = {"@context": "https://schema.org", "@type": "Article", headline: art.title, datePublished: published, inLanguage: "he", author: {"@type": "Organization", name: "מערכת לוחית"}, publisher: {"@type": "Organization", name: "לוחית", url: SITE}, mainEntityOfPage: url};
