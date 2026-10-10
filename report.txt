@@ -1,0 +1,28 @@
+
+## eb74ad8c-ffcd-43bb-949c-2244fc8a8651 total 10866 
+fields _id:int | shem:text | yishuv:text | mikud:numeric | ktovet:text | het_pei:text
+{"_id":1,"shem":"אזולאי עודד","yishuv":"מבשרת ציון","mikud":90805,"ktovet":"ארבל 2","het_pei":""}
+{"_id":2,"shem":"כהן נסים","yishuv":"רמת גן","mikud":52503,"ktovet":"תרפ ב 16","het_pei":""}
+{"_id":3,"shem":"גרינאו אמיל","yishuv":"כפר סבא","mikud":44256,"ktovet":"ת''ד 620","het_pei":""}
+{"_id":4,"shem":"בנימין חיים","yishuv":"תל אביב -יפו","mikud":66877,"ktovet":"לסקר 19","het_pei":""}
+
+## 7cb2bd95-bf2e-49b6-aea1-fcb5ff6f0473 total 6571 
+fields _id:int | mispar_rechev:numeric | sug_rechev_EU_cd:text | shnat_yitzur:numeric | rishum_rishon_dt:text | taarich_hatkana:text
+{"_id":1,"mispar_rechev":6167214,"sug_rechev_EU_cd":"M2","shnat_yitzur":2006,"rishum_rishon_dt":"2005-09-11","taarich_hatkana":"2019-10-27"}
+{"_id":2,"mispar_rechev":6884860,"sug_rechev_EU_cd":"N1","shnat_yitzur":2007,"rishum_rishon_dt":"2006-10-17","taarich_hatkana":"2020-09-29"}
+{"_id":3,"mispar_rechev":8858401,"sug_rechev_EU_cd":"M3","shnat_yitzur":2008,"rishum_rishon_dt":"2007-08-07","taarich_hatkana":"2018-08-14"}
+{"_id":4,"mispar_rechev":5629015,"sug_rechev_EU_cd":"N3","shnat_yitzur":1997,"rishum_rishon_dt":"1997-09-10","taarich_hatkana":"2019-05-12"}
+
+## 528482f2-d410-4d62-8b17-566ab23a1c52 total 2261 
+fields _id:int | OID:numeric | OBJECTID:numeric | op:text | name:text | Address:text | count:numeric | cnt_fast:numeric | cnt_slow:numeric
+{"_id":1,"OID":-1,"OBJECTID":1,"op":"AfconEv","name":"אורכידאה אילת -לאורחי המלון","Address":"כביש 90","count":2,"cnt_fast":0,"cnt_slow":2}
+{"_id":2,"OID":-1,"OBJECTID":2,"op":"AfconEv","name":"פרימה אילת-לאורחי המלון","Address":"חוף האלמוג","count":4,"cnt_fast":0,"cnt_slow":4}
+{"_id":3,"OID":-1,"OBJECTID":3,"op":"Nofar","name":"קצא''א - חוף קצא''א - אילת","Address":"Eilat","count":2,"cnt_fast":0,"cnt_slow":2}
+{"_id":4,"OID":-1,"OBJECTID":4,"op":"Greenspot","name":"רות המואביה - הגן הנגיש","Address":"רות המואביה 42","count":2,"cnt_fast":0,"cnt_slow":2}
+
+## 4a434d65-3ca2-45e5-8026-5d9819c3f95c total 1019 
+fields _id:int | mispar_rishayon:numeric | shem_prati:text | shem_mishpaha:text | yishuv:text
+{"_id":1,"mispar_rishayon":1040,"shem_prati":"עלי","shem_mishpaha":"חאג'","yishuv":"אבו סנאן"}
+{"_id":2,"mispar_rishayon":848,"shem_prati":"זיאד","shem_mishpaha":"תורג'מן","yishuv":"אבטין"}
+{"_id":3,"mispar_rishayon":1303,"shem_prati":"יעקב","shem_mishpaha":"וקסמן","yishuv":"אבני חפץ"}
+{"_id":4,"mispar_rishayon":516,"shem_prati":"זאב","shem_mishpaha":"אפרים","yishuv":"אודים"}
