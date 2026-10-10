@@ -49,7 +49,7 @@ h1{font-size:1.45rem;margin:0 0 6px;line-height:1.3}h1::after{content:"";display
 .wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:.92rem}th,td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:right}th{color:var(--muted);font-weight:600}td.n,th.n{text-align:left;font-variant-numeric:tabular-nums}
 ul.l{columns:2;list-style:none;padding:0}ul.l li{break-inside:avoid;padding:3px 0}.top{font-weight:800;text-decoration:none;color:var(--fg)}`;
 const head = (title, desc, url) => `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><meta name="description" content="${esc(desc)}"><link rel="canonical" href="${url}"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:image" content="${SITE}og.png"><meta property="og:locale" content="he_IL"><link rel="icon" href="${SITE}icon-512.png"><style>${css}</style></head><body><main>`;
-const foot = `<p class="muted" style="margin-top:28px">המידע מגיע ממאגרים פתוחים של משרד התחבורה ב-data.gov.il, ואינו מחליף נסח רישום רשמי או בדיקה במכון מורשה. האפליקציה אינה קשורה למשרד התחבורה. <a href="${SITE}magazine/">מגזין</a> · <a href="${SITE}privacy.html">מדיניות פרטיות</a></p></main></body></html>`;
+const foot = `<p class="muted" style="margin-top:28px">המידע מגיע ממאגרים פתוחים של משרד התחבורה ב-data.gov.il, ואינו מחליף נסח רישום רשמי או בדיקה במכון מורשה. האפליקציה אינה קשורה למשרד התחבורה. <a href="${SITE}magazine/">מגזין</a> · <a href="${SITE}guide/buy-used-car/">מדריך לקונה</a> · <a href="${SITE}privacy.html">מדיניות פרטיות</a></p></main></body></html>`;
 fs.rmSync("model", {recursive: true, force: true}); fs.mkdirSync("model", {recursive: true});
 const urls = [SITE, SITE + "privacy.html", SITE + "model/"], slugMap = {};
 for (const m of models) {
@@ -79,6 +79,37 @@ const idx = `${head("דגמי רכב בישראל לפי נתוני משרד ה�
 ${[...by.entries()].map(([mk, a]) => `<h2>${esc(mk)}</h2><ul class="l">${a.map(m => `<li><a href="${SITE}model/${m.slug}/">${esc(m.disp)}</a> <span class="muted">${fmt(m.act)}</span></li>`).join("")}</ul>`).join("\n")}${foot}`;
 fs.writeFileSync("model/index.html", idx);
 fs.writeFileSync("model/slugs.json", JSON.stringify(slugMap));
+
+// guide: one evergreen buying checklist built only from what the data and the app actually check
+{
+  const steps = [
+    ["ריקולים פתוחים", "בדקו אם יש ריקול שטרם בוצע. ריקול מגביל, למשל על כרית אוויר, יכול למנוע חידוש רישיון עד שהתיקון מתבצע. התיקון אצל היבואן בדרך כלל ללא עלות. מאגר הריקולים של משרד התחבורה מציג את הריקולים הפתוחים לפי מספר רישוי."],
+    ["טסט ותוקף הרישיון", "ודאו שהרישיון בתוקף ומתי הטסט האחרון. טסט שפג לפני זמן רב מצביע על רכב שעמד או שלא טופל. תאריך הטסט האחרון נשלף ממאגר משרד התחבורה."],
+    ["היסטוריית בעלויות", "ספרו כמה רשומות בעלות יש ומי היו הבעלים. רכב שהיה בהשכרה, בליסינג או אצל סוחר עבר בדרך כלל שימוש אינטנסיבי יותר. שימו לב: רשומות בעלות כוללות מעברים בין חברות ולא רק בעלים פרטיים."],
+    ["קילומטראז׳ מול הגיל", "המאגר מציג את הק״מ שנרשם בטסט האחרון. השוו אותו לממוצע שנתי סביר. כ-15,000 ק״מ בשנה הוא ממוצע מקובל לרכב פרטי, ולכן ק״מ גבוה בהרבה מצריך שאלות, וק״מ נמוך בהרבה מצריך בדיקה שהעדות נכונה."],
+    ["שינויים ברכב", "ודאו אם נרשמו שינוי צבע, שינוי מבנה, שינוי בצמיגים או התקנת גרירה. שינוי שלא תואם את מה שאתם רואים בפועל הוא סיבה לשאול."],
+    ["יבוא אישי ותג נכה", "רכב ביבוא אישי או רכב עם תג נכה משפיעים על ההיסטוריה ועל המחיר, ושווה לשאול למה ולדעת מה הם מגבילים. נתון זה מופיע במאגרים."],
+    ["הסדרי פשרה", "בשנים האחרונות אושרו בישראל הסדרי פשרה בתביעות ייצוגיות נגד יבואנים על תקלות חוזרות בדגמים מסוימים. אם הרכב נכלל, יתכן שמגיעה הטבה או תיקון בהנחה. הזכאות תלויה בשנתון ובגרסה."],
+    ["בדיקה במכון בדיקה עצמאי", "המאגרים הממשלתיים אינם מראים מצב מכני, תאונות או טיפולים. לפני שסוגרים עסקה כדאי לבצע בדיקה במכון בדיקה עצמאי ולא אצל המוכר."],
+    ["מה לשאול את המוכר", "שאלו אם בוצעו ריקולים, איפה טופל הרכב ויש חשבוניות, מתי הוחלפו צמיגים וסוללה, ולמה הוא מוכר. בקשו לראות רישיון רכב ורישיון נהיגה ולוודא שהמוכר הוא הבעלים הרשום."]
+  ];
+  const faq = [
+    ["איך בודקים רכב יד שנייה לפי מספר רישוי?", "מקלידים את מספר הרישוי באפליקציה או באתר ומקבלים נתונים ממאגרי משרד התחבורה: ריקולים פתוחים, תוקף וטסט אחרון, רשומות בעלות, קילומטראז׳ מהטסט האחרון ושינויים שנרשמו ברכב."],
+    ["האם בדיקה לפי מספר רישוי מחליפה בדיקה במכון?", "לא. היא מראה מה רשום במאגרים הממשלתיים, אבל לא מצב מכני, תאונות או טיפולים. מומלץ להשלים בבדיקה במכון בדיקה עצמאי."],
+    ["האם ריקול פתוח אומר שאסור לקנות?", "לא בהכרח. ריקול הוא תיקון שהיבואן מבצע בדרך כלל ללא עלות. ריקול מגביל יכול למנוע חידוש רישיון עד שהתיקון מתבצע, ולכן כדאי לבקש מהמוכר לבצע אותו או להתחשב בכך במחיר."]
+  ];
+  const url = `${SITE}guide/buy-used-car/`, title = "מה לבדוק לפני קניית רכב יד שנייה | לוחית";
+  const desc = "רשימת בדיקה לקונה: ריקולים, טסט, בעלויות, קילומטראז׳, שינויים ברכב והסדרי פשרה, ומה לשאול את המוכר. הכל לפי מספר רישוי, בחינם.";
+  const ld = {"@context": "https://schema.org", "@type": "FAQPage", mainEntity: faq.map(([q, a]) => ({"@type": "Question", name: q, acceptedAnswer: {"@type": "Answer", text: a}}))};
+  const body = `${head(title, desc, url)}<p class="muted"><a href="${SITE}">לוחית</a> › מדריך</p><h1>מה לבדוק לפני קניית רכב יד שנייה</h1>
+<p>רשימה קצרה לפי מה שאפשר לבדוק לפני שמגיעים לראות את הרכב. רוב הנקודות נשלפות ממאגרי משרד התחבורה לפי מספר הרישוי בלבד.</p>
+<div class="card"><b>בדקו רכב עכשיו</b><p class="muted" style="margin:6px 0 12px">הקלידו מספר רישוי וקבלו את כל הסעיפים האלה במסך אחד, בחינם.</p><a class="cta" href="${SITE}">לבדיקה לפי מספר רישוי</a></div>
+<ol style="padding-inline-start:20px">${steps.map(([h, t]) => `<li style="margin:14px 0"><b>${esc(h)}</b><br>${esc(t)}</li>`).join("")}</ol>
+<h2>שאלות נפוצות</h2>${faq.map(([q, a]) => `<div class="card"><b>${esc(q)}</b><p style="margin:6px 0 0">${esc(a)}</p></div>`).join("")}
+<p><a class="cta" href="${SITE}">בדיקת רכב בלוחית</a></p>${foot}<script type="application/ld+json">${JSON.stringify(ld)}</script>`;
+  fs.mkdirSync("guide/buy-used-car", {recursive: true}); fs.writeFileSync("guide/buy-used-car/index.html", body);
+  urls.push(url);
+}
 // the monthly magazine (magazine.mjs) keeps its own pages; keep them in the sitemap
 try { const posts = JSON.parse(fs.readFileSync("magazine/posts.json", "utf8")); urls.push(SITE + "magazine/", ...posts.map(p => `${SITE}magazine/${p.slug}/`)); } catch {}
 fs.writeFileSync("sitemap.xml", `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}\n</urlset>\n`);
