@@ -651,6 +651,8 @@ const PRO_LOCK = false;
 const simpleOn = () => { try { return localStorage.getItem("simpleView") === "1"; } catch { return false; } };
 const analyticsOn = () => { try { return localStorage.getItem("analyticsOff") !== "1"; } catch { return true; } };
 const track = (name, params) => { try { const b = window.AndroidApp; if (b && b.logEvent && analyticsOn()) b.logEvent(name, JSON.stringify(params || {})); } catch {} };
+/* silent failures worth knowing about (a dataset that errors, a library that does not load): sent to Crashlytics as a non-fatal, tag only, never a plate */
+const reportErr = tag => { try { const b = window.AndroidApp; if (b && b.logError && analyticsOn()) b.logError(String(tag).slice(0, 60)); } catch {} };
 const UPGRADE_UI = true;   // false for a store build that has no billing products yet
 const PRICES = {buyer_pack: 29, pro_monthly: 12.9, pro_yearly: 69, biz_monthly: 79};
 const GIFT_DAYS = 30, BUYER_DAYS = 60, TRIAL_DAYS = 14;
@@ -661,6 +663,8 @@ const entSet = e => { try { localStorage.setItem("ent", JSON.stringify(e)); } ca
 function plan(){
   if (!PRO_LOCK) return "biz";
   const e = entGet(), now = Date.now();
+  // paid plans come only from Google Play through the app; on the website or a hand-edited store they do not count
+  if (!window.AndroidApp) { e.biz = e.pro = e.buyer = 0; }
   if (e.biz > now) return "biz";
   if (e.pro > now || e.gift > now || e.trial > now) return "pro";
   if (e.buyer > now) return "buyer";
@@ -1246,6 +1250,14 @@ async function fetchModelData(v, signal){
   return {w, towRow, zeroTow, counts, price, priceRows, modelRecalls};
 }
 
+/* An empty ministry dataset answers "no rows" for every plate; tell that apart from a plate that does not exist */
+async function sourceEmpty(signal){
+  try {
+    const r = await fetch(`${API}?resource_id=${PLATE_SETS[0].id}&limit=0`, {signal});
+    const j = await r.json();
+    return j && j.success && Number(j.result && j.result.total) === 0;
+  } catch (e) { if (e.name === "AbortError") throw e; return false; }
+}
 /* ---------- fetch one vehicle ---------- */
 async function fetchVehicle(plate, signal, onProgress){
   const res = {}; let done = 0;
@@ -1259,7 +1271,12 @@ async function fetchVehicle(plate, signal, onProgress){
   const mains = PLATE_SETS.filter(s => s.role === "main" && res[s.key].rows.length);
   const extras = PLATE_SETS.filter(s => s.role === "extra" && res[s.key].rows.length);
   if (errs.length === PLATE_SETS.length) return {plate, offline: true};
-  if (!mains.length && !extras.length) return PLATE_SETS.some(s => s.role === "main" && res[s.key].err) ? {plate, offline: true} : {plate, notFound: true};
+  errs.forEach(s => reportErr("dataset_" + s.key));
+  if (!mains.length && !extras.length) {
+    if (PLATE_SETS.some(s => s.role === "main" && res[s.key].err)) return {plate, offline: true};
+    if (await sourceEmpty(signal)) { reportErr("dataset_empty_active"); return {plate, offline: true, sourceDown: true}; }
+    return {plate, notFound: true};
+  }
 
   const v = {};
   const fill = r => { for (const [k,x] of Object.entries(r)) if (empty(v[k]) && !empty(x)) v[k] = x; };
@@ -1400,6 +1417,7 @@ async function lookup(raw){
   if (signal.aborted) return;
   await side;
   if (signal.aborted) return;
+  if (D.sourceDown) { out.innerHTML = `<div class="msg err">מאגר הרכבים של משרד התחבורה לא מחזיר נתונים כרגע, בלי קשר למספר שהקלדתם. זו תקלה אצל המשרד. נסו שוב מאוחר יותר.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; track("lookup_failed", {kind: "source_down"}); return; }
   if (D.offline || D.notFound) track("lookup_failed", {kind: D.offline ? "offline" : "not_found"});
   if (D.offline) { out.innerHTML = `<div class="msg err">אין חיבור למאגרי משרד התחבורה כרגע. בדקו את החיבור לאינטרנט ונסו שוב.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; return; }
   if (D.notFound) { out.innerHTML = `<div class="msg">לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.</div>`; return; }
@@ -2365,6 +2383,7 @@ async function runModelSearch(){
 }
 function showGroups(){
   const msg = $("#compareMsg"), shown = mShowAll ? mGroups : mGroups.slice(0, MODEL_SHOWN), rest = mGroups.length - shown.length;
+  if (!mGroups.length) track("search_no_result", {kind: mNote ? "budget" : "model"});
   msg.textContent = mGroups.length ? "" : (mNote ? "לא נמצאו דגמים שמתאימים לתנאים. נסו תקציב גבוה יותר או פחות תנאים." : "לא נמצאו דגמים. נסו שם אחר, למשל שם הדגם באנגלית.");
   let lastMake = null;
   $("#mres").innerHTML = (mNote && mGroups.length ? `<div class="qsec" style="margin-top:0">${mGroups.length} דגמים: ${esc(mNote)}</div>` : "") + shown.map(x => (x.make !== lastMake ? (lastMake = x.make, `<div class="qsec">${esc(x.make)}</div>`) : "") + `<button type="button" class="row" data-mg="${mGroups.indexOf(x)}"><span class="t"><b>${esc(x.model)}</b><small>${isFinite(x.from) ? (x.from === x.to ? x.from : `<span dir="ltr">${x.from}–${x.to}</span>`) : ""}${x.price ? ` · החל מ-${fmtN(x.price)} אלף ₪` : ""}</small></span>${ico("chev")}</button>`).join("")
@@ -2739,7 +2758,7 @@ function loadScript(src){
   return scriptCache[src] || (scriptCache[src] = new Promise((ok, fail) => {
     const el = document.createElement("script"); el.src = src; el.async = true;
     const k = Object.keys(LIBS).find(x => LIBS[x] === src); if (k && LIB_SRI[k]) { el.integrity = LIB_SRI[k]; el.crossOrigin = "anonymous"; }
-    el.onload = ok; el.onerror = () => { delete scriptCache[src]; el.remove(); fail(new Error("load " + src)); };
+    el.onload = ok; el.onerror = () => { reportErr("lib_load"); delete scriptCache[src]; el.remove(); fail(new Error("load " + src)); };
     document.head.appendChild(el);
   }));
 }
@@ -3066,7 +3085,7 @@ async function plateFromPhoto(file){
     inMsg("זיהוי מתמונה דורש חיבור לאינטרנט. נסו שוב.");
   } finally { btn.removeAttribute("aria-busy"); if (worker) worker.terminate().catch(() => {}); }
 }
-$("#camBtn").addEventListener("click", () => { $("#camFile").value = ""; $("#camFile").click(); });
+$("#camBtn").addEventListener("click", () => { track("camera_scan"); $("#camFile").value = ""; $("#camFile").click(); });
 $("#camFile").addEventListener("change", ev => { const f = ev.target.files && ev.target.files[0]; if (f) plateFromPhoto(f); });
 
 /* ---------- plate by voice ---------- */
@@ -3754,7 +3773,7 @@ window.onEntitlement = s => {
   try {
     const o = typeof s === "string" ? JSON.parse(s) : s, e = entGet();
     e.pro = o.plan === "pro" ? o.until : 0; e.biz = o.plan === "biz" ? o.until : 0;
-    if (o.buyerUntil) e.buyer = o.buyerUntil;
+    e.buyer = o.buyerUntil || 0;
     entSet(e);
   } catch {}
   syncPlanUi(); syncBiz(); syncSaved(store.get("savedVehicles"));

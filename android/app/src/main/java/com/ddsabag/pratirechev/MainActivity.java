@@ -111,6 +111,16 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> MainActivity.this.setDark(dark));
             }
 
+            /** A silent failure in the page (tag only), recorded as a non-fatal in Crashlytics */
+            @JavascriptInterface
+            public void logError(String tag) {
+                try {
+                    if (tag == null || !tag.matches("[a-z][a-z0-9_]{0,59}")) return;
+                    com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().recordException(new RuntimeException("web:" + tag));
+                } catch (Throwable ignored) {
+                }
+            }
+
             /** Anonymous usage event from the page (no plate, no personal data); ignored when Firebase is not configured */
             @JavascriptInterface
             public void logEvent(String name, String json) {
