@@ -788,6 +788,21 @@ async function byPlate(set, plate, signal){
   if (!ok && lastErr) throw lastErr;
   return [];
 }
+/* The ministry's ownership-history datastore sometimes answers with nothing for every plate. A daily copy of the
+   file is kept as static shards (last three digits of the plate) on the repo's own-data branch; used only when the API gives no rows. */
+const OWN_BASE = "https://raw.githubusercontent.com/ddsabag/vehicle-app/own-data/";
+let ownMeta = null;
+async function ownMirror(plate, signal){
+  try {
+    if (!ownMeta) { const r = await fetch(OWN_BASE + "meta.json", {signal}); if (!r.ok) return []; ownMeta = await r.json(); }
+    const p = String(Number(plate)), r = await fetch(`${OWN_BASE}o/${p.slice(-3).padStart(3, "0")}.txt`, {signal});
+    if (!r.ok) return [];
+    const txt = await r.text(), want = p + "|", at = txt.startsWith(want) ? 0 : txt.indexOf("\n" + want);
+    if (at < 0) return [];
+    const st = at === 0 ? 0 : at + 1, en = txt.indexOf("\n", st);
+    return txt.slice(st + want.length, en < 0 ? undefined : en).split(",").map(x => { const [ym, t] = x.split(":"); return {baalut_dt: Number(ym), baalut: ownMeta.types[+t] || ""}; });
+  } catch (e) { if (e.name === "AbortError") throw e; return []; }
+}
 /* Model datasets: fetch every row for maker + model code (all years), numeric filters first like the
    ministry's own columns, then text. Rows are ranked in JS so a year or trim mismatch never hides data. */
 async function modelRows(id, rec, signal){
@@ -1236,6 +1251,7 @@ async function fetchVehicle(plate, signal, onProgress){
     catch (err) { if (err.name === "AbortError") throw err; res[s.key] = {rows: [], err: err.message}; }
     if (onProgress) onProgress(++done / (PLATE_SETS.length + 1));
   }));
+  if (!res.owners.rows.length) { const m = await ownMirror(plate, signal); if (m.length) res.owners = {rows: m}; }
   const errs = PLATE_SETS.filter(s => res[s.key].err);
   const mains = PLATE_SETS.filter(s => s.role === "main" && res[s.key].rows.length);
   const extras = PLATE_SETS.filter(s => s.role === "extra" && res[s.key].rows.length);
