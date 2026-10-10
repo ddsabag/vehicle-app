@@ -1347,6 +1347,7 @@ function buildInsights(D){
     if (past.some(t => t.includes("ליסינג"))) add("info", "היה רכב ליסינג", "בעבר הרכב היה בליסינג. רכבי ליסינג צוברים ק״מ מהר.");
     const curOwn = String(own[own.length - 1].baalut || "");
     if (/סוחר|יבואן|מסחר/.test(curOwn)) add("warn", "הרכב רשום כעת על סוחר", "המוכר כנראה סוחר רכבים: ייתכן שהמחיר כולל מרווח של הסוחר. בעסקה עם סוחר חלות עליו חובות גילוי לפי החוק. בקשו מסמכים בכתב ובררו מי היו הבעלים הקודמים.");
+    else if (past.some(t => /סוחר|יבואן|מסחר/.test(t))) add("info", "היה אצל סוחר", "בהיסטוריית הבעלות מופיע סוחר. זה נפוץ ברכב שנמכר בטרייד-אין או הועבר דרך מגרש, ואינו פגם בפני עצמו. שווה לשאול את המוכר מי היו הבעלים לפני ואחרי הסוחר ומה הסיבה.");
     else if (own.length > 1 && /חברה|חברת|תאגיד|השכר|ליסינג/.test(curOwn)) add("info", "הרכב רשום כעת על חברה", "הבעלות הנוכחית על שם חברה, ולא אדם פרטי. אם המוכר מציג את עצמו כבעלים פרטי, בקשו הסבר והסדירו את העברת הבעלות מול החברה.");
     const last = parseYM(own[own.length - 1].baalut_dt);
     if (last && own.length > 1 && monthsBetween(last, now) < 6) add("info", "החליף בעלים לאחרונה", `העברת הבעלות האחרונה הייתה ב-${fmtDate(own[own.length - 1].baalut_dt)}.`);
@@ -1399,6 +1400,7 @@ async function lookup(raw){
   if (signal.aborted) return;
   await side;
   if (signal.aborted) return;
+  if (D.offline || D.notFound) track("lookup_failed", {kind: D.offline ? "offline" : "not_found"});
   if (D.offline) { out.innerHTML = `<div class="msg err">אין חיבור למאגרי משרד התחבורה כרגע. בדקו את החיבור לאינטרנט ונסו שוב.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; return; }
   if (D.notFound) { out.innerHTML = `<div class="msg">לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.</div>`; return; }
   current = D; currentTab = "overview";
@@ -2731,10 +2733,12 @@ const OCR_PATHS = {
   corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1",
   langPath: "https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int",
 };
+const LIB_SRI = {"img": "sha384-Tha/42qsYmpYmQ07pX+nJzkKumO0BzKJxK/uzVc7xyBQxVCUgQBhQIG8L7vXK+9C", "pdf": "sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/", "ocr": "sha384-GJqSu7vueQ9qN0E9yLPb3Wtpd7OrgK8KmYzC8T1IysG1bcvxvIO4qtYR/D3A991F"};
 const scriptCache = {};
 function loadScript(src){
   return scriptCache[src] || (scriptCache[src] = new Promise((ok, fail) => {
     const el = document.createElement("script"); el.src = src; el.async = true;
+    const k = Object.keys(LIBS).find(x => LIBS[x] === src); if (k && LIB_SRI[k]) { el.integrity = LIB_SRI[k]; el.crossOrigin = "anonymous"; }
     el.onload = ok; el.onerror = () => { delete scriptCache[src]; el.remove(); fail(new Error("load " + src)); };
     document.head.appendChild(el);
   }));

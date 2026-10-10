@@ -406,6 +406,8 @@ public class MainActivity extends Activity {
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
                 if (HOST.equals(uri.getHost())) return false;
+                String sch = uri.getScheme();
+                if (!("https".equals(sch) || "http".equals(sch) || "mailto".equals(sch) || "tel".equals(sch) || "geo".equals(sch))) return true;
                 try {
                     startActivity(new Intent(Intent.ACTION_VIEW, uri));
                 } catch (Exception ignored) {
@@ -567,7 +569,7 @@ public class MainActivity extends Activity {
         super.onNewIntent(intent);
         setIntent(intent);
         String plate = plateFrom(intent);
-        if (plate != null) webView.evaluateJavascript("window.run && run('" + plate + "')", null);
+        if (plate != null) webView.evaluateJavascript("window.run && run(" + JSONObject.quote(plate) + ")", null);
         handleIncoming(intent);
     }
 
