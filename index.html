@@ -249,6 +249,27 @@ footer a{display:inline;padding:0;text-decoration:underline}
 .head button.count{position:relative}.head button.count::after{content:"";position:absolute;inset:-12px -6px}
 .inp{min-height:44px}
 footer{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:4px 24px;font-size:.78rem;line-height:1.5;color:var(--muted)}
+
+/* website only: the app has its own layout. Wide screens get two columns (car card on the side), phones keep one column */
+.side,.mainc{display:contents}
+.appbox{order:90;background:var(--card);border-radius:16px;padding:16px;box-shadow:var(--shadow);border:1.5px solid #FFC400}
+.appbox h3{margin:0 0 4px;font-size:1rem;line-height:1.35}.appbox p{margin:0 0 10px;font-size:.84rem;color:var(--muted)}
+.appbox ul{margin:0 0 12px;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;font-size:.88rem}
+.appbox li::before{content:"\2713";color:var(--ok,#1f7a3f);font-weight:800;margin-inline-end:8px}
+.appbox .btn{display:block;width:100%;text-align:center;background:#111;color:#fff;border:0;border-radius:12px;padding:12px;font-weight:700;font-size:.92rem;min-height:44px}
+.apphint{display:flex;gap:10px;align-items:center;width:100%;border:0;text-align:start;background:#FFF8DC;color:var(--fg);border-radius:12px;padding:10px 12px;font-size:.86rem;margin:0 0 10px;min-height:44px}
+.apphint b{white-space:nowrap}.apphint .gox{margin-inline-start:auto;color:var(--accent,#2556c8);font-weight:700;white-space:nowrap}
+.src-foot{order:100}
+@media (min-width:1000px){
+  html.web body:has(#out > .side) .band-in,html.web main#out:has(> .side),html.web footer{max-width:1080px}
+  html.web main#out:has(> .side){display:grid;grid-template-columns:minmax(0,1fr) 340px;column-gap:16px;row-gap:12px;align-items:start}
+  html.web main#out > .plate-strip{grid-column:1/-1}
+  html.web main#out > .side{grid-column:2;grid-row:2;display:flex;flex-direction:column;gap:12px;position:sticky;top:56px}
+  html.web main#out > .mainc{grid-column:1;grid-row:2;display:flex;flex-direction:column;gap:12px;min-width:0}
+  html.web main#out > .src-foot{grid-column:1/-1;grid-row:3}
+  html.web .appbox{order:0}
+}
+@media (prefers-color-scheme:dark){.apphint{background:#3a3320}}
 footer a{color:var(--accent)}
 
 /* recall banner, tabs */
@@ -563,7 +584,7 @@ body.land .band{display:none}
 <button type="button" class="savedbar" id="savedBar" hidden><svg class="i"><use href="#i-star"/></svg><span id="savedBarTxt"></span></button>
 <main id="out" aria-live="polite"></main>
 <footer>המידע מגיע מהמאגרים הפתוחים של משרד התחבורה ב-<a href="https://data.gov.il/" target="_blank" rel="noopener">data.gov.il</a>, ואינו מחליף נסח רישום רשמי. האפליקציה אינה קשורה למשרד התחבורה או לגוף ממשלתי.<span id="mdlLink"> <a href="model/">דגמים נפוצים בישראל</a> · <a href="magazine/">מגזין</a></span></footer>
-<script>(function(){if(window.AndroidApp){var x=document.getElementById("mdlLink");if(x)x.remove()}})()</script>
+<script>(function(){if(!window.AndroidApp)document.documentElement.classList.add("web");if(window.AndroidApp){var x=document.getElementById("mdlLink");if(x)x.remove()}})()</script>
 
 <div class="sheet" id="settings" hidden role="dialog" aria-modal="true" aria-labelledby="setTitle">
   <div class="sheet-in">
@@ -1499,6 +1520,12 @@ async function loadStatus(){
     const el = $("#srcFoot"); if (el) el.outerHTML = srcFoot();
   } catch {}
 }
+const appBox = D => `<section class="appbox"><h3>באתר רואים את הרכב. באפליקציה הוא עובד בשבילכם</h3><p>אותה בדיקה, ועוד:</p><ul><li>התראה כשהטסט מתקרב או שנפתח ריקול</li><li>הודעה אם הרכב עבר בעלות או ירד מהכביש</li><li>יומן טיפולים ועלויות על הטלפון</li><li>צילום לוחית ואמירת מספר, במקום להקליד</li></ul><button type="button" class="btn" data-url="${PLAY_URL}" data-hint="side">להורדה ב-Google Play</button></section>`;
+const appHint = D => {
+  if (window.AndroidApp || D.kind === "model" || D.isCancelled) return "";
+  const t = D.recalls && D.recalls.length ? "התראה כשיוצא ריקול חדש לרכב הזה" : "תזכורת לפני שהטסט פג";
+  return `<button type="button" class="apphint" data-url="${PLAY_URL}" data-hint="overview"><span aria-hidden="true">🔔</span><span><b>רוצים לדעת ראשונים?</b> ${t}</span><span class="gox">באפליקציה ›</span></button>`;
+};
 function renderResult(){
   if (land) setLand(false, false);
   inCompare = false;
@@ -1516,6 +1543,7 @@ function renderResult(){
   if (D.own.length) pills.push(`<span class="pill">${ownersLabel(D)}</span>`);
   if (clean) pills.push(`<span class="pill ok">${ico("check")}לא נמצאו בעיות במאגרי משרד התחבורה</span>`);
   if (D.tag) pills.push(`<span class="pill">תג נכה</span>`);
+  html.push(`<div class="side">`);
   html.push(`<section class="card id-card">
     <div class="id-top"><div><p class="id-title">${esc(D.title)}</p><p class="id-sub">${esc(D.sub)}</p></div>
       <span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span></div>
@@ -1539,12 +1567,15 @@ function renderResult(){
     if (stl.length) html.push(`<button type="button" class="alert-banner warn" data-tab="recalls">${ico("scale")}<span><b>${stl.length === 1 ? "ייתכן שמגיעה הטבה מהסדר פשרה" : `ייתכן שמגיעות ${stl.length} הטבות מהסדרי פשרה`}</b>ההטבה תלויה בהתאמה לרכב שלכם. הפרטים בלשונית ריקולים ופשרות.</span></button>`);
   }
   if (D.errs && D.errs.length) html.push(`<p class="msg">חלק ממאגרי משרד התחבורה לא ענו כרגע, והמידע על הרכב חלקי. נסו שוב בעוד דקה.</p>`);
+  if (!window.AndroidApp) html.push(appBox(D));
+  html.push(`</div><div class="mainc">`);
   const recallCount = D.recalls.length;
   if (simpleOn()) html.push(simpleCard(D));
   else {
       html.push(`<div class="tabs" role="tablist">${TABS.map(([k, t]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${k === currentTab}">${t}${k === "recalls" && recallCount ? `<i class="hot">${recallCount}</i>` : ""}</button>`).join("")}</div>`);
-      html.push(`<div class="tab-body">${TAB_FN()[currentTab](D)}</div>`);
+      html.push(`<div class="tab-body">${currentTab === "overview" ? appHint(D) : ""}${TAB_FN()[currentTab](D)}</div>`);
   }
+  html.push(`</div>`);
   html.push(srcFoot());
   const ft = document.querySelector("body > footer"); if (ft) ft.hidden = true;
   $("#out").innerHTML = html.join("");
@@ -2691,6 +2722,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "simpleMore") { simpleMore = !simpleMore; track("simple_more", {on: simpleMore}); renderResult(); return; }
   if (b.dataset.url) {
     if (b.dataset.copyfirst) { copyText(b.dataset.copyfirst, b.dataset.copylabel || "מספר הרישוי").then(() => setTimeout(() => openExternal(b.dataset.url), 600)); return; }
+    if (b.dataset.hint) track("web_hint_click", {where: b.dataset.hint});
     track("link_out", {kind: (b.dataset.copyfirst ? "importer" : "other")}); openExternal(b.dataset.url); return;
   }
   if (b.dataset.open) { run(b.dataset.open); return; }
