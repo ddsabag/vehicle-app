@@ -3057,7 +3057,7 @@ const lastShare = () => { try { return localStorage.getItem("lastShare") === "pd
 const shareKey = kind => kind === "pdf" ? [current && current.plate, "pdf"].join("|") : [current && current.plate, "image", simpleOn(), currentTab, simpleMore].join("|");
 function warmShare(){
   const D = current; if (!D) return;
-  const kind = lastShare(), key = shareKey(kind); if (shareWarm && shareWarm.key === key) return;
+  const kind = lastShare(), key = shareKey(kind); if (kind !== "pdf") return; if (shareWarm && shareWarm.key === key) return;
   const p = Promise.all([kind === "pdf" ? loadScript(LIBS.pdf) : null]).then(() => new Promise(r => setTimeout(r, 60))).then(() => captureReport(D, kind === "pdf")); p.catch(() => {});
   shareWarm = {key, p};
 }
@@ -3065,6 +3065,74 @@ async function warmCap(kind){
   const w = shareWarm; shareWarm = null;
   if (w && w.key === shareKey(kind)) { try { return await w.p; } catch {} }
   return null;
+}
+/* The shared picture is drawn straight on a canvas: a designed summary card in a few milliseconds. (Photographing the whole report through an SVG snapshot took
+   several seconds on a phone; the full report is the PDF.) */
+async function drawShareCard(D){
+  const W = 1080, P = 56, c = document.createElement("canvas"); c.width = W; c.height = 4200;
+  const x = c.getContext("2d"); x.direction = "rtl"; x.textBaseline = "alphabetic";
+  const FONT = '"Noto Sans Hebrew","Segoe UI",Arial,sans-serif';
+  const f = (px, wt = 500) => { x.font = `${wt} ${px}px ${FONT}`; };
+  const R = W - P;
+  const rr = (X, Y, w, h, r, fill, stroke, lw) => { x.beginPath(); x.roundRect(X, Y, w, h, r); if (fill) { x.fillStyle = fill; x.fill(); } if (stroke) { x.lineWidth = lw || 2; x.strokeStyle = stroke; x.stroke(); } };
+  const wrap = (t, maxW) => { const out = []; let cur = ""; for (const w of String(t).split(" ")) { const n = cur ? cur + " " + w : w; if (x.measureText(n).width > maxW && cur) { out.push(cur); cur = w; } else cur = n; } if (cur) out.push(cur); return out; };
+  const text = (t, X, Y, color, align = "right") => { x.fillStyle = color; x.textAlign = align; x.fillText(t, X, Y); };
+  const INK = "#151a24", MUT = "#5d6676";
+  const TONE = {ok: ["#1f7a3f", "#e3f4e8"], warn: ["#9a5b00", "#fdf0d8"], bad: ["#b3261e", "#fde7e5"], info: ["#2556c8", "#e6eefc"]};
+  // header band
+  const g = x.createLinearGradient(0, 0, 0, 210); g.addColorStop(0, "#e2ecfd"); g.addColorStop(1, "#ffffff"); x.fillStyle = g; x.fillRect(0, 0, W, 210);
+  const logo = await loadLogo(); if (logo) x.drawImage(logo, R - 96, 54, 96, 96);
+  f(66, 800); text("לוחית", R - 116, 112, INK); f(30, 600); text("בדיקת רכב לפי מספר רישוי", R - 116, 154, MUT);
+  f(28, 700); const tag = "חינם ב-Google Play", tw = x.measureText(tag).width + 44; rr(P, 76, tw, 56, 28, "#2556c8"); text(tag, P + tw / 2, 114, "#fff", "center");
+  let y = 262;
+  // car
+  const v = D.v, yr = empty(v.shnat_yitzur) ? "" : String(v.shnat_yitzur);
+  f(76, 800); for (const l of wrap(D.title, W - 2 * P)) { text(l, R, y, INK); y += 86; } y -= 30;
+  const dt = driveType(D), sub = [yr, v.tzeva_rechev, dt && dt.label, D.sub && !/^\d{4}/.test(D.sub) ? null : null].filter(x2 => !empty(x2)).join(" · ");
+  if (sub) { f(38, 500); text(sub, R, y, MUT); y += 14; }
+  // plate
+  y += 26; const pw = 520, ph = 112; rr(R - pw, y, pw, ph, 18, "#f6c500", "#151a24", 6); rr(R - pw + 3, y + 3, 84, ph - 6, 15, "#1d4fa8"); f(26, 800); text("IL", R - pw + 45, y + 54, "#fff", "center");
+  x.direction = "ltr"; f(78, 800); x.fillStyle = "#151a24"; x.textAlign = "center"; x.fillText(fmtPlate(D.plate), R - pw / 2 + 40, y + 82); x.direction = "rtl";
+  y += ph + 44;
+  // status rows
+  const rows = [];
+  const add = (tone, t) => rows.push([tone, t]);
+  const exp = toDate(v.tokef_dt), now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (D.isCancelled) add("bad", "הרכב ירד מהכביש");
+  else {
+    if (exp) add(exp >= today ? "ok" : "bad", exp >= today ? `טסט בתוקף עד ${fmtDate(v.tokef_dt)}` : `הטסט פג ב-${fmtDate(v.tokef_dt)}`);
+    const blocking = D.recalls.some(isBlocking);
+    add(D.recalls.length ? "bad" : "ok", D.recalls.length ? (blocking ? "ריקול פתוח שמגביל חידוש רישיון" : D.recalls.length === 1 ? "ריקול פתוח אחד" : `${D.recalls.length} ריקולים פתוחים`) : "אין ריקול פתוח");
+    if (D.own.length) add("info", ownersLabel(D));
+    const mods = ["shinui_mivne_ind", "gapam_ind", "shnui_zeva_ind", "shinui_zmig_ind"].filter(k => yes(v[k]));
+    add(mods.length ? "warn" : "ok", mods.length ? "נרשמו שינויים ברכב" : "לא נרשמו שינויי מבנה, צבע או גפ״מ");
+    const stl = D.kind === "model" ? [] : settlementsFor(D);
+    add(stl.length ? "warn" : "ok", stl.length ? `ייתכן שהרכב נכלל ב${pl(stl.length, "הסדר פשרה", "הסדרי פשרה")}` : "לא נמצא הסדר פשרה לדגם ולשנתון");
+  }
+  for (const i of buildInsights(D)) if ((i.level === "bad" || i.level === "warn") && rows.length < 9 && !rows.some(r => r[1] === i.title) && !/טסט|ריקול|הסדר/.test(i.title)) add(i.level, i.title);
+  y += 30; f(36, 800); text("מה נמצא", R, y, INK); y += 26;
+  for (const [tone, t] of rows) {
+    f(36, 600); const lines = wrap(t, W - 2 * P - 150), h = 40 + lines.length * 48;
+    rr(P, y, W - 2 * P, h, 22, TONE[tone][1]);
+    x.beginPath(); x.arc(R - 44, y + h / 2, 22, 0, 7); x.fillStyle = TONE[tone][0]; x.fill();
+    f(28, 800); text(tone === "ok" ? "✓" : tone === "info" ? "i" : "!", R - 44, y + h / 2 + 10, "#fff", "center");
+    f(36, 600); lines.forEach((l, k) => text(l, R - 90, y + 20 + 48 * (k + 1) - 12, INK)); y += h + 14;
+  }
+  // numbers
+  const tiles = [], cost = D.cost || {};
+  if (D.km) tiles.push(["ק״מ בטסט האחרון", fmtN(D.km)]);
+  if (D.kmPerYear && D.kmPerYear > 2000) tiles.push(["ממוצע לשנה", fmtN(Math.round(D.kmPerYear / 100) * 100)]);
+  if (cost.valueLow && cost.valueHigh) tiles.push(["שווי משוער (הערכה)", `${Math.round(cost.valueLow / 1000)}–${Math.round(cost.valueHigh / 1000)} אלף ₪`]);
+  if (tiles.length && !D.isCancelled) {
+    y += 14; const tw2 = (W - 2 * P - 20 * (tiles.length - 1)) / tiles.length;
+    tiles.forEach(([k, val], i) => { const X = R - tw2 * (i + 1) - 20 * i; rr(X, y, tw2, 150, 22, "#f4f6fa"); f(28, 600); text(k, X + tw2 - 22, y + 48, MUT); f(tiles.length > 2 ? 40 : 52, 800); x.direction = "ltr"; text(val, X + tw2 - 22, y + 112, INK, "right"); x.direction = "rtl"; });
+    y += 150 + 30;
+  } else y += 16;
+  // footer
+  rr(P, y, W - 2 * P, 124, 26, "#151a24"); f(36, 800); text("הבדיקה המלאה, בחינם", R - 32, y + 54, "#fff"); f(30, 500); text("luchit.app · אפליקציית לוחית ב-Google Play", R - 32, y + 98, "#c9d1e0");
+  y += 124 + 24; f(24, 500); text("המידע ממאגרי משרד התחבורה ואינו מחליף נסח רישום רשמי. ערכים משוערים מסומנים כהערכה.", R, y + 10, MUT); y += 56;
+  const out = document.createElement("canvas"); out.width = W; out.height = y; const o = out.getContext("2d"); o.fillStyle = "#fff"; o.fillRect(0, 0, W, y); o.drawImage(c, 0, 0);
+  return {canvas: out, breaks: []};
 }
 async function doShare(kind){
   track("share", {kind});
@@ -3081,7 +3149,7 @@ async function doShare(kind){
     if (biz) await shareFile(await makePdf(D, biz), name + ".pdf", D.title);
     else if (kind === "pdf") await shareFile(await makePdf(D, undefined, await warmCap("pdf")), name + ".pdf", D.title, caption);
     else {
-      const cap = (await warmCap("image")) || await captureReport(D, false);
+      let cap; try { cap = await drawShareCard(D); } catch (e) { reportErr("share_card"); cap = (await warmCap("image")) || await captureReport(D, false); }
       // JPEG encodes several times faster than PNG on a phone and chat apps recompress to JPEG anyway
       await shareFile(await canvasToBlob(cap.canvas, "image/jpeg", 0.92), name + ".jpg", D.title, caption);
     }
