@@ -1477,7 +1477,7 @@ function srcFoot(){
   const st = DATA_STATUS, a = st && st.sets && st.sets.active;
   const names = {active: "רכבים פעילים", tech: "היסטוריה טכנית", owners: "בעלויות", recalls: "ריקולים", wltp: "מפרטים"};
   const down = st ? Object.keys(st.sets).filter(k => !st.sets[k].ok).map(k => names[k]) : [];
-  return `<p class="src-foot" id="srcFoot">המידע נשלף מנתוני משרד התחבורה ב-data.gov.il${a && a.modified ? `, המאגר הראשי עודכן ב-${fmtDay(a.modified)}` : ""}.${down.length ? `<br>כרגע המאגר אינו זמין אצל המשרד: ${down.join(", ")}.` : ""}<br>המידע אינו מחליף בדיקה במכון מורשה.</p>`;
+  return `<p class="src-foot" id="srcFoot">המידע נשלף מנתוני משרד התחבורה ב-data.gov.il${a && a.modified ? `, המאגר הראשי עודכן ב-${fmtDay(a.modified)}` : ""}.${down.length ? `<br>כרגע המאגר אינו זמין אצל המשרד: ${down.join(", ")}.` : ""}<br>האפליקציה אינה קשורה למשרד התחבורה, והמידע אינו מחליף נסח רישום רשמי או בדיקה במכון מורשה.</p>`;
 }
 async function loadStatus(){
   if (DATA_STATUS) return;
@@ -1534,6 +1534,7 @@ function renderResult(){
       html.push(`<div class="tab-body">${TAB_FN()[currentTab](D)}</div>`);
   }
   html.push(srcFoot());
+  const ft = document.querySelector("body > footer"); if (ft) ft.hidden = true;
   $("#out").innerHTML = html.join("");
   loadStatus();
   // once the car's header has scrolled away, a slim bar keeps the plate and model on screen, so any screenshot of this car says which car it is
@@ -3660,6 +3661,7 @@ function renderHome(){
   ].join("")}</div>`);
   if (store.get("savedCompares").length) html.push(card("השוואות שמורות", "compare", "violet", `<div class="list">${store.get("savedCompares").map((c, i) => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-loadcmp="${i}"><span class="t"><b>${esc(c.name)}</b><small>${c.items.length} רכבים</small></span></button><button type="button" class="x" data-delcmp="${i}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div>`));
   html.push(faqCard());
+  { const ft = document.querySelector("body > footer"); if (ft) ft.hidden = false; }
   html.push(`<i id="homeMark" hidden></i>`);
   $("#out").innerHTML = html.join("");
   if (saved.length) checkSaved();
