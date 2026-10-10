@@ -222,6 +222,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .row .t{flex:1;min-width:0}
 .row .t b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere}
 .row .t small{color:var(--muted)}
+a.row{color:var(--fg);text-decoration:none}a.row .t small{text-decoration:none}a.more{display:inline-block;margin-top:8px;color:var(--accent);font-weight:600;text-decoration:none}
 .row .x.bell[aria-pressed="false"]{opacity:.4}
 .row .x.bell[aria-pressed="true"]{color:var(--accent)}
 .savedbar{display:flex;align-items:center;gap:8px;margin:10px 16px 0;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:8px 14px;font-weight:700;color:var(--fg);width:calc(100% - 32px)}
@@ -561,7 +562,7 @@ body.land .band{display:none}
 </div>
 <button type="button" class="savedbar" id="savedBar" hidden><svg class="i"><use href="#i-star"/></svg><span id="savedBarTxt"></span></button>
 <main id="out" aria-live="polite"></main>
-<footer>המידע מגיע מהמאגרים הפתוחים של משרד התחבורה ב-<a href="https://data.gov.il/" target="_blank" rel="noopener">data.gov.il</a>, ואינו מחליף נסח רישום רשמי. האפליקציה אינה קשורה למשרד התחבורה או לגוף ממשלתי.<span id="mdlLink"> <a href="model/">דגמים נפוצים בישראל</a></span></footer>
+<footer>המידע מגיע מהמאגרים הפתוחים של משרד התחבורה ב-<a href="https://data.gov.il/" target="_blank" rel="noopener">data.gov.il</a>, ואינו מחליף נסח רישום רשמי. האפליקציה אינה קשורה למשרד התחבורה או לגוף ממשלתי.<span id="mdlLink"> <a href="model/">דגמים נפוצים בישראל</a> · <a href="magazine/">מגזין</a></span></footer>
 <script>(function(){if(window.AndroidApp){var x=document.getElementById("mdlLink");if(x)x.remove()}})()</script>
 
 <div class="sheet" id="settings" hidden role="dialog" aria-modal="true" aria-labelledby="setTitle">
@@ -3677,11 +3678,20 @@ function renderHome(){
     tool("bulk", "doc", "בדיקת כמה רכבים", "הדביקו רשימת מספרי רישוי וקבלו טבלה אחת", "PRO עסקי", "slate"),
   ].join("")}</div>`);
   if (store.get("savedCompares").length) html.push(card("השוואות שמורות", "compare", "violet", `<div class="list">${store.get("savedCompares").map((c, i) => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-loadcmp="${i}"><span class="t"><b>${esc(c.name)}</b><small>${c.items.length} רכבים</small></span></button><button type="button" class="x" data-delcmp="${i}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div>`));
+  if (!window.AndroidApp) html.push(`<div id="mgz"></div>`);
   html.push(faqCard());
   { const ft = document.querySelector("body > footer"); if (ft) ft.hidden = false; }
   html.push(`<i id="homeMark" hidden></i>`);
   $("#out").innerHTML = html.join("");
   if (saved.length) checkSaved();
+  if (!window.AndroidApp) loadMagazine();
+}
+/* web only: the latest magazine articles on the home page (magazine/posts.json is built monthly) */
+function loadMagazine(){
+  fetch("magazine/posts.json").then(r => r.ok ? r.json() : []).then(list => {
+    const box = $("#mgz"); if (!box || !Array.isArray(list) || !list.length) return;
+    box.outerHTML = card("מהמגזין", "doc", "blue", `<div class="list">${list.slice(0, 3).map(p => `<a class="row" href="magazine/${esc(p.slug)}/"><div class="t"><b>${esc(p.title)}</b><small>${esc(p.tag)} · ${esc(p.month)}</small></div></a>`).join("")}</div><a class="more" href="magazine/">לכל הכתבות ›</a>`);
+  }).catch(() => {});
 }
 
 function run(p){ lookup(p).catch(err => { $("#out").innerHTML = `<div class="msg err">${esc(err.message)}</div>`; $("#go").disabled = false; }); }

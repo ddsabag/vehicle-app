@@ -49,9 +49,9 @@ h1{font-size:1.45rem;margin:0 0 6px;line-height:1.3}h1::after{content:"";display
 .wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:.92rem}th,td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:right}th{color:var(--muted);font-weight:600}td.n,th.n{text-align:left;font-variant-numeric:tabular-nums}
 ul.l{columns:2;list-style:none;padding:0}ul.l li{break-inside:avoid;padding:3px 0}.top{font-weight:800;text-decoration:none;color:var(--fg)}`;
 const head = (title, desc, url) => `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><meta name="description" content="${esc(desc)}"><link rel="canonical" href="${url}"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:image" content="${SITE}og.png"><meta property="og:locale" content="he_IL"><link rel="icon" href="${SITE}icon-512.png"><style>${css}</style></head><body><main>`;
-const foot = `<p class="muted" style="margin-top:28px">המידע מגיע ממאגרים פתוחים של משרד התחבורה ב-data.gov.il, ואינו מחליף נסח רישום רשמי או בדיקה במכון מורשה. האפליקציה אינה קשורה למשרד התחבורה. <a href="${SITE}privacy.html">מדיניות פרטיות</a></p></main></body></html>`;
+const foot = `<p class="muted" style="margin-top:28px">המידע מגיע ממאגרים פתוחים של משרד התחבורה ב-data.gov.il, ואינו מחליף נסח רישום רשמי או בדיקה במכון מורשה. האפליקציה אינה קשורה למשרד התחבורה. <a href="${SITE}magazine/">מגזין</a> · <a href="${SITE}privacy.html">מדיניות פרטיות</a></p></main></body></html>`;
 fs.rmSync("model", {recursive: true, force: true}); fs.mkdirSync("model", {recursive: true});
-const urls = [SITE, SITE + "privacy.html", SITE + "model/"];
+const urls = [SITE, SITE + "privacy.html", SITE + "model/"], slugMap = {};
 for (const m of models) {
   const years = Object.keys(m.y).sort();
   const rows = years.map(yr => { const t = m.y[yr]; return {yr, act: t.act, off: t.off, km: t.kmn ? t.kmw / t.kmn : null, ow: t.own ? t.ow / t.own : null}; });
@@ -72,11 +72,14 @@ ${rows.slice().reverse().map(r => `<tr><td>${r.yr}</td><td class="n">${fmt(r.act
 ${stl.length ? `<h2>הסדרי פשרה שעשויים לחול על ${esc(name)}</h2><p class="muted">לפי הודעות היבואנים והעיתונות נכון ל-10/2026. הזכאות תלויה בשנתון, בגרסה ולפעמים במספר שלדה, והרשימה אינה מקיפה ואינה ייעוץ משפטי. לבדיקה לפי מספר רישוי השתמשו באפליקציה.</p>${stl.map(t => `<div class="card"><b>${esc(t.t)}</b> <span class="muted">${t.st === "ok" ? "אושר" : "ממתין לאישור בית המשפט"}</span><p style="margin:6px 0 0">${esc(t.b)}</p><p class="muted" style="margin:6px 0 0">${esc(t.cond)}</p></div>`).join("")}` : ""}<h2>לפני שקונים ${esc(name)}</h2><p>בדקו את הרכב הספציפי לפי מספר רישוי: ריקול פתוח, תוקף טסט, קילומטראז׳ לאורך השנים והיסטוריית בעלויות, והשוו למחיר ביד שנייה.</p>
 <p><a class="cta" href="${SITE}">בדיקת רכב בלוחית</a></p>${foot}`;
   fs.mkdirSync(`model/${slugOf(m)}`, {recursive: true}); fs.writeFileSync(`model/${slugOf(m)}/index.html`, body);
-  urls.push(url); m.slug = slugOf(m); m.act = act;
+  urls.push(url); m.slug = slugOf(m); m.act = act; slugMap[m.make + "|" + m.model] = m.slug;
 }
 const by = new Map(); for (const m of models) (by.get(m.make) || by.set(m.make, []).get(m.make)).push(m);
 const idx = `${head("דגמי רכב בישראל לפי נתוני משרד התחבורה | לוחית", "רשימת הדגמים הנפוצים בישראל עם מספר הרכבים הפעילים, ק״מ ושנתונים, לפי מאגרי משרד התחבורה.", SITE + "model/")}<h1>הדגמים הנפוצים בישראל</h1><p class="muted">לפי מספר הרכבים הפעילים במאגרי משרד התחבורה.</p>
 ${[...by.entries()].map(([mk, a]) => `<h2>${esc(mk)}</h2><ul class="l">${a.map(m => `<li><a href="${SITE}model/${m.slug}/">${esc(m.disp)}</a> <span class="muted">${fmt(m.act)}</span></li>`).join("")}</ul>`).join("\n")}${foot}`;
 fs.writeFileSync("model/index.html", idx);
+fs.writeFileSync("model/slugs.json", JSON.stringify(slugMap));
+// the monthly magazine (magazine.mjs) keeps its own pages; keep them in the sitemap
+try { const posts = JSON.parse(fs.readFileSync("magazine/posts.json", "utf8")); urls.push(SITE + "magazine/", ...posts.map(p => `${SITE}magazine/${p.slug}/`)); } catch {}
 fs.writeFileSync("sitemap.xml", `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}\n</urlset>\n`);
 console.log("pages", models.length, "sitemap urls", urls.length);
