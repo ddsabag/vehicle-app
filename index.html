@@ -381,6 +381,7 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .mk-seg{margin-bottom:10px}.mk-chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 2px}
 .mk-chips button{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:999px;padding:6px 12px;font-weight:700}
 .mk-chips button[aria-pressed="true"]{background:var(--fg);color:var(--card);border-color:var(--fg)}
+.mk-sum{margin:8px 0 0;font-size:.92rem;font-weight:600}
 .mk-big{font-size:2rem;font-weight:800;line-height:1.1}.mk-chg{font-weight:700;font-size:.95rem}.mk-chg.up{color:#1a8f4a}.mk-chg.dn{color:#c93c3c}
 .mk-bars{display:flex;align-items:flex-end;gap:4px;height:110px;margin-top:12px}
 .mk-bars div{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;font-size:.68rem;color:var(--muted);gap:3px}
@@ -3351,12 +3352,16 @@ function renderMarket(M){
   const total = sumM(M.months, P.ms), prevTotal = P.prevMs.length ? sumM(M.months, P.prevMs) : 0;
   const mx = Math.max(...P.ms.map(m => M.months[m] || 0), 1);
   html.push(card("מסירות בתקופה", "chart", "blue", `<div class="mk-big">${fmtN(total)}</div><div>רכבים חדשים · ${periodLabel(P)} ${chgHtml(total, prevTotal)}${prevTotal ? ` <small style="color:var(--muted)">מול התקופה המקבילה אשתקד</small>` : ""}</div><div class="mk-bars">${P.ms.map(m => `<div title="${fmtN(M.months[m] || 0)}"><span>${((M.months[m] || 0) / 1000).toFixed(1)}K</span><i style="height:${Math.max(2, (M.months[m] || 0) / mx * 78)}%"></i><span>${MON[+m.slice(4) - 1]}</span></div>`).join("")}</div>`));
+  { const top1 = o => Object.entries(o).map(([k, v]) => [k, sumM(v, P.ms)]).sort((a, b) => b[1] - a[1])[0];
+    const tm = top1(M.makers), td = top1(M.models), ch = pctTxt(total, prevTotal);
+    html[0] = html[0].replace(/<p class="note" style="margin-top:0">[^<]*<\/p>/, x => x + `<p class="mk-sum">בתקופה נמסרו ${fmtN(total)} רכבים חדשים${ch ? ` (${ch} מול התקופה המקבילה אשתקד)` : ""}. היצרן המוביל: ${esc(mkMake(tm[0]))}, הדגם המוביל: ${esc([mkMake(td[0].split("|")[0]), ...td[0].split("|").slice(1)].join(" "))}.</p>`); }
   const mkTop = (obj, ms, pms, n, nameFn) => {
     const rows = Object.entries(obj).map(([k, v]) => [k, sumM(v, ms), sumM(v, pms)]).filter(r => r[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, n), top = rows[0] ? rows[0][1] : 1;
     return rows.map(([k, c, p]) => `<div class="mk-row"><b>${esc(nameFn(k))}</b><span>${fmtN(c)} <small>· ${(c / total * 100).toFixed(1)}%</small> ${chgHtml(c, p)}</span><div class="tr"><i style="width:${c / top * 100}%"></i></div></div>`).join("");
   };
   html.push(card("יצרנים מובילים", "star", "amber", mkTop(M.makers, P.ms, P.prevMs, 10, mkMake)));
   html.push(card("דגמים מובילים", "car", "violet", mkTop(M.models, P.ms, P.prevMs, 10, k => { const [mk, ...r] = k.split("|"); return [mkMake(mk), ...r].join(" "); }) + `<p class="note">לפי הכינוי המסחרי, כל המנועים והגימורים יחד.</p>`));
+  if (M.bodies && Object.keys(M.bodies).length) html.push(card("סוג מרכב", "car", "blue", mkTop(M.bodies, P.ms, P.prevMs, 8, k => k) + `<p class="note">לפי סוג המרכב בקטלוג של המשרד. ${M.bodyCover && M.bodyCover < 0.98 ? "חלק מהרכבים לא משויכים לסוג מרכב, ולכן הסכום קטן מסך המסירות." : ""}</p>`));
   const OWN = [["פרטי", "פרטי", "#2556c8"], ["ליסינג", "ליסינג", "#e0a100"], ["חברה", "חברה", "#7a4fd1"], ["השכרה", "השכרה", "#1a8f4a"], ["סוחר", "סוחר", "#8a93a6"]];
   const own = M.ownership[P.year];
   if (own) {
@@ -3379,12 +3384,7 @@ function renderMarket(M){
   }
   const iy = M.importYear || {}, iys = Object.keys(iy).sort().reverse().slice(0, 6);
   if (iys.length) html.push(card("יבוא אישי", "globe", "teal", `<table class="mk-tbl"><tr><th>שנת עלייה לכביש</th><th>חדש</th><th>משומש</th></tr>${iys.map(y => `<tr><td>${y}</td><td>${fmtN(iy[y]["יבוא אישי-חדש"] || 0)}</td><td>${fmtN(iy[y]["יבוא אישי-משומש"] || 0)}</td></tr>`).join("")}</table><p class="note">רכבים שנרשמו כיבוא אישי ועדיין רשומים במאגר.</p>`));
-  if ((M.evArea || []).length) {
-    const by = {}; for (const r of M.evArea) inc2(by, r.area, r.n);
-    const rows = Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 10), top = rows[0][1];
-    html.push(card("רכבים חשמליים לפי אזור", "bolt", "green", rows.map(([a, n]) => `<div class="mk-row"><b>${esc(a)}</b><span>${fmtN(n)}</span><div class="tr"><i style="width:${n / top * 100}%"></i></div></div>`).join("") + `<p class="note">כל הרכבים החשמליים הרשומים היום, לפי אזור הרישוי.</p>`));
-  }
-  if (PRO_LOCK && !isPro()) { html.splice(3, html.length - 3, proLockCard("שוק הרכב המלא", "דגמים, חלוקת בעלות, סוג הנעה, סימני גיול, יבוא אישי, חשמליים לפי אזור, בחירת רבעון והיסטוריה מלאה.")); }
+  if (PRO_LOCK && !isPro()) { html.splice(3, html.length - 3, proLockCard("שוק הרכב המלא", "דגמים, חלוקת בעלות, סוג הנעה, סימני גיול, יבוא אישי, סוגי מרכב, בחירת רבעון והיסטוריה מלאה.")); }
   MK_LAST = {M, P};
   if (atLeast("pro")) html.push(`<button type="button" class="link-btn" data-act="mkCsv">${ico("doc")}ייצוא נתוני התקופה לאקסל (CSV)</button>`);
   html.push(`<p class="note" style="text-align:center">עודכן ${esc(fmtDate(M.updated))} · מקור: מאגרי משרד התחבורה</p><button type="button" class="link-btn" data-act="marketBack">${ico("back")}חזרה</button>`);

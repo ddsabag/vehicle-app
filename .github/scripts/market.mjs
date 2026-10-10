@@ -3,7 +3,7 @@
 import fs from "node:fs";
 const API = "https://data.gov.il/api/3/action/datastore_search";
 const DELIV = "602ac32d-19c0-4b41-88e0-e3ce8a7e80b7", COUNTS = "5e87a7a1-2f6f-41c1-8aec-7216d52a6cf6", ACTIVE = "053cea08-09bc-40ec-8f7a-156f0677aff3";
-const IMPORT = "03adc637-b6fe-402b-9937-7c3d3afc9140", EVAREA = "07421a4e-5b12-4444-9173-5ca297b31f79";
+const WLTP = "142afde2-6228-49f9-8a29-9b6c3a0cbe40", IMPORT = "03adc637-b6fe-402b-9937-7c3d3afc9140", EVAREA = "07421a4e-5b12-4444-9173-5ca297b31f79";
 const PAGE = 30000;
 async function call(params, tries = 4) {
   for (let i = 0; i < tries; i++) {
@@ -31,22 +31,28 @@ const brand = {};
 await scan(COUNTS, {fields: "tozeret_cd,tozar"}, rows => { for (const r of rows) if (r.tozar) brand[r.tozeret_cd] = String(r.tozar).trim(); });
 console.log("brands", Object.keys(brand).length);
 
+// body type (merkav) per factory code + model code, newest catalogue year wins
+const bodyOf = {}, bodyYear = {};
+await scan(WLTP, {fields: "tozeret_cd,degem_cd,merkav,shnat_yitzur"}, rows => { for (const r of rows) { const k = r.tozeret_cd + "|" + r.degem_cd, y = Number(r.shnat_yitzur) || 0, b = String(r.merkav || "").trim(); if (b && y >= (bodyYear[k] || 0)) { bodyOf[k] = b; bodyYear[k] = y; } } });
+console.log("body keys", Object.keys(bodyOf).length);
+
 // 1. deliveries of new private cars per month, 2022 on
-const months = {}, makers = {}, models = {};
-await scan(DELIV, {sort: "sgira_month desc", filters: JSON.stringify({sug_degem: "P"}), fields: "sgira_month,tozeret_cd,tozeret_nm,kinuy_mishari,car_num"}, rows => {
+const months = {}, makers = {}, models = {}, bodies = {}; let bodyHit = 0, bodyAll = 0;
+await scan(DELIV, {sort: "sgira_month desc", filters: JSON.stringify({sug_degem: "P"}), fields: "sgira_month,tozeret_cd,degem_cd,tozeret_nm,kinuy_mishari,car_num"}, rows => {
   let go = true;
   for (const r of rows) {
     if (r.sgira_month < 202201) { go = false; continue; }
     const m = String(r.sgira_month), y = m.slice(0, 4), n = Number(r.car_num) || 0;
     const mk = brand[r.tozeret_cd] || String(r.tozeret_nm).split(" ")[0];
     inc(months, m, n);
+    { const bd = bodyOf[r.tozeret_cd + "|" + r.degem_cd]; bodyAll += n; if (bd) { bodyHit += n; (bodies[bd] ||= {})[m] = (bodies[bd][m] || 0) + n; } }
     (makers[mk] ||= {})[m] = (makers[mk][m] || 0) + n;
     const key = mk + "|" + String(r.kinuy_mishari || "").trim();
     (models[key] ||= {})[m] = (models[key][m] || 0) + n;
   }
   return go;
 });
-out.months = months; out.makers = makers;
+out.months = months; out.makers = makers; out.bodies = bodies; out.bodyCover = bodyAll ? bodyHit / bodyAll : 0; console.log("body coverage", out.bodyCover);
 // keep the 150 biggest models
 out.models = Object.fromEntries(Object.entries(models).sort((a, b) => Object.values(b[1]).reduce((s, x) => s + x, 0) - Object.values(a[1]).reduce((s, x) => s + x, 0)).slice(0, 150));
 console.log("months", Object.keys(months).length, "makers", Object.keys(makers).length, "models", Object.keys(models).length);
@@ -80,9 +86,6 @@ try {
   const f = await call({resource_id: IMPORT, limit: "2"}); impFields = f.fields.map(x => x.id); 
 } catch (e) { console.log("import", e.message); }
 out.import = imp; out.importYear = impYear; delete out.importSample; console.log("import", JSON.stringify(imp), impFields);
-
-// 4. EVs by area
-try { const r = await call({resource_id: EVAREA, limit: "200"}); out.evArea = r.records.map(x => ({own: x.baalut, district: x.mahoz_nm, area: x.nafa_nm, n: x.car_num})); } catch (e) { console.log("ev", e.message); }
 
 fs.mkdirSync("out", {recursive: true});
 fs.writeFileSync("out/market.json", JSON.stringify(out));
