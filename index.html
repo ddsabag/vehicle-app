@@ -120,6 +120,10 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 
 /* identity */
 .id-card{gap:14px}
+.plate-strip{position:fixed;inset-inline:0;top:env(safe-area-inset-top,0px);z-index:30;display:flex;align-items:center;gap:10px;padding:7px 16px;background:var(--card);border-bottom:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.08);transform:translateY(-110%);transition:transform .18s;pointer-events:none}
+.plate-strip.on{transform:none}
+.plate-strip b{font-weight:800;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.plate-strip span:last-child:not(.mini-plate){color:var(--muted);font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){.plate-strip{transition:none}}
 #out .id-card .mini-plate{display:none}   /* the plate is already in the search field above; the shared report keeps it */
 .id-top{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}.id-top>div{min-width:0}
 .id-title{margin:0;font-size:1.6rem;font-weight:800;line-height:1.2;text-wrap:balance}
@@ -1523,7 +1527,17 @@ function renderResult(){
       html.push(`<div class="tab-body">${TAB_FN()[currentTab](D)}</div>`);
   }
   $("#out").innerHTML = html.join("");
-  // the image library is fetched in the background so that sharing does not wait for it
+  // once the car's header has scrolled away, a slim bar keeps the plate and model on screen, so any screenshot of this car says which car it is
+  $("#out").insertAdjacentHTML("afterbegin", `<div class="plate-strip" id="plateStrip" aria-hidden="true"><span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span><b>${esc(D.title)}</b>${empty(D.v.shnat_yitzur) ? "" : `<span>${esc(D.v.shnat_yitzur)}</span>`}</div>`);
+  watchStrip();
+}
+let stripObs = null;
+function watchStrip(){
+  if (stripObs) { stripObs.disconnect(); stripObs = null; }
+  const idc = $("#out .id-card"), st = $("#plateStrip");
+  if (!idc || !st || !("IntersectionObserver" in window)) return;
+  stripObs = new IntersectionObserver(([e]) => st.classList.toggle("on", !e.isIntersecting && e.boundingClientRect.bottom < 0), {threshold: 0});
+  stripObs.observe(idc);
 }
 /* One ownership record, and the first ownership type (מקוריות) agrees with it */
 const isFirstHand = D => D.own.length === 1 && !D.ownersFloor && (!firstOwner(D.v) || ownerKind(firstOwner(D.v)).k === ownerKind(D.own[0].baalut).k);
@@ -1837,7 +1851,8 @@ function tabOverview(D){
   const hook = hookField(v);
   const ban = towBan(D);
   const hookBox = hook && !ban ? `<div class="hook-box ${hook.none ? "no" : "yes"}">${ico(hook.none ? "x" : "check")}<b>${hook.none ? "לא מותקן וו גרירה" : "מותקן וו גרירה"}</b>${hook.none ? "" : `<span>${esc(hook.text)}</span>`}</div>` : "";
-  html.push(card("כמה מותר לגרור", "tow", "amber", `${ban ? `<div class="tow-ban">${ico("alert")}<div><b>אסור להתקין וו גרירה</b><span>לפי נתוני הדגם במשרד התחבורה, כושר הגרירה המותר הוא 0 ק״ג עם בלמים ובלי בלמים. היצרן לא אישר גרירה, ולכן אי אפשר לרשום לרכב וו גרירה.</span></div></div>` : D.tSrc ? `<div class="tow-grid">
+  const towHtml = [];   // towing is a niche question, so it comes after the test, mileage and ownership cards
+  towHtml.push(card("כמה מותר לגרור", "tow", "amber", `${ban ? `<div class="tow-ban">${ico("alert")}<div><b>אסור להתקין וו גרירה</b><span>לפי נתוני הדגם במשרד התחבורה, כושר הגרירה המותר הוא 0 ק״ג עם בלמים ובלי בלמים. היצרן לא אישר גרירה, ולכן אי אפשר לרשום לרכב וו גרירה.</span></div></div>` : D.tSrc ? `<div class="tow-grid">
       <div><div class="k">עם בלמים</div><div class="v">${tv(tb)}<span class="u">ק״ג</span></div></div>
       <div><div class="k">בלי בלמים</div><div class="v">${tv(tu)}<span class="u">ק״ג</span></div></div>
     </div>` : `<p style="margin:0">אין במאגר של משרד התחבורה נתוני גרירה לדגם הזה.</p>`}
@@ -1875,6 +1890,7 @@ function tabOverview(D){
     html.push(card("בעלות", "users", "violet", foLine + facts([["בעלות נוכחית", e(v.baalut)]]) + (ownErr ? `<p class="note">היסטוריית הבעלויות לא נטענה כרגע ממאגר משרד התחבורה. בדקו שוב בעוד רגע.</p>` : "")));
   }
   html.push(card("שינויים ברכב", "wrench", "teal", modsCard(v)));
+  html.push(...towHtml);
   if (!evFirst) html.push(evCard);
   return html.join("");
 }
