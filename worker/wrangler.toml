@@ -1,0 +1,7 @@
+name = "luchit-proxy"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+# route example (after adding the domain to Cloudflare): routes = [{ pattern = "api.luchit.app", custom_domain = true }]
+[observability]
+enabled = false   # no request logs, so no plate numbers are stored
