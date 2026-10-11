@@ -2622,6 +2622,8 @@ async function pickGroup(i){
   const all0 = await groupRows(g0); if (mGroup !== g0) return; mGroup.all = g0.split ? all0.filter(r => driveCls(r) === g0.cls) : all0;
   const years = [...new Set(mGroup.all.map(r => num(r.shnat_yitzur)).filter(y => !isNaN(y)))].sort((a, b) => b - a);
   mGroup.years = years; showModel(String(years[0] || ""));
+  // one year and one engine: nothing left to choose
+  if (years.length === 1 && mResults.length === 1 && mResults[0].length === 1) pickModel(0);
 }
 // one screen: years along the top (newest picked), then one row per engine
 function showModel(y){
@@ -2803,6 +2805,7 @@ function renderCompare(){
     ${n ? "" : `<p style="margin:0">הוסיפו עד ${cmpMax()} דגמים או רכבים, וההשוואה תראה מחיר, עלויות, כוח, גרירה, בטיחות ואמינות זה לצד זה.</p>
     <div class="slots">${[1, 2, 3].map(i => `<button type="button" data-act="addCompare">${ico("plus")}רכב ${i}</button>`).join("")}</div>`}
     ${n ? `<div class="cmp-bar">${n < cmpMax() ? `<button type="button" class="cmp-tool add" data-act="addCompare">${ico("plus")}הוספה</button>` : ""}${n > 1 ? `<button type="button" class="cmp-tool" data-act="diffOnly" aria-pressed="${diffOnly}">${ico("compare")}רק הבדלים</button><button type="button" class="cmp-tool ic" data-act="land" aria-pressed="${land}" aria-label="${land ? "תצוגה רגילה" : "תצוגה לרוחב"}" title="${land ? "תצוגה רגילה" : "תצוגה לרוחב"}">${ico("rotate")}</button><button type="button" class="cmp-tool ic" data-act="shareCmp" aria-label="שיתוף קישור להשוואה" title="שיתוף קישור להשוואה">${ico("share")}</button><button type="button" class="cmp-tool ic" data-act="saveCmp" aria-label="שמירת השוואה" title="שמירת השוואה">${ico("star")}</button><button type="button" class="cmp-tool ic" data-act="cmpPdf" aria-label="PDF" title="PDF">${ico("doc")}</button>` : ""}</div>` : ""}
+    ${n === 1 ? `<p class="note" style="margin:0 0 8px">הוסיפו רכב או דגם נוסף כדי לראות מי עדיף בכל שורה.</p>` : ""}
     ${simHtml}
     ${n ? `<div class="cmp"><div class="ph"></div>${L.map(head).join("")}</div>` : ""}
     ${n ? `<div class="cmp-table">${body}</div>` : ""}
