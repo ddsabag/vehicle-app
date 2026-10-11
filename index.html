@@ -645,7 +645,7 @@ body.land .band{display:none}
     <div class="sheet-head"><h2 id="cmpTitle">הוספת רכב להשוואה</h2><button class="icon-btn" type="button" id="closeCompareSheet" aria-label="סגירה"><svg class="i"><use href="#i-x"/></svg></button></div>
     <form id="mf" class="msearch" autocomplete="off">
       <svg class="i mq-ico" aria-hidden="true"><use href="#i-search"/></svg>
-      <input id="mq" type="search" placeholder="דגם, מספר רישוי, או למשל: משפחתי חשמלי עד 200 אלף" aria-label="דגם או מספר רישוי" enterkeyhint="search">
+      <input id="mq" type="search" placeholder="שם דגם או מספר רישוי" aria-label="דגם או מספר רישוי" enterkeyhint="search">
     </form>
     <p class="note" id="compareMsg" role="status"></p>
     <div class="list" id="mres"></div>
@@ -2183,7 +2183,7 @@ const MODEL_ALIASES = {"קורולה":"COROLLA","קאמרי":"CAMRY","יאריס
   "אסטרה":"ASTRA","קורסה":"CORSA","מוקה":"MOKKA","גרנדלנד":"GRANDLAND","קליאו":"CLIO","קפצ'ור":"CAPTUR","מגאן":"MEGANE","סנדרו":"SANDERO","דאסטר":"DUSTER","ג'וגר":"JOGGER",
   "ספייסטאר":"SPACE","פוקוס":"FOCUS","פיאסטה":"FIESTA","קוגה":"KUGA","פומה":"PUMA","מוסטנג":"MUSTANG","טסלה":"TESLA","מודל":"MODEL",
   "אטו":"ATTO","דולפין":"DOLPHIN","סיל":"SEAL","טאנג":"TANG","יואן":"YUAN","גלקסי":"GALAXY","קודה":"KODA"};
-const MAKE_ALIASES = {toyota:"טויוטה",hyundai:"יונדאי",kia:"קיה",mazda:"מאזדה",skoda:"סקודה",volkswagen:"פולקסווגן",vw:"פולקסווגן",suzuki:"סוזוקי",mitsubishi:"מיצובישי",
+const MAKE_ALIASES = {toyota:"טויוטה",hyundai:"יונדאי",kia:"קיה",mazda:"מזדה",skoda:"סקודה",volkswagen:"פולקסווגן",vw:"פולקסווגן",suzuki:"סוזוקי",mitsubishi:"מיצובישי",
   honda:"הונדה",nissan:"ניסאן",renault:"רנו",dacia:"דאצ'יה",peugeot:"פיג'ו",citroen:"סיטרואן",opel:"אופל",ford:"פורד",chevrolet:"שברולט",seat:"סיאט",cupra:"קופרה",
   bmw:"ב.מ.וו",mercedes:"מרצדס",audi:"אאודי",volvo:"וולוו",lexus:"לקסוס",subaru:"סובארו",tesla:"טסלה",byd:"בי.ווי.די",geely:"ג'ילי",chery:"צ'רי",mg:"אם.ג'י",
   jeep:"ג'יפ",fiat:"פיאט",mini:"מיני",porsche:"פורשה",jaguar:"יגואר",land:"לנד",isuzu:"איסוזו",ssangyong:"סאנגיונג",lynk:"לינק",polestar:"פולסטאר",smart:"סמארט"};
@@ -2229,7 +2229,7 @@ function loadModelIndex(){
         const j = await r.json(); if (!j.rows || !j.rows.length) continue;
         MODELIDX = j.rows.map(([mk0, md, y0, y1, pr, bd, fl]) => ({
           mk: canonMake(mk0.replace(COUNTRY_SFX, "")), md, y0, y1, pr: pr || 0, bd: bd || "", fp: Object.fromEntries((fl ? String(fl).split("|") : []).map(x => [x[0], parseFloat(x.slice(1))])), mkw: (ws => [...ws.map(w => skOf(w)), ws.length > 1 ? skOf(ws.join("")) : ""].filter(Boolean))((canonMake(mk0.replace(COUNTRY_SFX, "")) === "FAW" ? "FAW פאו הונגצי אף אי דאבל יו" : canonMake(mk0.replace(COUNTRY_SFX, ""))).split(/[\s.\-\/]+/).map(w => w.replace(/[^א-תA-Za-z0-9']/g, "")).filter(Boolean)),
-          mtok: md.replace(/([A-Z])(\d)/g, "$1 $2").replace(/(\d)([A-Z])/g, "$1 $2").split(/[\s\-\/]+/).filter(Boolean)
+          mtok: md.replace(/\./g, " ").replace(/([A-Z])(\d)/g, "$1 $2").replace(/(\d)([A-Z])/g, "$1 $2").split(/[\s\-\/]+/).filter(Boolean)
         }));
         return MODELIDX;
       } catch {}
@@ -2237,11 +2237,78 @@ function loadModelIndex(){
     modelIdxP = null; return null;
   })());
 }
-/* up to a few catalogue entries that fit what was typed, as word lists for the dataset search */
+/* The same sound with its vowels kept as one marker ("a"): ATTO = אטו, YARIS = יאריס, KONA = קונה. Next to the consonant skeleton it tells
+   short names apart (RS in an Audi is not YARIS) and lets a missing or extra vowel count as a small slip. */
+const VK_HEB = {...HEB_SK, א: "a", ו: "a", י: "a", ע: "a", ה: "a", ח: "a"};
+const vkHeb = t => collapse([...String(t)].map(c => VK_HEB[c] ?? "").join(""));
+function vkLat(t){
+  let x = String(t).toUpperCase().replace(/[^A-Z]/g, "");
+  x = x.replace(/PH/g, "P").replace(/CH|SH|TS/g, "S").replace(/CK/g, "K").replace(/QU/g, "K").replace(/X/g, "KS").replace(/C(?=[AOU]|[^AEIOUY]|$)/g, "K").replace(/C/g, "S");
+  x = x.replace(/Q/g, "K").replace(/Z/g, "S").replace(/D/g, "T").replace(/F/g, "P").replace(/[VW]/g, "B").replace(/J/g, "G").replace(/[AEIOUYH]/g, "a");
+  return collapse(x);
+}
+const KEYC = new Map();
+const keysOf = t => { let k = KEYC.get(t); if (!k) KEYC.set(t, k = {ck: skOf(t), vk: isHeb(t) ? vkHeb(t) : vkLat(t)}); return k; };
+function lev(a, b, max){   // edit distance with a swap of two neighbouring letters counting as one slip; stops early above max
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let p2 = null, p1 = Array.from({length: b.length + 1}, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i]; let lo = i;
+    for (let j = 1; j <= b.length; j++) {
+      let v = Math.min(p1[j] + 1, cur[j - 1] + 1, p1[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (p2 && i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) v = Math.min(v, p2[j - 2] + 1);
+      cur[j] = v; if (v < lo) lo = v;
+    }
+    if (lo > max) return max + 1;
+    p2 = p1; p1 = cur;
+  }
+  return p1[b.length];
+}
+/* how well one typed word fits one word of a catalogue name: 3 same word or sound, 2-2.6 same consonants / typed so far, below 2 a slip or two */
+function tokScore(q, m){
+  if (q.al && m === q.al) return 3;
+  const mk = keysOf(m); let s = 0;
+  if (!q.isH) {
+    if (m === q.up) return 3;
+    if (q.up.length >= 2 && m.length > q.up.length && m.startsWith(q.up)) s = 2.2;
+    const k = q.up.length >= 8 ? 2 : 1;
+    if (q.up.length >= 4 && lev(q.up, m, k) <= k) s = Math.max(s, q.up.length >= 5 ? 2 : 1.7);
+  }
+  if (q.vk.length >= 3 && q.vk === mk.vk) { if (q.vk.length >= 4) return 3; s = Math.max(s, 2.6); }
+  if (q.ck.length >= 3 && q.ck === mk.ck) s = Math.max(s, 2.6);
+  if ((q.vk.length >= 3 && mk.vk.length > q.vk.length && mk.vk.startsWith(q.vk)) || (q.ck.length >= 3 && mk.ck.length > q.ck.length && mk.ck.startsWith(q.ck))) s = Math.max(s, 2);
+  if (q.vk.length >= 4 && mk.vk.length >= 4 && lev(q.vk, mk.vk, 1) <= 1) s = Math.max(s, 1.8);
+  if (q.ck.length >= 4 && mk.ck.length >= 4 && lev(q.ck, mk.ck, 1) <= 1) s = Math.max(s, 1.6);
+  else if (q.ck.length === 3 && mk.ck.length === 3 && q.ck[0] === mk.ck[0] && lev(q.ck, mk.ck, 1) <= 1) s = Math.max(s, 1.4);
+  return s < 2.4 && s > 0 && q.ck[0] !== mk.ck[0] ? s - 0.3 : s;   // a slip rarely changes the first sound
+}
+/* English letter names written in Hebrew ("איי 10" = i10, "סי אקס 5" = CX-5): every reading is tried, the catalogue decides */
+const LETTER_NAMES = {"איי": "AI", "אי": "AEI", "בי": "B", "סי": "C", "די": "D", "אף": "F", "גי": "G", "ג'י": "G", "אייץ": "H", "ג'יי": "J", "גיי": "J", "קיי": "K", "קי": "K", "אל": "L", "אם": "M", "אן": "N", "או": "O", "פי": "P", "קיו": "Q", "אר": "R", "אס": "S", "טי": "T", "יו": "U", "וי": "V", "אקס": "X", "וואי": "Y", "זד": "Z"};
+function letterSeqs(toks){
+  const isL = t => !!LETTER_NAMES[t], isD = t => /^\d+$/.test(t), runs = [];
+  for (let i = 0; i < toks.length;) {
+    if (!isL(toks[i])) { i++; continue; }
+    let j = i; while (j < toks.length && isL(toks[j])) j++;
+    if (j - i >= 2 || (j < toks.length && isD(toks[j]))) runs.push([i, j]);
+    i = j;
+  }
+  if (!runs.length) return [];
+  const parts = []; let pos = 0;
+  for (const [a, b] of runs) {
+    if (a > pos) parts.push([toks.slice(pos, a)]);
+    let alts = [""]; for (const t of toks.slice(a, b)) alts = alts.flatMap(p => [...LETTER_NAMES[t]].map(c => p + c));
+    parts.push(alts.slice(0, 6).map(s => [s])); pos = b;
+  }
+  if (pos < toks.length) parts.push([toks.slice(pos)]);
+  let res = [[]]; for (const alts of parts) res = res.flatMap(r => alts.map(a => r.concat(a))).slice(0, 8);
+  return res;
+}
+/* a few catalogue entries that fit what was typed, best first, as word lists for the dataset search; .fuzzy is set when nothing fits exactly */
 function smartQueries(text){
   if (!MODELIDX) return null;
-  const toks = String(text).replace(/[׳’`]/g, "'").trim().split(/\s+/).map(t => t.replace(/[^א-תA-Za-z0-9'\-]/g, "").replace(/^'+|'+$/g, "")).filter(Boolean)
-    .flatMap(t => /^[A-Za-z]+\d+$/.test(t) ? t.replace(/([A-Za-z])(?=\d)/g, "$1 ").split(" ") : /^[א-ת]+\d+$/.test(t) ? t.replace(/([א-ת])(?=\d)/g, "$1 ").split(" ") : [t]);
+  // ז׳ (zh) is the sound of the G in SPORTAGE: written with the geresh it is read as a ג
+  const toks = String(text).replace(/ז['׳’`]/g, "ג").replace(/[׳’`]/g, "'").replace(/[\-_.]+/g, " ").trim().split(/\s+/).map(t => t.replace(/[^א-תA-Za-z0-9']/g, "").replace(/^'+|'+$/g, "")).filter(t => t && !/^(19|20)\d\d$/.test(t))
+    .flatMap(t => t.replace(/([A-Za-zא-ת])(?=\d)/g, "$1 ").replace(/(\d)(?=[A-Za-zא-ת])/g, "$1 ").split(" "));
   if (!toks.length) return null;
   // makers written as separate short words ("ב מ וו", "בי ווי די") are also tried glued together
   const merged = []; let run = [];
@@ -2249,6 +2316,7 @@ function smartQueries(text){
   for (const t of toks) { if (isHeb(t) && t.length <= 3) run.push(t); else { flush(); merged.push(t); } }
   flush();
   const seqs = [toks]; if (merged.length < toks.length) seqs.push(merged);
+  for (const s of [...seqs]) seqs.push(...letterSeqs(s));
   // only a maker was typed ("סקודה", "skoda"): list that maker's models, not fuzzy sound-alikes from other makers
   const isMakerWord = t => {
     if (/^\d+$/.test(t)) return false;
@@ -2256,63 +2324,68 @@ function smartQueries(text){
     const al = MAKE_ALIASES[t.toLowerCase()], sk = skOf(t);
     if (al) return MODELIDX.some(e => al === e.mk || canonMake(al) === e.mk);
     if (MODELIDX.some(e => e.mk === t || e.mk === canonMake(t))) return true;   // the maker's own name, spelled as in the register
+    if (t.length > 3 && isHeb(t) && MODELIDX.some(e => /[\s.]/.test(e.mk) && skOf(e.mk.replace(/[\s.]+/g, "")) === sk)) return true;   // "בי ווי די" typed apart, glued
     // sound skeletons drop the vowels, so a model name can sound like a maker (פולו = אופל): a word that is also a model is not a maker
     if (MODEL_ALIASES[t] || MODELIDX.some(e => e.mtok.some(x => skScore(sk, skOf(x)) >= 3 && !e.mkw.includes(skOf(x))))) return false;
     return MODELIDX.some(e => e.mkw.some(w => skScore(sk, w) >= 3));
   };
-  if (seqs.some(seq => seq.length && seq.every(isMakerWord))) return null;
-  const hits = new Map();
+  if (seqs.slice(0, merged.length < toks.length ? 2 : 1).some(seq => seq.length && seq.every(isMakerWord))) return null;
+  const recent = new Date().getFullYear() - 1, hits = new Map();
   for (const seq of seqs) {
     const qs = seq.map(t => {
-      const al = MODEL_ALIASES[t] || MODEL_ALIASES[t.replace(/'/g, "")];
-      return {t, digits: /^\d+$/.test(t), sk: /^\d+$/.test(t) ? "" : skOf(al || t), al, mkAlias: MAKE_ALIASES[t.toLowerCase()] || null};
+      const digits = /^\d+$/.test(t), al = MODEL_ALIASES[t] || MODEL_ALIASES[t.replace(/'/g, "")], k = digits ? {ck: "", vk: ""} : keysOf(al || t);
+      return {t, digits, up: t.toUpperCase().replace(/'/g, ""), isH: isHeb(t), ck: k.ck, vk: k.vk, al, mkAlias: MAKE_ALIASES[t.toLowerCase()] || null};
     });
     for (const e of MODELIDX) {
-      let total = 0, modelTokens = 0, ok = true; const used = new Set();
+      let total = 0, modelTokens = 0, ok = true, low = 3, first = 99; const used = new Set();
       for (const q of qs) {
         let best = 0, onModel = false, idx = -1;
         if (q.digits) {
           const i = e.mtok.findIndex((m, k) => !used.has(k) && m === q.t); if (i < 0) { ok = false; break; }
-          used.add(i); total += 3; modelTokens++; continue;
+          used.add(i); total += 3; modelTokens++; first = Math.min(first, i); continue;
         }
         if (q.mkAlias && q.mkAlias === e.mk) best = 3;
-        for (const w of e.mkw) best = Math.max(best, skScore(q.sk, w));
+        for (const w of e.mkw) best = Math.max(best, skScore(q.ck, w));
         let mBest = 0;
-        const up = q.t.toUpperCase();
         e.mtok.forEach((m, k) => {
           if (used.has(k) || /^\d+$/.test(m)) return;
-          let sc;
-          if (q.al && m === q.al) sc = 3;
-          else if (!isHeb(q.t) && (m === up || (up.length >= 2 && m.startsWith(up)))) sc = m === up ? 3 : 2;
-          else { const km = skLat(m); sc = km.length >= 2 ? skScore(q.sk, km) : 0; }
+          const sc = tokScore(q, m);
           if (sc > mBest) { mBest = sc; idx = k; }
         });
         if (mBest >= best && mBest > 0) { best = mBest; onModel = true; }
         if (!best) { ok = false; break; }
-        if (onModel) { used.add(idx); modelTokens++; }
+        if (onModel) { used.add(idx); modelTokens++; first = Math.min(first, idx); low = Math.min(low, best); }
         total += best;
       }
-      if (ok && modelTokens) { const h = hits.get(e); if (!h || h.total < total) hits.set(e, {e, total}); }
+      if (!ok || !modelTokens) continue;
+      // a model that is just what was typed beats one that merely contains it (I20 over a BMW "SDRIVE 20 I")
+      const own = e.mtok.filter(m => LATIN_MAKERS.has(m)).length, left = e.mtok.length - used.size - own;
+      const fin = total - 0.25 * left - 0.2 * Math.max(0, first - (own && e.mtok[0] && LATIN_MAKERS.has(e.mtok[0]) ? 1 : 0)) + (e.y1 >= recent ? 0.3 : 0);
+      const h = hits.get(e); if (!h || h.fin < fin) hits.set(e, {e, fin, low});
     }
   }
   if (!hits.size) return null;
-  const list = [...hits.values()].sort((a, b) => b.total - a.total || b.e.y1 - a.e.y1);
-  const seen = new Set(), out = [];
+  const list = [...hits.values()].sort((a, b) => b.fin - a.fin || b.e.y1 - a.e.y1), seen = new Set(), out = [];
   for (const h of list) {
+    if (h.fin < list[0].fin - 1.2) break;
+    const fam = h.e.mk + "|" + modelBase(cleanModelName(normModel(h.e.md)));
+    if (seen.has(fam)) continue; seen.add(fam);
     const words = h.e.md.split(/\s+/).map(w => w.replace(/[&|!:*()'"\\<>]/g, "")).filter(Boolean);
-    const k = h.e.mk + "|" + words.join(" ");
-    if (seen.has(k)) continue; seen.add(k);
-    out.push({mk: h.e.mk, words});
-    if (out.length >= 4) break;
+    // "COROLLA" already finds "COROLLA CROSS": a longer name that starts with a name in the list is not asked again
+    if (out.some(o => o.mk === h.e.mk && o.words.length < words.length && o.words.every((w, i) => w === words[i]))) continue;
+    out.push({mk: h.e.mk, words, sc: h.fin});
+    if (out.length >= 5) break;
   }
+  out.fuzzy = list[0].low < 2.4;
   return out;
 }
 /* smart (sound-matched) queries first, then the plain words as before */
+let searchFuzzy = false;   // the last search found no exact fit: the list is shown as "did you mean"
 async function searchModelRows(text, words, filters, limit, signal){
-  const sq = smartQueries(text);
+  const sq = smartQueries(text); searchFuzzy = false;
   if (sq) {
-    const got = await Promise.all(sq.map(q => dsSearch(MODEL_SETS.wltp, q.words, filters, limit, signal).then(r => r.length ? r : dsSearch(MODEL_SETS.price, q.words, filters, limit, signal)).then(r => r.filter(x => { const m = rowMake(x); return m === q.mk || m.startsWith(q.mk) || q.mk.startsWith(m); }))));
-    const rows = got.flat(); if (rows.length) return rows;
+    const got = await Promise.all(sq.map(q => dsSearch(MODEL_SETS.wltp, q.words, filters, limit, signal).then(r => r.length ? r : dsSearch(MODEL_SETS.price, q.words, filters, limit, signal)).then(r => r.filter(x => { const m = rowMake(x); return m === q.mk || m.startsWith(q.mk) || q.mk.startsWith(m); }).map(x => (x._sc = q.sc, x)))));
+    const rows = got.flat(); if (rows.length) { searchFuzzy = !!sq.fuzzy; return rows; }
   }
   const rows = await dsSearch(MODEL_SETS.wltp, words, filters, limit, signal);
   return rows.length ? rows : dsSearch(MODEL_SETS.price, words, filters, limit, signal);
@@ -2379,7 +2452,7 @@ function renderQuick(){
   const box = $("#mquick"), q = $("#mq").value.trim();
   if (q.length >= 2 || mGroup) { box.innerHTML = ""; return; }
   const inCmp = p => cmp.some(x => x.plate === p);
-  const parts = [`<p class="note" style="margin:0 0 6px">אפשר לחפש חופשי: דגם ("קורולה"), יצרן ודגם, או סוג, דלק ותקציב ("SUV חשמלי עד 250 אלף").</p>`];
+  const parts = [`<p class="note" style="margin:0 0 6px">מספיק לכתוב את הדגם, גם בלי יצרן ובעברית או באנגלית ("קורולה", "tucson"); טעות כתיב קטנה לא מפריעה. אפשר גם סוג ותקציב: "SUV חשמלי עד 250 אלף".</p>`];
   const mine = [];
   if (current && !inCmp(current.plate)) mine.push(`<button type="button" class="qrow cur" data-qcur="1"><span class="mini-plate"><i></i>${fmtPlate(current.plate)}</span><span class="t"><b>${esc(current.title)}</b><small>הרכב שחיפשתם</small></span><span class="qadd">${ico("plus")}הוספה</span></button>`);
   for (const s of store.get("savedVehicles").filter(s => !inCmp(s.plate) && !(current && s.plate === current.plate)).slice(0, 3))
@@ -2494,8 +2567,8 @@ async function runModelSearch(){
     for (const r of rows) {
       if (empty(r.tozeret_cd) || !rowModel(r)) continue;
       const nm = cleanModelName(normModel(rowModel(r))), cls = driveCls(r), k = [rowMake(r), modelBase(nm), cls].join("|");
-      if (!g.has(k)) g.set(k, {make: rowMake(r), model: nm, base: nm, cls, names: new Set(), cds: new Set(), rows: []});
-      const x = g.get(k); x.model = x.base = spaced(x.model, nm); x.rows.push(r); x.names.add(rowModel(r)); x.cds.add(String(r.tozeret_cd));
+      if (!g.has(k)) g.set(k, {make: rowMake(r), model: nm, base: nm, cls, names: new Set(), cds: new Set(), rows: [], sc: 0});
+      const x = g.get(k); x.sc = Math.max(x.sc, r._sc || 0); x.model = x.base = spaced(x.model, nm); x.rows.push(r); x.names.add(rowModel(r)); x.cds.add(String(r.tozeret_cd));
     }
     // a name that exists in more than one drive version gets the version in its title, and keeps only that version's rows
     const versions = new Map();
@@ -2506,8 +2579,9 @@ async function runModelSearch(){
     for (const x of g.values()) if (versions.get(x.make + "|" + modelBase(x.base)).size > 1) { x.split = true; if (x.cls) x.model = x.base + " " + x.cls; }
     await Promise.race([loadModelStats().catch(() => null), new Promise(r => setTimeout(r, 1200))]);
     if (signal.aborted) return;
+    const top = Math.max(0, ...[...g.values()].map(x => x.sc));
     mGroups = [...g.values()].map(x => { const ys = x.rows.map(r => num(r.shnat_yitzur)).filter(y => !isNaN(y)); return {...x, from: Math.min(...ys), to: Math.max(...ys), pop: popOf(x.make, x.base)}; })
-      .sort((a, b) => (b.to >= CUR_Y - 1) - (a.to >= CUR_Y - 1) || b.pop - a.pop || b.to - a.to || (a.make + a.model).localeCompare(b.make + b.model, "he"));
+      .sort((a, b) => (b.sc >= top - 0.6) - (a.sc >= top - 0.6) || (b.to >= CUR_Y - 1) - (a.to >= CUR_Y - 1) || b.pop - a.pop || b.to - a.to || (a.make + a.model).localeCompare(b.make + b.model, "he"));
     // maker first, then its models; makers keep the order of their best match
     const mkOrder = []; for (const x of mGroups) if (!mkOrder.includes(x.make)) mkOrder.push(x.make);
     mGroups.sort((a, b) => mkOrder.indexOf(a.make) - mkOrder.indexOf(b.make));
@@ -2519,7 +2593,7 @@ async function runModelSearch(){
 function showGroups(){
   const msg = $("#compareMsg"), shown = mShowAll ? mGroups : mGroups.slice(0, MODEL_SHOWN), rest = mGroups.length - shown.length;
   if (!mGroups.length) track("search_no_result", {kind: mNote ? "budget" : "model"});
-  msg.textContent = mGroups.length ? "" : (mNote ? "לא נמצאו דגמים שמתאימים לתנאים. נסו תקציב גבוה יותר או פחות תנאים." : "לא נמצאו דגמים. נסו שם אחר, למשל שם הדגם באנגלית.");
+  msg.textContent = mGroups.length ? (searchFuzzy && !mNote ? "לא נמצא בדיוק. אולי התכוונתם:" : "") : (mNote ? "לא נמצאו דגמים שמתאימים לתנאים. נסו תקציב גבוה יותר או פחות תנאים." : "לא נמצאו דגמים. נסו שם אחר, למשל שם הדגם באנגלית.");
   let lastMake = null;
   $("#mres").innerHTML = (mNote && mGroups.length ? `<div class="qsec" style="margin-top:0">${mGroups.length} דגמים: ${esc(mNote)}</div>` : "") + shown.map(x => (x.make !== lastMake ? (lastMake = x.make, `<div class="qsec">${esc(x.make)}</div>`) : "") + `<button type="button" class="row" data-mg="${mGroups.indexOf(x)}"><span class="t"><b>${esc(x.model)}</b><small>${isFinite(x.from) ? (x.from === x.to ? x.from : `<span dir="ltr">${x.from}–${x.to}</span>`) : ""}${x.price ? ` · החל מ-${fmtN(x.price)} אלף ₪` : ""}</small></span>${ico("chev")}</button>`).join("")
     + (rest > 0 ? `<button type="button" class="more" data-more="1">${mNote ? `עוד ${rest} דגמים` : `עוד ${rest} דגמים`}</button>` : "");
