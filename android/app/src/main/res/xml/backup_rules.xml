@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Auto Backup (Android 11 and below): the phone's own backup restores saved cars and the service log on a new phone.
-     The web view's caches are left out. -->
+     The web view's caches, the documents store (IndexedDB) and the billing state are left out. -->
 <full-backup-content>
     <exclude domain="root" path="app_webview/Default/HTTP Cache" />
     <exclude domain="root" path="app_webview/Default/Code Cache" />
     <exclude domain="root" path="app_webview/Default/GPUCache" />
     <exclude domain="root" path="app_webview/Default/Service Worker/CacheStorage" />
+    <exclude domain="root" path="app_webview/Default/IndexedDB" />
+    <exclude domain="sharedpref" path="billing.xml" />
 </full-backup-content>

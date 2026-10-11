@@ -788,9 +788,15 @@ const DS_CACHE = new Map();   // identical queries (also while still in flight) 
 function dsFetch(url){
   const hit = DS_CACHE.get(url); if (hit && Date.now() - hit.t < 60000) return hit.p;
   const pr = (async () => {
-    const r = await fetch(url, {headers:{Accept:"application/json"}});
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const j = await r.json();
+    // a stalled mobile connection must not hang the lookup forever: give up after 15 s (the caller retries)
+    const tc = new AbortController(), tt = setTimeout(() => tc.abort(), 15000);
+    let j;
+    try {
+      const r = await fetch(url, {headers:{Accept:"application/json"}, signal: tc.signal});
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      j = await r.json();
+    } catch (e) { throw tc.signal.aborted ? new Error("timeout") : e; }
+    finally { clearTimeout(tt); }
     if (!j.success) throw new Error((j.error && (j.error.message || JSON.stringify(j.error))) || "CKAN error");
     return j.result.records || [];
   })();
@@ -1378,7 +1384,7 @@ function buildInsights(D){
   if (D.isCancelled) add("bad", "הרכב ירד מהכביש", `הרכב בוטל סופית${empty(v.bitul_dt) ? "" : " ב-" + fmtDate(v.bitul_dt)} ואינו יכול לנסוע.`);
   else if (D.primary && /^inactive/.test(D.primary.key)) add("warn", "הרכב לא פעיל", "הרכב רשום כלא פעיל במאגר משרד התחבורה.");
   // open recalls are not repeated here: the red banner above the tabs already says it
-  { const n = D.kind === "model" || D.isCancelled ? 0 : settlementsFor(D).length; if (n) add("info", "ייתכן שמגיעה לכם הטבה מהסדר פשרה", `${n === 1 ? "נמצא הסדר פשרה אחד שעשוי לחול על הרכב" : `נמצאו ${n} הסדרי פשרה שעשויים לחול על הרכב`}. הפרטים בלשונית ריקולים ופשרות.`); }
+  { const n = D.kind === "model" || D.isCancelled ? 0 : settlementsFor(D).length; if (n) add("info", "ייתכן שמגיעה לכם הטבה מהסדר פשרה", `${n === 1 ? "נמצא הסדר פשרה אחד שעשוי לחול על הרכב" : `נמצאו ${n} הסדרי פשרה שעשויים לחול על הרכב`}. הפרטים בלשונית ריקולים והסדרים.`); }
   const exp = toDate(v.tokef_dt);
   if (exp && !D.isCancelled) {
     const days = Math.round((exp - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 864e5);
@@ -1433,9 +1439,9 @@ function buildInsights(D){
 
 /* ---------- result screen ---------- */
 let ctrl = null, current = null, currentTab = "overview";
-const TABS = [["overview","סקירה"],["buy","קנייה"],["maint","אחזקה"],["recalls","ריקולים ופשרות"],["specs","מפרט"]];
+const TABS = [["overview","סקירה"],["buy","קנייה"],["maint","אחזקה"],["recalls","ריקולים והסדרים"],["specs","מפרט"]];
 // the report lists the buyer view and the costs, never the private maintenance log
-const REPORT_TABS = [["overview","סקירה"],["buy","קנייה"],["costs","עלויות"],["recalls","ריקולים ופשרות"],["specs","מפרט"]];
+const REPORT_TABS = [["overview","סקירה"],["buy","קנייה"],["costs","עלויות"],["recalls","ריקולים והסדרים"],["specs","מפרט"]];
 
 async function lookup(raw){
   const plate = digits(raw).replace(/^0+(?=\d{5})/, "");
@@ -1568,7 +1574,7 @@ function renderResult(){
 
   if (D.kind !== "model" && !D.isCancelled) {
     const stl = settlementsFor(D);
-    if (stl.length) html.push(`<button type="button" class="alert-banner warn" data-tab="recalls">${ico("scale")}<span><b>${stl.length === 1 ? "ייתכן שמגיעה הטבה מהסדר פשרה" : `ייתכן שמגיעות ${stl.length} הטבות מהסדרי פשרה`}</b>ההטבה תלויה בהתאמה לרכב שלכם. הפרטים בלשונית ריקולים ופשרות.</span></button>`);
+    if (stl.length) html.push(`<button type="button" class="alert-banner warn" data-tab="recalls">${ico("scale")}<span><b>${stl.length === 1 ? "ייתכן שמגיעה הטבה מהסדר פשרה" : `ייתכן שמגיעות ${stl.length} הטבות מהסדרי פשרה`}</b>ההטבה תלויה בהתאמה לרכב שלכם. הפרטים בלשונית ריקולים והסדרים.</span></button>`);
   }
   if (D.errs && D.errs.length) html.push(`<p class="msg">חלק ממאגרי משרד התחבורה לא ענו כרגע, והמידע על הרכב חלקי. נסו שוב בעוד דקה.</p>`);
   if (!window.AndroidApp) html.push(appBox(D));
@@ -2408,8 +2414,8 @@ const MODEL_SHOWN = 8, CUR_Y = new Date().getFullYear();
 // for the buyer they are one model, and the drive type is chosen later by engine
 const NOISE_TOKENS = new Set(["HB", "H/B", "HATCHBACK", "SEDAN", "SDN", "SD", "SW", "S/W", "WAGON", "ESTATE", "STATION", "LIFTBACK", "TS", "TOURING", "SPORTS", "HSD", "HEV", "HYBRID", "HV", "PHEV", "PLUG-IN", "2D", "3D", "4D", "5D", "2DR", "3DR", "4DR", "5DR", "האצ'בק", "סדאן", "סטיישן", "היברידי"]);
 // generation / facelift / body suffixes (OCTAVIA FL, OCTAVIA IV, NEW OCTAVIA; COMBI / SPACE stay separate) are the same family for the buyer
-const GEN_TOKENS = new Set(["FL", "FACELIFT", "II", "III", "IV", "V", "VI", "VII", "VIII", "S", "NEW", "החדש", "חדש"]);
-const NOT_FAMILY = new Set(["MODEL", "CLASS", "SERIES", "TYPE"]);
+const GEN_TOKENS = new Set(["FL", "FACELIFT", "II", "III", "IV", "V", "VI", "VII", "VIII", "NEW", "החדש", "חדש"]);
+const NOT_FAMILY = new Set(["MODEL", "CLASS", "SERIES", "TYPE", "PRIUS"]);   // PRIUS V is a different body from the Prius
 const normModel = m => {
   const toks = String(m || "").trim().toUpperCase().replace(/\s+/g, " ").split(" ");
   let kept = toks.filter(t => !NOISE_TOKENS.has(t));
@@ -2446,8 +2452,9 @@ const plateLike = q => /^[\d\s-]+$/.test(q) && digits(q).length >= 5;
 async function runModelSearch(){
   const q = $("#mq").value.trim(), msg = $("#compareMsg"), list = $("#mres");
   mGroup = null; mYear = null;
-  if (q.length < 2) { msg.textContent = ""; list.innerHTML = ""; renderQuick(); return; }
+  if (q.length < 2) { if (mCtrl) mCtrl.abort(); msg.textContent = ""; list.innerHTML = ""; renderQuick(); return; }
   if (plateLike(q)) {
+    if (mCtrl) mCtrl.abort();
     renderQuick(); msg.textContent = "";
     list.innerHTML = `<button type="button" class="qrow" data-qplate="${digits(q)}"><span class="mini-plate"><i></i>${fmtPlate(digits(q))}</span><span class="t"><b>לפי מספר רישוי</b><small>הרכב הספציפי</small></span><span class="qadd">${ico("plus")}הוספה</span></button>`;
     return;
@@ -2456,6 +2463,7 @@ async function runModelSearch(){
   msg.textContent = "מחפש…"; renderQuick();
   try {
     await Promise.race([loadModelIndex(), new Promise(r => setTimeout(r, 2500))]);
+    if (signal.aborted) return;
     const F = mPending ? null : parseFilters(q);
     if (F && MODELIDX) {
       mGroups = filterGroups(F); mNote = F.label; mShowAll = false; showGroups(); return;
@@ -2478,6 +2486,7 @@ async function runModelSearch(){
     for (const x of g.values()) x.model = x.base = spelling.get(x.make + "|" + modelBase(x.base));
     for (const x of g.values()) if (versions.get(x.make + "|" + modelBase(x.base)).size > 1) { x.split = true; if (x.cls) x.model = x.base + " " + x.cls; }
     await Promise.race([loadModelStats().catch(() => null), new Promise(r => setTimeout(r, 1200))]);
+    if (signal.aborted) return;
     mGroups = [...g.values()].map(x => { const ys = x.rows.map(r => num(r.shnat_yitzur)).filter(y => !isNaN(y)); return {...x, from: Math.min(...ys), to: Math.max(...ys), pop: popOf(x.make, x.base)}; })
       .sort((a, b) => (b.to >= CUR_Y - 1) - (a.to >= CUR_Y - 1) || b.pop - a.pop || b.to - a.to || (a.make + a.model).localeCompare(b.make + b.model, "he"));
     // maker first, then its models; makers keep the order of their best match
@@ -2776,7 +2785,7 @@ $("#out").addEventListener("click", ev => {
   if (!current) return;
   if (b.dataset.tab) { currentTab = b.dataset.tab; track("tab_view", {tab: b.dataset.tab}); renderResult(); const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"}); return; }
   const act = b.dataset.act;
-  if (act === "share") { $("#shareMsg").textContent = ""; $("[data-share=bizpdf]").hidden = !(PRO_LOCK && isBiz()); $("#shareSheet").hidden = false; warmShare(); }
+  if (act === "share") { $("#shareMsg").textContent = ""; $("[data-share=bizpdf]").hidden = !(PRO_LOCK && isBiz()); $("#shareSheet").hidden = false; shareWarm = {}; warmShare(); }
   if (act === "candSave") {
     const raw = digits(($("#askIn") || {}).value), ask = raw ? Number(raw) : null;
     if (!isSaved(current.plate)) toggleSaved(newSavedItem(current));
@@ -3006,9 +3015,15 @@ async function paintEl(el, ratio, bg){
     const k = s.cloneNode(true); k.setAttribute("width", r.width); k.setAttribute("height", r.height); k.removeAttribute("class"); k.removeAttribute("style");
     if (!k.getAttribute("xmlns")) k.setAttribute("xmlns", SVG_NS);
     const src = new XMLSerializer().serializeToString(k).replace(/currentColor/g, getComputedStyle(s).color);
-    let im = ICON_CACHE.get(src);
-    if (!im) { im = new Image(); im.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(src); ICON_CACHE.set(src, im); jobs.push(im.decode().catch(() => { ICON_CACHE.delete(src); icons.delete(s); })); }
-    icons.set(s, im);
+    let ent = ICON_CACHE.get(src);
+    if (!ent) {
+      const im = new Image(); im.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(src);
+      ent = {im, ready: im.decode().then(() => true, () => { ICON_CACHE.delete(src); return false; })};
+      ICON_CACHE.set(src, ent);
+    }
+    icons.set(s, ent.im);
+    // every paint waits for the decoding (also one started by a parallel paint); an icon that cannot be decoded is left out
+    jobs.push(ent.ready.then(ok => { if (!ok) icons.delete(s); }));
   });
   await Promise.all(jobs);
   const radii = (cs, w, h) => ["TopLeft", "TopRight", "BottomRight", "BottomLeft"].map(k => { const v = cs["border" + k + "Radius"].split(" ")[0]; return v.endsWith("%") ? Math.min(w, h) * parseFloat(v) / 100 : parseFloat(v) || 0; });
@@ -3122,6 +3137,7 @@ async function captureEl(el, breakSel, ratio = 2){
     const bg = getComputedStyle(el).backgroundColor;
     // a very tall report is rendered at a lower scale so a phone's WebView does not choke on the pixel count
     ratio = Math.max(1, Math.min(ratio, Math.sqrt(5e6 / Math.max(1, el.offsetWidth * el.offsetHeight))));
+    ratio = Math.min(ratio, 16000 / Math.max(1, el.offsetHeight));   // browsers refuse canvases taller than ~32k px
     let canvas = null;
     // fast path: the page's own stylesheet travels once inside the snapshot, so no element needs its styles copied one by one
     try { canvas = await paintEl(el, ratio, bg); } catch (e) { reportErr("paint_el"); }
@@ -3131,7 +3147,7 @@ async function captureEl(el, breakSel, ratio = 2){
     return {canvas, breaks: breaks.map(b => b * ratio)};
   } finally { el.remove(); }
 }
-function canvasToBlob(c, type, q){ return new Promise(ok => c.toBlob(ok, type, q)); }
+function canvasToBlob(c, type, q){ return new Promise((ok, fail) => c.toBlob(b => b ? ok(b) : fail(new Error("empty canvas")), type, q)); }
 function blobToBase64(b){ return new Promise((ok, fail) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = fail; r.readAsDataURL(b); }); }
 async function shareFile(blob, name, title, caption){
   const br = bridge();
@@ -3343,9 +3359,9 @@ async function doShare(kind){
       // the screen's own report, painted straight onto a canvas; the summary card is only the fallback
       let blob = await warmFile("image");
       if (!blob) {
-        let cap; try { cap = await captureReport(D, false); } catch (e) { reportErr("share_image"); cap = await drawShareCard(D); }
         // JPEG encodes several times faster than PNG on a phone and chat apps recompress to JPEG anyway
-        blob = await canvasToBlob(cap.canvas, "image/jpeg", 0.9);
+        try { const cap = await captureReport(D, false); blob = await canvasToBlob(cap.canvas, "image/jpeg", 0.9); }
+        catch (e) { reportErr("share_image"); blob = await canvasToBlob((await drawShareCard(D)).canvas, "image/jpeg", 0.9); }
       }
       await shareFile(blob, name + ".jpg", D.title, caption);
     }
@@ -3667,16 +3683,19 @@ function renderMarket(M){
   const total = sumM(M.months, P.ms), prevTotal = P.prevMs.length ? sumM(M.months, P.prevMs) : 0;
   const mx = Math.max(...P.ms.map(m => M.months[m] || 0), 1);
   html.push(card("מסירות בתקופה", "chart", "blue", `<div class="mk-big">${fmtN(total)}</div><div>רכבים חדשים · ${periodLabel(P)} ${chgHtml(total, prevTotal)}${prevTotal ? ` <small style="color:var(--muted)">מול התקופה המקבילה אשתקד</small>` : ""}</div><div class="mk-bars">${P.ms.map(m => `<div title="${fmtN(M.months[m] || 0)}"><span>${((M.months[m] || 0) / 1000).toFixed(1)}K</span><i style="height:${Math.max(2, (M.months[m] || 0) / mx * 78)}%"></i><span>${MON[+m.slice(4) - 1]}</span></div>`).join("")}</div>`));
-  { const top1 = o => Object.entries(o).map(([k, v]) => [k, sumM(v, P.ms)]).sort((a, b) => b[1] - a[1])[0];
+  { const top1 = o => Object.entries(o).map(([k, v]) => [k, sumM(v, P.ms)]).sort((a, b) => b[1] - a[1])[0] || ["", 0];
     const tm = top1(M.makers), td = top1(M.models), ch = pctTxt(total, prevTotal);
     html[0] = html[0].replace(/<p class="note" style="margin-top:0">[^<]*<\/p>/, x => x + `<p class="mk-sum">בתקופה נמסרו ${fmtN(total)} רכבים חדשים${ch ? ` (${ch} מול התקופה המקבילה אשתקד)` : ""}. היצרן המוביל: ${esc(mkMake(tm[0]))}, הדגם המוביל: ${esc([mkMake(td[0].split("|")[0]), ...td[0].split("|").slice(1)].join(" "))}.</p>`); }
   const mkTop = (obj, ms, pms, n, nameFn) => {
     const rows = Object.entries(obj).map(([k, v]) => [k, sumM(v, ms), sumM(v, pms)]).filter(r => r[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, n), top = rows[0] ? rows[0][1] : 1;
-    return rows.map(([k, c, p]) => `<div class="mk-row"><b>${esc(nameFn(k))}</b><span>${fmtN(c)} <small>· ${(c / total * 100).toFixed(1)}%</small> ${chgHtml(c, p)}</span><div class="tr"><i style="width:${c / top * 100}%"></i></div></div>`).join("");
+    return rows.map(([k, c, p]) => `<div class="mk-row"><b>${esc(nameFn(k))}</b><span>${fmtN(c)} <small>· ${(c / (total || 1) * 100).toFixed(1)}%</small> ${chgHtml(c, p)}</span><div class="tr"><i style="width:${c / top * 100}%"></i></div></div>`).join("");
   };
-  const mkMore = (obj, key) => Object.values(obj).filter(v => sumM(v, P.ms) > 0).length > 10 ? `<button type="button" class="link-btn" data-mkmore="${key}">${MK[key] ? "הצג רק 10" : "הצג 20 מובילים"}</button>` : "";
-  html.push(card(MK.mkMore ? "20 היצרנים המובילים" : "יצרנים מובילים", "star", "amber", mkTop(M.makers, P.ms, P.prevMs, MK.mkMore ? 20 : 10, mkMake) + mkMore(M.makers, "mkMore")));
-  html.push(card(MK.mdMore ? "20 הדגמים המובילים" : "דגמים מובילים", "car", "violet", mkTop(M.models, P.ms, P.prevMs, MK.mdMore ? 20 : 10, k => { const [mk, ...r] = k.split("|"); return [mkMake(mk), ...r].join(" "); }) + mkMore(M.models, "mdMore") + `<p class="note">לפי הכינוי המסחרי, כל המנועים והגימורים יחד.</p>`));
+  const cnt = obj => Object.values(obj).filter(v => sumM(v, P.ms) > 0).length;
+  if (cnt(M.makers) <= 10) MK.mkMore = false;
+  if (cnt(M.models) <= 10) MK.mdMore = false;
+  const mkMore = (obj, key) => cnt(obj) > 10 ? `<button type="button" class="link-btn" data-mkmore="${key}">${MK[key] ? "הצג רק 10" : "הצג 20 מובילים"}</button>` : "";
+  html.push(card(MK.mkMore ? `${Math.min(20, cnt(M.makers))} היצרנים המובילים` : "יצרנים מובילים", "star", "amber", mkTop(M.makers, P.ms, P.prevMs, MK.mkMore ? 20 : 10, mkMake) + mkMore(M.makers, "mkMore")));
+  html.push(card(MK.mdMore ? `${Math.min(20, cnt(M.models))} הדגמים המובילים` : "דגמים מובילים", "car", "violet", mkTop(M.models, P.ms, P.prevMs, MK.mdMore ? 20 : 10, k => { const [mk, ...r] = k.split("|"); return [mkMake(mk), ...r].join(" "); }) + mkMore(M.models, "mdMore") + `<p class="note">לפי הכינוי המסחרי, כל המנועים והגימורים יחד.</p>`));
   if (M.bodies && Object.keys(M.bodies).length) html.push(card("סוג מרכב", "car", "blue", mkTop(M.bodies, P.ms, P.prevMs, 8, k => k) + `<p class="note">לפי סוג המרכב בקטלוג של המשרד. ${M.bodyCover && M.bodyCover < 0.98 ? "חלק מהרכבים לא משויכים לסוג מרכב, ולכן הסכום קטן מסך המסירות." : ""}</p>`));
   const OWN = [["פרטי", "פרטי", "#2556c8"], ["ליסינג", "ליסינג", "#e0a100"], ["חברה", "חברה", "#7a4fd1"], ["השכרה", "השכרה", "#1a8f4a"], ["סוחר", "סוחר", "#8a93a6"]];
   const own = M.ownership[P.year];
@@ -3955,7 +3974,7 @@ const FAQ = [
   ["מה זה \"יד\" ולמה זה לא תמיד מדויק?", "הספירה מבוססת על רשומות הבעלות במאגר. רכב שעבר בין חברות ליסינג או סוחרים יכול להציג יותר רשומות מבעלים פרטיים בפועל. מוצג \"לפחות\" כשהמאגר חלקי."],
   ["למה לא מצאתם את הרכב שלי?", "בדקו שהמספר נכון. רכב שירד מהכביש או שיצא מהמאגר לא יופיע, ולפעמים מאגר של המשרד מושבת זמנית. במקרה כזה נסו שוב מאוחר יותר."],
   ["האם אפשר לסמוך על שווי הרכב?", "זו הערכה לפי מחיר מחירון, שנת ייצור וק״מ, ללא מצב הרכב, תאונות והביקוש לדגם. השתמשו בה כנקודת התחלה למשא ומתן בלבד."],
-  ["האם אתם בודקים הסדרי פשרה?", "כן. בלשונית \"ריקולים ופשרות\" בודקים אם לדגם ולשנתון של הרכב יש הסדר פשרה (תובענה ייצוגית) מול היבואן, למשל תיבת הילוכים, לוח מחוונים או קילוף צבע. הרשימה נאספה מהודעות יבואנים ומהעיתונות, אינה מקיפה ואינה ייעוץ משפטי, ולכן כתוב תמיד \"ייתכן\"."],
+  ["האם אתם בודקים הסדרי פשרה?", "כן. בלשונית \"ריקולים והסדרים\" בודקים אם לדגם ולשנתון של הרכב יש הסדר פשרה (תובענה ייצוגית) מול היבואן, למשל תיבת הילוכים, לוח מחוונים או קילוף צבע. הרשימה נאספה מהודעות יבואנים ומהעיתונות, אינה מקיפה ואינה ייעוץ משפטי, ולכן כתוב תמיד \"ייתכן\"."],
   ["האם זה מחליף בדיקה במכון?", "לא. הנתונים מראים מה רשום ברשויות. מצב מכני, תאונות שלא דווחו ושעבודים נבדקים במכון מורשה ובשירותי הבדיקה בלשונית \"לפני שקונים\"."],
 ];
 function faqCard(){
@@ -3997,7 +4016,12 @@ function loadMagazine(){
   }).catch(() => {});
 }
 
-function run(p){ lookup(p).catch(err => { $("#out").innerHTML = `<div class="msg err">${esc(err.message)}</div>`; $("#go").disabled = false; }); }
+function run(p){ lookup(p).catch(err => {
+  reportErr("lookup_failed");
+  const net = /HTTP|timeout|Failed to fetch|NetworkError|Load failed/i.test(String(err && err.message));
+  $("#out").innerHTML = `<div class="msg err">${net ? "לא הצלחנו להתחבר למאגרי משרד התחבורה. בדקו את החיבור ונסו שוב." : "משהו השתבש בבדיקה. נסו שוב."}</div>`;
+  $("#go").disabled = false;
+}); }
 $("#f").addEventListener("submit", ev => { ev.preventDefault(); run($("#plate").value); });
 let lastPlateVal = null;
 const syncClr = () => {
@@ -4033,7 +4057,7 @@ $("#openSettings").addEventListener("click", () => { syncAlertsSeg(); fillAlertK
 document.querySelectorAll("[data-alerts]").forEach(b => b.addEventListener("click", () => { try { window.AndroidApp.setAlerts(b.dataset.alerts === "on"); localStorage.setItem("alertsAsked", "1"); } catch {} syncAlertsSeg(); }));
 $("#closeSettings").addEventListener("click", () => { sheet.hidden = true; $("#openSettings").focus(); });
 sheet.addEventListener("click", ev => { if (ev.target === sheet) sheet.hidden = true; });
-document.addEventListener("keydown", ev => { if (ev.key === "Escape") { sheet.hidden = true; $("#compareSheet").hidden = true; $("#shareSheet").hidden = true; } });
+document.addEventListener("keydown", ev => { if (ev.key === "Escape") { const dv = document.querySelector(".doc-view"); if (dv) dv.click(); sheet.hidden = true; $("#compareSheet").hidden = true; $("#shareSheet").hidden = true; } });
 $("#clearRecent").addEventListener("click", () => { store.set("recentPlates", []); toast("היסטוריית החיפושים נמחקה"); if (!current) renderHome(); });
 $("#clearSaved").addEventListener("click", () => { store.set("savedVehicles", []); toast("הרכבים השמורים נמחקו"); if (!current) renderHome(); });
 $("#ver").textContent = APP_VERSION;
@@ -4117,7 +4141,7 @@ syncBiz();
 function goHome(){ if (land) setLand(false, false); inCompare = false; renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} window.scrollTo({top: 0}); }
 $(".brand h1").addEventListener("click", goHome);
 $("#homeBtn").addEventListener("click", goHome);
-window.appBack = () => { if (!sheet.hidden) { sheet.hidden = true; return true; } if (!$("#compareSheet").hidden) { if (mGroup) stepBack(); else hideCmpSheet(); return true; } if (!$("#shareSheet").hidden) { $("#shareSheet").hidden = true; return true; } if (inCompare) { closeCompare(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} return true; } if (!$("#homeMark")) { renderHome(); window.scrollTo({top: 0}); return true; } return false; };
+window.appBack = () => { const dv = document.querySelector(".doc-view"); if (dv) { dv.click(); return true; } if (!sheet.hidden) { sheet.hidden = true; return true; } if (!$("#compareSheet").hidden) { if (mGroup) stepBack(); else hideCmpSheet(); return true; } if (!$("#shareSheet").hidden) { $("#shareSheet").hidden = true; return true; } if (inCompare) { closeCompare(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} return true; } if (!$("#homeMark")) { renderHome(); window.scrollTo({top: 0}); return true; } return false; };
 
 /* Text shared from another app (an ad, a message): find a plate number in it.
    Phone numbers, prices and mileage are skipped; a number next to the words רכב/רישוי/לוחית wins. */
