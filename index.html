@@ -897,8 +897,8 @@ function firstOwner(v){ const t = String(v.mkoriut_nm || "").trim(); return t ||
 const BRAND_TIERS = [
   {k: 1.07, r: 0.045, re: /טויוטה|לקסוס|סובארו|הונדה|סוזוקי|TOYOTA|LEXUS|SUBARU|HONDA|SUZUKI/i},
   {k: 1.00, r: 0.065, re: /יונדאי|קיה|מאזדה|מזדה|סקודה|פולקסווגן|פולקסוואגן|סיאט|קופרה|אאודי|ניסאן|מיצובישי|HYUNDAI|KIA\b|MAZDA|SKODA|VOLKSWAGEN|SEAT|CUPRA|AUDI|NISSAN|MITSUBISHI/i},
-  {k: 0.93, r: 0.10, re: /פיג.?ו|פז.?ו|סיטרואן|רנו|אופל|שברולט|פורד|פיאט|דאצ.?יה|PEUGEOT|CITROEN|RENAULT|OPEL|CHEVROLET|FORD|FIAT|DACIA/i},
-  {k: 0.93, r: 0.10, re: /(?<![א-ת])(?:מ\.? ?ג|אם.{0,2}ג.{0,2}י)(?![א-ת])|\bMG\b/i, notEv: true},
+  {k: 0.80, r: 0.10, re: /פיג.?ו|פז.?ו|סיטרואן|רנו|אופל|שברולט|פורד|פיאט|דאצ.?יה|PEUGEOT|CITROEN|RENAULT|OPEL|CHEVROLET|FORD|FIAT|DACIA/i},
+  {k: 0.80, r: 0.10, re: /(?<![א-ת])(?:מ\.? ?ג|אם.{0,2}ג.{0,2}י)(?![א-ת])|\bMG\b/i, notEv: true},
   {k: 0.88, r: 0.10, re: /BYD|בי.{0,2}וי.{0,2}די|טסלה|TESLA|ג.?ילי|GEELY|צ.?רי|CHERY|סרס|SERES|ליפמוטור|LEAPMOTOR|זיקר|ZEEKR|אקספנג|XPENG|וויה|VOYAH|לינק|LYNK|ג.?נסיס|GENESIS|אלפא|ALFA|וולוו|וולבו|VOLVO|י?ג.?ואר|JAGUAR|לנד רובר|LAND ROVER|ג.?יפ|JEEP/i},
 ];
 function brandTier(D, ev){
@@ -1145,7 +1145,7 @@ function costs(D){
     const age = Math.floor(ageY);
     const lux = num(D.price.mehir) > 300000, ev = kind === "ev", cheap = num(D.price.mehir) < 100000;
     // first calibration (2026-10) used the cheapest listing page per model and ran low, so the curve was eased: ordinary cars lose ~13% in the first year and ~6% a year after; small cheap cars hold value better, electric cars lose it faster
-    const [y1, yr] = ev ? [0.80, 0.88] : lux ? [0.78, 0.90] : cheap ? [0.90, 0.95] : [0.87, 0.94];
+    const [y1, yr] = ev ? [0.80, 0.88] : lux ? [0.78, 0.90] : cheap ? [0.90, 0.95] : [0.87, 0.91];
     const factor = ageY < 1 ? 1 - (1 - y1) * ageY : y1 * Math.pow(yr, ageY - 1);
     const tier = brandTier(D, ev);
     const base = num(D.price.mehir) * factor * tier.k;
