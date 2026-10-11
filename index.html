@@ -955,6 +955,7 @@ async function shareText(title, text, plate){
   copyText(text, "הסיכום");
 }
 function openExternal(url){
+  if (!/^(https?:|tel:|mailto:|geo:)/i.test(String(url))) return;
   try { if (bridge() && bridge().openUrl) { bridge().openUrl(url); return; } } catch {}
   window.open(url, "_blank", "noopener");
 }
@@ -1472,11 +1473,13 @@ async function lookup(raw){
   $("#go").disabled = true;
   try { history.replaceState(null, "", "#" + plate); } catch {}
   out.innerHTML = loadingHtml(plate);
+  // a slow ministry server: say so after 3.5 s instead of leaving a silent bar
+  const slowT = setTimeout(() => { if (!signal.aborted && $("#bar") && !$("#slowNote")) out.insertAdjacentHTML("beforeend", `<p class="note" id="slowNote" role="status" style="text-align:center">בודק, לוקח יותר מהרגיל. שרתי משרד התחבורה איטיים כרגע.</p>`); }, 3500);
   const side = Promise.race([Promise.all([loadModelStats().catch(() => null), loadService().catch(() => null)]), new Promise(r => setTimeout(r, 1500))]);
   let D;
   try { D = await fetchVehicle(plate, signal, f => { const bar = $("#bar"); if (bar) bar.style.width = f * 100 + "%"; }); }
   catch (err) { if (err.name === "AbortError") return; throw err; }
-  finally { $("#go").disabled = false; }
+  finally { $("#go").disabled = false; clearTimeout(slowT); }
   if (signal.aborted) return;
   await side;
   if (signal.aborted) return;
@@ -2086,7 +2089,7 @@ function tabBuy(D){
     `<p style="margin:0">אין במאגר מחיר מחירון לדגם הזה, ולכן אין הערכת שווי.</p>`)));
   html.push(`<div id="mstat">${msCard(D)}</div>`);
   html.push(checksCard(D));
-  const lk = (url, icon, text, copy) => `<button type="button" class="link-btn" data-url="${url}"${copy ? ` data-copyfirst="${D.plate}"` : ""}>${ico(icon)}${text}</button>`;
+  const lk = (url, icon, text, copy) => `<button type="button" class="link-btn" data-url="${esc(url)}"${copy ? ` data-copyfirst="${D.plate}"` : ""}>${ico(icon)}${text}</button>`;
   const ckKey = "buychk:" + D.plate; let ckDone = []; try { ckDone = JSON.parse(localStorage.getItem(ckKey) || "[]"); } catch {}
   const step = (n, title, body) => `<li><span class="n">${n}</span><div><b>${title}</b>${body}<button type="button" class="ck" data-ck="${n}" aria-pressed="${ckDone.includes(n)}">${ckDone.includes(n) ? "בוצע" : "סימון כבוצע"}</button></div></li>`;
   html.push(card("לפני שקונים", "check", "green",
