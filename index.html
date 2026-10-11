@@ -2766,6 +2766,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.delcmp) { const l = store.get("savedCompares"); l.splice(+b.dataset.delcmp, 1); store.set("savedCompares", l); renderHome(); return; }
   if (b.dataset.act === "marketBack") { renderHome(); window.scrollTo({top: 0}); return; }
   if (b.dataset.mkmode) { if (b.dataset.mkmode === "quarter" && mkLocked()) { toast("בחירת רבעון זמינה ב-PRO"); return; } MK.mode = b.dataset.mkmode; MK.sel = null; if (MARKET) renderMarket(MARKET); return; }
+  if (b.dataset.mkall) { MK.allMk = !MK.allMk; if (MARKET) renderMarket(MARKET); return; }
   if (b.dataset.mksel) { MK.sel = b.dataset.mksel; if (MARKET) renderMarket(MARKET); return; }
   if (b.dataset.act === "closeCompare") { closeCompare(); return; }
   if (b.dataset.act === "cmpPdf") { shareComparePdf(b); return; }
@@ -3661,7 +3662,9 @@ function renderMarket(M){
     const rows = Object.entries(obj).map(([k, v]) => [k, sumM(v, ms), sumM(v, pms)]).filter(r => r[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, n), top = rows[0] ? rows[0][1] : 1;
     return rows.map(([k, c, p]) => `<div class="mk-row"><b>${esc(nameFn(k))}</b><span>${fmtN(c)} <small>· ${(c / total * 100).toFixed(1)}%</small> ${chgHtml(c, p)}</span><div class="tr"><i style="width:${c / top * 100}%"></i></div></div>`).join("");
   };
-  html.push(card("יצרנים מובילים", "star", "amber", mkTop(M.makers, P.ms, P.prevMs, 10, mkMake)));
+  { const nMk = Object.values(M.makers).filter(v => sumM(v, P.ms) > 0).length;
+    html.push(card(MK.allMk ? `כל היצרנים (${nMk})` : "יצרנים מובילים", "star", "amber", mkTop(M.makers, P.ms, P.prevMs, MK.allMk ? 999 : 10, mkMake)
+      + (nMk > 10 ? `<button type="button" class="link-btn" data-mkall="1">${MK.allMk ? "הצג רק את 10 המובילים" : `הצג את כל ${nMk} היצרנים`}</button>` : ""))); }
   html.push(card("דגמים מובילים", "car", "violet", mkTop(M.models, P.ms, P.prevMs, 10, k => { const [mk, ...r] = k.split("|"); return [mkMake(mk), ...r].join(" "); }) + `<p class="note">לפי הכינוי המסחרי, כל המנועים והגימורים יחד.</p>`));
   if (M.bodies && Object.keys(M.bodies).length) html.push(card("סוג מרכב", "car", "blue", mkTop(M.bodies, P.ms, P.prevMs, 8, k => k) + `<p class="note">לפי סוג המרכב בקטלוג של המשרד. ${M.bodyCover && M.bodyCover < 0.98 ? "חלק מהרכבים לא משויכים לסוג מרכב, ולכן הסכום קטן מסך המסירות." : ""}</p>`));
   const OWN = [["פרטי", "פרטי", "#2556c8"], ["ליסינג", "ליסינג", "#e0a100"], ["חברה", "חברה", "#7a4fd1"], ["השכרה", "השכרה", "#1a8f4a"], ["סוחר", "סוחר", "#8a93a6"]];
