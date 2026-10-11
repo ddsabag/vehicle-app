@@ -140,7 +140,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .actions{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;border-top:1px solid var(--line);padding-top:12px}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .act[data-act=share]{background:#3a3213;box-shadow:inset 0 0 0 1.5px #7a6a24}:root:not([data-theme="light"]) .act[data-act=share] svg.i{color:#f2c94c}}
 :root[data-theme="dark"] .act[data-act=share]{background:#3a3213;box-shadow:inset 0 0 0 1.5px #7a6a24}:root[data-theme="dark"] .act[data-act=share] svg.i{color:#f2c94c}
-.mst td{vertical-align:middle}.mst small{white-space:nowrap;font-size:.74rem;color:var(--muted)}.mst b.ok{color:var(--ok)}.mst b.bad{color:var(--bad)}
+.mst td{vertical-align:middle}.mst small{font-size:.74rem;color:var(--muted)}.mst b.ok{color:var(--ok)}.mst b.bad{color:var(--bad)}
 .act[data-act=share]{background:#fff6d9;box-shadow:inset 0 0 0 1.5px #f3d46a}.act[data-act=share] svg.i{color:#a87900}
 .hero .try{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}.hero .try .chip{min-height:40px;padding:8px 12px}.hero .try span{font-size:.88rem;color:var(--muted)}.how{margin:12px 0 0;padding:0 18px 0 0;display:grid;gap:6px;font-size:.9rem;color:var(--muted)}.hero .how li{display:block;font-weight:500}.how b{color:var(--fg)}.faq{border-top:1px solid var(--line)}.faq:first-child{border-top:0}.faq summary{cursor:pointer;padding:11px 0;font-weight:700;font-size:.93rem;list-style:none}.faq summary::-webkit-details-marker{display:none}.faq summary::after{content:"+";float:left;color:var(--muted)}.faq[open] summary::after{content:"−"}.faq p{margin:0 0 12px;color:var(--muted);font-size:.9rem;line-height:1.6}
 .bsteps .ck{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:.84rem;color:var(--muted);font-weight:600}.bsteps .ck::before{content:"";width:18px;height:18px;border-radius:5px;border:2px solid var(--line);flex:0 0 auto}.bsteps .ck[aria-pressed="true"]{color:var(--accent)}.bsteps .ck[aria-pressed="true"]::before{background:var(--accent);border-color:var(--accent);box-shadow:inset 0 0 0 3px var(--card)}.bprog{margin:0 0 10px;font-size:.88rem;color:var(--muted);font-weight:600}.src-foot{margin:14px 4px 0;font-size:.78rem;color:var(--muted);line-height:1.5;text-align:center}
@@ -189,8 +189,12 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .stat{background:var(--card);border-radius:16px;padding:14px 16px;min-width:0;box-shadow:var(--shadow);border-top:4px solid var(--tc)}
 .stat .k{font-size:.85rem;color:var(--muted);font-weight:600}
-.stat .v{font:600 clamp(1.25rem,5.6vw,1.55rem)/1.15 var(--f-num);font-variant-numeric:tabular-nums;margin-top:4px;white-space:nowrap}
+.stat .v{font:600 clamp(1.25rem,5.6vw,1.55rem)/1.15 var(--f-num);font-variant-numeric:tabular-nums;margin-top:4px;overflow-wrap:anywhere}   /* wraps instead of being cut when the phone's text size is large */
 .stat .v .u,.tow-grid .v .u{white-space:nowrap}
+.tow-grid .v{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:4px}.tow-grid .v .u{margin-inline-start:0}   /* number and unit go on two lines instead of being cut at large text sizes */
+
+/* touch targets: 44px minimum */
+.icon-btn{min-width:44px;min-height:44px}button.count{min-height:44px;min-width:44px}.chip{min-height:44px}
 
 /* facts */
 .facts{display:grid;grid-template-columns:1fr 1fr;gap:14px 16px;margin:0}
@@ -679,6 +683,11 @@ const simpleOn = () => { try { return localStorage.getItem("simpleView") === "1"
 const analyticsOn = () => { try { return localStorage.getItem("analyticsOff") !== "1"; } catch { return true; } };
 const track = (name, params) => { try { const b = window.AndroidApp; if (b && b.logEvent && analyticsOn()) b.logEvent(name, JSON.stringify(params || {})); } catch {} };
 /* silent failures worth knowing about (a dataset that errors, a library that does not load): sent to Crashlytics as a non-fatal, tag only, never a plate */
+/* a JavaScript error nobody sees: counted (line number only, never the message, which could hold a plate), at most 5 per session */
+let jsErrN = 0;
+const jsErr = (where, line) => { if (jsErrN++ < 5) { try { const b = window.AndroidApp; if (b && b.logError && analyticsOn()) b.logError(("js_" + where + "_" + (line || 0)).slice(0, 60)); } catch {} } };
+window.addEventListener("error", ev => jsErr("err", ev && ev.lineno));
+window.addEventListener("unhandledrejection", () => jsErr("rej", 0));
 const reportErr = tag => { try { const b = window.AndroidApp; if (b && b.logError && analyticsOn()) b.logError(String(tag).slice(0, 60)); } catch {} };
 const UPGRADE_UI = true;   // false for a store build that has no billing products yet
 const PRICES = {buyer_pack: 29, pro_monthly: 12.9, pro_yearly: 69, biz_monthly: 79};
@@ -930,6 +939,8 @@ const card = (title, icon, color, inner, extra) => {
   return `<section class="card ${color}${closed ? " folded" : ""}"><div class="head" role="button" tabindex="0" aria-expanded="${!closed}" data-fold="${esc(title)}"><span class="badge">${ico(icon)}</span><h2>${esc(title)}</h2>${extra||""}<svg class="i chev" aria-hidden="true"><use href="#i-chev"/></svg></div><div class="fold-body">${inner}</div></section>`;
 };
 const e = v => empty(v) ? "" : esc(v);
+const posN = v => !empty(v) && Number(String(v).replace(/,/g, "")) > 0;   // 0 cc / 0 hp is how the registry writes "not applicable" (electric cars)
+const unitPos = (v, u) => posN(v) ? unit(v, u) : "";
 const unit = (v, u) => empty(v) ? "" : `${esc(fmtN(v))} ${u}`;
 const mono = v => empty(v) ? "" : `<span class="mono">${esc(v)}</span>`;
 const changed = v => empty(v) ? "" : yes(v) ? `<span class="flag">כן</span>` : "לא";
@@ -1349,7 +1360,7 @@ async function fetchVehicle(plate, signal, onProgress){
 
   const {w, towRow, zeroTow, counts, price, priceRows, modelRecalls, modelRecallsUnknown} = await fetchModelData(v, signal);
   const pick = (...vals) => vals.find(x => !empty(x));
-  const own = res.owners.rows.slice().sort((a,b) => String(a.baalut_dt).localeCompare(String(b.baalut_dt)));
+  const own = res.owners.rows.filter(r => !empty(r.baalut)).sort((a,b) => String(a.baalut_dt).localeCompare(String(b.baalut_dt)));
   const recalls = res.recall.rows.map(r => ({...r, detail: modelRecalls.find(m => String(m.RECALL_ID) === String(r.RECALL_ID)) || null}));
   // the repair details live in the manufacturers' recall list; when the model name there differs from the
   // car's (or the maker has many recalls), look the open recall up directly by its number
@@ -1474,22 +1485,24 @@ async function lookup(raw){
   try { history.replaceState(null, "", "#" + plate); } catch {}
   out.innerHTML = loadingHtml(plate);
   // a slow ministry server: say so after 3.5 s instead of leaving a silent bar
-  const slowT = setTimeout(() => { if (!signal.aborted && $("#bar") && !$("#slowNote")) out.insertAdjacentHTML("beforeend", `<p class="note" id="slowNote" role="status" style="text-align:center">בודק, לוקח יותר מהרגיל. שרתי משרד התחבורה איטיים כרגע.</p>`); }, 3500);
+  const t0 = Date.now();
+  const slowT = setTimeout(() => { if (!signal.aborted && $("#bar") && !$("#slowNote")) track("lookup_slow"); if (!signal.aborted && $("#bar") && !$("#slowNote")) out.insertAdjacentHTML("beforeend", `<p class="note" id="slowNote" role="status" style="text-align:center">בודק, לוקח יותר מהרגיל. שרתי משרד התחבורה איטיים כרגע.</p>`); }, 3500);
   const side = Promise.race([Promise.all([loadModelStats().catch(() => null), loadService().catch(() => null)]), new Promise(r => setTimeout(r, 1500))]);
   let D;
   try { D = await fetchVehicle(plate, signal, f => { const bar = $("#bar"); if (bar) bar.style.width = f * 100 + "%"; }); }
-  catch (err) { if (err.name === "AbortError") return; throw err; }
+  catch (err) { if (err.name === "AbortError") { if (Date.now() - t0 > 1500) track("lookup_abort"); return; } throw err; }   // the user gave up on a slow lookup and typed another
   finally { $("#go").disabled = false; clearTimeout(slowT); }
+  const dur = Date.now() - t0, durB = dur < 2000 ? "lt2" : dur < 5000 ? "2to5" : dur < 10000 ? "5to10" : "gt10";
   if (signal.aborted) return;
   await side;
   if (signal.aborted) return;
   if (D.sourceDown) { out.innerHTML = `<div class="msg err">מאגר הרכבים של משרד התחבורה לא מחזיר נתונים כרגע, בלי קשר למספר שהקלדתם. זו תקלה אצל המשרד. נסו שוב מאוחר יותר.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; track("lookup_failed", {kind: "source_down"}); return; }
-  if (D.offline || D.notFound) track("lookup_failed", {kind: D.offline ? "offline" : "not_found"});
+  if (D.offline || D.notFound) track("lookup_failed", {kind: D.sourceDown ? "source_down" : D.offline ? "offline" : "not_found", dur: durB});
   if (D.offline) { out.innerHTML = `<div class="msg err">אין חיבור למאגרי משרד התחבורה כרגע. בדקו את החיבור לאינטרנט ונסו שוב.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; return; }
   if (D.notFound) { out.innerHTML = `<div class="msg">לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.</div>`; return; }
   current = D; currentTab = "overview";
   renderResult();
-  track("car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0});
+  track("car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: D.errs && D.errs.length ? 1 : 0});
   remember(plate);
   window.scrollTo({top: 0});
 }
@@ -1514,7 +1527,7 @@ function simpleCard(D){
   const kg = x => empty(x) ? "" : fmtN(x) + " ק״ג";
   const main = [
     ["יצרן", D.make], ["דגם", D.model], ["שנת ייצור", v.shnat_yitzur], ["רמת גימור", pick(v.ramat_gimur, w.ramat_gimur)], ["צבע", v.tzeva_rechev],
-    ["סוג דלק", pick(v.sug_delek_nm, w.delek_nm)], ["נפח מנוע", pick(v.nefach_manoa, w.nefah_manoa) && fmtN(pick(v.nefach_manoa, w.nefah_manoa)) + " סמ״ק"], ["כוח", isNum(w.koah_sus) ? fmtN(w.koah_sus) + " כ״ס" : ""],
+    ["סוג דלק", pick(v.sug_delek_nm, w.delek_nm)], ["נפח מנוע", posN(pick(v.nefach_manoa, w.nefah_manoa)) && fmtN(pick(v.nefach_manoa, w.nefah_manoa)) + " סמ״ק"], ["כוח", posN(w.koah_sus) ? fmtN(w.koah_sus) + " כ״ס" : ""],
     ["הנעה", pick(v.hanaa_nm, w.hanaa_nm)], ["תיבת הילוכים", gear], ["מרכב", w.merkav], ["מושבים", pick(w.mispar_moshavim, v.mispar_mekomot)], ["דלתות", w.mispar_dlatot],
     ["עלה לכביש", v.moed_aliya_lakvish], ["סוג יבוא", D.importKind], ["יבואן", importerOf(D)], ["בעלות נוכחית", v.baalut], ["בעלות ראשונה", firstOwner(v)], ["מספר בעלים", own],
     ["טסט אחרון", empty(v.mivchan_acharon_dt) ? "" : fmtDate(v.mivchan_acharon_dt)], ["טסט בתוקף עד", empty(v.tokef_dt) ? "" : fmtDate(v.tokef_dt)], ["ק״מ בטסט האחרון", D.km ? fmtN(D.km) : ""],
@@ -1960,7 +1973,7 @@ function tabOverview(D){
   const stats = [];
   if (D.km) stats.push(["ק״מ בטסט האחרון", fmtN(D.km), "ק״מ", "teal"]);
   if (D.kmPerYear) stats.push(["ממוצע לשנה", fmtN(D.kmPerYear), "ק״מ", "teal"]);
-  const hp = D.pick(w.koah_sus, v.hespek);
+  const hp = posN(w.koah_sus) ? w.koah_sus : posN(v.hespek) ? v.hespek : "";
   if (!empty(hp)) stats.push(["כוח", fmtN(hp), empty(w.koah_sus) ? "" : "כ״ס", "red"]);
   if (stats.length % 2) stats.pop();
   if (stats.length) html.push(`<div class="stats">${stats.map(([k,val,u,c]) => `<div class="stat ${c}"><div class="k">${esc(k)}</div><div class="v">${esc(val)}${u ? `<span class="u">${esc(u)}</span>` : ""}</div></div>`).join("")}</div>`);
@@ -2165,8 +2178,8 @@ function tabSpecs(D){
     ["צבע", e(v.tzeva_rechev)],
   ])));
   html.push(card("מנוע והנעה", "engine", "red", facts([
-    ["דלק", e(D.pick(v.sug_delek_nm, w.delek_nm))], ["נפח מנוע", unit(D.pick(v.nefach_manoa, w.nefah_manoa), "סמ״ק")],
-    ["כוח", empty(w.koah_sus) ? e(v.hespek) : unit(w.koah_sus, "כ״ס")], ["תיבת הילוכים", e(gearbox)],
+    ["דלק", e(D.pick(v.sug_delek_nm, w.delek_nm))], ["נפח מנוע", unitPos(D.pick(v.nefach_manoa, w.nefah_manoa), "סמ״ק")],
+    ["כוח", !posN(w.koah_sus) ? e(v.hespek) : unit(w.koah_sus, "כ״ס")], ["תיבת הילוכים", e(gearbox)],
     ["הנעה", e(D.pick(v.hanaa_nm, w.hanaa_nm))], ["דגם מנוע", mono(v.degem_manoa)],
   ])));
   html.push(card("משקלים וצמיגים", "scale", "slate", facts([
