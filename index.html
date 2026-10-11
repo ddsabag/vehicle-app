@@ -1249,6 +1249,8 @@ function importerRecall(D){
   const who = D.pick(D.price && D.price.shem_yevuan, D.modelRecalls[0] && D.modelRecalls[0].YEVUAN_TEUR, D.make);
   return {name: who, url: "https://www.gov.il/he/departments/dynamiccollectors/cars-recall?skip=0", gov: true};
 }
+/* the official importer, from the model's price list; a personal import has none */
+const importerOf = D => D.importKind || !D.price || empty(D.price.shem_yevuan) ? "" : String(D.price.shem_yevuan).trim();
 const norm = s => String(s || "").toUpperCase().replace(/[^A-Z0-9֐-׿]/g, "");
 function isBlocking(r){ return /הגבל|מגביל|חסימ|חוסם/.test([r.SUG_RECALL, r.SUG_TAKALA, r.TEUR_TAKALA].join(" ")); }
 function recallYear(x){ const m = String(x || "").match(/(19|20)\d{2}/); return m ? +m[0] : null; }
@@ -1494,7 +1496,7 @@ function simpleCard(D){
     ["יצרן", D.make], ["דגם", D.model], ["שנת ייצור", v.shnat_yitzur], ["רמת גימור", pick(v.ramat_gimur, w.ramat_gimur)], ["צבע", v.tzeva_rechev],
     ["סוג דלק", pick(v.sug_delek_nm, w.delek_nm)], ["נפח מנוע", pick(v.nefach_manoa, w.nefah_manoa) && fmtN(pick(v.nefach_manoa, w.nefah_manoa)) + " סמ״ק"], ["כוח", isNum(w.koah_sus) ? fmtN(w.koah_sus) + " כ״ס" : ""],
     ["הנעה", pick(v.hanaa_nm, w.hanaa_nm)], ["תיבת הילוכים", gear], ["מרכב", w.merkav], ["מושבים", pick(w.mispar_moshavim, v.mispar_mekomot)], ["דלתות", w.mispar_dlatot],
-    ["עלה לכביש", v.moed_aliya_lakvish], ["סוג יבוא", D.importKind], ["בעלות נוכחית", v.baalut], ["בעלות ראשונה", firstOwner(v)], ["מספר בעלים", own],
+    ["עלה לכביש", v.moed_aliya_lakvish], ["סוג יבוא", D.importKind], ["יבואן", importerOf(D)], ["בעלות נוכחית", v.baalut], ["בעלות ראשונה", firstOwner(v)], ["מספר בעלים", own],
     ["טסט אחרון", empty(v.mivchan_acharon_dt) ? "" : fmtDate(v.mivchan_acharon_dt)], ["טסט בתוקף עד", empty(v.tokef_dt) ? "" : fmtDate(v.tokef_dt)], ["ק״מ בטסט האחרון", D.km ? fmtN(D.km) : ""],
     ["ריקולים פתוחים", D.recalls.length ? String(D.recalls.length) : "אין"], ["תג נכה", D.tag ? "יש" : ""], ["מספר שלדה", vin, vin],
   ];
@@ -2136,7 +2138,7 @@ function tabSpecs(D){
   html.push(card("הרכב", "car", "pink", facts([
     ["יצרן", e(D.make)], ["דגם", e(D.model)],
     ["שנת ייצור", e(v.shnat_yitzur)], ["רמת גימור", e(D.pick(v.ramat_gimur, w.ramat_gimur))],
-    ["סוג רכב", e(v.sug_rechev_nm)], ["מרכב", e(w.merkav)],
+    ["סוג רכב", e(v.sug_rechev_nm)], ["מרכב", e(w.merkav)], ["יבואן", e(importerOf(D))],
     ["דלתות", e(w.mispar_dlatot)], ["מושבים", e(D.pick(w.mispar_moshavim, v.mispar_mekomot))],
     ["צבע", e(v.tzeva_rechev)],
   ])));
