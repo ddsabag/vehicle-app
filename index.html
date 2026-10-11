@@ -684,8 +684,12 @@ const PRICES = {buyer_pack: 29, pro_monthly: 12.9, pro_yearly: 69, biz_monthly: 
 const GIFT_DAYS = 30, BUYER_DAYS = 60, TRIAL_DAYS = 14;
 const RANK = {free: 0, buyer: 1, pro: 2, biz: 3};
 const PLAN_NAME = {free: "החבילה החינמית", buyer: "חבילת קנייה", pro: "PRO", biz: "PRO עסקי"};
-const entGet = () => { try { return JSON.parse(localStorage.getItem("ent") || "{}") || {}; } catch { return {}; } };
-const entSet = e => { try { localStorage.setItem("ent", JSON.stringify(e)); } catch {} };
+/* Paid plans (pro, biz, buyer) live in memory only and are re-read from Google Play on every start: they are never written to
+   localStorage, so an Android backup or a hand-edited store cannot carry or fake them. Gift and trial dates are local by nature. */
+const PAID_KEYS = ["pro", "biz", "buyer"], entMem = {pro: 0, biz: 0, buyer: 0};
+const entGet = () => { let e = {}; try { e = JSON.parse(localStorage.getItem("ent") || "{}") || {}; } catch {} PAID_KEYS.forEach(k => { e[k] = entMem[k] || 0; }); return e; };
+const entSet = e => { PAID_KEYS.forEach(k => { if (k in e) entMem[k] = Number(e[k]) || 0; }); const o = {...e}; PAID_KEYS.forEach(k => delete o[k]); try { localStorage.setItem("ent", JSON.stringify(o)); } catch {} };
+entSet(entGet());   /* one-time scrub of paid dates written by older versions (entGet reads them as zero, so the stored copy is cleaned) */
 function plan(){
   if (!PRO_LOCK) return "biz";
   const e = entGet(), now = Date.now();
@@ -1272,20 +1276,22 @@ function matchModelRecalls(rows, v){
 
 /* Model-level data (specs, towing, counts, price list, recalls) for a maker + model code */
 async function fetchModelData(v, signal){
-  let w = {}, towRow = null, zeroTow = false, counts = null, price = null, priceRows = [], modelRecalls = [];
+  let w = {}, towRow = null, zeroTow = false, counts = null, price = null, priceRows = [], modelRecalls = [], modelRecallsUnknown = false;
   if (!empty(v.tozeret_cd) && !empty(v.degem_cd)) {
     const recallsByMaker = (async () => {
+      let answered = false;
       for (const val of [num(v.tozeret_cd), String(v.tozeret_cd).trim()]) {
-        try { const rows = await ds(MODEL_SETS.recalls, {TOZAR_CD: val}, 1000, signal); if (rows.length) return rows; }
+        try { const rows = await ds(MODEL_SETS.recalls, {TOZAR_CD: val}, 1000, signal); answered = true; if (rows.length) return rows; }
         catch (err) { if (err.name === "AbortError") throw err; }
       }
+      if (!answered) modelRecallsUnknown = true;   // no answer is not the same as "no recalls"
       return [];
     })();
     const [a, b, c, r] = await Promise.all([
       modelRows(MODEL_SETS.wltp, v, signal).catch(() => []),
       modelRows(MODEL_SETS.counts, v, signal).catch(() => []),
       modelRows(MODEL_SETS.price, v, signal).catch(() => []),
-      recallsByMaker.catch(() => []),
+      recallsByMaker.catch(() => { modelRecallsUnknown = true; return []; }),
     ]);
     const ranked = rankRows(a, v);
     if (ranked.length) w = ranked[0];
@@ -1297,7 +1303,7 @@ async function fetchModelData(v, signal){
     price = rankRows(c, v)[0] || null; priceRows = c;
     modelRecalls = matchModelRecalls(r, v);
   }
-  return {w, towRow, zeroTow, counts, price, priceRows, modelRecalls};
+  return {w, towRow, zeroTow, counts, price, priceRows, modelRecalls, modelRecallsUnknown};
 }
 
 /* An empty ministry dataset answers "no rows" for every plate; tell that apart from a plate that does not exist */
@@ -1333,7 +1339,7 @@ async function fetchVehicle(plate, signal, onProgress){
   mains.forEach(s => fill(res[s.key].rows[0]));
   ["cont","tech"].forEach(k => res[k].rows[0] && fill(res[k].rows[0]));
 
-  const {w, towRow, zeroTow, counts, price, priceRows, modelRecalls} = await fetchModelData(v, signal);
+  const {w, towRow, zeroTow, counts, price, priceRows, modelRecalls, modelRecallsUnknown} = await fetchModelData(v, signal);
   const pick = (...vals) => vals.find(x => !empty(x));
   const own = res.owners.rows.slice().sort((a,b) => String(a.baalut_dt).localeCompare(String(b.baalut_dt)));
   const recalls = res.recall.rows.map(r => ({...r, detail: modelRecalls.find(m => String(m.RECALL_ID) === String(r.RECALL_ID)) || null}));
@@ -1358,7 +1364,7 @@ async function fetchVehicle(plate, signal, onProgress){
   const onRoad = parseYM(v.moed_aliya_lakvish) || (isNum(v.shnat_yitzur) ? new Date(num(v.shnat_yitzur), 0, 1) : null);
   const ownersFloor = !onRoad || onRoad < new Date(2017, 0, 1); // the ownership log starts in January 2017
 
-  const D = {plate, v, w, towRow, zeroTow, tSrc, counts, price, priceRows, own, ownersFloor, recalls, modelRecalls, tag, dpf, primary: mains[0], importKind: res.import.rows[0] ? String(res.import.rows[0].sug_yevu || "יבוא אישי").replace(/-/g, " · ") : null, errs, pick, make, model,
+  const D = {plate, v, w, towRow, zeroTow, tSrc, counts, price, priceRows, own, ownersFloor, recalls, modelRecalls, recallUnknown: !!res.recall.err, modelRecallsUnknown, tag, dpf, primary: mains[0], importKind: res.import.rows[0] ? String(res.import.rows[0].sug_yevu || "יבוא אישי").replace(/-/g, " · ") : null, errs, pick, make, model,
     title: [make, model].filter(Boolean).join(" ") || "רכב " + fmtPlate(plate),
     sub: [v.shnat_yitzur, pick(v.ramat_gimur, w.ramat_gimur), v.tzeva_rechev].filter(x => !empty(x)).join(" · "),
     vin: pick(v.misgeret, v.mispar_shilda, v.shilda), km, kmYears, kmPerYear,
@@ -1502,7 +1508,7 @@ function simpleCard(D){
     ["הנעה", pick(v.hanaa_nm, w.hanaa_nm)], ["תיבת הילוכים", gear], ["מרכב", w.merkav], ["מושבים", pick(w.mispar_moshavim, v.mispar_mekomot)], ["דלתות", w.mispar_dlatot],
     ["עלה לכביש", v.moed_aliya_lakvish], ["סוג יבוא", D.importKind], ["יבואן", importerOf(D)], ["בעלות נוכחית", v.baalut], ["בעלות ראשונה", firstOwner(v)], ["מספר בעלים", own],
     ["טסט אחרון", empty(v.mivchan_acharon_dt) ? "" : fmtDate(v.mivchan_acharon_dt)], ["טסט בתוקף עד", empty(v.tokef_dt) ? "" : fmtDate(v.tokef_dt)], ["ק״מ בטסט האחרון", D.km ? fmtN(D.km) : ""],
-    ["ריקולים פתוחים", D.recalls.length ? String(D.recalls.length) : "אין"], ["תג נכה", D.tag ? "יש" : ""], ["מספר שלדה", vin, vin],
+    ["ריקולים פתוחים", D.recallUnknown ? "לא זמין כרגע" : D.recalls.length ? String(D.recalls.length) : "אין"], ["תג נכה", D.tag ? "יש" : ""], ["מספר שלדה", vin, vin],
   ];
   const safety = pick(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty), zihum = pick(v.kvutzat_zihum, w.kvutzat_zihum);
   const more = [
@@ -1555,7 +1561,7 @@ function renderResult(){
   const dt = driveType(D);
   if (dt) pills.push(`<span class="pill drive ${["ev", "phev", "hybrid"].includes(dt.k) ? "green" : ""}">${ico(["ev", "phev", "hybrid"].includes(dt.k) ? "bolt" : "fuel")}${dt.label}</span>`);
   if (exp && !D.isCancelled) pills.push(exp < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) ? `<span class="pill bad">טסט לא בתוקף</span>` : `<span class="pill ok">טסט בתוקף עד ${String(exp.getMonth() + 1).padStart(2, "0")}/${exp.getFullYear()}</span>`);
-  const vIns = buildInsights(D), clean = !(D.errs && D.errs.length) && !D.isCancelled && !D.recalls.length && !vIns.some(x => x.level === "bad" || x.level === "warn");
+  const vIns = buildInsights(D), clean = !(D.errs && D.errs.length) && !D.recallUnknown && !D.isCancelled && !D.recalls.length && !vIns.some(x => x.level === "bad" || x.level === "warn");
   if (D.own.length) pills.push(`<span class="pill">${ownersLabel(D)}</span>`);
   if (clean) pills.push(`<span class="pill ok">${ico("check")}לא נמצאו בעיות במאגרי משרד התחבורה</span>`);
   if (D.tag) pills.push(`<span class="pill">תג נכה</span>`);
@@ -1582,7 +1588,8 @@ function renderResult(){
     const stl = settlementsFor(D);
     if (stl.length) html.push(`<button type="button" class="alert-banner warn" data-tab="recalls">${ico("scale")}<span><b>${stl.length === 1 ? "ייתכן שמגיעה הטבה מהסדר פשרה" : `ייתכן שמגיעות ${stl.length} הטבות מהסדרי פשרה`}</b>ההטבה תלויה בהתאמה לרכב שלכם. הפרטים בלשונית ריקולים והסדרים.</span></button>`);
   }
-  if (D.errs && D.errs.length) html.push(`<p class="msg">חלק ממאגרי משרד התחבורה לא ענו כרגע, והמידע על הרכב חלקי. נסו שוב בעוד דקה.</p>`);
+  if (D.recallUnknown) html.push(`<div class="msg err"><b>מידע על ריקולים לא זמין כרגע.</b> מאגר הריקולים של משרד התחבורה לא ענה, ולכן אי אפשר לדעת אם יש ריקול פתוח לרכב. אל תסיקו מכך שאין. נסו שוב בעוד דקה, או בדקו באתר היבואן.</div>`);
+  if (D.errs && D.errs.some(x => x.key !== "recall")) html.push(`<p class="msg">חלק ממאגרי משרד התחבורה לא ענו כרגע, והמידע על הרכב חלקי. נסו שוב בעוד דקה.</p>`);
   if (!window.AndroidApp) html.push(appBox(D));
   html.push(`</div><div class="mainc">`);
   const recallCount = D.recalls.length;
@@ -1990,11 +1997,12 @@ function tabRecalls(D){
   }
   html.push(settlementCard(D));
   const rows = [], row = (ok, t) => rows.push(`<li class="ins ${ok ? "ok" : "warn"}">${ico(ok ? "check" : "alert")}<div><b>${esc(t)}</b></div></li>`);
-  row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")} (פירוט למעלה)` : "אין ריקול פתוח במאגר משרד התחבורה");
-  row(!blocking, blocking ? "ריקול מגביל חידוש רישיון" : "אין ריקול שמגביל חידוש רישיון");
-  row(!fits.length, !mr.length ? "לא נמצאו ריקולים קודמים לדגם" : fits.length ? `${pl(fits.length, "ריקול קודם לדגם עשוי לחול", "ריקולים קודמים לדגם עשויים לחול")} על שנת הייצור` : `${pl(mr.length, "ריקול קודם לדגם, לא חל", "ריקולים קודמים לדגם, אף אחד לא חל")} על שנת הייצור`);
+  if (D.recallUnknown) { row(false, "מידע על ריקולים פתוחים לא זמין כרגע"); row(false, "לא ידוע אם יש ריקול שמגביל חידוש רישיון"); }
+  else { row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")} (פירוט למעלה)` : "אין ריקול פתוח במאגר משרד התחבורה");
+  row(!blocking, blocking ? "ריקול מגביל חידוש רישיון" : "אין ריקול שמגביל חידוש רישיון"); }
+  if (D.modelRecallsUnknown) row(false, "בדיקת ריקולים קודמים לדגם לא זמינה כרגע"); else row(!fits.length, !mr.length ? "לא נמצאו ריקולים קודמים לדגם" : fits.length ? `${pl(fits.length, "ריקול קודם לדגם עשוי לחול", "ריקולים קודמים לדגם עשויים לחול")} על שנת הייצור` : `${pl(mr.length, "ריקול קודם לדגם, לא חל", "ריקולים קודמים לדגם, אף אחד לא חל")} על שנת הייצור`);
   if (D.kind !== "model" && !D.isCancelled) row(!stl.length, stl.length ? `ייתכן שהרכב נכלל ב${pl(stl.length, "הסדר פשרה", "הסדרי פשרה")} (פירוט למעלה)` : "לא נמצא הסדר פשרה מוכר לדגם ולשנתון");
-  html.push(card(`מה נבדק (${rows.length} בדיקות)`, "check", D.recalls.length || fits.length || stl.length ? "amber" : "green", `<ul class="insights plain">${rows.join("")}</ul>
+  html.push(card(`מה נבדק (${rows.length} בדיקות)`, "check", D.recalls.length || fits.length || stl.length || D.recallUnknown || D.modelRecallsUnknown ? "amber" : "green", `<ul class="insights plain">${rows.join("")}</ul>
     <p class="note">הסדרי פשרה: נבדקו מול ${SETTLEMENTS.length} הסדרים של יבואנים, לפי הודעותיהם והעיתונות נכון ל-10/2026. הרשימה אינה מקיפה. באתר היבואן מופיעים גם קמפיינים שלא תמיד נמצאים במאגר.</p>
     <button type="button" class="link-btn" data-url="${esc(imp.url)}" data-copyfirst="${imp.vin ? esc(D.vin || D.plate) : D.plate}">${ico("search")}${imp.gov ? "חיפוש במאגר הריקולים של משרד התחבורה" : `בדיקת ריקולים וקמפיינים באתר ${esc(imp.name)}`}</button>
     <p class="note" style="margin:6px 0 0">מספר הרישוי יועתק, ותדביקו אותו באתר.${imp.gov ? ` ל${esc(imp.name || "יבואן הזה")} לא מצאנו עמוד בדיקה לפי מספר רישוי, ובמאגר של משרד התחבורה מחפשים לפי יצרן ודגם.` : imp.note ? " " + esc(imp.note) : ""}</p>`));
@@ -2050,7 +2058,7 @@ function checksCard(D){
   const row = (ok, t) => rows.push(`<li class="ins ${ok ? "ok" : "warn"}">${ico(ok ? "check" : "alert")}<div><b>${esc(t)}</b></div></li>`);
   row(!D.isCancelled, D.isCancelled ? "הרכב ירד מהכביש" : "הרכב פעיל ולא בוטל");
   if (exp) row(exp >= new Date(now.getFullYear(), now.getMonth(), now.getDate()), exp >= new Date(now.getFullYear(), now.getMonth(), now.getDate()) ? `טסט בתוקף עד ${fmtDate(v.tokef_dt)}` : `הטסט פג ב-${fmtDate(v.tokef_dt)}`);
-  row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")}` : "אין ריקול פתוח");
+  if (D.recallUnknown) row(false, "ריקולים: מידע לא זמין כרגע"); else row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")}` : "אין ריקול פתוח");
   if (D.own.length) row(true, "נבדקה היסטוריית הבעלות");
   const mods = ["shinui_mivne_ind", "gapam_ind", "shnui_zeva_ind", "shinui_zmig_ind"].filter(k => yes(v[k]));
   row(!mods.length, mods.length ? "נרשמו שינויים ברכב" : "לא נרשמו שינויי מבנה, גפ״מ או צבע");
@@ -3397,7 +3405,7 @@ async function drawShareCard(D){
   else {
     if (exp) add(exp >= today ? "ok" : "bad", exp >= today ? `טסט בתוקף עד ${fmtDate(v.tokef_dt)}` : `הטסט פג ב-${fmtDate(v.tokef_dt)}`);
     const blocking = D.recalls.some(isBlocking);
-    add(D.recalls.length ? "bad" : "ok", D.recalls.length ? (blocking ? "ריקול פתוח שמגביל חידוש רישיון" : D.recalls.length === 1 ? "ריקול פתוח אחד" : `${D.recalls.length} ריקולים פתוחים`) : "אין ריקול פתוח");
+    if (D.recallUnknown) add("warn", "מידע על ריקולים לא זמין כרגע, אין להסיק שאין ריקול"); else add(D.recalls.length ? "bad" : "ok", D.recalls.length ? (blocking ? "ריקול פתוח שמגביל חידוש רישיון" : D.recalls.length === 1 ? "ריקול פתוח אחד" : `${D.recalls.length} ריקולים פתוחים`) : "אין ריקול פתוח");
     if (D.own.length) add("info", ownersLabel(D));
     const mods = ["shinui_mivne_ind", "gapam_ind", "shnui_zeva_ind", "shinui_zmig_ind"].filter(k => yes(v[k]));
     add(mods.length ? "warn" : "ok", mods.length ? "נרשמו שינויים ברכב" : "לא נרשמו שינויי מבנה, צבע או גפ״מ");
@@ -3667,8 +3675,10 @@ async function checkSaved(){
     for (const s of store.get("savedVehicles").slice(0, 20)) {
       if (s.checked && Date.now() - s.checked < 864e5) continue;
       try {
-        const [rec, own, act] = await Promise.all([byPlate(set("recall"), s.plate).catch(() => null), byPlate(set("owners"), s.plate).catch(() => null), byPlate(set("active"), s.plate).catch(() => null)]);
+        let [rec, own, act] = await Promise.all([byPlate(set("recall"), s.plate).catch(() => null), byPlate(set("owners"), s.plate).catch(() => null), byPlate(set("active"), s.plate).catch(() => null)]);
         const list = store.get("savedVehicles"), it = list.find(x => x.plate === s.plate); if (!it) continue;
+        // an empty answer from a broken dataset is not "the car left the road": only trust it when the dataset itself has rows
+        if (act && !act.length && await sourceEmpty().catch(() => true)) act = null;
         const ev = [], ext = plan() !== "free", add = (k, x) => { if (!ext && (k === "owner" || k === "status")) return; ev.push({t: Date.now(), k, x}); };
         if (rec) { if (it.recalls !== undefined && rec.length > it.recalls) add("recall", "ריקול חדש נפתח לרכב"); else if (it.recalls !== undefined && rec.length < it.recalls) add("recall", "ריקול נסגר"); if (it.recalls !== rec.length) changed = true; it.recalls = rec.length; }
         if (own) { if (it.owners !== undefined && own.length > it.owners) add("owner", "בעלות חדשה נרשמה"); it.owners = own.length; }
@@ -3897,7 +3907,7 @@ function renderFleet(){
 /* ---------- buying companion (PRO / buyer pack) ---------- */
 const savedItem = p => store.get("savedVehicles").find(x => x.plate === p);
 const candFields = D => ({fair: D.cost && D.cost.valueLow ? [D.cost.valueLow, D.cost.valueHigh] : null, c5: D.cost && D.cost.monthly ? D.cost.monthly.total * 60 : null});
-const newSavedItem = D => ({plate: D.plate, title: D.title, sub: D.sub, at: Date.now(), tokef: D.v.tokef_dt || "", recalls: D.recalls.length, checked: Date.now(), owners: D.own.length, active: !D.isCancelled, events: [], ...candFields(D)});
+const newSavedItem = D => ({plate: D.plate, title: D.title, sub: D.sub, at: Date.now(), tokef: D.v.tokef_dt || "", recalls: D.recallUnknown ? undefined : D.recalls.length, checked: Date.now(), owners: D.own.length, active: !D.isCancelled, events: [], ...candFields(D)});
 function askVerdict(ask, fair){
   if (!ask || !fair) return null;
   const [lo, hi] = fair, r = x => fmtN(Math.round(x / 100) * 100) + " ₪";
@@ -3974,8 +3984,8 @@ function bulkRow(D){
   if (D.offline) return {plate: D.plate, title: "שגיאת חיבור", lvl: 1, nf: "לא נבדק", status: "לא נבדק", test: "", days: "", recalls: "", owners: "", km: "", year: ""};
   const exp = toDate(D.v.tokef_dt), days = exp ? Math.round((exp - new Date()) / 864e5) : null;
   const bad = D.isCancelled || (days !== null && days < 0) || D.recalls.length > 0;
-  const warn = days !== null && days >= 0 && days <= 45;
-  return {plate: D.plate, title: D.title, year: D.v.shnat_yitzur || "", lvl: bad ? 2 : warn ? 1 : 0, status: D.isCancelled ? "בוטל" : D.primary ? D.primary.status : "",
+  const warn = D.recallUnknown || (days !== null && days >= 0 && days <= 45);
+  return {recallUnknown: !!D.recallUnknown, plate: D.plate, title: D.title, year: D.v.shnat_yitzur || "", lvl: bad ? 2 : warn ? 1 : 0, status: D.isCancelled ? "בוטל" : D.primary ? D.primary.status : "",
     test: exp ? fmtDate(D.v.tokef_dt) : "", days: days === null ? "" : days, recalls: D.recalls.length, block: D.recalls.some(isBlocking), first: firstOwner(D.v) || "", owners: D.own.length, km: D.km || ""};
 }
 function bulkTable(running, total){
@@ -4027,7 +4037,7 @@ function bulkSave(){
 function bulkCsv(){
   const q = x => `"${String(x).replace(/"/g, '""')}"`, lv = ["תקין", "לתשומת לב", "בעיה"];
   const head = ["לוחית", "רכב", "שנה", "סטטוס", "תוקף טסט", "ימים לטסט", "ריקולים פתוחים", "רשומות בעלות", "ק״מ בטסט אחרון", "בעלות ראשונה", "ריקול מגביל", "סימון"];
-  const rows = BULK.slice().sort((a, b) => b.lvl - a.lvl || a.plate.localeCompare(b.plate)).map(r => [fmtPlate(r.plate), r.title, r.year, r.status, r.test, r.days, r.recalls, r.owners, r.km, r.first || "", r.block ? "כן" : "", r.nf || lv[r.lvl]]);
+  const rows = BULK.slice().sort((a, b) => b.lvl - a.lvl || a.plate.localeCompare(b.plate)).map(r => [fmtPlate(r.plate), r.title, r.year, r.status, r.test, r.days, r.recallUnknown ? "לא זמין" : r.recalls, r.owners, r.km, r.first || "", r.block ? "כן" : "", r.nf || lv[r.lvl]]);
   const csv = "﻿" + [head, ...rows].map(r => r.map(q).join(",")).join("\r\n");
   shareFile(new Blob([csv], {type: "text/csv"}), `Luchit-list-${new Date().toISOString().slice(0, 10)}.csv`, "רשימת רכבים");
 }
