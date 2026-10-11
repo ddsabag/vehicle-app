@@ -821,7 +821,7 @@ async function byPlate(set, plate, signal){
   for (const v of [...new Set(forms)]) {
     for (let attempt = 0; attempt < 2; attempt++) {
       try { const rows = await ds(set.id, {[field]: v}, 100, signal); ok = true; if (rows.length) return rows; break; }
-      catch (e) { if (e.name === "AbortError") throw e; lastErr = e; if (/HTTP 4\d\d/.test(e.message)) break; /* a text column rejects the numeric form: next form, no retry */ if (attempt === 0) await new Promise(r => setTimeout(r, 700)); }
+      catch (e) { if (e.name === "AbortError") throw e; lastErr = e; if (/HTTP 4\d\d|timeout/.test(e.message)) break; /* a stalled request is one attempt, not two */ /* a text column rejects the numeric form: next form, no retry */ if (attempt === 0) await new Promise(r => setTimeout(r, 700)); }
     }
   }
   if (!ok && lastErr) throw lastErr;
@@ -1604,7 +1604,7 @@ function watchStrip(){
   stripObs.observe(idc);
 }
 /* One ownership record, and the first ownership type (מקוריות) agrees with it */
-const isDealerRec = r => /סוחר/.test(String((r && r.baalut) || ""));
+const isDealerRec = r => /סוחר|יבואן|מסחר/.test(String((r && r.baalut) || ""));
 /* the "hand": a dealer holding the car for resale is not a hand, so only the other records are counted */
 const handsOf = D => D.own.filter(r => !isDealerRec(r)).length;
 const HAND_ORD = ["", "ראשונה", "שנייה", "שלישית", "רביעית", "חמישית", "שישית", "שביעית", "שמינית", "תשיעית", "עשירית"];
@@ -1612,6 +1612,7 @@ const isFirstHand = D => { const h = D.own.filter(r => !isDealerRec(r)); return 
 const ownersLabel = D => {
   const n = handsOf(D), dealer = D.own.some(isDealerRec);
   if (!n) return dealer ? "אצל סוחר" : "";
+  if (n === 1 && !isFirstHand(D)) return "יד אחת במאגר";   // the log may start after the first owner, or the first owner's type differs
   return `${D.ownersFloor ? "לפחות " : ""}יד ${HAND_ORD[n] || n}`;
 };
 
@@ -2249,7 +2250,16 @@ function smartQueries(text){
   flush();
   const seqs = [toks]; if (merged.length < toks.length) seqs.push(merged);
   // only a maker was typed ("סקודה", "skoda"): list that maker's models, not fuzzy sound-alikes from other makers
-  const isMakerWord = t => { if (/^\d+$/.test(t)) return false; const al = MAKE_ALIASES[t.toLowerCase()], sk = skOf(t); return MODELIDX.some(e => (al && al === e.mk) || e.mkw.some(w => skScore(sk, w) >= 3)); };
+  const isMakerWord = t => {
+    if (/^\d+$/.test(t)) return false;
+    if (t === "מאזדה") t = "מזדה";   // the usual spelling differs from the register's
+    const al = MAKE_ALIASES[t.toLowerCase()], sk = skOf(t);
+    if (al) return MODELIDX.some(e => al === e.mk || canonMake(al) === e.mk);
+    if (MODELIDX.some(e => e.mk === t || e.mk === canonMake(t))) return true;   // the maker's own name, spelled as in the register
+    // sound skeletons drop the vowels, so a model name can sound like a maker (פולו = אופל): a word that is also a model is not a maker
+    if (MODEL_ALIASES[t] || MODELIDX.some(e => e.mtok.some(x => skScore(sk, skOf(x)) >= 3 && !e.mkw.includes(skOf(x))))) return false;
+    return MODELIDX.some(e => e.mkw.some(w => skScore(sk, w) >= 3));
+  };
   if (seqs.some(seq => seq.length && seq.every(isMakerWord))) return null;
   const hits = new Map();
   for (const seq of seqs) {
@@ -2504,7 +2514,7 @@ async function runModelSearch(){
     mShowAll = false;
     if (mPending) { const i = mGroups.findIndex(x => x.model === mPending.model && x.make === mPending.make) ; const j = i >= 0 ? i : mGroups.findIndex(x => x.model === mPending.model || x.base === mPending.model); mPending = null; if (j >= 0) { pickGroup(j); return; } }
     showGroups();
-  } catch (err) { if (err.name !== "AbortError") msg.textContent = "החיפוש נכשל. בדקו את החיבור ונסו שוב."; }
+  } catch (err) { if (err.name !== "AbortError" && !signal.aborted) msg.textContent = "החיפוש נכשל. בדקו את החיבור ונסו שוב."; }
 }
 function showGroups(){
   const msg = $("#compareMsg"), shown = mShowAll ? mGroups : mGroups.slice(0, MODEL_SHOWN), rest = mGroups.length - shown.length;
@@ -3260,7 +3270,7 @@ function warmShare(){
   const kind = lastShare(), key = shareKey(kind), w = shareWarm[kind];
   if (w && w.key === key) return;
   // only what was shared last time is prepared, while the share sheet is open
-  shareWarm[kind] = {key, p: new Promise(r => setTimeout(r, 40)).then(() => prepShare(kind, D))};
+  const slot = shareWarm[kind] = {key, p: new Promise(r => setTimeout(r, 40)).then(() => shareWarm[kind] === slot ? prepShare(kind, D) : null)};
   shareWarm[kind].p.catch(() => {});
 }
 async function warmFile(kind){
@@ -3694,7 +3704,7 @@ function renderMarket(M){
   html.push(card("מסירות בתקופה", "chart", "blue", `<div class="mk-big">${fmtN(total)}</div><div>רכבים חדשים · ${periodLabel(P)} ${chgHtml(total, prevTotal)}${prevTotal ? ` <small style="color:var(--muted)">מול התקופה המקבילה אשתקד</small>` : ""}</div><div class="mk-bars">${P.ms.map(m => `<div title="${fmtN(M.months[m] || 0)}"><span>${((M.months[m] || 0) / 1000).toFixed(1)}K</span><i style="height:${Math.max(2, (M.months[m] || 0) / mx * 78)}%"></i><span>${MON[+m.slice(4) - 1]}</span></div>`).join("")}</div>`));
   { const top1 = o => Object.entries(o).map(([k, v]) => [k, sumM(v, P.ms)]).sort((a, b) => b[1] - a[1])[0] || ["", 0];
     const tm = top1(M.makers), td = top1(M.models), ch = pctTxt(total, prevTotal);
-    html[0] = html[0].replace(/<p class="note" style="margin-top:0">[^<]*<\/p>/, x => x + `<p class="mk-sum">בתקופה נמסרו ${fmtN(total)} רכבים חדשים${ch ? ` (${ch} מול התקופה המקבילה אשתקד)` : ""}. היצרן המוביל: ${esc(mkMake(tm[0]))}, הדגם המוביל: ${esc([mkMake(td[0].split("|")[0]), ...td[0].split("|").slice(1)].join(" "))}.</p>`); }
+    html[0] = html[0].replace(/<p class="note" style="margin-top:0">[^<]*<\/p>/, x => x + `<p class="mk-sum">בתקופה נמסרו ${fmtN(total)} רכבים חדשים${ch ? ` (${ch} מול התקופה המקבילה אשתקד)` : ""}.${tm[0] && td[0] ? ` היצרן המוביל: ${esc(mkMake(tm[0]))}, הדגם המוביל: ${esc([mkMake(td[0].split("|")[0]), ...td[0].split("|").slice(1)].join(" "))}.` : ""}</p>`); }
   const mkTop = (obj, ms, pms, n, nameFn) => {
     const rows = Object.entries(obj).map(([k, v]) => [k, sumM(v, ms), sumM(v, pms)]).filter(r => r[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, n), top = rows[0] ? rows[0][1] : 1;
     return rows.map(([k, c, p]) => `<div class="mk-row"><b>${esc(nameFn(k))}</b><span>${fmtN(c)} <small>· ${(c / (total || 1) * 100).toFixed(1)}%</small> ${chgHtml(c, p)}</span><div class="tr"><i style="width:${c / top * 100}%"></i></div></div>`).join("");
