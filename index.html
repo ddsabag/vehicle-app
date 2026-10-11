@@ -892,6 +892,23 @@ function rankRows(rows, rec){
 /* "מקוריות" in the ministry's records is the first ownership type, when the car went on the road new
    (פרטי, ליסינג, השכרה…). It fills the gap for cars older than the January 2017 ownership log. */
 function firstOwner(v){ const t = String(v.mkoriut_nm || "").trim(); return t || null; }
+/* How well a maker holds its value in Israel (resale factor on the base price) and how wide the shown range is.
+   Estimates, not measured: to be calibrated against real deal prices. A maker that is not listed stays at 1.00. */
+const BRAND_TIERS = [
+  {k: 1.07, r: 0.045, re: /טויוטה|לקסוס|סובארו|הונדה|סוזוקי|TOYOTA|LEXUS|SUBARU|HONDA|SUZUKI/i},
+  {k: 1.00, r: 0.065, re: /יונדאי|קיה|מאזדה|מזדה|סקודה|פולקסווגן|פולקסוואגן|סיאט|קופרה|אאודי|ניסאן|מיצובישי|HYUNDAI|KIA\b|MAZDA|SKODA|VOLKSWAGEN|SEAT|CUPRA|AUDI|NISSAN|MITSUBISHI/i},
+  {k: 0.93, r: 0.10, re: /פיג.?ו|פז.?ו|סיטרואן|רנו|אופל|שברולט|פורד|פיאט|דאצ.?יה|PEUGEOT|CITROEN|RENAULT|OPEL|CHEVROLET|FORD|FIAT|DACIA/i},
+  {k: 0.93, r: 0.10, re: /(?<![א-ת])(?:מ\.? ?ג|אם.{0,2}ג.{0,2}י)(?![א-ת])|\bMG\b/i, notEv: true},
+  {k: 0.88, r: 0.10, re: /BYD|בי.{0,2}וי.{0,2}די|טסלה|TESLA|ג.?ילי|GEELY|צ.?רי|CHERY|סרס|SERES|ליפמוטור|LEAPMOTOR|זיקר|ZEEKR|אקספנג|XPENG|וויה|VOYAH|לינק|LYNK|ג.?נסיס|GENESIS|אלפא|ALFA|וולוו|וולבו|VOLVO|י?ג.?ואר|JAGUAR|לנד רובר|LAND ROVER|ג.?יפ|JEEP/i},
+];
+function brandTier(D, ev){
+  try {
+    const mk = [D.v.tozeret_nm, D.make].filter(x => !empty(x)).join(" ");
+    const t = mk && BRAND_TIERS.find(x => x.re.test(mk) && !(x.notEv && ev));
+    if (t) return t;
+  } catch {}
+  return {k: 1, r: 0.08};   // unknown maker: neutral factor and a middle range
+}
 /* Plain meaning of each first-ownership type, and how much it usually costs in resale value */
 function ownerKind(t){
   t = String(t || "");
@@ -1121,12 +1138,17 @@ function costs(D){
     // lose value faster, per published Israeli market figures). Then adjustments in the way the trade
     // price lists apply them: compounded one after another, past use counted in full when it was the
     // car's first ownership and at half when it came later, history capped at 30%, mileage last.
-    const age = Math.max(0, new Date().getFullYear() - year);
+    // continuous age: months since the car went on the road (a car registered in December is not a year older than one registered in January).
+    // Without a usable registration month the car is taken as registered mid-year, which avoids the January step.
+    const reg = parseYM(D.v.moed_aliya_lakvish), regOk = reg && reg.getFullYear() >= year && reg.getFullYear() <= year + 1;
+    const ageY = Math.max(0, monthsBetween(regOk ? reg : new Date(year, 5, 15), new Date()) / 12);
+    const age = Math.floor(ageY);
     const lux = num(D.price.mehir) > 300000, ev = kind === "ev", cheap = num(D.price.mehir) < 100000;
     // first calibration (2026-10) used the cheapest listing page per model and ran low, so the curve was eased: ordinary cars lose ~13% in the first year and ~6% a year after; small cheap cars hold value better, electric cars lose it faster
     const [y1, yr] = ev ? [0.80, 0.88] : lux ? [0.78, 0.90] : cheap ? [0.90, 0.95] : [0.87, 0.94];
-    const factor = age === 0 ? (1 + y1) / 2 : y1 * Math.pow(yr, age - 1);
-    const base = num(D.price.mehir) * factor;
+    const factor = ageY < 1 ? 1 - (1 - y1) * ageY : y1 * Math.pow(yr, ageY - 1);
+    const tier = brandTier(D, ev);
+    const base = num(D.price.mehir) * factor * tier.k;
     const adj = [];
     // first ownership: the registry's "מקוריות" field; failing that the oldest ownership record, unless the log
     // starts after the car's first years (it begins in 2017), when that record may not be the first owner
@@ -1149,7 +1171,7 @@ function costs(D){
     }
     const mid = adj.reduce((v, [p]) => v * (1 + p / 100), base);
     c.newPrice = num(D.price.mehir); c.age = age; c.baseValue = Math.round(base / 1000) * 1000; c.adj = adj;
-    c.valueLow = Math.round(mid * 0.9 / 1000) * 1000; c.valueHigh = Math.round(mid * 1.1 / 1000) * 1000;
+    c.valueLow = Math.round(mid * (1 - tier.r) / 1000) * 1000; c.valueHigh = Math.round(mid * (1 + tier.r) / 1000) * 1000; c.tierK = tier.k; c.range = tier.r;
     // value lost over the coming year: a model is bought new, so its steeper first year counts
     c.deprYear = D.kind === "model" ? num(D.price.mehir) * (1 - y1) : mid * (1 - yr);
   }
@@ -1190,7 +1212,7 @@ const IMPORTER_RECALL = [
   {re:/פיג'?ו/, name:"פיג'ו ישראל", url:"https://online.peugeot.co.il/recall/"},
   {re:/סיטרואן/, name:"סיטרואן ישראל", url:"https://online.citroen.co.il/recall/"},
   {re:/אופל/, name:"אופל ישראל", url:"https://online.opel.co.il/recall/"},
-  {re:/\bMG\b|\bMG ?\d|(?<![א-ת])מ\.? ?ג(?![א-ת])|אם\.? ?ג'?י|SAIC|סאיק|מוריס|MORRIS|MARVEL|CYBERSTER|\bEHS\b/i, name:"MG ישראל", url:"https://mg-israel.co.il/recall/"},
+  {re:/\bMG\b|\bMG ?\d|(?<![א-ת])(?:מ\.? ?ג|אם.{0,2}ג.{0,2}י)(?![א-ת])|אם\.? ?ג'?י|SAIC|סאיק|מוריס|MORRIS|MARVEL|CYBERSTER|\bEHS\b/i, name:"MG ישראל", url:"https://mg-israel.co.il/recall/"},
   {re:/ניסאן|ניסן|רנו|דאצ'?יה|צ'?רי|אקספנג|XPENG/i, name:"פריסבי", url:"https://freesbe.com/recall"},
   {re:/פורד/, name:"פורד ישראל", url:"https://www.ford.co.il/" + encodeURI("קריאות-חוזרות/שירות")},
   {re:/מיני/, name:"מיני ישראל", url:"https://campaigns.mini.co.il/Service-forms_newDesign/recall-mini.html"},
