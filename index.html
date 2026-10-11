@@ -1246,7 +1246,9 @@ function settlementCard(D){
 }
 function importerRecall(D){
   const m = [D.v.tozeret_nm, D.v.kinuy_mishari, D.v.degem_nm, D.make, D.price && D.price.shem_yevuan].filter(x => !empty(x)).join(" ");
-  const hit = IMPORTER_RECALL.find(x => x.re.test(m));
+  // the maker decides first: a model name can contain another brand's word (a Subaru "פורסטר ג'יפ" is not a Jeep)
+  const mk = [D.v.tozeret_nm, D.make].filter(x => !empty(x)).join(" ");
+  const hit = IMPORTER_RECALL.find(x => x.re.test(mk)) || IMPORTER_RECALL.find(x => x.re.test(m));
   if (hit) return hit;
   const who = D.pick(D.price && D.price.shem_yevuan, D.modelRecalls[0] && D.modelRecalls[0].YEVUAN_TEUR, D.make);
   return {name: who, url: "https://www.gov.il/he/departments/dynamiccollectors/cars-recall?skip=0", gov: true};
