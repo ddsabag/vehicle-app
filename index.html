@@ -3113,7 +3113,7 @@ async function paintEl(el, ratio, bg){
 async function captureEl(el, breakSel, ratio = 2){
   document.body.appendChild(el);
   try {
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    try { await document.fonts.ready; } catch {}
     const top = el.getBoundingClientRect().top, set = new Set();
     el.querySelectorAll(breakSel).forEach(c => {
       if (!c.offsetHeight) return; const r = c.getBoundingClientRect(); set.add(Math.round(r.bottom - top + 4));
@@ -3221,17 +3221,25 @@ async function shareComparePdf(btn){
   finally { btn.disabled = false; btn.innerHTML = old; }
 }
 /* what the user shared last time is prepared while the share sheet is open, so choosing it is usually instant */
-let shareWarm = null;
+let shareWarm = {};
 const lastShare = () => { try { return localStorage.getItem("lastShare") === "pdf" ? "pdf" : "image"; } catch { return "image"; } };
 const shareKey = kind => kind === "pdf" ? [current && current.plate, "pdf"].join("|") : [current && current.plate, "image", simpleOn(), currentTab, simpleMore].join("|");
+/* the finished file, so that choosing it only hands it over */
+async function prepShare(kind, D){
+  if (kind === "pdf") return await makePdf(D);
+  const cap = await captureReport(D, false);
+  return await canvasToBlob(cap.canvas, "image/jpeg", 0.9);
+}
 function warmShare(){
   const D = current; if (!D) return;
-  const kind = lastShare(), key = shareKey(kind); if (kind !== "pdf") return; if (shareWarm && shareWarm.key === key) return;
-  const p = Promise.all([kind === "pdf" ? loadScript(LIBS.pdf) : null]).then(() => new Promise(r => setTimeout(r, 60))).then(() => captureReport(D, kind === "pdf")); p.catch(() => {});
-  shareWarm = {key, p};
+  const kind = lastShare(), key = shareKey(kind), w = shareWarm[kind];
+  if (w && w.key === key) return;
+  // only what was shared last time is prepared, while the share sheet is open
+  shareWarm[kind] = {key, p: new Promise(r => setTimeout(r, 40)).then(() => prepShare(kind, D))};
+  shareWarm[kind].p.catch(() => {});
 }
-async function warmCap(kind){
-  const w = shareWarm; shareWarm = null;
+async function warmFile(kind){
+  const w = shareWarm[kind]; delete shareWarm[kind];
   if (w && w.key === shareKey(kind)) { try { return await w.p; } catch {} }
   return null;
 }
@@ -3330,12 +3338,16 @@ async function doShare(kind){
     const caption = `${D.title} · ${fmtPlate(D.plate)}\nהדוח המלא באפליקציה לוחית:\n${carLink(D.plate)}`;
     if (!biz) { try { localStorage.setItem("lastShare", kind === "pdf" ? "pdf" : "image"); } catch {} }
     if (biz) await shareFile(await makePdf(D, biz), name + ".pdf", D.title);
-    else if (kind === "pdf") await shareFile(await makePdf(D, undefined, await warmCap("pdf")), name + ".pdf", D.title, caption);
+    else if (kind === "pdf") await shareFile((await warmFile("pdf")) || await makePdf(D), name + ".pdf", D.title, caption);
     else {
-      // the screen's own report, painted straight onto a canvas (tens of milliseconds); the summary card is only the fallback
-      let cap; try { cap = await captureReport(D, false); } catch (e) { reportErr("share_image"); cap = await drawShareCard(D); }
-      // JPEG encodes several times faster than PNG on a phone and chat apps recompress to JPEG anyway
-      await shareFile(await canvasToBlob(cap.canvas, "image/jpeg", 0.92), name + ".jpg", D.title, caption);
+      // the screen's own report, painted straight onto a canvas; the summary card is only the fallback
+      let blob = await warmFile("image");
+      if (!blob) {
+        let cap; try { cap = await captureReport(D, false); } catch (e) { reportErr("share_image"); cap = await drawShareCard(D); }
+        // JPEG encodes several times faster than PNG on a phone and chat apps recompress to JPEG anyway
+        blob = await canvasToBlob(cap.canvas, "image/jpeg", 0.9);
+      }
+      await shareFile(blob, name + ".jpg", D.title, caption);
     }
     $("#shareSheet").hidden = true;
   } catch (err) {
@@ -3343,10 +3355,10 @@ async function doShare(kind){
   } finally { document.querySelectorAll("[data-share]").forEach(b => b.disabled = false); }
 }
 $("#shareSheet").addEventListener("click", ev => {
-  if (ev.target.id === "shareSheet") { ev.target.hidden = true; shareWarm = null; return; }
+  if (ev.target.id === "shareSheet") { ev.target.hidden = true; shareWarm = {}; return; }
   const b = ev.target.closest("[data-share]"); if (b) doShare(b.dataset.share);
 });
-$("#closeShare").addEventListener("click", () => { $("#shareSheet").hidden = true; shareWarm = null; });
+$("#closeShare").addEventListener("click", () => { $("#shareSheet").hidden = true; shareWarm = {}; });
 
 /* test-expiry reminder: in the app the phone's calendar opens with the event filled in;
    on the web it opens Google Calendar; a calendar file is the last resort */
