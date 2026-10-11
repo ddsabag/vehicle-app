@@ -3286,6 +3286,20 @@ async function drawShareCard(D){
     f(28, 800); text(tone === "ok" ? "✓" : tone === "info" ? "i" : "!", R - 44, y + h / 2 + 10, "#fff", "center");
     f(36, 600); lines.forEach((l, k) => text(l, R - 90, y + 20 + 48 * (k + 1) - 12, INK)); y += h + 14;
   }
+  // key specs, two per row
+  {
+    const w = D.w || {}, nf = k => isNum(w[k]) && num(w[k]) > 0 ? num(w[k]) : null, eng = num(D.pick(v.nefach_manoa, w.nefah_manoa));
+    const sp = [["כוח", nf("koah_sus") && `${nf("koah_sus")} כ״ס`], ["נפח מנוע", eng > 0 && `${fmtN(eng)} סמ״ק`], ["דלק", D.pick(v.sug_delek_nm, w.delek_nm)],
+      ["תיבת הילוכים", empty(w.automatic_ind) ? "" : yes(w.automatic_ind) ? "אוטומטית" : "ידנית"], ["הנעה", w.hanaa_nm], ["מרכב", w.merkav], ["מושבים", nf("mispar_moshavim")],
+      ["רמת אבזור בטיחותי", num(D.pick(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty)) > 0 && `${num(D.pick(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty))} מתוך 8`], ["כריות אוויר", nf("mispar_kariot_avir")]]
+      .filter(([, val]) => val && !empty(val)).slice(0, 8);
+    if (sp.length) {
+      y += 14; f(36, 800); text("מפרט", R, y + 30, INK); y += 56;
+      const cw = (W - 2 * P - 20) / 2;
+      sp.forEach(([k, val], i) => { const X = R - cw * (i % 2 + 1) - 20 * (i % 2), Y = y + Math.floor(i / 2) * 130; rr(X, Y, cw, 112, 20, "#f4f6fa"); f(26, 600); text(k, X + cw - 22, Y + 40, MUT); f(38, 800); text(String(val), X + cw - 22, Y + 88, INK); });
+      y += Math.ceil(sp.length / 2) * 130 + 8;
+    }
+  }
   // numbers
   const tiles = [], cost = D.cost || {};
   if (D.km) tiles.push(["ק״מ בטסט האחרון", fmtN(D.km)]);
