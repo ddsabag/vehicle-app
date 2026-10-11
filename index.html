@@ -598,8 +598,8 @@ body.land .band{display:none}
       <div class="kinds"><label><input type="checkbox" id="simpleChk">תצוגה פשוטה: נתונים יבשים בלבד</label></div>
       <p class="note">בדוח הרכב תוצג טבלה אחת, בלי תובנות והסברים. אפשר להחליף בכל דוח.</p>
     </div>
-    <div class="set-row" id="alertsRow" hidden><span>התראות לרכבים שמורים</span>
-      <div class="seg two" role="group" aria-label="התראות לרכבים שמורים"><button type="button" data-alerts="on">פועלות</button><button type="button" data-alerts="off">כבויות</button></div>
+    <div class="set-row" id="alertsRow" hidden><span>התראות לרכבים שלי</span>
+      <div class="seg two" role="group" aria-label="התראות לרכבים שלי"><button type="button" data-alerts="on">פועלות</button><button type="button" data-alerts="off">כבויות</button></div>
       <p class="note" id="alertsNote"></p>
     </div>
     <div class="set-row" id="kindsRow" hidden><span>על מה להתריע</span>
@@ -634,9 +634,9 @@ body.land .band{display:none}
     </div>
     <div class="set-row"><span>נתונים במכשיר</span>
       <button class="link-btn danger" type="button" id="clearRecent">מחיקת היסטוריית החיפושים</button>
-      <button class="link-btn danger" type="button" id="clearSaved">מחיקת כל הרכבים השמורים</button>
+      <button class="link-btn danger" type="button" id="clearSaved">מחיקת כל הרכבים שלי</button>
     </div>
-    <p class="note">החיפושים והרכבים השמורים נשמרים רק במכשיר הזה. גרסה <span id="ver"></span>.</p>
+    <p class="note">החיפושים והרכבים שלי נשמרים רק במכשיר הזה. גרסה <span id="ver"></span>.</p>
     <p class="credit">לוחית · פותחה על ידי דודו סבאג<br>© 2026 כל הזכויות שמורות</p>
   </div>
 </div>
@@ -1114,8 +1114,8 @@ function costs(D){
     const later = D.own.slice(first === fo && fo.k !== "other" || !D.ownersFloor ? 1 : 0, -1).map(r => ownerKind(r.baalut)).filter(o => o.pct < 0 && o.k !== first.k).sort((a, b) => a.pct - b.pct)[0];
     if (later) { const p = Math.round(later.pct / 2); adj.push([p, {rental: "היה בהמשך רכב השכרה", lease: "היה בהמשך רכב ליסינג", special: "היה בהמשך בשימוש ייעודי", company: "היה בהמשך רכב חברה"}[later.k]]); hist += p; }
     if (hist < -30) { adj.forEach(a => a[0] = Math.round(a[0] * 30 / -hist)); }
-    const hands = D.own.length;
-    if (hands > 1) adj.push([-Math.min(12, (hands - 1) * 3), `${D.ownersFloor ? "לפחות " : ""}${hands} רשומות בעלות`]);
+    const hands = handsOf(D);
+    if (hands > 1) adj.push([-Math.min(12, (hands - 1) * 3), `${D.ownersFloor ? "לפחות " : ""}יד ${HAND_ORD[hands] || hands}`]);
     else if (hands === 1 && first.k === "private") adj.push([1, "יד ראשונה פרטית"]);
     if (D.km && D.kmYears) {
       const mc = msCohort(D), ageNow = new Date().getFullYear() - mc_y(D);
@@ -1364,9 +1364,9 @@ async function fetchVehicle(plate, signal, onProgress){
 /* ---------- insights ---------- */
 /* a concrete next step for the findings a buyer can act on */
 const INSIGHT_TODO = [
-  [/רשומות בעלות/, "שאלו למה הרכב עבר כל כך הרבה ידיים."],
+  [/יד (רביעית|חמישית|שישית|שביעית|שמינית|תשיעית|עשירית|\d+)/, "שאלו למה הרכב עבר כל כך הרבה ידיים."],
   [/השכרה/, "בקשו הנחה במחיר ובדיקה יסודית במכון."],
-  [/קילומטראז׳ גבוה/, "בדקו שהק״מ במד המרחק תואם לטסטים ולחשבוניות הטיפול."],
+  [/ק״מ גבוה/, "בדקו שהק״מ במד המרחק תואם לטסטים ולחשבוניות הטיפול."],
   [/שינוי מבנה/, "בקשו את אישור השינוי ובדקו שהוא רשום ברישיון."],
   [/גפ״מ/, "בקשו את אישור ההתקנה ואישור בדיקת גפ״מ בתוקף."],
   [/הצבע שונה/, "בדקו במכון אם יש סימני פחחות."],
@@ -1388,22 +1388,22 @@ function buildInsights(D){
   const exp = toDate(v.tokef_dt);
   if (exp && !D.isCancelled) {
     const days = Math.round((exp - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 864e5);
-    if (days < 0) add("bad", "הטסט לא בתוקף", `רישיון הרכב פג ב-${fmtDate(v.tokef_dt)}.`);
+    if (days < 0) add("bad", "הטסט לא בתוקף", `תוקף הטסט פג ב-${fmtDate(v.tokef_dt)}.`);
     else if (days <= 60) add("warn", "הטסט מתקרב", `רישיון הרכב בתוקף עד ${fmtDate(v.tokef_dt)}, ${days === 0 ? "היום" : days === 1 ? "מחר" : "בעוד " + days + " ימים"}.`);
   }
   if (D.kmPerYear) {
     const ratio = D.kmPerYear / AVG_KM_YEAR;
     const base = `כ-${fmtN(D.kmPerYear)} ק״מ בשנה, לעומת ממוצע של כ-${fmtN(AVG_KM_YEAR)} ק״מ לרכב פרטי`;
     const caveat = ` (לפי הטסט האחרון${empty(v.mivchan_acharon_dt) ? "" : ", " + fmtDate(v.mivchan_acharon_dt)}).`;
-    if (ratio >= 1.6) add("warn", "קילומטראז׳ גבוה מאוד ביחס לשנתון", base + caveat);
-    else if (ratio >= 1.25) add("warn", "קילומטראז׳ גבוה ביחס לשנתון", base + caveat);
-    else if (ratio <= 0.5) add("info", "קילומטראז׳ נמוך ביחס לשנתון", base + caveat);
-    else add("ok", "קילומטראז׳ סביר ביחס לשנתון", base + caveat);
+    if (ratio >= 1.6) add("warn", "ק״מ גבוה מאוד ביחס לשנת הייצור", base + caveat);
+    else if (ratio >= 1.25) add("warn", "ק״מ גבוה ביחס לשנת הייצור", base + caveat);
+    else if (ratio <= 0.5) add("info", "ק״מ נמוך ביחס לשנת הייצור", base + caveat);
+    else add("ok", "ק״מ סביר ביחס לשנת הייצור", base + caveat);
   }
   const own = D.own;
   if (own.length) {
     const past = own.slice(0, -1).map(r => String(r.baalut || ""));
-    if (!isFirstHand(D) && own.length >= 4) add("warn", `${D.ownersFloor ? "לפחות " : ""}${own.length} רשומות בעלות`, "הרכב עבר הרבה ידיים.");
+    if (handsOf(D) >= 4) add("warn", ownersLabel(D), "הרכב עבר הרבה ידיים.");
     if (past.some(t => t.includes("השכר"))) add("warn", "היה רכב השכרה", "בעבר הרכב היה בבעלות חברת השכרה. רכבי השכרה עוברים בין נהגים רבים.");
     if (past.some(t => t.includes("ליסינג"))) add("info", "היה רכב ליסינג", "בעבר הרכב היה בליסינג. רכבי ליסינג צוברים ק״מ מהר.");
     const curOwn = String(own[own.length - 1].baalut || "");
@@ -1495,7 +1495,7 @@ function simpleCard(D){
     ["סוג דלק", pick(v.sug_delek_nm, w.delek_nm)], ["נפח מנוע", pick(v.nefach_manoa, w.nefah_manoa) && fmtN(pick(v.nefach_manoa, w.nefah_manoa)) + " סמ״ק"], ["כוח", isNum(w.koah_sus) ? fmtN(w.koah_sus) + " כ״ס" : ""],
     ["הנעה", pick(v.hanaa_nm, w.hanaa_nm)], ["תיבת הילוכים", gear], ["מרכב", w.merkav], ["מושבים", pick(w.mispar_moshavim, v.mispar_mekomot)], ["דלתות", w.mispar_dlatot],
     ["עלה לכביש", v.moed_aliya_lakvish], ["סוג יבוא", D.importKind], ["בעלות נוכחית", v.baalut], ["בעלות ראשונה", firstOwner(v)], ["מספר בעלים", own],
-    ["טסט אחרון", empty(v.mivchan_acharon_dt) ? "" : fmtDate(v.mivchan_acharon_dt)], ["תוקף רישיון", empty(v.tokef_dt) ? "" : fmtDate(v.tokef_dt)], ["ק״מ בטסט האחרון", D.km ? fmtN(D.km) : ""],
+    ["טסט אחרון", empty(v.mivchan_acharon_dt) ? "" : fmtDate(v.mivchan_acharon_dt)], ["טסט בתוקף עד", empty(v.tokef_dt) ? "" : fmtDate(v.tokef_dt)], ["ק״מ בטסט האחרון", D.km ? fmtN(D.km) : ""],
     ["ריקולים פתוחים", D.recalls.length ? String(D.recalls.length) : "אין"], ["תג נכה", D.tag ? "יש" : ""], ["מספר שלדה", vin, vin],
   ];
   const safety = pick(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty), zihum = pick(v.kvutzat_zihum, w.kvutzat_zihum);
@@ -1504,7 +1504,7 @@ function simpleCard(D){
     ["משקל כולל מותר", kg(pick(v.mishkal_kolel, w.mishkal_kolel))], ["משקל עצמי", kg(v.mishkal_azmi)], ["כושר העמסה", kg(v.mishkal_mitan_harama)],
     ["צמיג קדמי", pick(v.zmig_kidmi, v.mida_zmig_kidmi)], ["צמיג אחורי", pick(v.zmig_ahori, v.mida_zmig_ahori)],
     ["רמת אבזור בטיחותי", empty(safety) ? "" : safety + " מתוך 8"], ["כריות אוויר", w.mispar_kariot_avir],
-    ["קבוצת זיהום", empty(zihum) ? "" : zihum + " מתוך 15"], ["פליטת CO₂", empty(pick(w.CO2_WLTP, w.kamut_CO2)) ? "" : pick(w.CO2_WLTP, w.kamut_CO2) + " גר׳ לק״מ"],
+    ["קבוצת זיהום", empty(zihum) ? "" : zihum + " מתוך 15"], ["פליטת CO₂", empty(pick(w.CO2_WLTP, w.kamut_CO2)) ? "" : pick(w.CO2_WLTP, w.kamut_CO2) + " גרם לק״מ"],
   ];
   const ok = r => !empty(r[1]) && r[1] !== false;
   const row = ([k, x, cp]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(String(x))}${cp ? `<button class="copy-btn" type="button" data-copy="${esc(cp)}" data-label="מספר השלדה" aria-label="העתקת מספר שלדה">${ico("copy")}</button>` : ""}</td></tr>`;
@@ -1604,8 +1604,16 @@ function watchStrip(){
   stripObs.observe(idc);
 }
 /* One ownership record, and the first ownership type (מקוריות) agrees with it */
-const isFirstHand = D => D.own.length === 1 && !D.ownersFloor && (!firstOwner(D.v) || ownerKind(firstOwner(D.v)).k === ownerKind(D.own[0].baalut).k);
-const ownersLabel = D => isFirstHand(D) ? "יד ראשונה" : `${D.ownersFloor ? "לפחות " : ""}${D.own.length} ${D.own.length === 1 ? "רשומת בעלות" : "רשומות בעלות"}`;
+const isDealerRec = r => /סוחר/.test(String((r && r.baalut) || ""));
+/* the "hand": a dealer holding the car for resale is not a hand, so only the other records are counted */
+const handsOf = D => D.own.filter(r => !isDealerRec(r)).length;
+const HAND_ORD = ["", "ראשונה", "שנייה", "שלישית", "רביעית", "חמישית", "שישית", "שביעית", "שמינית", "תשיעית", "עשירית"];
+const isFirstHand = D => { const h = D.own.filter(r => !isDealerRec(r)); return h.length === 1 && !D.ownersFloor && (!firstOwner(D.v) || ownerKind(firstOwner(D.v)).k === ownerKind(h[0].baalut).k); };
+const ownersLabel = D => {
+  const n = handsOf(D), dealer = D.own.some(isDealerRec);
+  if (!n) return dealer ? "אצל סוחר" : "";
+  return `${D.ownersFloor ? "לפחות " : ""}יד ${HAND_ORD[n] || n}${dealer ? " · עבר דרך סוחר" : ""}`;
+};
 
 /* What changed since the car left the factory: structure, LPG, colour, tyre size */
 function modsCard(v){
@@ -1895,7 +1903,8 @@ function tabMaint(D){
 }
 function tabOverview(D){
   const v = D.v, w = D.w, html = [];
-  const ins = buildInsights(D);
+  // the settlement banner above already says this; the card in the recalls tab has the details
+  const ins = buildInsights(D).filter(i => i.title !== "ייתכן שמגיעה לכם הטבה מהסדר פשרה");
   if (ins.length) {
     const icon = {bad:"alert", warn:"alert", info:"info", ok:"check"};
     html.push(card("מידע חשוב שעלה מהנתונים", "bulb", "amber",
@@ -1934,7 +1943,7 @@ function tabOverview(D){
 
   html.push(card("רישוי וטסט", "doc", "blue", facts([
     ["טסט אחרון", e(v.mivchan_acharon_dt && fmtDate(v.mivchan_acharon_dt))],
-    ["רישיון בתוקף עד", e(v.tokef_dt && fmtDate(v.tokef_dt))],
+    ["טסט בתוקף עד", e(v.tokef_dt && fmtDate(v.tokef_dt))],
     ["עלה לכביש", e(v.moed_aliya_lakvish && fmtDate(v.moed_aliya_lakvish))],
     ["רישום ראשון", e(v.rishum_rishon_dt && fmtDate(v.rishum_rishon_dt))],
     D.isCancelled && ["ירד מהכביש", e(v.bitul_dt && fmtDate(v.bitul_dt))],
@@ -2149,7 +2158,7 @@ function tabSpecs(D){
   if (equip) html.push(card("אבזור", "star", "amber", `${equip}<p class="note">האבזור המלא מופיע בקטלוג של היבואן.</p>`));
   const zihum = D.pick(v.kvutzat_zihum, w.kvutzat_zihum);
   html.push(card("סביבה", "leaf", "leaf", facts([
-    ["פליטת CO₂", unit(D.pick(w.CO2_WLTP, w.kamut_CO2), "גר׳ לק״מ")], ["מדד ירוק", e(w.madad_yarok)],
+    ["פליטת CO₂", unit(D.pick(w.CO2_WLTP, w.kamut_CO2), "גרם לק״מ")], ["מדד ירוק", e(w.madad_yarok)],
     ["מסנן חלקיקים", D.dpf ? `הותקן${empty(D.dpf.taarich_hatkana) ? "" : " ב-" + fmtDate(D.dpf.taarich_hatkana)}` : ""],
   ]) + (empty(zihum) ? "" : `<div class="qsec" style="margin:10px 0 6px">קבוצת זיהום ${esc(zihum)} מתוך 15</div>${zihumScale(zihum)}`)));
   html.push(card("מספרי זיהוי", "id", "slate",
@@ -2675,7 +2684,7 @@ function renderCompare(){
     ...(anyCar ? ["הרכב הספציפי",
       ["ק״מ בטסט האחרון", D => D.km, "lo", "", false, true],
       ["ק״מ לשנה", D => D.kmPerYear, "lo", "", false, true],
-      ["רשומות בעלות", D => D.own.length || null, "lo", "", false, true],
+      ["יד (ללא סוחרים)", D => handsOf(D) || null, "lo", "", false, true],
       ["ריקולים פתוחים", D => D.recalls.length, "lo", "", false, true],
       ["טסט בתוקף עד", D => D.v.tokef_dt ? fmtDate(D.v.tokef_dt) : "", null, "", false, true],
       ["בעלות ראשונה", D => firstOwner(D.v) || "", null, "", false, true]] : []),
@@ -2803,7 +2812,7 @@ $("#out").addEventListener("click", ev => {
     if (on) startTrial();
     track(on ? "car_save" : "car_unsave", {n: String(Math.min(store.get("savedVehicles").length, 4)) + (store.get("savedVehicles").length > 3 ? "+" : ""), from: currentTab || "home"});
     b.setAttribute("aria-pressed", String(on)); b.querySelector("span").textContent = on ? "נשמר" : "שמירה";
-    toast(on ? "הרכב נשמר ב־\"הרכבים שלי\"" : "הרכב הוסר מהרשימה");
+    toast(on ? "הרכב נוסף להרכבים שלי" : "הרכב הוסר מהרשימה");
     { const y = window.scrollY; renderResult(); window.scrollTo(0, y); }
     if (on && alertsSupported()) { let asked = false; try { asked = !!localStorage.getItem("alertsAsked"); localStorage.setItem("alertsAsked", "1"); } catch {} if (!asked) try { window.AndroidApp.setAlerts(true); } catch {} }
   }
@@ -3970,7 +3979,7 @@ const EXAMPLE_PLATE = "38548003";
 const FAQ = [
   ["מאיפה הנתונים?", "כל המידע על הרכב מגיע ממאגרים פתוחים של משרד התחבורה ב-data.gov.il: רכבים פעילים, היסטוריית בעלויות וטכני, ריקולים ודגמים. אנחנו לא מוסיפים נתונים משלנו על רכב מסוים."],
   ["כמה זה עולה?", "הבדיקה, שיתוף התוצאה והורדת הדוח ב-PDF חינמיים וללא פרסומות. בשלב הנוכחי האפליקציה בבטא וכל היכולות פתוחות."],
-  ["מה נשמר עליי?", "הרכבים השמורים, החיפושים האחרונים והרשימות נשמרים על המכשיר שלכם בלבד. מספרי רישוי שאתם מחפשים נשלחים למאגרי המשרד כדי לקבל תשובה, ואינם נשמרים אצלנו."],
+  ["מה נשמר עליי?", "הרכבים שלי, החיפושים האחרונים והרשימות נשמרים על המכשיר שלכם בלבד. מספרי רישוי שאתם מחפשים נשלחים למאגרי המשרד כדי לקבל תשובה, ואינם נשמרים אצלנו."],
   ["מה זה \"יד\" ולמה זה לא תמיד מדויק?", "הספירה מבוססת על רשומות הבעלות במאגר. רכב שעבר בין חברות ליסינג או סוחרים יכול להציג יותר רשומות מבעלים פרטיים בפועל. מוצג \"לפחות\" כשהמאגר חלקי."],
   ["למה לא מצאתם את הרכב שלי?", "בדקו שהמספר נכון. רכב שירד מהכביש או שיצא מהמאגר לא יופיע, ולפעמים מאגר של המשרד מושבת זמנית. במקרה כזה נסו שוב מאוחר יותר."],
   ["האם אפשר לסמוך על שווי הרכב?", "זו הערכה לפי מחיר מחירון, שנת ייצור וק״מ, ללא מצב הרכב, תאונות והביקוש לדגם. השתמשו בה כנקודת התחלה למשא ומתן בלבד."],
@@ -3995,7 +4004,7 @@ function renderHome(){
   html.push(`<div class="qsec">כלים</div><div class="tools">${[
     tool("compareHome", "compare", "חיפוש דגמים", "חיפוש חופשי: דגם, או סוג ותקציב. אפשר גם להשוות עד " + cmpMax(), "", "violet"),
     tool("market", "chart", "שוק הרכב", "מה נמכר, מי מוביל ומי קונה", "", "blue"),
-    saved.length >= 2 ? tool("fleet", "car", "הצי שלי", "כל הרכבים השמורים בטבלה אחת", "PRO", "teal") : "",
+    saved.length >= 2 ? tool("fleet", "car", "הצי שלי", "כל הרכבים שלי בטבלה אחת", "PRO", "teal") : "",
     saved.some(s => s.ask || s.fair) ? tool("cands", "star", "רשימת מועמדים", "הרכבים ששמרתם מול המחיר המבוקש", "PRO", "amber") : "",
     tool("bulk", "doc", "בדיקת כמה רכבים", "הדביקו רשימת מספרי רישוי וקבלו טבלה אחת", "PRO עסקי", "slate"),
   ].join("")}</div>`);
@@ -4059,7 +4068,7 @@ $("#closeSettings").addEventListener("click", () => { sheet.hidden = true; $("#o
 sheet.addEventListener("click", ev => { if (ev.target === sheet) sheet.hidden = true; });
 document.addEventListener("keydown", ev => { if (ev.key === "Escape") { const dv = document.querySelector(".doc-view"); if (dv) dv.click(); sheet.hidden = true; $("#compareSheet").hidden = true; $("#shareSheet").hidden = true; } });
 $("#clearRecent").addEventListener("click", () => { store.set("recentPlates", []); toast("היסטוריית החיפושים נמחקה"); if (!current) renderHome(); });
-$("#clearSaved").addEventListener("click", () => { store.set("savedVehicles", []); toast("הרכבים השמורים נמחקו"); if (!current) renderHome(); });
+$("#clearSaved").addEventListener("click", () => { store.set("savedVehicles", []); toast("הרכבים שלי נמחקו"); if (!current) renderHome(); });
 $("#ver").textContent = APP_VERSION;
 /* in-app update (Google Play installs only): one quiet offer per version, plus a manual check in settings */
 let updManual = false;
