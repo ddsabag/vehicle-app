@@ -131,6 +131,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .mini-plate{flex:0 0 auto;direction:ltr;background:var(--plate);color:#111;border:2px solid #0b0b0b;border-radius:6px;font:600 .95rem var(--f-num);padding:2px 8px 2px 4px;display:flex;align-items:center;gap:6px}
 .mini-plate i{background:var(--il);width:8px;align-self:stretch;border-radius:2px}
 .pills{display:flex;flex-wrap:wrap;gap:6px}
+.est-tag{margin:0 0 8px;padding:6px 10px;border-radius:10px;background:var(--soft);font-size:.82rem;line-height:1.5}
 .pill{display:inline-flex;align-items:center;gap:5px;font-size:.82rem;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--soft)}.pill svg.i{width:14px;height:14px}
 .pill.info{background:var(--info-bg);color:var(--info)}
 .pill.drive{display:inline-flex;align-items:center;gap:4px;background:var(--info-bg);color:var(--info)}.pill.drive svg.i{width:14px;height:14px}
@@ -139,9 +140,9 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .actions{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;border-top:1px solid var(--line);padding-top:12px}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .act[data-act=share]{background:#3a3213;box-shadow:inset 0 0 0 1.5px #7a6a24}:root:not([data-theme="light"]) .act[data-act=share] svg.i{color:#f2c94c}}
 :root[data-theme="dark"] .act[data-act=share]{background:#3a3213;box-shadow:inset 0 0 0 1.5px #7a6a24}:root[data-theme="dark"] .act[data-act=share] svg.i{color:#f2c94c}
-.mst td{vertical-align:middle}.mst small{white-space:nowrap;font-size:.74rem;color:var(--muted)}.mst b.ok{color:var(--ok)}.mst b.bad{color:var(--bad)}
+.mst td{vertical-align:middle}.mst small{font-size:.74rem;color:var(--muted)}.mst b.ok{color:var(--ok)}.mst b.bad{color:var(--bad)}
 .act[data-act=share]{background:#fff6d9;box-shadow:inset 0 0 0 1.5px #f3d46a}.act[data-act=share] svg.i{color:#a87900}
-.hero .try{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}.hero .try span{font-size:.88rem;color:var(--muted)}.how{margin:12px 0 0;padding:0 18px 0 0;display:grid;gap:6px;font-size:.9rem;color:var(--muted)}.hero .how li{display:block;font-weight:500}.how b{color:var(--fg)}.faq{border-top:1px solid var(--line)}.faq:first-child{border-top:0}.faq summary{cursor:pointer;padding:11px 0;font-weight:700;font-size:.93rem;list-style:none}.faq summary::-webkit-details-marker{display:none}.faq summary::after{content:"+";float:left;color:var(--muted)}.faq[open] summary::after{content:"−"}.faq p{margin:0 0 12px;color:var(--muted);font-size:.9rem;line-height:1.6}
+.hero .try{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}.hero .try .chip{min-height:40px;padding:8px 12px}.hero .try span{font-size:.88rem;color:var(--muted)}.how{margin:12px 0 0;padding:0 18px 0 0;display:grid;gap:6px;font-size:.9rem;color:var(--muted)}.hero .how li{display:block;font-weight:500}.how b{color:var(--fg)}.faq{border-top:1px solid var(--line)}.faq:first-child{border-top:0}.faq summary{cursor:pointer;padding:11px 0;font-weight:700;font-size:.93rem;list-style:none}.faq summary::-webkit-details-marker{display:none}.faq summary::after{content:"+";float:left;color:var(--muted)}.faq[open] summary::after{content:"−"}.faq p{margin:0 0 12px;color:var(--muted);font-size:.9rem;line-height:1.6}
 .bsteps .ck{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:.84rem;color:var(--muted);font-weight:600}.bsteps .ck::before{content:"";width:18px;height:18px;border-radius:5px;border:2px solid var(--line);flex:0 0 auto}.bsteps .ck[aria-pressed="true"]{color:var(--accent)}.bsteps .ck[aria-pressed="true"]::before{background:var(--accent);border-color:var(--accent);box-shadow:inset 0 0 0 3px var(--card)}.bprog{margin:0 0 10px;font-size:.88rem;color:var(--muted);font-weight:600}.src-foot{margin:14px 4px 0;font-size:.78rem;color:var(--muted);line-height:1.5;text-align:center}
 .hero{padding:6px 4px 2px}.hero h2{margin:0 0 4px;font-size:1.15rem;font-weight:800;line-height:1.3}.hero h2::after{content:"";display:block;width:36px;height:4px;border-radius:2px;background:var(--plate);margin-top:8px}.hero p{margin:6px 0 0;color:var(--muted);font-size:.95rem}.hero ul{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px 14px}.hero li{display:flex;align-items:center;gap:6px;font-size:.88rem;color:var(--muted);font-weight:600}.hero li svg.i{width:16px;height:16px;flex:0 0 auto;color:var(--accent)}
 .act{display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--soft);border:0;border-radius:12px;padding:10px 2px;font-size:.78rem;font-weight:700;color:var(--fg)}
@@ -188,8 +189,12 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .stat{background:var(--card);border-radius:16px;padding:14px 16px;min-width:0;box-shadow:var(--shadow);border-top:4px solid var(--tc)}
 .stat .k{font-size:.85rem;color:var(--muted);font-weight:600}
-.stat .v{font:600 clamp(1.25rem,5.6vw,1.55rem)/1.15 var(--f-num);font-variant-numeric:tabular-nums;margin-top:4px;white-space:nowrap}
+.stat .v{font:600 clamp(1.25rem,5.6vw,1.55rem)/1.15 var(--f-num);font-variant-numeric:tabular-nums;margin-top:4px;overflow-wrap:anywhere}   /* wraps instead of being cut when the phone's text size is large */
 .stat .v .u,.tow-grid .v .u{white-space:nowrap}
+.tow-grid .v{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:4px}.tow-grid .v .u{margin-inline-start:0}   /* number and unit go on two lines instead of being cut at large text sizes */
+
+/* touch targets: 44px minimum */
+.icon-btn{min-width:44px;min-height:44px}button.count{min-height:44px;min-width:44px}.chip{min-height:44px}
 
 /* facts */
 .facts{display:grid;grid-template-columns:1fr 1fr;gap:14px 16px;margin:0}
@@ -245,7 +250,9 @@ a.row{color:var(--fg);text-decoration:none}a.row .t small{text-decoration:none}a
 .link-btn{border:1px solid var(--line);background:transparent;border-radius:10px;padding:10px 12px;font-weight:700;text-align:start}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:30;box-shadow:0 4px 14px rgba(0,0,0,.2)}
 footer a{display:inline;padding:0;text-decoration:underline}
-.mini-plate{max-width:100%}.card table{display:block;max-width:100%;overflow-x:auto}
+.mini-plate{max-width:100%}.card table{display:block;max-width:100%;overflow-x:auto}.card table>tbody{display:table;width:100%}
+/* website: photo and voice entry stay in the app (the side card says so) */
+html.web .in-alt{display:none}
 .head button.count{position:relative}.head button.count::after{content:"";position:absolute;inset:-12px -6px}
 .inp{min-height:44px}
 footer{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:4px 24px;font-size:.78rem;line-height:1.5;color:var(--muted)}
@@ -596,8 +603,8 @@ body.land .band{display:none}
       <div class="kinds"><label><input type="checkbox" id="simpleChk">תצוגה פשוטה: נתונים יבשים בלבד</label></div>
       <p class="note">בדוח הרכב תוצג טבלה אחת, בלי תובנות והסברים. אפשר להחליף בכל דוח.</p>
     </div>
-    <div class="set-row" id="alertsRow" hidden><span>התראות לרכבים שמורים</span>
-      <div class="seg two" role="group" aria-label="התראות לרכבים שמורים"><button type="button" data-alerts="on">פועלות</button><button type="button" data-alerts="off">כבויות</button></div>
+    <div class="set-row" id="alertsRow" hidden><span>התראות לרכבים שלי</span>
+      <div class="seg two" role="group" aria-label="התראות לרכבים שלי"><button type="button" data-alerts="on">פועלות</button><button type="button" data-alerts="off">כבויות</button></div>
       <p class="note" id="alertsNote"></p>
     </div>
     <div class="set-row" id="kindsRow" hidden><span>על מה להתריע</span>
@@ -632,9 +639,9 @@ body.land .band{display:none}
     </div>
     <div class="set-row"><span>נתונים במכשיר</span>
       <button class="link-btn danger" type="button" id="clearRecent">מחיקת היסטוריית החיפושים</button>
-      <button class="link-btn danger" type="button" id="clearSaved">מחיקת כל הרכבים השמורים</button>
+      <button class="link-btn danger" type="button" id="clearSaved">מחיקת כל הרכבים שלי</button>
     </div>
-    <p class="note">החיפושים והרכבים השמורים נשמרים רק במכשיר הזה. גרסה <span id="ver"></span>.</p>
+    <p class="note">החיפושים והרכבים שלי נשמרים רק במכשיר הזה. גרסה <span id="ver"></span>.</p>
     <p class="credit">לוחית · פותחה על ידי דודו סבאג<br>© 2026 כל הזכויות שמורות</p>
   </div>
 </div>
@@ -643,7 +650,7 @@ body.land .band{display:none}
     <div class="sheet-head"><h2 id="cmpTitle">הוספת רכב להשוואה</h2><button class="icon-btn" type="button" id="closeCompareSheet" aria-label="סגירה"><svg class="i"><use href="#i-x"/></svg></button></div>
     <form id="mf" class="msearch" autocomplete="off">
       <svg class="i mq-ico" aria-hidden="true"><use href="#i-search"/></svg>
-      <input id="mq" type="search" placeholder="דגם, מספר רישוי, או למשל: משפחתי חשמלי עד 200 אלף" aria-label="דגם או מספר רישוי" enterkeyhint="search">
+      <input id="mq" type="search" placeholder="שם דגם או מספר רישוי" aria-label="דגם או מספר רישוי" enterkeyhint="search">
     </form>
     <p class="note" id="compareMsg" role="status"></p>
     <div class="list" id="mres"></div>
@@ -659,7 +666,7 @@ body.land .band{display:none}
       <button type="button" class="row" data-share="bizpdf" hidden><span class="badge-s green"><svg class="i"><use href="#i-doc"/></svg></span><span class="t"><b>PDF ממותג (PRO עסקי)</b><small>עם פרטי העסק שלכם, בלי לוגו ובלי קישור של לוחית</small></span></button>
       <button type="button" class="row" data-share="text"><span class="badge-s slate"><svg class="i"><use href="#i-copy"/></svg></span><span class="t"><b>טקסט</b><small>סיכום קצר בהודעה</small></span></button>
     </div>
-    <p class="note" id="shareMsg" role="status"></p>
+    <p class="note">הדוח כולל את מספר הרישוי והיסטוריית סוגי הבעלות (בלי שמות). שתפו אותו רק עם מי שצריך.</p><p class="note" id="shareMsg" role="status"></p>
   </div>
 </div>
 <div class="toast" id="toast" hidden role="status"></div>
@@ -667,7 +674,7 @@ body.land .band{display:none}
 <script>
 "use strict";
 /*! © 2026 Dudu Sabag. All rights reserved. */
-const APP_VERSION = "1.19";
+const APP_VERSION = "1.22";
 const SITE = "https://luchit.app/";
 /* PRO: while PRO_LOCK is false (beta) every feature is open to everyone. Later it is tied to a Google Play subscription. */
 const PRO_LOCK = false;
@@ -676,14 +683,23 @@ const simpleOn = () => { try { return localStorage.getItem("simpleView") === "1"
 const analyticsOn = () => { try { return localStorage.getItem("analyticsOff") !== "1"; } catch { return true; } };
 const track = (name, params) => { try { const b = window.AndroidApp; if (b && b.logEvent && analyticsOn()) b.logEvent(name, JSON.stringify(params || {})); } catch {} };
 /* silent failures worth knowing about (a dataset that errors, a library that does not load): sent to Crashlytics as a non-fatal, tag only, never a plate */
+/* a JavaScript error nobody sees: counted (line number only, never the message, which could hold a plate), at most 5 per session */
+let jsErrN = 0;
+const jsErr = (where, line) => { if (jsErrN++ < 5) { try { const b = window.AndroidApp; if (b && b.logError && analyticsOn()) b.logError(("js_" + where + "_" + (line || 0)).slice(0, 60)); } catch {} } };
+window.addEventListener("error", ev => jsErr("err", ev && ev.lineno));
+window.addEventListener("unhandledrejection", () => jsErr("rej", 0));
 const reportErr = tag => { try { const b = window.AndroidApp; if (b && b.logError && analyticsOn()) b.logError(String(tag).slice(0, 60)); } catch {} };
 const UPGRADE_UI = true;   // false for a store build that has no billing products yet
 const PRICES = {buyer_pack: 29, pro_monthly: 12.9, pro_yearly: 69, biz_monthly: 79};
 const GIFT_DAYS = 30, BUYER_DAYS = 60, TRIAL_DAYS = 14;
 const RANK = {free: 0, buyer: 1, pro: 2, biz: 3};
 const PLAN_NAME = {free: "החבילה החינמית", buyer: "חבילת קנייה", pro: "PRO", biz: "PRO עסקי"};
-const entGet = () => { try { return JSON.parse(localStorage.getItem("ent") || "{}") || {}; } catch { return {}; } };
-const entSet = e => { try { localStorage.setItem("ent", JSON.stringify(e)); } catch {} };
+/* Paid plans (pro, biz, buyer) live in memory only and are re-read from Google Play on every start: they are never written to
+   localStorage, so an Android backup or a hand-edited store cannot carry or fake them. Gift and trial dates are local by nature. */
+const PAID_KEYS = ["pro", "biz", "buyer"], entMem = {pro: 0, biz: 0, buyer: 0};
+const entGet = () => { let e = {}; try { e = JSON.parse(localStorage.getItem("ent") || "{}") || {}; } catch {} PAID_KEYS.forEach(k => { e[k] = entMem[k] || 0; }); return e; };
+const entSet = e => { PAID_KEYS.forEach(k => { if (k in e) entMem[k] = Number(e[k]) || 0; }); const o = {...e}; PAID_KEYS.forEach(k => delete o[k]); try { localStorage.setItem("ent", JSON.stringify(o)); } catch {} };
+entSet(entGet());   /* one-time scrub of paid dates written by older versions (entGet reads them as zero, so the stored copy is cleaned) */
 function plan(){
   if (!PRO_LOCK) return "biz";
   const e = entGet(), now = Date.now();
@@ -782,13 +798,25 @@ function makeName(v){
 }
 
 /* ---------- API ---------- */
+/* Optional caching proxy (worker/ in this repo). Empty = every phone talks to data.gov.il directly. When set and it fails, the phone falls back to direct. */
+const PROXY = "";
+let STALE_AT = 0;   // set when the proxy answered from its stored copy because the ministry was unreachable
 const DS_CACHE = new Map();   // identical queries (also while still in flight) are answered once: fewer requests, instant repeat lookups
 function dsFetch(url){
   const hit = DS_CACHE.get(url); if (hit && Date.now() - hit.t < 60000) return hit.p;
   const pr = (async () => {
-    const r = await fetch(url, {headers:{Accept:"application/json"}});
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const j = await r.json();
+    // a stalled mobile connection must not hang the lookup forever: give up after 15 s (the caller retries)
+    const tc = new AbortController(), tt = setTimeout(() => tc.abort(), 15000);
+    let j;
+    try {
+      let r = null;
+      if (PROXY) { try { r = await fetch(url.replace(API, PROXY + "/api"), {headers:{Accept:"application/json"}, signal: tc.signal}); if (!r.ok) r = null; } catch (e) { if (tc.signal.aborted) throw e; r = null; } }
+      if (r) { const st = Number(r.headers.get("X-Stale-At")); if (st) STALE_AT = Math.max(STALE_AT, st); }
+      else r = await fetch(url, {headers:{Accept:"application/json"}, signal: tc.signal});
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      j = await r.json();
+    } catch (e) { throw tc.signal.aborted ? new Error("timeout") : e; }
+    finally { clearTimeout(tt); }
     if (!j.success) throw new Error((j.error && (j.error.message || JSON.stringify(j.error))) || "CKAN error");
     return j.result.records || [];
   })();
@@ -813,7 +841,7 @@ async function byPlate(set, plate, signal){
   for (const v of [...new Set(forms)]) {
     for (let attempt = 0; attempt < 2; attempt++) {
       try { const rows = await ds(set.id, {[field]: v}, 100, signal); ok = true; if (rows.length) return rows; break; }
-      catch (e) { if (e.name === "AbortError") throw e; lastErr = e; if (/HTTP 4\d\d/.test(e.message)) break; /* a text column rejects the numeric form: next form, no retry */ if (attempt === 0) await new Promise(r => setTimeout(r, 700)); }
+      catch (e) { if (e.name === "AbortError") throw e; lastErr = e; if (/HTTP 4\d\d|timeout/.test(e.message)) break; /* a stalled request is one attempt, not two */ /* a text column rejects the numeric form: next form, no retry */ if (attempt === 0) await new Promise(r => setTimeout(r, 700)); }
     }
   }
   if (!ok && lastErr) throw lastErr;
@@ -864,6 +892,23 @@ function rankRows(rows, rec){
 /* "מקוריות" in the ministry's records is the first ownership type, when the car went on the road new
    (פרטי, ליסינג, השכרה…). It fills the gap for cars older than the January 2017 ownership log. */
 function firstOwner(v){ const t = String(v.mkoriut_nm || "").trim(); return t || null; }
+/* How well a maker holds its value in Israel (resale factor on the base price) and how wide the shown range is.
+   Estimates, not measured: to be calibrated against real deal prices. A maker that is not listed stays at 1.00. */
+const BRAND_TIERS = [
+  {k: 1.07, r: 0.045, re: /טויוטה|לקסוס|סובארו|הונדה|סוזוקי|TOYOTA|LEXUS|SUBARU|HONDA|SUZUKI/i},
+  {k: 1.00, r: 0.065, re: /יונדאי|קיה|מאזדה|מזדה|סקודה|פולקסווגן|פולקסוואגן|סיאט|קופרה|אאודי|ניסאן|מיצובישי|HYUNDAI|KIA\b|MAZDA|SKODA|VOLKSWAGEN|SEAT|CUPRA|AUDI|NISSAN|MITSUBISHI/i},
+  {k: 0.80, r: 0.10, re: /פיג.?ו|פז.?ו|סיטרואן|רנו|אופל|שברולט|פורד|פיאט|דאצ.?יה|PEUGEOT|CITROEN|RENAULT|OPEL|CHEVROLET|FORD|FIAT|DACIA/i},
+  {k: 0.80, r: 0.10, re: /(?<![א-ת])(?:מ\.? ?ג|אם.{0,2}ג.{0,2}י)(?![א-ת])|\bMG\b/i, notEv: true},
+  {k: 0.88, r: 0.10, re: /BYD|בי.{0,2}וי.{0,2}די|טסלה|TESLA|ג.?ילי|GEELY|צ.?רי|CHERY|סרס|SERES|ליפמוטור|LEAPMOTOR|זיקר|ZEEKR|אקספנג|XPENG|וויה|VOYAH|לינק|LYNK|ג.?נסיס|GENESIS|אלפא|ALFA|וולוו|וולבו|VOLVO|י?ג.?ואר|JAGUAR|לנד רובר|LAND ROVER|ג.?יפ|JEEP/i},
+];
+function brandTier(D, ev){
+  try {
+    const mk = [D.v.tozeret_nm, D.make].filter(x => !empty(x)).join(" ");
+    const t = mk && BRAND_TIERS.find(x => x.re.test(mk) && !(x.notEv && ev));
+    if (t) return t;
+  } catch {}
+  return {k: 1, r: 0.08};   // unknown maker: neutral factor and a middle range
+}
 /* Plain meaning of each first-ownership type, and how much it usually costs in resale value */
 function ownerKind(t){
   t = String(t || "");
@@ -911,6 +956,8 @@ const card = (title, icon, color, inner, extra) => {
   return `<section class="card ${color}${closed ? " folded" : ""}"><div class="head" role="button" tabindex="0" aria-expanded="${!closed}" data-fold="${esc(title)}"><span class="badge">${ico(icon)}</span><h2>${esc(title)}</h2>${extra||""}<svg class="i chev" aria-hidden="true"><use href="#i-chev"/></svg></div><div class="fold-body">${inner}</div></section>`;
 };
 const e = v => empty(v) ? "" : esc(v);
+const posN = v => !empty(v) && Number(String(v).replace(/,/g, "")) > 0;   // 0 cc / 0 hp is how the registry writes "not applicable" (electric cars)
+const unitPos = (v, u) => posN(v) ? unit(v, u) : "";
 const unit = (v, u) => empty(v) ? "" : `${esc(fmtN(v))} ${u}`;
 const mono = v => empty(v) ? "" : `<span class="mono">${esc(v)}</span>`;
 const changed = v => empty(v) ? "" : yes(v) ? `<span class="flag">כן</span>` : "לא";
@@ -936,6 +983,7 @@ async function shareText(title, text, plate){
   copyText(text, "הסיכום");
 }
 function openExternal(url){
+  if (!/^(https?:|tel:|mailto:|geo:)/i.test(String(url))) return;
   try { if (bridge() && bridge().openUrl) { bridge().openUrl(url); return; } } catch {}
   window.open(url, "_blank", "noopener");
 }
@@ -1090,12 +1138,17 @@ function costs(D){
     // lose value faster, per published Israeli market figures). Then adjustments in the way the trade
     // price lists apply them: compounded one after another, past use counted in full when it was the
     // car's first ownership and at half when it came later, history capped at 30%, mileage last.
-    const age = Math.max(0, new Date().getFullYear() - year);
+    // continuous age: months since the car went on the road (a car registered in December is not a year older than one registered in January).
+    // Without a usable registration month the car is taken as registered mid-year, which avoids the January step.
+    const reg = parseYM(D.v.moed_aliya_lakvish), regOk = reg && reg.getFullYear() >= year && reg.getFullYear() <= year + 1;
+    const ageY = Math.max(0, monthsBetween(regOk ? reg : new Date(year, 5, 15), new Date()) / 12);
+    const age = Math.floor(ageY);
     const lux = num(D.price.mehir) > 300000, ev = kind === "ev", cheap = num(D.price.mehir) < 100000;
     // first calibration (2026-10) used the cheapest listing page per model and ran low, so the curve was eased: ordinary cars lose ~13% in the first year and ~6% a year after; small cheap cars hold value better, electric cars lose it faster
-    const [y1, yr] = ev ? [0.80, 0.88] : lux ? [0.78, 0.90] : cheap ? [0.90, 0.95] : [0.87, 0.94];
-    const factor = age === 0 ? (1 + y1) / 2 : y1 * Math.pow(yr, age - 1);
-    const base = num(D.price.mehir) * factor;
+    const [y1, yr] = ev ? [0.80, 0.88] : lux ? [0.78, 0.90] : cheap ? [0.90, 0.95] : [0.87, 0.91];
+    const factor = ageY < 1 ? 1 - (1 - y1) * ageY : y1 * Math.pow(yr, ageY - 1);
+    const tier = brandTier(D, ev);
+    const base = num(D.price.mehir) * factor * tier.k;
     const adj = [];
     // first ownership: the registry's "מקוריות" field; failing that the oldest ownership record, unless the log
     // starts after the car's first years (it begins in 2017), when that record may not be the first owner
@@ -1106,8 +1159,8 @@ function costs(D){
     const later = D.own.slice(first === fo && fo.k !== "other" || !D.ownersFloor ? 1 : 0, -1).map(r => ownerKind(r.baalut)).filter(o => o.pct < 0 && o.k !== first.k).sort((a, b) => a.pct - b.pct)[0];
     if (later) { const p = Math.round(later.pct / 2); adj.push([p, {rental: "היה בהמשך רכב השכרה", lease: "היה בהמשך רכב ליסינג", special: "היה בהמשך בשימוש ייעודי", company: "היה בהמשך רכב חברה"}[later.k]]); hist += p; }
     if (hist < -30) { adj.forEach(a => a[0] = Math.round(a[0] * 30 / -hist)); }
-    const hands = D.own.length;
-    if (hands > 1) adj.push([-Math.min(12, (hands - 1) * 3), `${D.ownersFloor ? "לפחות " : ""}${hands} רשומות בעלות`]);
+    const hands = handsOf(D);
+    if (hands > 1) adj.push([-Math.min(12, (hands - 1) * 3), `${D.ownersFloor ? "לפחות " : ""}יד ${HAND_ORD[hands] || hands}`]);
     else if (hands === 1 && first.k === "private") adj.push([1, "יד ראשונה פרטית"]);
     if (D.km && D.kmYears) {
       const mc = msCohort(D), ageNow = new Date().getFullYear() - mc_y(D);
@@ -1118,7 +1171,7 @@ function costs(D){
     }
     const mid = adj.reduce((v, [p]) => v * (1 + p / 100), base);
     c.newPrice = num(D.price.mehir); c.age = age; c.baseValue = Math.round(base / 1000) * 1000; c.adj = adj;
-    c.valueLow = Math.round(mid * 0.9 / 1000) * 1000; c.valueHigh = Math.round(mid * 1.1 / 1000) * 1000;
+    c.valueLow = Math.round(mid * (1 - tier.r) / 1000) * 1000; c.valueHigh = Math.round(mid * (1 + tier.r) / 1000) * 1000; c.tierK = tier.k; c.range = tier.r;
     // value lost over the coming year: a model is bought new, so its steeper first year counts
     c.deprYear = D.kind === "model" ? num(D.price.mehir) * (1 - y1) : mid * (1 - yr);
   }
@@ -1150,28 +1203,30 @@ function costs(D){
    because these pages have no public API and do not accept the plate in the link. */
 const IMPORTER_RECALL = [
   {re:/יונדאי|מיצובישי|מרצדס|סמארט|ג'?נסיס|ג'?א?קו|JAECOO|אומודה|OMODA|\bORA\b|אורה/i, name:"כלמוביל", url:"https://www.colmobil.co.il/recall/"},
-  {re:/סקודה|סיאט|פולקסווגן|פולקסוואגן|אאודי|קופרה|SKODA|SEAT|VOLKSWAGEN|AUDI|CUPRA/i, name:"צ׳מפיון מוטורס", url:"https://www.championmotors.co.il/recall/"},
+  {re:/סקודה|סיאט|פולקסווגן|פולקסוואגן|אאודי|אודי|קופרה|SKODA|SEAT|VOLKSWAGEN|AUDI|CUPRA/i, name:"צ׳מפיון מוטורס", url:"https://www.championmotors.co.il/recall/"},
   {re:/\bBYD\b|בי ?ווי ?די|ב\.?י\.?ד/i, name:"BYD ישראל", url:"https://bydauto.co.il/recall/"},
   {re:/קיה/, name:"קיה ישראל", url:"https://kia-israel.co.il/recall"},
-  {re:/מאזדה/, name:"מאזדה ישראל", url:"https://www.mazda.co.il/recall"},
+  {re:/מאזדה|מזדה|MAZDA/i, name:"מאזדה ישראל", url:"https://www.mazda.co.il/recall"},
   {re:/טויוטה/, name:"טויוטה ישראל", url:"https://www.toyota.co.il/owners/parts-and-accessories/accessories/recall"},
   {re:/לקסוס/, name:"לקסוס ישראל", url:"https://www.lexus.co.il/owners/maintenance/calls-for-repair"},
   {re:/פיג'?ו/, name:"פיג'ו ישראל", url:"https://online.peugeot.co.il/recall/"},
   {re:/סיטרואן/, name:"סיטרואן ישראל", url:"https://online.citroen.co.il/recall/"},
   {re:/אופל/, name:"אופל ישראל", url:"https://online.opel.co.il/recall/"},
-  {re:/\bMG\b|\bMG ?\d|אם\.? ?ג'?י|SAIC|סאיק|מוריס|MORRIS|MARVEL|CYBERSTER|\bEHS\b/i, name:"MG ישראל", url:"https://mg-israel.co.il/recall/"},
-  {re:/ניסאן|ניסן|רנו|דאצ'?יה|צ'?רי/, name:"פריסבי", url:"https://service.freesbe.com/recall"},
+  {re:/\bMG\b|\bMG ?\d|(?<![א-ת])(?:מ\.? ?ג|אם.{0,2}ג.{0,2}י)(?![א-ת])|אם\.? ?ג'?י|SAIC|סאיק|מוריס|MORRIS|MARVEL|CYBERSTER|\bEHS\b/i, name:"MG ישראל", url:"https://mg-israel.co.il/recall/"},
+  {re:/ניסאן|ניסן|רנו|דאצ'?יה|צ'?רי|אקספנג|XPENG/i, name:"פריסבי", url:"https://freesbe.com/recall"},
   {re:/פורד/, name:"פורד ישראל", url:"https://www.ford.co.il/" + encodeURI("קריאות-חוזרות/שירות")},
   {re:/מיני/, name:"מיני ישראל", url:"https://campaigns.mini.co.il/Service-forms_newDesign/recall-mini.html"},
   {re:/ב\.? ?מ\.? ?וו|BMW/, name:"BMW ישראל", url:"https://campaigns.bmw.co.il/Service-forms-new/recall-bmw.html"},
-  {re:/וולוו|הונדה|לינק/, name:"מאיר", url:"https://recall.mct.co.il/"},
+  {re:/וולוו|וולבו|VOLVO|הונדה|HONDA|לינק/i, name:"מאיר", url:"https://recall.mct.co.il/"},
   {re:/ג'?יפ/, name:"סמלת", url:"https://samelet.com/form/find-recall/jeep"},
   {re:/פיאט/, name:"סמלת", url:"https://samelet.com/form/find-recall/fiat"},
   {re:/אלפא/, name:"סמלת", url:"https://samelet.com/form/find-recall/alfaromeo"},
   {re:/סובארו/, name:"סובארו ישראל", url:"https://samelet.com/form/find-recall/subaru"},
+  {re:/דיפאל|DEEPAL|צ'?אנ?גא?ן|CHANGAN/i, name:"צ'אנגן (AEV)", url:"https://www.changan.co.il/pages/recall"},
+  {re:/זיקר|ZEEKR/i, name:"זיקר ישראל", url:"https://www.zeekrlife.com/he-il/service", note:"באתר של זיקר אין בדיקת ריקול לפי מספר רישוי. בעמוד השירות יש מוקד טלפוני (077-334-4000)."},
   {re:/סוזוקי/, name:"סוזוקי ישראל", url:"https://suzuki.co.il/recall"},
   {re:/ג'?ילי/, name:"ג'ילי ישראל", url:"https://geely.co.il/recall/"},
-  {re:/סאנג|ssang|KGM/i, name:"KGM ישראל", url:"https://kgm.co.il/" + encodeURI("קריאת-שירות") + "/"},
+  {re:/סאנג|ssang|KGM|קיי ?גי מוביליט/i, name:"KGM ישראל", url:"https://kgm.co.il/" + encodeURI("קריאת-שירות") + "/"},
   {re:/איסוזו/, name:"UTI", url:"https://www.uti.co.il/recall/"},
   {re:/שברולט/, name:"שברולט ישראל", url:"https://www.chevrolet.co.il/" + encodeURI("שירות-שברולט/שירות-recall") + "/", note:"אצל שברולט זה טופס פנייה (מבקשים גם צילום רישיון), ולא בדיקה מיידית."},
   {re:/פורשה/, name:"פורשה ישראל", url:"https://www.porsche.co.il/", note:"בעמוד הבית של פורשה, בתחתית העמוד: \"קריאות שירות לרכבי פורשה\"."},
@@ -1232,15 +1287,19 @@ function settlementCard(D){
   const items = list.map(s => `<li class="stl ${s.st === "ok" ? "ok" : "wait"}"><div class="stl-h"><b>${esc(s.t)}</b><span class="stl-st">${s.st === "ok" ? ico("check") + "אושר" : ico("clock") + "ממתין לאישור"}</span></div>${full
     ? `<div class="stl-b"><small>מה מגיע</small>${esc(s.b)}</div><p class="note" style="margin:6px 0 0">${esc(s.cond)}${s.low ? " ההתאמה לרכב הזה פחות ודאית." : ""}</p><button type="button" class="link-btn" data-url="${esc(s.url)}">${ico("search")}לדף ההסדר אצל היבואן</button>` : ""}</li>`).join("");
   return card("ייתכן שמגיעה לכם הטבה מהסדר פשרה", "scale", "amber",
-    `<p style="margin:0 0 8px">${list.length === 1 ? "נמצא הסדר פשרה אחד שעשוי לחול על הרכב." : `נמצאו ${list.length} הסדרי פשרה שעשויים לחול על הרכב.`}</p><ul class="stls">${items}</ul>${full ? `<p class="note">לפי הודעות היבואנים והעיתונות, נכון ל-10/2026. הזכאות נקבעת לפי הרכב (לפעמים לפי מספר שלדה), וייתכן שהמועד חלף. לפני תיקון בתשלום כדאי לבדוק מול היבואן.</p>` : `<p class="note">פרטי ההטבה, התנאים והקישור ליבואן זמינים ב-PRO.</p><button type="button" class="link-btn" data-act="proInfo">הצטרפות ל-PRO</button>`}`, `<span class="count">${list.length}</span>`);
+    `<p class="est-tag"><b>התאמה משוערת לפי דגם ושנתון</b>, לא רשומה אישית של הרכב. לא מצאנו אישור שהרכב הזה נכלל בהסדר.</p><p style="margin:0 0 8px">${list.length === 1 ? "נמצא הסדר פשרה אחד שעשוי לחול על הרכב." : `נמצאו ${list.length} הסדרי פשרה שעשויים לחול על הרכב.`}</p><ul class="stls">${items}</ul>${full ? `<p class="note">לפי הודעות היבואנים והעיתונות, נכון ל-10/2026. הזכאות נקבעת לפי הרכב (לפעמים לפי מספר שלדה), וייתכן שהמועד חלף. לפני תיקון בתשלום כדאי לבדוק מול היבואן.</p>` : `<p class="note">פרטי ההטבה, התנאים והקישור ליבואן זמינים ב-PRO.</p><button type="button" class="link-btn" data-act="proInfo">הצטרפות ל-PRO</button>`}`, `<span class="count">${list.length}</span>`);
 }
 function importerRecall(D){
   const m = [D.v.tozeret_nm, D.v.kinuy_mishari, D.v.degem_nm, D.make, D.price && D.price.shem_yevuan].filter(x => !empty(x)).join(" ");
-  const hit = IMPORTER_RECALL.find(x => x.re.test(m));
+  // the maker decides first: a model name can contain another brand's word (a Subaru "פורסטר ג'יפ" is not a Jeep)
+  const mk = [D.v.tozeret_nm, D.make].filter(x => !empty(x)).join(" ");
+  const hit = IMPORTER_RECALL.find(x => x.re.test(mk)) || IMPORTER_RECALL.find(x => x.re.test(m));
   if (hit) return hit;
   const who = D.pick(D.price && D.price.shem_yevuan, D.modelRecalls[0] && D.modelRecalls[0].YEVUAN_TEUR, D.make);
   return {name: who, url: "https://www.gov.il/he/departments/dynamiccollectors/cars-recall?skip=0", gov: true};
 }
+/* the official importer, from the model's price list; a personal import has none */
+const importerOf = D => D.importKind || !D.price || empty(D.price.shem_yevuan) ? "" : String(D.price.shem_yevuan).trim();
 const norm = s => String(s || "").toUpperCase().replace(/[^A-Z0-9֐-׿]/g, "");
 function isBlocking(r){ return /הגבל|מגביל|חסימ|חוסם/.test([r.SUG_RECALL, r.SUG_TAKALA, r.TEUR_TAKALA].join(" ")); }
 function recallYear(x){ const m = String(x || "").match(/(19|20)\d{2}/); return m ? +m[0] : null; }
@@ -1258,20 +1317,22 @@ function matchModelRecalls(rows, v){
 
 /* Model-level data (specs, towing, counts, price list, recalls) for a maker + model code */
 async function fetchModelData(v, signal){
-  let w = {}, towRow = null, zeroTow = false, counts = null, price = null, priceRows = [], modelRecalls = [];
+  let w = {}, towRow = null, zeroTow = false, counts = null, price = null, priceRows = [], modelRecalls = [], modelRecallsUnknown = false;
   if (!empty(v.tozeret_cd) && !empty(v.degem_cd)) {
     const recallsByMaker = (async () => {
+      let answered = false;
       for (const val of [num(v.tozeret_cd), String(v.tozeret_cd).trim()]) {
-        try { const rows = await ds(MODEL_SETS.recalls, {TOZAR_CD: val}, 1000, signal); if (rows.length) return rows; }
+        try { const rows = await ds(MODEL_SETS.recalls, {TOZAR_CD: val}, 1000, signal); answered = true; if (rows.length) return rows; }
         catch (err) { if (err.name === "AbortError") throw err; }
       }
+      if (!answered) modelRecallsUnknown = true;   // no answer is not the same as "no recalls"
       return [];
     })();
     const [a, b, c, r] = await Promise.all([
       modelRows(MODEL_SETS.wltp, v, signal).catch(() => []),
       modelRows(MODEL_SETS.counts, v, signal).catch(() => []),
       modelRows(MODEL_SETS.price, v, signal).catch(() => []),
-      recallsByMaker.catch(() => []),
+      recallsByMaker.catch(() => { modelRecallsUnknown = true; return []; }),
     ]);
     const ranked = rankRows(a, v);
     if (ranked.length) w = ranked[0];
@@ -1283,7 +1344,7 @@ async function fetchModelData(v, signal){
     price = rankRows(c, v)[0] || null; priceRows = c;
     modelRecalls = matchModelRecalls(r, v);
   }
-  return {w, towRow, zeroTow, counts, price, priceRows, modelRecalls};
+  return {w, towRow, zeroTow, counts, price, priceRows, modelRecalls, modelRecallsUnknown};
 }
 
 /* An empty ministry dataset answers "no rows" for every plate; tell that apart from a plate that does not exist */
@@ -1302,7 +1363,7 @@ async function fetchVehicle(plate, signal, onProgress){
     catch (err) { if (err.name === "AbortError") throw err; res[s.key] = {rows: [], err: err.message}; }
     if (onProgress) onProgress(++done / (PLATE_SETS.length + 1));
   }));
-  if (!res.owners.rows.length) { const m = await ownMirror(plate, signal); if (m.length) res.owners = {rows: m}; }
+  if (!res.owners.rows.length) { const m = await ownMirror(plate, signal); if (m.length) { res.owners = {rows: m}; res.ownMirror = true; } }
   const errs = PLATE_SETS.filter(s => res[s.key].err);
   const mains = PLATE_SETS.filter(s => s.role === "main" && res[s.key].rows.length);
   const extras = PLATE_SETS.filter(s => s.role === "extra" && res[s.key].rows.length);
@@ -1319,9 +1380,9 @@ async function fetchVehicle(plate, signal, onProgress){
   mains.forEach(s => fill(res[s.key].rows[0]));
   ["cont","tech"].forEach(k => res[k].rows[0] && fill(res[k].rows[0]));
 
-  const {w, towRow, zeroTow, counts, price, priceRows, modelRecalls} = await fetchModelData(v, signal);
+  const {w, towRow, zeroTow, counts, price, priceRows, modelRecalls, modelRecallsUnknown} = await fetchModelData(v, signal);
   const pick = (...vals) => vals.find(x => !empty(x));
-  const own = res.owners.rows.slice().sort((a,b) => String(a.baalut_dt).localeCompare(String(b.baalut_dt)));
+  const own = res.owners.rows.filter(r => !empty(r.baalut)).sort((a,b) => String(a.baalut_dt).localeCompare(String(b.baalut_dt)));
   const recalls = res.recall.rows.map(r => ({...r, detail: modelRecalls.find(m => String(m.RECALL_ID) === String(r.RECALL_ID)) || null}));
   // the repair details live in the manufacturers' recall list; when the model name there differs from the
   // car's (or the maker has many recalls), look the open recall up directly by its number
@@ -1344,7 +1405,7 @@ async function fetchVehicle(plate, signal, onProgress){
   const onRoad = parseYM(v.moed_aliya_lakvish) || (isNum(v.shnat_yitzur) ? new Date(num(v.shnat_yitzur), 0, 1) : null);
   const ownersFloor = !onRoad || onRoad < new Date(2017, 0, 1); // the ownership log starts in January 2017
 
-  const D = {plate, v, w, towRow, zeroTow, tSrc, counts, price, priceRows, own, ownersFloor, recalls, modelRecalls, tag, dpf, primary: mains[0], importKind: res.import.rows[0] ? String(res.import.rows[0].sug_yevu || "יבוא אישי").replace(/-/g, " · ") : null, errs, pick, make, model,
+  const D = {plate, v, w, towRow, zeroTow, tSrc, counts, price, priceRows, own, ownersFloor, recalls, modelRecalls, recallUnknown: !!res.recall.err, ownMirror: !!res.ownMirror, modelRecallsUnknown, tag, dpf, primary: mains[0], importKind: res.import.rows[0] ? String(res.import.rows[0].sug_yevu || "יבוא אישי").replace(/-/g, " · ") : null, errs, pick, make, model,
     title: [make, model].filter(Boolean).join(" ") || "רכב " + fmtPlate(plate),
     sub: [v.shnat_yitzur, pick(v.ramat_gimur, w.ramat_gimur), v.tzeva_rechev].filter(x => !empty(x)).join(" · "),
     vin: pick(v.misgeret, v.mispar_shilda, v.shilda), km, kmYears, kmPerYear,
@@ -1356,9 +1417,9 @@ async function fetchVehicle(plate, signal, onProgress){
 /* ---------- insights ---------- */
 /* a concrete next step for the findings a buyer can act on */
 const INSIGHT_TODO = [
-  [/רשומות בעלות/, "שאלו למה הרכב עבר כל כך הרבה ידיים."],
+  [/יד (רביעית|חמישית|שישית|שביעית|שמינית|תשיעית|עשירית|\d+)/, "שאלו למה הרכב עבר כל כך הרבה ידיים."],
   [/השכרה/, "בקשו הנחה במחיר ובדיקה יסודית במכון."],
-  [/קילומטראז׳ גבוה/, "בדקו שהק״מ במד המרחק תואם לטסטים ולחשבוניות הטיפול."],
+  [/ק״מ גבוה/, "בדקו שהק״מ במד המרחק תואם לטסטים ולחשבוניות הטיפול."],
   [/שינוי מבנה/, "בקשו את אישור השינוי ובדקו שהוא רשום ברישיון."],
   [/גפ״מ/, "בקשו את אישור ההתקנה ואישור בדיקת גפ״מ בתוקף."],
   [/הצבע שונה/, "בדקו במכון אם יש סימני פחחות."],
@@ -1376,26 +1437,26 @@ function buildInsights(D){
   if (D.isCancelled) add("bad", "הרכב ירד מהכביש", `הרכב בוטל סופית${empty(v.bitul_dt) ? "" : " ב-" + fmtDate(v.bitul_dt)} ואינו יכול לנסוע.`);
   else if (D.primary && /^inactive/.test(D.primary.key)) add("warn", "הרכב לא פעיל", "הרכב רשום כלא פעיל במאגר משרד התחבורה.");
   // open recalls are not repeated here: the red banner above the tabs already says it
-  { const n = D.kind === "model" || D.isCancelled ? 0 : settlementsFor(D).length; if (n) add("info", "ייתכן שמגיעה לכם הטבה מהסדר פשרה", `${n === 1 ? "נמצא הסדר פשרה אחד שעשוי לחול על הרכב" : `נמצאו ${n} הסדרי פשרה שעשויים לחול על הרכב`}. הפרטים בלשונית ריקולים ופשרות.`); }
+  { const n = D.kind === "model" || D.isCancelled ? 0 : settlementsFor(D).length; if (n) add("info", "ייתכן שמגיעה לכם הטבה מהסדר פשרה", `${n === 1 ? "נמצא הסדר פשרה אחד שעשוי לחול על הרכב" : `נמצאו ${n} הסדרי פשרה שעשויים לחול על הרכב`}. הפרטים בלשונית ריקולים והסדרים.`); }
   const exp = toDate(v.tokef_dt);
   if (exp && !D.isCancelled) {
     const days = Math.round((exp - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 864e5);
-    if (days < 0) add("bad", "הטסט לא בתוקף", `רישיון הרכב פג ב-${fmtDate(v.tokef_dt)}.`);
+    if (days < 0) add("bad", "הטסט לא בתוקף", `תוקף הטסט פג ב-${fmtDate(v.tokef_dt)}.`);
     else if (days <= 60) add("warn", "הטסט מתקרב", `רישיון הרכב בתוקף עד ${fmtDate(v.tokef_dt)}, ${days === 0 ? "היום" : days === 1 ? "מחר" : "בעוד " + days + " ימים"}.`);
   }
   if (D.kmPerYear) {
     const ratio = D.kmPerYear / AVG_KM_YEAR;
     const base = `כ-${fmtN(D.kmPerYear)} ק״מ בשנה, לעומת ממוצע של כ-${fmtN(AVG_KM_YEAR)} ק״מ לרכב פרטי`;
     const caveat = ` (לפי הטסט האחרון${empty(v.mivchan_acharon_dt) ? "" : ", " + fmtDate(v.mivchan_acharon_dt)}).`;
-    if (ratio >= 1.6) add("warn", "קילומטראז׳ גבוה מאוד ביחס לשנתון", base + caveat);
-    else if (ratio >= 1.25) add("warn", "קילומטראז׳ גבוה ביחס לשנתון", base + caveat);
-    else if (ratio <= 0.5) add("info", "קילומטראז׳ נמוך ביחס לשנתון", base + caveat);
-    else add("ok", "קילומטראז׳ סביר ביחס לשנתון", base + caveat);
+    if (ratio >= 1.6) add("warn", "ק״מ גבוה מאוד ביחס לשנת הייצור", base + caveat);
+    else if (ratio >= 1.25) add("warn", "ק״מ גבוה ביחס לשנת הייצור", base + caveat);
+    else if (ratio <= 0.5) add("info", "ק״מ נמוך ביחס לשנת הייצור", base + caveat);
+    else add("ok", "ק״מ סביר ביחס לשנת הייצור", base + caveat);
   }
   const own = D.own;
   if (own.length) {
     const past = own.slice(0, -1).map(r => String(r.baalut || ""));
-    if (!isFirstHand(D) && own.length >= 4) add("warn", `${D.ownersFloor ? "לפחות " : ""}${own.length} רשומות בעלות`, "הרכב עבר הרבה ידיים.");
+    if (handsOf(D) >= 4) add("warn", ownersLabel(D), "הרכב עבר הרבה ידיים.");
     if (past.some(t => t.includes("השכר"))) add("warn", "היה רכב השכרה", "בעבר הרכב היה בבעלות חברת השכרה. רכבי השכרה עוברים בין נהגים רבים.");
     if (past.some(t => t.includes("ליסינג"))) add("info", "היה רכב ליסינג", "בעבר הרכב היה בליסינג. רכבי ליסינג צוברים ק״מ מהר.");
     const curOwn = String(own[own.length - 1].baalut || "");
@@ -1431,9 +1492,9 @@ function buildInsights(D){
 
 /* ---------- result screen ---------- */
 let ctrl = null, current = null, currentTab = "overview";
-const TABS = [["overview","סקירה"],["buy","קנייה"],["maint","אחזקה"],["recalls","ריקולים ופשרות"],["specs","מפרט"]];
+const TABS = [["overview","סקירה"],["buy","קנייה"],["maint","אחזקה"],["recalls","ריקולים והסדרים"],["specs","מפרט"]];
 // the report lists the buyer view and the costs, never the private maintenance log
-const REPORT_TABS = [["overview","סקירה"],["buy","קנייה"],["costs","עלויות"],["recalls","ריקולים ופשרות"],["specs","מפרט"]];
+const REPORT_TABS = [["overview","סקירה"],["buy","קנייה"],["costs","עלויות"],["recalls","ריקולים והסדרים"],["specs","מפרט"]];
 
 async function lookup(raw){
   const plate = digits(raw).replace(/^0+(?=\d{5})/, "");
@@ -1445,21 +1506,25 @@ async function lookup(raw){
   $("#go").disabled = true;
   try { history.replaceState(null, "", "#" + plate); } catch {}
   out.innerHTML = loadingHtml(plate);
+  // a slow ministry server: say so after 3.5 s instead of leaving a silent bar
+  const t0 = Date.now();
+  const slowT = setTimeout(() => { if (!signal.aborted && $("#bar") && !$("#slowNote")) track("lookup_slow"); if (!signal.aborted && $("#bar") && !$("#slowNote")) out.insertAdjacentHTML("beforeend", `<p class="note" id="slowNote" role="status" style="text-align:center">בודק, לוקח יותר מהרגיל. שרתי משרד התחבורה איטיים כרגע.</p>`); }, 3500);
   const side = Promise.race([Promise.all([loadModelStats().catch(() => null), loadService().catch(() => null)]), new Promise(r => setTimeout(r, 1500))]);
   let D;
   try { D = await fetchVehicle(plate, signal, f => { const bar = $("#bar"); if (bar) bar.style.width = f * 100 + "%"; }); }
-  catch (err) { if (err.name === "AbortError") return; throw err; }
-  finally { $("#go").disabled = false; }
+  catch (err) { if (err.name === "AbortError") { if (Date.now() - t0 > 1500) track("lookup_abort"); return; } throw err; }   // the user gave up on a slow lookup and typed another
+  finally { $("#go").disabled = false; clearTimeout(slowT); }
+  const dur = Date.now() - t0, durB = dur < 2000 ? "lt2" : dur < 5000 ? "2to5" : dur < 10000 ? "5to10" : "gt10";
   if (signal.aborted) return;
   await side;
   if (signal.aborted) return;
   if (D.sourceDown) { out.innerHTML = `<div class="msg err">מאגר הרכבים של משרד התחבורה לא מחזיר נתונים כרגע, בלי קשר למספר שהקלדתם. זו תקלה אצל המשרד. נסו שוב מאוחר יותר.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; track("lookup_failed", {kind: "source_down"}); return; }
-  if (D.offline || D.notFound) track("lookup_failed", {kind: D.offline ? "offline" : "not_found"});
+  if (D.offline || D.notFound) track("lookup_failed", {kind: D.sourceDown ? "source_down" : D.offline ? "offline" : "not_found", dur: durB});
   if (D.offline) { out.innerHTML = `<div class="msg err">אין חיבור למאגרי משרד התחבורה כרגע. בדקו את החיבור לאינטרנט ונסו שוב.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; return; }
   if (D.notFound) { out.innerHTML = `<div class="msg">לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.</div>`; return; }
   current = D; currentTab = "overview";
   renderResult();
-  track("car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0});
+  track("car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: D.errs && D.errs.length ? 1 : 0});
   remember(plate);
   window.scrollTo({top: 0});
 }
@@ -1484,11 +1549,11 @@ function simpleCard(D){
   const kg = x => empty(x) ? "" : fmtN(x) + " ק״ג";
   const main = [
     ["יצרן", D.make], ["דגם", D.model], ["שנת ייצור", v.shnat_yitzur], ["רמת גימור", pick(v.ramat_gimur, w.ramat_gimur)], ["צבע", v.tzeva_rechev],
-    ["סוג דלק", pick(v.sug_delek_nm, w.delek_nm)], ["נפח מנוע", pick(v.nefach_manoa, w.nefah_manoa) && fmtN(pick(v.nefach_manoa, w.nefah_manoa)) + " סמ״ק"], ["כוח", isNum(w.koah_sus) ? fmtN(w.koah_sus) + " כ״ס" : ""],
+    ["סוג דלק", pick(v.sug_delek_nm, w.delek_nm)], ["נפח מנוע", posN(pick(v.nefach_manoa, w.nefah_manoa)) && fmtN(pick(v.nefach_manoa, w.nefah_manoa)) + " סמ״ק"], ["כוח", posN(w.koah_sus) ? fmtN(w.koah_sus) + " כ״ס" : ""],
     ["הנעה", pick(v.hanaa_nm, w.hanaa_nm)], ["תיבת הילוכים", gear], ["מרכב", w.merkav], ["מושבים", pick(w.mispar_moshavim, v.mispar_mekomot)], ["דלתות", w.mispar_dlatot],
-    ["עלה לכביש", v.moed_aliya_lakvish], ["סוג יבוא", D.importKind], ["בעלות נוכחית", v.baalut], ["בעלות ראשונה", firstOwner(v)], ["מספר בעלים", own],
-    ["טסט אחרון", empty(v.mivchan_acharon_dt) ? "" : fmtDate(v.mivchan_acharon_dt)], ["תוקף רישיון", empty(v.tokef_dt) ? "" : fmtDate(v.tokef_dt)], ["ק״מ בטסט האחרון", D.km ? fmtN(D.km) : ""],
-    ["ריקולים פתוחים", D.recalls.length ? String(D.recalls.length) : "אין"], ["תג נכה", D.tag ? "יש" : ""], ["מספר שלדה", vin, vin],
+    ["עלה לכביש", v.moed_aliya_lakvish], ["סוג יבוא", D.importKind], ["יבואן", importerOf(D)], ["בעלות נוכחית", v.baalut], ["בעלות ראשונה", firstOwner(v)], ["מספר בעלים", own],
+    ["טסט אחרון", empty(v.mivchan_acharon_dt) ? "" : fmtDate(v.mivchan_acharon_dt)], ["טסט בתוקף עד", empty(v.tokef_dt) ? "" : fmtDate(v.tokef_dt)], ["ק״מ בטסט האחרון", D.km ? fmtN(D.km) : ""],
+    ["ריקולים פתוחים", D.recallUnknown ? "לא זמין כרגע" : D.recalls.length ? String(D.recalls.length) : "אין"], ["תג נכה", D.tag ? "יש" : ""], ["מספר שלדה", vin, vin],
   ];
   const safety = pick(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty), zihum = pick(v.kvutzat_zihum, w.kvutzat_zihum);
   const more = [
@@ -1496,7 +1561,7 @@ function simpleCard(D){
     ["משקל כולל מותר", kg(pick(v.mishkal_kolel, w.mishkal_kolel))], ["משקל עצמי", kg(v.mishkal_azmi)], ["כושר העמסה", kg(v.mishkal_mitan_harama)],
     ["צמיג קדמי", pick(v.zmig_kidmi, v.mida_zmig_kidmi)], ["צמיג אחורי", pick(v.zmig_ahori, v.mida_zmig_ahori)],
     ["רמת אבזור בטיחותי", empty(safety) ? "" : safety + " מתוך 8"], ["כריות אוויר", w.mispar_kariot_avir],
-    ["קבוצת זיהום", empty(zihum) ? "" : zihum + " מתוך 15"], ["פליטת CO₂", empty(pick(w.CO2_WLTP, w.kamut_CO2)) ? "" : pick(w.CO2_WLTP, w.kamut_CO2) + " גר׳ לק״מ"],
+    ["קבוצת זיהום", empty(zihum) ? "" : zihum + " מתוך 15"], ["פליטת CO₂", empty(pick(w.CO2_WLTP, w.kamut_CO2)) ? "" : pick(w.CO2_WLTP, w.kamut_CO2) + " גרם לק״מ"],
   ];
   const ok = r => !empty(r[1]) && r[1] !== false;
   const row = ([k, x, cp]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(String(x))}${cp ? `<button class="copy-btn" type="button" data-copy="${esc(cp)}" data-label="מספר השלדה" aria-label="העתקת מספר שלדה">${ico("copy")}</button>` : ""}</td></tr>`;
@@ -1509,8 +1574,10 @@ const fmtDay = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLoca
 function srcFoot(){
   const st = DATA_STATUS, a = st && st.sets && st.sets.active;
   const names = {active: "רכבים פעילים", tech: "היסטוריה טכנית", owners: "בעלויות", recalls: "ריקולים", wltp: "מפרטים"};
-  const down = st ? Object.keys(st.sets).filter(k => !st.sets[k].ok).map(k => names[k]) : [];
-  return `<p class="src-foot" id="srcFoot">המידע נשלף מנתוני משרד התחבורה ב-data.gov.il${a && a.modified ? `, המאגר הראשי עודכן ב-${fmtDay(a.modified)}` : ""}.${down.length ? `<br>כרגע המאגר אינו זמין אצל המשרד: ${down.join(", ")}.` : ""}<br>האפליקציה אינה קשורה למשרד התחבורה, והמידע אינו מחליף נסח רישום רשמי או בדיקה במכון מורשה.</p>`;
+  // the ownership register is empty at the ministry for now and our own copy fills in; only warn when this car really lacks the data
+  const hasOwn = current && current.own && current.own.length;
+  const down = st ? Object.keys(st.sets).filter(k => !st.sets[k].ok && !(k === "owners" && hasOwn)).map(k => names[k]) : [];
+  return `<p class="src-foot" id="srcFoot">המידע נשלף מנתוני משרד התחבורה ב-data.gov.il${a && a.modified ? `, המאגר הראשי עודכן ב-${fmtDay(a.modified)}` : ""}.${down.length ? `<br>מאגרי המשרד האלה אינם מגיבים כרגע, ולכן ייתכן שחסר מידע: ${down.join(", ")}.` : ""}${STALE_AT ? `<br><b>המשרד לא ענה, והמידע נלקח מעותק שמור מ-${fmtDay(STALE_AT)}.</b>` : ""}<br>האפליקציה אינה קשורה למשרד התחבורה, והמידע אינו מחליף נסח רישום רשמי או בדיקה במכון מורשה.</p>`;
 }
 async function loadStatus(){
   if (DATA_STATUS) return;
@@ -1539,7 +1606,7 @@ function renderResult(){
   const dt = driveType(D);
   if (dt) pills.push(`<span class="pill drive ${["ev", "phev", "hybrid"].includes(dt.k) ? "green" : ""}">${ico(["ev", "phev", "hybrid"].includes(dt.k) ? "bolt" : "fuel")}${dt.label}</span>`);
   if (exp && !D.isCancelled) pills.push(exp < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) ? `<span class="pill bad">טסט לא בתוקף</span>` : `<span class="pill ok">טסט בתוקף עד ${String(exp.getMonth() + 1).padStart(2, "0")}/${exp.getFullYear()}</span>`);
-  const vIns = buildInsights(D), clean = !(D.errs && D.errs.length) && !D.isCancelled && !D.recalls.length && !vIns.some(x => x.level === "bad" || x.level === "warn");
+  const vIns = buildInsights(D), clean = !(D.errs && D.errs.length) && !D.recallUnknown && !D.isCancelled && !D.recalls.length && !vIns.some(x => x.level === "bad" || x.level === "warn");
   if (D.own.length) pills.push(`<span class="pill">${ownersLabel(D)}</span>`);
   if (clean) pills.push(`<span class="pill ok">${ico("check")}לא נמצאו בעיות במאגרי משרד התחבורה</span>`);
   if (D.tag) pills.push(`<span class="pill">תג נכה</span>`);
@@ -1564,9 +1631,10 @@ function renderResult(){
 
   if (D.kind !== "model" && !D.isCancelled) {
     const stl = settlementsFor(D);
-    if (stl.length) html.push(`<button type="button" class="alert-banner warn" data-tab="recalls">${ico("scale")}<span><b>${stl.length === 1 ? "ייתכן שמגיעה הטבה מהסדר פשרה" : `ייתכן שמגיעות ${stl.length} הטבות מהסדרי פשרה`}</b>ההטבה תלויה בהתאמה לרכב שלכם. הפרטים בלשונית ריקולים ופשרות.</span></button>`);
+    if (stl.length) html.push(`<button type="button" class="alert-banner warn" data-tab="recalls">${ico("scale")}<span><b>${stl.length === 1 ? "ייתכן שמגיעה הטבה מהסדר פשרה" : `ייתכן שמגיעות ${stl.length} הטבות מהסדרי פשרה`}</b>ההטבה תלויה בהתאמה לרכב שלכם. הפרטים בלשונית ריקולים והסדרים.</span></button>`);
   }
-  if (D.errs && D.errs.length) html.push(`<p class="msg">חלק ממאגרי משרד התחבורה לא ענו כרגע, והמידע על הרכב חלקי. נסו שוב בעוד דקה.</p>`);
+  if (D.recallUnknown) html.push(`<div class="msg err"><b>מידע על ריקולים לא זמין כרגע.</b> מאגר הריקולים של משרד התחבורה לא ענה, ולכן אי אפשר לדעת אם יש ריקול פתוח לרכב. אל תסיקו מכך שאין. נסו שוב בעוד דקה, או בדקו באתר היבואן.</div>`);
+  if (D.errs && D.errs.some(x => x.key !== "recall")) html.push(`<p class="msg">חלק ממאגרי משרד התחבורה לא ענו כרגע, והמידע על הרכב חלקי. נסו שוב בעוד דקה.</p>`);
   if (!window.AndroidApp) html.push(appBox(D));
   html.push(`</div><div class="mainc">`);
   const recallCount = D.recalls.length;
@@ -1594,8 +1662,17 @@ function watchStrip(){
   stripObs.observe(idc);
 }
 /* One ownership record, and the first ownership type (מקוריות) agrees with it */
-const isFirstHand = D => D.own.length === 1 && !D.ownersFloor && (!firstOwner(D.v) || ownerKind(firstOwner(D.v)).k === ownerKind(D.own[0].baalut).k);
-const ownersLabel = D => isFirstHand(D) ? "יד ראשונה" : `${D.ownersFloor ? "לפחות " : ""}${D.own.length} ${D.own.length === 1 ? "רשומת בעלות" : "רשומות בעלות"}`;
+const isDealerRec = r => /סוחר|יבואן|מסחר/.test(String((r && r.baalut) || ""));
+/* the "hand": a dealer holding the car for resale is not a hand, so only the other records are counted */
+const handsOf = D => D.own.filter(r => !isDealerRec(r)).length;
+const HAND_ORD = ["", "ראשונה", "שנייה", "שלישית", "רביעית", "חמישית", "שישית", "שביעית", "שמינית", "תשיעית", "עשירית"];
+const isFirstHand = D => { const h = D.own.filter(r => !isDealerRec(r)); return h.length === 1 && !D.ownersFloor && (!firstOwner(D.v) || ownerKind(firstOwner(D.v)).k === ownerKind(h[0].baalut).k); };
+const ownersLabel = D => {
+  const n = handsOf(D), dealer = D.own.some(isDealerRec);
+  if (!n) return dealer ? "אצל סוחר" : "";
+  if (n === 1 && !isFirstHand(D)) return "יד אחת במאגר";   // the log may start after the first owner, or the first owner's type differs
+  return `${D.ownersFloor ? "לפחות " : ""}יד ${HAND_ORD[n] || n}`;
+};
 
 /* What changed since the car left the factory: structure, LPG, colour, tyre size */
 function modsCard(v){
@@ -1885,7 +1962,8 @@ function tabMaint(D){
 }
 function tabOverview(D){
   const v = D.v, w = D.w, html = [];
-  const ins = buildInsights(D);
+  // the settlement banner above already says this; the card in the recalls tab has the details
+  const ins = buildInsights(D).filter(i => i.title !== "ייתכן שמגיעה לכם הטבה מהסדר פשרה");
   if (ins.length) {
     const icon = {bad:"alert", warn:"alert", info:"info", ok:"check"};
     html.push(card("מידע חשוב שעלה מהנתונים", "bulb", "amber",
@@ -1917,14 +1995,14 @@ function tabOverview(D){
   const stats = [];
   if (D.km) stats.push(["ק״מ בטסט האחרון", fmtN(D.km), "ק״מ", "teal"]);
   if (D.kmPerYear) stats.push(["ממוצע לשנה", fmtN(D.kmPerYear), "ק״מ", "teal"]);
-  const hp = D.pick(w.koah_sus, v.hespek);
+  const hp = posN(w.koah_sus) ? w.koah_sus : posN(v.hespek) ? v.hespek : "";
   if (!empty(hp)) stats.push(["כוח", fmtN(hp), empty(w.koah_sus) ? "" : "כ״ס", "red"]);
   if (stats.length % 2) stats.pop();
   if (stats.length) html.push(`<div class="stats">${stats.map(([k,val,u,c]) => `<div class="stat ${c}"><div class="k">${esc(k)}</div><div class="v">${esc(val)}${u ? `<span class="u">${esc(u)}</span>` : ""}</div></div>`).join("")}</div>`);
 
   html.push(card("רישוי וטסט", "doc", "blue", facts([
     ["טסט אחרון", e(v.mivchan_acharon_dt && fmtDate(v.mivchan_acharon_dt))],
-    ["רישיון בתוקף עד", e(v.tokef_dt && fmtDate(v.tokef_dt))],
+    ["טסט בתוקף עד", e(v.tokef_dt && fmtDate(v.tokef_dt))],
     ["עלה לכביש", e(v.moed_aliya_lakvish && fmtDate(v.moed_aliya_lakvish))],
     ["רישום ראשון", e(v.rishum_rishon_dt && fmtDate(v.rishum_rishon_dt))],
     D.isCancelled && ["ירד מהכביש", e(v.bitul_dt && fmtDate(v.bitul_dt))],
@@ -1937,7 +2015,7 @@ function tabOverview(D){
   if (D.own.length) {
     html.push(card("היסטוריית בעלויות", "users", "violet",
       `${foLine}<ol class="timeline">${D.own.slice().reverse().map((r,i) => `<li><span class="dot"></span><time>${esc(fmtDate(r.baalut_dt))}</time><span>${esc(r.baalut || "")}${i === 0 ? `<span class="now">נוכחי</span>` : ""}</span></li>`).join("")}</ol>
-       <p class="note">${D.ownersFloor ? "יומן הבעלויות מתחיל בינואר 2017, ולכן ברכבים ותיקים יותר ייתכן שהיו בעלים נוספים לפני כן." : ""}</p>`,
+       <p class="note">${D.own.some(isDealerRec) ? "סוחר שמחזיק את הרכב למכירה לא נספר כיד. " : ""}${D.ownMirror ? "המאגר של המשרד לא החזיר בעלויות כרגע, והרשימה כאן מעותק יומי שלנו, ולכן ייתכן שבעלות שנרשמה היום חסרה. " : ""}${D.ownersFloor ? "יומן הבעלויות מתחיל בינואר 2017, ולכן ברכבים ותיקים יותר ייתכן שהיו בעלים נוספים לפני כן." : ""}</p>`,
       `<span class="count">${ownersLabel(D)}</span>`));
   } else if (!empty(v.baalut)) {
     const ownErr = D.errs && D.errs.some(x => x.key === "owners");
@@ -1964,11 +2042,12 @@ function tabRecalls(D){
   }
   html.push(settlementCard(D));
   const rows = [], row = (ok, t) => rows.push(`<li class="ins ${ok ? "ok" : "warn"}">${ico(ok ? "check" : "alert")}<div><b>${esc(t)}</b></div></li>`);
-  row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")} (פירוט למעלה)` : "אין ריקול פתוח במאגר משרד התחבורה");
-  row(!blocking, blocking ? "ריקול מגביל חידוש רישיון" : "אין ריקול שמגביל חידוש רישיון");
-  row(!fits.length, !mr.length ? "לא נמצאו ריקולים קודמים לדגם" : fits.length ? `${pl(fits.length, "ריקול קודם לדגם עשוי לחול", "ריקולים קודמים לדגם עשויים לחול")} על שנת הייצור` : `${pl(mr.length, "ריקול קודם לדגם, לא חל", "ריקולים קודמים לדגם, אף אחד לא חל")} על שנת הייצור`);
+  if (D.recallUnknown) { row(false, "מידע על ריקולים פתוחים לא זמין כרגע"); row(false, "לא ידוע אם יש ריקול שמגביל חידוש רישיון"); }
+  else { row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")} (פירוט למעלה)` : "אין ריקול פתוח במאגר משרד התחבורה");
+  row(!blocking, blocking ? "ריקול מגביל חידוש רישיון" : "אין ריקול שמגביל חידוש רישיון"); }
+  if (D.modelRecallsUnknown) row(false, "בדיקת ריקולים קודמים לדגם לא זמינה כרגע"); else row(!fits.length, !mr.length ? "לא נמצאו ריקולים קודמים לדגם" : fits.length ? `${pl(fits.length, "ריקול קודם לדגם עשוי לחול", "ריקולים קודמים לדגם עשויים לחול")} על שנת הייצור` : `${pl(mr.length, "ריקול קודם לדגם, לא חל", "ריקולים קודמים לדגם, אף אחד לא חל")} על שנת הייצור`);
   if (D.kind !== "model" && !D.isCancelled) row(!stl.length, stl.length ? `ייתכן שהרכב נכלל ב${pl(stl.length, "הסדר פשרה", "הסדרי פשרה")} (פירוט למעלה)` : "לא נמצא הסדר פשרה מוכר לדגם ולשנתון");
-  html.push(card(`מה נבדק (${rows.length} בדיקות)`, "check", D.recalls.length || fits.length || stl.length ? "amber" : "green", `<ul class="insights plain">${rows.join("")}</ul>
+  html.push(card(`מה נבדק (${rows.length} בדיקות)`, "check", D.recalls.length || fits.length || stl.length || D.recallUnknown || D.modelRecallsUnknown ? "amber" : "green", `<ul class="insights plain">${rows.join("")}</ul>
     <p class="note">הסדרי פשרה: נבדקו מול ${SETTLEMENTS.length} הסדרים של יבואנים, לפי הודעותיהם והעיתונות נכון ל-10/2026. הרשימה אינה מקיפה. באתר היבואן מופיעים גם קמפיינים שלא תמיד נמצאים במאגר.</p>
     <button type="button" class="link-btn" data-url="${esc(imp.url)}" data-copyfirst="${imp.vin ? esc(D.vin || D.plate) : D.plate}">${ico("search")}${imp.gov ? "חיפוש במאגר הריקולים של משרד התחבורה" : `בדיקת ריקולים וקמפיינים באתר ${esc(imp.name)}`}</button>
     <p class="note" style="margin:6px 0 0">מספר הרישוי יועתק, ותדביקו אותו באתר.${imp.gov ? ` ל${esc(imp.name || "יבואן הזה")} לא מצאנו עמוד בדיקה לפי מספר רישוי, ובמאגר של משרד התחבורה מחפשים לפי יצרן ודגם.` : imp.note ? " " + esc(imp.note) : ""}</p>`));
@@ -2024,7 +2103,7 @@ function checksCard(D){
   const row = (ok, t) => rows.push(`<li class="ins ${ok ? "ok" : "warn"}">${ico(ok ? "check" : "alert")}<div><b>${esc(t)}</b></div></li>`);
   row(!D.isCancelled, D.isCancelled ? "הרכב ירד מהכביש" : "הרכב פעיל ולא בוטל");
   if (exp) row(exp >= new Date(now.getFullYear(), now.getMonth(), now.getDate()), exp >= new Date(now.getFullYear(), now.getMonth(), now.getDate()) ? `טסט בתוקף עד ${fmtDate(v.tokef_dt)}` : `הטסט פג ב-${fmtDate(v.tokef_dt)}`);
-  row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")}` : "אין ריקול פתוח");
+  if (D.recallUnknown) row(false, "ריקולים: מידע לא זמין כרגע"); else row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")}` : "אין ריקול פתוח");
   if (D.own.length) row(true, "נבדקה היסטוריית הבעלות");
   const mods = ["shinui_mivne_ind", "gapam_ind", "shnui_zeva_ind", "shinui_zmig_ind"].filter(k => yes(v[k]));
   row(!mods.length, mods.length ? "נרשמו שינויים ברכב" : "לא נרשמו שינויי מבנה, גפ״מ או צבע");
@@ -2045,7 +2124,7 @@ function tabBuy(D){
     `<p style="margin:0">אין במאגר מחיר מחירון לדגם הזה, ולכן אין הערכת שווי.</p>`)));
   html.push(`<div id="mstat">${msCard(D)}</div>`);
   html.push(checksCard(D));
-  const lk = (url, icon, text, copy) => `<button type="button" class="link-btn" data-url="${url}"${copy ? ` data-copyfirst="${D.plate}"` : ""}>${ico(icon)}${text}</button>`;
+  const lk = (url, icon, text, copy) => `<button type="button" class="link-btn" data-url="${esc(url)}"${copy ? ` data-copyfirst="${D.plate}"` : ""}>${ico(icon)}${text}</button>`;
   const ckKey = "buychk:" + D.plate; let ckDone = []; try { ckDone = JSON.parse(localStorage.getItem(ckKey) || "[]"); } catch {}
   const step = (n, title, body) => `<li><span class="n">${n}</span><div><b>${title}</b>${body}<button type="button" class="ck" data-ck="${n}" aria-pressed="${ckDone.includes(n)}">${ckDone.includes(n) ? "בוצע" : "סימון כבוצע"}</button></div></li>`;
   html.push(card("לפני שקונים", "check", "green",
@@ -2116,13 +2195,13 @@ function tabSpecs(D){
   html.push(card("הרכב", "car", "pink", facts([
     ["יצרן", e(D.make)], ["דגם", e(D.model)],
     ["שנת ייצור", e(v.shnat_yitzur)], ["רמת גימור", e(D.pick(v.ramat_gimur, w.ramat_gimur))],
-    ["סוג רכב", e(v.sug_rechev_nm)], ["מרכב", e(w.merkav)],
+    ["סוג רכב", e(v.sug_rechev_nm)], ["מרכב", e(w.merkav)], ["יבואן", e(importerOf(D))],
     ["דלתות", e(w.mispar_dlatot)], ["מושבים", e(D.pick(w.mispar_moshavim, v.mispar_mekomot))],
     ["צבע", e(v.tzeva_rechev)],
   ])));
   html.push(card("מנוע והנעה", "engine", "red", facts([
-    ["דלק", e(D.pick(v.sug_delek_nm, w.delek_nm))], ["נפח מנוע", unit(D.pick(v.nefach_manoa, w.nefah_manoa), "סמ״ק")],
-    ["כוח", empty(w.koah_sus) ? e(v.hespek) : unit(w.koah_sus, "כ״ס")], ["תיבת הילוכים", e(gearbox)],
+    ["דלק", e(D.pick(v.sug_delek_nm, w.delek_nm))], ["נפח מנוע", unitPos(D.pick(v.nefach_manoa, w.nefah_manoa), "סמ״ק")],
+    ["כוח", !posN(w.koah_sus) ? e(v.hespek) : unit(w.koah_sus, "כ״ס")], ["תיבת הילוכים", e(gearbox)],
     ["הנעה", e(D.pick(v.hanaa_nm, w.hanaa_nm))], ["דגם מנוע", mono(v.degem_manoa)],
   ])));
   html.push(card("משקלים וצמיגים", "scale", "slate", facts([
@@ -2139,7 +2218,7 @@ function tabSpecs(D){
   if (equip) html.push(card("אבזור", "star", "amber", `${equip}<p class="note">האבזור המלא מופיע בקטלוג של היבואן.</p>`));
   const zihum = D.pick(v.kvutzat_zihum, w.kvutzat_zihum);
   html.push(card("סביבה", "leaf", "leaf", facts([
-    ["פליטת CO₂", unit(D.pick(w.CO2_WLTP, w.kamut_CO2), "גר׳ לק״מ")], ["מדד ירוק", e(w.madad_yarok)],
+    ["פליטת CO₂", unit(D.pick(w.CO2_WLTP, w.kamut_CO2), "גרם לק״מ")], ["מדד ירוק", e(w.madad_yarok)],
     ["מסנן חלקיקים", D.dpf ? `הותקן${empty(D.dpf.taarich_hatkana) ? "" : " ב-" + fmtDate(D.dpf.taarich_hatkana)}` : ""],
   ]) + (empty(zihum) ? "" : `<div class="qsec" style="margin:10px 0 6px">קבוצת זיהום ${esc(zihum)} מתוך 15</div>${zihumScale(zihum)}`)));
   html.push(card("מספרי זיהוי", "id", "slate",
@@ -2163,7 +2242,7 @@ const MODEL_ALIASES = {"קורולה":"COROLLA","קאמרי":"CAMRY","יאריס
   "אסטרה":"ASTRA","קורסה":"CORSA","מוקה":"MOKKA","גרנדלנד":"GRANDLAND","קליאו":"CLIO","קפצ'ור":"CAPTUR","מגאן":"MEGANE","סנדרו":"SANDERO","דאסטר":"DUSTER","ג'וגר":"JOGGER",
   "ספייסטאר":"SPACE","פוקוס":"FOCUS","פיאסטה":"FIESTA","קוגה":"KUGA","פומה":"PUMA","מוסטנג":"MUSTANG","טסלה":"TESLA","מודל":"MODEL",
   "אטו":"ATTO","דולפין":"DOLPHIN","סיל":"SEAL","טאנג":"TANG","יואן":"YUAN","גלקסי":"GALAXY","קודה":"KODA"};
-const MAKE_ALIASES = {toyota:"טויוטה",hyundai:"יונדאי",kia:"קיה",mazda:"מאזדה",skoda:"סקודה",volkswagen:"פולקסווגן",vw:"פולקסווגן",suzuki:"סוזוקי",mitsubishi:"מיצובישי",
+const MAKE_ALIASES = {toyota:"טויוטה",hyundai:"יונדאי",kia:"קיה",mazda:"מזדה",skoda:"סקודה",volkswagen:"פולקסווגן",vw:"פולקסווגן",suzuki:"סוזוקי",mitsubishi:"מיצובישי",
   honda:"הונדה",nissan:"ניסאן",renault:"רנו",dacia:"דאצ'יה",peugeot:"פיג'ו",citroen:"סיטרואן",opel:"אופל",ford:"פורד",chevrolet:"שברולט",seat:"סיאט",cupra:"קופרה",
   bmw:"ב.מ.וו",mercedes:"מרצדס",audi:"אאודי",volvo:"וולוו",lexus:"לקסוס",subaru:"סובארו",tesla:"טסלה",byd:"בי.ווי.די",geely:"ג'ילי",chery:"צ'רי",mg:"אם.ג'י",
   jeep:"ג'יפ",fiat:"פיאט",mini:"מיני",porsche:"פורשה",jaguar:"יגואר",land:"לנד",isuzu:"איסוזו",ssangyong:"סאנגיונג",lynk:"לינק",polestar:"פולסטאר",smart:"סמארט"};
@@ -2209,7 +2288,7 @@ function loadModelIndex(){
         const j = await r.json(); if (!j.rows || !j.rows.length) continue;
         MODELIDX = j.rows.map(([mk0, md, y0, y1, pr, bd, fl]) => ({
           mk: canonMake(mk0.replace(COUNTRY_SFX, "")), md, y0, y1, pr: pr || 0, bd: bd || "", fp: Object.fromEntries((fl ? String(fl).split("|") : []).map(x => [x[0], parseFloat(x.slice(1))])), mkw: (ws => [...ws.map(w => skOf(w)), ws.length > 1 ? skOf(ws.join("")) : ""].filter(Boolean))((canonMake(mk0.replace(COUNTRY_SFX, "")) === "FAW" ? "FAW פאו הונגצי אף אי דאבל יו" : canonMake(mk0.replace(COUNTRY_SFX, ""))).split(/[\s.\-\/]+/).map(w => w.replace(/[^א-תA-Za-z0-9']/g, "")).filter(Boolean)),
-          mtok: md.replace(/([A-Z])(\d)/g, "$1 $2").replace(/(\d)([A-Z])/g, "$1 $2").split(/[\s\-\/]+/).filter(Boolean)
+          mtok: md.replace(/\./g, " ").replace(/([A-Z])(\d)/g, "$1 $2").replace(/(\d)([A-Z])/g, "$1 $2").split(/[\s\-\/]+/).filter(Boolean)
         }));
         return MODELIDX;
       } catch {}
@@ -2217,11 +2296,78 @@ function loadModelIndex(){
     modelIdxP = null; return null;
   })());
 }
-/* up to a few catalogue entries that fit what was typed, as word lists for the dataset search */
+/* The same sound with its vowels kept as one marker ("a"): ATTO = אטו, YARIS = יאריס, KONA = קונה. Next to the consonant skeleton it tells
+   short names apart (RS in an Audi is not YARIS) and lets a missing or extra vowel count as a small slip. */
+const VK_HEB = {...HEB_SK, א: "a", ו: "a", י: "a", ע: "a", ה: "a", ח: "a"};
+const vkHeb = t => collapse([...String(t)].map(c => VK_HEB[c] ?? "").join(""));
+function vkLat(t){
+  let x = String(t).toUpperCase().replace(/[^A-Z]/g, "");
+  x = x.replace(/PH/g, "P").replace(/CH|SH|TS/g, "S").replace(/CK/g, "K").replace(/QU/g, "K").replace(/X/g, "KS").replace(/C(?=[AOU]|[^AEIOUY]|$)/g, "K").replace(/C/g, "S");
+  x = x.replace(/Q/g, "K").replace(/Z/g, "S").replace(/D/g, "T").replace(/F/g, "P").replace(/[VW]/g, "B").replace(/J/g, "G").replace(/[AEIOUYH]/g, "a");
+  return collapse(x);
+}
+const KEYC = new Map();
+const keysOf = t => { let k = KEYC.get(t); if (!k) KEYC.set(t, k = {ck: skOf(t), vk: isHeb(t) ? vkHeb(t) : vkLat(t)}); return k; };
+function lev(a, b, max){   // edit distance with a swap of two neighbouring letters counting as one slip; stops early above max
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let p2 = null, p1 = Array.from({length: b.length + 1}, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i]; let lo = i;
+    for (let j = 1; j <= b.length; j++) {
+      let v = Math.min(p1[j] + 1, cur[j - 1] + 1, p1[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (p2 && i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) v = Math.min(v, p2[j - 2] + 1);
+      cur[j] = v; if (v < lo) lo = v;
+    }
+    if (lo > max) return max + 1;
+    p2 = p1; p1 = cur;
+  }
+  return p1[b.length];
+}
+/* how well one typed word fits one word of a catalogue name: 3 same word or sound, 2-2.6 same consonants / typed so far, below 2 a slip or two */
+function tokScore(q, m){
+  if (q.al && m === q.al) return 3;
+  const mk = keysOf(m); let s = 0;
+  if (!q.isH) {
+    if (m === q.up) return 3;
+    if (q.up.length >= 2 && m.length > q.up.length && m.startsWith(q.up)) s = 2.2;
+    const k = q.up.length >= 8 ? 2 : 1;
+    if (q.up.length >= 4 && lev(q.up, m, k) <= k) s = Math.max(s, q.up.length >= 5 ? 2 : 1.7);
+  }
+  if (q.vk.length >= 3 && q.vk === mk.vk) { if (q.vk.length >= 4) return 3; s = Math.max(s, 2.6); }
+  if (q.ck.length >= 3 && q.ck === mk.ck) s = Math.max(s, 2.6);
+  if ((q.vk.length >= 3 && mk.vk.length > q.vk.length && mk.vk.startsWith(q.vk)) || (q.ck.length >= 3 && mk.ck.length > q.ck.length && mk.ck.startsWith(q.ck))) s = Math.max(s, 2);
+  if (q.vk.length >= 4 && mk.vk.length >= 4 && lev(q.vk, mk.vk, 1) <= 1) s = Math.max(s, 1.8);
+  if (q.ck.length >= 4 && mk.ck.length >= 4 && lev(q.ck, mk.ck, 1) <= 1) s = Math.max(s, 1.6);
+  else if (q.ck.length === 3 && mk.ck.length === 3 && q.ck[0] === mk.ck[0] && lev(q.ck, mk.ck, 1) <= 1) s = Math.max(s, 1.4);
+  return s < 2.4 && s > 0 && q.ck[0] !== mk.ck[0] ? s - 0.3 : s;   // a slip rarely changes the first sound
+}
+/* English letter names written in Hebrew ("איי 10" = i10, "סי אקס 5" = CX-5): every reading is tried, the catalogue decides */
+const LETTER_NAMES = {"איי": "AI", "אי": "AEI", "בי": "B", "סי": "C", "די": "D", "אף": "F", "גי": "G", "ג'י": "G", "אייץ": "H", "ג'יי": "J", "גיי": "J", "קיי": "K", "קי": "K", "אל": "L", "אם": "M", "אן": "N", "או": "O", "פי": "P", "קיו": "Q", "אר": "R", "אס": "S", "טי": "T", "יו": "U", "וי": "V", "אקס": "X", "וואי": "Y", "זד": "Z"};
+function letterSeqs(toks){
+  const isL = t => !!LETTER_NAMES[t], isD = t => /^\d+$/.test(t), runs = [];
+  for (let i = 0; i < toks.length;) {
+    if (!isL(toks[i])) { i++; continue; }
+    let j = i; while (j < toks.length && isL(toks[j])) j++;
+    if (j - i >= 2 || (j < toks.length && isD(toks[j]))) runs.push([i, j]);
+    i = j;
+  }
+  if (!runs.length) return [];
+  const parts = []; let pos = 0;
+  for (const [a, b] of runs) {
+    if (a > pos) parts.push([toks.slice(pos, a)]);
+    let alts = [""]; for (const t of toks.slice(a, b)) alts = alts.flatMap(p => [...LETTER_NAMES[t]].map(c => p + c));
+    parts.push(alts.slice(0, 6).map(s => [s])); pos = b;
+  }
+  if (pos < toks.length) parts.push([toks.slice(pos)]);
+  let res = [[]]; for (const alts of parts) res = res.flatMap(r => alts.map(a => r.concat(a))).slice(0, 8);
+  return res;
+}
+/* a few catalogue entries that fit what was typed, best first, as word lists for the dataset search; .fuzzy is set when nothing fits exactly */
 function smartQueries(text){
   if (!MODELIDX) return null;
-  const toks = String(text).replace(/[׳’`]/g, "'").trim().split(/\s+/).map(t => t.replace(/[^א-תA-Za-z0-9'\-]/g, "").replace(/^'+|'+$/g, "")).filter(Boolean)
-    .flatMap(t => /^[A-Za-z]+\d+$/.test(t) ? t.replace(/([A-Za-z])(?=\d)/g, "$1 ").split(" ") : /^[א-ת]+\d+$/.test(t) ? t.replace(/([א-ת])(?=\d)/g, "$1 ").split(" ") : [t]);
+  // ז׳ (zh) is the sound of the G in SPORTAGE: written with the geresh it is read as a ג
+  const toks = String(text).replace(/ז['׳’`]/g, "ג").replace(/[׳’`]/g, "'").replace(/[\-_.]+/g, " ").trim().split(/\s+/).map(t => t.replace(/[^א-תA-Za-z0-9']/g, "").replace(/^'+|'+$/g, "")).filter(t => t && !/^(19|20)\d\d$/.test(t))
+    .flatMap(t => t.replace(/([A-Za-zא-ת])(?=\d)/g, "$1 ").replace(/(\d)(?=[A-Za-zא-ת])/g, "$1 ").split(" "));
   if (!toks.length) return null;
   // makers written as separate short words ("ב מ וו", "בי ווי די") are also tried glued together
   const merged = []; let run = [];
@@ -2229,58 +2375,76 @@ function smartQueries(text){
   for (const t of toks) { if (isHeb(t) && t.length <= 3) run.push(t); else { flush(); merged.push(t); } }
   flush();
   const seqs = [toks]; if (merged.length < toks.length) seqs.push(merged);
-  const hits = new Map();
+  for (const s of [...seqs]) seqs.push(...letterSeqs(s));
+  // only a maker was typed ("סקודה", "skoda"): list that maker's models, not fuzzy sound-alikes from other makers
+  const isMakerWord = t => {
+    if (/^\d+$/.test(t)) return false;
+    if (t === "מאזדה") t = "מזדה";   // the usual spelling differs from the register's
+    const al = MAKE_ALIASES[t.toLowerCase()], sk = skOf(t);
+    if (al) return MODELIDX.some(e => al === e.mk || canonMake(al) === e.mk);
+    if (MODELIDX.some(e => e.mk === t || e.mk === canonMake(t))) return true;   // the maker's own name, spelled as in the register
+    if (t.length > 3 && isHeb(t) && MODELIDX.some(e => /[\s.]/.test(e.mk) && skOf(e.mk.replace(/[\s.]+/g, "")) === sk)) return true;   // "בי ווי די" typed apart, glued
+    // sound skeletons drop the vowels, so a model name can sound like a maker (פולו = אופל): a word that is also a model is not a maker
+    if (MODEL_ALIASES[t] || MODELIDX.some(e => e.mtok.some(x => skScore(sk, skOf(x)) >= 3 && !e.mkw.includes(skOf(x))))) return false;
+    return MODELIDX.some(e => e.mkw.some(w => skScore(sk, w) >= 3));
+  };
+  if (seqs.slice(0, merged.length < toks.length ? 2 : 1).some(seq => seq.length && seq.every(isMakerWord))) return null;
+  const recent = new Date().getFullYear() - 1, hits = new Map();
   for (const seq of seqs) {
     const qs = seq.map(t => {
-      const al = MODEL_ALIASES[t] || MODEL_ALIASES[t.replace(/'/g, "")];
-      return {t, digits: /^\d+$/.test(t), sk: /^\d+$/.test(t) ? "" : skOf(al || t), al, mkAlias: MAKE_ALIASES[t.toLowerCase()] || null};
+      const digits = /^\d+$/.test(t), al = MODEL_ALIASES[t] || MODEL_ALIASES[t.replace(/'/g, "")], k = digits ? {ck: "", vk: ""} : keysOf(al || t);
+      return {t, digits, up: t.toUpperCase().replace(/'/g, ""), isH: isHeb(t), ck: k.ck, vk: k.vk, al, mkAlias: MAKE_ALIASES[t.toLowerCase()] || null};
     });
     for (const e of MODELIDX) {
-      let total = 0, modelTokens = 0, ok = true; const used = new Set();
+      let total = 0, modelTokens = 0, ok = true, low = 3, first = 99; const used = new Set();
       for (const q of qs) {
         let best = 0, onModel = false, idx = -1;
         if (q.digits) {
           const i = e.mtok.findIndex((m, k) => !used.has(k) && m === q.t); if (i < 0) { ok = false; break; }
-          used.add(i); total += 3; modelTokens++; continue;
+          used.add(i); total += 3; modelTokens++; first = Math.min(first, i); continue;
         }
         if (q.mkAlias && q.mkAlias === e.mk) best = 3;
-        for (const w of e.mkw) best = Math.max(best, skScore(q.sk, w));
+        for (const w of e.mkw) best = Math.max(best, skScore(q.ck, w));
         let mBest = 0;
-        const up = q.t.toUpperCase();
         e.mtok.forEach((m, k) => {
           if (used.has(k) || /^\d+$/.test(m)) return;
-          let sc;
-          if (q.al && m === q.al) sc = 3;
-          else if (!isHeb(q.t) && (m === up || (up.length >= 2 && m.startsWith(up)))) sc = m === up ? 3 : 2;
-          else { const km = skLat(m); sc = km.length >= 2 ? skScore(q.sk, km) : 0; }
+          const sc = tokScore(q, m);
           if (sc > mBest) { mBest = sc; idx = k; }
         });
         if (mBest >= best && mBest > 0) { best = mBest; onModel = true; }
         if (!best) { ok = false; break; }
-        if (onModel) { used.add(idx); modelTokens++; }
+        if (onModel) { used.add(idx); modelTokens++; first = Math.min(first, idx); low = Math.min(low, best); }
         total += best;
       }
-      if (ok && modelTokens) { const h = hits.get(e); if (!h || h.total < total) hits.set(e, {e, total}); }
+      if (!ok || !modelTokens) continue;
+      // a model that is just what was typed beats one that merely contains it (I20 over a BMW "SDRIVE 20 I")
+      const own = e.mtok.filter(m => LATIN_MAKERS.has(m)).length, left = e.mtok.length - used.size - own;
+      const fin = total - 0.25 * left - 0.2 * Math.max(0, first - (own && e.mtok[0] && LATIN_MAKERS.has(e.mtok[0]) ? 1 : 0)) + (e.y1 >= recent ? 0.3 : 0);
+      const h = hits.get(e); if (!h || h.fin < fin) hits.set(e, {e, fin, low});
     }
   }
   if (!hits.size) return null;
-  const list = [...hits.values()].sort((a, b) => b.total - a.total || b.e.y1 - a.e.y1);
-  const seen = new Set(), out = [];
+  const list = [...hits.values()].sort((a, b) => b.fin - a.fin || b.e.y1 - a.e.y1), seen = new Set(), out = [];
   for (const h of list) {
+    if (h.fin < list[0].fin - 1.2) break;
+    const fam = h.e.mk + "|" + modelBase(cleanModelName(normModel(h.e.md)));
+    if (seen.has(fam)) continue; seen.add(fam);
     const words = h.e.md.split(/\s+/).map(w => w.replace(/[&|!:*()'"\\<>]/g, "")).filter(Boolean);
-    const k = h.e.mk + "|" + words.join(" ");
-    if (seen.has(k)) continue; seen.add(k);
-    out.push({mk: h.e.mk, words});
-    if (out.length >= 4) break;
+    // "COROLLA" already finds "COROLLA CROSS": a longer name that starts with a name in the list is not asked again
+    if (out.some(o => o.mk === h.e.mk && o.words.length < words.length && o.words.every((w, i) => w === words[i]))) continue;
+    out.push({mk: h.e.mk, words, sc: h.fin});
+    if (out.length >= 5) break;
   }
+  out.fuzzy = list[0].low < 2.4;
   return out;
 }
 /* smart (sound-matched) queries first, then the plain words as before */
+let searchFuzzy = false;   // the last search found no exact fit: the list is shown as "did you mean"
 async function searchModelRows(text, words, filters, limit, signal){
-  const sq = smartQueries(text);
+  const sq = smartQueries(text); searchFuzzy = false;
   if (sq) {
-    const got = await Promise.all(sq.map(q => dsSearch(MODEL_SETS.wltp, q.words, filters, limit, signal).then(r => r.length ? r : dsSearch(MODEL_SETS.price, q.words, filters, limit, signal)).then(r => r.filter(x => { const m = rowMake(x); return m === q.mk || m.startsWith(q.mk) || q.mk.startsWith(m); }))));
-    const rows = got.flat(); if (rows.length) return rows;
+    const got = await Promise.all(sq.map(q => dsSearch(MODEL_SETS.wltp, q.words, filters, limit, signal).then(r => r.length ? r : dsSearch(MODEL_SETS.price, q.words, filters, limit, signal)).then(r => r.filter(x => { const m = rowMake(x); return m === q.mk || m.startsWith(q.mk) || q.mk.startsWith(m); }).map(x => (x._sc = q.sc, x)))));
+    const rows = got.flat(); if (rows.length) { searchFuzzy = !!sq.fuzzy; return rows; }
   }
   const rows = await dsSearch(MODEL_SETS.wltp, words, filters, limit, signal);
   return rows.length ? rows : dsSearch(MODEL_SETS.price, words, filters, limit, signal);
@@ -2347,7 +2511,7 @@ function renderQuick(){
   const box = $("#mquick"), q = $("#mq").value.trim();
   if (q.length >= 2 || mGroup) { box.innerHTML = ""; return; }
   const inCmp = p => cmp.some(x => x.plate === p);
-  const parts = [`<p class="note" style="margin:0 0 6px">אפשר לחפש חופשי: דגם ("קורולה"), יצרן ודגם, או סוג, דלק ותקציב ("SUV חשמלי עד 250 אלף").</p>`];
+  const parts = [`<p class="note" style="margin:0 0 6px">מספיק לכתוב את הדגם, גם בלי יצרן ובעברית או באנגלית ("קורולה", "tucson"); טעות כתיב קטנה לא מפריעה. אפשר גם סוג ותקציב: "SUV חשמלי עד 250 אלף".</p>`];
   const mine = [];
   if (current && !inCmp(current.plate)) mine.push(`<button type="button" class="qrow cur" data-qcur="1"><span class="mini-plate"><i></i>${fmtPlate(current.plate)}</span><span class="t"><b>${esc(current.title)}</b><small>הרכב שחיפשתם</small></span><span class="qadd">${ico("plus")}הוספה</span></button>`);
   for (const s of store.get("savedVehicles").filter(s => !inCmp(s.plate) && !(current && s.plate === current.plate)).slice(0, 3))
@@ -2400,9 +2564,15 @@ const MODEL_SHOWN = 8, CUR_Y = new Date().getFullYear();
 // body-style and drive words split one car into several catalogue entries (COROLLA SDN HSD, COROLLA HSD SDN, COROLLA HEV);
 // for the buyer they are one model, and the drive type is chosen later by engine
 const NOISE_TOKENS = new Set(["HB", "H/B", "HATCHBACK", "SEDAN", "SDN", "SD", "SW", "S/W", "WAGON", "ESTATE", "STATION", "LIFTBACK", "TS", "TOURING", "SPORTS", "HSD", "HEV", "HYBRID", "HV", "PHEV", "PLUG-IN", "2D", "3D", "4D", "5D", "2DR", "3DR", "4DR", "5DR", "האצ'בק", "סדאן", "סטיישן", "היברידי"]);
+// generation / facelift / body suffixes (OCTAVIA FL, OCTAVIA IV, NEW OCTAVIA; COMBI / SPACE stay separate) are the same family for the buyer
+const GEN_TOKENS = new Set(["FL", "FACELIFT", "II", "III", "IV", "V", "VI", "VII", "VIII", "NEW", "החדש", "חדש"]);
+const NOT_FAMILY = new Set(["MODEL", "CLASS", "SERIES", "TYPE", "PRIUS"]);   // PRIUS V is a different body from the Prius
 const normModel = m => {
   const toks = String(m || "").trim().toUpperCase().replace(/\s+/g, " ").split(" ");
-  const kept = toks.filter(t => !NOISE_TOKENS.has(t));
+  let kept = toks.filter(t => !NOISE_TOKENS.has(t));
+  if (!kept.length) kept = toks;
+  if (kept.length > 1) kept = kept.filter(t => t !== "NEW" && t !== "החדש" && t !== "חדש");
+  while (kept.length > 1 && GEN_TOKENS.has(kept[kept.length - 1]) && /^[A-Z]{4,}$/.test(kept[0]) && !NOT_FAMILY.has(kept[0])) kept.pop();
   return (kept.length ? kept : toks).join(" ");
 };
 // the same car built in two countries has two maker codes; it is still one model for the buyer
@@ -2433,8 +2603,9 @@ const plateLike = q => /^[\d\s-]+$/.test(q) && digits(q).length >= 5;
 async function runModelSearch(){
   const q = $("#mq").value.trim(), msg = $("#compareMsg"), list = $("#mres");
   mGroup = null; mYear = null;
-  if (q.length < 2) { msg.textContent = ""; list.innerHTML = ""; renderQuick(); return; }
+  if (q.length < 2) { if (mCtrl) mCtrl.abort(); msg.textContent = ""; list.innerHTML = ""; renderQuick(); return; }
   if (plateLike(q)) {
+    if (mCtrl) mCtrl.abort();
     renderQuick(); msg.textContent = "";
     list.innerHTML = `<button type="button" class="qrow" data-qplate="${digits(q)}"><span class="mini-plate"><i></i>${fmtPlate(digits(q))}</span><span class="t"><b>לפי מספר רישוי</b><small>הרכב הספציפי</small></span><span class="qadd">${ico("plus")}הוספה</span></button>`;
     return;
@@ -2443,6 +2614,7 @@ async function runModelSearch(){
   msg.textContent = "מחפש…"; renderQuick();
   try {
     await Promise.race([loadModelIndex(), new Promise(r => setTimeout(r, 2500))]);
+    if (signal.aborted) return;
     const F = mPending ? null : parseFilters(q);
     if (F && MODELIDX) {
       mGroups = filterGroups(F); mNote = F.label; mShowAll = false; showGroups(); return;
@@ -2454,8 +2626,8 @@ async function runModelSearch(){
     for (const r of rows) {
       if (empty(r.tozeret_cd) || !rowModel(r)) continue;
       const nm = cleanModelName(normModel(rowModel(r))), cls = driveCls(r), k = [rowMake(r), modelBase(nm), cls].join("|");
-      if (!g.has(k)) g.set(k, {make: rowMake(r), model: nm, base: nm, cls, names: new Set(), cds: new Set(), rows: []});
-      const x = g.get(k); x.model = x.base = spaced(x.model, nm); x.rows.push(r); x.names.add(rowModel(r)); x.cds.add(String(r.tozeret_cd));
+      if (!g.has(k)) g.set(k, {make: rowMake(r), model: nm, base: nm, cls, names: new Set(), cds: new Set(), rows: [], sc: 0});
+      const x = g.get(k); x.sc = Math.max(x.sc, r._sc || 0); x.model = x.base = spaced(x.model, nm); x.rows.push(r); x.names.add(rowModel(r)); x.cds.add(String(r.tozeret_cd));
     }
     // a name that exists in more than one drive version gets the version in its title, and keeps only that version's rows
     const versions = new Map();
@@ -2465,20 +2637,22 @@ async function runModelSearch(){
     for (const x of g.values()) x.model = x.base = spelling.get(x.make + "|" + modelBase(x.base));
     for (const x of g.values()) if (versions.get(x.make + "|" + modelBase(x.base)).size > 1) { x.split = true; if (x.cls) x.model = x.base + " " + x.cls; }
     await Promise.race([loadModelStats().catch(() => null), new Promise(r => setTimeout(r, 1200))]);
+    if (signal.aborted) return;
+    const top = Math.max(0, ...[...g.values()].map(x => x.sc));
     mGroups = [...g.values()].map(x => { const ys = x.rows.map(r => num(r.shnat_yitzur)).filter(y => !isNaN(y)); return {...x, from: Math.min(...ys), to: Math.max(...ys), pop: popOf(x.make, x.base)}; })
-      .sort((a, b) => (b.to >= CUR_Y - 1) - (a.to >= CUR_Y - 1) || b.pop - a.pop || b.to - a.to || (a.make + a.model).localeCompare(b.make + b.model, "he"));
+      .sort((a, b) => (b.sc >= top - 0.6) - (a.sc >= top - 0.6) || (b.to >= CUR_Y - 1) - (a.to >= CUR_Y - 1) || b.pop - a.pop || b.to - a.to || (a.make + a.model).localeCompare(b.make + b.model, "he"));
     // maker first, then its models; makers keep the order of their best match
     const mkOrder = []; for (const x of mGroups) if (!mkOrder.includes(x.make)) mkOrder.push(x.make);
     mGroups.sort((a, b) => mkOrder.indexOf(a.make) - mkOrder.indexOf(b.make));
     mShowAll = false;
     if (mPending) { const i = mGroups.findIndex(x => x.model === mPending.model && x.make === mPending.make) ; const j = i >= 0 ? i : mGroups.findIndex(x => x.model === mPending.model || x.base === mPending.model); mPending = null; if (j >= 0) { pickGroup(j); return; } }
     showGroups();
-  } catch (err) { if (err.name !== "AbortError") msg.textContent = "החיפוש נכשל. בדקו את החיבור ונסו שוב."; }
+  } catch (err) { if (err.name !== "AbortError" && !signal.aborted) msg.textContent = "החיפוש נכשל. בדקו את החיבור ונסו שוב."; }
 }
 function showGroups(){
   const msg = $("#compareMsg"), shown = mShowAll ? mGroups : mGroups.slice(0, MODEL_SHOWN), rest = mGroups.length - shown.length;
   if (!mGroups.length) track("search_no_result", {kind: mNote ? "budget" : "model"});
-  msg.textContent = mGroups.length ? "" : (mNote ? "לא נמצאו דגמים שמתאימים לתנאים. נסו תקציב גבוה יותר או פחות תנאים." : "לא נמצאו דגמים. נסו שם אחר, למשל שם הדגם באנגלית.");
+  msg.textContent = mGroups.length ? (searchFuzzy && !mNote ? "לא נמצא בדיוק. אולי התכוונתם:" : "") : (mNote ? "לא נמצאו דגמים שמתאימים לתנאים. נסו תקציב גבוה יותר או פחות תנאים." : "לא נמצאו דגמים. נסו שם אחר, למשל שם הדגם באנגלית.");
   let lastMake = null;
   $("#mres").innerHTML = (mNote && mGroups.length ? `<div class="qsec" style="margin-top:0">${mGroups.length} דגמים: ${esc(mNote)}</div>` : "") + shown.map(x => (x.make !== lastMake ? (lastMake = x.make, `<div class="qsec">${esc(x.make)}</div>`) : "") + `<button type="button" class="row" data-mg="${mGroups.indexOf(x)}"><span class="t"><b>${esc(x.model)}</b><small>${isFinite(x.from) ? (x.from === x.to ? x.from : `<span dir="ltr">${x.from}–${x.to}</span>`) : ""}${x.price ? ` · החל מ-${fmtN(x.price)} אלף ₪` : ""}</small></span>${ico("chev")}</button>`).join("")
     + (rest > 0 ? `<button type="button" class="more" data-more="1">${mNote ? `עוד ${rest} דגמים` : `עוד ${rest} דגמים`}</button>` : "");
@@ -2507,6 +2681,8 @@ async function pickGroup(i){
   const all0 = await groupRows(g0); if (mGroup !== g0) return; mGroup.all = g0.split ? all0.filter(r => driveCls(r) === g0.cls) : all0;
   const years = [...new Set(mGroup.all.map(r => num(r.shnat_yitzur)).filter(y => !isNaN(y)))].sort((a, b) => b - a);
   mGroup.years = years; showModel(String(years[0] || ""));
+  // one year and one engine: nothing left to choose
+  if (years.length === 1 && mResults.length === 1 && mResults[0].length === 1) pickModel(0);
 }
 // one screen: years along the top (newest picked), then one row per engine
 function showModel(y){
@@ -2616,16 +2792,6 @@ function renderCompare(){
   const gear = D => empty(D.w.automatic_ind) ? "" : yes(D.w.automatic_ind) ? "אוטומטית" : "ידנית";
   // [label, value(D), better: "hi" | "lo" | null, unit, plain, carOnly]  — a string label alone opens a section
   const rows = [
-    "מחיר ועלויות",
-    ["עלות חודשית (הערכה)", D => D.cost.monthly ? D.cost.monthly.total : null, "lo", "₪"],
-    ["מחיר מחירון כחדש", D => D.cost.newPrice || null, null, "₪"],
-    ["שווי משוער היום", D => D.cost.valueLow ? Math.round((D.cost.valueLow + D.cost.valueHigh) / 2000) * 1000 : null, null, "₪"],
-    kmlUnit() ? ["ק״מ לליטר (הערכה)", D => D.cost.l100 ? Math.round(1000 / D.cost.l100) / 10 : null, "hi", "", true]
-              : ["ליטר ל-100 ק״מ (הערכה)", D => D.cost.l100 ? Math.round(D.cost.l100 * 10) / 10 : null, "lo", "", true],
-    ["קוט״ש ל-100 ק״מ (הערכה)", D => D.cost.kwh100 || null, "lo", "", true],
-    [L.some(D => D.cost.kind === "ev") ? "דלק או חשמל בשנה (הערכה)" : "דלק בשנה (הערכה)", D => D.cost.fuelYear ? Math.round(D.cost.fuelYear / 100) * 100 : null, "lo", "₪"],
-    ["אגרת רישוי (הערכה)", D => D.cost.fee || null, "lo", "₪"],
-    ["שווי שימוש לחודש", D => D.cost.usage ? D.cost.usage.monthly : null, "lo", "₪"],
     "מנוע וגרירה",
     ["שנת ייצור", D => num(D.v.shnat_yitzur), "hi", "", true],
     ["כוח (כ״ס)", D => nf(D.w, "koah_sus"), "hi", ""],
@@ -2646,6 +2812,16 @@ function renderCompare(){
     ["מערכות בטיחות מתקדמות", D => Object.keys(SYSTEMS).some(k => !empty(D.w[k])) ? Object.keys(SYSTEMS).filter(k => yes(D.w[k])).length : null, "hi", ""],
     ...[...Object.entries(SYSTEMS), ...Object.entries(EQUIP)].filter(([k]) => L.some(D => !empty(D.w[k]) && num(D.w[k]) > 0))
       .map(([k, t]) => [t, D => empty(D.w[k]) ? null : num(D.w[k]) > 0, "yes"]),
+    "מחיר ועלויות",
+    ["עלות חודשית (הערכה)", D => D.cost.monthly ? D.cost.monthly.total : null, "lo", "₪"],
+    ["מחיר מחירון כחדש", D => D.cost.newPrice || null, null, "₪"],
+    ["שווי משוער היום", D => D.cost.valueLow ? Math.round((D.cost.valueLow + D.cost.valueHigh) / 2000) * 1000 : null, null, "₪"],
+    kmlUnit() ? ["ק״מ לליטר (הערכה)", D => D.cost.l100 ? Math.round(1000 / D.cost.l100) / 10 : null, "hi", "", true]
+              : ["ליטר ל-100 ק״מ (הערכה)", D => D.cost.l100 ? Math.round(D.cost.l100 * 10) / 10 : null, "lo", "", true],
+    ["קוט״ש ל-100 ק״מ (הערכה)", D => D.cost.kwh100 || null, "lo", "", true],
+    [L.some(D => D.cost.kind === "ev") ? "דלק או חשמל בשנה (הערכה)" : "דלק בשנה (הערכה)", D => D.cost.fuelYear ? Math.round(D.cost.fuelYear / 100) * 100 : null, "lo", "₪"],
+    ["אגרת רישוי (הערכה)", D => D.cost.fee || null, "lo", "₪"],
+    ["שווי שימוש לחודש", D => D.cost.usage ? D.cost.usage.monthly : null, "lo", "₪"],
     "אמינות",
     ["ריקולים לדגם", D => D.modelRecalls.filter(r => r.fits !== false).length, "lo"],
     ["רכבים כאלה על הכביש", D => D.cost.active || null, null, ""],
@@ -2653,7 +2829,7 @@ function renderCompare(){
     ...(anyCar ? ["הרכב הספציפי",
       ["ק״מ בטסט האחרון", D => D.km, "lo", "", false, true],
       ["ק״מ לשנה", D => D.kmPerYear, "lo", "", false, true],
-      ["רשומות בעלות", D => D.own.length || null, "lo", "", false, true],
+      ["יד (ללא סוחרים)", D => handsOf(D) || null, "lo", "", false, true],
       ["ריקולים פתוחים", D => D.recalls.length, "lo", "", false, true],
       ["טסט בתוקף עד", D => D.v.tokef_dt ? fmtDate(D.v.tokef_dt) : "", null, "", false, true],
       ["בעלות ראשונה", D => firstOwner(D.v) || "", null, "", false, true]] : []),
@@ -2688,6 +2864,7 @@ function renderCompare(){
     ${n ? "" : `<p style="margin:0">הוסיפו עד ${cmpMax()} דגמים או רכבים, וההשוואה תראה מחיר, עלויות, כוח, גרירה, בטיחות ואמינות זה לצד זה.</p>
     <div class="slots">${[1, 2, 3].map(i => `<button type="button" data-act="addCompare">${ico("plus")}רכב ${i}</button>`).join("")}</div>`}
     ${n ? `<div class="cmp-bar">${n < cmpMax() ? `<button type="button" class="cmp-tool add" data-act="addCompare">${ico("plus")}הוספה</button>` : ""}${n > 1 ? `<button type="button" class="cmp-tool" data-act="diffOnly" aria-pressed="${diffOnly}">${ico("compare")}רק הבדלים</button><button type="button" class="cmp-tool ic" data-act="land" aria-pressed="${land}" aria-label="${land ? "תצוגה רגילה" : "תצוגה לרוחב"}" title="${land ? "תצוגה רגילה" : "תצוגה לרוחב"}">${ico("rotate")}</button><button type="button" class="cmp-tool ic" data-act="shareCmp" aria-label="שיתוף קישור להשוואה" title="שיתוף קישור להשוואה">${ico("share")}</button><button type="button" class="cmp-tool ic" data-act="saveCmp" aria-label="שמירת השוואה" title="שמירת השוואה">${ico("star")}</button><button type="button" class="cmp-tool ic" data-act="cmpPdf" aria-label="PDF" title="PDF">${ico("doc")}</button>` : ""}</div>` : ""}
+    ${n === 1 ? `<p class="note" style="margin:0 0 8px">הוסיפו רכב או דגם נוסף כדי לראות מי עדיף בכל שורה.</p>` : ""}
     ${simHtml}
     ${n ? `<div class="cmp"><div class="ph"></div>${L.map(head).join("")}</div>` : ""}
     ${n ? `<div class="cmp-table">${body}</div>` : ""}
@@ -2753,6 +2930,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.delcmp) { const l = store.get("savedCompares"); l.splice(+b.dataset.delcmp, 1); store.set("savedCompares", l); renderHome(); return; }
   if (b.dataset.act === "marketBack") { renderHome(); window.scrollTo({top: 0}); return; }
   if (b.dataset.mkmode) { if (b.dataset.mkmode === "quarter" && mkLocked()) { toast("בחירת רבעון זמינה ב-PRO"); return; } MK.mode = b.dataset.mkmode; MK.sel = null; if (MARKET) renderMarket(MARKET); return; }
+  if (b.dataset.mkmore) { MK[b.dataset.mkmore] = !MK[b.dataset.mkmore]; if (MARKET) renderMarket(MARKET); return; }
   if (b.dataset.mksel) { MK.sel = b.dataset.mksel; if (MARKET) renderMarket(MARKET); return; }
   if (b.dataset.act === "closeCompare") { closeCompare(); return; }
   if (b.dataset.act === "cmpPdf") { shareComparePdf(b); return; }
@@ -2762,7 +2940,7 @@ $("#out").addEventListener("click", ev => {
   if (!current) return;
   if (b.dataset.tab) { currentTab = b.dataset.tab; track("tab_view", {tab: b.dataset.tab}); renderResult(); const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"}); return; }
   const act = b.dataset.act;
-  if (act === "share") { $("#shareMsg").textContent = ""; $("[data-share=bizpdf]").hidden = !(PRO_LOCK && isBiz()); $("#shareSheet").hidden = false; warmShare(); }
+  if (act === "share") { $("#shareMsg").textContent = ""; $("[data-share=bizpdf]").hidden = !(PRO_LOCK && isBiz()); $("#shareSheet").hidden = false; shareWarm = {}; warmShare(); }
   if (act === "candSave") {
     const raw = digits(($("#askIn") || {}).value), ask = raw ? Number(raw) : null;
     if (!isSaved(current.plate)) toggleSaved(newSavedItem(current));
@@ -2780,7 +2958,7 @@ $("#out").addEventListener("click", ev => {
     if (on) startTrial();
     track(on ? "car_save" : "car_unsave", {n: String(Math.min(store.get("savedVehicles").length, 4)) + (store.get("savedVehicles").length > 3 ? "+" : ""), from: currentTab || "home"});
     b.setAttribute("aria-pressed", String(on)); b.querySelector("span").textContent = on ? "נשמר" : "שמירה";
-    toast(on ? "הרכב נשמר ב־\"הרכבים שלי\"" : "הרכב הוסר מהרשימה");
+    toast(on ? "הרכב נוסף להרכבים שלי" : "הרכב הוסר מהרשימה");
     { const y = window.scrollY; renderResult(); window.scrollTo(0, y); }
     if (on && alertsSupported()) { let asked = false; try { asked = !!localStorage.getItem("alertsAsked"); localStorage.setItem("alertsAsked", "1"); } catch {} if (!asked) try { window.AndroidApp.setAlerts(true); } catch {} }
   }
@@ -2938,10 +3116,174 @@ async function snapFast(el, ratio, bg){
     return c;
   }
 }
+/* Paints the laid-out report straight onto a canvas. The browser has already worked out every position, so each box, border and line of text is only drawn,
+   with no SVG photograph of the page: a phone needs tens of milliseconds where the snapshot needed seconds. */
+/* simple line icons (paths, circles, rectangles) are drawn as vectors; anything more elaborate falls back to a decoded picture */
+function iconPainter(s, color){
+  const vb = (s.getAttribute("viewBox") || "").split(/[\s,]+/).map(Number); if (vb.length !== 4 || vb.some(isNaN) || !vb[2] || !vb[3]) return null;
+  const kids = [...s.children]; if (!kids.length) return null;
+  for (const k of kids) if (!/^(path|circle|rect)$/.test(k.tagName) || k.hasAttribute("transform") || k.hasAttribute("style") || /url\(/.test(k.outerHTML)) return null;
+  const attr = (k, n, d) => { const v = k.getAttribute(n) ?? s.getAttribute(n); return v == null ? d : v }, col = v => v === "currentColor" ? color : v;
+  const shapes = kids.map(k => {
+    const g = n => parseFloat(k.getAttribute(n)) || 0; let p;
+    if (k.tagName === "path") p = new Path2D(k.getAttribute("d") || ""); else if (k.tagName === "circle") { p = new Path2D(); p.arc(g("cx"), g("cy"), g("r"), 0, Math.PI * 2); } else { p = new Path2D(); p.roundRect(g("x"), g("y"), g("width"), g("height"), g("rx") || g("ry") || 0); }
+    return {p, fill: col(attr(k, "fill", "none")), stroke: col(attr(k, "stroke", "none")), sw: parseFloat(attr(k, "stroke-width", "1")), cap: attr(k, "stroke-linecap", "butt"), join: attr(k, "stroke-linejoin", "miter"), rule: attr(k, "fill-rule", "nonzero"), op: parseFloat(k.getAttribute("opacity") || 1)};
+  });
+  return (x, X, Y, w, h) => {
+    const sc = Math.min(w / vb[2], h / vb[3]);
+    for (const o of shapes) {
+      x.save(); x.globalAlpha *= o.op; x.translate(X + (w - vb[2] * sc) / 2, Y + (h - vb[3] * sc) / 2); x.scale(sc, sc); x.translate(-vb[0], -vb[1]);
+      if (o.fill !== "none") { x.fillStyle = o.fill; x.fill(o.p, o.rule); }
+      if (o.stroke !== "none") { x.strokeStyle = o.stroke; x.lineWidth = o.sw; x.lineCap = o.cap; x.lineJoin = o.join; x.stroke(o.p); }
+      x.restore();
+    }
+  };
+}
+const ICON_CACHE = new Map();
+function gradientFill(x, str, X, Y, w, h){
+  const m = String(str).match(/^linear-gradient\((.*)\)$/s); if (!m) return null;
+  const parts = []; let d = 0, cur = "";
+  for (const ch of m[1]) { if (ch === "(") d++; if (ch === ")") d--; if (ch === "," && !d) { parts.push(cur.trim()); cur = ""; } else cur += ch; }
+  parts.push(cur.trim());
+  let ang = 180;
+  if (/^(to |-?[\d.]+deg)/.test(parts[0])) {
+    const p = parts.shift();
+    if (p.endsWith("deg")) ang = parseFloat(p);
+    else ang = ({"top": 0, "right": 90, "bottom": 180, "left": 270, "top right": 45, "right top": 45, "bottom right": 135, "right bottom": 135, "bottom left": 225, "left bottom": 225, "top left": 315, "left top": 315})[p.slice(3).trim()] ?? 180;
+  }
+  const rad = ang * Math.PI / 180, dx = Math.sin(rad), dy = -Math.cos(rad), len = Math.abs(w * dx) + Math.abs(h * dy), cx = X + w / 2, cy = Y + h / 2;
+  const g = x.createLinearGradient(cx - dx * len / 2, cy - dy * len / 2, cx + dx * len / 2, cy + dy * len / 2);
+  const stops = parts.map(p => { const mm = p.match(/^(.*?)(?:\s+(-?[\d.]+)%)?$/); return [mm[1], mm[2] == null ? null : parseFloat(mm[2]) / 100]; });
+  stops.forEach(([col, pos], i) => { if (pos == null) pos = stops.length > 1 ? i / (stops.length - 1) : 0; try { g.addColorStop(Math.min(1, Math.max(0, pos)), col); } catch {} });
+  return g;
+}
+async function paintEl(el, ratio, bg){
+  const R0 = el.getBoundingClientRect(), W = Math.round(R0.width), H = Math.round(R0.height); if (!W || !H) return null;
+  const c = document.createElement("canvas"); c.width = Math.round(W * ratio); c.height = Math.round(H * ratio);
+  const x = c.getContext("2d"); x.scale(ratio, ratio); x.fillStyle = bg; x.fillRect(0, 0, W, H);
+  const ox = R0.left, oy = R0.top, TRANSPARENT = /^(transparent|rgba\(\s*\d+,\s*\d+,\s*\d+,\s*0\s*\))$/;
+  // icons first: each distinct SVG is decoded once, in parallel
+  const icons = new Map(), jobs = [];
+  el.querySelectorAll("svg").forEach(s => {
+    const r = s.getBoundingClientRect(); if (!r.width || !r.height) return;
+    const vec = iconPainter(s, getComputedStyle(s).color); if (vec) { icons.set(s, vec); return; }
+    const k = s.cloneNode(true); k.setAttribute("width", r.width); k.setAttribute("height", r.height); k.removeAttribute("class"); k.removeAttribute("style");
+    if (!k.getAttribute("xmlns")) k.setAttribute("xmlns", SVG_NS);
+    const src = new XMLSerializer().serializeToString(k).replace(/currentColor/g, getComputedStyle(s).color);
+    let ent = ICON_CACHE.get(src);
+    if (!ent) {
+      const im = new Image(); im.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(src);
+      ent = {im, ready: im.decode().then(() => true, () => { ICON_CACHE.delete(src); return false; })};
+      ICON_CACHE.set(src, ent);
+    }
+    icons.set(s, ent.im);
+    // every paint waits for the decoding (also one started by a parallel paint); an icon that cannot be decoded is left out
+    jobs.push(ent.ready.then(ok => { if (!ok) icons.delete(s); }));
+  });
+  await Promise.all(jobs);
+  const radii = (cs, w, h) => ["TopLeft", "TopRight", "BottomRight", "BottomLeft"].map(k => { const v = cs["border" + k + "Radius"].split(" ")[0]; return v.endsWith("%") ? Math.min(w, h) * parseFloat(v) / 100 : parseFloat(v) || 0; });
+  const box = (cs, X, Y, w, h) => {
+    if (w <= 0 || h <= 0) return;
+    const rad = radii(cs, w, h), path = () => { x.beginPath(); x.roundRect(X, Y, w, h, rad); };
+    const bc = cs.backgroundColor, bi = cs.backgroundImage;
+    let fill = TRANSPARENT.test(bc) ? null : bc;
+    if (bi && bi !== "none") { const first = bi.split(/,(?![^(]*\))/)[0].trim(), g = gradientFill(x, first, X, Y, w, h); if (g) fill = g; }
+    const sh = cs.boxShadow;
+    if (sh && sh !== "none") {
+      const first = sh.split(/,(?![^(]*\))/)[0].trim(), cm = first.match(/^(rgba?\([^)]*\)|color\([^)]*\))\s+(-?[\d.]+)px\s+(-?[\d.]+)px\s+([\d.]+)px(?:\s+(-?[\d.]+)px)?/);
+      if (cm && !/inset/.test(first)) {
+        const ox2 = parseFloat(cm[2]), oy2 = parseFloat(cm[3]), bl = parseFloat(cm[4]), sp = parseFloat(cm[5] || 0);
+        if (!bl && sp > 0) { x.beginPath(); x.roundRect(X + ox2 - sp, Y + oy2 - sp, w + 2 * sp, h + 2 * sp, rad.map(r => r + sp)); x.fillStyle = cm[1]; x.fill(); }
+        else if (fill) { x.shadowColor = cm[1]; x.shadowOffsetX = ox2 * ratio; x.shadowOffsetY = oy2 * ratio; x.shadowBlur = bl * ratio; }
+      }
+    }
+    if (fill) { path(); x.fillStyle = fill; x.fill(); }
+    x.shadowColor = "transparent"; x.shadowBlur = x.shadowOffsetX = x.shadowOffsetY = 0;
+    const bw = ["Top", "Right", "Bottom", "Left"].map(k => cs["border" + k + "Style"] === "none" ? 0 : parseFloat(cs["border" + k + "Width"]) || 0), bcs = ["Top", "Right", "Bottom", "Left"].map(k => cs["border" + k + "Color"]);
+    if (bw.some(v => v > 0)) {
+      if (bw.every(v => v === bw[0]) && bcs.every(v => v === bcs[0])) {
+        const half = bw[0] / 2; x.beginPath(); x.roundRect(X + half, Y + half, w - bw[0], h - bw[0], rad.map(r => Math.max(0, r - half)));
+        x.lineWidth = bw[0]; x.strokeStyle = bcs[0]; if (/dashed|dotted/.test(cs.borderTopStyle)) x.setLineDash([bw[0] * 3, bw[0] * 2]); x.stroke(); x.setLineDash([]);
+      } else {
+        if (bw[0]) { x.fillStyle = bcs[0]; x.fillRect(X, Y, w, bw[0]); }
+        if (bw[2]) { x.fillStyle = bcs[2]; x.fillRect(X, Y + h - bw[2], w, bw[2]); }
+        if (bw[1]) { x.fillStyle = bcs[1]; x.fillRect(X + w - bw[1], Y, bw[1], h); }
+        if (bw[3]) { x.fillStyle = bcs[3]; x.fillRect(X, Y, bw[3], h); }
+      }
+    }
+  };
+  const csCache = new Map();
+  let lastFont = "", lastLs = "", fm = null;
+  const text = (n) => {
+    const p = n.parentElement; if (!p) return;
+    const raw = n.nodeValue; if (!/\S/.test(raw)) return;
+    let cs = csCache.get(p); if (!cs) csCache.set(p, cs = getComputedStyle(p));
+    if (cs.visibility === "hidden") return;
+    const fnt = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`, ls = cs.letterSpacing === "normal" ? "0px" : cs.letterSpacing;
+    if (fnt !== lastFont) { x.font = fnt; lastFont = fnt; fm = null; }
+    if (ls !== lastLs) { x.letterSpacing = ls; lastLs = ls; }
+    x.fillStyle = cs.color;
+    const rtl = cs.direction === "rtl"; x.direction = rtl ? "rtl" : "ltr"; x.textAlign = rtl ? "right" : "left"; x.textBaseline = "alphabetic";
+    const tt = cs.textTransform, tf = s => tt === "uppercase" ? s.toUpperCase() : tt === "lowercase" ? s.toLowerCase() : s;
+    const rg = document.createRange(), lines = [];
+    rg.selectNodeContents(n);
+    const rects = rg.getClientRects();
+    if (rects.length === 1 && rects[0].width) {
+      // the common case, one line: the whole text node is drawn at once
+      const r = rects[0], whole = raw.replace(/\s+/g, " "), snug = whole.trim();
+      const fits = whole === snug || Math.abs(x.measureText(whole).width - r.width) <= 1.5;
+      lines.push({s: fits ? whole : snug, top: r.top, h: r.height, l: r.left, r: r.right, mid: !fits});
+    } else {
+      for (const m of raw.matchAll(/\S+/g)) {
+        rg.setStart(n, m.index); rg.setEnd(n, m.index + m[0].length);
+        const r = rg.getBoundingClientRect(); if (!r.width) continue;
+        const last = lines[lines.length - 1];
+        if (last && Math.abs(r.top - last.top) < r.height * .6) { last.s += " " + m[0]; last.l = Math.min(last.l, r.left); last.r = Math.max(last.r, r.right); }
+        else lines.push({s: m[0], top: r.top, h: r.height, l: r.left, r: r.right});
+      }
+    }
+    const deco = cs.textDecorationLine;
+    for (const L of lines) {
+      if (!fm) fm = x.measureText("Hg").fontBoundingBoxAscent || parseFloat(cs.fontSize) * .9;
+      const base = L.top - oy + fm, s = tf(L.s);
+      if (L.mid) { x.textAlign = "center"; x.fillText(s, (L.l + L.r) / 2 - ox, base); x.textAlign = rtl ? "right" : "left"; }
+      else x.fillText(s, (rtl ? L.r : L.l) - ox, base);
+      if (/underline|line-through/.test(deco)) { x.fillRect(L.l - ox, /underline/.test(deco) ? base + 2 : base - parseFloat(cs.fontSize) * .3, L.r - L.l, 1.2); }
+    }
+  };
+  const pseudo = (n, which, r, cs) => {
+    const ps = getComputedStyle(n, which), ct = ps.content; if (!ct || ct === "none" || ct === "normal" || ps.position !== "absolute" || ps.display === "none") return;
+    const w = parseFloat(ps.width), h = parseFloat(ps.height); if (!(w > 0) || !(h > 0)) return;
+    const bl = parseFloat(cs.borderLeftWidth) || 0, bt = parseFloat(cs.borderTopWidth) || 0, br = parseFloat(cs.borderRightWidth) || 0;
+    const X = ps.left !== "auto" ? r.left + bl + parseFloat(ps.left) : r.right - br - parseFloat(ps.right) - w, Y = r.top + bt + (ps.top !== "auto" ? parseFloat(ps.top) : 0);
+    x.save(); x.globalAlpha *= parseFloat(ps.opacity); box(ps, X - ox, Y - oy, w, h); x.restore();
+  };
+  const walk = n => {
+    if (n.nodeType === 3) { text(n); return; }
+    if (n.nodeType !== 1) return;
+    const tag = n.tagName.toLowerCase(); if (tag === "style" || tag === "script" || tag === "template") return;
+    const cs = getComputedStyle(n); if (cs.display === "none") return;
+    if (cs.display === "contents") { for (const ch of n.childNodes) walk(ch); return; }
+    const r = n.getBoundingClientRect();
+    x.save(); x.globalAlpha *= parseFloat(cs.opacity);
+    if (cs.visibility !== "hidden") {
+      if (tag === "svg") { box(cs, r.left - ox, r.top - oy, r.width, r.height); const im = icons.get(n); if (typeof im === "function") im(x, r.left - ox, r.top - oy, r.width, r.height); else if (im) x.drawImage(im, r.left - ox, r.top - oy, r.width, r.height); x.restore(); lastFont = lastLs = ""; return; }
+      box(cs, r.left - ox, r.top - oy, r.width, r.height);
+      if (tag === "img") { try { x.drawImage(n, r.left - ox, r.top - oy, r.width, r.height); } catch {} }
+      pseudo(n, "::before", r, cs);
+    }
+    if (/hidden|clip/.test(cs.overflowX + cs.overflowY)) { x.beginPath(); x.roundRect(r.left - ox, r.top - oy, r.width, r.height, radii(cs, r.width, r.height)); x.clip(); }
+    for (const ch of n.childNodes) walk(ch);
+    if (cs.visibility !== "hidden") pseudo(n, "::after", r, cs);
+    x.restore(); lastFont = lastLs = "";
+  };
+  walk(el);
+  return c;
+}
 async function captureEl(el, breakSel, ratio = 2){
   document.body.appendChild(el);
   try {
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    try { await document.fonts.ready; } catch {}
     const top = el.getBoundingClientRect().top, set = new Set();
     el.querySelectorAll(breakSel).forEach(c => {
       if (!c.offsetHeight) return; const r = c.getBoundingClientRect(); set.add(Math.round(r.bottom - top + 4));
@@ -2950,15 +3292,17 @@ async function captureEl(el, breakSel, ratio = 2){
     const bg = getComputedStyle(el).backgroundColor;
     // a very tall report is rendered at a lower scale so a phone's WebView does not choke on the pixel count
     ratio = Math.max(1, Math.min(ratio, Math.sqrt(5e6 / Math.max(1, el.offsetWidth * el.offsetHeight))));
+    ratio = Math.min(ratio, 16000 / Math.max(1, el.offsetHeight));   // browsers refuse canvases taller than ~32k px
     let canvas = null;
     // fast path: the page's own stylesheet travels once inside the snapshot, so no element needs its styles copied one by one
-    try { canvas = await snapFast(el, ratio, bg); } catch (e) { reportErr("snap_fast"); }
+    try { canvas = await paintEl(el, ratio, bg); } catch (e) { reportErr("paint_el"); }
+    if (!canvas) try { canvas = await snapFast(el, ratio, bg); } catch (e) { reportErr("snap_fast"); }
     if (!canvas) { await loadScript(LIBS.img); canvas = await window.htmlToImage.toCanvas(el, {pixelRatio: ratio, backgroundColor: bg, skipFonts: true, includeStyleProperties: SNAP_PROPS,
       style: {position: "static", left: "0", top: "0"}, width: el.offsetWidth, height: el.offsetHeight}); }
     return {canvas, breaks: breaks.map(b => b * ratio)};
   } finally { el.remove(); }
 }
-function canvasToBlob(c, type, q){ return new Promise(ok => c.toBlob(ok, type, q)); }
+function canvasToBlob(c, type, q){ return new Promise((ok, fail) => c.toBlob(b => b ? ok(b) : fail(new Error("empty canvas")), type, q)); }
 function blobToBase64(b){ return new Promise((ok, fail) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = fail; r.readAsDataURL(b); }); }
 async function shareFile(blob, name, title, caption){
   const br = bridge();
@@ -3048,19 +3392,109 @@ async function shareComparePdf(btn){
   finally { btn.disabled = false; btn.innerHTML = old; }
 }
 /* what the user shared last time is prepared while the share sheet is open, so choosing it is usually instant */
-let shareWarm = null;
+let shareWarm = {};
 const lastShare = () => { try { return localStorage.getItem("lastShare") === "pdf" ? "pdf" : "image"; } catch { return "image"; } };
 const shareKey = kind => kind === "pdf" ? [current && current.plate, "pdf"].join("|") : [current && current.plate, "image", simpleOn(), currentTab, simpleMore].join("|");
+/* the finished file, so that choosing it only hands it over */
+async function prepShare(kind, D){
+  if (kind === "pdf") return await makePdf(D);
+  const cap = await captureReport(D, false);
+  return await canvasToBlob(cap.canvas, "image/jpeg", 0.9);
+}
 function warmShare(){
   const D = current; if (!D) return;
-  const kind = lastShare(), key = shareKey(kind); if (shareWarm && shareWarm.key === key) return;
-  const p = Promise.all([kind === "pdf" ? loadScript(LIBS.pdf) : null]).then(() => new Promise(r => setTimeout(r, 60))).then(() => captureReport(D, kind === "pdf")); p.catch(() => {});
-  shareWarm = {key, p};
+  const kind = lastShare(), key = shareKey(kind), w = shareWarm[kind];
+  if (w && w.key === key) return;
+  // only what was shared last time is prepared, while the share sheet is open
+  const slot = shareWarm[kind] = {key, p: new Promise(r => setTimeout(r, 40)).then(() => shareWarm[kind] === slot ? prepShare(kind, D) : null)};
+  shareWarm[kind].p.catch(() => {});
 }
-async function warmCap(kind){
-  const w = shareWarm; shareWarm = null;
+async function warmFile(kind){
+  const w = shareWarm[kind]; delete shareWarm[kind];
   if (w && w.key === shareKey(kind)) { try { return await w.p; } catch {} }
   return null;
+}
+/* The shared picture is drawn straight on a canvas: a designed summary card in a few milliseconds. (Photographing the whole report through an SVG snapshot took
+   several seconds on a phone; the full report is the PDF.) */
+async function drawShareCard(D){
+  const W = 1080, P = 56, c = document.createElement("canvas"); c.width = W; c.height = 4200;
+  const x = c.getContext("2d"); x.direction = "rtl"; x.textBaseline = "alphabetic";
+  const FONT = '"Noto Sans Hebrew","Segoe UI",Arial,sans-serif';
+  const f = (px, wt = 500) => { x.font = `${wt} ${px}px ${FONT}`; };
+  const R = W - P;
+  const rr = (X, Y, w, h, r, fill, stroke, lw) => { x.beginPath(); x.roundRect(X, Y, w, h, r); if (fill) { x.fillStyle = fill; x.fill(); } if (stroke) { x.lineWidth = lw || 2; x.strokeStyle = stroke; x.stroke(); } };
+  const wrap = (t, maxW) => { const out = []; let cur = ""; for (const w of String(t).split(" ")) { const n = cur ? cur + " " + w : w; if (x.measureText(n).width > maxW && cur) { out.push(cur); cur = w; } else cur = n; } if (cur) out.push(cur); return out; };
+  const text = (t, X, Y, color, align = "right") => { x.fillStyle = color; x.textAlign = align; x.fillText(t, X, Y); };
+  const INK = "#151a24", MUT = "#5d6676";
+  const TONE = {ok: ["#1f7a3f", "#e3f4e8"], warn: ["#9a5b00", "#fdf0d8"], bad: ["#b3261e", "#fde7e5"], info: ["#2556c8", "#e6eefc"]};
+  // header band
+  const g = x.createLinearGradient(0, 0, 0, 210); g.addColorStop(0, "#e2ecfd"); g.addColorStop(1, "#ffffff"); x.fillStyle = g; x.fillRect(0, 0, W, 210);
+  const logo = await loadLogo(); if (logo) x.drawImage(logo, R - 96, 54, 96, 96);
+  f(66, 800); text("לוחית", R - 116, 112, INK); f(30, 600); text("בדיקת רכב לפי מספר רישוי", R - 116, 154, MUT);
+  f(28, 700); const tag = "חינם ב-Google Play", tw = x.measureText(tag).width + 44; rr(P, 76, tw, 56, 28, "#2556c8"); text(tag, P + tw / 2, 114, "#fff", "center");
+  let y = 262;
+  // car
+  const v = D.v, yr = empty(v.shnat_yitzur) ? "" : String(v.shnat_yitzur);
+  f(76, 800); for (const l of wrap(D.title, W - 2 * P)) { text(l, R, y, INK); y += 86; } y -= 30;
+  const dt = driveType(D), sub = [yr, v.tzeva_rechev, dt && dt.label, D.sub && !/^\d{4}/.test(D.sub) ? null : null].filter(x2 => !empty(x2)).join(" · ");
+  if (sub) { f(38, 500); text(sub, R, y, MUT); y += 14; }
+  // plate
+  y += 26; const pw = 520, ph = 112; rr(R - pw, y, pw, ph, 18, "#f6c500", "#151a24", 6); rr(R - pw + 3, y + 3, 84, ph - 6, 15, "#1d4fa8"); f(26, 800); text("IL", R - pw + 45, y + 54, "#fff", "center");
+  x.direction = "ltr"; f(78, 800); x.fillStyle = "#151a24"; x.textAlign = "center"; x.fillText(fmtPlate(D.plate), R - pw / 2 + 40, y + 82); x.direction = "rtl";
+  y += ph + 44;
+  // status rows
+  const rows = [];
+  const add = (tone, t) => rows.push([tone, t]);
+  const exp = toDate(v.tokef_dt), now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (D.isCancelled) add("bad", "הרכב ירד מהכביש");
+  else {
+    if (exp) add(exp >= today ? "ok" : "bad", exp >= today ? `טסט בתוקף עד ${fmtDate(v.tokef_dt)}` : `הטסט פג ב-${fmtDate(v.tokef_dt)}`);
+    const blocking = D.recalls.some(isBlocking);
+    if (D.recallUnknown) add("warn", "מידע על ריקולים לא זמין כרגע, אין להסיק שאין ריקול"); else add(D.recalls.length ? "bad" : "ok", D.recalls.length ? (blocking ? "ריקול פתוח שמגביל חידוש רישיון" : D.recalls.length === 1 ? "ריקול פתוח אחד" : `${D.recalls.length} ריקולים פתוחים`) : "אין ריקול פתוח");
+    if (D.own.length) add("info", ownersLabel(D));
+    const mods = ["shinui_mivne_ind", "gapam_ind", "shnui_zeva_ind", "shinui_zmig_ind"].filter(k => yes(v[k]));
+    add(mods.length ? "warn" : "ok", mods.length ? "נרשמו שינויים ברכב" : "לא נרשמו שינויי מבנה, צבע או גפ״מ");
+    const stl = D.kind === "model" ? [] : settlementsFor(D);
+    add(stl.length ? "warn" : "ok", stl.length ? `ייתכן שהרכב נכלל ב${pl(stl.length, "הסדר פשרה", "הסדרי פשרה")}` : "לא נמצא הסדר פשרה לדגם ולשנתון");
+  }
+  for (const i of buildInsights(D)) if ((i.level === "bad" || i.level === "warn") && rows.length < 9 && !rows.some(r => r[1] === i.title) && !/טסט|ריקול|הסדר/.test(i.title)) add(i.level, i.title);
+  y += 30; f(36, 800); text("מה נמצא", R, y, INK); y += 26;
+  for (const [tone, t] of rows) {
+    f(36, 600); const lines = wrap(t, W - 2 * P - 150), h = 40 + lines.length * 48;
+    rr(P, y, W - 2 * P, h, 22, TONE[tone][1]);
+    x.beginPath(); x.arc(R - 44, y + h / 2, 22, 0, 7); x.fillStyle = TONE[tone][0]; x.fill();
+    f(28, 800); text(tone === "ok" ? "✓" : tone === "info" ? "i" : "!", R - 44, y + h / 2 + 10, "#fff", "center");
+    f(36, 600); lines.forEach((l, k) => text(l, R - 90, y + 20 + 48 * (k + 1) - 12, INK)); y += h + 14;
+  }
+  // key specs, two per row
+  {
+    const w = D.w || {}, nf = k => isNum(w[k]) && num(w[k]) > 0 ? num(w[k]) : null, eng = num(D.pick(v.nefach_manoa, w.nefah_manoa));
+    const sp = [["כוח", nf("koah_sus") && `${nf("koah_sus")} כ״ס`], ["נפח מנוע", eng > 0 && `${fmtN(eng)} סמ״ק`], ["דלק", D.pick(v.sug_delek_nm, w.delek_nm)],
+      ["תיבת הילוכים", empty(w.automatic_ind) ? "" : yes(w.automatic_ind) ? "אוטומטית" : "ידנית"], ["הנעה", w.hanaa_nm], ["מרכב", w.merkav], ["מושבים", nf("mispar_moshavim")],
+      ["רמת אבזור בטיחותי", num(D.pick(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty)) > 0 && `${num(D.pick(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty))} מתוך 8`], ["כריות אוויר", nf("mispar_kariot_avir")]]
+      .filter(([, val]) => val && !empty(val)).slice(0, 8);
+    if (sp.length) {
+      y += 14; f(36, 800); text("מפרט", R, y + 30, INK); y += 56;
+      const cw = (W - 2 * P - 20) / 2;
+      sp.forEach(([k, val], i) => { const X = R - cw * (i % 2 + 1) - 20 * (i % 2), Y = y + Math.floor(i / 2) * 130; rr(X, Y, cw, 112, 20, "#f4f6fa"); f(26, 600); text(k, X + cw - 22, Y + 40, MUT); f(38, 800); text(String(val), X + cw - 22, Y + 88, INK); });
+      y += Math.ceil(sp.length / 2) * 130 + 8;
+    }
+  }
+  // numbers
+  const tiles = [], cost = D.cost || {};
+  if (D.km) tiles.push(["ק״מ בטסט האחרון", fmtN(D.km)]);
+  if (D.kmPerYear && D.kmPerYear > 2000) tiles.push(["ממוצע לשנה", fmtN(Math.round(D.kmPerYear / 100) * 100)]);
+  if (cost.valueLow && cost.valueHigh) tiles.push(["שווי משוער (הערכה)", `${Math.round(cost.valueLow / 1000)}–${Math.round(cost.valueHigh / 1000)} אלף ₪`]);
+  if (tiles.length && !D.isCancelled) {
+    y += 14; const tw2 = (W - 2 * P - 20 * (tiles.length - 1)) / tiles.length;
+    tiles.forEach(([k, val], i) => { const X = R - tw2 * (i + 1) - 20 * i; rr(X, y, tw2, 150, 22, "#f4f6fa"); f(28, 600); text(k, X + tw2 - 22, y + 48, MUT); f(tiles.length > 2 ? 40 : 52, 800); x.direction = "ltr"; text(val, X + tw2 - 22, y + 112, INK, "right"); x.direction = "rtl"; });
+    y += 150 + 30;
+  } else y += 16;
+  // footer
+  rr(P, y, W - 2 * P, 124, 26, "#151a24"); f(36, 800); text("הבדיקה המלאה, בחינם", R - 32, y + 54, "#fff"); f(30, 500); text("luchit.app · אפליקציית לוחית ב-Google Play", R - 32, y + 98, "#c9d1e0");
+  y += 124 + 24; f(24, 500); text("המידע ממאגרי משרד התחבורה ואינו מחליף נסח רישום רשמי. ערכים משוערים מסומנים כהערכה.", R, y + 10, MUT); y += 56;
+  const out = document.createElement("canvas"); out.width = W; out.height = y; const o = out.getContext("2d"); o.fillStyle = "#fff"; o.fillRect(0, 0, W, y); o.drawImage(c, 0, 0);
+  return {canvas: out, breaks: []};
 }
 async function doShare(kind){
   track("share", {kind});
@@ -3075,11 +3509,16 @@ async function doShare(kind){
     const caption = `${D.title} · ${fmtPlate(D.plate)}\nהדוח המלא באפליקציה לוחית:\n${carLink(D.plate)}`;
     if (!biz) { try { localStorage.setItem("lastShare", kind === "pdf" ? "pdf" : "image"); } catch {} }
     if (biz) await shareFile(await makePdf(D, biz), name + ".pdf", D.title);
-    else if (kind === "pdf") await shareFile(await makePdf(D, undefined, await warmCap("pdf")), name + ".pdf", D.title, caption);
+    else if (kind === "pdf") await shareFile((await warmFile("pdf")) || await makePdf(D), name + ".pdf", D.title, caption);
     else {
-      const cap = (await warmCap("image")) || await captureReport(D, false);
-      // JPEG encodes several times faster than PNG on a phone and chat apps recompress to JPEG anyway
-      await shareFile(await canvasToBlob(cap.canvas, "image/jpeg", 0.92), name + ".jpg", D.title, caption);
+      // the screen's own report, painted straight onto a canvas; the summary card is only the fallback
+      let blob = await warmFile("image");
+      if (!blob) {
+        // JPEG encodes several times faster than PNG on a phone and chat apps recompress to JPEG anyway
+        try { const cap = await captureReport(D, false); blob = await canvasToBlob(cap.canvas, "image/jpeg", 0.9); }
+        catch (e) { reportErr("share_image"); blob = await canvasToBlob((await drawShareCard(D)).canvas, "image/jpeg", 0.9); }
+      }
+      await shareFile(blob, name + ".jpg", D.title, caption);
     }
     $("#shareSheet").hidden = true;
   } catch (err) {
@@ -3087,10 +3526,10 @@ async function doShare(kind){
   } finally { document.querySelectorAll("[data-share]").forEach(b => b.disabled = false); }
 }
 $("#shareSheet").addEventListener("click", ev => {
-  if (ev.target.id === "shareSheet") { ev.target.hidden = true; shareWarm = null; return; }
+  if (ev.target.id === "shareSheet") { ev.target.hidden = true; shareWarm = {}; return; }
   const b = ev.target.closest("[data-share]"); if (b) doShare(b.dataset.share);
 });
-$("#closeShare").addEventListener("click", () => { $("#shareSheet").hidden = true; shareWarm = null; });
+$("#closeShare").addEventListener("click", () => { $("#shareSheet").hidden = true; shareWarm = {}; });
 
 /* test-expiry reminder: in the app the phone's calendar opens with the event filled in;
    on the web it opens Google Calendar; a calendar file is the last resort */
@@ -3281,8 +3720,10 @@ async function checkSaved(){
     for (const s of store.get("savedVehicles").slice(0, 20)) {
       if (s.checked && Date.now() - s.checked < 864e5) continue;
       try {
-        const [rec, own, act] = await Promise.all([byPlate(set("recall"), s.plate).catch(() => null), byPlate(set("owners"), s.plate).catch(() => null), byPlate(set("active"), s.plate).catch(() => null)]);
+        let [rec, own, act] = await Promise.all([byPlate(set("recall"), s.plate).catch(() => null), byPlate(set("owners"), s.plate).catch(() => null), byPlate(set("active"), s.plate).catch(() => null)]);
         const list = store.get("savedVehicles"), it = list.find(x => x.plate === s.plate); if (!it) continue;
+        // an empty answer from a broken dataset is not "the car left the road": only trust it when the dataset itself has rows
+        if (act && !act.length && await sourceEmpty().catch(() => true)) act = null;
         const ev = [], ext = plan() !== "free", add = (k, x) => { if (!ext && (k === "owner" || k === "status")) return; ev.push({t: Date.now(), k, x}); };
         if (rec) { if (it.recalls !== undefined && rec.length > it.recalls) add("recall", "ריקול חדש נפתח לרכב"); else if (it.recalls !== undefined && rec.length < it.recalls) add("recall", "ריקול נסגר"); if (it.recalls !== rec.length) changed = true; it.recalls = rec.length; }
         if (own) { if (it.owners !== undefined && own.length > it.owners) add("owner", "בעלות חדשה נרשמה"); it.owners = own.length; }
@@ -3399,15 +3840,19 @@ function renderMarket(M){
   const total = sumM(M.months, P.ms), prevTotal = P.prevMs.length ? sumM(M.months, P.prevMs) : 0;
   const mx = Math.max(...P.ms.map(m => M.months[m] || 0), 1);
   html.push(card("מסירות בתקופה", "chart", "blue", `<div class="mk-big">${fmtN(total)}</div><div>רכבים חדשים · ${periodLabel(P)} ${chgHtml(total, prevTotal)}${prevTotal ? ` <small style="color:var(--muted)">מול התקופה המקבילה אשתקד</small>` : ""}</div><div class="mk-bars">${P.ms.map(m => `<div title="${fmtN(M.months[m] || 0)}"><span>${((M.months[m] || 0) / 1000).toFixed(1)}K</span><i style="height:${Math.max(2, (M.months[m] || 0) / mx * 78)}%"></i><span>${MON[+m.slice(4) - 1]}</span></div>`).join("")}</div>`));
-  { const top1 = o => Object.entries(o).map(([k, v]) => [k, sumM(v, P.ms)]).sort((a, b) => b[1] - a[1])[0];
+  { const top1 = o => Object.entries(o).map(([k, v]) => [k, sumM(v, P.ms)]).sort((a, b) => b[1] - a[1])[0] || ["", 0];
     const tm = top1(M.makers), td = top1(M.models), ch = pctTxt(total, prevTotal);
-    html[0] = html[0].replace(/<p class="note" style="margin-top:0">[^<]*<\/p>/, x => x + `<p class="mk-sum">בתקופה נמסרו ${fmtN(total)} רכבים חדשים${ch ? ` (${ch} מול התקופה המקבילה אשתקד)` : ""}. היצרן המוביל: ${esc(mkMake(tm[0]))}, הדגם המוביל: ${esc([mkMake(td[0].split("|")[0]), ...td[0].split("|").slice(1)].join(" "))}.</p>`); }
+    html[0] = html[0].replace(/<p class="note" style="margin-top:0">[^<]*<\/p>/, x => x + `<p class="mk-sum">בתקופה נמסרו ${fmtN(total)} רכבים חדשים${ch ? ` (${ch} מול התקופה המקבילה אשתקד)` : ""}.${tm[0] && td[0] ? ` היצרן המוביל: ${esc(mkMake(tm[0]))}, הדגם המוביל: ${esc([mkMake(td[0].split("|")[0]), ...td[0].split("|").slice(1)].join(" "))}.` : ""}</p>`); }
   const mkTop = (obj, ms, pms, n, nameFn) => {
     const rows = Object.entries(obj).map(([k, v]) => [k, sumM(v, ms), sumM(v, pms)]).filter(r => r[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, n), top = rows[0] ? rows[0][1] : 1;
-    return rows.map(([k, c, p]) => `<div class="mk-row"><b>${esc(nameFn(k))}</b><span>${fmtN(c)} <small>· ${(c / total * 100).toFixed(1)}%</small> ${chgHtml(c, p)}</span><div class="tr"><i style="width:${c / top * 100}%"></i></div></div>`).join("");
+    return rows.map(([k, c, p]) => `<div class="mk-row"><b>${esc(nameFn(k))}</b><span>${fmtN(c)} <small>· ${(c / (total || 1) * 100).toFixed(1)}%</small> ${chgHtml(c, p)}</span><div class="tr"><i style="width:${c / top * 100}%"></i></div></div>`).join("");
   };
-  html.push(card("יצרנים מובילים", "star", "amber", mkTop(M.makers, P.ms, P.prevMs, 10, mkMake)));
-  html.push(card("דגמים מובילים", "car", "violet", mkTop(M.models, P.ms, P.prevMs, 10, k => { const [mk, ...r] = k.split("|"); return [mkMake(mk), ...r].join(" "); }) + `<p class="note">לפי הכינוי המסחרי, כל המנועים והגימורים יחד.</p>`));
+  const cnt = obj => Object.values(obj).filter(v => sumM(v, P.ms) > 0).length;
+  if (cnt(M.makers) <= 10) MK.mkMore = false;
+  if (cnt(M.models) <= 10) MK.mdMore = false;
+  const mkMore = (obj, key) => cnt(obj) > 10 ? `<button type="button" class="link-btn" data-mkmore="${key}">${MK[key] ? "הצג רק 10" : "הצג 20 מובילים"}</button>` : "";
+  html.push(card(MK.mkMore ? `${Math.min(20, cnt(M.makers))} היצרנים המובילים` : "יצרנים מובילים", "star", "amber", mkTop(M.makers, P.ms, P.prevMs, MK.mkMore ? 20 : 10, mkMake) + mkMore(M.makers, "mkMore")));
+  html.push(card(MK.mdMore ? `${Math.min(20, cnt(M.models))} הדגמים המובילים` : "דגמים מובילים", "car", "violet", mkTop(M.models, P.ms, P.prevMs, MK.mdMore ? 20 : 10, k => { const [mk, ...r] = k.split("|"); return [mkMake(mk), ...r].join(" "); }) + mkMore(M.models, "mdMore") + `<p class="note">לפי הכינוי המסחרי, כל המנועים והגימורים יחד.</p>`));
   if (M.bodies && Object.keys(M.bodies).length) html.push(card("סוג מרכב", "car", "blue", mkTop(M.bodies, P.ms, P.prevMs, 8, k => k) + `<p class="note">לפי סוג המרכב בקטלוג של המשרד. ${M.bodyCover && M.bodyCover < 0.98 ? "חלק מהרכבים לא משויכים לסוג מרכב, ולכן הסכום קטן מסך המסירות." : ""}</p>`));
   const OWN = [["פרטי", "פרטי", "#2556c8"], ["ליסינג", "ליסינג", "#e0a100"], ["חברה", "חברה", "#7a4fd1"], ["השכרה", "השכרה", "#1a8f4a"], ["סוחר", "סוחר", "#8a93a6"]];
   const own = M.ownership[P.year];
@@ -3507,7 +3952,7 @@ function renderFleet(){
 /* ---------- buying companion (PRO / buyer pack) ---------- */
 const savedItem = p => store.get("savedVehicles").find(x => x.plate === p);
 const candFields = D => ({fair: D.cost && D.cost.valueLow ? [D.cost.valueLow, D.cost.valueHigh] : null, c5: D.cost && D.cost.monthly ? D.cost.monthly.total * 60 : null});
-const newSavedItem = D => ({plate: D.plate, title: D.title, sub: D.sub, at: Date.now(), tokef: D.v.tokef_dt || "", recalls: D.recalls.length, checked: Date.now(), owners: D.own.length, active: !D.isCancelled, events: [], ...candFields(D)});
+const newSavedItem = D => ({plate: D.plate, title: D.title, sub: D.sub, at: Date.now(), tokef: D.v.tokef_dt || "", recalls: D.recallUnknown ? undefined : D.recalls.length, checked: Date.now(), owners: D.own.length, active: !D.isCancelled, events: [], ...candFields(D)});
 function askVerdict(ask, fair){
   if (!ask || !fair) return null;
   const [lo, hi] = fair, r = x => fmtN(Math.round(x / 100) * 100) + " ₪";
@@ -3584,8 +4029,8 @@ function bulkRow(D){
   if (D.offline) return {plate: D.plate, title: "שגיאת חיבור", lvl: 1, nf: "לא נבדק", status: "לא נבדק", test: "", days: "", recalls: "", owners: "", km: "", year: ""};
   const exp = toDate(D.v.tokef_dt), days = exp ? Math.round((exp - new Date()) / 864e5) : null;
   const bad = D.isCancelled || (days !== null && days < 0) || D.recalls.length > 0;
-  const warn = days !== null && days >= 0 && days <= 45;
-  return {plate: D.plate, title: D.title, year: D.v.shnat_yitzur || "", lvl: bad ? 2 : warn ? 1 : 0, status: D.isCancelled ? "בוטל" : D.primary ? D.primary.status : "",
+  const warn = D.recallUnknown || (days !== null && days >= 0 && days <= 45);
+  return {recallUnknown: !!D.recallUnknown, plate: D.plate, title: D.title, year: D.v.shnat_yitzur || "", lvl: bad ? 2 : warn ? 1 : 0, status: D.isCancelled ? "בוטל" : D.primary ? D.primary.status : "",
     test: exp ? fmtDate(D.v.tokef_dt) : "", days: days === null ? "" : days, recalls: D.recalls.length, block: D.recalls.some(isBlocking), first: firstOwner(D.v) || "", owners: D.own.length, km: D.km || ""};
 }
 function bulkTable(running, total){
@@ -3637,7 +4082,7 @@ function bulkSave(){
 function bulkCsv(){
   const q = x => `"${String(x).replace(/"/g, '""')}"`, lv = ["תקין", "לתשומת לב", "בעיה"];
   const head = ["לוחית", "רכב", "שנה", "סטטוס", "תוקף טסט", "ימים לטסט", "ריקולים פתוחים", "רשומות בעלות", "ק״מ בטסט אחרון", "בעלות ראשונה", "ריקול מגביל", "סימון"];
-  const rows = BULK.slice().sort((a, b) => b.lvl - a.lvl || a.plate.localeCompare(b.plate)).map(r => [fmtPlate(r.plate), r.title, r.year, r.status, r.test, r.days, r.recalls, r.owners, r.km, r.first || "", r.block ? "כן" : "", r.nf || lv[r.lvl]]);
+  const rows = BULK.slice().sort((a, b) => b.lvl - a.lvl || a.plate.localeCompare(b.plate)).map(r => [fmtPlate(r.plate), r.title, r.year, r.status, r.test, r.days, r.recallUnknown ? "לא זמין" : r.recalls, r.owners, r.km, r.first || "", r.block ? "כן" : "", r.nf || lv[r.lvl]]);
   const csv = "﻿" + [head, ...rows].map(r => r.map(q).join(",")).join("\r\n");
   shareFile(new Blob([csv], {type: "text/csv"}), `Luchit-list-${new Date().toISOString().slice(0, 10)}.csv`, "רשימת רכבים");
 }
@@ -3682,11 +4127,11 @@ const EXAMPLE_PLATE = "38548003";
 const FAQ = [
   ["מאיפה הנתונים?", "כל המידע על הרכב מגיע ממאגרים פתוחים של משרד התחבורה ב-data.gov.il: רכבים פעילים, היסטוריית בעלויות וטכני, ריקולים ודגמים. אנחנו לא מוסיפים נתונים משלנו על רכב מסוים."],
   ["כמה זה עולה?", "הבדיקה, שיתוף התוצאה והורדת הדוח ב-PDF חינמיים וללא פרסומות. בשלב הנוכחי האפליקציה בבטא וכל היכולות פתוחות."],
-  ["מה נשמר עליי?", "הרכבים השמורים, החיפושים האחרונים והרשימות נשמרים על המכשיר שלכם בלבד. מספרי רישוי שאתם מחפשים נשלחים למאגרי המשרד כדי לקבל תשובה, ואינם נשמרים אצלנו."],
+  ["מה נשמר עליי?", "הרכבים שלי, החיפושים האחרונים והרשימות נשמרים על המכשיר שלכם בלבד. מספרי רישוי שאתם מחפשים נשלחים למאגרי המשרד כדי לקבל תשובה, ואינם נשמרים אצלנו."],
   ["מה זה \"יד\" ולמה זה לא תמיד מדויק?", "הספירה מבוססת על רשומות הבעלות במאגר. רכב שעבר בין חברות ליסינג או סוחרים יכול להציג יותר רשומות מבעלים פרטיים בפועל. מוצג \"לפחות\" כשהמאגר חלקי."],
   ["למה לא מצאתם את הרכב שלי?", "בדקו שהמספר נכון. רכב שירד מהכביש או שיצא מהמאגר לא יופיע, ולפעמים מאגר של המשרד מושבת זמנית. במקרה כזה נסו שוב מאוחר יותר."],
   ["האם אפשר לסמוך על שווי הרכב?", "זו הערכה לפי מחיר מחירון, שנת ייצור וק״מ, ללא מצב הרכב, תאונות והביקוש לדגם. השתמשו בה כנקודת התחלה למשא ומתן בלבד."],
-  ["האם אתם בודקים הסדרי פשרה?", "כן. בלשונית \"ריקולים ופשרות\" בודקים אם לדגם ולשנתון של הרכב יש הסדר פשרה (תובענה ייצוגית) מול היבואן, למשל תיבת הילוכים, לוח מחוונים או קילוף צבע. הרשימה נאספה מהודעות יבואנים ומהעיתונות, אינה מקיפה ואינה ייעוץ משפטי, ולכן כתוב תמיד \"ייתכן\"."],
+  ["האם אתם בודקים הסדרי פשרה?", "כן. בלשונית \"ריקולים והסדרים\" בודקים אם לדגם ולשנתון של הרכב יש הסדר פשרה (תובענה ייצוגית) מול היבואן, למשל תיבת הילוכים, לוח מחוונים או קילוף צבע. הרשימה נאספה מהודעות יבואנים ומהעיתונות, אינה מקיפה ואינה ייעוץ משפטי, ולכן כתוב תמיד \"ייתכן\"."],
   ["האם זה מחליף בדיקה במכון?", "לא. הנתונים מראים מה רשום ברשויות. מצב מכני, תאונות שלא דווחו ושעבודים נבדקים במכון מורשה ובשירותי הבדיקה בלשונית \"לפני שקונים\"."],
 ];
 function faqCard(){
@@ -3707,7 +4152,7 @@ function renderHome(){
   html.push(`<div class="qsec">כלים</div><div class="tools">${[
     tool("compareHome", "compare", "חיפוש דגמים", "חיפוש חופשי: דגם, או סוג ותקציב. אפשר גם להשוות עד " + cmpMax(), "", "violet"),
     tool("market", "chart", "שוק הרכב", "מה נמכר, מי מוביל ומי קונה", "", "blue"),
-    saved.length >= 2 ? tool("fleet", "car", "הצי שלי", "כל הרכבים השמורים בטבלה אחת", "PRO", "teal") : "",
+    saved.length >= 2 ? tool("fleet", "car", "הצי שלי", "כל הרכבים שלי בטבלה אחת", "PRO", "teal") : "",
     saved.some(s => s.ask || s.fair) ? tool("cands", "star", "רשימת מועמדים", "הרכבים ששמרתם מול המחיר המבוקש", "PRO", "amber") : "",
     tool("bulk", "doc", "בדיקת כמה רכבים", "הדביקו רשימת מספרי רישוי וקבלו טבלה אחת", "PRO עסקי", "slate"),
   ].join("")}</div>`);
@@ -3728,7 +4173,12 @@ function loadMagazine(){
   }).catch(() => {});
 }
 
-function run(p){ lookup(p).catch(err => { $("#out").innerHTML = `<div class="msg err">${esc(err.message)}</div>`; $("#go").disabled = false; }); }
+function run(p){ lookup(p).catch(err => {
+  reportErr("lookup_failed");
+  const net = /HTTP|timeout|Failed to fetch|NetworkError|Load failed/i.test(String(err && err.message));
+  $("#out").innerHTML = `<div class="msg err">${net ? "לא הצלחנו להתחבר למאגרי משרד התחבורה. בדקו את החיבור ונסו שוב." : "משהו השתבש בבדיקה. נסו שוב."}</div>`;
+  $("#go").disabled = false;
+}); }
 $("#f").addEventListener("submit", ev => { ev.preventDefault(); run($("#plate").value); });
 let lastPlateVal = null;
 const syncClr = () => {
@@ -3764,9 +4214,9 @@ $("#openSettings").addEventListener("click", () => { syncAlertsSeg(); fillAlertK
 document.querySelectorAll("[data-alerts]").forEach(b => b.addEventListener("click", () => { try { window.AndroidApp.setAlerts(b.dataset.alerts === "on"); localStorage.setItem("alertsAsked", "1"); } catch {} syncAlertsSeg(); }));
 $("#closeSettings").addEventListener("click", () => { sheet.hidden = true; $("#openSettings").focus(); });
 sheet.addEventListener("click", ev => { if (ev.target === sheet) sheet.hidden = true; });
-document.addEventListener("keydown", ev => { if (ev.key === "Escape") { sheet.hidden = true; $("#compareSheet").hidden = true; $("#shareSheet").hidden = true; } });
+document.addEventListener("keydown", ev => { if (ev.key === "Escape") { const dv = document.querySelector(".doc-view"); if (dv) dv.click(); sheet.hidden = true; $("#compareSheet").hidden = true; $("#shareSheet").hidden = true; } });
 $("#clearRecent").addEventListener("click", () => { store.set("recentPlates", []); toast("היסטוריית החיפושים נמחקה"); if (!current) renderHome(); });
-$("#clearSaved").addEventListener("click", () => { store.set("savedVehicles", []); toast("הרכבים השמורים נמחקו"); if (!current) renderHome(); });
+$("#clearSaved").addEventListener("click", () => { store.set("savedVehicles", []); toast("הרכבים שלי נמחקו"); if (!current) renderHome(); });
 $("#ver").textContent = APP_VERSION;
 /* in-app update (Google Play installs only): one quiet offer per version, plus a manual check in settings */
 let updManual = false;
@@ -3848,7 +4298,7 @@ syncBiz();
 function goHome(){ if (land) setLand(false, false); inCompare = false; renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} window.scrollTo({top: 0}); }
 $(".brand h1").addEventListener("click", goHome);
 $("#homeBtn").addEventListener("click", goHome);
-window.appBack = () => { if (!sheet.hidden) { sheet.hidden = true; return true; } if (!$("#compareSheet").hidden) { if (mGroup) stepBack(); else hideCmpSheet(); return true; } if (!$("#shareSheet").hidden) { $("#shareSheet").hidden = true; return true; } if (inCompare) { closeCompare(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} return true; } if (!$("#homeMark")) { renderHome(); window.scrollTo({top: 0}); return true; } return false; };
+window.appBack = () => { const dv = document.querySelector(".doc-view"); if (dv) { dv.click(); return true; } if (!sheet.hidden) { sheet.hidden = true; return true; } if (!$("#compareSheet").hidden) { if (mGroup) stepBack(); else hideCmpSheet(); return true; } if (!$("#shareSheet").hidden) { $("#shareSheet").hidden = true; return true; } if (inCompare) { closeCompare(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} return true; } if (!$("#homeMark")) { renderHome(); window.scrollTo({top: 0}); return true; } return false; };
 
 /* Text shared from another app (an ad, a message): find a plate number in it.
    Phone numbers, prices and mileage are skipped; a number next to the words רכב/רישוי/לוחית wins. */

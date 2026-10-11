@@ -337,9 +337,13 @@ public class MainActivity extends Activity {
 
             @JavascriptInterface
             public void openUrl(String url) {
+                // only web, phone, mail and map links: never intent:, file: or content: from the page
+                final Uri target = Uri.parse(url == null ? "" : url);
+                final String sch = target.getScheme();
+                if (sch == null || !("https".equals(sch) || "http".equals(sch) || "mailto".equals(sch) || "tel".equals(sch) || "geo".equals(sch))) return;
                 runOnUiThread(() -> {
                     try {
-                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                        startActivity(new Intent(Intent.ACTION_VIEW, target));
                     } catch (Exception ignored) {
                     }
                 });
