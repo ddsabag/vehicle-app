@@ -1612,7 +1612,7 @@ const isFirstHand = D => { const h = D.own.filter(r => !isDealerRec(r)); return 
 const ownersLabel = D => {
   const n = handsOf(D), dealer = D.own.some(isDealerRec);
   if (!n) return dealer ? "אצל סוחר" : "";
-  return `${D.ownersFloor ? "לפחות " : ""}יד ${HAND_ORD[n] || n}${dealer ? " · דרך סוחר" : ""}`;
+  return `${D.ownersFloor ? "לפחות " : ""}יד ${HAND_ORD[n] || n}`;
 };
 
 /* What changed since the car left the factory: structure, LPG, colour, tyre size */
