@@ -662,7 +662,7 @@ body.land .band{display:none}
       <button type="button" class="row" data-share="bizpdf" hidden><span class="badge-s green"><svg class="i"><use href="#i-doc"/></svg></span><span class="t"><b>PDF ממותג (PRO עסקי)</b><small>עם פרטי העסק שלכם, בלי לוגו ובלי קישור של לוחית</small></span></button>
       <button type="button" class="row" data-share="text"><span class="badge-s slate"><svg class="i"><use href="#i-copy"/></svg></span><span class="t"><b>טקסט</b><small>סיכום קצר בהודעה</small></span></button>
     </div>
-    <p class="note" id="shareMsg" role="status"></p>
+    <p class="note">הדוח כולל את מספר הרישוי והיסטוריית סוגי הבעלות (בלי שמות). שתפו אותו רק עם מי שצריך.</p><p class="note" id="shareMsg" role="status"></p>
   </div>
 </div>
 <div class="toast" id="toast" hidden role="status"></div>
@@ -1329,7 +1329,7 @@ async function fetchVehicle(plate, signal, onProgress){
     catch (err) { if (err.name === "AbortError") throw err; res[s.key] = {rows: [], err: err.message}; }
     if (onProgress) onProgress(++done / (PLATE_SETS.length + 1));
   }));
-  if (!res.owners.rows.length) { const m = await ownMirror(plate, signal); if (m.length) res.owners = {rows: m}; }
+  if (!res.owners.rows.length) { const m = await ownMirror(plate, signal); if (m.length) { res.owners = {rows: m}; res.ownMirror = true; } }
   const errs = PLATE_SETS.filter(s => res[s.key].err);
   const mains = PLATE_SETS.filter(s => s.role === "main" && res[s.key].rows.length);
   const extras = PLATE_SETS.filter(s => s.role === "extra" && res[s.key].rows.length);
@@ -1371,7 +1371,7 @@ async function fetchVehicle(plate, signal, onProgress){
   const onRoad = parseYM(v.moed_aliya_lakvish) || (isNum(v.shnat_yitzur) ? new Date(num(v.shnat_yitzur), 0, 1) : null);
   const ownersFloor = !onRoad || onRoad < new Date(2017, 0, 1); // the ownership log starts in January 2017
 
-  const D = {plate, v, w, towRow, zeroTow, tSrc, counts, price, priceRows, own, ownersFloor, recalls, modelRecalls, recallUnknown: !!res.recall.err, modelRecallsUnknown, tag, dpf, primary: mains[0], importKind: res.import.rows[0] ? String(res.import.rows[0].sug_yevu || "יבוא אישי").replace(/-/g, " · ") : null, errs, pick, make, model,
+  const D = {plate, v, w, towRow, zeroTow, tSrc, counts, price, priceRows, own, ownersFloor, recalls, modelRecalls, recallUnknown: !!res.recall.err, ownMirror: !!res.ownMirror, modelRecallsUnknown, tag, dpf, primary: mains[0], importKind: res.import.rows[0] ? String(res.import.rows[0].sug_yevu || "יבוא אישי").replace(/-/g, " · ") : null, errs, pick, make, model,
     title: [make, model].filter(Boolean).join(" ") || "רכב " + fmtPlate(plate),
     sub: [v.shnat_yitzur, pick(v.ramat_gimur, w.ramat_gimur), v.tzeva_rechev].filter(x => !empty(x)).join(" · "),
     vin: pick(v.misgeret, v.mispar_shilda, v.shilda), km, kmYears, kmPerYear,
@@ -1977,7 +1977,7 @@ function tabOverview(D){
   if (D.own.length) {
     html.push(card("היסטוריית בעלויות", "users", "violet",
       `${foLine}<ol class="timeline">${D.own.slice().reverse().map((r,i) => `<li><span class="dot"></span><time>${esc(fmtDate(r.baalut_dt))}</time><span>${esc(r.baalut || "")}${i === 0 ? `<span class="now">נוכחי</span>` : ""}</span></li>`).join("")}</ol>
-       <p class="note">${D.own.some(isDealerRec) ? "סוחר שמחזיק את הרכב למכירה לא נספר כיד. " : ""}${D.ownersFloor ? "יומן הבעלויות מתחיל בינואר 2017, ולכן ברכבים ותיקים יותר ייתכן שהיו בעלים נוספים לפני כן." : ""}</p>`,
+       <p class="note">${D.own.some(isDealerRec) ? "סוחר שמחזיק את הרכב למכירה לא נספר כיד. " : ""}${D.ownMirror ? "המאגר של המשרד לא החזיר בעלויות כרגע, והרשימה כאן מעותק יומי שלנו, ולכן ייתכן שבעלות שנרשמה היום חסרה. " : ""}${D.ownersFloor ? "יומן הבעלויות מתחיל בינואר 2017, ולכן ברכבים ותיקים יותר ייתכן שהיו בעלים נוספים לפני כן." : ""}</p>`,
       `<span class="count">${ownersLabel(D)}</span>`));
   } else if (!empty(v.baalut)) {
     const ownErr = D.errs && D.errs.some(x => x.key === "owners");
