@@ -2407,8 +2407,8 @@ const MODEL_SHOWN = 8, CUR_Y = new Date().getFullYear();
 // body-style and drive words split one car into several catalogue entries (COROLLA SDN HSD, COROLLA HSD SDN, COROLLA HEV);
 // for the buyer they are one model, and the drive type is chosen later by engine
 const NOISE_TOKENS = new Set(["HB", "H/B", "HATCHBACK", "SEDAN", "SDN", "SD", "SW", "S/W", "WAGON", "ESTATE", "STATION", "LIFTBACK", "TS", "TOURING", "SPORTS", "HSD", "HEV", "HYBRID", "HV", "PHEV", "PLUG-IN", "2D", "3D", "4D", "5D", "2DR", "3DR", "4DR", "5DR", "האצ'בק", "סדאן", "סטיישן", "היברידי"]);
-// generation / facelift / body suffixes (OCTAVIA FL, OCTAVIA IV, NEW OCTAVIA, OCTAVIA SPACE) are the same family for the buyer
-const GEN_TOKENS = new Set(["FL", "FACELIFT", "II", "III", "IV", "V", "VI", "VII", "VIII", "SPACE", "S", "COMBI", "KOMBI", "NEW", "החדש", "חדש"]);
+// generation / facelift / body suffixes (OCTAVIA FL, OCTAVIA IV, NEW OCTAVIA; COMBI / SPACE stay separate) are the same family for the buyer
+const GEN_TOKENS = new Set(["FL", "FACELIFT", "II", "III", "IV", "V", "VI", "VII", "VIII", "S", "NEW", "החדש", "חדש"]);
 const NOT_FAMILY = new Set(["MODEL", "CLASS", "SERIES", "TYPE"]);
 const normModel = m => {
   const toks = String(m || "").trim().toUpperCase().replace(/\s+/g, " ").split(" ");
