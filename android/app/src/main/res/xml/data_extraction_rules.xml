@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Auto Backup (Android 12 and above): cloud backup and device-to-device transfer, without the web view's caches -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="app_webview/Default/HTTP Cache" />
+        <exclude domain="root" path="app_webview/Default/Code Cache" />
+        <exclude domain="root" path="app_webview/Default/GPUCache" />
+        <exclude domain="root" path="app_webview/Default/Service Worker/CacheStorage" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" path="app_webview/Default/HTTP Cache" />
+        <exclude domain="root" path="app_webview/Default/Code Cache" />
+        <exclude domain="root" path="app_webview/Default/GPUCache" />
+        <exclude domain="root" path="app_webview/Default/Service Worker/CacheStorage" />
+    </device-transfer>
+</data-extraction-rules>
