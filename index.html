@@ -2524,10 +2524,10 @@ async function fetchModel(r, signal){
 
 /* ---------- comparison (up to 3 cars or models) ---------- */
 const isBiz = () => atLeast("biz");
-const cmpMax = () => isPro() ? PRO_CMP : FREE_CMP;
+const cmpMax = () => Math.min(isPro() ? PRO_CMP : FREE_CMP, matchMedia("(max-width:419px)").matches ? 3 : 99);   // narrow screens: more columns break the sticky header and the row labels
 let cmp = [], inCompare = false, mResults = [], mCtrl = null;
 function openCompare(){
-  loadModelIndex();
+  loadModelIndex(); loadModelStats().catch(() => null);
   $("#compareSheet").hidden = false; $("#compareMsg").textContent = "";
   $("#mq").value = ""; $("#mres").innerHTML = ""; mResults = []; mGroup = null; mYear = null; mShowAll = false;
   $("#cmpTitle").textContent = cmp.length ? `הוספת רכב ${cmp.length + 1} להשוואה` : "בחירת רכב להשוואה";
@@ -2812,7 +2812,8 @@ async function runCompare(raw){
 }
 function renderCompare(){
   inCompare = true;
-  if (!MSTATS) loadModelStats().then(j => { if (j && inCompare) renderCompare(); });
+  // late model counts re-draw once, in place: the scroll position is kept so nothing jumps
+  if (!MSTATS) loadModelStats().then(j => { if (j && inCompare) { const y = window.scrollY; renderCompare(); window.scrollTo(0, y); } });
   const L = cmp, n = L.length;
   const anyCar = L.some(D => D.kind !== "model");
   const N = x => x === null || x === undefined || x === "" || (typeof x === "number" && isNaN(x)) ? null : x;
@@ -2845,9 +2846,9 @@ function renderCompare(){
     ["עלות חודשית (הערכה)", D => D.cost.monthly ? D.cost.monthly.total : null, "lo", "₪"],
     ["מחיר מחירון כחדש", D => D.cost.newPrice || null, null, "₪"],
     ["שווי משוער היום", D => D.cost.valueLow ? Math.round((D.cost.valueLow + D.cost.valueHigh) / 2000) * 1000 : null, null, "₪"],
-    kmlUnit() ? ["ק״מ לליטר (הערכה)", D => D.cost.l100 ? Math.round(1000 / D.cost.l100) / 10 : null, "hi", "", true]
-              : ["ליטר ל-100 ק״מ (הערכה)", D => D.cost.l100 ? Math.round(D.cost.l100 * 10) / 10 : null, "lo", "", true],
-    ["קוט״ש ל-100 ק״מ (הערכה)", D => D.cost.kwh100 || null, "lo", "", true],
+    // one consumption row for every drive type (a petrol car has no kWh and an EV no litres), and one cost row in shekels that compares them fairly
+    ["צריכת אנרגיה (הערכה)", D => D.cost.kwh100 ? `${D.cost.kwh100} קוט״ש ל-100 ק״מ` : D.cost.l100 ? (kmlUnit() ? `${Math.round(1000 / D.cost.l100) / 10} ק״מ לליטר` : `${Math.round(D.cost.l100 * 10) / 10} ל׳ ל-100 ק״מ`) : null, null, "", true],
+    ["עלות אנרגיה ל-100 ק״מ (הערכה)", D => D.cost.fuelYear && D.cost.kmYear ? Math.round(D.cost.fuelYear / D.cost.kmYear * 1000) / 10 : null, "lo", "₪", true],
     [L.some(D => D.cost.kind === "ev") ? "דלק או חשמל בשנה (הערכה)" : "דלק בשנה (הערכה)", D => D.cost.fuelYear ? Math.round(D.cost.fuelYear / 100) * 100 : null, "lo", "₪"],
     ["אגרת רישוי (הערכה)", D => D.cost.fee || null, "lo", "₪"],
     ["שווי שימוש לחודש", D => D.cost.usage ? D.cost.usage.monthly : null, "lo", "₪"],
@@ -3974,12 +3975,13 @@ async function shareCompare(){
   if (navigator.share) { try { await navigator.share({title: "השוואת רכבים", text}); return; } catch (err) { if (err && err.name === "AbortError") return; } }
   copyText(text, "הקישור");
 }
+const cmpSkeleton = n => `<section class="card blue" aria-busy="true"><div class="skl" aria-hidden="true"><i class="s w50 h24"></i><div class="sr g4" style="grid-template-columns:repeat(${n},1fr)">${"<i class=\"s blk\"></i>".repeat(n)}</div>${"<i class=\"s w40\"></i><i class=\"s w90\"></i>".repeat(5)}</div></section>`;
 async function loadCompareLink(code){
   let items; try { items = JSON.parse(b64u.dec(code)).slice(0, cmpMax()); } catch { return false; }
   if (!Array.isArray(items) || !items.length) return false;
-  toast("טוען השוואה…");
+  $("#out").innerHTML = cmpSkeleton(Math.min(items.length, 3));
   try {
-    const res = await Promise.all(items.map(it => it.p ? fetchVehicle(digits(it.p)) : fetchModel(Object.fromEntries(CMP_KEYS.map((k, i) => [k, (it.m || [])[i]]).filter(e => e[1] !== "" && e[1] != null)))));
+    const [res] = await Promise.all([Promise.all(items.map(it => it.p ? fetchVehicle(digits(it.p)) : fetchModel(Object.fromEntries(CMP_KEYS.map((k, i) => [k, (it.m || [])[i]]).filter(e => e[1] !== "" && e[1] != null))))), loadModelStats().catch(() => null)]);
     cmp = res.filter(D => D && !D.notFound && !D.offline); if (!cmp.length) return false;
     renderCompare(); window.scrollTo({top: 0}); return true;
   } catch { return false; }
@@ -3988,7 +3990,7 @@ async function loadCompare(i){
   const e = store.get("savedCompares")[i]; if (!e) return;
   toast("טוען השוואה…");
   try {
-    const res = await Promise.all(e.items.map(it => it.plate ? fetchVehicle(it.plate) : fetchModel(it.model)));
+    const [res] = await Promise.all([Promise.all(e.items.map(it => it.plate ? fetchVehicle(it.plate) : fetchModel(it.model))), loadModelStats().catch(() => null)]);
     cmp = res.filter(D => D && !D.notFound && !D.offline); renderCompare(); window.scrollTo({top: 0});
   } catch { toast("לא הצלחנו לטעון את ההשוואה"); }
 }
