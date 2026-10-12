@@ -11,7 +11,7 @@ const CFRAG = /^(גרמנ|ד\.|קוריא|תאילנ|פורטוג|מקסי|ספ�
 const cleanMake = n => { const t = n.replace(/-/g, " ").split(/\s+/); return [t[0], ...t.slice(1).filter(x => !CFRAG.test(x))].join(" "); };
 // body-style and drive words split one model into several entries (COROLLA, COROLLA HSD SDN); merge them
 const NOISE = new Set(["HSD", "HEV", "HYBRID", "SDN", "SEDAN", "TS", "FL", "HB", "HATCHBACK", "SW"]);
-const normModel = m => { const t = m.toUpperCase().replace(/\s+/g, " ").split(" ").filter(x => !NOISE.has(x)); return (t.length ? t : [m]).join(" ").replace(/([A-Z]) (\d)/g, "$1$2").replace(/([A-Z])-(\d)/g, "$1$2"); };
+const normModel = m => { const t = m.replace(/^\.+/, "").replace(/\s+-\s+/g, "-").toUpperCase().replace(/\s+/g, " ").split(" ").filter(x => !NOISE.has(x)); return (t.length ? t : [m]).join(" ").replace(/([A-Z]) (\d)/g, "$1$2").replace(/([A-Z])-(\d)/g, "$1$2"); };
 const hebKey = m => m.replace(/\s+/g, "");
 const HEB = {"COROLLA": "קורולה", "PICANTO": "פיקנטו", "MAZDA 3": "מאזדה 3", "MAZDA 2": "מאזדה 2", "MAZDA 6": "מאזדה 6", "SPORTAGE": "ספורטאז׳", "OCTAVIA": "אוקטביה", "OUTLANDER": "אאוטלנדר", "TUCSON": "טוסון", "IBIZA": "איביזה", "FOCUS": "פוקוס", "QASHQAI": "קשקאי", "CIVIC": "סיוויק", "YARIS": "יאריס", "ATTO 3": "אטו 3", "SWIFT": "סוויפט", "MICRA": "מיקרה", "BERLINGO": "ברלינגו", "STONIC": "סטוניק", "GOLF": "גולף", "ARONA": "ארונה", "FABIA": "פביה", "NIRO": "נירו", "FORESTER": "פורסטר", "RIO": "ריו", "HILUX": "היילקס", "VITARA": "ויטרה", "KODIAQ": "קודיאק", "ACCENT": "אקסנט", "FORTE": "פורטה", "SELTOS": "סלטוס", "MEGANE": "מגאן", "MODEL 3": "מודל 3", "MODEL Y": "מודל Y", "CEED": "סיד", "JUKE": "ג׳וק", "X-TRAIL": "אקס-טרייל", "CLIO": "קליאו", "POLO": "פולו", "LANCER": "לנסר", "JAZZ": "ג׳אז", "ELANTRA": "אלנטרה", "SANTA FE": "סנטה פה", "KONA": "קונה", "LEON": "לאון", "ATECA": "אטקה", "SUPERB": "סופרב", "KAROQ": "קארוק", "KAMIQ": "קאמיק", "SORENTO": "סורנטו", "CORSA": "קורסה", "DUSTER": "דאסטר", "SENTRA": "סנטרה", "LAND CRUISER": "לנד קרוזר", "SPACE STAR": "ספייס סטאר", "ATTRAGE": "אטראז׳", "IONIQ": "איוניק", "SPARK": "ספארק", "TRAX": "טראקס", "PRIUS": "פריוס", "IGNIS": "איגניס", "GETZ": "גטס", "SONATA": "סונטה", "ECLIPSE CROSS": "אקליפס קרוס", "S-CROSS": "אס-קרוס", "COROLLA CROSS": "קורולה קרוס", "YARIS CROSS": "יאריס קרוס"};
 const HEBN = Object.fromEntries(Object.entries(HEB).map(([k, v]) => [hebKey(normModel(k)), v]));
@@ -32,14 +32,36 @@ for (const [key, v] of Object.entries(ms.m)) {
   if (v.total > e.big) { e.big = v.total; e.cd = cd; e.disp = raw.toUpperCase().replace(/\s+/g, " ").split(" ").filter(x => !NOISE.has(x)).join(" ") || raw; }
   e.total += v.total;
   for (const [yr, a] of Object.entries(v.y)) {
-    const t = e.y[yr] || (e.y[yr] = {act: 0, off: 0, kmw: 0, kmn: 0, ow: 0, own: 0});
+    const t = e.y[yr] || (e.y[yr] = {act: 0, off: 0, kmw: 0, kmn: 0, ow: 0, own: 0, rc: 0});
     t.act += a[0]; t.off += a[1];
     if (a[2]) { t.kmw += a[2] * a[0]; t.kmn += a[0]; }
     if (a[3]) { t.ow += a[3] * a[0]; t.own += a[0]; }
+    if (a[4]) t.rc += a[4] * a[0] / 1000;
   }
   g.set(k, e);
 }
 const models = [...g.values()].sort((a, b) => b.total - a.total).slice(0, N);
+// national yardsticks per vintage from every model (not only the pages built): off-road share, typical km, ownership records
+const NAT = {};
+for (const e of g.values()) for (const [yr, t] of Object.entries(e.y)) {
+  const n = NAT[yr] || (NAT[yr] = {act: 0, off: 0, kmw: 0, kmn: 0, ow: 0, own: 0});
+  n.act += t.act; n.off += t.off; n.kmw += t.kmw; n.kmn += t.kmn; n.ow += t.ow; n.own += t.own;
+}
+// new-car deliveries by model (market.json); matched by first word of the maker + normalised model
+const MK = JSON.parse(fs.readFileSync("market.json", "utf8"));
+const mkKeys = Object.keys(MK.months).sort(), lastKey = mkKeys[mkKeys.length - 1];
+const ymAdd = (k, d) => { let y = Number(k.slice(0, 4)), m = Number(k.slice(4)) + d; y += Math.floor((m - 1) / 12); m = ((m - 1) % 12 + 12) % 12 + 1; return String(y) + String(m).padStart(2, "0"); };
+const sumRange = (obj, from, to) => Object.entries(obj).filter(([k]) => k >= from && k <= to).reduce((a, [, v]) => a + v, 0);
+const deliv = new Map();
+for (const [k, v] of Object.entries(MK.models)) {
+  const [mk, md] = k.split("|"), key = mk.split(" ")[0] + "|" + normModel(md || ""), t = deliv.get(key) || {};
+  for (const [ym, n] of Object.entries(v)) t[ym] = (t[ym] || 0) + n;   // body-style and drive variants fold into one model
+  deliv.set(key, t);
+}
+const MKLAST = lastKey || "";
+// "x% fewer / more than the average for the same vintages"
+const relText = (r, unit) => { if (r === null) return ""; const d = Math.round((r - 1) * 100); return Math.abs(d) < 5 ? `בקירוב כמו הממוצע ${unit}` : `${Math.abs(d)}% ${d < 0 ? "פחות" : "יותר"} מהממוצע ${unit}`; };
+const weighted = (rows, f, nat) => { let a = 0, b = 0; for (const r of rows) { const v = f(r), n = nat(NAT[r.yr]); if (v && n) { a += r.act * v; b += r.act * n; } } return b ? a / b : null; };
 const slugOf = m => (m.model.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "model") + "-" + m.cd;
 const css = `:root{--bg:#f4f6fa;--card:#fff;--fg:#151a24;--muted:#5d6676;--line:#dfe4ec;--accent:#2a56c6;--plate:#f5c400}@media(prefers-color-scheme:dark){:root{--bg:#0e121a;--card:#171d28;--fg:#e9edf3;--muted:#98a2b4;--line:#262e3c;--accent:#7c9cf0}}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 system-ui,"Segoe UI",Arial,sans-serif;direction:rtl}main{max-width:720px;margin:0 auto;padding:20px 16px 48px}
@@ -47,12 +69,15 @@ h1{font-size:1.45rem;margin:0 0 6px;line-height:1.3}h1::after{content:"";display
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:12px 0}.muted{color:var(--muted);font-size:.9rem}
 .cta{display:inline-block;background:var(--accent);color:#fff;border-radius:10px;padding:10px 18px;font-weight:700;text-decoration:none}a{color:var(--accent)}
 .wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:.92rem}th,td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:right}th{color:var(--muted);font-weight:600}td.n,th.n{text-align:left;font-variant-numeric:tabular-nums}
-header.top{background:linear-gradient(180deg,#e2ecfd,#fff);border-bottom:1px solid var(--line)}header.top .in{max-width:720px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}header.top .brand{display:flex;align-items:center;gap:10px;color:#151a24;text-decoration:none}header.top img{border-radius:10px}header.top .nm{display:flex;flex-direction:column;line-height:1.15}header.top b{font-size:1.45rem;font-weight:800}header.top small{font-size:.78rem;font-weight:600;color:#5d6676}header.top .chk{background:#2556c8;color:#fff;border-radius:10px;padding:9px 14px;font-weight:700;font-size:.9rem;text-decoration:none;white-space:nowrap}@media(prefers-color-scheme:dark){header.top{background:linear-gradient(180deg,#182338,#121722)}header.top .brand{color:#fff}header.top small{color:#8d98ad}}
-ul.l{columns:2;list-style:none;padding:0}ul.l li{break-inside:avoid;padding:3px 0}.top{font-weight:800;text-decoration:none;color:var(--fg)}`;
-const head = (title, desc, url) => `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><meta name="description" content="${esc(desc)}"><link rel="canonical" href="${url}"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:image" content="${SITE}og.png"><meta property="og:locale" content="he_IL"><link rel="icon" href="${SITE}icon-512.png"><style>${css}</style></head><body><header class="top"><div class="in"><a class="brand" href="${SITE}"><img src="${SITE}icon-512.png" alt="" width="44" height="44"><span class="nm"><b>לוחית</b><small>בדיקת רכב לפי מספר רישוי</small></span></a><a class="chk" href="${SITE}">לבדיקת רכב</a></div></header><main>`;
+ul.g{padding-inline-start:20px;margin:8px 0}ul.g li{margin:6px 0}header.top{background:linear-gradient(180deg,#e2ecfd,#fff);border-bottom:1px solid var(--line)}header.top .in{max-width:720px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}header.top .brand{display:flex;align-items:center;gap:10px;color:#151a24;text-decoration:none}header.top img{border-radius:10px}header.top .nm{display:flex;flex-direction:column;line-height:1.15}header.top b{font-size:1.45rem;font-weight:800}header.top small{font-size:.78rem;font-weight:600;color:#5d6676}header.top .chk{background:#2556c8;color:#fff;border-radius:10px;padding:9px 14px;font-weight:700;font-size:.9rem;text-decoration:none;white-space:nowrap}@media(prefers-color-scheme:dark){header.top{background:linear-gradient(180deg,#182338,#121722)}header.top .brand{color:#fff}header.top small{color:#8d98ad}}
+p.gp{margin:0;padding:6px 16px;text-align:center;font-size:.82rem;background:var(--card);border-bottom:1px solid var(--line)}p.gp a{color:var(--muted);text-decoration:none}p.gp a:hover{text-decoration:underline}ul.l{columns:2;list-style:none;padding:0}ul.l li{break-inside:avoid;padding:3px 0}.top{font-weight:800;text-decoration:none;color:var(--fg)}`;
+const PLAY = "https://play.google.com/store/apps/details?id=com.ddsabag.pratirechev";
+const head = (title, desc, url, type = "website") => `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><meta name="description" content="${esc(desc)}"><link rel="canonical" href="${url}"><meta property="og:type" content="${type}"><meta property="og:site_name" content="לוחית"><meta property="og:url" content="${url}"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:image" content="${SITE}og.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="לוחית, בדיקת רכב לפי מספר"><meta property="og:locale" content="he_IL"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(title)}"><meta name="twitter:description" content="${esc(desc)}"><meta name="twitter:image" content="${SITE}og.png"><meta name="theme-color" content="#ffffff"><link rel="manifest" href="${SITE}manifest.json"><link rel="apple-touch-icon" href="${SITE}apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="לוחית"><meta name="apple-mobile-web-app-status-bar-style" content="default"><link rel="icon" href="${SITE}icon-512.png"><style>${css}</style></head><body><header class="top"><div class="in"><a class="brand" href="${SITE}"><img src="${SITE}icon-512.png" alt="" width="44" height="44"><span class="nm"><b>לוחית</b><small>בדיקת רכב לפי מספר רישוי</small></span></a><a class="chk" href="${SITE}">לבדיקת רכב</a></div></header><p class="gp"><a href="${PLAY}" rel="noopener">באפליקציה: התראות על ריקול וטסט · <bdi>Google Play</bdi></a></p><main>`;
 const foot = `<p class="muted" style="margin-top:28px">המידע מגיע ממאגרים פתוחים של משרד התחבורה ב-data.gov.il, ואינו מחליף נסח רישום רשמי או בדיקה במכון מורשה. האפליקציה אינה קשורה למשרד התחבורה. <a href="${SITE}magazine/">מגזין</a> · <a href="${SITE}guide/buy-used-car/">מדריך לקונה</a> · <a href="${SITE}privacy.html">מדיניות פרטיות</a></p></main></body></html>`;
 fs.rmSync("model", {recursive: true, force: true}); fs.mkdirSync("model", {recursive: true});
+const MOD = ms.updated ? String(ms.updated).slice(0, 10) : "", lastmod = {};
 const urls = [SITE, SITE + "privacy.html", SITE + "model/"], slugMap = {};
+if (MOD) lastmod[SITE + "model/"] = MOD;
 for (const m of models) {
   const years = Object.keys(m.y).sort();
   const rows = years.map(yr => { const t = m.y[yr]; return {yr, act: t.act, off: t.off, km: t.kmn ? t.kmw / t.kmn : null, ow: t.own ? t.ow / t.own : null}; });
@@ -63,6 +88,35 @@ for (const m of models) {
   const url = `${SITE}model/${slugOf(m)}/`, title = `${name}: כמה רכבים על הכביש, ק״מ ושנתונים | לוחית`;
   const desc = `${name} בישראל לפי נתוני משרד התחבורה: ${fmt(act)} רכבים פעילים בשנתונים ${lo}–${hi}, ק״מ טיפוסי לפי שנתון וכמה ירדו מהכביש. בדיקת רכב לפי מספר רישוי.`;
   const stl = stlFor(m.make, m.model, years.map(Number));
+  const expOff = rows.reduce((s, r) => { const n = NAT[r.yr]; return s + (n && n.act + n.off ? (r.act + r.off) * n.off / (n.act + n.off) : 0); }, 0);
+  const offRel = expOff >= 30 ? off / expOff : null, offPct = act + off ? off / (act + off) * 100 : 0;
+  const kmRel = weighted(rows, r => r.km, n => n && n.kmn ? n.kmw / n.kmn : 0), owRel = weighted(rows, r => r.ow, n => n && n.own ? n.ow / n.own : 0);
+  const rc = years.reduce((s, y) => s + m.y[y].rc, 0), rcPer = act ? rc / act * 1000 : 0;
+  const dv = deliv.get(m.make.split(" ")[0] + "|" + m.model);
+  let d12 = 0, p12 = 0; if (dv && lastKey) { d12 = sumRange(dv, ymAdd(lastKey, -11), lastKey); p12 = sumRange(dv, ymAdd(lastKey, -23), ymAdd(lastKey, -12)); }
+  const prs = cr.filter(r => r[4] > 0 && r[3] >= Number(hi) - 1).map(r => r[4]);
+  const kmRows = rows.filter(r => r.km), kmRef = kmRows.filter(r => Number(r.yr) <= 2021).pop() || kmRows[0];
+  const peakRow = rows.reduce((a, b) => b.act > a.act ? b : a);
+  const facts = [
+    `<b>${fmt(act)}</b> רכבים פעילים ו-<b>${fmt(off)}</b> שירדו מהכביש (${offPct.toFixed(1)}% מכל מה שנרשם) בשנתונים ${lo} עד ${hi}. השנתון הנפוץ ביותר הוא ${peakRow.yr} עם ${fmt(peakRow.act)} רכבים.`,
+    offRel === null ? "" : `שיעור הירידה מהכביש הוא ${relText(offRel, "בשנתונים המקבילים")}. ההשוואה נעשית שנתון מול שנתון, כדי שדגם ותיק לא ייראה גרוע רק בגלל גילו.`,
+    kmRel === null ? "" : `הק״מ הטיפוסי בטסט האחרון הוא ${relText(kmRel, "של רכבים מאותם שנתונים")}.`,
+    owRel === null ? "" : `מספר רשומות הבעלות לרכב הוא ${relText(owRel, "בשנתונים המקבילים")}. הנתון כולל גם העברות בין חברות ליסינג וסוחרים.`,
+    rcPer > 0 ? `לדגם יש כ-${rcPer.toFixed(0)} ריקולים רשומים לכל 1,000 רכבים פעילים (לפי מאגר הריקולים של משרד התחבורה, לפי התאמת דגם ושנתון).` : "",
+    d12 >= 50 ? `מכירות רכב חדש: ${fmt(d12)} רכבים ב-12 החודשים שעד ${MKLAST.slice(4)}/${MKLAST.slice(0, 4)}${p12 >= 50 ? `, ${Math.abs(Math.round((d12 / p12 - 1) * 100)) < 3 ? "בלי שינוי משמעותי" : (d12 > p12 ? "עלייה" : "ירידה") + " של " + Math.abs(Math.round((d12 / p12 - 1) * 100)) + "%"} לעומת 12 החודשים שלפניהם` : ""}.` : "",
+    prs.length && Number(hi) >= 2023 ? `מחירון משרד התחבורה לגרסאות עדכניות בקטלוג: ${Math.min(...prs) === Math.max(...prs) ? fmt(prs[0] * 1000) : fmt(Math.min(...prs) * 1000) + " עד " + fmt(Math.max(...prs) * 1000)} ₪ (${cr.length === 1 ? "גרסה אחת" : cr.length + " גרסאות"} בקטלוג בסך הכול).` : ""
+  ].filter(Boolean);
+  const sibs = models.filter(o => o.make === m.make && o !== m).slice(0, 6);
+  const faq = [
+    [`כמה רכבים מדגם ${name} יש בישראל?`, `לפי מאגרי משרד התחבורה כ-${fmt(act)} רכבים פעילים בשנתונים ${lo} עד ${hi}. השנתון הנפוץ ביותר הוא ${peakRow.yr}.`],
+    kmRef ? [`מה הק״מ הטיפוסי של ${name}?`, `בשנתון ${kmRef.yr} הק״מ הטיפוסי בטסט האחרון הוא כ-${fmt(Math.round(kmRef.km / 1000) * 1000)}.`] : null,
+    [`כמה רכבים מדגם ${name} ירדו מהכביש?`, `${fmt(off)} רכבים, שהם ${offPct.toFixed(1)}% מכל הרכבים שנרשמו בשנתונים ${lo} עד ${hi}${offRel === null ? "" : `, ${relText(offRel, "בשנתונים המקבילים")}`}.`]
+  ].filter(Boolean);
+  const extra = `<h2>${esc(name)} במספרים</h2><ul class="g">${facts.map(f => `<li>${f}</li>`).join("")}</ul>${sibs.length ? `<h2>עוד דגמים של ${esc(m.make)}</h2><p>${sibs.map(o => `<a href="${SITE}model/${slugOf(o)}/">${esc(o.disp)}</a>`).join(" · ")}</p>` : ""}<h2>שאלות נפוצות</h2>${faq.map(([q, a]) => `<div class="card"><b>${esc(q)}</b><p style="margin:6px 0 0">${esc(a.replace(/<[^>]+>/g, ""))}</p></div>`).join("")}\n`;
+  const ld = {"@context": "https://schema.org", "@graph": [
+    {"@type": "Dataset", name: `${name}: רכבים פעילים, ק״מ וירידה מהכביש לפי שנתון`, description: desc, url, inLanguage: "he", isBasedOn: "https://data.gov.il/", temporalCoverage: `${lo}/${hi}`, creator: {"@type": "Organization", name: "לוחית", url: SITE}, variableMeasured: ["רכבים פעילים", "רכבים שירדו מהכביש", "ק״מ טיפוסי בטסט האחרון", "רשומות בעלות לרכב"]},
+    {"@type": "BreadcrumbList", itemListElement: [{"@type": "ListItem", position: 1, name: "לוחית", item: SITE}, {"@type": "ListItem", position: 2, name: "כל הדגמים", item: SITE + "model/"}, {"@type": "ListItem", position: 3, name}]},
+    {"@type": "FAQPage", mainEntity: faq.map(([q, a]) => ({"@type": "Question", name: q, acceptedAnswer: {"@type": "Answer", text: a}}))}]};
   const peak = rows.reduce((a, b) => b.act > a.act ? b : a);
   const body = `${head(title, desc, url)}<p class="muted"><a href="${SITE}model/">כל הדגמים</a> › ${esc(m.make)}</p><h1>${esc(name)}</h1>
 <p>לפי מאגרי משרד התחבורה יש בישראל כ-${fmt(act)} רכבים פעילים מדגם ${esc(name)} בשנתונים ${lo} עד ${hi}.${bodies.length ? ` סוגי מרכב בקטלוג: ${bodies.map(esc).join(", ")}.` : ""} השנתון הנפוץ ביותר הוא ${peak.yr} (${fmt(peak.act)} רכבים).</p>
@@ -70,10 +124,10 @@ for (const m of models) {
 <h2>רכבים פעילים וקילומטראז׳ לפי שנתון</h2><div class="wrap"><table><thead><tr><th>שנתון</th><th class="n">פעילים</th><th class="n">ירדו מהכביש</th><th class="n">ק״מ טיפוסי</th><th class="n">רשומות בעלות לרכב</th></tr></thead><tbody>
 ${rows.slice().reverse().map(r => `<tr><td>${r.yr}</td><td class="n">${fmt(r.act)}</td><td class="n">${fmt(r.off)}</td><td class="n">${r.km ? fmt(r.km) : "–"}</td><td class="n">${r.ow ? r.ow.toFixed(1) : "–"}</td></tr>`).join("\n")}
 </tbody></table></div><p class="muted">הק״מ הטיפוסי הוא הממוצע בטסט האחרון של רכבים מהשנתון, ומוצג רק כשיש מספיק נתונים. רשומות בעלות כוללות גם מעברים בין חברות ליסינג וסוחרים, ולכן אינן בהכרח מספר בעלים פרטיים. סה״כ ירדו מהכביש ${fmt(off)} רכבים מהדגם בשנתונים האלה.</p>
-${stl.length ? `<h2>הסדרי פשרה שעשויים לחול על ${esc(name)}</h2><p class="muted">לפי הודעות היבואנים והעיתונות נכון ל-10/2026. הזכאות תלויה בשנתון, בגרסה ולפעמים במספר שלדה, והרשימה אינה מקיפה ואינה ייעוץ משפטי. לבדיקה לפי מספר רישוי השתמשו באפליקציה.</p>${stl.map(t => `<div class="card"><b>${esc(t.t)}</b> <span class="muted">${t.st === "ok" ? "אושר" : "ממתין לאישור בית המשפט"}</span><p style="margin:6px 0 0">${esc(t.b)}</p><p class="muted" style="margin:6px 0 0">${esc(t.cond)}</p></div>`).join("")}` : ""}<h2>לפני שקונים ${esc(name)}</h2><p>בדקו את הרכב הספציפי לפי מספר רישוי: ריקול פתוח, תוקף טסט, קילומטראז׳ לאורך השנים והיסטוריית בעלויות, והשוו למחיר ביד שנייה.</p>
-<p><a class="cta" href="${SITE}">בדיקת רכב בלוחית</a></p>${foot}`;
+${extra}${stl.length ? `<h2>הסדרי פשרה שעשויים לחול על ${esc(name)}</h2><p class="muted">לפי הודעות היבואנים והעיתונות נכון ל-10/2026. הזכאות תלויה בשנתון, בגרסה ולפעמים במספר שלדה, והרשימה אינה מקיפה ואינה ייעוץ משפטי. לבדיקה לפי מספר רישוי השתמשו באפליקציה.</p>${stl.map(t => `<div class="card"><b>${esc(t.t)}</b> <span class="muted">${t.st === "ok" ? "אושר" : "ממתין לאישור בית המשפט"}</span><p style="margin:6px 0 0">${esc(t.b)}</p><p class="muted" style="margin:6px 0 0">${esc(t.cond)}</p></div>`).join("")}` : ""}<h2>לפני שקונים ${esc(name)}</h2><p>בדקו את הרכב הספציפי לפי מספר רישוי: ריקול פתוח, תוקף טסט, קילומטראז׳ לאורך השנים והיסטוריית בעלויות, והשוו למחיר ביד שנייה.</p>
+<p><a class="cta" href="${SITE}">בדיקת רכב בלוחית</a></p>${foot.replace("</main></body></html>", "</main>" + `<script type="application/ld+json">${JSON.stringify(ld)}</script>` + "</body></html>")}`;
   fs.mkdirSync(`model/${slugOf(m)}`, {recursive: true}); fs.writeFileSync(`model/${slugOf(m)}/index.html`, body);
-  urls.push(url); m.slug = slugOf(m); m.act = act; slugMap[m.make + "|" + m.model] = m.slug;
+  urls.push(url); if (MOD) lastmod[url] = MOD; m.slug = slugOf(m); m.act = act; slugMap[m.make + "|" + m.model] = m.slug;
 }
 const by = new Map(); for (const m of models) (by.get(m.make) || by.set(m.make, []).get(m.make)).push(m);
 const idx = `${head("דגמי רכב בישראל לפי נתוני משרד התחבורה | לוחית", "רשימת הדגמים הנפוצים בישראל עם מספר הרכבים הפעילים, ק״מ ושנתונים, לפי מאגרי משרד התחבורה.", SITE + "model/")}<h1>הדגמים הנפוצים בישראל</h1><p class="muted">לפי מספר הרכבים הפעילים במאגרי משרד התחבורה.</p>
@@ -141,6 +195,6 @@ ${sections.map(([h, t]) => `<h2>${h}</h2>${t}`).join("")}
   urls.push(url);
 }
 // the monthly magazine (magazine.mjs) keeps its own pages; keep them in the sitemap
-try { const posts = JSON.parse(fs.readFileSync("magazine/posts.json", "utf8")); urls.push(SITE + "magazine/", ...posts.map(p => `${SITE}magazine/${p.slug}/`)); } catch {}
-fs.writeFileSync("sitemap.xml", `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}\n</urlset>\n`);
+try { const posts = JSON.parse(fs.readFileSync("magazine/posts.json", "utf8")); urls.push(SITE + "magazine/", ...posts.map(p => `${SITE}magazine/${p.slug}/`)); for (const p of posts) if (p.date) lastmod[`${SITE}magazine/${p.slug}/`] = p.date; if (posts[0] && posts[0].date) lastmod[SITE + "magazine/"] = posts[0].date; } catch {}
+fs.writeFileSync("sitemap.xml", `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(u => `  <url><loc>${u}</loc>${lastmod[u] ? `<lastmod>${lastmod[u]}</lastmod>` : ""}</url>`).join("\n")}\n</urlset>\n`);
 console.log("pages", models.length, "sitemap urls", urls.length);

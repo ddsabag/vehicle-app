@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.ddsabag.pratirechev",
+    "sha256_cert_fingerprints": ["15:09:75:02:08:EF:7E:DE:A3:A7:F2:2A:AD:D2:1F:BD:92:17:E6:AE:87:FE:37:DC:55:9D:D2:7C:F4:28:12:8E"]
+  }
+}]

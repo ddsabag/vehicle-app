@@ -9,6 +9,11 @@
 <meta name="description" content="בדיקת רכב יד שנייה לפי מספר רישוי, בחינם: כמה ידיים, ריקולים, טסט, ק״מ ושווי משוער, ממאגרי משרד התחבורה.">
 <link rel="canonical" href="https://luchit.app/">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="לוחית">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="לוחית">
 <meta property="og:locale" content="he_IL">
@@ -29,9 +34,14 @@
   if (c === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", c);
 })();
 </script>
+<link rel="preconnect" href="https://data.gov.il" crossorigin>
+<link rel="dns-prefetch" href="https://data.gov.il">
+<link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin>
+<link rel="dns-prefetch" href="https://raw.githubusercontent.com">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap"></noscript>
 <style>
 /* Layout: an app screen. White header with the yellow plate search; below it a column of cards,
    each topic with its own colour so the page is easy to scan. */
@@ -264,6 +274,7 @@ footer{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:4px 24px;
 .appbox ul{margin:0 0 12px;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;font-size:.88rem}
 .appbox li::before{content:"\2713";color:var(--ok,#1f7a3f);font-weight:800;margin-inline-end:8px}
 .appbox .btn{display:block;width:100%;text-align:center;background:#111;color:#fff;border:0;border-radius:12px;padding:12px;font-weight:700;font-size:.92rem;min-height:44px}
+.webcta{display:block;width:100%;border:0;background:none;color:var(--muted);font:inherit;font-size:.82rem;text-align:center;padding:6px 8px;margin:0 0 6px;min-height:44px;cursor:pointer}.webcta b{color:var(--accent);font-weight:700}
 .apphint{display:flex;gap:10px;align-items:center;width:100%;border:0;text-align:start;background:#FFF8DC;color:var(--fg);border-radius:12px;padding:10px 12px;font-size:.86rem;margin:0 0 10px;min-height:44px}
 .apphint b{white-space:nowrap}.apphint .gox{margin-inline-start:auto;color:var(--accent,#2556c8);font-weight:700;white-space:nowrap}
 .src-foot{order:100}
@@ -674,7 +685,7 @@ body.land .band{display:none}
 <script>
 "use strict";
 /*! © 2026 Dudu Sabag. All rights reserved. */
-const APP_VERSION = "1.22";
+const APP_VERSION = "1.23";
 const SITE = "https://luchit.app/";
 /* PRO: while PRO_LOCK is false (beta) every feature is open to everyone. Later it is tied to a Google Play subscription. */
 const PRO_LOCK = false;
@@ -2784,6 +2795,7 @@ async function runCompare(raw){
 }
 function renderCompare(){
   inCompare = true;
+  if (!MSTATS) loadModelStats().then(j => { if (j && inCompare) renderCompare(); });
   const L = cmp, n = L.length;
   const anyCar = L.some(D => D.kind !== "model");
   const N = x => x === null || x === undefined || x === "" || (typeof x === "number" && isNaN(x)) ? null : x;
@@ -2824,8 +2836,8 @@ function renderCompare(){
     ["שווי שימוש לחודש", D => D.cost.usage ? D.cost.usage.monthly : null, "lo", "₪"],
     "אמינות",
     ["ריקולים לדגם", D => D.modelRecalls.filter(r => r.fits !== false).length, "lo"],
-    ["רכבים כאלה על הכביש", D => D.cost.active || null, null, ""],
-    ["ירדו מהכביש", D => D.cost.gonePct === null || D.cost.gonePct === undefined ? null : Math.round(D.cost.gonePct * 10) / 10, "lo", "%", true],
+    ["רכבים מהדגם והשנתון על הכביש", D => { const p = msPop(D); return p ? p.n : null; }, null, ""],
+    ["ירדו מהכביש (כל הדגם והשנתון)", D => { const p = msPop(D); return p ? Math.round(p.pct * 10) / 10 : null; }, "lo", "%", true],
     ...(anyCar ? ["הרכב הספציפי",
       ["ק״מ בטסט האחרון", D => D.km, "lo", "", false, true],
       ["ק״מ לשנה", D => D.kmPerYear, "lo", "", false, true],
@@ -3776,7 +3788,9 @@ function loadModelStats(){
 const msKey = D => D && D.v && D.v.tozeret_cd && D.v.kinuy_mishari ? D.v.tozeret_cd + "|" + String(D.v.kinuy_mishari).trim().toUpperCase() : null;
 function msCohort(D){
   if (!MSTATS || D.kind === "model") return null;
-  const k = msKey(D), y = num(D.v.shnat_yitzur), m = k && MSTATS.m[k], row = m && y && m.y[y];
+  const t = msFold(D), y = num(D.v.shnat_yitzur);
+  if (t && t.n + t.c >= POP_MIN) return {n: t.n, c: t.c, km: t.kW ? t.kS / t.kW : null, own: t.oW ? t.oS / t.oW : null, rec: t.n ? t.rS / t.n : 0, year: y};
+  const k = msKey(D), m = k && MSTATS.m[k], row = m && y && m.y[y];
   return row ? {n: row[0], c: row[1], km: row[2], own: row[3], rec: row[4], year: y} : null;
 }
 function msYearAvg(y){
@@ -3787,6 +3801,32 @@ function msYearAvg(y){
   for (const m of Object.values(MSTATS.m)) { const r = m.y[y]; if (!r) continue; n += r[0]; c += r[1]; rs += r[4] * r[0]; rn += r[0]; if (r[3] != null) { os += r[3] * r[0]; on += r[0]; } }
   return MSTATS._avg[y] = n ? {off: c / (n + c), rec: rn ? rs / rn : 0, own: on ? os / on : null} : null;
 }
+/* Cars of one model and production year across every factory country and technical variant (the ministry's count
+   dataset is split per variant, so one trim of a new model can show a handful of cars; model names are folded with normModel). Maker = first word of the
+   name, because the registry appends the factory country ("טויוטה יפן", "קיה ד. קוריאה"). */
+function msFold(D){
+  if (!MSTATS || !D || !D.v) return null;
+  const mk = String(D.v.tozeret_nm || D.make || "").trim().split(/\s+/)[0], md = normModel(D.v.kinuy_mishari), y = num(D.v.shnat_yitzur);
+  if (!mk || !md || !y) return null;
+  if (!MSTATS._pop) {
+    MSTATS._pop = {};
+    for (const [k, m] of Object.entries(MSTATS.m)) {
+      const key = String(m.name || "").trim().split(/\s+/)[0] + "|" + normModel(k.slice(k.indexOf("|") + 1));
+      for (const [yy, r] of Object.entries(m.y)) {
+        const t = (MSTATS._pop[key + "|" + yy] ||= {n: 0, c: 0, kS: 0, kW: 0, oS: 0, oW: 0, rS: 0});
+        t.n += r[0]; t.c += r[1]; t.rS += r[4] * r[0];
+        if (r[2] != null) { t.kS += r[2] * r[0]; t.kW += r[0]; }
+        if (r[3] != null) { t.oS += r[3] * r[0]; t.oW += r[0]; }
+      }
+    }
+  }
+  return MSTATS._pop[mk + "|" + md + "|" + y] || null;
+}
+function msPop(D){
+  const t = msFold(D);
+  return t && t.n + t.c >= POP_MIN ? {n: t.n, c: t.c, pct: t.c / (t.n + t.c) * 100} : null;
+}
+const POP_MIN = 100;   // fewer cars than this: a percentage means nothing, show a dash
 function msCard(D){
   const c = msCohort(D); if (!c) return "";
   const avg = msYearAvg(c.year), rows = [], pc = x => (x * 100).toFixed(x < .1 ? 1 : 0) + "%";
@@ -4142,6 +4182,7 @@ function renderHome(){
   current = null; inCompare = false;
   const saved = store.get("savedVehicles"), recent = store.get("recentPlates");
   const html = [];
+  if (!window.AndroidApp) html.push(`<button type="button" class="webcta" data-url="${PLAY_URL}" data-hint="home-top">באפליקציה: התראות על ריקול וטסט · <b><bdi>Google Play</bdi></b></button>`);
   if (!saved.length && !recent.length) html.push(`<section class="hero"><h2>לפני שקונים רכב, בודקים אותו כאן</h2><p>מספר רישוי אחד: ריקולים, בעלים, ק״מ ומחיר משוער, בשניות.</p>
     <div class="try"><span>רוצים לראות איך זה נראה?</span><button type="button" class="chip" data-open="${EXAMPLE_PLATE}">נסו לדוגמה <bdi dir="ltr">${fmtPlate(EXAMPLE_PLATE)}</bdi></button></div>
     <ol class="how"><li><b>מקלידים מספר רישוי</b> או מצלמים את הלוחית.</li><li><b>מקבלים תמונה מלאה</b> מנתוני משרד התחבורה: ריקולים והסדרי פשרה, טסט, בעלויות ומחיר משוער.</li><li><b>שומרים ומשתפים</b>, ומקבלים התראה על ריקול חדש או טסט שעומד לפוג.</li></ol></section>`);
@@ -4436,6 +4477,10 @@ try { if (window.AndroidApp && window.AndroidApp.setAnalytics) window.AndroidApp
 /* web: Cloudflare Web Analytics (page views only, no cookies, no personal data); the token is added when the site is registered there */
 const CF_BEACON_TOKEN = '9bb0e756882c478a808d95596e0deade';
 if (CF_BEACON_TOKEN && !window.AndroidApp && analyticsOn()) { const sc = document.createElement("script"); sc.defer = true; sc.src = "https://static.cloudflareinsights.com/beacon.min.js"; sc.setAttribute("data-cf-beacon", JSON.stringify({token: CF_BEACON_TOKEN})); document.head.appendChild(sc); }
+/* offline app shell, web only (the Android app already ships its files); a new release replaces the old cache when sw.js changes */
+if (!window.AndroidApp && "serviceWorker" in navigator && window.isSecureContext) {
+  window.addEventListener("load", () => { navigator.serviceWorker.register("/sw.js").then(r => r.update()).catch(() => {}); });
+}
 const start = digits(location.hash) || digits(new URLSearchParams(location.search).get("plate"));
 const cmpParam = new URLSearchParams(location.search).get("cmp");
 if (cmpParam) loadCompareLink(cmpParam).then(ok => { if (!ok) renderHome(); }); else if (start) run(start); else renderHome();
