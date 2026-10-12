@@ -101,7 +101,7 @@ svg.i{width:20px;height:20px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-
 .brand h1 .name{display:flex;flex-direction:column;line-height:1.1;align-items:flex-start}
 .brand h1 small{font-size:.78rem;font-weight:600;color:var(--band-muted);direction:rtl}
 .brand .logo{width:40px;height:40px;flex:0 0 auto}
-.brand h1{cursor:pointer;-webkit-user-select:none;user-select:none}
+.brand h1{cursor:pointer;-webkit-user-select:none;user-select:none}.brand h1 .brand-link{display:flex;align-items:center;gap:8px;color:inherit;text-decoration:none;border-radius:10px}
 .brand-r{display:flex;align-items:center;gap:8px}.home-btn{white-space:nowrap;display:flex;align-items:center;gap:6px;height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--band-line);background:transparent;font-weight:700;color:var(--band-fg)}.home-btn[hidden]{display:none}
 .icon-btn{width:44px;height:44px;border-radius:10px;border:1px solid var(--band-line);background:transparent;display:grid;place-items:center}
 form{display:flex;gap:10px}
@@ -144,7 +144,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 @media (prefers-reduced-motion:reduce){.plate-strip{transition:none}}
 #out .id-card .mini-plate{display:none}   /* the plate is already in the search field above; the shared report keeps it */
 .id-top{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}.id-top>div{min-width:0}
-.id-title{margin:0;font-size:1.6rem;font-weight:800;line-height:1.2;text-wrap:balance}
+.id-title:focus{outline:none}.id-title{margin:0;font-size:1.6rem;font-weight:800;line-height:1.2;text-wrap:balance}
 .id-sub{margin:2px 0 0;color:var(--muted)}
 .mini-plate{flex:0 0 auto;direction:ltr;background:var(--plate);color:#111;border:2px solid #0b0b0b;border-radius:6px;font:600 .95rem var(--f-num);padding:2px 8px 2px 4px;display:flex;align-items:center;gap:6px}
 .mini-plate i{background:var(--il);width:8px;align-self:stretch;border-radius:2px}
@@ -367,7 +367,7 @@ section[style*="--n:3"] .cmp-k{font-size:.78rem}
 .in-btn{display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--band-line);background:transparent;border-radius:10px;padding:9px 8px;font-weight:700;color:var(--band-fg)}
 .in-btn[aria-busy="true"]{opacity:.6}
 .in-btn[aria-pressed="true"]{background:var(--bad);color:#fff;border-color:var(--bad)}
-.in-msg{margin:0;font-size:.9rem;color:var(--band-muted)}
+.in-msg{margin:0;font-size:.9rem;color:var(--band-muted)}.in-msg:empty,.toast:empty{position:absolute;width:1px;height:1px;padding:0;margin:0;border:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;box-shadow:none;background:none}
 .seg.two{grid-template-columns:1fr 1fr}
 .card.many{overflow-x:auto}.many .cmp,.many .cmp-table{min-width:calc(var(--n)*116px)}
 .ph-svg{width:100%;height:auto;display:block}.opt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:start;border:1.5px solid var(--line);border-radius:14px;padding:12px;background:var(--card);margin-top:8px;position:relative;color:var(--fg)}.opt b{font-size:1rem}.opt .pr{font-weight:800}.opt small{color:var(--muted)}.opt.best{border-color:#ffc400;box-shadow:0 0 0 2px #ffc40055}.opt em{position:absolute;inset-block-start:-9px;inset-inline-end:12px;background:#ffc400;color:#111;font-style:normal;font-weight:800;font-size:.78rem;border-radius:6px;padding:1px 8px}.cmpp td,.cmpp th{font-size:.85rem;padding:6px 2px}
@@ -596,7 +596,7 @@ button:not(:disabled):active,.link-btn:active,.act:active,.tabs button:active,a.
 <div class="band">
   <div class="band-in">
     <div class="brand">
-      <h1 role="link" tabindex="0" aria-label="לוחית, מסך הבית"><svg class="logo" viewBox="0 0 108 108" aria-hidden="true"><rect width="108" height="108" rx="24" fill="#FFC400"/><g transform="translate(54,54) scale(1.28) translate(-56,-54)"><g transform="translate(54,68) scale(0.8) translate(-54,-67)"><path fill="#111111" d="M24,70l6,-15c1.6,-4 4.4,-6 9,-6h30c4.6,0 7.4,2 9,6l6,15v12a3,3 0 0 1 -3,3h-7a3,3 0 0 1 -3,-3v-3h-36v3a3,3 0 0 1 -3,3h-7a3,3 0 0 1 -3,-3z"/><path fill="#FFC400" d="M33,65l4.5,-10.5c0.8,-2 2,-3 4,-3h25c2,0 3.2,1 4,3l4.5,10.5z"/><path fill="#FFFFFF" d="M29,72a4.5,4.5 0 1 0 9,0a4.5,4.5 0 1 0 -9,0z M70,72a4.5,4.5 0 1 0 9,0a4.5,4.5 0 1 0 -9,0z"/><path fill="#FFFFFF" d="M42.5,68h23a1.5,1.5 0 0 1 1.5,1.5v6a1.5,1.5 0 0 1 -1.5,1.5h-23a1.5,1.5 0 0 1 -1.5,-1.5v-6a1.5,1.5 0 0 1 1.5,-1.5z"/><path fill="#1D4EA8" d="M42.5,68h3.5v9h-3.5a1.5,1.5 0 0 1 -1.5,-1.5v-6a1.5,1.5 0 0 1 1.5,-1.5z"/></g><path stroke="#111111" stroke-width="7" stroke-linecap="round" fill="none" d="M75.5,48.5L83,56"/><path fill="#FFFFFF" stroke="#111111" stroke-width="5" d="M53,39a14,14 0 1 0 28,0a14,14 0 1 0 -28,0z"/><path fill="#E53935" d="M60.7,32.6h13a1.7,1.7 0 0 1 0,3.4h-13a1.7,1.7 0 0 1 0,-3.4z"/><path fill="#22A355" d="M60.7,37.3h9a1.7,1.7 0 0 1 0,3.4h-9a1.7,1.7 0 0 1 0,-3.4z"/><path fill="#2457C5" d="M60.7,42h11a1.7,1.7 0 0 1 0,3.4h-11a1.7,1.7 0 0 1 0,-3.4z"/></g></svg><span class="name">לוחית<small>בדיקת רכב לפי מספר רישוי</small></span></h1>
+      <h1><a href="./" class="brand-link" aria-label="לוחית, מסך הבית"><svg class="logo" viewBox="0 0 108 108" aria-hidden="true"><rect width="108" height="108" rx="24" fill="#FFC400"/><g transform="translate(54,54) scale(1.28) translate(-56,-54)"><g transform="translate(54,68) scale(0.8) translate(-54,-67)"><path fill="#111111" d="M24,70l6,-15c1.6,-4 4.4,-6 9,-6h30c4.6,0 7.4,2 9,6l6,15v12a3,3 0 0 1 -3,3h-7a3,3 0 0 1 -3,-3v-3h-36v3a3,3 0 0 1 -3,3h-7a3,3 0 0 1 -3,-3z"/><path fill="#FFC400" d="M33,65l4.5,-10.5c0.8,-2 2,-3 4,-3h25c2,0 3.2,1 4,3l4.5,10.5z"/><path fill="#FFFFFF" d="M29,72a4.5,4.5 0 1 0 9,0a4.5,4.5 0 1 0 -9,0z M70,72a4.5,4.5 0 1 0 9,0a4.5,4.5 0 1 0 -9,0z"/><path fill="#FFFFFF" d="M42.5,68h23a1.5,1.5 0 0 1 1.5,1.5v6a1.5,1.5 0 0 1 -1.5,1.5h-23a1.5,1.5 0 0 1 -1.5,-1.5v-6a1.5,1.5 0 0 1 1.5,-1.5z"/><path fill="#1D4EA8" d="M42.5,68h3.5v9h-3.5a1.5,1.5 0 0 1 -1.5,-1.5v-6a1.5,1.5 0 0 1 1.5,-1.5z"/></g><path stroke="#111111" stroke-width="7" stroke-linecap="round" fill="none" d="M75.5,48.5L83,56"/><path fill="#FFFFFF" stroke="#111111" stroke-width="5" d="M53,39a14,14 0 1 0 28,0a14,14 0 1 0 -28,0z"/><path fill="#E53935" d="M60.7,32.6h13a1.7,1.7 0 0 1 0,3.4h-13a1.7,1.7 0 0 1 0,-3.4z"/><path fill="#22A355" d="M60.7,37.3h9a1.7,1.7 0 0 1 0,3.4h-9a1.7,1.7 0 0 1 0,-3.4z"/><path fill="#2457C5" d="M60.7,42h11a1.7,1.7 0 0 1 0,3.4h-11a1.7,1.7 0 0 1 0,-3.4z"/></g></svg><span class="name">לוחית<small>בדיקת רכב לפי מספר רישוי</small></span></a></h1>
       <div class="brand-r"><button class="home-btn" id="homeBtn" type="button" hidden><svg class="i"><use href="#i-home"/></svg>בית</button><button class="icon-btn" id="openSettings" type="button" aria-label="הגדרות"><svg class="i"><use href="#i-gear"/></svg></button></div>
     </div>
     <form id="f" autocomplete="off">
@@ -612,11 +612,11 @@ button:not(:disabled):active,.link-btn:active,.act:active,.tabs button:active,a.
       <button type="button" class="in-btn" id="micBtn"><svg class="i"><use href="#i-mic"/></svg>אמירת המספר</button>
       <input type="file" id="camFile" accept="image/*" hidden>
     </div>
-    <p class="in-msg" id="inMsg" role="status" hidden></p>
+    <p class="in-msg" id="inMsg" role="status"></p>
   </div>
 </div>
 <button type="button" class="savedbar" id="savedBar" hidden><svg class="i"><use href="#i-star"/></svg><span id="savedBarTxt"></span></button>
-<main id="out" aria-live="polite"></main>
+<main id="out"></main>
 <footer>המידע מגיע מהמאגרים הפתוחים של משרד התחבורה ב-<a href="https://data.gov.il/" target="_blank" rel="noopener">data.gov.il</a>, ואינו מחליף נסח רישום רשמי. האפליקציה אינה קשורה למשרד התחבורה או לגוף ממשלתי.<span id="mdlLink"> <a href="model/">דגמים נפוצים בישראל</a> · <a href="magazine/">מגזין</a> · <a href="guide/buy-used-car/">מדריך לקונה</a></span></footer>
 <script>(function(){if(!window.AndroidApp)document.documentElement.classList.add("web");if(window.AndroidApp){var x=document.getElementById("mdlLink");if(x)x.remove()}})()</script>
 
@@ -696,7 +696,7 @@ button:not(:disabled):active,.link-btn:active,.act:active,.tabs button:active,a.
     <p class="note">הדוח כולל את מספר הרישוי והיסטוריית סוגי הבעלות (בלי שמות). שתפו אותו רק עם מי שצריך.</p><p class="note" id="shareMsg" role="status"></p>
   </div>
 </div>
-<div class="toast" id="toast" hidden role="status"></div>
+<div class="toast" id="toast" role="status"></div>
 
 <script>
 "use strict";
@@ -993,7 +993,7 @@ function monthsBetween(a, b){ return (b.getFullYear() - a.getFullYear()) * 12 + 
 function parseYM(v){ const m = String(v || "").match(/^(\d{4})-?(\d{1,2})/); return m ? new Date(+m[1], +m[2] - 1, 1) : null; }
 
 let toastTimer = null;
-function toast(t){ const el = $("#toast"); el.textContent = t; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => el.hidden = true, 2200); }
+function toast(t){ const el = $("#toast"); el.textContent = t; clearTimeout(toastTimer); toastTimer = setTimeout(() => el.textContent = "", 2200); }
 const bridge = () => window.AndroidApp || null;
 async function copyText(t, label){
   let ok = false;
@@ -1550,7 +1550,7 @@ async function lookup(raw){
   if (D.offline) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true">📡</div>אין חיבור למאגרי משרד התחבורה כרגע. בדקו את החיבור לאינטרנט ונסו שוב.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; return; }
   if (D.notFound) { out.innerHTML = `<div class="msg edge"><div class="edge-i" aria-hidden="true">🔍</div>לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.</div>`; return; }
   current = D; currentTab = "overview";
-  renderResult();
+  renderResult(); focusResult();
   track("car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: D.errs && D.errs.length ? 1 : 0});
   remember(plate);
   window.scrollTo({top: 0});
@@ -1565,7 +1565,7 @@ function fixRows(r, d) {
   return rows.length ? `<div class="fix">${rows.map(([k, x]) => `<div><span>${k}</span>${esc(x)}</div>`).join("")}</div>` : "";
 }
 const D_pick = (...a) => a.find(x => !empty(x));
-const loadingHtml = plate => `<div class="msg"><p class="note" style="margin-bottom:10px">מחפש את <span class="mono">${fmtPlate(plate)}</span> במאגרי משרד התחבורה…</p></div><div id="skl" class="skl" aria-hidden="true"><div class="card"><i class="s w60 h24"></i><i class="s w40"></i><div class="sr"><i class="s pill-s"></i><i class="s pill-s"></i><i class="s pill-s"></i></div><div class="sr g4"><i class="s blk"></i><i class="s blk"></i><i class="s blk"></i><i class="s blk"></i></div></div><div class="card"><i class="s w50 h18"></i><i class="s w90"></i><i class="s w70"></i></div><div class="card"><i class="s w40 h18"></i><i class="s w90"></i><i class="s w90"></i><i class="s w60"></i></div></div>`;
+const loadingHtml = plate => `<div class="msg" aria-busy="true"><p class="note" style="margin-bottom:10px">מחפש את <span class="mono">${fmtPlate(plate)}</span> במאגרי משרד התחבורה…</p></div><div id="skl" class="skl" aria-hidden="true"><div class="card"><i class="s w60 h24"></i><i class="s w40"></i><div class="sr"><i class="s pill-s"></i><i class="s pill-s"></i><i class="s pill-s"></i></div><div class="sr g4"><i class="s blk"></i><i class="s blk"></i><i class="s blk"></i><i class="s blk"></i></div></div><div class="card"><i class="s w50 h18"></i><i class="s w90"></i><i class="s w70"></i></div><div class="card"><i class="s w40 h18"></i><i class="s w90"></i><i class="s w90"></i><i class="s w60"></i></div></div>`;
 
 /* Plain view: the same data as dry rows, no insights, tabs or explanations */
 let simpleMore = false;
@@ -1640,7 +1640,7 @@ function renderResult(){
   if (D.tag) pills.push(`<span class="pill">תג נכה</span>`);
   html.push(`<div class="side">`);
   html.push(`<section class="card id-card">
-    <div class="id-top"><div><p class="id-title">${esc(D.title)}</p><p class="id-sub">${esc(!empty(v.shnat_yitzur) && !simpleOn() ? D.sub.split(" · ").slice(1).join(" · ") : D.sub)}</p></div>
+    <div class="id-top"><div><h2 class="id-title" id="resHead" tabindex="-1">${esc(D.title)}</h2><p class="id-sub">${esc(!empty(v.shnat_yitzur) && !simpleOn() ? D.sub.split(" · ").slice(1).join(" · ") : D.sub)}</p></div>
       <span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span></div>
     ${!simpleOn() && facts.some(Boolean) ? `<div class="pills fstrip" aria-label="עובדות עיקריות">${facts.filter(Boolean).join("")}</div>` : ""}
     ${pills.length && !simpleOn() ? `<div class="pills">${pills.join("")}</div>` : ""}
@@ -2969,7 +2969,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "diffOnly") { diffOnly = !diffOnly; try { localStorage.setItem("cmpDiffOnly", diffOnly ? "1" : ""); } catch {} renderCompare(); return; }
   if (b.dataset.act === "land") { setLand(!land); return; }
   if (!current) return;
-  if (b.dataset.tab) { currentTab = b.dataset.tab; track("tab_view", {tab: b.dataset.tab}); renderResult(); $("#out").classList.add("rise"); setTimeout(() => $("#out").classList.remove("rise"), 300); const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"}); return; }
+  if (b.dataset.tab) { currentTab = b.dataset.tab; track("tab_view", {tab: b.dataset.tab}); renderResult(); focusResult(); $("#out").classList.add("rise"); setTimeout(() => $("#out").classList.remove("rise"), 300); const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"}); return; }
   const act = b.dataset.act;
   if (act === "share") { $("#shareMsg").textContent = ""; $("[data-share=bizpdf]").hidden = !(PRO_LOCK && isBiz()); $("#shareSheet").hidden = false; shareWarm = {}; warmShare(); }
   if (act === "candSave") {
@@ -3590,7 +3590,7 @@ function testReminderFile(D){
 }
 
 /* ---------- plate from a photo ---------- */
-function inMsg(t){ const el = $("#inMsg"); el.textContent = t || ""; el.hidden = !t; }
+function inMsg(t){ $("#inMsg").textContent = t || ""; }
 function loadImage(file){
   return new Promise((ok, fail) => { const img = new Image(), u = URL.createObjectURL(file); img.onload = () => { URL.revokeObjectURL(u); ok(img); }; img.onerror = e => { URL.revokeObjectURL(u); fail(e); }; img.src = u; });
 }
@@ -4360,8 +4360,9 @@ $("#bizLogo").addEventListener("change", async ev => {
 $("#bizLogoClear").addEventListener("click", () => { const b = bizProfile(); delete b.logo; bizSave(b); syncBiz(); });
 syncBiz();
 /* Android back button: close settings, then return from a result to the home screen */
+const focusResult = () => { const h = $("#resHead"); if (h) try { h.focus({preventScroll: true}); } catch {} };
 function goHome(){ if (land) setLand(false, false); inCompare = false; renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} window.scrollTo({top: 0}); }
-$(".brand h1").addEventListener("click", goHome);
+$(".brand h1").addEventListener("click", ev => { ev.preventDefault(); goHome(); });
 $("#homeBtn").addEventListener("click", goHome);
 window.appBack = () => { const dv = document.querySelector(".doc-view"); if (dv) { dv.click(); return true; } if (!sheet.hidden) { sheet.hidden = true; return true; } if (!$("#compareSheet").hidden) { if (mGroup) stepBack(); else hideCmpSheet(); return true; } if (!$("#shareSheet").hidden) { $("#shareSheet").hidden = true; return true; } if (inCompare) { closeCompare(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} return true; } if (!$("#homeMark")) { renderHome(); window.scrollTo({top: 0}); return true; } return false; };
 
