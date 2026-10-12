@@ -22,7 +22,7 @@ def brief(d, a, link):
     def c(x):
         if x["cur"] is None or not x["prev"]: return ""
         dlt = round(x["cur"] - x["prev"], 1) if x["fmt"] == "pct" else round((x["cur"] - x["prev"]) / x["prev"] * 100, 1)
-        return f" ({'+' if dlt > 0 else ''}{dlt:g}{'נק׳' if x['fmt'] == 'pct' else '%'})"
+        return f" ({'▲' if dlt > 0 else '▼'}{abs(dlt):g}{' נק׳' if x['fmt'] == 'pct' else '%'})" if dlt else ""   # no plus/minus sign: it flips inside Hebrew text
     lines = [f"{em} לוחית, דוח שבועי {d['period']['start']} עד {d['period']['end']}", "",
              f"חיפושים: {k['searches']['cur']:,}{c(k['searches'])}", f"פעילים בשבוע: {k['wau']['cur']:,}{c(k['wau'])}",
              f"איטיים: {k['slow']['cur'] if k['slow']['cur'] is not None else '—'}%  ביטולים: {k['abort']['cur'] if k['abort']['cur'] is not None else '—'}%  כשלים: {k['fail']['cur'] if k['fail']['cur'] is not None else '—'}%",
