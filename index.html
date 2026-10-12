@@ -148,7 +148,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .id-sub{margin:2px 0 0;color:var(--muted)}
 .mini-plate{flex:0 0 auto;direction:ltr;background:var(--plate);color:#111;border:2px solid #0b0b0b;border-radius:6px;font:600 .95rem var(--f-num);padding:2px 8px 2px 4px;display:flex;align-items:center;gap:6px}
 .mini-plate i{background:var(--il);width:8px;align-self:stretch;border-radius:2px}
-.pills{display:flex;flex-wrap:wrap;gap:6px}.pills.fstrip .pill{font-size:.9rem;padding:4px 11px}.pills.fstrip+.pills{margin-top:-4px}
+.pills{display:flex;flex-wrap:wrap;gap:6px}.pills.fstrip{gap:4px}.pills.fstrip .pill{font-size:.78rem;padding:3px 7px;white-space:nowrap;gap:3px}.pills.fstrip .pill svg.i{display:none}.pills.fstrip+.pills{margin-top:-4px}
 .est-tag{margin:0 0 8px;padding:6px 10px;border-radius:10px;background:var(--soft);font-size:.85rem;line-height:1.5}
 .pill{display:inline-flex;align-items:center;gap:5px;font-size:.85rem;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--soft)}.pill svg.i{width:14px;height:14px}
 .pill.info{background:var(--info-bg);color:var(--info)}
@@ -1627,7 +1627,7 @@ function renderResult(){
   if (D.importKind) pills.push(`<span class="pill info">${esc(D.importKind)}</span>`);
   const dt = driveType(D);
   if (dt) facts[2] = (`<span class="pill drive ${["ev", "phev", "hybrid"].includes(dt.k) ? "green" : ""}">${ico(["ev", "phev", "hybrid"].includes(dt.k) ? "bolt" : "fuel")}${dt.label}</span>`);
-  if (exp && !D.isCancelled) facts[0] = (exp < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) ? `<span class="pill bad">טסט לא בתוקף</span>` : `<span class="pill ok">טסט בתוקף עד ${String(exp.getMonth() + 1).padStart(2, "0")}/${exp.getFullYear()}</span>`);
+  if (exp && !D.isCancelled) facts[0] = (exp < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) ? `<span class="pill bad">טסט לא בתוקף</span>` : `<span class="pill ok">טסט עד ${String(exp.getMonth() + 1).padStart(2, "0")}/${exp.getFullYear()}</span>`);
   const vIns = buildInsights(D), clean = !(D.errs && D.errs.length) && !D.recallUnknown && !D.isCancelled && !D.recalls.length && !vIns.some(x => x.level === "bad" || x.level === "warn");
   if (D.own.length) facts[1] = `<span class="pill">${ownersLabel(D)}</span>`;
   if (!empty(v.shnat_yitzur)) facts[3] = `<span class="pill">${esc(v.shnat_yitzur)}</span>`;
