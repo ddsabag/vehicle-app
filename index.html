@@ -709,6 +709,13 @@ const PRO_LOCK = false;
 /* anonymous usage events (Android only, Firebase Analytics): what people do in the app, never a plate number or anything personal. The user can switch it off in settings. */
 const simpleOn = () => { try { return localStorage.getItem("simpleView") === "1"; } catch { return false; } };
 const analyticsOn = () => { try { return localStorage.getItem("analyticsOff") !== "1"; } catch { return true; } };
+// anonymous facts about what kind of car was looked up (brand, model, fuel), never the plate or anything that identifies a person
+function lookupFacts(D) {
+  const v = D.v || {}, t = x => empty(x) ? "" : String(x).trim().slice(0, 40);
+  const o = {make: t(v.tozeret_nm).split(/\s+/)[0], model: t(v.kinuy_mishari), fuel: t(v.sug_delek_nm)};
+  Object.keys(o).forEach(k => { if (!o[k]) delete o[k]; });
+  return o;
+}
 const track = (name, params) => { try { const b = window.AndroidApp; if (b && b.logEvent && analyticsOn()) b.logEvent(name, JSON.stringify(params || {})); } catch {} };
 /* silent failures worth knowing about (a dataset that errors, a library that does not load): sent to Crashlytics as a non-fatal, tag only, never a plate */
 /* a JavaScript error nobody sees: counted (line number only, never the message, which could hold a plate), at most 5 per session */
@@ -1580,7 +1587,7 @@ async function lookup(raw){
   current = D; currentTab = "overview";
   snapPut(D);
   renderResult(); focusResult();
-  track("car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: D.errs && D.errs.length ? 1 : 0});
+  track("car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: D.errs && D.errs.length ? 1 : 0, ...lookupFacts(D)});
   remember(plate);
   window.scrollTo({top: 0});
 }

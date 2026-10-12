@@ -171,6 +171,10 @@ def analyze(d, cfg, extra=None):
     tabs = [(TAB_HE.get(k, "לא ידוע" if k in ("(not set)", "") else k), c, p) for k, c, p in tabs]
     SHARE_HE = {"pdf": "PDF", "image": "תמונה", "text": "טקסט", "bizpdf": "PDF עסקי"}
     shares = sorted(((SHARE_HE.get(k, "לא ידוע" if k in ("(not set)", "") else k), v["cur"], v["prev"]) for k, v in d.get("share_kind", {}).items()), key=lambda x: -x[1])
+    def top(key, n=5):
+        rows = sorted(((k, v["cur"]) for k, v in d.get(key, {}).items() if k not in ("(not set)", "")), key=lambda x: -x[1])
+        return rows[:n]
+    makes, models, fuels = top("make"), top("model"), top("fuel")
     versions = sorted(d.get("versions", {}).items(), key=lambda x: -x[1])[:4]
 
     # takeaways and recommendations (rule based)
@@ -196,7 +200,7 @@ def analyze(d, cfg, extra=None):
     recs += ["לפני שחרור גרסה, לבדוק ב-Firebase שאחוז המשתמשים בגרסה האחרונה עולה, ושאין עלייה בכשלים אחרי העדכון.",
              "לבדוק פעם בחודש שהאירועים החדשים מופיעים ב-GA4 וששמות הממדים תואמים לקוד."]
     recs = recs[:3]
-    return {"kpis": kpis, "anomalies": anomalies, "dur": dur_rows, "tabs": tabs, "shares": shares, "versions": versions,
+    return {"kpis": kpis, "anomalies": anomalies, "dur": dur_rows, "tabs": tabs, "shares": shares, "makes": makes, "models": models, "fuels": fuels, "versions": versions,
             "takeaways": take, "recommendations": recs, "extra": X, "shot_tabs": st, "shot_insight": shot_insight, "daily": daily, "metrics": m,
             "status": "red" if reds else ("yellow" if any(a["level"] == "yellow" for a in anomalies) else "green")}
 

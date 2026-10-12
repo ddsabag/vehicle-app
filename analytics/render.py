@@ -105,6 +105,8 @@ def page(d, a):
 {group("בריאות המערכת", "health")}{group("מעורבות משתמשים", "engagement")}{group("שימוש ברכיבים", "usage")}{viral_html(a)}
 <section class="two"><div class="card"><h2>חיפושים ביום</h2>{line_chart(a["daily"])}</div>{bars(a["dur"], "זמן עד תוצאה")}</section>
 <section class="two">{bars([(r[0], r[1]) for r in a["tabs"]], "לשוניות שנפתחו")}{bars([(r[0], r[1]) for r in a["shares"]], "סוגי שיתוף")}{versions}</section>
+<section class="two">{bars(a["makes"], "יצרנים שנבדקו הכי הרבה")}{bars(a["models"], "דגמים שנבדקו הכי הרבה")}</section>
+<section class="two">{bars(a["fuels"], "סוג דלק או הנעה בבדיקות")}</section>
 {extra_html(a)}
 <section class="card"><h2>תובנות מרכזיות</h2><ul>{take}</ul></section>
 <section class="card"><h2>שלוש המלצות לשבוע הקרוב</h2>{recs}</section>
