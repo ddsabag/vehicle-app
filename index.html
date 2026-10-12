@@ -292,9 +292,9 @@ footer{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:4px 24px;
   html.web body:has(#out > .side) .band-in,html.web main#out:has(> .side),html.web footer,html.web body:has(#out .cmp-wide) .band-in,html.web main#out:has(.cmp-wide){max-width:1080px}
   html.web main#out:has(> .side){display:grid;grid-template-columns:minmax(0,1fr) 340px;column-gap:16px;row-gap:12px;align-items:start}
   html.web main#out > .plate-strip{grid-column:1/-1}
-  html.web main#out > .side{grid-column:2;grid-row:2;display:flex;flex-direction:column;gap:12px;position:sticky;top:56px}
+  html.web main#out > .side{grid-column:2;grid-row:2/4;display:flex;flex-direction:column;gap:12px;position:sticky;top:56px}
   html.web main#out > .mainc{grid-column:1;grid-row:2;display:flex;flex-direction:column;gap:12px;min-width:0}
-  html.web main#out > .src-foot{grid-column:1/-1;grid-row:3}
+  html.web main#out > .src-foot{grid-column:1;grid-row:3}
   html.web .appbox{order:0}
 }
 @media (prefers-color-scheme:dark){.apphint{background:#3a3320}}
