@@ -38,11 +38,19 @@
 <link rel="dns-prefetch" href="https://data.gov.il">
 <link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin>
 <link rel="dns-prefetch" href="https://raw.githubusercontent.com">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap" media="print" onload="this.media='all'">
-<noscript><style>body:not(.rdy) footer{visibility:visible}</style><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap"></noscript>
+<link rel="preload" href="lib/fonts/assistant-hebrew-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="lib/fonts/assistant-hebrew-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="lib/fonts/assistant-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="lib/fonts/assistant-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="lib/fonts/ibm-plex-mono-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin>
+<noscript><style>body:not(.rdy) footer{visibility:visible}</style></noscript>
 <style>
+/* Fonts are served with the page (Assistant 400/700 Hebrew + Latin, IBM Plex Mono 500). font-display:optional: a font that is not ready in time is skipped for this view, so text never reflows when it arrives. Open Font License, from @fontsource. */
+@font-face{font-family:"Assistant";font-style:normal;font-weight:400;font-display:optional;src:url(lib/fonts/assistant-hebrew-400-normal.woff2) format("woff2");unicode-range:U+0307-0308,U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F}
+@font-face{font-family:"Assistant";font-style:normal;font-weight:400;font-display:optional;src:url(lib/fonts/assistant-latin-400-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Assistant";font-style:normal;font-weight:700;font-display:optional;src:url(lib/fonts/assistant-hebrew-700-normal.woff2) format("woff2");unicode-range:U+0307-0308,U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F}
+@font-face{font-family:"Assistant";font-style:normal;font-weight:700;font-display:optional;src:url(lib/fonts/assistant-latin-700-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:500;font-display:optional;src:url(lib/fonts/ibm-plex-mono-latin-500-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 /* Layout: an app screen. White header with the yellow plate search; below it a column of cards,
    each topic with its own colour so the page is easy to scan. */
 :root{
