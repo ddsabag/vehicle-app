@@ -148,7 +148,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .id-sub{margin:2px 0 0;color:var(--muted)}
 .mini-plate{flex:0 0 auto;direction:ltr;background:var(--plate);color:#111;border:2px solid #0b0b0b;border-radius:6px;font:600 .95rem var(--f-num);padding:2px 8px 2px 4px;display:flex;align-items:center;gap:6px}
 .mini-plate i{background:var(--il);width:8px;align-self:stretch;border-radius:2px}
-.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pills{display:flex;flex-wrap:wrap;gap:6px}.pills.fstrip .pill{font-size:.9rem;padding:4px 11px}.pills.fstrip+.pills{margin-top:-4px}
 .est-tag{margin:0 0 8px;padding:6px 10px;border-radius:10px;background:var(--soft);font-size:.85rem;line-height:1.5}
 .pill{display:inline-flex;align-items:center;gap:5px;font-size:.85rem;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--soft)}.pill svg.i{width:14px;height:14px}
 .pill.info{background:var(--info-bg);color:var(--info)}
@@ -235,6 +235,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .timeline .now{font-size:.78rem;font-weight:700;color:var(--tc);background:var(--tb);padding:1px 7px;border-radius:999px;margin-inline-start:8px}
 .recall{border-inline-start:3px solid var(--bad);padding-inline-start:12px}
 .recall b{display:block}
+.skl{display:flex;flex-direction:column;gap:12px}.skl .card{gap:10px}.s{display:block;height:14px;border-radius:8px;background:linear-gradient(90deg,var(--soft) 25%,var(--line) 45%,var(--soft) 65%);background-size:300% 100%}.s.h24{height:24px}.s.h18{height:18px}.s.w90{width:90%}.s.w70{width:70%}.s.w60{width:60%}.s.w50{width:50%}.s.w40{width:40%}.sr{display:flex;gap:8px}.sr.g4{display:grid;grid-template-columns:repeat(4,1fr)}.s.pill-s{height:26px;width:84px;border-radius:999px}.s.blk{height:58px;border-radius:12px}@media (prefers-reduced-motion:no-preference){.s{animation:shim 1.4s ease-in-out infinite}}@keyframes shim{from{background-position:100% 0}to{background-position:0 0}}
 .progress{height:4px;background:var(--line);border-radius:4px;overflow:hidden}
 .progress i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
 
@@ -1529,10 +1530,10 @@ async function lookup(raw){
   out.innerHTML = loadingHtml(plate);
   // a slow ministry server: say so after 3.5 s instead of leaving a silent bar
   const t0 = Date.now();
-  const slowT = setTimeout(() => { if (!signal.aborted && $("#bar") && !$("#slowNote")) track("lookup_slow"); if (!signal.aborted && $("#bar") && !$("#slowNote")) out.insertAdjacentHTML("beforeend", `<p class="note" id="slowNote" role="status" style="text-align:center">בודק, לוקח יותר מהרגיל. שרתי משרד התחבורה איטיים כרגע.</p>`); }, 3500);
+  const slowT = setTimeout(() => { if (!signal.aborted && $("#skl") && !$("#slowNote")) track("lookup_slow"); if (!signal.aborted && $("#skl") && !$("#slowNote")) out.insertAdjacentHTML("beforeend", `<p class="note" id="slowNote" role="status" style="text-align:center">בודק, לוקח יותר מהרגיל. שרתי משרד התחבורה איטיים כרגע.</p>`); }, 3500);
   const side = Promise.race([Promise.all([loadModelStats().catch(() => null), loadService().catch(() => null)]), new Promise(r => setTimeout(r, 1500))]);
   let D;
-  try { D = await fetchVehicle(plate, signal, f => { const bar = $("#bar"); if (bar) bar.style.width = f * 100 + "%"; }); }
+  try { D = await fetchVehicle(plate, signal, () => {}); }
   catch (err) { if (err.name === "AbortError") { if (Date.now() - t0 > 1500) track("lookup_abort"); return; } throw err; }   // the user gave up on a slow lookup and typed another
   finally { $("#go").disabled = false; clearTimeout(slowT); }
   const dur = Date.now() - t0, durB = dur < 2000 ? "lt2" : dur < 5000 ? "2to5" : dur < 10000 ? "5to10" : "gt10";
@@ -1559,7 +1560,7 @@ function fixRows(r, d) {
   return rows.length ? `<div class="fix">${rows.map(([k, x]) => `<div><span>${k}</span>${esc(x)}</div>`).join("")}</div>` : "";
 }
 const D_pick = (...a) => a.find(x => !empty(x));
-const loadingHtml = plate => `<div class="msg"><p class="note" style="margin-bottom:10px">מחפש את <span class="mono">${fmtPlate(plate)}</span> במאגרי משרד התחבורה…</p><div class="progress"><i id="bar"></i></div></div>`;
+const loadingHtml = plate => `<div class="msg"><p class="note" style="margin-bottom:10px">מחפש את <span class="mono">${fmtPlate(plate)}</span> במאגרי משרד התחבורה…</p></div><div id="skl" class="skl" aria-hidden="true"><div class="card"><i class="s w60 h24"></i><i class="s w40"></i><div class="sr"><i class="s pill-s"></i><i class="s pill-s"></i><i class="s pill-s"></i></div><div class="sr g4"><i class="s blk"></i><i class="s blk"></i><i class="s blk"></i><i class="s blk"></i></div></div><div class="card"><i class="s w50 h18"></i><i class="s w90"></i><i class="s w70"></i></div><div class="card"><i class="s w40 h18"></i><i class="s w90"></i><i class="s w90"></i><i class="s w60"></i></div></div>`;
 
 /* Plain view: the same data as dry rows, no insights, tabs or explanations */
 let simpleMore = false;
@@ -1620,21 +1621,23 @@ function renderResult(){
   const D = current, v = D.v, w = D.w;
   const html = [];
   const exp = toDate(v.tokef_dt);
-  const pills = [];
+  const pills = [], facts = [];
   // pills show only what is not the norm (a plain "active" status adds nothing) plus drive type and test
   if (D.primary && (D.primary.tone || "ok") !== "ok") pills.push(`<span class="pill ${D.primary.tone}">${esc(D.primary.status)}</span>`);
   if (D.importKind) pills.push(`<span class="pill info">${esc(D.importKind)}</span>`);
   const dt = driveType(D);
-  if (dt) pills.push(`<span class="pill drive ${["ev", "phev", "hybrid"].includes(dt.k) ? "green" : ""}">${ico(["ev", "phev", "hybrid"].includes(dt.k) ? "bolt" : "fuel")}${dt.label}</span>`);
-  if (exp && !D.isCancelled) pills.push(exp < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) ? `<span class="pill bad">טסט לא בתוקף</span>` : `<span class="pill ok">טסט בתוקף עד ${String(exp.getMonth() + 1).padStart(2, "0")}/${exp.getFullYear()}</span>`);
+  if (dt) facts[2] = (`<span class="pill drive ${["ev", "phev", "hybrid"].includes(dt.k) ? "green" : ""}">${ico(["ev", "phev", "hybrid"].includes(dt.k) ? "bolt" : "fuel")}${dt.label}</span>`);
+  if (exp && !D.isCancelled) facts[0] = (exp < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) ? `<span class="pill bad">טסט לא בתוקף</span>` : `<span class="pill ok">טסט בתוקף עד ${String(exp.getMonth() + 1).padStart(2, "0")}/${exp.getFullYear()}</span>`);
   const vIns = buildInsights(D), clean = !(D.errs && D.errs.length) && !D.recallUnknown && !D.isCancelled && !D.recalls.length && !vIns.some(x => x.level === "bad" || x.level === "warn");
-  if (D.own.length) pills.push(`<span class="pill">${ownersLabel(D)}</span>`);
+  if (D.own.length) facts[1] = `<span class="pill">${ownersLabel(D)}</span>`;
+  if (!empty(v.shnat_yitzur)) facts[3] = `<span class="pill">${esc(v.shnat_yitzur)}</span>`;
   if (clean) pills.push(`<span class="pill ok">${ico("check")}לא נמצאו בעיות במאגרי משרד התחבורה</span>`);
   if (D.tag) pills.push(`<span class="pill">תג נכה</span>`);
   html.push(`<div class="side">`);
   html.push(`<section class="card id-card">
-    <div class="id-top"><div><p class="id-title">${esc(D.title)}</p><p class="id-sub">${esc(D.sub)}</p></div>
+    <div class="id-top"><div><p class="id-title">${esc(D.title)}</p><p class="id-sub">${esc(!empty(v.shnat_yitzur) && !simpleOn() ? D.sub.split(" · ").slice(1).join(" · ") : D.sub)}</p></div>
       <span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span></div>
+    ${!simpleOn() && facts.some(Boolean) ? `<div class="pills fstrip" aria-label="עובדות עיקריות">${facts.filter(Boolean).join("")}</div>` : ""}
     ${pills.length && !simpleOn() ? `<div class="pills">${pills.join("")}</div>` : ""}
     <div class="actions">
       <button class="act" type="button" data-act="share">${ico("share")}שיתוף</button>
