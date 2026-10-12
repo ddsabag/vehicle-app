@@ -41,7 +41,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap" media="print" onload="this.media='all'">
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap"></noscript>
+<noscript><style>body:not(.rdy) footer{visibility:visible}</style><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap"></noscript>
 <style>
 /* Layout: an app screen. White header with the yellow plate search; below it a column of cards,
    each topic with its own colour so the page is easy to scan. */
@@ -265,6 +265,7 @@ footer a{display:inline;padding:0;text-decoration:underline}
 html.web .in-alt{display:none}
 .head button.count{position:relative}.head button.count::after{content:"";position:absolute;inset:-12px -6px}
 .inp{min-height:44px}
+body:not(.rdy) footer{visibility:hidden}   /* shown after the first screen is drawn, so it does not jump down when the content arrives */
 footer{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:4px 24px;font-size:.78rem;line-height:1.5;color:var(--muted)}
 
 /* website only: the app has its own layout. Wide screens get two columns (car card on the side), phones keep one column */
@@ -4484,6 +4485,7 @@ if (!window.AndroidApp && "serviceWorker" in navigator && window.isSecureContext
 const start = digits(location.hash) || digits(new URLSearchParams(location.search).get("plate"));
 const cmpParam = new URLSearchParams(location.search).get("cmp");
 if (cmpParam) loadCompareLink(cmpParam).then(ok => { if (!ok) renderHome(); }); else if (start) run(start); else renderHome();
+requestAnimationFrame(() => document.body.classList.add("rdy"));
 
 /* maintenance tab actions: add / delete a service entry, calendar */
 $("#out").addEventListener("click", ev => {
