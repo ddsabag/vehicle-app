@@ -4,7 +4,7 @@
   PageSpeed Insights (speed of the site)           works without a key, PSI_API_KEY is optional
   Google Play vitals (crash and ANR rate)          needs the same service account added in Play Console
 """
-import json, os, urllib.parse, urllib.request
+import json, os, time, urllib.parse, urllib.request
 from datetime import timedelta
 
 
@@ -65,7 +65,13 @@ def psi(per, cfg):
     for u in cfg["sources"]["psi_urls"]:
         q = {"url": u, "strategy": "mobile", "category": "performance"}
         if os.environ.get("PSI_API_KEY"): q["key"] = os.environ["PSI_API_KEY"]
-        j = _http("https://www.googleapis.com/pagespeedonline/v5/runPagespeed?" + urllib.parse.urlencode(q), timeout=120)
+        j = None
+        for wait in (0, 20, 45):    # PageSpeed answers 429 when called without a key; a short backoff usually gets through
+            time.sleep(wait)
+            try: j = _http("https://www.googleapis.com/pagespeedonline/v5/runPagespeed?" + urllib.parse.urlencode(q), timeout=120); break
+            except Exception as e:
+                if "429" not in str(e): raise
+        if j is None: raise RuntimeError("PageSpeed מגביל בקשות בלי מפתח (429). הוסיפו סוד PSI_API_KEY, בחינם")
         lh = j["lighthouseResult"]; a = lh["audits"]
         out.append({"url": u, "score": round(lh["categories"]["performance"]["score"] * 100), "lcp": round(a["largest-contentful-paint"]["numericValue"] / 1000, 1),
                     "cls": round(a["cumulative-layout-shift"]["numericValue"], 3), "tbt": round(a["total-blocking-time"]["numericValue"])})

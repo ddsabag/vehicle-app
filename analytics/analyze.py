@@ -59,35 +59,35 @@ def analyze(d, cfg, extra=None):
     }
     kpis = {
         "health": [
-            kpi("searches", "חיפושי לוחית", se_c, se_p),
-            kpi("slow", "חיפושים איטיים", m["slow_pct"][0], m["slow_pct"][1], "%", True, f"{slow_c} חיפושים", "pct"),
-            kpi("abort", "ביטולים ונטישות", m["abort_pct"][0], m["abort_pct"][1], "%", True, f"{ab_c} חיפושים", "pct"),
-            kpi("fail", "כשלים טכניים", m["fail_pct"][0], m["fail_pct"][1], "%", True, f"{tech_c} חיפושים (אין חיבור או מאגר לא זמין)", "pct"),
-            kpi("partial", "תוצאות חלקיות", rate(partial_c, ok_c), rate(partial_p, ok_p), "%", True, "מאגר אחד או יותר לא ענה", "pct"),
-            kpi("cache", "פתיחה מהמטמון", ca_c, ca_p, "", False, "רכבים שמורים בלי חיבור"),
+            kpi("searches", "בדיקות רכב (חיפוש לפי לוחית)", se_c, se_p, "", False, "כמה פעמים הקלידו מספר לוחית באפליקציה ופתחו תוצאה"),
+            kpi("slow", "בדיקות איטיות", m["slow_pct"][0], m["slow_pct"][1], "%", True, f"{slow_c} בדיקות לקחו יותר מ-3.5 שניות", "pct"),
+            kpi("abort", "בדיקות שנעצרו באמצע", m["abort_pct"][0], m["abort_pct"][1], "%", True, f"{ab_c} בדיקות שהמשתמש ביטל או עזב לפני התוצאה", "pct"),
+            kpi("fail", "בדיקות שנכשלו", m["fail_pct"][0], m["fail_pct"][1], "%", True, f"{tech_c} בדיקות לא הצליחו (אין אינטרנט או שאתר הממשלה לא ענה)", "pct"),
+            kpi("partial", "תוצאות עם מידע חסר", rate(partial_c, ok_c), rate(partial_p, ok_p), "%", True, "תוצאה הוצגה, אבל אחד ממאגרי משרד התחבורה לא ענה", "pct"),
+            kpi("cache", "תוצאות שנפתחו בלי אינטרנט", ca_c, ca_p, "", False, "הוצגה התוצאה האחרונה של רכב שמור"),
         ],
         "engagement": [
-            kpi("wau", "משתמשים פעילים בשבוע", wau_c, wau_p),
-            kpi("dau", "ממוצע משתמשים ביום", dau_c, dau_p),
-            kpi("stick", "דביקות (יומי חלקי שבועי)", rate(dau_c, wau_c), rate(dau_p, wau_p), "%", False, "", "pct"),
-            kpi("ret", "משתמשים חוזרים", ret_c, ret_p, "%", False, "מתוך הפעילים בשבוע", "pct"),
-            kpi("new", "משתמשים חדשים", d["users"]["newUsers"]["cur"], d["users"]["newUsers"]["prev"]),
+            kpi("wau", "משתמשים בשבוע", wau_c, wau_p, "", False, "אנשים שונים שפתחו את האפליקציה השבוע"),
+            kpi("dau", "משתמשים ביום ממוצע", dau_c, dau_p, "", False, "כמה אנשים פותחים את האפליקציה בכל יום, בממוצע"),
+            kpi("stick", "כמה חוזרים כל יום", rate(dau_c, wau_c), rate(dau_p, wau_p), "%", False, "מתוך כל מי שהשתמש השבוע, כמה בממוצע באים ביום רגיל. 20% ומעלה נחשב טוב לאפליקציית רכב", "pct"),
+            kpi("ret", "משתמשים שחזרו", ret_c, ret_p, "%", False, "מי שכבר השתמש באפליקציה בעבר וחזר", "pct"),
+            kpi("new", "משתמשים חדשים", d["users"]["newUsers"]["cur"], d["users"]["newUsers"]["prev"], "", False, "אנשים שפתחו את האפליקציה לראשונה השבוע"),
         ],
         "usage": [
-            kpi("share", "שיתופי דוחות", sh_c, sh_p, "", False, f"{rate(sh_c, ok_c) or 0}% מהבדיקות", ),
-            kpi("compare", "פתיחות השוואה", cm_c, cm_p, "", False, f"{rate(cm_c, ok_c) or 0}% מהבדיקות"),
-            kpi("save", "רכבים שנשמרו", sv_c, sv_p),
-            kpi("upgrade", "פתיחות מסך שדרוג", uo_c, uo_p, "", False, f"{pu_c} התחלות רכישה"),
+            kpi("share", "שיתופים (לחצו על שיתוף)", sh_c, sh_p, "", False, f"שיתפו תוצאה ב-{rate(sh_c, ok_c) or 0}% מהבדיקות"),
+            kpi("compare", "השוואות בין רכבים", cm_c, cm_p, "", False, f"פתחו השוואה ב-{rate(cm_c, ok_c) or 0}% מהבדיקות"),
+            kpi("save", "רכבים ששמרו", sv_c, sv_p, "", False, "כמה פעמים שמרו רכב לרשימה האישית"),
+            kpi("upgrade", "צפיות במסך 'שדרוג ל-PRO'", uo_c, uo_p, "", False, f"{pu_c} התחילו רכישה (כרגע האפליקציה חינמית בבטא)"),
         ],
     }
 
     # screenshots are the quiet kind of sharing: people keep or send a picture instead of pressing share
     ratio_c = round(ss_c / sh_c, 2) if sh_c else None; ratio_p = round(ss_p / sh_p, 2) if sh_p else None
     kpis["viral"] = [
-        kpi("shots", "צילומי מסך של האפליקציה", ss_c, ss_p, "", False, "אנדרואיד 14 ומעלה בלבד"),
-        kpi("shares2", "שיתופים בלחיצה על שיתוף", sh_c, sh_p),
-        kpi("ratio", "צילומי מסך לכל שיתוף", ratio_c, ratio_p, "", False, "מעל 1: מצלמים יותר ממה ששולחים", "ratio"),
-        kpi("shot_rate", "צילומי מסך לכל 100 בדיקות", round(ss_c / ok_c * 100, 1) if ok_c else None, round(ss_p / ok_p * 100, 1) if ok_p else None, "", False, "", "ratio"),
+        kpi("shots", "צילומי מסך מהאפליקציה", ss_c, ss_p, "", False, "משתמשים שצילמו את המסך. נמדד רק באנדרואיד 14 ומעלה, ולכן זו הערכה נמוכה"),
+        kpi("shares2", "שיתופים (לחצו על שיתוף)", sh_c, sh_p, "", False, "שליחה של תמונה, PDF או קישור"),
+        kpi("ratio", "צילומי מסך מול שיתופים", ratio_c, ratio_p, "", False, "אם המספר מעל 1, אנשים מצלמים יותר ממה ששולחים בכפתור, וכדאי להפוך את הצילום לשיתוף נוח", "ratio"),
+        kpi("shot_rate", "צילומי מסך על כל 100 בדיקות", round(ss_c / ok_c * 100, 1) if ok_c else None, round(ss_p / ok_p * 100, 1) if ok_p else None, "", False, "כמה מ-100 בדיקות הסתיימו בצילום מסך", "ratio"),
     ]
     TAB_HE0 = {"overview": "סקירה", "buy": "קנייה", "maint": "אחזקה", "recalls": "ריקולים והסדרים", "specs": "מפרט", "home": "מסך הבית", "compare": "השוואה"}
     st = sorted(((TAB_HE0.get(k, k), v["cur"], v["prev"]) for k, v in d.get("screenshot_tab", {}).items()), key=lambda x: -x[1])
@@ -124,7 +124,7 @@ def analyze(d, cfg, extra=None):
         elif fp > T["fail_pct_yellow"]: add("yellow", "כשלים טכניים מעל הרגיל", f"{fp}% מהחיפושים נכשלו (אזהרה מעל {T['fail_pct_yellow']}%).")
     pp = rate(partial_c, ok_c)
     if ok_c >= T["min_searches_for_rates"] and pp is not None and pp > T["partial_pct_yellow"]:
-        add("yellow", "תוצאות חלקיות", f"{pp}% מהתוצאות הוצגו בלי מאגר אחד או יותר. ייתכן שמאגר מסוים לא יציב.")
+        add("yellow", "תוצאות עם מידע חסר", f"{pp}% מהתוצאות הוצגו בלי מאגר אחד או יותר. ייתכן שמאגר מסוים לא יציב.")
     lc = pct(se_c, se_p)
     if se_p >= T["min_searches_for_rates"] and lc is not None:
         if lc <= -T["lookups_drop_red_pct"]: add("red", "ירידה חדה בחיפושים", f"{se_c} חיפושים לעומת {se_p} בשבוע שעבר ({lc}%).")
@@ -167,9 +167,9 @@ def analyze(d, cfg, extra=None):
     dur_rows = [(lbl, dur.get(k, {}).get("cur", 0), dur.get(k, {}).get("prev", 0)) for k, lbl in dur_order]
     tabs = sorted(((k, v["cur"], v["prev"]) for k, v in d.get("tabs", {}).items()), key=lambda x: -x[1])
     TAB_HE = {"overview": "סקירה", "buy": "קנייה", "maint": "אחזקה", "recalls": "ריקולים והסדרים", "specs": "מפרט"}
-    tabs = [(TAB_HE.get(k, k), c, p) for k, c, p in tabs]
+    tabs = [(TAB_HE.get(k, "לא ידוע" if k in ("(not set)", "") else k), c, p) for k, c, p in tabs]
     SHARE_HE = {"pdf": "PDF", "image": "תמונה", "text": "טקסט", "bizpdf": "PDF עסקי"}
-    shares = sorted(((SHARE_HE.get(k, k), v["cur"], v["prev"]) for k, v in d.get("share_kind", {}).items()), key=lambda x: -x[1])
+    shares = sorted(((SHARE_HE.get(k, "לא ידוע" if k in ("(not set)", "") else k), v["cur"], v["prev"]) for k, v in d.get("share_kind", {}).items()), key=lambda x: -x[1])
     versions = sorted(d.get("versions", {}).items(), key=lambda x: -x[1])[:4]
 
     # takeaways and recommendations (rule based)
