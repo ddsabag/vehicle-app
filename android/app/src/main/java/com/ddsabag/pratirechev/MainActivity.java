@@ -76,6 +76,11 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // shared pictures and PDFs are temporary: drop the ones older than a day
+        try {
+            File[] old = sharedDir().listFiles();
+            if (old != null) for (File f : old) if (System.currentTimeMillis() - f.lastModified() > 24L * 3600 * 1000) f.delete();
+        } catch (Exception ignored) {}
 
         root = new FrameLayout(this);
         root.setBackgroundColor(Color.WHITE);
@@ -586,6 +591,43 @@ public class MainActivity extends Activity {
         if (p == null) return null;
         p = p.replaceAll("[^0-9]", "");
         return p.isEmpty() ? null : p;
+    }
+
+    /* Screenshot counter (Android 14+, no storage permission): tells the page that a screenshot of the app was taken, nothing about the image. */
+    private Object screenCaptureCallback;
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (android.os.Build.VERSION.SDK_INT >= 34) registerScreenshotWatcher();
+    }
+
+    @Override
+    protected void onStop() {
+        if (android.os.Build.VERSION.SDK_INT >= 34) unregisterScreenshotWatcher();
+        super.onStop();
+    }
+
+    @android.annotation.TargetApi(34)
+    private void registerScreenshotWatcher() {
+        try {
+            if (screenCaptureCallback == null) {
+                screenCaptureCallback = (Activity.ScreenCaptureCallback) () -> runOnUiThread(() -> {
+                    if (webView != null && pageReady) webView.evaluateJavascript("window.onScreenshot && window.onScreenshot()", null);
+                });
+            }
+            registerScreenCaptureCallback(getMainExecutor(), (Activity.ScreenCaptureCallback) screenCaptureCallback);
+        } catch (Throwable ignored) {
+            // a missing callback only means the counter stays at zero
+        }
+    }
+
+    @android.annotation.TargetApi(34)
+    private void unregisterScreenshotWatcher() {
+        try {
+            if (screenCaptureCallback != null) unregisterScreenCaptureCallback((Activity.ScreenCaptureCallback) screenCaptureCallback);
+        } catch (Throwable ignored) {
+        }
     }
 
     @Override

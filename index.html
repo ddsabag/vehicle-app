@@ -101,7 +101,7 @@ svg.i{width:20px;height:20px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-
 .brand h1 .name{display:flex;flex-direction:column;line-height:1.1;align-items:flex-start}
 .brand h1 small{font-size:.78rem;font-weight:600;color:var(--band-muted);direction:rtl}
 .brand .logo{width:40px;height:40px;flex:0 0 auto}
-.brand h1{cursor:pointer;-webkit-user-select:none;user-select:none}
+.brand h1{cursor:pointer;-webkit-user-select:none;user-select:none}.brand h1 .brand-link{display:flex;align-items:center;gap:8px;color:inherit;text-decoration:none;border-radius:10px}
 .brand-r{display:flex;align-items:center;gap:8px}.home-btn{white-space:nowrap;display:flex;align-items:center;gap:6px;height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--band-line);background:transparent;font-weight:700;color:var(--band-fg)}.home-btn[hidden]{display:none}
 .icon-btn{width:44px;height:44px;border-radius:10px;border:1px solid var(--band-line);background:transparent;display:grid;place-items:center}
 form{display:flex;gap:10px}
@@ -144,11 +144,11 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 @media (prefers-reduced-motion:reduce){.plate-strip{transition:none}}
 #out .id-card .mini-plate{display:none}   /* the plate is already in the search field above; the shared report keeps it */
 .id-top{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}.id-top>div{min-width:0}
-.id-title{margin:0;font-size:1.6rem;font-weight:800;line-height:1.2;text-wrap:balance}
+.id-title:focus{outline:none}.id-title{margin:0;font-size:1.6rem;font-weight:800;line-height:1.2;text-wrap:balance}
 .id-sub{margin:2px 0 0;color:var(--muted)}
 .mini-plate{flex:0 0 auto;direction:ltr;background:var(--plate);color:#111;border:2px solid #0b0b0b;border-radius:6px;font:600 .95rem var(--f-num);padding:2px 8px 2px 4px;display:flex;align-items:center;gap:6px}
 .mini-plate i{background:var(--il);width:8px;align-self:stretch;border-radius:2px}
-.pills{display:flex;flex-wrap:wrap;gap:6px}.pills.fstrip .pill{font-size:.9rem;padding:4px 11px}.pills.fstrip+.pills{margin-top:-4px}
+.pills{display:flex;flex-wrap:wrap;gap:6px}.pills.fstrip{gap:4px}.pills.fstrip .pill{font-size:.78rem;padding:3px 7px;white-space:nowrap;gap:3px}.pills.fstrip .pill svg.i{display:none}.pills.fstrip+.pills{margin-top:-4px}
 .est-tag{margin:0 0 8px;padding:6px 10px;border-radius:10px;background:var(--soft);font-size:.85rem;line-height:1.5}
 .pill{display:inline-flex;align-items:center;gap:5px;font-size:.85rem;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--soft)}.pill svg.i{width:14px;height:14px}
 .pill.info{background:var(--info-bg);color:var(--info)}
@@ -292,9 +292,9 @@ footer{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:4px 24px;
   html.web body:has(#out > .side) .band-in,html.web main#out:has(> .side),html.web footer,html.web body:has(#out .cmp-wide) .band-in,html.web main#out:has(.cmp-wide){max-width:1080px}
   html.web main#out:has(> .side){display:grid;grid-template-columns:minmax(0,1fr) 340px;column-gap:16px;row-gap:12px;align-items:start}
   html.web main#out > .plate-strip{grid-column:1/-1}
-  html.web main#out > .side{grid-column:2;grid-row:2;display:flex;flex-direction:column;gap:12px;position:sticky;top:56px}
+  html.web main#out > .side{grid-column:2;grid-row:2/4;display:flex;flex-direction:column;gap:12px;position:sticky;top:56px}
   html.web main#out > .mainc{grid-column:1;grid-row:2;display:flex;flex-direction:column;gap:12px;min-width:0}
-  html.web main#out > .src-foot{grid-column:1/-1;grid-row:3}
+  html.web main#out > .src-foot{grid-column:1;grid-row:3}
   html.web .appbox{order:0}
 }
 @media (prefers-color-scheme:dark){.apphint{background:#3a3320}}
@@ -367,7 +367,7 @@ section[style*="--n:3"] .cmp-k{font-size:.78rem}
 .in-btn{display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--band-line);background:transparent;border-radius:10px;padding:9px 8px;font-weight:700;color:var(--band-fg)}
 .in-btn[aria-busy="true"]{opacity:.6}
 .in-btn[aria-pressed="true"]{background:var(--bad);color:#fff;border-color:var(--bad)}
-.in-msg{margin:0;font-size:.9rem;color:var(--band-muted)}
+.in-msg{margin:0;font-size:.9rem;color:var(--band-muted)}.in-msg:empty,.toast:empty{position:absolute;width:1px;height:1px;padding:0;margin:0;border:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;box-shadow:none;background:none}
 .seg.two{grid-template-columns:1fr 1fr}
 .card.many{overflow-x:auto}.many .cmp,.many .cmp-table{min-width:calc(var(--n)*116px)}
 .ph-svg{width:100%;height:auto;display:block}.opt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:start;border:1.5px solid var(--line);border-radius:14px;padding:12px;background:var(--card);margin-top:8px;position:relative;color:var(--fg)}.opt b{font-size:1rem}.opt .pr{font-weight:800}.opt small{color:var(--muted)}.opt.best{border-color:#ffc400;box-shadow:0 0 0 2px #ffc40055}.opt em{position:absolute;inset-block-start:-9px;inset-inline-end:12px;background:#ffc400;color:#111;font-style:normal;font-weight:800;font-size:.78rem;border-radius:6px;padding:1px 8px}.cmpp td,.cmpp th{font-size:.85rem;padding:6px 2px}
@@ -541,6 +541,10 @@ body.land .band{display:none}
 .cmp-v .yes{color:var(--ok);font-weight:800}.cmp-v .no{color:var(--muted);font-weight:400}
 @media (max-width:360px){.facts{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.msg.edge{text-align:center}.edge-i{font-size:2.6rem;line-height:1;margin-bottom:10px}.msg.edge+.link-btn{align-self:center}
+button:not(:disabled):active,.link-btn:active,.act:active,.tabs button:active,a.row:active,[data-url]:active,[data-tab]:active,.head[data-fold]:active{box-shadow:none}
+@media (prefers-reduced-motion:no-preference){button:not(:disabled),.link-btn,.act,a.row,[data-url],[data-tab],.head[data-fold]{transition:transform .08s ease-out,box-shadow .12s}button:not(:disabled):active,.link-btn:active,.act:active,a.row:active,[data-url]:active,[data-tab]:active,.head[data-fold]:active{transform:scale(.98)}}
+@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{background:#fff}.brand-r,#f,.in-alt,.in-msg,.tabs,.actions,.link-btn,.apphint,.appbox,.webcta,.savedbar,.toast,.plate-strip,#settings,.chev,.copy-btn,[data-url],[data-copy]{display:none!important}.band{background:#fff;border-bottom:3px solid var(--plate)}.card,.alert-banner,.msg{box-shadow:none!important;border:1px solid #dde2ea;break-inside:avoid}.card.folded .fold-body{display:flex!important}}
 @keyframes rise{from{opacity:0;transform:translateY(4px)}}
 @media (prefers-reduced-motion:no-preference){#out.rise .card{animation:rise .18s ease-out both}}
 </style>
@@ -592,7 +596,7 @@ body.land .band{display:none}
 <div class="band">
   <div class="band-in">
     <div class="brand">
-      <h1 role="link" tabindex="0" aria-label="לוחית, מסך הבית"><svg class="logo" viewBox="0 0 108 108" aria-hidden="true"><rect width="108" height="108" rx="24" fill="#FFC400"/><g transform="translate(54,54) scale(1.28) translate(-56,-54)"><g transform="translate(54,68) scale(0.8) translate(-54,-67)"><path fill="#111111" d="M24,70l6,-15c1.6,-4 4.4,-6 9,-6h30c4.6,0 7.4,2 9,6l6,15v12a3,3 0 0 1 -3,3h-7a3,3 0 0 1 -3,-3v-3h-36v3a3,3 0 0 1 -3,3h-7a3,3 0 0 1 -3,-3z"/><path fill="#FFC400" d="M33,65l4.5,-10.5c0.8,-2 2,-3 4,-3h25c2,0 3.2,1 4,3l4.5,10.5z"/><path fill="#FFFFFF" d="M29,72a4.5,4.5 0 1 0 9,0a4.5,4.5 0 1 0 -9,0z M70,72a4.5,4.5 0 1 0 9,0a4.5,4.5 0 1 0 -9,0z"/><path fill="#FFFFFF" d="M42.5,68h23a1.5,1.5 0 0 1 1.5,1.5v6a1.5,1.5 0 0 1 -1.5,1.5h-23a1.5,1.5 0 0 1 -1.5,-1.5v-6a1.5,1.5 0 0 1 1.5,-1.5z"/><path fill="#1D4EA8" d="M42.5,68h3.5v9h-3.5a1.5,1.5 0 0 1 -1.5,-1.5v-6a1.5,1.5 0 0 1 1.5,-1.5z"/></g><path stroke="#111111" stroke-width="7" stroke-linecap="round" fill="none" d="M75.5,48.5L83,56"/><path fill="#FFFFFF" stroke="#111111" stroke-width="5" d="M53,39a14,14 0 1 0 28,0a14,14 0 1 0 -28,0z"/><path fill="#E53935" d="M60.7,32.6h13a1.7,1.7 0 0 1 0,3.4h-13a1.7,1.7 0 0 1 0,-3.4z"/><path fill="#22A355" d="M60.7,37.3h9a1.7,1.7 0 0 1 0,3.4h-9a1.7,1.7 0 0 1 0,-3.4z"/><path fill="#2457C5" d="M60.7,42h11a1.7,1.7 0 0 1 0,3.4h-11a1.7,1.7 0 0 1 0,-3.4z"/></g></svg><span class="name">לוחית<small>בדיקת רכב לפי מספר רישוי</small></span></h1>
+      <h1><a href="./" class="brand-link" aria-label="לוחית, מסך הבית"><svg class="logo" viewBox="0 0 108 108" aria-hidden="true"><rect width="108" height="108" rx="24" fill="#FFC400"/><g transform="translate(54,54) scale(1.28) translate(-56,-54)"><g transform="translate(54,68) scale(0.8) translate(-54,-67)"><path fill="#111111" d="M24,70l6,-15c1.6,-4 4.4,-6 9,-6h30c4.6,0 7.4,2 9,6l6,15v12a3,3 0 0 1 -3,3h-7a3,3 0 0 1 -3,-3v-3h-36v3a3,3 0 0 1 -3,3h-7a3,3 0 0 1 -3,-3z"/><path fill="#FFC400" d="M33,65l4.5,-10.5c0.8,-2 2,-3 4,-3h25c2,0 3.2,1 4,3l4.5,10.5z"/><path fill="#FFFFFF" d="M29,72a4.5,4.5 0 1 0 9,0a4.5,4.5 0 1 0 -9,0z M70,72a4.5,4.5 0 1 0 9,0a4.5,4.5 0 1 0 -9,0z"/><path fill="#FFFFFF" d="M42.5,68h23a1.5,1.5 0 0 1 1.5,1.5v6a1.5,1.5 0 0 1 -1.5,1.5h-23a1.5,1.5 0 0 1 -1.5,-1.5v-6a1.5,1.5 0 0 1 1.5,-1.5z"/><path fill="#1D4EA8" d="M42.5,68h3.5v9h-3.5a1.5,1.5 0 0 1 -1.5,-1.5v-6a1.5,1.5 0 0 1 1.5,-1.5z"/></g><path stroke="#111111" stroke-width="7" stroke-linecap="round" fill="none" d="M75.5,48.5L83,56"/><path fill="#FFFFFF" stroke="#111111" stroke-width="5" d="M53,39a14,14 0 1 0 28,0a14,14 0 1 0 -28,0z"/><path fill="#E53935" d="M60.7,32.6h13a1.7,1.7 0 0 1 0,3.4h-13a1.7,1.7 0 0 1 0,-3.4z"/><path fill="#22A355" d="M60.7,37.3h9a1.7,1.7 0 0 1 0,3.4h-9a1.7,1.7 0 0 1 0,-3.4z"/><path fill="#2457C5" d="M60.7,42h11a1.7,1.7 0 0 1 0,3.4h-11a1.7,1.7 0 0 1 0,-3.4z"/></g></svg><span class="name">לוחית<small>בדיקת רכב לפי מספר רישוי</small></span></a></h1>
       <div class="brand-r"><button class="home-btn" id="homeBtn" type="button" hidden><svg class="i"><use href="#i-home"/></svg>בית</button><button class="icon-btn" id="openSettings" type="button" aria-label="הגדרות"><svg class="i"><use href="#i-gear"/></svg></button></div>
     </div>
     <form id="f" autocomplete="off">
@@ -608,12 +612,12 @@ body.land .band{display:none}
       <button type="button" class="in-btn" id="micBtn"><svg class="i"><use href="#i-mic"/></svg>אמירת המספר</button>
       <input type="file" id="camFile" accept="image/*" hidden>
     </div>
-    <p class="in-msg" id="inMsg" role="status" hidden></p>
+    <p class="in-msg" id="inMsg" role="status"></p>
   </div>
 </div>
 <button type="button" class="savedbar" id="savedBar" hidden><svg class="i"><use href="#i-star"/></svg><span id="savedBarTxt"></span></button>
-<main id="out" aria-live="polite"></main>
-<footer>המידע מגיע מהמאגרים הפתוחים של משרד התחבורה ב-<a href="https://data.gov.il/" target="_blank" rel="noopener">data.gov.il</a>, ואינו מחליף נסח רישום רשמי. האפליקציה אינה קשורה למשרד התחבורה או לגוף ממשלתי.<span id="mdlLink"> <a href="model/">דגמים נפוצים בישראל</a> · <a href="magazine/">מגזין</a> · <a href="guide/buy-used-car/">מדריך לקונה</a></span></footer>
+<main id="out"></main>
+<footer>המידע מגיע מהמאגרים הפתוחים של משרד התחבורה ב-<a href="https://data.gov.il/" target="_blank" rel="noopener">data.gov.il</a>, ואינו מחליף נסח רישום רשמי. האפליקציה אינה קשורה למשרד התחבורה או לגוף ממשלתי.<span id="mdlLink"> <a href="model/">דגמים נפוצים בישראל</a> · <a href="magazine/">מגזין</a> · <a href="guide/buy-used-car/">מדריך לקונה</a> · <a href="privacy.html">מדיניות פרטיות</a></span></footer>
 <script>(function(){if(!window.AndroidApp)document.documentElement.classList.add("web");if(window.AndroidApp){var x=document.getElementById("mdlLink");if(x)x.remove()}})()</script>
 
 <div class="sheet" id="settings" hidden role="dialog" aria-modal="true" aria-labelledby="setTitle">
@@ -665,6 +669,7 @@ body.land .band{display:none}
       <button class="link-btn danger" type="button" id="clearSaved">מחיקת כל הרכבים שלי</button>
     </div>
     <p class="note">החיפושים והרכבים שלי נשמרים רק במכשיר הזה. גרסה <span id="ver"></span>.</p>
+    <p class="note"><a href="https://luchit.app/privacy.html" target="_blank" rel="noopener">מדיניות פרטיות</a></p>
     <p class="credit">לוחית · פותחה על ידי דודו סבאג<br>© 2026 כל הזכויות שמורות</p>
   </div>
 </div>
@@ -692,12 +697,12 @@ body.land .band{display:none}
     <p class="note">הדוח כולל את מספר הרישוי והיסטוריית סוגי הבעלות (בלי שמות). שתפו אותו רק עם מי שצריך.</p><p class="note" id="shareMsg" role="status"></p>
   </div>
 </div>
-<div class="toast" id="toast" hidden role="status"></div>
+<div class="toast" id="toast" role="status"></div>
 
 <script>
 "use strict";
 /*! © 2026 Dudu Sabag. All rights reserved. */
-const APP_VERSION = "1.23";
+const APP_VERSION = "1.24";
 const SITE = "https://luchit.app/";
 /* PRO: while PRO_LOCK is false (beta) every feature is open to everyone. Later it is tied to a Google Play subscription. */
 const PRO_LOCK = false;
@@ -711,6 +716,8 @@ let jsErrN = 0;
 const jsErr = (where, line) => { if (jsErrN++ < 5) { try { const b = window.AndroidApp; if (b && b.logError && analyticsOn()) b.logError(("js_" + where + "_" + (line || 0)).slice(0, 60)); } catch {} } };
 window.addEventListener("error", ev => jsErr("err", ev && ev.lineno));
 window.addEventListener("unhandledrejection", () => jsErr("rej", 0));
+/* the Android app tells the page when a screenshot of it was taken (Android 14+): counted with the screen it happened on, never the picture */
+window.onScreenshot = () => { try { track("user_screenshot", {tab: typeof inCompare !== "undefined" && inCompare ? "compare" : typeof current !== "undefined" && current ? (currentTab || "overview") : "home"}); } catch {} };
 const reportErr = tag => { try { const b = window.AndroidApp; if (b && b.logError && analyticsOn()) b.logError(String(tag).slice(0, 60)); } catch {} };
 const UPGRADE_UI = true;   // false for a store build that has no billing products yet
 const PRICES = {buyer_pack: 29, pro_monthly: 12.9, pro_yearly: 69, biz_monthly: 79};
@@ -851,7 +858,9 @@ function dsFetch(url){
 async function ds(resource_id, filters, limit, signal){
   const p = new URLSearchParams({resource_id, filters: JSON.stringify(filters), limit: String(limit || 100)});
   if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
-  const rows = await dsFetch(`${API}?${p}`);
+  // the shared request keeps running for other callers, but this caller stops waiting the moment it is cancelled
+  const pend = dsFetch(`${API}?${p}`);
+  const rows = signal ? await Promise.race([pend, new Promise((_, rej) => signal.addEventListener("abort", () => rej(new DOMException("Aborted", "AbortError")), {once: true}))]) : await pend;
   if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
   return rows;
 }
@@ -861,10 +870,10 @@ async function byPlate(set, plate, signal){
   const forms = [plate, Number(plate)];
   if (set.pad && plate.length < 8) forms.push(plate.padStart(7,"0"), plate.padStart(8,"0"));
   let lastErr = null, ok = false;
-  for (const v of [...new Set(forms)]) {
+  forms: for (const v of [...new Set(forms)]) {
     for (let attempt = 0; attempt < 2; attempt++) {
       try { const rows = await ds(set.id, {[field]: v}, 100, signal); ok = true; if (rows.length) return rows; break; }
-      catch (e) { if (e.name === "AbortError") throw e; lastErr = e; if (/HTTP 4\d\d|timeout/.test(e.message)) break; /* a stalled request is one attempt, not two */ /* a text column rejects the numeric form: next form, no retry */ if (attempt === 0) await new Promise(r => setTimeout(r, 700)); }
+      catch (e) { if (e.name === "AbortError") throw e; lastErr = e; if (/timeout/.test(e.message)) break forms; /* a stalled server will not answer the next form either */ if (/HTTP 4\d\d/.test(e.message)) break; /* a stalled request is one attempt, not two */ /* a text column rejects the numeric form: next form, no retry */ if (attempt === 0) await new Promise(r => setTimeout(r, 700)); }
     }
   }
   if (!ok && lastErr) throw lastErr;
@@ -960,6 +969,7 @@ const hasTow = r => r && (isNum(r.kosher_grira_im_blamim) && num(r.kosher_grira_
 
 /* ---------- small UI helpers ---------- */
 const pl = (n, one, many) => n === 1 ? one : `${n} ${many}`;
+const recType = t => empty(t) ? t : String(t).replace("סידרתית", "סדרתית").replace("שרות", "שירות");
 const ico = id => `<svg class="i"><use href="#i-${id}"/></svg>`;
 function facts(list){
   const items = list.filter(f => f && !empty(f[1]))
@@ -988,7 +998,7 @@ function monthsBetween(a, b){ return (b.getFullYear() - a.getFullYear()) * 12 + 
 function parseYM(v){ const m = String(v || "").match(/^(\d{4})-?(\d{1,2})/); return m ? new Date(+m[1], +m[2] - 1, 1) : null; }
 
 let toastTimer = null;
-function toast(t){ const el = $("#toast"); el.textContent = t; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => el.hidden = true, 2200); }
+function toast(t){ const el = $("#toast"); el.textContent = t; clearTimeout(toastTimer); toastTimer = setTimeout(() => el.textContent = "", 2200); }
 const bridge = () => window.AndroidApp || null;
 async function copyText(t, label){
   let ok = false;
@@ -998,6 +1008,8 @@ async function copyText(t, label){
   toast(ok ? `${label || "הטקסט"} הועתק` : "לא הצלחנו להעתיק");
 }
 /* every share carries a store link; whoever installs from it lands on the same car on first launch */
+/* web visitors who go to Google Play carry a campaign tag, so Play Console can show how many store visits and installs come from luchit.app */
+const playWeb = c => `${PLAY_URL}&referrer=${encodeURIComponent("utm_source=luchit.app&utm_medium=web&utm_campaign=" + c)}`;
 const carLink = plate => `${PLAY_URL}&referrer=${encodeURIComponent("plate=" + plate)}`;
 async function shareText(title, text, plate){
   text += plate ? `\n\nהדוח המלא באפליקציה לוחית:\n${carLink(plate)}` : "\n\nמקור: מאגרי משרד התחבורה, דרך האפליקציה לוחית";
@@ -1063,7 +1075,7 @@ function toggleSaved(item){
   const list = store.get("savedVehicles");
   if (list.some(x => x.plate === item.plate)) { store.set("savedVehicles", list.filter(x => x.plate !== item.plate)); updateSavedBar(); return false; }
   if (list.length >= savedCap()) { toast(`הרשימה מלאה (${savedCap()} רכבים). הסירו רכב כדי להוסיף.`); return false; }
-  store.set("savedVehicles", [item, ...list]); updateSavedBar(); return true;
+  store.set("savedVehicles", [item, ...list]); updateSavedBar(); if (current && current.plate === item.plate) snapPut(current); return true;
 }
 function remember(p){
   store.set("recentPlates", [p, ...store.get("recentPlates").filter(x => x !== p)].slice(0, 6));
@@ -1377,6 +1389,25 @@ async function sourceEmpty(signal){
     return j && j.success && Number(j.result && j.result.total) === 0;
   } catch (e) { if (e.name === "AbortError") throw e; return false; }
 }
+/* ---------- last result of saved cars, so they can be opened without a connection ---------- */
+const SNAP_KEY = "carSnaps";
+function snapAll(){ try { return JSON.parse(localStorage.getItem(SNAP_KEY) || "{}") || {}; } catch { return {}; } }
+function snapPut(D){
+  try {
+    if (!D || D.kind === "model" || D.fromCache || !isSaved(D.plate)) return;
+    const all = snapAll(), keep = new Set(store.get("savedVehicles").map(x => x.plate));
+    all[D.plate] = {t: Date.now(), D};
+    for (const k of Object.keys(all)) if (!keep.has(k)) delete all[k];
+    let txt = JSON.stringify(all);
+    // phones allow about 5 MB per site: drop the oldest copies before the limit is hit
+    while (txt.length > 1.5e6 && Object.keys(all).length > 1) { const old = Object.keys(all).sort((a, b) => all[a].t - all[b].t)[0]; delete all[old]; txt = JSON.stringify(all); }
+    localStorage.setItem(SNAP_KEY, txt);
+  } catch {}
+}
+function snapGet(plate){
+  const e = snapAll()[plate]; if (!e || !e.D) return null;
+  const D = e.D; D.pick = (...vals) => vals.find(x => !empty(x)); D.fromCache = e.t; return D;
+}
 /* ---------- fetch one vehicle ---------- */
 async function fetchVehicle(plate, signal, onProgress){
   const res = {}; let done = 0;
@@ -1499,7 +1530,7 @@ function buildInsights(D){
   if (yes(v.gapam_ind)) add("warn", "הותקנה מערכת גפ״מ", "הרכב הוסב לנסיעה על גז.");
   if (yes(v.shnui_zeva_ind)) add("info", "הצבע שונה", "צבע הרכב שונה מהצבע המקורי.");
   if (D.importKind) add("info", "יבוא אישי", "הרכב יובא ביבוא אישי, ולא דרך יבואן רשמי. חלפים, שירות וריקולים עשויים להיות פחות זמינים, וחלק מהנתונים על הדגם חסרים במאגר.");
-  if (D.primary && D.primary.key === "heavy") add("info", "רכב כבד: מידע חלקי", "במאגר של משרד התחבורה לרכבים כבדים (מעל 3.5 טון) יש פחות פרטים: אין תאריך טסט אחרון, קילומטראז׳, היסטוריית בעלויות ונתוני דגם כמו מערכות בטיחות וריקולים. מוצג כל מה שקיים.");
+  if (D.primary && D.primary.key === "heavy") add("info", "רכב כבד: מידע חלקי", "במאגר של משרד התחבורה לרכבים כבדים (מעל 3.5 טון) יש פחות פרטים: אין תאריך טסט אחרון, ק״מ בטסט, היסטוריית בעלויות ונתוני דגם כמו מערכות בטיחות וריקולים. מוצג כל מה שקיים.");
   if (D.tag) add("info", "לרכב יש תג חניה לנכה", `התג הונפק${empty(D.tag["TAARICH HAFAKAT TAG"]) ? "" : " ב-" + fmtDate(D.tag["TAARICH HAFAKAT TAG"])}.`);
   const lvl = num(v.ramat_eivzur_betihuty);
   if (!isNaN(lvl) && !empty(v.ramat_eivzur_betihuty)) {
@@ -1521,31 +1552,34 @@ const REPORT_TABS = [["overview","סקירה"],["buy","קנייה"],["costs","ע
 async function lookup(raw){
   const plate = digits(raw).replace(/^0+(?=\d{5})/, "");
   const out = $("#out");
-  if (plate.length < 5 || plate.length > 8) { out.innerHTML = `<div class="msg err">מספר רישוי צריך להכיל 5 עד 8 ספרות.</div>`; return; }
+  if (plate.length < 5 || plate.length > 8) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true">🔢</div>מספר רישוי צריך להכיל 5 עד 8 ספרות.</div>`; return; }
   if (ctrl) ctrl.abort();
   ctrl = new AbortController(); const signal = ctrl.signal;
+  let timedOut = false; const deadT = setTimeout(() => { timedOut = true; ctrl.abort(); }, 30000);   // a server that never answers must end in a clear message, not a bar that runs for a minute
   $("#plate").value = fmtPlate(plate); $("#plate").blur();
   $("#go").disabled = true;
   try { history.replaceState(null, "", "#" + plate); } catch {}
   out.innerHTML = loadingHtml(plate);
   // a slow ministry server: say so after 3.5 s instead of leaving a silent bar
   const t0 = Date.now();
-  const slowT = setTimeout(() => { if (!signal.aborted && $("#skl") && !$("#slowNote")) track("lookup_slow"); if (!signal.aborted && $("#skl") && !$("#slowNote")) out.insertAdjacentHTML("beforeend", `<p class="note" id="slowNote" role="status" style="text-align:center">בודק, לוקח יותר מהרגיל. שרתי משרד התחבורה איטיים כרגע.</p>`); }, 3500);
+  const slowT = setTimeout(() => { if (!signal.aborted && $("#skl") && !$("#slowNote")) track("lookup_slow"); if (!signal.aborted && $("#skl") && !$("#slowNote")) out.insertAdjacentHTML("beforeend", `<p class="note" id="slowNote" role="status" style="text-align:center">בודק, לוקח יותר מהרגיל. שרתי משרד התחבורה איטיים כרגע. <button type="button" class="link-btn" id="cancelLook">ביטול</button></p>`); const cb = $("#cancelLook"); if (cb) cb.addEventListener("click", () => { ctrl.abort(); goHome(); }); }, 3500);
   const side = Promise.race([Promise.all([loadModelStats().catch(() => null), loadService().catch(() => null)]), new Promise(r => setTimeout(r, 1500))]);
   let D;
   try { D = await fetchVehicle(plate, signal, () => {}); }
-  catch (err) { if (err.name === "AbortError") { if (Date.now() - t0 > 1500) track("lookup_abort"); return; } throw err; }   // the user gave up on a slow lookup and typed another
-  finally { $("#go").disabled = false; clearTimeout(slowT); }
+  catch (err) { if (err.name === "AbortError") { if (timedOut) { D = {plate, offline: true}; track("lookup_timeout"); } else { if (Date.now() - t0 > 1500) track("lookup_abort"); return; } } else throw err; }   // the user gave up on a slow lookup and typed another
+  finally { $("#go").disabled = false; clearTimeout(slowT); clearTimeout(deadT); }
   const dur = Date.now() - t0, durB = dur < 2000 ? "lt2" : dur < 5000 ? "2to5" : dur < 10000 ? "5to10" : "gt10";
-  if (signal.aborted) return;
+  if (signal.aborted && !timedOut) return;
   await side;
-  if (signal.aborted) return;
-  if (D.sourceDown) { out.innerHTML = `<div class="msg err">מאגר הרכבים של משרד התחבורה לא מחזיר נתונים כרגע, בלי קשר למספר שהקלדתם. זו תקלה אצל המשרד. נסו שוב מאוחר יותר.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; track("lookup_failed", {kind: "source_down"}); return; }
+  if (signal.aborted && !timedOut) return;
+  if (D.offline) { const sn = snapGet(plate); if (sn) { track("lookup_from_cache"); current = sn; currentTab = "overview"; renderResult(); focusResult(); window.scrollTo({top: 0}); return; } }
+  if (D.sourceDown) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true">🛠️</div>מאגר הרכבים של משרד התחבורה לא מחזיר נתונים כרגע, בלי קשר למספר שהקלדתם. זו תקלה אצל המשרד. נסו שוב מאוחר יותר.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; track("lookup_failed", {kind: "source_down", dur: durB}); return; }
   if (D.offline || D.notFound) track("lookup_failed", {kind: D.sourceDown ? "source_down" : D.offline ? "offline" : "not_found", dur: durB});
-  if (D.offline) { out.innerHTML = `<div class="msg err">אין חיבור למאגרי משרד התחבורה כרגע. בדקו את החיבור לאינטרנט ונסו שוב.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; return; }
-  if (D.notFound) { out.innerHTML = `<div class="msg">לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.</div>`; return; }
+  if (D.offline) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true">📡</div>אין חיבור למאגרי משרד התחבורה כרגע. בדקו את החיבור לאינטרנט ונסו שוב.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; return; }
+  if (D.notFound) { out.innerHTML = `<div class="msg edge"><div class="edge-i" aria-hidden="true">🔍</div>לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.</div>`; return; }
   current = D; currentTab = "overview";
-  renderResult();
+  snapPut(D);
+  renderResult(); focusResult();
   track("car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: D.errs && D.errs.length ? 1 : 0});
   remember(plate);
   window.scrollTo({top: 0});
@@ -1560,7 +1594,7 @@ function fixRows(r, d) {
   return rows.length ? `<div class="fix">${rows.map(([k, x]) => `<div><span>${k}</span>${esc(x)}</div>`).join("")}</div>` : "";
 }
 const D_pick = (...a) => a.find(x => !empty(x));
-const loadingHtml = plate => `<div class="msg"><p class="note" style="margin-bottom:10px">מחפש את <span class="mono">${fmtPlate(plate)}</span> במאגרי משרד התחבורה…</p></div><div id="skl" class="skl" aria-hidden="true"><div class="card"><i class="s w60 h24"></i><i class="s w40"></i><div class="sr"><i class="s pill-s"></i><i class="s pill-s"></i><i class="s pill-s"></i></div><div class="sr g4"><i class="s blk"></i><i class="s blk"></i><i class="s blk"></i><i class="s blk"></i></div></div><div class="card"><i class="s w50 h18"></i><i class="s w90"></i><i class="s w70"></i></div><div class="card"><i class="s w40 h18"></i><i class="s w90"></i><i class="s w90"></i><i class="s w60"></i></div></div>`;
+const loadingHtml = plate => `<div class="msg" aria-busy="true"><p class="note" style="margin-bottom:10px">מחפש את <span class="mono">${fmtPlate(plate)}</span> במאגרי משרד התחבורה…</p></div><div id="skl" class="skl" aria-hidden="true"><div class="card"><i class="s w60 h24"></i><i class="s w40"></i><div class="sr"><i class="s pill-s"></i><i class="s pill-s"></i><i class="s pill-s"></i></div><div class="sr g4"><i class="s blk"></i><i class="s blk"></i><i class="s blk"></i><i class="s blk"></i></div></div><div class="card"><i class="s w50 h18"></i><i class="s w90"></i><i class="s w70"></i></div><div class="card"><i class="s w40 h18"></i><i class="s w90"></i><i class="s w90"></i><i class="s w60"></i></div></div>`;
 
 /* Plain view: the same data as dry rows, no insights, tabs or explanations */
 let simpleMore = false;
@@ -1609,11 +1643,11 @@ async function loadStatus(){
     const el = $("#srcFoot"); if (el) el.outerHTML = srcFoot();
   } catch {}
 }
-const appBox = D => `<section class="appbox"><h3>באתר רואים את הרכב. באפליקציה הוא עובד בשבילכם</h3><p>אותה בדיקה, ועוד:</p><ul><li>התראה כשהטסט מתקרב או שנפתח ריקול</li><li>הודעה אם הרכב עבר בעלות או ירד מהכביש</li><li>הסדרי פשרה: בדיקה אם הרכב שלכם זכאי להטבה מהיבואן</li><li>יומן טיפולים ועלויות על הטלפון</li><li>צילום לוחית ואמירת מספר, במקום להקליד</li></ul><button type="button" class="btn" data-url="${PLAY_URL}" data-hint="side">להורדה ב-Google Play</button></section>`;
+const appBox = D => `<section class="appbox"><h3>באתר רואים את הרכב. באפליקציה הוא עובד בשבילכם</h3><p>אותה בדיקה, ועוד:</p><ul><li>התראה כשהטסט מתקרב או שנפתח ריקול</li><li>הודעה אם הרכב עבר בעלות או ירד מהכביש</li><li>הסדרי פשרה: בדיקה אם הרכב שלכם זכאי להטבה מהיבואן</li><li>יומן טיפולים ועלויות על הטלפון</li><li>צילום לוחית ואמירת מספר, במקום להקליד</li></ul><button type="button" class="btn" data-url="${playWeb("result_box")}" data-hint="side">להורדה ב-Google Play</button></section>`;
 const appHint = D => {
   if (window.AndroidApp || D.kind === "model" || D.isCancelled) return "";
   const t = D.recalls && D.recalls.length ? "התראה כשיוצא ריקול חדש לרכב הזה" : "תזכורת לפני שהטסט פג";
-  return `<button type="button" class="apphint" data-url="${PLAY_URL}" data-hint="overview"><span aria-hidden="true">🔔</span><span><b>רוצים לדעת ראשונים?</b> ${t}</span><span class="gox">באפליקציה ›</span></button>`;
+  return `<button type="button" class="apphint" data-url="${playWeb("result_hint")}" data-hint="overview"><span aria-hidden="true">🔔</span><span><b>רוצים לדעת ראשונים?</b> ${t}</span><span class="gox">באפליקציה ›</span></button>`;
 };
 function renderResult(){
   if (land) setLand(false, false);
@@ -1627,15 +1661,16 @@ function renderResult(){
   if (D.importKind) pills.push(`<span class="pill info">${esc(D.importKind)}</span>`);
   const dt = driveType(D);
   if (dt) facts[2] = (`<span class="pill drive ${["ev", "phev", "hybrid"].includes(dt.k) ? "green" : ""}">${ico(["ev", "phev", "hybrid"].includes(dt.k) ? "bolt" : "fuel")}${dt.label}</span>`);
-  if (exp && !D.isCancelled) facts[0] = (exp < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) ? `<span class="pill bad">טסט לא בתוקף</span>` : `<span class="pill ok">טסט בתוקף עד ${String(exp.getMonth() + 1).padStart(2, "0")}/${exp.getFullYear()}</span>`);
+  if (exp && !D.isCancelled) facts[0] = (exp < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) ? `<span class="pill bad">טסט לא בתוקף</span>` : `<span class="pill ok">טסט עד ${String(exp.getMonth() + 1).padStart(2, "0")}/${exp.getFullYear()}</span>`);
   const vIns = buildInsights(D), clean = !(D.errs && D.errs.length) && !D.recallUnknown && !D.isCancelled && !D.recalls.length && !vIns.some(x => x.level === "bad" || x.level === "warn");
   if (D.own.length) facts[1] = `<span class="pill">${ownersLabel(D)}</span>`;
   if (!empty(v.shnat_yitzur)) facts[3] = `<span class="pill">${esc(v.shnat_yitzur)}</span>`;
   if (clean) pills.push(`<span class="pill ok">${ico("check")}לא נמצאו בעיות במאגרי משרד התחבורה</span>`);
   if (D.tag) pills.push(`<span class="pill">תג נכה</span>`);
   html.push(`<div class="side">`);
+  if (D.fromCache) html.push(`<div class="msg" role="status"><b>אין חיבור למשרד התחבורה, ולכן מוצגים נתונים שנשמרו ב-${esc(fmtDate(new Date(D.fromCache).toISOString()))}.</b> ייתכן שהם לא מעודכנים. <button type="button" class="link-btn" data-retry="${esc(D.plate)}">נסו שוב</button></div>`);
   html.push(`<section class="card id-card">
-    <div class="id-top"><div><p class="id-title">${esc(D.title)}</p><p class="id-sub">${esc(!empty(v.shnat_yitzur) && !simpleOn() ? D.sub.split(" · ").slice(1).join(" · ") : D.sub)}</p></div>
+    <div class="id-top"><div><h2 class="id-title" id="resHead" tabindex="-1">${esc(D.title)}</h2><p class="id-sub">${esc(!empty(v.shnat_yitzur) && !simpleOn() ? D.sub.split(" · ").slice(1).join(" · ") : D.sub)}</p></div>
       <span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span></div>
     ${!simpleOn() && facts.some(Boolean) ? `<div class="pills fstrip" aria-label="עובדות עיקריות">${facts.filter(Boolean).join("")}</div>` : ""}
     ${pills.length && !simpleOn() ? `<div class="pills">${pills.join("")}</div>` : ""}
@@ -1663,8 +1698,8 @@ function renderResult(){
   const recallCount = D.recalls.length;
   if (simpleOn()) html.push(simpleCard(D));
   else {
-      html.push(`<div class="tabs" role="tablist">${TABS.map(([k, t]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${k === currentTab}">${t}${k === "recalls" && recallCount ? `<i class="hot">${recallCount}</i>` : ""}</button>`).join("")}</div>`);
-      html.push(`<div class="tab-body">${currentTab === "overview" ? appHint(D) : ""}${TAB_FN()[currentTab](D)}</div>`);
+      html.push(`<div class="tabs" role="tablist">${TABS.map(([k, t]) => `<button type="button" role="tab" id="tab-${k}" data-tab="${k}" aria-selected="${k === currentTab}" aria-controls="tabpanel" tabindex="${k === currentTab ? 0 : -1}">${t}${k === "recalls" && recallCount ? `<i class="hot">${recallCount}</i>` : ""}</button>`).join("")}</div>`);
+      html.push(`<div class="tab-body" id="tabpanel" role="tabpanel" aria-labelledby="tab-${currentTab}">${currentTab === "overview" ? appHint(D) : ""}${TAB_FN()[currentTab](D)}</div>`);
   }
   html.push(`</div>`);
   html.push(srcFoot());
@@ -2058,7 +2093,7 @@ function tabRecalls(D){
       const d = r.detail || {};
       const contact = [d.YEVUAN_TEUR, d.TELEPHONE && `טלפון ${d.TELEPHONE}`].filter(x => !empty(x)).map(esc).join(" · ");
       return `<div class="recall"><b>${esc(D.pick(r.TEUR_TAKALA, d.TEUR_TAKALA, r.SUG_TAKALA) || "ריקול")}</b>
-        <span class="note">${[r.SUG_RECALL, !empty(r.TAARICH_PTICHA) && "נפתח ב-" + fmtDate(r.TAARICH_PTICHA), !empty(r.RECALL_ID) && "מספר " + r.RECALL_ID].filter(Boolean).map(esc).join(" · ")}</span>
+        <span class="note">${[recType(r.SUG_RECALL), !empty(r.TAARICH_PTICHA) && "נפתח ב-" + fmtDate(r.TAARICH_PTICHA), !empty(r.RECALL_ID) && "מספר " + r.RECALL_ID].filter(Boolean).map(esc).join(" · ")}</span>
         ${fixRows(r, d)}
         ${contact ? `<p class="note">${contact}</p>` : ""}</div>`;
     }).join("") + `<p class="note">התיקון ניתן בחינם אצל היבואן.</p>`));
@@ -2080,7 +2115,7 @@ function tabRecalls(D){
       `<ul class="rlist">${mr.map(r => `<li class="${r.fits === false ? "dim" : ""}">
          <div class="rhead"><time>${esc(fmtDate(r.TAARICH_PTICHA || ""))}</time>${r.fits === true ? `<span class="pill warn">כולל את שנת הייצור</span>` : r.fits === false ? `<span class="pill">שנים אחרות</span>` : ""}</div>
          <b>${esc(D.pick(r.TEUR_TAKALA, r.SUG_TAKALA) || "ריקול")}</b>
-         <span class="note">${[r.SUG_RECALL, r.DEGEM, ].filter(x => !empty(x)).map(esc).join(" · ")}${(r.BUILD_BEGIN_A || r.BUILD_END_A) ? ` · ייצור <span dir="ltr" style="unicode-bidi:isolate">${esc(fmtDate(r.BUILD_BEGIN_A || ""))} – ${esc(fmtDate(r.BUILD_END_A || ""))}</span>` : ""}</span>
+         <span class="note">${[recType(r.SUG_RECALL), r.DEGEM, ].filter(x => !empty(x)).map(esc).join(" · ")}${(r.BUILD_BEGIN_A || r.BUILD_END_A) ? ` · ייצור <span dir="ltr" style="unicode-bidi:isolate">${esc(fmtDate(r.BUILD_BEGIN_A || ""))} – ${esc(fmtDate(r.BUILD_END_A || ""))}</span>` : ""}</span>
        </li>`).join("")}</ul>`, `<span class="count">${mr.length}</span>`));
   }
   return html.join("");
@@ -2520,10 +2555,10 @@ async function fetchModel(r, signal){
 
 /* ---------- comparison (up to 3 cars or models) ---------- */
 const isBiz = () => atLeast("biz");
-const cmpMax = () => isPro() ? PRO_CMP : FREE_CMP;
+const cmpMax = () => Math.min(isPro() ? PRO_CMP : FREE_CMP, matchMedia("(max-width:419px)").matches ? 3 : 99);   // narrow screens: more columns break the sticky header and the row labels
 let cmp = [], inCompare = false, mResults = [], mCtrl = null;
 function openCompare(){
-  loadModelIndex();
+  loadModelIndex(); loadModelStats().catch(() => null);
   $("#compareSheet").hidden = false; $("#compareMsg").textContent = "";
   $("#mq").value = ""; $("#mres").innerHTML = ""; mResults = []; mGroup = null; mYear = null; mShowAll = false;
   $("#cmpTitle").textContent = cmp.length ? `הוספת רכב ${cmp.length + 1} להשוואה` : "בחירת רכב להשוואה";
@@ -2678,7 +2713,7 @@ function showGroups(){
   if (!mGroups.length) track("search_no_result", {kind: mNote ? "budget" : "model"});
   msg.textContent = mGroups.length ? (searchFuzzy && !mNote ? "לא נמצא בדיוק. אולי התכוונתם:" : "") : (mNote ? "לא נמצאו דגמים שמתאימים לתנאים. נסו תקציב גבוה יותר או פחות תנאים." : "לא נמצאו דגמים. נסו שם אחר, למשל שם הדגם באנגלית.");
   let lastMake = null;
-  $("#mres").innerHTML = (mNote && mGroups.length ? `<div class="qsec" style="margin-top:0">${mGroups.length} דגמים: ${esc(mNote)}</div>` : "") + shown.map(x => (x.make !== lastMake ? (lastMake = x.make, `<div class="qsec">${esc(x.make)}</div>`) : "") + `<button type="button" class="row" data-mg="${mGroups.indexOf(x)}"><span class="t"><b>${esc(x.model)}</b><small>${isFinite(x.from) ? (x.from === x.to ? x.from : `<span dir="ltr">${x.from}–${x.to}</span>`) : ""}${x.price ? ` · החל מ-${fmtN(x.price)} אלף ₪` : ""}</small></span>${ico("chev")}</button>`).join("")
+  $("#mres").innerHTML = (mNote && mGroups.length ? `<div class="qsec" style="margin-top:0">${pl(mGroups.length, "דגם אחד", "דגמים")}: ${esc(mNote)}</div>` : "") + shown.map(x => (x.make !== lastMake ? (lastMake = x.make, `<div class="qsec">${esc(x.make)}</div>`) : "") + `<button type="button" class="row" data-mg="${mGroups.indexOf(x)}"><span class="t"><b>${esc(x.model)}</b><small>${isFinite(x.from) ? (x.from === x.to ? x.from : `<span dir="ltr">${x.from}–${x.to}</span>`) : ""}${x.price ? ` · החל מ-${fmtN(x.price)} אלף ₪` : ""}</small></span>${ico("chev")}</button>`).join("")
     + (rest > 0 ? `<button type="button" class="more" data-more="1">${mNote ? `עוד ${rest} דגמים` : `עוד ${rest} דגמים`}</button>` : "");
   renderQuick();
 }
@@ -2808,7 +2843,8 @@ async function runCompare(raw){
 }
 function renderCompare(){
   inCompare = true;
-  if (!MSTATS) loadModelStats().then(j => { if (j && inCompare) renderCompare(); });
+  // late model counts re-draw once, in place: the scroll position is kept so nothing jumps
+  if (!MSTATS) loadModelStats().then(j => { if (j && inCompare) { const y = window.scrollY; renderCompare(); window.scrollTo(0, y); } });
   const L = cmp, n = L.length;
   const anyCar = L.some(D => D.kind !== "model");
   const N = x => x === null || x === undefined || x === "" || (typeof x === "number" && isNaN(x)) ? null : x;
@@ -2841,9 +2877,9 @@ function renderCompare(){
     ["עלות חודשית (הערכה)", D => D.cost.monthly ? D.cost.monthly.total : null, "lo", "₪"],
     ["מחיר מחירון כחדש", D => D.cost.newPrice || null, null, "₪"],
     ["שווי משוער היום", D => D.cost.valueLow ? Math.round((D.cost.valueLow + D.cost.valueHigh) / 2000) * 1000 : null, null, "₪"],
-    kmlUnit() ? ["ק״מ לליטר (הערכה)", D => D.cost.l100 ? Math.round(1000 / D.cost.l100) / 10 : null, "hi", "", true]
-              : ["ליטר ל-100 ק״מ (הערכה)", D => D.cost.l100 ? Math.round(D.cost.l100 * 10) / 10 : null, "lo", "", true],
-    ["קוט״ש ל-100 ק״מ (הערכה)", D => D.cost.kwh100 || null, "lo", "", true],
+    // one consumption row for every drive type (a petrol car has no kWh and an EV no litres), and one cost row in shekels that compares them fairly
+    ["צריכת אנרגיה (הערכה)", D => D.cost.kwh100 ? `${D.cost.kwh100} קוט״ש ל-100 ק״מ` : D.cost.l100 ? (kmlUnit() ? `${Math.round(1000 / D.cost.l100) / 10} ק״מ לליטר` : `${Math.round(D.cost.l100 * 10) / 10} ל׳ ל-100 ק״מ`) : null, null, "", true],
+    ["עלות אנרגיה ל-100 ק״מ (הערכה)", D => D.cost.fuelYear && D.cost.kmYear ? Math.round(D.cost.fuelYear / D.cost.kmYear * 1000) / 10 : null, "lo", "₪", true],
     [L.some(D => D.cost.kind === "ev") ? "דלק או חשמל בשנה (הערכה)" : "דלק בשנה (הערכה)", D => D.cost.fuelYear ? Math.round(D.cost.fuelYear / 100) * 100 : null, "lo", "₪"],
     ["אגרת רישוי (הערכה)", D => D.cost.fee || null, "lo", "₪"],
     ["שווי שימוש לחודש", D => D.cost.usage ? D.cost.usage.monthly : null, "lo", "₪"],
@@ -2924,7 +2960,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "simpleMore") { simpleMore = !simpleMore; track("simple_more", {on: simpleMore}); renderResult(); return; }
   if (b.dataset.url) {
     if (b.dataset.copyfirst) { copyText(b.dataset.copyfirst, b.dataset.copylabel || "מספר הרישוי").then(() => setTimeout(() => openExternal(b.dataset.url), 600)); return; }
-    if (b.dataset.hint) track("web_hint_click", {where: b.dataset.hint});
+    if (b.dataset.hint) track("web_hint_click");
     track("link_out", {kind: (b.dataset.copyfirst ? "importer" : "other")}); openExternal(b.dataset.url); return;
   }
   if (b.dataset.open) { run(b.dataset.open); return; }
@@ -2963,7 +2999,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "diffOnly") { diffOnly = !diffOnly; try { localStorage.setItem("cmpDiffOnly", diffOnly ? "1" : ""); } catch {} renderCompare(); return; }
   if (b.dataset.act === "land") { setLand(!land); return; }
   if (!current) return;
-  if (b.dataset.tab) { currentTab = b.dataset.tab; track("tab_view", {tab: b.dataset.tab}); renderResult(); $("#out").classList.add("rise"); setTimeout(() => $("#out").classList.remove("rise"), 300); const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"}); return; }
+  if (b.dataset.tab) { currentTab = b.dataset.tab; track("tab_view", {tab: b.dataset.tab}); renderResult(); focusResult(); $("#out").classList.add("rise"); setTimeout(() => $("#out").classList.remove("rise"), 300); const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"}); return; }
   const act = b.dataset.act;
   if (act === "share") { $("#shareMsg").textContent = ""; $("[data-share=bizpdf]").hidden = !(PRO_LOCK && isBiz()); $("#shareSheet").hidden = false; shareWarm = {}; warmShare(); }
   if (act === "candSave") {
@@ -3308,7 +3344,7 @@ async function paintEl(el, ratio, bg){
 async function captureEl(el, breakSel, ratio = 2){
   document.body.appendChild(el);
   try {
-    try { await document.fonts.ready; } catch {}
+    try { await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 800))]); } catch {}
     const top = el.getBoundingClientRect().top, set = new Set();
     el.querySelectorAll(breakSel).forEach(c => {
       if (!c.offsetHeight) return; const r = c.getBoundingClientRect(); set.add(Math.round(r.bottom - top + 4));
@@ -3529,6 +3565,7 @@ async function doShare(kind){
   if (biz && !biz.name) { msg.textContent = "כדי לקבל דוח ממותג, הוסיפו את פרטי העסק בהגדרות."; return; }
   document.querySelectorAll("[data-share]").forEach(b => b.disabled = true);
   msg.textContent = kind === "pdf" || kind === "bizpdf" ? "מכין קובץ PDF…" : "מכין תמונה…";
+  await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));   // let the "preparing" state paint before the heavy drawing starts
   try {
     const caption = `${D.title} · ${fmtPlate(D.plate)}\nהדוח המלא באפליקציה לוחית:\n${carLink(D.plate)}`;
     if (!biz) { try { localStorage.setItem("lastShare", kind === "pdf" ? "pdf" : "image"); } catch {} }
@@ -3561,7 +3598,7 @@ function testReminder(D){
   const d = toDate(D.v.tokef_dt); if (!d) return;
   const ymd = x => `${x.getFullYear()}${String(x.getMonth() + 1).padStart(2, "0")}${String(x.getDate()).padStart(2, "0")}`;
   const next = new Date(d); next.setDate(next.getDate() + 1);
-  const title = `טסט לרכב ${fmtPlate(D.plate)} (${D.title})`, desc = "תוקף רישיון הרכב מסתיים היום. כדאי לקבוע טסט מראש.";
+  const title = `טסט לרכב ${fmtPlate(D.plate)} (${D.title})`, desc = "הטסט של הרכב מסתיים היום. כדאי לקבוע טסט מראש.";
   window.calendarFallback = () => testReminderFile(D);
   const b = bridge();
   if (b && b.addCalendar) { try { b.addCalendar(title, desc, ymd(d)); return; } catch {} }
@@ -3577,15 +3614,15 @@ function testReminderFile(D){
   const alarm = days => ["BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${title}`, `TRIGGER:-P${days}D`, "END:VALARM"];
   const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Luchit//HE", "CALSCALE:GREGORIAN", "BEGIN:VEVENT",
     `UID:test-${D.plate}-${ymd(d)}@luchit`, `DTSTAMP:${stamp}`, `DTSTART;VALUE=DATE:${ymd(d)}`, `DTEND;VALUE=DATE:${ymd(next)}`,
-    `SUMMARY:${title}`, "DESCRIPTION:תוקף רישיון הרכב מסתיים היום. כדאי לקבוע טסט מראש.",
+    `SUMMARY:${title}`, "DESCRIPTION:הטסט של הרכב מסתיים היום. כדאי לקבוע טסט מראש.",
     ...alarm(30), ...alarm(7), "END:VEVENT", "END:VCALENDAR"].join("\r\n");
   shareFile(new Blob([ics], {type: "text/calendar"}), `Luchit-test-${D.plate}.ics`, title);
 }
 
 /* ---------- plate from a photo ---------- */
-function inMsg(t){ const el = $("#inMsg"); el.textContent = t || ""; el.hidden = !t; }
+function inMsg(t){ $("#inMsg").textContent = t || ""; }
 function loadImage(file){
-  return new Promise((ok, fail) => { const img = new Image(); img.onload = () => ok(img); img.onerror = fail; img.src = URL.createObjectURL(file); });
+  return new Promise((ok, fail) => { const img = new Image(), u = URL.createObjectURL(file); img.onload = () => { URL.revokeObjectURL(u); ok(img); }; img.onerror = e => { URL.revokeObjectURL(u); fail(e); }; img.src = u; });
 }
 /* Israeli plates are black digits on yellow: find the yellow area, crop it and turn it black-on-white */
 function plateCanvases(img){
@@ -3969,12 +4006,13 @@ async function shareCompare(){
   if (navigator.share) { try { await navigator.share({title: "השוואת רכבים", text}); return; } catch (err) { if (err && err.name === "AbortError") return; } }
   copyText(text, "הקישור");
 }
+const cmpSkeleton = n => `<section class="card blue" aria-busy="true"><div class="skl" aria-hidden="true"><i class="s w50 h24"></i><div class="sr g4" style="grid-template-columns:repeat(${n},1fr)">${"<i class=\"s blk\"></i>".repeat(n)}</div>${"<i class=\"s w40\"></i><i class=\"s w90\"></i>".repeat(5)}</div></section>`;
 async function loadCompareLink(code){
   let items; try { items = JSON.parse(b64u.dec(code)).slice(0, cmpMax()); } catch { return false; }
   if (!Array.isArray(items) || !items.length) return false;
-  toast("טוען השוואה…");
+  $("#out").innerHTML = cmpSkeleton(Math.min(items.length, 3));
   try {
-    const res = await Promise.all(items.map(it => it.p ? fetchVehicle(digits(it.p)) : fetchModel(Object.fromEntries(CMP_KEYS.map((k, i) => [k, (it.m || [])[i]]).filter(e => e[1] !== "" && e[1] != null)))));
+    const [res] = await Promise.all([Promise.all(items.map(it => it.p ? fetchVehicle(digits(it.p)) : fetchModel(Object.fromEntries(CMP_KEYS.map((k, i) => [k, (it.m || [])[i]]).filter(e => e[1] !== "" && e[1] != null))))), loadModelStats().catch(() => null)]);
     cmp = res.filter(D => D && !D.notFound && !D.offline); if (!cmp.length) return false;
     renderCompare(); window.scrollTo({top: 0}); return true;
   } catch { return false; }
@@ -3983,7 +4021,7 @@ async function loadCompare(i){
   const e = store.get("savedCompares")[i]; if (!e) return;
   toast("טוען השוואה…");
   try {
-    const res = await Promise.all(e.items.map(it => it.plate ? fetchVehicle(it.plate) : fetchModel(it.model)));
+    const [res] = await Promise.all([Promise.all(e.items.map(it => it.plate ? fetchVehicle(it.plate) : fetchModel(it.model))), loadModelStats().catch(() => null)]);
     cmp = res.filter(D => D && !D.notFound && !D.offline); renderCompare(); window.scrollTo({top: 0});
   } catch { toast("לא הצלחנו לטעון את ההשוואה"); }
 }
@@ -4133,7 +4171,7 @@ function bulkSave(){
 }
 function bulkCsv(){
   const q = x => `"${String(x).replace(/"/g, '""')}"`, lv = ["תקין", "לתשומת לב", "בעיה"];
-  const head = ["לוחית", "רכב", "שנה", "סטטוס", "תוקף טסט", "ימים לטסט", "ריקולים פתוחים", "רשומות בעלות", "ק״מ בטסט אחרון", "בעלות ראשונה", "סימון"];
+  const head = ["לוחית", "רכב", "שנה", "סטטוס", "טסט בתוקף עד", "ימים לטסט", "ריקולים פתוחים", "רשומות בעלות", "ק״מ בטסט אחרון", "בעלות ראשונה", "סימון"];
   const rows = BULK.slice().sort((a, b) => b.lvl - a.lvl || a.plate.localeCompare(b.plate)).map(r => [fmtPlate(r.plate), r.title, r.year, r.status, r.test, r.days, r.recallUnknown ? "לא זמין" : r.recalls, r.owners, r.km, r.first || "", r.nf || lv[r.lvl]]);
   const csv = "﻿" + [head, ...rows].map(r => r.map(q).join(",")).join("\r\n");
   shareFile(new Blob([csv], {type: "text/csv"}), `Luchit-list-${new Date().toISOString().slice(0, 10)}.csv`, "רשימת רכבים");
@@ -4165,7 +4203,7 @@ async function bulkPdf(btn){
     await loadScript(LIBS.pdf);
     const b = bizProfile(), has = !!b.name, today = new Date().toLocaleDateString("he-IL");
     const el = document.createElement("div"); el.className = "report pdf";
-    el.innerHTML = (has ? bizHead(b) : brandHead()) + `<div class="rep-head"><b>בדיקת רשימת רכבים</b><span>${BULK.length} רכבים · ${today}</span></div><section class="card">${bulkTable(false).replace(/<div class="bulk-acts">.*$/s, "")}</section><p class="rep-foot">${has ? bizFoot(b) : "המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il. " + BRAND_FOOT}</p>`;
+    el.innerHTML = (has ? bizHead(b) : brandHead()) + `<div class="rep-head"><b>בדיקת רשימת רכבים</b><span>${pl(BULK.length, "רכב אחד", "רכבים")} · ${today}</span></div><section class="card">${bulkTable(false).replace(/<div class="bulk-acts">.*$/s, "")}</section><p class="rep-foot">${has ? bizFoot(b) : "המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il. " + BRAND_FOOT}</p>`;
     el.querySelectorAll("button.lnk").forEach(x => { const s = document.createElement("span"); s.innerHTML = x.innerHTML; x.replaceWith(s); });
     inlineIcons(el);
     const {canvas, breaks} = await captureEl(el, ".card, tr, .rep-foot");
@@ -4194,7 +4232,7 @@ function renderHome(){
   current = null; inCompare = false;
   const saved = store.get("savedVehicles"), recent = store.get("recentPlates");
   const html = [];
-  if (!window.AndroidApp) html.push(`<button type="button" class="webcta" data-url="${PLAY_URL}" data-hint="home-top">באפליקציה: התראות על ריקול וטסט · <b><bdi>Google Play</bdi></b></button>`);
+  if (!window.AndroidApp) html.push(`<button type="button" class="webcta" data-url="${playWeb("home_top")}" data-hint="home-top">באפליקציה: התראות על ריקול וטסט · <b><bdi>Google Play</bdi></b></button>`);
   if (!saved.length && !recent.length) html.push(`<section class="hero"><h2>לפני שקונים רכב, בודקים אותו כאן</h2><p>מספר רישוי אחד: ריקולים, בעלים, ק״מ ומחיר משוער, בשניות.</p>
     <div class="try"><span>רוצים לראות איך זה נראה?</span><button type="button" class="chip" data-open="${EXAMPLE_PLATE}">נסו לדוגמה <bdi dir="ltr">${fmtPlate(EXAMPLE_PLATE)}</bdi></button></div>
     <ol class="how"><li><b>מקלידים מספר רישוי</b> או מצלמים את הלוחית.</li><li><b>מקבלים תמונה מלאה</b> מנתוני משרד התחבורה: ריקולים והסדרי פשרה, טסט, בעלויות ומחיר משוער.</li><li><b>שומרים ומשתפים</b>, ומקבלים התראה על ריקול חדש או טסט שעומד לפוג.</li></ol></section>`);
@@ -4209,7 +4247,7 @@ function renderHome(){
     saved.some(s => s.ask || s.fair) ? tool("cands", "star", "רשימת מועמדים", "הרכבים ששמרתם מול המחיר המבוקש", "PRO", "amber") : "",
     tool("bulk", "doc", "בדיקת כמה רכבים", "הדביקו רשימת מספרי רישוי וקבלו טבלה אחת", "PRO עסקי", "slate"),
   ].join("")}</div>`);
-  if (store.get("savedCompares").length) html.push(card("השוואות שמורות", "compare", "violet", `<div class="list">${store.get("savedCompares").map((c, i) => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-loadcmp="${i}"><span class="t"><b>${esc(c.name)}</b><small>${c.items.length} רכבים</small></span></button><button type="button" class="x" data-delcmp="${i}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div>`));
+  if (store.get("savedCompares").length) html.push(card("השוואות שמורות", "compare", "violet", `<div class="list">${store.get("savedCompares").map((c, i) => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-loadcmp="${i}"><span class="t"><b>${esc(c.name)}</b><small>${pl(c.items.length, "רכב אחד", "רכבים")}</small></span></button><button type="button" class="x" data-delcmp="${i}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div>`));
   if (!window.AndroidApp) html.push(`<div id="mgz" style="min-height:${mgzHeight()}px"></div>`);   // space is held for the card, so it does not push the page down when it arrives
   html.push(faqCard());
   { const ft = document.querySelector("body > footer"); if (ft) ft.hidden = false; }
@@ -4233,7 +4271,8 @@ function loadMagazine(){
 function run(p){ lookup(p).catch(err => {
   reportErr("lookup_failed");
   const net = /HTTP|timeout|Failed to fetch|NetworkError|Load failed/i.test(String(err && err.message));
-  $("#out").innerHTML = `<div class="msg err">${net ? "לא הצלחנו להתחבר למאגרי משרד התחבורה. בדקו את החיבור ונסו שוב." : "משהו השתבש בבדיקה. נסו שוב."}</div>`;
+  const pd = digits(p);
+  $("#out").innerHTML = `<div class="msg err">${net ? "לא הצלחנו להתחבר למאגרי משרד התחבורה. בדקו את החיבור ונסו שוב." : "משהו השתבש בבדיקה. נסו שוב."}</div>${pd.length >= 5 ? `<button type="button" class="link-btn" data-retry="${pd}">נסו שוב</button>` : ""}`;
   $("#go").disabled = false;
 }); }
 $("#f").addEventListener("submit", ev => { ev.preventDefault(); run($("#plate").value); });
@@ -4267,6 +4306,43 @@ document.querySelectorAll("[data-theme-choice]").forEach(b => b.addEventListener
 }));
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => applyTheme(themeChoice()));
 const sheet = $("#settings");
+/* Tabs: arrow keys move between tabs (RTL: left = next); Enter or Space activates. */
+$("#out").addEventListener("keydown", ev => {
+  const t = ev.target.closest && ev.target.closest("[role=tab]"); if (!t) return;
+  const tabs = [...t.parentNode.querySelectorAll("[role=tab]")]; let i = tabs.indexOf(t);
+  if (ev.key === "ArrowLeft") i = (i + 1) % tabs.length; else if (ev.key === "ArrowRight") i = (i - 1 + tabs.length) % tabs.length;
+  else if (ev.key === "Home") i = 0; else if (ev.key === "End") i = tabs.length - 1; else return;
+  ev.preventDefault(); tabs.forEach(b => b.tabIndex = -1); tabs[i].tabIndex = 0; tabs[i].focus();
+});
+/* Dialogs: while one is open the page behind it is inert, Tab stays inside it, focus moves in on open and back to the opener on close. */
+(() => {
+  const sheets = [...document.querySelectorAll(".sheet[role=dialog]")]; let opener = null, openNow = null, lastOut = null;
+  document.addEventListener("focusin", ev => { if (!ev.target.closest(".sheet")) lastOut = ev.target; });
+  const FOC = 'button:not([disabled]),a[href],input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+  const focusables = d => [...d.querySelectorAll(FOC)].filter(e => !e.closest("[hidden]") && e.getClientRects().length);
+  const sync = () => {
+    const top = sheets.filter(d => !d.hidden).pop() || null;
+    for (const el of document.body.children) { if (el.matches("script,svg,.toast,.sheet,.snack,.doc-view")) continue; el.inert = !!top; }
+    if (top && top !== openNow) {
+      if (!openNow) opener = lastOut;
+      openNow = top;
+      if (!top.contains(document.activeElement)) { const f = focusables(top); (f.find(e => e.id === "mq") || f[0] || top).focus(); }
+    } else if (!top && openNow) {
+      openNow = null; const o = opener; opener = null;
+      if (o && o.isConnected && o !== document.body && (!document.activeElement || document.activeElement === document.body || document.activeElement.closest(".sheet"))) try { o.focus({preventScroll: true}); } catch {}
+    }
+  };
+  const mo = new MutationObserver(sync); sheets.forEach(d => mo.observe(d, {attributes: true, attributeFilter: ["hidden"]}));
+  document.addEventListener("keydown", ev => {
+    if (ev.key !== "Tab" || !openNow) return;
+    const f = focusables(openNow); if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (!openNow.contains(document.activeElement)) { ev.preventDefault(); first.focus(); }
+    else if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
+    else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
+  });
+})();
+
 $("#openSettings").addEventListener("click", () => { syncAlertsSeg(); fillAlertKinds(); fillAnalytics(); syncPlanUi(); sheet.hidden = false; $("#closeSettings").focus(); });
 document.querySelectorAll("[data-alerts]").forEach(b => b.addEventListener("click", () => { try { window.AndroidApp.setAlerts(b.dataset.alerts === "on"); localStorage.setItem("alertsAsked", "1"); } catch {} syncAlertsSeg(); }));
 $("#closeSettings").addEventListener("click", () => { sheet.hidden = true; $("#openSettings").focus(); });
@@ -4302,7 +4378,7 @@ if (!window.AndroidApp && /Android/i.test(navigator.userAgent)) {
   if (Date.now() - last > 14 * 864e5) setTimeout(() => {
     try { localStorage.setItem("webInstallAt", String(Date.now())); } catch {}
     track("web_install_prompt");
-    snack("באפליקציה יש התראות על ריקול וטסט", "להתקנה", () => { track("web_install_click"); openExternal(PLAY_URL); });
+    snack("באפליקציה יש התראות על ריקול וטסט", "להתקנה", () => { track("web_install_click"); openExternal(playWeb("snack")); });
   }, 12000);
 }
 if (window.AndroidApp && window.AndroidApp.checkUpdate) {
@@ -4341,7 +4417,7 @@ for (const [id, k] of Object.entries(BIZ_FIELDS)) $("#" + id).addEventListener("
 $("#bizLogo").addEventListener("change", async ev => {
   const f = ev.target.files[0]; if (!f) return;
   try {
-    const im = await loadImg(URL.createObjectURL(f)); if (!im) throw 0;
+    const lu = URL.createObjectURL(f), im = await loadImg(lu); URL.revokeObjectURL(lu); if (!im) throw 0;
     const sc = Math.min(1, 160 / Math.max(im.width, im.height)), c = document.createElement("canvas");
     c.width = Math.round(im.width * sc); c.height = Math.round(im.height * sc);
     c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
@@ -4352,8 +4428,9 @@ $("#bizLogo").addEventListener("change", async ev => {
 $("#bizLogoClear").addEventListener("click", () => { const b = bizProfile(); delete b.logo; bizSave(b); syncBiz(); });
 syncBiz();
 /* Android back button: close settings, then return from a result to the home screen */
+const focusResult = () => { const h = $("#resHead"); if (h) try { h.focus({preventScroll: true}); } catch {} };
 function goHome(){ if (land) setLand(false, false); inCompare = false; renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} window.scrollTo({top: 0}); }
-$(".brand h1").addEventListener("click", goHome);
+$(".brand h1").addEventListener("click", ev => { ev.preventDefault(); goHome(); });
 $("#homeBtn").addEventListener("click", goHome);
 window.appBack = () => { const dv = document.querySelector(".doc-view"); if (dv) { dv.click(); return true; } if (!sheet.hidden) { sheet.hidden = true; return true; } if (!$("#compareSheet").hidden) { if (mGroup) stepBack(); else hideCmpSheet(); return true; } if (!$("#shareSheet").hidden) { $("#shareSheet").hidden = true; return true; } if (inCompare) { closeCompare(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} return true; } if (!$("#homeMark")) { renderHome(); window.scrollTo({top: 0}); return true; } return false; };
 
@@ -4383,12 +4460,13 @@ window.appAction = what => {
   if (!$("#compareSheet").hidden) $("#compareSheet").hidden = true;
   if (what === "compare") { cmp = []; renderCompare(); openCompare(); }
   else if (what === "camera") { renderHome(); $("#camBtn").click(); }
-  else if (what === "saved") { renderHome(); const c = [...document.querySelectorAll("#out .card")].find(x => x.textContent.includes("הרכבים שלי")); if (c) c.scrollIntoView({block: "start"}); else toast("עוד לא שמרתם רכבים. אחרי חיפוש, לחצו על \"שמירה\"."); }
+  else if (what === "saved") { renderHome(); const c = [...document.querySelectorAll("#out .card")].find(x => x.textContent.includes("הרכבים שלי")); if (c) c.scrollIntoView({block: "start"}); else toast("⭐ עוד לא שמרתם רכבים. אחרי חיפוש, לחצו על \"שמירה\"."); }
 };
 
 /* ---------- plans, gift and upgrade screen ---------- */
 let PRODUCTS = {};
 const daysLeft = t => Math.max(0, Math.ceil((t - Date.now()) / 864e5));
+const leftTxt = n => n <= 0 ? "מסתיים היום" : n === 1 ? "עוד יום אחד" : n === 2 ? "עוד יומיים" : `עוד ${n} ימים`;
 function initEnt(){
   if (!PRO_LOCK) return;
   const e = entGet();
@@ -4410,10 +4488,10 @@ function startTrial(){
 function planNotice(){
   if (!PRO_LOCK || !UPGRADE_UI) return "";
   const e = entGet(), now = Date.now();
-  if (e.trial > now && !(e.pro > now)) { const n = daysLeft(e.trial); return card(n <= 4 ? `ה-PRO במתנה מסתיים בעוד ${n} ${n === 1 ? "יום" : "ימים"}` : "PRO במתנה", "star", "amber", `<p style="margin:0 0 8px">${n <= 4 ? "אחרי זה האפליקציה נשארת חינמית עם הבדיקה המלאה, תזכורות לטסט וריקולים." : `נשארו ${n} ימים עם כל התכונות: מעקב אחרי בעלות, טיפול הבא ויומן טיפולים, מסמכים והתראות.`}</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לאפשרויות</button>`); }
+  if (e.trial > now && !(e.pro > now)) { const n = daysLeft(e.trial); return card(n <= 4 ? `ה-PRO במתנה ${n <= 0 ? "מסתיים היום" : n === 1 ? "מסתיים בעוד יום אחד" : n === 2 ? "מסתיים בעוד יומיים" : `מסתיים בעוד ${n} ימים`}` : "PRO במתנה", "star", "amber", `<p style="margin:0 0 8px">${n <= 4 ? "אחרי זה האפליקציה נשארת חינמית עם הבדיקה המלאה, תזכורות לטסט וריקולים." : `נשארו ${n} ימים עם כל התכונות: מעקב אחרי בעלות, טיפול הבא ויומן טיפולים, מסמכים והתראות.`}</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לאפשרויות</button>`); }
   if (e.trialStart && e.trial <= now && !e.trialSeen && plan() === "free") { track("trial_end_shown"); return card("הניסיון הסתיים", "clock", "amber", `<p style="margin:0 0 8px">הבדיקה המלאה, ריקולים ותזכורת טסט נשארים חינם. מעקב בעלות, טיפול הבא ויומן טיפולים ממשיכים ב-PRO.</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לאפשרויות</button><button type="button" class="link-btn" data-act="trialOk" style="margin-top:6px">סגירה</button>`); }
   if (e.gift > now && !e.giftSeen) return card("חודש PRO במתנה", "star", "amber", `<p style="margin:0 0 8px">תודה שהייתם איתנו מההתחלה. קיבלתם חודש PRO במתנה, עד ${esc(new Date(e.gift).toLocaleDateString("he-IL"))}, עם כל התכונות. אחרי זה האפליקציה נשארת חינמית עם הבדיקה המלאה.</p><button type="button" class="link-btn" data-act="giftOk">${ico("star")}מעולה, תודה</button><button type="button" class="link-btn" data-act="upgrade" style="margin-top:6px">מה כולל PRO</button>`);
-  if (e.buyer > now && e.buyer - now < 7 * 864e5 && plan() === "buyer") return card("חבילת הקנייה מסתיימת בקרוב", "clock", "amber", `<p style="margin:0 0 8px">נשארו ${daysLeft(e.buyer)} ימים. אפשר לעבור ל-PRO שנתי${PRODUCTS && PRODUCTS._credit ? " ולקבל זיכוי על מה ששילמתם" : ""}.</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לאפשרויות</button>`);
+  if (e.buyer > now && e.buyer - now < 7 * 864e5 && plan() === "buyer") return card("חבילת הקנייה מסתיימת בקרוב", "clock", "amber", `<p style="margin:0 0 8px">${(n => n <= 0 ? "החבילה מסתיימת היום." : n === 1 ? "נשאר יום אחד." : n === 2 ? "נשארו יומיים." : `נשארו ${n} ימים.`)(daysLeft(e.buyer))} אפשר לעבור ל-PRO שנתי${PRODUCTS && PRODUCTS._credit ? " ולקבל זיכוי על מה ששילמתם" : ""}.</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לאפשרויות</button>`);
   return "";
 }
 function syncPlanUi(){
@@ -4421,9 +4499,9 @@ function syncPlanUi(){
   row.hidden = !(PRO_LOCK && UPGRADE_UI);
   const e = entGet(), p = plan();
   let t = "אתם בחבילה: " + PLAN_NAME[p];
-  if (p === "buyer") t += ` · עוד ${daysLeft(e.buyer)} ימים`;
-  else if (e.trial > Date.now() && !(e.pro > Date.now())) t += ` (ניסיון, עוד ${daysLeft(e.trial)} ימים)`;
-  else if (e.gift > Date.now() && RANK[p] <= RANK.pro && !(e.pro > Date.now())) t += ` (מתנה, עוד ${daysLeft(e.gift)} ימים)`;
+  if (p === "buyer") t += ` · ${leftTxt(daysLeft(e.buyer))}`;
+  else if (e.trial > Date.now() && !(e.pro > Date.now())) t += ` (ניסיון, ${leftTxt(daysLeft(e.trial))})`;
+  else if (e.gift > Date.now() && RANK[p] <= RANK.pro && !(e.pro > Date.now())) t += ` (מתנה, ${leftTxt(daysLeft(e.gift))})`;
   $("#planNote").textContent = t;
 }
 const priceOf = sku => PRODUCTS[sku] || (Number(PRICES[sku]).toFixed(Number.isInteger(PRICES[sku]) ? 0 : 2) + " ₪");
@@ -4446,9 +4524,9 @@ function renderUpgrade(){
   let st = "";
   if (PRO_LOCK) {
     st = `אתם בחבילה: <b>${PLAN_NAME[p]}</b>`;
-    if (p === "buyer") st += ` · עוד ${daysLeft(e.buyer)} ימים`;
-    else if (e.trial > Date.now() && !(e.pro > Date.now())) st += ` · ניסיון, עוד ${daysLeft(e.trial)} ימים`;
-    else if (e.gift > Date.now() && !(e.pro > Date.now())) st += ` · מתנה, עוד ${daysLeft(e.gift)} ימים`;
+    if (p === "buyer") st += ` · ${leftTxt(daysLeft(e.buyer))}`;
+    else if (e.trial > Date.now() && !(e.pro > Date.now())) st += ` · ניסיון, ${leftTxt(daysLeft(e.trial))}`;
+    else if (e.gift > Date.now() && !(e.pro > Date.now())) st += ` · מתנה, ${leftTxt(daysLeft(e.gift))}`;
   }
   const credit = !!PRODUCTS._credit && e.buyer > Date.now();
   const opt = (sku, name, price, sub, best) => `<button type="button" class="opt${best ? " best" : ""}" data-buy="${sku}">${best ? `<em>הכי משתלם</em>` : ""}<b>${name}</b><span class="pr">${price}</span><small>${sub}</small></button>`;

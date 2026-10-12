@@ -1,0 +1,61 @@
+name: Weekly analytics report
+# Every Sunday at 08:00 Jerusalem time: pulls the last 7 days from GA4, builds the dashboard, flags anomalies and sends a short brief.
+# Two cron lines because GitHub cron is UTC and Israel switches between UTC+2 and UTC+3: the script itself checks the local hour.
+# The dashboard holds business numbers, so it is kept as a private run artifact and sent to you, never published on the public site.
+# Needs these repository secrets (see analytics/SETUP.md): GA_PROPERTY_ID, GA_SERVICE_ACCOUNT_JSON, and at least one of
+# TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID, SLACK_WEBHOOK_URL, or SMTP_HOST + EMAIL_TO (+ SMTP_USER, SMTP_PASSWORD, SMTP_FROM, SMTP_PORT).
+on:
+  schedule:
+    - cron: "0 5 * * 0"
+    - cron: "0 6 * * 0"
+  workflow_dispatch:
+    inputs:
+      sample:
+        description: "Use synthetic numbers (layout test, nothing is sent)"
+        type: boolean
+        default: false
+      send:
+        description: "Send the brief now, ignoring the Sunday 08:00 check"
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r analytics/requirements.txt
+      - name: Build the report
+        env:
+          GA_PROPERTY_ID: ${{ secrets.GA_PROPERTY_ID }}
+          GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            python analytics/run.py --gate --send
+          elif [ "${{ inputs.sample }}" = "true" ]; then
+            python analytics/run.py --sample incident
+          elif [ "${{ inputs.send }}" = "true" ]; then
+            python analytics/run.py --send
+          else
+            python analytics/run.py
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: weekly-report
+          path: analytics/out/
+          retention-days: 90
+          if-no-files-found: ignore

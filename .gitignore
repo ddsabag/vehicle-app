@@ -6,3 +6,6 @@ service.json
 keystore.properties
 password.txt
 google-services.json
+analytics/out/
+analytics/out2/
+__pycache__/

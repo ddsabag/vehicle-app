@@ -1,0 +1,43 @@
+{
+  "timezone": "Asia/Jerusalem",
+  "send_hour_local": 8,
+  "thresholds": {
+    "slow_pct_red": 5.0,
+    "slow_pct_yellow": 3.0,
+    "abort_rise_pct": 20.0,
+    "abort_min_count": 5,
+    "fail_pct_red": 10.0,
+    "fail_pct_yellow": 5.0,
+    "partial_pct_yellow": 10.0,
+    "lookups_drop_yellow_pct": 30.0,
+    "lookups_drop_red_pct": 50.0,
+    "share_rate_drop_pct": 25.0,
+    "daily_zscore": 2.5,
+    "min_searches_for_rates": 30
+  },
+  "events": {
+    "lookup": "car_lookup",
+    "lookup_failed": "lookup_failed",
+    "slow": "lookup_slow",
+    "abort": "lookup_abort",
+    "timeout": "lookup_timeout",
+    "from_cache": "lookup_from_cache",
+    "share": "share",
+    "compare": "compare_open",
+    "save": "car_save",
+    "tab": "tab_view",
+    "upgrade_open": "upgrade_open",
+    "purchase_start": "upgrade_purchase_start",
+    "trial_start": "trial_start",
+    "screenshot": "user_screenshot"
+  },
+  "sources": {
+    "search_console_site": "sc-domain:luchit.app",
+    "cloudflare_site_tag": "9bb0e756882c478a808d95596e0deade",
+    "psi_urls": [
+      "https://luchit.app/",
+      "https://luchit.app/model/"
+    ],
+    "play_package": "com.ddsabag.pratirechev"
+  }
+}

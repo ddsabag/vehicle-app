@@ -1,0 +1,77 @@
+#!/usr/bin/env python3
+"""Weekly analytics pipeline: collect from GA4, analyse, render the dashboard, send a short brief.
+  python analytics/run.py --sample            layout test with synthetic numbers, nothing is sent
+  python analytics/run.py --gate --send       what the Sunday workflow runs (sends only at 08:00 Jerusalem time)
+"""
+import argparse, json, os, sys
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
+
+HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, HERE)
+import analyze, notify, render, sample  # noqa: E402
+
+
+def periods(today):
+    end = today - timedelta(days=1)            # GA4 numbers for today are incomplete
+    return {"start": end - timedelta(days=6), "end": end, "prev_start": end - timedelta(days=13), "prev_end": end - timedelta(days=7)}
+
+
+def brief(d, a, link):
+    em = {"green": "🟢", "yellow": "🟡", "red": "🔴"}[a["status"]]
+    k = {x["key"]: x for g in a["kpis"].values() for x in g}
+    def c(x):
+        if x["cur"] is None or not x["prev"]: return ""
+        dlt = round(x["cur"] - x["prev"], 1) if x["fmt"] == "pct" else round((x["cur"] - x["prev"]) / x["prev"] * 100, 1)
+        return f" ({'▲' if dlt > 0 else '▼'}{abs(dlt):g}{' נק׳' if x['fmt'] == 'pct' else '%'})" if dlt else ""   # no plus/minus sign: it flips inside Hebrew text
+    lines = [f"{em} לוחית, דוח שבועי {d['period']['start']} עד {d['period']['end']}", "",
+             f"חיפושים: {k['searches']['cur']:,}{c(k['searches'])}", f"פעילים בשבוע: {k['wau']['cur']:,}{c(k['wau'])}",
+             f"איטיים: {k['slow']['cur'] if k['slow']['cur'] is not None else '—'}%  ביטולים: {k['abort']['cur'] if k['abort']['cur'] is not None else '—'}%  כשלים: {k['fail']['cur'] if k['fail']['cur'] is not None else '—'}%",
+             f"שיתופים: {k['share']['cur']:,}{c(k['share'])}  השוואות: {k['compare']['cur']:,}{c(k['compare'])}",
+             "", "ויראליות: " + f"צילומי מסך {k['shots']['cur']:,}{c(k['shots'])}" + (f", {k['ratio']['cur']:g} צילומים לכל שיתוף" if k['ratio']['cur'] is not None else ""), a["shot_insight"]]
+    flags = [x for x in a["anomalies"] if x["level"] in ("red", "yellow")]
+    if flags:
+        lines += ["", "חריגות:"] + [f"{'🔴' if x['level'] == 'red' else '🟡'} {x['title']}" for x in flags[:4]]
+    else:
+        lines += ["", "אין חריגות."]
+    lines += ["", "המלצות:"] + [f"{i}. {r}" for i, r in enumerate(a["recommendations"], 1)]
+    if link: lines += ["", link]
+    return "\n".join(lines)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--sample", nargs="?", const="busy", help="use synthetic data: busy or incident")
+    ap.add_argument("--send", action="store_true"); ap.add_argument("--gate", action="store_true", help="exit quietly unless it is Sunday 08:00 in Jerusalem")
+    ap.add_argument("--out", default=os.path.join(HERE, "out")); a_ = ap.parse_args()
+    cfg = json.load(open(os.path.join(HERE, "config.json"), encoding="utf-8"))
+    now = datetime.now(ZoneInfo(cfg["timezone"]))
+    if a_.gate and not (now.weekday() == 6 and now.hour == cfg["send_hour_local"]):
+        print(f"not the send time ({now:%A %H:%M} {cfg['timezone']}), nothing to do"); return 0
+    per = periods(now.date())
+    if a_.sample: data = sample.make(per, a_.sample)
+    else:
+        import ga
+        data = ga.collect(per, cfg)
+    if a_.sample: extra = sample.extras(a_.sample)
+    else:
+        import sources
+        extra, more = sources.collect_all(per, cfg); data.setdefault("notes", []).extend(more)
+    res = analyze.analyze(data, cfg, extra)
+    os.makedirs(a_.out, exist_ok=True)
+    name = f"luchit-weekly-{per['end'].isoformat()}"
+    html_path = os.path.join(a_.out, name + ".html")
+    open(html_path, "w", encoding="utf-8").write(render.page(data, res))
+    json.dump({"data": data, "analysis": {k: v for k, v in res.items() if k != "daily"}}, open(os.path.join(a_.out, name + ".json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1, default=str)
+    link = (f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}" if os.environ.get("GITHUB_RUN_ID") else "")
+    text = brief(data, res, ("הדשבורד המלא בקובץ המצורף, ובהרצה: " + link) if link else "")
+    print(text); print("\nreport:", html_path, "| status:", res["status"])
+    if a_.send and not a_.sample:
+        sent, errs = notify.send_all(f"לוחית, דוח שבועי {per['end']}", text, html_path)
+        print("sent via:", sent or "nothing (no channel configured)")
+        for e in errs: print("delivery error:", e)
+        if errs and not sent: return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
