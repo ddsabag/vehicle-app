@@ -39,16 +39,17 @@ def fmt_val(k):
     v = k["cur"]
     if v is None: return "—"
     if k["fmt"] == "pct": return f"{v:g}<small>%</small>"
+    if k["fmt"] == "ratio": return f"{v:g}"
     return num(v)
 
 
 def chip(k):
     cur, prev = k["cur"], k["prev"]
     if cur is None or prev is None: return '<span class="chip flat">אין השוואה</span>'
-    if k["fmt"] == "pct":
-        diff = round(cur - prev, 1)
+    if k["fmt"] in ("pct", "ratio"):
+        diff = round(cur - prev, 2 if k["fmt"] == "ratio" else 1)
         if diff == 0: return '<span class="chip flat">ללא שינוי</span>'
-        up = diff > 0; txt = f"{'+' if up else ''}{diff:g} נק׳"
+        up = diff > 0; txt = f"{'+' if up else ''}{diff:g}" + (" נק׳" if k["fmt"] == "pct" else "")
     else:
         if not prev: return '<span class="chip flat">אין השוואה</span>'
         d = round((cur - prev) / prev * 100, 1)
@@ -101,7 +102,7 @@ def page(d, a):
 <meta name="robots" content="noindex,nofollow"><title>לוחית · דוח שבועי</title><style>{CSS}</style></head><body><main>
 <header><div><h1>לוחית · דוח שבועי</h1><div class="muted">{p["start"]} עד {p["end"]}, בהשוואה ל-{p["prev_start"]} עד {p["prev_end"]}</div></div><span class="pill {status[0]}">{status[1]}</span></header>
 <section class="card"><h2>חריגות והתראות</h2><div class="alerts">{al}</div></section>
-{group("בריאות המערכת", "health")}{group("מעורבות משתמשים", "engagement")}{group("שימוש ברכיבים", "usage")}
+{group("בריאות המערכת", "health")}{group("מעורבות משתמשים", "engagement")}{group("שימוש ברכיבים", "usage")}{viral_html(a)}
 <section class="two"><div class="card"><h2>חיפושים ביום</h2>{line_chart(a["daily"])}</div>{bars(a["dur"], "זמן עד תוצאה")}</section>
 <section class="two">{bars([(r[0], r[1]) for r in a["tabs"]], "לשוניות שנפתחו")}{bars([(r[0], r[1]) for r in a["shares"]], "סוגי שיתוף")}{versions}</section>
 {extra_html(a)}
@@ -139,3 +140,10 @@ def extra_html(a):
         q.append(kpi_html({"title": "מהירות " + ("דף הבית" if not path else "דפי דגמים" if path.startswith("model") else path), "cur": r["score"], "prev": None, "fmt": "n", "bad_up": False, "note": f"LCP {r['lcp']} שנ׳ · CLS {r['cls']}"}))
     if q: parts.append(f'<section><h2>איכות ומהירות</h2><div class="grid">{"".join(q)}</div></section>')
     return "".join(parts)
+
+
+def viral_html(a):
+    ks = "".join(kpi_html(k) for k in a["kpis"]["viral"])
+    b = bars([(r[0], r[1]) for r in a["shot_tabs"]], "צילומי מסך לפי מסך") if a["shot_tabs"] else ""
+    note = f'<div class="card"><h2>תובנה</h2><p style="margin:0">{E(a["shot_insight"])}</p><p class="muted" style="margin:8px 0 0">הפילוג בין אפליקציה לאתר לא נמדד: האתר לא שולח אירועים, וזיהוי צילום מסך בדפדפן לא אמין.</p></div>'
+    return f'<section><h2>ויראליות ושיתופים</h2><div class="grid">{ks}</div></section><section class="two">{b}{note}</section>'

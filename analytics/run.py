@@ -26,7 +26,8 @@ def brief(d, a, link):
     lines = [f"{em} לוחית, דוח שבועי {d['period']['start']} עד {d['period']['end']}", "",
              f"חיפושים: {k['searches']['cur']:,}{c(k['searches'])}", f"פעילים בשבוע: {k['wau']['cur']:,}{c(k['wau'])}",
              f"איטיים: {k['slow']['cur'] if k['slow']['cur'] is not None else '—'}%  ביטולים: {k['abort']['cur'] if k['abort']['cur'] is not None else '—'}%  כשלים: {k['fail']['cur'] if k['fail']['cur'] is not None else '—'}%",
-             f"שיתופים: {k['share']['cur']:,}{c(k['share'])}  השוואות: {k['compare']['cur']:,}{c(k['compare'])}"]
+             f"שיתופים: {k['share']['cur']:,}{c(k['share'])}  השוואות: {k['compare']['cur']:,}{c(k['compare'])}",
+             "", "ויראליות: " + f"צילומי מסך {k['shots']['cur']:,}{c(k['shots'])}" + (f", {k['ratio']['cur']:g} צילומים לכל שיתוף" if k['ratio']['cur'] is not None else ""), a["shot_insight"]]
     flags = [x for x in a["anomalies"] if x["level"] in ("red", "yellow")]
     if flags:
         lines += ["", "חריגות:"] + [f"{'🔴' if x['level'] == 'red' else '🟡'} {x['title']}" for x in flags[:4]]

@@ -18,7 +18,7 @@ def make(period, scenario="busy"):
         "car_lookup": (lk_c, lk_p), "lookup_failed": (int(lk_c * 0.04), int(lk_p * 0.03)),
         "lookup_slow": (int(lk_c * slow), int(lk_p * 0.02)), "lookup_abort": (int(lk_c * (0.05 if scenario == "incident" else 0.02)), int(lk_p * 0.02)),
         "lookup_timeout": (4, 1), "lookup_from_cache": (9, 0), "share": (int(lk_c * 0.14), int(lk_p * 0.16)), "compare_open": (int(lk_c * 0.07), int(lk_p * 0.06)),
-        "car_save": (int(lk_c * 0.09), int(lk_p * 0.08)), "tab_view": (int(lk_c * 1.4), int(lk_p * 1.3)), "upgrade_open": (6, 4), "upgrade_purchase_start": (0, 0), "trial_start": (3, 2),
+        "car_save": (int(lk_c * 0.09), int(lk_p * 0.08)), "tab_view": (int(lk_c * 1.4), int(lk_p * 1.3)), "user_screenshot": (int(lk_c * 0.11), int(lk_p * 0.06)), "upgrade_open": (6, 4), "upgrade_purchase_start": (0, 0), "trial_start": (3, 2),
     }
     wau_c = int(sum(x["active"] for x in daily[-7:]) * 0.55); wau_p = int(sum(x["active"] for x in daily[-14:-7]) * 0.55)
     def split(total_c, total_p, shares):
@@ -36,6 +36,7 @@ def make(period, scenario="busy"):
         "failed_kind": split(ev["lookup_failed"][0], ev["lookup_failed"][1], {"not_found": 0.6, "offline": 0.3, "source_down": 0.1}),
         "share_kind": split(ev["share"][0], ev["share"][1], {"pdf": 0.45, "image": 0.5, "text": 0.05}),
         "tabs": split(ev["tab_view"][0], ev["tab_view"][1], {"overview": 0.3, "buy": 0.24, "maint": 0.14, "recalls": 0.2, "specs": 0.12}),
+        "screenshot_tab": split(ev["user_screenshot"][0], ev["user_screenshot"][1], {"overview": 0.2, "buy": 0.45, "maint": 0.1, "recalls": 0.2, "specs": 0.05}),
         "upgrade_from": {"home": {"cur": 4, "prev": 3}, "maint": {"cur": 2, "prev": 1}},
         "versions": {"1.23": int(wau_c * 0.5), "1.22": int(wau_c * 0.3), "1.21": int(wau_c * 0.1)},
     }

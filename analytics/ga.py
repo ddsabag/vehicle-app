@@ -87,6 +87,7 @@ def collect(period, cfg):
     data["share_kind"] = by_param(E["share"], "kind")
     data["tabs"] = by_param(E["tab"], "tab")
     data["upgrade_from"] = by_param(E["upgrade_open"], "from")
+    data["screenshot_tab"] = by_param(E["screenshot"], "tab")
 
     # app versions in use
     try:

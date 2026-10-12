@@ -31,6 +31,7 @@ def analyze(d, cfg, extra=None):
     sh_c, sh_p = _ev(d, cfg, "share")
     cm_c, cm_p = _ev(d, cfg, "compare")
     sv_c, sv_p = _ev(d, cfg, "save")
+    ss_c, ss_p = _ev(d, cfg, "screenshot")
     uo_c, uo_p = _ev(d, cfg, "upgrade_open")
     pu_c, pu_p = _ev(d, cfg, "purchase_start")
     se_c, se_p = ok_c + fl_c, ok_p + fl_p     # every lookup that ended in a result or an error
@@ -80,6 +81,29 @@ def analyze(d, cfg, extra=None):
         ],
     }
 
+    # screenshots are the quiet kind of sharing: people keep or send a picture instead of pressing share
+    ratio_c = round(ss_c / sh_c, 2) if sh_c else None; ratio_p = round(ss_p / sh_p, 2) if sh_p else None
+    kpis["viral"] = [
+        kpi("shots", "צילומי מסך של האפליקציה", ss_c, ss_p, "", False, "אנדרואיד 14 ומעלה בלבד"),
+        kpi("shares2", "שיתופים בלחיצה על שיתוף", sh_c, sh_p),
+        kpi("ratio", "צילומי מסך לכל שיתוף", ratio_c, ratio_p, "", False, "מעל 1: מצלמים יותר ממה ששולחים", "ratio"),
+        kpi("shot_rate", "צילומי מסך לכל 100 בדיקות", round(ss_c / ok_c * 100, 1) if ok_c else None, round(ss_p / ok_p * 100, 1) if ok_p else None, "", False, "", "ratio"),
+    ]
+    TAB_HE0 = {"overview": "סקירה", "buy": "קנייה", "maint": "אחזקה", "recalls": "ריקולים והסדרים", "specs": "מפרט", "home": "מסך הבית", "compare": "השוואה"}
+    st = sorted(((TAB_HE0.get(k, k), v["cur"], v["prev"]) for k, v in d.get("screenshot_tab", {}).items()), key=lambda x: -x[1])
+    shot_insight = ""
+    if ss_c == 0:
+        shot_insight = "לא נרשמו צילומי מסך השבוע. המדידה פועלת רק באנדרואיד 14 ומעלה, ולכן המספר הוא הערכה נמוכה."
+    else:
+        ch = pct(ss_c, ss_p); tot_s = sum(x[1] for x in st)
+        parts = []
+        if st and tot_s and st[0][1] / tot_s >= 0.4 and st[0][1] >= 5:
+            parts.append(f"{round(st[0][1] / tot_s * 100)}% מהצילומים נעשו במסך «{st[0][0]}». כדאי לבדוק אם יש שם מידע ששווה להפוך לכרטיס שיתוף ייעודי.")
+        if ch is not None and ch >= 50 and ss_c >= 5:
+            parts.append(f"נרשם זינוק של {ch}% בצילומי מסך לעומת שבוע שעבר.")
+        if ratio_c is not None and ratio_c > 1:
+            parts.append(f"מצלמים {ratio_c} צילומים על כל שיתוף: חלק גדול מהמשתמשים מעדיף לצלם מאשר ללחוץ על שיתוף.")
+        shot_insight = " ".join(parts) or "אין שינוי משמעותי בצילומי המסך."
     anomalies = []
     def add(level, title, detail): anomalies.append({"level": level, "title": title, "detail": detail})
     enough = se_c >= T["min_searches_for_rates"]
@@ -172,7 +196,7 @@ def analyze(d, cfg, extra=None):
              "לבדוק פעם בחודש שהאירועים החדשים מופיעים ב-GA4 וששמות הממדים תואמים לקוד."]
     recs = recs[:3]
     return {"kpis": kpis, "anomalies": anomalies, "dur": dur_rows, "tabs": tabs, "shares": shares, "versions": versions,
-            "takeaways": take, "recommendations": recs, "extra": X, "daily": daily, "metrics": m,
+            "takeaways": take, "recommendations": recs, "extra": X, "shot_tabs": st, "shot_insight": shot_insight, "daily": daily, "metrics": m,
             "status": "red" if reds else ("yellow" if any(a["level"] == "yellow" for a in anomalies) else "green")}
 
 

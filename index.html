@@ -716,6 +716,8 @@ let jsErrN = 0;
 const jsErr = (where, line) => { if (jsErrN++ < 5) { try { const b = window.AndroidApp; if (b && b.logError && analyticsOn()) b.logError(("js_" + where + "_" + (line || 0)).slice(0, 60)); } catch {} } };
 window.addEventListener("error", ev => jsErr("err", ev && ev.lineno));
 window.addEventListener("unhandledrejection", () => jsErr("rej", 0));
+/* the Android app tells the page when a screenshot of it was taken (Android 14+): counted with the screen it happened on, never the picture */
+window.onScreenshot = () => { try { track("user_screenshot", {tab: typeof inCompare !== "undefined" && inCompare ? "compare" : typeof current !== "undefined" && current ? (currentTab || "overview") : "home"}); } catch {} };
 const reportErr = tag => { try { const b = window.AndroidApp; if (b && b.logError && analyticsOn()) b.logError(String(tag).slice(0, 60)); } catch {} };
 const UPGRADE_UI = true;   // false for a store build that has no billing products yet
 const PRICES = {buyer_pack: 29, pro_monthly: 12.9, pro_yearly: 69, biz_monthly: 79};

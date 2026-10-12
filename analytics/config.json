@@ -28,7 +28,8 @@
     "tab": "tab_view",
     "upgrade_open": "upgrade_open",
     "purchase_start": "upgrade_purchase_start",
-    "trial_start": "trial_start"
+    "trial_start": "trial_start",
+    "screenshot": "user_screenshot"
   },
   "sources": {
     "search_console_site": "sc-domain:luchit.app",
