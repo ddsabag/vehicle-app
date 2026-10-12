@@ -34,6 +34,10 @@
   if (c === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", c);
 })();
 </script>
+<link rel="preconnect" href="https://data.gov.il" crossorigin>
+<link rel="dns-prefetch" href="https://data.gov.il">
+<link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin>
+<link rel="dns-prefetch" href="https://raw.githubusercontent.com">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap" media="print" onload="this.media='all'">
@@ -4473,6 +4477,10 @@ try { if (window.AndroidApp && window.AndroidApp.setAnalytics) window.AndroidApp
 /* web: Cloudflare Web Analytics (page views only, no cookies, no personal data); the token is added when the site is registered there */
 const CF_BEACON_TOKEN = '9bb0e756882c478a808d95596e0deade';
 if (CF_BEACON_TOKEN && !window.AndroidApp && analyticsOn()) { const sc = document.createElement("script"); sc.defer = true; sc.src = "https://static.cloudflareinsights.com/beacon.min.js"; sc.setAttribute("data-cf-beacon", JSON.stringify({token: CF_BEACON_TOKEN})); document.head.appendChild(sc); }
+/* offline app shell, web only (the Android app already ships its files); a new release replaces the old cache when sw.js changes */
+if (!window.AndroidApp && "serviceWorker" in navigator && window.isSecureContext) {
+  window.addEventListener("load", () => { navigator.serviceWorker.register("/sw.js").then(r => r.update()).catch(() => {}); });
+}
 const start = digits(location.hash) || digits(new URLSearchParams(location.search).get("plate"));
 const cmpParam = new URLSearchParams(location.search).get("cmp");
 if (cmpParam) loadCompareLink(cmpParam).then(ok => { if (!ok) renderHome(); }); else if (start) run(start); else renderHome();

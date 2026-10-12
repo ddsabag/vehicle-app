@@ -512,6 +512,16 @@ public class MainActivity extends Activity {
                 runJs("window.onSharedText && onSharedText(" + JSONObject.quote(text) + ")");
             }
             i.setAction(null);
+        } else if (Intent.ACTION_VIEW.equals(action) && i.getData() != null && "https".equals(i.getData().getScheme())) {
+            // an App Link from luchit.app: ?plate=, #plate or ?cmp=
+            Uri d = i.getData();
+            String cmp = d.getQueryParameter("cmp");
+            String plate = d.getQueryParameter("plate");
+            if (plate == null && d.getFragment() != null) plate = d.getFragment();
+            if (plate != null) plate = plate.replaceAll("[^0-9]", "");
+            if (cmp != null && cmp.matches("[A-Za-z0-9_-]{1,4000}")) runJs("window.loadCompareLink && loadCompareLink(" + JSONObject.quote(cmp) + ")");
+            else if (plate != null && plate.length() >= 5 && plate.length() <= 8) runJs("window.run && run(" + JSONObject.quote(plate) + ")");
+            i.setAction(null);
         } else if (Intent.ACTION_VIEW.equals(action) && i.getData() != null && "luchit".equals(i.getData().getScheme())) {
             String what = i.getData().getHost();
             if ("camera".equals(what)) openCamera();
