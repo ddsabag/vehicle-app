@@ -1668,8 +1668,8 @@ function renderResult(){
   const recallCount = D.recalls.length;
   if (simpleOn()) html.push(simpleCard(D));
   else {
-      html.push(`<div class="tabs" role="tablist">${TABS.map(([k, t]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${k === currentTab}">${t}${k === "recalls" && recallCount ? `<i class="hot">${recallCount}</i>` : ""}</button>`).join("")}</div>`);
-      html.push(`<div class="tab-body">${currentTab === "overview" ? appHint(D) : ""}${TAB_FN()[currentTab](D)}</div>`);
+      html.push(`<div class="tabs" role="tablist">${TABS.map(([k, t]) => `<button type="button" role="tab" id="tab-${k}" data-tab="${k}" aria-selected="${k === currentTab}" aria-controls="tabpanel" tabindex="${k === currentTab ? 0 : -1}">${t}${k === "recalls" && recallCount ? `<i class="hot">${recallCount}</i>` : ""}</button>`).join("")}</div>`);
+      html.push(`<div class="tab-body" id="tabpanel" role="tabpanel" aria-labelledby="tab-${currentTab}">${currentTab === "overview" ? appHint(D) : ""}${TAB_FN()[currentTab](D)}</div>`);
   }
   html.push(`</div>`);
   html.push(srcFoot());
@@ -4275,6 +4275,43 @@ document.querySelectorAll("[data-theme-choice]").forEach(b => b.addEventListener
 }));
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => applyTheme(themeChoice()));
 const sheet = $("#settings");
+/* Tabs: arrow keys move between tabs (RTL: left = next); Enter or Space activates. */
+$("#out").addEventListener("keydown", ev => {
+  const t = ev.target.closest && ev.target.closest("[role=tab]"); if (!t) return;
+  const tabs = [...t.parentNode.querySelectorAll("[role=tab]")]; let i = tabs.indexOf(t);
+  if (ev.key === "ArrowLeft") i = (i + 1) % tabs.length; else if (ev.key === "ArrowRight") i = (i - 1 + tabs.length) % tabs.length;
+  else if (ev.key === "Home") i = 0; else if (ev.key === "End") i = tabs.length - 1; else return;
+  ev.preventDefault(); tabs.forEach(b => b.tabIndex = -1); tabs[i].tabIndex = 0; tabs[i].focus();
+});
+/* Dialogs: while one is open the page behind it is inert, Tab stays inside it, focus moves in on open and back to the opener on close. */
+(() => {
+  const sheets = [...document.querySelectorAll(".sheet[role=dialog]")]; let opener = null, openNow = null, lastOut = null;
+  document.addEventListener("focusin", ev => { if (!ev.target.closest(".sheet")) lastOut = ev.target; });
+  const FOC = 'button:not([disabled]),a[href],input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+  const focusables = d => [...d.querySelectorAll(FOC)].filter(e => !e.closest("[hidden]") && e.getClientRects().length);
+  const sync = () => {
+    const top = sheets.filter(d => !d.hidden).pop() || null;
+    for (const el of document.body.children) { if (el.matches("script,svg,.toast,.sheet,.snack,.doc-view")) continue; el.inert = !!top; }
+    if (top && top !== openNow) {
+      if (!openNow) opener = lastOut;
+      openNow = top;
+      if (!top.contains(document.activeElement)) { const f = focusables(top); (f.find(e => e.id === "mq") || f[0] || top).focus(); }
+    } else if (!top && openNow) {
+      openNow = null; const o = opener; opener = null;
+      if (o && o.isConnected && o !== document.body && (!document.activeElement || document.activeElement === document.body || document.activeElement.closest(".sheet"))) try { o.focus({preventScroll: true}); } catch {}
+    }
+  };
+  const mo = new MutationObserver(sync); sheets.forEach(d => mo.observe(d, {attributes: true, attributeFilter: ["hidden"]}));
+  document.addEventListener("keydown", ev => {
+    if (ev.key !== "Tab" || !openNow) return;
+    const f = focusables(openNow); if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (!openNow.contains(document.activeElement)) { ev.preventDefault(); first.focus(); }
+    else if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
+    else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
+  });
+})();
+
 $("#openSettings").addEventListener("click", () => { syncAlertsSeg(); fillAlertKinds(); fillAnalytics(); syncPlanUi(); sheet.hidden = false; $("#closeSettings").focus(); });
 document.querySelectorAll("[data-alerts]").forEach(b => b.addEventListener("click", () => { try { window.AndroidApp.setAlerts(b.dataset.alerts === "on"); localStorage.setItem("alertsAsked", "1"); } catch {} syncAlertsSeg(); }));
 $("#closeSettings").addEventListener("click", () => { sheet.hidden = true; $("#openSettings").focus(); });
