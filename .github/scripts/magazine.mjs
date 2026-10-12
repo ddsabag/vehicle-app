@@ -85,7 +85,7 @@ export function check(a) {
 const css = fs.readFileSync(".github/scripts/pages.mjs", "utf8").match(/const css = `([\s\S]*?)`;/)[1] + `.bar{display:block;height:8px;border-radius:4px;background:var(--accent);margin-top:4px}.rk{display:grid;grid-template-columns:26px 1fr auto;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)}.rk:last-child{border-bottom:0}.rk i{font-style:normal;font-weight:800;color:var(--muted)}.rk span{font-variant-numeric:tabular-nums;color:var(--muted)}.tag{display:inline-block;background:#eef2fb;color:var(--accent);border-radius:99px;padding:2px 10px;font-size:.78rem;font-weight:600}.lst a{display:block;padding:10px 0;border-bottom:1px solid var(--line);color:var(--fg);text-decoration:none}.lst small{display:block;color:var(--muted)}`;
 const headOf = pages => pages.match(/const head = [\s\S]*?\n/)[0];
 const pagesSrc = fs.readFileSync(".github/scripts/pages.mjs", "utf8");
-const head = new Function("esc", "css", "SITE", headOf(pagesSrc) + "\nreturn head;")(esc, css, SITE);
+const head = new Function("esc", "css", "SITE", `const PLAY = ${JSON.stringify("https://play.google.com/store/apps/details?id=com.ddsabag.pratirechev")};\n` + headOf(pagesSrc) + "\nreturn head;")(esc, css, SITE);
 const foot = `<p class="muted" style="margin-top:28px">מערכת לוחית. הנתונים מגיעים ממאגרים פתוחים של משרד התחבורה ב-data.gov.il, והאתר אינו קשור למשרד התחבורה. <a href="${SITE}privacy.html">מדיניות פרטיות</a></p></main></body></html>`;
 
 let slugs = {}; try { slugs = JSON.parse(fs.readFileSync("model/slugs.json", "utf8")); } catch {}
@@ -102,7 +102,7 @@ if (ai) {
 fs.mkdirSync(`magazine/${slug}`, {recursive: true});
 const url = `${SITE}magazine/${slug}/`, desc = (art.lead.length <= 200 ? art.lead : art.lead.slice(0, 200).replace(/[^.]*$/, "") || art.lead.slice(0, 200)), published = now.toISOString().slice(0, 10);
 const ld = {"@context": "https://schema.org", "@type": "Article", headline: art.title, datePublished: published, inLanguage: "he", author: {"@type": "Organization", name: "מערכת לוחית"}, publisher: {"@type": "Organization", name: "לוחית", url: SITE}, mainEntityOfPage: url};
-const body = `${head(art.title + " | לוחית", desc, url).replace("</head>", `<script type="application/ld+json">${JSON.stringify(ld)}</script></head>`)}<p class="muted"><a href="${SITE}magazine/">מגזין לוחית</a></p><p><span class="tag">שוק הרכב</span> <span class="muted">${esc(label)}</span></p><h1>${pr(art.title)}</h1>
+const body = `${head(art.title + " | לוחית", desc, url, "article").replace("</head>", `<script type="application/ld+json">${JSON.stringify(ld)}</script></head>`)}<p class="muted"><a href="${SITE}magazine/">מגזין לוחית</a></p><p><span class="tag">שוק הרכב</span> <span class="muted">${esc(label)}</span></p><h1>${pr(art.title)}</h1>
 <p>${pr(art.lead)}</p>
 <h2>הדגמים המובילים</h2><div class="card">${bars(models, true)}</div><p>${pr(art.models_p)}</p>
 <h2>היצרנים המובילים</h2><div class="card">${bars(makers.map(m => ({...m, key: ""})), false)}</div><p>${pr(art.makers_p)}</p>
@@ -119,6 +119,6 @@ fs.writeFileSync("magazine/posts.json", JSON.stringify(posts, null, 1));
 const idxUrl = SITE + "magazine/";
 fs.writeFileSync("magazine/index.html", `${head("מגזין לוחית: שוק הרכב בישראל", "כתבות חודשיות על שוק הרכב בישראל מנתוני משרד התחבורה: מה נמכר, אילו דגמים ויצרנים מובילים.", idxUrl)}<p class="muted"><a href="${SITE}">לוחית</a></p><h1>מגזין לוחית</h1><p class="muted">כתבות על שוק הרכב בישראל, מנתוני משרד התחבורה.</p><div class="card lst">${posts.map(p => `<a href="${SITE}magazine/${p.slug}/"><b>${esc(p.title)}</b><small>${esc(p.tag)} · ${esc(p.month)}</small></a>`).join("")}</div>${foot}`);
 let sm = fs.readFileSync("sitemap.xml", "utf8");
-for (const u of [idxUrl, url]) if (!sm.includes(`<loc>${u}</loc>`)) sm = sm.replace("</urlset>", `  <url><loc>${u}</loc></url>\n</urlset>`);
+for (const u of [idxUrl, url]) { sm = sm.replace(new RegExp(`\\s*<url><loc>${u.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}</loc>(<lastmod>[^<]*</lastmod>)?</url>`), ""); sm = sm.replace("</urlset>", `  <url><loc>${u}</loc><lastmod>${published}</lastmod></url>\n</urlset>`); }
 fs.writeFileSync("sitemap.xml", sm);
 console.log(`magazine ${slug}: ${usedAi ? "gemini" : "template"}, ${posts.length} posts`);
