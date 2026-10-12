@@ -3312,7 +3312,7 @@ async function paintEl(el, ratio, bg){
 async function captureEl(el, breakSel, ratio = 2){
   document.body.appendChild(el);
   try {
-    try { await document.fonts.ready; } catch {}
+    try { await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 800))]); } catch {}
     const top = el.getBoundingClientRect().top, set = new Set();
     el.querySelectorAll(breakSel).forEach(c => {
       if (!c.offsetHeight) return; const r = c.getBoundingClientRect(); set.add(Math.round(r.bottom - top + 4));
@@ -3533,6 +3533,7 @@ async function doShare(kind){
   if (biz && !biz.name) { msg.textContent = "כדי לקבל דוח ממותג, הוסיפו את פרטי העסק בהגדרות."; return; }
   document.querySelectorAll("[data-share]").forEach(b => b.disabled = true);
   msg.textContent = kind === "pdf" || kind === "bizpdf" ? "מכין קובץ PDF…" : "מכין תמונה…";
+  await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));   // let the "preparing" state paint before the heavy drawing starts
   try {
     const caption = `${D.title} · ${fmtPlate(D.plate)}\nהדוח המלא באפליקציה לוחית:\n${carLink(D.plate)}`;
     if (!biz) { try { localStorage.setItem("lastShare", kind === "pdf" ? "pdf" : "image"); } catch {} }
@@ -3589,7 +3590,7 @@ function testReminderFile(D){
 /* ---------- plate from a photo ---------- */
 function inMsg(t){ const el = $("#inMsg"); el.textContent = t || ""; el.hidden = !t; }
 function loadImage(file){
-  return new Promise((ok, fail) => { const img = new Image(); img.onload = () => ok(img); img.onerror = fail; img.src = URL.createObjectURL(file); });
+  return new Promise((ok, fail) => { const img = new Image(), u = URL.createObjectURL(file); img.onload = () => { URL.revokeObjectURL(u); ok(img); }; img.onerror = e => { URL.revokeObjectURL(u); fail(e); }; img.src = u; });
 }
 /* Israeli plates are black digits on yellow: find the yellow area, crop it and turn it black-on-white */
 function plateCanvases(img){
@@ -4345,7 +4346,7 @@ for (const [id, k] of Object.entries(BIZ_FIELDS)) $("#" + id).addEventListener("
 $("#bizLogo").addEventListener("change", async ev => {
   const f = ev.target.files[0]; if (!f) return;
   try {
-    const im = await loadImg(URL.createObjectURL(f)); if (!im) throw 0;
+    const lu = URL.createObjectURL(f), im = await loadImg(lu); URL.revokeObjectURL(lu); if (!im) throw 0;
     const sc = Math.min(1, 160 / Math.max(im.width, im.height)), c = document.createElement("canvas");
     c.width = Math.round(im.width * sc); c.height = Math.round(im.height * sc);
     c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);

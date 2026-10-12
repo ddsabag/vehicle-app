@@ -76,6 +76,11 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // shared pictures and PDFs are temporary: drop the ones older than a day
+        try {
+            File[] old = sharedDir().listFiles();
+            if (old != null) for (File f : old) if (System.currentTimeMillis() - f.lastModified() > 24L * 3600 * 1000) f.delete();
+        } catch (Exception ignored) {}
 
         root = new FrameLayout(this);
         root.setBackgroundColor(Color.WHITE);
