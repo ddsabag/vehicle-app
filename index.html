@@ -1321,7 +1321,6 @@ function importerRecall(D){
 /* the official importer, from the model's price list; a personal import has none */
 const importerOf = D => D.importKind || !D.price || empty(D.price.shem_yevuan) ? "" : String(D.price.shem_yevuan).trim();
 const norm = s => String(s || "").toUpperCase().replace(/[^A-Z0-9֐-׿]/g, "");
-function isBlocking(r){ return /הגבל|מגביל|חסימ|חוסם/.test([r.SUG_RECALL, r.SUG_TAKALA, r.TEUR_TAKALA].join(" ")); }
 function recallYear(x){ const m = String(x || "").match(/(19|20)\d{2}/); return m ? +m[0] : null; }
 function matchModelRecalls(rows, v){
   const names = [v.degem_nm, v.kinuy_mishari].map(norm).filter(n => n.length >= 2);
@@ -1645,8 +1644,7 @@ function renderResult(){
 
   // An open recall is the one thing that must never be missed: banner above the tabs
   if (D.recalls.length) {
-    const blocking = D.recalls.some(isBlocking);
-    html.push(`<button type="button" class="alert-banner" data-tab="recalls">${ico("alert")}<span><b>${blocking ? "ריקול פתוח מגביל חידוש רישיון" : D.recalls.length === 1 ? "לרכב יש ריקול פתוח" : `לרכב ${D.recalls.length} ריקולים פתוחים`}</b>${blocking ? "לא ניתן לחדש רישיון עד ביצוע התיקון." : "ריקול בטיחותי פתוח עלול למנוע חידוש רישיון. התיקון בחינם אצל היבואן."}</span></button>`);
+    html.push(`<button type="button" class="alert-banner" data-tab="recalls">${ico("alert")}<span><b>${D.recalls.length === 1 ? "לרכב יש ריקול פתוח" : `לרכב ${D.recalls.length} ריקולים פתוחים`}</b>ריקול שלא מתוקן עלול למנוע בהמשך חידוש רישיון. התיקון בחינם אצל היבואן.</span></button>`);
   }
 
   if (D.kind !== "model" && !D.isCancelled) {
@@ -2049,12 +2047,12 @@ function tabOverview(D){
 
 function tabRecalls(D){
   const html = [], imp = importerRecall(D), stl = D.kind === "model" || D.isCancelled ? [] : settlementsFor(D);
-  const mr = D.modelRecalls, fits = mr.filter(r => r.fits !== false), blocking = D.recalls.some(isBlocking);
+  const mr = D.modelRecalls, fits = mr.filter(r => r.fits !== false);
   if (D.recalls.length) {
     html.push(card("ריקולים פתוחים לרכב הזה", "alert", "red", D.recalls.map(r => {
       const d = r.detail || {};
       const contact = [d.YEVUAN_TEUR, d.TELEPHONE && `טלפון ${d.TELEPHONE}`].filter(x => !empty(x)).map(esc).join(" · ");
-      return `<div class="recall"><b>${isBlocking(r) ? `<span class="pill bad">מגביל חידוש רישיון</span> ` : ""}${esc(D.pick(r.TEUR_TAKALA, d.TEUR_TAKALA, r.SUG_TAKALA) || "ריקול")}</b>
+      return `<div class="recall"><b>${esc(D.pick(r.TEUR_TAKALA, d.TEUR_TAKALA, r.SUG_TAKALA) || "ריקול")}</b>
         <span class="note">${[r.SUG_RECALL, !empty(r.TAARICH_PTICHA) && "נפתח ב-" + fmtDate(r.TAARICH_PTICHA), !empty(r.RECALL_ID) && "מספר " + r.RECALL_ID].filter(Boolean).map(esc).join(" · ")}</span>
         ${fixRows(r, d)}
         ${contact ? `<p class="note">${contact}</p>` : ""}</div>`;
@@ -2064,7 +2062,7 @@ function tabRecalls(D){
   const rows = [], row = (ok, t) => rows.push(`<li class="ins ${ok ? "ok" : "warn"}">${ico(ok ? "check" : "alert")}<div><b>${esc(t)}</b></div></li>`);
   if (D.recallUnknown) { row(false, "מידע על ריקולים פתוחים לא זמין כרגע"); row(false, "לא ידוע אם יש ריקול שמגביל חידוש רישיון"); }
   else { row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")} (פירוט למעלה)` : "אין ריקול פתוח במאגר משרד התחבורה");
-  if (D.recalls.length) row(false, blocking ? "ריקול מגביל חידוש רישיון" : "ריקול פתוח עלול למנוע חידוש רישיון");
+  if (D.recalls.length) row(false, "ריקול שלא מתוקן עלול למנוע בהמשך חידוש רישיון");
   else row(true, "אין ריקול שמגביל חידוש רישיון"); }
   if (D.modelRecallsUnknown) row(false, "בדיקת ריקולים קודמים לדגם לא זמינה כרגע"); else row(!fits.length, !mr.length ? "לא נמצאו ריקולים קודמים לדגם" : fits.length ? `${pl(fits.length, "ריקול קודם לדגם עשוי לחול", "ריקולים קודמים לדגם עשויים לחול")} על שנת הייצור` : `${pl(mr.length, "ריקול קודם לדגם, לא חל", "ריקולים קודמים לדגם, אף אחד לא חל")} על שנת הייצור`);
   if (D.kind !== "model" && !D.isCancelled) row(!stl.length, stl.length ? `ייתכן שהרכב נכלל ב${pl(stl.length, "הסדר פשרה", "הסדרי פשרה")} (פירוט למעלה)` : "לא נמצא הסדר פשרה מוכר לדגם ולשנתון");
@@ -3471,8 +3469,7 @@ async function drawShareCard(D){
   if (D.isCancelled) add("bad", "הרכב ירד מהכביש");
   else {
     if (exp) add(exp >= today ? "ok" : "bad", exp >= today ? `טסט בתוקף עד ${fmtDate(v.tokef_dt)}` : `הטסט פג ב-${fmtDate(v.tokef_dt)}`);
-    const blocking = D.recalls.some(isBlocking);
-    if (D.recallUnknown) add("warn", "מידע על ריקולים לא זמין כרגע, אין להסיק שאין ריקול"); else add(D.recalls.length ? "bad" : "ok", D.recalls.length ? (blocking ? "ריקול פתוח שמגביל חידוש רישיון" : D.recalls.length === 1 ? "ריקול פתוח אחד" : `${D.recalls.length} ריקולים פתוחים`) : "אין ריקול פתוח");
+    if (D.recallUnknown) add("warn", "מידע על ריקולים לא זמין כרגע, אין להסיק שאין ריקול"); else add(D.recalls.length ? "bad" : "ok", D.recalls.length ? (D.recalls.length === 1 ? "ריקול פתוח אחד" : `${D.recalls.length} ריקולים פתוחים`) : "אין ריקול פתוח");
     if (D.own.length) add("info", ownersLabel(D));
     const mods = ["shinui_mivne_ind", "gapam_ind", "shnui_zeva_ind", "shinui_zmig_ind"].filter(k => yes(v[k]));
     add(mods.length ? "warn" : "ok", mods.length ? "נרשמו שינויים ברכב" : "לא נרשמו שינויי מבנה, צבע או גפ״מ");
@@ -4081,7 +4078,7 @@ function bulkRow(D){
   const bad = D.isCancelled || (days !== null && days < 0) || D.recalls.length > 0;
   const warn = D.recallUnknown || (days !== null && days >= 0 && days <= 45);
   return {recallUnknown: !!D.recallUnknown, plate: D.plate, title: D.title, year: D.v.shnat_yitzur || "", lvl: bad ? 2 : warn ? 1 : 0, status: D.isCancelled ? "בוטל" : D.primary ? D.primary.status : "",
-    test: exp ? fmtDate(D.v.tokef_dt) : "", days: days === null ? "" : days, recalls: D.recalls.length, block: D.recalls.some(isBlocking), first: firstOwner(D.v) || "", owners: D.own.length, km: D.km || ""};
+    test: exp ? fmtDate(D.v.tokef_dt) : "", days: days === null ? "" : days, recalls: D.recalls.length, first: firstOwner(D.v) || "", owners: D.own.length, km: D.km || ""};
 }
 function bulkTable(running, total){
   const rows = BULK.slice().sort((a, b) => b.lvl - a.lvl || a.plate.localeCompare(b.plate));
@@ -4089,7 +4086,7 @@ function bulkTable(running, total){
   const cls = ["g", "w", "r"], tx = r => r.days === "" ? "—" : r.days < 0 ? "עבר" : r.test;
   return `${running ? `<p class="note" role="status">נבדקו ${BULK.length} מתוך ${total}…</p>` : ""}
     <div class="sum3"><div><b class="g">${n(0)}</b>תקין</div><div><b class="w">${n(1)}</b>לתשומת לב</div><div><b class="r">${n(2)}</b>בעיה</div>${nfc ? `<div><b>${nfc}</b>לא נבדקו</div>` : ""}</div>
-    <table class="ft"><tr><th>לוחית</th><th>טסט</th><th>ריקולים</th><th>בעלויות</th></tr>${rows.map(r => `<tr><td><button type="button" class="lnk" data-open="${r.plate}"><b>${fmtPlate(r.plate)}</b><small style="color:var(--muted)">${esc(r.title)}${r.year ? " " + esc(r.year) : ""}</small>${r.nf ? "" : `<small style="color:var(--muted)">${[r.km ? `<bdi>${fmtN(r.km)} ק״מ</bdi>` : "", r.first ? "מקוריות: " + esc(r.first) : ""].filter(Boolean).join(" · ")}</small>`}</button></td><td class="${r.nf ? "" : cls[r.days === "" ? 0 : r.days < 0 ? 2 : r.days <= 45 ? 1 : 0]}">${r.nf || tx(r)}</td><td>${r.recalls ? `<b class="r">${r.recalls}${r.block ? " (מגביל)" : ""}</b>` : "—"}</td><td>${r.owners === "" ? "—" : r.owners}</td></tr>`).join("")}</table>
+    <table class="ft"><tr><th>לוחית</th><th>טסט</th><th>ריקולים</th><th>בעלויות</th></tr>${rows.map(r => `<tr><td><button type="button" class="lnk" data-open="${r.plate}"><b>${fmtPlate(r.plate)}</b><small style="color:var(--muted)">${esc(r.title)}${r.year ? " " + esc(r.year) : ""}</small>${r.nf ? "" : `<small style="color:var(--muted)">${[r.km ? `<bdi>${fmtN(r.km)} ק״מ</bdi>` : "", r.first ? "מקוריות: " + esc(r.first) : ""].filter(Boolean).join(" · ")}</small>`}</button></td><td class="${r.nf ? "" : cls[r.days === "" ? 0 : r.days < 0 ? 2 : r.days <= 45 ? 1 : 0]}">${r.nf || tx(r)}</td><td>${r.recalls ? `<b class="r">${r.recalls}</b>` : "—"}</td><td>${r.owners === "" ? "—" : r.owners}</td></tr>`).join("")}</table>
     ${running ? "" : `<p class="note">מסודר לפי מה שדורש טיפול קודם.</p><div class="bulk-acts"><button type="button" class="link-btn" data-act="bulkSave">${ico("star")}שמירת כל הרכבים לרכבים שלי</button><button type="button" class="link-btn" data-act="bulkCsv">${ico("doc")}ייצוא לאקסל (CSV)</button><button type="button" class="link-btn" data-act="bulkPdf">${ico("share")}${bizProfile().name ? "דוח PDF עם המיתוג שלי" : "דוח PDF"}</button><button type="button" class="link-btn" data-act="bulkClear">${ico("x")}ניקוי הרשימה ובדיקה חדשה</button></div>`}`;
 }
 function renderBulk(){
@@ -4131,8 +4128,8 @@ function bulkSave(){
 }
 function bulkCsv(){
   const q = x => `"${String(x).replace(/"/g, '""')}"`, lv = ["תקין", "לתשומת לב", "בעיה"];
-  const head = ["לוחית", "רכב", "שנה", "סטטוס", "תוקף טסט", "ימים לטסט", "ריקולים פתוחים", "רשומות בעלות", "ק״מ בטסט אחרון", "בעלות ראשונה", "ריקול מגביל", "סימון"];
-  const rows = BULK.slice().sort((a, b) => b.lvl - a.lvl || a.plate.localeCompare(b.plate)).map(r => [fmtPlate(r.plate), r.title, r.year, r.status, r.test, r.days, r.recallUnknown ? "לא זמין" : r.recalls, r.owners, r.km, r.first || "", r.block ? "כן" : "", r.nf || lv[r.lvl]]);
+  const head = ["לוחית", "רכב", "שנה", "סטטוס", "תוקף טסט", "ימים לטסט", "ריקולים פתוחים", "רשומות בעלות", "ק״מ בטסט אחרון", "בעלות ראשונה", "סימון"];
+  const rows = BULK.slice().sort((a, b) => b.lvl - a.lvl || a.plate.localeCompare(b.plate)).map(r => [fmtPlate(r.plate), r.title, r.year, r.status, r.test, r.days, r.recallUnknown ? "לא זמין" : r.recalls, r.owners, r.km, r.first || "", r.nf || lv[r.lvl]]);
   const csv = "﻿" + [head, ...rows].map(r => r.map(q).join(",")).join("\r\n");
   shareFile(new Blob([csv], {type: "text/csv"}), `Luchit-list-${new Date().toISOString().slice(0, 10)}.csv`, "רשימת רכבים");
 }
