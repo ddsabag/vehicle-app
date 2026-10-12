@@ -831,7 +831,16 @@ function makeName(v){
   let n = String(v.tozeret_nm || "").trim();
   const c = String(v.tozeret_eretz_nm || "").trim();
   if (c && n.endsWith(" " + c)) n = n.slice(0, -c.length - 1);
-  return n;
+  // older records have no country field, so the country stays glued to the maker ("סובארו יפן")
+  return n.replace(COUNTRY_SFX, "").replace(/\s+ד\.?$/, "");
+}
+// the registry's model names for old cars are cut at 20 characters and carry codes ("טורבו איפרזה 0002הנע"); tidy them for display only, matching still uses the raw name
+function niceModel(m) {
+  return String(m || "")
+    .replace(/(^|\s)0\d{2,}(?:\s*(?:הנעה?|X4|4X))?(?=\s|$)/g, "$1")
+    .replace(/\s+הנעה?$/, "")
+    .replace(/([א-ת])(\d)/g, "$1 $2")
+    .replace(/\s{2,}/g, " ").trim();
 }
 
 /* ---------- API ---------- */
@@ -1466,7 +1475,7 @@ async function fetchVehicle(plate, signal, onProgress){
   const ownersFloor = !onRoad || onRoad < new Date(2017, 0, 1); // the ownership log starts in January 2017
 
   const D = {plate, v, w, towRow, zeroTow, tSrc, counts, price, priceRows, own, ownersFloor, recalls, modelRecalls, recallUnknown: !!res.recall.err, ownMirror: !!res.ownMirror, modelRecallsUnknown, tag, dpf, primary: mains[0], importKind: res.import.rows[0] ? String(res.import.rows[0].sug_yevu || "יבוא אישי").replace(/-/g, " · ") : null, errs, pick, make, model,
-    title: [make, model].filter(Boolean).join(" ") || "רכב " + fmtPlate(plate),
+    title: [make, niceModel(model)].filter(Boolean).join(" ") || "רכב " + fmtPlate(plate),
     sub: [v.shnat_yitzur, pick(v.ramat_gimur, w.ramat_gimur), v.tzeva_rechev].filter(x => !empty(x)).join(" · "),
     vin: pick(v.misgeret, v.mispar_shilda, v.shilda), km, kmYears, kmPerYear,
     isCancelled: mains[0] && /^cancel/.test(mains[0].key)};
