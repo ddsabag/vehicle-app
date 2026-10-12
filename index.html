@@ -541,6 +541,10 @@ body.land .band{display:none}
 .cmp-v .yes{color:var(--ok);font-weight:800}.cmp-v .no{color:var(--muted);font-weight:400}
 @media (max-width:360px){.facts{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.msg.edge{text-align:center}.edge-i{font-size:2.6rem;line-height:1;margin-bottom:10px}.msg.edge+.link-btn{align-self:center}
+button:not(:disabled):active,.link-btn:active,.act:active,.tabs button:active,a.row:active,[data-url]:active,[data-tab]:active,.head[data-fold]:active{box-shadow:none}
+@media (prefers-reduced-motion:no-preference){button:not(:disabled),.link-btn,.act,a.row,[data-url],[data-tab],.head[data-fold]{transition:transform .08s ease-out,box-shadow .12s}button:not(:disabled):active,.link-btn:active,.act:active,a.row:active,[data-url]:active,[data-tab]:active,.head[data-fold]:active{transform:scale(.98)}}
+@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{background:#fff}.brand-r,#f,.in-alt,.in-msg,.tabs,.actions,.link-btn,.apphint,.appbox,.webcta,.savedbar,.toast,.plate-strip,#settings,.chev,.copy-btn,[data-url],[data-copy]{display:none!important}.band{background:#fff;border-bottom:3px solid var(--plate)}.card,.alert-banner,.msg{box-shadow:none!important;border:1px solid #dde2ea;break-inside:avoid}.card.folded .fold-body{display:flex!important}}
 @keyframes rise{from{opacity:0;transform:translateY(4px)}}
 @media (prefers-reduced-motion:no-preference){#out.rise .card{animation:rise .18s ease-out both}}
 </style>
@@ -1521,7 +1525,7 @@ const REPORT_TABS = [["overview","סקירה"],["buy","קנייה"],["costs","ע
 async function lookup(raw){
   const plate = digits(raw).replace(/^0+(?=\d{5})/, "");
   const out = $("#out");
-  if (plate.length < 5 || plate.length > 8) { out.innerHTML = `<div class="msg err">מספר רישוי צריך להכיל 5 עד 8 ספרות.</div>`; return; }
+  if (plate.length < 5 || plate.length > 8) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true">🔢</div>מספר רישוי צריך להכיל 5 עד 8 ספרות.</div>`; return; }
   if (ctrl) ctrl.abort();
   ctrl = new AbortController(); const signal = ctrl.signal;
   $("#plate").value = fmtPlate(plate); $("#plate").blur();
@@ -1540,10 +1544,10 @@ async function lookup(raw){
   if (signal.aborted) return;
   await side;
   if (signal.aborted) return;
-  if (D.sourceDown) { out.innerHTML = `<div class="msg err">מאגר הרכבים של משרד התחבורה לא מחזיר נתונים כרגע, בלי קשר למספר שהקלדתם. זו תקלה אצל המשרד. נסו שוב מאוחר יותר.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; track("lookup_failed", {kind: "source_down"}); return; }
+  if (D.sourceDown) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true">🛠️</div>מאגר הרכבים של משרד התחבורה לא מחזיר נתונים כרגע, בלי קשר למספר שהקלדתם. זו תקלה אצל המשרד. נסו שוב מאוחר יותר.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; track("lookup_failed", {kind: "source_down"}); return; }
   if (D.offline || D.notFound) track("lookup_failed", {kind: D.sourceDown ? "source_down" : D.offline ? "offline" : "not_found", dur: durB});
-  if (D.offline) { out.innerHTML = `<div class="msg err">אין חיבור למאגרי משרד התחבורה כרגע. בדקו את החיבור לאינטרנט ונסו שוב.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; return; }
-  if (D.notFound) { out.innerHTML = `<div class="msg">לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.</div>`; return; }
+  if (D.offline) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true">📡</div>אין חיבור למאגרי משרד התחבורה כרגע. בדקו את החיבור לאינטרנט ונסו שוב.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; return; }
+  if (D.notFound) { out.innerHTML = `<div class="msg edge"><div class="edge-i" aria-hidden="true">🔍</div>לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.</div>`; return; }
   current = D; currentTab = "overview";
   renderResult();
   track("car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: D.errs && D.errs.length ? 1 : 0});
@@ -4383,7 +4387,7 @@ window.appAction = what => {
   if (!$("#compareSheet").hidden) $("#compareSheet").hidden = true;
   if (what === "compare") { cmp = []; renderCompare(); openCompare(); }
   else if (what === "camera") { renderHome(); $("#camBtn").click(); }
-  else if (what === "saved") { renderHome(); const c = [...document.querySelectorAll("#out .card")].find(x => x.textContent.includes("הרכבים שלי")); if (c) c.scrollIntoView({block: "start"}); else toast("עוד לא שמרתם רכבים. אחרי חיפוש, לחצו על \"שמירה\"."); }
+  else if (what === "saved") { renderHome(); const c = [...document.querySelectorAll("#out .card")].find(x => x.textContent.includes("הרכבים שלי")); if (c) c.scrollIntoView({block: "start"}); else toast("⭐ עוד לא שמרתם רכבים. אחרי חיפוש, לחצו על \"שמירה\"."); }
 };
 
 /* ---------- plans, gift and upgrade screen ---------- */
