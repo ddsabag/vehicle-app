@@ -855,7 +855,9 @@ function dsFetch(url){
 async function ds(resource_id, filters, limit, signal){
   const p = new URLSearchParams({resource_id, filters: JSON.stringify(filters), limit: String(limit || 100)});
   if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
-  const rows = await dsFetch(`${API}?${p}`);
+  // the shared request keeps running for other callers, but this caller stops waiting the moment it is cancelled
+  const pend = dsFetch(`${API}?${p}`);
+  const rows = signal ? await Promise.race([pend, new Promise((_, rej) => signal.addEventListener("abort", () => rej(new DOMException("Aborted", "AbortError")), {once: true}))]) : await pend;
   if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
   return rows;
 }
@@ -865,10 +867,10 @@ async function byPlate(set, plate, signal){
   const forms = [plate, Number(plate)];
   if (set.pad && plate.length < 8) forms.push(plate.padStart(7,"0"), plate.padStart(8,"0"));
   let lastErr = null, ok = false;
-  for (const v of [...new Set(forms)]) {
+  forms: for (const v of [...new Set(forms)]) {
     for (let attempt = 0; attempt < 2; attempt++) {
       try { const rows = await ds(set.id, {[field]: v}, 100, signal); ok = true; if (rows.length) return rows; break; }
-      catch (e) { if (e.name === "AbortError") throw e; lastErr = e; if (/HTTP 4\d\d|timeout/.test(e.message)) break; /* a stalled request is one attempt, not two */ /* a text column rejects the numeric form: next form, no retry */ if (attempt === 0) await new Promise(r => setTimeout(r, 700)); }
+      catch (e) { if (e.name === "AbortError") throw e; lastErr = e; if (/timeout/.test(e.message)) break forms; /* a stalled server will not answer the next form either */ if (/HTTP 4\d\d/.test(e.message)) break; /* a stalled request is one attempt, not two */ /* a text column rejects the numeric form: next form, no retry */ if (attempt === 0) await new Promise(r => setTimeout(r, 700)); }
     }
   }
   if (!ok && lastErr) throw lastErr;
@@ -1068,7 +1070,7 @@ function toggleSaved(item){
   const list = store.get("savedVehicles");
   if (list.some(x => x.plate === item.plate)) { store.set("savedVehicles", list.filter(x => x.plate !== item.plate)); updateSavedBar(); return false; }
   if (list.length >= savedCap()) { toast(`הרשימה מלאה (${savedCap()} רכבים). הסירו רכב כדי להוסיף.`); return false; }
-  store.set("savedVehicles", [item, ...list]); updateSavedBar(); return true;
+  store.set("savedVehicles", [item, ...list]); updateSavedBar(); if (current && current.plate === item.plate) snapPut(current); return true;
 }
 function remember(p){
   store.set("recentPlates", [p, ...store.get("recentPlates").filter(x => x !== p)].slice(0, 6));
@@ -1382,6 +1384,25 @@ async function sourceEmpty(signal){
     return j && j.success && Number(j.result && j.result.total) === 0;
   } catch (e) { if (e.name === "AbortError") throw e; return false; }
 }
+/* ---------- last result of saved cars, so they can be opened without a connection ---------- */
+const SNAP_KEY = "carSnaps";
+function snapAll(){ try { return JSON.parse(localStorage.getItem(SNAP_KEY) || "{}") || {}; } catch { return {}; } }
+function snapPut(D){
+  try {
+    if (!D || D.kind === "model" || D.fromCache || !isSaved(D.plate)) return;
+    const all = snapAll(), keep = new Set(store.get("savedVehicles").map(x => x.plate));
+    all[D.plate] = {t: Date.now(), D};
+    for (const k of Object.keys(all)) if (!keep.has(k)) delete all[k];
+    let txt = JSON.stringify(all);
+    // phones allow about 5 MB per site: drop the oldest copies before the limit is hit
+    while (txt.length > 1.5e6 && Object.keys(all).length > 1) { const old = Object.keys(all).sort((a, b) => all[a].t - all[b].t)[0]; delete all[old]; txt = JSON.stringify(all); }
+    localStorage.setItem(SNAP_KEY, txt);
+  } catch {}
+}
+function snapGet(plate){
+  const e = snapAll()[plate]; if (!e || !e.D) return null;
+  const D = e.D; D.pick = (...vals) => vals.find(x => !empty(x)); D.fromCache = e.t; return D;
+}
 /* ---------- fetch one vehicle ---------- */
 async function fetchVehicle(plate, signal, onProgress){
   const res = {}; let done = 0;
@@ -1529,27 +1550,30 @@ async function lookup(raw){
   if (plate.length < 5 || plate.length > 8) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true">🔢</div>מספר רישוי צריך להכיל 5 עד 8 ספרות.</div>`; return; }
   if (ctrl) ctrl.abort();
   ctrl = new AbortController(); const signal = ctrl.signal;
+  let timedOut = false; const deadT = setTimeout(() => { timedOut = true; ctrl.abort(); }, 30000);   // a server that never answers must end in a clear message, not a bar that runs for a minute
   $("#plate").value = fmtPlate(plate); $("#plate").blur();
   $("#go").disabled = true;
   try { history.replaceState(null, "", "#" + plate); } catch {}
   out.innerHTML = loadingHtml(plate);
   // a slow ministry server: say so after 3.5 s instead of leaving a silent bar
   const t0 = Date.now();
-  const slowT = setTimeout(() => { if (!signal.aborted && $("#skl") && !$("#slowNote")) track("lookup_slow"); if (!signal.aborted && $("#skl") && !$("#slowNote")) out.insertAdjacentHTML("beforeend", `<p class="note" id="slowNote" role="status" style="text-align:center">בודק, לוקח יותר מהרגיל. שרתי משרד התחבורה איטיים כרגע.</p>`); }, 3500);
+  const slowT = setTimeout(() => { if (!signal.aborted && $("#skl") && !$("#slowNote")) track("lookup_slow"); if (!signal.aborted && $("#skl") && !$("#slowNote")) out.insertAdjacentHTML("beforeend", `<p class="note" id="slowNote" role="status" style="text-align:center">בודק, לוקח יותר מהרגיל. שרתי משרד התחבורה איטיים כרגע. <button type="button" class="link-btn" id="cancelLook">ביטול</button></p>`); const cb = $("#cancelLook"); if (cb) cb.addEventListener("click", () => { ctrl.abort(); goHome(); }); }, 3500);
   const side = Promise.race([Promise.all([loadModelStats().catch(() => null), loadService().catch(() => null)]), new Promise(r => setTimeout(r, 1500))]);
   let D;
   try { D = await fetchVehicle(plate, signal, () => {}); }
-  catch (err) { if (err.name === "AbortError") { if (Date.now() - t0 > 1500) track("lookup_abort"); return; } throw err; }   // the user gave up on a slow lookup and typed another
-  finally { $("#go").disabled = false; clearTimeout(slowT); }
+  catch (err) { if (err.name === "AbortError") { if (timedOut) { D = {plate, offline: true}; track("lookup_timeout"); } else { if (Date.now() - t0 > 1500) track("lookup_abort"); return; } } else throw err; }   // the user gave up on a slow lookup and typed another
+  finally { $("#go").disabled = false; clearTimeout(slowT); clearTimeout(deadT); }
   const dur = Date.now() - t0, durB = dur < 2000 ? "lt2" : dur < 5000 ? "2to5" : dur < 10000 ? "5to10" : "gt10";
-  if (signal.aborted) return;
+  if (signal.aborted && !timedOut) return;
   await side;
-  if (signal.aborted) return;
+  if (signal.aborted && !timedOut) return;
+  if (D.offline) { const sn = snapGet(plate); if (sn) { track("lookup_from_cache"); current = sn; currentTab = "overview"; renderResult(); focusResult(); window.scrollTo({top: 0}); return; } }
   if (D.sourceDown) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true">🛠️</div>מאגר הרכבים של משרד התחבורה לא מחזיר נתונים כרגע, בלי קשר למספר שהקלדתם. זו תקלה אצל המשרד. נסו שוב מאוחר יותר.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; track("lookup_failed", {kind: "source_down"}); return; }
   if (D.offline || D.notFound) track("lookup_failed", {kind: D.sourceDown ? "source_down" : D.offline ? "offline" : "not_found", dur: durB});
   if (D.offline) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true">📡</div>אין חיבור למאגרי משרד התחבורה כרגע. בדקו את החיבור לאינטרנט ונסו שוב.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; return; }
   if (D.notFound) { out.innerHTML = `<div class="msg edge"><div class="edge-i" aria-hidden="true">🔍</div>לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.</div>`; return; }
   current = D; currentTab = "overview";
+  snapPut(D);
   renderResult(); focusResult();
   track("car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: D.errs && D.errs.length ? 1 : 0});
   remember(plate);
@@ -1639,6 +1663,7 @@ function renderResult(){
   if (clean) pills.push(`<span class="pill ok">${ico("check")}לא נמצאו בעיות במאגרי משרד התחבורה</span>`);
   if (D.tag) pills.push(`<span class="pill">תג נכה</span>`);
   html.push(`<div class="side">`);
+  if (D.fromCache) html.push(`<div class="msg" role="status"><b>אין חיבור למשרד התחבורה, ולכן מוצגים נתונים שנשמרו ב-${esc(fmtDate(new Date(D.fromCache).toISOString()))}.</b> ייתכן שהם לא מעודכנים. <button type="button" class="link-btn" data-retry="${esc(D.plate)}">נסו שוב</button></div>`);
   html.push(`<section class="card id-card">
     <div class="id-top"><div><h2 class="id-title" id="resHead" tabindex="-1">${esc(D.title)}</h2><p class="id-sub">${esc(!empty(v.shnat_yitzur) && !simpleOn() ? D.sub.split(" · ").slice(1).join(" · ") : D.sub)}</p></div>
       <span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span></div>
@@ -4241,7 +4266,8 @@ function loadMagazine(){
 function run(p){ lookup(p).catch(err => {
   reportErr("lookup_failed");
   const net = /HTTP|timeout|Failed to fetch|NetworkError|Load failed/i.test(String(err && err.message));
-  $("#out").innerHTML = `<div class="msg err">${net ? "לא הצלחנו להתחבר למאגרי משרד התחבורה. בדקו את החיבור ונסו שוב." : "משהו השתבש בבדיקה. נסו שוב."}</div>`;
+  const pd = digits(p);
+  $("#out").innerHTML = `<div class="msg err">${net ? "לא הצלחנו להתחבר למאגרי משרד התחבורה. בדקו את החיבור ונסו שוב." : "משהו השתבש בבדיקה. נסו שוב."}</div>${pd.length >= 5 ? `<button type="button" class="link-btn" data-retry="${pd}">נסו שוב</button>` : ""}`;
   $("#go").disabled = false;
 }); }
 $("#f").addEventListener("submit", ev => { ev.preventDefault(); run($("#plate").value); });
