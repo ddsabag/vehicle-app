@@ -51,7 +51,11 @@ def main():
     else:
         import ga
         data = ga.collect(per, cfg)
-    res = analyze.analyze(data, cfg)
+    if a_.sample: extra = sample.extras(a_.sample)
+    else:
+        import sources
+        extra, more = sources.collect_all(per, cfg); data.setdefault("notes", []).extend(more)
+    res = analyze.analyze(data, cfg, extra)
     os.makedirs(a_.out, exist_ok=True)
     name = f"luchit-weekly-{per['end'].isoformat()}"
     html_path = os.path.join(a_.out, name + ".html")

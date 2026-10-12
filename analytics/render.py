@@ -104,7 +104,38 @@ def page(d, a):
 {group("בריאות המערכת", "health")}{group("מעורבות משתמשים", "engagement")}{group("שימוש ברכיבים", "usage")}
 <section class="two"><div class="card"><h2>חיפושים ביום</h2>{line_chart(a["daily"])}</div>{bars(a["dur"], "זמן עד תוצאה")}</section>
 <section class="two">{bars([(r[0], r[1]) for r in a["tabs"]], "לשוניות שנפתחו")}{bars([(r[0], r[1]) for r in a["shares"]], "סוגי שיתוף")}{versions}</section>
+{extra_html(a)}
 <section class="card"><h2>תובנות מרכזיות</h2><ul>{take}</ul></section>
 <section class="card"><h2>שלוש המלצות לשבוע הקרוב</h2>{recs}</section>
 <p class="muted">נוצר אוטומטית מ-GA4 של לוחית. הנתונים אנונימיים ולא כוללים מספרי רישוי. הקובץ אינו נשמר באתר הציבורי.</p>
 </main></body></html>"""
+
+
+def extra_html(a):
+    X = a.get("extra") or {}
+    parts = []
+    cf, sc, ps, pl = X.get("cloudflare"), X.get("search_console"), X.get("psi"), X.get("play")
+    if cf or sc:
+        ks = []
+        if cf:
+            ks += [kpi_html({"title": "ביקורים באתר", "cur": cf["cur"]["visits"], "prev": cf["prev"]["visits"], "fmt": "n", "bad_up": False, "note": f"{cf['cur']['views']:,} צפיות"})]
+        if sc:
+            ks += [kpi_html({"title": "קליקים מגוגל", "cur": sc["cur"]["clicks"], "prev": sc["prev"]["clicks"], "fmt": "n", "bad_up": False, "note": f"{sc['cur']['impressions']:,} חשיפות"}),
+                   kpi_html({"title": "מיקום ממוצע בגוגל", "cur": sc["cur"]["position"], "prev": sc["prev"]["position"], "fmt": "n", "bad_up": True, "note": "נמוך יותר טוב יותר"})]
+        parts.append(f'<section><h2>האתר וחיפוש בגוגל</h2><div class="grid">{"".join(ks)}</div></section>')
+        rows = []
+        if cf:
+            SEC = {"home": "דף הבית", "model": "דפי דגמים", "magazine": "מגזין", "guide": "מדריכים", "other": "אחר"}
+            rows.append(bars([(SEC[k], v) for k, v in cf["sections"].items()], "צפיות לפי אזור באתר"))
+        if sc and sc["queries"]:
+            rows.append(bars([(q["query"], q["clicks"]) for q in sc["queries"]], "שאילתות מובילות (קליקים)"))
+        if rows: parts.append(f'<section class="two">{"".join(rows)}</section>')
+    q = []
+    if pl:
+        q += [kpi_html({"title": "קריסות (Google Play)", "cur": pl["crash_pct"], "prev": None, "fmt": "pct", "bad_up": True, "note": "סף Play: 1.09%"}),
+              kpi_html({"title": "ANR (Google Play)", "cur": pl["anr_pct"], "prev": None, "fmt": "pct", "bad_up": True, "note": "סף Play: 0.47%"})]
+    for r in ps or []:
+        path = r["url"].replace("https://luchit.app", "").strip("/")
+        q.append(kpi_html({"title": "מהירות " + ("דף הבית" if not path else "דפי דגמים" if path.startswith("model") else path), "cur": r["score"], "prev": None, "fmt": "n", "bad_up": False, "note": f"LCP {r['lcp']} שנ׳ · CLS {r['cls']}"}))
+    if q: parts.append(f'<section><h2>איכות ומהירות</h2><div class="grid">{"".join(q)}</div></section>')
+    return "".join(parts)

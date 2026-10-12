@@ -20,7 +20,7 @@ def kpi(key, title, cur, prev, unit="", bad_when_up=False, note="", fmt="n"):
             "unit": unit, "bad_up": bad_when_up, "note": note, "fmt": fmt}
 
 
-def analyze(d, cfg):
+def analyze(d, cfg, extra=None):
     T = cfg["thresholds"]
     ok_c, ok_p = _ev(d, cfg, "lookup")
     fl_c, fl_p = _ev(d, cfg, "lookup_failed")
@@ -115,7 +115,24 @@ def analyze(d, cfg):
         if sd > 0 and abs(today - mean(base)) / sd >= T["daily_zscore"] and max(today, mean(base)) >= 10:
             direction = "גבוה" if today > mean(base) else "נמוך"
             add("yellow", "יום חריג בחיפושים", f"ב-{daily[-1]['date']} נרשמו {today} חיפושים, {direction} משמעותית מהממוצע היומי ({round(mean(base))}).")
-    add("info", "לא נמדד כרגע", "המרה מהאתר להורדת האפליקציה, צפיות במגזין, והיצרנים והדגמים הנבדקים ביותר: האנליטיקה של האתר היא Cloudflare בלי API ב-GA4, והאפליקציה לא שולחת יצרן או דגם. אפשר להוסיף בגרסה הבאה אם תרצו.")
+    add("info", "לא נמדד כרגע", "היצרנים והדגמים הנבדקים ביותר וסוגי ההנעה: האפליקציה לא שולחת אותם. המרה מהאתר להורדה נמדדת ב-Play Console (Acquisition לפי UTM של luchit.app), ולא כאן.")
+    X = extra or {}
+    sc, cf, ps, pl = X.get("search_console"), X.get("cloudflare"), X.get("psi"), X.get("play")
+    if sc:
+        ch = pct(sc["cur"]["clicks"], sc["prev"]["clicks"])
+        if sc["prev"]["clicks"] >= 20 and ch is not None and ch <= -T["lookups_drop_yellow_pct"]:
+            add("yellow", "ירידה בקליקים מגוגל", f"{sc['cur']['clicks']} קליקים לעומת {sc['prev']['clicks']} ({ch}%). כדאי לבדוק ב-Search Console אם דפים יצאו מהאינדקס.")
+    if cf:
+        ch = pct(cf["cur"]["visits"], cf["prev"]["visits"])
+        if cf["prev"]["visits"] >= 50 and ch is not None and ch <= -T["lookups_drop_yellow_pct"]:
+            add("yellow", "ירידה בביקורים באתר", f"{cf['cur']['visits']} ביקורים לעומת {cf['prev']['visits']} ({ch}%).")
+    for r in ps or []:
+        short = r["url"].replace("https://", "")
+        if r["score"] < 75 or r["lcp"] > 4 or r["cls"] > 0.1:
+            add("yellow", "מהירות האתר ירדה", f"{short}: ציון {r['score']}, LCP {r['lcp']} שניות, CLS {r['cls']}.")
+    if pl:
+        if pl.get("crash_pct") is not None and pl["crash_pct"] > 1.09: add("red", "שיעור קריסות מעל סף Google Play", f"{pl['crash_pct']}% מהמשתמשים חוו קריסה (הסף של Play הוא 1.09%). חשיפה בחנות עלולה לרדת.")
+        if pl.get("anr_pct") is not None and pl["anr_pct"] > 0.47: add("red", "שיעור ANR מעל סף Google Play", f"{pl['anr_pct']}% מהמשתמשים חוו ANR (הסף 0.47%).")
     for n in d.get("notes", []): add("info", "הערת איסוף", n)
     order = {"red": 0, "yellow": 1, "info": 2}
     anomalies.sort(key=lambda a: order[a["level"]])
@@ -155,7 +172,7 @@ def analyze(d, cfg):
              "לבדוק פעם בחודש שהאירועים החדשים מופיעים ב-GA4 וששמות הממדים תואמים לקוד."]
     recs = recs[:3]
     return {"kpis": kpis, "anomalies": anomalies, "dur": dur_rows, "tabs": tabs, "shares": shares, "versions": versions,
-            "takeaways": take, "recommendations": recs, "daily": daily, "metrics": m,
+            "takeaways": take, "recommendations": recs, "extra": X, "daily": daily, "metrics": m,
             "status": "red" if reds else ("yellow" if any(a["level"] == "yellow" for a in anomalies) else "green")}
 
 

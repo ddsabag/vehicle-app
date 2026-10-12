@@ -39,3 +39,15 @@ def make(period, scenario="busy"):
         "upgrade_from": {"home": {"cur": 4, "prev": 3}, "maint": {"cur": 2, "prev": 1}},
         "versions": {"1.23": int(wau_c * 0.5), "1.22": int(wau_c * 0.3), "1.21": int(wau_c * 0.1)},
     }
+
+
+def extras(scenario="busy"):
+    bad = scenario == "incident"
+    return {
+        "search_console": {"cur": {"clicks": 212, "impressions": 9400, "position": 14.2}, "prev": {"clicks": 150 if not bad else 340, "impressions": 7100, "position": 15.9},
+                           "queries": [{"query": "בדיקת רכב לפי מספר", "clicks": 40, "impressions": 1100}, {"query": "ריקול קורולה", "clicks": 22, "impressions": 640}, {"query": "היסטוריית בעלויות רכב", "clicks": 18, "impressions": 900}],
+                           "pages": [{"page": "https://luchit.app/", "clicks": 120, "impressions": 3000}, {"page": "https://luchit.app/model/toyota-corolla/", "clicks": 25, "impressions": 800}]},
+        "cloudflare": {"cur": {"views": 3400, "visits": 2100}, "prev": {"views": 2800, "visits": 1800}, "sections": {"home": 1500, "model": 1200, "magazine": 450, "guide": 120, "other": 130}},
+        "psi": [{"url": "https://luchit.app/", "score": 93 if not bad else 64, "lcp": 2.1 if not bad else 4.6, "cls": 0.0, "tbt": 80}, {"url": "https://luchit.app/model/", "score": 100, "lcp": 0.9, "cls": 0.0, "tbt": 0}],
+        "play": {"crash_pct": 0.3 if not bad else 1.4, "anr_pct": 0.1},
+    }

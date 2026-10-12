@@ -29,5 +29,14 @@
     "upgrade_open": "upgrade_open",
     "purchase_start": "upgrade_purchase_start",
     "trial_start": "trial_start"
+  },
+  "sources": {
+    "search_console_site": "sc-domain:luchit.app",
+    "cloudflare_site_tag": "9bb0e756882c478a808d95596e0deade",
+    "psi_urls": [
+      "https://luchit.app/",
+      "https://luchit.app/model/"
+    ],
+    "play_package": "com.ddsabag.pratirechev"
   }
 }
