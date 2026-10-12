@@ -139,7 +139,8 @@ def analyze(d, cfg, extra=None):
         if sd > 0 and abs(today - mean(base)) / sd >= T["daily_zscore"] and max(today, mean(base)) >= 10:
             direction = "גבוה" if today > mean(base) else "נמוך"
             add("yellow", "יום חריג בחיפושים", f"ב-{daily[-1]['date']} נרשמו {today} חיפושים, {direction} משמעותית מהממוצע היומי ({round(mean(base))}).")
-    add("info", "לא נמדד כרגע", "היצרנים והדגמים הנבדקים ביותר וסוגי ההנעה: האפליקציה לא שולחת אותם. המרה מהאתר להורדה נמדדת ב-Play Console (Acquisition לפי UTM של luchit.app), ולא כאן.")
+    # static reminder removed from the alerts list: it is not an anomaly and repeated every week
+    #     add("info", "לא נמדד כרגע", "היצרנים והדגמים הנבדקים ביותר וסוגי ההנעה: האפליקציה לא שולחת אותם. המרה מהאתר להורדה נמדדת ב-Play Console (Acquisition לפי UTM של luchit.app), ולא כאן.")
     X = extra or {}
     sc, cf, ps, pl = X.get("search_console"), X.get("cloudflare"), X.get("psi"), X.get("play")
     if sc:
