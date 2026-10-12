@@ -964,6 +964,7 @@ const hasTow = r => r && (isNum(r.kosher_grira_im_blamim) && num(r.kosher_grira_
 
 /* ---------- small UI helpers ---------- */
 const pl = (n, one, many) => n === 1 ? one : `${n} ${many}`;
+const recType = t => empty(t) ? t : String(t).replace("סידרתית", "סדרתית").replace("שרות", "שירות");
 const ico = id => `<svg class="i"><use href="#i-${id}"/></svg>`;
 function facts(list){
   const items = list.filter(f => f && !empty(f[1]))
@@ -1503,7 +1504,7 @@ function buildInsights(D){
   if (yes(v.gapam_ind)) add("warn", "הותקנה מערכת גפ״מ", "הרכב הוסב לנסיעה על גז.");
   if (yes(v.shnui_zeva_ind)) add("info", "הצבע שונה", "צבע הרכב שונה מהצבע המקורי.");
   if (D.importKind) add("info", "יבוא אישי", "הרכב יובא ביבוא אישי, ולא דרך יבואן רשמי. חלפים, שירות וריקולים עשויים להיות פחות זמינים, וחלק מהנתונים על הדגם חסרים במאגר.");
-  if (D.primary && D.primary.key === "heavy") add("info", "רכב כבד: מידע חלקי", "במאגר של משרד התחבורה לרכבים כבדים (מעל 3.5 טון) יש פחות פרטים: אין תאריך טסט אחרון, קילומטראז׳, היסטוריית בעלויות ונתוני דגם כמו מערכות בטיחות וריקולים. מוצג כל מה שקיים.");
+  if (D.primary && D.primary.key === "heavy") add("info", "רכב כבד: מידע חלקי", "במאגר של משרד התחבורה לרכבים כבדים (מעל 3.5 טון) יש פחות פרטים: אין תאריך טסט אחרון, ק״מ בטסט, היסטוריית בעלויות ונתוני דגם כמו מערכות בטיחות וריקולים. מוצג כל מה שקיים.");
   if (D.tag) add("info", "לרכב יש תג חניה לנכה", `התג הונפק${empty(D.tag["TAARICH HAFAKAT TAG"]) ? "" : " ב-" + fmtDate(D.tag["TAARICH HAFAKAT TAG"])}.`);
   const lvl = num(v.ramat_eivzur_betihuty);
   if (!isNaN(lvl) && !empty(v.ramat_eivzur_betihuty)) {
@@ -2062,7 +2063,7 @@ function tabRecalls(D){
       const d = r.detail || {};
       const contact = [d.YEVUAN_TEUR, d.TELEPHONE && `טלפון ${d.TELEPHONE}`].filter(x => !empty(x)).map(esc).join(" · ");
       return `<div class="recall"><b>${esc(D.pick(r.TEUR_TAKALA, d.TEUR_TAKALA, r.SUG_TAKALA) || "ריקול")}</b>
-        <span class="note">${[r.SUG_RECALL, !empty(r.TAARICH_PTICHA) && "נפתח ב-" + fmtDate(r.TAARICH_PTICHA), !empty(r.RECALL_ID) && "מספר " + r.RECALL_ID].filter(Boolean).map(esc).join(" · ")}</span>
+        <span class="note">${[recType(r.SUG_RECALL), !empty(r.TAARICH_PTICHA) && "נפתח ב-" + fmtDate(r.TAARICH_PTICHA), !empty(r.RECALL_ID) && "מספר " + r.RECALL_ID].filter(Boolean).map(esc).join(" · ")}</span>
         ${fixRows(r, d)}
         ${contact ? `<p class="note">${contact}</p>` : ""}</div>`;
     }).join("") + `<p class="note">התיקון ניתן בחינם אצל היבואן.</p>`));
@@ -2084,7 +2085,7 @@ function tabRecalls(D){
       `<ul class="rlist">${mr.map(r => `<li class="${r.fits === false ? "dim" : ""}">
          <div class="rhead"><time>${esc(fmtDate(r.TAARICH_PTICHA || ""))}</time>${r.fits === true ? `<span class="pill warn">כולל את שנת הייצור</span>` : r.fits === false ? `<span class="pill">שנים אחרות</span>` : ""}</div>
          <b>${esc(D.pick(r.TEUR_TAKALA, r.SUG_TAKALA) || "ריקול")}</b>
-         <span class="note">${[r.SUG_RECALL, r.DEGEM, ].filter(x => !empty(x)).map(esc).join(" · ")}${(r.BUILD_BEGIN_A || r.BUILD_END_A) ? ` · ייצור <span dir="ltr" style="unicode-bidi:isolate">${esc(fmtDate(r.BUILD_BEGIN_A || ""))} – ${esc(fmtDate(r.BUILD_END_A || ""))}</span>` : ""}</span>
+         <span class="note">${[recType(r.SUG_RECALL), r.DEGEM, ].filter(x => !empty(x)).map(esc).join(" · ")}${(r.BUILD_BEGIN_A || r.BUILD_END_A) ? ` · ייצור <span dir="ltr" style="unicode-bidi:isolate">${esc(fmtDate(r.BUILD_BEGIN_A || ""))} – ${esc(fmtDate(r.BUILD_END_A || ""))}</span>` : ""}</span>
        </li>`).join("")}</ul>`, `<span class="count">${mr.length}</span>`));
   }
   return html.join("");
@@ -2682,7 +2683,7 @@ function showGroups(){
   if (!mGroups.length) track("search_no_result", {kind: mNote ? "budget" : "model"});
   msg.textContent = mGroups.length ? (searchFuzzy && !mNote ? "לא נמצא בדיוק. אולי התכוונתם:" : "") : (mNote ? "לא נמצאו דגמים שמתאימים לתנאים. נסו תקציב גבוה יותר או פחות תנאים." : "לא נמצאו דגמים. נסו שם אחר, למשל שם הדגם באנגלית.");
   let lastMake = null;
-  $("#mres").innerHTML = (mNote && mGroups.length ? `<div class="qsec" style="margin-top:0">${mGroups.length} דגמים: ${esc(mNote)}</div>` : "") + shown.map(x => (x.make !== lastMake ? (lastMake = x.make, `<div class="qsec">${esc(x.make)}</div>`) : "") + `<button type="button" class="row" data-mg="${mGroups.indexOf(x)}"><span class="t"><b>${esc(x.model)}</b><small>${isFinite(x.from) ? (x.from === x.to ? x.from : `<span dir="ltr">${x.from}–${x.to}</span>`) : ""}${x.price ? ` · החל מ-${fmtN(x.price)} אלף ₪` : ""}</small></span>${ico("chev")}</button>`).join("")
+  $("#mres").innerHTML = (mNote && mGroups.length ? `<div class="qsec" style="margin-top:0">${pl(mGroups.length, "דגם אחד", "דגמים")}: ${esc(mNote)}</div>` : "") + shown.map(x => (x.make !== lastMake ? (lastMake = x.make, `<div class="qsec">${esc(x.make)}</div>`) : "") + `<button type="button" class="row" data-mg="${mGroups.indexOf(x)}"><span class="t"><b>${esc(x.model)}</b><small>${isFinite(x.from) ? (x.from === x.to ? x.from : `<span dir="ltr">${x.from}–${x.to}</span>`) : ""}${x.price ? ` · החל מ-${fmtN(x.price)} אלף ₪` : ""}</small></span>${ico("chev")}</button>`).join("")
     + (rest > 0 ? `<button type="button" class="more" data-more="1">${mNote ? `עוד ${rest} דגמים` : `עוד ${rest} דגמים`}</button>` : "");
   renderQuick();
 }
@@ -3567,7 +3568,7 @@ function testReminder(D){
   const d = toDate(D.v.tokef_dt); if (!d) return;
   const ymd = x => `${x.getFullYear()}${String(x.getMonth() + 1).padStart(2, "0")}${String(x.getDate()).padStart(2, "0")}`;
   const next = new Date(d); next.setDate(next.getDate() + 1);
-  const title = `טסט לרכב ${fmtPlate(D.plate)} (${D.title})`, desc = "תוקף רישיון הרכב מסתיים היום. כדאי לקבוע טסט מראש.";
+  const title = `טסט לרכב ${fmtPlate(D.plate)} (${D.title})`, desc = "הטסט של הרכב מסתיים היום. כדאי לקבוע טסט מראש.";
   window.calendarFallback = () => testReminderFile(D);
   const b = bridge();
   if (b && b.addCalendar) { try { b.addCalendar(title, desc, ymd(d)); return; } catch {} }
@@ -3583,7 +3584,7 @@ function testReminderFile(D){
   const alarm = days => ["BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${title}`, `TRIGGER:-P${days}D`, "END:VALARM"];
   const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Luchit//HE", "CALSCALE:GREGORIAN", "BEGIN:VEVENT",
     `UID:test-${D.plate}-${ymd(d)}@luchit`, `DTSTAMP:${stamp}`, `DTSTART;VALUE=DATE:${ymd(d)}`, `DTEND;VALUE=DATE:${ymd(next)}`,
-    `SUMMARY:${title}`, "DESCRIPTION:תוקף רישיון הרכב מסתיים היום. כדאי לקבוע טסט מראש.",
+    `SUMMARY:${title}`, "DESCRIPTION:הטסט של הרכב מסתיים היום. כדאי לקבוע טסט מראש.",
     ...alarm(30), ...alarm(7), "END:VEVENT", "END:VCALENDAR"].join("\r\n");
   shareFile(new Blob([ics], {type: "text/calendar"}), `Luchit-test-${D.plate}.ics`, title);
 }
@@ -4140,7 +4141,7 @@ function bulkSave(){
 }
 function bulkCsv(){
   const q = x => `"${String(x).replace(/"/g, '""')}"`, lv = ["תקין", "לתשומת לב", "בעיה"];
-  const head = ["לוחית", "רכב", "שנה", "סטטוס", "תוקף טסט", "ימים לטסט", "ריקולים פתוחים", "רשומות בעלות", "ק״מ בטסט אחרון", "בעלות ראשונה", "סימון"];
+  const head = ["לוחית", "רכב", "שנה", "סטטוס", "טסט בתוקף עד", "ימים לטסט", "ריקולים פתוחים", "רשומות בעלות", "ק״מ בטסט אחרון", "בעלות ראשונה", "סימון"];
   const rows = BULK.slice().sort((a, b) => b.lvl - a.lvl || a.plate.localeCompare(b.plate)).map(r => [fmtPlate(r.plate), r.title, r.year, r.status, r.test, r.days, r.recallUnknown ? "לא זמין" : r.recalls, r.owners, r.km, r.first || "", r.nf || lv[r.lvl]]);
   const csv = "﻿" + [head, ...rows].map(r => r.map(q).join(",")).join("\r\n");
   shareFile(new Blob([csv], {type: "text/csv"}), `Luchit-list-${new Date().toISOString().slice(0, 10)}.csv`, "רשימת רכבים");
@@ -4172,7 +4173,7 @@ async function bulkPdf(btn){
     await loadScript(LIBS.pdf);
     const b = bizProfile(), has = !!b.name, today = new Date().toLocaleDateString("he-IL");
     const el = document.createElement("div"); el.className = "report pdf";
-    el.innerHTML = (has ? bizHead(b) : brandHead()) + `<div class="rep-head"><b>בדיקת רשימת רכבים</b><span>${BULK.length} רכבים · ${today}</span></div><section class="card">${bulkTable(false).replace(/<div class="bulk-acts">.*$/s, "")}</section><p class="rep-foot">${has ? bizFoot(b) : "המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il. " + BRAND_FOOT}</p>`;
+    el.innerHTML = (has ? bizHead(b) : brandHead()) + `<div class="rep-head"><b>בדיקת רשימת רכבים</b><span>${pl(BULK.length, "רכב אחד", "רכבים")} · ${today}</span></div><section class="card">${bulkTable(false).replace(/<div class="bulk-acts">.*$/s, "")}</section><p class="rep-foot">${has ? bizFoot(b) : "המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il. " + BRAND_FOOT}</p>`;
     el.querySelectorAll("button.lnk").forEach(x => { const s = document.createElement("span"); s.innerHTML = x.innerHTML; x.replaceWith(s); });
     inlineIcons(el);
     const {canvas, breaks} = await captureEl(el, ".card, tr, .rep-foot");
@@ -4216,7 +4217,7 @@ function renderHome(){
     saved.some(s => s.ask || s.fair) ? tool("cands", "star", "רשימת מועמדים", "הרכבים ששמרתם מול המחיר המבוקש", "PRO", "amber") : "",
     tool("bulk", "doc", "בדיקת כמה רכבים", "הדביקו רשימת מספרי רישוי וקבלו טבלה אחת", "PRO עסקי", "slate"),
   ].join("")}</div>`);
-  if (store.get("savedCompares").length) html.push(card("השוואות שמורות", "compare", "violet", `<div class="list">${store.get("savedCompares").map((c, i) => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-loadcmp="${i}"><span class="t"><b>${esc(c.name)}</b><small>${c.items.length} רכבים</small></span></button><button type="button" class="x" data-delcmp="${i}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div>`));
+  if (store.get("savedCompares").length) html.push(card("השוואות שמורות", "compare", "violet", `<div class="list">${store.get("savedCompares").map((c, i) => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-loadcmp="${i}"><span class="t"><b>${esc(c.name)}</b><small>${pl(c.items.length, "רכב אחד", "רכבים")}</small></span></button><button type="button" class="x" data-delcmp="${i}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div>`));
   if (!window.AndroidApp) html.push(`<div id="mgz" style="min-height:${mgzHeight()}px"></div>`);   // space is held for the card, so it does not push the page down when it arrives
   html.push(faqCard());
   { const ft = document.querySelector("body > footer"); if (ft) ft.hidden = false; }
@@ -4396,6 +4397,7 @@ window.appAction = what => {
 /* ---------- plans, gift and upgrade screen ---------- */
 let PRODUCTS = {};
 const daysLeft = t => Math.max(0, Math.ceil((t - Date.now()) / 864e5));
+const leftTxt = n => n <= 0 ? "מסתיים היום" : n === 1 ? "עוד יום אחד" : n === 2 ? "עוד יומיים" : `עוד ${n} ימים`;
 function initEnt(){
   if (!PRO_LOCK) return;
   const e = entGet();
@@ -4417,10 +4419,10 @@ function startTrial(){
 function planNotice(){
   if (!PRO_LOCK || !UPGRADE_UI) return "";
   const e = entGet(), now = Date.now();
-  if (e.trial > now && !(e.pro > now)) { const n = daysLeft(e.trial); return card(n <= 4 ? `ה-PRO במתנה מסתיים בעוד ${n} ${n === 1 ? "יום" : "ימים"}` : "PRO במתנה", "star", "amber", `<p style="margin:0 0 8px">${n <= 4 ? "אחרי זה האפליקציה נשארת חינמית עם הבדיקה המלאה, תזכורות לטסט וריקולים." : `נשארו ${n} ימים עם כל התכונות: מעקב אחרי בעלות, טיפול הבא ויומן טיפולים, מסמכים והתראות.`}</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לאפשרויות</button>`); }
+  if (e.trial > now && !(e.pro > now)) { const n = daysLeft(e.trial); return card(n <= 4 ? `ה-PRO במתנה ${n <= 0 ? "מסתיים היום" : n === 1 ? "מסתיים בעוד יום אחד" : n === 2 ? "מסתיים בעוד יומיים" : `מסתיים בעוד ${n} ימים`}` : "PRO במתנה", "star", "amber", `<p style="margin:0 0 8px">${n <= 4 ? "אחרי זה האפליקציה נשארת חינמית עם הבדיקה המלאה, תזכורות לטסט וריקולים." : `נשארו ${n} ימים עם כל התכונות: מעקב אחרי בעלות, טיפול הבא ויומן טיפולים, מסמכים והתראות.`}</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לאפשרויות</button>`); }
   if (e.trialStart && e.trial <= now && !e.trialSeen && plan() === "free") { track("trial_end_shown"); return card("הניסיון הסתיים", "clock", "amber", `<p style="margin:0 0 8px">הבדיקה המלאה, ריקולים ותזכורת טסט נשארים חינם. מעקב בעלות, טיפול הבא ויומן טיפולים ממשיכים ב-PRO.</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לאפשרויות</button><button type="button" class="link-btn" data-act="trialOk" style="margin-top:6px">סגירה</button>`); }
   if (e.gift > now && !e.giftSeen) return card("חודש PRO במתנה", "star", "amber", `<p style="margin:0 0 8px">תודה שהייתם איתנו מההתחלה. קיבלתם חודש PRO במתנה, עד ${esc(new Date(e.gift).toLocaleDateString("he-IL"))}, עם כל התכונות. אחרי זה האפליקציה נשארת חינמית עם הבדיקה המלאה.</p><button type="button" class="link-btn" data-act="giftOk">${ico("star")}מעולה, תודה</button><button type="button" class="link-btn" data-act="upgrade" style="margin-top:6px">מה כולל PRO</button>`);
-  if (e.buyer > now && e.buyer - now < 7 * 864e5 && plan() === "buyer") return card("חבילת הקנייה מסתיימת בקרוב", "clock", "amber", `<p style="margin:0 0 8px">נשארו ${daysLeft(e.buyer)} ימים. אפשר לעבור ל-PRO שנתי${PRODUCTS && PRODUCTS._credit ? " ולקבל זיכוי על מה ששילמתם" : ""}.</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לאפשרויות</button>`);
+  if (e.buyer > now && e.buyer - now < 7 * 864e5 && plan() === "buyer") return card("חבילת הקנייה מסתיימת בקרוב", "clock", "amber", `<p style="margin:0 0 8px">${(n => n <= 0 ? "החבילה מסתיימת היום." : n === 1 ? "נשאר יום אחד." : n === 2 ? "נשארו יומיים." : `נשארו ${n} ימים.`)(daysLeft(e.buyer))} אפשר לעבור ל-PRO שנתי${PRODUCTS && PRODUCTS._credit ? " ולקבל זיכוי על מה ששילמתם" : ""}.</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לאפשרויות</button>`);
   return "";
 }
 function syncPlanUi(){
@@ -4428,9 +4430,9 @@ function syncPlanUi(){
   row.hidden = !(PRO_LOCK && UPGRADE_UI);
   const e = entGet(), p = plan();
   let t = "אתם בחבילה: " + PLAN_NAME[p];
-  if (p === "buyer") t += ` · עוד ${daysLeft(e.buyer)} ימים`;
-  else if (e.trial > Date.now() && !(e.pro > Date.now())) t += ` (ניסיון, עוד ${daysLeft(e.trial)} ימים)`;
-  else if (e.gift > Date.now() && RANK[p] <= RANK.pro && !(e.pro > Date.now())) t += ` (מתנה, עוד ${daysLeft(e.gift)} ימים)`;
+  if (p === "buyer") t += ` · ${leftTxt(daysLeft(e.buyer))}`;
+  else if (e.trial > Date.now() && !(e.pro > Date.now())) t += ` (ניסיון, ${leftTxt(daysLeft(e.trial))})`;
+  else if (e.gift > Date.now() && RANK[p] <= RANK.pro && !(e.pro > Date.now())) t += ` (מתנה, ${leftTxt(daysLeft(e.gift))})`;
   $("#planNote").textContent = t;
 }
 const priceOf = sku => PRODUCTS[sku] || (Number(PRICES[sku]).toFixed(Number.isInteger(PRICES[sku]) ? 0 : 2) + " ₪");
@@ -4453,9 +4455,9 @@ function renderUpgrade(){
   let st = "";
   if (PRO_LOCK) {
     st = `אתם בחבילה: <b>${PLAN_NAME[p]}</b>`;
-    if (p === "buyer") st += ` · עוד ${daysLeft(e.buyer)} ימים`;
-    else if (e.trial > Date.now() && !(e.pro > Date.now())) st += ` · ניסיון, עוד ${daysLeft(e.trial)} ימים`;
-    else if (e.gift > Date.now() && !(e.pro > Date.now())) st += ` · מתנה, עוד ${daysLeft(e.gift)} ימים`;
+    if (p === "buyer") st += ` · ${leftTxt(daysLeft(e.buyer))}`;
+    else if (e.trial > Date.now() && !(e.pro > Date.now())) st += ` · ניסיון, ${leftTxt(daysLeft(e.trial))}`;
+    else if (e.gift > Date.now() && !(e.pro > Date.now())) st += ` · מתנה, ${leftTxt(daysLeft(e.gift))}`;
   }
   const credit = !!PRODUCTS._credit && e.buyer > Date.now();
   const opt = (sku, name, price, sub, best) => `<button type="button" class="opt${best ? " best" : ""}" data-buy="${sku}">${best ? `<em>הכי משתלם</em>` : ""}<b>${name}</b><span class="pr">${price}</span><small>${sub}</small></button>`;
