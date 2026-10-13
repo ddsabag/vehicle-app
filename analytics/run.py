@@ -28,6 +28,10 @@ def brief(d, a, link):
              f"איטיים: {k['slow']['cur'] if k['slow']['cur'] is not None else '—'}%  ביטולים: {k['abort']['cur'] if k['abort']['cur'] is not None else '—'}%  כשלים: {k['fail']['cur'] if k['fail']['cur'] is not None else '—'}%",
              f"שיתופים: {k['share']['cur']:,}{c(k['share'])}  השוואות: {k['compare']['cur']:,}{c(k['compare'])}",
              "", "ויראליות: " + f"צילומי מסך {k['shots']['cur']:,}{c(k['shots'])}" + (f", {k['ratio']['cur']:g} צילומים לכל שיתוף" if k['ratio']['cur'] is not None else ""), a["shot_insight"]]
+    bv = (a.get("extra") or {}).get("brevo")
+    if bv:
+        L = bv.get("last"); n = bv["new"]["cur"]
+        lines += ["", f"רשימת תפוצה: {bv['total']:,} מנויים [{'+' if n >= 0 else ''}{n} השבוע]" + (f" | פתיחות קמפיין אחרון: {L['open_pct']:g}%" if L and L["open_pct"] is not None else "")]
     flags = [x for x in a["anomalies"] if x["level"] in ("red", "yellow")]
     if flags:
         lines += ["", "חריגות:"] + [f"{'🔴' if x['level'] == 'red' else '🟡'} {x['title']}" for x in flags[:4]]

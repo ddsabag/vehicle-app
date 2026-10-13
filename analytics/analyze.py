@@ -158,9 +158,16 @@ def analyze(d, cfg, extra=None):
     if pl:
         if pl.get("crash_pct") is not None and pl["crash_pct"] > 1.09: add("red", "שיעור קריסות מעל סף Google Play", f"{pl['crash_pct']}% מהמשתמשים חוו קריסה (הסף של Play הוא 1.09%). חשיפה בחנות עלולה לרדת.")
         if pl.get("anr_pct") is not None and pl["anr_pct"] > 0.47: add("red", "שיעור ANR מעל סף Google Play", f"{pl['anr_pct']}% מהמשתמשים חוו ANR (הסף 0.47%).")
+    bv = X.get("brevo")
+    if bv and bv.get("last") and bv["last"]["delivered"] >= 50 and bv["last"].get("age_days", 99) <= 14:
+        L = bv["last"]
+        if L["unsub_pct"] is not None and L["unsub_pct"] > 2:
+            add("red", "שיעור הסרות גבוה בניוזלטר", f"{L['unsub_pct']}% מהנמענים ביקשו הסרה אחרי «{L['name']}» (הסף 2%). כדאי לבדוק את הנושא, התוכן והתדירות.")
+        if L["open_pct"] is not None and L["open_pct"] < 20:
+            add("red", "שיעור פתיחה נמוך בניוזלטר", f"{L['open_pct']}% פתחו את «{L['name']}» (הסף 20%). ייתכן שהנושא חלש או שהמייל מגיע לספאם.")
     for n in d.get("notes", []):
         src, _, msg = n.partition("|") if "|" in n else ("", "", n)
-        SRC_HE = {"psi": "מהירות האתר", "cloudflare": "ביקורי האתר", "search_console": "חיפוש בגוגל", "play": "Google Play"}
+        SRC_HE = {"psi": "מהירות האתר", "cloudflare": "ביקורי האתר", "search_console": "חיפוש בגוגל", "play": "Google Play", "brevo": "דיוור (Brevo)"}
         add("info", f"נתונים לא זמינים: {SRC_HE.get(src, src)}" if src else "נתונים חלקיים", msg)
     order = {"red": 0, "yellow": 1, "info": 2}
     anomalies.sort(key=lambda a: order[a["level"]])

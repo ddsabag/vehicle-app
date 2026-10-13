@@ -41,6 +41,7 @@ def make(period, scenario="busy"):
         "tabs": split(ev["tab_view"][0], ev["tab_view"][1], {"overview": 0.3, "buy": 0.24, "maint": 0.14, "recalls": 0.2, "specs": 0.12}),
         "screenshot_tab": split(ev["user_screenshot"][0], ev["user_screenshot"][1], {"overview": 0.2, "buy": 0.45, "maint": 0.1, "recalls": 0.2, "specs": 0.05}),
         "upgrade_from": {"home": {"cur": 4, "prev": 3}, "maint": {"cur": 2, "prev": 1}},
+        "email": {"sessions": {"cur": 31, "prev": 18}, "users": {"cur": 24, "prev": 15}, "installs": {"cur": 6, "prev": 3}},
         "versions": {"1.23": int(wau_c * 0.5), "1.22": int(wau_c * 0.3), "1.21": int(wau_c * 0.1)},
     }
 
@@ -53,5 +54,7 @@ def extras(scenario="busy"):
                            "pages": [{"page": "https://luchit.app/", "clicks": 120, "impressions": 3000}, {"page": "https://luchit.app/model/toyota-corolla/", "clicks": 25, "impressions": 800}]},
         "cloudflare": {"cur": {"views": 3400, "visits": 2100}, "prev": {"views": 2800, "visits": 1800}, "sections": {"home": 1500, "model": 1200, "magazine": 450, "guide": 120, "other": 130}},
         "psi": [{"url": "https://luchit.app/", "score": 93 if not bad else 64, "lcp": 2.1 if not bad else 4.6, "cls": 0.0, "tbt": 80}, {"url": "https://luchit.app/model/", "score": 100, "lcp": 0.9, "cls": 0.0, "tbt": 0}],
+        "brevo": {"total": 1240, "new": {"cur": 42, "prev": 31}, "lost": {"cur": 9 if not bad else 40, "prev": 6},
+                  "last": {"name": "magazine-2026-09", "sent_date": "2026-10-08", "delivered": 1190, "opens": 570 if not bad else 150, "clicks": 140, "unsubs": 11 if not bad else 40, "bounces": 6, "open_pct": 47.9 if not bad else 12.6, "ctr_pct": 11.8, "unsub_pct": 0.9 if not bad else 3.4, "age_days": 3}},
         "play": {"crash_pct": 0.3 if not bad else 1.4, "anr_pct": 0.1},
     }

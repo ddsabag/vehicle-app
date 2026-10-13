@@ -40,3 +40,6 @@ Settings > Secrets and variables > Actions > New repository secret:
 
 ## ספים (config.json)
 איטיים מעל 5% אדום, ביטולים בעלייה של 20% ומעלה אדום, כשלים מעל 10% אדום, ירידה של 30% בחיפושים צהוב ו-50% אדום, ויום חריג (סטייה של 2.5 סטיות תקן). אפשר לשנות בלי לגעת בקוד.
+
+## Brevo (דיוור וקהילה)
+Optional. Needs the repository secret `BREVO_API_KEY` (the workflow also accepts `BREVO_KEY`, the same key used by the newsletter workflow) and the repository variable `BREVO_LIST_ID`. Without them the section is simply left out. Email traffic from GA4 (`utm_medium=email` / `utm_source=newsletter`) needs no extra setup, but only the Android app sends events to GA4.

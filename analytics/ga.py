@@ -40,6 +40,25 @@ def _split(rows, ndims):
     return res
 
 
+def _email_traffic(c, prop, cur, prev):
+    """Sessions, users and installs that carry email attribution (utm_medium=email or utm_source=newsletter).
+    Only what GA4 sees: the Android app (Firebase). Web visits are not sent to GA4; clicks to the site come from Brevo."""
+    from google.analytics.data_v1beta.types import (DateRange, Filter, FilterExpression, FilterExpressionList, Metric, RunReportRequest, Dimension)
+    def f(field, value): return FilterExpression(filter=Filter(field_name=field, string_filter=Filter.StringFilter(value=value, match_type=Filter.StringFilter.MatchType.EXACT)))
+    def run(metrics, flt):
+        req = RunReportRequest(property=f"properties/{prop}", date_ranges=[DateRange(start_date=a.isoformat(), end_date=b.isoformat()) for a, b in (cur, prev)],
+                               metrics=[Metric(name=m) for m in metrics], dimension_filter=flt)
+        out = {m: {"cur": 0, "prev": 0} for m in metrics}
+        for r in c.run_report(req).rows:
+            slot = "cur" if r.dimension_values and r.dimension_values[-1].value == "date_range_0" else "prev"
+            for m, v in zip(metrics, r.metric_values): out[m][slot] = int(float(v.value or 0))
+        return out
+    email = FilterExpression(or_group=FilterExpressionList(expressions=[f("sessionMedium", "email"), f("sessionSource", "newsletter")]))
+    t = run(["sessions", "totalUsers"], email)
+    inst = run(["eventCount"], FilterExpression(and_group=FilterExpressionList(expressions=[f("eventName", "first_open"), f("firstUserMedium", "email")])))
+    return {"sessions": t["sessions"], "users": t["totalUsers"], "installs": inst["eventCount"]}
+
+
 def collect(period, cfg):
     prop = os.environ["GA_PROPERTY_ID"].strip()
     c = _client()
@@ -103,4 +122,9 @@ def collect(period, cfg):
         data["returning"] = {"cur": int(nvr.get("returning", {}).get("cur", 0)), "prev": int(nvr.get("returning", {}).get("prev", 0))}
     except Exception as e:
         data["returning"] = {"cur": 0, "prev": 0}; notes.append("נתוני משתמשים חוזרים לא היו זמינים השבוע.")
+    try:
+        data["email"] = _email_traffic(c, prop, cur, prev)
+    except Exception as e:
+        import sys; print(f"email attribution failed: {type(e).__name__}: {str(e)[:200]}", file=sys.stderr)
+        data["email"] = None
     return data
