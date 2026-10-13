@@ -1,5 +1,20 @@
 """One self-contained HTML file: no external fonts, scripts or images, RTL, light and dark, readable on a phone."""
 from html import escape as E
+from datetime import date
+
+
+class Raw(str):
+    """a label that already holds safe HTML (e.g. a left-to-right number inside Hebrew text)"""
+
+
+MONTHS = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"]
+
+
+def heb_range(a, b):
+    x, y = date.fromisoformat(str(a)), date.fromisoformat(str(b))
+    if x.year == y.year and x.month == y.month: return f"{x.day} עד {y.day} ב{MONTHS[y.month-1]} {y.year}"
+    if x.year == y.year: return f"{x.day} ב{MONTHS[x.month-1]} עד {y.day} ב{MONTHS[y.month-1]} {y.year}"
+    return f"{x.day} ב{MONTHS[x.month-1]} {x.year} עד {y.day} ב{MONTHS[y.month-1]} {y.year}"
 
 CSS = """
 :root{--bg:#f3f4f7;--card:#fff;--fg:#151a24;--muted:#5d6676;--line:#e3e6ec;--soft:#f0f2f6;--accent:#2556c8;--ok:#16794c;--warn:#8a5a00;--bad:#b3261e;--okbg:#e5f4ec;--warnbg:#fff3d6;--badbg:#fde8e6;--infobg:#e8eefc;color-scheme:light}
@@ -19,6 +34,7 @@ header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-betw
 .kpi .t{font-size:.85rem;color:var(--muted)}.kpi .v{font-size:1.8rem;font-weight:800;line-height:1.15;font-variant-numeric:tabular-nums}.kpi .v small{font-size:1rem;font-weight:700;color:var(--muted)}
 .chip{display:inline-flex;align-self:flex-start;gap:4px;font-size:.8rem;font-weight:700;padding:1px 8px;border-radius:999px;margin-top:4px}
 .chip.good{background:var(--okbg);color:var(--ok)}.chip.badc{background:var(--badbg);color:var(--bad)}.chip.flat{background:var(--soft);color:var(--muted)}
+.zero{margin:10px 0 0;padding:8px 12px;border-radius:10px;background:var(--soft);color:var(--muted);font-size:.88rem}
 .two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
 .bar{display:grid;grid-template-columns:110px 1fr 56px;gap:8px;align-items:center;margin:6px 0;font-size:.9rem}
 .bar i{display:block;height:10px;border-radius:6px;background:var(--accent)}.bar span{background:var(--soft);border-radius:6px;display:block}.bar em{font-style:normal;text-align:end;font-variant-numeric:tabular-nums;color:var(--muted)}
@@ -86,21 +102,31 @@ def bars(rows, title, empty="אין נתונים"):
     tot = sum(r[1] for r in rows)
     if not tot: return f'<div class="card"><h2>{E(title)}</h2><p class="muted">{empty}</p></div>'
     top = max(r[1] for r in rows) or 1
-    body = "".join(f'<div class="bar"><div>{E(str(r[0]))}</div><span><i style="width:{max(2, r[1]/top*100):.0f}%"></i></span><em>{round(r[1]/tot*100)}%</em></div>' for r in rows)
+    body = "".join(f'<div class="bar"><div>{r[0] if isinstance(r[0], Raw) else E(str(r[0]))}</div><span><i style="width:{max(2, r[1]/top*100):.0f}%"></i></span><em>{round(r[1]/tot*100)}%</em></div>' for r in rows)
     return f'<div class="card"><h2>{E(title)}</h2>{body}</div>'
+
+
+def grid_html(title, kpis):
+    """cards for numbers that moved, one quiet line for counters that sit at zero"""
+    live = [k for k in kpis if not (k["fmt"] in ("n", "ratio") and not k["cur"])]
+    zero = [k for k in kpis if k not in live]
+    strip = f'<p class="zero">ללא פעילות השבוע: {" · ".join(E(k["title"]) for k in zero)}</p>' if zero else ""
+    grid = f'<div class="grid">{"".join(kpi_html(k) for k in live)}</div>' if live else ""
+    return f'<section><h2>{title}</h2>{grid}{strip}</section>'
 
 
 def page(d, a):
     p = d["period"]
     status = {"green": ("green", "תקין"), "yellow": ("yellow", "דורש תשומת לב"), "red": ("red", "יש חריגות")}[a["status"]]
     al = "".join(f'<div class="al {x["level"]}"><span class="dot"></span><div><b>{E(x["title"])}</b>{E(x["detail"])}</div></div>' for x in a["anomalies"]) or '<p class="muted">אין חריגות.</p>'
-    def group(title, key): return f'<section><h2>{title}</h2><div class="grid">{"".join(kpi_html(k) for k in a["kpis"][key])}</div></section>'
-    versions = bars([(f"גרסה {v}", n) for v, n in a["versions"]], "גרסאות בשימוש (משתמשים פעילים)") if a["versions"] else ""
+    def group(title, key): return grid_html(title, a["kpis"][key])
+    versions = bars([(Raw(f'גרסה <bdi dir="ltr">{E(str(v))}</bdi>'), n) for v, n in a["versions"]], "גרסאות בשימוש (משתמשים פעילים)") if a["versions"] else ""
     take = "".join(f"<li>{E(t)}</li>" for t in a["takeaways"]) or "<li>אין מספיק נתונים לסיכום.</li>"
     recs = "".join(f'<div class="rec"><b class="n">{i}</b><div>{E(r)}</div></div>' for i, r in enumerate(a["recommendations"], 1))
     return f"""<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>לוחית · דוח שבועי</title><style>{CSS}</style></head><body><main>
-<header><div><h1>לוחית · דוח שבועי</h1><div class="muted">{p["start"]} עד {p["end"]}, בהשוואה ל-{p["prev_start"]} עד {p["prev_end"]}</div></div><span class="pill {status[0]}">{status[1]}</span></header>
+<header><div><h1>לוחית · דוח שבועי</h1><div class="muted">{heb_range(p["start"], p["end"])} · בהשוואה ל-{heb_range(p["prev_start"], p["prev_end"])}</div></div><span class="pill {status[0]}">{status[1]}</span></header>
+<section class="two"><div class="card"><h2>תובנות מרכזיות</h2><ul>{take}</ul></div><div class="card"><h2>שלוש המלצות לשבוע הקרוב</h2>{recs}</div></section>
 <section class="card"><h2>חריגות והתראות</h2><div class="alerts">{al}</div></section>
 {group("בריאות המערכת", "health")}{group("מעורבות משתמשים", "engagement")}{group("שימוש ברכיבים", "usage")}{viral_html(a)}
 <section class="two"><div class="card"><h2>חיפושים ביום</h2>{line_chart(a["daily"])}</div>{bars(a["dur"], "זמן עד תוצאה")}</section>
@@ -108,8 +134,6 @@ def page(d, a):
 <section class="two">{bars(a["makes"], "יצרנים שנבדקו הכי הרבה")}{bars(a["models"], "דגמים שנבדקו הכי הרבה")}</section>
 <section class="two">{bars(a["fuels"], "סוג דלק או הנעה בבדיקות")}</section>
 {extra_html(a)}
-<section class="card"><h2>תובנות מרכזיות</h2><ul>{take}</ul></section>
-<section class="card"><h2>שלוש המלצות לשבוע הקרוב</h2>{recs}</section>
 <p class="muted">נוצר אוטומטית מ-GA4 של לוחית. הנתונים אנונימיים ולא כוללים מספרי רישוי. הקובץ אינו נשמר באתר הציבורי.</p>
 </main></body></html>"""
 
@@ -145,7 +169,6 @@ def extra_html(a):
 
 
 def viral_html(a):
-    ks = "".join(kpi_html(k) for k in a["kpis"]["viral"])
     b = bars([(r[0], r[1]) for r in a["shot_tabs"]], "צילומי מסך לפי מסך") if a["shot_tabs"] else ""
     note = f'<div class="card"><h2>תובנה</h2><p style="margin:0">{E(a["shot_insight"])}</p><p class="muted" style="margin:8px 0 0">הפילוג בין אפליקציה לאתר לא נמדד: האתר לא שולח אירועים, וזיהוי צילום מסך בדפדפן לא אמין.</p></div>'
-    return f'<section><h2>ויראליות ושיתופים</h2><div class="grid">{ks}</div></section><section class="two">{b}{note}</section>'
+    return f'{grid_html("ויראליות ושיתופים", a["kpis"]["viral"])}<section class="two">{b}{note}</section>'

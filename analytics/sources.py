@@ -104,5 +104,7 @@ def collect_all(per, cfg):
     for name, fn, on in plan:
         if not on: notes.append(f"המקור {name} לא הוגדר, ולכן לא נכלל."); continue
         try: res[name] = fn(per, cfg)
-        except Exception as e: notes.append(f"המקור {name} נכשל ({type(e).__name__}: {str(e)[:120]}). בדקו הרשאות והפעלת ה-API.")
+        except Exception as e:
+            import sys; print(f"source {name} failed: {type(e).__name__}: {str(e)[:200]}", file=sys.stderr)    # technical detail stays in the Actions log, never in the report
+            notes.append(f"{name}|⚠️ הנתונים מהמקור הזה לא היו זמינים השבוע. פרטים טכניים בלוג של ההרצה.")
     return res, notes
