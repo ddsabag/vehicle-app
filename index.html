@@ -1480,7 +1480,7 @@ async function fetchVehicle(plate, signal, onProgress){
   const ownersFloor = !onRoad || onRoad < new Date(2017, 0, 1); // the ownership log starts in January 2017
 
   const D = {plate, v, w, towRow, zeroTow, tSrc, counts, price, priceRows, own, ownersFloor, recalls, modelRecalls, recallUnknown: !!res.recall.err, ownMirror: !!res.ownMirror, modelRecallsUnknown, tag, dpf, primary: mains[0], importKind: res.import.rows[0] ? String(res.import.rows[0].sug_yevu || "יבוא אישי").replace(/-/g, " · ") : null, errs, pick, make, model,
-    title: [make, niceModel(model)].filter(Boolean).join(" ") || "רכב " + fmtPlate(plate),
+    title: (nm => [/^[A-Za-z]/.test(make) && nm.toUpperCase().startsWith(make.toUpperCase()) && !/^[A-Za-z]/i.test(nm.slice(make.length)) ? "" : make, nm].filter(Boolean).join(" "))(niceModel(model)) || "רכב " + fmtPlate(plate),
     sub: [v.shnat_yitzur, pick(v.ramat_gimur, w.ramat_gimur), v.tzeva_rechev].filter(x => !empty(x)).join(" · "),
     vin: pick(v.misgeret, v.mispar_shilda, v.shilda), km, kmYears, kmPerYear,
     isCancelled: mains[0] && /^cancel/.test(mains[0].key)};
