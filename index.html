@@ -1432,11 +1432,24 @@ function snapGet(plate){
 /* ---------- fetch one vehicle ---------- */
 async function fetchVehicle(plate, signal, onProgress){
   const res = {}; let done = 0;
-  await Promise.all(PLATE_SETS.map(async s => {
+  // the rare vehicle types (motorcycle, heavy, cancelled, ...) are asked only when the ordinary active register has no such plate: a normal car then costs 7 requests instead of 16
+  const one = async s => {
     try { res[s.key] = {rows: await byPlate(s, plate, signal)}; }
     catch (err) { if (err.name === "AbortError") throw err; res[s.key] = {rows: [], err: err.message}; }
     if (onProgress) onProgress(++done / (PLATE_SETS.length + 1));
-  }));
+    // the model data needs only the maker and model codes of the first vehicle record: start it now (same requests, shared through DS_CACHE) instead of after every dataset has answered
+    const r0 = s.role === "main" && res[s.key].rows[0];
+    if (r0 && !empty(r0.tozeret_cd) && !empty(r0.degem_cd) && !one.warm) { one.warm = true; fetchModelData(r0, signal).catch(() => {}); }
+  };
+  const isRare = s => s.role === "main" && s.key !== "active";
+  const activeP = one(PLATE_SETS.find(s => s.key === "active"));
+  const rest = PLATE_SETS.filter(s => s.key !== "active" && !isRare(s)).map(one);
+  const rare = (async () => {
+    await activeP;
+    if (res.active.rows.length) { PLATE_SETS.filter(isRare).forEach(s => { res[s.key] = {rows: []}; done++; }); return; }
+    await Promise.all(PLATE_SETS.filter(isRare).map(one));
+  })();
+  await Promise.all([activeP, ...rest, rare]);
   if (!res.owners.rows.length) { const m = await ownMirror(plate, signal); if (m.length) { res.owners = {rows: m}; res.ownMirror = true; } }
   const errs = PLATE_SETS.filter(s => res[s.key].err);
   const mains = PLATE_SETS.filter(s => s.role === "main" && res[s.key].rows.length);
