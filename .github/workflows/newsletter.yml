@@ -25,7 +25,7 @@ jobs:
         with: { node-version: 20 }
       - run: node .github/scripts/newsletter.mjs
         env:
-          BREVO_KEY: ${{ secrets.BREVO_KEY }}
+          BREVO_KEY: ${{ secrets.BREVO_KEY || secrets.BREVO_API_KEY }}
           BREVO_LIST_ID: ${{ vars.BREVO_LIST_ID }}
           MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (vars.NEWSLETTER_AUTOSEND == 'true' && 'send' || 'draft') }}
       - uses: actions/upload-artifact@v4
