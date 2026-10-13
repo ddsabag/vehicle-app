@@ -16,3 +16,7 @@ Before turning it on:
 
 Prerequisite: luchit.app must be proxied by Cloudflare (today DNS at GoDaddy points straight to GitHub Pages). Then `cd worker/og && wrangler deploy`.
 Privacy: the plate in a shared link is looked up once from data.gov.il (cached an hour, never logged); mention it in the privacy policy. Test with `curl -A WhatsApp "https://luchit.app/?plate=<plate>"`.
+
+## Support mail to Telegram (mail/)
+
+`worker/mail/worker.js` is an Email Worker for support@luchit.app: it classifies each mail (privacy, app problem, wrong car data, partnership, other), posts a short summary to Telegram, and still forwards the original to the Gmail inbox. Setup: deploy the Worker, set secrets TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID, then in Cloudflare Email Routing change the support@ route to "Send to a Worker".
