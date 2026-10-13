@@ -1,0 +1,29 @@
+name: Infra watch
+on:
+  schedule:
+    - cron: "30 4 * * *"   # daily; on the 1st it also lists stale branches
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print the alert instead of sending it to Telegram"
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node .github/scripts/infra-watch.mjs
+        env:
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY || secrets.BREVO_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
