@@ -5,7 +5,7 @@ import path from "node:path";
 const SITE = "https://luchit.app/";
 const errs = [], warns = [];
 const E = (p, m) => errs.push(`${p}: ${m}`), W = (p, m) => warns.push(`${p}: ${m}`);
-const walk = d => fs.readdirSync(d, {withFileTypes: true}).flatMap(e => e.isDirectory() ? (["node_modules", ".git", "android", "analytics", "worker", "lib", "email"].includes(e.name) ? [] : walk(path.join(d, e.name))) : [path.join(d, e.name)]);
+const walk = d => fs.readdirSync(d, {withFileTypes: true}).flatMap(e => e.isDirectory() ? (["node_modules", ".git", "android", "analytics", "worker", "lib", "email", "out"].includes(e.name) ? [] : walk(path.join(d, e.name))) : [path.join(d, e.name)]);
 const pages = walk(".").filter(f => f.endsWith(".html")).map(f => f.replace(/^\.\//, ""));
 const urlOf = f => f === "index.html" ? SITE : f.endsWith("/index.html") ? SITE + f.slice(0, -10) : SITE + f;
 const norm = u => { try { const x = new URL(u, SITE); if (x.host !== "luchit.app") return null; let p = x.pathname.replace(/\/+/g, "/").replace(/\/index\.html$/, "/"); return SITE + p.slice(1); } catch { return null; } };
