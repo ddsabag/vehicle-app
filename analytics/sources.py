@@ -3,9 +3,10 @@
   Cloudflare Web Analytics (site visits, paths)    needs CF_API_TOKEN + CF_ACCOUNT_ID
   PageSpeed Insights (speed of the site)           works without a key, PSI_API_KEY is optional
   Google Play vitals (crash and ANR rate)          needs the same service account added in Play Console
+  Brevo (mailing list size, signups, last campaign) needs BREVO_API_KEY (or BREVO_KEY) + BREVO_LIST_ID
 """
 import json, os, time, urllib.parse, urllib.request
-from datetime import timedelta
+from datetime import date, datetime, timedelta
 
 
 def _http(url, data=None, headers=None, timeout=60):
@@ -95,14 +96,49 @@ def play_vitals(per, cfg):
     return {"crash_pct": metric("crashRateMetricSet", ["userPerceivedCrashRate"]), "anr_pct": metric("anrRateMetricSet", ["userPerceivedAnrRate"])}
 
 
+def brevo(per, cfg):
+    """Mailing list size and growth, plus the most recent sent campaign. Numbers only: no addresses leave Brevo."""
+    key = os.environ.get("BREVO_API_KEY") or os.environ.get("BREVO_KEY"); lst = os.environ["BREVO_LIST_ID"].strip()
+    H = {"api-key": key, "accept": "application/json"}; B = "https://api.brevo.com/v3"
+    info = _http(f"{B}/contacts/lists/{lst}", headers=H)
+    total = int(info.get("uniqueSubscribers", info.get("totalSubscribers", 0)) or 0)
+    # signups: contacts of the list, newest first, stop once older than the previous week
+    new_cur = new_prev = offset = 0; done = False
+    while not done and offset < 10000:
+        rows = _http(f"{B}/contacts/lists/{lst}/contacts?limit=500&offset={offset}&sort=desc", headers=H).get("contacts", [])
+        for c in rows:
+            d = (c.get("createdAt") or "")[:10]
+            if not d: continue
+            d = date.fromisoformat(d)
+            if per["start"] <= d <= per["end"]: new_cur += 1
+            elif per["prev_start"] <= d <= per["prev_end"]: new_prev += 1
+            elif d < per["prev_start"]: done = True; break
+        if len(rows) < 500: break
+        offset += 500
+    camps = _http(f"{B}/emailCampaigns?status=sent&statistics=globalStats&limit=10&sort=desc", headers=H).get("campaigns", [])
+    def stats(c):
+        g = (c.get("statistics") or {}).get("globalStats") or {}
+        deliv = int(g.get("delivered") or 0)
+        pc = lambda n: round(int(n or 0) / deliv * 100, 1) if deliv else None
+        return {"name": c.get("name", ""), "sent_date": (c.get("sentDate") or "")[:10], "delivered": deliv, "opens": int(g.get("uniqueViews") or 0), "clicks": int(g.get("uniqueClicks") or 0),
+                "unsubs": int(g.get("unsubscriptions") or 0), "bounces": int(g.get("hardBounces") or 0) + int(g.get("softBounces") or 0),
+                "open_pct": pc(g.get("uniqueViews")), "ctr_pct": pc(g.get("uniqueClicks")), "unsub_pct": pc(g.get("unsubscriptions"))}
+    cs = [stats(c) for c in camps if (c.get("sentDate") or "")]
+    last = cs[0] if cs else None
+    if last: last["age_days"] = (per["end"] - date.fromisoformat(last["sent_date"])).days
+    def lost(a, b):   # unsubscribes + bounces of campaigns sent inside a window
+        return sum(c["unsubs"] + c["bounces"] for c in cs if a <= date.fromisoformat(c["sent_date"]) <= b)
+    return {"total": total, "new": {"cur": new_cur, "prev": new_prev}, "lost": {"cur": lost(per["start"], per["end"]), "prev": lost(per["prev_start"], per["prev_end"])}, "last": last}
+
+
 def collect_all(per, cfg):
     """Returns ({source: data}, [notes]) for every source whose secrets are present."""
     res, notes = {}, []
     have_sa = bool(os.environ.get("GA_SERVICE_ACCOUNT_JSON"))
     plan = [("search_console", search_console, have_sa), ("cloudflare", cloudflare, bool(os.environ.get("CF_API_TOKEN") and os.environ.get("CF_ACCOUNT_ID"))),
-            ("psi", psi, True), ("play", play_vitals, have_sa and os.environ.get("PLAY_VITALS", "1") != "0")]
+            ("psi", psi, True), ("brevo", brevo, bool((os.environ.get("BREVO_API_KEY") or os.environ.get("BREVO_KEY")) and os.environ.get("BREVO_LIST_ID"))), ("play", play_vitals, have_sa and os.environ.get("PLAY_VITALS", "1") != "0")]
     for name, fn, on in plan:
-        if not on: notes.append(f"המקור {name} לא הוגדר, ולכן לא נכלל."); continue
+        if not on: (notes.append(f"המקור {name} לא הוגדר, ולכן לא נכלל.") if name != "brevo" else None); continue
         try: res[name] = fn(per, cfg)
         except Exception as e:
             import sys; print(f"source {name} failed: {type(e).__name__}: {str(e)[:200]}", file=sys.stderr)    # technical detail stays in the Actions log, never in the report

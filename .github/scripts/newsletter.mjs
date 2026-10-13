@@ -13,6 +13,7 @@ const html = fs.readFileSync("email/newsletter.html", "utf8")
   .replaceAll("[[MONTH]]", esc(post.month))
   .replaceAll("[[TITLE]]", esc(post.title))
   .replaceAll("[[LEAD]]", esc(lead))
+  .replaceAll("[[PLAY_URL]]", `https://play.google.com/store/apps/details?id=com.ddsabag.pratirechev&referrer=${encodeURIComponent(`utm_source=newsletter&utm_medium=email&utm_campaign=${post.slug}`)}`)
   .replaceAll("[[URL]]", `https://luchit.app/magazine/${post.slug}/?utm_source=newsletter&utm_medium=email&utm_campaign=${post.slug}`);
 fs.mkdirSync("out", { recursive: true }); fs.writeFileSync("out/newsletter.html", html);
 console.log(`rendered newsletter for ${post.slug}: ${post.title}`);

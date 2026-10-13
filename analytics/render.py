@@ -133,7 +133,7 @@ def page(d, a):
 <section class="two">{bars([(r[0], r[1]) for r in a["tabs"]], "לשוניות שנפתחו")}{bars([(r[0], r[1]) for r in a["shares"]], "סוגי שיתוף")}{versions}</section>
 <section class="two">{bars(a["makes"], "יצרנים שנבדקו הכי הרבה")}{bars(a["models"], "דגמים שנבדקו הכי הרבה")}</section>
 <section class="two">{bars(a["fuels"], "סוג דלק או הנעה בבדיקות")}</section>
-{extra_html(a)}
+{extra_html(a)}{email_html(a, d)}
 <p class="muted">נוצר אוטומטית מ-GA4 של לוחית. הנתונים אנונימיים ולא כוללים מספרי רישוי. הקובץ אינו נשמר באתר הציבורי.</p>
 </main></body></html>"""
 
@@ -165,6 +165,26 @@ def extra_html(a):
         path = r["url"].replace("https://luchit.app", "").strip("/")
         q.append(kpi_html({"title": "מהירות " + ("דף הבית" if not path else "דפי דגמים" if path.startswith("model") else path), "cur": r["score"], "prev": None, "fmt": "n", "bad_up": False, "note": f"LCP {r['lcp']} שנ׳ · CLS {r['cls']}"}))
     if q: parts.append(f'<section><h2>איכות ומהירות</h2><div class="grid">{"".join(q)}</div></section>')
+    return "".join(parts)
+
+
+def email_html(a, d):
+    bv = (a.get("extra") or {}).get("brevo"); em = d.get("email")
+    if not bv and not em: return ""
+    parts = []
+    if bv:
+        ks = [kpi_html({"title": "מנויים פעילים", "cur": bv["total"], "prev": max(0, bv["total"] - bv["new"]["cur"]), "fmt": "n", "bad_up": False, "note": "גודל רשימת התפוצה"}),
+              kpi_html({"title": "נרשמים חדשים", "cur": bv["new"]["cur"], "prev": bv["new"]["prev"], "fmt": "n", "bad_up": False, "note": "אחרי אישור כפול"}),
+              kpi_html({"title": "הסרות וחסימות", "cur": bv["lost"]["cur"], "prev": bv["lost"]["prev"], "fmt": "n", "bad_up": True, "note": "מקמפיינים שיצאו בשבוע"})]
+        L = bv.get("last")
+        if L:
+            ks += [kpi_html({"title": "פתיחות בקמפיין האחרון", "cur": L["open_pct"], "prev": None, "fmt": "pct", "bad_up": False, "note": f"{L['name']} · {L['delivered']:,} נמענים"}),
+                   kpi_html({"title": "לחיצות בקמפיין האחרון", "cur": L["ctr_pct"], "prev": None, "fmt": "pct", "bad_up": False, "note": f"{L['clicks']:,} לחיצות ייחודיות"})]
+        parts.append(f'<section><h2>דיוור וקהילה</h2><div class="grid">{"".join(ks)}</div>' + ('<p class="muted" style="margin:8px 0 0">שיעור הפתיחה מנופח: אפל טוענת מיילים מראש במכשירים רבים, ולכן הסף האדום (מתחת ל-20%) מתריע רק על נפילה ממשית.</p>' if L else '<p class="zero">עוד לא יצא קמפיין.</p>') + '</section>')
+    if em:
+        rows = "".join(f'<tr><td>{E(t)}</td><td class="n">{em[k]["cur"]:,}</td><td class="n">{em[k]["prev"]:,}</td></tr>' for k, t in (("sessions", "סשנים באפליקציה"), ("users", "משתמשים"), ("installs", "התקנות")))
+        parts.append(f'<section class="card"><h2>תנועה חוזרת מהמייל</h2><div class="wrap"><table><thead><tr><th>מדד</th><th class="n">השבוע</th><th class="n">שבוע קודם</th></tr></thead><tbody>{rows}</tbody></table></div>'
+                     '<p class="muted" style="margin:8px 0 0">נמדד ב-GA4 לפי utm_medium=email או utm_source=newsletter, ולכן רק אפליקציה. ביקורים באתר מהמייל נספרים כלחיצות בקמפיין למעלה, כי האתר לא שולח אירועים ל-GA4.</p></section>')
     return "".join(parts)
 
 
