@@ -42,8 +42,6 @@ const FORBIDDEN = /בגלל|הסיבה|כתוצאה|עקב|צפוי|תחזית|�
 const template = () => ({
   title: `מה נמכר ב${label}: ${models[0].name} בפסגה`,
   lead: `ב${monthName} ${year} נמסרו בישראל ${fmt(total)} רכבים פרטיים חדשים${prev ? `, ${dir(chg) === "שינוי קטן" ? "שינוי קטן" : dir(chg)} של כ-${pct(chg)}% לעומת ${monthName} אשתקד (${fmt(prev)})` : ""}. ${makers[0].name} הובילה בין היצרנים, ובין הדגמים הובילה ${models[0].name}.`,
-  models_p: `בראש הרשימה ${models[0].name} עם ${fmt(models[0].n)} רכבים, אחריה ${models.slice(1).map(m => `${m.name} (${fmt(m.n)})`).join(", ")}.`,
-  makers_p: `בין היצרנים הובילה ${makers[0].name} עם ${fmt(makers[0].n)} רכבים, אחריה ${makers.slice(1).map(m => `${m.name} (${fmt(m.n)})`).join(", ")}.`,
   bodies_p: `לפי סוג המרכב, ${bodies.map(b => `${b.name} היו ${b.pct}% מהמסירות (${fmt(b.n)} רכבים)`).join(", ")}.`,
   ytd_p: ytdPrev ? `מתחילת ${year} ועד סוף ${monthName} נמסרו ${fmt(ytd)} רכבים, לעומת ${fmt(ytdPrev)} בתקופה המקבילה אשתקד (${dir(ytdChg)} של כ-${pct(ytdChg)}%).` : "",
   tldr: [
@@ -64,7 +62,7 @@ async function gemini() {
   const key = process.env.GEMINI_API_KEY; if (!key || process.env.MAGAZINE_AI !== "1") return null;
   const prompt = `כתוב כתבה קצרה בעברית בסגנון עיתונאי עניייני על מסירות רכבים חדשים בישראל, על בסיס העובדות שב-JSON בלבד.
 כללים: אל תוסיף שום עובדה, מספר, אחוז, סיבה, תחזית או השוואה שלא מופיעים ב-JSON. אל תנחש למה משהו קרה. כתוב מספרים בדיוק כפי שהם. אל תזכיר מקורות או אתרים. בדוק איות ודקדוק לפני שאתה מחזיר. הטבלאות והגרפים מוצגים בנפרד, אז אל תפרט כל מספר, אבל כל מספר שתכתוב חייב להופיע ב-JSON.
-החזר JSON בלבד עם השדות: title (כותרת עד 90 תווים), lead (פסקת פתיחה של 2 עד 3 משפטים), models_p, makers_p, bodies_p, ytd_p (כל אחד 1 עד 2 משפטים), tldr (מערך של בדיוק 3 משפטים קצרים שמסכמים את הכתבה), faq (מערך של 3 עד 4 אובייקטים {"q": שאלה, "a": תשובה של משפט אחד עד שניים}). שאלות ה-FAQ הן שאלות שקורא היה שואל על הנתונים, והתשובות רק מתוך העובדות.
+החזר JSON בלבד עם השדות: title (כותרת עד 90 תווים), lead (פסקת פתיחה של 2 עד 3 משפטים), bodies_p, ytd_p (כל אחד 1 עד 2 משפטים; הדגמים והיצרנים מוצגים ברשימות ממוספרות נפרדות, ולכן אל תחזור עליהם בפירוט), tldr (מערך של בדיוק 3 משפטים קצרים שמסכמים את הכתבה), faq (מערך של 3 עד 4 אובייקטים {"q": שאלה, "a": תשובה של משפט אחד עד שניים}). שאלות ה-FAQ הן שאלות שקורא היה שואל על הנתונים, והתשובות רק מתוך העובדות.
 העובדות:\n${JSON.stringify(facts)}`;
   for (const model of (process.env.GEMINI_MODEL ? [process.env.GEMINI_MODEL] : ["gemini-flash-lite-latest", "gemini-flash-latest"])) {
     for (let t = 0; t < 2; t++) {
@@ -85,10 +83,10 @@ async function gemini() {
 }
 // every number in the prose must exist in the facts, and no causal or forecast wording
 export function check(a) {
-  for (const f of ["title", "lead", "models_p", "makers_p", "bodies_p", "ytd_p"]) if (typeof a[f] !== "string" || (!a[f] && f !== "ytd_p")) return "missing " + f;
+  for (const f of ["title", "lead", "bodies_p", "ytd_p"]) if (typeof a[f] !== "string" || (!a[f] && f !== "ytd_p")) return "missing " + f;
   if (!Array.isArray(a.tldr) || a.tldr.length !== 3 || a.tldr.some(x => typeof x !== "string" || !x.trim() || x.length > 220)) return "bad tldr";
   if (!Array.isArray(a.faq) || a.faq.length < 3 || a.faq.length > 4 || a.faq.some(x => !x || typeof x.q !== "string" || typeof x.a !== "string" || !x.q.trim() || !x.a.trim() || x.q.length > 160 || x.a.length > 400)) return "bad faq";
-  const text = [a.title, a.lead, a.models_p, a.makers_p, a.bodies_p, a.ytd_p, ...a.tldr, ...a.faq.flatMap(x => [x.q, x.a])].join(" ");
+  const text = [a.title, a.lead, a.bodies_p, a.ytd_p, ...a.tldr, ...a.faq.flatMap(x => [x.q, x.a])].join(" ");
   if (FORBIDDEN.test(text)) return "forbidden wording";
   for (const m of text.matchAll(/\d[\d,.]*\d|\d/g)) { const n = m[0].replace(/,/g, ""); if (!allowed.has(n)) return "unknown number " + m[0]; }
   if (a.title.length > 120) return "title too long";
@@ -102,24 +100,36 @@ const head = new Function("esc", "css", "SITE", `const PLAY = ${JSON.stringify("
 const foot = `<p class="muted" style="margin-top:28px">מערכת לוחית. הנתונים מגיעים ממאגרים פתוחים של משרד התחבורה ב-data.gov.il, והאתר אינו קשור למשרד התחבורה. <a href="${SITE}privacy.html">מדיניות פרטיות</a></p></main></body></html>`;
 
 let slugs = {}; try { slugs = JSON.parse(fs.readFileSync("model/slugs.json", "utf8")); } catch {}
-const bars = (list, label2) => { const mx = list[0].n; return list.map((x, i) => { const s = label2 && slugs[x.key]; const nm = s ? `<a href="${SITE}model/${s}/">${esc(x.name)}</a>` : esc(x.name); return `<div class="rk"><i>${i + 1}</i><div>${nm}<span class="bar" style="width:${Math.max(4, Math.round(x.n / mx * 100))}%"></span></div><span>${fmt(x.n)}</span></div>`; }).join(""); };
+const bars = (list, label2) => { const mx = list[0].n; return list.map((x, i) => { const s = label2 && slugFor(x.key); const nm = s ? `<a href="${SITE}model/${s}/">${esc(x.name)}</a>` : esc(x.name); return `<div class="rk"><i>${i + 1}</i><div>${nm}<span class="bar" style="width:${Math.max(4, Math.round(x.n / mx * 100))}%"></span></div><span>${fmt(x.n)}</span></div>`; }).join(""); };
 
 // a trailing % flips in right-to-left text, so prose spells it out
 const prPlain = t => esc(t).replace(/(\d+)%/g, "$1 אחוזים");
-// link model names that have a model page (model/slugs.json), once per article. Works on escaped text that holds no tags yet, so it cannot break markup;
-// Hebrew prefix letters (ב, ל, ו, ...) stay outside the link, and longer names win over shorter ones.
+// link model names that have a model page (model/slugs.json), once per article. The registry spells models differently from the catalogue
+// ("MODEL 3" vs "MODEL3", "RAV 4" vs "RAV4", "JAECOO 5 HEV" vs "JAECOO5"), so matching ignores case, spaces and hyphens, and a variant name
+// links to its base model when the first words of the variant spell the catalogue name. Works on escaped text that holds no tags yet, so it
+// cannot break markup; Hebrew prefix letters (ב, ל, ו, ...) stay outside the link, and longer names win over shorter ones.
 const linked = new Set();
-const MODEL_RE = (() => {
-  const names = Object.keys(slugs).map(k => k.split("|").join(" ")).sort((x, y) => y.length - x.length);
-  if (!names.length) return null;
-  return new RegExp(`(?<![\\p{L}\\p{N}])([ובכלמשה]{0,2})(${names.map(n => esc(n).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?![\\p{L}\\p{N}])`, "gu");
-})();
-const SLUG_OF = Object.fromEntries(Object.entries(slugs).map(([k, v]) => [esc(k.split("|").join(" ")), v]));
+const wordsOf = t => String(t).trim().split(/[\s\-]+/).filter(Boolean);
+const joinKey = ws => ws.join("").toLowerCase();
+const slugEntries = Object.entries(slugs).map(([k, sl]) => { const [mk, md = ""] = k.split("|"); return {mk: joinKey(wordsOf(mk)), md: joinKey(wordsOf(md)), sl}; });
+function slugFor(key) {
+  const [mk, md] = String(key).split("|"); if (!md) return null;
+  const mkk = joinKey(wordsOf(mk)), ws = wordsOf(md); let best = null;
+  for (const e of slugEntries) {
+    if (e.mk !== mkk || !e.md) continue;
+    for (let k = ws.length; k >= 1; k--) if (joinKey(ws.slice(0, k)) === e.md) { if (!best || k > best.k) best = {k, sl: e.sl}; break; }
+  }
+  return best && best.sl;
+}
+const normName = t => String(t).replace(/[\s\-]+/g, "").toLowerCase();
+const LINKABLE = models.map(m => ({name: esc(m.name), sl: slugFor(m.key)})).filter(x => x.sl).sort((x, y) => y.name.length - x.name.length);
+const SLUG_OF = Object.fromEntries(LINKABLE.map(x => [normName(x.name), x.sl]));
+const MODEL_RE = LINKABLE.length ? new RegExp(`(?<![\\p{L}\\p{N}])([ובכלמשה]{0,2})(${LINKABLE.map(x => wordsOf(x.name).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("[\\s\\-]*")).join("|")})(?![\\p{L}\\p{N}])`, "giu") : null;
 const pr = t => {
   const out = prPlain(t);
   if (!MODEL_RE) return out;
   return out.replace(MODEL_RE, (m, pre, name) => {
-    const sl = SLUG_OF[name];
+    const sl = SLUG_OF[normName(name)];
     if (!sl || linked.has(sl)) return m;
     linked.add(sl);
     return `${pre}<a href="${SITE}model/${sl}/">${name}</a>`;
@@ -131,7 +141,7 @@ const ai = await gemini(), art = ai || template(), usedAi = !!ai;
 if (ai) {
   art.title = template().title;
   const thou = t => t.replace(/(?<![\d,.])\d{4,}(?![\d,.])/g, m => +m === year || +m === year - 1 ? m : fmt(+m));
-  for (const f of ["lead", "models_p", "makers_p", "bodies_p", "ytd_p"]) art[f] = thou(art[f]);
+  for (const f of ["lead", "bodies_p", "ytd_p"]) art[f] = thou(art[f]);
   art.tldr = art.tldr.map(thou); art.faq = art.faq.map(x => ({q: thou(x.q), a: thou(x.a)}));
 }
 fs.mkdirSync(`magazine/${slug}`, {recursive: true});
@@ -144,8 +154,8 @@ const faqHtml = `<h2>שאלות ותשובות</h2><div class="faq">${art.faq.ma
 const body = `${head(art.title + " | לוחית", desc, url, "article").replace("</head>", ldTag(ld) + ldTag(faqLd) + "</head>")}<p class="muted"><a href="${SITE}magazine/">מגזין לוחית</a></p><p><span class="tag">שוק הרכב</span> <span class="muted">${esc(label)}</span></p><h1>${plain(art.title)}</h1>
 ${tldrHtml}
 <p>${pr(art.lead)}</p>
-<h2>הדגמים המובילים</h2><div class="card">${bars(models, true)}</div><p>${pr(art.models_p)}</p>
-<h2>היצרנים המובילים</h2><div class="card">${bars(makers.map(m => ({...m, key: ""})), false)}</div><p>${pr(art.makers_p)}</p>
+<h2>הדגמים המובילים</h2><div class="card">${bars(models, true)}</div>
+<h2>היצרנים המובילים</h2><div class="card">${bars(makers.map(m => ({...m, key: ""})), false)}</div>
 <h2>סוגי מרכב</h2><p>${pr(art.bodies_p)}</p>${art.ytd_p ? `<h2>מתחילת השנה</h2><p>${pr(art.ytd_p)}</p>` : ""}
 ${faqHtml}
 <div class="card"><b>בדקו רכב מסוים</b><p class="muted" style="margin:6px 0 12px">הקלידו מספר רישוי וקבלו ריקולים, הסדרי פשרה, טסט, היסטוריית בעלויות ומחיר משוער, בחינם.</p><a class="cta" href="${SITE}">לבדיקה לפי מספר רישוי</a></div>
