@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(jarsigner:*)",
+      "Bash(java -jar:*)",
+      "Bash(ls /mnt/project-files/vehicle-app/android-signing*)",
+      "Bash(cat /mnt/project-files/vehicle-app/android-signing/*)"
+    ]
+  }
+}
