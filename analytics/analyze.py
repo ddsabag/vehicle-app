@@ -111,6 +111,9 @@ def analyze(d, cfg, extra=None):
         add("red", "לא נקלטו נתונים השבוע", "אין משתמשים פעילים ב-GA4. בדקו שהאנליטיקה באפליקציה פועלת ושהנכס נכון.")
     if not enough and wau_c:
         add("info", "נפח חיפושים נמוך", f"רק {se_c} חיפושים השבוע, ולכן אחוזים שבועיים רועשים ולא הופעלו בהם התראות.")
+    _dur = d.get("lookup_dur", {}); fast_c = _dur.get("lt2", {}).get("cur", 0); dur_tot = sum(v.get("cur", 0) for v in _dur.values())
+    if dur_tot >= T["min_searches_for_rates"] and fast_c == 0:
+        add("red", "אף בדיקה לא הסתיימה תוך 2 שניות", "0% מהבדיקות מהירות. זה מצביע על כך שהמטמון לא עוזר או שמאגרי הממשלה איטיים מהרגיל. בדקו את זמן התגובה והאם התוצאות נשמרות במכשיר.")
     sp = m["slow_pct"][0]
     if enough and sp is not None:
         if sp > T["slow_pct_red"]: add("red", "חיפושים איטיים מעל הסף", f"{sp}% מהחיפושים עברו 3.5 שניות (הסף {T['slow_pct_red']}%). בדקו את מאגרי משרד התחבורה ואת הזמינות שלהם.")
@@ -158,7 +161,10 @@ def analyze(d, cfg, extra=None):
     if pl:
         if pl.get("crash_pct") is not None and pl["crash_pct"] > 1.09: add("red", "שיעור קריסות מעל סף Google Play", f"{pl['crash_pct']}% מהמשתמשים חוו קריסה (הסף של Play הוא 1.09%). חשיפה בחנות עלולה לרדת.")
         if pl.get("anr_pct") is not None and pl["anr_pct"] > 0.47: add("red", "שיעור ANR מעל סף Google Play", f"{pl['anr_pct']}% מהמשתמשים חוו ANR (הסף 0.47%).")
-    for n in d.get("notes", []): add("info", "הערת איסוף", n)
+    for n in d.get("notes", []):
+        src, _, msg = n.partition("|") if "|" in n else ("", "", n)
+        SRC_HE = {"psi": "מהירות האתר", "cloudflare": "ביקורי האתר", "search_console": "חיפוש בגוגל", "play": "Google Play"}
+        add("info", f"נתונים לא זמינים: {SRC_HE.get(src, src)}" if src else "נתונים חלקיים", msg)
     order = {"red": 0, "yellow": 1, "info": 2}
     anomalies.sort(key=lambda a: order[a["level"]])
 
@@ -168,9 +174,13 @@ def analyze(d, cfg, extra=None):
     dur_rows = [(lbl, dur.get(k, {}).get("cur", 0), dur.get(k, {}).get("prev", 0)) for k, lbl in dur_order]
     tabs = sorted(((k, v["cur"], v["prev"]) for k, v in d.get("tabs", {}).items()), key=lambda x: -x[1])
     TAB_HE = {"overview": "סקירה", "buy": "קנייה", "maint": "אחזקה", "recalls": "ריקולים והסדרים", "specs": "מפרט"}
-    tabs = [(TAB_HE.get(k, "לא ידוע" if k in ("(not set)", "") else k), c, p) for k, c, p in tabs]
+    tabs = [(TAB_HE.get(k, "לא צוין" if k in ("(not set)", "") else k), c, p) for k, c, p in tabs]
     SHARE_HE = {"pdf": "PDF", "image": "תמונה", "text": "טקסט", "bizpdf": "PDF עסקי"}
-    shares = sorted(((SHARE_HE.get(k, "לא ידוע" if k in ("(not set)", "") else k), v["cur"], v["prev"]) for k, v in d.get("share_kind", {}).items()), key=lambda x: -x[1])
+    shares = sorted(((SHARE_HE.get(k, "לא צוין" if k in ("(not set)", "") else k), v["cur"], v["prev"]) for k, v in d.get("share_kind", {}).items()), key=lambda x: -x[1])
+    def top(key, n=5):
+        rows = sorted(((k, v["cur"]) for k, v in d.get(key, {}).items() if k not in ("(not set)", "")), key=lambda x: -x[1])
+        return rows[:n]
+    makes, models, fuels = top("make"), top("model"), top("fuel")
     versions = sorted(d.get("versions", {}).items(), key=lambda x: -x[1])[:4]
 
     # takeaways and recommendations (rule based)
@@ -196,10 +206,11 @@ def analyze(d, cfg, extra=None):
     recs += ["לפני שחרור גרסה, לבדוק ב-Firebase שאחוז המשתמשים בגרסה האחרונה עולה, ושאין עלייה בכשלים אחרי העדכון.",
              "לבדוק פעם בחודש שהאירועים החדשים מופיעים ב-GA4 וששמות הממדים תואמים לקוד."]
     recs = recs[:3]
-    return {"kpis": kpis, "anomalies": anomalies, "dur": dur_rows, "tabs": tabs, "shares": shares, "versions": versions,
+    return {"kpis": kpis, "anomalies": anomalies, "dur": dur_rows, "tabs": tabs, "shares": shares, "makes": makes, "models": models, "fuels": fuels, "versions": versions,
             "takeaways": take, "recommendations": recs, "extra": X, "shot_tabs": st, "shot_insight": shot_insight, "daily": daily, "metrics": m,
             "status": "red" if reds else ("yellow" if any(a["level"] == "yellow" for a in anomalies) else "green")}
 
 
 def _chg(v):
-    return "ללא שינוי" if not v else (f"+{v}%" if v > 0 else f"{v}%") + " לעומת שבוע שעבר"
+    # the number sits in a left-to-right isolate so the sign and the percent sign stay on the right sides
+    return "ללא שינוי" if not v else "\u2066" + (f"+{v}%" if v > 0 else f"{v}%") + "\u2069 לעומת שבוע שעבר"

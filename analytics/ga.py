@@ -72,12 +72,12 @@ def collect(period, cfg):
     data["daily"] = [{"date": d, "active": v.get("active", 0), "lookups": v.get("lookups", 0)} for d, v in sorted(daily.items())]
 
     # lookup breakdown by the registered custom parameters
-    def by_param(event, param):
+    def by_param(event, param, quiet=False):
         try:
             return {k: {"cur": int(v["cur"]), "prev": int(v["prev"])}
                     for k, v in _split(_report(c, prop, [cur, prev], [f"customEvent:{param}"], ["eventCount"], event=event), 1).items()}
         except Exception as e:
-            notes.append(f"הפרמטר {param} של {event} לא זמין ב-GA4 ({type(e).__name__}). בדקו שהוא רשום ב-Custom definitions.")
+            if not quiet: notes.append(f"הפרמטר {param} של {event} לא זמין בשבוע זה. ייתכן שעוד לא נרשם ב-GA4 או שאין עדיין נתונים.")
             return {}
     E = cfg["events"]
     data["lookup_kind"] = by_param(E["lookup"], "kind")
@@ -85,6 +85,9 @@ def collect(period, cfg):
     data["lookup_partial"] = by_param(E["lookup"], "partial")
     data["failed_kind"] = by_param(E["lookup_failed"], "kind")
     data["share_kind"] = by_param(E["share"], "kind")
+    data["make"] = by_param(E["lookup"], "make", quiet=True)    # new in 1.25, silent until the custom dimension exists
+    data["model"] = by_param(E["lookup"], "model", quiet=True)    # new in 1.25, silent until the custom dimension exists
+    data["fuel"] = by_param(E["lookup"], "fuel", quiet=True)    # new in 1.25, silent until the custom dimension exists
     data["tabs"] = by_param(E["tab"], "tab")
     data["upgrade_from"] = by_param(E["upgrade_open"], "from")
     data["screenshot_tab"] = by_param(E["screenshot"], "tab")
@@ -93,11 +96,11 @@ def collect(period, cfg):
     try:
         data["versions"] = {k: int(v["cur"]) for k, v in _split(_report(c, prop, [cur, prev], ["appVersion"], ["activeUsers"]), 1).items() if k not in ("(not set)", "")}
     except Exception as e:
-        data["versions"] = {}; notes.append(f"גרסאות אפליקציה לא זמינות ({type(e).__name__})")
+        data["versions"] = {}; notes.append("גרסאות האפליקציה לא היו זמינות השבוע.")
     # returning users
     try:
         nvr = _split(_report(c, prop, [cur, prev], ["newVsReturning"], ["activeUsers"]), 1)
         data["returning"] = {"cur": int(nvr.get("returning", {}).get("cur", 0)), "prev": int(nvr.get("returning", {}).get("prev", 0))}
     except Exception as e:
-        data["returning"] = {"cur": 0, "prev": 0}; notes.append(f"משתמשים חוזרים לא זמינים ({type(e).__name__})")
+        data["returning"] = {"cur": 0, "prev": 0}; notes.append("נתוני משתמשים חוזרים לא היו זמינים השבוע.")
     return data
