@@ -111,9 +111,6 @@ def analyze(d, cfg, extra=None):
         add("red", "לא נקלטו נתונים השבוע", "אין משתמשים פעילים ב-GA4. בדקו שהאנליטיקה באפליקציה פועלת ושהנכס נכון.")
     if not enough and wau_c:
         add("info", "נפח חיפושים נמוך", f"רק {se_c} חיפושים השבוע, ולכן אחוזים שבועיים רועשים ולא הופעלו בהם התראות.")
-    _dur = d.get("lookup_dur", {}); fast_c = _dur.get("lt2", {}).get("cur", 0); dur_tot = sum(v.get("cur", 0) for v in _dur.values())
-    if dur_tot >= T["min_searches_for_rates"] and fast_c == 0:
-        add("red", "אף בדיקה לא הסתיימה תוך 2 שניות", "0% מהבדיקות מהירות. זה מצביע על כך שהמטמון לא עוזר או שמאגרי הממשלה איטיים מהרגיל. בדקו את זמן התגובה והאם התוצאות נשמרות במכשיר.")
     sp = m["slow_pct"][0]
     if enough and sp is not None:
         if sp > T["slow_pct_red"]: add("red", "חיפושים איטיים מעל הסף", f"{sp}% מהחיפושים עברו 3.5 שניות (הסף {T['slow_pct_red']}%). בדקו את מאגרי משרד התחבורה ואת הזמינות שלהם.")
