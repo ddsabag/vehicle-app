@@ -71,6 +71,28 @@ jobs:
           echo "commit=${{ github.sha }}" >> out/version.txt
           ls -la out
 
+      - name: Sign with the upload key (only when the signing secrets exist)
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then echo "no signing secrets; publishing unsigned files only"; exit 0; fi
+          cd out
+          KS="$RUNNER_TEMP/upload.jks"
+          echo "$KEYSTORE_B64" | base64 -d > "$KS"
+          ALIAS="${KEY_ALIAS:-upload}"
+          VN=$(grep '^versionName=' version.txt | cut -d= -f2)
+          cp app-release-unsigned.aab "luchit-$VN.aab"
+          jarsigner -keystore "$KS" -storepass:env KEYSTORE_PASSWORD -keypass:env KEYSTORE_PASSWORD -sigalg SHA256withRSA -digestalg SHA-256 "luchit-$VN.aab" "$ALIAS" > /dev/null
+          jarsigner -verify "luchit-$VN.aab" | tail -1
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" sign --ks "$KS" --ks-key-alias "$ALIAS" --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEYSTORE_PASSWORD --out "luchit-$VN.apk" app-release-unsigned.apk
+          "$BT/apksigner" verify "luchit-$VN.apk" && echo "signed apk verified"
+          rm -f "$KS" "luchit-$VN.apk.idsig" app-release-unsigned.aab app-release-unsigned.apk apksigner.jar
+          echo "signed=true" >> version.txt
+          ls -la
+
       - name: Publish to android-builds branch
         run: |
           cd out
