@@ -30,9 +30,9 @@ export default {
       }),
     });
     if (r.ok) return json({ ok: true });
-    // Brevo answers 400 "already exists / already confirmed" in some cases: do not reveal whether an address is subscribed
-    const t = await r.text();
-    console.log("brevo", r.status, t.slice(0, 200));
-    return /already|exist/i.test(t) ? json({ ok: true }) : json({ error: "upstream" }, 502);
+    // read the Brevo error code instead of guessing from the text: "already subscribed" must not reveal that an address exists, every other error must be visible
+    let code = ""; const t = await r.text(); try { code = JSON.parse(t).code || ""; } catch {}
+    console.log("brevo", r.status, t.slice(0, 300));
+    return code === "duplicate_parameter" ? json({ ok: true }) : json({ error: "upstream" }, 502);
   },
 };
