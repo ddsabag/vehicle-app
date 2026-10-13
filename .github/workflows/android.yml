@@ -80,7 +80,8 @@ jobs:
           if [ -z "$KEYSTORE_B64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then echo "no signing secrets; publishing unsigned files only"; exit 0; fi
           cd out
           KS="$RUNNER_TEMP/upload.jks"
-          echo "$KEYSTORE_B64" | base64 -d > "$KS"
+          printf %s "$KEYSTORE_B64" | tr -d '\r\n \t"' | base64 -d > "$KS" || { echo "KEYSTORE_B64 is not valid base64 (length ${#KEYSTORE_B64}); re-copy the key text into the secret"; exit 1; }
+          echo "keystore decoded: $(stat -c %s "$KS") bytes"
           ALIAS="${KEY_ALIAS:-upload}"
           VN=$(grep '^versionName=' version.txt | cut -d= -f2)
           cp app-release-unsigned.aab "luchit-$VN.aab"
