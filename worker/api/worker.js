@@ -1,38 +1,52 @@
-// luchit-api: POST /api/subscribe  { email, website (honeypot) }  ->  Brevo double opt-in.
-// Route: luchit.app/api/*   Secrets: BREVO_KEY   Vars: BREVO_LIST_ID, BREVO_DOI_TEMPLATE_ID
-// Nothing is stored here: Brevo holds the contact, the consent time and the unsubscribe state.
+// luchit-api: double opt-in for the magazine newsletter, without a database and without Brevo's double-opt-in feature.
+//   POST /api/subscribe  { email, consent:true, website:"" }  -> sends a confirmation mail (Brevo transactional API) with a signed, 48h link
+//   GET  /api/confirm?e=<email>&x=<expiry>&t=<signature>      -> verifies the signature, adds the contact to the Brevo list, redirects to /magazine/?subscribed=1
+// Route: luchit.app/api/*   Secret: BREVO_KEY (also signs the links; CONFIRM_SECRET is used instead if you set it)   Var: BREVO_LIST_ID
+// The visible mail is email/confirm.html in the repo; CONFIRM_HTML below is that file with the link as {{CONFIRM_URL}} (regenerate it when the design changes).
 const ORIGIN = "https://luchit.app";
+const TTL_MS = 48 * 3600 * 1000;
+const CONFIRM_HTML = "<!doctype html>\n<html lang=\"he\" dir=\"rtl\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta name=\"color-scheme\" content=\"light dark\"><meta name=\"supported-color-schemes\" content=\"light dark\">\n<title>לוחית</title>\n<style>\nbody{margin:0;padding:0;background:#eef0f4;-webkit-text-size-adjust:100%}\ntable{border-collapse:collapse}\n.wrap{width:100%;max-width:600px}\n.ff{font-family:Assistant,\"Segoe UI\",Arial,Helvetica,sans-serif}\na{color:#2a56c6}\n@media (max-width:620px){.px{padding-left:20px!important;padding-right:20px!important}.h1{font-size:22px!important}}\n@media (prefers-color-scheme:dark){\n  body,.bg{background:#0d1118!important}\n  .card{background:#161c27!important}\n  .tx{color:#e9edf3!important}\n  .mu{color:#97a1b3!important}\n  .ln{border-color:#2a3342!important}\n}\n</style></head>\n<body class=\"bg\" style=\"margin:0;padding:0;background:#eef0f4\">\n<div style=\"display:none;max-height:0;overflow:hidden;opacity:0;color:transparent\">עוד צעד אחד: אישור ההרשמה למגזין לוחית</div>\n<table role=\"presentation\" width=\"100%\" class=\"bg\" style=\"background:#eef0f4\"><tr><td align=\"center\" style=\"padding:24px 12px\">\n<table role=\"presentation\" class=\"wrap\" width=\"600\" style=\"width:100%;max-width:600px\">\n  <tr><td class=\"px ff\" style=\"background:#121722;border-radius:14px 14px 0 0;padding:22px 32px\">\n    <table role=\"presentation\" width=\"100%\"><tr>\n      <td align=\"right\"><a href=\"https://luchit.app/\" style=\"text-decoration:none\"><span style=\"display:inline-block;background:#ffc400;color:#121722;border-radius:6px;font-weight:800;font-size:15px;line-height:1;padding:6px 10px\" class=\"ff\">לוחית</span></a></td>\n      <td align=\"left\" class=\"ff\" style=\"color:#97a1b3;font-size:13px\">בדיקת רכב לפי מספר רישוי</td>\n    </tr></table>\n  </td></tr>\n  <tr><td class=\"px card ff\" style=\"background:#ffffff;padding:32px;border-radius:0 0 14px 14px\">\n    <h1 class=\"ff tx h1\" style=\"margin:0 0 14px;font-size:26px;line-height:1.3;color:#151a24\">עוד צעד אחד ואתם רשומים</h1>\n    <p class=\"ff tx\" style=\"margin:0 0 6px;font-size:16px;line-height:1.7;color:#151a24\">ביקשתם לקבל את המגזין החודשי של לוחית: סיכום של שוק הרכב בישראל מנתוני משרד התחבורה, פעם בחודש.</p>\n    <p class=\"ff mu\" style=\"margin:0;font-size:14px;line-height:1.7;color:#5d6676\">כדי לוודא שהכתובת שלכם, לחצו על הכפתור.</p>\n    <table role=\"presentation\" style=\"margin:26px 0 8px\"><tr><td style=\"background:#2a56c6;border-radius:10px\"><a href=\"{{CONFIRM_URL}}\" class=\"ff\" style=\"display:inline-block;padding:14px 28px;color:#ffffff;font-weight:700;font-size:16px;text-decoration:none\">אישור הרשמה לניוזלטר</a></td></tr></table>\n    <p class=\"ff mu\" style=\"margin:18px 0 0;font-size:13px;line-height:1.7;color:#5d6676\">לא נרשמתם? אפשר להתעלם מהמייל, ולא נשלח לכם דבר.</p>\n  </td></tr>\n  <tr><td class=\"px ff mu\" style=\"padding:18px 32px;color:#5d6676;font-size:12px;line-height:1.7;text-align:right\">\n    <div style=\"margin-bottom:6px\">הודעת אישור הרשמה, נשלחה בעקבות בקשה שהוגשה באתר luchit.app. הדיוור עצמו הוא פרסומת, ויישלח רק אחרי אישור.</div>\n    <div>צרו קשר: <a href=\"mailto:updates@luchit.app\" style=\"color:#5d6676\">updates@luchit.app</a> · <a href=\"https://luchit.app/privacy.html\" style=\"color:#5d6676\">מדיניות פרטיות</a></div>\n  </td></tr>\n</table>\n</td></tr></table>\n</body></html>\n";
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
+const redirect = v => new Response(null, { status: 302, headers: { location: `${ORIGIN}/magazine/?subscribed=${v}`, "cache-control": "no-store" } });
+const EMAIL_RE = /^[^\s@]{1,64}@[^\s@.]+(\.[^\s@.]+)+$/;
+
+const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+async function sign(env, email, exp) {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(env.CONFIRM_SECRET || env.BREVO_KEY), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return b64u(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`confirm|${email}|${exp}`)));
+}
+const brevo = (env, path, body) => fetch("https://api.brevo.com/v3" + path, { method: "POST", headers: { "api-key": env.BREVO_KEY, "content-type": "application/json", accept: "application/json" }, body: JSON.stringify(body) });
 
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
+
+    if (url.pathname === "/api/confirm" && req.method === "GET") {
+      const email = (url.searchParams.get("e") || "").toLowerCase(), exp = Number(url.searchParams.get("x")), t = url.searchParams.get("t") || "";
+      if (!EMAIL_RE.test(email) || !(exp > Date.now()) || t !== await sign(env, email, exp)) return redirect("expired");
+      const r = await brevo(env, "/contacts", { email, listIds: [Number(env.BREVO_LIST_ID)], updateEnabled: true, attributes: { SOURCE: "magazine", CONSENT_AT: new Date().toISOString() } });
+      if (!r.ok) { console.log("brevo contacts", r.status, (await r.text()).slice(0, 300)); return redirect("error"); }
+      return redirect("1");
+    }
+
     if (url.pathname !== "/api/subscribe") return json({ error: "not found" }, 404);
     if (req.method !== "POST") return json({ error: "method" }, 405);
     if (req.headers.get("origin") !== ORIGIN) return json({ error: "forbidden" }, 403);
     if (!(req.headers.get("content-type") || "").includes("application/json")) return json({ error: "type" }, 415);
-
     let b; try { b = await req.json(); } catch { return json({ error: "bad request" }, 400); }
     if (b.website) return json({ ok: true });                         // honeypot: bots fill it, answer success and do nothing
     if (b.consent !== true) return json({ error: "consent" }, 400);   // the unticked checkbox must have been ticked
     const email = String(b.email || "").trim().toLowerCase();
-    if (email.length > 254 || !/^[^\s@]{1,64}@[^\s@.]+(\.[^\s@.]+)+$/.test(email)) return json({ error: "email" }, 400);
+    if (email.length > 254 || !EMAIL_RE.test(email)) return json({ error: "email" }, 400);
 
-    const r = await fetch("https://api.brevo.com/v3/contacts/doubleOptinConfirmation", {
-      method: "POST",
-      headers: { "api-key": env.BREVO_KEY, "content-type": "application/json", accept: "application/json" },
-      body: JSON.stringify({
-        email,
-        includeListIds: [Number(env.BREVO_LIST_ID)],
-        templateId: Number(env.BREVO_DOI_TEMPLATE_ID),
-        redirectionUrl: ORIGIN + "/magazine/?subscribed=1",
-        attributes: { SOURCE: "magazine", CONSENT_AT: new Date().toISOString() },
-      }),
+    const exp = Date.now() + TTL_MS;
+    const link = `${ORIGIN}/api/confirm?e=${encodeURIComponent(email)}&x=${exp}&t=${await sign(env, email, exp)}`;
+    const r = await brevo(env, "/smtp/email", {
+      sender: { name: "לוחית", email: "updates@luchit.app" }, to: [{ email }], subject: "אשרו את ההרשמה למגזין לוחית",
+      htmlContent: CONFIRM_HTML.replaceAll("{{CONFIRM_URL}}", link.replaceAll("&", "&amp;")),
     });
     if (r.ok) return json({ ok: true });
-    // read the Brevo error code instead of guessing from the text: "already subscribed" must not reveal that an address exists, every other error must be visible
-    let code = ""; const t = await r.text(); try { code = JSON.parse(t).code || ""; } catch {}
-    console.log("brevo", r.status, t.slice(0, 300));
-    return code === "duplicate_parameter" ? json({ ok: true }) : json({ error: "upstream" }, 502);
+    console.log("brevo smtp", r.status, (await r.text()).slice(0, 300));
+    return json({ error: "upstream" }, 502);
   },
 };
