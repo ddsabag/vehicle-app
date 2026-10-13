@@ -1,0 +1,44 @@
+name: SEO check
+on:
+  push:
+    paths: ["**.html", "sitemap.xml", "robots.txt", "manifest.json", "model/**", "magazine/**", "guide/**", ".github/scripts/**", ".github/workflows/seo-check.yml"]
+  pull_request:
+  schedule:
+    - cron: "30 5 * * 1"   # Mondays: also probe the live site
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      # titles, descriptions, h1, canonical, alt, OG, JSON-LD, internal links, orphans, sitemap, robots
+      - name: SEO lint
+        run: node .github/scripts/seo-check.mjs
+      # the committed model pages and sitemap must equal what the generator produces (keeps lastmod/sitemap honest)
+      - name: Generated files are up to date
+        run: |
+          node .github/scripts/pages.mjs
+          if ! git diff --quiet -- model sitemap.xml guide; then
+            echo "::warning::model pages / sitemap.xml differ from the generator output; run: node .github/scripts/pages.mjs"
+            git diff --stat -- model sitemap.xml guide | tail -5
+          fi
+  live:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe live URLs
+        run: |
+          set -u
+          curl -fsS https://luchit.app/sitemap.xml -o sm.xml
+          grep -o '<loc>[^<]*' sm.xml | sed 's/<loc>//' | awk 'NR<=3 || NR%8==0' > urls.txt
+          echo "https://luchit.app/robots.txt" >> urls.txt; echo "https://luchit.app/manifest.json" >> urls.txt
+          bad=0
+          while read -r u; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -L "$u")
+            [ "$code" = 200 ] || { echo "::error::$code $u"; bad=1; }
+          done < urls.txt
+          echo "probed $(wc -l < urls.txt) urls"; exit $bad

@@ -89,7 +89,7 @@ for (const m of models) {
   const cr = cat.rows.filter(r => normModel(r[1]) === m.model && r[0].split(" ")[0] === m.make.split(" ")[0]);
   const bodies = [...new Set(cr.map(r => r[5]).filter(Boolean))];
   const lo = rows[0].yr, hi = rows[rows.length - 1].yr, heb = HEBN[hebKey(m.model)], name = heb && heb.startsWith("מאזדה") ? `מזדה ${heb.slice(6)} (${m.disp})` : `${m.make} ${heb ? heb + " (" + m.disp + ")" : m.disp}`;
-  const url = `${SITE}model/${slugOf(m)}/`, title = `${name}: כמה רכבים על הכביש, ק״מ ושנתונים | לוחית`;
+  const url = `${SITE}model/${slugOf(m)}/`, title0 = `${name}: כמה רכבים על הכביש, ק״מ ושנתונים | לוחית`, title = title0.length > 68 ? `${name}: רכבים וק״מ לפי שנתון | לוחית` : title0;
   const desc = `${name} בישראל לפי נתוני משרד התחבורה: ${fmt(act)} רכבים פעילים בשנתונים ${lo}–${hi}, ק״מ טיפוסי לפי שנתון וכמה ירדו מהכביש. בדיקת רכב לפי מספר רישוי.`;
   const stl = stlFor(m.make, m.model, years.map(Number));
   const expOff = rows.reduce((s, r) => { const n = NAT[r.yr]; return s + (n && n.act + n.off ? (r.act + r.off) * n.off / (n.act + n.off) : 0); }, 0);
