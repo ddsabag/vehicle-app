@@ -76,7 +76,7 @@ const head = (title, desc, url, type = "website") => `<!doctype html><html lang=
 const foot = `<p class="muted" style="margin-top:28px">המידע מגיע ממאגרים פתוחים של משרד התחבורה ב-data.gov.il, ואינו מחליף נסח רישום רשמי או בדיקה במכון מורשה. האפליקציה אינה קשורה למשרד התחבורה. <a href="${SITE}magazine/">מגזין</a> · <a href="${SITE}guide/buy-used-car/">מדריך לקונה</a> · <a href="${SITE}privacy.html">מדיניות פרטיות</a></p></main></body></html>`;
 fs.rmSync("model", {recursive: true, force: true}); fs.mkdirSync("model", {recursive: true});
 const MOD = ms.updated ? String(ms.updated).slice(0, 10) : "", lastmod = {};
-const urls = [SITE, SITE + "privacy.html", SITE + "model/"], slugMap = {};
+const urls = [SITE, SITE + "privacy.html", SITE + "business/", SITE + "model/"], slugMap = {};
 if (MOD) lastmod[SITE + "model/"] = MOD;
 const actOf = m => Object.values(m.y).reduce((t, r) => t + r.act, 0);
 const bodyMemo = new Map();

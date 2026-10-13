@@ -5,3 +5,6 @@ routes = [{ pattern = "luchit.app/api/*", zone_name = "luchit.app" }]
 # Secrets (never in this file):  wrangler secret put BREVO_KEY
 [vars]
 BREVO_LIST_ID = ""            # numeric id of the "Magazine" list in Brevo
+BREVO_B2B_LIST_ID = ""        # numeric id of the business waitlist in Brevo
+NOTIFY_TO = "ddsabag@gmail.com"
+# GA_MEASUREMENT_ID = "G-XXXXXXXXXX"   (optional, with the secret GA_API_SECRET)

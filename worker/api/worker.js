@@ -1,7 +1,10 @@
 // luchit-api: double opt-in for the magazine newsletter, without a database and without Brevo's double-opt-in feature.
 //   POST /api/subscribe  { email, consent:true, website:"" }  -> sends a confirmation mail (Brevo transactional API) with a signed, 48h link
 //   GET  /api/confirm?e=<email>&x=<expiry>&t=<signature>      -> verifies the signature, adds the contact to the Brevo list, redirects to /magazine/?subscribed=1
-// Route: luchit.app/api/*   Secret: BREVO_KEY (also signs the links; CONFIRM_SECRET is used instead if you set it)   Var: BREVO_LIST_ID
+//   POST /api/waitlist   { name, company, type, interest, email, phone, notes, consent:true, website:"" } -> business waitlist (/business/): contact into Brevo list BREVO_B2B_LIST_ID,
+//                        a notification mail to NOTIFY_TO, and (optional) a cookie-less GA4 event b2b_lead_submit through the Measurement Protocol
+// Route: luchit.app/api/*   Secret: BREVO_KEY (also signs the links; CONFIRM_SECRET is used instead if you set it)   Vars: BREVO_LIST_ID, BREVO_B2B_LIST_ID, NOTIFY_TO
+// Optional for the GA4 event: GA_MEASUREMENT_ID (var, G-XXXXXXXX of a web data stream) and GA_API_SECRET (secret).
 // The visible mail is email/confirm.html in the repo; CONFIRM_HTML below is that file with the link as {{CONFIRM_URL}} (regenerate it when the design changes).
 const ORIGIN = "https://luchit.app";
 const TTL_MS = 48 * 3600 * 1000;
@@ -17,6 +20,44 @@ async function sign(env, email, exp) {
 }
 const brevo = (env, path, body) => fetch("https://api.brevo.com/v3" + path, { method: "POST", headers: { "api-key": env.BREVO_KEY, "content-type": "application/json", accept: "application/json" }, body: JSON.stringify(body) });
 
+const BIZ_TYPES = ["סוחר רכב", "מוסך או מרכז שירות", "שמאי רכב", "מכון בדיקה", "ליסינג או צי רכב", "מימון או ביטוח", "יבואן או יצרן", "עיתונות או מדיה", "אחר"];
+const BIZ_INTERESTS = ["נתוני רכב מרוכזים (API)", "דוחות מגמות שוק", "שותפות שירות", "חסות או פרסום", "אחר"];
+const PHONE_RE = /^[0-9+\-() ]{7,20}$/;
+const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+async function waitlist(req, env) {
+  if (req.method !== "POST") return json({ error: "method" }, 405);
+  if (req.headers.get("origin") !== ORIGIN) return json({ error: "forbidden" }, 403);
+  if (!(req.headers.get("content-type") || "").includes("application/json")) return json({ error: "type" }, 415);
+  let b; try { b = await req.json(); } catch { return json({ error: "bad request" }, 400); }
+  if (b.website) return json({ ok: true });                         // honeypot
+  if (b.consent !== true) return json({ error: "consent" }, 400);
+  const s = (v, max) => String(v ?? "").trim().slice(0, max);
+  const name = s(b.name, 80), company = s(b.company, 100), type = s(b.type, 40), interest = s(b.interest, 40), phone = s(b.phone, 20), notes = s(b.notes, 600);
+  const email = s(b.email, 254).toLowerCase();
+  if (name.length < 2 || company.length < 2) return json({ error: "fields" }, 400);
+  if (!BIZ_TYPES.includes(type) || (interest && !BIZ_INTERESTS.includes(interest))) return json({ error: "choice" }, 400);
+  if (!EMAIL_RE.test(email) || (phone && !PHONE_RE.test(phone))) return json({ error: "contact" }, 400);
+
+  const r = await brevo(env, "/contacts", { email, listIds: [Number(env.BREVO_B2B_LIST_ID)], updateEnabled: true,
+    attributes: { FIRSTNAME: name, COMPANY_NAME: company, BUSINESS_TYPE: type, INTEREST: interest, PHONE: phone, NOTES: notes, SOURCE: "business", CONSENT_AT: new Date().toISOString() } });
+  if (!r.ok) { console.log("brevo waitlist", r.status, (await r.text()).slice(0, 300)); return json({ error: "upstream" }, 502); }
+
+  // best effort from here on: the lead is already saved
+  try {
+    await brevo(env, "/smtp/email", { sender: { name: "לוחית", email: "updates@luchit.app" }, to: [{ email: env.NOTIFY_TO || "ddsabag@gmail.com" }], replyTo: { email },
+      subject: `ליד עסקי חדש: ${type}`,
+      htmlContent: `<div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.7"><b>פנייה חדשה מרשימת ההמתנה העסקית</b><br>שם: ${esc(name)}<br>עסק: ${esc(company)}<br>סוג: ${esc(type)}<br>עניין: ${esc(interest) || "לא צוין"}<br>אימייל: ${esc(email)}<br>טלפון: ${esc(phone) || "לא צוין"}<br>הודעה: ${esc(notes) || "ללא"}</div>` });
+  } catch (e) { console.log("notify failed", String(e).slice(0, 200)); }
+  if (env.GA_MEASUREMENT_ID && env.GA_API_SECRET) {
+    try {
+      await fetch(`https://www.google-analytics.com/mp/collect?measurement_id=${encodeURIComponent(env.GA_MEASUREMENT_ID)}&api_secret=${encodeURIComponent(env.GA_API_SECRET)}`, { method: "POST",
+        body: JSON.stringify({ client_id: crypto.randomUUID(), events: [{ name: "b2b_lead_submit", params: { business_type: type, interest: interest || "none" } }] }) });
+    } catch (e) { console.log("ga failed", String(e).slice(0, 200)); }
+  }
+  return json({ ok: true });
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
@@ -28,6 +69,8 @@ export default {
       if (!r.ok) { console.log("brevo contacts", r.status, (await r.text()).slice(0, 300)); return redirect("error"); }
       return redirect("1");
     }
+
+    if (url.pathname === "/api/waitlist") return waitlist(req, env);
 
     if (url.pathname !== "/api/subscribe") return json({ error: "not found" }, 404);
     if (req.method !== "POST") return json({ error: "method" }, 405);
