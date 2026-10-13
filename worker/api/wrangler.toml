@@ -1,0 +1,8 @@
+name = "luchit-api"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+routes = [{ pattern = "luchit.app/api/*", zone_name = "luchit.app" }]
+# Secrets (never in this file):  wrangler secret put BREVO_KEY
+[vars]
+BREVO_LIST_ID = ""            # numeric id of the "Magazine" list in Brevo
+BREVO_DOI_TEMPLATE_ID = ""    # numeric id of the double opt-in template (email/confirm.html)

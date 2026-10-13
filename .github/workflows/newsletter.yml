@@ -1,0 +1,32 @@
+name: Newsletter
+# After the monthly article PR is merged (posts.json changes on main) this prepares the Brevo campaign for it.
+# By default it only saves a DRAFT in Brevo for you to review and send. Set the repository variable NEWSLETTER_AUTOSEND=true to send automatically.
+on:
+  push:
+    branches: [main]
+    paths: ["magazine/posts.json"]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "preview = render only | draft = save in Brevo | send = send now"
+        type: choice
+        options: [preview, draft, send]
+        default: preview
+permissions:
+  contents: read
+concurrency: newsletter
+jobs:
+  campaign:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node .github/scripts/newsletter.mjs
+        env:
+          BREVO_KEY: ${{ secrets.BREVO_KEY }}
+          BREVO_LIST_ID: ${{ vars.BREVO_LIST_ID }}
+          MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (vars.NEWSLETTER_AUTOSEND == 'true' && 'send' || 'draft') }}
+      - uses: actions/upload-artifact@v4
+        with: { name: newsletter-preview, path: out/newsletter.html }
