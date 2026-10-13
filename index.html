@@ -578,6 +578,7 @@ button:not(:disabled):active,.link-btn:active,.act:active,.tabs button:active,a.
   <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-paste" viewBox="0 0 24 24"><path d="M9 4h6v3H9zM8 5.5H6.5A1.5 1.5 0 0 0 5 7v12a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19V7a1.5 1.5 0 0 0-1.5-1.5H16"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
   <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l.9 12.2a1 1 0 0 0 1 .8h7.2a1 1 0 0 0 1-.8L17.5 7M10 11v6M14 11v6"/></symbol>
   <symbol id="i-rotate" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="11" rx="2"/><path d="M8 4h5a4 4 0 0 1 4 4M15 6l2 2 2-2"/></symbol>
@@ -604,6 +605,7 @@ button:not(:disabled):active,.link-btn:active,.act:active,.tabs button:active,a.
         <span class="il" aria-hidden="true"><span>IL</span><span>ישראל</span></span>
         <input id="plate" name="plate" inputmode="numeric" placeholder="12-345-67" maxlength="10" aria-label="מספר רישוי" enterkeyhint="search">
         <button type="button" class="clr" id="clrPlate" aria-label="ניקוי המספר" hidden><svg class="i"><use href="#i-x"/></svg></button>
+        <button type="button" class="clr" id="pastePlate" aria-label="הדבקת מספר מהלוח"><svg class="i"><use href="#i-paste"/></svg></button>
       </label>
       <button class="go" id="go" type="submit" aria-label="חיפוש"><svg class="i"><use href="#i-search"/></svg></button>
     </form>
@@ -4296,7 +4298,7 @@ let lastPlateVal = null;
 const syncClr = () => {
   const el = $("#plate"), c = $("#clrPlate");
   if (el.value === lastPlateVal && c.hidden === !el.value) return;
-  lastPlateVal = el.value; c.hidden = !el.value;
+  lastPlateVal = el.value; c.hidden = !el.value; $("#pastePlate").hidden = !!el.value;
   // shrink the digits until they fit next to the clear button, so nothing is cut off
   el.style.fontSize = "";
   let fs = parseFloat(getComputedStyle(el).fontSize);
@@ -4304,6 +4306,16 @@ const syncClr = () => {
 };
 $("#plate").addEventListener("input", syncClr);
 setInterval(syncClr, 500); // value set from code (search, photo, voice) fires no input event
+// the keyboard's own paste chip is not reachable from a numeric field, so the app reads the clipboard itself
+$("#pastePlate").addEventListener("click", async ev => {
+  ev.preventDefault();
+  let t = "";
+  try { const br = window.AndroidApp; t = br && br.readClipboard ? br.readClipboard() : await navigator.clipboard.readText(); } catch {}
+  const m = String(t || "").match(/\d[\d\s-]{4,12}\d/);
+  const d = m ? digits(m[0]) : "";
+  if (d.length >= 5 && d.length <= 8) { $("#plate").value = d; syncClr(); inMsg(""); $("#plate").focus(); }
+  else inMsg(t ? "לא מצאנו מספר רישוי בלוח ההעתקה." : "אין מה להדביק. העתיקו קודם את מספר הרישוי.");
+});
 $("#clrPlate").addEventListener("click", ev => { ev.preventDefault(); $("#plate").value = ""; syncClr(); inMsg(""); $("#plate").focus(); });
 
 /* settings */

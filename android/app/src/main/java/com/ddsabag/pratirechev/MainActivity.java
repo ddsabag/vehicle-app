@@ -150,6 +150,17 @@ public class MainActivity extends Activity {
             }
 
             @JavascriptInterface
+            public String readClipboard() {
+                try {
+                    android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                    android.content.ClipData d = cm == null ? null : cm.getPrimaryClip();
+                    if (d == null || d.getItemCount() == 0) return "";
+                    CharSequence t = d.getItemAt(0).coerceToText(MainActivity.this);
+                    return t == null ? "" : t.toString();
+                } catch (Exception e) { return ""; }
+            }
+
+            @JavascriptInterface
             public void setAnalytics(boolean on) {
                 try {
                     com.google.firebase.analytics.FirebaseAnalytics.getInstance(MainActivity.this).setAnalyticsCollectionEnabled(on);
