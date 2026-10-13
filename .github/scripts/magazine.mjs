@@ -148,10 +148,11 @@ fs.mkdirSync(`magazine/${slug}`, {recursive: true});
 const url = `${SITE}magazine/${slug}/`, desc = (art.lead.length <= 200 ? art.lead : art.lead.slice(0, 200).replace(/[^.]*$/, "") || art.lead.slice(0, 200)), published = now.toISOString().slice(0, 10);
 const ld = {"@context": "https://schema.org", "@type": "Article", headline: art.title, datePublished: published, inLanguage: "he", author: {"@type": "Organization", name: "מערכת לוחית"}, publisher: {"@type": "Organization", name: "לוחית", url: SITE}, mainEntityOfPage: url};
 const faqLd = {"@context": "https://schema.org", "@type": "FAQPage", mainEntity: art.faq.map(x => ({"@type": "Question", name: x.q, acceptedAnswer: {"@type": "Answer", text: x.a}}))};
+const crumbLd = items => ({"@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: items.map(([name, item], i) => ({"@type": "ListItem", position: i + 1, name, ...(item ? {item} : {})}))});
 const ldTag = o => `<script type="application/ld+json">${JSON.stringify(o).replace(/</g, "\\u003c")}</script>`;
 const tldrHtml = `<div class="card tldr"><b>בקצרה</b><ul>${art.tldr.map(t => `<li>${plain(t)}</li>`).join("")}</ul></div>`;
 const faqHtml = `<h2>שאלות ותשובות</h2><div class="faq">${art.faq.map(x => `<h3>${plain(x.q)}</h3><p>${plain(x.a)}</p>`).join("")}</div>`;
-const body = `${head(art.title + " | לוחית", desc, url, "article").replace("</head>", ldTag(ld) + ldTag(faqLd) + "</head>")}<p class="muted"><a href="${SITE}magazine/">מגזין לוחית</a></p><p><span class="tag">שוק הרכב</span> <span class="muted">${esc(label)}</span></p><h1>${plain(art.title)}</h1>
+const body = `${head(art.title + " | לוחית", desc, url, "article").replace("</head>", ldTag(ld) + ldTag(faqLd) + ldTag(crumbLd([["לוחית", SITE], ["מגזין", SITE + "magazine/"], [plain(art.title).replace(/<[^>]+>/g, "")]])) + "</head>")}<p class="muted"><a href="${SITE}">לוחית</a> › <a href="${SITE}magazine/">מגזין</a></p><p><span class="tag">שוק הרכב</span> <span class="muted">${esc(label)}</span></p><h1>${plain(art.title)}</h1>
 ${tldrHtml}
 <p>${pr(art.lead)}</p>
 <h2>הדגמים המובילים</h2><div class="card">${bars(models, true)}</div>
@@ -164,11 +165,11 @@ fs.writeFileSync(`magazine/${slug}/index.html`, body);
 
 // index, posts list and sitemap
 let posts = []; try { posts = JSON.parse(fs.readFileSync("magazine/posts.json", "utf8")); } catch {}
-posts = posts.filter(p => p.slug !== slug); posts.push({slug, title: art.title, tag: "שוק הרכב", date: published, month: label, lead: art.lead});
+posts = posts.filter(p => p.slug !== slug); posts.push({slug, title: art.title, tag: "שוק הרכב", date: published, month: label, lead: art.lead, models: [...new Set([...body.matchAll(/\/model\/([a-z0-9-]+)\//g)].map(x => x[1]))].sort()});
 posts.sort((a, b) => b.slug.localeCompare(a.slug));
 fs.writeFileSync("magazine/posts.json", JSON.stringify(posts, null, 1));
 const idxUrl = SITE + "magazine/";
-fs.writeFileSync("magazine/index.html", `${head("מגזין לוחית: שוק הרכב בישראל", "כתבות חודשיות על שוק הרכב בישראל מנתוני משרד התחבורה: מה נמכר, אילו דגמים ויצרנים מובילים.", idxUrl)}<p class="muted"><a href="${SITE}">לוחית</a></p><h1>מגזין לוחית</h1><p class="muted">כתבות על שוק הרכב בישראל, מנתוני משרד התחבורה.</p><div class="card lst">${posts.map(p => `<a href="${SITE}magazine/${p.slug}/"><b>${esc(p.title)}</b><small>${esc(p.tag)} · ${esc(p.month)}</small></a>`).join("")}</div>${foot}`);
+fs.writeFileSync("magazine/index.html", `${head("מגזין לוחית: שוק הרכב בישראל", "כתבות חודשיות על שוק הרכב בישראל מנתוני משרד התחבורה: מה נמכר, אילו דגמים ויצרנים מובילים.", idxUrl).replace("</head>", ldTag(crumbLd([["לוחית", SITE], ["מגזין"]])) + "</head>")}<p class="muted"><a href="${SITE}">לוחית</a> › מגזין</p><h1>מגזין לוחית</h1><p class="muted">כתבות על שוק הרכב בישראל, מנתוני משרד התחבורה.</p><div class="card lst">${posts.map(p => `<a href="${SITE}magazine/${p.slug}/"><b>${esc(p.title)}</b><small>${esc(p.tag)} · ${esc(p.month)}</small></a>`).join("")}</div>${foot}`);
 let sm = fs.readFileSync("sitemap.xml", "utf8");
 for (const u of [idxUrl, url]) { sm = sm.replace(new RegExp(`\\s*<url><loc>${u.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}</loc>(<lastmod>[^<]*</lastmod>)?</url>`), ""); sm = sm.replace("</urlset>", `  <url><loc>${u}</loc><lastmod>${published}</lastmod></url>\n</urlset>`); }
 fs.writeFileSync("sitemap.xml", sm);

@@ -78,6 +78,10 @@ fs.rmSync("model", {recursive: true, force: true}); fs.mkdirSync("model", {recur
 const MOD = ms.updated ? String(ms.updated).slice(0, 10) : "", lastmod = {};
 const urls = [SITE, SITE + "privacy.html", SITE + "model/"], slugMap = {};
 if (MOD) lastmod[SITE + "model/"] = MOD;
+const actOf = m => Object.values(m.y).reduce((t, r) => t + r.act, 0);
+const bodyMemo = new Map();
+const bodyOf = m => { if (!bodyMemo.has(m)) { const c = new Map(); for (const r of cat.rows) if (r[5] && normModel(r[1]) === m.model && r[0].split(" ")[0] === m.make.split(" ")[0]) c.set(r[5], (c.get(r[5]) || 0) + 1); bodyMemo.set(m, [...c.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || ""); } return bodyMemo.get(m); };
+let magPosts = []; try { magPosts = JSON.parse(fs.readFileSync("magazine/posts.json", "utf8")); } catch {}
 for (const m of models) {
   const years = Object.keys(m.y).sort();
   const rows = years.map(yr => { const t = m.y[yr]; return {yr, act: t.act, off: t.off, km: t.kmn ? t.kmw / t.kmn : null, ow: t.own ? t.ow / t.own : null}; });
@@ -107,6 +111,10 @@ for (const m of models) {
     prs.length && Number(hi) >= 2023 ? `מחירון משרד התחבורה לגרסאות עדכניות בקטלוג: ${Math.min(...prs) === Math.max(...prs) ? fmt(prs[0] * 1000) : fmt(Math.min(...prs) * 1000) + " עד " + fmt(Math.max(...prs) * 1000)} ₪ (${cr.length === 1 ? "גרסה אחת" : cr.length + " גרסאות"} בקטלוג בסך הכול).` : ""
   ].filter(Boolean);
   const sibs = models.filter(o => o.make === m.make && o !== m).slice(0, 6);
+  const bd = bodyOf(m), actM = actOf(m);
+  const like = bd ? models.filter(o => o !== m && o.make !== m.make && bodyOf(o) === bd).sort((a, b) => Math.abs(Math.log(actOf(a) / actM)) - Math.abs(Math.log(actOf(b) / actM))).slice(0, 6) : [];
+  const ments = magPosts.filter(p => (p.models || []).includes(slugOf(m)));
+  const extra2 = (like.length ? `<h2>דגמים באותה קטגוריה (${esc(bd)})</h2><p>${like.map(o => `<a href="${SITE}model/${slugOf(o)}/">${esc(o.make)} ${esc(o.disp)}</a>`).join(" · ")}</p>` : "") + (ments.length ? `<h2>אזכורים במגזין</h2><p>${ments.map(p => `<a href="${SITE}magazine/${p.slug}/">${esc(p.title)}</a>`).join(" · ")}</p>` : "");
   const faq = [
     [`כמה רכבים מדגם ${name} יש בישראל?`, `לפי מאגרי משרד התחבורה כ-${fmt(act)} רכבים פעילים בשנתונים ${lo} עד ${hi}. השנתון הנפוץ ביותר הוא ${peakRow.yr}.`],
     kmRef ? [`מה הק״מ הטיפוסי של ${name}?`, `בשנתון ${kmRef.yr} הק״מ הטיפוסי בטסט האחרון הוא כ-${fmt(Math.round(kmRef.km / 1000) * 1000)}.`] : null,
@@ -118,19 +126,19 @@ for (const m of models) {
     {"@type": "BreadcrumbList", itemListElement: [{"@type": "ListItem", position: 1, name: "לוחית", item: SITE}, {"@type": "ListItem", position: 2, name: "כל הדגמים", item: SITE + "model/"}, {"@type": "ListItem", position: 3, name}]},
     {"@type": "FAQPage", mainEntity: faq.map(([q, a]) => ({"@type": "Question", name: q, acceptedAnswer: {"@type": "Answer", text: a}}))}]};
   const peak = rows.reduce((a, b) => b.act > a.act ? b : a);
-  const body = `${head(title, desc, url)}<p class="muted"><a href="${SITE}model/">כל הדגמים</a> › ${esc(m.make)}</p><h1>${esc(name)}</h1>
+  const body = `${head(title, desc, url)}<p class="muted"><a href="${SITE}">לוחית</a> › <a href="${SITE}model/">כל הדגמים</a> › ${esc(m.make)}</p><h1>${esc(name)}</h1>
 <p>לפי מאגרי משרד התחבורה יש בישראל כ-${fmt(act)} רכבים פעילים מדגם ${esc(name)} בשנתונים ${lo} עד ${hi}.${bodies.length ? ` סוגי מרכב בקטלוג: ${bodies.map(esc).join(", ")}.` : ""} השנתון הנפוץ ביותר הוא ${peak.yr} (${fmt(peak.act)} רכבים).</p>
 <div class="card"><b>בדקו רכב מסוים</b><p class="muted" style="margin:6px 0 12px">הקלידו מספר רישוי וקבלו ריקולים, טסט, היסטוריית בעלויות ומחיר משוער, בחינם.</p><a class="cta" href="${SITE}">לבדיקה לפי מספר רישוי</a></div>
 <h2>רכבים פעילים וקילומטראז׳ לפי שנתון</h2><div class="wrap"><table><thead><tr><th>שנתון</th><th class="n">פעילים</th><th class="n">ירדו מהכביש</th><th class="n">ק״מ טיפוסי</th><th class="n">רשומות בעלות לרכב</th></tr></thead><tbody>
 ${rows.slice().reverse().map(r => `<tr><td>${r.yr}</td><td class="n">${fmt(r.act)}</td><td class="n">${fmt(r.off)}</td><td class="n">${r.km ? fmt(r.km) : "–"}</td><td class="n">${r.ow ? r.ow.toFixed(1) : "–"}</td></tr>`).join("\n")}
 </tbody></table></div><p class="muted">הק״מ הטיפוסי הוא הממוצע בטסט האחרון של רכבים מהשנתון, ומוצג רק כשיש מספיק נתונים. רשומות בעלות כוללות גם מעברים בין חברות ליסינג וסוחרים, ולכן אינן בהכרח מספר בעלים פרטיים. סה״כ ירדו מהכביש ${fmt(off)} רכבים מהדגם בשנתונים האלה.</p>
-${extra}${stl.length ? `<h2>הסדרי פשרה שעשויים לחול על ${esc(name)}</h2><p class="muted">לפי הודעות היבואנים והעיתונות נכון ל-10/2026. הזכאות תלויה בשנתון, בגרסה ולפעמים במספר שלדה, והרשימה אינה מקיפה ואינה ייעוץ משפטי. לבדיקה לפי מספר רישוי השתמשו באפליקציה.</p>${stl.map(t => `<div class="card"><b>${esc(t.t)}</b> <span class="muted">${t.st === "ok" ? "אושר" : "ממתין לאישור בית המשפט"}</span><p style="margin:6px 0 0">${esc(t.b)}</p><p class="muted" style="margin:6px 0 0">${esc(t.cond)}</p></div>`).join("")}` : ""}<h2>לפני שקונים ${esc(name)}</h2><p>בדקו את הרכב הספציפי לפי מספר רישוי: ריקול פתוח, תוקף טסט, קילומטראז׳ לאורך השנים והיסטוריית בעלויות, והשוו למחיר ביד שנייה.</p>
+${extra}${extra2}${stl.length ? `<h2>הסדרי פשרה שעשויים לחול על ${esc(name)}</h2><p class="muted">לפי הודעות היבואנים והעיתונות נכון ל-10/2026. הזכאות תלויה בשנתון, בגרסה ולפעמים במספר שלדה, והרשימה אינה מקיפה ואינה ייעוץ משפטי. לבדיקה לפי מספר רישוי השתמשו באפליקציה.</p>${stl.map(t => `<div class="card"><b>${esc(t.t)}</b> <span class="muted">${t.st === "ok" ? "אושר" : "ממתין לאישור בית המשפט"}</span><p style="margin:6px 0 0">${esc(t.b)}</p><p class="muted" style="margin:6px 0 0">${esc(t.cond)}</p></div>`).join("")}` : ""}<h2>לפני שקונים ${esc(name)}</h2><p>בדקו את הרכב הספציפי לפי מספר רישוי: ריקול פתוח, תוקף טסט, קילומטראז׳ לאורך השנים והיסטוריית בעלויות, והשוו למחיר ביד שנייה.</p>
 <p><a class="cta" href="${SITE}">בדיקת רכב בלוחית</a></p>${foot.replace("</main></body></html>", "</main>" + `<script type="application/ld+json">${JSON.stringify(ld)}</script>` + "</body></html>")}`;
   fs.mkdirSync(`model/${slugOf(m)}`, {recursive: true}); fs.writeFileSync(`model/${slugOf(m)}/index.html`, body);
   urls.push(url); if (MOD) lastmod[url] = MOD; m.slug = slugOf(m); m.act = act; slugMap[m.make + "|" + m.model] = m.slug;
 }
 const by = new Map(); for (const m of models) (by.get(m.make) || by.set(m.make, []).get(m.make)).push(m);
-const idx = `${head("דגמי רכב בישראל לפי נתוני משרד התחבורה | לוחית", "רשימת הדגמים הנפוצים בישראל עם מספר הרכבים הפעילים, ק״מ ושנתונים, לפי מאגרי משרד התחבורה.", SITE + "model/")}<h1>הדגמים הנפוצים בישראל</h1><p class="muted">לפי מספר הרכבים הפעילים במאגרי משרד התחבורה.</p>
+const idx = `${head("דגמי רכב בישראל לפי נתוני משרד התחבורה | לוחית", "רשימת הדגמים הנפוצים בישראל עם מספר הרכבים הפעילים, ק״מ ושנתונים, לפי מאגרי משרד התחבורה.", SITE + "model/").replace("</head>", `<script type="application/ld+json">${JSON.stringify({"@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: [{"@type": "ListItem", position: 1, name: "לוחית", item: SITE}, {"@type": "ListItem", position: 2, name: "כל הדגמים"}]})}</script></head>`)}<p class="muted"><a href="${SITE}">לוחית</a> › כל הדגמים</p><h1>הדגמים הנפוצים בישראל</h1><p class="muted">לפי מספר הרכבים הפעילים במאגרי משרד התחבורה.</p>
 ${[...by.entries()].map(([mk, a]) => `<h2>${esc(mk)}</h2><ul class="l">${a.map(m => `<li><a href="${SITE}model/${m.slug}/">${esc(m.disp)}</a> <span class="muted">${fmt(m.act)}</span></li>`).join("")}</ul>`).join("\n")}${foot}`;
 fs.writeFileSync("model/index.html", idx);
 fs.writeFileSync("model/slugs.json", JSON.stringify(slugMap));
