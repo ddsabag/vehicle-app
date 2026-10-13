@@ -1,0 +1,26 @@
+name: Data health
+on:
+  schedule:
+    - cron: "0 4 * * *"   # 04:00 UTC = 07:00 Israel summer time (06:00 in winter)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print the alert instead of sending it to Telegram"
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Check ministry datasets
+        run: node .github/scripts/data-health-check.mjs
+        env:
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
