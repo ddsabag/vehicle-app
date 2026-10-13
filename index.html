@@ -717,7 +717,7 @@ const analyticsOn = () => { try { return localStorage.getItem("analyticsOff") !=
 // anonymous facts about what kind of car was looked up (brand, model, fuel), never the plate or anything that identifies a person
 function lookupFacts(D) {
   const v = D.v || {}, t = x => empty(x) ? "" : String(x).trim().slice(0, 40);
-  const o = {make: t(v.tozeret_nm).split(/\s+/)[0], model: t(v.kinuy_mishari), fuel: t(v.sug_delek_nm)};
+  const o = {make: t(brandLabel(makeName(v))).split(/\s+/)[0], model: t(v.kinuy_mishari), fuel: t(v.sug_delek_nm)};
   Object.keys(o).forEach(k => { if (!o[k]) delete o[k]; });
   return o;
 }
@@ -837,7 +837,7 @@ function makeName(v){
   const c = String(v.tozeret_eretz_nm || "").trim();
   if (c && n.endsWith(" " + c)) n = n.slice(0, -c.length - 1);
   // older records have no country field, so the country stays glued to the maker ("סובארו יפן")
-  return n.replace(COUNTRY_SFX, "").replace(/\s+ד\.?$/, "");
+  return brandLabel(n.replace(COUNTRY_SFX, "").replace(/\s+ד\.?$/, ""));
 }
 // the registry's model names for old cars are cut at 20 characters and carry codes ("טורבו איפרזה 0002הנע"); tidy them for display only, matching still uses the raw name
 function niceModel(m) {
@@ -2324,7 +2324,7 @@ const MODEL_ALIASES = {"קורולה":"COROLLA","קאמרי":"CAMRY","יאריס
   "אטו":"ATTO","דולפין":"DOLPHIN","סיל":"SEAL","טאנג":"TANG","יואן":"YUAN","גלקסי":"GALAXY","קודה":"KODA"};
 const MAKE_ALIASES = {toyota:"טויוטה",hyundai:"יונדאי",kia:"קיה",mazda:"מזדה",skoda:"סקודה",volkswagen:"פולקסווגן",vw:"פולקסווגן",suzuki:"סוזוקי",mitsubishi:"מיצובישי",
   honda:"הונדה",nissan:"ניסאן",renault:"רנו",dacia:"דאצ'יה",peugeot:"פיג'ו",citroen:"סיטרואן",opel:"אופל",ford:"פורד",chevrolet:"שברולט",seat:"סיאט",cupra:"קופרה",
-  bmw:"ב.מ.וו",mercedes:"מרצדס",audi:"אאודי",volvo:"וולוו",lexus:"לקסוס",subaru:"סובארו",tesla:"טסלה",byd:"בי.ווי.די",geely:"ג'ילי",chery:"צ'רי",mg:"אם.ג'י",
+  bmw:"BMW",mercedes:"מרצדס-בנץ",kgm:"KGM",audi:"אאודי",volvo:"וולוו",lexus:"לקסוס",subaru:"סובארו",tesla:"טסלה",byd:"BYD",geely:"ג'ילי",chery:"צ'רי",mg:"MG",gmc:"GMC",jac:"JAC",gac:"GAC",ds:"DS",dfsk:"DFSK",
   jeep:"ג'יפ",fiat:"פיאט",mini:"מיני",porsche:"פורשה",jaguar:"יגואר",land:"לנד",isuzu:"איסוזו",ssangyong:"סאנגיונג",lynk:"לינק",polestar:"פולסטאר",smart:"סמארט"};
 function searchWords(text){
   return String(text).trim().split(/\s+/).filter(Boolean)
@@ -2367,7 +2367,7 @@ function loadModelIndex(){
         const r = await fetch(u, {cache: "no-cache"}); if (!r.ok) continue;
         const j = await r.json(); if (!j.rows || !j.rows.length) continue;
         MODELIDX = j.rows.map(([mk0, md, y0, y1, pr, bd, fl]) => ({
-          mk: canonMake(mk0.replace(COUNTRY_SFX, "")), md, y0, y1, pr: pr || 0, bd: bd || "", fp: Object.fromEntries((fl ? String(fl).split("|") : []).map(x => [x[0], parseFloat(x.slice(1))])), mkw: (ws => [...ws.map(w => skOf(w)), ws.length > 1 ? skOf(ws.join("")) : ""].filter(Boolean))((canonMake(mk0.replace(COUNTRY_SFX, "")) === "FAW" ? "FAW פאו הונגצי אף אי דאבל יו" : canonMake(mk0.replace(COUNTRY_SFX, ""))).split(/[\s.\-\/]+/).map(w => w.replace(/[^א-תA-Za-z0-9']/g, "")).filter(Boolean)),
+          mk: canonMake(mk0.replace(COUNTRY_SFX, "")), md, y0, y1, pr: pr || 0, bd: bd || "", fp: Object.fromEntries((fl ? String(fl).split("|") : []).map(x => [x[0], parseFloat(x.slice(1))])), mkw: (ws => [...ws.map(w => skOf(w)), ws.length > 1 ? skOf(ws.join("")) : ""].filter(Boolean))((c => c + " " + (BRAND_SEARCH[c] || "") + " " + (brandKey(c) !== brandKey(mk0.replace(COUNTRY_SFX, "")) ? mk0.replace(COUNTRY_SFX, "") : ""))(canonMake(mk0.replace(COUNTRY_SFX, ""))).split(/[\s.\-\/]+/).map(w => w.replace(/[^א-תA-Za-z0-9']/g, "")).filter(Boolean)),
           mtok: md.replace(/\./g, " ").replace(/([A-Z])(\d)/g, "$1 $2").replace(/(\d)([A-Z])/g, "$1 $2").split(/[\s\-\/]+/).filter(Boolean)
         }));
         return MODELIDX;
@@ -2551,11 +2551,29 @@ const COUNTRY_SFX = /\s+(יפן|בריטניה|אנגליה|צרפת|גרמני�
 /* the register spells one maker many ways (אאודי / אודי, "ב מ וו ארהב"", "ג'יפ-ישראל"): one name per maker for the buyer */
 const MAKE_BASES = ["מרצדס בנץ", "ב מ וו", "אלפא רומיאו", "אסטון מרטין", "רולס רויס", "למבורגיני", "ג'י.אמ.סי", "ג'י.אמ.", "סאנגיונג", "פולקסווגן", "מיצובישי", "שברולט", "סיטרואן", "קרייזלר", "קאדילאק", "פונטיאק", "לינקולן", "לנדרובר", "דאצ'יה", "לנצ'יה", "פיג'ו", "ביואיק", "סובארו", "סוזוקי", "יונדאי", "טויוטה", "וולבו", "הונדה", "ניסאן", "מזדה", "דודג'", "האמר", "איסוזו", "סמארט", "פיאט", "פורד", "אופל", "סאאב", "ג'יפ", "דייהו", "רנו", "קיה", "ניאו", "טסלה", "אאודי"];
 const MAKE_FIX = [[/^אודי(?=$|[\s_\-\/])/, "אאודי"], [/^ג'יי\.אמ\.סי/, "ג'י.אמ.סי"], [/^גמס(?=$|[\s_\-\/])/, "ג'י.אמ.סי"], [/^לנציה(?=$|[\s_\-\/])/, "לנצ'יה"], [/^דאציה(?=$|[\s_\-\/])/, "דאצ'יה"], [/^פיגו(?=$|[\s_\-\/])/, "פיג'ו"], [/^(מרוטי סוזוקי|סוזוקי-מרוטי)/, "סוזוקי"], [/^דימלרקריזלר/, "דיימלר קרייזלר"], [/^דיימלר קרייזלר/, "דיימלר קרייזלר"], [/^אף אי דאבל יו(?=$|[\s_\-\/])/, "FAW"], [/^ג'יפ-ישראל/, "ג'יפ"], [/^גיפ-ישראל/, "ג'יפ"]];
+/* The register holds the importer's legal spelling ("קיי גי מוביליטי", "ב מ וו"); buyers know the brand: acronym brands are shown in Latin letters.
+   [key of the registry spelling (letters only), exact?, shown name, extra words that must still find it in search]. Matching of data keeps using the registry spelling. */
+const BRAND_LABELS = [
+  ["קייגימוביליט", 0, "KGM", "קיי גי אם קיי ג'י מוביליטי סאנגיונג ssangyong kgm"], ["במוו", 0, "BMW", "ב מ וו במוו ביימוו"], ["ביווידי", 0, "BYD", "בי ווי די"],
+  ["מג", 1, "MG", "אם ג'י מ.ג"], ["אםגי", 1, "MG", "אם ג'י מ.ג"], ["דיאס", 1, "DS", "די אס"], ["אסדאבליואמ", 0, "SWM", "אס דאבל יו אם"],
+  ["אלאיויסי", 0, "LEVC", "אל אי וי סי"], ["אקסאיוי", 1, "XEV", "אקס אי וי"], ["אקספנג", 1, "XPeng", "אקספנג שיאופנג"],
+  ["גיאמסי", 0, "GMC", "ג'י אם סי גמס"], ["גייאמסי", 0, "GMC", "ג'י אם סי גמס"], ["גמס", 1, "GMC", "ג'י אם סי גמס"],
+  ["גאק", 1, "JAC", "ג'אק ג'יי איי סי"], ["גייאיסי", 1, "JAC", "ג'אק ג'יי איי סי"], ["גיאיסי", 1, "GAC", "ג'י איי סי"],
+  ["גאקו", 1, "JAECOO", "ג'אקו"], ["דיאףאסקיי", 1, "DFSK", "די אף אס קיי"], ["מרצדסבנץ", 0, "מרצדס-בנץ", "מרצדס בנץ"], ["מרצדס", 1, "מרצדס-בנץ", "מרצדס בנץ"],
+  ["קארמה", 0, "קארמה", ""]
+];
+const BRAND_SEARCH = Object.fromEntries(BRAND_LABELS.filter(b => b[3]).map(b => [b[2], b[3]]).concat([["FAW", "פאו הונגצי אף אי דאבל יו"]]));
+const brandKey = s => String(s || "").replace(/[\s.'"׳״`\-_]/g, "");
+const brandLabel = name => {
+  const k = brandKey(name); if (!k) return name;
+  for (const [key, exact, label] of BRAND_LABELS) if (k === key || (!exact && k.startsWith(key))) return label;
+  return name;
+};
 const canonMake = raw => {
   let n = String(raw || "").trim().replace(/_/g, " ").replace(/\s+/g, " ");
-  for (const [re, to] of MAKE_FIX) if (re.test(n)) return to;
-  for (const b of MAKE_BASES) if (n === b || (n.startsWith(b) && /[\s\-\/]/.test(n[b.length]))) return b;
-  return n;
+  for (const [re, to] of MAKE_FIX) if (re.test(n)) return brandLabel(to);
+  for (const b of MAKE_BASES) if (n === b || (n.startsWith(b) && /[\s\-\/]/.test(n[b.length]))) return brandLabel(b);
+  return brandLabel(n);
 };
 const rowMake = r => { let n = String(r.tozeret_nm || r.tozar || "").trim(); const c = String(r.tozeret_eretz_nm || "").trim(); if (c && n.endsWith(" " + c)) n = n.slice(0, -c.length - 1); return canonMake(n.replace(COUNTRY_SFX, "")); };
 const rowModel = r => String(r.kinuy_mishari || r.degem_nm || "").trim();
@@ -3923,7 +3941,7 @@ async function loadMarket(){
 }
 /* maker names in the market data come in the registry's spelling; one display form per maker */
 const MK_NAMES = {"במוו": "BMW", "מג": "MG", "אםגי": "MG", "בייווידי": "BYD", "ביווידי": "BYD", "גילי": "ג׳ילי", "צרי": "צ׳רי", "גאקו": "ג׳אקו"};
-const mkMake = k => MK_NAMES[String(k).replace(/[\s.'"׳״`-]/g, "")] || k;
+const mkMake = k => { const l = brandLabel(k); return l !== k ? l : MK_NAMES[String(k).replace(/[\s.'"׳״`-]/g, "")] || k; };
 const mkLocked = () => PRO_LOCK && !isPro();
 const MON = ["ינו׳","פבר׳","מרץ","אפר׳","מאי","יוני","יולי","אוג׳","ספט׳","אוק׳","נוב׳","דצמ׳"];
 const sumM = (o, ms) => ms.reduce((t, m) => t + ((o && o[m]) || 0), 0);

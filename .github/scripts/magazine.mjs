@@ -2,6 +2,7 @@
 // from market.json. The prose comes from Gemini when GEMINI_API_KEY is set and passes the number check, otherwise from a fixed template.
 // run: node .github/scripts/magazine.mjs [YYYYMM]   (default: latest closed month in market.json)
 import fs from "node:fs";
+import {brandLabel} from "./brands.mjs";
 const SITE = "https://luchit.app/";
 const M = JSON.parse(fs.readFileSync("market.json", "utf8"));
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
@@ -19,8 +20,8 @@ if (before.length && M.months[ym] < 0.6 * before.reduce((a, b) => a + b, 0) / be
 
 const total = M.months[ym], prev = M.months[prevYm] || 0, chg = prev ? (total - prev) / prev * 100 : null;
 const rank = (obj, n) => Object.entries(obj).map(([k, v]) => [k, v[ym] || 0]).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, n);
-const models = rank(M.models, 5).map(([k, n]) => ({name: k.split("|").join(" "), key: k, n}));
-const makers = rank(M.makers, 5).map(([k, n]) => ({name: k, n}));
+const models = rank(M.models, 5).map(([k, n]) => ({name: [brandLabel(k.split("|")[0]), ...k.split("|").slice(1)].join(" "), key: k, n}));
+const makers = rank(M.makers, 5).map(([k, n]) => ({name: brandLabel(k), n}));
 const bodies = rank(M.bodies, 3).map(([k, n]) => ({name: k, n, pct: Math.round(n / total * 100)}));
 const sumYtd = y => Object.entries(M.months).filter(([k]) => k.startsWith(String(y)) && Number(k.slice(4)) <= mon).reduce((a, [, v]) => a + v, 0);
 const ytd = sumYtd(year), ytdPrev = sumYtd(year - 1), ytdChg = ytdPrev ? (ytd - ytdPrev) / ytdPrev * 100 : null;
