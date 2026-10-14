@@ -1,0 +1,41 @@
+name: Site smoke test
+# Daily at 05:30 UTC and after every change to the site: opens the live site in a real browser, looks up a real plate, checks key pages, and watches the certificate and domain expiry. Alerts go to Telegram only.
+on:
+  schedule:
+    - cron: "30 5 * * *"
+  push:
+    branches: [main]
+    paths: ["index.html", "sw.js", "model/**", "magazine/**", "privacy.html", "CNAME", ".well-known/**"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print the alert instead of sending it to Telegram"
+        type: boolean
+        default: true
+      preview:
+        description: "Send a labelled sample alert to Telegram (wording check)"
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency: site-smoke
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Install browser
+        if: ${{ !inputs.preview }}
+        run: |
+          npm install --no-save playwright@1.49.1
+          npx playwright install --with-deps chromium
+      - name: Check the live site
+        run: node .github/scripts/site-smoke.mjs
+        env:
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
+          PREVIEW: ${{ inputs.preview && '1' || '0' }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
