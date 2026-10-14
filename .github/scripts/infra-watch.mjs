@@ -1,4 +1,5 @@
 // Daily infrastructure watch: site and Worker liveness, free-quota headroom (Cloudflare Workers, Brevo), and on the 1st of the month a list of stale branches.
+import { ilTime } from "./notify.mjs";
 // Alerts to Telegram only when something needs attention (needs TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID). DRY_RUN=1 prints instead of sending.
 // Optional: CF_API_TOKEN + CF_ACCOUNT_ID (Workers usage), BREVO_API_KEY (daily send count), GITHUB_TOKEN + GITHUB_REPOSITORY (branches).
 const DRY = process.env.DRY_RUN === "1", E = process.env;
@@ -72,7 +73,7 @@ for (const step of [liveness, cloudflareQuota, brevoQuota, staleBranches]) {
 }
 console.log(notes.join("\n") || "no notes");
 if (problems.length) {
-  await telegram(`⚠️ <b>לוחית: בדיקת תשתיות</b>\n${problems.map(p => "• " + esc(p)).join("\n")}${notes.length ? "\n\nהערות:\n" + notes.map(esc).join("\n") : ""}`);
+  await telegram(`⚠️ <b>לוחית: שירות באתר או במכסה דורש תשומת לב</b>\nהבדיקה היומית של האתר, של Cloudflare ושל שליחת המיילים מצאה:\n${problems.map(p => "• " + esc(p)).join("\n")}\n\nמה לעשות: אם כתוב שירות לא מגיב, כתבו לי ואבדוק. אם כתוב שמכסה מתקרבת לגבול, אין בעיה כרגע, אבל כדאי לדעת לפני שהשירות ייחסם.${notes.length ? "\n\nהערות:\n" + notes.map(esc).join("\n") : ""}\n\nזמן: ${ilTime()} (שעון ישראל)`);
   process.exit(1);
 }
 if (notes.some(n => n.startsWith("ענפים"))) await telegram(`🧹 <b>לוחית: תחזוקה חודשית</b>\n${esc(notes.find(n => n.startsWith("ענפים")))}`);

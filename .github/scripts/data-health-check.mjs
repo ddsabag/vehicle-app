@@ -1,5 +1,6 @@
 // Daily health check of the data.gov.il datasets the app reads: availability, latency, schema drift, freshness.
 // Sends a Telegram alert on any failure (needs TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID). DRY_RUN=1 prints instead of sending.
+import { ilTime } from "./notify.mjs";
 const API = "https://data.gov.il/api/3/action/";
 const SLOW_MS = 5000, TIMEOUT_MS = 20000, SAMPLE_PLATE = "38548003";
 const DRY = process.env.DRY_RUN === "1";
@@ -7,17 +8,17 @@ const DRY = process.env.DRY_RUN === "1";
 // maxAge = days since last_modified before we call the data stale (per-car sets update daily-ish, per-model sets rarely)
 // filter = a known-good lookup (also proves the filter column still works); expectEmpty = known ministry outage, reported as a note, not an alert
 const SETS = [
-  { key: "active", title: "רכב פרטי ומסחרי (vehicle_info)", id: "053cea08-09bc-40ec-8f7a-156f0677aff3", maxAge: 7,
+  { key: "active", impact: "בדיקת רכב לפי מספר רישוי תציג ״הרכב לא נמצא״ או תיכשל", title: "רכב פרטי ומסחרי (vehicle_info)", id: "053cea08-09bc-40ec-8f7a-156f0677aff3", maxAge: 7,
     filters: { mispar_rechev: SAMPLE_PLATE }, fields: ["mispar_rechev", "tozeret_nm", "shnat_yitzur", "kinuy_mishari", "sug_delek_nm", "tokef_dt"] },
-  { key: "tech", title: "היסטוריית מפרט ורישוי", id: "56063a99-8a3e-4ff4-912e-5966c0279bad", maxAge: 7,
+  { key: "tech", impact: "היסטוריית הטסטים והק״מ של הרכב לא תוצג", title: "היסטוריית מפרט ורישוי", id: "56063a99-8a3e-4ff4-912e-5966c0279bad", maxAge: 7,
     filters: { mispar_rechev: SAMPLE_PLATE }, fields: ["mispar_rechev"] },
-  { key: "recalls", title: "ריקולים לפי רכב", id: "36bf1404-0be4-49d2-82dc-2f1ead4a8b93", maxAge: 7,
+  { key: "recalls", impact: "ריקולים פתוחים לא יוצגו לרכב", title: "ריקולים לפי רכב", id: "36bf1404-0be4-49d2-82dc-2f1ead4a8b93", maxAge: 7,
     filters: null, fields: ["MISPAR_RECHEV"] },
-  { key: "modelRecalls", title: "ריקולים לפי דגם", id: "2c33523f-87aa-44ec-a736-edbb0a82975e", maxAge: 45,
+  { key: "modelRecalls", impact: "פרטי תיקון הריקול (לפי דגם) לא יוצגו", title: "ריקולים לפי דגם", id: "2c33523f-87aa-44ec-a736-edbb0a82975e", maxAge: 45,
     filters: null, fields: ["TOZAR_CD"] },
-  { key: "wltp", title: "מפרט טכני (WLTP)", id: "142afde2-6228-49f9-8a29-9b6c3a0cbe40", maxAge: 45,
+  { key: "wltp", impact: "מפרט טכני, צריכת דלק ויכולת גרירה לא יוצגו", title: "מפרט טכני (WLTP)", id: "142afde2-6228-49f9-8a29-9b6c3a0cbe40", maxAge: 45,
     filters: null, fields: ["tozeret_cd", "degem_cd", "shnat_yitzur", "kosher_grira_im_blamim"] },
-  { key: "owners", title: "היסטוריית בעלויות", id: "bb2355dc-9ec7-4f06-9c3f-3344672171da", maxAge: 7,
+  { key: "owners", impact: "היסטוריית הבעלויות לא תוצג", title: "היסטוריית בעלויות", id: "bb2355dc-9ec7-4f06-9c3f-3344672171da", maxAge: 7,
     filters: { mispar_rechev: SAMPLE_PLATE }, fields: ["mispar_rechev", "baalut_dt", "baalut"], expectEmpty: "מושבתת ידועה בצד משרד התחבורה, האפליקציה משתמשת בגיבוי own-data" },
 ];
 
@@ -46,7 +47,7 @@ async function check(s) {
     if (ms > SLOW_MS) problems.push(`תגובה איטית: ${(ms / 1000).toFixed(1)} שניות (סף ${SLOW_MS / 1000})`);
     const missing = s.fields.filter(f => !have.has(f));
     if (missing.length) problems.push(`שינוי סכמה, שדות חסרים: ${missing.join(", ")}`);
-    if (total === 0) (s.expectEmpty ? notes : problems).push(s.expectEmpty ? "ריק (" + s.expectEmpty + ")" : (s.filters ? `אין תוצאה לרכב הבדיקה ${SAMPLE_PLATE}` : "המאגר ריק"));
+    if (total === 0) (s.expectEmpty ? notes : problems).push(s.expectEmpty ? "ריק (" + s.expectEmpty + ")" : (s.filters ? `המאגר לא החזיר תוצאה לרכב בדיקה שידוע שהוא רשום בו (${SAMPLE_PLATE})` : "המאגר ריק"));
     else if (rec && s.fields.every(f => have.has(f))) {
       const empty = s.fields.filter(f => rec[f] === null || rec[f] === undefined || rec[f] === "").filter(f => f !== "tokef_dt" && f !== "kosher_grira_im_blamim");
       if (empty.length && s.filters) problems.push(`שדות מפתח ריקים ברשומת הבדיקה: ${empty.join(", ")}`);
@@ -75,15 +76,21 @@ async function telegram(text) {
   if (!r.ok) console.log("telegram failed", r.status);
 }
 
-let results;
-try { results = []; for (const s of SETS) results.push(await check(s)); }
-catch (e) { await telegram(`⚠️ <b>בדיקת בריאות הנתונים קרסה</b>\n${esc(e.message)}`); process.exit(1); }
+// a ministry dataset sometimes answers "nothing" for a few minutes and then recovers by itself: look again before waking anyone up
+let results, bad = [];
+try {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    results = []; for (const s of SETS) results.push(await check(s));
+    bad = results.filter(r => r.problems.length);
+    if (!bad.length) break;
+    if (attempt < 3) { console.log(`attempt ${attempt} found ${bad.length} problem(s), checking again in 2 minutes`); await sleep(120000); }
+  }
+} catch (e) { await telegram(`⚠️ <b>בדיקת בריאות הנתונים קרסה</b>\nהבדיקה היומית של מאגרי משרד התחבורה לא הצליחה לרוץ, ולכן לא ברור אם המאגרים תקינים. זו תקלה בבדיקה עצמה ולא בהכרח באפליקציה.\nפירוט: ${esc(e.message)}\n\nמה לעשות: בדרך כלל כלום. אם זה חוזר מחר, כתבו לי.\n\nזמן: ${ilTime()} (שעון ישראל)`); process.exit(1); }
 
 for (const r of results) console.log(`${r.problems.length ? "FAIL" : "ok  "} ${r.key.padEnd(13)} ${String(r.ms).padStart(5)}ms ${[...r.problems, ...r.notes].join(" | ")}`);
-const bad = results.filter(r => r.problems.length);
 if (bad.length) {
-  const lines = bad.map(r => `❌ <b>${esc(r.title)}</b> (<code>${r.id.slice(0, 8)}</code>)\n${r.problems.map(p => "• " + esc(p)).join("\n")}`);
-  await telegram(`⚠️ <b>לוחית: בעיה במאגרי משרד התחבורה</b>\n${bad.length} מתוך ${results.length} מאגרים\n\n${lines.join("\n\n")}\n\nהבדיקה: ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`);
+  const lines = bad.map(r => `❌ <b>${esc(r.title)}</b>\n${r.problems.map(p => "• " + esc(p)).join("\n")}${r.impact ? "\nהשפעה על המשתמשים: " + esc(r.impact) + "." : ""}`);
+  await telegram(`⚠️ <b>לוחית: מאגר של משרד התחבורה לא תקין</b>\n${bad.length} מתוך ${results.length} מאגרים נכשלו בבדיקה, גם אחרי 3 ניסיונות בהפרש של כשתי דקות.\n\n${lines.join("\n\n")}\n\nמה לעשות: בדרך כלל כלום. המאגרים נמצאים אצל משרד התחבורה וחוזרים לעבוד בעצמם, בדרך כלל תוך שעות. אם ההתראה חוזרת גם מחר, כתבו לי ואבדוק.\n\nזמן: ${ilTime()} (שעון ישראל)`);
   process.exit(1);
 }
 console.log("all datasets healthy");
