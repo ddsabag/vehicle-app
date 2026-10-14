@@ -43,7 +43,10 @@ def search_console(per, cfg):
         p = urllib.parse.urlparse(r["keys"][0]).path or "/"
         k = "magazine" if p.startswith("/magazine") else "model" if p.startswith("/model") else "guide" if p.startswith("/guide") else "home" if p in ("/", "/index.html") else "other"
         sections[k] += int(r["impressions"])
-    return {"cur": tot(per["start"], per["end"]), "prev": tot(per["prev_start"], per["prev_end"]), "queries": top, "pages": pages, "sections": sections}
+    # 28 days of queries with position and CTR, for the opportunity finder (analytics/insights.py)
+    wide = [{"query": r["keys"][0], "clicks": int(r["clicks"]), "impressions": int(r["impressions"]), "position": round(r["position"], 1)}
+            for r in q(per["end"] - timedelta(days=27), per["end"], ["query"], 500)]
+    return {"cur": tot(per["start"], per["end"]), "prev": tot(per["prev_start"], per["prev_end"]), "queries": top, "pages": pages, "sections": sections, "wide": wide}
 
 
 def cloudflare(per, cfg):

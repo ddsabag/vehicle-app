@@ -33,6 +33,22 @@ const SECTIONS = [["model", "דפי דגמים"], ["magazine", "מגזין"], ["
 const sectionOf = u => { const p = u.replace(ORIGIN, "/"); return p.startsWith("/model") ? "model" : p.startsWith("/magazine") ? "magazine" : p.startsWith("/guide") ? "guide" : p === "/" ? "home" : "other"; };
 const pagePath = u => u.replace(ORIGIN, "/");
 
+const CF_TAG = "9bb0e756882c478a808d95596e0deade";
+async function cfVisits(day) {   // real visits to the site on one UTC day, from Cloudflare Web Analytics; null when unavailable
+  const tok = process.env.CF_API_TOKEN, acc = process.env.CF_ACCOUNT_ID;
+  if (!tok || !acc) return null;
+  try {
+    const qry = "query($acc:String!,$f:AccountRumPageloadEventsAdaptiveGroupsFilter_InputObject){viewer{accounts(filter:{accountTag:$acc}){rumPageloadEventsAdaptiveGroups(filter:$f,limit:1){count sum{visits}}}}}";
+    const f = { AND: [{ datetime_geq: day + "T00:00:00Z", datetime_leq: addDays(day, 1) + "T00:00:00Z" }, { siteTag: CF_TAG }] };
+    const r = await fetch("https://api.cloudflare.com/client/v4/graphql", { method: "POST", headers: { authorization: "Bearer " + tok, "content-type": "application/json" }, body: JSON.stringify({ query: qry, variables: { acc, f } }) });
+    const g = (await r.json())?.data?.viewer?.accounts?.[0]?.rumPageloadEventsAdaptiveGroups?.[0];
+    return g ? Math.round(g.sum.visits) : 0;
+  } catch { return null; }
+}
+async function sitemapCount() {
+  try { const x = await (await fetch("https://luchit.app/sitemap.xml")).text(); return (x.match(/<loc>/g) || []).length || null; } catch { return null; }
+}
+
 try {
   const t = await token();
   const q = async body => {
@@ -58,17 +74,37 @@ try {
   const pgAll = await q({ startDate: a7, endDate: last.d, dimensions: ["page"], rowLimit: 1000 });
   const pgs = [...pgAll].sort((x, y) => y.impressions - x.impressions).slice(0, 4);
   const sec = {}; for (const r of pgAll) { const k = sectionOf(r.keys[0]); sec[k] = (sec[k] || 0) + r.impressions; }
+  const seen28 = new Set((await q({ startDate: addDays(last.d, -27), endDate: last.d, dimensions: ["page"], rowLimit: 1000 })).map(r => r.keys[0]));
+  const total = await sitemapCount();
+  const older = new Set((await q({ startDate: addDays(last.d, -27), endDate: addDays(last.d, -7), dimensions: ["query"], rowLimit: 1000 })).map(r => r.keys[0]));
+  const fresh = (await q({ startDate: a7, endDate: last.d, dimensions: ["query"], rowLimit: 1000 })).filter(r => !older.has(r.keys[0])).sort((x, y) => y.impressions - x.impressions).slice(0, 3);
+  const yday = addDays(iso(new Date()), -1), visits = await cfVisits(yday);
+  const topClick = [...pgAll].filter(r => r.clicks > 0).sort((x, y) => y.clicks - x.clicks)[0];
+  const sunday = new Date().getUTCDay() === 0;
+  const pageNo = w => w.i ? Math.ceil(Number(pos(w)) / 10) : null;
+  const verdict = !cur.i ? "האתר עדיין לא מופיע בתוצאות החיפוש של גוגל."
+    : !cur.c ? "האתר כבר מופיע בגוגל, אבל עדיין אף אחד לא נכנס דרכו. בתחילת הדרך זה צפוי."
+    : `האתר מקבל כניסות מגוגל: ${n(cur.c)} ב-7 הימים האחרונים.`;
+  // Daily view: the verdict, four numbers, and only what changed. Position, page-type split and the glossary are for Sundays.
   const lines = [
-    "📈 <b>לוחית בגוגל, עדכון יומי</b>",
-    `היום האחרון עם נתונים: ${dm(last.d)} (גוגל מעדכן בעיכוב של כ-2 עד 3 ימים)`,
+    `📈 <b>לוחית בגוגל</b> · נתוני ${dm(last.d)} <i>(גוגל מתעכב 2 עד 3 ימים)</i>`,
     "",
-    `<b>${dm(last.d)}:</b> ${n(last.i)} חשיפות, ${n(last.c)} קליקים${avgPriorI ? `, ממוצע חשיפות ביום ב-7 הימים שלפני: ${n(avgPriorI)}` : ""}`,
-    `<b>7 ימים אחרונים:</b> ${n(cur.i)} חשיפות${arrow(pctChange(cur.i, prev.i))}, ${n(cur.c)} קליקים${arrow(pctChange(cur.c, prev.c))}, CTR ${ctr(cur.c, cur.i)}, מיקום ממוצע ${pos(cur)}`,
+    `<b>${verdict}</b>`,
+    "",
+    `👀 הופענו בחיפוש: ${n(cur.i)}${arrow(pctChange(cur.i, prev.i))} <i>(7 ימים)</i>`,
+    `👆 נכנסו דרך גוגל: ${n(cur.c)}${arrow(pctChange(cur.c, prev.c))}`,
+    `📚 דפים שגוגל מציג: ${n(seen28.size)}${total ? ` מתוך ${n(total)}` : ""}`,
   ];
-  if (qs.length) lines.push("", "<b>שאילתות מובילות (חשיפות):</b>", ...qs.map(r => `• ${esc(r.keys[0])}: ${n(r.impressions)} חשיפות, ${n(r.clicks)} קליקים`));
-  if (pgs.length) lines.push("", "<b>דפים מובילים:</b>", ...pgs.map(r => `• ${esc(pagePath(r.keys[0]))}: ${n(r.impressions)} חשיפות`));
-  const secLine = SECTIONS.filter(([k]) => sec[k]).map(([k, l]) => `${l} ${n(sec[k])}`).join(", ");
-  if (secLine) lines.push("", `<b>חשיפות לפי סוג דף (7 ימים):</b> ${secLine}`);
+  if (visits !== null) lines.push(`🌐 ביקורים באתר אתמול, מכל המקורות: ${n(visits)}`);
+  if (qs.length) lines.push("", "<b>מה חיפשו כשהאתר הופיע</b>", ...qs.slice(0, 3).map(r => `• ${esc(r.keys[0])}: ${n(r.impressions)}${r.clicks ? `, ${n(r.clicks)} נכנסו` : ""}`));
+  if (fresh.length) lines.push("", "<b>חדש השבוע</b>", ...fresh.map(r => `• ${esc(r.keys[0])}: ${n(r.impressions)}`));
+  if (topClick) lines.push("", `<b>הדף שהכניס הכי הרבה:</b> ${esc(pagePath(topClick.keys[0]))} (${n(topClick.clicks)})`);
+  if (sunday) {
+    lines.push("", "<b>סיכום שבועי</b>", `📍 מקום ממוצע: ${pos(cur)}${pageNo(cur) ? ` (עמוד ${pageNo(cur)} בתוצאות)` : ""}`);
+    const secLine = SECTIONS.filter(([k]) => sec[k]).map(([k, l]) => `${l} ${n(sec[k])}`).join(" · ");
+    if (secLine) lines.push(`הופענו לפי סוג דף: ${secLine}`);
+    lines.push("", "<i>הופעה = האתר הוצג למישהו בתוצאות. כניסה = הוא לחץ עליו. עמוד ראשון בגוגל = מקומות 1 עד 10.</i>");
+  }
   const ok = await telegram(lines.join("\n"));
   process.exit(ok ? 0 : 1);
 } catch (e) {
