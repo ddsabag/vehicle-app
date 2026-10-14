@@ -5,6 +5,10 @@ on:
     - cron: "15 */2 * * *"
   workflow_dispatch:
     inputs:
+      preview:
+        description: "Send a labelled sample alert to Telegram (wording check)"
+        type: boolean
+        default: false
       dry_run:
         description: "Print instead of sending to Telegram"
         type: boolean
@@ -34,6 +38,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           PLAY_DEVELOPER_ID: ${{ vars.PLAY_DEVELOPER_ID }}
           PLAY_APP_ID: ${{ vars.PLAY_APP_ID }}
+          PREVIEW: ${{ inputs.preview && '1' || '0' }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
       - name: Save state
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run == false }}
