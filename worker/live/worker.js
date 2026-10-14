@@ -4,7 +4,7 @@
 const CF_TAG = "9bb0e756882c478a808d95596e0deade";
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-4";   // shown in /live/data so the running version is visible
+const BUILD = "live-5";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -54,22 +54,26 @@ async function cfVisits(env, day) {
   return g ? Math.round(g.sum.visits) : 0;
 }
 
-let cache = null, cacheAt = 0;
+let cache = null, cacheAt = 0, backoffUntil = 0;
 async function collect(env) {
-  if (cache && Date.now() - cacheAt < 15e3) return cache;
+  // GA4 realtime has an hourly token quota: answer from cache for a minute, and after a 429 stop asking for 5 minutes (serve the last good numbers)
+  if (cache && (Date.now() - cacheAt < 60e3 || Date.now() < backoffUntil)) return cache;
   const today = new Date().toISOString().slice(0, 10), yday = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
   const errors = {};
   const safe = (p, k) => p.catch(e => { errors[k] = String(e.message || e).slice(0, 200); return null; });
-  const [active, series, events, vers, vToday, vYday] = await Promise.all([
-    safe(realtime(env, { metrics: [{ name: "activeUsers" }] }), "active"),
+  const [series, events, vers, vToday, vYday] = await Promise.all([
     safe(realtime(env, { dimensions: [{ name: "minutesAgo" }], metrics: [{ name: "eventCount" }] }), "series"),
     safe(realtime(env, { dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }], limit: 40 }), "events"),
     safe(realtime(env, { dimensions: [{ name: "appVersion" }], metrics: [{ name: "activeUsers" }], limit: 6 }), "versions"),
     safe(cfVisits(env, today), "visitsToday"), safe(cfVisits(env, yday), "visitsYesterday")]);
   const perMin = Array(30).fill(0);
   for (const r of series || []) perMin[29 - Number(r.dimensionValues[0].value)] = Number(r.metricValues[0].value);
-  cache = { build: BUILD, errors, at: new Date().toISOString(), activeUsers: active ? Number(active[0]?.metricValues[0].value || 0) : null, perMinute: series ? perMin : null,
-    events: events ? events.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]).sort((a, b) => b[1] - a[1]) : null, versions: vers ? vers.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]) : null, visitsToday: vToday, visitsYesterday: vYday };
+  const quota = Object.values(errors).some(m => /429|quota|Exhausted/i.test(m));
+  if (quota) backoffUntil = Date.now() + 300e3;
+  const prev = cache || {};
+  const activeUsers = vers ? vers.reduce((t, r) => t + Number(r.metricValues[0].value || 0), 0) : (quota ? prev.activeUsers ?? null : null);
+  cache = { build: BUILD, errors: quota ? { ga4: "מכסת Google מלאה, מוצגים נתונים אחרונים ויתעדכנו בעוד כמה דקות" } : errors, stale: quota, at: quota && prev.at ? prev.at : new Date().toISOString(), activeUsers, perMinute: series ? perMin : (quota ? prev.perMinute ?? null : null),
+    events: events ? events.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]).sort((a, b) => b[1] - a[1]) : (quota ? prev.events ?? null : null), versions: vers ? vers.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]) : (quota ? prev.versions ?? null : null), visitsToday: vToday, visitsYesterday: vYday };
   cacheAt = Date.now(); return cache;
 }
 
@@ -111,7 +115,7 @@ const other=ev.filter(e=>!N[e[0]]&&!BAD[e[0]]).sort((a,b)=>b[1]-a[1]);
 $("tec").innerHTML=other.map(e=>row(e[0],e[1],TEC[e[0]]||e[0])).join("")||'<li><span class="muted">אין</span><b></b></li>';
 const vs=d.versions||[];$("vc").style.display=vs.length?"":"none";$("vv").innerHTML=vs.map(v=>'<span class="pill">'+"גרסה "+esc(v[0])+": "+n(v[1])+"</span>").join("");
 $("er").textContent=Object.entries(d.errors||{}).map(e=>e[0]+": "+e[1]).join(" | ");$("t").textContent=new Date(d.at).toLocaleTimeString("he-IL")}catch{$("t").textContent="אין חיבור"}}
-go();setInterval(go,30000)</script></body></html>`;
+go();setInterval(()=>{if(!document.hidden)go()},60000)</script></body></html>`;
 
 export default {
   async fetch(req, env) {
