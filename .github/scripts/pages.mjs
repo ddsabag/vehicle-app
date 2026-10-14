@@ -42,7 +42,8 @@ for (const [key, v] of Object.entries(ms.m)) {
   g.set(k, e);
 }
 const models = [...g.values()].sort((a, b) => b.total - a.total).slice(0, N);
-for (const m of models) m.label = brandLabel(m.make);   // display name; m.make stays the registry spelling for matching
+for (const m of models) m.label = brandLabel(m.make);
+const withBrand = m => String(m.disp).toUpperCase().startsWith(String(m.label).toUpperCase() + " ") ? m.disp : `${m.label} ${m.disp}`;   // no "BYD BYD ATTO 2"   // display name; m.make stays the registry spelling for matching
 // national yardsticks per vintage from every model (not only the pages built): off-road share, typical km, ownership records
 const NAT = {};
 for (const e of g.values()) for (const [yr, t] of Object.entries(e.y)) {
@@ -90,7 +91,7 @@ for (const m of models) {
   const act = rows.reduce((s, r) => s + r.act, 0), off = rows.reduce((s, r) => s + r.off, 0);
   const cr = cat.rows.filter(r => normModel(r[1]) === m.model && r[0].split(" ")[0] === m.make.split(" ")[0]);
   const bodies = [...new Set(cr.map(r => r[5]).filter(Boolean))];
-  const lo = rows[0].yr, hi = rows[rows.length - 1].yr, heb = HEBN[hebKey(m.model)], name = heb && heb.startsWith("מאזדה") ? `מזדה ${heb.slice(6)} (${m.disp})` : `${m.label} ${heb ? heb + " (" + m.disp + ")" : m.disp}`;
+  const lo = rows[0].yr, hi = rows[rows.length - 1].yr, heb = HEBN[hebKey(m.model)], name = heb && heb.startsWith("מאזדה") ? `מזדה ${heb.slice(6)} (${m.disp})` : (heb ? `${m.label} ${heb} (${m.disp})` : withBrand(m));
   const url = `${SITE}model/${slugOf(m)}/`, title0 = `${name}: כמה רכבים על הכביש, ק״מ ושנתונים | לוחית`, title = title0.length > 68 ? `${name}: רכבים וק״מ לפי שנתון | לוחית` : title0;
   const alt = BRAND_ALT[m.label] ? ` (${BRAND_ALT[m.label]})` : "";
   const desc = `${name}${alt} בישראל לפי נתוני משרד התחבורה: ${fmt(act)} רכבים פעילים בשנתונים ${lo}–${hi}, ק״מ טיפוסי לפי שנתון וכמה ירדו מהכביש. בדיקת רכב לפי מספר רישוי.`;
@@ -117,7 +118,7 @@ for (const m of models) {
   const bd = bodyOf(m), actM = actOf(m);
   const like = bd ? models.filter(o => o !== m && o.make !== m.make && bodyOf(o) === bd).sort((a, b) => Math.abs(Math.log(actOf(a) / actM)) - Math.abs(Math.log(actOf(b) / actM))).slice(0, 6) : [];
   const ments = magPosts.filter(p => (p.models || []).includes(slugOf(m)));
-  const extra2 = (like.length ? `<h2>דגמים באותה קטגוריה (${esc(bd)})</h2><p>${like.map(o => `<a href="${SITE}model/${slugOf(o)}/">${esc(o.label)} ${esc(o.disp)}</a>`).join(" · ")}</p>` : "") + (ments.length ? `<h2>אזכורים במגזין</h2><p>${ments.map(p => `<a href="${SITE}magazine/${p.slug}/">${esc(p.title)}</a>`).join(" · ")}</p>` : "") + (magPosts.length ? `<div class="card"><b>המגזין החודשי של לוחית</b><p class="muted" style="margin:6px 0 12px">סיכום של שוק הרכב בישראל מנתוני משרד התחבורה, פעם בחודש. הגיליון האחרון: <a href="${SITE}magazine/${magPosts[0].slug}/">${esc(magPosts[0].title)}</a></p><a class="cta" href="${SITE}magazine/#nl">לקבלת המגזין למייל</a></div>` : "");
+  const extra2 = (like.length ? `<h2>דגמים באותה קטגוריה (${esc(bd)})</h2><p>${like.map(o => `<a href="${SITE}model/${slugOf(o)}/">${esc(withBrand(o))}</a>`).join(" · ")}</p>` : "") + (ments.length ? `<h2>אזכורים במגזין</h2><p>${ments.map(p => `<a href="${SITE}magazine/${p.slug}/">${esc(p.title)}</a>`).join(" · ")}</p>` : "") + (magPosts.length ? `<div class="card"><b>המגזין החודשי של לוחית</b><p class="muted" style="margin:6px 0 12px">סיכום של שוק הרכב בישראל מנתוני משרד התחבורה, פעם בחודש. הגיליון האחרון: <a href="${SITE}magazine/${magPosts[0].slug}/">${esc(magPosts[0].title)}</a></p><a class="cta" href="${SITE}magazine/#nl">לקבלת המגזין למייל</a></div>` : "");
   const faq = [
     [`כמה רכבים מדגם ${name} יש בישראל?`, `לפי מאגרי משרד התחבורה כ-${fmt(act)} רכבים פעילים בשנתונים ${lo} עד ${hi}. השנתון הנפוץ ביותר הוא ${peakRow.yr}.`],
     kmRef ? [`מה הק״מ הטיפוסי של ${name}?`, `בשנתון ${kmRef.yr} הק״מ הטיפוסי בטסט האחרון הוא כ-${fmt(Math.round(kmRef.km / 1000) * 1000)}.`] : null,
