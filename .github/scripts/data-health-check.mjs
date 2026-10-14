@@ -70,10 +70,11 @@ async function check(s) {
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 async function telegram(text) {
   const token = process.env.TELEGRAM_BOT_TOKEN, chat = process.env.TELEGRAM_CHAT_ID;
-  if (DRY || !token || !chat) { console.log("--- Telegram (" + (DRY ? "dry run" : "no credentials") + ") ---\n" + text); return; }
+  if (DRY || !token || !chat) { console.log("--- Telegram (" + (DRY ? "dry run" : "no credentials") + ") ---\n" + text); return DRY; }
   const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true }) });
   if (!r.ok) console.log("telegram failed", r.status);
+  return r.ok;
 }
 
 const failText = (bad, total) => {
@@ -99,7 +100,7 @@ try {
 
 for (const r of results) console.log(`${r.problems.length ? "FAIL" : "ok  "} ${r.key.padEnd(13)} ${String(r.ms).padStart(5)}ms ${[...r.problems, ...r.notes].join(" | ")}`);
 if (bad.length) {
-  await telegram(failText(bad, results.length));
-  process.exit(1);
+  // the alert reached Telegram: finish green, so GitHub does not also send its own "workflow failed" mail; a failed send keeps the red run as a fallback
+  process.exit((await telegram(failText(bad, results.length))) ? 0 : 1);
 }
 console.log("all datasets healthy");
