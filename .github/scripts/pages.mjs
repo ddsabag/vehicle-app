@@ -117,7 +117,7 @@ for (const m of models) {
   const bd = bodyOf(m), actM = actOf(m);
   const like = bd ? models.filter(o => o !== m && o.make !== m.make && bodyOf(o) === bd).sort((a, b) => Math.abs(Math.log(actOf(a) / actM)) - Math.abs(Math.log(actOf(b) / actM))).slice(0, 6) : [];
   const ments = magPosts.filter(p => (p.models || []).includes(slugOf(m)));
-  const extra2 = (like.length ? `<h2>דגמים באותה קטגוריה (${esc(bd)})</h2><p>${like.map(o => `<a href="${SITE}model/${slugOf(o)}/">${esc(o.label)} ${esc(o.disp)}</a>`).join(" · ")}</p>` : "") + (ments.length ? `<h2>אזכורים במגזין</h2><p>${ments.map(p => `<a href="${SITE}magazine/${p.slug}/">${esc(p.title)}</a>`).join(" · ")}</p>` : "");
+  const extra2 = (like.length ? `<h2>דגמים באותה קטגוריה (${esc(bd)})</h2><p>${like.map(o => `<a href="${SITE}model/${slugOf(o)}/">${esc(o.label)} ${esc(o.disp)}</a>`).join(" · ")}</p>` : "") + (ments.length ? `<h2>אזכורים במגזין</h2><p>${ments.map(p => `<a href="${SITE}magazine/${p.slug}/">${esc(p.title)}</a>`).join(" · ")}</p>` : "") + (magPosts.length ? `<div class="card"><b>המגזין החודשי של לוחית</b><p class="muted" style="margin:6px 0 12px">סיכום של שוק הרכב בישראל מנתוני משרד התחבורה, פעם בחודש. הגיליון האחרון: <a href="${SITE}magazine/${magPosts[0].slug}/">${esc(magPosts[0].title)}</a></p><a class="cta" href="${SITE}magazine/#nl">לקבלת המגזין למייל</a></div>` : "");
   const faq = [
     [`כמה רכבים מדגם ${name} יש בישראל?`, `לפי מאגרי משרד התחבורה כ-${fmt(act)} רכבים פעילים בשנתונים ${lo} עד ${hi}. השנתון הנפוץ ביותר הוא ${peakRow.yr}.`],
     kmRef ? [`מה הק״מ הטיפוסי של ${name}?`, `בשנתון ${kmRef.yr} הק״מ הטיפוסי בטסט האחרון הוא כ-${fmt(Math.round(kmRef.km / 1000) * 1000)}.`] : null,
