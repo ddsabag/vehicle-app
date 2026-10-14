@@ -1,7 +1,7 @@
 /* Luchit app shell for the web version. Stale-while-revalidate for the page, cache-first for fonts and icons.
    Lookups (data.gov.il, JSON data files, model pages) are never cached here, so numbers are always fresh.
    Bump SHELL with APP_VERSION at each release: the old cache is deleted on activate. */
-const SHELL = "luchit-shell-1.25.0";
+const SHELL = "luchit-shell-1.26.0";
 const FONTS = "luchit-fonts-1";
 const PRECACHE = ["/", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/manifest.json", "/lib/fonts/assistant-hebrew-400-normal.woff2", "/lib/fonts/assistant-hebrew-700-normal.woff2", "/lib/fonts/assistant-latin-400-normal.woff2", "/lib/fonts/assistant-latin-700-normal.woff2", "/lib/fonts/ibm-plex-mono-latin-500-normal.woff2"];
 
