@@ -85,26 +85,26 @@ try {
   const verdict = !cur.i ? "האתר עדיין לא מופיע בתוצאות החיפוש של גוגל."
     : !cur.c ? "האתר כבר מופיע בגוגל, אבל עדיין אף אחד לא נכנס דרכו. בתחילת הדרך זה צפוי."
     : `האתר מקבל כניסות מגוגל: ${n(cur.c)} ב-7 הימים האחרונים.`;
+  // Daily view: the verdict, four numbers, and only what changed. Position, page-type split and the glossary are for Sundays.
   const lines = [
-    `📈 <b>לוחית בגוגל</b> · נתוני ${dm(last.d)}`,
-    "<i>גוגל מעדכן בעיכוב של 2 עד 3 ימים</i>",
+    `📈 <b>לוחית בגוגל</b> · נתוני ${dm(last.d)} <i>(גוגל מתעכב 2 עד 3 ימים)</i>`,
     "",
     `<b>${verdict}</b>`,
     "",
-    "<b>7 ימים אחרונים</b>",
-    `👀 הופענו בחיפוש: ${n(cur.i)} פעמים${arrow(pctChange(cur.i, prev.i))}`,
+    `👀 הופענו בחיפוש: ${n(cur.i)}${arrow(pctChange(cur.i, prev.i))} <i>(7 ימים)</i>`,
     `👆 נכנסו דרך גוגל: ${n(cur.c)}${arrow(pctChange(cur.c, prev.c))}`,
-    `📍 מקום ממוצע: ${pos(cur)}${pageNo(cur) ? ` (עמוד ${pageNo(cur)} בתוצאות)` : ""}`,
-    `🗓 ביום ${dm(last.d)} לבד: ${n(last.i)} הופעות, ${n(last.c)} כניסות`,
-    `📚 דפים שהופיעו בגוגל ב-28 ימים: ${n(seen28.size)}${total ? ` מתוך ${n(total)} במפת האתר` : ""}`,
+    `📚 דפים שגוגל מציג: ${n(seen28.size)}${total ? ` מתוך ${n(total)}` : ""}`,
   ];
-  if (visits !== null) lines.push(`🌐 ביקורים באתר אתמול (מכל המקורות): ${n(visits)}`);
-  if (qs.length) lines.push("", "<b>מה חיפשו כשהאתר הופיע</b>", ...qs.map(r => `• ${esc(r.keys[0])}: ${n(r.impressions)} פעמים${r.clicks ? `, ${n(r.clicks)} נכנסו` : ""}`));
-  if (fresh.length) lines.push("", "<b>חיפושים חדשים השבוע</b> (לא הופיעו לפני כן)", ...fresh.map(r => `• ${esc(r.keys[0])}: ${n(r.impressions)} פעמים`));
-  if (topClick) lines.push("", `<b>הדף שהכניס הכי הרבה:</b> ${esc(pagePath(topClick.keys[0]))} (${n(topClick.clicks)} כניסות)`);
-  const secLine = SECTIONS.filter(([k]) => sec[k]).map(([k, l]) => `${l} ${n(sec[k])}`).join(" · ");
-  if (secLine) lines.push("", `<b>באיזה דפים הופענו:</b> ${secLine}`);
-  if (sunday) lines.push("", "<i>הופעה = האתר הוצג למישהו בתוצאות. כניסה = הוא לחץ עליו. עמוד ראשון בגוגל = מקומות 1 עד 10.</i>");
+  if (visits !== null) lines.push(`🌐 ביקורים באתר אתמול, מכל המקורות: ${n(visits)}`);
+  if (qs.length) lines.push("", "<b>מה חיפשו כשהאתר הופיע</b>", ...qs.slice(0, 3).map(r => `• ${esc(r.keys[0])}: ${n(r.impressions)}${r.clicks ? `, ${n(r.clicks)} נכנסו` : ""}`));
+  if (fresh.length) lines.push("", "<b>חדש השבוע</b>", ...fresh.map(r => `• ${esc(r.keys[0])}: ${n(r.impressions)}`));
+  if (topClick) lines.push("", `<b>הדף שהכניס הכי הרבה:</b> ${esc(pagePath(topClick.keys[0]))} (${n(topClick.clicks)})`);
+  if (sunday) {
+    lines.push("", "<b>סיכום שבועי</b>", `📍 מקום ממוצע: ${pos(cur)}${pageNo(cur) ? ` (עמוד ${pageNo(cur)} בתוצאות)` : ""}`);
+    const secLine = SECTIONS.filter(([k]) => sec[k]).map(([k, l]) => `${l} ${n(sec[k])}`).join(" · ");
+    if (secLine) lines.push(`הופענו לפי סוג דף: ${secLine}`);
+    lines.push("", "<i>הופעה = האתר הוצג למישהו בתוצאות. כניסה = הוא לחץ עליו. עמוד ראשון בגוגל = מקומות 1 עד 10.</i>");
+  }
   const ok = await telegram(lines.join("\n"));
   process.exit(ok ? 0 : 1);
 } catch (e) {
