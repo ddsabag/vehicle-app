@@ -67,7 +67,7 @@ async function collect(env) {
   cacheAt = Date.now(); return cache;
 }
 
-const PAGE = `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>לוחית, מצב עכשיו</title>
+const PAGE = `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><link rel="icon" type="image/png" href="https://luchit.app/icon-192.png"><link rel="apple-touch-icon" href="https://luchit.app/apple-touch-icon.png"><title>לוחית, מצב עכשיו</title>
 <style>:root{--bg:#f4f6fa;--card:#fff;--fg:#151a24;--muted:#5d6676;--line:#dfe4ec;--accent:#2457c5;--ok:#1a7f4b;--bad:#b3261e;--badbg:#fdecea}@media(prefers-color-scheme:dark){:root{--bg:#0e121a;--card:#171d28;--fg:#e9edf3;--muted:#98a2b4;--line:#262e3c;--accent:#7ea3f2;--ok:#5bd08a;--bad:#ff8a80;--badbg:#3a1f1f}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,"Assistant",sans-serif;line-height:1.5}main{max-width:620px;margin:0 auto;padding:16px}h1{font-size:1.15rem;margin:0}h2{font-size:.85rem;margin:0 0 6px;color:var(--muted);font-weight:600}.top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px}.muted{color:var(--muted);font-size:.8rem}
 .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px}@media(min-width:520px){.grid{grid-template-columns:repeat(4,1fr)}}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0;margin-bottom:8px}.grid .card{margin:0}
