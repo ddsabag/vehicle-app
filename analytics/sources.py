@@ -33,10 +33,17 @@ def search_console(per, cfg):
         r = s.post(url, json=body, timeout=60); r.raise_for_status(); return r.json().get("rows", [])
     def tot(a, b):
         rows = q(a, b)
-        return {"clicks": int(rows[0]["clicks"]), "impressions": int(rows[0]["impressions"]), "position": round(rows[0]["position"], 1)} if rows else {"clicks": 0, "impressions": 0, "position": None}
+        if not rows: return {"clicks": 0, "impressions": 0, "position": None, "ctr": None}
+        c, i = int(rows[0]["clicks"]), int(rows[0]["impressions"])
+        return {"clicks": c, "impressions": i, "position": round(rows[0]["position"], 1), "ctr": round(c / i * 100, 1) if i else None}
     top = [{"query": r["keys"][0], "clicks": int(r["clicks"]), "impressions": int(r["impressions"])} for r in q(per["start"], per["end"], ["query"], 8)]
     pages = [{"page": r["keys"][0], "clicks": int(r["clicks"]), "impressions": int(r["impressions"])} for r in q(per["start"], per["end"], ["page"], 6)]
-    return {"cur": tot(per["start"], per["end"]), "prev": tot(per["prev_start"], per["prev_end"]), "queries": top, "pages": pages}
+    sections = {"home": 0, "model": 0, "magazine": 0, "guide": 0, "other": 0}   # impressions by page type
+    for r in q(per["start"], per["end"], ["page"], 1000):
+        p = urllib.parse.urlparse(r["keys"][0]).path or "/"
+        k = "magazine" if p.startswith("/magazine") else "model" if p.startswith("/model") else "guide" if p.startswith("/guide") else "home" if p in ("/", "/index.html") else "other"
+        sections[k] += int(r["impressions"])
+    return {"cur": tot(per["start"], per["end"]), "prev": tot(per["prev_start"], per["prev_end"]), "queries": top, "pages": pages, "sections": sections}
 
 
 def cloudflare(per, cfg):
