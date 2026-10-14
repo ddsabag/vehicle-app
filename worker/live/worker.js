@@ -4,6 +4,7 @@
 const CF_TAG = "9bb0e756882c478a808d95596e0deade";
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+const BUILD = "live-3";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -36,7 +37,7 @@ async function googleToken(env) {
 }
 const realtime = async (env, body) => {
   const r = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${env.GA_PROPERTY_ID}:runRealtimeReport`, { method: "POST", headers: { authorization: "Bearer " + await googleToken(env), "content-type": "application/json" }, body: JSON.stringify(body) });
-  if (!r.ok) throw new Error("ga4 " + r.status);
+  if (!r.ok) throw new Error("ga4 " + r.status + " " + (await r.text()).replace(/\s+/g, " ").slice(0, 120));
   return (await r.json()).rows || [];
 };
 async function cfVisits(env, day) {
@@ -45,7 +46,9 @@ async function cfVisits(env, day) {
   const q = "query($acc:String!,$f:AccountRumPageloadEventsAdaptiveGroupsFilter_InputObject){viewer{accounts(filter:{accountTag:$acc}){rumPageloadEventsAdaptiveGroups(filter:$f,limit:1){count sum{visits}}}}}";
   const f = { AND: [{ datetime_geq: day + "T00:00:00Z", datetime_leq: next + "T00:00:00Z" }, { siteTag: CF_TAG }] };
   const r = await fetch("https://api.cloudflare.com/client/v4/graphql", { method: "POST", headers: { authorization: "Bearer " + env.CF_API_TOKEN, "content-type": "application/json" }, body: JSON.stringify({ query: q, variables: { acc: env.CF_ACCOUNT_ID, f } }) });
-  const g = (await r.json())?.data?.viewer?.accounts?.[0]?.rumPageloadEventsAdaptiveGroups?.[0];
+  const j = await r.json().catch(() => null);
+  if (!r.ok || !j || j.errors) throw new Error("cloudflare " + r.status + " " + JSON.stringify(j?.errors || j).slice(0, 140));
+  const g = j?.data?.viewer?.accounts?.[0]?.rumPageloadEventsAdaptiveGroups?.[0];
   return g ? Math.round(g.sum.visits) : 0;
 }
 
@@ -53,16 +56,17 @@ let cache = null, cacheAt = 0;
 async function collect(env) {
   if (cache && Date.now() - cacheAt < 15e3) return cache;
   const today = new Date().toISOString().slice(0, 10), yday = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
-  const safe = p => p.catch(() => null);
+  const errors = {};
+  const safe = (p, k) => p.catch(e => { errors[k] = String(e.message || e).slice(0, 200); return null; });
   const [active, series, events, vers, vToday, vYday] = await Promise.all([
-    safe(realtime(env, { metrics: [{ name: "activeUsers" }] })),
-    safe(realtime(env, { dimensions: [{ name: "minutesAgo" }], metrics: [{ name: "eventCount" }] })),
-    safe(realtime(env, { dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }], limit: 40 })),
-    safe(realtime(env, { dimensions: [{ name: "appVersion" }], metrics: [{ name: "activeUsers" }], limit: 6 })),
-    safe(cfVisits(env, today)), safe(cfVisits(env, yday))]);
+    safe(realtime(env, { metrics: [{ name: "activeUsers" }] }), "active"),
+    safe(realtime(env, { dimensions: [{ name: "minutesAgo" }], metrics: [{ name: "eventCount" }] }), "series"),
+    safe(realtime(env, { dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }], limit: 40 }), "events"),
+    safe(realtime(env, { dimensions: [{ name: "appVersion" }], metrics: [{ name: "activeUsers" }], limit: 6 }), "versions"),
+    safe(cfVisits(env, today), "visitsToday"), safe(cfVisits(env, yday), "visitsYesterday")]);
   const perMin = Array(30).fill(0);
   for (const r of series || []) perMin[29 - Number(r.dimensionValues[0].value)] = Number(r.metricValues[0].value);
-  cache = { at: new Date().toISOString(), activeUsers: active ? Number(active[0]?.metricValues[0].value || 0) : null, perMinute: series ? perMin : null,
+  cache = { build: BUILD, errors, at: new Date().toISOString(), activeUsers: active ? Number(active[0]?.metricValues[0].value || 0) : null, perMinute: series ? perMin : null,
     events: events ? events.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]).sort((a, b) => b[1] - a[1]) : null, versions: vers ? vers.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]) : null, visitsToday: vToday, visitsYesterday: vYday };
   cacheAt = Date.now(); return cache;
 }
@@ -84,7 +88,7 @@ ul{list-style:none;margin:0;padding:0}li{display:flex;justify-content:space-betw
 <div class="card"><h2>מה עושים באפליקציה</h2><ul id="e"></ul></div>
 <div class="card" id="vc"><h2>גרסאות בשימוש</h2><div id="vv"></div></div>
 <div class="card"><details><summary>פעילות טכנית של האפליקציה</summary><ul id="tec" style="margin-top:6px"></ul></details></div>
-<p class="muted">נתוני החיפוש בגוגל מתעכבים 2 עד 3 ימים, וקריסות ב-Play ביום או יומיים, ולכן הם לא כאן. הדף מתרענן כל 30 שניות.</p></main>
+<p class="muted" id="er" style="color:var(--bad);direction:ltr;text-align:left"></p><p class="muted">נתוני החיפוש בגוגל מתעכבים 2 עד 3 ימים, וקריסות ב-Play ביום או יומיים, ולכן הם לא כאן. הדף מתרענן כל 30 שניות.</p></main>
 <script>
 const N={car_lookup:"בדיקת רכב",tab_view:"פתיחת לשונית",share:"שיתוף",compare_open:"פתיחת השוואה",car_save:"שמירת רכב",link_out:"מעבר לקישור חיצוני",alerts_toggle:"שינוי התראות",alert_kind:"בחירת סוג התראה",upgrade_open:"פתיחת מסך שדרוג",upgrade_purchase_start:"התחלת רכישה",upgrade_purchase_done:"רכישה הושלמה",trial_start:"התחלת תקופת ניסיון",trial_end_shown:"סיום ניסיון הוצג",voice_search:"חיפוש קולי",bulk_check:"בדיקת כמה רכבים",camera_scan:"סריקה במצלמה",buy_card_open:"פתיחת כרטיס קנייה",settlement_shown:"הצגת הסדר פשרה",checklist_pdf:"הורדת רשימת בדיקה",doc_add:"הוספת מסמך",simple_view:"תצוגה פשוטה",simple_more:"עוד בתצוגה פשוטה",search_no_result:"חיפוש בלי תוצאה",lookup_from_cache:"בדיקה מהמטמון",user_screenshot:"צילום מסך",update_prompt:"הצעת עדכון",update_start:"התחלת עדכון",update_done:"עדכון הושלם",first_open:"התקנה חדשה",notification_open:"פתיחת התראה",notification_receive:"קבלת התראה",web_hint_click:"לחיצה על רמז מהאתר"};
 const BAD={lookup_failed:"בדיקה שנכשלה",lookup_slow:"בדיקה איטית",lookup_abort:"בדיקה שבוטלה",lookup_timeout:"בדיקה שפגה",app_exception:"קריסה",crash:"קריסה"};
@@ -104,7 +108,7 @@ $("e").innerHTML=known.map(e=>row(e[0],e[1],N[e[0]])).join("")||'<li><span class
 const other=ev.filter(e=>!N[e[0]]&&!BAD[e[0]]).sort((a,b)=>b[1]-a[1]);
 $("tec").innerHTML=other.map(e=>row(e[0],e[1],TEC[e[0]]||e[0])).join("")||'<li><span class="muted">אין</span><b></b></li>';
 const vs=d.versions||[];$("vc").style.display=vs.length?"":"none";$("vv").innerHTML=vs.map(v=>'<span class="pill">'+"גרסה "+esc(v[0])+": "+n(v[1])+"</span>").join("");
-$("t").textContent=new Date(d.at).toLocaleTimeString("he-IL")}catch{$("t").textContent="אין חיבור"}}
+$("er").textContent=Object.entries(d.errors||{}).map(e=>e[0]+": "+e[1]).join(" | ");$("t").textContent=new Date(d.at).toLocaleTimeString("he-IL")}catch{$("t").textContent="אין חיבור"}}
 go();setInterval(go,30000)</script></body></html>`;
 
 export default {
