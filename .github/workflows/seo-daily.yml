@@ -1,0 +1,30 @@
+name: SEO daily digest
+# Every day at 05:00 UTC (07:00-08:00 Israel): Search Console impressions, clicks, CTR, position, top queries and pages to Telegram.
+# Scheduled workflows run only from main. Failures are sent to Telegram too, so the run finishes green once the message is delivered.
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print the digest instead of sending it to Telegram"
+        type: boolean
+        default: true
+permissions:
+  contents: read
+concurrency: seo-daily
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Build the digest
+        run: node .github/scripts/seo-daily.mjs
+        env:
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
+          GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

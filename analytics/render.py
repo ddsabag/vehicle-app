@@ -147,15 +147,21 @@ def extra_html(a):
         if cf:
             ks += [kpi_html({"title": "ביקורים באתר", "cur": cf["cur"]["visits"], "prev": cf["prev"]["visits"], "fmt": "n", "bad_up": False, "note": f"{cf['cur']['views']:,} צפיות"})]
         if sc:
-            ks += [kpi_html({"title": "קליקים מגוגל", "cur": sc["cur"]["clicks"], "prev": sc["prev"]["clicks"], "fmt": "n", "bad_up": False, "note": f"{sc['cur']['impressions']:,} חשיפות"}),
+            ks += [kpi_html({"title": "חשיפות בגוגל", "cur": sc["cur"]["impressions"], "prev": sc["prev"]["impressions"], "fmt": "n", "bad_up": False, "note": "כמה פעמים האתר הופיע בתוצאות"}),
+                   kpi_html({"title": "קליקים מגוגל", "cur": sc["cur"]["clicks"], "prev": sc["prev"]["clicks"], "fmt": "n", "bad_up": False, "note": f"אחוז הקלקה {sc['cur'].get('ctr')}%" if sc["cur"].get("ctr") is not None else "אין עדיין חשיפות"}),
                    kpi_html({"title": "מיקום ממוצע בגוגל", "cur": sc["cur"]["position"], "prev": sc["prev"]["position"], "fmt": "n", "bad_up": True, "note": "נמוך יותר טוב יותר"})]
         parts.append(f'<section><h2>האתר וחיפוש בגוגל</h2><div class="grid">{"".join(ks)}</div></section>')
         rows = []
         if cf:
             SEC = {"home": "דף הבית", "model": "דפי דגמים", "magazine": "מגזין", "guide": "מדריכים", "other": "אחר"}
             rows.append(bars([(SEC[k], v) for k, v in cf["sections"].items()], "צפיות לפי אזור באתר"))
+        if sc and sc.get("sections") and any(sc["sections"].values()):
+            SECG = {"home": "דף הבית", "model": "דפי דגמים", "magazine": "מגזין", "guide": "מדריכים", "other": "אחר"}
+            rows.append(bars([(SECG[k], v) for k, v in sc["sections"].items()], "חשיפות בגוגל לפי סוג דף"))
         if sc and sc["queries"]:
-            rows.append(bars([(q["query"], q["clicks"]) for q in sc["queries"]], "שאילתות מובילות (קליקים)"))
+            rows.append(bars([(q["query"], q["impressions"]) for q in sc["queries"]], "שאילתות מובילות (חשיפות)"))
+        if sc and sc.get("pages"):
+            rows.append(bars([(q["page"].replace("https://luchit.app", "") or "/", q["impressions"]) for q in sc["pages"]], "דפים מובילים בגוגל (חשיפות)"))
         if rows: parts.append(f'<section class="two">{"".join(rows)}</section>')
     q = []
     if pl:

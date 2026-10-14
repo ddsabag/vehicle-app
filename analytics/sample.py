@@ -49,7 +49,7 @@ def make(period, scenario="busy"):
 def extras(scenario="busy"):
     bad = scenario == "incident"
     return {
-        "search_console": {"cur": {"clicks": 212, "impressions": 9400, "position": 14.2}, "prev": {"clicks": 150 if not bad else 340, "impressions": 7100, "position": 15.9},
+        "search_console": {"cur": {"clicks": 212, "impressions": 9400, "position": 14.2, "ctr": 2.3}, "prev": {"clicks": 150 if not bad else 340, "impressions": 7100, "position": 15.9, "ctr": 2.1}, "sections": {"home": 3000, "model": 5200, "magazine": 900, "guide": 150, "other": 150},
                            "queries": [{"query": "בדיקת רכב לפי מספר", "clicks": 40, "impressions": 1100}, {"query": "ריקול קורולה", "clicks": 22, "impressions": 640}, {"query": "היסטוריית בעלויות רכב", "clicks": 18, "impressions": 900}],
                            "pages": [{"page": "https://luchit.app/", "clicks": 120, "impressions": 3000}, {"page": "https://luchit.app/model/toyota-corolla/", "clicks": 25, "impressions": 800}]},
         "cloudflare": {"cur": {"views": 3400, "visits": 2100}, "prev": {"views": 2800, "visits": 1800}, "sections": {"home": 1500, "model": 1200, "magazine": 450, "guide": 120, "other": 130}},
