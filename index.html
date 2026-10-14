@@ -3839,7 +3839,13 @@ async function checkSaved(){
         if (act && !act.length && await sourceEmpty().catch(() => true)) act = null;
         const ev = [], ext = plan() !== "free", add = (k, x) => { if (!ext && (k === "owner" || k === "status")) return; ev.push({t: Date.now(), k, x}); };
         if (rec) { if (it.recalls !== undefined && rec.length > it.recalls) add("recall", "ריקול חדש נפתח לרכב"); else if (it.recalls !== undefined && rec.length < it.recalls) add("recall", "ריקול נסגר"); if (it.recalls !== rec.length) changed = true; it.recalls = rec.length; }
-        if (own) { if (it.owners !== undefined && own.length > it.owners) add("owner", "בעלות חדשה נרשמה"); it.owners = own.length; }
+        // same rows the card counts (no empty types), compared by the latest ownership month, never by raw count: a dataset that answered empty or from a different source must not look like a new owner
+        const ownRows = own ? own.filter(r => !empty(r.baalut)) : [], ownLast = ownRows.reduce((m, r) => Math.max(m, Number(r.baalut_dt) || 0), 0);
+        if (ownRows.length && ownLast) {
+          if (it.ownLast && ownLast > it.ownLast && ownRows.length > (it.owners || 0)) add("owner", "בעלות חדשה נרשמה");
+          if (!it.ownLast && it.events) it.events = it.events.filter(e => e.k !== "owner"); // earlier builds compared raw counts and logged false new owners
+          if (!it.ownLast || ownLast >= it.ownLast) { it.ownLast = ownLast; it.owners = ownRows.length; }
+        }
         if (act) {
           const isAct = act.length > 0;
           if (it.active === true && !isAct) add("status", "הרכב ירד מהכביש");
@@ -4094,7 +4100,7 @@ function renderFleet(){
 /* ---------- buying companion (PRO / buyer pack) ---------- */
 const savedItem = p => store.get("savedVehicles").find(x => x.plate === p);
 const candFields = D => ({fair: D.cost && D.cost.valueLow ? [D.cost.valueLow, D.cost.valueHigh] : null, c5: D.cost && D.cost.monthly ? D.cost.monthly.total * 60 : null});
-const newSavedItem = D => ({plate: D.plate, title: D.title, sub: D.sub, at: Date.now(), tokef: D.v.tokef_dt || "", recalls: D.recallUnknown ? undefined : D.recalls.length, checked: Date.now(), owners: D.own.length, active: !D.isCancelled, events: [], ...candFields(D)});
+const newSavedItem = D => ({plate: D.plate, title: D.title, sub: D.sub, at: Date.now(), tokef: D.v.tokef_dt || "", recalls: D.recallUnknown ? undefined : D.recalls.length, checked: Date.now(), owners: D.own.length, ownLast: D.own.reduce((m, r) => Math.max(m, Number(r.baalut_dt) || 0), 0), active: !D.isCancelled, events: [], ...candFields(D)});
 function askVerdict(ask, fair){
   if (!ask || !fair) return null;
   const [lo, hi] = fair, r = x => fmtN(Math.round(x / 100) * 100) + " ₪";
