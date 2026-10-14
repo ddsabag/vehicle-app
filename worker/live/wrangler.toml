@@ -1,0 +1,10 @@
+name = "luchit-live"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+routes = [{ pattern = "luchit.app/live*", zone_name = "luchit.app" }]
+# Secrets (never in this file):  wrangler secret put GA_SERVICE_ACCOUNT_JSON   and   wrangler secret put CF_API_TOKEN
+[vars]
+GA_PROPERTY_ID = "557990379"
+CF_ACCOUNT_ID = ""            # same value as the GitHub secret CF_ACCOUNT_ID
+ACCESS_TEAM_DOMAIN = ""       # e.g. myteam.cloudflareaccess.com  (Zero Trust > Settings > Custom pages)
+ACCESS_AUD = ""               # the Application Audience (AUD) tag of the Access application that protects luchit.app/live*
