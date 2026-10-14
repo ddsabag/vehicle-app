@@ -57,12 +57,20 @@ try {
 // ---- Play vitals (crash / ANR rate), Google's "bad behavior" thresholds: 1.09% crashes, 0.47% ANR (user-perceived) ----
 try {
   const t = await token("https://www.googleapis.com/auth/playdeveloperreporting");
-  const d = new Date(Date.now() - 2 * 864e5), day = x => ({ year: x.getUTCFullYear(), month: x.getUTCMonth() + 1, day: x.getUTCDate() });
-  const end = new Date(d.getTime() + 864e5);
+  const day = x => ({ year: x.getUTCFullYear(), month: x.getUTCMonth() + 1, day: x.getUTCDate() });
+  const H = { authorization: "Bearer " + t };
   for (const [kind, metric, limit, label] of [["crashRateMetricSet", "userPerceivedCrashRate", 1.09, "קריסות"], ["anrRateMetricSet", "userPerceivedAnrRate", 0.47, "ANR (אפליקציה לא מגיבה)"]]) {
+    // the newest day Google has already computed moves during the day: ask the set itself instead of guessing "two days ago" (a fixed guess answered 400 whenever it was ahead of the data)
+    let end = new Date(Date.now() - 2 * 864e5); end.setUTCHours(0, 0, 0, 0);
+    try {
+      const fr = await fetch(`https://playdeveloperreporting.googleapis.com/v1beta1/apps/${PKG}/${kind}`, { headers: H });
+      const f = fr.ok ? ((await fr.json()).freshnessInfo?.freshnesses || []).find(x => x.aggregationPeriod === "DAILY") : null;
+      const le = f && f.latestEndTime; if (le && le.year) end = new Date(Date.UTC(le.year, le.month - 1, le.day));
+    } catch {}
+    const d = new Date(end.getTime() - 864e5);
     const body = { timelineSpec: { aggregationPeriod: "DAILY", startTime: { ...day(d), timeZone: { id: "America/Los_Angeles" } }, endTime: { ...day(end), timeZone: { id: "America/Los_Angeles" } } }, metrics: [metric, "distinctUsers"] };
-    const r = await fetch(`https://playdeveloperreporting.googleapis.com/v1beta1/apps/${PKG}/${kind}:query`, { method: "POST", headers: { authorization: "Bearer " + t, "content-type": "application/json" }, body: JSON.stringify(body) });
-    if (!r.ok) throw new Error(`vitals ${kind} ${r.status}`);
+    const r = await fetch(`https://playdeveloperreporting.googleapis.com/v1beta1/apps/${PKG}/${kind}:query`, { method: "POST", headers: { ...H, "content-type": "application/json" }, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error(`vitals ${kind} ${r.status} ${(await r.text()).replace(/\s+/g, " ").slice(0, 200)}`);
     const row = ((await r.json()).rows || [])[0]; if (!row) continue;
     const m = Object.fromEntries((row.metrics || []).map(x => [x.metric, +(x.decimalValue?.value ?? NaN)]));
     const pct = m[metric] * 100, users = m.distinctUsers, k = `vitals:${kind}:${JSON.stringify(row.startTime)}`;
