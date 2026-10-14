@@ -4,7 +4,7 @@
 const CF_TAG = "9bb0e756882c478a808d95596e0deade";
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-3";   // shown in /live/data so the running version is visible
+const BUILD = "live-4";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -40,12 +40,14 @@ const realtime = async (env, body) => {
   if (!r.ok) throw new Error("ga4 " + r.status + " " + (await r.text()).replace(/\s+/g, " ").slice(0, 120));
   return (await r.json()).rows || [];
 };
+const cleanToken = t => String(t || "").replace(/^[\s"']*(bearer\s+)?/i, "").replace(/[\s"']+$/, "").replace(/[^\x21-\x7e]/g, "");   // pasted secrets often carry a newline, quotes or the word Bearer
 async function cfVisits(env, day) {
-  if (!env.CF_API_TOKEN || !env.CF_ACCOUNT_ID) return null;
+  const token = cleanToken(env.CF_API_TOKEN), account = String(env.CF_ACCOUNT_ID || "").trim();
+  if (!token || !account) return null;
   const next = new Date(Date.parse(day + "T00:00:00Z") + 864e5).toISOString().slice(0, 10);
   const q = "query($acc:String!,$f:AccountRumPageloadEventsAdaptiveGroupsFilter_InputObject){viewer{accounts(filter:{accountTag:$acc}){rumPageloadEventsAdaptiveGroups(filter:$f,limit:1){count sum{visits}}}}}";
   const f = { AND: [{ datetime_geq: day + "T00:00:00Z", datetime_leq: next + "T00:00:00Z" }, { siteTag: CF_TAG }] };
-  const r = await fetch("https://api.cloudflare.com/client/v4/graphql", { method: "POST", headers: { authorization: "Bearer " + env.CF_API_TOKEN, "content-type": "application/json" }, body: JSON.stringify({ query: q, variables: { acc: env.CF_ACCOUNT_ID, f } }) });
+  const r = await fetch("https://api.cloudflare.com/client/v4/graphql", { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body: JSON.stringify({ query: q, variables: { acc: account, f } }) });
   const j = await r.json().catch(() => null);
   if (!r.ok || !j || j.errors) throw new Error("cloudflare " + r.status + " " + JSON.stringify(j?.errors || j).slice(0, 140));
   const g = j?.data?.viewer?.accounts?.[0]?.rumPageloadEventsAdaptiveGroups?.[0];
