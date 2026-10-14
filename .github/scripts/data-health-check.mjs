@@ -1,18 +1,16 @@
 // Daily health check of the data.gov.il datasets the app reads: availability, latency, schema drift, freshness.
 // Sends a Telegram alert on any failure (needs TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID). DRY_RUN=1 prints instead of sending.
 const API = "https://data.gov.il/api/3/action/";
-const SLOW_MS = 5000, TIMEOUT_MS = 20000;
-// the probe plate is taken from the active register itself each run (a fixed plate stops being active when that car is sold abroad or scrapped, which looked like a ministry outage)
-let SAMPLE_PLATE = "";
+const SLOW_MS = 5000, TIMEOUT_MS = 20000, SAMPLE_PLATE = "38548003";
 const DRY = process.env.DRY_RUN === "1";
 
 // maxAge = days since last_modified before we call the data stale (per-car sets update daily-ish, per-model sets rarely)
 // filter = a known-good lookup (also proves the filter column still works); expectEmpty = known ministry outage, reported as a note, not an alert
 const SETS = [
   { key: "active", title: "רכב פרטי ומסחרי (vehicle_info)", id: "053cea08-09bc-40ec-8f7a-156f0677aff3", maxAge: 7,
-    filters: { mispar_rechev: 1 }, fields: ["mispar_rechev", "tozeret_nm", "shnat_yitzur", "kinuy_mishari", "sug_delek_nm", "tokef_dt"] },
+    filters: { mispar_rechev: SAMPLE_PLATE }, fields: ["mispar_rechev", "tozeret_nm", "shnat_yitzur", "kinuy_mishari", "sug_delek_nm", "tokef_dt"] },
   { key: "tech", title: "היסטוריית מפרט ורישוי", id: "56063a99-8a3e-4ff4-912e-5966c0279bad", maxAge: 7,
-    filters: { mispar_rechev: 1 }, fields: ["mispar_rechev"] },
+    filters: { mispar_rechev: SAMPLE_PLATE }, fields: ["mispar_rechev"] },
   { key: "recalls", title: "ריקולים לפי רכב", id: "36bf1404-0be4-49d2-82dc-2f1ead4a8b93", maxAge: 7,
     filters: null, fields: ["MISPAR_RECHEV"] },
   { key: "modelRecalls", title: "ריקולים לפי דגם", id: "2c33523f-87aa-44ec-a736-edbb0a82975e", maxAge: 45,
@@ -20,7 +18,7 @@ const SETS = [
   { key: "wltp", title: "מפרט טכני (WLTP)", id: "142afde2-6228-49f9-8a29-9b6c3a0cbe40", maxAge: 45,
     filters: null, fields: ["tozeret_cd", "degem_cd", "shnat_yitzur", "kosher_grira_im_blamim"] },
   { key: "owners", title: "היסטוריית בעלויות", id: "bb2355dc-9ec7-4f06-9c3f-3344672171da", maxAge: 7,
-    filters: { mispar_rechev: 1 }, fields: ["mispar_rechev", "baalut_dt", "baalut"], expectEmpty: "מושבתת ידועה בצד משרד התחבורה, האפליקציה משתמשת בגיבוי own-data" },
+    filters: { mispar_rechev: SAMPLE_PLATE }, fields: ["mispar_rechev", "baalut_dt", "baalut"], expectEmpty: "מושבתת ידועה בצד משרד התחבורה, האפליקציה משתמשת בגיבוי own-data" },
 ];
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -41,7 +39,7 @@ async function check(s) {
   let ms = 0;
   try {
     const params = { resource_id: s.id, limit: "1" };
-    if (s.filters) params.filters = JSON.stringify({ mispar_rechev: SAMPLE_PLATE });
+    if (s.filters) params.filters = JSON.stringify(s.filters);
     const { j, ms: m } = await withRetry(() => call("datastore_search", params)); ms = m;
     const r = j.result, total = r.total ?? 0, rec = (r.records || [])[0];
     const have = new Set((r.fields || []).map(f => f.id));
@@ -78,12 +76,6 @@ async function telegram(text) {
 }
 
 let results;
-try {
-  // a 2018 car from the middle of the active register: certainly registered, so a missing row later means a real problem
-  const { j } = await withRetry(() => call("datastore_search", { resource_id: SETS[0].id, filters: JSON.stringify({ shnat_yitzur: 2018 }), limit: "1", offset: "500" }));
-  const rec = (j.result.records || [])[0]; if (rec && rec.mispar_rechev) SAMPLE_PLATE = String(rec.mispar_rechev);
-} catch {}
-if (!SAMPLE_PLATE) SAMPLE_PLATE = "38548003";
 try { results = []; for (const s of SETS) results.push(await check(s)); }
 catch (e) { await telegram(`⚠️ <b>בדיקת בריאות הנתונים קרסה</b>\n${esc(e.message)}`); process.exit(1); }
 
