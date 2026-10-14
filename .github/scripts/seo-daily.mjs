@@ -58,17 +58,26 @@ try {
   const pgAll = await q({ startDate: a7, endDate: last.d, dimensions: ["page"], rowLimit: 1000 });
   const pgs = [...pgAll].sort((x, y) => y.impressions - x.impressions).slice(0, 4);
   const sec = {}; for (const r of pgAll) { const k = sectionOf(r.keys[0]); sec[k] = (sec[k] || 0) + r.impressions; }
+  const pageNo = w => w.i ? Math.ceil(Number(pos(w)) / 10) : null;
+  const verdict = !cur.i ? "האתר עדיין לא מופיע בתוצאות החיפוש של גוגל."
+    : !cur.c ? "האתר כבר מופיע בגוגל, אבל עדיין אף אחד לא נכנס דרכו. בתחילת הדרך זה צפוי."
+    : `האתר מקבל כניסות מגוגל: ${n(cur.c)} ב-7 הימים האחרונים.`;
   const lines = [
-    "📈 <b>לוחית בגוגל, עדכון יומי</b>",
-    `היום האחרון עם נתונים: ${dm(last.d)} (גוגל מעדכן בעיכוב של כ-2 עד 3 ימים)`,
+    `📈 <b>לוחית בגוגל</b> · נתוני ${dm(last.d)}`,
+    "<i>גוגל מעדכן בעיכוב של 2 עד 3 ימים</i>",
     "",
-    `<b>${dm(last.d)}:</b> ${n(last.i)} חשיפות, ${n(last.c)} קליקים${avgPriorI ? `, ממוצע חשיפות ביום ב-7 הימים שלפני: ${n(avgPriorI)}` : ""}`,
-    `<b>7 ימים אחרונים:</b> ${n(cur.i)} חשיפות${arrow(pctChange(cur.i, prev.i))}, ${n(cur.c)} קליקים${arrow(pctChange(cur.c, prev.c))}, CTR ${ctr(cur.c, cur.i)}, מיקום ממוצע ${pos(cur)}`,
+    `<b>${verdict}</b>`,
+    "",
+    "<b>7 ימים אחרונים</b>",
+    `👀 הופענו בחיפוש: ${n(cur.i)} פעמים${arrow(pctChange(cur.i, prev.i))}`,
+    `👆 נכנסו דרך גוגל: ${n(cur.c)}${arrow(pctChange(cur.c, prev.c))}`,
+    `📍 מקום ממוצע: ${pos(cur)}${pageNo(cur) ? ` (עמוד ${pageNo(cur)} בתוצאות)` : ""}`,
+    `🗓 ביום ${dm(last.d)} לבד: ${n(last.i)} הופעות, ${n(last.c)} כניסות`,
   ];
-  if (qs.length) lines.push("", "<b>שאילתות מובילות (חשיפות):</b>", ...qs.map(r => `• ${esc(r.keys[0])}: ${n(r.impressions)} חשיפות, ${n(r.clicks)} קליקים`));
-  if (pgs.length) lines.push("", "<b>דפים מובילים:</b>", ...pgs.map(r => `• ${esc(pagePath(r.keys[0]))}: ${n(r.impressions)} חשיפות`));
-  const secLine = SECTIONS.filter(([k]) => sec[k]).map(([k, l]) => `${l} ${n(sec[k])}`).join(", ");
-  if (secLine) lines.push("", `<b>חשיפות לפי סוג דף (7 ימים):</b> ${secLine}`);
+  if (qs.length) lines.push("", "<b>מה חיפשו כשהאתר הופיע</b>", ...qs.map(r => `• ${esc(r.keys[0])}: ${n(r.impressions)} פעמים${r.clicks ? `, ${n(r.clicks)} נכנסו` : ""}`));
+  const secLine = SECTIONS.filter(([k]) => sec[k]).map(([k, l]) => `${l} ${n(sec[k])}`).join(" · ");
+  if (secLine) lines.push("", `<b>באיזה דפים הופענו:</b> ${secLine}`);
+  lines.push("", "<i>הופעה = האתר הוצג למישהו בתוצאות. כניסה = הוא לחץ עליו. עמוד ראשון בגוגל = מקומות 1 עד 10.</i>");
   const ok = await telegram(lines.join("\n"));
   process.exit(ok ? 0 : 1);
 } catch (e) {
