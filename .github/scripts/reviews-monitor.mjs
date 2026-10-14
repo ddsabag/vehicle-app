@@ -21,6 +21,7 @@ async function token(scope) {
   return (await r.json()).access_token;
 }
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const errText = errors => `⚠️ <b>הבדיקה האוטומטית של גוגל פליי לא הצליחה לרוץ</b>\nהיא בודקת כל שעתיים ביקורות חדשות עם 1 עד 3 כוכבים ושיעור קריסות. הפעם לא הצליחה לקבל תשובה מגוגל, ולכן לא ידוע אם יש ביקורות או קריסות חדשות. זה לא אומר שיש בעיה באפליקציה.\nפירוט: ${errors.map(esc).join("; ")}\n\nמה לעשות: בדרך כלל כלום, והבדיקה הבאה תרוץ בעוד שעתיים. אם זה חוזר, כתבו לי.\n\nזמן: ${ilTime()} (שעון ישראל)`;
 async function telegram(text) {
   const tok = process.env.TELEGRAM_BOT_TOKEN, chat = process.env.TELEGRAM_CHAT_ID;
   if (DRY || !tok || !chat) { console.log("--- Telegram (" + (DRY ? "dry run" : "no credentials") + ") ---\n" + text); return; }
@@ -28,6 +29,7 @@ async function telegram(text) {
     body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true }) });
   if (!r.ok) throw new Error("telegram " + r.status);
 }
+if (process.env.PREVIEW === "1") { await telegram("🧪 <b>הודעת בדיקה, אין תקלה אמיתית</b>\n\n" + errText(["vitals: vitals crashRateMetricSet 400 (דוגמה)"])); process.exit(0); }
 let seen = {}; try { seen = JSON.parse(fs.readFileSync(STATE, "utf8")); } catch {}
 const save = () => fs.writeFileSync(STATE, JSON.stringify(seen));
 const errors = [];
@@ -87,5 +89,5 @@ for (const k of Object.keys(seen)) if (Date.now() - seen[k] > 14 * 864e5) delete
 save();
 // a broken monitor must not be silent: tell once per distinct error
 const ek = "err:" + errors.join("|").slice(0, 80);
-if (errors.length && !seen[ek]) { seen[ek] = Date.now(); save(); await telegram(`⚠️ <b>הבדיקה האוטומטית של גוגל פליי לא הצליחה לרוץ</b>\nהיא בודקת כל שעתיים ביקורות חדשות עם 1 עד 3 כוכבים ושיעור קריסות. הפעם לא הצליחה לקבל תשובה מגוגל, ולכן לא ידוע אם יש ביקורות או קריסות חדשות. זה לא אומר שיש בעיה באפליקציה.\nפירוט: ${errors.map(esc).join("; ")}\n\nמה לעשות: בדרך כלל כלום, והבדיקה הבאה תרוץ בעוד שעתיים. אם זה חוזר, כתבו לי.\n\nזמן: ${ilTime()} (שעון ישראל)`); process.exit(1); }
+if (errors.length && !seen[ek]) { seen[ek] = Date.now(); save(); await telegram(errText(errors)); process.exit(1); }
 if (!errors.length) process.exit(0);

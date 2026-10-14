@@ -76,6 +76,16 @@ async function telegram(text) {
   if (!r.ok) console.log("telegram failed", r.status);
 }
 
+const failText = (bad, total) => {
+  const lines = bad.map(r => `❌ <b>${esc(r.title)}</b>\n${r.problems.map(p => "• " + esc(p)).join("\n")}${r.impact ? "\nהשפעה על המשתמשים: " + esc(r.impact) + "." : ""}`);
+  return `⚠️ <b>לוחית: מאגר של משרד התחבורה לא תקין</b>\n${bad.length} מתוך ${total} מאגרים נכשלו בבדיקה, גם אחרי 3 ניסיונות בהפרש של כשתי דקות.\n\n${lines.join("\n\n")}\n\nמה לעשות: בדרך כלל כלום. המאגרים נמצאים אצל משרד התחבורה וחוזרים לעבוד בעצמם, בדרך כלל תוך שעות. אם ההתראה חוזרת גם מחר, כתבו לי ואבדוק.\n\nזמן: ${ilTime()} (שעון ישראל)`;
+};
+// PREVIEW=1 sends a clearly labelled sample of the alert, to check the wording on the phone
+if (process.env.PREVIEW === "1") {
+  const fake = [{ ...SETS[0], problems: ["המאגר לא החזיר תוצאה לרכב בדיקה שידוע שהוא רשום בו (דוגמה)"], notes: [] }];
+  await telegram("🧪 <b>הודעת בדיקה, אין תקלה אמיתית</b>\n\n" + failText(fake, SETS.length));
+  process.exit(0);
+}
 // a ministry dataset sometimes answers "nothing" for a few minutes and then recovers by itself: look again before waking anyone up
 let results, bad = [];
 try {
@@ -89,8 +99,7 @@ try {
 
 for (const r of results) console.log(`${r.problems.length ? "FAIL" : "ok  "} ${r.key.padEnd(13)} ${String(r.ms).padStart(5)}ms ${[...r.problems, ...r.notes].join(" | ")}`);
 if (bad.length) {
-  const lines = bad.map(r => `❌ <b>${esc(r.title)}</b>\n${r.problems.map(p => "• " + esc(p)).join("\n")}${r.impact ? "\nהשפעה על המשתמשים: " + esc(r.impact) + "." : ""}`);
-  await telegram(`⚠️ <b>לוחית: מאגר של משרד התחבורה לא תקין</b>\n${bad.length} מתוך ${results.length} מאגרים נכשלו בבדיקה, גם אחרי 3 ניסיונות בהפרש של כשתי דקות.\n\n${lines.join("\n\n")}\n\nמה לעשות: בדרך כלל כלום. המאגרים נמצאים אצל משרד התחבורה וחוזרים לעבוד בעצמם, בדרך כלל תוך שעות. אם ההתראה חוזרת גם מחר, כתבו לי ואבדוק.\n\nזמן: ${ilTime()} (שעון ישראל)`);
+  await telegram(failText(bad, results.length));
   process.exit(1);
 }
 console.log("all datasets healthy");
