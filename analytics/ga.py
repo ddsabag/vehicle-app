@@ -107,6 +107,8 @@ def collect(period, cfg):
     data["make"] = by_param(E["lookup"], "make", quiet=True)    # new in 1.25, silent until the custom dimension exists
     data["model"] = by_param(E["lookup"], "model", quiet=True)    # new in 1.25, silent until the custom dimension exists
     data["fuel"] = by_param(E["lookup"], "fuel", quiet=True)    # new in 1.25, silent until the custom dimension exists
+    data["nores_kind"] = by_param(E["no_result"], "kind", quiet=True)
+    data["nores_term"] = by_param(E["no_result"], "term", quiet=True)    # new in 1.26, silent until the custom dimension `term` exists
     data["tabs"] = by_param(E["tab"], "tab")
     data["upgrade_from"] = by_param(E["upgrade_open"], "from")
     data["screenshot_tab"] = by_param(E["screenshot"], "tab")

@@ -8,7 +8,7 @@ from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, HERE)
-import analyze, notify, render, sample  # noqa: E402
+import analyze, insights, notify, render, sample  # noqa: E402
 
 
 def periods(today):
@@ -16,7 +16,7 @@ def periods(today):
     return {"start": end - timedelta(days=6), "end": end, "prev_start": end - timedelta(days=13), "prev_end": end - timedelta(days=7)}
 
 
-def brief(d, a, link):
+def brief(d, a, link, ins=None):
     em = {"green": "🟢", "yellow": "🟡", "red": "🔴"}[a["status"]]
     k = {x["key"]: x for g in a["kpis"].values() for x in g}
     def c(x):
@@ -37,6 +37,8 @@ def brief(d, a, link):
         lines += ["", "חריגות:"] + [f"{'🔴' if x['level'] == 'red' else '🟡'} {x['title']}" for x in flags[:4]]
     else:
         lines += ["", "אין חריגות."]
+    if ins and ins["lines"]:
+        lines += ["", "תובנות:"] + ins["lines"]
     lines += ["", "המלצות:"] + [f"{i}. {r}" for i, r in enumerate(a["recommendations"], 1)]
     if link: lines += ["", link]
     return "\n".join(lines)
@@ -61,11 +63,12 @@ def main():
         import sources
         extra, more = sources.collect_all(per, cfg); data.setdefault("notes", []).extend(more)
     res = analyze.analyze(data, cfg, extra)
+    ins = insights.build(data, extra)
     os.makedirs(a_.out, exist_ok=True)
     name = f"luchit-weekly-{per['end'].isoformat()}"
     html_path = os.path.join(a_.out, name + ".html")
     open(html_path, "w", encoding="utf-8").write(render.page(data, res))
-    json.dump({"data": data, "analysis": {k: v for k, v in res.items() if k != "daily"}}, open(os.path.join(a_.out, name + ".json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1, default=str)
+    json.dump({"insights": ins, "data": data, "analysis": {k: v for k, v in res.items() if k != "daily"}}, open(os.path.join(a_.out, name + ".json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1, default=str)
     link = (f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}" if os.environ.get("GITHUB_RUN_ID") else "")
     text = brief(data, res, ("הדשבורד המלא בקובץ המצורף, ובהרצה: " + link) if link else "")
     print(text); print("\nreport:", html_path, "| status:", res["status"])

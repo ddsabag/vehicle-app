@@ -29,7 +29,9 @@
     "upgrade_open": "upgrade_open",
     "purchase_start": "upgrade_purchase_start",
     "trial_start": "trial_start",
-    "screenshot": "user_screenshot"
+    "screenshot": "user_screenshot",
+    "no_result": "search_no_result",
+    "buy_card": "buy_card_open"
   },
   "sources": {
     "search_console_site": "sc-domain:luchit.app",
