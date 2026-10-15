@@ -19,7 +19,8 @@ async function token() {
 const t = await token(), H = { authorization: "Bearer " + t, "content-type": "application/json" };
 const errors = [];
 async function call(url, body) {
-  const r = await fetch(url, body ? { method: "POST", headers: H, body: JSON.stringify(body) } : { headers: H });
+  let r; try { r = await fetch(url, { ...(body ? { method: "POST", body: JSON.stringify(body) } : {}), headers: H, signal: AbortSignal.timeout(30000) }); }
+  catch (e) { errors.push(`${e.name} ${url.slice(-60)}`); return null; }
   if (!r.ok) { const e = `${r.status} ${url.slice(-60)}: ${(await r.text()).slice(0, 300)}`; errors.push(e); return null; }
   return r.json();
 }
@@ -38,13 +39,19 @@ const xml = await (await fetch("https://luchit.app/sitemap.xml")).text();
 const urls = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
 const extra = (process.env.EXTRA_URLS || "").split(",").map(s => s.trim()).filter(Boolean);
 out.inspection = [];
-for (const u of [...urls, ...extra]) {
-  const j = await call("https://searchconsole.googleapis.com/v1/urlInspection/index:inspect", { inspectionUrl: u, siteUrl: SITE, languageCode: "he" });
-  const s = j?.inspectionResult?.indexStatusResult;
-  out.inspection.push(s ? { url: u, verdict: s.verdict, coverage: s.coverageState, indexing: s.indexingState, fetch: s.pageFetchState, robots: s.robotsTxtState,
-    lastCrawl: s.lastCrawlTime, crawledAs: s.crawledAs, googleCanonical: s.googleCanonical, userCanonical: s.userCanonical, referrers: s.referringUrls, sitemaps: s.sitemap } : { url: u, error: true });
-  await new Promise(r => setTimeout(r, 150));
-}
+const list = [...urls, ...extra], started = Date.now(); let next = 0;
+const worker = async () => {
+  while (next < list.length && Date.now() - started < 12 * 60 * 1000) {
+    const u = list[next++];
+    const j = await call("https://searchconsole.googleapis.com/v1/urlInspection/index:inspect", { inspectionUrl: u, siteUrl: SITE, languageCode: "he" });
+    const s = j?.inspectionResult?.indexStatusResult;
+    out.inspection.push(s ? { url: u, verdict: s.verdict, coverage: s.coverageState, indexing: s.indexingState, fetch: s.pageFetchState, robots: s.robotsTxtState,
+      lastCrawl: s.lastCrawlTime, crawledAs: s.crawledAs, googleCanonical: s.googleCanonical, userCanonical: s.userCanonical, referrers: s.referringUrls, sitemaps: s.sitemap } : { url: u, error: true });
+    if (out.inspection.length % 25 === 0) console.log("inspected", out.inspection.length, "of", list.length);
+  }
+};
+await Promise.all([worker(), worker(), worker(), worker()]);
+out.notInspected = list.length - out.inspection.length;
 out.errors = errors;
 const cov = {}; for (const i of out.inspection) cov[i.coverage || "error"] = (cov[i.coverage || "error"] || 0) + 1;
 console.log("rows: queries", out.byQuery.length, "pages", out.byPage.length, "inspected", out.inspection.length, "errors", errors.length);
