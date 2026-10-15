@@ -1668,7 +1668,7 @@ async function lookup(raw){
   // a slow ministry server: say so after 3.5 s instead of leaving a silent bar
   const t0 = Date.now();
   const slowT = setTimeout(() => { if (!signal.aborted && $("#skl") && !$("#slowNote")) track("lookup_slow"); if (!signal.aborted && $("#skl") && !$("#slowNote")) out.insertAdjacentHTML("beforeend", `<p class="note" id="slowNote" role="status" style="text-align:center">בודק, לוקח יותר מהרגיל. שרתי משרד התחבורה איטיים כרגע. <button type="button" class="link-btn" id="cancelLook">ביטול</button></p>`); const cb = $("#cancelLook"); if (cb) cb.addEventListener("click", () => { ctrl.abort(); goHome(); }); }, 3500);
-  const side = Promise.race([Promise.all([loadModelStats().catch(() => null), loadService().catch(() => null), loadMarketTags().catch(() => null)]), new Promise(r => setTimeout(r, 1500))]);
+  const side = Promise.race([Promise.all([loadModelStats().catch(() => null), loadService().catch(() => null)]), new Promise(r => setTimeout(r, 1500))]);
   let D;
   try { D = await fetchVehicle(plate, signal, () => {}); }
   catch (err) { if (err.name === "AbortError") { if (timedOut) { D = {plate, offline: true}; track("lookup_timeout"); } else { if (Date.now() - t0 > 1500) track("lookup_abort"); return; } } else throw err; }   // the user gave up on a slow lookup and typed another
@@ -2346,7 +2346,6 @@ function tabBuy(D){
      <p class="note">הערכה בלבד. היא לא מביאה בחשבון את מצב הרכב, תאונות והביקוש לדגם.</p>` :
     `<p style="margin:0">אין במאגר מחיר מחירון לדגם הזה, ולכן אין הערכת שווי.</p>`)));
   html.push(`<div id="mstat">${msCard(D)}</div>`);
-  html.push(marketTagsCard(D));
   html.push(checksCard(D));
   const lk = (url, icon, text, copy) => `<button type="button" class="link-btn" data-url="${esc(url)}"${copy ? ` data-copyfirst="${D.plate}"` : ""}>${ico(icon)}${text}</button>`;
   const ckKey = "buychk:" + D.plate; let ckDone = []; try { ckDone = JSON.parse(localStorage.getItem(ckKey) || "[]"); } catch {}
@@ -4092,25 +4091,6 @@ function msPop(D){
   return t && t.n + t.c >= POP_MIN ? {n: t.n, c: t.c, pct: t.c / (t.n + t.c) * 100} : null;
 }
 const POP_MIN = 100;   // fewer cars than this: a percentage means nothing, show a dash
-/* market swings per model (market-tags.json, built monthly by the market-intelligence agent): short hedged notes, PRO */
-let MTAGS = null, mtP = null;
-function loadMarketTags(){
-  if (MTAGS) return Promise.resolve(MTAGS);
-  return mtP || (mtP = (async () => {
-    for (const u of [SITE + "market-tags.json", "market-tags.json"]) {
-      try { const r = await fetch(u, {cache: "no-cache"}); if (r.ok) { const j = await r.json(); if (j && j.tags) return MTAGS = j; } } catch {}
-    }
-    mtP = null; return null;
-  })());
-}
-function marketTagsCard(D){
-  if (!MTAGS || !D || !D.v || D.kind === "model") return "";
-  const mk = String(D.v.tozeret_nm || D.make || "").trim().split(/\s+/)[0], md = normModel(D.v.kinuy_mishari);
-  const list = (mk && md && MTAGS.tags[mk + "|" + md]) || [];
-  if (!list.length) return "";
-  if (PRO_LOCK && !isPro()) return proLockCard("מחיר היד השנייה של הדגם", "זיהינו שינוי בהיצע של הדגם הזה שעשוי להשפיע על המחיר. הפרטים זמינים ב-PRO.");
-  return card("מחיר היד השנייה של הדגם", "chart", "teal", list.map(t => t.h ? `<p style="margin:0 0 4px;font-size:1.08em"><b>${esc(t.h)}</b></p><p style="margin:0 0 6px">${esc(t.s)}</p><p class="note" style="margin:0 0 .8em">${esc(t.x)}</p>` : `<p style="margin:0 0 .6em"><b>${esc(t.t)}</b><br>${esc(t.x)}</p>`).join("") + `<p class="note">הערכה על סמך נתוני מסירות ורישום של משרד התחבורה, לא תחזית מחירים. מתעדכן אחת לחודש.</p>`);
-}
 function msCard(D){
   const c = msCohort(D); if (!c) return "";
   const avg = msYearAvg(c.year), rows = [], pc = x => (x * 100).toFixed(x < .1 ? 1 : 0) + "%";

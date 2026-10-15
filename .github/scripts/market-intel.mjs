@@ -1,6 +1,6 @@
 // Market-intelligence agent: turns the monthly market.json (new-car deliveries per model) and modelstats.json (cars on the road per model
 // and production year, with the share held by leasing/rental companies) into short, hedged market tags per model: market-tags.json.
-// The app shows them on the "קנייה" tab for PRO. No network: it only reads files the monthly workflows already produce.
+// Only the monthly magazine reads them (section "תנודות בהיצע של דגמים"); the app no longer shows a card, because delivery volume does not say how a model prices on the used market.
 // Usage: node market-intel.mjs [--selftest]   (inputs: market.json, modelstats.json, index.html in the working directory; output: market-tags.json)
 import fs from "node:fs";
 
