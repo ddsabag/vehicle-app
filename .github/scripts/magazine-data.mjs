@@ -80,7 +80,7 @@ ${TYPE === "newmodels" ? listHtml : `<h2>עשרת הדגמים הראשונים 
 ${sections.map(([h, t]) => `<h2>${esc(h)}</h2>${t}`).join("")}
 <h2>שאלות ותשובות</h2><div class="faq">${faq.map(([q, a]) => `<h3>${prPlain(q)}</h3><p>${prPlain(a)}</p>`).join("")}</div>
 <div class="card"><b>בדקו רכב מסוים</b><p class="muted" style="margin:6px 0 12px">הקלידו מספר רישוי וקבלו ריקולים, הסדרי פשרה, טסט, היסטוריית בעלויות ומחיר משוער, בחינם.</p><a class="cta" href="${SITE}">לבדיקה לפי מספר רישוי</a></div>
-<p class="muted">מקור הנתונים: מאגרי משרד התחבורה, נכון ל-<bdi>${esc(S.updated.split("-").reverse().join("."))}</bdi>. הכתבה נוצרה אוטומטית מהנתונים. פורסם ב-<bdi>${esc(published.split("-").reverse().join("."))}</bdi>.</p>${foot}`;
+<p class="muted">מקור הנתונים: מאגרי משרד התחבורה, נכון ל-<bdi>${esc(NM ? MONTHS[NM.latest % 100 - 1] + " " + Math.floor(NM.latest / 100) : S.updated.split("-").reverse().join("."))}</bdi>. הכתבה נוצרה אוטומטית מהנתונים. פורסם ב-<bdi>${esc(published.split("-").reverse().join("."))}</bdi>.</p>${foot}`;
 if (process.env.PREVIEW) { fs.mkdirSync("out", {recursive: true}); fs.writeFileSync(`out/${slug}.html`, body); console.log("preview written: out/" + slug + ".html", body.length, "bytes"); process.exit(0); }
 fs.mkdirSync(`magazine/${slug}`, {recursive: true}); fs.writeFileSync(`magazine/${slug}/index.html`, body);
 

@@ -24,14 +24,16 @@ async function scan(id, extra, onRows) {
 
 // catalogue spelling folded to comparable tokens: upper case, "JAECOO7" and "JAECOO 7" the same, spaces collapsed
 export const tokens = s => String(s || "").toUpperCase().replace(/([A-Z])(\d)/g, "$1 $2").replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
-// a name is a version of an older model when it shares all but its last word with it ("TIGGO 7 HEV" and "TIGGO 7 PRO"), or, for a one-word name, its first word ("BIGSTER" and "BIGSTER HYBRID")
+// a name is a version of an older model when it shares all but its last word with it ("TIGGO 7 HEV" and "TIGGO 7 PRO"), or, for a one-word name, its first word ("BIGSTER" and "BIGSTER HYBRID"); returns the shared base name
 export function versionOf(name, olderNames) {
   const t = tokens(name), need = Math.max(1, t.length - 1);
-  for (const o of olderNames) { const u = tokens(o); if (u.length >= need && t.slice(0, need).every((w, i) => u[i] === w) && u.join(" ") !== t.join(" ")) return o; }
+  for (const o of olderNames) { const u = tokens(o); if (u.length >= need && t.slice(0, need).every((w, i) => u[i] === w) && u.join(" ") !== t.join(" ")) return t.slice(0, need).join(" "); }
   return null;
 }
 export const quarterOf = m => String(m).slice(0, 4) + "Q" + Math.ceil(Number(String(m).slice(4)) / 3);
 export const cleanTrim = s => String(s || "").replace(/\s+/g, " ").trim();
+// the catalogue cuts some trim names to a fixed width ("TERRAMA 204", "ERRAMAR 1.5"): a first word that is a fragment of the model's first word is completed
+export function fixTrim(trim, model) { const t = tokens(trim), m = tokens(model)[0]; if (t[0] && m && t[0] !== m && t[0].length >= 4 && m.includes(t[0])) t[0] = m; return t.join(" "); }
 const driveLabel = (tech, fuel) => ({ "רכב חשמלי": "חשמלי", "היברידי רגיל": "היברידי", "PLUG IN": "פלאג-אין היברידי" }[String(tech).trim()] || String(fuel || "").trim());
 
 export async function newModels(quarterArg) {
@@ -71,7 +73,7 @@ export async function newModels(quarterArg) {
       if (sum(mo, qm) < MIN_TRIM_UNITS) continue;
       const [t, g] = code.split("|"), flt = JSON.stringify({ tozeret_cd: t, degem_cd: g });
       const [w, p] = await Promise.all([call(WLTP, { filters: flt, limit: "1", sort: "shnat_yitzur desc" }), call(PRICE, { filters: flt, limit: "1", sort: "shnat_yitzur desc" })]);
-      const x = w.records[0] || {}, price = Number((p.records[0] || {}).mehir) || 0, tn = cleanTrim(x.ramat_gimur) || "ללא שם";
+      const x = w.records[0] || {}, price = Number((p.records[0] || {}).mehir) || 0, tn = fixTrim(cleanTrim(x.ramat_gimur), m.name) || "ללא שם";
       const e = byTrim.get(tn) || { name: tn, lo: Infinity, hi: 0, hp: 0, drive: "" };
       if (price) { e.lo = Math.min(e.lo, price); e.hi = Math.max(e.hi, price); }
       e.hp = Math.max(e.hp, Number(x.koah_sus) || 0); e.drive ||= driveLabel(x.technologiat_hanaa_nm, x.delek_nm);
@@ -85,13 +87,14 @@ export async function newModels(quarterArg) {
 
 if (process.argv.includes("--selftest")) {
   const ok = (c, m) => { if (!c) { console.log("selftest FAILED:", m); process.exit(1); } };
-  ok(versionOf("FX HEV", ["FX EV", "TIGGO 7 PRO"]) === "FX EV", "FX HEV is a version of FX EV");
+  ok(versionOf("FX HEV", ["FX EV", "TIGGO 7 PRO"]) === "FX", "FX HEV is a version of FX EV");
   ok(versionOf("ATTO 3 EVO", ["ATTO 3", "SEAL"]) === "ATTO 3", "ATTO 3 EVO");
-  ok(versionOf("TIGGO 7 HEV", ["TIGGO 7 PRO"]) === "TIGGO 7 PRO", "TIGGO 7 HEV");
-  ok(versionOf("C-HR PLUS", ["C-HR HYBRID"]) === "C-HR HYBRID", "C-HR PLUS");
-  ok(versionOf("BIGSTER", ["BIGSTER HYBRID"]) === "BIGSTER HYBRID", "one word");
+  ok(versionOf("TIGGO 7 HEV", ["TIGGO 7 PRO"]) === "TIGGO 7", "TIGGO 7 HEV");
+  ok(versionOf("C-HR PLUS", ["C-HR HYBRID"]) === "C-HR", "C-HR PLUS");
+  ok(versionOf("BIGSTER", ["BIGSTER HYBRID"]) === "BIGSTER", "one word");
   ok(versionOf("ORA 5 SUV", ["ORA FUNKY CAT"]) === null, "ORA 5 SUV is not a version of ORA FUNKY CAT");
   ok(versionOf("TAYRON", ["TIGUAN", "TOUAREG"]) === null, "TAYRON is new");
+  ok(fixTrim("ERRAMAR 1.5", "TERRAMAR") === "TERRAMAR 1.5" && fixTrim("TERRAMA 204", "TERRAMAR") === "TERRAMAR 204" && fixTrim("VIBE", "ORA 5 SUV") === "VIBE", "truncated trim");
   ok(tokens("JAECOO7 PHEV").join(" ") === "JAECOO 7 PHEV", "letter-digit split");
   ok(quarterOf("202609") === "2026Q3" && quarterOf("202601") === "2026Q1", "quarterOf");
   console.log("selftest ok");
