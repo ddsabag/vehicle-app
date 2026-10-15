@@ -1,0 +1,57 @@
+{
+  "version": 2,
+  "updated": "2026-10-15",
+  "issues": [
+    {
+      "id": "vag-dq200-mechatronic-12tsi",
+      "component": "transmission",
+      "part": "יחידת מכטרוניקה DQ200",
+      "trigger": {
+        "label": "1.2 TSI עם תיבת DSG7 יבשה (DQ200)",
+        "codes": ["CBZ", "CJZ", "CYV"],
+        "cc": {"min": 1150, "max": 1250},
+        "gearbox": "automatic",
+        "fuel": ["בנזין"],
+        "makers": ["פולקסווגן", "סקודה", "סיאט", "אאודי"],
+        "years": {"from": 2010, "to": 2018}
+      },
+      "title": "כשל ביחידת המכטרוניקה של תיבת DSG7",
+      "summary": "דוגמה למבנה בלבד. הטקסט, השנים, הקודים והמקורות ייכתבו אחרי מחקר ידני, ורק לפי מה שכתוב במקורות.",
+      "symptoms": ["טלטולים בהחלפת הילוכים", "נורת תקלה מהבהבת", "מעבר למצב חירום (הילוך אחד)"],
+      "severity": "high",
+      "status": "extended_warranty",
+      "statusText": "לאמת: האם הוארכה האחריות על המכטרוניקה בישראל, לכמה שנים וק״מ",
+      "statusUntil": "2030-12-31",
+      "advice": "בקשו מהמוכר חשבונית החלפה או תיקון של המכטרוניקה, ובדקו מול היבואן אם הרכב זכאי להארכת אחריות.",
+      "sources": [
+        {"type": "manufacturer_notice", "title": "לאמת: הודעת היצרן על הארכת האחריות", "publisher": "Volkswagen AG", "url": "https://example.invalid/replace-with-official-source", "date": "2013-01-01"},
+        {"type": "importer_notice", "title": "לאמת: הודעת היבואן בישראל", "publisher": "היבואן", "url": "https://example.invalid/replace-with-importer-page", "date": "2013-01-01"}
+      ],
+      "reviewed": {"date": "2026-10-15", "by": "דוגמה"}
+    },
+    {
+      "id": "psa-puretech-12-wet-belt",
+      "component": "engine",
+      "part": "רצועת תזמון טובלת בשמן",
+      "trigger": {
+        "label": "PureTech 1.2 (EB2), 3 צילינדרים",
+        "codes": ["HN01", "HN02", "HN05"],
+        "cc": {"min": 1150, "max": 1250},
+        "fuel": ["בנזין"],
+        "makers": ["פיג'ו", "סיטרואן", "אופל", "די אס"],
+        "years": {"from": 2013, "to": 2023}
+      },
+      "title": "בלאי מוקדם של רצועת תזמון שטובלת בשמן",
+      "summary": "דוגמה למבנה בלבד. הטקסט, השנים, הקודים והמקורות ייכתבו אחרי מחקר ידני, ורק לפי מה שכתוב במקורות.",
+      "symptoms": ["נורת לחץ שמן", "רעש ממנוע", "צריכת שמן גבוהה"],
+      "severity": "high",
+      "status": "extended_warranty",
+      "statusText": "לאמת: היקף הארכת האחריות ותנאיה בישראל",
+      "advice": "בקשו מהמוכר חשבונית החלפת רצועה ובדקו מול היבואן אם הרכב זכאי להארכת האחריות.",
+      "sources": [
+        {"type": "manufacturer_notice", "title": "לאמת: הודעת היצרן על הארכת האחריות", "publisher": "Stellantis", "url": "https://example.invalid/replace-with-official-source", "date": "2023-01-01"}
+      ],
+      "reviewed": {"date": "2026-10-15", "by": "דוגמה"}
+    }
+  ]
+}

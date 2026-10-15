@@ -1,0 +1,15 @@
+name: Check known issues library
+on:
+  push:
+    paths: ["known-issues.json", ".github/scripts/known-issues-check.mjs"]
+  pull_request:
+    paths: ["known-issues.json"]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node .github/scripts/known-issues-check.mjs known-issues.json
