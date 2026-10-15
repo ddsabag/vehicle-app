@@ -930,8 +930,11 @@ async function ownMirror(plate, signal){
 }
 /* "Back on the road" (zombie-detector.mjs, monthly): plates that left the active register and came back later.
    Kept as shards by the plate's last three digits on the zombie-data branch: "plate|goneYYYYMM|backYYYYMM|via". */
+// off until Dudu turns it on (2026-10-15: no history yet, snapshots keep collecting in the background)
+const ZOMBIE_ON = false;
 const ZOMBIE_BASE = "https://raw.githubusercontent.com/ddsabag/vehicle-app/zombie-data/";
 async function zombieLookup(plate, signal){
+  if (!ZOMBIE_ON) return null;
   try {
     const p = String(Number(plate)), r = await fetch(`${ZOMBIE_BASE}z/${p.slice(-3).padStart(3, "0")}.txt`, {signal});
     if (!r.ok) return null;
