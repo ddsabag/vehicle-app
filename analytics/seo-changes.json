@@ -1,8 +1,31 @@
 {
   "_about": "SEO change ledger: URL (or URL prefix ending in *) -> last date its title, meta description or internal links changed. Do not change the same URL again within 21 days, except for factual errors, broken links, legal/privacy fixes and brand-new pages.",
-  "https://luchit.app/model/*": {"date": "2026-10-15", "what": "breadcrumb brand name now links to the brand page (new pages); titles unchanged"},
-  "https://luchit.app/model/": {"date": "2026-10-15", "what": "brand headings link to the brand pages"},
-  "https://luchit.app/": {"date": "2026-10-15", "what": "web footer link to /check/"},
-  "https://luchit.app/check/*": {"date": "2026-10-15", "what": "new: 7 search-intent pages + hub"},
-  "https://luchit.app/brand/*": {"date": "2026-10-15", "what": "new: 28 brand pages"}
+  "https://luchit.app/model/*": {
+    "date": "2026-10-15",
+    "what": "breadcrumb brand name now links to the brand page (new pages); titles unchanged"
+  },
+  "https://luchit.app/model/": {
+    "date": "2026-10-15",
+    "what": "brand headings link to the brand pages"
+  },
+  "https://luchit.app/": {
+    "date": "2026-10-15",
+    "what": "web footer link to /check/"
+  },
+  "https://luchit.app/check/*": {
+    "date": "2026-10-15",
+    "what": "new: 7 search-intent pages + hub"
+  },
+  "https://luchit.app/brand/*": {
+    "date": "2026-10-15",
+    "what": "new: 28 brand pages"
+  },
+  "https://luchit.app/magazine/": {
+    "date": "2026-10-15",
+    "what": "new article recalls-2026-10 added to the list"
+  },
+  "https://luchit.app/magazine/recalls-2026-10/": {
+    "date": "2026-10-15",
+    "what": "new: data article (recalls per 1,000 vehicles)"
+  }
 }

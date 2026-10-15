@@ -208,7 +208,7 @@ ${sections.map(([h, t]) => `<h2>${h}</h2>${t}`).join("")}
   fs.mkdirSync("guide/buy-used-car", {recursive: true}); fs.writeFileSync("guide/buy-used-car/index.html", body);
   urls.push(url);
 }
-buildLanding({SITE, head, foot, esc, fmt, models, g, NAT, SETTLEMENTS, urls, lastmod, MOD: "", slugOf});
+buildLanding({SITE, head, foot, esc, fmt, models, g, NAT, SETTLEMENTS, urls, lastmod, MOD, slugOf});
 // the monthly magazine (magazine.mjs) keeps its own pages; keep them in the sitemap
 try { const posts = JSON.parse(fs.readFileSync("magazine/posts.json", "utf8")); urls.push(SITE + "magazine/", ...posts.map(p => `${SITE}magazine/${p.slug}/`)); for (const p of posts) if (p.date) lastmod[`${SITE}magazine/${p.slug}/`] = p.date; if (posts[0] && posts[0].date) lastmod[SITE + "magazine/"] = posts[0].date; } catch {}
 fs.writeFileSync("sitemap.xml", `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(u => `  <url><loc>${u}</loc>${lastmod[u] ? `<lastmod>${lastmod[u]}</lastmod>` : ""}</url>`).join("\n")}\n</urlset>\n`);
