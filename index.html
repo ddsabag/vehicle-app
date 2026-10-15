@@ -288,6 +288,13 @@ footer{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:4px 24px;
 .appbox .btn{display:block;width:100%;text-align:center;background:#111;color:#fff;border:0;border-radius:12px;padding:12px;font-weight:700;font-size:.9rem;min-height:44px}
 .webcta{display:block;width:100%;border:0;background:none;color:var(--muted);font:inherit;font-size:.85rem;text-align:center;padding:6px 8px;margin:0 0 6px;min-height:44px;cursor:pointer}.webcta b{color:var(--accent);font-weight:700}
 .apphint{display:flex;gap:10px;align-items:center;width:100%;border:0;text-align:start;background:#FFF8DC;color:var(--fg);border-radius:12px;padding:10px 12px;font-size:.9rem;margin:0 0 10px;min-height:44px}
+.shared-top{display:flex;gap:9px;align-items:center;background:#eef3fc;color:#1e3f86;border-radius:12px;padding:10px 12px;font-size:.88rem;margin:0 0 10px;line-height:1.4}
+.sharebar{position:fixed;inset-inline:0;bottom:0;z-index:25;background:var(--card);border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(0,0,0,.08);padding:10px 14px calc(12px + env(safe-area-inset-bottom,0px))}
+.sb-in{display:flex;align-items:center;gap:10px;max-width:760px;margin:0 auto}.sb-txt{flex:1;min-width:0}.sb-txt b{display:block;font-size:.95rem}.sb-txt small,.sb-sub{color:var(--muted);font-size:.78rem}.sb-sub{display:block;max-width:760px;margin:5px auto 0}
+.sb-btn{border:0;border-radius:12px;background:var(--fg);color:var(--card);font:inherit;font-weight:700;font-size:.9rem;padding:11px 14px;min-height:44px;white-space:nowrap;cursor:pointer}.sb-btn.alt{background:var(--soft);color:var(--fg)}
+.sb-col{flex-direction:column;align-items:stretch;gap:8px}.sb-btns{display:flex;gap:8px}.sb-btns .sb-btn{flex:1}
+.sb-pad{height:124px}
+@media print{.sharebar,.sb-pad,.shared-top{display:none}}
 .apphint b{white-space:nowrap}.apphint .gox{margin-inline-start:auto;color:var(--accent,#2556c8);font-weight:700;white-space:nowrap}
 .src-foot{order:100}
 @media (min-width:1000px){
@@ -694,7 +701,8 @@ button:not(:disabled):active,.link-btn:active,.act:active,.tabs button:active,a.
   <div class="sheet-in">
     <div class="sheet-head"><h2 id="shareTitle">שיתוף הדוח</h2><button class="icon-btn" type="button" id="closeShare" aria-label="סגירה"><svg class="i"><use href="#i-x"/></svg></button></div>
     <div class="list share-opts">
-      <button type="button" class="row" data-share="image"><span class="badge-s blue"><svg class="i"><use href="#i-image"/></svg></span><span class="t"><b>תמונה</b><small>צילום של הדוח כפי שהוא על המסך, לשליחה בוואטסאפ</small></span></button>
+      <button type="button" class="row" data-share="card"><span class="badge-s blue"><svg class="i"><use href="#i-image"/></svg></span><span class="t"><b>כרטיס סיכום</b><small>תמונה אחת עם מה שנמצא, לשליחה בוואטסאפ (מומלץ)</small></span></button>
+      <button type="button" class="row" data-share="image"><span class="badge-s slate"><svg class="i"><use href="#i-image"/></svg></span><span class="t"><b>צילום הדוח המלא</b><small>כפי שהוא על המסך, כולל כל הכרטיסים</small></span></button>
       <button type="button" class="row" data-share="pdf"><span class="badge-s red"><svg class="i"><use href="#i-doc"/></svg></span><span class="t"><b>קובץ PDF</b><small>דוח מלא: סקירה, ריקולים, עלויות ומפרט</small></span></button>
       <button type="button" class="row" data-share="bizpdf" hidden><span class="badge-s green"><svg class="i"><use href="#i-doc"/></svg></span><span class="t"><b>PDF ממותג (PRO עסקי)</b><small>עם פרטי העסק שלכם, בלי לוגו ובלי קישור של לוחית</small></span></button>
       <button type="button" class="row" data-share="text"><span class="badge-s slate"><svg class="i"><use href="#i-copy"/></svg></span><span class="t"><b>טקסט</b><small>סיכום קצר בהודעה</small></span></button>
@@ -1048,9 +1056,11 @@ async function copyText(t, label){
 /* web visitors who go to Google Play carry a campaign tag, so Play Console can show how many store visits and installs come from luchit.app */
 const playWeb = c => `${PLAY_URL}&referrer=${encodeURIComponent("utm_source=luchit.app&utm_medium=web&utm_campaign=" + c)}`;
 /* the install referrer keeps plate= for the app's first launch, plus a campaign tag so Play Console and Firebase count installs that came from a shared report */
+/* what a share points to: the live report on the site (opens the app for people who have it, a web report for everyone else). s= says which kind of share it was */
+const shareLink = (plate, via) => plate ? `${SITE}?plate=${plate}&s=${via}` : `${SITE}?s=${via}`;
 const carLink = (plate, via = "text") => `${PLAY_URL}&referrer=${encodeURIComponent(`plate=${plate}&utm_source=share&utm_medium=${via}&utm_campaign=car_share`)}`;
 async function shareText(title, text, plate){
-  text += plate ? `\n\nהדוח המלא באפליקציה לוחית:\n${carLink(plate)}` : "\n\nמקור: מאגרי משרד התחבורה, דרך האפליקציה לוחית";
+  text += plate ? `\n\nהדוח המלא והמעודכן בלוחית:\n${shareLink(plate, "txt")}` : "\n\nמקור: מאגרי משרד התחבורה, דרך האפליקציה לוחית";
   try { if (bridge() && bridge().share) { bridge().share(title, text); return; } } catch {}
   if (navigator.share) { try { await navigator.share({title, text}); return; } catch (err) { if (err && err.name === "AbortError") return; } }
   copyText(text, "הסיכום");
@@ -1699,10 +1709,25 @@ async function loadStatus(){
 }
 const appBox = D => `<section class="appbox"><h3>באתר רואים את הרכב. באפליקציה הוא עובד בשבילכם</h3><p>אותה בדיקה, ועוד:</p><ul><li>התראה כשהטסט מתקרב או שנפתח ריקול</li><li>הודעה אם הרכב עבר בעלות או ירד מהכביש</li><li>הסדרי פשרה: בדיקה אם הרכב שלכם זכאי להטבה מהיבואן</li><li>יומן טיפולים ועלויות על הטלפון</li><li>צילום לוחית ואמירת מספר, במקום להקליד</li></ul><button type="button" class="btn" data-url="${playWeb("result_box")}" data-hint="side">להורדה ב-Google Play</button></section>`;
 const appHint = D => {
-  if (window.AndroidApp || D.kind === "model" || D.isCancelled) return "";
+  if (window.AndroidApp || D.kind === "model" || D.isCancelled || sharedHere(D)) return "";
   const t = D.recalls && D.recalls.length ? "התראה כשיוצא ריקול חדש לרכב הזה" : "תזכורת לפני שהטסט פג";
   return `<button type="button" class="apphint" data-url="${playWeb("result_hint")}" data-hint="overview"><span aria-hidden="true">🔔</span><span><b>רוצים לדעת ראשונים?</b> ${t}</span><span class="gox">באפליקציה ›</span></button>`;
 };
+/* web visitors who arrive from a shared report (s= in the link): a bar that opens the app on this very car (Android), or a calendar reminder (everyone else) */
+const IS_ANDROID = /Android/i.test(navigator.userAgent);
+function sharedBar(D){
+  const exp = toDate(D.v.tokef_dt), canCal = exp && !D.isCancelled;
+  let main;
+  if (IS_ANDROID) {
+    const intent = `intent://luchit.app/?plate=${D.plate}&s=bar#Intent;scheme=https;package=com.ddsabag.pratirechev;S.browser_fallback_url=${encodeURIComponent(carLink(D.plate, "bar"))};end`;
+    main = `<div class="sb-txt"><b>עקבו אחרי הרכב הזה</b><small>התראה על ריקול חדש, טסט שמתקרב והעברת בעלות</small></div><button type="button" class="sb-btn" data-act="openapp" data-intent="${esc(intent)}">פתחו באפליקציה</button>`;
+  } else {
+    main = `<div class="sb-txt"><b>שומרים על הרכב הזה בעין</b><small>${canCal ? "הטסט פג ב-" + fmtDate(D.v.tokef_dt) : "בדקו רכב נוסף לפני שמחליטים"}</small></div><div class="sb-btns">` +
+      (canCal ? `<button type="button" class="sb-btn" data-act="barcal">📅 תזכורת טסט ביומן</button>` : "") + `<button type="button" class="sb-btn${canCal ? " alt" : ""}" data-act="another">בדיקת רכב נוסף</button></div>`;
+  }
+  return `<div class="sharebar" role="region" aria-label="מעקב אחרי הרכב"><div class="sb-in${IS_ANDROID ? "" : " sb-col"}">${main}</div>${IS_ANDROID ? `<small class="sb-sub">חינם ב-Google Play · נפתח ישר על הרכב הזה</small>` : ""}</div><div class="sb-pad"></div>`;
+}
+const sharedHere = D => !!(SHARED && D.plate === SHARED && D.kind !== "model");
 function renderResult(){
   if (land) setLand(false, false);
   inCompare = false;
@@ -1722,6 +1747,7 @@ function renderResult(){
   if (clean) pills.push(`<span class="pill ok">${ico("check")}לא נמצאו בעיות במאגרי משרד התחבורה</span>`);
   if (D.tag) pills.push(`<span class="pill">תג נכה</span>`);
   html.push(`<div class="side">`);
+  if (sharedHere(D)) html.push(`<div class="shared-top"><span aria-hidden="true">📩</span><span><b>דוח רכב שנשלח אליך</b> · נבדק עכשיו מול משרד התחבורה, מעודכן יותר מכל קובץ</span></div>`);
   if (D.fromCache) html.push(`<div class="msg" role="status"><b>אין חיבור למשרד התחבורה, ולכן מוצגים נתונים שנשמרו ב-${esc(fmtDate(new Date(D.fromCache).toISOString()))}.</b> ייתכן שהם לא מעודכנים. <button type="button" class="link-btn" data-retry="${esc(D.plate)}">נסו שוב</button></div>`);
   html.push(`<section class="card id-card">
     <div class="id-top"><div><h2 class="id-title" id="resHead" tabindex="-1">${esc(D.title)}</h2><p class="id-sub">${esc(!empty(v.shnat_yitzur) && !simpleOn() ? D.sub.split(" · ").slice(1).join(" · ") : D.sub)}</p></div>
@@ -1757,6 +1783,7 @@ function renderResult(){
   }
   html.push(`</div>`);
   html.push(srcFoot());
+  if (sharedHere(D)) html.push(sharedBar(D));
   const ft = document.querySelector("body > footer"); if (ft) ft.hidden = true;
   $("#out").innerHTML = html.join("");
   loadStatus();
@@ -3053,6 +3080,9 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.copy) { copyText(b.dataset.copy, b.dataset.label); return; }
   if (b.dataset.act === "simple") { const want = !simpleOn(); try { localStorage.setItem("simpleView", want ? "1" : "0"); } catch {} track("simple_view", {on: simpleOn()}); renderResult(); return; }
   if (b.dataset.act === "simpleMore") { simpleMore = !simpleMore; track("simple_more", {on: simpleMore}); renderResult(); return; }
+  if (b.dataset.act === "openapp") { track("web_hint_click", {where: "share_bar"}); track("web_install_click"); location.href = b.dataset.intent; return; }
+  if (b.dataset.act === "barcal") { track("web_hint_click", {where: "share_bar_cal"}); if (current) testReminderFile(current); return; }
+  if (b.dataset.act === "another") { track("web_hint_click", {where: "share_bar_more"}); location.href = "/"; return; }
   if (b.dataset.url) {
     if (b.dataset.copyfirst) { copyText(b.dataset.copyfirst, b.dataset.copylabel || "מספר הרישוי").then(() => setTimeout(() => openExternal(b.dataset.url), 600)); return; }
     if (b.dataset.hint) track("web_hint_click", {where: b.dataset.hint});
@@ -3167,6 +3197,7 @@ $("#compareSheet").addEventListener("click", ev => { if (ev.target.id === "compa
 /* Libraries load from a CDN only when first needed, so the app itself stays one small file */
 const LIBS = {
   img: "https://cdn.jsdelivr.net/npm/html-to-image@1.11.13/dist/html-to-image.js",
+  qr: "lib/qrcode.min.js",   // QR code on the share card and the PDF cover (MIT, qrcode-generator 1.4.4)
   pdf: "lib/jspdf.umd.min.js",   // shipped with the app (same file as jspdf@2.5.2 on jsDelivr), so a PDF needs no download
   ocr: "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js",
 };
@@ -3466,7 +3497,7 @@ async function shareFile(blob, name, title, caption){
   if (br && br.shareFile) { br.shareFile(name, blob.type, await blobToBase64(blob), title); return; }
   const file = new File([blob], name, {type: blob.type});
   if (navigator.canShare && navigator.canShare({files: [file]})) {
-    try { await navigator.share({files: [file], title}); return; } catch (err) { if (err && err.name === "AbortError") return; }
+    try { await navigator.share(caption ? {files: [file], title, text: caption} : {files: [file], title}); return; } catch (err) { if (err && err.name === "AbortError") return; }
   }
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
@@ -3496,7 +3527,14 @@ function pdfBand(text, left, w, h, rule, logo){
 async function makePdf(D, biz, cap){
   const [{canvas, breaks}] = await Promise.all([cap || captureReport(D, true, biz), loadScript(LIBS.pdf)]);
   const yr = empty(D.v.shnat_yitzur) ? "" : " " + D.v.shnat_yitzur;
-  return await pdfFromCanvas(canvas, breaks, `${biz ? biz.name : "לוחית"} · ${D.title}${yr}`, fmtPlate(D.plate), biz ? await bizPdfOpts(biz) : undefined);
+  let opts;
+  if (biz) opts = await bizPdfOpts(biz);
+  else {
+    // our own PDF opens with a cover page (the same summary as the share card, A4 proportions, with a QR to the live report)
+    opts = {link: shareLink(D.plate, "pdf")};
+    try { opts.cover = (await drawShareCard(D, {cover: true})).canvas; } catch { reportErr("pdf_cover"); }
+  }
+  return await pdfFromCanvas(canvas, breaks, `${biz ? biz.name : "לוחית"} · ${D.title}${yr}`, fmtPlate(D.plate), opts);
 }
 async function pdfFromCanvas(canvas, breaks, headText, headLeft, opts = {}){
   const logo = "logo" in opts ? opts.logo : await loadLogo();
@@ -3504,6 +3542,7 @@ async function pdfFromCanvas(canvas, breaks, headText, headLeft, opts = {}){
   const W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight();
   const MX = 36, TOP = 58, BOT = 50, CW = W - 2 * MX;
   const scale = CW / canvas.width, pageH = Math.floor((H - TOP - BOT) / scale);
+  const cover = opts.cover || null, off = cover ? 1 : 0;
   const slices = []; let y = 0;
   while (y < canvas.height - 4) {
     let end = Math.min(y + pageH, canvas.height);
@@ -3512,16 +3551,17 @@ async function pdfFromCanvas(canvas, breaks, headText, headLeft, opts = {}){
   }
   const BW = Math.round(CW * 3), BH = 60, bh = BH / 3;
   const head = pdfBand(headText, headLeft, BW, BH, 1, logo);
-  const foot = n => pdfBand(opts.foot || "לוחית · בדיקת רכב לפי מספר רישוי · חינם ב-Google Play", n, BW, BH, -1, opts.foot ? null : logo);
+  const foot = n => pdfBand(opts.foot || "לוחית · בדיקת רכב לפי מספר רישוי · luchit.app", n, BW, BH, -1, opts.foot ? null : logo);
+  if (cover) pdf.addImage(cover.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, W, H, "cover");
   slices.forEach(([a, b], i) => {
-    if (i) pdf.addPage();
+    if (i || cover) pdf.addPage();
     const part = document.createElement("canvas"); part.width = canvas.width; part.height = b - a;
     const ctx = part.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, part.width, part.height);
     ctx.drawImage(canvas, 0, a, canvas.width, b - a, 0, 0, canvas.width, b - a);
     if (i) pdf.addImage(head, "JPEG", MX, 22, CW, bh, "head");
     pdf.addImage(part.toDataURL("image/jpeg", 0.88), "JPEG", MX, i ? TOP : 30, CW, (b - a) * scale, "page" + i);
-    pdf.addImage(foot(`${i + 1} / ${slices.length}`), "JPEG", MX, H - 34, CW, bh, "foot" + i);
-    if (!opts.foot) pdf.link(MX, H - 34, CW, bh, {url: PLAY_URL});
+    pdf.addImage(foot(`${i + 1 + off} / ${slices.length + off}`), "JPEG", MX, H - 34, CW, bh, "foot" + i);
+    if (!opts.foot) pdf.link(MX, H - 34, CW, bh, {url: opts.link || SITE});
   });
   return pdf.output("blob");
 }
@@ -3549,11 +3589,12 @@ async function shareComparePdf(btn){
 }
 /* what the user shared last time is prepared while the share sheet is open, so choosing it is usually instant */
 let shareWarm = {};
-const lastShare = () => { try { return localStorage.getItem("lastShare") === "pdf" ? "pdf" : "image"; } catch { return "image"; } };
-const shareKey = kind => kind === "pdf" ? [current && current.plate, "pdf"].join("|") : [current && current.plate, "image", simpleOn(), currentTab, simpleMore].join("|");
+const lastShare = () => { try { const k = localStorage.getItem("lastShare"); return k === "pdf" || k === "image" ? k : "card"; } catch { return "card"; } };
+const shareKey = kind => kind === "pdf" || kind === "card" ? [current && current.plate, kind].join("|") : [current && current.plate, "image", simpleOn(), currentTab, simpleMore].join("|");
 /* the finished file, so that choosing it only hands it over */
 async function prepShare(kind, D){
   if (kind === "pdf") return await makePdf(D);
+  if (kind === "card") return await canvasToBlob((await drawShareCard(D)).canvas, "image/jpeg", 0.92);
   const cap = await captureReport(D, false);
   return await canvasToBlob(cap.canvas, "image/jpeg", 0.9);
 }
@@ -3572,33 +3613,51 @@ async function warmFile(kind){
 }
 /* The shared picture is drawn straight on a canvas: a designed summary card in a few milliseconds. (Photographing the whole report through an SVG snapshot took
    several seconds on a phone; the full report is the PDF.) */
-async function drawShareCard(D){
-  const W = 1080, P = 56, c = document.createElement("canvas"); c.width = W; c.height = 4200;
+function drawQr(ctx, url, X, Y, size){
+  try {
+    const q = window.qrcode(0, "M"); q.addData(url); q.make();
+    const n = q.getModuleCount(), cell = Math.floor(size / n), off = Math.floor((size - cell * n) / 2);
+    ctx.fillStyle = "#151a24";
+    for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) ctx.fillRect(X + off + k * cell, Y + off + r * cell, cell, cell);
+    return true;
+  } catch { return false; }
+}
+/* The summary picture (1080x1350; with {cover:true} A4 proportions for the first page of the PDF): the car, what was found in a fixed order,
+   three numbers, and a quiet footer with a QR that opens the live report. Drawn straight on a canvas, so it takes milliseconds. */
+async function drawShareCard(D, opt = {}){
+  const cover = !!opt.cover;
+  let qrOk = true; try { await loadScript(LIBS.qr); } catch { qrOk = false; }
+  const W = 1080, H = cover ? 1527 : 1350, P = 72, R = W - P, FT = H - 190;
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
   const x = c.getContext("2d"); x.direction = "rtl"; x.textBaseline = "alphabetic";
-  const FONT = '"Noto Sans Hebrew","Segoe UI",Arial,sans-serif';
+  const FONT = '"Noto Sans Hebrew","Assistant","Segoe UI",Arial,sans-serif';
   const f = (px, wt = 500) => { x.font = `${wt} ${px}px ${FONT}`; };
-  const R = W - P;
   const rr = (X, Y, w, h, r, fill, stroke, lw) => { x.beginPath(); x.roundRect(X, Y, w, h, r); if (fill) { x.fillStyle = fill; x.fill(); } if (stroke) { x.lineWidth = lw || 2; x.strokeStyle = stroke; x.stroke(); } };
   const wrap = (t, maxW) => { const out = []; let cur = ""; for (const w of String(t).split(" ")) { const n = cur ? cur + " " + w : w; if (x.measureText(n).width > maxW && cur) { out.push(cur); cur = w; } else cur = n; } if (cur) out.push(cur); return out; };
   const text = (t, X, Y, color, align = "right") => { x.fillStyle = color; x.textAlign = align; x.fillText(t, X, Y); };
   const INK = "#151a24", MUT = "#5d6676";
-  const TONE = {ok: ["#1f7a3f", "#e3f4e8"], warn: ["#9a5b00", "#fdf0d8"], bad: ["#b3261e", "#fde7e5"], info: ["#2556c8", "#e6eefc"]};
-  // header band
-  const g = x.createLinearGradient(0, 0, 0, 210); g.addColorStop(0, "#e2ecfd"); g.addColorStop(1, "#ffffff"); x.fillStyle = g; x.fillRect(0, 0, W, 210);
-  const logo = await loadLogo(); if (logo) x.drawImage(logo, R - 96, 54, 96, 96);
-  f(66, 800); text("לוחית", R - 116, 112, INK); f(30, 600); text("בדיקת רכב לפי מספר רישוי", R - 116, 154, MUT);
-  f(28, 700); const tag = "חינם ב-Google Play", tw = x.measureText(tag).width + 44; rr(P, 76, tw, 56, 28, "#2556c8"); text(tag, P + tw / 2, 114, "#fff", "center");
-  let y = 262;
-  // car
+  const TONE = {ok: "#2e7d4f", warn: "#b7791f", bad: "#b3261e", info: "#4a6fb5"};
+  x.fillStyle = "#fff"; x.fillRect(0, 0, W, H);
+  // header: brand on the right, date of the check on the left
+  const logo = await loadLogo(); if (logo) x.drawImage(logo, R - 52, 56, 52, 52);
+  f(32, 800); text("לוחית", R - 68, 94, INK); const lw = x.measureText("לוחית").width; f(28, 500); text("· דוח רכב", R - 68 - lw - 12, 94, MUT);
+  const nowD = new Date(), stamp = nowD.toLocaleDateString("he-IL") + (cover ? " · " + nowD.toLocaleTimeString("he-IL", {hour: "2-digit", minute: "2-digit"}) : "");
+  f(26, 500); text(`נבדק ${stamp}`, P, 94, MUT, "left");
+  // the car
   const v = D.v, yr = empty(v.shnat_yitzur) ? "" : String(v.shnat_yitzur);
-  f(76, 800); for (const l of wrap(D.title, W - 2 * P)) { text(l, R, y, INK); y += 86; } y -= 30;
-  const dt = driveType(D), sub = [yr, v.tzeva_rechev, dt && dt.label, D.sub && !/^\d{4}/.test(D.sub) ? null : null].filter(x2 => !empty(x2)).join(" · ");
-  if (sub) { f(38, 500); text(sub, R, y, MUT); y += 14; }
-  // plate
-  y += 26; const pw = 520, ph = 112; rr(R - pw, y, pw, ph, 18, "#f6c500", "#151a24", 6); rr(R - pw + 3, y + 3, 84, ph - 6, 15, "#1d4fa8"); f(26, 800); text("IL", R - pw + 45, y + 54, "#fff", "center");
-  x.direction = "ltr"; f(78, 800); x.fillStyle = "#151a24"; x.textAlign = "center"; x.fillText(fmtPlate(D.plate), R - pw / 2 + 40, y + 82); x.direction = "rtl";
-  y += ph + 44;
-  // status rows
+  let fs = 80, lines; f(fs, 800); lines = wrap(D.title, W - 2 * P);
+  if (lines.length > 2) { fs = 62; f(fs, 800); lines = wrap(D.title, W - 2 * P).slice(0, 2); }
+  let y = 150; for (const l of lines) { y += Math.round(fs * 1.08); text(l, R, y, INK); }
+  const dt = driveType(D), sub = [yr, dt && dt.label, v.tzeva_rechev].filter(q => !empty(q)).join(" · ");
+  y += 58; f(38, 500); if (sub) text(sub, R, y, MUT);
+  if (D.plate) {
+    const pw = 360, ph = 80, py = y - 56;
+    rr(P, py, pw, ph, 14, "#f6c500", INK, 5); rr(P + 3, py + 3, 62, ph - 6, 11, "#1d4fa8"); f(22, 800); text("IL", P + 34, py + 50, "#fff", "center");
+    x.direction = "ltr"; f(54, 800); x.fillStyle = INK; x.textAlign = "center"; x.fillText(fmtPlate(D.plate), P + 62 + (pw - 62) / 2, py + 58); x.direction = "rtl";
+  }
+  y += 44; x.fillStyle = "#e8ebf1"; x.fillRect(P, y, W - 2 * P, 2); y += 52;
+  f(26, 800); text("מה נמצא", R, y, MUT); y += 12;
+  // what was found: the same checks, always in the same order
   const rows = [];
   const add = (tone, t) => rows.push([tone, t]);
   const exp = toDate(v.tokef_dt), now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -3613,43 +3672,39 @@ async function drawShareCard(D){
     add(stl.length ? "warn" : "ok", stl.length ? `ייתכן שהרכב נכלל ב${pl(stl.length, "הסדר פשרה", "הסדרי פשרה")}` : "לא נמצא הסדר פשרה לדגם ולשנתון");
   }
   for (const i of buildInsights(D)) if ((i.level === "bad" || i.level === "warn") && rows.length < 9 && !rows.some(r => r[1] === i.title) && !/טסט|ריקול|הסדר/.test(i.title)) add(i.level, i.title);
-  y += 30; f(36, 800); text("מה נמצא", R, y, INK); y += 26;
-  for (const [tone, t] of rows) {
-    f(36, 600); const lines = wrap(t, W - 2 * P - 150), h = 40 + lines.length * 48;
-    rr(P, y, W - 2 * P, h, 22, TONE[tone][1]);
-    x.beginPath(); x.arc(R - 44, y + h / 2, 22, 0, 7); x.fillStyle = TONE[tone][0]; x.fill();
-    f(28, 800); text(tone === "ok" ? "✓" : tone === "info" ? "i" : "!", R - 44, y + h / 2 + 10, "#fff", "center");
-    f(36, 600); lines.forEach((l, k) => text(l, R - 90, y + 20 + 48 * (k + 1) - 12, INK)); y += h + 14;
-  }
-  // key specs, two per row
-  {
-    const w = D.w || {}, nf = k => isNum(w[k]) && num(w[k]) > 0 ? num(w[k]) : null, eng = num(D.pick(v.nefach_manoa, w.nefah_manoa));
-    const sp = [["כוח", nf("koah_sus") && `${nf("koah_sus")} כ״ס`], ["נפח מנוע", eng > 0 && `${fmtN(eng)} סמ״ק`], ["דלק", D.pick(v.sug_delek_nm, w.delek_nm)],
-      ["תיבת הילוכים", empty(w.automatic_ind) ? "" : yes(w.automatic_ind) ? "אוטומטית" : "ידנית"], ["הנעה", w.hanaa_nm], ["מרכב", w.merkav], ["מושבים", nf("mispar_moshavim")],
-      ["רמת אבזור בטיחותי", num(D.pick(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty)) > 0 && `${num(D.pick(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty))} מתוך 8`], ["כריות אוויר", nf("mispar_kariot_avir")]]
-      .filter(([, val]) => val && !empty(val)).slice(0, 8);
-    if (sp.length) {
-      y += 14; f(36, 800); text("מפרט", R, y + 30, INK); y += 56;
-      const cw = (W - 2 * P - 20) / 2;
-      sp.forEach(([k, val], i) => { const X = R - cw * (i % 2 + 1) - 20 * (i % 2), Y = y + Math.floor(i / 2) * 130; rr(X, Y, cw, 112, 20, "#f4f6fa"); f(26, 600); text(k, X + cw - 22, Y + 40, MUT); f(38, 800); text(String(val), X + cw - 22, Y + 88, INK); });
-      y += Math.ceil(sp.length / 2) * 130 + 8;
-    }
-  }
-  // numbers
   const tiles = [], cost = D.cost || {};
   if (D.km) tiles.push(["ק״מ בטסט האחרון", fmtN(D.km)]);
   if (D.kmPerYear && D.kmPerYear > 2000) tiles.push(["ממוצע לשנה", fmtN(Math.round(D.kmPerYear / 100) * 100)]);
   if (cost.valueLow && cost.valueHigh) tiles.push(["שווי משוער (הערכה)", `${Math.round(cost.valueLow / 1000)}–${Math.round(cost.valueHigh / 1000)} אלף ₪`]);
+  const tileH = 120, reserve = (tiles.length && !D.isCancelled ? tileH + 50 : 24) + (cover ? 150 : 0) + 40;
+  let shown = 0;
+  for (const [tone, t] of rows) {
+    f(34, 700); const ln = wrap(t, W - 2 * P - 70), h = 34 + ln.length * 44;
+    if (y + h > FT - reserve) break;
+    x.beginPath(); x.arc(R - 20, y + h / 2, 20, 0, 7); x.fillStyle = TONE[tone]; x.fill();
+    f(24, 800); text(tone === "ok" ? "✓" : tone === "info" ? "i" : "!", R - 20, y + h / 2 + 9, "#fff", "center");
+    f(34, 700); ln.forEach((l, k) => text(l, R - 60, y + 17 + 44 * (k + 1) - 10, INK));
+    y += h; x.fillStyle = "#f0f2f6"; x.fillRect(P, y, W - 2 * P, 1); shown++;
+  }
+  if (shown < rows.length) { f(26, 500); text(`ועוד ${rows.length - shown} ממצאים בדוח המלא`, R, y + 38, MUT); y += 46; }
   if (tiles.length && !D.isCancelled) {
-    y += 14; const tw2 = (W - 2 * P - 20 * (tiles.length - 1)) / tiles.length;
-    tiles.forEach(([k, val], i) => { const X = R - tw2 * (i + 1) - 20 * i; rr(X, y, tw2, 150, 22, "#f4f6fa"); f(28, 600); text(k, X + tw2 - 22, y + 48, MUT); f(tiles.length > 2 ? 40 : 52, 800); x.direction = "ltr"; text(val, X + tw2 - 22, y + 112, INK, "right"); x.direction = "rtl"; });
-    y += 150 + 30;
-  } else y += 16;
-  // footer
-  rr(P, y, W - 2 * P, 124, 26, "#151a24"); f(36, 800); text("הבדיקה המלאה, בחינם", R - 32, y + 54, "#fff"); f(30, 500); text("luchit.app · אפליקציית לוחית ב-Google Play", R - 32, y + 98, "#c9d1e0");
-  y += 124 + 24; f(24, 500); text("המידע ממאגרי משרד התחבורה ואינו מחליף נסח רישום רשמי. ערכים משוערים מסומנים כהערכה.", R, y + 10, MUT); y += 56;
-  const out = document.createElement("canvas"); out.width = W; out.height = y; const o = out.getContext("2d"); o.fillStyle = "#fff"; o.fillRect(0, 0, W, y); o.drawImage(c, 0, 0);
-  return {canvas: out, breaks: []};
+    y += 26; const tw = (W - 2 * P - 18 * (tiles.length - 1)) / tiles.length;
+    tiles.forEach(([k, val], i) => { const X = R - tw * (i + 1) - 18 * i; rr(X, y, tw, tileH, 20, "#f5f7fa"); f(24, 600); text(k, X + tw - 22, y + 40, MUT); f(tiles.length > 2 ? 36 : 44, 800); x.direction = "ltr"; text(val, X + tw - 22, y + 94, INK, "right"); x.direction = "rtl"; });
+    y += tileH;
+  }
+  f(24, 500);
+  if (cover || FT - y > 210) {
+    y += 30; f(24, 500); const note = wrap("מה הדוח לא בודק: תאונות שלא דווחו, מצב מכני וקילומטראז׳ בין טסטים. לפני קנייה מומלץ לבדוק את הרכב במכון מורשה.", W - 2 * P - 52);
+    const nh = 36 + note.length * 36; rr(P, y, W - 2 * P, nh, 18, "#f5f7fa"); note.forEach((l, k) => text(l, R - 26, y + 24 + 36 * (k + 1) - 8, "#4a5465"));
+  }
+  // footer: the live report one scan away
+  x.fillStyle = INK; x.fillRect(0, FT, W, 190);
+  const qs = 140, qx = P, qy = FT + 25;
+  if (qrOk) { rr(qx, qy, qs, qs, 14, "#fff"); drawQr(x, shareLink(D.plate, "qr"), qx + 11, qy + 11, qs - 22); }
+  f(34, 800); text("הדוח המלא, מתעדכן בכל פתיחה", R, FT + 70, "#fff");
+  f(26, 500); text("luchit.app · מקור: מאגרי משרד התחבורה", R, FT + 114, "#c9d1e0");
+  f(21, 500); text("אינו מחליף נסח רישום או בדיקה במכון", R, FT + 154, "#9aa4b8");
+  return {canvas: c, breaks: []};
 }
 async function doShare(kind){
   track("share", {kind});
@@ -3659,14 +3714,18 @@ async function doShare(kind){
   const biz = kind === "bizpdf" ? bizProfile() : null;
   if (biz && !biz.name) { msg.textContent = "כדי לקבל דוח ממותג, הוסיפו את פרטי העסק בהגדרות."; return; }
   document.querySelectorAll("[data-share]").forEach(b => b.disabled = true);
-  msg.textContent = kind === "pdf" || kind === "bizpdf" ? "מכין קובץ PDF…" : "מכין תמונה…";
+  msg.textContent = kind === "pdf" || kind === "bizpdf" ? "מכין קובץ PDF…" : kind === "card" ? "מכין כרטיס…" : "מכין תמונה…";
   await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));   // let the "preparing" state paint before the heavy drawing starts
   try {
-    const caption = `${D.title} · ${fmtPlate(D.plate)}\nהדוח המלא באפליקציה לוחית:\n${carLink(D.plate, kind)}`;
-    if (!biz) { try { localStorage.setItem("lastShare", kind === "pdf" ? "pdf" : "image"); } catch {} }
+    const caption = `${D.title} · ${fmtPlate(D.plate)}\nהדוח המלא והמעודכן בלוחית:\n${shareLink(D.plate, kind === "card" ? "img" : kind === "image" ? "full" : kind)}`;
+    if (!biz) { try { localStorage.setItem("lastShare", kind === "pdf" ? "pdf" : kind === "image" ? "image" : "card"); } catch {} }
     if (biz) await shareFile(await makePdf(D, biz), name + ".pdf", D.title);
     else if (kind === "pdf") await shareFile((await warmFile("pdf")) || await makePdf(D), name + ".pdf", D.title, caption);
-    else {
+    else if (kind === "card") {
+      let blob = await warmFile("card");
+      if (!blob) blob = await prepShare("card", D);
+      await shareFile(blob, name + ".jpg", D.title, caption);
+    } else {
       // the screen's own report, painted straight onto a canvas; the summary card is only the fallback
       let blob = await warmFile("image");
       if (!blob) {
@@ -4738,6 +4797,8 @@ if (!window.AndroidApp && "serviceWorker" in navigator && window.isSecureContext
 }
 const start = digits(location.hash) || digits(new URLSearchParams(location.search).get("plate"));
 const cmpParam = new URLSearchParams(location.search).get("cmp");
+/* web: this page was opened from a shared report, so it is shown as "sent to you" (see sharedBar) */
+const SHARED = !window.AndroidApp && start && new URLSearchParams(location.search).has("s") ? start : null;
 /* web: someone opened a link to a car or a comparison (s= says which kind of share it came from, when the link carries it) */
 if (!window.AndroidApp && (start || cmpParam)) track("link_landing", {kind: cmpParam ? "cmp" : "plate", via: (new URLSearchParams(location.search).get("s") || "none").replace(/[^a-z]/g, "").slice(0, 8) || "none"});
 if (cmpParam) loadCompareLink(cmpParam).then(ok => { if (!ok) renderHome(); }); else if (start) run(start); else renderHome();
