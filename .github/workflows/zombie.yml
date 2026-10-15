@@ -1,0 +1,30 @@
+name: Back-on-road detector
+# Monthly: compares the active register with last month's snapshot and keeps the plates that left the road and came back,
+# as small shards on the zombie-data branch (the app reads only the shard for the plate it shows).
+on:
+  schedule:
+    - cron: "10 4 3 * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Load last month's state
+        run: |
+          git clone -q --depth 1 --branch zombie-data "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" zombie-out || mkdir -p zombie-out
+          rm -rf zombie-out/.git
+      - run: node --max-old-space-size=6144 .github/scripts/zombie-detector.mjs
+        env:
+          DIR: zombie-out
+      - name: Publish on the zombie-data branch
+        run: |
+          cd zombie-out && git init -q && git checkout -q -b zombie-data && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Back-on-road snapshot $(date -u +%F)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" zombie-data
