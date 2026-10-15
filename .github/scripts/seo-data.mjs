@@ -3,6 +3,7 @@
 // only the holder of the private key (kept outside the repo) can read it. Writes out/seo-data.enc.json.
 import crypto from "node:crypto";
 import fs from "node:fs";
+import { putMetric } from "./flash.mjs";
 const SITE = "sc-domain:luchit.app", API = "https://www.googleapis.com/webmasters/v3/sites/" + encodeURIComponent(SITE);
 const sa = JSON.parse(process.env.GA_SERVICE_ACCOUNT_JSON || "null");
 if (!sa) { console.log("no service account secret"); process.exit(1); }
@@ -62,3 +63,5 @@ const pub = fs.readFileSync(".github/seo-data.pub.pem", "utf8");
 const ek = crypto.publicEncrypt({ key: pub, padding: crypto.constants.RSA_PKCS1_OAEP_PADDING, oaepHash: "sha256" }, key);
 fs.mkdirSync("out", { recursive: true });
 fs.writeFileSync("out/seo-data.enc.json", JSON.stringify({ v: 1, ek: ek.toString("base64"), iv: iv.toString("base64"), tag: c.getAuthTag().toString("base64"), data: data.toString("base64") }));
+// public-safe aggregate for the live dashboard targets: how many sitemap URLs Google reports as indexed (verdict PASS), out of those inspected
+await putMetric("index", { indexed: out.inspection.filter(i => i.verdict === "PASS").length, inspected: out.inspection.length, total: list.length });

@@ -4,7 +4,7 @@
 const CF_TAG = "9bb0e756882c478a808d95596e0deade";
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-9";   // shown in /live/data so the running version is visible
+const BUILD = "live-10";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -123,6 +123,14 @@ async function getFlashes() {
   flashesAt = Date.now(); return flashes;
 }
 
+// aggregate numbers published by the workflows (branch "flashes", metrics.json), e.g. how many pages Google reports as indexed
+let metrics = null, metricsAt = 0;
+async function getMetrics() {
+  if (metrics && Date.now() - metricsAt < 300e3) return metrics;
+  try { const r = await fetch("https://raw.githubusercontent.com/ddsabag/vehicle-app/flashes/metrics.json", { cf: { cacheTtl: 120 } }); metrics = r.ok ? await r.json() : (metrics || {}); } catch { metrics = metrics || {}; }
+  metricsAt = Date.now(); return metrics;
+}
+
 let cache = null, cacheAt = 0, backoffUntil = 0;
 async function collect(env) {
   // GA4 realtime has an hourly token quota: answer from cache for a minute, and after a 429 stop asking for 5 minutes (serve the last good numbers)
@@ -148,15 +156,18 @@ async function collect(env) {
 }
 
 const PAGE = `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><link rel="icon" type="image/png" href="https://luchit.app/icon-192.png"><link rel="apple-touch-icon" href="https://luchit.app/apple-touch-icon.png"><title>לוחית, מצב עכשיו</title>
-<style>:root{--bg:#f4f6fa;--card:#fff;--fg:#151a24;--muted:#5d6676;--line:#dfe4ec;--accent:#2457c5;--ok:#1a7f4b;--bad:#b3261e;--badbg:#fdecea}@media(prefers-color-scheme:dark){:root{--bg:#0e121a;--card:#171d28;--fg:#e9edf3;--muted:#98a2b4;--line:#262e3c;--accent:#7ea3f2;--ok:#5bd08a;--bad:#ff8a80;--badbg:#3a1f1f}}
+<style>:root{--bg:#f4f6fa;--card:#fff;--fg:#151a24;--muted:#5d6676;--line:#dfe4ec;--accent:#2457c5;--ok:#1a7f4b;--bad:#b3261e;--warn:#a15c00;--badbg:#fdecea}@media(prefers-color-scheme:dark){:root{--warn:#e5a13a;--bg:#0e121a;--card:#171d28;--fg:#e9edf3;--muted:#98a2b4;--line:#262e3c;--accent:#7ea3f2;--ok:#5bd08a;--bad:#ff8a80;--badbg:#3a1f1f}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,"Assistant",sans-serif;line-height:1.5}main{max-width:1120px;margin:0 auto;padding:20px}h1{font-size:1.15rem;margin:0}h2{font-size:.85rem;margin:0 0 6px;color:var(--muted);font-weight:600}.top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px}.muted{color:var(--muted);font-size:.8rem}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:10px}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px;align-items:start}.cols .card{margin:0}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0;margin-bottom:8px}.grid .card{margin:0}
 .num{font-size:1.8rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2}.lbl{font-size:.78rem;color:var(--muted)}.sub{font-size:.72rem;color:var(--muted);margin-top:2px}.bad .num{color:var(--bad)}.bad{background:var(--badbg)}
 ul{list-style:none;margin:0;padding:0}li{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-top:1px solid var(--line)}li:first-child{border-top:0}li b{font-variant-numeric:tabular-nums}.dot{color:var(--ok)}details summary{cursor:pointer;font-size:.8rem;color:var(--muted)}.axis{display:flex;justify-content:space-between;font-size:.7rem;color:var(--muted);margin-top:2px}
-table.q{width:100%;border-collapse:collapse;font-size:.85rem}.q th{font-weight:500;color:var(--muted);font-size:.72rem;text-align:start;padding:2px 6px 4px}.q td{padding:5px 6px;border-top:1px solid var(--line)}.q td.n{text-align:end;font-variant-numeric:tabular-nums;white-space:nowrap}.q td.w{word-break:break-word}.fl .lv{color:var(--muted)}.fl .lv.alert{color:var(--bad)}.fl small{color:var(--muted);white-space:nowrap}.hint{font-size:.75rem;color:var(--muted);margin:0 0 6px}.sec{font-size:.8rem;color:var(--accent);margin:14px 0 6px;font-weight:700}.pill{display:inline-block;background:var(--line);border-radius:999px;padding:2px 10px;font-size:.8rem;margin:0 0 4px 6px}</style></head><body><main>
+table.q{width:100%;border-collapse:collapse;font-size:.85rem}.q th{font-weight:500;color:var(--muted);font-size:.72rem;text-align:start;padding:2px 6px 4px}.q td{padding:5px 6px;border-top:1px solid var(--line)}.q td.n{text-align:end;font-variant-numeric:tabular-nums;white-space:nowrap}.q td.w{word-break:break-word}.fl .lv{color:var(--muted)}.fl .lv.alert{color:var(--bad)}.fl small{color:var(--muted);white-space:nowrap}.tg{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}.tgc .lbl{display:flex;justify-content:space-between;gap:8px}.tgc .st{font-weight:700}.tgc .st.ok{color:var(--ok)}.tgc .st.warn{color:var(--warn)}.tgc .st.bad{color:var(--bad)}.bar{height:8px;background:var(--line);border-radius:999px;overflow:hidden;margin:8px 0 4px}.bar i{display:block;height:100%;border-radius:999px;background:var(--ok)}.bar i.warn{background:var(--warn)}.bar i.bad{background:var(--bad)}.hint{font-size:.75rem;color:var(--muted);margin:0 0 6px}.sec{font-size:.8rem;color:var(--accent);margin:14px 0 6px;font-weight:700}.pill{display:inline-block;background:var(--line);border-radius:999px;padding:2px 10px;font-size:.8rem;margin:0 0 4px 6px}</style></head><body><main>
 <div class="top"><h1>לוחית · מצב עכשיו</h1><div class="muted"><span class="dot">●</span> עודכן <span id="t">טוען</span></div></div>
 <h2 class="sec">מבזקים מהסוכנים (אותן הודעות שמגיעות לטלגרם, בלי הדוח השבועי)</h2>
 <div class="card fl"><ul id="fl"></ul></div>
+<h2 class="sec">יעדים לחודש הקרוב: מול ביצוע</h2>
+<div class="tg" id="tg"></div>
+<p class="muted" id="tgn"></p>
 <h2 class="sec">עכשיו (30 הדקות האחרונות)</h2>
 <div class="grid">
 <div class="card"><div class="lbl">פעילים באפליקציה</div><div class="num" id="a">-</div><div class="sub">משתמשים ייחודיים</div></div>
@@ -231,6 +242,21 @@ TB("sq",["חיפוש","קליקים","חשיפות","מקום"],qs.slice().sort(
 TB("ss",["חיפוש","חשיפות","מקום","קליקים"],qs.filter(r=>r[4]>=8&&r[4]<=20&&r[2]>=3).sort((a,b)=>b[2]-a[2]).slice(0,10).map(r=>[r[0],n(Math.round(r[2])),ps(r[4]),n(Math.round(r[1]))]));
 L("sm",S.sitemaps,r=>'<li><span dir="ltr">'+path(r.path)+'</span><b>'+n(r.submitted)+" כתובות"+(r.errors||r.warnings?" ("+r.errors+" שגיאות, "+r.warnings+" אזהרות)":"")+'</b></li>');
 }else{$("sg").innerHTML="";$("seonote").textContent=S?"אין עדיין נתוני חיפוש":"טוען או לא זמין (ראה שגיאות בתחתית הדף)"}
+/* targets: set in this list (value, date) and edit when the plan changes. Cumulative goals (pages, clicks) are judged against a straight line from the starting value to the target date, a rate (share) against the target itself. */
+const TARGETS=[
+{id:"index",label:"דפים באינדקס של גוגל",unit:"",start:51,startDate:"2026-10-14",goal:75,due:"2026-11-15",hint:"מתוך 207 דפים במפת האתר. מתעדכן פעם ביום."},
+{id:"clicks",label:"קליקים מגוגל בשבוע",unit:"",start:0,startDate:"2026-10-14",goal:10,due:"2026-11-15",hint:"7 ימים, עם עיכוב של 2 עד 3 ימים בנתוני גוגל."},
+{id:"share",label:"אחוז המשתמשים שמשתפים",unit:"%",goal:10,rate:true,hint:"משתמשים ששיתפו מתוך אלה שבדקו רכב, אתמול. היעד נקבע בלי נתון קודם, ויתוקן אחרי שבועיים."}];
+const st=(a,e)=>a>=e?"ok":e<2?"warn":a>=0.7*e?"warn":"bad";   // while the expected amount is still under 2 the data is too thin to show red
+const SL={ok:"בקצב או מעליו",warn:"קצת מאחור",bad:"מאחור"};
+const actuals={index:d.metrics&&d.metrics.index?d.metrics.index.indexed:null,clicks:d.seo&&d.seo.cur?Math.round(d.seo.cur.clicks):null,share:null};
+{const Y=(dl.events&&dl.events.yesterday)||{},lk=Y.car_lookup?Y.car_lookup[1]:0,sh=Y.share?Y.share[1]:0;if(lk>=10)actuals.share=Math.round(sh/lk*1000)/10}
+$("tg").innerHTML=TARGETS.map(t=>{const a=actuals[t.id];let exp=t.goal,state="warn",pct=0,note=t.hint;
+if(a==null){return '<div class="card tgc"><div class="lbl"><span>'+t.label+'</span></div><div class="num">-</div><div class="sub">אין עדיין נתון. '+t.hint+'</div></div>'}
+if(!t.rate){const s0=Date.parse(t.startDate),e0=Date.parse(t.due),f=Math.min(1,Math.max(0,(Date.now()-s0)/(e0-s0)));exp=t.start+(t.goal-t.start)*f;state=st(a-t.start,exp-t.start);pct=(a-t.start)/(t.goal-t.start)*100;note="אמור להיות היום: "+n(Math.round(exp*10)/10)+" · עד "+t.due.split("-").reverse().slice(0,2).join("/")+". "+t.hint}
+else{state=st(a,t.goal);pct=a/t.goal*100}
+return '<div class="card tgc"><div class="lbl"><span>'+t.label+'</span><span class="st '+state+'">'+SL[state]+'</span></div><div class="num">'+n(a)+t.unit+' <span class="muted" style="font-size:.9rem;font-weight:400">מתוך יעד '+n(t.goal)+t.unit+'</span></div><div class="bar" role="img" aria-label="התקדמות"><i class="'+state+'" style="width:'+Math.max(2,Math.min(100,pct))+'%"></i></div><div class="sub">'+note+'</div></div>'}).join("");
+$("tgn").textContent="ירוק: בקצב או מעליו. כתום: עד 30% מאחורי הקצב. אדום: יותר מזה.";
 const FK={data:"נתונים",infra:"תשתית",content:"תוכן",market:"שוק",release:"שחרור",experiment:"ניסוי",reviews:"ביקורות"};
 $("fl").innerHTML=(d.flashes||[]).slice(0,12).map(f=>'<li><span><span class="lv '+(f.l==="alert"?"alert":"")+'">'+(f.l==="alert"?"●":"○")+'</span> <b style="font-variant-numeric:normal">'+esc(FK[f.k]||f.k)+':</b> '+esc(f.x)+(f.u&&/^https:\\/\\//.test(f.u)?' <a href="'+esc(f.u)+'" target="_blank" rel="noopener">קישור</a>':'')+'</span><small>'+new Date(f.t).toLocaleString("he-IL",{timeZone:"Asia/Jerusalem",day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit"})+'</small></li>').join("")||'<li><span class="muted">אין מבזקים עדיין. הם יופיעו כשהסוכנים ידווחו על משהו.</span></li>';
 const pm=d.perMinute||[],m=Math.max(1,...pm);
@@ -246,7 +272,7 @@ export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     if (!(await verifyAccess(req, env).catch(() => false))) return new Response("forbidden", { status: 403, headers: HEAD });
-    if (url.pathname === "/live/data") { try { return json({ ...(await collect(env)), flashes: (await getFlashes()).slice(0, 15) }); } catch (e) { return json({ error: "unavailable" }, 502); } }
+    if (url.pathname === "/live/data") { try { return json({ ...(await collect(env)), flashes: (await getFlashes()).slice(0, 15), metrics: await getMetrics() }); } catch (e) { return json({ error: "unavailable" }, 502); } }
     if (url.pathname === "/live" || url.pathname === "/live/") return new Response(PAGE, { headers: { ...HEAD, "content-type": "text/html; charset=utf-8" } });
     return new Response("not found", { status: 404, headers: HEAD });
   }

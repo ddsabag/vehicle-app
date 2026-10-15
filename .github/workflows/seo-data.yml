@@ -24,6 +24,7 @@ jobs:
         env:
           GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
           EXTRA_URLS: ${{ inputs.extra_urls }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish on the seo-data branch
         run: |
           cd out && git init -q && git checkout -q -b seo-data && git add -A
