@@ -721,7 +721,10 @@ function lookupFacts(D) {
   Object.keys(o).forEach(k => { if (!o[k]) delete o[k]; });
   return o;
 }
-const track = (name, params) => { try { const b = window.AndroidApp; if (b && b.logEvent && analyticsOn()) b.logEvent(name, JSON.stringify(params || {})); } catch {} };
+/* app: Firebase. web: the same events go to our own /api/e (luchit-api Worker -> GA4 web stream), no cookies, no stored id; the Worker drops anything that looks like a plate */
+const track = (name, params) => { try { if (!analyticsOn()) return; const b = window.AndroidApp; if (b) { if (b.logEvent) b.logEvent(name, JSON.stringify(params || {})); return; }
+  if (location.protocol === "https:" && navigator.sendBeacon) navigator.sendBeacon("/api/e", new Blob([JSON.stringify({n: name, p: params || {}, cid: WEB_CID})], {type: "text/plain"})); } catch {} };
+const WEB_CID = Math.floor(Math.random() * 2e9) + "." + Math.floor(Date.now() / 1000);   // per page load only, never saved
 /* silent failures worth knowing about (a dataset that errors, a library that does not load): sent to Crashlytics as a non-fatal, tag only, never a plate */
 /* a JavaScript error nobody sees: counted (line number only, never the message, which could hold a plate), at most 5 per session */
 let jsErrN = 0;
@@ -1031,7 +1034,8 @@ async function copyText(t, label){
 /* every share carries a store link; whoever installs from it lands on the same car on first launch */
 /* web visitors who go to Google Play carry a campaign tag, so Play Console can show how many store visits and installs come from luchit.app */
 const playWeb = c => `${PLAY_URL}&referrer=${encodeURIComponent("utm_source=luchit.app&utm_medium=web&utm_campaign=" + c)}`;
-const carLink = plate => `${PLAY_URL}&referrer=${encodeURIComponent("plate=" + plate)}`;
+/* the install referrer keeps plate= for the app's first launch, plus a campaign tag so Play Console and Firebase count installs that came from a shared report */
+const carLink = (plate, via = "text") => `${PLAY_URL}&referrer=${encodeURIComponent(`plate=${plate}&utm_source=share&utm_medium=${via}&utm_campaign=car_share`)}`;
 async function shareText(title, text, plate){
   text += plate ? `\n\nהדוח המלא באפליקציה לוחית:\n${carLink(plate)}` : "\n\nמקור: מאגרי משרד התחבורה, דרך האפליקציה לוחית";
   try { if (bridge() && bridge().share) { bridge().share(title, text); return; } } catch {}
@@ -3012,7 +3016,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "simpleMore") { simpleMore = !simpleMore; track("simple_more", {on: simpleMore}); renderResult(); return; }
   if (b.dataset.url) {
     if (b.dataset.copyfirst) { copyText(b.dataset.copyfirst, b.dataset.copylabel || "מספר הרישוי").then(() => setTimeout(() => openExternal(b.dataset.url), 600)); return; }
-    if (b.dataset.hint) track("web_hint_click");
+    if (b.dataset.hint) track("web_hint_click", {where: b.dataset.hint});
     track("link_out", {kind: (b.dataset.copyfirst ? "importer" : "other")}); openExternal(b.dataset.url); return;
   }
   if (b.dataset.open) { run(b.dataset.open); return; }
@@ -3619,7 +3623,7 @@ async function doShare(kind){
   msg.textContent = kind === "pdf" || kind === "bizpdf" ? "מכין קובץ PDF…" : "מכין תמונה…";
   await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));   // let the "preparing" state paint before the heavy drawing starts
   try {
-    const caption = `${D.title} · ${fmtPlate(D.plate)}\nהדוח המלא באפליקציה לוחית:\n${carLink(D.plate)}`;
+    const caption = `${D.title} · ${fmtPlate(D.plate)}\nהדוח המלא באפליקציה לוחית:\n${carLink(D.plate, kind)}`;
     if (!biz) { try { localStorage.setItem("lastShare", kind === "pdf" ? "pdf" : "image"); } catch {} }
     if (biz) await shareFile(await makePdf(D, biz), name + ".pdf", D.title);
     else if (kind === "pdf") await shareFile((await warmFile("pdf")) || await makePdf(D), name + ".pdf", D.title, caption);
@@ -4645,6 +4649,8 @@ if (!window.AndroidApp && "serviceWorker" in navigator && window.isSecureContext
 }
 const start = digits(location.hash) || digits(new URLSearchParams(location.search).get("plate"));
 const cmpParam = new URLSearchParams(location.search).get("cmp");
+/* web: someone opened a link to a car or a comparison (s= says which kind of share it came from, when the link carries it) */
+if (!window.AndroidApp && (start || cmpParam)) track("link_landing", {kind: cmpParam ? "cmp" : "plate", via: (new URLSearchParams(location.search).get("s") || "none").replace(/[^a-z]/g, "").slice(0, 8) || "none"});
 if (cmpParam) loadCompareLink(cmpParam).then(ok => { if (!ok) renderHome(); }); else if (start) run(start); else renderHome();
 requestAnimationFrame(() => document.body.classList.add("rdy"));
 
