@@ -7,6 +7,7 @@
 //   node data-guard.mjs --send     send the Telegram alert for out/guard.json (DRY_RUN=1 prints it)
 //   node data-guard.mjs --selftest offline check of the comparison logic
 import fs from "node:fs";
+import { flash } from "./flash.mjs";
 import { SETS } from "./datasets.mjs";
 
 const API = "https://data.gov.il/api/3/action/datastore_search";
@@ -86,6 +87,7 @@ function selftest() {
 
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 async function telegram(text, silent = false) {
+  await flash("data", silent ? "info" : "alert", text);
   const token = process.env.TELEGRAM_BOT_TOKEN, chat = process.env.TELEGRAM_CHAT_ID;
   if (process.env.DRY_RUN === "1" || !token || !chat) { console.log("--- Telegram (dry run) ---\n" + text); return true; }
   const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true, disable_notification: silent }) });

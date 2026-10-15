@@ -2,12 +2,14 @@
 // 1. static pages answer, 2. a real plate lookup works in a real browser, 3. TLS certificate and domain registration are not about to expire.
 // Alerts go to Telegram only. DRY_RUN=1 prints instead of sending, PREVIEW=1 sends a labelled sample.
 import tls from "node:tls";
+import { flash } from "./flash.mjs";
 import { ilTime } from "./notify.mjs";
 const SITE = (process.env.SITE || "https://luchit.app/").replace(/\/?$/, "/"), HOST = new URL(SITE).hostname;
 const DRY = process.env.DRY_RUN === "1", sleep = ms => new Promise(r => setTimeout(r, ms));
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 async function telegram(text) {
+  await flash("infra", "alert", text);
   const token = process.env.TELEGRAM_BOT_TOKEN, chat = process.env.TELEGRAM_CHAT_ID;
   if (DRY || !token || !chat) { console.log("--- Telegram (" + (DRY ? "dry run" : "no credentials") + ") ---\n" + text); return DRY; }
   const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },

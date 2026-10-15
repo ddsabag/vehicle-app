@@ -1,5 +1,6 @@
 // Daily infrastructure watch: site and Worker liveness, free-quota headroom (Cloudflare Workers, Brevo), and on the 1st of the month a list of stale branches.
 import { ilTime } from "./notify.mjs";
+import { flash } from "./flash.mjs";
 // Alerts to Telegram only when something needs attention (needs TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID). DRY_RUN=1 prints instead of sending.
 // Optional: CF_API_TOKEN + CF_ACCOUNT_ID (Workers usage), BREVO_API_KEY (daily send count), GITHUB_TOKEN + GITHUB_REPOSITORY (branches).
 const DRY = process.env.DRY_RUN === "1", E = process.env;
@@ -62,6 +63,7 @@ async function staleBranches() {
 }
 
 async function telegram(text, silent = false) {
+  await flash("infra", silent ? "info" : "alert", text);
   if (DRY || !E.TELEGRAM_BOT_TOKEN) { console.log("[telegram]\n" + text); return DRY; }
   const r = await fetch(`https://api.telegram.org/bot${E.TELEGRAM_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({ chat_id: E.TELEGRAM_CHAT_ID, text, parse_mode: "HTML", disable_web_page_preview: true, disable_notification: silent }) });

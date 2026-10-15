@@ -1,5 +1,6 @@
 // Alerts (Telegram) on new 1-3 star Google Play reviews from the last 24h, and when Play vitals cross Google's "bad behavior" thresholds.
 import { ilTime } from "./notify.mjs";
+import { flash } from "./flash.mjs";
 // Env: PLAY_SERVICE_ACCOUNT_JSON (falls back to GA_SERVICE_ACCOUNT_JSON), TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
 //      optional PLAY_PACKAGE, PLAY_DEVELOPER_ID + PLAY_APP_ID (for a deep link into Play Console), MAX_STARS (default 3), DRY_RUN=1.
 // State: seen.json (restored/saved by the workflow cache) so the same review is never sent twice.
@@ -23,6 +24,7 @@ async function token(scope) {
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const errText = errors => `⚠️ <b>הבדיקה האוטומטית של גוגל פליי לא הצליחה לרוץ</b>\nהיא בודקת כל שעתיים ביקורות חדשות עם 1 עד 3 כוכבים ושיעור קריסות. הפעם לא הצליחה לקבל תשובה מגוגל, ולכן לא ידוע אם יש ביקורות או קריסות חדשות. זה לא אומר שיש בעיה באפליקציה.\nפירוט: ${errors.map(esc).join("; ")}\n\nמה לעשות: בדרך כלל כלום, והבדיקה הבאה תרוץ בעוד שעתיים. אם זה חוזר, כתבו לי.\n\nזמן: ${ilTime()} (שעון ישראל)`;
 async function telegram(text, silent = false) {
+  await flash("reviews", silent ? "info" : "alert", text);
   const tok = process.env.TELEGRAM_BOT_TOKEN, chat = process.env.TELEGRAM_CHAT_ID;
   if (DRY || !tok || !chat) { console.log("--- Telegram (" + (DRY ? "dry run" : "no credentials") + ") ---\n" + text); return DRY; }
   const r = await fetch(`https://api.telegram.org/bot${tok}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },

@@ -13,7 +13,7 @@ on:
         type: boolean
         default: false
 permissions:
-  contents: read
+  contents: write
 jobs:
   health:
     runs-on: ubuntu-latest
@@ -28,4 +28,5 @@ jobs:
           PREVIEW: ${{ inputs.preview && '1' || '0' }}
           DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

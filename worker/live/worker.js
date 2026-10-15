@@ -4,7 +4,7 @@
 const CF_TAG = "9bb0e756882c478a808d95596e0deade";
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-8";   // shown in /live/data so the running version is visible
+const BUILD = "live-9";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -115,6 +115,14 @@ async function collectSeo(env, today) {
   seoAt = Date.now(); return seo;
 }
 
+// agent news (same items as Telegram, public-safe) written by .github/scripts/flash.mjs to branch "flashes"
+let flashes = null, flashesAt = 0;
+async function getFlashes() {
+  if (flashes && Date.now() - flashesAt < 300e3) return flashes;
+  try { const r = await fetch("https://raw.githubusercontent.com/ddsabag/vehicle-app/flashes/flashes.json", { cf: { cacheTtl: 120 } }); flashes = r.ok ? await r.json() : (flashes || []); } catch { flashes = flashes || []; }
+  flashesAt = Date.now(); return flashes;
+}
+
 let cache = null, cacheAt = 0, backoffUntil = 0;
 async function collect(env) {
   // GA4 realtime has an hourly token quota: answer from cache for a minute, and after a 429 stop asking for 5 minutes (serve the last good numbers)
@@ -145,8 +153,10 @@ const PAGE = `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:10px}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px;align-items:start}.cols .card{margin:0}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0;margin-bottom:8px}.grid .card{margin:0}
 .num{font-size:1.8rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2}.lbl{font-size:.78rem;color:var(--muted)}.sub{font-size:.72rem;color:var(--muted);margin-top:2px}.bad .num{color:var(--bad)}.bad{background:var(--badbg)}
 ul{list-style:none;margin:0;padding:0}li{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-top:1px solid var(--line)}li:first-child{border-top:0}li b{font-variant-numeric:tabular-nums}.dot{color:var(--ok)}details summary{cursor:pointer;font-size:.8rem;color:var(--muted)}.axis{display:flex;justify-content:space-between;font-size:.7rem;color:var(--muted);margin-top:2px}
-.sec{font-size:.8rem;color:var(--accent);margin:14px 0 6px;font-weight:700}.pill{display:inline-block;background:var(--line);border-radius:999px;padding:2px 10px;font-size:.8rem;margin:0 0 4px 6px}</style></head><body><main>
+table.q{width:100%;border-collapse:collapse;font-size:.85rem}.q th{font-weight:500;color:var(--muted);font-size:.72rem;text-align:start;padding:2px 6px 4px}.q td{padding:5px 6px;border-top:1px solid var(--line)}.q td.n{text-align:end;font-variant-numeric:tabular-nums;white-space:nowrap}.q td.w{word-break:break-word}.fl .lv{color:var(--muted)}.fl .lv.alert{color:var(--bad)}.fl small{color:var(--muted);white-space:nowrap}.hint{font-size:.75rem;color:var(--muted);margin:0 0 6px}.sec{font-size:.8rem;color:var(--accent);margin:14px 0 6px;font-weight:700}.pill{display:inline-block;background:var(--line);border-radius:999px;padding:2px 10px;font-size:.8rem;margin:0 0 4px 6px}</style></head><body><main>
 <div class="top"><h1>לוחית · מצב עכשיו</h1><div class="muted"><span class="dot">●</span> עודכן <span id="t">טוען</span></div></div>
+<h2 class="sec">מבזקים מהסוכנים (אותן הודעות שמגיעות לטלגרם, בלי הדוח השבועי)</h2>
+<div class="card fl"><ul id="fl"></ul></div>
 <h2 class="sec">עכשיו (30 הדקות האחרונות)</h2>
 <div class="grid">
 <div class="card"><div class="lbl">פעילים באפליקציה</div><div class="num" id="a">-</div><div class="sub">משתמשים ייחודיים</div></div>
@@ -170,8 +180,8 @@ ul{list-style:none;margin:0;padding:0}li{display:flex;justify-content:space-betw
 <div class="grid" id="sg"></div>
 <div class="cols"><div class="card"><h2>קליקים מגוגל ב-28 ימים (כל עמודה יום)</h2><svg id="sd" viewBox="0 0 280 64" width="100%" height="90" preserveAspectRatio="none" role="img" aria-label="קליקים מגוגל לפי יום"></svg><div class="axis"><span>היום</span><span>לפני 28 ימים</span></div></div>
 <div class="card"><h2>דפי האתר שגוגל מציג (28 ימים)</h2><ul id="sp"></ul></div></div>
-<div class="cols"><div class="card"><h2>שאילתות מובילות (28 ימים)</h2><ul id="sq"></ul></div>
-<div class="card"><h2>הזדמנויות: שאילתות במקום 8 עד 20 (עמוד ראשון או שני, שווה לחזק)</h2><ul id="ss"></ul></div></div>
+<div class="cols"><div class="card"><h2>מה אנשים חיפשו כדי להגיע אלינו (28 ימים, לפי קליקים)</h2><div id="sq"></div></div>
+<div class="card"><h2>קרובים לצמרת: חיפושים שאנחנו כבר מופיעים בהם, אבל לא בראש</h2><p class="hint">מקום 1 עד 10 הוא העמוד הראשון בגוגל. כאן מוצגים חיפושים שבהם האתר במקום 8 עד 20, ולכן קידום קטן של העמוד (כותרת, תוכן, קישורים פנימיים) יכול להביא קליקים. ממוינים לפי חשיפות.</p><div id="ss"></div></div></div>
 <div class="card"><h2>מפת האתר (sitemap)</h2><ul id="sm"></ul></div>
 <details class="card"><summary>איך לקרוא את נתוני ה-SEO</summary><ul style="margin-top:6px"><li><span>חשיפות</span><span>כמה פעמים האתר הופיע בתוצאות</span></li><li><span>קליקים</span><span>כמה לחצו מהתוצאות</span></li><li><span>CTR</span><span>קליקים חלקי חשיפות, באחוזים; גבוה עדיף</span></li><li><span>מיקום ממוצע</span><span>מקום בתוצאות: 1 הכי גבוה, 10 סוף העמוד הראשון; נמוך עדיף</span></li></ul></details>
 <details class="card"><summary>פעילות טכנית של האפליקציה (מספר אירועים)</summary><ul id="tec" style="margin-top:6px"></ul></details>
@@ -215,10 +225,14 @@ const L=(id,arr,fn)=>{$(id).innerHTML=arr&&arr.length?arr.map(fn).join(""):'<li>
 const path=u=>esc(u.replace(/^https?:\\/\\/[^/]+/,"")||"/");
 L("sp",S.pages&&S.pages.slice(0,10),r=>'<li><span dir="ltr">'+path(r[0])+'</span><b>'+f3(r)+'</b></li>');
 const qs=S.queries||[];
-L("sq",qs.slice().sort((a,b)=>b[1]-a[1]||b[2]-a[2]).slice(0,10),r=>'<li><span>'+esc(r[0])+'</span><b>'+f3(r)+" · מקום "+(Math.round(r[4]*10)/10)+'</b></li>');
-L("ss",qs.filter(r=>r[4]>=8&&r[4]<=20&&r[2]>=3).sort((a,b)=>b[2]-a[2]).slice(0,10),r=>'<li><span>'+esc(r[0])+'</span><b>'+n(Math.round(r[2]))+" חשיפות · מקום "+(Math.round(r[4]*10)/10)+'</b></li>');
+const TB=(id,heads,rows)=>{$(id).innerHTML=rows.length?'<table class="q"><thead><tr>'+heads.map(h=>'<th>'+h+'</th>').join("")+'</tr></thead><tbody>'+rows.map(r=>'<tr><td class="w">'+esc(r[0])+'</td>'+r.slice(1).map(x=>'<td class="n">'+x+'</td>').join("")+'</tr>').join("")+'</tbody></table>':'<p class="muted">אין נתונים</p>'};
+const ps=x=>(Math.round(x*10)/10).toLocaleString("en-US");
+TB("sq",["חיפוש","קליקים","חשיפות","מקום"],qs.slice().sort((a,b)=>b[1]-a[1]||b[2]-a[2]).slice(0,10).map(r=>[r[0],n(Math.round(r[1])),n(Math.round(r[2])),ps(r[4])]));
+TB("ss",["חיפוש","חשיפות","מקום","קליקים"],qs.filter(r=>r[4]>=8&&r[4]<=20&&r[2]>=3).sort((a,b)=>b[2]-a[2]).slice(0,10).map(r=>[r[0],n(Math.round(r[2])),ps(r[4]),n(Math.round(r[1]))]));
 L("sm",S.sitemaps,r=>'<li><span dir="ltr">'+path(r.path)+'</span><b>'+n(r.submitted)+" כתובות"+(r.errors||r.warnings?" ("+r.errors+" שגיאות, "+r.warnings+" אזהרות)":"")+'</b></li>');
 }else{$("sg").innerHTML="";$("seonote").textContent=S?"אין עדיין נתוני חיפוש":"טוען או לא זמין (ראה שגיאות בתחתית הדף)"}
+const FK={data:"נתונים",infra:"תשתית",content:"תוכן",market:"שוק",release:"שחרור",experiment:"ניסוי",reviews:"ביקורות"};
+$("fl").innerHTML=(d.flashes||[]).slice(0,12).map(f=>'<li><span><span class="lv '+(f.l==="alert"?"alert":"")+'">'+(f.l==="alert"?"●":"○")+'</span> <b style="font-variant-numeric:normal">'+esc(FK[f.k]||f.k)+':</b> '+esc(f.x)+(f.u&&/^https:\\/\\//.test(f.u)?' <a href="'+esc(f.u)+'" target="_blank" rel="noopener">קישור</a>':'')+'</span><small>'+new Date(f.t).toLocaleString("he-IL",{timeZone:"Asia/Jerusalem",day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit"})+'</small></li>').join("")||'<li><span class="muted">אין מבזקים עדיין. הם יופיעו כשהסוכנים ידווחו על משהו.</span></li>';
 const pm=d.perMinute||[],m=Math.max(1,...pm);
 $("s").innerHTML='<line x1="0" x2="300" y1="62" y2="62" stroke="var(--line)"/>'+pm.map((v,i)=>{const h=v?Math.max(3,v/m*56):0;return '<rect x="'+(i*10+2)+'" y="'+(62-h)+'" width="7" height="'+h+'" fill="var(--accent)" rx="1.5"/>'}).join("");
 const known=ev.filter(e=>N[e[0]]).sort((a,b)=>b[1]-a[1]);
@@ -232,7 +246,7 @@ export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     if (!(await verifyAccess(req, env).catch(() => false))) return new Response("forbidden", { status: 403, headers: HEAD });
-    if (url.pathname === "/live/data") { try { return json(await collect(env)); } catch (e) { return json({ error: "unavailable" }, 502); } }
+    if (url.pathname === "/live/data") { try { return json({ ...(await collect(env)), flashes: (await getFlashes()).slice(0, 15) }); } catch (e) { return json({ error: "unavailable" }, 502); } }
     if (url.pathname === "/live" || url.pathname === "/live/") return new Response(PAGE, { headers: { ...HEAD, "content-type": "text/html; charset=utf-8" } });
     return new Response("not found", { status: 404, headers: HEAD });
   }

@@ -1,6 +1,7 @@
 // Daily health check of the data.gov.il datasets the app reads: availability, latency, schema drift, freshness.
 // Sends a Telegram alert on any failure (needs TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID). DRY_RUN=1 prints instead of sending.
 import { ilTime } from "./notify.mjs";
+import { flash } from "./flash.mjs";
 import { SETS, SAMPLE_PLATE } from "./datasets.mjs";
 const API = "https://data.gov.il/api/3/action/";
 const SLOW_MS = 5000, TIMEOUT_MS = 20000;
@@ -55,6 +56,7 @@ async function check(s) {
 
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 async function telegram(text) {
+  await flash("data", "alert", text);
   const token = process.env.TELEGRAM_BOT_TOKEN, chat = process.env.TELEGRAM_CHAT_ID;
   if (DRY || !token || !chat) { console.log("--- Telegram (" + (DRY ? "dry run" : "no credentials") + ") ---\n" + text); return DRY; }
   const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },

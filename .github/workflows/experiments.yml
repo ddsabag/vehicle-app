@@ -29,8 +29,11 @@ jobs:
           GA_PROPERTY_ID: ${{ secrets.GA_PROPERTY_ID }}
           GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python analytics/experiments.py ${{ inputs.dry_run && '--dry' || '' }}
+        run: |
+          python analytics/experiments.py ${{ inputs.dry_run && '--dry' || '' }}
+          [ -f out-experiments.txt ] && node .github/scripts/flash.mjs experiment info "$(cat out-experiments.txt)" || true
       - name: Commit the winner
         run: |
           rm -f out-experiments.txt

@@ -33,6 +33,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           # Dudu 2026-10-15: publish on its own after the automatic checks; a failed check opens a PR instead and sends an alert.
@@ -49,6 +50,7 @@ jobs:
             git push origin HEAD:main || { git pull --rebase -q origin main && git push origin HEAD:main; }
             gh api -X POST "repos/${{ github.repository }}/pages/builds" >/dev/null 2>&1 || true
             tg "המגזין פורסם: $title https://luchit.app/magazine/$slug/" true
+            node .github/scripts/flash.mjs content info "המגזין פורסם: $title" "https://luchit.app/magazine/$slug/"
           else
             branch="magazine/$slug"
             git checkout -b "$branch"
@@ -57,4 +59,5 @@ jobs:
             git push --force origin "$branch"
             gh pr create --base main --head "$branch" --title "Magazine: $slug" --body "The automatic checks failed, so this article was not published. See the run log." || true
             tg "כתבת המגזין $slug לא פורסמה: בדיקות ה-SEO האוטומטיות נכשלו. נפתח PR."
+            node .github/scripts/flash.mjs content alert "כתבת המגזין $slug לא פורסמה: בדיקות ה-SEO האוטומטיות נכשלו, נפתח PR"
           fi
