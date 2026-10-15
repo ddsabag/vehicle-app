@@ -3197,7 +3197,6 @@ $("#compareSheet").addEventListener("click", ev => { if (ev.target.id === "compa
 /* Libraries load from a CDN only when first needed, so the app itself stays one small file */
 const LIBS = {
   img: "https://cdn.jsdelivr.net/npm/html-to-image@1.11.13/dist/html-to-image.js",
-  qr: "lib/qrcode.min.js",   // QR code on the share card and the PDF cover (MIT, qrcode-generator 1.4.4)
   pdf: "lib/jspdf.umd.min.js",   // shipped with the app (same file as jspdf@2.5.2 on jsDelivr), so a PDF needs no download
   ocr: "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js",
 };
@@ -3552,7 +3551,7 @@ async function pdfFromCanvas(canvas, breaks, headText, headLeft, opts = {}){
   const BW = Math.round(CW * 3), BH = 60, bh = BH / 3;
   const head = pdfBand(headText, headLeft, BW, BH, 1, logo);
   const foot = n => pdfBand(opts.foot || "לוחית · בדיקת רכב לפי מספר רישוי · luchit.app", n, BW, BH, -1, opts.foot ? null : logo);
-  if (cover) pdf.addImage(cover.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, W, H, "cover");
+  if (cover) { pdf.addImage(cover.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, W, H, "cover"); pdf.link(0, H * (1 - 190 / 1527), W, H * 190 / 1527, {url: opts.link || SITE}); }
   slices.forEach(([a, b], i) => {
     if (i || cover) pdf.addPage();
     const part = document.createElement("canvas"); part.width = canvas.width; part.height = b - a;
@@ -3613,20 +3612,10 @@ async function warmFile(kind){
 }
 /* The shared picture is drawn straight on a canvas: a designed summary card in a few milliseconds. (Photographing the whole report through an SVG snapshot took
    several seconds on a phone; the full report is the PDF.) */
-function drawQr(ctx, url, X, Y, size){
-  try {
-    const q = window.qrcode(0, "M"); q.addData(url); q.make();
-    const n = q.getModuleCount(), cell = Math.floor(size / n), off = Math.floor((size - cell * n) / 2);
-    ctx.fillStyle = "#151a24";
-    for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) ctx.fillRect(X + off + k * cell, Y + off + r * cell, cell, cell);
-    return true;
-  } catch { return false; }
-}
 /* The summary picture (1080x1350; with {cover:true} A4 proportions for the first page of the PDF): the car, what was found in a fixed order,
-   three numbers, and a quiet footer with a QR that opens the live report. Drawn straight on a canvas, so it takes milliseconds. */
+   three numbers, and a quiet footer pointing to the live report (a tappable link in the PDF). Drawn straight on a canvas, so it takes milliseconds. */
 async function drawShareCard(D, opt = {}){
   const cover = !!opt.cover;
-  let qrOk = true; try { await loadScript(LIBS.qr); } catch { qrOk = false; }
   const W = 1080, H = cover ? 1527 : 1350, P = 72, R = W - P, FT = H - 190;
   const c = document.createElement("canvas"); c.width = W; c.height = H;
   const x = c.getContext("2d"); x.direction = "rtl"; x.textBaseline = "alphabetic";
@@ -3699,11 +3688,9 @@ async function drawShareCard(D, opt = {}){
   }
   // footer: the live report one scan away
   x.fillStyle = INK; x.fillRect(0, FT, W, 190);
-  const qs = 140, qx = P, qy = FT + 25;
-  if (qrOk) { rr(qx, qy, qs, qs, 14, "#fff"); drawQr(x, shareLink(D.plate, "qr"), qx + 11, qy + 11, qs - 22); }
-  f(34, 800); text("הדוח המלא, מתעדכן בכל פתיחה", R, FT + 70, "#fff");
-  f(26, 500); text("luchit.app · מקור: מאגרי משרד התחבורה", R, FT + 114, "#c9d1e0");
-  f(21, 500); text("אינו מחליף נסח רישום או בדיקה במכון", R, FT + 154, "#9aa4b8");
+  f(36, 800); text(cover ? "לדוח המעודכן של הרכב הזה: luchit.app" : "הדוח המלא, מתעדכן בכל פתיחה", R, FT + 78, "#fff");
+  f(26, 500); text(cover ? "הנתונים ממאגרי משרד התחבורה ונכונים לשעת ההפקה" : "luchit.app · מקור: מאגרי משרד התחבורה", R, FT + 124, "#c9d1e0");
+  f(21, 500); text("אינו מחליף נסח רישום או בדיקה במכון", R, FT + 160, "#9aa4b8");
   return {canvas: c, breaks: []};
 }
 async function doShare(kind){
