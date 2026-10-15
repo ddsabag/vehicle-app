@@ -1,7 +1,7 @@
 name: Magazine
 on:
   schedule:
-    - cron: "20 5 6 * *"   # the 6th, after market.yml has refreshed market.json on the 5th
+    - cron: "0 8 6 * *"   # the 6th, after market.yml (5th) and after modelstats.yml has finished (starts 05:20, up to 2 hours)
   workflow_dispatch:
 permissions:
   contents: write
@@ -36,7 +36,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           # Dudu 2026-10-15: publish on its own after the automatic checks; a failed check opens a PR instead and sends an alert.
-          tg() { [ -n "$TELEGRAM_BOT_TOKEN" ] && curl -s -o /dev/null "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$1" || true; }
+          tg() { [ -n "$TELEGRAM_BOT_TOKEN" ] && curl -s -o /dev/null "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$1" --data-urlencode "disable_notification=${2:-false}" || true; }   # 2nd argument "true" = silent (routine notice)
           node .github/scripts/pages.mjs
           if [ -z "$(git status --porcelain magazine sitemap.xml model)" ]; then echo "nothing new"; exit 0; fi
           slug=$(node -e 'console.log(require("./magazine/posts.json")[0].slug)')
@@ -46,9 +46,9 @@ jobs:
           if node .github/scripts/seo-check.mjs; then
             git add magazine sitemap.xml model
             git commit -m "Magazine: article for $slug (automatic publish after checks)"
-            git push origin HEAD:main
+            git push origin HEAD:main || { git pull --rebase -q origin main && git push origin HEAD:main; }
             gh api -X POST "repos/${{ github.repository }}/pages/builds" >/dev/null 2>&1 || true
-            tg "המגזין פורסם: $title https://luchit.app/magazine/$slug/"
+            tg "המגזין פורסם: $title https://luchit.app/magazine/$slug/" true
           else
             branch="magazine/$slug"
             git checkout -b "$branch"

@@ -13,7 +13,7 @@ def telegram(text, html_path):
     tok, chat = os.environ.get("TELEGRAM_BOT_TOKEN"), os.environ.get("TELEGRAM_CHAT_ID")
     if not (tok and chat): return None
     base = f"https://api.telegram.org/bot{tok}/"
-    _post(base + "sendMessage", urllib.parse.urlencode({"chat_id": chat, "text": text, "disable_web_page_preview": "true"}).encode(),
+    _post(base + "sendMessage", urllib.parse.urlencode({"chat_id": chat, "text": text, "disable_web_page_preview": "true", "disable_notification": "true"}).encode(),
           {"Content-Type": "application/x-www-form-urlencoded"})
     if html_path:
         b = uuid.uuid4().hex; body = bytearray()

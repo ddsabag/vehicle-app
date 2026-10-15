@@ -16,11 +16,11 @@ async function token() {
   return (await r.json()).access_token;
 }
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-async function telegram(text) {
+async function telegram(text, silent = false) {
   const tok = process.env.TELEGRAM_BOT_TOKEN, chat = process.env.TELEGRAM_CHAT_ID;
   if (DRY || !tok || !chat) { console.log("--- Telegram (" + (DRY ? "dry run" : "no credentials") + ") ---\n" + text); return DRY; }
   const r = await fetch(`https://api.telegram.org/bot${tok}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true }) });
+    body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true, disable_notification: silent }) });
   if (!r.ok) console.log("telegram failed", r.status);
   return r.ok;
 }
@@ -59,7 +59,7 @@ try {
   const end = addDays(iso(new Date()), -1), start = addDays(end, -20);
   const days = (await q({ startDate: start, endDate: end, dimensions: ["date"] })).map(r => ({ d: r.keys[0], c: r.clicks, i: r.impressions, p: r.position })).sort((a, b) => a.d.localeCompare(b.d));
   if (!days.length) {
-    await telegram("📈 <b>לוחית בגוגל, עדכון יומי</b>\n\nעדיין אין נתוני חיפוש ב-Search Console. גוגל מתחיל להציג חשיפות אחרי כמה ימים מהגשת מפת האתר, והנתונים מתעכבים בכ-2 עד 3 ימים. אעדכן כשיופיעו.");
+    await telegram("📈 <b>לוחית בגוגל, עדכון יומי</b>\n\nעדיין אין נתוני חיפוש ב-Search Console. גוגל מתחיל להציג חשיפות אחרי כמה ימים מהגשת מפת האתר, והנתונים מתעכבים בכ-2 עד 3 ימים. אעדכן כשיופיעו.", true);
     process.exit(0);
   }
   const last = days[days.length - 1];
@@ -105,7 +105,7 @@ try {
     if (secLine) lines.push(`הופענו לפי סוג דף: ${secLine}`);
     lines.push("", "<i>הופעה = האתר הוצג למישהו בתוצאות. כניסה = הוא לחץ עליו. עמוד ראשון בגוגל = מקומות 1 עד 10.</i>");
   }
-  const ok = await telegram(lines.join("\n"));
+  const ok = await telegram(lines.join("\n"), true);
   process.exit(ok ? 0 : 1);
 } catch (e) {
   const ok = await telegram(`⚠️ <b>הדוח היומי מ-Search Console לא הצליח לרוץ</b>\nהסיבה: ${esc(String(e.message || e).slice(0, 300))}\nהבדיקה תרוץ שוב מחר. אם זה חוזר, כנראה שחשבון השירות אינו מחובר לנכס luchit.app ב-Search Console (הרשאת Restricted מספיקה) או ש-Google Search Console API כבוי בפרויקט.`);

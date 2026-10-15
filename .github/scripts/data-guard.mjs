@@ -85,10 +85,10 @@ function selftest() {
 }
 
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-async function telegram(text) {
+async function telegram(text, silent = false) {
   const token = process.env.TELEGRAM_BOT_TOKEN, chat = process.env.TELEGRAM_CHAT_ID;
   if (process.env.DRY_RUN === "1" || !token || !chat) { console.log("--- Telegram (dry run) ---\n" + text); return true; }
-  const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true }) });
+  const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true, disable_notification: silent }) });
   if (!r.ok) console.log("telegram failed", r.status);
   return r.ok;
 }
@@ -120,7 +120,7 @@ async function send() {
   const text = bad.length
     ? `⛔ <b>לוחית: משרד התחבורה שינה מבנה של מאגר</b>\nהשינוי פוגע בעמודות שהאפליקציה קוראת. בניית גרסה חדשה לאנדרואיד נעצרת עד שייבדק.\n\n${bad.map(line).join("\n")}${warn.length ? `\n\nבנוסף:\n${warn.map(line).join("\n")}` : ""}`
     : `ℹ️ <b>לוחית: שינוי קטן במבנה מאגר</b>\nהאפליקציה לא נפגעת, רק לידיעה.\n\n${warn.map(line).join("\n")}`;
-  process.exit((await telegram(text)) ? 0 : 1);
+  process.exit((await telegram(text, !bad.length)) ? 0 : 1);
 }
 
 if (process.argv.includes("--selftest")) selftest();

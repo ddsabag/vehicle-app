@@ -22,11 +22,11 @@ async function token(scope) {
 }
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const errText = errors => `⚠️ <b>הבדיקה האוטומטית של גוגל פליי לא הצליחה לרוץ</b>\nהיא בודקת כל שעתיים ביקורות חדשות עם 1 עד 3 כוכבים ושיעור קריסות. הפעם לא הצליחה לקבל תשובה מגוגל, ולכן לא ידוע אם יש ביקורות או קריסות חדשות. זה לא אומר שיש בעיה באפליקציה.\nפירוט: ${errors.map(esc).join("; ")}\n\nמה לעשות: בדרך כלל כלום, והבדיקה הבאה תרוץ בעוד שעתיים. אם זה חוזר, כתבו לי.\n\nזמן: ${ilTime()} (שעון ישראל)`;
-async function telegram(text) {
+async function telegram(text, silent = false) {
   const tok = process.env.TELEGRAM_BOT_TOKEN, chat = process.env.TELEGRAM_CHAT_ID;
   if (DRY || !tok || !chat) { console.log("--- Telegram (" + (DRY ? "dry run" : "no credentials") + ") ---\n" + text); return DRY; }
   const r = await fetch(`https://api.telegram.org/bot${tok}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true }) });
+    body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true, disable_notification: silent }) });
   if (!r.ok) throw new Error("telegram " + r.status);
   return true;
 }
@@ -52,7 +52,7 @@ try {
     const dm = c.deviceMetadata || {}, replied = (rv.comments || []).some(x => x.developerComment);
     await telegram(`${"⭐".repeat(c.starRating)}${"☆".repeat(5 - c.starRating)} <b>ביקורת חדשה בגוגל פליי</b>${replied ? " (כבר נענתה)" : ""}\n` +
       `גרסה: ${esc(c.appVersionName || "?")} (${esc(c.appVersionCode || "?")})\nמכשיר: ${esc([dm.manufacturer, dm.productName].filter(Boolean).join(" ") || c.device || "?")}\nאנדרואיד: ${esc(c.androidOsVersion ?? "?")}\n\n` +
-      `${esc((c.text || "(בלי טקסט)").trim().slice(0, 900))}\n\n<a href="${base}">למענה ב-Console</a> · מזהה: <code>${esc(rv.reviewId)}</code>`);
+      `${esc((c.text || "(בלי טקסט)").trim().slice(0, 900))}\n\n<a href="${base}">למענה ב-Console</a> · מזהה: <code>${esc(rv.reviewId)}</code>`, c.starRating >= 3);
     seen[key] = Date.now(); sent++;
   }
   console.log(`reviews: ${list.length} returned, ${sent} alerts sent`);

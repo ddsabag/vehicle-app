@@ -28,7 +28,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          tg() { [ -n "$TELEGRAM_BOT_TOKEN" ] && curl -s -o /dev/null "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$1" || true; }
+          tg() { [ -n "$TELEGRAM_BOT_TOKEN" ] && curl -s -o /dev/null "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$1" --data-urlencode "disable_notification=${2:-false}" || true; }   # 2nd argument "true" = silent (routine notice)
           done=""
           for t in recalls offroad; do
             if node .github/scripts/magazine-data.mjs $t; then done=$t; break; fi
@@ -41,9 +41,9 @@ jobs:
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add magazine sitemap.xml
             git commit -m "Magazine: $slug (automatic data article after checks)"
-            git push origin HEAD:main
+            git push origin HEAD:main || { git pull --rebase -q origin main && git push origin HEAD:main; }
             gh api -X POST "repos/${{ github.repository }}/pages/builds" >/dev/null 2>&1 || true
-            tg "המגזין פורסם: $title https://luchit.app/magazine/$slug/"
+            tg "המגזין פורסם: $title https://luchit.app/magazine/$slug/" true
           else
             tg "כתבת המגזין $slug לא פורסמה: בדיקות ה-SEO האוטומטיות נכשלו."
             exit 1

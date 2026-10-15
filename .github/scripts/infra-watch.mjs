@@ -61,10 +61,10 @@ async function staleBranches() {
   if (old.length) notes.push("ענפים ישנים שאפשר למחוק: " + old.join(", "));
 }
 
-async function telegram(text) {
+async function telegram(text, silent = false) {
   if (DRY || !E.TELEGRAM_BOT_TOKEN) { console.log("[telegram]\n" + text); return DRY; }
   const r = await fetch(`https://api.telegram.org/bot${E.TELEGRAM_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ chat_id: E.TELEGRAM_CHAT_ID, text, parse_mode: "HTML", disable_web_page_preview: true }) });
+    body: JSON.stringify({ chat_id: E.TELEGRAM_CHAT_ID, text, parse_mode: "HTML", disable_web_page_preview: true, disable_notification: silent }) });
   if (!r.ok) console.log("telegram failed", r.status);
   return r.ok;
 }
@@ -77,5 +77,5 @@ if (problems.length) {
   const sent = await telegram(`⚠️ <b>לוחית: שירות באתר או במכסה דורש תשומת לב</b>\nהבדיקה היומית של האתר, של Cloudflare ושל שליחת המיילים מצאה:\n${problems.map(p => "• " + esc(p)).join("\n")}\n\nמה לעשות: אם כתוב שירות לא מגיב, כתבו לי ואבדוק. אם כתוב שמכסה מתקרבת לגבול, אין בעיה כרגע, אבל כדאי לדעת לפני שהשירות ייחסם.${notes.length ? "\n\nהערות:\n" + notes.map(esc).join("\n") : ""}\n\nזמן: ${ilTime()} (שעון ישראל)`);
   process.exit(sent ? 0 : 1);   // alert delivered: finish green so GitHub does not also mail "workflow failed"
 }
-if (notes.some(n => n.startsWith("ענפים"))) await telegram(`🧹 <b>לוחית: תחזוקה חודשית</b>\n${esc(notes.find(n => n.startsWith("ענפים")))}`);
+if (notes.some(n => n.startsWith("ענפים"))) await telegram(`🧹 <b>לוחית: תחזוקה חודשית</b>\n${esc(notes.find(n => n.startsWith("ענפים")))}`, true);
 console.log("all clear");
