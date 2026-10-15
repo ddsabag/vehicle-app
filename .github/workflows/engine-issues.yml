@@ -1,0 +1,15 @@
+name: Check engine issues library
+on:
+  push:
+    paths: ["engine-issues.json", ".github/scripts/engine-issues-check.mjs"]
+  pull_request:
+    paths: ["engine-issues.json"]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node .github/scripts/engine-issues-check.mjs engine-issues.json

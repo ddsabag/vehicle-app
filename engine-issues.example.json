@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "updated": "2026-10-15",
+  "issues": [
+    {
+      "id": "psa-puretech-12-wet-belt",
+      "engine": {
+        "family": "PureTech 1.2 (EB2), 3 צילינדרים",
+        "codes": ["HN01", "HN02", "HN05"],
+        "cc": {"min": 1150, "max": 1250},
+        "fuel": ["בנזין"],
+        "makers": ["פיג'ו", "סיטרואן", "אופל", "די אס"],
+        "years": {"from": 2013, "to": 2023}
+      },
+      "title": "בלאי מוקדם של רצועת תזמון שטובלת בשמן",
+      "summary": "דוגמה למבנה בלבד. הטקסט, השנים, הקודים והמקורות ייכתבו אחרי מחקר ידני, ורק לפי מה שכתוב במקורות.",
+      "symptoms": ["נורת לחץ שמן", "רעש ממנוע", "צריכת שמן גבוהה"],
+      "severity": "high",
+      "status": "extended_warranty",
+      "statusText": "לאמת: היקף הארכת האחריות ותנאיה בישראל",
+      "statusUntil": "2030-12-31",
+      "advice": "בקשו מהמוכר חשבונית החלפת רצועה ובדקו מול היבואן אם הרכב זכאי להארכת האחריות.",
+      "sources": [
+        {"type": "manufacturer_notice", "title": "לאמת: הודעת היצרן על הארכת האחריות", "publisher": "Stellantis", "url": "https://example.invalid/replace-with-official-source", "date": "2023-01-01"},
+        {"type": "importer_notice", "title": "לאמת: הודעת היבואן בישראל", "publisher": "היבואן", "url": "https://example.invalid/replace-with-importer-page", "date": "2023-01-01"}
+      ],
+      "reviewed": {"date": "2026-10-15", "by": "דוגמה"}
+    }
+  ]
+}

@@ -384,6 +384,8 @@ section[style*="--n:3"] .cmp-k{font-size:.78rem}
 .ph-svg{width:100%;height:auto;display:block}.opt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:start;border:1.5px solid var(--line);border-radius:14px;padding:12px;background:var(--card);margin-top:8px;position:relative;color:var(--fg)}.opt b{font-size:1rem}.opt .pr{font-weight:800}.opt small{color:var(--muted)}.opt.best{border-color:#ffc400;box-shadow:0 0 0 2px #ffc40055}.opt em{position:absolute;inset-block-start:-9px;inset-inline-end:12px;background:#ffc400;color:#111;font-style:normal;font-weight:800;font-size:.78rem;border-radius:6px;padding:1px 8px}.cmpp td,.cmpp th{font-size:.85rem;padding:6px 2px}
 .pro-tag{display:inline-flex;align-items:center;gap:3px;border:1px solid #d9a600;color:#8a6500;font-weight:700;font-size:.78rem;border-radius:6px;padding:0 6px;margin-inline-start:6px;vertical-align:middle}
 .pro-tag .i{width:10px;height:10px}
+.eng-i{border-top:1px solid var(--line);padding-top:10px}.eng-i:first-of-type{border-top:0;padding-top:0}.eng-src{display:grid;gap:6px}
+.src-btn{align-items:flex-start;border-color:var(--accent)}.src-btn span{display:grid;gap:2px}.src-btn b{color:var(--accent)}.src-btn small{color:var(--muted);font-weight:500;font-size:.8rem}
 .snack{position:fixed;inset-inline:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:31;background:var(--fg);color:var(--bg);border-radius:14px;padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 14px rgba(0,0,0,.25)}.snack span{flex:1;font-weight:700;font-size:.9rem}.snack button{border:0;border-radius:10px;padding:8px 14px;font-weight:800;background:#ffc400;color:#111;min-height:40px}.snack button.q{background:transparent;color:inherit;font-weight:600;padding:8px}.more-plans{margin-top:10px}.more-plans summary{cursor:pointer;color:var(--muted);font-size:.9rem;padding:6px 0}.blur{filter:blur(5px);user-select:none;font-weight:700;font-size:1.1rem}
 .tier{margin:14px 0;padding:0 0 1px;border-top:2px solid #e3c25a}
 .tier-h{display:flex;align-items:center;gap:6px;font-size:.78rem;font-weight:700;color:#8a6500;padding:6px 2px 8px}
@@ -1571,6 +1573,7 @@ function buildInsights(D){
   if (D.isCancelled) add("bad", "הרכב ירד מהכביש", `הרכב בוטל סופית${empty(v.bitul_dt) ? "" : " ב-" + fmtDate(v.bitul_dt)} ואינו יכול לנסוע.`);
   else if (D.primary && /^inactive/.test(D.primary.key)) add("warn", "הרכב לא פעיל", "הרכב רשום כלא פעיל במאגר משרד התחבורה.");
   // open recalls are not repeated here: the red banner above the tabs already says it
+  { const n = engineIssuesFor(D).length; if (n) add("warn", "יש תקלה ידועה במנוע של הרכב", `${n === 1 ? "נמצאה תקלה ידועה אחת" : `נמצאו ${n} תקלות ידועות`} לקוד המנוע של הרכב, עם מקור רשמי. הפרטים בלשונית ריקולים והסדרים.`); }
   { const n = D.kind === "model" || D.isCancelled ? 0 : settlementsFor(D).length; if (n) add("info", "ייתכן שמגיעה לכם הטבה מהסדר פשרה", `${n === 1 ? "נמצא הסדר פשרה אחד שעשוי לחול על הרכב" : `נמצאו ${n} הסדרי פשרה שעשויים לחול על הרכב`}. הפרטים בלשונית ריקולים והסדרים.`); }
   const exp = toDate(v.tokef_dt);
   if (exp && !D.isCancelled) {
@@ -1644,7 +1647,7 @@ async function lookup(raw){
   // a slow ministry server: say so after 3.5 s instead of leaving a silent bar
   const t0 = Date.now();
   const slowT = setTimeout(() => { if (!signal.aborted && $("#skl") && !$("#slowNote")) track("lookup_slow"); if (!signal.aborted && $("#skl") && !$("#slowNote")) out.insertAdjacentHTML("beforeend", `<p class="note" id="slowNote" role="status" style="text-align:center">בודק, לוקח יותר מהרגיל. שרתי משרד התחבורה איטיים כרגע. <button type="button" class="link-btn" id="cancelLook">ביטול</button></p>`); const cb = $("#cancelLook"); if (cb) cb.addEventListener("click", () => { ctrl.abort(); goHome(); }); }, 3500);
-  const side = Promise.race([Promise.all([loadModelStats().catch(() => null), loadService().catch(() => null)]), new Promise(r => setTimeout(r, 1500))]);
+  const side = Promise.race([Promise.all([loadModelStats().catch(() => null), loadService().catch(() => null), loadEngineIssues().catch(() => null)]), new Promise(r => setTimeout(r, 1500))]);
   let D;
   try { D = await fetchVehicle(plate, signal, () => {}); }
   catch (err) { if (err.name === "AbortError") { if (timedOut) { D = {plate, offline: true}; track("lookup_timeout"); } else { if (Date.now() - t0 > 1500) track("lookup_abort"); return; } } else throw err; }   // the user gave up on a slow lookup and typed another
@@ -2223,6 +2226,7 @@ function tabRecalls(D){
         ${contact ? `<p class="note">${contact}</p>` : ""}</div>`;
     }).join("") + `<p class="note">התיקון ניתן בחינם אצל היבואן.</p>`));
   }
+  html.push(engineIssuesCard(D));
   html.push(settlementCard(D));
   html.push(`<div id="issues">${CMPL ? issuesCard(D) : ""}</div>`);
   const rows = [], row = (ok, t) => rows.push(`<li class="ins ${ok ? "ok" : "warn"}">${ico(ok ? "check" : "alert")}<div><b>${esc(t)}</b></div></li>`);
@@ -2231,6 +2235,7 @@ function tabRecalls(D){
   if (D.recalls.length) row(false, "ריקול שלא מתוקן עלול למנוע בהמשך חידוש רישיון");
   else row(true, "אין ריקול שמגביל חידוש רישיון"); }
   if (D.modelRecallsUnknown) row(false, "בדיקת ריקולים קודמים לדגם לא זמינה כרגע"); else row(!fits.length, !mr.length ? "לא נמצאו ריקולים קודמים לדגם" : fits.length ? `${pl(fits.length, "ריקול קודם לדגם עשוי לחול", "ריקולים קודמים לדגם עשויים לחול")} על שנת הייצור` : `${pl(mr.length, "ריקול קודם לדגם, לא חל", "ריקולים קודמים לדגם, אף אחד לא חל")} על שנת הייצור`);
+  if (ENGI && ENGI.n && D.kind !== "model" && !D.isCancelled && engCode(D.v.degem_manoa)) { const en = engineIssuesFor(D).length; row(!en, en ? `${pl(en, "תקלה ידועה אחת", "תקלות ידועות")} למנוע ${String(D.v.degem_manoa).trim()} (פירוט למעלה)` : `לא נמצאה תקלה ידועה למנוע ${String(D.v.degem_manoa).trim()} בספרייה שלנו`); }
   if (D.kind !== "model" && !D.isCancelled) row(!stl.length, stl.length ? `ייתכן שהרכב נכלל ב${pl(stl.length, "הסדר פשרה", "הסדרי פשרה")} (פירוט למעלה)` : "לא נמצא הסדר פשרה מוכר לדגם ולשנתון");
   html.push(card(`מה נבדק (${rows.length} בדיקות)`, "check", D.recalls.length || fits.length || stl.length || D.recallUnknown || D.modelRecallsUnknown ? "amber" : "green", `<ul class="insights plain">${rows.join("")}</ul>
     <p class="note">הסדרי פשרה: נבדקו מול ${SETTLEMENTS.length} הסדרים של יבואנים, לפי הודעותיהם והעיתונות נכון ל-10/2026. הרשימה אינה מקיפה. באתר היבואן מופיעים גם קמפיינים שלא תמיד נמצאים במאגר.</p>
@@ -4072,6 +4077,67 @@ function loadComplaints(){
     }
     cmplP = null; return null;
   })());
+}
+/* Known engine issues (engine-issues.json, curated by hand, every item backed by an official source; rules in engine-issues.schema.json).
+   A car matches by its registry engine code (degem_manoa) and displacement in cc, never by the commercial model name. */
+let ENGI = null, engiP = null;
+const engCode = s => String(s || "").toUpperCase().replace(/[\s.\-_/]/g, "");
+function loadEngineIssues(){
+  if (ENGI) return Promise.resolve(ENGI);
+  return engiP || (engiP = (async () => {
+    for (const u of [SITE + "engine-issues.json", "engine-issues.json"]) {
+      try {
+        const r = await fetch(u, {cache: "no-cache"}); if (!r.ok) continue;
+        const j = await r.json(); if (!j || !Array.isArray(j.issues)) continue;
+        const byCode = new Map();
+        for (const x of j.issues) for (const c of (x.engine && x.engine.codes) || []) { const k = engCode(c); if (!byCode.has(k)) byCode.set(k, []); byCode.get(k).push(x); }
+        return ENGI = {updated: j.updated, n: j.issues.length, byCode};
+      } catch {}
+    }
+    engiP = null; return null;
+  })());
+}
+/* the issues that apply to this car: same engine code, cc inside the range, and (when the item says so) maker, fuel and production years */
+function engineIssuesFor(D){
+  if (!ENGI || !D || D.kind === "model" || D.isCancelled) return [];
+  const v = D.v || {}, code = engCode(v.degem_manoa), cc = num(D.pick(v.nefach_manoa, (D.w || {}).nefah_manoa)), y = num(v.shnat_yitzur);
+  if (!code || !(cc > 0)) return [];
+  const mk = String(v.tozeret_nm || ""), fuel = String(D.pick(v.sug_delek_nm, (D.w || {}).delek_nm) || "");
+  return (ENGI.byCode.get(code) || []).filter(x => {
+    const g = x.engine;
+    if (cc < g.cc.min || cc > g.cc.max) return false;
+    if (g.makers && g.makers.length && !g.makers.some(m => mk.includes(m))) return false;
+    if (g.fuel && g.fuel.length && !g.fuel.some(f => fuel.includes(f))) return false;
+    if (g.years && y && ((g.years.from && y < g.years.from) || (g.years.to && y > g.years.to))) return false;
+    return true;
+  });
+}
+const SEV_HE = {high: ["חמורה", "bad"], medium: ["בינונית", "warn"], low: ["קלה", "info"]};
+const ST_HE = {extended_warranty: "הוארכה אחריות", recall: "ריקול", court_ruling: "פסק דין", class_action_approved: "ייצוגית שאושרה", class_action_pending: "בקשה לייצוגית", manufacturer_notice: "הודעת יצרן", regulator_notice: "הודעת רגולטור", fixed_in_production: "תוקן בייצור"};
+const SRC_HE = {court_ruling: "פסק דין", class_action: "בקשה לייצוגית", manufacturer_notice: "הודעת יצרן", importer_notice: "הודעת יבואן", recall: "ריקול", regulator: "רגולטור"};
+const engSeen = new Set();
+function engineIssuesCard(D){
+  const list = engineIssuesFor(D); if (!list.length) return "";
+  const full = !PRO_LOCK || atLeast("pro"), title = "מחלות מנוע ידועות";
+  if (!engSeen.has(D.plate)) { engSeen.add(D.plate); track("engine_issue_shown", {locked: full ? 0 : 1, n: list.length, id: list[0].id}); }
+  const code = esc(String(D.v.degem_manoa || "").trim()), cc = num(D.pick(D.v.nefach_manoa, (D.w || {}).nefah_manoa));
+  const tag = `<p class="est-tag"><b>התאמה לפי קוד מנוע ${code} ונפח ${fmtN(cc)} סמ״ק</b> כפי שהם ברישום משרד התחבורה. כל פריט מגובה במקור רשמי.</p>`;
+  if (!full) return card(title, "wrench", "amber", `${tag}
+     <ul class="insights">${list.map(x => `<li class="ins ${SEV_HE[x.severity][1]}">${ico("alert")}<div><b>${list.length === 1 ? "נמצאה תקלה ידועה" : "תקלה ידועה"} במנוע הזה · חומרה ${SEV_HE[x.severity][0]}</b><span><span class="blur" aria-hidden="true">••••• ••••• ••••••• ••••</span></span><span class="note">סטטוס: ${esc(ST_HE[x.status] || "")}</span></div></li>`).join("")}</ul>
+     <p class="note" style="margin:0">מה התקלה, מה עושים ומקור האימות זמינים למנויי PRO.</p>
+     <button type="button" class="link-btn" data-act="proInfo" data-src="engine">${ico("lock")}פתיחה ב-PRO</button>`, PT("PRO") + `<span class="count">${list.length}</span>`);
+  const today = new Date().toISOString().slice(0, 10);
+  return card(title, "wrench", "amber", `${tag}${list.map(x => {
+    const over = x.statusUntil && x.statusUntil < today;
+    return `<div class="eng-i"><div class="stl-h"><b>${esc(x.title)}</b><span class="pill ${SEV_HE[x.severity][1]}">חומרה ${SEV_HE[x.severity][0]}</span></div>
+      <p class="note" style="margin:2px 0 6px">${esc(x.engine.family)}</p>
+      <p style="margin:0 0 6px">${esc(x.summary)}</p>
+      ${x.symptoms && x.symptoms.length ? `<p class="note" style="margin:0 0 6px"><b>סימנים:</b> ${x.symptoms.map(esc).join(" · ")}</p>` : ""}
+      <p style="margin:0 0 6px"><b>${esc(ST_HE[x.status] || "")}</b>${x.statusText ? ": " + esc(x.statusText) : ""}${x.statusUntil ? ` (${over ? "המועד עבר ב-" : "עד "}${esc(fmtDate(x.statusUntil))})` : ""}</p>
+      ${x.advice ? `<p class="todo" style="margin:0 0 8px"><strong>מה לעשות:</strong> ${esc(x.advice)}</p>` : ""}
+      <div class="eng-src">${x.sources.map(s => `<button type="button" class="link-btn src-btn" data-url="${esc(s.url)}">${ico("check")}<span><b>מקור אימות: ${esc(SRC_HE[s.type] || "")}</b><small>${esc(s.title)}${s.publisher ? " · " + esc(s.publisher) : ""} · ${esc(fmtDate(s.date))}</small></span></button>`).join("")}</div>
+      <p class="note" style="margin:6px 0 0">נבדק לאחרונה ${esc(fmtDate(x.reviewed.date))}. ייתכן שהרכב הזה כבר טופל: בקשו מהמוכר חשבוניות.</p></div>`;
+  }).join("")}`, `<span class="count">${list.length}</span>`);
 }
 /* NHTSA component names (longest prefix wins) */
 const NHTSA_HE = [["AIR BAGS","כריות אוויר"],["ENGINE AND ENGINE COOLING","מנוע וקירור"],["ENGINE","מנוע"],["ELECTRICAL SYSTEM","מערכת החשמל"],["POWER TRAIN","תיבת הילוכים והנעה"],
