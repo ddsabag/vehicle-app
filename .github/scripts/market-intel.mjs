@@ -36,9 +36,9 @@ export function build(market, stats, normModel, now = new Date()) {
     const raw = d.raw;
     const rel = d.prev ? d.now / d.prev / mkRatio : Infinity;
     if (d.now >= MIN_NOW && d.prev >= MIN_PREV_UP && rel >= UP && d.now / d.prev <= MAX_UP * mkRatio)
-      add(k, {m: raw, r: +rel.toFixed(2), v: d.now, k: "supply_up", t: "נמסרו יותר רכבים חדשים מהדגם", x: `ב-${RECENT} החודשים האחרונים נמסרו ${d.now.toLocaleString("en")} רכבים חדשים מהדגם, פי ${(d.now / d.prev).toFixed(1)} מאשר באותם חודשים אשתקד (השוק כולו: פי ${mkRatio.toFixed(1)}). ייתכן שההיצע הגדול יעלה את הלחץ על מחירי היד השנייה של הדגם.`});
+      add(k, {m: raw, r: +rel.toFixed(2), v: d.now, k: "supply_up", t: "נמסרו יותר רכבים חדשים מהדגם", h: "ייתכן שמחיר היד השנייה של הדגם הזה יהיה נמוך יותר", s: "יש יותר רכבים חדשים מהדגם מהרגיל, וזה עשוי להגדיל את ההיצע ביד שנייה. כדאי להשוות מחירים ולהתמקח.", x: `ב-${RECENT} החודשים האחרונים נמסרו ${d.now.toLocaleString("en")} רכבים חדשים מהדגם, פי ${(d.now / d.prev).toFixed(1)} מאשר באותם חודשים אשתקד (השוק כולו: פי ${mkRatio.toFixed(1)}). ייתכן שההיצע הגדול יעלה את הלחץ על מחירי היד השנייה של הדגם.`});
     else if (d.prev >= MIN_PREV_DOWN && rel <= DOWN && d.now >= MIN_DOWN * d.prev)
-      add(k, {m: raw, r: +rel.toFixed(2), v: d.now, k: "supply_down", t: "נמסרים פחות רכבים חדשים מהדגם", x: `ב-${RECENT} החודשים האחרונים נמסרו ${d.now.toLocaleString("en")} רכבים חדשים מהדגם, לעומת ${d.prev.toLocaleString("en")} באותם חודשים אשתקד. ייתכן שהיצע חדש נמוך יותר יתמוך במחירי היד השנייה, או שהדגם בדרך החוצה.`});
+      add(k, {m: raw, r: +rel.toFixed(2), v: d.now, k: "supply_down", t: "נמסרים פחות רכבים חדשים מהדגם", h: "ייתכן שהדגם הזה ישמור על מחירו ביד שנייה", s: "נמסרים ממנו פחות רכבים חדשים מהרגיל, כך שיש פחות רכבים כאלה בשוק. כדאי לא לצפות להנחה גדולה.", x: `ב-${RECENT} החודשים האחרונים נמסרו ${d.now.toLocaleString("en")} רכבים חדשים מהדגם, לעומת ${d.prev.toLocaleString("en")} באותם חודשים אשתקד. ייתכן שהיצע חדש נמוך יותר יתמוך במחירי היד השנייה, או שהדגם בדרך החוצה.`});
   }
 
   // 2. fleet wave: cars of the cohort that is about to finish a typical 3-year contract and are still held by leasing or rental companies,
@@ -52,7 +52,7 @@ export function build(market, stats, normModel, now = new Date()) {
     const a = f[y0], b = f[y0 - 1]; if (!a || !b) continue;
     const share = a.n ? a.fleet / a.n * 100 : 0;
     if (a.fleet >= FLEET_MIN && b.fleet > 0 && a.fleet / b.fleet >= FLEET_JUMP && share >= FLEET_SHARE)
-      add(k, {m: names[k], r: +(a.fleet / b.fleet).toFixed(2), v: Math.round(a.fleet), k: "fleet_wave", t: "גל רכבי ליסינג והשכרה לקראת השוק", x: `כ-${Math.round(a.fleet / 100) * 100} רכבים משנתון ${y0} עדיין רשומים על חברות ליסינג והשכרה (${Math.round(share)}% מהשנתון), פי ${(a.fleet / b.fleet).toFixed(1)} מהשנתון הקודם. בסוף חוזה של כ-3 שנים הם עוברים בדרך כלל למכירה, ולכן ייתכן שיעלה ההיצע של הדגם בשוק היד השנייה בחודשים הקרובים.`});
+      add(k, {m: names[k], r: +(a.fleet / b.fleet).toFixed(2), v: Math.round(a.fleet), k: "fleet_wave", t: "גל רכבי ליסינג והשכרה לקראת השוק", h: "ייתכן שיגיעו בקרוב הרבה רכבים כאלה ליד שנייה", s: "הרבה רכבי ליסינג והשכרה מהדגם מסיימים חוזה, ובדרך כלל הם נמכרים אחר כך. ההיצע הגדול עשוי להוריד מחיר. כדאי להשוות ולהתמקח.", x: `כ-${Math.round(a.fleet / 100) * 100} רכבים משנתון ${y0} עדיין רשומים על חברות ליסינג והשכרה (${Math.round(share)}% מהשנתון), פי ${(a.fleet / b.fleet).toFixed(1)} מהשנתון הקודם. בסוף חוזה של כ-3 שנים הם עוברים בדרך כלל למכירה, ולכן ייתכן שיעלה ההיצע של הדגם בשוק היד השנייה בחודשים הקרובים.`});
   }
   return {updated: now.toISOString().slice(0, 10), window: win, marketYoY: +mkRatio.toFixed(2), fleetYear: y0, tags};
 }

@@ -4108,8 +4108,8 @@ function marketTagsCard(D){
   const mk = String(D.v.tozeret_nm || D.make || "").trim().split(/\s+/)[0], md = normModel(D.v.kinuy_mishari);
   const list = (mk && md && MTAGS.tags[mk + "|" + md]) || [];
   if (!list.length) return "";
-  if (PRO_LOCK && !isPro()) return proLockCard("תנודות בשוק", "זיהינו תנודה בהיצע של הדגם הזה. הפרטים זמינים ב-PRO.");
-  return card("תנודות בשוק", "chart", "teal", list.map(t => `<p style="margin:0 0 .6em"><b>${esc(t.t)}</b><br>${esc(t.x)}</p>`).join("") + `<p class="note">הערכה על סמך נתוני מסירות ורישום של משרד התחבורה, לא תחזית מחירים. מתעדכן אחת לחודש.</p>`);
+  if (PRO_LOCK && !isPro()) return proLockCard("מחיר היד השנייה של הדגם", "זיהינו שינוי בהיצע של הדגם הזה שעשוי להשפיע על המחיר. הפרטים זמינים ב-PRO.");
+  return card("מחיר היד השנייה של הדגם", "chart", "teal", list.map(t => t.h ? `<p style="margin:0 0 4px;font-size:1.08em"><b>${esc(t.h)}</b></p><p style="margin:0 0 6px">${esc(t.s)}</p><p class="note" style="margin:0 0 .8em">${esc(t.x)}</p>` : `<p style="margin:0 0 .6em"><b>${esc(t.t)}</b><br>${esc(t.x)}</p>`).join("") + `<p class="note">הערכה על סמך נתוני מסירות ורישום של משרד התחבורה, לא תחזית מחירים. מתעדכן אחת לחודש.</p>`);
 }
 function msCard(D){
   const c = msCohort(D); if (!c) return "";
