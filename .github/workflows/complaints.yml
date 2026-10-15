@@ -1,0 +1,24 @@
+name: Known issues (NHTSA complaints)
+on:
+  schedule:
+    - cron: "40 6 7 * *"   # monthly, the day after the model statistics (it reads modelstats.json)
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node .github/scripts/nhtsa-complaints.mjs
+      - run: |
+          cp out/complaints.json complaints.json
+          if [ -n "$(git status --porcelain complaints.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add complaints.json && git commit -m "Update known issues (NHTSA)" && git push
+          fi

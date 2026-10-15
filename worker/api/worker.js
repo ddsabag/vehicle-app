@@ -58,9 +58,34 @@ async function waitlist(req, env) {
   return json({ ok: true });
 }
 
+/* web usage events (index.html track() on the site): forwarded to the GA4 web stream. Only listed event names, short text or number params,
+   nothing that looks like a plate or an email; no IP or user agent is passed on. Without GA_MEASUREMENT_ID/GA_API_SECRET it answers 204 and does nothing. */
+const WEB_EVENTS = new Set(["car_lookup", "search_no_result", "share", "tab_view", "compare_open", "link_landing", "web_hint_click", "web_install_prompt", "web_install_click",
+  "link_out", "checklist_pdf", "simple_view", "lookup_failed", "lookup_timeout", "lookup_slow", "settlement_shown", "buy_step_done", "calendar_reminder_shown", "calendar_reminder_click"]);
+async function webEvent(req, env) {
+  if (req.method !== "POST" || req.headers.get("origin") !== ORIGIN) return new Response(null, { status: 204 });
+  if (!env.GA_MEASUREMENT_ID || !env.GA_API_SECRET) return new Response(null, { status: 204 });
+  let b; try { b = JSON.parse((await req.text()).slice(0, 2000)); } catch { return new Response(null, { status: 204 }); }
+  if (!b || !WEB_EVENTS.has(b.n)) return new Response(null, { status: 204 });
+  const params = { engagement_time_msec: 1 };
+  for (const [k, v] of Object.entries(b.p || {}).slice(0, 10)) {
+    if (!/^[a-z_]{1,24}$/.test(k)) continue;
+    if (typeof v === "number" && isFinite(v)) params[k] = v;
+    else if (typeof v === "string" && !/\d{5,}|@/.test(v)) params[k] = v.slice(0, 40);
+  }
+  const cid = /^\d{1,10}\.\d{1,10}$/.test(String(b.cid)) ? b.cid : crypto.randomUUID();
+  try {
+    await fetch(`https://www.google-analytics.com/mp/collect?measurement_id=${encodeURIComponent(env.GA_MEASUREMENT_ID)}&api_secret=${encodeURIComponent(env.GA_API_SECRET)}`,
+      { method: "POST", body: JSON.stringify({ client_id: cid, events: [{ name: b.n, params }] }) });
+  } catch (e) { console.log("ga failed", String(e).slice(0, 200)); }
+  return new Response(null, { status: 204 });
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
+
+    if (url.pathname === "/api/e") return webEvent(req, env);
 
     if (url.pathname === "/api/confirm" && req.method === "GET") {
       const email = (url.searchParams.get("e") || "").toLowerCase(), exp = Number(url.searchParams.get("x")), t = url.searchParams.get("t") || "";

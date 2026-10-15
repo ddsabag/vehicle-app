@@ -1,0 +1,20 @@
+name: UI guardian (lint)
+on:
+  pull_request:
+    paths: ["index.html", "ui-contract.json", "ui-lint-baseline.json", ".github/scripts/ui-lint.mjs", ".github/workflows/ui-lint.yml"]
+  push:
+    branches: [next]
+    paths: ["index.html", "ui-contract.json", "ui-lint-baseline.json", ".github/scripts/ui-lint.mjs", ".github/workflows/ui-lint.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      # warning mode: annotates the run, never fails it (phase B makes it blocking)
+      - name: UI lint
+        run: node .github/scripts/ui-lint.mjs

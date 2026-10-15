@@ -6,7 +6,7 @@ const SITE = "https://luchit.app/";
 const errs = [], warns = [];
 const E = (p, m) => errs.push(`${p}: ${m}`), W = (p, m) => warns.push(`${p}: ${m}`);
 const walk = d => fs.readdirSync(d, {withFileTypes: true}).flatMap(e => e.isDirectory() ? (["node_modules", ".git", "android", "analytics", "worker", "lib", "email", "out"].includes(e.name) ? [] : walk(path.join(d, e.name))) : [path.join(d, e.name)]);
-const pages = walk(".").filter(f => f.endsWith(".html")).map(f => f.replace(/^\.\//, ""));
+const pages = walk(".").filter(f => f.endsWith(".html")).map(f => f.replace(/^\.\//, "")).filter(f => f !== "404.html");   // 404.html is noindex and served for missing paths only
 const urlOf = f => f === "index.html" ? SITE : f.endsWith("/index.html") ? SITE + f.slice(0, -10) : SITE + f;
 const norm = u => { try { const x = new URL(u, SITE); if (x.host !== "luchit.app") return null; let p = x.pathname.replace(/\/+/g, "/").replace(/\/index\.html$/, "/"); return SITE + p.slice(1); } catch { return null; } };
 const exists = u => { const p = u.slice(SITE.length); return p === "" || fs.existsSync(p) || fs.existsSync(p + "index.html") || fs.existsSync(p.replace(/\/$/, "")); };

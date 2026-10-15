@@ -1,0 +1,126 @@
+{
+  "_about": "UI contract for the vehicle screen. Cards and tabs are registered here; ui-lint warns on anything unregistered or out of order. Order lists are the INTENDED top-to-bottom order (runtime order check comes with the Playwright phase). To add a card: add its exact title under the right tab, in the right place.",
+  "tabs": [
+    {
+      "id": "overview",
+      "label": "סקירה"
+    },
+    {
+      "id": "recalls",
+      "label": "ריקולים"
+    },
+    {
+      "id": "buy",
+      "label": "קנייה"
+    },
+    {
+      "id": "maint",
+      "label": "טיפולים ועלויות"
+    },
+    {
+      "id": "specs",
+      "label": "מפרט"
+    }
+  ],
+  "principles": [
+    "Findings before facts, facts before reference, reference before promotion.",
+    "Card icons are one neutral tone; red/amber/green mean status and appear only in pills, banners and insight rows.",
+    "A promotion card is never the first card of a tab.",
+    "A 'no data' card is folded into one shared card when two or more have none."
+  ],
+  "cards": {
+    "overview": [
+      "מידע חשוב שעלה מהנתונים",
+      "יומן אירועים",
+      "רישוי וטסט",
+      "בעלות",
+      "היסטוריית בעלויות",
+      "שינויים ברכב",
+      "כמה מותר לגרור"
+    ],
+    "buy": [
+      "שווי משוער",
+      "איך הדגם הזה מחזיק",
+      "לפני שקונים"
+    ],
+    "maint": [
+      "מרווח טיפולים",
+      "הטיפול הבא",
+      "יומן טיפולים",
+      "ציר ק״מ",
+      "עלות אחזקה מצטברת",
+      "מסמכים וספר הרכב",
+      "תיק הרכב",
+      "בדיקות לפני החורף",
+      "בדיקות לפני הקיץ",
+      "מרווחי טיפול מלאים",
+      "כמה הרכב עולה בחודש (הערכה)",
+      "דלק",
+      "חשמל",
+      "אגרת רישוי שנתית",
+      "שווי שימוש (רכב צמוד)",
+      "נתונים שלא זמינים לרכב הזה"
+    ],
+    "recalls": [
+      "ייתכן שמגיעה לכם הטבה מהסדר פשרה",
+      "ריקולים פתוחים לרכב הזה",
+      "היסטוריית ריקולים לדגם"
+    ],
+    "specs": [
+      "הרכב",
+      "מנוע והנעה",
+      "משקלים וצמיגים",
+      "בטיחות",
+      "אבזור",
+      "סביבה",
+      "מספרי זיהוי"
+    ],
+    "other": [
+      "הצי שלי",
+      "שאלות נפוצות",
+      "מסירות בתקופה"
+    ],
+    "home": [
+      "הרכבים שלי",
+      "רשימת מועמדים",
+      "בדיקת כמה רכבים בבת אחת",
+      "חיפושים אחרונים",
+      "השוואות שמורות",
+      "מהמגזין"
+    ],
+    "market": [
+      "שוק הרכב",
+      "סוג מרכב",
+      "יבוא אישי"
+    ],
+    "plans": [
+      "הניסיון הסתיים",
+      "חודש PRO במתנה",
+      "חבילת הקנייה מסתיימת בקרוב",
+      "לוחית PRO",
+      "חינם מול PRO"
+    ]
+  },
+  "dynamicCards": [
+    "חשד לשיקום לאחר הורדה מהכביש",
+    "מה נבדק (N בדיקות)",
+    "ליווי קנייה",
+    "מחלות מנוע ידועות",
+    "בדיקות מנוע ידועות"
+  ],
+  "scales": {
+    "fontRem": [
+      0.78,
+      0.85,
+      0.9,
+      0.95,
+      1,
+      1.05,
+      1.15,
+      1.3,
+      1.6,
+      2,
+      2.6
+    ]
+  }
+}

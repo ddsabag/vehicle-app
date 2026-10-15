@@ -124,9 +124,11 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .head .chev{margin-inline-start:auto;color:var(--muted);transition:transform .2s}
 .head .count + .chev{margin-inline-start:0}
 .fold-body{display:flex;flex-direction:column;gap:12px;min-width:0}
+.doc-manual{display:flex;flex-direction:column;gap:8px;align-items:flex-start;padding-top:12px;border-top:1px solid var(--line)}
 .card.folded .fold-body{display:none}
 .card.folded .chev{transform:rotate(90deg)}
-.head .badge{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:var(--tc);background:var(--tb)}
+/* card icons are one neutral tone: red, amber and green are reserved for findings (pills, banners, insight rows) */
+.head .badge{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:var(--t-slate);background:var(--t-slate-bg)}
 .head .count{margin-inline-start:auto;font-size:.85rem;font-weight:700;color:var(--tc);color:color-mix(in srgb,var(--tc) 72%,var(--fg));background:var(--tb);padding:2px 9px;border-radius:999px}
 .blue{--tc:var(--t-blue);--tb:var(--t-blue-bg)} .violet{--tc:var(--t-violet);--tb:var(--t-violet-bg)} .teal{--tc:var(--t-teal);--tb:var(--t-teal-bg)}
 .amber{--tc:var(--t-amber);--tb:var(--t-amber-bg)} .red{--tc:var(--t-red);--tb:var(--t-red-bg)} .slate{--tc:var(--t-slate);--tb:var(--t-slate-bg)}
@@ -288,6 +290,15 @@ footer{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:4px 24px;
 .appbox .btn{display:block;width:100%;text-align:center;background:#111;color:#fff;border:0;border-radius:12px;padding:12px;font-weight:700;font-size:.9rem;min-height:44px}
 .webcta{display:block;width:100%;border:0;background:none;color:var(--muted);font:inherit;font-size:.85rem;text-align:center;padding:6px 8px;margin:0 0 6px;min-height:44px;cursor:pointer}.webcta b{color:var(--accent);font-weight:700}
 .apphint{display:flex;gap:10px;align-items:center;width:100%;border:0;text-align:start;background:#FFF8DC;color:var(--fg);border-radius:12px;padding:10px 12px;font-size:.9rem;margin:0 0 10px;min-height:44px}
+.shared-top{display:flex;gap:9px;align-items:center;background:#eef3fc;color:#1e3f86;border-radius:12px;padding:10px 12px;font-size:.88rem;margin:0 0 10px;line-height:1.4}
+.sharebar{position:fixed;inset-inline:0;bottom:0;z-index:15;background:var(--card);border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(0,0,0,.08);padding:10px 14px calc(12px + env(safe-area-inset-bottom,0px))}
+.sb-in{display:flex;align-items:center;gap:10px;max-width:760px;margin:0 auto}.sb-txt{flex:1;min-width:0}.sb-txt b{display:block;font-size:.95rem}.sb-txt small,.sb-sub{color:var(--muted);font-size:.78rem}.sb-sub{display:block;max-width:760px;margin:5px auto 0}
+.sb-btn{border:0;border-radius:12px;background:var(--fg);color:var(--card);font:inherit;font-weight:700;font-size:.9rem;padding:11px 14px;min-height:44px;white-space:nowrap;cursor:pointer}.sb-btn.alt{background:var(--soft);color:var(--fg)}
+.sb-col{flex-direction:column;align-items:stretch;gap:8px}.sb-btns{display:flex;gap:8px}.sb-btns .sb-btn{flex:1}
+.sb-pad{height:calc(140px + env(safe-area-inset-bottom,0px))}
+body:has(.sharebar) .toast{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+@media (max-height:500px){.sharebar{position:static;box-shadow:none;border-top:0}.sb-pad{display:none}}
+@media print{.sharebar,.sb-pad,.shared-top{display:none}}
 .apphint b{white-space:nowrap}.apphint .gox{margin-inline-start:auto;color:var(--accent,#2556c8);font-weight:700;white-space:nowrap}
 .src-foot{order:100}
 @media (min-width:1000px){
@@ -373,6 +384,8 @@ section[style*="--n:3"] .cmp-k{font-size:.78rem}
 .seg.two{grid-template-columns:1fr 1fr}
 .card.many{overflow-x:auto}.many .cmp,.many .cmp-table{min-width:calc(var(--n)*116px)}
 .ph-svg{width:100%;height:auto;display:block}.opt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:start;border:1.5px solid var(--line);border-radius:14px;padding:12px;background:var(--card);margin-top:8px;position:relative;color:var(--fg)}.opt b{font-size:1rem}.opt .pr{font-weight:800}.opt small{color:var(--muted)}.opt.best{border-color:#ffc400;box-shadow:0 0 0 2px #ffc40055}.opt em{position:absolute;inset-block-start:-9px;inset-inline-end:12px;background:#ffc400;color:#111;font-style:normal;font-weight:800;font-size:.78rem;border-radius:6px;padding:1px 8px}.cmpp td,.cmpp th{font-size:.85rem;padding:6px 2px}
+.src-tag{display:inline-flex;align-items:center;font-size:.78rem;font-weight:700;border-radius:6px;padding:0 6px;margin-inline-start:6px;white-space:nowrap;background:var(--soft);color:var(--muted);border:1px solid var(--line)}
+.src-tag.db{color:var(--accent);border-color:var(--accent);background:transparent}
 .pro-tag{display:inline-flex;align-items:center;gap:3px;border:1px solid #d9a600;color:#8a6500;font-weight:700;font-size:.78rem;border-radius:6px;padding:0 6px;margin-inline-start:6px;vertical-align:middle}
 .pro-tag .i{width:10px;height:10px}
 .snack{position:fixed;inset-inline:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:31;background:var(--fg);color:var(--bg);border-radius:14px;padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 14px rgba(0,0,0,.25)}.snack span{flex:1;font-weight:700;font-size:.9rem}.snack button{border:0;border-radius:10px;padding:8px 14px;font-weight:800;background:#ffc400;color:#111;min-height:40px}.snack button.q{background:transparent;color:inherit;font-weight:600;padding:8px}.more-plans{margin-top:10px}.more-plans summary{cursor:pointer;color:var(--muted);font-size:.9rem;padding:6px 0}.blur{filter:blur(5px);user-select:none;font-weight:700;font-size:1.1rem}
@@ -621,7 +634,7 @@ button:not(:disabled):active,.link-btn:active,.act:active,.tabs button:active,a.
 </div>
 <button type="button" class="savedbar" id="savedBar" hidden><svg class="i"><use href="#i-star"/></svg><span id="savedBarTxt"></span></button>
 <main id="out"></main>
-<footer>המידע מגיע מהמאגרים הפתוחים של משרד התחבורה ב-<a href="https://data.gov.il/" target="_blank" rel="noopener">data.gov.il</a>, ואינו מחליף נסח רישום רשמי. האפליקציה אינה קשורה למשרד התחבורה או לגוף ממשלתי.<span id="mdlLink"> <a href="model/">דגמים נפוצים בישראל</a> · <a href="business/">לעסקים</a> · <a href="magazine/">מגזין</a> · <a href="guide/buy-used-car/">מדריך לקונה</a> · <a href="privacy.html">מדיניות פרטיות</a></span></footer>
+<footer>המידע מגיע מהמאגרים הפתוחים של משרד התחבורה ב-<a href="https://data.gov.il/" target="_blank" rel="noopener">data.gov.il</a>, ואינו מחליף נסח רישום רשמי. האפליקציה אינה קשורה למשרד התחבורה או לגוף ממשלתי.<span id="mdlLink"> <a href="check/">מה אפשר לבדוק לפי מספר רישוי</a> · <a href="model/">דגמים נפוצים בישראל</a> · <a href="business/">לעסקים</a> · <a href="magazine/">מגזין</a> · <a href="guide/buy-used-car/">מדריך לקונה</a> · <a href="privacy.html">מדיניות פרטיות</a></span></footer>
 <script>(function(){if(!window.AndroidApp)document.documentElement.classList.add("web");if(window.AndroidApp){var x=document.getElementById("mdlLink");if(x)x.remove()}})()</script>
 
 <div class="sheet" id="settings" hidden role="dialog" aria-modal="true" aria-labelledby="setTitle">
@@ -694,7 +707,8 @@ button:not(:disabled):active,.link-btn:active,.act:active,.tabs button:active,a.
   <div class="sheet-in">
     <div class="sheet-head"><h2 id="shareTitle">שיתוף הדוח</h2><button class="icon-btn" type="button" id="closeShare" aria-label="סגירה"><svg class="i"><use href="#i-x"/></svg></button></div>
     <div class="list share-opts">
-      <button type="button" class="row" data-share="image"><span class="badge-s blue"><svg class="i"><use href="#i-image"/></svg></span><span class="t"><b>תמונה</b><small>צילום של הדוח כפי שהוא על המסך, לשליחה בוואטסאפ</small></span></button>
+      <button type="button" class="row" data-share="card"><span class="badge-s blue"><svg class="i"><use href="#i-image"/></svg></span><span class="t"><b>כרטיס סיכום</b><small>תמונה אחת עם מה שנמצא, לשליחה בוואטסאפ (מומלץ)</small></span></button>
+      <button type="button" class="row" data-share="image"><span class="badge-s slate"><svg class="i"><use href="#i-image"/></svg></span><span class="t"><b>צילום הדוח המלא</b><small>כפי שהוא על המסך, כולל כל הכרטיסים</small></span></button>
       <button type="button" class="row" data-share="pdf"><span class="badge-s red"><svg class="i"><use href="#i-doc"/></svg></span><span class="t"><b>קובץ PDF</b><small>דוח מלא: סקירה, ריקולים, עלויות ומפרט</small></span></button>
       <button type="button" class="row" data-share="bizpdf" hidden><span class="badge-s green"><svg class="i"><use href="#i-doc"/></svg></span><span class="t"><b>PDF ממותג (PRO עסקי)</b><small>עם פרטי העסק שלכם, בלי לוגו ובלי קישור של לוחית</small></span></button>
       <button type="button" class="row" data-share="text"><span class="badge-s slate"><svg class="i"><use href="#i-copy"/></svg></span><span class="t"><b>טקסט</b><small>סיכום קצר בהודעה</small></span></button>
@@ -721,7 +735,10 @@ function lookupFacts(D) {
   Object.keys(o).forEach(k => { if (!o[k]) delete o[k]; });
   return o;
 }
-const track = (name, params) => { try { const b = window.AndroidApp; if (b && b.logEvent && analyticsOn()) b.logEvent(name, JSON.stringify(params || {})); } catch {} };
+/* app: Firebase. web: the same events go to our own /api/e (luchit-api Worker -> GA4 web stream), no cookies, no stored id; the Worker drops anything that looks like a plate */
+const track = (name, params) => { try { if (!analyticsOn()) return; const b = window.AndroidApp; if (b) { if (b.logEvent) b.logEvent(name, JSON.stringify(params || {})); return; }
+  if (location.protocol === "https:" && navigator.sendBeacon) navigator.sendBeacon("/api/e", new Blob([JSON.stringify({n: name, p: params || {}, cid: WEB_CID})], {type: "text/plain"})); } catch {} };
+const WEB_CID = Math.floor(Math.random() * 2e9) + "." + Math.floor(Date.now() / 1000);   // per page load only, never saved
 /* silent failures worth knowing about (a dataset that errors, a library that does not load): sent to Crashlytics as a non-fatal, tag only, never a plate */
 /* a JavaScript error nobody sees: counted (line number only, never the message, which could hold a plate), at most 5 per session */
 let jsErrN = 0;
@@ -915,6 +932,22 @@ async function ownMirror(plate, signal){
     return txt.slice(st + want.length, en < 0 ? undefined : en).split(",").map(x => { const [ym, t] = x.split(":"); return {baalut_dt: Number(ym), baalut: ownMeta.types[+t] || ""}; });
   } catch (e) { if (e.name === "AbortError") throw e; return []; }
 }
+/* "Back on the road" (zombie-detector.mjs, monthly): plates that left the active register and came back later.
+   Kept as shards by the plate's last three digits on the zombie-data branch: "plate|goneYYYYMM|backYYYYMM|via". */
+// off until Dudu turns it on (2026-10-15: no history yet, snapshots keep collecting in the background)
+const ZOMBIE_ON = false;
+const ZOMBIE_BASE = "https://raw.githubusercontent.com/ddsabag/vehicle-app/zombie-data/";
+async function zombieLookup(plate, signal){
+  if (!ZOMBIE_ON) return null;
+  try {
+    const p = String(Number(plate)), r = await fetch(`${ZOMBIE_BASE}z/${p.slice(-3).padStart(3, "0")}.txt`, {signal});
+    if (!r.ok) return null;
+    const line = (await r.text()).split("\n").find(l => l.startsWith(p + "|"));
+    if (!line) return null;
+    const [, gone, back, via] = line.split("|");
+    return {gone: Number(gone) || 0, back: Number(back) || 0, via: via || "n"};
+  } catch (e) { if (e.name === "AbortError") throw e; return null; }
+}
 /* Model datasets: fetch every row for maker + model code (all years), numeric filters first like the
    ministry's own columns, then text. Rows are ranked in JS so a year or trim mismatch never hides data. */
 async function modelRows(id, rec, signal){
@@ -1001,7 +1034,7 @@ function proLockCard(title, text){
   return card(title, "star", "amber", `<p style="margin:0">${esc(text)}</p><button type="button" class="link-btn" data-act="proInfo">הצטרפות ל-PRO</button>`, `${PT("PRO")}`);
 }
 const foldKey = t => "fold:" + t;
-const FOLD_DEFAULT = new Set(["שאלות נפוצות", "בעלות", "מסירות בתקופה", "שינויים ברכב", "היסטוריית בעלויות", "היסטוריית ריקולים לדגם", "לפני שקונים", "מרווח טיפולים", "ציר ק״מ", "עלות אחזקה מצטברת", "משקלים וצמיגים", "בטיחות", "אבזור", "סביבה", "מספרי זיהוי", "כמה מותר לגרור"]);
+const FOLD_DEFAULT = new Set(["שאלות נפוצות", "בעלות", "מסירות בתקופה", "שינויים ברכב", "היסטוריית בעלויות", "היסטוריית ריקולים לדגם", "לפני שקונים", "ציר ק״מ", "עלות אחזקה מצטברת", "משקלים וצמיגים", "בטיחות", "אבזור", "סביבה", "מספרי זיהוי", "כמה מותר לגרור"]);
 const foldDef = t => FOLD_DEFAULT.has(t) || /^סימני גיול/.test(t);
 const isFolded = t => { try { const k = localStorage.getItem(foldKey(t)); return k === null ? foldDef(t) : k === "1"; } catch { return foldDef(t); } };
 const card = (title, icon, color, inner, extra) => {
@@ -1030,10 +1063,28 @@ async function copyText(t, label){
 }
 /* every share carries a store link; whoever installs from it lands on the same car on first launch */
 /* web visitors who go to Google Play carry a campaign tag, so Play Console can show how many store visits and installs come from luchit.app */
-const playWeb = c => `${PLAY_URL}&referrer=${encodeURIComponent("utm_source=luchit.app&utm_medium=web&utm_campaign=" + c)}`;
-const carLink = plate => `${PLAY_URL}&referrer=${encodeURIComponent("plate=" + plate)}`;
+/* every web button that leads to Google Play carries a campaign tag; when the visitor came from a shared report the tag says so (utm_source=share, utm_medium = kind of share),
+   and when a car is on screen its plate rides along, so the app's first launch opens the same car */
+const playWeb = c => {
+  let plate = ""; try { plate = current && current.plate && current.kind !== "model" ? current.plate : ""; } catch {}
+  let ref = "utm_source=luchit.app&utm_medium=web&utm_campaign=" + c;
+  try { if (typeof SHARED === "string" && SHARED) ref = `utm_source=share&utm_medium=${SHARE_VIA}&utm_campaign=car_share&utm_content=${c}`; } catch {}
+  if (plate) ref = "plate=" + plate + "&" + ref;
+  return `${PLAY_URL}&referrer=${encodeURIComponent(ref)}`;
+};
+/* the install referrer keeps plate= for the app's first launch, plus a campaign tag so Play Console and Firebase count installs that came from a shared report */
+/* what a share points to: the live report on the site (opens the app for people who have it, a web report for everyone else). s= says which kind of share it was */
+/* v= changes whenever what the preview shows could have changed (open recalls, test, off the road, owners) and at least once a week, because messaging apps keep a
+   link preview for as long as the address stays the same */
+const shareState = D => { try { const t = toDate(D.v.tokef_dt); return [D.recallUnknown ? "u" : Math.min((D.recalls || []).length, 9), D.isCancelled ? 1 : 0, t && t < new Date() ? 1 : 0, Math.min((D.own || []).length, 9)].join("") + "." + Math.floor(Date.now() / (7 * 864e5)).toString(36); } catch { return ""; } };
+const shareLink = (plate, via) => {
+  if (!plate) return `${SITE}?s=${via}`;
+  let v = ""; try { v = current && current.plate === plate ? shareState(current) : ""; } catch {}
+  return `${SITE}?plate=${plate}&s=${via}${v ? "&v=" + v : ""}`;
+};
+const carLink = (plate, via = "text") => `${PLAY_URL}&referrer=${encodeURIComponent(`plate=${plate}&utm_source=share&utm_medium=${via}&utm_campaign=car_share`)}`;
 async function shareText(title, text, plate){
-  text += plate ? `\n\nהדוח המלא באפליקציה לוחית:\n${carLink(plate)}` : "\n\nמקור: מאגרי משרד התחבורה, דרך האפליקציה לוחית";
+  text += plate ? `\n\nהדוח המלא והמעודכן בלוחית:\n${shareLink(plate, "txt")}` : "\n\nמקור: מאגרי משרד התחבורה, דרך האפליקציה לוחית";
   try { if (bridge() && bridge().share) { bridge().share(title, text); return; } } catch {}
   if (navigator.share) { try { await navigator.share({title, text}); return; } catch (err) { if (err && err.name === "AbortError") return; } }
   copyText(text, "הסיכום");
@@ -1061,7 +1112,7 @@ const prefOn = k => alertPrefs()[k] !== false;
 function fillAnalytics(){
   const sc = $("#simpleChk"); if (sc) sc.checked = simpleOn();
   const row = $("#anaRow"); if (!row) return;
-  row.hidden = !(window.AndroidApp && window.AndroidApp.logEvent); if (row.hidden) return;
+  row.hidden = !!(window.AndroidApp && !window.AndroidApp.logEvent); if (row.hidden) return;   // the web counts events too (/api/e), so the switch shows there as well
   $("#anaChk").checked = analyticsOn();
 }
 document.addEventListener("change", ev => { if (ev.target.id === "simpleChk") { try { localStorage.setItem("simpleView", ev.target.checked ? "1" : "0"); } catch {} if (current && !inCompare) renderResult(); return; } if (ev.target.id !== "anaChk") return; try { localStorage.setItem("analyticsOff", ev.target.checked ? "0" : "1"); } catch {} try { window.AndroidApp.setAnalytics(ev.target.checked); } catch {} });
@@ -1432,6 +1483,7 @@ function snapGet(plate){
 /* ---------- fetch one vehicle ---------- */
 async function fetchVehicle(plate, signal, onProgress){
   const res = {}; let done = 0;
+  const zombieP = zombieLookup(plate, signal).catch(e => { if (e.name === "AbortError") throw e; return null; });
   // the rare vehicle types (motorcycle, heavy, cancelled, ...) are asked only when the ordinary active register has no such plate: a normal car then costs 7 requests instead of 16
   const one = async s => {
     try { res[s.key] = {rows: await byPlate(s, plate, signal)}; }
@@ -1451,6 +1503,7 @@ async function fetchVehicle(plate, signal, onProgress){
   })();
   await Promise.all([activeP, ...rest, rare]);
   if (!res.owners.rows.length) { const m = await ownMirror(plate, signal); if (m.length) { res.owners = {rows: m}; res.ownMirror = true; } }
+  res.zombie = await zombieP;
   const errs = PLATE_SETS.filter(s => res[s.key].err);
   const mains = PLATE_SETS.filter(s => s.role === "main" && res[s.key].rows.length);
   const extras = PLATE_SETS.filter(s => s.role === "extra" && res[s.key].rows.length);
@@ -1497,6 +1550,7 @@ async function fetchVehicle(plate, signal, onProgress){
     sub: [v.shnat_yitzur, pick(v.ramat_gimur, w.ramat_gimur), v.tzeva_rechev].filter(x => !empty(x)).join(" · "),
     vin: pick(v.misgeret, v.mispar_shilda, v.shilda), km, kmYears, kmPerYear,
     isCancelled: mains[0] && /^cancel/.test(mains[0].key)};
+  D.zombie = D.isCancelled ? null : res.zombie;
   D.cost = costs(D);
   return D;
 }
@@ -1524,7 +1578,7 @@ function buildInsights(D){
   if (D.isCancelled) add("bad", "הרכב ירד מהכביש", `הרכב בוטל סופית${empty(v.bitul_dt) ? "" : " ב-" + fmtDate(v.bitul_dt)} ואינו יכול לנסוע.`);
   else if (D.primary && /^inactive/.test(D.primary.key)) add("warn", "הרכב לא פעיל", "הרכב רשום כלא פעיל במאגר משרד התחבורה.");
   // open recalls are not repeated here: the red banner above the tabs already says it
-  { const n = D.kind === "model" || D.isCancelled ? 0 : settlementsFor(D).length; if (n) add("info", "ייתכן שמגיעה לכם הטבה מהסדר פשרה", `${n === 1 ? "נמצא הסדר פשרה אחד שעשוי לחול על הרכב" : `נמצאו ${n} הסדרי פשרה שעשויים לחול על הרכב`}. הפרטים בלשונית ריקולים והסדרים.`); }
+  { const n = D.kind === "model" || D.isCancelled ? 0 : settlementsFor(D).length; if (n) add("info", "ייתכן שמגיעה לכם הטבה מהסדר פשרה", `${n === 1 ? "נמצא הסדר פשרה אחד שעשוי לחול על הרכב" : `נמצאו ${n} הסדרי פשרה שעשויים לחול על הרכב`}. הפרטים בלשונית ריקולים.`); }
   const exp = toDate(v.tokef_dt);
   if (exp && !D.isCancelled) {
     const days = Math.round((exp - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 864e5);
@@ -1579,7 +1633,7 @@ function buildInsights(D){
 
 /* ---------- result screen ---------- */
 let ctrl = null, current = null, currentTab = "overview";
-const TABS = [["overview","סקירה"],["buy","קנייה"],["maint","אחזקה"],["recalls","ריקולים והסדרים"],["specs","מפרט"]];
+const TABS = [["overview","סקירה"],["recalls","ריקולים"],["buy","קנייה"],["maint","טיפולים ועלויות"],["specs","מפרט"]];
 // the report lists the buyer view and the costs, never the private maintenance log
 const REPORT_TABS = [["overview","סקירה"],["buy","קנייה"],["costs","עלויות"],["recalls","ריקולים והסדרים"],["specs","מפרט"]];
 
@@ -1679,10 +1733,30 @@ async function loadStatus(){
 }
 const appBox = D => `<section class="appbox"><h3>באתר רואים את הרכב. באפליקציה הוא עובד בשבילכם</h3><p>אותה בדיקה, ועוד:</p><ul><li>התראה כשהטסט מתקרב או שנפתח ריקול</li><li>הודעה אם הרכב עבר בעלות או ירד מהכביש</li><li>הסדרי פשרה: בדיקה אם הרכב שלכם זכאי להטבה מהיבואן</li><li>יומן טיפולים ועלויות על הטלפון</li><li>צילום לוחית ואמירת מספר, במקום להקליד</li></ul><button type="button" class="btn" data-url="${playWeb("result_box")}" data-hint="side">להורדה ב-Google Play</button></section>`;
 const appHint = D => {
-  if (window.AndroidApp || D.kind === "model" || D.isCancelled) return "";
+  if (window.AndroidApp || D.kind === "model" || D.isCancelled || sharedHere(D)) return "";
   const t = D.recalls && D.recalls.length ? "התראה כשיוצא ריקול חדש לרכב הזה" : "תזכורת לפני שהטסט פג";
   return `<button type="button" class="apphint" data-url="${playWeb("result_hint")}" data-hint="overview"><span aria-hidden="true">🔔</span><span><b>רוצים לדעת ראשונים?</b> ${t}</span><span class="gox">באפליקציה ›</span></button>`;
 };
+/* web visitors who arrive from a shared report (s= in the link): a bar that opens the app on this very car (Android), or a calendar reminder (everyone else) */
+const IS_ANDROID = /Android/i.test(navigator.userAgent);
+/* Facebook, Instagram, TikTok, Telegram... open links in their own browser, where intent:// links and App Links do not work and files cannot be downloaded */
+const IN_APP_BROWSER = /FBAN|FBAV|FB_IAB|FBIOS|Instagram|Snapchat|TikTok|musical_ly|Bytedance|Telegram|Line\/|; wv\)/i.test(navigator.userAgent);
+function sharedBar(D){
+  const exp = toDate(D.v.tokef_dt), canCal = exp && !D.isCancelled && !IN_APP_BROWSER;
+  let main;
+  if (IS_ANDROID && IN_APP_BROWSER) {
+    // no intent:// in these browsers: straight to the store page (the car rides along in the install referrer), with a tip for the better way
+    main = `<div class="sb-txt"><b>עקבו אחרי הרכב הזה</b><small>התראה על ריקול חדש, טסט שמתקרב והעברת בעלות</small></div><button type="button" class="sb-btn" data-act="openplay" data-url="${esc(carLink(D.plate, "bar"))}">להורדה בחינם</button>`;
+  } else if (IS_ANDROID) {
+    const intent = `intent://luchit.app/?plate=${D.plate}&s=bar#Intent;scheme=https;package=com.ddsabag.pratirechev;S.browser_fallback_url=${encodeURIComponent(carLink(D.plate, "bar"))};end`;
+    main = `<div class="sb-txt"><b>עקבו אחרי הרכב הזה</b><small>התראה על ריקול חדש, טסט שמתקרב והעברת בעלות</small></div><button type="button" class="sb-btn" data-act="openapp" data-intent="${esc(intent)}">פתחו באפליקציה</button>`;
+  } else {
+    main = `<div class="sb-txt"><b>שומרים על הרכב הזה בעין</b><small>${canCal ? "הטסט פג ב-" + fmtDate(D.v.tokef_dt) : "בדקו רכב נוסף לפני שמחליטים"}</small></div><div class="sb-btns">` +
+      (canCal ? `<button type="button" class="sb-btn" data-act="barcal">📅 תזכורת טסט ביומן</button>` : "") + `<button type="button" class="sb-btn${canCal ? " alt" : ""}" data-act="another">בדיקת רכב נוסף</button></div>`;
+  }
+  return `<div class="sharebar" role="region" aria-label="מעקב אחרי הרכב"><div class="sb-in${IS_ANDROID ? "" : " sb-col"}">${main}</div>${IS_ANDROID ? `<small class="sb-sub">${IN_APP_BROWSER ? "טיפ: ⋮ ואז \"פתח בדפדפן\" כדי שהאפליקציה תיפתח ישר על הרכב" : "חינם ב-Google Play · נפתח ישר על הרכב הזה"}</small>` : ""}</div><div class="sb-pad"></div>`;
+}
+const sharedHere = D => !!(SHARED && D.plate === SHARED && D.kind !== "model");
 function renderResult(){
   if (land) setLand(false, false);
   inCompare = false;
@@ -1696,12 +1770,13 @@ function renderResult(){
   const dt = driveType(D);
   if (dt) facts[2] = (`<span class="pill drive ${["ev", "phev", "hybrid"].includes(dt.k) ? "green" : ""}">${ico(["ev", "phev", "hybrid"].includes(dt.k) ? "bolt" : "fuel")}${dt.label}</span>`);
   if (exp && !D.isCancelled) facts[0] = (exp < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) ? `<span class="pill bad">טסט לא בתוקף</span>` : `<span class="pill ok">טסט עד ${String(exp.getMonth() + 1).padStart(2, "0")}/${exp.getFullYear()}</span>`);
-  const vIns = buildInsights(D), clean = !(D.errs && D.errs.length) && !D.recallUnknown && !D.isCancelled && !D.recalls.length && !vIns.some(x => x.level === "bad" || x.level === "warn");
+  const vIns = buildInsights(D), clean = !(D.errs && D.errs.length) && !D.recallUnknown && !D.isCancelled && !D.zombie && !D.recalls.length && !vIns.some(x => x.level === "bad" || x.level === "warn");
   if (D.own.length) facts[1] = `<span class="pill">${ownersLabel(D)}</span>`;
   if (!empty(v.shnat_yitzur)) facts[3] = `<span class="pill">${esc(v.shnat_yitzur)}</span>`;
   if (clean) pills.push(`<span class="pill ok">${ico("check")}לא נמצאו בעיות במאגרי משרד התחבורה</span>`);
   if (D.tag) pills.push(`<span class="pill">תג נכה</span>`);
   html.push(`<div class="side">`);
+  if (sharedHere(D)) html.push(`<div class="shared-top"><span aria-hidden="true">📩</span><span><b>דוח רכב שנשלח אליך</b> · נבדק עכשיו מול משרד התחבורה, מעודכן יותר מכל קובץ</span></div>`);
   if (D.fromCache) html.push(`<div class="msg" role="status"><b>אין חיבור למשרד התחבורה, ולכן מוצגים נתונים שנשמרו ב-${esc(fmtDate(new Date(D.fromCache).toISOString()))}.</b> ייתכן שהם לא מעודכנים. <button type="button" class="link-btn" data-retry="${esc(D.plate)}">נסו שוב</button></div>`);
   html.push(`<section class="card id-card">
     <div class="id-top"><div><h2 class="id-title" id="resHead" tabindex="-1">${esc(D.title)}</h2><p class="id-sub">${esc(!empty(v.shnat_yitzur) && !simpleOn() ? D.sub.split(" · ").slice(1).join(" · ") : D.sub)}</p></div>
@@ -1723,7 +1798,7 @@ function renderResult(){
 
   if (D.kind !== "model" && !D.isCancelled) {
     const stl = settlementsFor(D);
-    if (stl.length) html.push(`<button type="button" class="alert-banner warn" data-tab="recalls">${ico("scale")}<span><b>${stl.length === 1 ? "ייתכן שמגיעה הטבה מהסדר פשרה" : `ייתכן שמגיעות ${stl.length} הטבות מהסדרי פשרה`}</b>ההטבה תלויה בהתאמה לרכב שלכם. הפרטים בלשונית ריקולים והסדרים.</span></button>`);
+    if (stl.length) html.push(`<button type="button" class="alert-banner warn" data-tab="recalls">${ico("scale")}<span><b>${stl.length === 1 ? "ייתכן שמגיעה הטבה מהסדר פשרה" : `ייתכן שמגיעות ${stl.length} הטבות מהסדרי פשרה`}</b>ההטבה תלויה בהתאמה לרכב שלכם. הפרטים בלשונית ריקולים.</span></button>`);
   }
   if (D.recallUnknown) html.push(`<div class="msg err"><b>מידע על ריקולים לא זמין כרגע.</b> מאגר הריקולים של משרד התחבורה לא ענה, ולכן אי אפשר לדעת אם יש ריקול פתוח לרכב. אל תסיקו מכך שאין. נסו שוב בעוד דקה, או בדקו באתר היבואן.</div>`);
   if (D.errs && D.errs.some(x => x.key !== "recall")) html.push(`<p class="msg">חלק ממאגרי משרד התחבורה לא ענו כרגע, והמידע על הרכב חלקי. נסו שוב בעוד דקה.</p>`);
@@ -1733,10 +1808,11 @@ function renderResult(){
   if (simpleOn()) html.push(simpleCard(D));
   else {
       html.push(`<div class="tabs" role="tablist">${TABS.map(([k, t]) => `<button type="button" role="tab" id="tab-${k}" data-tab="${k}" aria-selected="${k === currentTab}" aria-controls="tabpanel" tabindex="${k === currentTab ? 0 : -1}">${t}${k === "recalls" && recallCount ? `<i class="hot">${recallCount}</i>` : ""}</button>`).join("")}</div>`);
-      html.push(`<div class="tab-body" id="tabpanel" role="tabpanel" aria-labelledby="tab-${currentTab}">${currentTab === "overview" ? appHint(D) : ""}${TAB_FN()[currentTab](D)}</div>`);
+      html.push(`<div class="tab-body" id="tabpanel" role="tabpanel" aria-labelledby="tab-${currentTab}">${TAB_FN()[currentTab](D)}${currentTab === "overview" ? appHint(D) : ""}</div>`);
   }
   html.push(`</div>`);
   html.push(srcFoot());
+  if (sharedHere(D)) html.push(sharedBar(D));
   const ft = document.querySelector("body > footer"); if (ft) ft.hidden = true;
   $("#out").innerHTML = html.join("");
   loadStatus();
@@ -1901,10 +1977,10 @@ const BRAND_MANUAL = [
   {re: /יונדאי/, name: "יונדאי", url: "https://www.hyundaimotors.co.il/maintenance/"},
   {re: /טויוטה/, name: "טויוטה", url: "https://www.toyota.co.il/customer/manuals"},
 ];
-function manualCard(D){
-  const m = [D.v.tozeret_nm, D.make].filter(x => !empty(x)).join(" "), hit = BRAND_MANUAL.find(x => x.re.test(m));
-  if (!hit) return "";
-  return card("ספר הרכב", "doc", "blue", `<p style="margin:0">ספר הרכב להורדה נמצא באתר היבואן של ${esc(hit.name)}.</p><button type="button" class="link-btn" data-url="${hit.url}">לדף ההורדה באתר היבואן</button>`);
+/* the importer's owner's-manual page, shown inside the documents card */
+function manualHit(D){
+  const m = [D.v.tozeret_nm, D.make].filter(x => !empty(x)).join(" ");
+  return BRAND_MANUAL.find(x => x.re.test(m)) || null;
 }
 function seasonCard(){
   const mo = new Date().getMonth() + 1, summer = mo >= 4 && mo <= 9;
@@ -2005,13 +2081,15 @@ async function docsAdd0(files, plate, cat, exp){
   if (added && exp && !trackedOk(plate)) setTimeout(() => toast("כדי לקבל התראה על התוקף, שמרו את הרכב ב\"הרכבים שלי\""), 2600);
 }
 function docsCard(D){
-  return card("תיק הרכב", "doc", "teal", `<p style="margin:0">חשבוניות תיקון, רישיון הרכב, רישיון נהיגה, ביטוח ועוד, במקום אחד.</p>
+  const mh = manualHit(D);
+  return card(mh ? "מסמכים וספר הרכב" : "תיק הרכב", "doc", "teal", `<p style="margin:0">חשבוניות תיקון, רישיון הרכב, רישיון נהיגה, ביטוח ועוד, במקום אחד.</p>
     <div id="docList"></div>
     <div class="doc-add"><select class="inp" id="docCat" aria-label="סוג המסמך">${DOC_CATS.map(c => `<option>${c}</option>`).join("")}</select>
     <button type="button" class="link-btn" data-doc="add">${ico("plus")}הוספת מסמך או צילום</button>
     <label class="exp" id="docExpRow" hidden>תוקף עד <input class="inp" id="docExp" type="date" aria-label="תאריך תוקף"> <small>לא חובה. נתריע חודש לפני.</small></label></div>
     <input type="file" id="docFile" accept="image/*,application/pdf" multiple hidden>
-    <p class="note">המסמכים נשמרים רק בטלפון הזה, לא נשלחים לשום מקום ולא נכללים בדוחות ששיתפתם. אם תמחקו את האפליקציה או תחליפו מכשיר הם יימחקו, ולכן כדאי לשמור גם עותק במקום אחר.${PRO_LOCK && !isPro() ? ` בחינם עד ${FREE_DOCS} מסמכים לרכב.` : ""}</p>`, PT(`PRO · בלי הגבלה`));
+    <p class="note">המסמכים נשמרים רק בטלפון הזה, לא נשלחים לשום מקום ולא נכללים בדוחות ששיתפתם. אם תמחקו את האפליקציה או תחליפו מכשיר הם יימחקו, ולכן כדאי לשמור גם עותק במקום אחר.${PRO_LOCK && !isPro() ? ` בחינם עד ${FREE_DOCS} מסמכים לרכב.` : ""}</p>
+    ${mh ? `<div class="doc-manual"><p style="margin:0"><b>ספר הרכב</b> להורדה נמצא באתר היבואן של ${esc(mh.name)}.</p><button type="button" class="link-btn" data-url="${mh.url}">לדף ההורדה באתר היבואן</button></div>` : ""}`, PT(`PRO · בלי הגבלה`));
 }
 async function fillDocs(){
   const el = document.getElementById("docList"); if (!el || !current) return;
@@ -2048,12 +2126,37 @@ function tabMaint(D){
     : proLockCard("אחזקה", "יומן טיפולים, הטיפול הבא, ציר ק״מ ועלות אחזקה מצטברת, עם תזכורות בהתראה.");
   else { svcRemember(D, info); paid = [intervalCard(D, info), nextCard(D, info), logCard(D), kmCard(D), costLogCard(D)].join(""); }
   const webNote = !window.AndroidApp && !SERVICE ? card("מרווחי טיפול מלאים", "wrench", "teal", `<p style="margin:0">הטבלה המלאה של מרווחי הטיפול לפי דגם, גרסה ונפח מנוע זמינה באפליקציית לוחית באנדרואיד.</p><button type="button" class="link-btn" data-url="${PLAY_URL}">${ico("share")}להורדה מ-Google Play</button>`) : "";
-  const free = [docsCard(D), manualCard(D), seasonCard(), webNote].join("");
+  /* two kinds of service data, labelled so they are never confused: the interval comes from Luchit's own database, the rest from what the user records */
+  const srcTag = (h, title, cls, txt) => h.replace(`<h2>${title}</h2>`, `<h2>${title}</h2><span class="src-tag ${cls}">${txt}</span>`);
+  paid = srcTag(srcTag(srcTag(srcTag(paid, "מרווח טיפולים", "db", "מאגר לוחית"), "הטיפול הבא", "user", "לפי היומן שלכם"), "יומן טיפולים", "user", "הנתונים שלכם"), "עלות אחזקה מצטברת", "user", "הנתונים שלכם");
+  const free = [docsCard(D), seasonCard(), webNote].join("");
   const pg = tier("ב-PRO: מעקב טיפולים", paid);
   return maintOk() || (info && !info.none) ? pg + free : free + pg;
 }
+const ymText = n => { n = Number(n) || 0; return n > 190000 ? `${MON_FULL[n % 100 - 1]} ${Math.floor(n / 100)}` : ""; };
+const MON_FULL = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
+const zSeen = new Set();
+/* PRO: the car left the ministry's active register and came back. Free users see that something was found, not the dates. */
+function zombieCard(D){
+  const z = D.kind === "model" ? null : D.zombie;
+  if (!z) return "";
+  const full = !PRO_LOCK || atLeast("pro");
+  if (!zSeen.has(D.plate)) { zSeen.add(D.plate); track("zombie_shown", {locked: full ? 0 : 1, via: z.via}); }
+  const title = full ? "חשד לשיקום לאחר הורדה מהכביש" : "⚠️ חשד לשיקום לאחר הורדה מהכביש - זמין למנויי PRO";
+  if (!full) return card(title, "alert", "red",
+    `<ul class="insights"><li class="ins bad">${ico("alert")}<div><span>מצאנו ברישומי משרד התחבורה סימן שהרכב ירד מהכביש וחזר אליו. מתי ירד, מתי חזר ומה לבדוק זמינים למנויי PRO.</span></div></li></ul>
+     <p style="margin:0"><span class="blur" aria-hidden="true">ירד ב-•••••• ••••, חזר ב-••••• ••••</span></p>
+     <button type="button" class="link-btn" data-act="proInfo" data-src="zombie">${ico("lock")}פתיחה ב-PRO</button>`, PT("PRO"));
+  const gone = ymText(z.gone), back = ymText(z.back);
+  const where = z.via === "c" ? "בזמן הזה הוא היה רשום במאגר הרכבים שבוטלו סופית (ירדו מהכביש)." : z.via === "i" ? "בזמן הזה הוא היה רשום כרכב לא פעיל." : "";
+  const what = z.back ? `הרכב ירד ממצבת הרכבים הפעילים${gone ? ` ב-${gone}` : ""} וחזר ב-${back}.` : `הרכב רשום כמבוטל סופית${gone ? ` מ-${gone}` : ""}, ובכל זאת מופיע היום במצבת הרכבים הפעילים.`;
+  return card(title, "alert", "red",
+    `<ul class="insights"><li class="ins bad">${ico("alert")}<div><b>${esc(what)}</b><span>${esc(where)} סיבות אפשריות: אובדן להלכה (טוטאל-לוס) ושיקום, השבתה ארוכה או רישום מחדש. זה סימן לבירור, לא קביעה.</span><span class="todo"><strong>מה לעשות:</strong> שאלו את המוכר למה הרכב ירד מהכביש, בקשו מסמכי שמאי ותיקון, ועשו בדיקה מלאה במכון כולל שלדה ומרכב.</span></div></li></ul>
+     <p class="note">לפי השוואה חודשית של מאגרי משרד התחבורה, מהחודשים שבהם התחלנו לעקוב.</p>`, PT("PRO"));
+}
 function tabOverview(D){
   const v = D.v, w = D.w, html = [];
+  html.push(zombieCard(D));
   // the settlement banner above already says this; the card in the recalls tab has the details
   const ins = buildInsights(D).filter(i => i.title !== "ייתכן שמגיעה לכם הטבה מהסדר פשרה");
   if (ins.length) {
@@ -2100,7 +2203,7 @@ function tabOverview(D){
     D.isCancelled && ["ירד מהכביש", e(v.bitul_dt && fmtDate(v.bitul_dt))],
     D.isCancelled && ["סיבה", e(v.bitul_nm)],
     ["סוג יבוא", e(v.sug_yevu)],
-  ]) + (toDate(v.tokef_dt) && toDate(v.tokef_dt) > new Date() && !D.isCancelled ? `<button type="button" class="link-btn" data-act="calendar">${ico("clock")}הוספת תזכורת ליומן</button>` : "")));
+  ]) + (toDate(v.tokef_dt) && toDate(v.tokef_dt) > new Date() && !D.isCancelled && !pushCoversTest(D.plate) ? calendarBtn(D) : "")));
 
   const fo = firstOwner(v);
   const foLine = fo ? `<div class="first-own"><b>בעלות ראשונה: ${esc(fo)}</b>${ownerKind(fo).text ? `<span>${esc(ownerKind(fo).text)}</span>` : ""}</div>` : "";
@@ -2133,6 +2236,7 @@ function tabRecalls(D){
     }).join("") + `<p class="note">התיקון ניתן בחינם אצל היבואן.</p>`));
   }
   html.push(settlementCard(D));
+  html.push(`<div id="issues">${CMPL ? issuesCard(D) : ""}</div>`);
   const rows = [], row = (ok, t) => rows.push(`<li class="ins ${ok ? "ok" : "warn"}">${ico(ok ? "check" : "alert")}<div><b>${esc(t)}</b></div></li>`);
   if (D.recallUnknown) { row(false, "מידע על ריקולים פתוחים לא זמין כרגע"); row(false, "לא ידוע אם יש ריקול שמגביל חידוש רישיון"); }
   else { row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")} (פירוט למעלה)` : "אין ריקול פתוח במאגר משרד התחבורה");
@@ -2176,16 +2280,26 @@ function tabCosts(D){
       <div class="month-lg">${m.parts.map(([k, v, col]) => `<span><i style="background:${col}"></i>${k} ${fmtN(v)} ₪</span>`).join("")}</div>
       <p class="note">לפי ${fmtN(c.kmYear)} ק״מ בשנה. בלי ביטוח וטיפולים.</p>`));
   }
-  html.push(c.kind === "ev" ? card("חשמל", "bolt", "teal", fuelInner) : card("דלק", "fuel", "red", fuelInner));
-  html.push(card("אגרת רישוי שנתית", "doc", "violet", c.fee ?
+  /* a card that only says "no data" is folded into one shared card (when two or more have none); a card with data always stays full */
+  const none = [], u = c.usage;
+  const noFuel = c.kind !== "ev" && !c.l100, noFee = !c.fee, noUsage = !u;
+  const noteOf = (name, txt) => `<p style="margin:0"><b>${name}:</b> ${txt}</p>`;
+  const foldNone = [noFuel, noFee, noUsage].filter(Boolean).length >= 2;
+  if (foldNone) {
+    if (noFuel) none.push(noteOf("דלק", "אין במאגר נתוני פליטה לדגם הזה, ולכן אין הערכת צריכה."));
+    if (noFee) none.push(noteOf("אגרת רישוי", "לא נמצאה קבוצת אגרה לרכב הזה. ההערכה זמינה לרכב פרטי בלבד."));
+    if (noUsage) none.push(noteOf("שווי שימוש (רכב צמוד)", "אין מספיק נתונים לחישוב לרכב הזה (החישוב כאן לרכב פרטי שעלה לכביש מ-2010)."));
+  }
+  if (!(foldNone && noFuel)) html.push(c.kind === "ev" ? card("חשמל", "bolt", "teal", fuelInner) : card("דלק", "fuel", "red", fuelInner));
+  if (!(foldNone && noFee)) html.push(card("אגרת רישוי שנתית", "doc", "violet", c.fee ?
     `<div class="tow-grid"><div><div class="k">הערכה</div><div class="v">${fmtN(c.fee)}<span class="u">₪</span></div></div><div><div class="k">קבוצת מחיר</div><div class="v">${c.feeGroup}<span class="u">מתוך 7</span></div></div></div>
      <p class="note">לפי התעריף הרשמי לשנת 2026${new Date() >= new Date(2027, 3, 1) ? ", וייתכן שכבר עודכן מאז" : ""}. לא כולל הנחות.</p>` :
     `<p style="margin:0">לא נמצאה קבוצת אגרה לרכב הזה. ההערכה זמינה לרכב פרטי בלבד.</p>`));
-  const u = c.usage;
-  html.push(card("שווי שימוש (רכב צמוד)", "users", "teal", u ?
+  if (!(foldNone && noUsage)) html.push(card("שווי שימוש (רכב צמוד)", "users", "teal", u ?
     `<div class="tow-grid"><div><div class="k">לחודש</div><div class="v">${fmtN(u.monthly)}<span class="u">₪</span></div></div><div><div class="k">לשנה</div><div class="v">${fmtN(u.monthly * 12)}<span class="u">₪</span></div></div></div>
      <p class="note">${u.green ? `כולל הפחתה של ${fmtN(u.green[1])} ₪ לרכב ${u.green[0]}. ` : ""}זה הסכום שמתווסף למשכורת לצורך מס, לא המס עצמו.</p>` :
     `<p style="margin:0">אין מספיק נתונים לחישוב שווי השימוש של הרכב הזה (החישוב כאן לרכב פרטי שעלה לכביש מ-2010).</p>`));
+  if (foldNone) html.push(card("נתונים שלא זמינים לרכב הזה", "doc", "slate", none.join("")));
   return html.join("");
 }
 
@@ -3011,9 +3125,13 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.copy) { copyText(b.dataset.copy, b.dataset.label); return; }
   if (b.dataset.act === "simple") { const want = !simpleOn(); try { localStorage.setItem("simpleView", want ? "1" : "0"); } catch {} track("simple_view", {on: simpleOn()}); renderResult(); return; }
   if (b.dataset.act === "simpleMore") { simpleMore = !simpleMore; track("simple_more", {on: simpleMore}); renderResult(); return; }
+  if (b.dataset.act === "openapp") { track("web_hint_click", {where: "share_bar"}); track("web_install_click"); location.href = b.dataset.intent; return; }
+  if (b.dataset.act === "openplay") { track("web_hint_click", {where: "share_bar_iab"}); track("web_install_click"); location.href = b.dataset.url; return; }
+  if (b.dataset.act === "barcal") { track("web_hint_click", {where: "share_bar_cal"}); if (current) testReminderFile(current); return; }
+  if (b.dataset.act === "another") { track("web_hint_click", {where: "share_bar_more"}); location.href = "/"; return; }
   if (b.dataset.url) {
     if (b.dataset.copyfirst) { copyText(b.dataset.copyfirst, b.dataset.copylabel || "מספר הרישוי").then(() => setTimeout(() => openExternal(b.dataset.url), 600)); return; }
-    if (b.dataset.hint) track("web_hint_click");
+    if (b.dataset.hint) track("web_hint_click", {where: b.dataset.hint});
     track("link_out", {kind: (b.dataset.copyfirst ? "importer" : "other")}); openExternal(b.dataset.url); return;
   }
   if (b.dataset.open) { run(b.dataset.open); return; }
@@ -3032,7 +3150,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "bulkCsv") { bulkCsv(); return; }
   if (b.dataset.act === "bulkPdf") { bulkPdf(b); return; }
   if (b.dataset.act === "checklistPdf") { track("checklist_pdf"); checklistPdf(b); return; }
-  if (b.dataset.act === "proInfo" || b.dataset.act === "upgrade") { track("upgrade_open", {from: currentTab || "home"}); if (UPGRADE_UI) renderUpgrade(); else toast("זמין בקרוב"); return; }
+  if (b.dataset.act === "proInfo" || b.dataset.act === "upgrade") { track("upgrade_open", {from: b.dataset.src || currentTab || "home"}); if (b.dataset.src) track("buy_card_open", {src: b.dataset.src}); if (UPGRADE_UI) renderUpgrade(); else toast("זמין בקרוב"); return; }
   if (b.dataset.act === "mkCsv") { marketCsv(); return; }
   if (b.dataset.buy) { buyPlan(b.dataset.buy); return; }
   if (b.dataset.act === "restore") { restorePurchases(); return; }
@@ -3064,7 +3182,7 @@ $("#out").addEventListener("click", ev => {
     { const y = window.scrollY; renderResult(); window.scrollTo(0, y); }
   }
   if (act === "copy") copyText(summaryText(current), "הסיכום");
-  if (act === "calendar") testReminder(current);
+  if (act === "calendar") { track("calendar_reminder_click", {where: window.AndroidApp ? "app" : "web"}); testReminder(current); }
   if (act === "fuelUnit") { try { localStorage.setItem("fuelUnit", kmlUnit() ? "l100" : "kml"); } catch {} syncUnit(); renderResult(); }
   if (act === "compare") { track("compare_open"); cmp = []; renderCompare(); openCompare("model"); }
   if (act === "save") {
@@ -3424,7 +3542,7 @@ async function shareFile(blob, name, title, caption){
   if (br && br.shareFile) { br.shareFile(name, blob.type, await blobToBase64(blob), title); return; }
   const file = new File([blob], name, {type: blob.type});
   if (navigator.canShare && navigator.canShare({files: [file]})) {
-    try { await navigator.share({files: [file], title}); return; } catch (err) { if (err && err.name === "AbortError") return; }
+    try { await navigator.share(caption ? {files: [file], title, text: caption} : {files: [file], title}); return; } catch (err) { if (err && err.name === "AbortError") return; }
   }
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
@@ -3454,7 +3572,14 @@ function pdfBand(text, left, w, h, rule, logo){
 async function makePdf(D, biz, cap){
   const [{canvas, breaks}] = await Promise.all([cap || captureReport(D, true, biz), loadScript(LIBS.pdf)]);
   const yr = empty(D.v.shnat_yitzur) ? "" : " " + D.v.shnat_yitzur;
-  return await pdfFromCanvas(canvas, breaks, `${biz ? biz.name : "לוחית"} · ${D.title}${yr}`, fmtPlate(D.plate), biz ? await bizPdfOpts(biz) : undefined);
+  let opts;
+  if (biz) opts = await bizPdfOpts(biz);
+  else {
+    // our own PDF opens with a cover page (the same summary as the share card, A4 proportions, with a QR to the live report)
+    opts = {link: shareLink(D.plate, "pdf")};
+    try { opts.cover = (await drawShareCard(D, {cover: true})).canvas; } catch { reportErr("pdf_cover"); }
+  }
+  return await pdfFromCanvas(canvas, breaks, `${biz ? biz.name : "לוחית"} · ${D.title}${yr}`, fmtPlate(D.plate), opts);
 }
 async function pdfFromCanvas(canvas, breaks, headText, headLeft, opts = {}){
   const logo = "logo" in opts ? opts.logo : await loadLogo();
@@ -3462,6 +3587,7 @@ async function pdfFromCanvas(canvas, breaks, headText, headLeft, opts = {}){
   const W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight();
   const MX = 36, TOP = 58, BOT = 50, CW = W - 2 * MX;
   const scale = CW / canvas.width, pageH = Math.floor((H - TOP - BOT) / scale);
+  const cover = opts.cover || null, off = cover ? 1 : 0;
   const slices = []; let y = 0;
   while (y < canvas.height - 4) {
     let end = Math.min(y + pageH, canvas.height);
@@ -3470,16 +3596,17 @@ async function pdfFromCanvas(canvas, breaks, headText, headLeft, opts = {}){
   }
   const BW = Math.round(CW * 3), BH = 60, bh = BH / 3;
   const head = pdfBand(headText, headLeft, BW, BH, 1, logo);
-  const foot = n => pdfBand(opts.foot || "לוחית · בדיקת רכב לפי מספר רישוי · חינם ב-Google Play", n, BW, BH, -1, opts.foot ? null : logo);
+  const foot = n => pdfBand(opts.foot || "לוחית · בדיקת רכב לפי מספר רישוי · luchit.app", n, BW, BH, -1, opts.foot ? null : logo);
+  if (cover) { pdf.addImage(cover.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, W, H, "cover"); pdf.link(0, H * (1 - 190 / 1527), W, H * 190 / 1527, {url: opts.link || SITE}); }
   slices.forEach(([a, b], i) => {
-    if (i) pdf.addPage();
+    if (i || cover) pdf.addPage();
     const part = document.createElement("canvas"); part.width = canvas.width; part.height = b - a;
     const ctx = part.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, part.width, part.height);
     ctx.drawImage(canvas, 0, a, canvas.width, b - a, 0, 0, canvas.width, b - a);
     if (i) pdf.addImage(head, "JPEG", MX, 22, CW, bh, "head");
     pdf.addImage(part.toDataURL("image/jpeg", 0.88), "JPEG", MX, i ? TOP : 30, CW, (b - a) * scale, "page" + i);
-    pdf.addImage(foot(`${i + 1} / ${slices.length}`), "JPEG", MX, H - 34, CW, bh, "foot" + i);
-    if (!opts.foot) pdf.link(MX, H - 34, CW, bh, {url: PLAY_URL});
+    pdf.addImage(foot(`${i + 1 + off} / ${slices.length + off}`), "JPEG", MX, H - 34, CW, bh, "foot" + i);
+    if (!opts.foot) pdf.link(MX, H - 34, CW, bh, {url: opts.link || SITE});
   });
   return pdf.output("blob");
 }
@@ -3507,11 +3634,12 @@ async function shareComparePdf(btn){
 }
 /* what the user shared last time is prepared while the share sheet is open, so choosing it is usually instant */
 let shareWarm = {};
-const lastShare = () => { try { return localStorage.getItem("lastShare") === "pdf" ? "pdf" : "image"; } catch { return "image"; } };
-const shareKey = kind => kind === "pdf" ? [current && current.plate, "pdf"].join("|") : [current && current.plate, "image", simpleOn(), currentTab, simpleMore].join("|");
+const lastShare = () => { try { const k = localStorage.getItem("lastShare"); return k === "pdf" || k === "image" ? k : "card"; } catch { return "card"; } };
+const shareKey = kind => kind === "pdf" || kind === "card" ? [current && current.plate, kind].join("|") : [current && current.plate, "image", simpleOn(), currentTab, simpleMore].join("|");
 /* the finished file, so that choosing it only hands it over */
 async function prepShare(kind, D){
   if (kind === "pdf") return await makePdf(D);
+  if (kind === "card") return await canvasToBlob((await drawShareCard(D)).canvas, "image/jpeg", 0.92);
   const cap = await captureReport(D, false);
   return await canvasToBlob(cap.canvas, "image/jpeg", 0.9);
 }
@@ -3530,33 +3658,41 @@ async function warmFile(kind){
 }
 /* The shared picture is drawn straight on a canvas: a designed summary card in a few milliseconds. (Photographing the whole report through an SVG snapshot took
    several seconds on a phone; the full report is the PDF.) */
-async function drawShareCard(D){
-  const W = 1080, P = 56, c = document.createElement("canvas"); c.width = W; c.height = 4200;
+/* The summary picture (1080x1350; with {cover:true} A4 proportions for the first page of the PDF): the car, what was found in a fixed order,
+   three numbers, and a quiet footer pointing to the live report (a tappable link in the PDF). Drawn straight on a canvas, so it takes milliseconds. */
+async function drawShareCard(D, opt = {}){
+  const cover = !!opt.cover;
+  const W = 1080, H = cover ? 1527 : 1350, P = 72, R = W - P, FT = H - 190;
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
   const x = c.getContext("2d"); x.direction = "rtl"; x.textBaseline = "alphabetic";
-  const FONT = '"Noto Sans Hebrew","Segoe UI",Arial,sans-serif';
+  const FONT = '"Noto Sans Hebrew","Assistant","Segoe UI",Arial,sans-serif';
   const f = (px, wt = 500) => { x.font = `${wt} ${px}px ${FONT}`; };
-  const R = W - P;
   const rr = (X, Y, w, h, r, fill, stroke, lw) => { x.beginPath(); x.roundRect(X, Y, w, h, r); if (fill) { x.fillStyle = fill; x.fill(); } if (stroke) { x.lineWidth = lw || 2; x.strokeStyle = stroke; x.stroke(); } };
   const wrap = (t, maxW) => { const out = []; let cur = ""; for (const w of String(t).split(" ")) { const n = cur ? cur + " " + w : w; if (x.measureText(n).width > maxW && cur) { out.push(cur); cur = w; } else cur = n; } if (cur) out.push(cur); return out; };
   const text = (t, X, Y, color, align = "right") => { x.fillStyle = color; x.textAlign = align; x.fillText(t, X, Y); };
   const INK = "#151a24", MUT = "#5d6676";
-  const TONE = {ok: ["#1f7a3f", "#e3f4e8"], warn: ["#9a5b00", "#fdf0d8"], bad: ["#b3261e", "#fde7e5"], info: ["#2556c8", "#e6eefc"]};
-  // header band
-  const g = x.createLinearGradient(0, 0, 0, 210); g.addColorStop(0, "#e2ecfd"); g.addColorStop(1, "#ffffff"); x.fillStyle = g; x.fillRect(0, 0, W, 210);
-  const logo = await loadLogo(); if (logo) x.drawImage(logo, R - 96, 54, 96, 96);
-  f(66, 800); text("לוחית", R - 116, 112, INK); f(30, 600); text("בדיקת רכב לפי מספר רישוי", R - 116, 154, MUT);
-  f(28, 700); const tag = "חינם ב-Google Play", tw = x.measureText(tag).width + 44; rr(P, 76, tw, 56, 28, "#2556c8"); text(tag, P + tw / 2, 114, "#fff", "center");
-  let y = 262;
-  // car
+  const TONE = {ok: "#2e7d4f", warn: "#b7791f", bad: "#b3261e", info: "#4a6fb5"};
+  x.fillStyle = "#fff"; x.fillRect(0, 0, W, H);
+  // header: brand on the right, date of the check on the left
+  const logo = await loadLogo(); if (logo) x.drawImage(logo, R - 52, 56, 52, 52);
+  f(32, 800); text("לוחית", R - 68, 94, INK); const lw = x.measureText("לוחית").width; f(28, 500); text("· דוח רכב", R - 68 - lw - 12, 94, MUT);
+  const nowD = new Date(), stamp = nowD.toLocaleDateString("he-IL") + (cover ? " · " + nowD.toLocaleTimeString("he-IL", {hour: "2-digit", minute: "2-digit"}) : "");
+  f(26, 500); text(`נבדק ${stamp}`, P, 94, MUT, "left");
+  // the car
   const v = D.v, yr = empty(v.shnat_yitzur) ? "" : String(v.shnat_yitzur);
-  f(76, 800); for (const l of wrap(D.title, W - 2 * P)) { text(l, R, y, INK); y += 86; } y -= 30;
-  const dt = driveType(D), sub = [yr, v.tzeva_rechev, dt && dt.label, D.sub && !/^\d{4}/.test(D.sub) ? null : null].filter(x2 => !empty(x2)).join(" · ");
-  if (sub) { f(38, 500); text(sub, R, y, MUT); y += 14; }
-  // plate
-  y += 26; const pw = 520, ph = 112; rr(R - pw, y, pw, ph, 18, "#f6c500", "#151a24", 6); rr(R - pw + 3, y + 3, 84, ph - 6, 15, "#1d4fa8"); f(26, 800); text("IL", R - pw + 45, y + 54, "#fff", "center");
-  x.direction = "ltr"; f(78, 800); x.fillStyle = "#151a24"; x.textAlign = "center"; x.fillText(fmtPlate(D.plate), R - pw / 2 + 40, y + 82); x.direction = "rtl";
-  y += ph + 44;
-  // status rows
+  let fs = 80, lines; f(fs, 800); lines = wrap(D.title, W - 2 * P);
+  if (lines.length > 2) { fs = 62; f(fs, 800); lines = wrap(D.title, W - 2 * P).slice(0, 2); }
+  let y = 150; for (const l of lines) { y += Math.round(fs * 1.08); text(l, R, y, INK); }
+  const dt = driveType(D), sub = [yr, dt && dt.label, v.tzeva_rechev].filter(q => !empty(q)).join(" · ");
+  y += 58; f(38, 500); if (sub) text(sub, R, y, MUT);
+  if (D.plate) {
+    const pw = 360, ph = 80, py = y - 56;
+    rr(P, py, pw, ph, 14, "#f6c500", INK, 5); rr(P + 3, py + 3, 62, ph - 6, 11, "#1d4fa8"); f(22, 800); text("IL", P + 34, py + 50, "#fff", "center");
+    x.direction = "ltr"; f(54, 800); x.fillStyle = INK; x.textAlign = "center"; x.fillText(fmtPlate(D.plate), P + 62 + (pw - 62) / 2, py + 58); x.direction = "rtl";
+  }
+  y += 44; x.fillStyle = "#e8ebf1"; x.fillRect(P, y, W - 2 * P, 2); y += 52;
+  f(26, 800); text("מה נמצא", R, y, MUT); y += 12;
+  // what was found: the same checks, always in the same order
   const rows = [];
   const add = (tone, t) => rows.push([tone, t]);
   const exp = toDate(v.tokef_dt), now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -3571,43 +3707,37 @@ async function drawShareCard(D){
     add(stl.length ? "warn" : "ok", stl.length ? `ייתכן שהרכב נכלל ב${pl(stl.length, "הסדר פשרה", "הסדרי פשרה")}` : "לא נמצא הסדר פשרה לדגם ולשנתון");
   }
   for (const i of buildInsights(D)) if ((i.level === "bad" || i.level === "warn") && rows.length < 9 && !rows.some(r => r[1] === i.title) && !/טסט|ריקול|הסדר/.test(i.title)) add(i.level, i.title);
-  y += 30; f(36, 800); text("מה נמצא", R, y, INK); y += 26;
-  for (const [tone, t] of rows) {
-    f(36, 600); const lines = wrap(t, W - 2 * P - 150), h = 40 + lines.length * 48;
-    rr(P, y, W - 2 * P, h, 22, TONE[tone][1]);
-    x.beginPath(); x.arc(R - 44, y + h / 2, 22, 0, 7); x.fillStyle = TONE[tone][0]; x.fill();
-    f(28, 800); text(tone === "ok" ? "✓" : tone === "info" ? "i" : "!", R - 44, y + h / 2 + 10, "#fff", "center");
-    f(36, 600); lines.forEach((l, k) => text(l, R - 90, y + 20 + 48 * (k + 1) - 12, INK)); y += h + 14;
-  }
-  // key specs, two per row
-  {
-    const w = D.w || {}, nf = k => isNum(w[k]) && num(w[k]) > 0 ? num(w[k]) : null, eng = num(D.pick(v.nefach_manoa, w.nefah_manoa));
-    const sp = [["כוח", nf("koah_sus") && `${nf("koah_sus")} כ״ס`], ["נפח מנוע", eng > 0 && `${fmtN(eng)} סמ״ק`], ["דלק", D.pick(v.sug_delek_nm, w.delek_nm)],
-      ["תיבת הילוכים", empty(w.automatic_ind) ? "" : yes(w.automatic_ind) ? "אוטומטית" : "ידנית"], ["הנעה", w.hanaa_nm], ["מרכב", w.merkav], ["מושבים", nf("mispar_moshavim")],
-      ["רמת אבזור בטיחותי", num(D.pick(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty)) > 0 && `${num(D.pick(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty))} מתוך 8`], ["כריות אוויר", nf("mispar_kariot_avir")]]
-      .filter(([, val]) => val && !empty(val)).slice(0, 8);
-    if (sp.length) {
-      y += 14; f(36, 800); text("מפרט", R, y + 30, INK); y += 56;
-      const cw = (W - 2 * P - 20) / 2;
-      sp.forEach(([k, val], i) => { const X = R - cw * (i % 2 + 1) - 20 * (i % 2), Y = y + Math.floor(i / 2) * 130; rr(X, Y, cw, 112, 20, "#f4f6fa"); f(26, 600); text(k, X + cw - 22, Y + 40, MUT); f(38, 800); text(String(val), X + cw - 22, Y + 88, INK); });
-      y += Math.ceil(sp.length / 2) * 130 + 8;
-    }
-  }
-  // numbers
   const tiles = [], cost = D.cost || {};
   if (D.km) tiles.push(["ק״מ בטסט האחרון", fmtN(D.km)]);
   if (D.kmPerYear && D.kmPerYear > 2000) tiles.push(["ממוצע לשנה", fmtN(Math.round(D.kmPerYear / 100) * 100)]);
   if (cost.valueLow && cost.valueHigh) tiles.push(["שווי משוער (הערכה)", `${Math.round(cost.valueLow / 1000)}–${Math.round(cost.valueHigh / 1000)} אלף ₪`]);
+  const tileH = 120, reserve = (tiles.length && !D.isCancelled ? tileH + 50 : 24) + (cover ? 150 : 0) + 40;
+  let shown = 0;
+  for (const [tone, t] of rows) {
+    f(34, 700); const ln = wrap(t, W - 2 * P - 70), h = 34 + ln.length * 44;
+    if (y + h > FT - reserve) break;
+    x.beginPath(); x.arc(R - 20, y + h / 2, 20, 0, 7); x.fillStyle = TONE[tone]; x.fill();
+    f(24, 800); text(tone === "ok" ? "✓" : tone === "info" ? "i" : "!", R - 20, y + h / 2 + 9, "#fff", "center");
+    f(34, 700); ln.forEach((l, k) => text(l, R - 60, y + 17 + 44 * (k + 1) - 10, INK));
+    y += h; x.fillStyle = "#f0f2f6"; x.fillRect(P, y, W - 2 * P, 1); shown++;
+  }
+  if (shown < rows.length) { f(26, 500); text(`ועוד ${rows.length - shown} ממצאים בדוח המלא`, R, y + 38, MUT); y += 46; }
   if (tiles.length && !D.isCancelled) {
-    y += 14; const tw2 = (W - 2 * P - 20 * (tiles.length - 1)) / tiles.length;
-    tiles.forEach(([k, val], i) => { const X = R - tw2 * (i + 1) - 20 * i; rr(X, y, tw2, 150, 22, "#f4f6fa"); f(28, 600); text(k, X + tw2 - 22, y + 48, MUT); f(tiles.length > 2 ? 40 : 52, 800); x.direction = "ltr"; text(val, X + tw2 - 22, y + 112, INK, "right"); x.direction = "rtl"; });
-    y += 150 + 30;
-  } else y += 16;
-  // footer
-  rr(P, y, W - 2 * P, 124, 26, "#151a24"); f(36, 800); text("הבדיקה המלאה, בחינם", R - 32, y + 54, "#fff"); f(30, 500); text("luchit.app · אפליקציית לוחית ב-Google Play", R - 32, y + 98, "#c9d1e0");
-  y += 124 + 24; f(24, 500); text("המידע ממאגרי משרד התחבורה ואינו מחליף נסח רישום רשמי. ערכים משוערים מסומנים כהערכה.", R, y + 10, MUT); y += 56;
-  const out = document.createElement("canvas"); out.width = W; out.height = y; const o = out.getContext("2d"); o.fillStyle = "#fff"; o.fillRect(0, 0, W, y); o.drawImage(c, 0, 0);
-  return {canvas: out, breaks: []};
+    y += 26; const tw = (W - 2 * P - 18 * (tiles.length - 1)) / tiles.length;
+    tiles.forEach(([k, val], i) => { const X = R - tw * (i + 1) - 18 * i; rr(X, y, tw, tileH, 20, "#f5f7fa"); f(24, 600); text(k, X + tw - 22, y + 40, MUT); f(tiles.length > 2 ? 36 : 44, 800); x.direction = "ltr"; text(val, X + tw - 22, y + 94, INK, "right"); x.direction = "rtl"; });
+    y += tileH;
+  }
+  f(24, 500);
+  if (cover || FT - y > 210) {
+    y += 30; f(24, 500); const note = wrap("מה הדוח לא בודק: תאונות שלא דווחו, מצב מכני וקילומטראז׳ בין טסטים. לפני קנייה מומלץ לבדוק את הרכב במכון מורשה.", W - 2 * P - 52);
+    const nh = 36 + note.length * 36; rr(P, y, W - 2 * P, nh, 18, "#f5f7fa"); note.forEach((l, k) => text(l, R - 26, y + 24 + 36 * (k + 1) - 8, "#4a5465"));
+  }
+  // footer: the live report one scan away
+  x.fillStyle = INK; x.fillRect(0, FT, W, 190);
+  f(36, 800); text(cover ? "לדוח המעודכן של הרכב הזה: luchit.app" : "הדוח המלא, מתעדכן בכל פתיחה", R, FT + 78, "#fff");
+  f(26, 500); text(cover ? "הנתונים ממאגרי משרד התחבורה ונכונים לשעת ההפקה" : "luchit.app · מקור: מאגרי משרד התחבורה", R, FT + 124, "#c9d1e0");
+  f(21, 500); text("אינו מחליף נסח רישום או בדיקה במכון", R, FT + 160, "#9aa4b8");
+  return {canvas: c, breaks: []};
 }
 async function doShare(kind){
   track("share", {kind});
@@ -3617,14 +3747,18 @@ async function doShare(kind){
   const biz = kind === "bizpdf" ? bizProfile() : null;
   if (biz && !biz.name) { msg.textContent = "כדי לקבל דוח ממותג, הוסיפו את פרטי העסק בהגדרות."; return; }
   document.querySelectorAll("[data-share]").forEach(b => b.disabled = true);
-  msg.textContent = kind === "pdf" || kind === "bizpdf" ? "מכין קובץ PDF…" : "מכין תמונה…";
+  msg.textContent = kind === "pdf" || kind === "bizpdf" ? "מכין קובץ PDF…" : kind === "card" ? "מכין כרטיס…" : "מכין תמונה…";
   await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));   // let the "preparing" state paint before the heavy drawing starts
   try {
-    const caption = `${D.title} · ${fmtPlate(D.plate)}\nהדוח המלא באפליקציה לוחית:\n${carLink(D.plate)}`;
-    if (!biz) { try { localStorage.setItem("lastShare", kind === "pdf" ? "pdf" : "image"); } catch {} }
+    const caption = `${D.title} · ${fmtPlate(D.plate)}\nהדוח המלא והמעודכן בלוחית:\n${shareLink(D.plate, kind === "card" ? "img" : kind === "image" ? "full" : kind)}`;
+    if (!biz) { try { localStorage.setItem("lastShare", kind === "pdf" ? "pdf" : kind === "image" ? "image" : "card"); } catch {} }
     if (biz) await shareFile(await makePdf(D, biz), name + ".pdf", D.title);
     else if (kind === "pdf") await shareFile((await warmFile("pdf")) || await makePdf(D), name + ".pdf", D.title, caption);
-    else {
+    else if (kind === "card") {
+      let blob = await warmFile("card");
+      if (!blob) blob = await prepShare("card", D);
+      await shareFile(blob, name + ".jpg", D.title, caption);
+    } else {
       // the screen's own report, painted straight onto a canvas; the summary card is only the fallback
       let blob = await warmFile("image");
       if (!blob) {
@@ -3647,6 +3781,13 @@ $("#closeShare").addEventListener("click", () => { $("#shareSheet").hidden = tru
 
 /* test-expiry reminder: in the app the phone's calendar opens with the event filled in;
    on the web it opens Google Calendar; a calendar file is the last resort */
+/* the calendar button is the fallback for a missing push: always on the web (no push there); in the app only when this car's test alert will not reach the phone */
+const pushCoversTest = p => { try { return alertsSupported() && window.AndroidApp.alertsState() === "on" && isSaved(p) && trackedOk(p) && prefOn("test"); } catch { return false; } };
+const calSeen = new Set();
+function calendarBtn(D){
+  if (!calSeen.has(D.plate)) { calSeen.add(D.plate); track("calendar_reminder_shown", {where: window.AndroidApp ? "app" : "web"}); }
+  return `<button type="button" class="link-btn" data-act="calendar">${ico("clock")}הוספת תזכורת ליומן</button>`;
+}
 function testReminder(D){
   const d = toDate(D.v.tokef_dt); if (!d) return;
   const ymd = x => `${x.getFullYear()}${String(x.getMonth() + 1).padStart(2, "0")}${String(x.getDate()).padStart(2, "0")}`;
@@ -3876,7 +4017,7 @@ function updateSavedBar(){
 $("#savedBar").addEventListener("click", () => { renderHome(); const c = [...document.querySelectorAll("#out .card")].find(x => x.textContent.includes("הרכבים שלי")); if (c) c.scrollIntoView({block: "start"}); });
 for (const nm of ["renderResult", "renderCompare", "renderHome"]) {
   const f = window[nm] || eval(nm);
-  const w = function(...a){ const r = f.apply(this, a); updateSavedBar(); if (nm === "renderResult") { fillModelStats(); fillDocs(); } return r; };
+  const w = function(...a){ const r = f.apply(this, a); updateSavedBar(); if (nm === "renderResult") { fillModelStats(); fillDocs(); fillIssues(); } return r; };
   if (nm === "renderResult") renderResult = w; else if (nm === "renderCompare") renderCompare = w; else renderHome = w;
 }
 
@@ -3969,6 +4110,56 @@ function fillModelStats(){
   const el = document.getElementById("mstat"); if (!el || !current) return;
   const D = current;
   loadModelStats().then(() => { if (current === D && el.isConnected && !el.innerHTML) el.innerHTML = msCard(D); });
+}
+/* known issues: owner complaints to NHTSA (US market) per model and model year (complaints.json, nhtsa-complaints.mjs, monthly) */
+let CMPL = null, cmplP = null;
+function loadComplaints(){
+  if (CMPL) return Promise.resolve(CMPL);
+  return cmplP || (cmplP = (async () => {
+    for (const u of [SITE + "complaints.json", "complaints.json"]) {
+      try { const r = await fetch(u, {cache: "no-cache"}); if (r.ok) { const j = await r.json(); if (j && j.m) return CMPL = j; } } catch {}
+    }
+    cmplP = null; return null;
+  })());
+}
+/* NHTSA component names (longest prefix wins) */
+const NHTSA_HE = [["AIR BAGS","כריות אוויר"],["ENGINE AND ENGINE COOLING","מנוע וקירור"],["ENGINE","מנוע"],["ELECTRICAL SYSTEM","מערכת החשמל"],["POWER TRAIN","תיבת הילוכים והנעה"],
+  ["SERVICE BRAKES","בלמים"],["PARKING BRAKE","בלם יד"],["STEERING","היגוי"],["SUSPENSION","מתלים"],["STRUCTURE","מרכב ושלדה"],["FUEL/PROPULSION SYSTEM","מערכת דלק והנעה"],["FUEL SYSTEM","מערכת הדלק"],
+  ["HYBRID PROPULSION SYSTEM","הנעה היברידית"],["ELECTRIC PROPULSION","הנעה חשמלית"],["FORWARD COLLISION AVOIDANCE","בלימה אוטונומית"],["LANE DEPARTURE","שמירה על נתיב"],["BACK OVER PREVENTION","מצלמה וחיישני רוורס"],
+  ["ELECTRONIC STABILITY CONTROL","בקרת יציבות"],["VEHICLE SPEED CONTROL","בקרת מהירות ותאוצה"],["VISIBILITY","ראות ומגבים"],["EXTERIOR LIGHTING","תאורה"],["SEAT BELTS","חגורות בטיחות"],["SEATS","מושבים"],
+  ["TIRES","צמיגים"],["WHEELS","גלגלים"],["LATCHES/LOCKS/LINKAGES","מנעולים וידיות"],["EQUIPMENT","אביזרים"],["COMMUNICATION","מערכות תקשורת"],["TRAILER HITCHES","וו גרירה"],["ADAPTIVE CRUISE","בקרת שיוט"]];
+const compHe = c => { const u = String(c || "").toUpperCase(); let best = null; for (const [k, h] of NHTSA_HE) if (u.startsWith(k) && (!best || k.length > best[0].length)) best = [k, h]; return best ? best[1] : ""; };
+function issuesFor(D){
+  const k = msKey(D), m = k && CMPL && CMPL.m[k]; if (!m) return null;
+  const y = num(D.v.shnat_yitzur), years = y && m.y[y] ? [y] : Object.keys(m.y).map(Number);
+  const sum = {n: 0, crash: 0, fire: 0, year: years.length === 1 && years[0] === y ? y : null, model: m.md}, top = new Map();
+  for (const yy of years) { const r = m.y[yy]; sum.n += r[0]; sum.crash += r[1]; sum.fire += r[2]; for (const [ci, c] of r[5]) { const he = compHe(CMPL.comps[ci]); if (he) top.set(he, (top.get(he) || 0) + c); } }
+  sum.top = [...top].sort((a, b) => b[1] - a[1]).slice(0, 3);
+  return sum.n ? sum : null;
+}
+const isSeen = new Set();
+function issuesCard(D){
+  const s = issuesFor(D); if (!s) return "";
+  const full = !PRO_LOCK || atLeast("pro"), title = "תקלות נפוצות שדווחו (ארה״ב)";
+  if (!isSeen.has(D.plate)) { isSeen.add(D.plate); track("issues_shown", {locked: full ? 0 : 1, n: s.n}); }
+  const scope = s.year ? `לשנת ${s.year}` : "בכל השנים של הדגם";
+  if (!full) return card(title, "alert", "amber",
+    `<p style="margin:0"><b>נמצאו ${fmtN(s.n)} דיווחים על תקלות נפוצות (שוק ארה״ב)</b> ${scope}.</p>
+     <p style="margin:0">מערכות מובילות: <span class="blur" aria-hidden="true">••••• •••, •••• ••••</span></p>
+     <button type="button" class="link-btn" data-act="proInfo" data-src="nhtsa">${ico("lock")}פתיחה במנוי PRO</button>`, PT("PRO"));
+  const extra = [s.crash && `${fmtN(s.crash)} מהדיווחים כללו תאונה`, s.fire && `${fmtN(s.fire)} שריפה`].filter(Boolean).join(", ");
+  const same = String(s.model || "").replace(/[^A-Z0-9]/gi, "").toUpperCase() === String(D.v.kinuy_mishari || "").replace(/[^A-Z0-9]/gi, "").toUpperCase();
+  return card(title, "alert", "amber",
+    `<p style="margin:0"><b>${fmtN(s.n)} תלונות דווחו (NHTSA)</b> ${scope}${s.top.length ? `. מערכות מובילות: ${s.top.map(([h, c]) => `${esc(h)} (${fmtN(c)})`).join(", ")}` : ""}.</p>
+     ${extra ? `<p class="note" style="margin:0">${extra}.</p>` : ""}
+     <p class="note">דיווחי בעלים לרשות הבטיחות בדרכים בארה״ב${same ? "" : ` על הדגם שנמכר שם בשם ${esc(s.model)}`}. הדיווחים לא אומתו, ומספרם תלוי גם בכמה רכבים נמכרו שם, ולכן זה לא שיעור תקלות. בישראל הדגם עשוי להגיע עם מנוע או ציוד אחר. עדכון: ${esc(fmtDate(CMPL.updated))}.</p>`, PT("PRO"));
+}
+function fillIssues(){
+  if (!current || current.kind === "model") return;
+  loadComplaints();   // warm, so the recalls tab opens with the card already there
+  const el = document.getElementById("issues"); if (!el) return;
+  const D = current;
+  loadComplaints().then(() => { if (current === D && el.isConnected && !el.innerHTML) el.innerHTML = issuesCard(D); });
 }
 let MARKET = null, MK = {mode: "year", sel: null};
 async function loadMarket(){
@@ -4299,7 +4490,7 @@ const FAQ = [
   ["מה זה \"יד\" ולמה זה לא תמיד מדויק?", "הספירה מבוססת על רשומות הבעלות במאגר. רכב שעבר בין חברות ליסינג או סוחרים יכול להציג יותר רשומות מבעלים פרטיים בפועל. מוצג \"לפחות\" כשהמאגר חלקי."],
   ["למה לא מצאתם את הרכב שלי?", "בדקו שהמספר נכון. רכב שירד מהכביש או שיצא מהמאגר לא יופיע, ולפעמים מאגר של המשרד מושבת זמנית. במקרה כזה נסו שוב מאוחר יותר."],
   ["האם אפשר לסמוך על שווי הרכב?", "זו הערכה לפי מחיר מחירון, שנת ייצור וק״מ, ללא מצב הרכב, תאונות והביקוש לדגם. השתמשו בה כנקודת התחלה למשא ומתן בלבד."],
-  ["האם אתם בודקים הסדרי פשרה?", "כן. בלשונית \"ריקולים והסדרים\" בודקים אם לדגם ולשנתון של הרכב יש הסדר פשרה (תובענה ייצוגית) מול היבואן, למשל תיבת הילוכים, לוח מחוונים או קילוף צבע. הרשימה נאספה מהודעות יבואנים ומהעיתונות, אינה מקיפה ואינה ייעוץ משפטי, ולכן כתוב תמיד \"ייתכן\"."],
+  ["האם אתם בודקים הסדרי פשרה?", "כן. בלשונית \"ריקולים\" בודקים אם לדגם ולשנתון של הרכב יש הסדר פשרה (תובענה ייצוגית) מול היבואן, למשל תיבת הילוכים, לוח מחוונים או קילוף צבע. הרשימה נאספה מהודעות יבואנים ומהעיתונות, אינה מקיפה ואינה ייעוץ משפטי, ולכן כתוב תמיד \"ייתכן\"."],
   ["האם זה מחליף בדיקה במכון?", "לא. הנתונים מראים מה רשום ברשויות. מצב מכני, תאונות שלא דווחו ושעבודים נבדקים במכון מורשה ובשירותי הבדיקה בלשונית \"לפני שקונים\"."],
 ];
 function faqCard(){
@@ -4464,6 +4655,7 @@ window.onUpdateState = st => {
 if (!window.AndroidApp && /Android/i.test(navigator.userAgent)) {
   let last = 0; try { last = +localStorage.getItem("webInstallAt") || 0; } catch {}
   if (Date.now() - last > 14 * 864e5) setTimeout(() => {
+    if (document.querySelector(".sharebar")) return;   // the shared-report bar already makes the offer
     try { localStorage.setItem("webInstallAt", String(Date.now())); } catch {}
     track("web_install_prompt");
     snack("באפליקציה יש התראות על ריקול וטסט", "להתקנה", () => { track("web_install_click"); openExternal(playWeb("snack")); });
@@ -4665,6 +4857,11 @@ if (!window.AndroidApp && "serviceWorker" in navigator && window.isSecureContext
 }
 const start = digits(location.hash) || digits(new URLSearchParams(location.search).get("plate"));
 const cmpParam = new URLSearchParams(location.search).get("cmp");
+/* web: this page was opened from a shared report, so it is shown as "sent to you" (see sharedBar) */
+const SHARED = !window.AndroidApp && start && new URLSearchParams(location.search).has("s") ? start : null;
+const SHARE_VIA = (new URLSearchParams(location.search).get("s") || "none").replace(/[^a-z]/g, "").slice(0, 8) || "none";
+/* web: someone opened a link to a car or a comparison (s= says which kind of share it came from, when the link carries it) */
+if (!window.AndroidApp && (start || cmpParam)) track("link_landing", {kind: cmpParam ? "cmp" : "plate", via: (new URLSearchParams(location.search).get("s") || "none").replace(/[^a-z]/g, "").slice(0, 8) || "none"});
 if (cmpParam) loadCompareLink(cmpParam).then(ok => { if (!ok) renderHome(); }); else if (start) run(start); else renderHome();
 requestAnimationFrame(() => document.body.classList.add("rdy"));
 
