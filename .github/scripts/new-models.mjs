@@ -59,14 +59,22 @@ export async function newModels(quarterArg) {
   if (latest < Number(qm[2])) return { Y, Q, closed: false, latest };
   const first = o => Object.keys(o.months).filter(m => o.months[m] > 0).sort()[0];
   const sum = (o, ms) => ms.reduce((t, m) => t + (o[m] || 0), 0);
-  const older = {};   // brand -> names that were already on sale before the quarter
-  for (const o of Object.values(models)) if ((first(o) || "9") < qm[0]) (older[o.brand] ||= []).push(o.name);
-  const found = [];
-  for (const o of Object.values(models)) {
-    const f = first(o); if (!f || f < qm[0] || f > qm[2]) continue;
-    const units = sum(o.months, qm); if (units < MIN_UNITS) continue;
-    found.push({ ...o, first: f, units, versionOf: versionOf(o.name, older[o.brand] || []) });
-  }
+  const detect = qs => {
+    const older = {};   // brand -> names that were already on sale before the quarter
+    for (const o of Object.values(models)) if ((first(o) || "9") < qs[0]) (older[o.brand] ||= []).push(o.name);
+    const out = [];
+    for (const o of Object.values(models)) {
+      const f = first(o); if (!f || f < qs[0] || f > qs[2]) continue;
+      const units = sum(o.months, qs); if (units < MIN_UNITS) continue;
+      out.push({ ...o, first: f, units, versionOf: versionOf(o.name, older[o.brand] || []) });
+    }
+    return out;
+  };
+  const found = detect(qm);
+  // the quarter before, for a comparison line (only when the register has at least two quarters of history before it)
+  const pY = Q === 1 ? Y - 1 : Y, pQ = Q === 1 ? 4 : Q - 1, pm = [0, 1, 2].map(i => String(pY * 100 + (pQ - 1) * 3 + 1 + i));
+  let prev = null;
+  if (pm[0] >= "202207") { const pf = detect(pm); prev = { label: `הרבעון ${ORD[pQ - 1]} של ${pY}`, fresh: pf.filter(m => !m.versionOf).length, vers: pf.filter(m => m.versionOf).length }; }
   for (const m of found) {
     const byTrim = new Map(), importers = new Set();
     for (const [code, mo] of Object.entries(m.codes)) {
@@ -84,7 +92,7 @@ export async function newModels(quarterArg) {
     m.trims = [...byTrim.values()].sort((a, b) => (a.lo === Infinity) - (b.lo === Infinity) || a.lo - b.lo);
   }
   found.sort((a, b) => b.units - a.units);
-  return { Y, Q, closed: true, latest, label: `הרבעון ${ORD[Q - 1]} של ${Y}`, slug: `newmodels-${Y}-q${Q}`, months: qm, models: found };
+  return { Y, Q, closed: true, latest, label: `הרבעון ${ORD[Q - 1]} של ${Y}`, slug: `newmodels-${Y}-q${Q}`, months: qm, prev, models: found };
 }
 
 if (process.argv.includes("--selftest")) {
