@@ -477,13 +477,19 @@ public class MainActivity extends Activity {
                     }
                     try {
                         String ref = client.getInstallReferrer().getInstallReferrer();
-                        String plate = null;
+                        String plate = null, medium = "", source = "";
                         if (ref != null) for (String part : Uri.decode(ref).split("&")) {
                             if (part.startsWith("plate=")) plate = part.substring(6).replaceAll("[^0-9]", "");
+                            else if (part.startsWith("utm_medium=")) medium = part.substring(11).replaceAll("[^a-z]", "");
+                            else if (part.startsWith("utm_source=")) source = part.substring(11).replaceAll("[^a-z]", "");
                         }
-                        if (plate != null && plate.length() >= 5 && plate.length() <= 8) {
-                            String js = "window.run && run('" + plate + "')";
-                            runOnUiThread(() -> runJs(js));
+                        // the first launch after an install that started from a shared report: open that car and count it (one page call, the pending slot holds a single script)
+                        String js = "";
+                        if (plate != null && plate.length() >= 5 && plate.length() <= 8) js += "window.run && run('" + plate + "');";
+                        if ("share".equals(source)) js += "typeof track==='function'&&track('referral_open',{via:'" + (medium.isEmpty() ? "none" : medium.substring(0, Math.min(8, medium.length()))) + "'});";
+                        if (!js.isEmpty()) {
+                            final String fjs = js;
+                            runOnUiThread(() -> runJs(fjs));
                         }
                     } catch (Exception ignored) {
                     }
@@ -535,8 +541,13 @@ public class MainActivity extends Activity {
             String plate = d.getQueryParameter("plate");
             if (plate == null && d.getFragment() != null) plate = d.getFragment();
             if (plate != null) plate = plate.replaceAll("[^0-9]", "");
-            if (cmp != null && cmp.matches("[A-Za-z0-9_-]{1,4000}")) runJs("window.loadCompareLink && loadCompareLink(" + JSONObject.quote(cmp) + ")");
-            else if (plate != null && plate.length() >= 5 && plate.length() <= 8) runJs("window.run && run(" + JSONObject.quote(plate) + ")");
+            String via = d.getQueryParameter("s");
+            via = via == null ? "none" : via.replaceAll("[^a-z]", "");
+            if (via.isEmpty()) via = "none";
+            if (via.length() > 8) via = via.substring(0, 8);
+            String seen = "typeof track==='function'&&track('link_open',{via:'" + via + "'});";
+            if (cmp != null && cmp.matches("[A-Za-z0-9_-]{1,4000}")) runJs("window.loadCompareLink && loadCompareLink(" + JSONObject.quote(cmp) + ");" + seen);
+            else if (plate != null && plate.length() >= 5 && plate.length() <= 8) runJs("window.run && run(" + JSONObject.quote(plate) + ");" + seen);
             i.setAction(null);
         } else if (Intent.ACTION_VIEW.equals(action) && i.getData() != null && "luchit".equals(i.getData().getScheme())) {
             String what = i.getData().getHost();

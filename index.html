@@ -289,11 +289,13 @@ footer{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:4px 24px;
 .webcta{display:block;width:100%;border:0;background:none;color:var(--muted);font:inherit;font-size:.85rem;text-align:center;padding:6px 8px;margin:0 0 6px;min-height:44px;cursor:pointer}.webcta b{color:var(--accent);font-weight:700}
 .apphint{display:flex;gap:10px;align-items:center;width:100%;border:0;text-align:start;background:#FFF8DC;color:var(--fg);border-radius:12px;padding:10px 12px;font-size:.9rem;margin:0 0 10px;min-height:44px}
 .shared-top{display:flex;gap:9px;align-items:center;background:#eef3fc;color:#1e3f86;border-radius:12px;padding:10px 12px;font-size:.88rem;margin:0 0 10px;line-height:1.4}
-.sharebar{position:fixed;inset-inline:0;bottom:0;z-index:25;background:var(--card);border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(0,0,0,.08);padding:10px 14px calc(12px + env(safe-area-inset-bottom,0px))}
+.sharebar{position:fixed;inset-inline:0;bottom:0;z-index:15;background:var(--card);border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(0,0,0,.08);padding:10px 14px calc(12px + env(safe-area-inset-bottom,0px))}
 .sb-in{display:flex;align-items:center;gap:10px;max-width:760px;margin:0 auto}.sb-txt{flex:1;min-width:0}.sb-txt b{display:block;font-size:.95rem}.sb-txt small,.sb-sub{color:var(--muted);font-size:.78rem}.sb-sub{display:block;max-width:760px;margin:5px auto 0}
 .sb-btn{border:0;border-radius:12px;background:var(--fg);color:var(--card);font:inherit;font-weight:700;font-size:.9rem;padding:11px 14px;min-height:44px;white-space:nowrap;cursor:pointer}.sb-btn.alt{background:var(--soft);color:var(--fg)}
 .sb-col{flex-direction:column;align-items:stretch;gap:8px}.sb-btns{display:flex;gap:8px}.sb-btns .sb-btn{flex:1}
-.sb-pad{height:124px}
+.sb-pad{height:calc(140px + env(safe-area-inset-bottom,0px))}
+body:has(.sharebar) .toast{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+@media (max-height:500px){.sharebar{position:static;box-shadow:none;border-top:0}.sb-pad{display:none}}
 @media print{.sharebar,.sb-pad,.shared-top{display:none}}
 .apphint b{white-space:nowrap}.apphint .gox{margin-inline-start:auto;color:var(--accent,#2556c8);font-weight:700;white-space:nowrap}
 .src-foot{order:100}
@@ -1054,10 +1056,25 @@ async function copyText(t, label){
 }
 /* every share carries a store link; whoever installs from it lands on the same car on first launch */
 /* web visitors who go to Google Play carry a campaign tag, so Play Console can show how many store visits and installs come from luchit.app */
-const playWeb = c => `${PLAY_URL}&referrer=${encodeURIComponent("utm_source=luchit.app&utm_medium=web&utm_campaign=" + c)}`;
+/* every web button that leads to Google Play carries a campaign tag; when the visitor came from a shared report the tag says so (utm_source=share, utm_medium = kind of share),
+   and when a car is on screen its plate rides along, so the app's first launch opens the same car */
+const playWeb = c => {
+  let plate = ""; try { plate = current && current.plate && current.kind !== "model" ? current.plate : ""; } catch {}
+  let ref = "utm_source=luchit.app&utm_medium=web&utm_campaign=" + c;
+  try { if (typeof SHARED === "string" && SHARED) ref = `utm_source=share&utm_medium=${SHARE_VIA}&utm_campaign=car_share&utm_content=${c}`; } catch {}
+  if (plate) ref = "plate=" + plate + "&" + ref;
+  return `${PLAY_URL}&referrer=${encodeURIComponent(ref)}`;
+};
 /* the install referrer keeps plate= for the app's first launch, plus a campaign tag so Play Console and Firebase count installs that came from a shared report */
 /* what a share points to: the live report on the site (opens the app for people who have it, a web report for everyone else). s= says which kind of share it was */
-const shareLink = (plate, via) => plate ? `${SITE}?plate=${plate}&s=${via}` : `${SITE}?s=${via}`;
+/* v= changes whenever what the preview shows could have changed (open recalls, test, off the road, owners) and at least once a week, because messaging apps keep a
+   link preview for as long as the address stays the same */
+const shareState = D => { try { const t = toDate(D.v.tokef_dt); return [D.recallUnknown ? "u" : Math.min((D.recalls || []).length, 9), D.isCancelled ? 1 : 0, t && t < new Date() ? 1 : 0, Math.min((D.own || []).length, 9)].join("") + "." + Math.floor(Date.now() / (7 * 864e5)).toString(36); } catch { return ""; } };
+const shareLink = (plate, via) => {
+  if (!plate) return `${SITE}?s=${via}`;
+  let v = ""; try { v = current && current.plate === plate ? shareState(current) : ""; } catch {}
+  return `${SITE}?plate=${plate}&s=${via}${v ? "&v=" + v : ""}`;
+};
 const carLink = (plate, via = "text") => `${PLAY_URL}&referrer=${encodeURIComponent(`plate=${plate}&utm_source=share&utm_medium=${via}&utm_campaign=car_share`)}`;
 async function shareText(title, text, plate){
   text += plate ? `\n\nהדוח המלא והמעודכן בלוחית:\n${shareLink(plate, "txt")}` : "\n\nמקור: מאגרי משרד התחבורה, דרך האפליקציה לוחית";
@@ -1715,17 +1732,22 @@ const appHint = D => {
 };
 /* web visitors who arrive from a shared report (s= in the link): a bar that opens the app on this very car (Android), or a calendar reminder (everyone else) */
 const IS_ANDROID = /Android/i.test(navigator.userAgent);
+/* Facebook, Instagram, TikTok, Telegram... open links in their own browser, where intent:// links and App Links do not work and files cannot be downloaded */
+const IN_APP_BROWSER = /FBAN|FBAV|FB_IAB|FBIOS|Instagram|Snapchat|TikTok|musical_ly|Bytedance|Telegram|Line\/|; wv\)/i.test(navigator.userAgent);
 function sharedBar(D){
-  const exp = toDate(D.v.tokef_dt), canCal = exp && !D.isCancelled;
+  const exp = toDate(D.v.tokef_dt), canCal = exp && !D.isCancelled && !IN_APP_BROWSER;
   let main;
-  if (IS_ANDROID) {
+  if (IS_ANDROID && IN_APP_BROWSER) {
+    // no intent:// in these browsers: straight to the store page (the car rides along in the install referrer), with a tip for the better way
+    main = `<div class="sb-txt"><b>עקבו אחרי הרכב הזה</b><small>התראה על ריקול חדש, טסט שמתקרב והעברת בעלות</small></div><button type="button" class="sb-btn" data-act="openplay" data-url="${esc(carLink(D.plate, "bar"))}">להורדה בחינם</button>`;
+  } else if (IS_ANDROID) {
     const intent = `intent://luchit.app/?plate=${D.plate}&s=bar#Intent;scheme=https;package=com.ddsabag.pratirechev;S.browser_fallback_url=${encodeURIComponent(carLink(D.plate, "bar"))};end`;
     main = `<div class="sb-txt"><b>עקבו אחרי הרכב הזה</b><small>התראה על ריקול חדש, טסט שמתקרב והעברת בעלות</small></div><button type="button" class="sb-btn" data-act="openapp" data-intent="${esc(intent)}">פתחו באפליקציה</button>`;
   } else {
     main = `<div class="sb-txt"><b>שומרים על הרכב הזה בעין</b><small>${canCal ? "הטסט פג ב-" + fmtDate(D.v.tokef_dt) : "בדקו רכב נוסף לפני שמחליטים"}</small></div><div class="sb-btns">` +
       (canCal ? `<button type="button" class="sb-btn" data-act="barcal">📅 תזכורת טסט ביומן</button>` : "") + `<button type="button" class="sb-btn${canCal ? " alt" : ""}" data-act="another">בדיקת רכב נוסף</button></div>`;
   }
-  return `<div class="sharebar" role="region" aria-label="מעקב אחרי הרכב"><div class="sb-in${IS_ANDROID ? "" : " sb-col"}">${main}</div>${IS_ANDROID ? `<small class="sb-sub">חינם ב-Google Play · נפתח ישר על הרכב הזה</small>` : ""}</div><div class="sb-pad"></div>`;
+  return `<div class="sharebar" role="region" aria-label="מעקב אחרי הרכב"><div class="sb-in${IS_ANDROID ? "" : " sb-col"}">${main}</div>${IS_ANDROID ? `<small class="sb-sub">${IN_APP_BROWSER ? "טיפ: ⋮ ואז \"פתח בדפדפן\" כדי שהאפליקציה תיפתח ישר על הרכב" : "חינם ב-Google Play · נפתח ישר על הרכב הזה"}</small>` : ""}</div><div class="sb-pad"></div>`;
 }
 const sharedHere = D => !!(SHARED && D.plate === SHARED && D.kind !== "model");
 function renderResult(){
@@ -3081,6 +3103,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "simple") { const want = !simpleOn(); try { localStorage.setItem("simpleView", want ? "1" : "0"); } catch {} track("simple_view", {on: simpleOn()}); renderResult(); return; }
   if (b.dataset.act === "simpleMore") { simpleMore = !simpleMore; track("simple_more", {on: simpleMore}); renderResult(); return; }
   if (b.dataset.act === "openapp") { track("web_hint_click", {where: "share_bar"}); track("web_install_click"); location.href = b.dataset.intent; return; }
+  if (b.dataset.act === "openplay") { track("web_hint_click", {where: "share_bar_iab"}); track("web_install_click"); location.href = b.dataset.url; return; }
   if (b.dataset.act === "barcal") { track("web_hint_click", {where: "share_bar_cal"}); if (current) testReminderFile(current); return; }
   if (b.dataset.act === "another") { track("web_hint_click", {where: "share_bar_more"}); location.href = "/"; return; }
   if (b.dataset.url) {
@@ -4583,6 +4606,7 @@ window.onUpdateState = st => {
 if (!window.AndroidApp && /Android/i.test(navigator.userAgent)) {
   let last = 0; try { last = +localStorage.getItem("webInstallAt") || 0; } catch {}
   if (Date.now() - last > 14 * 864e5) setTimeout(() => {
+    if (document.querySelector(".sharebar")) return;   // the shared-report bar already makes the offer
     try { localStorage.setItem("webInstallAt", String(Date.now())); } catch {}
     track("web_install_prompt");
     snack("באפליקציה יש התראות על ריקול וטסט", "להתקנה", () => { track("web_install_click"); openExternal(playWeb("snack")); });
@@ -4786,6 +4810,7 @@ const start = digits(location.hash) || digits(new URLSearchParams(location.searc
 const cmpParam = new URLSearchParams(location.search).get("cmp");
 /* web: this page was opened from a shared report, so it is shown as "sent to you" (see sharedBar) */
 const SHARED = !window.AndroidApp && start && new URLSearchParams(location.search).has("s") ? start : null;
+const SHARE_VIA = (new URLSearchParams(location.search).get("s") || "none").replace(/[^a-z]/g, "").slice(0, 8) || "none";
 /* web: someone opened a link to a car or a comparison (s= says which kind of share it came from, when the link carries it) */
 if (!window.AndroidApp && (start || cmpParam)) track("link_landing", {kind: cmpParam ? "cmp" : "plate", via: (new URLSearchParams(location.search).get("s") || "none").replace(/[^a-z]/g, "").slice(0, 8) || "none"});
 if (cmpParam) loadCompareLink(cmpParam).then(ok => { if (!ok) renderHome(); }); else if (start) run(start); else renderHome();

@@ -10,7 +10,7 @@ const CMP_KEYS = ["tozeret_cd", "degem_cd", "shnat_yitzur", "ramat_gimur", "kinu
 const clean = s => String(s ?? "").replace(/\s+/g, " ").trim().slice(0, 60);
 const label = v => [clean(v.tozeret_nm).split(" ")[0], clean(v.kinuy_mishari || v.degem_nm), v.shnat_yitzur].filter(Boolean).join(" ");
 // rows, or null when the ministry did not answer in time (then that check is left out of the preview, never guessed)
-const rows = (id, filters) => fetch(DS + id + "&filters=" + encodeURIComponent(JSON.stringify(filters)), {signal: AbortSignal.timeout(2500), cf: {cacheTtl: 3600, cacheEverything: true}})
+const rows = (id, filters) => fetch(DS + id + "&filters=" + encodeURIComponent(JSON.stringify(filters)), {signal: AbortSignal.timeout(2500), cf: {cacheTtl: 600, cacheEverything: true}})
   .then(r => r.ok ? r.json() : null).then(j => j && j.success ? j.result.records : null).catch(() => null);
 
 /* the car and its most important finding: off the road, test expired, open recall, or a clean bill */
