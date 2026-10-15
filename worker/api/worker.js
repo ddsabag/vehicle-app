@@ -61,7 +61,7 @@ async function waitlist(req, env) {
 /* web usage events (index.html track() on the site): forwarded to the GA4 web stream. Only listed event names, short text or number params,
    nothing that looks like a plate or an email; no IP or user agent is passed on. Without GA_MEASUREMENT_ID/GA_API_SECRET it answers 204 and does nothing. */
 const WEB_EVENTS = new Set(["car_lookup", "search_no_result", "share", "tab_view", "compare_open", "link_landing", "web_hint_click", "web_install_prompt", "web_install_click",
-  "link_out", "checklist_pdf", "simple_view", "lookup_failed", "lookup_timeout", "lookup_slow", "settlement_shown", "buy_step_done"]);
+  "link_out", "checklist_pdf", "simple_view", "lookup_failed", "lookup_timeout", "lookup_slow", "settlement_shown", "buy_step_done", "calendar_reminder_shown", "calendar_reminder_click"]);
 async function webEvent(req, env) {
   if (req.method !== "POST" || req.headers.get("origin") !== ORIGIN) return new Response(null, { status: 204 });
   if (!env.GA_MEASUREMENT_ID || !env.GA_API_SECRET) return new Response(null, { status: 204 });

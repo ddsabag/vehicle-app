@@ -124,9 +124,11 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .head .chev{margin-inline-start:auto;color:var(--muted);transition:transform .2s}
 .head .count + .chev{margin-inline-start:0}
 .fold-body{display:flex;flex-direction:column;gap:12px;min-width:0}
+.doc-manual{display:flex;flex-direction:column;gap:8px;align-items:flex-start;padding-top:12px;border-top:1px solid var(--line)}
 .card.folded .fold-body{display:none}
 .card.folded .chev{transform:rotate(90deg)}
-.head .badge{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:var(--tc);background:var(--tb)}
+/* card icons are one neutral tone: red, amber and green are reserved for findings (pills, banners, insight rows) */
+.head .badge{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:var(--t-slate);background:var(--t-slate-bg)}
 .head .count{margin-inline-start:auto;font-size:.85rem;font-weight:700;color:var(--tc);color:color-mix(in srgb,var(--tc) 72%,var(--fg));background:var(--tb);padding:2px 9px;border-radius:999px}
 .blue{--tc:var(--t-blue);--tb:var(--t-blue-bg)} .violet{--tc:var(--t-violet);--tb:var(--t-violet-bg)} .teal{--tc:var(--t-teal);--tb:var(--t-teal-bg)}
 .amber{--tc:var(--t-amber);--tb:var(--t-amber-bg)} .red{--tc:var(--t-red);--tb:var(--t-red-bg)} .slate{--tc:var(--t-slate);--tb:var(--t-slate-bg)}
@@ -382,6 +384,8 @@ section[style*="--n:3"] .cmp-k{font-size:.78rem}
 .seg.two{grid-template-columns:1fr 1fr}
 .card.many{overflow-x:auto}.many .cmp,.many .cmp-table{min-width:calc(var(--n)*116px)}
 .ph-svg{width:100%;height:auto;display:block}.opt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:start;border:1.5px solid var(--line);border-radius:14px;padding:12px;background:var(--card);margin-top:8px;position:relative;color:var(--fg)}.opt b{font-size:1rem}.opt .pr{font-weight:800}.opt small{color:var(--muted)}.opt.best{border-color:#ffc400;box-shadow:0 0 0 2px #ffc40055}.opt em{position:absolute;inset-block-start:-9px;inset-inline-end:12px;background:#ffc400;color:#111;font-style:normal;font-weight:800;font-size:.78rem;border-radius:6px;padding:1px 8px}.cmpp td,.cmpp th{font-size:.85rem;padding:6px 2px}
+.src-tag{display:inline-flex;align-items:center;font-size:.78rem;font-weight:700;border-radius:6px;padding:0 6px;margin-inline-start:6px;white-space:nowrap;background:var(--soft);color:var(--muted);border:1px solid var(--line)}
+.src-tag.db{color:var(--accent);border-color:var(--accent);background:transparent}
 .pro-tag{display:inline-flex;align-items:center;gap:3px;border:1px solid #d9a600;color:#8a6500;font-weight:700;font-size:.78rem;border-radius:6px;padding:0 6px;margin-inline-start:6px;vertical-align:middle}
 .pro-tag .i{width:10px;height:10px}
 .snack{position:fixed;inset-inline:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:31;background:var(--fg);color:var(--bg);border-radius:14px;padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 14px rgba(0,0,0,.25)}.snack span{flex:1;font-weight:700;font-size:.9rem}.snack button{border:0;border-radius:10px;padding:8px 14px;font-weight:800;background:#ffc400;color:#111;min-height:40px}.snack button.q{background:transparent;color:inherit;font-weight:600;padding:8px}.more-plans{margin-top:10px}.more-plans summary{cursor:pointer;color:var(--muted);font-size:.9rem;padding:6px 0}.blur{filter:blur(5px);user-select:none;font-weight:700;font-size:1.1rem}
@@ -1030,7 +1034,7 @@ function proLockCard(title, text){
   return card(title, "star", "amber", `<p style="margin:0">${esc(text)}</p><button type="button" class="link-btn" data-act="proInfo">הצטרפות ל-PRO</button>`, `${PT("PRO")}`);
 }
 const foldKey = t => "fold:" + t;
-const FOLD_DEFAULT = new Set(["שאלות נפוצות", "בעלות", "מסירות בתקופה", "שינויים ברכב", "היסטוריית בעלויות", "היסטוריית ריקולים לדגם", "לפני שקונים", "מרווח טיפולים", "ציר ק״מ", "עלות אחזקה מצטברת", "משקלים וצמיגים", "בטיחות", "אבזור", "סביבה", "מספרי זיהוי", "כמה מותר לגרור"]);
+const FOLD_DEFAULT = new Set(["שאלות נפוצות", "בעלות", "מסירות בתקופה", "שינויים ברכב", "היסטוריית בעלויות", "היסטוריית ריקולים לדגם", "לפני שקונים", "ציר ק״מ", "עלות אחזקה מצטברת", "משקלים וצמיגים", "בטיחות", "אבזור", "סביבה", "מספרי זיהוי", "כמה מותר לגרור"]);
 const foldDef = t => FOLD_DEFAULT.has(t) || /^סימני גיול/.test(t);
 const isFolded = t => { try { const k = localStorage.getItem(foldKey(t)); return k === null ? foldDef(t) : k === "1"; } catch { return foldDef(t); } };
 const card = (title, icon, color, inner, extra) => {
@@ -1804,7 +1808,7 @@ function renderResult(){
   if (simpleOn()) html.push(simpleCard(D));
   else {
       html.push(`<div class="tabs" role="tablist">${TABS.map(([k, t]) => `<button type="button" role="tab" id="tab-${k}" data-tab="${k}" aria-selected="${k === currentTab}" aria-controls="tabpanel" tabindex="${k === currentTab ? 0 : -1}">${t}${k === "recalls" && recallCount ? `<i class="hot">${recallCount}</i>` : ""}</button>`).join("")}</div>`);
-      html.push(`<div class="tab-body" id="tabpanel" role="tabpanel" aria-labelledby="tab-${currentTab}">${currentTab === "overview" ? appHint(D) : ""}${TAB_FN()[currentTab](D)}</div>`);
+      html.push(`<div class="tab-body" id="tabpanel" role="tabpanel" aria-labelledby="tab-${currentTab}">${TAB_FN()[currentTab](D)}${currentTab === "overview" ? appHint(D) : ""}</div>`);
   }
   html.push(`</div>`);
   html.push(srcFoot());
@@ -1973,10 +1977,10 @@ const BRAND_MANUAL = [
   {re: /יונדאי/, name: "יונדאי", url: "https://www.hyundaimotors.co.il/maintenance/"},
   {re: /טויוטה/, name: "טויוטה", url: "https://www.toyota.co.il/customer/manuals"},
 ];
-function manualCard(D){
-  const m = [D.v.tozeret_nm, D.make].filter(x => !empty(x)).join(" "), hit = BRAND_MANUAL.find(x => x.re.test(m));
-  if (!hit) return "";
-  return card("ספר הרכב", "doc", "blue", `<p style="margin:0">ספר הרכב להורדה נמצא באתר היבואן של ${esc(hit.name)}.</p><button type="button" class="link-btn" data-url="${hit.url}">לדף ההורדה באתר היבואן</button>`);
+/* the importer's owner's-manual page, shown inside the documents card */
+function manualHit(D){
+  const m = [D.v.tozeret_nm, D.make].filter(x => !empty(x)).join(" ");
+  return BRAND_MANUAL.find(x => x.re.test(m)) || null;
 }
 function seasonCard(){
   const mo = new Date().getMonth() + 1, summer = mo >= 4 && mo <= 9;
@@ -2077,13 +2081,15 @@ async function docsAdd0(files, plate, cat, exp){
   if (added && exp && !trackedOk(plate)) setTimeout(() => toast("כדי לקבל התראה על התוקף, שמרו את הרכב ב\"הרכבים שלי\""), 2600);
 }
 function docsCard(D){
-  return card("תיק הרכב", "doc", "teal", `<p style="margin:0">חשבוניות תיקון, רישיון הרכב, רישיון נהיגה, ביטוח ועוד, במקום אחד.</p>
+  const mh = manualHit(D);
+  return card(mh ? "מסמכים וספר הרכב" : "תיק הרכב", "doc", "teal", `<p style="margin:0">חשבוניות תיקון, רישיון הרכב, רישיון נהיגה, ביטוח ועוד, במקום אחד.</p>
     <div id="docList"></div>
     <div class="doc-add"><select class="inp" id="docCat" aria-label="סוג המסמך">${DOC_CATS.map(c => `<option>${c}</option>`).join("")}</select>
     <button type="button" class="link-btn" data-doc="add">${ico("plus")}הוספת מסמך או צילום</button>
     <label class="exp" id="docExpRow" hidden>תוקף עד <input class="inp" id="docExp" type="date" aria-label="תאריך תוקף"> <small>לא חובה. נתריע חודש לפני.</small></label></div>
     <input type="file" id="docFile" accept="image/*,application/pdf" multiple hidden>
-    <p class="note">המסמכים נשמרים רק בטלפון הזה, לא נשלחים לשום מקום ולא נכללים בדוחות ששיתפתם. אם תמחקו את האפליקציה או תחליפו מכשיר הם יימחקו, ולכן כדאי לשמור גם עותק במקום אחר.${PRO_LOCK && !isPro() ? ` בחינם עד ${FREE_DOCS} מסמכים לרכב.` : ""}</p>`, PT(`PRO · בלי הגבלה`));
+    <p class="note">המסמכים נשמרים רק בטלפון הזה, לא נשלחים לשום מקום ולא נכללים בדוחות ששיתפתם. אם תמחקו את האפליקציה או תחליפו מכשיר הם יימחקו, ולכן כדאי לשמור גם עותק במקום אחר.${PRO_LOCK && !isPro() ? ` בחינם עד ${FREE_DOCS} מסמכים לרכב.` : ""}</p>
+    ${mh ? `<div class="doc-manual"><p style="margin:0"><b>ספר הרכב</b> להורדה נמצא באתר היבואן של ${esc(mh.name)}.</p><button type="button" class="link-btn" data-url="${mh.url}">לדף ההורדה באתר היבואן</button></div>` : ""}`, PT(`PRO · בלי הגבלה`));
 }
 async function fillDocs(){
   const el = document.getElementById("docList"); if (!el || !current) return;
@@ -2120,7 +2126,10 @@ function tabMaint(D){
     : proLockCard("אחזקה", "יומן טיפולים, הטיפול הבא, ציר ק״מ ועלות אחזקה מצטברת, עם תזכורות בהתראה.");
   else { svcRemember(D, info); paid = [intervalCard(D, info), nextCard(D, info), logCard(D), kmCard(D), costLogCard(D)].join(""); }
   const webNote = !window.AndroidApp && !SERVICE ? card("מרווחי טיפול מלאים", "wrench", "teal", `<p style="margin:0">הטבלה המלאה של מרווחי הטיפול לפי דגם, גרסה ונפח מנוע זמינה באפליקציית לוחית באנדרואיד.</p><button type="button" class="link-btn" data-url="${PLAY_URL}">${ico("share")}להורדה מ-Google Play</button>`) : "";
-  const free = [docsCard(D), manualCard(D), seasonCard(), webNote].join("");
+  /* two kinds of service data, labelled so they are never confused: the interval comes from Luchit's own database, the rest from what the user records */
+  const srcTag = (h, title, cls, txt) => h.replace(`<h2>${title}</h2>`, `<h2>${title}</h2><span class="src-tag ${cls}">${txt}</span>`);
+  paid = srcTag(srcTag(srcTag(srcTag(paid, "מרווח טיפולים", "db", "מאגר לוחית"), "הטיפול הבא", "user", "לפי היומן שלכם"), "יומן טיפולים", "user", "הנתונים שלכם"), "עלות אחזקה מצטברת", "user", "הנתונים שלכם");
+  const free = [docsCard(D), seasonCard(), webNote].join("");
   const pg = tier("ב-PRO: מעקב טיפולים", paid);
   return maintOk() || (info && !info.none) ? pg + free : free + pg;
 }
@@ -2194,7 +2203,7 @@ function tabOverview(D){
     D.isCancelled && ["ירד מהכביש", e(v.bitul_dt && fmtDate(v.bitul_dt))],
     D.isCancelled && ["סיבה", e(v.bitul_nm)],
     ["סוג יבוא", e(v.sug_yevu)],
-  ]) + (toDate(v.tokef_dt) && toDate(v.tokef_dt) > new Date() && !D.isCancelled ? `<button type="button" class="link-btn" data-act="calendar">${ico("clock")}הוספת תזכורת ליומן</button>` : "")));
+  ]) + (toDate(v.tokef_dt) && toDate(v.tokef_dt) > new Date() && !D.isCancelled && !pushCoversTest(D.plate) ? calendarBtn(D) : "")));
 
   const fo = firstOwner(v);
   const foLine = fo ? `<div class="first-own"><b>בעלות ראשונה: ${esc(fo)}</b>${ownerKind(fo).text ? `<span>${esc(ownerKind(fo).text)}</span>` : ""}</div>` : "";
@@ -2271,16 +2280,26 @@ function tabCosts(D){
       <div class="month-lg">${m.parts.map(([k, v, col]) => `<span><i style="background:${col}"></i>${k} ${fmtN(v)} ₪</span>`).join("")}</div>
       <p class="note">לפי ${fmtN(c.kmYear)} ק״מ בשנה. בלי ביטוח וטיפולים.</p>`));
   }
-  html.push(c.kind === "ev" ? card("חשמל", "bolt", "teal", fuelInner) : card("דלק", "fuel", "red", fuelInner));
-  html.push(card("אגרת רישוי שנתית", "doc", "violet", c.fee ?
+  /* a card that only says "no data" is folded into one shared card (when two or more have none); a card with data always stays full */
+  const none = [], u = c.usage;
+  const noFuel = c.kind !== "ev" && !c.l100, noFee = !c.fee, noUsage = !u;
+  const noteOf = (name, txt) => `<p style="margin:0"><b>${name}:</b> ${txt}</p>`;
+  const foldNone = [noFuel, noFee, noUsage].filter(Boolean).length >= 2;
+  if (foldNone) {
+    if (noFuel) none.push(noteOf("דלק", "אין במאגר נתוני פליטה לדגם הזה, ולכן אין הערכת צריכה."));
+    if (noFee) none.push(noteOf("אגרת רישוי", "לא נמצאה קבוצת אגרה לרכב הזה. ההערכה זמינה לרכב פרטי בלבד."));
+    if (noUsage) none.push(noteOf("שווי שימוש (רכב צמוד)", "אין מספיק נתונים לחישוב לרכב הזה (החישוב כאן לרכב פרטי שעלה לכביש מ-2010)."));
+  }
+  if (!(foldNone && noFuel)) html.push(c.kind === "ev" ? card("חשמל", "bolt", "teal", fuelInner) : card("דלק", "fuel", "red", fuelInner));
+  if (!(foldNone && noFee)) html.push(card("אגרת רישוי שנתית", "doc", "violet", c.fee ?
     `<div class="tow-grid"><div><div class="k">הערכה</div><div class="v">${fmtN(c.fee)}<span class="u">₪</span></div></div><div><div class="k">קבוצת מחיר</div><div class="v">${c.feeGroup}<span class="u">מתוך 7</span></div></div></div>
      <p class="note">לפי התעריף הרשמי לשנת 2026${new Date() >= new Date(2027, 3, 1) ? ", וייתכן שכבר עודכן מאז" : ""}. לא כולל הנחות.</p>` :
     `<p style="margin:0">לא נמצאה קבוצת אגרה לרכב הזה. ההערכה זמינה לרכב פרטי בלבד.</p>`));
-  const u = c.usage;
-  html.push(card("שווי שימוש (רכב צמוד)", "users", "teal", u ?
+  if (!(foldNone && noUsage)) html.push(card("שווי שימוש (רכב צמוד)", "users", "teal", u ?
     `<div class="tow-grid"><div><div class="k">לחודש</div><div class="v">${fmtN(u.monthly)}<span class="u">₪</span></div></div><div><div class="k">לשנה</div><div class="v">${fmtN(u.monthly * 12)}<span class="u">₪</span></div></div></div>
      <p class="note">${u.green ? `כולל הפחתה של ${fmtN(u.green[1])} ₪ לרכב ${u.green[0]}. ` : ""}זה הסכום שמתווסף למשכורת לצורך מס, לא המס עצמו.</p>` :
     `<p style="margin:0">אין מספיק נתונים לחישוב שווי השימוש של הרכב הזה (החישוב כאן לרכב פרטי שעלה לכביש מ-2010).</p>`));
+  if (foldNone) html.push(card("נתונים שלא זמינים לרכב הזה", "doc", "slate", none.join("")));
   return html.join("");
 }
 
@@ -3162,7 +3181,7 @@ $("#out").addEventListener("click", ev => {
     { const y = window.scrollY; renderResult(); window.scrollTo(0, y); }
   }
   if (act === "copy") copyText(summaryText(current), "הסיכום");
-  if (act === "calendar") testReminder(current);
+  if (act === "calendar") { track("calendar_reminder_click", {where: window.AndroidApp ? "app" : "web"}); testReminder(current); }
   if (act === "fuelUnit") { try { localStorage.setItem("fuelUnit", kmlUnit() ? "l100" : "kml"); } catch {} syncUnit(); renderResult(); }
   if (act === "compare") { track("compare_open"); cmp = []; renderCompare(); openCompare("model"); }
   if (act === "save") {
@@ -3761,6 +3780,13 @@ $("#closeShare").addEventListener("click", () => { $("#shareSheet").hidden = tru
 
 /* test-expiry reminder: in the app the phone's calendar opens with the event filled in;
    on the web it opens Google Calendar; a calendar file is the last resort */
+/* the calendar button is the fallback for a missing push: always on the web (no push there); in the app only when this car's test alert will not reach the phone */
+const pushCoversTest = p => { try { return alertsSupported() && window.AndroidApp.alertsState() === "on" && isSaved(p) && trackedOk(p) && prefOn("test"); } catch { return false; } };
+const calSeen = new Set();
+function calendarBtn(D){
+  if (!calSeen.has(D.plate)) { calSeen.add(D.plate); track("calendar_reminder_shown", {where: window.AndroidApp ? "app" : "web"}); }
+  return `<button type="button" class="link-btn" data-act="calendar">${ico("clock")}הוספת תזכורת ליומן</button>`;
+}
 function testReminder(D){
   const d = toDate(D.v.tokef_dt); if (!d) return;
   const ymd = x => `${x.getFullYear()}${String(x.getMonth() + 1).padStart(2, "0")}${String(x.getDate()).padStart(2, "0")}`;
