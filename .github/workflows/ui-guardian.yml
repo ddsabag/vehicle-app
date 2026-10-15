@@ -1,0 +1,47 @@
+name: UI guardian (browser)
+on:
+  pull_request:
+    paths: ["index.html", "ui-contract.json", "ui-guardian-baseline.json", ".github/scripts/ui-guardian.cjs", ".github/workflows/ui-guardian.yml"]
+  push:
+    branches: [next]
+    paths: ["index.html", "ui-contract.json", "ui-guardian-baseline.json", ".github/scripts/ui-guardian.cjs", ".github/workflows/ui-guardian.yml"]
+  workflow_dispatch:
+    inputs:
+      update_baseline:
+        description: "Replace the screenshot baseline (branch ui-baseline) with this run's screenshots"
+        type: boolean
+        default: false
+permissions:
+  contents: write   # only used to publish the screenshot baseline branch on a manual run
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Install test tools (not part of the app)
+        run: |
+          npm install --no-save --no-package-lock playwright axe-core pixelmatch@5.3.0 pngjs@7.0.0
+          npx playwright install --with-deps chromium
+      - name: Fetch screenshot baseline (if one exists)
+        continue-on-error: true
+        run: |
+          git fetch origin ui-baseline --depth=1
+          git worktree add ui-baseline FETCH_HEAD
+      # blocking: script errors, overflow, card order and registration. Warnings: tap size, text size, axe, screenshot diff.
+      - name: UI browser checks
+        run: node .github/scripts/ui-guardian.cjs --shots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-shots
+          path: ui-shots
+          retention-days: 14
+      - name: Publish new screenshot baseline
+        if: github.event_name == 'workflow_dispatch' && inputs.update_baseline
+        run: |
+          rm -rf /tmp/uibase && mkdir /tmp/uibase && cp ui-shots/*.png /tmp/uibase/
+          cd /tmp/uibase && git init -q -b ui-baseline && git add . 
+          git -c user.name="ui-guardian" -c user.email="ui-guardian@users.noreply.github.com" commit -q -m "UI screenshot baseline from ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" ui-baseline
