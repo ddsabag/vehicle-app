@@ -1,0 +1,41 @@
+name: Experimenter
+# Weekly: reads the wording experiments from GA4 and, when one variant is clearly better, writes the winner to experiments.json on main
+# (the app reads it from the site). A quiet Telegram message is sent only when an experiment is decided. Needs GA_PROPERTY_ID and GA_SERVICE_ACCOUNT_JSON.
+on:
+  schedule:
+    - cron: "20 6 * * 3"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Calculate only, do not write experiments.json"
+        type: boolean
+        default: false
+permissions:
+  contents: write
+jobs:
+  decide:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r analytics/requirements.txt
+      - run: python analytics/experiments.py --selftest
+      - name: Decide
+        env:
+          GA_PROPERTY_ID: ${{ secrets.GA_PROPERTY_ID }}
+          GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python analytics/experiments.py ${{ inputs.dry_run && '--dry' || '' }}
+      - name: Commit the winner
+        run: |
+          rm -f out-experiments.txt
+          if git diff --quiet experiments.json; then echo "no change"; exit 0; fi
+          git config user.name "github-actions[bot]"; git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add experiments.json
+          git commit -q -m "Experimenter: experiment decided"
+          git push origin HEAD:main || { git pull --rebase -q origin main && git push origin HEAD:main; }

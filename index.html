@@ -727,6 +727,24 @@ const PRO_LOCK = false;
 /* anonymous usage events (Android only, Firebase Analytics): what people do in the app, never a plate number or anything personal. The user can switch it off in settings. */
 const simpleOn = () => { try { return localStorage.getItem("simpleView") === "1"; } catch { return false; } };
 const analyticsOn = () => { try { return localStorage.getItem("analyticsOff") !== "1"; } catch { return true; } };
+/* wording experiments (run by the Experimenter workflow): each device keeps one random variant; experiments.json on the site may name a winner or switch an experiment off.
+   Only texts are tested. Variant 0 is the control. Exposure and result events carry exp + exp_v so GA4 can compare the variants. */
+const EXPERIMENTS = {share_label: ["שיתוף", "שלח לחבר"]};
+const expCfg = () => { try { return JSON.parse(localStorage.getItem("exp_cfg") || "{}"); } catch { return {}; } };
+function expV(name){
+  const c = expCfg()[name] || {}, n = EXPERIMENTS[name].length;
+  if (c.off) return 0;
+  if (Number.isInteger(c.winner) && c.winner >= 0 && c.winner < n) return c.winner;
+  try { let v = localStorage.getItem("exp_" + name); if (v === null) { v = String(Math.floor(Math.random() * n)); localStorage.setItem("exp_" + name, v); } v = Number(v); return v >= 0 && v < n ? v : 0; } catch { return 0; }
+}
+const expText = name => EXPERIMENTS[name][expV(name)];
+const expTag = name => ({exp: name, exp_v: String(expV(name))});
+const expSeen = new Set();
+function expExpose(name){ if (expSeen.has(name)) return; expSeen.add(name); track("exp_expose", expTag(name)); }
+async function loadExperiments(){
+  try { const r = await fetch(SITE + "experiments.json", {cache: "no-cache"}); if (r.ok) { const j = await r.json(); if (j && typeof j === "object") localStorage.setItem("exp_cfg", JSON.stringify(j)); } } catch {}
+}
+setTimeout(loadExperiments, 4000);
 // anonymous facts about what kind of car was looked up (brand, model, fuel), never the plate or anything that identifies a person
 function lookupFacts(D) {
   const v = D.v || {}, t = x => empty(x) ? "" : String(x).trim().slice(0, 40);
@@ -1783,7 +1801,7 @@ function renderResult(){
     ${!simpleOn() && facts.some(Boolean) ? `<div class="pills fstrip" aria-label="עובדות עיקריות">${facts.filter(Boolean).join("")}</div>` : ""}
     ${pills.length && !simpleOn() ? `<div class="pills">${pills.join("")}</div>` : ""}
     <div class="actions">
-      <button class="act" type="button" data-act="share">${ico("share")}שיתוף</button>
+      <button class="act" type="button" data-act="share">${ico("share")}${esc(expText("share_label"))}</button>
       <button class="act" type="button" data-act="save" aria-pressed="${isSaved(D.plate)}">${ico("star")}<span>${isSaved(D.plate) ? "נשמר" : "שמירה"}</span></button>
       <button class="act" type="button" data-act="compare">${ico("compare")}השוואה</button>
       <button class="act" type="button" data-act="simple" aria-pressed="${simpleOn()}">${ico("doc")}<span>${simpleOn() ? "תצוגה מלאה" : "תצוגה פשוטה"}</span></button>
@@ -3738,7 +3756,7 @@ async function drawShareCard(D, opt = {}){
   return {canvas: c, breaks: []};
 }
 async function doShare(kind){
-  track("share", {kind});
+  track("share", {kind, ...expTag("share_label")});
   const D = current; if (!D) return;
   const msg = $("#shareMsg"), name = `Luchit-${D.plate}`;
   if (kind === "text") { $("#shareSheet").hidden = true; shareText(D.title, summaryText(D), D.plate); return; }
@@ -4015,7 +4033,7 @@ function updateSavedBar(){
 $("#savedBar").addEventListener("click", () => { renderHome(); const c = [...document.querySelectorAll("#out .card")].find(x => x.textContent.includes("הרכבים שלי")); if (c) c.scrollIntoView({block: "start"}); });
 for (const nm of ["renderResult", "renderCompare", "renderHome"]) {
   const f = window[nm] || eval(nm);
-  const w = function(...a){ const r = f.apply(this, a); updateSavedBar(); if (nm === "renderResult") { fillModelStats(); fillDocs(); } return r; };
+  const w = function(...a){ const r = f.apply(this, a); updateSavedBar(); if (nm === "renderResult") { expExpose("share_label"); fillModelStats(); fillDocs(); } return r; };
   if (nm === "renderResult") renderResult = w; else if (nm === "renderCompare") renderCompare = w; else renderHome = w;
 }
 
