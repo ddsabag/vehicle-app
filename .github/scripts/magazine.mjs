@@ -3,6 +3,7 @@
 // run: node .github/scripts/magazine.mjs [YYYYMM]   (default: latest closed month in market.json)
 import fs from "node:fs";
 import {brandLabel} from "./brands.mjs";
+import {build as marketIntel, loadNormModel} from "./market-intel.mjs";
 const SITE = "https://luchit.app/";
 const M = JSON.parse(fs.readFileSync("market.json", "utf8"));
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
@@ -28,6 +29,13 @@ const ytd = sumYtd(year), ytdPrev = sumYtd(year - 1), ytdChg = ytdPrev ? (ytd - 
 const pct = x => Math.round(Math.abs(x));
 const dir = (c, up = "עלייה", down = "ירידה") => c === null ? "" : Math.abs(c) < 2 ? "שינוי קטן" : c > 0 ? up : down;
 
+// supply swings per model from the market-intelligence agent (same files, no extra data). Only when its window ends at this article's month,
+// and always from the fixed template: the numbers come straight from market.json, the wording is the agent's hedged wording.
+let swings = null;
+try {
+  const st = JSON.parse(fs.readFileSync("modelstats.json", "utf8")), r = marketIntel(M, st, loadNormModel(fs.readFileSync("index.html", "utf8")));
+  if (r.window[r.window.length - 1] === ym) swings = r;
+} catch (e) { console.error("market intel skipped:", e.message); }
 // facts handed to the writer; every number allowed in the prose comes from here
 const facts = {
   month: label, total, same_month_last_year: prev, change_percent_vs_last_year: chg === null ? null : pct(chg), change_direction: dir(chg),
@@ -144,6 +152,13 @@ const pr = t => {
   });
 };
 const plain = prPlain;
+const dispName = raw => { const [mk0, md] = String(raw).split("|"), mk = brandLabel(mk0); return [/^[A-Za-z]/.test(mk) && md.toUpperCase().startsWith(mk.toUpperCase()) ? "" : mk, md].filter(Boolean).join(" "); };
+const pick = kind => Object.values(swings ? swings.tags : {}).flat().filter(t => t.k === kind).sort((a, b) => kind === "supply_down" ? a.r - b.r : b.r - a.r).slice(0, kind === "fleet_wave" ? 2 : 3);
+const swingsHtml = (() => {
+  const groups = [["supply_up", "היצע חדש גבוה מהרגיל"], ["supply_down", "היצע חדש נמוך מהרגיל"], ["fleet_wave", "רכבי ליסינג והשכרה לקראת השוק"]].map(([k, h]) => [h, pick(k)]).filter(([, l]) => l.length);
+  if (!groups.length) return "";
+  return `<h2>תנודות בהיצע של דגמים</h2><p>השוואה של המסירות ב-${swings.window.length} החודשים האחרונים לאותם חודשים אשתקד, מול השוק כולו.</p>` + groups.map(([h, l]) => `<div class="card"><b>${esc(h)}</b>${l.map(t => `<p>${pr(dispName(t.m))}: ${plain(t.x)}</p>`).join("")}</div>`).join("");
+})();
 // Gemini writes the body only: the title always comes from the data (it names the leader), and numbers get thousands separators (never years)
 const ai = await gemini(), art = ai || template(), usedAi = !!ai;
 if (ai) {
@@ -171,6 +186,7 @@ ${subTop}
 <h2>הדגמים המובילים</h2><div class="card">${bars(models, true)}</div>
 <h2>היצרנים המובילים</h2><div class="card">${bars(makers.map(m => ({...m, key: ""})), false)}</div>
 <h2>סוגי מרכב</h2><p>${pr(art.bodies_p)}</p>${art.ytd_p ? `<h2>מתחילת השנה</h2><p>${pr(art.ytd_p)}</p>` : ""}
+${swingsHtml}
 ${faqHtml}
 ${subScript}
 <div class="card"><b>בדקו רכב מסוים</b><p class="muted" style="margin:6px 0 12px">הקלידו מספר רישוי וקבלו ריקולים, הסדרי פשרה, טסט, היסטוריית בעלויות ומחיר משוער, בחינם.</p><a class="cta" href="${SITE}">לבדיקה לפי מספר רישוי</a></div>
