@@ -2235,7 +2235,6 @@ function tabRecalls(D){
     }).join("") + `<p class="note">התיקון ניתן בחינם אצל היבואן.</p>`));
   }
   html.push(settlementCard(D));
-  html.push(`<div id="issues">${CMPL ? issuesCard(D) : ""}</div>`);
   const rows = [], row = (ok, t) => rows.push(`<li class="ins ${ok ? "ok" : "warn"}">${ico(ok ? "check" : "alert")}<div><b>${esc(t)}</b></div></li>`);
   if (D.recallUnknown) { row(false, "מידע על ריקולים פתוחים לא זמין כרגע"); row(false, "לא ידוע אם יש ריקול שמגביל חידוש רישיון"); }
   else { row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")} (פירוט למעלה)` : "אין ריקול פתוח במאגר משרד התחבורה");
@@ -4016,7 +4015,7 @@ function updateSavedBar(){
 $("#savedBar").addEventListener("click", () => { renderHome(); const c = [...document.querySelectorAll("#out .card")].find(x => x.textContent.includes("הרכבים שלי")); if (c) c.scrollIntoView({block: "start"}); });
 for (const nm of ["renderResult", "renderCompare", "renderHome"]) {
   const f = window[nm] || eval(nm);
-  const w = function(...a){ const r = f.apply(this, a); updateSavedBar(); if (nm === "renderResult") { fillModelStats(); fillDocs(); fillIssues(); } return r; };
+  const w = function(...a){ const r = f.apply(this, a); updateSavedBar(); if (nm === "renderResult") { fillModelStats(); fillDocs(); } return r; };
   if (nm === "renderResult") renderResult = w; else if (nm === "renderCompare") renderCompare = w; else renderHome = w;
 }
 
@@ -4109,56 +4108,6 @@ function fillModelStats(){
   const el = document.getElementById("mstat"); if (!el || !current) return;
   const D = current;
   loadModelStats().then(() => { if (current === D && el.isConnected && !el.innerHTML) el.innerHTML = msCard(D); });
-}
-/* known issues: owner complaints to NHTSA (US market) per model and model year (complaints.json, nhtsa-complaints.mjs, monthly) */
-let CMPL = null, cmplP = null;
-function loadComplaints(){
-  if (CMPL) return Promise.resolve(CMPL);
-  return cmplP || (cmplP = (async () => {
-    for (const u of [SITE + "complaints.json", "complaints.json"]) {
-      try { const r = await fetch(u, {cache: "no-cache"}); if (r.ok) { const j = await r.json(); if (j && j.m) return CMPL = j; } } catch {}
-    }
-    cmplP = null; return null;
-  })());
-}
-/* NHTSA component names (longest prefix wins) */
-const NHTSA_HE = [["AIR BAGS","כריות אוויר"],["ENGINE AND ENGINE COOLING","מנוע וקירור"],["ENGINE","מנוע"],["ELECTRICAL SYSTEM","מערכת החשמל"],["POWER TRAIN","תיבת הילוכים והנעה"],
-  ["SERVICE BRAKES","בלמים"],["PARKING BRAKE","בלם יד"],["STEERING","היגוי"],["SUSPENSION","מתלים"],["STRUCTURE","מרכב ושלדה"],["FUEL/PROPULSION SYSTEM","מערכת דלק והנעה"],["FUEL SYSTEM","מערכת הדלק"],
-  ["HYBRID PROPULSION SYSTEM","הנעה היברידית"],["ELECTRIC PROPULSION","הנעה חשמלית"],["FORWARD COLLISION AVOIDANCE","בלימה אוטונומית"],["LANE DEPARTURE","שמירה על נתיב"],["BACK OVER PREVENTION","מצלמה וחיישני רוורס"],
-  ["ELECTRONIC STABILITY CONTROL","בקרת יציבות"],["VEHICLE SPEED CONTROL","בקרת מהירות ותאוצה"],["VISIBILITY","ראות ומגבים"],["EXTERIOR LIGHTING","תאורה"],["SEAT BELTS","חגורות בטיחות"],["SEATS","מושבים"],
-  ["TIRES","צמיגים"],["WHEELS","גלגלים"],["LATCHES/LOCKS/LINKAGES","מנעולים וידיות"],["EQUIPMENT","אביזרים"],["COMMUNICATION","מערכות תקשורת"],["TRAILER HITCHES","וו גרירה"],["ADAPTIVE CRUISE","בקרת שיוט"]];
-const compHe = c => { const u = String(c || "").toUpperCase(); let best = null; for (const [k, h] of NHTSA_HE) if (u.startsWith(k) && (!best || k.length > best[0].length)) best = [k, h]; return best ? best[1] : ""; };
-function issuesFor(D){
-  const k = msKey(D), m = k && CMPL && CMPL.m[k]; if (!m) return null;
-  const y = num(D.v.shnat_yitzur), years = y && m.y[y] ? [y] : Object.keys(m.y).map(Number);
-  const sum = {n: 0, crash: 0, fire: 0, year: years.length === 1 && years[0] === y ? y : null, model: m.md}, top = new Map();
-  for (const yy of years) { const r = m.y[yy]; sum.n += r[0]; sum.crash += r[1]; sum.fire += r[2]; for (const [ci, c] of r[5]) { const he = compHe(CMPL.comps[ci]); if (he) top.set(he, (top.get(he) || 0) + c); } }
-  sum.top = [...top].sort((a, b) => b[1] - a[1]).slice(0, 3);
-  return sum.n ? sum : null;
-}
-const isSeen = new Set();
-function issuesCard(D){
-  const s = issuesFor(D); if (!s) return "";
-  const full = !PRO_LOCK || atLeast("pro"), title = "תקלות נפוצות שדווחו (ארה״ב)";
-  if (!isSeen.has(D.plate)) { isSeen.add(D.plate); track("issues_shown", {locked: full ? 0 : 1, n: s.n}); }
-  const scope = s.year ? `לשנת ${s.year}` : "בכל השנים של הדגם";
-  if (!full) return card(title, "alert", "amber",
-    `<p style="margin:0"><b>נמצאו ${fmtN(s.n)} דיווחים על תקלות נפוצות (שוק ארה״ב)</b> ${scope}.</p>
-     <p style="margin:0">מערכות מובילות: <span class="blur" aria-hidden="true">••••• •••, •••• ••••</span></p>
-     <button type="button" class="link-btn" data-act="proInfo" data-src="nhtsa">${ico("lock")}פתיחה במנוי PRO</button>`, PT("PRO"));
-  const extra = [s.crash && `${fmtN(s.crash)} מהדיווחים כללו תאונה`, s.fire && `${fmtN(s.fire)} שריפה`].filter(Boolean).join(", ");
-  const same = String(s.model || "").replace(/[^A-Z0-9]/gi, "").toUpperCase() === String(D.v.kinuy_mishari || "").replace(/[^A-Z0-9]/gi, "").toUpperCase();
-  return card(title, "alert", "amber",
-    `<p style="margin:0"><b>${fmtN(s.n)} תלונות דווחו (NHTSA)</b> ${scope}${s.top.length ? `. מערכות מובילות: ${s.top.map(([h, c]) => `${esc(h)} (${fmtN(c)})`).join(", ")}` : ""}.</p>
-     ${extra ? `<p class="note" style="margin:0">${extra}.</p>` : ""}
-     <p class="note">דיווחי בעלים לרשות הבטיחות בדרכים בארה״ב${same ? "" : ` על הדגם שנמכר שם בשם ${esc(s.model)}`}. הדיווחים לא אומתו, ומספרם תלוי גם בכמה רכבים נמכרו שם, ולכן זה לא שיעור תקלות. בישראל הדגם עשוי להגיע עם מנוע או ציוד אחר. עדכון: ${esc(fmtDate(CMPL.updated))}.</p>`, PT("PRO"));
-}
-function fillIssues(){
-  if (!current || current.kind === "model") return;
-  loadComplaints();   // warm, so the recalls tab opens with the card already there
-  const el = document.getElementById("issues"); if (!el) return;
-  const D = current;
-  loadComplaints().then(() => { if (current === D && el.isConnected && !el.innerHTML) el.innerHTML = issuesCard(D); });
 }
 let MARKET = null, MK = {mode: "year", sel: null};
 async function loadMarket(){
