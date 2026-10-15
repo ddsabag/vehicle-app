@@ -6,16 +6,16 @@
       "label": "סקירה"
     },
     {
+      "id": "recalls",
+      "label": "ריקולים"
+    },
+    {
       "id": "buy",
       "label": "קנייה"
     },
     {
       "id": "maint",
-      "label": "אחזקה"
-    },
-    {
-      "id": "recalls",
-      "label": "ריקולים והסדרים"
+      "label": "טיפולים ועלויות"
     },
     {
       "id": "specs",
