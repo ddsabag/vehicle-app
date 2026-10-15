@@ -6,6 +6,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  pages: write
 jobs:
   article:
     runs-on: ubuntu-latest
@@ -27,19 +28,33 @@ jobs:
           # exit 2 = the latest month is not closed yet or looks partial: nothing to publish
           if [ $code -eq 2 ]; then echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0; fi
           exit $code
-      - name: Open a pull request for review
+      - name: Check and publish
         if: steps.gen.outputs.skip != '1'
         env:
           GH_TOKEN: ${{ github.token }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
+          # Dudu 2026-10-15: publish on its own after the automatic checks; a failed check opens a PR instead and sends an alert.
+          tg() { [ -n "$TELEGRAM_BOT_TOKEN" ] && curl -s -o /dev/null "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$1" || true; }
           node .github/scripts/pages.mjs
           if [ -z "$(git status --porcelain magazine sitemap.xml model)" ]; then echo "nothing new"; exit 0; fi
           slug=$(node -e 'console.log(require("./magazine/posts.json")[0].slug)')
-          branch="magazine/$slug"
+          title=$(node -e 'console.log(require("./magazine/posts.json")[0].title)')
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$branch"
-          git add magazine sitemap.xml model
-          git commit -m "Magazine: article for $slug"
-          git push --force origin "$branch"
-          gh pr create --base main --head "$branch" --title "Magazine: $slug" --body "Monthly market article, generated from market.json. Review the text and the numbers, then merge to publish." || echo "PR already exists"
+          if node .github/scripts/seo-check.mjs; then
+            git add magazine sitemap.xml model
+            git commit -m "Magazine: article for $slug (automatic publish after checks)"
+            git push origin HEAD:main
+            gh api -X POST "repos/${{ github.repository }}/pages/builds" >/dev/null 2>&1 || true
+            tg "המגזין פורסם: $title https://luchit.app/magazine/$slug/"
+          else
+            branch="magazine/$slug"
+            git checkout -b "$branch"
+            git add magazine sitemap.xml model
+            git commit -m "Magazine: article for $slug"
+            git push --force origin "$branch"
+            gh pr create --base main --head "$branch" --title "Magazine: $slug" --body "The automatic checks failed, so this article was not published. See the run log." || true
+            tg "כתבת המגזין $slug לא פורסמה: בדיקות ה-SEO האוטומטיות נכשלו. נפתח PR."
+          fi

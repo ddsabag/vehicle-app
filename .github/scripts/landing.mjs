@@ -20,7 +20,7 @@ export function buildLanding(x) {
     const crumb = `<p class="muted"><a href="${SITE}">לוחית</a> › ${crumbs.map(([n, u]) => u ? `<a href="${SITE}${u}">${esc(n)}</a>` : esc(n)).join(" › ")}</p>`;
     const body = `${head(title, desc, url).replace("</style>", css + "</style>")}${crumb}<h1>${esc(h1)}</h1>${intro}${sections.map(([h, t]) => `<h2>${esc(h)}</h2>${t}`).join("\n")}${faq.length ? `<h2>שאלות נפוצות</h2>${faq.map(([q, a]) => `<div class="card"><b>${esc(q)}</b><p style="margin:6px 0 0">${esc(a)}</p></div>`).join("")}` : ""}${foot.replace("</main></body></html>", "</main>" + `<script type="application/ld+json">${JSON.stringify(ld)}</script>` + "</body></html>")}`;
     fs.mkdirSync(path, {recursive: true}); fs.writeFileSync(path + "index.html", body);
-    urls.push(url); lastmod[url] = MOD || today; out.push(url);
+    urls.push(url); lastmod[url] = MOD > "2026-10-15" ? MOD : "2026-10-15"; out.push(url);   // first published 2026-10-15
   };
   const ul = a => `<ul class="g">${a.map(i => `<li>${i}</li>`).join("")}</ul>`;
   const table = (heads, rows) => `<div class="wrap"><table><thead><tr>${heads.map((h, i) => `<th${i ? ' class="n"' : ""}>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${r.map((c, i) => `<td${i ? ' class="n"' : ""}>${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
@@ -32,6 +32,8 @@ export function buildLanding(x) {
     for (const [yr, t] of ys) { act += t.act; off += t.off; rc += t.rc; const n = NAT[yr]; if (n && n.act + n.off) exp += (t.act + t.off) * n.off / (n.act + n.off); }
     return {m, act, off, rcPer: act ? rc / act * 1000 : 0, offRel: exp >= 30 ? off / exp : null};
   });
+  // per-model figures for the data articles (magazine-data.mjs)
+  fs.writeFileSync("model/stats.json", JSON.stringify({updated: MOD, models: stats.map(s => ({slug: slugOf(s.m), label: s.m.label, disp: s.m.disp, act: s.act, off: s.off, rcPer: Math.round(s.rcPer * 10) / 10, offRel: s.offRel === null ? null : Math.round(s.offRel * 100) / 100}))}));
   const vint = Object.keys(NAT).filter(y => Number(y) >= 2005 && Number(y) <= new Date().getFullYear()).sort().reverse();
 
   const TOPICS = [

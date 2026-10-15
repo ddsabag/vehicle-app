@@ -20,5 +20,6 @@ if (!urls.length) { console.log("nothing changed"); process.exit(0); }
 for (let i = 0; i < 20; i++) { try { const r = await fetch(SITE + keyFile, {cache: "no-store"}); if (r.ok && (await r.text()).trim() === key) break; } catch {} await new Promise(r => setTimeout(r, 15000)); }
 const r = await fetch("https://api.indexnow.org/indexnow", {method: "POST", headers: {"content-type": "application/json; charset=utf-8"},
   body: JSON.stringify({host: HOST, key, keyLocation: SITE + keyFile, urlList: urls})});
-console.log("IndexNow", r.status, urls.length, "urls");
+console.log("IndexNow", r.status, urls.length, "urls", (await r.text()).slice(0, 300));
+console.log("key file answers:", await fetch(SITE + keyFile).then(x => x.status).catch(e => String(e)));
 if (r.status >= 400 && r.status !== 429) process.exit(1);
