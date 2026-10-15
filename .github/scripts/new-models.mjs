@@ -4,7 +4,7 @@
 // Exports newModels(quarter?) (needs network: runs on a GitHub runner) and the pure helpers used by the self-test: node new-models.mjs --selftest
 const API = "https://data.gov.il/api/3/action/datastore_search";
 const DELIV = "602ac32d-19c0-4b41-88e0-e3ce8a7e80b7", COUNTS = "5e87a7a1-2f6f-41c1-8aec-7216d52a6cf6", WLTP = "142afde2-6228-49f9-8a29-9b6c3a0cbe40", PRICE = "39f455bf-6db0-4926-859d-017f34eacbcb";
-const PAGE = 30000, MIN_UNITS = 25, MIN_TRIM_UNITS = 5;
+const PAGE = 30000, MIN_UNITS = 25;
 const ORD = ["הראשון", "השני", "השלישי", "הרביעי"];
 
 async function call(id, params, tries = 4) {
@@ -68,17 +68,19 @@ export async function newModels(quarterArg) {
     found.push({ ...o, first: f, units, versionOf: versionOf(o.name, older[o.brand] || []) });
   }
   for (const m of found) {
-    const byTrim = new Map();
+    const byTrim = new Map(), importers = new Set();
     for (const [code, mo] of Object.entries(m.codes)) {
-      if (sum(mo, qm) < MIN_TRIM_UNITS) continue;
+      if (!Object.values(mo).some(v => v > 0)) continue;
       const [t, g] = code.split("|"), flt = JSON.stringify({ tozeret_cd: t, degem_cd: g });
       const [w, p] = await Promise.all([call(WLTP, { filters: flt, limit: "1", sort: "shnat_yitzur desc" }), call(PRICE, { filters: flt, limit: "1", sort: "shnat_yitzur desc" })]);
-      const x = w.records[0] || {}, price = Number((p.records[0] || {}).mehir) || 0, tn = fixTrim(cleanTrim(x.ramat_gimur), m.name) || "ללא שם";
+      const x = w.records[0] || {}, pr = p.records[0] || {}, price = Number(pr.mehir) || 0, imp = String(pr.shem_yevuan || "").replace(/\s*בע"מ\s*$/, "").trim(); if (imp) importers.add(imp);
+      const  tn = fixTrim(cleanTrim(x.ramat_gimur), m.name) || "ללא שם";
       const e = byTrim.get(tn) || { name: tn, lo: Infinity, hi: 0, hp: 0, drive: "" };
       if (price) { e.lo = Math.min(e.lo, price); e.hi = Math.max(e.hi, price); }
       e.hp = Math.max(e.hp, Number(x.koah_sus) || 0); e.drive ||= driveLabel(x.technologiat_hanaa_nm, x.delek_nm);
       byTrim.set(tn, e);
     }
+    m.importers = [...importers];
     m.trims = [...byTrim.values()].sort((a, b) => (a.lo === Infinity) - (b.lo === Infinity) || a.lo - b.lo);
   }
   found.sort((a, b) => b.units - a.units);
