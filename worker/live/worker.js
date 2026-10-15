@@ -4,7 +4,7 @@
 const CF_TAG = "9bb0e756882c478a808d95596e0deade";
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-12";   // shown in /live/data so the running version is visible
+const BUILD = "live-13";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -78,17 +78,19 @@ async function collectDaily(env, today, yday) {
   if (daily && Date.now() - dailyAt < 300e3) return daily;
   const errors = {}, safe = (p, k) => p.catch(e => { errors[k] = String(e.message || e).slice(0, 200); return null; });
   const dr = [{ startDate: "today", endDate: "today" }, { startDate: "yesterday", endDate: "yesterday" }];
-  const [kpi, evs, vers, src, pages] = await Promise.all([
+  const camp = safe(report(env, { dateRanges: [{ startDate: "today", endDate: "today" }, { startDate: "7daysAgo", endDate: "today" }, { startDate: "28daysAgo", endDate: "today" }], dimensions: [{ name: "customEvent:via" }], metrics: [{ name: "eventCount" }],
+    dimensionFilter: { andGroup: { expressions: [{ filter: { fieldName: "eventName", stringFilter: { value: "link_landing" } } }, { filter: { fieldName: "customEvent:kind", stringFilter: { value: "campaign" } } }] } }, limit: 50 }), "ga4 campaigns");
+  const [kpi, evs, vers, src, pages, campRows] = await Promise.all([
     safe(report(env, { dateRanges: dr, metrics: ["activeUsers", "newUsers", "sessions", "userEngagementDuration", "screenPageViews"].map(name => ({ name })) }), "ga4 daily"),
     safe(report(env, { dateRanges: dr, dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }, { name: "totalUsers" }], limit: 100 }), "ga4 events"),
     safe(report(env, { dateRanges: [dr[0]], dimensions: [{ name: "appVersion" }], metrics: [{ name: "activeUsers" }], orderBys: [{ metric: { metricName: "activeUsers" }, desc: true }], limit: 8 }), "ga4 versions"),
-    safe(cfTop(env, today, "refererHost"), "site sources"), safe(cfTop(env, today, "requestPath"), "site pages")]);
+    safe(cfTop(env, today, "refererHost"), "site sources"), safe(cfTop(env, today, "requestPath"), "site pages"), camp]);
   const range = r => r.dimensionValues[r.dimensionValues.length - 1].value;   // "date_range_0" (today) or "date_range_1"
   const k = { today: null, yesterday: null };
   for (const r of kpi || []) { const o = {}; ["activeUsers", "newUsers", "sessions", "engageSec", "views"].forEach((n, i) => o[n] = Number(r.metricValues[i].value)); k[range(r) === "date_range_0" ? "today" : "yesterday"] = o; }
   const ev = { today: {}, yesterday: {} };
   for (const r of evs || []) ev[range(r) === "date_range_0" ? "today" : "yesterday"][r.dimensionValues[0].value] = [Number(r.metricValues[0].value), Number(r.metricValues[1].value)];
-  daily = { errors, kpi: kpi ? k : null, events: evs ? ev : null, versions: vers ? vers.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]) : null, sources: src, pages };
+  daily = { errors, kpi: kpi ? k : null, events: evs ? ev : null, versions: vers ? vers.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]) : null, sources: src, pages, campaigns: campRows ? campRows.reduce((o, r) => { const v = r.dimensionValues[0].value, i = Number(range(r).slice(-1)); (o[v] ||= [0, 0, 0])[i] = Number(r.metricValues[0].value); return o; }, {}) : null };
   dailyAt = Date.now(); return daily;
 }
 
@@ -193,6 +195,7 @@ table.q{width:100%;border-collapse:collapse;font-size:.85rem}.q th{font-weight:5
 <div class="grid"><div class="card"><div class="lbl">ביקורים היום</div><div class="num" id="v">-</div><div class="sub">אתמול: <span id="y">-</span></div></div>
 <div class="card"><div class="lbl">צפיות בדפים היום</div><div class="num" id="pv">-</div><div class="sub">אתמול: <span id="pvy">-</span></div></div></div>
 <div class="cols"><div class="card"><h2>מאיפה הגיעו לאתר היום</h2><p class="hint">כל ביקור נספר לפי המקום שממנו הגיע: גוגל, קישור שנשלח, או כניסה ישירה לכתובת.</p><ul id="so"></ul></div>
+<div class="card"><h2>כניסות דרך הקישורים שלנו ברשתות</h2><p class="hint">כמה פעמים נכנסו לאתר דרך הקישור שהוספנו בפרופילים ובתיאורי הסרטונים ביוטיוב ובטיקטוק. נספרים רק מי שהמדידה אצלו פעילה, ולכן המספר נמוך מהמציאות. הספירה מתחילה מהרגע שהגרסה החדשה של האתר פורסמה.</p><div id="cm"></div></div>
 <div class="card"><h2>הדפים שהכי ראו באתר היום</h2><p class="hint">"/" הוא עמוד הבית.</p><ul id="pg"></ul></div></div>
 <h2 class="sec">SEO, חיפוש בגוגל (Search Console)</h2>
 <p class="muted" id="seonote">טוען</p>
@@ -232,7 +235,9 @@ const vs2=dl.versions||[];$("vc").style.display=vs2.length?"":"none";$("vv").inn
 const SRC=h=>!h?"כניסה ישירה":/google\\./.test(h)?"גוגל":/bing\\.|duckduckgo|yahoo|ecosia/.test(h)?"מנועי חיפוש אחרים":/facebook|instagram|t\\.co|twitter|x\\.com|linkedin|whatsapp|telegram|t\\.me|tiktok|youtube/.test(h)?"רשתות חברתיות ופלטפורמות ("+h+")":h;
 const agg=(arr,f)=>{const m={};(arr||[]).forEach(r=>{const k=f(r[0]);m[k]=(m[k]||0)+r[1]});return Object.entries(m).sort((a,b)=>b[1]-a[1])};
 const lst=(id,arr)=>{$(id).innerHTML=arr&&arr.length?arr.map(r=>'<li><span>'+esc(r[0])+'</span><b>'+n(r[1])+'</b></li>').join(""):'<li><span class="muted">אין נתונים</span><b></b></li>'};
-lst("so",dl.sources?agg(dl.sources,SRC):null);lst("pg",dl.pages?agg(dl.pages,h=>h||"/"):null);
+lst("so",dl.sources?agg(dl.sources,SRC):null);
+{const CN={youtube:"יוטיוב",tiktok:"טיקטוק",facebook:"פייסבוק",instagram:"אינסטגרם"},C=dl.campaigns||{},keys=["youtube","tiktok"].concat(Object.keys(C).filter(k=>!["youtube","tiktok"].includes(k)));
+$("cm").innerHTML=dl.campaigns===null?'<p class="muted">אין נתונים כרגע</p>':'<table class="q"><thead><tr><th>מקור</th><th class="n">היום</th><th class="n">7 ימים</th><th class="n">28 ימים</th></tr></thead><tbody>'+keys.map(k=>{const v=C[k]||[0,0,0];return '<tr><td class="w">'+esc(CN[k]||k)+'</td>'+v.map(x=>'<td class="n">'+n(x)+'</td>').join("")+'</tr>'}).join("")+'</tbody></table>'}lst("pg",dl.pages?agg(dl.pages,h=>h||"/"):null);
 const S=d.seo;
 if(S&&S.cur){const c=S.cur,p=S.prev||{},df=(a,b,inv)=>b?((a-b)/b*100):null,ar=v=>v==null?"אין מידע לשבוע קודם":(v>=0?"+":"")+(Math.round(v*10)/10)+"% לעומת שבוע קודם",pc=x=>(Math.round(x*1000)/10)+"%";
 const sc=(l,v,pv,h)=>'<div class="card"><div class="lbl">'+l+'</div><div class="num">'+v+'</div><div class="sub">'+pv+'</div><div class="sub">'+h+'</div></div>';

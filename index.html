@@ -4808,6 +4808,8 @@ const SHARED = !window.AndroidApp && start && new URLSearchParams(location.searc
 const SHARE_VIA = (new URLSearchParams(location.search).get("s") || "none").replace(/[^a-z]/g, "").slice(0, 8) || "none";
 /* web: someone opened a link to a car or a comparison (s= says which kind of share it came from, when the link carries it) */
 if (!window.AndroidApp && (start || cmpParam)) track("link_landing", {kind: cmpParam ? "cmp" : "plate", via: (new URLSearchParams(location.search).get("s") || "none").replace(/[^a-z]/g, "").slice(0, 8) || "none"});
+/* web: a visit that arrives through one of our own campaign links (profile or video descriptions: utm_source=youtube, tiktok ...) is counted once, so the live dashboard can show how many came from where; no plate or personal data */
+try { const u = (new URLSearchParams(location.search).get("utm_source") || "").toLowerCase().replace(/[^a-z]/g, "").slice(0, 12); if (!window.AndroidApp && u && u !== "share" && u !== "luchitapp") track("link_landing", {kind: "campaign", via: u}); } catch {}
 if (cmpParam) loadCompareLink(cmpParam).then(ok => { if (!ok) renderHome(); }); else if (start) run(start); else renderHome();
 requestAnimationFrame(() => document.body.classList.add("rdy"));
 
