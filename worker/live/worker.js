@@ -195,7 +195,7 @@ table.q{width:100%;border-collapse:collapse;font-size:.85rem}.q th{font-weight:5
 <div class="grid"><div class="card"><div class="lbl">ביקורים היום</div><div class="num" id="v">-</div><div class="sub">אתמול: <span id="y">-</span></div></div>
 <div class="card"><div class="lbl">צפיות בדפים היום</div><div class="num" id="pv">-</div><div class="sub">אתמול: <span id="pvy">-</span></div></div></div>
 <div class="cols"><div class="card"><h2>מאיפה הגיעו לאתר היום</h2><p class="hint">כל ביקור נספר לפי המקום שממנו הגיע: גוגל, קישור שנשלח, או כניסה ישירה לכתובת.</p><ul id="so"></ul></div>
-<div class="card"><h2>כניסות דרך הקישורים שלנו ברשתות</h2><p class="hint">כמה פעמים נכנסו לאתר דרך הקישור שהוספנו בפרופילים ובתיאורי הסרטונים ביוטיוב ובטיקטוק. נספרים רק מי שהמדידה אצלו פעילה, ולכן המספר נמוך מהמציאות. הספירה מתחילה מהרגע שהגרסה החדשה של האתר פורסמה.</p><div id="cm"></div></div>
+<div class="card"><h2>כניסות מיוטיוב</h2><p class="hint">כמה פעמים נכנסו לאתר דרך הקישור שהוספנו בערוץ וב-8 סרטוני הרכב ביוטיוב. נספרים רק מי שהמדידה אצלו פעילה, ולכן המספר נמוך מהמציאות. הספירה מתחילה מהרגע שהגרסה החדשה של האתר פורסמה.</p><div id="cm"></div></div>
 <div class="card"><h2>הדפים שהכי ראו באתר היום</h2><p class="hint">"/" הוא עמוד הבית.</p><ul id="pg"></ul></div></div>
 <h2 class="sec">SEO, חיפוש בגוגל (Search Console)</h2>
 <p class="muted" id="seonote">טוען</p>
@@ -236,7 +236,7 @@ const SRC=h=>!h?"כניסה ישירה":/google\\./.test(h)?"גוגל":/bing\\.|
 const agg=(arr,f)=>{const m={};(arr||[]).forEach(r=>{const k=f(r[0]);m[k]=(m[k]||0)+r[1]});return Object.entries(m).sort((a,b)=>b[1]-a[1])};
 const lst=(id,arr)=>{$(id).innerHTML=arr&&arr.length?arr.map(r=>'<li><span>'+esc(r[0])+'</span><b>'+n(r[1])+'</b></li>').join(""):'<li><span class="muted">אין נתונים</span><b></b></li>'};
 lst("so",dl.sources?agg(dl.sources,SRC):null);
-{const CN={youtube:"יוטיוב",tiktok:"טיקטוק",facebook:"פייסבוק",instagram:"אינסטגרם"},C=dl.campaigns||{},keys=["youtube","tiktok"].concat(Object.keys(C).filter(k=>!["youtube","tiktok"].includes(k)));
+{const C=dl.campaigns||{},keys=["youtube"],CN={youtube:"יוטיוב"};
 $("cm").innerHTML=dl.campaigns===null?'<p class="muted">אין נתונים כרגע</p>':'<table class="q"><thead><tr><th>מקור</th><th class="n">היום</th><th class="n">7 ימים</th><th class="n">28 ימים</th></tr></thead><tbody>'+keys.map(k=>{const v=C[k]||[0,0,0];return '<tr><td class="w">'+esc(CN[k]||k)+'</td>'+v.map(x=>'<td class="n">'+n(x)+'</td>').join("")+'</tr>'}).join("")+'</tbody></table>'}lst("pg",dl.pages?agg(dl.pages,h=>h||"/"):null);
 const S=d.seo;
 if(S&&S.cur){const c=S.cur,p=S.prev||{},df=(a,b,inv)=>b?((a-b)/b*100):null,ar=v=>v==null?"אין מידע לשבוע קודם":(v>=0?"+":"")+(Math.round(v*10)/10)+"% לעומת שבוע קודם",pc=x=>(Math.round(x*1000)/10)+"%";
