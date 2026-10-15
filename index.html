@@ -1065,7 +1065,7 @@ const prefOn = k => alertPrefs()[k] !== false;
 function fillAnalytics(){
   const sc = $("#simpleChk"); if (sc) sc.checked = simpleOn();
   const row = $("#anaRow"); if (!row) return;
-  row.hidden = !(window.AndroidApp && window.AndroidApp.logEvent); if (row.hidden) return;
+  row.hidden = !!(window.AndroidApp && !window.AndroidApp.logEvent); if (row.hidden) return;   // the web counts events too (/api/e), so the switch shows there as well
   $("#anaChk").checked = analyticsOn();
 }
 document.addEventListener("change", ev => { if (ev.target.id === "simpleChk") { try { localStorage.setItem("simpleView", ev.target.checked ? "1" : "0"); } catch {} if (current && !inCompare) renderResult(); return; } if (ev.target.id !== "anaChk") return; try { localStorage.setItem("analyticsOff", ev.target.checked ? "0" : "1"); } catch {} try { window.AndroidApp.setAnalytics(ev.target.checked); } catch {} });
