@@ -2,6 +2,7 @@
 // Only data already in the repo is used; run: node .github/scripts/pages.mjs [count]
 import fs from "node:fs";
 import {brandLabel, BRAND_ALT} from "./brands.mjs";
+import {buildLanding, BRAND_SLUG} from "./landing.mjs";
 const N = Number(process.argv[2]) || 200, SITE = "https://luchit.app/";
 const ms = JSON.parse(fs.readFileSync("modelstats.json", "utf8")), cat = JSON.parse(fs.readFileSync("models.json", "utf8"));
 const COUNTRY = /\s+(יפן|בריטניה|אנגליה|צרפת|גרמניה|קוריאה|ד\. קוריאה|ספרד|צ'כיה|צכיה|טורקיה|סין|ארה"ב|ארהב|איטליה|תאילנד|הודו|מקסיקו|הונגריה|סלובקיה|פולין|רומניה|בלגיה|שבדיה|אוסטריה|פורטוגל|דרום אפריקה|ברזיל|קנדה|הולנד|סלובניה|רוסיה|מרוקו|אינדונזיה|מלזיה|טייוואן|ישראל|אפרי)\.?$/;
@@ -43,6 +44,7 @@ for (const [key, v] of Object.entries(ms.m)) {
 }
 const models = [...g.values()].sort((a, b) => b.total - a.total).slice(0, N);
 for (const m of models) m.label = brandLabel(m.make);
+const brandPath = l => BRAND_SLUG[l] && models.filter(o => o.label === l).length >= 2 ? `brand/${BRAND_SLUG[l]}/` : null;   // brand pages from landing.mjs
 const withBrand = m => String(m.disp).toUpperCase().startsWith(String(m.label).toUpperCase() + " ") ? m.disp : `${m.label} ${m.disp}`;   // no "BYD BYD ATTO 2"   // display name; m.make stays the registry spelling for matching
 // national yardsticks per vintage from every model (not only the pages built): off-road share, typical km, ownership records
 const NAT = {};
@@ -130,7 +132,7 @@ for (const m of models) {
     {"@type": "BreadcrumbList", itemListElement: [{"@type": "ListItem", position: 1, name: "לוחית", item: SITE}, {"@type": "ListItem", position: 2, name: "כל הדגמים", item: SITE + "model/"}, {"@type": "ListItem", position: 3, name}]},
     {"@type": "FAQPage", mainEntity: faq.map(([q, a]) => ({"@type": "Question", name: q, acceptedAnswer: {"@type": "Answer", text: a}}))}]};
   const peak = rows.reduce((a, b) => b.act > a.act ? b : a);
-  const body = `${head(title, desc, url)}<p class="muted"><a href="${SITE}">לוחית</a> › <a href="${SITE}model/">כל הדגמים</a> › ${esc(m.label)}</p><h1>${esc(name)}</h1>
+  const body = `${head(title, desc, url)}<p class="muted"><a href="${SITE}">לוחית</a> › <a href="${SITE}model/">כל הדגמים</a> › ${brandPath(m.label) ? `<a href="${SITE}${brandPath(m.label)}">${esc(m.label)}</a>` : esc(m.label)}</p><h1>${esc(name)}</h1>
 <p>לפי מאגרי משרד התחבורה יש בישראל כ-${fmt(act)} רכבים פעילים מדגם ${esc(name)}${esc(alt)} בשנתונים ${lo} עד ${hi}.${bodies.length ? ` סוגי מרכב בקטלוג: ${bodies.map(esc).join(", ")}.` : ""} השנתון הנפוץ ביותר הוא ${peak.yr} (${fmt(peak.act)} רכבים).</p>
 <div class="card"><b>בדקו רכב מסוים</b><p class="muted" style="margin:6px 0 12px">הקלידו מספר רישוי וקבלו ריקולים, טסט, היסטוריית בעלויות ומחיר משוער, בחינם.</p><a class="cta" href="${SITE}">לבדיקה לפי מספר רישוי</a></div>
 <h2>רכבים פעילים וקילומטראז׳ לפי שנתון</h2><div class="wrap"><table><thead><tr><th>שנתון</th><th class="n">פעילים</th><th class="n">ירדו מהכביש</th><th class="n">ק״מ טיפוסי</th><th class="n">רשומות בעלות לרכב</th></tr></thead><tbody>
@@ -143,7 +145,7 @@ ${extra}${extra2}${stl.length ? `<h2>הסדרי פשרה שעשויים לחול
 }
 const by = new Map(); for (const m of models) (by.get(m.label) || by.set(m.label, []).get(m.label)).push(m);
 const idx = `${head("דגמי רכב בישראל לפי נתוני משרד התחבורה | לוחית", "רשימת הדגמים הנפוצים בישראל עם מספר הרכבים הפעילים, ק״מ ושנתונים, לפי מאגרי משרד התחבורה.", SITE + "model/").replace("</head>", `<script type="application/ld+json">${JSON.stringify({"@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: [{"@type": "ListItem", position: 1, name: "לוחית", item: SITE}, {"@type": "ListItem", position: 2, name: "כל הדגמים"}]})}</script></head>`)}<p class="muted"><a href="${SITE}">לוחית</a> › כל הדגמים</p><h1>הדגמים הנפוצים בישראל</h1><p class="muted">לפי מספר הרכבים הפעילים במאגרי משרד התחבורה.</p>
-${[...by.entries()].map(([mk, a]) => `<h2>${esc(mk)}</h2><ul class="l">${a.map(m => `<li><a href="${SITE}model/${m.slug}/">${esc(m.disp)}</a> <span class="muted">${fmt(m.act)}</span></li>`).join("")}</ul>`).join("\n")}${foot}`;
+${[...by.entries()].map(([mk, a]) => `<h2>${brandPath(mk) ? `<a href="${SITE}${brandPath(mk)}">${esc(mk)}</a>` : esc(mk)}</h2><ul class="l">${a.map(m => `<li><a href="${SITE}model/${m.slug}/">${esc(m.disp)}</a> <span class="muted">${fmt(m.act)}</span></li>`).join("")}</ul>`).join("\n")}${foot}`;
 fs.writeFileSync("model/index.html", idx);
 fs.writeFileSync("model/slugs.json", JSON.stringify(slugMap));
 
@@ -206,6 +208,7 @@ ${sections.map(([h, t]) => `<h2>${h}</h2>${t}`).join("")}
   fs.mkdirSync("guide/buy-used-car", {recursive: true}); fs.writeFileSync("guide/buy-used-car/index.html", body);
   urls.push(url);
 }
+buildLanding({SITE, head, foot, esc, fmt, models, g, NAT, SETTLEMENTS, urls, lastmod, MOD: "", slugOf});
 // the monthly magazine (magazine.mjs) keeps its own pages; keep them in the sitemap
 try { const posts = JSON.parse(fs.readFileSync("magazine/posts.json", "utf8")); urls.push(SITE + "magazine/", ...posts.map(p => `${SITE}magazine/${p.slug}/`)); for (const p of posts) if (p.date) lastmod[`${SITE}magazine/${p.slug}/`] = p.date; if (posts[0] && posts[0].date) lastmod[SITE + "magazine/"] = posts[0].date; } catch {}
 fs.writeFileSync("sitemap.xml", `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(u => `  <url><loc>${u}</loc>${lastmod[u] ? `<lastmod>${lastmod[u]}</lastmod>` : ""}</url>`).join("\n")}\n</urlset>\n`);
