@@ -3574,7 +3574,7 @@ async function makePdf(D, biz, cap){
   let opts;
   if (biz) opts = await bizPdfOpts(biz);
   else {
-    // our own PDF opens with a cover page (the same summary as the share card, A4 proportions, with a QR to the live report)
+    // our own PDF opens with a cover page (the same summary as the share card, A4 proportions; the footer is a tappable link to the live report)
     opts = {link: shareLink(D.plate, "pdf")};
     try { opts.cover = (await drawShareCard(D, {cover: true})).canvas; } catch { reportErr("pdf_cover"); }
   }
