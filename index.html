@@ -918,6 +918,19 @@ async function ownMirror(plate, signal){
     return txt.slice(st + want.length, en < 0 ? undefined : en).split(",").map(x => { const [ym, t] = x.split(":"); return {baalut_dt: Number(ym), baalut: ownMeta.types[+t] || ""}; });
   } catch (e) { if (e.name === "AbortError") throw e; return []; }
 }
+/* "Back on the road" (zombie-detector.mjs, monthly): plates that left the active register and came back later.
+   Kept as shards by the plate's last three digits on the zombie-data branch: "plate|goneYYYYMM|backYYYYMM|via". */
+const ZOMBIE_BASE = "https://raw.githubusercontent.com/ddsabag/vehicle-app/zombie-data/";
+async function zombieLookup(plate, signal){
+  try {
+    const p = String(Number(plate)), r = await fetch(`${ZOMBIE_BASE}z/${p.slice(-3).padStart(3, "0")}.txt`, {signal});
+    if (!r.ok) return null;
+    const line = (await r.text()).split("\n").find(l => l.startsWith(p + "|"));
+    if (!line) return null;
+    const [, gone, back, via] = line.split("|");
+    return {gone: Number(gone) || 0, back: Number(back) || 0, via: via || "n"};
+  } catch (e) { if (e.name === "AbortError") throw e; return null; }
+}
 /* Model datasets: fetch every row for maker + model code (all years), numeric filters first like the
    ministry's own columns, then text. Rows are ranked in JS so a year or trim mismatch never hides data. */
 async function modelRows(id, rec, signal){
@@ -1436,6 +1449,7 @@ function snapGet(plate){
 /* ---------- fetch one vehicle ---------- */
 async function fetchVehicle(plate, signal, onProgress){
   const res = {}; let done = 0;
+  const zombieP = zombieLookup(plate, signal).catch(e => { if (e.name === "AbortError") throw e; return null; });
   // the rare vehicle types (motorcycle, heavy, cancelled, ...) are asked only when the ordinary active register has no such plate: a normal car then costs 7 requests instead of 16
   const one = async s => {
     try { res[s.key] = {rows: await byPlate(s, plate, signal)}; }
@@ -1455,6 +1469,7 @@ async function fetchVehicle(plate, signal, onProgress){
   })();
   await Promise.all([activeP, ...rest, rare]);
   if (!res.owners.rows.length) { const m = await ownMirror(plate, signal); if (m.length) { res.owners = {rows: m}; res.ownMirror = true; } }
+  res.zombie = await zombieP;
   const errs = PLATE_SETS.filter(s => res[s.key].err);
   const mains = PLATE_SETS.filter(s => s.role === "main" && res[s.key].rows.length);
   const extras = PLATE_SETS.filter(s => s.role === "extra" && res[s.key].rows.length);
@@ -1501,6 +1516,7 @@ async function fetchVehicle(plate, signal, onProgress){
     sub: [v.shnat_yitzur, pick(v.ramat_gimur, w.ramat_gimur), v.tzeva_rechev].filter(x => !empty(x)).join(" · "),
     vin: pick(v.misgeret, v.mispar_shilda, v.shilda), km, kmYears, kmPerYear,
     isCancelled: mains[0] && /^cancel/.test(mains[0].key)};
+  D.zombie = D.isCancelled ? null : res.zombie;
   D.cost = costs(D);
   return D;
 }
@@ -1700,7 +1716,7 @@ function renderResult(){
   const dt = driveType(D);
   if (dt) facts[2] = (`<span class="pill drive ${["ev", "phev", "hybrid"].includes(dt.k) ? "green" : ""}">${ico(["ev", "phev", "hybrid"].includes(dt.k) ? "bolt" : "fuel")}${dt.label}</span>`);
   if (exp && !D.isCancelled) facts[0] = (exp < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) ? `<span class="pill bad">טסט לא בתוקף</span>` : `<span class="pill ok">טסט עד ${String(exp.getMonth() + 1).padStart(2, "0")}/${exp.getFullYear()}</span>`);
-  const vIns = buildInsights(D), clean = !(D.errs && D.errs.length) && !D.recallUnknown && !D.isCancelled && !D.recalls.length && !vIns.some(x => x.level === "bad" || x.level === "warn");
+  const vIns = buildInsights(D), clean = !(D.errs && D.errs.length) && !D.recallUnknown && !D.isCancelled && !D.zombie && !D.recalls.length && !vIns.some(x => x.level === "bad" || x.level === "warn");
   if (D.own.length) facts[1] = `<span class="pill">${ownersLabel(D)}</span>`;
   if (!empty(v.shnat_yitzur)) facts[3] = `<span class="pill">${esc(v.shnat_yitzur)}</span>`;
   if (clean) pills.push(`<span class="pill ok">${ico("check")}לא נמצאו בעיות במאגרי משרד התחבורה</span>`);
@@ -2056,8 +2072,30 @@ function tabMaint(D){
   const pg = tier("ב-PRO: מעקב טיפולים", paid);
   return maintOk() || (info && !info.none) ? pg + free : free + pg;
 }
+const ymText = n => { n = Number(n) || 0; return n > 190000 ? `${MON_FULL[n % 100 - 1]} ${Math.floor(n / 100)}` : ""; };
+const MON_FULL = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
+const zSeen = new Set();
+/* PRO: the car left the ministry's active register and came back. Free users see that something was found, not the dates. */
+function zombieCard(D){
+  const z = D.kind === "model" ? null : D.zombie;
+  if (!z) return "";
+  const full = !PRO_LOCK || atLeast("pro");
+  if (!zSeen.has(D.plate)) { zSeen.add(D.plate); track("zombie_shown", {locked: full ? 0 : 1, via: z.via}); }
+  const title = full ? "חשד לשיקום לאחר הורדה מהכביש" : "⚠️ חשד לשיקום לאחר הורדה מהכביש - זמין למנויי PRO";
+  if (!full) return card(title, "alert", "red",
+    `<ul class="insights"><li class="ins bad">${ico("alert")}<div><span>מצאנו ברישומי משרד התחבורה סימן שהרכב ירד מהכביש וחזר אליו. מתי ירד, מתי חזר ומה לבדוק זמינים למנויי PRO.</span></div></li></ul>
+     <p style="margin:0"><span class="blur" aria-hidden="true">ירד ב-•••••• ••••, חזר ב-••••• ••••</span></p>
+     <button type="button" class="link-btn" data-act="proInfo" data-src="zombie">${ico("lock")}פתיחה ב-PRO</button>`, PT("PRO"));
+  const gone = ymText(z.gone), back = ymText(z.back);
+  const where = z.via === "c" ? "בזמן הזה הוא היה רשום במאגר הרכבים שבוטלו סופית (ירדו מהכביש)." : z.via === "i" ? "בזמן הזה הוא היה רשום כרכב לא פעיל." : "";
+  const what = z.back ? `הרכב ירד ממצבת הרכבים הפעילים${gone ? ` ב-${gone}` : ""} וחזר ב-${back}.` : `הרכב רשום כמבוטל סופית${gone ? ` מ-${gone}` : ""}, ובכל זאת מופיע היום במצבת הרכבים הפעילים.`;
+  return card(title, "alert", "red",
+    `<ul class="insights"><li class="ins bad">${ico("alert")}<div><b>${esc(what)}</b><span>${esc(where)} סיבות אפשריות: אובדן להלכה (טוטאל-לוס) ושיקום, השבתה ארוכה או רישום מחדש. זה סימן לבירור, לא קביעה.</span><span class="todo"><strong>מה לעשות:</strong> שאלו את המוכר למה הרכב ירד מהכביש, בקשו מסמכי שמאי ותיקון, ועשו בדיקה מלאה במכון כולל שלדה ומרכב.</span></div></li></ul>
+     <p class="note">לפי השוואה חודשית של מאגרי משרד התחבורה, מהחודשים שבהם התחלנו לעקוב.</p>`, PT("PRO"));
+}
 function tabOverview(D){
   const v = D.v, w = D.w, html = [];
+  html.push(zombieCard(D));
   // the settlement banner above already says this; the card in the recalls tab has the details
   const ins = buildInsights(D).filter(i => i.title !== "ייתכן שמגיעה לכם הטבה מהסדר פשרה");
   if (ins.length) {
@@ -2137,6 +2175,7 @@ function tabRecalls(D){
     }).join("") + `<p class="note">התיקון ניתן בחינם אצל היבואן.</p>`));
   }
   html.push(settlementCard(D));
+  html.push(`<div id="issues">${CMPL ? issuesCard(D) : ""}</div>`);
   const rows = [], row = (ok, t) => rows.push(`<li class="ins ${ok ? "ok" : "warn"}">${ico(ok ? "check" : "alert")}<div><b>${esc(t)}</b></div></li>`);
   if (D.recallUnknown) { row(false, "מידע על ריקולים פתוחים לא זמין כרגע"); row(false, "לא ידוע אם יש ריקול שמגביל חידוש רישיון"); }
   else { row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")} (פירוט למעלה)` : "אין ריקול פתוח במאגר משרד התחבורה");
@@ -3035,7 +3074,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "bulkCsv") { bulkCsv(); return; }
   if (b.dataset.act === "bulkPdf") { bulkPdf(b); return; }
   if (b.dataset.act === "checklistPdf") { track("checklist_pdf"); checklistPdf(b); return; }
-  if (b.dataset.act === "proInfo" || b.dataset.act === "upgrade") { track("upgrade_open", {from: currentTab || "home"}); if (UPGRADE_UI) renderUpgrade(); else toast("זמין בקרוב"); return; }
+  if (b.dataset.act === "proInfo" || b.dataset.act === "upgrade") { track("upgrade_open", {from: b.dataset.src || currentTab || "home"}); if (b.dataset.src) track("buy_card_open", {src: b.dataset.src}); if (UPGRADE_UI) renderUpgrade(); else toast("זמין בקרוב"); return; }
   if (b.dataset.act === "mkCsv") { marketCsv(); return; }
   if (b.dataset.buy) { buyPlan(b.dataset.buy); return; }
   if (b.dataset.act === "restore") { restorePurchases(); return; }
@@ -3879,7 +3918,7 @@ function updateSavedBar(){
 $("#savedBar").addEventListener("click", () => { renderHome(); const c = [...document.querySelectorAll("#out .card")].find(x => x.textContent.includes("הרכבים שלי")); if (c) c.scrollIntoView({block: "start"}); });
 for (const nm of ["renderResult", "renderCompare", "renderHome"]) {
   const f = window[nm] || eval(nm);
-  const w = function(...a){ const r = f.apply(this, a); updateSavedBar(); if (nm === "renderResult") { fillModelStats(); fillDocs(); } return r; };
+  const w = function(...a){ const r = f.apply(this, a); updateSavedBar(); if (nm === "renderResult") { fillModelStats(); fillDocs(); fillIssues(); } return r; };
   if (nm === "renderResult") renderResult = w; else if (nm === "renderCompare") renderCompare = w; else renderHome = w;
 }
 
@@ -3953,6 +3992,56 @@ function fillModelStats(){
   const el = document.getElementById("mstat"); if (!el || !current) return;
   const D = current;
   loadModelStats().then(() => { if (current === D && el.isConnected && !el.innerHTML) el.innerHTML = msCard(D); });
+}
+/* known issues: owner complaints to NHTSA (US market) per model and model year (complaints.json, nhtsa-complaints.mjs, monthly) */
+let CMPL = null, cmplP = null;
+function loadComplaints(){
+  if (CMPL) return Promise.resolve(CMPL);
+  return cmplP || (cmplP = (async () => {
+    for (const u of [SITE + "complaints.json", "complaints.json"]) {
+      try { const r = await fetch(u, {cache: "no-cache"}); if (r.ok) { const j = await r.json(); if (j && j.m) return CMPL = j; } } catch {}
+    }
+    cmplP = null; return null;
+  })());
+}
+/* NHTSA component names (longest prefix wins) */
+const NHTSA_HE = [["AIR BAGS","כריות אוויר"],["ENGINE AND ENGINE COOLING","מנוע וקירור"],["ENGINE","מנוע"],["ELECTRICAL SYSTEM","מערכת החשמל"],["POWER TRAIN","תיבת הילוכים והנעה"],
+  ["SERVICE BRAKES","בלמים"],["PARKING BRAKE","בלם יד"],["STEERING","היגוי"],["SUSPENSION","מתלים"],["STRUCTURE","מרכב ושלדה"],["FUEL/PROPULSION SYSTEM","מערכת דלק והנעה"],["FUEL SYSTEM","מערכת הדלק"],
+  ["HYBRID PROPULSION SYSTEM","הנעה היברידית"],["ELECTRIC PROPULSION","הנעה חשמלית"],["FORWARD COLLISION AVOIDANCE","בלימה אוטונומית"],["LANE DEPARTURE","שמירה על נתיב"],["BACK OVER PREVENTION","מצלמה וחיישני רוורס"],
+  ["ELECTRONIC STABILITY CONTROL","בקרת יציבות"],["VEHICLE SPEED CONTROL","בקרת מהירות ותאוצה"],["VISIBILITY","ראות ומגבים"],["EXTERIOR LIGHTING","תאורה"],["SEAT BELTS","חגורות בטיחות"],["SEATS","מושבים"],
+  ["TIRES","צמיגים"],["WHEELS","גלגלים"],["LATCHES/LOCKS/LINKAGES","מנעולים וידיות"],["EQUIPMENT","אביזרים"],["COMMUNICATION","מערכות תקשורת"],["TRAILER HITCHES","וו גרירה"],["ADAPTIVE CRUISE","בקרת שיוט"]];
+const compHe = c => { const u = String(c || "").toUpperCase(); let best = null; for (const [k, h] of NHTSA_HE) if (u.startsWith(k) && (!best || k.length > best[0].length)) best = [k, h]; return best ? best[1] : ""; };
+function issuesFor(D){
+  const k = msKey(D), m = k && CMPL && CMPL.m[k]; if (!m) return null;
+  const y = num(D.v.shnat_yitzur), years = y && m.y[y] ? [y] : Object.keys(m.y).map(Number);
+  const sum = {n: 0, crash: 0, fire: 0, year: years.length === 1 && years[0] === y ? y : null, model: m.md}, top = new Map();
+  for (const yy of years) { const r = m.y[yy]; sum.n += r[0]; sum.crash += r[1]; sum.fire += r[2]; for (const [ci, c] of r[5]) { const he = compHe(CMPL.comps[ci]); if (he) top.set(he, (top.get(he) || 0) + c); } }
+  sum.top = [...top].sort((a, b) => b[1] - a[1]).slice(0, 3);
+  return sum.n ? sum : null;
+}
+const isSeen = new Set();
+function issuesCard(D){
+  const s = issuesFor(D); if (!s) return "";
+  const full = !PRO_LOCK || atLeast("pro"), title = "תקלות נפוצות שדווחו (ארה״ב)";
+  if (!isSeen.has(D.plate)) { isSeen.add(D.plate); track("issues_shown", {locked: full ? 0 : 1, n: s.n}); }
+  const scope = s.year ? `לשנת ${s.year}` : "בכל השנים של הדגם";
+  if (!full) return card(title, "alert", "amber",
+    `<p style="margin:0"><b>נמצאו ${fmtN(s.n)} דיווחים על תקלות נפוצות (שוק ארה״ב)</b> ${scope}.</p>
+     <p style="margin:0">מערכות מובילות: <span class="blur" aria-hidden="true">••••• •••, •••• ••••</span></p>
+     <button type="button" class="link-btn" data-act="proInfo" data-src="nhtsa">${ico("lock")}פתיחה במנוי PRO</button>`, PT("PRO"));
+  const extra = [s.crash && `${fmtN(s.crash)} מהדיווחים כללו תאונה`, s.fire && `${fmtN(s.fire)} שריפה`].filter(Boolean).join(", ");
+  const same = String(s.model || "").replace(/[^A-Z0-9]/gi, "").toUpperCase() === String(D.v.kinuy_mishari || "").replace(/[^A-Z0-9]/gi, "").toUpperCase();
+  return card(title, "alert", "amber",
+    `<p style="margin:0"><b>${fmtN(s.n)} תלונות דווחו (NHTSA)</b> ${scope}${s.top.length ? `. מערכות מובילות: ${s.top.map(([h, c]) => `${esc(h)} (${fmtN(c)})`).join(", ")}` : ""}.</p>
+     ${extra ? `<p class="note" style="margin:0">${extra}.</p>` : ""}
+     <p class="note">דיווחי בעלים לרשות הבטיחות בדרכים בארה״ב${same ? "" : ` על הדגם שנמכר שם בשם ${esc(s.model)}`}. הדיווחים לא אומתו, ומספרם תלוי גם בכמה רכבים נמכרו שם, ולכן זה לא שיעור תקלות. בישראל הדגם עשוי להגיע עם מנוע או ציוד אחר. עדכון: ${esc(fmtDate(CMPL.updated))}.</p>`, PT("PRO"));
+}
+function fillIssues(){
+  if (!current || current.kind === "model") return;
+  loadComplaints();   // warm, so the recalls tab opens with the card already there
+  const el = document.getElementById("issues"); if (!el) return;
+  const D = current;
+  loadComplaints().then(() => { if (current === D && el.isConnected && !el.innerHTML) el.innerHTML = issuesCard(D); });
 }
 let MARKET = null, MK = {mode: "year", sel: null};
 async function loadMarket(){
