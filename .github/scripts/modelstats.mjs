@@ -31,14 +31,14 @@ async function scan(id, fields, onRows) {
 }
 const norm = s => String(s || "").trim().toUpperCase();
 const cohortIds = new Map(), cohorts = [];   // "cd|model|year" -> id
-const idOf = (cd, model, y) => { const k = cd + "|" + model + "|" + y; let i = cohortIds.get(k); if (i === undefined) { i = cohorts.length; cohortIds.set(k, i); cohorts.push({cd, model, y, n: 0, c: 0, kmSum: 0, kmN: 0, own: 0, ownN: 0, rec: 0, name: ""}); } return i; };
+const idOf = (cd, model, y) => { const k = cd + "|" + model + "|" + y; let i = cohortIds.get(k); if (i === undefined) { i = cohorts.length; cohortIds.set(k, i); cohorts.push({cd, model, y, n: 0, c: 0, kmSum: 0, kmN: 0, own: 0, ownN: 0, rec: 0, fleet: 0, name: ""}); } return i; };
 
 // 1. active cars: plate -> cohort
 const plate = new Map();
-log("active: " + await scan(ID.active, "mispar_rechev,tozeret_cd,kinuy_mishari,shnat_yitzur,tozeret_nm", rows => {
+log("active: " + await scan(ID.active, "mispar_rechev,tozeret_cd,kinuy_mishari,shnat_yitzur,tozeret_nm,baalut", rows => {
   for (const r of rows) {
     const y = Number(r.shnat_yitzur), m = norm(r.kinuy_mishari); if (!y || !m || !r.tozeret_cd) continue;
-    const i = idOf(r.tozeret_cd, m, y); cohorts[i].n++; if (!cohorts[i].name) cohorts[i].name = String(r.tozeret_nm || "").trim();
+    const i = idOf(r.tozeret_cd, m, y); cohorts[i].n++; if (/ליסינג|השכר/.test(r.baalut || "")) cohorts[i].fleet++; if (!cohorts[i].name) cohorts[i].name = String(r.tozeret_nm || "").trim();
     plate.set(Number(r.mispar_rechev), i);
   }
 }));
@@ -67,9 +67,9 @@ for (const p of rc) { const i = plate.get(p); if (i !== undefined) cohorts[i].re
 
 // output: models with >= 500 active cars, cohorts with >= 100
 const models = {};
-for (const c of cohorts) { const k = c.cd + "|" + c.model, m = (models[k] ||= {name: c.name, total: 0, y: {}}); m.total += c.n; if (c.n >= 100 || c.c >= 100) m.y[c.y] = [c.n, c.c, c.kmN >= 30 ? Math.round(c.kmSum / c.kmN / 100) * 100 : null, c.ownN >= 30 ? +(c.own / c.ownN).toFixed(2) : null, c.n ? +(c.rec / c.n * 1000).toFixed(1) : 0]; }
+for (const c of cohorts) { const k = c.cd + "|" + c.model, m = (models[k] ||= {name: c.name, total: 0, y: {}}); m.total += c.n; if (c.n >= 100 || c.c >= 100) m.y[c.y] = [c.n, c.c, c.kmN >= 30 ? Math.round(c.kmSum / c.kmN / 100) * 100 : null, c.ownN >= 30 ? +(c.own / c.ownN).toFixed(2) : null, c.n ? +(c.rec / c.n * 1000).toFixed(1) : 0, c.n >= 100 ? Math.round(c.fleet / c.n * 100) : null]; }
 const keep = Object.fromEntries(Object.entries(models).filter(([, m]) => m.total >= 500 && Object.keys(m.y).length));
-const res = {updated: new Date().toISOString().slice(0, 10), cols: ["active", "offRoad", "kmAvg", "ownRecords", "recallsPer1000"], m: keep};
+const res = {updated: new Date().toISOString().slice(0, 10), cols: ["active", "offRoad", "kmAvg", "ownRecords", "recallsPer1000", "fleetPct"], m: keep};
 fs.mkdirSync("out", {recursive: true});
 fs.writeFileSync("out/modelstats.json", JSON.stringify(res));
 log(`models kept ${Object.keys(keep).length}, size ${(JSON.stringify(res).length / 1024).toFixed(0)} KB, cohorts ${cohorts.length}`);

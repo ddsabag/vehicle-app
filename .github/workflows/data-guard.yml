@@ -1,0 +1,58 @@
+name: Data guard
+# Daily comparison of every ministry dataset's columns with a saved baseline (orphan branch "guard-baseline"). A breaking change alerts Telegram once
+# and the Android build gate (android.yml) stops on it. Harmless changes are reported once. accept=true saves today's schema as the new baseline.
+on:
+  schedule:
+    - cron: "15 4 * * *"
+  workflow_dispatch:
+    inputs:
+      accept:
+        description: "Save today's schema as the new baseline (after the code was adapted)"
+        type: boolean
+        default: false
+      dry_run:
+        description: "Print the alert instead of sending it to Telegram"
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency: data-guard
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node .github/scripts/data-guard.mjs --selftest
+      - name: Compare with the baseline
+        id: guard
+        run: |
+          node .github/scripts/data-guard.mjs
+          echo "fresh=$(node -e 'console.log(JSON.parse(require("fs").readFileSync("out/guard.json")).freshBaseline)')" >> "$GITHUB_OUTPUT"
+          echo "sig=$(sha1sum out/sig.txt | cut -c1-16)" >> "$GITHUB_OUTPUT"
+      # the same drift is announced once: a cache entry named after the drift signature remembers it
+      - name: Already announced?
+        id: seen
+        uses: actions/cache@v4
+        with:
+          path: out/sig.txt
+          key: guard-sig-${{ steps.guard.outputs.sig }}
+      - name: Tell Telegram
+        if: steps.seen.outputs.cache-hit != 'true' && steps.guard.outputs.sig != 'clean'
+        run: node .github/scripts/data-guard.mjs --send
+        env:
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      - name: Save the baseline (first run, or accepted)
+        if: steps.guard.outputs.fresh == 'true' || inputs.accept
+        run: |
+          cd out
+          git init -q -b guard-baseline
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add schema.json
+          git commit -qm "schema baseline $(date -u +%F)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" guard-baseline

@@ -5,8 +5,13 @@ name: Android build
 on:
   push:
     branches: [main]
-    paths: ["index.html", "market.json", "modelstats.json", "service.json", "lib/**", "android/**", ".github/workflows/android.yml"]
+    paths: ["index.html", "market.json", "market-tags.json", "modelstats.json", "service.json", "lib/**", "android/**", ".github/workflows/android.yml"]
   workflow_dispatch:
+    inputs:
+      skip_guard:
+        description: "Build even if the data guard found a breaking ministry schema change"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -29,6 +34,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+
+      - name: Ministry schema gate (stops the build when a dataset the app reads changed shape)
+        run: node .github/scripts/data-guard.mjs --gate
+        env:
+          GUARD_SKIP: ${{ inputs.skip_guard && '1' || '0' }}
 
       - name: Minify the page for the release build
         run: |
