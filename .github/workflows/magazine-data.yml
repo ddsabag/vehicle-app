@@ -1,6 +1,6 @@
 name: Magazine data articles
 # Weekly (Thursday 05:30 UTC) publishes at most ONE data article that is not yet out for the current modelstats refresh:
-# recalls first, then off-road. Text comes only from model/stats.json (no AI prose). Publishes on its own after seo-check passes,
+# new models of a closed quarter first, then recalls, then off-road. Text comes only from model/stats.json (no AI prose). Publishes on its own after seo-check passes,
 # with a Telegram notice; a failed check publishes nothing and sends an alert. Model pages are not rebuilt here (21-day rule): the
 # "mentioned in the magazine" links appear on them with the next pages.mjs run.
 on:
@@ -31,7 +31,7 @@ jobs:
         run: |
           tg() { [ -n "$TELEGRAM_BOT_TOKEN" ] && curl -s -o /dev/null "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$1" --data-urlencode "disable_notification=${2:-false}" || true; }   # 2nd argument "true" = silent (routine notice)
           done=""
-          for t in recalls offroad; do
+          for t in newmodels recalls offroad; do
             if node .github/scripts/magazine-data.mjs $t; then done=$t; break; fi
           done
           if [ -z "$done" ]; then echo "nothing new to publish"; exit 0; fi
