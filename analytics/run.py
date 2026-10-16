@@ -76,7 +76,7 @@ def main():
         sent, errs = notify.send_all(f"לוחית, דוח שבועי {per['end']}", text, html_path)
         print("sent via:", sent or "nothing (no channel configured)")
         for e in errs: print("delivery error:", e)
-        if errs and not sent: return 1
+        if not sent: return 1   # nothing delivered (no channel or every channel failed): make the run red instead of quietly green
     return 0
 
 
