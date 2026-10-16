@@ -64,4 +64,7 @@ const ek = crypto.publicEncrypt({ key: pub, padding: crypto.constants.RSA_PKCS1_
 fs.mkdirSync("out", { recursive: true });
 fs.writeFileSync("out/seo-data.enc.json", JSON.stringify({ v: 1, ek: ek.toString("base64"), iv: iv.toString("base64"), tag: c.getAuthTag().toString("base64"), data: data.toString("base64") }));
 // public-safe aggregate for the live dashboard targets: how many sitemap URLs Google reports as indexed (verdict PASS), out of those inspected
-await putMetric("index", { indexed: out.inspection.filter(i => i.verdict === "PASS").length, inspected: out.inspection.length, total: list.length });
+// definition: "indexed" = URLs whose URL Inspection API verdict is PASS (Google's index state as of the last crawl). The Search Console
+// Pages report counts the same thing but is refreshed only every few days, so it can show a lower number for a while.
+const cnt = f => out.inspection.filter(f).length;
+await putMetric("index", { indexed: cnt(i => i.verdict === "PASS"), crawledNotIndexed: cnt(i => /^נסרק|^Crawled/.test(i.coverage || "")), unknown: cnt(i => /לא ידועה|unknown to Google/i.test(i.coverage || "")), inspected: out.inspection.length, total: list.length, source: "URL Inspection API" });
