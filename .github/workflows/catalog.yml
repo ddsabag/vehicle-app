@@ -1,0 +1,26 @@
+name: Model catalogue
+# The static model catalogue the comparison reads (maker › model › year › trim + engine, with the list price, counts and recalls):
+# built from the ministry's datasets and published as small per-maker files on the catalog-data branch (one commit, force-pushed).
+# The app falls back to live ministry queries when a file is missing, so a failed run costs nothing but freshness.
+on:
+  schedule:
+    - cron: "10 4 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --max-old-space-size=6144 .github/scripts/catalog-build.mjs
+      - name: Publish on the catalog-data branch
+        run: |
+          test -s cat-out/meta.json && ls cat-out/c | wc -l
+          cd cat-out && git init -q && git checkout -q -b catalog-data && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Catalogue $(date -u +%F)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" catalog-data
