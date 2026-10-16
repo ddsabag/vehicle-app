@@ -1,0 +1,45 @@
+name: SEO tracker
+# Mondays: page rankings week over week (drops, pages that vanished from Google), and the 3-week outcome of each change in analytics/seo-changes.json.
+# State lives on the orphan branch "seo-track". Needs GA_SERVICE_ACCOUNT_JSON (Search Console reader); Telegram secrets are optional. Silent Telegram message.
+on:
+  schedule:
+    - cron: "10 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print only, do not save or send"
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: seo-track
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r analytics/requirements.txt
+      - name: Load saved state
+        run: |
+          mkdir -p state
+          git fetch -q origin seo-track 2>/dev/null && git --work-tree=state checkout FETCH_HEAD -- history.json || true
+      - name: Track
+        env:
+          GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python analytics/seo_track.py state ${{ inputs.dry_run && '--dry' || '' }}
+      - name: Save state
+        if: ${{ !inputs.dry_run }}
+        run: |
+          cd state
+          git init -q -b seo-track
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add history.json
+          git commit -qm "seo-track $(date -u +%F)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" seo-track
