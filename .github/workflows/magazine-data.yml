@@ -10,7 +10,9 @@ on:
 permissions:
   contents: write
   pages: write
-concurrency: magazine-data
+concurrency:
+  group: main-writer
+  cancel-in-progress: false
 jobs:
   article:
     runs-on: ubuntu-latest

@@ -333,10 +333,6 @@ footer a{color:var(--accent)}
 .rhead time{font:500 .85rem var(--f-num);color:var(--muted)}
 .link-btn{display:flex;align-items:center;gap:8px;color:var(--fg);width:100%}
 .link-btn svg.i{color:var(--accent)}
-.adj{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
-.adj li{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--line);font-size:.9rem}
-.adj li:first-child{border-top:0}
-.adj .neg{color:var(--bad)}.adj .pos{color:var(--ok)}
 .pick{border:1px solid var(--line);background:var(--soft);border-radius:10px;padding:8px 14px;font-weight:700;font-size:.9rem;cursor:pointer;color:var(--fg)}.link-btn.danger{color:var(--bad)}
 .fuel-set{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .fuel-set input.wide{width:170px;text-align:start;font-family:var(--f-body)}
@@ -447,7 +443,7 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .mk-chips button{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:999px;padding:6px 12px;font-weight:700}
 .mk-chips button[aria-pressed="true"]{background:var(--fg);color:var(--card);border-color:var(--fg)}
 .mk-sum{margin:8px 0 0;font-size:.9rem;font-weight:600}
-.mk-big{font-size:2rem;font-weight:800;line-height:1.1}.mk-chg{font-weight:700;font-size:.95rem}.mk-chg.up{color:#1a8f4a}.mk-chg.dn{color:#c93c3c}
+.mk-big{font-size:2rem;font-weight:800;line-height:1.1}.mk-chg{font-weight:700;font-size:.95rem}.mk-chg{color:var(--fg)}.mk-chg.up::before{content:"▲ ";font-size:.7em}.mk-chg.dn::before{content:"▼ ";font-size:.7em}
 .mk-bars{display:flex;align-items:flex-end;gap:4px;height:110px;margin-top:12px}
 .mk-bars div{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;font-size:.78rem;color:var(--muted);gap:3px}
 .mk-bars i{display:block;width:100%;background:var(--accent,#2556c8);border-radius:4px 4px 0 0;min-height:2px}
@@ -556,7 +552,7 @@ body.land .band{display:none}
 .cmp-h.fail{border:1px dashed var(--line);background:transparent;justify-content:center;text-align:center;align-items:center}.cmp-h.fail small{white-space:normal;color:var(--muted)}.cmp-h.fail .retry{border:0;border-radius:8px;background:var(--fg);color:var(--card);font:inherit;font-weight:700;font-size:.8rem;padding:6px 10px;min-height:32px;margin-top:4px}
 .cmp-sec button{all:unset;cursor:pointer;display:flex;justify-content:space-between;align-items:center;width:100%;min-height:36px}.cmp-sec button small{font-weight:400;color:var(--muted);font-size:.8rem}.cmp-sec button svg.i{width:16px;height:16px;transition:transform .15s}.cmp-sec button[aria-expanded="false"] svg.i{transform:rotate(180deg)}
 .cmp-save{border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font:inherit;font-weight:700;font-size:.8rem;padding:6px 4px;min-height:36px;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cmp-save[aria-pressed="true"]{background:var(--soft);color:var(--muted);font-weight:400}
-.cmp-v .yes{color:var(--ok);font-weight:800}.cmp-v .no{color:var(--muted);font-weight:400}
+.cmp-v .yes{color:var(--fg);font-weight:800}.cmp-v .no{color:var(--muted);font-weight:400}
 @media (max-width:360px){.facts{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 .msg.edge{text-align:center}.edge-i{font-size:2.6rem;line-height:1;margin-bottom:10px}.msg.edge+.link-btn{align-self:center}
@@ -712,8 +708,8 @@ button:not(:disabled):active,.link-btn:active,.act:active,.tabs button:active,a.
     <div class="list share-opts">
       <button type="button" class="row" data-share="card"><span class="badge-s blue"><svg class="i"><use href="#i-image"/></svg></span><span class="t"><b>כרטיס סיכום</b><small>תמונה אחת עם מה שנמצא, לשליחה בוואטסאפ (מומלץ)</small></span></button>
       <button type="button" class="row" data-share="image"><span class="badge-s slate"><svg class="i"><use href="#i-image"/></svg></span><span class="t"><b>צילום הדוח המלא</b><small>כפי שהוא על המסך, כולל כל הכרטיסים</small></span></button>
-      <button type="button" class="row" data-share="pdf"><span class="badge-s red"><svg class="i"><use href="#i-doc"/></svg></span><span class="t"><b>קובץ PDF</b><small>דוח מלא: סקירה, ריקולים, עלויות ומפרט</small></span></button>
-      <button type="button" class="row" data-share="bizpdf" hidden><span class="badge-s green"><svg class="i"><use href="#i-doc"/></svg></span><span class="t"><b>PDF ממותג (PRO עסקי)</b><small>עם פרטי העסק שלכם, בלי לוגו ובלי קישור של לוחית</small></span></button>
+      <button type="button" class="row" data-share="pdf"><span class="badge-s blue"><svg class="i"><use href="#i-doc"/></svg></span><span class="t"><b>קובץ PDF</b><small>דוח מלא: סקירה, ריקולים, עלויות ומפרט</small></span></button>
+      <button type="button" class="row" data-share="bizpdf" hidden><span class="badge-s violet"><svg class="i"><use href="#i-doc"/></svg></span><span class="t"><b>PDF ממותג (PRO עסקי)</b><small>עם פרטי העסק שלכם, בלי לוגו ובלי קישור של לוחית</small></span></button>
       <button type="button" class="row" data-share="text"><span class="badge-s slate"><svg class="i"><use href="#i-copy"/></svg></span><span class="t"><b>טקסט</b><small>סיכום קצר בהודעה</small></span></button>
     </div>
     <p class="note">הדוח כולל את מספר הרישוי והיסטוריית סוגי הבעלות (בלי שמות). שתפו אותו רק עם מי שצריך.</p><p class="note" id="shareMsg" role="status"></p>
@@ -728,7 +724,9 @@ const APP_VERSION = "1.28";
 const SITE = "https://luchit.app/";
 /* PRO: while PRO_LOCK is false (beta) every feature is open to everyone. Later it is tied to a Google Play subscription. */
 const PRO_LOCK = false;
-/* anonymous usage events (Android only, Firebase Analytics): what people do in the app, never a plate number or anything personal. The user can switch it off in settings. */
+/* anonymous usage events (Firebase Analytics in the app, /api/e -> GA4 on the web): what people do, never a plate number or anything personal. The user can switch it off in settings.
+   A model-search term goes out only when it looks like a model query: letters, digits, space, hyphen, at least 2 letters, under 5 digits of any script. */
+function safeTerm(t){ t = String(t || "").trim().toLowerCase().slice(0, 40); if (/[^a-z\u05d0-\u05ea0-9 \-]/.test(t) || (t.match(/[a-z\u05d0-\u05ea]/g) || []).length < 2 || t.replace(/[^0-9]/g, "").length >= 5) return ""; return t; }
 const simpleOn = () => { try { return localStorage.getItem("simpleView") === "1"; } catch { return false; } };
 const analyticsOn = () => { try { return localStorage.getItem("analyticsOff") !== "1"; } catch { return true; } };
 /* wording experiments (run by the Experimenter workflow): each device keeps one random variant; experiments.json on the site may name a winner or switch an experiment off.
@@ -944,8 +942,9 @@ const OWN_BASE = "https://raw.githubusercontent.com/ddsabag/vehicle-app/own-data
 let ownMeta = null;
 async function ownMirror(plate, signal){
   try {
-    if (!ownMeta) { const r = await fetch(OWN_BASE + "meta.json", {signal}); if (!r.ok) return []; ownMeta = await r.json(); }
-    const p = String(Number(plate)), r = await fetch(`${OWN_BASE}o/${p.slice(-3).padStart(3, "0")}.txt`, {signal});
+    const sig = signal || AbortSignal.timeout(10000);
+    if (!ownMeta) { const r = await fetch(OWN_BASE + "meta.json", {signal: sig}); if (!r.ok) return []; ownMeta = await r.json(); }
+    const p = String(Number(plate)), r = await fetch(`${OWN_BASE}o/${p.slice(-3).padStart(3, "0")}.txt`, {signal: sig});
     if (!r.ok) return [];
     const txt = await r.text(), want = p + "|", at = txt.startsWith(want) ? 0 : txt.indexOf("\n" + want);
     if (at < 0) return [];
@@ -1478,17 +1477,19 @@ async function fetchModelData(v, signal){
 /* An empty ministry dataset answers "no rows" for every plate; tell that apart from a plate that does not exist */
 async function sourceEmpty(signal){
   try {
-    const r = await fetch(`${API}?resource_id=${PLATE_SETS[0].id}&limit=0`, {signal});
+    const r = await fetch(`${API}?resource_id=${PLATE_SETS[0].id}&limit=0`, {signal: signal || AbortSignal.timeout(10000)});
+    if (!r.ok) return null;
     const j = await r.json();
-    return j && j.success && Number(j.result && j.result.total) === 0;
-  } catch (e) { if (e.name === "AbortError") throw e; return false; }
+    return !!(j && j.success && Number(j.result && j.result.total) === 0);
+  } catch (e) { if (e.name === "AbortError") throw e; return null; }
 }
 /* ---------- last result of saved cars, so they can be opened without a connection ---------- */
 const SNAP_KEY = "carSnaps";
 function snapAll(){ try { return JSON.parse(localStorage.getItem(SNAP_KEY) || "{}") || {}; } catch { return {}; } }
 function snapPut(D){
   try {
-    if (!D || D.kind === "model" || D.fromCache || !isSaved(D.plate)) return;
+    if (!D || D.kind === "model" || D.fromCache || D.offline || D.notFound || !isSaved(D.plate)) return;
+    if ((D.errs || []).some(k => PLATE_SETS.some(s => s.key === k && s.role === "main"))) return;   // keep the last complete copy
     const all = snapAll(), keep = new Set(store.get("savedVehicles").map(x => x.plate));
     all[D.plate] = {t: Date.now(), D};
     for (const k of Object.keys(all)) if (!keep.has(k)) delete all[k];
@@ -1531,9 +1532,10 @@ async function fetchVehicle(plate, signal, onProgress){
   const extras = PLATE_SETS.filter(s => s.role === "extra" && res[s.key].rows.length);
   if (errs.length === PLATE_SETS.length) return {plate, offline: true};
   errs.forEach(s => reportErr("dataset_" + s.key));
+  if (!mains.length && PLATE_SETS.some(s => s.role === "main" && res[s.key].err)) return {plate, offline: true};   // a main register failed: never render (or snapshot) a half-empty car
   if (!mains.length && !extras.length) {
-    if (PLATE_SETS.some(s => s.role === "main" && res[s.key].err)) return {plate, offline: true};
-    if (await sourceEmpty(signal)) { reportErr("dataset_empty_active"); return {plate, offline: true, sourceDown: true}; }
+    const se = await sourceEmpty(signal);
+    if (se !== false) { reportErr(se ? "dataset_empty_active" : "dataset_probe_failed"); return {plate, offline: true, sourceDown: true}; }
     return {plate, notFound: true};
   }
 
@@ -1682,10 +1684,10 @@ async function lookup(raw){
   if (signal.aborted && !timedOut) return;
   await side;
   if (signal.aborted && !timedOut) return;
-  if (D.offline) { const sn = snapGet(plate); if (sn) { track("lookup_from_cache"); current = sn; currentTab = "overview"; renderResult(); focusResult(); window.scrollTo({top: 0}); return; } }
+  if (D.offline || (D.notFound && isSaved(plate))) { const sn = snapGet(plate); if (sn) { track("lookup_from_cache"); current = sn; currentTab = "overview"; renderResult(); focusResult(); window.scrollTo({top: 0}); return; } }
   if (D.sourceDown) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true">🛠️</div>מאגר הרכבים של משרד התחבורה לא מחזיר נתונים כרגע, בלי קשר למספר שהקלדתם. זו תקלה אצל המשרד. נסו שוב מאוחר יותר.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; track("lookup_failed", {kind: "source_down", dur: durB}); return; }
   if (D.offline || D.notFound) track("lookup_failed", {kind: D.sourceDown ? "source_down" : D.offline ? "offline" : "not_found", dur: durB});
-  if (D.offline) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true">📡</div>אין חיבור למאגרי משרד התחבורה כרגע. בדקו את החיבור לאינטרנט ונסו שוב.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; return; }
+  if (D.offline) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true">📡</div>${navigator.onLine === false ? "אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב." : "מאגרי משרד התחבורה לא עונים כרגע (תקלה או עומס אצל המשרד, לא אצלכם). נסו שוב בעוד כמה דקות."}</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; return; }
   if (D.notFound) { out.innerHTML = `<div class="msg edge"><div class="edge-i" aria-hidden="true">🔍</div>לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.</div>`; return; }
   current = D; currentTab = "overview";
   snapPut(D);
@@ -1764,7 +1766,7 @@ const IS_ANDROID = /Android/i.test(navigator.userAgent);
 /* iPhone and iPad: there is no app for them, so nothing points them at Google Play */
 const IS_IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
 /* Facebook, Instagram, TikTok, Telegram... open links in their own browser, where intent:// links and App Links do not work and files cannot be downloaded */
-const IN_APP_BROWSER = /FBAN|FBAV|FB_IAB|FBIOS|Instagram|Snapchat|TikTok|musical_ly|Bytedance|Telegram|Line\/|; wv\)/i.test(navigator.userAgent);
+const IN_APP_BROWSER = /FBAN|FBAV|FB_IAB|FBIOS|Instagram|Snapchat|TikTok|musical_ly|Bytedance|trill|ByteLocale|Telegram|LinkedInApp|Twitter|MicroMessenger|GSA\/|; wv\)/i.test(navigator.userAgent) || /\bLine\//.test(navigator.userAgent) || (IS_IOS && !/Safari\//.test(navigator.userAgent));
 function sharedBar(D){
   const exp = toDate(D.v.tokef_dt), canCal = exp && !D.isCancelled && !IN_APP_BROWSER;
   let main;
@@ -2218,7 +2220,7 @@ function tabOverview(D){
   if (D.km) stats.push(["ק״מ בטסט האחרון", fmtN(D.km), "ק״מ", "teal"]);
   if (D.kmPerYear) stats.push(["ממוצע לשנה", fmtN(D.kmPerYear), "ק״מ", "teal"]);
   const hp = posN(w.koah_sus) ? w.koah_sus : posN(v.hespek) ? v.hespek : "";
-  if (!empty(hp)) stats.push(["כוח", fmtN(hp), empty(w.koah_sus) ? "" : "כ״ס", "red"]);
+  if (!empty(hp)) stats.push(["כוח", fmtN(hp), empty(w.koah_sus) ? "" : "כ״ס", "teal"]);
   if (stats.length % 2) stats.pop();
   if (stats.length) html.push(`<div class="stats">${stats.map(([k,val,u,c]) => `<div class="stat ${c}"><div class="k">${esc(k)}</div><div class="v">${esc(val)}${u ? `<span class="u">${esc(u)}</span>` : ""}</div></div>`).join("")}</div>`);
 
@@ -2921,7 +2923,7 @@ async function runModelSearch(){
 }
 function showGroups(){
   const msg = $("#compareMsg"), shown = mShowAll ? mGroups : mGroups.slice(0, MODEL_SHOWN), rest = mGroups.length - shown.length;
-  if (!mGroups.length) { const term = ($("#mq").value || "").trim().toLowerCase().slice(0, 40); track("search_no_result", {kind: mNote ? "budget" : "model", term: (term.replace(/\D/g, "").length >= 5 || /@/.test(term)) ? "" : term}); }
+  if (!mGroups.length) { const term = ($("#mq").value || "").trim().toLowerCase().slice(0, 40); track("search_no_result", {kind: mNote ? "budget" : "model", term: safeTerm(term)}); }
   msg.textContent = mGroups.length ? (searchFuzzy && !mNote ? "לא נמצא בדיוק. אולי התכוונתם:" : "") : (mNote ? "לא נמצאו דגמים שמתאימים לתנאים. נסו תקציב גבוה יותר או פחות תנאים." : "לא נמצאו דגמים. נסו שם אחר, למשל שם הדגם באנגלית.");
   let lastMake = null;
   $("#mres").innerHTML = (mNote && mGroups.length ? `<div class="qsec" style="margin-top:0">${pl(mGroups.length, "דגם אחד", "דגמים")}: ${esc(mNote)}</div>` : "") + shown.map(x => (x.make !== lastMake ? (lastMake = x.make, `<div class="qsec">${esc(x.make)}</div>`) : "") + `<button type="button" class="row" data-mg="${mGroups.indexOf(x)}"><span class="t"><b>${esc(x.model)}</b><small>${isFinite(x.from) ? (x.from === x.to ? x.from : `<span dir="ltr">${x.from}–${x.to}</span>`) : ""}${x.price ? ` · החל מ-${fmtN(x.price)} אלף ₪` : ""}</small></span>${ico("chev")}</button>`).join("")
@@ -3048,8 +3050,8 @@ async function runCompare(raw){
   if (cmp.some(x => x.plate === plate && x.kind !== "fail")) { msg.textContent = "הרכב הזה כבר בהשוואה."; toast("הרכב הזה כבר בהשוואה"); return; }
   msg.textContent = "מחפש…";
   try {
-    const D = await fetchVehicle(plate, undefined);
-    if (D.offline) { msg.textContent = "אין חיבור למאגרים כרגע."; return; }
+    const D = await fetchVehicle(plate, AbortSignal.timeout(30000));
+    if (D.offline) { msg.textContent = navigator.onLine === false ? "אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב." : "מאגרי משרד התחבורה לא עונים כרגע. נסו שוב בעוד כמה דקות."; return; }
     if (D.notFound) { msg.textContent = "לא נמצא רכב עם המספר הזה."; return; }
     addToCompare(D);
   } catch (err) { msg.textContent = "החיפוש נכשל. נסו שוב."; }
@@ -3176,8 +3178,8 @@ $("#out").addEventListener("click", ev => {
   const h = ev.target.closest("[data-fold]"); if (h && !ev.target.closest("button")) { toggleFold(h); return; }
   const b = ev.target.closest("button"); if (!b) return;
   if (b.dataset.copy) { copyText(b.dataset.copy, b.dataset.label); return; }
-  if (b.dataset.act === "simple") { const want = !simpleOn(); try { localStorage.setItem("simpleView", want ? "1" : "0"); } catch {} track("simple_view", {on: simpleOn()}); renderResult(); return; }
-  if (b.dataset.act === "simpleMore") { simpleMore = !simpleMore; track("simple_more", {on: simpleMore}); renderResult(); return; }
+  if (b.dataset.act === "simple") { const want = !simpleOn(); try { localStorage.setItem("simpleView", want ? "1" : "0"); } catch {} track("simple_view", {on: simpleOn() ? 1 : 0}); renderResult(); return; }
+  if (b.dataset.act === "simpleMore") { simpleMore = !simpleMore; track("simple_more", {on: simpleMore ? 1 : 0}); renderResult(); return; }
   if (b.dataset.act === "openapp") { track("web_hint_click", {where: "share_bar"}); track("web_install_click"); location.href = b.dataset.intent; return; }
   if (b.dataset.act === "openplay") { track("web_hint_click", {where: "share_bar_iab"}); track("web_install_click"); location.href = b.dataset.url; return; }
   if (b.dataset.act === "barcal") { track("web_hint_click", {where: "share_bar_cal"}); if (current) testReminderFile(current); return; }
@@ -3601,6 +3603,7 @@ async function shareFile(blob, name, title, caption){
   if (navigator.canShare && navigator.canShare({files: [file]})) {
     try { await navigator.share(caption ? {files: [file], title, text: caption} : {files: [file], title}); return; } catch (err) { if (err && err.name === "AbortError") return; }
   }
+  if (IN_APP_BROWSER) { toast("הדפדפן הפנימי של האפליקציה לא שומר קבצים. פתחו את הקישור בדפדפן (⋮ › פתח בדפדפן) ונסו שוב"); return; }
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
   toast("הקובץ נשמר בהורדות");
@@ -4198,7 +4201,7 @@ function renderMarket(M){
   html.push(card(MK.mkMore ? `${Math.min(20, cnt(M.makers))} היצרנים המובילים` : "יצרנים מובילים", "star", "amber", mkTop(M.makers, P.ms, P.prevMs, MK.mkMore ? 20 : 10, mkMake) + mkMore(M.makers, "mkMore")));
   html.push(card(MK.mdMore ? `${Math.min(20, cnt(M.models))} הדגמים המובילים` : "דגמים מובילים", "car", "violet", mkTop(M.models, P.ms, P.prevMs, MK.mdMore ? 20 : 10, k => { const [mk, ...r] = k.split("|"); return [mkMake(mk), ...r].join(" "); }) + mkMore(M.models, "mdMore") + `<p class="note">לפי הכינוי המסחרי, כל המנועים והגימורים יחד.</p>`));
   if (M.bodies && Object.keys(M.bodies).length) html.push(card("סוג מרכב", "car", "blue", mkTop(M.bodies, P.ms, P.prevMs, 8, k => k) + `<p class="note">לפי סוג המרכב בקטלוג של המשרד. ${M.bodyCover && M.bodyCover < 0.98 ? "חלק מהרכבים לא משויכים לסוג מרכב, ולכן הסכום קטן מסך המסירות." : ""}</p>`));
-  const OWN = [["פרטי", "פרטי", "#2556c8"], ["ליסינג", "ליסינג", "#e0a100"], ["חברה", "חברה", "#7a4fd1"], ["השכרה", "השכרה", "#1a8f4a"], ["סוחר", "סוחר", "#8a93a6"]];
+  const OWN = [["פרטי", "פרטי", "#2556c8"], ["ליסינג", "ליסינג", "#0f8a83"], ["חברה", "חברה", "#7a4fd1"], ["השכרה", "השכרה", "#c2407e"], ["סוחר", "סוחר", "#8a93a6"]];
   const own = M.ownership[P.year];
   if (own) {
     const t = Object.values(own).reduce((a, b) => a + b, 0);
@@ -4214,7 +4217,7 @@ function renderMarket(M){
   }
   const fu = M.fuel[P.year];
   if (fu) {
-    const G = [["בנזין", ["בנזין"], "#2556c8"], ["דיזל", ["דיזל"], "#8a93a6"], ["חשמלי", ["חשמל"], "#1a8f4a"], ["היברידי ופלאג-אין", ["חשמל/בנזין", "חשמל/דיזל"], "#e0a100"]];
+    const G = [["בנזין", ["בנזין"], "#2556c8"], ["דיזל", ["דיזל"], "#8a93a6"], ["חשמלי", ["חשמל"], "#0f8a83"], ["היברידי ופלאג-אין", ["חשמל/בנזין", "חשמל/דיזל"], "#7a4fd1"]];
     const t = Object.values(fu).reduce((a, b) => a + b, 0), vals = G.map(([n, ks]) => ks.reduce((a, k) => a + (fu[k] || 0), 0)), rest = t - vals.reduce((a, b) => a + b, 0);
     html.push(card(`סוג הנעה · רכבי שנתון ${P.year}`, "bolt", "green", `<div class="mk-stack">${G.map((g, i) => `<i style="width:${vals[i] / t * 100}%;background:${g[2]}"></i>`).join("")}${rest > 0 ? `<i style="width:${rest / t * 100}%;background:#c9cfdb"></i>` : ""}</div><div class="mk-leg">${G.map((g, i) => `<span style="--c:${g[2]}">${g[0]} ${(vals[i] / t * 100).toFixed(0)}%</span>`).join("")}</div>`));
   }
@@ -4277,11 +4280,11 @@ async function loadCompareSet(items, {replace = true, at = null} = {}){
   for (const it of items) { const id = cmpItemId(it); if (seen.has(id)) { if (!replace) toast("הרכב הזה כבר בהשוואה"); continue; } seen.add(id); todo.push(it); }
   const room = cmpMax() - (replace ? 0 : cmp.length) + (at !== null ? 1 : 0);
   const list = todo.slice(0, Math.max(0, room));
-  const settled = await Promise.all([Promise.allSettled(list.map(it => it.plate ? fetchVehicle(it.plate) : fetchModel(it.model))), loadModelStats().catch(() => null)]).then(r => r[0]);
+  const settled = await Promise.all([Promise.allSettled(list.map(it => it.plate ? fetchVehicle(it.plate, AbortSignal.timeout(30000)) : fetchModel(it.model))), loadModelStats().catch(() => null)]).then(r => r[0]);
   const entries = settled.map((r, i) => {
     const it = list[i], D = r.status === "fulfilled" ? r.value : null;
     if (D && !D.notFound && !D.offline) return D;
-    const why = D && D.notFound ? "לא נמצא רכב עם המספר הזה" : "לא הצלחנו לטעון. בדקו את החיבור ונסו שוב";
+    const why = D && D.notFound ? "לא נמצא רכב עם המספר הזה" : navigator.onLine === false ? "אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב" : "המאגרים לא ענו בזמן. נסו שוב";
     return {kind: "fail", item: it, plate: it.plate || null, why, retry: !(D && D.notFound), title: it.plate ? fmtPlate(it.plate) : "דגם"};
   });
   if (replace) cmp = entries; else if (at !== null) cmp.splice(at, 1, ...entries); else cmp.push(...entries);
@@ -4321,8 +4324,8 @@ function renderFleet(){
   const list = store.get("savedVehicles").slice(0, fleetMax()), now = new Date();
   const need = s => { const d = toDate(s.tokef), days = d ? Math.ceil((d - now) / 864e5) : null; return {days, bad: (days !== null && days < 0) || s.recalls > 0, warn: days !== null && days >= 0 && days <= 45}; };
   const n = list.filter(s => { const x = need(s); return x.bad || x.warn; }).length;
-  const rows = list.map(s => { const x = need(s), col = x.days === null ? "" : x.days < 0 ? "color:#c93c3c" : x.days <= 45 ? "color:#c27400" : "color:#1a8f4a";
-    return `<tr><td><button type="button" class="lnk" data-open="${s.plate}"><b>${fmtPlate(s.plate)}</b><small style="color:var(--muted)">${esc(s.title)}</small></button></td><td style="${col}">${s.tokef ? (x.days < 0 ? "עבר" : fmtDate(s.tokef)) : "—"}</td><td>${s.recalls > 0 ? s.recalls : "—"}</td></tr>`; }).join("");
+  const rows = list.map(s => { const x = need(s), col = x.days === null ? "" : x.days < 0 ? "r" : x.days <= 45 ? "w" : "";
+    return `<tr><td><button type="button" class="lnk" data-open="${s.plate}"><b>${fmtPlate(s.plate)}</b><small style="color:var(--muted)">${esc(s.title)}</small></button></td><td class="${col}">${s.tokef ? (x.days < 0 ? "עבר" : fmtDate(s.tokef)) : "—"}</td><td class="${s.recalls > 0 ? "w" : ""}">${s.recalls > 0 ? s.recalls : "—"}</td></tr>`; }).join("");
   const html = [];
   if (PRO_LOCK && !atLeast("pro")) html.push(proLockCard("הצי שלי", "כל הרכבים שלכם בטבלה אחת, עם טסט, ריקולים וסימון מה דורש טיפול."));
   else html.push(card("הצי שלי", "car", "blue", list.length ? `<p style="margin:0 0 6px"><b>${n ? (n === 1 ? "רכב אחד דורש טיפול" : `${n} רכבים דורשים טיפול`) : "הכול בסדר"}</b>${n ? `<br><small style="color:var(--muted)">טסט שעבר או קרוב, או ריקול פתוח</small>` : ""}</p><table class="ft"><tr><th>רכב</th><th>טסט</th><th>ריקולים</th></tr>${rows}</table>${store.get("savedVehicles").length > fleetMax() ? `<p class="note">מוצגים ${fleetMax()} הרכבים הראשונים.</p>` : ""}` : `<p style="margin:0">שמרו רכבים כדי לראות אותם כאן בטבלה אחת.</p>`, `${PT("PRO")}`));
@@ -4534,7 +4537,7 @@ function renderHome(){
     tool("compareHome", "compare", "חיפוש דגמים", "חיפוש חופשי: דגם, או סוג ותקציב. אפשר גם להשוות עד " + cmpMax(), "", "violet"),
     tool("market", "chart", "שוק הרכב", "מה נמכר, מי מוביל ומי קונה", "", "blue"),
     saved.length >= 2 ? tool("fleet", "car", "הצי שלי", "כל הרכבים שלי בטבלה אחת", "PRO", "teal") : "",
-    saved.some(s => s.ask || s.fair) ? tool("cands", "star", "רשימת מועמדים", "הרכבים ששמרתם מול המחיר המבוקש", "PRO", "amber") : "",
+    saved.some(s => s.ask || s.fair) ? tool("cands", "star", "רשימת מועמדים", "הרכבים ששמרתם מול המחיר המבוקש", "PRO", "blue") : "",
     tool("bulk", "doc", "בדיקת כמה רכבים", "הדביקו רשימת מספרי רישוי וקבלו טבלה אחת", "PRO עסקי", "slate"),
   ].join("")}</div>`);
   if (store.get("savedCompares").length) html.push(card("השוואות שמורות", "compare", "violet", `<div class="list">${store.get("savedCompares").map((c, i) => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-loadcmp="${i}"><span class="t"><b>${esc(c.name)}</b><small>${pl(c.items.length, "רכב אחד", "רכבים")}</small></span></button><button type="button" class="x" data-delcmp="${i}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div>`));

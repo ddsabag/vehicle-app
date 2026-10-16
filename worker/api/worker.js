@@ -42,7 +42,7 @@ async function waitlist(req, env) {
 
   const r = await brevo(env, "/contacts", { email, listIds: [Number(env.BREVO_B2B_LIST_ID)], updateEnabled: true,
     attributes: { FIRSTNAME: name, COMPANY_NAME: company, BUSINESS_TYPE: type, INTEREST: interest, PHONE: phone, NOTES: notes, SOURCE: "business", CONSENT_AT: new Date().toISOString() } });
-  if (!r.ok) { console.log("brevo waitlist", r.status, (await r.text()).slice(0, 300)); return json({ error: "upstream" }, 502); }
+  if (!r.ok) { console.log("brevo waitlist", r.status, "upstream error"); return json({ error: "upstream" }, 502); }
 
   // best effort from here on: the lead is already saved
   try {
@@ -67,13 +67,15 @@ async function webEvent(req, env) {
   if (req.method !== "POST" || req.headers.get("origin") !== ORIGIN) return new Response(null, { status: 204 });
   const sfs = req.headers.get("sec-fetch-site"); if (sfs && sfs !== "same-origin") return new Response(null, { status: 204 });   // browsers set it; a cross-site page cannot fake it
   if (!env.GA_MEASUREMENT_ID || !env.GA_API_SECRET) return new Response(null, { status: 204 });
+  if (Number(req.headers.get("content-length") || 0) > 4096) return new Response(null, { status: 204 });
   let b; try { b = JSON.parse((await req.text()).slice(0, 2000)); } catch { return new Response(null, { status: 204 }); }
   if (!b || !WEB_EVENTS.has(b.n)) return new Response(null, { status: 204 });
   const params = { engagement_time_msec: 1 };
   for (const [k, v] of Object.entries(b.p || {}).slice(0, 10)) {
     if (!/^[a-z_]{1,24}$/.test(k)) continue;
-    if (typeof v === "number" && isFinite(v)) params[k] = v;
-    else if (typeof v === "string" && !/@/.test(v) && v.replace(/\D/g, "").length < 5) params[k] = v.slice(0, 40);
+    if (typeof v === "number" && isFinite(v) && Math.abs(v) < 10000) params[k] = v;      // counts and flags only; a plate-sized number is dropped
+    else if (typeof v === "boolean") params[k] = v ? 1 : 0;
+    else if (typeof v === "string" && !/@/.test(v) && v.replace(/[^0-9]/g, "").length < 5 && !/[\u0660-\u0669\u06F0-\u06F9]/.test(v)) params[k] = v.slice(0, 40);
   }
   const cid = /^\d{1,10}\.\d{1,10}$/.test(String(b.cid)) ? b.cid : crypto.randomUUID();
   try {
@@ -93,7 +95,7 @@ export default {
       const email = (url.searchParams.get("e") || "").toLowerCase(), exp = Number(url.searchParams.get("x")), t = url.searchParams.get("t") || "";
       if (!EMAIL_RE.test(email) || !(exp > Date.now()) || !eq(t, await sign(env, email, exp))) return redirect("expired");
       const r = await brevo(env, "/contacts", { email, listIds: [Number(env.BREVO_LIST_ID)], updateEnabled: true, attributes: { SOURCE: "magazine", CONSENT_AT: new Date().toISOString() } });
-      if (!r.ok) { console.log("brevo contacts", r.status, (await r.text()).slice(0, 300)); return redirect("error"); }
+      if (!r.ok) { console.log("brevo contacts", r.status, "upstream error"); return redirect("error"); }
       return redirect("1");
     }
 
@@ -116,7 +118,7 @@ export default {
       htmlContent: CONFIRM_HTML.replaceAll("{{CONFIRM_URL}}", link.replaceAll("&", "&amp;")),
     });
     if (r.ok) return json({ ok: true });
-    console.log("brevo smtp", r.status, (await r.text()).slice(0, 300));
+    console.log("brevo smtp", r.status, "upstream error");
     return json({ error: "upstream" }, 502);
   },
 };

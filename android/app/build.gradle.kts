@@ -40,7 +40,8 @@ android {
 
 val copyWebApp by tasks.registering(Copy::class) {
     // release builds in CI minify the page first (.github/scripts/obfuscate.mjs); otherwise the source is used
-    from(rootProject.file("build-web/index.html").takeIf { it.exists() } ?: rootProject.file("../index.html"))
+    // a minified copy older than the source is a stale leftover of an earlier build: never ship it
+    from(rootProject.file("build-web/index.html").takeIf { it.exists() && it.lastModified() >= rootProject.file("../index.html").lastModified() } ?: rootProject.file("../index.html"))
     from(rootProject.file("../market.json"))   // bundled copy, used when the site copy cannot be fetched
     from(rootProject.file("../modelstats.json"))
     from(rootProject.file("../models.json"))

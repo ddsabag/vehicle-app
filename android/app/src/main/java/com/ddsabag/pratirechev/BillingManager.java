@@ -62,6 +62,7 @@ class BillingManager implements PurchasesUpdatedListener {
             client = BillingClient.newBuilder(ctx)
                     .setListener(this)
                     .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
+                    .enableAutoServiceReconnection()
                     .build();
         }
         if (ready) {

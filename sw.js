@@ -1,8 +1,8 @@
-/* Luchit app shell for the web version. Stale-while-revalidate for the page, cache-first for fonts and icons.
+/* Luchit app shell for the web version. Stale-while-revalidate for the page, cache-first for icons.
    Lookups (data.gov.il, JSON data files, model pages) are never cached here, so numbers are always fresh.
    Bump SHELL with APP_VERSION at each release: the old cache is deleted on activate. */
 const SHELL = "luchit-shell-1.28.0";
-const FONTS = "luchit-fonts-1";
+const DATA = "luchit-data-";   // the page's own catalogue cache (index.html cachedJson): never deleted here
 const PRECACHE = ["/", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/manifest.json", "/lib/fonts/assistant-hebrew-400-normal.woff2", "/lib/fonts/assistant-hebrew-700-normal.woff2", "/lib/fonts/assistant-latin-400-normal.woff2", "/lib/fonts/assistant-latin-700-normal.woff2", "/lib/fonts/ibm-plex-mono-latin-500-normal.woff2"];
 
 /* the published page loads its code from /app.<hash>.js (see .github/scripts/web-build.mjs): keep the script the cached page points at, so the shell also works offline */
@@ -17,10 +17,11 @@ async function keepAppScript(c, res) {
   } catch { return false; }
 }
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(SHELL).then(async c => { await c.addAll(PRECACHE); const h = await c.match("/"); if (h) await keepAppScript(c, h.clone()); }).then(() => self.skipWaiting()));
+  // the page is fetched fresh (not from the HTTP cache), and a shell whose app script could not be stored is not kept: a page without its code is worse than none
+  e.waitUntil(caches.open(SHELL).then(async c => { await c.addAll(PRECACHE.filter(p => p !== "/")); const res = await fetch("/", {cache: "reload"}); if (!res.ok) throw new Error("shell " + res.status); if (await keepAppScript(c, res.clone())) await c.put("/", res); }).then(() => self.skipWaiting()));
 });
 self.addEventListener("activate", e => {
-  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== SHELL && k !== FONTS).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== SHELL && !k.startsWith(DATA)).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
 self.addEventListener("fetch", e => {
   const r = e.request;
@@ -29,7 +30,7 @@ self.addEventListener("fetch", e => {
   if (u.origin === location.origin && r.mode === "navigate" && u.pathname === "/") {
     // any query (?plate=, ?cmp=) is served by the cached shell: the page reads it itself
     e.respondWith(caches.open(SHELL).then(async c => {
-      const hit = await c.match("/");
+      const hit = u.searchParams.get("r") === "1" ? null : await c.match("/");   // ?r=1 is the page's own reload after its script failed: network first, so a broken cached shell cannot loop
       const net = fetch("/").then(res => { if (res.ok) { const a = res.clone(), b = res.clone(); e.waitUntil(keepAppScript(c, b).then(ok => { if (ok) return c.put("/", a); })); } return res; }).catch(() => null);
       if (hit) { e.waitUntil(net); return hit; }
       return (await net) || new Response("אין חיבור לאינטרנט", {status: 503, headers: {"Content-Type": "text/plain; charset=utf-8"}});
@@ -43,11 +44,5 @@ self.addEventListener("fetch", e => {
   if (u.origin === location.origin && PRECACHE.includes(u.pathname)) {
     e.respondWith(caches.match(r).then(h => h || fetch(r)));
     return;
-  }
-  if (u.hostname === "fonts.googleapis.com" || u.hostname === "fonts.gstatic.com") {
-    e.respondWith(caches.open(FONTS).then(async c => {
-      const h = await c.match(r); if (h) return h;
-      const res = await fetch(r); if (res.ok || res.type === "opaque") c.put(r, res.clone()); return res;
-    }));
   }
 });

@@ -24,8 +24,11 @@ jobs:
           node-version: 20
       - run: |
           mkdir -p out
-          node .github/scripts/${{ inputs.script }} 2>&1 | tee out/report.txt
+          case "$SCRIPT" in *[!a-z0-9-]*.mjs|"") echo "bad script name"; exit 1;; esac
+          [ "${SCRIPT##*.}" = mjs ] || { echo "bad script name"; exit 1; }
+          node ".github/scripts/$SCRIPT" 2>&1 | tee out/report.txt
         env:
+          SCRIPT: ${{ inputs.script }}
           PLATES: ${{ inputs.plates }}
           QUERIES: ${{ inputs.queries }}
           NODE_OPTIONS: --max-old-space-size=6144

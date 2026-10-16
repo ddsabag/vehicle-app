@@ -50,7 +50,7 @@ async function brevoQuota() {
 async function staleBranches() {
   if (new Date().getUTCDate() !== 1 && !DRY) return;
   if (!E.GITHUB_TOKEN || !E.GITHUB_REPOSITORY) return;
-  const H = { Authorization: `Bearer ${E.GITHUB_TOKEN}`, accept: "application/vnd.github+json" }, repo = E.GITHUB_REPOSITORY, keep = new Set(["main", "next", "data-status", "gh-pages"]);
+  const H = { Authorization: `Bearer ${E.GITHUB_TOKEN}`, accept: "application/vnd.github+json" }, repo = E.GITHUB_REPOSITORY, keep = new Set(["main", "next", "data-status", "gh-pages", "flashes", "guard-baseline", "ui-baseline", "inspect-output", "seo-data", "seo-track", "own-data", "zombie-data", "web-watch", "android-builds", "seo-auto"]);
   const bs = await get(`https://api.github.com/repos/${repo}/branches?per_page=100`, { headers: H }).then(r => r.json());
   const old = [];
   for (const b of bs) {

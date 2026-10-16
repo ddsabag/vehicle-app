@@ -13,7 +13,8 @@ on:
 permissions:
   contents: write
 concurrency:
-  group: seo-publish
+  group: main-writer
+  cancel-in-progress: false
 jobs:
   publish:
     runs-on: ubuntu-latest

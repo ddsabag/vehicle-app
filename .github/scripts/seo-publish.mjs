@@ -2,7 +2,7 @@
 // Telegram (silent) says what is going out and when; deleting the branch (or telling Claude) cancels. Never touches the app, workflows or code:
 // only the paths in ALLOW. A changed existing page must not have been changed in the last 21 days (analytics/seo-changes.json on main), new pages are exempt.
 // Env: GITHUB_TOKEN, GITHUB_REPOSITORY (git credentials come from actions/checkout), TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID. DRY=1 prints only.
-import { execSync } from "node:child_process";
+import { execSync, execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
 const BR = "seo-auto", HOURS = 24, COOL_DAYS = 21, DRY = process.env.DRY === "1";
@@ -69,7 +69,7 @@ if (ageH < HOURS) { console.log(`waiting: ${ageH.toFixed(1)}h of ${HOURS}h`); pr
 try {
   sh("git config user.name 'github-actions[bot]' && git config user.email '41898282+github-actions[bot]@users.noreply.github.com'");
   sh("git checkout -q -B seo-merge origin/main");
-  sh(`git merge --no-ff -q -m "SEO auto-publish: ${subject.replace(/"/g, "'")}" origin/${BR}`);
+  execFileSync("git", ["merge", "--no-ff", "-q", "-m", "SEO auto-publish: " + subject, "origin/" + BR], { stdio: ["ignore", "pipe", "pipe"] });   // the subject comes from the branch: never through a shell
   sh("node .github/scripts/seo-check.mjs");
 } catch (e) {
   tryOut("git merge --abort");

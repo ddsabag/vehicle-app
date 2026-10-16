@@ -4,7 +4,7 @@
 const CF_TAG = "9bb0e756882c478a808d95596e0deade";
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-15";   // shown in /live/data so the running version is visible
+const BUILD = "live-16";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -199,7 +199,8 @@ table.q{width:100%;border-collapse:collapse;font-size:.85rem}.q th{font-weight:5
 <div class="card"><div class="lbl">צפיות בדפים היום</div><div class="num" id="pv">-</div><div class="sub">אתמול: <span id="pvy">-</span></div></div></div>
 <div class="advs" id="adv-web"></div>
 <div class="cols"><div class="card"><h2>מאיפה הגיעו לאתר היום</h2><p class="hint">כל ביקור נספר לפי המקום שממנו הגיע: גוגל, קישור שנשלח, או כניסה ישירה לכתובת.</p><ul id="so"></ul></div>
-<div class="card"><h2>כניסות מיוטיוב</h2><p class="hint">כמה פעמים נכנסו לאתר דרך הקישור שהוספנו בערוץ וב-8 סרטוני הרכב ביוטיוב. נספרים רק מי שהמדידה אצלו פעילה, ולכן המספר נמוך מהמציאות. הספירה מתחילה מהרגע שהגרסה החדשה של האתר פורסמה.</p><div id="cm"></div></div>
+<div class="card"><h2>כניסות מיוטיוב ומטיקטוק</h2><p class="hint">כמה פעמים נכנסו לאתר דרך הקישור בערוץ היוטיוב ובסרטונים, ודרך הקישור בביו של עמוד הטיקטוק של לוחית. נספרים רק מי שהמדידה אצלו פעילה, ולכן המספר נמוך מהמציאות. הספירה מתחילה מהרגע שהגרסה החדשה של האתר פורסמה.</p><div id="cm"></div></div>
+<div class="card" id="sc"><h2>עמוד הטיקטוק של לוחית</h2><p class="hint">מספרים ציבוריים מתוך TikTok Analytics, מוזנים פעם בשבוע (אין API חינמי לעמוד חדש). בסוגריים: השינוי מול ההזנה הקודמת.</p><ul id="sv"></ul></div>
 <div class="card"><h2>הדפים שהכי ראו באתר היום</h2><p class="hint">"/" הוא עמוד הבית.</p><ul id="pg"></ul></div></div>
 <h2 class="sec">SEO, חיפוש בגוגל (Search Console)</h2>
 <p class="muted" id="seonote">טוען</p>
@@ -224,7 +225,7 @@ const FKX={data:"בדיקת נתוני משרד התחבורה. אם יש התר
 const FK={data:"נתונים",infra:"תשתית",content:"תוכן",market:"שוק",release:"שחרור",experiment:"ניסוי",reviews:"ביקורות"};
 const ADV=(c,w,r)=>'<div class="adv '+c+'"><b>מה זה:</b> '+w+' <b>המלצה:</b> '+r+'</div>';
 const pr=x=>(Math.round(x*10)/10).toLocaleString("en-US")+"%";
-const $=i=>document.getElementById(i),n=x=>x==null?"-":Number(x).toLocaleString("en-US"),esc=t=>String(t).replace(/[<>&]/g,"");
+const $=i=>document.getElementById(i),n=x=>x==null?"-":Number(x).toLocaleString("en-US"),esc=t=>String(t).replace(/[<>&"]/g,"");
 const row=(k,v,m)=>{const x=EX[k]||EXB[k]||EXT[k];return "<li><span>"+esc(m||k)+(x?'<span class="ex">'+esc(x)+"</span>":"")+"</span><b>"+n(v)+"</b></li>"};
 
 function advise(d,ev,dl,K,E,S,get,bad){const A=(id,arr)=>{const el=$(id);if(el)el.innerHTML=arr.join("")};
@@ -278,8 +279,10 @@ const SRC=h=>!h?"כניסה ישירה":/google\\./.test(h)?"גוגל":/bing\\.|
 const agg=(arr,f)=>{const m={};(arr||[]).forEach(r=>{const k=f(r[0]);m[k]=(m[k]||0)+r[1]});return Object.entries(m).sort((a,b)=>b[1]-a[1])};
 const lst=(id,arr)=>{$(id).innerHTML=arr&&arr.length?arr.map(r=>'<li><span>'+esc(r[0])+'</span><b>'+n(r[1])+'</b></li>').join(""):'<li><span class="muted">אין נתונים</span><b></b></li>'};
 lst("so",dl.sources?agg(dl.sources,SRC):null);
-{const C=dl.campaigns||{},keys=["youtube"],CN={youtube:"יוטיוב"};
+{const C=dl.campaigns||{},keys=["youtube","tiktok"],CN={youtube:"יוטיוב",tiktok:"טיקטוק"};
 $("cm").innerHTML=dl.campaigns===null?'<p class="muted">אין נתונים כרגע</p>':'<table class="q"><thead><tr><th>מקור</th><th class="n">היום</th><th class="n">7 ימים</th><th class="n">28 ימים</th></tr></thead><tbody>'+keys.map(k=>{const v=C[k]||[0,0,0];return '<tr><td class="w">'+esc(CN[k]||k)+'</td>'+v.map(x=>'<td class="n">'+n(x)+'</td>').join("")+'</tr>'}).join("")+'</tbody></table>'}lst("pg",dl.pages?agg(dl.pages,h=>h||"/"):null);
+{const T=d.metrics&&d.metrics.social&&d.metrics.social.tiktok,P=T&&T.prev||{},dd=(k)=>P[k]==null?"":' <span class="ex">('+(T[k]-P[k]>=0?"+":"")+n(T[k]-P[k])+")</span>";
+$("sv").innerHTML=T?[["followers","עוקבים"],["views7","צפיות ב-7 ימים"],["likes7","לייקים ב-7 ימים"],["profile7","צפיות בפרופיל ב-7 ימים"],["videos","סרטונים שפורסמו"]].map(([k,l])=>'<li><span>'+l+dd(k)+'</span><b>'+n(T[k])+'</b></li>').join("")+'<li><span class="muted">עודכן '+esc(String(T.at||"").slice(0,10).split("-").reverse().join("/"))+'</span><b></b></li>':'<li><span class="muted">אין עדיין נתונים: מריצים את Social stats ב-Actions אחרי קריאת TikTok Analytics</span><b></b></li>'}
 const S=d.seo;
 if(S&&S.cur){const c=S.cur,p=S.prev||{},df=(a,b,inv)=>b?((a-b)/b*100):null,ar=v=>v==null?"אין מידע לשבוע קודם":(v>=0?"+":"")+(Math.round(v*10)/10)+"% לעומת שבוע קודם",pc=x=>(Math.round(x*1000)/10)+"%";
 const sc=(l,v,pv,h)=>'<div class="card"><div class="lbl">'+l+'</div><div class="num">'+v+'</div><div class="sub">'+pv+'</div><div class="sub">'+h+'</div></div>';

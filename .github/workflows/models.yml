@@ -1,7 +1,7 @@
 name: Model names
 on:
   schedule:
-    - cron: "50 5 6 * *"   # monthly, after the market data
+    - cron: "50 5 7 * *"   # monthly, the day after modelstats (same main-writer group: a pending run would otherwise be cancelled)
   workflow_dispatch:
 permissions:
   contents: write

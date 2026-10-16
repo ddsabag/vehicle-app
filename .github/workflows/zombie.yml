@@ -3,7 +3,7 @@ name: Back-on-road detector
 # as small shards on the zombie-data branch (the app reads only the shard for the plate it shows).
 on:
   schedule:
-    - cron: "10 4 3 * *"
+    - cron: "0 1 3 * *"   # away from the 03:30-04:30 daily jobs so the heavy pull does not skew their latency checks
   workflow_dispatch:
 permissions:
   contents: write

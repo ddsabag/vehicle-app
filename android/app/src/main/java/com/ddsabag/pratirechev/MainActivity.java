@@ -139,7 +139,7 @@ public class MainActivity extends Activity {
                         String k = it.next();
                         if (!k.matches("[a-z][a-z0-9_]{0,39}")) continue;
                         Object v = o.get(k);
-                        if (v instanceof Number) b.putLong(k, ((Number) v).longValue());
+                        if (v instanceof Number) { long lv = ((Number) v).longValue(); if (Math.abs(lv) < 10000) b.putLong(k, lv); }   // counts and flags only, never a plate-sized number
                         else if (v instanceof Boolean) b.putLong(k, ((Boolean) v) ? 1 : 0);
                         else {
                             String sv = String.valueOf(v);
