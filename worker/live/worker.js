@@ -4,7 +4,7 @@
 const CF_TAG = "9bb0e756882c478a808d95596e0deade";
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-13";   // shown in /live/data so the running version is visible
+const BUILD = "live-14";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -257,7 +257,7 @@ L("sm",S.sitemaps,r=>'<li><span dir="ltr">'+path(r.path)+'</span><b>'+n(r.submit
 }else{$("sg").innerHTML="";$("seonote").textContent=S?"אין עדיין נתוני חיפוש":"טוען או לא זמין (ראה שגיאות בתחתית הדף)"}
 /* targets: set in this list (value, date) and edit when the plan changes. Cumulative goals (pages, clicks) are judged against a straight line from the starting value to the target date, a rate (share) against the target itself. */
 const TARGETS=[
-{id:"index",label:"דפים באינדקס של גוגל",unit:"",start:51,startDate:"2026-10-14",goal:75,due:"2026-11-15",hint:"מתוך 207 דפים במפת האתר. מתעדכן פעם ביום."},
+{id:"index",label:"דפים באינדקס של גוגל",unit:"",start:51,startDate:"2026-10-14",goal:75,due:"2026-11-15",hint:"מתוך כל הדפים במפת האתר, לפי בדיקה ישירה מול גוגל (דוח Search Console מתעדכן באיחור של ימים). נקודת ההתחלה ב-14.10 הייתה 51 מתוך 207. מתעדכן פעם ביום."},
 {id:"clicks",label:"קליקים מגוגל בשבוע",unit:"",start:0,startDate:"2026-10-14",goal:5,due:"2026-11-15",hint:"7 ימים, עם עיכוב של 2 עד 3 ימים בנתוני גוגל."},
 {id:"share",label:"אחוז המשתמשים שמשתפים",unit:"%",goal:10,rate:true,hint:"משתמשים ששיתפו מתוך אלה שבדקו רכב, אתמול. היעד נקבע בלי נתון קודם, ויתוקן אחרי שבועיים."}];
 const st=(a,e)=>a>=e?"ok":e<2?"warn":a>=0.7*e?"warn":"bad";   // while the expected amount is still under 2 the data is too thin to show red
