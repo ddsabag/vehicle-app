@@ -551,7 +551,10 @@ section[style*="--n:3"] .cmp-table>.cmp-k{font-size:.85rem}
 body.land main{max-width:1100px}
 body.land .band{display:none}
 .cmp-v{font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:normal!important;font-size:.95rem}
-.cmp-v.win{color:var(--ok);background:var(--ok-bg);border-radius:8px}
+.cmp-v.win{font-weight:700;background:var(--soft);border-radius:8px}.cmp-v.win::after{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-inline-start:5px;vertical-align:middle}
+.cmp-h.fail{border:1px dashed var(--line);background:transparent;justify-content:center;text-align:center;align-items:center}.cmp-h.fail small{white-space:normal;color:var(--muted)}.cmp-h.fail .retry{border:0;border-radius:8px;background:var(--fg);color:var(--card);font:inherit;font-weight:700;font-size:.8rem;padding:6px 10px;min-height:32px;margin-top:4px}
+.cmp-sec button{all:unset;cursor:pointer;display:flex;justify-content:space-between;align-items:center;width:100%;min-height:36px}.cmp-sec button small{font-weight:400;color:var(--muted);font-size:.8rem}.cmp-sec button svg.i{width:16px;height:16px;transition:transform .15s}.cmp-sec button[aria-expanded="false"] svg.i{transform:rotate(180deg)}
+.cmp-save{border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font:inherit;font-weight:700;font-size:.8rem;padding:6px 4px;min-height:36px;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cmp-save[aria-pressed="true"]{background:var(--soft);color:var(--muted);font-weight:400}
 .cmp-v .yes{color:var(--ok);font-weight:800}.cmp-v .no{color:var(--muted);font-weight:400}
 @media (max-width:360px){.facts{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -2745,6 +2748,7 @@ async function fetchModel(r, signal){
 const isBiz = () => atLeast("biz");
 const cmpMax = () => Math.min(isPro() ? PRO_CMP : FREE_CMP, matchMedia("(max-width:419px)").matches ? 3 : 99);   // narrow screens: more columns break the sticky header and the row labels
 let cmp = [], inCompare = false, mResults = [], mCtrl = null;
+const CMP_FOLDED = new Set(["מערכות בטיחות ואבזור"]), cmpOpen = new Set();   // sections folded by default in the comparison
 function openCompare(){
   loadModelIndex(); loadModelStats().catch(() => null);
   $("#compareSheet").hidden = false; $("#compareMsg").textContent = "";
@@ -2769,7 +2773,8 @@ function renderQuick(){
 }
 function addToCompare(D){
   const id = x => x.plate || x.key;
-  if (cmp.some(x => id(x) === id(D))) { $("#compareMsg").textContent = "הרכב הזה כבר בהשוואה."; return false; }
+  if (cmp.some(x => id(x) === id(D))) { $("#compareMsg").textContent = "הרכב הזה כבר בהשוואה."; toast("הרכב הזה כבר בהשוואה"); return false; }
+  cmp = cmp.filter(x => x.kind !== "fail" || id(x) !== id(D));
   cmp.push(D); if (cmp.length > cmpMax()) cmp.shift();
   $("#compareSheet").hidden = true; renderCompare(); window.scrollTo({top: 0});
   return true;
@@ -2980,7 +2985,7 @@ async function loadSimilar(D){
   const priceOfG = (mk, md) => priceMap.get(mk.split(" ")[0] + "|" + modelBase(cleanModelName(normModel(md)))) || 0;
   const basePrice = (D.cost && D.cost.newPrice ? D.cost.newPrice / 1000 : 0) || priceOfG(rowMake({tozeret_nm: D.make || D.v.tozeret_nm, tozeret_eretz_nm: D.v.tozeret_eretz_nm}), D.model || D.v.kinuy_mishari || "");
   const hp = num(w.koah_sus), kg = num(w.mishkal_kolel), own = groupKey({...D.v, kinuy_mishari: D.model || D.v.kinuy_mishari});
-  const taken = new Set(cmp.map(x => groupKey({...x.v, kinuy_mishari: x.model || x.v.kinuy_mishari})));
+  const taken = new Set(cmp.filter(x => x.kind !== "fail").map(x => groupKey({...x.v, kinuy_mishari: x.model || x.v.kinuy_mishari})));
   const groups = new Map();
   for (const r of rows) {
     if (empty(r.tozeret_cd) || !rowModel(r)) continue;
@@ -3021,6 +3026,7 @@ async function runCompare(raw){
   const plate = digits(raw).replace(/^0+(?=\d{5})/, "");
   const msg = $("#compareMsg");
   if (plate.length < 5 || plate.length > 8) { msg.textContent = "מספר רישוי צריך להכיל 5 עד 8 ספרות."; return; }
+  if (cmp.some(x => x.plate === plate && x.kind !== "fail")) { msg.textContent = "הרכב הזה כבר בהשוואה."; toast("הרכב הזה כבר בהשוואה"); return; }
   msg.textContent = "מחפש…";
   try {
     const D = await fetchVehicle(plate, undefined);
@@ -3033,8 +3039,11 @@ function renderCompare(){
   inCompare = true;
   // late model counts re-draw once, in place: the scroll position is kept so nothing jumps
   if (!MSTATS) loadModelStats().then(j => { if (j && inCompare) { const y = window.scrollY; renderCompare(); window.scrollTo(0, y); } });
-  const L = cmp, n = L.length;
-  const anyCar = L.some(D => D.kind !== "model");
+  const L = cmp, n = L.length, OK = L.filter(D => D.kind !== "fail");
+  const anyCar = OK.some(D => D.kind !== "model");
+  // a motorcycle against a family car, or a truck against a model: the rows still render, but the reader is told why many cells are empty
+  const kinds = new Set(OK.map(D => D.kind === "model" ? "רכב" : (D.primary && D.primary.kind) || (isCommercial(D) ? "רכב מסחרי" : "רכב")));
+  const mixNote = kinds.size > 1 ? `<p class="note" style="margin:0 0 8px">ההשוואה היא בין סוגי רכב שונים (${[...kinds].join(" מול ")}). שורות שלא קיימות לאחד מהם מסומנות ב-—.</p>` : "";
   const N = x => x === null || x === undefined || x === "" || (typeof x === "number" && isNaN(x)) ? null : x;
   const nf = (o, k) => o && isNum(o[k]) && num(o[k]) > 0 ? num(o[k]) : null;
   const tow = (D, k) => D.tSrc ? nf(D.tSrc, k) : towBan(D) ? "אסור" : null;
@@ -3059,7 +3068,7 @@ function renderCompare(){
     ["קבוצת זיהום", D => num(D.pick(D.v.kvutzat_zihum, D.w.kvutzat_zihum)), "lo"],
     "מערכות בטיחות ואבזור",
     ["מערכות בטיחות מתקדמות", D => Object.keys(SYSTEMS).some(k => !empty(D.w[k])) ? Object.keys(SYSTEMS).filter(k => yes(D.w[k])).length : null, "hi", ""],
-    ...[...Object.entries(SYSTEMS), ...Object.entries(EQUIP)].filter(([k]) => L.some(D => !empty(D.w[k]) && num(D.w[k]) > 0))
+    ...[...Object.entries(SYSTEMS), ...Object.entries(EQUIP)].filter(([k]) => OK.some(D => !empty(D.w[k]) && num(D.w[k]) > 0))
       .map(([k, t]) => [t, D => empty(D.w[k]) ? null : num(D.w[k]) > 0, "yes"]),
     "מחיר ועלויות",
     ["עלות חודשית (הערכה)", D => D.cost.monthly ? D.cost.monthly.total : null, "lo", "₪"],
@@ -3068,7 +3077,7 @@ function renderCompare(){
     // one consumption row for every drive type (a petrol car has no kWh and an EV no litres), and one cost row in shekels that compares them fairly
     ["צריכת אנרגיה (הערכה)", D => D.cost.kwh100 ? `${D.cost.kwh100} קוט״ש ל-100 ק״מ` : D.cost.l100 ? (kmlUnit() ? `${Math.round(1000 / D.cost.l100) / 10} ק״מ לליטר` : `${Math.round(D.cost.l100 * 10) / 10} ל׳ ל-100 ק״מ`) : null, null, "", true],
     ["עלות אנרגיה ל-100 ק״מ (הערכה)", D => D.cost.fuelYear && D.cost.kmYear ? Math.round(D.cost.fuelYear / D.cost.kmYear * 1000) / 10 : null, "lo", "₪", true],
-    [L.some(D => D.cost.kind === "ev") ? "דלק או חשמל בשנה (הערכה)" : "דלק בשנה (הערכה)", D => D.cost.fuelYear ? Math.round(D.cost.fuelYear / 100) * 100 : null, "lo", "₪"],
+    [OK.some(D => D.cost.kind === "ev") ? "דלק או חשמל בשנה (הערכה)" : "דלק בשנה (הערכה)", D => D.cost.fuelYear ? Math.round(D.cost.fuelYear / 100) * 100 : null, "lo", "₪"],
     ["אגרת רישוי (הערכה)", D => D.cost.fee || null, "lo", "₪"],
     ["שווי שימוש לחודש", D => D.cost.usage ? D.cost.usage.monthly : null, "lo", "₪"],
     "אמינות",
@@ -3084,25 +3093,26 @@ function renderCompare(){
       ["בעלות ראשונה", D => firstOwner(D.v) || "", null, "", false, true]] : []),
   ];
   const cell = (x, u, plain) => x === null ? "—" : typeof x === "boolean" ? (x ? `<span class="yes">✓</span>` : `<span class="no">✗</span>`) : typeof x === "number" ? `${plain ? x : fmtN(x)}${u ? ` <span class="u">${u}</span>` : ""}` : esc(x);
-  const body = rows.map(r => {
-    if (typeof r === "string") return `<div class="cmp-sec">${esc(r)}</div>`;
+  // rows are grouped under their section; the long equipment list starts folded (the DOM stays small, the core numbers stay in view)
+  const secs = []; let sec = null;
+  for (const r of rows) {
+    if (typeof r === "string") { sec = {title: r, html: [], n: 0}; secs.push(sec); continue; }
     const [k, f, dir, u, plain, carOnly] = r;
-    const vals = L.map(D => carOnly && D.kind === "model" ? null : N(f(D)));
-    if (vals.every(x => x === null)) return "";
-    if (diffOnly && n > 1 && new Set(vals.map(x => JSON.stringify(x))).size === 1) return "";
+    const vals = L.map(D => D.kind === "fail" || (carOnly && D.kind === "model") ? null : N(f(D)));
+    if (vals.every(x => x === null)) continue;
+    if (diffOnly && n > 1 && new Set(vals.map(x => JSON.stringify(x))).size === 1) continue;
     const nums = vals.filter(x => typeof x === "number");
     let best = null;
     if (dir === "yes") { if (n > 1 && vals.some(x => x === true) && vals.some(x => x !== true)) best = true; }
     else if (dir && n > 1 && nums.length > 1 && new Set(nums).size > 1) best = dir === "hi" ? Math.max(...nums) : Math.min(...nums);
-    return `<div class="cmp-k">${esc(k)}</div>` + vals.map(x => `<div class="cmp-v${best !== null && x === best ? " win" : ""}">${cell(x, u, plain)}</div>`).join("");
-  }).filter((h, i, all) => {
-    // a section title stays only when at least one row follows it
-    if (!h.startsWith(`<div class="cmp-sec">`)) return !!h;
-    const next = all.slice(i + 1).find(Boolean);
-    return !!next && !next.startsWith(`<div class="cmp-sec">`);
-  }).join("");
-  const head = (D, i) => `<div class="cmp-h"><div class="cmp-top">${D.kind === "model" ? `<span class="tag">דגם</span>` : `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>`}<button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><b>${esc(D.title)}</b><small>${esc(D.alts && D.alts.length > 1 ? String(D.v.shnat_yitzur || "") : D.sub)}</small>${D.alts && D.alts.length > 1 ? `<select class="trim-sel" data-trim="${i}" aria-label="רמת גימור">${D.alts.map((r, j) => `<option value="${j}"${rowKey(r) === D.key ? " selected" : ""}>${esc(String(r.ramat_gimur || "").trim() || "גרסה בסיסית")}</option>`).join("")}</select>` : ""}</div>`;
-  const base = n && n < cmpMax() ? L[n - 1] : null;
+    sec.n++; sec.html.push(`<div class="cmp-k">${esc(k)}</div>` + vals.map(x => `<div class="cmp-v${best !== null && x === best ? " win" : ""}">${cell(x, u, plain)}</div>`).join(""));
+  }
+  const body = secs.filter(x => x.n).map(x => {
+    const open = cmpOpen.has(x.title) || !CMP_FOLDED.has(x.title);
+    return `<div class="cmp-sec"><button type="button" data-sec="${esc(x.title)}" aria-expanded="${open}">${esc(x.title)}${open ? "" : `<small>${x.n} שורות</small>`}${ico("chev")}</button></div>` + (open ? x.html.join("") : "");
+  }).join("") + (OK.some(D => D.plate) ? `<div class="cmp-k">ברכבים שלי</div>` + L.map((D, i) => `<div class="cmp-v">${D.plate && D.kind !== "fail" ? `<button type="button" class="cmp-save" data-cmpsave="${i}" aria-pressed="${isSaved(D.plate)}">${isSaved(D.plate) ? "נשמר ✓" : "שמירה"}</button>` : ""}</div>`).join("") : "");
+  const head = (D, i) => D.kind === "fail" ? `<div class="cmp-h fail"><div class="cmp-top"><span class="mini-plate"><i></i>${esc(D.title)}</span><button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><small>${esc(D.why)}</small>${D.retry ? `<button type="button" class="retry" data-retry-cmp="${i}">נסו שוב</button>` : ""}</div>` : `<div class="cmp-h"><div class="cmp-top">${D.kind === "model" ? `<span class="tag">דגם</span>` : `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>`}<button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><b>${esc(D.title)}</b><small>${esc(D.alts && D.alts.length > 1 ? String(D.v.shnat_yitzur || "") : D.sub)}</small>${D.alts && D.alts.length > 1 ? `<select class="trim-sel" data-trim="${i}" aria-label="רמת גימור">${D.alts.map((r, j) => `<option value="${j}"${rowKey(r) === D.key ? " selected" : ""}>${esc(String(r.ramat_gimur || "").trim() || "גרסה בסיסית")}</option>`).join("")}</select>` : ""}</div>`;
+  const base = OK.length && n < cmpMax() ? OK[OK.length - 1] : null;
   if (base) loadSimilar(base);
   const simHtml = base && simFor === (base.key || base.plate) && simList.length ? `<div class="sim-box"><div class="qsec">דגמים דומים, להוספה בלחיצה</div><div class="list">${simList.map((g, i) => {
     const r = g.alts[0], dt = driveType(rowD(r));
@@ -3114,10 +3124,10 @@ function renderCompare(){
     <div class="slots">${[1, 2, 3].map(i => `<button type="button" data-act="addCompare">${ico("plus")}רכב ${i}</button>`).join("")}</div>`}
     ${n ? `<div class="cmp-bar">${n < cmpMax() ? `<button type="button" class="cmp-tool add" data-act="addCompare">${ico("plus")}הוספה</button>` : ""}${n > 1 ? `<button type="button" class="cmp-tool" data-act="diffOnly" aria-pressed="${diffOnly}">${ico("compare")}רק הבדלים</button><button type="button" class="cmp-tool ic" data-act="land" aria-pressed="${land}" aria-label="${land ? "תצוגה רגילה" : "תצוגה לרוחב"}" title="${land ? "תצוגה רגילה" : "תצוגה לרוחב"}">${ico("rotate")}</button><button type="button" class="cmp-tool ic" data-act="shareCmp" aria-label="שיתוף קישור להשוואה" title="שיתוף קישור להשוואה">${ico("share")}</button><button type="button" class="cmp-tool ic" data-act="saveCmp" aria-label="שמירת השוואה" title="שמירת השוואה">${ico("star")}</button><button type="button" class="cmp-tool ic" data-act="cmpPdf" aria-label="PDF" title="PDF">${ico("doc")}</button>` : ""}</div>` : ""}
     ${n === 1 ? `<p class="note" style="margin:0 0 8px">הוסיפו רכב או דגם נוסף כדי לראות מי עדיף בכל שורה.</p>` : ""}
-    ${simHtml}
+    ${mixNote}${simHtml}
     ${n ? `<div class="cmp"><div class="ph"></div>${L.map(head).join("")}</div>` : ""}
     ${n ? `<div class="cmp-table">${body}</div>` : ""}
-    ${n > 1 ? `<p class="note">ירוק מסמן את הערך העדיף בכל שורה.</p>` : ""}</section>`;
+    ${n > 1 ? `<p class="note">מודגש עם נקודה = הערך העדיף בשורה.</p>` : ""}</section>`;
 }
 
 function summaryText(D){
@@ -3160,6 +3170,9 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.bell) { const list = store.get("savedVehicles"), it = list.find(x => x.plate === b.dataset.bell); if (it && it.alerts === false && list.filter(x => x.alerts !== false).length >= alertCap()) { toast(`התראות ליותר מ-${alertCap()} רכבים זמינות בחבילה גבוהה יותר`); return; } if (it) { it.alerts = it.alerts === false; track("alerts_toggle", {on: it.alerts !== false ? "1" : "0"}); store.set("savedVehicles", list); toast(it.alerts === false ? "ההתראות לרכב הזה כבויות" : "תקבלו התראות על הרכב הזה"); renderHome(); } return; }
   if (b.dataset.unsave) { store.set("savedVehicles", store.get("savedVehicles").filter(x => x.plate !== b.dataset.unsave)); renderHome(); return; }
   if (b.dataset.rm) { cmp.splice(+b.dataset.rm, 1); renderCompare(); return; }
+  if (b.dataset.retryCmp) { retryCompare(+b.dataset.retryCmp); return; }
+  if (b.dataset.sec) { const t = b.dataset.sec, y = window.scrollY; if (b.getAttribute("aria-expanded") === "true") { cmpOpen.delete(t); CMP_FOLDED.add(t); } else { cmpOpen.add(t); } renderCompare(); window.scrollTo(0, y); return; }
+  if (b.dataset.cmpsave) { const D = cmp[+b.dataset.cmpsave]; if (D && D.plate && D.kind !== "fail") { const on = toggleSaved(newSavedItem(D)); toast(on ? "נשמר ברכבים שלי" : "הוסר מהרכבים שלי"); const y = window.scrollY; renderCompare(); window.scrollTo(0, y); } return; }
   if (b.dataset.act === "addCompare") { openCompare(); return; }
   if (b.dataset.act === "compareHome") { cmp = []; renderCompare(); openCompare("model"); return; }
   if (b.dataset.act === "market") { openMarket(); return; }
@@ -4211,41 +4224,70 @@ async function openMarket(){
 function saveCompare(){
   if (cmp.length < 2) { toast("הוסיפו לפחות שני רכבים"); return; }
   if (PRO_LOCK && !isPro()) { toast("שמירת השוואות זמינה ב-PRO"); return; }
-  const items = cmp.map(D => D.plate ? {plate: D.plate} : {model: D.v});
-  const name = cmp.map(D => D.title).join(" · ").slice(0, 60), list = store.get("savedCompares").filter(x => x.name !== name);
+  const live = cmp.filter(D => D.kind !== "fail");
+  const items = live.map(D => D.plate ? {plate: D.plate} : {model: D.v});
+  const name = live.map(D => D.title).join(" · ").slice(0, 60), list = store.get("savedCompares").filter(x => x.name !== name);
   store.set("savedCompares", [{name, items, at: Date.now()}, ...list].slice(0, 10)); toast("ההשוואה נשמרה");
 }
 const CMP_KEYS = ["tozeret_cd", "degem_cd", "shnat_yitzur", "ramat_gimur", "kinuy_mishari", "tozeret_nm", "degem_nm", "sug_degem"];
 const b64u = {enc: t => btoa(unescape(encodeURIComponent(t))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""), dec: t => decodeURIComponent(escape(atob(t.replace(/-/g, "+").replace(/_/g, "/"))))};
 function cmpLink(){
-  const items = cmp.map(D => D.plate ? {p: D.plate} : {m: CMP_KEYS.map(k => D.v[k] ?? "")});
+  const items = cmp.filter(D => D.kind !== "fail").map(D => D.plate ? {p: D.plate} : {m: CMP_KEYS.map(k => D.v[k] ?? "")});
   return SITE + "?cmp=" + b64u.enc(JSON.stringify(items));
 }
 async function shareCompare(){
   if (!cmp.length) return;
-  const text = `השוואת רכבים: ${cmp.map(D => D.title).join(" מול ")}\n${cmpLink()}`;
+  const text = `השוואת רכבים: ${cmp.filter(D => D.kind !== "fail").map(D => D.title).join(" מול ")}\n${cmpLink()}`;
   try { if (bridge() && bridge().share) { bridge().share("השוואת רכבים", text); return; } } catch {}
   if (navigator.share) { try { await navigator.share({title: "השוואת רכבים", text}); return; } catch (err) { if (err && err.name === "AbortError") return; } }
   copyText(text, "הקישור");
 }
 const cmpSkeleton = n => `<section class="card blue" aria-busy="true"><div class="skl" aria-hidden="true"><i class="s w50 h24"></i><div class="sr g4" style="grid-template-columns:repeat(${n},1fr)">${"<i class=\"s blk\"></i>".repeat(n)}</div>${"<i class=\"s w40\"></i><i class=\"s w90\"></i>".repeat(5)}</div></section>`;
+/* The one place a set of vehicles is loaded into the comparison (shared link, saved comparison, retry of one column).
+   Items: {plate} or {model: {...catalogue keys}}. Every item is fetched at the same time (allSettled), so the wait is the slowest
+   request, not the sum; duplicates are dropped before any request; an item that fails keeps its column as a "fail" entry with a
+   retry button, while the others render in full. Returns the number of vehicles that loaded. */
+const cmpItemId = it => it.plate ? "p:" + it.plate : "m:" + CMP_KEYS.map(k => (it.model || {})[k] ?? "").join("|");
+const cmpEntryId = D => D.kind === "fail" ? cmpItemId(D.item) : D.plate ? "p:" + D.plate : "m:" + CMP_KEYS.map(k => D.v[k] ?? "").join("|");
+async function loadCompareSet(items, {replace = true, at = null} = {}){
+  const seen = new Set(replace ? [] : cmp.filter(D => D.kind !== "fail").map(cmpEntryId)), todo = [];
+  for (const it of items) { const id = cmpItemId(it); if (seen.has(id)) { if (!replace) toast("הרכב הזה כבר בהשוואה"); continue; } seen.add(id); todo.push(it); }
+  const room = cmpMax() - (replace ? 0 : cmp.length) + (at !== null ? 1 : 0);
+  const list = todo.slice(0, Math.max(0, room));
+  const settled = await Promise.all([Promise.allSettled(list.map(it => it.plate ? fetchVehicle(it.plate) : fetchModel(it.model))), loadModelStats().catch(() => null)]).then(r => r[0]);
+  const entries = settled.map((r, i) => {
+    const it = list[i], D = r.status === "fulfilled" ? r.value : null;
+    if (D && !D.notFound && !D.offline) return D;
+    const why = D && D.notFound ? "לא נמצא רכב עם המספר הזה" : "לא הצלחנו לטעון. בדקו את החיבור ונסו שוב";
+    return {kind: "fail", item: it, plate: it.plate || null, why, retry: !(D && D.notFound), title: it.plate ? fmtPlate(it.plate) : "דגם"};
+  });
+  if (replace) cmp = entries; else if (at !== null) cmp.splice(at, 1, ...entries); else cmp.push(...entries);
+  return entries.filter(D => D.kind !== "fail").length;
+}
 async function loadCompareLink(code){
-  let items; try { items = JSON.parse(b64u.dec(code)).slice(0, cmpMax()); } catch { return false; }
+  let items;
+  if (/^[\d,]+$/.test(code)) items = code.split(",").map(x => digits(x)).filter(x => x.length >= 5 && x.length <= 8).map(p => ({plate: p}));   // ?compare=123,456
+  else { try { items = JSON.parse(b64u.dec(code)).map(it => it.p ? {plate: digits(it.p)} : {model: Object.fromEntries(CMP_KEYS.map((k, i) => [k, (it.m || [])[i]]).filter(e => e[1] !== "" && e[1] != null))}); } catch { return false; } }
   if (!Array.isArray(items) || !items.length) return false;
+  items = items.slice(0, cmpMax());
   $("#out").innerHTML = cmpSkeleton(Math.min(items.length, 3));
   try {
-    const [res] = await Promise.all([Promise.all(items.map(it => it.p ? fetchVehicle(digits(it.p)) : fetchModel(Object.fromEntries(CMP_KEYS.map((k, i) => [k, (it.m || [])[i]]).filter(e => e[1] !== "" && e[1] != null))))), loadModelStats().catch(() => null)]);
-    cmp = res.filter(D => D && !D.notFound && !D.offline); if (!cmp.length) return false;
+    const ok = await loadCompareSet(items);
+    if (!ok && !cmp.some(D => D.kind === "fail" && D.retry)) return false;
     renderCompare(); window.scrollTo({top: 0}); return true;
   } catch { return false; }
 }
 async function loadCompare(i){
   const e = store.get("savedCompares")[i]; if (!e) return;
   toast("טוען השוואה…");
-  try {
-    const [res] = await Promise.all([Promise.all(e.items.map(it => it.plate ? fetchVehicle(it.plate) : fetchModel(it.model))), loadModelStats().catch(() => null)]);
-    cmp = res.filter(D => D && !D.notFound && !D.offline); renderCompare(); window.scrollTo({top: 0});
-  } catch { toast("לא הצלחנו לטעון את ההשוואה"); }
+  try { await loadCompareSet(e.items.map(it => it.plate ? {plate: it.plate} : {model: it.model})); renderCompare(); window.scrollTo({top: 0}); }
+  catch { toast("לא הצלחנו לטעון את ההשוואה"); }
+}
+async function retryCompare(i){
+  const D = cmp[i]; if (!D || D.kind !== "fail") return;
+  const b = document.querySelector(`[data-retry-cmp="${i}"]`); if (b) { b.disabled = true; b.textContent = "טוען…"; }
+  try { await loadCompareSet([D.item], {replace: false, at: i}); } catch {}
+  renderCompare();
 }
 function renderFleet(){
   if (land) setLand(false, false);
@@ -4809,7 +4851,7 @@ if (!window.AndroidApp && "serviceWorker" in navigator && window.isSecureContext
   window.addEventListener("load", () => { navigator.serviceWorker.register("/sw.js").then(r => r.update()).catch(() => {}); });
 }
 const start = digits(location.hash) || digits(new URLSearchParams(location.search).get("plate"));
-const cmpParam = new URLSearchParams(location.search).get("cmp");
+const cmpParam = new URLSearchParams(location.search).get("cmp") || new URLSearchParams(location.search).get("compare");
 /* web: this page was opened from a shared report, so it is shown as "sent to you" (see sharedBar) */
 const SHARED = !window.AndroidApp && start && new URLSearchParams(location.search).has("s") ? start : null;
 const SHARE_VIA = (new URLSearchParams(location.search).get("s") || "none").replace(/[^a-z]/g, "").slice(0, 8) || "none";
