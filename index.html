@@ -2131,7 +2131,7 @@ document.addEventListener("click", async ev => {
   else if (a === "share") shareFile(rec.blob, rec.name, rec.cat);
   else if (a === "del" && confirm("למחוק את המסמך מהתיק?")) { await DocDB.del(rec.id); docExpSave(docExpAll().filter(d => d.id !== rec.id)); fillDocs(); }
 });
-document.addEventListener("click", ev => { const b = ev.target.closest("[data-retry]"); if (b) lookup(b.dataset.retry); });
+document.addEventListener("click", ev => { const b = ev.target.closest("[data-retry]"); if (b) run(b.dataset.retry); });
 document.addEventListener("change", ev => { const f = ev.target.closest("#docFile"); if (!f || !current) return; const files = [...f.files]; f.value = ""; if (files.length) { const ex = $("#docExp"); docsAdd(files, current.plate, ($("#docCat") || {}).value || "אחר", ex && DOC_EXP_CATS.includes(($("#docCat") || {}).value) ? ex.value : ""); if (ex) ex.value = ""; } });
 document.addEventListener("change", ev => { const c = ev.target.closest("#docCat"); const r = $("#docExpRow"); if (c && r) r.hidden = !DOC_EXP_CATS.includes(c.value); });
 
@@ -2892,7 +2892,7 @@ async function runModelSearch(){
 }
 function showGroups(){
   const msg = $("#compareMsg"), shown = mShowAll ? mGroups : mGroups.slice(0, MODEL_SHOWN), rest = mGroups.length - shown.length;
-  if (!mGroups.length) { const term = ($("#mq").value || "").trim().toLowerCase().slice(0, 40); track("search_no_result", {kind: mNote ? "budget" : "model", term: /\d{5,}/.test(term) ? "" : term}); }
+  if (!mGroups.length) { const term = ($("#mq").value || "").trim().toLowerCase().slice(0, 40); track("search_no_result", {kind: mNote ? "budget" : "model", term: (term.replace(/\D/g, "").length >= 5 || /@/.test(term)) ? "" : term}); }
   msg.textContent = mGroups.length ? (searchFuzzy && !mNote ? "לא נמצא בדיוק. אולי התכוונתם:" : "") : (mNote ? "לא נמצאו דגמים שמתאימים לתנאים. נסו תקציב גבוה יותר או פחות תנאים." : "לא נמצאו דגמים. נסו שם אחר, למשל שם הדגם באנגלית.");
   let lastMake = null;
   $("#mres").innerHTML = (mNote && mGroups.length ? `<div class="qsec" style="margin-top:0">${pl(mGroups.length, "דגם אחד", "דגמים")}: ${esc(mNote)}</div>` : "") + shown.map(x => (x.make !== lastMake ? (lastMake = x.make, `<div class="qsec">${esc(x.make)}</div>`) : "") + `<button type="button" class="row" data-mg="${mGroups.indexOf(x)}"><span class="t"><b>${esc(x.model)}</b><small>${isFinite(x.from) ? (x.from === x.to ? x.from : `<span dir="ltr">${x.from}–${x.to}</span>`) : ""}${x.price ? ` · החל מ-${fmtN(x.price)} אלף ₪` : ""}</small></span>${ico("chev")}</button>`).join("")
@@ -4485,7 +4485,7 @@ function loadMagazine(){
 
 function run(p){ lookup(p).catch(err => {
   reportErr("lookup_failed");
-  const net = /HTTP|timeout|Failed to fetch|NetworkError|Load failed/i.test(String(err && err.message));
+  const net = /HTTP|timeout|Failed to fetch|NetworkError|Load failed|JSON|Unexpected token/i.test(String(err && err.message));
   const pd = digits(p);
   $("#out").innerHTML = `<div class="msg err">${net ? "לא הצלחנו להתחבר למאגרי משרד התחבורה. בדקו את החיבור ונסו שוב." : "משהו השתבש בבדיקה. נסו שוב."}</div>${pd.length >= 5 ? `<button type="button" class="link-btn" data-retry="${pd}">נסו שוב</button>` : ""}`;
   $("#go").disabled = false;

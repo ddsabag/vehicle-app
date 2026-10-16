@@ -11,6 +11,8 @@ on:
       - "Data status"
       - "Fuel price"
       - "IndexNow"
+      - "Web deploy (build)"
+      - "SEO check"
       - "SEO auto-publish"
       - "SEO tracker"
       - "Web watch"

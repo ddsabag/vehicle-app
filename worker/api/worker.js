@@ -18,6 +18,7 @@ async function sign(env, email, exp) {
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(env.CONFIRM_SECRET || env.BREVO_KEY), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   return b64u(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`confirm|${email}|${exp}`)));
 }
+const eq = (a, b) => { if (a.length !== b.length) return false; let d = 0; for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i); return d === 0; };   // constant time
 const brevo = (env, path, body) => fetch("https://api.brevo.com/v3" + path, { method: "POST", headers: { "api-key": env.BREVO_KEY, "content-type": "application/json", accept: "application/json" }, body: JSON.stringify(body) });
 
 const BIZ_TYPES = ["סוחר רכב", "מוסך או מרכז שירות", "שמאי רכב", "מכון בדיקה", "ליסינג או צי רכב", "מימון או ביטוח", "יבואן או יצרן", "עיתונות או מדיה", "אחר"];
@@ -64,6 +65,7 @@ const WEB_EVENTS = new Set(["car_lookup", "search_no_result", "share", "tab_view
   "link_out", "checklist_pdf", "simple_view", "lookup_failed", "lookup_timeout", "lookup_slow", "settlement_shown", "buy_step_done", "calendar_reminder_shown", "calendar_reminder_click", "exp_expose"]);
 async function webEvent(req, env) {
   if (req.method !== "POST" || req.headers.get("origin") !== ORIGIN) return new Response(null, { status: 204 });
+  const sfs = req.headers.get("sec-fetch-site"); if (sfs && sfs !== "same-origin") return new Response(null, { status: 204 });   // browsers set it; a cross-site page cannot fake it
   if (!env.GA_MEASUREMENT_ID || !env.GA_API_SECRET) return new Response(null, { status: 204 });
   let b; try { b = JSON.parse((await req.text()).slice(0, 2000)); } catch { return new Response(null, { status: 204 }); }
   if (!b || !WEB_EVENTS.has(b.n)) return new Response(null, { status: 204 });
@@ -71,7 +73,7 @@ async function webEvent(req, env) {
   for (const [k, v] of Object.entries(b.p || {}).slice(0, 10)) {
     if (!/^[a-z_]{1,24}$/.test(k)) continue;
     if (typeof v === "number" && isFinite(v)) params[k] = v;
-    else if (typeof v === "string" && !/\d{5,}|@/.test(v)) params[k] = v.slice(0, 40);
+    else if (typeof v === "string" && !/@/.test(v) && v.replace(/\D/g, "").length < 5) params[k] = v.slice(0, 40);
   }
   const cid = /^\d{1,10}\.\d{1,10}$/.test(String(b.cid)) ? b.cid : crypto.randomUUID();
   try {
@@ -89,7 +91,7 @@ export default {
 
     if (url.pathname === "/api/confirm" && req.method === "GET") {
       const email = (url.searchParams.get("e") || "").toLowerCase(), exp = Number(url.searchParams.get("x")), t = url.searchParams.get("t") || "";
-      if (!EMAIL_RE.test(email) || !(exp > Date.now()) || t !== await sign(env, email, exp)) return redirect("expired");
+      if (!EMAIL_RE.test(email) || !(exp > Date.now()) || !eq(t, await sign(env, email, exp))) return redirect("expired");
       const r = await brevo(env, "/contacts", { email, listIds: [Number(env.BREVO_LIST_ID)], updateEnabled: true, attributes: { SOURCE: "magazine", CONSENT_AT: new Date().toISOString() } });
       if (!r.ok) { console.log("brevo contacts", r.status, (await r.text()).slice(0, 300)); return redirect("error"); }
       return redirect("1");

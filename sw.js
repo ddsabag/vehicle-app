@@ -10,8 +10,11 @@ const APP_JS = /^\/app\.[0-9a-f]{10}\.js$/;
 async function keepAppScript(c, res) {
   try {
     const m = (await res.text()).match(/src="(\/app\.[0-9a-f]{10}\.js)"/);
-    if (m && !(await c.match(m[1]))) await c.add(m[1]);
-  } catch {}
+    if (!m) return true;
+    if (!(await c.match(m[1]))) await c.add(m[1]);
+    for (const k of await c.keys()) { const p = new URL(k.url).pathname; if (APP_JS.test(p) && p !== m[1]) await c.delete(k); }   // older bundles are dead weight
+    return true;
+  } catch { return false; }
 }
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(SHELL).then(async c => { await c.addAll(PRECACHE); const h = await c.match("/"); if (h) await keepAppScript(c, h.clone()); }).then(() => self.skipWaiting()));
@@ -27,7 +30,7 @@ self.addEventListener("fetch", e => {
     // any query (?plate=, ?cmp=) is served by the cached shell: the page reads it itself
     e.respondWith(caches.open(SHELL).then(async c => {
       const hit = await c.match("/");
-      const net = fetch("/").then(res => { if (res.ok) { const a = res.clone(), b = res.clone(); c.put("/", a); e.waitUntil(keepAppScript(c, b)); } return res; }).catch(() => null);
+      const net = fetch("/").then(res => { if (res.ok) { const a = res.clone(), b = res.clone(); e.waitUntil(keepAppScript(c, b).then(ok => { if (ok) return c.put("/", a); })); } return res; }).catch(() => null);
       if (hit) { e.waitUntil(net); return hit; }
       return (await net) || new Response("אין חיבור לאינטרנט", {status: 503, headers: {"Content-Type": "text/plain; charset=utf-8"}});
     }));

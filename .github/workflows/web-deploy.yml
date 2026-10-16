@@ -29,6 +29,7 @@ jobs:
   build:
     if: ${{ github.event_name == 'workflow_dispatch' || vars.WEB_DEPLOY == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -56,6 +57,7 @@ jobs:
     needs: build
     if: ${{ vars.WEB_DEPLOY == 'true' && (github.event_name != 'workflow_dispatch' || inputs.deploy) && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       pages: write
       id-token: write

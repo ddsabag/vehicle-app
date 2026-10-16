@@ -29,5 +29,5 @@ if (r.error || !r.code) throw new Error("minify failed");
 const hash = crypto.createHash("sha256").update(r.code).digest("hex").slice(0, 10);
 const name = `app.${hash}.js`;
 fs.writeFileSync(path.join(OUT, name), r.code);
-fs.writeFileSync(file, html.replace(big[0], `<script src="/${name}" defer></script>`));
+fs.writeFileSync(file, html.replace(big[0], `<script src="/${name}" defer onerror="if(!/[?&]r=1/.test(location.search))location.replace(location.pathname+(location.search?location.search+'&':'?')+'r=1'+location.hash)"></script>`));
 console.log(`index.html ${html.length} -> ${fs.statSync(file).size} bytes; ${name} ${big[1].length} -> ${r.code.length} bytes`);

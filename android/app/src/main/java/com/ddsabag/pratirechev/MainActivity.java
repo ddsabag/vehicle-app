@@ -141,7 +141,12 @@ public class MainActivity extends Activity {
                         Object v = o.get(k);
                         if (v instanceof Number) b.putLong(k, ((Number) v).longValue());
                         else if (v instanceof Boolean) b.putLong(k, ((Boolean) v) ? 1 : 0);
-                        else b.putString(k, String.valueOf(v).substring(0, Math.min(String.valueOf(v).length(), 60)));
+                        else {
+                            String sv = String.valueOf(v);
+                            // never a plate (5+ digits, with or without separators) or an email
+                            if (sv.replaceAll("[^0-9]", "").length() >= 5 || sv.contains("@")) continue;
+                            b.putString(k, sv.substring(0, Math.min(sv.length(), 60)));
+                        }
                     }
                     com.google.firebase.analytics.FirebaseAnalytics.getInstance(MainActivity.this).logEvent(name, b);
                 } catch (Throwable ignored) {
@@ -164,6 +169,7 @@ public class MainActivity extends Activity {
             public void setAnalytics(boolean on) {
                 try {
                     com.google.firebase.analytics.FirebaseAnalytics.getInstance(MainActivity.this).setAnalyticsCollectionEnabled(on);
+                    com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(on);
                 } catch (Throwable ignored) {
                 }
             }
