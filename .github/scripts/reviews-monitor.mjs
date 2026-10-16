@@ -6,6 +6,8 @@ import { flash } from "./flash.mjs";
 // State: seen.json (restored/saved by the workflow cache) so the same review is never sent twice.
 import fs from "node:fs";
 import crypto from "node:crypto";
+// Google answers 503 now and then; retry server errors a few times before reporting a failed check
+const rf = async (u, o) => { for (let i = 0; i < 3; i++) { const r = await fetch(u, o); if (r.status < 500) return r; await new Promise(s => setTimeout(s, 4000 * (i + 1))); } return fetch(u, o); };
 const PKG = process.env.PLAY_PACKAGE || "com.ddsabag.pratirechev", MAX_STARS = +(process.env.MAX_STARS || 3), DRY = process.env.DRY_RUN === "1";
 const STATE = process.env.STATE_FILE || "seen.json";
 const sa = JSON.parse(process.env.PLAY_SERVICE_ACCOUNT_JSON || process.env.GA_SERVICE_ACCOUNT_JSON || "null");
@@ -40,7 +42,7 @@ const errors = [];
 // ---- reviews ----
 try {
   const t = await token("https://www.googleapis.com/auth/androidpublisher");
-  const r = await fetch(`https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${PKG}/reviews?maxResults=100`, { headers: { authorization: "Bearer " + t } });
+  const r = await rf(`https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${PKG}/reviews?maxResults=100`, { headers: { authorization: "Bearer " + t } });
   if (!r.ok) throw new Error(`reviews API ${r.status}: ${(await r.text()).slice(0, 200)}`);
   const list = (await r.json()).reviews || [];
   const since = Date.now() / 1000 - 24 * 3600;
@@ -69,13 +71,13 @@ try {
     // the newest day Google has already computed moves during the day: ask the set itself instead of guessing "two days ago" (a fixed guess answered 400 whenever it was ahead of the data)
     let end = new Date(Date.now() - 2 * 864e5); end.setUTCHours(0, 0, 0, 0);
     try {
-      const fr = await fetch(`https://playdeveloperreporting.googleapis.com/v1beta1/apps/${PKG}/${kind}`, { headers: H });
+      const fr = await rf(`https://playdeveloperreporting.googleapis.com/v1beta1/apps/${PKG}/${kind}`, { headers: H });
       const f = fr.ok ? ((await fr.json()).freshnessInfo?.freshnesses || []).find(x => x.aggregationPeriod === "DAILY") : null;
       const le = f && f.latestEndTime; if (le && le.year) end = new Date(Date.UTC(le.year, le.month - 1, le.day));
     } catch {}
     const d = new Date(end.getTime() - 864e5);
     const body = { timelineSpec: { aggregationPeriod: "DAILY", startTime: { ...day(d), timeZone: { id: "America/Los_Angeles" } }, endTime: { ...day(end), timeZone: { id: "America/Los_Angeles" } } }, metrics: [metric, "distinctUsers"] };
-    const r = await fetch(`https://playdeveloperreporting.googleapis.com/v1beta1/apps/${PKG}/${kind}:query`, { method: "POST", headers: { ...H, "content-type": "application/json" }, body: JSON.stringify(body) });
+    const r = await rf(`https://playdeveloperreporting.googleapis.com/v1beta1/apps/${PKG}/${kind}:query`, { method: "POST", headers: { ...H, "content-type": "application/json" }, body: JSON.stringify(body) });
     if (!r.ok) throw new Error(`vitals ${kind} ${r.status} ${(await r.text()).replace(/\s+/g, " ").slice(0, 200)}`);
     const row = ((await r.json()).rows || [])[0]; if (!row) continue;
     const m = Object.fromEntries((row.metrics || []).map(x => [x.metric, +(x.decimalValue?.value ?? NaN)]));
