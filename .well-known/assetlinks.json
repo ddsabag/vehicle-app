@@ -3,6 +3,6 @@
   "target": {
     "namespace": "android_app",
     "package_name": "com.ddsabag.pratirechev",
-    "sha256_cert_fingerprints": ["15:09:75:02:08:EF:7E:DE:A3:A7:F2:2A:AD:D2:1F:BD:92:17:E6:AE:87:FE:37:DC:55:9D:D2:7C:F4:28:12:8E"]
+    "sha256_cert_fingerprints": ["15:09:75:02:08:EF:7E:DE:A3:A7:F2:2A:AD:D2:1F:BD:92:17:E6:AE:87:FE:37:DC:55:9D:D2:7C:F4:28:12:8E", "8C:00:DF:AC:08:43:44:A6:18:08:6B:03:B3:D7:DE:DA:6B:82:7A:74:41:46:99:D1:B7:08:7A:07:C5:47:D8:6E"]
   }
 }]
