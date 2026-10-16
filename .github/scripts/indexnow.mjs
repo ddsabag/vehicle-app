@@ -12,7 +12,8 @@ if (process.env.ALL === "1" || !process.argv[2] || /^0+$/.test(process.argv[2]))
   urls = [...fs.readFileSync("sitemap.xml", "utf8").matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
 } else {
   const files = execSync(`git diff --name-only --diff-filter=AM ${process.argv[2]} ${process.argv[3]}`).toString().split("\n").filter(f => /\.html$/.test(f) && f !== "404.html");
-  urls = files.map(f => f === "index.html" ? SITE : SITE + f.replace(/index\.html$/, ""));
+  const inMap = new Set([...fs.readFileSync("sitemap.xml", "utf8").matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]));
+  urls = files.map(f => f === "index.html" ? SITE : SITE + f.replace(/index\.html$/, "")).filter(u => inMap.has(u));   // only pages we ask Google to index
 }
 urls = [...new Set(urls)].slice(0, 10000);
 if (!urls.length) { console.log("nothing changed"); process.exit(0); }

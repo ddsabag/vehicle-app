@@ -94,9 +94,10 @@ for (const m of models) {
   const cr = cat.rows.filter(r => normModel(r[1]) === m.model && r[0].split(" ")[0] === m.make.split(" ")[0]);
   const bodies = [...new Set(cr.map(r => r[5]).filter(Boolean))];
   const lo = rows[0].yr, hi = rows[rows.length - 1].yr, heb = HEBN[hebKey(m.model)], name = heb && heb.startsWith("מאזדה") ? `מזדה ${heb.slice(6)} (${m.disp})` : (heb ? `${m.label} ${heb} (${m.disp})` : withBrand(m));
+  const yrs = lo === hi ? `בשנתון ${lo}` : `בשנתונים ${lo} עד ${hi}`;
   const url = `${SITE}model/${slugOf(m)}/`, title0 = `${name}: כמה רכבים על הכביש, ק״מ ושנתונים | לוחית`, title = title0.length > 68 ? `${name}: רכבים וק״מ לפי שנתון | לוחית` : title0;
   const alt = BRAND_ALT[m.label] ? ` (${BRAND_ALT[m.label]})` : "";
-  const desc = `${name}${alt} בישראל לפי נתוני משרד התחבורה: ${fmt(act)} רכבים פעילים בשנתונים ${lo}–${hi}, ק״מ טיפוסי לפי שנתון וכמה ירדו מהכביש. בדיקת רכב לפי מספר רישוי.`;
+  const desc = `${name}${alt} בישראל לפי נתוני משרד התחבורה: ${fmt(act)} רכבים פעילים ${yrs}, ק״מ טיפוסי לפי שנתון וכמה ירדו מהכביש. בדיקת רכב לפי מספר רישוי.`;
   const stl = stlFor(m.make, m.model, years.map(Number));
   const expOff = rows.reduce((s, r) => { const n = NAT[r.yr]; return s + (n && n.act + n.off ? (r.act + r.off) * n.off / (n.act + n.off) : 0); }, 0);
   const offRel = expOff >= 30 ? off / expOff : null, offPct = act + off ? off / (act + off) * 100 : 0;
@@ -108,7 +109,7 @@ for (const m of models) {
   const kmRows = rows.filter(r => r.km), kmRef = kmRows.filter(r => Number(r.yr) <= 2021).pop() || kmRows[0];
   const peakRow = rows.reduce((a, b) => b.act > a.act ? b : a);
   const facts = [
-    `<b>${fmt(act)}</b> רכבים פעילים ו-<b>${fmt(off)}</b> שירדו מהכביש (${offPct.toFixed(1)}% מכל מה שנרשם) בשנתונים ${lo} עד ${hi}. השנתון הנפוץ ביותר הוא ${peakRow.yr} עם ${fmt(peakRow.act)} רכבים.`,
+    `<b>${fmt(act)}</b> רכבים פעילים ו-<b>${fmt(off)}</b> שירדו מהכביש (${offPct.toFixed(1)}% מכל מה שנרשם) ${yrs}. השנתון הנפוץ ביותר הוא ${peakRow.yr} עם ${fmt(peakRow.act)} רכבים.`,
     offRel === null ? "" : `שיעור הירידה מהכביש הוא ${relText(offRel, "בשנתונים המקבילים")}. ההשוואה נעשית שנתון מול שנתון, כדי שדגם ותיק לא ייראה גרוע רק בגלל גילו.`,
     kmRel === null ? "" : `הק״מ הטיפוסי בטסט האחרון הוא ${relText(kmRel, "של רכבים מאותם שנתונים")}.`,
     owRel === null ? "" : `מספר רשומות הבעלות לרכב הוא ${relText(owRel, "בשנתונים המקבילים")}. הנתון כולל גם העברות בין חברות ליסינג וסוחרים.`,
@@ -122,9 +123,9 @@ for (const m of models) {
   const ments = magPosts.filter(p => (p.models || []).includes(slugOf(m)));
   const extra2 = (like.length ? `<h2>דגמים באותה קטגוריה (${esc(bd)})</h2><p>${like.map(o => `<a href="${SITE}model/${slugOf(o)}/">${esc(withBrand(o))}</a>`).join(" · ")}</p>` : "") + (ments.length ? `<h2>אזכורים במגזין</h2><p>${ments.map(p => `<a href="${SITE}magazine/${p.slug}/">${esc(p.title)}</a>`).join(" · ")}</p>` : "") + (magPosts.length ? `<div class="card"><b>המגזין החודשי של לוחית</b><p class="muted" style="margin:6px 0 12px">סיכום של שוק הרכב בישראל מנתוני משרד התחבורה, פעם בחודש. הגיליון האחרון: <a href="${SITE}magazine/${magPosts[0].slug}/">${esc(magPosts[0].title)}</a></p><a class="cta" href="${SITE}magazine/#nl">לקבלת המגזין למייל</a></div>` : "");
   const faq = [
-    [`כמה רכבים מדגם ${name} יש בישראל?`, `לפי מאגרי משרד התחבורה כ-${fmt(act)} רכבים פעילים בשנתונים ${lo} עד ${hi}. השנתון הנפוץ ביותר הוא ${peakRow.yr}.`],
+    [`כמה רכבים מדגם ${name} יש בישראל?`, `לפי מאגרי משרד התחבורה כ-${fmt(act)} רכבים פעילים ${yrs}. השנתון הנפוץ ביותר הוא ${peakRow.yr}.`],
     kmRef ? [`מה הק״מ הטיפוסי של ${name}?`, `בשנתון ${kmRef.yr} הק״מ הטיפוסי בטסט האחרון הוא כ-${fmt(Math.round(kmRef.km / 1000) * 1000)}.`] : null,
-    [`כמה רכבים מדגם ${name} ירדו מהכביש?`, `${fmt(off)} רכבים, שהם ${offPct.toFixed(1)}% מכל הרכבים שנרשמו בשנתונים ${lo} עד ${hi}${offRel === null ? "" : `, ${relText(offRel, "בשנתונים המקבילים")}`}.`]
+    [`כמה רכבים מדגם ${name} ירדו מהכביש?`, `${fmt(off)} רכבים, שהם ${offPct.toFixed(1)}% מכל הרכבים שנרשמו ${yrs}${offRel === null ? "" : `, ${relText(offRel, "בשנתונים המקבילים")}`}.`]
   ].filter(Boolean);
   const extra = `<h2>${esc(name)} במספרים</h2><ul class="g">${facts.map(f => `<li>${f}</li>`).join("")}</ul>${sibs.length ? `<h2>עוד דגמים של ${esc(m.label)}</h2><p>${sibs.map(o => `<a href="${SITE}model/${slugOf(o)}/">${esc(o.disp)}</a>`).join(" · ")}</p>` : ""}<h2>שאלות נפוצות</h2>${faq.map(([q, a]) => `<div class="card"><b>${esc(q)}</b><p style="margin:6px 0 0">${esc(a.replace(/<[^>]+>/g, ""))}</p></div>`).join("")}\n`;
   const ld = {"@context": "https://schema.org", "@graph": [
@@ -133,7 +134,7 @@ for (const m of models) {
     {"@type": "FAQPage", mainEntity: faq.map(([q, a]) => ({"@type": "Question", name: q, acceptedAnswer: {"@type": "Answer", text: a}}))}]};
   const peak = rows.reduce((a, b) => b.act > a.act ? b : a);
   const body = `${head(title, desc, url)}<p class="muted"><a href="${SITE}">לוחית</a> › <a href="${SITE}model/">כל הדגמים</a> › ${brandPath(m.label) ? `<a href="${SITE}${brandPath(m.label)}">${esc(m.label)}</a>` : esc(m.label)}</p><h1>${esc(name)}</h1>
-<p>לפי מאגרי משרד התחבורה יש בישראל כ-${fmt(act)} רכבים פעילים מדגם ${esc(name)}${esc(alt)} בשנתונים ${lo} עד ${hi}.${bodies.length ? ` סוגי מרכב בקטלוג: ${bodies.map(esc).join(", ")}.` : ""} השנתון הנפוץ ביותר הוא ${peak.yr} (${fmt(peak.act)} רכבים).</p>
+<p>לפי מאגרי משרד התחבורה יש בישראל כ-${fmt(act)} רכבים פעילים מדגם ${esc(name)}${esc(alt)} ${yrs}.${bodies.length ? ` סוגי מרכב בקטלוג: ${bodies.map(esc).join(", ")}.` : ""} השנתון הנפוץ ביותר הוא ${peak.yr} (${fmt(peak.act)} רכבים).</p>
 <div class="card"><b>בדקו רכב מסוים</b><p class="muted" style="margin:6px 0 12px">הקלידו מספר רישוי וקבלו ריקולים, טסט, היסטוריית בעלויות ומחיר משוער, בחינם.</p><a class="cta" href="${SITE}">לבדיקה לפי מספר רישוי</a></div>
 <h2>רכבים פעילים וקילומטראז׳ לפי שנתון</h2><div class="wrap"><table><thead><tr><th>שנתון</th><th class="n">פעילים</th><th class="n">ירדו מהכביש</th><th class="n">ק״מ טיפוסי</th><th class="n">רשומות בעלות לרכב</th></tr></thead><tbody>
 ${rows.slice().reverse().map(r => `<tr><td>${r.yr}</td><td class="n">${fmt(r.act)}</td><td class="n">${fmt(r.off)}</td><td class="n">${r.km ? fmt(r.km) : "–"}</td><td class="n">${r.ow ? r.ow.toFixed(1) : "–"}</td></tr>`).join("\n")}

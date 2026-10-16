@@ -286,15 +286,15 @@ footer{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:4px 24px;
 .appbox{order:90;background:var(--card);border-radius:16px;padding:16px;box-shadow:var(--shadow);border:1.5px solid #FFC400}
 .appbox h3{margin:0 0 4px;font-size:1rem;line-height:1.35}.appbox p{margin:0 0 10px;font-size:.85rem;color:var(--muted)}
 .appbox ul{margin:0 0 12px;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;font-size:.9rem}
-.appbox li::before{content:"\2713";color:var(--ok,#1f7a3f);font-weight:800;margin-inline-end:8px}
+.appbox li::before{content:"\2713";color:var(--accent);font-weight:800;margin-inline-end:8px}
 .appbox .btn{display:block;width:100%;text-align:center;background:#111;color:#fff;border:0;border-radius:12px;padding:12px;font-weight:700;font-size:.9rem;min-height:44px}
 .webcta{display:block;width:100%;border:0;background:none;color:var(--muted);font:inherit;font-size:.85rem;text-align:center;padding:6px 8px;margin:0 0 6px;min-height:44px;cursor:pointer}.webcta b{color:var(--accent);font-weight:700}
 .apphint{display:flex;gap:10px;align-items:center;width:100%;border:0;text-align:start;background:var(--hint-bg);color:var(--fg);border-radius:12px;padding:10px 12px;font-size:.9rem;margin:0 0 10px;min-height:44px}
-.shared-top{display:flex;gap:9px;align-items:center;background:#eef3fc;color:#1e3f86;border-radius:12px;padding:10px 12px;font-size:.88rem;margin:0 0 10px;line-height:1.4}
+.shared-top{display:flex;gap:9px;align-items:center;background:var(--info-bg);color:var(--info);border-radius:12px;padding:10px 12px;font-size:.88rem;margin:0 0 10px;line-height:1.4}
 .sharebar{position:fixed;inset-inline:0;bottom:0;z-index:15;background:var(--card);border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(0,0,0,.08);padding:10px 14px calc(12px + env(safe-area-inset-bottom,0px))}
 .sb-in{display:flex;align-items:center;gap:10px;max-width:760px;margin:0 auto}.sb-txt{flex:1;min-width:0}.sb-txt b{display:block;font-size:.95rem}.sb-txt small,.sb-sub{color:var(--muted);font-size:.78rem}.sb-sub{display:block;max-width:760px;margin:5px auto 0}
 .sb-btn{border:0;border-radius:12px;background:var(--fg);color:var(--card);font:inherit;font-weight:700;font-size:.9rem;padding:11px 14px;min-height:44px;white-space:nowrap;cursor:pointer}.sb-btn.alt{background:var(--soft);color:var(--fg)}
-.sb-col{flex-direction:column;align-items:stretch;gap:8px}.sb-btns{display:flex;gap:8px}.sb-btns .sb-btn{flex:1}
+.sb-col{flex-direction:column;align-items:stretch;gap:8px}.sb-btns{display:flex;flex-wrap:wrap;gap:8px}.sb-btns .sb-btn{flex:1;white-space:normal}
 .sb-pad{height:calc(140px + env(safe-area-inset-bottom,0px))}
 body:has(.sharebar) .toast{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
 @media (max-height:500px){.sharebar{position:static;box-shadow:none;border-top:0}.sb-pad{display:none}}
@@ -1592,8 +1592,8 @@ const AVG_KM_YEAR = 15000; // typical private car in Israel, rough benchmark
 function buildInsights(D){
   const v = D.v, out = []; const add = (level, title, text) => out.push({level, title, text});
   const now = new Date();
-  if (D.isCancelled) add("bad", "הרכב ירד מהכביש", `הרכב בוטל סופית${empty(v.bitul_dt) ? "" : " ב-" + fmtDate(v.bitul_dt)} ואינו יכול לנסוע.`);
-  else if (D.primary && /^inactive/.test(D.primary.key)) add("warn", "הרכב לא פעיל", "הרכב רשום כלא פעיל במאגר משרד התחבורה.");
+  // a cancelled car gets the red banner above the tabs, not a card here
+  if (!D.isCancelled && D.primary && /^inactive/.test(D.primary.key)) add("warn", "הרכב לא פעיל", "הרכב רשום כלא פעיל במאגר משרד התחבורה.");
   // open recalls are not repeated here: the red banner above the tabs already says it
   { const n = D.kind === "model" || D.isCancelled ? 0 : settlementsFor(D).length; if (n) add("info", "ייתכן שמגיעה לכם הטבה מהסדר פשרה", `${n === 1 ? "נמצא הסדר פשרה אחד שעשוי לחול על הרכב" : `נמצאו ${n} הסדרי פשרה שעשויים לחול על הרכב`}. הפרטים בלשונית ריקולים.`); }
   const exp = toDate(v.tokef_dt);
@@ -1750,12 +1750,14 @@ async function loadStatus(){
 }
 const appBox = D => `<section class="appbox"><h3>באתר רואים את הרכב. באפליקציה הוא עובד בשבילכם</h3><p>אותה בדיקה, ועוד:</p><ul><li>התראה כשהטסט מתקרב או שנפתח ריקול</li><li>הודעה אם הרכב עבר בעלות או ירד מהכביש</li><li>הסדרי פשרה: בדיקה אם הרכב שלכם זכאי להטבה מהיבואן</li><li>יומן טיפולים ועלויות על הטלפון</li><li>צילום לוחית ואמירת מספר, במקום להקליד</li></ul><button type="button" class="btn" data-url="${playWeb("result_box")}" data-hint="side">להורדה ב-Google Play</button></section>`;
 const appHint = D => {
-  if (window.AndroidApp || D.kind === "model" || D.isCancelled || sharedHere(D)) return "";
+  if (window.AndroidApp || IS_IOS || D.kind === "model" || D.isCancelled || sharedHere(D)) return "";
   const t = D.recalls && D.recalls.length ? "התראה כשיוצא ריקול חדש לרכב הזה" : "תזכורת לפני שהטסט פג";
   return `<button type="button" class="apphint" data-url="${playWeb("result_hint")}" data-hint="overview"><span aria-hidden="true">🔔</span><span><b>רוצים לדעת ראשונים?</b> ${t}</span><span class="gox">באפליקציה ›</span></button>`;
 };
 /* web visitors who arrive from a shared report (s= in the link): a bar that opens the app on this very car (Android), or a calendar reminder (everyone else) */
 const IS_ANDROID = /Android/i.test(navigator.userAgent);
+/* iPhone and iPad: there is no app for them, so nothing points them at Google Play */
+const IS_IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
 /* Facebook, Instagram, TikTok, Telegram... open links in their own browser, where intent:// links and App Links do not work and files cannot be downloaded */
 const IN_APP_BROWSER = /FBAN|FBAV|FB_IAB|FBIOS|Instagram|Snapchat|TikTok|musical_ly|Bytedance|Telegram|Line\/|; wv\)/i.test(navigator.userAgent);
 function sharedBar(D){
@@ -1763,13 +1765,13 @@ function sharedBar(D){
   let main;
   if (IS_ANDROID && IN_APP_BROWSER) {
     // no intent:// in these browsers: straight to the store page (the car rides along in the install referrer), with a tip for the better way
-    main = `<div class="sb-txt"><b>עקבו אחרי הרכב הזה</b><small>התראה על ריקול חדש, טסט שמתקרב והעברת בעלות</small></div><button type="button" class="sb-btn" data-act="openplay" data-url="${esc(carLink(D.plate, "bar"))}">להורדה בחינם</button>`;
+    main = `<div class="sb-txt"><b>עקבו אחרי הרכב הזה</b><small>התראה על ריקול חדש, טסט שמתקרב והעברת בעלות</small></div><button type="button" class="sb-btn" data-act="openplay" data-url="${esc(carLink(D.plate, "bar"))}">להורדה בחינם</button><button type="button" class="sb-btn alt" data-act="copylink">העתקת הקישור</button>`;
   } else if (IS_ANDROID) {
     const intent = `intent://luchit.app/?plate=${D.plate}&s=bar#Intent;scheme=https;package=com.ddsabag.pratirechev;S.browser_fallback_url=${encodeURIComponent(carLink(D.plate, "bar"))};end`;
     main = `<div class="sb-txt"><b>עקבו אחרי הרכב הזה</b><small>התראה על ריקול חדש, טסט שמתקרב והעברת בעלות</small></div><button type="button" class="sb-btn" data-act="openapp" data-intent="${esc(intent)}">פתחו באפליקציה</button>`;
   } else {
     main = `<div class="sb-txt"><b>שומרים על הרכב הזה בעין</b><small>${canCal ? "הטסט פג ב-" + fmtDate(D.v.tokef_dt) : "בדקו רכב נוסף לפני שמחליטים"}</small></div><div class="sb-btns">` +
-      (canCal ? `<button type="button" class="sb-btn" data-act="barcal">📅 תזכורת טסט ביומן</button>` : "") + `<button type="button" class="sb-btn${canCal ? " alt" : ""}" data-act="another">בדיקת רכב נוסף</button></div>`;
+      (canCal ? `<button type="button" class="sb-btn" data-act="barcal">📅 תזכורת טסט ביומן</button>` : "") + `<button type="button" class="sb-btn${canCal ? " alt" : ""}" data-act="another">בדיקת רכב נוסף</button>` + (IN_APP_BROWSER ? `<button type="button" class="sb-btn alt" data-act="copylink">העתקת הקישור</button>` : "") + `</div>`;
   }
   return `<div class="sharebar" role="region" aria-label="מעקב אחרי הרכב"><div class="sb-in${IS_ANDROID ? "" : " sb-col"}">${main}</div>${IS_ANDROID ? `<small class="sb-sub">${IN_APP_BROWSER ? "טיפ: ⋮ ואז \"פתח בדפדפן\" כדי שהאפליקציה תיפתח ישר על הרכב" : "חינם ב-Google Play · נפתח ישר על הרכב הזה"}</small>` : ""}</div><div class="sb-pad"></div>`;
 }
@@ -1808,6 +1810,9 @@ function renderResult(){
     </div>
   </section>`);
 
+  // Off the road, and an expired test in the simple view (the full view says it in the overview cards): banners above everything else
+  if (D.isCancelled) html.push(`<div class="alert-banner" role="alert">${ico("alert")}<span><b>הרכב ירד מהכביש</b>הרכב בוטל סופית${empty(v.bitul_dt) ? "" : " ב-" + esc(fmtDate(v.bitul_dt))} ואינו יכול לנסוע.</span></div>`);
+  else if (simpleOn()) { const ex = toDate(v.tokef_dt); if (ex && ex < new Date()) html.push(`<div class="alert-banner" role="alert">${ico("alert")}<span><b>הטסט לא בתוקף</b>תוקף הטסט פג ב-${esc(fmtDate(v.tokef_dt))}.</span></div>`); }
   // An open recall is the one thing that must never be missed: banner above the tabs
   if (D.recalls.length) {
     html.push(`<button type="button" class="alert-banner" data-tab="recalls">${ico("alert")}<span><b>${D.recalls.length === 1 ? "לרכב יש ריקול פתוח" : `לרכב ${D.recalls.length} ריקולים פתוחים`}</b>ריקול שלא מתוקן עלול למנוע בהמשך חידוש רישיון. התיקון בחינם אצל היבואן.</span></button>`);
@@ -1819,7 +1824,7 @@ function renderResult(){
   }
   if (D.recallUnknown) html.push(`<div class="msg err"><b>מידע על ריקולים לא זמין כרגע.</b> מאגר הריקולים של משרד התחבורה לא ענה, ולכן אי אפשר לדעת אם יש ריקול פתוח לרכב. אל תסיקו מכך שאין. נסו שוב בעוד דקה, או בדקו באתר היבואן.</div>`);
   if (D.errs && D.errs.some(x => x.key !== "recall")) html.push(`<p class="msg">חלק ממאגרי משרד התחבורה לא ענו כרגע, והמידע על הרכב חלקי. נסו שוב בעוד דקה.</p>`);
-  if (!window.AndroidApp) html.push(appBox(D));
+  if (!window.AndroidApp && !IS_IOS) html.push(appBox(D));
   html.push(`</div><div class="mainc">`);
   const recallCount = D.recalls.length;
   if (simpleOn()) html.push(simpleCard(D));
@@ -2142,7 +2147,7 @@ function tabMaint(D){
     ? card("הטיפול הבא", "wrench", "amber", `<p style="margin:0 0 6px"><span class="blur" aria-hidden="true">••/•••• · ••,••• ק״מ</span></p><p class="note" style="margin:0 0 8px">יש לדגם הזה מרווח טיפולים מוכר. ב-PRO תראו מתי הטיפול הבא, תנהלו יומן טיפולים ותקבלו תזכורת.</p><button type="button" class="link-btn" data-act="proInfo">${ico("star")}מה כולל PRO</button>`, PT("PRO"))
     : proLockCard("אחזקה", "יומן טיפולים, הטיפול הבא, ציר ק״מ ועלות אחזקה מצטברת, עם תזכורות בהתראה.");
   else { svcRemember(D, info); paid = [intervalCard(D, info), nextCard(D, info), logCard(D), kmCard(D), costLogCard(D)].join(""); }
-  const webNote = !window.AndroidApp && !SERVICE ? card("מרווחי טיפול מלאים", "wrench", "teal", `<p style="margin:0">הטבלה המלאה של מרווחי הטיפול לפי דגם, גרסה ונפח מנוע זמינה באפליקציית לוחית באנדרואיד.</p><button type="button" class="link-btn" data-url="${PLAY_URL}">${ico("share")}להורדה מ-Google Play</button>`) : "";
+  const webNote = !window.AndroidApp && !IS_IOS && !SERVICE ? card("מרווחי טיפול מלאים", "wrench", "teal", `<p style="margin:0">הטבלה המלאה של מרווחי הטיפול לפי דגם, גרסה ונפח מנוע זמינה באפליקציית לוחית באנדרואיד.</p><button type="button" class="link-btn" data-url="${PLAY_URL}">${ico("share")}להורדה מ-Google Play</button>`) : "";
   /* two kinds of service data, labelled so they are never confused: the interval comes from Luchit's own database, the rest from what the user records */
   const srcTag = (h, title, cls, txt) => h.replace(`<h2>${title}</h2>`, `<h2>${title}</h2><span class="src-tag ${cls}">${txt}</span>`);
   paid = srcTag(srcTag(srcTag(srcTag(paid, "מרווח טיפולים", "db", "מאגר לוחית"), "הטיפול הבא", "user", "לפי היומן שלכם"), "יומן טיפולים", "user", "הנתונים שלכם"), "עלות אחזקה מצטברת", "user", "הנתונים שלכם");
@@ -3144,6 +3149,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "openplay") { track("web_hint_click", {where: "share_bar_iab"}); track("web_install_click"); location.href = b.dataset.url; return; }
   if (b.dataset.act === "barcal") { track("web_hint_click", {where: "share_bar_cal"}); if (current) testReminderFile(current); return; }
   if (b.dataset.act === "another") { track("web_hint_click", {where: "share_bar_more"}); location.href = "/"; return; }
+  if (b.dataset.act === "copylink") { track("web_hint_click", {where: "share_bar_copy"}); copyText(location.href, "הקישור"); toast("הקישור הועתק. הדביקו אותו בדפדפן רגיל (Chrome או Safari)."); return; }
   if (b.dataset.url) {
     if (b.dataset.copyfirst) { copyText(b.dataset.copyfirst, b.dataset.copylabel || "מספר הרישוי").then(() => setTimeout(() => openExternal(b.dataset.url), 600)); return; }
     if (b.dataset.hint) track("web_hint_click", {where: b.dataset.hint});

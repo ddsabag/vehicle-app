@@ -21,7 +21,7 @@ async function plateInfo(plate) {
     rows(CANCELLED, {mispar_rechev: [plate, plate.padStart(7, "0"), plate.padStart(8, "0")]}),   // text column, zero-padded in old rows
   ]);
   const v = (act && act[0]) || (can && can[0]); if (!v) return null;
-  const cancelled = !(act && act[0]) && !!(can && can[0]);
+  const cancelled = act !== null && !act[0] && !!(can && can[0]);   // only when the active register answered and does not list the car
   const exp = Date.parse(v.tokef_dt), testOk = !cancelled && exp ? exp >= Date.now() - 864e5 : null, nRec = rec ? rec.length : null;
   let verdict = "", tone = "";
   if (cancelled) { verdict = "ירד מהכביש"; tone = "bad"; }
