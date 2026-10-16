@@ -292,7 +292,7 @@ footer{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:4px 24px;
 .apphint{display:flex;gap:10px;align-items:center;width:100%;border:0;text-align:start;background:var(--hint-bg);color:var(--fg);border-radius:12px;padding:10px 12px;font-size:.9rem;margin:0 0 10px;min-height:44px}
 .shared-top{display:flex;gap:9px;align-items:center;background:var(--info-bg);color:var(--info);border-radius:12px;padding:10px 12px;font-size:.88rem;margin:0 0 10px;line-height:1.4}
 .sharebar{position:fixed;inset-inline:0;bottom:0;z-index:15;background:var(--card);border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(0,0,0,.08);padding:10px 14px calc(12px + env(safe-area-inset-bottom,0px))}
-.sb-in{display:flex;align-items:center;gap:10px;max-width:760px;margin:0 auto}.sb-txt{flex:1;min-width:0}.sb-txt b{display:block;font-size:.95rem}.sb-txt small,.sb-sub{color:var(--muted);font-size:.78rem}.sb-sub{display:block;max-width:760px;margin:5px auto 0}
+.sb-in{display:flex;flex-wrap:wrap;align-items:center;gap:10px;max-width:760px;margin:0 auto}.sb-txt{flex:1;min-width:0}.sb-txt b{display:block;font-size:.95rem}.sb-txt small,.sb-sub{color:var(--muted);font-size:.78rem}.sb-sub{display:block;max-width:760px;margin:5px auto 0}
 .sb-btn{border:0;border-radius:12px;background:var(--fg);color:var(--card);font:inherit;font-weight:700;font-size:.9rem;padding:11px 14px;min-height:44px;white-space:nowrap;cursor:pointer}.sb-btn.alt{background:var(--soft);color:var(--fg)}
 .sb-col{flex-direction:column;align-items:stretch;gap:8px}.sb-btns{display:flex;flex-wrap:wrap;gap:8px}.sb-btns .sb-btn{flex:1;white-space:normal}
 .sb-pad{height:calc(140px + env(safe-area-inset-bottom,0px))}
@@ -1765,7 +1765,7 @@ function sharedBar(D){
   let main;
   if (IS_ANDROID && IN_APP_BROWSER) {
     // no intent:// in these browsers: straight to the store page (the car rides along in the install referrer), with a tip for the better way
-    main = `<div class="sb-txt"><b>עקבו אחרי הרכב הזה</b><small>התראה על ריקול חדש, טסט שמתקרב והעברת בעלות</small></div><button type="button" class="sb-btn" data-act="openplay" data-url="${esc(carLink(D.plate, "bar"))}">להורדה בחינם</button><button type="button" class="sb-btn alt" data-act="copylink">העתקת הקישור</button>`;
+    main = `<div class="sb-txt"><b>עקבו אחרי הרכב הזה</b><small>התראה על ריקול חדש, טסט שמתקרב והעברת בעלות</small></div><div class="sb-btns"><button type="button" class="sb-btn" data-act="openplay" data-url="${esc(carLink(D.plate, "bar"))}">להורדה בחינם</button><button type="button" class="sb-btn alt" data-act="copylink">העתקת הקישור</button></div>`;
   } else if (IS_ANDROID) {
     const intent = `intent://luchit.app/?plate=${D.plate}&s=bar#Intent;scheme=https;package=com.ddsabag.pratirechev;S.browser_fallback_url=${encodeURIComponent(carLink(D.plate, "bar"))};end`;
     main = `<div class="sb-txt"><b>עקבו אחרי הרכב הזה</b><small>התראה על ריקול חדש, טסט שמתקרב והעברת בעלות</small></div><button type="button" class="sb-btn" data-act="openapp" data-intent="${esc(intent)}">פתחו באפליקציה</button>`;
