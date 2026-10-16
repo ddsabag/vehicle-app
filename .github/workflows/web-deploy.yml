@@ -10,6 +10,16 @@ on:
         description: "Deploy to GitHub Pages (needs Pages source = GitHub Actions)"
         type: boolean
         default: false
+  # Once Pages is served from Actions, every change to main must be published here, including commits the data bots make with
+  # GITHUB_TOKEN (those do not fire push workflows, but they do fire workflow_run). All automatic triggers do nothing unless WEB_DEPLOY=true.
+  push:
+    branches: [main]
+  workflow_run:
+    workflows: ["Fuel price", "Market data", "Model statistics", "Model names", "Ownership data mirror", "Magazine", "Magazine data articles", "Data status", "Back-on-road detector", "SEO data snapshot", "Market intelligence", "IndexNow", "Experimenter", "Newsletter"]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: "17 */6 * * *"
 permissions:
   contents: read
 concurrency:
@@ -17,9 +27,12 @@ concurrency:
   cancel-in-progress: false
 jobs:
   build:
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.WEB_DEPLOY == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -41,7 +54,7 @@ jobs:
           if-no-files-found: error
   deploy:
     needs: build
-    if: ${{ inputs.deploy && vars.WEB_DEPLOY == 'true' }}
+    if: ${{ vars.WEB_DEPLOY == 'true' && (github.event_name != 'workflow_dispatch' || inputs.deploy) && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') }}
     runs-on: ubuntu-latest
     permissions:
       pages: write
