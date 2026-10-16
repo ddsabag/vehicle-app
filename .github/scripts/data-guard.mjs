@@ -16,7 +16,7 @@ const BASELINE_URL = "https://raw.githubusercontent.com/ddsabag/vehicle-app/guar
 // Columns the code reads, per dataset (index.html lookups plus market.mjs, modelstats.mjs, own-build.mjs). Extra datasets the monthly builders use are listed with their own columns.
 const USED = {
   "053cea08-09bc-40ec-8f7a-156f0677aff3": ["mispar_rechev", "tozeret_cd", "tozeret_nm", "kinuy_mishari", "degem_cd", "shnat_yitzur", "baalut", "moed_aliya_lakvish", "tokef_dt", "sug_delek_nm"],
-  "56063a99-8a3e-4ff4-912e-5966c0279bad": ["mispar_rechev", "kilometer_test_aharon"],
+  "56063a99-8a3e-4ff4-912e-5966c0279bad": ["mispar_rechev", "kilometer_test_aharon", "mkoriut_nm", "rishum_rishon_dt"],
   "bb2355dc-9ec7-4f06-9c3f-3344672171da": ["mispar_rechev", "baalut_dt", "baalut"],
   "36bf1404-0be4-49d2-82dc-2f1ead4a8b93": ["MISPAR_RECHEV"],
   "2c33523f-87aa-44ec-a736-edbb0a82975e": ["TOZAR_CD"],
