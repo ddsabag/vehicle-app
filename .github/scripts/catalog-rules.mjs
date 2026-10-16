@@ -1,0 +1,77 @@
+// The catalogue watchdog: after every catalogue build it looks at what is NEW in the register (models, years, trims) and runs the
+// picker's own rules on it (12-character cuts completed by TRIM_FIX in index.html, typo twins one slip apart, same-importer names
+// with an identical registered spec and price, official importer by cars on the road). What the rules handle is listed for the record;
+// what they cannot (a cut word that TRIM_FIX does not know, a name that looks like a code) is flagged, and a Telegram line is written
+// so the rule table can be extended. State (what was already seen) lives next to the catalogue on the catalog-data branch.
+//   OUT   catalogue directory written by catalog-build.mjs (default out)
+//   PREV  previous rules-state.json (default: fetched from the catalog-data branch; missing = first run, no alert)
+import fs from "node:fs";
+const OUT = process.env.OUT || "out", PREV = process.env.PREV || "";
+const RAW = "https://raw.githubusercontent.com/ddsabag/vehicle-app/catalog-data/rules-state.json";
+const page = fs.readFileSync("index.html", "utf8");
+const fixSrc = page.match(/const TRIM_FIX = (\{[\s\S]*?\});/); if (!fixSrc) throw new Error("TRIM_FIX not found in index.html");
+const TRIM_FIX = new Function("return " + fixSrc[1])();
+const norm = t => String(t || "").toUpperCase().replace(/[^A-Z0-9א-ת]/g, "");
+function lev(a, b, max) { if (Math.abs(a.length - b.length) > max) return max + 1; let prev = [...Array(b.length + 1).keys()], cur = []; for (let i = 1; i <= a.length; i++) { cur = [i]; let best = i; for (let j = 1; j <= b.length; j++) { let v = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) v = Math.min(v, prev[j - 2 + 0 === -1 ? 0 : j - 2] + 1); cur[j] = v; best = Math.min(best, v); } if (best > max) return max + 1; prev = cur; } return prev[b.length]; }
+const SPEC = ["nefah_manoa", "koah_sus", "technologiat_hanaa_nm", "delek_nm", "automatic_ind", "hanaa_nm", "merkav", "mispar_dlatot", "mispar_moshavim", "mishkal_kolel", "mispar_kariot_avir", "ramat_eivzur_betihuty", "mehir", "mazgan_ind", "halon_bagg_ind", "galgaley_sagsoget_kala_ind", "hege_koah_ind", "mispar_halonot_hashmal", "abs_ind", "bakarat_yatzivut_ind", "maarechet_ezer_labalam_ind", "bakarat_stiya_menativ_ind", "bakarat_stiya_activ_s", "nitur_merhak_milfanim_ind", "zihuy_beshetah_nistar_ind", "bakarat_shyut_adaptivit_ind", "zihuy_holchey_regel_ind", "blimat_hirum_lifnei_holhei_regel_ofanaim", "zihuy_rechev_do_galgali", "matzlemat_reverse_ind", "blima_otomatit_nesia_leahor", "hayshaney_lahatz_avir_batzmigim_ind", "hayshaney_hagorot_ind", "shlita_automatit_beorot_gvohim_ind", "teura_automatit_benesiya_kadima_ind", "zihuy_tamrurey_tnua_ind", "zihuy_matzav_hitkarvut_mesukenet_ind", "bakarat_mehirut_isa", "hitnagshut_cad_shetah_met"];
+const impName = x => String(x || "").replace(/\s*בע['"׳״]{0,2}מ\.?\s*$|\s*בעמ\s*$/, "").replace(/\s+/g, " ").trim();
+
+// previous state
+let prev = null;
+if (PREV && fs.existsSync(PREV)) prev = JSON.parse(fs.readFileSync(PREV, "utf8"));
+else if (!PREV) { try { const r = await fetch(RAW, {signal: AbortSignal.timeout(30000)}); if (r.ok) prev = await r.json(); } catch {} }
+const seen = new Set(prev ? prev.seen : []);
+const first = !prev;
+
+const meta = JSON.parse(fs.readFileSync(`${OUT}/meta.json`, "utf8"));
+const state = {u: meta.u, seen: []}, found = {newModels: [], newVariants: 0, cutsKnown: [], cutsUnknown: [], typoTwins: [], specTwins: [], codeYears: [], parallelOnly: []};
+for (const cd of Object.keys(meta.makers)) {
+  const idx = JSON.parse(fs.readFileSync(`${OUT}/c/${cd}.json`, "utf8")), cols = idx.cols, mk = idx.n;
+  for (const [model, [f]] of Object.entries(idx.models)) {
+    const rows = JSON.parse(fs.readFileSync(`${OUT}/c/${cd}/${f}.json`, "utf8")).rows.map(a => Object.fromEntries(cols.map((c, i) => [c, a[i]])));
+    const mkey = `${cd}|${model}`; state.seen.push(mkey);
+    const modelNew = !seen.has(mkey); if (modelNew && !first) found.newModels.push(`${mk} ${model}`);
+    const byYear = new Map();
+    for (const r of rows) { const y = String(r.shnat_yitzur); if (!byYear.has(y)) byYear.set(y, []); byYear.get(y).push(r); }
+    for (const [y, rs] of byYear) {
+      const trims = new Map();   // trim -> {rows, importers}
+      for (const r of rs) { const t = String(r.ramat_gimur || "").trim().toUpperCase().replace(/\s+/g, " "); if (!trims.has(t)) trims.set(t, []); trims.get(t).push(r); }
+      const fresh = [];
+      for (const [t, list] of trims) { const k = `${mkey}|${y}|${t}`; state.seen.push(k); if (!seen.has(k)) fresh.push(t); }
+      if (!fresh.length || first) continue;
+      found.newVariants += fresh.length;
+      const label = `${mk} ${model} ${y}`;
+      // 1. 12-character cuts: known completion or not
+      for (const t of fresh) if (t.length === 12) { const w = t.split(" "), last = w[w.length - 1]; if (TRIM_FIX[last]) found.cutsKnown.push(`${label}: ${t} → ${TRIM_FIX[last]}`); else if (/^[A-Z]{3,}$/.test(last)) found.cutsUnknown.push(`${label}: "${t}" (המילה האחרונה "${last}")`); }
+      // 2. a new name one slip away from an existing one of the same year
+      for (const t of fresh) for (const o of trims.keys()) if (o !== t && !fresh.includes(o) && norm(t).length >= 5 && lev(norm(t), norm(o), 1) <= 1) found.typoTwins.push(`${label}: ${t} ~ ${o}`);
+      // 3. same importer, identical spec and price, different name (the app shows them as one row)
+      for (const t of fresh) for (const r of trims.get(t)) { const sk = SPEC.map(k => String(r[k] ?? "")).join("|"), imp = impName(r.shem_yevuan); for (const [o, ol] of trims) if (o !== t && ol.some(x => impName(x.shem_yevuan) === imp && SPEC.map(k => String(x[k] ?? "")).join("|") === sk)) { found.specTwins.push(`${label} (${imp}): ${t || "ריק"} = ${o || "ריק"}`); break; } }
+      // 4. a year whose names look like codes (the app lists it by engine)
+      const codey = [...trims.keys()].filter(t => /\d/.test(norm(t)) && norm(t).length >= 6).length; if (trims.size > 12 && codey > trims.size / 2) found.codeYears.push(`${label}: ${trims.size} גרסאות, ${codey} נראות כקוד`);
+      // 5. official importer: none with 20+ cars and half the fleet (every version is parallel import or too new to count)
+      const onRoad = new Map(); for (const r of rs) { const n = impName(r.shem_yevuan); if (n) onRoad.set(n, (onRoad.get(n) || 0) + (Number(r.mispar_rechavim_pailim) || 0)); }
+      const tot = [...onRoad.values()].reduce((a, b) => a + b, 0), top = [...onRoad.entries()].sort((a, b) => b[1] - a[1])[0];
+      if (onRoad.size > 1 && !(top && top[1] >= 20 && top[1] >= tot / 2) && Number(y) >= new Date().getFullYear() - 1) found.parallelOnly.push(`${label}: ${onRoad.size} יבואנים, הגדול ${top ? top[0] + " " + top[1] : "-"} רכבים`);
+    }
+  }
+}
+fs.writeFileSync(`${OUT}/rules-state.json`, JSON.stringify(state));
+const uniq = a => [...new Set(a)];
+for (const k of Object.keys(found)) if (Array.isArray(found[k])) found[k] = uniq(found[k]);
+const lines = [`# דוח כללי הקטלוג ${meta.u}`, first ? "ריצה ראשונה: המצב נשמר, אין השוואה." : `דגמים חדשים: ${found.newModels.length} · גרסאות חדשות (דגם+שנה+גימור): ${found.newVariants}`];
+const sec = (t, a, max = 40) => { if (a.length) lines.push("", `## ${t} (${a.length})`, ...a.slice(0, max).map(x => "- " + x), ...(a.length > max ? [`- … ועוד ${a.length - max}`] : [])); };
+sec("דגמים חדשים", found.newModels);
+sec("קיצוצים ל-12 תווים שהטבלה לא מכירה (להוסיף ל-TRIM_FIX)", found.cutsUnknown);
+sec("קיצוצים שהושלמו אוטומטית", found.cutsKnown);
+sec("שמות שנראים כשגיאת כתיב של שם קיים (מאוחדים אוטומטית)", found.typoTwins);
+sec("שמות שונים עם מפרט ומחיר זהים אצל אותו יבואן (שורה אחת עם שני השמות)", found.specTwins);
+sec("שנים שמוצגות לפי מנוע כי השמות הם קודים", found.codeYears);
+sec("שנים חדשות בלי יבואן רשמי מזוהה (הכול יבוא מקביל או מעט מדי רכבים)", found.parallelOnly);
+fs.writeFileSync(`${OUT}/rules-report.md`, lines.join("\n") + "\n");
+console.log(lines.join("\n"));
+// a Telegram line only for what needs a human: unknown cuts (rule table) and new model names to eyeball
+if (!first && (found.cutsUnknown.length || found.newModels.length)) {
+  const msg = [`לוחית · כללי הקטלוג ${meta.u}`, found.newModels.length ? `דגמים חדשים במאגר: ${found.newModels.length} (${found.newModels.slice(0, 5).join(", ")}${found.newModels.length > 5 ? "…" : ""})` : "", found.cutsUnknown.length ? `קיצוצי שם שהטבלה לא מכירה: ${found.cutsUnknown.length}\n${found.cutsUnknown.slice(0, 6).map(x => "• " + x).join("\n")}` : "", `הכללים הקיימים טיפלו ב-${found.cutsKnown.length + found.typoTwins.length + found.specTwins.length} מקרים נוספים. הדוח המלא: https://github.com/ddsabag/vehicle-app/blob/catalog-data/rules-report.md`].filter(Boolean).join("\n");
+  fs.writeFileSync(`${OUT}/rules-alert.txt`, msg);
+}

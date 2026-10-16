@@ -20,6 +20,19 @@ jobs:
       - run: node --max-old-space-size=6144 .github/scripts/catalog-build.mjs
         env:
           OUT: cat-out
+      - name: Run the picker rules on what is new in the register (report + state next to the catalogue)
+        run: node .github/scripts/catalog-rules.mjs
+        env:
+          OUT: cat-out
+      - name: Telegram line when a rule needs a human (new models, unknown name cuts)
+        if: ${{ hashFiles('cat-out/rules-alert.txt') != '' }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          [ -n "$TELEGRAM_BOT_TOKEN" ] || { echo "no Telegram credentials"; exit 0; }
+          curl -s -o /dev/null -w "telegram %{http_code}\n" "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text@cat-out/rules-alert.txt" --data-urlencode "disable_web_page_preview=true"
+          rm -f cat-out/rules-alert.txt
       - name: Publish on the catalog-data branch
         run: |
           test -s cat-out/meta.json && ls cat-out/c | wc -l
