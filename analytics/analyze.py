@@ -153,7 +153,7 @@ def analyze(d, cfg, extra=None):
             add("yellow", "ירידה בביקורים באתר", f"{cf['cur']['visits']} ביקורים לעומת {cf['prev']['visits']} ({ch}%).")
     for r in ps or []:
         short = r["url"].replace("https://", "")
-        if r["score"] < 75 or r["lcp"] > 4 or r["cls"] > 0.1:
+        if r["score"] < 85 or r["lcp"] > 4 or r["cls"] > 0.1:
             add("yellow", "מהירות האתר ירדה", f"{short}: ציון {r['score']}, LCP {r['lcp']} שניות, CLS {r['cls']}.")
     if pl:
         if pl.get("crash_pct") is not None and pl["crash_pct"] > 1.09: add("red", "שיעור קריסות מעל סף Google Play", f"{pl['crash_pct']}% מהמשתמשים חוו קריסה (הסף של Play הוא 1.09%). חשיפה בחנות עלולה לרדת.")
