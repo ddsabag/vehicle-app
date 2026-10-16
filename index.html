@@ -3040,7 +3040,10 @@ const TRIM_FIX = {HYBR: "HYBRID", HYBRI: "HYBRID", PREMIU: "PREMIUM", PREMI: "PR
   ESSENTIA: "ESSENTIAL", ESSENTI: "ESSENTIAL", ESSENC: "ESSENCE", EVOLUTIO: "EVOLUTION", EVOLUTI: "EVOLUTION", ADVENTUR: "ADVENTURE", ADVENT: "ADVENTURE", FREESTYL: "FREESTYLE", CROSSOVE: "CROSSOVER", CROSSOV: "CROSSOVER",
   SPECIA: "SPECIAL", CLASSI: "CLASSIC", EDI: "EDITION", EDIT: "EDITION", NAVIGATIO: "NAVIGATION", LONGRANG: "LONG RANGE", STYL: "STYLE", PERFO: "PERFORMANCE", INTELLIGEN: "INTELLIGENT", INTELLIG: "INTELLIGENT"};
 const trimNorm = r => String(r.ramat_gimur || "").toUpperCase().replace(/[^A-Z0-9\u05d0-\u05ea]/g, "");
+const SPEC_KEYS = ["nefah_manoa", "koah_sus", "technologiat_hanaa_nm", "delek_nm", "automatic_ind", "hanaa_nm", "merkav", "mispar_dlatot", "mispar_moshavim", "mishkal_kolel", "mispar_kariot_avir", "ramat_eivzur_betihuty", "mehir", ...Object.keys(EQUIP), ...Object.keys(SYSTEMS)];
+const specKey = r => SPEC_KEYS.map(k => String(r[k] ?? "")).join("|");
 function trimLabel(r){
+  if (r._alias) return r._alias;
   let t = String(r.ramat_gimur || "").trim().toUpperCase().replace(/\s+/g, " "); if (!t) return "";
   if (t.length === 12) { const w = t.split(" "), last = w[w.length - 1]; if (TRIM_FIX[last]) { w[w.length - 1] = TRIM_FIX[last]; t = w.join(" "); } }   // the register cuts trims at 12 characters
   return t.split(" ").map(x => /^[A-Z]{4,}$/.test(x) ? x[0] + x.slice(1).toLowerCase() : x).join(" ");
@@ -3067,7 +3070,11 @@ function showModel(y){
   const sorted = [...variants.values()].sort((a, b) => (num(a[0].koah_sus) || 0) - (num(b[0].koah_sus) || 0) || trimLabel(a[0]).localeCompare(trimLabel(b[0])));
   // the same trim and engine homologated at 97 and 98 hp is one version for the buyer
   const twin = (a, r) => trimNorm(a) === trimNorm(r) && engKey(a).split("|")[0] === engKey(r).split("|")[0] && num(a.nefah_manoa) === num(r.nefah_manoa) && Math.abs(num(a.koah_sus) - num(r.koah_sus)) <= Math.max(2, num(r.koah_sus) * 0.02);
-  const list = []; for (const l of sorted) { const p = list.find(x => twin(x[0], l[0])); if (p) p.push(...l); else list.push(l.slice()); }
+  const list0 = []; for (const l of sorted) { const p = list0.find(x => twin(x[0], l[0])); if (p) p.push(...l); else list0.push(l.slice()); }
+  // two names from the same importer with the same registered specification and price (LE / LIMITED ED., S LINE / S-LINE, blank / STANDARD)
+  // are one version: one row carrying both names, since nothing the comparison shows would differ between them
+  const list = []; for (const l of list0) { const p = list.find(x => specKey(x[0]) === specKey(l[0]) && impName(x[0].shem_yevuan) === impName(l[0].shem_yevuan)); if (p) { p.push(...l); const n = trimLabel(l[0]); if (n && !p[0]._names.includes(n)) p[0]._names.push(n); } else { l[0] = {...l[0], _names: [trimLabel(l[0])].filter(Boolean)}; list.push(l.slice()); } }
+  for (const l of list) if (l[0]._names.length > 1) l[0]._alias = l[0]._names.sort((a, b) => b.length - a.length).join(" / ");
   const codey = list.length > 12 && list.filter(l => /\d/.test(trimNorm(l[0])) && trimNorm(l[0]).length >= 6).length > list.length / 2;
   if (codey) return showModelByEngine(y);
   // The register lists every importer's type approval, so a Corolla 2026 shows the official importer's two versions next to fifteen
