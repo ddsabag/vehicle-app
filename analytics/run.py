@@ -71,7 +71,8 @@ def main():
     json.dump({"insights": ins, "data": data, "analysis": {k: v for k, v in res.items() if k != "daily"}}, open(os.path.join(a_.out, name + ".json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1, default=str)
     link = (f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}" if os.environ.get("GITHUB_RUN_ID") else "")
     text = brief(data, res, ("הדשבורד המלא בקובץ המצורף, ובהרצה: " + link) if link else "")
-    print(text); print("\nreport:", html_path, "| status:", res["status"])
+    if os.environ.get("GITHUB_RUN_ID"): print("report built:", html_path, "| status:", res["status"])   # the public job log gets no numbers
+    else: print(text); print("\nreport:", html_path, "| status:", res["status"])
     if a_.send and not a_.sample:
         sent, errs = notify.send_all(f"לוחית, דוח שבועי {per['end']}", text, html_path)
         print("sent via:", sent or "nothing (no channel configured)")

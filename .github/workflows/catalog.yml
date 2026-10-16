@@ -4,7 +4,7 @@ name: Model catalogue
 # The app falls back to live ministry queries when a file is missing, so a failed run costs nothing but freshness.
 on:
   schedule:
-    - cron: "10 4 * * *"
+    - cron: "20 2 * * *"   # 05:20 Israel summer time, away from data-health (04:00), data-guard (04:15) and infra-watch (04:30) which also hit data.gov.il
   workflow_dispatch:
 permissions:
   contents: write

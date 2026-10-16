@@ -66,7 +66,7 @@ public class MainActivity extends Activity {
     private InstallStateUpdatedListener updateListener;
 
     private boolean pageReady = false;
-    private String pendingJs = null;
+    private final java.util.List<String> pendingJs = new java.util.ArrayList<>();   // every script queued before the page loads runs, in order
 
     private WebView webView;
     private FrameLayout root;
@@ -458,7 +458,7 @@ public class MainActivity extends Activity {
         if (plate != null) {
             webView.loadUrl(START_URL + "#" + plate);
         } else if (savedInstanceState != null) {
-            webView.restoreState(savedInstanceState);
+            if (webView.restoreState(savedInstanceState) == null) webView.loadUrl(START_URL);   // a restore that fails must not leave a white screen
         } else {
             webView.loadUrl(START_URL);
         }
@@ -521,12 +521,20 @@ public class MainActivity extends Activity {
     /** Runs page code now, or once the page has loaded */
     private void runJs(String js) {
         if (pageReady) webView.evaluateJavascript(js, null);
-        else pendingJs = js;
+        else pendingJs.add(js);
     }
 
     /** Text or a picture shared from another app, and the launcher shortcuts */
     private void handleIncoming(Intent i) {
         if (i == null) return;
+        try {
+            handleIncomingIntent(i);
+        } catch (Exception e) {
+            // a malformed intent from another app (a non-Uri stream, an opaque URI) must not crash the launch
+        }
+    }
+
+    private void handleIncomingIntent(Intent i) {
         String action = i.getAction();
         if (Intent.ACTION_SEND.equals(action)) {
             String type = i.getType() == null ? "" : i.getType();
@@ -540,7 +548,7 @@ public class MainActivity extends Activity {
                 runJs("window.onSharedText && onSharedText(" + JSONObject.quote(text) + ")");
             }
             i.setAction(null);
-        } else if (Intent.ACTION_VIEW.equals(action) && i.getData() != null && "https".equals(i.getData().getScheme())) {
+        } else if (Intent.ACTION_VIEW.equals(action) && i.getData() != null && "https".equals(i.getData().getScheme()) && i.getData().isHierarchical()) {
             // an App Link from luchit.app: ?plate=, #plate or ?cmp=
             Uri d = i.getData();
             String cmp = d.getQueryParameter("cmp");

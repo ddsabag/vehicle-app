@@ -12,7 +12,21 @@ const page = fs.readFileSync("index.html", "utf8");
 const fixSrc = page.match(/const TRIM_FIX = (\{[\s\S]*?\});/); if (!fixSrc) throw new Error("TRIM_FIX not found in index.html");
 const TRIM_FIX = new Function("return " + fixSrc[1])();
 const norm = t => String(t || "").toUpperCase().replace(/[^A-Z0-9א-ת]/g, "");
-function lev(a, b, max) { if (Math.abs(a.length - b.length) > max) return max + 1; let prev = [...Array(b.length + 1).keys()], cur = []; for (let i = 1; i <= a.length; i++) { cur = [i]; let best = i; for (let j = 1; j <= b.length; j++) { let v = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) v = Math.min(v, prev[j - 2 + 0 === -1 ? 0 : j - 2] + 1); cur[j] = v; best = Math.min(best, v); } if (best > max) return max + 1; prev = cur; } return prev[b.length]; }
+function lev(a, b, max){   // edit distance with a swap of two neighbouring letters counting as one slip; stops early above max
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let p2 = null, p1 = Array.from({length: b.length + 1}, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i]; let lo = i;
+    for (let j = 1; j <= b.length; j++) {
+      let v = Math.min(p1[j] + 1, cur[j - 1] + 1, p1[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (p2 && i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) v = Math.min(v, p2[j - 2] + 1);
+      cur[j] = v; if (v < lo) lo = v;
+    }
+    if (lo > max) return max + 1;
+    p2 = p1; p1 = cur;
+  }
+  return p1[b.length];
+}
 const SPEC = ["nefah_manoa", "koah_sus", "technologiat_hanaa_nm", "delek_nm", "automatic_ind", "hanaa_nm", "merkav", "mispar_dlatot", "mispar_moshavim", "mishkal_kolel", "mispar_kariot_avir", "ramat_eivzur_betihuty", "mehir", "mazgan_ind", "halon_bagg_ind", "galgaley_sagsoget_kala_ind", "hege_koah_ind", "mispar_halonot_hashmal", "abs_ind", "bakarat_yatzivut_ind", "maarechet_ezer_labalam_ind", "bakarat_stiya_menativ_ind", "bakarat_stiya_activ_s", "nitur_merhak_milfanim_ind", "zihuy_beshetah_nistar_ind", "bakarat_shyut_adaptivit_ind", "zihuy_holchey_regel_ind", "blimat_hirum_lifnei_holhei_regel_ofanaim", "zihuy_rechev_do_galgali", "matzlemat_reverse_ind", "blima_otomatit_nesia_leahor", "hayshaney_lahatz_avir_batzmigim_ind", "hayshaney_hagorot_ind", "shlita_automatit_beorot_gvohim_ind", "teura_automatit_benesiya_kadima_ind", "zihuy_tamrurey_tnua_ind", "zihuy_matzav_hitkarvut_mesukenet_ind", "bakarat_mehirut_isa", "hitnagshut_cad_shetah_met"];
 const impName = x => String(x || "").replace(/\s*בע['"׳״]{0,2}מ\.?\s*$|\s*בעמ\s*$/, "").replace(/\s+/g, " ").trim();
 

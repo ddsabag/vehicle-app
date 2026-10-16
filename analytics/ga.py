@@ -12,17 +12,22 @@ def _client():
     return BetaAnalyticsDataClient(credentials=creds)
 
 
-def _report(client, prop, ranges, dims, metrics, event=None, limit=1000):
-    from google.analytics.data_v1beta.types import (DateRange, Dimension, Filter, FilterExpression, Metric, RunReportRequest)
+def _report(client, prop, ranges, dims, metrics, event=None, limit=1000, app_only=False):
+    """app_only: the Android stream only. Web beacons (/api/e) carry a fresh client_id per page load, so property-wide user counts would count page loads as people."""
+    from google.analytics.data_v1beta.types import (DateRange, Dimension, Filter, FilterExpression, FilterExpressionList, Metric, RunReportRequest)
     req = RunReportRequest(
         property=f"properties/{prop}",
         date_ranges=[DateRange(start_date=a.isoformat(), end_date=b.isoformat()) for a, b in ranges],
         dimensions=[Dimension(name=d) for d in dims],
         metrics=[Metric(name=m) for m in metrics],
         limit=limit)
+    flt = []
     if event:
-        req.dimension_filter = FilterExpression(filter=Filter(
-            field_name="eventName", string_filter=Filter.StringFilter(value=event, match_type=Filter.StringFilter.MatchType.EXACT)))
+        flt.append(FilterExpression(filter=Filter(field_name="eventName", string_filter=Filter.StringFilter(value=event, match_type=Filter.StringFilter.MatchType.EXACT))))
+    if app_only:
+        flt.append(FilterExpression(filter=Filter(field_name="platform", string_filter=Filter.StringFilter(value="Android", match_type=Filter.StringFilter.MatchType.EXACT))))
+    if len(flt) == 1: req.dimension_filter = flt[0]
+    elif flt: req.dimension_filter = FilterExpression(and_group=FilterExpressionList(expressions=flt))
     out = []
     for r in client.run_report(req).rows:
         out.append(([v.value for v in r.dimension_values], [float(v.value or 0) for v in r.metric_values]))
@@ -74,7 +79,7 @@ def collect(period, cfg):
     u = {}
     for name in ("activeUsers", "newUsers"):
         vals = {"cur": 0, "prev": 0}
-        for dims, mets in _report(c, prop, [cur, prev], [], [name]):
+        for dims, mets in _report(c, prop, [cur, prev], [], [name], app_only=True):
             vals["cur" if dims[-1] == "date_range_0" else "prev"] = int(mets[0])
         u[name] = vals
     data["users"] = u
@@ -82,7 +87,7 @@ def collect(period, cfg):
     # daily series: 28 days, active users and lookups
     start28 = period["end"] - timedelta(days=27)
     daily = {}
-    for dims, mets in _report(c, prop, [(start28, period["end"])], ["date"], ["activeUsers"]):
+    for dims, mets in _report(c, prop, [(start28, period["end"])], ["date"], ["activeUsers"], app_only=True):
         d = f"{dims[0][:4]}-{dims[0][4:6]}-{dims[0][6:]}"
         daily.setdefault(d, {})["active"] = int(mets[0])
     for dims, mets in _report(c, prop, [(start28, period["end"])], ["date"], ["eventCount"], event=cfg["events"]["lookup"]):
@@ -120,7 +125,7 @@ def collect(period, cfg):
         data["versions"] = {}; notes.append("גרסאות האפליקציה לא היו זמינות השבוע.")
     # returning users
     try:
-        nvr = _split(_report(c, prop, [cur, prev], ["newVsReturning"], ["activeUsers"]), 1)
+        nvr = _split(_report(c, prop, [cur, prev], ["newVsReturning"], ["activeUsers"], app_only=True), 1)
         data["returning"] = {"cur": int(nvr.get("returning", {}).get("cur", 0)), "prev": int(nvr.get("returning", {}).get("prev", 0))}
     except Exception as e:
         data["returning"] = {"cur": 0, "prev": 0}; notes.append("נתוני משתמשים חוזרים לא היו זמינים השבוע.")

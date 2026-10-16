@@ -53,7 +53,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="luchit.app" android:path="/" />
-                <data android:scheme="https" android:host="www.luchit.app" android:path="/" />
+                <!-- no www host: nothing links to it, and a host whose assetlinks.json answers with a redirect fails verification (all hosts on Android 11 and lower) -->
             </intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity>

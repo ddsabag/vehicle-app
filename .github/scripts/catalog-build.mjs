@@ -1,12 +1,14 @@
 // Builds the static model catalogue the comparison reads instead of querying the ministry live (0 requests to data.gov.il
 // when a model is picked or added). Published on the catalog-data branch (force-pushed, one commit) by catalog.yml.
 //   meta.json          {u, makers: {cd: {n: maker name, m: [model names as the register spells them], r: rows}}, rec: [maker codes with recalls]}
-//   c/<cd>.json        maker index {u, cd, n, eretz, tozar, cols, models: {name: [file, rows, firstYear, lastYear]}, degems: {degem_cd: file}}
-//   c/<cd>/<file>.json {rows: [[...]]}  the catalogue lines of one model name: the WLTP fields the app shows (the maker columns hoisted
+//   c/<cd>.json        maker index {u, cd, n, eretz, tozar, cols, imp: {n: brand importer, c: its cars on the road, share}, models: {name: [file, rows, firstYear, lastYear]},
+//                      degems: {"P|degem_cd": file, "M|degem_cd": file, degem_cd: file}} (the ministry numbers private and commercial models apart)
+//   c/<cd>/<file>.json {u, rows: [[...]]}  the catalogue lines of one model name (file = stable hash of the name, so a cached index never points at the wrong file): the WLTP fields the app shows (the maker columns hoisted
 //                      into the index), plus the price-list columns (mehir, shem_yevuan) and the counts (mispar_rechavim_pailim / le_pailim)
 //   r/<cd>.json        {u, rows: [...]}  every recall of that maker (TOZAR_CD), the fields the app reads
 // Runs on a GitHub runner (data.gov.il blocks other networks). OUT (default out) is the output directory.
 import fs from "node:fs";
+import crypto from "node:crypto";
 const API = "https://data.gov.il/api/3/action/datastore_search";
 const ID = {wltp: "142afde2-6228-49f9-8a29-9b6c3a0cbe40", price: "39f455bf-6db0-4926-859d-017f34eacbcb", counts: "5e87a7a1-2f6f-41c1-8aec-7216d52a6cf6", recalls: "2c33523f-87aa-44ec-a736-edbb0a82975e"};
 const OUT = process.env.OUT || "out", PAGE = 30000, T0 = Date.now();
@@ -118,17 +120,20 @@ for (const [cd, rows] of byMaker) {
   for (const w of rows) { const m = String(w[I.kinuy_mishari] || w[I.degem_nm] || "").trim().toUpperCase() || "-"; if (!byModel.has(m)) byModel.set(m, []); byModel.get(m).push(w); }
   fs.mkdirSync(`${OUT}/c/${cd}`, {recursive: true});
   const models = {}, degems = {};
-  let f = 0;
+  const impName = x => String(x || "").replace(/\s*בע['"׳״]{0,2}מ\.?\s*$|\s*בעמ\s*$/, "").replace(/\s+/g, " ").trim();
+  const onRoad = new Map(); for (const w of rows) { const nm = impName(w[YEVUAN]); if (nm) onRoad.set(nm, (onRoad.get(nm) || 0) + (Number(w[ACT]) || 0)); }
+  const roadTotal = [...onRoad.values()].reduce((a, b) => a + b, 0), topImp = [...onRoad.entries()].sort((a, b) => b[1] - a[1])[0];
+  const imp = topImp && topImp[1] >= 50 ? {n: topImp[0], c: topImp[1], share: Math.round(topImp[1] / roadTotal * 100)} : null;
   for (const [m, list] of [...byModel.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
-    f++;
+    const f = crypto.createHash("sha1").update(cd + "|" + m).digest("hex").slice(0, 8);   // stable across builds: a model keeps its file name
     const ys = list.map(w => Number(w[I.shnat_yitzur]) || 0).filter(Boolean);
     models[m] = [f, list.length, ys.length ? Math.min(...ys) : 0, ys.length ? Math.max(...ys) : 0];
-    for (const w of list) degems[String(w[I.degem_cd])] = f;
-    const txt = JSON.stringify({rows: list.map(w => keepIdx.map(i => w[i]))});
+    for (const w of list) { const dg = String(w[I.degem_cd]), sd = String(w[I.sug_degem] || "").trim().toUpperCase(); if (sd) degems[sd + "|" + dg] = f; if (!degems[dg] || sd === "P") degems[dg] = f; }
+    const txt = JSON.stringify({u, rows: list.map(w => keepIdx.map(i => w[i]))});
     fs.writeFileSync(`${OUT}/c/${cd}/${f}.json`, txt); bytes += txt.length; files++; if (txt.length > biggest[1]) biggest = [n + " " + m, txt.length];
   }
   makers[cd] = {n, m: Object.keys(models), r: rows.length};
-  const idx = JSON.stringify({u, cd: Number(cd), n, eretz, tozar, cols, models, degems});
+  const idx = JSON.stringify({u, cd: Number(cd), n, eretz, tozar, cols, imp, models, degems});
   fs.writeFileSync(`${OUT}/c/${cd}.json`, idx); bytes += idx.length;
 }
 for (const [cd, rows] of rec) fs.writeFileSync(`${OUT}/r/${cd}.json`, JSON.stringify({u, rows}));

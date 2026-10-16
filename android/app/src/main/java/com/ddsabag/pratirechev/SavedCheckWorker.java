@@ -202,6 +202,8 @@ public class SavedCheckWorker extends Worker {
             Set<String> known = p.getStringSet(key, new HashSet<>());
             boolean fresh = false;
             for (String id : now) if (!known.contains(id)) fresh = true;
+            if (!now.isEmpty()) p.edit().remove("miss_" + key).apply();
+            if (!fresh && known.size() > now.size() && now.isEmpty() && !repeated(p, key)) return;   // the register answered with nothing: unknown, not "closed"; alert only when it repeats
             if (!fresh && known.size() > now.size()) {
                 notify(c, plate, ("recall" + plate).hashCode(),
                         "ריקול נסגר ברכב " + fmtPlate(plate),
@@ -224,6 +226,7 @@ public class SavedCheckWorker extends Worker {
         if (!budget(c)) return;
         int now = query(OWNERS, "mispar_rechev", plate).length();
         String key = "owners_" + plate;
+        if (now == 0 && p.getInt(key, 0) > 0) return;   // an empty answer for a car that had owners is a register hiccup, not a change
         if (p.contains(key) && now > p.getInt(key, now)) {
             notify(c, plate, ("owner" + plate).hashCode(),
                     "בעלות חדשה לרכב " + fmtPlate(plate),
@@ -237,6 +240,8 @@ public class SavedCheckWorker extends Worker {
         if (!budget(c)) return;
         boolean active = query(ACTIVE, "mispar_rechev", plate).length() > 0;
         String key = "active_" + plate;
+        if (active) p.edit().remove("miss_" + key).apply();
+        if (p.getBoolean(key, false) && !active && !repeated(p, key)) return;   // the first empty answer is unknown (the register has empty days); the second in a row is news
         if (p.getBoolean(key, false) && !active) {
             notify(c, plate, ("status" + plate).hashCode(),
                     "הרכב " + fmtPlate(plate) + " ירד מהכביש",
@@ -367,6 +372,13 @@ public class SavedCheckWorker extends Worker {
     }
 
     /** Plate columns are numeric in some datasets and text in others, so both are tried */
+    /** True when the same empty answer was already seen on the previous run (the counter is cleared by the caller's normal path) */
+    private static boolean repeated(SharedPreferences p, String key) {
+        int miss = p.getInt("miss_" + key, 0) + 1;
+        p.edit().putInt("miss_" + key, miss < 2 ? miss : 0).apply();
+        return miss >= 2;
+    }
+
     private static JSONArray query(String resource, String field, String plate) throws Exception {
         Exception last = null;
         boolean ok = false;
@@ -429,6 +441,7 @@ public class SavedCheckWorker extends Worker {
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
                 .setContentIntent(pi)
                 .setAutoCancel(true);
+        if (!budget(c) || !NotificationManagerCompat.from(c).areNotificationsEnabled()) return;   // at most 4 a week, and a blocked notification does not spend the budget
         try {
             NotificationManagerCompat.from(c).notify(id, b.build());
             logSent(c);

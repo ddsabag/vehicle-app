@@ -377,7 +377,7 @@ section[style*="--n:3"] .cmp-k{font-size:.78rem}
 .in-btn[aria-pressed="true"]{background:var(--bad);color:#fff;border-color:var(--bad)}
 .in-msg{margin:0;font-size:.9rem;color:var(--band-muted)}.in-msg:empty,.toast:empty{position:absolute;width:1px;height:1px;padding:0;margin:0;border:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;box-shadow:none;background:none}
 .seg.two{grid-template-columns:1fr 1fr}
-.card.many{overflow-x:auto}.many .cmp,.many .cmp-table{min-width:calc(var(--n)*116px)}
+@media (max-width:760px){.card.many{overflow-x:auto}}.many .cmp,.many .cmp-table{min-width:calc(var(--n)*116px)}
 .ph-svg{width:100%;height:auto;display:block}.opt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:start;border:1.5px solid var(--line);border-radius:14px;padding:12px;background:var(--card);margin-top:8px;position:relative;color:var(--fg)}.opt b{font-size:1rem}.opt .pr{font-weight:800}.opt small{color:var(--muted)}.opt.best{border-color:#ffc400;box-shadow:0 0 0 2px #ffc40055}.opt em{position:absolute;inset-block-start:-9px;inset-inline-end:12px;background:#ffc400;color:#111;font-style:normal;font-weight:800;font-size:.78rem;border-radius:6px;padding:1px 8px}.cmpp td,.cmpp th{font-size:.85rem;padding:6px 2px}
 .src-tag{display:inline-flex;align-items:center;font-size:.78rem;font-weight:700;border-radius:6px;padding:0 6px;margin-inline-start:6px;white-space:nowrap;background:var(--soft);color:var(--muted);border:1px solid var(--line)}
 .src-tag.db{color:var(--accent);border-color:var(--accent);background:transparent}
@@ -720,7 +720,7 @@ button:not(:disabled):active,.link-btn:active,.act:active,.tabs button:active,a.
 <script>
 "use strict";
 /*! © 2026 Dudu Sabag. All rights reserved. */
-const APP_VERSION = "1.29";
+const APP_VERSION = "1.30";
 const SITE = "https://luchit.app/";
 /* PRO: while PRO_LOCK is false (beta) every feature is open to everyone. Later it is tied to a Google Play subscription. */
 const PRO_LOCK = false;
@@ -1086,9 +1086,12 @@ async function copyText(t, label){
 /* web visitors who go to Google Play carry a campaign tag, so Play Console can show how many store visits and installs come from luchit.app */
 /* every web button that leads to Google Play carries a campaign tag; when the visitor came from a shared report the tag says so (utm_source=share, utm_medium = kind of share),
    and when a car is on screen its plate rides along, so the app's first launch opens the same car */
+/* the campaign a visit arrived with (utm_source=tiktok …) is kept for the session, without any identifier, so the Play link and the install
+   click carry the real source; first link wins */
+const FT = (() => { try { const prev = sessionStorage.getItem("ft"); if (prev) return JSON.parse(prev); const q = new URLSearchParams(location.search), clean = (k, n) => (q.get(k) || "").toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, n); const s = clean("utm_source", 12); if (!s || s === "share" || s === "luchitapp") return null; const o = {s, m: clean("utm_medium", 12) || "web", c: clean("utm_campaign", 24)}; sessionStorage.setItem("ft", JSON.stringify(o)); return o; } catch { return null; } })();
 const playWeb = c => {
   let plate = ""; try { plate = current && current.plate && current.kind !== "model" ? current.plate : ""; } catch {}
-  let ref = "utm_source=luchit.app&utm_medium=web&utm_campaign=" + c;
+  let ref = FT ? `utm_source=${FT.s}&utm_medium=${FT.m}&utm_campaign=${FT.c || c}&utm_content=${c}` : "utm_source=luchit.app&utm_medium=web&utm_campaign=" + c;
   try { if (typeof SHARED === "string" && SHARED) ref = `utm_source=share&utm_medium=${SHARE_VIA}&utm_campaign=car_share&utm_content=${c}`; } catch {}
   if (plate) ref = "plate=" + plate + "&" + ref;
   return `${PLAY_URL}&referrer=${encodeURIComponent(ref)}`;
@@ -1478,10 +1481,11 @@ async function catModelData(v, loadedOnly){
   const cd = catCd(v.tozeret_cd), dg = num(v.degem_cd); if (!cd || isNaN(dg)) return null;
   if (loadedOnly && !CAT_ROWS.has(cd)) return null;
   const meta = await withTimeout(catMeta(), loadedOnly ? 1500 : CAT_TIMEOUT); if (!meta || !meta.makers[cd]) return null;
-  const idx = await catIndex(cd), f = idx && idx.degems[String(dg)]; if (!f) return null;   // not in the catalogue copy (a model newer than the file): ask the ministry
+  // the ministry numbers private (P) and commercial (M) models separately, so one degem_cd can be two models: the index is read by type first
+  const sd = String(v.sug_degem || "").trim().toUpperCase(), idx = await catIndex(cd), f = idx && ((sd && idx.degems[sd + "|" + dg]) || idx.degems[String(dg)]); if (!f) return null;   // not in the catalogue copy (a model newer than the file): ask the ministry
   if (loadedOnly && !CAT_ROWS.has(cd + "/" + f)) return null;
   const rows = await catRows(cd, [f]); if (!rows) return null;
-  const mine = rows.filter(r => num(r.degem_cd) === dg); if (!mine.length) return null;
+  const mine = rows.filter(r => num(r.degem_cd) === dg && (!sd || empty(r.sug_degem) || String(r.sug_degem).trim().toUpperCase() === sd)); if (!mine.length) return null;
   const ranked = rankRows(mine, v), w = ranked[0];
   const towRow = ranked.find(hasTow) || null;
   const zeroTow = !towRow && isNum(w.kosher_grira_im_blamim) && isNum(w.kosher_grira_bli_blamim) && num(w.kosher_grira_im_blamim) === 0 && num(w.kosher_grira_bli_blamim) === 0;
@@ -1733,7 +1737,7 @@ async function lookup(raw){
   let D;
   try { D = await fetchVehicle(plate, signal, () => {}); }
   catch (err) { if (err.name === "AbortError") { if (timedOut) { D = {plate, offline: true}; track("lookup_timeout"); } else { if (Date.now() - t0 > 1500) track("lookup_abort"); return; } } else throw err; }   // the user gave up on a slow lookup and typed another
-  finally { $("#go").disabled = false; clearTimeout(slowT); clearTimeout(deadT); }
+  finally { if (ctrl && ctrl.signal === signal) $("#go").disabled = false; clearTimeout(slowT); clearTimeout(deadT); }
   const dur = Date.now() - t0, durB = dur < 2000 ? "lt2" : dur < 5000 ? "2to5" : dur < 10000 ? "5to10" : "gt10";
   if (signal.aborted && !timedOut) return;
   await side;
@@ -2575,7 +2579,7 @@ async function cachedJson(urls, onFresh){
   const stale = cache ? await (async () => { for (const u of urls) { const h = await cache.match(u).catch(() => null); if (h) return {u, txt: await h.text()}; } return null; })() : null;
   const fresh = (async () => {
     for (const u of urls) {
-      try { const r = await fetch(u, {cache: "no-cache"}); if (!r.ok) continue; const txt = await r.text(); if (cache) cache.put(u, new Response(txt, {headers: {"Content-Type": "application/json"}})).catch(() => {}); return {u, txt}; } catch {}
+      try { const r = await fetch(u, {cache: "no-cache"}); if (!r.ok) continue; const txt = await r.text(); JSON.parse(txt); if (cache) cache.put(u, new Response(txt, {headers: {"Content-Type": "application/json"}})).catch(() => {}); return {u, txt}; } catch {}   // a 200 that is not JSON (an error page) never replaces a good copy
     }
     return null;
   })();
@@ -2759,13 +2763,19 @@ async function dsSearch(id, words, filters, limit, signal){
     {q: words.join(" "), sort: "shnat_yitzur desc"},
     {q: words.join(" ")},
   ];
+  let answered = false;   // a registry that never answered is not "no such model"
   for (const t of tries) {
+    const ctl = new AbortController(), onAb = () => ctl.abort(); if (signal) signal.addEventListener("abort", onAb);
+    const tm = setTimeout(() => ctl.abort(), 15000);   // a hung server ends in a clear message, not "מחפש…" forever
     try {
-      const r = await fetch(`${API}?${new URLSearchParams({...base, ...t})}`, {signal, headers: {Accept: "application/json"}});
+      const r = await fetch(`${API}?${new URLSearchParams({...base, ...t})}`, {signal: ctl.signal, headers: {Accept: "application/json"}});
       const j = await r.json();
+      if (j.success) answered = true;
       if (j.success && j.result.records.length) return j.result.records;
-    } catch (err) { if (err.name === "AbortError") throw err; }
+    } catch (err) { if (err.name === "AbortError" && signal && signal.aborted) throw err; }
+    finally { clearTimeout(tm); if (signal) signal.removeEventListener("abort", onAb); }
   }
+  if (!answered) throw new Error("search_down");
   return [];
 }
 // maker names carry the factory country ("טויוטה יפן"); without it, one maker is one entry
@@ -2806,6 +2816,7 @@ async function fetchModel(r, signal){
   const v = {...r, sug_degem: r.sug_degem || "P"};
   const md = await fetchModelData(v, signal, true);
   const pick = (...vals) => vals.find(x => !empty(x));
+  if (!Object.keys(md.w).length && r.koah_sus === undefined) throw new Error("model_unresolved");   // nothing answered: a fail column with a retry, not an empty "דגם"
   const w = Object.keys(md.w).length ? md.w : r;
   if (empty(r.kinuy_mishari) && !empty(w.kinuy_mishari)) { r = {...r, kinuy_mishari: w.kinuy_mishari, tozeret_nm: pick(r.tozeret_nm, w.tozeret_nm, w.tozar), degem_nm: pick(r.degem_nm, w.degem_nm)}; Object.assign(v, r); }
   const D = {kind: "model", plate: null, key: rowKey(r), v, ...md, w, tSrc: md.towRow || (hasTow(r) ? r : null),
@@ -2844,7 +2855,7 @@ function renderQuick(){
 }
 function addToCompare(D){
   const id = x => x.plate || x.key;
-  if (cmp.some(x => id(x) === id(D))) { const t = D.kind === "model" ? "הדגם הזה כבר מופיע בהשוואה" : "הרכב הזה כבר בהשוואה"; $("#compareMsg").textContent = t + "."; toast(t); return false; }
+  if (cmp.some(x => x.kind !== "fail" && id(x) === id(D))) { const t = D.kind === "model" ? "הדגם הזה כבר מופיע בהשוואה" : "הרכב הזה כבר בהשוואה"; $("#compareMsg").textContent = t + "."; toast(t); return false; }
   cmp = cmp.filter(x => x.kind !== "fail" || id(x) !== id(D));
   cmp.push(D); if (cmp.length > cmpMax()) cmp.shift();
   $("#compareSheet").hidden = true; renderCompare(); window.scrollTo({top: 0});
@@ -2949,7 +2960,7 @@ async function runModelSearch(){
     if (sq && sq.length) { searchFuzzy = false; mGroups = sq.map(o => ({make: o.mk, model: o.words.join(" "), base: o.words.join(" "), fromFilter: true, instant: true})); mShowAll = true; showGroups(); msg.textContent = "מחפש…"; }
     let rows = await searchModelRows(q, searchWords(q), null, 1000, signal);
     if (signal.aborted) return;
-    if (!rows.length && sq && sq.length) { msg.textContent = ""; return; }   // the registry adds nothing (or is down): the local catalogue's list stands, and the pick reads the static catalogue
+    if (!rows.length && sq && sq.length) { if (mPending) { mPending = null; msg.textContent = "הטעינה נכשלה. נסו שוב."; } else msg.textContent = ""; return; }   // the registry adds nothing (or is down): the local catalogue's list stands, and the pick reads the static catalogue
     const g = new Map();
     for (const r of rows) {
       if (empty(r.tozeret_cd) || !rowModel(r)) continue;
@@ -2975,7 +2986,7 @@ async function runModelSearch(){
     mShowAll = false;
     if (mPending) { const i = mGroups.findIndex(x => x.model === mPending.model && x.make === mPending.make) ; const j = i >= 0 ? i : mGroups.findIndex(x => x.model === mPending.model || x.base === mPending.model); mPending = null; if (j >= 0) { pickGroup(j); return; } }
     showGroups();
-  } catch (err) { if (err.name !== "AbortError" && !signal.aborted) msg.textContent = sq && sq.length && mGroups.length ? "" : "החיפוש נכשל. בדקו את החיבור ונסו שוב."; }
+  } catch (err) { if (err.name !== "AbortError" && !signal.aborted) { mPending = null; msg.textContent = sq && sq.length && mGroups.length ? "" : "החיפוש נכשל. בדקו את החיבור ונסו שוב."; } }
 }
 function showGroups(){
   const msg = $("#compareMsg"), shown = mShowAll ? mGroups : mGroups.slice(0, MODEL_SHOWN), rest = mGroups.length - shown.length;
@@ -2989,21 +3000,32 @@ function showGroups(){
 /* all rows of one model, every maker code, year and trim: from the static catalogue when it answers, else from the ministry */
 async function groupRows(x){
   const out = [], meta = await withTimeout(catMeta(), CAT_TIMEOUT), names = new Set([...x.names].map(n => String(n).trim().toUpperCase()));
+  let answered = false;   // neither the catalogue nor the ministry answered for any maker code: the caller shows a retry, not "no versions"
   for (const cd of x.cds) {
     let got = [];
     const idx = meta && meta.makers[catCd(cd)] ? await catIndex(cd) : null;
     const files = idx ? Object.keys(idx.models).filter(m => names.has(m)).map(m => idx.models[m][0]) : [];
     const rows = idx ? (files.length ? await catRows(cd, files) : []) : null;
-    if (rows) { got = rows.filter(r => names.has(rowModel(r).toUpperCase())); out.push(...got); continue; }
+    if (rows) { answered = true; got = rows.filter(r => names.has(rowModel(r).toUpperCase())); out.push(...got); continue; }
     for (const name of x.names) {
       for (const f of [{tozeret_cd: num(cd), kinuy_mishari: name}, {tozeret_cd: String(cd), kinuy_mishari: name}]) {
-        try { const r = await ds(MODEL_SETS.wltp, f, 1000); if (r.length) { got.push(...r); break; } } catch {}
+        try { const r = await ds(MODEL_SETS.wltp, f, 1000); answered = true; if (r.length) { got.push(...r); break; } } catch {}
       }
     }
     out.push(...got);
   }
+  if (!answered && !out.length && !x.rows.length) return null;
   const seen = new Set(), all = [...out, ...x.rows].filter(r => { const k = rowKey(r) + "|" + num(r.koah_sus); if (seen.has(k)) return false; seen.add(k); return true; });
   return all;
+}
+/* the brand's importer by cars on the road across every model and year in the maker's catalogue index (written by catalog-build.mjs);
+   a year's leading importer is called "official" only when it is this one, so a parallel importer that got there first is never named official */
+async function brandImporter(x){
+  try {
+    const got = await Promise.all([...x.cds].map(cd => catIndex(cd).catch(() => null)));
+    const top = got.filter(i => i && i.imp && i.imp.n).sort((a, b) => (b.imp.c || 0) - (a.imp.c || 0))[0];
+    return top ? impName(top.imp.n) : "";
+  } catch { return ""; }
 }
 const rowD = r => ({w: r, v: {}, pick: (...a) => a.find(x => !empty(x))});
 const engKey = r => { const dt = driveType(rowD(r)); return [dt ? dt.k : "", num(r.koah_sus) || ""].join("|"); };
@@ -3011,6 +3033,7 @@ const engKey = r => { const dt = driveType(rowD(r)); return [dt ? dt.k : "", num
    so the pick needs no ministry search; when the index is unavailable the search runs as before */
 async function pickFilterGroup(i){
   const g = mGroups[i]; if (!g) return;
+  if (mCtrl) mCtrl.abort();
   $("#mres").innerHTML = ""; $("#compareMsg").textContent = "טוען…"; renderQuick();
   const meta = await withTimeout(catMeta(), 2500), base = modelBase(cleanModelName(normModel(g.base || g.model)));
   const fam = m => modelBase(cleanModelName(normModel(m))) === base;
@@ -3023,11 +3046,16 @@ async function pickFilterGroup(i){
 }
 async function pickGroup(i){
   const g0 = mGroups[i]; mGroup = g0; mYear = null; if (!mGroup) return;
+  if (mCtrl) mCtrl.abort();   // a registry answer that arrives later must not replace the picker with the group list
   $("#mres").innerHTML = ""; $("#compareMsg").textContent = "טוען…"; renderQuick();
-  const all0 = await groupRows(g0); if (mGroup !== g0) return; mGroup.all = g0.split ? all0.filter(r => driveCls(r) === g0.cls) : all0;
+  const all0 = await groupRows(g0); if (mGroup !== g0) return;
+  if (all0 === null) { mGroup.all = []; mGroup.years = []; $("#compareMsg").textContent = "הטעינה נכשלה. בדקו את החיבור ונסו שוב."; return; }
+  mGroup.all = g0.split ? all0.filter(r => driveCls(r) === g0.cls) : all0;
   const years = [...new Set(mGroup.all.map(r => num(r.shnat_yitzur)).filter(y => !isNaN(y)))].sort((a, b) => b - a);
-  mGroup.years = years; showModel(String(years[0] || ""));
+  mGroup.years = years;
   if (!mGroup.all.length) { $("#compareMsg").textContent = "לא נמצאו גרסאות לדגם הזה. נסו שם אחר."; return; }
+  mGroup.imp = await brandImporter(g0); if (mGroup !== g0) return;
+  showModel(String(years[0] || ""));
   // one year and one version: nothing left to choose
   if (years.length === 1 && mResults.length === 1 && (mMode === "trim" || mResults[0].length === 1)) pickModel(0);
 }
@@ -3038,7 +3066,7 @@ const TRIM_FIX = {HYBR: "HYBRID", HYBRI: "HYBRID", PREMIU: "PREMIUM", PREMI: "PR
   PRESTIG: "PRESTIGE", PRESTI: "PRESTIGE", SIGNATUR: "SIGNATURE", SIGNAT: "SIGNATURE", TECHNOLOG: "TECHNOLOGY", TECHNO: "TECHNOLOGY", ULTIMAT: "ULTIMATE", ULTIMA: "ULTIMATE", EXCLUSIV: "EXCLUSIVE", EXCLUS: "EXCLUSIVE", ALLUR: "ALLURE",
   PANORAMI: "PANORAMIC", PANORAM: "PANORAMIC", SUPREM: "SUPREME", HIGHLIN: "HIGHLINE", HIGHLI: "HIGHLINE", TRENDLIN: "TRENDLINE", COMFORTLIN: "COMFORTLINE", COMFORTLI: "COMFORTLINE", ELECTRI: "ELECTRIC", ELECTR: "ELECTRIC",
   ESSENTIA: "ESSENTIAL", ESSENTI: "ESSENTIAL", ESSENC: "ESSENCE", EVOLUTIO: "EVOLUTION", EVOLUTI: "EVOLUTION", ADVENTUR: "ADVENTURE", ADVENT: "ADVENTURE", FREESTYL: "FREESTYLE", CROSSOVE: "CROSSOVER", CROSSOV: "CROSSOVER",
-  SPECIA: "SPECIAL", CLASSI: "CLASSIC", EDI: "EDITION", EDIT: "EDITION", NAVIGATIO: "NAVIGATION", LONGRANG: "LONG RANGE", STYL: "STYLE", PERFO: "PERFORMANCE", INTELLIGEN: "INTELLIGENT", INTELLIG: "INTELLIGENT"};
+  SPECIA: "SPECIAL", CLASSI: "CLASSIC", EDI: "EDITION", EDIT: "EDITION", NAVIGATIO: "NAVIGATION", LONGRANG: "LONG RANGE", STYL: "STYLE", PERFO: "PERFORMANCE", INTELLIGEN: "INTELLIGENT", INTELLIG: "INTELLIGENT", PLU: "PLUS", AUTOBIOGRAPH: "AUTOBIOGRAPHY", UTOBIOGRAPHY: "AUTOBIOGRAPHY"};
 const trimNorm = r => String(r.ramat_gimur || "").toUpperCase().replace(/[^A-Z0-9\u05d0-\u05ea]/g, "");
 const SPEC_KEYS = ["nefah_manoa", "koah_sus", "technologiat_hanaa_nm", "delek_nm", "automatic_ind", "hanaa_nm", "merkav", "mispar_dlatot", "mispar_moshavim", "mishkal_kolel", "mispar_kariot_avir", "ramat_eivzur_betihuty", "mehir", ...Object.keys(EQUIP), ...Object.keys(SYSTEMS)];
 const specKey = r => SPEC_KEYS.map(k => String(r[k] ?? "")).join("|");
@@ -3046,7 +3074,7 @@ function trimLabel(r){
   if (r._alias) return r._alias;
   let t = String(r.ramat_gimur || "").trim().toUpperCase().replace(/\s+/g, " "); if (!t) return "";
   if (t.length === 12) { const w = t.split(" "), last = w[w.length - 1]; if (TRIM_FIX[last]) { w[w.length - 1] = TRIM_FIX[last]; t = w.join(" "); } }   // the register cuts trims at 12 characters
-  t = t.replace(/^(.+) ED\.?$/, "$1 EDITION");   // "LIMITED ED." / "BUSINESS ED"
+  t = t.replace(/^(.+) ED\.?$/, "$1 EDITION").replace(/\s*\.$/, "");   // "LIMITED ED." / "BUSINESS ED"; a trailing dot would flip to the other side of a Latin word in Hebrew text
   return t.split(" ").map(x => /^[A-Z]{4,}$/.test(x) ? x[0] + x.slice(1).toLowerCase() : x).join(" ");
 }
 // one slip apart (LOUNGE / LUONGE, AMBIENTE / AMBIENIE): the same trim
@@ -3064,7 +3092,7 @@ function showModel(y){
   for (const r of inYear) {
     const e = engKey(r) + "|", t = trimNorm(r);
     let k = e + t;
-    if (!variants.has(k)) { const near = [...variants.keys()].find(x => x.startsWith(e) && nearTrim(x.slice(e.length), t)); if (near) { if ((freq.get(t) || 0) > (freq.get(near.slice(e.length)) || 0)) { variants.set(k, variants.get(near)); variants.delete(near); } else k = near; } }
+    if (!variants.has(k)) { const near = [...variants.keys()].find(x => x.startsWith(e) && nearTrim(x.slice(e.length), t)); if (near) { if ((freq.get(t) || 0) > (freq.get(near.slice(e.length)) || 0)) { variants.set(k, [r, ...variants.get(near)]); variants.delete(near); continue; } else k = near; } }
     if (!variants.has(k)) variants.set(k, []);
     variants.get(k).push(r);
   }
@@ -3083,9 +3111,12 @@ function showModel(y){
   // first, the rest fold under one line (catalogue rows carry the importer and the counts; live ministry rows do not, and show as one list).
   const onRoad = new Map(); for (const r of inYear) { const n = impName(r.shem_yevuan); if (n) onRoad.set(n, (onRoad.get(n) || 0) + (num(r.mispar_rechavim_pailim) || 0)); }
   const total = [...onRoad.values()].reduce((a, b) => a + b, 0), main = [...onRoad.entries()].sort((a, b) => b[1] - a[1])[0];
-  const official = main && main[1] >= 20 && main[1] >= total / 2 ? main[0] : "";
-  const isOff = l => l.some(r => impName(r.shem_yevuan) === official);
-  const off = official ? list.filter(isOff) : list, par = official ? list.filter(l => !isOff(l)) : [];
+  // the year's leading importer is "official" only when it is also the brand's importer over all years (mGroup.imp, from the catalogue index);
+  // otherwise it leads the list under a neutral title, since the official importer may simply not have registered that year yet
+  const lead = main && main[1] >= 20 && main[1] >= total / 2 ? main[0] : "", brand = mGroup.imp === undefined ? "" : mGroup.imp;
+  const official = lead && (!brand || brand === lead) ? lead : "", leading = lead && !official ? lead : "";
+  const isOff = l => l.some(r => impName(r.shem_yevuan) === (official || leading));
+  const off = official || leading ? list.filter(isOff) : list, par = official || leading ? list.filter(l => !isOff(l)) : [];
   if (mParYear !== String(y)) { mParYear = String(y); mShowPar = false; }
   mMode = "trim"; mResults = off.concat(par);
   $("#compareMsg").textContent = "";
@@ -3094,12 +3125,12 @@ function showModel(y){
     const gear = !empty(r.automatic_ind) && !yes(r.automatic_ind) ? "ידנית" : "";
     const name = trimLabel(r), hp = isNum(r.koah_sus) && num(r.koah_sus) > 0 ? `${fmtN(r.koah_sus)} כ״ס` : "";   // electric cars are often registered without horsepower
     const eng = [dt && dt.k !== "ev" ? litres(r) : "", dt ? dt.label : "", hp, gear].filter(Boolean).join(" · ");
-    return `<button type="button" class="row eng" data-mi="${i}">${dt ? `<span class="pill drive ${green ? "green" : ""}">${ico(green ? "bolt" : "fuel")}${dt.label}</span>` : ""}<span class="t"><b>${esc(name || hp || "גרסה בסיסית")}</b><small>${esc(name ? eng : [gear].filter(Boolean).join(" · ") || eng)}</small></span><span class="qadd" aria-label="הוספה">${ico("plus")}</span></button>`;
+    return `<button type="button" class="row eng" data-mi="${i}">${dt ? `<span class="pill drive ${green ? "green" : ""}">${ico(green ? "bolt" : "fuel")}${dt.label}</span>` : ""}<span class="t"><b><bdi>${esc(name || hp || "גרסה בסיסית")}</bdi></b><small>${esc(name ? eng : [gear].filter(Boolean).join(" · ") || eng)}</small></span><span class="qadd" aria-label="הוספה">${ico("plus")}</span></button>`;
   };
   $("#mres").innerHTML = modelHead(y)
-    + `<div class="qsec">${official ? `היבואן הרשמי (${esc(official)}) · ${pl(off.length, "גרסה אחת", "גרסאות")} ב-${esc(String(y))}` : list.length > 1 ? `רמת גימור ומנוע · ${list.length} גרסאות ב-${esc(String(y))}` : "גרסה אחת בשנה זו"}</div>`
+    + `<div class="qsec">${official ? `היבואן הרשמי (${esc(official)}) · ${pl(off.length, "גרסה אחת", "גרסאות")} ב-${esc(String(y))}` : leading ? `היבואן העיקרי בשנתון (${esc(leading)}) · ${pl(off.length, "גרסה אחת", "גרסאות")} ב-${esc(String(y))}` : list.length > 1 ? `רמת גימור ומנוע · ${list.length} גרסאות ב-${esc(String(y))}` : list.length ? "גרסה אחת בשנה זו" : ""}</div>`
     + off.map(row).join("")
-    + (par.length ? (mShowPar ? `<div class="qsec">יבוא מקביל · ${pl(par.length, "גרסה אחת", "גרסאות")}</div><p class="note" style="margin:0 0 6px">גרסאות שיבואנים אחרים רשמו במשרד התחבורה. שם הגימור הוא כפי שהיבואן המקביל רשם, ולא תמיד תואם למפרט של היבואן הרשמי.</p>` + par.map((l, i) => row(l, off.length + i)).join("") : `<button type="button" class="more" data-mpar="1">עוד ${pl(par.length, "גרסה אחת", "גרסאות")} ביבוא מקביל</button>`) : "");
+    + (par.length ? (mShowPar ? `<div class="qsec">${official ? "יבוא מקביל" : "יבואנים נוספים"} · ${pl(par.length, "גרסה אחת", "גרסאות")}</div><p class="note" style="margin:0 0 6px">גרסאות שיבואנים אחרים רשמו במשרד התחבורה. שם הגימור הוא כפי שאותו יבואן רשם, ולא תמיד תואם למפרט של היבואן הרשמי.</p>` + par.map((l, i) => row(l, off.length + i)).join("") : `<button type="button" class="more" data-mpar="1">עוד ${pl(par.length, "גרסה אחת", "גרסאות")} ${official ? "ביבוא מקביל" : "מיבואנים נוספים"}</button>`) : "");
 }
 const impName = x => String(x || "").replace(/\s*בע['"׳״]{0,2}מ\.?\s*$|\s*בעמ\s*$/, "").replace(/\s+/g, " ").trim();
 let mParYear = "", mShowPar = false;
@@ -3251,7 +3282,7 @@ function renderCompare(){
     ["אגרת רישוי (הערכה)", D => D.cost.fee || null, "lo", "₪"],
     ["שווי שימוש לחודש", D => D.cost.usage ? D.cost.usage.monthly : null, "lo", "₪"],
     "אמינות",
-    ["ריקולים לדגם", D => D.modelRecalls.filter(r => r.fits !== false).length, "lo"],
+    ["ריקולים לדגם", D => D.modelRecallsUnknown ? null : D.modelRecalls.filter(r => r.fits !== false).length, "lo"],
     ["רכבים מהדגם והשנתון על הכביש", D => { const p = msPop(D); return p ? p.n : null; }, null, ""],
     ["ירדו מהכביש (כל הדגם והשנתון)", D => { const p = msPop(D); return p ? Math.round(p.pct * 10) / 10 : null; }, "lo", "%", true],
     ...(anyCar ? [anyModel ? "הרכב הספציפי (לא לדגמים)" : "הרכב הספציפי",
@@ -3282,7 +3313,7 @@ function renderCompare(){
     const open = cmpOpen.has(x.title) || !CMP_FOLDED.has(x.title);
     return `<div class="cmp-sec"><button type="button" data-sec="${esc(x.title)}" aria-expanded="${open}">${esc(x.title)}${open ? "" : `<small>${x.n} שורות</small>`}${ico("chev")}</button></div>` + (open ? x.html.join("") : "");
   }).join("") + (OK.some(D => D.plate) ? `<div class="cmp-k">ברכבים שלי</div>` + L.map((D, i) => `<div class="cmp-v">${D.plate && D.kind !== "fail" ? `<button type="button" class="cmp-save" data-cmpsave="${i}" aria-pressed="${isSaved(D.plate)}">${isSaved(D.plate) ? "נשמר ✓" : "שמירה"}</button>` : ""}</div>`).join("") : "");
-  const head = (D, i) => D.kind === "fail" ? `<div class="cmp-h fail"><div class="cmp-top"><span class="mini-plate"><i></i>${esc(D.title)}</span><button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><small>${esc(D.why)}</small>${D.retry ? `<button type="button" class="retry" data-retry-cmp="${i}">נסו שוב</button>` : ""}</div>` : `<div class="cmp-h"><div class="cmp-top">${D.kind === "model" ? `<span class="tag">דגם</span>` : `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>`}<button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><b title="${esc(D.title)}">${esc(D.title)}</b><small>${esc(D.alts && D.alts.length > 1 ? String(D.v.shnat_yitzur || "") : D.sub)}</small>${D.alts && D.alts.length > 1 ? `<select class="trim-sel" data-trim="${i}" aria-label="רמת גימור">${(mixed => D.alts.map((r, j) => `<option value="${j}"${rowKey(r) === D.key ? " selected" : ""}>${esc(altLabel(r, mixed))}</option>`).join(""))(new Set(D.alts.map(engKey)).size > 1)}</select>` : ""}</div>`;
+  const head = (D, i) => D.kind === "fail" ? `<div class="cmp-h fail"><div class="cmp-top"><span class="mini-plate"><i></i>${esc(D.title)}</span><button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><small>${esc(D.why)}</small>${D.retry ? `<button type="button" class="retry" data-retry-cmp="${i}">נסו שוב</button>` : ""}</div>` : `<div class="cmp-h"><div class="cmp-top">${D.kind === "model" ? `<span class="tag">דגם</span>` : `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>`}<button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><b title="${esc(D.title)}"><bdi>${esc(D.title)}</bdi></b><small><bdi>${esc(D.alts && D.alts.length > 1 ? String(D.v.shnat_yitzur || "") : D.sub)}</bdi></small>${D.alts && D.alts.length > 1 ? `<select class="trim-sel" data-trim="${i}" aria-label="רמת גימור">${(mixed => D.alts.map((r, j) => `<option value="${j}"${rowKey(r) === D.key ? " selected" : ""}>${esc(altLabel(r, mixed))}</option>`).join(""))(new Set(D.alts.map(engKey)).size > 1)}</select>` : ""}</div>`;
   const base = OK.length && n < cmpMax() ? OK[OK.length - 1] : null;
   if (base) loadSimilar(base);
   const simHtml = base && simFor === (base.key || base.plate) && simList.length ? `<div class="sim-box"><div class="qsec">דגמים דומים, להוספה בלחיצה</div><div class="list">${simList.map((g, i) => {
@@ -3327,8 +3358,8 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.copy) { copyText(b.dataset.copy, b.dataset.label); return; }
   if (b.dataset.act === "simple") { const want = !simpleOn(); try { localStorage.setItem("simpleView", want ? "1" : "0"); } catch {} track("simple_view", {on: simpleOn() ? 1 : 0}); renderResult(); return; }
   if (b.dataset.act === "simpleMore") { simpleMore = !simpleMore; track("simple_more", {on: simpleMore ? 1 : 0}); renderResult(); return; }
-  if (b.dataset.act === "openapp") { track("web_hint_click", {where: "share_bar"}); track("web_install_click"); location.href = b.dataset.intent; return; }
-  if (b.dataset.act === "openplay") { track("web_hint_click", {where: "share_bar_iab"}); track("web_install_click"); location.href = b.dataset.url; return; }
+  if (b.dataset.act === "openapp") { track("web_hint_click", {where: "share_bar"}); track("web_install_click", FT ? {via: FT.s} : {}); location.href = b.dataset.intent; return; }
+  if (b.dataset.act === "openplay") { track("web_hint_click", {where: "share_bar_iab"}); track("web_install_click", FT ? {via: FT.s} : {}); location.href = b.dataset.url; return; }
   if (b.dataset.act === "barcal") { track("web_hint_click", {where: "share_bar_cal"}); if (current) testReminderFile(current); return; }
   if (b.dataset.act === "another") { track("web_hint_click", {where: "share_bar_more"}); location.href = "/"; return; }
   if (b.dataset.act === "copylink") { track("web_hint_click", {where: "share_bar_copy"}); copyText(location.href, "הקישור"); toast("הקישור הועתק. הדביקו אותו בדפדפן רגיל (Chrome או Safari)."); return; }
@@ -3356,7 +3387,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "bulkCsv") { bulkCsv(); return; }
   if (b.dataset.act === "bulkPdf") { bulkPdf(b); return; }
   if (b.dataset.act === "checklistPdf") { track("checklist_pdf"); checklistPdf(b); return; }
-  if (b.dataset.act === "proInfo" || b.dataset.act === "upgrade") { track("upgrade_open", {from: b.dataset.src || currentTab || "home"}); if (b.dataset.src) track("buy_card_open", {src: b.dataset.src}); if (UPGRADE_UI) renderUpgrade(); else toast("זמין בקרוב"); return; }
+  if (b.dataset.act === "proInfo" || b.dataset.act === "upgrade") { track("upgrade_open", {from: b.dataset.src || currentTab || "home"}); if (UPGRADE_UI) renderUpgrade(); else toast("זמין בקרוב"); return; }
   if (b.dataset.act === "mkCsv") { marketCsv(); return; }
   if (b.dataset.buy) { buyPlan(b.dataset.buy); return; }
   if (b.dataset.act === "restore") { restorePurchases(); return; }
@@ -3404,7 +3435,7 @@ $("#out").addEventListener("click", ev => {
 $("#out").addEventListener("change", ev => { const s = ev.target.closest("[data-trim]"); if (s) switchTrim(+s.dataset.trim, +s.value); });
 $("#mf").addEventListener("submit", ev => { ev.preventDefault(); const q = $("#mq").value.trim(); if (plateLike(q)) runCompare(q); else runModelSearch(); });
 let mTimer = null;
-$("#mq").addEventListener("input", () => { clearTimeout(mTimer); mGroup = null; mYear = null; if ($("#mq").value.trim().length >= 2) mTimer = setTimeout(runModelSearch, 350); else { $("#mres").innerHTML = ""; $("#compareMsg").textContent = ""; renderQuick(); } });
+$("#mq").addEventListener("input", () => { clearTimeout(mTimer); mGroup = null; mYear = null; mPending = null; if ($("#mq").value.trim().length >= 2) mTimer = setTimeout(runModelSearch, 350); else { $("#mres").innerHTML = ""; $("#compareMsg").textContent = ""; renderQuick(); } });
 $("#mquick").addEventListener("click", ev => {
   const b = ev.target.closest("button"); if (!b) return;
   if (b.dataset.qcur) addToCompare(current);
@@ -4402,7 +4433,7 @@ function saveCompare(){
 }
 const CMP_KEYS = ["tozeret_cd", "degem_cd", "shnat_yitzur", "ramat_gimur", "kinuy_mishari", "tozeret_nm", "degem_nm", "sug_degem"];
 const b64u = {enc: t => btoa(unescape(encodeURIComponent(t))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""), dec: t => decodeURIComponent(escape(atob(t.replace(/-/g, "+").replace(/_/g, "/"))))};
-const modelTok = D => "m" + [D.v.tozeret_cd, D.v.degem_cd, D.v.shnat_yitzur].map(x => String(x ?? "").trim()).join(".") + (empty(D.v.ramat_gimur) ? "" : "." + encodeURIComponent(String(D.v.ramat_gimur).trim()));
+const modelTok = D => "m" + [D.v.tozeret_cd, String(D.v.degem_cd ?? "").trim() + (String(D.v.sug_degem || "").trim().toUpperCase() === "M" ? "M" : ""), D.v.shnat_yitzur].map(x => String(x ?? "").trim()).join(".") + (empty(D.v.ramat_gimur) ? "" : "." + encodeURIComponent(String(D.v.ramat_gimur).trim()));
 function cmpLink(){
   const live = cmp.filter(D => D.kind !== "fail");
   const clean = live.every(D => D.plate || (!empty(D.v.tozeret_cd) && !empty(D.v.degem_cd) && !empty(D.v.shnat_yitzur)));
@@ -4428,7 +4459,7 @@ async function loadCompareSet(items, {replace = true, at = null} = {}){
   for (const it of items) { const id = cmpItemId(it); if (seen.has(id)) { if (!replace) toast("הרכב הזה כבר בהשוואה"); continue; } seen.add(id); todo.push(it); }
   const room = cmpMax() - (replace ? 0 : cmp.length) + (at !== null ? 1 : 0);
   const list = todo.slice(0, Math.max(0, room));
-  const settled = await Promise.all([Promise.allSettled(list.map(it => it.plate ? fetchVehicle(it.plate, AbortSignal.timeout(30000)) : fetchModel(it.model))), loadModelStats().catch(() => null)]).then(r => r[0]);
+  const settled = await Promise.all([Promise.allSettled(list.map(it => it.plate ? fetchVehicle(it.plate, AbortSignal.timeout(30000)) : fetchModel(it.model, AbortSignal.timeout(30000)))), loadModelStats().catch(() => null)]).then(r => r[0]);
   const entries = settled.map((r, i) => {
     const it = list[i], D = r.status === "fulfilled" ? r.value : null;
     if (D && !D.notFound && !D.offline) return D;
@@ -4440,8 +4471,9 @@ async function loadCompareSet(items, {replace = true, at = null} = {}){
 }
 async function loadCompareLink(code){
   let items;
-  if (/^[\dm.,%A-Za-z\-_]+$/.test(code) && !/^[A-Za-z0-9\-_]{20,}$/.test(code)) items = code.split(",").map(x => {   // ?compare=1234567,m413.20.2019.SUN
-    if (/^m\d/.test(x)) { const [t, d, y, ...g] = x.slice(1).split("."); return t && d && y ? {model: {tozeret_cd: t, degem_cd: d, shnat_yitzur: y, ...(g.length ? {ramat_gimur: decodeURIComponent(g.join("."))} : {})}} : null; }
+  const legacy = /^W3[A-Za-z0-9\-_]{18,}$/.test(code);   // ?cmp= is base64url of a JSON array and always starts with "W3"; anything else is the readable form (a trim may hold spaces or Hebrew once the browser decoded it)
+  if (!legacy) items = code.split(",").map(x => {   // ?compare=1234567,m413.20.2019.SUN or m413.20M.2019 for a commercial model
+    if (/^m\d/.test(x)) { const [t, d0, y, ...g] = x.slice(1).split("."), dm = String(d0).match(/^(\d+)([PM])?$/i), d = dm ? dm[1] : d0; let trim = g.join("."); try { trim = decodeURIComponent(trim); } catch {} return t && d && y ? {model: {tozeret_cd: t, degem_cd: d, shnat_yitzur: y, ...(dm && dm[2] ? {sug_degem: dm[2].toUpperCase()} : {}), ...(trim ? {ramat_gimur: trim} : {})}} : null; }
     const p = digits(x); return p.length >= 5 && p.length <= 8 ? {plate: p} : null;
   }).filter(Boolean);
   else { try { items = JSON.parse(b64u.dec(code)).map(it => it.p ? {plate: digits(it.p)} : {model: Object.fromEntries(CMP_KEYS.map((k, i) => [k, (it.m || [])[i]]).filter(e => e[1] !== "" && e[1] != null))}); } catch { return false; } }
@@ -4491,8 +4523,10 @@ function askVerdict(ask, fair){
   if (ask < lo) return {k: "ok", s: "נמוך מהטווח", t: `המחיר המבוקש מתחת להערכה שלנו ב-${r(lo - ask)}. כדאי לבדוק למה.`};
   return {k: "ok", s: "בתוך הטווח", t: "המחיר המבוקש בתוך ההערכה שלנו"};
 }
+const bcSeen = new Set();   // the buyer card is counted once per car on screen, locked or not
 function buyerCard(D){
   if (D.isCancelled || D.kind === "model") return "";
+  if (D.plate && !bcSeen.has(D.plate)) { bcSeen.add(D.plate); track("buy_card_open", {locked: PRO_LOCK && !isPro() ? 1 : 0}); }
   const v = D.v, flags = [], qs = [];
   if (D.recalls.length) { flags.push(["bad", D.recalls.length === 1 ? "ריקול פתוח" : `${D.recalls.length} ריקולים פתוחים`]); qs.push("האם הריקול תוקן? כדאי לבקש אישור תיקון מהיבואן."); }
   for (const i of buildInsights(D)) if (i.level === "bad" || i.level === "warn") flags.push([i.level, i.title]);
@@ -4830,7 +4864,7 @@ if (!window.AndroidApp && /Android/i.test(navigator.userAgent)) {
     if (document.querySelector(".sharebar")) return;   // the shared-report bar already makes the offer
     try { localStorage.setItem("webInstallAt", String(Date.now())); } catch {}
     track("web_install_prompt");
-    snack("באפליקציה יש התראות על ריקול וטסט", "להתקנה", () => { track("web_install_click"); openExternal(playWeb("snack")); });
+    snack("באפליקציה יש התראות על ריקול וטסט", "להתקנה", () => { track("web_install_click", FT ? {via: FT.s} : {}); openExternal(playWeb("snack")); });
   }, 12000);
 }
 if (window.AndroidApp && window.AndroidApp.checkUpdate) {
