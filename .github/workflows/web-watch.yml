@@ -1,0 +1,45 @@
+name: Web watch
+# Daily PageSpeed (mobile, median of 3) and real-user LCP for the split web build. Silent unless the rollback rule trips (see analytics/web_watch.py).
+on:
+  schedule:
+    - cron: "25 7 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print only, do not save or send"
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: web-watch
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r analytics/requirements.txt
+      - name: Load saved state
+        run: |
+          mkdir -p state
+          git fetch -q origin web-watch 2>/dev/null && git --work-tree=state checkout FETCH_HEAD -- history.json || true
+      - name: Measure
+        env:
+          GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
+          PSI_API_KEY: ${{ secrets.PSI_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python analytics/web_watch.py state ${{ inputs.dry_run && '--dry' || '' }}
+      - name: Save state
+        if: ${{ !inputs.dry_run }}
+        run: |
+          cd state
+          git init -q -b web-watch
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add history.json
+          git commit -qm "web-watch $(date -u +%F)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" web-watch

@@ -13,6 +13,7 @@ on:
       - "IndexNow"
       - "SEO auto-publish"
       - "SEO tracker"
+      - "Web watch"
       - "Infra watch"
       - "Magazine data articles"
       - "Magazine"
