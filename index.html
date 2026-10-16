@@ -994,7 +994,7 @@ function rankRows(rows, rec){
 }
 /* "מקוריות" in the ministry's records is the first ownership type, when the car went on the road new
    (פרטי, ליסינג, השכרה…). It fills the gap for cars older than the January 2017 ownership log. */
-function firstOwner(v){ const t = String(v.mkoriut_nm || "").trim(); return t || null; }
+function firstOwner(v){ const t = String(v.mkoriut_nm || "").replace(/"/g, "").trim(); return /^ביס לנהיגה/.test(t) ? "בית ספר לנהיגה" : t || null; }
 /* How well a maker holds its value in Israel (resale factor on the base price) and how wide the shown range is.
    Estimates, not measured: to be calibrated against real deal prices. A maker that is not listed stays at 1.00. */
 const BRAND_TIERS = [
@@ -1017,7 +1017,8 @@ function ownerKind(t){
   t = String(t || "");
   if (/השכר/.test(t)) return {k: "rental", pct: -22, text: "הרכב שימש חברת השכרה, עם נהגים רבים לתקופות קצרות. בדרך כלל זה מוריד את ערך הרכב."};
   if (/ליסינג|החכר|חכיר/.test(t)) return {k: "lease", pct: -17, text: "הרכב נקנה על ידי חברת ליסינג והוחכר לנהג או לחברה לתקופה ארוכה, לרוב 3 שנים."};
-  if (/מונית|ממשל|סיור|תיור|הסעה|לימוד/.test(t)) return {k: "special", pct: -30, text: "הרכב שימש לשימוש ייעודי (" + t + "). שימוש כזה מוריד את ערך הרכב."};
+  if (/לנהיגה|לימוד/.test(t)) return {k: "special", pct: -30, text: "הרכב שימש בית ספר לנהיגה: נהגים מתחילים רבים, הרבה שעות נסיעה עירונית ובלאי גבוה במצמד, בבלמים ובתיבה. זה מוריד את ערך הרכב."};
+  if (/מונית|ממשל|סיור|תיור|הסעה/.test(t)) return {k: "special", pct: -30, text: "הרכב שימש לשימוש ייעודי (" + t + "). שימוש כזה מוריד את ערך הרכב."};
   if (/חברה|חברת|תאגיד/.test(t)) return {k: "company", pct: -8, text: "הרכב נרשם על שם חברה, לרוב כרכב תפעולי של העסק ולא כליסינג."};
   if (/פרטי/.test(t)) return {k: "private", pct: 0, text: "הרכב נרשם לראשונה על שם אדם פרטי. זה המצב המועדף בשוק היד השנייה."};
   return {k: "other", pct: 0, text: ""};
