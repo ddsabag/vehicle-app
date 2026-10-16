@@ -3046,12 +3046,13 @@ function trimLabel(r){
   if (r._alias) return r._alias;
   let t = String(r.ramat_gimur || "").trim().toUpperCase().replace(/\s+/g, " "); if (!t) return "";
   if (t.length === 12) { const w = t.split(" "), last = w[w.length - 1]; if (TRIM_FIX[last]) { w[w.length - 1] = TRIM_FIX[last]; t = w.join(" "); } }   // the register cuts trims at 12 characters
+  t = t.replace(/^(.+) ED\.?$/, "$1 EDITION");   // "LIMITED ED." / "BUSINESS ED"
   return t.split(" ").map(x => /^[A-Z]{4,}$/.test(x) ? x[0] + x.slice(1).toLowerCase() : x).join(" ");
 }
 // one slip apart (LOUNGE / LUONGE, AMBIENTE / AMBIENIE): the same trim
 const nearTrim = (a, b) => a.length >= 5 && b.length >= 5 && Math.abs(a.length - b.length) <= 1 && lev(a, b, 1) <= 1;
 const litres = r => isNum(r.nefah_manoa) && num(r.nefah_manoa) > 0 ? `${(num(r.nefah_manoa) / 1000).toFixed(1)} ליטר` : "";
-const altLabel = (r, mixed) => [trimLabel(r) || "גרסה בסיסית", mixed && isNum(r.koah_sus) ? `${fmtN(r.koah_sus)} כ״ס` : ""].filter(Boolean).join(" · ");
+const altLabel = (r, mixed) => [trimLabel(r) || "גרסה בסיסית", mixed && isNum(r.koah_sus) && num(r.koah_sus) > 0 ? `${fmtN(r.koah_sus)} כ״ס` : ""].filter(Boolean).join(" · ");
 let mMode = "trim";
 /* one screen: years along the top (newest picked), then one row per trim + engine sold that year (iCar-style).
    A year whose versions are internal codes rather than names (Tesla 2021: 115 of them) is listed by engine instead. */
@@ -3091,7 +3092,7 @@ function showModel(y){
   const row = (l, i) => {
     const r = l[0], dt = driveType(rowD(r)), green = dt && ["ev", "phev", "hybrid"].includes(dt.k);
     const gear = !empty(r.automatic_ind) && !yes(r.automatic_ind) ? "ידנית" : "";
-    const name = trimLabel(r), hp = isNum(r.koah_sus) ? `${fmtN(r.koah_sus)} כ״ס` : "";
+    const name = trimLabel(r), hp = isNum(r.koah_sus) && num(r.koah_sus) > 0 ? `${fmtN(r.koah_sus)} כ״ס` : "";   // electric cars are often registered without horsepower
     const eng = [dt && dt.k !== "ev" ? litres(r) : "", dt ? dt.label : "", hp, gear].filter(Boolean).join(" · ");
     return `<button type="button" class="row eng" data-mi="${i}">${dt ? `<span class="pill drive ${green ? "green" : ""}">${ico(green ? "bolt" : "fuel")}${dt.label}</span>` : ""}<span class="t"><b>${esc(name || hp || "גרסה בסיסית")}</b><small>${esc(name ? eng : [gear].filter(Boolean).join(" · ") || eng)}</small></span><span class="qadd" aria-label="הוספה">${ico("plus")}</span></button>`;
   };
