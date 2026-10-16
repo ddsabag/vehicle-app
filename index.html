@@ -366,7 +366,7 @@ footer a{color:var(--accent)}
 .cmp-h .mini-plate i{width:5px}
 .cmp[style],.cmp-table{font-size:.95rem}
 section[style*="--n:3"] .cmp-v{font-size:.85rem}
-section[style*="--n:3"] .cmp-h b{font-size:.85rem}
+section[style*="--n:3"] .cmp-h b{font-size:.85rem;-webkit-line-clamp:3}
 section[style*="--n:3"] .cmp-h small{font-size:.78rem}
 section[style*="--n:3"] .cmp-k{font-size:.78rem}
 .cmp-top{display:flex;align-items:center;justify-content:space-between;gap:4px;width:100%;min-width:0;margin:-4px 0 0}
@@ -460,7 +460,8 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 
 .sheet.full{align-items:stretch}
 .sheet.full .sheet-in{max-height:none;height:100%;border-radius:0;padding-top:calc(14px + env(safe-area-inset-top,0px));gap:14px}
-@media (min-width:700px){.sheet.full{align-items:center}.sheet.full .sheet-in{height:auto;max-height:88vh;min-height:560px;border-radius:18px}}
+@media (min-width:700px){.sheet.full{align-items:center}.sheet.full .sheet-in{height:auto;max-height:88vh;min-height:560px;border-radius:18px;max-width:820px}
+  #mres,#mquick{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:start}#mres>.qsec,#mres>.mhead,#mres>.yrow,#mres>.more,#mres>.sim-box,#mquick>.qsec,#mquick>.chips,#mquick>.more{grid-column:1/-1}#mres>.qsec,#mquick>.qsec{margin-top:4px}}
 .sheet.full .sheet-head{position:sticky;top:-14px;background:var(--card);z-index:2;padding-block:4px}
 #mf{position:relative}
 #mf .mq-ico{position:absolute;inset-inline-start:14px;top:50%;transform:translateY(-50%);width:20px;height:20px;color:var(--muted);pointer-events:none}
@@ -551,7 +552,7 @@ section[style*="--n:3"] .cmp-table>.cmp-k{font-size:.85rem}
 body.land main{max-width:1100px}
 body.land .band{display:none}
 .cmp-v{font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:normal!important;font-size:.95rem}
-.cmp-v.win{font-weight:700;background:var(--soft);border-radius:8px}.cmp-v.win::after{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-inline-start:5px;vertical-align:middle}
+.cmp-v.na{color:var(--muted);font-size:.8rem}.cmp-v.win{font-weight:700;background:var(--soft);border-radius:8px}.cmp-v.win::after{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-inline-start:5px;vertical-align:middle}
 .cmp-h.fail{border:1px dashed var(--line);background:transparent;justify-content:center;text-align:center;align-items:center}.cmp-h.fail small{white-space:normal;color:var(--muted)}.cmp-h.fail .retry{border:0;border-radius:8px;background:var(--fg);color:var(--card);font:inherit;font-weight:700;font-size:.8rem;padding:6px 10px;min-height:32px;margin-top:4px}
 .cmp-sec button{all:unset;cursor:pointer;display:flex;justify-content:space-between;align-items:center;width:100%;min-height:36px}.cmp-sec button small{font-weight:400;color:var(--muted);font-size:.8rem}.cmp-sec button svg.i{width:16px;height:16px;transition:transform .15s}.cmp-sec button[aria-expanded="false"] svg.i{transform:rotate(180deg)}
 .cmp-save{border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font:inherit;font-weight:700;font-size:.8rem;padding:6px 4px;min-height:36px;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cmp-save[aria-pressed="true"]{background:var(--soft);color:var(--muted);font-weight:400}
@@ -2510,22 +2511,35 @@ function skScore(q, m){
   if (q.length >= 3 && m.length >= 3 && editLe1(q, m)) return 1;
   return 0;
 }
+/* The catalogues (models.json ~430 KB, modelstats.json ~160 KB) are kept in Cache Storage: a repeat visit reads the local copy at once
+   (typing in the model search then costs no request) and a fresh copy is fetched in the background; when it differs, onFresh swaps it in. */
+const DATA_CACHE = "luchit-data-1";
+async function cachedJson(urls, onFresh){
+  let cache = null; try { cache = "caches" in self ? await caches.open(DATA_CACHE) : null; } catch {}
+  const stale = cache ? await (async () => { for (const u of urls) { const h = await cache.match(u).catch(() => null); if (h) return {u, txt: await h.text()}; } return null; })() : null;
+  const fresh = (async () => {
+    for (const u of urls) {
+      try { const r = await fetch(u, {cache: "no-cache"}); if (!r.ok) continue; const txt = await r.text(); if (cache) cache.put(u, new Response(txt, {headers: {"Content-Type": "application/json"}})).catch(() => {}); return {u, txt}; } catch {}
+    }
+    return null;
+  })();
+  if (stale) { fresh.then(f => { if (f && f.txt !== stale.txt && onFresh) { try { onFresh(JSON.parse(f.txt)); } catch {} } }); try { return JSON.parse(stale.txt); } catch {} }
+  const f = await fresh; return f ? JSON.parse(f.txt) : null;
+}
 let MODELIDX = null, modelIdxP = null;
-function loadModelIndex(){
-  if (MODELIDX) return Promise.resolve(MODELIDX);
-  return modelIdxP || (modelIdxP = (async () => {
-    for (const u of [SITE + "models.json", "models.json"]) {
-      try {
-        const r = await fetch(u, {cache: "no-cache"}); if (!r.ok) continue;
-        const j = await r.json(); if (!j.rows || !j.rows.length) continue;
-        MODELIDX = j.rows.map(([mk0, md, y0, y1, pr, bd, fl]) => ({
+function buildModelIndex(j){
+  if (!j || !j.rows || !j.rows.length) return null;
+  return j.rows.map(([mk0, md, y0, y1, pr, bd, fl]) => ({
           mk: canonMake(mk0.replace(COUNTRY_SFX, "")), md, y0, y1, pr: pr || 0, bd: bd || "", fp: Object.fromEntries((fl ? String(fl).split("|") : []).map(x => [x[0], parseFloat(x.slice(1))])), mkw: (ws => [...ws.map(w => skOf(w)), ws.length > 1 ? skOf(ws.join("")) : ""].filter(Boolean))((c => c + " " + (BRAND_SEARCH[c] || "") + " " + (brandKey(c) !== brandKey(mk0.replace(COUNTRY_SFX, "")) ? mk0.replace(COUNTRY_SFX, "") : ""))(canonMake(mk0.replace(COUNTRY_SFX, ""))).split(/[\s.\-\/]+/).map(w => w.replace(/[^א-תA-Za-z0-9']/g, "")).filter(Boolean)),
           mtok: md.replace(/\./g, " ").replace(/([A-Z])(\d)/g, "$1 $2").replace(/(\d)([A-Z])/g, "$1 $2").split(/[\s\-\/]+/).filter(Boolean)
         }));
-        return MODELIDX;
-      } catch {}
-    }
-    modelIdxP = null; return null;
+}
+function loadModelIndex(){
+  if (MODELIDX) return Promise.resolve(MODELIDX);
+  return modelIdxP || (modelIdxP = (async () => {
+    try { const j = await cachedJson([SITE + "models.json", "models.json"], nj => { const x = buildModelIndex(nj); if (x) MODELIDX = x; }); MODELIDX = buildModelIndex(j); } catch {}
+    if (!MODELIDX) modelIdxP = null;
+    return MODELIDX;
   })());
 }
 /* The same sound with its vowels kept as one marker ("a"): ATTO = אטו, YARIS = יאריס, KONA = קונה. Next to the consonant skeleton it tells
@@ -2737,6 +2751,7 @@ async function fetchModel(r, signal){
   const md = await fetchModelData(v, signal);
   const pick = (...vals) => vals.find(x => !empty(x));
   const w = Object.keys(md.w).length ? md.w : r;
+  if (empty(r.kinuy_mishari) && !empty(w.kinuy_mishari)) { r = {...r, kinuy_mishari: w.kinuy_mishari, tozeret_nm: pick(r.tozeret_nm, w.tozeret_nm, w.tozar), degem_nm: pick(r.degem_nm, w.degem_nm)}; Object.assign(v, r); }
   const D = {kind: "model", plate: null, key: rowKey(r), v, ...md, w, tSrc: md.towRow || (hasTow(r) ? r : null),
     own: [], ownersFloor: false, recalls: [], tag: null, pick, make: rowMake(r), model: rowModel(r), km: null, kmYears: null, kmPerYear: null,
     title: [rowMake(r), normModel(rowModel(r))].filter(Boolean).join(" ") || "דגם", sub: [r.shnat_yitzur, pick(r.ramat_gimur, w.ramat_gimur)].filter(x => !empty(x)).join(" · ")};
@@ -2773,7 +2788,7 @@ function renderQuick(){
 }
 function addToCompare(D){
   const id = x => x.plate || x.key;
-  if (cmp.some(x => id(x) === id(D))) { $("#compareMsg").textContent = "הרכב הזה כבר בהשוואה."; toast("הרכב הזה כבר בהשוואה"); return false; }
+  if (cmp.some(x => id(x) === id(D))) { const t = D.kind === "model" ? "הדגם הזה כבר מופיע בהשוואה" : "הרכב הזה כבר בהשוואה"; $("#compareMsg").textContent = t + "."; toast(t); return false; }
   cmp = cmp.filter(x => x.kind !== "fail" || id(x) !== id(D));
   cmp.push(D); if (cmp.length > cmpMax()) cmp.shift();
   $("#compareSheet").hidden = true; renderCompare(); window.scrollTo({top: 0});
@@ -2872,6 +2887,9 @@ async function runModelSearch(){
       mGroups = filterGroups(F); mNote = F.label; mShowAll = false; showGroups(); return;
     }
     mNote = "";
+    // instant: the local catalogue already knows which models the words mean, so they are listed at once and refined when the registry answers
+    const sq = MODELIDX ? smartQueries(q) : null;
+    if (sq && sq.length) { searchFuzzy = false; mGroups = sq.map(o => ({make: o.mk, model: o.words.join(" "), base: o.words.join(" "), fromFilter: true, instant: true})); mShowAll = true; showGroups(); msg.textContent = "מחפש…"; }
     let rows = await searchModelRows(q, searchWords(q), null, 1000, signal);
     if (signal.aborted) return;
     const g = new Map();
@@ -3019,6 +3037,7 @@ async function addSimilar(i){
 /* switching trim inside the comparison keeps the column in place */
 async function switchTrim(i, j){
   const D = cmp[i]; if (!D || !D.alts || !D.alts[j]) return;
+  if (cmp.some((x, k) => k !== i && x.kind === "model" && x.key === rowKey(D.alts[j]))) { toast("הדגם הזה כבר מופיע בהשוואה"); renderCompare(); return; }
   try { const N = await fetchModel(D.alts[j]); N.alts = D.alts; cmp[i] = N; renderCompare(); }
   catch { toast("הטעינה נכשלה. נסו שוב."); }
 }
@@ -3043,7 +3062,9 @@ function renderCompare(){
   const anyCar = OK.some(D => D.kind !== "model");
   // a motorcycle against a family car, or a truck against a model: the rows still render, but the reader is told why many cells are empty
   const kinds = new Set(OK.map(D => D.kind === "model" ? "רכב" : (D.primary && D.primary.kind) || (isCommercial(D) ? "רכב מסחרי" : "רכב")));
-  const mixNote = kinds.size > 1 ? `<p class="note" style="margin:0 0 8px">ההשוואה היא בין סוגי רכב שונים (${[...kinds].join(" מול ")}). שורות שלא קיימות לאחד מהם מסומנות ב-—.</p>` : "";
+  const anyModel = OK.some(D => D.kind === "model");
+  const mixNote = (kinds.size > 1 ? `<p class="note" style="margin:0 0 8px">ההשוואה היא בין סוגי רכב שונים (${[...kinds].join(" מול ")}). שורות שלא קיימות לאחד מהם מסומנות ב-—.</p>` : "")
+    + (anyCar && anyModel ? `<p class="note" style="margin:0 0 8px">דגם כללי (מסומן "דגם") הוא הרכב "על הנייר": בלי ק״מ, טסט ובעלויות. השורות האלה מלאות רק לרכבים הספציפיים, ומי עדיף נקבע רק בין ערכים שקיימים.</p>` : "");
   const N = x => x === null || x === undefined || x === "" || (typeof x === "number" && isNaN(x)) ? null : x;
   const nf = (o, k) => o && isNum(o[k]) && num(o[k]) > 0 ? num(o[k]) : null;
   const tow = (D, k) => D.tSrc ? nf(D.tSrc, k) : towBan(D) ? "אסור" : null;
@@ -3084,7 +3105,7 @@ function renderCompare(){
     ["ריקולים לדגם", D => D.modelRecalls.filter(r => r.fits !== false).length, "lo"],
     ["רכבים מהדגם והשנתון על הכביש", D => { const p = msPop(D); return p ? p.n : null; }, null, ""],
     ["ירדו מהכביש (כל הדגם והשנתון)", D => { const p = msPop(D); return p ? Math.round(p.pct * 10) / 10 : null; }, "lo", "%", true],
-    ...(anyCar ? ["הרכב הספציפי",
+    ...(anyCar ? [anyModel ? "הרכב הספציפי (לא לדגמים)" : "הרכב הספציפי",
       ["ק״מ בטסט האחרון", D => D.km, "lo", "", false, true],
       ["ק״מ לשנה", D => D.kmPerYear, "lo", "", false, true],
       ["יד (ללא סוחרים)", D => handsOf(D) || null, "lo", "", false, true],
@@ -3100,18 +3121,19 @@ function renderCompare(){
     const [k, f, dir, u, plain, carOnly] = r;
     const vals = L.map(D => D.kind === "fail" || (carOnly && D.kind === "model") ? null : N(f(D)));
     if (vals.every(x => x === null)) continue;
+    const na = L.map(D => carOnly && D.kind === "model");
     if (diffOnly && n > 1 && new Set(vals.map(x => JSON.stringify(x))).size === 1) continue;
     const nums = vals.filter(x => typeof x === "number");
     let best = null;
     if (dir === "yes") { if (n > 1 && vals.some(x => x === true) && vals.some(x => x !== true)) best = true; }
     else if (dir && n > 1 && nums.length > 1 && new Set(nums).size > 1) best = dir === "hi" ? Math.max(...nums) : Math.min(...nums);
-    sec.n++; sec.html.push(`<div class="cmp-k">${esc(k)}</div>` + vals.map(x => `<div class="cmp-v${best !== null && x === best ? " win" : ""}">${cell(x, u, plain)}</div>`).join(""));
+    sec.n++; sec.html.push(`<div class="cmp-k">${esc(k)}</div>` + vals.map((x, i) => na[i] ? `<div class="cmp-v na" title="לא קיים לדגם כללי">דגם</div>` : `<div class="cmp-v${best !== null && x === best ? " win" : ""}">${cell(x, u, plain)}</div>`).join(""));
   }
   const body = secs.filter(x => x.n).map(x => {
     const open = cmpOpen.has(x.title) || !CMP_FOLDED.has(x.title);
     return `<div class="cmp-sec"><button type="button" data-sec="${esc(x.title)}" aria-expanded="${open}">${esc(x.title)}${open ? "" : `<small>${x.n} שורות</small>`}${ico("chev")}</button></div>` + (open ? x.html.join("") : "");
   }).join("") + (OK.some(D => D.plate) ? `<div class="cmp-k">ברכבים שלי</div>` + L.map((D, i) => `<div class="cmp-v">${D.plate && D.kind !== "fail" ? `<button type="button" class="cmp-save" data-cmpsave="${i}" aria-pressed="${isSaved(D.plate)}">${isSaved(D.plate) ? "נשמר ✓" : "שמירה"}</button>` : ""}</div>`).join("") : "");
-  const head = (D, i) => D.kind === "fail" ? `<div class="cmp-h fail"><div class="cmp-top"><span class="mini-plate"><i></i>${esc(D.title)}</span><button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><small>${esc(D.why)}</small>${D.retry ? `<button type="button" class="retry" data-retry-cmp="${i}">נסו שוב</button>` : ""}</div>` : `<div class="cmp-h"><div class="cmp-top">${D.kind === "model" ? `<span class="tag">דגם</span>` : `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>`}<button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><b>${esc(D.title)}</b><small>${esc(D.alts && D.alts.length > 1 ? String(D.v.shnat_yitzur || "") : D.sub)}</small>${D.alts && D.alts.length > 1 ? `<select class="trim-sel" data-trim="${i}" aria-label="רמת גימור">${D.alts.map((r, j) => `<option value="${j}"${rowKey(r) === D.key ? " selected" : ""}>${esc(String(r.ramat_gimur || "").trim() || "גרסה בסיסית")}</option>`).join("")}</select>` : ""}</div>`;
+  const head = (D, i) => D.kind === "fail" ? `<div class="cmp-h fail"><div class="cmp-top"><span class="mini-plate"><i></i>${esc(D.title)}</span><button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><small>${esc(D.why)}</small>${D.retry ? `<button type="button" class="retry" data-retry-cmp="${i}">נסו שוב</button>` : ""}</div>` : `<div class="cmp-h"><div class="cmp-top">${D.kind === "model" ? `<span class="tag">דגם</span>` : `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>`}<button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><b title="${esc(D.title)}">${esc(D.title)}</b><small>${esc(D.alts && D.alts.length > 1 ? String(D.v.shnat_yitzur || "") : D.sub)}</small>${D.alts && D.alts.length > 1 ? `<select class="trim-sel" data-trim="${i}" aria-label="רמת גימור">${D.alts.map((r, j) => `<option value="${j}"${rowKey(r) === D.key ? " selected" : ""}>${esc(String(r.ramat_gimur || "").trim() || "גרסה בסיסית")}</option>`).join("")}</select>` : ""}</div>`;
   const base = OK.length && n < cmpMax() ? OK[OK.length - 1] : null;
   if (base) loadSimilar(base);
   const simHtml = base && simFor === (base.key || base.plate) && simList.length ? `<div class="sim-box"><div class="qsec">דגמים דומים, להוספה בלחיצה</div><div class="list">${simList.map((g, i) => {
@@ -4063,9 +4085,7 @@ let MSTATS = null, msP = null;
 function loadModelStats(){
   if (MSTATS) return Promise.resolve(MSTATS);
   return msP || (msP = (async () => {
-    for (const u of [SITE + "modelstats.json", "modelstats.json"]) {
-      try { const r = await fetch(u, {cache: "no-cache"}); if (r.ok) { const j = await r.json(); if (j && j.m) return MSTATS = j; } } catch {}
-    }
+    try { const j = await cachedJson([SITE + "modelstats.json", "modelstats.json"], nj => { if (nj && nj.m) MSTATS = nj; }); if (j && j.m) return MSTATS = j; } catch {}
     msP = null; return null;
   })());
 }
@@ -4231,9 +4251,12 @@ function saveCompare(){
 }
 const CMP_KEYS = ["tozeret_cd", "degem_cd", "shnat_yitzur", "ramat_gimur", "kinuy_mishari", "tozeret_nm", "degem_nm", "sug_degem"];
 const b64u = {enc: t => btoa(unescape(encodeURIComponent(t))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""), dec: t => decodeURIComponent(escape(atob(t.replace(/-/g, "+").replace(/_/g, "/"))))};
+const modelTok = D => "m" + [D.v.tozeret_cd, D.v.degem_cd, D.v.shnat_yitzur].map(x => String(x ?? "").trim()).join(".") + (empty(D.v.ramat_gimur) ? "" : "." + encodeURIComponent(String(D.v.ramat_gimur).trim()));
 function cmpLink(){
-  const items = cmp.filter(D => D.kind !== "fail").map(D => D.plate ? {p: D.plate} : {m: CMP_KEYS.map(k => D.v[k] ?? "")});
-  return SITE + "?cmp=" + b64u.enc(JSON.stringify(items));
+  const live = cmp.filter(D => D.kind !== "fail");
+  const clean = live.every(D => D.plate || (!empty(D.v.tozeret_cd) && !empty(D.v.degem_cd) && !empty(D.v.shnat_yitzur)));
+  if (clean) return SITE + "?compare=" + live.map(D => D.plate ? D.plate : modelTok(D)).join(",");
+  return SITE + "?cmp=" + b64u.enc(JSON.stringify(live.map(D => D.plate ? {p: D.plate} : {m: CMP_KEYS.map(k => D.v[k] ?? "")})));
 }
 async function shareCompare(){
   if (!cmp.length) return;
@@ -4266,7 +4289,10 @@ async function loadCompareSet(items, {replace = true, at = null} = {}){
 }
 async function loadCompareLink(code){
   let items;
-  if (/^[\d,]+$/.test(code)) items = code.split(",").map(x => digits(x)).filter(x => x.length >= 5 && x.length <= 8).map(p => ({plate: p}));   // ?compare=123,456
+  if (/^[\dm.,%A-Za-z\-_]+$/.test(code) && !/^[A-Za-z0-9\-_]{20,}$/.test(code)) items = code.split(",").map(x => {   // ?compare=1234567,m413.20.2019.SUN
+    if (/^m\d/.test(x)) { const [t, d, y, ...g] = x.slice(1).split("."); return t && d && y ? {model: {tozeret_cd: t, degem_cd: d, shnat_yitzur: y, ...(g.length ? {ramat_gimur: decodeURIComponent(g.join("."))} : {})}} : null; }
+    const p = digits(x); return p.length >= 5 && p.length <= 8 ? {plate: p} : null;
+  }).filter(Boolean);
   else { try { items = JSON.parse(b64u.dec(code)).map(it => it.p ? {plate: digits(it.p)} : {model: Object.fromEntries(CMP_KEYS.map((k, i) => [k, (it.m || [])[i]]).filter(e => e[1] !== "" && e[1] != null))}); } catch { return false; } }
   if (!Array.isArray(items) || !items.length) return false;
   items = items.slice(0, cmpMax());
@@ -4861,6 +4887,8 @@ if (!window.AndroidApp && (start || cmpParam)) track("link_landing", {kind: cmpP
 try { const u = (new URLSearchParams(location.search).get("utm_source") || "").toLowerCase().replace(/[^a-z]/g, "").slice(0, 12); if (!window.AndroidApp && u && u !== "share" && u !== "luchitapp") track("link_landing", {kind: "campaign", via: u}); } catch {}
 if (cmpParam) loadCompareLink(cmpParam).then(ok => { if (!ok) renderHome(); }); else if (start) run(start); else renderHome();
 requestAnimationFrame(() => document.body.classList.add("rdy"));
+/* web: the catalogues are warmed when the browser is idle, so the first model search answers from memory */
+if (!window.AndroidApp) (window.requestIdleCallback || (f => setTimeout(f, 2500)))(() => { loadModelIndex(); loadModelStats().catch(() => null); });
 
 /* maintenance tab actions: add / delete a service entry, calendar */
 $("#out").addEventListener("click", ev => {
