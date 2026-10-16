@@ -53,15 +53,15 @@ tasks.named("preBuild") { dependsOn(copyWebApp) }
 
 dependencies {
     implementation("androidx.webkit:webkit:1.12.1")
-    implementation("androidx.core:core:1.13.1")
-    implementation("androidx.work:work-runtime:2.9.1")
+    implementation("androidx.core:core:1.19.1")
+    implementation("androidx.work:work-runtime:2.12.0")
     implementation("com.google.android.play:review:2.0.2")
     implementation("com.google.android.play:app-update:2.1.0")
     implementation("com.android.installreferrer:installreferrer:2.2")
-    implementation("com.android.billingclient:billing:8.0.0")
-    implementation("androidx.fragment:fragment:1.8.5")
+    implementation("com.android.billingclient:billing:9.1.0")
+    implementation("androidx.fragment:fragment:1.9.1")
     implementation("androidx.activity:activity:1.9.3")
-    implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
+    implementation(platform("com.google.firebase:firebase-bom:35.0.0"))
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-crashlytics")
 }
