@@ -1,10 +1,11 @@
 // Builds the static model catalogue the comparison reads instead of querying the ministry live (0 requests to data.gov.il
 // when a model is picked or added). Published on the catalog-data branch (force-pushed, one commit) by catalog.yml.
-//   meta.json      {u, cols, makers: {cd: {n: maker name, m: [model names as the register spells them]}}}
-//   c/<cd>.json    {u, cd, n, cols, rows: [[...]]}   one row per catalogue line of that maker: the WLTP fields the app shows,
-//                  plus the price-list columns (mehir, shem_yevuan) and the counts (mispar_rechavim_pailim / le_pailim), joined by _id or key
-//   r/<cd>.json    {u, rows: [...]}                  every recall of that maker (TOZAR_CD), the fields the app reads
-// Runs on a GitHub runner (data.gov.il blocks other networks). OUT (default cat-out) is the output directory.
+//   meta.json          {u, makers: {cd: {n: maker name, m: [model names as the register spells them], r: rows}}, rec: [maker codes with recalls]}
+//   c/<cd>.json        maker index {u, cd, n, eretz, tozar, cols, models: {name: [file, rows, firstYear, lastYear]}, degems: {degem_cd: file}}
+//   c/<cd>/<file>.json {rows: [[...]]}  the catalogue lines of one model name: the WLTP fields the app shows (the maker columns hoisted
+//                      into the index), plus the price-list columns (mehir, shem_yevuan) and the counts (mispar_rechavim_pailim / le_pailim)
+//   r/<cd>.json        {u, rows: [...]}  every recall of that maker (TOZAR_CD), the fields the app reads
+// Runs on a GitHub runner (data.gov.il blocks other networks). OUT (default out) is the output directory.
 import fs from "node:fs";
 const API = "https://data.gov.il/api/3/action/datastore_search";
 const ID = {wltp: "142afde2-6228-49f9-8a29-9b6c3a0cbe40", price: "39f455bf-6db0-4926-859d-017f34eacbcb", counts: "5e87a7a1-2f6f-41c1-8aec-7216d52a6cf6", recalls: "2c33523f-87aa-44ec-a736-edbb0a82975e"};
@@ -102,19 +103,34 @@ if (recN < 100) throw new Error("recall list implausibly small: " + recN);
 // 5. write
 const total = [...byMaker.values()].reduce((s, r) => s + r.length, 0);
 if (total < 50000) throw new Error("catalogue implausibly small: " + total);
-fs.rmSync(OUT, {recursive: true, force: true}); fs.mkdirSync(OUT + "/c", {recursive: true}); fs.mkdirSync(OUT + "/r", {recursive: true});
-const u = new Date().toISOString().slice(0, 10), cols = COLS.concat(EXTRA), makers = {};
-let bytes = 0, biggest = ["", 0];
+for (const d of ["c", "r"]) fs.rmSync(`${OUT}/${d}`, {recursive: true, force: true});
+fs.mkdirSync(OUT + "/c", {recursive: true}); fs.mkdirSync(OUT + "/r", {recursive: true});
+const u = new Date().toISOString().slice(0, 10);
+const HOIST = ["tozeret_cd", "tozeret_nm", "tozeret_eretz_nm", "tozar"], keepIdx = COLS.map((c, i) => HOIST.includes(c) ? -1 : i).filter(i => i >= 0).concat(EXTRA.map((_, i) => COLS.length + i));
+const cols = keepIdx.map(i => COLS.concat(EXTRA)[i]), makers = {};
+let bytes = 0, files = 0, biggest = ["", 0];
+const top = (rows, i) => { const m = new Map(); for (const w of rows) m.set(String(w[i]), (m.get(String(w[i])) || 0) + 1); return [...m.entries()].sort((a, b) => b[1] - a[1])[0][0]; };
 for (const [cd, rows] of byMaker) {
-  for (const w of rows) for (let i = 0; i < cols.length; i++) if (w[i] === undefined) w[i] = "";
+  for (const w of rows) for (let i = 0; i < COLS.length + EXTRA.length; i++) if (w[i] === undefined) w[i] = "";
   rows.sort((a, b) => (b[I.shnat_yitzur] || 0) - (a[I.shnat_yitzur] || 0) || String(a[I.kinuy_mishari]).localeCompare(String(b[I.kinuy_mishari])));
-  const names = new Map(); for (const w of rows) names.set(String(w[I.tozeret_nm]), (names.get(String(w[I.tozeret_nm])) || 0) + 1);
-  const n = [...names.entries()].sort((a, b) => b[1] - a[1])[0][0];
-  const models = [...new Set(rows.map(w => String(w[I.kinuy_mishari] || w[I.degem_nm] || "").trim().toUpperCase()).filter(Boolean))].sort();
-  makers[cd] = {n, m: models, r: rows.length};
-  const txt = JSON.stringify({u, cd, n, cols, rows});
-  fs.writeFileSync(`${OUT}/c/${cd}.json`, txt); bytes += txt.length; if (txt.length > biggest[1]) biggest = [n, txt.length];
+  const n = top(rows, I.tozeret_nm), eretz = top(rows, I.tozeret_eretz_nm), tozar = top(rows, I.tozar);
+  const byModel = new Map();
+  for (const w of rows) { const m = String(w[I.kinuy_mishari] || w[I.degem_nm] || "").trim().toUpperCase() || "-"; if (!byModel.has(m)) byModel.set(m, []); byModel.get(m).push(w); }
+  fs.mkdirSync(`${OUT}/c/${cd}`, {recursive: true});
+  const models = {}, degems = {};
+  let f = 0;
+  for (const [m, list] of [...byModel.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    f++;
+    const ys = list.map(w => Number(w[I.shnat_yitzur]) || 0).filter(Boolean);
+    models[m] = [f, list.length, ys.length ? Math.min(...ys) : 0, ys.length ? Math.max(...ys) : 0];
+    for (const w of list) degems[String(w[I.degem_cd])] = f;
+    const txt = JSON.stringify({rows: list.map(w => keepIdx.map(i => w[i]))});
+    fs.writeFileSync(`${OUT}/c/${cd}/${f}.json`, txt); bytes += txt.length; files++; if (txt.length > biggest[1]) biggest = [n + " " + m, txt.length];
+  }
+  makers[cd] = {n, m: Object.keys(models), r: rows.length};
+  const idx = JSON.stringify({u, cd: Number(cd), n, eretz, tozar, cols, models, degems});
+  fs.writeFileSync(`${OUT}/c/${cd}.json`, idx); bytes += idx.length;
 }
 for (const [cd, rows] of rec) fs.writeFileSync(`${OUT}/r/${cd}.json`, JSON.stringify({u, rows}));
-fs.writeFileSync(`${OUT}/meta.json`, JSON.stringify({u, cols, rows: total, recalls: recN, makers}));
-log(`written: ${byMaker.size} maker shards (${Math.round(bytes / 1e6 * 10) / 10} MB, biggest ${biggest[0]} ${Math.round(biggest[1] / 1e3)} KB), ${rec.size} recall files, meta ${Math.round(fs.statSync(OUT + "/meta.json").size / 1e3)} KB`);
+fs.writeFileSync(`${OUT}/meta.json`, JSON.stringify({u, rows: total, recalls: recN, makers, rec: [...rec.keys()]}));
+log(`written: ${byMaker.size} makers, ${files} model files (${Math.round(bytes / 1e6 * 10) / 10} MB, biggest ${biggest[0]} ${Math.round(biggest[1] / 1e3)} KB), ${rec.size} recall files, meta ${Math.round(fs.statSync(OUT + "/meta.json").size / 1e3)} KB`);

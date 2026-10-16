@@ -1442,10 +1442,64 @@ function matchModelRecalls(rows, v){
     .sort((a, b) => String(b.TAARICH_PTICHA).localeCompare(String(a.TAARICH_PTICHA)));
 }
 
-/* Model-level data (specs, towing, counts, price list, recalls) for a maker + model code */
-async function fetchModelData(v, signal){
+/* ---------- static model catalogue (catalog-data branch, rebuilt daily by catalog.yml) ----------
+   Picking a model and adding it to the comparison read these files instead of querying the ministry: one file per maker with every
+   catalogue row (the WLTP fields the app shows, the list price, the counts) and one with the maker's recalls. A missing or slow file
+   falls back to the live queries below, so the catalogue only ever makes things faster. Plates use it only when the file is already loaded. */
+const CAT_BASE = "https://raw.githubusercontent.com/ddsabag/vehicle-app/catalog-data/", CAT_TIMEOUT = 8000;
+const withTimeout = (p, ms) => Promise.race([p, new Promise(r => setTimeout(() => r(null), ms))]);
+let catMetaP = null; const CAT_ROWS = new Map(), CAT_REC = new Map();
+function catMeta(){
+  return catMetaP || (catMetaP = cachedJson([CAT_BASE + "meta.json"]).catch(() => null).then(j => { const ok = j && j.makers ? j : null; if (!ok) catMetaP = null; return ok; }));
+}
+const catCd = cd => String(num(cd) || String(cd || "").trim());
+const catFile = (url, key, map) => { if (!map.has(key)) map.set(key, withTimeout(cachedJson([url]).catch(() => null), CAT_TIMEOUT).then(j => { if (!j) map.delete(key); return j; })); return map.get(key); };
+/* the maker's index: its model names, which file holds each, and the file of each model code */
+const catIndex = cd => (cd = catCd(cd)) ? catFile(`${CAT_BASE}c/${cd}.json`, cd, CAT_ROWS).then(j => j && j.models && j.cols ? j : null) : Promise.resolve(null);
+/* the catalogue rows of one maker's model files, shaped like the ministry's WLTP records (plus mehir, shem_yevuan, mispar_rechavim_pailim / le_pailim) */
+async function catRows(cd, files){
+  const idx = await catIndex(cd); if (!idx) return null;
+  const got = await Promise.all([...new Set(files)].map(f => catFile(`${CAT_BASE}c/${catCd(cd)}/${f}.json`, catCd(cd) + "/" + f, CAT_ROWS)));
+  if (got.some(j => !j || !j.rows)) return null;
+  const fixed = {tozeret_cd: idx.cd, tozeret_nm: idx.n, tozeret_eretz_nm: idx.eretz, tozar: idx.tozar}, cols = idx.cols;
+  return got.flatMap(j => j.rows.map(a => { const o = {...fixed}; for (let i = 0; i < cols.length; i++) o[cols[i]] = a[i]; return o; }));
+}
+function catRecalls(cd){
+  cd = catCd(cd);
+  if (!CAT_REC.has(cd)) CAT_REC.set(cd, (async () => {
+    const j = await withTimeout(cachedJson([`${CAT_BASE}r/${cd}.json`]).catch(() => null), CAT_TIMEOUT);
+    if (!j || !j.rows) { CAT_REC.delete(cd); return null; }
+    return j.rows;
+  })());
+  return CAT_REC.get(cd);
+}
+/* the model stage of a lookup answered from the catalogue: null when it cannot be (then the live queries run) */
+async function catModelData(v, loadedOnly){
+  const cd = catCd(v.tozeret_cd), dg = num(v.degem_cd); if (!cd || isNaN(dg)) return null;
+  if (loadedOnly && !CAT_ROWS.has(cd)) return null;
+  const meta = await withTimeout(catMeta(), loadedOnly ? 1500 : CAT_TIMEOUT); if (!meta || !meta.makers[cd]) return null;
+  const idx = await catIndex(cd), f = idx && idx.degems[String(dg)]; if (!f) return null;   // not in the catalogue copy (a model newer than the file): ask the ministry
+  if (loadedOnly && !CAT_ROWS.has(cd + "/" + f)) return null;
+  const rows = await catRows(cd, [f]); if (!rows) return null;
+  const mine = rows.filter(r => num(r.degem_cd) === dg); if (!mine.length) return null;
+  const ranked = rankRows(mine, v), w = ranked[0];
+  const towRow = ranked.find(hasTow) || null;
+  const zeroTow = !towRow && isNum(w.kosher_grira_im_blamim) && isNum(w.kosher_grira_bli_blamim) && num(w.kosher_grira_im_blamim) === 0 && num(w.kosher_grira_bli_blamim) === 0;
+  const cn = ranked.find(r => isNum(r.mispar_rechavim_pailim) || isNum(r.mispar_rechavim_le_pailim));
+  const counts = cn ? {mispar_rechavim_pailim: cn.mispar_rechavim_pailim, mispar_rechavim_le_pailim: cn.mispar_rechavim_le_pailim} : null;
+  const pr = ranked.find(r => isNum(r.mehir) && num(r.mehir) > 0);
+  const price = pr ? {mehir: pr.mehir, shem_yevuan: pr.shem_yevuan} : null, priceRows = mine.filter(r => isNum(r.mehir) && num(r.mehir) > 0);
+  let modelRecalls = [], modelRecallsUnknown = false;
+  if (!meta.rec || meta.rec.includes(cd)) { const rr = await catRecalls(cd); if (rr) modelRecalls = matchModelRecalls(rr, v); else modelRecallsUnknown = true; }
+  return {w, towRow, zeroTow, counts, price, priceRows, modelRecalls, modelRecallsUnknown, fromCatalog: true};
+}
+/* Model-level data (specs, towing, counts, price list, recalls) for a maker + model code.
+   useCat: read the static catalogue (models in the comparison); otherwise it is used only when its file is already in memory. */
+async function fetchModelData(v, signal, useCat){
   let w = {}, towRow = null, zeroTow = false, counts = null, price = null, priceRows = [], modelRecalls = [], modelRecallsUnknown = false;
   if (!empty(v.tozeret_cd) && !empty(v.degem_cd)) {
+    const fast = await catModelData(v, !useCat).catch(() => null);
+    if (fast) return fast;
     const recallsByMaker = (async () => {
       let answered = false;
       for (const val of [num(v.tozeret_cd), String(v.tozeret_cd).trim()]) {
@@ -2750,7 +2804,7 @@ const rowKey = r => [r.tozeret_cd, r.degem_cd, r.shnat_yitzur, r.ramat_gimur].ma
 /* A model (not a specific car) shaped like a vehicle, so costs and the comparison treat both alike */
 async function fetchModel(r, signal){
   const v = {...r, sug_degem: r.sug_degem || "P"};
-  const md = await fetchModelData(v, signal);
+  const md = await fetchModelData(v, signal, true);
   const pick = (...vals) => vals.find(x => !empty(x));
   const w = Object.keys(md.w).length ? md.w : r;
   if (empty(r.kinuy_mishari) && !empty(w.kinuy_mishari)) { r = {...r, kinuy_mishari: w.kinuy_mishari, tozeret_nm: pick(r.tozeret_nm, w.tozeret_nm, w.tozar), degem_nm: pick(r.degem_nm, w.degem_nm)}; Object.assign(v, r); }
@@ -2930,11 +2984,15 @@ function showGroups(){
     + (rest > 0 ? `<button type="button" class="more" data-more="1">${mNote ? `עוד ${rest} דגמים` : `עוד ${rest} דגמים`}</button>` : "");
   renderQuick();
 }
-/* all rows of one model, every maker code, year and trim */
+/* all rows of one model, every maker code, year and trim: from the static catalogue when it answers, else from the ministry */
 async function groupRows(x){
-  const out = [];
+  const out = [], meta = await withTimeout(catMeta(), CAT_TIMEOUT), names = new Set([...x.names].map(n => String(n).trim().toUpperCase()));
   for (const cd of x.cds) {
     let got = [];
+    const idx = meta && meta.makers[catCd(cd)] ? await catIndex(cd) : null;
+    const files = idx ? Object.keys(idx.models).filter(m => names.has(m)).map(m => idx.models[m][0]) : [];
+    const rows = idx ? (files.length ? await catRows(cd, files) : []) : null;
+    if (rows) { got = rows.filter(r => names.has(rowModel(r).toUpperCase())); out.push(...got); continue; }
     for (const name of x.names) {
       for (const f of [{tozeret_cd: num(cd), kinuy_mishari: name}, {tozeret_cd: String(cd), kinuy_mishari: name}]) {
         try { const r = await ds(MODEL_SETS.wltp, f, 1000); if (r.length) { got.push(...r); break; } } catch {}
@@ -2947,18 +3005,84 @@ async function groupRows(x){
 }
 const rowD = r => ({w: r, v: {}, pick: (...a) => a.find(x => !empty(x))});
 const engKey = r => { const dt = driveType(rowD(r)); return [dt ? dt.k : "", num(r.koah_sus) || ""].join("|"); };
+/* a model listed from the local catalogue (instant search, budget search) has no maker code yet: the catalogue's index gives it,
+   so the pick needs no ministry search; when the index is unavailable the search runs as before */
+async function pickFilterGroup(i){
+  const g = mGroups[i]; if (!g) return;
+  $("#mres").innerHTML = ""; $("#compareMsg").textContent = "טוען…"; renderQuick();
+  const meta = await withTimeout(catMeta(), 2500), base = modelBase(cleanModelName(normModel(g.base || g.model)));
+  const fam = m => modelBase(cleanModelName(normModel(m))) === base;
+  const cds = meta ? Object.keys(meta.makers).filter(cd => canonMake(String(meta.makers[cd].n).replace(COUNTRY_SFX, "")) === g.make && meta.makers[cd].m.some(fam)) : [];
+  if (mGroups[i] !== g) return;
+  if (!cds.length) { mPending = {make: g.make, model: g.model}; $("#mq").value = g.make + " " + g.model; runModelSearch(); return; }
+  const names = new Set(); for (const cd of cds) for (const m of meta.makers[cd].m) if (fam(m)) names.add(m);
+  Object.assign(g, {cds: new Set(cds), names, rows: g.rows || [], base: g.base || g.model});
+  pickGroup(i);
+}
 async function pickGroup(i){
   const g0 = mGroups[i]; mGroup = g0; mYear = null; if (!mGroup) return;
   $("#mres").innerHTML = ""; $("#compareMsg").textContent = "טוען…"; renderQuick();
   const all0 = await groupRows(g0); if (mGroup !== g0) return; mGroup.all = g0.split ? all0.filter(r => driveCls(r) === g0.cls) : all0;
   const years = [...new Set(mGroup.all.map(r => num(r.shnat_yitzur)).filter(y => !isNaN(y)))].sort((a, b) => b - a);
   mGroup.years = years; showModel(String(years[0] || ""));
-  // one year and one engine: nothing left to choose
-  if (years.length === 1 && mResults.length === 1 && mResults[0].length === 1) pickModel(0);
+  if (!mGroup.all.length) { $("#compareMsg").textContent = "לא נמצאו גרסאות לדגם הזה. נסו שם אחר."; return; }
+  // one year and one version: nothing left to choose
+  if (years.length === 1 && mResults.length === 1 && (mMode === "trim" || mResults[0].length === 1)) pickModel(0);
 }
-// one screen: years along the top (newest picked), then one row per engine
+/* Trim names as the register writes them: capitals, cut at 12 characters ("COMFORT HYBR"), the odd typo ("LUONGE"). */
+const TRIM_FIX = {HYBR: "HYBRID", HYBRI: "HYBRID", PREMIU: "PREMIUM", PREMI: "PREMIUM", LIMITE: "LIMITED", LIMIT: "LIMITED", EXECUTIV: "EXECUTIVE", EXECUT: "EXECUTIVE", COMFOR: "COMFORT", ELEGAN: "ELEGANCE", ELEGANC: "ELEGANCE",
+  BUSINES: "BUSINESS", BUSIN: "BUSINESS", SELECTIO: "SELECTION", SELECTI: "SELECTION", EDITIO: "EDITION", EDITI: "EDITION", STANDAR: "STANDARD", STANDA: "STANDARD", PERFORMANC: "PERFORMANCE", PERFORMAN: "PERFORMANCE", PERFORM: "PERFORMANCE",
+  DYNAMI: "DYNAMIC", AMBITIO: "AMBITION", AMBITI: "AMBITION", LUXUR: "LUXURY", SPORTLIN: "SPORTLINE", SPORTLI: "SPORTLINE", ADVANC: "ADVANCE", INSPIR: "INSPIRE", INTENS: "INTENSE", PLATINU: "PLATINUM", PLATIN: "PLATINUM",
+  PRESTIG: "PRESTIGE", PRESTI: "PRESTIGE", SIGNATUR: "SIGNATURE", SIGNAT: "SIGNATURE", TECHNOLOG: "TECHNOLOGY", TECHNO: "TECHNOLOGY", ULTIMAT: "ULTIMATE", ULTIMA: "ULTIMATE", EXCLUSIV: "EXCLUSIVE", EXCLUS: "EXCLUSIVE", ALLUR: "ALLURE",
+  PANORAMI: "PANORAMIC", PANORAM: "PANORAMIC", SUPREM: "SUPREME", HIGHLIN: "HIGHLINE", HIGHLI: "HIGHLINE", TRENDLIN: "TRENDLINE", COMFORTLIN: "COMFORTLINE", COMFORTLI: "COMFORTLINE", ELECTRI: "ELECTRIC", ELECTR: "ELECTRIC",
+  ESSENTIA: "ESSENTIAL", ESSENTI: "ESSENTIAL", ESSENC: "ESSENCE", EVOLUTIO: "EVOLUTION", EVOLUTI: "EVOLUTION", ADVENTUR: "ADVENTURE", ADVENT: "ADVENTURE", FREESTYL: "FREESTYLE", CROSSOVE: "CROSSOVER", CROSSOV: "CROSSOVER",
+  SPECIA: "SPECIAL", CLASSI: "CLASSIC", NAVIGATIO: "NAVIGATION", LONGRANG: "LONG RANGE", STYL: "STYLE", PERFO: "PERFORMANCE", INTELLIGEN: "INTELLIGENT", INTELLIG: "INTELLIGENT"};
+const trimNorm = r => String(r.ramat_gimur || "").toUpperCase().replace(/[^A-Z0-9\u05d0-\u05ea]/g, "");
+function trimLabel(r){
+  let t = String(r.ramat_gimur || "").trim().toUpperCase().replace(/\s+/g, " "); if (!t) return "";
+  if (t.length === 12) { const w = t.split(" "), last = w[w.length - 1]; if (TRIM_FIX[last]) { w[w.length - 1] = TRIM_FIX[last]; t = w.join(" "); } }   // the register cuts trims at 12 characters
+  return t.split(" ").map(x => /^[A-Z]{4,}$/.test(x) ? x[0] + x.slice(1).toLowerCase() : x).join(" ");
+}
+// one slip apart (LOUNGE / LUONGE, AMBIENTE / AMBIENIE): the same trim
+const nearTrim = (a, b) => a.length >= 5 && b.length >= 5 && Math.abs(a.length - b.length) <= 1 && lev(a, b, 1) <= 1;
+const litres = r => isNum(r.nefah_manoa) && num(r.nefah_manoa) > 0 ? `${(num(r.nefah_manoa) / 1000).toFixed(1)} ליטר` : "";
+const altLabel = (r, mixed) => [trimLabel(r) || "גרסה בסיסית", mixed && isNum(r.koah_sus) ? `${fmtN(r.koah_sus)} כ״ס` : ""].filter(Boolean).join(" · ");
+let mMode = "trim";
+/* one screen: years along the top (newest picked), then one row per trim + engine sold that year (iCar-style).
+   A year whose versions are internal codes rather than names (Tesla 2021: 115 of them) is listed by engine instead. */
 function showModel(y){
   mYear = y;
+  const inYear = mGroup.all.filter(r => String(num(r.shnat_yitzur)) === String(y));
+  const freq = new Map(); for (const r of mGroup.all) { const t = trimNorm(r); freq.set(t, (freq.get(t) || 0) + 1); }   // the common spelling wins over its typo
+  const variants = new Map();   // engine|trim -> rows
+  for (const r of inYear) {
+    const e = engKey(r) + "|", t = trimNorm(r);
+    let k = e + t;
+    if (!variants.has(k)) { const near = [...variants.keys()].find(x => x.startsWith(e) && nearTrim(x.slice(e.length), t)); if (near) { if ((freq.get(t) || 0) > (freq.get(near.slice(e.length)) || 0)) { variants.set(k, variants.get(near)); variants.delete(near); } else k = near; } }
+    if (!variants.has(k)) variants.set(k, []);
+    variants.get(k).push(r);
+  }
+  const list = [...variants.values()].sort((a, b) => (num(a[0].koah_sus) || 0) - (num(b[0].koah_sus) || 0) || trimLabel(a[0]).localeCompare(trimLabel(b[0])));
+  const codey = list.length > 12 && list.filter(l => /\d/.test(trimNorm(l[0])) && trimNorm(l[0]).length >= 6).length > list.length / 2;
+  if (codey) return showModelByEngine(y);
+  mMode = "trim"; mResults = list;
+  $("#compareMsg").textContent = "";
+  const years = mGroup.years, mixed = new Set(list.map(l => engKey(l[0]))).size > 1;
+  $("#mres").innerHTML = modelHead(y)
+    + `<div class="qsec">${list.length > 1 ? `רמת גימור ומנוע · ${list.length} גרסאות ב-${esc(String(y))}` : "גרסה אחת בשנה זו"}</div>`
+    + list.map((l, i) => {
+      const r = l[0], dt = driveType(rowD(r)), green = dt && ["ev", "phev", "hybrid"].includes(dt.k);
+      const gear = !empty(r.automatic_ind) && !yes(r.automatic_ind) ? "ידנית" : "";
+      const name = trimLabel(r), hp = isNum(r.koah_sus) ? `${fmtN(r.koah_sus)} כ״ס` : "";
+      const eng = [dt && dt.k !== "ev" ? litres(r) : "", dt ? dt.label : "", hp, gear].filter(Boolean).join(" · ");
+      return `<button type="button" class="row eng" data-mi="${i}">${dt ? `<span class="pill drive ${green ? "green" : ""}">${ico(green ? "bolt" : "fuel")}${dt.label}</span>` : ""}<span class="t"><b>${esc(name || hp || "גרסה בסיסית")}</b><small>${esc(name ? eng : [gear].filter(Boolean).join(" · ") || eng)}</small></span><span class="qadd" aria-label="הוספה">${ico("plus")}</span></button>`;
+    }).join("");
+}
+const modelHead = y => `<div class="mhead"><b>${esc(mGroup.make)} ${esc(mGroup.model)}</b><button type="button" class="mback" data-mback="1">כל הדגמים</button></div>`
+  + (mGroup.years.length > 1 ? `<div class="qsec">שנת ייצור</div><div class="yrow">${mGroup.years.map(v => `<button type="button" class="chip" data-my="${v}" aria-pressed="${String(v) === String(y)}">${v}</button>`).join("")}</div>` : `<div class="qsec">שנת ייצור ${esc(String(y))}</div>`);
+// the older screen: one row per engine, its trims collapsed ("N רמות גימור"), for years whose versions have no readable names
+function showModelByEngine(y){
+  mYear = y; mMode = "engine";
   const engines = new Map();
   for (const r of mGroup.all.filter(r => String(num(r.shnat_yitzur)) === String(y))) {
     const k = engKey(r); if (!engines.has(k)) engines.set(k, []);
@@ -2968,9 +3092,7 @@ function showModel(y){
   mResults = [...engines.values()].map(l => l.sort((a, b) => String(a.ramat_gimur || "").localeCompare(String(b.ramat_gimur || ""))))
     .sort((a, b) => (num(a[0].koah_sus) || 0) - (num(b[0].koah_sus) || 0));
   $("#compareMsg").textContent = "";
-  const years = mGroup.years;
-  $("#mres").innerHTML = `<div class="mhead"><b>${esc(mGroup.make)} ${esc(mGroup.model)}</b><button type="button" class="mback" data-mback="1">כל הדגמים</button></div>`
-    + (years.length > 1 ? `<div class="qsec">שנת ייצור</div><div class="yrow">${years.map(v => `<button type="button" class="chip" data-my="${v}" aria-pressed="${String(v) === String(y)}">${v}</button>`).join("")}</div>` : `<div class="qsec">שנת ייצור ${esc(String(y))}</div>`)
+  $("#mres").innerHTML = modelHead(y)
     + `<div class="qsec">${mResults.length > 1 ? "איזה מנוע?" : "מנוע"}</div>`
     + mResults.map((l, i) => {
       const r = l[0], dt = driveType(rowD(r)), green = dt && ["ev", "phev", "hybrid"].includes(dt.k);
@@ -2983,7 +3105,7 @@ function stepBack(){ mGroup = null; mYear = null; showGroups(); }
 async function pickModel(i, j = 0, at = -1){
   const l = mResults[i]; if (!l) return;
   const msg = $("#compareMsg"); msg.textContent = `טוען את ${rowLabel(l[j])} ${l[j].shnat_yitzur || ""}…`;
-  try { const D = await fetchModel(l[j]); D.alts = l; addToCompare(D); }
+  try { const D = await fetchModel(l[j]); D.alts = mMode === "trim" ? mResults.map(x => x[0]) : l; addToCompare(D); }
   catch (err) { msg.textContent = "הטעינה נכשלה. נסו שוב."; }
 }
 /* Similar models: same body and drive technology, same year, close in power and weight.
@@ -3135,7 +3257,7 @@ function renderCompare(){
     const open = cmpOpen.has(x.title) || !CMP_FOLDED.has(x.title);
     return `<div class="cmp-sec"><button type="button" data-sec="${esc(x.title)}" aria-expanded="${open}">${esc(x.title)}${open ? "" : `<small>${x.n} שורות</small>`}${ico("chev")}</button></div>` + (open ? x.html.join("") : "");
   }).join("") + (OK.some(D => D.plate) ? `<div class="cmp-k">ברכבים שלי</div>` + L.map((D, i) => `<div class="cmp-v">${D.plate && D.kind !== "fail" ? `<button type="button" class="cmp-save" data-cmpsave="${i}" aria-pressed="${isSaved(D.plate)}">${isSaved(D.plate) ? "נשמר ✓" : "שמירה"}</button>` : ""}</div>`).join("") : "");
-  const head = (D, i) => D.kind === "fail" ? `<div class="cmp-h fail"><div class="cmp-top"><span class="mini-plate"><i></i>${esc(D.title)}</span><button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><small>${esc(D.why)}</small>${D.retry ? `<button type="button" class="retry" data-retry-cmp="${i}">נסו שוב</button>` : ""}</div>` : `<div class="cmp-h"><div class="cmp-top">${D.kind === "model" ? `<span class="tag">דגם</span>` : `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>`}<button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><b title="${esc(D.title)}">${esc(D.title)}</b><small>${esc(D.alts && D.alts.length > 1 ? String(D.v.shnat_yitzur || "") : D.sub)}</small>${D.alts && D.alts.length > 1 ? `<select class="trim-sel" data-trim="${i}" aria-label="רמת גימור">${D.alts.map((r, j) => `<option value="${j}"${rowKey(r) === D.key ? " selected" : ""}>${esc(String(r.ramat_gimur || "").trim() || "גרסה בסיסית")}</option>`).join("")}</select>` : ""}</div>`;
+  const head = (D, i) => D.kind === "fail" ? `<div class="cmp-h fail"><div class="cmp-top"><span class="mini-plate"><i></i>${esc(D.title)}</span><button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><small>${esc(D.why)}</small>${D.retry ? `<button type="button" class="retry" data-retry-cmp="${i}">נסו שוב</button>` : ""}</div>` : `<div class="cmp-h"><div class="cmp-top">${D.kind === "model" ? `<span class="tag">דגם</span>` : `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>`}<button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><b title="${esc(D.title)}">${esc(D.title)}</b><small>${esc(D.alts && D.alts.length > 1 ? String(D.v.shnat_yitzur || "") : D.sub)}</small>${D.alts && D.alts.length > 1 ? `<select class="trim-sel" data-trim="${i}" aria-label="רמת גימור">${(mixed => D.alts.map((r, j) => `<option value="${j}"${rowKey(r) === D.key ? " selected" : ""}>${esc(altLabel(r, mixed))}</option>`).join(""))(new Set(D.alts.map(engKey)).size > 1)}</select>` : ""}</div>`;
   const base = OK.length && n < cmpMax() ? OK[OK.length - 1] : null;
   if (base) loadSimilar(base);
   const simHtml = base && simFor === (base.key || base.plate) && simList.length ? `<div class="sim-box"><div class="qsec">דגמים דומים, להוספה בלחיצה</div><div class="list">${simList.map((g, i) => {
@@ -3268,7 +3390,7 @@ $("#mres").addEventListener("click", ev => {
   const b = ev.target.closest("button"); if (!b) return;
   if (b.dataset.qplate) runCompare(b.dataset.qplate);
   else if (b.dataset.more) { mShowAll = true; showGroups(); }
-  else if (b.dataset.mg) { const g = mGroups[+b.dataset.mg]; if (g && g.fromFilter) { mPending = {make: g.make, model: g.model}; $("#mq").value = g.make + " " + g.model; runModelSearch(); } else pickGroup(+b.dataset.mg); }
+  else if (b.dataset.mg) { const g = mGroups[+b.dataset.mg]; if (g && g.fromFilter) pickFilterGroup(+b.dataset.mg); else pickGroup(+b.dataset.mg); }
   else if (b.dataset.my) showModel(b.dataset.my);
   else if (b.dataset.mi) pickModel(+b.dataset.mi);
   else if (b.dataset.mback) stepBack();
