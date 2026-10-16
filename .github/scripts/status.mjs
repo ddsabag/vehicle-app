@@ -11,10 +11,14 @@ const SETS = {
 const out = { checked: new Date().toISOString(), sets: {} };
 for (const [k, id] of Object.entries(SETS)) {
   const s = { ok: false, total: 0, modified: null };
-  try {
-    const j = await (await fetch(API + "datastore_search?limit=0&resource_id=" + id, { signal: AbortSignal.timeout(30000) })).json();
-    s.total = j?.result?.total ?? 0; s.ok = !!j.success && s.total > 0;
-  } catch {}
+  // the ministry reloads these tables overnight and a read can briefly return 0 rows: look again a few times before calling a dataset down
+  for (let i = 0; i < 3 && !s.ok; i++) {
+    if (i) await new Promise(r => setTimeout(r, 20000));
+    try {
+      const j = await (await fetch(API + "datastore_search?limit=0&resource_id=" + id, { signal: AbortSignal.timeout(30000) })).json();
+      s.total = j?.result?.total ?? 0; s.ok = !!j.success && s.total > 0;
+    } catch {}
+  }
   try {
     const j = await (await fetch(API + "resource_show?id=" + id, { signal: AbortSignal.timeout(30000) })).json();
     s.modified = j?.result?.last_modified || j?.result?.metadata_modified || null;
