@@ -1226,27 +1226,6 @@ const CPI = {2010:2.7, 2011:2.2, 2012:1.6, 2013:1.8, 2014:-0.2, 2015:-1.0, 2016:
   2020:-0.7, 2021:2.8, 2022:5.3, 2023:3.0, 2024:3.2, 2025:2.6};
 function setting(k, d){ try { const x = localStorage.getItem(k); return x === null || x === "" ? d : x; } catch { return d; } }
 function fuelKind(D){ const t = String(D.pick(D.v.sug_delek_nm, D.w.delek_nm) || ""); if (t.includes("חשמל") && !t.includes("בנזין") && !t.includes("דיזל")) return "ev"; if (t.includes("דיזל") || t.includes("סולר")) return "diesel"; return "petrol"; }
-/* Turbo on a petrol engine: the register has no such field, so it is estimated. A modern turbo engine makes well over 95 hp per litre and a
-   naturally aspirated one under 72; in between, the engine size, the maker's engine families (European and Chinese makers turbocharged
-   their small petrol engines from 2015) and markers in the name (TSI, T-GDI, EcoBoost…) decide. Always shown as an estimate; hybrids and
-   electric cars get nothing. null = not applicable. */
-const TURBO_MARK = /\b(TSI|TFSI|T-?GDI|GDI-?T|TURBO|ECOBOOST|TCE|THP|BOOSTERJET|T-?JET|MULTIAIR|DIG-?T|\d\.\d ?T(URBO)?)\b/i;
-const EURO_TURBO = /פולקסווגן|פולקסוואגן|סקודה|סיאט|קופרה|אאודי|BMW|ב מ וו|מיני|מרצדס|וולוו|וולבו|פיג|סיטרואן|^DS|די אס|אופל|רנו|דאצ|פורד|פיאט|אלפא|ג'יפ|לנצ|סמארט|פורשה|יגואר|ג'גואר|לנד ?רובר|^MG|צ'רי|ג'ילי|BYD|האוול|GWM|JAC|ג'אק|אומודה|JAECOO|ג'אקו|לינק|זיקר|XPENG|אקספנג|סרס|ליפמוטור|FAW|SWM|DFSK|KGM|ORA|אורה/i;
-function turboGuess(D){
-  const w = D.w || {}, v = D.v || {};
-  if (fuelKind(D) !== "petrol") return null;
-  const dt = driveType(D); if (!dt || dt.k !== "petrol") return null;
-  const cc = num(D.pick(v.nefach_manoa, w.nefah_manoa)), hp = num(w.koah_sus), y = num(D.pick(v.shnat_yitzur, w.shnat_yitzur));
-  if (!(cc >= 600 && cc <= 8000) || !(hp > 0)) return null;
-  if (TURBO_MARK.test([w.ramat_gimur, w.kinuy_mishari, w.degem_nm, v.degem_nm].filter(x => !empty(x)).join(" "))) return true;
-  const spl = hp / (cc / 1000);
-  if (spl >= 95) return true;
-  if (spl <= 72 || cc > 2800) return false;
-  const mk = String(D.make || rowMake(v.tozeret_nm ? v : w) || "");
-  if (/יונדאי|קיה|ג'נסיס|גנסיס/.test(mk) && cc >= 1550 && cc <= 1650 && hp >= 148) return true;   // Smartstream 1.6 T-GDI 150 / 180 hp (Tucson, Sportage, Sorento)
-  return EURO_TURBO.test(mk) && y >= 2015;
-}
-const turboText = D => { const t = turboGuess(D); return t === null ? "" : t ? "כן (הערכה)" : "לא (הערכה)"; };
 /* Drive type for the label and the tax reduction. The model catalogue's drive technology is the reliable
    source ("PLUG IN" / "היברידי רגיל" / "רכב חשמלי"); the register codes regular hybrids as plain petrol
    and keeps "חשמל/בנזין" for plug-ins only. */
@@ -1792,7 +1771,7 @@ function simpleCard(D){
   const kg = x => empty(x) ? "" : fmtN(x) + " ק״ג";
   const main = [
     ["יצרן", D.make], ["דגם", D.model], ["שנת ייצור", v.shnat_yitzur], ["רמת גימור", pick(v.ramat_gimur, w.ramat_gimur)], ["צבע", v.tzeva_rechev],
-    ["סוג דלק", pick(v.sug_delek_nm, w.delek_nm)], ["נפח מנוע", posN(pick(v.nefach_manoa, w.nefah_manoa)) && fmtN(pick(v.nefach_manoa, w.nefah_manoa)) + " סמ״ק"], ["כוח", posN(w.koah_sus) ? fmtN(w.koah_sus) + " כ״ס" : ""], ["טורבו", turboText(D)],
+    ["סוג דלק", pick(v.sug_delek_nm, w.delek_nm)], ["נפח מנוע", posN(pick(v.nefach_manoa, w.nefah_manoa)) && fmtN(pick(v.nefach_manoa, w.nefah_manoa)) + " סמ״ק"], ["כוח", posN(w.koah_sus) ? fmtN(w.koah_sus) + " כ״ס" : ""],
     ["הנעה", pick(v.hanaa_nm, w.hanaa_nm)], ["תיבת הילוכים", gear], ["מרכב", w.merkav], ["מושבים", pick(w.mispar_moshavim, v.mispar_mekomot)], ["דלתות", w.mispar_dlatot],
     ["עלה לכביש", v.moed_aliya_lakvish], ["סוג יבוא", D.importKind], ["יבואן", importerOf(D)], ["בעלות נוכחית", v.baalut], ["בעלות ראשונה", firstOwner(v)], ["מספר בעלים", own],
     ["טסט אחרון", empty(v.mivchan_acharon_dt) ? "" : fmtDate(v.mivchan_acharon_dt)], ["טסט בתוקף עד", empty(v.tokef_dt) ? "" : fmtDate(v.tokef_dt)], ["ק״מ בטסט האחרון", D.km ? fmtN(D.km) : ""],
@@ -2511,7 +2490,7 @@ function tabSpecs(D){
   ])));
   html.push(card("מנוע והנעה", "engine", "red", facts([
     ["דלק", e(D.pick(v.sug_delek_nm, w.delek_nm))], ["נפח מנוע", unitPos(D.pick(v.nefach_manoa, w.nefah_manoa), "סמ״ק")],
-    ["כוח", !posN(w.koah_sus) ? e(v.hespek) : unit(w.koah_sus, "כ״ס")], ["טורבו", e(turboText(D))], ["תיבת הילוכים", e(gearbox)],
+    ["כוח", !posN(w.koah_sus) ? e(v.hespek) : unit(w.koah_sus, "כ״ס")], ["תיבת הילוכים", e(gearbox)],
     ["הנעה", e(D.pick(v.hanaa_nm, w.hanaa_nm))], ["דגם מנוע", mono(v.degem_manoa)],
   ])));
   html.push(card("משקלים וצמיגים", "scale", "slate", facts([
@@ -3114,13 +3093,12 @@ function showModel(y){
     const r = l[0], dt = driveType(rowD(r)), green = dt && ["ev", "phev", "hybrid"].includes(dt.k);
     const gear = !empty(r.automatic_ind) && !yes(r.automatic_ind) ? "ידנית" : "";
     const name = trimLabel(r), hp = isNum(r.koah_sus) && num(r.koah_sus) > 0 ? `${fmtN(r.koah_sus)} כ״ס` : "";   // electric cars are often registered without horsepower
-    const eng = [dt && dt.k !== "ev" ? litres(r) + (turboGuess(rowD(r)) ? " טורבו" : "") : "", dt ? dt.label : "", hp, gear].filter(Boolean).join(" · ");
+    const eng = [dt && dt.k !== "ev" ? litres(r) : "", dt ? dt.label : "", hp, gear].filter(Boolean).join(" · ");
     return `<button type="button" class="row eng" data-mi="${i}">${dt ? `<span class="pill drive ${green ? "green" : ""}">${ico(green ? "bolt" : "fuel")}${dt.label}</span>` : ""}<span class="t"><b>${esc(name || hp || "גרסה בסיסית")}</b><small>${esc(name ? eng : [gear].filter(Boolean).join(" · ") || eng)}</small></span><span class="qadd" aria-label="הוספה">${ico("plus")}</span></button>`;
   };
   $("#mres").innerHTML = modelHead(y)
     + `<div class="qsec">${official ? `היבואן הרשמי (${esc(official)}) · ${pl(off.length, "גרסה אחת", "גרסאות")} ב-${esc(String(y))}` : list.length > 1 ? `רמת גימור ומנוע · ${list.length} גרסאות ב-${esc(String(y))}` : "גרסה אחת בשנה זו"}</div>`
     + off.map(row).join("")
-    + (mResults.some(l => turboGuess(rowD(l[0]))) ? `<p class="note" style="margin:4px 0 0">טורבו: הערכה לפי ההספק לנפח ומשפחת המנוע, משרד התחבורה לא רושם זאת.</p>` : "")
     + (par.length ? (mShowPar ? `<div class="qsec">יבוא מקביל · ${pl(par.length, "גרסה אחת", "גרסאות")}</div><p class="note" style="margin:0 0 6px">גרסאות שיבואנים אחרים רשמו במשרד התחבורה. שם הגימור הוא כפי שהיבואן המקביל רשם, ולא תמיד תואם למפרט של היבואן הרשמי.</p>` + par.map((l, i) => row(l, off.length + i)).join("") : `<button type="button" class="more" data-mpar="1">עוד ${pl(par.length, "גרסה אחת", "גרסאות")} ביבוא מקביל</button>`) : "");
 }
 const impName = x => String(x || "").replace(/\s*בע['"׳״]{0,2}מ\.?\s*$|\s*בעמ\s*$/, "").replace(/\s+/g, " ").trim();
@@ -3247,7 +3225,6 @@ function renderCompare(){
     ["כוח (כ״ס)", D => nf(D.w, "koah_sus"), "hi", ""],
     ["נפח מנוע (סמ״ק)", D => num(D.pick(D.v.nefach_manoa, D.w.nefah_manoa)) || null, null, ""],
     ["דלק", D => D.pick(D.v.sug_delek_nm, D.w.delek_nm)],
-    ["טורבו (הערכה)", D => { const t = turboGuess(D); return t === null ? null : t ? "כן" : "לא"; }],
     ["תיבת הילוכים", gear],
     ["הנעה", D => D.w.hanaa_nm],
     ["גרירה עם בלמים (ק״ג)", D => tow(D, "kosher_grira_im_blamim"), "hi", ""],
