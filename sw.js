@@ -1,12 +1,20 @@
 /* Luchit app shell for the web version. Stale-while-revalidate for the page, cache-first for fonts and icons.
    Lookups (data.gov.il, JSON data files, model pages) are never cached here, so numbers are always fresh.
    Bump SHELL with APP_VERSION at each release: the old cache is deleted on activate. */
-const SHELL = "luchit-shell-1.27.1";
+const SHELL = "luchit-shell-1.27.2";
 const FONTS = "luchit-fonts-1";
 const PRECACHE = ["/", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/manifest.json", "/lib/fonts/assistant-hebrew-400-normal.woff2", "/lib/fonts/assistant-hebrew-700-normal.woff2", "/lib/fonts/assistant-latin-400-normal.woff2", "/lib/fonts/assistant-latin-700-normal.woff2", "/lib/fonts/ibm-plex-mono-latin-500-normal.woff2"];
 
+/* the published page loads its code from /app.<hash>.js (see .github/scripts/web-build.mjs): keep the script the cached page points at, so the shell also works offline */
+const APP_JS = /^\/app\.[0-9a-f]{10}\.js$/;
+async function keepAppScript(c, res) {
+  try {
+    const m = (await res.text()).match(/src="(\/app\.[0-9a-f]{10}\.js)"/);
+    if (m && !(await c.match(m[1]))) await c.add(m[1]);
+  } catch {}
+}
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(SHELL).then(c => c.addAll(PRECACHE)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(SHELL).then(async c => { await c.addAll(PRECACHE); const h = await c.match("/"); if (h) await keepAppScript(c, h.clone()); }).then(() => self.skipWaiting()));
 });
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== SHELL && k !== FONTS).map(k => caches.delete(k)))).then(() => self.clients.claim()));
@@ -19,10 +27,14 @@ self.addEventListener("fetch", e => {
     // any query (?plate=, ?cmp=) is served by the cached shell: the page reads it itself
     e.respondWith(caches.open(SHELL).then(async c => {
       const hit = await c.match("/");
-      const net = fetch("/").then(res => { if (res.ok) c.put("/", res.clone()); return res; }).catch(() => null);
+      const net = fetch("/").then(res => { if (res.ok) { const a = res.clone(), b = res.clone(); c.put("/", a); e.waitUntil(keepAppScript(c, b)); } return res; }).catch(() => null);
       if (hit) { e.waitUntil(net); return hit; }
       return (await net) || new Response("אין חיבור לאינטרנט", {status: 503, headers: {"Content-Type": "text/plain; charset=utf-8"}});
     }));
+    return;
+  }
+  if (u.origin === location.origin && APP_JS.test(u.pathname)) {
+    e.respondWith(caches.open(SHELL).then(async c => c.match(r).then(h => h || fetch(r))));
     return;
   }
   if (u.origin === location.origin && PRECACHE.includes(u.pathname)) {

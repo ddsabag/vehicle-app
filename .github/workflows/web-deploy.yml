@@ -1,0 +1,54 @@
+name: Web deploy (build)
+# Builds the website for publishing: the page's inline script becomes a minified, content-hashed app.<hash>.js loaded with defer
+# (first paint on a slow phone ~0.8 s earlier, see .github/scripts/web-build.mjs). The source index.html is untouched.
+# INERT UNTIL SWITCHED ON: it only builds (and keeps the result as a downloadable artifact). It deploys only when the repository variable
+# WEB_DEPLOY is "true" AND Pages > Source is "GitHub Actions". Before that, Pages keeps serving the repo as it is today.
+on:
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Deploy to GitHub Pages (needs Pages source = GitHub Actions)"
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: web-deploy
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: mkdir -p /tmp/minify && cd /tmp/minify && npm init -y >/dev/null && npm i terser@5 >/dev/null
+      - name: Build the site
+        run: |
+          mkdir -p .github/scripts/node_modules && cp -r /tmp/minify/node_modules/. .github/scripts/node_modules/
+          node .github/scripts/web-build.mjs site
+          test -f site/CNAME && test -f site/.well-known/assetlinks.json && test -f site/sw.js && ls site/app.*.js
+          grep -q 'src="/app\.' site/index.html
+          ! grep -q "service.json" <(ls site)
+      - name: Pack the site (tar keeps dot folders such as .well-known)
+        run: tar --dereference --hard-dereference -cf "$RUNNER_TEMP/artifact.tar" -C site .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: github-pages
+          path: ${{ runner.temp }}/artifact.tar
+          retention-days: 7
+          if-no-files-found: error
+  deploy:
+    needs: build
+    if: ${{ inputs.deploy && vars.WEB_DEPLOY == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
