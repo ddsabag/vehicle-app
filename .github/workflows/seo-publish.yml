@@ -1,0 +1,32 @@
+name: SEO auto-publish
+# Site-only SEO changes staged on branch "seo-auto" are published to main by themselves after 24 h, if every check passes
+# (allowed paths only, 21-day rule from analytics/seo-changes.json, SEO lint). Silent Telegram notices; deleting the branch cancels. See .github/scripts/seo-publish.mjs.
+on:
+  schedule:
+    - cron: "40 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print only: no tags, no merge, no Telegram"
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: seo-publish
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Publish staged SEO changes
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DRY: ${{ inputs.dry_run && '1' || '0' }}
+        run: node .github/scripts/seo-publish.mjs

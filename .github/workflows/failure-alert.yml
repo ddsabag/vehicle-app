@@ -11,6 +11,8 @@ on:
       - "Data status"
       - "Fuel price"
       - "IndexNow"
+      - "SEO auto-publish"
+      - "SEO tracker"
       - "Infra watch"
       - "Magazine data articles"
       - "Magazine"
