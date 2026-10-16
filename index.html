@@ -3066,22 +3066,35 @@ function showModel(y){
   }
   const sorted = [...variants.values()].sort((a, b) => (num(a[0].koah_sus) || 0) - (num(b[0].koah_sus) || 0) || trimLabel(a[0]).localeCompare(trimLabel(b[0])));
   // the same trim and engine homologated at 97 and 98 hp is one version for the buyer
-  const list = []; for (const l of sorted) { const p = list[list.length - 1], a = p && p[0], r = l[0]; if (a && trimNorm(a) === trimNorm(r) && engKey(a).split("|")[0] === engKey(r).split("|")[0] && num(a.nefah_manoa) === num(r.nefah_manoa) && Math.abs(num(a.koah_sus) - num(r.koah_sus)) <= Math.max(2, num(r.koah_sus) * 0.02)) p.push(...l); else list.push(l.slice()); }
+  const twin = (a, r) => trimNorm(a) === trimNorm(r) && engKey(a).split("|")[0] === engKey(r).split("|")[0] && num(a.nefah_manoa) === num(r.nefah_manoa) && Math.abs(num(a.koah_sus) - num(r.koah_sus)) <= Math.max(2, num(r.koah_sus) * 0.02);
+  const list = []; for (const l of sorted) { const p = list.find(x => twin(x[0], l[0])); if (p) p.push(...l); else list.push(l.slice()); }
   const codey = list.length > 12 && list.filter(l => /\d/.test(trimNorm(l[0])) && trimNorm(l[0]).length >= 6).length > list.length / 2;
   if (codey) return showModelByEngine(y);
-  mMode = "trim"; mResults = list;
+  // The register lists every importer's type approval, so a Corolla 2026 shows the official importer's two versions next to fifteen
+  // parallel-import ones. The importer with most cars of this model and year on the road is the official one: its versions come
+  // first, the rest fold under one line (catalogue rows carry the importer and the counts; live ministry rows do not, and show as one list).
+  const onRoad = new Map(); for (const r of inYear) { const n = impName(r.shem_yevuan); if (n) onRoad.set(n, (onRoad.get(n) || 0) + (num(r.mispar_rechavim_pailim) || 0)); }
+  const total = [...onRoad.values()].reduce((a, b) => a + b, 0), main = [...onRoad.entries()].sort((a, b) => b[1] - a[1])[0];
+  const official = main && main[1] >= 20 && main[1] >= total / 2 ? main[0] : "";
+  const isOff = l => l.some(r => impName(r.shem_yevuan) === official);
+  const off = official ? list.filter(isOff) : list, par = official ? list.filter(l => !isOff(l)) : [];
+  if (mParYear !== String(y)) { mParYear = String(y); mShowPar = false; }
+  mMode = "trim"; mResults = off.concat(par);
   $("#compareMsg").textContent = "";
-  const years = mGroup.years, mixed = new Set(list.map(l => engKey(l[0]))).size > 1;
+  const row = (l, i) => {
+    const r = l[0], dt = driveType(rowD(r)), green = dt && ["ev", "phev", "hybrid"].includes(dt.k);
+    const gear = !empty(r.automatic_ind) && !yes(r.automatic_ind) ? "ידנית" : "";
+    const name = trimLabel(r), hp = isNum(r.koah_sus) ? `${fmtN(r.koah_sus)} כ״ס` : "";
+    const eng = [dt && dt.k !== "ev" ? litres(r) : "", dt ? dt.label : "", hp, gear].filter(Boolean).join(" · ");
+    return `<button type="button" class="row eng" data-mi="${i}">${dt ? `<span class="pill drive ${green ? "green" : ""}">${ico(green ? "bolt" : "fuel")}${dt.label}</span>` : ""}<span class="t"><b>${esc(name || hp || "גרסה בסיסית")}</b><small>${esc(name ? eng : [gear].filter(Boolean).join(" · ") || eng)}</small></span><span class="qadd" aria-label="הוספה">${ico("plus")}</span></button>`;
+  };
   $("#mres").innerHTML = modelHead(y)
-    + `<div class="qsec">${list.length > 1 ? `רמת גימור ומנוע · ${list.length} גרסאות ב-${esc(String(y))}` : "גרסה אחת בשנה זו"}</div>`
-    + list.map((l, i) => {
-      const r = l[0], dt = driveType(rowD(r)), green = dt && ["ev", "phev", "hybrid"].includes(dt.k);
-      const gear = !empty(r.automatic_ind) && !yes(r.automatic_ind) ? "ידנית" : "";
-      const name = trimLabel(r), hp = isNum(r.koah_sus) ? `${fmtN(r.koah_sus)} כ״ס` : "";
-      const eng = [dt && dt.k !== "ev" ? litres(r) : "", dt ? dt.label : "", hp, gear].filter(Boolean).join(" · ");
-      return `<button type="button" class="row eng" data-mi="${i}">${dt ? `<span class="pill drive ${green ? "green" : ""}">${ico(green ? "bolt" : "fuel")}${dt.label}</span>` : ""}<span class="t"><b>${esc(name || hp || "גרסה בסיסית")}</b><small>${esc(name ? eng : [gear].filter(Boolean).join(" · ") || eng)}</small></span><span class="qadd" aria-label="הוספה">${ico("plus")}</span></button>`;
-    }).join("");
+    + `<div class="qsec">${official ? `היבואן הרשמי (${esc(official)}) · ${pl(off.length, "גרסה אחת", "גרסאות")} ב-${esc(String(y))}` : list.length > 1 ? `רמת גימור ומנוע · ${list.length} גרסאות ב-${esc(String(y))}` : "גרסה אחת בשנה זו"}</div>`
+    + off.map(row).join("")
+    + (par.length ? (mShowPar ? `<div class="qsec">יבוא מקביל · ${pl(par.length, "גרסה אחת", "גרסאות")}</div><p class="note" style="margin:0 0 6px">גרסאות שיבואנים אחרים רשמו במשרד התחבורה. שם הגימור הוא כפי שהיבואן המקביל רשם, ולא תמיד תואם למפרט של היבואן הרשמי.</p>` + par.map((l, i) => row(l, off.length + i)).join("") : `<button type="button" class="more" data-mpar="1">עוד ${pl(par.length, "גרסה אחת", "גרסאות")} ביבוא מקביל</button>`) : "");
 }
+const impName = x => String(x || "").replace(/\s*בע['"׳״]{0,2}מ\.?\s*$|\s*בעמ\s*$/, "").replace(/\s+/g, " ").trim();
+let mParYear = "", mShowPar = false;
 const modelHead = y => `<div class="mhead"><b>${esc(mGroup.make)} ${esc(mGroup.model)}</b><button type="button" class="mback" data-mback="1">כל הדגמים</button></div>`
   + (mGroup.years.length > 1 ? `<div class="qsec">שנת ייצור</div><div class="yrow">${mGroup.years.map(v => `<button type="button" class="chip" data-my="${v}" aria-pressed="${String(v) === String(y)}">${v}</button>`).join("")}</div>` : `<div class="qsec">שנת ייצור ${esc(String(y))}</div>`);
 // the older screen: one row per engine, its trims collapsed ("N רמות גימור"), for years whose versions have no readable names
@@ -3396,6 +3409,7 @@ $("#mres").addEventListener("click", ev => {
   else if (b.dataset.more) { mShowAll = true; showGroups(); }
   else if (b.dataset.mg) { const g = mGroups[+b.dataset.mg]; if (g && g.fromFilter) pickFilterGroup(+b.dataset.mg); else pickGroup(+b.dataset.mg); }
   else if (b.dataset.my) showModel(b.dataset.my);
+  else if (b.dataset.mpar) { mShowPar = true; showModel(mYear); }
   else if (b.dataset.mi) pickModel(+b.dataset.mi);
   else if (b.dataset.mback) stepBack();
 });
