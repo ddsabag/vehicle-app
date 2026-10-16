@@ -49,6 +49,23 @@ def telegram(text):
     urllib.request.urlopen(urllib.request.Request(f"https://api.telegram.org/bot{tok}/sendMessage", data=urllib.parse.urlencode({"chat_id": chat, "text": text}).encode()), timeout=30)
 
 
+def rollback():
+    """With PAGES_ADMIN_TOKEN (fine-grained PAT: Pages + Variables read/write on this repo) the rollback runs by itself:
+    Pages back to branch main / root and WEB_DEPLOY=false. Returns a short result line for the alert."""
+    tok, repo = os.environ.get("PAGES_ADMIN_TOKEN"), os.environ.get("GITHUB_REPOSITORY", "ddsabag/vehicle-app")
+    if not tok: return "אין טוקן PAGES_ADMIN_TOKEN, לכן החזרה דורשת פעולה ידנית: Pages > Source > Deploy from a branch (main, root) ו-WEB_DEPLOY=false."
+    h = {"Authorization": f"Bearer {tok}", "Accept": "application/vnd.github+json", "Content-Type": "application/json"}
+    def call(method, path, body):
+        req = urllib.request.Request(f"https://api.github.com{path}", data=json.dumps(body).encode(), headers=h, method=method)
+        with urllib.request.urlopen(req, timeout=30) as r: return r.status
+    try:
+        call("PUT", f"/repos/{repo}/pages", {"build_type": "legacy", "source": {"branch": "main", "path": "/"}})
+        call("PATCH", f"/repos/{repo}/actions/variables/WEB_DEPLOY", {"name": "WEB_DEPLOY", "value": "false"})
+        return "בוצעה חזרה אוטומטית: Pages מפרסם שוב מהענף main ו-WEB_DEPLOY כבוי. האתר יתעדכן תוך דקות."
+    except Exception as e:
+        return f"החזרה האוטומטית נכשלה ({str(e)[:80]}). לבצע ידנית: Pages > Source > Deploy from a branch (main, root) ו-WEB_DEPLOY=false."
+
+
 def main():
     state, dry = sys.argv[1], "--dry" in sys.argv
     p = os.path.join(state, "history.json")
@@ -59,7 +76,7 @@ def main():
     print(m)
     why = verdict(H["days"])
     if why and H.get("alerted") != m["date"]:
-        msg = "⚠️ לוחית: מהירות האתר (הבנייה המפוצלת) מעבר לסף. " + "; ".join(why) + ".\nהמלצה: לחזור לשיטה הקודמת (Pages: Deploy from a branch, main, root, ו-WEB_DEPLOY=false). אחרי הטיפול אין צורך לעשות דבר נוסף."
+        msg = "⚠️ לוחית: מהירות האתר (הבנייה המפוצלת) מעבר לסף. " + "; ".join(why) + ".\n" + ("(הרצה יבשה, לא בוצעה חזרה)" if dry else rollback())
         print(msg)
         if not dry: telegram(msg); H["alerted"] = m["date"]
     elif not why: H["alerted"] = None
