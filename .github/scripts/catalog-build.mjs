@@ -8,7 +8,7 @@
 import fs from "node:fs";
 const API = "https://data.gov.il/api/3/action/datastore_search";
 const ID = {wltp: "142afde2-6228-49f9-8a29-9b6c3a0cbe40", price: "39f455bf-6db0-4926-859d-017f34eacbcb", counts: "5e87a7a1-2f6f-41c1-8aec-7216d52a6cf6", recalls: "2c33523f-87aa-44ec-a736-edbb0a82975e"};
-const OUT = process.env.OUT || "cat-out", PAGE = 30000, T0 = Date.now();
+const OUT = process.env.OUT || "out", PAGE = 30000, T0 = Date.now();
 const log = m => console.log(`[${Math.round((Date.now() - T0) / 1000)}s] ${m}`);
 // every WLTP column index.html reads (grep of the field names), in the order the shard stores them
 const COLS = ["_id", "sug_degem", "tozeret_cd", "tozeret_nm", "tozeret_eretz_nm", "tozar", "degem_cd", "degem_nm", "shnat_yitzur", "kvuzat_agra_cd", "nefah_manoa", "mishkal_kolel", "hanaa_nm",

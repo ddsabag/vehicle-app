@@ -18,6 +18,8 @@ jobs:
         with:
           node-version: 22
       - run: node --max-old-space-size=6144 .github/scripts/catalog-build.mjs
+        env:
+          OUT: cat-out
       - name: Publish on the catalog-data branch
         run: |
           test -s cat-out/meta.json && ls cat-out/c | wc -l
