@@ -2935,6 +2935,7 @@ async function runModelSearch(){
   }
   if (mCtrl) mCtrl.abort(); mCtrl = new AbortController(); const signal = mCtrl.signal;
   msg.textContent = "מחפש…"; renderQuick();
+  let sq = null;
   try {
     await Promise.race([loadModelIndex(), new Promise(r => setTimeout(r, 2500))]);
     if (signal.aborted) return;
@@ -2944,10 +2945,11 @@ async function runModelSearch(){
     }
     mNote = "";
     // instant: the local catalogue already knows which models the words mean, so they are listed at once and refined when the registry answers
-    const sq = MODELIDX ? smartQueries(q) : null;
+    sq = MODELIDX ? smartQueries(q) : null;
     if (sq && sq.length) { searchFuzzy = false; mGroups = sq.map(o => ({make: o.mk, model: o.words.join(" "), base: o.words.join(" "), fromFilter: true, instant: true})); mShowAll = true; showGroups(); msg.textContent = "מחפש…"; }
     let rows = await searchModelRows(q, searchWords(q), null, 1000, signal);
     if (signal.aborted) return;
+    if (!rows.length && sq && sq.length) { msg.textContent = ""; return; }   // the registry adds nothing (or is down): the local catalogue's list stands, and the pick reads the static catalogue
     const g = new Map();
     for (const r of rows) {
       if (empty(r.tozeret_cd) || !rowModel(r)) continue;
@@ -2973,7 +2975,7 @@ async function runModelSearch(){
     mShowAll = false;
     if (mPending) { const i = mGroups.findIndex(x => x.model === mPending.model && x.make === mPending.make) ; const j = i >= 0 ? i : mGroups.findIndex(x => x.model === mPending.model || x.base === mPending.model); mPending = null; if (j >= 0) { pickGroup(j); return; } }
     showGroups();
-  } catch (err) { if (err.name !== "AbortError" && !signal.aborted) msg.textContent = "החיפוש נכשל. בדקו את החיבור ונסו שוב."; }
+  } catch (err) { if (err.name !== "AbortError" && !signal.aborted) msg.textContent = sq && sq.length && mGroups.length ? "" : "החיפוש נכשל. בדקו את החיבור ונסו שוב."; }
 }
 function showGroups(){
   const msg = $("#compareMsg"), shown = mShowAll ? mGroups : mGroups.slice(0, MODEL_SHOWN), rest = mGroups.length - shown.length;
@@ -3036,7 +3038,7 @@ const TRIM_FIX = {HYBR: "HYBRID", HYBRI: "HYBRID", PREMIU: "PREMIUM", PREMI: "PR
   PRESTIG: "PRESTIGE", PRESTI: "PRESTIGE", SIGNATUR: "SIGNATURE", SIGNAT: "SIGNATURE", TECHNOLOG: "TECHNOLOGY", TECHNO: "TECHNOLOGY", ULTIMAT: "ULTIMATE", ULTIMA: "ULTIMATE", EXCLUSIV: "EXCLUSIVE", EXCLUS: "EXCLUSIVE", ALLUR: "ALLURE",
   PANORAMI: "PANORAMIC", PANORAM: "PANORAMIC", SUPREM: "SUPREME", HIGHLIN: "HIGHLINE", HIGHLI: "HIGHLINE", TRENDLIN: "TRENDLINE", COMFORTLIN: "COMFORTLINE", COMFORTLI: "COMFORTLINE", ELECTRI: "ELECTRIC", ELECTR: "ELECTRIC",
   ESSENTIA: "ESSENTIAL", ESSENTI: "ESSENTIAL", ESSENC: "ESSENCE", EVOLUTIO: "EVOLUTION", EVOLUTI: "EVOLUTION", ADVENTUR: "ADVENTURE", ADVENT: "ADVENTURE", FREESTYL: "FREESTYLE", CROSSOVE: "CROSSOVER", CROSSOV: "CROSSOVER",
-  SPECIA: "SPECIAL", CLASSI: "CLASSIC", NAVIGATIO: "NAVIGATION", LONGRANG: "LONG RANGE", STYL: "STYLE", PERFO: "PERFORMANCE", INTELLIGEN: "INTELLIGENT", INTELLIG: "INTELLIGENT"};
+  SPECIA: "SPECIAL", CLASSI: "CLASSIC", EDI: "EDITION", EDIT: "EDITION", NAVIGATIO: "NAVIGATION", LONGRANG: "LONG RANGE", STYL: "STYLE", PERFO: "PERFORMANCE", INTELLIGEN: "INTELLIGENT", INTELLIG: "INTELLIGENT"};
 const trimNorm = r => String(r.ramat_gimur || "").toUpperCase().replace(/[^A-Z0-9\u05d0-\u05ea]/g, "");
 function trimLabel(r){
   let t = String(r.ramat_gimur || "").trim().toUpperCase().replace(/\s+/g, " "); if (!t) return "";
@@ -3062,7 +3064,9 @@ function showModel(y){
     if (!variants.has(k)) variants.set(k, []);
     variants.get(k).push(r);
   }
-  const list = [...variants.values()].sort((a, b) => (num(a[0].koah_sus) || 0) - (num(b[0].koah_sus) || 0) || trimLabel(a[0]).localeCompare(trimLabel(b[0])));
+  const sorted = [...variants.values()].sort((a, b) => (num(a[0].koah_sus) || 0) - (num(b[0].koah_sus) || 0) || trimLabel(a[0]).localeCompare(trimLabel(b[0])));
+  // the same trim and engine homologated at 97 and 98 hp is one version for the buyer
+  const list = []; for (const l of sorted) { const p = list[list.length - 1], a = p && p[0], r = l[0]; if (a && trimNorm(a) === trimNorm(r) && engKey(a).split("|")[0] === engKey(r).split("|")[0] && num(a.nefah_manoa) === num(r.nefah_manoa) && Math.abs(num(a.koah_sus) - num(r.koah_sus)) <= Math.max(2, num(r.koah_sus) * 0.02)) p.push(...l); else list.push(l.slice()); }
   const codey = list.length > 12 && list.filter(l => /\d/.test(trimNorm(l[0])) && trimNorm(l[0]).length >= 6).length > list.length / 2;
   if (codey) return showModelByEngine(y);
   mMode = "trim"; mResults = list;
