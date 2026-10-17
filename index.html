@@ -2968,20 +2968,15 @@ async function runModelSearch(){
     let rows = await searchModelRows(q, searchWords(q), null, 1000, signal);
     if (signal.aborted) return;
     if (!rows.length && sq && sq.length) { if (mPending) { mPending = null; msg.textContent = "הטעינה נכשלה. נסו שוב."; } else msg.textContent = ""; return; }   // the registry adds nothing (or is down): the local catalogue's list stands, and the pick reads the static catalogue
+    // one entry per model family, whatever the drive version: the picker lists the year's versions with their engine, and the
+    // official importer is judged over the whole family (a "COROLLA" entry that held only the petrol rows hid the importer's hybrids)
     const g = new Map();
     for (const r of rows) {
       if (empty(r.tozeret_cd) || !rowModel(r)) continue;
-      const nm = cleanModelName(normModel(rowModel(r))), cls = driveCls(r), k = [rowMake(r), modelBase(nm), cls].join("|");
-      if (!g.has(k)) g.set(k, {make: rowMake(r), model: nm, base: nm, cls, names: new Set(), cds: new Set(), rows: [], sc: 0});
+      const nm = cleanModelName(normModel(rowModel(r))), k = [rowMake(r), modelBase(nm)].join("|");
+      if (!g.has(k)) g.set(k, {make: rowMake(r), model: nm, base: nm, cls: "", names: new Set(), cds: new Set(), rows: [], sc: 0});
       const x = g.get(k); x.sc = Math.max(x.sc, r._sc || 0); x.model = x.base = spaced(x.model, nm); x.rows.push(r); x.names.add(rowModel(r)); x.cds.add(String(r.tozeret_cd));
     }
-    // a name that exists in more than one drive version gets the version in its title, and keeps only that version's rows
-    const versions = new Map();
-    for (const x of g.values()) { const b = x.make + "|" + modelBase(x.base); if (!versions.has(b)) versions.set(b, new Set()); versions.get(b).add(x.cls); }
-    const spelling = new Map();
-    for (const x of g.values()) { const b = x.make + "|" + modelBase(x.base); spelling.set(b, spaced(spelling.get(b) || x.base, x.base)); }
-    for (const x of g.values()) x.model = x.base = spelling.get(x.make + "|" + modelBase(x.base));
-    for (const x of g.values()) if (versions.get(x.make + "|" + modelBase(x.base)).size > 1) { x.split = true; if (x.cls) x.model = x.base + " " + x.cls; }
     await Promise.race([loadModelStats().catch(() => null), new Promise(r => setTimeout(r, 1200))]);
     if (signal.aborted) return;
     const top = Math.max(0, ...[...g.values()].map(x => x.sc));
@@ -3006,9 +3001,15 @@ function showGroups(){
 }
 /* all rows of one model, every maker code, year and trim: from the static catalogue when it answers, else from the ministry */
 async function groupRows(x){
-  const out = [], meta = await withTimeout(catMeta(), CAT_TIMEOUT), names = new Set([...x.names].map(n => String(n).trim().toUpperCase()));
+  const out = [], meta = await withTimeout(catMeta(), CAT_TIMEOUT), names = new Set([...x.names].map(n => String(n).trim().toUpperCase())), cds = new Set([...x.cds].map(String));
+  // the registry's text search returns only the spellings that match the typed word ("CHR" but not "C-HR HEV"), so the catalogue's
+  // index completes the family: every maker code of this make and every model name that normalises to the same family
+  if (meta && meta.makers) {
+    const base = modelBase(cleanModelName(normModel(x.base || x.model))), fam = m => modelBase(cleanModelName(normModel(m))) === base;
+    for (const cd of Object.keys(meta.makers)) { const mk = meta.makers[cd]; if (canonMake(String(mk.n).replace(COUNTRY_SFX, "")) !== x.make) continue; const ms = mk.m.filter(fam); if (ms.length) { cds.add(String(cd)); for (const m of ms) names.add(String(m).trim().toUpperCase()); } }
+  }
   let answered = false;   // neither the catalogue nor the ministry answered for any maker code: the caller shows a retry, not "no versions"
-  for (const cd of x.cds) {
+  for (const cd of cds) {
     let got = [];
     const idx = meta && meta.makers[catCd(cd)] ? await catIndex(cd) : null;
     const files = idx ? Object.keys(idx.models).filter(m => names.has(m)).map(m => idx.models[m][0]) : [];
