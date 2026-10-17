@@ -70,7 +70,7 @@ const val = m => TYPE === "recalls" ? m.rcPer : m.offRel;
 const pagesSrc = fs.readFileSync(".github/scripts/pages.mjs", "utf8"), magSrc = fs.readFileSync(".github/scripts/magazine.mjs", "utf8");
 const css = (() => { const base = pagesSrc.match(/const css = `([\s\S]*?)`;/)[1]; const extra = magSrc.match(/const css = [\s\S]*?\+ `([\s\S]*?)` \+ subCss \+ `([\s\S]*?)`;/); const sub = magSrc.match(/const subCss = `([\s\S]*?)`;/)[1]; return base + extra[1] + sub + extra[2]; })();
 const head = new Function("esc", "css", "SITE", `const PLAY = ${JSON.stringify("https://play.google.com/store/apps/details?id=com.ddsabag.pratirechev&referrer=" + encodeURIComponent("utm_source=luchit.app&utm_medium=web&utm_campaign=magazine"))};\n` + pagesSrc.match(/const head = [\s\S]*?\n/)[0] + "\nreturn head;")(esc, css, SITE);
-const foot = `<p class="muted" style="margin-top:10px">מערכת לוחית. הנתונים מגיעים ממאגרים פתוחים של משרד התחבורה ב-data.gov.il, והאתר אינו קשור למשרד התחבורה. <a href="${SITE}privacy.html">מדיניות פרטיות</a></p></main></body></html>`;
+const foot = `<p class="muted" style="margin-top:10px">מערכת לוחית. הנתונים מגיעים ממאגרים פתוחים של משרד התחבורה ב-data.gov.il, והאתר אינו קשור למשרד התחבורה. <a href="${SITE}privacy.html">מדיניות פרטיות</a></p><script src="/lib/cfb.js" defer></script></main></body></html>`;
 const url = `${SITE}magazine/${slug}/`, desc = lead.length <= 200 ? lead : lead.slice(0, 200).replace(/[^.:]*$/, "") || lead.slice(0, 200);
 const prPlain = t => esc(t).replace(/(\d+)%/g, "$1 אחוזים");
 const ldTag = o => `<script type="application/ld+json">${JSON.stringify(o).replace(/</g, "\\u003c")}</script>`;

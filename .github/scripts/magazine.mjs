@@ -113,7 +113,7 @@ main h1{font-size:1.9rem;line-height:1.2;text-wrap:balance;margin:10px 0 18px}ma
 const headOf = pages => pages.match(/const head = [\s\S]*?\n/)[0];
 const pagesSrc = fs.readFileSync(".github/scripts/pages.mjs", "utf8");
 const head = new Function("esc", "css", "SITE", `const PLAY = ${JSON.stringify("https://play.google.com/store/apps/details?id=com.ddsabag.pratirechev&referrer=" + encodeURIComponent("utm_source=luchit.app&utm_medium=web&utm_campaign=magazine"))};\n` + headOf(pagesSrc) + "\nreturn head;")(esc, css, SITE);
-const foot = `<p class="muted" style="margin-top:10px">מערכת לוחית. הנתונים מגיעים ממאגרים פתוחים של משרד התחבורה ב-data.gov.il, והאתר אינו קשור למשרד התחבורה. <a href="${SITE}privacy.html">מדיניות פרטיות</a></p></main></body></html>`;
+const foot = `<p class="muted" style="margin-top:10px">מערכת לוחית. הנתונים מגיעים ממאגרים פתוחים של משרד התחבורה ב-data.gov.il, והאתר אינו קשור למשרד התחבורה. <a href="${SITE}privacy.html">מדיניות פרטיות</a></p><script src="/lib/cfb.js" defer></script></main></body></html>`;
 
 let slugs = {}; try { slugs = JSON.parse(fs.readFileSync("model/slugs.json", "utf8")); } catch {}
 const bars = (list, label2) => { const mx = list[0].n; return list.map((x, i) => { const s = label2 && slugFor(x.key); const nm = s ? `<a href="${SITE}model/${s}/">${esc(x.name)}</a>` : esc(x.name); return `<div class="rk"><i>${i + 1}</i><div>${nm}<span class="bar" style="width:${Math.max(4, Math.round(x.n / mx * 100))}%"></span></div><span>${fmt(x.n)}</span></div>`; }).join(""); };
