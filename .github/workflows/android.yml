@@ -1,7 +1,7 @@
 name: Android build
 
 # Builds the release APK and AAB from the web app, signs them with the upload key when the
-# signing secrets exist, and keeps them as a 3-day run artifact (never on a public branch).
+# signing secrets exist, and keeps them on a draft release that only collaborators see (never on a public branch).
 on:
   push:
     branches: [main]
@@ -14,7 +14,7 @@ on:
         default: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -106,12 +106,16 @@ jobs:
           ls -la
 
       # The builds are NOT pushed to a branch of this public repository: the APK carries the private
-      # service table (service.json), and anyone could download it from a branch. They are kept as a
-      # short-lived run artifact instead, which Claude downloads into the release folder.
-      - name: Keep the build as a run artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-build
-          path: out/
-          retention-days: 3
-          if-no-files-found: error
+      # service table (service.json). They go on a DRAFT release, which only collaborators can see
+      # (a run artifact would be downloadable by any signed-in GitHub user). Claude downloads it into
+      # the release folder; every build deletes the previous build drafts.
+      - name: Keep the build on a draft release (collaborators only)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for id in $(gh api "repos/${{ github.repository }}/releases?per_page=100" --jq '.[] | select(.draft) | select(.name | startswith("build-")) | .id'); do
+            gh api -X DELETE "repos/${{ github.repository }}/releases/$id" && echo "deleted old draft $id"
+          done
+          gh release create "build-${{ github.run_number }}" --draft --title "build-${{ github.run_number }}" \
+            --notes "Version $VN, versionCode ${{ github.run_number }}, commit ${{ github.sha }}. Draft: collaborators only; the next build deletes it." \
+            out/*
