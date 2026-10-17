@@ -2,7 +2,7 @@
 // the registry is reachable from GitHub, so this exercises the path a real visitor gets. Prints JSON lines; writes out/report.txt when out/ exists.
 import fs from "node:fs";
 const SITE = (process.env.SITE || "https://luchit.app/").replace(/\/?$/, "/");
-const CASES = (process.env.CASES || "קורולה::COROLLA::2026|טויוטה CHR::CHR::2026").split("|").map(s => { const [q, pick, y] = s.split("::"); return { q, pick, y }; });
+const CASES = (process.env.CASES || process.env.QUERIES || "קורולה::COROLLA::2026|טויוטה CHR::CHR::2026").split("|").map(s => { const [q, pick, y] = s.split("::"); return { q, pick, y }; });
 const { chromium } = await import("playwright");
 const b = await chromium.launch(); const lines = [];
 const say = o => { const t = JSON.stringify(o); console.log(t); lines.push(t); };
