@@ -25,7 +25,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - name: Restore already-sent alerts
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: seen.json
           key: reviews-seen-none
@@ -43,7 +43,7 @@ jobs:
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
       - name: Save state
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run == false }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: seen.json
           key: reviews-seen-${{ github.run_id }}

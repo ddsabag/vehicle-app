@@ -35,7 +35,7 @@ jobs:
       # the same drift is announced once: a cache entry named after the drift signature remembers it
       - name: Already announced?
         id: seen
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: out/sig.txt
           key: guard-sig-${{ steps.guard.outputs.sig }}
