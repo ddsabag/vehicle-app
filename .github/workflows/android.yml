@@ -1,7 +1,7 @@
 name: Android build
 
-# Builds unsigned release APK and AAB from the web app, and publishes them on the
-# "android-builds" branch. Signing happens outside CI with the private upload key.
+# Builds the release APK and AAB from the web app, signs them with the upload key when the
+# signing secrets exist, and keeps them as a 3-day run artifact (never on a public branch).
 on:
   push:
     branches: [main]
@@ -14,7 +14,7 @@ on:
         default: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -105,11 +105,13 @@ jobs:
           echo "signed=true" >> version.txt
           ls -la
 
-      - name: Publish to android-builds branch
-        run: |
-          cd out
-          git init -q
-          git checkout -q -b android-builds
-          git add -A
-          git -c user.name="github-actions" -c user.email="github-actions@users.noreply.github.com" commit -qm "Build ${{ github.run_number }} from ${{ github.sha }}"
-          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" android-builds
+      # The builds are NOT pushed to a branch of this public repository: the APK carries the private
+      # service table (service.json), and anyone could download it from a branch. They are kept as a
+      # short-lived run artifact instead, which Claude downloads into the release folder.
+      - name: Keep the build as a run artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build
+          path: out/
+          retention-days: 3
+          if-no-files-found: error

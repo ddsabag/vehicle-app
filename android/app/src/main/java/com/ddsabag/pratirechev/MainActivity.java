@@ -66,6 +66,7 @@ public class MainActivity extends Activity {
     private InstallStateUpdatedListener updateListener;
 
     private boolean pageReady = false;
+    private static long lastRendererGone = 0;
     private final java.util.List<String> pendingJs = new java.util.ArrayList<>();   // every script queued before the page loads runs, in order
 
     private WebView webView;
@@ -226,7 +227,7 @@ public class MainActivity extends Activity {
                         startActivity(Intent.createChooser(send, "שיתוף"));
                     });
                 } catch (Exception e) {
-                    runOnUiThread(() -> webView.evaluateJavascript("window.toast && toast('השיתוף נכשל')", null));
+                    runOnUiThread(() -> pageJs("window.toast && toast('השיתוף נכשל')"));
                 }
             }
 
@@ -241,7 +242,7 @@ public class MainActivity extends Activity {
                     try {
                         startActivityForResult(i, REQ_VOICE);
                     } catch (ActivityNotFoundException e) {
-                        webView.evaluateJavascript("window.onVoiceResult && window.onVoiceResult(null)", null);
+                        pageJs("window.onVoiceResult && window.onVoiceResult(null)");
                     }
                 });
             }
@@ -263,7 +264,7 @@ public class MainActivity extends Activity {
                                 .putExtra(CalendarContract.EXTRA_EVENT_END_TIME, start + 86400000L);
                         startActivity(i);
                     } catch (Exception e) {
-                        webView.evaluateJavascript("window.calendarFallback && calendarFallback()", null);
+                        pageJs("window.calendarFallback && calendarFallback()");
                     }
                 });
             }
@@ -428,6 +429,22 @@ public class MainActivity extends Activity {
                 return loader.shouldInterceptRequest(request.getUrl());
             }
 
+            /** The page's renderer died (low memory, a heavy photo): rebuild the screen instead of letting the whole app close */
+            @Override
+            public boolean onRenderProcessGone(WebView view, android.webkit.RenderProcessGoneDetail detail) {
+                if (view == webView) { webView = null; pageReady = false; pendingJs.clear(); }
+                root.removeView(view);
+                view.destroy();
+                long now = android.os.SystemClock.elapsedRealtime();
+                boolean loop = now - lastRendererGone < 15000;   // a second crash right after a rebuild: close cleanly rather than loop
+                lastRendererGone = now;
+                if (isFinishing()) return true;
+                if (loop) { finish(); return true; }
+                setIntent(new Intent(MainActivity.this, MainActivity.class));   // the rebuilt screen must not replay a share or link that was already handled
+                recreate();
+                return true;
+            }
+
             @Override
             public void onPageFinished(WebView view, String url) {
                 pageReady = true;
@@ -517,8 +534,14 @@ public class MainActivity extends Activity {
         return billingMgr;
     }
 
+    /** Runs page code on the live WebView; nothing when it is being replaced after a renderer crash */
+    private void pageJs(String js) {
+        if (webView != null) webView.evaluateJavascript(js, null);
+    }
+
     /** Runs page code now, or once the page has loaded */
     private void runJs(String js) {
+        if (webView == null) return;
         if (pageReady) webView.evaluateJavascript(js, null);
         else pendingJs.add(js);
     }
@@ -670,7 +693,7 @@ public class MainActivity extends Activity {
         super.onNewIntent(intent);
         setIntent(intent);
         String plate = plateFrom(intent);
-        if (plate != null) webView.evaluateJavascript("window.run && run(" + JSONObject.quote(plate) + ")", null);
+        if (plate != null) pageJs("window.run && run(" + JSONObject.quote(plate) + ")");
         handleIncoming(intent);
     }
 
@@ -679,7 +702,7 @@ public class MainActivity extends Activity {
         super.onRequestPermissionsResult(requestCode, permissions, results);
         if (requestCode == REQ_NOTIFY) {
             boolean ok = results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED;
-            webView.evaluateJavascript("window.onAlertsPermission && onAlertsPermission(" + ok + ")", null);
+            pageJs("window.onAlertsPermission && onAlertsPermission(" + ok + ")");
         }
     }
 
@@ -712,11 +735,12 @@ public class MainActivity extends Activity {
                 ArrayList<String> r = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
                 if (r != null && !r.isEmpty()) text = TextUtils.join("\n", r);
             }
-            webView.evaluateJavascript("window.onVoiceResult && window.onVoiceResult(" + JSONObject.quote(text) + ")", null);
+            pageJs("window.onVoiceResult && window.onVoiceResult(" + JSONObject.quote(text) + ")");
         }
     }
 
     private void handleBack() {
+        if (webView == null) { finish(); return; }
         webView.evaluateJavascript("(window.appBack && window.appBack()) ? 'y' : 'n'", result -> {
             if (result == null || !result.contains("y")) finish();
         });
@@ -750,6 +774,6 @@ public class MainActivity extends Activity {
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
-        webView.saveState(outState);
+        if (webView != null) webView.saveState(outState);
     }
 }
