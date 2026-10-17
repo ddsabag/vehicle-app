@@ -882,7 +882,9 @@ function niceModel(m) {
     .replace(/\s+הנעה?$/, "")
     .replace(/([א-ת])(\d)/g, "$1 $2")
     .replace(/\s{2,}/g, " ").trim()
-    .replace(DRIVE_WORDS_RX, w => DRIVE_WORDS_HE[w.toUpperCase()]);
+    .replace(DRIVE_WORDS_RX, w => DRIVE_WORDS_HE[w.toUpperCase()])
+    .replace(/(^|\s)(?:M?X|S|E)-?D(?:RIVE|RVIE|EIVE|IRVE|IVE)(?=\d|\s|$)/gi, "$1").replace(/(^|\s)4MATIC(?=\s|$)/gi, "$1")   // the drive label is noise in a name (X5 XDRIVE40I -> X5 40I)
+    .replace(/\s{2,}/g, " ").trim() || String(m || "");
 }
 // the registry writes the drive in English; the screen says it in Hebrew (COROLLA HEV -> COROLLA היברידי)
 const DRIVE_WORDS_HE = {HEV: "היברידי", HYBRID: "היברידי", HSD: "היברידי", PHEV: "פלאג-אין", "PLUG-IN": "פלאג-אין"};
@@ -2931,7 +2933,8 @@ const cleanModelName = m => { const t = String(m).split(" "); if (t.length > 1 &
    hybrid and plug-in spellings of one model meet (X5 XDRIVE40I = X5 XDRIVE 40I = X5 40I, COROLLA HYBRYD = COROLLA, C300E = C300).
    The folding works on the joined key only, so two spellings that differ only in spaces can never end up in different families. */
 const FOLD_RULES = [
-  [/(?:MX|XE|[XSE])?(?:DRIVE|DRVIE|DEIVE|DIRVE)|XDRI$/g, ""],                      // BMW xDrive / sDrive / eDrive in any spelling, glued or not
+  [/(?:MX|XE|[XSE])?(?:DRIVE|DRVIE|DEIVE|DIRVE|DIVE)|XDRI$/g, ""],
+  [/(?<=\d)O(?=D$)/, "0"], [/(?<=M\d{2})I$/, ""],                         // X5 XDRIVE4OD = 40D; X5 M60I = X5 M60 XDRIVE                      // BMW xDrive / sDrive / eDrive in any spelling, glued or not
   [/4MATIC|4MATI$|4MAT(?=[A-Z]|$)|4MAIC$|4MAI$|4MA$|4M(?=C)/g, ""],          // Mercedes 4MATIC and the register's 15-letter cuts
   [/(?<=.)(?:QUATTRO|4MOTION|ALLGRIP)/g, ""],                                 // Audi / VW / Suzuki all-wheel drive (QUATTRO alone is the 1980s car)
   [/(?:AWD|4WD|4X4|2WD|FWD|RWD|4X2|2X4|ALL4)$/, ""],
