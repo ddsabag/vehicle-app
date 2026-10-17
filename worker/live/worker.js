@@ -141,21 +141,18 @@ async function collectWeekly(env, today) {
 }
 
 // Is the app public on Google Play? The store page answers 404 until the app is published to everyone; it flips to "live" only when anyone
-// can install. Checked hourly; playSeen is the last answer that counted, and a check in flight is shared so no request reads a blank state.
-let play = null, playAt = 0, playSeen = null, playP = null;
-function playStatus() {
-  if (playP) return playP;
-  if (Date.now() - playAt < (play ? 3600e3 : 600e3)) return Promise.resolve(play);
+// can install. Checked hourly with a time limit; playSeen is the last answer that counted. A request that comes while a check is running gets
+// the last known answer (sharing the running check could leave later requests waiting forever if the first one is cancelled).
+let play = null, playAt = 0, playSeen = null;
+async function playStatus() {
+  if (Date.now() - playAt < (play ? 3600e3 : 600e3)) return play;
   playAt = Date.now();
-  playP = (async () => {
-    try {
-      const r = await fetch("https://play.google.com/store/apps/details?id=com.ddsabag.pratirechev&hl=he", { redirect: "manual", cf: { cacheTtl: 900 } });
-      if (r.status === 200 && (await r.text()).includes("com.ddsabag.pratirechev")) { play = "live"; playSeen = new Date().toISOString(); }
-      else if (r.status === 404) { play = "review"; playSeen = new Date().toISOString(); }
-    } catch {}
-    return play;
-  })().finally(() => { playP = null; });
-  return playP;
+  try {
+    const r = await fetch("https://play.google.com/store/apps/details?id=com.ddsabag.pratirechev&hl=he", { redirect: "manual", cf: { cacheTtl: 900 }, signal: AbortSignal.timeout(8e3) });
+    if (r.status === 200 && (await r.text()).includes("com.ddsabag.pratirechev")) { play = "live"; playSeen = new Date().toISOString(); }
+    else if (r.status === 404) { play = "review"; playSeen = new Date().toISOString(); }
+  } catch {}
+  return play;
 }
 
 // Where the production release stands, straight from Play Console (Play Developer API, a read-only list that needs no edit): in review,
@@ -167,7 +164,7 @@ async function playRelease(env) {
   relAt = Date.now();
   try {
     const r = await fetch("https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.ddsabag.pratirechev/tracks/production/releases",
-      { headers: { authorization: "Bearer " + await googleToken(env, "https://www.googleapis.com/auth/androidpublisher") } });
+      { headers: { authorization: "Bearer " + await googleToken(env, "https://www.googleapis.com/auth/androidpublisher") }, signal: AbortSignal.timeout(8e3) });
     if (!r.ok) { const t = await r.text(); let m = t; try { m = JSON.parse(t).error.message || t; } catch {} rel = { ok: false, why: r.status + " " + String(m).replace(/\s+/g, " ").slice(0, 160) }; }
     else {
       const list = ((await r.json()).releases || []).map(x => ({ name: String(x.releaseName || "").slice(0, 40), state: String(x.releaseLifecycleState || "").replace("RELEASE_LIFECYCLE_STATE_", "").toLowerCase(),
@@ -385,13 +382,14 @@ t3={s,title:"הגיעו משיתוף",big:rate!=null?n1(rate):n(Sw),unit:rate!=n
 
 // Google Play: the public store page says whether anyone can install; Play Console, when connected, says where the production release stands
 const RL=d.release&&d.release.ok?d.release:null,top=RL&&RL.list&&RL.list[0]||null;
-const GP=d.play==="live"?{s:"ok",txt:"באוויר בחנות"}:top?{s:(RS[top.state]||[0,"wait"])[1],txt:(RS[top.state]||[esc(top.state)])[0]}:RL?{s:"wait",txt:"עוד אין גרסת ייצור"}:d.play==="review"?{s:"wait",txt:"עדיין לא פתוח לכולם"}:{s:"wait",txt:"לא הצלחתי לבדוק את דף החנות"};
+const RU={draft:"עדכון בטיוטה",not_sent_for_review:"עדכון שעוד לא נשלח לבדיקה",in_review:"עדכון בבדיקה",approved_not_published:"עדכון שאושר ומחכה שתפרסם",not_approved:"עדכון שנדחה בבדיקה"};
+const GP=d.play==="live"?{s:top&&top.state==="not_approved"?"bad":"ok",txt:"באוויר בחנות"+(top&&RU[top.state]?" · "+RU[top.state]:"")}:top?{s:(RS[top.state]||[0,"wait"])[1],txt:(RS[top.state]||[top.state?"מצב "+esc(top.state):"מצב לא ידוע"])[0]}:RL?{s:"wait",txt:"עוד אין גרסת ייצור"}:d.play==="review"?{s:"wait",txt:"עדיין לא פתוח לכולם"}:{s:"wait",txt:"לא הצלחתי לבדוק את דף החנות"};
 // 4. new app installs, with the store status
 let t4;{const A=W&&W.app,a=A?A[0].newUsers:null,ap=A?A[1].newUsers:null,ab=A?A[0].abroadNew:0,live=d.play==="live";let s,tg=null;
 if(!A)s="nodata";else if(!INSTALL_BASE)s="early";else{tg=INSTALL_BASE.value*Math.pow(1.07,Math.min(8,between(INSTALL_BASE.end,end)/7))*Math.pow(GROWTH,Math.max(0,between(INSTALL_BASE.end,end)/7-8));s=judge(a,tg,0,.8)}
 push("installs",s,5,tg?a/tg:1,"התקנות חדשות: "+n(a)+(tg?", היעד "+n(tg):""),s==="nodata"?"חסר נתון על התקנות":"מעט התקנות");
 push("store",GP.s,0,0,"Google Play: גרסת הייצור נדחתה בבדיקה. הסיבה במייל ובקונסול","גרסת הייצור נדחתה בבדיקה של גוגל","נדחתה");
-t4={s,title:"התקנות חדשות",big:n(a),lines:["Google Play: "+GP.txt+(GP.s==="ok"?" ✓":"")+(!live&&!top&&d.play==="review"?" (הבקשה הוגשה "+dm(SUBMITTED)+")":""),tg?n(a/tg*100)+"% מהיעד ("+n(tg)+")":live?"היעד ייקבע אחרי שבוע מלא בחנות":"עד שהאפליקציה בחנות, מתקינים רק בודקים",delta(a,ap),ab?"לא נספרו "+n(ab)+" מכשירים מחוץ לישראל (בדיקות אוטומטיות של גוגל)":""],foot:rng(W&&W.W)+" · התקנה ראשונה במכשיר בישראל"}}
+t4={s,title:"התקנות חדשות",big:n(a),lines:["Google Play: "+GP.txt+(GP.s==="ok"&&GP.txt.indexOf("·")<0?" ✓":"")+(!live&&!top&&d.play==="review"?" (הבקשה הוגשה "+dm(SUBMITTED)+")":""),tg?n(a/tg*100)+"% מהיעד ("+n(tg)+")":live?"היעד ייקבע אחרי שבוע מלא בחנות":"עד שהאפליקציה בחנות, מתקינים רק בודקים",delta(a,ap),ab?"לא נספרו "+n(ab)+" מכשירים מחוץ לישראל (בדיקות אוטומטיות של גוגל)":""],foot:rng(W&&W.W)+" · התקנה ראשונה במכשיר בישראל"}}
 
 // health: failures caused by us or the ministry, out of all attempts (a mistyped plate is not a failure)
 let H;{const fk=W&&W.fails?W.fails[0]:null,tech=fk?(fk.source_down||0)+(fk.offline||0):null,att2=ev?ge(E0,"car_lookup")+ge(E0,"lookup_failed"):null;let s,r=null;
@@ -419,7 +417,7 @@ $("tiles").innerHTML=[t1,t2,t3,t4].map(tile).join("");
 
 // milestones
 {const A=W&&W.app,mau=A?A[2].activeUsers:null,mab=A?A[2].abroadActive:0,mo=W&&W.money,pt=hm(d.playAt);
-$("ms").innerHTML='<li><span class="k">Google Play</span><span class="v">'+(GP.s==="ok"?mini("ok")+" ":"")+GP.txt+'</span><span class="k">'+(top?"גרסת הייצור"+(top.name?" "+esc(top.name):"")+", לפי Play Console"+(RL.at?", נבדק ב-"+hm(RL.at):"")+".":RL?"אחרי אישור הבקשה צריך ליצור גרסת ייצור, ואז יופיע כאן אם היא בבדיקה, אושרה או נדחתה.":"")+(d.play==="live"||!(top||RL)?(d.play==="live"?"":"הבקשה הוגשה ב-"+dm(SUBMITTED)+". אישור Google מגיע במייל ובקונסול; כאן הסטטוס מתחלף כשהאפליקציה מופיעה בחנות לכולם. ")+(pt?"דף החנות הציבורי נבדק ב-"+pt+".":"דף החנות הציבורי נבדק כל שעה."):"")+"</span></li>"
+$("ms").innerHTML='<li><span class="k">Google Play</span><span class="v">'+(GP.s==="ok"?mini("ok")+" ":"")+GP.txt+'</span><span class="k">'+[top?"גרסת הייצור"+(top.name?" "+esc(top.name):"")+", לפי Play Console"+(RL.at?", נבדק ב-"+hm(RL.at):"")+".":RL&&d.play!=="live"?"אחרי אישור הבקשה צריך ליצור גרסת ייצור, ואז יופיע כאן אם היא בבדיקה, אושרה או נדחתה.":"",d.play!=="live"&&!(top||RL)?"הבקשה הוגשה ב-"+dm(SUBMITTED)+". אישור Google מגיע במייל ובקונסול; כאן הסטטוס מתחלף כשהאפליקציה מופיעה בחנות לכולם.":"",d.play==="live"||!(top||RL)?(pt?"דף החנות הציבורי נבדק ב-"+pt+".":"דף החנות הציבורי נבדק כל שעה."):""].filter(Boolean).join(" ")+"</span></li>"
 +'<li><span class="k">הדרך ל-PRO: מכשירים פעילים באפליקציה ב-28 ימים, בישראל</span><span class="v">'+n(mau)+" מתוך "+n(PRO_MAU)+'</span><div class="bar" role="img" aria-label="'+n(mau)+" מתוך "+n(PRO_MAU)+'"><i style="width:'+Math.max(1,Math.min(100,(mau||0)/PRO_MAU*100))+'%"></i></div><span class="k">מפעילים מנוי בתשלום רק מ-2,000 עד 3,000 משתמשים בחודש'+(mab?". לא נספרו "+n(mab)+" מכשירים מחוץ לישראל, כנראה מכשירי הבדיקה האוטומטית של גוגל":"")+"</span></li>"
 +'<li><span class="k">כסף ועניין (מ-1.10)</span><span class="v">'+(mo?n(mo.leads)+" פניות עסקיות · "+n(mo.subscribers)+" נרשמים למגזין":"אין נתון")+'</span><span class="k">בלי יעד ובלי צבע עד שמתחילים למכור</span></li>'}
 
