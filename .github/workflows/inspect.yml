@@ -22,6 +22,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install a browser (site-* scripts open the live site)
+        if: ${{ startsWith(inputs.script, 'site-') }}
+        run: |
+          npm install --no-save playwright@1.49.1
+          npx playwright install --with-deps chromium
       - run: |
           mkdir -p out
           case "$SCRIPT" in *[!a-z0-9-]*.mjs|"") echo "bad script name"; exit 1;; esac
