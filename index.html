@@ -822,7 +822,7 @@ const MODEL_SETS = {
   wltp:   "142afde2-6228-49f9-8a29-9b6c3a0cbe40",
   counts: "5e87a7a1-2f6f-41c1-8aec-7216d52a6cf6",
   price:  "39f455bf-6db0-4926-859d-017f34eacbcb",
-  recalls:"2c33523f-87aa-44ec-a736-edbb0a82975e",  /* all recalls by maker (TOZAR_CD), matched to the model by name */
+  recalls:"2c33523f-87aa-44ec-a736-edbb0a82975e",  /* one recall by RECALL_ID; the per-maker list comes from the catalogue (its TOZAR_CD is not the register's maker code) */
 };
 
 /* Safety systems listed by name when the model has them */
@@ -1510,13 +1510,14 @@ async function fetchModelData(v, signal, useCat){
   if (!empty(v.tozeret_cd) && !empty(v.degem_cd)) {
     const fast = await catModelData(v, !useCat).catch(() => null);
     if (fast) return fast;
+    // the recall list numbers makers its own way (TOZAR_CD 1 = TOYOTA, the register says 413), so the maker's recalls come from the
+    // daily catalogue, which joins the two lists by brand name; no catalogue answer is "unknown", never "no recalls"
     const recallsByMaker = (async () => {
-      let answered = false;
-      for (const val of [num(v.tozeret_cd), String(v.tozeret_cd).trim()]) {
-        try { const rows = await ds(MODEL_SETS.recalls, {TOZAR_CD: val}, 1000, signal); answered = true; if (rows.length) return rows; }
-        catch (err) { if (err.name === "AbortError") throw err; }
-      }
-      if (!answered) modelRecallsUnknown = true;   // no answer is not the same as "no recalls"
+      const cd = catCd(v.tozeret_cd), meta = await withTimeout(catMeta(), CAT_TIMEOUT).catch(() => null);
+      if (meta && meta.rec && meta.makers[cd] && !meta.rec.includes(cd)) return [];   // a maker the catalogue knows, with no recall for its brand
+      const rr = await catRecalls(cd);
+      if (rr) return rr;
+      modelRecallsUnknown = true;
       return [];
     })();
     const [a, b, c, r] = await Promise.all([

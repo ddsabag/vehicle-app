@@ -19,7 +19,7 @@ const USED = {
   "56063a99-8a3e-4ff4-912e-5966c0279bad": ["mispar_rechev", "kilometer_test_aharon", "mkoriut_nm", "rishum_rishon_dt"],
   "bb2355dc-9ec7-4f06-9c3f-3344672171da": ["mispar_rechev", "baalut_dt", "baalut"],
   "36bf1404-0be4-49d2-82dc-2f1ead4a8b93": ["MISPAR_RECHEV"],
-  "2c33523f-87aa-44ec-a736-edbb0a82975e": ["TOZAR_CD"],
+  "2c33523f-87aa-44ec-a736-edbb0a82975e": ["TOZAR_TEUR", "RECALL_ID", "DEGEM"],
   "142afde2-6228-49f9-8a29-9b6c3a0cbe40": ["tozeret_cd", "degem_cd", "shnat_yitzur", "merkav", "kosher_grira_im_blamim", "kosher_grira_bli_blamim"],
 };
 const EXTRA = [

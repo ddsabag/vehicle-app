@@ -5,7 +5,7 @@
 //                      degems: {"P|degem_cd": file, "M|degem_cd": file, degem_cd: file}} (the ministry numbers private and commercial models apart)
 //   c/<cd>/<file>.json {u, rows: [[...]]}  the catalogue lines of one model name (file = stable hash of the name, so a cached index never points at the wrong file): the WLTP fields the app shows (the maker columns hoisted
 //                      into the index), plus the price-list columns (mehir, shem_yevuan) and the counts (mispar_rechavim_pailim / le_pailim)
-//   r/<cd>.json        {u, rows: [...]}  every recall of that maker (TOZAR_CD), the fields the app reads
+//   r/<cd>.json        {u, rows: [...]}  every recall of that maker's brand (joined by brand name: the recall list's TOZAR_CD is its own numbering), the fields the app reads
 // Runs on a GitHub runner (data.gov.il blocks other networks). OUT (default out) is the output directory.
 import fs from "node:fs";
 import crypto from "node:crypto";
@@ -94,13 +94,23 @@ try {
 } catch (e) { log("counts FAILED (shards keep no counts): " + e.message); }
 
 // 4. recalls by maker
-const rec = new Map();
+// The recall list numbers makers its own way (TOZAR_CD 1 = TOYOTA), unrelated to the register's tozeret_cd (413 = טויוטה יפן),
+// so the rows are grouped by the brand name in TOZAR_TEUR and joined to the register through the Hebrew brand (tozar) below.
+const recByBrand = new Map();
 let recN = 0;
 try {
-  recN = await scan(ID.recalls, null, rows => { for (const x of rows) { const cd = String(val(x.TOZAR_CD)); if (!cd) continue; if (!rec.has(cd)) rec.set(cd, []); rec.get(cd).push(Object.fromEntries(RECALL_COLS.map(c => [c, val(x[c])]))); } });
-  log("recalls: " + recN + " rows, makers " + rec.size);
+  recN = await scan(ID.recalls, null, rows => { for (const x of rows) { const b = String(val(x.TOZAR_TEUR) || "").trim().toUpperCase(); if (!b) continue; if (!recByBrand.has(b)) recByBrand.set(b, []); recByBrand.get(b).push(Object.fromEntries(RECALL_COLS.map(c => [c, val(x[c])]))); } });
+  log("recalls: " + recN + " rows, brands " + recByBrand.size);
 } catch (e) { log("recalls FAILED: " + e.message); }
 if (recN < 100) throw new Error("recall list implausibly small: " + recN);
+// register brand (tozar, Hebrew) -> recall brands (TOZAR_TEUR); brands with no entry have no recalls in the list (checked 17.10.2026 against all 84 recall brands)
+const BRANDS = {"טויוטה": ["TOYOTA"], "פורד": ["FORD"], "ב מ וו": ["BMW"], "ג'יפ": ["JEEP"], "שברולט": ["CHEVROLET"], "הונדה": ["HONDA"], "מרצדס": ["MERCEDES BENZ"], "מרצדס בנץ": ["MERCEDES BENZ"],
+  "סובארו": ["SUBARU"], "יונדאי": ["HYUNDAI"], "פולקסווגן": ["VOLKSWAGEN"], "אאודי": ["AUDI"], "אודי": ["AUDI"], "מזדה": ["MAZDA"], "קרייזלר": ["CHRYSLER"], "דיימלר קרייזלר": ["CHRYSLER", "MERCEDES BENZ"], "דימלרקריזלר": ["CHRYSLER", "MERCEDES BENZ"],
+  "ניסאן": ["NISSAN"], "מיצובישי": ["MITSUBISHI"], "סיטרואן": ["CITROEN"], "קאדילאק": ["CADILLAC"], "קיה": ["KIA"], "וולבו": ["VOLVO"], "פיג'ו": ["PEUGEOT"], "דודג'": ["DODGE", "RAM"], "לקסוס": ["LEXUS"], "אופל": ["OPEL"],
+  "לנדרובר": ["LAND ROVER"], "רובר": ["LAND ROVER", "ROVER"], "סיאט": ["SEAT"], "קופרה": ["SEAT"], "רנו": ["RENAULT"], "סקודה": ["SKODA"], "ג'י.אמ.סי": ["GMC"], ".ג'י.אמ": ["GMC"], "ביואיק": ["BUICK"], "מאן": ["MAN"], "יגואר": ["JAGUAR"],
+  "די אס": ["DS AUTOMOBILES"], "אלפא רומיאו": ["ALFA ROMEO"], "פיאט": ["FIAT", "FIAT PROFESSIONAL"], "טסלה": ["TESLA"], "איסוזו": ["ISUZU", "ISUZU TRUCKS"], "פורשה": ["PORSCHE"], "סוזוקי": ["SUZUKI"], "מרוטי סוזוקי": ["SUZUKI"],
+  "דאצ'יה": ["DACIA"], "דאציה": ["DACIA"], "האמר": ["HUMMER"], "האמר ג.מ": ["HUMMER"], "פונטיאק": ["PONTIAC"], "פרארי": ["FERRARI"], "מזארטי": ["MASERATI"], "לינקולן": ["LINCOLN"], "איווקו": ["IVECO"], "סמארט": ["SMART"], "מ.ג": ["MG"],
+  "סאנגיונג": ["SSANGYONG"], "קיי גי מוביליט": ["SSANGYONG"], "מיני": ["MINI"], "בנטלי": ["BENTLEY"], "גרייט וול": ["GREAT WALL MOTORS"], "ג'ילי": ["GEELY"], "ג'אקו": ["JAECOO"], "סאאב": ["SAAB"], "דייהטסו": ["DAIHATSU"], "אינפיניטי": ["INFINITI"]};
 
 // 5. write
 const total = [...byMaker.values()].reduce((s, r) => s + r.length, 0);
@@ -111,6 +121,7 @@ const u = new Date().toISOString().slice(0, 10);
 const HOIST = ["tozeret_cd", "tozeret_nm", "tozeret_eretz_nm", "tozar"], keepIdx = COLS.map((c, i) => HOIST.includes(c) ? -1 : i).filter(i => i >= 0).concat(EXTRA.map((_, i) => COLS.length + i));
 const cols = keepIdx.map(i => COLS.concat(EXTRA)[i]), makers = {};
 let bytes = 0, files = 0, biggest = ["", 0];
+const brandOf = new Map();   // register maker code -> Hebrew brand (tozar)
 const top = (rows, i) => { const m = new Map(); for (const w of rows) m.set(String(w[i]), (m.get(String(w[i])) || 0) + 1); return [...m.entries()].sort((a, b) => b[1] - a[1])[0][0]; };
 for (const [cd, rows] of byMaker) {
   for (const w of rows) for (let i = 0; i < COLS.length + EXTRA.length; i++) if (w[i] === undefined) w[i] = "";
@@ -133,9 +144,16 @@ for (const [cd, rows] of byMaker) {
     fs.writeFileSync(`${OUT}/c/${cd}/${f}.json`, txt); bytes += txt.length; files++; if (txt.length > biggest[1]) biggest = [n + " " + m, txt.length];
   }
   makers[cd] = {n, m: Object.keys(models), r: rows.length};
+  brandOf.set(cd, String(tozar || "").trim());
   const idx = JSON.stringify({u, cd: Number(cd), n, eretz, tozar, cols, imp, models, degems});
   fs.writeFileSync(`${OUT}/c/${cd}.json`, idx); bytes += idx.length;
 }
+// one recall file per register maker code, holding every recall of that maker's brand (the app matches the model name itself)
+const rec = new Map(), unmapped = new Map();
+for (const [cd, tz] of brandOf) { const rows = (BRANDS[tz] || []).flatMap(b => recByBrand.get(b) || []); if (rows.length) rec.set(cd, rows); else if (!BRANDS[tz]) unmapped.set(tz, (unmapped.get(tz) || 0) + 1); }
+log("register brands with no recall map entry (fine when the brand has no recalls): " + [...unmapped.keys()].join(", "));
+const mappedBrands = new Set(Object.values(BRANDS).flat()), unusedBrands = [...recByBrand.keys()].filter(b => !mappedBrands.has(b));
+log("recall brands in the list with no register brand (motorcycles, trucks, or a map entry to add): " + unusedBrands.join(", "));
 for (const [cd, rows] of rec) fs.writeFileSync(`${OUT}/r/${cd}.json`, JSON.stringify({u, rows}));
 fs.writeFileSync(`${OUT}/meta.json`, JSON.stringify({u, rows: total, recalls: recN, makers, rec: [...rec.keys()]}));
-log(`written: ${byMaker.size} makers, ${files} model files (${Math.round(bytes / 1e6 * 10) / 10} MB, biggest ${biggest[0]} ${Math.round(biggest[1] / 1e3)} KB), ${rec.size} recall files, meta ${Math.round(fs.statSync(OUT + "/meta.json").size / 1e3)} KB`);
+log(`written: ${byMaker.size} makers, ${files} model files (${Math.round(bytes / 1e6 * 10) / 10} MB, biggest ${biggest[0]} ${Math.round(biggest[1] / 1e3)} KB), ${rec.size} recall files for ${[...new Set([...rec.keys()].map(cd => brandOf.get(cd)))].length} brands, meta ${Math.round(fs.statSync(OUT + "/meta.json").size / 1e3)} KB`);

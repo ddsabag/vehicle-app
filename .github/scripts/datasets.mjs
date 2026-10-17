@@ -10,7 +10,7 @@ export const SETS = [
   { key: "recalls", impact: "ריקולים פתוחים לא יוצגו לרכב", title: "ריקולים לפי רכב", id: "36bf1404-0be4-49d2-82dc-2f1ead4a8b93", maxAge: 7,
     filters: null, fields: ["MISPAR_RECHEV"] },
   { key: "modelRecalls", impact: "פרטי תיקון הריקול (לפי דגם) לא יוצגו", title: "ריקולים לפי דגם", id: "2c33523f-87aa-44ec-a736-edbb0a82975e", maxAge: 45,
-    filters: null, fields: ["TOZAR_CD"] },
+    filters: null, fields: ["TOZAR_TEUR", "RECALL_ID"] },
   { key: "wltp", impact: "מפרט טכני, צריכת דלק ויכולת גרירה לא יוצגו", title: "מפרט טכני (WLTP)", id: "142afde2-6228-49f9-8a29-9b6c3a0cbe40", maxAge: 45,
     filters: null, fields: ["tozeret_cd", "degem_cd", "shnat_yitzur", "kosher_grira_im_blamim"] },
   { key: "owners", impact: "היסטוריית הבעלויות לא תוצג", title: "היסטוריית בעלויות", id: "bb2355dc-9ec7-4f06-9c3f-3344672171da", maxAge: 7,
