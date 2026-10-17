@@ -720,7 +720,7 @@ button:not(:disabled):active,.link-btn:active,.act:active,.tabs button:active,a.
 <script>
 "use strict";
 /*! © 2026 Dudu Sabag. All rights reserved. */
-const APP_VERSION = "1.31";
+const APP_VERSION = "1.32";
 const SITE = "https://luchit.app/";
 /* PRO: while PRO_LOCK is false (beta) every feature is open to everyone. Later it is tied to a Google Play subscription. */
 const PRO_LOCK = false;
@@ -2896,7 +2896,7 @@ function filterGroups(F){
   for (const e of out) {
     const nm = cleanModelName(normModel(e.md)), k = e.mk + "|" + modelBase(nm), x = merged.get(k);
     if (!x) merged.set(k, {make: e.mk, model: nm, names: new Set(), cds: new Set(), rows: [], from: e.y1, to: e.y1, price: priceOf(e), fromFilter: true});
-    else { x.model = spaced(x.model, nm); x.to = Math.max(x.to, e.y1); x.price = Math.min(x.price, priceOf(e)); }
+    else { x.model = familyName(x.model, nm); x.to = Math.max(x.to, e.y1); x.price = Math.min(x.price, priceOf(e)); }
   }
   return [...merged.values()]
     .sort((a, b) => a.make.localeCompare(b.make, "he") || a.price - b.price);
@@ -2923,7 +2923,28 @@ const LATIN_MAKERS = new Set(Object.keys(MAKE_ALIASES).map(k => k.toUpperCase())
 const cleanModelName = m => { const t = String(m).split(" "); if (t.length > 1 && LATIN_MAKERS.has(t[0]) && !/^\d+$/.test(t.slice(1).join(" ")) && t.slice(1).join(" ").length > 1) return t.slice(1).join(" "); return m; };
 /* the register writes one model several ways ("TIGGO 7 PRO", "TIGGO7 PRO") and one model name covers petrol and plug-in versions:
    spelling variants are one entry, and drive versions of the same name are told apart by a suffix (PHEV / HEV / EV) */
-const modelBase = m => String(m).toUpperCase().replace(/[\s\-_.]+/g, "");
+/* one family key whatever the register's spelling: the key is the name without spaces, hyphens and dots, then folded so the drive,
+   hybrid and plug-in spellings of one model meet (X5 XDRIVE40I = X5 XDRIVE 40I = X5 40I, COROLLA HYBRYD = COROLLA, C300E = C300).
+   The folding works on the joined key only, so two spellings that differ only in spaces can never end up in different families. */
+const FOLD_RULES = [
+  [/(?:MX|XE|[XSE])?(?:DRIVE|DRVIE|DEIVE|DIRVE)|XDRI$/g, ""],                      // BMW xDrive / sDrive / eDrive in any spelling, glued or not
+  [/4MATIC|4MATI$|4MAT(?=[A-Z]|$)|4MAIC$|4MAI$|4MA$|4M(?=C)/g, ""],          // Mercedes 4MATIC and the register's 15-letter cuts
+  [/(?<=.)(?:QUATTRO|4MOTION|ALLGRIP)/g, ""],                                 // Audi / VW / Suzuki all-wheel drive (QUATTRO alone is the 1980s car)
+  [/(?:AWD|4WD|4X4|2WD|FWD|RWD|4X2|2X4|ALL4)$/, ""],
+  [/(?:E?H[YI]B[RIDYESAMB]{0,7}|EHY|HEV|HSD|PHEV|PLUGIN)$/, ""],                  // hybrid in every spelling the register cuts it to
+  [/(?:CUOPE|CUPE|COUP|COU|CPE)$/, "COUPE"],                                // the register's cuts and typos of COUPE
+  [/\d{2,3}KWH$/, ""],                                                        // MACH-E 70KWH / 91KWH: battery size
+  [/^MUSTANG(?=MACHE)/, ""],                                                  // MUSTANG MACH E = MACH E
+  [/TFSIE$/, "TFSI"],                                                          // Audi A3 40 TFSI e: the plug-in
+  [/(?<=[A-Z0-9]{3}[^CSTGPW])E?H$/, ""],                                       // COROLLA H, ASTRA-H, PANAMERA 4 E H (not MARCH, TOUCH)
+  [/^([A-Z]{1,3}\d{2,4})E(?!TRON)/, "$1"],                                    // C300E, GLC 350E, S580E, P400E: the plug-in version (530E and 500E keep their E)
+  [/(?<=\d)E(?=[A-Z]*$)(?<!^\d+E)(?!TRON)/, ""],                             // E 300 E 4MATIC, GLE350 E COUPE: an E after the number
+];
+const familyFold = k => { for (let i = 0; i < 3; i++) { const k0 = k; for (const [re, to] of FOLD_RULES) k = k.replace(re, to); if (k === k0) break; } return k; };
+const rawBase = m => String(m).toUpperCase().replace(/[\s\-_.]+/g, "");
+const modelBase = m => { const r = rawBase(m), f = familyFold(r); return f.length >= 2 ? f : r; };
+// the family's display name: a spelling the folding leaves as it is (C300 over C300E 4MATIC), else the most spaced one
+const familyName = (a, b) => { const pa = familyFold(rawBase(a)) === rawBase(a), pb = familyFold(rawBase(b)) === rawBase(b); if (pa !== pb) return pa ? a : b; if (pa && rawBase(a).length !== rawBase(b).length) return rawBase(a).length < rawBase(b).length ? a : b; return spaced(a, b); };
 const spaced = (a, b) => (b.split(" ").length > a.split(" ").length ? b : a);
 /* how common a model is on Israeli roads (cars registered, from modelstats.json): used to list popular models first */
 let POP = null;
@@ -2973,7 +2994,7 @@ async function runModelSearch(){
       if (empty(r.tozeret_cd) || !rowModel(r)) continue;
       const nm = cleanModelName(normModel(rowModel(r))), k = [rowMake(r), modelBase(nm)].join("|");
       if (!g.has(k)) g.set(k, {make: rowMake(r), model: nm, base: nm, names: new Set(), cds: new Set(), rows: [], sc: 0});
-      const x = g.get(k); x.sc = Math.max(x.sc, r._sc || 0); x.model = x.base = spaced(x.model, nm); x.rows.push(r); x.names.add(rowModel(r)); x.cds.add(String(r.tozeret_cd));
+      const x = g.get(k); x.sc = Math.max(x.sc, r._sc || 0); x.model = x.base = familyName(x.model, nm); x.rows.push(r); x.names.add(rowModel(r)); x.cds.add(String(r.tozeret_cd));
     }
     await Promise.race([loadModelStats().catch(() => null), new Promise(r => setTimeout(r, 1200))]);
     if (signal.aborted) return;
