@@ -1,10 +1,10 @@
-// luchit-live: a private business dashboard for the owner. GET /live is the page, GET /live/data the numbers (GA4, Cloudflare Web Analytics, Search Console, Google Play store page).
+// luchit-live: a private business dashboard for the owner. GET /live is the page, GET /live/data the numbers (GA4, Cloudflare Web Analytics, Search Console, Google Play store page and Play Console).
 // Protected twice: Cloudflare Access in front (route luchit.app/live*), and this Worker verifies the Access JWT itself, so a misconfigured Access policy cannot leak data.
 // Returns only aggregate counts, never anything personal. Secrets: GA_SERVICE_ACCOUNT_JSON, CF_API_TOKEN. Vars: see wrangler.toml.
 const CF_TAG = "9bb0e756882c478a808d95596e0deade";
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-18";   // shown in /live/data so the running version is visible
+const BUILD = "live-19";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -140,18 +140,43 @@ async function collectWeekly(env, today) {
   weeklyAt = Date.now(); return weekly;
 }
 
-// Is the app public on Google Play? The store page answers 404 until the app is published to everyone. Not linked to Play Console:
-// approval arrives by mail, and this flips to "live" only when anyone can install. Checked hourly; playSeen is the last answer that counted.
-let play = null, playAt = 0, playSeen = null;
-async function playStatus() {
-  if (Date.now() - playAt < (play ? 3600e3 : 600e3)) return play;
+// Is the app public on Google Play? The store page answers 404 until the app is published to everyone; it flips to "live" only when anyone
+// can install. Checked hourly; playSeen is the last answer that counted, and a check in flight is shared so no request reads a blank state.
+let play = null, playAt = 0, playSeen = null, playP = null;
+function playStatus() {
+  if (playP) return playP;
+  if (Date.now() - playAt < (play ? 3600e3 : 600e3)) return Promise.resolve(play);
   playAt = Date.now();
+  playP = (async () => {
+    try {
+      const r = await fetch("https://play.google.com/store/apps/details?id=com.ddsabag.pratirechev&hl=he", { redirect: "manual", cf: { cacheTtl: 900 } });
+      if (r.status === 200 && (await r.text()).includes("com.ddsabag.pratirechev")) { play = "live"; playSeen = new Date().toISOString(); }
+      else if (r.status === 404) { play = "review"; playSeen = new Date().toISOString(); }
+    } catch {}
+    return play;
+  })().finally(() => { playP = null; });
+  return playP;
+}
+
+// Where the production release stands, straight from Play Console (Play Developer API, a read-only list that needs no edit): in review,
+// approved, rejected, published. Needs the Google Play Android Developer API enabled in the service account's Cloud project and the account
+// invited in Play Console; until then { ok: false, why } and the screen keeps the store page check alone. Never throws.
+let rel = null, relAt = 0;
+async function playRelease(env) {
+  if (rel && Date.now() - relAt < 900e3) return rel;
+  relAt = Date.now();
   try {
-    const r = await fetch("https://play.google.com/store/apps/details?id=com.ddsabag.pratirechev&hl=he", { redirect: "manual", cf: { cacheTtl: 900 } });
-    if (r.status === 200 && (await r.text()).includes("com.ddsabag.pratirechev")) { play = "live"; playSeen = new Date().toISOString(); }
-    else if (r.status === 404) { play = "review"; playSeen = new Date().toISOString(); }
-  } catch {}
-  return play;
+    const r = await fetch("https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.ddsabag.pratirechev/tracks/production/releases",
+      { headers: { authorization: "Bearer " + await googleToken(env, "https://www.googleapis.com/auth/androidpublisher") } });
+    if (!r.ok) { const t = await r.text(); let m = t; try { m = JSON.parse(t).error.message || t; } catch {} rel = { ok: false, why: r.status + " " + String(m).replace(/\s+/g, " ").slice(0, 160) }; }
+    else {
+      const list = ((await r.json()).releases || []).map(x => ({ name: String(x.releaseName || "").slice(0, 40), state: String(x.releaseLifecycleState || "").replace("RELEASE_LIFECYCLE_STATE_", "").toLowerCase(),
+        code: Math.max(0, ...(x.activeArtifacts || []).map(a => Number(a.versionCode) || 0)) }));
+      list.sort((a, b) => b.code - a.code);   // newest build first
+      rel = { ok: true, at: new Date().toISOString(), list: list.slice(0, 3) };
+    }
+  } catch (e) { rel = { ok: false, why: String(e.message || e).slice(0, 160) }; }
+  return rel;
 }
 
 const SC = "sc-domain:luchit.app", SCOPE_SC = "https://www.googleapis.com/auth/webmasters.readonly";
@@ -200,12 +225,12 @@ async function collect(env) {
   const today = ilDay(Date.now()), yday = addDays(today, -1);
   const errors = {};
   const safe = (p, k) => p.catch(e => { errors[k] = String(e.message || e).slice(0, 200); return null; });
-  const [series, events, vers, vToday, vYday, dly, sc, wk, ps] = await Promise.all([
-    safe(realtime(env, { dimensions: [{ name: "minutesAgo" }], metrics: [{ name: "eventCount" }] }), "series"),
-    safe(realtime(env, { dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }], limit: 40 }), "events"),
-    safe(realtime(env, { dimensions: [{ name: "appVersion" }], metrics: [{ name: "activeUsers" }], limit: 6 }), "versions"),
+  const [series, events, vers, vToday, vYday, dly, sc, wk, ps, rl] = await Promise.all([
+    safe(realtime(env, { dimensions: [{ name: "minutesAgo" }], metrics: [{ name: "eventCount" }], dimensionFilter: REAL }), "series"),
+    safe(realtime(env, { dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: REAL, limit: 40 }), "events"),
+    safe(realtime(env, { dimensions: [{ name: "appVersion" }], metrics: [{ name: "activeUsers" }], dimensionFilter: REAL, limit: 6 }), "versions"),
     safe(cfVisits(env, today), "visitsToday"), safe(cfVisits(env, yday), "visitsYesterday"), safe(collectDaily(env, today, yday), "daily"), safe(collectSeo(env, today), "seo"),
-    safe(collectWeekly(env, today), "weekly"), playStatus()]);
+    safe(collectWeekly(env, today), "weekly"), playStatus(), playRelease(env)]);
   Object.assign(errors, dly?.errors || {}, sc?.errors || {}, wk?.errors || {});
   const perMin = Array(30).fill(0);
   for (const r of series || []) perMin[29 - Number(r.dimensionValues[0].value)] = Number(r.metricValues[0].value);
@@ -215,7 +240,7 @@ async function collect(env) {
   const activeUsers = vers ? vers.reduce((t, r) => t + Number(r.metricValues[0].value || 0), 0) : (quota ? prev.activeUsers ?? null : null);
   cache = { build: BUILD, errors: quota ? { ga4: "מכסת Google מלאה, מוצגים נתונים אחרונים ויתעדכנו בעוד כמה דקות" } : errors, stale: quota, at: quota && prev.at ? prev.at : new Date().toISOString(), activeUsers, perMinute: series ? perMin : (quota ? prev.perMinute ?? null : null),
     events: events ? events.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]).sort((a, b) => b[1] - a[1]) : (quota ? prev.events ?? null : null), versions: vers ? vers.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]) : (quota ? prev.versions ?? null : null), visitsToday: vToday?.visits ?? null, visitsYesterday: vYday?.visits ?? null, viewsToday: vToday?.views ?? null, viewsYesterday: vYday?.views ?? null, seo: sc ? { ...sc, errors: undefined } : (quota ? prev.seo ?? null : null), daily: dly ? { ...dly, errors: undefined } : (quota ? prev.daily ?? null : null),
-    weekly: wk ? { ...wk, errors: undefined } : (quota ? prev.weekly ?? null : null), play: ps, playAt: playSeen };
+    weekly: wk ? { ...wk, errors: undefined } : (quota ? prev.weekly ?? null : null), play: ps, playAt: playSeen, release: rl };
   cacheAt = Date.now(); return cache;
 }
 
@@ -310,7 +335,7 @@ const dm=s=>{const p=String(s).slice(0,10).split("-");return Number(p[2])+"."+Nu
 const rng=w=>w?dm(w[0])+" עד "+dm(w[1]):"";
 const addD=(d,k)=>new Date(Date.parse(d+"T12:00:00Z")+k*864e5).toISOString().slice(0,10);
 const between=(a,b)=>Math.round((Date.parse(b+"T12:00:00Z")-Date.parse(a+"T12:00:00Z"))/864e5);
-const chip=s=>'<span class="chip s-'+s+'"><i aria-hidden="true">'+ST[s][1]+'</i>'+ST[s][0]+'</span>';
+const chip=(s,w)=>'<span class="chip s-'+s+'"><i aria-hidden="true">'+ST[s][1]+'</i>'+(w||ST[s][0])+'</span>';
 const mini=s=>'<span class="mini s-'+s+'"><i aria-hidden="true">'+ST[s][1]+'</i>'+ST[s][0]+'</span>';
 const delta=(a,b,unit)=>{if(a==null||b==null)return "";const d=Math.round(a-b);return d>0?'<span class="up">▲ '+n(d)+'</span> יותר מהשבוע הקודם'+(unit||""):d<0?'<span class="down">▼ '+n(-d)+'</span> פחות מהשבוע הקודם'+(unit||""):'<span class="flat">כמו בשבוע הקודם</span>'};
 const pois=(a,lam)=>{let t=Math.exp(-lam),s=t;for(let k=1;k<=a;k++){t*=lam/k;s+=t}return s};   // chance of seeing a or fewer when lam is expected
@@ -318,6 +343,9 @@ const pois=(a,lam)=>{let t=Math.exp(-lam),s=t;for(let k=1;k<=a;k++){t*=lam/k;s+=
 function judge(a,exp,minExp,warnAt){if(exp==null)return "early";if(exp<minExp)return "early";const r=a/exp;if(r>=1)return "ok";if(r>=warnAt)return "warn";if(exp<20&&pois(a,exp)>=.05)return "warn";return "bad"}
 const pace=(c,day)=>{const f=Math.min(1,Math.max(0,between(c.from,day)/between(c.from,c.due)));return c.start+(c.goal-c.start)*f};
 const RANK={bad:0,nodata:1,warn:2};
+// production release states in Play Console: [what it means, status]
+const RS={draft:["טיוטה בקונסול","wait"],not_sent_for_review:["מוכנה, עוד לא נשלחה לבדיקה","wait"],in_review:["בבדיקה של גוגל","wait"],approved_not_published:["אושרה, מחכה שתפרסם","wait"],not_approved:["נדחתה בבדיקה","bad"],published:["פורסמה","ok"]};
+const hm=ts=>{if(!ts)return "";const o={timeZone:"Asia/Jerusalem"},t=new Date(ts),day=t.toLocaleDateString("en-CA",o);return (day!==new Date().toLocaleDateString("en-CA",o)?dm(day)+" ":"")+t.toLocaleTimeString("he-IL",{...o,hour:"2-digit",minute:"2-digit"})};
 
 function render(d){
 const W=d.weekly||null,ev=W&&W.ev,E0=ev?ev[0]:{},E1=ev?ev[1]:{},E2=ev?ev[2]:{},ge=(o,k,i)=>o&&o[k]?o[k][i||0]:0;
@@ -325,7 +353,7 @@ const end=W?W.end:null,cal=!end||end<CAL_END,days=W&&W.days;
 const week=e=>{if(!days)return null;let s=0;for(let i=0;i<7;i++)s+=days[addD(e,-i)]||0;return s};
 const nsTarget=e=>{if(!days||e<CAL_END)return null;let be=BASE_END,base=week(be);if(!base)return null;while(between(be,e)>=28){const ne=addD(be,28),t=base*Math.pow(GROWTH,4);base=Math.max(week(ne),.8*t);be=ne}return base*Math.pow(GROWTH,between(be,e)/7)};
 const M={},att=[];
-const push=(key,s,prio,ratio,text,short)=>{M[key]=s;if(RANK[s]!=null)att.push({s,prio,ratio,text,short})};
+const push=(key,s,prio,ratio,text,short,w)=>{M[key]=s;if(RANK[s]!=null)att.push({s,prio,ratio,text,short,w})};
 
 // 1. weekly car checks (north star)
 let t1;{const L=ev?ge(E0,"car_lookup"):null,Lp=ev?ge(E1,"car_lookup"):null,tg=end?nsTarget(end):null;let s;
@@ -355,12 +383,15 @@ push("share",s,4,rate!=null?rate/10:1,"שיתופים: "+n1(rate)+" לכל 100 �
 const arr=sh?sh[0].web+sh[0].app:null,arrp=sh?sh[1].web+sh[1].app:null;
 t3={s,title:"הגיעו משיתוף",big:rate!=null?n1(rate):n(Sw),unit:rate!=null?"לכל 100 בדיקות":"שיתופים",lines:[rate!=null?"היעד: 10 לכל 100 בדיקות":"עוד מעט מדי בדיקות כדי לחשב: "+n(Sw)+" שיתופים מתוך "+n(Lw)+" בדיקות","נכנסו מקישור ששותף: <b>"+n(arr)+"</b>"+(arrp!=null?" (שבוע קודם "+n(arrp)+")":"")],foot:(win||rng(W&&W.W))+" · אפליקציה ואתר"}}
 
+// Google Play: the public store page says whether anyone can install; Play Console, when connected, says where the production release stands
+const RL=d.release&&d.release.ok?d.release:null,top=RL&&RL.list&&RL.list[0]||null;
+const GP=d.play==="live"?{s:"ok",txt:"באוויר בחנות"}:top?{s:(RS[top.state]||[0,"wait"])[1],txt:(RS[top.state]||[esc(top.state)])[0]}:RL?{s:"wait",txt:"עוד אין גרסת ייצור"}:d.play==="review"?{s:"wait",txt:"עדיין לא פתוח לכולם"}:{s:"wait",txt:"לא הצלחתי לבדוק את דף החנות"};
 // 4. new app installs, with the store status
 let t4;{const A=W&&W.app,a=A?A[0].newUsers:null,ap=A?A[1].newUsers:null,ab=A?A[0].abroadNew:0,live=d.play==="live";let s,tg=null;
 if(!A)s="nodata";else if(!INSTALL_BASE)s="early";else{tg=INSTALL_BASE.value*Math.pow(1.07,Math.min(8,between(INSTALL_BASE.end,end)/7))*Math.pow(GROWTH,Math.max(0,between(INSTALL_BASE.end,end)/7-8));s=judge(a,tg,0,.8)}
 push("installs",s,5,tg?a/tg:1,"התקנות חדשות: "+n(a)+(tg?", היעד "+n(tg):""),s==="nodata"?"חסר נתון על התקנות":"מעט התקנות");
-M.store=live?"ok":"wait";
-t4={s,title:"התקנות חדשות",big:n(a),lines:["Google Play: "+(live?"באוויר בחנות ✓":d.play==="review"?"עדיין לא פתוח לכולם (הבקשה הוגשה "+dm(SUBMITTED)+")":"לא הצלחתי לבדוק את דף החנות"),tg?n(a/tg*100)+"% מהיעד ("+n(tg)+")":live?"היעד ייקבע אחרי שבוע מלא בחנות":"עד שהאפליקציה בחנות, מתקינים רק בודקים",delta(a,ap),ab?"לא נספרו "+n(ab)+" מכשירים מחוץ לישראל (בדיקות אוטומטיות של Google)":""],foot:rng(W&&W.W)+" · התקנה ראשונה במכשיר בישראל"}}
+push("store",GP.s,0,0,"Google Play: גרסת הייצור נדחתה בבדיקה. הסיבה במייל ובקונסול","גרסת הייצור נדחתה בבדיקה של גוגל","נדחתה");
+t4={s,title:"התקנות חדשות",big:n(a),lines:["Google Play: "+GP.txt+(GP.s==="ok"?" ✓":"")+(!live&&!top&&d.play==="review"?" (הבקשה הוגשה "+dm(SUBMITTED)+")":""),tg?n(a/tg*100)+"% מהיעד ("+n(tg)+")":live?"היעד ייקבע אחרי שבוע מלא בחנות":"עד שהאפליקציה בחנות, מתקינים רק בודקים",delta(a,ap),ab?"לא נספרו "+n(ab)+" מכשירים מחוץ לישראל (בדיקות אוטומטיות של גוגל)":""],foot:rng(W&&W.W)+" · התקנה ראשונה במכשיר בישראל"}}
 
 // health: failures caused by us or the ministry, out of all attempts (a mistyped plate is not a failure)
 let H;{const fk=W&&W.fails?W.fails[0]:null,tech=fk?(fk.source_down||0)+(fk.offline||0):null,att2=ev?ge(E0,"car_lookup")+ge(E0,"lookup_failed"):null;let s,r=null;
@@ -375,21 +406,21 @@ const vs=judged.includes("bad")?"bad":judged.includes("nodata")?"nodata":judged.
 const head=t1.L==null?"אין עדיין נתון על בדיקות רכב השבוע.":t1.tg?"השבוע: "+n(t1.L)+" בדיקות רכב, "+n(t1.L/t1.tg*100)+"% מהיעד.":"השבוע: "+n(t1.L)+" בדיקות רכב"+(t1.Lp!=null?", "+(t1.L>t1.Lp?n(t1.L-t1.Lp)+" יותר מהשבוע הקודם":t1.L<t1.Lp?n(t1.Lp-t1.L)+" פחות מהשבוע הקודם":"כמו בשבוע הקודם"):"")+".";
 const first=att.find(x=>x.short);const mid=first?first.short+".":H.s==="ok"?"אין מה לטפל בו.":"";
 const tail=H.s==="ok"?"השירות תקין.":H.s==="warn"?n1(H.r)+"% מהבדיקות נכשלו, מעט מעל הרגיל.":H.s==="bad"?n1(H.r)+"% מהבדיקות נכשלו.":H.s==="early"?"מעט מדי בדיקות כדי לשפוט את תקינות השירות.":"אין נתון על תקינות השירות.";
-$("vd").className="card verdict s-"+vs;$("vh").innerHTML=chip(vs)+'<span class="lbl">השורה התחתונה</span>';$("vs").textContent=[head,mid,tail].filter(Boolean).join(" ");
+$("vd").className="card verdict s-"+vs;$("vh").innerHTML=chip(vs,att[0]&&att[0].s===vs?att[0].w:"")+'<span class="lbl">השורה התחתונה</span>';$("vs").textContent=[head,mid,tail].filter(Boolean).join(" ");
 $("vn").textContent=cal?"שבוע כיול עד "+dm(addD(CAL_END,-1))+": המספרים מוצגים בלי צבע, חוץ מתקינות השירות, הדפים שגוגל מכיר וסטטוס החנות. בדיקות מהאתר נספרות רק מ-15.10.":"";
 
 // attention list
 const alerts=(d.flashes||[]).filter(f=>f.l==="alert"&&Date.now()-Date.parse(f.t)<864e5).length;
-$("att").innerHTML=(att.length?att.slice(0,4).map(x=>"<li>"+chip(x.s)+"<span>"+esc(x.text)+"</span></li>").join(""):'<li class="none">אין כרגע דבר שדורש תשומת לב.</li>')+(alerts?'<li><span class="chip s-warn"><i aria-hidden="true">!</i>מבזקים</span><span>'+alerts+' התראות מהסוכנים ב-24 השעות האחרונות. <a href="#dr-fl" data-open="dr-fl">לפירוט</a></span></li>':"");
+$("att").innerHTML=(att.length?att.slice(0,4).map(x=>"<li>"+chip(x.s,x.w)+"<span>"+esc(x.text)+"</span></li>").join(""):'<li class="none">אין כרגע דבר שדורש תשומת לב.</li>')+(alerts?'<li><span class="chip s-warn"><i aria-hidden="true">!</i>מבזקים</span><span>'+alerts+' התראות מהסוכנים ב-24 השעות האחרונות. <a href="#dr-fl" data-open="dr-fl">לפירוט</a></span></li>':"");
 
 // tiles
 const tile=t=>'<article class="card tile s-'+t.s+'"><div class="th"><h3>'+t.title+"</h3>"+chip(t.s)+'</div><div class="big">'+t.big+(t.unit?"<small>"+t.unit+"</small>":"")+"</div>"+t.lines.filter(Boolean).map((l,i)=>'<p class="'+(i?"m":"")+'">'+l+"</p>").join("")+'<p class="foot">'+t.foot+"</p></article>";
 $("tiles").innerHTML=[t1,t2,t3,t4].map(tile).join("");
 
 // milestones
-{const A=W&&W.app,mau=A?A[2].activeUsers:null,mab=A?A[2].abroadActive:0,mo=W&&W.money,pt=d.playAt?new Date(d.playAt).toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit",timeZone:"Asia/Jerusalem"}):"";
-$("ms").innerHTML='<li><span class="k">Google Play</span><span class="v">'+(d.play==="live"?mini("ok")+" באוויר בחנות":d.play==="review"?"עדיין לא פתוח לכולם":"לא הצלחתי לבדוק את דף החנות")+'</span><span class="k">'+(d.play==="live"?"":"הבקשה הוגשה ב-"+dm(SUBMITTED)+". אישור Google מגיע במייל ובקונסול; כאן הסטטוס מתחלף כשהאפליקציה מופיעה בחנות לכולם. ")+(pt?"נבדק בדף החנות הציבורי ב-"+pt+".":"הדף הציבורי נבדק כל שעה.")+"</span></li>"
-+'<li><span class="k">הדרך ל-PRO: מכשירים פעילים באפליקציה ב-28 ימים, בישראל</span><span class="v">'+n(mau)+" מתוך "+n(PRO_MAU)+'</span><div class="bar" role="img" aria-label="'+n(mau)+" מתוך "+n(PRO_MAU)+'"><i style="width:'+Math.max(1,Math.min(100,(mau||0)/PRO_MAU*100))+'%"></i></div><span class="k">מפעילים מנוי בתשלום רק מ-2,000 עד 3,000 משתמשים בחודש'+(mab?". לא נספרו "+n(mab)+" מכשירים מחוץ לישראל, כנראה מכשירי הבדיקה האוטומטית של Google Play":"")+"</span></li>"
+{const A=W&&W.app,mau=A?A[2].activeUsers:null,mab=A?A[2].abroadActive:0,mo=W&&W.money,pt=hm(d.playAt);
+$("ms").innerHTML='<li><span class="k">Google Play</span><span class="v">'+(GP.s==="ok"?mini("ok")+" ":"")+GP.txt+'</span><span class="k">'+(top?"גרסת הייצור"+(top.name?" "+esc(top.name):"")+", לפי Play Console"+(RL.at?", נבדק ב-"+hm(RL.at):"")+".":RL?"אחרי אישור הבקשה צריך ליצור גרסת ייצור, ואז יופיע כאן אם היא בבדיקה, אושרה או נדחתה.":"")+(d.play==="live"||!(top||RL)?(d.play==="live"?"":"הבקשה הוגשה ב-"+dm(SUBMITTED)+". אישור Google מגיע במייל ובקונסול; כאן הסטטוס מתחלף כשהאפליקציה מופיעה בחנות לכולם. ")+(pt?"דף החנות הציבורי נבדק ב-"+pt+".":"דף החנות הציבורי נבדק כל שעה."):"")+"</span></li>"
++'<li><span class="k">הדרך ל-PRO: מכשירים פעילים באפליקציה ב-28 ימים, בישראל</span><span class="v">'+n(mau)+" מתוך "+n(PRO_MAU)+'</span><div class="bar" role="img" aria-label="'+n(mau)+" מתוך "+n(PRO_MAU)+'"><i style="width:'+Math.max(1,Math.min(100,(mau||0)/PRO_MAU*100))+'%"></i></div><span class="k">מפעילים מנוי בתשלום רק מ-2,000 עד 3,000 משתמשים בחודש'+(mab?". לא נספרו "+n(mab)+" מכשירים מחוץ לישראל, כנראה מכשירי הבדיקה האוטומטית של גוגל":"")+"</span></li>"
 +'<li><span class="k">כסף ועניין (מ-1.10)</span><span class="v">'+(mo?n(mo.leads)+" פניות עסקיות · "+n(mo.subscribers)+" נרשמים למגזין":"אין נתון")+'</span><span class="k">בלי יעד ובלי צבע עד שמתחילים למכור</span></li>'}
 
 // trend: 8 weekly totals, oldest on the left so the latest week sits next to the right edge
@@ -450,6 +481,7 @@ const li=(l,v)=>"<li><span>"+l+"</span><b>"+v+"</b></li>";
 $("tec").innerHTML="<h4>בדיקות שלא החזירו תוצאה, לפי סיבה ("+rng(W&&W.W)+")</h4>"+(fk?'<ul class="kv">'+(Object.entries(fk).sort((a,b)=>b[1]-a[1]).map(e=>li(KIND[e[0]]||esc(e[0]),n(e[1]))).join("")||li("אין","0"))+"</ul>":'<p class="note" style="margin:0">אין נתון</p>')
 +'<p class="note">'+(H.att!=null?"מתוך "+n(H.att)+" ניסיונות בדיקה. רק שתי הסיבות הראשונות נספרות בתקינות השירות.":"")+"</p>"
 +"<h4>עוד סימנים טכניים השבוע</h4>"+'<ul class="kv">'+li("בדיקות איטיות",n(ge(E0,"lookup_slow")))+li("בדיקות שבוטלו באמצע",n(ge(E0,"lookup_abort")))+li("קריסות של האפליקציה",n(ge(E0,"app_exception")))+li("חיפושי דגם בלי תוצאה",n(ge(E0,"search_no_result")))+"</ul>"
++"<h4>Play Console</h4>"+'<p class="note" style="margin:0">'+(d.release?d.release.ok?"מחובר. מצב גרסאות הייצור נקרא משם.":"לא מחובר עדיין"+(/not been used|disabled/i.test(d.release.why||"")?": צריך להפעיל את Google Play Android Developer API בפרויקט של חשבון השירות ב-Google Cloud.":/permission|^40[13]/i.test(d.release.why||"")?": לחשבון השירות אין עדיין הרשאת צפייה באפליקציה ב-Play Console.":".")+' <bdi dir="ltr">('+esc(d.release.why||"")+")</bdi>":"לא נבדק")+"</p>"
 +"<h4>מקורות נתונים</h4>"+'<ul class="kv">'+(Object.entries(d.errors||{}).map(e=>li(esc(e[0]),'<span style="font-weight:400">'+esc(e[1])+"</span>")).join("")||li("כל המקורות ענו","✓"))+"</ul>"}
 
 $("build").textContent="גרסה "+(d.build||"");
