@@ -1,9 +1,10 @@
-// Creates (and optionally sends) the Brevo campaign for the newest magazine article.
+// Creates (and optionally sends) the Brevo campaign for the newest monthly magazine issue (slug YYYY-MM).
 // Env: BREVO_KEY, BREVO_LIST_ID; MODE = preview (default, writes out/newsletter.html) | draft (campaign saved in Brevo, not sent) | send
 // A campaign is named "magazine-<slug>"; if one already exists the script stops, so a re-run never mails twice.
 import fs from "node:fs";
 const MODE = process.env.MODE || "preview", KEY = process.env.BREVO_KEY, LIST = Number(process.env.BREVO_LIST_ID);
-const post = JSON.parse(fs.readFileSync("magazine/posts.json", "utf8"))[0];
+const posts = JSON.parse(fs.readFileSync("magazine/posts.json", "utf8"));
+const post = posts.find(p => /^\d{4}-\d{2}$/.test(p.slug)) || posts[0];   // the monthly issue (slug YYYY-MM); a weekly data article can be newer
 if (!post) { console.log("no posts"); process.exit(0); }
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const lead = (post.lead || "").length > 280 ? post.lead.slice(0, 280).replace(/[^.\s][^.]*$/, "").trim() || post.lead.slice(0, 280) : post.lead;

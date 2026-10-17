@@ -44,8 +44,9 @@ jobs:
           tg() { [ -n "$TELEGRAM_BOT_TOKEN" ] && curl -s -o /dev/null "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$1" --data-urlencode "disable_notification=${2:-false}" || true; }   # 2nd argument "true" = silent (routine notice)
           node .github/scripts/pages.mjs
           if [ -z "$(git status --porcelain magazine sitemap.xml model)" ]; then echo "nothing new"; exit 0; fi
-          slug=$(node -e 'console.log(require("./magazine/posts.json")[0].slug)')
-          title=$(node -e 'console.log(require("./magazine/posts.json")[0].title)')
+          # the newest monthly article (slug YYYY-MM): on a day a data article also came out, that one can share the date and sort first
+          slug=$(node -e 'console.log(require("./magazine/posts.json").find(p=>/^\d{4}-\d{2}$/.test(p.slug)).slug)')
+          title=$(node -e 'console.log(require("./magazine/posts.json").find(p=>p.slug==="'$slug'").title)')
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if node .github/scripts/seo-check.mjs; then
