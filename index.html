@@ -881,8 +881,12 @@ function niceModel(m) {
     .replace(/(^|\s)0\d{2,}(?:\s*(?:הנעה?|X4|4X))?(?=\s|$)/g, "$1")
     .replace(/\s+הנעה?$/, "")
     .replace(/([א-ת])(\d)/g, "$1 $2")
-    .replace(/\s{2,}/g, " ").trim();
+    .replace(/\s{2,}/g, " ").trim()
+    .replace(DRIVE_WORDS_RX, w => DRIVE_WORDS_HE[w.toUpperCase()]);
 }
+// the registry writes the drive in English; the screen says it in Hebrew (COROLLA HEV -> COROLLA היברידי)
+const DRIVE_WORDS_HE = {HEV: "היברידי", HYBRID: "היברידי", HSD: "היברידי", PHEV: "פלאג-אין", "PLUG-IN": "פלאג-אין"};
+const DRIVE_WORDS_RX = /(?<![A-Za-z0-9-])(?:PHEV|HEV|HYBRID|HSD|PLUG-IN)(?![A-Za-z0-9-])/gi;
 
 /* ---------- API ---------- */
 /* Optional caching proxy (worker/ in this repo). Empty = every phone talks to data.gov.il directly. When set and it fails, the phone falls back to direct. */
@@ -3014,7 +3018,7 @@ function showGroups(){
   if (!mGroups.length) { const term = ($("#mq").value || "").trim().toLowerCase().slice(0, 40); track("search_no_result", {kind: mNote ? "budget" : "model", term: safeTerm(term)}); }
   msg.textContent = mGroups.length ? (searchFuzzy && !mNote ? "לא נמצא בדיוק. אולי התכוונתם:" : "") : (mNote ? "לא נמצאו דגמים שמתאימים לתנאים. נסו תקציב גבוה יותר או פחות תנאים." : "לא נמצאו דגמים. נסו שם אחר, למשל שם הדגם באנגלית.");
   let lastMake = null;
-  $("#mres").innerHTML = (mNote && mGroups.length ? `<div class="qsec" style="margin-top:0">${pl(mGroups.length, "דגם אחד", "דגמים")}: ${esc(mNote)}</div>` : "") + shown.map(x => (x.make !== lastMake ? (lastMake = x.make, `<div class="qsec">${esc(x.make)}</div>`) : "") + `<button type="button" class="row" data-mg="${mGroups.indexOf(x)}"><span class="t"><b>${esc(x.model)}</b><small>${isFinite(x.from) ? (x.from === x.to ? x.from : `<span dir="ltr">${x.from}–${x.to}</span>`) : ""}${x.price ? ` · החל מ-${fmtN(x.price)} אלף ₪` : ""}</small></span>${ico("chev")}</button>`).join("")
+  $("#mres").innerHTML = (mNote && mGroups.length ? `<div class="qsec" style="margin-top:0">${pl(mGroups.length, "דגם אחד", "דגמים")}: ${esc(mNote)}</div>` : "") + shown.map(x => (x.make !== lastMake ? (lastMake = x.make, `<div class="qsec">${esc(x.make)}</div>`) : "") + `<button type="button" class="row" data-mg="${mGroups.indexOf(x)}"><span class="t"><b>${esc(niceModel(x.model))}</b><small>${isFinite(x.from) ? (x.from === x.to ? x.from : `<span dir="ltr">${x.from}–${x.to}</span>`) : ""}${x.price ? ` · החל מ-${fmtN(x.price)} אלף ₪` : ""}</small></span>${ico("chev")}</button>`).join("")
     + (rest > 0 ? `<button type="button" class="more" data-more="1">${mNote ? `עוד ${rest} דגמים` : `עוד ${rest} דגמים`}</button>` : "");
   renderQuick();
 }
@@ -3161,7 +3165,7 @@ function showModel(y){
 }
 const impName = x => String(x || "").replace(/\s*בע['"׳״]{0,2}מ\.?\s*$|\s*בעמ\s*$/, "").replace(/\s+/g, " ").trim();
 let mParYear = "", mShowPar = false;
-const modelHead = y => `<div class="mhead"><b>${esc(mGroup.make)} ${esc(mGroup.model)}</b><button type="button" class="mback" data-mback="1">כל הדגמים</button></div>`
+const modelHead = y => `<div class="mhead"><b>${esc(mGroup.make)} ${esc(niceModel(mGroup.model))}</b><button type="button" class="mback" data-mback="1">כל הדגמים</button></div>`
   + (mGroup.years.length > 1 ? `<div class="qsec">שנת ייצור</div><div class="yrow">${mGroup.years.map(v => `<button type="button" class="chip" data-my="${v}" aria-pressed="${String(v) === String(y)}">${v}</button>`).join("")}</div>` : `<div class="qsec">שנת ייצור ${esc(String(y))}</div>`);
 // the older screen: one row per engine, its trims collapsed ("N רמות גימור"), for years whose versions have no readable names
 function showModelByEngine(y){
