@@ -2904,22 +2904,15 @@ function filterGroups(F){
 const MODEL_SHOWN = 8, CUR_Y = new Date().getFullYear();
 // body-style and drive words split one car into several catalogue entries (COROLLA SDN HSD, COROLLA HSD SDN, COROLLA HEV);
 // for the buyer they are one model, and the drive type is chosen later by engine
-const NOISE_TOKENS = new Set(["HB", "H/B", "HATCHBACK", "SEDAN", "SDN", "SD", "SW", "S/W", "WAGON", "ESTATE", "STATION", "LIFTBACK", "TS", "TOURING", "SPORTS", "HSD", "HEV", "HYBRID", "HV", "PHEV", "PLUG-IN", "2D", "3D", "4D", "5D", "2DR", "3DR", "4DR", "5DR", "H", "4MATIC", "4MATI", "4MAT", "4M", "XDRIVE", "SDRIVE", "AWD", "4WD", "4X4", "2WD", "FWD", "RWD", "ALL4", "האצ'בק", "סדאן", "סטיישן", "היברידי"]);
-// the register cuts names at 15 letters and spells hybrid many ways (HYBR, HYBRI, HYBRYD, HIBRID, E-HYB, HY): all mean the hybrid version of the same model
-const HYBRID_RX = /^E?-?H[YI]B[A-Z]*$|^E?-?HY$/;
-// C300E, GLC 350E, S580E, P400E: the plug-in version of the model; a bare number (530E, 500E) only after a letters token (GLE 500E), so BMW 530E and Fiat 500E keep their names
-const PLUG_E = /^[A-Z]{1,3}\d{2,4}E$|^\d{3,4}E$/;
+const NOISE_TOKENS = new Set(["HB", "H/B", "HATCHBACK", "SEDAN", "SDN", "SD", "SW", "S/W", "WAGON", "ESTATE", "STATION", "LIFTBACK", "TS", "TOURING", "SPORTS", "HSD", "HEV", "HYBRID", "HV", "PHEV", "PLUG-IN", "2D", "3D", "4D", "5D", "2DR", "3DR", "4DR", "5DR", "האצ'בק", "סדאן", "סטיישן", "היברידי"]);
 // generation / facelift / body suffixes (OCTAVIA FL, OCTAVIA IV, NEW OCTAVIA; COMBI / SPACE stay separate) are the same family for the buyer
 const GEN_TOKENS = new Set(["FL", "FACELIFT", "II", "III", "IV", "V", "VI", "VII", "VIII", "NEW", "החדש", "חדש"]);
 const NOT_FAMILY = new Set(["MODEL", "CLASS", "SERIES", "TYPE", "PRIUS"]);   // PRIUS V is a different body from the Prius
 const normModel = m => {
-  const isNoise = t => NOISE_TOKENS.has(t) || HYBRID_RX.test(t);
-  const toks = String(m || "").trim().toUpperCase().replace(/\s+/g, " ").split(" ").map(t => t.replace(/-([A-Z]+)$/, (x, sfx) => isNoise(sfx) ? "" : x))   // ASTRA-H, OCTAVIA-SW
-    .map((t, i) => PLUG_E.test(t) && (i > 0 || /^[A-Z]/.test(t)) ? t.slice(0, -1) : t);
-  let kept = toks.filter(t => !isNoise(t));
+  const toks = String(m || "").trim().toUpperCase().replace(/\s+/g, " ").split(" ");
+  let kept = toks.filter(t => !NOISE_TOKENS.has(t));
   if (!kept.length) kept = toks;
   if (kept.length > 1) kept = kept.filter(t => t !== "NEW" && t !== "החדש" && t !== "חדש");
-  if (kept.length > 1 && kept[kept.length - 1] === "E" && kept[kept.length - 2] !== "MACH") kept.pop();   // "C 300 E", "CAYENNE E HYBRI", "PANAMERA 4 E HY": the E of a plug-in or electric version (MACH E is a model name)
   while (kept.length > 1 && GEN_TOKENS.has(kept[kept.length - 1]) && /^[A-Z]{4,}$/.test(kept[0]) && !NOT_FAMILY.has(kept[0])) kept.pop();
   return (kept.length ? kept : toks).join(" ");
 };
@@ -5075,7 +5068,12 @@ if (!window.AndroidApp && "serviceWorker" in navigator && window.isSecureContext
   window.addEventListener("load", () => {
     // the worker serves the page from its cache and installs a new release in the background: the visitor is on the previous page until a reload
     let had = !!navigator.serviceWorker.controller;
-    navigator.serviceWorker.addEventListener("controllerchange", () => { if (had) snack("יש גרסה חדשה של לוחית", "רענון", () => location.reload()); had = true; });
+    navigator.serviceWorker.addEventListener("message", e => { if (e.data && e.data.t === "stale" && e.data.stale) snack("יש גרסה חדשה של לוחית", "רענון", () => location.reload()); });
+    navigator.serviceWorker.addEventListener("controllerchange", () => {   // the new worker says whether this page's bundle is still the one it serves (a page loaded with ?r=1 may already be the new release)
+      const c = navigator.serviceWorker.controller, me = [...document.scripts].map(s => s.src).find(s => /\/app\.[0-9a-f]{10}\.js$/.test(s));
+      if (had && c && me) c.postMessage({t: "app", p: new URL(me).pathname});
+      had = true;
+    });
     navigator.serviceWorker.register("/sw.js").then(r => r.update()).catch(() => {});
   });
 }

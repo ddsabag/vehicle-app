@@ -15,11 +15,8 @@ async function call(params, tries = 4) {
   throw new Error("failed " + JSON.stringify(params).slice(0, 120));
 }
 const COUNTRY = /\s+(יפן|בריטניה|אנגליה|צרפת|גרמניה|קוריאה|ספרד|צ'כיה|צכיה|טורקיה|סין|ארה"ב|ארהב|איטליה|תאילנד|הודו|מקסיקו|הונגריה|סלובקיה|פולין|רומניה|בלגיה|שבדיה|אוסטריה|פורטוגל|דרום אפריקה|ברזיל|קנדה|הולנד|סלובניה|רוסיה|מרוקו|אינדונזיה|מלזיה|טייוואן|ישראל)$/;
-const NOISE = new Set(["HB", "H/B", "HATCHBACK", "SEDAN", "SDN", "SD", "SW", "S/W", "WAGON", "ESTATE", "STATION", "LIFTBACK", "TS", "TOURING", "SPORTS", "HSD", "HEV", "HYBRID", "HV", "PHEV", "PLUG-IN", "2D", "3D", "4D", "5D", "2DR", "3DR", "4DR", "5DR", "H", "4MATIC", "4MATI", "4MAT", "4M", "XDRIVE", "SDRIVE", "AWD", "4WD", "4X4", "2WD", "FWD", "RWD", "ALL4"]);
-const HYBRID_RX = /^E?-?H[YI]B[A-Z]*$|^E?-?HY$/;   // as in index.html: the register's many spellings of hybrid
-const PLUG_E = /^[A-Z]{1,3}\d{2,4}E$|^\d{3,4}E$/;   // C300E, GLC 350E: the plug-in version (a bare 530E / 500E keeps its name)
-const isNoise = x => NOISE.has(x) || HYBRID_RX.test(x);
-const norm = m => { const t = String(m || "").trim().toUpperCase().replace(/\s+/g, " ").split(" ").map(x => x.replace(/-([A-Z]+)$/, (w, sfx) => isNoise(sfx) ? "" : w)).map((x, i) => PLUG_E.test(x) && (i > 0 || /^[A-Z]/.test(x)) ? x.slice(0, -1) : x); const k = t.filter(x => !isNoise(x)); if (k.length > 1 && k[k.length - 1] === "E" && k[k.length - 2] !== "MACH") k.pop(); return (k.length ? k : t).join(" "); };
+const NOISE = new Set(["HB", "H/B", "HATCHBACK", "SEDAN", "SDN", "SD", "SW", "S/W", "WAGON", "ESTATE", "STATION", "LIFTBACK", "TS", "TOURING", "SPORTS", "HSD", "HEV", "HYBRID", "HV", "PHEV", "PLUG-IN", "2D", "3D", "4D", "5D", "2DR", "3DR", "4DR", "5DR"]);
+const norm = m => { const t = String(m || "").trim().toUpperCase().replace(/\s+/g, " ").split(" "); const k = t.filter(x => !NOISE.has(x)); return (k.length ? k : t).join(" "); };
 const acc = new Map(), wmap = new Map(), prices = [];
 for (const id of SETS) {
   for (let off = 0; ; off += PAGE) {

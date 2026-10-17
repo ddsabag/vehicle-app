@@ -23,6 +23,10 @@ self.addEventListener("install", e => {
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== SHELL && !k.startsWith(DATA)).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
+self.addEventListener("message", e => {   // the page asks after a controller change whether its bundle is the one this worker serves
+  if (!e.data || e.data.t !== "app" || !e.source) return;
+  e.waitUntil(caches.open(SHELL).then(c => c.match(String(e.data.p))).then(h => e.source.postMessage({t: "stale", stale: !h})).catch(() => {}));
+});
 self.addEventListener("fetch", e => {
   const r = e.request;
   if (r.method !== "GET") return;
