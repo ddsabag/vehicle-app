@@ -113,7 +113,7 @@ main h1{font-size:1.9rem;line-height:1.2;text-wrap:balance;margin:10px 0 18px}ma
 const headOf = pages => pages.match(/const head = [\s\S]*?\n/)[0];
 const pagesSrc = fs.readFileSync(".github/scripts/pages.mjs", "utf8");
 const head = new Function("esc", "css", "SITE", `const PLAY = ${JSON.stringify("https://play.google.com/store/apps/details?id=com.ddsabag.pratirechev&referrer=" + encodeURIComponent("utm_source=luchit.app&utm_medium=web&utm_campaign=magazine"))};\n` + headOf(pagesSrc) + "\nreturn head;")(esc, css, SITE);
-const foot = `<p class="muted" style="margin-top:10px">מערכת לוחית. הנתונים מגיעים ממאגרים פתוחים של משרד התחבורה ב-data.gov.il, והאתר אינו קשור למשרד התחבורה. <a href="${SITE}privacy.html">מדיניות פרטיות</a></p></main></body></html>`;
+const foot = `<p class="muted" style="margin-top:10px">מערכת לוחית. הנתונים מגיעים ממאגרים פתוחים של משרד התחבורה ב-data.gov.il, והאתר אינו קשור למשרד התחבורה. <a href="${SITE}privacy.html">מדיניות פרטיות</a></p><script src="/lib/cfb.js" defer></script></main></body></html>`;
 
 let slugs = {}; try { slugs = JSON.parse(fs.readFileSync("model/slugs.json", "utf8")); } catch {}
 const bars = (list, label2) => { const mx = list[0].n; return list.map((x, i) => { const s = label2 && slugFor(x.key); const nm = s ? `<a href="${SITE}model/${s}/">${esc(x.name)}</a>` : esc(x.name); return `<div class="rk"><i>${i + 1}</i><div>${nm}<span class="bar" style="width:${Math.max(4, Math.round(x.n / mx * 100))}%"></span></div><span>${fmt(x.n)}</span></div>`; }).join(""); };
@@ -196,7 +196,7 @@ fs.writeFileSync(`magazine/${slug}/index.html`, body);
 // index, posts list and sitemap
 let posts = []; try { posts = JSON.parse(fs.readFileSync("magazine/posts.json", "utf8")); } catch {}
 posts = posts.filter(p => p.slug !== slug); posts.push({slug, title: art.title, tag: "שוק הרכב", date: published, month: label, lead: art.lead, models: [...new Set([...body.matchAll(/\/model\/([a-z0-9-]+)\//g)].map(x => x[1]))].sort()});
-posts.sort((a, b) => b.slug.localeCompare(a.slug));
+posts.sort((a, b) => b.date.localeCompare(a.date) || b.slug.localeCompare(a.slug));   // newest first, same order as magazine-data.mjs (posts[0] = latest)
 fs.writeFileSync("magazine/posts.json", JSON.stringify(posts, null, 1));
 const idxUrl = SITE + "magazine/";
 fs.writeFileSync("magazine/index.html", `${head("מגזין לוחית: שוק הרכב בישראל", "כתבות חודשיות על שוק הרכב בישראל מנתוני משרד התחבורה: מה נמכר, אילו דגמים ויצרנים מובילים.", idxUrl).replace("</head>", ldTag(crumbLd([["לוחית", SITE], ["מגזין"]])) + "</head>")}<p class="muted"><a href="${SITE}">לוחית</a> › מגזין</p><h1>מגזין לוחית</h1><p class="muted">כתבות על שוק הרכב בישראל, מנתוני משרד התחבורה.</p><div class="card lst">${posts.map(p => `<a href="${SITE}magazine/${p.slug}/"><b>${esc(p.title)}</b><small>${esc(p.tag)} · ${esc(p.month)}</small></a>`).join("")}</div>${subCard}${foot}`);

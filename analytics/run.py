@@ -4,11 +4,20 @@
   python analytics/run.py --gate --send       what the Sunday workflow runs (sends only at 08:00 Jerusalem time)
 """
 import argparse, json, os, sys
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, HERE)
 import analyze, insights, notify, render, sample  # noqa: E402
+
+
+def scheduled_at(cron, now_utc):
+    """The UTC time a "M H * * D" schedule line asked for: its latest occurrence up to now (5 minutes of clock slack). GitHub starts
+    scheduled runs late (20-40 minutes is normal), so the send check uses this instead of the clock. None for any other line."""
+    f = (cron or "").split()
+    try: t = now_utc.replace(hour=int(f[1]), minute=int(f[0]), second=0, microsecond=0)
+    except (IndexError, ValueError): return None
+    return t if t <= now_utc + timedelta(minutes=5) else t - timedelta(days=1)
 
 
 def periods(today):
@@ -50,10 +59,13 @@ def main():
     ap.add_argument("--send", action="store_true"); ap.add_argument("--gate", action="store_true", help="exit quietly unless it is Sunday 08:00 in Jerusalem")
     ap.add_argument("--out", default=os.path.join(HERE, "out")); a_ = ap.parse_args()
     cfg = json.load(open(os.path.join(HERE, "config.json"), encoding="utf-8"))
-    now = datetime.now(ZoneInfo(cfg["timezone"]))
-    if a_.gate and not (now.weekday() == 6 and now.hour == cfg["send_hour_local"]):
-        print(f"not the send time ({now:%A %H:%M} {cfg['timezone']}), nothing to do"); return 0
-    per = periods(now.date())
+    tz = ZoneInfo(cfg["timezone"]); now = datetime.now(tz)
+    # the Sunday workflow has two lines (UTC+2/UTC+3); exactly one of them is 08:xx in Jerusalem, whenever GitHub starts it
+    sch = scheduled_at(os.environ.get("SCHEDULE"), datetime.now(timezone.utc))
+    when = sch.astimezone(tz) if sch else now
+    if a_.gate and not (when.weekday() == 6 and when.hour == cfg["send_hour_local"]):
+        print(f"not the send time ({when:%A %H:%M} {cfg['timezone']}{', scheduled' if sch else ''}), nothing to do"); return 0
+    per = periods(when.date())
     if a_.sample: data = sample.make(per, a_.sample)
     else:
         import ga

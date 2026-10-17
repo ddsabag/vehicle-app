@@ -1,6 +1,7 @@
 name: Weekly analytics report
 # Every Sunday at 08:00 Jerusalem time: pulls the last 7 days from GA4, builds the dashboard, flags anomalies and sends a short brief.
-# Two cron lines because GitHub cron is UTC and Israel switches between UTC+2 and UTC+3: the script itself checks the local hour.
+# Two cron lines because GitHub cron is UTC and Israel switches between UTC+2 and UTC+3: the script checks which line is 08:xx in Jerusalem,
+# by the line's own time (SCHEDULE below), not by the start time, since GitHub starts scheduled runs late. So exactly one line sends.
 # The dashboard holds business numbers, so it is kept as a private run artifact and sent to you, never published on the public site.
 # Needs these repository secrets (see analytics/SETUP.md): GA_PROPERTY_ID, GA_SERVICE_ACCOUNT_JSON, and at least one of
 # TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID, SLACK_WEBHOOK_URL, or SMTP_HOST + EMAIL_TO (+ SMTP_USER, SMTP_PASSWORD, SMTP_FROM, SMTP_PORT).
@@ -32,6 +33,7 @@ jobs:
       - run: pip install -r analytics/requirements.txt
       - name: Build the report
         env:
+          SCHEDULE: ${{ github.event.schedule }}
           GA_PROPERTY_ID: ${{ secrets.GA_PROPERTY_ID }}
           PSI_API_KEY: ${{ secrets.PSI_API_KEY }}
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}

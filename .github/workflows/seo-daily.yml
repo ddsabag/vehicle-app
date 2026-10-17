@@ -1,5 +1,6 @@
 name: SEO daily digest
 # Every day at 05:00 UTC (07:00-08:00 Israel): Search Console impressions, clicks, CTR, position, top queries and pages to Telegram.
+# Then new web mentions of luchit.app from the Google Alerts feed (silent, only when there is one).
 # Scheduled workflows run only from main. Failures are sent to Telegram too, so the run finishes green once the message is delivered.
 on:
   schedule:
@@ -30,3 +31,11 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      - name: New mentions of luchit.app (Google Alerts)
+        # Silent Telegram message only when Google Alerts found a new mention; a broken feed never fails the digest.
+        continue-on-error: true
+        run: node .github/scripts/mentions.mjs
+        env:
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
