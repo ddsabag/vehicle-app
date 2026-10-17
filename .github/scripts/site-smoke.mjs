@@ -46,7 +46,9 @@ async function lookupCheck() {
   const { chromium } = await import("playwright");
   const b = await chromium.launch(); const errs = [];
   try {
-    const page = await (await b.newContext({ viewport: { width: 390, height: 800 }, locale: "he-IL" })).newPage();
+    const ctx = await b.newContext({ viewport: { width: 390, height: 800 }, locale: "he-IL" });
+    await ctx.addInitScript(() => { try { localStorage.setItem("analyticsOff", "1"); } catch {} });   // a test lookup must not count as a real one on /live
+    const page = await ctx.newPage();
     page.on("pageerror", e => errs.push(String(e).slice(0, 120)));
     await page.goto(SITE, { waitUntil: "domcontentloaded", timeout: 30000 });
     await page.fill("#plate", plate); await page.click("#go");

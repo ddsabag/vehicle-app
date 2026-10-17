@@ -1,10 +1,10 @@
-// luchit-live: a private "right now" page for the owner. GET /live is the page, GET /live/data the numbers (GA4 Realtime + Cloudflare Web Analytics).
+// luchit-live: a private business dashboard for the owner. GET /live is the page, GET /live/data the numbers (GA4, Cloudflare Web Analytics, Search Console, Google Play store page).
 // Protected twice: Cloudflare Access in front (route luchit.app/live*), and this Worker verifies the Access JWT itself, so a misconfigured Access policy cannot leak data.
 // Returns only aggregate counts, never anything personal. Secrets: GA_SERVICE_ACCOUNT_JSON, CF_API_TOKEN. Vars: see wrangler.toml.
 const CF_TAG = "9bb0e756882c478a808d95596e0deade";
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-16";   // shown in /live/data so the running version is visible
+const BUILD = "live-17";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -53,12 +53,12 @@ function ilStart(day) {
   return day + "T00:00:00Z";
 }
 const addDays = (day, k) => new Date(Date.parse(day + "T12:00:00Z") + k * 864e5).toISOString().slice(0, 10);
-async function cfQuery(env, day, dim, limit) {
+async function cfQuery(env, day, dim, limit, lastDay = day) {   // Israel days day..lastDay
   const token = cleanToken(env.CF_API_TOKEN), account = String(env.CF_ACCOUNT_ID || "").trim();
   if (!token || !account) return null;
   const dims = dim ? `dimensions{${dim}}` : "";
   const q = `query($acc:String!,$f:AccountRumPageloadEventsAdaptiveGroupsFilter_InputObject){viewer{accounts(filter:{accountTag:$acc}){rumPageloadEventsAdaptiveGroups(filter:$f,limit:${limit},orderBy:[sum_visits_DESC]){count sum{visits} ${dims}}}}}`;
-  const f = { AND: [{ datetime_geq: ilStart(day), datetime_lt: ilStart(addDays(day, 1)) }, { siteTag: CF_TAG }] };
+  const f = { AND: [{ datetime_geq: ilStart(day), datetime_lt: ilStart(addDays(lastDay, 1)) }, { siteTag: CF_TAG }] };
   const r = await fetch("https://api.cloudflare.com/client/v4/graphql", { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body: JSON.stringify({ query: q, variables: { acc: account, f } }) });
   const j = await r.json().catch(() => null);
   if (!r.ok || !j || j.errors) throw new Error("cloudflare " + r.status + " " + JSON.stringify(j?.errors || j).slice(0, 140));
@@ -68,8 +68,8 @@ async function cfVisits(env, day) {
   const g = await cfQuery(env, day, "", 1); if (g == null) return null;
   return g[0] ? { visits: Math.round(g[0].sum.visits), views: g[0].count } : { visits: 0, views: 0 };
 }
-async function cfTop(env, day, dim) {
-  const g = await cfQuery(env, day, dim, 12); if (g == null) return null;
+async function cfTop(env, day, dim, lastDay = day) {
+  const g = await cfQuery(env, day, dim, 12, lastDay); if (g == null) return null;
   return g.map(x => [x.dimensions[dim] || "", Math.round(x.sum.visits), x.count]);
 }
 
@@ -92,6 +92,57 @@ async function collectDaily(env, today, yday) {
   for (const r of evs || []) ev[range(r) === "date_range_0" ? "today" : "yesterday"][r.dimensionValues[0].value] = [Number(r.metricValues[0].value), Number(r.metricValues[1].value)];
   daily = { errors, kpi: kpi ? k : null, events: evs ? ev : null, versions: vers ? vers.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]) : null, sources: src, pages, campaigns: campRows ? campRows.reduce((o, r) => { const v = r.dimensionValues[0].value, i = Number(range(r).slice(-1)); (o[v] ||= [0, 0, 0])[i] = Number(r.metricValues[0].value); return o; }, {}) : null };
   dailyAt = Date.now(); return daily;
+}
+
+// The business view: whole weeks, not "right now". GA4 needs about a day to finish counting, so the week ends yesterday after noon and the day before until then.
+const ilHour = t => Number(new Date(t).toLocaleString("en-US", { timeZone: "Asia/Jerusalem", hour: "2-digit", hourCycle: "h23" }));
+let weekly = null, weeklyAt = 0;
+async function collectWeekly(env, today) {
+  if (weekly && Date.now() - weeklyAt < 900e3) return weekly;
+  const errors = {}, safe = (p, k) => p.catch(e => { errors[k] = String(e.message || e).slice(0, 200); return null; });
+  const end = addDays(today, ilHour(Date.now()) >= 12 ? -1 : -2);
+  const W = [addDays(end, -6), end], P = [addDays(end, -13), addDays(end, -7)], M = [addDays(end, -27), end];
+  const dr = w => ({ startDate: w[0], endDate: w[1] }), only = v => ({ filter: { fieldName: "eventName", stringFilter: { value: v } } }), any = vs => ({ filter: { fieldName: "eventName", inListFilter: { values: vs } } });
+  const histFrom = [addDays(end, -62), "2026-10-04"].sort()[0];   // the growth target is chained from the week of 18-24.10, so keep that week in reach
+  const CW = [addDays(today, -7), addDays(today, -1)];            // Cloudflare counts in real time: the last 7 whole days
+  const [evs, fails, links, hist, app, money, src, pages] = await Promise.all([
+    safe(report(env, { dateRanges: [dr(W), dr(P), dr(M)], dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }, { name: "totalUsers" }], limit: 250 }), "ga4 week"),
+    safe(report(env, { dateRanges: [dr(W), dr(P)], dimensions: [{ name: "customEvent:kind" }], metrics: [{ name: "eventCount" }], dimensionFilter: only("lookup_failed"), limit: 20 }), "ga4 failures"),
+    safe(report(env, { dateRanges: [dr(W), dr(P)], dimensions: [{ name: "eventName" }, { name: "customEvent:kind" }, { name: "customEvent:via" }], metrics: [{ name: "eventCount" }], dimensionFilter: any(["link_landing", "link_open", "referral_open"]), limit: 200 }), "ga4 shared links"),
+    safe(report(env, { dateRanges: [{ startDate: histFrom, endDate: end }], dimensions: [{ name: "date" }], metrics: [{ name: "eventCount" }], dimensionFilter: only("car_lookup"), limit: 1000 }), "ga4 history"),
+    safe(report(env, { dateRanges: [dr(W), dr(P), dr(M)], metrics: [{ name: "newUsers" }, { name: "activeUsers" }], dimensionFilter: { filter: { fieldName: "platform", stringFilter: { value: "Android" } } } }), "ga4 app"),
+    safe(report(env, { dateRanges: [{ startDate: "2026-10-01", endDate: "today" }], dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: any(["b2b_lead_submit", "newsletter_confirm"]) }), "ga4 money"),
+    safe(cfTop(env, CW[0], "refererHost", CW[1]), "site week sources"), safe(cfTop(env, CW[0], "requestPath", CW[1]), "site week pages")]);
+  const ri = r => { const v = r.dimensionValues[r.dimensionValues.length - 1].value; return /^date_range_\d$/.test(v) ? Number(v.slice(-1)) : 0; };
+  const ev = [{}, {}, {}];
+  for (const r of evs || []) ev[ri(r)][r.dimensionValues[0].value] = [Number(r.metricValues[0].value), Number(r.metricValues[1].value)];
+  const fk = [{}, {}];
+  for (const r of fails || []) fk[ri(r)][r.dimensionValues[0].value] = Number(r.metricValues[0].value);
+  // arrivals from a shared report: web landings and app opens whose link carried s=img|full|pdf|txt|qr (campaign links are counted apart)
+  const shared = [{ web: 0, app: 0, by: {} }, { web: 0, app: 0, by: {} }];
+  for (const r of links || []) {
+    const [name, kind, via] = r.dimensionValues.map(x => x.value), c = Number(r.metricValues[0].value), o = shared[ri(r)];
+    if (kind === "campaign" || !via || via === "none" || via === "(not set)") continue;
+    o[name === "link_landing" ? "web" : "app"] += c; o.by[via] = (o.by[via] || 0) + c;
+  }
+  const appU = [0, 1, 2].map(i => { const r = (app || []).find(x => ri(x) === i); return r ? { newUsers: Number(r.metricValues[0].value), activeUsers: Number(r.metricValues[1].value) } : { newUsers: 0, activeUsers: 0 }; });
+  const m = {}; for (const r of money || []) m[r.dimensionValues[0].value] = Number(r.metricValues[0].value);
+  weekly = { errors, end, W, P, M, CW, ev: evs ? ev : null, fails: fails ? fk : null, shared: links ? shared : null,
+    days: hist ? Object.fromEntries(hist.map(r => { const d = r.dimensionValues[0].value; return [d.slice(0, 4) + "-" + d.slice(4, 6) + "-" + d.slice(6), Number(r.metricValues[0].value)]; })) : null,
+    app: app ? appU : null, money: money ? { leads: m.b2b_lead_submit || 0, subscribers: m.newsletter_confirm || 0 } : null, sources: src, pages };
+  weeklyAt = Date.now(); return weekly;
+}
+
+// Is the app public on Google Play? The store page answers 404 until the app is published to everyone.
+let play = null, playAt = 0;
+async function playStatus() {
+  if (play && Date.now() - playAt < 6 * 3600e3) return play;
+  try {
+    const r = await fetch("https://play.google.com/store/apps/details?id=com.ddsabag.pratirechev&hl=he", { redirect: "manual", cf: { cacheTtl: 3600 } });
+    if (r.status === 200) play = (await r.text()).includes("com.ddsabag.pratirechev") ? "live" : play;
+    else if (r.status === 404) play = "review";
+  } catch {}
+  playAt = Date.now(); return play;
 }
 
 const SC = "sc-domain:luchit.app", SCOPE_SC = "https://www.googleapis.com/auth/webmasters.readonly";
@@ -140,12 +191,13 @@ async function collect(env) {
   const today = ilDay(Date.now()), yday = addDays(today, -1);
   const errors = {};
   const safe = (p, k) => p.catch(e => { errors[k] = String(e.message || e).slice(0, 200); return null; });
-  const [series, events, vers, vToday, vYday, dly, sc] = await Promise.all([
+  const [series, events, vers, vToday, vYday, dly, sc, wk, ps] = await Promise.all([
     safe(realtime(env, { dimensions: [{ name: "minutesAgo" }], metrics: [{ name: "eventCount" }] }), "series"),
     safe(realtime(env, { dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }], limit: 40 }), "events"),
     safe(realtime(env, { dimensions: [{ name: "appVersion" }], metrics: [{ name: "activeUsers" }], limit: 6 }), "versions"),
-    safe(cfVisits(env, today), "visitsToday"), safe(cfVisits(env, yday), "visitsYesterday"), safe(collectDaily(env, today, yday), "daily"), safe(collectSeo(env, today), "seo")]);
-  Object.assign(errors, dly?.errors || {}, sc?.errors || {});
+    safe(cfVisits(env, today), "visitsToday"), safe(cfVisits(env, yday), "visitsYesterday"), safe(collectDaily(env, today, yday), "daily"), safe(collectSeo(env, today), "seo"),
+    safe(collectWeekly(env, today), "weekly"), playStatus()]);
+  Object.assign(errors, dly?.errors || {}, sc?.errors || {}, wk?.errors || {});
   const perMin = Array(30).fill(0);
   for (const r of series || []) perMin[29 - Number(r.dimensionValues[0].value)] = Number(r.metricValues[0].value);
   const quota = Object.values(errors).some(m => /429|quota|Exhausted/i.test(m));
@@ -153,182 +205,253 @@ async function collect(env) {
   const prev = cache || {};
   const activeUsers = vers ? vers.reduce((t, r) => t + Number(r.metricValues[0].value || 0), 0) : (quota ? prev.activeUsers ?? null : null);
   cache = { build: BUILD, errors: quota ? { ga4: "מכסת Google מלאה, מוצגים נתונים אחרונים ויתעדכנו בעוד כמה דקות" } : errors, stale: quota, at: quota && prev.at ? prev.at : new Date().toISOString(), activeUsers, perMinute: series ? perMin : (quota ? prev.perMinute ?? null : null),
-    events: events ? events.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]).sort((a, b) => b[1] - a[1]) : (quota ? prev.events ?? null : null), versions: vers ? vers.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]) : (quota ? prev.versions ?? null : null), visitsToday: vToday?.visits ?? null, visitsYesterday: vYday?.visits ?? null, viewsToday: vToday?.views ?? null, viewsYesterday: vYday?.views ?? null, seo: sc ? { ...sc, errors: undefined } : (quota ? prev.seo ?? null : null), daily: dly ? { ...dly, errors: undefined } : (quota ? prev.daily ?? null : null) };
+    events: events ? events.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]).sort((a, b) => b[1] - a[1]) : (quota ? prev.events ?? null : null), versions: vers ? vers.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]) : (quota ? prev.versions ?? null : null), visitsToday: vToday?.visits ?? null, visitsYesterday: vYday?.visits ?? null, viewsToday: vToday?.views ?? null, viewsYesterday: vYday?.views ?? null, seo: sc ? { ...sc, errors: undefined } : (quota ? prev.seo ?? null : null), daily: dly ? { ...dly, errors: undefined } : (quota ? prev.daily ?? null : null),
+    weekly: wk ? { ...wk, errors: undefined } : (quota ? prev.weekly ?? null : null), play: ps };
   cacheAt = Date.now(); return cache;
 }
 
-const PAGE = `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><link rel="icon" type="image/png" href="https://luchit.app/icon-192.png"><link rel="apple-touch-icon" href="https://luchit.app/apple-touch-icon.png"><title>לוחית, מצב עכשיו</title>
-<style>:root{--bg:#f4f6fa;--card:#fff;--fg:#151a24;--muted:#5d6676;--line:#dfe4ec;--accent:#2457c5;--ok:#1a7f4b;--bad:#b3261e;--warn:#a15c00;--badbg:#fdecea}@media(prefers-color-scheme:dark){:root{--warn:#e5a13a;--bg:#0e121a;--card:#171d28;--fg:#e9edf3;--muted:#98a2b4;--line:#262e3c;--accent:#7ea3f2;--ok:#5bd08a;--bad:#ff8a80;--badbg:#3a1f1f}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,"Assistant",sans-serif;line-height:1.5}main{max-width:1120px;margin:0 auto;padding:20px}h1{font-size:1.15rem;margin:0}h2{font-size:.85rem;margin:0 0 6px;color:var(--muted);font-weight:600}.top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px}.muted{color:var(--muted);font-size:.8rem}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:10px}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px;align-items:start}.cols .card{margin:0}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0;margin-bottom:8px}.grid .card{margin:0}
-.num{font-size:1.8rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2}.lbl{font-size:.78rem;color:var(--muted)}.sub{font-size:.72rem;color:var(--muted);margin-top:2px}.bad .num{color:var(--bad)}.bad{background:var(--badbg)}
-ul{list-style:none;margin:0;padding:0}li{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-top:1px solid var(--line)}li:first-child{border-top:0}li b{font-variant-numeric:tabular-nums}.dot{color:var(--ok)}.brand{display:flex;align-items:center;gap:10px}.brand img{width:36px;height:36px;border-radius:9px;display:block}
-.live{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin-inline-end:5px;animation:pulse 2s infinite}
-@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(30,160,90,.55)}70%{box-shadow:0 0 0 7px rgba(30,160,90,0)}100%{box-shadow:0 0 0 0 rgba(30,160,90,0)}}
-@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-@keyframes glow{from{background:rgba(36,87,197,.16)}to{background:transparent}}
-@keyframes bump{40%{transform:scale(1.1)}}
-@keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
-.fl li.new{animation:rise .5s ease both,glow 2.5s ease-out}.bump{animation:bump .45s ease}svg rect{transform-box:fill-box;transform-origin:bottom;animation:grow .6s ease both}.fl .ft{font-variant-numeric:tabular-nums;font-weight:600;color:var(--fg);margin-inline-end:6px;white-space:nowrap}
-@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}details summary{cursor:pointer;font-size:.8rem;color:var(--muted)}.axis{display:flex;justify-content:space-between;font-size:.7rem;color:var(--muted);margin-top:2px}
-table.q{width:100%;border-collapse:collapse;font-size:.85rem}.q th{font-weight:500;color:var(--muted);font-size:.72rem;text-align:start;padding:2px 6px 4px}.q th.n,.q td.n{text-align:center;width:4.6rem}.q td{padding:5px 6px;border-top:1px solid var(--line)}.q td.n{text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap}.q td.w{word-break:break-word}.fl .lv{color:var(--muted)}.fl .lv.alert{color:var(--bad)}.fl small{color:var(--muted);white-space:nowrap}.tg{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}.tgc .lbl{display:flex;justify-content:space-between;gap:8px}.tgc .st{font-weight:700}.tgc .st.ok{color:var(--ok)}.tgc .st.warn{color:var(--warn)}.tgc .st.bad{color:var(--bad)}.bar{height:8px;background:var(--line);border-radius:999px;overflow:hidden;margin:8px 0 4px}.bar i{display:block;height:100%;border-radius:999px;background:var(--ok)}.bar i.warn{background:var(--warn)}.bar i.bad{background:var(--bad)}.hint{font-size:.75rem;color:var(--muted);margin:0 0 6px}.sec{font-size:.8rem;color:var(--accent);margin:14px 0 6px;font-weight:700}.pill{display:inline-block;background:var(--line);border-radius:999px;padding:2px 10px;font-size:.8rem;margin:0 0 4px 6px}.adv{font-size:.76rem;margin:8px 0 0;padding:6px 9px;border-radius:8px;background:var(--line);line-height:1.55}.adv b{font-weight:700}.adv.ok{border-inline-start:4px solid var(--ok)}.adv.warn{border-inline-start:4px solid var(--warn)}.adv.bad{border-inline-start:4px solid var(--bad)}.adv.info{border-inline-start:4px solid var(--muted)}.advs{display:grid;gap:6px;margin:6px 0 10px}.ex{display:block;font-size:.7rem;color:var(--muted);font-weight:400;line-height:1.4}.sec+.advs{margin-top:0}</style></head><body><main>
-<div class="top"><div class="brand"><img src="https://luchit.app/icon-192.png" alt="לוחית" width="36" height="36"><h1>לוחית · מצב עכשיו</h1></div><div class="muted"><span class="live"></span> עודכן <span id="t">טוען</span> · <span id="ago"></span></div></div>
-<h2 class="sec">מבזקים מהסוכנים (אותן הודעות שמגיעות לטלגרם, בלי הדוח השבועי)</h2>
-<div class="card fl"><ul id="fl"></ul></div>
-<details class="card"><summary>מה כל סוג מבזק אומר ומה לעשות</summary><ul style="margin-top:6px" id="fkx"></ul><p class="hint">נקודה מלאה (●) היא התראה שדורשת תשומת לב. נקודה ריקה (○) היא מידע בלבד. אם יש התראה, אני רואה אותה ומטפל בשגרה; אפנה אליך רק כשזה נוגע לאפליקציה, לסודות או להחלטה שלך.</p></details>
-<h2 class="sec">יעדים לחודש הקרוב: מול ביצוע</h2>
-<div class="tg" id="tg"></div>
-<p class="muted" id="tgn"></p>
-<h2 class="sec">עכשיו (30 הדקות האחרונות)</h2>
-<div class="grid">
-<div class="card"><div class="lbl">פעילים באפליקציה</div><div class="num" id="a">-</div><div class="sub">משתמשים ייחודיים</div></div>
-<div class="card"><div class="lbl">בדיקות רכב</div><div class="num" id="l">-</div><div class="sub">מספר בדיקות</div></div>
-<div class="card" id="pc"><div class="lbl">בעיות (בדיקות שנכשלו, איטיות וקריסות)</div><div class="num" id="p">-</div><div class="sub" id="ps">כשלים, האטות וקריסות</div></div>
-<div class="card"><div class="lbl">פעולות באפליקציה</div><div class="num" id="ac">-</div><div class="sub">סך אירועים (כמות, לא דקות)</div></div></div>
-<div class="advs" id="adv-now"></div>
-<div class="cols"><div class="card"><h2>פעילות לפי דקה</h2><p class="hint">כל עמודה היא דקה: ככל שהיא גבוהה יותר, בוצעו בה יותר פעולות באפליקציה.</p><svg id="s" viewBox="0 0 300 64" width="100%" height="90" preserveAspectRatio="none" role="img" aria-label="פעילות לפי דקה"></svg><div class="axis"><span>עכשיו</span><span>לפני 30 דקות</span></div></div>
-<div class="card"><h2>מה משתמשים עושים באפליקציה</h2><p class="hint">כמה פעמים בוצעה כל פעולה ב-30 הדקות האחרונות (פעולה = לחיצה או מעבר, לא משתמש).</p><ul id="e"></ul></div></div>
-<h2 class="sec">היום עד עכשיו, מול אתמול</h2>
-<div class="grid" id="dg"></div>
-<div class="advs" id="adv-today"></div>
-<p class="muted" id="dnote">נתוני היום מגוגל אנליטיקס מתעדכנים בעיכוב של שעה עד כמה שעות, ולכן יכולים להיות נמוכים מהמציאות.</p>
-<div class="cols"><div class="card"><h2>מה עשו המשתמשים היום</h2><p class="hint">כמה משתמשים שונים ביצעו כל פעולה. מי שרכש עבר את כל השלבים מלמעלה למטה.</p><ul id="fn"></ul><div id="adv-fn"></div></div>
-<div class="card" id="vc"><h2>איזו גרסה של האפליקציה בשימוש היום</h2><p class="hint">כמה משתמשים פעילים בכל גרסה. עוזר לראות כמה עברו לגרסה החדשה.</p><div id="vv"></div><div id="adv-vv"></div></div></div>
-<h2 class="sec">האתר luchit.app (Cloudflare, כל מקורות התנועה)</h2>
-<div class="grid"><div class="card"><div class="lbl">ביקורים היום</div><div class="num" id="v">-</div><div class="sub">אתמול: <span id="y">-</span></div></div>
-<div class="card"><div class="lbl">צפיות בדפים היום</div><div class="num" id="pv">-</div><div class="sub">אתמול: <span id="pvy">-</span></div></div></div>
-<div class="advs" id="adv-web"></div>
-<div class="cols"><div class="card"><h2>מאיפה הגיעו לאתר היום</h2><p class="hint">כל ביקור נספר לפי המקום שממנו הגיע: גוגל, קישור שנשלח, או כניסה ישירה לכתובת.</p><ul id="so"></ul></div>
-<div class="card"><h2>כניסות מיוטיוב ומטיקטוק</h2><p class="hint">כמה פעמים נכנסו לאתר דרך הקישור בערוץ היוטיוב ובסרטונים, ודרך הקישור בביו של עמוד הטיקטוק של לוחית. נספרים רק מי שהמדידה אצלו פעילה, ולכן המספר נמוך מהמציאות. הספירה מתחילה מהרגע שהגרסה החדשה של האתר פורסמה.</p><div id="cm"></div></div>
-<div class="card" id="sc"><h2>עמוד הטיקטוק של לוחית</h2><p class="hint">מספרים ציבוריים מתוך TikTok Analytics, מוזנים פעם בשבוע (אין API חינמי לעמוד חדש). בסוגריים: השינוי מול ההזנה הקודמת.</p><ul id="sv"></ul></div>
-<div class="card"><h2>הדפים שהכי ראו באתר היום</h2><p class="hint">"/" הוא עמוד הבית.</p><ul id="pg"></ul></div></div>
-<h2 class="sec">SEO, חיפוש בגוגל (Search Console)</h2>
-<p class="muted" id="seonote">טוען</p>
-<div class="grid" id="sg"></div>
-<div class="advs" id="adv-seo"></div>
-<div class="cols"><div class="card"><h2>קליקים מגוגל ב-28 ימים</h2><p class="hint">כל עמודה היא יום. עמודה גבוהה = יום עם יותר קליקים.</p><svg id="sd" viewBox="0 0 280 64" width="100%" height="90" preserveAspectRatio="none" role="img" aria-label="קליקים מגוגל לפי יום"></svg><div class="axis"><span>היום</span><span>לפני 28 ימים</span></div></div>
-<div class="card"><h2>דפי האתר שגוגל מציג (28 ימים)</h2><p class="hint">לכל דף: כמה לחצו עליו מגוגל וכמה פעמים הוא הופיע בתוצאות.</p><ul id="sp"></ul></div></div>
-<div class="cols"><div class="card"><h2>מה הקלידו בגוגל כדי להגיע אלינו (28 ימים)</h2><p class="hint">"לחצו עלינו" = כמה לחצו על האתר שלנו. "ראו אותנו" = כמה פעמים האתר הופיע להם בתוצאות. "מקום" = איפה הופענו בתוצאות (1 הכי גבוה).</p><div id="sq"></div></div>
-<div class="card"><h2>חיפושים שכמעט הגענו בהם לצמרת</h2><p class="hint">חיפושים שבהם האתר מופיע בגוגל במקום 8 עד 20 (עמוד ראשון הוא מקום 1 עד 10). שיפור קטן בעמוד יכול להעלות אותנו ולהביא קליקים. מסודר לפי כמה אנשים ראו אותנו.</p><div id="ss"></div></div></div>
-<div class="card"><h2>מפת האתר שהוגשה לגוגל</h2><p class="hint">רשימת הדפים שביקשנו מגוגל לסרוק. שגיאות או אזהרות כאן אומרות שדף לא נקרא כראוי.</p><ul id="sm"></ul><div id="adv-sm"></div></div>
-<details class="card"><summary>איך לקרוא את נתוני החיפוש בגוגל</summary><ul style="margin-top:6px"><li><span>חשיפות</span><span>כמה פעמים האתר הופיע בתוצאות</span></li><li><span>קליקים</span><span>כמה לחצו מהתוצאות</span></li><li><span>אחוז הקליקה (CTR)</span><span>מכל מי שראה אותנו בתוצאות, כמה אחוז לחצו; גבוה עדיף</span></li><li><span>מיקום ממוצע</span><span>מקום בתוצאות: 1 הכי גבוה, 10 סוף העמוד הראשון; נמוך עדיף</span></li></ul></details>
-<details class="card"><summary>פעילות טכנית של האפליקציה (לא חשוב ליום יום, למקרה שמשהו נראה חריג)</summary><ul id="tec" style="margin-top:6px"></ul></details>
-<p class="muted" id="er" style="color:var(--bad);direction:rtl;text-align:right"></p><p class="muted">נתוני החיפוש בגוגל (Search Console) מתעכבים 2 עד 3 ימים, וקריסות ב-Play ביום או יומיים, ולכן הם לא כאן. הדף מתרענן כל דקה.</p></main>
-<script>
-const N={"car_lookup":"בדיקת רכב לפי מספר","tab_view":"מעבר בין לשוניות","share":"שיתוף תוצאה","compare_open":"פתיחת השוואת רכבים","car_save":"שמירת רכב ברשימה","link_out":"לחיצה על קישור חיצוני","alerts_toggle":"הדלקה או כיבוי של התראות","alert_kind":"בחירת סוג התראה","upgrade_open":"פתיחת מסך המנוי (PRO)","upgrade_purchase_start":"התחלת רכישה","upgrade_purchase_done":"רכישה הושלמה","trial_start":"התחלת ניסיון חינם","trial_end_shown":"הודעה על סוף הניסיון","voice_search":"חיפוש בקול","bulk_check":"בדיקת כמה רכבים יחד","camera_scan":"סריקת לוחית במצלמה","buy_card_open":"פתיחת כרטיס בלשונית קנייה","settlement_shown":"הצגת הסדר פשרה","checklist_pdf":"הורדת רשימת בדיקה","doc_add":"הוספת מסמך לרכב","simple_view":"מעבר לתצוגה פשוטה","simple_more":"הרחבה בתצוגה פשוטה","search_no_result":"חיפוש דגם בלי תוצאה","lookup_from_cache":"בדיקה שנטענה מהזיכרון (בלי רשת)","user_screenshot":"צילום מסך של האפליקציה","update_prompt":"הצעה לעדכן גרסה","update_start":"התחלת עדכון גרסה","update_done":"עדכון גרסה הושלם","first_open":"התקנה חדשה (פתיחה ראשונה)","notification_open":"פתיחת התראה","notification_receive":"קבלת התראה","web_hint_click":"לחיצה על הצעה להתקין מהאתר"};
-const BAD={lookup_failed:"בדיקה שנכשלה",lookup_slow:"בדיקה איטית",lookup_abort:"בדיקה שבוטלה",lookup_timeout:"בדיקה שפגה",app_exception:"קריסה",crash:"קריסה"};
-const TEC={user_engagement:"אירועי שימוש פעיל (כמות אירועים, לא דקות)",screen_view:"מעברים בין מסכים (כמות)",session_start:"כניסות חדשות לאפליקציה (כמות)",app_update:"עדכון האפליקציה במכשיר",os_update:"עדכון מערכת ההפעלה",app_clear_data:"ניקוי נתוני אפליקציה",app_remove:"הסרת האפליקציה",firebase_campaign:"הגעה מקמפיין",app_store_refund:"החזר כספי",in_app_purchase:"רכישה בחנות"};
-const EX={"car_lookup":"הפעולה המרכזית: הקלידו לוחית וקיבלו תוצאה. זה המדד הכי ישיר לשימוש אמיתי. המלצה: לעקוב אחרי המגמה, לא אחרי מספר בודד.","tab_view":"מעבר בין לשוניות במסך התוצאה (למשל קנייה או תחזוקה). מראה מה מעניין אנשים. המלצה: לשים את הדברים החשובים בלשוניות הפופולריות.","share":"שיתוף תוצאה. כל שיתוף מביא אנשים חדשים בלי עלות, ולכן זה אחד המדדים החשובים. המלצה: לצפות לפחות ל-5% מהבודקים.","compare_open":"פתיחת השוואה בין רכבים. סימן שמשתמש שוקל לקנות. המלצה: אין צורך בפעולה, מדד עניין.","car_save":"שמירת רכב ברשימה. סימן שהמשתמש מתכוון לחזור, ושהתראות רלוונטיות לו. המלצה: מדד טוב לשימור.","link_out":"לחיצה על קישור חיצוני (דף יבואן או משרד התחבורה). מעט מזה זה בסדר. המלצה: אם קישורים נשברים אצלי יתגלה בבדיקות הקישורים.","alerts_toggle":"שינוי הגדרת התראות. הדלקה היא אמון באפליקציה. המלצה: אם יש הרבה כיבויים, לבדוק אם ההתראות מציקות.","alert_kind":"בחירת סוג התראה (טסט, ריקול ועוד). מראה איזו התראה אנשים רוצים. המלצה: להרחיב את הסוג הפופולרי.","upgrade_open":"צפייה במסך המנוי. כרגע הכול חינם, אז זה רק מדד עניין. המלצה: אין צורך בפעולה לפני שמפעילים תשלום.","upgrade_purchase_start":"התחלת רכישה. עדיין לא פעילה בתשלום, ולכן אין לצפות לנתון.","upgrade_purchase_done":"רכישה שהושלמה. עדיין לא פעילה בתשלום.","trial_start":"התחלת ניסיון חינם. יופיע רק כשהמנוי יופעל.","trial_end_shown":"הודעה שהניסיון החינמי נגמר. יופיע רק כשהמנוי יופעל.","voice_search":"חיפוש בקול. מראה אם הפיצר שימושי. המלצה: אם אין שימוש לאורך חודש, אפשר להקטין את הבולטות שלו.","bulk_check":"בדיקה של כמה לוחיות יחד. בדרך כלל סוחרים או בעלי צי. המלצה: מועמד לפיצ'ר מנוי עסקי.","camera_scan":"סריקת לוחית במצלמה. חוסך הקלדה. המלצה: אם הסריקה נפוצה, כדאי לשפר את הדיוק שלה.","buy_card_open":"פתיחת כרטיס בלשונית קנייה (עזרה בקנייה). המלצה: מדד לעניין בקנייה, בסיס להחלטות מנוי.","settlement_shown":"הצגת הסדר פשרה לרכב. מראה שהמידע הזה מגיע לאנשים. המלצה: אין צורך בפעולה.","checklist_pdf":"הורדת רשימת בדיקה לקנייה. המלצה: מדד לשימוש אמיתי בקנייה.","doc_add":"הוספת מסמך לרכב (למשל רישיון). המלצה: מדד לשימור ארוך טווח.","simple_view":"מעבר לתצוגה פשוטה. אם הרבה עוברים, התצוגה הרגילה אולי עמוסה. המלצה: לעקוב אחרי המגמה.","simple_more":"הרחבה בתצוגה הפשוטה. מראה שאנשים רוצים פרטים נוספים. המלצה: אין צורך בפעולה.","search_no_result":"חיפוש דגם שלא נמצא. חור בכיסוי של המאגר. המלצה: אם אותו דגם חוזר, אני מוסיף אותו; זה נבדק בדוח השבועי.","lookup_from_cache":"בדיקה שנטענה מהזיכרון בלי רשת. טוב: מהר ולא תלוי במשרד התחבורה. המלצה: אין צורך בפעולה.","user_screenshot":"צילום מסך של האפליקציה. סימן שמשהו שווה לשמור או לשלוח. המלצה: להפוך את זה לשיתוף בלחיצה.","update_prompt":"הצעה לעדכן את האפליקציה. המלצה: אם הרבה רואים ולא מעדכנים, לבדוק את הנוסח.","update_start":"התחלת עדכון גרסה. המלצה: אין צורך בפעולה.","update_done":"עדכון גרסה הושלם. המלצה: אין צורך בפעולה.","first_open":"התקנה חדשה (פתיחה ראשונה). המדד הכי ישיר לצמיחה. המלצה: לעקוב אחרי המגמה השבועית.","notification_open":"פתיחת התראה שנשלחה למשתמש. מראה שההתראות רלוונטיות. המלצה: אין צורך בפעולה.","notification_receive":"קבלת התראה במכשיר. המלצה: אם יש הרבה קבלות ומעט פתיחות, ההתראות לא מעניינות.","web_hint_click":"לחיצה על הצעה להתקין את האפליקציה מהאתר. מראה כמה מבקרי האתר עוברים לאפליקציה. המלצה: אין צורך בפעולה."};
-const EXB={lookup_failed:"בדיקה שנכשלה: לא הוחזרה תוצאה. לרוב תקלה רגעית אצל משרד התחבורה. המלצה: אם זה חוזר, תגיד לי ואבדוק.",lookup_slow:"בדיקה שלקחה יותר מדי זמן. המלצה: אם רוב הבדיקות איטיות, מקור הנתונים עמוס.",lookup_abort:"בדיקה שהמשתמש ביטל לפני שנגמרה, בדרך כלל כי חיכה יותר מדי. המלצה: נבדק יחד עם בדיקות איטיות.",lookup_timeout:"בדיקה שנעצרה כי המקור לא ענה בזמן. המלצה: אם חוזר, תגיד לי.",app_exception:"קריסה של האפליקציה. המלצה: אם יש כמה, תגיד לי ואבדוק ב-Crashlytics.",crash:"קריסה של האפליקציה. המלצה: אם יש כמה, תגיד לי ואבדוק ב-Crashlytics."};
-const EXT={user_engagement:"נספר בכל פעם שהאפליקציה בחזית. לא מעניין לבדו.",screen_view:"כמות מעברים בין מסכים. לא מעניין לבדו.",session_start:"כל כניסה חדשה לאפליקציה.",app_update:"אפליקציה שהתעדכנה במכשיר. סימן שמשתמשים עוברים לגרסה החדשה.",os_update:"עדכון מערכת ההפעלה במכשיר. אין צורך בפעולה.",app_clear_data:"משתמש ניקה את נתוני האפליקציה. מעט זה רגיל; אם יש הרבה, ייתכן שמשהו לא עובד להם.",app_remove:"הסרת האפליקציה. אם יש עלייה, לבדוק אם יצאה גרסה בעייתית.",firebase_campaign:"הגעה מקמפיין. מועיל כשיש קמפיינים.",app_store_refund:"החזר כספי. לא צפוי כרגע.",in_app_purchase:"רכישה בחנות. לא צפוי כרגע."};
-const FKX={data:"בדיקת נתוני משרד התחבורה. אם יש התראה, ייתכן שנתון השתנה או נעלם. אני בודק ומתקן בשגרה.",infra:"בריאות התשתית (שרתים ותחנות האתר). התראה אומרת שמשהו לא זמין. אני בודק אם זה זמני.",content:"מאמרי מגזין ודפי אתר שפורסמו או נעצרו. המלצה: אין צורך בפעולה.",market:"שינויים בשוק (מחירים והיצע דגמים). מידע למגזין ולכרטיס השוק.",release:"גרסה שפורסמה או נעצרה. התראה כאן נוגעת לאפליקציה, ואז אפנה אליך.",experiment:"ניסוי A/B על טקסטים באפליקציה. הודעה מציינת שניסוי הסתיים עם תוצאה.",reviews:"ביקורות והאיכות בחנות Google Play. התראה אומרת על קריסות או ביקורת קשה."};
-const FK={data:"נתונים",infra:"תשתית",content:"תוכן",market:"שוק",release:"שחרור",experiment:"ניסוי",reviews:"ביקורות"};
-const ADV=(c,w,r)=>'<div class="adv '+c+'"><b>מה זה:</b> '+w+' <b>המלצה:</b> '+r+'</div>';
-const pr=x=>(Math.round(x*10)/10).toLocaleString("en-US")+"%";
-const $=i=>document.getElementById(i),n=x=>x==null?"-":Number(x).toLocaleString("en-US"),esc=t=>String(t).replace(/[<>&"]/g,"");
-const row=(k,v,m)=>{const x=EX[k]||EXB[k]||EXT[k];return "<li><span>"+esc(m||k)+(x?'<span class="ex">'+esc(x)+"</span>":"")+"</span><b>"+n(v)+"</b></li>"};
+const PAGE = `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><link rel="icon" type="image/png" href="https://luchit.app/icon-192.png"><link rel="apple-touch-icon" href="https://luchit.app/apple-touch-icon.png"><title>לוחית, מצב העסק</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--fg:#141922;--muted:#5b6474;--line:#e2e6ec;--soft:#f1f3f6;--accent:#2f5bb7;--ok:#1d7a4c;--ok-bg:#e7f3ec;--warn:#985a00;--warn-bg:#fbf0de;--bad:#ad2f29;--bad-bg:#fbe9e8;--nt:#626b7b;--nt-bg:#eef0f3}
+@media(prefers-color-scheme:dark){:root{--bg:#0f131a;--card:#171c25;--fg:#e8ecf2;--muted:#a0a9b8;--line:#283142;--soft:#1d2330;--accent:#8fadf2;--ok:#6fcb97;--ok-bg:#15281e;--warn:#e3a957;--warn-bg:#2b2316;--bad:#f2908a;--bad-bg:#2f1c1c;--nt:#a0a9b8;--nt-bg:#222a36}}
+*{box-sizing:border-box}html{direction:rtl}body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,"Assistant","Segoe UI",sans-serif;line-height:1.5;text-align:right}
+main{max-width:1280px;margin:0 auto;padding:20px 24px 32px}h1,h2,h3,p{margin:0}a{color:var(--accent)}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}.brand{display:flex;align-items:center;gap:10px}.brand img{width:36px;height:36px;border-radius:9px;display:block}.brand h1{font-size:1.15rem}
+.meta{font-size:.82rem;color:var(--muted)}.meta .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--nt);margin-inline-end:6px;vertical-align:middle}.meta.stale{color:var(--warn)}.meta.stale .dot{background:var(--warn)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0}
+h2{font-size:.95rem;font-weight:700;margin-bottom:10px}
+.s-ok{--s:var(--ok);--sb:var(--ok-bg)}.s-warn{--s:var(--warn);--sb:var(--warn-bg)}.s-bad{--s:var(--bad);--sb:var(--bad-bg)}.s-early,.s-nodata,.s-cal,.s-wait{--s:var(--nt);--sb:var(--nt-bg)}
+.chip{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;font-size:.76rem;font-weight:600;color:var(--s);background:var(--sb);border-radius:999px;padding:2px 10px 2px 9px}.chip i{font-style:normal;font-weight:700}
+.r1{display:grid;grid-template-columns:2fr 1fr;gap:14px}
+.verdict{border-inline-start:5px solid var(--s)}.verdict .vh{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}.verdict .vh span.lbl{font-size:.8rem;color:var(--muted)}
+.verdict .vs{font-size:1.3rem;font-weight:600;line-height:1.55}.verdict .vn{font-size:.8rem;color:var(--muted);margin-top:10px}
+.att ol{margin:0;padding:0;list-style:none;display:grid;gap:8px}.att li{display:flex;gap:8px;align-items:flex-start;font-size:.9rem}.att li .chip{flex:none}.att .none{color:var(--muted);font-size:.88rem}
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:14px}
+.tile{border-inline-start:4px solid var(--s);display:flex;flex-direction:column;gap:4px}.tile .th{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}.tile h3{font-size:.9rem;font-weight:600;color:var(--muted)}
+.tile .big{font-size:2.6rem;font-weight:700;line-height:1.15;font-variant-numeric:tabular-nums;margin:4px 0 2px}.tile .big small{font-size:.95rem;font-weight:500;color:var(--muted);margin-inline-start:6px}
+.tile p{font-size:.86rem}.tile p.m{color:var(--muted)}.tile .foot{margin-top:auto;padding-top:8px;font-size:.74rem;color:var(--muted)}
+.mini{display:inline-flex;align-items:center;gap:4px;font-size:.74rem;font-weight:600;color:var(--s)}
+.up{color:var(--ok)}.down{color:var(--bad)}.flat{color:var(--muted)}
+.r3{display:grid;grid-template-columns:1fr 2fr;gap:14px;margin-top:14px}
+.ms{list-style:none;margin:0;padding:0;display:grid;gap:14px}.ms li{display:grid;gap:4px}.ms .k{font-size:.8rem;color:var(--muted)}.ms .v{font-size:.95rem;font-weight:600}
+.bar{height:8px;background:var(--soft);border-radius:999px;overflow:hidden}.bar i{display:block;height:100%;background:var(--accent);border-radius:999px}
+.trend svg{width:100%;height:auto;display:block}.trend .t-lbl{fill:var(--muted);font-size:12px}.trend .t-val{fill:var(--fg);font-size:13px;font-weight:600}.trend .t-bar{fill:var(--accent);opacity:.85}.trend .t-goal{stroke:var(--muted);stroke-width:1.5;stroke-dasharray:4 3}.trend .t-mark{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 3}.trend .t-base{stroke:var(--line)}
+.note{font-size:.78rem;color:var(--muted);margin-top:8px}
+.drs{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;align-items:start}
+details.dr>summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px}details.dr>summary::-webkit-details-marker{display:none}
+details.dr>summary b{font-size:.95rem}details.dr>summary span{font-size:.8rem;color:var(--muted);flex:1}details.dr>summary:after{content:"▾";color:var(--muted);transition:transform .2s}details.dr[open]>summary:after{transform:rotate(180deg)}
+details.dr[open]>summary{margin-bottom:12px}.dr h4{font-size:.85rem;margin:14px 0 6px}.dr h4:first-of-type{margin-top:0}
+table.t{width:100%;border-collapse:collapse;font-size:.86rem}.t th{font-weight:500;color:var(--muted);font-size:.74rem;text-align:right;padding:2px 6px 5px}.t td{text-align:right;padding:6px;border-top:1px solid var(--line);vertical-align:top}.t td.n,.t th.n{width:5.5rem;font-variant-numeric:tabular-nums;white-space:nowrap}.t td.w{word-break:break-word}
+.kv{list-style:none;margin:0;padding:0}.kv li{display:grid;grid-template-columns:1fr auto;gap:10px;padding:6px 0;border-top:1px solid var(--line);font-size:.86rem}.kv li:first-child{border-top:0}.kv b{font-variant-numeric:tabular-nums;text-align:right}.kv small{display:block;color:var(--muted);font-size:.74rem}
+.fl li{grid-template-columns:auto 1fr}.fl .ft{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}.fl .lv{color:var(--muted)}.fl .lv.alert{color:var(--bad)}.fl small{white-space:nowrap}
+.spark{display:block;width:100%;height:auto}.spark rect{fill:var(--accent);opacity:.8}.axis{display:flex;justify-content:space-between;direction:ltr;font-size:.72rem;color:var(--muted);margin-top:2px}
+.foot{font-size:.76rem;color:var(--muted);margin-top:16px}#er{color:var(--bad);margin-top:6px}
+@media(max-width:1023px){.r1,.r3{grid-template-columns:1fr}.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.drs{grid-template-columns:1fr}}
+@media(max-width:560px){main{padding:14px 12px 24px}.t td.n,.t th.n{width:3.4rem}.tiles{grid-template-columns:1fr}.verdict .vs{font-size:1.12rem}.tile .big{font-size:2.2rem}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media print{details.dr{display:none}body{background:#fff}}
+</style></head><body><main>
+<header class="top"><div class="brand"><img src="https://luchit.app/icon-192.png" alt="" width="36" height="36"><h1>לוחית · מצב העסק</h1></div><p class="meta" id="meta"><span class="dot"></span>טוען</p></header>
 
-function advise(d,ev,dl,K,E,S,get,bad){const A=(id,arr)=>{const el=$(id);if(el)el.innerHTML=arr.join("")};
-const ge=(o,k)=>o&&o[k]?o[k][0]:0,gu=(o,k)=>o&&o[k]?o[k][1]:0;
-const now=[];
-if(d.events){now.push(d.activeUsers>0?ADV("ok","יש "+n(d.activeUsers)+" משתמשים פעילים ב-30 הדקות האחרונות.","אין צורך בפעולה."):ADV("info","אין משתמשים פעילים כרגע.","בלילה זה רגיל. אם זה נמשך בשעות היום כמה ימים, כדאי לבדוק הפצה."));
-now.push(bad>0?ADV("bad","היו "+n(bad)+" בדיקות שנכשלו, איטיות או קריסות ב-30 הדקות האחרונות.","אם זה מספר בודד זו בדרך כלל תקלה רגעית אצל משרד התחבורה. אם זה חוזר, תגיד לי ואבדוק."):ADV("ok","אין כשלים בבדיקות ב-30 הדקות האחרונות.","אין צורך בפעולה."))}
-A("adv-now",now);
-const td=[];
-if(K&&K.today){const t=K.today,L=ge(E&&E.today,"car_lookup"),F=["lookup_failed","lookup_timeout","lookup_abort"].reduce((a,k)=>a+ge(E&&E.today,k),0);
-if(L<10)td.push(ADV("info","יש רק "+n(L)+" בדיקות היום, מעט מדי כדי להסיק על שיעור הכשלים.","להמתין לעוד נתונים."));
-else{const fr=F/L*100;td.push(ADV(fr>5?"bad":fr>2?"warn":"ok","שיעור הכשלים היום הוא "+pr(fr)+" מהבדיקות (כשל = בדיקה שלא החזירה תוצאה).",fr>5?"גבוה. תגיד לי ואבדוק את מקור הנתונים.":fr>2?"קצת גבוה. אני עוקב; ברוב המקרים זו תקלה זמנית של משרד התחבורה.":"תקין, אין צורך בפעולה."))}
-const mu=t.activeUsers?t.engageSec/t.activeUsers/60:0;
-td.push(ADV("info","זמן שימוש ממוצע של "+(Math.round(mu*10)/10)+" דקות למשתמש. באפליקציית בדיקה קצרה זה תקין: מקלידים לוחית, מקבלים תשובה, יוצאים.","זמן ארוך מאוד אינו מטרה. עדיף לעקוב אחרי כמה חוזרים."));
-td.push(ADV("info","הנתונים של היום חלקיים: גוגל מעדכן אותם בעיכוב של שעות, ולכן ההשוואה לאתמול (יום שלם) נראית נמוכה בבוקר.","להשוות רק בסוף היום או לפי ימים שלמים."))}
-A("adv-today",td);
-if(K&&K.today){const L=gu(E&&E.today,"car_lookup"),sv=gu(E&&E.today,"car_save"),sh=gu(E&&E.today,"share"),up=gu(E&&E.today,"upgrade_open");const f=[];
-if(L>=10){const r=sh/L*100;f.push(ADV(r>=10?"ok":r>=5?"warn":"info","משתפים: "+pr(r)+" ממי שבדק רכב היום. שמרו: "+pr(sv/L*100)+".",r>=10?"בקצב היעד.":"מתחת ליעד של 10%. ההחלטה שלנו: לחכות 3-4 שבועות ולמדוד לפי הקישורים, בלי לשנות עכשיו."))}
-else f.push(ADV("info","עדיין מעט בדיקות היום כדי לחשב אחוזי המרה.","להמתין."));
-f.push(ADV("info","מסך המנוי נפתח אצל "+n(up)+" משתמשים. כרגע הכול חינם.","אין צורך בפעולה לפני שמפעילים תשלום."));$("adv-fn").innerHTML=f.join("")}
-const vs=dl.versions||[];if(vs.length>1){const tot=vs.reduce((a,v)=>a+v[1],0),top=Math.max(...vs.map(v=>v[1]));$("adv-vv").innerHTML=ADV(top/tot>=.5?"ok":"warn","יש "+vs.length+" גרסאות בשימוש. הגרסה הנפוצה ביותר היא "+pr(top/tot*100)+" מהמשתמשים.",top/tot>=.5?"אין צורך בפעולה.":"חלק גדול עדיין בגרסה ישנה. האפליקציה מציעה להם לעדכן, ואין צורך בפעולה.")}else $("adv-vv").innerHTML="";
-const w=[];
-if(d.visitsToday!=null){const vy=d.visitsYesterday;w.push(ADV("info","ביקורים באתר היום: "+n(d.visitsToday)+(vy!=null?" (אתמול, יום שלם: "+n(vy)+")":"")+". היום עדיין לא נגמר, לכן הוא נמוך יותר.","להשוות לפי ימים שלמים. עלייה של מקור אחד (למשל גוגל או יוטיוב) היא הסימן הטוב."))}
-if(dl.sources&&dl.sources.length){const tot=dl.sources.reduce((a,r)=>a+r[1],0),g=dl.sources.filter(r=>/google\\./.test(r[0]||"")).reduce((a,r)=>a+r[1],0);w.push(ADV(g>0?"ok":"warn","מגוגל הגיעו "+n(g)+" מתוך "+n(tot)+" ביקורים היום.",g>0?"גוגל מתחיל לשלוח תנועה. ממשיכים בשגרה.":"עדיין אין תנועה מגוגל. באתר חדש זה לוקח שבועות; אני עוקב ב-SEO."))}
-A("adv-web",w);
-const sa=[];if(S&&S.cur){const c=S.cur,p=S.prev||{};
-sa.push(ADV(c.clicks>0?"ok":"warn","7 ימים: "+n(Math.round(c.clicks))+" קליקים מתוך "+n(Math.round(c.imps))+" חשיפות (CTR "+pr(c.ctr*100)+").",c.clicks>0?"יש תנועה. ממשיכים לחזק את הדפים שמופיעים בעמוד הראשון.":"עדיין אין קליקים. באתר חדש רגיל; היעד הוא מעל 0 עד 15.11. אני ממשיך בתוכן וקישורים פנימיים."));
-sa.push(ADV(c.pos<=10?"ok":c.pos<=20?"warn":"info","מיקום ממוצע "+(Math.round(c.pos*10)/10)+" (מקום 1-10 הוא העמוד הראשון).",c.pos<=10?"מצוין.":c.pos<=20?"קרוב לעמוד הראשון. שיפור קטן בדפים הרלוונטיים יביא קליקים.":"עוד רחוק. אתר חדש מתחיל כך; ממשיכים בתוכן ובקישורים."))}
-A("adv-seo",sa);
-if(S&&S.sitemaps){const er=S.sitemaps.reduce((a,r)=>a+(r.errors||0),0),wa=S.sitemaps.reduce((a,r)=>a+(r.warnings||0),0);$("adv-sm").innerHTML=ADV(er?"bad":wa?"warn":"ok",er||wa?"יש "+er+" שגיאות ו-"+wa+" אזהרות במפת האתר.":"אין שגיאות ואזהרות במפת האתר.",er||wa?"גוגל מתקשה לקרוא דפים. אני בודק בסקירה השבועית ומתקן.":"אין צורך בפעולה.")}
-$("fkx").innerHTML=Object.keys(FKX).map(k=>'<li><span><b>'+esc(FK[k]||k)+'</b><span class="ex">'+esc(FKX[k])+'</span></span></li>').join("")}
-async function go(){try{const r=await fetch("/live/data",{cache:"no-store"});if(!r.ok)throw 0;const d=await r.json(),ev=d.events||[];
-const get=k=>(ev.find(e=>e[0]===k)||[0,0])[1];
-$("a").textContent=n(d.activeUsers);$("l").textContent=d.events?n(get("car_lookup")):"-";
-const bad=Object.keys(BAD).reduce((s,k)=>s+get(k),0);$("p").textContent=d.events?n(bad):"-";$("pc").className="card"+(bad>0?" bad":"");
-$("ps").textContent=bad>0?ev.filter(e=>BAD[e[0]]).map(e=>BAD[e[0]]+" "+e[1]).join(", "):"אין בעיות";
-$("ac").textContent=d.events?n(ev.reduce((t,e)=>t+e[1],0)):"-";
-$("v").textContent=d.visitsToday==null?"-":n(d.visitsToday);$("y").textContent=d.visitsYesterday==null?"אין נתונים":n(d.visitsYesterday);
-$("pv").textContent=d.viewsToday==null?"-":n(d.viewsToday);$("pvy").textContent=d.viewsYesterday==null?"אין נתונים":n(d.viewsYesterday);
-const dl=d.daily||{},K=dl.kpi,E=dl.events;
-const pct=(a,b)=>b>0?(Math.round(a/b*1000)/10).toLocaleString("en-US")+"%":"-",mins=x=>x==null||!isFinite(x)?"-":(Math.round(x/6)/10).toLocaleString("en-US");
-const card=(l,v,y,h)=>'<div class="card"><div class="lbl">'+l+'</div><div class="num">'+v+'</div><div class="sub">אתמול: '+y+'</div><div class="sub">'+h+'</div></div>';
-if(K&&K.today){const t=K.today,y=K.yesterday||{},ge=(o,k)=>o&&o[k]?o[k][0]:0,gu=(o,k)=>o&&o[k]?o[k][1]:0;
-const fail=o=>["lookup_failed","lookup_timeout","lookup_abort"].reduce((s,k)=>s+ge(o,k),0);
-$("dg").innerHTML=card("משתמשים פעילים",n(t.activeUsers),n(y.activeUsers),"משתמשים ייחודיים")+card("משתמשים חדשים",n(t.newUsers),n(y.newUsers),"נכנסו לראשונה")+card("כניסות לאפליקציה",n(t.sessions),n(y.sessions),"פתיחה חדשה, אחרי 30 דקות בלי פעילות")+card("זמן שימוש ממוצע למשתמש",mins(t.engageSec/Math.max(1,t.activeUsers))+" דק'",mins(y.engageSec/Math.max(1,y.activeUsers))+" דק'","(בדקות) רק זמן שהאפליקציה בחזית")+card("זמן ממוצע לכניסה",mins(t.engageSec/Math.max(1,t.sessions))+" דק'",mins(y.engageSec/Math.max(1,y.sessions))+" דק'","(בדקות) משך כל כניסה")+card("בדיקות רכב",n(ge(E&&E.today,"car_lookup")),n(ge(E&&E.yesterday,"car_lookup")),"מספר בדיקות")+card("שיעור כשלים",pct(fail(E&&E.today),ge(E&&E.today,"car_lookup")),pct(fail(E&&E.yesterday),ge(E&&E.yesterday,"car_lookup")),"כשלים ביחס למספר הבדיקות; נמוך עדיף")+card("מסכים שנצפו",n(t.views),n(y.views),"מספר צפיות במסכים");
-const steps=[["car_lookup","בדק רכב"],["car_save","שמר רכב"],["share","שיתף"],["compare_open","פתח השוואה"],["upgrade_open","פתח מסך שדרוג"],["upgrade_purchase_start","התחיל רכישה"],["upgrade_purchase_done","רכש"]];
-$("fn").innerHTML=steps.map(s=>'<li><span>'+s[1]+'</span><b>'+n(gu(E&&E.today,s[0]))+'</b></li>').join("")+'<li><span class="muted">מתוך משתמשים פעילים היום</span><b>'+n(t.activeUsers)+'</b></li>';
-}else{$("dg").innerHTML='<div class="card"><div class="lbl">אין עדיין נתוני היום</div></div>';$("fn").innerHTML=""}
-const vs2=dl.versions||[];$("vc").style.display=vs2.length?"":"none";$("vv").innerHTML=vs2.map(v=>'<span class="pill">גרסה '+esc(v[0])+": "+n(v[1])+"</span>").join("");
-const SRC=h=>!h?"כניסה ישירה":/google\\./.test(h)?"גוגל":/bing\\.|duckduckgo|yahoo|ecosia/.test(h)?"מנועי חיפוש אחרים":/facebook|instagram|t\\.co|twitter|x\\.com|linkedin|whatsapp|telegram|t\\.me|tiktok|youtube/.test(h)?"רשתות חברתיות ופלטפורמות ("+h+")":h;
+<section class="r1">
+<div class="card verdict s-cal" id="vd"><div class="vh" id="vh"><span class="lbl">השורה התחתונה</span></div><p class="vs" id="vs">טוען את הנתונים</p><p class="vn" id="vn"></p></div>
+<div class="card att"><h2>דורש תשומת לב</h2><ol id="att"><li class="none">טוען</li></ol></div>
+</section>
+
+<section class="tiles" id="tiles" aria-label="ארבעת המדדים הראשיים"></section>
+
+<section class="r3">
+<div class="card"><h2>אבני דרך</h2><ul class="ms" id="ms"></ul></div>
+<div class="card trend"><h2>בדיקות רכב בשבוע, 8 שבועות</h2><div id="tr"></div><p class="note" id="trn"></p></div>
+</section>
+
+<section class="drs">
+<details class="card dr" id="dr-now"><summary><b>עכשיו</b><span>מי פעיל ברגע זה ומה קרה היום</span></summary><ul class="kv" id="now"></ul><p class="note">נתוני היום חלקיים: גוגל אנליטיקס מעדכן אותם בעיכוב של שעה עד כמה שעות.</p></details>
+<details class="card dr" id="dr-use"><summary><b>שימוש</b><span>מה אנשים עושים, השבוע מול השבוע הקודם</span></summary><div id="use"></div></details>
+<details class="card dr" id="dr-web"><summary><b>האתר</b><span>ביקורים לפי מקור, דפים, יוטיוב וטיקטוק</span></summary><div id="web"></div></details>
+<details class="card dr" id="dr-seo"><summary><b>חיפוש בגוגל</b><span>חיפושים, דפים והופעות בתוצאות</span></summary><div id="seo"></div></details>
+<details class="card dr" id="dr-fl"><summary><b>מבזקים</b><span>הודעות מהסוכנים, אותן הודעות שמגיעות לטלגרם</span></summary><ul class="kv fl" id="fl"></ul><p class="note">● התראה שדורשת תשומת לב. ○ מידע בלבד. אם יש התראה אני מטפל בשגרה, ופונה אליך רק כשנדרשת החלטה שלך.</p></details>
+<details class="card dr" id="dr-tec"><summary><b>טכני</b><span>כשלים לפי סיבה, קריסות ומקורות שלא ענו</span></summary><div id="tec"></div></details>
+</section>
+
+<p class="foot">מקורות: גוגל אנליטיקס (אפליקציה ואתר), Cloudflare (ביקורים באתר), Search Console (חיפוש בגוגל) ודף האפליקציה ב-Google Play. לכל מספר מצוינים התאריכים שלו, כי לכל מקור יש איחור אחר. הדף מתרענן כל דקה. <span id="build"></span></p>
+<p class="foot" id="er"></p>
+</main>
+<script>
+/* Business dashboard. Spec: Claude Doc "לוחית: אפיון דשבורד מנהלים", sections 3 (targets) and 4 (traffic light). */
+const CAL_END="2026-10-25";        // until the first full week that counts the site too (18-24.10) only health, Google pages and the store get a colour
+const BASE_END="2026-10-24",GROWTH=1.05;   // weekly car checks: +5% a week, chained from 18-24.10 and re-based every 4 weeks from max(actual, 80% of target)
+const CLICKS={start:0,from:"2026-10-14",goal:5,due:"2026-11-15",after:1.10};
+const PAGES={start:90,from:"2026-10-17",goal:150,due:"2026-11-15"};
+const SUBMITTED="2026-10-17";      // production access requested in Play Console
+const INSTALL_BASE=null;           // set {end:"YYYY-MM-DD",value:N} after the first full week in the store; until then installs are not judged
+const PRO_MAU=2000;
+const N={car_lookup:"בדיקת רכב",car_save:"שמירת רכב ברשימה",share:"שיתוף תוצאה",compare_open:"השוואת רכבים",tab_view:"מעבר בין לשוניות",link_out:"לחיצה על קישור חיצוני",alerts_toggle:"הדלקה או כיבוי של התראות",alert_kind:"בחירת סוג התראה",upgrade_open:"פתיחת חלונית המנוי (PRO)",voice_search:"חיפוש בקול",bulk_check:"בדיקת כמה רכבים יחד",camera_scan:"סריקת לוחית במצלמה",buy_card_open:"פתיחת כרטיס בלשונית קנייה",settlement_shown:"הצגת הסדר פשרה",checklist_pdf:"הורדת רשימת בדיקה",doc_add:"הוספת מסמך לרכב",simple_view:"מעבר לתצוגה פשוטה",search_no_result:"חיפוש דגם בלי תוצאה",user_screenshot:"צילום מסך",first_open:"התקנה חדשה",notification_open:"פתיחת התראה",web_hint_click:"לחיצה על הצעה להתקין מהאתר",web_install_click:"מעבר מהאתר להתקנה",calendar_reminder_click:"הוספת תזכורת ליומן",link_landing:"כניסה לאתר מקישור",link_open:"פתיחת קישור באפליקציה"};
+const BAD={lookup_failed:"בדיקה שנכשלה",lookup_slow:"בדיקה איטית",lookup_abort:"בדיקה שבוטלה",lookup_timeout:"בדיקה שפגה",app_exception:"קריסה"};
+const KIND={source_down:"משרד התחבורה לא ענה",offline:"אין אינטרנט אצל המשתמש",not_found:"מספר שלא קיים (הוקלד לא נכון)","(not set)":"לא ידוע"};
+const FK={data:"נתונים",infra:"תשתית",content:"תוכן",market:"שוק",release:"שחרור",experiment:"ניסוי",reviews:"ביקורות"};
+const VIA={img:"תמונה",full:"תמונה מלאה",pdf:"PDF",txt:"טקסט",qr:"קוד QR"};
+const ST={ok:["תקין","✓"],warn:["דורש תשומת לב","!"],bad:["מתחת ליעד","✕"],early:["מוקדם לשפוט","…"],nodata:["אין נתון","?"],cal:["שבוע כיול","·"],wait:["ממתין","…"]};
+
+const $=i=>document.getElementById(i);
+const n=x=>x==null||!isFinite(x)?"-":Math.round(x).toLocaleString("en-US");
+const n1=x=>x==null||!isFinite(x)?"-":(Math.round(x*10)/10).toLocaleString("en-US");
+const esc=t=>String(t==null?"":t).replace(/[<>&"]/g,"");
+const dm=s=>{const p=String(s).slice(0,10).split("-");return Number(p[2])+"."+Number(p[1])};
+const rng=w=>w?dm(w[0])+" עד "+dm(w[1]):"";
+const addD=(d,k)=>new Date(Date.parse(d+"T12:00:00Z")+k*864e5).toISOString().slice(0,10);
+const between=(a,b)=>Math.round((Date.parse(b+"T12:00:00Z")-Date.parse(a+"T12:00:00Z"))/864e5);
+const chip=s=>'<span class="chip s-'+s+'"><i aria-hidden="true">'+ST[s][1]+'</i>'+ST[s][0]+'</span>';
+const mini=s=>'<span class="mini s-'+s+'"><i aria-hidden="true">'+ST[s][1]+'</i>'+ST[s][0]+'</span>';
+const delta=(a,b,unit)=>{if(a==null||b==null)return "";const d=Math.round(a-b);return d>0?'<span class="up">▲ '+n(d)+'</span> יותר מהשבוע הקודם'+(unit||""):d<0?'<span class="down">▼ '+n(-d)+'</span> פחות מהשבוע הקודם'+(unit||""):'<span class="flat">כמו בשבוע הקודם</span>'};
+const pois=(a,lam)=>{let t=Math.exp(-lam),s=t;for(let k=1;k<=a;k++){t*=lam/k;s+=t}return s};   // chance of seeing a or fewer when lam is expected
+// one rulebook (spec section 4): at or above pace = ok, 80% (or 70%) and up = warn, below = bad, but with small numbers only when it cannot be bad luck
+function judge(a,exp,minExp,warnAt){if(exp==null)return "early";if(exp<minExp)return "early";const r=a/exp;if(r>=1)return "ok";if(r>=warnAt)return "warn";if(exp<20&&pois(a,exp)>=.05)return "warn";return "bad"}
+const pace=(c,day)=>{const f=Math.min(1,Math.max(0,between(c.from,day)/between(c.from,c.due)));return c.start+(c.goal-c.start)*f};
+const RANK={bad:0,nodata:1,warn:2};
+
+function render(d){
+const W=d.weekly||null,ev=W&&W.ev,E0=ev?ev[0]:{},E1=ev?ev[1]:{},E2=ev?ev[2]:{},ge=(o,k,i)=>o&&o[k]?o[k][i||0]:0;
+const end=W?W.end:null,cal=!end||end<CAL_END,days=W&&W.days;
+const week=e=>{if(!days)return null;let s=0;for(let i=0;i<7;i++)s+=days[addD(e,-i)]||0;return s};
+const nsTarget=e=>{if(!days||e<CAL_END)return null;let be=BASE_END,base=week(be);if(!base)return null;while(between(be,e)>=28){const ne=addD(be,28),t=base*Math.pow(GROWTH,4);base=Math.max(week(ne),.8*t);be=ne}return base*Math.pow(GROWTH,between(be,e)/7)};
+const M={},att=[];
+const push=(key,s,prio,ratio,text,short)=>{M[key]=s;if(RANK[s]!=null)att.push({s,prio,ratio,text,short})};
+
+// 1. weekly car checks (north star)
+let t1;{const L=ev?ge(E0,"car_lookup"):null,Lp=ev?ge(E1,"car_lookup"):null,tg=end?nsTarget(end):null;let s;
+if(!ev)s="nodata";else if(cal)s="cal";else if(L<30)s="early";else{s=judge(L,tg,0,.8);if(s==="ok"&&Lp>=30&&L<.8*Lp)s="warn"}
+push("ns",s,1,tg?L/tg:1,"בדיקות רכב: "+n(L)+(tg?", היעד "+n(tg):""),s==="nodata"?"חסר נתון מגוגל אנליטיקס":"הבדיקות מתחת ליעד");
+const l1=!ev?"גוגל אנליטיקס לא ענה":tg?n(L/tg*100)+"% מהיעד ("+n(tg)+")":"שבוע הבסיס: 18.10 עד 24.10. היעד מתחיל אחריו";
+t1={s,title:"בדיקות רכב בשבוע",big:n(L),lines:[l1,delta(L,Lp)],foot:rng(W&&W.W)+" · אפליקציה ואתר",L,Lp,tg}}
+
+// 2. Google clicks, with pages Google knows under it
+let t2;{const S=d.seo,c=S&&S.cur,a=c?Math.round(c.clicks):null,sd=S&&S.range?S.range[1]:null;let exp=null,s;
+if(sd)exp=sd<=CLICKS.due?pace(CLICKS,sd):CLICKS.goal*Math.pow(CLICKS.after,between(CLICKS.due,sd)/7);
+if(!c)s="nodata";else if(cal)s="cal";else s=judge(a,exp,2,.8);
+push("clicks",s,2,exp?a/exp:1,"כניסות מגוגל: "+n(a)+(exp!=null?", הקצב "+n1(exp):""),s==="nodata"?"חסר נתון מ-Search Console":"הכניסות מגוגל מתחת לקצב");
+// pages
+const X=d.metrics&&d.metrics.index,today=new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Jerusalem"});let ps,pexp=pace(PAGES,today);
+if(!X||X.indexed==null||Date.now()-Date.parse(X.at)>48*3600e3)ps="nodata";else{const a2=X.indexed,need=pexp-PAGES.start;ps=a2>=pexp?"ok":need<1?"warn":(a2-PAGES.start)/need>=.7?"warn":"bad"}
+push("pages",ps,3,X&&pexp?X.indexed/pexp:1,"דפים שגוגל מכיר: "+(X?n(X.indexed):"-")+", הקצב "+n(pexp),ps==="nodata"?"חסר נתון על הדפים בגוגל":"גוגל מכיר פחות דפים מהקצב");
+const imps=c?Math.round(c.imps):null,ip=S&&S.prev?Math.round(S.prev.imps):null;
+t2={s,title:"כניסות מגוגל בשבוע",big:n(a),lines:[c?(exp==null?"":sd<=CLICKS.due?"הקצב היום: "+n1(exp)+", בדרך ל-"+CLICKS.goal+" עד "+dm(CLICKS.due):"הקצב היום: "+n1(exp)+" (עוד 10% בכל שבוע מאז "+dm(CLICKS.due)+")"):"Search Console לא ענה","הופענו בתוצאות "+n(imps)+" פעמים"+(ip!=null?" (שבוע קודם "+n(ip)+")":""),
+ 'דפים שגוגל מכיר: <b>'+(X?n(X.indexed)+" מתוך "+n(X.inspected||X.total):"-")+"</b> "+mini(ps)],foot:(S&&S.range?rng(S.range):"")+" · גוגל מוסר באיחור של 3 ימים"}}
+
+// 3. arrived from a share
+let t3;{const Lw=ge(E0,"car_lookup"),Sw=ge(E0,"share"),Lm=ge(E2,"car_lookup"),Sm=ge(E2,"share"),sh=W&&W.shared;let rate=null,win="",s;
+if(!ev)s="nodata";else{if(Lw>=100){rate=Sw/Lw*100;win=rng(W.W)}else if(Lm>=100){rate=Sm/Lm*100;win=rng(W.M)+" (28 ימים, עד שיש 100 בדיקות בשבוע)"}
+ if(rate==null)s="early";else if(cal)s="cal";else s=rate>=10?"ok":rate>=5?"warn":"bad"}
+push("share",s,4,rate!=null?rate/10:1,"שיתופים: "+n1(rate)+" לכל 100 בדיקות, היעד 10",s==="nodata"?"חסר נתון על שיתופים":"מעט שיתופים");
+const arr=sh?sh[0].web+sh[0].app:null,arrp=sh?sh[1].web+sh[1].app:null;
+t3={s,title:"הגיעו משיתוף",big:rate!=null?n1(rate):n(Sw),unit:rate!=null?"לכל 100 בדיקות":"שיתופים",lines:[rate!=null?"היעד: 10 לכל 100 בדיקות":"עוד מעט מדי בדיקות כדי לחשב: "+n(Sw)+" שיתופים מתוך "+n(Lw)+" בדיקות","נכנסו מקישור ששותף: <b>"+n(arr)+"</b>"+(arrp!=null?" (שבוע קודם "+n(arrp)+")":"")],foot:(win||rng(W&&W.W))+" · אפליקציה ואתר"}}
+
+// 4. new app installs, with the store status
+let t4;{const A=W&&W.app,a=A?A[0].newUsers:null,ap=A?A[1].newUsers:null,live=d.play==="live";let s,tg=null;
+if(!A)s="nodata";else if(!INSTALL_BASE)s="early";else{tg=INSTALL_BASE.value*Math.pow(1.07,Math.min(8,between(INSTALL_BASE.end,end)/7))*Math.pow(GROWTH,Math.max(0,between(INSTALL_BASE.end,end)/7-8));s=judge(a,tg,0,.8)}
+push("installs",s,5,tg?a/tg:1,"התקנות חדשות: "+n(a)+(tg?", היעד "+n(tg):""),s==="nodata"?"חסר נתון על התקנות":"מעט התקנות");
+M.store=live?"ok":"wait";
+t4={s,title:"התקנות חדשות",big:n(a),lines:[live?"Google Play: באוויר בחנות ✓":"Google Play: ממתין לאישור (הבקשה הוגשה "+dm(SUBMITTED)+")",tg?n(a/tg*100)+"% מהיעד ("+n(tg)+")":live?"היעד ייקבע אחרי שבוע מלא בחנות":"עד האישור מתקינים רק בודקים",delta(a,ap)],foot:rng(W&&W.W)+" · אפליקציה בלבד"}}
+
+// health: failures caused by us or the ministry, out of all attempts (a mistyped plate is not a failure)
+let H;{const fk=W&&W.fails?W.fails[0]:null,tech=fk?(fk.source_down||0)+(fk.offline||0):null,att2=ev?ge(E0,"car_lookup")+ge(E0,"lookup_failed"):null;let s,r=null;
+if(!fk||!ev)s="nodata";else if(att2<50)s="early";else{r=tech/att2*100;s=r<=2?"ok":r<=5?"warn":tech>=5?"bad":"warn"}
+push("health",s,0,r!=null?2/Math.max(r,.01):1,"בדיקות שנכשלו: "+n1(r)+"%, היעד עד 2%","");
+H={s,r,tech,att:att2}}
+
+// verdict
+att.sort((x,y)=>RANK[x.s]-RANK[y.s]||x.ratio-y.ratio||x.prio-y.prio);
+const judged=["health","pages","store"].concat(cal?[]:["ns","clicks","share","installs"]).map(k=>M[k]);
+const vs=judged.includes("bad")?"bad":judged.includes("nodata")?"nodata":judged.includes("warn")?"warn":judged.includes("ok")?"ok":cal?"cal":"early";
+const head=t1.L==null?"אין עדיין נתון על בדיקות רכב השבוע.":t1.tg?"השבוע: "+n(t1.L)+" בדיקות רכב, "+n(t1.L/t1.tg*100)+"% מהיעד.":"השבוע: "+n(t1.L)+" בדיקות רכב"+(t1.Lp!=null?", "+(t1.L>t1.Lp?n(t1.L-t1.Lp)+" יותר מהשבוע הקודם":t1.L<t1.Lp?n(t1.Lp-t1.L)+" פחות מהשבוע הקודם":"כמו בשבוע הקודם"):"")+".";
+const first=att.find(x=>x.short);const mid=first?first.short+".":H.s==="ok"?"אין מה לטפל בו.":"";
+const tail=H.s==="ok"?"השירות תקין.":H.s==="warn"?n1(H.r)+"% מהבדיקות נכשלו, מעט מעל הרגיל.":H.s==="bad"?n1(H.r)+"% מהבדיקות נכשלו.":H.s==="early"?"מעט מדי בדיקות כדי לשפוט את תקינות השירות.":"אין נתון על תקינות השירות.";
+$("vd").className="card verdict s-"+vs;$("vh").innerHTML=chip(vs)+'<span class="lbl">השורה התחתונה</span>';$("vs").textContent=[head,mid,tail].filter(Boolean).join(" ");
+$("vn").textContent=cal?"שבוע כיול עד "+dm(addD(CAL_END,-1))+": המספרים מוצגים בלי צבע, חוץ מתקינות השירות, הדפים שגוגל מכיר וסטטוס החנות. בדיקות מהאתר נספרות רק מ-15.10.":"";
+
+// attention list
+const alerts=(d.flashes||[]).filter(f=>f.l==="alert"&&Date.now()-Date.parse(f.t)<864e5).length;
+$("att").innerHTML=(att.length?att.slice(0,4).map(x=>"<li>"+chip(x.s)+"<span>"+esc(x.text)+"</span></li>").join(""):'<li class="none">אין כרגע דבר שדורש תשומת לב.</li>')+(alerts?'<li><span class="chip s-warn"><i aria-hidden="true">!</i>מבזקים</span><span>'+alerts+' התראות מהסוכנים ב-24 השעות האחרונות. <a href="#dr-fl" data-open="dr-fl">לפירוט</a></span></li>':"");
+
+// tiles
+const tile=t=>'<article class="card tile s-'+t.s+'"><div class="th"><h3>'+t.title+"</h3>"+chip(t.s)+'</div><div class="big">'+t.big+(t.unit?"<small>"+t.unit+"</small>":"")+"</div>"+t.lines.filter(Boolean).map((l,i)=>'<p class="'+(i?"m":"")+'">'+l+"</p>").join("")+'<p class="foot">'+t.foot+"</p></article>";
+$("tiles").innerHTML=[t1,t2,t3,t4].map(tile).join("");
+
+// milestones
+{const A=W&&W.app,mau=A?A[2].activeUsers:null,mo=W&&W.money;
+$("ms").innerHTML='<li><span class="k">Google Play</span><span class="v">'+(d.play==="live"?mini("ok")+" באוויר בחנות":"ממתין לאישור החנות")+'</span><span class="k">הבקשה לפתיחה לכולם הוגשה ב-'+dm(SUBMITTED)+"</span></li>"
++'<li><span class="k">הדרך ל-PRO: משתמשי אפליקציה ב-28 ימים</span><span class="v">'+n(mau)+" מתוך "+n(PRO_MAU)+'</span><div class="bar" role="img" aria-label="'+n(mau)+" מתוך "+n(PRO_MAU)+'"><i style="width:'+Math.max(1,Math.min(100,(mau||0)/PRO_MAU*100))+'%"></i></div><span class="k">מפעילים מנוי בתשלום רק מ-2,000 עד 3,000 משתמשים בחודש</span></li>'
++'<li><span class="k">כסף ועניין (מ-1.10)</span><span class="v">'+(mo?n(mo.leads)+" פניות עסקיות · "+n(mo.subscribers)+" נרשמים למגזין":"אין נתון")+'</span><span class="k">בלי יעד ובלי צבע עד שמתחילים למכור</span></li>'}
+
+// trend: 8 weekly totals, oldest on the left so the latest week sits next to the right edge
+{const box=$("tr");if(!days||!end){box.innerHTML='<p class="note">אין עדיין נתון היסטורי מגוגל אנליטיקס.</p>';$("trn").textContent=""}else{
+const ends=[];for(let i=7;i>=0;i--)ends.push(addD(end,-7*i));const vals=ends.map(week),tgs=ends.map(nsTarget),mx=Math.max(1,...vals,...tgs.filter(Boolean))*1.18;
+const X0=24,SW=74,H=150,Y=v=>H-v/mx*(H-28);let g='<line class="t-base" x1="12" x2="628" y1="'+H+'" y2="'+H+'"/>';
+ends.forEach((e,i)=>{const x=X0+i*SW,v=vals[i],y=Y(v);g+='<rect class="t-bar" x="'+(x+12)+'" y="'+y+'" width="46" height="'+(H-y)+'" rx="4"/><text class="t-val" x="'+(x+35)+'" y="'+(y-6)+'" text-anchor="middle">'+n(v)+'</text><text class="t-lbl" x="'+(x+35)+'" y="'+(H+18)+'" text-anchor="middle">עד '+dm(e)+"</text>";
+ if(tgs[i])g+='<line class="t-goal" x1="'+(x+6)+'" x2="'+(x+64)+'" y1="'+Y(tgs[i])+'" y2="'+Y(tgs[i])+'"/>';
+ if(addD(e,-6)<="2026-10-15"&&e>="2026-10-15")g+='<line class="t-mark" x1="'+(x+4)+'" x2="'+(x+4)+'" y1="16" y2="'+H+'"/><text class="t-lbl" x="'+(i>=3?x:x+8)+'" y="12" text-anchor="'+(i>=3?"end":"start")+'">מכאן נספר גם האתר</text>'});
+box.innerHTML='<svg viewBox="0 0 640 176" direction="ltr" style="direction:ltr" role="img" aria-label="בדיקות רכב בשבוע: '+vals.map(n).join(", ")+'">'+g+"</svg>";
+$("trn").textContent="כל עמודה היא 7 ימים. הקו המקווקו הוא היעד, והוא מופיע מהשבוע שאחרי שבוע הבסיס (18.10 עד 24.10)."}}
+
+// drawer: now
+{const rt=d.events||[],g=k=>(rt.find(e=>e[0]===k)||[0,0])[1],bad=Object.keys(BAD).reduce((a,k)=>a+g(k),0),dl=d.daily||{},Ed=dl.events||{},T=Ed.today||{},Y=Ed.yesterday||{};
+const li=(l,v,s)=>"<li><span>"+l+(s?"<small>"+s+"</small>":"")+"</span><b>"+v+"</b></li>";
+$("now").innerHTML=li("פעילים באפליקציה, 30 הדקות האחרונות",n(d.activeUsers))+li("בדיקות רכב, 30 הדקות האחרונות",d.events?n(g("car_lookup")):"-")+li("בעיות, 30 הדקות האחרונות",d.events?n(bad):"-",bad?rt.filter(e=>BAD[e[0]]).map(e=>BAD[e[0]]+" "+e[1]).join(", "):"")
++li("בדיקות רכב היום עד עכשיו",n(T.car_lookup?T.car_lookup[0]:0),"אתמול, יום שלם: "+n(Y.car_lookup?Y.car_lookup[0]:0))+li("ביקורים באתר היום",n(d.visitsToday),"אתמול, יום שלם: "+n(d.visitsYesterday))}
+
+// drawer: usage, this week against last week
+{const box=$("use");if(!ev){box.innerHTML='<p class="note">אין נתון מגוגל אנליטיקס.</p>'}else{
+const rows=Object.keys(N).filter(k=>ge(E0,k)||ge(E1,k)).sort((a,b)=>ge(E0,b)-ge(E0,a)).slice(0,14);
+const Lu=ge(E0,"car_lookup",1),Su=ge(E0,"car_save",1);
+box.innerHTML='<h4>שמירת רכב</h4><p class="note" style="margin:0 0 6px">'+(Lu>=50?n1(Su/Lu*100)+"% ממי שבדק רכב שמר אותו ברשימה (היעד 15%).":"מעט מדי אנשים בדקו רכב השבוע כדי לחשב אחוז: "+n(Su)+" שמרו מתוך "+n(Lu)+".")+"</p>"
++'<h4>פעולות ('+rng(W.W)+")</h4>"+'<table class="t"><thead><tr><th>פעולה</th><th class="n">השבוע</th><th class="n">שבוע קודם</th></tr></thead><tbody>'+rows.map(k=>'<tr><td class="w">'+N[k]+'</td><td class="n">'+n(ge(E0,k))+'</td><td class="n">'+n(ge(E1,k))+"</td></tr>").join("")+"</tbody></table>"
++(W.shared?'<h4>שיתופים שהביאו אנשים, לפי סוג</h4><p class="note" style="margin:0">'+(Object.entries(W.shared[0].by).map(e=>(VIA[e[0]]||esc(e[0]))+": "+n(e[1])).join(" · ")||"עדיין אין כניסות מקישור ששותף.")+"</p>":"")}}
+
+// drawer: the site
+{const SRC=h=>!h?"כניסה ישירה":/google\\./.test(h)?"גוגל":/bing\\.|duckduckgo|yahoo|ecosia/.test(h)?"מנועי חיפוש אחרים":/whatsapp|wa\\.me/.test(h)?"וואטסאפ":/facebook|instagram|t\\.co|twitter|x\\.com|linkedin|telegram|t\\.me|tiktok|youtube/.test(h)?"רשתות חברתיות":/luchit\\.app/.test(h)?"מתוך האתר":h;
 const agg=(arr,f)=>{const m={};(arr||[]).forEach(r=>{const k=f(r[0]);m[k]=(m[k]||0)+r[1]});return Object.entries(m).sort((a,b)=>b[1]-a[1])};
-const lst=(id,arr)=>{$(id).innerHTML=arr&&arr.length?arr.map(r=>'<li><span>'+esc(r[0])+'</span><b>'+n(r[1])+'</b></li>').join(""):'<li><span class="muted">אין נתונים</span><b></b></li>'};
-lst("so",dl.sources?agg(dl.sources,SRC):null);
-{const C=dl.campaigns||{},keys=["youtube","tiktok"],CN={youtube:"יוטיוב",tiktok:"טיקטוק"};
-$("cm").innerHTML=dl.campaigns===null?'<p class="muted">אין נתונים כרגע</p>':'<table class="q"><thead><tr><th>מקור</th><th class="n">היום</th><th class="n">7 ימים</th><th class="n">28 ימים</th></tr></thead><tbody>'+keys.map(k=>{const v=C[k]||[0,0,0];return '<tr><td class="w">'+esc(CN[k]||k)+'</td>'+v.map(x=>'<td class="n">'+n(x)+'</td>').join("")+'</tr>'}).join("")+'</tbody></table>'}lst("pg",dl.pages?agg(dl.pages,h=>h||"/"):null);
-{const T=d.metrics&&d.metrics.social&&d.metrics.social.tiktok,P=T&&T.prev||{},dd=(k)=>P[k]==null?"":' <span class="ex">('+(T[k]-P[k]>=0?"+":"")+n(T[k]-P[k])+")</span>";
-$("sv").innerHTML=T?[["followers","עוקבים"],["views7","צפיות ב-7 ימים"],["likes7","לייקים ב-7 ימים"],["profile7","צפיות בפרופיל ב-7 ימים"],["videos","סרטונים שפורסמו"]].map(([k,l])=>'<li><span>'+l+dd(k)+'</span><b>'+n(T[k])+'</b></li>').join("")+'<li><span class="muted">עודכן '+esc(String(T.at||"").slice(0,10).split("-").reverse().join("/"))+'</span><b></b></li>':'<li><span class="muted">אין עדיין נתונים: מריצים את Social stats ב-Actions אחרי קריאת TikTok Analytics</span><b></b></li>'}
-const S=d.seo;
-if(S&&S.cur){const c=S.cur,p=S.prev||{},df=(a,b,inv)=>b?((a-b)/b*100):null,ar=v=>v==null?"אין מידע לשבוע קודם":(v>=0?"+":"")+(Math.round(v*10)/10)+"% לעומת שבוע קודם",pc=x=>(Math.round(x*1000)/10)+"%";
-const sc=(l,v,pv,h)=>'<div class="card"><div class="lbl">'+l+'</div><div class="num">'+v+'</div><div class="sub">'+pv+'</div><div class="sub">'+h+'</div></div>';
-$("sg").innerHTML=sc("קליקים מגוגל",n(Math.round(c.clicks)),ar(df(c.clicks,p.clicks)),"7 ימים")+sc("חשיפות בגוגל",n(Math.round(c.imps)),ar(df(c.imps,p.imps)),"כמה פעמים הופענו")+sc("CTR",pc(c.ctr),p.ctr!=null?"שבוע קודם: "+pc(p.ctr):"","קליקים חלקי חשיפות")+sc("מיקום ממוצע",(Math.round(c.pos*10)/10),p.pos!=null?"שבוע קודם: "+(Math.round(p.pos*10)/10):"","נמוך עדיף");
-$("seonote").textContent="7 ימים עד "+S.range[1]+" (גוגל מעכב נתונים 2 עד 3 ימים, לכן אין כאן את הימים האחרונים).";
-const dd=S.days||[],mx=Math.max(1,...dd.map(x=>x[1]));$("sd").innerHTML='<line x1="0" x2="280" y1="62" y2="62" stroke="var(--line)"/>'+dd.slice(-28).reverse().map((x,i)=>{const h=x[1]?Math.max(3,x[1]/mx*56):0;return '<rect x="'+(i*10)+'" y="'+(62-h)+'" width="7" height="'+h+'" fill="var(--accent)" rx="1.5"/>'}).join("");
-const f3=r=>n(Math.round(r[1]))+" קליקים · "+n(Math.round(r[2]))+" חשיפות";
-const L=(id,arr,fn)=>{$(id).innerHTML=arr&&arr.length?arr.map(fn).join(""):'<li><span class="muted">אין נתונים</span><b></b></li>'};
-const path=u=>esc(u.replace(/^https?:\\/\\/[^/]+/,"")||"/");
-L("sp",S.pages&&S.pages.slice(0,10),r=>'<li><span dir="ltr">'+path(r[0])+'</span><b>'+f3(r)+'</b></li>');
-const qs=S.queries||[];
-const TB=(id,heads,rows)=>{$(id).innerHTML=rows.length?'<table class="q"><thead><tr>'+heads.map((h,i)=>'<th'+(i?' class="n"':'')+'>'+h+'</th>').join("")+'</tr></thead><tbody>'+rows.map(r=>'<tr><td class="w">'+esc(r[0])+'</td>'+r.slice(1).map(x=>'<td class="n">'+x+'</td>').join("")+'</tr>').join("")+'</tbody></table>':'<p class="muted">אין נתונים</p>'};
-const ps=x=>(Math.round(x*10)/10).toLocaleString("en-US",{minimumFractionDigits:1,maximumFractionDigits:1});
-TB("sq",["מה הקלידו","לחצו עלינו","ראו אותנו","מקום"],qs.slice().sort((a,b)=>b[1]-a[1]||b[2]-a[2]).slice(0,10).map(r=>[r[0],n(Math.round(r[1])),n(Math.round(r[2])),ps(r[4])]));
-TB("ss",["מה הקלידו","ראו אותנו","מקום","לחצו עלינו"],qs.filter(r=>r[4]>=8&&r[4]<=20&&r[2]>=3).sort((a,b)=>b[2]-a[2]).slice(0,10).map(r=>[r[0],n(Math.round(r[2])),ps(r[4]),n(Math.round(r[1]))]));
-L("sm",S.sitemaps,r=>'<li><span dir="ltr">'+path(r.path)+'</span><b>'+n(r.submitted)+" כתובות"+(r.errors||r.warnings?" ("+r.errors+" שגיאות, "+r.warnings+" אזהרות)":"")+'</b></li>');
-}else{$("sg").innerHTML="";$("seonote").textContent=S?"אין עדיין נתוני חיפוש":"טוען או לא זמין (ראה שגיאות בתחתית הדף)"}
-/* targets: set in this list (value, date) and edit when the plan changes. Cumulative goals (pages, clicks) are judged against a straight line from the starting value to the target date, a rate (share) against the target itself. */
-const TARGETS=[
-{id:"index",label:"דפים באינדקס של גוגל",unit:"",start:51,startDate:"2026-10-14",goal:75,due:"2026-11-15",hint:"מתוך כל הדפים במפת האתר, לפי בדיקה ישירה מול גוגל (דוח Search Console מתעדכן באיחור של ימים). נקודת ההתחלה ב-14.10 הייתה 51 מתוך 207. מתעדכן פעם ביום."},
-{id:"clicks",label:"קליקים מגוגל בשבוע",unit:"",start:0,startDate:"2026-10-14",goal:5,due:"2026-11-15",hint:"7 ימים, עם עיכוב של 2 עד 3 ימים בנתוני גוגל."},
-{id:"share",label:"אחוז המשתמשים שמשתפים",unit:"%",goal:10,rate:true,hint:"משתמשים ששיתפו מתוך אלה שבדקו רכב, אתמול. היעד נקבע בלי נתון קודם, ויתוקן אחרי שבועיים."}];
-const st=(a,e)=>a>=e?"ok":e<2?"warn":a>=0.7*e?"warn":"bad";   // while the expected amount is still under 2 the data is too thin to show red
-const SL={ok:"בקצב או מעליו",warn:"קצת מאחור",bad:"מאחור"};
-const actuals={index:d.metrics&&d.metrics.index?d.metrics.index.indexed:null,clicks:d.seo&&d.seo.cur?Math.round(d.seo.cur.clicks):null,share:null};
-{const Y=(dl.events&&dl.events.yesterday)||{},lk=Y.car_lookup?Y.car_lookup[1]:0,sh=Y.share?Y.share[1]:0;if(lk>=10)actuals.share=Math.round(sh/lk*1000)/10}
-$("tg").innerHTML=TARGETS.map(t=>{const a=actuals[t.id];let exp=t.goal,state="warn",pct=0,note=t.hint;
-if(a==null){return '<div class="card tgc"><div class="lbl"><span>'+t.label+'</span></div><div class="num">-</div><div class="sub">אין עדיין נתון. '+t.hint+'</div></div>'}
-if(!t.rate){const s0=Date.parse(t.startDate),e0=Date.parse(t.due),f=Math.min(1,Math.max(0,(Date.now()-s0)/(e0-s0)));exp=t.start+(t.goal-t.start)*f;state=st(a-t.start,exp-t.start);pct=(a-t.start)/(t.goal-t.start)*100;note="אמור להיות היום: "+n(Math.round(exp*10)/10)+" · עד "+t.due.split("-").reverse().slice(0,2).join("/")+". "+t.hint}
-else{state=st(a,t.goal);pct=a/t.goal*100}
-return '<div class="card tgc"><div class="lbl"><span>'+t.label+'</span><span class="st '+state+'">'+SL[state]+'</span></div><div class="num">'+n(a)+t.unit+' <span class="muted" style="font-size:.9rem;font-weight:400">מתוך יעד '+n(t.goal)+t.unit+'</span></div><div class="bar" role="img" aria-label="התקדמות"><i class="'+state+'" style="width:'+Math.max(2,Math.min(100,pct))+'%"></i></div><div class="sub">'+note+'</div></div>'}).join("");
-$("tgn").textContent="ירוק: בקצב או מעליו. כתום: עד 30% מאחורי הקצב. אדום: יותר מזה.";
-{const tm=t=>new Date(t).toLocaleTimeString("he-IL",{timeZone:"Asia/Jerusalem",hour:"2-digit",minute:"2-digit"}),dy=t=>new Date(t).toLocaleDateString("he-IL",{timeZone:"Asia/Jerusalem",day:"numeric",month:"numeric"}),rel=t=>{const m=Math.floor((Date.now()-Date.parse(t))/60000);return m<1?"עכשיו":m<60?"לפני "+m+" דק'":m<1440?"לפני "+Math.floor(m/60)+" שע'":dy(t)};
-const fl=(d.flashes||[]).slice(0,12),first=!window.seenFl;window.seenFl=window.seenFl||new Set();
-$("fl").innerHTML=fl.map(f=>{const key=f.t+f.x,isNew=!first&&!window.seenFl.has(key);window.seenFl.add(key);const today=dy(f.t)===dy(new Date());return '<li class="'+(isNew?"new":"")+'"><span><span class="ft" title="'+esc(dy(f.t)+" "+tm(f.t))+'">'+(today?"":dy(f.t)+" ")+tm(f.t)+'</span><span class="lv '+(f.l==="alert"?"alert":"")+'">'+(f.l==="alert"?"●":"○")+'</span> <b style="font-variant-numeric:normal">'+esc(FK[f.k]||f.k)+':</b> '+esc(f.x)+(f.u&&/^https:\\/\\//.test(f.u)?' <a href="'+esc(f.u)+'" target="_blank" rel="noopener">קישור</a>':'')+'</span><small data-t="'+esc(f.t)+'">'+rel(f.t)+'</small></li>'}).join("")||'<li><span class="muted">אין מבזקים עדיין. הם יופיעו כשהסוכנים ידווחו על משהו.</span></li>';window.relFl=rel}
-const pm=d.perMinute||[],m=Math.max(1,...pm);
-$("s").innerHTML='<line x1="0" x2="300" y1="62" y2="62" stroke="var(--line)"/>'+pm.map((v,i)=>{const h=v?Math.max(3,v/m*56):0;return '<rect x="'+(i*10+2)+'" y="'+(62-h)+'" width="7" height="'+h+'" fill="var(--accent)" rx="1.5"/>'}).join("");
-const known=ev.filter(e=>N[e[0]]).sort((a,b)=>b[1]-a[1]);
-$("e").innerHTML=known.map(e=>row(e[0],e[1],N[e[0]])).join("")||'<li><span class="muted">אין פעילות ב-30 הדקות האחרונות</span><b></b></li>';
-const other=ev.filter(e=>!N[e[0]]&&!BAD[e[0]]).sort((a,b)=>b[1]-a[1]);
-$("tec").innerHTML=other.map(e=>row(e[0],e[1],TEC[e[0]]||e[0])).join("")||'<li><span class="muted">אין</span><b></b></li>';
-{window.prevN=window.prevN||{};for(const id of ["a","l","p","ac","v","pv"]){const el=$(id),x=el.textContent;if(window.prevN[id]!==undefined&&window.prevN[id]!==x){el.classList.remove("bump");void el.offsetWidth;el.classList.add("bump")}window.prevN[id]=x}window.lastAt=Date.now()}
-advise(d,ev,dl,K,E,S,get,bad);
-$("er").textContent=Object.entries(d.errors||{}).map(e=>e[0]+": "+e[1]).join(" | ");$("t").textContent=new Date(d.at).toLocaleTimeString("he-IL")}catch{$("t").textContent="אין חיבור"}}
+const S7=W&&W.sources,tot=S7?S7.reduce((a,r)=>a+r[1],0):null,kv=(a,ltr)=>a&&a.length?'<ul class="kv">'+a.map(r=>"<li><span>"+(ltr?'<bdi dir="ltr">'+esc(r[0])+"</bdi>":esc(r[0]))+"</span><b>"+n(r[1])+"</b></li>").join("")+"</ul>":'<p class="note" style="margin:0">אין נתונים</p>';
+const C=(d.daily||{}).campaigns,T=d.metrics&&d.metrics.social&&d.metrics.social.tiktok;
+$("web").innerHTML='<h4>ביקורים ב-7 ימים ('+rng(W&&W.CW)+"): "+n(tot)+"</h4>"+kv(S7?agg(S7,SRC):null)+'<p class="note">נספר כרגע רק עמוד הבדיקה, כי בדפי הדגמים ובמגזין עוד אין קוד מדידה של Cloudflare.</p>'
++"<h4>הדפים שהכי ראו</h4>"+kv(W&&W.pages?agg(W.pages,h=>h||"/").slice(0,8):null,true)
++"<h4>כניסות מיוטיוב ומטיקטוק</h4>"+(C?'<table class="t"><thead><tr><th>מקור</th><th class="n">היום</th><th class="n">7 ימים</th><th class="n">28 ימים</th></tr></thead><tbody>'+[["youtube","יוטיוב"],["tiktok","טיקטוק"]].map(k=>{const v=C[k[0]]||[0,0,0];return "<tr><td>"+k[1]+"</td>"+v.map(x=>'<td class="n">'+n(x)+"</td>").join("")+"</tr>"}).join("")+"</tbody></table>":'<p class="note" style="margin:0">אין נתונים</p>')
++"<h4>עמוד הטיקטוק</h4>"+(T?'<ul class="kv">'+[["followers","עוקבים"],["views7","צפיות ב-7 ימים"],["likes7","לייקים ב-7 ימים"],["videos","סרטונים"]].map(k=>"<li><span>"+k[1]+"</span><b>"+n(T[k[0]])+"</b></li>").join("")+"</ul>":'<p class="note" style="margin:0">אין עדיין נתונים. הם מוזנים פעם בשבוע מ-TikTok Analytics.</p>')}
+
+// drawer: Google search
+{const S=d.seo,box=$("seo");if(!S||!S.cur){box.innerHTML='<p class="note">'+(S?"אין עדיין נתוני חיפוש.":"Search Console לא ענה.")+"</p>"}else{
+const qs=S.queries||[],ps=x=>n1(x),X=d.metrics&&d.metrics.index;
+const TB=(heads,rows)=>rows.length?'<table class="t"><thead><tr>'+heads.map((h,i)=>"<th"+(i?' class="n"':"")+">"+h+"</th>").join("")+"</tr></thead><tbody>"+rows.map(r=>'<tr><td class="w">'+r[0]+"</td>"+r.slice(1).map(x=>'<td class="n">'+x+"</td>").join("")+"</tr>").join("")+"</tbody></table>":'<p class="note" style="margin:0">אין נתונים</p>';
+const dd=(S.days||[]).slice(-28),mx=Math.max(1,...dd.map(x=>x[1]));
+const path=u=>esc(String(u).replace(/^https?:\\/\\/[^/]+/,"")||"/");
+box.innerHTML="<h4>כניסות מגוגל לפי יום, 28 ימים</h4>"+'<svg class="spark" viewBox="0 0 280 60" role="img" aria-label="כניסות מגוגל לפי יום">'+dd.map((x,i)=>{const h=x[1]?Math.max(3,x[1]/mx*52):0;return '<rect x="'+(i*10+1)+'" y="'+(56-h)+'" width="7" height="'+h+'" rx="1.5"/>'}).join("")+"</svg>"+'<div class="axis"><span>'+(dd[0]?dm(dd[0][0]):"")+"</span><span>"+(dd.length?dm(dd[dd.length-1][0]):"")+"</span></div>"
++"<h4>דפים שגוגל מכיר</h4>"+(X?'<ul class="kv"><li><span>נכנסו למאגר של גוגל</span><b>'+n(X.indexed)+"</b></li><li><span>נסרקו ועדיין לא נכנסו</span><b>"+n(X.crawledNotIndexed)+"</b></li><li><span>נבדקו בסך הכול</span><b>"+n(X.inspected)+"</b></li></ul>":'<p class="note" style="margin:0">אין נתון</p>')
++"<h4>מה הקלידו בגוגל (28 ימים)</h4>"+TB(["חיפוש","לחצו","ראו","מקום"],qs.slice().sort((a,b)=>b[1]-a[1]||b[2]-a[2]).slice(0,10).map(r=>[esc(r[0]),n(r[1]),n(r[2]),ps(r[4])]))
++"<h4>חיפושים שקרובים לעמוד הראשון</h4>"+TB(["חיפוש","ראו","מקום"],qs.filter(r=>r[4]>=8&&r[4]<=20&&r[2]>=3).sort((a,b)=>b[2]-a[2]).slice(0,8).map(r=>[esc(r[0]),n(r[2]),ps(r[4])]))
++"<h4>הדפים שגוגל הציג (28 ימים)</h4>"+TB(["דף","לחצו","ראו"],(S.pages||[]).slice(0,8).map(r=>['<bdi dir="ltr">'+path(r[0])+"</bdi>",n(r[1]),n(r[2])]))
++(S.sitemaps&&S.sitemaps.some(r=>r.errors||r.warnings)?'<p class="note">במפת האתר יש שגיאות או אזהרות. אני בודק ומתקן בסקירה השבועית.</p>':"")}}
+
+// drawer: agent news
+{const tm=t=>new Date(t).toLocaleTimeString("he-IL",{timeZone:"Asia/Jerusalem",hour:"2-digit",minute:"2-digit"});
+$("fl").innerHTML=(d.flashes||[]).slice(0,12).map(f=>'<li><span class="ft">'+dm(new Date(f.t).toLocaleDateString("en-CA",{timeZone:"Asia/Jerusalem"}))+" "+tm(f.t)+'</span><span><span class="lv '+(f.l==="alert"?"alert":"")+'">'+(f.l==="alert"?"●":"○")+"</span> <b>"+esc(FK[f.k]||f.k)+":</b> "+esc(f.x)+(f.u&&/^https:\\/\\//.test(f.u)?' <a href="'+esc(f.u)+'" target="_blank" rel="noopener">קישור</a>':"")+"</span></li>").join("")||'<li><span class="note">אין מבזקים עדיין.</span></li>'}
+
+// drawer: technical
+{const fk=W&&W.fails?W.fails[0]:null,rt=d.events||[];
+const li=(l,v)=>"<li><span>"+l+"</span><b>"+v+"</b></li>";
+$("tec").innerHTML="<h4>בדיקות שלא החזירו תוצאה, לפי סיבה ("+rng(W&&W.W)+")</h4>"+(fk?'<ul class="kv">'+(Object.entries(fk).sort((a,b)=>b[1]-a[1]).map(e=>li(KIND[e[0]]||esc(e[0]),n(e[1]))).join("")||li("אין","0"))+"</ul>":'<p class="note" style="margin:0">אין נתון</p>')
++'<p class="note">'+(H.att!=null?"מתוך "+n(H.att)+" ניסיונות בדיקה. רק שתי הסיבות הראשונות נספרות בתקינות השירות.":"")+"</p>"
++"<h4>עוד סימנים טכניים השבוע</h4>"+'<ul class="kv">'+li("בדיקות איטיות",n(ge(E0,"lookup_slow")))+li("בדיקות שבוטלו באמצע",n(ge(E0,"lookup_abort")))+li("קריסות של האפליקציה",n(ge(E0,"app_exception")))+li("חיפושי דגם בלי תוצאה",n(ge(E0,"search_no_result")))+"</ul>"
++"<h4>מקורות נתונים</h4>"+'<ul class="kv">'+(Object.entries(d.errors||{}).map(e=>li(esc(e[0]),'<span style="font-weight:400">'+esc(e[1])+"</span>")).join("")||li("כל המקורות ענו","✓"))+"</ul>"}
+
+$("build").textContent="גרסה "+(d.build||"");
+}
+
+async function go(){const meta=$("meta");try{const r=await fetch("/live/data",{cache:"no-store"});if(!r.ok)throw 0;const d=await r.json();window.lastD=d;render(d);
+const tm=new Date(d.at).toLocaleTimeString("he-IL",{timeZone:"Asia/Jerusalem",hour:"2-digit",minute:"2-digit"});
+meta.className="meta"+(d.stale?" stale":"");meta.innerHTML='<span class="dot"></span>'+(d.stale?"נתונים ישנים מ-"+tm+", גוגל הגביל זמנית את מספר הבקשות":"עודכן "+tm)}
+catch{meta.className="meta stale";meta.innerHTML='<span class="dot"></span>אין חיבור'+(window.lastD?". מוצגים הנתונים האחרונים":"")}}
+document.addEventListener("click",e=>{const a=e.target.closest("[data-open]");if(a){const el=$(a.dataset.open);if(el)el.open=true}});
 go();setInterval(()=>{if(!document.hidden)go()},60000);
-setInterval(()=>{if(window.lastAt){const s=Math.round((Date.now()-window.lastAt)/1000);$("ago").textContent=s<5?"עכשיו":"לפני "+s+" שניות"}document.querySelectorAll("#fl small[data-t]").forEach(e=>{if(window.relFl)e.textContent=window.relFl(e.dataset.t)})},1000)</script></body></html>`;
+</script></body></html>`;
 
 export default {
   async fetch(req, env) {
