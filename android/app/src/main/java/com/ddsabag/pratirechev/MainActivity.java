@@ -431,10 +431,9 @@ public class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 pageReady = true;
-                if (pendingJs != null) {
-                    String js = pendingJs;
-                    pendingJs = null;
-                    view.evaluateJavascript(js, null);
+                if (!pendingJs.isEmpty()) {
+                    for (String js : pendingJs) view.evaluateJavascript(js, null);
+                    pendingJs.clear();
                 }
             }
 
