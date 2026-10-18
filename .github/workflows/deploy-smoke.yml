@@ -1,8 +1,8 @@
 name: Site smoke test (after deploy)
-# The same live-site check as Site smoke test (site-smoke.mjs), right after Web deploy published a new version from a bot or cron run:
-# those commits are made with GITHUB_TOKEN, so Site smoke test's own push trigger never sees them. Push deploys stay with Site smoke test,
-# which also covers the legacy Pages mode the auto-rollback falls back to. Nothing runs when the deploy job did not (main already live,
-# WEB_DEPLOY off, or a build-only manual run). Kept out of the web-deploy concurrency group on purpose. Alerts go to Telegram only.
+# The same live-site check as Site smoke test (site-smoke.mjs), right after Web deploy published a new version: bot and cron commits
+# (made with GITHUB_TOKEN, so no push trigger sees them) and pushes, whatever files they change. With WEB_DEPLOY on, Site smoke test's own
+# push trigger stands down; it still covers the legacy Pages mode the auto-rollback falls back to. Nothing runs when the deploy job did not
+# (main already live, WEB_DEPLOY off, or a build-only manual run). Kept out of the web-deploy concurrency group on purpose. Alerts go to Telegram only.
 on:
   workflow_run:
     workflows: ["Web deploy (build)"]
@@ -13,7 +13,7 @@ permissions:
   actions: read     # to see whether the deploy job ran
 jobs:
   smoke:
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event != 'push' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -40,7 +40,6 @@ jobs:
         if: ${{ steps.gate.outputs.go == 'true' }}
         run: node .github/scripts/site-smoke.mjs
         env:
-          NO_WAIT: "1"
           DRY_RUN: "0"
           PREVIEW: "0"
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

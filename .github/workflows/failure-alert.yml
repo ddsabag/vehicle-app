@@ -4,7 +4,9 @@ name: Failure alert
 # Manual runs (workflow_dispatch) and the next-branch UI checks are left out: the person who started them sees the result.
 # A run cancelled before any job started is not a failure when a newer run of the same workflow took its place (that run redoes the work); one pushed out of the shared
 # main-writer queue by another workflow lost its work and is reported loudly, as is one cancelled mid-job (e.g. a timeout).
-# A repeat failure (the previous run of the same workflow on main also failed, with no manual run that succeeded in between) is sent silently and not added to /live again; the first one is loud.
+# A run whose only cancelled jobs never started (e.g. SEO auto-publish's publish job pushed out of the queue after its check job ran) counts as cancelled before it started.
+# A repeat failure (the previous run of the same workflow on main also failed, in one of the same jobs, at most 26 h earlier, with no manual run that succeeded in between)
+# is sent silently and not added to /live again; the first one is loud. Another job failing, or a failure after a gap (a monthly or days-1-3 job), is news and loud.
 # Names must match each workflow's name: exactly (no error when one does not).
 on:
   workflow_run:
@@ -65,14 +67,18 @@ jobs:
           RUN_ID: ${{ github.event.workflow_run.id }}
           RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
           WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
+          RUN_CREATED: ${{ github.event.workflow_run.created_at }}
         run: |
           [ -n "$TELEGRAM_BOT_TOKEN" ] || { echo "no Telegram credentials"; exit 0; }
-          # number of jobs of a run that got a runner (a job that never started has no steps); "x" when the API call fails
-          started() { local n; n=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1/jobs?per_page=100" --jq '[.jobs[] | select((.steps | length) > 0)] | length' 2>/dev/null) || n=x; echo "$n"; }
-          # runs of the same workflow on main, newest first, as number:id:status:conclusion:event (empty when the API call fails)
+          # names of the jobs of a run that started and did not succeed (failed, timed out, or cancelled while running), one per line; "x" when the API
+          # call fails. A job cancelled while it waited in a queue has no steps and is not listed.
+          bad() { local n; n=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1/jobs?per_page=100" \
+            --jq '.jobs[] | select((.steps | length) > 0 and (.conclusion == "failure" or .conclusion == "timed_out" or .conclusion == "cancelled")) | .name' 2>/dev/null) || n=x; echo "$n"; }
+          # runs of the same workflow on main, newest first, as number:id:status:conclusion:event:created (epoch seconds; empty when the API call fails)
           runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$WORKFLOW_ID/runs?branch=main&per_page=30" \
-            --jq '.workflow_runs[] | "\(.run_number):\(.id):\(.status):\(.conclusion):\(.event)"' 2>/dev/null) || runs=""
-          if [ "$CONCLUSION" = cancelled ] && [ "$(started "$RUN_ID")" = 0 ]; then
+            --jq '.workflow_runs[] | "\(.run_number):\(.id):\(.status):\(.conclusion):\(.event):\(.created_at | fromdateiso8601)"' 2>/dev/null) || runs=""
+          mine=$(bad "$RUN_ID")
+          if [ "$CONCLUSION" = cancelled ] && [ -z "$mine" ]; then
             # never started: superseded when a newer run of this workflow exists, otherwise another workflow took its place in the queue and the work is lost
             for r in $runs; do [ "${r%%:*}" -gt "$RUN_NUMBER" ] 2>/dev/null && { echo "cancelled before any job started, superseded by run #${r%%:*}: no alert"; exit 0; }; done
             echo "cancelled before any job started, no newer run of this workflow: the work is lost, loud alert"
@@ -81,19 +87,29 @@ jobs:
             node .github/scripts/flash.mjs infra alert "תהליך אוטומטי לא רץ: $NAME" "$URL"
             exit 0
           fi
-          # walk back to the previous completed run: failed too = repeat. A manual run that succeeded ends the streak; a manual one that failed never paged, so it is passed over,
-          # and so is one superseded before it started. Anything else (success, skipped, an API error) counts as a first failure.
+          # walk back to the previous completed run: it failed too, in one of the same jobs, within 26 h = repeat. A manual run that succeeded ends the streak;
+          # a manual one that failed never paged, so it is passed over, and so is one cancelled before any of its jobs ran. Anything else (success, skipped,
+          # an API error, other jobs, an older failure) counts as a first failure.
           repeat=""
+          now=$(date -d "${RUN_CREATED:-now}" +%s 2>/dev/null) || now=$(date +%s)
           for r in $runs; do
-            IFS=: read -r num id st concl ev <<<"$r"
+            IFS=: read -r num id st concl ev at <<<"$r"
             { [ "$num" -lt "$RUN_NUMBER" ] 2>/dev/null && [ "$st" = completed ]; } || continue
             if [ "$ev" = workflow_dispatch ]; then [ "$concl" = success ] && break; continue; fi
             case "$concl" in
-              failure|timed_out) repeat=1; break;;
+              failure|timed_out|cancelled) ;;
               startup_failure) continue;;   # never paged (the job's if: skips it), so the next real failure is a first one
-              cancelled) n=$(started "$id"); [ "$n" = 0 ] && continue; case "$n" in [1-9]*) repeat=1;; esac; break;;
               *) break;;
             esac
+            prev=$(bad "$id")
+            if [ "$concl" = cancelled ] && [ -z "$prev" ]; then continue; fi
+            case "$at" in ''|*[!0-9]*) at=0;; esac
+            if [ "$prev" != x ] && [ "$mine" != x ] && [ $((now - at)) -lt 93600 ]; then
+              while IFS= read -r j; do
+                if [ -n "$j" ] && grep -qxF -- "$j" <<<"$prev"; then repeat=1; fi
+              done <<<"$mine"
+            fi
+            break
           done
           if [ -n "$repeat" ]; then
             echo "the previous run failed too: silent message, no new flash"

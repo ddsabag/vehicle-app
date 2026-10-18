@@ -3,9 +3,9 @@ name: Back-on-road detector
 # as small shards on the zombie-data branch (the app reads only the shard for the plate it shows).
 on:
   schedule:
-    # 07:00 UTC (10:00 Israel summer time, 09:00 winter): a failure alert never comes at night, and the heavy pull stays clear of the
+    # 07:07 UTC (10:07 Israel summer time, 09:07 winter; off the full hour, when GitHub delays or drops the most scheduled runs): a failure alert never comes at night, and the heavy pull stays clear of the
     # 04:00-04:30 data.gov.il latency checks (data health, data guard, infra watch)
-    - cron: "0 7 3 * *"
+    - cron: "7 7 3 * *"
   workflow_dispatch:
 permissions:
   contents: write

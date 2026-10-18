@@ -21,6 +21,8 @@ permissions:
 # no concurrency group: flash() already retries on write conflicts, and a queued run cancelled by the group would page as a failure
 jobs:
   smoke:
+    # with WEB_DEPLOY on, a push deploy is checked by Site smoke test (after deploy) once the deploy is done
+    if: ${{ github.event_name != 'push' || vars.WEB_DEPLOY != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

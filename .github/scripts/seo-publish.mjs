@@ -60,12 +60,13 @@ const subject = sh(`git log -1 --format=%s origin/${BR}`);
 hasTag("");
 const noteTag = TAGS.find(t => t.startsWith("seo-auto-notified-" + s7 + "-"));
 if (!noteTag) {
-  await tg(`🕓 שינוי SEO יעלה לאתר בעוד ${HOURS} שעות: ${subject}\n${files.length} קבצים (${files.filter(x => x.st === "A").length} חדשים). לביטול: למחוק את הענף ${BR} או לכתוב לקלוד.`);
+  await tg(`🕓 שינוי SEO יעלה לאתר בעוד כ-${HOURS} שעות (בהרצה הקבועה של מחר באותה שעה): ${subject}\n${files.length} קבצים (${files.filter(x => x.st === "A").length} חדשים). לביטול: למחוק את הענף ${BR} או לכתוב לקלוד.`);
   markTag(`seo-auto-notified-${s7}-${Math.floor(now / 36e5)}`);
   process.exit(0);
 }
 const ageH = now / 36e5 - Number(noteTag.split("-").pop());
-if (ageH < HOURS) { console.log(`waiting: ${ageH.toFixed(1)}h of ${HOURS}h`); process.exit(0); }
+// an hour of slack: runs start late by different amounts, and the same slot the next day must qualify (else the change waits 32-40 h)
+if (ageH < HOURS - 1) { console.log(`waiting: ${ageH.toFixed(1)}h of ${HOURS}h`); process.exit(0); }
 if (CHECK) { console.log(`due after ${ageH.toFixed(1)}h: handing over to the publish job`); if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, "ready=true\n"); process.exit(0); }
 
 // merge on a scratch state of main and run the SEO lint before pushing

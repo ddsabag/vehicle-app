@@ -4,6 +4,7 @@ name: Experimenter
 # Paused (2026-10-18): too little traffic for a fair result, so there is no schedule and experiments.json has "off": true (everyone sees
 # variant 0). To resume: put back the weekly cron (was "20 6 * * 3") and remove "off" from experiments.json; an "off" experiment is skipped
 # even on a manual run. Keep experiments.json on the site: without it the app keeps each device's old random variant.
+# Failure alert skips manual runs, so it watches this workflow again only once the cron is back.
 on:
   workflow_dispatch:
     inputs:

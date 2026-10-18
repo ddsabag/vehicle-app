@@ -3,7 +3,8 @@
 // The regulated price changes on the 1st. fuel.json keeps the last price read from gov.il under "official" (the app reads only
 // month/petrol95/diesel). Without the official source: a month whose official price is known keeps it; otherwise the fallback is
 // used only near the last official price (on 2026-10-05 Delek's list moved 95 from the regulated 8.27 to 7.77), else the file stays.
-// Every run that misses the official source leaves a silent line on the live dashboard (flash, needs GITHUB_TOKEN).
+// Every run that misses the official source leaves a silent line on the live dashboard (flash, needs GITHUB_TOKEN). When the file still has
+// no price for this month on the 3rd (the last scheduled day), the run fails, so Failure alert pages once instead of a month going by unnoticed.
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { flash } from "./flash.mjs";
@@ -55,8 +56,13 @@ const prev = existsSync("fuel.json") ? JSON.parse(readFileSync("fuel.json", "utf
 const official = gov ? {month, petrol95: gov.petrol95, source: gov.source}
   : prev.official || (/gov\.il/.test(prev.source || "") && prev.petrol95 > 0 ? {month: prev.month, petrol95: prev.petrol95, source: prev.source} : OCT26);
 const note = async text => { console.log(text); await flash("data", "info", "מחיר הדלק: " + text); };
+const giveUp = async text => {
+  await note(text);
+  if (prev.month !== month && now.getUTCDate() >= 3) { console.log(`::error::fuel.json still has no price for ${month}: check the official price and update fuel.json by hand`); process.exit(1); }
+  process.exit(0);
+};
 const res = gov || delek;
-if (!res) { await note(`המקור הרשמי (gov.il) והמחירון של חברת דלק לא נקראו, נשאר המחיר ${prev.petrol95 || "הקודם"} ₪`); process.exit(0); }
+if (!res) await giveUp(`המקור הרשמי (gov.il) והמחירון של חברת דלק לא נקראו, נשאר המחיר ${prev.petrol95 || "הקודם"} ₪`);
 if (gov && delek && delek.diesel) res.diesel = delek.diesel;
 if (!gov) {
   const fb = res.petrol95, gap = Math.round(Math.abs(fb - official.petrol95) * 100) / 100;
@@ -67,8 +73,7 @@ if (!gov) {
   } else {
     const [oy, om] = official.month.split("-").map(Number), age = Math.max(1, (y - oy) * 12 + m + 1 - om), tol = Math.min(STEP * age, MAX_JUMP);
     if (gap > tol) {
-      await note(`המקור הרשמי (gov.il) לא נקרא, ובמחירון של חברת דלק בנזין 95 עולה ${fb} ₪, הפרש של ${gap} ₪ מהמחיר הרשמי האחרון (${official.petrol95} ₪ לחודש ${official.month}). הקובץ לא עודכן (${prev.petrol95 || "-"} ₪ לחודש ${prev.month || "-"}), כדאי לבדוק ידנית`);
-      process.exit(0);
+      await giveUp(`המקור הרשמי (gov.il) לא נקרא, ובמחירון של חברת דלק בנזין 95 עולה ${fb} ₪, הפרש של ${gap} ₪ מהמחיר הרשמי האחרון (${official.petrol95} ₪ לחודש ${official.month}). הקובץ לא עודכן (${prev.petrol95 || "-"} ₪ לחודש ${prev.month || "-"}), כדאי לבדוק ידנית`);
     }
     await note(`המקור הרשמי (gov.il) לא נקרא. בנזין 95 לחודש ${month} נלקח מהמחירון של חברת דלק: ${fb} ₪ (המחיר הרשמי האחרון ${official.petrol95} ₪ לחודש ${official.month}). כדאי לוודא מול ההודעה הרשמית`);
   }
