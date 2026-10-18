@@ -9,7 +9,7 @@ name: Store listing
 # push, so Failure alert only fires when the job dies. Owner setup: .github/SHIP-TAIL.md
 on:
   push:
-    branches: [st-prod-test2]
+    branches: [st-prod-test2-off]
 permissions:
   contents: read
 # one listing run at a time; a newer push replaces a pending one (it carries the newer files)
