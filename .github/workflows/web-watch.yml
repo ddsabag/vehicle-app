@@ -22,18 +22,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -r analytics/requirements.txt
       - name: Load saved state
         run: |
           mkdir -p state
           git fetch -q origin web-watch 2>/dev/null && git --work-tree=state checkout FETCH_HEAD -- history.json || true
       - name: Measure
+        id: measure
         env:
-          GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
           PSI_API_KEY: ${{ secrets.PSI_API_KEY }}
           PAGES_ADMIN_TOKEN: ${{ secrets.PAGES_ADMIN_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # flash.mjs: the alert on the /live dashboard
         run: python analytics/web_watch.py state ${{ inputs.dry_run && '--dry' || '' }}
       - name: Save state
         if: ${{ !inputs.dry_run }}
@@ -45,3 +45,9 @@ jobs:
           git add history.json
           git commit -qm "web-watch $(date -u +%F)"
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" web-watch
+      # the state is saved first; the run then fails so the lost alert still reaches Failure alert and GitHub's failure email
+      - name: Rollback alert did not reach Telegram
+        if: ${{ steps.measure.outputs.telegram_failed == '1' }}
+        run: |
+          echo "::error::Telegram did not take the rollback alert (see Measure). The state is saved and the /live dashboard has the alert."
+          exit 1
