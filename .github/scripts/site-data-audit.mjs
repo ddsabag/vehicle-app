@@ -19,15 +19,23 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const LOCAL_MOCK = process.env.AUDIT_LOCAL_MOCK ? await import(process.env.AUDIT_LOCAL_MOCK) : null;
 if (LOCAL_MOCK) { const real = globalThis.fetch; globalThis.fetch = async (u, o) => /data\.gov\.il/.test(String(u)) ? new Response(JSON.stringify(LOCAL_MOCK.answer(String(u))), {status: 200, headers: {"content-type": "application/json"}}) : real(u, o); }
 let reqN = 0, lastReq = 0, throttled = 0;
-const GAP = Number(OPTS.gap || 700);   // ms between two of my requests; data.gov.il answers 403 to bursts
+const GAP = Number(OPTS.gap || 450);   // ms between two of my requests
+// data.gov.il answers 403 (and the browser sees failed requests) when one address sends more than about 80 requests a minute:
+// every request to it, mine and the app's, goes into one sliding one-minute window that is kept under LIMIT
+let LIMIT = Number(OPTS.limit || 58); const HITS = [];
+const inWin = () => { const t = Date.now() - 60000; while (HITS.length && HITS[0] < t) HITS.shift(); return HITS.length; };
+async function slot(n = 1) { for (;;) { if (inWin() + n <= LIMIT || !HITS.length) return; await sleep(Math.max(250, HITS[0] + 60000 - Date.now() + 50)); } }
+let coolUntil = 0; const cool = ms => { coolUntil = Math.max(coolUntil, Date.now() + ms); };
 async function call(act, params, {tries = 4, quiet = false} = {}) {
   let last;
   for (let a = 0; a < tries; a++) {
+    if (coolUntil > Date.now()) await sleep(coolUntil - Date.now());
+    await slot(1);
     const wait = lastReq + GAP - Date.now(); if (wait > 0) await sleep(wait);
-    lastReq = Date.now(); reqN++;
+    lastReq = Date.now(); reqN++; HITS.push(lastReq);
     try {
       const r = await fetch(API + act + "?" + new URLSearchParams(params), {headers: {Accept: "application/json", "User-Agent": "luchit-data-audit/1.0"}, signal: AbortSignal.timeout(60000)});
-      if (r.status === 403 || r.status === 429 || r.status >= 500) { last = new Error("HTTP " + r.status); throttled++; await sleep(15000 * (a + 1)); continue; }
+      if (r.status === 403 || r.status === 429 || r.status >= 500) { last = new Error("HTTP " + r.status); throttled++; if (r.status !== 500) { LIMIT = Math.max(30, Math.round(LIMIT * 0.9)); cool(60000); } else await sleep(5000 * (a + 1)); continue; }
       if (!r.ok) { const e = new Error("HTTP " + r.status); e.status = r.status; throw e; }
       const j = await r.json();
       if (!j.success) throw new Error("CKAN " + JSON.stringify(j.error || {}).slice(0, 120));
@@ -132,8 +140,8 @@ async function recallList() {
 const BRANDS = [[/טויוטה/, /TOYOTA/], [/לקסוס/, /LEXUS/], [/יונדא/, /HYUNDAI/], [/קיה/, /\bKIA\b/], [/מאזדה|מזדה/, /MAZDA/], [/סקודה/, /SKODA/], [/פולקסווגן|פולקסוואגן/, /VOLKSWAGEN|\bVW\b/],
   [/סיאט/, /SEAT/], [/קופרה/, /CUPRA|SEAT/], [/אאודי|אודי/, /AUDI/], [/ניסאן|ניסן/, /NISSAN/], [/מיצובישי/, /MITSUBISHI/], [/סוזוקי/, /SUZUKI/], [/הונדה/, /HONDA/], [/סובארו/, /SUBARU/],
   [/פיג.?ו|פז.?ו/, /PEUGEOT/], [/סיטרואן/, /CITROEN/], [/רנו/, /RENAULT/], [/דאצ.?יה/, /DACIA/], [/אופל/, /OPEL/], [/שברולט/, /CHEVROLET/], [/פורד/, /FORD/], [/פיאט/, /FIAT/], [/ג.?יפ/, /JEEP/],
-  [/ב\.? ?מ\.? ?וו|במוו|BMW/, /BMW/], [/מרצדס/, /MERCEDES|DAIMLER/], [/מיני/, /MINI/], [/וולוו|וולבו/, /VOLVO/], [/טסלה/, /TESLA/], [/BYD|בי.?וי.?די/, /BYD/], [/ג.?ילי/, /GEELY/], [/צ.?רי/, /CHERY/],
-  [/(?<![א-ת])מ\.? ?ג(?![א-ת])|אם.?ג.?י|\bMG\b/, /\bMG\b|SAIC/], [/אלפא/, /ALFA/], [/לנד רובר|ריינג/, /LAND ?ROVER|RANGE/], [/י?ג.?ואר/, /JAGUAR/], [/פורשה/, /PORSCHE/], [/איסוזו/, /ISUZU/],
+  [/ב\.? ?מ\.? ?וו|במוו|BMW/, /BMW/], [/מרצדס/, /MERCEDES|DAIMLER/], [/מיני/, /MINI/], [/וולוו|וולבו/, /VOLVO/], [/טסלה/, /TESLA/], [/BYD|בי ?וו?י ?די/, /BYD/], [/ג.?ילי/, /GEELY/], [/צ.?רי/, /CHERY/],
+  [/(?<![א-ת])מ\.? ?ג(?![א-ת])|אם.?ג.?י|\bMG\b/, /\bMG\b|SAIC/], [/אלפא/, /ALFA/], [/לנד רובר|ריינג|רובר/, /LAND ?ROVER|RANGE|\bROVER/], [/י?ג.?ואר/, /JAGUAR/], [/פורשה/, /PORSCHE/], [/איסוזו/, /ISUZU/],
   [/סאנג|קיי ?ג.?י|KGM/, /SSANG|KGM/], [/דודג|דודג'/, /DODGE/], [/קרייזלר/, /CHRYSLER/], [/ראם/, /\bRAM\b/], [/לינק/, /LYNK/], [/פולסטאר/, /POLESTAR/], [/סמארט/, /SMART/], [/ג.?נסיס/, /GENESIS/],
   [/קאדילק/, /CADILLAC/], [/ג.?י אם סי|GMC/, /GMC/], [/איווקו/, /IVECO/], [/זיקר/, /ZEEKR/], [/אקספנג/, /XPENG/], [/ליפמוטור/, /LEAPMOTOR/], [/ג.?אקו/, /JAECOO/], [/אומודה/, /OMODA/],
   [/די ?אס|^DS/, /\bDS\b/], [/מקסוס/, /MAXUS/], [/ימאהה/, /YAMAHA/], [/קוואסאקי/, /KAWASAKI/], [/הארלי/, /HARLEY/], [/דוקאטי/, /DUCATI/], [/ק.?ט.?מ|KTM/, /KTM/], [/פיאג.?ו/, /PIAGGIO/], [/ספה/, /VESPA|PIAGGIO/], [/סאן ?יאנג|SYM/, /SYM|SANYANG/], [/קימקו/, /KYMCO/]];
@@ -152,20 +160,20 @@ async function sample() {
   const act = SET("active").id;
   for (let i = 0; i < NACT; i++) {
     const y = 2005 + (i % 22), o = OWNS[Math.floor(i / 22) % OWNS.length], fu0 = FUELS[(i + Math.floor(i / 22)) % FUELS.length], fu = fu0.q ? {...fu0, q: HYB[i % HYB.length]} : fu0;
-    const mk = MAKES.length && i % 3 === 0 ? MAKES[pickOf("mk" + i, MAKES.length)] : null;
-    const tries = [[mk, fu, o], [null, fu, o], [null, fu, null], [null, null, o], [null, null, null]];
+    const mk = OPTS.makes && MAKES.length && i % 3 === 0 ? MAKES[pickOf("mk" + i, MAKES.length)] : null;
+    const tries = [...(mk ? [[mk, fu, o]] : []), [null, fu, o], [null, null, o], [null, fu, null], [null, null, null]];
     let done = false;
     for (const [m, f, ow] of tries) {
       if (done) break;
       const filt = {shnat_yitzur: y, ...(f ? f.f : {}), ...(ow ? {baalut: ow} : {}), ...(m ? {tozeret_nm: m} : {})};
       let tot = 0; try { tot = await count(act, filt, f && f.q); } catch { continue; }
       if (!tot) continue;
-      for (let k = 0; k < 3 && !done; k++) {
+      for (let k = 0; k < 2 && !done; k++) {
         try { const p = await rowAt(act, filt, f && f.q, pickOf(`a${i}.${k}`, tot), "mispar_rechev"); done = add(p, "active", `y=${y} own=${ow || "*"} fuel=${f ? f.k : "*"}${m ? " make=" + m : ""} of ${tot}`); } catch {}
       }
     }
   }
-  const rare = [["inactive", 2], ["inactive2", 1], ["cancel", 3], ["cancel2010", 1], ["cancel2000", 1], ["import", 3], ["moto", 2], ["heavy", 2], ["public", 1]];
+  const rare = [["inactive", 2], ["inactive2", 1], ["cancel", 2], ["cancel2010", 1], ["cancel2000", 1], ["import", 3], ["moto", 2], ["heavy", 2], ["public", 1]];
   let left = NRARE;
   for (const [k, want] of rare) {
     const s = SET(k); if (!s || left <= 0) continue;
@@ -179,17 +187,18 @@ async function sample() {
 const MAIN_ORDER = SETS.filter(s => s.role === "main").map(s => s.key);
 async function raw(c) {
   const out = {sets: {}, errs: {}};
-  const mains = c.from === "active" ? ["active", "import", ...(fnv(c.id) % 4 === 0 ? ["cancel"] : [])] : MAIN_ORDER;
-  for (const k of [...mains, "cont", "tech", "owners", "recall", "tag"]) { const r = await rowsByPlate(SET(k), c.plate); out.sets[k] = r.rows; if (r.err) out.errs[k] = r.err; }
+  const extra = fnv(c.id) % 4 === 0;   // one active car in four is also looked up in the import and off-the-road registers and the disability-tag list
+  const mains = c.from === "active" ? ["active", ...(extra ? ["import", "cancel"] : [])] : [...new Set(["active", "import", "inactive", "cancel", c.from])];
+  for (const k of [...mains, ...(c.from === "active" ? [] : ["cont"]), "tech", "owners", "recall", ...(c.from !== "active" || extra ? ["tag"] : [])]) { const r = await rowsByPlate(SET(k), c.plate); out.sets[k] = r.rows; if (r.err) out.errs[k] = r.err; }
   const primary = MAIN_ORDER.find(k => out.sets[k] && out.sets[k].length) || null;
   const R = {};
   const fill = r => { for (const [k, v] of Object.entries(r || {})) if (E(R[k]) && !E(v)) R[k] = v; };
   MAIN_ORDER.filter(k => out.sets[k] && out.sets[k].length).forEach(k => fill(out.sets[k][0]));
-  fill(out.sets.cont[0]); fill(out.sets.tech[0]);
+  fill((out.sets.cont || [])[0]); fill((out.sets.tech || [])[0]);
   out.primary = primary; out.R = R;
   if (!E(R.tozeret_cd) && !E(R.degem_cd)) {
     out.wltp = await modelRowsMine(MODEL.wltp, R); out.price = await modelRowsMine(MODEL.price, R);
-    if (!E(R.kinuy_mishari) && isN(R.shnat_yitzur)) { try { out.cohort = await count(SET("active").id, {kinuy_mishari: R.kinuy_mishari, shnat_yitzur: N(R.shnat_yitzur)}); } catch {} }
+    if (!E(R.kinuy_mishari) && isN(R.shnat_yitzur) && (fnv(c.id + "k") % 3 === 0 || c.from !== "active")) { try { out.cohort = await count(SET("active").id, {kinuy_mishari: R.kinuy_mishari, shnat_yitzur: N(R.shnat_yitzur)}); } catch {} }
   } else { out.wltp = []; out.price = []; }
   return out;
 }
@@ -235,14 +244,18 @@ function collect() {
   return {cards, stats, text: T(panel)};
 }
 async function readPage(plate) {
-  const page = await ctx.newPage(); const perr = [], net = {n: 0, bad: []};
+  if (coolUntil > Date.now()) await sleep(coolUntil - Date.now());
+  await slot(Number(OPTS.appslot || 16));
+  const page = await ctx.newPage(); const perr = [], net = {n: 0, bad: [], failed: 0, t0: Date.now(), ms: 0};
   page.on("pageerror", e => perr.push(String(e).slice(0, 140).replace(/\d{6,8}/g, "<n>")));
-  page.on("request", r => { if (/data\.gov\.il/.test(r.url())) net.n++; });
-  page.on("response", r => { if (/data\.gov\.il/.test(r.url()) && r.status() >= 400) net.bad.push(r.status()); });
-  page.on("requestfailed", r => { if (/data\.gov\.il/.test(r.url())) net.bad.push("failed"); });
+  page.on("request", r => { if (/data\.gov\.il/.test(r.url())) { net.n++; HITS.push(Date.now()); } });
+  // 403/429/5xx = the ministry refused or failed; a request the browser reports as failed is usually an error answer without CORS headers (a numeric filter on a text column), which the app expects
+  page.on("response", r => { if (/data\.gov\.il/.test(r.url()) && (r.status() === 403 || r.status() === 429 || r.status() >= 500)) net.bad.push(r.status()); });
+  page.on("requestfailed", r => { if (/data\.gov\.il/.test(r.url())) net.failed++; });
   try {
     await page.goto(BASE + "?plate=" + plate, {waitUntil: "domcontentloaded", timeout: 30000});
     await page.waitForFunction(() => document.querySelector("#out .id-card") || document.querySelector("#out .msg.edge"), null, {timeout: 50000});
+    net.ms = Date.now() - net.t0;
     const edge = await page.evaluate(() => { const m = document.querySelector("#out .msg.edge"); return m ? m.textContent.replace(/\s+/g, " ").trim() : ""; });
     if (edge) return {edge: edge.replace(/\d[\d-]{5,}/g, "<plate>"), perr, net};
     await page.waitForTimeout(1200);
@@ -349,7 +362,7 @@ function compare(c, X, P) {
     check(c, "km.last_test", kmR ? km && N(dig(km.v)) === kmR : !km, km ? km.v : "", kmR || "", "");
     if (kmR) { const start = ym(R.moed_aliya_lakvish) || (isN(R.shnat_yitzur) ? new Date(N(R.shnat_yitzur), 6, 1) : null), td = ymd(R.mivchan_acharon_dt) || new Date();
       if (start) { const yrs = Math.max(((td.getFullYear() - start.getFullYear()) * 12 + (td.getMonth() - start.getMonth()) + (td.getDate() - start.getDate()) / 30) / 12, 0.5), e = Math.round(kmR / yrs / 100) * 100;
-        check(c, "km.per_year", per && Math.abs(N(dig(per.v)) - e) <= Math.max(200, e * 0.03), per ? per.v : "", e, `km=${kmR} road=${R.moed_aliya_lakvish || ""} test=${R.mivchan_acharon_dt || ""}`); } } }
+        check(c, "km.per_year", e === 0 ? !per : per && Math.abs(N(dig(per.v)) - e) <= Math.max(200, e * 0.03), per ? per.v : "", e === 0 ? "(not shown: rounds to 0)" : e, `km=${kmR} road=${R.moed_aliya_lakvish || ""} test=${R.mivchan_acharon_dt || ""}`); } } }
   // road dates
   { const sh = factOf(P, "overview", /^רישוי וטסט$/, "עלה לכביש"); check(c, "road.first_date", E(R.moed_aliya_lakvish) ? E(sh) : sh === fd(R.moed_aliya_lakvish), sh, E(R.moed_aliya_lakvish) ? "" : fd(R.moed_aliya_lakvish), "");
     const rr = factOf(P, "overview", /^רישוי וטסט$/, "רישום ראשון"); check(c, "road.first_registration", E(R.rishum_rishon_dt) ? E(rr) : rr === fd(R.rishum_rishon_dt), rr, E(R.rishum_rishon_dt) ? "" : fd(R.rishum_rishon_dt), ""); }
@@ -406,32 +419,43 @@ function compare(c, X, P) {
   { const br = brandRe(String(R.tozeret_nm || "") + " " + String(R.tozar || ""));
     const card = cardOf(P, "recalls", /^ריקולים שנפתחו לדגם$/), shown = card ? card.rlist : [];
     if (E(R.degem_cd)) NOTES.push(`${c.id}: no model code (${X.primary}): model recalls not looked up by the app`);
-    else if (!br || !RECALL_LIST) NOTES.push(`${c.id}: model recalls not checked (no brand mapping for "${R.tozeret_nm}")`);
+    else if (!RECALL_LIST) NOTES.push(`${c.id}: recall list not loaded`);
     else {
       const open = new Set((X.sets.recall || []).map(r => String(r.RECALL_ID).trim()));
-      const names = [R.kinuy_mishari, R.degem_nm].map(nrm).filter(n => n.length >= 2);
-      const toks = s => String(s || "").toUpperCase().split(/[^A-Z0-9א-ת]+/).filter(Boolean);
-      const nameToks = [R.kinuy_mishari, R.degem_nm].filter(x => !E(x)).map(toks);
-      const sub = (a, b) => a.length && b.length >= a.length && b.some((_, i) => a.every((t, j) => b[i + j] === t));   // a's tokens appear in a row inside b
-      const rows = RECALL_LIST.filter(r => br.test(String(r.TOZAR_TEUR || "")) && !open.has(String(r.RECALL_ID).trim()));
-      const cls = r => { const parts = String(r.DEGEM || "").split(/[,\/+;]/).map(s => s.trim()).filter(Boolean);
-        if (parts.some(p => names.includes(nrm(p))) || names.includes(nrm(r.DEGEM))) return "strict";
-        if (parts.some(p => nameToks.some(nt => sub(nt, toks(p))))) return "wider";    // "COROLLA HYBRID" for a COROLLA
-        if (parts.some(p => nameToks.some(nt => sub(toks(p), nt)))) return "narrower"; // "CHEROKEE" for a GRAND CHEROKEE
+      const tk = x => String(x || "").toUpperCase().replace(/([A-Z])(\d)/g, "$1 $2").replace(/(\d)([A-Z])/g, "$1 $2").split(/[^A-Z0-9א-ת]+/).filter(Boolean);
+      const LAT = new Set(["TOYOTA", "MAZDA", "HYUNDAI", "KIA", "SKODA", "SEAT", "AUDI", "BMW", "MERCEDES", "NISSAN", "HONDA", "SUZUKI", "SUBARU", "PEUGEOT", "CITROEN", "RENAULT", "OPEL", "FORD", "FIAT", "JEEP", "VOLVO", "LEXUS", "MITSUBISHI", "CHEVROLET", "VOLKSWAGEN", "VW", "TESLA", "BYD", "MG", "DACIA", "CUPRA", "MINI", "PORSCHE", "GEELY", "CHERY", "DS", "ALFA", "ROMEO"]);
+      const kin = tk(R.kinuy_mishari), names = [kin, kin.length > 1 && LAT.has(kin[0]) ? kin.slice(1) : [], tk(R.degem_nm)].filter(n => n.length);
+      const J = a => a.join(""), sub = (a, b) => a.length && b.length >= a.length && b.some((_, i) => a.every((t, j) => b[i + j] === t));
+      const partsOf = r => String(r.DEGEM || "").split(/[,\/+;]/).map(x => x.trim()).filter(Boolean);
+      const cls = r => { const ps = partsOf(r).map(tk);
+        if (ps.some(p => names.some(n => J(p) === J(n))) || names.some(n => J(tk(r.DEGEM)) === J(n))) return "strict";
+        if (ps.some(p => names.some(n => sub(n, p)))) return "wider";      // the row names a longer model that contains this one ("COROLLA CROSS" for a COROLLA)
+        if (ps.some(p => names.some(n => sub(p, n)))) return "narrower";   // the row names a shorter model ("E-TRON" for an A3 SB E-TRON, "COROLLA" for a COROLLA HSD SDN)
         return "no"; };
-      const keyOf = r => sp(r.TEUR_TAKALA || r.SUG_TAKALA || "ריקול") + "|" + String(r.DEGEM || "").split(/\s*,\s*/).join(", ").trim();
-      const shownKeys = shown.map(s => ({k: s.b, note: s.note, used: false, s}));
-      const findShown = r => { const d = sp(r.TEUR_TAKALA || r.SUG_TAKALA || "ריקול"), dg = String(r.DEGEM || "").split(/\s*,\s*/).join(", ").trim(); return shownKeys.find(x => !x.used && x.k === d && x.note.includes(dg)); };
-      const strict = [], miss = [], extra = [];
-      for (const r of rows) { const k = cls(r); if (k === "no") continue; const s = findShown(r); if (s) { s.used = true; s.cls = k; s.r = r; } else if (k === "strict") miss.push(r); }
-      for (const s of shownKeys) if (!s.used) extra.push(s); else if (s.cls === "narrower" || s.cls === "wider") AMBIG.push(`${c.id} ${sp(R.kinuy_mishari)} (${R.degem_nm}) shows ${s.cls} row #${s.r.RECALL_ID} DEGEM="${s.r.DEGEM}"`);
-      check(c, "recalls.model_missing", !miss.length, `${shown.length} rows`, miss.map(r => `#${r.RECALL_ID} ${r.DEGEM} (${r.SHNAT_RECALL})`).join("; "), `car kinuy=${R.kinuy_mishari} degem_nm=${R.degem_nm} brand=${br}`);
-      check(c, "recalls.model_extra", !extra.length, extra.map(s => `${s.s.b.slice(0, 40)} [${s.s.note.slice(0, 60)}]`).join("; "), "(rows naming this model)", `car kinuy=${R.kinuy_mishari} degem_nm=${R.degem_nm}`);
+      const descOf = r => sp(E(r.TEUR_TAKALA) ? (E(r.SUG_TAKALA) ? "ריקול" : r.SUG_TAKALA) : r.TEUR_TAKALA);
+      const dgOf = r => sp(String(r.DEGEM || "").split(/\s*,\s*/).join(", "));
+      const segs = s => s.note.split(" · ").map(sp);
+      const pool2 = shown.map(s => ({s, used: false}));
+      const rows = RECALL_LIST.filter(r => !open.has(String(r.RECALL_ID).trim())).map(r => ({r, k: cls(r), brand: !!(br && br.test(String(r.TOZAR_TEUR || "")))}));
+      const miss = [];
+      // rows of this brand first, so a shared description is credited to the right maker
+      for (const x of rows.filter(x => x.k !== "no").sort((p, q) => (q.brand - p.brand) || (p.k === "strict" ? -1 : 1))) {
+        const hit = pool2.find(p => !p.used && sp(p.s.b) === descOf(x.r) && segs(p.s).includes(dgOf(x.r)));
+        if (hit) { hit.used = true; hit.x = x; } else if (x.k === "strict" && x.brand) miss.push(x.r);
+      }
+      const extra = pool2.filter(p => !p.used);
+      for (const p of pool2.filter(p => p.used)) {
+        if (p.x.k !== "strict") AMBIG.push(`${c.id} ${sp(R.kinuy_mishari)} (${R.degem_nm}) ${y}: shows ${p.x.k} row #${p.x.r.RECALL_ID} DEGEM="${p.x.r.DEGEM}" (${p.x.r.TOZAR_TEUR}) "${descOf(p.x.r).slice(0, 50)}" fits=${p.s.dim ? "other years" : p.s.pill || "-"}`);
+        if (!p.x.brand) AMBIG.push(`${c.id} ${sp(R.kinuy_mishari)}: shows a row of another maker #${p.x.r.RECALL_ID} TOZAR_TEUR=${p.x.r.TOZAR_TEUR} DEGEM="${p.x.r.DEGEM}"`);
+      }
+      if (br) check(c, "recalls.model_missing", !miss.length, `${shown.length} rows shown`, miss.map(r => `#${r.RECALL_ID} DEGEM="${r.DEGEM}" ${r.SHNAT_RECALL} "${descOf(r).slice(0, 40)}"`).join("; "), `car kinuy=${R.kinuy_mishari} degem_nm=${R.degem_nm} year=${y} brand=${br}`);
+      else NOTES.push(`${c.id}: missing-row check skipped (no brand mapping for "${R.tozeret_nm}")`);
+      check(c, "recalls.model_extra", !extra.length, extra.map(p => `"${p.s.b.slice(0, 40)}" [${p.s.note.slice(0, 90)}]`).join("; "), "(only rows that name this model)", `car kinuy=${R.kinuy_mishari} degem_nm=${R.degem_nm}`);
       check(c, "recalls.model_count", (card ? N(card.count) : 0) === shown.length, card ? card.count : "", shown.length, "");
-      for (const s of shownKeys.filter(x => x.used)) { const a = String(s.r.BUILD_BEGIN_A || "").match(/(19|20)\d{2}/), b = String(s.r.BUILD_END_A || "").match(/(19|20)\d{2}/);
-        const fits = a && b && !isNaN(y) ? y >= +a[0] && y <= +b[0] : null, pill = s.s.pill;
-        const ok = fits === null ? !pill : fits ? /בשנת הייצור|כולל את שנת הייצור/.test(pill) && !s.s.dim : pill === "שנים אחרות" && s.s.dim;
-        check(c, "recalls.model_fits", ok, pill || "(no pill)", fits === null ? "(no pill)" : fits ? "בשנת הייצור" : "שנים אחרות", `#${s.r.RECALL_ID} build ${s.r.BUILD_BEGIN_A}..${s.r.BUILD_END_A} year=${y}`); }
+      for (const p of pool2.filter(p => p.used)) { const r = p.x.r, a = String(r.BUILD_BEGIN_A || "").match(/(19|20)\d{2}/), b2 = String(r.BUILD_END_A || "").match(/(19|20)\d{2}/);
+        const fits = a && b2 && !isNaN(y) ? y >= +a[0] && y <= +b2[0] : null, pill = p.s.pill;
+        const ok = fits === null ? !pill : fits ? /בשנת הייצור|כולל את שנת הייצור/.test(pill) && !p.s.dim : pill === "שנים אחרות" && p.s.dim;
+        check(c, "recalls.model_fits", ok, pill || "(no pill)", fits === null ? "(no pill)" : fits ? "בשנת הייצור" : "שנים אחרות", `#${r.RECALL_ID} build ${r.BUILD_BEGIN_A}..${r.BUILD_END_A} year=${y}`); }
     } }
   // settlements: collected for review; the banner, the card and the checklist must agree
   { const card = cardOf(P, "recalls", /הסדר פשרה/), list = card ? card.stl : [];
@@ -454,7 +478,7 @@ function compare(c, X, P) {
     const shown = card.ban ? "ban" : card.grid.length ? `${dig(g("עם בלמים")) ? N(dig(g("עם בלמים"))) : "—"}/${dig(g("בלי בלמים")) ? N(dig(g("בלי בלמים"))) : "—"}` : /אין במאגר/.test(card.text) ? "none" : "(card missing)";
     const yr = (card.notes.join(" ").match(/משנת (\d{4})/) || [])[1];
     check(c, "tow.limits", exp.includes(shown), shown + (yr ? ` (note: model year ${yr})` : ""), exp.join(" or ") + (expYear ? ` (from year ${expYear.join("/")})` : ""),
-      `same-year rows=${same.length} [${same.map(r => `${r.ramat_gimur || ""}:${r.kosher_grira_im_blamim ?? ""}/${r.kosher_grira_bli_blamim ?? ""}`).join(", ").slice(0, 150)}] all years with towing=${[...new Set(rs.filter(has).map(r => N(r.shnat_yitzur)))].sort().join(",")}`);
+      `car ${R.sug_degem || ""} ${sp(R.kinuy_mishari)} ${y} ${R.ramat_gimur || ""}; model rows for this maker+model code: ${(X.wltp || []).map(r => `${r.sug_degem || "?"}/${sp(r.kinuy_mishari)}/${r.shnat_yitzur}/${sp(r.ramat_gimur)}:${r.kosher_grira_im_blamim ?? ""}/${r.kosher_grira_bli_blamim ?? ""}`).join(", ").slice(0, 260)}`);
     // the hook box (registration's own towing-hook field)
     const hk = Object.entries(R).find(([k, x]) => /grira|gerira|vav/i.test(k) && !/kosher_grira/i.test(k) && !E(x));
     if (hk && shown !== "ban") { const none = /^(0|לא|אין|ללא)$|ללא|אין|לא מותקן/.test(String(hk[1]).trim()); check(c, "tow.hook", none ? /לא מותקן וו גרירה/.test(card.hook) : /^מותקן וו גרירה/.test(card.hook), card.hook, none ? "לא מותקן וו גרירה" : "מותקן וו גרירה " + hk[1], `${hk[0]}=${hk[1]}`); } }
@@ -483,6 +507,14 @@ function compare(c, X, P) {
     check(c, "specs.co2", co.length ? co.includes(dig(cs)) || co.includes(String(N((cs.match(/[\d.]+/) || [""])[0]))) : true, cs, co.join(" / "), "");
     const imps = vals(PR.length ? PR : pool(X.price, R), "shem_yevuan"), si = spec("יבואן");
     check(c, "specs.importer", imp ? E(si) : imps.length ? inSet(si, imps) : E(si), si, imp ? "(personal import: none)" : imps.join(" / "), ""); }
+  // registered changes (tech dataset flags) and other register facts
+  { const mods = cardOf(P, "overview", /^שינויים ברכב$/), f = l => { const x = mods && mods.facts.find(([k]) => k === l); return x ? x[1] : ""; };
+    for (const [l, k] of [["שינוי מבנה", "shinui_mivne_ind"], ["התקנת גפ״מ (גז)", "gapam_ind"], ["שינוי צבע", "shnui_zeva_ind"], ["שינוי מידת צמיגים", "shinui_zmig_ind"]]) {
+      const ex = E(R[k]) ? "" : String(R[k]).trim() === "1" ? "כן" : "לא"; check(c, "mods." + k, sp(f(l)) === ex, f(l), ex, ""); }
+    check(c, "specs.engine_model", sp(spec("דגם מנוע")) === sp(R.degem_manoa || ""), spec("דגם מנוע"), R.degem_manoa || "", "");
+    check(c, "specs.vehicle_type", sp(spec("סוג רכב")) === sp(R.sug_rechev_nm || ""), spec("סוג רכב"), R.sug_rechev_nm || "", "");
+    const hn = !E(R.hanaa_nm) ? [R.hanaa_nm] : vals(W, "hanaa_nm"); check(c, "specs.drive", hn.length ? inSet(spec("הנעה"), hn) : E(spec("הנעה")), spec("הנעה"), hn.join(" / "), "");
+    if (imp) { const sy = factOf(P, "overview", /^רישוי וטסט$/, "סוג יבוא"); check(c, "status.import_type", sp(sy) === sp(X.sets.import[0].sug_yevu || ""), sy, X.sets.import[0].sug_yevu || "", ""); } }
   // licence fee
   { const card = cardOf(P, "maint", /^אגרת רישוי שנתית$/), g = card ? card.grid : [], fee = N(dig((g.find(x => x.k === "הערכה") || {}).v)), grp = N(((g.find(x => x.k === "קבוצת מחיר") || {}).v || "").match(/^\d/));
     const groups = vals(W, "kvuzat_agra_cd").map(N).filter(x => FEE[x]), priv = String(R.sug_degem || "P").toUpperCase() === "P";
@@ -498,7 +530,8 @@ function compare(c, X, P) {
       check(c, "value.labelled_estimate", /הערכה בלבד/.test(card.text) && /\d+–\d+/.test(vt), vt + " / " + (card.notes[0] || "").slice(0, 40), "range + 'הערכה בלבד'", ""); } }
   // cars of this model and year on the road (modelstats, monthly) vs a live count of the active register
   { const ms = cardOf(P, "buy", /^איך הדגם הזה מחזיק$/), m = ms ? (ms.text.match(/\(([\d,]+) רכבים פעילים משנתון (\d{4})/) || null) : null;
-    if (m && X.cohort != null) { const sh = N(m[1]); check(c, "counts.model_year_active", sh >= X.cohort * 0.85 && sh <= X.cohort * 2.5 + 50, sh, `~${X.cohort} (active rows with kinuy_mishari="${R.kinuy_mishari}" and year ${y})`, ""); } }
+    if (m && X.cohort != null) { const sh = N(m[1]); check(c, "counts.model_year_active", sh >= X.cohort * 0.85, sh, `>= ~${X.cohort} (active rows with kinuy_mishari="${R.kinuy_mishari}" and year ${y})`, "");
+      if (sh > X.cohort * 2.5 + 50) NOTES.push(`${c.id}: "איך הדגם הזה מחזיק" counts ${sh} cars for ${sp(R.kinuy_mishari)} ${y}, of which ${X.cohort} carry this exact model name (variants folded together)`); } }
   // "partial data" message
   { const said = P.head.msgs.some(t => /חלק ממאגרי משרד התחבורה לא ענו/.test(t)), myErr = Object.keys(X.errs).filter(k => k !== "recall");
     check(c, "message.partial_data", said === (myErr.length > 0), said ? "partial-data message shown" : "(none)", myErr.length ? "message (my reads failed: " + myErr.map(k => k + " " + X.errs[k]).join(", ") + ")" : "(none: every dataset answered my reads)", `app errs=${P.head.errs.join(",")}`); }
@@ -517,18 +550,17 @@ for (let i = 0, j = 0; i < act.length || j < rar.length; i++) { if (i < act.leng
 for (const c of order) {
   if (ONLY && !ONLY.has(c.id)) continue;
   if (Date.now() - T0 > BUDGET) { skipped.push(c.id); continue; }
-  const t1 = Date.now(), r1 = reqN;
-  let X; try { X = await raw(c); } catch (e) { console.log(`CASE ${c.id} ${mask(c.plate)} raw read failed: ${e.message}`); continue; }
   let P = await readPage(c.plate);
-  if (P.edge || P.net.bad.length) { console.log(`  ${c.id}: app saw ${P.net.bad.join(",") || "no refusals"}${P.edge ? " / " + P.edge.slice(0, 60) : ""}; waiting 45s and opening it again`); await sleep(45000); P = await readPage(c.plate); }
-  { const need = (reqN - r1 + P.net.n) * 650 - (Date.now() - t1); if (need > 0) await sleep(need); }
-  if (P.net.bad.length && !P.edge) { infra.push(c.id); console.log(`CASE ${c.id} ${mask(c.plate)} skipped: the ministry refused some of the app's requests (${P.net.bad.join(",")})`); continue; }
+  if (P.net.bad.length) { LIMIT = Math.max(30, Math.round(LIMIT * 0.9)); console.log(`  ${c.id}: the ministry refused ${P.net.bad.length} of the app's ${P.net.n} requests (${[...new Set(P.net.bad)].join(",")}); cooling down 75s, limit now ${LIMIT}/min, opening it again`); cool(75000); P = await readPage(c.plate); }
+  let X; try { X = await raw(c); } catch (e) { console.log(`CASE ${c.id} ${mask(c.plate)} raw read failed: ${e.message}`); continue; }
+  if (P.net.bad.length) { infra.push(c.id); cool(60000); console.log(`CASE ${c.id} ${mask(c.plate)} skipped: the ministry refused ${P.net.bad.length} of the app's requests again`); continue; }
   const R = X.R;
-  if (P.edge) { console.log(`CASE ${c.id} ${mask(c.plate)} ${X.primary || "-"} page: ${P.edge} | my sets: ${Object.entries(X.sets).filter(([, r]) => r.length).map(([k]) => k).join(",")} errs: ${Object.keys(X.errs).join(",")}`); STAT["page.result"] ||= {n: 0, bad: 0, cases: []}; STAT["page.result"].n++; if (X.primary) { STAT["page.result"].bad++; STAT["page.result"].cases.push(c.id); } continue; }
+  if (P.edge) { const ln = `CASE ${c.id} ${mask(c.plate)} ${X.primary || "-"} page: ${P.edge.slice(0, 90)} | after ${Math.round(P.net.ms / 1000)}s, app requests=${P.net.n} failed-in-browser=${P.net.failed} | in my reads: ${Object.entries(X.sets).filter(([, r]) => r.length).map(([k]) => k).join(",") || "nothing"} errs: ${Object.keys(X.errs).join(",") || "-"}`; console.log(ln);
+    check(c, "page.result", !X.primary, P.edge.slice(0, 60), X.primary ? `the car (found in ${X.primary})` : "not found", `after ${Math.round(P.net.ms / 1000)}s, ${P.net.n} app requests, ${P.net.failed} failed in the browser`); audited++; continue; }
   const before = MIS.length;
   try { compare(c, X, P); } catch (e) { console.log(`CASE ${c.id} compare error: ${e.stack.split("\n").slice(0, 3).join(" / ")}`); }
   audited++;
-  console.log(`CASE ${c.id} ${mask(c.plate)} ${X.primary} | ${sp(R.tozeret_nm)} ${sp(R.kinuy_mishari)} ${R.shnat_yitzur || ""} | fuel=${R.sug_delek_nm || ""} own=${R.baalut || ""} | owners=${(X.sets.owners || []).length} recalls=${(X.sets.recall || []).length} wltp=${(X.wltp || []).length} price=${(X.price || []).length} | errs=${Object.keys(X.errs).join(",") || "-"} app-errs=${P.head.errs.join(",") || "-"} | mismatches=${MIS.length - before}${P.perr.length ? " | page errors: " + P.perr.join(" ; ") : ""} | t=${Math.round((Date.now() - T0) / 1000)}s`);
+  console.log(`CASE ${c.id} ${mask(c.plate)} ${X.primary} ${Math.round(P.net.ms / 1000)}s/${P.net.n}req${P.net.failed ? "/" + P.net.failed + "failed" : ""} | ${sp(R.tozeret_nm)} ${sp(R.kinuy_mishari)} ${R.shnat_yitzur || ""} | fuel=${R.sug_delek_nm || ""} own=${R.baalut || ""} | owners=${(X.sets.owners || []).length} recalls=${(X.sets.recall || []).length} wltp=${(X.wltp || []).length} price=${(X.price || []).length} | errs=${Object.keys(X.errs).join(",") || "-"} app-errs=${P.head.errs.join(",") || "-"} | mismatches=${MIS.length - before}${P.perr.length ? " | page errors: " + P.perr.join(" ; ") : ""} | t=${Math.round((Date.now() - T0) / 1000)}s`);
 }
 await browser.close();
 console.log(`\n===== SUMMARY: ${audited} cars audited, ${MIS.length} mismatches, ${reqN} requests by the harness (${throttled} refused and retried), ${Math.round((Date.now() - T0) / 60000)} min${skipped.length ? `, skipped for time: ${skipped.join(",")}` : ""}${infra.length ? `, skipped because the ministry refused the app: ${infra.join(",")}` : ""}`);
