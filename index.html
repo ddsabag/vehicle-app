@@ -1001,6 +1001,19 @@ function rankRows(rows, rec){
   };
   return rows.slice().sort((a, b) => score(b) - score(a));
 }
+/* the ministry numbers private (P) and commercial (M) models separately, so one maker + model code can be two models: keep the car's type when it has rows */
+const sdOf = r => String(r.sug_degem || "").trim().toUpperCase();
+function ofType(rows, v){ const sd = sdOf(v); return sd && rows.some(r => sdOf(r) === sd) ? rows.filter(r => sdOf(r) === sd) : rows; }
+/* Towing from the ranked rows of the car's model type. The car's own year decides when it has towing data, so another year can never overrule
+   its 0/0; another year is borrowed only from the same model name. 0/0 is a ban only from 2008: older rows write 0/0 for nearly every model (no data). */
+const TOW_BAN_FROM = 2008;
+function towOf(ranked, v){
+  const y = num(v.shnat_yitzur), zero = r => isNum(r.kosher_grira_im_blamim) && isNum(r.kosher_grira_bli_blamim) && num(r.kosher_grira_im_blamim) === 0 && num(r.kosher_grira_bli_blamim) === 0;
+  const t = ranked.find(r => num(r.shnat_yitzur) === y && (hasTow(r) || zero(r)));
+  if (t) return {towRow: hasTow(t) ? t : null, zeroTow: zero(t) && y >= TOW_BAN_FROM};
+  const n = x => String(x || "").trim().toUpperCase(), same = r => !empty(v.kinuy_mishari) && n(r.kinuy_mishari) === n(v.kinuy_mishari) || !empty(v.degem_nm) && n(r.degem_nm) === n(v.degem_nm);
+  return {towRow: ranked.find(r => hasTow(r) && same(r)) || null, zeroTow: false};
+}
 /* "מקוריות" in the ministry's records is the first ownership type, when the car went on the road new
    (פרטי, ליסינג, השכרה…). It fills the gap for cars older than the January 2017 ownership log. */
 function firstOwner(v){ const t = String(v.mkoriut_nm || "").replace(/"/g, "").trim(); return /^ביס לנהיגה/.test(t) ? "בית ספר לנהיגה" : t || null; }
@@ -1497,13 +1510,10 @@ async function catModelData(v, loadedOnly){
   const f = (byName && byName[0]) || (sd && idx.degems[sd + "|" + dg]) || idx.degems[String(dg)]; if (!f) return null;   // not in the catalogue copy (a model newer than the file): ask the ministry
   if (loadedOnly && !CAT_ROWS.has(cd + "/" + f)) return null;
   const rows = await catRows(cd, [f]); if (!rows) return null;
-  const sdOf = r => String(r.sug_degem || "").trim().toUpperCase();
   let mine = rows.filter(r => num(r.degem_cd) === dg);
   if (sd && mine.some(r => sdOf(r) === sd)) mine = mine.filter(r => sdOf(r) === sd);   // the type is applied only when the file has rows of that type (a link without the type still resolves)
   if (!mine.length) return null;
-  const ranked = rankRows(mine, v), w = ranked[0];
-  const towRow = ranked.find(hasTow) || null;
-  const zeroTow = !towRow && isNum(w.kosher_grira_im_blamim) && isNum(w.kosher_grira_bli_blamim) && num(w.kosher_grira_im_blamim) === 0 && num(w.kosher_grira_bli_blamim) === 0;
+  const ranked = rankRows(mine, v), w = ranked[0], {towRow, zeroTow} = towOf(ranked, v);
   const cn = ranked.find(r => isNum(r.mispar_rechavim_pailim) || isNum(r.mispar_rechavim_le_pailim));
   const counts = cn ? {mispar_rechavim_pailim: cn.mispar_rechavim_pailim, mispar_rechavim_le_pailim: cn.mispar_rechavim_le_pailim} : null;
   const pr = ranked.find(r => isNum(r.mehir) && num(r.mehir) > 0);
@@ -1535,14 +1545,11 @@ async function fetchModelData(v, signal, useCat){
       modelRows(MODEL_SETS.price, v, signal).catch(() => []),
       recallsByMaker.catch(() => { modelRecallsUnknown = true; return []; }),
     ]);
-    const ranked = rankRows(a, v);
+    const ranked = rankRows(ofType(a, v), v);
     if (ranked.length) w = ranked[0];
-    towRow = ranked.find(hasTow) || null;
-    // same year and trim first: both limits written as 0 means the maker did not approve towing
-    zeroTow = !towRow && ranked.length > 0 && isNum(ranked[0].kosher_grira_im_blamim) && isNum(ranked[0].kosher_grira_bli_blamim)
-      && num(ranked[0].kosher_grira_im_blamim) === 0 && num(ranked[0].kosher_grira_bli_blamim) === 0;
-    counts = rankRows(b, v)[0] || null;
-    price = rankRows(c, v)[0] || null; priceRows = c;
+    ({towRow, zeroTow} = towOf(ranked, v));
+    counts = rankRows(ofType(b, v), v)[0] || null;
+    priceRows = ofType(c, v); price = rankRows(priceRows, v)[0] || null;
     modelRecalls = matchModelRecalls(r, v);
   }
   return {w, towRow, zeroTow, counts, price, priceRows, modelRecalls, modelRecallsUnknown};
