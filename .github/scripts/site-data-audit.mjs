@@ -144,8 +144,12 @@ const BRANDS = [[/טויוטה/, /TOYOTA/], [/לקסוס/, /LEXUS/], [/יונד�
   [/(?<![א-ת])מ\.? ?ג(?![א-ת])|אם.?ג.?י|\bMG\b/, /\bMG\b|SAIC/], [/אלפא/, /ALFA/], [/לנד רובר|ריינג|רובר/, /LAND ?ROVER|RANGE|\bROVER/], [/י?ג.?ואר/, /JAGUAR/], [/פורשה/, /PORSCHE/], [/איסוזו/, /ISUZU/],
   [/סאנג|קיי ?ג.?י|KGM/, /SSANG|KGM/], [/דודג|דודג'/, /DODGE/], [/קרייזלר/, /CHRYSLER/], [/ראם/, /\bRAM\b/], [/לינק/, /LYNK/], [/פולסטאר/, /POLESTAR/], [/סמארט/, /SMART/], [/ג.?נסיס/, /GENESIS/],
   [/קאדילק/, /CADILLAC/], [/ג.?י אם סי|GMC/, /GMC/], [/איווקו/, /IVECO/], [/זיקר/, /ZEEKR/], [/אקספנג/, /XPENG/], [/ליפמוטור/, /LEAPMOTOR/], [/ג.?אקו/, /JAECOO/], [/אומודה/, /OMODA/],
-  [/די ?אס|^DS/, /\bDS\b/], [/מקסוס/, /MAXUS/], [/ימאהה/, /YAMAHA/], [/קוואסאקי/, /KAWASAKI/], [/הארלי/, /HARLEY/], [/דוקאטי/, /DUCATI/], [/ק.?ט.?מ|KTM/, /KTM/], [/פיאג.?ו/, /PIAGGIO/], [/ספה/, /VESPA|PIAGGIO/], [/סאן ?יאנג|SYM/, /SYM|SANYANG/], [/קימקו/, /KYMCO/]];
-const brandRe = mk => { for (const [he, en] of BRANDS) if (he.test(mk)) return en; return null; };
+  [/די ?אס|^DS/, /\bDS\b/], [/מקסוס/, /MAXUS/], [/ימאהה/, /YAMAHA/], [/קוואסאקי/, /KAWASAKI/], [/הארלי/, /HARLEY/], [/דוקאטי/, /DUCATI/], [/ק.?ט.?מ|KTM/, /KTM/], [/פיאג.?ו/, /PIAGGIO/], [/ספה/, /VESPA|PIAGGIO/], [/סאן ?יאנג|SYM/, /SYM|SANYANG/], [/קימקו|קואנג ?יאנג/, /KYMCO|KWANG/], [/דיפאל/, /DEEPAL|CHANGAN/]];
+const BRANDS_AT = BRANDS.map(([he, en]) => [new RegExp("^(?:" + he.source + ")"), en]);
+const brandRe = (mk, lat) => { mk = String(mk || "").trim(); lat = String(lat || "").trim().toUpperCase();
+  for (const [he, en] of BRANDS_AT) if (he.test(mk)) return en;     // the Hebrew maker name, from its first word
+  for (const [, en] of BRANDS) if (lat && en.test(lat)) return en;  // else the Latin maker name, when the row has one
+  return null; };
 
 /* ---------- sampling (inside the runner, deterministic by seed) ---------- */
 async function count(id, filters, q) { const p = {limit: 0}; if (filters && Object.keys(filters).length) p.filters = filters; if (q) p.q = q; return (await search(id, p)).total; }
@@ -296,10 +300,12 @@ const vals = (rows, f, keep = v => !E(v)) => [...new Set(rows.map(r => r[f]).fil
 const posV = v => isN(v) && N(v) > 0;
 
 const STAT = {}; const MIS = []; const NOTES = []; const MAKEPAIRS = new Map(); const STLS = []; const AMBIG = [];
-function check(c, field, ok, shown, expected, evidence) {
-  STAT[field] ||= {n: 0, bad: 0, cases: []}; STAT[field].n++;
+function check(c, field, ok, shown, expected, evidence, quiet) {
+  STAT[field] ||= {n: 0, bad: 0, cases: [], quiet: !!quiet}; STAT[field].n++;
   if (ok) return;
-  STAT[field].bad++; STAT[field].cases.push(c.id);
+  STAT[field].bad++;
+  if (quiet) return;   // a personal fact (the disability tag): only the totals are printed
+  STAT[field].cases.push(c.id);
   const line = `MISMATCH ${c.id} ${mask(c.plate)} | ${field} | shown="${String(shown).slice(0, 140)}" | expected="${String(expected).slice(0, 140)}"${evidence ? " | evidence: " + String(evidence).slice(0, 260) : ""}`;
   MIS.push(line); console.log(line);
 }
@@ -398,14 +404,16 @@ function compare(c, X, P) {
       check(c, "owners.insight_rental", past.some(t => /השכר/.test(t)) === ins.includes("היה רכב השכרה"), ins.join(" | ").slice(0, 120), past.some(t => /השכר/.test(t)) ? "היה רכב השכרה" : "(none)", "");
       const pl = past.some(t => /החכר|ליסינג/.test(t));
       check(c, "owners.insight_lease", pl === ins.includes("היה רכב ליסינג"), ins.join(" | ").slice(0, 120), pl ? "היה רכב ליסינג" : "(none)", pl ? "a past log record is " + past.filter(t => /החכר|ליסינג/.test(t)).join(",") : "");
-      const cur = String(own[own.length - 1].baalut), coNow = own.length > 1 && /חברה|החכר|השכר|ליסינג/.test(cur) && !/סוחר/.test(cur);
+      const DLR = /סוחר|יבואן|מסחר/, cur = String(own[own.length - 1].baalut), pastDealer = past.some(t => DLR.test(t));
+      const coCur = own.length > 1 && /חברה|חברת|תאגיד|החכר|השכר|ליסינג/.test(cur) && !DLR.test(cur), coNow = coCur && !pastDealer;
+      if (coCur && pastDealer && !ins.includes("הרכב רשום כעת על חברה")) NOTES.push(`${c.id}: current log type ${cur} after a dealer: the page says only "היה אצל סוחר" (the company-now line is in the same else-if chain)`);
       check(c, "owners.insight_company_now", coNow === ins.includes("הרכב רשום כעת על חברה"), ins.join(" | ").slice(0, 120), coNow ? "הרכב רשום כעת על חברה" : "(none)", coNow ? `current log type ${cur}` : "");
-      const lastDealer = /סוחר/.test(own[own.length - 1].baalut);
+      const lastDealer = DLR.test(cur);
       check(c, "owners.insight_dealer_now", lastDealer === ins.includes("הרכב רשום כעת על סוחר"), ins.join(" | ").slice(0, 120), lastDealer ? "הרכב רשום כעת על סוחר" : "(none)", "");
     }
   }
   { const has = (X.sets.tag || []).length > 0, said = /לרכב יש תג חניה לנכה/.test(P.tabs.overview.text);
-    if (!X.errs.tag) check(c, "tag.insight", has === said, said ? "tag shown" : "(none)", has ? "tag shown" : "(none)", ""); }
+    if (X.sets.tag !== undefined && !X.errs.tag) check(c, "tag.insight", has === said, "", "", "", true); }
   // open recalls on this car
   { const ids = (X.sets.recall || []).map(r => String(r.RECALL_ID).trim()).sort();
     const card = cardOf(P, "recalls", /^ריקולים פתוחים לרכב הזה$/), shown = card ? card.recalls.map(r => (r.note.match(/מספר (\d+)/) || [])[1] || "?").sort() : [];
@@ -416,7 +424,7 @@ function compare(c, X, P) {
     for (const r of X.sets.recall || []) { const s = card && card.recalls.find(x => x.note.includes("מספר " + String(r.RECALL_ID).trim()));
       if (s && !E(r.TAARICH_PTICHA)) check(c, "recalls.open_date", s.note.includes("נפתח ב-" + fd(r.TAARICH_PTICHA)), s.note, "נפתח ב-" + fd(r.TAARICH_PTICHA), ""); } }
   // model recalls
-  { const br = brandRe(String(R.tozeret_nm || "") + " " + String(R.tozar || ""));
+  { const br = brandRe(R.tozeret_nm, R.tozar);
     const card = cardOf(P, "recalls", /^ריקולים שנפתחו לדגם$/), shown = card ? card.rlist : [];
     if (E(R.degem_cd)) NOTES.push(`${c.id}: no model code (${X.primary}): model recalls not looked up by the app`);
     else if (!RECALL_LIST) NOTES.push(`${c.id}: recall list not loaded`);
@@ -564,7 +572,7 @@ for (const c of order) {
 }
 await browser.close();
 console.log(`\n===== SUMMARY: ${audited} cars audited, ${MIS.length} mismatches, ${reqN} requests by the harness (${throttled} refused and retried), ${Math.round((Date.now() - T0) / 60000)} min${skipped.length ? `, skipped for time: ${skipped.join(",")}` : ""}${infra.length ? `, skipped because the ministry refused the app: ${infra.join(",")}` : ""}`);
-for (const [f, s] of Object.entries(STAT).sort()) console.log(`FIELD ${f.padEnd(28)} checked=${s.n} mismatched=${s.bad}${s.bad ? " [" + s.cases.slice(0, 20).join(",") + "]" : ""}`);
+for (const [f, s] of Object.entries(STAT).sort()) console.log(`FIELD ${f.padEnd(28)} checked=${s.n} mismatched=${s.bad}${s.bad && !s.quiet ? " [" + s.cases.slice(0, 20).join(",") + "]" : ""}${s.quiet ? " (totals only)" : ""}`);
 console.log("\n===== maker name -> shown make (count)"); for (const [k, n] of [...MAKEPAIRS].sort()) console.log(`MAKE ${k} (${n})`);
 console.log("\n===== settlements shown"); for (const s of STLS) console.log("STL " + s);
 console.log("\n===== model recall rows shown that only partly name the model"); for (const s of AMBIG) console.log("AMBIG " + s);
