@@ -81,4 +81,4 @@ jobs:
         uses: actions/cache/save@v6
         with:
           path: watch.json
-          key: release-watch-${{ github.run_id }}
+          key: release-watch-${{ github.run_id }}-${{ github.run_attempt }}

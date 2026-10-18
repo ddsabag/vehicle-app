@@ -1,10 +1,10 @@
 // Ship tail, Data safety part (a step of store-listing.yml): sends .github/store-listing/data-safety.csv to Google Play as the app's Data
 // safety declaration (applications.dataSafety; the file is Play Console's own "Export to CSV" of the form, edited only where an answer
-// changes). Google has no call that reads the declaration back, so the workflow remembers the hash of the file it last sent (an Actions
-// cache key) and passes SENT=true when this exact file was already sent: then nothing is called. A file that is not a Data safety CSV stops
+// changes). Google has no call that reads the declaration back, so a push sends the file only when the push changed it (the workflow
+// compares the push's commits and passes CHANGED); a manual run with mode=on always sends it. A file that is not a Data safety CSV stops
 // the run before Google is asked anything. One request, nothing else: no edit, no track, no listing.
 // Node 20, node: builtins only. Commands:
-//   node play-data-safety.mjs           SHIP_SA_JSON, MODE (on|dry), SENT, EVENT, RUN_URL -> output code (sent|same|dry|none|nosecret|error);
+//   node play-data-safety.mjs           SHIP_SA_JSON, MODE (on|dry), CHANGED, EVENT, RUN_URL -> output code (sent|same|dry|none|nosecret|error);
 //                                       one Telegram (alert.mjs) when it was sent or failed
 //   node play-data-safety.mjs check     the file only, offline (the Alert router check runs it on next before a release)
 //   node play-data-safety.mjs selftest  offline (mocked fetch, temporary files)
@@ -101,7 +101,7 @@ export async function run() {
   if (!F.exists) { IO.out(`${FILE} is not in the repo: Data safety stays as it is on Play`); return { ...R, code: "none" }; }
   Object.assign(R, { rows: F.rows, hash: F.hash.slice(0, 12) });
   if (F.problems.length) return { ...R, code: "error", kind: "files", why: F.problems.slice(0, 3).join("; "), next: `לתקן את ${FILE} ב-main` };
-  if (env.SENT === "true") { IO.out(`Data safety ${R.hash} (${F.rows} answers) was already sent: nothing to do`); return { ...R, code: "same" }; }
+  if (env.EVENT !== "workflow_dispatch" && env.CHANGED !== "true") { IO.out(`Data safety ${R.hash} (${F.rows} answers): this push did not change it, nothing to send`); return { ...R, code: "same" }; }
   if (mode !== "on") { IO.out(`dry run: would send Data safety ${R.hash} (${F.rows} answers)`); return { ...R, code: "dry" }; }
   const raw = String(env[SECRET] || "").trim();
   if (!raw) { note(`${SECRET} is not set: Data safety is not sent`); return { ...R, code: "nosecret" }; }
@@ -201,7 +201,7 @@ async function selftest() {
       return res(404, {});
     };
     globalThis.fetch = W.fetch;
-    Object.assign(IO, { env: { [SECRET]: JSON.stringify(SA), MODE: "on", EVENT: "push", TELEGRAM_BOT_TOKEN: TG, TELEGRAM_CHAT_ID: "42", RUN_URL: "https://github.com/x/actions/runs/1", SELFTEST: "1", ...env },
+    Object.assign(IO, { env: { [SECRET]: JSON.stringify(SA), MODE: "on", EVENT: "push", CHANGED: "true", TELEGRAM_BOT_TOKEN: TG, TELEGRAM_CHAT_ID: "42", RUN_URL: "https://github.com/x/actions/runs/1", SELFTEST: "1", ...env },
       fetch: W.fetch, root: repo("text" in o ? o.text : GOOD), router: o.router || null,
       out: s => W.printed.push(s), output: (k, v) => { W.outputs[k] = v; }, summary: s => W.sums.push(s) });
     W.code = await cli(argv);
@@ -212,8 +212,10 @@ async function selftest() {
     ok(parseCsv('a,"b,c",d\n1,"x ""y""",3\n')?.[1]?.[1] === 'x "y"' && parseCsv('a,"b\n') === null, "csv: quotes and an unclosed quote");
     W = await go();
     ok(W.outputs.code === "sent" && W.code === 0 && W.posted?.safetyLabels === GOOD && W.tg.length === 1 && W.tg[0].text.includes("30 תשובות"), "sent: the file as it is, one Telegram " + W.printed.join(" | "));
-    W = await go({}, { SENT: "true" });
-    ok(W.outputs.code === "same" && !W.calls.length && !W.tg.length, "already sent: nothing is called");
+    W = await go({}, { CHANGED: "false" });
+    ok(W.outputs.code === "same" && !W.calls.length && !W.tg.length, "a push that did not change it: nothing is called");
+    W = await go({}, { CHANGED: "false", EVENT: "workflow_dispatch" });
+    ok(W.outputs.code === "sent", "a manual run sends it");
     W = await go({}, { MODE: "dry" });
     ok(W.outputs.code === "dry" && !W.calls.length && !W.tg.length, "dry: nothing is called");
     W = await go({ text: null });

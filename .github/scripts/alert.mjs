@@ -101,6 +101,7 @@ export const LABELS = {
   "prod:full":           { he: "הגרסה הגיעה ל-100% מהמשתמשים ב-Production", sect: "fyi" },
   "prod:halt":           { he: "ההפצה ב-Production נעצרה בגלל קריסה חדשה", sect: "fail" },
   "prod:stop":           { he: "הפרסום ל-Production לא נשלח", sect: "fyi" },
+  "prod:wait":           { he: "ההפצה ב-Production מחכה לך או ל-Google", sect: "fyi" },
   "prod:fail":           { he: "הפרסום ל-Production נכשל: {ids}", sect: "fail", ids: { access: "אין הרשאה ל-Production", promote: "השליחה לא הצליחה", auto: "הבדיקה של ההפצה לא הצליחה" } },
 };
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
@@ -110,7 +111,7 @@ export const FAMILIES_IN_USE = [
   "seo-auto:blocked", "seo-auto:wait", "seo-auto:notice", "seo-auto:done", "catalog", "mag:pub", "mag:fail",
   "webwatch:rollback", "webwatch:rollback-failed", "meta:uptime", "weekly:missing", "workers:refused", "workers:rollback", "workers:failed", "workers:forced",
   "ship:done", "ship:notes", "ship:fail", "ship:dry", "listing:done", "listing:dry", "listing:fail",
-  "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:fail",
+  "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:wait", "prod:fail",
 ];
 
 const TODAY = ["loud", "silent", "none"];

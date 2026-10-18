@@ -4,7 +4,7 @@
 // crash/ANR rate check in Reviews monitor. Only reads: the tracks inside a throwaway edit (never committed) and the Reporting API.
 // Crashlytics has no public API for its issues, so this reads Play's own vitals (users who share usage data with Google).
 // State (watch.json, kept in the Actions cache like Reviews monitor's): when each track:versionCode was first seen, when each new issue was
-// first found and which were told. A staged rollout on Production is watched for as long as it runs (play-production.mjs reads the same file).
+// first found, which were told, and up to when Play's data was read for each versionCode. A staged rollout on Production is watched for as long as it runs (play-production.mjs reads the same file).
 // Node 20, node: builtins only. Commands:
 //   node release-watch.mjs gate      SHIP_TAIL, EVENT, REF, INPUT_MODE -> output mode (on|dry|off)
 //   node release-watch.mjs           SHIP_SA_JSON, MODE (on|dry), STATE (path, default watch.json) -> Telegram (alert.mjs) for new issues or a broken check
@@ -130,7 +130,7 @@ export async function watch() {
   const R = { code: "", mode, watched: [], found: [], tells: [], why: "", next: "" };
   const raw = String(env[SECRET] || "").trim();
   if (!raw) { note(`${SECRET} is not set: nothing is watched`); return { ...R, code: "nosecret" }; }
-  const st = J(IO.read(file)) || {}, S = { ...st, seen: st.seen || {}, told: st.told || {}, issues: st.issues || {} };
+  const st = J(IO.read(file)) || {}, S = { ...st, seen: st.seen || {}, told: st.told || {}, issues: st.issues || {}, checked: st.checked || {} };
   try {
     const sa = J(raw);
     if (!sa?.client_email || !sa?.private_key) throw new Fail(`הסוד ${SECRET} אינו מפתח JSON של חשבון שירות`, `להדביק בסוד ${SECRET} את כל קובץ ה-JSON של המפתח`);
@@ -148,7 +148,7 @@ export async function watch() {
         if (end <= from) { IO.out(`vitals ${b.vc}: no hourly data after ${new Date(from).toISOString().slice(0, 13)}h yet`); continue; }
         const mine = await issues(ctx, from, end, b.vc);
         IO.out(`vitals ${b.vc}: ${mine.length} crash/ANR issues, ${new Date(from).toISOString().slice(0, 13)}h to ${new Date(end).toISOString().slice(0, 13)}h UTC`);
-        if (!mine.length) continue;
+        if (!mine.length) { S.checked[b.vc] = end; continue; }
         // new = no report from an older version in the last 30 days (the earliest version Play saw for the issue is this one or newer)
         history ??= new Map((await issues(ctx, end - HISTORY_D * DAY, end, 0)).map(i => [i.name, i]));
         for (const i of mine) {
@@ -159,6 +159,7 @@ export async function watch() {
           if (isNew) S.issues[told] ??= S.told[told] ?? now;   // when the watch first found it (play-production.mjs halts a rollout on one found after it began)
           if (isNew && !S.told[told]) R.tells.push({ b, i, told });
         }
+        S.checked[b.vc] = end;   // how far Play's data was read for this build (play-production.mjs completes a rollout only past its 48 h)
       }
     }
     R.code = R.tells.length ? "new" : "quiet";
@@ -167,7 +168,7 @@ export async function watch() {
     Object.assign(R, { code: "error", why: f.why, next: f.next, status: f.status });
   }
   // prune: builds and issues older than the history window
-  for (const o of [S.seen, S.told, S.issues]) for (const k of Object.keys(o)) if (now - o[k] > HISTORY_D * DAY) delete o[k];
+  for (const o of [S.seen, S.told, S.issues, S.checked]) for (const k of Object.keys(o)) if (now - o[k] > HISTORY_D * DAY) delete o[k];
   R.state = S;
   return R;
 }
@@ -299,7 +300,7 @@ async function selftest() {
     const crash = ISSUE("i1", "CRASH", 110, 5, 3);
     W = await run({ state: { seen: { "alpha:110": T0 - 20 * HOUR, "production:108": T0 - 5 * DAY } }, mine: { 110: [crash] }, history: [crash] });
     ok(W.outputs.code === "new" && W.tg.length === 1 && W.tg[0].text.includes("1.33") && W.tg[0].text.includes("Alpha") && W.tg[0].text.includes("5 דיווחים מ-3 משתמשים") && W.tg[0].text.includes("MainActivity"), "new: told " + W.tg.map(x => x.text));
-    ok(Object.keys(W.state.told).length === 1 && W.state.issues[`110:apps/${PKG}/i1`] === T0, "new: remembered, with when it was found " + JSON.stringify(W.state));
+    ok(Object.keys(W.state.told).length === 1 && W.state.issues[`110:apps/${PKG}/i1`] === T0 && W.state.checked["110"] === Date.UTC(2026, 9, 20, 8), "new: remembered, with when it was found and how far the data was read " + JSON.stringify(W.state));
     const searches = W.calls.filter(c => c.url.includes("errorIssues:search")).map(c => new URL(c.url).searchParams);
     ok(searches[0].get("filter") === "versionCode = 110 AND errorIssueType = CRASH OR errorIssueType = ANR" && searches[0].get("interval.startTime.hours") === String(new Date(T0 - 44 * HOUR).getUTCHours()) && searches[0].get("interval.endTime.hours") === "8", "new: filter and hour-aligned interval");
     ok(!W.calls.some(c => c.url.includes("versionCode = 108") || c.url.includes("versionCode+%3D+108")), "new: production 108 is past its 72 h");

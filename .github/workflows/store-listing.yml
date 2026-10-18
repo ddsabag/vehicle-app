@@ -1,7 +1,7 @@
 name: Store listing
 # Keeps the Hebrew main store listing on Google Play (title, short and full description, phone screenshots) equal to .github/store-listing/
-# (play-listing.mjs), and sends data-safety.csv there as the Data safety declaration when that exact file was not sent before
-# (play-data-safety.mjs; Google cannot read the declaration back, so a cache key with the file's hash remembers what was sent). A push to main that changes those files sends only what differs, in one edit, for review, with one Telegram; nothing
+# (play-listing.mjs), and sends data-safety.csv there as the Data safety declaration when the push changed it, or on a manual run with
+# mode=on (play-data-safety.mjs; Google has no call that reads the declaration back). A push to main that changes those files sends only what differs, in one edit, for review, with one Telegram; nothing
 # else on Play is touched (other languages, icon, feature graphic, tracks, production). Release threads put the new texts and screenshots
 # there before "שחרר", next to android/release-notes.txt. A file that breaks Play's limits stops the run (the Alert router check already
 # runs the same check on next). Kill switch: the SHIP_TAIL variable, as in Ship tail. The script reports on its own and finishes green on a
@@ -49,22 +49,28 @@ jobs:
           EVENT: ${{ github.event_name }}
           REF: ${{ github.ref }}
           INPUT_MODE: ${{ inputs.mode }}
-      - name: Was this Data safety file already sent?
+      - name: Did this push change the Data safety file?
         id: dsc
-        if: ${{ steps.g.outputs.mode != 'off' && hashFiles('.github/store-listing/data-safety.csv') != '' }}
-        uses: actions/cache/restore@v6
-        with:
-          path: .data-safety-sent
-          key: data-safety-${{ hashFiles('.github/store-listing/data-safety.csv') }}
-          lookup-only: true
+        if: ${{ steps.g.outputs.mode != 'off' && github.event_name == 'push' && hashFiles('.github/store-listing/data-safety.csv') != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        # the push's own commits (a release merge included); when GitHub cannot say (or lists 300 files, its cap), the file counts as changed
+        run: |
+          f=.github/store-listing/data-safety.csv
+          if files=$(gh api "repos/$GITHUB_REPOSITORY/compare/$BEFORE...$AFTER" --jq 'if (.files | length) >= 300 then "MANY" else .files[].filename end') && ! grep -qx MANY <<<"$files"; then
+            if grep -qx "$f" <<<"$files"; then echo "changed=true" >> "$GITHUB_OUTPUT"; else echo "changed=false" >> "$GITHUB_OUTPUT"; fi
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Data safety
-        id: ds
-        if: ${{ steps.g.outputs.mode != 'off' }}
+        if: ${{ !cancelled() && steps.g.outputs.mode != 'off' }}
         run: node .github/scripts/play-data-safety.mjs
         env:
           SHIP_SA_JSON: ${{ secrets.SHIP_SA_JSON }}
           MODE: ${{ steps.g.outputs.mode }}
-          SENT: ${{ steps.dsc.outputs.cache-hit }}
+          CHANGED: ${{ steps.dsc.outputs.changed }}
           EVENT: ${{ github.event_name }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           PLAY_DEVELOPER_ID: ${{ vars.PLAY_DEVELOPER_ID }}
@@ -73,14 +79,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      - name: Remember the Data safety file that was sent
-        if: ${{ !cancelled() && steps.ds.outputs.code == 'sent' }}
-        run: echo sent > .data-safety-sent
-      - if: ${{ !cancelled() && steps.ds.outputs.code == 'sent' }}
-        uses: actions/cache/save@v6
-        with:
-          path: .data-safety-sent
-          key: data-safety-${{ hashFiles('.github/store-listing/data-safety.csv') }}
       - name: Compare with Google Play and send what differs
         if: ${{ !cancelled() && steps.g.outputs.mode != 'off' }}
         run: node .github/scripts/play-listing.mjs
