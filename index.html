@@ -872,8 +872,8 @@ function makeName(v){
   let n = String(v.tozeret_nm || "").trim();
   const c = String(v.tozeret_eretz_nm || "").trim();
   if (c && n.endsWith(" " + c)) n = n.slice(0, -c.length - 1);
-  // older records have no country field, so the country stays glued to the maker ("סובארו יפן")
-  return brandLabel(n.replace(COUNTRY_SFX, "").replace(/\s+ד\.?$/, ""));
+  // older records have no country field, so the country stays glued to the maker ("סובארו יפן"); canonMake then joins the register's spellings of one maker
+  return canonMake(cutCountry(n).replace(/\s+ד\.?$/, ""));
 }
 // the registry's model names for old cars are cut at 20 characters and carry codes ("טורבו איפרזה 0002הנע"); tidy them for display only, matching still uses the raw name
 function niceModel(m) {
@@ -2830,7 +2830,12 @@ async function dsSearch(id, words, filters, limit, signal){
   return [];
 }
 // maker names carry the factory country ("טויוטה יפן"); without it, one maker is one entry
-const COUNTRY_SFX = /\s+(יפן|בריטניה|אנגליה|צרפת|גרמניה|קוריאה|ספרד|צ'כיה|צכיה|טורקיה|סין|ארה"ב|ארהב|איטליה|תאילנד|הודו|מקסיקו|הונגריה|סלובקיה|פולין|רומניה|בלגיה|שבדיה|אוסטריה|פורטוגל|דרום אפריקה|ברזיל|קנדה|הולנד|סלובניה|רוסיה|מרוקו|אינדונזיה|טייוואן|מלזיה|ארגנטינה|סרביה|פינלנד|אוזבקיסטן|וייטנאם)$/;
+const COUNTRIES = ["יפן", "בריטניה", "אנגליה", "צרפת", "גרמניה", "קוריאה", "ספרד", "צ'כיה", "צכיה", "טורקיה", "סין", 'ארה"ב', "ארהב", "איטליה", "תאילנד", "הודו", "מקסיקו", "הונגריה", "סלובקיה", "פולין", "רומניה", "בלגיה", "שבדיה", "אוסטריה", "פורטוגל", "דרום אפריקה", "ברזיל", "קנדה", "הולנד", "סלובניה", "רוסיה", "מרוקו", "אינדונזיה", "טייוואן", "מלזיה", "ארגנטינה", "סרביה", "פינלנד", "אוזבקיסטן", "וייטנאם"];
+const COUNTRY_SFX = new RegExp(`\\s+(${COUNTRIES.join("|")})$`);
+/* the register also cuts maker names at about 14 characters and spells some countries its own way ("פולקסווגן גרמנ", "טויוטה ארהב"", "שברולט ד.קוריא"):
+   for the shown make, a last word that starts a country name (3 letters or more) or is one of those spellings goes too */
+const COUNTRY_CUT = /\s+(ארהב"|תורכיה|ד\.? ?(קור|אפ)\S*)$/;
+const cutCountry = n => { n = n.replace(COUNTRY_SFX, "").replace(COUNTRY_CUT, ""); const m = n.match(/\s+(\S{3,})$/); return m && COUNTRIES.some(c => c.startsWith(m[1])) ? n.slice(0, m.index) : n; };
 /* the register spells one maker many ways (אאודי / אודי, "ב מ וו ארהב"", "ג'יפ-ישראל"): one name per maker for the buyer */
 const MAKE_BASES = ["מרצדס בנץ", "ב מ וו", "אלפא רומיאו", "אסטון מרטין", "רולס רויס", "למבורגיני", "ג'י.אמ.סי", "ג'י.אמ.", "סאנגיונג", "פולקסווגן", "מיצובישי", "שברולט", "סיטרואן", "קרייזלר", "קאדילאק", "פונטיאק", "לינקולן", "לנדרובר", "דאצ'יה", "לנצ'יה", "פיג'ו", "ביואיק", "סובארו", "סוזוקי", "יונדאי", "טויוטה", "וולבו", "הונדה", "ניסאן", "מזדה", "דודג'", "האמר", "איסוזו", "סמארט", "פיאט", "פורד", "אופל", "סאאב", "ג'יפ", "דייהו", "רנו", "קיה", "ניאו", "טסלה", "אאודי"];
 const MAKE_FIX = [[/^אודי(?=$|[\s_\-\/])/, "אאודי"], [/^ג'יי\.אמ\.סי/, "ג'י.אמ.סי"], [/^גמס(?=$|[\s_\-\/])/, "ג'י.אמ.סי"], [/^לנציה(?=$|[\s_\-\/])/, "לנצ'יה"], [/^דאציה(?=$|[\s_\-\/])/, "דאצ'יה"], [/^פיגו(?=$|[\s_\-\/])/, "פיג'ו"], [/^(מרוטי סוזוקי|סוזוקי-מרוטי)/, "סוזוקי"], [/^דימלרקריזלר/, "דיימלר קרייזלר"], [/^דיימלר קרייזלר/, "דיימלר קרייזלר"], [/^אף אי דאבל יו(?=$|[\s_\-\/])/, "FAW"], [/^ג'יפ-ישראל/, "ג'יפ"], [/^גיפ-ישראל/, "ג'יפ"]];
@@ -2841,9 +2846,9 @@ const BRAND_LABELS = [
   ["מג", 1, "MG", "אם ג'י מ.ג"], ["אםגי", 1, "MG", "אם ג'י מ.ג"], ["דיאס", 1, "DS", "די אס"], ["אסדאבליואמ", 0, "SWM", "אס דאבל יו אם"],
   ["אלאיויסי", 0, "LEVC", "אל אי וי סי"], ["אקסאיוי", 1, "XEV", "אקס אי וי"], ["אקספנג", 1, "XPeng", "אקספנג שיאופנג"],
   ["גיאמסי", 0, "GMC", "ג'י אם סי גמס"], ["גייאמסי", 0, "GMC", "ג'י אם סי גמס"], ["גמס", 1, "GMC", "ג'י אם סי גמס"],
-  ["גאק", 1, "JAC", "ג'אק ג'יי איי סי"], ["גייאיסי", 1, "JAC", "ג'אק ג'יי איי סי"], ["גיאיסי", 1, "GAC", "ג'י איי סי"],
+  ["גאק", 1, "JAC", "ג'אק ג'יי איי סי"], ["גייאיסי", 1, "JAC", "ג'אק ג'יי איי סי"], ["גיאיסי", 1, "GAC", "ג'י איי סי"], ["גיאייסי", 1, "GAC", "ג'י איי סי"],
   ["גאקו", 1, "JAECOO", "ג'אקו"], ["דיאףאסקיי", 1, "DFSK", "די אף אס קיי"], ["מרצדסבנץ", 0, "מרצדס-בנץ", "מרצדס בנץ"], ["מרצדס", 1, "מרצדס-בנץ", "מרצדס בנץ"],
-  ["קארמה", 0, "קארמה", ""]
+  ["קארמה", 0, "קארמה", ""], ["קואנגיאנג", 0, "KYMCO", "קימקו קואנג יאנג"]
 ];
 const BRAND_SEARCH = Object.fromEntries(BRAND_LABELS.filter(b => b[3]).map(b => [b[2], b[3]]).concat([["FAW", "פאו הונגצי אף אי דאבל יו"]]));
 const brandKey = s => String(s || "").replace(/[\s.'"׳״`\-_]/g, "");
