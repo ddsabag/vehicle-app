@@ -1,7 +1,10 @@
 // Daily Google Search digest to Telegram: impressions, clicks, CTR, position, top queries and pages, split by page type.
 // Search Console numbers arrive about 2-3 days late, so the digest reports the latest day that has data and says which day it is.
 // DRY_RUN=1 prints instead of sending. Alerts and digest go to Telegram only.
+// Mondays: SEO_WEEKLY names a file with the weekly ranking report (analytics/seo_track.py --out, the job before this one); it is added at the end of
+// the digest, so Monday has one SEO message. Too long for one Telegram message, or the digest itself failed: the weekly part goes as its own silent message.
 import crypto from "node:crypto";
+import { readFileSync } from "node:fs";
 const DRY = process.env.DRY_RUN === "1", SITE = "sc-domain:luchit.app", ORIGIN = "https://luchit.app/";
 const sa = JSON.parse(process.env.GA_SERVICE_ACCOUNT_JSON || "null");
 if (!sa) { console.log("no service account secret, nothing to do"); process.exit(0); }
@@ -23,6 +26,17 @@ async function telegram(text, silent = false) {
     body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true, disable_notification: silent }) });
   if (!r.ok) console.log("telegram failed", r.status);
   return r.ok;
+}
+let WEEKLY = "";   // the Monday weekly ranking report, plain text ("" on other days)
+if (process.env.SEO_WEEKLY) { try { WEEKLY = readFileSync(process.env.SEO_WEEKLY, "utf8").trim(); } catch (e) { console.log("no weekly report:", e.message); } }
+const weeklyAlone = () => telegram(esc(WEEKLY), true);   // silent, like the SEO tracker message it replaces
+// the digest with the weekly report at the end; split in two when that is longer than one Telegram message (4096 characters)
+async function sendDigest(text, silent) {
+  if (!WEEKLY) return telegram(text, silent);
+  const both = text + "\n\n" + esc(WEEKLY);
+  if (both.length <= 4000) return telegram(both, silent);
+  const a = await telegram(text, silent);
+  return (await weeklyAlone()) && a;
 }
 const iso = d => d.toISOString().slice(0, 10), addDays = (s, n) => iso(new Date(Date.parse(s + "T00:00:00Z") + n * 864e5));
 const dm = s => s.slice(8) + "." + s.slice(5, 7);
@@ -59,8 +73,8 @@ try {
   const end = addDays(iso(new Date()), -1), start = addDays(end, -20);
   const days = (await q({ startDate: start, endDate: end, dimensions: ["date"] })).map(r => ({ d: r.keys[0], c: r.clicks, i: r.impressions, p: r.position })).sort((a, b) => a.d.localeCompare(b.d));
   if (!days.length) {
-    await telegram("📈 <b>לוחית בגוגל, עדכון יומי</b>\n\nעדיין אין נתוני חיפוש ב-Search Console. גוגל מתחיל להציג חשיפות אחרי כמה ימים מהגשת מפת האתר, והנתונים מתעכבים בכ-2 עד 3 ימים. אעדכן כשיופיעו.", true);
-    process.exit(0);
+    const ok = await sendDigest("📈 <b>לוחית בגוגל, עדכון יומי</b>\n\nעדיין אין נתוני חיפוש ב-Search Console. גוגל מתחיל להציג חשיפות אחרי כמה ימים מהגשת מפת האתר, והנתונים מתעכבים בכ-2 עד 3 ימים. אעדכן כשיופיעו.", true);
+    process.exit(WEEKLY && !ok ? 1 : 0);   // a weekly report that was not delivered fails the run (and its state is not saved), as SEO tracker did
   }
   const last = days[days.length - 1];
   const win = (a, b) => days.filter(x => x.d >= a && x.d <= b).reduce((s, x) => ({ c: s.c + x.c, i: s.i + x.i, pw: s.pw + x.p * x.i }), { c: 0, i: 0, pw: 0 });
@@ -105,9 +119,10 @@ try {
     if (secLine) lines.push(`הופענו לפי סוג דף: ${secLine}`);
     lines.push("", "<i>הופעה = האתר הוצג למישהו בתוצאות. כניסה = הוא לחץ עליו. עמוד ראשון בגוגל = מקומות 1 עד 10.</i>");
   }
-  const ok = await telegram(lines.join("\n"), true);
+  const ok = await sendDigest(lines.join("\n"), true);
   process.exit(ok ? 0 : 1);
 } catch (e) {
-  const ok = await telegram(`⚠️ <b>הדוח היומי מ-Search Console לא הצליח לרוץ</b>\nהסיבה: ${esc(String(e.message || e).slice(0, 300))}\nהבדיקה תרוץ שוב מחר. אם זה חוזר, כנראה שחשבון השירות אינו מחובר לנכס luchit.app ב-Search Console (הרשאת Restricted מספיקה) או ש-Google Search Console API כבוי בפרויקט.`);
+  let ok = await telegram(`⚠️ <b>הדוח היומי מ-Search Console לא הצליח לרוץ</b>\nהסיבה: ${esc(String(e.message || e).slice(0, 300))}\nהבדיקה תרוץ שוב מחר. אם זה חוזר, כנראה שחשבון השירות אינו מחובר לנכס luchit.app ב-Search Console (הרשאת Restricted מספיקה) או ש-Google Search Console API כבוי בפרויקט.`);
+  if (WEEKLY) ok = (await weeklyAlone()) && ok;   // the weekly report was built by its own job: still deliver it, silently and apart from the loud error
   process.exit(ok ? 0 : 1);
 }

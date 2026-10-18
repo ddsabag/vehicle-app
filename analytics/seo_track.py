@@ -1,6 +1,8 @@
 """Weekly SEO tracker: page rankings week over week, pages that disappeared from Google, and the outcome of each change in analytics/seo-changes.json
 three weeks after it was made. State is kept as JSON on the orphan branch "seo-track" (history.json, last 20 weekly snapshots).
-Usage: python analytics/seo_track.py <state_dir> [--dry]   (needs GA_SERVICE_ACCOUNT_JSON; Telegram secrets optional)"""
+Usage: python analytics/seo_track.py <state_dir> [--dry] [--out FILE]   (needs GA_SERVICE_ACCOUNT_JSON; Telegram secrets optional)
+--out FILE writes the message to FILE instead of sending it: SEO daily digest runs this on Mondays and sends it inside its own message (one SEO message).
+The file is written before --dry stops, so a dry run still shows the combined message."""
 import json, os, sys, urllib.parse, urllib.request
 from datetime import date, timedelta
 
@@ -74,6 +76,7 @@ def telegram(text):
 
 def main():
     state, dry = sys.argv[1], "--dry" in sys.argv
+    out = sys.argv[sys.argv.index("--out") + 1] if "--out" in sys.argv[:-1] else None
     today = date.today(); end = today - timedelta(days=LAG)
     p = os.path.join(state, "history.json")
     H = json.load(open(p)) if os.path.exists(p) else {"snapshots": [], "done": []}
@@ -86,10 +89,13 @@ def main():
     head = f"🔍 מעקב SEO שבועי: {len(cur)} דפים בגוגל, {tot_i} חשיפות, {tot_c} קליקים (7 ימים)."
     msg = head + "\n" + ("\n".join(lines) if lines else "אין שינוי דירוג חריג.")
     print(msg)
+    if out:
+        os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
+        with open(out, "w", encoding="utf-8") as f: f.write(msg)
     if dry: return
     H["snapshots"] = (H["snapshots"] + [{"date": end.isoformat(), "pages": cur}])[-20:]
     os.makedirs(state, exist_ok=True); json.dump(H, open(p, "w"), ensure_ascii=False)
-    telegram(msg)
+    if not out: telegram(msg)
 
 
 if __name__ == "__main__": main()

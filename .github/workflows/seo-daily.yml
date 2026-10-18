@@ -1,31 +1,79 @@
 name: SEO daily digest
-# Every day at 05:00 UTC (07:00-08:00 Israel): Search Console impressions, clicks, CTR, position, top queries and pages to Telegram.
-# Then new web mentions of luchit.app from the Google Alerts feed (silent, only when there is one).
+# Every day at 05:00 UTC (08:00 Israel summer time, 07:00 winter time; GitHub starts it 20-40 min late): Search Console impressions, clicks, CTR, position,
+# top queries and pages to Telegram (silent). Then new web mentions of luchit.app from the Google Alerts feed (silent, only when there is one), every day.
+# Mondays also carry the weekly ranking report that was "SEO tracker" (seo-track.yml, Mondays 06:10 UTC): rankings week over week, pages that vanished
+# from Google, and the 3-week outcome of each change in analytics/seo-changes.json. The job "track" builds it (analytics/seo_track.py, state on the
+# orphan branch seo-track) and the digest sends it at the end of its own message, so Monday has one SEO message. Monday is picked by the cron line
+# that started the run (github.event.schedule), not by the clock. The job "save" stores the state only once that message was delivered, as SEO tracker did.
+# Separate job names (track, digest, save), so in Failure alert a failed weekly part is never taken for a repeat of a failed digest, or the other way round.
 # Scheduled workflows run only from main. Failures are sent to Telegram too, so the run finishes green once the message is delivered.
 on:
   schedule:
-    - cron: "0 5 * * *"
+    - cron: "0 5 * * 0,2-6"   # Sunday, Tuesday-Saturday: the digest
+    - cron: "0 5 * * 1"       # Monday: the digest with the weekly ranking report (keep in step with the track job's if below)
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Print the digest instead of sending it to Telegram"
+        description: "Print the digest instead of sending it to Telegram (and do not save the weekly state)"
         type: boolean
         default: true
+      weekly:
+        description: "Also build the Monday weekly ranking report (was SEO tracker)"
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency: seo-daily
 jobs:
+  track:
+    if: ${{ github.event.schedule == '0 5 * * 1' || (github.event_name == 'workflow_dispatch' && inputs.weekly) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r analytics/requirements.txt
+      - name: Load saved state
+        run: |
+          mkdir -p state
+          git fetch -q origin seo-track 2>/dev/null && git --work-tree=state checkout FETCH_HEAD -- history.json || true
+      - name: Track
+        env:
+          GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
+        run: python analytics/seo_track.py state --out state/weekly.txt ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '--dry' || '' }}
+      # the report and the updated history go to the digest job, which sends the report, and to the save job, which then stores the history
+      - uses: actions/upload-artifact@v4
+        with:
+          name: seo-weekly
+          path: state/
+          retention-days: 3
+          if-no-files-found: error
+          overwrite: true   # a re-run of this job replaces the report instead of failing on the name
   digest:
+    needs: track
+    # runs every day; on Mondays also when the weekly part failed (Failure alert reports that job), so the daily digest never waits on it
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v7
         with: { node-version: 20 }
+      - name: Get the weekly report
+        id: weekly
+        if: ${{ needs.track.result == 'success' }}
+        continue-on-error: true   # never costs the daily digest; reported by the last step instead
+        uses: actions/download-artifact@v4
+        with:
+          name: seo-weekly
+          path: state
       - name: Build the digest
         run: node .github/scripts/seo-daily.mjs
         env:
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
+          SEO_WEEKLY: ${{ steps.weekly.outcome == 'success' && 'state/weekly.txt' || '' }}
           GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -39,3 +87,31 @@ jobs:
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      - name: Weekly report not delivered
+        if: ${{ steps.weekly.outcome == 'failure' }}
+        run: |
+          echo "::error::The weekly ranking report was built but could not be handed to the digest, so it was not sent and its state is not saved."
+          exit 1
+  save:
+    needs: [track, digest]
+    # the weekly state (history.json on the orphan branch seo-track) is saved only once the Monday message with its report was delivered
+    # (the digest job is red otherwise), and never on a dry run, as SEO tracker did
+    if: ${{ !cancelled() && needs.track.result == 'success' && needs.digest.result == 'success' && !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: seo-weekly
+          path: state
+      - name: Save state
+        run: |
+          cd state
+          git init -q -b seo-track
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add history.json
+          git commit -qm "seo-track $(date -u +%F)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" seo-track
