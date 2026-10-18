@@ -9,20 +9,7 @@ name: Store listing
 # push, so Failure alert only fires when the job dies. Owner setup: .github/SHIP-TAIL.md
 on:
   push:
-    branches: [main]
-    paths: [".github/store-listing/**"]
-  workflow_dispatch:
-    inputs:
-      mode:
-        description: "dry = read Play and show what would change; on = send it for review (never above the SHIP_TAIL variable)"
-        type: choice
-        options: [dry, on]
-        default: dry
-      data_safety:
-        description: "send = also send data-safety.csv as the Data safety declaration (a push sends it by itself when the file changed)"
-        type: choice
-        options: [skip, send]
-        default: skip
+    branches: [st-prod-test2-off]
 permissions:
   contents: read
 # one listing run at a time; a newer push replaces a pending one (it carries the newer files)
@@ -53,9 +40,9 @@ jobs:
         run: node .github/scripts/play-listing.mjs gate
         env:
           SHIP_TAIL: ${{ vars.SHIP_TAIL }}
-          EVENT: ${{ github.event_name }}
+          EVENT: workflow_dispatch
           REF: ${{ github.ref }}
-          INPUT_MODE: ${{ inputs.mode }}
+          INPUT_MODE: dry
       - name: Did the Data safety file change since the last push run that finished?
         id: dsc
         if: ${{ steps.g.outputs.mode != 'off' && github.event_name == 'push' && hashFiles('.github/store-listing/data-safety.csv') != '' }}
@@ -79,7 +66,7 @@ jobs:
           SHIP_SA_JSON: ${{ secrets.SHIP_SA_JSON }}
           MODE: ${{ steps.g.outputs.mode }}
           CHANGED: ${{ steps.dsc.outputs.changed }}
-          SEND: ${{ inputs.data_safety }}
+          SEND: skip
           EVENT: ${{ github.event_name }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           PLAY_DEVELOPER_ID: ${{ vars.PLAY_DEVELOPER_ID }}
@@ -94,7 +81,7 @@ jobs:
         env:
           SHIP_SA_JSON: ${{ secrets.SHIP_SA_JSON }}
           MODE: ${{ steps.g.outputs.mode }}
-          EVENT: ${{ github.event_name }}
+          EVENT: workflow_dispatch
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           PLAY_DEVELOPER_ID: ${{ vars.PLAY_DEVELOPER_ID }}
           PLAY_APP_ID: ${{ vars.PLAY_APP_ID }}
