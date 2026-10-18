@@ -315,10 +315,13 @@ const readHe = m => (/HTTP 40[13]\b/.test(m) ? `לא הצלחתי לקרוא א�
   : `לא הצלחתי לקרוא את המצב החי ב-Cloudflare (${m}). כנראה תקלה זמנית אצל Cloudflare, והריצה הבאה תנסה שוב.`);
 function unreadable(R, m) { R.unreadable = m; R.refuse(`live state unreadable: ${m}`, readHe(m)); }
 // a token copied from a right-to-left page can carry invisible direction marks, spaces or a line break, and fetch then cannot send it at
-// all ("no answer"); a Cloudflare API token is letters, digits, - and _ only, so those are dropped and any other character stops the run
+// all ("no answer"); a Cloudflare API token is letters, digits, - and _ only, so those are dropped and any other character stops the run.
+// Cloudflare shows a new token next to a test command (curl ... -H "Authorization: Bearer <token>"): pasted whole, the token is taken from it.
 export function cleanToken(t) {
-  const s = [...String(t || "")], v = s.filter(c => !/[\s\p{Cf}]/u.test(c));
-  return { value: v.join(""), dropped: s.length - v.length, bad: v.filter(c => !/[A-Za-z0-9_-]/.test(c)).length };
+  const raw = String(t || ""), bearer = /\bBearer\s+([A-Za-z0-9_-]{20,})(?![A-Za-z0-9_-])/.exec(raw);
+  if (bearer && raw.match(/\bBearer\s/g).length === 1) return { value: bearer[1], dropped: 0, bad: 0, fromCommand: true };
+  const s = [...raw], v = s.filter(c => !/[\s\p{Cf}]/u.test(c));
+  return { value: v.join(""), dropped: s.length - v.length, bad: v.filter(c => !/[A-Za-z0-9_-]/.test(c)).length, fromCommand: false };
 }
 
 export function parseMultipart(text, type) {
@@ -905,7 +908,8 @@ export async function main() {
   if (!/^[0-9a-f]{32}$/i.test(E.CF_ACCOUNT_ID)) { say("::error::CF_ACCOUNT_ID is not a 32-character Cloudflare account id"); return 1; }
   const tok = cleanToken(E.CLOUDFLARE_API_TOKEN);
   if (tok.bad || !tok.value) { say(`::error::CLOUDFLARE_API_TOKEN ${tok.bad ? `has ${tok.bad} character(s) no Cloudflare API token has (it is letters, digits, - and _ only)` : "is only spaces or invisible marks"}: paste the token again`); return 1; }
-  if (tok.dropped) say(`::notice::CLOUDFLARE_API_TOKEN: dropped ${tok.dropped} invisible character(s) (spaces, line breaks or direction marks) that came with the paste`);
+  if (tok.fromCommand) say("::notice::CLOUDFLARE_API_TOKEN holds Cloudflare's test command, not the token alone: the token after \"Bearer\" is used");
+  else if (tok.dropped) say(`::notice::CLOUDFLARE_API_TOKEN: dropped ${tok.dropped} invisible character(s) (spaces, line breaks or direction marks) that came with the paste`);
   E.CLOUDFLARE_API_TOKEN = tok.value;   // wrangler gets the clean token too
   let mode = ship === "" || ship === "on" ? "on" : "dry";
   if (ship !== "" && ship !== "on" && ship !== "dry") say(`::notice::SHIP_TAIL=${ship.slice(0, 20)} is not off, dry or on: planning only`);
@@ -1308,6 +1312,12 @@ async function selftest() {
     r = await runWith({ env: { MODE: "dry", CLOUDFLARE_API_TOKEN: "Bearer: " + TOKEN } });
     ok(r.c1 === 1 && r.st.calls.length === 0 && r.st.dryRuns.length === 0 && /::error::CLOUDFLARE_API_TOKEN has 1 character\(s\) no Cloudflare/.test(r.out.join("\n")), "token with a character no token has: stops before any call " + r.out);
     noSecrets(r, "bad token");
+    r = await runWith({ env: { MODE: "dry", CLOUDFLARE_API_TOKEN: `curl "https://api.cloudflare.com/client/v4/user/tokens/verify" \\\n     -H "Authorization: Bearer ${TOKEN}"\n` } });
+    ok(r.code === 0 && r.w("og").action === "planned" && r.st.dryRuns.length === 4 && r.out.filter(l => /^::notice::CLOUDFLARE_API_TOKEN holds Cloudflare's test command/.test(l)).length === 1,
+      "the whole test command pasted: the token after Bearer is used " + r.out.slice(0, 2));
+    noSecrets(r, "test command pasted");
+    r = await runWith({ env: { MODE: "dry", CLOUDFLARE_API_TOKEN: `-H "Authorization: Bearer ${TOKEN}" -H "Authorization: Bearer ${TOKEN}x"` } });
+    ok(r.c1 === 1 && r.st.calls.length === 0, "two Bearer tokens in the paste: no guessing, stops");
     r = await runWith({ env: { MODE: "dry", CLOUDFLARE_API_TOKEN: " \u200f\n" } });
     ok(r.c1 === 1 && r.st.calls.length === 0 && /is only spaces or invisible marks/.test(r.out.join("\n")), "token of invisible marks only: stops " + r.out);
     { const f = IO.fetch, m = [];
