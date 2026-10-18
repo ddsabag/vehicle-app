@@ -957,6 +957,7 @@ export async function main() {
     if (r.kvCreate && r.action === "planned") ctx.kv.wouldCreate = w.name;   // only a creator that passed every check counts (dry = on)
     res.workers.push(r);
     say(`${w.name}: ${r.action}${r.reasons.length ? " (" + r.reasons.join("; ") + ")" : ""}`);
+    if (r.state) say(`  live: ${r.state}`);   // names only, as in the job summary: the log shows what a refusal compared against
   }
   finish(res);
   return 0;
