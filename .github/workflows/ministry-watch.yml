@@ -27,7 +27,7 @@ permissions:
   contents: write   # flash.mjs writes the flashes branch; the status job force-pushes data-status
 jobs:
   health:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
       seen: ${{ steps.check.outputs.seen }}
@@ -48,7 +48,7 @@ jobs:
     needs: health
     # always(): Data status never depended on the health check, so a red or timed-out health job must not stop the app's status file
     if: ${{ always() && !inputs.preview }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4

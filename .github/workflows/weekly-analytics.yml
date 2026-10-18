@@ -26,7 +26,7 @@ permissions:
   contents: read
 jobs:
   report:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:   # read only: this job runs pip packages; the one write (the summary mark) is in "mark" below
       contents: read
@@ -73,7 +73,7 @@ jobs:
           else
             python analytics/run.py
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ inputs.sample == true }}   # layout tests only: the real dashboard holds business numbers and a public repo's artifacts are downloadable
         with:
           name: weekly-report

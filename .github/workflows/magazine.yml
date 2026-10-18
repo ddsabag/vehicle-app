@@ -44,7 +44,7 @@ jobs:
     # the part is picked by the cron line that fired (github.event.schedule), not by the clock, since GitHub starts scheduled runs late
     name: ${{ (github.event.schedule == '30 5 * * 4' || inputs.part == 'data') && 'data-article' || 'article' }}
     if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.part != 'newsletter') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: ${{ (github.event.schedule == '30 5 * * 4' || inputs.part == 'data') && 10 || 40 }}
     env:
       KIND: ${{ (github.event.schedule == '30 5 * * 4' || inputs.part == 'data') && 'data' || 'monthly' }}
@@ -132,7 +132,7 @@ jobs:
           fi
   newsletter:
     if: ${{ github.event_name == 'push' || inputs.part == 'newsletter' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -145,5 +145,5 @@ jobs:
           BREVO_KEY: ${{ secrets.BREVO_KEY || secrets.BREVO_API_KEY }}
           BREVO_LIST_ID: ${{ vars.BREVO_LIST_ID }}
           MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (vars.NEWSLETTER_AUTOSEND == 'true' && 'send' || 'draft') }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: { name: newsletter-preview, path: out/newsletter.html }

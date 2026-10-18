@@ -31,7 +31,7 @@ concurrency: seo-daily
 jobs:
   track:
     if: ${{ github.event.schedule == '7 5 * * 1' || (github.event_name == 'workflow_dispatch' && (inputs.weekly || inputs.weekly_only)) }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -48,7 +48,7 @@ jobs:
           GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
         run: python analytics/seo_track.py state --out state/weekly.txt ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '--dry' || '' }}
       # the report and the updated history go to the digest job, which sends the report, and to the save job, which then stores the history
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: seo-weekly
           path: state/
@@ -59,7 +59,7 @@ jobs:
     needs: track
     # runs every day; on Mondays also when the weekly part failed (Failure alert reports that job), so the daily digest never waits on it
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -109,7 +109,7 @@ jobs:
       - name: Keep the sent mark for a re-run
         if: ${{ !cancelled() && hashFiles('digest-sent.txt') != '' }}
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: seo-digest-sent
           path: digest-sent.txt
@@ -126,7 +126,7 @@ jobs:
     # the weekly state (history.json on the orphan branch seo-track) is saved only once the Monday message with its report was delivered
     # (the digest job is red otherwise), and never on a dry run, as SEO tracker did
     if: ${{ !cancelled() && needs.track.result == 'success' && needs.digest.result == 'success' && !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: write
