@@ -37,6 +37,7 @@ on:
       - "Site smoke test (after deploy)"
       - "Weekly analytics report"
       - "Back-on-road detector"
+      - "Ship tail"
     types: [completed]
 permissions:
   contents: write   # flash.mjs writes the flashes branch the /live dashboard reads

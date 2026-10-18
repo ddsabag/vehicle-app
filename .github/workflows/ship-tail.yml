@@ -1,0 +1,161 @@
+name: Ship tail
+# After an Android build on main: when the build is a release (its APP_VERSION is not on Google Play yet), uploads it to the closed testing
+# track "alpha" and sends it for review (play-alpha.mjs), makes sure GA4 has the custom dimensions and key events in analytics/ga4-admin.json
+# (ga4-admin.mjs), and sends ONE Telegram with the Play, site, Workers and GA4 results. Production is never touched: promoting stays the owner's click.
+# Data-only rebuilds (bot commits to market.json etc.) stand down quietly. A release that waits (notes, dry, an error) is told by the build that
+# changed APP_VERSION or the notes, not again by every later build. A change to analytics/ga4-admin.json runs the GA4 job alone.
+# Kill switch: repository variable SHIP_TAIL = off (nothing runs), dry (plan and validate only, then report), unset or on (act). Main only.
+# Missing SHIP_SA_JSON = one notice line and a green skip. Scripts that report on their own finish green on purpose, so Failure alert only
+# fires when a job dies. Owner setup and the release-notes rule: .github/SHIP-TAIL.md
+on:
+  workflow_run:
+    workflows: ["Android build"]
+    types: [completed]
+    branches: [main]
+  push:
+    branches: [main]
+    paths: ["analytics/ga4-admin.json"]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry = plan and validate only; on = upload to Alpha / create in GA4 (never above the SHIP_TAIL variable)"
+        type: choice
+        options: [dry, on]
+        default: dry
+      step:
+        description: "play = Alpha upload, ga4 = GA4 settings, all = both"
+        type: choice
+        options: [play, ga4, all]
+        default: all
+      build:
+        description: "Android build run number (= versionCode); empty = the newest build"
+        type: string
+        required: false
+permissions:
+  contents: read
+jobs:
+  gate:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    outputs:
+      mode: ${{ steps.g.outputs.mode }}
+      play: ${{ steps.g.outputs.play }}
+      ga4: ${{ steps.g.outputs.ga4 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts/play-alpha.mjs
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      - name: Kill switch and what runs
+        id: g
+        run: node .github/scripts/play-alpha.mjs gate
+        env:
+          SHIP_TAIL: ${{ vars.SHIP_TAIL }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          INPUT_MODE: ${{ inputs.mode }}
+          INPUT_STEP: ${{ inputs.step }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}
+
+  play:
+    needs: gate
+    if: ${{ needs.gate.outputs.play == 'true' }}
+    runs-on: ubuntu-24.04
+    # the script keeps to its own 20-minute deadline and always reports; the rest is setup and cleanup
+    timeout-minutes: 30
+    # one at a time: a second build of the same version then finds it on Play and stands down. A pending run replaced here is always
+    # replaced by a newer Ship tail run, which Failure alert reads as superseded (no page).
+    concurrency:
+      group: ship-tail-play
+      cancel-in-progress: false
+    permissions:
+      contents: write   # draft releases (the build files) are only listed with write access; the script only ever GETs from GitHub
+      actions: read     # Android build runs: versionCode -> commit, and the previous build on main
+    outputs:
+      result: ${{ steps.p.outputs.result }}
+      tell: ${{ steps.p.outputs.tell }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts/play-alpha.mjs
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      - name: Release or data rebuild, then upload to Alpha
+        id: p
+        run: node .github/scripts/play-alpha.mjs
+        env:
+          SHIP_SA_JSON: ${{ secrets.SHIP_SA_JSON }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MODE: ${{ needs.gate.outputs.mode }}
+          BUILD: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.run_number || inputs.build }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          EVENT: ${{ github.event_name }}
+
+  ga4:
+    needs: [gate, play]
+    # after a build only when the summary will report it; on its own for a push of analytics/ga4-admin.json or a manual run
+    if: ${{ always() && needs.gate.result == 'success' && (needs.gate.outputs.ga4 == 'true' || (github.event_name == 'workflow_run' && needs.play.outputs.tell == 'true')) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    outputs:
+      result: ${{ steps.g.outputs.result }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts/ga4-admin.mjs
+            analytics/ga4-admin.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      - name: Custom dimensions and key events
+        id: g
+        run: node .github/scripts/ga4-admin.mjs
+        env:
+          SHIP_SA_JSON: ${{ secrets.SHIP_SA_JSON }}
+          GA_PROPERTY_ID: ${{ secrets.GA_PROPERTY_ID }}
+          MODE: ${{ needs.gate.outputs.mode }}
+      # no release summary reports a GA4-only push, so anything but done (or no key yet) goes red and Failure alert says so
+      - name: Report a failed GA4-only push
+        if: ${{ github.event_name == 'push' && contains(fromJSON('["error","needs-editor","api-off","mismatch"]'), steps.g.outputs.code) }}
+        run: |
+          echo "::error::GA4 settings were not applied (${{ steps.g.outputs.code }}), see the step above"
+          exit 1
+
+  summary:
+    needs: [gate, play, ga4]
+    if: ${{ always() && needs.play.outputs.tell == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write   # alert.mjs keeps its dedupe state on the alert-state branch
+      actions: read     # Workers deploy and Site smoke test (after deploy) runs of the same commit
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts/play-alpha.mjs
+            .github/scripts/alert.mjs
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      - name: One Telegram for the release
+        run: node .github/scripts/play-alpha.mjs summary
+        env:
+          PLAY_RESULT: ${{ needs.play.outputs.result }}
+          GA4_RESULT: ${{ needs.ga4.outputs.result }}
+          GA4_JOB: ${{ needs.ga4.result }}
+          EVENT: ${{ github.event_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PLAY_DEVELOPER_ID: ${{ vars.PLAY_DEVELOPER_ID }}
+          PLAY_APP_ID: ${{ vars.PLAY_APP_ID }}
+          SHIP_TAIL: ${{ vars.SHIP_TAIL }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

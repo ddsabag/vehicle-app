@@ -42,6 +42,7 @@ export const WF_LEVELS = {
   "SEO daily digest": "summary", "SEO data snapshot": "summary", "Experimenter": "summary",
   "Reviews monitor": "silent", "Ownership data mirror": "silent",
   "Back-on-road detector": "silent",
+  "Ship tail": "day",
 };
 
 // fixed Hebrew text for the morning ring and the Sunday block. Lookup: first two key segments, then the first one.
@@ -79,6 +80,10 @@ export const LABELS = {
   "meta:uptime":         { he: "בדיקת הזמינות ב-Cloudflare לא מדווחת", sect: "fail" },
   "meta:telegram":       { he: "מערך ההתראות בטלגרם לא עבד", sect: "fail" },
   "weekly:missing":      { he: "הסיכום השבועי לא נשלח", sect: "fail" },
+  "ship:done":           { he: "גרסה {id} עלתה ל-Alpha, הקידום ל-Production אצלך", sect: "wait" },   // play-alpha.mjs summary (Ship tail)
+  "ship:notes":          { he: "העלאת גרסה {id} ל-Alpha מחכה להערות שחרור", sect: "wait" },
+  "ship:fail":           { he: "העלאה ל-Alpha נכשלה: {ids}", sect: "fail", ids: { access: "אין גישה ל-Google Play", github: "הבנייה לא נקראה מ-GitHub" } },
+  "ship:dry":            { he: "בדיקה יבשה של העלאת {id} ל-Alpha", sect: "fyi" },
 };
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
 export const FAMILIES_IN_USE = [
@@ -86,6 +91,7 @@ export const FAMILIES_IN_USE = [
   "review", "review3", "vitals", "reviews:error", "seo:daily", "seo:nodata", "seo:error", "mention",
   "seo-auto:blocked", "seo-auto:wait", "seo-auto:notice", "seo-auto:done", "catalog", "mag:pub", "mag:fail",
   "webwatch:rollback", "webwatch:rollback-failed", "meta:uptime", "weekly:missing",
+  "ship:done", "ship:notes", "ship:fail", "ship:dry",
 ];
 
 const TODAY = ["loud", "silent", "none"];

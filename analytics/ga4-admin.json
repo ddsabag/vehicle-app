@@ -1,0 +1,23 @@
+{
+  "_about": "Read by .github/scripts/ga4-admin.mjs (Ship tail): every entry must exist in the GA4 property; missing ones are created, nothing existing is ever archived, deleted, renamed or changed. Event-scoped parameters the app sends (index.html track()) that the reports read: analytics/ga.py, analytics/experiments.py, worker/live/worker.js. property = GA_PROPERTY_ID in worker/live/wrangler.toml.",
+  "property": "557990379",
+  "customDimensions": [
+    { "parameterName": "kind", "description": "car_lookup, lookup_failed, share, search_no_result, link_landing: what kind (weekly report, /live)" },
+    { "parameterName": "dur", "description": "car_lookup, lookup_failed: duration bucket (weekly report)" },
+    { "parameterName": "partial", "description": "car_lookup: 1 when a source failed (weekly report)" },
+    { "parameterName": "make", "description": "car_lookup: brand, never the plate (weekly report)" },
+    { "parameterName": "model", "description": "car_lookup: model name (weekly report)" },
+    { "parameterName": "fuel", "description": "car_lookup: fuel type (weekly report)" },
+    { "parameterName": "term", "description": "search_no_result: the cleaned search term (weekly report)" },
+    { "parameterName": "tab", "description": "tab_view, user_screenshot: which tab (weekly report)" },
+    { "parameterName": "from", "description": "upgrade_open, car_save, update_prompt: where it was opened from (weekly report)" },
+    { "parameterName": "via", "description": "link_landing: share or campaign source (/live)" },
+    { "parameterName": "exp", "description": "exp_expose, share: experiment name (Experimenter)" },
+    { "parameterName": "exp_v", "description": "exp_expose, share: experiment variant (Experimenter)" },
+    { "parameterName": "n", "description": "car_save, buy_step_done, settlement_shown: a small count" },
+    { "parameterName": "plan", "description": "upgrade_purchase_start: which PRO plan" }
+  ],
+  "keyEvents": [
+    { "eventName": "upgrade_open", "countingMethod": "ONCE_PER_EVENT" }
+  ]
+}
