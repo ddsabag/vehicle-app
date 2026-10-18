@@ -1,7 +1,11 @@
 // Fetches this month's regulated 95-octane price and writes fuel.json for the app.
 // Official source: the Ministry of Energy's monthly PDF on gov.il. Fallback: Delek's public price list.
+// The regulated price changes on the 1st: without the official source, the fallback sets a new month's price but never changes
+// the price already published for the current month (on 2026-10-05 Delek's list moved 95 from the regulated 8.27 to 7.77).
+// Every run that misses the official source leaves a silent line on the live dashboard (flash, needs GITHUB_TOKEN).
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { flash } from "./flash.mjs";
 
 const FULL = ["january","february","march","april","may","june","july","august","september","october","november","december"];
 const SHORT = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
@@ -15,12 +19,13 @@ async function fromGov(){
     const url = `https://www.gov.il/BlobFolder/news/${n}/he/${n}.pdf`;
     try {
       const r = await fetch(url, {headers: UA});
-      if (!r.ok) continue;
+      if (!r.ok) { console.log("gov", url, "HTTP", r.status); continue; }
       writeFileSync("/tmp/fuel.pdf", Buffer.from(await r.arrayBuffer()));
       const text = execFileSync("pdftotext", ["-raw", "/tmp/fuel.pdf", "-"]).toString();
       const hit = text.match(/לא\s*יעלה\s*על\s*([\d.]+)\s*ש"?ח/) || text.match(/([\d.]+)\s*ש"?ח\s*לליטר/);
       const p = hit && parseFloat(hit[1]);
       if (p > 4 && p < 15) return {petrol95: p, source: url};
+      console.log("gov", url, "no price found in the PDF");
     } catch (e) { console.log("gov", url, e.message); }
   }
   return null;
@@ -40,12 +45,25 @@ async function fromDelek(){
   } catch (e) { console.log("delek", e.message); return null; }
 }
 
+const MAX_JUMP = 1;   // ₪ per litre: no monthly change of the regulated price came close; a bigger one from the fallback is more likely a misread page
 const gov = await fromGov(), delek = await fromDelek();
-const res = gov || delek;
-if (!res) { console.log("no price found, keeping the current file"); process.exit(0); }
-if (gov && delek && delek.diesel) res.diesel = delek.diesel;
-const out = {month, petrol95: res.petrol95, ...(res.diesel ? {diesel: res.diesel} : {}), source: res.source, checked: now.toISOString().slice(0, 10)};
 const prev = existsSync("fuel.json") ? JSON.parse(readFileSync("fuel.json", "utf8")) : {};
+const note = async text => { console.log(text); await flash("data", "info", "מחיר הדלק: " + text); };
+const res = gov || delek;
+if (!res) { await note(`המקור הרשמי (gov.il) והמחירון של חברת דלק לא נקראו, נשאר המחיר ${prev.petrol95 || "הקודם"} ₪`); process.exit(0); }
+if (gov && delek && delek.diesel) res.diesel = delek.diesel;
+if (!gov && prev.petrol95 > 0) {
+  const fb = res.petrol95;
+  if (prev.month === month) {
+    // same month: the regulated price has not changed since the 1st, so the published one stays (diesel is not regulated and follows Delek)
+    res.petrol95 = prev.petrol95; res.source = prev.source || res.source;
+    await note(Math.abs(fb - prev.petrol95) > 0.005 ? `המקור הרשמי (gov.il) לא נקרא. במחירון של חברת דלק בנזין 95 עולה ${fb} ₪, ונשאר המחיר שכבר פורסם לחודש הזה: ${prev.petrol95} ₪` : `המקור הרשמי (gov.il) לא נקרא, המחיר ${prev.petrol95} ₪ נשאר (זהה למחירון של חברת דלק)`);
+  } else if (Math.abs(fb - prev.petrol95) > MAX_JUMP) {
+    await note(`המקור הרשמי (gov.il) לא נקרא, ובמחירון של חברת דלק בנזין 95 עולה ${fb} ₪, הפרש של יותר משקל מהמחיר של החודש הקודם (${prev.petrol95} ₪). הקובץ לא עודכן, כדאי לבדוק ידנית`);
+    process.exit(0);
+  } else await note(`המקור הרשמי (gov.il) לא נקרא. בנזין 95 לחודש ${month} נלקח מהמחירון של חברת דלק: ${fb} ₪ (בחודש הקודם ${prev.petrol95} ₪). כדאי לוודא מול ההודעה הרשמית`);
+}
+const out = {month, petrol95: res.petrol95, ...(res.diesel ? {diesel: res.diesel} : {}), source: res.source, checked: now.toISOString().slice(0, 10)};
 if (prev.petrol95 === out.petrol95 && prev.diesel === out.diesel && prev.month === out.month) { console.log("unchanged", out); process.exit(0); }
 writeFileSync("fuel.json", JSON.stringify(out, null, 1) + "\n");
 console.log("updated", out);
