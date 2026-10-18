@@ -1,0 +1,38 @@
+name: Alert daily
+# The alert router's daily job (router spec 8.1): claim the day, Telegram self-test (getMe + getChat, sends nothing), the morning ring of night items,
+# the luchit-uptime check (only when the repo variable ALERT_UPTIME_URL is set), the Monday "Sunday summary went out" check, then the heartbeat and the prune.
+# State lives on branch alert-state (keys, levels and times only, never message text).
+# Two lines a day so exactly one lands at 08:xx in Jerusalem in summer and winter, however late cron starts; the engine's gate makes the other one a no-op.
+# A red run means Telegram failed its self-test or the morning ring did not go out (an email is sent when a Brevo key exists); GitHub's own email follows.
+# Manual runs skip the hour check and are dry by default (nothing sent, nothing written).
+on:
+  schedule:
+    - cron: "5 5 * * *"
+    - cron: "5 6 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run: print what would happen, send and write nothing"
+        type: boolean
+        default: true
+permissions:
+  contents: write   # branch alert-state
+jobs:
+  daily:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts/alert.mjs
+          sparse-checkout-cone-mode: false
+      - name: Daily
+        run: node .github/scripts/alert.mjs daily
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY || secrets.BREVO_KEY }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          ALERT_UPTIME_URL: ${{ vars.ALERT_UPTIME_URL }}
+          DRY: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
