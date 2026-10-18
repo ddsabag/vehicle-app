@@ -12,7 +12,7 @@ Before turning it on:
 
 ## Dynamic link preview (og/)
 
-`worker/og/worker.js` (luchit-og) rewrites og:title / og:description for `?plate=` and `?cmp=` links when a messaging crawler (WhatsApp, Telegram, Facebook, ...) fetches the page; everyone else gets the page untouched. Its route is `luchit.app/`, the home page only (as set live; the query string is not part of a route, so every `?plate=` and `?cmp=` link passes through it): a broken deploy takes the home page down, which is why it is deployed only by the Workers deploy workflow below, with a check and a rollback.
+`worker/og/worker.js` (luchit-og) rewrites og:title / og:description for `?plate=` and `?cmp=` links when a messaging crawler (WhatsApp, Telegram, Facebook, ...) fetches the page; everyone else gets the page untouched. Its route is `luchit.app/*`: the exact `luchit.app/` does not match a URL with a query, so with it alone no `?plate=` or `?cmp=` link gets a preview (found 2026-10-12, and again 2026-10-18 after the route was narrowed on 2026-10-16). The whole site passes through it: a broken deploy takes luchit.app down, which is why it is deployed only by the Workers deploy workflow below, with a check and a rollback.
 Privacy: the plate in a shared link is looked up once from data.gov.il (cached an hour, never logged); mention it in the privacy policy. Test with `curl -A WhatsApp "https://luchit.app/?plate=<plate>"`.
 
 ## Support mail to Telegram (mail/)

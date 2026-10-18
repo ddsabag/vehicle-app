@@ -1,4 +1,4 @@
-/* Luchit dynamic link preview (Cloudflare Worker, route luchit.app/ : the home page, where ?plate= and ?cmp= links land).
+/* Luchit dynamic link preview (Cloudflare Worker, route luchit.app/*).
    Messaging crawlers (WhatsApp, Telegram, Facebook, X, Slack...) get og:title / og:description for
    ?plate= and ?cmp= links; everyone else gets the page untouched. The plate is not logged; the ministry answer for that link is held in the Cloudflare edge cache for 10 minutes (cacheTtl below) so repeated previews do not hit the ministry again.
    Needs luchit.app proxied by Cloudflare (orange cloud). */
