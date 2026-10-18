@@ -4,8 +4,8 @@ name: Release watch
 # Only reads Play (a throwaway edit for the tracks, never committed, and the Reporting API). By day only, like Reviews monitor:
 # 06:40/11:40/17:40 UTC = 09:40/14:40/20:40 Israel summer time, 08:40/13:40/19:40 winter time. Kill switch: SHIP_TAIL, as in Ship tail.
 on:
-  schedule:
-    - cron: "40 6,11,17 * * *"
+  push:
+    branches: [st-listing-test]   # TEST ONLY: a dry read from this branch (never merged)
   workflow_dispatch:
     inputs:
       mode:
@@ -37,9 +37,9 @@ jobs:
         run: node .github/scripts/release-watch.mjs gate
         env:
           SHIP_TAIL: ${{ vars.SHIP_TAIL }}
-          EVENT: ${{ github.event_name }}
+          EVENT: workflow_dispatch
           REF: ${{ github.ref }}
-          INPUT_MODE: ${{ inputs.mode }}
+          INPUT_MODE: dry
       - name: Restore what was already seen and told
         if: ${{ steps.g.outputs.mode != 'off' }}
         uses: actions/cache/restore@v6
