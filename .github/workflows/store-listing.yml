@@ -1,7 +1,8 @@
 name: Store listing
 # Keeps the Hebrew main store listing on Google Play (title, short and full description, phone screenshots) equal to .github/store-listing/
-# (play-listing.mjs), and sends data-safety.csv there as the Data safety declaration when the push changed it, or on a manual run with
-# mode=on (play-data-safety.mjs; Google has no call that reads the declaration back). A push to main that changes those files sends only what differs, in one edit, for review, with one Telegram; nothing
+# (play-listing.mjs), and sends data-safety.csv there as the Data safety declaration when it changed since the last push run that finished
+# green, or on a manual run with data_safety=send (play-data-safety.mjs; Google has no call that reads the declaration back). A push to main
+# that changes those files sends only what differs, in one edit, for review, with one Telegram; nothing
 # else on Play is touched (other languages, icon, feature graphic, tracks, production). Release threads put the new texts and screenshots
 # there before "שחרר", next to android/release-notes.txt. A file that breaks Play's limits stops the run (the Alert router check already
 # runs the same check on next). Kill switch: the SHIP_TAIL variable, as in Ship tail. The script reports on its own and finishes green on a
@@ -17,6 +18,11 @@ on:
         type: choice
         options: [dry, on]
         default: dry
+      data_safety:
+        description: "send = also send data-safety.csv as the Data safety declaration (a push sends it by itself when the file changed)"
+        type: choice
+        options: [skip, send]
+        default: skip
 permissions:
   contents: read
 # one listing run at a time; a newer push replaces a pending one (it carries the newer files)
@@ -29,6 +35,7 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write   # alert.mjs keeps its dedupe state on the alert-state branch
+      actions: read     # the last push run that finished, for the Data safety compare
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,21 +56,22 @@ jobs:
           EVENT: ${{ github.event_name }}
           REF: ${{ github.ref }}
           INPUT_MODE: ${{ inputs.mode }}
-      - name: Did this push change the Data safety file?
+      - name: Did the Data safety file change since the last push run that finished?
         id: dsc
         if: ${{ steps.g.outputs.mode != 'off' && github.event_name == 'push' && hashFiles('.github/store-listing/data-safety.csv') != '' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BEFORE: ${{ github.event.before }}
-          AFTER: ${{ github.sha }}
-        # the push's own commits (a release merge included); when GitHub cannot say (or lists 300 files, its cap), the file counts as changed
+        # the file's blob at the last push run of this workflow on main that finished green, and here (a run replaced while pending, cancelled
+        # or dead does not count, so its change goes now); when GitHub cannot say, the file counts as changed
         run: |
           f=.github/store-listing/data-safety.csv
-          if files=$(gh api "repos/$GITHUB_REPOSITORY/compare/$BEFORE...$AFTER" --jq 'if (.files | length) >= 300 then "MANY" else .files[].filename end') && ! grep -qx MANY <<<"$files"; then
-            if grep -qx "$f" <<<"$files"; then echo "changed=true" >> "$GITHUB_OUTPUT"; else echo "changed=false" >> "$GITHUB_OUTPUT"; fi
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
+          blob() { gh api "repos/$GITHUB_REPOSITORY/contents/$f?ref=$1" --jq .sha 2>/dev/null; }
+          base=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/store-listing.yml/runs?branch=main&event=push&status=success&per_page=1" --jq '.workflow_runs[0].head_sha // empty' 2>/dev/null) || base=""
+          now=$(blob "$GITHUB_SHA") || now=""
+          was=""
+          if [ -n "$base" ]; then was=$(blob "$base") || was=""; fi
+          echo "last finished push run: ${base:-none} (file ${was:-absent}); this push: ${now:-unknown}"
+          if [ -n "$now" ] && [ "$now" = "$was" ]; then echo "changed=false" >> "$GITHUB_OUTPUT"; else echo "changed=true" >> "$GITHUB_OUTPUT"; fi
       - name: Data safety
         if: ${{ !cancelled() && steps.g.outputs.mode != 'off' }}
         run: node .github/scripts/play-data-safety.mjs
@@ -71,6 +79,7 @@ jobs:
           SHIP_SA_JSON: ${{ secrets.SHIP_SA_JSON }}
           MODE: ${{ steps.g.outputs.mode }}
           CHANGED: ${{ steps.dsc.outputs.changed }}
+          SEND: ${{ inputs.data_safety }}
           EVENT: ${{ github.event_name }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           PLAY_DEVELOPER_ID: ${{ vars.PLAY_DEVELOPER_ID }}

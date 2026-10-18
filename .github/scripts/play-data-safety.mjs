@@ -1,10 +1,11 @@
 // Ship tail, Data safety part (a step of store-listing.yml): sends .github/store-listing/data-safety.csv to Google Play as the app's Data
 // safety declaration (applications.dataSafety; the file is Play Console's own "Export to CSV" of the form, edited only where an answer
-// changes). Google has no call that reads the declaration back, so a push sends the file only when the push changed it (the workflow
-// compares the push's commits and passes CHANGED); a manual run with mode=on always sends it. A file that is not a Data safety CSV stops
-// the run before Google is asked anything. One request, nothing else: no edit, no track, no listing.
+// changes). Google has no call that reads the declaration back, so a push sends the file only when it changed since the last push run
+// that finished green (the workflow compares the file there and here and passes CHANGED; anything but "false" counts as changed), and a
+// manual run only with data_safety=send (SEND). A file that is not a Data safety CSV stops the run before Google is asked anything. One
+// request, nothing else: no edit, no track, no listing.
 // Node 20, node: builtins only. Commands:
-//   node play-data-safety.mjs           SHIP_SA_JSON, MODE (on|dry), CHANGED, EVENT, RUN_URL -> output code (sent|same|dry|none|nosecret|error);
+//   node play-data-safety.mjs           SHIP_SA_JSON, MODE (on|dry), CHANGED, SEND, EVENT, RUN_URL -> code (sent|same|dry|none|nosecret|error);
 //                                       one Telegram (alert.mjs) when it was sent or failed
 //   node play-data-safety.mjs check     the file only, offline (the Alert router check runs it on next before a release)
 //   node play-data-safety.mjs selftest  offline (mocked fetch, temporary files)
@@ -16,6 +17,7 @@ import { jwt, Fail, playFail, PKG, SECRET } from "./play-alpha.mjs";
 
 export const FILE = ".github/store-listing/data-safety.csv", MAX_BYTES = 512 * 1024, MIN_ROWS = 10;
 export const PERM_SAFETY = "Manage store presence";   // the account's store permission; if Google asks for another, the 403 text says so
+const AGAIN = "Actions ← Store listing ← Run workflow עם mode=on ו-data_safety=send";
 const PLAY = "https://androidpublisher.googleapis.com", TOKEN_URL = "https://oauth2.googleapis.com/token";
 const SCOPE = "https://www.googleapis.com/auth/androidpublisher";
 
@@ -101,7 +103,11 @@ export async function run() {
   if (!F.exists) { IO.out(`${FILE} is not in the repo: Data safety stays as it is on Play`); return { ...R, code: "none" }; }
   Object.assign(R, { rows: F.rows, hash: F.hash.slice(0, 12) });
   if (F.problems.length) return { ...R, code: "error", kind: "files", why: F.problems.slice(0, 3).join("; "), next: `לתקן את ${FILE} ב-main` };
-  if (env.EVENT !== "workflow_dispatch" && env.CHANGED !== "true") { IO.out(`Data safety ${R.hash} (${F.rows} answers): this push did not change it, nothing to send`); return { ...R, code: "same" }; }
+  const manual = env.EVENT === "workflow_dispatch";
+  if (manual ? env.SEND !== "send" : env.CHANGED === "false") {
+    IO.out(`Data safety ${R.hash} (${F.rows} answers): ${manual ? "a manual run sends it only with data_safety=send" : "the same as at the last push run that finished, nothing to send"}`);
+    return { ...R, code: "same" };
+  }
   if (mode !== "on") { IO.out(`dry run: would send Data safety ${R.hash} (${F.rows} answers)`); return { ...R, code: "dry" }; }
   const raw = String(env[SECRET] || "").trim();
   if (!raw) { note(`${SECRET} is not set: Data safety is not sent`); return { ...R, code: "nosecret" }; }
@@ -114,9 +120,9 @@ export async function run() {
     if (!r.ok) {
       const f = playFail(r), msg = String(J(r.text)?.error?.message || "").replace(/\s+/g, " ").slice(0, 200);
       if ((r.status === 401 || r.status === 403) && !/ה-API של Google Play כבוי/.test(f.why))
-        throw Object.assign(new Fail("לחשבון השירות אין הרשאה לעדכן את Data safety", `Play Console ← Users and permissions ← ship-tail ← App permissions ← לוחית: לסמן את ההרשאה לדף החנות ולהצהרות (App content)${msg ? `. Google: ${msg}` : ""}`, r.status), { access: true });
+        throw Object.assign(new Fail("לחשבון השירות אין הרשאה לעדכן את Data safety", `Play Console ← Users and permissions ← ship-tail ← App permissions ← לוחית: לסמן את ההרשאה לדף החנות ולהצהרות (App content), ואז ${AGAIN}${msg ? `. Google: ${msg}` : ""}`, r.status), { access: true });
       if (r.status === 400 && msg) throw new Fail(`Google Play לא קיבל את הקובץ: ${msg}`, `לתקן את ${FILE} (או לייצא אותו מחדש מ-Play Console) ולדחוף ל-main`, 400);
-      if (!r.status) throw new Fail("Google Play לא ענה על השליחה", "לבדוק ב-Play Console ← App content ← Data safety; אם לא התעדכן, להריץ שוב את Store listing", 0);
+      if (!r.status) throw new Fail("Google Play לא ענה על השליחה", `לבדוק ב-Play Console ← App content ← Data safety; אם לא התעדכן: ${AGAIN}`, 0);
       throw f;
     }
     IO.out(`sent: Data safety ${R.hash} (${F.rows} answers)`);
@@ -214,8 +220,14 @@ async function selftest() {
     ok(W.outputs.code === "sent" && W.code === 0 && W.posted?.safetyLabels === GOOD && W.tg.length === 1 && W.tg[0].text.includes("30 תשובות"), "sent: the file as it is, one Telegram " + W.printed.join(" | "));
     W = await go({}, { CHANGED: "false" });
     ok(W.outputs.code === "same" && !W.calls.length && !W.tg.length, "a push that did not change it: nothing is called");
-    W = await go({}, { CHANGED: "false", EVENT: "workflow_dispatch" });
-    ok(W.outputs.code === "sent", "a manual run sends it");
+    W = await go({}, { CHANGED: "" });
+    ok(W.outputs.code === "sent", "a push whose compare did not answer: sent");
+    W = await go({}, { CHANGED: "true", EVENT: "workflow_dispatch" });
+    ok(W.outputs.code === "same" && !W.calls.length && W.code === 0, "a manual run without data_safety=send: nothing is called");
+    W = await go({}, { CHANGED: "false", EVENT: "workflow_dispatch", SEND: "send" });
+    ok(W.outputs.code === "sent", "a manual run with data_safety=send sends it");
+    W = await go({}, { EVENT: "workflow_dispatch", SEND: "send", MODE: "dry" });
+    ok(W.outputs.code === "dry" && !W.calls.length, "a manual dry run with send: nothing is called");
     W = await go({}, { MODE: "dry" });
     ok(W.outputs.code === "dry" && !W.calls.length && !W.tg.length, "dry: nothing is called");
     W = await go({ text: null });
@@ -229,12 +241,12 @@ async function selftest() {
     W = await go({}, {}, ["check"]);
     ok(W.code === 0 && W.printed.some(l => l.includes("30 answers") && l.endsWith("ok")), "check: the good file");
     W = await go({ status: 403, msg: "The caller does not have permission" });
-    ok(W.outputs.code === "error" && W.tg[0]?.text.includes("אין הרשאה") && W.tg[0].text.includes("The caller does not have permission"), "403: the permission, with Google's words " + W.tg.map(x => x.text));
+    ok(W.outputs.code === "error" && W.tg[0]?.text.includes("אין הרשאה") && W.tg[0].text.includes("The caller does not have permission") && W.tg[0].text.includes("data_safety=send"), "403: the permission, with Google's words " + W.tg.map(x => x.text));
     W = await go({ status: 400, msg: "Invalid value for PSL_Q3" });
     ok(W.outputs.code === "error" && W.tg[0]?.text.includes("Invalid value for PSL_Q3"), "400: Google's reason");
     W = await go({ drop: true });
     ok(W.outputs.code === "error" && W.calls.filter(c => c.url.endsWith("/dataSafety")).length === 1 && W.tg[0]?.text.includes("לא ענה"), "no answer: sent once, told to look");
-    W = await go({ status: 403 }, { EVENT: "workflow_dispatch" });
+    W = await go({ status: 403 }, { EVENT: "workflow_dispatch", SEND: "send" });
     ok(W.code === 1, "manual error: red");
     ok(allowed("POST", `${PLAY}/androidpublisher/v3/applications/${PKG}/dataSafety`) && !allowed("GET", `${PLAY}/androidpublisher/v3/applications/${PKG}/dataSafety`)
       && !allowed("POST", `${PLAY}/androidpublisher/v3/applications/${PKG}/edits`) && !allowed("POST", `https://evil.example/androidpublisher/v3/applications/${PKG}/dataSafety`)

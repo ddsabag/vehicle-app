@@ -106,10 +106,11 @@ export function liveBuilds(tracks) {
 const hourOf = ms => Math.floor(ms / HOUR) * HOUR;
 const dt = (p, ms) => { const d = new Date(ms); return { [`${p}.year`]: d.getUTCFullYear(), [`${p}.month`]: d.getUTCMonth() + 1, [`${p}.day`]: d.getUTCDate(), [`${p}.hours`]: d.getUTCHours() }; };
 // the newest hour Play has error data for (hourly, UTC); an answer without it means the last full hour
+// how far Play's hourly data reaches; real = Play said so (else a guess of an hour ago, which never counts as data read)
 async function dataEnd(ctx) {
   const f = await get(ctx, `${REP}/v1beta1/apps/${ctx.pkg}/errorCountMetricSet`, "Play vitals");
   const h = (f.freshnessInfo?.freshnesses || []).find(x => x.aggregationPeriod === "HOURLY")?.latestEndTime;
-  return h?.year ? Date.UTC(h.year, h.month - 1, h.day, h.hours || 0) : hourOf(IO.now()) - HOUR;
+  return h?.year ? { end: Date.UTC(h.year, h.month - 1, h.day, h.hours || 0), real: true } : { end: hourOf(IO.now()) - HOUR, real: false };
 }
 export const FILTER = vc => `${vc ? `versionCode = ${vc} AND ` : ""}errorIssueType = CRASH OR errorIssueType = ANR`;
 export async function issues(ctx, from, to, vc) {
@@ -131,6 +132,9 @@ export async function watch() {
   const raw = String(env[SECRET] || "").trim();
   if (!raw) { note(`${SECRET} is not set: nothing is watched`); return { ...R, code: "nosecret" }; }
   const st = J(IO.read(file)) || {}, S = { ...st, seen: st.seen || {}, told: st.told || {}, issues: st.issues || {}, checked: st.checked || {} };
+  // no state restored (the first run, or the cache lost it): everything this run finds looks first-found now, so play-production.mjs halts on
+  // none of it (it was found by the watch before, or never told: the Telegram still goes out)
+  if (!Object.keys(st).length) S.reset = now;
   try {
     const sa = J(raw);
     if (!sa?.client_email || !sa?.private_key) throw new Fail(`הסוד ${SECRET} אינו מפתח JSON של חשבון שירות`, `להדביק בסוד ${SECRET} את כל קובץ ה-JSON של המפתח`);
@@ -141,14 +145,14 @@ export async function watch() {
     const due = Object.entries(builds).filter(([k, b]) => b.staged || now - S.seen[k] < WATCH_H * HOUR).map(([k, b]) => ({ key: k, ...b, since: S.seen[k] }));
     R.watched = due.map(b => `${b.track} ${b.vn || "?"} (${b.vc}), ${Math.floor((now - b.since) / HOUR)} h`);
     if (due.length) {
-      const end = await dataEnd(ctx);
+      const { end, real } = await dataEnd(ctx);
       let history = null;
       for (const b of [...new Map(due.map(b => [b.vc, b])).values()]) {
         const from = hourOf(b.since - DAY);   // the first look can come hours after the upload (no run at night)
         if (end <= from) { IO.out(`vitals ${b.vc}: no hourly data after ${new Date(from).toISOString().slice(0, 13)}h yet`); continue; }
         const mine = await issues(ctx, from, end, b.vc);
         IO.out(`vitals ${b.vc}: ${mine.length} crash/ANR issues, ${new Date(from).toISOString().slice(0, 13)}h to ${new Date(end).toISOString().slice(0, 13)}h UTC`);
-        if (!mine.length) { S.checked[b.vc] = end; continue; }
+        if (!mine.length) { if (real) S.checked[b.vc] = end; continue; }
         // new = no report from an older version in the last 30 days (the earliest version Play saw for the issue is this one or newer)
         history ??= new Map((await issues(ctx, end - HISTORY_D * DAY, end, 0)).map(i => [i.name, i]));
         for (const i of mine) {
@@ -159,7 +163,7 @@ export async function watch() {
           if (isNew) S.issues[told] ??= S.told[told] ?? now;   // when the watch first found it (play-production.mjs halts a rollout on one found after it began)
           if (isNew && !S.told[told]) R.tells.push({ b, i, told });
         }
-        S.checked[b.vc] = end;   // how far Play's data was read for this build (play-production.mjs completes a rollout only past its 48 h)
+        if (real) S.checked[b.vc] = end;   // how far Play's data was read for this build (play-production.mjs completes a rollout only past its 48 h)
       }
     }
     R.code = R.tells.length ? "new" : "quiet";
@@ -256,7 +260,7 @@ async function selftest() {
       }
       if (u.origin === REP) {
         if (o.repFail) return res(o.repFail.status, { error: { message: o.repFail.msg || "x" } });
-        if (p.endsWith("/errorCountMetricSet")) return res(200, { freshnessInfo: { freshnesses: [{ aggregationPeriod: "HOURLY", latestEndTime: { year: 2026, month: 10, day: 20, hours: 8 } }] } });
+        if (p.endsWith("/errorCountMetricSet")) return res(200, o.noFresh ? { freshnessInfo: { freshnesses: [] } } : { freshnessInfo: { freshnesses: [{ aggregationPeriod: "HOURLY", latestEndTime: { year: 2026, month: 10, day: 20, hours: 8 } }] } });
         if (p.endsWith("/errorIssues:search")) {
           const f = u.searchParams.get("filter"), vc = /versionCode = (\d+)/.exec(f)?.[1];
           return res(200, { errorIssues: vc ? (o.mine?.[vc] || []) : (o.history || []) });
@@ -289,7 +293,7 @@ async function selftest() {
   await group("first look", async () => {
     // no state yet: the live builds are recorded now (the draft is not live) and watched; nothing found = quiet, no Telegram
     W = await run();
-    ok(W.code === 0 && W.outputs.code === "quiet" && W.tg.length === 0, "first look: quiet " + W.printed.join(" | "));
+    ok(W.code === 0 && W.outputs.code === "quiet" && W.tg.length === 0 && W.state.reset === T0, "first look: quiet, the reset marked " + W.printed.join(" | "));
     ok(Object.keys(W.state.seen).sort().join() === "alpha:110,production:108" && W.state.seen["alpha:110"] === T0, "first look: live builds recorded " + JSON.stringify(W.state));
     ok(W.open.size === 0 && W.reads.every(c => c.method === "GET" || /\/edits$/.test(new URL(c.url).pathname) || c.method === "DELETE"), "only reads: the edit is deleted, nothing committed");
     ok(!W.calls.some(c => /:commit|:validate|\/tracks\/|PUT|PATCH/.test(c.method + c.url)), "never commits or writes a track");
@@ -304,6 +308,8 @@ async function selftest() {
     const searches = W.calls.filter(c => c.url.includes("errorIssues:search")).map(c => new URL(c.url).searchParams);
     ok(searches[0].get("filter") === "versionCode = 110 AND errorIssueType = CRASH OR errorIssueType = ANR" && searches[0].get("interval.startTime.hours") === String(new Date(T0 - 44 * HOUR).getUTCHours()) && searches[0].get("interval.endTime.hours") === "8", "new: filter and hour-aligned interval");
     ok(!W.calls.some(c => c.url.includes("versionCode = 108") || c.url.includes("versionCode+%3D+108")), "new: production 108 is past its 72 h");
+    const W3 = await run({ state: { seen: { "alpha:110": T0 - 20 * HOUR } }, mine: { 110: [] }, noFresh: true });
+    ok(!W3.state.checked["110"] && !("reset" in W3.state), "new: no freshness from Play = nothing counts as read; a restored state has no reset " + JSON.stringify(W3.state));
     const W2 = await run({ state: W.state, mine: { 110: [crash] }, history: [crash] });
     ok(W2.tg.length === 0 && W2.outputs.code === "quiet", "new: not told twice");
   });

@@ -124,7 +124,7 @@ async function play(ctx, method, p, { json, want, cleanup = false, read = false 
   if (method === "PUT" && !bodyOk(json, want || {})) throw new Fail(`refused: a production write that is not ${want?.kind || "known"}`, "", -1);
   const r = await call(method, url, { headers: { authorization: "Bearer " + ctx.token, ...(json ? { "content-type": "application/json" } : {}) },
     body: json ? JSON.stringify(json) : undefined, cleanup });
-  if (!r.ok) throw read ? playFail(r) : prodFail(r);
+  if (!r.ok) throw Object.assign(read ? playFail(r) : prodFail(r), { raw: String(J(r.text)?.error?.message || "").slice(0, 200) });
   return J(r.text) || {};
 }
 const EDITS = ctx => `/androidpublisher/v3/applications/${ctx.pkg}/edits`;
@@ -185,10 +185,10 @@ export function planAuto(tracks, state, now, life) {
   // the 48 h start at the first look at it published (again after the owner resumed a halted rollout)
   const halted = state?.halted?.[key], out = state?.live?.[key] ?? now, fresh = !state?.live?.[key];
   Object.assign(base, { out, fresh, resumed: !!halted });
-  // an issue halts when a later look than the first one at this rollout found it (what the first look finds came from Alpha and was told
-  // there; after a cache loss everything looks first-found now); after a resume, only one found after the halt
-  const floor = halted ?? Math.min(seen ?? out, out);
-  const found = Object.entries(state?.issues || {}).filter(([k, t]) => k.startsWith(vc + ":") && t > floor);
+  // an issue halts when the watch found it since it first saw this rollout (one found on Alpha before keeps that earlier time); after a
+  // resume, only one found after the halt; never one stamped by a run that had lost the watch's state (state.reset: all looked new then)
+  const since = Math.min(seen ?? out, out), reset = state?.reset ?? -Infinity;
+  const found = Object.entries(state?.issues || {}).filter(([k, t]) => k.startsWith(vc + ":") && t > reset && (halted ? t > halted : t >= since));
   if (found.length) return { act: "halt", ...base, n: found.length, release: clean(r, { status: "halted", userFraction: r.userFraction }) };
   const end = out + FULL_AFTER_H * HOUR, left = end - now;
   if (left > 0) return { act: fresh ? "live" : "wait", ...base, why: `${Math.ceil(left / HOUR)} h to go at ${Math.round(base.fraction * 100)}%` };
@@ -244,7 +244,7 @@ async function setup(env) {
   return { pkg: env.PLAY_PACKAGE || PKG, dry: env.MODE !== "on", token: await accessToken(sa) };
 }
 // Play keeps one open edit per app: another workflow's edit (Ship tail, Store listing, the watch's read) deletes ours. Start over, twice.
-const editGone = e => /edit has been deleted|edit .{0,20}expired/i.test(String(e?.why || e?.message || ""));
+const editGone = e => /edit has been deleted|edit .{0,20}(expired|not found|does not exist)/i.test(`${e?.why || e?.message || ""} ${e?.raw || ""}`);
 async function again(fn) {
   for (let i = 0; ; i++) {
     try { return await fn(); }
@@ -303,15 +303,17 @@ export async function auto() {
         IO.out(`production: ${P.act}${P.why ? ` (${P.why})` : ""}`);
         if (!P.say) return { ...R, code: P.act };
         if (ctx.dry) { IO.out(`dry run: would tell ${P.say}`); return { ...R, code: "dry-say" }; }
-        save([["said", `${P.key}:${P.say}`, IO.now()]]);
-        return { ...R, code: "stuck", life: P.say };
+        // remembered only once the Telegram went out (cli), so an undelivered notice is tried again next run
+        return { ...R, code: "stuck", life: P.say, remember: () => { const st = J(IO.read(file)) || {}; IO.write(file, JSON.stringify({ ...st, said: { ...(st.said || {}), [`${P.key}:${P.say}`]: IO.now() } })); } };
       }
       if (ctx.dry) { IO.out(`dry run: would ${{ live: "record the start of", halt: "halt", full: "complete" }[P.act]} ${P.vn} (${P.vc})`); return { ...R, code: "dry-" + P.act }; }
       if (P.fresh) save([["live", P.key, P.out]]);
       if (P.act === "live") { IO.out(`published: ${P.vn} (${P.vc}) at ${Math.round(P.fraction * 100)}%, ${P.why}`); return { ...R, code: "live" }; }
-      await send(ctx, P.release, P.act);
-      // after a halt the owner may resume it in Play Console: then the 48 h start again, and only issues found after the halt count
-      if (P.act === "halt") save([["halted", P.key, IO.now()], ["live", P.key, null]]);
+      // after a halt the owner may resume it in Play Console: then the 48 h start again, and only issues found after the halt count (also
+      // when Play could not confirm the halt: it may well have landed)
+      const halted = () => save([["halted", P.key, IO.now()], ["live", P.key, null]]);
+      try { await send(ctx, P.release, P.act); } catch (e) { if (e?.unsure && P.act === "halt") halted(); throw e; }
+      if (P.act === "halt") halted();
       IO.out(`${P.act === "halt" ? "halted" : "completed"}: ${P.vn} (${P.vc})`);
       return { ...R, code: P.act === "halt" ? "halted" : "full" };
     });
@@ -393,6 +395,7 @@ export async function cli(argv) {
   IO.summary([`### Production ${R.cmd} (${R.mode})`, "", `- result: **${R.code}**${R.why ? `: ${R.why}` : ""}`, R.tracks ? `- on Play: ${R.tracks}` : ""].filter(Boolean).join("\n"));
   if (R.code === "error") IO.out(`::${cmd === "promote" ? "error" : "warning"}::Production ${cmd} failed${R.status > 0 ? ` (${R.status})` : ""}: ${R.why}`);
   const told = await tell(R);
+  if (told && R.remember && R.mode === "on") R.remember();
   // a manual promote that failed is red for its caller; auto reports through the Telegram and stays green unless that was not delivered
   return (R.code === "error" && cmd === "promote") || !told ? 1 : 0;
 }
@@ -418,7 +421,7 @@ async function selftest() {
       const method = opt.method || "GET", u = new URL(url), p = u.pathname;
       W.calls.push({ method, url, body: opt.body });
       if (url === TOKEN_URL) return res(200, { access_token: TOKEN });
-      if (u.host === "api.telegram.org") { W.tg.push(J(opt.body)); return res(200, { ok: true }); }
+      if (u.host === "api.telegram.org") { if (o.tgDown) return res(502, {}); W.tg.push(J(opt.body)); return res(200, { ok: true }); }
       if (u.origin !== PLAY || opt.headers?.authorization !== "Bearer " + TOKEN) return res(401, {});
       // review state: every release on the track is published unless o.life says otherwise ({ versionCode: state }); o.life.none lists nothing
       const rl = p.match(/\/tracks\/(\w+)\/releases$/);
@@ -554,6 +557,10 @@ async function selftest() {
     ok(W.outputs.code === "sent", "promote: the version meant");
     W = await run({ fail: { commit: [0], readback: true } });
     ok(W.outputs.code === "error" && W.tg[0]?.text.includes("ייתכן שהשינוי כן נקלט") && !W.tg[0].text.includes("לא השתנה"), "a commit with no answer and no read-back: maybe landed " + W.tg.map(x => x.text));
+    W = await run({ fail: { put: [{ status: 404, msg: "Edit not found." }] } });
+    ok(W.outputs.code === "sent" && W.printed.some(l => l.includes("starting over")), "a 404 for our edit: started over");
+    W = await run({ tracks: T([A("1.34", 115)], [A("1.34", 115, "inProgress", { userFraction: 0.2, releaseNotes: NOTES }), A("1.33", 110)]), state: { seen: { "production:115": T0 - 80 * HOUR }, live: { "production:115": T0 - 9 * HOUR }, issues: { "115:x": T0 - HOUR } }, fail: { commit: [0], readback: true } }, { EVENT: "schedule" }, ["auto"]);
+    ok(W.outputs.code === "error" && W.state.halted?.["production:115"] >= T0 && W.tg[0]?.text.includes("ייתכן"), "auto: a halt Play could not confirm is remembered as a halt " + JSON.stringify(W.state));
     W = await run({ ghost: true });
     ok(W.outputs.code === "error" && W.code === 1 && W.tg[0]?.text.includes("לא מראה את השינוי"), "a commit Play answered but does not show: error " + W.tg.map(x => x.text));
     W = await run({}, { [SECRET]: "" });
@@ -572,6 +579,8 @@ async function selftest() {
     for (const [st, words] of [["APPROVED_NOT_PUBLISHED", "Publish"], ["NOT_APPROVED", "דחתה"], ["NOT_SENT_FOR_REVIEW", "Send changes for review"]]) {
       W = await run({ tracks: TR, life: { 115: st }, state: at(60) }, AUTO, ["auto"]);
       ok(W.outputs.code === "stuck" && !W.puts.length && W.tg.length === 1 && W.tg[0].text.includes(words) && W.state.said[`production:115:${st}`] === T0, `auto: ${st} told ` + W.tg.map(x => x.text));
+      const W3 = await run({ tracks: TR, life: { 115: st }, state: at(60), tgDown: true }, AUTO, ["auto"]);
+      ok(W3.outputs.code === "stuck" && W3.code === 1 && !W3.state.said, `auto: ${st} not delivered = not remembered, run red`);
       const W2 = await run({ tracks: TR, life: { 115: st }, state: W.state }, AUTO, ["auto"]);
       ok(W2.outputs.code === "wait" && W2.tg.length === 0, `auto: ${st} not told twice`);
     }
@@ -597,11 +606,16 @@ async function selftest() {
       && W.state.halted["production:115"] === T0 && !W.state.live["production:115"], "auto: a new issue halts, even after 48 h " + W.tg.map(x => x.text) + JSON.stringify(W.state));
     W = await run({ tracks: TR, state: at(30, null, { issues: { "115:apps/x/i1": T0 - 20 * HOUR } }) }, AUTO, ["auto"]);
     ok(W.outputs.code === "halted" && W.tg.length === 1 && W.state.halted["production:115"] === T0, "auto: an issue found in review halts at the first look published");
-    W = await run({ tracks: TR, state: at(5, 2, { issues: { "115:apps/x/i1": T0 - 30 * HOUR, "115:apps/x/i3": T0 - 5 * HOUR, "110:apps/x/i2": T0 - HOUR } }) }, AUTO, ["auto"]);
-    ok(W.outputs.code === "wait" && !W.puts.length, "auto: an issue found before or at the first look (from Alpha), or of another build, does not halt");
-    // the watch's state was lost: seen and the issues all start now, nothing halts
-    W = await run({ tracks: TR, state: { seen: { "production:115": T0 }, issues: { "115:apps/x/i1": T0 } } }, AUTO, ["auto"]);
-    ok(W.outputs.code === "live" && !W.puts.length, "auto: after a lost state, known issues do not halt");
+    W = await run({ tracks: TR, state: at(5, 2, { issues: { "115:apps/x/i1": T0 - 30 * HOUR, "110:apps/x/i2": T0 - HOUR } }) }, AUTO, ["auto"]);
+    ok(W.outputs.code === "wait" && !W.puts.length, "auto: an issue found before the rollout (on Alpha), or of another build, does not halt");
+    // the first look came after Google published it (a "פרסם" in the evening, the next watch in the morning): what it finds halts
+    W = await run({ tracks: TR, state: at(0, null, { issues: { "115:apps/x/i3": T0 } }) }, AUTO, ["auto"]);
+    ok(W.outputs.code === "halted", "auto: an issue found on the first look at a published rollout halts it");
+    // the watch's state was lost: seen and the issues all start at the reset, nothing of that run halts; a later one does
+    W = await run({ tracks: TR, state: { seen: { "production:115": T0 - 8 * HOUR }, issues: { "115:apps/x/i1": T0 - 8 * HOUR }, reset: T0 - 8 * HOUR } }, AUTO, ["auto"]);
+    ok(W.outputs.code === "live" && !W.puts.length, "auto: after a lost state, what that run found does not halt");
+    W = await run({ tracks: TR, state: { seen: { "production:115": T0 - 8 * HOUR }, issues: { "115:apps/x/i1": T0 - 8 * HOUR, "115:apps/x/i4": T0 - HOUR }, reset: T0 - 8 * HOUR } }, AUTO, ["auto"]);
+    ok(W.outputs.code === "halted", "auto: after a lost state, a later new issue halts");
     // the owner resumed a halted rollout: the 48 h start again, an issue from before the halt does not halt it again, a newer one does
     const RES = { halted: { "production:115": T0 - 10 * HOUR }, issues: { "115:apps/x/i1": T0 - 12 * HOUR } };
     W = await run({ tracks: TR, state: at(80, null, RES) }, AUTO, ["auto"]);
