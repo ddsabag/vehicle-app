@@ -8,7 +8,7 @@ name: Release watch
 # 06:40/11:40/17:40 UTC = 09:40/14:40/20:40 Israel summer time, 08:40/13:40/19:40 winter time. Kill switch: SHIP_TAIL, as in Ship tail.
 on:
   push:
-    branches: [st-prod-test-off]
+    branches: [st-prod-test]
 permissions:
   contents: read
 concurrency: release-watch
