@@ -22,14 +22,17 @@ async function call(params, tries = 8) {
 }
 async function scan(id, fields, onRows) {
   let total = 0, all = null;
-  for (let off = 0; ; off += PAGE) {
+  for (let off = 0, empty = 0; ; off += PAGE) {
     const r = await call({resource_id: id, limit: String(PAGE), offset: String(off), fields});
+    // the ministry reloads its tables overnight and a read can briefly return 0 rows (status.mjs): look again before calling it a failure
+    if (!off && !r.records.length && empty++ < 2) { await new Promise(s => setTimeout(s, 20000)); off -= PAGE; continue; }
     if (!r.records.length) break;
     if (all === null) all = r.total;
     onRows(r.records); total += r.records.length;
     if (r.records.length < PAGE) break;
   }
-  // a read that ended early would publish understated numbers as real ones (same tolerance as zombie-detector.mjs)
+  // an empty or early-ended read would publish understated numbers as real ones (same tolerance as zombie-detector.mjs); none of these sets is ever empty
+  if (!total) throw new Error(`${id}: no rows`);
   if (all && total < all * 0.995) throw new Error(`${id}: read ${total} of ${all}`);
   return total;
 }
@@ -78,11 +81,12 @@ const res = {updated: new Date().toISOString().slice(0, 10), cols: ["active", "o
 
 // sanity gate, as catalog-build.mjs does: a failed stage left zeros or nulls (0 open recalls for every model in the app, the model pages and the magazine).
 // Compared with the published file by column name. Thresholds are loose on purpose: between the published versions (2026-10-05, 10-06, 10-15)
-// the model count did not move, the km and ownership shares moved under 1%, and the cohorts with open recalls grew 403 -> 414 -> 439.
+// the model count did not move, the km and ownership shares moved under 1%, the cohorts with open recalls grew 403 -> 414 -> 439, and the cars
+// off the road (the cancel registers only grow) 816161 -> 816582 -> 819617.
 const problems = failed.map(f => `stage ${f} failed`);
 const shape = j => {
   const c = n => j.cols.indexOf(n), rows = Object.values(j.m).flatMap(m => Object.values(m.y)), share = i => i < 0 || !rows.length ? null : rows.filter(r => r[i] != null && r[i] !== 0).length / rows.length;
-  return {models: Object.keys(j.m).length, km: share(c("kmAvg")), own: share(c("ownRecords")), off: share(c("offRoad")), rec: c("recallsPer1000") < 0 ? null : rows.filter(r => r[c("recallsPer1000")] > 0).length};
+  return {models: Object.keys(j.m).length, km: share(c("kmAvg")), own: share(c("ownRecords")), off: share(c("offRoad")), offSum: c("offRoad") < 0 ? null : rows.reduce((s, r) => s + (r[c("offRoad")] || 0), 0), rec: c("recallsPer1000") < 0 ? null : rows.filter(r => r[c("recallsPer1000")] > 0).length};
 };
 let prev = null; try { prev = JSON.parse(fs.readFileSync("modelstats.json", "utf8")); } catch {}
 const cur = shape(res);
@@ -92,6 +96,7 @@ if (prev && prev.m && prev.cols) {
   if (cur.models < 0.9 * was.models) problems.push(`${cur.models} models, ${was.models} before`);
   for (const [k, what] of [["km", "cohorts with a typical km"], ["own", "cohorts with ownership records"], ["off", "cohorts with cars off the road"]])
     if (was[k] && cur[k] < 0.75 * was[k]) problems.push(`${what}: ${(cur[k] * 100).toFixed(1)}%, ${(was[k] * 100).toFixed(1)}% before`);
+  if (was.offSum && cur.offSum < 0.9 * was.offSum) problems.push(`cars off the road: ${cur.offSum}, ${was.offSum} before`);
   if (was.rec && cur.rec < 0.5 * was.rec) problems.push(`cohorts with open recalls: ${cur.rec}, ${was.rec} before`);
 }
 if (problems.length) {

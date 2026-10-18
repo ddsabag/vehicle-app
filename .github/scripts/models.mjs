@@ -21,10 +21,12 @@ const norm = m => { const t = String(m || "").trim().toUpperCase().replace(/\s+/
 const acc = new Map(), wmap = new Map(), prices = [], failed = [];
 for (const id of SETS) {
   let read = 0, all = null, skipped = false;
-  for (let off = 0; ; off += PAGE) {
+  for (let off = 0, empty = 0; ; off += PAGE) {
     let r;
     try { r = await call({resource_id: id, limit: String(PAGE), offset: String(off), fields: "tozeret_cd,degem_cd,tozeret_nm,tozeret_eretz_nm,kinuy_mishari,degem_nm,shnat_yitzur,merkav,delek_nm,mehir"}, 2); }
     catch { try { r = await call({resource_id: id, limit: String(PAGE), offset: String(off)}); } catch (e) { console.log("skipped", id, String(e).slice(0, 100)); failed.push(`${id} skipped at row ${off}`); skipped = true; break; } }
+    // the ministry reloads its tables overnight and a read can briefly return 0 rows (status.mjs): look again before calling it a failure
+    if (!off && !r.records.length && empty++ < 2) { await new Promise(s => setTimeout(s, 20000)); off -= PAGE; continue; }
     if (all === null) all = r.total;
     read += r.records.length;
     for (const x of r.records) {
@@ -41,7 +43,8 @@ for (const id of SETS) {
     }
     if (r.records.length < PAGE) break;
   }
-  if (!skipped && all && read < all * 0.995) failed.push(`${id}: read ${read} of ${all}`);
+  if (!skipped && !read) failed.push(`${id}: no rows`);
+  else if (!skipped && all && read < all * 0.995) failed.push(`${id}: read ${read} of ${all}`);
 }
 const fuelClass = dl => dl.includes("/") ? "h" : dl.includes("חשמל") ? "e" : dl.includes("דיזל") ? "d" : dl.includes("בנזין") ? "p" : "";
 const per = new Map();

@@ -19,15 +19,18 @@ async function call(params, tries = 4) {
 // pages through a resource; onRows may return false to stop early
 async function scan(id, extra, onRows) {
   let n = 0, total = null;
-  for (let off = 0; ; off += PAGE) {
+  for (let off = 0, empty = 0; ; off += PAGE) {
     const r = await call({resource_id: id, limit: String(PAGE), offset: String(off), ...extra});
+    // the ministry reloads its tables overnight and a read can briefly return 0 rows (status.mjs): look again before calling it a failure
+    if (!off && !r.records.length && empty++ < 2) { await new Promise(s => setTimeout(s, 20000)); off -= PAGE; continue; }
     if (total === null) total = r.total;
     if (!r.records.length) break;
     n += r.records.length;
     if (onRows(r.records) === false) return n;   // stopped on purpose
     if (r.records.length < PAGE) break;
   }
-  // a read that ended early would publish understated counts as real ones (same tolerance as zombie-detector.mjs)
+  // an empty or early-ended read would publish understated counts as real ones (same tolerance as zombie-detector.mjs); none of these reads is ever empty
+  if (!n) throw new Error(`${id}: no rows`);
   if (total && n < total * 0.995) throw new Error(`${id}: read ${n} of ${total}`);
   return n;
 }
@@ -37,12 +40,14 @@ const failed = [];   // stages that did not finish: the gate below refuses to pu
 
 // maker (brand) per factory code
 const brand = {};
-await scan(COUNTS, {fields: "tozeret_cd,tozar"}, rows => { for (const r of rows) if (r.tozar) brand[r.tozeret_cd] = String(r.tozar).trim(); });
+try { await scan(COUNTS, {fields: "tozeret_cd,tozar"}, rows => { for (const r of rows) if (r.tozar) brand[r.tozeret_cd] = String(r.tozar).trim(); }); }
+catch (e) { console.log("brands", e.message); failed.push("brands: " + e.message); }
 console.log("brands", Object.keys(brand).length);
 
 // body type (merkav) per factory code + model code, newest catalogue year wins
 const bodyOf = {}, bodyYear = {};
-await scan(WLTP, {fields: "tozeret_cd,degem_cd,merkav,shnat_yitzur"}, rows => { for (const r of rows) { const k = r.tozeret_cd + "|" + r.degem_cd, y = Number(r.shnat_yitzur) || 0, b = String(r.merkav || "").trim(); if (b && y >= (bodyYear[k] || 0)) { bodyOf[k] = b; bodyYear[k] = y; } } });
+try { await scan(WLTP, {fields: "tozeret_cd,degem_cd,merkav,shnat_yitzur"}, rows => { for (const r of rows) { const k = r.tozeret_cd + "|" + r.degem_cd, y = Number(r.shnat_yitzur) || 0, b = String(r.merkav || "").trim(); if (b && y >= (bodyYear[k] || 0)) { bodyOf[k] = b; bodyYear[k] = y; } } }); }
+catch (e) { console.log("body types", e.message); failed.push("body types: " + e.message); }
 console.log("body keys", Object.keys(bodyOf).length);
 
 // 1. deliveries of new private cars per month, 2022 on
@@ -97,7 +102,7 @@ try {
 out.import = imp; out.importYear = impYear; delete out.importSample; console.log("import", JSON.stringify(imp), impFields);
 
 // sanity gate, as catalog-build.mjs does: a partial build must not replace the published file (the app would show it as real numbers).
-// Thresholds are loose on purpose: between the published versions (2026-10-04 to 10-10) every count below moved by under 1%.
+// Thresholds are loose on purpose: between the published versions (2026-10-04 to 10-10) every count below moved by under 1%; body-type coverage was 1.
 const problems = [...failed], sum = o => Object.values(o || {}).reduce((s, x) => s + x, 0);
 for (const [y, a] of Object.entries(out.aging)) if (!a.n) problems.push(`no active cars of production year ${y}`);
 if (!sum(imp)) problems.push("no personal-import rows");
@@ -108,6 +113,7 @@ if (prev && prev.months) {
   if (now < 0.9 * was) problems.push(`deliveries in the months both files have: ${now}, ${was} before`);
   if (Object.keys(makers).length < 0.8 * Object.keys(prev.makers || {}).length) problems.push(`${Object.keys(makers).length} makers, ${Object.keys(prev.makers).length} before`);
   for (const [y, a] of Object.entries(out.aging)) { const p = prev.aging && prev.aging[y] && prev.aging[y].n; if (p && a.n < 0.9 * p) problems.push(`production year ${y}: ${a.n} active cars, ${p} before`); }
+  if (prev.bodyCover && out.bodyCover < 0.8 * prev.bodyCover) problems.push(`deliveries with a body type: ${(out.bodyCover * 100).toFixed(1)}%, ${(prev.bodyCover * 100).toFixed(1)}% before`);
   if (sum(prev.import) && sum(imp) < 0.9 * sum(prev.import)) problems.push(`personal import: ${sum(imp)} cars, ${sum(prev.import)} before`);
 }
 if (problems.length) {
