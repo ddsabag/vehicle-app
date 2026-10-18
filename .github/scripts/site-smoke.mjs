@@ -1,6 +1,7 @@
 // End-to-end check of the live site (runs on GitHub: the dev container cannot reach luchit.app or data.gov.il).
 // 1. static pages answer, 2. a real plate lookup works in a real browser, 3. TLS certificate and domain registration are not about to expire.
 // Alerts go to Telegram only. DRY_RUN=1 prints instead of sending, PREVIEW=1 sends a labelled sample.
+// A push run first waits 3 minutes for the deploy; NO_WAIT=1 skips that wait (the post-deploy run starts once the deploy is done).
 import tls from "node:tls";
 import { flash } from "./flash.mjs";
 import { ilTime } from "./notify.mjs";
@@ -77,7 +78,7 @@ async function expiryCheck() {
   return out;
 }
 
-const delay = process.env.GITHUB_EVENT_NAME === "push" ? 180000 : 0;
+const delay = process.env.GITHUB_EVENT_NAME === "push" && process.env.NO_WAIT !== "1" ? 180000 : 0;
 if (delay) { console.log("push run: waiting for GitHub Pages to publish"); await sleep(delay); }
 let problems = [];
 for (let attempt = 1; attempt <= 2; attempt++) {

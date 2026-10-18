@@ -18,7 +18,7 @@ on:
         default: false
 permissions:
   contents: write
-concurrency: site-smoke
+# no concurrency group: flash() already retries on write conflicts, and a queued run cancelled by the group would page as a failure
 jobs:
   smoke:
     runs-on: ubuntu-latest
