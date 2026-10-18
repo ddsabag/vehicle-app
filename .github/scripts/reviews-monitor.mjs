@@ -24,9 +24,9 @@ async function token(scope) {
   return (await r.json()).access_token;
 }
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-// since: when the checks started failing, set only on the daily reminder of an error that has not gone away
+// since: when the checks started failing, set only on the daily reminder of an error that keeps coming back
 const errText = (errors, since) => `⚠️ <b>הבדיקה האוטומטית של גוגל פליי לא הצליחה לרוץ</b>\nהיא בודקת שלוש פעמים ביום (בוקר, צהריים וערב) ביקורות חדשות עם 1 עד 3 כוכבים ושיעור קריסות. הפעם לא הצליחה לקבל תשובה מגוגל, ולכן לא ידוע אם יש ביקורות או קריסות חדשות. זה לא אומר שיש בעיה באפליקציה.\n` +
-  (since ? `התקלה נמשכת מאז ${ilTime(new Date(since))} (שעון ישראל). תזכורת כזו תישלח פעם ביום עד שהבדיקה תעבור.\n` : "") +
+  (since ? `התקלה נמשכת מאז ${ilTime(new Date(since))} (שעון ישראל). תזכורת כזו תישלח פעם ביום כל עוד התקלה חוזרת.\n` : "") +
   `פירוט: ${errors.map(esc).join("; ")}\n\nמה לעשות: ${since ? "זה לא עובר מעצמו, כדאי לכתוב לי." : "בדרך כלל כלום, והבדיקה הבאה תרוץ בעוד כמה שעות. אם זה חוזר, כתבו לי."}\n\nזמן: ${ilTime()} (שעון ישראל)`;
 // true when Telegram took the message (or a dry run printed it). A failed send is only logged, never fails the run; an alert with a
 // state key is tried again on the next run, and its /live flash ("f:" + key) goes out once, not on every retry.
@@ -97,11 +97,13 @@ try {
 } catch (e) { errors.push("vitals: " + e.message); console.log("vitals failed:", e.message); }
 
 for (const k of Object.keys(seen)) if (k !== "errOn" && Date.now() - seen[k] > 14 * 864e5) delete seen[k];
-// a broken monitor must not be silent: tell at once about a new error, then once a day while the checks keep failing
-// (errOn: when the current run of failed checks began; a lasting error used to alert once and then stay quiet for 14 days)
-if (errors.length) seen.errOn ||= Date.now(); else delete seen.errOn;
-const ek = "err:" + errors.join("|").slice(0, 80), DAY = 20 * 36e5, lasting = errors.length && Date.now() - seen.errOn > DAY;   // 20 h: scheduled runs start late by varying amounts
-if (errors.length && (!seen[ek] || (lasting && Date.now() - seen[ek] > DAY)) && await telegram(errText(errors, lasting && seen.errOn), false, ek)) seen[ek] = Date.now();
+// a broken monitor must not be silent: tell at once about a new error, then at most once a day while it keeps showing up, clean runs in between or not
+// (a repeated error used to alert once and then stay quiet for 14 days). errOn: when the trouble began, kept until a full day passes with
+// no failed check; errAt: the last failed check.
+const now = Date.now(), DAY = 20 * 36e5;   // 20 h: scheduled runs start late by varying amounts
+if (errors.length) { seen.errOn ||= now; seen.errAt = now; } else if (now - (seen.errAt || 0) > DAY) { delete seen.errOn; delete seen.errAt; }
+const ek = "err:" + errors.join("|").slice(0, 80), lasting = errors.length && now - seen.errOn > DAY;
+if (errors.length && (!seen[ek] || now - seen[ek] > DAY) && await telegram(errText(errors, lasting && seen.errOn), false, ek)) seen[ek] = Date.now();
 save();
 // finish green: an alert already told you, and a failed send is logged above and tried again next run (no "workflow failed" mail on top)
 process.exit(0);
