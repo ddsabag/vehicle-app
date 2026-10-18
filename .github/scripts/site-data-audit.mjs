@@ -497,7 +497,7 @@ function compare(c, X, P) {
     check(c, "specs.tyre_front", sp(spec("צמיג קדמי")) === sp(R.zmig_kidmi || R.mida_zmig_kidmi || ""), spec("צמיג קדמי"), R.zmig_kidmi || "", "");
     check(c, "specs.tyre_rear", sp(spec("צמיג אחורי")) === sp(R.zmig_ahori || R.mida_zmig_ahori || ""), spec("צמיג אחורי"), R.zmig_ahori || "", "");
     const hpExp = vals(W, "koah_sus", posV).map(x => String(N(x))), hp = spec("כוח");
-    check(c, "specs.power", hpExp.length ? hpExp.includes(dig(hp)) : posV(R.hespek) ? dig(hp) === String(N(R.hespek)) : E(hp), hp, hpExp.join(" / ") || (posV(R.hespek) ? R.hespek : "(not shown)"), E(R.hespek) ? "" : `hespek=${R.hespek}`);
+    check(c, "specs.power", hpExp.length ? hpExp.includes(dig(hp)) : posV(R.hespek) ? N(String(hp).replace(/[^\d.]/g, "")) === N(R.hespek) : E(hp), hp, hpExp.join(" / ") || (posV(R.hespek) ? R.hespek : "(not shown)"), E(R.hespek) ? "" : `hespek=${R.hespek}`);
     { const se = vals(W, "mispar_moshavim", posV).concat(vals(W, "mispar_moshavim", posV).length ? [] : posV(R.mispar_mekomot) ? [String(R.mispar_mekomot)] : []), ss = spec("מושבים");
       check(c, "specs.seats", se.length ? inSet(ss, se) : E(ss), ss, se.join(" / ") || "(not shown)", E(R.mispar_mekomot) ? "" : `mispar_mekomot=${R.mispar_mekomot}`); }
     { const sr = spec("סרנים"); check(c, "specs.axles", posV(R.sranim) ? dig(sr) === String(N(R.sranim)) : E(sr), sr, posV(R.sranim) ? R.sranim : "(not shown)", E(R.sranim) ? "" : `sranim=${R.sranim}`); }
