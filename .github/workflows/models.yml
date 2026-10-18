@@ -1,7 +1,9 @@
 name: Model names
 on:
   schedule:
-    - cron: "50 5 7 * *"   # monthly, the day after modelstats (same main-writer group: a pending run would otherwise be cancelled)
+    # monthly, the 5th: before the magazine (6th 08:00) rebuilds the model pages from models.json. 07:10 is well after market.yml (04:40)
+    # and between the hourly seo-publish runs (:40, same main-writer group: a third queued run would cancel a pending one)
+    - cron: "10 7 5 * *"
   workflow_dispatch:
     inputs:
       skip_gate:
