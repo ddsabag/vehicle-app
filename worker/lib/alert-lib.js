@@ -7,6 +7,12 @@
 const QUIET = { tz: "Asia/Jerusalem", dayStart: 8, dayEnd: 22 };   // CI: must equal alert.mjs QUIET
 const ALERT_MAIL = { name: "לוחית התראות", from: "alerts@luchit.app", brevoFrom: "updates@luchit.app", to: "ddsabag@gmail.com" };   // to = FORWARD_TO of luchit-mail
 const ALERT_NIGHT = "\n\n🌙 נשלח בשקט כי עכשיו לילה. צלצול תזכורת יגיע בבוקר.";
+const ALERT_MS = { call: 10000, deadline: 40000 };   // per binding call (send_email, KV, the cloudflare:email import) and per alert(); tests lower them
+// a promise that has not settled after t ms counts as failed (bindings take no AbortSignal)
+function within(p, t = ALERT_MS.call) {
+  let h;
+  return Promise.race([p, new Promise((_, no) => { h = setTimeout(() => no(new Error("timeout")), t); })]).finally(() => clearTimeout(h));
+}
 function isDaytime(d = new Date()) {
   const h = +new Intl.DateTimeFormat("en-GB", { timeZone: QUIET.tz, hour: "2-digit", hourCycle: "h23" }).format(d);
   return h >= QUIET.dayStart && h < QUIET.dayEnd;
@@ -52,11 +58,11 @@ async function emailSend(env, subject, text) {
   };
   const body = alertStrip(text);
   if (env.MAIL) try {
-    const { EmailMessage } = await import("cloudflare:email");
+    const { EmailMessage } = await within(import("cloudflare:email"));
     const raw = [`From: ${words(ALERT_MAIL.name)} <${ALERT_MAIL.from}>`, `To: ${ALERT_MAIL.to}`, `Subject: ${words(subject)}`, `Date: ${new Date().toUTCString()}`,
       `Message-ID: <${Date.now()}.${Math.random().toString(36).slice(2)}@luchit.app>`, "MIME-Version: 1.0", "Content-Type: text/plain; charset=utf-8",
       "Content-Transfer-Encoding: base64", "", b64(body).replace(/.{76}/g, "$&\r\n")].join("\r\n");
-    await env.MAIL.send(new EmailMessage(ALERT_MAIL.from, ALERT_MAIL.to, raw));
+    await within(env.MAIL.send(new EmailMessage(ALERT_MAIL.from, ALERT_MAIL.to, raw)));
     return true;
   } catch (e) { console.log("mail binding failed:", String(e).slice(0, 120)); }
   if (env.BREVO_KEY) try {
@@ -69,25 +75,30 @@ async function emailSend(env, subject, text) {
 }
 // a night "day" item may wait for the morning ring only when KV ALERTS is bound and luchit-uptime ticked in the last 25 min
 async function canDefer(env) {
-  try { if (!env.ALERTS) return false; const u = await env.ALERTS.get("u", "json"); return !!u && Date.now() - Date.parse(u.tick) <= 25 * 6e4; } catch { return false; }
+  try { if (!env.ALERTS) return false; const u = await within(env.ALERTS.get("u", "json")); return !!u && Date.now() - Date.parse(u.tick) <= 25 * 6e4; } catch { return false; }
 }
-// one alert; legacy = the caller's own unchanged send, run when the level is not routed, on any exception, and as a last try when nothing got through
+// one alert; legacy = the caller's own unchanged send, run when the level is not routed, on any exception, past the deadline,
+// and as a last try when nothing got through
 async function alert(env, level, key, text, link = "", { legacy } = {}) {
   const leg = async () => (typeof legacy === "function" ? await legacy() : false);
   if (!routed(env, level)) return { delivered: await leg(), action: "legacy" };
   let ok = false, mailed = false, action = "failed";
   try {
-    const subject = "🔴 לוחית: " + (alertStrip(text).split("\n").find(l => l.trim()) || key).slice(0, 80), body = text + (link ? "\n" + link : "");
-    if (level === "silent") { console.log(`alert ${key} silent -> logged`); return { delivered: true, action: "logged" }; }
-    if (level === "critical") { action = "loud"; [ok, mailed] = await Promise.all([tgSend(env, text), emailSend(env, subject, body)]); }
-    else if (level === "summary") { action = "silent"; ok = await tgSend(env, text, { silent: true }); }
-    else if (isDaytime()) { action = "loud"; ok = await tgSend(env, text); }
-    else if (await canDefer(env)) {   // the pointer first (a failed put -> legacy, loud as today), then the silent message
-      await env.ALERTS.put("p:" + Date.now(), JSON.stringify({ c: key, at: new Date().toISOString() }), { expirationTtl: 172800 });
-      action = "night"; ok = await tgSend(env, text + ALERT_NIGHT, { silent: true });
-    } else { action = "loud"; ok = await tgSend(env, text); }
-    if (ok) { console.log(`alert ${key} ${level} -> ${action}`); return { delivered: true, action }; }
-    if (level === "day") mailed = await emailSend(env, subject, body);
+    const done = await within((async () => {
+      const subject = "🔴 לוחית: " + (alertStrip(text).split("\n").find(l => l.trim()) || key).slice(0, 80), body = text + (link ? "\n" + link : "");
+      if (level === "silent") return { delivered: true, action: "logged" };
+      if (level === "critical") { action = "loud"; [ok, mailed] = await Promise.all([tgSend(env, text), emailSend(env, subject, body)]); }
+      else if (level === "summary") { action = "silent"; ok = await tgSend(env, text, { silent: true }); }
+      else if (isDaytime()) { action = "loud"; ok = await tgSend(env, text); }
+      else if (await canDefer(env)) {   // the pointer first (a failed put -> legacy, loud as today), then the silent message
+        await within(env.ALERTS.put("p:" + Date.now(), JSON.stringify({ c: key, at: new Date().toISOString() }), { expirationTtl: 172800 }));
+        action = "night"; ok = await tgSend(env, text + ALERT_NIGHT, { silent: true });
+      } else { action = "loud"; ok = await tgSend(env, text); }
+      if (ok) return { delivered: true, action };
+      if (level === "day") mailed = await emailSend(env, subject, body);
+      return null;
+    })(), ALERT_MS.deadline);
+    if (done) { console.log(`alert ${key} ${level} -> ${done.action}`); return done; }
   } catch (e) {
     console.log(`alert ${key} ${level} -> error:`, String(e).slice(0, 120));
     if (ok) return { delivered: true, action };
@@ -96,4 +107,4 @@ async function alert(env, level, key, text, link = "", { legacy } = {}) {
   return { delivered: (await leg()) || mailed, action: "legacy" };
 }
 // <<< alert-lib v1
-export { QUIET, isDaytime, ilTime, routed, tgSend, emailSend, canDefer, alert };   // tests only (Node 20 reads .js as CommonJS: import a .mjs copy); in a Worker the block stays module-local
+export { QUIET, ALERT_MS, isDaytime, ilTime, routed, tgSend, emailSend, canDefer, alert };   // tests only (worker/lib/test.mjs); in a Worker the block stays module-local

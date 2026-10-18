@@ -48,7 +48,8 @@ export const LABELS = {
   "wf":                  { he: 'התהליך "{id}" נכשל', sect: "fail" },
   "smoke":               { he: "בדיקת האתר החי מצאה בעיה: {ids}", sect: "fail",
                            ids: { home: "דף הבית", lookup: "בדיקת רכב", magazine: "דף המגזין", applinks: "קישורי האפליקציה",
-                                  privacy: "מדיניות הפרטיות", model: "דף דגם", sitemap: "מפת האתר" } },
+                                  privacy: "מדיניות הפרטיות", model: "דף דגם", sitemap: "מפת האתר",
+                                  cert: "אישור האבטחה (SSL)", domain: "הדומיין luchit.app", certcheck: "בדיקת אישור האבטחה נכשלה" } },   // mixed smoke keys carry expiry ids
   "expiry":              { he: "צריך לחדש בקרוב: {ids}", sect: "wait", ids: { cert: "אישור האבטחה (SSL)", domain: "הדומיין luchit.app", certcheck: "בדיקת אישור האבטחה נכשלה" } },
   "infra":               { he: "שירותי האתר או המכסה: {ids}", sect: "fail",
                            ids: { site: "האתר", api: "שירות ההרשמה (/api)", sitemap: "מפת האתר", "quota-cf": "מכסת Cloudflare מעל 80%", "quota-brevo": "מכסת Brevo מעל 80%" } },
@@ -93,7 +94,11 @@ const EMPTY = '{"v":1,"items":{},"hb":{},"log":[]}';
 // injectable I/O: the selftest swaps these (mocked fetch, fixed clock, scaled timers, captured stdout)
 const IO = { env: process.env, fetch: (u, o) => fetch(u, o), now: () => Date.now(), scale: 1, out: s => process.stdout.write(s + "\n"), err: s => process.stderr.write(s + "\n") };
 const ms = x => Math.max(1, Math.round(x * IO.scale));
-const sleep = x => new Promise(r => setTimeout(r, ms(x)));
+const sleep = (x, dl) => new Promise(r => {   // ends early when dl aborts
+  if (dl?.aborted) return r();
+  const done = () => { clearTimeout(t); dl?.removeEventListener("abort", done); r(); }, t = setTimeout(done, ms(x));
+  dl?.addEventListener("abort", done);
+});
 const iso = t => new Date(t).toISOString();
 const t0 = s => (typeof s === "string" ? Date.parse(s) : NaN);
 const rank = l => LEVELS.indexOf(l);
@@ -120,10 +125,12 @@ export function validKey(k) {
   if (typeof k !== "string" || k.length > 120 || k.includes("@")) return false;
   if (!/^[a-z][a-z0-9-]*(:[A-Za-z0-9 ()._+\-]{1,80}){0,3}$/.test(k)) return false;
   return k.split(":").every(s => (/^[0-9a-f]{7,16}$/i.test(s) && /[a-f]/i.test(s)) ||   // a hash or short sha (at least one letter: an all-digit run is a number)
-    (!/\d{5,}/.test(s) && !/(^|\D)\d{2,3}-\d{2,3}-\d{2,3}(\D|$)/.test(s)));            // no 5+ digit run, no plate-shaped 12-345-67 / 123-45-678
+    !/\d{5,}/.test(s.replace(ISO_DATE, "-").replace(/(\d)[ ()._+\-]+(?=\d)/g, "$1")));    // no 5+ digit run, separators ignored (12-345-67, 050 123 4567, 12.500)
 }
+const ISO_DATE = /(?<!\d)20\d\d-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?(?!\d)/g;   // 2026-10 and 2026-10-18 in keys like mag:pub:2026-10-18-x
+const decoded = u => { try { return decodeURIComponent(u); } catch { return "@"; } };   // undecodable counts as unsafe
 const cleanLinks = l => (Array.isArray(l) ? l : [l]).filter(u => typeof u === "string" && u.startsWith("https://") && u.length <= 300 &&
-  !u.includes("@") && !/\s/.test(u)).slice(0, 3);
+  !/@|%40/i.test(u + decoded(u)) && !/\s/.test(u)).slice(0, 3);
 const family = key => { const s = String(key).split(":"), two = s.slice(0, 2).join(":"); return s.length > 1 && LABELS[two] ? two : LABELS[s[0]] ? s[0] : null; };
 export function label(key) {
   const f = family(key);
@@ -153,7 +160,8 @@ const gh = (method, path, body, dl, t = 8000) => req(`https://api.github.com/rep
   ...(body ? { "content-type": "application/json" } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) }, t, dl);
 
 // Telegram: 10 s per try, 2 tries 1 s apart (a 429 retry_after up to 10 s is honoured); a 400 on HTML entities is retried once as plain text.
-// The deadline is checked before each try only, so a send in flight is never cut (cutting it could deliver and still look failed).
+// The deadline is checked before each try only, so a send in flight is never cut (cutting it could deliver and still look failed);
+// once it has fired, the retry wait is skipped.
 async function tg(text, { silent = false, plain = false } = {}, dl) {
   const env = IO.env;
   if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) return false;
@@ -169,7 +177,7 @@ async function tg(text, { silent = false, plain = false } = {}, dl) {
       if (r.status === 429) wait = Math.min(+(J(r.text)?.parameters?.retry_after) || 1, 10) * 1000;
       else if (r.status < 500) return false;   // 401/403/400: a retry cannot help
     } catch { /* timeout or network: retry */ }
-    if (!i) await sleep(wait);
+    if (!i) await sleep(wait, dl);
   }
   return false;
 }
@@ -322,7 +330,8 @@ export async function alert(level, key, text, link = "", opts = {}) {
   }
   const o = { level, key, now: IO.now(), fresh: !!opts.fresh, links: cleanLinks(link), src: srcName(env), today: TODAY.includes(opts.today) ? opts.today : "loud", plain: !!opts.plain };
   if (!all.every(l => routed(l, env))) {   // SHADOW: today's send, plus a record of what the router would have done
-    if (opts.cli) { const w = await record(o, null, true, 1); say("shadow:" + (w || "unrecorded")); return { delivered: await runLegacy(), action: "legacy" }; }
+    // the CLI records before the caller's send and never learns its result, so it leaves `sent` unset (worst case one duplicate at switch-on)
+    if (opts.cli) { const w = await record(o, null, false, 1); say("shadow:" + (w || "unrecorded")); return { delivered: await runLegacy(), action: "legacy" }; }
     const r = await runLegacy();
     const w = await record(o, null, r, 1);
     say("shadow:" + (w || "unrecorded"));
@@ -684,6 +693,15 @@ async function selftest() {
       await fm("a send in flight at the deadline is awaited, not duplicated", { now: NIGHT_T, get: [w, w], put: [w],
         tg: [{ wait: 8000, status: 429, body: { ok: false, parameters: { retry_after: 10 } } }, { wait: 8000 }] },
         x => x.legacy === 0 && x.m.tg.length === 2 && x.r.delivered === true && x.r.action === "night");
+      // night: read, pointer GET+409, GET+409, GET+PUT (38 s), then a try answered 429 retry_after 10 at 47.6 s: no retry wait past the deadline
+      const rnd0 = Math.random, sc = IO.scale, v = { wait: 7500 };
+      Math.random = () => 0; IO.scale = 0.05;
+      try {
+        const t3 = Date.now();
+        await fm("deadline during a 429 retry wait: legacy without the wait", { now: NIGHT_T, get: [v, v, v, v], put: [409, 409, v],
+          tg: [{ wait: 9500, status: 429, body: { ok: false, parameters: { retry_after: 10 } } }] },
+          x => x.legacy === 1 && x.m.tg.length === 1 && x.r.action === "legacy" && Date.now() - t3 < ms(50000) && Date.now() - t3 >= ms(47000));
+      } finally { Math.random = rnd0; IO.scale = sc; }
     }
     for (const d of [{ DRY: "1" }, { DRY_RUN: "1" }]) await fm("dry " + Object.keys(d)[0], { env: d }, x => x.legacy === 1 && x.m.calls.length === 0);
     await fm("no Telegram token", { env: { TELEGRAM_BOT_TOKEN: "" } }, x => x.legacy === 1 && x.m.calls.length === 0);
@@ -723,7 +741,8 @@ async function selftest() {
         texts.push(text);
         IO.fetch = m.fetch; IO.env = { ...ENV, ALERT_ROUTE: pick(["", "critical", "all", "critical,silent,day", "all"]), BREVO_API_KEY: "b" };
         IO.now = () => DAY + rnd(72) * H;
-        await alert(pick(LEVELS), keys(), text, pick(["", "https://github.com/o/r/actions/runs/123456", ["https://a.example/1", "mailto:x@y.z", "http://plain"], "https://x@y.example"]),
+        await alert(pick(LEVELS), keys(), text, pick(["", "https://github.com/o/r/actions/runs/123456", ["https://a.example/1", "mailto:x@y.z", "http://plain"], "https://x@y.example",
+          ["https://luchit.app/?e=dudu%40gmail.com", "https://a.example/%2540x", "https://a.example/%E0%A4%A"]]),
           { today: pick(TODAY), fresh: !rnd(5), legacy: async () => !!rnd(4) });
       }
       IO.out = s => out.push(s);
@@ -731,6 +750,8 @@ async function selftest() {
       ok(sch === "", "privacy: whitelist schema " + sch);
       const pub = JSON.stringify({ ...st, items: Object.fromEntries(Object.entries(st.items).map(([k, it], i) => ["k" + i, { ...it, u: [] }])), log: st.log.map(e => ({ ...e, k: "k" })) });
       ok(!JSON.stringify(st).includes("@"), "privacy: no @ in state");
+      ok(Object.values(st.items).every(it => it.u.every(u => !/@/.test(decodeURIComponent(decodeURIComponent(u))))), "privacy: no encoded @ in kept links");
+      ok(cleanLinks(["https://a.example/?e=d%40g.com", "https://a.example/?e=d%2540g.com", "https://a.example/%E0%A4%A", "https://a.example/ok"]).join() === "https://a.example/ok", "cleanLinks drops %40 and undecodable links");
       ok(!/\d{5,}/.test(pub), "privacy: no 5+ digit run in state");
       const grams = new Set(), all12 = s => { for (let i = 0; i + 12 <= s.length; i++) grams.add(s.slice(i, i + 12)); };
       all12(JSON.stringify(st)); all12(caught.join("\n"));
@@ -741,10 +762,17 @@ async function selftest() {
 
     // keys and labels
     for (const k of ["plate:12-345-67", "plate:123-45-678", "plate:1234567", "x:12345", "user:dudu@example.com", "phone:050-1234567", "Bad:x",
-      "x:" + "a".repeat(81), "a:b:c:d:e", "x:" + "ab ".repeat(39) + ":" + "c".repeat(40), "", "x:<b>", "num:+972-50-123-4567"]) ok(!validKey(k), "validKey rejects " + k);
+      "x:" + "a".repeat(81), "a:b:c:d:e", "x:" + "ab ".repeat(39) + ":" + "c".repeat(40), "", "x:<b>", "num:+972-50-123-4567",
+      "x:050-123-4567", "x:052-765-4321", "x:050 123 4567", "x:12.345.67", "x:12 345 67", "x:12_345_67", "x:123.45.678", "x:12.500", "x:1 234 567",
+      "x:2026-10-1234567", "x:(050)1234567"]) ok(!validKey(k), "validKey rejects " + k);
     for (const k of ["wf:Web deploy (build)", "seo-auto:blocked:a1b2c3d", "catalog:" + h12("x"), "mag:fail:2026-10", "guard:core:1a2b3c4d", "smoke:home+lookup",
-      "infra:quota-cf+site", "checker:data-health", "mag:pub:2026-10-18-new-cars"]) ok(validKey(k), "validKey accepts " + k);
+      "infra:quota-cf+site", "checker:data-health", "mag:pub:2026-10-18-new-cars", "infra-branches:2026-10", "x:v1.2.3"]) ok(validKey(k), "validKey accepts " + k);
     for (const f of FAMILIES_IN_USE) ok(family(f) !== null, "label for family " + f);
+    for (const [f, ids] of [["smoke", "home lookup magazine applinks privacy model sitemap cert domain certcheck"], ["expiry", "cert domain certcheck"],
+      ["infra", "site api sitemap quota-cf quota-brevo"], ["vitals", "crash anr"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
+      const he = label(f + ":" + ids.split(" ").join("+")).he.split(/[\s,:]+/);
+      ok(!ids.split(" ").some(i => he.includes(i)), `label ${f}: no raw id left`);
+    }
     ok(label("smoke:home+lookup").he === "בדיקת האתר החי מצאה בעיה: דף הבית, בדיקת רכב" && label("wf:Data guard").he === 'התהליך "Data guard" נכשל'
       && label("seo:daily").sect === "none" && label("nope:x").he === "התראה: nope:x" && label("mag:fail:2026-10").sect === "wait", "label rendering");
     const used = scanKeys(ROOT), missing = used.filter(k => !FAMILIES_IN_USE.some(f => f === k || f.startsWith(k + ":") || k.startsWith(f + ":")));
@@ -799,6 +827,10 @@ async function selftest() {
       ok(c.last === "ALERT_LEGACY" && c.m.gets === 1 && c.m.puts === 1 && el < ms(13000) && el >= ms(9500), `cli shadow record: one GET, one PUT, 10 s budget (${el} ms scaled)`);
       c = await runCli(["send", "day", "guard:break:a1b2c3d4", "--today", "loud", "--text", "x"], { env: { ALERT_ROUTE: "" } });
       ok(c.out[0] === "alert guard:break:a1b2c3d4 day -> shadow:loud" && c.last === "ALERT_LEGACY" && c.m.state().log.at(-1).sh === 1 && c.m.tg.length === 0, "cli shadow: records, then ALERT_LEGACY");
+      // the shell's own send may have failed, so the shadow record must not make the first routed occurrence a dedupe
+      ok(c.m.state().items["guard:break:a1b2c3d4"].sent === null, "cli shadow leaves sent unset");
+      c = await runCli(["send", "day", "guard:break:a1b2c3d4", "--today", "loud", "--text", "x"], { m: c.m, now: DAY + H });
+      ok(c.last === "ALERT_DONE loud 1" && c.m.tg.length === 1, "cli: routed after a cli shadow is sent, not deduped " + c.last);
     }
     {   // the real process: marker is the last line and exit 0 without a token; usage error exit 2
       const env = { PATH: process.env.PATH, HOME: process.env.HOME || "/tmp" };
