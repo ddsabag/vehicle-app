@@ -2442,7 +2442,8 @@ function tabCosts(D){
 function checksCard(D){
   const v = D.v, exp = toDate(v.tokef_dt), now = new Date(), rows = [];
   const row = (ok, t) => rows.push(`<li class="ins ${ok ? "ok" : "warn"}">${ico(ok ? "check" : "alert")}<div><b>${esc(t)}</b></div></li>`);
-  row(!D.isCancelled, D.isCancelled ? "הרכב ירד מהכביש" : "הרכב פעיל ולא בוטל");
+  const off = D.primary && /^inactive/.test(D.primary.key);   // found only in the inactive registers: not "active", as the insights already say
+  row(!D.isCancelled && !off, D.isCancelled ? "הרכב ירד מהכביש" : off ? "הרכב רשום כלא פעיל" : "הרכב פעיל ולא בוטל");
   if (exp) row(exp >= new Date(now.getFullYear(), now.getMonth(), now.getDate()), exp >= new Date(now.getFullYear(), now.getMonth(), now.getDate()) ? `טסט בתוקף עד ${fmtDate(v.tokef_dt)}` : `הטסט פג ב-${fmtDate(v.tokef_dt)}`);
   if (D.recallUnknown) row(false, "ריקולים: מידע לא זמין כרגע"); else row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")}` : "אין ריקול פתוח");
   if (D.own.length) row(true, "נבדקה היסטוריית הבעלות");
