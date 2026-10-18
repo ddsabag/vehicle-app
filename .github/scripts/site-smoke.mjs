@@ -2,6 +2,9 @@
 // 1. static pages answer, 2. a real plate lookup works in a real browser, 3. TLS certificate and domain registration are not about to expire.
 // Alerts go to Telegram only. DRY_RUN=1 prints instead of sending, PREVIEW=1 sends a labelled sample.
 // A push run first waits 3 minutes for the deploy.
+// In the daily run INFRA_REPORT carries what the infra part (infra-watch.mjs, INFRA_HANDOFF=1) found, as JSON {alert, notice}: it goes out in the same
+// Telegram message as this check's findings (one morning message), and gets its own line on /live as before. Empty when the infra part did not run.
+import fs from "node:fs";
 import tls from "node:tls";
 import { flash } from "./flash.mjs";
 import { ilTime } from "./notify.mjs";
@@ -9,19 +12,35 @@ const SITE = (process.env.SITE || "https://luchit.app/").replace(/\/?$/, "/"), H
 const DRY = process.env.DRY_RUN === "1", sleep = ms => new Promise(r => setTimeout(r, ms));
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-async function telegram(text) {
-  await flash("infra", "alert", text);
+async function telegram(text, silent = false) {
   const token = process.env.TELEGRAM_BOT_TOKEN, chat = process.env.TELEGRAM_CHAT_ID;
   if (DRY || !token || !chat) { console.log("--- Telegram (" + (DRY ? "dry run" : "no credentials") + ") ---\n" + text); return DRY; }
   const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true }) });
+    body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true, ...(silent ? { disable_notification: true } : {}) }) });
   if (!r.ok) console.log("telegram failed", r.status);
   return r.ok;
 }
+// one /live line per finding (as when the two checks ran apart), then one Telegram message; two when together they pass Telegram's 4096-character limit
+async function send(own, infra) {
+  const silent = !own && !infra.alert, infraText = infra.alert || infra.notice || "";
+  if (own) await flash("infra", "alert", own);
+  if (infraText) await flash("infra", infra.alert ? "alert" : "info", infraText);
+  const both = [own, infraText].filter(Boolean).join("\n\n");
+  const parts = both.length <= 4000 ? [[both, !!infraText]] : [[own, false], [infraText, true]].filter(([t]) => t);
+  let ok = true;
+  for (const [text, hasInfra] of parts) { const sent = await telegram(text, silent); if (sent && hasInfra) markInfraSent(); ok = ok && sent; }
+  return ok || silent;   // the monthly branch list alone is a silent notice: not delivering it never failed the run
+}
+const markInfraSent = () => { if (process.env.GITHUB_OUTPUT) try { fs.appendFileSync(process.env.GITHUB_OUTPUT, "infra_sent=1\n"); } catch {} };
+let infra = {};
+try { infra = JSON.parse(process.env.INFRA_REPORT || "{}") || {}; } catch (e) { console.log("INFRA_REPORT unreadable:", e.message); infra = {}; }
+if (infra.alert || infra.notice) console.log("infra part handed over:", infra.alert ? "an alert" : "the monthly branch list");
 const alertText = items => `⚠️ <b>לוחית: בדיקת האתר החי מצאה בעיה</b>\nהבדיקה פותחת את luchit.app בדפדפן אמיתי, בודקת מספר רישוי אמיתי ואת הדפים החשובים, ובודקת מתי פוקעים הדומיין והאישור.\n\n${items.map(i => `❌ <b>${esc(i.title)}</b>\n${esc(i.detail)}\nהשפעה: ${esc(i.impact)}`).join("\n\n")}\n\nמה לעשות: ${items.some(i => i.renew) ? "לחדש את הדומיין אצל החברה שבה נרכש. " : ""}אם זו בעיה בדף או בבדיקת הרכב, כתבו לי ואבדוק. ייתכן שהיא זמנית ותיפתר לבד, ולכן הבדיקה כבר ניסתה פעמיים.\n\nזמן: ${ilTime()} (שעון ישראל)`;
 
 if (process.env.PREVIEW === "1") {
-  const ok = await telegram("🧪 <b>הודעת בדיקה, אין תקלה אמיתית</b>\n\n" + alertText([{ title: "בדיקת מספר רישוי בדפדפן (דוגמה)", detail: "בדיקת מספר רישוי לא החזירה תוצאה תוך 30 שניות.", impact: "משתמשים לא יוכלו לבדוק רכב." }, { title: "הדומיין פוקע בעוד 12 ימים (דוגמה)", detail: "תאריך פקיעה: 26.10.2026.", impact: "אם לא יחודש, האתר והקישורים באפליקציה יפסיקו לעבוד.", renew: true }]));
+  const sample = "🧪 <b>הודעת בדיקה, אין תקלה אמיתית</b>\n\n" + alertText([{ title: "בדיקת מספר רישוי בדפדפן (דוגמה)", detail: "בדיקת מספר רישוי לא החזירה תוצאה תוך 30 שניות.", impact: "משתמשים לא יוכלו לבדוק רכב." }, { title: "הדומיין פוקע בעוד 12 ימים (דוגמה)", detail: "תאריך פקיעה: 26.10.2026.", impact: "אם לא יחודש, האתר והקישורים באפליקציה יפסיקו לעבוד.", renew: true }]);
+  await flash("infra", "alert", sample);   // as before: flash() drops sample texts ("הודעת בדיקה"), so /live gets nothing
+  const ok = await telegram(sample);
   process.exit(ok ? 0 : 1);
 }
 
@@ -87,6 +106,6 @@ for (let attempt = 1; attempt <= 2; attempt++) {
   if (attempt < 2) { console.log("attempt 1 found", problems.length, "problem(s):", JSON.stringify(problems.map(p => p.title)), "- retrying in 60s"); await sleep(60000); }
 }
 problems.push(...(await expiryCheck()));
-if (!problems.length) { console.log("all checks passed"); process.exit(0); }
-console.log(JSON.stringify(problems, null, 1));
-process.exit((await telegram(alertText(problems))) ? 0 : 1);
+if (!problems.length) console.log("all checks passed"); else console.log(JSON.stringify(problems, null, 1));
+if (!problems.length && !infra.alert && !infra.notice) process.exit(0);
+process.exit((await send(problems.length ? alertText(problems) : "", infra)) ? 0 : 1);
