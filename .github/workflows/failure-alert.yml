@@ -89,7 +89,8 @@ jobs:
             { [ "$num" -lt "$RUN_NUMBER" ] 2>/dev/null && [ "$st" = completed ]; } || continue
             if [ "$ev" = workflow_dispatch ]; then [ "$concl" = success ] && break; continue; fi
             case "$concl" in
-              failure|timed_out|startup_failure) repeat=1; break;;
+              failure|timed_out) repeat=1; break;;
+              startup_failure) continue;;   # never paged (the job's if: skips it), so the next real failure is a first one
               cancelled) n=$(started "$id"); [ "$n" = 0 ] && continue; case "$n" in [1-9]*) repeat=1;; esac; break;;
               *) break;;
             esac
