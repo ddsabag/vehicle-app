@@ -5,7 +5,9 @@ keep_vars = true   # a deploy never deletes a dashboard variable (ALERT_ROUTE); 
 # Email Workers have no route: attach it in Email > Email Routing > Routes (support@luchit.app > Send to a Worker > luchit-mail).
 # Secrets (never in this file):  wrangler secret put TELEGRAM_BOT_TOKEN ; wrangler secret put TELEGRAM_CHAT_ID
 # Alert router, set in the dashboard (prompt reports/פרומפט-לתוסף-מייל-תמיכה.md): var ALERT_ROUTE = "all" (absent = every mail rings as
-# before) and KV binding ALERTS = luchit-alerts. Without ALERTS, night privacy and crash mail rings as before. A wrangler deploy drops a
-# dashboard-only binding: copy the [[kv_namespaces]] block from worker/uptime/wrangler.toml here first.
+# before). The KV binding ALERTS = luchit-alerts is declared below, so a deploy keeps it; without ALERT_ROUTE the Worker never uses it.
 [vars]
 FORWARD_TO = "ddsabag@gmail.com"
+[[kv_namespaces]]
+binding = "ALERTS"
+id = "KV_NAMESPACE_ID"   # the id of luchit-alerts (luchit-uptime creates it); the Workers deploy workflow fills it in by title; not a secret

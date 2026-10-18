@@ -61,7 +61,7 @@ export default {
     }
     if (!title) return res;
     const set = (prop, val) => ({element(e) { e.setAttribute("content", val); }});
-    return new HTMLRewriter()
+    const out = new HTMLRewriter()
       .on('meta[property="og:title"]', set("t", title))
       .on('meta[name="twitter:title"]', set("t", title))
       .on('meta[property="og:description"]', set("d", desc))
@@ -71,5 +71,11 @@ export default {
       .on('meta[name="twitter:image"]', set("i", image || u.origin + "/og.png"))
       .on('meta[property="og:image:alt"]', set("a", image ? "דוח רכב בלוחית" : "לוחית, בדיקת רכב לפי מספר"))
       .transform(res);
+    // which version answered (binding CF_VERSION_METADATA in wrangler.toml): the Workers deploy check waits for the new one
+    const id = env?.CF_VERSION_METADATA?.id;
+    if (!id) return out;
+    const named = new Response(out.body, out);
+    named.headers.set("x-luchit-version", id);
+    return named;
   },
 };

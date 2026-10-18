@@ -1,0 +1,126 @@
+name: Workers deploy
+# Ship Tail part 1: deploys the Cloudflare Workers in worker/ from main with wrangler (pinned in .github/scripts/workers-deploy.mjs),
+# guarded so a deploy never drops a dashboard value (vars, bindings, routes, crons, workers.dev), never overwrites code that is not on
+# main, never undoes a version chosen by hand in the dashboard, and never puts older files over newer ones: such a Worker is refused
+# with the reason and one day alert, the others go on. After a deploy the new version must be live at 100% and pass its check
+# (.github/ship-tail.json) twice in a row; a failed check rolls back and sends one loud alert. Success is quiet: the job summary only.
+# Two jobs: "deploy" runs wrangler (npm code) with the Cloudflare pair only and a read-only token; "after" (a fresh runner that runs no
+# npm code) puts missing Worker secrets and sends the alerts. Which Workers may deploy: .github/ship-tail.json (live, proxy, reviews off).
+# Kill switch: repository variable SHIP_TAIL. off = nothing runs, dry = read and plan only (no writes, no alerts), unset or on = act.
+# Set SHIP_TAIL=dry BEFORE pasting the Cloudflare secrets, and switch to on only after a clean dry run.
+# A manual run plans only unless mode=on. Without the secrets CLOUDFLARE_API_TOKEN and CF_ACCOUNT_ID: one notice line and a green run.
+# Outcome per head sha for other workflows: the artifact workers-deploy-<sha> (workers-deploy.json) and the deploy job output "result".
+on:
+  push:
+    branches: [main]
+    paths:
+      - "worker/**"
+      - ".github/ship-tail.json"
+      - ".github/scripts/workers-deploy.mjs"
+      - ".github/workflows/workers-deploy.yml"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry = read Cloudflare and plan only; on = deploy"
+        type: choice
+        options: [dry, "on"]
+        default: dry
+      workers:
+        description: 'Which Workers: "changed", "all" (every deploy: main one), or a comma list such as uptime,og (naming a Worker also replaces a version chosen by hand in the dashboard)'
+        type: string
+        default: changed
+      force_code:
+        description: "Worker keys (comma list, e.g. og) whose live code may be replaced although it is not on main (dashboard edit, another branch, wrangler bundle). It is lost from the live Worker (Cloudflare keeps old versions)"
+        type: string
+        default: ""
+      skip_precheck:
+        description: "Worker keys whose check may already fail on the live version (only the new code fixes it); the check after the deploy and the rollback stay"
+        type: string
+        default: ""
+permissions: {}   # each job asks for what it needs
+# Acting runs (pushes to main, manual mode=on on main) run one at a time in push order; a pending one never cancels a running one, and
+# a newer pending one replaces an older pending one and still deploys its changes ("changed" compares each Worker's live version with
+# main, not with the previous push). Plan-only runs get a group of their own, so they never replace a pending deploy.
+# Left over: a manual mode=on run that queues behind a running deploy replaces a pending push run; the next push, or a manual run with
+# workers=changed, deploys what that push changed.
+concurrency:
+  group: workers-deploy-${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.mode == 'on') && 'act' || format('plan-{0}', github.run_id) }}
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: ${{ vars.SHIP_TAIL != 'off' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read   # wrangler runs here: this job's token cannot push
+    outputs:
+      result: ${{ steps.run.outputs.result }}
+      outcome: ${{ steps.run.outputs.outcome }}
+      mode: ${{ steps.run.outputs.mode }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0               # the code guard compares the live code with every version of the file in git history
+          persist-credentials: false   # wrangler comes from npm: it never sees a token
+      - uses: actions/setup-node@v7
+        with: { node-version: 22 }     # wrangler 4 needs Node 22
+      - name: Self-test (offline)
+        run: node .github/scripts/workers-deploy.mjs --selftest
+      - name: Deploy
+        id: run
+        run: node .github/scripts/workers-deploy.mjs
+        env:   # the Cloudflare pair and the run's context only: every other secret lives in the after job
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          SHIP_TAIL: ${{ vars.SHIP_TAIL }}
+          EVENT: ${{ github.event_name }}
+          MODE: ${{ inputs.mode }}
+          WORKERS: ${{ inputs.workers }}
+          FORCE_CODE: ${{ inputs.force_code }}
+          SKIP_PRECHECK: ${{ inputs.skip_precheck }}
+          BEFORE: ${{ github.event.before }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RESULT_FILE: ${{ runner.temp }}/workers-deploy.json
+      - uses: actions/upload-artifact@v7
+        if: ${{ always() }}
+        with:
+          name: workers-deploy-${{ github.sha }}
+          path: ${{ runner.temp }}/workers-deploy.json
+          retention-days: 30
+          if-no-files-found: ignore
+          overwrite: true
+  after:
+    needs: deploy
+    if: ${{ always() && needs.deploy.outputs.mode == 'on' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write   # the alert router records on the alert-state branch; nothing else is written to the repo
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with: { node-version: 22 }
+      - name: Secrets and alerts
+        run: node .github/scripts/workers-deploy.mjs --after
+        env:   # no npm code runs in this job
+          RESULT: ${{ needs.deploy.outputs.result }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY || secrets.BREVO_KEY }}   # the router's email path for a loud alert
+          # REVIEWS_SA_JSON joins here when luchit-reviews is switched to deploy: main (until then nothing needs it)
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RESULT_FILE: ${{ runner.temp }}/workers-deploy.json
+      - uses: actions/upload-artifact@v7
+        if: ${{ always() }}
+        with:
+          name: workers-deploy-${{ github.sha }}
+          path: ${{ runner.temp }}/workers-deploy.json
+          retention-days: 30
+          if-no-files-found: ignore
+          overwrite: true

@@ -2,9 +2,11 @@ name = "luchit-live"
 main = "worker.js"
 compatibility_date = "2026-10-01"
 routes = [{ pattern = "luchit.app/live*", zone_name = "luchit.app" }]
+keep_vars = true   # the Access settings below live in the dashboard, so a deploy can never blank them
 # Secrets (never in this file):  wrangler secret put GA_SERVICE_ACCOUNT_JSON   and   wrangler secret put CF_API_TOKEN
+# Dashboard variables (type Text), read by worker.js:
+#   CF_ACCOUNT_ID        same value as the GitHub secret CF_ACCOUNT_ID
+#   ACCESS_TEAM_DOMAIN   e.g. myteam.cloudflareaccess.com  (Zero Trust > Settings > Custom pages)
+#   ACCESS_AUD           the Application Audience (AUD) tag of the Access application that protects luchit.app/live*
 [vars]
 GA_PROPERTY_ID = "557990379"
-CF_ACCOUNT_ID = ""            # same value as the GitHub secret CF_ACCOUNT_ID
-ACCESS_TEAM_DOMAIN = ""       # e.g. myteam.cloudflareaccess.com  (Zero Trust > Settings > Custom pages)
-ACCESS_AUD = ""               # the Application Audience (AUD) tag of the Access application that protects luchit.app/live*

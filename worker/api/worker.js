@@ -86,7 +86,7 @@ async function webEvent(req, env) {
   return new Response(null, { status: 204 });
 }
 
-export default {
+const app = {
   async fetch(req, env) {
     const url = new URL(req.url);
 
@@ -121,5 +121,14 @@ export default {
     if (r.ok) return json({ ok: true });
     console.log("brevo smtp", r.status, "upstream error");
     return json({ error: "upstream" }, 502);
+  },
+};
+
+export default {
+  async fetch(req, env) {
+    const r = await app.fetch(req, env);
+    // which version answered (binding CF_VERSION_METADATA in wrangler.toml): the Workers deploy check waits for the new one
+    if (env.CF_VERSION_METADATA?.id) try { r.headers.set("x-luchit-version", env.CF_VERSION_METADATA.id); } catch {}
+    return r;
   },
 };

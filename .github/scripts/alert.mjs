@@ -34,6 +34,7 @@ export const STATE = { branch: "alert-state", file: "state.json", heartbeat: "he
 // Phase 3 merges: Infra watch is part of "Site smoke test", Magazine data articles and Newsletter of "Magazine", IndexNow a job of "Web deploy (build)".
 export const WF_LEVELS = {
   "Web deploy (build)": "critical",
+  "Workers deploy": "critical",   // a crash mid-deploy can leave the site on an unchecked Worker version
   "Android build": "day", "Data guard": "day", "Fuel price": "day", "Market data": "day",
   "Ministry watch": "day", "Model names": "day", "Model statistics": "day", "Magazine": "day", "Site smoke test": "day",
   "Site smoke test (after deploy)": "day", "Weekly analytics report": "day", "Alert daily": "day",
@@ -79,13 +80,17 @@ export const LABELS = {
   "meta:uptime":         { he: "בדיקת הזמינות ב-Cloudflare לא מדווחת", sect: "fail" },
   "meta:telegram":       { he: "מערך ההתראות בטלגרם לא עבד", sect: "fail" },
   "weekly:missing":      { he: "הסיכום השבועי לא נשלח", sect: "fail" },
+  "workers:refused":     { he: "פריסת Worker נעצרה ומחכה לתיקון: {id}", sect: "wait" },
+  "workers:rollback":    { he: "פריסת Worker נכשלה בבדיקה: {id}", sect: "fail" },
+  "workers:failed":      { he: "פריסת Worker נכשלה: {id}", sect: "fail" },
+  "workers:forced":      { he: "קוד שלא היה ב-main הוחלף בפריסה: {id}", sect: "fyi" },
 };
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
 export const FAMILIES_IN_USE = [
   "wf", "smoke", "expiry", "infra", "infra-branches", "guard:core", "guard:break", "guard:warn", "ministry", "checker:data-health",
   "review", "review3", "vitals", "reviews:error", "seo:daily", "seo:nodata", "seo:error", "mention",
   "seo-auto:blocked", "seo-auto:wait", "seo-auto:notice", "seo-auto:done", "catalog", "mag:pub", "mag:fail",
-  "webwatch:rollback", "webwatch:rollback-failed", "meta:uptime", "weekly:missing",
+  "webwatch:rollback", "webwatch:rollback-failed", "meta:uptime", "weekly:missing", "workers:refused", "workers:rollback", "workers:failed", "workers:forced",
 ];
 
 const TODAY = ["loud", "silent", "none"];

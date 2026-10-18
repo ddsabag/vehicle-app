@@ -1,6 +1,8 @@
 name: Alert router check
 # Offline checks of the alert router (no secrets, no network): syntax, the engine's self-test (decision table, DST, partial rollout,
-# failures, privacy, CLI marker contract), the Python wrapper's self-test, the Sunday block and weekly brief tests, the Worker tests and the block compare.
+# failures, privacy, CLI marker contract), the Python wrapper's self-test, the Sunday block and weekly brief tests, the Worker tests, the
+# Workers deploy self-test (Ship Tail: guards, rollback, dry mode, on its own fixtures, so normal Worker edits never turn it red) and the
+# block compare.
 # The alert-fallback.test.sh step joins with the call sites (step C).
 # Paths: router files and every call-site directory (the self-test scans call-site keys; spec 15.1).
 on:
@@ -9,20 +11,16 @@ on:
       - ".github/scripts/**"
       - ".github/workflows/**"
       - "analytics/**"
-      - "worker/lib/**"
-      - "worker/uptime/**"
-      - "worker/mail/**"
-      - "worker/reviews/**"
+      - "worker/**"
+      - ".github/ship-tail.json"
   push:
     branches: [main, next]
     paths:
       - ".github/scripts/**"
       - ".github/workflows/**"
       - "analytics/**"
-      - "worker/lib/**"
-      - "worker/uptime/**"
-      - "worker/mail/**"
-      - "worker/reviews/**"
+      - "worker/**"
+      - ".github/ship-tail.json"
   workflow_dispatch:
 permissions:
   contents: read
@@ -57,6 +55,8 @@ jobs:
         run: node worker/mail/test.mjs
       - name: Reviews Worker test
         run: node worker/reviews/test.mjs
+      - name: Workers deploy self-test
+        run: node .github/scripts/workers-deploy.mjs --selftest
       # worker/lib/alert-lib.js: QUIET and the isDaytime body equal alert.mjs's; each Worker that already holds the block holds it byte-identical
       - name: Worker block compare
         run: |

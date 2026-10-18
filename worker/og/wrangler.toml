@@ -1,4 +1,7 @@
 name = "luchit-og"
 main = "worker.js"
 compatibility_date = "2026-10-01"
+keep_vars = true   # the preview needs no variables; any set in the dashboard survive a deploy
 routes = [{ pattern = "luchit.app/*", zone_name = "luchit.app" }]
+[version_metadata]
+binding = "CF_VERSION_METADATA"   # the running version's id: answers carry it as x-luchit-version, so the Workers deploy check knows which version answered

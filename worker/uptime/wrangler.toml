@@ -14,3 +14,5 @@ id = "KV_NAMESPACE_ID"   # the id of luchit-alerts, filled in after Dudu creates
 # Optional, added in the dashboard: Send Email binding MAIL, destination = the FORWARD_TO address in worker/mail/wrangler.toml (already verified).
 # Secrets (Dudu pastes them): TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID; optional BREVO_KEY.
 # Dashboard variable (after the observe week): ALERT_ROUTE = "critical"  (absent = observe mode)
+[version_metadata]
+binding = "CF_VERSION_METADATA"   # the running version's id: answers carry it as x-luchit-version, so the Workers deploy check knows which version answered

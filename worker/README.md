@@ -12,9 +12,7 @@ Before turning it on:
 
 ## Dynamic link preview (og/)
 
-`worker/og/worker.js` rewrites og:title / og:description for `?plate=` and `?cmp=` links when a messaging crawler (WhatsApp, Telegram, Facebook, ...) fetches the page. Not deployed.
-
-Prerequisite: luchit.app must be proxied by Cloudflare (today DNS at GoDaddy points straight to GitHub Pages). Then `cd worker/og && wrangler deploy`.
+`worker/og/worker.js` (luchit-og) rewrites og:title / og:description for `?plate=` and `?cmp=` links when a messaging crawler (WhatsApp, Telegram, Facebook, ...) fetches the page; everyone else gets the page untouched. Its route is `luchit.app/*` (the old `luchit.app/` pattern covered the home page only), so the whole site passes through it: a broken deploy takes luchit.app down, which is why it is deployed only by the Workers deploy workflow below, with a check and a rollback.
 Privacy: the plate in a shared link is looked up once from data.gov.il (cached an hour, never logged); mention it in the privacy policy. Test with `curl -A WhatsApp "https://luchit.app/?plate=<plate>"`.
 
 ## Support mail to Telegram (mail/)
@@ -24,3 +22,11 @@ Privacy: the plate in a shared link is looked up once from data.gov.il (cached a
 ## Play review replies (reviews/)
 
 `worker/reviews/worker.js` (luchit-reviews) drafts a Hebrew reply to each new Google Play review and sends it to Telegram with [שלח] [ערוך] [דלג]; a reply is published only on שלח. Cron every 30 min, active 08:00-22:00 Israel. Secrets TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, REVIEWS_SA_JSON (a service account with the Play Console permission "Reply to reviews" only); KV binding ALERTS = luchit-alerts ("rv:" keys). Opening `/health` installs the Telegram webhook (`/tg`). Templates: `TEMPLATES` in the file, approved in reports/תבניות-מענה-לביקורות.md. Offline test: `node worker/reviews/test.mjs`. Once /health shows sa, list and webhook true, the repo variable REVIEWS_RESPONDER=on stops the review alerts of reviews-monitor (vitals stay).
+
+## Deploys (Workers deploy workflow)
+
+`.github/workflows/workers-deploy.yml` deploys the Workers that `.github/ship-tail.json` marks `deploy: "main"` (today uptime, og, api, mail) when their `worker.js` or `wrangler.toml` changes on main, or by hand (Actions > Workers deploy > Run workflow, mode dry or on). Kill switch: repository variable `SHIP_TAIL` = off / dry / on (unset = on), so set it to `dry` before the Cloudflare secrets exist and switch to `on` only after a clean dry run.
+
+A Worker is refused, with a day alert saying what to change, when a deploy would lose something set in the dashboard (a var with another value, a binding, a route, a cron, a custom domain, workers.dev or preview URLs, a compatibility flag, Workers Logs), when its live code is not a version of the file on main (edited in the dashboard, deployed from another branch, or bundled by a plain `wrangler deploy`; the manual input `force_code=<key>` replaces it for that Worker only), when the live version was chosen by hand in the dashboard (a rollback: only a manual run with `workers=<key>` replaces it), or when its check already fails on the live version (`skip_precheck=<key>` when only the new code fixes it). A Worker for which main already has newer files is skipped quietly (a re-run of an older run never deploys older code). A Worker with a route is never created automatically.
+
+After a deploy the new version must be live at 100% and pass its check twice in a row; og, api and uptime name the answering version in the `x-luchit-version` header (binding `CF_VERSION_METADATA`), so an edge still serving the old version does not count. A failed check rolls back and sends one loud alert. Every deploy forces `keep_vars = true` and `no_bundle = true`, so dashboard variables survive and the uploaded code is the file byte for byte (no static imports allowed). `KV_NAMESPACE_ID` in a toml is filled in with the id of `luchit-alerts` (created once by luchit-uptime's first deploy). wrangler runs in a job that holds only the Cloudflare secrets; Worker secrets (`secretsFromGitHub`) and alerts come from a second job that runs no npm code. Offline test: `node .github/scripts/workers-deploy.mjs --selftest`.

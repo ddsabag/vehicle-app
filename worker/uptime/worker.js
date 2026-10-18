@@ -14,6 +14,8 @@
 // The block between the alert-lib v1 markers is a byte-identical copy of worker/lib/alert-lib.js (CI compares them).
 const SITE = "https://luchit.app", UA = "luchit-uptime/1", REPO = "ddsabag/vehicle-app";
 const HEARTBEAT = `https://raw.githubusercontent.com/${REPO}/alert-state/heartbeat.json`;
+// which version answered (binding CF_VERSION_METADATA in wrangler.toml): the Workers deploy check waits for the new one
+const version = env => (env.CF_VERSION_METADATA?.id ? { "x-luchit-version": env.CF_VERSION_METADATA.id } : {});
 const MARK = new TextEncoder().encode('id="plate"'), MARK_MAX = 256 * 1024;
 const UP = { probe: 10000, retry: 5000, hb: 5000, stale: 50 * 36e5, remind: 24 * 36e5 - 90 * 6e4, ghHours: [0, 6, 12, 18] };   // remind = alert.mjs REMIND_MS
 const TRIAL = "🧪 (מצב ניסיון) ";
@@ -293,6 +295,6 @@ export default {
     const a = id => !!u?.probes?.[id]?.armed;
     return new Response(JSON.stringify({ v: "uptime-1", mode: routed(env, "critical") ? "page" : "observe", tick: u?.tick || null,
       armed: { home: a("home"), api: a("api") }, tg: u?.tg === true, email: !!(env.MAIL || env.BREVO_KEY) }),
-      { status: ok ? 200 : 503, headers: { "content-type": "application/json", "cache-control": "no-store" } });
+      { status: ok ? 200 : 503, headers: { "content-type": "application/json", "cache-control": "no-store", ...version(env) } });
   },
 };

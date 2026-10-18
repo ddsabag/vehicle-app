@@ -1,0 +1,50 @@
+{
+  "about": "Ship Tail: which Cloudflare Workers the Workers deploy workflow may deploy from main, and how each is checked. Read by .github/scripts/workers-deploy.mjs; the order matters (a Worker that may create the KV namespace runs first). deploy: main = deployed on a change, off = never. create: the script may be created when it does not exist yet (never for a Worker with a route or custom domain). probe: the check that must pass on the live version before a deploy and on the new version after it; http checks may set method (GET or HEAD) and version: true (the answer's x-luchit-version header must name the new version, which needs [version_metadata] in the toml); readOnly: false = opening the check changes state, so dry mode never opens it. secretsFromGitHub: secret names copied once from the GitHub secret of the same name (after job), only when the Worker does not have that name yet.",
+  "zone": "luchit.app",
+  "kv": { "title": "luchit-alerts", "placeholder": "KV_NAMESPACE_ID" },
+  "workers": [
+    {
+      "key": "uptime", "dir": "worker/uptime", "name": "luchit-uptime", "deploy": "main", "create": true,
+      "probe": { "kind": "health", "path": "/health", "version": true },
+      "secretsFromGitHub": ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
+    },
+    {
+      "key": "og", "dir": "worker/og", "name": "luchit-og", "deploy": "main", "create": false,
+      "probe": { "kind": "http", "checks": [
+        { "url": "https://luchit.app/?st={nonce}", "ua": "browser", "status": 200, "contains": ["id=\"plate\""] },
+        { "url": "https://luchit.app/?cmp=W3t9LHt9XQ&st={nonce}", "ua": "TelegramBot (like TwitterBot)", "status": 200, "contains": ["og:title", "השוואת 2 רכבים בלוחית"], "version": true },
+        { "url": "https://luchit.app/magazine/?st={nonce}", "ua": "browser", "status": 200, "contains": ["id=\"nl\""] },
+        { "url": "https://luchit.app/.well-known/assetlinks.json?st={nonce}", "ua": "luchit-ship-tail/1", "status": 200, "contains": ["com.ddsabag.pratirechev"] },
+        { "url": "https://luchit.app/?st={nonce}", "method": "HEAD", "ua": "browser", "status": 200 }
+      ] },
+      "secretsFromGitHub": []
+    },
+    {
+      "key": "api", "dir": "worker/api", "name": "luchit-api", "deploy": "main", "create": false,
+      "probe": { "kind": "http", "checks": [
+        { "url": "https://luchit.app/api/confirm?e=x&x=1&t=x", "ua": "luchit-ship-tail/1", "status": 302, "location": "subscribed=expired", "version": true }
+      ] },
+      "secretsFromGitHub": []
+    },
+    {
+      "key": "mail", "dir": "worker/mail", "name": "luchit-mail", "deploy": "main", "create": false,
+      "probe": { "kind": "version" },
+      "secretsFromGitHub": []
+    },
+    {
+      "key": "reviews", "dir": "worker/reviews", "name": "luchit-reviews", "deploy": "off", "create": true,
+      "probe": { "kind": "health", "path": "/health", "readOnly": false },
+      "secretsFromGitHub": ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "REVIEWS_SA_JSON"]
+    },
+    {
+      "key": "live", "dir": "worker/live", "name": "luchit-live", "deploy": "off", "create": false,
+      "probe": { "kind": "version" },
+      "secretsFromGitHub": []
+    },
+    {
+      "key": "proxy", "dir": "worker", "name": "luchit-proxy", "deploy": "off", "create": false,
+      "probe": { "kind": "version" },
+      "secretsFromGitHub": []
+    }
+  ]
+}
