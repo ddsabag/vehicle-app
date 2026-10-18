@@ -38,6 +38,7 @@ const note = s => IO.out("::notice::" + s);
 const tag = s => crypto.createHash("sha1").update(String(s)).digest("hex").slice(0, 12).replace(/^\d/, "a");
 const codes = r => (r?.versionCodes || []).map(String);
 const top = r => Math.max(0, ...codes(r).map(Number).filter(Number.isFinite));
+const vname = r => String(r?.name || "").match(/\d+\.\d+(?:\.\d+)?/)?.[0] || r?.name || String(top(r));   // Ship tail names a release "108 (1.32)"
 
 // ---- gate: promote is a manual run only; on main it acts when mode=on and SHIP_TAIL allows; anywhere else it is dry ----
 export function prodGate(env) {
@@ -96,11 +97,9 @@ export function allowed(method, url, dry) {
   if (dry && /:commit$/.test(raw)) return false;
   return ALLOWED.some(([m, re]) => m === method && re.test(raw));
 }
-// a production write is one release of one known build, in one of the shapes below; "same" = the live releases written back unchanged
-// (the dry permission check). Anything else is refused before it is sent.
+// a production write is one release of one known build, in one of the shapes below. Anything else is refused before it is sent.
 export function bodyOk(body, want) {
   if (body?.track !== PROD || !Array.isArray(body.releases)) return false;
-  if (want.kind === "same") return JSON.stringify(body.releases) === JSON.stringify(want.releases);
   const [r] = body.releases;
   if (body.releases.length !== 1 || codes(r).join() !== want.codes.join() || !want.codes.length) return false;
   if (want.kind === "start") return r.status === "inProgress" && r.userFraction === FRACTION;
@@ -152,23 +151,23 @@ export function planPromote(tracks, life = {}) {
   const prod = releasesOf(tracks, PROD), live = prod.filter(r => r.status === "completed"), running = prod.find(r => r.status === "inProgress");
   const halted = prod.find(r => r.status === "halted"), base = Math.max(0, ...live.map(top));
   if (!alpha) return { stop: "no-alpha", he: "אין גרסה במסלול Alpha" };
-  const vn = alpha.name || String(top(alpha));
+  const vn = vname(alpha);
   if (lifeOf(life[ALPHA], alpha) === "NOT_APPROVED") return { stop: "rejected", vn, he: `${vn} נדחתה בסקירה של Google ב-Alpha` };
   if (running) return top(running) === top(alpha) ? { stop: "running", vn, he: `${vn} כבר בהפצה הדרגתית ב-Production` }
-    : { stop: "busy", vn, he: `${running.name || top(running)} עדיין בהפצה הדרגתית ב-Production: קודם היא צריכה להגיע ל-100% או להיעצר` };
+    : { stop: "busy", vn, he: `${vname(running)} עדיין בהפצה הדרגתית ב-Production: קודם היא צריכה להגיע ל-100% או להיעצר` };
   if (top(alpha) <= base) return { stop: "same", vn, he: `${vn} (versionCode ${top(alpha)}) לא חדשה מהגרסה שכבר ב-Production` };
-  if (halted && top(halted) >= top(alpha)) return { stop: "paused", vn, he: `ההפצה של ${halted.name || top(halted)} עצורה ב-Production, ו-${vn} לא חדשה ממנה` };
+  if (halted && top(halted) >= top(alpha)) return { stop: "paused", vn, he: `ההפצה של ${vname(halted)} עצורה ב-Production, ו-${vn} לא חדשה ממנה` };
   const notes = (alpha.releaseNotes || []).filter(n => n?.language && n?.text);
   if (!notes.length) return { stop: "notes", vn, he: `ל-${vn} ב-Alpha אין הערות שחרור` };
   if (!live.length && !halted) return { vn, vc: top(alpha), first: true, release: { name: alpha.name, versionCodes: codes(alpha), status: "completed", releaseNotes: notes } };
-  return { vn, vc: top(alpha), release: { name: alpha.name, versionCodes: codes(alpha), status: "inProgress", userFraction: FRACTION, releaseNotes: notes }, replaces: halted ? (halted.name || String(top(halted))) : "" };
+  return { vn, vc: top(alpha), release: { name: alpha.name, versionCodes: codes(alpha), status: "inProgress", userFraction: FRACTION, releaseNotes: notes }, replaces: halted ? vname(halted) : "" };
 }
 // auto: the staged rollout on production (if any) and its review state, against what the watch found (state.issues: "<vc>:<issue>" -> first
 // found), when the watch first saw the rollout (state.seen["production:<vc>"], i.e. sent) and when this first saw it published (state.live)
 export function planAuto(tracks, state, now, life) {
   const r = releasesOf(tracks, PROD).find(x => x.status === "inProgress");
   if (!r) return { act: "idle" };
-  const vc = top(r), vn = r.name || String(vc), key = `${PROD}:${vc}`, st = lifeOf(life, r);
+  const vc = top(r), vn = vname(r), key = `${PROD}:${vc}`, st = lifeOf(life, r);
   if (!st) throw new Fail(`Google Play לא החזיר את מצב הסקירה של ${vn} ב-Production`, "לבדוק את הלוג של Release watch");
   if (st !== "PUBLISHED") return { act: "wait", vc, vn, why: WAITING[st] || st };
   const out = state?.live?.[key] ?? now, fresh = !state?.live?.[key], since = Math.min(state?.seen?.[key] ?? out, out);
@@ -200,15 +199,13 @@ async function landed(ctx, release) {
     finally { await dropEdit(ctx, id); }
   } catch { return false; }
 }
-// dry: production written back exactly as it is, in an edit that is then deleted (checks the production permission, changes nothing)
-async function probe(ctx) {
+// dry: the release that would be sent is written and validated in an edit that is then deleted, never committed (this checks the
+// production permission and Play's own checks of this release; allowed() refuses a commit in dry mode)
+async function probe(ctx, release, kind) {
   const id = await insertEdit(ctx);
   try {
-    const releases = releasesOf(await listTracks(ctx, id), PROD);
-    try { await play(ctx, "PUT", `${EDITS(ctx)}/${id}/tracks/${PROD}`, { json: { track: PROD, releases }, want: { kind: "same", releases } }); }
-    catch (e) { if (releases.length || e.access || e.status === 401 || e.status === -1) throw e; note(`an empty production track could not be written back (${e.status}): the permission is checked by the first real run`); return false; }
+    await play(ctx, "PUT", `${EDITS(ctx)}/${id}/tracks/${PROD}`, { json: { track: PROD, releases: [release] }, want: { kind, codes: codes(release) } });
     await play(ctx, "POST", `${EDITS(ctx)}/${id}:validate`);
-    return true;
   } finally { await dropEdit(ctx, id); }
 }
 async function readTracks(ctx) {
@@ -252,7 +249,7 @@ export async function promote() {
       const P = planPromote(tracks, life);
       Object.assign(R, { vn: P.vn || "", vc: P.vc || 0 });
       if (P.stop) { IO.out(`not sent: ${P.stop}`); return { ...R, code: P.stop, why: P.he }; }
-      if (ctx.dry) { const checked = await probe(ctx); IO.out(`dry run: would send ${P.vn} (${P.vc}) to ${PROD} ${P.first ? "for all users (the first production release)" : `at ${FRACTION * 100}%`}${checked ? "; the production permission was checked" : ""}`); return { ...R, code: "dry", checked }; }
+      if (ctx.dry) { await probe(ctx, P.release, P.first ? "first" : "start"); IO.out(`dry run: would send ${P.vn} (${P.vc}) to ${PROD} ${P.first ? "for all users (the first production release)" : `at ${FRACTION * 100}%`}; Play accepted it in an edit that was then deleted`); return { ...R, code: "dry" }; }
       await send(ctx, P.release, P.first ? "first" : "start");
       IO.out(`sent: ${P.vn} (${P.vc}) to ${PROD} ${P.first ? "for all users (the first production release)" : `at ${FRACTION * 100}%`}, in review`);
       return { ...R, code: "sent", replaces: P.replaces, first: !!P.first };
@@ -461,9 +458,9 @@ async function selftest() {
         && W.puts[0].releases[0].versionCodes.join() === "110" && W.prod.some(r => r.status === "completed" && r.versionCodes.join() === "110") && W.tg[0]?.text.includes("ההפצה הראשונה"), "promote: first release to all users " + JSON.stringify(W.puts) + W.tg.map(x => x.text));
     }
     W = await run({ tracks: T([A("1.33", 110)], []) }, { MODE: "dry" });
-    ok(W.outputs.code === "dry" && !committed(W) && W.puts.length === 1 && W.puts[0].releases.length === 0 && W.printed.some(l => l.includes("first production release")), "dry first: empty production written back " + W.printed.join(" | "));
-    W = await run({ tracks: T([A("1.33", 110)], []), fail: { put: [400] } }, { MODE: "dry" });
-    ok(W.outputs.code === "dry" && W.edits.size === 0, "dry first: Play refuses an empty write = still dry, edit dropped");
+    ok(W.outputs.code === "dry" && !committed(W) && W.puts.length === 1 && W.puts[0].releases[0].status === "completed" && W.printed.some(l => l.includes("first production release")), "dry first: the first release tried " + W.printed.join(" | "));
+    W = await run({ tracks: T([A("1.33", 110)], []), fail: { validate: [{ status: 400, msg: "Countries not set" }] } }, { MODE: "dry" });
+    ok(W.outputs.code === "error" && W.printed.some(l => l.startsWith("::error::") && l.includes("Countries not set")) && W.edits.size === 0 && W.code === 1, "dry first: Play's own refusal shows, edit dropped");
     W = await run({ tracks: T([A("1.33", 110)], []), fail: { put: [403] } }, { MODE: "dry" });
     ok(W.outputs.code === "error" && W.tg.length === 0 && W.edits.size === 0, "dry first: 403 = the permission is missing");
     for (const [name, tracks, code] of [["same", T([A("1.33", 110)], [A("1.33", 110)]), "same"],
@@ -480,13 +477,14 @@ async function selftest() {
     W = await run({ life: { 115: "IN_REVIEW" } });
     ok(W.outputs.code === "sent" && W.printed.some(l => l.includes("IN_REVIEW")), "promote: an Alpha build still in review is sent (both reviews run together)");
     // a halted older rollout is replaced by the new build
-    W = await run({ tracks: T([A("1.35", 120)], [A("1.34", 115, "halted", { userFraction: 0.2 }), A("1.33", 110)]) });
-    ok(W.outputs.code === "sent" && W.puts[0].releases[0].versionCodes.join() === "120" && W.tg[0].text.includes("מחליפה את 1.34"), "promote over a halted older rollout " + W.tg.map(x => x.text));
+    W = await run({ tracks: T([{ ...A("1.35", 120), name: "120 (1.35)" }], [{ ...A("1.34", 115, "halted", { userFraction: 0.2 }), name: "115 (1.34)" }, A("1.33", 110)]) });
+    ok(W.outputs.code === "sent" && W.puts[0].releases[0].versionCodes.join() === "120" && W.puts[0].releases[0].name === "120 (1.35)" && W.tg[0].text.includes("לוחית 1.35 נשלחה") && W.tg[0].text.includes("מחליפה את 1.34"), "promote over a halted older rollout, versions by name " + W.tg.map(x => x.text));
   });
 
   await group("promote dry and errors", async () => {
     W = await run({}, { MODE: "dry" });
-    ok(W.outputs.code === "dry" && !committed(W) && W.puts.length === 1 && JSON.stringify(W.puts[0].releases) === JSON.stringify(NORMAL[1].releases) && W.tg.length === 0 && W.edits.size === 0, "dry: production written back as is, nothing sent " + JSON.stringify(W.puts));
+    ok(W.outputs.code === "dry" && !committed(W) && W.puts.length === 1 && W.puts[0].releases[0].userFraction === 0.2 && W.puts[0].releases[0].versionCodes.join() === "115" && W.tg.length === 0 && W.edits.size === 0
+      && W.prod.every(r => r.versionCodes.join() !== "115"), "dry: the release tried in an edit that is deleted, nothing sent " + JSON.stringify(W.puts));
     W = await run({ fail: { put: [403] } });
     ok(W.outputs.code === "error" && W.code === 1 && !committed(W) && W.edits.size === 0 && W.tg[0]?.text.includes(PERM_PROD), "403: the permission to add " + W.tg.map(x => x.text));
     W = await run({ fail: { commit: [0] } });
