@@ -1,8 +1,13 @@
 name: Site smoke test
 # Daily at 05:30 UTC, and after every change to the site while WEB_DEPLOY is off (with it on, Site smoke test (after deploy) checks each deploy): opens the live site in a real browser, looks up a real plate, checks key pages, and watches the certificate and domain expiry. Alerts go to Telegram only.
+# The daily run also does the infra part (formerly Infra watch, infra-watch.mjs): the sign-up Worker answers, free-quota headroom (Cloudflare Workers, Brevo),
+# and on the 1st of the month a list of stale branches. It never runs on a push (or after a deploy: that is deploy-smoke.yml, which runs site-smoke.mjs alone).
+# The infra job only collects; the smoke job sends what both found as ONE morning message (or nothing when all is well). If the smoke job dies before
+# sending, its last step sends the infra part on its own. Separate job names, so Failure alert never takes a failure of one for a repeat of the other.
 on:
   schedule:
-    - cron: "30 5 * * *"
+    - cron: "30 5 2-31 * *"   # daily
+    - cron: "30 5 1 * *"      # the 1st: also lists stale branches (picked by this line, not by the clock)
   push:
     branches: [main]
     paths: ["index.html", "sw.js", "model/**", "magazine/**", "privacy.html", "CNAME", ".well-known/**"]
@@ -16,13 +21,40 @@ on:
         description: "Send a labelled sample alert to Telegram (wording check)"
         type: boolean
         default: false
+      infra:
+        description: "Also run the daily infra part (Worker, quotas; with dry_run also the stale-branch list)"
+        type: boolean
+        default: false
 permissions:
   contents: write
 # no concurrency group: flash() already retries on write conflicts, and a queued run cancelled by the group would page as a failure
 jobs:
+  infra:
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.infra && !inputs.preview) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      report: ${{ steps.watch.outputs.report }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      - name: Check the Worker and the quotas
+        id: watch
+        run: node .github/scripts/infra-watch.mjs
+        env:
+          INFRA_HANDOFF: "1"   # hand the messages to the smoke job instead of sending them
+          STALE_BRANCHES: ${{ github.event_name == 'schedule' && (github.event.schedule == '30 5 1 * *' && 'yes' || 'no') || '' }}   # empty on a manual run: the 1st by the clock, or dry_run
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY || secrets.BREVO_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   smoke:
-    # with WEB_DEPLOY on, a push deploy is checked by Site smoke test (after deploy) once the deploy is done
-    if: ${{ github.event_name != 'push' || vars.WEB_DEPLOY != 'true' }}
+    needs: infra
+    # with WEB_DEPLOY on, a push deploy is checked by Site smoke test (after deploy) once the deploy is done.
+    # !cancelled(): runs when the infra job was skipped (push, manual) or failed (Failure alert reports that one).
+    if: ${{ !cancelled() && (github.event_name != 'push' || vars.WEB_DEPLOY != 'true') }}
     runs-on: ubuntu-24.04   # Playwright 1.49.1 predates Ubuntu 26.04 (ubuntu-latest from November 2026)
     timeout-minutes: 15
     steps:
@@ -35,10 +67,22 @@ jobs:
           npm install --no-save playwright@1.49.1
           npx playwright install --with-deps chromium
       - name: Check the live site
+        id: check
         run: node .github/scripts/site-smoke.mjs
         env:
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
           PREVIEW: ${{ inputs.preview && '1' || '0' }}
+          INFRA_REPORT: ${{ needs.infra.outputs.report }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      - name: Send the infra part on its own (the check above did not deliver it)
+        if: ${{ failure() && needs.infra.outputs.report != '' && steps.check.outputs.infra_sent != '1' }}
+        run: node .github/scripts/infra-watch.mjs
+        env:
+          INFRA_REPORT: ${{ needs.infra.outputs.report }}
+          INFRA_FLASHED: ${{ steps.check.outputs.infra_flashed }}   # "1" when the check above already wrote its /live line
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

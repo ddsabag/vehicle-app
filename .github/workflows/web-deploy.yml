@@ -23,7 +23,7 @@ on:
   push:
     branches: [main]
   workflow_run:
-    workflows: ["Fuel price", "Market data", "Model statistics", "Model names", "Magazine", "Magazine data articles", "SEO auto-publish", "Experimenter"]
+    workflows: ["Fuel price", "Market data", "Model statistics", "Model names", "Magazine", "SEO auto-publish", "Experimenter"]
     types: [completed]
     branches: [main]
   # safety net for any main commit no trigger above published: 03:17 UTC (before the morning smoke test and the 04:40-08:10 data window)
@@ -36,11 +36,13 @@ permissions:
 # nothing and only runs the indexnow job, so it gets a group of its own, like the old IndexNow workflow (no group): in the shared group a newer
 # Web deploy run (a bot's workflow_run or another push) would cancel it while pending, and with WEB_DEPLOY off no later run resends its pages.
 concurrency:
-  group: ${{ github.event_name == 'push' && vars.WEB_DEPLOY != 'true' && format('web-deploy-legacy-push-{0}', github.run_id) || 'web-deploy' }}
+  # A Magazine newsletter run (run name "Magazine (newsletter)") never changes main: its run is skipped below, in a group of its own so it
+  # never takes the queue's pending place from a real deploy.
+  group: ${{ github.event_name == 'push' && vars.WEB_DEPLOY != 'true' && format('web-deploy-legacy-push-{0}', github.run_id) || github.event_name == 'workflow_run' && github.event.workflow_run.name == 'Magazine' && github.event.workflow_run.display_title == 'Magazine (newsletter)' && 'web-deploy-skip' || 'web-deploy' }}
   cancel-in-progress: false
 jobs:
   build:
-    if: ${{ github.event_name == 'workflow_dispatch' || vars.WEB_DEPLOY == 'true' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || vars.WEB_DEPLOY == 'true') && !(github.event_name == 'workflow_run' && github.event.workflow_run.name == 'Magazine' && github.event.workflow_run.display_title == 'Magazine (newsletter)') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
