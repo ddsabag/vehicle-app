@@ -36,11 +36,14 @@ The store listing is shared by every track: what is sent here shows on the publi
 
 Before "שחרר", release threads update these files on next together with `android/release-notes.txt` (the Alert router check runs `play-listing.mjs check` on next, so a text that is too long or a bad screenshot is red there first). The account needs one more Play Console permission for this: **Manage store presence** (in newer consoles "Edit store listing, pricing & distribution").
 
+## Release watch (`.github/workflows/release-watch.yml`)
+Three times a day, by day only, for 72 hours after a new build reaches a Play track (Alpha after "שחרר"; Production again from the owner's promotion), the watch asks Android vitals for crash and ANR issues of that versionCode. An issue that no older version had in the last 30 days gets one Telegram (what, where, how many reports and users, the link to it in Play Console), once. Issues older versions already had stay quiet: Reviews monitor's daily crash and ANR rate check covers them. It only reads: the tracks inside a throwaway edit that is deleted, and the Play Developer Reporting API (enabled in the Google Cloud project; the account's "View app information" permission is enough). Crashlytics has no public API for its issues, so the watch sees what Play sees (users who share usage data with Google). What was seen and told is kept in the Actions cache (`watch.json`). A broken check sends at most one Telegram a day.
+
 ## Kill switch: repository variable `SHIP_TAIL`
 - `off` (also `false`, `0`, `no`, `disabled`): nothing runs.
 - `dry`: plans and validates only, then reports. In a throwaway edit the Alpha track is written back exactly as it is (this checks the "Release apps to testing tracks" permission) and validated; the edit is then deleted. Nothing is uploaded, committed or created, so a dry run does not check the upload itself; GA4 is only listed.
 - unset or `on`: acts. Any other value counts as `dry`. A manual run defaults to `dry` and never goes above the variable.
-- The same variable holds the store listing: `off` sends nothing, `dry` reports what a push would have sent.
+- The same variable holds the store listing (`off` sends nothing, `dry` reports what a push would have sent) and the release watch (`off` reads nothing, `dry` sends no Telegram).
 
 ## One-time setup (owner)
 Ship tail uses its own service account. Do not reuse the reviews or GA account: their keys are also in jobs that install pip packages, and in a Cloudflare Worker.
@@ -56,5 +59,6 @@ Without `SHIP_SA_JSON` the steps print one notice and finish green. A `SHIP_SA_J
 ## Files
 - `.github/scripts/play-alpha.mjs`: gate, the Alpha upload and the summary message (`node play-alpha.mjs selftest` runs offline).
 - `.github/scripts/play-listing.mjs` + `.github/store-listing/`: the store listing (`node play-listing.mjs selftest`, and `check` for the files alone).
+- `.github/scripts/release-watch.mjs`: the release watch (`node release-watch.mjs selftest`).
 - `.github/scripts/ga4-admin.mjs` + `analytics/ga4-admin.json`: custom dimensions and key events; only creates what is missing, never archives, deletes or renames (`node ga4-admin.mjs selftest`).
 - The Android build's draft release `build-<N>` is only read, never deleted or published.

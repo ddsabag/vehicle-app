@@ -43,7 +43,7 @@ export const WF_LEVELS = {
   "SEO daily digest": "summary", "SEO data snapshot": "summary", "Experimenter": "summary",
   "Reviews monitor": "silent", "Ownership data mirror": "silent",
   "Back-on-road detector": "silent",
-  "Ship tail": "day", "Store listing": "day",
+  "Ship tail": "day", "Store listing": "day", "Release watch": "day",
 };
 
 // fixed Hebrew text for the morning ring and the Sunday block. Lookup: first two key segments, then the first one.
@@ -92,6 +92,8 @@ export const LABELS = {
   "listing:done":        { he: "דף החנות ב-Google Play עודכן ונשלח לסקירה", sect: "fyi" },   // play-listing.mjs (Store listing)
   "listing:dry":         { he: "בדיקה יבשה של עדכון דף החנות", sect: "fyi" },
   "listing:fail":        { he: "עדכון דף החנות ב-Google Play נכשל: {ids}", sect: "fail", ids: { access: "אין הרשאה לדף החנות", files: "קובץ לא עומד בכללי Play", play: "Google Play לא קיבל את השינוי" } },
+  "watch:new":           { he: "קריסה חדשה בגרסה שעלתה לאחרונה", sect: "fail" },   // release-watch.mjs (Release watch)
+  "watch:error":         { he: "המעקב אחרי השחרור לא קרא מ-Google Play", sect: "fail" },
 };
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
 export const FAMILIES_IN_USE = [
@@ -100,6 +102,7 @@ export const FAMILIES_IN_USE = [
   "seo-auto:blocked", "seo-auto:wait", "seo-auto:notice", "seo-auto:done", "catalog", "mag:pub", "mag:fail",
   "webwatch:rollback", "webwatch:rollback-failed", "meta:uptime", "weekly:missing", "workers:refused", "workers:rollback", "workers:failed", "workers:forced",
   "ship:done", "ship:notes", "ship:fail", "ship:dry", "listing:done", "listing:dry", "listing:fail",
+  "watch:new", "watch:error",
 ];
 
 const TODAY = ["loud", "silent", "none"];

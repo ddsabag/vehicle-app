@@ -1,0 +1,66 @@
+name: Release watch
+# For 72 hours after a new build reaches a Google Play track (Alpha after "שחרר", Production after the owner's promotion), looks at Android
+# vitals for crash and ANR issues that are NEW in that versionCode, and sends one Telegram per issue (release-watch.mjs). Quiet otherwise.
+# Only reads Play (a throwaway edit for the tracks, never committed, and the Reporting API). By day only, like Reviews monitor:
+# 06:40/11:40/17:40 UTC = 09:40/14:40/20:40 Israel summer time, 08:40/13:40/19:40 winter time. Kill switch: SHIP_TAIL, as in Ship tail.
+on:
+  schedule:
+    - cron: "40 6,11,17 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry = read and show, no Telegram, state untouched; on = as the schedule"
+        type: choice
+        options: [dry, on]
+        default: dry
+permissions:
+  contents: read
+concurrency: release-watch
+jobs:
+  watch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: write   # alert.mjs keeps its dedupe state on the alert-state branch
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts/release-watch.mjs
+            .github/scripts/play-alpha.mjs
+            .github/scripts/alert.mjs
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      - name: Kill switch
+        id: g
+        run: node .github/scripts/release-watch.mjs gate
+        env:
+          SHIP_TAIL: ${{ vars.SHIP_TAIL }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          INPUT_MODE: ${{ inputs.mode }}
+      - name: Restore what was already seen and told
+        if: ${{ steps.g.outputs.mode != 'off' }}
+        uses: actions/cache/restore@v6
+        with:
+          path: watch.json
+          key: release-watch-none
+          restore-keys: release-watch-
+      - name: Look for new crashes and ANRs
+        if: ${{ steps.g.outputs.mode != 'off' }}
+        run: node .github/scripts/release-watch.mjs
+        env:
+          SHIP_SA_JSON: ${{ secrets.SHIP_SA_JSON }}
+          MODE: ${{ steps.g.outputs.mode }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      - name: Save state
+        if: ${{ always() && steps.g.outputs.mode == 'on' && hashFiles('watch.json') != '' }}
+        uses: actions/cache/save@v6
+        with:
+          path: watch.json
+          key: release-watch-${{ github.run_id }}
