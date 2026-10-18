@@ -45,7 +45,7 @@ concurrency:
 jobs:
   build:
     if: ${{ (github.event_name == 'workflow_dispatch' || vars.WEB_DEPLOY == 'true') && !(github.event_name == 'workflow_run' && github.event.workflow.name == 'Magazine' && github.event.workflow_run.display_title == 'Magazine (newsletter)') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     outputs:
       live: ${{ steps.live.outputs.live }}
@@ -109,7 +109,7 @@ jobs:
     needs: build
     # a writer run that failed or was cancelled still deploys when main is not live: main is the source of truth, and the commit may be another writer's
     if: ${{ vars.WEB_DEPLOY == 'true' && needs.build.outputs.live != 'true' && (github.event_name != 'workflow_dispatch' || inputs.deploy) }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       pages: write
@@ -131,7 +131,7 @@ jobs:
     needs: [build, deploy]
     if: ${{ !cancelled() && (needs.deploy.result == 'success' || (github.event_name == 'push' && vars.WEB_DEPLOY != 'true') || (github.event_name == 'workflow_dispatch' && inputs.indexnow)) }}
     continue-on-error: true
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4

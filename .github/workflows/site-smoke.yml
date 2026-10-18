@@ -31,7 +31,7 @@ permissions:
 jobs:
   infra:
     if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.infra && !inputs.preview) }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
       report: ${{ steps.watch.outputs.report }}

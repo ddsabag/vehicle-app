@@ -17,7 +17,7 @@ permissions:
   contents: write   # only used to publish the screenshot baseline branch on a manual run
 jobs:
   browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4

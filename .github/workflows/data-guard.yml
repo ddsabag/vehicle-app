@@ -20,7 +20,7 @@ permissions:
 concurrency: data-guard
 jobs:
   guard:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -62,7 +62,7 @@ jobs:
   # when that breaks: a red run here is the alert. A job of its own, so a failure never touches the guard job
   # (a failed step there would skip the cache save that remembers an announced drift, and the drift would be re-sent daily).
   selftest:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
