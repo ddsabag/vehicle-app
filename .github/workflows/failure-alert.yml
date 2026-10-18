@@ -58,7 +58,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NAME: ${{ github.event.workflow_run.name }}
+          NAME: ${{ github.event.workflow_run.name }}   # the run's name: "Magazine (data)" for a workflow with a run-name, else the workflow's name
+          WF: ${{ github.event.workflow.name || github.event.workflow_run.name }}   # the workflow's own name ("Magazine")
           URL: ${{ github.event.workflow_run.html_url }}
           CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           RUN_ID: ${{ github.event.workflow_run.id }}
@@ -81,7 +82,7 @@ jobs:
             # A workflow whose run name names its part, "<name> (<part>)" (Magazine: monthly, data, newsletter), is superseded only by a newer run of the same part.
             newer=""
             case "$TITLE" in
-              "$NAME ("*")")
+              "$WF ("*")")
                 newer=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$WORKFLOW_ID/runs?branch=main&per_page=30" --jq '.workflow_runs[] | "\(.run_number)\t\(.display_title)"' 2>/dev/null \
                   | awk -F'\t' '$1 + 0 > ENVIRON["RUN_NUMBER"] + 0 && $2 == ENVIRON["TITLE"] { print $1; exit }') || newer="";;
               *) for r in $runs; do [ "${r%%:*}" -gt "$RUN_NUMBER" ] 2>/dev/null && { newer=${r%%:*}; break; }; done;;
@@ -110,7 +111,7 @@ jobs:
                 # look further back. Within 26 h only; an API error, or a run in which one of them ran and passed, ends the streak as before.
                 # Only for the workflows whose jobs are skipped by the kind of run (event or part); in any other workflow a skipped job can mean the
                 # work was already done (Web deploy's deploy when the site already serves main), so a success ends the streak as before.
-                case "$NAME" in "Site smoke test"|"SEO daily digest"|"Magazine") ;; *) break;; esac
+                case "$WF" in "Site smoke test"|"SEO daily digest"|"Magazine") ;; *) break;; esac
                 case "$at" in ''|*[!0-9]*) break;; esac
                 { [ "$mine" != x ] && [ $((now - at)) -lt 93600 ]; } || break
                 ran=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/jobs?per_page=100" --jq '.jobs[] | select((.steps | length) > 0) | .name' 2>/dev/null) || break

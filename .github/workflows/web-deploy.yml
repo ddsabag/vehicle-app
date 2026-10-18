@@ -39,11 +39,12 @@ concurrency:
   # A Magazine newsletter run (run name "Magazine (newsletter)") never changes main: its run is skipped below, in a group of its own so it
   # never takes the queue's pending place from a real deploy. Nor does a manual run that does not deploy (a build check, or an IndexNow
   # resubmit, which the old IndexNow workflow did with no group): it changes nothing the queue protects, so it runs in a group of its own.
-  group: ${{ github.event_name == 'push' && vars.WEB_DEPLOY != 'true' && format('web-deploy-legacy-push-{0}', github.run_id) || github.event_name == 'workflow_dispatch' && !inputs.deploy && format('web-deploy-manual-{0}', github.run_id) || github.event_name == 'workflow_run' && github.event.workflow_run.name == 'Magazine' && github.event.workflow_run.display_title == 'Magazine (newsletter)' && 'web-deploy-skip' || 'web-deploy' }}
+  # For a workflow with a run-name, workflow_run.name is the run's name ("Magazine (newsletter)"); the workflow's own name is github.event.workflow.name.
+  group: ${{ github.event_name == 'push' && vars.WEB_DEPLOY != 'true' && format('web-deploy-legacy-push-{0}', github.run_id) || github.event_name == 'workflow_dispatch' && !inputs.deploy && format('web-deploy-manual-{0}', github.run_id) || github.event_name == 'workflow_run' && github.event.workflow.name == 'Magazine' && github.event.workflow_run.display_title == 'Magazine (newsletter)' && 'web-deploy-skip' || 'web-deploy' }}
   cancel-in-progress: false
 jobs:
   build:
-    if: ${{ (github.event_name == 'workflow_dispatch' || vars.WEB_DEPLOY == 'true') && !(github.event_name == 'workflow_run' && github.event.workflow_run.name == 'Magazine' && github.event.workflow_run.display_title == 'Magazine (newsletter)') }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || vars.WEB_DEPLOY == 'true') && !(github.event_name == 'workflow_run' && github.event.workflow.name == 'Magazine' && github.event.workflow_run.display_title == 'Magazine (newsletter)') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
