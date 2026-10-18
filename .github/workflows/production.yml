@@ -1,0 +1,59 @@
+name: Production
+# The owner's "פרסם" (or Actions → Production → Run workflow, mode=on): the newest Alpha release (its build, name and Hebrew notes) goes to
+# Google Play's production track as a staged rollout to 20% of users, and is sent for review (play-production.mjs promote). Never the first
+# production release, never a version that is not above the one on production, never over a rollout that is still running; each refusal
+# comes on Telegram with the reason. What follows runs in Release watch: nothing while Google reviews it; once published, a NEW crash or ANR
+# halts it, and 48 hours with none take it to 100%. Manual only: no push, schedule or other workflow starts this one. mode=dry (the default,
+# and anywhere but main) reads Play, says what would be sent and checks the permission without changing anything. Kill switch: the SHIP_TAIL
+# variable, as in Ship tail. Owner setup: .github/SHIP-TAIL.md
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry = read Play and show what would be sent; on = send the Alpha build to Production at 20% (never above the SHIP_TAIL variable)"
+        type: choice
+        options: [dry, on]
+        default: dry
+permissions:
+  contents: read
+concurrency:
+  group: production
+  cancel-in-progress: false
+jobs:
+  promote:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write   # alert.mjs keeps its dedupe state on the alert-state branch
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts/play-production.mjs
+            .github/scripts/play-alpha.mjs
+            .github/scripts/alert.mjs
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      - name: Kill switch
+        id: g
+        run: node .github/scripts/play-production.mjs gate
+        env:
+          SHIP_TAIL: ${{ vars.SHIP_TAIL }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          INPUT_MODE: ${{ inputs.mode }}
+      - name: Send the Alpha build to Production at 20%
+        if: ${{ steps.g.outputs.mode != 'off' }}
+        run: node .github/scripts/play-production.mjs promote
+        env:
+          SHIP_SA_JSON: ${{ secrets.SHIP_SA_JSON }}
+          MODE: ${{ steps.g.outputs.mode }}
+          EVENT: ${{ github.event_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PLAY_DEVELOPER_ID: ${{ vars.PLAY_DEVELOPER_ID }}
+          PLAY_APP_ID: ${{ vars.PLAY_APP_ID }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

@@ -1,6 +1,6 @@
 # Ship tail
 
-`.github/workflows/ship-tail.yml` runs after every successful **Android build** on main. When the build is a release, it uploads it to Google Play's closed testing track **Alpha** and sends it for review, makes sure GA4 has the settings in `analytics/ga4-admin.json`, and sends one Telegram message. Promoting to **Production is always the owner's own click** in Play Console: no script, input or variable can touch another track (`play-alpha.mjs` refuses any write that is not to `alpha`, before the request is sent).
+`.github/workflows/ship-tail.yml` runs after every successful **Android build** on main. When the build is a release, it uploads it to Google Play's closed testing track **Alpha** and sends it for review, makes sure GA4 has the settings in `analytics/ga4-admin.json`, and sends one Telegram message. Ship tail never touches another track (`play-alpha.mjs` refuses any write that is not to `alpha`, before the request is sent). **Production is always the owner's word**: the first production release by hand in Play Console, every later one by "פרסם" (see Production below).
 
 ## When is a build a release?
 A release is a change of `APP_VERSION` in `index.html` on main. Bot commits (market.json and the like) rebuild the app too; those builds are **not** uploaded. The script reads every Play track inside a throwaway edit and stands down quietly when:
@@ -34,22 +34,38 @@ A file or the folder that is not there leaves that part of the listing as it is 
 
 The store listing is shared by every track: what is sent here shows on the public store page once Google approves it, even while the new version is only on Alpha.
 
+**Data safety** (`data-safety.csv` in the same folder): Play Console's own export of the Data safety form (App content → Data safety → Export to CSV), changed only where an answer changes. The same workflow sends it with `play-data-safety.mjs` (one call, `applications.dataSafety`) when this exact file was not sent before: Google has no call that reads the declaration back, so an Actions cache key with the file's hash remembers what was sent (should the cache drop it, the same file is sent once more, which changes nothing). One Telegram when it is sent or fails. A release that changes what the app collects or shares (a new SDK, a new permission, analytics events with new data) updates this file in the same push as the code.
+
 Before "שחרר", release threads update these files on next together with `android/release-notes.txt` (the Alert router check runs `play-listing.mjs check` on next, so a text that is too long or a bad screenshot is red there first). The account needs one more Play Console permission for this: **Manage store presence** (in newer consoles "Edit store listing, pricing & distribution").
 
+## Production (`.github/workflows/production.yml`)
+After the first production release (made by hand in Play Console, where the countries are chosen; Google does not allow a staged rollout for it), every new version goes out in two words: "שחרר" (Alpha, above) and then, when the owner wants it public, **"פרסם"** in the release thread (or Actions → Production → Run workflow, `mode=on`). `play-production.mjs promote` then:
+- takes the newest Alpha release: its build, its name and its Hebrew release notes, as they are on Alpha;
+- sends it to the production track as a **staged rollout to 20%** of users, in one edit that is validated, committed (which sends it for review) and read back;
+- refuses, with one Telegram that says why, when production has no release yet, the Alpha build is not above the one on production, a staged rollout is still running, a halted rollout is not older than the Alpha build, the Alpha release has no notes, or Google rejected the build on Alpha.
+
+What follows is in Release watch (three times a day, by day), `play-production.mjs auto`:
+- while Google reviews the rollout (Play's release lifecycle state) nothing happens;
+- the first look at it published sends one Telegram and starts the 48 hours;
+- a crash or ANR that is **new in this build** (the watch's rule below), found after the rollout was sent, **halts** it at once, with one Telegram. Users who already updated keep it; the rest stay on the previous version. To go on anyway: Play Console → Production → Resume rollout; otherwise fix and release a new version;
+- **48 hours** after it was first seen published with no such issue, it goes to **100%**, with one Telegram.
+
+The script can write only the production track, and only these shapes: one release of the Alpha build at 20%, the running rollout halted, or the running rollout completed (anything else is refused before the request is sent). Nothing else: no upload, no other track, no store listing, no app signing. A manual run is `dry` by default (and on any branch but main): it reads Play, says what would be sent, and writes production back exactly as it is in an edit that is deleted (this checks the permission). Nothing on a schedule or a push starts a release: only the manual run does; the schedule only halts or completes the rollout the owner started. The account needs one more Play Console permission for this: **Release to production, exclude devices, and use Play App Signing**.
+
 ## Release watch (`.github/workflows/release-watch.yml`)
-Three times a day, by day only, for 72 hours after a new build reaches a Play track (Alpha after "שחרר"; Production again from the owner's promotion), the watch asks Android vitals for crash and ANR issues of that versionCode. An issue that no older version had in the last 30 days gets one Telegram (what, where, how many reports and users, the link to it in Play Console), once. Issues older versions already had stay quiet: Reviews monitor's daily crash and ANR rate check covers them. It only reads: the tracks inside a throwaway edit that is deleted, and the Play Developer Reporting API (enabled in the Google Cloud project; the account's "View app information" permission is enough). Crashlytics has no public API for its issues, so the watch sees what Play sees (users who share usage data with Google). What was seen and told is kept in the Actions cache (`watch.json`). A broken check sends at most one Telegram a day.
+Three times a day, by day only, for 72 hours after a new build reaches a Play track (Alpha after "שחרר"; Production again from "פרסם", and for as long as its staged rollout runs), the watch asks Android vitals for crash and ANR issues of that versionCode. An issue that no older version had in the last 30 days gets one Telegram (what, where, how many reports and users, the link to it in Play Console), once. Issues older versions already had stay quiet: Reviews monitor's daily crash and ANR rate check covers them. It only reads: the tracks inside a throwaway edit that is deleted, and the Play Developer Reporting API (enabled in the Google Cloud project; the account's "View app information" permission is enough). Crashlytics has no public API for its issues, so the watch sees what Play sees (users who share usage data with Google). What was seen, found and told is kept in the Actions cache (`watch.json`, which the Production step reads and adds to). A broken check sends at most one Telegram a day.
 
 ## Kill switch: repository variable `SHIP_TAIL`
 - `off` (also `false`, `0`, `no`, `disabled`): nothing runs.
 - `dry`: plans and validates only, then reports. In a throwaway edit the Alpha track is written back exactly as it is (this checks the "Release apps to testing tracks" permission) and validated; the edit is then deleted. Nothing is uploaded, committed or created, so a dry run does not check the upload itself; GA4 is only listed.
 - unset or `on`: acts. Any other value counts as `dry`. A manual run defaults to `dry` and never goes above the variable.
-- The same variable holds the store listing (`off` sends nothing, `dry` reports what a push would have sent) and the release watch (`off` reads nothing, `dry` sends no Telegram).
+- The same variable holds the store listing (`off` sends nothing, `dry` reports what a push would have sent), the release watch (`off` reads nothing, `dry` sends no Telegram) and Production (`off` sends nothing and leaves a running rollout alone, `dry` only reports, for "פרסם" and for the halt or 100%).
 
 ## One-time setup (owner)
 Ship tail uses its own service account. Do not reuse the reviews or GA account: their keys are also in jobs that install pip packages, and in a Cloudflare Worker.
 1. **Google Cloud** (any project you own): IAM & Admin → Service Accounts → Create service account (for example `ship-tail`), no project roles. Then APIs & Services → enable **Google Play Android Developer API** and **Google Analytics Admin API** in that project.
 2. The new account → Keys → Add key → Create new key → JSON. A file downloads.
-3. **Play Console** → Users and permissions → Invite new users → the account's email → App permissions → Add app → *לוחית* → tick **Release apps to testing tracks** and **View app information and download bulk reports (read-only)** → Invite user. Nothing for production: no "Release to production" permission and no account-level permissions. It can take a while before Google lets the account in.
+3. **Play Console** → Users and permissions → Invite new users → the account's email → App permissions → Add app → *לוחית* → tick **Release apps to testing tracks** and **View app information and download bulk reports (read-only)** → Invite user. No account-level permissions. Later additions, each for one job: **Manage store presence** (Store listing) and **Release to production, exclude devices, and use Play App Signing** ("פרסם"); the scripts never call an app-signing endpoint. It can take a while before Google lets the account in.
 4. **GA4** → Admin → Property access management → + → the same email → role **Editor**. The reporting account (`GA_SERVICE_ACCOUNT_JSON`) stays a Viewer.
 5. **GitHub** → Settings → Secrets and variables → Actions → New repository secret `SHIP_SA_JSON`: paste the whole downloaded file. Then delete the file from your computer.
 6. Check it: Actions → Ship tail → Run workflow, `mode=dry`, `step=all`. The job summary of the run shows what Play holds and what GA4 is missing; a problem also comes on Telegram with what to do. If you also want the first automatic release to be dry, set the variable `SHIP_TAIL=dry` and later delete it or set `on`.
@@ -59,6 +75,8 @@ Without `SHIP_SA_JSON` the steps print one notice and finish green. A `SHIP_SA_J
 ## Files
 - `.github/scripts/play-alpha.mjs`: gate, the Alpha upload and the summary message (`node play-alpha.mjs selftest` runs offline).
 - `.github/scripts/play-listing.mjs` + `.github/store-listing/`: the store listing (`node play-listing.mjs selftest`, and `check` for the files alone).
+- `.github/scripts/play-data-safety.mjs` + `.github/store-listing/data-safety.csv`: the Data safety declaration (`node play-data-safety.mjs selftest`, and `check`).
 - `.github/scripts/release-watch.mjs`: the release watch (`node release-watch.mjs selftest`).
+- `.github/scripts/play-production.mjs`: "פרסם" and the staged rollout's halt or 100% (`node play-production.mjs selftest`).
 - `.github/scripts/ga4-admin.mjs` + `analytics/ga4-admin.json`: custom dimensions and key events; only creates what is missing, never archives, deletes or renames (`node ga4-admin.mjs selftest`).
 - The Android build's draft release `build-<N>` is only read, never deleted or published.

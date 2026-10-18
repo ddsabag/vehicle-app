@@ -1,6 +1,7 @@
 name: Store listing
 # Keeps the Hebrew main store listing on Google Play (title, short and full description, phone screenshots) equal to .github/store-listing/
-# (play-listing.mjs). A push to main that changes those files sends only what differs, in one edit, for review, with one Telegram; nothing
+# (play-listing.mjs), and sends data-safety.csv there as the Data safety declaration when that exact file was not sent before
+# (play-data-safety.mjs; Google cannot read the declaration back, so a cache key with the file's hash remembers what was sent). A push to main that changes those files sends only what differs, in one edit, for review, with one Telegram; nothing
 # else on Play is touched (other languages, icon, feature graphic, tracks, production). Release threads put the new texts and screenshots
 # there before "שחרר", next to android/release-notes.txt. A file that breaks Play's limits stops the run (the Alert router check already
 # runs the same check on next). Kill switch: the SHIP_TAIL variable, as in Ship tail. The script reports on its own and finishes green on a
@@ -33,6 +34,7 @@ jobs:
         with:
           sparse-checkout: |
             .github/scripts/play-listing.mjs
+            .github/scripts/play-data-safety.mjs
             .github/scripts/play-alpha.mjs
             .github/scripts/alert.mjs
             .github/store-listing
@@ -47,8 +49,40 @@ jobs:
           EVENT: ${{ github.event_name }}
           REF: ${{ github.ref }}
           INPUT_MODE: ${{ inputs.mode }}
-      - name: Compare with Google Play and send what differs
+      - name: Was this Data safety file already sent?
+        id: dsc
+        if: ${{ steps.g.outputs.mode != 'off' && hashFiles('.github/store-listing/data-safety.csv') != '' }}
+        uses: actions/cache/restore@v6
+        with:
+          path: .data-safety-sent
+          key: data-safety-${{ hashFiles('.github/store-listing/data-safety.csv') }}
+          lookup-only: true
+      - name: Data safety
+        id: ds
         if: ${{ steps.g.outputs.mode != 'off' }}
+        run: node .github/scripts/play-data-safety.mjs
+        env:
+          SHIP_SA_JSON: ${{ secrets.SHIP_SA_JSON }}
+          MODE: ${{ steps.g.outputs.mode }}
+          SENT: ${{ steps.dsc.outputs.cache-hit }}
+          EVENT: ${{ github.event_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PLAY_DEVELOPER_ID: ${{ vars.PLAY_DEVELOPER_ID }}
+          PLAY_APP_ID: ${{ vars.PLAY_APP_ID }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      - name: Remember the Data safety file that was sent
+        if: ${{ !cancelled() && steps.ds.outputs.code == 'sent' }}
+        run: echo sent > .data-safety-sent
+      - if: ${{ !cancelled() && steps.ds.outputs.code == 'sent' }}
+        uses: actions/cache/save@v6
+        with:
+          path: .data-safety-sent
+          key: data-safety-${{ hashFiles('.github/store-listing/data-safety.csv') }}
+      - name: Compare with Google Play and send what differs
+        if: ${{ !cancelled() && steps.g.outputs.mode != 'off' }}
         run: node .github/scripts/play-listing.mjs
         env:
           SHIP_SA_JSON: ${{ secrets.SHIP_SA_JSON }}

@@ -3,7 +3,8 @@
 // it (no report from an older version in the last 30 days). Quiet otherwise: issues that older versions already had are left to the daily
 // crash/ANR rate check in Reviews monitor. Only reads: the tracks inside a throwaway edit (never committed) and the Reporting API.
 // Crashlytics has no public API for its issues, so this reads Play's own vitals (users who share usage data with Google).
-// State (watch.json, kept in the Actions cache like Reviews monitor's): when each track:versionCode was first seen, and which issues were told.
+// State (watch.json, kept in the Actions cache like Reviews monitor's): when each track:versionCode was first seen, when each new issue was
+// first found and which were told. A staged rollout on Production is watched for as long as it runs (play-production.mjs reads the same file).
 // Node 20, node: builtins only. Commands:
 //   node release-watch.mjs gate      SHIP_TAIL, EVENT, REF, INPUT_MODE -> output mode (on|dry|off)
 //   node release-watch.mjs           SHIP_SA_JSON, MODE (on|dry), STATE (path, default watch.json) -> Telegram (alert.mjs) for new issues or a broken check
@@ -94,8 +95,8 @@ async function tracksNow(ctx) {
 export function liveBuilds(tracks) {
   const out = {};
   for (const t of Array.isArray(tracks) ? tracks : []) {
-    const rel = (t?.releases || []).filter(r => LIVE.includes(r.status)).map(r => ({ vn: String(r.name || "").slice(0, 30), codes: (r.versionCodes || []).map(Number).filter(Number.isFinite) }));
-    const best = rel.flatMap(r => r.codes.map(vc => ({ vc, vn: r.vn }))).sort((a, b) => b.vc - a.vc)[0];
+    const rel = (t?.releases || []).filter(r => LIVE.includes(r.status)).map(r => ({ vn: String(r.name || "").slice(0, 30), staged: r.status === "inProgress", codes: (r.versionCodes || []).map(Number).filter(Number.isFinite) }));
+    const best = rel.flatMap(r => r.codes.map(vc => ({ vc, vn: r.vn, staged: r.staged }))).sort((a, b) => b.vc - a.vc)[0];
     if (best) out[`${t.track}:${best.vc}`] = { track: t.track, ...best };
   }
   return out;
@@ -129,14 +130,15 @@ export async function watch() {
   const R = { code: "", mode, watched: [], found: [], tells: [], why: "", next: "" };
   const raw = String(env[SECRET] || "").trim();
   if (!raw) { note(`${SECRET} is not set: nothing is watched`); return { ...R, code: "nosecret" }; }
-  const st = J(IO.read(file)) || {}, S = { seen: st.seen || {}, told: st.told || {} };
+  const st = J(IO.read(file)) || {}, S = { ...st, seen: st.seen || {}, told: st.told || {}, issues: st.issues || {} };
   try {
     const sa = J(raw);
     if (!sa?.client_email || !sa?.private_key) throw new Fail(`הסוד ${SECRET} אינו מפתח JSON של חשבון שירות`, `להדביק בסוד ${SECRET} את כל קובץ ה-JSON של המפתח`);
     const ctx = { pkg: env.PLAY_PACKAGE || PKG, token: await accessToken(sa) };
     const builds = liveBuilds(await tracksNow(ctx));
     for (const k of Object.keys(builds)) S.seen[k] ??= now;
-    const due = Object.entries(builds).filter(([k]) => now - S.seen[k] < WATCH_H * HOUR).map(([k, b]) => ({ key: k, ...b, since: S.seen[k] }));
+    // a staged rollout is watched for as long as it runs (Google's review can take longer than the window; play-production.mjs acts on it)
+    const due = Object.entries(builds).filter(([k, b]) => b.staged || now - S.seen[k] < WATCH_H * HOUR).map(([k, b]) => ({ key: k, ...b, since: S.seen[k] }));
     R.watched = due.map(b => `${b.track} ${b.vn || "?"} (${b.vc}), ${Math.floor((now - b.since) / HOUR)} h`);
     if (due.length) {
       const end = await dataEnd(ctx);
@@ -154,6 +156,7 @@ export async function watch() {
           const isNew = !first || first >= b.vc;
           R.found.push({ vc: b.vc, issue: tag(i.name), type: i.type, reports: +i.errorReportCount || 0, users: +i.distinctUsers || 0, isNew });
           const told = `${b.vc}:${i.name}`;
+          if (isNew) S.issues[told] ??= S.told[told] ?? now;   // when the watch first found it (play-production.mjs halts a rollout on one found after it began)
           if (isNew && !S.told[told]) R.tells.push({ b, i, told });
         }
       }
@@ -163,8 +166,8 @@ export async function watch() {
     const f = e instanceof Fail ? e : new Fail("תקלה בסקריפט: " + String(e?.message || e).slice(0, 120), "לבדוק את הלוג של Release watch");
     Object.assign(R, { code: "error", why: f.why, next: f.next, status: f.status });
   }
-  // prune: builds and told issues older than the history window
-  for (const o of [S.seen, S.told]) for (const k of Object.keys(o)) if (now - o[k] > HISTORY_D * DAY) delete o[k];
+  // prune: builds and issues older than the history window
+  for (const o of [S.seen, S.told, S.issues]) for (const k of Object.keys(o)) if (now - o[k] > HISTORY_D * DAY) delete o[k];
   R.state = S;
   return R;
 }
@@ -296,7 +299,7 @@ async function selftest() {
     const crash = ISSUE("i1", "CRASH", 110, 5, 3);
     W = await run({ state: { seen: { "alpha:110": T0 - 20 * HOUR, "production:108": T0 - 5 * DAY } }, mine: { 110: [crash] }, history: [crash] });
     ok(W.outputs.code === "new" && W.tg.length === 1 && W.tg[0].text.includes("1.33") && W.tg[0].text.includes("Alpha") && W.tg[0].text.includes("5 דיווחים מ-3 משתמשים") && W.tg[0].text.includes("MainActivity"), "new: told " + W.tg.map(x => x.text));
-    ok(Object.keys(W.state.told).length === 1, "new: remembered");
+    ok(Object.keys(W.state.told).length === 1 && W.state.issues[`110:apps/${PKG}/i1`] === T0, "new: remembered, with when it was found " + JSON.stringify(W.state));
     const searches = W.calls.filter(c => c.url.includes("errorIssues:search")).map(c => new URL(c.url).searchParams);
     ok(searches[0].get("filter") === "versionCode = 110 AND errorIssueType = CRASH OR errorIssueType = ANR" && searches[0].get("interval.startTime.hours") === String(new Date(T0 - 44 * HOUR).getUTCHours()) && searches[0].get("interval.endTime.hours") === "8", "new: filter and hour-aligned interval");
     ok(!W.calls.some(c => c.url.includes("versionCode = 108") || c.url.includes("versionCode+%3D+108")), "new: production 108 is past its 72 h");
@@ -317,8 +320,12 @@ async function selftest() {
     // the owner promotes 110 to production: a new 72 h for production
     W = await run({ state: { seen: { "alpha:110": T0 - 80 * HOUR } }, tracks: [{ track: "production", releases: [{ name: "1.33", versionCodes: ["110"], status: "inProgress", userFraction: 0.2 }] }, ALPHA_110[1]], mine: { 110: [ISSUE("i4", "CRASH", 110)] }, history: [] });
     ok(W.outputs.code === "new" && W.tg.length === 1 && W.tg[0].text.includes("Production") && W.state.seen["production:110"] === T0, "windows: promotion starts a production watch");
-    W = await run({ state: { seen: { "alpha:110": T0 - 10 * DAY, "x:1": T0 - 40 * DAY }, told: { "100:a": T0 - 31 * DAY } } });
-    ok(!("x:1" in W.state.seen) && !("100:a" in W.state.told), "windows: old state pruned");
+    // a staged rollout still running after 72 h (a long review) is still watched; an issue told on Alpha keeps that time (found before the rollout)
+    W = await run({ state: { seen: { "alpha:110": T0 - 9 * DAY, "production:110": T0 - 100 * HOUR }, told: { [`110:apps/${PKG}/i6`]: T0 - 8 * DAY }, live: { "production:110": T0 - HOUR } },
+      tracks: [{ track: "production", releases: [{ name: "1.33", versionCodes: ["110"], status: "inProgress", userFraction: 0.2 }, { name: "1.32", versionCodes: ["108"], status: "completed" }] }, ALPHA_110[1]], mine: { 110: [ISSUE("i6", "CRASH", 110)] }, history: [] });
+    ok(W.calls.some(c => c.url.includes("errorIssues")) && W.tg.length === 0 && W.state.issues[`110:apps/${PKG}/i6`] === T0 - 8 * DAY && W.state.live["production:110"] === T0 - HOUR, "windows: a staged rollout is watched past 72 h, other state kept " + JSON.stringify(W.state));
+    W = await run({ state: { seen: { "alpha:110": T0 - 10 * DAY, "x:1": T0 - 40 * DAY }, told: { "100:a": T0 - 31 * DAY }, issues: { "100:a": T0 - 31 * DAY, "110:b": T0 - DAY } } });
+    ok(!("x:1" in W.state.seen) && !("100:a" in W.state.told) && Object.keys(W.state.issues).join() === "110:b", "windows: old state pruned");
   });
 
   await group("errors and modes", async () => {

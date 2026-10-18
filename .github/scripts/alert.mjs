@@ -43,7 +43,7 @@ export const WF_LEVELS = {
   "SEO daily digest": "summary", "SEO data snapshot": "summary", "Experimenter": "summary",
   "Reviews monitor": "silent", "Ownership data mirror": "silent",
   "Back-on-road detector": "silent",
-  "Ship tail": "day", "Store listing": "day", "Release watch": "day",
+  "Ship tail": "day", "Store listing": "day", "Release watch": "day", "Production": "day",
 };
 
 // fixed Hebrew text for the morning ring and the Sunday block. Lookup: first two key segments, then the first one.
@@ -94,6 +94,14 @@ export const LABELS = {
   "listing:fail":        { he: "עדכון דף החנות ב-Google Play נכשל: {ids}", sect: "fail", ids: { access: "אין הרשאה לדף החנות", files: "קובץ לא עומד בכללי Play", play: "Google Play לא קיבל את השינוי" } },
   "watch:new":           { he: "קריסה חדשה בגרסה שעלתה לאחרונה", sect: "fail" },   // release-watch.mjs (Release watch)
   "watch:error":         { he: "המעקב אחרי השחרור לא קרא מ-Google Play", sect: "fail" },
+  "safety:done":         { he: "ה-Data safety ב-Google Play עודכן", sect: "fyi" },   // play-data-safety.mjs (Store listing)
+  "safety:fail":         { he: "עדכון ה-Data safety ב-Google Play נכשל: {ids}", sect: "fail", ids: { access: "אין הרשאה", files: "הקובץ לא תקין", play: "Google Play לא קיבל אותו" } },
+  "prod:sent":           { he: "גרסה נשלחה ל-Production", sect: "fyi" },   // play-production.mjs (Production, Release watch)
+  "prod:live":           { he: "Google אישרה את הגרסה, והיא עלתה להפצה הדרגתית ב-Production", sect: "fyi" },
+  "prod:full":           { he: "הגרסה הגיעה ל-100% מהמשתמשים ב-Production", sect: "fyi" },
+  "prod:halt":           { he: "ההפצה ב-Production נעצרה בגלל קריסה חדשה", sect: "fail" },
+  "prod:stop":           { he: "הפרסום ל-Production לא נשלח", sect: "fyi" },
+  "prod:fail":           { he: "הפרסום ל-Production נכשל: {ids}", sect: "fail", ids: { access: "אין הרשאה ל-Production", promote: "השליחה לא הצליחה", auto: "הבדיקה של ההפצה לא הצליחה" } },
 };
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
 export const FAMILIES_IN_USE = [
@@ -102,7 +110,7 @@ export const FAMILIES_IN_USE = [
   "seo-auto:blocked", "seo-auto:wait", "seo-auto:notice", "seo-auto:done", "catalog", "mag:pub", "mag:fail",
   "webwatch:rollback", "webwatch:rollback-failed", "meta:uptime", "weekly:missing", "workers:refused", "workers:rollback", "workers:failed", "workers:forced",
   "ship:done", "ship:notes", "ship:fail", "ship:dry", "listing:done", "listing:dry", "listing:fail",
-  "watch:new", "watch:error",
+  "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:fail",
 ];
 
 const TODAY = ["loud", "silent", "none"];
@@ -788,7 +796,7 @@ async function selftest() {
       "infra:quota-cf+site", "checker:data-health", "mag:pub:2026-10-18-new-cars", "infra-branches:2026-10", "x:v1.2.3"]) ok(validKey(k), "validKey accepts " + k);
     for (const f of FAMILIES_IN_USE) ok(family(f) !== null, "label for family " + f);
     for (const [f, ids] of [["smoke", "home lookup magazine applinks privacy model sitemap cert domain certcheck"], ["expiry", "cert domain certcheck"],
-      ["infra", "site api sitemap quota-cf quota-brevo"], ["vitals", "crash anr"], ["listing:fail", "access files play"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
+      ["infra", "site api sitemap quota-cf quota-brevo"], ["vitals", "crash anr"], ["listing:fail", "access files play"], ["prod:fail", "access promote auto"], ["safety:fail", "access files play"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
       const he = label(f + ":" + ids.split(" ").join("+")).he.split(/[\s,:]+/);
       ok(!ids.split(" ").some(i => he.includes(i)), `label ${f}: no raw id left`);
     }

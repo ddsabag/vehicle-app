@@ -454,7 +454,7 @@ export function compose(P, G, runs, env = {}) {
   let level = "day", key, text;
   if (P.code === "uploaded") {
     key = `ship:done:${vn}`;
-    text = `לוחית ${vn} עלתה ל-Alpha ונשלחה לסקירה (versionCode ${vc}). ${status}. הקידום ל-Production נשאר אצלך ב-Play Console.\n${pc}`;
+    text = `לוחית ${vn} עלתה ל-Alpha ונשלחה לסקירה (versionCode ${vc}). ${status}. כשתרצה להפיץ אותה לכולם: "פרסם" בשרשור (או Actions ← Production ← Run workflow).\n${pc}`;
   } else if (P.code === "dry") {
     key = `ship:dry:${vn}`;
     const checked = P.checked === "permission" ? "נבדקו הגישה ל-Play וההרשאה ל-Alpha, לא ההעלאה עצמה" : "נבדקה הגישה ל-Play, לא ההרשאה ל-Alpha (המסלול ריק) ולא ההעלאה עצמה";
@@ -955,7 +955,7 @@ async function selftest() {
   await group("messages", async () => {
     const runsOk = { ok: true, smoke: { status: "completed", conclusion: "success" }, workers: { status: "completed", conclusion: "success" } };
     let m = compose({ code: "uploaded", vn: "1.33", vc: 110 }, { code: "ok" }, runsOk, { PLAY_DEVELOPER_ID: "1", PLAY_APP_ID: "2" });
-    ok(m.text.startsWith("לוחית 1.33 עלתה ל-Alpha ונשלחה לסקירה (versionCode 110). אתר ✓ · Workers ✓ · GA4 ✓. הקידום ל-Production נשאר אצלך ב-Play Console.\nhttps://play.google.com/console/developers/1/app/2/")
+    ok(m.text.startsWith("לוחית 1.33 עלתה ל-Alpha ונשלחה לסקירה (versionCode 110). אתר ✓ · Workers ✓ · GA4 ✓. כשתרצה להפיץ אותה לכולם: \"פרסם\" בשרשור (או Actions ← Production ← Run workflow).\nhttps://play.google.com/console/developers/1/app/2/")
       && m.key === "ship:done:1.33" && m.level === "day", "message: uploaded\n" + m.text);
     m = compose({ code: "uploaded", vn: "1.33", vc: 110 }, { code: "needs-editor", why: "לחשבון השירות אין תפקיד Editor בנכס GA4", next: "x" }, { ok: true, smoke: { status: "in_progress" } }, {});
     ok(/אתר: עוד רץ · GA4: חסר תפקיד Editor\./.test(m.text) && !/Workers/.test(m.text) && /Editor/.test(m.text.split("\n").at(-1)), "message: smoke still running, no Workers run, GA4 403\n" + m.text);
