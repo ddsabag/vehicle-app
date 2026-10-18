@@ -4352,7 +4352,9 @@ const msKey = D => D && D.v && D.v.tozeret_cd && D.v.kinuy_mishari ? D.v.tozeret
 function msCohort(D){
   if (!MSTATS || D.kind === "model") return null;
   const t = msFold(D), y = num(D.v.shnat_yitzur);
-  if (t && t.n + t.c >= POP_MIN) return {n: t.n, c: t.c, km: t.kW ? t.kS / t.kW : null, own: t.oW ? t.oS / t.oW : null, rec: t.n ? t.rS / t.n : 0, year: y};
+  // the folded count covers every version of the base model (CIVIC HYBRID counts all CIVIC): fam names that group when it is wider than the car's own name
+  const fam = normModel(D.v.kinuy_mishari), own = String(D.v.kinuy_mishari || "").trim().toUpperCase().replace(/\s+/g, " ");
+  if (t && t.n + t.c >= POP_MIN) return {n: t.n, c: t.c, km: t.kW ? t.kS / t.kW : null, own: t.oW ? t.oS / t.oW : null, rec: t.n ? t.rS / t.n : 0, year: y, fam: fam !== own ? fam : ""};
   const k = msKey(D), m = k && MSTATS.m[k], row = m && y && m.y[y];
   return row ? {n: row[0], c: row[1], km: row[2], own: row[3], rec: row[4], year: y} : null;
 }
@@ -4399,7 +4401,7 @@ function msCard(D){
   if (avg) rows.push(["ריקולים פתוחים לכל 1,000 רכבים", c.rec.toFixed(c.rec < 10 ? 1 : 0), `בממוצע לשנתון: ${avg.rec.toFixed(avg.rec < 10 ? 1 : 0)}`, c.rec <= avg.rec ? "ok" : "bad"]);
   const good = rows.filter(r => r[3] === "ok").length, bad = rows.filter(r => r[3] === "bad").length;
   const verdict = !good && !bad ? "" : bad === 0 ? "הדגם הזה, בשנתון הזה, טוב מהממוצע בכל המדדים." : good > bad ? "בסך הכול הדגם הזה טוב מהממוצע." : good === bad ? "הדגם הזה קרוב לממוצע." : "הדגם הזה פחות טוב מהממוצע.";
-  return card("איך הדגם הזה מחזיק", "chart", "teal", `${verdict ? `<p style="margin:0"><b>${verdict}</b></p>` : ""}<table class="ft mst">${rows.map(([a, b, n, k]) => `<tr><td>${a}</td><td><b>${b}</b></td><td><small class="${k}">${n}</small></td></tr>`).join("")}</table><p class="note">ההשוואה היא מול כל הדגמים מאותו שנתון (${fmtN(c.n)} רכבים פעילים משנתון ${c.year} של הדגם). ירוק: טוב מהממוצע, אדום: פחות טוב. מבוסס על מאגרי משרד התחבורה, עד כמה שהם מתעדים.</p>`);
+  return card("איך הדגם הזה מחזיק", "chart", "teal", `${verdict ? `<p style="margin:0"><b>${verdict}</b></p>` : ""}<table class="ft mst">${rows.map(([a, b, n, k]) => `<tr><td>${a}</td><td><b>${b}</b></td><td><small class="${k}">${n}</small></td></tr>`).join("")}</table><p class="note">ההשוואה היא מול כל הדגמים מאותו שנתון (${fmtN(c.n)} רכבים פעילים משנתון ${c.year} ${c.fam ? `של כל גרסאות ${esc(c.fam)}` : "של הדגם"}). ירוק: טוב מהממוצע, אדום: פחות טוב. מבוסס על מאגרי משרד התחבורה, עד כמה שהם מתעדים.</p>`);
 }
 function fillModelStats(){
   const el = document.getElementById("mstat"); if (!el || !current) return;
