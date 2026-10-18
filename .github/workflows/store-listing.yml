@@ -16,7 +16,7 @@ on:
       mode:
         description: "dry = read Play and show what would change; on = send it for review (never above the SHIP_TAIL variable)"
         type: choice
-        options: [dry, on]
+        options: [dry, "on"]   # quoted: YAML reads a bare on as true
         default: dry
       data_safety:
         description: "send = also send data-safety.csv as the Data safety declaration (a push sends it by itself when the file changed)"

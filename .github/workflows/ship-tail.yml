@@ -20,7 +20,7 @@ on:
       mode:
         description: "dry = plan and validate only; on = upload to Alpha / create in GA4 (never above the SHIP_TAIL variable)"
         type: choice
-        options: [dry, on]
+        options: [dry, "on"]   # quoted: YAML reads a bare on as true
         default: dry
       step:
         description: "play = Alpha upload, ga4 = GA4 settings, all = both"

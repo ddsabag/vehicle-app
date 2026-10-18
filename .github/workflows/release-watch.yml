@@ -14,7 +14,7 @@ on:
       mode:
         description: "dry = read and show, no Telegram, state untouched; on = as the schedule"
         type: choice
-        options: [dry, on]
+        options: [dry, "on"]   # quoted: YAML reads a bare on as true
         default: dry
 permissions:
   contents: read
