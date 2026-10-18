@@ -30,15 +30,16 @@ export const EMAIL_FROM = { name: "לוחית התראות", email: "updates@luc
 export const STATE = { branch: "alert-state", file: "state.json", heartbeat: "heartbeat.json" };
 
 // failure-alert.yml level per workflow name (the `wf` command); any other name: "day" (a safe default, never silent)
+// "Ministry watch" (was "Data health", silent, + "Data status", day) is day: its status job refreshes the app's status.json, and the name cannot tell the jobs apart
 export const WF_LEVELS = {
   "Web deploy (build)": "critical",
-  "Android build": "day", "Data guard": "day", "Data status": "day", "Fuel price": "day", "Market data": "day",
-  "Model names": "day", "Model statistics": "day", "Magazine": "day", "Site smoke test": "day",
+  "Android build": "day", "Data guard": "day", "Fuel price": "day", "Market data": "day",
+  "Ministry watch": "day", "Model names": "day", "Model statistics": "day", "Magazine": "day", "Site smoke test": "day",
   "Site smoke test (after deploy)": "day", "Weekly analytics report": "day", "Alert daily": "day",
-  "SEO check": "summary", "SEO auto-publish": "summary", "SEO tracker": "summary", "Web watch": "summary",
+  "SEO check": "summary", "SEO auto-publish": "summary", "Web watch": "summary",
   "Infra watch": "summary", "Magazine data articles": "summary", "Model catalogue": "summary", "Newsletter": "summary",
   "SEO daily digest": "summary", "SEO data snapshot": "summary", "Experimenter": "summary",
-  "IndexNow": "silent", "Data health": "silent", "Reviews monitor": "silent", "Ownership data mirror": "silent",
+  "IndexNow": "silent", "Reviews monitor": "silent", "Ownership data mirror": "silent",
   "Back-on-road detector": "silent",
 };
 
@@ -804,8 +805,10 @@ async function selftest() {
     }
     c = await runCli(["--stdin"], { stdin: JSON.stringify({ level: "day", key: "webwatch:rollback", text: "x", link: "", today: "loud", plain: true, fresh: false }) });
     ok(c.last === "ALERT_DONE loud 1" && c.m.tg[0].parse_mode === undefined, "cli --stdin, plain");
-    c = await runCli(["wf", "Data health", "--today", "loud", "--text", "x", "--link", "https://github.com/o/r/actions/runs/1"]);
-    ok(c.out[0] === "alert wf:Data health silent -> logged", "wf: Data health -> silent " + c.out[0]);
+    c = await runCli(["wf", "IndexNow", "--today", "loud", "--text", "x", "--link", "https://github.com/o/r/actions/runs/1"]);
+    ok(c.out[0] === "alert wf:IndexNow silent -> logged", "wf: IndexNow -> silent " + c.out[0]);
+    c = await runCli(["wf", "Ministry watch", "--today", "loud", "--text", "x"]);
+    ok(c.out[0] === "alert wf:Ministry watch day -> loud", "wf: Ministry watch -> day " + c.out[0]);
     c = await runCli(["wf", "Web deploy (build)", "--today", "loud", "--text", "x"]);
     ok(c.out[0] === "alert wf:Web deploy (build) critical -> loud", "wf: Web deploy -> critical");
     c = await runCli(["wf", "Something New", "--today", "loud", "--text", "x"]);
