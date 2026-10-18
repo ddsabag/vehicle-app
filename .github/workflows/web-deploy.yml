@@ -32,8 +32,11 @@ on:
     - cron: "17 3,9 * * *"
 permissions:
   contents: read
+# One deploy at a time, in order. Exception: a push while WEB_DEPLOY is off (legacy Pages, as after the auto-rollback) builds and deploys
+# nothing and only runs the indexnow job, so it gets a group of its own, like the old IndexNow workflow (no group): in the shared group a newer
+# Web deploy run (a bot's workflow_run or another push) would cancel it while pending, and with WEB_DEPLOY off no later run resends its pages.
 concurrency:
-  group: web-deploy
+  group: ${{ github.event_name == 'push' && vars.WEB_DEPLOY != 'true' && format('web-deploy-legacy-push-{0}', github.run_id) || 'web-deploy' }}
   cancel-in-progress: false
 jobs:
   build:
