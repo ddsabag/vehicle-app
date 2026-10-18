@@ -1,6 +1,7 @@
 // End-to-end check of the live site (runs on GitHub: the dev container cannot reach luchit.app or data.gov.il).
 // 1. static pages answer, 2. a real plate lookup works in a real browser, 3. TLS certificate and domain registration are not about to expire.
 // Alerts go to Telegram only. DRY_RUN=1 prints instead of sending, PREVIEW=1 sends a labelled sample.
+// A push run first waits 3 minutes for the deploy.
 import tls from "node:tls";
 import { flash } from "./flash.mjs";
 import { ilTime } from "./notify.mjs";

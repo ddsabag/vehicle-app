@@ -1,7 +1,9 @@
 // Market-intelligence agent: turns the monthly market.json (new-car deliveries per model) and modelstats.json (cars on the road per model
-// and production year, with the share held by leasing/rental companies) into short, hedged market tags per model: market-tags.json.
-// Only the monthly magazine reads them (section "תנודות בהיצע של דגמים"); the app no longer shows a card, because delivery volume does not say how a model prices on the used market.
-// Usage: node market-intel.mjs [--selftest]   (inputs: market.json, modelstats.json, index.html in the working directory; output: market-tags.json)
+// and production year, with the share held by leasing/rental companies) into short, hedged market tags per model.
+// Only the monthly magazine uses them: magazine.mjs imports build() for its section "תנודות בהיצע של דגמים". Nothing is published as a file
+// (the app no longer shows a card, because delivery volume does not say how a model prices on the used market).
+// Usage: node market-intel.mjs [--selftest]   (inputs: market.json, modelstats.json, index.html in the working directory; prints the tags)
+// The data guard workflow runs --selftest daily: magazine.mjs skips the section without an alert when loadNormModel no longer finds normModel in index.html.
 import fs from "node:fs";
 
 const RECENT = 3;                                // months in the comparison window (deliveries are seasonal, so each window is compared with the same months a year earlier)
@@ -77,8 +79,8 @@ if (process.argv[1] && process.argv[1].endsWith("market-intel.mjs")) {
   if (process.argv.includes("--selftest")) selftest(norm);
   else {
     const out = build(JSON.parse(fs.readFileSync("market.json", "utf8")), JSON.parse(fs.readFileSync("modelstats.json", "utf8")), norm);
-    fs.writeFileSync("market-tags.json", JSON.stringify(out));
     const c = {}; for (const t of Object.values(out.tags).flat()) c[t.k] = (c[t.k] || 0) + 1;
-    console.log("market-tags.json:", Object.keys(out.tags).length, "models", JSON.stringify(c), "window", out.window.join(","), "marketYoY", out.marketYoY);
+    for (const [k, ts] of Object.entries(out.tags)) console.log(k, ts.map(t => t.k + " " + t.r).join(", "));
+    console.log("market tags:", Object.keys(out.tags).length, "models", JSON.stringify(c), "window", out.window.join(","), "marketYoY", out.marketYoY);
   }
 }

@@ -12,14 +12,17 @@ on:
         default: false
   # Once Pages is served from Actions, every change to main must be published here, including commits the data bots make with
   # GITHUB_TOKEN (those do not fire push workflows, but they do fire workflow_run). All automatic triggers do nothing unless WEB_DEPLOY=true.
+  # Only workflows that commit to main are listed (names must match exactly); the ones that write only their own branch or nothing are left out.
   push:
     branches: [main]
   workflow_run:
-    workflows: ["Fuel price", "Market data", "Model statistics", "Model names", "Ownership data mirror", "Magazine", "Magazine data articles", "Data status", "Back-on-road detector", "SEO data snapshot", "Market intelligence", "IndexNow", "SEO auto-publish", "Experimenter", "Newsletter"]
+    workflows: ["Fuel price", "Market data", "Model statistics", "Model names", "Magazine", "Magazine data articles", "SEO auto-publish", "Experimenter"]
     types: [completed]
     branches: [main]
+  # safety net for any main commit no trigger above published: 03:17 UTC (before the morning smoke test and the 04:40-08:10 data window)
+  # and 09:17 UTC (after it, clear of the main-writer crons and of SEO auto-publish at 10:40)
   schedule:
-    - cron: "17 */6 * * *"
+    - cron: "17 3,9 * * *"
 permissions:
   contents: read
 concurrency:
@@ -30,24 +33,44 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' || vars.WEB_DEPLOY == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      live: ${{ steps.live.outputs.live }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
-      - uses: actions/setup-node@v4
+      # Bot and cron runs usually find main unchanged: skip when luchit.app already serves this commit (build.txt, written below).
+      # Cache-busting query because the site sits behind Cloudflare. No answer, an error or other text means build and deploy.
+      # Push and manual runs always build. After switching WEB_DEPLOY back on, deploy once by hand (deploy=true).
+      - name: Already live?
+        id: live
+        if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_run' }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          live=$(curl -fsS --max-time 20 -H "Cache-Control: no-cache" "https://luchit.app/build.txt?nocache=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT") || live=""
+          live=${live%%$'\n'*}; live=${live//[[:space:]]/}
+          if [ "$live" = "$sha" ]; then echo "luchit.app already serves $sha: nothing to deploy"; echo "live=true" >> "$GITHUB_OUTPUT"
+          else echo "luchit.app serves ${live:-unknown}, main is $sha: build and deploy"; fi
+      - uses: actions/setup-node@v7
+        if: ${{ steps.live.outputs.live != 'true' }}
         with:
           node-version: 20
-      - run: mkdir -p /tmp/minify && cd /tmp/minify && npm init -y >/dev/null && npm i terser@5 >/dev/null
+      - if: ${{ steps.live.outputs.live != 'true' }}
+        run: mkdir -p /tmp/minify && cd /tmp/minify && npm init -y >/dev/null && npm i terser@5 >/dev/null
       - name: Build the site
+        if: ${{ steps.live.outputs.live != 'true' }}
         run: |
           mkdir -p .github/scripts/node_modules && cp -r /tmp/minify/node_modules/. .github/scripts/node_modules/
           node .github/scripts/web-build.mjs site
-          test -f site/CNAME && test -f site/.well-known/assetlinks.json && test -f site/sw.js && ls site/app.*.js
+          git rev-parse HEAD > site/build.txt
+          test -f site/CNAME && test -f site/.well-known/assetlinks.json && test -f site/sw.js && test -s site/build.txt && ls site/app.*.js
           grep -q 'src="/app\.' site/index.html
           ! grep -q "service.json" <(ls site)
       - name: Pack the site (tar keeps dot folders such as .well-known)
+        if: ${{ steps.live.outputs.live != 'true' }}
         run: tar --dereference --hard-dereference -cf "$RUNNER_TEMP/artifact.tar" -C site .
       - uses: actions/upload-artifact@v4
+        if: ${{ steps.live.outputs.live != 'true' }}
         with:
           name: github-pages
           path: ${{ runner.temp }}/artifact.tar
@@ -55,7 +78,8 @@ jobs:
           if-no-files-found: error
   deploy:
     needs: build
-    if: ${{ vars.WEB_DEPLOY == 'true' && (github.event_name != 'workflow_dispatch' || inputs.deploy) && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') }}
+    # a writer run that failed or was cancelled still deploys when main is not live: main is the source of truth, and the commit may be another writer's
+    if: ${{ vars.WEB_DEPLOY == 'true' && needs.build.outputs.live != 'true' && (github.event_name != 'workflow_dispatch' || inputs.deploy) }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:

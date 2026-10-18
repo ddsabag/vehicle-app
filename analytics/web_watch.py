@@ -1,8 +1,9 @@
 """Daily watch on the split web build (app.<hash>.js): PageSpeed mobile on the home page (median of 3), plus Google's real-user LCP (CrUX) when PSI returns it.
 History is kept on the orphan branch "web-watch" (history.json, 60 days). It stays silent while things are fine and sends ONE Telegram alert when the
-rollback rule trips: lab score < 88 on each of the last 3 days, or real-user LCP > 2500 ms on each of the last 2 days.
+rollback rule trips: lab score < 88 on each of the last 3 days, or real-user LCP > 2500 ms on each of the last 2 days. The same alert goes to the
+/live dashboard (flash.mjs, needs node and GITHUB_TOKEN). A Telegram error does not stop the state save; it is reported as telegram_failed=1 in GITHUB_OUTPUT.
 Usage: python analytics/web_watch.py <state_dir> [--dry]"""
-import json, os, statistics, sys, time, urllib.parse, urllib.request
+import json, os, statistics, subprocess, sys, time, urllib.parse, urllib.request
 from datetime import date
 
 URL = "https://luchit.app/"
@@ -44,9 +45,24 @@ def verdict(hist):
 
 
 def telegram(text):
+    """False only when Telegram did not take the message (missing secrets just print)."""
     tok, chat = os.environ.get("TELEGRAM_BOT_TOKEN"), os.environ.get("TELEGRAM_CHAT_ID")
-    if not (tok and chat): print("no telegram secrets"); return
-    urllib.request.urlopen(urllib.request.Request(f"https://api.telegram.org/bot{tok}/sendMessage", data=urllib.parse.urlencode({"chat_id": chat, "text": text}).encode()), timeout=30)
+    if not (tok and chat): print("no telegram secrets"); return True
+    try:
+        urllib.request.urlopen(urllib.request.Request(f"https://api.telegram.org/bot{tok}/sendMessage", data=urllib.parse.urlencode({"chat_id": chat, "text": text}).encode()), timeout=30)
+        return True
+    except Exception as e:
+        print("telegram failed:", str(e)[:120]); return False
+
+
+def flash(text):
+    """An 'infra alert' entry on the /live dashboard, like the other agents' alerts. Never fails the run."""
+    run, repo = os.environ.get("GITHUB_RUN_ID"), os.environ.get("GITHUB_REPOSITORY", "ddsabag/vehicle-app")
+    link = [f"{os.environ.get('GITHUB_SERVER_URL', 'https://github.com')}/{repo}/actions/runs/{run}"] if run else []
+    js = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".github", "scripts", "flash.mjs")
+    sys.stdout.flush()
+    try: subprocess.run(["node", js, "infra", "alert", text] + link, timeout=120)
+    except Exception as e: print("flash skipped:", str(e)[:120])
 
 
 def rollback():
@@ -78,7 +94,10 @@ def main():
     if why and H.get("alerted") != m["date"]:
         msg = "⚠️ לוחית: מהירות האתר (הבנייה המפוצלת) מעבר לסף. " + "; ".join(why) + ".\n" + ("(הרצה יבשה, לא בוצעה חזרה)" if dry else rollback())
         print(msg)
-        if not dry: telegram(msg); H["alerted"] = m["date"]
+        if not dry:
+            flash(msg)
+            if not telegram(msg) and os.environ.get("GITHUB_OUTPUT"): open(os.environ["GITHUB_OUTPUT"], "a").write("telegram_failed=1\n")
+            H["alerted"] = m["date"]
     elif not why: H["alerted"] = None
     if not dry: os.makedirs(state, exist_ok=True); json.dump(H, open(p, "w"), ensure_ascii=False)
 

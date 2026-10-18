@@ -3,7 +3,9 @@ name: Back-on-road detector
 # as small shards on the zombie-data branch (the app reads only the shard for the plate it shows).
 on:
   schedule:
-    - cron: "0 1 3 * *"   # away from the 03:30-04:30 daily jobs so the heavy pull does not skew their latency checks
+    # 07:07 UTC (10:07 Israel summer time, 09:07 winter; off the full hour, when GitHub delays or drops the most scheduled runs): a failure alert never comes at night, and the heavy pull stays clear of the
+    # 04:00-04:30 data.gov.il latency checks (data health, data guard, infra watch)
+    - cron: "7 7 3 * *"
   workflow_dispatch:
 permissions:
   contents: write
@@ -13,7 +15,7 @@ jobs:
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Load last month's state

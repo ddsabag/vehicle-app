@@ -7,11 +7,16 @@ updates:
       interval: "monthly"
     open-pull-requests-limit: 3
   # Android libraries and the analytics Python packages: weekly, one pull request per ecosystem, so CI (incl. seo-check) runs on each.
+  # Gradle goes to next, where app releases are built; major versions (AGP, billing, Firebase BoM) need code changes and are done by hand.
   - package-ecosystem: "gradle"
     directory: "/android"
+    target-branch: "next"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 2
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       android-deps:
         patterns: ["*"]

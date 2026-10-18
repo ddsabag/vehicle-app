@@ -1,0 +1,47 @@
+name: Site smoke test (after deploy)
+# The same live-site check as Site smoke test (site-smoke.mjs), right after Web deploy published a new version: bot and cron commits
+# (made with GITHUB_TOKEN, so no push trigger sees them) and pushes, whatever files they change. With WEB_DEPLOY on, Site smoke test's own
+# push trigger stands down; it still covers the legacy Pages mode the auto-rollback falls back to. Nothing runs when the deploy job did not
+# (main already live, WEB_DEPLOY off, or a build-only manual run). Kept out of the web-deploy concurrency group on purpose. Alerts go to Telegram only.
+on:
+  workflow_run:
+    workflows: ["Web deploy (build)"]
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: write   # flash() writes the flashes branch the /live dashboard reads
+  actions: read     # to see whether the deploy job ran
+jobs:
+  smoke:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-24.04   # Playwright 1.49.1 predates Ubuntu 26.04 (ubuntu-latest from November 2026)
+    timeout-minutes: 15
+    steps:
+      - name: Did the deploy run?
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          d=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" --jq '[.jobs[] | select(.name == "deploy")][0].conclusion // "none"') || d=unknown
+          echo "deploy job: $d"
+          case "$d" in success|unknown) echo "go=true" >> "$GITHUB_OUTPUT";; *) echo "nothing new was deployed: no check";; esac
+      - uses: actions/checkout@v4
+        if: ${{ steps.gate.outputs.go == 'true' }}
+      - uses: actions/setup-node@v7
+        if: ${{ steps.gate.outputs.go == 'true' }}
+        with: { node-version: 20 }
+      - name: Install browser
+        if: ${{ steps.gate.outputs.go == 'true' }}
+        run: |
+          npm install --no-save playwright@1.49.1
+          npx playwright install --with-deps chromium
+      - name: Check the live site
+        if: ${{ steps.gate.outputs.go == 'true' }}
+        run: node .github/scripts/site-smoke.mjs
+        env:
+          DRY_RUN: "0"
+          PREVIEW: "0"
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
