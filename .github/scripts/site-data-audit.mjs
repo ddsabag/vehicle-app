@@ -552,7 +552,7 @@ console.log(`sampled ${cases.length} cases in ${Math.round((Date.now() - T0) / 1
 for (const c of cases) console.log(`SAMPLE ${c.id} ${mask(c.plate)} ${c.from} ${c.why}`);
 try { await recallList(); console.log(`recall list: ${RECALL_LIST.length} rows`); } catch (e) { console.log("recall list failed: " + e.message); }
 await startBrowser();
-let audited = 0, skipped = [], infra = [];
+let audited = 0, skipped = [], infra = []; const CASE_MAKERS = new Set();
 const act = cases.filter(c => c.from === "active"), rar = cases.filter(c => c.from !== "active"), order = [];
 for (let i = 0, j = 0; i < act.length || j < rar.length; i++) { if (i < act.length) order.push(act[i]); if ((i % 7 === 6 || i >= act.length) && j < rar.length) order.push(rar[j++]); }
 for (const c of order) {
@@ -565,6 +565,7 @@ for (const c of order) {
   const R = X.R;
   if (P.edge) { const ln = `CASE ${c.id} ${mask(c.plate)} ${X.primary || "-"} page: ${P.edge.slice(0, 90)} | after ${Math.round(P.net.ms / 1000)}s, app requests=${P.net.n} failed-in-browser=${P.net.failed} | in my reads: ${Object.entries(X.sets).filter(([, r]) => r.length).map(([k]) => k).join(",") || "nothing"} errs: ${Object.keys(X.errs).join(",") || "-"}`; console.log(ln);
     check(c, "page.result", !X.primary, P.edge.slice(0, 60), X.primary ? `the car (found in ${X.primary})` : "not found", `after ${Math.round(P.net.ms / 1000)}s, ${P.net.n} app requests, ${P.net.failed} failed in the browser`); audited++; continue; }
+  if (!E(R.tozeret_nm)) CASE_MAKERS.add(String(R.tozeret_nm).trim());
   const before = MIS.length;
   try { compare(c, X, P); } catch (e) { console.log(`CASE ${c.id} compare error: ${e.stack.split("\n").slice(0, 3).join(" / ")}`); }
   audited++;
@@ -580,6 +581,11 @@ async function makersPass() {
   for (const k of ["active", "inactive", "cancel"]) { const s = SET(k); if (!s) continue;
     try { const r = await search(s.id, {fields: "tozeret_nm", distinct: "true", limit: 1000}); for (const x of r.records) { const n = String(x.tozeret_nm || "").trim(); if (n && !names.has(n)) names.set(n, k); } }
     catch (e) { MAKERS_OUT.push(`makers ${k}: ${e.message}`); } }
+  // "distinct" on data.gov.il returns only part of the values, so the model catalogue is read whole (one field) and the audited cars are added
+  for (let off = 0; off < 200000; off += 20000) {
+    try { const r = await search(MODEL.wltp, {fields: "tozeret_nm", limit: 20000, offset: off}); for (const x of r.records) { const n = String(x.tozeret_nm || "").trim(); if (n && !names.has(n)) names.set(n, "active"); } if (r.records.length < 20000) break; }
+    catch (e) { MAKERS_OUT.push(`makers model list at ${off}: ${e.message}`); break; } }
+  for (const n of CASE_MAKERS) if (!names.has(n)) names.set(n, "active");
   if (coolUntil > Date.now()) await sleep(coolUntil - Date.now());
   await slot(16);
   const page = await ctx.newPage();
