@@ -342,9 +342,10 @@ async function emailSend(env, subject, text) {
   } catch { /* fall through */ }
   return false;
 }
-// a night "day" item may wait for the morning ring only when KV ALERTS is bound and luchit-uptime ticked in the last 25 min
+// a night "day" item may wait for the morning ring only when KV ALERTS is bound, luchit-uptime ticked in the last 25 min and its last
+// Telegram call worked (it sends the ring)
 async function canDefer(env) {
-  try { if (!env.ALERTS) return false; const u = await within(env.ALERTS.get("u", "json")); return !!u && Date.now() - Date.parse(u.tick) <= 25 * 6e4; } catch { return false; }
+  try { if (!env.ALERTS) return false; const u = await within(env.ALERTS.get("u", "json")); return !!u && u.tg === true && Date.now() - Date.parse(u.tick) <= 25 * 6e4; } catch { return false; }
 }
 // one alert; legacy = the caller's own unchanged send, run when the level is not routed, on any exception, past the deadline,
 // and as a last try when nothing got through
