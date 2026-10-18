@@ -570,10 +570,54 @@ for (const c of order) {
   audited++;
   console.log(`CASE ${c.id} ${mask(c.plate)} ${X.primary} ${Math.round(P.net.ms / 1000)}s/${P.net.n}req${P.net.failed ? "/" + P.net.failed + "failed" : ""} | ${sp(R.tozeret_nm)} ${sp(R.kinuy_mishari)} ${R.shnat_yitzur || ""} | fuel=${R.sug_delek_nm || ""} own=${R.baalut || ""} | owners=${(X.sets.owners || []).length} recalls=${(X.sets.recall || []).length} wltp=${(X.wltp || []).length} price=${(X.price || []).length} | errs=${Object.keys(X.errs).join(",") || "-"} app-errs=${P.head.errs.join(",") || "-"} | mismatches=${MIS.length - before}${P.perr.length ? " | page errors: " + P.perr.join(" ; ") : ""} | t=${Math.round((Date.now() - T0) / 1000)}s`);
 }
+/* ---------- maker-name rules, over every maker name in the registers ----------
+   The app decides a few things from the maker name alone (the shown make, the importer's recall page, the brand's resale tier,
+   which settlements can apply). Each is computed by the app's own functions twice: on the register's name ("רנו טורקיה")
+   and on the make the page shows ("רנו"). A difference means the factory country changed the answer. */
+let MAKERS_OUT = [];
+async function makersPass() {
+  const names = new Map();
+  for (const k of ["active", "inactive", "cancel"]) { const s = SET(k); if (!s) continue;
+    try { const r = await search(s.id, {fields: "tozeret_nm", distinct: "true", limit: 1000}); for (const x of r.records) { const n = String(x.tozeret_nm || "").trim(); if (n && !names.has(n)) names.set(n, k); } }
+    catch (e) { MAKERS_OUT.push(`makers ${k}: ${e.message}`); } }
+  if (coolUntil > Date.now()) await sleep(coolUntil - Date.now());
+  await slot(16);
+  const page = await ctx.newPage();
+  page.on("request", r => { if (/data\.gov\.il/.test(r.url())) HITS.push(Date.now()); });
+  await page.goto(BASE, {waitUntil: "domcontentloaded", timeout: 30000});
+  await page.waitForFunction(() => typeof SETTLEMENTS !== "undefined" && typeof makeName === "function", null, {timeout: 30000});
+  const res = await page.evaluate(list => {
+    const pickF = (...a) => a.find(x => x != null && String(x).trim() !== "") || "";
+    const Dof = n => { const v = {tozeret_nm: n}; return {v, make: makeName(v), price: null, modelRecalls: [], pick: pickF}; };
+    return list.map(n => { const D = Dof(n), S = Dof(D.make);
+      const imp = x => { try { return importerRecall(x).name; } catch (e) { return "error " + e.message; } };
+      const tier = x => { try { return brandTier(x, false).k; } catch (e) { return "error"; } };
+      const stl = x => SETTLEMENTS.filter(s => s.mk.test(normS([x.v.tozeret_nm, x.make].join(" ")))).map(s => s.id);
+      return {n, shown: D.make, impFull: imp(D), impShown: imp(S), tierFull: tier(D), tierShown: tier(S), stlFull: stl(D), stlShown: stl(S)}; });
+  }, [...names.keys()]);
+  const allIds = await page.evaluate(() => SETTLEMENTS.filter(s => !(new Date(s.until + "T23:59:59") < new Date())).map(s => [s.id, s.mk.source]));
+  await page.close();
+  const bad = [];
+  for (const r of res) {
+    const why = [];
+    if (r.impFull !== r.impShown) why.push(`importer recall page "${r.impFull}" (for "${r.shown}" alone: "${r.impShown}")`);
+    if (r.tierFull !== r.tierShown) why.push(`resale tier ${r.tierFull} (for "${r.shown}" alone: ${r.tierShown})`);
+    const extra = r.stlFull.filter(x => !r.stlShown.includes(x)); if (extra.length) why.push(`settlements of another maker can apply: ${extra.join(",")}`);
+    if (why.length) bad.push([r, why]);
+  }
+  for (const [r, why] of bad) { let n = "?"; try { n = await count(SET(names.get(r.n)).id, {tozeret_nm: r.n}); } catch {}
+    MAKERS_OUT.push(`MAKER-RULE "${r.n}" (${names.get(r.n)}, ${n} cars) shown as "${r.shown}": ${why.join("; ")}`); }
+  for (const [id, src] of allIds) { const hit = res.filter(r => r.stlFull.includes(id)).map(r => r.n);
+    if (!hit.length) MAKERS_OUT.push(`SETTLE-MK ${id} /${src}/ matches no maker name in the registers, so it never shows`); }
+  const multi = [...new Set(res.filter(r => /\s/.test(r.shown)).map(r => `"${r.n}" -> "${r.shown}"`))];
+  MAKERS_OUT.push(`MAKER-NAMES ${res.length} names read; shown names that keep more than one word (${multi.length}): ${multi.join(", ")}`);
+}
+if (OPTS.makers !== "0") { try { await makersPass(); } catch (e) { MAKERS_OUT.push("makers pass failed: " + e.message); } }
 await browser.close();
 console.log(`\n===== SUMMARY: ${audited} cars audited, ${MIS.length} mismatches, ${reqN} requests by the harness (${throttled} refused and retried), ${Math.round((Date.now() - T0) / 60000)} min${skipped.length ? `, skipped for time: ${skipped.join(",")}` : ""}${infra.length ? `, skipped because the ministry refused the app: ${infra.join(",")}` : ""}`);
 for (const [f, s] of Object.entries(STAT).sort()) console.log(`FIELD ${f.padEnd(28)} checked=${s.n} mismatched=${s.bad}${s.bad && !s.quiet ? " [" + s.cases.slice(0, 20).join(",") + "]" : ""}${s.quiet ? " (totals only)" : ""}`);
 console.log("\n===== maker name -> shown make (count)"); for (const [k, n] of [...MAKEPAIRS].sort()) console.log(`MAKE ${k} (${n})`);
 console.log("\n===== settlements shown"); for (const s of STLS) console.log("STL " + s);
 console.log("\n===== model recall rows shown that only partly name the model"); for (const s of AMBIG) console.log("AMBIG " + s);
+console.log("\n===== maker-name rules (every maker name in the registers)"); for (const s of MAKERS_OUT) console.log(s);
 console.log("\n===== notes"); for (const s of NOTES) console.log("NOTE " + s);
