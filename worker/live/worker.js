@@ -4,7 +4,7 @@
 const CF_TAG = "9bb0e756882c478a808d95596e0deade";
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-19";   // shown in /live/data so the running version is visible
+const BUILD = "live-20";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -450,11 +450,10 @@ box.innerHTML='<h4>שמירת רכב</h4><p class="note" style="margin:0 0 6px">
 {const SRC=h=>!h?"כניסה ישירה":/google\\./.test(h)?"גוגל":/bing\\.|duckduckgo|yahoo|ecosia/.test(h)?"מנועי חיפוש אחרים":/whatsapp|wa\\.me/.test(h)?"וואטסאפ":/facebook|instagram|t\\.co|twitter|x\\.com|linkedin|telegram|t\\.me|tiktok|youtube/.test(h)?"רשתות חברתיות":/luchit\\.app/.test(h)?"מתוך האתר":h;
 const agg=(arr,f)=>{const m={};(arr||[]).forEach(r=>{const k=f(r[0]);m[k]=(m[k]||0)+r[1]});return Object.entries(m).sort((a,b)=>b[1]-a[1])};
 const S7=W&&W.sources,tot=S7?S7.reduce((a,r)=>a+r[1],0):null,kv=(a,ltr)=>a&&a.length?'<ul class="kv">'+a.map(r=>"<li><span>"+(ltr?'<bdi dir="ltr">'+esc(r[0])+"</bdi>":esc(r[0]))+"</span><b>"+n(r[1])+"</b></li>").join("")+"</ul>":'<p class="note" style="margin:0">אין נתונים</p>';
-const C=(d.daily||{}).campaigns,T=d.metrics&&d.metrics.social&&d.metrics.social.tiktok;
+const C=(d.daily||{}).campaigns;
 $("web").innerHTML='<h4>ביקורים ב-7 ימים ('+rng(W&&W.CW)+"): "+n(tot)+"</h4>"+kv(S7?agg(S7,SRC):null)+(W&&W.CW&&W.CW[0]<"2026-10-18"?'<p class="note">מ-18.10 נספרים גם דפי הדגמים, המגזין ושאר דפי האתר, ולכן עד 24.10 המספר כאן חלקי.</p>':"")
 +"<h4>הדפים שהכי ראו</h4>"+kv(W&&W.pages?agg(W.pages,h=>h||"/").slice(0,8):null,true)
-+"<h4>כניסות מיוטיוב ומטיקטוק</h4>"+(C?'<table class="t"><thead><tr><th>מקור</th><th class="n">היום</th><th class="n">7 ימים</th><th class="n">28 ימים</th></tr></thead><tbody>'+[["youtube","יוטיוב"],["tiktok","טיקטוק"]].map(k=>{const v=C[k[0]]||[0,0,0];return "<tr><td>"+k[1]+"</td>"+v.map(x=>'<td class="n">'+n(x)+"</td>").join("")+"</tr>"}).join("")+"</tbody></table>":'<p class="note" style="margin:0">אין נתונים</p>')
-+"<h4>עמוד הטיקטוק</h4>"+(T?'<ul class="kv">'+[["followers","עוקבים"],["views7","צפיות ב-7 ימים"],["likes7","לייקים ב-7 ימים"],["videos","סרטונים"]].map(k=>"<li><span>"+k[1]+"</span><b>"+n(T[k[0]])+"</b></li>").join("")+"</ul>":'<p class="note" style="margin:0">אין עדיין נתונים. הם מוזנים פעם בשבוע מ-TikTok Analytics.</p>')}
++"<h4>כניסות מיוטיוב ומטיקטוק</h4>"+(C?'<table class="t"><thead><tr><th>מקור</th><th class="n">היום</th><th class="n">7 ימים</th><th class="n">28 ימים</th></tr></thead><tbody>'+[["youtube","יוטיוב"],["tiktok","טיקטוק"]].map(k=>{const v=C[k[0]]||[0,0,0];return "<tr><td>"+k[1]+"</td>"+v.map(x=>'<td class="n">'+n(x)+"</td>").join("")+"</tr>"}).join("")+"</tbody></table>":'<p class="note" style="margin:0">אין נתונים</p>')}
 
 // drawer: Google search
 {const S=d.seo,box=$("seo");if(!S||!S.cur){box.innerHTML='<p class="note">'+(S?"אין עדיין נתוני חיפוש.":"Search Console לא ענה.")+"</p>"}else{
