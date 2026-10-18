@@ -1,7 +1,17 @@
 name = "luchit-mail"
 main = "worker.js"
-compatibility_date = "2026-10-01"
+compatibility_date = "2026-10-13"   # as set live in the dashboard
+workers_dev = true     # as live (an Email Worker has no route)
+preview_urls = false   # as live
+keep_vars = true   # a deploy never deletes a dashboard variable (ALERT_ROUTE); FORWARD_TO below is still set by every deploy
 # Email Workers have no route: attach it in Email > Email Routing > Routes (support@luchit.app > Send to a Worker > luchit-mail).
 # Secrets (never in this file):  wrangler secret put TELEGRAM_BOT_TOKEN ; wrangler secret put TELEGRAM_CHAT_ID
+# Alert router, set in the dashboard (prompt reports/פרומפט-לתוסף-מייל-תמיכה.md): var ALERT_ROUTE = "all" (absent = every mail rings as
+# before). The KV binding ALERTS = luchit-alerts is declared below, so a deploy keeps it; without ALERT_ROUTE the Worker never uses it.
+[observability]
+enabled = false   # Workers Logs would keep who wrote to support: not kept
 [vars]
 FORWARD_TO = "ddsabag@gmail.com"
+[[kv_namespaces]]
+binding = "ALERTS"
+id = "KV_NAMESPACE_ID"   # the id of luchit-alerts (luchit-uptime creates it); the Workers deploy workflow fills it in by title; not a secret

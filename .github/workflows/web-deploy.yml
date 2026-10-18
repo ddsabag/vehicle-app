@@ -98,7 +98,7 @@ jobs:
       - name: Pack the site (tar keeps dot folders such as .well-known)
         if: ${{ steps.live.outputs.live != 'true' }}
         run: tar --dereference --hard-dereference -cf "$RUNNER_TEMP/artifact.tar" -C site .
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ steps.live.outputs.live != 'true' }}
         with:
           name: github-pages

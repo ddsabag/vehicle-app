@@ -1,4 +1,13 @@
 name = "luchit-og"
 main = "worker.js"
-compatibility_date = "2026-10-01"
-routes = [{ pattern = "luchit.app/*", zone_name = "luchit.app" }]
+compatibility_date = "2026-10-12"   # as set live in the dashboard
+keep_vars = true   # the preview needs no variables; any set in the dashboard survive a deploy
+# luchit.app/* is what makes previews work: the exact luchit.app/ does not match a URL with a query (?plate=, ?cmp=), found 2026-10-12
+# and again 2026-10-18 after the route was narrowed to luchit.app/ on 2026-10-16 (previews stopped). luchit.app/ stays listed as it is live.
+routes = [{ pattern = "luchit.app/*", zone_name = "luchit.app" }, { pattern = "luchit.app/", zone_name = "luchit.app" }]
+workers_dev = true     # as live
+preview_urls = false   # as live
+[observability]
+enabled = false   # Workers Logs would keep every request URL, and a shared link carries the plate (?plate=): not kept
+[version_metadata]
+binding = "CF_VERSION_METADATA"   # the running version's id: answers carry it as x-luchit-version, so the Workers deploy check knows which version answered

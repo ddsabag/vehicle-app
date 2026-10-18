@@ -34,6 +34,7 @@ export const STATE = { branch: "alert-state", file: "state.json", heartbeat: "he
 // Phase 3 merges: Infra watch is part of "Site smoke test", Magazine data articles and Newsletter of "Magazine", IndexNow a job of "Web deploy (build)".
 export const WF_LEVELS = {
   "Web deploy (build)": "critical",
+  "Workers deploy": "critical",   // a crash mid-deploy can leave the site on an unchecked Worker version
   "Android build": "day", "Data guard": "day", "Fuel price": "day", "Market data": "day",
   "Ministry watch": "day", "Model names": "day", "Model statistics": "day", "Magazine": "day", "Site smoke test": "day",
   "Site smoke test (after deploy)": "day", "Weekly analytics report": "day", "Alert daily": "day",
@@ -42,6 +43,7 @@ export const WF_LEVELS = {
   "SEO daily digest": "summary", "SEO data snapshot": "summary", "Experimenter": "summary",
   "Reviews monitor": "silent", "Ownership data mirror": "silent",
   "Back-on-road detector": "silent",
+  "Ship tail": "day", "Store listing": "day", "Release watch": "day", "Production": "day",
 };
 
 // fixed Hebrew text for the morning ring and the Sunday block. Lookup: first two key segments, then the first one.
@@ -79,13 +81,37 @@ export const LABELS = {
   "meta:uptime":         { he: "בדיקת הזמינות ב-Cloudflare לא מדווחת", sect: "fail" },
   "meta:telegram":       { he: "מערך ההתראות בטלגרם לא עבד", sect: "fail" },
   "weekly:missing":      { he: "הסיכום השבועי לא נשלח", sect: "fail" },
+  "workers:refused":     { he: "פריסת Worker נעצרה ומחכה לתיקון: {id}", sect: "wait" },
+  "workers:rollback":    { he: "פריסת Worker נכשלה בבדיקה: {id}", sect: "fail" },
+  "workers:failed":      { he: "פריסת Worker נכשלה: {id}", sect: "fail" },
+  "workers:forced":      { he: "קוד שלא היה ב-main הוחלף בפריסה: {id}", sect: "fyi" },
+  "ship:done":           { he: "גרסה {id} עלתה ל-Alpha, הקידום ל-Production אצלך", sect: "wait" },   // play-alpha.mjs summary (Ship tail)
+  "ship:notes":          { he: "העלאת גרסה {id} ל-Alpha מחכה להערות שחרור", sect: "wait" },
+  "ship:fail":           { he: "העלאה ל-Alpha נכשלה: {ids}", sect: "fail", ids: { access: "אין גישה ל-Google Play", github: "הבנייה לא נקראה מ-GitHub" } },
+  "ship:dry":            { he: "בדיקה יבשה של העלאת {id} ל-Alpha", sect: "fyi" },
+  "listing:done":        { he: "דף החנות ב-Google Play עודכן ונשלח לסקירה", sect: "fyi" },   // play-listing.mjs (Store listing)
+  "listing:dry":         { he: "בדיקה יבשה של עדכון דף החנות", sect: "fyi" },
+  "listing:fail":        { he: "עדכון דף החנות ב-Google Play נכשל: {ids}", sect: "fail", ids: { access: "אין הרשאה לדף החנות", files: "קובץ לא עומד בכללי Play", play: "Google Play לא קיבל את השינוי" } },
+  "watch:new":           { he: "קריסה חדשה בגרסה שעלתה לאחרונה", sect: "fail" },   // release-watch.mjs (Release watch)
+  "watch:error":         { he: "המעקב אחרי השחרור לא קרא מ-Google Play", sect: "fail" },
+  "safety:done":         { he: "ה-Data safety ב-Google Play עודכן", sect: "fyi" },   // play-data-safety.mjs (Store listing)
+  "safety:fail":         { he: "עדכון ה-Data safety ב-Google Play נכשל: {ids}", sect: "fail", ids: { access: "אין הרשאה", files: "הקובץ לא תקין", play: "Google Play לא קיבל אותו" } },
+  "prod:sent":           { he: "גרסה נשלחה ל-Production", sect: "fyi" },   // play-production.mjs (Production, Release watch)
+  "prod:live":           { he: "Google אישרה את הגרסה, והיא עלתה להפצה הדרגתית ב-Production", sect: "fyi" },
+  "prod:full":           { he: "הגרסה הגיעה ל-100% מהמשתמשים ב-Production", sect: "fyi" },
+  "prod:halt":           { he: "ההפצה ב-Production נעצרה בגלל קריסה חדשה", sect: "fail" },
+  "prod:stop":           { he: "הפרסום ל-Production לא נשלח", sect: "fyi" },
+  "prod:wait":           { he: "ההפצה ב-Production מחכה לך או ל-Google", sect: "fyi" },
+  "prod:fail":           { he: "הפרסום ל-Production נכשל: {ids}", sect: "fail", ids: { access: "אין הרשאה ל-Production", promote: "השליחה לא הצליחה", auto: "הבדיקה של ההפצה לא הצליחה" } },
 };
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
 export const FAMILIES_IN_USE = [
   "wf", "smoke", "expiry", "infra", "infra-branches", "guard:core", "guard:break", "guard:warn", "ministry", "checker:data-health",
   "review", "review3", "vitals", "reviews:error", "seo:daily", "seo:nodata", "seo:error", "mention",
   "seo-auto:blocked", "seo-auto:wait", "seo-auto:notice", "seo-auto:done", "catalog", "mag:pub", "mag:fail",
-  "webwatch:rollback", "webwatch:rollback-failed", "meta:uptime", "weekly:missing",
+  "webwatch:rollback", "webwatch:rollback-failed", "meta:uptime", "weekly:missing", "workers:refused", "workers:rollback", "workers:failed", "workers:forced",
+  "ship:done", "ship:notes", "ship:fail", "ship:dry", "listing:done", "listing:dry", "listing:fail",
+  "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:wait", "prod:fail",
 ];
 
 const TODAY = ["loud", "silent", "none"];
@@ -771,7 +797,7 @@ async function selftest() {
       "infra:quota-cf+site", "checker:data-health", "mag:pub:2026-10-18-new-cars", "infra-branches:2026-10", "x:v1.2.3"]) ok(validKey(k), "validKey accepts " + k);
     for (const f of FAMILIES_IN_USE) ok(family(f) !== null, "label for family " + f);
     for (const [f, ids] of [["smoke", "home lookup magazine applinks privacy model sitemap cert domain certcheck"], ["expiry", "cert domain certcheck"],
-      ["infra", "site api sitemap quota-cf quota-brevo"], ["vitals", "crash anr"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
+      ["infra", "site api sitemap quota-cf quota-brevo"], ["vitals", "crash anr"], ["listing:fail", "access files play"], ["prod:fail", "access promote auto"], ["safety:fail", "access files play"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
       const he = label(f + ":" + ids.split(" ").join("+")).he.split(/[\s,:]+/);
       ok(!ids.split(" ").some(i => he.includes(i)), `label ${f}: no raw id left`);
     }

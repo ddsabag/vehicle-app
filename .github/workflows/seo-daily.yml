@@ -48,7 +48,7 @@ jobs:
           GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
         run: python analytics/seo_track.py state --out state/weekly.txt ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '--dry' || '' }}
       # the report and the updated history go to the digest job, which sends the report, and to the save job, which then stores the history
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: seo-weekly
           path: state/
@@ -109,7 +109,7 @@ jobs:
       - name: Keep the sent mark for a re-run
         if: ${{ !cancelled() && hashFiles('digest-sent.txt') != '' }}
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: seo-digest-sent
           path: digest-sent.txt

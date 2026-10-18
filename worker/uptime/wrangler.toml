@@ -1,0 +1,19 @@
+name = "luchit-uptime"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["global_fetch_strictly_public"]   # probes reach luchit.app through the public front door (Pages + the /api/* route)
+workers_dev = true                                        # no luchit.app route: /health is at luchit-uptime.<subdomain>.workers.dev
+preview_urls = false                                      # no preview URLs for each version
+keep_vars = true                                          # no [vars] block at all, so a deploy can never blank a dashboard variable
+[observability]
+enabled = false
+[triggers]
+crons = ["*/10 * * * *"]
+[[kv_namespaces]]
+binding = "ALERTS"
+id = "KV_NAMESPACE_ID"   # the id of luchit-alerts, filled in after Dudu creates it (prompt reports/פרומפט-לתוסף-בדיקת-זמינות.md); not a secret
+# Optional, added in the dashboard: Send Email binding MAIL, destination = the FORWARD_TO address in worker/mail/wrangler.toml (already verified).
+# Secrets (Dudu pastes them): TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID; optional BREVO_KEY.
+# Dashboard variable (after the observe week): ALERT_ROUTE = "critical"  (absent = observe mode)
+[version_metadata]
+binding = "CF_VERSION_METADATA"   # the running version's id: answers carry it as x-luchit-version, so the Workers deploy check knows which version answered

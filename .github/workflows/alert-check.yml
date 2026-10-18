@@ -1,7 +1,9 @@
 name: Alert router check
 # Offline checks of the alert router (no secrets, no network): syntax, the engine's self-test (decision table, DST, partial rollout,
-# failures, privacy, CLI marker contract), the Python wrapper's self-test, the Worker block test and compare.
-# Steps for waiting.mjs, alert-fallback.test.sh and the uptime/mail Worker tests join when those files land.
+# failures, privacy, CLI marker contract), the Python wrapper's self-test, the Sunday block and weekly brief tests, the Worker tests, the
+# Workers deploy self-test (Ship Tail: guards, rollback, dry mode, on its own fixtures, so normal Worker edits never turn it red), the store
+# listing self-test and files (a too-long description or a bad screenshot on next is red here, before "שחרר") and the block compare.
+# The alert-fallback.test.sh step joins with the call sites (step C).
 # Paths: router files and every call-site directory (the self-test scans call-site keys; spec 15.1).
 on:
   pull_request:
@@ -9,20 +11,18 @@ on:
       - ".github/scripts/**"
       - ".github/workflows/**"
       - "analytics/**"
-      - "worker/lib/**"
-      - "worker/uptime/**"
-      - "worker/mail/**"
-      - "worker/reviews/**"
+      - "worker/**"
+      - ".github/ship-tail.json"
+      - ".github/store-listing/**"
   push:
     branches: [main, next]
     paths:
       - ".github/scripts/**"
       - ".github/workflows/**"
       - "analytics/**"
-      - "worker/lib/**"
-      - "worker/uptime/**"
-      - "worker/mail/**"
-      - "worker/reviews/**"
+      - "worker/**"
+      - ".github/ship-tail.json"
+      - ".github/store-listing/**"
   workflow_dispatch:
 permissions:
   contents: read
@@ -38,15 +38,37 @@ jobs:
         with:
           python-version: "3.12"
       - name: Syntax
-        run: for f in .github/scripts/alert.mjs worker/lib/alert-lib.js worker/mail/worker.js worker/uptime/worker.js worker/reviews/worker.js; do [ ! -f "$f" ] || node --check "$f"; done
+        run: for f in .github/scripts/alert.mjs .github/scripts/waiting.mjs worker/lib/alert-lib.js worker/mail/worker.js worker/uptime/worker.js worker/reviews/worker.js; do [ ! -f "$f" ] || node --check "$f"; done
+      - name: Jobs pinned to ubuntu-24.04
+        run: "! grep -rnE '^[[:space:]]*runs-on:[[:space:]]*ubuntu-latest' .github/workflows/"
       - name: Engine self-test
         run: node .github/scripts/alert.mjs selftest
+      - name: Ship tail self-tests (alpha-only guard, data-rebuild skip, release notes, GA4 create-only)
+        run: node .github/scripts/play-alpha.mjs selftest && node .github/scripts/ga4-admin.mjs selftest
+      - name: Store listing self-test and files (iw-IL only, Play's limits, nothing committed when Play keeps something else)
+        run: node .github/scripts/play-listing.mjs selftest && node .github/scripts/play-listing.mjs check
+      - name: Data safety self-test and file (Play's export format, sent only when it changed)
+        run: node .github/scripts/play-data-safety.mjs selftest && node .github/scripts/play-data-safety.mjs check
+      - name: Release watch self-test (reads only, new issues told once, 72 h windows)
+        run: node .github/scripts/release-watch.mjs selftest
+      - name: Production self-test (production only, 20% start, halt on a new crash, 100% 48 h after published, manual start only)
+        run: node .github/scripts/play-production.mjs selftest
       - name: Python wrapper self-test
         run: python3 -I analytics/alert.py --selftest
+      - name: Sunday block self-test
+        run: node .github/scripts/waiting.mjs --selftest
+      - name: Weekly brief block test
+        run: python3 -I -B analytics/test_run_block.py
       - name: Worker block test
         run: node worker/lib/test.mjs
+      - name: Uptime Worker test
+        run: node worker/uptime/test.mjs
+      - name: Mail Worker test
+        run: node worker/mail/test.mjs
       - name: Reviews Worker test
         run: node worker/reviews/test.mjs
+      - name: Workers deploy self-test
+        run: node .github/scripts/workers-deploy.mjs --selftest
       # worker/lib/alert-lib.js: QUIET and the isDaytime body equal alert.mjs's; each Worker that already holds the block holds it byte-identical
       - name: Worker block compare
         run: |
