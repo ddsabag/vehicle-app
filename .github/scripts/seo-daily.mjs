@@ -4,7 +4,7 @@
 // Mondays: SEO_WEEKLY names a file with the weekly ranking report (analytics/seo_track.py --out, the job before this one); it is added at the end of
 // the digest, so Monday has one SEO message. Too long for one Telegram message, or the digest itself failed: the weekly part goes as its own silent message.
 import crypto from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 const DRY = process.env.DRY_RUN === "1", SITE = "sc-domain:luchit.app", ORIGIN = "https://luchit.app/";
 const sa = JSON.parse(process.env.GA_SERVICE_ACCOUNT_JSON || "null");
 if (!sa) { console.log("no service account secret, nothing to do"); process.exit(0); }
@@ -30,12 +30,21 @@ async function telegram(text, silent = false) {
 let WEEKLY = "";   // the Monday weekly ranking report, plain text ("" on other days)
 if (process.env.SEO_WEEKLY) { try { WEEKLY = readFileSync(process.env.SEO_WEEKLY, "utf8").trim(); } catch (e) { console.log("no weekly report:", e.message); } }
 const weeklyAlone = () => telegram(esc(WEEKLY), true);   // silent, like the SEO tracker message it replaces
+// Re-run of a Monday run whose daily part was already delivered (Re-run failed jobs also re-runs this job when the weekly part failed):
+// SEO_DIGEST_SENT=1 sends only the weekly report, as re-running SEO tracker did, never the same digest twice. SEO_SENT_MARK names the file
+// written once the daily part is delivered (the workflow keeps it for the run's later attempts).
+const markSent = () => { if (process.env.SEO_SENT_MARK && !DRY) try { writeFileSync(process.env.SEO_SENT_MARK, new Date().toISOString()); } catch (e) { console.log("could not mark the digest sent:", e.message); } };
+if (process.env.SEO_DIGEST_SENT === "1") {
+  if (!WEEKLY) { console.log("the digest was already sent in an earlier attempt of this run and there is no weekly report: nothing to send"); process.exit(0); }
+  console.log("the digest was already sent in an earlier attempt of this run: sending only the weekly report");
+  process.exit((await weeklyAlone()) ? 0 : 1);
+}
 // the digest with the weekly report at the end; split in two when that is longer than one Telegram message (4096 characters)
 async function sendDigest(text, silent) {
-  if (!WEEKLY) return telegram(text, silent);
-  const both = text + "\n\n" + esc(WEEKLY);
-  if (both.length <= 4000) return telegram(both, silent);
+  const one = WEEKLY ? text + "\n\n" + esc(WEEKLY) : text;
+  if (!WEEKLY || one.length <= 4000) { const ok = await telegram(one, silent); if (ok) markSent(); return ok; }
   const a = await telegram(text, silent);
+  if (a) markSent();
   return (await weeklyAlone()) && a;
 }
 const iso = d => d.toISOString().slice(0, 10), addDays = (s, n) => iso(new Date(Date.parse(s + "T00:00:00Z") + n * 864e5));
@@ -123,6 +132,7 @@ try {
   process.exit(ok ? 0 : 1);
 } catch (e) {
   let ok = await telegram(`⚠️ <b>הדוח היומי מ-Search Console לא הצליח לרוץ</b>\nהסיבה: ${esc(String(e.message || e).slice(0, 300))}\nהבדיקה תרוץ שוב מחר. אם זה חוזר, כנראה שחשבון השירות אינו מחובר לנכס luchit.app ב-Search Console (הרשאת Restricted מספיקה) או ש-Google Search Console API כבוי בפרויקט.`);
+  if (ok) markSent();   // that error message stands for the day's digest: a re-run sends only the weekly report
   if (WEEKLY) ok = (await weeklyAlone()) && ok;   // the weekly report was built by its own job: still deliver it, silently and apart from the loud error
   process.exit(ok ? 0 : 1);
 }
