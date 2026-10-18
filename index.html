@@ -1026,9 +1026,11 @@ const BRAND_TIERS = [
   {k: 0.80, r: 0.10, re: /(?<![א-ת])(?:מ\.? ?ג|אם.{0,2}ג.{0,2}י)(?![א-ת])|\bMG\b/i, notEv: true},
   {k: 0.88, r: 0.10, re: /BYD|בי.{0,2}וי.{0,2}די|טסלה|TESLA|ג.?ילי|GEELY|צ.?רי|CHERY|סרס|SERES|ליפמוטור|LEAPMOTOR|זיקר|ZEEKR|אקספנג|XPENG|וויה|VOYAH|לינק|LYNK|ג.?נסיס|GENESIS|אלפא|ALFA|וולוו|וולבו|VOLVO|י?ג.?ואר|JAGUAR|לנד רובר|LAND ROVER|ג.?יפ|JEEP/i},
 ];
+/* the maker without its factory country, for the maker rules: "טורקיה" and "סלובקיה" end in "קיה" (Kia) */
+const makerOnly = D => [makeName(D.v), D.make].filter(x => !empty(x)).join(" ");
 function brandTier(D, ev){
   try {
-    const mk = [D.v.tozeret_nm, D.make].filter(x => !empty(x)).join(" ");
+    const mk = makerOnly(D);
     const t = mk && BRAND_TIERS.find(x => x.re.test(mk) && !(x.notEv && ev));
     if (t) return t;
   } catch {}
@@ -1423,7 +1425,7 @@ const SETTLEMENTS = [
 ];
 const normS = t => String(t || "").toUpperCase().replace(/[^A-Z0-9א-ת]/g, "");
 function settlementsFor(D){
-  const v = D.v, y = num(v.shnat_yitzur), now = new Date(), x = {mk: normS([v.tozeret_nm, D.make].join(" ")), md: normS([v.kinuy_mishari, v.degem_nm].join(" "))};
+  const v = D.v, y = num(v.shnat_yitzur), now = new Date(), x = {mk: normS(makerOnly(D)), md: normS([v.kinuy_mishari, v.degem_nm].join(" "))};
   return SETTLEMENTS.filter(s => !(new Date(s.until + "T23:59:59") < now) && s.mk.test(x.mk) && (!s.md || s.md.test(x.md)) && (!s.y || y >= s.y[0] && y <= s.y[1]) && (!s.ok || s.ok(v, y, x)));
 }
 const stlSeen = new Set();
@@ -1440,9 +1442,8 @@ function settlementCard(D){
     `<p class="est-tag"><b>התאמה משוערת לפי דגם ושנתון</b>, לא רשומה אישית של הרכב. לא מצאנו אישור שהרכב הזה נכלל בהסדר.</p><p style="margin:0 0 8px">${list.length === 1 ? "נמצא הסדר פשרה אחד שעשוי לחול על הרכב." : `נמצאו ${list.length} הסדרי פשרה שעשויים לחול על הרכב.`}</p><ul class="stls">${items}</ul>${full ? `<p class="note">לפי הודעות היבואנים והעיתונות, נכון ל-10/2026. הזכאות נקבעת לפי הרכב (לפעמים לפי מספר שלדה), וייתכן שהמועד חלף. לפני תיקון בתשלום כדאי לבדוק מול היבואן.</p>` : `<p class="note">פרטי ההטבה, התנאים והקישור ליבואן זמינים ב-PRO.</p><button type="button" class="link-btn" data-act="proInfo">הצטרפות ל-PRO</button>`}`, `<span class="count">${list.length}</span>`);
 }
 function importerRecall(D){
-  const m = [D.v.tozeret_nm, D.v.kinuy_mishari, D.v.degem_nm, D.make, D.price && D.price.shem_yevuan].filter(x => !empty(x)).join(" ");
+  const mk = makerOnly(D), m = [mk, D.v.kinuy_mishari, D.v.degem_nm, D.price && D.price.shem_yevuan].filter(x => !empty(x)).join(" ");
   // the maker decides first: a model name can contain another brand's word (a Subaru "פורסטר ג'יפ" is not a Jeep)
-  const mk = [D.v.tozeret_nm, D.make].filter(x => !empty(x)).join(" ");
   const hit = IMPORTER_RECALL.find(x => x.re.test(mk)) || IMPORTER_RECALL.find(x => x.re.test(m));
   if (hit) return hit;
   const who = D.pick(D.price && D.price.shem_yevuan, D.modelRecalls[0] && D.modelRecalls[0].YEVUAN_TEUR, D.make);
