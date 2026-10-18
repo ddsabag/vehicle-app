@@ -1,0 +1,70 @@
+name: Ministry watch
+# Once a day, one pass over the data.gov.il (Ministry of Transport) datasets the app reads. Replaces "Data health" (04:00 UTC) and "Data status" (05:40 UTC),
+# which asked every dataset separately about 100 minutes apart. Two jobs with their own names, so in Failure alert a failure of one is never taken
+# for a repeat of the other:
+#  health: availability, latency, schema drift and freshness (data-health-check.mjs). A real problem sends a loud Telegram alert and a /live flash and
+#          finishes green once the alert is delivered; the job is red only when the alert could not be sent or the check crashed (then Failure alert pages).
+#  status: the app's status.json (size and last update of 5 datasets) on the orphan branch data-status, which index.html reads from raw.githubusercontent:
+#          same branch, file and format as before. status.mjs builds it from what the health job already read with rows (output "seen"), asking only for
+#          what is missing (the unfiltered row counts of the 3 datasets the health check looks up by plate) and reading again, as Data status did, any
+#          dataset the health job saw empty or timing out, so one that came back is not published as down; when the health job left nothing (crash, timeout),
+#          it reads everything itself, as Data status did. It runs whatever the health job's result, except on a preview.
+on:
+  schedule:
+    - cron: "7 4 * * *"   # 04:07 UTC = 07:07 Israel summer time, 06:07 winter time (from 25.10.2026); off the full hour, when GitHub delays or drops the most
+                          # scheduled runs (one lost run now costs both the check and status.json); before Data guard 04:15; GitHub starts it 20-40 min late
+  workflow_dispatch:
+    inputs:
+      preview:
+        description: "Send a labelled sample alert to Telegram (wording check); status.json is not touched"
+        type: boolean
+        default: false
+      dry_run:
+        description: "Print the alert instead of sending it to Telegram (status.json is still refreshed)"
+        type: boolean
+        default: false
+permissions:
+  contents: write   # flash.mjs writes the flashes branch; the status job force-pushes data-status
+jobs:
+  health:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      seen: ${{ steps.check.outputs.seen }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      - name: Check ministry datasets
+        id: check
+        run: node .github/scripts/data-health-check.mjs
+        env:
+          PREVIEW: ${{ inputs.preview && '1' || '0' }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+  status:
+    needs: health
+    # always(): Data status never depended on the health check, so a red or timed-out health job must not stop the app's status file
+    if: ${{ always() && !inputs.preview }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+      - name: Snapshot the datasets
+        run: node .github/scripts/status.mjs
+        env:
+          SEEN: ${{ needs.health.outputs.seen }}
+      - name: Publish to data-status branch
+        run: |
+          cd out
+          git init -q -b data-status
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add status.json
+          git commit -qm "status $(date -u +%F)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" data-status

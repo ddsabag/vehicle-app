@@ -3,6 +3,8 @@ import { ilTime } from "./notify.mjs";
 import { flash } from "./flash.mjs";
 // Env: PLAY_SERVICE_ACCOUNT_JSON (falls back to GA_SERVICE_ACCOUNT_JSON), TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
 //      optional PLAY_PACKAGE, PLAY_DEVELOPER_ID + PLAY_APP_ID (for a deep link into Play Console), MAX_STARS (default 3), DRY_RUN=1.
+//      REVIEWS_RESPONDER=on (repo variable): the Cloudflare Worker luchit-reviews announces every review with a reply draft, so the
+//      review alerts here are skipped (no double announcement); vitals and the error alerts of the vitals check are unchanged.
 // State: seen.json (restored/saved by the workflow cache) so the same review is never sent twice, plus the error streak (errOn).
 import fs from "node:fs";
 import crypto from "node:crypto";
@@ -48,7 +50,8 @@ const save = () => fs.writeFileSync(STATE, JSON.stringify(seen));
 const errors = [];
 
 // ---- reviews ----
-try {
+if (process.env.REVIEWS_RESPONDER === "on") console.log("reviews: skipped, luchit-reviews announces them (REVIEWS_RESPONDER=on)");
+else try {
   const t = await token("https://www.googleapis.com/auth/androidpublisher");
   const r = await rf(`https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${PKG}/reviews?maxResults=100`, { headers: { authorization: "Bearer " + t } });
   if (!r.ok) throw new Error(`reviews API ${r.status}: ${(await r.text()).slice(0, 200)}`);

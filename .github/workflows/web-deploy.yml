@@ -3,11 +3,18 @@ name: Web deploy (build)
 # (first paint on a slow phone ~0.8 s earlier, see .github/scripts/web-build.mjs). The source index.html is untouched.
 # INERT UNTIL SWITCHED ON: it only builds (and keeps the result as a downloadable artifact). It deploys only when the repository variable
 # WEB_DEPLOY is "true" AND Pages > Source is "GitHub Actions". Before that, Pages keeps serving the repo as it is today.
+# After a deploy, the indexnow job tells Bing and the other IndexNow engines which pages changed (was the separate "IndexNow" workflow, which
+# only saw human pushes). It is low value: its failure shows as a red job in the run but never fails the run (no Failure alert, and the
+# after-deploy smoke test still runs).
 on:
   workflow_dispatch:
     inputs:
       deploy:
         description: "Deploy to GitHub Pages (needs Pages source = GitHub Actions)"
+        type: boolean
+        default: false
+      indexnow:
+        description: "IndexNow: submit every sitemap URL to Bing and the other IndexNow engines (with or without a deploy)"
         type: boolean
         default: false
   # Once Pages is served from Actions, every change to main must be published here, including commits the data bots make with
@@ -16,7 +23,7 @@ on:
   push:
     branches: [main]
   workflow_run:
-    workflows: ["Fuel price", "Market data", "Model statistics", "Model names", "Magazine", "Magazine data articles", "SEO auto-publish", "Experimenter"]
+    workflows: ["Fuel price", "Market data", "Model statistics", "Model names", "Magazine", "SEO auto-publish", "Experimenter"]
     types: [completed]
     branches: [main]
   # safety net for any main commit no trigger above published: 03:17 UTC (before the morning smoke test and the 04:40-08:10 data window)
@@ -25,16 +32,25 @@ on:
     - cron: "17 3,9 * * *"
 permissions:
   contents: read
+# One deploy at a time, in order. Exception: a push while WEB_DEPLOY is off (legacy Pages, as after the auto-rollback) builds and deploys
+# nothing and only runs the indexnow job, so it gets a group of its own, like the old IndexNow workflow (no group): in the shared group a newer
+# Web deploy run (a bot's workflow_run or another push) would cancel it while pending, and with WEB_DEPLOY off no later run resends its pages.
 concurrency:
-  group: web-deploy
+  # A Magazine newsletter run (run name "Magazine (newsletter)") never changes main: its run is skipped below, in a group of its own so it
+  # never takes the queue's pending place from a real deploy. Nor does a manual run that does not deploy (a build check, or an IndexNow
+  # resubmit, which the old IndexNow workflow did with no group): it changes nothing the queue protects, so it runs in a group of its own.
+  # For a workflow with a run-name, workflow_run.name is the run's name ("Magazine (newsletter)"); the workflow's own name is github.event.workflow.name.
+  group: ${{ github.event_name == 'push' && vars.WEB_DEPLOY != 'true' && format('web-deploy-legacy-push-{0}', github.run_id) || github.event_name == 'workflow_dispatch' && !inputs.deploy && format('web-deploy-manual-{0}', github.run_id) || github.event_name == 'workflow_run' && github.event.workflow.name == 'Magazine' && github.event.workflow_run.display_title == 'Magazine (newsletter)' && 'web-deploy-skip' || 'web-deploy' }}
   cancel-in-progress: false
 jobs:
   build:
-    if: ${{ github.event_name == 'workflow_dispatch' || vars.WEB_DEPLOY == 'true' }}
-    runs-on: ubuntu-latest
+    if: ${{ (github.event_name == 'workflow_dispatch' || vars.WEB_DEPLOY == 'true') && !(github.event_name == 'workflow_run' && github.event.workflow.name == 'Magazine' && github.event.workflow_run.display_title == 'Magazine (newsletter)') }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     outputs:
       live: ${{ steps.live.outputs.live }}
+      sha: ${{ steps.live.outputs.sha || steps.prev.outputs.sha }}     # the commit this run builds (and deploys)
+      prev: ${{ steps.live.outputs.prev || steps.prev.outputs.prev }}  # the commit luchit.app served before it, for IndexNow
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,8 +65,21 @@ jobs:
           sha=$(git rev-parse HEAD)
           live=$(curl -fsS --max-time 20 -H "Cache-Control: no-cache" "https://luchit.app/build.txt?nocache=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT") || live=""
           live=${live%%$'\n'*}; live=${live//[[:space:]]/}
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          if [[ $live =~ ^[0-9a-f]{40}$ ]]; then echo "prev=$live" >> "$GITHUB_OUTPUT"; fi
           if [ "$live" = "$sha" ]; then echo "luchit.app already serves $sha: nothing to deploy"; echo "live=true" >> "$GITHUB_OUTPUT"
           else echo "luchit.app serves ${live:-unknown}, main is $sha: build and deploy"; fi
+      # push and manual runs skip the check above; IndexNow still needs to know what luchit.app served before this deploy. Never stops the build.
+      - name: Live version before this deploy (for IndexNow)
+        id: prev
+        if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+        continue-on-error: true
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          live=$(curl -fsS --max-time 20 -H "Cache-Control: no-cache" "https://luchit.app/build.txt?nocache=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT") || live=""
+          live=${live%%$'\n'*}; live=${live//[[:space:]]/}
+          if [[ $live =~ ^[0-9a-f]{40}$ ]]; then echo "prev=$live" >> "$GITHUB_OUTPUT"; echo "luchit.app serves $live"
+          else echo "luchit.app serves no readable build.txt: IndexNow will use the push's own range"; fi
       - uses: actions/setup-node@v7
         if: ${{ steps.live.outputs.live != 'true' }}
         with:
@@ -80,7 +109,7 @@ jobs:
     needs: build
     # a writer run that failed or was cancelled still deploys when main is not live: main is the source of truth, and the commit may be another writer's
     if: ${{ vars.WEB_DEPLOY == 'true' && needs.build.outputs.live != 'true' && (github.event_name != 'workflow_dispatch' || inputs.deploy) }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       pages: write
@@ -91,3 +120,50 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+  # IndexNow (Bing, Yandex, Seznam, Naver; Google does not use it). Runs:
+  #  - after every deploy that succeeded, whatever started it (pushes, the data bots' workflow_run, the safety-net cron, a manual deploy):
+  #    the pages that changed between the commit luchit.app served before (build.txt, read by the build job) and the one just deployed;
+  #  - on a push while WEB_DEPLOY is off (legacy Pages serves main by itself, as after the auto-rollback): the push's own range, after 60 s;
+  #  - on a manual run with indexnow=true: every sitemap URL.
+  # URL rules are indexnow.mjs's own (added or changed .html files that are in sitemap.xml, never 404.html). continue-on-error: a failure is a red
+  # job and an ::error in this run only: the run stays green, so Failure alert stays quiet and Site smoke test (after deploy) still runs.
+  indexnow:
+    needs: [build, deploy]
+    if: ${{ !cancelled() && (needs.deploy.result == 'success' || (github.event_name == 'push' && vars.WEB_DEPLOY != 'true') || (github.event_name == 'workflow_dispatch' && inputs.indexnow)) }}
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      - name: Wait for legacy GitHub Pages to publish the push
+        if: ${{ github.event_name == 'push' && vars.WEB_DEPLOY != 'true' }}
+        run: sleep 60
+      - name: Tell IndexNow
+        id: ping
+        continue-on-error: true
+        timeout-minutes: 7
+        env:
+          ALL: ${{ github.event_name == 'workflow_dispatch' && inputs.indexnow && '1' || '0' }}
+          PREV: ${{ needs.build.outputs.prev }}
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ needs.build.outputs.sha || github.sha }}
+        run: |
+          if [ "$ALL" = 1 ]; then echo "manual run: every sitemap URL"; node .github/scripts/indexnow.mjs; exit 0; fi
+          from=""
+          if [[ $PREV =~ ^[0-9a-f]{40}$ ]] && git cat-file -e "$PREV^{commit}" 2>/dev/null; then
+            from=$PREV; echo "pages changed since $PREV, the version luchit.app served before this deploy"
+          elif [ "$GITHUB_EVENT_NAME" = push ] && [[ $BEFORE =~ ^[0-9a-f]{40}$ ]]; then
+            from=$BEFORE; echo "pages changed by this push ($BEFORE..$SHA)"
+          fi
+          if [ -z "$from" ]; then echo "::notice::IndexNow: the version luchit.app served before this deploy is unknown, so nothing was sent. A manual run with indexnow=true sends the whole sitemap."; exit 0; fi
+          node .github/scripts/indexnow.mjs "$from" "$SHA"
+      - name: IndexNow failed
+        if: ${{ !cancelled() && steps.ping.outcome == 'failure' }}
+        run: |
+          echo "::error::IndexNow did not take the update (see Tell IndexNow). Low value: the deploy itself is fine. These pages are not resent by later deploys; a manual run with indexnow=true sends the whole sitemap."
+          exit 1

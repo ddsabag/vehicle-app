@@ -1,8 +1,14 @@
-// Daily infrastructure watch: site and Worker liveness, free-quota headroom (Cloudflare Workers, Brevo), and on the 1st of the month a list of stale branches.
+// Daily infrastructure watch, the infra part of Site smoke test's daily run: sign-up Worker liveness, free-quota headroom (Cloudflare Workers, Brevo),
+// and on the 1st of the month a list of stale branches. The home page and sitemap.xml are checked by site-smoke.mjs, so not here.
+import fs from "node:fs";
 import { ilTime } from "./notify.mjs";
 import { flash } from "./flash.mjs";
 // Alerts to Telegram only when something needs attention (needs TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID). DRY_RUN=1 prints instead of sending.
 // Optional: CF_API_TOKEN + CF_ACCOUNT_ID (Workers usage), BREVO_API_KEY (daily send count), GITHUB_TOKEN + GITHUB_REPOSITORY (branches).
+// STALE_BRANCHES=yes|no picks the stale-branch list by the cron line that fired; unset = on the 1st by the clock (and always with DRY_RUN=1).
+// INFRA_HANDOFF=1: check only, and write the messages as the step output "report" (JSON {alert, notice}) for site-smoke.mjs to send in its
+// one morning message. INFRA_REPORT=<that JSON>: send those messages as this script would have (the fallback when site-smoke.mjs did not);
+// with INFRA_FLASHED=1 site-smoke.mjs already wrote the /live line, so only Telegram is tried again.
 const DRY = process.env.DRY_RUN === "1", E = process.env;
 const SITE = "https://luchit.app";
 const CF_DAILY_LIMIT = 100000, BREVO_DAILY_LIMIT = 300, WARN = 0.8;
@@ -15,8 +21,6 @@ const get = (url, opt = {}) => fetch(url, { signal: AbortSignal.timeout(15000), 
 
 async function liveness() {
   const checks = [
-    ["האתר", async () => (await get(SITE + "/")).status === 200],
-    ["sitemap.xml", async () => (await get(SITE + "/sitemap.xml")).status === 200],
     ["Worker ההרשמה (/api/confirm)", async () => { const r = await get(SITE + "/api/confirm?e=x&x=1&t=x", { redirect: "manual" }); return r.status === 302 && /subscribed=expired/.test(r.headers.get("location") || ""); }],
   ];
   for (const [name, fn] of checks) { let ok = false; try { ok = await retry(fn); } catch { /* counted as down */ } if (!ok) problems.push(`${name} לא מגיב כצפוי`); }
@@ -48,7 +52,8 @@ async function brevoQuota() {
 }
 
 async function staleBranches() {
-  if (new Date().getUTCDate() !== 1 && !DRY) return;
+  const pick = E.STALE_BRANCHES;
+  if (!DRY && (pick === "no" || (pick !== "yes" && new Date().getUTCDate() !== 1))) return;
   if (!E.GITHUB_TOKEN || !E.GITHUB_REPOSITORY) return;
   const H = { Authorization: `Bearer ${E.GITHUB_TOKEN}`, accept: "application/vnd.github+json" }, repo = E.GITHUB_REPOSITORY, keep = new Set(["main", "next", "data-status", "gh-pages", "flashes", "guard-baseline", "ui-baseline", "inspect-output", "seo-data", "seo-track", "own-data", "zombie-data", "web-watch", "seo-auto", "catalog-data"]);
   const bs = await get(`https://api.github.com/repos/${repo}/branches?per_page=100`, { headers: H }).then(r => r.json());
@@ -63,7 +68,7 @@ async function staleBranches() {
 }
 
 async function telegram(text, silent = false) {
-  await flash("infra", silent ? "info" : "alert", text);
+  if (!(E.INFRA_REPORT && E.INFRA_FLASHED === "1")) await flash("infra", silent ? "info" : "alert", text);   // INFRA_FLASHED=1: site-smoke.mjs already put it on /live
   if (DRY || !E.TELEGRAM_BOT_TOKEN) { console.log("[telegram]\n" + text); return DRY; }
   const r = await fetch(`https://api.telegram.org/bot${E.TELEGRAM_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({ chat_id: E.TELEGRAM_CHAT_ID, text, parse_mode: "HTML", disable_web_page_preview: true, disable_notification: silent }) });
@@ -71,13 +76,31 @@ async function telegram(text, silent = false) {
   return r.ok;
 }
 
-for (const step of [liveness, cloudflareQuota, brevoQuota, staleBranches]) {
-  try { await step(); } catch (e) { notes.push(`${step.name}: ${String(e.message).slice(0, 100)}`); }
+const alertText = () => `⚠️ <b>לוחית: שירות באתר או במכסה דורש תשומת לב</b>\nהבדיקה היומית של האתר, של Cloudflare ושל שליחת המיילים מצאה:\n${problems.map(p => "• " + esc(p)).join("\n")}\n\nמה לעשות: אם כתוב שירות לא מגיב, כתבו לי ואבדוק. אם כתוב שמכסה מתקרבת לגבול, אין בעיה כרגע, אבל כדאי לדעת לפני שהשירות ייחסם.${notes.length ? "\n\nהערות:\n" + notes.map(esc).join("\n") : ""}\n\nזמן: ${ilTime()} (שעון ישראל)`;
+const noticeText = () => `🧹 <b>לוחית: תחזוקה חודשית</b>\n${esc(notes.find(n => n.startsWith("ענפים")))}`;
+
+// send what was found: the alert (loud) when there is a problem, otherwise the monthly branch list (silent)
+async function deliver({ alert, notice }) {
+  if (alert) {
+    const sent = await telegram(alert);
+    process.exit(sent ? 0 : 1);   // alert delivered: finish green so GitHub does not also mail "workflow failed"
+  }
+  if (notice) await telegram(notice, true);
+  console.log("all clear");
 }
-console.log(notes.join("\n") || "no notes");
-if (problems.length) {
-  const sent = await telegram(`⚠️ <b>לוחית: שירות באתר או במכסה דורש תשומת לב</b>\nהבדיקה היומית של האתר, של Cloudflare ושל שליחת המיילים מצאה:\n${problems.map(p => "• " + esc(p)).join("\n")}\n\nמה לעשות: אם כתוב שירות לא מגיב, כתבו לי ואבדוק. אם כתוב שמכסה מתקרבת לגבול, אין בעיה כרגע, אבל כדאי לדעת לפני שהשירות ייחסם.${notes.length ? "\n\nהערות:\n" + notes.map(esc).join("\n") : ""}\n\nזמן: ${ilTime()} (שעון ישראל)`);
-  process.exit(sent ? 0 : 1);   // alert delivered: finish green so GitHub does not also mail "workflow failed"
+
+if (E.INFRA_REPORT) {   // fallback in Site smoke test: the report the infra job handed over was not sent by site-smoke.mjs
+  let report = {}; try { report = JSON.parse(E.INFRA_REPORT) || {}; } catch (e) { console.log("unreadable INFRA_REPORT:", e.message); process.exit(1); }
+  await deliver(report);
+} else {
+  for (const step of [liveness, cloudflareQuota, brevoQuota, staleBranches]) {
+    try { await step(); } catch (e) { notes.push(`${step.name}: ${String(e.message).slice(0, 100)}`); }
+  }
+  console.log(notes.join("\n") || "no notes");
+  const report = problems.length ? { alert: alertText() } : notes.some(n => n.startsWith("ענפים")) ? { notice: noticeText() } : {};
+  if (E.INFRA_HANDOFF === "1") {
+    console.log(report.alert || report.notice || "all clear: nothing to hand over");
+    const line = report.alert || report.notice ? `report=${JSON.stringify(report)}\n` : "";   // one line: JSON escapes the newlines
+    if (line && E.GITHUB_OUTPUT) fs.appendFileSync(E.GITHUB_OUTPUT, line);
+  } else await deliver(report);
 }
-if (notes.some(n => n.startsWith("ענפים"))) await telegram(`🧹 <b>לוחית: תחזוקה חודשית</b>\n${esc(notes.find(n => n.startsWith("ענפים")))}`, true);
-console.log("all clear");

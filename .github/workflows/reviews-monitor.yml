@@ -19,7 +19,7 @@ permissions:
 concurrency: reviews-monitor
 jobs:
   monitor:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
@@ -40,6 +40,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           PLAY_DEVELOPER_ID: ${{ vars.PLAY_DEVELOPER_ID }}
           PLAY_APP_ID: ${{ vars.PLAY_APP_ID }}
+          REVIEWS_RESPONDER: ${{ vars.REVIEWS_RESPONDER }}
           PREVIEW: ${{ inputs.preview && '1' || '0' }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
       - name: Save state

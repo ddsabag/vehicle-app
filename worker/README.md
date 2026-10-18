@@ -20,3 +20,7 @@ Privacy: the plate in a shared link is looked up once from data.gov.il (cached a
 ## Support mail to Telegram (mail/)
 
 `worker/mail/worker.js` is an Email Worker for support@luchit.app: it classifies each mail (privacy, app problem, wrong car data, partnership, other), posts a short summary to Telegram, and still forwards the original to the Gmail inbox. Setup: deploy the Worker, set secrets TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID, then in Cloudflare Email Routing change the support@ route to "Send to a Worker".
+
+## Play review replies (reviews/)
+
+`worker/reviews/worker.js` (luchit-reviews) drafts a Hebrew reply to each new Google Play review and sends it to Telegram with [שלח] [ערוך] [דלג]; a reply is published only on שלח. Cron every 30 min, active 08:00-22:00 Israel. Secrets TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, REVIEWS_SA_JSON (a service account with the Play Console permission "Reply to reviews" only); KV binding ALERTS = luchit-alerts ("rv:" keys). Opening `/health` installs the Telegram webhook (`/tg`). Templates: `TEMPLATES` in the file, approved in reports/תבניות-מענה-לביקורות.md. Offline test: `node worker/reviews/test.mjs`. Once /health shows sa, list and webhook true, the repo variable REVIEWS_RESPONDER=on stops the review alerts of reviews-monitor (vitals stay).

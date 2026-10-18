@@ -1,10 +1,12 @@
 name: UI guardian (browser)
+# Static lint (ui-lint.mjs, warning mode, ~12 s) and the browser checks (ui-guardian.cjs) in one run; this used to be two workflows,
+# "UI guardian (lint)" and "UI guardian (browser)". The trigger paths are the union of both.
 on:
   pull_request:
-    paths: ["index.html", "ui-contract.json", "ui-guardian-baseline.json", ".github/scripts/ui-guardian.cjs", ".github/workflows/ui-guardian.yml"]
+    paths: ["index.html", "ui-contract.json", "ui-guardian-baseline.json", "ui-lint-baseline.json", ".github/scripts/ui-guardian.cjs", ".github/scripts/ui-lint.mjs", ".github/workflows/ui-guardian.yml"]
   push:
     branches: [next]
-    paths: ["index.html", "ui-contract.json", "ui-guardian-baseline.json", ".github/scripts/ui-guardian.cjs", ".github/workflows/ui-guardian.yml"]
+    paths: ["index.html", "ui-contract.json", "ui-guardian-baseline.json", "ui-lint-baseline.json", ".github/scripts/ui-guardian.cjs", ".github/scripts/ui-lint.mjs", ".github/workflows/ui-guardian.yml"]
   workflow_dispatch:
     inputs:
       update_baseline:
@@ -15,12 +17,18 @@ permissions:
   contents: write   # only used to publish the screenshot baseline branch on a manual run
 jobs:
   browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v7
         with: { node-version: 20 }
+      # warning mode: annotates the run, never fails it on findings (phase B makes it blocking). A crash of the lint must not skip the
+      # browser checks, so the step goes on; the last step below still turns the job red when it crashed.
+      - name: UI lint
+        id: lint
+        continue-on-error: true
+        run: node .github/scripts/ui-lint.mjs
       - name: Install test tools (not part of the app)
         run: |
           npm install --no-save --no-package-lock playwright axe-core pixelmatch@5.3.0 pngjs@7.0.0
@@ -46,3 +54,9 @@ jobs:
           cd /tmp/uibase && git init -q -b ui-baseline && git add . 
           git -c user.name="ui-guardian" -c user.email="ui-guardian@users.noreply.github.com" commit -q -m "UI screenshot baseline from ${GITHUB_SHA::7}"
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" ui-baseline
+      # after the browser checks and the screenshot upload, so a lint crash is visible without hiding them
+      - name: UI lint crashed
+        if: ${{ !cancelled() && steps.lint.outcome == 'failure' }}
+        run: |
+          echo "::error::UI lint (ui-lint.mjs) crashed; see the UI lint step. The browser checks above ran anyway."
+          exit 1
