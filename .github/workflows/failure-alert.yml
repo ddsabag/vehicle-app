@@ -76,7 +76,7 @@ jobs:
             --jq '.jobs[] | select((.steps | length) > 0 and (.conclusion == "failure" or .conclusion == "timed_out" or .conclusion == "cancelled")) | .name' 2>/dev/null) || n=x; echo "$n"; }
           # runs of the same workflow on main, newest first, as number:id:status:conclusion:event:created (epoch seconds; empty when the API call fails)
           runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$WORKFLOW_ID/runs?branch=main&per_page=30" \
-            --jq '.workflow_runs[] | "\(.run_number):\(.id):\(.status):\(.conclusion):\(.event):\(.created_at | fromdateiso8601)"' 2>/dev/null) || runs=""
+            --jq '.workflow_runs[] | "\(.run_number):\(.id):\(.status):\(.conclusion):\(.event):\(.created_at // "" | try fromdateiso8601 catch 0)"' 2>/dev/null) || runs=""
           mine=$(bad "$RUN_ID")
           if [ "$CONCLUSION" = cancelled ] && [ -z "$mine" ]; then
             # never started: superseded when a newer run of this workflow exists, otherwise another workflow took its place in the queue and the work is lost
@@ -98,7 +98,7 @@ jobs:
             if [ "$ev" = workflow_dispatch ]; then [ "$concl" = success ] && break; continue; fi
             case "$concl" in
               failure|timed_out|cancelled) ;;
-              startup_failure) continue;;   # never paged (the job's if: skips it), so the next real failure is a first one
+              startup_failure|skipped) continue;;   # never paged and did no work (e.g. Site smoke test's push job standing down), so look further back
               *) break;;
             esac
             prev=$(bad "$id")

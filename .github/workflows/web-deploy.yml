@@ -19,7 +19,7 @@ on:
     workflows: ["Fuel price", "Market data", "Model statistics", "Model names", "Magazine", "Magazine data articles", "SEO auto-publish", "Experimenter"]
     types: [completed]
     branches: [main]
-  # safety net for any main commit no trigger above published: 03:17 UTC (before the morning smoke test and the 04:40-08:00 data window)
+  # safety net for any main commit no trigger above published: 03:17 UTC (before the morning smoke test and the 04:40-08:10 data window)
   # and 09:17 UTC (after it, clear of the main-writer crons and of SEO auto-publish at 10:40)
   schedule:
     - cron: "17 3,9 * * *"

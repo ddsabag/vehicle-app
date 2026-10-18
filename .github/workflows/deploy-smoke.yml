@@ -14,7 +14,7 @@ permissions:
 jobs:
   smoke:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # Playwright 1.49.1 predates Ubuntu 26.04 (ubuntu-latest from November 2026)
     timeout-minutes: 15
     steps:
       - name: Did the deploy run?

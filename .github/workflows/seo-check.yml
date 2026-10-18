@@ -22,10 +22,12 @@ jobs:
       # titles, descriptions, h1, canonical, alt, OG, JSON-LD, internal links, orphans, sitemap, robots
       - name: SEO lint
         run: node .github/scripts/seo-check.mjs
-      # smoke run of the page generators (pages.mjs + landing.mjs + brands.mjs; magazine.yml runs them monthly): a crash fails here.
-      # Output stays in this checkout and is not compared, the committed pages drift from it by design.
+      # smoke run of the page generators (pages.mjs + landing.mjs + brands.mjs) followed by the same lint, the pair magazine.yml runs before it
+      # publishes on the 6th: a crash or a lint error fails here first. Output stays in this checkout (the committed pages drift from it by design).
       - name: Page generators run
-        run: node .github/scripts/pages.mjs
+        run: |
+          node .github/scripts/pages.mjs
+          node .github/scripts/seo-check.mjs
   live:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest

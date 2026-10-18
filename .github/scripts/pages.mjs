@@ -2,7 +2,7 @@
 // Only data already in the repo is used; run: node .github/scripts/pages.mjs [count]
 import fs from "node:fs";
 import {brandLabel, BRAND_ALT} from "./brands.mjs";
-import {buildLanding, BRAND_SLUG} from "./landing.mjs";
+import {buildLanding, brandPage} from "./landing.mjs";
 const N = Number(process.argv[2]) || 200, SITE = "https://luchit.app/";
 const ms = JSON.parse(fs.readFileSync("modelstats.json", "utf8")), cat = JSON.parse(fs.readFileSync("models.json", "utf8"));
 const COUNTRY = /\s+(יפן|בריטניה|אנגליה|צרפת|גרמניה|קוריאה|ד\. קוריאה|ספרד|צ'כיה|צכיה|טורקיה|סין|ארה"ב|ארהב|איטליה|תאילנד|הודו|מקסיקו|הונגריה|סלובקיה|פולין|רומניה|בלגיה|שבדיה|אוסטריה|פורטוגל|דרום אפריקה|ברזיל|קנדה|הולנד|סלובניה|רוסיה|מרוקו|אינדונזיה|מלזיה|טייוואן|ישראל|אפרי)\.?$/;
@@ -44,7 +44,7 @@ for (const [key, v] of Object.entries(ms.m)) {
 }
 const models = [...g.values()].sort((a, b) => b.total - a.total).slice(0, N);
 for (const m of models) m.label = brandLabel(m.make);
-const brandPath = l => BRAND_SLUG[l] && models.filter(o => o.label === l).length >= 2 ? `brand/${BRAND_SLUG[l]}/` : null;   // brand pages from landing.mjs
+const brandPath = l => brandPage(l, models.filter(o => o.label === l).length);   // brand pages from landing.mjs
 const withBrand = m => String(m.disp).toUpperCase().startsWith(String(m.label).toUpperCase() + " ") ? m.disp : `${m.label} ${m.disp}`;   // no "BYD BYD ATTO 2"   // display name; m.make stays the registry spelling for matching
 // national yardsticks per vintage from every model (not only the pages built): off-road share, typical km, ownership records
 const NAT = {};

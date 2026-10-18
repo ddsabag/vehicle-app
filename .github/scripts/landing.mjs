@@ -4,7 +4,10 @@
 import fs from "node:fs";
 import {brandLabel, brandKey} from "./brands.mjs";
 
-export const BRAND_SLUG = {"טויוטה": "toyota", "קיה": "kia", "מזדה": "mazda", "סקודה": "skoda", "יונדאי": "hyundai", "מיצובישי": "mitsubishi", "סיאט": "seat", "פורד": "ford", "הונדה": "honda", "ניסאן": "nissan", "סיטרואן": "citroen", "BYD": "byd", "סוזוקי": "suzuki", "פולקסווגן": "volkswagen", "סובארו": "subaru", "שברולט": "chevrolet", "JAECOO": "jaecoo", "פיג'ו": "peugeot", "טסלה": "tesla", "רנו": "renault", "גילי": "geely", "איסוזו": "isuzu", "דייהטסו": "daihatsu", "צ'רי": "chery", "דאצ'יה": "dacia", "אופל": "opel", "MG": "mg", "אאודי": "audi"};
+export const BRAND_SLUG = {"טויוטה": "toyota", "קיה": "kia", "מזדה": "mazda", "סקודה": "skoda", "יונדאי": "hyundai", "מיצובישי": "mitsubishi", "סיאט": "seat", "פורד": "ford", "הונדה": "honda", "ניסאן": "nissan", "סיטרואן": "citroen", "BYD": "byd", "סוזוקי": "suzuki", "פולקסווגן": "volkswagen", "סובארו": "subaru", "שברולט": "chevrolet", "JAECOO": "jaecoo", "פיג'ו": "peugeot", "טסלה": "tesla", "רנו": "renault", "גילי": "geely", "ג'ילי": "geely", "איסוזו": "isuzu", "דייהטסו": "daihatsu", "צ'רי": "chery", "דאצ'יה": "dacia", "אופל": "opel", "MG": "mg", "אאודי": "audi"};
+
+// a brand page needs two model pages; one already published stays when the brand drops to one model page, so its links and sitemap entry hold
+export const brandPage = (label, count) => BRAND_SLUG[label] && (count >= 2 || fs.existsSync(`brand/${BRAND_SLUG[label]}/index.html`)) ? `brand/${BRAND_SLUG[label]}/` : null;
 
 export function buildLanding(x) {
   const {SITE, head, foot, esc, fmt, models, g, NAT, SETTLEMENTS, urls, lastmod, MOD, slugOf} = x;
@@ -137,11 +140,11 @@ export function buildLanding(x) {
     `<p>בדיקה אחת בלוחית מחזירה את כל הנתונים שמשרד התחבורה מפרסם על הרכב. כאן מוסבר כל נושא בנפרד.</p>${form()}`,
     [["הבדיקות", ul(TOPICS.map(([k, n]) => `<a href="${SITE}check/${k}/">${esc(n)}</a>`).concat([`<a href="${SITE}guide/buy-used-car/">מדריך לקנייה בטוחה של רכב יד שנייה</a>`, `<a href="${SITE}model/">נתונים לפי דגם</a>`]))]], []);
 
-  // brand pages: every brand with at least two model pages and a known latin slug
+  // brand pages: every brand with at least two model pages (or a page already published) and a known latin slug
   const by = new Map(); for (const m of models) (by.get(m.label) || by.set(m.label, []).get(m.label)).push(m);
   const brandUrls = {};
   for (const [label, ms] of by) {
-    const slug = BRAND_SLUG[label]; if (!slug || ms.length < 2) continue;
+    const path = brandPage(label, ms.length); if (!path) continue;
     const all = [...g.values()].filter(e => brandLabel(e.make) === label);
     let act = 0, off = 0, rc = 0, exp = 0; const years = {};
     for (const e of all) for (const [yr, t] of Object.entries(e.y)) { act += t.act; off += t.off; rc += t.rc; years[yr] = (years[yr] || 0) + t.act; const n = NAT[yr]; if (n && n.act + n.off) exp += (t.act + t.off) * n.off / (n.act + n.off); }
@@ -151,7 +154,6 @@ export function buildLanding(x) {
     const lb = brandKey(label);
     const stl = SETTLEMENTS.filter(s => !(new Date(s.until + "T23:59:59") < new Date()) && s.mk.source.split("|").some(tk => !/[\\.\[\]()]/.test(tk) && brandKey(brandLabel(tk)) === lb));
     const peak = Object.entries(years).sort((a, b) => b[1] - a[1])[0];
-    const path = `brand/${slug}/`;
     brandUrls[label] = path;
     page(path, `${label} בישראל: דגמים, ריקולים ונתונים | לוחית`, `${label} בישראל לפי נתוני משרד התחבורה: ${fmt(act)} רכבים פעילים, הדגמים הנפוצים, ריקולים לכל 1,000 רכבים${stl.length ? " והסדרי פשרה פעילים" : ""}. בדיקת רכב לפי מספר רישוי.`,
       [["כל הדגמים", "model/"], [label]], `${label} בישראל`,

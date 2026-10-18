@@ -1,5 +1,5 @@
 name: Site smoke test
-# Daily at 05:30 UTC and after every change to the site: opens the live site in a real browser, looks up a real plate, checks key pages, and watches the certificate and domain expiry. Alerts go to Telegram only.
+# Daily at 05:30 UTC, and after every change to the site while WEB_DEPLOY is off (with it on, Site smoke test (after deploy) checks each deploy): opens the live site in a real browser, looks up a real plate, checks key pages, and watches the certificate and domain expiry. Alerts go to Telegram only.
 on:
   schedule:
     - cron: "30 5 * * *"
@@ -23,7 +23,7 @@ jobs:
   smoke:
     # with WEB_DEPLOY on, a push deploy is checked by Site smoke test (after deploy) once the deploy is done
     if: ${{ github.event_name != 'push' || vars.WEB_DEPLOY != 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # Playwright 1.49.1 predates Ubuntu 26.04 (ubuntu-latest from November 2026)
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
