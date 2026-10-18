@@ -2,10 +2,12 @@
 // Telegram (silent) says what is going out and when; deleting the branch (or telling Claude) cancels. Never touches the app, workflows or code:
 // only the paths in ALLOW. A changed existing page must not have been changed in the last 21 days (analytics/seo-changes.json on main), new pages are exempt.
 // Env: GITHUB_TOKEN, GITHUB_REPOSITORY (git credentials come from actions/checkout), TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID. DRY=1 prints only.
+// CHECK=1 (the workflow's lock-free "check" job): notices, tags and the 24 h window as usual, but a change that is due is not merged:
+// it writes ready=true to GITHUB_OUTPUT and the "publish" job (main-writer group) runs this script again without CHECK.
 import { execSync, execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, appendFileSync } from "node:fs";
 
-const BR = "seo-auto", HOURS = 24, COOL_DAYS = 21, DRY = process.env.DRY === "1";
+const BR = "seo-auto", HOURS = 24, COOL_DAYS = 21, DRY = process.env.DRY === "1", CHECK = process.env.CHECK === "1";
 const ALLOW = [/^(check|brand|model|magazine|guide)\//, /^sitemap\.xml$/, /^robots\.txt$/, /^404\.html$/, /^analytics\/seo-changes\.json$/];
 const sh = c => execSync(c, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 const trysh = c => { try { return sh(c); } catch { return null; } };
@@ -64,6 +66,7 @@ if (!noteTag) {
 }
 const ageH = now / 36e5 - Number(noteTag.split("-").pop());
 if (ageH < HOURS) { console.log(`waiting: ${ageH.toFixed(1)}h of ${HOURS}h`); process.exit(0); }
+if (CHECK) { console.log(`due after ${ageH.toFixed(1)}h: handing over to the publish job`); if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, "ready=true\n"); process.exit(0); }
 
 // merge on a scratch state of main and run the SEO lint before pushing
 try {

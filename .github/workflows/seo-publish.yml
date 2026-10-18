@@ -1,9 +1,14 @@
 name: SEO auto-publish
 # Site-only SEO changes staged on branch "seo-auto" are published to main by themselves after 24 h, if every check passes
 # (allowed paths only, 21-day rule from analytics/seo-changes.json, SEO lint). Silent Telegram notices; deleting the branch cancels. See .github/scripts/seo-publish.mjs.
+# Twice a day (10:40/18:40 UTC, clear of the 04:40-07:30 data writers), and on each push to seo-auto so the 24 h notice goes out at once.
+# Two jobs: "check" (notices, tags, the 24 h window) holds no lock; only a change that is due reaches "publish", which alone joins
+# main-writer (a run waiting there cancels another waiting data writer, which Failure alert then reports loudly).
 on:
+  push:
+    branches: [seo-auto]
   schedule:
-    - cron: "40 * * * *"
+    - cron: "40 10,18 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -12,13 +17,36 @@ on:
         default: false
 permissions:
   contents: write
-concurrency:
-  group: main-writer
-  cancel-in-progress: false
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Check staged SEO changes
+        id: check
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DRY: ${{ inputs.dry_run && '1' || '0' }}
+          CHECK: "1"
+        run: node .github/scripts/seo-publish.mjs
   publish:
+    needs: check
+    # a push to seo-auto only starts the 24 h window; the merge waits for a run on main, the only runs web-deploy and Failure alert follow
+    if: needs.check.outputs.ready == 'true' && github.event_name != 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    concurrency:
+      group: main-writer
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
         with:
