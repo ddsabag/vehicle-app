@@ -1416,7 +1416,7 @@ const SETTLEMENTS = [
   {id:"sub-thermo", mk:/סובארו/, ok:(v,y,x)=>/FORESTER|פורסטר/.test(x.md)&&y>=2019&&y<=2021||/OUTBACK|אאוטבק/.test(x.md)&&y===2021, t:"תרמוסטט חשמלי (קורוזיה בחיישן)", b:"אחריות מורחבת לתרמוסטט ל-10 שנים או 160,000 ק״מ, והחזר על תיקון קודם בתשלום, גם לבעלים קודמים.", cond:"ההסדר מחכה לאישור בית המשפט. הודעה פורסמה ב-3.9.2026. השנתון נקבע לפי התו ה-10 במספר השלדה, ובאאוטבק רק שנתון 2021.", st:"wait", until:"2027-12-31", url:"https://subaru.co.il/compromise-arrangements/"},
   {id:"vag-selector", mk:/פולקסווגן|פולקסוואגן|סקודה|סיאט|קופרה/, md:/GOLF|JETTA|LEON|OCTAVIA|גולף|גטה|ליאון|אוקטביה/, y:[2015,2019], t:"תקלה בבורר ההילוכים (המפתח יוצא כשהרכב ב-D)", b:"החזר מלא למי ששילם בעצמו על התיקון. בלי חשבונית: עד 2,400 ₪ לבורר ועד 800 ₪ למפסק, לפי הצהרה.", cond:"פסק דין של בית המשפט המחוזי (אוגוסט 2026), ולא הסדר פשרה. רק למי ששילם על התיקון, והגשה בתוך 6 חודשים ממכתב היבואן. ההתאמה לרכב הזה פחות ודאית.", st:"ok", until:"2027-03-31", url:"https://championmotors.co.il/arrangements/public-information/", low:true},
   {id:"ford-cable", mk:/פורד/, md:/KUGA|קוגה/, y:[2013,2019], t:"כבל בורר הילוכים", b:"טיפול מונע ללא עלות (החלפת תותב הכבל והתקנת כיפת הגנה), והחזר על החלפת כבל ששולמה בעבר.", cond:"אושר ביולי 2026. התיקון זמין 18 חודשים מתחילת התוכנית, שמתחילה כשהפסק חלוט והיבואן שולח מכתבים. באדג' (2015 עד 2018) יש החזר בלבד.", st:"ok", until:"2028-06-30", url:"https://www.delek-motors.co.il/", low:true},
-  {id:"audi-etron", mk:/אאודי/, md:/ETRON|איטרון/, y:[2019,2021], t:"טווח נסיעה נמוך מהמפורסם", b:"זיכוי של 2,073 ₪ בטיפול תקופתי במוסכי היבואן.", cond:"לרכבי e-tron 50 ו-55 שנרכשו מהיבואן בין 1.1.2019 ל-30.6.2021. תקף כ-5 שנים מהאישור, בערך עד אפריל 2027. אינו ניתן להעברה.", st:"ok", until:"2027-04-01", url:"https://championmotors.co.il/arrangements/public-information/", low:true},
+  {id:"audi-etron", mk:/אאודי/, md:/^ETRON(?!GT)|^איטרון/, y:[2019,2021], t:"טווח נסיעה נמוך מהמפורסם", b:"זיכוי של 2,073 ₪ בטיפול תקופתי במוסכי היבואן.", cond:"לרכבי e-tron 50 ו-55 שנרכשו מהיבואן בין 1.1.2019 ל-30.6.2021. תקף כ-5 שנים מהאישור, בערך עד אפריל 2027. אינו ניתן להעברה.", st:"ok", until:"2027-04-01", url:"https://championmotors.co.il/arrangements/public-information/", low:true},
   {id:"gac-ge3", mk:/GAC|AION|גיאי?יסי|(?<![א-ת])איון/, md:/GE3/, y:[2020,2021], t:"טרייד-אין במחיר מחירון מלא", b:"החלפת הרכב ל-AION חדש לפי מחיר המחירון ביום הרכישה, בלי הפחתה של 12%.", cond:"הסדר הסתלקות שאושר בבית משפט השלום בבת ים, ולא הסדר פשרה רגיל. ללקוחות פרטיים שרכשו בין 2.2020 ל-6.2021, ורק לרכב עד 72 חודשים מההוצאה לכביש.", st:"ok", until:"2027-06-30", url:"https://www.calcalist.co.il/local_news/article/h18jgvg511l", low:true},
   {id:"chev-malibu", mk:/שברולט|שברולה/, md:/MALIBU|מאליבו/, y:[2016,2017], t:"חדירת מים דרך פנס הבלימה העליון", b:"החזר של עד 866 ₪ למי ששילם על איטום או החלפה של הפנס.", cond:"התיקון בתוך 6 שנים מהעלייה לכביש ולפני 116,000 ק״מ. המועד האחרון להגשה: 29.10.2026. הנתונים מכתבה אחת בעיתונות.", st:"ok", until:"2026-10-29", url:"https://www.chevrolet.co.il/", low:true},
   {id:"dacia-3js", mk:/דאציה|דאצ.יה|DACIA/, md:/SANDERO|LOGAN|סנדרו|לוגן/, y:[2016,2020], t:"רעידות בתיבת ההילוכים הרובוטית (3JS)", b:"תיקון ללא עלות (עדכון תוכנה והחלפת מצמד וגלגל תנופה) ועוד עד שני ניסיונות תיקון אם התקלה חוזרת.", cond:"רק לרכב עם תיבה רובוטית 3JS. אחריות מיוחדת ל-24 חודשים מהמועד הקובע, בערך עד תחילת 2027. מועד ההחזר על תיקונים קודמים כנראה חלף.", st:"ok", until:"2027-03-31", url:"https://www.dacia.co.il/", low:true},
@@ -1454,16 +1454,30 @@ function importerRecall(D){
 const importerOf = D => D.importKind || !D.price || empty(D.price.shem_yevuan) ? "" : String(D.price.shem_yevuan).trim();
 const norm = s => String(s || "").toUpperCase().replace(/[^A-Z0-9֐-׿]/g, "");
 function recallYear(x){ const m = String(x || "").match(/(19|20)\d{2}/); return m ? +m[0] : null; }
-function matchModelRecalls(rows, v){
+/* every model name the catalogue lists for the car's brand, over all its register codes (אאודי גרמניה, אאודי בלגיה…), normalized */
+function brandModels(meta, v){
+  if (!meta || !meta.makers || empty(v.tozeret_nm)) return null;
+  const mk = canonMake(String(v.tozeret_nm).trim().replace(COUNTRY_SFX, "")), out = new Set();
+  for (const x of Object.values(meta.makers)) if (canonMake(String(x.n).replace(COUNTRY_SFX, "")) === mk) for (const m of x.m || []) out.add(norm(m));
+  return out;
+}
+function matchModelRecalls(rows, v, models){
   const names = [v.degem_nm, v.kinuy_mishari].map(norm).filter(n => n.length >= 2);
   const year = num(v.shnat_yitzur);
-  // the recall list writes some brands' models without the brand ("3", "6,CX5,MX5" for MAZDA 3, MAZDA CX-5): the name without its leading brand word counts too, only as an exact name
+  // the recall list writes some brands' models without the brand ("3", "6,CX5,MX5" for MAZDA 3, MAZDA CX-5) and without a version prefix
+  // ("NEW", VW's "T5"/"T6", "GR", "CUPRA", the electric "E-"): the name without its leading brand word and that prefix counts too, only as an exact name
   const brands = new Set(rows.map(r => norm(String(r.TOZAR_TEUR || "").trim().split(/\s+/)[0])).filter(Boolean));
-  const kw = String(v.kinuy_mishari || "").trim().toUpperCase().split(/\s+/), bare = kw.length > 1 && brands.has(norm(kw[0])) ? norm(kw.slice(1).join("")) : "";
+  let kw = String(v.kinuy_mishari || "").trim().toUpperCase().split(/\s+/);
+  if (kw.length > 1 && brands.has(norm(kw[0]))) kw = kw.slice(1);
+  if (kw.length > 1 && /^(NEW|T\d|GR|CUPRA)$/.test(kw[0])) kw = kw.slice(1);
+  else if (/^E-[A-Z0-9]/.test(kw[0])) kw[0] = kw[0].slice(2);
+  const bare = norm(kw.join(""));
   const exact = bare && !names.includes(bare) ? [...names, bare] : names;
   // a third of the ministry's rows list several models ("PALISADE,IONIQ 9,IONIQ 6,IONIQ 5"): each listed name also counts when it is exactly the car's
   const listed = r => String(r.DEGEM || "").split(/[,\/+]/).map(norm).filter(Boolean);
-  return rows.filter(r => { const d = norm(r.DEGEM), parts = listed(r); return d && (exact.includes(d) || names.some(n => (n.length >= 3 && d.includes(n) && !new RegExp(n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[A-Z0-9]").test(d)) || (d.length >= 3 && n.includes(d) && !new RegExp(d.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[A-Z0-9]").test(n)))
+  // a shorter row name at the end of the car's ("CONNECT" for TOURNEO CONNECT) counts only when the brand has no model of exactly that name
+  // (E-TRON for an A3 SB E-TRON, CHEROKEE for a GRAND CHEROKEE are other models)
+  return rows.filter(r => { const d = norm(r.DEGEM), parts = listed(r); return d && (exact.includes(d) || names.some(n => (n.length >= 3 && d.includes(n) && !new RegExp(n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[A-Z0-9]").test(d)) || (d.length >= 3 && n.includes(d) && !new RegExp(d.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[A-Z0-9]").test(n) && !(models && models.has(d))))
       || (parts.length > 1 && parts.some(p => exact.includes(p)))); })
     .map(r => {
       const from = recallYear(r.BUILD_BEGIN_A), to = recallYear(r.BUILD_END_A);
@@ -1525,7 +1539,7 @@ async function catModelData(v, loadedOnly){
   const pr = ranked.find(r => isNum(r.mehir) && num(r.mehir) > 0);
   const price = pr ? {mehir: pr.mehir, shem_yevuan: pr.shem_yevuan} : null, priceRows = mine.filter(r => isNum(r.mehir) && num(r.mehir) > 0);
   let modelRecalls = [], modelRecallsUnknown = false;
-  if (!meta.rec || meta.rec.includes(cd)) { const rr = await catRecalls(cd); if (rr) modelRecalls = matchModelRecalls(rr, v); else modelRecallsUnknown = true; }
+  if (!meta.rec || meta.rec.includes(cd)) { const rr = await catRecalls(cd); if (rr) modelRecalls = matchModelRecalls(rr, v, brandModels(meta, v)); else modelRecallsUnknown = true; }
   return {w, towRow, zeroTow, counts, price, priceRows, modelRecalls, modelRecallsUnknown, fromCatalog: true};
 }
 /* Model-level data (specs, towing, counts, price list, recalls) for a maker + model code.
@@ -1537,8 +1551,9 @@ async function fetchModelData(v, signal, useCat){
     if (fast) return fast;
     // the recall list numbers makers its own way (TOZAR_CD 1 = TOYOTA, the register says 413), so the maker's recalls come from the
     // daily catalogue, which joins the two lists by brand name; no catalogue answer is "unknown", never "no recalls"
+    let meta = null;
     const recallsByMaker = (async () => {
-      const cd = catCd(v.tozeret_cd), meta = await withTimeout(catMeta(), CAT_TIMEOUT).catch(() => null);
+      const cd = catCd(v.tozeret_cd); meta = await withTimeout(catMeta(), CAT_TIMEOUT).catch(() => null);
       if (meta && meta.rec && meta.makers[cd] && !meta.rec.includes(cd)) return [];   // a maker the catalogue knows, with no recall for its brand
       const rr = await catRecalls(cd);
       if (rr) return rr;
@@ -1556,7 +1571,7 @@ async function fetchModelData(v, signal, useCat){
     ({towRow, zeroTow} = towOf(ranked, v));
     counts = rankRows(ofType(b, v), v)[0] || null;
     priceRows = ofType(c, v); price = rankRows(priceRows, v)[0] || null;
-    modelRecalls = matchModelRecalls(r, v);
+    modelRecalls = matchModelRecalls(r, v, brandModels(meta, v));
   }
   return {w, towRow, zeroTow, counts, price, priceRows, modelRecalls, modelRecallsUnknown};
 }
