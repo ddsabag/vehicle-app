@@ -20,17 +20,19 @@ const T = s => RealDate.parse(s), M = 6e4, H = 36e5;
 const enc = s => (typeof s === "string" ? new TextEncoder().encode(s) : s);
 const HB = "https://raw.githubusercontent.com/ddsabag/vehicle-app/alert-state/heartbeat.json";
 const OKPAGE = ["<!doctype html><html><head>", '<input id="pl', 'ate" type="text">', "</body></html>"];   // the marker split across chunks
-let site, tg, getMe, mails, brevo, hb, hbReads, tgDown, pulled, cancels, logs;
-const reset = () => { site = { home: { status: 200, chunks: OKPAGE }, api: { status: 302, loc: "https://luchit.app/magazine/?subscribed=expired" } }; hb = undefined; tgDown = false; };
+let site, tg, chk, mails, brevo, hb, hbReads, tgDown, tgCode, chkCodes, homeHits, pulled, cancels, logs;
+const reset = () => { site = { home: { status: 200, chunks: OKPAGE }, api: { status: 302, loc: "https://luchit.app/magazine/?subscribed=expired" } }; hb = undefined; tgDown = false; tgCode = 0; chkCodes = []; };
 globalThis.fetch = async (u, o = {}) => {
   u = String(u);
   if (u.startsWith("https://api.telegram.org/")) {
-    if (u.endsWith("/getMe")) { getMe++; return new Response("{}", { status: tgDown ? 401 : 200 }); }
-    tg.push(JSON.parse(o.body)); return new Response("{}", { status: tgDown ? 500 : 200 });
+    if (u.includes("/getChat?")) { chk++; ok(u.endsWith("?chat_id=SECRET"), "getChat names the chat"); return new Response("{}", { status: chkCodes.shift() || (tgDown ? 401 : 200) }); }
+    tg.push(JSON.parse(o.body)); return new Response("{}", { status: tgCode || (tgDown ? 500 : 200) });
   }
   if (u.startsWith("https://api.brevo.com/")) { brevo.push(JSON.parse(o.body)); return new Response("{}", { status: 201 }); }
   if (u === HB) { hbReads++; return hb === undefined ? new Response("404: Not Found", { status: 404 }) : new Response(JSON.stringify({ t: hb })); }
-  const s = u.startsWith("https://luchit.app/api/confirm?") ? site.api : /^https:\/\/luchit\.app\/\?u=\d+$/.test(u) ? site.home : null;
+  const home = /^https:\/\/luchit\.app\/\?u=\d+$/.test(u); homeHits += home;
+  let s = u.startsWith("https://luchit.app/api/confirm?") ? site.api : home ? site.home : null;
+  if (Array.isArray(s)) s = s.length > 1 ? s.shift() : s[0];   // one answer per try
   if (!s) return new Response("unexpected", { status: 599 });
   if (s === "timeout") throw new DOMException("timed out", "TimeoutError");
   if (s === "net") throw new TypeError("fetch failed");
@@ -50,7 +52,7 @@ const log = console.log;
 let n = 0, bad = 0;
 function ok(c, m) { n++; if (!c) { bad++; log("FAIL " + m); } }
 async function tick(env, at) {
-  clock = at; tg = []; getMe = 0; mails = []; brevo = []; hbReads = 0; pulled = 0; cancels = 0; logs = [];
+  clock = at; tg = []; chk = 0; homeHits = 0; mails = []; brevo = []; hbReads = 0; pulled = 0; cancels = 0; logs = [];
   const p0 = env.ALERTS?.puts || 0;
   console.log = (...a) => logs.push(a.join(" "));
   try { await w.scheduled({ scheduledTime: at, cron: "*/10 * * * *" }, env, {}); } finally { console.log = log; }
@@ -108,6 +110,36 @@ ok(x.tg.length === 1 && /דף הבית/.test(x.tg[0].text) && /שירות ההר
 reset();
 x = await tick(env, DAY + 90 * M);
 ok(x.tg.length === 1 && /דף הבית חזר/.test(x.tg[0].text) && /שירות ההרשמה \(\/api\) חזר/.test(x.tg[0].text), "both recover -> one silent message");
+
+// 2b. the retry 5 s later in the same tick: 503 then 200 is no failure; two failed tries are one
+reset(); env = PAGE();
+await tick(env, DAY);
+site.home = [{ status: 503, chunks: ["down"] }, { status: 200, chunks: OKPAGE }];
+await tick(env, DAY + 10 * M);
+ok(homeHits === 2 && U(env).probes.home.fails === 0 && U(env).probes.home.last === "200", "first try fails, retry works -> fails 0 (" + homeHits + " home fetches)");
+site.home = [{ status: 503, chunks: [] }, { status: 502, chunks: [] }];
+await tick(env, DAY + 20 * M);
+ok(homeHits === 2 && U(env).probes.home.fails === 1 && U(env).probes.home.last === "502", "both tries fail -> fails 1");
+// a recovery line that Telegram refused is sent on the next OK tick, once; a new page drops it
+site.home = { status: 503, chunks: [] };
+x = await tick(env, DAY + 30 * M);
+ok(x.tg.length === 1 && !!U(env).probes.home.pagedAt, "paged");
+site.home = { status: 200, chunks: OKPAGE }; tgDown = true;
+x = await tick(env, DAY + 40 * M);
+ok(x.tg.length === 2 && U(env).probes.home.back > 0 && !U(env).probes.home.pagedAt, "recovery line refused: kept for later");
+tgDown = false;
+x = await tick(env, DAY + 50 * M);
+ok(x.tg.length === 1 && /^✅ דף הבית חזר לעבוד אחרי 20 דקות$/.test(x.tg[0].text) && x.tg[0].disable_notification === true && U(env).probes.home.back === null, "recovery line sent on the next OK tick " + JSON.stringify(x.tg));
+x = await tick(env, DAY + 60 * M);
+ok(x.tg.length === 0, "and only once");
+site.home = { status: 503, chunks: [] }; await tick(env, DAY + 70 * M); await tick(env, DAY + 80 * M);
+site.home = { status: 200, chunks: OKPAGE }; tgDown = true; await tick(env, DAY + 90 * M); tgDown = false;
+site.home = { status: 503, chunks: [] }; await tick(env, DAY + 100 * M);
+x = await tick(env, DAY + 110 * M);
+ok(x.tg.length === 1 && /לוחית לא זמינה/.test(x.tg[0].text) && U(env).probes.home.back === null, "a new page drops a pending recovery line");
+site.home = { status: 200, chunks: OKPAGE };
+x = await tick(env, DAY + 120 * M);
+ok(x.tg.length === 1 && /אחרי 20 דקות$/.test(x.tg[0].text), "the next recovery is for the new outage");
 
 // 3. reminders: one after 22.5 h at the first daytime tick, none at night; paged at night (critical rings at night)
 reset(); env = PAGE();
@@ -190,7 +222,7 @@ ok(U(env).probes.home.last === "marker", "only the exact bytes count");
 x = await tick(env, DAY + 50 * M);
 ok(/הסימן id="plate" חסר/.test(x.tg[0]?.text || ""), "page text names the missing marker");
 
-// 8. mail morning ring: once by day, keys deleted; a failed ring keeps them; expired pointers are dropped quietly
+// 8. mail morning ring: by day, keys deleted; a failed ring keeps them; expired pointers are dropped quietly; the daily getChat
 const seeded = (extra = {}) => KV({ u: { v: 1, tick: new RealDate(DAY - 10 * M).toISOString(), hello: true, tg: true, morning: "2026-10-19",
   probes: { home: { armed: true, fails: 0 }, api: { armed: true, fails: 0 } } }, ...extra });
 reset(); env = { ...PAGE(), ALERTS: seeded({ "p:1": { c: "mail:privacy", at: "2026-10-19T23:05:00Z" }, "p:2": { c: "mail:crash", at: "2026-10-19T22:10:00Z" } }) };
@@ -198,20 +230,44 @@ x = await tick(env, T("2026-10-20T03:00:00Z"));   // 06:00 in Israel: night
 ok(x.tg.length === 0 && env.ALERTS.m.has("p:1"), "no ring at night");
 tgDown = true;
 x = await tick(env, T("2026-10-20T05:10:00Z"));   // 08:10
-ok(env.ALERTS.m.has("p:1") && env.ALERTS.m.has("p:2") && U(env).morning === "2026-10-19" && x.puts === 1, "failed ring keeps the keys");
+ok(env.ALERTS.m.has("p:1") && env.ALERTS.m.has("p:2") && chk === 1 && U(env).tg === false && x.puts === 1, "failed ring keeps the keys");
 tgDown = false;
 x = await tick(env, T("2026-10-20T05:20:00Z"));
 ok(x.tg.length === 1 && x.tg[0].disable_notification === false && /^☀️ <b>מהלילה<\/b>\n• פנייה בנושא תקלה באפליקציה התקבלה ב-01:10\n• פנייה בנושא פרטיות או מחיקה התקבלה ב-02:05\n/.test(x.tg[0].text),
   "one loud ring, in time order " + JSON.stringify(x.tg));
-ok(!env.ALERTS.m.has("p:1") && !env.ALERTS.m.has("p:2") && U(env).morning === "2026-10-20" && x.puts === 1 && getMe === 1, "keys deleted, morning set, getMe once, one KV write");
+ok(!env.ALERTS.m.has("p:1") && !env.ALERTS.m.has("p:2") && U(env).morning === "2026-10-20" && U(env).tg === true && x.puts === 1 && chk === 0, "keys deleted, getChat once a day, one KV write");
 x = await tick(env, T("2026-10-20T05:30:00Z"));
-ok(x.tg.length === 0 && getMe === 0, "ring only once a day");
+ok(x.tg.length === 0 && chk === 0, "ring done: nothing more");
 reset(); env = { ...PAGE(), ALERTS: seeded() };
 x = await tick(env, T("2026-10-20T05:20:00Z"));
-ok(x.tg.length === 0 && U(env).morning === "2026-10-20" && U(env).tg === true, "no pointers: no message, morning set");
+ok(x.tg.length === 0 && U(env).morning === "2026-10-20" && U(env).tg === true && chk === 1, "no pointers: no message, the check ran");
 reset(); env = { ...PAGE(), ALERTS: seeded() }; tgDown = true;
 await tick(env, T("2026-10-20T05:20:00Z"));
-ok(U(env).tg === false, "daily getMe failing -> tg false (no deferral for luchit-mail)");
+ok(U(env).tg === false && chk === 1, "getChat 401 -> tg false at once (no deferral for luchit-mail)");
+reset(); env = { ...PAGE(), ALERTS: seeded() }; chkCodes = [502];
+await tick(env, T("2026-10-20T05:20:00Z"));
+ok(U(env).tg === true && chk === 2, "one getChat 502 is retried: tg stays true");
+// the check runs before the tick's sends: a page that Telegram refuses (chat gone) leaves tg false all night although getChat said OK
+reset(); env = { ...PAGE(), ALERTS: seeded() }; site.home = { status: 503, chunks: [] };
+await tick(env, T("2026-10-20T04:40:00Z")); tgCode = 400;
+x = await tick(env, T("2026-10-20T05:00:00Z"));   // 08:00: the check, then the page
+ok(chk === 1 && x.mails.length === 1 && U(env).tg === false, "page refused after a good getChat -> tg false");
+tgCode = 0; site.home = { status: 200, chunks: OKPAGE }; tgDown = true;
+await tick(env, T("2026-10-20T20:00:00Z"));   // 23:00
+ok(U(env).tg === false && (await health(env)).j.tg === false, "still false at night");
+// a pointer written just after the 08:00 tick rings at 08:10; over 20 -> "ועוד N"; older than 12 h -> with its date
+reset(); env = { ...PAGE(), ALERTS: seeded() };
+await tick(env, T("2026-10-20T05:00:00Z"));
+env.ALERTS.m.set("p:9", JSON.stringify({ c: "mail:privacy", at: "2026-10-20T04:59:58Z" }));
+x = await tick(env, T("2026-10-20T05:10:00Z"));
+ok(x.tg.length === 1 && /• פנייה בנושא פרטיות או מחיקה התקבלה ב-07:59\n/.test(x.tg[0].text) && !env.ALERTS.m.has("p:9"), "late pointer rings on the next daytime tick " + JSON.stringify(x.tg));
+const many = {}; for (let i = 0; i < 25; i++) many["p:" + i] = { c: "mail:crash", at: new RealDate(T("2026-10-19T20:00:00Z") + i * M).toISOString() };
+many["p:old"] = { c: "mail:other", at: "2026-10-19T03:00:00Z" };
+reset(); env = { ...PAGE(), ALERTS: seeded(many) };
+x = await tick(env, T("2026-10-20T05:20:00Z"));
+ok(x.tg.length === 1 && x.tg[0].text.split("\n").filter(l => l.startsWith("• ")).length === 20 && /\nועוד 6 פניות\n/.test(x.tg[0].text) && /^☀️ <b>מהלילה<\/b>\n• פנייה התקבלה ב-19\.10 06:00\n• פנייה בנושא תקלה באפליקציה התקבלה ב-23:00\n/.test(x.tg[0].text),
+  "26 pointers: 20 lines, 'ועוד 6', the old one dated " + JSON.stringify(x.tg));
+ok(![...env.ALERTS.m.keys()].some(k => k.startsWith("p:")), "all listed pointers deleted");
 
 // 9. GitHub heartbeat: 4 checks a day, armed after first sight, over 50 h old -> one daytime alert (+ email in page mode)
 reset(); env = { ...PAGE(), ALERTS: seeded() };

@@ -3,9 +3,10 @@
 //           api  = GET https://luchit.app/api/confirm?e=x&x=1&t=x must answer 302 to ...subscribed=expired (luchit-api rejects the
 //                  address before signing: no mail, no Brevo or GA call, no write; the same check as infra-watch.mjs)
 //   2 failed ticks in a row (each with one retry) = one critical alert: Telegram loud + email in parallel; one reminder per 22.5 h by day;
-//   a silent line on recovery. A probe pages only after its first success (armed).
-//   Other duties: the morning ring for luchit-mail's night pointers (KV "p:<ms>"), a daily Telegram getMe, and a watch on the GitHub
-//   heartbeat (alert-state/heartbeat.json) 4 times a day. GET /health = public status without keys, numbers or mail data.
+//   a silent line on recovery (retried on later OK ticks until it is out). A probe pages only after its first success (armed).
+//   Other duties: the morning ring for luchit-mail's night pointers (KV "p:<ms>", listed on every daytime tick), a daily Telegram
+//   getChat, and a watch on the GitHub heartbeat (alert-state/heartbeat.json) 4 times a day.
+//   GET /health = public status without keys, numbers or mail data.
 // Observe mode (default): the dashboard variable ALERT_ROUTE does not list "critical", so a would-be page is a SILENT "🧪 (מצב ניסיון)"
 // message with no email. ALERT_ROUTE=critical turns paging on; deleting the variable turns it off again.
 // Bindings: KV ALERTS (luchit-alerts, required; without it the Worker only logs). Optional: Send Email MAIL. Secrets: TELEGRAM_BOT_TOKEN,
@@ -132,7 +133,7 @@ const PROBES = {
   api: { name: "שירות ההרשמה (/api)", url: () => `${SITE}/api/confirm?e=x&x=1&t=x`, manual: true,
     check: async r => (r.status !== 302 ? String(r.status) : /subscribed=expired/.test(r.headers.get("location") || "") ? "" : "redirect") },
 };
-const P0 = () => ({ fails: 0, armed: false, since: null, pagedAt: null, remAt: null, last: null });
+const P0 = () => ({ fails: 0, armed: false, since: null, pagedAt: null, remAt: null, last: null, back: null });   // back = ms down, recovery line not yet out
 const U0 = () => ({ v: 1, tick: null, mode: "observe", probes: { home: P0(), api: P0() }, gh: { seenAt: null, t: null, at: null, staleAt: null }, morning: null, hello: false, tg: false });
 const iso = t => new Date(t).toISOString();
 const ms = s => (typeof s === "string" ? Date.parse(s) : NaN);
@@ -188,8 +189,18 @@ async function heartbeat() {
 }
 // KV "u", or null when missing or unreadable as JSON; throws when KV fails
 const readU = async env => { try { return JSON.parse(await within(env.ALERTS.get("u"))); } catch (e) { if (e instanceof SyntaxError) return null; throw e; } };
-async function getMe(env) {
-  try { return (await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getMe`, { signal: AbortSignal.timeout(10000) })).ok; } catch { return false; }
+// getChat sends nothing and fails on a bad token, a wrong chat or a bot removed from it; 2 tries 1 s apart, as tgSend
+async function tgCheck(env) {
+  for (let i = 0; i < 2; i++) {
+    if (i) await sleep(1000);
+    try {
+      const r = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getChat?chat_id=${encodeURIComponent(env.TELEGRAM_CHAT_ID)}`, { signal: AbortSignal.timeout(10000) });
+      await drop(r);
+      if (r.ok) return true;
+      if (r.status < 500 && r.status !== 429) return false;
+    } catch { /* timeout or network: retry */ }
+  }
+  return false;
 }
 
 async function tick(env) {
@@ -215,8 +226,9 @@ async function tick(env) {
     const p = u.probes[id], r = res[i];
     p.last = r.last;
     if (r.ok) {
-      if (p.pagedAt) back.push([id, now - ms(p.since)]);
+      if (p.pagedAt) p.back = now - ms(p.since);
       Object.assign(p, { fails: 0, armed: true, since: null, pagedAt: null, remAt: null });
+      if (p.back != null) back.push(id);
       return;
     }
     p.fails++; p.since = p.since || iso(now);
@@ -226,31 +238,32 @@ async function tick(env) {
   });
   console.log("tick " + ids.map((id, i) => `${id}=${res[i].last}`).join(" ") + " mode=" + u.mode);
 
+  // once a day, at the first daytime tick and before any send (a send that fails later in the tick wins): the Telegram check that
+  // keeps "tg" honest for canDefer and /health
+  const today = ilDate(new Date(now));
+  if (day && u.morning !== today) { if (keys) u.tg = await tgCheck(env); u.morning = today; }
   if (!u.hello && keys && await send("✅ בדיקת הזמינות פועלת (כל 10 דקות)", { silent: true })) u.hello = true;
   const lines = list => list.map(id => { const p = u.probes[id];
     return `${PROBES[id].name} לא עונה כבר ${dur(now - ms(p.since))} (${p.fails} בדיקות ברצף, כל 10 דקות).\nבדיקה אחרונה: ${WHY[p.last] || "HTTP " + p.last}`; }).join("\n");
   if (down.length && await fire("critical", "up:" + down.join("+"), `🚨 <b>לוחית לא זמינה</b>\n${lines(down)}\nזמן: ${ilTime(new Date(now))}`))
-    for (const id of down) u.probes[id].pagedAt = iso(now);
+    for (const id of down) Object.assign(u.probes[id], { pagedAt: iso(now), back: null });
   if (rem.length && await fire("critical", "up:" + rem.join("+"),
     `🔁 תזכורת: זה עדיין קורה (מאז ${ilTime(new Date(ms(u.probes[rem[0]].since)))})\n\n🚨 <b>לוחית לא זמינה</b>\n${lines(rem)}\nזמן: ${ilTime(new Date(now))}`))
     for (const id of rem) u.probes[id].remAt = iso(now);
-  if (back.length) await send((page ? "" : TRIAL) + back.map(([id, t]) => `✅ ${PROBES[id].name} חזר לעבוד אחרי ${dur(t)}`).join("\n"), { silent: true });
+  if (back.length && await send((page ? "" : TRIAL) + back.map(id => `✅ ${PROBES[id].name} חזר לעבוד אחרי ${dur(u.probes[id].back)}`).join("\n"), { silent: true }))
+    for (const id of back) u.probes[id].back = null;   // a failed line is sent again on the next OK tick
 
-  // once a day, at the first daytime tick: getMe (keeps "tg" honest for canDefer and /health), then the ring for luchit-mail's night pointers
-  const today = ilDate(new Date(now));
-  if (day && u.morning !== today) {
-    if (keys) u.tg = await getMe(env);
-    try {
-      const names = (await within(env.ALERTS.list({ prefix: "p:" }))).keys.map(k => k.name);
-      const ptr = (await Promise.all(names.map(k => within(env.ALERTS.get(k, "json")).catch(() => null)))).filter(x => x && ms(x.at) > 0).sort((a, b) => ms(a.at) - ms(b.at));
-      const ring = ptr.slice(0, 20).map(x => { const c = MAIL_CLS[String(x.c).split(":").pop()];
-        return `• ${c ? "פנייה בנושא " + c : "פנייה"} התקבלה ב-${ilTime(new Date(ms(x.at))).slice(-5)}`; });
-      if (!ring.length || await send(`☀️ <b>מהלילה</b>\n${ring.join("\n")}\nהפרטים בהודעות השקטות ובג'ימייל.`)) {   // a failed ring keeps the keys
-        u.morning = today;
-        await Promise.all(names.map(k => within(env.ALERTS.delete(k)).catch(() => {})));   // a key left behind expires by its TTL (48 h)
-      }
-    } catch (e) { console.log("morning ring: KV failed, next tick retries:", String(e).slice(0, 120)); }
-  }
+  // the ring for luchit-mail's night pointers: listed on every daytime tick (84 lists/day of the free 1,000), so a pointer written
+  // just after 08:00 or late in KV's list still rings the same morning; one older than 12 h shows its date
+  if (day) try {
+    const names = (await within(env.ALERTS.list({ prefix: "p:" }))).keys.map(k => k.name);
+    const ptr = (await Promise.all(names.map(k => within(env.ALERTS.get(k, "json")).catch(() => null)))).filter(x => x && ms(x.at) > 0).sort((a, b) => ms(a.at) - ms(b.at));
+    const ring = ptr.slice(0, 20).map(x => { const c = MAIL_CLS[String(x.c).split(":").pop()], at = ilTime(new Date(ms(x.at)));
+      return `• ${c ? "פנייה בנושא " + c : "פנייה"} התקבלה ב-${now - ms(x.at) > 12 * 36e5 ? at : at.slice(-5)}`; });
+    if (ptr.length > 20) ring.push(`ועוד ${ptr.length - 20} פניות`);
+    if (!ring.length || await send(`☀️ <b>מהלילה</b>\n${ring.join("\n")}\nהפרטים בהודעות השקטות ובג'ימייל.`))   // a failed ring keeps the keys
+      await Promise.all(names.map(k => within(env.ALERTS.delete(k)).catch(() => {})));   // a key left behind expires by its TTL (48 h)
+  } catch (e) { console.log("morning ring: KV failed, next tick retries:", String(e).slice(0, 120)); }
 
   // GitHub watch: armed once a heartbeat was seen; over 50 h old = day alert by day, at most once per 22.5 h, email in page mode
   if (ghDue) {
