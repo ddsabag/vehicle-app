@@ -1,6 +1,7 @@
 name: Data guard
 # Daily comparison of every ministry dataset's columns with a saved baseline (orphan branch "guard-baseline"). A breaking change alerts Telegram once
 # and the Android build gate (android.yml) stops on it. Harmless changes are reported once. accept=true saves today's schema as the new baseline.
+# Last step: the market-intel self-test (moved here from the deleted monthly "Market intelligence" workflow), so the check is daily.
 on:
   schedule:
     - cron: "15 4 * * *"
@@ -57,3 +58,8 @@ jobs:
           git add schema.json
           git commit -qm "schema baseline $(date -u +%F)"
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" guard-baseline
+      # magazine.mjs reads normModel out of index.html through market-intel.mjs and drops its "supply swings" section without an alert
+      # when that breaks: a red run here is the alert. Last step, so it never stops the guard's own steps above.
+      - name: Market-intel self-test (magazine section)
+        if: ${{ !cancelled() }}
+        run: node .github/scripts/market-intel.mjs --selftest
