@@ -140,6 +140,7 @@ export async function watch() {
     R.watched = due.map(b => `${b.track} ${b.vn || "?"} (${b.vc}), ${Math.floor((now - b.since) / HOUR)} h`);
     if (due.length) {
       const end = await dataEnd(ctx);
+      { const h = await issues(ctx, end - HISTORY_D * DAY, end, 0); IO.out(`TEST history: ${h.length} issues, first versions ${h.map(i => i.firstAppVersion?.versionCode + "-" + i.lastAppVersion?.versionCode + " " + i.type + " " + i.errorReportCount).join(", ")}`); }
       let history = null;
       for (const b of [...new Map(due.map(b => [b.vc, b])).values()]) {
         const from = hourOf(b.since - DAY);   // the first look can come hours after the upload (no run at night)
