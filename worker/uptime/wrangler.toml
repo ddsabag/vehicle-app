@@ -3,6 +3,7 @@ main = "worker.js"
 compatibility_date = "2026-10-01"
 compatibility_flags = ["global_fetch_strictly_public"]   # probes reach luchit.app through the public front door (Pages + the /api/* route)
 workers_dev = true                                        # no luchit.app route: /health is at luchit-uptime.<subdomain>.workers.dev
+preview_urls = false                                      # no preview URLs for each version
 keep_vars = true                                          # no [vars] block at all, so a deploy can never blank a dashboard variable
 [observability]
 enabled = false

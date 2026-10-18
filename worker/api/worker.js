@@ -3,6 +3,7 @@
 //   GET  /api/confirm?e=<email>&x=<expiry>&t=<signature>      -> verifies the signature, adds the contact to the Brevo list, redirects to /magazine/?subscribed=1
 //   POST /api/waitlist   { name, company, type, interest, email, phone, notes, consent:true, website:"" } -> business waitlist (/business/): contact into Brevo list BREVO_B2B_LIST_ID,
 //                        a notification mail to NOTIFY_TO, and (optional) a cookie-less GA4 event b2b_lead_submit through the Measurement Protocol
+// A confirmed subscription also sends (optional) a cookie-less GA4 event newsletter_confirm, so /live can count subscribers.
 // Route: luchit.app/api/*   Secret: BREVO_KEY (also signs the links; CONFIRM_SECRET is used instead if you set it)   Vars: BREVO_LIST_ID, BREVO_B2B_LIST_ID, NOTIFY_TO
 // Optional for the GA4 event: GA_MEASUREMENT_ID (var, G-XXXXXXXX of a web data stream) and GA_API_SECRET (secret).
 // The visible mail is email/confirm.html in the repo; CONFIRM_HTML below is that file with the link as {{CONFIRM_URL}} (regenerate it when the design changes).
@@ -97,6 +98,12 @@ const app = {
       if (!EMAIL_RE.test(email) || !(exp > Date.now()) || !eq(t, await sign(env, email, exp))) return redirect("expired");
       const r = await brevo(env, "/contacts", { email, listIds: [Number(env.BREVO_LIST_ID)], updateEnabled: true, attributes: { SOURCE: "magazine", CONSENT_AT: new Date().toISOString() } });
       if (!r.ok) { console.log("brevo contacts", r.status, "upstream error"); return redirect("error"); }
+      if (env.GA_MEASUREMENT_ID && env.GA_API_SECRET) {   // counted on /live as magazine subscribers; no email or id is sent
+        try {
+          await fetch(`https://www.google-analytics.com/mp/collect?measurement_id=${encodeURIComponent(env.GA_MEASUREMENT_ID)}&api_secret=${encodeURIComponent(env.GA_API_SECRET)}`, { method: "POST",
+            body: JSON.stringify({ client_id: crypto.randomUUID(), events: [{ name: "newsletter_confirm", params: { engagement_time_msec: 1 } }] }) });
+        } catch (e) { console.log("ga failed", String(e).slice(0, 200)); }
+      }
       return redirect("1");
     }
 
