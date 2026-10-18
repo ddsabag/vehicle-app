@@ -145,5 +145,5 @@ jobs:
           BREVO_KEY: ${{ secrets.BREVO_KEY || secrets.BREVO_API_KEY }}
           BREVO_LIST_ID: ${{ vars.BREVO_LIST_ID }}
           MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (vars.NEWSLETTER_AUTOSEND == 'true' && 'send' || 'draft') }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: { name: newsletter-preview, path: out/newsletter.html }
