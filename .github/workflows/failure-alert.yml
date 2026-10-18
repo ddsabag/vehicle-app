@@ -2,8 +2,12 @@ name: Failure alert
 # One Telegram message (loud) when a scheduled or push-triggered production workflow crashes on main without having sent its own alert.
 # Scripts that already alert on their own finish green on purpose, so this only fires for the failures nobody else reported (e.g. a build or a job that died).
 # Manual runs (workflow_dispatch) and the next-branch UI checks are left out: the person who started them sees the result.
+# A run cancelled before any job started (a newer run in its concurrency group took its place) is not a failure; one cancelled mid-job (e.g. a timeout) is.
+# A repeat failure (the previous run of the same workflow on main also failed) is sent silently and not added to /live again; the first one is loud.
+# Names must match each workflow's name: exactly (no error when one does not).
 on:
   workflow_run:
+    branches: [main]
     workflows:
       - "Android build"
       - "Data guard"
@@ -19,9 +23,9 @@ on:
       - "Infra watch"
       - "Magazine data articles"
       - "Magazine"
-      - "Market intelligence"
       - "Experimenter"
       - "Market data"
+      - "Model catalogue"
       - "Model names"
       - "Model statistics"
       - "Newsletter"
@@ -30,11 +34,13 @@ on:
       - "SEO daily digest"
       - "SEO data snapshot"
       - "Site smoke test"
+      - "Site smoke test (after deploy)"
       - "Weekly analytics report"
       - "Back-on-road detector"
     types: [completed]
 permissions:
-  contents: write
+  contents: write   # flash.mjs writes the flashes branch the /live dashboard reads
+  actions: read     # jobs and previous runs of the failed workflow
 jobs:
   tell:
     if: ${{ (github.event.workflow_run.conclusion == 'failure' || github.event.workflow_run.conclusion == 'timed_out' || github.event.workflow_run.conclusion == 'cancelled') && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event != 'workflow_dispatch' }}
@@ -51,10 +57,35 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NAME: ${{ github.event.workflow_run.name }}
           URL: ${{ github.event.workflow_run.html_url }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+          WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
         run: |
           [ -n "$TELEGRAM_BOT_TOKEN" ] || { echo "no Telegram credentials"; exit 0; }
+          # number of jobs of a run that got a runner (a job that never started has no steps); "x" when the API call fails
+          started() { local n; n=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1/jobs?per_page=100" --jq '[.jobs[] | select((.steps | length) > 0)] | length' 2>/dev/null) || n=x; echo "$n"; }
+          if [ "$CONCLUSION" = cancelled ] && [ "$(started "$RUN_ID")" = 0 ]; then echo "cancelled before any job started (superseded): no alert"; exit 0; fi
+          # the previous automatic run of the same workflow on main (superseded ones skipped): failed too = repeat. Any doubt counts as a first failure.
+          repeat=""
+          runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$WORKFLOW_ID/runs?branch=main&status=completed&per_page=30" \
+            --jq ".workflow_runs[] | select(.run_number < $RUN_NUMBER and .event != \"workflow_dispatch\") | \"\(.id):\(.conclusion)\"" 2>/dev/null) || runs=""
+          for r in $runs; do
+            case "${r#*:}" in
+              success) break;;
+              failure|timed_out|startup_failure) repeat=1; break;;
+              cancelled) n=$(started "${r%%:*}"); [ "$n" = 0 ] && continue; case "$n" in [1-9]*) repeat=1;; esac; break;;
+            esac
+          done
+          if [ -n "$repeat" ]; then
+            echo "the previous run failed too: silent message, no new flash"
+            text=$(printf '🔴 לוחית: תהליך אוטומטי נכשל שוב\nהתהליך "%s" נכשל גם בהרצה הקודמת, לכן ההודעה שקטה. הלוג:\n%s' "$NAME" "$URL")
+            curl -s -o /dev/null -w "telegram %{http_code}\n" "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$text" --data-urlencode "disable_web_page_preview=true" --data-urlencode "disable_notification=true"
+            exit 0
+          fi
           text=$(printf '🔴 לוחית: תהליך אוטומטי נכשל\nהתהליך "%s" נכשל ולא שלח התראה משלו. כדאי לבדוק את הלוג:\n%s' "$NAME" "$URL")
           curl -s -o /dev/null -w "telegram %{http_code}\n" "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$text" --data-urlencode "disable_web_page_preview=true"
           node .github/scripts/flash.mjs infra alert "תהליך אוטומטי נכשל: $NAME" "$URL"
