@@ -222,6 +222,18 @@ async function setup(env) {
   if (!sa?.client_email || !sa?.private_key) throw new Fail(`הסוד ${SECRET} אינו מפתח JSON של חשבון שירות`, `להדביק בסוד ${SECRET} את כל קובץ ה-JSON של המפתח`);
   return { pkg: env.PLAY_PACKAGE || PKG, dry: env.MODE !== "on", token: await accessToken(sa) };
 }
+// Play keeps one open edit per app: another workflow's edit (Ship tail, Store listing, the watch's read) deletes ours. Start over, twice.
+const editGone = e => /edit has been deleted|edit .{0,20}expired/i.test(String(e?.why || e?.message || ""));
+async function again(fn) {
+  for (let i = 0; ; i++) {
+    try { return await fn(); }
+    catch (e) {
+      if (!editGone(e) || i === 2 || (IO.deadline && IO.deadline - IO.now() < 120000)) throw e;
+      IO.out(`another edit replaced ours (${i + 1}): starting over`);
+      await IO.sleep(30000 * (i + 1));
+    }
+  }
+}
 const fmt = (tracks, life = {}) => tracks.filter(t => t.track === ALPHA || t.track === PROD).map(t => `${t.track}: ${(t.releases || []).map(r => `${r.name || "?"} (${codes(r).join("+")}, ${r.status}` +
   `${r.userFraction ? ` ${Math.round(r.userFraction * 100)}%` : ""}${lifeOf(life[t.track], r) ? `, ${lifeOf(life[t.track], r)}` : ""})`).join(", ") || "-"}`).join("; ");
 
@@ -231,18 +243,20 @@ export async function promote() {
   try {
     const ctx = await setup(IO.env);
     if (!ctx) { note(`${SECRET} is not set: nothing is sent`); return { ...R, code: "nosecret" }; }
-    const tracks = await readTracks(ctx), life = {};
-    // the review state only adds a check (a build Google rejected on Alpha is not sent) and the log line; without it the run goes on
-    for (const t of [ALPHA, PROD]) try { life[t] = await lifecycle(ctx, t); } catch (e) { note(`the review state of ${t} could not be read: ${String(e?.why || e?.message || e).slice(0, 120)}`); }
-    R.tracks = fmt(tracks, life);
-    IO.out(`on Play: ${R.tracks}`);
-    const P = planPromote(tracks, life);
-    Object.assign(R, { vn: P.vn || "", vc: P.vc || 0 });
-    if (P.stop) { IO.out(`not sent: ${P.stop}`); return { ...R, code: P.stop, why: P.he }; }
-    if (ctx.dry) { const checked = await probe(ctx); IO.out(`dry run: would send ${P.vn} (${P.vc}) to ${PROD} ${P.first ? "for all users (the first production release)" : `at ${FRACTION * 100}%`}${checked ? "; the production permission was checked" : ""}`); return { ...R, code: "dry", checked }; }
-    await send(ctx, P.release, P.first ? "first" : "start");
-    IO.out(`sent: ${P.vn} (${P.vc}) to ${PROD} ${P.first ? "for all users (the first production release)" : `at ${FRACTION * 100}%`}, in review`);
-    return { ...R, code: "sent", replaces: P.replaces, first: !!P.first };
+    return await again(async () => {
+      const tracks = await readTracks(ctx), life = {};
+      // the review state only adds a check (a build Google rejected on Alpha is not sent) and the log line; without it the run goes on
+      for (const t of [ALPHA, PROD]) try { life[t] = await lifecycle(ctx, t); } catch (e) { note(`the review state of ${t} could not be read: ${String(e?.why || e?.message || e).slice(0, 120)}`); }
+      R.tracks = fmt(tracks, life);
+      IO.out(`on Play: ${R.tracks}`);
+      const P = planPromote(tracks, life);
+      Object.assign(R, { vn: P.vn || "", vc: P.vc || 0 });
+      if (P.stop) { IO.out(`not sent: ${P.stop}`); return { ...R, code: P.stop, why: P.he }; }
+      if (ctx.dry) { const checked = await probe(ctx); IO.out(`dry run: would send ${P.vn} (${P.vc}) to ${PROD} ${P.first ? "for all users (the first production release)" : `at ${FRACTION * 100}%`}${checked ? "; the production permission was checked" : ""}`); return { ...R, code: "dry", checked }; }
+      await send(ctx, P.release, P.first ? "first" : "start");
+      IO.out(`sent: ${P.vn} (${P.vc}) to ${PROD} ${P.first ? "for all users (the first production release)" : `at ${FRACTION * 100}%`}, in review`);
+      return { ...R, code: "sent", replaces: P.replaces, first: !!P.first };
+    });
   } catch (e) { return failed(R, e); }
 }
 export async function auto() {
@@ -251,22 +265,24 @@ export async function auto() {
   try {
     const ctx = await setup(IO.env);
     if (!ctx) return { ...R, code: "nosecret" };
-    const file = IO.env.STATE || "watch.json", tracks = await readTracks(ctx), state = J(IO.read(file)) || {};
-    const running = releasesOf(tracks, PROD).some(r => r.status === "inProgress");
-    const P = planAuto(tracks, state, IO.now(), running ? await lifecycle(ctx, PROD) : []);
-    Object.assign(R, { vn: P.vn || "", vc: P.vc || 0, n: P.n || 0, fraction: P.fraction || 0 });
-    if (P.act === "idle" || P.act === "wait") { IO.out(`production: ${P.act}${P.why ? ` (${P.why})` : ""}`); return { ...R, code: P.act }; }
-    if (ctx.dry) { IO.out(`dry run: would ${{ live: "record the start of", halt: "halt", full: "complete" }[P.act]} ${P.vn} (${P.vc})`); return { ...R, code: "dry-" + P.act }; }
-    // the first look at it published starts the 48 h (kept with the watch's state; the workflow saves the file after this step)
-    if (P.fresh) {
-      const liveAt = { ...(state.live || {}), [P.key]: P.out };
-      for (const k of Object.keys(liveAt)) if (IO.now() - liveAt[k] > KEEP_D * DAY) delete liveAt[k];
-      IO.write(file, JSON.stringify({ ...state, live: liveAt }));
-    }
-    if (P.act === "live") { IO.out(`published: ${P.vn} (${P.vc}) at ${Math.round(P.fraction * 100)}%, ${P.why}`); return { ...R, code: "live" }; }
-    await send(ctx, P.release, P.act);
-    IO.out(`${P.act === "halt" ? "halted" : "completed"}: ${P.vn} (${P.vc})`);
-    return { ...R, code: P.act === "halt" ? "halted" : "full" };
+    return await again(async () => {
+      const file = IO.env.STATE || "watch.json", tracks = await readTracks(ctx), state = J(IO.read(file)) || {};
+      const running = releasesOf(tracks, PROD).some(r => r.status === "inProgress");
+      const P = planAuto(tracks, state, IO.now(), running ? await lifecycle(ctx, PROD) : []);
+      Object.assign(R, { vn: P.vn || "", vc: P.vc || 0, n: P.n || 0, fraction: P.fraction || 0 });
+      if (P.act === "idle" || P.act === "wait") { IO.out(`production: ${P.act}${P.why ? ` (${P.why})` : ""}`); return { ...R, code: P.act }; }
+      if (ctx.dry) { IO.out(`dry run: would ${{ live: "record the start of", halt: "halt", full: "complete" }[P.act]} ${P.vn} (${P.vc})`); return { ...R, code: "dry-" + P.act }; }
+      // the first look at it published starts the 48 h (kept with the watch's state; the workflow saves the file after this step)
+      if (P.fresh) {
+        const liveAt = { ...(state.live || {}), [P.key]: P.out };
+        for (const k of Object.keys(liveAt)) if (IO.now() - liveAt[k] > KEEP_D * DAY) delete liveAt[k];
+        IO.write(file, JSON.stringify({ ...state, live: liveAt }));
+      }
+      if (P.act === "live") { IO.out(`published: ${P.vn} (${P.vc}) at ${Math.round(P.fraction * 100)}%, ${P.why}`); return { ...R, code: "live" }; }
+      await send(ctx, P.release, P.act);
+      IO.out(`${P.act === "halt" ? "halted" : "completed"}: ${P.vn} (${P.vc})`);
+      return { ...R, code: P.act === "halt" ? "halted" : "full" };
+    });
   } catch (e) { return failed(R, e); }
 }
 function failed(R, e) {
@@ -351,7 +367,7 @@ async function selftest() {
     const W = { calls: [], printed: [], outputs: {}, sums: [], tg: [], seq: 0, clock: o.now ?? T0, fail: structuredClone(o.fail || {}), edits: new Map(), tracks: structuredClone(o.tracks ?? NORMAL),
       files: { "watch.json": o.state ? JSON.stringify(o.state) : null } };
     const res = (s, b) => new Response(s === 204 ? null : JSON.stringify(b ?? {}), { status: s });
-    const take = op => { const q = W.fail[op]; if (q && q.length) { const s = q.shift(); return s === 0 ? "drop" : res(s, { error: { message: "scripted " + s } }); } return null; };
+    const take = op => { const q = W.fail[op]; if (q && q.length) { const s = q.shift(); return typeof s === "object" ? res(s.status, { error: { message: s.msg } }) : s === 0 ? "drop" : res(s, { error: { message: "scripted " + s } }); } return null; };
     W.fetch = async (url, opt = {}) => {
       const method = opt.method || "GET", u = new URL(url), p = u.pathname;
       W.calls.push({ method, url, body: opt.body });
@@ -477,6 +493,13 @@ async function selftest() {
     ok(W.outputs.code === "sent", "commit without an answer that landed = sent");
     W = await run({ fail: { commit: [500, 500, 500, 500] } });
     ok(W.outputs.code === "error" && W.prod.every(r => r.versionCodes.join() !== "115"), "commit 5xx: error, production unchanged");
+    const GONE = { status: 400, msg: "This Edit has been deleted." };
+    W = await run({ fail: { put: [GONE] } });
+    ok(W.outputs.code === "sent" && W.puts.length === 2 && W.calls.filter(c => c.url.endsWith(":commit")).length === 1 && W.printed.some(l => l.includes("starting over")), "another edit deleted ours: started over, sent once " + W.printed.join(" | "));
+    W = await run({ fail: { commit: [GONE, GONE, GONE] } });
+    ok(W.outputs.code === "error" && W.prod.every(r => r.versionCodes.join() !== "115") && W.calls.filter(c => c.url.endsWith(":commit")).length === 3, "deleted three times: error, production unchanged");
+    W = await run({ tracks: T([A("1.34", 115)], [A("1.34", 115, "inProgress", { userFraction: 0.2, releaseNotes: NOTES }), A("1.33", 110)]), state: { seen: { "production:115": T0 - 80 * HOUR }, live: { "production:115": T0 - 49 * HOUR } }, fail: { put: [GONE] } }, { EVENT: "schedule" }, ["auto"]);
+    ok(W.outputs.code === "full" && W.tg.length === 1, "auto: another edit deleted ours: started over");
     W = await run({ ghost: true });
     ok(W.outputs.code === "error" && W.code === 1 && W.tg[0]?.text.includes("לא מראה את השינוי"), "a commit Play answered but does not show: error " + W.tg.map(x => x.text));
     W = await run({}, { [SECRET]: "" });
