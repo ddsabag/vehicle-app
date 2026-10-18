@@ -1,9 +1,10 @@
 name: Experimenter
-# Weekly: reads the wording experiments from GA4 and, when one variant is clearly better, writes the winner to experiments.json on main
+# Reads the wording experiments from GA4 and, when one variant is clearly better, writes the winner to experiments.json on main
 # (the app reads it from the site). A quiet Telegram message is sent only when an experiment is decided. Needs GA_PROPERTY_ID and GA_SERVICE_ACCOUNT_JSON.
+# Paused (2026-10-18): too little traffic for a fair result, so there is no schedule and experiments.json has "off": true (everyone sees
+# variant 0). To resume: put back the weekly cron (was "20 6 * * 3") and remove "off" from experiments.json; an "off" experiment is skipped
+# even on a manual run. Keep experiments.json on the site: without it the app keeps each device's old random variant.
 on:
-  schedule:
-    - cron: "20 6 * * 3"
   workflow_dispatch:
     inputs:
       dry_run:
