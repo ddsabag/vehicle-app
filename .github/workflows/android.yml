@@ -67,6 +67,7 @@ jobs:
           # the user-facing version comes from the app itself (APP_VERSION in index.html)
           VN=$(grep -oP 'APP_VERSION = "\K[^"]+' ../index.html)
           echo "VN=$VN" >> "$GITHUB_ENV"
+          gradle --no-daemon :app:dependencies --configuration releaseRuntimeClasspath | grep -E "androidx\.(core|work|fragment|activity|webkit)" | sort -u | head -40 || true
           gradle --no-daemon assembleRelease bundleRelease \
             -PversionCode=${{ github.run_number }} -PversionName=$VN
 
