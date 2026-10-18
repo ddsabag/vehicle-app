@@ -1,5 +1,8 @@
 // Daily health check of the data.gov.il datasets the app reads: availability, latency, schema drift, freshness.
 // Sends a Telegram alert on any failure (needs TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID). DRY_RUN=1 prints instead of sending.
+// Part of Ministry watch: what it reads that the app's status.json also needs (unfiltered row counts, last-update stamps) is handed to status.mjs
+// as the step output "seen", so each dataset is asked once a day (see status.mjs for the format).
+import { appendFileSync } from "node:fs";
 import { ilTime } from "./notify.mjs";
 import { flash } from "./flash.mjs";
 import { SETS, SAMPLE_PLATE } from "./datasets.mjs";
@@ -10,6 +13,15 @@ const DRY = process.env.DRY_RUN === "1";
 
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+// for status.mjs: per dataset key, the unfiltered datastore_search reads made (tries; ok/total from the first that found rows, else the last)
+// and the resource_show answer (modified, absent when that read failed). Filtered lookups are not counts of the dataset, so they are not recorded.
+const seen = {};
+const sawCount = (s, ok, total) => { const p = seen[s.key] ||= { id: s.id, tries: 0 }; if (p.ok) return; p.tries++; p.ok = ok; if (total !== undefined) p.total = total; };
+const sawModified = (s, lm) => { (seen[s.key] ||= { id: s.id, tries: 0 }).modified = lm || null; };
+function emitSeen() {
+  const f = process.env.GITHUB_OUTPUT;
+  try { if (f) appendFileSync(f, "seen=" + JSON.stringify(seen) + "\n"); } catch (e) { console.log("could not hand the readings to status.mjs:", e.message); }
+}
 async function call(action, params) {
   const t0 = Date.now(), url = API + action + "?" + new URLSearchParams(params);
   const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS), headers: { "user-agent": "luchit-data-health/1.0" } });
@@ -28,8 +40,11 @@ async function check(s) {
   try {
     const params = { resource_id: s.id, limit: "1" };
     if (s.filters) params.filters = JSON.stringify(s.filters);
-    const { j, ms: m } = await withRetry(() => call("datastore_search", params)); ms = m;
+    let j, m;
+    try { ({ j, ms: m } = await withRetry(() => call("datastore_search", params))); } catch (e) { if (!s.filters) sawCount(s, false); throw e; }
+    ms = m;
     const r = j.result, total = r.total ?? 0, rec = (r.records || [])[0];
+    if (!s.filters) sawCount(s, total > 0, total);
     const have = new Set((r.fields || []).map(f => f.id));
     if (ms > SLOW_MS) problems.push(`תגובה איטית: ${(ms / 1000).toFixed(1)} שניות (סף ${SLOW_MS / 1000})`);
     const missing = s.fields.filter(f => !have.has(f));
@@ -44,6 +59,7 @@ async function check(s) {
   try {
     const { j } = await withRetry(() => call("resource_show", { id: s.id }));
     const lm = j.result.last_modified || j.result.metadata_modified;
+    sawModified(s, lm);
     if (!lm) problems.push("אין חותמת זמן עדכון");
     else {
       const age = (Date.now() - new Date(lm.endsWith("Z") || /[+-]\d\d:?\d\d$/.test(lm) ? lm : lm + "Z").getTime()) / 864e5;
@@ -76,7 +92,7 @@ if (process.env.PREVIEW === "1") {
   process.exit(0);
 }
 // a ministry dataset sometimes answers "nothing" for a few minutes and then recovers by itself: look again before waking anyone up
-let results, bad = [];
+let results, bad = [], crash = null;
 try {
   for (let attempt = 1; attempt <= 3; attempt++) {
     results = []; for (const s of SETS) results.push(await check(s));
@@ -84,7 +100,9 @@ try {
     if (!bad.length) break;
     if (attempt < 3) { console.log(`attempt ${attempt} found ${bad.length} problem(s), checking again in 2 minutes`); await sleep(120000); }
   }
-} catch (e) { await telegram(`⚠️ <b>בדיקת בריאות הנתונים קרסה</b>\nהבדיקה היומית של מאגרי משרד התחבורה לא הצליחה לרוץ, ולכן לא ברור אם המאגרים תקינים. זו תקלה בבדיקה עצמה ולא בהכרח באפליקציה.\nפירוט: ${esc(e.message)}\n\nמה לעשות: בדרך כלל כלום. אם זה חוזר מחר, כתבו לי.\n\nזמן: ${ilTime()} (שעון ישראל)`); process.exit(1); }
+} catch (e) { crash = e; }
+emitSeen();   // before any alert or exit, so the status snapshot gets what was read even when this check fails
+if (crash) { const e = crash; await telegram(`⚠️ <b>בדיקת בריאות הנתונים קרסה</b>\nהבדיקה היומית של מאגרי משרד התחבורה לא הצליחה לרוץ, ולכן לא ברור אם המאגרים תקינים. זו תקלה בבדיקה עצמה ולא בהכרח באפליקציה.\nפירוט: ${esc(e.message)}\n\nמה לעשות: בדרך כלל כלום. אם זה חוזר מחר, כתבו לי.\n\nזמן: ${ilTime()} (שעון ישראל)`); process.exit(1); }
 
 for (const r of results) console.log(`${r.problems.length ? "FAIL" : "ok  "} ${r.key.padEnd(13)} ${String(r.ms).padStart(5)}ms ${[...r.problems, ...r.notes].join(" | ")}`);
 if (bad.length) {
