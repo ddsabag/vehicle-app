@@ -5,6 +5,9 @@ name: Weekly analytics report
 # The dashboard holds business numbers, so it is kept as a private run artifact and sent to you, never published on the public site.
 # Needs these repository secrets (see analytics/SETUP.md): GA_PROPERTY_ID, GA_SERVICE_ACCOUNT_JSON, and at least one of
 # TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID, SLACK_WEBHOOK_URL, or SMTP_HOST + EMAIL_TO (+ SMTP_USER, SMTP_PASSWORD, SMTP_FROM, SMTP_PORT).
+# Alert router: the brief opens with the "מחכה לך" block (.github/scripts/waiting.mjs reads the router state, open PRs and scheduled runs,
+# so the report job gets read scopes only). When the brief went out, the separate "mark" job (no pip, no third-party code) records it
+# on the alert-state branch; it can never turn the run red.
 on:
   schedule:
     - cron: "20 5 * * 0"
@@ -25,6 +28,12 @@ jobs:
   report:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:   # read only: this job runs pip packages; the one write (the summary mark) is in "mark" below
+      contents: read
+      actions: read
+      pull-requests: read
+    outputs:
+      sent: ${{ steps.build.outputs.sent }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -32,6 +41,7 @@ jobs:
           python-version: "3.12"
       - run: pip install -r analytics/requirements.txt
       - name: Build the report
+        id: build
         env:
           SCHEDULE: ${{ github.event.schedule }}
           GA_PROPERTY_ID: ${{ secrets.GA_PROPERTY_ID }}
@@ -50,6 +60,9 @@ jobs:
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           SMTP_FROM: ${{ secrets.SMTP_FROM }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          ALERT_UPTIME_URL: ${{ vars.ALERT_UPTIME_URL }}
         run: |
           if [ "${{ github.event_name }}" = "schedule" ]; then
             python analytics/run.py --gate --send
@@ -67,3 +80,24 @@ jobs:
           path: analytics/out/
           retention-days: 90
           if-no-files-found: ignore
+  mark:
+    # hb.summaryAt on alert-state: the router keeps summary/silent items for Sunday only while this is under 8 days old,
+    # and alert-daily asks for a re-run on Monday when it is missing. A failure here changes nothing else.
+    needs: report
+    if: needs.report.outputs.sent == '1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    continue-on-error: true
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          sparse-checkout: .github/scripts/alert.mjs
+          sparse-checkout-cone-mode: false
+      - name: Mark the Sunday summary as sent
+        continue-on-error: true
+        run: node .github/scripts/alert.mjs mark-summary
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
