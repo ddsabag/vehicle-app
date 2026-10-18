@@ -6,7 +6,8 @@ name: Failure alert
 # main-writer queue by another workflow lost its work and is reported loudly, as is one cancelled mid-job (e.g. a timeout).
 # A run whose only cancelled jobs never started (e.g. SEO auto-publish's publish job pushed out of the queue after its check job ran) counts as cancelled before it started.
 # A repeat failure (the previous run of the same workflow on main also failed, in one of the same jobs, at most 26 h earlier, with no manual run that succeeded in between
-# and no run in between in which one of those jobs ran and passed)
+# and no run in between in which one of those jobs ran and passed; in Site smoke test, SEO daily digest and Magazine, whose jobs are skipped by the kind of run, a green
+# run that skipped all of them is passed over, in any other workflow a green run ends the streak)
 # is sent silently and not added to /live again; the first one is loud. Another job failing, or a failure after a gap (a monthly or days-1-3 job), is news and loud.
 # Names must match each workflow's name: exactly (no error when one does not).
 on:
@@ -107,6 +108,9 @@ jobs:
               success)
                 # a run in which none of the failed jobs ran (e.g. a push run of Site smoke test, where the infra job is skipped) says nothing about them:
                 # look further back. Within 26 h only; an API error, or a run in which one of them ran and passed, ends the streak as before.
+                # Only for the workflows whose jobs are skipped by the kind of run (event or part); in any other workflow a skipped job can mean the
+                # work was already done (Web deploy's deploy when the site already serves main), so a success ends the streak as before.
+                case "$NAME" in "Site smoke test"|"SEO daily digest"|"Magazine") ;; *) break;; esac
                 case "$at" in ''|*[!0-9]*) break;; esac
                 { [ "$mine" != x ] && [ $((now - at)) -lt 93600 ]; } || break
                 ran=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/jobs?per_page=100" --jq '.jobs[] | select((.steps | length) > 0) | .name' 2>/dev/null) || break
