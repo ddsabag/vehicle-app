@@ -1,7 +1,10 @@
 name: SEO check
+# Push: only main, next and seo-auto (staged SEO changes), and only when site files or the SEO scripts change.
+# pull_request stays unfiltered: it is the only check on the Dependabot gradle/pip PRs (see dependabot.yml).
 on:
   push:
-    paths: ["**.html", "sitemap.xml", "robots.txt", "manifest.json", "model/**", "magazine/**", "guide/**", ".github/scripts/**", ".github/workflows/seo-check.yml"]
+    branches: [main, next, seo-auto]
+    paths: ["**.html", "sitemap.xml", "robots.txt", "manifest.json", "model/**", "magazine/**", "guide/**", ".github/scripts/seo-check.mjs", ".github/scripts/pages.mjs", ".github/scripts/landing.mjs", ".github/scripts/brands.mjs", ".github/workflows/seo-check.yml"]
   pull_request:
   schedule:
     - cron: "30 5 * * 1"   # Mondays: also probe the live site
@@ -19,14 +22,10 @@ jobs:
       # titles, descriptions, h1, canonical, alt, OG, JSON-LD, internal links, orphans, sitemap, robots
       - name: SEO lint
         run: node .github/scripts/seo-check.mjs
-      # the committed model pages and sitemap must equal what the generator produces (keeps lastmod/sitemap honest)
-      - name: Generated files are up to date
-        run: |
-          node .github/scripts/pages.mjs
-          if ! git diff --quiet -- model sitemap.xml guide; then
-            echo "::warning::model pages / sitemap.xml differ from the generator output; run: node .github/scripts/pages.mjs"
-            git diff --stat -- model sitemap.xml guide | tail -5
-          fi
+      # smoke run of the page generators (pages.mjs + landing.mjs + brands.mjs; magazine.yml runs them monthly): a crash fails here.
+      # Output stays in this checkout and is not compared, the committed pages drift from it by design.
+      - name: Page generators run
+        run: node .github/scripts/pages.mjs
   live:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest

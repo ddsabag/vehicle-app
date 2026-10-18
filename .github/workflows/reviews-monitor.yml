@@ -1,8 +1,9 @@
 name: Reviews monitor
-# Every 2 hours: new 1-3 star Google Play reviews (last 24h) and Play vitals crash/ANR thresholds, sent to Telegram.
+# Three times a day, by day only: new 1-3 star Google Play reviews (last 7 days) and Play vitals crash/ANR thresholds, sent to Telegram.
+# 06:15/11:15/17:15 UTC = 09:15/14:15/20:15 Israel summer time (UTC+3), 08:15/13:15/19:15 winter time (UTC+2): never at night in either.
 on:
   schedule:
-    - cron: "15 */2 * * *"
+    - cron: "15 6,11,17 * * *"
   workflow_dispatch:
     inputs:
       preview:
