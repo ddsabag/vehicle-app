@@ -77,6 +77,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        initAnalytics();
         // shared pictures and PDFs are temporary: drop the ones older than a day
         try {
             File[] old = sharedDir().listFiles();
@@ -169,8 +170,9 @@ public class MainActivity extends Activity {
             @JavascriptInterface
             public void setAnalytics(boolean on) {
                 try {
-                    com.google.firebase.analytics.FirebaseAnalytics.getInstance(MainActivity.this).setAnalyticsCollectionEnabled(on);
-                    com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(on);
+                    getSharedPreferences("analytics", MODE_PRIVATE).edit().putBoolean("on", on).apply();   // the next launch switches on before the page loads (initAnalytics)
+                    com.google.firebase.analytics.FirebaseAnalytics.getInstance(MainActivity.this).setAnalyticsCollectionEnabled(on && !testLab);
+                    com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(on);   // crash reports from pre-launch devices are kept: they find real crashes
                 } catch (Throwable ignored) {
                 }
             }
@@ -480,6 +482,39 @@ public class MainActivity extends Activity {
         }
         handleIncoming(getIntent());
         checkInstallReferrer();
+    }
+
+    /* Usage statistics are off in the manifest and switched on here, before the first screen is counted. Google Play's pre-launch report
+       runs the app on Firebase Test Lab devices: they are not users, so they never count. The user's own off switch is kept by setAnalytics. */
+    private boolean testLab;
+
+    private void initAnalytics() {
+        try {
+            testLab = "true".equals(android.provider.Settings.System.getString(getContentResolver(), "firebase.test.lab"));
+        } catch (Throwable e) {
+            testLab = false;   // unreadable: counted as before
+        }
+        try {
+            android.content.SharedPreferences p = getSharedPreferences("analytics", MODE_PRIVATE);
+            Boolean on = null;
+            if (testLab) on = false;
+            else if (p.contains("on")) on = p.getBoolean("on", true);   // the choice the page passed on its last load
+            else if (firstRun()) on = true;   // a new install is counted from its first_open
+            // otherwise an update from a version without the flag: Firebase still holds the page's last choice until the page repeats it
+            if (on != null) com.google.firebase.analytics.FirebaseAnalytics.getInstance(this).setAnalyticsCollectionEnabled(on);
+        } catch (Throwable ignored) {
+            // analytics must never break the app
+        }
+    }
+
+    /** Never run before: not an update, and nothing restored from a backup (the first launch records the install referrer check) */
+    private boolean firstRun() {
+        try {
+            android.content.pm.PackageInfo pi = getPackageManager().getPackageInfo(getPackageName(), 0);
+            return pi.firstInstallTime == pi.lastUpdateTime && !getSharedPreferences("install", MODE_PRIVATE).contains("referrerChecked");
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /** Installed from a shared link: the store passes "plate=…", and the first launch opens that car */
