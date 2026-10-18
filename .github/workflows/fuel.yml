@@ -1,7 +1,7 @@
 name: Fuel price
 on:
   schedule:
-    - cron: "17 5 * * *"   # daily; the regulated price changes on the 1st of the month
+    - cron: "17 5 1-3 * *"   # days 1-3 only: the regulated price changes on the 1st (days 2-3 catch a late PDF or price list)
   workflow_dispatch:
 permissions:
   contents: write
@@ -17,10 +17,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      # pdftotext reads the official PDF; if apt fails, the script still runs (the PDF read fails and is logged) instead of a false failure alert
       - run: |
           sudo apt-get update -qq
           sudo apt-get install -y poppler-utils >/dev/null
+        continue-on-error: true
       - run: node .github/scripts/fuel.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: |
           if ! git diff --quiet -- fuel.json || [ -n "$(git status --porcelain fuel.json)" ]; then
             git config user.name "github-actions[bot]"

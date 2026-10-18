@@ -1,8 +1,15 @@
 name: Model names
 on:
   schedule:
-    - cron: "50 5 7 * *"   # monthly, the day after modelstats (same main-writer group: a pending run would otherwise be cancelled)
+    # monthly, the 5th: before the magazine (6th 08:00) rebuilds the model pages from models.json. 07:10 is well after market.yml (04:40)
+    # and between the hourly seo-publish runs (:40, same main-writer group: a third queued run would cancel a pending one)
+    - cron: "10 7 5 * *"
   workflow_dispatch:
+    inputs:
+      skip_gate:
+        description: "Publish even when the sanity check finds the build incomplete or far off the published file (read the run log first)"
+        type: boolean
+        default: false
 permissions:
   contents: write
 concurrency:
@@ -17,7 +24,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      # a failed or partial scan fails here and nothing is committed (the job goes red, so failure-alert reports it)
       - run: node .github/scripts/models.mjs
+        env:
+          SKIP_GATE: ${{ inputs.skip_gate && '1' || '0' }}
       - run: |
           cp out/models.json models.json
           if [ -n "$(git status --porcelain models.json)" ]; then

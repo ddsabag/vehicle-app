@@ -1,7 +1,7 @@
 name: Magazine
 on:
   schedule:
-    - cron: "0 8 6 * *"   # the 6th, after market.yml (5th) and after modelstats.yml has finished (starts 05:20, up to 2 hours)
+    - cron: "0 8 6 * *"   # the 6th, after market.yml and models.yml (5th) and after modelstats.yml has finished (starts 05:20, up to 2 hours)
   workflow_dispatch:
 permissions:
   contents: write
@@ -26,6 +26,12 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
+          # a scheduled run only writes a new month: when market.json was not refreshed on the 5th (its sanity check failed, or the ministry
+          # had not closed the month yet), its latest month is the one already out, and that article must not be rewritten
+          if [ "$GITHUB_EVENT_NAME" = schedule ]; then
+            slug=$(node -e 'const k=Object.keys(require("./market.json").months).sort().pop();console.log(k.slice(0,4)+"-"+k.slice(4))')
+            if [ -e "magazine/$slug/index.html" ]; then echo "magazine/$slug is already out: market.json has no newer month"; echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0; fi
+          fi
           set +e
           node .github/scripts/magazine.mjs
           code=$?
