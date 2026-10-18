@@ -9,7 +9,7 @@ name: Production
 # checks the permission and Play's own checks). Kill switch: the SHIP_TAIL variable, as in Ship tail. Owner setup: .github/SHIP-TAIL.md
 on:
   push:
-    branches: [st-prod-test]
+    branches: [st-prod-test-off]
 permissions:
   contents: read
 concurrency:
