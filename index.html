@@ -1087,6 +1087,8 @@ const card = (title, icon, color, inner, extra) => {
 const e = v => empty(v) ? "" : esc(v);
 const posN = v => !empty(v) && Number(String(v).replace(/,/g, "")) > 0;   // 0 cc / 0 hp is how the registry writes "not applicable" (electric cars)
 const unitPos = (v, u) => posN(v) ? unit(v, u) : "";
+// the first positive value: old, cancelled, personal-import and motorcycle rows write 0 for an unrated safety level, pollution group or weight, which would hide the model's value
+const firstPos = (...vals) => vals.find(posN);
 const unit = (v, u) => empty(v) ? "" : `${esc(fmtN(v))} ${u}`;
 const mono = v => empty(v) ? "" : `<span class="mono">${esc(v)}</span>`;
 const changed = v => empty(v) ? "" : yes(v) ? `<span class="flag">כן</span>` : "לא";
@@ -1748,7 +1750,7 @@ function buildInsights(D){
   if (D.primary && D.primary.key === "heavy") add("info", "רכב כבד: מידע חלקי", "במאגר של משרד התחבורה לרכבים כבדים (מעל 3.5 טון) יש פחות פרטים: אין תאריך טסט אחרון, ק״מ בטסט, היסטוריית בעלויות ונתוני דגם כמו מערכות בטיחות וריקולים. מוצג כל מה שקיים.");
   if (D.tag) add("info", "לרכב יש תג חניה לנכה", `התג הונפק${empty(D.tag["TAARICH HAFAKAT TAG"]) ? "" : " ב-" + fmtDate(D.tag["TAARICH HAFAKAT TAG"])}.`);
   const lvl = num(v.ramat_eivzur_betihuty);
-  if (!isNaN(lvl) && !empty(v.ramat_eivzur_betihuty)) {
+  if (lvl > 0) {   // 0 is "not rated", not low
     if (lvl >= 6) add("ok", "אבזור בטיחות מתקדם", `רמת אבזור בטיחותי ${lvl} מתוך 8.`);
     else if (lvl <= 2) add("warn", "רמת בטיחות נמוכה", `רמת אבזור בטיחותי ${lvl} מתוך 8.`);
   }
@@ -1817,7 +1819,7 @@ function simpleCard(D){
   const v = D.v, w = D.w || {}, pick = (...a) => a.find(x => !empty(x));
   const own = D.own.length ? ownersLabel(D) : "";
   const gear = empty(w.automatic_ind) ? "" : yes(w.automatic_ind) ? "אוטומטית" : "ידנית", vin = pick(D.vin, v.misgeret);
-  const kg = x => empty(x) ? "" : fmtN(x) + " ק״ג";
+  const kg = x => posN(x) ? fmtN(x) + " ק״ג" : "";
   const main = [
     ["יצרן", D.make], ["דגם", D.model], ["שנת ייצור", v.shnat_yitzur], ["רמת גימור", pick(v.ramat_gimur, w.ramat_gimur)], ["צבע", v.tzeva_rechev],
     ["סוג דלק", pick(v.sug_delek_nm, w.delek_nm)], ["נפח מנוע", posN(pick(v.nefach_manoa, w.nefah_manoa)) && fmtN(pick(v.nefach_manoa, w.nefah_manoa)) + " סמ״ק"], ["כוח", posN(w.koah_sus) ? fmtN(w.koah_sus) + " כ״ס" : ""],
@@ -1826,10 +1828,10 @@ function simpleCard(D){
     ["טסט אחרון", empty(v.mivchan_acharon_dt) ? "" : fmtDate(v.mivchan_acharon_dt)], ["טסט בתוקף עד", empty(v.tokef_dt) ? "" : fmtDate(v.tokef_dt)], ["ק״מ בטסט האחרון", D.km ? fmtN(D.km) : ""],
     ["ריקולים פתוחים", D.recallUnknown ? "לא זמין כרגע" : D.recalls.length ? String(D.recalls.length) : "אין"], ["תג נכה", D.tag ? "יש" : ""], ["מספר שלדה", vin, vin],
   ];
-  const safety = pick(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty), zihum = pick(v.kvutzat_zihum, w.kvutzat_zihum);
+  const safety = firstPos(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty), zihum = firstPos(v.kvutzat_zihum, w.kvutzat_zihum);
   const more = [
     ["סוג רכב", v.sug_rechev_nm], ["דגם מנוע", v.degem_manoa],
-    ["משקל כולל מותר", kg(pick(v.mishkal_kolel, w.mishkal_kolel))], ["משקל עצמי", kg(v.mishkal_azmi)], ["כושר העמסה", kg(v.mishkal_mitan_harama)],
+    ["משקל כולל מותר", kg(firstPos(v.mishkal_kolel, w.mishkal_kolel))], ["משקל עצמי", kg(v.mishkal_azmi)], ["כושר העמסה", kg(v.mishkal_mitan_harama)],
     ["צמיג קדמי", pick(v.zmig_kidmi, v.mida_zmig_kidmi)], ["צמיג אחורי", pick(v.zmig_ahori, v.mida_zmig_ahori)],
     ["רמת אבזור בטיחותי", empty(safety) ? "" : safety + " מתוך 8"], ["כריות אוויר", w.mispar_kariot_avir],
     ["קבוצת זיהום", empty(zihum) ? "" : zihum + " מתוך 15"], ["פליטת CO₂", empty(pick(w.CO2_WLTP, w.kamut_CO2)) ? "" : pick(w.CO2_WLTP, w.kamut_CO2) + " גרם לק״מ"],
@@ -2547,18 +2549,18 @@ function tabSpecs(D){
     ["הנעה", e(D.pick(v.hanaa_nm, w.hanaa_nm))], ["דגם מנוע", mono(v.degem_manoa)],
   ])));
   html.push(card("משקלים וצמיגים", "scale", "slate", facts([
-    ["משקל כולל מותר", unit(D.pick(v.mishkal_kolel, w.mishkal_kolel), "ק״ג")], ["משקל עצמי", unit(v.mishkal_azmi, "ק״ג")],
-    ["כושר העמסה", unit(v.mishkal_mitan_harama, "ק״ג")], ["סרנים", e(v.sranim)],
+    ["משקל כולל מותר", unitPos(firstPos(v.mishkal_kolel, w.mishkal_kolel), "ק״ג")], ["משקל עצמי", unitPos(v.mishkal_azmi, "ק״ג")],
+    ["כושר העמסה", unitPos(v.mishkal_mitan_harama, "ק״ג")], ["סרנים", e(v.sranim)],
     ["צמיג קדמי", mono(D.pick(v.zmig_kidmi, v.mida_zmig_kidmi))], ["צמיג אחורי", mono(D.pick(v.zmig_ahori, v.mida_zmig_ahori))],
   ])));
-  const safetyLvl = D.pick(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty);
+  const safetyLvl = firstPos(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty);
   html.push(card("בטיחות", "shield", "green", facts([
     ["רמת אבזור בטיחותי", empty(safetyLvl) ? "" : `${esc(safetyLvl)} מתוך 8`],
     ["כריות אוויר", e(w.mispar_kariot_avir)],
   ]) + chkList(w, SYSTEMS)));
   const equip = chkList(w, EQUIP);
   if (equip) html.push(card("אבזור", "star", "amber", `${equip}<p class="note">האבזור המלא מופיע בקטלוג של היבואן.</p>`));
-  const zihum = D.pick(v.kvutzat_zihum, w.kvutzat_zihum);
+  const zihum = firstPos(v.kvutzat_zihum, w.kvutzat_zihum);
   html.push(card("סביבה", "leaf", "leaf", facts([
     ["פליטת CO₂", unit(D.pick(w.CO2_WLTP, w.kamut_CO2), "גרם לק״מ")], ["מדד ירוק", e(w.madad_yarok)],
     ["מסנן חלקיקים", D.dpf ? `הותקן${empty(D.dpf.taarich_hatkana) ? "" : " ב-" + fmtDate(D.dpf.taarich_hatkana)}` : ""],
@@ -3334,9 +3336,9 @@ function renderCompare(){
     ["מרכב", D => D.w.merkav],
     ["מושבים", D => nf(D.w, "mispar_moshavim"), null, ""],
     ["משקל כולל (ק״ג)", D => nf(D.w, "mishkal_kolel"), null, ""],
-    ["רמת אבזור בטיחותי", D => num(D.pick(D.v.ramat_eivzur_betihuty, D.w.ramat_eivzur_betihuty)), "hi"],
+    ["רמת אבזור בטיחותי", D => num(firstPos(D.v.ramat_eivzur_betihuty, D.w.ramat_eivzur_betihuty)), "hi"],
     ["כריות אוויר", D => nf(D.w, "mispar_kariot_avir"), "hi"],
-    ["קבוצת זיהום", D => num(D.pick(D.v.kvutzat_zihum, D.w.kvutzat_zihum)), "lo"],
+    ["קבוצת זיהום", D => num(firstPos(D.v.kvutzat_zihum, D.w.kvutzat_zihum)), "lo"],
     "מערכות בטיחות ואבזור",
     ["מערכות בטיחות מתקדמות", D => Object.keys(SYSTEMS).some(k => !empty(D.w[k])) ? Object.keys(SYSTEMS).filter(k => yes(D.w[k])).length : null, "hi", ""],
     ...[...Object.entries(SYSTEMS), ...Object.entries(EQUIP)].filter(([k]) => OK.some(D => !empty(D.w[k]) && num(D.w[k]) > 0))
