@@ -95,6 +95,10 @@ const CASES = [
   ["praise", 5, "אחלה אפליקציה, עזרה לי לבדוק רכב לפני קנייה ממוכר"], ["praise", 5, "Excellent and very useful, thanks!"], ["praise", 4, "טובה מאוד"], ["praise", 3, "מעולה, פשוטה ונוחה"],
   ["dealer", 1, "הסוחר במגרש שיקר לי והרכב היה אחרי תאונה"], ["dealer", 2, "המוכר הסתיר שהרכב היה ליסינג"], ["dealer", 1, "The dealer lied to me about the car"],
   ["dealer", 5, "היבואן רימה אותי, טוב שיש את האפליקציה"], ["other", 1, "גרוע"], ["other", 2, "meh"], ["other", 3, "סבבה"],
+  // a car's fault (תקלה) or a data error is not an app crash
+  ["dealer", 1, "המוכר הסתיר תקלה במנוע, האפליקציה לא הראתה כלום"], ["dealer", 2, "הסוחר אמר שהרכב תקין, בדיעבד הייתה תקלה בגיר"],
+  ["data", 2, "יש שגיאה בשנת הייצור של הרכב שלי"], ["data", 1, "Data error: the test date is wrong"], ["data", 2, "הקילומטראז' לא נכון, באג בנתונים"],
+  ["crash", 2, "האפליקציה קורסת כשאני בודק רכב של סוחר"], ["crash", 1, "יש באג, אי אפשר לחפש"], ["crash", 1, "תקלה באפליקציה אחרי העדכון"], ["crash", 2, "Error every time I search"],
 ];
 for (const [want, s, t] of CASES) ok(W.classify(t, s) === want, `classify ${JSON.stringify(t)} (${s}*) = ${W.classify(t, s)}, want ${want}`);
 ok(W.classify("עובד מצוין, מוכר מצוין", 5) === "praise", "happy review naming a seller is praise");
@@ -106,8 +110,11 @@ for (const [k, t] of Object.entries(W.TEMPLATES)) {
   ok(W.chars(t) <= 350 && t.trim().endsWith("צוות לוחית") && !W.PLATE.test(t) && !BANNED.test(t) && !W.invalid(t), `template ${k}: ${W.chars(t)} chars, signed, clean`);
 }
 ok(Object.keys(W.TEMPLATES).sort().join() === "crash,data,dealer,feature,other,praise,price", "one template per class");
-for (const p of ["1234567", "12345678", "12-345-67", "123-45-678", "12 345 67", "123.45.678", "רכב 8212345 נבדק", "12–345–67"]) ok(W.PLATE.test(p), "plate " + p);
-for (const p of ["2020-2024", "050-1234567", "0501234567", "1.32.1", "120,000 ק\"מ", "123456", "123456789"]) ok(!W.PLATE.test(p), "not a plate " + p);
+for (const p of ["1234567", "12345678", "12-345-67", "123-45-678", "12 345 67", "123.45.678", "רכב 8212345 נבדק", "12–345–67",
+  "דגם 2019 12-345-67", "שנת 2021 1234567", "רכב מס' 1 12345678", "12 - 345 - 67", "12/345/67", "12—345—67", "12\u00a0345\u00a067", "12_345_67",
+  "1234567 3 פעמים", "12345678 2"]) ok(W.PLATE.test(p) && W.invalid(p + "\nצוות לוחית").includes("מספר רכב"), "plate " + JSON.stringify(p));
+for (const p of ["2020-2024", "050-1234567", "0501234567", "03-1234567", "054 1234567", "1.32.1", "120,000 ק\"מ", "123456", "123456789", "12.10.2026", "1,234,567"])
+  ok(!W.PLATE.test(p), "not a plate " + p);
 
 // ---- 3. secrets missing / KV missing -> no work ----
 for (const miss of ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "REVIEWS_SA_JSON", "ALERTS"]) {
@@ -230,18 +237,36 @@ reset(); reviews = [review("gp:k", 1, "קורס")]; await tick(); m0 = tgMsgs.si
 kv.get = async () => { throw new Error("kv down"); }; await tick();
 ok(tgMsgs.size === m0, "KV read failure: no repost");
 
-// ---- 12. list failure: health, one message after 3 h ----
+// ---- 12. list failure: health, one message after 7 failing daytime ticks (3 h) ----
+const told = () => sent().filter(m => m.text.includes("Google Play לא עונה")).length;
 reset(); failList = true; await tick();
 ok(JSON.parse(kvMap.get("rv:h")).list === false && tgMsgs.size === 0, "list failure recorded, no message yet");
-p0 = puts; clock = DAY + 36e5; await tick(clock);
-ok(puts === p0, "second failing tick: no KV write");
-clock = DAY + 3.1 * 36e5; await tick(clock); clock = DAY + 3.6 * 36e5; await tick(clock);
-ok(sent().filter(m => m.text.includes("Google Play לא עונה")).length === 1, "told once after 3 h of failures");
+for (let i = 1; i < 6; i++) await tick(DAY + i * 18e5);
+ok(told() === 0, "6 failing ticks (2.5 h): no message yet");
+await tick(DAY + 6 * 18e5);
+ok(told() === 1, "told after the 7th failing daytime tick (3 h)");
+p0 = puts; await tick(DAY + 7 * 18e5); await tick(DAY + 8 * 18e5);
+ok(told() === 1 && puts === p0, "told once; failing ticks after that write nothing");
 failList = false; await tick(clock);
 ok(JSON.parse(kvMap.get("rv:h")).list === true, "recovery recorded");
 reset(); tokenFail = true; await tick(DAY, { ...ENV(), REVIEWS_SA_JSON: SA.replace("luchit-reviews-reply@", "other@") });   // another key: no cached token
 ok(JSON.parse(kvMap.get("rv:h")).list === false, "auth failure counts as a failed list");
+reset(); failList = true; await tick(RealDate.parse("2026-10-20T18:30:00Z"));   // 21:30 Israel
+for (const t of ["2026-10-20T21:30:00Z", "2026-10-21T02:00:00Z"]) await tick(RealDate.parse(t));   // night ticks: nothing
+await tick(RealDate.parse("2026-10-21T05:00:00Z"));   // 08:00 Israel, the 2nd failing daytime tick
+ok(told() === 0 && JSON.parse(kvMap.get("rv:h")).fails === 2, "a failure from 21:30 plus the 08:00 tick: no ring (a night counts as nothing)");
 clock = DAY;
+
+// ---- 12b. KV write failing: every callback still answered, nothing claimed ----
+reset(); reviews = [review("gp:kf", 2, "לא מעודכן")]; await tick(); const ck = cards()[0];
+const putOk = kv.put; kv.put = async () => { throw new Error("kv down"); };
+let a1 = answers(); await tap(ck, btn(ck, 2));
+ok(answers() === a1 + 1 && !ck.edited && JSON.parse(kvMap.get([...kvMap.keys()].find(k => k !== "rv:h"))).st === "open", "דלג with KV put failing: answered, message not edited, still open");
+kv.put = putOk; await tap(ck, btn(ck, 1)); const pk = sent().at(-1); kv.put = async () => { throw new Error("kv down"); };
+const mk = tgMsgs.size;
+await post({ message: { message_id: 7001, chat: { id: +CHAT }, from: { id: +CHAT }, text: "נוסח חדש", reply_to_message: { ...pk, from: { id: 123456789, is_bot: true } } } });
+ok(tgMsgs.size === mk + 1 && sent().at(-1).text.includes("השמירה נכשלה") && !sent().at(-1).body.reply_markup, "edit with KV put failing: Dudu told it was not saved, no [שלח]");
+kv.put = putOk;
 
 // ---- 13. /health ----
 reset(); reviews = []; await tick();
@@ -256,6 +281,13 @@ const body = JSON.stringify(h);
 ok(!/gp:|קורס|\d{4,}(?!-)/.test(body.replace(h.lastTick, "")), "health holds no ids, text or numbers");
 globalThis.chatFail = true; clock += 61e3; h = await H(); globalThis.chatFail = false; clock = DAY;
 ok(h.tg === false && h.webhook === true, "health: a wrong chat id shows tg false");
+reset(); webhookUrl = "https://luchit-reviews.dd.workers.dev/tg"; clock += 122e3;
+h = await quiet(async () => JSON.parse(await (await worker.fetch(new Request("https://0a1b2c3d-luchit-reviews.dd.workers.dev/health"), ENV())).text()));
+ok(webhookUrl === "https://luchit-reviews.dd.workers.dev/tg" && !calls.some(x => x.startsWith("setWebhook")) && h.webhook === true, "/health on a preview URL: webhook not moved, reported from the main address");
+webhookUrl = ""; clock += 61e3;
+h = await quiet(async () => JSON.parse(await (await worker.fetch(new Request("https://0a1b2c3d-luchit-reviews.dd.workers.dev/health"), ENV())).text()));
+ok(webhookUrl === "" && h.webhook === false, "/health on a preview URL with no webhook: not installed, webhook false");
+clock = DAY;
 reset(); h = await H({ ALERTS: kv });
 ok(h.tg === false && h.sa === false && h.webhook === false && h.list === null && calls.length === 0, "health without secrets: all false, no Telegram call");
 

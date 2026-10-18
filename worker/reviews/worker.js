@@ -4,7 +4,8 @@
 //   POST /tg = Telegram webhook (secret header derived from the bot token + chat id = TELEGRAM_CHAT_ID). שלח: reviews.get (refuse when a
 //   developer reply exists) then reviews.reply with the draft read back from the message; ערוך: ForceReply, the answer is validated and
 //   comes back as a confirmation with [שלח] [בטל]; דלג: marked handled. Every callback is answered.
-//   GET /health = public status (no review text, ids or counts); installs the webhook (<origin>/tg, max_connections 1) when needed.
+//   GET /health = public status (no review text, ids or counts); on luchit-reviews.<sub>.workers.dev it installs the webhook (/tg,
+//   max_connections 1) when needed; any other host (a preview URL) only reports it.
 // Secrets (Dudu pastes them): TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, REVIEWS_SA_JSON (a service account with Play "Reply to reviews" only).
 // Without all three the cron does nothing. Binding: KV ALERTS (luchit-alerts, shared with luchit-uptime; this Worker uses only "rv:" keys).
 // KV writes happen only when something happens: a review posted, a tap, an edit, a list-health change (free plan: 1,000 writes/day).
@@ -13,7 +14,7 @@ const BUILD = "reviews-1", PKG = "com.ddsabag.pratirechev";
 const API = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${PKG}/reviews`;
 const MAX = 350, SIGN = "צוות לוחית", TTL = 60 * 86400, PER_TICK = 20;   // Google rejects replyText over ~350 chars
 const M_START = "⬇️ טיוטת התשובה ⬇️", M_END = "⬆️ סוף הטיוטה ⬆️", EDIT_TAG = "✏️ נוסח חדש לתשובה ";
-const HKEY = "rv:h", FAIL_TELL = 3 * 36e5;   // list health; Dudu hears once when listing has failed for 3 h of daytime ticks
+const HKEY = "rv:h", FAIL_TELL = 7;   // list health; Dudu hears once after 7 failing daytime ticks in a row (3 h; night ticks do not count)
 const PACE = { ms: 1100 };   // between two review messages (Telegram: about 1 message a second per chat); tests lower it
 
 // Reply templates, approved once by Dudu (reports/תבניות-מענה-לביקורות.md). Plural address, no promises, no plate numbers, dealers neutral.
@@ -28,29 +29,36 @@ const TEMPLATES = {
 };
 const LABEL = { crash: "תקלה או קריסה", data: "מידע חסר או לא מעודכן", feature: "בקשה לתכונה", price: "מחיר או PRO", praise: "שבח",
   dealer: "תלונה על מוכר או סוחר", other: "אחר" };
-// Classification: first match wins in this order. Hebrew has no \b, so short Hebrew words are fenced with (?<![א-ת]) / (?![א-ת]).
+// Classification: see classify() for the order. Hebrew has no \b, so short Hebrew words are fenced with (?<![א-ת]) / (?![א-ת]).
+// crash = words only an app failure uses; bug = generic fault words (also a car's fault, a data error), tried after dealer and data.
 const HE = s => `(?<![א-ת])(?:${s})(?![א-ת])`;
 const RX = {
-  crash: new RegExp(`קורס|קריסה|קרסה|נקרס|נתקע|תקוע|לא נפתח|לא נטענ?|מסך (?:לבן|שחור)|לא עובד|לא מגיב|תקלה|באג|שגיאה|\\bcrash|\\bbug|\\berror|\\bfreez|\\bstuck\\b|won'?t (?:open|load|start)|does(?:n'?t| not) (?:open|load|work)|not (?:working|loading|opening)|force clos`, "i"),
+  crash: new RegExp(`קורס|קריסה|קרסה|נקרס|נתקע|תקוע|לא נפתח|לא נטענ?|מסך (?:לבן|שחור)|לא עובד|לא מגיב|\\bcrash|\\bfreez|\\bstuck\\b|won'?t (?:open|load|start)|does(?:n'?t| not) (?:open|load|work)|not (?:working|loading|opening)|force clos`, "i"),
   dealer: new RegExp(`סוחר|מגרש|${HE("ה?מוכר(?:ת|ים)?")}|מוכר הרכב|טרייד|יבואן|סוכנות|\\bdealer|\\bseller|salesm[ae]n|\\bimporter|trade-?in`, "i"),
-  data: new RegExp(`${HE("חסר(?:ים|ה|ות)?")} (?:מידע|נתונ|פרט)|אין (?:מידע|נתונים|פרטים)|לא (?:מעודכנ?|עדכני|נכונ?|מדויק|תואם|מופיע|נמצא|מצא|מוצא)|מידע ישן|נתונים ישנים|שגוי|טעות ב|\\bmissing\\b|outdated|out of date|\\bwrong\\b|incorrect|inaccurate|not found|no (?:data|info)|(?:can'?t|couldn'?t|cannot) find`, "i"),
+  bug: new RegExp(`תקלה|תקלות|באג|שגיאה|שגיאות|\\bbugs?\\b|\\berrors?\\b|glitch`, "i"),
+  data: new RegExp(`${HE("חסר(?:ים|ה|ות)?")} (?:מידע|נתונ|פרט)|(?:שגיאה|שגיאות|טעות|באג) ב(?:נתונ|מידע|פרט|שנת|תאריך|קילומטר|ק"מ|בעלות|ידיים|טסט|דגם|רכב)|\\bdata (?:error|bug)|\\b(?:error|bug|mistake)s? (?:in|with) (?:the )?(?:data|info|year|date|mileage|owner|test)|אין (?:מידע|נתונים|פרטים)|לא (?:מעודכנ?|עדכני|נכונ?|מדויק|תואם|מופיע|נמצא|מצא|מוצא)|מידע ישן|נתונים ישנים|שגוי|טעות ב|\\bmissing\\b|outdated|out of date|\\bwrong\\b|incorrect|inaccurate|not found|no (?:data|info)|(?:can'?t|couldn'?t|cannot) find`, "i"),
   price: new RegExp(`מחיר|${HE("יקר(?:ה|ים)?")}|תשלום|לשלם|משלמ|מנוי|${HE("פרו")}|פרימיום|${HE("כסף")}|החזר כספי|זיכוי|\\bpremium|subscri|\\bprice|\\bpay\\b|\\bpaid\\b|expensive|\\bmoney|refund|\\bpro\\b`, "i"),
   feature: new RegExp(`תוסיפו|להוסיף|אשמח אם|הייתי רוצה|כדאי ש|חסרה אפשרות|חסר כפתור|אפשרות ל|פיצ'?ר|מצב (?:כהה|לילה)|אייפון|iphone|\\bios\\b|please add|would be (?:nice|great)|\\bwish\\b|feature|suggest|dark mode`, "i"),
   praise: new RegExp(`מעולה|מצוינ?|אחלה|תודה|מושלמ|שימושי|עוזר|עזר(?:ה)? לי|נהדר|מדהימ|כל הכבוד|\\bgreat\\b|excellent|\\blove|awesome|useful|helpful|thank|perfect|amazing|\\bgood\\b`, "i"),
 };
+const APP = /אפליקצי|יישומון|\bapp\b|application/i;
 const NEG = /רמאי|עקץ|עוקץ|(?<![א-ת])נוכל(?:ים|ת)?(?![א-ת])|שיקר|שקר|הסתיר|הונא|רימה|\bscam|\blied\b|\bliar|cheat|fraud|rip-?off/i;
 function classify(text, stars) {
   const t = String(text || "");
+  if (RX.crash.test(t) && APP.test(t)) return "crash";   // the app itself failed, even when a seller is mentioned
+  if (RX.dealer.test(t) && (stars <= 3 || NEG.test(t))) return "dealer";   // before crash: "the seller hid a fault (תקלה)"; a happy review naming a seller is praise
   if (RX.crash.test(t)) return "crash";
-  if (RX.dealer.test(t) && (stars <= 3 || NEG.test(t))) return "dealer";   // a happy review that mentions a seller is praise
-  if (RX.data.test(t)) return "data";
+  if (RX.data.test(t)) return "data";   // before bug: "שגיאה בשנת הייצור", "data error"
+  if (RX.bug.test(t)) return "crash";
   if (RX.price.test(t)) return "price";
   if (RX.feature.test(t)) return "feature";
   if (stars >= 4 || (stars === 3 && RX.praise.test(t))) return "praise";
   return "other";
 }
-// 7-8 digit plates as written in Israel: 1234567, 12345678, 12-345-67, 123-45-678 (dash, en dash, dot or space); not part of a longer number
-const PLATE = /(?<!\d[-–. ]?)(?:\d{7,8}|\d{2}[-–. ]\d{3}[-–. ]\d{2}|\d{3}[-–. ]\d{2}[-–. ]\d{3})(?![-–. ]?\d)/;
+// 7-8 digit plates as written in Israel: 1234567, 12345678, 12-345-67, 123-45-678; separator = any whitespace (also a non-breaking space)
+// or - – — . / _ with optional spaces around it. Not part of a longer digit run; exempt only after a phone prefix (050-1234567, 03 1234567).
+const SEP = String.raw`(?:\s*[-–—./_]\s*|\s+)`;
+const PLATE = new RegExp(String.raw`(?<!(?<!\d)0\d{1,2}${SEP}?)(?<!\d)(?:\d{7,8}|\d{2}${SEP}\d{3}${SEP}\d{2}|\d{3}${SEP}\d{2}${SEP}\d{3})(?!\d)`);
 const WARN = /מציאה|משתלם|מומלץ|רמאי|עוקץ|(?<![א-ת])נוכל(?![א-ת])|נתקן|נוסיף|בקרוב|בגרסה הבאה/;   // a warning on Dudu's own text, never a block
 const chars = s => [...String(s)].length;   // code points, as Play counts characters
 function invalid(t) {
@@ -161,20 +169,25 @@ async function tick(env) {
       sent++;
     }
   } catch (e) { ok = false; console.log("list failed:", String(e).slice(0, 160)); }
-  // list health: written only when the flag flips, when the stored tick is over 2 h old, or to say "told"
+  // list health: failing daytime ticks are counted (a night in between adds nothing), so 7 in a row = 3 h of daytime failure.
+  // Written only when the flag flips, while counting up to the message, to say "told", or when the stored tick is over 2 h old.
   let hs = null; try { hs = await within(env.ALERTS.get(HKEY, "json")); } catch {}
-  const n = { list: ok, tick: new Date(now).toISOString(), since: ok ? null : hs?.list === false ? hs.since : new Date(now).toISOString(), told: !ok && !!hs?.told };
-  if (!ok && !n.told && now - Date.parse(n.since) >= FAIL_TELL)
-    n.told = await tgSend(env, "⚠️ <b>מענה לביקורות: Google Play לא עונה</b>\nכבר 3 שעות שלא מצליח לקרוא ביקורות. אם זה נמשך, בדקו את המפתח REVIEWS_SA_JSON ואת ההרשאה \"Reply to reviews\" ב-Play Console.\nמצב: /health של luchit-reviews");
-  if (!hs || hs.list !== n.list || n.told !== !!hs.told || now - Date.parse(hs.tick) > 2 * 36e5)
+  const prev = hs?.list === false ? +hs.fails || 0 : 0, told = !ok && !!hs?.told;
+  const n = { list: ok, tick: new Date(now).toISOString(), fails: ok ? 0 : told ? prev : prev + 1, told };
+  if (!ok && !told && n.fails >= FAIL_TELL)
+    n.told = await tgSend(env, "⚠️ <b>מענה לביקורות: Google Play לא עונה</b>\nכבר 3 שעות (בשעות היום) שלא מצליח לקרוא ביקורות. אם זה נמשך, בדקו את המפתח REVIEWS_SA_JSON ואת ההרשאה \"Reply to reviews\" ב-Play Console.\nמצב: /health של luchit-reviews");
+  if (!hs || hs.list !== n.list || n.told !== !!hs.told || n.fails !== (+hs.fails || 0) || now - Date.parse(hs.tick) > 2 * 36e5)
     try { await within(env.ALERTS.put(HKEY, JSON.stringify(n))); } catch {}
   return ok ? `sent ${sent}` : "list failed";
 }
 
 // ---- webhook ----
 const busy = new Set();   // per isolate; KV "busy" and Google's own state cover the rest, and the webhook runs with max_connections 1
-async function onCallback(env, q) {
+async function onCallback(env, q) {   // every tap is answered, also when KV fails (the button would spin otherwise)
   const ans = (text, alert = false) => tg(env, "answerCallbackQuery", { callback_query_id: q.id, text, show_alert: alert });
+  try { return await act(env, q, ans); } catch (e) { console.log("callback failed:", String(e).slice(0, 160)); return ans("השמירה נכשלה. לא בוצע דבר, נסו שוב.", true); }
+}
+async function act(env, q, ans) {
   const m = /^([sekc])\|([\w-]{10})(?:\|([\w-]{8}))?$/.exec(q.data || ""), msg = q.message;
   if (!m || !msg) return ans("כפתור לא מוכר.");
   const [, a, h, d] = m, st = await kvGet(env, h);
@@ -230,25 +243,28 @@ async function onReply(env, msg) {   // Dudu's answer to the ForceReply prompt
   let t = String(msg.text || "").trim();
   if (t && !t.includes(SIGN)) t += "\n" + SIGN;
   const bad = invalid(t); if (bad || !msg.text?.trim()) return say(`❌ ${bad || "הנוסח ריק."} לא נשמר. ענו שוב להודעת העריכה עם נוסח מתוקן.`);
-  const d = await dkey(t); st.dh = d; await kvPut(env, h, st);
+  const d = await dkey(t); st.dh = d;
+  try { await kvPut(env, h, st); } catch (e) { console.log("KV write failed:", String(e).slice(0, 120)); return say("❌ השמירה נכשלה, הנוסח לא נשמר. ענו שוב להודעת העריכה."); }
   const w = WARN.exec(t);
   await tg(env, "sendMessage", { chat_id: msg.chat.id, reply_parameters: { message_id: msg.message_id, allow_sending_without_reply: true }, parse_mode: "HTML", disable_web_page_preview: true,
     text: `📝 <b>הנוסח החדש</b>${w ? `\n⚠️ שימו לב למילה "${esc(w[0])}": בלי הבטחות ובלי שבחים לרכב.` : ""}\n\n${block(t, ` · #${h}`)}\nהתשובה תתפרסם רק אחרי "שלח".`,
     reply_markup: keyboard([[["✅ שלח", `s|${h}|${d}`], ["↩️ בטל", `c|${h}|${d}`]]]) });
 }
 
-// ---- /health: whitelist only; installs the webhook ----
+// ---- /health: whitelist only; on the main workers.dev address it installs the webhook ----
 let hook = { at: 0, ok: false, tg: false };
 async function health(req, env) {
   const out = { v: BUILD, tg: false, sa: !!sa(env), list: null, webhook: false, lastTick: null };
   try { const h = env.ALERTS ? await within(env.ALERTS.get(HKEY, "json")) : null; if (h) { out.list = h.list === true; out.lastTick = h.tick || null; } } catch {}
   if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
     if (Date.now() - hook.at > 60e3) {   // at most one getWebhookInfo per minute per isolate
-      const want = new URL(req.url).origin + "/tg", info = await tg(env, "getWebhookInfo", {});
-      let ok = !!info && info.url === want;
+      // only the main address installs or re-points the webhook: a preview URL (<version>-luchit-reviews.…) is pinned to old code
+      const host = new URL(req.url).hostname, main = /^luchit-reviews\.[\w-]+\.workers\.dev$/.test(host), info = await tg(env, "getWebhookInfo", {});
+      const want = main ? `https://${host}/tg` : "";
+      let ok = !!info && (main ? info.url === want : /^https:\/\/luchit-reviews\.[\w-]+\.workers\.dev\/tg$/.test(info.url || ""));
       // a 401/403 in the last hour means Telegram holds another secret (e.g. a rotated bot token): set it again
       const stale = ok && /\b40[13]\b/.test(info.last_error_message || "") && Date.now() / 1000 - (info.last_error_date || 0) < 3600;
-      if (info && (!ok || stale)) ok = !!(await tg(env, "setWebhook", { url: want, secret_token: await hookSecret(env), allowed_updates: ["message", "callback_query"], max_connections: 1 }));
+      if (main && info && (!ok || stale)) ok = !!(await tg(env, "setWebhook", { url: want, secret_token: await hookSecret(env), allowed_updates: ["message", "callback_query"], max_connections: 1 }));
       hook = { at: Date.now(), ok, tg: !!info && !!(await tg(env, "getChat", { chat_id: env.TELEGRAM_CHAT_ID })) };   // tg: token and chat id both work
     }
     out.tg = hook.tg; out.webhook = hook.ok;

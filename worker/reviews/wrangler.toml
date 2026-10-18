@@ -3,6 +3,7 @@ main = "worker.js"
 compatibility_date = "2026-10-01"
 workers_dev = true                                        # no luchit.app route: /health and the Telegram webhook /tg live at luchit-reviews.<subdomain>.workers.dev
 keep_vars = true                                          # no [vars] block at all, so a deploy can never blank a dashboard variable or secret
+preview_urls = false                                      # no <version>-luchit-reviews.… preview addresses: /health there could point the webhook at old code
 [observability]
 enabled = false
 [triggers]
