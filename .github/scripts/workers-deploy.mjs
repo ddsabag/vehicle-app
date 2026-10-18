@@ -24,7 +24,8 @@
 // A manual run acts only with the input mode=on, only on main, and only when origin/main is known. Without CLOUDFLARE_API_TOKEN or
 // CF_ACCOUNT_ID: one notice line, exit 0.
 // Result: job summary, step outputs "result" (JSON), "outcome" and "mode", and the file RESULT_FILE (artifact workers-deploy-<sha>).
-// Exit 1 only on a crash, a bad CF_ACCOUNT_ID, or (after job) an alert that could not be delivered, so failure-alert speaks instead.
+// Exit 1 only on a crash, a bad CF_ACCOUNT_ID or CLOUDFLARE_API_TOKEN, or (after job) an alert that could not be delivered, so failure-alert
+// speaks instead.
 //   node .github/scripts/workers-deploy.mjs              deploy job   env: see .github/workflows/workers-deploy.yml
 //   node .github/scripts/workers-deploy.mjs --after      after job    env RESULT = the deploy job's "result" output
 //   node .github/scripts/workers-deploy.mjs --selftest   offline: fixture repo, mocked Cloudflare API, wrangler runner, site and alerts
@@ -297,21 +298,28 @@ async function cf(method, p, body, { raw = false } = {}) {
       last = raw ? { ok: r.ok, status: r.status, text, type: r.headers.get("content-type") || "", entry: r.headers.get("cf-entrypoint") || "", codes: (j?.errors || []).map(e => e.code) }
         : { ok: r.ok && j?.success !== false, status: r.status, result: j?.result, info: j?.result_info, codes: (j?.errors || []).map(e => e.code) };
       if (r.status < 500) return last;
-    } catch (e) { last = { ok: false, status: 0, codes: [], net: String(e?.name || "error") }; }
+    } catch (e) { last = { ok: false, status: 0, codes: [], net: String(e?.cause?.code || e?.name || "error").slice(0, 40) }; }   // never e.message: it can hold the header
   }
   return last;
 }
 class Unreadable extends Error {}
 function need(r, what) {
-  if (!r.ok) throw new Unreadable(`${what}: ${r.status ? "HTTP " + r.status : "no answer"}${r.codes?.length ? " (code " + r.codes.join(",") + ")" : ""}`);
+  if (!r.ok) throw new Unreadable(`${what}: ${r.status ? "HTTP " + r.status : "no answer" + (r.net ? ` (${r.net})` : "")}${r.codes?.length ? " (code " + r.codes.join(",") + ")" : ""}`);
   return r;
 }
 const notFound = r => r.status === 404 && r.codes.some(c => NOT_FOUND.includes(c));
 const acct = () => `/accounts/${IO.env.CF_ACCOUNT_ID}`;
 // a read failure: 401/403 is a missing token permission; anything else (5xx, 429, no answer) is Cloudflare's and the next run retries
 const readHe = m => (/HTTP 40[13]\b/.test(m) ? `לא הצלחתי לקרוא את המצב החי ב-Cloudflare (${m}). כנראה חסרה הרשאה במפתח CLOUDFLARE_API_TOKEN.`
+  : /no answer \(TypeError\)/.test(m) ? `לא הצלחתי לשלוח בקשה ל-Cloudflare (${m}). כנראה יש במפתח CLOUDFLARE_API_TOKEN תו שאי אפשר לשלוח: הדבק אותו מחדש.`
   : `לא הצלחתי לקרוא את המצב החי ב-Cloudflare (${m}). כנראה תקלה זמנית אצל Cloudflare, והריצה הבאה תנסה שוב.`);
 function unreadable(R, m) { R.unreadable = m; R.refuse(`live state unreadable: ${m}`, readHe(m)); }
+// a token copied from a right-to-left page can carry invisible direction marks, spaces or a line break, and fetch then cannot send it at
+// all ("no answer"); a Cloudflare API token is letters, digits, - and _ only, so those are dropped and any other character stops the run
+export function cleanToken(t) {
+  const s = [...String(t || "")], v = s.filter(c => !/[\s\p{Cf}]/u.test(c));
+  return { value: v.join(""), dropped: s.length - v.length, bad: v.filter(c => !/[A-Za-z0-9_-]/.test(c)).length };
+}
 
 export function parseMultipart(text, type) {
   const b = /boundary="?([^";]+)"?/i.exec(type)?.[1];
@@ -895,6 +903,10 @@ export async function main() {
     return 0;
   }
   if (!/^[0-9a-f]{32}$/i.test(E.CF_ACCOUNT_ID)) { say("::error::CF_ACCOUNT_ID is not a 32-character Cloudflare account id"); return 1; }
+  const tok = cleanToken(E.CLOUDFLARE_API_TOKEN);
+  if (tok.bad || !tok.value) { say(`::error::CLOUDFLARE_API_TOKEN ${tok.bad ? `has ${tok.bad} character(s) no Cloudflare API token has (it is letters, digits, - and _ only)` : "is only spaces or invisible marks"}: paste the token again`); return 1; }
+  if (tok.dropped) say(`::notice::CLOUDFLARE_API_TOKEN: dropped ${tok.dropped} invisible character(s) (spaces, line breaks or direction marks) that came with the paste`);
+  E.CLOUDFLARE_API_TOKEN = tok.value;   // wrangler gets the clean token too
   let mode = ship === "" || ship === "on" ? "on" : "dry";
   if (ship !== "" && ship !== "on" && ship !== "dry") say(`::notice::SHIP_TAIL=${ship.slice(0, 20)} is not off, dry or on: planning only`);
   const dispatch = E.EVENT === "workflow_dispatch";
@@ -975,7 +987,9 @@ export async function after() {
   // the workflow starts this job only after a deploy job in mode on, so a missing result (an output GitHub dropped) must not pass quietly
   if (!res || !Array.isArray(res.workers)) { say("::error::the deploy job's result did not arrive: no alert could be sent, see the deploy job's summary"); return 1; }
   if (res.mode !== "on") return 0;   // dry, off or skipped: nothing to put, nothing to send
-  if (!E.CLOUDFLARE_API_TOKEN || !/^[0-9a-f]{32}$/i.test(E.CF_ACCOUNT_ID || "")) { say("::error::the after job has no Cloudflare credentials"); return 1; }
+  const tok = cleanToken(E.CLOUDFLARE_API_TOKEN);
+  if (!tok.value || tok.bad || !/^[0-9a-f]{32}$/i.test(E.CF_ACCOUNT_ID || "")) { say("::error::the after job has no usable Cloudflare credentials"); return 1; }
+  E.CLOUDFLARE_API_TOKEN = tok.value;
   const cfg = loadConfig();
   SECRET_NAMES = new Set([...BASE_SECRETS, ...cfg.workers.flatMap(w => w.secretsFromGitHub)]);
   const ctx = { cfg, mode: "on", sha: isSha(res.sha) ? res.sha : git(["rev-parse", "HEAD"]).out.trim() };
@@ -1286,6 +1300,24 @@ async function selftest() {
     ok(r.code === 0 && r.out.length === 1 && r.out[0].startsWith("::notice::") && r.st.calls.length === 0 && r.alerts.length === 0 && r.res.outcome === "skipped" && !r.sum, "missing token: one notice, green, nothing else");
     r = await runWith({ env: { CF_ACCOUNT_ID: "" } });
     ok(r.code === 0 && r.out.length === 1 && r.st.calls.length === 0, "missing account id: green skip");
+    // a token pasted with direction marks, a space and a line break: every call and wrangler get the clean token, one notice says so
+    r = await runWith({ env: { MODE: "dry", CLOUDFLARE_API_TOKEN: "\u200f " + TOKEN + "\u200e\r\n" } });
+    ok(r.code === 0 && r.res.mode === "dry" && r.w("og").action === "planned" && r.w("api").action === "planned" && r.st.dryRuns.length === 4 &&
+      r.out.filter(l => /^::notice::CLOUDFLARE_API_TOKEN: dropped 5 invisible/.test(l)).length === 1, "pasted token with invisible marks: cleaned " + r.out.slice(0, 3));
+    noSecrets(r, "cleaned token");
+    r = await runWith({ env: { MODE: "dry", CLOUDFLARE_API_TOKEN: "Bearer: " + TOKEN } });
+    ok(r.c1 === 1 && r.st.calls.length === 0 && r.st.dryRuns.length === 0 && /::error::CLOUDFLARE_API_TOKEN has 1 character\(s\) no Cloudflare/.test(r.out.join("\n")), "token with a character no token has: stops before any call " + r.out);
+    noSecrets(r, "bad token");
+    r = await runWith({ env: { MODE: "dry", CLOUDFLARE_API_TOKEN: " \u200f\n" } });
+    ok(r.c1 === 1 && r.st.calls.length === 0 && /is only spaces or invisible marks/.test(r.out.join("\n")), "token of invisible marks only: stops " + r.out);
+    { const f = IO.fetch, m = [];
+      for (const thrown of [Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNRESET" } }), new TypeError("Cannot convert argument to a ByteString: " + TOKEN)]) {
+        IO.fetch = async () => { throw thrown; };
+        try { need(await cf("GET", "/x"), "the Worker"); } catch (e) { m.push(e.message); }
+      }
+      IO.fetch = f;
+      ok(m.join(" / ") === "the Worker: no answer (ECONNRESET) / the Worker: no answer (TypeError)" && /תו שאי אפשר לשלוח/.test(readHe(m[1])) && /תקלה זמנית/.test(readHe(m[0])),
+        "no answer names the network error, never its message: " + m.join(" / ")); }
 
     // dry mode, every main Worker: reads only, plan in the summary, no alerts, uptime planned before mail, KV planned by uptime
     r = await runWith({ env: { MODE: "dry" } });
