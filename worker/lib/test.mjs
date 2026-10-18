@@ -41,7 +41,7 @@ async function run(name, { level = "day", env = {}, at = DAY, plan = [], max = 2
   ok(el < max, `${name}: took ${Math.round(el)} ms`);
   return { r, legacy, el };
 }
-const alive = { get: async () => ({ tick: new RealDate(NIGHT - 6e4).toISOString() }), put: async () => {} };
+const alive = { get: async () => ({ tick: new RealDate(NIGHT - 6e4).toISOString(), tg: true }), put: async () => {} };
 
 let x = await run("critical, Telegram 500 x2, MAIL.send never settles", { level: "critical", plan: [500, 500], env: { MAIL: { send: never } } });
 ok(x.legacy === 1 && x.r.action === "legacy" && tg.length === 2, "hung MAIL.send -> legacy once " + JSON.stringify(x));
@@ -56,6 +56,8 @@ x = await run("critical, both paths work", { level: "critical", env: { MAIL: { s
 ok(x.legacy === 0 && x.r.delivered && x.r.action === "loud" && sent === 1 && tg.length === 1, "critical: Telegram and mail, no legacy " + JSON.stringify(x));
 x = await run("night day, uptime alive", { at: NIGHT, env: { ALERTS: alive } });
 ok(x.legacy === 0 && x.r.action === "night" && tg[0]?.disable_notification === true, "night: silent with pointer");
+x = await run("night day, uptime alive but its Telegram failed", { at: NIGHT, env: { ALERTS: { ...alive, get: async () => ({ tick: new RealDate(NIGHT - 6e4).toISOString(), tg: false }) } } });
+ok(x.legacy === 0 && x.r.action === "loud" && tg[0]?.disable_notification === false, "uptime cannot ring -> no deferral, loud " + JSON.stringify(x));
 x = await run("not routed", { env: { ALERT_ROUTE: "" } });
 ok(x.legacy === 1 && tg.length === 0, "unrouted -> legacy once");
 log(bad ? `alert-lib test: ${bad} of ${n} checks FAILED` : `alert-lib test ok (${n} checks)`);
