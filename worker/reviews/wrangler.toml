@@ -1,0 +1,15 @@
+name = "luchit-reviews"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = true                                        # no luchit.app route: /health and the Telegram webhook /tg live at luchit-reviews.<subdomain>.workers.dev
+keep_vars = true                                          # no [vars] block at all, so a deploy can never blank a dashboard variable or secret
+[observability]
+enabled = false
+[triggers]
+crons = ["*/30 * * * *"]                                  # the Worker itself does nothing outside 08:00-22:00 Israel time
+[[kv_namespaces]]
+binding = "ALERTS"
+id = "KV_NAMESPACE_ID"   # the id of luchit-alerts (the namespace luchit-uptime uses; this Worker writes only "rv:" keys); not a secret
+# Secrets (Dudu pastes them): TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID (same bot and chat as the other alerts), REVIEWS_SA_JSON
+# (the JSON key of luchit-reviews-reply, a service account with the Play Console app permission "Reply to reviews" only).
+# After the secrets: open /health once; it installs the Telegram webhook (<this Worker>/tg).
