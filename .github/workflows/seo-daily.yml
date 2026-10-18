@@ -1,5 +1,5 @@
 name: SEO daily digest
-# Every day at 05:00 UTC (08:00 Israel summer time, 07:00 winter time; GitHub starts it 20-40 min late): Search Console impressions, clicks, CTR, position,
+# Every day at 05:07 UTC (08:07 Israel summer time, 07:07 winter time; off the full hour, when GitHub delays or drops the most scheduled runs; GitHub starts it 20-40 min late): Search Console impressions, clicks, CTR, position,
 # top queries and pages to Telegram (silent). Then new web mentions of luchit.app from the Google Alerts feed (silent, only when there is one), every day.
 # Mondays also carry the weekly ranking report that was "SEO tracker" (seo-track.yml, Mondays 06:10 UTC): rankings week over week, pages that vanished
 # from Google, and the 3-week outcome of each change in analytics/seo-changes.json. The job "track" builds it (analytics/seo_track.py, state on the
@@ -9,8 +9,8 @@ name: SEO daily digest
 # Scheduled workflows run only from main. Failures are sent to Telegram too, so the run finishes green once the message is delivered.
 on:
   schedule:
-    - cron: "0 5 * * 0,2-6"   # Sunday, Tuesday-Saturday: the digest
-    - cron: "0 5 * * 1"       # Monday: the digest with the weekly ranking report (keep in step with the track job's if below)
+    - cron: "7 5 * * 0,2-6"   # Sunday, Tuesday-Saturday: the digest
+    - cron: "7 5 * * 1"       # Monday: the digest with the weekly ranking report (keep in step with the track job's if below)
   workflow_dispatch:
     inputs:
       dry_run:
@@ -26,7 +26,7 @@ permissions:
 concurrency: seo-daily
 jobs:
   track:
-    if: ${{ github.event.schedule == '0 5 * * 1' || (github.event_name == 'workflow_dispatch' && inputs.weekly) }}
+    if: ${{ github.event.schedule == '7 5 * * 1' || (github.event_name == 'workflow_dispatch' && inputs.weekly) }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

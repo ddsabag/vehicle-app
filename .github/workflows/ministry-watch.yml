@@ -11,7 +11,8 @@ name: Ministry watch
 #          it reads everything itself, as Data status did. It runs whatever the health job's result, except on a preview.
 on:
   schedule:
-    - cron: "0 4 * * *"   # 04:00 UTC = 07:00 Israel summer time, 06:00 winter time (from 25.10.2026); GitHub starts it 20-40 min late
+    - cron: "7 4 * * *"   # 04:07 UTC = 07:07 Israel summer time, 06:07 winter time (from 25.10.2026); off the full hour, when GitHub delays or drops the most
+                          # scheduled runs (one lost run now costs both the check and status.json); before Data guard 04:15; GitHub starts it 20-40 min late
   workflow_dispatch:
     inputs:
       preview:
