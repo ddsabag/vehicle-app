@@ -3,6 +3,7 @@
 // no causal wording. One article per type per modelstats refresh (slug = type-YYYY-MM of the refresh), so it never repeats.
 // run: node .github/scripts/magazine-data.mjs recalls|offroad|newmodels [2026Q2]   (newmodels: a closed calendar quarter, default the latest; PREVIEW=1 writes out/<slug>.html only)
 import fs from "node:fs";
+import {byNewest} from "./posts-order.mjs";
 const TYPE = process.argv[2], SITE = "https://luchit.app/";
 if (!["recalls", "offroad", "newmodels"].includes(TYPE)) { console.error("type must be recalls, offroad or newmodels"); process.exit(1); }
 const S = JSON.parse(fs.readFileSync("model/stats.json", "utf8"));
@@ -91,7 +92,7 @@ fs.mkdirSync(`magazine/${slug}`, {recursive: true}); fs.writeFileSync(`magazine/
 
 // posts list, magazine index and sitemap (same layout as magazine.mjs)
 posts.push({slug, title, tag, date: published, month: label, lead, models: rows.map(m => m.slug).sort()});
-posts.sort((a, b) => b.date.localeCompare(a.date) || b.slug.localeCompare(a.slug));
+posts.sort(byNewest);   // the order shared with magazine.mjs (posts[0] = latest)
 fs.writeFileSync("magazine/posts.json", JSON.stringify(posts, null, 1));
 const idx = fs.readFileSync("magazine/index.html", "utf8");
 const lst = `<div class="card lst">${posts.map(p => `<a href="${SITE}magazine/${p.slug}/"><b>${esc(p.title)}</b><small>${esc(p.tag)} · ${esc(p.month)}</small></a>`).join("")}</div>`;

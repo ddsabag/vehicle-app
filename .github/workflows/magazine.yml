@@ -1,19 +1,50 @@
 name: Magazine
+# Everything the magazine publishes, in one workflow (formerly Magazine, Magazine data articles and Newsletter):
+# - monthly article, the 6th at 08:07 UTC (magazine.mjs, one run a month): the market summary of the latest closed month.
+# - weekly data article, Thursday 05:30 UTC (magazine-data.mjs): at most ONE data article not yet out for the current modelstats refresh,
+#   new models of a closed quarter first, then recalls, then off-road. Text comes only from model/stats.json (no AI prose). Model pages are
+#   not rebuilt for it (21-day rule): the "mentioned in the magazine" links appear on them with the next pages.mjs run.
+#   Both go through the same check-and-publish step: published on its own after seo-check passes (silent Telegram notice), otherwise an alert.
+#   The job is named after the part ("article" or "data-article") so Failure alert never takes a failure of one for a repeat of the other.
+# - newsletter (newsletter.mjs): after the monthly article PR is merged (a push that changes magazine/posts.json on main) it prepares the Brevo
+#   campaign for it. By default it only saves a DRAFT in Brevo for you to review and send; the repository variable NEWSLETTER_AUTOSEND=true
+#   sends it automatically. Run it by hand (part = newsletter) for a preview. It is not a main writer, so it keeps its own queue.
 on:
   schedule:
-    - cron: "7 8 6 * *"   # the 6th (off the full hour, when GitHub delays or drops the most scheduled runs), after market.yml and models.yml (5th) and after modelstats.yml has finished (starts 05:20, up to 2 hours)
+    - cron: "7 8 6 * *"    # monthly article: the 6th (off the full hour, when GitHub delays or drops the most scheduled runs), after market.yml and models.yml (5th) and after modelstats.yml has finished (starts 05:20, up to 2 hours)
+    - cron: "30 5 * * 4"   # weekly data article: Thursday
+  push:
+    branches: [main]
+    paths: ["magazine/posts.json"]   # newsletter only
   workflow_dispatch:
+    inputs:
+      part:
+        description: "monthly = the monthly article | data = one data article | newsletter = the newsletter (see mode)"
+        type: choice
+        options: [monthly, data, newsletter]
+        default: monthly
+      mode:
+        description: "Newsletter only: preview = render only | draft = save in Brevo | send = send now"
+        type: choice
+        options: [preview, draft, send]
+        default: preview
 permissions:
   contents: write
   pull-requests: write
   pages: write
 concurrency:
-  group: main-writer
+  # the articles commit to main and share its queue; the newsletter only reads, as before
+  group: ${{ (github.event_name == 'push' || inputs.part == 'newsletter') && 'newsletter' || 'main-writer' }}
   cancel-in-progress: false
 jobs:
   article:
+    # the part is picked by the cron line that fired (github.event.schedule), not by the clock, since GitHub starts scheduled runs late
+    name: ${{ (github.event.schedule == '30 5 * * 4' || inputs.part == 'data') && 'data-article' || 'article' }}
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.part != 'newsletter') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: ${{ (github.event.schedule == '30 5 * * 4' || inputs.part == 'data') && 10 || 40 }}
+    env:
+      KIND: ${{ (github.event.schedule == '30 5 * * 4' || inputs.part == 'data') && 'data' || 'monthly' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -21,11 +52,21 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 20
-      - name: Write the monthly article
+      - name: Write the article
         id: gen
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
+          if [ "$KIND" = data ]; then
+            done=""
+            for t in newmodels recalls offroad; do
+              if node .github/scripts/magazine-data.mjs $t; then done=$t; break; fi
+            done
+            if [ -z "$done" ]; then echo "nothing new to publish"; echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0; fi
+            slug=$(node -e 'console.log(require("./magazine/posts.json").find(p=>p.slug.startsWith("'$done'-")).slug)')
+            echo "slug=$slug" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           # a scheduled run only writes a new month: when market.json was not refreshed on the 5th (its sanity check failed, or the ministry
           # had not closed the month yet), its latest month is the one already out, and that article must not be rewritten
           if [ "$GITHUB_EVENT_NAME" = schedule ]; then
@@ -45,30 +86,61 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DATA_SLUG: ${{ steps.gen.outputs.slug }}
         run: |
-          # Dudu 2026-10-15: publish on its own after the automatic checks; a failed check opens a PR instead and sends an alert.
+          # Dudu 2026-10-15: publish on its own after the automatic checks; a failed check sends an alert (monthly: and opens a PR instead).
           tg() { [ -n "$TELEGRAM_BOT_TOKEN" ] && curl -s -o /dev/null "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$1" --data-urlencode "disable_notification=${2:-false}" || true; }   # 2nd argument "true" = silent (routine notice)
-          node .github/scripts/pages.mjs
-          if [ -z "$(git status --porcelain magazine sitemap.xml model)" ]; then echo "nothing new"; exit 0; fi
-          # the newest monthly article (slug YYYY-MM): on a day a data article also came out, that one can share the date and sort first
-          slug=$(node -e 'console.log(require("./magazine/posts.json").find(p=>/^\d{4}-\d{2}$/.test(p.slug)).slug)')
+          if [ "$KIND" = monthly ]; then
+            node .github/scripts/pages.mjs
+            paths=(magazine sitemap.xml model)
+            if [ -z "$(git status --porcelain "${paths[@]}")" ]; then echo "nothing new"; exit 0; fi
+            # the newest monthly article (slug YYYY-MM): on a day a data article also came out, that one can share the date and sort first
+            slug=$(node -e 'console.log(require("./magazine/posts.json").find(p=>/^\d{4}-\d{2}$/.test(p.slug)).slug)')
+            msg="Magazine: article for $slug (automatic publish after checks)"
+          else
+            paths=(magazine sitemap.xml)
+            slug=$DATA_SLUG
+            msg="Magazine: $slug (automatic data article after checks)"
+          fi
           title=$(node -e 'console.log(require("./magazine/posts.json").find(p=>p.slug==="'$slug'").title)')
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if node .github/scripts/seo-check.mjs; then
-            git add magazine sitemap.xml model
-            git commit -m "Magazine: article for $slug (automatic publish after checks)"
+            git add "${paths[@]}"
+            git commit -m "$msg"
             git push origin HEAD:main || { git pull --rebase -q origin main && git push origin HEAD:main; }
-            gh api -X POST "repos/${{ github.repository }}/pages/builds" >/dev/null 2>&1 || true
+            gh api -X POST "repos/$GITHUB_REPOSITORY/pages/builds" >/dev/null 2>&1 || true
             tg "המגזין פורסם: $title https://luchit.app/magazine/$slug/" true
             node .github/scripts/flash.mjs content info "המגזין פורסם: $title" "https://luchit.app/magazine/$slug/"
-          else
+          elif [ "$KIND" = monthly ]; then
             branch="magazine/$slug"
             git checkout -b "$branch"
-            git add magazine sitemap.xml model
+            git add "${paths[@]}"
             git commit -m "Magazine: article for $slug"
             git push --force origin "$branch"
             gh pr create --base main --head "$branch" --title "Magazine: $slug" --body "The automatic checks failed, so this article was not published. See the run log." || true
             tg "כתבת המגזין $slug לא פורסמה: בדיקות ה-SEO האוטומטיות נכשלו. נפתח PR."
             node .github/scripts/flash.mjs content alert "כתבת המגזין $slug לא פורסמה: בדיקות ה-SEO האוטומטיות נכשלו, נפתח PR"
+          else
+            # a data article is not kept: the next weekly run writes it again. The red run also makes Failure alert page, as before.
+            tg "כתבת המגזין $slug לא פורסמה: בדיקות ה-SEO האוטומטיות נכשלו."
+            node .github/scripts/flash.mjs content alert "כתבת המגזין $slug לא פורסמה: בדיקות ה-SEO האוטומטיות נכשלו"
+            exit 1
           fi
+  newsletter:
+    if: ${{ github.event_name == 'push' || inputs.part == 'newsletter' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      - run: node .github/scripts/newsletter.mjs
+        env:
+          BREVO_KEY: ${{ secrets.BREVO_KEY || secrets.BREVO_API_KEY }}
+          BREVO_LIST_ID: ${{ vars.BREVO_LIST_ID }}
+          MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (vars.NEWSLETTER_AUTOSEND == 'true' && 'send' || 'draft') }}
+      - uses: actions/upload-artifact@v4
+        with: { name: newsletter-preview, path: out/newsletter.html }
