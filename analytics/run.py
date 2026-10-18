@@ -3,7 +3,7 @@
   python analytics/run.py --sample            layout test with synthetic numbers, nothing is sent
   python analytics/run.py --gate --send       what the Sunday workflow runs (sends only at 08:00 Jerusalem time)
 """
-import argparse, json, os, sys
+import argparse, json, os, subprocess, sys
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -53,6 +53,38 @@ def brief(d, a, link, ins=None):
     return "\n".join(lines)
 
 
+def sunday_block(out):
+    """The "מחכה לך" block for the top of the brief, from .github/scripts/waiting.mjs (alert router, plain text, at most 1,800 characters).
+    Returns (block, complete). Any failure gives one line and complete=False; the brief itself is never touched.
+    waiting.mjs exits 3 when it wrote the block without the router state while summary/silent are routed: complete=False too."""
+    path = os.path.join(out, "waiting.txt")
+    try:
+        if os.path.exists(path): os.remove(path)   # never a stale block from an earlier run
+        p = subprocess.run(["node", os.path.join(os.path.dirname(HERE), ".github", "scripts", "waiting.mjs"), path], timeout=120, capture_output=True)
+        if p.returncode not in (0, 3): raise RuntimeError("exit code")
+        head = open(path, encoding="utf-8").read().strip()
+        if not head: raise ValueError("empty")
+        return head, p.returncode == 0
+    except Exception as e:
+        print("waiting block skipped:", type(e).__name__)   # the public log gets no text and no numbers
+        return "⚠️ רשימת 'מחכה לך' לא נבנתה השבוע (הדוח עצמו תקין).", False
+
+
+def u16(s): return len(s.encode("utf-16-le")) // 2   # Telegram counts a message's length in UTF-16 units
+
+
+def with_block(head, text, limit=4000):
+    """head + blank line + text, the head cut at a line end so the whole stays under Telegram's 4096; the brief is never cut.
+    Returns (text, whole) where whole = the head went in uncut."""
+    room = limit - u16(text) - 2
+    if u16(head) <= room: return head + "\n\n" + text, True
+    keep = []
+    for ln in head.split("\n"):
+        if u16("\n".join(keep + [ln, "…"])) > room: break
+        keep.append(ln)
+    return ("\n".join(keep + ["…"]) + "\n\n" + text if keep else text), False
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--sample", nargs="?", const="busy", help="use synthetic data: busy or incident")
@@ -86,9 +118,19 @@ def main():
     if os.environ.get("GITHUB_RUN_ID"): print("report built:", html_path, "| status:", res["status"])   # the public job log gets no numbers
     else: print(text); print("\nreport:", html_path, "| status:", res["status"])
     if a_.send and not a_.sample:
+        head, complete = sunday_block(a_.out)
+        try: text, whole = with_block(head, text)
+        except Exception: whole = False   # never let the block cost the brief
         sent, errs = notify.send_all(f"לוחית, דוח שבועי {per['end']}", text, html_path)
         print("sent via:", sent or "nothing (no channel configured)")
         for e in errs: print("delivery error:", e)
+        # the "mark" job then sets the router's hb.summaryAt. While summary/silent items are held for Sunday (ALERT_ROUTE), only a whole block
+        # counts: otherwise no mark, alert-daily asks for a re-run on Monday and after 8 days those items go back to today's sends.
+        held = {"all", "summary", "silent"} & {x.strip().lower() for x in os.environ.get("ALERT_ROUTE", "").split(",")}
+        if sent and (not held or complete and whole) and os.environ.get("GITHUB_OUTPUT"):
+            try:
+                with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f: f.write("sent=1\n")
+            except OSError as e: print("summary mark output not written:", type(e).__name__)
         if not sent: return 1   # nothing delivered (no channel or every channel failed): make the run red instead of quietly green
     return 0
 
