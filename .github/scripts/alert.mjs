@@ -346,7 +346,7 @@ export async function alert(level, key, text, link = "", opts = {}) {
     const late = new Promise(r => ac.signal.addEventListener("abort", () => r(null), { once: true }));
     res = await Promise.race([p, late]);
     if (res === null) {
-      if (!st.ok && st.inflight) await st.inflight.catch(() => false);
+      if (!st.ok && st.inflight) await Promise.race([st.inflight.catch(() => false), sleep(10000)]);   // a fetch that ignores its signal still ends here
       res = st.ok ? { delivered: true, action: st.action } : { legacy: true, action: "legacy" };
     }
   } finally { clearTimeout(timer); }
