@@ -39,6 +39,8 @@ jobs:
           python-version: "3.12"
       - name: Syntax
         run: for f in .github/scripts/alert.mjs .github/scripts/waiting.mjs worker/lib/alert-lib.js worker/mail/worker.js worker/uptime/worker.js worker/reviews/worker.js; do [ ! -f "$f" ] || node --check "$f"; done
+      - name: Jobs pinned to ubuntu-24.04
+        run: "! grep -rnE '^[[:space:]]*runs-on:[[:space:]]*ubuntu-latest' .github/workflows/"
       - name: Engine self-test
         run: node .github/scripts/alert.mjs selftest
       - name: Python wrapper self-test

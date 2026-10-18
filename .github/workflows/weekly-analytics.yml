@@ -85,7 +85,7 @@ jobs:
     # and alert-daily asks for a re-run on Monday when it is missing. A failure here changes nothing else.
     needs: report
     if: needs.report.outputs.sent == '1'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 3
     continue-on-error: true
     permissions:
