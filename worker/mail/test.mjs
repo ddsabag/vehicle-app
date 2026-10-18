@@ -55,8 +55,9 @@ async function run(m, env, { at = DAY, plan = "ok", other = {} } = {}) {
 // 1. classifier (spec 13.1, 15.1 item 7)
 const cls = (subject, body = "") => summarise(FROM, subject, mime(subject, body)).cls.key;
 for (const t of ["אנא מחקו את המידע שלי", "תמחקו את הפרטים שלי", "Please erase my data", "Please delete all my data", "בקשה להסיר את הפרטים שלי",
-  "Please delete my account", "שאלה על מדיניות הפרטיות", "בקשת מחיקה"]) ok(cls("פנייה", t) === "privacy", "privacy: " + t);
-for (const t of ["Your weekly digest. To unsubscribe, click here.", "להסרה מרשימת התפוצה לחצו כאן", "הסר", "אפשר להסיר פרסומות מהאפליקציה?"])
+  "Please delete my account", "שאלה על מדיניות הפרטיות", "בקשת מחיקה",
+  "בקשה להסרת המידע שלי מהאפליקציה", "אבקש הסרה של הפרטים שלי", "נא להסיר אותי מהמאגר", "מבקשת להסיר את הרכב שלי", "תסירו בבקשה את הנתונים", "בקשה להסרה"]) ok(cls("פנייה", t) === "privacy", "privacy: " + t);
+for (const t of ["Your weekly digest. To unsubscribe, click here.", "להסרה מרשימת התפוצה לחצו כאן", "הסר", "אפשר להסיר פרסומות מהאפליקציה?", "הסרתי את האפליקציה וחזרתי", "הסרטון שלכם מעולה", "איך מסירים את ההתראות?"])
   ok(cls("עדכון", t) !== "privacy", "not privacy: " + t);
 ok(cls("שלום", "כתבתי לכם לגבי הבדיקה") !== "biz", "not biz: כתבתי לכם");
 for (const t of ["אני עיתונאית מ-ynet", "רוצים לכתוב כתבה על האפליקציה", "הוא כתב בעיתון", "הצעה לשיתוף פעולה"]) ok(cls("שלום", t) === "biz", "biz: " + t);
