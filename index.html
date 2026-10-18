@@ -1442,13 +1442,16 @@ function recallYear(x){ const m = String(x || "").match(/(19|20)\d{2}/); return 
 function matchModelRecalls(rows, v){
   const names = [v.degem_nm, v.kinuy_mishari].map(norm).filter(n => n.length >= 2);
   const year = num(v.shnat_yitzur);
-  return rows.filter(r => { const d = norm(r.DEGEM); return d && names.some(n => d === n || (n.length >= 3 && d.includes(n) && !new RegExp(n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[A-Z0-9]").test(d)) || (d.length >= 3 && n.includes(d) && !new RegExp(d.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[A-Z0-9]").test(n))); })
+  // a third of the ministry's rows list several models ("PALISADE,IONIQ 9,IONIQ 6,IONIQ 5"): each listed name also counts when it is exactly the car's
+  const listed = r => String(r.DEGEM || "").split(/[,\/+]/).map(norm).filter(Boolean);
+  return rows.filter(r => { const d = norm(r.DEGEM), parts = listed(r); return d && (names.some(n => d === n || (n.length >= 3 && d.includes(n) && !new RegExp(n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[A-Z0-9]").test(d)) || (d.length >= 3 && n.includes(d) && !new RegExp(d.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[A-Z0-9]").test(n)))
+      || (parts.length > 1 && parts.some(p => names.includes(p)))); })
     .map(r => {
       const from = recallYear(r.BUILD_BEGIN_A), to = recallYear(r.BUILD_END_A);
       const fits = !isNaN(year) && from && to ? year >= from && year <= to : null;
       return {...r, fits};
     })
-    .sort((a, b) => String(b.TAARICH_PTICHA).localeCompare(String(a.TAARICH_PTICHA)));
+    .sort((a, b) => (num(b.SHNAT_RECALL) || 0) - (num(a.SHNAT_RECALL) || 0) || (num(b.RECALL_ID) || 0) - (num(a.RECALL_ID) || 0));   // the list has no opening date, only the recall's year
 }
 
 /* ---------- static model catalogue (catalog-data branch, rebuilt daily by catalog.yml) ----------
@@ -2324,7 +2327,8 @@ function tabOverview(D){
 
 function tabRecalls(D){
   const html = [], imp = importerRecall(D), stl = D.kind === "model" || D.isCancelled ? [] : settlementsFor(D);
-  const mr = D.modelRecalls, fits = mr.filter(r => r.fits !== false);
+  const openIds = new Set(D.recalls.map(r => String(r.RECALL_ID)));   // a recall still open on this car is listed above, not again in the model's history
+  const mr = D.modelRecalls.filter(r => !openIds.has(String(r.RECALL_ID))), fits = mr.filter(r => r.fits !== false);
   if (D.recalls.length) {
     html.push(card("ריקולים פתוחים לרכב הזה", "alert", "red", D.recalls.map(r => {
       const d = r.detail || {};
@@ -2341,7 +2345,7 @@ function tabRecalls(D){
   else { row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")} (פירוט למעלה)` : "אין ריקול פתוח במאגר משרד התחבורה");
   if (D.recalls.length) row(false, "ריקול שלא מתוקן עלול למנוע בהמשך חידוש רישיון");
   else row(true, "אין ריקול שמגביל חידוש רישיון"); }
-  if (D.modelRecallsUnknown) row(false, "בדיקת ריקולים קודמים לדגם לא זמינה כרגע"); else row(!fits.length, !mr.length ? "לא נמצאו ריקולים קודמים לדגם" : fits.length ? `${pl(fits.length, "ריקול קודם לדגם עשוי לחול", "ריקולים קודמים לדגם עשויים לחול")} על שנת הייצור` : `${pl(mr.length, "ריקול קודם לדגם, לא חל", "ריקולים קודמים לדגם, אף אחד לא חל")} על שנת הייצור`);
+  if (D.modelRecallsUnknown) row(false, "בדיקת ריקולים קודמים לדגם לא זמינה כרגע"); else row(!fits.length, !mr.length ? "לא נמצאו ריקולים קודמים לדגם" : fits.length ? `${pl(fits.length, "ריקול קודם לדגם עשוי לחול", "ריקולים קודמים לדגם עשויים לחול")} על שנת הייצור${D.kind !== "model" && !D.recallUnknown ? `, והרכב לא מופיע ${fits.length === 1 ? "בו" : "בהם"} כרכב שלא תוקן` : ""}` : `${pl(mr.length, "ריקול קודם לדגם, לא חל", "ריקולים קודמים לדגם, אף אחד לא חל")} על שנת הייצור`);
   if (D.kind !== "model" && !D.isCancelled) row(!stl.length, stl.length ? `ייתכן שהרכב נכלל ב${pl(stl.length, "הסדר פשרה", "הסדרי פשרה")} (פירוט למעלה)` : "לא נמצא הסדר פשרה מוכר לדגם ולשנתון");
   html.push(card(`מה נבדק (${rows.length} בדיקות)`, "check", D.recalls.length || fits.length || stl.length || D.recallUnknown || D.modelRecallsUnknown ? "amber" : "green", `<ul class="insights plain">${rows.join("")}</ul>
     <p class="note">הסדרי פשרה: נבדקו מול ${SETTLEMENTS.length} הסדרים של יבואנים, לפי הודעותיהם והעיתונות נכון ל-10/2026. הרשימה אינה מקיפה. באתר היבואן מופיעים גם קמפיינים שלא תמיד נמצאים במאגר.</p>
@@ -2350,10 +2354,11 @@ function tabRecalls(D){
   if (mr.length) {
     html.push(card("היסטוריית ריקולים לדגם", "clock", "blue",
       `<ul class="rlist">${mr.map(r => `<li class="${r.fits === false ? "dim" : ""}">
-         <div class="rhead"><time>${esc(fmtDate(r.TAARICH_PTICHA || ""))}</time>${r.fits === true ? `<span class="pill warn">כולל את שנת הייצור</span>` : r.fits === false ? `<span class="pill">שנים אחרות</span>` : ""}</div>
+         <div class="rhead"><time>${empty(r.SHNAT_RECALL) ? "" : "ריקול משנת " + esc(r.SHNAT_RECALL)}</time>${r.fits === true ? `<span class="pill warn">כולל את שנת הייצור</span>` : r.fits === false ? `<span class="pill">שנים אחרות</span>` : ""}</div>
          <b>${esc(D.pick(r.TEUR_TAKALA, r.SUG_TAKALA) || "ריקול")}</b>
-         <span class="note">${[recType(r.SUG_RECALL), r.DEGEM, ].filter(x => !empty(x)).map(esc).join(" · ")}${(r.BUILD_BEGIN_A || r.BUILD_END_A) ? ` · ייצור <span dir="ltr" style="unicode-bidi:isolate">${esc(fmtDate(r.BUILD_BEGIN_A || ""))} – ${esc(fmtDate(r.BUILD_END_A || ""))}</span>` : ""}</span>
-       </li>`).join("")}</ul>`, `<span class="count">${mr.length}</span>`));
+         <span class="note">${[recType(r.SUG_RECALL), !empty(r.DEGEM) && String(r.DEGEM).split(/\s*,\s*/).join(", "), !empty(r.YEVUAN_TEUR) && String(r.YEVUAN_TEUR).trim() !== importerOf(D) && "יבואן: " + String(r.YEVUAN_TEUR).trim()].filter(x => x && !empty(x)).map(esc).join(" · ")}${(r.BUILD_BEGIN_A || r.BUILD_END_A) ? ` · ייצור <span dir="ltr" style="unicode-bidi:isolate">${esc(fmtDate(r.BUILD_BEGIN_A || ""))} – ${esc(fmtDate(r.BUILD_END_A || ""))}</span>` : ""}</span>
+       </li>`).join("")}</ul>
+       <p class="note">מתוך הודעות הריקול שהיבואנים בארץ מדווחים למשרד התחבורה. ריקול של הדגם לא אומר שהרכב הזה נכלל בו${D.kind === "model" ? "" : ": רכב שנכלל בריקול ועוד לא תוקן מופיע למעלה, בריקולים הפתוחים"}.</p>`, `<span class="count">${mr.length}</span>`));
   }
   return html.join("");
 }
