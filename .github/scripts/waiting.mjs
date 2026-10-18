@@ -130,7 +130,7 @@ function groups(s, sect, from) {
   return [...g.values()].map(x => {
     const c = log.filter(e => x.keys.has(e.k) && e.a !== "ring" && Date.parse(e.t) >= from).length;
     const u = [...new Set(x.its.sort((a, b) => Date.parse(b.last) - Date.parse(a.last)).flatMap(it => (Array.isArray(it.u) ? it.u : [])))].slice(0, 2);
-    return { he: x.he, n: c || x.n, last: x.last, u };
+    return { he: x.he, keys: x.keys, n: c || x.n, last: x.last, u };
   });
 }
 const withLinks = (t, u) => u.reduce((s, l) => (s.length + 3 + l.length <= CAP.line ? s + " · " + l : s), t);
@@ -148,9 +148,9 @@ function bell(s, from, shadow) {
   return `🔔 התראות השבוע: ${plural(c(act, "loud"), "1 צלצלה", "צלצלו")} · ${plural(c(act, "night"), "1 נשלחה בשקט בלילה", "נשלחו בשקט בלילה")}` +
     (q ? ` · ${plural(q, "1 נשלחה בשקט", "נשלחו בשקט")}` : "") + ` · ${plural(c(act, "none"), "1 נרשמה בלי הודעה", "נרשמו בלי הודעה")}`;
 }
-function prLine(pulls, env) {
-  if (!pulls) return "• בקשות מיזוג פתוחות: לא מחובר";
-  const prs = pulls.filter(p => !String(p?.head?.ref || "").startsWith("magazine/"));   // a failed magazine article is listed through mag:fail
+// the open-PR line; a magazine/<slug> PR is left out only while the block lists its mag:fail:<slug> item
+function prLine(pulls, env, mag) {
+  const prs = pulls.filter(p => { const r = String(p?.head?.ref || ""); return !(r.startsWith("magazine/") && mag.has(r.slice(9))); });
   const dep = prs.filter(p => p?.user?.login === "dependabot[bot]"), other = prs.length - dep.length;
   if (!prs.length) return null;
   const old = Math.min(...dep.map(p => Date.parse(p.created_at)).filter(Number.isFinite));
@@ -158,24 +158,25 @@ function prLine(pulls, env) {
     ...(other ? [dep.length ? `${other} ${other === 1 ? "אחרת" : "אחרות"}` : String(other)] : [])];
   return `• בקשות מיזוג פתוחות: ${parts.join(", ")} · https://github.com/${repo(env)}/pulls`;
 }
+// dead-man findings (out) and the sources that could not be read (bad)
 function deadman(src, now) {
-  const out = [], s = src.state, wf = src.wf, hb = (s && s.hb) || {};
-  if (!wf) out.push("• בדיקת התהליכים: לא מחובר");
+  const out = [], bad = [], s = src.state, wf = src.wf, hb = (s && s.hb) || {};
+  if (!wf) bad.push("בדיקת התהליכים: לא מחובר");
   else {
     for (const w of wf.late) out.push(`• "${w.name}" לא רץ כמתוכנן (ריצה אחרונה ${ilTime(new Date(w.t))})`);
     for (const w of wf.off) out.push(`• "${w.name}" מושבת (${OFF_HE[w.state] || w.state})`);
-    if (wf.unchecked) out.push(`• בדיקת התהליכים: ${plural(wf.unchecked, "תהליך אחד לא נבדק", "תהליכים לא נבדקו")}`);
+    if (wf.unchecked) bad.push(`בדיקת התהליכים: ${plural(wf.unchecked, "תהליך אחד לא נבדק", "תהליכים לא נבדקו")}`);
   }
-  const fl = src.files || [];
-  if (fl.length && fl.every(x => !x.j)) out.push("• קובצי הנתונים של האפליקציה: לא נקראו");   // one line when the whole source is down
-  else for (const { F, j } of fl) { const l = j ? fileStale(F, j, now) : `${F.name}: לא נקרא`; if (l) out.push("• " + l); }
+  const fl = src.files || [], unread = fl.filter(x => !x.j).map(x => x.F.name);
+  if (unread.length) bad.push(unread.length === fl.length ? "קובצי הנתונים של האפליקציה: לא נקראו" : `קובצי נתונים לא נקראו: ${unread.join(", ")}`);
+  for (const { F, j } of fl) { const l = j && fileStale(F, j, now); if (l) out.push("• " + l); }
   if (s) {   // the router itself
     const da = Date.parse(hb.dailyAt), ok = Date.parse(hb.tgOkAt), bad = Date.parse(hb.tgFailAt);
     if (!Number.isFinite(da)) out.push("• מערך ההתראות היומי עוד לא רץ");
     else if (now - da > 30 * H) out.push(`• מערך ההתראות היומי לא רץ (אחרון: ${ilTime(new Date(da))})`);
     if (Number.isFinite(bad) && !(ok >= bad)) out.push(`• בדיקת הטלגרם היומית נכשלה (${dm(bad)})`);
   }
-  if (src.health === null) out.push("• בדיקת הזמינות לא עונה");
+  if (src.health === null) bad.push("בדיקת הזמינות לא עונה");
   else if (src.health) {
     const h = src.health, tick = Date.parse(h.tick), arm = h.armed || {};
     if (!(now - tick <= 30 * 6e4)) out.push(`• בדיקת הזמינות לא רצה מאז ${Number.isFinite(tick) ? ilTime(new Date(tick)) : "?"}`);
@@ -184,8 +185,11 @@ function deadman(src, now) {
     if (h.email === false) out.push("• לבדיקת הזמינות אין גיבוי מייל");
     if (h.tg === false) out.push("• בדיקת הזמינות לא מצליחה לשלוח לטלגרם");
   }
-  return out;
+  return { out, bad };
 }
+// a section: "(N)" counts findings only; a source that failed is its own line under the section's emoji (spec 9.3)
+const sect = (e, h, l, bad, cap, none) => [...(l.length ? [`${e} ${h} (${l.length})`, ...l.slice(0, cap), ...(l.length > cap ? [`ועוד ${l.length - cap}`] : [])]
+  : none && !bad.length ? [`${e} ${h}: ${none}`] : []), ...bad.map(b => `${e} ${b}`)].join("\n") || null;
 // the whole block; complete = false when the state was not read while summary/silent are routed (run.py then does not mark the summary)
 export function build(src, now, env = process.env) {
   const s = src.state, hb = (s && s.hb) || {}, on = LEVELS.filter(l => routed(l, env)), shadow = on.length < LEVELS.length;
@@ -193,18 +197,19 @@ export function build(src, now, env = process.env) {
   const from = Number.isFinite(sa) ? Math.max(now - 14 * D, Math.min(now - 7 * D, sa)) : now - 7 * D;
   const head = [`🧾 לוחית · סיכום שבועי ${dm(from)}–${dm(now - D)}`];
   if (shadow) head.push(on.length ? `(תצוגה מקדימה: הנתב פעיל רק עבור: ${on.join(", ")})` : "(תצוגה מקדימה: הנתב עוד לא פעיל, ההתראות נשלחות כרגיל)");
-  const wait = s ? groups(s, "wait", now - 14 * D).sort((a, b) => b.last - a.last).map(itemLine) : ["• רשימת ההתראות: לא מחובר"];
-  const pr = prLine(src.pulls, env);
+  const wg = s ? groups(s, "wait", now - 14 * D).sort((a, b) => b.last - a.last) : [], wait = wg.map(itemLine);
+  const mag = new Set(wg.flatMap(g => [...g.keys]).filter(k => k.startsWith("mag:fail:")).map(k => k.slice(9)));
+  const pr = src.pulls && prLine(src.pulls, env, mag);
   if (pr) wait.push(pr);
+  const wbad = [...(s ? [] : ["רשימת ההתראות: לא מחובר"]), ...(src.pulls ? [] : ["בקשות מיזוג פתוחות: לא מחובר"])];
   const fail = s ? groups(s, "fail", from).sort((a, b) => b.n - a.n || b.last - a.last).map(itemLine) : [];
   const fyi = s ? groups(s, "fyi", from).sort((a, b) => b.last - a.last).map(itemLine) : [];
   const dead = deadman(src, now);
   const tail = s ? bell(s, from, shadow) : "🔔 התראות השבוע: לא מחובר";
-  const sect = (h, l, cap) => (l.length ? [`${h} (${l.length})`, ...l.slice(0, cap), ...(l.length > cap ? [`ועוד ${l.length - cap}`] : [])].join("\n") : null);
   let text = "";
   for (let cap = CAP.lines; cap >= 1; cap--) {   // 6 lines a section, fewer when the block would pass 1,800 characters
-    text = [head.join("\n"), wait.length ? sect("⏳ מחכה לך", wait, cap) : "⏳ מחכה לך: אין כלום השבוע ✓", sect("🪦 לא רץ או התיישן", dead, cap),
-      sect("🔧 תקלות השבוע", fail, cap), sect("ℹ️ לידיעה", fyi, cap), tail].filter(Boolean).join("\n\n");
+    text = [head.join("\n"), sect("⏳", "מחכה לך", wait, wbad, cap, "אין כלום השבוע ✓"), sect("🪦", "לא רץ או התיישן", dead.out, dead.bad, cap),
+      sect("🔧", "תקלות השבוע", fail, [], cap), sect("ℹ️", "לידיעה", fyi, [], cap), tail].filter(Boolean).join("\n\n");
     if (text.length <= CAP.block) break;
   }
   if (text.length > CAP.block) text = text.slice(0, CAP.block - 2).replace(/\n[^\n]*$/, "") + "\n…";
@@ -348,36 +353,54 @@ async function selftest() {
       health: { tick: ago(2), armed: { home: true, api: false }, tg: false, email: false } }, { ...ENV, ALERT_UPTIME_URL: "https://up.example/" });
     for (const l of ['• "Fuel price" לא רץ כמתוכנן (ריצה אחרונה 15.10 08:21)', "• fuel.json לא עודכן מאז 01.09", "• meta.json (הקטלוג) לא עודכן מאז 14.10",
       "• מערך ההתראות היומי לא רץ (אחרון: 17.10 01:25)", "• בדיקת הטלגרם היומית נכשלה (17.10)", "• בדיקת הזמינות לא רצה מאז 18.10 06:25",
-      "• בדיקת הזמינות לא חמושה: /api", "• לבדיקת הזמינות אין גיבוי מייל", "• בדיקת הזמינות לא מצליחה לשלוח לטלגרם"]) ok(deadman(x.src, NOW).includes(l), "dead-man line " + l);
+      "• בדיקת הזמינות לא חמושה: /api", "• לבדיקת הזמינות אין גיבוי מייל", "• בדיקת הזמינות לא מצליחה לשלוח לטלגרם"]) ok(deadman(x.src, NOW).out.includes(l), "dead-man line " + l);
     ok(/🪦 לא רץ או התיישן \(11\)\n(.*\n){6}ועוד 5\n/.test(x.text), "6 lines per section, then ועוד");
     x = await run({ state: "404" });
     ok(x.text.includes("• מערך ההתראות היומי עוד לא רץ") && x.text.includes("⏳ מחכה לך (1)"), "no state branch yet");
+    // a magazine PR is left out only while its mag:fail item is listed (14 days, open); otherwise it is an open PR like any other
+    const magPR = [PULLS[3]], magSt = (o = {}) => stateRes({ v: 1, hb: STATE.hb, log: [], items: { "mag:fail:2026-10": it(12 * 24, o) } }), PRS = "https://github.com/ddsabag/vehicle-app/pulls";
+    x = await run({ pulls: magPR, state: magSt() });
+    ok(x.text.includes("⏳ מחכה לך (1)\n• כתבת מגזין לא פורסמה") && !x.text.includes("בקשות מיזוג"), "magazine PR listed through mag:fail\n" + x.text);
+    for (const [st, m] of [[magSt({ last: ago(15 * 24) }), "mag:fail older than 14 days"], [magSt({ open: false }), "mag:fail resolved"], [stateRes({ ...STATE, items: {} }), "no mag:fail item"],
+      [stateRes({ v: 1, hb: STATE.hb, log: [], items: { "mag:fail:2026-09": it(12 * 24) } }), "mag:fail of another slug"]])
+      ok((x = await run({ pulls: magPR, state: st })).text.includes("• בקשות מיזוג פתוחות: 1 · " + PRS), "magazine PR still listed: " + m + "\n" + x.text);
+    ok(build({ state: null, pulls: magPR, wf: { off: [], late: [], unchecked: 0 }, files: [] }, NOW, ENV).text.includes("• בקשות מיזוג פתוחות: 1 · " + PRS), "magazine PR listed when the state is not read");
 
     // each source failing gives its own line and leaves the others intact
-    for (const [o, line, env] of [[{ state: "500" }, "• רשימת ההתראות: לא מחובר"], [{ pulls: "500" }, "• בקשות מיזוג פתוחות: לא מחובר"], [{ list: "500" }, "• בדיקת התהליכים: לא מחובר"],
-      [{ "runs:fuel.yml": "500" }, "• בדיקת התהליכים: תהליך אחד לא נבדק"], [{ "fuel.json": "500" }, "• fuel.json: לא נקרא"], [{ "status.json": "hang" }, "• status.json (מצב המאגרים): לא נקרא"],
-      [{ health: "500" }, "• בדיקת הזמינות לא עונה", { ...ENV, ALERT_UPTIME_URL: "https://up.example" }]]) {
+    // "(N)" counts the "• " lines under the header; a failed source is a line of its own and is not counted
+    const counted = t => t.split("\n\n").every(p => { const m = /^\S+ [^\n(]+ \((\d+)\)\n/.exec(p); return !m || /\nועוד \d+/.test(p) || p.split("\n").filter(l => l.startsWith("• ")).length === +m[1]; });
+    for (const [o, line, env] of [[{ state: "500" }, "⏳ רשימת ההתראות: לא מחובר"], [{ pulls: "500" }, "⏳ בקשות מיזוג פתוחות: לא מחובר"], [{ list: "500" }, "🪦 בדיקת התהליכים: לא מחובר"],
+      [{ "runs:fuel.yml": "500" }, "🪦 בדיקת התהליכים: תהליך אחד לא נבדק"], [{ "fuel.json": "500" }, "🪦 קובצי נתונים לא נקראו: fuel.json"],
+      [{ "status.json": "hang", "meta.json": "500" }, "🪦 קובצי נתונים לא נקראו: status.json (מצב המאגרים), meta.json (הקטלוג)"],
+      [{ health: "500" }, "🪦 בדיקת הזמינות לא עונה", { ...ENV, ALERT_UPTIME_URL: "https://up.example" }]]) {
       x = await run(o, env);
-      const k = Object.keys(o)[0], others = SNAP.split("\n").filter(l => l.startsWith("• ") && !(k === "state" ? !/Dependabot|מושבת/.test(l) : k === "pulls" ? /Dependabot/.test(l) : k === "list" && /מושבת/.test(l)));
-      ok(x.text.includes(line) && others.every(l => x.text.includes(l)), `source failure ${Object.keys(o)[0]}: ${line}\n${x.text}`);
+      const k = Object.keys(o)[0], others = SNAP.split("\n").filter(l => l.startsWith("• ") && !(k === "state" ? !/Dependabot|מושבת/.test(l) : k === "pulls" ? /Dependabot/.test(l) : k === "list" && /מושבת/.test(l)))
+        .map(l => (k === "state" ? l.replace("1 אחרת", "2 אחרות") : l));   // without the state, the magazine PR is no longer covered by mag:fail
+      ok(x.text.includes(line) && others.every(l => x.text.includes(l)) && counted(x.text), `source failure ${Object.keys(o)[0]}: ${line}\n${x.text}`);
     }
+    x = await run({ pulls: "500" });
+    ok(x.text.includes("⏳ מחכה לך (3)\n") && x.text.includes("\n🪦 לא רץ או התיישן (2)\n"), "a failed source does not change the counts\n" + x.text);
+    x = await run({ "fuel.json": "500", list: { workflows: [] } });
+    ok(!x.text.includes("🪦 לא רץ או התיישן") && x.text.includes("\n\n🪦 קובצי נתונים לא נקראו: fuel.json\n\n"), "only a failed source: no counted header\n" + x.text);
+    x = { text: build({ state: null, pulls: [], wf: { off: [], late: [], unchecked: 0 }, files: [] }, NOW, ENV).text };
+    ok(x.text.includes("\n\n⏳ רשימת ההתראות: לא מחובר\n\n") && !/\(\d+\)|אין כלום/.test(x.text), "state not read, no PRs: one line, no count, no all-clear\n" + x.text);
     x = await run({ state: "500" });
     ok(x.text.endsWith("🔔 התראות השבוע: לא מחובר") && x.complete === true, "state failure in shadow: still complete (nothing is held back)");
     x = await run({ state: "500" }, { ...ENV, ALERT_ROUTE: "critical,summary" });
     ok(x.complete === false, "state failure with summary routed: not complete (the summary is not marked)");
     x = await run({}, { ...ENV, GITHUB_TOKEN: "" });
-    ok(x.text.includes("• רשימת ההתראות: לא מחובר"), "no token: state not connected");
+    ok(x.text.includes("⏳ רשימת ההתראות: לא מחובר"), "no token: state not connected");
     // every source hangs: bounded by the deadline, each one says so
     const t1 = Date.now();
     x = await run(Object.fromEntries(["state", "pulls", "list", "health", ...Object.keys(fresh)].map(k => [k, "hang"])), { ...ENV, ALERT_UPTIME_URL: "https://up.example" });
     const el = Date.now() - t1;
-    ok(el < T.all + 200 && ["• רשימת ההתראות: לא מחובר", "• בקשות מיזוג פתוחות: לא מחובר", "• בדיקת התהליכים: לא מחובר", "• קובצי הנתונים של האפליקציה: לא נקראו",
-      "• בדיקת הזמינות לא עונה", "🔔 התראות השבוע: לא מחובר"].every(l => x.text.includes(l)),
+    ok(el < T.all + 200 && ["⏳ רשימת ההתראות: לא מחובר", "⏳ בקשות מיזוג פתוחות: לא מחובר", "🪦 בדיקת התהליכים: לא מחובר", "🪦 קובצי הנתונים של האפליקציה: לא נקראו",
+      "🪦 בדיקת הזמינות לא עונה", "🔔 התראות השבוע: לא מחובר"].every(l => x.text.includes(l)) && !/\(\d+\)|אין כלום/.test(x.text),
       `all sources hang: ${el} ms\n${x.text}`);
     T.req = 5000;   // a request that ignores nothing but outlives the whole deadline: the deadline still ends the collect
     const t2 = Date.now();
     x = await run({ "runs:fuel.yml": "hang", pulls: "hang" });
-    ok(Date.now() - t2 < T.all + 300 && x.text.includes("• בקשות מיזוג פתוחות: לא מחובר") && x.text.includes("• בדיקת התהליכים: תהליך אחד לא נבדק"), "deadline ends the collect " + (Date.now() - t2));
+    ok(Date.now() - t2 < T.all + 300 && x.text.includes("⏳ בקשות מיזוג פתוחות: לא מחובר") && x.text.includes("🪦 בדיקת התהליכים: תהליך אחד לא נבדק"), "deadline ends the collect " + (Date.now() - t2));
     T.req = 150;
 
     // caps: 6 lines a section, 1,800 characters in all
