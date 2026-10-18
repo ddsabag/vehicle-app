@@ -12,7 +12,7 @@
 // The block between the alert-lib v1 markers is a byte-identical copy of worker/lib/alert-lib.js (CI compares them).
 
 const CLASSES = [
-  { key: "privacy", icon: "🔴", label: "פרטיות או מחיקה", re: /פרטיות|מחיק|למחוק|מחקו|תמחק|מחק את|להסיר את|להסיר אות|הסירו|תסירו|(אבקש|מבקש\S*|בקש[הת]) \S{0,2}הסי?ר|הסרת? (של )?ה?(מידע|פרטי|נתונ|חשבון)|gdpr|privacy|delete (all )?my|remove my|erase/i },
+  { key: "privacy", icon: "🔴", label: "פרטיות או מחיקה", re: /פרטיות|מחיק|למחוק|מחקו|תמחק|מחק את|להסיר את|להסיר אות|הסירו|תסירו|(אבקש|מבקש\S*|בקש[הת]) \S{0,2}הסי?ר|הסר[הת]? (של )?ה?(מידע|פרטי|נתונ|חשבון)|gdpr|privacy|delete (all )?my|remove my|erase/i },
   { key: "crash", icon: "🔴", label: "תקלה באפליקציה", re: /קורס|קריסה|נתקע|תקוע|לא עובד|לא נפתח|תקלה|שגיאה|crash|bug|error|freez|not working/i },
   { key: "data", icon: "🟡", label: "טעות בנתוני רכב", re: /טעות|שגוי|לא נכון|לא תואם|לא מדויק|נתון|מספר רישוי|מספר יד|ידיים|ריקול|טסט|wrong|incorrect|mistake/i },
   { key: "biz", icon: "🔵", label: "שיתוף פעולה או עיתונות", re: /שיתוף פעולה|פרסום|חסות|עיתונא|כתבה|כתב ב|ראיון|partnership|sponsor|press|advertis/i },
