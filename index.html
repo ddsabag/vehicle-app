@@ -1061,7 +1061,7 @@ function proLockCard(title, text){
   return card(title, "star", "amber", `<p style="margin:0">${esc(text)}</p><button type="button" class="link-btn" data-act="proInfo">הצטרפות ל-PRO</button>`, `${PT("PRO")}`);
 }
 const foldKey = t => "fold:" + t;
-const FOLD_DEFAULT = new Set(["שאלות נפוצות", "בעלות", "מסירות בתקופה", "שינויים ברכב", "היסטוריית בעלויות", "היסטוריית ריקולים לדגם", "לפני שקונים", "ציר ק״מ", "עלות אחזקה מצטברת", "משקלים וצמיגים", "בטיחות", "אבזור", "סביבה", "מספרי זיהוי", "כמה מותר לגרור"]);
+const FOLD_DEFAULT = new Set(["שאלות נפוצות", "בעלות", "מסירות בתקופה", "שינויים ברכב", "היסטוריית בעלויות", "ריקולים שנפתחו לדגם", "לפני שקונים", "ציר ק״מ", "עלות אחזקה מצטברת", "משקלים וצמיגים", "בטיחות", "אבזור", "סביבה", "מספרי זיהוי", "כמה מותר לגרור"]);
 const foldDef = t => FOLD_DEFAULT.has(t) || /^סימני גיול/.test(t);
 const isFolded = t => { try { const k = localStorage.getItem(foldKey(t)); return k === null ? foldDef(t) : k === "1"; } catch { return foldDef(t); } };
 const card = (title, icon, color, inner, extra) => {
@@ -2345,20 +2345,21 @@ function tabRecalls(D){
   else { row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")} (פירוט למעלה)` : "אין ריקול פתוח במאגר משרד התחבורה");
   if (D.recalls.length) row(false, "ריקול שלא מתוקן עלול למנוע בהמשך חידוש רישיון");
   else row(true, "אין ריקול שמגביל חידוש רישיון"); }
-  if (D.modelRecallsUnknown) row(false, "בדיקת ריקולים קודמים לדגם לא זמינה כרגע"); else row(!fits.length, !mr.length ? "לא נמצאו ריקולים קודמים לדגם" : fits.length ? `${pl(fits.length, "ריקול קודם לדגם עשוי לחול", "ריקולים קודמים לדגם עשויים לחול")} על שנת הייצור${D.kind !== "model" && !D.recallUnknown ? `, והרכב לא מופיע ${fits.length === 1 ? "בו" : "בהם"} כרכב שלא תוקן` : ""}` : `${pl(mr.length, "ריקול קודם לדגם, לא חל", "ריקולים קודמים לדגם, אף אחד לא חל")} על שנת הייצור`);
+  if (D.modelRecallsUnknown) row(false, "בדיקת ריקולים לדגם לא זמינה כרגע"); else row(!fits.length, !mr.length ? "לא נמצאו ריקולים לדגם" : fits.length ? `${pl(fits.length, "ריקול לדגם עשוי לחול", "ריקולים לדגם עשויים לחול")} על שנת הייצור${D.kind !== "model" && !D.recallUnknown ? `, והרכב הזה לא מופיע ${fits.length === 1 ? "בו" : "בהם"} כרכב שלא תוקן` : ""}` : `${pl(mr.length, "ריקול לדגם, לא חל", "ריקולים לדגם, אף אחד לא חל")} על שנת הייצור`);
   if (D.kind !== "model" && !D.isCancelled) row(!stl.length, stl.length ? `ייתכן שהרכב נכלל ב${pl(stl.length, "הסדר פשרה", "הסדרי פשרה")} (פירוט למעלה)` : "לא נמצא הסדר פשרה מוכר לדגם ולשנתון");
   html.push(card(`מה נבדק (${rows.length} בדיקות)`, "check", D.recalls.length || fits.length || stl.length || D.recallUnknown || D.modelRecallsUnknown ? "amber" : "green", `<ul class="insights plain">${rows.join("")}</ul>
     <p class="note">הסדרי פשרה: נבדקו מול ${SETTLEMENTS.length} הסדרים של יבואנים, לפי הודעותיהם והעיתונות נכון ל-10/2026. הרשימה אינה מקיפה. באתר היבואן מופיעים גם קמפיינים שלא תמיד נמצאים במאגר.</p>
     <button type="button" class="link-btn" data-url="${esc(imp.url)}" data-copyfirst="${imp.vin ? esc(D.vin || D.plate) : D.plate}">${ico("search")}${imp.gov ? "חיפוש במאגר הריקולים של משרד התחבורה" : `בדיקת ריקולים וקמפיינים באתר ${esc(imp.name)}`}</button>
     <p class="note" style="margin:6px 0 0">מספר הרישוי יועתק, ותדביקו אותו באתר.${imp.gov ? ` ל${esc(imp.name || "יבואן הזה")} לא מצאנו עמוד בדיקה לפי מספר רישוי, ובמאגר של משרד התחבורה מחפשים לפי יצרן ודגם.` : imp.note ? " " + esc(imp.note) : ""}</p>`));
   if (mr.length) {
-    html.push(card("היסטוריית ריקולים לדגם", "clock", "blue",
-      `<ul class="rlist">${mr.map(r => `<li class="${r.fits === false ? "dim" : ""}">
-         <div class="rhead"><time>${empty(r.SHNAT_RECALL) ? "" : "ריקול משנת " + esc(r.SHNAT_RECALL)}</time>${r.fits === true ? `<span class="pill warn">כולל את שנת הייצור</span>` : r.fits === false ? `<span class="pill">שנים אחרות</span>` : ""}</div>
+    const knownOpen = D.kind !== "model" && !D.recallUnknown;   // the ministry's list of unfixed cars answered for this plate
+    html.push(card("ריקולים שנפתחו לדגם", "clock", "blue",
+      `<p class="note" style="margin:0 0 8px">ריקולים שהיבואנים בארץ פתחו לכל הדגם, לפי משרד התחבורה. הם לא בהכרח חלו על הרכב הזה.${knownOpen ? " רכב שנכלל בריקול ועוד לא תוקן מופיע למעלה, בריקולים הפתוחים." : ""}</p>
+       <ul class="rlist">${mr.map(r => `<li class="${r.fits === false ? "dim" : ""}">
+         <div class="rhead"><time>${empty(r.SHNAT_RECALL) ? "" : "ריקול משנת " + esc(r.SHNAT_RECALL)}</time>${r.fits === true ? (knownOpen ? `<span class="pill">בשנת הייצור, לא פתוח ברכב הזה</span>` : `<span class="pill warn">כולל את שנת הייצור</span>`) : r.fits === false ? `<span class="pill">שנים אחרות</span>` : ""}</div>
          <b>${esc(D.pick(r.TEUR_TAKALA, r.SUG_TAKALA) || "ריקול")}</b>
          <span class="note">${[recType(r.SUG_RECALL), !empty(r.DEGEM) && String(r.DEGEM).split(/\s*,\s*/).join(", "), !empty(r.YEVUAN_TEUR) && String(r.YEVUAN_TEUR).trim() !== importerOf(D) && "יבואן: " + String(r.YEVUAN_TEUR).trim()].filter(x => x && !empty(x)).map(esc).join(" · ")}${(r.BUILD_BEGIN_A || r.BUILD_END_A) ? ` · ייצור <span dir="ltr" style="unicode-bidi:isolate">${esc(fmtDate(r.BUILD_BEGIN_A || ""))} – ${esc(fmtDate(r.BUILD_END_A || ""))}</span>` : ""}</span>
-       </li>`).join("")}</ul>
-       <p class="note">מתוך הודעות הריקול שהיבואנים בארץ מדווחים למשרד התחבורה. ריקול של הדגם לא אומר שהרכב הזה נכלל בו${D.kind === "model" ? "" : ": רכב שנכלל בריקול ועוד לא תוקן מופיע למעלה, בריקולים הפתוחים"}.</p>`, `<span class="count">${mr.length}</span>`));
+       </li>`).join("")}</ul>`, `<span class="count">${mr.length}</span>`));
   }
   return html.join("");
 }
