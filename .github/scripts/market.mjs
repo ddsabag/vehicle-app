@@ -1,5 +1,6 @@
 // Builds market.json: car-market statistics from the Ministry of Transport open datasets.
 // Run on a GitHub runner (data.gov.il blocks some other networks). Writes out/market.json and prints a short summary.
+// A failed or short scan, or a big drop against the published market.json, writes nothing and exits 1 (SKIP_GATE=1 writes anyway).
 import fs from "node:fs";
 const API = "https://data.gov.il/api/3/action/datastore_search";
 const DELIV = "602ac32d-19c0-4b41-88e0-e3ce8a7e80b7", COUNTS = "5e87a7a1-2f6f-41c1-8aec-7216d52a6cf6", ACTIVE = "053cea08-09bc-40ec-8f7a-156f0677aff3";
@@ -17,14 +18,22 @@ async function call(params, tries = 4) {
 }
 // pages through a resource; onRows may return false to stop early
 async function scan(id, extra, onRows) {
+  let n = 0, total = null;
   for (let off = 0; ; off += PAGE) {
     const r = await call({resource_id: id, limit: String(PAGE), offset: String(off), ...extra});
+    if (total === null) total = r.total;
     if (!r.records.length) break;
-    if (onRows(r.records) === false || r.records.length < PAGE) break;
+    n += r.records.length;
+    if (onRows(r.records) === false) return n;   // stopped on purpose
+    if (r.records.length < PAGE) break;
   }
+  // a read that ended early would publish understated counts as real ones (same tolerance as zombie-detector.mjs)
+  if (total && n < total * 0.995) throw new Error(`${id}: read ${n} of ${total}`);
+  return n;
 }
 const inc = (o, k, n = 1) => { o[k] = (o[k] || 0) + n; };
 const out = {updated: new Date().toISOString().slice(0, 10), notes: {}};
+const failed = [];   // stages that did not finish: the gate below refuses to publish
 
 // maker (brand) per factory code
 const brand = {};
@@ -71,7 +80,7 @@ for (const y of [2022, 2023, 2024, 2025, 2026]) {
         late += isLate; dealer += isDealer; const a = (ag[mk] ||= {n: 0, late: 0, dealer: 0}); a.n++; a.late += isLate; a.dealer += isDealer;
       }
     });
-  } catch (e) { console.log("active", y, e.message); }
+  } catch (e) { console.log("active", y, e.message); failed.push(`active ${y}: ${e.message}`); }
   out.aging[y] = {n, late, dealer};
   out.agingMakers[y] = Object.fromEntries(Object.entries(ag).filter(([, a]) => a.n >= 300).sort((a, b) => b[1].n - a[1].n).slice(0, 25));
   out.ownership[y] = own; out.fuel[y] = fuel;
@@ -84,9 +93,27 @@ const imp = {}, impYear = {}; let impFields = null;
 try {
   await scan(IMPORT, {}, rows => { for (const r of rows) { const k = r.sug_yevu || "יבוא אישי", y = String(r.moed_aliya_lakvish || "").slice(0, 4); inc(imp, k); if (y >= "2018") ((impYear[y] ||= {})[k] = (impYear[y][k] || 0) + 1); } });
   const f = await call({resource_id: IMPORT, limit: "2"}); impFields = f.fields.map(x => x.id); 
-} catch (e) { console.log("import", e.message); }
+} catch (e) { console.log("import", e.message); failed.push("import: " + e.message); }
 out.import = imp; out.importYear = impYear; delete out.importSample; console.log("import", JSON.stringify(imp), impFields);
 
+// sanity gate, as catalog-build.mjs does: a partial build must not replace the published file (the app would show it as real numbers).
+// Thresholds are loose on purpose: between the published versions (2026-10-04 to 10-10) every count below moved by under 1%.
+const problems = [...failed], sum = o => Object.values(o || {}).reduce((s, x) => s + x, 0);
+for (const [y, a] of Object.entries(out.aging)) if (!a.n) problems.push(`no active cars of production year ${y}`);
+if (!sum(imp)) problems.push("no personal-import rows");
+let prev = null; try { prev = JSON.parse(fs.readFileSync("market.json", "utf8")); } catch {}
+if (prev && prev.months) {
+  const pm = Object.keys(prev.months), common = pm.filter(m => m in months), was = common.reduce((s, m) => s + prev.months[m], 0), now = common.reduce((s, m) => s + months[m], 0);
+  if (Object.keys(months).length < pm.length) problems.push(`${Object.keys(months).length} months of deliveries, ${pm.length} before`);
+  if (now < 0.9 * was) problems.push(`deliveries in the months both files have: ${now}, ${was} before`);
+  if (Object.keys(makers).length < 0.8 * Object.keys(prev.makers || {}).length) problems.push(`${Object.keys(makers).length} makers, ${Object.keys(prev.makers).length} before`);
+  for (const [y, a] of Object.entries(out.aging)) { const p = prev.aging && prev.aging[y] && prev.aging[y].n; if (p && a.n < 0.9 * p) problems.push(`production year ${y}: ${a.n} active cars, ${p} before`); }
+  if (sum(prev.import) && sum(imp) < 0.9 * sum(prev.import)) problems.push(`personal import: ${sum(imp)} cars, ${sum(prev.import)} before`);
+}
+if (problems.length) {
+  for (const p of problems) console.log(`::${process.env.SKIP_GATE === "1" ? "warning" : "error"}::market.json check: ${p}`);
+  if (process.env.SKIP_GATE !== "1") { console.log("not written: the published market.json stays. If the change is real, re-run with skip_gate."); process.exit(1); }
+}
 fs.mkdirSync("out", {recursive: true});
 fs.writeFileSync("out/market.json", JSON.stringify(out));
 const ms = Object.keys(months).sort();

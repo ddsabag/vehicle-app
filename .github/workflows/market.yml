@@ -3,6 +3,11 @@ on:
   schedule:
     - cron: "40 4 5 * *"   # monthly; the Ministry publishes closed months in the first days of the month
   workflow_dispatch:
+    inputs:
+      skip_gate:
+        description: "Publish even when the sanity check finds the build incomplete or far off the published file (read the run log first)"
+        type: boolean
+        default: false
 permissions:
   contents: write
 concurrency:
@@ -17,7 +22,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      # a failed or partial scan fails here and nothing is committed (the job goes red, so failure-alert reports it)
       - run: node .github/scripts/market.mjs
+        env:
+          SKIP_GATE: ${{ inputs.skip_gate && '1' || '0' }}
       - run: |
           cp out/market.json market.json
           if [ -n "$(git status --porcelain market.json)" ]; then
