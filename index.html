@@ -1457,10 +1457,14 @@ function recallYear(x){ const m = String(x || "").match(/(19|20)\d{2}/); return 
 function matchModelRecalls(rows, v){
   const names = [v.degem_nm, v.kinuy_mishari].map(norm).filter(n => n.length >= 2);
   const year = num(v.shnat_yitzur);
+  // the recall list writes some brands' models without the brand ("3", "6,CX5,MX5" for MAZDA 3, MAZDA CX-5): the name without its leading brand word counts too, only as an exact name
+  const brands = new Set(rows.map(r => norm(String(r.TOZAR_TEUR || "").trim().split(/\s+/)[0])).filter(Boolean));
+  const kw = String(v.kinuy_mishari || "").trim().toUpperCase().split(/\s+/), bare = kw.length > 1 && brands.has(norm(kw[0])) ? norm(kw.slice(1).join("")) : "";
+  const exact = bare && !names.includes(bare) ? [...names, bare] : names;
   // a third of the ministry's rows list several models ("PALISADE,IONIQ 9,IONIQ 6,IONIQ 5"): each listed name also counts when it is exactly the car's
   const listed = r => String(r.DEGEM || "").split(/[,\/+]/).map(norm).filter(Boolean);
-  return rows.filter(r => { const d = norm(r.DEGEM), parts = listed(r); return d && (names.some(n => d === n || (n.length >= 3 && d.includes(n) && !new RegExp(n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[A-Z0-9]").test(d)) || (d.length >= 3 && n.includes(d) && !new RegExp(d.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[A-Z0-9]").test(n)))
-      || (parts.length > 1 && parts.some(p => names.includes(p)))); })
+  return rows.filter(r => { const d = norm(r.DEGEM), parts = listed(r); return d && (exact.includes(d) || names.some(n => (n.length >= 3 && d.includes(n) && !new RegExp(n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[A-Z0-9]").test(d)) || (d.length >= 3 && n.includes(d) && !new RegExp(d.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[A-Z0-9]").test(n)))
+      || (parts.length > 1 && parts.some(p => exact.includes(p)))); })
     .map(r => {
       const from = recallYear(r.BUILD_BEGIN_A), to = recallYear(r.BUILD_END_A);
       const fits = !isNaN(year) && from && to ? year >= from && year <= to : null;
