@@ -38,8 +38,8 @@ function msg(subject, body, hdr = {}, { rawThrows = false, forwardThrows = false
   return m;
 }
 const BASE = { TELEGRAM_BOT_TOKEN: "t", TELEGRAM_CHAT_ID: "c", FORWARD_TO: "inbox@example.com" };
-function kv(state, { putThrows = false } = {}) {   // state: "alive" (tick 1 min old), "stale" (30 min), "empty"
-  const k = { puts: [], async get(key) { return key === "u" && state !== "empty" ? { tick: new RealDate(clock - (state === "alive" ? 1 : 30) * 6e4).toISOString(), tg: true } : null; },
+function kv(state, { putThrows = false, tg = true } = {}) {   // state: "alive" (tick 1 min old), "stale" (30 min), "empty"; tg: luchit-uptime's Telegram works
+  const k = { puts: [], async get(key) { return key === "u" && state !== "empty" ? { tick: new RealDate(clock - (state === "alive" ? 1 : 30) * 6e4).toISOString(), tg } : null; },
     async put(key, v, o) { if (putThrows) throw new Error("kv down"); k.puts.push({ key, v, o }); } };
   return k;
 }
@@ -145,6 +145,10 @@ for (const route of [undefined, "all"]) for (const at of [DAY, NIGHT]) for (cons
   ok(err?.message === "forward failed" && tg.length === 1 && m.forwards.length === 1, "a failing forward still throws, as today"); }
 { const m = MAILS.privacy.m(), err = await run(m, { TELEGRAM_BOT_TOKEN: undefined, ALERT_ROUTE: "all" });
   ok(!err && tg.length === 1 && m.forwards.length === 1, "no Telegram secrets, routed: today's request (fails as today), forwarded"); }
+// luchit-uptime ticking but unable to send (no Telegram secrets yet): its morning ring would fail, so a night privacy or crash mail rings now
+for (const c of ["privacy", "crash"]) { const m = MAILS[c].m(), K = kv("alive", { tg: false }); await run(m, { ALERT_ROUTE: "all", ALERTS: K }, { at: NIGHT });
+  ok(tg.length === 1 && tg[0].text === MAILS[c].text && tg[0].disable_notification === false && !K.puts.length && m.forwards.length === 1,
+    `${c} night, uptime alive with tg:false: loud, no pointer (needs the alert-lib v1 block whose canDefer checks u.tg) ` + JSON.stringify(tg)); }
 // the router block missing or broken (a bad paste): today's message once, forwarded once
 const S = "// >>> alert-lib v1", E = "// <<< alert-lib v1";
 const broken = (await load(src.slice(0, src.indexOf(S)) + src.slice(src.indexOf(E) + E.length))).default;
