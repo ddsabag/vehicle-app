@@ -50,7 +50,7 @@ jobs:
           live=${live%%$'\n'*}; live=${live//[[:space:]]/}
           if [ "$live" = "$sha" ]; then echo "luchit.app already serves $sha: nothing to deploy"; echo "live=true" >> "$GITHUB_OUTPUT"
           else echo "luchit.app serves ${live:-unknown}, main is $sha: build and deploy"; fi
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: ${{ steps.live.outputs.live != 'true' }}
         with:
           node-version: 20

@@ -24,7 +24,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 20 }
       - run: node .github/scripts/data-guard.mjs --selftest
       - name: Compare with the baseline
@@ -36,7 +36,7 @@ jobs:
       # the same drift is announced once: a cache entry named after the drift signature remembers it
       - name: Already announced?
         id: seen
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: out/sig.txt
           key: guard-sig-${{ steps.guard.outputs.sig }}
@@ -66,7 +66,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 20 }
       - name: Market-intel self-test (magazine section)
         run: node .github/scripts/market-intel.mjs --selftest
