@@ -2,7 +2,9 @@
 // Run by Ministry watch right after its health check (data-health-check.mjs). SEEN (optional JSON, that check's step output) carries what the check
 // already read, so a dataset is not asked twice: { <key>: { id, tries, ok, total, modified } }, tries = unfiltered datastore_search reads made,
 // ok/total = from the first that found rows (else the last), modified = the resource_show answer (absent when that read failed).
-// Whatever is missing, or a dataset that has not been seen with rows in 3 reads, is read here as before; without SEEN everything is.
+// Only good readings are reused: a count that is missing, or one the check did not see with rows (empty, timed out, even in all 3 of its tries),
+// is read here again as before (up to 3 reads, 20 s apart, 30 s timeout), so a dataset that came back after the check is not published as down.
+// Without SEEN everything is read here.
 // The output (out/status.json, same keys and format as always) is published on the data-status branch, which index.html reads.
 import { writeFileSync, mkdirSync } from "node:fs";
 const API = "https://data.gov.il/api/3/action/";
@@ -20,7 +22,7 @@ for (const [k, id] of Object.entries(SETS)) {
   const p = seen[k] && typeof seen[k] === "object" && seen[k].id === id ? seen[k] : {};
   const s = { ok: p.ok === true, total: Number.isFinite(p.total) ? p.total : 0, modified: null };
   // the ministry reloads these tables overnight and a read can briefly return 0 rows: look again a few times before calling a dataset down
-  for (let i = Math.min(Math.max(Number(p.tries) || 0, 0), 3); i < 3 && !s.ok; i++) {
+  for (let i = 0; i < 3 && !s.ok; i++) {
     if (i) await new Promise(r => setTimeout(r, 20000));
     try {
       const j = await (await fetch(API + "datastore_search?limit=0&resource_id=" + id, { signal: AbortSignal.timeout(30000) })).json();
