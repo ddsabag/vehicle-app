@@ -18,7 +18,11 @@ on:
         type: boolean
         default: true
       weekly:
-        description: "Also build the Monday weekly ranking report (was SEO tracker)"
+        description: "Also build the Monday weekly ranking report and send it at the end of the daily digest (the digest and the mentions go out again)"
+        type: boolean
+        default: false
+      weekly_only:
+        description: "Only the weekly ranking report, as a manual SEO tracker run did: no daily digest, no mentions (untick dry_run to send and save it)"
         type: boolean
         default: false
 permissions:
@@ -26,7 +30,7 @@ permissions:
 concurrency: seo-daily
 jobs:
   track:
-    if: ${{ github.event.schedule == '7 5 * * 1' || (github.event_name == 'workflow_dispatch' && inputs.weekly) }}
+    if: ${{ github.event.schedule == '7 5 * * 1' || (github.event_name == 'workflow_dispatch' && (inputs.weekly || inputs.weekly_only)) }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -84,7 +88,8 @@ jobs:
         env:
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
           SEO_WEEKLY: ${{ steps.weekly.outcome == 'success' && 'state/weekly.txt' || '' }}
-          SEO_DIGEST_SENT: ${{ steps.sent.outcome == 'success' && '1' || '0' }}
+          # 1 also on a manual weekly_only run: only the weekly report, as a manual SEO tracker run sent
+          SEO_DIGEST_SENT: ${{ (steps.sent.outcome == 'success' || (github.event_name == 'workflow_dispatch' && inputs.weekly_only)) && '1' || '0' }}
           SEO_SENT_MARK: ${{ needs.track.result != 'skipped' && 'digest-sent.txt' || '' }}
           GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -92,8 +97,9 @@ jobs:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
       - name: New mentions of luchit.app (Google Alerts)
-        # Silent Telegram message only when Google Alerts found a new mention; a broken feed never fails the digest. Already done when the digest was.
-        if: ${{ steps.sent.outcome != 'success' }}
+        # Silent Telegram message only when Google Alerts found a new mention; a broken feed never fails the digest. Already done when the digest was,
+        # and not part of a manual weekly_only run.
+        if: ${{ steps.sent.outcome != 'success' && !(github.event_name == 'workflow_dispatch' && inputs.weekly_only) }}
         continue-on-error: true
         run: node .github/scripts/mentions.mjs
         env:

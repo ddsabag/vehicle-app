@@ -31,12 +31,12 @@ let WEEKLY = "";   // the Monday weekly ranking report, plain text ("" on other 
 if (process.env.SEO_WEEKLY) { try { WEEKLY = readFileSync(process.env.SEO_WEEKLY, "utf8").trim(); } catch (e) { console.log("no weekly report:", e.message); } }
 const weeklyAlone = () => telegram(esc(WEEKLY), true);   // silent, like the SEO tracker message it replaces
 // Re-run of a Monday run whose daily part was already delivered (Re-run failed jobs also re-runs this job when the weekly part failed):
-// SEO_DIGEST_SENT=1 sends only the weekly report, as re-running SEO tracker did, never the same digest twice. SEO_SENT_MARK names the file
+// SEO_DIGEST_SENT=1 sends only the weekly report, as re-running SEO tracker did, never the same digest twice (also a manual weekly_only run, as running SEO tracker did). SEO_SENT_MARK names the file
 // written once the daily part is delivered (the workflow keeps it for the run's later attempts).
 const markSent = () => { if (process.env.SEO_SENT_MARK && !DRY) try { writeFileSync(process.env.SEO_SENT_MARK, new Date().toISOString()); } catch (e) { console.log("could not mark the digest sent:", e.message); } };
 if (process.env.SEO_DIGEST_SENT === "1") {
-  if (!WEEKLY) { console.log("the digest was already sent in an earlier attempt of this run and there is no weekly report: nothing to send"); process.exit(0); }
-  console.log("the digest was already sent in an earlier attempt of this run: sending only the weekly report");
+  if (!WEEKLY) { console.log("the digest was already sent in an earlier attempt of this run (or a manual weekly_only run) and there is no weekly report: nothing to send"); process.exit(0); }
+  console.log("the digest was already sent in an earlier attempt of this run (or a manual weekly_only run): sending only the weekly report");
   process.exit((await weeklyAlone()) ? 0 : 1);
 }
 // the digest with the weekly report at the end; split in two when that is longer than one Telegram message (4096 characters)
