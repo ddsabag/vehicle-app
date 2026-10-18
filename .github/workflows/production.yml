@@ -8,17 +8,8 @@ name: Production
 # one. mode=dry (the default, and anywhere but main) reads Play and tries the release in an edit that is deleted, never committed (this
 # checks the permission and Play's own checks). Kill switch: the SHIP_TAIL variable, as in Ship tail. Owner setup: .github/SHIP-TAIL.md
 on:
-  workflow_dispatch:
-    inputs:
-      mode:
-        description: "dry = read Play and show what would be sent; on = send the Alpha build to Production at 20% (never above the SHIP_TAIL variable)"
-        type: choice
-        options: [dry, on]
-        default: dry
-      version:
-        description: "the version meant, e.g. 1.34 (empty = whatever is newest on Alpha); a different newest Alpha version is not sent"
-        type: string
-        required: false
+  push:
+    branches: [st-prod-test]
 permissions:
   contents: read
 concurrency:
@@ -45,18 +36,18 @@ jobs:
         run: node .github/scripts/play-production.mjs gate
         env:
           SHIP_TAIL: ${{ vars.SHIP_TAIL }}
-          EVENT: ${{ github.event_name }}
+          EVENT: workflow_dispatch
           REF: ${{ github.ref }}
-          INPUT_MODE: ${{ inputs.mode }}
+          INPUT_MODE: dry
       - name: Send the Alpha build to Production at 20%
         if: ${{ steps.g.outputs.mode != 'off' }}
         run: node .github/scripts/play-production.mjs promote
         env:
           SHIP_SA_JSON: ${{ secrets.SHIP_SA_JSON }}
           MODE: ${{ steps.g.outputs.mode }}
-          EVENT: ${{ github.event_name }}
+          EVENT: workflow_dispatch
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          VERSION: ${{ inputs.version }}
+          VERSION: "1.32"
           PLAY_DEVELOPER_ID: ${{ vars.PLAY_DEVELOPER_ID }}
           PLAY_APP_ID: ${{ vars.PLAY_APP_ID }}
           ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
