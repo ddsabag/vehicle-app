@@ -1,8 +1,8 @@
 name: Alert router check
 # Offline checks of the alert router (no secrets, no network): syntax, the engine's self-test (decision table, DST, partial rollout,
 # failures, privacy, CLI marker contract), the Python wrapper's self-test, the Sunday block and weekly brief tests, the Worker tests, the
-# Workers deploy self-test (Ship Tail: guards, rollback, dry mode, on its own fixtures, so normal Worker edits never turn it red) and the
-# block compare.
+# Workers deploy self-test (Ship Tail: guards, rollback, dry mode, on its own fixtures, so normal Worker edits never turn it red), the store
+# listing self-test and files (a too-long description or a bad screenshot on next is red here, before "שחרר") and the block compare.
 # The alert-fallback.test.sh step joins with the call sites (step C).
 # Paths: router files and every call-site directory (the self-test scans call-site keys; spec 15.1).
 on:
@@ -13,6 +13,7 @@ on:
       - "analytics/**"
       - "worker/**"
       - ".github/ship-tail.json"
+      - ".github/store-listing/**"
   push:
     branches: [main, next]
     paths:
@@ -21,6 +22,7 @@ on:
       - "analytics/**"
       - "worker/**"
       - ".github/ship-tail.json"
+      - ".github/store-listing/**"
   workflow_dispatch:
 permissions:
   contents: read
@@ -43,6 +45,8 @@ jobs:
         run: node .github/scripts/alert.mjs selftest
       - name: Ship tail self-tests (alpha-only guard, data-rebuild skip, release notes, GA4 create-only)
         run: node .github/scripts/play-alpha.mjs selftest && node .github/scripts/ga4-admin.mjs selftest
+      - name: Store listing self-test and files (iw-IL only, Play's limits, nothing committed when Play keeps something else)
+        run: node .github/scripts/play-listing.mjs selftest && node .github/scripts/play-listing.mjs check
       - name: Python wrapper self-test
         run: python3 -I analytics/alert.py --selftest
       - name: Sunday block self-test

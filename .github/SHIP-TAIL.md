@@ -25,10 +25,22 @@ Only builds whose commit is on main are uploaded. A manual run started on anothe
 - Write it in the same push that changes `APP_VERSION`. The file is read at the build's commit.
 - Missing, empty, too long, or a header for another version: nothing is uploaded and one Telegram says so. Fixing the file on main rebuilds the app (it is under `android/`) and the upload runs by itself. A manual run (Actions → Ship tail → Run workflow, `step=play`, `mode=on`, `build=<versionCode>`) also reads the notes from main.
 
+## Store listing (`.github/store-listing/`)
+`.github/workflows/store-listing.yml` keeps the Hebrew (`iw-IL`) main store listing on Google Play equal to these files:
+- `title.txt` (at most 30 characters), `short-description.txt` (80), `full-description.txt` (4000). Characters, not bytes.
+- `phone-screenshots/`: 2 to 8 PNG (no alpha) or JPEG files, each side 320 to 3840 px, the long side at most twice the short. Play shows them in file-name order (`01-…`, `02-…`).
+
+A file or the folder that is not there leaves that part of the listing as it is on Play. A push to main that changes these files (the merge on "שחרר" included) sends only what differs: changed texts, and from the first screenshot that differs to the end (a changed last screenshot replaces that one only). Everything is read back from Play, validated and committed, which sends it for review; one Telegram says what changed. When a new Alpha build is already in review, Play withdraws that review and sends both together (its default). Nothing else on Play can be written: other languages, the icon, the feature graphic, tablet screenshots, tracks and production are refused by the script before a request is sent. A manual run (Actions → Store listing → Run workflow) is `dry` by default: it reads Play, shows what would change in the job summary and checks the permission without changing anything.
+
+The store listing is shared by every track: what is sent here shows on the public store page once Google approves it, even while the new version is only on Alpha.
+
+Before "שחרר", release threads update these files on next together with `android/release-notes.txt` (the Alert router check runs `play-listing.mjs check` on next, so a text that is too long or a bad screenshot is red there first). The account needs one more Play Console permission for this: **Manage store presence** (in newer consoles "Edit store listing, pricing & distribution").
+
 ## Kill switch: repository variable `SHIP_TAIL`
 - `off` (also `false`, `0`, `no`, `disabled`): nothing runs.
 - `dry`: plans and validates only, then reports. In a throwaway edit the Alpha track is written back exactly as it is (this checks the "Release apps to testing tracks" permission) and validated; the edit is then deleted. Nothing is uploaded, committed or created, so a dry run does not check the upload itself; GA4 is only listed.
 - unset or `on`: acts. Any other value counts as `dry`. A manual run defaults to `dry` and never goes above the variable.
+- The same variable holds the store listing: `off` sends nothing, `dry` reports what a push would have sent.
 
 ## One-time setup (owner)
 Ship tail uses its own service account. Do not reuse the reviews or GA account: their keys are also in jobs that install pip packages, and in a Cloudflare Worker.
@@ -43,5 +55,6 @@ Without `SHIP_SA_JSON` the steps print one notice and finish green. A `SHIP_SA_J
 
 ## Files
 - `.github/scripts/play-alpha.mjs`: gate, the Alpha upload and the summary message (`node play-alpha.mjs selftest` runs offline).
+- `.github/scripts/play-listing.mjs` + `.github/store-listing/`: the store listing (`node play-listing.mjs selftest`, and `check` for the files alone).
 - `.github/scripts/ga4-admin.mjs` + `analytics/ga4-admin.json`: custom dimensions and key events; only creates what is missing, never archives, deletes or renames (`node ga4-admin.mjs selftest`).
 - The Android build's draft release `build-<N>` is only read, never deleted or published.

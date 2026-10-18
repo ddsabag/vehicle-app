@@ -43,7 +43,7 @@ export const WF_LEVELS = {
   "SEO daily digest": "summary", "SEO data snapshot": "summary", "Experimenter": "summary",
   "Reviews monitor": "silent", "Ownership data mirror": "silent",
   "Back-on-road detector": "silent",
-  "Ship tail": "day",
+  "Ship tail": "day", "Store listing": "day",
 };
 
 // fixed Hebrew text for the morning ring and the Sunday block. Lookup: first two key segments, then the first one.
@@ -89,6 +89,9 @@ export const LABELS = {
   "ship:notes":          { he: "העלאת גרסה {id} ל-Alpha מחכה להערות שחרור", sect: "wait" },
   "ship:fail":           { he: "העלאה ל-Alpha נכשלה: {ids}", sect: "fail", ids: { access: "אין גישה ל-Google Play", github: "הבנייה לא נקראה מ-GitHub" } },
   "ship:dry":            { he: "בדיקה יבשה של העלאת {id} ל-Alpha", sect: "fyi" },
+  "listing:done":        { he: "דף החנות ב-Google Play עודכן ונשלח לסקירה", sect: "fyi" },   // play-listing.mjs (Store listing)
+  "listing:dry":         { he: "בדיקה יבשה של עדכון דף החנות", sect: "fyi" },
+  "listing:fail":        { he: "עדכון דף החנות ב-Google Play נכשל: {ids}", sect: "fail", ids: { access: "אין הרשאה לדף החנות", files: "קובץ לא עומד בכללי Play", play: "Google Play לא קיבל את השינוי" } },
 };
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
 export const FAMILIES_IN_USE = [
@@ -96,7 +99,7 @@ export const FAMILIES_IN_USE = [
   "review", "review3", "vitals", "reviews:error", "seo:daily", "seo:nodata", "seo:error", "mention",
   "seo-auto:blocked", "seo-auto:wait", "seo-auto:notice", "seo-auto:done", "catalog", "mag:pub", "mag:fail",
   "webwatch:rollback", "webwatch:rollback-failed", "meta:uptime", "weekly:missing", "workers:refused", "workers:rollback", "workers:failed", "workers:forced",
-  "ship:done", "ship:notes", "ship:fail", "ship:dry",
+  "ship:done", "ship:notes", "ship:fail", "ship:dry", "listing:done", "listing:dry", "listing:fail",
 ];
 
 const TODAY = ["loud", "silent", "none"];
@@ -782,7 +785,7 @@ async function selftest() {
       "infra:quota-cf+site", "checker:data-health", "mag:pub:2026-10-18-new-cars", "infra-branches:2026-10", "x:v1.2.3"]) ok(validKey(k), "validKey accepts " + k);
     for (const f of FAMILIES_IN_USE) ok(family(f) !== null, "label for family " + f);
     for (const [f, ids] of [["smoke", "home lookup magazine applinks privacy model sitemap cert domain certcheck"], ["expiry", "cert domain certcheck"],
-      ["infra", "site api sitemap quota-cf quota-brevo"], ["vitals", "crash anr"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
+      ["infra", "site api sitemap quota-cf quota-brevo"], ["vitals", "crash anr"], ["listing:fail", "access files play"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
       const he = label(f + ":" + ids.split(" ").join("+")).he.split(/[\s,:]+/);
       ok(!ids.split(" ").some(i => he.includes(i)), `label ${f}: no raw id left`);
     }

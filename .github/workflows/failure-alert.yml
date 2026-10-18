@@ -39,6 +39,7 @@ on:
       - "Back-on-road detector"
       - "Workers deploy"
       - "Ship tail"
+      - "Store listing"
     types: [completed]
 permissions:
   contents: write   # flash.mjs writes the flashes branch the /live dashboard reads

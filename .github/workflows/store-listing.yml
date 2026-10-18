@@ -1,0 +1,63 @@
+name: Store listing
+# Keeps the Hebrew main store listing on Google Play (title, short and full description, phone screenshots) equal to .github/store-listing/
+# (play-listing.mjs). A push to main that changes those files sends only what differs, in one edit, for review, with one Telegram; nothing
+# else on Play is touched (other languages, icon, feature graphic, tracks, production). Release threads put the new texts and screenshots
+# there before "שחרר", next to android/release-notes.txt. A file that breaks Play's limits stops the run (the Alert router check already
+# runs the same check on next). Kill switch: the SHIP_TAIL variable, as in Ship tail. The script reports on its own and finishes green on a
+# push, so Failure alert only fires when the job dies. Owner setup: .github/SHIP-TAIL.md
+on:
+  push:
+    branches: [main]
+    paths: [".github/store-listing/**"]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry = read Play and show what would change; on = send it for review (never above the SHIP_TAIL variable)"
+        type: choice
+        options: [dry, on]
+        default: dry
+permissions:
+  contents: read
+# one listing run at a time; a newer push replaces a pending one (it carries the newer files)
+concurrency:
+  group: store-listing
+  cancel-in-progress: false
+jobs:
+  listing:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write   # alert.mjs keeps its dedupe state on the alert-state branch
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts/play-listing.mjs
+            .github/scripts/play-alpha.mjs
+            .github/scripts/alert.mjs
+            .github/store-listing
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      - name: Kill switch
+        id: g
+        run: node .github/scripts/play-listing.mjs gate
+        env:
+          SHIP_TAIL: ${{ vars.SHIP_TAIL }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          INPUT_MODE: ${{ inputs.mode }}
+      - name: Compare with Google Play and send what differs
+        if: ${{ steps.g.outputs.mode != 'off' }}
+        run: node .github/scripts/play-listing.mjs
+        env:
+          SHIP_SA_JSON: ${{ secrets.SHIP_SA_JSON }}
+          MODE: ${{ steps.g.outputs.mode }}
+          EVENT: ${{ github.event_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PLAY_DEVELOPER_ID: ${{ vars.PLAY_DEVELOPER_ID }}
+          PLAY_APP_ID: ${{ vars.PLAY_APP_ID }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
