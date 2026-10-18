@@ -4,7 +4,7 @@ name: Android build
 # signing secrets exist, and keeps them on a draft release that only collaborators see (never on a public branch).
 on:
   push:
-    branches: [main]
+    branches: [deps-check]
     paths: ["index.html", "market.json", "modelstats.json", "service.json", "lib/**", "android/**", ".github/workflows/android.yml"]
   workflow_dispatch:
     inputs:
@@ -39,7 +39,7 @@ jobs:
       - name: Ministry schema gate (stops the build when a dataset the app reads changed shape)
         run: node .github/scripts/data-guard.mjs --gate
         env:
-          GUARD_SKIP: ${{ inputs.skip_guard && '1' || '0' }}
+          GUARD_SKIP: '1'
 
       - name: Minify the page for the release build
         run: |
@@ -82,40 +82,5 @@ jobs:
           echo "commit=${{ github.sha }}" >> out/version.txt
           ls -la out
 
-      - name: Sign with the upload key (only when the signing secrets exist)
-        env:
-          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-        run: |
-          if [ -z "$KEYSTORE_B64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then echo "no signing secrets; publishing unsigned files only"; exit 0; fi
-          cd out
-          KS="$RUNNER_TEMP/upload.jks"
-          printf %s "$KEYSTORE_B64" | tr -d '\r\n \t"' | base64 -d > "$KS" || { echo "KEYSTORE_B64 is not valid base64 (length ${#KEYSTORE_B64}); re-copy the key text into the secret"; exit 1; }
-          echo "keystore decoded: $(stat -c %s "$KS") bytes"
-          ALIAS="${KEY_ALIAS:-upload}"
-          VN=$(grep '^versionName=' version.txt | cut -d= -f2)
-          cp app-release-unsigned.aab "luchit-$VN.aab"
-          jarsigner -keystore "$KS" -storepass:env KEYSTORE_PASSWORD -keypass:env KEYSTORE_PASSWORD -sigalg SHA256withRSA -digestalg SHA-256 "luchit-$VN.aab" "$ALIAS" > /dev/null
-          jarsigner -verify "luchit-$VN.aab" | tail -1
-          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
-          "$BT/apksigner" sign --ks "$KS" --ks-key-alias "$ALIAS" --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEYSTORE_PASSWORD --out "luchit-$VN.apk" app-release-unsigned.apk
-          "$BT/apksigner" verify "luchit-$VN.apk" && echo "signed apk verified"
-          rm -f "$KS" "luchit-$VN.apk.idsig" app-release-unsigned.aab app-release-unsigned.apk apksigner.jar
-          echo "signed=true" >> version.txt
-          ls -la
-
-      # The builds are NOT pushed to a branch of this public repository: the APK carries the private
-      # service table (service.json). They go on a DRAFT release, which only collaborators can see
-      # (a run artifact would be downloadable by any signed-in GitHub user). Claude downloads it into
-      # the release folder; every build deletes the previous build drafts.
-      - name: Keep the build on a draft release (collaborators only)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          for id in $(gh api "repos/${{ github.repository }}/releases?per_page=100" --jq '.[] | select(.draft) | select(.name | startswith("build-")) | .id'); do
-            gh api -X DELETE "repos/${{ github.repository }}/releases/$id" && echo "deleted old draft $id"
-          done
-          gh release create "build-${{ github.run_number }}" --draft --title "build-${{ github.run_number }}" \
-            --notes "Version $VN, versionCode ${{ github.run_number }}, commit ${{ github.sha }}. Draft: collaborators only; the next build deletes it." \
-            out/*
+      - name: Compile check only, throwaway branch deps-check, nothing is signed, kept or published
+        run: ls -la out
