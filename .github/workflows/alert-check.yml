@@ -1,7 +1,7 @@
 name: Alert router check
 # Offline checks of the alert router (no secrets, no network): syntax, the engine's self-test (decision table, DST, partial rollout,
 # failures, privacy, CLI marker contract), the Python wrapper's self-test, the Worker block test and compare.
-# Steps for waiting.mjs, alert-fallback.test.sh and the Worker tests join when those files land.
+# Steps for waiting.mjs, alert-fallback.test.sh and the uptime/mail Worker tests join when those files land.
 # Paths: router files and every call-site directory (the self-test scans call-site keys; spec 15.1).
 on:
   pull_request:
@@ -12,6 +12,7 @@ on:
       - "worker/lib/**"
       - "worker/uptime/**"
       - "worker/mail/**"
+      - "worker/reviews/**"
   push:
     branches: [main, next]
     paths:
@@ -21,6 +22,7 @@ on:
       - "worker/lib/**"
       - "worker/uptime/**"
       - "worker/mail/**"
+      - "worker/reviews/**"
   workflow_dispatch:
 permissions:
   contents: read
@@ -36,13 +38,15 @@ jobs:
         with:
           python-version: "3.12"
       - name: Syntax
-        run: for f in .github/scripts/alert.mjs worker/lib/alert-lib.js worker/mail/worker.js worker/uptime/worker.js; do [ ! -f "$f" ] || node --check "$f"; done
+        run: for f in .github/scripts/alert.mjs worker/lib/alert-lib.js worker/mail/worker.js worker/uptime/worker.js worker/reviews/worker.js; do [ ! -f "$f" ] || node --check "$f"; done
       - name: Engine self-test
         run: node .github/scripts/alert.mjs selftest
       - name: Python wrapper self-test
         run: python3 -I analytics/alert.py --selftest
       - name: Worker block test
         run: node worker/lib/test.mjs
+      - name: Reviews Worker test
+        run: node worker/reviews/test.mjs
       # worker/lib/alert-lib.js: QUIET and the isDaytime body equal alert.mjs's; each Worker that already holds the block holds it byte-identical
       - name: Worker block compare
         run: |
@@ -66,7 +70,7 @@ jobs:
           check(ref && ref !== "broken", "worker/lib/alert-lib.js holds the alert-lib v1 block");
           check(quiet(eng) && quiet(eng) === quiet(ref || ""), "QUIET equals alert.mjs");
           check(body(eng) && body(eng) === body(ref || ""), "isDaytime body equals alert.mjs");
-          for (const f of ["worker/uptime/worker.js", "worker/mail/worker.js"]) {
+          for (const f of ["worker/uptime/worker.js", "worker/mail/worker.js", "worker/reviews/worker.js"]) {
             const s = read(f), b = s && block(s);
             if (!b) { console.log(`skip ${f}: ${s ? "no alert-lib v1 block yet" : "not in the repo yet"}`); continue; }
             check(b === ref, f + " block is byte-identical to worker/lib/alert-lib.js");
