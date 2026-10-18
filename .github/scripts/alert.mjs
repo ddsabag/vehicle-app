@@ -96,7 +96,6 @@ export const FAMILIES_IN_USE = [
   "review", "review3", "vitals", "reviews:error", "seo:daily", "seo:nodata", "seo:error", "mention",
   "seo-auto:blocked", "seo-auto:wait", "seo-auto:notice", "seo-auto:done", "catalog", "mag:pub", "mag:fail",
   "webwatch:rollback", "webwatch:rollback-failed", "meta:uptime", "weekly:missing", "workers:refused", "workers:rollback", "workers:failed", "workers:forced",
-  "webwatch:rollback", "webwatch:rollback-failed", "meta:uptime", "weekly:missing",
   "ship:done", "ship:notes", "ship:fail", "ship:dry",
 ];
 

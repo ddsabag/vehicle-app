@@ -9,7 +9,7 @@ A release is a change of `APP_VERSION` in `index.html` on main. Bot commits (mar
 - a versionCode on Play was built from a commit whose `APP_VERSION` is this version (versionCode = the Android build's run number), which covers a release renamed by hand, or
 - this version is not above the newest version on Play (`APP_VERSION` went back on main).
 
-It uploads only when the picture is clear: Play lists a production release, and the version of the newest build on Play is known (from its commit, or a version in its release name). If Play or GitHub does not answer, or answers something unexpected, nothing is uploaded.
+It uploads only when the picture is clear: Play lists at least one release (alpha counts; the app need not be in production yet), and the version of the newest build on Play is known (from its commit, or a version in its release name). If Play or GitHub does not answer, or answers something unexpected, nothing is uploaded.
 
 Only builds whose commit is on main are uploaded. A manual run started on another branch does nothing.
 

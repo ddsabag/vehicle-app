@@ -199,8 +199,8 @@ export function decide(tracks, vn, vc, shipped = new Map()) {
   const built = rel.find(r => r.codes.some(c => shipped.get(c) === vn));
   if (built) return { release: false, why: `track ${built.track} already holds a build of ${vn}` };
   if (!/^\d+(\.\d+)+$/.test(vn)) return { release: false, unknown: true, why: `versionName "${vn}" is not a version number`, he: `versionName "${vn.slice(0, 20)}" אינו מספר גרסה` };
-  // the app is live: an answer without a production release is not a picture of Play to act on
-  if (!rel.some(r => r.track === "production" && r.codes.length)) return { release: false, unknown: true, why: "Play listed no production release", he: "Google Play לא החזיר גרסה במסלול Production" };
+  // the app already has builds on Play (alpha at least; production access was requested in 10/2026): an answer with none is not a picture to act on
+  if (!codes.length) return { release: false, unknown: true, why: "Play listed no release on any track", he: "Google Play לא החזיר אף גרסה באף מסלול" };
   const top = [...new Set([shipped.get(max), ...rel.filter(r => r.codes.includes(max)).flatMap(r => versionsIn(r.name))].filter(Boolean))];
   if (!top.length) return { release: false, unknown: true, lookup: true, why: `the version of versionCode ${max}, the newest on Play, is not known`, he: `לא ידוע מאיזו גרסה נבנה versionCode ${max}, החדש ביותר ב-Play` };
   if (!top.every(t => cmpVersion(vn, t) > 0)) return { release: false, why: `${vn} is not above ${top.join(" / ")}, the newest on Play (versionCode ${max})` };
@@ -684,6 +684,12 @@ async function selftest() {
     ok(W.calls.filter(x => x.url.startsWith("https://api.github.com")).every(x => x.method === "GET"), "GitHub is only read (the draft is never deleted or published)");
     ok(W.calls.filter(x => x.url.startsWith("https://storage.example")).every(x => !x.headers.authorization), "asset redirect: no GitHub token sent to storage");
     ok(W.edits.size === 0, "upload: no edit left open");
+    // closed testing only (no production release yet, as in 10/2026): still a release, still alpha only
+    W = await run({ tracks: [PROD_132[1]] });
+    ok(W.code === 0 && W.R.release === true && W.R.code === "uploaded", "upload without a production release: " + JSON.stringify(W.R));
+    ok(playWrites(W).filter(x => x.startsWith("PUT ")).join() === `PUT ${PKGP}/E/tracks/alpha` && !W.tracks.some(t => t.track === "production"), "upload without a production release: alpha only");
+    W = await run({ tracks: [] });
+    ok(W.R.release === false && playWrites(W).length === 0, "no release on any track: nothing uploaded " + JSON.stringify(W.R));
   });
 
   await group("rebuilds", async () => {
