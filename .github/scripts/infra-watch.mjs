@@ -7,7 +7,8 @@ import { flash } from "./flash.mjs";
 // Optional: CF_API_TOKEN + CF_ACCOUNT_ID (Workers usage), BREVO_API_KEY (daily send count), GITHUB_TOKEN + GITHUB_REPOSITORY (branches).
 // STALE_BRANCHES=yes|no picks the stale-branch list by the cron line that fired; unset = on the 1st by the clock (and always with DRY_RUN=1).
 // INFRA_HANDOFF=1: check only, and write the messages as the step output "report" (JSON {alert, notice}) for site-smoke.mjs to send in its
-// one morning message. INFRA_REPORT=<that JSON>: send those messages as this script would have (the fallback when site-smoke.mjs did not).
+// one morning message. INFRA_REPORT=<that JSON>: send those messages as this script would have (the fallback when site-smoke.mjs did not);
+// with INFRA_FLASHED=1 site-smoke.mjs already wrote the /live line, so only Telegram is tried again.
 const DRY = process.env.DRY_RUN === "1", E = process.env;
 const SITE = "https://luchit.app";
 const CF_DAILY_LIMIT = 100000, BREVO_DAILY_LIMIT = 300, WARN = 0.8;
@@ -67,7 +68,7 @@ async function staleBranches() {
 }
 
 async function telegram(text, silent = false) {
-  await flash("infra", silent ? "info" : "alert", text);
+  if (!(E.INFRA_REPORT && E.INFRA_FLASHED === "1")) await flash("infra", silent ? "info" : "alert", text);   // INFRA_FLASHED=1: site-smoke.mjs already put it on /live
   if (DRY || !E.TELEGRAM_BOT_TOKEN) { console.log("[telegram]\n" + text); return DRY; }
   const r = await fetch(`https://api.telegram.org/bot${E.TELEGRAM_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({ chat_id: E.TELEGRAM_CHAT_ID, text, parse_mode: "HTML", disable_web_page_preview: true, disable_notification: silent }) });

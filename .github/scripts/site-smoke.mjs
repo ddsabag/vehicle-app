@@ -24,14 +24,14 @@ async function telegram(text, silent = false) {
 async function send(own, infra) {
   const silent = !own && !infra.alert, infraText = infra.alert || infra.notice || "";
   if (own) await flash("infra", "alert", own);
-  if (infraText) await flash("infra", infra.alert ? "alert" : "info", infraText);
+  if (infraText && await flash("infra", infra.alert ? "alert" : "info", infraText)) markOutput("infra_flashed=1");   // the fallback step must not add it to /live again
   const both = [own, infraText].filter(Boolean).join("\n\n");
   const parts = both.length <= 4000 ? [[both, !!infraText]] : [[own, false], [infraText, true]].filter(([t]) => t);
   let ok = true;
-  for (const [text, hasInfra] of parts) { const sent = await telegram(text, silent); if (sent && hasInfra) markInfraSent(); ok = ok && sent; }
+  for (const [text, hasInfra] of parts) { const sent = await telegram(text, silent); if (sent && hasInfra) markOutput("infra_sent=1"); ok = ok && sent; }
   return ok || silent;   // the monthly branch list alone is a silent notice: not delivering it never failed the run
 }
-const markInfraSent = () => { if (process.env.GITHUB_OUTPUT) try { fs.appendFileSync(process.env.GITHUB_OUTPUT, "infra_sent=1\n"); } catch {} };
+const markOutput = line => { if (process.env.GITHUB_OUTPUT) try { fs.appendFileSync(process.env.GITHUB_OUTPUT, line + "\n"); } catch {} };
 let infra = {};
 try { infra = JSON.parse(process.env.INFRA_REPORT || "{}") || {}; } catch (e) { console.log("INFRA_REPORT unreadable:", e.message); infra = {}; }
 if (infra.alert || infra.notice) console.log("infra part handed over:", infra.alert ? "an alert" : "the monthly branch list");

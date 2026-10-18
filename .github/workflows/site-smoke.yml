@@ -81,6 +81,7 @@ jobs:
         run: node .github/scripts/infra-watch.mjs
         env:
           INFRA_REPORT: ${{ needs.infra.outputs.report }}
+          INFRA_FLASHED: ${{ steps.check.outputs.infra_flashed }}   # "1" when the check above already wrote its /live line
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

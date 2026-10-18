@@ -9,6 +9,9 @@ name: Magazine
 # - newsletter (newsletter.mjs): after the monthly article PR is merged (a push that changes magazine/posts.json on main) it prepares the Brevo
 #   campaign for it. By default it only saves a DRAFT in Brevo for you to review and send; the repository variable NEWSLETTER_AUTOSEND=true
 #   sends it automatically. Run it by hand (part = newsletter) for a preview. It is not a main writer, so it keeps its own queue.
+# The run name carries the part ("Magazine (data)"): Failure alert counts only a newer run of the same part as taking a cancelled run's place,
+# and Web deploy skips the newsletter runs (they never change main; the push that started one already triggers Web deploy itself).
+run-name: Magazine (${{ github.event.schedule == '30 5 * * 4' && 'data' || github.event_name == 'push' && 'newsletter' || inputs.part || 'monthly' }})
 on:
   schedule:
     - cron: "7 8 6 * *"    # monthly article: the 6th (off the full hour, when GitHub delays or drops the most scheduled runs), after market.yml and models.yml (5th) and after modelstats.yml has finished (starts 05:20, up to 2 hours)

@@ -26,11 +26,13 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: web-deploy
+  # a Magazine newsletter run (run name "Magazine (newsletter)") never changes main: its run is skipped below, in a group of its own so it never
+  # takes the queue's pending place from a real deploy
+  group: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.name == 'Magazine' && github.event.workflow_run.display_title == 'Magazine (newsletter)' && 'web-deploy-skip' || 'web-deploy' }}
   cancel-in-progress: false
 jobs:
   build:
-    if: ${{ github.event_name == 'workflow_dispatch' || vars.WEB_DEPLOY == 'true' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || vars.WEB_DEPLOY == 'true') && !(github.event_name == 'workflow_run' && github.event.workflow_run.name == 'Magazine' && github.event.workflow_run.display_title == 'Magazine (newsletter)') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
