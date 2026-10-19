@@ -1,11 +1,15 @@
 // Ground truth for the model recall history: which register models the ministry's own per-car list of open recalls (36bf1404)
-// holds for each recall. Every plate in that list is looked up in the active register and in the public-transport register
-// (taxis are ordinary models) and counted by maker code | maker | commercial name | model name | year | private/commercial.
+// holds for each recall. Every plate in that list is looked up in the registers (active, public transport, personal import, inactive,
+// off the road, motorcycles, heavy) and counted by maker code | maker | commercial name | model name | year | private/commercial;
+// a car taken off the road still says which model the recall covered.
 // No plate is written anywhere: the run log and out/ are public. Runs on GitHub (data.gov.il blocks other networks).
 //   out/recall-truth.json {u, open: {rows, plates, ids, maxId}, sets: {active, public}, rec: {RECALL_ID: {n: plates in the list, f: found in a register, m: {key: cars}}}}
 import fs from "node:fs";
 const API = "https://data.gov.il/api/3/action/datastore_search";
-const ID = {open: "36bf1404-0be4-49d2-82dc-2f1ead4a8b93", active: "053cea08-09bc-40ec-8f7a-156f0677aff3", public: "cf29862d-ca25-4691-84f6-1be60dcb4a1e"};
+const ID = {open: "36bf1404-0be4-49d2-82dc-2f1ead4a8b93", active: "053cea08-09bc-40ec-8f7a-156f0677aff3", public: "cf29862d-ca25-4691-84f6-1be60dcb4a1e",
+  import: "03adc637-b6fe-402b-9937-7c3d3afc9140", inactive: "f6efe89a-fb3d-43a4-bb61-9bf12a9b9099", inactive2: "6f6acd03-f351-4a8f-8ecf-df792f4f573a",
+  cancel: "851ecab1-0622-4dbe-a6c7-f950cf82abf9", cancel2010: "4e6b9724-4c1e-43f0-909a-154d4cc4e046", cancel2000: "ec8cbc34-72e1-4b69-9c48-22821ba0bd6c",
+  moto: "bf9df4e2-d90d-4c0a-a400-19e15af8e95f", heavy: "cd3acc5c-03c3-4c89-9c54-d40f93c0d790"};
 const PAGE = 30000, T0 = Date.now();
 const log = m => console.log(`[${Math.round((Date.now() - T0) / 1000)}s] ${m}`);
 async function call(params, tries = 8) {
@@ -59,10 +63,9 @@ log(`open list: ${open.size} plates, ${perId.size} recalls, newest RECALL_ID ${M
 // 2. the registers: plate -> model, counted per recall
 const truth = new Map(), foundPer = new Map(), found = new Set(), sets = {};
 const FIELDS = "mispar_rechev,tozeret_cd,tozeret_nm,degem_cd,degem_nm,kinuy_mishari,shnat_yitzur,sug_degem";
-for (const set of ["active", "public"]) {
+for (const set of ["active", "public", "import", "inactive", "inactive2", "cancel", "cancel2010", "cancel2000", "moto", "heavy"]) {
   let hit = 0, shown = false;
-  try {
-    log(set + ": " + await scan(ID[set], set === "active" ? FIELDS : null, recs => {
+  const each = recs => {
       if (!shown) { shown = true; log(set + " fields: " + Object.keys(recs[0]).join(",")); }
       for (const r of recs) {
         const p = plateOf(r.mispar_rechev), ids = open.get(p); if (!ids || found.has(p)) continue;
@@ -73,11 +76,14 @@ for (const set of ["active", "public"]) {
           m.set(key, (m.get(key) || 0) + 1); foundPer.set(id, (foundPer.get(id) || 0) + 1);
         }
       }
-    }) + ` rows, ${hit} plates of the open list`);
-  } catch (e) { log(set + " FAILED " + e.message); if (set === "active") process.exit(1); }
+  };
+  // the field list when the register has all those fields (smaller answers), else whole rows
+  const withFields = await call({resource_id: ID[set], limit: "1", fields: FIELDS}, 2).then(() => true, () => false);
+  try { log(`${set}${withFields ? "" : " (whole rows)"}: ` + await scan(ID[set], withFields ? FIELDS : null, each) + ` rows, ${hit} plates of the open list`); }
+  catch (e) { log(set + " FAILED " + e.message); if (set === "active") process.exit(1); }
   sets[set] = hit;
 }
-log(`found ${found.size} of ${open.size} plates (the rest are in registers the catalogue does not cover: trucks, motorcycles, personal import, off the road)`);
+log(`found ${found.size} of ${open.size} plates (a plate in no register: an old plate the registers no longer hold)`);
 
 // 3. publish counts only
 const rec = {};
