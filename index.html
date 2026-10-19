@@ -1843,7 +1843,7 @@ function catRecalls(cd){
     const j = await withTimeout(cachedJson([`${CAT_BASE}r/${cd}.json`]).catch(() => null), CAT_TIMEOUT);
     if (!j || !j.rows) { CAT_REC.delete(cd); return null; }
     CAT_LINKS.set(cd, j.l || null);
-    return j.rows;
+    return j.x ? j.rows.concat(j.x) : j.rows;   // x: the sister brands' rows and the per-car list's recalls (catalog-build.mjs); older versions read rows alone
   })());
   return CAT_REC.get(cd);
 }

@@ -5,6 +5,7 @@
 //  2. every recall row new since the last run, run through the app's own matcher (app-matcher.mjs, from index.html) against every catalogue model-year
 //     of the makers that read it: a row that matches no model at all is a recall the app shows to no car (a typo, a new model name, a code). A line per run
 //     with those rows, so a matching rule can be added. A row the per-car list ties to models is shown by the app through that link, and is not flagged.
+//  3. a maker that had a recall file in the last run and has none now: its cars would show no model recalls at all (a brand the build could not read).
 //   OUT   catalogue directory written by catalog-build.mjs (default out)
 //   PREV  previous recall-state.json (default: fetched from the catalog-data branch; missing = first run, no alert)
 import fs from "node:fs";
@@ -33,7 +34,7 @@ const fmt = d => { const m = String(d || "").match(/^(\d{4})-(\d{2})-(\d{2})/); 
 // 1. the per-car list's reach
 const hz = meta.recHz || null, lines = [];
 const ids = new Set(), rowsOf = new Map();   // every recall id in the recall files; maker code -> its rows
-for (const cd of meta.rec || []) { const j = JSON.parse(fs.readFileSync(`${OUT}/r/${cd}.json`, "utf8")); rowsOf.set(cd, j); for (const r of j.rows) ids.add(Number(r.RECALL_ID)); }
+for (const cd of meta.rec || []) { const j = JSON.parse(fs.readFileSync(`${OUT}/r/${cd}.json`, "utf8")); if (j.x) j.rows = j.rows.concat(j.x); rowsOf.set(cd, j); for (const r of j.rows) ids.add(Number(r.RECALL_ID)); }   // rows + x, as the app reads them
 const newer = hz ? [...ids].filter(id => id > hz.id).length : null;
 const status = !hz ? "unread" : newer >= STALL ? "stalled" : "ok";
 console.log(hz ? `per-car list: newest recall ${hz.id} opened ${hz.d}; ${newer} recalls of the recall list are newer (${status})` : "per-car list: not read in this build");
@@ -60,6 +61,12 @@ if (!first && fresh.size) {
     for (const {v, w} of vs.values()) for (const h of matchModelRecalls(rows, v, brandModels(meta, v), w)) if (want.has(Number(h.RECALL_ID))) { const e = fresh.get(rowKey(h)); if (e) e.hit = true; }
   }
 }
+// 3. makers that lost their recall file since the last run
+const lost = first || !prev.rec ? [] : prev.rec.filter(cd => !(meta.rec || []).includes(cd));
+if (lost.length) { const nm = cd => (meta.makers[cd] && meta.makers[cd].n) || cd; console.log("makers that lost their recall file: " + lost.map(nm).join(", "));
+  const names = lost.slice(0, 6).map(nm).join(", ") + (lost.length > 6 ? ` ועוד ${lost.length - 6}` : "");
+  lines.push(lost.length === 1 ? `קובץ הריקולים של היצרן ${names} לא נבנה היום (בבדיקה הקודמת היה), ולכן הרכבים שלו מוצגים בלי ריקולים לדגם.`
+    : `קובצי הריקולים של ${lost.length} יצרנים לא נבנו היום (בבדיקה הקודמת היו), ולכן הרכבים שלהם מוצגים בלי ריקולים לדגם: ${names}.`); }
 // motorcycles and heavy trucks filed under a car brand (BMW Motorrad, Mercedes Actros, Ford F-250 and up, RAM 2500 and up) are not in the catalogue,
 // which holds the WLTP models; such a row matches no model by design and is left out of the alert
 const NOT_CARS = /MOTOR+AD|\bK-?1[2-6]00\b|\b[RSM]\s?1[0-3]00\b|\bGL\s?1800\b|ACTROS|AROCS|ATEGO|ECONIC|UNIMOG|\bTG[LMSX]\b|\bF-?(2|3|4|5|6|7)50\b|\bF-?600\b|\b[2-5]500\b|SAVANA/;
@@ -68,7 +75,7 @@ console.log(`recall rows new since the last run: ${first ? "first run, none comp
 for (const r of orphans) console.log(`  ${r.RECALL_ID} ${String(r.TOZAR_TEUR || "").trim()} "${String(r.DEGEM || "").trim()}" built ${r.BUILD_BEGIN_A || "?"}..${r.BUILD_END_A || "?"}`);
 if (!first && orphans.length) lines.push(`${orphans.length === 1 ? "ריקול חדש שלא נמצא לו דגם" : `${orphans.length} ריקולים חדשים שלא נמצא להם דגם`} באפליקציה (צריך כלל התאמה): ` + orphans.slice(0, 6).map(r => `${r.RECALL_ID} ${String(r.TOZAR_TEUR || "").trim()} "${String(r.DEGEM || "").trim()}"`).join(", ") + (orphans.length > 6 ? ` ועוד ${orphans.length - 6}` : "") + ".");
 
-fs.writeFileSync(`${OUT}/recall-state.json`, JSON.stringify({u: meta.u, status, known, id: hz ? hz.id : (prev && prev.id) || null, seen: [...new Set([...seen, ...fresh.keys()])]}));
+fs.writeFileSync(`${OUT}/recall-state.json`, JSON.stringify({u: meta.u, status, known, id: hz ? hz.id : (prev && prev.id) || null, rec: meta.rec || [], seen: [...new Set([...seen, ...fresh.keys()])]}));
 if (lines.length) {
   const msg = [`לוחית · בדיקת ריקולים ${meta.u}`, ...lines].join("\n");
   fs.writeFileSync(`${OUT}/recall-alert.txt`, msg);

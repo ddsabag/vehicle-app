@@ -56,6 +56,7 @@ for (const plate of plates) {
   if (idx) console.log(`catalogue maker ${cd}: n=${idx.n} tozar=${idx.tozar} eretz=${idx.eretz} brand importer=${JSON.stringify(idx.imp)}`);
   const rec = await fetch(`${CAT}r/${cd}.json`).then(r => r.ok ? r.json() : null).catch(() => null);
   if (!rec) { console.log(`catalogue recall file r/${cd}.json: missing`); continue; }
+  if (rec.x) rec.rows = rec.rows.concat(rec.x);   // rows + x, as the app reads them
   const brands = [...new Set(rec.rows.map(r => r.TOZAR_TEUR))], importers = {};
   for (const r of rec.rows) importers[r.YEVUAN_TEUR || "?"] = (importers[r.YEVUAN_TEUR || "?"] || 0) + 1;
   console.log(`catalogue recall file r/${cd}.json (built ${rec.u}): ${rec.rows.length} rows, brands ${brands.join(", ")}`);
