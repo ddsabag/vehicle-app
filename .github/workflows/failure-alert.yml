@@ -41,6 +41,7 @@ on:
       - "Ship tail"
       - "Store listing"
       - "Release watch"
+      - "Settlements"
     types: [completed]
 permissions:
   contents: write   # flash.mjs writes the flashes branch the /live dashboard reads

@@ -45,6 +45,7 @@ val copyWebApp by tasks.registering(Copy::class) {
     from(rootProject.file("../market.json"))   // bundled copy, used when the site copy cannot be fetched
     from(rootProject.file("../modelstats.json"))
     from(rootProject.file("../models.json"))
+    from(rootProject.file("../settlements.json"))   // the settlements list; the app reads the site copy first, so a weekly update needs no release
     from(rootProject.file("../service.json"))
     from(rootProject.file("../lib")) { into("lib") }   // libraries the page loads from its own origin (jsPDF)
     into(layout.buildDirectory.dir("generated/webassets"))

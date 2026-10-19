@@ -592,6 +592,7 @@ async function makersPass() {
   page.on("request", r => { if (/data\.gov\.il/.test(r.url())) HITS.push(Date.now()); });
   await page.goto(BASE, {waitUntil: "domcontentloaded", timeout: 30000});
   await page.waitForFunction(() => typeof SETTLEMENTS !== "undefined" && typeof makeName === "function", null, {timeout: 30000});
+  await page.evaluate(async () => { if (typeof loadSettlements === "function") await loadSettlements(); });   // the list comes from settlements.json since 1.35
   const res = await page.evaluate(list => {
     const pickF = (...a) => a.find(x => x != null && String(x).trim() !== "") || "";
     const Dof = n => { const v = {tozeret_nm: n}; return {v, make: makeName(v), price: null, modelRecalls: [], pick: pickF}; };

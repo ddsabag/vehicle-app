@@ -1,0 +1,76 @@
+name: Settlements
+# The class-action settlements list (settlements.json at the site root), which the app reads from the site, so an update needs no app release.
+#  - A push to main or next that touches the list or its checks: settlements.mjs check (a broken entry fails the run) and, on main, one Telegram
+#    line naming what was added, changed or removed (alert router, day; nothing when only the `checked` date moved).
+#  - Sunday: the weekly watch. Coverage against the model catalogue (a rule that matches no model, takes a longer model code, or took on new model
+#    names) and the free news sources (TheCar, Google News, court notices on yitzugit.co.il), into an inbox on the settlements-watch branch
+#    (state.json + inbox.md, one commit, force-pushed). Claude's weekly review (a scheduled task, Sunday late morning Israel time) reads it, verifies
+#    each candidate against the importer or the court, and edits settlements.json. Telegram only when an item waits there more than two weeks.
+on:
+  push:
+    branches: [main, next]
+    paths: ["settlements.json", ".github/scripts/settlements.mjs", ".github/workflows/settlements.yml"]
+  schedule:
+    - cron: "43 4 * * 0"   # Sunday 04:43 UTC (07:43 Israel summer time, 06:43 winter), off the full hour, hours before the weekly review
+  workflow_dispatch:
+permissions:
+  contents: write   # the settlements-watch branch; alert.mjs keeps its dedupe state on the alert-state branch
+concurrency:
+  group: settlements-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  check:
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: node .github/scripts/settlements.mjs selftest
+      - run: node .github/scripts/settlements.mjs check
+      - name: Telegram line on main (what changed since the last push)
+        if: ${{ github.ref == 'refs/heads/main' }}
+        env:
+          BEFORE: ${{ github.event.before }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          git fetch -q --depth=1 origin "$BEFORE" 2>/dev/null || true
+          git show "$BEFORE:settlements.json" > "$RUNNER_TEMP/old.json" 2>/dev/null || echo '{"items":[]}' > "$RUNNER_TEMP/old.json"
+          node .github/scripts/settlements.mjs tell "$RUNNER_TEMP/old.json" settlements.json
+  watch:
+    if: ${{ github.event_name != 'push' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Last week's state and the list on next (its review date counts too)
+        run: |
+          git fetch -q --depth=1 origin settlements-watch 2>/dev/null && git show origin/settlements-watch:state.json > "$RUNNER_TEMP/prev.json" || echo "first run: no earlier state"
+          git fetch -q --depth=1 origin next 2>/dev/null && git show origin/next:settlements.json > "$RUNNER_TEMP/next.json" 2>/dev/null || true
+      - name: Coverage and news into the inbox
+        run: node .github/scripts/settlements.mjs watch
+        env:
+          OUT: watch-out
+          PREV_STATE: ${{ runner.temp }}/prev.json
+          NEXT_FILE: ${{ runner.temp }}/next.json
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      - name: Publish on the settlements-watch branch
+        if: ${{ !cancelled() && hashFiles('watch-out/state.json') != '' }}
+        run: |
+          cd watch-out && git init -q && git checkout -q -b settlements-watch && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Settlements watch $(date -u +%F)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" settlements-watch
