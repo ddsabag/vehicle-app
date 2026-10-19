@@ -39,5 +39,12 @@
       "urls": "https://luchit.app/model/*",
       "what": "pages.mjs: Dataset JSON-LD gets dateModified and distribution (modelstats.json); lands at the next monthly pages.mjs run, not now"
     }
+  ],
+  "_body": [
+    {
+      "date": "2026-10-19",
+      "urls": "https://luchit.app/model/*",
+      "what": "133 model pages: new body section 'ריקולים שפורסמו ל<model>' (the ministry's recall list matched by the app's matcher, text only, no links), inserted after the facts list; titles, descriptions and internal links unchanged. pages.mjs builds it from the catalog-data branch (model-recalls.mjs). Measure: crawled-not-indexed model pages (141 on 2026-10-19) and model-page impressions over 3-4 weeks."
+    }
   ]
 }
