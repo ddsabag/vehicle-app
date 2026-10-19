@@ -180,7 +180,7 @@ def analyze(d, cfg, extra=None):
     tabs = sorted(((k, v["cur"], v["prev"]) for k, v in d.get("tabs", {}).items()), key=lambda x: -x[1])
     TAB_HE = {"overview": "סקירה", "buy": "קנייה", "maint": "אחזקה", "recalls": "ריקולים והסדרים", "specs": "מפרט"}
     tabs = [(TAB_HE.get(k, "לא צוין" if k in ("(not set)", "") else k), c, p) for k, c, p in tabs]
-    SHARE_HE = {"pdf": "PDF", "image": "תמונה", "text": "טקסט", "bizpdf": "PDF עסקי"}
+    SHARE_HE = {"pdf": "PDF", "image": "תמונה", "card": "כרטיס", "text": "טקסט", "bizpdf": "PDF עסקי", "cmp": "השוואה (קישור)", "cmp_pdf": "השוואה (PDF)"}
     shares = sorted(((SHARE_HE.get(k, "לא צוין" if k in ("(not set)", "") else k), v["cur"], v["prev"]) for k, v in d.get("share_kind", {}).items()), key=lambda x: -x[1])
     def top(key, n=5):
         rows = sorted(((k, v["cur"]) for k, v in d.get(key, {}).items() if k not in ("(not set)", "")), key=lambda x: -x[1])

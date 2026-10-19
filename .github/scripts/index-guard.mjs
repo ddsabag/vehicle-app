@@ -6,7 +6,8 @@
 // A run is compared only when it is clean: a sitemap was read, every URL inspected, few API errors, and the sitemap is not much smaller than
 // the baseline's (a failed or cut-off sitemap fetch looks like that). Only a clean run becomes the next baseline and has its numbers published
 // (clean in the result); otherwise the old one stays. A much smaller sitemap is marked (shrunk, kept on the stored metric) and taken as the new
-// size when the next complete run sees it too: pages that left the sitemap are never a drop, so that run is compared and becomes the baseline.
+// size when the next complete run sees about the same size (a different size is marked again): pages that left the sitemap are never a drop,
+// so that run is compared and becomes the baseline.
 // "Crawled, not indexed" and "unknown to Google" swap places from day to day for the same URLs in the API, so they are not compared.
 // metrics.json is public: key pages are stored as paths, every other indexed page only as a short hash of its path.
 //   node index-guard.mjs selftest      offline
@@ -29,7 +30,8 @@ export function compare(prev, now, at = "") {
     clean, ...(shrunk ? { shrunk } : {}), base: clean ? { at, n: sm.length, pass: passIds } : base });
   if (!sm.length) return out("no sitemap URLs (the sitemap could not be read)");
   if (done.length !== sm.length || (now.errors || []).length > MAX_ERRORS) return out("this run is incomplete");
-  if (base && sm.length < base.n * SHRINK && !prev.shrunk) return out(`the sitemap has ${sm.length} URLs, the baseline ${base.n}: not compared until the next run sees it too`, [], false, sm.length);
+  const near = n => Math.abs(n - sm.length) <= Math.max(2, Math.round(sm.length * 0.02));
+  if (base && sm.length < base.n * SHRINK && !(prev.shrunk && near(prev.shrunk))) return out(`the sitemap has ${sm.length} URLs, the baseline ${base.n}: not compared until the next run sees it too`, [], false, sm.length);
   if (!base) return out("no clean baseline yet", [], true);
   const nowById = new Map(done.map(i => [idOf(pathOf(i.url)), i]));
   const lost = base.pass.filter(id => nowById.has(id) && nowById.get(id).verdict !== "PASS");
@@ -97,6 +99,8 @@ if (process.argv[1] && process.argv[1].endsWith("index-guard.mjs") && process.ar
   ok(!r.skipped && r.clean && r.base.n === 25 && r.alerts.some(a => a.kind === "drop" && a.lost === 10 && a.of === 25), "the same smaller sitemap on the next run: compared and the new baseline");
   r = run({ ...prev, shrunk: 25 }, base);
   ok(!r.skipped && r.clean && r.base.n === 33 && !r.shrunk && !r.alerts.length, "the full sitemap back after a mark: compared as usual");
+  r = run({ ...prev, shrunk: 25 }, base.slice(0, 15), { sitemap: sitemap.slice(0, 15) });
+  ok(r.skipped && !r.clean && r.shrunk === 15 && r.base === prev.base, "a different smaller size after a mark is marked again, not taken");
   const extras = [...base, I("/check/recall/", "NEUTRAL"), { url: "https://www.luchit.app/", verdict: "NEUTRAL", coverage: "דף עם הפניה" }, I("/model/m1/"), I("/model/m2/")];
   ok(run(prev, extras).alerts.length === 0, "EXTRA_URLS duplicates and www variants are ignored");
   const day1 = run(prev, extras), next = run({ ...prev, base: day1.base }, base);

@@ -181,7 +181,8 @@ async function collectWeekly(env, today) {
     app: app ? appU : null, savers: saveU ? Object.fromEntries(saveU.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)])) : null, money: money ? { leads: m.b2b_lead_submit || 0, subscribers: m.newsletter_confirm || 0 } : null, sources: src, pages, bySource: bySrc ? bs : null, srcSeen: bySrc ? srcSeen : null, installsBySource: instSrc ? is : null };
   // the last good numbers stand in for a part that failed, but only for the same week (a new week starts clean)
   weekly = keep(fresh, weekly && weekly.end === end ? weekly : null, ["ev", "fails", "shared", "days", "app", "savers", "money", "sources", "pages", "bySource", "srcSeen", "installsBySource"]);
-  weeklyAt = Date.now(); weeklyTtl = Object.keys(errors).length ? 60e3 : 900e3; return weekly;
+  // a Google part that failed is asked again after a minute; Cloudflare alone after five, so its failure does not re-run the Google queries every minute
+  weeklyAt = Date.now(); weeklyTtl = Object.keys(errors).some(k => k.startsWith("ga4")) ? 60e3 : Object.keys(errors).length ? 300e3 : 900e3; return weekly;
 }
 
 // Is the app public on Google Play? The store page answers 404 until the app is published to everyone; it flips to "live" only when anyone
