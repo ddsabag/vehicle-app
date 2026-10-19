@@ -69,18 +69,24 @@ async function checkImporter(url, plate, verbose){
   const page = await ctx.newPage(), calls = [];
   let armed = false;
   page.on("response", async res => {
-    if (!armed) return;
     const req = res.request(), t = req.resourceType();
     if (!["xhr", "fetch", "document"].includes(t)) return;
     const ct = (res.headers()["content-type"] || "").split(";")[0];
     let body = "";
     try { if (/json|text|html|xml|javascript/.test(ct)) body = await res.text(); } catch {}
-    calls.push({t, m: req.method(), u: req.url(), pd: req.postData() || "", s: res.status(), ct, body});
+    calls.push({phase: armed ? "submit" : "load", t, m: req.method(), u: req.url(), pd: req.postData() || "", s: res.status(), ct, body});
   });
   const out = {cls: "unknown", msg: "", text: "", calls, url: ""};
   try {
     await page.goto(url, {waitUntil: "domcontentloaded", timeout: 60000});
-    await page.waitForTimeout(3000);
+    await page.waitForLoadState("networkidle", {timeout: 25000}).catch(() => {});
+    // some importer pages build the form after a "loading" screen: wait for a visible text field in any frame, up to 30 s
+    for (let t = 0; t < 30; t++) {
+      let n = 0; for (const f of page.frames()) n += await f.locator("input:visible").count().catch(() => 0);
+      if (n) break;
+      if (t === 10) await page.mouse.wheel(0, 600).catch(() => {});
+      await page.waitForTimeout(1000);
+    }
     // a cookie or consent bar can sit over the form
     for (const t of ["מאשר", "אישור", "הבנתי", "קבל", "Accept"]) { const b = page.locator(`button:visible:has-text("${t}"), a:visible:has-text("${t}")`).first(); if (await b.count().catch(() => 0)) { await b.click({timeout: 3000}).catch(() => {}); break; } }
     // the plate field: in the page or in one of its frames
@@ -96,7 +102,23 @@ async function checkImporter(url, plate, verbose){
         if (!field || (fit && !field.fit)) { field = {el, fit}; frame = f; }
       }
     }
-    if (!field) { out.text = (await page.evaluate(() => document.body.innerText).catch(() => "")).slice(0, 1500); out.msg = "no input field on the page"; return out; }
+    if (!field) {
+      out.url = page.url(); out.msg = "no input field on the page";
+      out.text = (await page.evaluate(() => document.body.innerText).catch(() => "")).slice(0, 1500);
+      if (verbose) {
+        say(`  frames: ${page.frames().map(f => f.url().slice(0, 100)).join(" | ")}`);
+        const dom = await page.evaluate(() => {
+          const all = [...document.querySelectorAll("input, select, textarea, form, iframe, [contenteditable]")].map(e => `${e.tagName.toLowerCase()} type=${e.type || ""} name=${e.getAttribute("name") || ""} id=${e.id || ""} class=${String(e.className || "").slice(0, 60)} hidden=${!(e.offsetWidth || e.offsetHeight)} src=${(e.getAttribute("src") || "").slice(0, 100)}`);
+          const shadow = [...document.querySelectorAll("*")].filter(e => e.shadowRoot).map(e => e.tagName.toLowerCase());
+          const main = document.querySelector("main") || document.body;
+          return {all, shadow, html: main.innerHTML.replace(/\s+/g, " ").replace(/<(svg|style|script)[^]*?<\/\1>/g, "").slice(0, 5000)};
+        }).catch(e => ({all: [], shadow: [], html: "evaluate failed: " + e.message}));
+        say(`  form elements in the page (${dom.all.length}):`); for (const x of dom.all.slice(0, 40)) say("    " + x);
+        say(`  elements with a shadow root: ${dom.shadow.join(", ") || "none"}`);
+        say(`  page HTML (main, scripts and styles removed, first 5,000 chars):\n${dom.html}`);
+      }
+      return out;
+    }
     armed = true;
     await field.el.click({timeout: 5000}).catch(() => {});
     await field.el.fill(plate);
@@ -121,7 +143,7 @@ async function checkImporter(url, plate, verbose){
 }
 function printCalls(calls){
   for (const c of calls) {
-    say(`  ${c.t} ${c.m} ${c.s} ${c.ct} ${c.u}`);
+    say(`  [${c.phase}] ${c.t} ${c.m} ${c.s} ${c.ct} ${c.u}`);
     if (c.pd) say(`    sent: ${c.pd.slice(0, 600)}`);
     if (c.body && c.t !== "document") say(`    answer: ${c.body.replace(/\s+/g, " ").slice(0, 1800)}`);
   }
@@ -154,9 +176,39 @@ const ownOpen = async p => {
   return {rows: [...seen.values()]};
 };
 
+// which recall campaigns have cars in the per-car list: the list of unfixed cars can trail the list of campaigns
+async function coverage(){
+  say("\n===== per-car list coverage =====");
+  for (const sort of ["TAARICH_PTICHA desc", "RECALL_ID desc"]) {
+    try { const o = await get("datastore_search", {resource_id: OPEN, limit: "6", sort, fields: "RECALL_ID,TAARICH_PTICHA,SUG_RECALL,SUG_TAKALA"}); say(`per-car list by ${sort}: ` + o.records.map(r => `${r.RECALL_ID} (${r.TAARICH_PTICHA})`).join(", ")); }
+    catch (e) { say(`per-car list by ${sort}: ${e.message}`); }
+  }
+  try {
+    const sql = `SELECT "RECALL_ID", COUNT(*) AS n, MIN("TAARICH_PTICHA") AS first, MAX("TAARICH_PTICHA") AS last FROM "${OPEN}" GROUP BY "RECALL_ID" ORDER BY "RECALL_ID" DESC LIMIT 60`;
+    const r = await get("datastore_search_sql", {sql});
+    say("per-car rows per recall (SQL, newest 60): " + r.records.map(x => `${x.RECALL_ID}:${x.n}(${String(x.first).slice(0, 10)})`).join(" "));
+  } catch (e) { say("datastore_search_sql: " + e.message); }
+  let list = [];
+  try { list = (await get("datastore_search", {resource_id: LIST, limit: "400", sort: "RECALL_ID desc"})).records; } catch (e) { say("recall list: " + e.message); return; }
+  const rows = [];
+  for (let i = 0; i < list.length; i += 6) {
+    await Promise.all(list.slice(i, i + 6).map(async r => {
+      try { const o = await get("datastore_search", {resource_id: OPEN, filters: JSON.stringify({RECALL_ID: Number(r.RECALL_ID)}), limit: "1", fields: "RECALL_ID,TAARICH_PTICHA"}); rows.push({r, n: o.total, d: o.records[0] && o.records[0].TAARICH_PTICHA}); }
+      catch (e) { rows.push({r, n: null, err: e.message}); }
+    }));
+  }
+  rows.sort((a, b) => Number(b.r.RECALL_ID) - Number(a.r.RECALL_ID));
+  const zero = rows.filter(x => x.n === 0), some = rows.filter(x => x.n > 0);
+  say(`the newest ${rows.length} campaigns of the recall list (RECALL_ID ${rows[rows.length - 1].r.RECALL_ID}..${rows[0].r.RECALL_ID}): ${some.length} have cars in the per-car list, ${zero.length} have none, ${rows.filter(x => x.n === null).length} unknown`);
+  const newestWith = some[0]; say(`newest campaign with cars in the per-car list: ${newestWith ? newestWith.r.RECALL_ID + " opened " + newestWith.d + " (" + newestWith.n + " cars)" : "none"}`);
+  say("per campaign (id | maker | models | recall year | build range | importer | cars in the per-car list | its opening date):");
+  for (const x of rows) say(`  ${x.r.RECALL_ID} | ${x.r.TOZAR_TEUR} | ${String(x.r.DEGEM || "").slice(0, 50)} | ${x.r.SHNAT_RECALL} | ${x.r.BUILD_BEGIN_A || ""}..${x.r.BUILD_END_A || ""} | ${String(x.r.YEVUAN_TEUR || "").slice(0, 30)} | ${x.n === null ? "? " + x.err : x.n} | ${x.d || ""}`);
+}
+
 // ---------- run ----------
 await openBrowser();
 if (!NO_GOV) await ministryFreshness();
+if (!NO_GOV && opts.coverage === "1") await coverage();
 for (const p of plates) {
   say(`\n===== plate ${mask(p)} =====`);
   let v = {tozeret_nm: "", kinuy_mishari: "", degem_nm: ""};
@@ -195,7 +247,7 @@ for (const p of plates) {
   say(`\nimporter page (as in the app): ${imp.name} ${imp.url}`);
   const r = await checkImporter(imp.url, p, true);
   say(`importer answer: ${r.cls} | "${r.msg}" | final URL ${r.url}`);
-  say("requests after the plate was sent:"); printCalls(r.calls);
+  say("page requests (xhr/fetch/document; load = before the plate was sent):"); printCalls(r.calls.filter(c => c.phase === "submit" || c.t !== "document" || c.u === imp.url));
   say("page text after the plate was sent (first 2,500 chars):\n" + r.text.slice(0, 2500));
 
   if (SAMPLE && !NO_GOV) {
