@@ -3,6 +3,7 @@
 import fs from "node:fs";
 import {brandLabel, BRAND_ALT} from "./brands.mjs";
 import {buildLanding, brandPage} from "./landing.mjs";
+import {recallBuilder} from "./model-recalls.mjs";
 const N = Number(process.argv[2]) || 200, SITE = "https://luchit.app/";
 const ms = JSON.parse(fs.readFileSync("modelstats.json", "utf8")), cat = JSON.parse(fs.readFileSync("models.json", "utf8"));
 const COUNTRY = /\s+(יפן|בריטניה|אנגליה|צרפת|גרמניה|קוריאה|ד\. קוריאה|ספרד|צ'כיה|צכיה|טורקיה|סין|ארה"ב|ארהב|איטליה|תאילנד|הודו|מקסיקו|הונגריה|סלובקיה|פולין|רומניה|בלגיה|שבדיה|אוסטריה|פורטוגל|דרום אפריקה|ברזיל|קנדה|הולנד|סלובניה|רוסיה|מרוקו|אינדונזיה|מלזיה|טייוואן|ישראל|אפרי)\.?$/;
@@ -30,8 +31,9 @@ const g = new Map();
 for (const [key, v] of Object.entries(ms.m)) {
   const [cd, raw] = key.split("|"), model = normModel(raw);
   const make = cleanMake(v.name.replace(COUNTRY, "").replace(COUNTRY, "").trim());
-  const k = make + "|" + model, e = g.get(k) || {make, model, cd, big: 0, total: 0, y: {}};
-  if (v.total > e.big) { e.big = v.total; e.cd = cd; e.disp = raw.toUpperCase().replace(/\s+/g, " ").split(" ").filter(x => !NOISE.has(x)).join(" ") || raw; }
+  const k = make + "|" + model, e = g.get(k) || {make, model, cd, big: 0, total: 0, y: {}, cds: new Set(), raws: new Set()};
+  e.cds.add(cd); e.raws.add(raw);
+  if (v.total > e.big) { e.big = v.total; e.cd = cd; e.reg = v.name; e.disp = raw.toUpperCase().replace(/\s+/g, " ").split(" ").filter(x => !NOISE.has(x)).join(" ") || raw; }
   e.total += v.total;
   for (const [yr, a] of Object.entries(v.y)) {
     const t = e.y[yr] || (e.y[yr] = {act: 0, off: 0, kmw: 0, kmn: 0, ow: 0, own: 0, rc: 0});
@@ -86,6 +88,10 @@ if (MOD) lastmod[SITE + "model/"] = MOD;
 const actOf = m => Object.values(m.y).reduce((t, r) => t + r.act, 0);
 const bodyMemo = new Map();
 const bodyOf = m => { if (!bodyMemo.has(m)) { const c = new Map(); for (const r of cat.rows) if (r[5] && normModel(r[1]) === m.model && r[0].split(" ")[0] === m.make.split(" ")[0]) c.set(r[5], (c.get(r[5]) || 0) + 1); bodyMemo.set(m, [...c.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || ""); } return bodyMemo.get(m); };
+// recalls published for each model (model-recalls.mjs, from the catalog-data branch the workflows put in CAT_DIR); brand model names for the matcher
+const RB = await recallBuilder({brandOf: n => brandLabel(cleanMake(String(n).replace(COUNTRY, "").replace(COUNTRY, "").trim())), fallbackMakers: cat.rows.map(r => ({n: r[0], m: [r[1]]}))});
+console.log(RB.build ? "recall sections: matcher from " + RB.kind : `::warning::pages: the model pages are built without their recall section (${RB.why})`);
+let recallPages = 0;
 let magPosts = []; try { magPosts = JSON.parse(fs.readFileSync("magazine/posts.json", "utf8")); } catch {}
 for (const m of models) {
   const years = Object.keys(m.y).sort();
@@ -127,7 +133,9 @@ for (const m of models) {
     kmRef ? [`מה הק״מ הטיפוסי של ${name}?`, `בשנתון ${kmRef.yr} הק״מ הטיפוסי בטסט האחרון הוא כ-${fmt(Math.round(kmRef.km / 1000) * 1000)}.`] : null,
     [`כמה רכבים מדגם ${name} ירדו מהכביש?`, `${fmt(off)} רכבים, שהם ${offPct.toFixed(1)}% מכל הרכבים שנרשמו ${yrs}${offRel === null ? "" : `, ${relText(offRel, "בשנתונים המקבילים")}`}.`]
   ].filter(Boolean);
-  const extra = `<h2>${esc(name)} במספרים</h2><ul class="g">${facts.map(f => `<li>${f}</li>`).join("")}</ul>${sibs.length ? `<h2>עוד דגמים של ${esc(m.label)}</h2><p>${sibs.map(o => `<a href="${SITE}model/${slugOf(o)}/">${esc(o.disp)}</a>`).join(" · ")}</p>` : ""}<h2>שאלות נפוצות</h2>${faq.map(([q, a]) => `<div class="card"><b>${esc(q)}</b><p style="margin:6px 0 0">${esc(a.replace(/<[^>]+>/g, ""))}</p></div>`).join("")}\n`;
+  const recalls = RB.build ? RB.build({cds: [...m.cds], names: [...m.raws], lo: Number(lo), hi: Number(hi), make: m.reg || m.make, label: m.label, name}) : "";
+  if (recalls) recallPages++;
+  const extra = `<h2>${esc(name)} במספרים</h2><ul class="g">${facts.map(f => `<li>${f}</li>`).join("")}</ul>${recalls}${sibs.length ? `<h2>עוד דגמים של ${esc(m.label)}</h2><p>${sibs.map(o => `<a href="${SITE}model/${slugOf(o)}/">${esc(o.disp)}</a>`).join(" · ")}</p>` : ""}<h2>שאלות נפוצות</h2>${faq.map(([q, a]) => `<div class="card"><b>${esc(q)}</b><p style="margin:6px 0 0">${esc(a.replace(/<[^>]+>/g, ""))}</p></div>`).join("")}\n`;
   const ld = {"@context": "https://schema.org", "@graph": [
     {"@type": "Dataset", name: `${name}: רכבים פעילים, ק״מ וירידה מהכביש לפי שנתון`, description: desc, url, inLanguage: "he", isBasedOn: "https://data.gov.il/", temporalCoverage: `${lo}/${hi}`, ...(MOD ? {dateModified: MOD} : {}), creator: {"@type": "Organization", name: "לוחית", url: SITE}, distribution: [{"@type": "DataDownload", encodingFormat: "application/json", contentUrl: SITE + "modelstats.json"}], variableMeasured: ["רכבים פעילים", "רכבים שירדו מהכביש", "ק״מ טיפוסי בטסט האחרון", "רשומות בעלות לרכב"]},
     {"@type": "BreadcrumbList", itemListElement: [{"@type": "ListItem", position: 1, name: "לוחית", item: SITE}, {"@type": "ListItem", position: 2, name: "כל הדגמים", item: SITE + "model/"}, {"@type": "ListItem", position: 3, name}]},
@@ -213,4 +221,4 @@ buildLanding({SITE, head, foot, esc, fmt, models, g, NAT, SETTLEMENTS, urls, las
 // the monthly magazine (magazine.mjs) keeps its own pages; keep them in the sitemap
 try { const posts = JSON.parse(fs.readFileSync("magazine/posts.json", "utf8")); urls.push(SITE + "magazine/", ...posts.map(p => `${SITE}magazine/${p.slug}/`)); for (const p of posts) if (p.date) lastmod[`${SITE}magazine/${p.slug}/`] = p.date; if (posts[0] && posts[0].date) lastmod[SITE + "magazine/"] = posts[0].date; } catch {}
 fs.writeFileSync("sitemap.xml", `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(u => `  <url><loc>${u}</loc>${lastmod[u] ? `<lastmod>${lastmod[u]}</lastmod>` : ""}</url>`).join("\n")}\n</urlset>\n`);
-console.log("pages", models.length, "sitemap urls", urls.length);
+console.log("pages", models.length, "sitemap urls", urls.length, "with a recall section", recallPages);

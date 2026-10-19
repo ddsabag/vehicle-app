@@ -4,7 +4,7 @@ name: SEO check
 on:
   push:
     branches: [main, next, seo-auto]
-    paths: ["**.html", "sitemap.xml", "robots.txt", "manifest.json", "model/**", "magazine/**", "guide/**", ".github/scripts/seo-check.mjs", ".github/scripts/pages.mjs", ".github/scripts/landing.mjs", ".github/scripts/brands.mjs", ".github/workflows/seo-check.yml"]
+    paths: ["**.html", "sitemap.xml", "robots.txt", "manifest.json", "model/**", "magazine/**", "guide/**", ".github/scripts/seo-check.mjs", ".github/scripts/pages.mjs", ".github/scripts/landing.mjs", ".github/scripts/brands.mjs", ".github/scripts/model-recalls.mjs", ".github/workflows/seo-check.yml"]
   pull_request:
   schedule:
     - cron: "30 5 * * 1"   # Mondays: also probe the live site
@@ -22,10 +22,17 @@ jobs:
       # titles, descriptions, h1, canonical, alt, OG, JSON-LD, internal links, orphans, sitemap, robots
       - name: SEO lint
         run: node .github/scripts/seo-check.mjs
+      # the ministry's recall lists per maker (catalog-data branch, catalog.yml) for the model pages' recall section (model-recalls.mjs);
+      # without them pages.mjs builds the pages without that section and prints a warning
+      - name: Recall lists for the model pages
+        run: |
+          git fetch -q --depth 1 origin catalog-data && mkdir -p cat-data && git archive FETCH_HEAD r meta.json | tar -x -C cat-data \
+            || echo "::warning::catalog-data could not be read: the model pages are built without their recall section"
       # smoke run of the page generators (pages.mjs + landing.mjs + brands.mjs) followed by the same lint, the pair magazine.yml runs before it
       # publishes on the 6th: a crash or a lint error fails here first. Output stays in this checkout (the committed pages drift from it by design).
       - name: Page generators run
         run: |
+          node .github/scripts/model-recalls.mjs selftest
           node .github/scripts/pages.mjs
           node .github/scripts/seo-check.mjs
   live:
