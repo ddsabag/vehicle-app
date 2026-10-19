@@ -3,7 +3,8 @@
 // Returns only aggregate counts, never anything personal. Secrets: GA_SERVICE_ACCOUNT_JSON, CF_API_TOKEN. Vars: see wrangler.toml.
 // Cloudflare Web Analytics keeps luchit.app as two sites: the home page's own beacon (index.html, site tag 03eb..., since 8.10; the token in the
 // page, 9bb0..., is not a site tag) and the beacon Cloudflare adds by itself to every page (5c0a..., since 12.10). A page reports through one of
-// them only, so the two are added up. The owner's own /live screen is left out.
+// them only, so the two are added up. The owner's own /live screen is left out, and so are automated browsers (headless Chrome: the site's own
+// checks and crawlers, about a sixth of the page views; the page's own beacon already skips them, the added one does not).
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
@@ -69,7 +70,7 @@ async function cfQuery(env, day, dim, limit, lastDay = day, order = "sum_visits_
   if (!token || !account) return null;
   const dims = dim ? `dimensions{${dim}}` : "";
   const q = `query($acc:String!,$f:AccountRumPageloadEventsAdaptiveGroupsFilter_InputObject){viewer{accounts(filter:{accountTag:$acc}){rumPageloadEventsAdaptiveGroups(filter:$f,limit:${limit},orderBy:[${order}]){count sum{visits} ${dims}}}}}`;
-  const f = { AND: [{ datetime_geq: ilStart(day), datetime_lt: ilStart(addDays(lastDay, 1)) }, { siteTag_in: CF_SITES }, { requestPath_notlike: "/live%" }] };
+  const f = { AND: [{ datetime_geq: ilStart(day), datetime_lt: ilStart(addDays(lastDay, 1)) }, { siteTag_in: CF_SITES }, { requestPath_notlike: "/live%" }, { userAgentBrowser_neq: "ChromeHeadless" }] };
   const r = await fetch("https://api.cloudflare.com/client/v4/graphql", { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body: JSON.stringify({ query: q, variables: { acc: account, f } }) });
   const j = await r.json().catch(() => null);
   if (!r.ok || !j || j.errors) throw new Error("cloudflare " + r.status + " " + JSON.stringify(j?.errors || j).slice(0, 140));
