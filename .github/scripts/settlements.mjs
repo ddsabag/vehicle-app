@@ -116,13 +116,17 @@ const q = s => encodeURIComponent(s);
 export const SOURCES = [
   {s: "TheCar", u: "https://www.thecar.co.il/feed/"},
   {s: "TheCar תקלות סדרתיות", u: "https://www.thecar.co.il/category/%d7%aa%d7%a7%d7%9c%d7%95%d7%aa-%d7%a1%d7%93%d7%a8%d7%aa%d7%99%d7%95%d7%aa/feed/"},
-  {s: "Google News", u: `https://news.google.com/rss/search?q=${q('"הסדר פשרה" רכב when:30d')}&hl=he&gl=IL&ceid=IL:he`},
-  {s: "Google News", u: `https://news.google.com/rss/search?q=${q("ייצוגית יבואן רכב when:30d")}&hl=he&gl=IL&ceid=IL:he`},
-  {s: "Google News", u: `https://news.google.com/rss/search?q=${q('"הסכם פשרה" רכב when:30d')}&hl=he&gl=IL&ceid=IL:he`},
+  {s: "Google News", u: `https://news.google.com/rss/search?q=${q('"הסדר פשרה" רכב')}&hl=he&gl=IL&ceid=IL:he`},
+  {s: "Google News", u: `https://news.google.com/rss/search?q=${q("ייצוגית יבואן רכב")}&hl=he&gl=IL&ceid=IL:he`},
+  {s: "Google News", u: `https://news.google.com/rss/search?q=${q('"הסכם פשרה" רכב')}&hl=he&gl=IL&ceid=IL:he`},
   {s: "ייצוגית", u: "https://www.yitzugit.co.il/wp-json/wp/v2/posts?per_page=100&_fields=date,link,title", json: true},
 ];
 const SETTLE = /הסדר(?:י)? ?פשרה|הסכם(?:י)? ?פשרה|הסדר הסתלקות|ייצוגית|תובענה|פסק[ -]דין|יפצו|יפצה|פיצוי|החזר כספי|הארכת אחריות/;
-const CAR = /רכב|יבואן|מכונית|מוסך|ריקול|מוטורס|כלמוביל|סמלת|מכשירי תנועה|לובינסקי|קרסו|יוניון|צ.מפיון|טויוטה|לקסוס|יונדאי|קיה|מאזדה|מזדה|סובארו|סוזוקי|הונדה|ניסאן|רנו|פיג.ו|סיטרואן|שברולט|פורד|ב\.?מ\.?וו|BMW|מרצדס|פולקסווגן|סקודה|אאודי|סיאט|קופרה|וולוו|מיצובישי|טסלה|BYD|ג.ילי|צ.רי|אומודה|דאצ.יה|פיאט|ג.יפ|אופל|פורשה|לנד רובר|ג.יגואר/i;
+// short names only as a word of their own (one prefix letter allowed): צ'רי is not in צפריר, קיה not in טורקיה
+const CAR = new RegExp(["רכב", "יבואן", "מכונית", "מוסך", "ריקול", "מוטורס", "כלמוביל", "סמלת", "מכשירי תנועה", "לובינסקי", "קרסו", "יוניון", "צ['׳]?מפיון", "יפנאוטו",
+  "טויוטה", "לקסוס", "יונדאי", "מאזדה", "מזדה", "סובארו", "סוזוקי", "הונדה", "ניסאן", "פיג['׳]?ו", "סיטרואן", "שברולט", "פורד", "ב\\.?מ\\.?וו", "מרצדס", "פולקסווגן",
+  "סקודה", "אאודי", "קופרה", "וולוו", "מיצובישי", "טסלה", "אומודה", "דאצ['׳]?יה", "פיאט", "פורשה", "לנד רובר", "ג['׳]?יגואר", "\\bBMW\\b", "\\bBYD\\b", "\\bMG\\b",
+  "(?<![א-ת])[בוהלמש]?(?:קיה|רנו|אופל|סיאט|צ['׳]רי|ג['׳]יפ|ג['׳]ילי)(?![א-ת])"].join("|"), "i");
 const NOT_CAR = /ביטוח רכב|פוליס/;   // motor insurance settlements are not about the car
 const ent = s => String(s).replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").replace(/<[^>]+>/g, " ").replace(/&#0?34;|&quot;/g, '"').replace(/&#8211;|&#8212;/g, "-").replace(/&#124;/g, "|").replace(/&#0?39;|&#8217;|&#8216;/g, "'").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#(\d+);/g, (_, d) => String.fromCharCode(+d)).replace(/\s+/g, " ").trim();
 const tag = (x, t) => { const m = x.match(new RegExp(`<${t}[^>]*>([\\s\\S]*?)</${t}>`)); return m ? ent(m[1]) : ""; };
@@ -160,14 +164,15 @@ async function watch(){
   const rows = JSON.parse(fs.readFileSync(path.join(ROOT, "models.json"), "utf8")).rows;
   const cov = coverage(j.items, rows, stlCompile, prev.snap || {}, on);
   // news: new items only (seen by title, so the same story from two feeds counts once), kept 120 days; the inbox keeps 60 days
-  const seen = {...(prev.seen || {})}, fresh = [], down = [];
+  // the very first run only takes the last 30 days into the inbox: older stories were covered by the research of 10.2026
+  const seen = {...(prev.seen || {})}, fresh = [], down = [], first = !prev.ran;
   for (const [i, src] of SOURCES.entries()) {
     const text = await fetchText(src.u);
     if (text == null) { down.push(`${src.s} (${i + 1})`); continue; }
     for (const it of parseFeed(src, text)) {
       if (!it.t || !it.u || !relevant(it)) continue;
       const k = keyOf(it); if (seen[k]) continue;
-      seen[k] = on; fresh.push({...it, k, d: on});
+      seen[k] = on; if (!(first && it.p && days(it.p, on) > 30)) fresh.push({...it, k, d: on});
     }
   }
   for (const [k, d] of Object.entries(seen)) if (days(d, on) > 120) delete seen[k];
@@ -258,6 +263,8 @@ function selftest(){
   ok(its.filter(relevant).length === 1, "only the car settlement is relevant");
   const wp = parseFeed({s: "ייצוגית", json: true}, JSON.stringify([{date: "2026-10-18T10:00:00", link: "https://yitzugit.co.il/a/", title: {rendered: "הסכם פשרה &#124;1-2-3&#124; פלוני נגד קרסו מוטורס בע״מ"}}]));
   ok(wp.length === 1 && wp[0].t.includes("|1-2-3|") && relevant(wp[0]), "court notice parsed and relevant");
+  ok(!relevant({t: "הסכם פשרה | 1-2-3 | צפריר פורטנוי נ' ויקטורי רשת סופרמרקטים בע״מ", x: ""}), "צפריר is not צ'רי");
+  ok(!relevant({t: "הסכם פשרה בטורקיה על מחירי חשמל", x: ""}) && relevant({t: "הסדר פשרה לבעלי קיה נירו", x: ""}) && relevant({t: "ייצוגית נגד צ'רי", x: ""}), "short brand names as words");
   const d = describe({items: [{...base, st: "wait"}, {...base, id: "gone"}]}, {items: [{...base, st: "ok"}, {...base, id: "new", mk: "טויוטה|לקסוס"}]});
   ok(/נוסף: כותרת \(טויוטה, לקסוס\)/.test(d) && /עודכן: כותרת \(יונדאי\) · אושר/.test(d) && /הוסר: /.test(d) && /סך הכול 2/.test(d), "describe: " + d);
   ok(describe({items: [base]}, {items: [base], checked: "2026-10-26"}) === "", "a review that changed nothing says nothing");
@@ -265,10 +272,11 @@ function selftest(){
   return fails ? 1 : 0;
 }
 
-// ---- CLI ----
-const [cmd, a1, a2] = process.argv.slice(2);
+// ---- CLI (not when imported) ----
+const [cmd, a1, a2] = process.argv.slice(2), cliRun = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 let code = 0;
-if (cmd === "check") {
+if (!cliRun) {}
+else if (cmd === "check") {
   const file = a1 || path.join(ROOT, "settlements.json");
   const stlCompile = appCompile(), j = JSON.parse(fs.readFileSync(file, "utf8")), bad = validate(j, stlCompile);
   for (const b of bad) console.log(`::error::settlements.json: ${b}`);
@@ -287,4 +295,4 @@ else if (cmd === "tell") {
   else console.log("no entry changed: nothing to tell");
 } else if (cmd === "selftest") code = selftest();
 else { console.log("usage: settlements.mjs check [file] | watch | tell <old> <new> | selftest"); code = 2; }
-process.exitCode = code;
+if (cliRun) process.exitCode = code;
