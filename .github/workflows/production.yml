@@ -9,7 +9,7 @@ name: Production
 # checks the permission and Play's own checks). Kill switch: the SHIP_TAIL variable, as in Ship tail. Owner setup: .github/SHIP-TAIL.md
 on:
   push:
-    branches: [st-prod-test2-off]
+    branches: [st-prod-test2]
 permissions:
   contents: read
 concurrency:
@@ -26,6 +26,7 @@ jobs:
         with:
           sparse-checkout: |
             .github/scripts/play-production.mjs
+            .github/scripts/tmp-countries.mjs
             .github/scripts/play-alpha.mjs
             .github/scripts/alert.mjs
           sparse-checkout-cone-mode: false
@@ -41,7 +42,7 @@ jobs:
           INPUT_MODE: dry
       - name: Send the Alpha build to Production at 20%
         if: ${{ steps.g.outputs.mode != 'off' }}
-        run: node .github/scripts/play-production.mjs promote
+        run: node .github/scripts/tmp-countries.mjs
         env:
           SHIP_SA_JSON: ${{ secrets.SHIP_SA_JSON }}
           MODE: ${{ steps.g.outputs.mode }}
