@@ -30,15 +30,21 @@ const mask = p => { const d = String(p).replace(/\D/g, ""); return d.length > 4 
 const show = (o, keys) => keys.filter(k => o[k] !== undefined && o[k] !== null && String(o[k]).trim() !== "").map(k => `${k}=${String(o[k]).trim().slice(0, 140)}`).join(" | ");
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
-const get = async (act, params) => {
+// one request at a time with a pause: a burst makes data.gov.il's firewall answer 403 for minutes
+let lastAt = 0, queue = Promise.resolve();
+async function fetchJson(act, params){
   for (let a = 0; ; a++) {
+    const gap = 700 - (Date.now() - lastAt); if (gap > 0) await wait(gap);
+    lastAt = Date.now();
     try {
       const r = await fetch(API + act + "?" + new URLSearchParams(params), {headers: {Accept: "application/json"}, signal: AbortSignal.timeout(60000)});
+      if (r.status === 403 || r.status === 429) throw Object.assign(new Error(act + " HTTP " + r.status), {slow: true});
       if (!r.ok) throw new Error(act + " HTTP " + r.status);
       return (await r.json()).result;
-    } catch (e) { if (a >= 2) throw e; await wait(3000 * (a + 1)); }
+    } catch (e) { if (a >= 3) throw e; await wait(e.slow ? 45000 * (a + 1) : 3000 * (a + 1)); }
   }
-};
+}
+const get = (act, params) => { const task = queue.then(() => fetchJson(act, params)); queue = task.catch(() => {}); return task; };
 const search = (id, filters, limit = 50, extra = {}) => get("datastore_search", {resource_id: id, filters: JSON.stringify(filters), limit: String(limit), ...extra});
 
 const raw = process.env.PLATES || "";
@@ -46,7 +52,8 @@ const plates = (raw.startsWith("b64:") ? Buffer.from(raw.slice(4), "base64").toS
 plates.forEach(addPlate);
 const opts = Object.fromEntries((process.env.QUERIES || "").split(",").map(s => s.trim().split("=")).filter(a => a.length === 2));
 const SAMPLE = Math.min(40, Number(opts.sample) || 0);
-const NO_GOV = process.env.NO_GOV === "1";   // local test of the browser part only
+const NO_GOV = process.env.NO_GOV === "1" || opts.nogov === "1";   // the importer page only (url=… names it)
+if (opts.url && !process.env.IMPORTER_URL) process.env.IMPORTER_URL = opts.url;
 
 const makerOnly = v => String(v.tozeret_nm || "").replace(/\s+(יפן|גרמניה|קוריאה|סין|ספרד|צרפת|איטליה|ארה"ב|ארהב|אנגליה|בריטניה|צ'כיה|צכיה|סלובקיה|טורקיה|הודו|תאילנד|מקסיקו|בלגיה|הונגריה|פולין|אוסטריה|שוודיה|רומניה|פורטוגל|דרום אפריקה|ברזיל|ארגנטינה|קנדה|מרוקו|אינדונזיה|מלזיה|טייוואן|סלובניה|הולנד|פינלנד|אוסטרליה|רוסיה|בלארוס|אוזבקיסטן|וייטנאם|הפיליפינים|קולומביה|אירן|מצרים|ירדן)$/, "").trim();
 const importerFor = v => {
@@ -205,10 +212,28 @@ async function coverage(){
   for (const x of rows) say(`  ${x.r.RECALL_ID} | ${x.r.TOZAR_TEUR} | ${String(x.r.DEGEM || "").slice(0, 50)} | ${x.r.SHNAT_RECALL} | ${x.r.BUILD_BEGIN_A || ""}..${x.r.BUILD_END_A || ""} | ${String(x.r.YEVUAN_TEUR || "").slice(0, 30)} | ${x.n === null ? "? " + x.err : x.n} | ${x.d || ""}`);
 }
 
+async function brands(){
+  say("\n===== maker names in the whole recall list =====");
+  const all = [];
+  for (let off = 0; ; off += 1000) {
+    const r = await get("datastore_search", {resource_id: LIST, limit: "1000", offset: String(off), fields: "RECALL_ID,TOZAR_TEUR,DEGEM,SHNAT_RECALL,YEVUAN_TEUR,BUILD_BEGIN_A,BUILD_END_A"}).catch(e => ({records: [], err: e.message}));
+    if (r.err) { say("page " + off + ": " + r.err); break; }
+    all.push(...r.records); if (r.records.length < 1000) break;
+  }
+  const by = {}; for (const r of all) { const k = String(r.TOZAR_TEUR || "").trim().toUpperCase(); by[k] = (by[k] || 0) + 1; }
+  say(`${all.length} rows, ${Object.keys(by).length} maker names: ` + Object.entries(by).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(", "));
+  if (opts.importer) {
+    const mine = all.filter(r => String(r.YEVUAN_TEUR || "").includes(opts.importer)).sort((a, b) => Number(b.RECALL_ID) - Number(a.RECALL_ID));
+    say(`\nrows of importers named "${opts.importer}": ${mine.length}`);
+    for (const r of mine) say("  " + show(r, ["RECALL_ID", "TOZAR_TEUR", "DEGEM", "SHNAT_RECALL", "BUILD_BEGIN_A", "BUILD_END_A", "YEVUAN_TEUR"]));
+  }
+}
+
 // ---------- run ----------
 await openBrowser();
 if (!NO_GOV) await ministryFreshness();
 if (!NO_GOV && opts.coverage === "1") await coverage();
+if (!NO_GOV && opts.brands === "1") await brands();
 for (const p of plates) {
   say(`\n===== plate ${mask(p)} =====`);
   let v = {tozeret_nm: "", kinuy_mishari: "", degem_nm: ""};
