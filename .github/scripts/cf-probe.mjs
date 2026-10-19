@@ -1,20 +1,15 @@
-// One-off (probe-go branch, not for main): which Cloudflare Web Analytics site tag is the page's own beacon and which is the zone's automatic one.
-const env = process.env, CF_TAG = "9bb0e756882c478a808d95596e0deade";
-const cfTok = String(env.CF_API_TOKEN || "").replace(/^[\s"']*(bearer\s+)?/i, "").replace(/[\s"']+$/, ""), acc = String(env.CF_ACCOUNT_ID || "").trim();
-const gql = async (query, variables) => { const r = await fetch("https://api.cloudflare.com/client/v4/graphql", {method: "POST", headers: {authorization: "Bearer " + cfTok, "content-type": "application/json"}, body: JSON.stringify({query, variables})}); const j = await r.json().catch(() => null); if (!r.ok || j?.errors) { console.log("CF GQL ERR", r.status, JSON.stringify(j?.errors || j).slice(0, 300)); return null; } return j.data; };
-const since = d => new Date(Date.now() - d * 864e5).toISOString(), tNow = new Date().toISOString();
-const q = async (dims, days, extra = [], limit = 60, order = "sum_visits_DESC") => {
-  const d = await gql(`query($acc:String!,$f:AccountRumPageloadEventsAdaptiveGroupsFilter_InputObject){viewer{accounts(filter:{accountTag:$acc}){rumPageloadEventsAdaptiveGroups(filter:$f,limit:${limit},orderBy:[${order}]){count sum{visits} dimensions{${dims}}}}}}`, {acc, f: {AND: [{datetime_geq: since(days), datetime_lt: tNow}, ...extra]}});
-  return (d?.viewer?.accounts?.[0]?.rumPageloadEventsAdaptiveGroups || []).map(g => [...dims.split(" ").map(k => g.dimensions[k]), g.count, Math.round(g.sum.visits)]);
-};
-console.log("at", tNow);
-const tags = (await q("siteTag", 30)).map(r => r[0]);
-console.log("tags with data in 30 days:", JSON.stringify(tags));
-for (const [label, dims, days, lim] of [["by date", "date", 30, 40], ["by path (top)", "requestPath", 14, 40], ["by browser", "userAgentBrowser", 14, 15], ["by device", "deviceType", 14, 10], ["by referer (top)", "refererHost", 14, 20], ["by country (top)", "countryName", 14, 10], ["by OS", "userAgentOS", 14, 10]]) {
-  for (const t of tags) console.log(`\n# ${t.slice(0, 6)}… ${label}:`, JSON.stringify(await q(dims, days, [{siteTag: t}], lim, dims === "date" ? "date_ASC" : "sum_visits_DESC")));
+// One-off (probe-go branch, not for main): does the edge inject Cloudflare's own Web Analytics beacon into the pages, and with which token.
+const UA = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36";
+console.log("at", new Date().toISOString());
+for (const p of ["/", "/?utm_source=youtube&utm_medium=social&utm_campaign=bio", "/magazine/2026-09/", "/model/", "/model/mg4-443/", "/check/recall/", "/guide/", "/privacy.html", "/lib/cfb.js", "/go/yt", "/live"]) {
+  try {
+    const r = await fetch("https://luchit.app" + p, {headers: {"user-agent": UA, accept: "text/html,*/*"}, redirect: "manual"});
+    const t = await r.text();
+    const tokens = [...t.matchAll(/data-cf-beacon='?"?(\{[^>]*?\})/g)].map(m => m[1].replace(/&quot;/g, '"'));
+    const tags = [...t.matchAll(/<script[^>]*cloudflareinsights[^>]*>/g)].map(m => m[0].slice(0, 220));
+    console.log(`\n${p} -> ${r.status} ${r.headers.get("content-type")} | cache-control ${r.headers.get("cache-control")} | cf-cache ${r.headers.get("cf-cache-status")} | enc ${r.headers.get("content-encoding")} | len ${t.length} | location ${r.headers.get("location") || "-"}`);
+    console.log("  beacon script tags in the HTML:", tags.length, JSON.stringify(tags));
+    console.log("  data-cf-beacon values:", JSON.stringify(tokens), "| cfb.js referenced:", t.includes("/lib/cfb.js"));
+    if (p === "/lib/cfb.js") console.log("  body starts:", t.slice(0, 160).replace(/\n/g, " "));
+  } catch (e) { console.log(p, "failed", String(e)); }
 }
-// the same page loads in both? per hour on the busiest day, side by side
-const hours = {};
-for (const t of tags) for (const [h, c] of await q("datetimeHour", 7, [{siteTag: t}], 200, "datetimeHour_ASC")) (hours[h] ||= {})[t.slice(0, 6)] = c;
-console.log("\n# page loads per hour, each tag (7 days):");
-for (const [h, o] of Object.entries(hours).sort()) console.log(h, JSON.stringify(o));
