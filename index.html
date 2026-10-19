@@ -1964,7 +1964,7 @@ function snapAll(){ try { return JSON.parse(localStorage.getItem(SNAP_KEY) || "{
 function snapPut(D){
   try {
     if (!D || D.kind === "model" || D.fromCache || D.offline || D.notFound || !isSaved(D.plate)) return;
-    if ((D.errs || []).some(k => PLATE_SETS.some(s => s.key === k && s.role === "main"))) return;   // keep the last complete copy
+    if ((D.errs || []).some(s => s.role === "main")) return;   // keep the last complete copy (errs holds the datasets themselves, not their keys)
     const all = snapAll(), keep = new Set(store.get("savedVehicles").map(x => x.plate));
     all[D.plate] = {t: Date.now(), D};
     for (const k of Object.keys(all)) if (!keep.has(k)) delete all[k];
@@ -2166,7 +2166,7 @@ async function lookup(raw){
   if (D.offline) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true">📡</div>${navigator.onLine === false ? "אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב." : "מאגרי משרד התחבורה לא עונים כרגע (תקלה או עומס אצל המשרד, לא אצלכם). נסו שוב בעוד כמה דקות."}</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; return; }
   if (D.notFound) { out.innerHTML = `<div class="msg edge"><div class="edge-i" aria-hidden="true">🔍</div>לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.</div>`; return; }
   current = D; currentTab = "overview";
-  snapPut(D);
+  snapPut(D); savedSync(D);
   renderResult(); focusResult();
   track("car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: D.errs && D.errs.length ? 1 : 0, ...lookupFacts(D)});
   remember(plate);
@@ -4705,11 +4705,30 @@ async function checkSaved(){
           }
         }
         if (ev.length) { it.events = [...ev, ...(it.events || [])].slice(0, 30); changed = true; }
-        it.checked = Date.now(); store.set("savedVehicles", list);
+        it.checked = rec ? Date.now() : Date.now() - 864e5 + 36e5;   // a recall query that failed is asked again in an hour, not tomorrow
+        store.set("savedVehicles", list);
       } catch {}
     }
     if (changed && !current && !inCompare) renderHome();
   } finally { savedChecking = false; }
+}
+/* opening a saved car brings its line in "הרכבים שלי" up to date at once: the check above runs once a day, so the line could still say
+   "ריקול פתוח" a day after the car's own page showed the recall closed (19.10.2026) */
+function savedSync(D){
+  if (!D || D.kind === "model" || D.fromCache || D.offline || D.notFound) return;
+  const list = store.get("savedVehicles"), it = list.find(x => x.plate === D.plate); if (!it) return;
+  const ev = [], add = (k, x) => ev.push({t: Date.now(), k, x}), was = [it.recalls, it.tokef];
+  if (!D.recallUnknown) {
+    if (it.recalls !== undefined && D.recalls.length > it.recalls) add("recall", "ריקול חדש נפתח לרכב");
+    else if (it.recalls !== undefined && D.recalls.length < it.recalls) add("recall", "ריקול נסגר");
+    it.recalls = D.recalls.length;
+  }
+  // the test date only from a full answer of the registers (a car off the road keeps the last one, as in the daily check)
+  const t = D.isCancelled || (D.errs || []).some(s => s.role === "main") ? "" : String(D.v.tokef_dt || "").slice(0, 10);
+  if (t) { if (it.tokef && t > String(it.tokef).slice(0, 10)) add("test", "הטסט חודש עד " + fmtDate(t)); it.tokef = D.v.tokef_dt; }
+  if (it.recalls === was[0] && it.tokef === was[1]) return;
+  if (ev.length) it.events = [...ev, ...(it.events || [])].slice(0, 30);
+  store.set("savedVehicles", list);
 }
 function updateSavedBar(){
   const hb = $("#homeBtn"); if (hb) hb.hidden = !!$("#homeMark");
