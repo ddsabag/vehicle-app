@@ -32,6 +32,7 @@ jobs:
       # publishes on the 6th: a crash or a lint error fails here first. Output stays in this checkout (the committed pages drift from it by design).
       - name: Page generators run
         run: |
+          node .github/scripts/model-recalls.mjs selftest
           node .github/scripts/pages.mjs
           node .github/scripts/seo-check.mjs
   live:
