@@ -13,6 +13,7 @@
       "probe": { "kind": "http", "checks": [
         { "url": "https://luchit.app/?st={nonce}", "ua": "browser", "status": 200, "contains": ["id=\"plate\""] },
         { "url": "https://luchit.app/?cmp=W3t9LHt9XQ&st={nonce}", "ua": "TelegramBot (like TwitterBot)", "status": 200, "contains": ["og:title", "השוואת 2 רכבים בלוחית"], "version": true },
+        { "url": "https://luchit.app/go/fb?st={nonce}", "ua": "browser", "status": 302, "location": "utm_source=facebook&utm_medium=social", "version": true },
         { "url": "https://luchit.app/magazine/?st={nonce}", "ua": "browser", "status": 200, "contains": ["id=\"nl\""] },
         { "url": "https://luchit.app/.well-known/assetlinks.json?st={nonce}", "ua": "luchit-ship-tail/1", "status": 200, "contains": ["com.ddsabag.pratirechev"] },
         { "url": "https://luchit.app/?st={nonce}", "method": "HEAD", "ua": "browser", "status": 200 }
