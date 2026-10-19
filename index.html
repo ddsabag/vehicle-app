@@ -1425,7 +1425,7 @@ function stlUse(j){
   // the signature changes whenever what an entry matches changes, so saved cars are checked again (only ids they did not match before alert)
   const sig = JSON.stringify(j.items.map(e => [e.id, e.mk, e.md, e.y, e.m, e.not, e.color, e.fuel, e.nofuel, e.txt, e.cc, e.ccAny, e.age]));
   let h = 5381; for (let i = 0; i < sig.length; i++) h = (h * 33 ^ sig.charCodeAt(i)) >>> 0;
-  SETTLEMENTS = list; STL_SIG = "j" + h.toString(36); STL_DATE = /^\d{4}-\d\d/.test(j.updated || "") ? j.updated : "";
+  SETTLEMENTS = list; STL_SIG = "j" + h.toString(36); STL_DATE = [j.checked, j.updated].find(d => /^\d{4}-\d\d/.test(d || "")) || "";
   return true;
 }
 function loadSettlements(){
@@ -1442,6 +1442,7 @@ function settlementsFor(D){
 }
 const stlSeen = new Set();
 const stlAsOf = () => STL_DATE ? `${+STL_DATE.slice(5, 7)}/${STL_DATE.slice(0, 4)}` : "10/2026";
+const stlActive = () => { const now = new Date(); return SETTLEMENTS.filter(s => !(new Date(s.until + "T23:59:59") < now)).length; };
 /* a settlement that ends within 60 days says so on its line, with the days left: after `until` it is not shown at all */
 function stlSoon(s){
   const t = new Date(), left = Math.round((new Date(s.until + "T00:00:00") - new Date(t.getFullYear(), t.getMonth(), t.getDate())) / 864e5);   // calendar days
@@ -2773,11 +2774,12 @@ function tabRecalls(D){
   if (D.modelRecallsUnknown) row(false, "בדיקת ריקולים לדגם לא זמינה כרגע");
   else {
     if (fresh.length) row(false, `${pl(fresh.length, "ריקול חדש לדגם עשוי לחול", "ריקולים חדשים לדגם עשויים לחול")} על הרכב, ועוד לא ידוע אם הרכב הזה נכלל ${fresh.length === 1 ? "בו" : "בהם"}`);
-    if (!fresh.length || known.length) row(!known.length, !mr.length ? "לא נמצאו ריקולים לדגם" : known.length ? `${pl(known.length, "ריקול לדגם עשוי לחול", "ריקולים לדגם עשויים לחול")} על שנת הייצור${knownOpen ? `, והרכב הזה לא מופיע ${known.length === 1 ? "בו" : "בהם"} כרכב שלא תוקן` : ""}` : `${pl(mr.length, "ריקול לדגם, לא חל", "ריקולים לדגם, אף אחד לא חל")} על שנת הייצור`);
+    // with the per-car list answered, a model recall of the production year that is not open on this car was fixed or never included: nothing to do
+    if (!fresh.length || known.length) row(!known.length || knownOpen, !mr.length ? "לא נמצאו ריקולים לדגם" : known.length && knownOpen ? (known.length === 1 ? "לדגם היה ריקול שעשוי לחול על שנת הייצור, והוא לא פתוח ברכב הזה: תוקן, או שהרכב לא נכלל בו" : `לדגם היו ${known.length} ריקולים שעשויים לחול על שנת הייצור, ואף אחד מהם לא פתוח ברכב הזה: תוקנו, או שהרכב לא נכלל בהם`) : known.length ? `${pl(known.length, "ריקול לדגם עשוי לחול", "ריקולים לדגם עשויים לחול")} על שנת הייצור` : `${pl(mr.length, "ריקול לדגם, לא חל", "ריקולים לדגם, אף אחד לא חל")} על שנת הייצור`);
   }
   if (D.kind !== "model" && !D.isCancelled) row(!stl.length && SETTLEMENTS.length, stl.length ? `ייתכן שהרכב נכלל ב${pl(stl.length, "הסדר פשרה", "הסדרי פשרה")} (פירוט למעלה)` : SETTLEMENTS.length ? "לא נמצא הסדר פשרה מוכר לדגם ולשנתון" : "רשימת הסדרי הפשרה לא נטענה כרגע");
-  html.push(card(`מה נבדק (${rows.length} בדיקות)`, "check", D.recalls.length || fits.length || stl.length || D.recallUnknown || D.modelRecallsUnknown || !SETTLEMENTS.length && D.kind !== "model" && !D.isCancelled ? "amber" : "green", `<ul class="insights plain">${rows.join("")}</ul>
-    <p class="note">${hz.max > hz.id ? `רשימת משרד התחבורה של רכבים שלא תוקנו כוללת כרגע ריקולים שנפתחו עד ${esc(fmtDate(hz.d))}. באתר היבואן מופיעים גם ריקולים חדשים יותר, וגם קריאות שירות שאינן ריקול בטיחותי. ` : "באתר היבואן מופיעים גם קמפיינים וקריאות שירות שלא תמיד נמצאים במאגר. "}${SETTLEMENTS.length ? `הסדרי פשרה: נבדקו מול ${SETTLEMENTS.length} הסדרים של יבואנים, לפי הודעותיהם והעיתונות נכון ל-${stlAsOf()}. הרשימה אינה מקיפה.` : ""}</p>
+  html.push(card(`מה נבדק (${rows.length} בדיקות)`, "check", D.recalls.length || fresh.length || !knownOpen && known.length || stl.length || D.recallUnknown || D.modelRecallsUnknown || !SETTLEMENTS.length && D.kind !== "model" && !D.isCancelled ? "amber" : "green", `<ul class="insights plain">${rows.join("")}</ul>
+    <p class="note">${hz.max > hz.id ? `ריקולים פתוחים: לפי רשימת משרד התחבורה, שכוללת כרגע ריקולים שנפתחו עד ${esc(fmtDate(hz.d))}. ריקולים חדשים יותר, וקריאות שירות שאינן ריקול בטיחותי, מופיעים באתר היבואן.` : "ריקולים פתוחים: לפי משרד התחבורה. קמפיינים וקריאות שירות שאינן ריקול בטיחותי מופיעים באתר היבואן."}${stlActive() ? `<br>הסדרי פשרה: נבדקו מול ${stlActive()} הסדרים פעילים, לפי הודעות היבואנים והעיתונות (עודכן ב-${stlAsOf()}). הרשימה אינה מקיפה.` : ""}</p>
     <button type="button" class="link-btn" data-url="${esc(imp.url)}" data-copyfirst="${imp.vin ? esc(D.vin || D.plate) : D.plate}">${ico("search")}${imp.gov ? "חיפוש במאגר הריקולים של משרד התחבורה" : `בדיקת ריקולים וקמפיינים באתר ${esc(imp.name)}`}</button>
     <p class="note" style="margin:6px 0 0">מספר הרישוי יועתק, ותדביקו אותו באתר.${imp.gov ? ` ל${esc(imp.name || "יבואן הזה")} לא מצאנו עמוד בדיקה לפי מספר רישוי, ובמאגר של משרד התחבורה מחפשים לפי יצרן ודגם.` : imp.note ? " " + esc(imp.note) : ""}</p>`));
   if (mr.length) {
