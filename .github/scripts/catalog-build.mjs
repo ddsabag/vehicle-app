@@ -118,7 +118,6 @@ try {
   recHz = {id, d, from, ids, n, max: [...recByBrand.values()].flat().reduce((m, r) => Math.max(m, Number(r.RECALL_ID) || 0), 0)};
   log(`per-car list: ${pc.found} of ${pc.plates} plates in the registers; newest recall ${id} (${d}), ${ids.length} of its recalls from ${from} on; recall list to ${recHz.max}`);
 } catch (e) { log("per-car list FAILED: " + e.message); pc = null; }
-// register brand (tozar, Hebrew) -> recall brands (TOZAR_TEUR); brands with no entry have no recalls in the list (checked 17.10.2026 against all 84 recall brands).
 // register brand (tozar, Hebrew) -> recall brands (TOZAR_TEUR); brands with no entry have no recalls in the list (checked 17.10.2026 against all 84 recall brands)
 const BRANDS = {"טויוטה": ["TOYOTA"], "פורד": ["FORD"], "ב מ וו": ["BMW"], "ג'יפ": ["JEEP"], "שברולט": ["CHEVROLET"], "הונדה": ["HONDA"], "מרצדס": ["MERCEDES BENZ"], "מרצדס בנץ": ["MERCEDES BENZ"],
   "סובארו": ["SUBARU"], "יונדאי": ["HYUNDAI"], "פולקסווגן": ["VOLKSWAGEN"], "אאודי": ["AUDI"], "אודי": ["AUDI"], "מזדה": ["MAZDA"], "קרייזלר": ["CHRYSLER"], "דיימלר קרייזלר": ["CHRYSLER", "MERCEDES BENZ"], "דימלרקריזלר": ["CHRYSLER", "MERCEDES BENZ"],
@@ -148,10 +147,15 @@ const cols = keepIdx.map(i => COLS.concat(EXTRA)[i]), makers = {};
 let bytes = 0, files = 0, biggest = ["", 0];
 const brandOf = new Map();   // register maker code -> Hebrew brand (tozar)
 const top = (rows, i) => { const m = new Map(); for (const w of rows) m.set(String(w[i]), (m.get(String(w[i])) || 0) + 1); return [...m.entries()].sort((a, b) => b[1] - a[1])[0][0]; };
+// the brand of a maker whose WLTP rows mostly or all leave tozar empty (לקסוס ארה"ב and פורד ד. אפריקה on 19.10.2026): the brand its rows that have one name,
+// else the brand its name starts with, so the maker keeps its recall file
+const nameBrands = Object.keys({...BRANDS, ...BRANDS_MORE}).sort((a, b) => b.length - a.length), noBrand = [];
+const brandOfMaker = (rows, n) => { const named = rows.filter(w => String(w[I.tozar]).trim()); if (named.length) return top(named, I.tozar);
+  const b = nameBrands.find(k => n === k || n.startsWith(k + " ")) || ""; noBrand.push(`${n}${b ? " -> " + b : ""}`); return b; };
 for (const [cd, rows] of byMaker) {
   for (const w of rows) for (let i = 0; i < COLS.length + EXTRA.length; i++) if (w[i] === undefined) w[i] = "";
   rows.sort((a, b) => (b[I.shnat_yitzur] || 0) - (a[I.shnat_yitzur] || 0) || String(a[I.kinuy_mishari]).localeCompare(String(b[I.kinuy_mishari])));
-  const n = top(rows, I.tozeret_nm), eretz = top(rows, I.tozeret_eretz_nm), tozar = top(rows, I.tozar);
+  const n = top(rows, I.tozeret_nm), eretz = top(rows, I.tozeret_eretz_nm), tozar = brandOfMaker(rows, String(n).trim());
   const byModel = new Map();
   for (const w of rows) { const m = String(w[I.kinuy_mishari] || w[I.degem_nm] || "").trim().toUpperCase() || "-"; if (!byModel.has(m)) byModel.set(m, []); byModel.get(m).push(w); }
   fs.mkdirSync(`${OUT}/c/${cd}`, {recursive: true});
@@ -173,6 +177,7 @@ for (const [cd, rows] of byMaker) {
   const idx = JSON.stringify({u, cd: Number(cd), n, eretz, tozar, cols, imp, models, degems});
   fs.writeFileSync(`${OUT}/c/${cd}.json`, idx); bytes += idx.length;
 }
+if (noBrand.length) log("makers whose rows name no brand (brand taken from the maker name): " + noBrand.join(", "));
 // one recall file per register maker code, holding every recall of that maker's brand (the app matches the model name itself), and the per-car list's
 // models and years per recall; a recall that list holds for the maker's cars and the brand's rows lack comes from another brand's rows, or is written
 // from the per-car list's own text when the recall list does not have it (in x, with the sister brands' rows)
