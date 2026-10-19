@@ -4,7 +4,7 @@
 const CF_TAG = "9bb0e756882c478a808d95596e0deade";
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-21";   // shown in /live/data so the running version is visible
+const BUILD = "live-22";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -22,9 +22,11 @@ async function verifyAccess(req, env) {
   return ok && aud.includes(env.ACCESS_AUD) && pay.exp * 1000 > Date.now() && pay.iss === `https://${env.ACCESS_TEAM_DOMAIN}`;
 }
 
+// one token for every Google API the screen reads (a Worker request may make only 50 outside calls, so no token per API)
+const SCOPES = ["analytics.readonly", "webmasters.readonly", "androidpublisher", "devstorage.read_only"].map(x => "https://www.googleapis.com/auth/" + x).join(" ");
 const gtoks = {};
-async function googleToken(env, scope = "https://www.googleapis.com/auth/analytics.readonly") {
-  const c = gtoks[scope]; if (c && Date.now() < c.exp) return c.tok;
+async function googleToken(env) {
+  const scope = SCOPES, c = gtoks[scope]; if (c && Date.now() < c.exp) return c.tok;
   const sa = JSON.parse(env.GA_SERVICE_ACCOUNT_JSON), now = Math.floor(Date.now() / 1000);
   const enc = o => b64u(new TextEncoder().encode(JSON.stringify(o)));
   const unsigned = enc({ alg: "RS256", typ: "JWT" }) + "." + enc({ iss: sa.client_email, scope, aud: "https://oauth2.googleapis.com/token", iat: now, exp: now + 3000 });
@@ -167,7 +169,7 @@ async function playRelease(env) {
   relAt = Date.now();
   try {
     const r = await fetch("https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.ddsabag.pratirechev/tracks/production/releases",
-      { headers: { authorization: "Bearer " + await googleToken(env, "https://www.googleapis.com/auth/androidpublisher") }, signal: AbortSignal.timeout(8e3) });
+      { headers: { authorization: "Bearer " + await googleToken(env) }, signal: AbortSignal.timeout(8e3) });
     if (!r.ok) { const t = await r.text(); let m = t; try { m = JSON.parse(t).error.message || t; } catch {} rel = { ok: false, why: r.status + " " + String(m).replace(/\s+/g, " ").slice(0, 160) }; }
     else {
       const list = ((await r.json()).releases || []).map(x => ({ name: String(x.releaseName || "").slice(0, 40), state: String(x.releaseLifecycleState || "").replace("RELEASE_LIFECYCLE_STATE_", "").toLowerCase(),
@@ -204,7 +206,7 @@ async function playStats(env, today) {
   if (pst && Date.now() - pstAt < (pst.ok ? 3 * 3600e3 : 900e3)) return pst;
   pstAt = Date.now();
   try {
-    const tok = await googleToken(env, "https://www.googleapis.com/auth/devstorage.read_only");
+    const tok = await googleToken(env);
     const month = k => { const d = new Date(Date.parse(today.slice(0, 7) + "-15T12:00:00Z")); d.setUTCMonth(d.getUTCMonth() + k); return d.toISOString().slice(0, 7).replace("-", ""); };
     const get = async (kind, m) => {
       const r = await fetch(`https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(bucket)}/o/${encodeURIComponent(`stats/${kind}/${kind}_${PKG}_${m}_country.csv`)}?alt=media`,
@@ -248,11 +250,11 @@ async function gaTimeZone(env) {
   return gaTz;
 }
 
-const SC = "sc-domain:luchit.app", SCOPE_SC = "https://www.googleapis.com/auth/webmasters.readonly";
+const SC = "sc-domain:luchit.app";
 let seo = null, seoAt = 0;
 async function collectSeo(env, today) {
   if (seo && Date.now() - seoAt < 1800e3) return seo;
-  const t = await googleToken(env, SCOPE_SC), base = `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(SC)}`;
+  const t = await googleToken(env), base = `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(SC)}`;
   const errors = {}, safe = (p, k) => p.catch(e => { errors[k] = String(e.message || e).slice(0, 160); return null; });
   const q = async body => { const r = await fetch(base + "/searchAnalytics/query", { method: "POST", headers: { authorization: "Bearer " + t, "content-type": "application/json" }, body: JSON.stringify(body) }); if (!r.ok) throw new Error("search console " + r.status + " " + (await r.text()).replace(/\s+/g, " ").slice(0, 100)); return (await r.json()).rows || []; };
   const end = addDays(today, -3), w1 = [addDays(end, -6), end], w0 = [addDays(end, -13), addDays(end, -7)], d28 = [addDays(end, -27), end];
@@ -294,6 +296,8 @@ async function collect(env) {
   const today = ilDay(Date.now()), yday = addDays(today, -1);
   const errors = {};
   const safe = (p, k) => p.catch(e => { errors[k] = String(e.message || e).slice(0, 200); return null; });
+  // a Worker request may make only 50 outside calls: get the token once, before the parallel calls, or each of them fetches its own
+  await googleToken(env).catch(() => {});
   const [series, events, vers, vToday, vYday, dly, sc, wk, ps, rl, pls, tz] = await Promise.all([
     safe(realtime(env, { dimensions: [{ name: "minutesAgo" }], metrics: [{ name: "eventCount" }], dimensionFilter: REAL }), "series"),
     safe(realtime(env, { dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: REAL, limit: 40 }), "events"),
