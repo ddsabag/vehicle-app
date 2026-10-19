@@ -7,8 +7,8 @@ name: Magazine
 #   Both go through the same check-and-publish step: published on its own after seo-check passes (silent Telegram notice), otherwise an alert.
 #   The job is named after the part ("article" or "data-article") so Failure alert never takes a failure of one for a repeat of the other.
 # - newsletter (newsletter.mjs): after the monthly article PR is merged (a push that changes magazine/posts.json on main) it prepares the Brevo
-#   campaign for it. By default it only saves a DRAFT in Brevo for you to review and send; the repository variable NEWSLETTER_AUTOSEND=true
-#   sends it automatically. Run it by hand (part = newsletter) for a preview. It is not a main writer, so it keeps its own queue.
+#   campaign for it. By default it only saves a DRAFT in Brevo for you to review and send (a Telegram line says it is waiting); the repository
+#   variable NEWSLETTER_AUTOSEND=true sends it automatically (and Telegram says it went out). Run it by hand (part = newsletter) for a preview. It is not a main writer, so it keeps its own queue.
 # The run name carries the part ("Magazine (data)"): Failure alert counts only a newer run of the same part as taking a cancelled run's place,
 # and Web deploy skips the newsletter runs (they never change main; the push that started one already triggers Web deploy itself).
 run-name: Magazine (${{ github.event.schedule == '30 5 * * 4' && 'data' || github.event_name == 'push' && 'newsletter' || inputs.part || 'monthly' }})
@@ -141,7 +141,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
-      contents: read
+      contents: write   # only for the alert router's state on the alert-state branch; the newsletter never writes main
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v7
@@ -150,6 +150,10 @@ jobs:
         env:
           BREVO_KEY: ${{ secrets.BREVO_KEY || secrets.BREVO_API_KEY }}
           BREVO_LIST_ID: ${{ vars.BREVO_LIST_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (vars.NEWSLETTER_AUTOSEND == 'true' && 'send' || 'draft') }}
       - uses: actions/upload-artifact@v7
         with: { name: newsletter-preview, path: out/newsletter.html }

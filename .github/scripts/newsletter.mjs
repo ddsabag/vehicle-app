@@ -1,6 +1,7 @@
 // Creates (and optionally sends) the Brevo campaign for the newest monthly magazine issue (slug YYYY-MM).
 // Env: BREVO_KEY, BREVO_LIST_ID; MODE = preview (default, writes out/newsletter.html) | draft (campaign saved in Brevo, not sent) | send
 // A campaign is named "magazine-<slug>"; if one already exists the script stops, so a re-run never mails twice.
+// After a draft or a send, one Telegram line (alert router, day) tells Dudu, so a draft never waits in Brevo unseen.
 import fs from "node:fs";
 const MODE = process.env.MODE || "preview", KEY = process.env.BREVO_KEY, LIST = Number(process.env.BREVO_LIST_ID);
 const posts = JSON.parse(fs.readFileSync("magazine/posts.json", "utf8"));
@@ -34,4 +35,23 @@ if (MODE === "send") {
   const s = await api(`/emailCampaigns/${j.id}/sendNow`, { method: "POST" });
   if (!s.ok) { console.error("send failed", s.status, (await s.text()).slice(0, 300)); process.exit(1); }
   console.log("sent");
-} else console.log("left as a draft in Brevo: review it there and press Send");
+  await tell(`הניוזלטר של ${post.month} נשלח לרשימה: ${post.title}`);
+} else {
+  console.log("left as a draft in Brevo: review it there and press Send");
+  await tell(`טיוטת הניוזלטר של ${post.month} מחכה ב-Brevo: ${post.title}\nבקמפיינים, תחת ${name}: לקרוא ולשלוח.`);
+}
+
+async function telegram(text){
+  const e = process.env;
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${e.TELEGRAM_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: e.TELEGRAM_CHAT_ID, text, disable_web_page_preview: true }), signal: AbortSignal.timeout(20000) });
+    console.log("telegram " + r.status); return r.ok;
+  } catch (x) { console.log("telegram failed " + x.message); return false; }
+}
+async function tell(text){
+  if (!process.env.TELEGRAM_BOT_TOKEN || !process.env.TELEGRAM_CHAT_ID) { console.log("no Telegram credentials:\n" + text); return; }
+  let router = null; try { router = await import("./alert.mjs"); } catch {}
+  const legacy = () => telegram(text);
+  if (router) await router.alert("day", name, text, "https://app.brevo.com/", { today: "loud", plain: true, legacy });
+  else await legacy();
+}
