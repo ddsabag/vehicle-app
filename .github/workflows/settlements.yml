@@ -1,6 +1,7 @@
 name: Settlements
 # The class-action settlements list (settlements.json at the site root), which the app reads from the site, so an update needs no app release.
-#  - A push to main or next that touches the list or its checks: settlements.mjs check (a broken entry fails the run) and, on main, one Telegram
+#  - A push to main or next that touches the list or its checks: settlements.mjs check (a broken entry fails the run), stl-parity.mjs (the
+#    phone's Java match, which alerts on a new settlement for a saved car, agrees with the page's) and, on main, one Telegram
 #    line naming what was added, changed or removed (alert router, day; nothing when only the `checked` date moved).
 #  - Sunday: the weekly watch. Coverage against the model catalogue (a rule that matches no model, takes a longer model code, or took on new model
 #    names) and the free news sources (TheCar, Google News, court notices on yitzugit.co.il), into an inbox on the settlements-watch branch
@@ -9,7 +10,7 @@ name: Settlements
 on:
   push:
     branches: [main, next]
-    paths: ["settlements.json", ".github/scripts/settlements.mjs", ".github/workflows/settlements.yml"]
+    paths: ["settlements.json", ".github/scripts/settlements.mjs", ".github/scripts/stl-parity.mjs", "android/app/src/main/java/com/ddsabag/pratirechev/SettlementMatch.java", ".github/workflows/settlements.yml"]
   schedule:
     - cron: "43 4 * * 0"   # Sunday 04:43 UTC (07:43 Israel summer time, 06:43 winter), off the full hour, hours before the weekly review
   workflow_dispatch:
@@ -30,6 +31,8 @@ jobs:
           node-version: 22
       - run: node .github/scripts/settlements.mjs selftest
       - run: node .github/scripts/settlements.mjs check
+      - name: The phone's daily check matches as the page does (SettlementMatch.java against stlCompile, on cars from the catalogue)
+        run: node .github/scripts/stl-parity.mjs
       - name: Telegram line on main (what changed since the last push)
         if: ${{ github.ref == 'refs/heads/main' }}
         env:

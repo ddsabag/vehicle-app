@@ -1160,10 +1160,10 @@ const store = {
 /* the app checks saved cars once a day for a new recall or a test about to expire */
 function syncSaved(list){
   const b = window.AndroidApp; if (!b || !b.syncSaved) return;
-  try { b.syncSaved(JSON.stringify((list || []).map((x, i) => ({plate: x.plate, title: x.title || "", alerts: alertSet().includes(x.plate), ext: plan() !== "free", svcDue: svcDue(x.plate), prefs: alertPrefs(), docs: docExpAll().filter(d => d.plate === x.plate).map(d => ({cat: d.cat, exp: d.exp}))})))); } catch {}
+  try { b.syncSaved(JSON.stringify((list || []).map((x, i) => ({plate: x.plate, title: x.title || "", alerts: alertSet().includes(x.plate), ext: plan() !== "free", svcDue: svcDue(x.plate), stlCar: x.stlCar || null, prefs: alertPrefs(), docs: docExpAll().filter(d => d.plate === x.plate).map(d => ({cat: d.cat, exp: d.exp}))})))); } catch {}
 }
 /* what to be alerted about: every kind is on by default and the user can switch each one off in settings */
-const ALERT_KINDS = [["test", "טסט שעומד לפוג או שפג"], ["recall", "ריקול חדש או שנסגר"], ["service", "תזכורות טיפול"], ["docs", "תוקף ביטוח ומסמכים"], ["owner", "בעלות חדשה (PRO)"], ["status", "ירידה מהכביש ושינוי רשום (PRO)"], ["settlement", "הסדר פשרה חדש, הודעה בתוך האפליקציה (PRO)"]];
+const ALERT_KINDS = [["test", "טסט שעומד לפוג או שפג"], ["recall", "ריקול חדש או שנסגר"], ["service", "תזכורות טיפול"], ["docs", "תוקף ביטוח ומסמכים"], ["owner", "בעלות חדשה (PRO)"], ["status", "ירידה מהכביש ושינוי רשום (PRO)"], ["settlement", "הסדר פשרה חדש (PRO)"]];
 const alertPrefs = () => { try { return Object.assign({}, JSON.parse(localStorage.getItem("alertPrefs") || "{}")); } catch { return {}; } };
 const prefOn = k => alertPrefs()[k] !== false;
 function fillAnalytics(){
@@ -1444,6 +1444,16 @@ const normS = t => String(t || "").toUpperCase().replace(/[^A-Z0-9א-ת]/g, "");
 function settlementsFor(D){
   const v = D.v, y = num(v.shnat_yitzur), now = new Date(), x = {mk: normS(makerOnly(D)), md: normS([v.kinuy_mishari, v.degem_nm].join(" "))};
   return SETTLEMENTS.filter(s => !(new Date(s.until + "T23:59:59") < now) && s.mk.test(x.mk) && (!s.md || s.md.test(x.md)) && (!s.y || y >= s.y[0] && y <= s.y[1]) && (!s.ok || s.ok(v, y, x)));
+}
+/* the car as settlementsFor and stlCompile read it, kept on the saved car for the phone's daily check (SettlementMatch.java matches
+   settlements.json without the page; .github/scripts/stl-parity.mjs checks that both agree). null for a car off the road. */
+function stlCar(D){
+  try {
+    if (!D || !D.v || D.kind === "model" || D.isCancelled) return null;
+    const v = D.v;
+    return {mk: normS(makerOnly(D)), md: normS([v.kinuy_mishari, v.degem_nm].join(" ")), y: num(v.shnat_yitzur), color: v.tzeva_rechev || "", fuel: v.sug_delek_nm || "",
+      txt: [v.sug_delek_nm, v.ramat_gimur, v.kinuy_mishari, v.degem_nm].join(" "), cc: num(v.nefach_manoa)};
+  } catch { return null; }
 }
 const stlSeen = new Set();
 const stlAsOf = () => STL_DATE ? `${+STL_DATE.slice(5, 7)}/${STL_DATE.slice(0, 4)}` : "10/2026";
@@ -4741,8 +4751,9 @@ async function checkSaved(){
           if (it.active === true && !isAct) add("status", "הרכב ירד מהכביש");
           if (isAct) { it.active = true; const t = String(act[0].tokef_dt || "").slice(0, 10); if (t && it.tokef && t > String(it.tokef).slice(0, 10)) add("test", "הטסט חודש עד " + fmtDate(t)); if (t) it.tokef = act[0].tokef_dt; }
         }
-        if (ext && prefOn("settlement") && await loadSettlements() && it.stlSig !== STL_SIG) {
+        if (ext && prefOn("settlement") && await loadSettlements() && (it.stlSig !== STL_SIG || it.stlCar === undefined)) {
           const D = await fetchVehicle(s.plate).catch(() => null);
+          if (D && !D.offline && !D.notFound && D.kind !== "model" && !(D.errs || []).some(e => e.role === "main")) it.stlCar = stlCar(D);   // cars saved before 1.35 get it here
           if (D && !D.offline && !D.notFound && D.kind !== "model" && !D.isCancelled) {
             const ids = settlementsFor(D).map(x => x.id), fresh = it.stl ? ids.filter(i => !it.stl.includes(i)) : [];
             if (fresh.length) add("settlement", "ייתכן שהרכב נכלל בהסדר פשרה חדש");
@@ -4771,7 +4782,10 @@ function savedSync(D){
   // the test date only from a full answer of the registers (a car off the road keeps the last one, as in the daily check)
   const t = D.isCancelled || (D.errs || []).some(s => s.role === "main") ? "" : String(D.v.tokef_dt || "").slice(0, 10);
   if (t) { if (it.tokef && t > String(it.tokef).slice(0, 10)) add("test", "הטסט חודש עד " + fmtDate(t)); it.tokef = D.v.tokef_dt; }
-  if (it.recalls === was[0] && it.tokef === was[1]) return;
+  // the settlement summary for the phone's daily check, from the same full answer (NaN is stored as null, so compare as JSON)
+  const sc = (D.errs || []).some(s => s.role === "main") ? undefined : JSON.stringify(stlCar(D)), scNew = sc !== undefined && sc !== JSON.stringify(it.stlCar === undefined ? null : it.stlCar);
+  if (scNew) it.stlCar = JSON.parse(sc);
+  if (it.recalls === was[0] && it.tokef === was[1] && !scNew) return;
   if (ev.length) it.events = [...ev, ...(it.events || [])].slice(0, 30);
   store.set("savedVehicles", list);
 }
@@ -5045,7 +5059,7 @@ function renderFleet(){
 /* ---------- buying companion (PRO / buyer pack) ---------- */
 const savedItem = p => store.get("savedVehicles").find(x => x.plate === p);
 const candFields = D => ({fair: D.cost && D.cost.valueLow ? [D.cost.valueLow, D.cost.valueHigh] : null, c5: D.cost && D.cost.monthly ? D.cost.monthly.total * 60 : null});
-const newSavedItem = D => ({plate: D.plate, title: D.title, sub: D.sub, at: Date.now(), tokef: D.v.tokef_dt || "", recalls: D.recallUnknown ? undefined : D.recalls.length, checked: Date.now(), owners: D.own.length, ownLast: D.own.reduce((m, r) => Math.max(m, Number(r.baalut_dt) || 0), 0), active: !D.isCancelled, events: [], ...candFields(D)});
+const newSavedItem = D => ({plate: D.plate, title: D.title, sub: D.sub, at: Date.now(), tokef: D.v.tokef_dt || "", recalls: D.recallUnknown ? undefined : D.recalls.length, checked: Date.now(), owners: D.own.length, ownLast: D.own.reduce((m, r) => Math.max(m, Number(r.baalut_dt) || 0), 0), active: !D.isCancelled, events: [], stlCar: stlCar(D), ...candFields(D)});
 function askVerdict(ask, fair){
   if (!ask || !fair) return null;
   const [lo, hi] = fair, r = x => fmtN(Math.round(x / 100) * 100) + " ₪";

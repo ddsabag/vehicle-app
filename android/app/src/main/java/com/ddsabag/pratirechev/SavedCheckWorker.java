@@ -29,8 +29,10 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -38,7 +40,8 @@ import java.util.concurrent.TimeUnit;
 /**
  * Once a day, checks the saved cars: a new open recall, or a test that expires in 30 or 7 days,
  * becomes a notification. The saved list is handed over by the page (localStorage is not readable here).
- * Only the public Ministry of Transport API is called; nothing leaves the phone otherwise.
+ * Only the public Ministry of Transport API is called with a plate. The settlements list (luchit.app/settlements.json) is read
+ * as a whole and matched on the phone, so no car detail leaves the phone for it.
  */
 public class SavedCheckWorker extends Worker {
     static final String PREFS = "saved_alerts";
@@ -48,6 +51,8 @@ public class SavedCheckWorker extends Worker {
     private static final String RECALLS = "36bf1404-0be4-49d2-82dc-2f1ead4a8b93";
     private static final String ACTIVE = "053cea08-09bc-40ec-8f7a-156f0677aff3";
     private static final String OWNERS = "bb2355dc-9ec7-4f06-9c3f-3344672171da";
+    private static final String SETTLEMENTS = "https://luchit.app/settlements.json";
+    private List<SettlementMatch.Entry> settlements;   // read once per run, on the first car that needs it
 
     public SavedCheckWorker(@NonNull Context c, @NonNull WorkerParameters p) {
         super(c, p);
@@ -142,6 +147,12 @@ public class SavedCheckWorker extends Worker {
                         }
                         try {
                             checkMods(c, p, plate, name);
+                        } catch (Exception ignored) {
+                        }
+                    }
+                    if (on(pr, "settlement")) {
+                        try {
+                            checkSettlements(c, p, plate, name, car.optJSONObject("stlCar"));
                         } catch (Exception ignored) {
                         }
                     }
@@ -331,6 +342,41 @@ public class SavedCheckWorker extends Worker {
         p.edit().putString(key, sig).apply();
     }
 
+    /**
+     * A settlement the weekly review added, or widened, that may apply to the car (the same match as the car's page, on the page's
+     * summary of the car). Like recalls, the first check only records what already applies, so saving a car never triggers an alert.
+     */
+    private void checkSettlements(Context c, SharedPreferences p, String plate, String name, JSONObject car) throws Exception {
+        if (car == null || !budget(c)) return;
+        if (settlements == null) {
+            settlements = Collections.emptyList();   // a list that failed to load is not asked for again by the next car in this run
+            settlements = SettlementMatch.compile(new JSONObject(fetch(SETTLEMENTS)).optJSONArray("items"));
+        }
+        if (settlements.isEmpty()) return;   // an empty or unreadable list says nothing about the car
+        String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
+        List<SettlementMatch.Entry> hits = SettlementMatch.match(settlements, car, today, Calendar.getInstance().get(Calendar.YEAR));
+        String key = "stl_" + plate;
+        Set<String> seen = new HashSet<>(p.getStringSet(key, new HashSet<>()));
+        if (p.contains(key)) {
+            SettlementMatch.Entry first = null;
+            int fresh = 0;
+            for (SettlementMatch.Entry e : hits) {
+                if (seen.contains(e.id)) continue;
+                if (first == null) first = e;
+                fresh++;
+            }
+            if (first != null) {
+                notify(c, plate, ("stl" + plate).hashCode(),
+                        "ייתכן שמגיעה הטבה לרכב " + fmtPlate(plate),
+                        (name.isEmpty() ? "" : name + ": ") + (fresh == 1 ? "נוסף הסדר פשרה שעשוי לחול על הרכב: " : "נוספו " + fresh + " הסדרי פשרה שעשויים לחול על הרכב, ביניהם: ")
+                                + first.title + ". הפרטים בלשונית ריקולים.");
+            }
+        }
+        // every id that ever applied stays known, so an entry that drops out for a while and comes back does not alert twice
+        for (SettlementMatch.Entry e : hits) seen.add(e.id);
+        p.edit().putStringSet(key, seen).apply();
+    }
+
     private static boolean on(JSONObject prefs, String kind) {
         return prefs == null || prefs.optBoolean(kind, true);
     }
@@ -386,29 +432,33 @@ public class SavedCheckWorker extends Worker {
             try {
                 JSONObject f = new JSONObject().put(field, v);
                 String url = API + "?resource_id=" + resource + "&limit=100&filters=" + URLEncoder.encode(f.toString(), "UTF-8");
-                HttpURLConnection con = (HttpURLConnection) new URL(url).openConnection();
-                con.setConnectTimeout(15000);
-                con.setReadTimeout(20000);
-                con.setRequestProperty("Accept", "application/json");
-                try (InputStream in = con.getInputStream()) {
-                    ByteArrayOutputStream out = new ByteArrayOutputStream();
-                    byte[] buf = new byte[8192];
-                    int n;
-                    while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
-                    JSONObject j = new JSONObject(out.toString("UTF-8"));
-                    if (!j.optBoolean("success")) throw new Exception("api error");
-                    ok = true;
-                    JSONArray r = j.getJSONObject("result").getJSONArray("records");
-                    if (r.length() > 0) return r;
-                } finally {
-                    con.disconnect();
-                }
+                JSONObject j = new JSONObject(fetch(url));
+                if (!j.optBoolean("success")) throw new Exception("api error");
+                ok = true;
+                JSONArray r = j.getJSONObject("result").getJSONArray("records");
+                if (r.length() > 0) return r;
             } catch (Exception e) {
                 last = e;
             }
         }
         if (!ok && last != null) throw last;
         return new JSONArray();
+    }
+
+    private static String fetch(String url) throws Exception {
+        HttpURLConnection con = (HttpURLConnection) new URL(url).openConnection();
+        con.setConnectTimeout(15000);
+        con.setReadTimeout(20000);
+        con.setRequestProperty("Accept", "application/json");
+        try (InputStream in = con.getInputStream()) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+            return out.toString("UTF-8");
+        } finally {
+            con.disconnect();
+        }
     }
 
     static String fmtPlate(String p) {
