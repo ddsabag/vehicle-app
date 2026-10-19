@@ -16,7 +16,9 @@ const html = fs.readFileSync("email/newsletter.html", "utf8")
   .replaceAll("[[TITLE]]", esc(post.title))
   .replaceAll("[[LEAD]]", esc(lead))
   .replaceAll("[[PLAY_URL]]", `https://play.google.com/store/apps/details?id=com.ddsabag.pratirechev&referrer=${encodeURIComponent(`utm_source=newsletter&utm_medium=email&utm_campaign=${post.slug}`)}`)
-  .replaceAll("[[URL]]", `https://luchit.app/magazine/${post.slug}/?utm_source=newsletter&utm_medium=email&utm_campaign=${post.slug}`);
+  .replaceAll("[[URL]]", `https://luchit.app/magazine/${post.slug}/?utm_source=newsletter&utm_medium=email&utm_campaign=${post.slug}`)
+  // the logo and "luchit.app" in the text lead to the home page: tagged too, so the dashboard counts those visits under the newsletter
+  .replaceAll('href="https://luchit.app/"', `href="https://luchit.app/?utm_source=newsletter&amp;utm_medium=email&amp;utm_campaign=${post.slug}"`);
 fs.mkdirSync("out", { recursive: true }); fs.writeFileSync("out/newsletter.html", html);
 console.log(`rendered newsletter for ${post.slug}: ${post.title}`);
 if (MODE === "preview") process.exit(0);

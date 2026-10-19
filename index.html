@@ -736,7 +736,7 @@ const PRO_LOCK = false;
 function safeTerm(t){ t = String(t || "").trim().toLowerCase().slice(0, 40); if (/[^a-z\u05d0-\u05ea0-9 \-]/.test(t) || (t.match(/[a-z\u05d0-\u05ea]/g) || []).length < 2 || t.replace(/[^0-9]/g, "").length >= 5) return ""; return t; }
 const simpleOn = () => { try { return localStorage.getItem("simpleView") === "1"; } catch { return false; } };
 /* automated browsers (test tools, Google's page checks, crawlers that run scripts) are not users: they never count */
-const BOT_UA = /(?:^|[^a-z])bot\b|[a-z]bot\/|crawl|spider|slurp|lighthouse|headlesschrome|pagespeed|inspectiontool/i;
+const BOT_UA = /(?:^|[^a-z])bot\b|[a-z]bot\/|crawl|spider|slurp|lighthouse|headlesschrome|pagespeed|inspectiontool|adsbot|storebot|googleother|pagerenderer/i;
 const analyticsOn = () => { if (navigator.webdriver || BOT_UA.test(navigator.userAgent || "")) return false; try { return localStorage.getItem("analyticsOff") !== "1"; } catch { return true; } };
 /* wording experiments (run by the Experimenter workflow): each device keeps one random variant; experiments.json on the site may name a winner or switch an experiment off.
    Only texts are tested. Variant 0 is the control. Exposure and result events carry exp + exp_v so GA4 can compare the variants. */
@@ -765,8 +765,41 @@ function lookupFacts(D) {
 }
 /* app: Firebase. web: the same events go to our own /api/e (luchit-api Worker -> GA4 web stream), no cookies, no stored id; the Worker drops anything that looks like a plate */
 const track = (name, params) => { try { if (!analyticsOn()) return; const b = window.AndroidApp; if (b) { if (b.logEvent) b.logEvent(name, JSON.stringify(params || {})); return; }
-  if (location.protocol === "https:" && navigator.sendBeacon) navigator.sendBeacon("/api/e", new Blob([JSON.stringify({n: name, p: params || {}, cid: WEB_CID})], {type: "text/plain"})); } catch {} };
+  if (document.prerendering) { document.addEventListener("prerenderingchange", () => track(name, params), {once: true}); return; }   // a page Chrome loaded ahead counts only once it is opened
+  if (location.protocol === "https:" && navigator.sendBeacon) navigator.sendBeacon("/api/e", new Blob([JSON.stringify({n: name, p: {src: LAND, ...(params || {})}, cid: WEB_CID})], {type: "text/plain"})); } catch {} };
 const WEB_CID = Math.floor(Math.random() * 2e9) + "." + Math.floor(Date.now() / 1000);   // per page load only, never saved
+/* web: where this visit came from, sent with every web event (src) so the live dashboard can count visits and car checks by source. GA4 gets
+   the site's events without a session, so it cannot tell the source itself. In order: "share" for a shared report or comparison (s=), our
+   own links' utm_source (/go/fb = facebook), the campaign this visit arrived with on an earlier page (FT, sessionStorage), a link to a car or a
+   comparison ("share" from outside the site, "site" from a plate form on one of our pages), else the referring site or app in the marketing
+   plan's buckets; "site" = another page of luchit.app. Never a URL. */
+const SRC_ALIAS = {fb: "facebook", ig: "instagram", yt: "youtube", wa: "whatsapp", li: "linkedin", tt: "tiktok", mail: "newsletter", email: "newsletter"};
+const srcName = v => { const k = String(v || "").toLowerCase().replace(/[^a-z]/g, "").slice(0, 12); return SRC_ALIAS[k] || k; };
+// apps that open links name themselves in an android-app:// referrer; any other app is "other" (Gmail and Messages are not Google search)
+const REF_APPS = {"com.google.android.googlequicksearchbox": "google", "com.google.android.youtube": "youtube", "com.whatsapp": "whatsapp", "com.whatsapp.w4b": "whatsapp",
+  "com.facebook.katana": "facebook", "com.facebook.orca": "facebook", "com.facebook.lite": "facebook", "com.instagram.android": "instagram",
+  "com.zhiliaoapp.musically": "tiktok", "com.ss.android.ugc.trill": "tiktok", "com.linkedin.android": "linkedin"};
+// the page that linked here is one of ours (a model page, the magazine, the home page itself): an arrival from outside it is not
+const REF_OWN = (() => { try { const h = new URL(document.referrer).hostname.toLowerCase(); return h === location.hostname || /(^|\.)luchit\.app$/.test(h); } catch { return false; } })();
+const LAND = (() => { try {
+  const q = new URLSearchParams(location.search);
+  let ref = null; try { ref = new URL(document.referrer); } catch {}
+  const h = ref ? ref.hostname.toLowerCase() : "", own = REF_OWN;
+  // s=bar comes back from the "open in the app" bar of a page already open, s=copy from its "copy the link" button: the same visit going on
+  if (q.get("s")) return own || q.get("s") === "bar" ? "site" : "share";
+  const u = srcName(q.get("utm_source"));
+  if (u) return u;
+  // a later page of the same visit (back from a model page, a reload) keeps the campaign it arrived with (FT below, and lib/cfb.js on the other pages)
+  try { const ft = JSON.parse(sessionStorage.getItem("ft") || "null"); if (ft && ft.s) return srcName(ft.s) || "other"; } catch {}
+  if (q.get("plate") || q.get("cmp") || q.get("compare")) return own ? "site" : "share";
+  if (!h) return "direct";
+  if (own) return "site";
+  if (ref.protocol === "android-app:") return REF_APPS[h] || "other";
+  for (const [re, k] of [[/(^|\.)(youtube\.|youtu\.be$)/, "youtube"], [/(^|\.)(whatsapp\.|wa\.me$)/, "whatsapp"], [/(^|\.)(facebook|fb)\./, "facebook"],
+    [/(^|\.)instagram\./, "instagram"], [/(^|\.)tiktok\./, "tiktok"], [/(^|\.)(linkedin\.|lnkd\.in$)/, "linkedin"], [/^mail\.google\./, "other"],
+    [/(^|\.)google\./, "google"], [/(^|\.)(bing|duckduckgo|yahoo|yandex|baidu|ecosia)\./, "search"]]) if (re.test(h)) return k;
+  return "other";
+} catch { return "other"; } })();
 /* silent failures worth knowing about (a dataset that errors, a library that does not load): sent to Crashlytics as a non-fatal, tag only, never a plate */
 /* a JavaScript error nobody sees: counted (line number only, never the message, which could hold a plate), at most 5 per session */
 let jsErrN = 0;
@@ -1121,7 +1154,7 @@ async function copyText(t, label){
    and when a car is on screen its plate rides along, so the app's first launch opens the same car */
 /* the campaign a visit arrived with (utm_source=tiktok …) is kept for the session, without any identifier, so the Play link and the install
    click carry the real source; first link wins */
-const FT = (() => { try { const prev = sessionStorage.getItem("ft"); if (prev) return JSON.parse(prev); const q = new URLSearchParams(location.search), clean = (k, n) => (q.get(k) || "").toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, n); const s = clean("utm_source", 12); if (!s || s === "share" || s === "luchitapp") return null; const o = {s, m: clean("utm_medium", 12) || "web", c: clean("utm_campaign", 24)}; sessionStorage.setItem("ft", JSON.stringify(o)); return o; } catch { return null; } })();
+const FT = (() => { try { const prev = sessionStorage.getItem("ft"); if (prev) return JSON.parse(prev); const q = new URLSearchParams(location.search), clean = (k, n) => (q.get(k) || "").toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, n); const s = srcName(q.get("utm_source")); if (!s || s === "share" || s === "luchitapp") return null; const o = {s, m: clean("utm_medium", 12) || "web", c: clean("utm_campaign", 24)}; sessionStorage.setItem("ft", JSON.stringify(o)); return o; } catch { return null; } })();
 const playWeb = c => {
   let plate = ""; try { plate = current && current.plate && current.kind !== "model" ? current.plate : ""; } catch {}
   let ref = FT ? `utm_source=${FT.s}&utm_medium=${FT.m}&utm_campaign=${FT.c || c}&utm_content=${c}` : "utm_source=luchit.app&utm_medium=web&utm_campaign=" + c;
@@ -1455,7 +1488,7 @@ function stlSoon(s){
 }
 function settlementCard(D){
   const list = D.kind === "model" || D.isCancelled ? [] : settlementsFor(D);
-  if (list.length && !stlSeen.has(D.plate)) { stlSeen.add(D.plate); track("settlement_shown", {n: list.length}); }
+  if (!reportBuild && list.length && !stlSeen.has(D.plate)) { stlSeen.add(D.plate); track("settlement_shown", {n: list.length}); }
   if (D.kind === "model" || D.isCancelled) return "";
   if (!list.length) return "";
   const full = !PRO_LOCK || atLeast("pro");
@@ -2677,7 +2710,7 @@ function zombieCard(D){
   const z = D.kind === "model" ? null : D.zombie;
   if (!z) return "";
   const full = !PRO_LOCK || atLeast("pro");
-  if (!zSeen.has(D.plate)) { zSeen.add(D.plate); track("zombie_shown", {locked: full ? 0 : 1, via: z.via}); }
+  if (!reportBuild && !zSeen.has(D.plate)) { zSeen.add(D.plate); track("zombie_shown", {locked: full ? 0 : 1, via: z.via}); }
   const title = full ? "חשד לשיקום לאחר הורדה מהכביש" : "⚠️ חשד לשיקום לאחר הורדה מהכביש - זמין למנויי PRO";
   if (!full) return card(title, "alert", "red",
     `<ul class="insights"><li class="ins bad">${ico("alert")}<div><span>מצאנו ברישומי משרד התחבורה סימן שהרכב ירד מהכביש וחזר אליו. מתי ירד, מתי חזר ומה לבדוק זמינים למנויי PRO.</span></div></li></ul>
@@ -3490,9 +3523,13 @@ async function runModelSearch(){
     showGroups();
   } catch (err) { if (err.name !== "AbortError" && !signal.aborted) { mPending = null; msg.textContent = sq && sq.length && mGroups.length ? "" : "החיפוש נכשל. בדקו את החיבור ונסו שוב."; } }
 }
+/* a search counts as finding nothing only once the person stops typing on it: the empty answers on the way to a longer word are not misses */
+let nrTimer = null, nrLast = "";
+const mqTerm = () => ($("#mq").value || "").trim().toLowerCase().slice(0, 40);
 function showGroups(){
   const msg = $("#compareMsg"), shown = mShowAll ? mGroups : mGroups.slice(0, MODEL_SHOWN), rest = mGroups.length - shown.length;
-  if (!mGroups.length) { const term = ($("#mq").value || "").trim().toLowerCase().slice(0, 40); track("search_no_result", {kind: mNote ? "budget" : "model", term: safeTerm(term)}); }
+  clearTimeout(nrTimer);
+  if (!mGroups.length) { const term = mqTerm(), kind = mNote ? "budget" : "model"; nrTimer = setTimeout(() => { if (mGroups.length || mqTerm() !== term || nrLast === kind + term) return; nrLast = kind + term; track("search_no_result", {kind, term: safeTerm(term)}); }, 2500); }
   msg.textContent = mGroups.length ? (searchFuzzy && !mNote ? "לא נמצא בדיוק. אולי התכוונתם:" : "") : (mNote ? "לא נמצאו דגמים שמתאימים לתנאים. נסו תקציב גבוה יותר או פחות תנאים." : "לא נמצאו דגמים. נסו שם אחר, למשל שם הדגם באנגלית.");
   let lastMake = null;
   $("#mres").innerHTML = (mNote && mGroups.length ? `<div class="qsec" style="margin-top:0">${pl(mGroups.length, "דגם אחד", "דגמים")}: ${esc(mNote)}</div>` : "") + shown.map(x => (x.make !== lastMake ? (lastMake = x.make, `<div class="qsec">${esc(x.make)}</div>`) : "") + `<button type="button" class="row" data-mg="${mGroups.indexOf(x)}"><span class="t"><b>${esc(niceModel(x.model))}</b><small>${isFinite(x.from) ? (x.from === x.to ? x.from : `<span dir="ltr">${x.from}–${x.to}</span>`) : ""}${x.price ? ` · החל מ-${fmtN(x.price)} אלף ₪` : ""}</small></span>${ico("chev")}</button>`).join("")
@@ -3870,7 +3907,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "openplay") { track("web_hint_click", {where: "share_bar_iab"}); track("web_install_click", FT ? {via: FT.s} : {}); location.href = b.dataset.url; return; }
   if (b.dataset.act === "barcal") { track("web_hint_click", {where: "share_bar_cal"}); if (current) testReminderFile(current); return; }
   if (b.dataset.act === "another") { track("web_hint_click", {where: "share_bar_more"}); location.href = "/"; return; }
-  if (b.dataset.act === "copylink") { track("web_hint_click", {where: "share_bar_copy"}); copyText(location.href, "הקישור"); toast("הקישור הועתק. הדביקו אותו בדפדפן רגיל (Chrome או Safari)."); return; }
+  if (b.dataset.act === "copylink") { track("web_hint_click", {where: "share_bar_copy"}); copyText(location.href.replace(/([?&]s=)[^&#]*/, "$1copy"), "הקישור"); toast("הקישור הועתק. הדביקו אותו בדפדפן רגיל (Chrome או Safari)."); return; }
   if (b.dataset.url) {
     if (b.dataset.copyfirst) { copyText(b.dataset.copyfirst, b.dataset.copylabel || "מספר הרישוי").then(() => setTimeout(() => openExternal(b.dataset.url), 600)); return; }
     if (b.dataset.hint) track("web_hint_click", {where: b.dataset.hint});
@@ -3943,7 +3980,7 @@ $("#out").addEventListener("click", ev => {
 $("#out").addEventListener("change", ev => { const s = ev.target.closest("[data-trim]"); if (s) switchTrim(+s.dataset.trim, +s.value); });
 $("#mf").addEventListener("submit", ev => { ev.preventDefault(); const q = $("#mq").value.trim(); if (plateLike(q)) runCompare(q); else runModelSearch(); });
 let mTimer = null;
-$("#mq").addEventListener("input", () => { clearTimeout(mTimer); mGroup = null; mYear = null; mPending = null; if ($("#mq").value.trim().length >= 2) mTimer = setTimeout(runModelSearch, 350); else { $("#mres").innerHTML = ""; $("#compareMsg").textContent = ""; renderQuick(); } });
+$("#mq").addEventListener("input", () => { clearTimeout(mTimer); clearTimeout(nrTimer); mGroup = null; mYear = null; mPending = null; if ($("#mq").value.trim().length >= 2) mTimer = setTimeout(runModelSearch, 350); else { $("#mres").innerHTML = ""; $("#compareMsg").textContent = ""; renderQuick(); } });
 $("#mquick").addEventListener("click", ev => {
   const b = ev.target.closest("button"); if (!b) return;
   if (b.dataset.qcur) addToCompare(current);
@@ -4013,6 +4050,8 @@ function loadScriptOnce(src, key){
     document.head.appendChild(el);
   }));
 }
+// the off-screen report re-renders every tab, so a card counted as seen there was never on the screen
+let reportBuild = 0;
 const TAB_FN = () => ({overview: tabOverview, buy: tabBuy, recalls: tabRecalls, costs: tabCosts, maint: D => tabMaint(D) + tabCosts(D), specs: tabSpecs});
 /* The report is built off-screen from the same cards the app shows, with every card open */
 function buildReport(D, full, biz){
@@ -4025,7 +4064,7 @@ function buildReport(D, full, biz){
   // the maintenance tab holds the private service log and interval table, so it is never part of a shared report
   const tabs = (full ? REPORT_TABS : REPORT_TABS.filter(([k]) => k === (currentTab === "maint" ? "overview" : currentTab))).filter(([k]) => !biz || k !== "costs" || biz.costs);
   if (!full && !biz && simpleOn()) parts.push(simpleCard(D));
-  else for (const [k, t] of tabs) { if (full) parts.push(`<h3 class="rep-sec">${t}</h3>`); parts.push(TAB_FN()[k](D)); }
+  else { reportBuild++; try { for (const [k, t] of tabs) { if (full) parts.push(`<h3 class="rep-sec">${t}</h3>`); parts.push(TAB_FN()[k](D)); } } finally { reportBuild--; } }
   parts.push(`<p class="rep-foot">${biz ? bizFoot(biz) : "המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il, ואינו מחליף נסח רישום רשמי. " + BRAND_FOOT}</p>`);
   el.innerHTML = parts.join("");
   el.querySelectorAll(".buyer-card, .insp, .alert-banner button, .vsw, .simple-more, .simple .copy-btn").forEach(x => x.remove());
@@ -4374,6 +4413,7 @@ async function makeComparePdf(){
   return await pdfFromCanvas(canvas, breaks, "לוחית · השוואת רכבים", today);
 }
 async function shareComparePdf(btn){
+  track("share", {kind: "cmp_pdf"});
   const old = btn.innerHTML; btn.disabled = true; btn.textContent = "מכין PDF…";
   try { await shareFile(await makeComparePdf(), `Luchit-compare-${new Date().toISOString().slice(0, 10)}.pdf`, "השוואת רכבים"); }
   catch { toast("לא הצלחנו להכין את הקובץ. בדקו את החיבור לאינטרנט ונסו שוב."); }
@@ -4533,7 +4573,7 @@ $("#closeShare").addEventListener("click", () => { $("#shareSheet").hidden = tru
 const pushCoversTest = p => { try { return alertsSupported() && window.AndroidApp.alertsState() === "on" && isSaved(p) && trackedOk(p) && prefOn("test"); } catch { return false; } };
 const calSeen = new Set();
 function calendarBtn(D){
-  if (!calSeen.has(D.plate)) { calSeen.add(D.plate); track("calendar_reminder_shown", {where: window.AndroidApp ? "app" : "web"}); }
+  if (!reportBuild && !calSeen.has(D.plate)) { calSeen.add(D.plate); track("calendar_reminder_shown", {where: window.AndroidApp ? "app" : "web"}); }
   return `<button type="button" class="link-btn" data-act="calendar">${ico("clock")}הוספת תזכורת ליומן</button>`;
 }
 function testReminder(D){
@@ -4972,6 +5012,7 @@ function cmpLink(){
 }
 async function shareCompare(){
   if (!cmp.length) return;
+  track("share", {kind: "cmp"});
   const text = `השוואת רכבים: ${cmp.filter(D => D.kind !== "fail").map(D => D.title).join(" מול ")}\n${cmpLink()}`;
   try { if (bridge() && bridge().share) { bridge().share("השוואת רכבים", text); return; } } catch {}
   if (navigator.share) { try { await navigator.share({title: "השוואת רכבים", text}); return; } catch (err) { if (err && err.name === "AbortError") return; } }
@@ -5056,7 +5097,7 @@ function askVerdict(ask, fair){
 const bcSeen = new Set();   // the buyer card is counted once per car on screen, locked or not
 function buyerCard(D){
   if (D.isCancelled || D.kind === "model") return "";
-  if (D.plate && !bcSeen.has(D.plate)) { bcSeen.add(D.plate); track("buy_card_open", {locked: PRO_LOCK && !isPro() ? 1 : 0}); }
+  if (!reportBuild && D.plate && !bcSeen.has(D.plate)) { bcSeen.add(D.plate); track("buy_card_open", {locked: PRO_LOCK && !isPro() ? 1 : 0}); }
   const v = D.v, flags = [], qs = [];
   if (D.recalls.length) { flags.push(["bad", D.recalls.length === 1 ? "ריקול פתוח" : `${D.recalls.length} ריקולים פתוחים`]); qs.push("האם הריקול תוקן? כדאי לבקש אישור תיקון מהיבואן."); }
   if (freshRecalls(D).length) { flags.push(["warn", "ייתכן ריקול חדש לדגם, עוד בלי פירוט לפי רכב"]); qs.push("האם הרכב נכלל בריקול החדש לדגם? אפשר לבדוק באתר היבואן לפי מספר הרישוי."); }
@@ -5607,11 +5648,23 @@ const cmpParam = new URLSearchParams(location.search).get("cmp") || new URLSearc
 /* web: this page was opened from a shared report, so it is shown as "sent to you" (see sharedBar) */
 const SHARED = !window.AndroidApp && start && new URLSearchParams(location.search).has("s") ? start : null;
 const SHARE_VIA = (new URLSearchParams(location.search).get("s") || "none").replace(/[^a-z]/g, "").slice(0, 8) || "none";
-/* web: someone opened a link to a car or a comparison (s= says which kind of share it came from, when the link carries it) */
-if (!window.AndroidApp && (start || cmpParam)) track("link_landing", {kind: cmpParam ? "cmp" : "plate", via: (new URLSearchParams(location.search).get("s") || "none").replace(/[^a-z]/g, "").slice(0, 8) || "none"});
-/* web: a visit that arrives through one of our own campaign links (profile or video descriptions: utm_source=youtube, tiktok ...) is counted once, so the live dashboard can show how many came from where; no plate or personal data */
-try { const u = (new URLSearchParams(location.search).get("utm_source") || "").toLowerCase().replace(/[^a-z]/g, "").slice(0, 12); if (!window.AndroidApp && u && u !== "share" && u !== "luchitapp") track("link_landing", {kind: "campaign", via: u}); } catch {}
-if (cmpParam) loadCompareLink(cmpParam).then(ok => { if (!ok) renderHome(); }); else if (start) { try { lookupAgain = ["reload", "back_forward"].includes(performance.getEntriesByType("navigation")[0].type); } catch {} run(start); } else renderHome();
+/* web: a reload or Back opens the same visit again (a checked car keeps #plate in the address): it sends no second web_visit or link_landing,
+   and the car shown again is a lookup_repeat, not a new car_lookup */
+const NAV_AGAIN = (() => { try { return ["reload", "back_forward"].includes(performance.getEntriesByType("navigation")[0].type); } catch { return false; } })();
+/* web: a visit is the first opening of the page in a browser tab, sent once with its source (src): the visits column of the live dashboard's
+   sources drawer. Going to a model page and back, a reload, or the same link reopened from "copy the link" (s=copy) is the same visit */
+const NEW_VISIT = (() => { if (window.AndroidApp || NAV_AGAIN || SHARE_VIA === "bar" || SHARE_VIA === "copy") return false; try { if (sessionStorage.getItem("wv")) return false; sessionStorage.setItem("wv", "1"); } catch {} return true; })();
+if (NEW_VISIT) track("web_visit");
+/* web: someone opened a link from outside the site, counted once per opening: a link to a car or a comparison (s= says which kind of share it
+   came from, when the link carries it), else one of our own campaign links (profile or video descriptions: utm_source=youtube, tiktok ...).
+   A link on one of our own pages, a plate kept in the address (#1234567, a bookmark) and a plate typed into a model page's form are not
+   arrivals from a link. No plate or personal data */
+if (!window.AndroidApp && !NAV_AGAIN && !REF_OWN && SHARE_VIA !== "bar" && SHARE_VIA !== "copy") {
+  const q = new URLSearchParams(location.search), u = srcName(q.get("utm_source"));
+  if (digits(q.get("plate")) || cmpParam) track("link_landing", {kind: cmpParam ? "cmp" : "plate", via: SHARE_VIA});
+  else if (u && u !== "share" && u !== "luchitapp") track("link_landing", {kind: "campaign", via: u});
+}
+if (cmpParam) loadCompareLink(cmpParam).then(ok => { if (!ok) renderHome(); }); else if (start) { lookupAgain = NAV_AGAIN; run(start); } else renderHome();
 requestAnimationFrame(() => document.body.classList.add("rdy"));
 /* web: the catalogues are warmed when the browser is idle, so the first model search answers from memory */
 if (!window.AndroidApp) (window.requestIdleCallback || (f => setTimeout(f, 2500)))(() => { loadModelIndex(); loadModelStats().catch(() => null); });

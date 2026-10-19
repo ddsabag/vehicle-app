@@ -606,9 +606,10 @@ public class MainActivity extends Activity {
             }
             i.setAction(null);
         } else if (Intent.ACTION_VIEW.equals(action) && i.getData() != null && "https".equals(i.getData().getScheme()) && i.getData().isHierarchical()) {
-            // an App Link from luchit.app: ?plate=, #plate or ?cmp=
+            // an App Link from luchit.app: ?plate=, #plate, ?cmp= or ?compare= (the readable form the site shares: 1234567,m413.20.2019.SUN)
             Uri d = i.getData();
             String cmp = d.getQueryParameter("cmp");
+            String compare = d.getQueryParameter("compare");
             String plate = d.getQueryParameter("plate");
             if (plate == null && d.getFragment() != null) plate = d.getFragment();
             if (plate != null) plate = plate.replaceAll("[^0-9]", "");
@@ -616,9 +617,11 @@ public class MainActivity extends Activity {
             via = via == null ? "none" : via.replaceAll("[^a-z]", "");
             if (via.isEmpty()) via = "none";
             if (via.length() > 8) via = via.substring(0, 8);
-            String seen = "typeof track==='function'&&track('link_open',{via:'" + via + "'});";
-            if (cmp != null && cmp.matches("[A-Za-z0-9_-]{1,4000}")) runJs("window.loadCompareLink && loadCompareLink(" + JSONObject.quote(cmp) + ");" + seen);
-            else if (plate != null && plate.length() >= 5 && plate.length() <= 8) runJs("window.run && run(" + JSONObject.quote(plate) + ");" + seen);
+            // kind as the site's link_landing has it: a comparison link carries no s=, so the dashboard counts it as a shared arrival by its kind
+            String seen = "typeof track==='function'&&track('link_open',{via:'" + via + "',kind:'";
+            if (cmp != null && cmp.matches("[A-Za-z0-9_-]{1,4000}")) runJs("window.loadCompareLink && loadCompareLink(" + JSONObject.quote(cmp) + ");" + seen + "cmp'});");
+            else if (compare != null && !compare.trim().isEmpty() && compare.length() <= 2000) runJs("window.loadCompareLink && loadCompareLink(" + JSONObject.quote(compare.trim()) + ");" + seen + "cmp'});");
+            else if (plate != null && plate.length() >= 5 && plate.length() <= 8) runJs("window.run && run(" + JSONObject.quote(plate) + ");" + seen + "plate'});");
             i.setAction(null);
         } else if (Intent.ACTION_VIEW.equals(action) && i.getData() != null && "luchit".equals(i.getData().getScheme())) {
             String what = i.getData().getHost();

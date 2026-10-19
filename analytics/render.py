@@ -93,7 +93,7 @@ def line_chart(daily):
     labels = "".join(f'<text x="{X(i):.1f}" y="{H-8}" text-anchor="middle">{x["date"][8:]}/{x["date"][5:7]}</text>' for i, x in enumerate(last))
     dots = "".join(f'<circle cx="{X(i):.1f}" cy="{Y(x["lookups"]):.1f}" r="3.2" fill="var(--accent)"/>' for i, x in enumerate(last))
     prevp = f'<path d="{path(prev)}" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="5 4" opacity=".7"/>' if len(prev) == len(last) else ""
-    return (f'<svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="חיפושים ביום, השבוע לעומת השבוע שעבר">{grid}{labels}{prevp}'
+    return (f'<svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="בדיקות רכב ביום, השבוע לעומת השבוע שעבר">{grid}{labels}{prevp}'
             f'<path d="{path(last)}" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>{dots}</svg>'
             '<div class="legend"><span><b style="background:var(--accent)"></b>השבוע</span><span><b style="background:var(--muted);opacity:.7"></b>שבוע שעבר</span></div>')
 
@@ -129,7 +129,7 @@ def page(d, a):
 <section class="two"><div class="card"><h2>תובנות מרכזיות</h2><ul>{take}</ul></div><div class="card"><h2>שלוש המלצות לשבוע הקרוב</h2>{recs}</div></section>
 <section class="card"><h2>חריגות והתראות</h2><div class="alerts">{al}</div></section>
 {group("בריאות המערכת", "health")}{group("מעורבות משתמשים", "engagement")}{group("שימוש ברכיבים", "usage")}{viral_html(a)}
-<section class="two"><div class="card"><h2>חיפושים ביום</h2>{line_chart(a["daily"])}</div>{bars(a["dur"], "זמן עד תוצאה")}</section>
+<section class="two"><div class="card"><h2>בדיקות רכב ביום</h2>{line_chart(a["daily"])}</div>{bars(a["dur"], "זמן עד תוצאה")}</section>
 <section class="two">{bars([(r[0], r[1]) for r in a["tabs"]], "לשוניות שנפתחו")}{bars([(r[0], r[1]) for r in a["shares"]], "סוגי שיתוף")}{versions}</section>
 <section class="two">{bars(a["makes"], "יצרנים שנבדקו הכי הרבה")}{bars(a["models"], "דגמים שנבדקו הכי הרבה")}</section>
 <section class="two">{bars(a["fuels"], "סוג דלק או הנעה בבדיקות")}</section>
@@ -150,7 +150,8 @@ def extra_html(a):
             ks += [kpi_html({"title": "חשיפות בגוגל", "cur": sc["cur"]["impressions"], "prev": sc["prev"]["impressions"], "fmt": "n", "bad_up": False, "note": "כמה פעמים האתר הופיע בתוצאות"}),
                    kpi_html({"title": "קליקים מגוגל", "cur": sc["cur"]["clicks"], "prev": sc["prev"]["clicks"], "fmt": "n", "bad_up": False, "note": f"אחוז הקלקה {sc['cur'].get('ctr')}%" if sc["cur"].get("ctr") is not None else "אין עדיין חשיפות"}),
                    kpi_html({"title": "מיקום ממוצע בגוגל", "cur": sc["cur"]["position"], "prev": sc["prev"]["position"], "fmt": "n", "bad_up": True, "note": "נמוך יותר טוב יותר"})]
-        parts.append(f'<section><h2>האתר וחיפוש בגוגל</h2><div class="grid">{"".join(ks)}</div></section>')
+        rng = f'<p class="muted" style="margin:8px 0 0">חיפוש בגוגל: {E(sc["range"][0])} עד {E(sc["range"][1])}, כי Search Console מוסר באיחור של כמה ימים (אותו שבוע כמו בדשבורד החי).</p>' if sc and sc.get("range") else ""
+        parts.append(f'<section><h2>האתר וחיפוש בגוגל</h2><div class="grid">{"".join(ks)}</div>{rng}</section>')
         rows = []
         if cf:
             SEC = {"home": "דף הבית", "model": "דפי דגמים", "magazine": "מגזין", "guide": "מדריכים", "other": "אחר"}
@@ -188,13 +189,13 @@ def email_html(a, d):
                    kpi_html({"title": "לחיצות בקמפיין האחרון", "cur": L["ctr_pct"], "prev": None, "fmt": "pct", "bad_up": False, "note": f"{L['clicks']:,} לחיצות ייחודיות"})]
         parts.append(f'<section><h2>דיוור וקהילה</h2><div class="grid">{"".join(ks)}</div>' + ('<p class="muted" style="margin:8px 0 0">שיעור הפתיחה מנופח: אפל טוענת מיילים מראש במכשירים רבים, ולכן הסף האדום (מתחת ל-20%) מתריע רק על נפילה ממשית.</p>' if L else '<p class="zero">עוד לא יצא קמפיין.</p>') + '</section>')
     if em:
-        rows = "".join(f'<tr><td>{E(t)}</td><td class="n">{em[k]["cur"]:,}</td><td class="n">{em[k]["prev"]:,}</td></tr>' for k, t in (("sessions", "סשנים באפליקציה"), ("users", "משתמשים"), ("installs", "התקנות")))
+        rows = "".join(f'<tr><td>{E(t)}</td><td class="n">{em[k]["cur"]:,}</td><td class="n">{em[k]["prev"]:,}</td></tr>' for k, t in (("sessions", "סשנים באפליקציה"), ("users", "משתמשים באפליקציה"), ("installs", "התקנות"), ("web_visits", "כניסות לאתר")) if em.get(k) is not None)
         parts.append(f'<section class="card"><h2>תנועה חוזרת מהמייל</h2><div class="wrap"><table><thead><tr><th>מדד</th><th class="n">השבוע</th><th class="n">שבוע קודם</th></tr></thead><tbody>{rows}</tbody></table></div>'
-                     '<p class="muted" style="margin:8px 0 0">נמדד ב-GA4 לפי utm_medium=email או utm_source=newsletter, ולכן רק אפליקציה. ביקורים באתר מהמייל נספרים כלחיצות בקמפיין למעלה, כי האתר לא שולח אירועים ל-GA4.</p></section>')
+                     '<p class="muted" style="margin:8px 0 0">באפליקציה: לפי utm_medium=email או utm_source=newsletter ב-GA4. באתר: כניסות מקישור בניוזלטר, גם כשהקורא עבר מכתבה במגזין לדף הבדיקה (נמדד מ-20.10.2026).</p></section>')
     return "".join(parts)
 
 
 def viral_html(a):
     b = bars([(r[0], r[1]) for r in a["shot_tabs"]], "צילומי מסך לפי מסך") if a["shot_tabs"] else ""
-    note = f'<div class="card"><h2>תובנה</h2><p style="margin:0">{E(a["shot_insight"])}</p><p class="muted" style="margin:8px 0 0">הפילוג בין אפליקציה לאתר לא נמדד: האתר לא שולח אירועים, וזיהוי צילום מסך בדפדפן לא אמין.</p></div>'
+    note = f'<div class="card"><h2>תובנה</h2><p style="margin:0">{E(a["shot_insight"])}</p><p class="muted" style="margin:8px 0 0">צילומי מסך נמדדים רק באפליקציה (אנדרואיד 14 ומעלה): בדפדפן אין דרך אמינה לזהות צילום מסך.</p></div>'
     return f'{grid_html("ויראליות ושיתופים", a["kpis"]["viral"])}<section class="two">{b}{note}</section>'

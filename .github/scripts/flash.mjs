@@ -36,21 +36,28 @@ export async function flash(kind, level, text, link) {
   return mutate(FILE, [], list => [entry, ...(Array.isArray(list) ? list : [])].slice(0, KEEP));
 }
 
-// one stored metric (null when absent or unreadable), e.g. the previous index state for the index guard in seo-data.mjs
-export async function getMetric(name) {
+// one stored metric, null when absent (or unreadable). strict: a read that fails throws instead, where an unreadable metric must not be taken
+// for a missing one (the index guard in seo-data.mjs would start a new baseline from today and miss what Google dropped since the last one)
+export async function getMetric(name, strict = false) {
   const tok = process.env.GITHUB_TOKEN, repo = process.env.GITHUB_REPOSITORY;
   if (!tok || !repo) return null;
   try {
     const r = await fetch(`${API}/repos/${repo}/contents/metrics.json?ref=${BR}`, { headers: { authorization: "Bearer " + tok, accept: "application/vnd.github.raw+json", "user-agent": "luchit-flash" }, signal: AbortSignal.timeout(15000) });
-    if (!r.ok) return null;
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error("read " + r.status);
     const m = JSON.parse(await r.text());
     return m && typeof m === "object" && m[name] && typeof m[name] === "object" ? m[name] : null;
-  } catch (e) { console.log("metric read skipped:", e.message || e); return null; }
+  } catch (e) { if (strict) throw e; console.log("metric read skipped:", e.message || e); return null; }
 }
 
 // numbers the live dashboard compares with its targets (public-safe aggregates only), e.g. putMetric("index", {indexed: 51, total: 207})
 export async function putMetric(name, value) {
   return mutate("metrics.json", {}, m => ({ ...(m && typeof m === "object" ? m : {}), [name]: { ...value, at: new Date().toISOString() } }));
+}
+
+// adds fields to a stored metric and keeps its numbers and time, e.g. a note for the next run that is not a new reading
+export async function patchMetric(name, fields) {
+  return mutate("metrics.json", {}, m => { const o = m && typeof m === "object" ? m : {}; return { ...o, [name]: { ...(o[name] && typeof o[name] === "object" ? o[name] : {}), ...fields } }; });
 }
 
 if (process.argv[1] && process.argv[1].endsWith("flash.mjs") && process.argv.length >= 5) {

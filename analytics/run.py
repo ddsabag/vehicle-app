@@ -32,9 +32,10 @@ def brief(d, a, link, ins=None):
         if x["cur"] is None or not x["prev"]: return ""
         dlt = round(x["cur"] - x["prev"], 1) if x["fmt"] == "pct" else round((x["cur"] - x["prev"]) / x["prev"] * 100, 1)
         return f" ({'▲' if dlt > 0 else '▼'}{abs(dlt):g}{' נק׳' if x['fmt'] == 'pct' else '%'})" if dlt else ""   # no plus/minus sign: it flips inside Hebrew text
+    def pc(x): return "—" if x["cur"] is None else f"{x['cur']}%"
     lines = [f"{em} לוחית, דוח שבועי {d['period']['start']} עד {d['period']['end']}", "",
-             f"חיפושים: {k['searches']['cur']:,}{c(k['searches'])}", f"פעילים בשבוע: {k['wau']['cur']:,}{c(k['wau'])}",
-             f"איטיים: {k['slow']['cur'] if k['slow']['cur'] is not None else '—'}%  ביטולים: {k['abort']['cur'] if k['abort']['cur'] is not None else '—'}%  כשלים: {k['fail']['cur'] if k['fail']['cur'] is not None else '—'}%",
+             f"בדיקות רכב: {k['searches']['cur']:,}{c(k['searches'])}", f"פעילים באפליקציה בשבוע: {k['wau']['cur']:,}{c(k['wau'])}",
+             f"איטיים: {pc(k['slow'])}  ביטולים: {pc(k['abort'])}  כשלים: {pc(k['fail'])}",
              f"שיתופים: {k['share']['cur']:,}{c(k['share'])}  השוואות: {k['compare']['cur']:,}{c(k['compare'])}",
              "", "ויראליות: " + f"צילומי מסך {k['shots']['cur']:,}{c(k['shots'])}" + (f", {k['ratio']['cur']:g} צילומים לכל שיתוף" if k['ratio']['cur'] is not None else ""), a["shot_insight"]]
     bv = (a.get("extra") or {}).get("brevo")
