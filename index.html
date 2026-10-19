@@ -728,7 +728,9 @@ const PRO_LOCK = false;
    A model-search term goes out only when it looks like a model query: letters, digits, space, hyphen, at least 2 letters, under 5 digits of any script. */
 function safeTerm(t){ t = String(t || "").trim().toLowerCase().slice(0, 40); if (/[^a-z\u05d0-\u05ea0-9 \-]/.test(t) || (t.match(/[a-z\u05d0-\u05ea]/g) || []).length < 2 || t.replace(/[^0-9]/g, "").length >= 5) return ""; return t; }
 const simpleOn = () => { try { return localStorage.getItem("simpleView") === "1"; } catch { return false; } };
-const analyticsOn = () => { try { return localStorage.getItem("analyticsOff") !== "1"; } catch { return true; } };
+/* automated browsers (test tools, Google's page checks, crawlers that run scripts) are not users: they never count */
+const BOT_UA = /(?:^|[^a-z])bot\b|[a-z]bot\/|crawl|spider|slurp|lighthouse|headlesschrome|pagespeed|inspectiontool/i;
+const analyticsOn = () => { if (navigator.webdriver || BOT_UA.test(navigator.userAgent || "")) return false; try { return localStorage.getItem("analyticsOff") !== "1"; } catch { return true; } };
 /* wording experiments (run by the Experimenter workflow): each device keeps one random variant; experiments.json on the site may name a winner or switch an experiment off.
    Only texts are tested. Variant 0 is the control. Exposure and result events carry exp + exp_v so GA4 can compare the variants. */
 const EXPERIMENTS = {share_label: ["שיתוף", "שלח לחבר"]};
@@ -2137,7 +2139,10 @@ const TABS = [["overview","סקירה"],["recalls","ריקולים"],["buy","ק�
 // the report lists the buyer view and the costs, never the private maintenance log
 const REPORT_TABS = [["overview","סקירה"],["buy","קנייה"],["costs","עלויות"],["recalls","ריקולים והסדרים"],["specs","מפרט"]];
 
+/* a reload or Back that re-opens the car already on screen is not a new check: it is counted as lookup_repeat, so car_lookup stays one per check */
+let lookupAgain = false;
 async function lookup(raw){
+  const again = lookupAgain; lookupAgain = false;
   const plate = digits(raw).replace(/^0+(?=\d{5})/, "");
   const out = $("#out");
   if (plate.length < 5 || plate.length > 8) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true">🔢</div>מספר רישוי צריך להכיל 5 עד 8 ספרות.</div>`; return; }
@@ -2168,7 +2173,7 @@ async function lookup(raw){
   current = D; currentTab = "overview";
   snapPut(D); savedSync(D);
   renderResult(); focusResult();
-  track("car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: D.errs && D.errs.length ? 1 : 0, ...lookupFacts(D)});
+  track(again ? "lookup_repeat" : "car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: D.errs && D.errs.length ? 1 : 0, ...lookupFacts(D)});
   remember(plate);
   window.scrollTo({top: 0});
 }
@@ -5566,7 +5571,7 @@ const SHARE_VIA = (new URLSearchParams(location.search).get("s") || "none").repl
 if (!window.AndroidApp && (start || cmpParam)) track("link_landing", {kind: cmpParam ? "cmp" : "plate", via: (new URLSearchParams(location.search).get("s") || "none").replace(/[^a-z]/g, "").slice(0, 8) || "none"});
 /* web: a visit that arrives through one of our own campaign links (profile or video descriptions: utm_source=youtube, tiktok ...) is counted once, so the live dashboard can show how many came from where; no plate or personal data */
 try { const u = (new URLSearchParams(location.search).get("utm_source") || "").toLowerCase().replace(/[^a-z]/g, "").slice(0, 12); if (!window.AndroidApp && u && u !== "share" && u !== "luchitapp") track("link_landing", {kind: "campaign", via: u}); } catch {}
-if (cmpParam) loadCompareLink(cmpParam).then(ok => { if (!ok) renderHome(); }); else if (start) run(start); else renderHome();
+if (cmpParam) loadCompareLink(cmpParam).then(ok => { if (!ok) renderHome(); }); else if (start) { try { lookupAgain = ["reload", "back_forward"].includes(performance.getEntriesByType("navigation")[0].type); } catch {} run(start); } else renderHome();
 requestAnimationFrame(() => document.body.classList.add("rdy"));
 /* web: the catalogues are warmed when the browser is idle, so the first model search answers from memory */
 if (!window.AndroidApp) (window.requestIdleCallback || (f => setTimeout(f, 2500)))(() => { loadModelIndex(); loadModelStats().catch(() => null); });

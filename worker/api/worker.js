@@ -64,9 +64,10 @@ async function waitlist(req, env) {
    nothing that looks like a plate or an email; no IP or user agent is passed on. Without GA_MEASUREMENT_ID/GA_API_SECRET it answers 204 and does nothing. */
 const WEB_EVENTS = new Set(["car_lookup", "search_no_result", "share", "tab_view", "compare_open", "link_landing", "web_hint_click", "web_install_prompt", "web_install_click",
   "link_out", "checklist_pdf", "simple_view", "lookup_failed", "lookup_timeout", "lookup_slow", "settlement_shown", "buy_step_done", "calendar_reminder_shown", "calendar_reminder_click", "exp_expose",
-  "upgrade_open", "buy_card_open", "camera_scan", "lookup_abort", "lookup_from_cache", "car_save", "car_unsave", "voice_search", "bulk_check", "zombie_shown", "simple_more", "alerts_toggle", "alert_kind", "doc_add", "trial_start", "trial_end_shown", "upgrade_purchase_start", "user_screenshot", "link_open"]);
+  "upgrade_open", "buy_card_open", "camera_scan", "lookup_abort", "lookup_from_cache", "car_save", "car_unsave", "voice_search", "bulk_check", "zombie_shown", "simple_more", "alerts_toggle", "alert_kind", "doc_add", "trial_start", "trial_end_shown", "upgrade_purchase_start", "user_screenshot", "link_open", "lookup_repeat"]);
 async function webEvent(req, env) {
   if (req.method !== "POST" || req.headers.get("origin") !== ORIGIN) return new Response(null, { status: 204 });
+  if (/(?:^|[^a-z])bot\b|[a-z]bot\/|crawl|spider|slurp|lighthouse|headlesschrome|pagespeed|inspectiontool/i.test(req.headers.get("user-agent") || "")) return new Response(null, { status: 204 });   // automated browsers are not users
   const sfs = req.headers.get("sec-fetch-site"); if (sfs && sfs !== "same-origin") return new Response(null, { status: 204 });   // browsers set it; a cross-site page cannot fake it
   if (!env.GA_MEASUREMENT_ID || !env.GA_API_SECRET) return new Response(null, { status: 204 });
   if (Number(req.headers.get("content-length") || 0) > 4096) return new Response(null, { status: 204 });
