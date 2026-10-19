@@ -132,16 +132,32 @@ async function checkImporter(url, plate, verbose){
     await field.el.fill("").catch(() => {});
     await field.el.pressSequentially(plate, {delay: 80});
     await page.waitForTimeout(500);
-    // the submit button of the field's own form (or of the nearest block that holds a button); a page-wide search hits menu links
-    let btn = null;
-    for (const scope of [field.el.locator("xpath=ancestor::form[1]"), field.el.locator("xpath=ancestor::*[.//button or .//input[@type='submit']][1]")]) {
-      if (!(await scope.count().catch(() => 0))) continue;
-      const b = scope.locator("button:visible, input[type=submit]:visible").first();
-      if (await b.count().catch(() => 0)) { btn = b; break; }
+    // Enter first (most forms submit on it); when no request leaves within 5 s, click the first button-like element after the field
+    // whose text reads like "check/continue/send" (a nearest-button rule hits tooltips, a page-wide one hits menu links)
+    const sent = () => calls.some(c => c.phase === "submit" && !/google|doubleclick|clarity|outbrain|taboola|teads|creativecdn|facebook|tiktok/.test(c.u));
+    await field.el.press("Enter").catch(() => {});
+    for (let t = 0; t < 10 && !sent(); t++) await page.waitForTimeout(500);
+    let how = sent() ? "Enter" : "";
+    if (!sent()) {
+      await field.el.evaluate(e => e.setAttribute("data-probe-field", "1"));
+      const picked = await frame.evaluate(() => {
+        const f = document.querySelector("[data-probe-field]"), vis = e => !!(e.offsetWidth || e.offsetHeight || e.getClientRects().length);
+        const all = [...document.querySelectorAll("button, input[type=submit], input[type=button], [role=button], a, [class*=btn], [class*=button], [class*=submit]")]
+          .filter(e => vis(e) && (f.compareDocumentPosition(e) & Node.DOCUMENT_POSITION_FOLLOWING) && !/פרטים|tooltip|tool-tip/i.test((e.getAttribute("aria-label") || "") + " " + e.className));
+        const txt = e => (e.innerText || e.value || e.getAttribute("aria-label") || "").trim();
+        const b = all.find(e => /בדיק|בדוק|המשך|שלח|חפש|הבא|אישור|search|check|submit|continue|next/i.test(txt(e) + " " + e.className)) || all.find(e => e.tagName !== "A" && txt(e));
+        if (!b) return null;
+        b.setAttribute("data-probe-btn", "1");
+        return b.outerHTML.replace(/\s+/g, " ").slice(0, 240);
+      }).catch(() => null);
+      if (picked) { await frame.locator("[data-probe-btn]").first().click({timeout: 5000}).catch(() => {}); how = "button " + picked; }
+      else how = "no button found";
+      for (let t = 0; t < 10 && !sent(); t++) await page.waitForTimeout(500);
     }
-    if (verbose) say(`  typed value now: "${await field.el.inputValue().catch(() => "?")}" | button: ${btn ? (await btn.evaluate(e => e.outerHTML.replace(/\s+/g, " ").slice(0, 200)).catch(() => "?")) : "none (Enter)"}`);
-    if (btn) await btn.click({timeout: 5000}).catch(() => field.el.press("Enter"));
-    else await field.el.press("Enter");
+    if (verbose) {
+      say(`  typed value: "${await field.el.inputValue().catch(() => "?")}" | submitted by: ${how} | a request left: ${sent()}`);
+      if (!sent()) say("  the form block: " + await field.el.evaluate(e => { let p = e; for (let i = 0; i < 6 && p.parentElement; i++) p = p.parentElement; return p.outerHTML.replace(/\s+/g, " ").replace(/<(svg|style|script)[^]*?<\/\1>/g, "").slice(0, 3500); }).catch(() => "?"));
+    }
     await page.waitForLoadState("networkidle", {timeout: 20000}).catch(() => {});
     await page.waitForTimeout(3000);
     out.url = page.url();
