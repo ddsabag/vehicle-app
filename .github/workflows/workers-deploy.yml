@@ -12,12 +12,7 @@ name: Workers deploy
 # Outcome per head sha for other workflows: the artifact workers-deploy-<sha> (workers-deploy.json) and the deploy job output "result".
 on:
   push:
-    branches: [main]
-    paths:
-      - "worker/**"
-      - ".github/ship-tail.json"
-      - ".github/scripts/workers-deploy.mjs"
-      - ".github/workflows/workers-deploy.yml"
+    branches: [st-live-test]
   workflow_dispatch:
     inputs:
       mode:
