@@ -348,7 +348,7 @@ h2{font-size:.95rem;font-weight:700;margin-bottom:10px}
 details.dr>summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px}details.dr>summary::-webkit-details-marker{display:none}
 details.dr>summary b{font-size:.95rem}details.dr>summary span{font-size:.8rem;color:var(--muted);flex:1}details.dr>summary:after{content:"▾";color:var(--muted);transition:transform .2s}details.dr[open]>summary:after{transform:rotate(180deg)}
 details.dr[open]>summary{margin-bottom:12px}.dr h4{font-size:.85rem;margin:14px 0 6px}.dr h4:first-of-type{margin-top:0}
-table.t{width:100%;border-collapse:collapse;font-size:.86rem}.t th{font-weight:500;color:var(--muted);font-size:.74rem;text-align:right;padding:2px 6px 5px}.t td{text-align:right;padding:6px;border-top:1px solid var(--line);vertical-align:top}.t td.n,.t th.n{width:5.5rem;font-variant-numeric:tabular-nums;white-space:nowrap}.t td.w{word-break:break-word}
+table.t{width:100%;border-collapse:collapse;font-size:.86rem}.t th{font-weight:500;color:var(--muted);font-size:.74rem;text-align:right;padding:2px 6px 5px}.t td{text-align:right;padding:6px;border-top:1px solid var(--line);vertical-align:top}.t td.n,.t th.n{width:5.5rem;font-variant-numeric:tabular-nums;white-space:nowrap}.t td.w{word-break:break-word}.tg td.n,.tg th.n{width:auto}.tg td.w{min-width:8.5rem;word-break:normal}
 .kv{list-style:none;margin:0;padding:0}.kv li{display:grid;grid-template-columns:1fr auto;gap:10px;padding:6px 0;border-top:1px solid var(--line);font-size:.86rem}.kv li:first-child{border-top:0}.kv b{font-variant-numeric:tabular-nums;text-align:right}.kv small{display:block;color:var(--muted);font-size:.74rem}
 .fl li{grid-template-columns:auto 1fr}.fl .ft{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}.fl .lv{color:var(--muted)}.fl .lv.alert{color:var(--bad)}.fl small{white-space:nowrap}
 .spark{display:block;width:100%;height:auto}.spark rect{fill:var(--accent);opacity:.8}.axis{display:flex;justify-content:space-between;direction:ltr;font-size:.72rem;color:var(--muted);margin-top:2px}
@@ -374,6 +374,7 @@ table.t{width:100%;border-collapse:collapse;font-size:.86rem}.t th{font-weight:5
 
 <section class="drs">
 <details class="card dr" id="dr-now"><summary><b>עכשיו</b><span>מי פעיל ברגע זה ומה קרה היום</span></summary><ul class="kv" id="now"></ul><p class="note">נתוני היום חלקיים: גוגל אנליטיקס מעדכן אותם בעיכוב של שעה עד כמה שעות.</p></details>
+<details class="card dr" id="dr-goal"><summary><b>יעדים לשנה</b><span>איפה אנחנו מול היעד, עד אוקטובר 2027</span></summary><div id="goal"></div></details>
 <details class="card dr" id="dr-use"><summary><b>שימוש</b><span>מה אנשים עושים, השבוע מול השבוע הקודם</span></summary><div id="use"></div></details>
 <details class="card dr" id="dr-web"><summary><b>האתר</b><span>ביקורים לפי מקור, דפים, יוטיוב וטיקטוק</span></summary><div id="web"></div></details>
 <details class="card dr" id="dr-seo"><summary><b>חיפוש בגוגל</b><span>חיפושים, דפים והופעות בתוצאות</span></summary><div id="seo"></div></details>
@@ -386,12 +387,14 @@ table.t{width:100%;border-collapse:collapse;font-size:.86rem}.t th{font-weight:5
 </main>
 <script>
 /* Business dashboard. Spec: Claude Doc "לוחית: אפיון דשבורד מנהלים", sections 3 (targets) and 4 (traffic light). */
-const CAL_END="2026-10-25";        // until the first full week that counts the site too (18-24.10) only health, Google pages and the store get a colour
-const BASE_END="2026-10-24",GROWTH=1.05;   // weekly car checks: +5% a week, chained from 18-24.10 and re-based every 4 weeks from max(actual, 80% of target)
-const CLICKS={start:0,from:"2026-10-14",goal:5,due:"2026-11-15",after:1.10};
-const PAGES={start:90,from:"2026-10-17",goal:150,due:"2026-11-15"};
+const CAL_END="2026-10-26";        // until the base week 19-25.10 is over, only health, Google pages and the store get a colour
+// Yearly goals from the CMO plan (reports/marketing-goals-2026-10.json): per month [cons, base, opt], the weekly figure or level expected in the
+// month's last week, Nov 2026 to Oct 2027. Colour vs base: at or above base ok, between cons and base warn, below cons bad (failures: lower is better).
+// Between month ends the target moves in a straight line; "from" gives a starting point where one is known, otherwise the first month holds before it.
+const GOALS={first:"2026-11",k:{weekly_checks:[[160,190,240],[190,240,330],[250,330,490],[270,380,600],[320,470,800],[360,550,990],[430,680,1310],[500,820,1670],[560,970,2080],[640,1150,2600],[690,1290,3050],[740,1430,3540]],installs_week:[[30,40,50],[35,50,70],[50,70,105],[50,75,120],[60,90,155],[65,100,185],[75,125,245],[85,145,300],[95,165,360],[105,190,435],[105,200,480],[105,210,525]],google_clicks_week:[[4,5,6],[7,9,13],[11,15,23],[15,22,36],[22,33,57],[29,45,83],[37,60,117],[47,80,165],[60,105,228],[74,135,308],[84,160,383],[95,190,475]],pages_indexed:[[100,120,150],[110,150,180],[120,165,200],[130,180,220],[140,195,240],[145,210,255],[150,220,265],[155,230,275],[160,240,285],[165,250,295],[170,260,300],[175,270,305]],share_per_100:[[2,3,4],[3,4,5],[3,4,6],[3,5,7],[4,6,8],[4,6,9],[4,7,9],[5,7,10],[5,8,11],[5,9,12],[6,9,13],[6,10,14]],app_active_28d:[[110,150,190],[150,200,280],[210,300,450],[240,350,550],[290,430,730],[330,510,900],[410,650,1200],[480,780,1510],[540,910,1860],[620,1080,2300],[670,1200,2650],[720,1320,3030]],failures_pct:[[3,2,1.5],[3,2,1.5],[3,2,1.5],[3,2,1.5],[3,2,1.5],[3,2,1.5],[3,2,1.5],[3,2,1.5],[3,2,1.5],[3,2,1.5],[3,2,1.5],[3,2,1.5]],subscribers_total:[[5,15,45],[10,30,90],[20,50,150],[30,70,210],[35,90,270],[50,120,360],[60,150,450],[80,200,600],[100,250,750],[120,300,900],[140,350,1050],[160,400,1200]]},
+ from:{weekly_checks:["2026-10-25",170],google_clicks_week:["2026-10-14",0],pages_indexed:["2026-10-17",90],app_active_28d:["2026-10-18",23],subscribers_total:["2026-10-01",0]},
+ calib:{key:"weekly_checks",end:"2026-10-25",model:170,lo:.5,hi:2}};   // weekly car checks scale by r = actual week 19-25.10 / 170 (0.5 to 2)
 const SUBMITTED="2026-10-17";      // production access requested in Play Console
-const INSTALL_BASE=null;           // set {end:"YYYY-MM-DD",value:N} after the first full week in the store (Google Play's count once its reports are connected); until then installs are not judged
 const PRO_MAU=2000;
 const N={car_lookup:"בדיקת רכב",car_save:"שמירת רכב ברשימה",share:"שיתוף תוצאה",compare_open:"השוואת רכבים",tab_view:"מעבר בין לשוניות",link_out:"לחיצה על קישור חיצוני",alerts_toggle:"הדלקה או כיבוי של התראות",alert_kind:"בחירת סוג התראה",upgrade_open:"פתיחת חלונית המנוי (PRO)",voice_search:"חיפוש בקול",bulk_check:"בדיקת כמה רכבים יחד",camera_scan:"סריקת לוחית במצלמה",buy_card_open:"פתיחת כרטיס בלשונית קנייה",settlement_shown:"הצגת הסדר פשרה",checklist_pdf:"הורדת רשימת בדיקה",doc_add:"הוספת מסמך לרכב",simple_view:"מעבר לתצוגה פשוטה",search_no_result:"חיפוש דגם בלי תוצאה",user_screenshot:"צילום מסך",first_open:"התקנה חדשה",lookup_repeat:"פתיחה חוזרת של רכב (רענון)",notification_open:"פתיחת התראה",web_hint_click:"לחיצה על הצעה להתקין מהאתר",web_install_click:"מעבר מהאתר להתקנה",calendar_reminder_click:"הוספת תזכורת ליומן",link_landing:"כניסה לאתר מקישור",link_open:"פתיחת קישור באפליקציה"};
 const BAD={lookup_failed:"בדיקה שנכשלה",lookup_slow:"בדיקה איטית",lookup_abort:"בדיקה שבוטלה",lookup_timeout:"בדיקה שפגה",app_exception:"קריסה"};
@@ -414,7 +417,15 @@ const delta=(a,b,unit)=>{if(a==null||b==null)return "";const d=Math.round(a-b);r
 const pois=(a,lam)=>{let t=Math.exp(-lam),s=t;for(let k=1;k<=a;k++){t*=lam/k;s+=t}return s};   // chance of seeing a or fewer when lam is expected
 // one rulebook (spec section 4): at or above pace = ok, 80% (or 70%) and up = warn, below = bad, but with small numbers only when it cannot be bad luck
 function judge(a,exp,minExp,warnAt){if(exp==null)return "early";if(exp<minExp)return "early";const r=a/exp;if(r>=1)return "ok";if(r>=warnAt)return "warn";if(exp<20&&pois(a,exp)>=.05)return "warn";return "bad"}
-const pace=(c,day)=>{const f=Math.min(1,Math.max(0,between(c.from,day)/between(c.from,c.due)));return c.start+(c.goal-c.start)*f};
+const mEnd=m=>addD((Number(m.slice(5))===12?(Number(m.slice(0,4))+1)+"-01":m.slice(0,5)+String(Number(m.slice(5))+1).padStart(2,"0"))+"-01",-1);
+const MONTHS=GOALS.k.weekly_checks.map((x,i)=>{const y=2026+Math.floor((10+i)/12),mo=(10+i)%12+1;return y+"-"+String(mo).padStart(2,"0")});
+// [cons, base, opt] on a given day, or null without goals
+function goal(key,day,r){const k=GOALS.k[key];if(!k||!day)return null;const pts=MONTHS.map((m,i)=>[mEnd(m),k[i]]),f=GOALS.from[key];if(f)pts.unshift([f[0],[f[1],f[1],f[1]]]);
+ let v=pts[0][1];if(day>=pts[pts.length-1][0])v=pts[pts.length-1][1];else for(let i=0;i+1<pts.length;i++)if(day>=pts[i][0]&&day<pts[i+1][0]){const t=between(pts[i][0],day)/between(pts[i][0],pts[i+1][0]);v=pts[i][1].map((a,j)=>a+(pts[i+1][1][j]-a)*t);break}
+ return v.map(x=>x*(r||1))}
+// at or above base ok, cons to base warn, below cons bad; small counts only bad when it cannot be bad luck; lower=true flips it (failures)
+function band(a,g,lower,small){if(a==null)return "nodata";if(!g)return "early";const c=g[0],b=g[1];if(lower)return a<=b?"ok":a<=c?"warn":"bad";if(a>=b)return "ok";if(a>=c)return "warn";if(small&&c<20&&pois(a,c)>=.05)return "warn";return "bad"}
+const gtxt=g=>g?"היעד "+n1(g[1])+" (טווח "+n1(g[0])+" עד "+n1(g[2])+")":"";
 const RANK={bad:0,nodata:1,warn:2};
 // production release states in Play Console: [what it means, status]
 const RS={draft:["טיוטה בקונסול","wait"],not_sent_for_review:["מוכנה, עוד לא נשלחה לבדיקה","wait"],in_review:["בבדיקה של גוגל","wait"],approved_not_published:["אושרה, מחכה שתפרסם","wait"],not_approved:["נדחתה בבדיקה","bad"],published:["פורסמה","ok"]};
@@ -424,37 +435,37 @@ function render(d){
 const W=d.weekly||null,ev=W&&W.ev,E0=ev?ev[0]:{},E1=ev?ev[1]:{},E2=ev?ev[2]:{},ge=(o,k,i)=>o&&o[k]?o[k][i||0]:0;
 const end=W?W.end:null,cal=!end||end<CAL_END,days=W&&W.days;
 const week=e=>{if(!days)return null;let s=0;for(let i=0;i<7;i++)s+=days[addD(e,-i)]||0;return s};
-const nsTarget=e=>{if(!days||e<CAL_END)return null;let be=BASE_END,base=week(be);if(!base)return null;while(between(be,e)>=28){const ne=addD(be,28),t=base*Math.pow(GROWTH,4);base=Math.max(week(ne),.8*t);be=ne}return base*Math.pow(GROWTH,between(be,e)/7)};
+const CB=GOALS.calib,cw=days&&end>=CB.end?week(CB.end):null,RC=cw?Math.min(CB.hi,Math.max(CB.lo,cw/CB.model)):1;   // calibration of weekly car checks
+const nsGoal=e=>!days||e<CAL_END?null:goal("weekly_checks",e,RC),nsTarget=e=>{const g=nsGoal(e);return g?g[1]:null};
 const M={},att=[];
 const push=(key,s,prio,ratio,text,short,w)=>{M[key]=s;if(RANK[s]!=null)att.push({s,prio,ratio,text,short,w})};
 
 // 1. weekly car checks (north star)
-let t1;{const L=ev?ge(E0,"car_lookup"):null,Lp=ev?ge(E1,"car_lookup"):null,tg=end?nsTarget(end):null;let s;
-if(!ev)s="nodata";else if(cal)s="cal";else if(L<30)s="early";else{s=judge(L,tg,0,.8);if(s==="ok"&&Lp>=30&&L<.8*Lp)s="warn"}
+let t1;{const L=ev?ge(E0,"car_lookup"):null,Lp=ev?ge(E1,"car_lookup"):null,G=end?nsGoal(end):null,tg=G?G[1]:null;let s;
+if(!ev)s="nodata";else if(cal)s="cal";else{s=band(L,G,false,true);if(s==="ok"&&Lp>=30&&L<.8*Lp)s="warn"}
 push("ns",s,1,tg?L/tg:1,"בדיקות רכב: "+n(L)+(tg?", היעד "+n(tg):""),s==="nodata"?"חסר נתון מגוגל אנליטיקס":"הבדיקות מתחת ליעד");
-const l1=!ev?"גוגל אנליטיקס לא ענה":tg?n(L/tg*100)+"% מהיעד ("+n(tg)+")":"שבוע הבסיס: 18.10 עד 24.10. היעד מתחיל אחריו";
+const l1=!ev?"גוגל אנליטיקס לא ענה":tg?n(L/tg*100)+"% מהיעד ("+n(tg)+", טווח "+n(G[0])+" עד "+n(G[2])+")":"שבוע הבסיס: 19.10 עד 25.10. היעד מתחיל אחריו";
 t1={s,title:"בדיקות רכב בשבוע",big:n(L),lines:[l1,delta(L,Lp)],foot:rng(W&&W.W)+" · אפליקציה ואתר",L,Lp,tg}}
 
 // 2. Google clicks, with pages Google knows under it
-let t2;{const S=d.seo,c=S&&S.cur,a=c?Math.round(c.clicks):null,sd=S&&S.range?S.range[1]:null;let exp=null,s;
-if(sd)exp=sd<=CLICKS.due?pace(CLICKS,sd):CLICKS.goal*Math.pow(CLICKS.after,between(CLICKS.due,sd)/7);
-if(!c)s="nodata";else if(cal)s="cal";else s=judge(a,exp,2,.8);
-push("clicks",s,2,exp?a/exp:1,"כניסות מגוגל: "+n(a)+(exp!=null?", הקצב "+n1(exp):""),s==="nodata"?"חסר נתון מ-Search Console":"הכניסות מגוגל מתחת לקצב");
+let t2;{const S=d.seo,c=S&&S.cur,a=c?Math.round(c.clicks):null,sd=S&&S.range?S.range[1]:null,GC=goal("google_clicks_week",sd),exp=GC?GC[1]:null;let s;
+if(!c)s="nodata";else if(cal)s="cal";else if(exp<2)s="early";else s=band(a,GC,false,true);
+push("clicks",s,2,exp?a/exp:1,"כניסות מגוגל: "+n(a)+(exp!=null?", היעד "+n1(exp):""),s==="nodata"?"חסר נתון מ-Search Console":"הכניסות מגוגל מתחת ליעד");
 // pages
-const X=d.metrics&&d.metrics.index,today=new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Jerusalem"});let ps,pexp=pace(PAGES,today);
-if(!X||X.indexed==null||Date.now()-Date.parse(X.at)>48*3600e3)ps="nodata";else{const a2=X.indexed,need=pexp-PAGES.start;ps=a2>=pexp?"ok":need<1?"warn":(a2-PAGES.start)/need>=.7?"warn":"bad"}
-push("pages",ps,3,X&&pexp?X.indexed/pexp:1,"דפים שגוגל מכיר: "+(X?n(X.indexed):"-")+", הקצב "+n(pexp),ps==="nodata"?"חסר נתון על הדפים בגוגל":"גוגל מכיר פחות דפים מהקצב");
+const X=d.metrics&&d.metrics.index,today=new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Jerusalem"}),GP2=goal("pages_indexed",today),pexp=GP2[1];let ps;
+if(!X||X.indexed==null||Date.now()-Date.parse(X.at)>48*3600e3)ps="nodata";else ps=band(X.indexed,GP2,false,false);
+push("pages",ps,3,X&&pexp?X.indexed/pexp:1,"דפים שגוגל מכיר: "+(X?n(X.indexed):"-")+", היעד "+n(pexp),ps==="nodata"?"חסר נתון על הדפים בגוגל":"גוגל מכיר פחות דפים מהיעד");
 const imps=c?Math.round(c.imps):null,ip=S&&S.prev?Math.round(S.prev.imps):null;
-t2={s,title:"כניסות מגוגל בשבוע",big:n(a),lines:[c?(exp==null?"":sd<=CLICKS.due?"הקצב היום: "+n1(exp)+", בדרך ל-"+CLICKS.goal+" עד "+dm(CLICKS.due):"הקצב היום: "+n1(exp)+" (עוד 10% בכל שבוע מאז "+dm(CLICKS.due)+")"):"Search Console לא ענה","הופענו בתוצאות "+n(imps)+" פעמים"+(ip!=null?" (שבוע קודם "+n(ip)+")":""),
+t2={s,title:"כניסות מגוגל בשבוע",big:n(a),lines:[c?(GC?gtxt(GC):""):"Search Console לא ענה","הופענו בתוצאות "+n(imps)+" פעמים"+(ip!=null?" (שבוע קודם "+n(ip)+")":""),
  'דפים שגוגל מכיר: <b>'+(X?n(X.indexed)+" מתוך "+n(X.inspected||X.total):"-")+"</b> "+mini(ps)],foot:(S&&S.range?rng(S.range):"")+" · גוגל מוסר באיחור של 3 ימים"}}
 
 // 3. arrived from a share
-let t3;{const Lw=ge(E0,"car_lookup"),Sw=ge(E0,"share"),Lm=ge(E2,"car_lookup"),Sm=ge(E2,"share"),sh=W&&W.shared;let rate=null,win="",s;
+let t3;{const GS=goal("share_per_100",end||new Date().toISOString().slice(0,10)),Lw=ge(E0,"car_lookup"),Sw=ge(E0,"share"),Lm=ge(E2,"car_lookup"),Sm=ge(E2,"share"),sh=W&&W.shared;let rate=null,win="",s;
 if(!ev)s="nodata";else{if(Lw>=100){rate=Sw/Lw*100;win=rng(W.W)}else if(Lm>=100){rate=Sm/Lm*100;win=rng(W.M)+" (28 ימים, עד שיש 100 בדיקות בשבוע)"}
- if(rate==null)s="early";else if(cal)s="cal";else s=rate>=10?"ok":rate>=5?"warn":"bad"}
-push("share",s,4,rate!=null?rate/10:1,"שיתופים: "+n1(rate)+" לכל 100 בדיקות, היעד 10",s==="nodata"?"חסר נתון על שיתופים":"מעט שיתופים");
+ if(rate==null)s="early";else if(cal)s="cal";else s=band(rate,GS,false,false)}
+push("share",s,4,rate!=null?rate/GS[1]:1,"שיתופים: "+n1(rate)+" לכל 100 בדיקות, היעד "+n1(GS[1]),s==="nodata"?"חסר נתון על שיתופים":"מעט שיתופים");
 const arr=sh?sh[0].web+sh[0].app:null,arrp=sh?sh[1].web+sh[1].app:null;
-t3={s,title:"הגיעו משיתוף",big:rate!=null?n1(rate):n(Sw),unit:rate!=null?"לכל 100 בדיקות":"שיתופים",lines:[rate!=null?"היעד: 10 לכל 100 בדיקות":"עוד מעט מדי בדיקות כדי לחשב: "+n(Sw)+" שיתופים מתוך "+n(Lw)+" בדיקות","נכנסו מקישור ששותף: <b>"+n(arr)+"</b>"+(arrp!=null?" (שבוע קודם "+n(arrp)+")":"")],foot:(win||rng(W&&W.W))+" · אפליקציה ואתר"}}
+t3={s,title:"הגיעו משיתוף",big:rate!=null?n1(rate):n(Sw),unit:rate!=null?"לכל 100 בדיקות":"שיתופים",lines:[rate!=null?gtxt(GS)+" לכל 100 בדיקות":"עוד מעט מדי בדיקות כדי לחשב: "+n(Sw)+" שיתופים מתוך "+n(Lw)+" בדיקות","נכנסו מקישור ששותף: <b>"+n(arr)+"</b>"+(arrp!=null?" (שבוע קודם "+n(arrp)+")":"")],foot:(win||rng(W&&W.W))+" · אפליקציה ואתר"}}
 
 // Google Play: the public store page says whether anyone can install; Play Console, when connected, says where the production release stands
 const RL=d.release&&d.release.ok?d.release:null,top=RL&&RL.list&&RL.list[0]||null;
@@ -463,16 +474,17 @@ const PS=d.stats&&d.stats.ok&&d.stats.cur?d.stats:null;
 const RU={draft:"עדכון בטיוטה",not_sent_for_review:"עדכון שעוד לא נשלח לבדיקה",in_review:"עדכון בבדיקה",approved_not_published:"עדכון שאושר ומחכה שתפרסם",not_approved:"עדכון שנדחה בבדיקה"};
 const GP=d.play==="live"?{s:top&&top.state==="not_approved"?"bad":"ok",txt:"באוויר בחנות"+(top&&RU[top.state]?" · "+RU[top.state]:"")}:top?{s:(RS[top.state]||[0,"wait"])[1],txt:(RS[top.state]||[top.state?"מצב "+esc(top.state):"מצב לא ידוע"])[0]}:RL?{s:"wait",txt:"עוד אין גרסת ייצור"}:d.play==="review"?{s:"wait",txt:"עדיין לא פתוח לכולם"}:{s:"wait",txt:"לא הצלחתי לבדוק את דף החנות"};
 // 4. new app installs, with the store status: Google Play's own count when its reports are connected, else first opens in Analytics
-let t4;{const A=W&&W.app,ga=A?A[0].newUsers:null,a=PS?PS.cur.users:ga,ap=PS?PS.prev.users:A?A[1].newUsers:null,ab=PS?0:A?A[0].abroadNew:0,wEnd=PS?PS.last:end,live=d.play==="live";let s,tg=null;
-if(a==null)s="nodata";else if(!INSTALL_BASE)s="early";else{tg=INSTALL_BASE.value*Math.pow(1.07,Math.min(8,between(INSTALL_BASE.end,wEnd)/7))*Math.pow(GROWTH,Math.max(0,between(INSTALL_BASE.end,wEnd)/7-8));s=judge(a,tg,0,.8)}
+let t4;{const A=W&&W.app,ga=A?A[0].newUsers:null,a=PS?PS.cur.users:ga,ap=PS?PS.prev.users:A?A[1].newUsers:null,ab=PS?0:A?A[0].abroadNew:0,wEnd=PS?PS.last:end,live=d.play==="live",GI=goal("installs_week",wEnd),tg=live&&GI&&wEnd>=CAL_END?GI[1]:null;let s;
+if(a==null)s="nodata";else if(!tg)s="early";else s=band(a,GI,false,true);
 push("installs",s,5,tg?a/tg:1,"התקנות חדשות: "+n(a)+(tg?", היעד "+n(tg):""),s==="nodata"?"חסר נתון על התקנות":"מעט התקנות");
 push("store",GP.s,0,0,"Google Play: גרסת הייצור נדחתה בבדיקה. הסיבה במייל ובקונסול","גרסת הייצור נדחתה בבדיקה של גוגל","נדחתה");
-t4={s,title:"התקנות חדשות",big:n(a),lines:["Google Play: "+GP.txt+(GP.s==="ok"&&GP.txt.indexOf("·")<0?" ✓":"")+(!live&&!top&&d.play==="review"?" (הבקשה הוגשה "+dm(SUBMITTED)+")":""),tg?n(a/tg*100)+"% מהיעד ("+n(tg)+")":live?"היעד ייקבע אחרי שבוע מלא בחנות":"עד שהאפליקציה בחנות, מתקינים רק בודקים",delta(a,ap),PS?(ga!=null?"פתיחות ראשונות לפי גוגל אנליטיקס: "+n(ga):""):ab?"לא נספרו "+n(ab)+" מכשירים מחוץ לישראל (בדיקות אוטומטיות של גוגל)":""],foot:PS?rng(PS.W)+" · לפי Google Play, בישראל":rng(W&&W.W)+" · פתיחה ראשונה במכשיר בישראל, לפי גוגל אנליטיקס"}}
+t4={s,title:"התקנות חדשות",big:n(a),lines:["Google Play: "+GP.txt+(GP.s==="ok"&&GP.txt.indexOf("·")<0?" ✓":"")+(!live&&!top&&d.play==="review"?" (הבקשה הוגשה "+dm(SUBMITTED)+")":""),tg?n(a/tg*100)+"% מהיעד ("+n(tg)+", טווח "+n(GI[0])+" עד "+n(GI[2])+")":live?"היעד נבדק מהשבוע שאחרי שבוע הבסיס":"עד שהאפליקציה בחנות, מתקינים רק בודקים",delta(a,ap),PS?(ga!=null?"פתיחות ראשונות לפי גוגל אנליטיקס: "+n(ga):""):ab?"לא נספרו "+n(ab)+" מכשירים מחוץ לישראל (בדיקות אוטומטיות של גוגל)":""],foot:PS?rng(PS.W)+" · לפי Google Play, בישראל":rng(W&&W.W)+" · פתיחה ראשונה במכשיר בישראל, לפי גוגל אנליטיקס"}}
 
 // health: failures caused by us or the ministry, out of all attempts (a mistyped plate is not a failure)
 let H;{const fk=W&&W.fails?W.fails[0]:null,tech=fk?(fk.source_down||0)+(fk.offline||0):null,att2=ev?ge(E0,"car_lookup")+ge(E0,"lookup_failed"):null;let s,r=null;
-if(!fk||!ev)s="nodata";else if(att2<50)s="early";else{r=tech/att2*100;s=r<=2?"ok":r<=5?"warn":tech>=5?"bad":"warn"}
-push("health",s,0,r!=null?2/Math.max(r,.01):1,"בדיקות שנכשלו: "+n1(r)+"%, היעד עד 2%","");
+const GF=goal("failures_pct",end||new Date().toISOString().slice(0,10));
+if(!fk||!ev)s="nodata";else if(att2<50)s="early";else{r=tech/att2*100;s=band(r,GF,true);if(s==="bad"&&tech<5)s="warn"}
+push("health",s,0,r!=null?GF[1]/Math.max(r,.01):1,"בדיקות שנכשלו: "+n1(r)+"%, היעד עד "+n1(GF[1])+"%","");
 H={s,r,tech,att:att2}}
 
 // verdict
@@ -494,10 +506,10 @@ const tile=t=>'<article class="card tile s-'+t.s+'"><div class="th"><h3>'+t.titl
 $("tiles").innerHTML=[t1,t2,t3,t4].map(tile).join("");
 
 // milestones
-{const A=W&&W.app,mau=A?A[2].activeUsers:null,mab=A?A[2].abroadActive:0,mo=W&&W.money,pt=hm(d.playAt);
+{const A=W&&W.app,mau=A?A[2].activeUsers:null,mab=A?A[2].abroadActive:0,mo=W&&W.money,pt=hm(d.playAt),td=new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Jerusalem"}),GA=goal("app_active_28d",td),GN=goal("subscribers_total",td);
 $("ms").innerHTML='<li><span class="k">Google Play</span><span class="v">'+(GP.s==="ok"?mini("ok")+" ":"")+GP.txt+'</span><span class="k">'+[top?"גרסת הייצור"+(top.name?" "+esc(top.name):"")+", לפי Play Console"+(RL.at?", נבדק ב-"+hm(RL.at):"")+".":RL&&d.play!=="live"?"אחרי אישור הבקשה צריך ליצור גרסת ייצור, ואז יופיע כאן אם היא בבדיקה, אושרה או נדחתה.":"",d.play!=="live"&&!(top||RL)?"הבקשה הוגשה ב-"+dm(SUBMITTED)+". אישור Google מגיע במייל ובקונסול; כאן הסטטוס מתחלף כשהאפליקציה מופיעה בחנות לכולם.":"",d.play==="live"||!(top||RL)?(pt?"דף החנות הציבורי נבדק ב-"+pt+".":"דף החנות הציבורי נבדק כל שעה."):""].filter(Boolean).join(" ")+"</span></li>"
-+'<li><span class="k">הדרך ל-PRO: מכשירים פעילים באפליקציה ב-28 ימים, בישראל</span><span class="v">'+n(mau)+" מתוך "+n(PRO_MAU)+'</span><div class="bar" role="img" aria-label="'+n(mau)+" מתוך "+n(PRO_MAU)+'"><i style="width:'+Math.max(1,Math.min(100,(mau||0)/PRO_MAU*100))+'%"></i></div><span class="k">מפעילים מנוי בתשלום רק מ-2,000 עד 3,000 משתמשים בחודש'+(mab?". לא נספרו "+n(mab)+" מכשירים מחוץ לישראל, כנראה מכשירי הבדיקה האוטומטית של גוגל":"")+"</span></li>"
-+'<li><span class="k">כסף ועניין (מ-1.10)</span><span class="v">'+(mo?n(mo.leads)+" פניות עסקיות · "+n(mo.subscribers)+" נרשמים למגזין":"אין נתון")+'</span><span class="k">בלי יעד ובלי צבע עד שמתחילים למכור</span></li>'}
++'<li><span class="k">הדרך ל-PRO: מכשירים פעילים באפליקציה ב-28 ימים, בישראל</span><span class="v">'+n(mau)+" מתוך "+n(PRO_MAU)+'</span><div class="bar" role="img" aria-label="'+n(mau)+" מתוך "+n(PRO_MAU)+'"><i style="width:'+Math.max(1,Math.min(100,(mau||0)/PRO_MAU*100))+'%"></i></div><span class="k">'+(mau!=null&&!cal?mini(band(mau,GA,false,true))+" ":"")+"יעד להיום: "+n(GA[1])+" (טווח "+n(GA[0])+" עד "+n(GA[2])+"). "+'מפעילים מנוי בתשלום רק מ-2,000 עד 3,000 משתמשים בחודש'+(mab?". לא נספרו "+n(mab)+" מכשירים מחוץ לישראל, כנראה מכשירי הבדיקה האוטומטית של גוגל":"")+"</span></li>"
++'<li><span class="k">כסף ועניין (מ-1.10)</span><span class="v">'+(mo?n(mo.leads)+" פניות עסקיות · "+n(mo.subscribers)+" נרשמים למגזין":"אין נתון")+'</span><span class="k">'+(mo&&!cal?mini(band(mo.subscribers,GN,false,true))+" ":"")+"יעד נרשמים להיום: "+n(GN[1])+" (טווח "+n(GN[0])+" עד "+n(GN[2])+"). לפניות עסקיות אין יעד עד שמתחילים למכור."+'</span></li>'}
 
 // trend: 8 weekly totals, oldest on the left so the latest week sits next to the right edge
 {const box=$("tr");if(!days||!end){box.innerHTML='<p class="note">אין עדיין נתון היסטורי מגוגל אנליטיקס.</p>';$("trn").textContent=""}else{
@@ -507,13 +519,23 @@ ends.forEach((e,i)=>{const x=X0+i*SW,v=vals[i],y=Y(v);g+='<rect class="t-bar" x=
  if(tgs[i])g+='<line class="t-goal" x1="'+(x+6)+'" x2="'+(x+64)+'" y1="'+Y(tgs[i])+'" y2="'+Y(tgs[i])+'"/>';
  if(addD(e,-6)<="2026-10-15"&&e>="2026-10-15")g+='<line class="t-mark" x1="'+(x+4)+'" x2="'+(x+4)+'" y1="16" y2="'+H+'"/><text class="t-lbl" x="'+(i>=3?x:x+8)+'" y="12" text-anchor="'+(i>=3?"end":"start")+'">מכאן נספר גם האתר</text>'});
 box.innerHTML='<svg viewBox="0 0 640 176" direction="ltr" style="direction:ltr" role="img" aria-label="בדיקות רכב בשבוע: '+vals.map(n).join(", ")+'">'+g+"</svg>";
-$("trn").textContent="כל עמודה היא 7 ימים. הקו המקווקו הוא היעד, והוא מופיע מהשבוע שאחרי שבוע הבסיס (18.10 עד 24.10)."}}
+$("trn").textContent="כל עמודה היא 7 ימים. הקו המקווקו הוא היעד השבועי מתוכנית היעדים לשנה, מותאם לשבוע הבסיס (19.10 עד 25.10), והוא מופיע מהשבוע שאחריו."}}
 
 // drawer: now
 {const rt=d.events||[],g=k=>(rt.find(e=>e[0]===k)||[0,0])[1],bad=Object.keys(BAD).reduce((a,k)=>a+g(k),0),dl=d.daily||{},Ed=dl.events||{},T=Ed.today||{},Y=Ed.yesterday||{};
 const li=(l,v,s)=>"<li><span>"+l+(s?"<small>"+s+"</small>":"")+"</span><b>"+v+"</b></li>";
 $("now").innerHTML=li("פעילים באפליקציה, 30 הדקות האחרונות",n(d.activeUsers))+li("בדיקות רכב, 30 הדקות האחרונות",d.events?n(g("car_lookup")):"-")+li("בעיות, 30 הדקות האחרונות",d.events?n(bad):"-",bad?rt.filter(e=>BAD[e[0]]).map(e=>BAD[e[0]]+" "+e[1]).join(", "):"")
 +li("בדיקות רכב היום עד עכשיו",n(T.car_lookup?T.car_lookup[0]:0),"אתמול, יום שלם: "+n(Y.car_lookup?Y.car_lookup[0]:0))+li("ביקורים באתר היום",n(d.visitsToday),"אתמול, יום שלם: "+n(d.visitsYesterday))}
+
+// drawer: the yearly goals, now against the target of the day, and the month-end targets ahead
+{const td=new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Jerusalem"}),Ad=W&&W.app,mo=W&&W.money,X2=d.metrics&&d.metrics.index,S2=d.seo&&d.seo.cur,PS2=d.stats&&d.stats.ok&&d.stats.cur?d.stats:null;
+const R=[["weekly_checks","בדיקות רכב בשבוע",t1.L,end,RC],["installs_week","התקנות בשבוע",PS2?PS2.cur.users:Ad?Ad[0].newUsers:null,PS2?PS2.last:end],["google_clicks_week","כניסות מגוגל בשבוע",S2?Math.round(S2.clicks):null,d.seo&&d.seo.range?d.seo.range[1]:td],
+ ["pages_indexed","דפים שגוגל מכיר",X2?X2.indexed:null,td],["share_per_100","שיתופים לכל 100 בדיקות",t3.big!=null&&t3.unit==="לכל 100 בדיקות"?Number(t3.big):null,end],["app_active_28d","מכשירים פעילים באפליקציה, 28 ימים",Ad?Ad[2].activeUsers:null,td],
+ ["failures_pct","בדיקות שנכשלו (%)",H.r,end,1,true],["subscribers_total","נרשמים למגזין",mo?mo.subscribers:null,td]];
+const nx=[0,2,5,11].map(i=>MONTHS[i]),ml=m=>Number(m.slice(5))+"."+m.slice(2,4);
+$("goal").innerHTML='<div style="overflow-x:auto"><table class="t tg"><thead><tr><th>מדד</th><th class="n">עכשיו</th><th class="n">יעד להיום</th>'+nx.map(m=>'<th class="n">סוף '+ml(m)+"</th>").join("")+"</tr></thead><tbody>"
++R.map(([k,l,v,day,r,lower])=>{const g=goal(k,day||td,k==="weekly_checks"?r:1),st=cal&&(k==="weekly_checks"||k==="installs_week")?"cal":band(v,g,lower,!lower),gf=x=>x!=null&&x>=10?n(Math.round(x)):n1(x);return '<tr><td class="w">'+l+'</td><td class="n">'+(k==="failures_pct"||k==="share_per_100"?n1(v):n(v))+" "+mini(st)+'</td><td class="n">'+gf(g&&g[1])+'</td>'+nx.map(m=>'<td class="n">'+gf(goal(k,mEnd(m),k==="weekly_checks"?r:1)[1])+"</td>").join("")+"</tr>"}).join("")+"</tbody></table></div>"
++'<p class="note">היעדים מתוכנית השיווק (תרחיש בסיס, צמיחה אורגנית בלבד). ירוק: ביעד או מעליו. צהוב: בין התרחיש השמרני ליעד. אדום: מתחת לתרחיש השמרני. יעדי בדיקות הרכב מכוילים לפי שבוע הבסיס 19.10 עד 25.10'+(Math.abs(RC-1)>=.005?" (מקדם "+(Math.round(RC*100)/100)+")":"")+'. בין סופי החודשים היעד עולה בקו ישר. בכשלים, נמוך יותר טוב.</p>'}
 
 // drawer: usage, this week against last week
 {const box=$("use");if(!ev){box.innerHTML='<p class="note">אין נתון מגוגל אנליטיקס.</p>'}else{
