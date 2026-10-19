@@ -1,0 +1,30 @@
+name: ASO check
+# The Google Play texts in .github/store-listing/ against Play's limits and title rules, the search phrases people use, and the home page
+# title and description (aso-check.mjs). Runs on main and next when those files change, before the Store listing workflow sends them.
+# Errors (over Play's length limit, a promotional word or emoji in the title) fail the run; warnings show as annotations and in the job summary.
+on:
+  push:
+    branches: [main, next]
+    paths: [".github/store-listing/*.txt", "index.html", ".github/scripts/aso-check.mjs", ".github/workflows/aso-check.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: aso-check-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts/aso-check.mjs
+            .github/store-listing
+            index.html
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      - run: node .github/scripts/aso-check.mjs selftest
+      - run: node .github/scripts/aso-check.mjs

@@ -27,5 +27,17 @@
   "https://luchit.app/magazine/recalls-2026-10/": {
     "date": "2026-10-15",
     "what": "new: data article (recalls per 1,000 vehicles)"
-  }
+  },
+  "_structured_data": [
+    {
+      "date": "2026-10-19",
+      "urls": "https://luchit.app/magazine/*",
+      "what": "Article JSON-LD: dateModified, inLanguage, author url, publisher logo (icon-512.png); titles, descriptions and links unchanged"
+    },
+    {
+      "date": "2026-10-19",
+      "urls": "https://luchit.app/model/*",
+      "what": "pages.mjs: Dataset JSON-LD gets dateModified and distribution (modelstats.json); lands at the next monthly pages.mjs run, not now"
+    }
+  ]
 }

@@ -68,6 +68,7 @@ export const LABELS = {
   "vitals":              { he: "שיעור {ids} בגוגל פליי מעל סף גוגל", sect: "fail", ids: { crash: "הקריסות", anr: "ה-ANR" } },
   "reviews:error":       { he: "הבדיקה של גוגל פליי לא הצליחה לרוץ", sect: "fail" },
   "seo:error":           { he: "הדוח היומי מ-Search Console לא רץ", sect: "fail" },
+  "seo:index":           { he: "גוגל הוציא דפים מהאינדקס", sect: "fail" },   // index-guard.mjs via seo-data.mjs (SEO data snapshot)
   "seo":                 { he: "דוח SEO יומי", sect: "none" },
   "mention":             { he: "אזכור חדש של לוחית ברשת", sect: "fyi" },
   "seo-auto:blocked":    { he: "שינוי SEO מחכה לאישור שלך ({id})", sect: "wait" },
@@ -107,7 +108,7 @@ export const LABELS = {
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
 export const FAMILIES_IN_USE = [
   "wf", "smoke", "expiry", "infra", "infra-branches", "guard:core", "guard:break", "guard:warn", "ministry", "checker:data-health",
-  "review", "review3", "vitals", "reviews:error", "seo:daily", "seo:nodata", "seo:error", "mention",
+  "review", "review3", "vitals", "reviews:error", "seo:daily", "seo:nodata", "seo:error", "seo:index", "mention",
   "seo-auto:blocked", "seo-auto:wait", "seo-auto:notice", "seo-auto:done", "catalog", "mag:pub", "mag:fail",
   "webwatch:rollback", "webwatch:rollback-failed", "meta:uptime", "weekly:missing", "workers:refused", "workers:rollback", "workers:failed", "workers:forced",
   "ship:done", "ship:notes", "ship:fail", "ship:dry", "listing:done", "listing:dry", "listing:fail",

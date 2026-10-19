@@ -170,7 +170,7 @@ if (ai) {
 }
 fs.mkdirSync(`magazine/${slug}`, {recursive: true});
 const url = `${SITE}magazine/${slug}/`, desc = (art.lead.length <= 200 ? art.lead : art.lead.slice(0, 200).replace(/[^.]*$/, "") || art.lead.slice(0, 200)), published = now.toISOString().slice(0, 10);
-const ld = {"@context": "https://schema.org", "@type": "Article", headline: art.title, datePublished: published, inLanguage: "he", author: {"@type": "Organization", name: "מערכת לוחית"}, publisher: {"@type": "Organization", name: "לוחית", url: SITE}, mainEntityOfPage: url};
+const ld = {"@context": "https://schema.org", "@type": "Article", headline: art.title, datePublished: published, dateModified: published, inLanguage: "he", author: {"@type": "Organization", name: "מערכת לוחית", url: SITE}, publisher: {"@type": "Organization", name: "לוחית", url: SITE, logo: {"@type": "ImageObject", url: SITE + "icon-512.png"}}, mainEntityOfPage: url};
 const faqLd = {"@context": "https://schema.org", "@type": "FAQPage", mainEntity: art.faq.map(x => ({"@type": "Question", name: x.q, acceptedAnswer: {"@type": "Answer", text: x.a}}))};
 const crumbLd = items => ({"@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: items.map(([name, item], i) => ({"@type": "ListItem", position: i + 1, name, ...(item ? {item} : {})}))});
 const ldTag = o => `<script type="application/ld+json">${JSON.stringify(o).replace(/</g, "\\u003c")}</script>`;

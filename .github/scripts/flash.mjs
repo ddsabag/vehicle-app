@@ -36,6 +36,18 @@ export async function flash(kind, level, text, link) {
   return mutate(FILE, [], list => [entry, ...(Array.isArray(list) ? list : [])].slice(0, KEEP));
 }
 
+// one stored metric (null when absent or unreadable), e.g. the previous index state for the index guard in seo-data.mjs
+export async function getMetric(name) {
+  const tok = process.env.GITHUB_TOKEN, repo = process.env.GITHUB_REPOSITORY;
+  if (!tok || !repo) return null;
+  try {
+    const r = await fetch(`${API}/repos/${repo}/contents/metrics.json?ref=${BR}`, { headers: { authorization: "Bearer " + tok, accept: "application/vnd.github.raw+json", "user-agent": "luchit-flash" }, signal: AbortSignal.timeout(15000) });
+    if (!r.ok) return null;
+    const m = JSON.parse(await r.text());
+    return m && typeof m === "object" && m[name] && typeof m[name] === "object" ? m[name] : null;
+  } catch (e) { console.log("metric read skipped:", e.message || e); return null; }
+}
+
 // numbers the live dashboard compares with its targets (public-safe aggregates only), e.g. putMetric("index", {indexed: 51, total: 207})
 export async function putMetric(name, value) {
   return mutate("metrics.json", {}, m => ({ ...(m && typeof m === "object" ? m : {}), [name]: { ...value, at: new Date().toISOString() } }));
