@@ -1027,11 +1027,12 @@ function towOf(ranked, v){
    (פרטי, ליסינג, השכרה…). It fills the gap for cars older than the January 2017 ownership log. */
 function firstOwner(v){ const t = String(v.mkoriut_nm || "").replace(/"/g, "").trim(); return /^ביס לנהיגה/.test(t) ? "בית ספר לנהיגה" : t || null; }
 /* How well a maker holds its value in Israel (resale factor on the base price) and how wide the shown range is.
-   Estimates, not measured: to be calibrated against real deal prices. A maker that is not listed stays at 1.00. */
+   Calibrated 2026-10 on Yad2 asking prices (58 listings of 8 models, 2012-2021; Japanese and French factors from Corolla, Swift and 308 only,
+   pulled half way toward the earlier estimate). A maker that is not listed stays at 1.00. */
 const BRAND_TIERS = [
-  {k: 1.07, r: 0.045, re: /טויוטה|לקסוס|סובארו|הונדה|סוזוקי|TOYOTA|LEXUS|SUBARU|HONDA|SUZUKI/i},
+  {k: 1.15, r: 0.045, re: /טויוטה|לקסוס|סובארו|הונדה|סוזוקי|TOYOTA|LEXUS|SUBARU|HONDA|SUZUKI/i},
   {k: 1.00, r: 0.065, re: /יונדאי|קיה|מאזדה|מזדה|סקודה|פולקסווגן|פולקסוואגן|סיאט|קופרה|אאודי|ניסאן|מיצובישי|HYUNDAI|KIA\b|MAZDA|SKODA|VOLKSWAGEN|SEAT|CUPRA|AUDI|NISSAN|MITSUBISHI/i},
-  {k: 0.80, r: 0.10, re: /פיג.?ו|פז.?ו|סיטרואן|רנו|אופל|שברולט|פורד|פיאט|דאצ.?יה|PEUGEOT|CITROEN|RENAULT|OPEL|CHEVROLET|FORD|FIAT|DACIA/i},
+  {k: 0.70, r: 0.10, re: /פיג.?ו|פז.?ו|סיטרואן|רנו|אופל|שברולט|פורד|פיאט|דאצ.?יה|PEUGEOT|CITROEN|RENAULT|OPEL|CHEVROLET|FORD|FIAT|DACIA/i},
   {k: 0.80, r: 0.10, re: /(?<![א-ת])(?:מ\.? ?ג|אם.{0,2}ג.{0,2}י)(?![א-ת])|\bMG\b/i, notEv: true},
   {k: 0.88, r: 0.10, re: /BYD|בי.{0,2}וי.{0,2}די|טסלה|TESLA|ג.?ילי|GEELY|צ.?רי|CHERY|סרס|SERES|ליפמוטור|LEAPMOTOR|זיקר|ZEEKR|אקספנג|XPENG|וויה|VOYAH|לינק|LYNK|ג.?נסיס|GENESIS|אלפא|ALFA|וולוו|וולבו|VOLVO|י?ג.?ואר|JAGUAR|לנד רובר|LAND ROVER|ג.?יפ|JEEP/i},
 ];
@@ -1307,9 +1308,11 @@ function costs(D){
     const ageY = Math.max(0, monthsBetween(regOk ? reg : new Date(year, 5, 15), new Date()) / 12);
     const age = Math.floor(ageY);
     const lux = num(D.price.mehir) > 300000, ev = kind === "ev", cheap = num(D.price.mehir) < 100000;
-    // first calibration (2026-10) used the cheapest listing page per model and ran low, so the curve was eased: ordinary cars lose ~13% in the first year and ~6% a year after; small cheap cars hold value better, electric cars lose it faster
-    const [y1, yr] = ev ? [0.80, 0.88] : lux ? [0.78, 0.90] : cheap ? [0.90, 0.95] : [0.87, 0.91];
-    const factor = ageY < 1 ? 1 - (1 - y1) * ageY : y1 * Math.pow(yr, ageY - 1);
+    // calibrated 2026-10 on Yad2 asking prices (dealer prices taken 12% above the price-list value): ordinary cars lose ~13% in the first year and
+    // ~10% a year after, small cheap cars ~9%, and from the eighth year every car loses another 5% a year (the market drops old cars faster).
+    // Electric and luxury cars were not in the sample and keep the earlier figures.
+    const [y1, yr] = ev ? [0.80, 0.88] : lux ? [0.78, 0.90] : cheap ? [0.90, 0.91] : [0.87, 0.90];
+    const factor = (ageY < 1 ? 1 - (1 - y1) * ageY : y1 * Math.pow(yr, ageY - 1)) * Math.pow(VAL_LATE, Math.max(0, ageY - VAL_LATE_FROM));
     const tier = brandTier(D, ev);
     const base = num(D.price.mehir) * factor * tier.k;
     const adj = [];
@@ -1328,15 +1331,17 @@ function costs(D){
     if (D.km && D.kmYears) {
       const mc = msCohort(D), ageNow = new Date().getFullYear() - mc_y(D);
       const typ = mc && mc.km ? mc.km * (ageNow > 0 && D.kmYears ? Math.min(1.5, Math.max(0.7, D.kmYears / Math.max(ageNow - 0.5, 0.5))) : 1) : null;
-      const diff = D.km - (typ || AVG_KM_YEAR * D.kmYears);
+      const diff = D.km - (typ || typicalKm(D.kmYears));
       const pct = Math.round(Math.max(-8, Math.min(6, -diff / 10000 * 1.5)));
       if (Math.abs(pct) >= 1) adj.push([pct, `ק״מ: ${fmtN(Math.round(Math.abs(diff) / 1000) * 1000)} ${diff > 0 ? "מעל" : "מתחת"} ${typ ? "לממוצע הדגם והשנתון" : "לממוצע לגיל הרכב"}`]);
     }
     const mid = adj.reduce((v, [p]) => v * (1 + p / 100), base);
     c.newPrice = num(D.price.mehir); c.age = age; c.baseValue = Math.round(base / 1000) * 1000; c.adj = adj;
-    c.valueLow = Math.round(mid * (1 - tier.r) / 1000) * 1000; c.valueHigh = Math.round(mid * (1 + tier.r) / 1000) * 1000; c.tierK = tier.k; c.range = tier.r;
+    // the range widens with age (old cars spread more: condition counts more than the year) and when the mileage or the first owner is unknown
+    const r = tier.r + Math.min(0.10, Math.max(0, ageY - 4) * 0.01) + (D.km && D.kmYears ? 0 : 0.04) + (first.k === "other" ? 0.02 : 0);
+    c.valueLow = Math.round(mid * (1 - r) / 1000) * 1000; c.valueHigh = Math.round(mid * (1 + r) / 1000) * 1000; c.tierK = tier.k; c.range = r;
     // value lost over the coming year: a model is bought new, so its steeper first year counts
-    c.deprYear = D.kind === "model" ? num(D.price.mehir) * (1 - y1) : mid * (1 - yr);
+    c.deprYear = D.kind === "model" ? num(D.price.mehir) * (1 - y1) : mid * (1 - yr * (ageY + 1 > VAL_LATE_FROM ? VAL_LATE : 1));
   }
   // one monthly figure: energy, licence fee and loss of value (insurance and servicing are not in the data)
   if (c.fuelYear || c.fee || c.deprYear) {
@@ -2086,6 +2091,9 @@ const INSIGHT_TODO = [
 const insightTodo = t => { const m = INSIGHT_TODO.find(([re]) => re.test(t)); return m ? m[1] : ""; };
 const mc_y = D => num(D.v.shnat_yitzur) || new Date().getFullYear();
 const AVG_KM_YEAR = 15000; // typical private car in Israel, rough benchmark
+// typical mileage after y years when the model has no measured average: old cars drive less (Yad2 2012 cars showed ~150k at 14 years, not 210k)
+const typicalKm = y => AVG_KM_YEAR * Math.min(y, 8) + 9000 * Math.max(0, y - 8);
+const VAL_LATE = 0.95, VAL_LATE_FROM = 8;   // from the eighth year a car loses another 5% of its value a year
 function buildInsights(D){
   const v = D.v, out = []; const add = (level, title, text) => out.push({level, title, text});
   const now = new Date();
