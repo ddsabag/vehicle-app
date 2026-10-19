@@ -1456,35 +1456,361 @@ function importerRecall(D){
 const importerOf = D => D.importKind || !D.price || empty(D.price.shem_yevuan) ? "" : String(D.price.shem_yevuan).trim();
 const norm = s => String(s || "").toUpperCase().replace(/[^A-Z0-9֐-׿]/g, "");
 function recallYear(x){ const m = String(x || "").match(/(19|20)\d{2}/); return m ? +m[0] : null; }
-/* every model name the catalogue lists for the car's brand, over all its register codes (אאודי גרמניה, אאודי בלגיה…), normalized */
+/* every model name the catalogue lists for the car's brand, over all its register codes (אאודי גרמניה, אאודי בלגיה…), normalized, with the first and
+   last production year of each name (out.years) when the catalogue has them */
+const BRAND_MODELS = new WeakMap();
 function brandModels(meta, v){
   if (!meta || !meta.makers || empty(v.tozeret_nm)) return null;
-  const mk = canonMake(String(v.tozeret_nm).trim().replace(COUNTRY_SFX, "")), out = new Set();
-  for (const x of Object.values(meta.makers)) if (canonMake(String(x.n).replace(COUNTRY_SFX, "")) === mk) for (const m of x.m || []) out.add(norm(m));
+  const mk = canonMake(String(v.tozeret_nm).trim().replace(COUNTRY_SFX, ""));
+  if (!BRAND_MODELS.has(meta)) BRAND_MODELS.set(meta, new Map());
+  const memo = BRAND_MODELS.get(meta); if (memo.has(mk)) return memo.get(mk);
+  const out = new Set(), years = new Map();
+  for (const x of Object.values(meta.makers)) if (canonMake(String(x.n).replace(COUNTRY_SFX, "")) === mk) (x.m || []).forEach((m, i) => {
+    const n = norm(m), y = x.y && x.y[i]; out.add(n);
+    if (y && y[0] && y[1]) { const e = years.get(n); years.set(n, e ? [Math.min(e[0], y[0]), Math.max(e[1], y[1])] : [y[0], y[1]]); }
+  });
+  if (years.size) out.years = years;
+  memo.set(mk, out); return out;
+}
+/* ---------- which rows of the maker's recall list are this model's ----------
+   The recall list names models in free text, as each importer typed it: several in one row ("PALISADE,IONIQ 9,IONIQ 6", BMW's "X5M X6M X5 X6,X7"),
+   one model split by commas ("JEEP,GRAND ,CHEROKEE", "E-TRON,GT"), with a generation code ("QASHQAI J12", "SANTA FE DM", "CLIO IV", "GOLF 7", "CORSA D"),
+   a body or a trim ("LANCER SEDAN", "GOLF GTI", "MACAN S"), the powertrain or the fuel ("KUGA PHEV", "KONA ELECTRIC", "GOLF DIZEL"), the brand in front
+   ("JEEP CHEROKEE"), right-to-left reversed ("3 CX" is the CX-3), as BMW series digits ("3", "5,7"), Mercedes classes and chassis numbers ("S CLASS 223",
+   "205 213"), Lexus letter pairs ("RX,NX"), and with typos ("TUSCON", "X-TRAIK", "COROLA"). The register names the car with its trim ("X1 SDRIVE18I",
+   "GLC300E 4MATIC", "EX30 SM", "Q4 35 E-TRON"), keeps only 15 letters ("GRAND HIGHLANDE") and has typos of its own ("GRAND CHEROKE", "SIEENA",
+   "BERLING0"). A row is the car's when one of its names, read these ways, is the car's model. A longer model name never counts for a shorter one:
+   GRAND CHEROKEE is not a CHEROKEE, DISCOVERY SPORT is not a DISCOVERY, XC40 is not a C40, IONIQ 5 is not an IONIQ, C4 X is not a C4. A row for one
+   trim or body (GOLF GTI, LANCER SEDAN) counts for a car registered without one, not for a car registered with another. */
+const RECALL_TYPOS = [[/\bTUSCON\b/g, "TUCSON"], [/\bHIBRID\b/g, "HYBRID"], [/\bX-TRAIK\b/g, "X-TRAIL"], [/\bCH-R\b/g, "C-HR"], [/\bRROACE\b/g, "PROACE"],
+  [/\bSPART\b/g, "SPARK"], [/\bJOURNY\b/g, "JOURNEY"], [/\bANCLAVE\b/g, "ENCLAVE"], [/\bCORVET\b/g, "CORVETTE"], [/\bLINCOLEN\b/g, "LINCOLN"], [/\bLAGACY\b/g, "LEGACY"],
+  [/\bCRUSIER\b/g, "CRUISER"], [/\bLANDCRS\s*(\d+)/g, "LAND CRUISER $1"], [/\bCOMBOE\b/g, "COMBO ELECTRIC"], [/\bIONIQ CE 6\b/g, "IONIQ 6"], [/\bCOROLA\b/g, "COROLLA"],
+  [/\bCEOSSOVER\b/g, "CROSSOVER"], [/\bMOOKA\b/g, "MOKKA"], [/\bCONNET\b/g, "CONNECT"], [/\bCONNECT TRANSIT\b/g, "TRANSIT CONNECT"], [/\bSADAN\b/g, "SEDAN"],
+  [/\bBOXTER\b/g, "BOXSTER"], [/\bE530\b/g, "530E"], [/\bTIGUAN LWB\b/g, "TIGUAN ALLSPACE"], [/\bPLUG[\s-]*IN\b/g, "PLUGIN"], [/\bGURNEY\b/g, "JOURNEY"], [/\bI800\b/g, "H1"],
+  [/\bTOWN\s+(?:AND|&)\s+COUNTRY\s+VOYAGER\b/g, "TOWN COUNTRY,GRAND VOYAGER"], [/\bTOWN\s+(?:AND|&)\s+COUNTRY\b/g, "TOWN COUNTRY"], [/\bGT\s+CONTINENTAL\b/g, "CONTINENTAL GT"],
+  [/\bGT\s*86\b/g, "86"], [/\b60XC\b/g, "XC60"], [/\bXC4\b/g, "XC40"], [/\bGRANLAND\b/g, "GRANDLAND"], [/\b\d\.\d\s*(?:LITERS?|LITRES?|L)?(?=[\s,\/+]|$)/g, " "],
+  [/(^|[,\/+]\s*)(\d{1,2})[\s-]*(CX|MX|BT)(?=\s*(?:[,\/+]|$))/g, "$1$3-$2"]];   // "3 CX": the CX-3 typed right to left
+/* one brand's own names: a model under another market's name or by its generation or chassis code (JEEP LIBERTY is the Cherokee, VW TERAMONT the Atlas and
+   HIPOSHIT the Beetle, a VW "T6.1" every T6 van, Mazda's BM and BK the Mazda 3, smart's C453 the ForTwo, MINI's F60 the Countryman, HUMMER "EV" the Hummer EV,
+   Nissan's B18 the Sentra, Jaguar's X250 the XF, Hyundai's "F L 5" the Ioniq 5, Citroen's CAX the C4 X, Land Rover's RRS the Range Rover Sport and
+   "DISCOVERY 3/4" both Discoverys, and Jeep's AVENGER is Jeep's, not the Dodge Avenger the same file holds; the ministry's per-car list confirms these) */
+const RECALL_BRAND_TYPOS = [[/^JEEP/, [[/\bLIBERTY\b/g, "CHEROKEE"], [/(^|[,\/+]\s*)AVENGER\b/g, "$1JEEP AVENGER"]]],
+  [/^VOLKSWAGEN/, [[/\bTERAMONT\s*,\s*CROSS\s*SPORT\b/g, "ATLAS,ATLAS CROSS SPORT"], [/\bTERAMONT\b/g, "ATLAS"], [/\bATLS\b/g, "ATLAS"], [/\bHIPOSHIT\b/g, "BEETLE"],
+    [/^\s*T\s*([56])(?:\.1)?\s*$/, (m, g) => `T${g},TRANSPORTER T${g},CARAVELLE T${g},MULTIVAN T${g},CALIFORNIA T${g}`]]],
+  [/^MAZDA/, [[/(^|[,\/+]\s*)(?:B[KLMNP](?:\s+3)?|3\s+B[KLMNP])(?=\s*(?:[,\/+]|$))/g, (m, a) => a + "3"]]],
+  [/^RENAULT/, [[/\bCLIO\s*SPORT\b/g, "CLIO RS"], [/\bCLIORS\s*4\b/g, "CLIO RS 4"]]],
+  [/^SMART/, [[/\bC453\b/g, "FORTWO"]]],
+  [/^(BMW|MINI)/, [[/^\s*XI\s*$/, "IX"], [/\b(?:MINI\s+)?(?:F60|R60|U25)\b/g, "COUNTRYMAN"], [/\b(?:MINI\s+)?(?:F54|R55)\b/g, "CLUBMAN"], [/\b(?:MINI\s+)?R61\b/g, "PACEMAN"]]],
+  [/^MERCEDES/, [[/\bS[\s-]*CO?UPE\b/g, "S COUPE"]]],
+  [/^HUMMER/, [[/^\s*EV\s*$/, "HUMMER EV"]]], [/^HYUNDAI/, [[/^\s*F\s*L\s*5\s*$/, "IONIQ 5"]]], [/^NISSAN/, [[/\bB1[78]\b/g, "SENTRA"]]], [/^CITROEN/, [[/\bCAX\b/g, "C4 X"]]],
+  [/^JAGUAR/, [[/\b(X[EFJK]|F-?PACE|E-?PACE|F-?TYPE)\s+X\d{3}\b/g, "$1"]]],
+  [/^LAND ROVER/, [[/\s*\bRRS\b/g, ",RANGE ROVER SPORT"], [/\bDISCOVERY\s+(\d)\s*\/\s*(\d)\b/g, "DISCOVERY $1,DISCOVERY $2"]]]];
+/* the register's own spellings of a model ("CRUISER" is the Land Cruiser, "R.ROVER SPORT", "GND CHEROKEE", "HASHTAG ONE" is the Smart #1, a zero for an O,
+   "GIULIA QUADRIFO" is the Giulia QV, "TIGUAN AS" the Tiguan Allspace, "X6X DRIVE" an X6 xDrive, "MAZDA3" the Mazda 3 and "MAZDA3 SPORT" its hatchback,
+   "ATLAS CR SPORT" the Atlas Cross Sport, "RAPTOR F150" an F-150 Raptor, "HUMMER EVSUV" the Hummer EV, Kia's "RI0" the Rio, "TOYOTA CITY" the Proace City,
+   "SPORTBACK A3" an A3 Sportback, "EDGE-SEL" and "EXPLORER-LIMITD" an Edge and an Explorer with a trim) */
+const CAR_ALIASES = [[/\bRANG[\s-]+ROVER\b/, "RANGE ROVER"], [/^CRUISER$/, "LAND CRUISER"], [/\bLAND[\s-]*CR(?:ISER|IUSER|UISR|USIER)\b/, "LAND CRUISER"], [/\bR\.?\s*ROVER\b/, "RANGE ROVER"],
+  [/\bRANGE\s+R[\s.]+(?=[A-Z])/, "RANGE ROVER "], [/\bRANGE ROVER (?:S|SP|SPO|SPOR|SPRT|SPORD|SPOET|SPORS|SPROT)\b/, "RANGE ROVER SPORT"],
+  [/\b(?:G\.?|GD|GND|GR|GRND|GRANDE)\s*(?=CHER|HIGH|WAGON|VOYAG|VITAR|PICAS|SCEN)/, "GRAND "], [/^HIGHLANDER\s*GRAND$/, "GRAND HIGHLANDER"],
+  [/^HASHTAG ONE$/, "SMART 1"], [/^HASHTAG THREE$/, "SMART 3"], [/^HASHTAG FIVE$/, "SMART 5"], [/^(\d{1,2})[\s-]*(CX|MX|BT)$/, "$2-$1"],
+  [/\bPLUG[\s-]*IN\b/g, "PLUGIN"], [/(?<=[A-Z])0(?=[A-Z]{2})|(?<=[A-Z]{3})0\b/g, "O"], [/\bQUADRIF\w*/, "QV"], [/\bTIGUAN\s+(?:AS|ALL[\s-]*SPA\w*)\b/, "TIGUAN ALLSPACE"],
+  [/\b(X[1-7])X\s*DRIVE/, "$1 XDRIVE"], [/^(MAZDA|ALFA|FIAT|TOYOTA)-?(?=\d)/, "$1 "], [/^MAZDA\s*(\d)[\s-]*SPORT$/, "MAZDA $1 HATCHBACK"],
+  [/\bATLAS\s+(?:CR\.?\s*SPORT|CROSS\s*SPO\w*|CROSSPORT|CROSS\s+SP|CROSS)$/, "ATLAS CROSS SPORT"], [/^RAPTOR\s+F-?\s*150$/, "F150 RAPTOR"], [/^(?:GMC\s+)?HUMMER\s*EV\s*/, "HUMMER EV "],
+  [/^RI0\b/, "RIO"], [/^TOYOTA\s+CITY\b/, "PROACE CITY"], [/^SPORTBACK\s+(A\d)\b/, "$1 SPORTBACK"], [/^([A-Z]{3,})-(?=[A-Z]{3,}\b)/, "$1 "]];
+/* powertrain and fuel words: the row is for that powertrain or fuel only (a KUGA PHEV recall is not a petrol Kuga's) */
+const RECALL_PT = {PHEV: "phev", PHV: "phev", PLUGIN: "phev", "4XE": "phev", HEV: "hybrid", HYBRID: "hybrid", HSD: "hybrid", MHEV: "mhev", BEV: "ev", EV: "ev", ELECTRIC: "ev"};
+const RECALL_FUEL = {DIESEL: "diesel", DIZEL: "diesel", DISEL: "diesel", PETROL: "petrol", BENZIN: "petrol", GASOLINE: "petrol"};
+const ptJoin = (a, b) => !a || !b ? a || b : [a, b].includes("phev") ? "phev" : [a, b].includes("ev") ? "ev" : [a, b].includes("mhev") ? "mhev" : "hybrid";
+const ptOk = (q, drive) => !q || !drive || (q === "phev" ? drive === "phev" : q === "hybrid" ? drive === "hybrid" || drive === "phev" : q === "ev" ? drive === "ev" : drive !== "ev" && drive !== "phev");
+const ptSplit = t => { const m = t.match(/^(.*\d)(PHEV|MHEV|BEV|HEV|EV)$/) || t.match(/^([A-Z]{4,})(HYBRID|PHEV)$/); return m ? [m[1], RECALL_PT[m[2]]] : null; };   // "A7PHEV", "GV70EV", "NX450PHEV", "SIENNAHYBRID"
+const ptLike = t => !!RECALL_PT[t] || /^(?:E?H[YI]B[RIDYESAMB]{1,6}|HYB|HV)$/.test(t);   // the register's spellings: HYBRIDE, HYBRIB, HYBRIS, HYB
+/* brand words in front of a model, in the list or in the register ("JEEP CHEROKEE", "LEXUS NX350H", "FORD MONDEO", "FUSO CANTER") */
+const RECALL_MARQUES = new Set("NEW JEEP CHRYSLER DODGE RAM FORD LINCOLN MITSUBISHI LEXUS TOYOTA CUPRA SEAT MAZDA HYUNDAI KIA NISSAN INFINITI HONDA SUBARU SUZUKI AUDI BMW VW VOLKSWAGEN SKODA OPEL PEUGEOT CITROEN RENAULT DACIA FIAT CHEVROLET GMC CADILLAC BUICK VOLVO PORSCHE JAGUAR TESLA MERCEDES BENZ MG SMART MINI FUSO".split(" "));
+/* brands whose recalls share a maker's file with another brand of the group (a Jeep built by Chrysler, a Lexus registered as a Toyota): a car or row that
+   names one of them is that brand's (DODGE AVANGER is not the Jeep Avenger) */
+const RECALL_RIVAL = new Set("JEEP DODGE CHRYSLER RAM LEXUS TOYOTA LINCOLN FORD GMC CHEVROLET BUICK CADILLAC DACIA RENAULT MINI BMW".split(" "));
+/* a family name the register leaves out (TRANSIT CUSTOM is registered as CUSTOM, RANGE ROVER EVOQUE as EVOQUE, LAND CRUISER PRADO as PRADO) */
+const RECALL_FAMILY = new Set(["RANGEROVER", "TRANSIT", "TOURNEO", "LANDCRUISER", "IMPREZA", "MUSTANG"]);
+/* a car's model inside a family the list names by the shorter name (checked against the ministry's per-car list: its NIRO recalls hold NIRO PLUS cars) */
+const RECALL_FAMILY_OF = {NIROPLUS: "NIRO", C4X: "C4", PASSATCC: "PASSAT", GRANDSANTAFE: "SANTAFE"};
+/* a word after a model name that makes it another model (YARIS CROSS is not a Yaris, TRANSIT CUSTOM is not a Transit, C4 GRAND PICASSO is not a C4) */
+const RECALL_OTHER = new Set("CROSS CUSTOM CONNECT COURIER SPORT SPORTSVAN CC VERSO AIRCROSS PICASSO SPACETOURER CACTUS PLUS MACH SCENIC ETECH CMAX CROSSBACK IQ IQL GRAND PRADO".split(" "));
+/* words after a model name that keep it the same model: the body, a trim, an engine (LANCER SEDAN, GOLF GTI, MACAN S, A3 SPORTBACK) */
+const RECALL_BODY = new Set("SEDAN SDN SALOON HATCHBACK HB LIFTBACK SPORTBACK SB SBACK WAGON SW ESTATE TOURING TOURER SPORTSTOURER SPORTWAGON COMBI KOMBI VARIANT AVANT ALLROAD SCOUT COUPE CABRIO CABRIOLET CONVERTIBLE LIMOUSINE LIM VAN".split(" "));
+const RECALL_TRIM = new Set("TURBO GTS GTI GT RS ST S R N RAPTOR TFSI TSI TDI CDI DCI HDI CRDI VTEC BLUETEC BLUEHDI ECOBOOST".split(" "));
+/* a variant after a model name: the row is for that variant only, while the car with it is still the model (GIULIA QV, IMPREZA WRX, TIGUAN LWB) */
+const RECALL_VARIANT = new Set("QV WRX STI LWB ALLSPACE".split(" "));
+/* a word that keeps the model, also cut short by the register (MUSTANG ECOBO, LANCER SPORTBAC) */
+const RECALL_SOFT = [...RECALL_BODY, ...RECALL_TRIM, ...RECALL_VARIANT].filter(w => w.length >= 5);
+const recallSoft = t => RECALL_TRIM.has(t) || RECALL_BODY.has(t) || RECALL_VARIANT.has(t) || (/^[A-Z]{3,}$/.test(t) && RECALL_SOFT.some(w => w.startsWith(t))) || /^[PD]\d{3}E?$/.test(t);   // EVOQUE P160, DEFENDER D250: an engine
+/* names whose number is a model of its own (IONIQ 5, MODEL 3, TIGGO 7), names never read without what follows them (E-TRON GT, GENESIS COUPE),
+   and words too common to stand for a model at the start of a longer name */
+const RECALL_NUMBERED = new Set("IONIQ MODEL TIGGO ATTO ARRIZO OMODA JAECOO SEAL DOLPHIN LYNK ZEEKR AVATR AION DEEPAL GEOMETRY".split(" "));
+const RECALL_NOPOP = new Set([...RECALL_NUMBERED, "ETRON"]);
+const RECALL_GENERIC = new Set("GRAND LAND RANGE SANTA NEW CITY SPORT SPORTS CROSS SUPER MINI GT RS".split(" "));
+/* register words a letter away from another real word, never corrected (SEVILLE is not a DEVILLE, PACEMAN is not an ACEMAN) */
+const RECALL_NOFIX = new Set("SEVILLE DEVILLE PACEMAN ACEMAN GRANDE XDRIVE SDRIVE EDRIVE DRIVE".split(" "));
+/* a generation or variant code: CORSA D, SANTA FE DM, CLIO IV, QASHQAI J12, TUCSON NX4E, POLO 6R, DEFENDER 110S */
+const recCode = t => /^(?:[A-Z]{1,3}|[IVX]{2,4}|[A-Z]{1,3}\d{1,3}[A-Z]?|\d[A-Z]|\d{2,4}[A-Z]{1,2})$/.test(t);
+/* brand designations: BMW series digits and model codes, Mercedes classes with chassis numbers, Lexus letter pairs */
+const BMW_DESIG = /^(X[1-7]M?|XM|I[3-8]|IX[1-3]?|Z[34]|M[2-8])$/, BMW_CHASSIS = {E46: "3", E60: "5", E61: "5", E63: "6", E64: "6", G11: "7", G12: "7"};
+const MB_CLASSES = "EQ[ABCESTV]|GL[ABCEKS]|CL[AEKS]|SL[CKRS]|GL|CL|SL|ML|GT|[ABCEGRSVX]";
+const MB_CLS = new RegExp(`^(${MB_CLASSES})$`), MB_CLS_CH = new RegExp(`^(${MB_CLASSES})(\\d{3})$`), MB_CAR = new RegExp(`^(${MB_CLASSES})\\d+[A-Z0-9]*$`);
+const MB_NOISE = new Set("CLASS KLASSE SUV COUPE CUPE CABRIO CABRIOLET CONVERTIBLE ROADSTER AMG 4MATIC DOOR DOORS 4DOOR 4DOORS 4 LONG".split(" "));
+const LEX_FAMS = "CT|ES|GS|GX|HS|IS|LC|LM|LS|LX|NX|RC|RX|RZ|SC|TX|UX", LEX_FAM = new RegExp(`^(${LEX_FAMS})$`), LEX_NUM = new RegExp(`^(${LEX_FAMS})(\\d{3})[A-Z]*$`);
+const TESLA_NOISE = /^(MODEL|PREMIUM|PERFORMANCE|LONG|RANGE|STANDARD|PLUS|PLAID|AWD|RWD|DUAL|MOTOR)$/;
+const recSplit = s => s.replace(/\b([A-Z]{4,})-([A-Z]{1,2}|[IVX]{2,4})\b/g, "$1 $2");   // CORSA-D, ASTRA-H, EDGE-ST: the name and its code
+const recWords = s => String(s || "").trim().split(/\s+/).map(t => t.replace(/[^A-Z0-9֐-׿]/g, "")).filter(t => t && !(/[A-Z]/.test(t) && /[֐-׿]/.test(t)));   // a word typed half in Hebrew letters ("Mןהול") is noise
+/* one model name's words, with the powertrain and fuel words read off and the brand in front dropped; tq is the powertrain glued to each word,
+   rs the words as typed without the brand, mq the brand named in front */
+function recallTokens(part, own){
+  const raw = recWords(part), tk = [], tq = []; let q = null, fu = null;
+  for (const t of raw) {
+    if (RECALL_PT[t]) { q = ptJoin(q, RECALL_PT[t]); continue; }
+    if (RECALL_FUEL[t]) { fu = RECALL_FUEL[t]; continue; }
+    const p = ptSplit(t); tk.push(p ? p[0] : t); tq.push(p ? p[1] : null);
+  }
+  const mq = tk.length > 1 && RECALL_RIVAL.has(tk[0]) ? tk[0] : null;
+  while (tk.length > 1 && (RECALL_MARQUES.has(tk[0]) || own.has(tk[0]) || (tk[0] === "GENESIS" && /^GV?\d/.test(tk[1])))) { tk.shift(); tq.shift(); }
+  let rs = raw; while (rs.length > 1 && (RECALL_MARQUES.has(rs[0]) || own.has(rs[0]))) rs = rs.slice(1);
+  return {raw, rs, tk, tq, q, fu, mq};
+}
+/* the same model read without its generation code (CORSA D, GOLF 7, SANTA FE DM: "gen", which also stands before the car's own trim) or without its trim or
+   body (GOLF GTI, MACAN S, LANCER SEDAN: "sub", which only stands for a car registered without one). Never down to a name too short to be a model, never
+   for a name whose number or suffix is a model of its own (IONIQ 5, E-TRON GT, GENESIS COUPE), never across a word that makes another model (PASSAT CC) or an L or E
+   (GRAND CHEROKEE L, 500 E), and an X only for Opel (MOKKA X is the Mokka; AYGO X and C4 X are other cars) */
+function recallGen(tk, opel){
+  const out = []; let sub = false;
+  let t = tk.length > 2 ? [tk[0], ...tk.slice(1, -1).filter(x => !RECALL_BODY.has(x)), tk[tk.length - 1]] : tk;   // a body word inside the name
+  if (t.length < tk.length) out.push({t, sub: false});
+  while (t.length > 1) {
+    const last = t[t.length - 1], base = t.slice(0, -1), b = norm(base.join(""));
+    if (RECALL_NOPOP.has(base[0]) || RECALL_NOPOP.has(b) || RECALL_OTHER.has(last) || RECALL_VARIANT.has(last) || (last === "COUPE" && b === "GENESIS")) break;
+    const soft = RECALL_TRIM.has(last) || RECALL_BODY.has(last), code = /^\d+$/.test(last) || (recCode(last) && !/^[LE]$/.test(last) && (last !== "X" || opel));
+    if (!(soft || code) || !(b.length >= 3 || (b.length === 2 && /[A-Z]/.test(b) && (/\d/.test(b) || /\d/.test(last) || soft)))) break;
+    sub = sub || soft; t = base; out.push({t, sub});
+  }
   return out;
 }
-function matchModelRecalls(rows, v, models){
-  const names = [v.degem_nm, v.kinuy_mishari].map(norm).filter(n => n.length >= 2);
-  const year = num(v.shnat_yitzur);
-  // the recall list writes some brands' models without the brand ("3", "6,CX5,MX5" for MAZDA 3, MAZDA CX-5) and without a version prefix
-  // ("NEW", VW's "T5"/"T6", "GR", "CUPRA", the electric "E-"): the name without its leading brand word and that prefix counts too, only as an exact name
-  const brands = new Set(rows.map(r => norm(String(r.TOZAR_TEUR || "").trim().split(/\s+/)[0])).filter(Boolean));
-  let kw = String(v.kinuy_mishari || "").trim().toUpperCase().split(/\s+/);
-  if (kw.length > 1 && brands.has(norm(kw[0]))) kw = kw.slice(1);
-  if (kw.length > 1 && /^(NEW|T\d|GR|CUPRA)$/.test(kw[0])) kw = kw.slice(1);
-  else if (/^E-[A-Z0-9]/.test(kw[0])) kw[0] = kw[0].slice(2);
-  const bare = norm(kw.join(""));
-  const exact = bare && !names.includes(bare) ? [...names, bare] : names;
-  // a third of the ministry's rows list several models ("PALISADE,IONIQ 9,IONIQ 6,IONIQ 5"): each listed name also counts when it is exactly the car's
-  const listed = r => String(r.DEGEM || "").split(/[,\/+]/).map(norm).filter(Boolean);
-  // a shorter row name at the end of the car's ("CONNECT" for TOURNEO CONNECT) counts only when the brand has no model of exactly that name
-  // (E-TRON for an A3 SB E-TRON, CHEROKEE for a GRAND CHEROKEE are other models)
-  return rows.filter(r => { const d = norm(r.DEGEM), parts = listed(r); return d && (exact.includes(d) || names.some(n => (n.length >= 3 && d.includes(n) && !new RegExp(n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[A-Z0-9]").test(d)) || (d.length >= 3 && n.includes(d) && !new RegExp(d.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[A-Z0-9]").test(n) && !(models && models.has(d))))
-      || (parts.length > 1 && parts.some(p => exact.includes(p)))); })
+function recallFamily(tk, into){ for (let k = 1; k <= 2 && k < tk.length; k++) if (RECALL_FAMILY.has(norm(tk.slice(0, k).join("")))) { const rest = norm(tk.slice(k).join("")); if (/[A-Z]/.test(rest)) into.add(rest); } }
+/* every row's model names, read once per recall file (and per brand model list, which tells a model split by commas from a list of models) */
+const RECALL_PARSE = new WeakMap();
+function recallParse(rows, models){
+  const hit = RECALL_PARSE.get(rows); if (hit && hit.models === models) return hit;
+  const bw = new Set(), items = new Map(), vocab = new Set(), words = new Set(), heads = new Set(), gens = new Set(), yrs = models && models.years;
+  for (const r of rows) for (const x of String(r.TOZAR_TEUR || "").trim().toUpperCase().split(/\s+/)) if (x) bw.add(x);
+  for (const r of rows) {
+    const brand = String(r.TOZAR_TEUR || "").trim().toUpperCase(), own = new Set(brand.split(/\s+/)), list = [], opel = /^OPEL/.test(brand);
+    // whether the register has the brand's model of this name in the row's build years (null: not known); "not made" needs a clear year of gap
+    const b0 = recallYear(r.BUILD_BEGIN_A), b1 = recallYear(r.BUILD_END_A);
+    const made = n => { const y = yrs && b0 && b1 && yrs.get(n); return !y ? null : y[1] >= b0 && y[0] <= b1 ? true : y[1] < b0 - 1 || y[0] > b1 + 1 ? false : null; };
+    const kind = /^BMW/.test(brand) ? "bmw" : /^MERCEDES/.test(brand) ? "mb" : /^(LEXUS|TOYOTA)/.test(brand) ? "lex" : /^TESLA/.test(brand) ? "tesla" : /^VOLKSWAGEN/.test(brand) ? "vw" : "";
+    let s = String(r.DEGEM || "").toUpperCase();
+    for (const [re, to] of RECALL_TYPOS) s = s.replace(re, to);
+    for (const [b, list] of RECALL_BRAND_TYPOS) if (b.test(brand)) for (const [re, to] of list) s = s.replace(re, to);
+    if (kind === "bmw") s = s.replace(/\bE (\d\d)\b/g, "E$1");   // "E 46"
+    else if (kind === "mb") s = s.replace(/(CLASS|KLASSE)\s*(\d{3})\b/g, " $2");   // "C CLASS205", "ACLASS176": class and chassis
+    else s = s.replace(/\b([A-Z]) (\d{3})\b/g, "$1$2");   // "I-PACE X 590": the chassis code X590
+    s = recSplit(s);
+    const SEP = /[,\/+]|\.(?=\s|$)/;
+    let parts = s.split(SEP).map(x => recallTokens(x, own));
+    // a piece that is only a powertrain, next to one model ("BEV,XC4", "F150,BEV"): that model with that powertrain
+    const pq = parts.filter(x => !x.tk.length).reduce((a, x) => ptJoin(a, x.q), null);
+    parts = parts.filter(x => x.tk.length);
+    if (pq && parts.length === 1 && !parts[0].q) parts[0].q = pq;
+    // one model split by commas ("JEEP,GRAND ,CHEROKEE", "E-TRON,GT", "AVENSIS,VERSO"): read as one name when the register knows the whole name and
+    // the pieces are not all models of their own (or the last piece is a word that makes another model), unless the brand did not make the whole one
+    // in the row's build years and made every piece then (COROLLA,VERSO of 2013 is a Corolla and a Verso: the Corolla Verso ended in 2009)
+    if (models && parts.length > 1) {
+      const w = recallTokens(s.replace(new RegExp(SEP.source, "g"), " "), own), wn = norm(w.tk.join(""));
+      if (w.tk.length > 1 && wn.length >= 4 && models.has(wn)) {
+        const pn = parts.map(x => norm(x.tk.join("")));
+        const sep = pn.every(n => models.has(n) && !RECALL_MARQUES.has(n) && !RECALL_GENERIC.has(n))
+          && ((!RECALL_OTHER.has(parts[parts.length - 1].tk[0]) && !/^(ETRON|GT)$/.test(parts[parts.length - 1].tk[0])) || (made(wn) === false && pn.every(n => made(n) === true)));
+        parts = sep ? parts.concat([w]) : [w];
+      }
+    }
+    // two neighbouring pieces of a longer list that make one model of the brand, made in the row's years ("BERLINGO,C4,SPACETOURER,C5,AIRCROSS,JUMPY": also the
+    // C4 SPACETOURER and the C5 AIRCROSS, whose cars the ministry's per-car list puts in that recall)
+    if (models && parts.length > 2) for (let i = 0, n = parts.length; i + 1 < n; i++) {
+      const j = recallTokens(parts[i].raw.join(" ") + " " + parts[i + 1].raw.join(" "), own), jn = norm(j.tk.join(""));
+      if (j.tk.length > 1 && models.has(jn) && made(jn) !== false && !parts.some(x => norm(x.tk.join("")) === jn)) parts.push(j);
+    }
+    for (const {raw, rs, tk, tq, q: q0, fu, mq} of parts) {
+      const q = tq.reduce((a, b) => ptJoin(a, b), q0), full = norm(raw.join("")), base = norm(tk.join(""));
+      // several model codes in one name ("GENESIS GV80 GV70EV GV70", "F250 F350", "205 213"): each one counts, with its own powertrain
+      if (kind !== "bmw" && kind !== "mb" && tk.length > 1 && tk.every(t => /\d/.test(t))) tk.forEach((t, i) => { list.push({q: ptJoin(q0, tq[i]), fu, names: new Set([t]), gen: new Set(), sub: new Set(), ev: new Set(), txts: []}); vocab.add(t); });
+      // a name the brand did not make in the row's build years, of words that are models it made then, is those models (AVENSIS VERSO of 2010-2016)
+      if (tk.length > 1 && made(base) === false && tk.every(t => made(t) === true)) tk.forEach(t => list.push({q, fu, mq, names: new Set([t]), gen: new Set(), sub: new Set(), ev: new Set(), txts: []}));
+      const it = {q, fu, mq, names: new Set([full, base]), gen: new Set(), sub: new Set(), ev: new Set(), txts: [tk.join(" "), rs.join(" ")]};
+      vocab.add(full); vocab.add(base);
+      if (/^[A-Z]{4,}$/.test(tk[0]) && !recallSoft(tk[0])) heads.add(tk[0]);
+      for (const t of tk) if (t.length >= 5 && /^[A-Z]+$/.test(t)) words.add(t);
+      if (base.length >= 6 && /^[A-Z]+$/.test(base)) words.add(base);
+      recallFamily(tk, it.names);
+      if (kind === "bmw") { const d = tk.map(t => /^[1-8]$/.test(t) || BMW_DESIG.test(t) ? t : BMW_CHASSIS[t] || (/^(SERIES|SERIE)$/.test(t) ? "" : null)); if (d.every(x => x !== null) && d.some(Boolean)) it.bmw = new Set(d.filter(Boolean)); }
+      if (kind === "mb") {
+        const d = []; let ok = true;
+        for (const t0 of tk) {   // classes and chassis numbers; a short unknown word is a typo and passed over ("SQE SUV", "EMG GT"), a model word is not a class (E ACTROS)
+          const t = t0.replace(/(CLAS+|KLASSE)$/, "") || t0; let m;
+          if (MB_CLS.test(t)) d.push({cls: t});
+          else if ((m = t.match(MB_CLS_CH))) d.push({cls: m[1], ch: m[2]});
+          else if (/^\d{3}$/.test(t)) { const last = d[d.length - 1]; if (last && last.cls && !last.ch) last.ch = t; else d.push({ch: t}); }
+          else if (/^[A-Z]{4,}$/.test(t) && !MB_NOISE.has(t) && !/^(CLAS+|KLAS+E?)$/.test(t)) { ok = false; break; }
+        }
+        if (ok && (tk.some(t => /^4?DOORS?$/.test(t)) || /\bGT 4\b/.test(tk.join(" ")))) for (const x of d) if (x.cls === "GT" && !x.ch) x.ch = "290";   // GT 4-DOORS COUPE, GT 4: the X290
+        if (ok && tk.includes("COUPE") && d.length === 1 && d[0].cls === "S" && !d[0].ch) { d[0].ch = "217"; it.cpe = true; }   // S COUPE: the C217, a coupe body
+        if (ok && d.length) it.mb = d;
+      }
+      if (kind === "lex") {
+        const d = []; let ok = true;
+        tk.forEach((t, i) => { let m; if (!ok) return; if (LEX_FAM.test(t)) d.push({fam: t}); else if ((m = t.match(LEX_NUM))) d.push({fam: m[1], num: m[1] + m[2]});
+          else if (!/^(LEXUS|F|SPORT)$/.test(t) || (t === "F" && tk[i + 1] !== "SPORT")) ok = false; });   // RC F is a model of its own, F SPORT a trim
+        if (ok && d.length) it.lex = d;
+      }
+      if (kind === "tesla") { const d = tk.filter(t => !TESLA_NOISE.test(t)); if (d.length && d.every(t => /^[3SXY]$/.test(t))) for (const t of d) it.names.add(t); }
+      // the name without its code, trim or body; not where a brand designation already reads it (BMW series, Mercedes class, Lexus family)
+      if (kind !== "bmw" && kind !== "tesla" && !it.lex && !it.mb) {
+        for (const g of recallGen(tk, opel)) { const into = g.sub ? it.sub : it.gen; into.add(norm(g.t.join(""))); recallFamily(g.t, into); }
+        if (tk.length > 1 && /^\d$/.test(tk[tk.length - 1]) && it.gen.has(norm(tk.slice(0, -1).join("")))) gens.add(base);   // DISCOVERY 4: a generation of the Discovery
+        const gc = tk.slice(1).find(t => kind === "vw" ? /^T\d$/.test(t) : /^\d{3}$/.test(t)); if (gc && (kind === "mb" || kind === "lex" || kind === "vw")) { it.gc = gc; it.gk = kind; }   // SPRINTER 906, LAND CRUISER 250, CARAVELLE T6
+        if (tk.length > 1 && tk[tk.length - 1] === "ETRON") it.ev.add(norm(tk.slice(0, -1).join("")));   // Q4 E-TRON registered as Q4 40: the electric one
+        for (const n of it.names) { it.gen.delete(n); it.sub.delete(n); }
+      }
+      list.push(it);
+    }
+    items.set(r, list);
+  }
+  const byLen = new Map(); for (const x of words) { if (RECALL_NOFIX.has(x)) continue; if (!byLen.has(x.length)) byLen.set(x.length, []); byLen.get(x.length).push(x); }
+  const out = {models, bw, items, vocab, words, byLen, heads, gens}; RECALL_PARSE.set(rows, out); return out;
+}
+/* one letter apart: a letter added, dropped, changed, or two neighbours swapped */
+function recallEd1(a, b){
+  if (a === b) return false; const la = a.length, lb = b.length; if (Math.abs(la - lb) > 1) return false;
+  let i = 0; while (i < la && i < lb && a[i] === b[i]) i++;
+  if (la === lb) return a.slice(i + 1) === b.slice(i + 1) || (a[i] === b[i + 1] && a[i + 1] === b[i] && a.slice(i + 2) === b.slice(i + 2));
+  return la > lb ? a.slice(i + 1) === b.slice(i) : a.slice(i) === b.slice(i + 1);
+}
+/* the register's typo in a model word ("GRAND CHEROKE", "SIEENA", "TOCSON", "TRAIBLAZER", "RAJERO"): the one word of this maker's recall list a letter away */
+function recallFix(f, p){
+  let changed = false;
+  const out = f.map((t, i) => {
+    if (t.length < 5 || !/^[A-Z]+$/.test(t) || p.words.has(t) || RECALL_NOFIX.has(t) || RECALL_MARQUES.has(t) || RECALL_BODY.has(t) || RECALL_TRIM.has(t) || ptLike(t)
+      || RECALL_OTHER.has(t) || RECALL_GENERIC.has(t) || (i > 0 && p.words.has(f[i - 1] + t))) return t;
+    let hit = null, n = 0;
+    for (const L of [t.length - 1, t.length, t.length + 1]) for (const x of p.byLen.get(L) || []) if ((L !== t.length || L >= 6) && recallEd1(t, x)) { hit = x; n++; }
+    if (n !== 1) return t;
+    changed = true; return hit;
+  });
+  return changed ? out : null;
+}
+/* the car's names, read the same ways */
+function recallCar(v, w, p){
+  const tech = String((w && w.technologiat_hanaa_nm) || v.technologiat_hanaa_nm || "").toUpperCase(), reg = String(v.sug_delek_nm || ""), fuelNm = String(reg || (w && w.delek_nm) || "").trim();
+  const drive = /חשמלי/.test(tech) || fuelNm === "חשמל" ? "ev" : /PLUG|פלאג|נטען/.test(tech) || /חשמל\//.test(reg) || /חשמל\//.test(fuelNm) ? "phev" : /היברידי/.test(tech) ? "hybrid" : tech || fuelNm ? "ice" : null;
+  const fuel = drive === "ev" ? "electric" : /דיזל/.test(fuelNm) ? "diesel" : /בנזין/.test(fuelNm) ? "petrol" : null;
+  const kin = String(v.kinuy_mishari || "").trim().toUpperCase();
+  let s = kin; for (const [re, to] of CAR_ALIASES) s = s.replace(re, to);
+  if (/פיג'ו|סיטרואן|אופל|די אס/.test(String(v.tozeret_nm || ""))) s = s.replace(/^E\s+(?=[A-Z]?\d)/, "E-");   // "E 208", "E C4 X": the electric one (not Mercedes' E 200)
+  let raw = recSplit(s).split(/\s+/).filter(t => norm(t));
+  const mq = raw.length > 1 && RECALL_RIVAL.has(norm(raw[0])) ? norm(raw[0]) : null, body = String((w && w.merkav) || "").trim();
+  // the brand or a version word in front ("TOYOTA C-HR", "NEW TRANSPORTER", "T6 TRANSPORTER", "CUPRA FORMENTOR", "MODEL 3", "GENESIS GV80", "AMG G63")
+  // (not a brand before a powertrain: HUMMER EV is the model)
+  while (raw.length > 1 && !ptLike(norm(raw[1])) && (RECALL_MARQUES.has(norm(raw[0])) || p.bw.has(norm(raw[0])) || /^(T\d|GR|MODEL|AMG)$/.test(norm(raw[0])) || (norm(raw[0]) === "GENESIS" && /^GV?\d/.test(norm(raw[1]))))) raw = raw.slice(1);
+  if (raw[0] && /^E-[A-Z0-9]/.test(raw[0])) raw[0] = raw[0].slice(2);   // the electric E- ("E-2008", "E-C4")
+  const bare = raw.map(norm).filter(Boolean);
+  let core = bare.flatMap(t => { const q = ptSplit(t); return q ? [q[0]] : [t]; });
+  if (core.length > 1) core = [core[0], ...core.slice(1).filter(t => !ptLike(t))];   // "C-HR HYBRID", "KONA EV", "CAMRY HYBRIDE"
+  // the plain form: no body word or power figure inside the name ("Q4 SB 35 E-TRON" is a Q4 E-TRON), no Opel X (MOKKA X is the Mokka)
+  let plain = core.length > 2 ? [core[0], ...core.slice(1, -1).filter(t => !RECALL_BODY.has(t) && !(/^[1-9]\d$/.test(t) && !RECALL_NUMBERED.has(core[0]))), core[core.length - 1]] : core;
+  if (/אופל/.test(String(v.tozeret_nm || "")) && plain.length > 1) plain = [plain[0], ...plain.slice(1).filter(t => t !== "X")];
+  const forms = [core];
+  if (plain.join(" ") !== core.join(" ")) forms.push(plain);
+  let lead = core.slice();   // an engine code in front ("111CDI VITO", "112 CDI VITO", "323 LANTIS", "B9 TRIBECA")
+  while (lead.length > 1 && (/^\d{2,3}(?:CDI|D|TD|TDI|CDTI|BLUETEC)?$/.test(lead[0]) || /^(CDI|BLUETEC|B9)$/.test(lead[0]))) lead = lead.slice(1);
+  if (lead.length < core.length && /^[A-Z]{4,}$/.test(lead[0]) && !RECALL_TRIM.has(lead[0]) && !RECALL_BODY.has(lead[0])) forms.push(lead);
+  for (let i = 0; i < forms.length; i++) forms[i] = recallFix(forms[i], p) || forms[i];
+  const names = new Set([v.degem_nm, v.kinuy_mishari].map(norm).filter(n => n.length >= 2));
+  if (bare.length) names.add(norm(bare.join("")));
+  for (const f of forms) { if (f.length) names.add(norm(f.join(""))); recallFamily(f, names); }
+  // the Land Cruiser Prado is registered as LAND CRUISER; its model code says which (KDJ120, GRJ150, GDJ250)
+  if ([...names].some(n => /^LANDCRUISER/.test(n)) && /^[A-Z]{3}(?:9\d|12\d|15\d|25\d)/.test(String(v.degem_nm || "").toUpperCase())) { names.add("LANDCRUISERPRADO"); names.add("PRADO"); }
+  if (drive === "ev" && /^S?Q8$/.test(core[0] || "") && /ETRO/.test(core.slice(1).join(""))) names.add("ETRON");   // the Q8 e-tron is the e-tron renamed
+  if (drive === "ev" && /^S?Q[468]$/.test(core[0] || "")) names.add(core[0].replace(/^S/, "") + "ETRON");   // Q4 SPORTBACK 40, Q4 SBACK35 ETRO: the Q4 e-tron
+  // a model the list names by its family: NIRO PLUS cars are in NIRO recalls, C4 X in C4's, PASSAT CC in PASSAT's, GRAND SANTA FE in SANTA FE's (the ministry's per-car list, 19.10.2026)
+  for (const n of [...names]) if (RECALL_FAMILY_OF[n]) names.add(RECALL_FAMILY_OF[n]);
+  if (/קופה/.test(body)) for (const f of forms) if (f.length) names.add(norm(f.join("")) + "COUPE");   // a GENESIS with a coupe body is the GENESIS COUPE
+  // the register keeps 15 letters ("GRAND HIGHLANDE", "WRANGLER UNLIMI"): read the cut word as the start of a longer one, if it is the name's last word
+  const cutAt = kin.length >= 15 && core.length && core[core.length - 1] === norm(raw[raw.length - 1] || "") ? core.join(" ") : "";
+  const t0 = (bare[0] || "").replace(/(CLASS|KLASSE)$/, "") || bare[0] || "";
+  let m;
+  const dg = String(v.degem_nm || "").toUpperCase();
+  // BMW: 520D is a 5, X125E an X1, M4COMP an M4, 1SERIES a 1; old cars named in Hebrew have it in the model code (318I4ACA01)
+  const bmw = (m = t0.match(/^M?([1-8])\d\d[A-Z]*$/)) ? m[1] : BMW_DESIG.test(t0) ? t0 : (m = t0.match(/^(X[1-7]|I[3-8]|IX[1-3]?|Z[34]|M[2-8])(?:M?\d{2}[A-Z]{0,2}|COMP\w*)$/)) ? m[1]
+    : (m = t0.match(/^([1-8])SERIES$/)) ? m[1] : (m = dg.match(/^([1-8])\d\d[A-Z]{1,2}\d|^(Z[34])[A-Z]/)) ? m[1] || m[2] : null;
+  const mb = {cls: MB_CLS.test(t0) ? t0 : (m = t0.match(MB_CAR)) ? m[1] : /^GT[SCR]$/.test(t0) ? "GT" : null, ch: (m = dg.match(/^(\d{3})\.?\d{3}/)) ? m[1] : null};
+  const tcode = /טויוטה|לקסוס/.test(String(v.tozeret_nm || "")) && (m = dg.match(/^[A-Z]{3}(\d{3})/)) ? m[1] : null;   // GDJ250, VJA300: the Land Cruiser's series
+  // T5 CARAVELLE, T6 TRANSPORTER: the van's generation, by name or else by the VW type code (7D the T4; 7H, 7E, 7F, 7J the T5; SF, SG, SH, SJ the T6 and T6.1)
+  const vw = /פולקסווגן/.test(String(v.tozeret_nm || "")), vwVan = vw && (m = dg.match(/^(?:7J0-|7HC-)?(7D|7[EFHJ]|S[FGHJ])/)) ? (m[1] === "7D" ? "T4" : m[1][0] === "7" ? "T5" : "T6") : null;
+  const tgen = vw && (m = kin.match(/\bT([4-7])\b/)) ? "T" + m[1] : vwVan;
+  if (vwVan || (vw && /^T[4-6]$/.test(tgen || ""))) names.add("TRANSPORTER");   // a CARAVELLE, MULTIVAN or "T5" of those vans is a Transporter (TRANSPORTER recalls hold them)
+  if (vw && names.has("CC")) names.add("PASSAT");   // the CC is the Passat CC renamed
+  const lex = (m = t0.match(LEX_NUM)) ? {fam: m[1], num: m[1] + m[2]} : LEX_FAM.test(t0) ? {fam: t0, num: /^\d{3}/.test(bare[1] || "") ? t0 + bare[1].slice(0, 3) : null} : null;
+  return {drive, fuel, names, forms, cut: norm(cutAt).length >= 6 ? cutAt : "", bmw, mb, lex, tcode, tgen, mq, coupe: body ? /קופה/.test(body) : null};
+}
+/* the row read without its code, if the car's own code agrees: a SPRINTER 906 row is not a 907's, a LAND CRUISER 250 row is not a Prado 150's, a T6 row not a T5 CARAVELLE's */
+const recallGenOk = (it, car) => !it.gc || (it.gk === "mb" ? !car.mb.ch || car.mb.ch === it.gc : it.gk === "vw" ? !car.tgen || car.tgen === it.gc
+  : !car.tcode || car.tcode.slice(0, 2) === it.gc.slice(0, 2));
+/* the car's next word starts another model the list names, cut short or a letter off: RANGE ROVER EVO, R ROVER SPOET (the Sport), R ROVER DISCOVE */
+function recallMore(pre, next, p){
+  if (!/^[A-Z]{3,}$/.test(next)) return false;
+  const near = rest => rest.startsWith(next) || (next.length >= 5 && (recallEd1(next, rest) || recallEd1(next, rest.slice(0, next.length))));
+  for (const e of p.vocab) if (e.length > pre.length && e.startsWith(pre) && near(e.slice(pre.length))) return true;
+  if (RECALL_FAMILY.has(pre)) for (const h of p.heads) if (h !== pre && near(h)) return true;
+  return false;
+}
+/* the model with the car's trim, body or code after it ("X1" for X1 SDRIVE18I, "MAZDA 6" for 6 WAGON, "GRAND CHEROKEE" for GRAND CHEROKEE LIMITED),
+   unless the next word makes another model (YARIS CROSS, E-TRON GT), the list names that longer model itself (a row says IONIQ 5, AYGO X, GRAND
+   CHEROKEE L, RANGE ROVER EVOQUE), the row's name was read without its own generation code and the car has another code there (a CORSA E row is not
+   a CORSA D's), or the car is an electric E-TRON of a petrol model's name (Q8 E-TRON, A6 SB E-TRON) */
+function recallLead(it, car, p){
+  for (const f of car.forms) for (let j = 1; j < f.length; j++) {
+    const pre = norm(f.slice(0, j).join("")), next = f[j];
+    if (!/^[A-Z0-9]+$/.test(next) || RECALL_GENERIC.has(pre)) continue;
+    if (pre.length < 2 && !(/^\d$/.test(pre) && (RECALL_TRIM.has(next) || RECALL_BODY.has(next) || /^[A-Z]{4,}$/.test(next)))) continue;   // MAZDA 6 WAGON
+    const exact = it.names.has(pre);
+    if (!exact && !(it.gen.has(pre) && recallGenOk(it, car))) continue;
+    if (RECALL_OTHER.has(next) || (next === "GT" && /ETRON$/.test(pre)) || (car.drive === "ev" && /ETRO/.test(f.slice(j).join("")))) continue;
+    const soft = recallSoft(next), num = /^\d+$/.test(next), code = !soft && (num || recCode(next));
+    if (!exact && code) continue;
+    if (!soft && ((p.vocab.has(pre + next) && !(num && p.gens.has(pre + next))) || recallMore(pre, next, p))) continue;   // a model the list names (not a generation: DISCOVERY 4 is a DISCOVERY)
+    if (num && RECALL_NUMBERED.has(pre)) continue;
+    return true;
+  }
+  return false;
+}
+function recallItemFits(it, car, p){
+  if (!ptOk(it.q, car.drive) || (it.fu && car.fuel && it.fu !== car.fuel) || (it.mq && car.mq && it.mq !== car.mq)) return false;
+  for (const n of it.names) if (car.names.has(n)) return true;
+  if (recallGenOk(it, car)) for (const n of it.gen) if (car.names.has(n)) return true;
+  for (const n of it.sub) if (car.names.has(n)) return true;
+  if (car.drive === "ev") for (const n of it.ev) if (car.names.has(n)) return true;
+  // a name the register cut at 15 letters is the start of the row's name, cut inside a word: JEEP GRAND CHER is a GRAND CHEROKEE, GRANDE CHEROKEE is not a GRAND CHEROKEE L
+  if (car.cut) for (const t of it.txts) if (t.length > car.cut.length && t.startsWith(car.cut) && t[car.cut.length] !== " " && /^[A-Z]{1,8}$/.test(t.slice(car.cut.length).replace(/ /g, ""))) return true;
+  if (it.bmw && car.bmw && it.bmw.has(car.bmw)) return true;
+  if (it.mb && (!it.cpe || car.coupe !== false) && it.mb.some(d => d.cls ? d.cls === car.mb.cls && (!d.ch || !car.mb.ch || d.ch === car.mb.ch) : !!car.mb.ch && d.ch === car.mb.ch)) return true;
+  if (it.lex && car.lex && it.lex.some(d => d.num ? d.num === car.lex.num : d.fam === car.lex.fam)) return true;
+  return recallLead(it, car, p);
+}
+function matchModelRecalls(rows, v, models, w){
+  const p = recallParse(rows, models), car = recallCar(v, w, p), year = num(v.shnat_yitzur);
+  return rows.filter(r => (p.items.get(r) || []).some(it => recallItemFits(it, car, p)))
     .map(r => {
-      const from = recallYear(r.BUILD_BEGIN_A), to = recallYear(r.BUILD_END_A);
-      const fits = !isNaN(year) && from && to ? year >= from && year <= to : null;
-      return {...r, fits};
+      // the production year the register keeps can be a year past the build (a car built in December is often registered as the next year's), so a year
+      // just outside the build range is "not known" (near), not "other years" (the ministry's per-car list: 745 of 909 such misses were one year after)
+      const from = recallYear(r.BUILD_BEGIN_A), to = recallYear(r.BUILD_END_A), near = !isNaN(year) && from && to && (year === to + 1 || year === from - 1);
+      const fits = !isNaN(year) && from && to ? (year >= from && year <= to ? true : near ? null : false) : null;
+      return near ? {...r, fits, near: true} : {...r, fits};
     })
     .sort((a, b) => (num(b.SHNAT_RECALL) || 0) - (num(a.SHNAT_RECALL) || 0) || (num(b.RECALL_ID) || 0) - (num(a.RECALL_ID) || 0));   // the list has no opening date, only the recall's year
 }
@@ -1495,9 +1821,9 @@ function matchModelRecalls(rows, v, models){
    falls back to the live queries below, so the catalogue only ever makes things faster. Plates use it only when the file is already loaded. */
 const CAT_BASE = "https://raw.githubusercontent.com/ddsabag/vehicle-app/catalog-data/", CAT_TIMEOUT = 8000;
 const withTimeout = (p, ms) => Promise.race([p, new Promise(r => setTimeout(() => r(null), ms))]);
-let catMetaP = null; const CAT_ROWS = new Map(), CAT_REC = new Map();
+let catMetaP = null, catMetaV = null; const CAT_ROWS = new Map(), CAT_REC = new Map(), CAT_LINKS = new Map();
 function catMeta(){
-  return catMetaP || (catMetaP = cachedJson([CAT_BASE + "meta.json"]).catch(() => null).then(j => { const ok = j && j.makers ? j : null; if (!ok) catMetaP = null; return ok; }));
+  return catMetaP || (catMetaP = cachedJson([CAT_BASE + "meta.json"]).catch(() => null).then(j => { const ok = j && j.makers ? j : null; if (!ok) catMetaP = null; else catMetaV = ok; return ok; }));
 }
 const catCd = cd => String(num(cd) || String(cd || "").trim());
 const catFile = (url, key, map) => { if (!map.has(key)) map.set(key, withTimeout(cachedJson([url]).catch(() => null), CAT_TIMEOUT).then(j => { if (!j) map.delete(key); return j; })); return map.get(key); };
@@ -1516,10 +1842,55 @@ function catRecalls(cd){
   if (!CAT_REC.has(cd)) CAT_REC.set(cd, (async () => {
     const j = await withTimeout(cachedJson([`${CAT_BASE}r/${cd}.json`]).catch(() => null), CAT_TIMEOUT);
     if (!j || !j.rows) { CAT_REC.delete(cd); return null; }
+    CAT_LINKS.set(cd, j.l || null);
     return j.rows;
   })());
   return CAT_REC.get(cd);
 }
+/* The ministry's per-car list of unfixed cars names the model and year of every car in it (the catalogue joins it with the registers, recall-percar.mjs):
+   a recall that list holds for cars of this model and production year applies to that year, whatever the recall list's free text says. The text often
+   leaves a model out (BMW's "X1,X3,X4,X5,X6" holds 1 and 3 series cars) or gives a build range that misses years (2010-2012 Corollas in 16511, "built
+   2005-2007"), and some recalls are missing from the recall list (Kia Sportage 13792): the catalogue adds those rows from the per-car list's own text.
+   linkKey must key the car as recall-percar.mjs keys a register row. */
+const linkKey = v => String(v.kinuy_mishari || v.degem_nm || "").trim().toUpperCase().replace(/\s+/g, " ") + "|" + (Number(v.shnat_yitzur) || "");
+function learnedRecalls(rows, links, v, hits){
+  if (!links) return hits;
+  const key = linkKey(v), year = Number(v.shnat_yitzur), on = id => !!(links[id] && links[id][key]);
+  const off = r => { const from = recallYear(r.BUILD_BEGIN_A), to = recallYear(r.BUILD_END_A); return !!(from && to && (year < from || year > to)); };
+  const out = hits.map(h => { if (!on(h.RECALL_ID) || h.fits === true) return h; const {near, ...r} = h; return {...r, fits: true, byList: true, offRange: off(h)}; });
+  const have = new Set(out.map(h => String(h.RECALL_ID)));
+  for (const r of rows) if (!have.has(String(r.RECALL_ID)) && on(r.RECALL_ID)) { have.add(String(r.RECALL_ID)); out.push({...r, fits: true, byList: true, offRange: off(r)}); }
+  return out.length === hits.length ? out : out.sort((a, b) => (num(b.SHNAT_RECALL) || 0) - (num(a.SHNAT_RECALL) || 0) || (num(b.RECALL_ID) || 0) - (num(a.RECALL_ID) || 0));
+}
+/* the model recall history of a car: the free-text match, the per-car list's models and years, and which recalls that list cannot answer for a plate yet */
+const modelRecallsOf = (rows, v, meta, w) => markFresh(learnedRecalls(rows, CAT_LINKS.get(catCd(v.tozeret_cd)), v, matchModelRecalls(rows, v, brandModels(meta, v), w)), meta);
+/* The ministry's per-car list of unfixed cars can lag its recall list: in 10/2026 it held recalls opened up to 14.4.2026 (RECALL_ID 16576) while the
+   recall list ran to 16821, and recalls opened in the months before that were often not in it yet. For such a recall ("fresh": newer than the per-car
+   list, or opened in the 90 days before its newest recall and not in it) the list says nothing about a plate, so the app says "not yet known if this car
+   is included", never "not open on this car". The catalogue writes the current reach daily (meta.recHz, recall-percar.mjs); REC_HZ is the one of 19.10.2026. */
+const REC_HZ = {id: 16576, d: "2026-04-14", from: 16426, max: 16821, ids: [16426, 16436, 16437, 16438, 16439, 16440, 16447, 16452, 16460, 16462, 16463, 16464, 16465, 16467, 16468, 16469, 16471, 16474, 16484, 16485, 16499, 16502, 16506, 16511, 16512, 16513, 16515, 16518, 16530, 16531, 16543, 16544, 16551, 16552, 16573, 16574, 16575, 16576]};
+const recallHz = meta => meta && meta.recHz && meta.recHz.id ? meta.recHz : REC_HZ;
+function markFresh(rows, meta){
+  const hz = recallHz(meta), seen = new Set(hz.ids || []);
+  return rows.map(r => { const id = num(r.RECALL_ID); return id > hz.id || (hz.from && id >= hz.from && !seen.has(id)) ? {...r, fresh: true} : r; });
+}
+/* One defect is often filed as several recalls, a batch of cars each (the Corolla brake recall of 2026 is 14 RECALL_IDs with one text and one build range),
+   so one entry per text and build range stands for all: the one that says the most about this car (the production year in range, a near year, no range,
+   other years; fresh first, since a car missing from the earlier batches can still be in a later one). */
+const recallKey = r => [String(r.TEUR_TAKALA || "").replace(/\s+/g, " ").trim() || "#" + r.RECALL_ID, r.BUILD_BEGIN_A || "", r.BUILD_END_A || ""].join("|");
+function recallGroups(rows){
+  const rank = r => (r.fits === true ? 0 : r.near ? 2 : r.fits === null ? 4 : 6) + (r.fresh ? 0 : 1), best = new Map();
+  for (const r of rows) { const k = recallKey(r), o = best.get(k); if (!o || rank(r) < rank(o)) best.set(k, r); }
+  const keep = new Set(best.values());
+  return rows.filter(r => keep.has(r));
+}
+/* the model's recalls other than the ones open on this plate (listed apart, with every batch of the same defect), one entry per defect */
+function modelRecallList(D){
+  const all = D.modelRecalls || [], open = new Set((D.recalls || []).map(r => String(r.RECALL_ID))), openKeys = new Set(all.filter(r => open.has(String(r.RECALL_ID))).map(recallKey));
+  return recallGroups(all.filter(r => !open.has(String(r.RECALL_ID)) && !openKeys.has(recallKey(r))));
+}
+/* model recalls that may cover this plate and that the per-car list cannot answer yet: the production year inside the build range */
+const freshRecalls = D => D.kind === "model" || D.recallUnknown || D.isCancelled ? [] : modelRecallList(D).filter(r => r.fresh && r.fits === true);
 /* the model stage of a lookup answered from the catalogue: null when it cannot be (then the live queries run) */
 async function catModelData(v, loadedOnly){
   const cd = catCd(v.tozeret_cd), dg = num(v.degem_cd); if (!cd || isNaN(dg)) return null;
@@ -1541,7 +1912,7 @@ async function catModelData(v, loadedOnly){
   const pr = ranked.find(r => isNum(r.mehir) && num(r.mehir) > 0);
   const price = pr ? {mehir: pr.mehir, shem_yevuan: pr.shem_yevuan} : null, priceRows = mine.filter(r => isNum(r.mehir) && num(r.mehir) > 0);
   let modelRecalls = [], modelRecallsUnknown = false;
-  if (!meta.rec || meta.rec.includes(cd)) { const rr = await catRecalls(cd); if (rr) modelRecalls = matchModelRecalls(rr, v, brandModels(meta, v)); else modelRecallsUnknown = true; }
+  if (!meta.rec || meta.rec.includes(cd)) { const rr = await catRecalls(cd); if (rr) modelRecalls = modelRecallsOf(rr, v, meta, w); else modelRecallsUnknown = true; }
   return {w, towRow, zeroTow, counts, price, priceRows, modelRecalls, modelRecallsUnknown, fromCatalog: true};
 }
 /* Model-level data (specs, towing, counts, price list, recalls) for a maker + model code.
@@ -1573,7 +1944,7 @@ async function fetchModelData(v, signal, useCat){
     ({towRow, zeroTow} = towOf(ranked, v));
     counts = rankRows(ofType(b, v), v)[0] || null;
     priceRows = ofType(c, v); price = rankRows(priceRows, v)[0] || null;
-    modelRecalls = matchModelRecalls(r, v, brandModels(meta, v));
+    modelRecalls = modelRecallsOf(r, v, meta, w);
   }
   return {w, towRow, zeroTow, counts, price, priceRows, modelRecalls, modelRecallsUnknown};
 }
@@ -1826,7 +2197,7 @@ function simpleCard(D){
     ["הנעה", pick(v.hanaa_nm, w.hanaa_nm)], ["תיבת הילוכים", gear], ["מרכב", w.merkav], ["מושבים", pick(w.mispar_moshavim, v.mispar_mekomot)], ["דלתות", w.mispar_dlatot],
     ["עלה לכביש", v.moed_aliya_lakvish], ["סוג יבוא", D.importKind], ["יבואן", importerOf(D)], ["בעלות נוכחית", v.baalut], ["בעלות ראשונה", firstOwner(v)], ["מספר בעלים", own],
     ["טסט אחרון", empty(v.mivchan_acharon_dt) ? "" : fmtDate(v.mivchan_acharon_dt)], ["טסט בתוקף עד", empty(v.tokef_dt) ? "" : fmtDate(v.tokef_dt)], ["ק״מ בטסט האחרון", D.km ? fmtN(D.km) : ""],
-    ["ריקולים פתוחים", D.recallUnknown ? "לא זמין כרגע" : D.recalls.length ? String(D.recalls.length) : "אין"], ["תג נכה", D.tag ? "יש" : ""], ["מספר שלדה", vin, vin],
+    ["ריקולים פתוחים", D.recallUnknown ? "לא זמין כרגע" : D.recalls.length ? String(D.recalls.length) : "לא נמצאו"], ["תג נכה", D.tag ? "יש" : ""], ["מספר שלדה", vin, vin],
   ];
   const safety = firstPos(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty), zihum = firstPos(v.kvutzat_zihum, w.kvutzat_zihum);
   const more = [
@@ -1901,7 +2272,7 @@ function renderResult(){
   const dt = driveType(D);
   if (dt) facts[2] = (`<span class="pill drive ${["ev", "phev", "hybrid"].includes(dt.k) ? "green" : ""}">${ico(["ev", "phev", "hybrid"].includes(dt.k) ? "bolt" : "fuel")}${dt.label}</span>`);
   if (exp && !D.isCancelled) facts[0] = (exp < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) ? `<span class="pill bad">טסט לא בתוקף</span>` : `<span class="pill ok">טסט עד ${String(exp.getMonth() + 1).padStart(2, "0")}/${exp.getFullYear()}</span>`);
-  const vIns = buildInsights(D), clean = !(D.errs && D.errs.length) && !D.recallUnknown && !D.isCancelled && !D.zombie && !D.recalls.length && !vIns.some(x => x.level === "bad" || x.level === "warn");
+  const vIns = buildInsights(D), clean = !(D.errs && D.errs.length) && !D.recallUnknown && !D.isCancelled && !D.zombie && !D.recalls.length && !freshRecalls(D).length && !vIns.some(x => x.level === "bad" || x.level === "warn");
   if (D.own.length) facts[1] = `<span class="pill">${ownersLabel(D)}</span>`;
   if (!empty(v.shnat_yitzur)) facts[3] = `<span class="pill">${esc(v.shnat_yitzur)}</span>`;
   if (clean) pills.push(`<span class="pill ok">${ico("check")}לא נמצאו בעיות במאגרי משרד התחבורה</span>`);
@@ -1929,6 +2300,9 @@ function renderResult(){
   if (D.recalls.length) {
     html.push(`<button type="button" class="alert-banner" data-tab="recalls">${ico("alert")}<span><b>${D.recalls.length === 1 ? "לרכב יש ריקול פתוח" : `לרכב ${D.recalls.length} ריקולים פתוחים`}</b>ריקול שלא מתוקן עלול למנוע בהמשך חידוש רישיון. התיקון בחינם אצל היבואן.</span></button>`);
   }
+  // a recall newer than the ministry's per-car list, for this model and production year: the list cannot say yet whether this car is in it
+  const fr = freshRecalls(D);
+  if (fr.length) html.push(`<button type="button" class="alert-banner warn" data-tab="recalls">${ico("alert")}<span><b>ייתכן שהרכב נכלל ב${fr.length === 1 ? "ריקול חדש" : "ריקולים חדשים"}</b>משרד התחבורה פתח לדגם ולשנת הייצור ${fr.length === 1 ? "ריקול שעדיין אין לו" : `${fr.length} ריקולים שעדיין אין להם`} פירוט לפי מספר רכב. כדאי לבדוק באתר היבואן.</span></button>`);
 
   if (D.kind !== "model" && !D.isCancelled) {
     const stl = settlementsFor(D);
@@ -2358,8 +2732,9 @@ function tabOverview(D){
 
 function tabRecalls(D){
   const html = [], imp = importerRecall(D), stl = D.kind === "model" || D.isCancelled ? [] : settlementsFor(D);
-  const openIds = new Set(D.recalls.map(r => String(r.RECALL_ID)));   // a recall still open on this car is listed above, not again in the model's history
-  const mr = D.modelRecalls.filter(r => !openIds.has(String(r.RECALL_ID))), fits = mr.filter(r => r.fits !== false);
+  const mr = modelRecallList(D), fits = mr.filter(r => r.fits !== false);   // a recall still open on this car is listed above, not again in the model's history
+  const knownOpen = D.kind !== "model" && !D.recallUnknown;   // the ministry's list of unfixed cars answered for this plate
+  const fresh = knownOpen ? fits.filter(r => r.fresh) : [], known = fits.filter(r => !fresh.includes(r)), hz = recallHz(catMetaV);
   if (D.recalls.length) {
     html.push(card("ריקולים פתוחים לרכב הזה", "alert", "red", D.recalls.map(r => {
       const d = r.detail || {};
@@ -2376,20 +2751,30 @@ function tabRecalls(D){
   else { row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")} (פירוט למעלה)` : "אין ריקול פתוח במאגר משרד התחבורה");
   if (D.recalls.length) row(false, "ריקול שלא מתוקן עלול למנוע בהמשך חידוש רישיון");
   else row(true, "אין ריקול שמגביל חידוש רישיון"); }
-  if (D.modelRecallsUnknown) row(false, "בדיקת ריקולים לדגם לא זמינה כרגע"); else row(!fits.length, !mr.length ? "לא נמצאו ריקולים לדגם" : fits.length ? `${pl(fits.length, "ריקול לדגם עשוי לחול", "ריקולים לדגם עשויים לחול")} על שנת הייצור${D.kind !== "model" && !D.recallUnknown ? `, והרכב הזה לא מופיע ${fits.length === 1 ? "בו" : "בהם"} כרכב שלא תוקן` : ""}` : `${pl(mr.length, "ריקול לדגם, לא חל", "ריקולים לדגם, אף אחד לא חל")} על שנת הייצור`);
+  if (D.modelRecallsUnknown) row(false, "בדיקת ריקולים לדגם לא זמינה כרגע");
+  else {
+    if (fresh.length) row(false, `${pl(fresh.length, "ריקול חדש לדגם עשוי לחול", "ריקולים חדשים לדגם עשויים לחול")} על הרכב, ועוד לא ידוע אם הרכב הזה נכלל ${fresh.length === 1 ? "בו" : "בהם"}`);
+    if (!fresh.length || known.length) row(!known.length, !mr.length ? "לא נמצאו ריקולים לדגם" : known.length ? `${pl(known.length, "ריקול לדגם עשוי לחול", "ריקולים לדגם עשויים לחול")} על שנת הייצור${knownOpen ? `, והרכב הזה לא מופיע ${known.length === 1 ? "בו" : "בהם"} כרכב שלא תוקן` : ""}` : `${pl(mr.length, "ריקול לדגם, לא חל", "ריקולים לדגם, אף אחד לא חל")} על שנת הייצור`);
+  }
   if (D.kind !== "model" && !D.isCancelled) row(!stl.length, stl.length ? `ייתכן שהרכב נכלל ב${pl(stl.length, "הסדר פשרה", "הסדרי פשרה")} (פירוט למעלה)` : "לא נמצא הסדר פשרה מוכר לדגם ולשנתון");
   html.push(card(`מה נבדק (${rows.length} בדיקות)`, "check", D.recalls.length || fits.length || stl.length || D.recallUnknown || D.modelRecallsUnknown ? "amber" : "green", `<ul class="insights plain">${rows.join("")}</ul>
-    <p class="note">הסדרי פשרה: נבדקו מול ${SETTLEMENTS.length} הסדרים של יבואנים, לפי הודעותיהם והעיתונות נכון ל-10/2026. הרשימה אינה מקיפה. באתר היבואן מופיעים גם קמפיינים שלא תמיד נמצאים במאגר.</p>
+    <p class="note">${hz.max > hz.id ? `רשימת משרד התחבורה של רכבים שלא תוקנו כוללת כרגע ריקולים שנפתחו עד ${esc(fmtDate(hz.d))}. באתר היבואן מופיעים גם ריקולים חדשים יותר, וגם קריאות שירות שאינן ריקול בטיחותי. ` : "באתר היבואן מופיעים גם קמפיינים וקריאות שירות שלא תמיד נמצאים במאגר. "}הסדרי פשרה: נבדקו מול ${SETTLEMENTS.length} הסדרים של יבואנים, לפי הודעותיהם והעיתונות נכון ל-10/2026. הרשימה אינה מקיפה.</p>
     <button type="button" class="link-btn" data-url="${esc(imp.url)}" data-copyfirst="${imp.vin ? esc(D.vin || D.plate) : D.plate}">${ico("search")}${imp.gov ? "חיפוש במאגר הריקולים של משרד התחבורה" : `בדיקת ריקולים וקמפיינים באתר ${esc(imp.name)}`}</button>
     <p class="note" style="margin:6px 0 0">מספר הרישוי יועתק, ותדביקו אותו באתר.${imp.gov ? ` ל${esc(imp.name || "יבואן הזה")} לא מצאנו עמוד בדיקה לפי מספר רישוי, ובמאגר של משרד התחבורה מחפשים לפי יצרן ודגם.` : imp.note ? " " + esc(imp.note) : ""}</p>`));
   if (mr.length) {
-    const knownOpen = D.kind !== "model" && !D.recallUnknown;   // the ministry's list of unfixed cars answered for this plate
+    // a plate: the per-car list says whether the recall is open on this car, except for a fresh recall (not in that list yet); a model: the years only
+    const pill = r => {
+      if (r.fits === false) return `<span class="pill">שנים אחרות</span>`;
+      if (!knownOpen) return r.fits === true ? `<span class="pill warn">כולל את שנת הייצור</span>` : r.near ? `<span class="pill">ייתכן שכולל את שנת הייצור</span>` : "";
+      const when = r.fits === true ? "בשנת הייצור, " : r.near ? "שנה סמוכה, " : "";
+      return r.fresh ? `<span class="pill warn">${when}עוד לא ידוע אם כולל את הרכב</span>` : `<span class="pill">${when}לא פתוח ברכב הזה</span>`;
+    };
     html.push(card("ריקולים שנפתחו לדגם", "clock", "blue",
-      `<p class="note" style="margin:0 0 8px">ריקולים שהיבואנים בארץ פתחו לכל הדגם, לפי משרד התחבורה. הם לא בהכרח חלו על הרכב הזה.${knownOpen ? " רכב שנכלל בריקול ועוד לא תוקן מופיע למעלה, בריקולים הפתוחים." : ""}</p>
+      `<p class="note" style="margin:0 0 8px">ריקולים שהיבואנים בארץ פתחו לכל הדגם, לפי משרד התחבורה. הם לא בהכרח חלו על הרכב הזה.${knownOpen ? " רכב שנכלל בריקול ועוד לא תוקן מופיע למעלה, בריקולים הפתוחים." : ""}${knownOpen && mr.some(r => r.fresh && r.fits !== false) ? " לריקול חדש עוד אין פירוט לפי מספר רכב, ואפשר לבדוק אותו באתר היבואן." : ""}</p>
        <ul class="rlist">${mr.map(r => `<li class="${r.fits === false ? "dim" : ""}">
-         <div class="rhead"><time>${empty(r.SHNAT_RECALL) ? "" : "ריקול משנת " + esc(r.SHNAT_RECALL)}</time>${r.fits === true ? (knownOpen ? `<span class="pill">בשנת הייצור, לא פתוח ברכב הזה</span>` : `<span class="pill warn">כולל את שנת הייצור</span>`) : r.fits === false ? `<span class="pill">שנים אחרות</span>` : ""}</div>
+         <div class="rhead"><time>${empty(r.SHNAT_RECALL) ? "" : "ריקול משנת " + esc(r.SHNAT_RECALL)}</time>${pill(r)}</div>
          <b>${esc(D.pick(r.TEUR_TAKALA, r.SUG_TAKALA) || "ריקול")}</b>
-         <span class="note">${[recType(r.SUG_RECALL), !empty(r.DEGEM) && String(r.DEGEM).split(/\s*,\s*/).join(", "), !empty(r.YEVUAN_TEUR) && String(r.YEVUAN_TEUR).trim() !== importerOf(D) && "יבואן: " + String(r.YEVUAN_TEUR).trim()].filter(x => x && !empty(x)).map(esc).join(" · ")}${(r.BUILD_BEGIN_A || r.BUILD_END_A) ? ` · ייצור <span dir="ltr" style="unicode-bidi:isolate">${esc(fmtDate(r.BUILD_BEGIN_A || ""))} – ${esc(fmtDate(r.BUILD_END_A || ""))}</span>` : ""}</span>
+         <span class="note">${[recType(r.SUG_RECALL), !empty(r.DEGEM) && String(r.DEGEM).split(/\s*,\s*/).join(", "), !empty(r.YEVUAN_TEUR) && String(r.YEVUAN_TEUR).trim() !== importerOf(D) && "יבואן: " + String(r.YEVUAN_TEUR).trim()].filter(x => x && !empty(x)).map(esc).join(" · ")}${(r.BUILD_BEGIN_A || r.BUILD_END_A) && !r.offRange ? ` · ייצור <span dir="ltr" style="unicode-bidi:isolate">${esc(fmtDate(r.BUILD_BEGIN_A || ""))} – ${esc(fmtDate(r.BUILD_END_A || ""))}</span>` : ""}</span>
        </li>`).join("")}</ul>`, `<span class="count">${mr.length}</span>`));
   }
   return html.join("");
@@ -2447,7 +2832,8 @@ function checksCard(D){
   const off = D.primary && /^inactive/.test(D.primary.key);   // found only in the inactive registers: not "active", as the insights already say
   row(!D.isCancelled && !off, D.isCancelled ? "הרכב ירד מהכביש" : off ? "הרכב רשום כלא פעיל" : "הרכב פעיל ולא בוטל");
   if (exp) row(exp >= new Date(now.getFullYear(), now.getMonth(), now.getDate()), exp >= new Date(now.getFullYear(), now.getMonth(), now.getDate()) ? `טסט בתוקף עד ${fmtDate(v.tokef_dt)}` : `הטסט פג ב-${fmtDate(v.tokef_dt)}`);
-  if (D.recallUnknown) row(false, "ריקולים: מידע לא זמין כרגע"); else row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")}` : "אין ריקול פתוח");
+  if (D.recallUnknown) row(false, "ריקולים: מידע לא זמין כרגע"); else row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")}` : "לא נמצא ריקול פתוח");
+  if (freshRecalls(D).length) row(false, "ייתכן ריקול חדש לדגם, עוד בלי פירוט לפי רכב");
   if (D.own.length) row(true, "נבדקה היסטוריית הבעלות");
   const mods = ["shinui_mivne_ind", "gapam_ind", "shnui_zeva_ind", "shinui_zmig_ind"].filter(k => yes(v[k]));
   row(!mods.length, mods.length ? "נרשמו שינויים ברכב" : "לא נרשמו שינויי מבנה, גפ״מ או צבע");
@@ -3359,7 +3745,7 @@ function renderCompare(){
     ["אגרת רישוי (הערכה)", D => D.cost.fee || null, "lo", "₪"],
     ["שווי שימוש לחודש", D => D.cost.usage ? D.cost.usage.monthly : null, "lo", "₪"],
     "אמינות",
-    ["ריקולים לדגם", D => D.modelRecallsUnknown ? null : D.modelRecalls.filter(r => r.fits !== false).length, "lo"],
+    ["ריקולים לדגם", D => D.modelRecallsUnknown ? null : recallGroups(D.modelRecalls).filter(r => r.fits !== false).length, "lo"],
     ["רכבים מהדגם והשנתון על הכביש", D => { const p = msPop(D); return p ? p.n : null; }, null, ""],
     ["ירדו מהכביש (כל הדגם והשנתון)", D => { const p = msPop(D); return p ? Math.round(p.pct * 10) / 10 : null; }, "lo", "%", true],
     ...(anyCar ? [anyModel ? "הרכב הספציפי (לא לדגמים)" : "הרכב הספציפי",
@@ -3604,7 +3990,7 @@ function buildReport(D, full, biz){
   el.querySelectorAll(".card").forEach(c => { if (/^יומן אירועים/.test(((c.querySelector(".head h2") || {}).textContent || "").trim())) c.remove(); });
   // a clean recall result is already stated in the recalls section of a full report, so it is not repeated in the checks list
   if (full) el.querySelectorAll(".insights.plain li").forEach(li => {
-    if (li.textContent.trim() !== "אין ריקול פתוח") return;
+    if (li.textContent.trim() !== "לא נמצא ריקול פתוח") return;
     const c = li.closest(".card"), h = c && c.querySelector(".head h2"), m = h && h.textContent.match(/\((\d+) בדיקות\)/);
     li.remove(); if (m) h.textContent = h.textContent.replace(m[0], `(${m[1] - 1} בדיקות)`);
   });
@@ -4015,7 +4401,8 @@ async function drawShareCard(D, opt = {}){
   if (D.isCancelled) add("bad", "הרכב ירד מהכביש");
   else {
     if (exp) add(exp >= today ? "ok" : "bad", exp >= today ? `טסט בתוקף עד ${fmtDate(v.tokef_dt)}` : `הטסט פג ב-${fmtDate(v.tokef_dt)}`);
-    if (D.recallUnknown) add("warn", "מידע על ריקולים לא זמין כרגע, אין להסיק שאין ריקול"); else add(D.recalls.length ? "bad" : "ok", D.recalls.length ? (D.recalls.length === 1 ? "ריקול פתוח אחד" : `${D.recalls.length} ריקולים פתוחים`) : "אין ריקול פתוח");
+    if (D.recallUnknown) add("warn", "מידע על ריקולים לא זמין כרגע, אין להסיק שאין ריקול"); else add(D.recalls.length ? "bad" : "ok", D.recalls.length ? (D.recalls.length === 1 ? "ריקול פתוח אחד" : `${D.recalls.length} ריקולים פתוחים`) : "לא נמצא ריקול פתוח");
+    if (freshRecalls(D).length) add("warn", "ייתכן ריקול חדש לדגם, עוד בלי פירוט לפי רכב");
     if (D.own.length) add("info", ownersLabel(D));
     const mods = ["shinui_mivne_ind", "gapam_ind", "shnui_zeva_ind", "shinui_zmig_ind"].filter(k => yes(v[k]));
     add(mods.length ? "warn" : "ok", mods.length ? "נרשמו שינויים ברכב" : "לא נרשמו שינויי מבנה, צבע או גפ״מ");
@@ -4608,6 +4995,7 @@ function buyerCard(D){
   if (D.plate && !bcSeen.has(D.plate)) { bcSeen.add(D.plate); track("buy_card_open", {locked: PRO_LOCK && !isPro() ? 1 : 0}); }
   const v = D.v, flags = [], qs = [];
   if (D.recalls.length) { flags.push(["bad", D.recalls.length === 1 ? "ריקול פתוח" : `${D.recalls.length} ריקולים פתוחים`]); qs.push("האם הריקול תוקן? כדאי לבקש אישור תיקון מהיבואן."); }
+  if (freshRecalls(D).length) { flags.push(["warn", "ייתכן ריקול חדש לדגם, עוד בלי פירוט לפי רכב"]); qs.push("האם הרכב נכלל בריקול החדש לדגם? אפשר לבדוק באתר היבואן לפי מספר הרישוי."); }
   for (const i of buildInsights(D)) if (i.level === "bad" || i.level === "warn") flags.push([i.level, i.title]);
   const dtk = driveType(D);
   if (dtk && ["ev", "phev", "hybrid"].includes(dtk.k)) qs.unshift("עד מתי ועד כמה ק״מ יש אחריות יצרן על הסוללה?", "אפשר לעשות ביטוח לסוללה או להאריך את האחריות, ובכמה זה עולה?", ...(dtk.k === "hybrid" ? [] : ["יש דוח בדיקת בריאות סוללה?"]));

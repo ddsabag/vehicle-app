@@ -11,7 +11,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 60   # the per-car recall list read against the active and inactive registers adds about 7 minutes
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v7
@@ -33,6 +33,19 @@ jobs:
           [ -n "$TELEGRAM_BOT_TOKEN" ] || { echo "no Telegram credentials"; exit 0; }
           curl -s -o /dev/null -w "telegram %{http_code}\n" "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text@cat-out/rules-alert.txt" --data-urlencode "disable_web_page_preview=true"
           rm -f cat-out/rules-alert.txt
+      - name: Check the recall answers (the per-car list's reach, new recall rows that match no model; report + state next to the catalogue)
+        run: node .github/scripts/recall-health.mjs
+        env:
+          OUT: cat-out
+      - name: Telegram line when the recall check found a change
+        if: ${{ hashFiles('cat-out/recall-alert.txt') != '' }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          [ -n "$TELEGRAM_BOT_TOKEN" ] || { echo "no Telegram credentials"; exit 0; }
+          curl -s -o /dev/null -w "telegram %{http_code}\n" "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text@cat-out/recall-alert.txt" --data-urlencode "disable_web_page_preview=true"
+          rm -f cat-out/recall-alert.txt
       - name: Publish on the catalog-data branch
         run: |
           test -s cat-out/meta.json && ls cat-out/c | wc -l
