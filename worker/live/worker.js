@@ -86,20 +86,32 @@ async function collectDaily(env, today, yday) {
   if (daily && Date.now() - dailyAt < 300e3) return daily;
   const errors = {}, safe = (p, k) => p.catch(e => { errors[k] = String(e.message || e).slice(0, 200); return null; });
   const dr = [{ startDate: "today", endDate: "today" }, { startDate: "yesterday", endDate: "yesterday" }];
-  const camp = safe(report(env, { dateRanges: [{ startDate: "today", endDate: "today" }, { startDate: "7daysAgo", endDate: "today" }, { startDate: "28daysAgo", endDate: "today" }], dimensions: [{ name: "customEvent:via" }], metrics: [{ name: "eventCount" }],
-    dimensionFilter: { andGroup: { expressions: [{ filter: { fieldName: "eventName", stringFilter: { value: "link_landing" } } }, { filter: { fieldName: "customEvent:kind", stringFilter: { value: "campaign" } } }] } }, limit: 50 }), "ga4 campaigns");
-  const [kpi, evs, vers, src, pages, campRows] = await Promise.all([
+  const [kpi, evs, vers, src, pages] = await Promise.all([
     safe(report(env, { dateRanges: dr, metrics: ["activeUsers", "newUsers", "sessions", "userEngagementDuration", "screenPageViews"].map(name => ({ name })), dimensionFilter: REAL }), "ga4 daily"),
     safe(report(env, { dateRanges: dr, dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }, { name: "totalUsers" }], dimensionFilter: REAL, limit: 100 }), "ga4 events"),
     safe(report(env, { dateRanges: [dr[0]], dimensions: [{ name: "appVersion" }], metrics: [{ name: "activeUsers" }], dimensionFilter: APP, orderBys: [{ metric: { metricName: "activeUsers" }, desc: true }], limit: 8 }), "ga4 versions"),
-    safe(cfTop(env, today, "refererHost"), "site sources"), safe(cfTop(env, today, "requestPath"), "site pages"), camp]);
+    safe(cfTop(env, today, "refererHost"), "site sources"), safe(cfTop(env, today, "requestPath"), "site pages")]);
   const range = r => r.dimensionValues[r.dimensionValues.length - 1].value;   // "date_range_0" (today) or "date_range_1"
   const k = { today: null, yesterday: null };
   for (const r of kpi || []) { const o = {}; ["activeUsers", "newUsers", "sessions", "engageSec", "views"].forEach((n, i) => o[n] = Number(r.metricValues[i].value)); k[range(r) === "date_range_0" ? "today" : "yesterday"] = o; }
   const ev = { today: {}, yesterday: {} };
   for (const r of evs || []) ev[range(r) === "date_range_0" ? "today" : "yesterday"][r.dimensionValues[0].value] = [Number(r.metricValues[0].value), Number(r.metricValues[1].value)];
-  daily = { errors, kpi: kpi ? k : null, events: evs ? ev : null, versions: vers ? vers.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]) : null, sources: src, pages, campaigns: campRows ? campRows.reduce((o, r) => { const v = r.dimensionValues[0].value, i = Number(range(r).slice(-1)); (o[v] ||= [0, 0, 0])[i] = Number(r.metricValues[0].value); return o; }, {}) : null };
+  daily = { errors, kpi: kpi ? k : null, events: evs ? ev : null, versions: vers ? vers.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]) : null, sources: src, pages };
   dailyAt = Date.now(); return daily;
+}
+
+// Where a visit came from, in the buckets of the marketing plan. The /go/ short links tag utm_source with these names; the app itself is one bucket,
+// because a session inside the app carries no source worth reading.
+const GO_SOURCES = ["tiktok", "instagram", "facebook", "linkedin", "youtube", "whatsapp", "newsletter", "press", "dealer", "qr", "share"];
+function srcBucket(platform, source, medium) {
+  if (platform !== "web") return "app";
+  const s = String(source || "").toLowerCase(), md = String(medium || "").toLowerCase();
+  if (GO_SOURCES.includes(s)) return s;
+  if (s === "(direct)") return "direct";
+  if (md === "organic") return /google/.test(s) ? "google" : "search";
+  for (const k of ["facebook", "instagram", "youtube", "linkedin", "tiktok", "whatsapp"]) if (s.includes(k)) return k;
+  if (/(^|\.)wa\.me$/.test(s)) return "whatsapp";
+  return "other";
 }
 
 // The business view: whole weeks, not "right now". GA4 needs about a day to finish counting, so the week ends yesterday after noon and the day before until then.
@@ -113,7 +125,7 @@ async function collectWeekly(env, today) {
   const dr = w => ({ startDate: w[0], endDate: w[1] }), only = v => ({ filter: { fieldName: "eventName", stringFilter: { value: v } } }), any = vs => ({ filter: { fieldName: "eventName", inListFilter: { values: vs } } });
   const histFrom = [addDays(end, -62), "2026-10-04"].sort()[0];   // the growth target is chained from the week of 18-24.10, so keep that week in reach
   const CW = [addDays(today, -7), addDays(today, -1)];            // Cloudflare counts in real time: the last 7 whole days
-  const [evs, fails, links, hist, app, money, src, pages, saveU] = await Promise.all([
+  const [evs, fails, links, hist, app, money, src, pages, saveU, bySrc] = await Promise.all([
     safe(report(env, { dateRanges: [dr(W), dr(P), dr(M)], dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }, { name: "totalUsers" }], dimensionFilter: REAL, limit: 250 }), "ga4 week"),
     safe(report(env, { dateRanges: [dr(W), dr(P)], dimensions: [{ name: "customEvent:kind" }], metrics: [{ name: "eventCount" }], dimensionFilter: withReal(only("lookup_failed")), limit: 20 }), "ga4 failures"),
     safe(report(env, { dateRanges: [dr(W), dr(P)], dimensions: [{ name: "eventName" }, { name: "customEvent:kind" }, { name: "customEvent:via" }], metrics: [{ name: "eventCount" }], dimensionFilter: withReal(any(["link_landing", "link_open", "referral_open"])), limit: 200 }), "ga4 shared links"),
@@ -121,7 +133,8 @@ async function collectWeekly(env, today) {
     safe(report(env, { dateRanges: [dr(W), dr(P), dr(M)], dimensions: [{ name: "countryId" }], metrics: [{ name: "newUsers" }, { name: "activeUsers" }], dimensionFilter: { filter: { fieldName: "platform", stringFilter: { value: "Android" } } }, limit: 250 }), "ga4 app"),
     safe(report(env, { dateRanges: [{ startDate: "2026-10-01", endDate: "today" }], dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: any(["b2b_lead_submit", "newsletter_confirm"]) }), "ga4 money"),
     safe(cfTop(env, CW[0], "refererHost", CW[1]), "site week sources"), safe(cfTop(env, CW[0], "requestPath", CW[1]), "site week pages"),
-    safe(report(env, { dateRanges: [dr(W)], dimensions: [{ name: "eventName" }], metrics: [{ name: "totalUsers" }], dimensionFilter: { andGroup: { expressions: [APP, any(["car_lookup", "car_save"])] } } }), "ga4 app savers")]);
+    safe(report(env, { dateRanges: [dr(W)], dimensions: [{ name: "eventName" }], metrics: [{ name: "totalUsers" }], dimensionFilter: { andGroup: { expressions: [APP, any(["car_lookup", "car_save"])] } } }), "ga4 app savers"),
+    safe(report(env, { dateRanges: [dr(W), dr(P)], dimensions: [{ name: "platform" }, { name: "sessionSource" }, { name: "sessionMedium" }, { name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: withReal(any(["session_start", "car_lookup"])), limit: 2000 }), "ga4 sources")]);
   const ri = r => { const v = r.dimensionValues[r.dimensionValues.length - 1].value; return /^date_range_\d$/.test(v) ? Number(v.slice(-1)) : 0; };
   const ev = [{}, {}, {}];
   for (const r of evs || []) ev[ri(r)][r.dimensionValues[0].value] = [Number(r.metricValues[0].value), Number(r.metricValues[1].value)];
@@ -139,9 +152,12 @@ async function collectWeekly(env, today) {
     for (const r of app || []) if (ri(r) === i) { const il = r.dimensionValues[0].value === "IL"; o[il ? "newUsers" : "abroadNew"] += Number(r.metricValues[0].value); o[il ? "activeUsers" : "abroadActive"] += Number(r.metricValues[1].value); }
     return o; });
   const m = {}; for (const r of money || []) m[r.dimensionValues[0].value] = Number(r.metricValues[0].value);
+  // visits (session_start) and car checks by where the visit came from, this week [0] and the week before [1]: { bucket: [visits, checks] }
+  const bs = [{}, {}];
+  for (const r of bySrc || []) { const [pf, so, me, name] = r.dimensionValues.map(x => x.value), o = bs[ri(r)], k = srcBucket(pf, so, me); (o[k] ||= [0, 0])[name === "car_lookup" ? 1 : 0] += Number(r.metricValues[0].value); }
   weekly = { errors, end, W, P, M, CW, ev: evs ? ev : null, fails: fails ? fk : null, shared: links ? shared : null,
     days: hist ? Object.fromEntries(hist.map(r => { const d = r.dimensionValues[0].value; return [d.slice(0, 4) + "-" + d.slice(4, 6) + "-" + d.slice(6), Number(r.metricValues[0].value)]; })) : null,
-    app: app ? appU : null, savers: saveU ? Object.fromEntries(saveU.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)])) : null, money: money ? { leads: m.b2b_lead_submit || 0, subscribers: m.newsletter_confirm || 0 } : null, sources: src, pages };
+    app: app ? appU : null, savers: saveU ? Object.fromEntries(saveU.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)])) : null, money: money ? { leads: m.b2b_lead_submit || 0, subscribers: m.newsletter_confirm || 0 } : null, sources: src, pages, bySource: bySrc ? bs : null };
   weeklyAt = Date.now(); return weekly;
 }
 
@@ -375,8 +391,9 @@ table.t{width:100%;border-collapse:collapse;font-size:.86rem}.t th{font-weight:5
 <section class="drs">
 <details class="card dr" id="dr-now"><summary><b>עכשיו</b><span>מי פעיל ברגע זה ומה קרה היום</span></summary><ul class="kv" id="now"></ul><p class="note">נתוני היום חלקיים: גוגל אנליטיקס מעדכן אותם בעיכוב של שעה עד כמה שעות.</p></details>
 <details class="card dr" id="dr-goal"><summary><b>יעדים לשנה</b><span>איפה אנחנו מול היעד, עד אוקטובר 2027</span></summary><div id="goal"></div></details>
+<details class="card dr" id="dr-src"><summary><b>מקורות</b><span>מאיפה מגיעות בדיקות הרכב, השבוע מול השבוע הקודם</span></summary><div id="src"></div></details>
 <details class="card dr" id="dr-use"><summary><b>שימוש</b><span>מה אנשים עושים, השבוע מול השבוע הקודם</span></summary><div id="use"></div></details>
-<details class="card dr" id="dr-web"><summary><b>האתר</b><span>ביקורים לפי מקור, דפים, יוטיוב וטיקטוק</span></summary><div id="web"></div></details>
+<details class="card dr" id="dr-web"><summary><b>האתר</b><span>ביקורים לפי אתר מפנה, והדפים שהכי ראו</span></summary><div id="web"></div></details>
 <details class="card dr" id="dr-seo"><summary><b>חיפוש בגוגל</b><span>חיפושים, דפים והופעות בתוצאות</span></summary><div id="seo"></div></details>
 <details class="card dr" id="dr-fl"><summary><b>מבזקים</b><span>הודעות מהסוכנים, אותן הודעות שמגיעות לטלגרם</span></summary><ul class="kv fl" id="fl"></ul><p class="note">● התראה שדורשת תשומת לב. ○ מידע בלבד. אם יש התראה אני מטפל בשגרה, ופונה אליך רק כשנדרשת החלטה שלך.</p></details>
 <details class="card dr" id="dr-tec"><summary><b>טכני</b><span>כשלים לפי סיבה, קריסות ומקורות שלא ענו</span></summary><div id="tec"></div></details>
@@ -537,6 +554,16 @@ $("goal").innerHTML='<div style="overflow-x:auto"><table class="t tg"><thead><tr
 +R.map(([k,l,v,day,r,lower])=>{const g=goal(k,day||td,k==="weekly_checks"?r:1),st=cal&&(k==="weekly_checks"||k==="installs_week")?"cal":band(v,g,lower,!lower),gf=x=>x!=null&&x>=10?n(Math.round(x)):n1(x);return '<tr><td class="w">'+l+'</td><td class="n">'+(k==="failures_pct"||k==="share_per_100"?n1(v):n(v))+" "+mini(st)+'</td><td class="n">'+gf(g&&g[1])+'</td>'+nx.map(m=>'<td class="n">'+gf(goal(k,mEnd(m),k==="weekly_checks"?r:1)[1])+"</td>").join("")+"</tr>"}).join("")+"</tbody></table></div>"
 +'<p class="note">היעדים מתוכנית השיווק (תרחיש בסיס, צמיחה אורגנית בלבד). ירוק: ביעד או מעליו. צהוב: בין התרחיש השמרני ליעד. אדום: מתחת לתרחיש השמרני. יעדי בדיקות הרכב מכוילים לפי שבוע הבסיס 19.10 עד 25.10'+(Math.abs(RC-1)>=.005?" (מקדם "+(Math.round(RC*100)/100)+")":"")+'. בין סופי החודשים היעד עולה בקו ישר. בכשלים, נמוך יותר טוב.</p>'}
 
+// drawer: sources, the plan's North Star (car checks a week) split by where the visit came from
+{const B=W&&W.bySource,box=$("src");if(!B){box.innerHTML='<p class="note">'+(W?"גוגל אנליטיקס לא ענה על המקורות.":"אין נתונים")+"</p>"}else{
+const SL={google:"חיפוש בגוגל",search:"מנועי חיפוש אחרים",direct:"ישיר (בלי מקור)",app:"בתוך האפליקציה",share:"שיתוף דוח מהאפליקציה",tiktok:"טיקטוק",instagram:"אינסטגרם",facebook:"פייסבוק",linkedin:"לינקדאין",youtube:"יוטיוב",whatsapp:"וואטסאפ",newsletter:"ניוזלטר",press:"כתבות",dealer:"סוחרים",qr:"QR ודפוס",other:"אתרים אחרים"};
+const c=B[0],p=B[1],ks=[...new Set([...Object.keys(c),...Object.keys(p)])].sort((a,b)=>((c[b]||[0,0])[1]-(c[a]||[0,0])[1])||((c[b]||[0,0])[0]-(c[a]||[0,0])[0])),tc=ks.reduce((a,k)=>a+(c[k]||[0,0])[1],0),tp=ks.reduce((a,k)=>a+(p[k]||[0,0])[1],0),tv=ks.reduce((a,k)=>a+(c[k]||[0,0])[0],0);
+const dl=(x,y)=>{const v=x-y;return v>0?'<small class="up"><bdi dir="ltr">+'+n(v)+"</bdi></small>":v<0?'<small class="down"><bdi dir="ltr">'+n(v)+"</bdi></small>":""};
+box.innerHTML="<h4>בדיקות רכב לפי מקור ("+rng(W.W)+")</h4>"+(ks.length?'<div style="overflow-x:auto"><table class="t tg"><thead><tr><th>מקור</th><th class="n">כניסות</th><th class="n">בדיקות רכב</th><th class="n">חלק מהבדיקות</th><th class="n">שבוע קודם</th></tr></thead><tbody>'
++ks.map(k=>{const a=c[k]||[0,0],b=p[k]||[0,0];return '<tr><td class="w">'+esc(SL[k]||k)+'</td><td class="n">'+n(a[0])+'</td><td class="n">'+n(a[1])+" "+dl(a[1],b[1])+'</td><td class="n">'+(tc?Math.round(a[1]*100/tc)+"%":"-")+'</td><td class="n">'+n(b[1])+"</td></tr>"}).join("")
++'<tr><td class="w"><b>סך הכול</b></td><td class="n"><b>'+n(tv)+'</b></td><td class="n"><b>'+n(tc)+"</b> "+dl(tc,tp)+'</td><td class="n"></td><td class="n">'+n(tp)+"</td></tr></tbody></table></div>":'<p class="note" style="margin:0">אין עדיין נתונים לשבוע הזה.</p>')
++'<p class="note">כניסות: ביקורים באתר, ובאפליקציה פתיחות. המקור הוא של הביקור שבו נעשתה הבדיקה. קישורי <bdi dir="ltr">luchit.app/go/</bdi> נספרים תחת המקור שלהם; קישור בלי תיוג (למשל מוואטסאפ או מאפליקציה אחרת) נספר לרוב כ"ישיר". באפליקציה עצמה אין מקור לכל פתיחה, ולכן היא שורה אחת. גוגל אנליטיקס מסיימת לספור אחרי כיום, ולכן השבוע נגמר אתמול.</p>'}}
+
 // drawer: usage, this week against last week
 {const box=$("use");if(!ev){box.innerHTML='<p class="note">אין נתון מגוגל אנליטיקס.</p>'}else{
 const rows=Object.keys(N).filter(k=>ge(E0,k)||ge(E1,k)).sort((a,b)=>ge(E0,b)-ge(E0,a)).slice(0,14);
@@ -550,10 +577,9 @@ box.innerHTML='<h4>שמירת רכב</h4><p class="note" style="margin:0 0 6px">
 {const SRC=h=>!h?"כניסה ישירה":/google\\./.test(h)?"גוגל":/bing\\.|duckduckgo|yahoo|ecosia/.test(h)?"מנועי חיפוש אחרים":/whatsapp|wa\\.me/.test(h)?"וואטסאפ":/facebook|instagram|t\\.co|twitter|x\\.com|linkedin|telegram|t\\.me|tiktok|youtube/.test(h)?"רשתות חברתיות":/luchit\\.app/.test(h)?"מתוך האתר":h;
 const agg=(arr,f)=>{const m={};(arr||[]).forEach(r=>{const k=f(r[0]);m[k]=(m[k]||0)+r[1]});return Object.entries(m).sort((a,b)=>b[1]-a[1])};
 const S7=W&&W.sources,tot=S7?S7.reduce((a,r)=>a+r[1],0):null,kv=(a,ltr)=>a&&a.length?'<ul class="kv">'+a.map(r=>"<li><span>"+(ltr?'<bdi dir="ltr">'+esc(r[0])+"</bdi>":esc(r[0]))+"</span><b>"+n(r[1])+"</b></li>").join("")+"</ul>":'<p class="note" style="margin:0">אין נתונים</p>';
-const C=(d.daily||{}).campaigns;
 $("web").innerHTML='<h4>ביקורים ב-7 ימים ('+rng(W&&W.CW)+"): "+n(tot)+"</h4>"+kv(S7?agg(S7,SRC):null)+(W&&W.CW&&W.CW[0]<"2026-10-18"?'<p class="note">מ-18.10 נספרים גם דפי הדגמים, המגזין ושאר דפי האתר, ולכן עד 24.10 המספר כאן חלקי.</p>':"")
 +"<h4>הדפים שהכי ראו</h4>"+kv(W&&W.pages?agg(W.pages,h=>h||"/").slice(0,8):null,true)
-+"<h4>כניסות מיוטיוב ומטיקטוק</h4>"+(C?'<table class="t"><thead><tr><th>מקור</th><th class="n">היום</th><th class="n">7 ימים</th><th class="n">28 ימים</th></tr></thead><tbody>'+[["youtube","יוטיוב"],["tiktok","טיקטוק"]].map(k=>{const v=C[k[0]]||[0,0,0];return "<tr><td>"+k[1]+"</td>"+v.map(x=>'<td class="n">'+n(x)+"</td>").join("")+"</tr>"}).join("")+"</tbody></table>":'<p class="note" style="margin:0">אין נתונים</p>')}
++'<p class="note">כניסות מטיקטוק, יוטיוב ושאר המקורות של תוכנית השיווק נמצאות במגירה "מקורות".</p>'}
 
 // drawer: Google search
 {const S=d.seo,box=$("seo");if(!S||!S.cur){box.innerHTML='<p class="note">'+(S?"אין עדיין נתוני חיפוש.":"Search Console לא ענה.")+"</p>"}else{
