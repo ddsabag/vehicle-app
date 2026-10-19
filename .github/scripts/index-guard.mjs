@@ -4,7 +4,9 @@
 //   2. a key page (home, /check/*, /magazine/*) that was indexed is now inspected and not indexed.
 // Only sitemap URLs count (EXTRA_URLS of a manual run are left out), and a page that left the sitemap is not a drop.
 // A run is compared only when it is clean: a sitemap was read, every URL inspected, few API errors, and the sitemap is not much smaller than
-// the baseline's (a failed or cut-off sitemap fetch looks like that). Only a clean run becomes the next baseline; otherwise the old one stays.
+// the baseline's (a failed or cut-off sitemap fetch looks like that). Only a clean run becomes the next baseline and has its numbers published
+// (clean in the result); otherwise the old one stays. A much smaller sitemap is marked (shrunk, kept on the stored metric) and taken as the new
+// size when the next complete run sees it too: pages that left the sitemap are never a drop, so that run is compared and becomes the baseline.
 // "Crawled, not indexed" and "unknown to Google" swap places from day to day for the same URLs in the API, so they are not compared.
 // metrics.json is public: key pages are stored as paths, every other indexed page only as a short hash of its path.
 //   node index-guard.mjs selftest      offline
@@ -15,18 +17,19 @@ export const pathOf = u => { try { return new URL(u).pathname; } catch { return 
 const h12 = s => createHash("sha1").update(String(s)).digest("hex").slice(0, 12);
 export const idOf = p => (KEY(p) ? p : h12(p));
 
-// prev: the stored metric or null. now: {sitemap: [urls], inspection: [{url, verdict, coverage} | {url, error}], errors: [...]}, at: ISO date
+// prev: the stored metric or null (only when there is none: an unreadable one is not compared at all). now: {sitemap: [urls],
+// inspection: [{url, verdict, coverage} | {url, error}], errors: [...]}, at: ISO date
 export function compare(prev, now, at = "") {
   const sm = [...new Set(now.sitemap || [])], inSm = new Set(sm);
   const byUrl = new Map(); for (const i of now.inspection || []) if (inSm.has(i.url) && !byUrl.has(i.url)) byUrl.set(i.url, i);
   const done = [...byUrl.values()].filter(i => !i.error);
   const passIds = [...new Set(done.filter(i => i.verdict === "PASS").map(i => idOf(pathOf(i.url))))].sort();
   const base = prev && prev.base && Array.isArray(prev.base.pass) && prev.base.n > 0 ? prev.base : null;
-  const out = (skipped, alerts = [], clean = false) => ({ indexed: passIds.length, inspected: done.length, total: sm.length, alerts, skipped,
-    base: clean ? { at, n: sm.length, pass: passIds } : base });
+  const out = (skipped, alerts = [], clean = false, shrunk = 0) => ({ indexed: passIds.length, inspected: done.length, total: sm.length, alerts, skipped,
+    clean, ...(shrunk ? { shrunk } : {}), base: clean ? { at, n: sm.length, pass: passIds } : base });
   if (!sm.length) return out("no sitemap URLs (the sitemap could not be read)");
   if (done.length !== sm.length || (now.errors || []).length > MAX_ERRORS) return out("this run is incomplete");
-  if (base && sm.length < base.n * SHRINK) return out(`the sitemap has ${sm.length} URLs, the baseline ${base.n}: not compared`);
+  if (base && sm.length < base.n * SHRINK && !prev.shrunk) return out(`the sitemap has ${sm.length} URLs, the baseline ${base.n}: not compared until the next run sees it too`, [], false, sm.length);
   if (!base) return out("no clean baseline yet", [], true);
   const nowById = new Map(done.map(i => [idOf(pathOf(i.url)), i]));
   const lost = base.pass.filter(id => nowById.has(id) && nowById.get(id).verdict !== "PASS");
@@ -65,10 +68,10 @@ if (process.argv[1] && process.argv[1].endsWith("index-guard.mjs") && process.ar
   const sitemap = paths.map(U), base = paths.map(p => I(p));
   const run = (prev, inspection, extra = {}) => compare(prev, { sitemap, inspection, errors: [], ...extra }, "2026-10-19");
   const day0 = run(null, base);
-  ok(day0.skipped === "no clean baseline yet" && day0.base && day0.base.pass.length === 33 && day0.alerts.length === 0, "first run makes the baseline");
+  ok(day0.skipped === "no clean baseline yet" && day0.clean && day0.base && day0.base.pass.length === 33 && day0.alerts.length === 0, "first run makes the baseline");
   ok(day0.base.pass.includes("/check/recall/") && !day0.base.pass.some(id => id.startsWith("/model/")), "key pages in clear, others hashed");
   const prev = { indexed: 33, inspected: 33, total: 33, base: day0.base };
-  ok(run(prev, base).alerts.length === 0, "same state: no alert");
+  ok(run(prev, base).alerts.length === 0 && run(prev, base).clean, "same state: no alert, published");
   const lose = n => base.map((i, k) => (k < n ? { ...i, verdict: "NEUTRAL", coverage: "נסרק אך לא נכלל באינדקס" } : i));
   let r = run(prev, lose(4));
   ok(r.alerts.length === 1 && r.alerts[0].kind === "drop" && r.alerts[0].lost === 4 && r.alerts[0].of === 33, "4 of 33 lost: drop alert");
@@ -82,13 +85,18 @@ if (process.argv[1] && process.argv[1].endsWith("index-guard.mjs") && process.ar
   ok(alertId(r.alerts) === alertId(run(prev, key).alerts) && alertId(r.alerts) !== alertId(run(prev, lose(4)).alerts), "alert id: same news same id");
   // false-alarm cases found in review
   r = run(prev, [], { sitemap: [] });
-  ok(r.alerts.length === 0 && r.skipped && r.base === prev.base, "empty sitemap: no alert, baseline kept");
+  ok(r.alerts.length === 0 && r.skipped && r.base === prev.base && !r.clean && !r.shrunk, "empty sitemap: no alert, baseline kept, nothing published");
   r = run(prev, base.slice(0, 20));
-  ok(r.alerts.length === 0 && r.skipped && r.base === prev.base, "cut-short run: no alert, baseline kept");
+  ok(r.alerts.length === 0 && r.skipped && r.base === prev.base && !r.clean, "cut-short run: no alert, baseline kept, nothing published");
   r = run(prev, base.map((i, k) => (k === 0 ? { url: i.url, error: true } : i)));
-  ok(r.skipped && r.base === prev.base, "an errored URL makes the run incomplete");
-  r = run(prev, lose(10).slice(0, 25).concat(base.slice(25)), { sitemap: sitemap.slice(0, 25) });
-  ok(r.skipped && r.skipped.includes("sitemap"), "a much smaller sitemap is not compared");
+  ok(r.skipped && r.base === prev.base && !r.clean, "an errored URL makes the run incomplete");
+  const shr = lose(10).slice(0, 25), ssm = sitemap.slice(0, 25);
+  r = run(prev, shr, { sitemap: ssm });
+  ok(r.skipped && r.skipped.includes("sitemap") && !r.clean && r.shrunk === 25 && r.base === prev.base && !r.alerts.length, "a much smaller sitemap is not compared, only marked");
+  r = run({ ...prev, shrunk: 25 }, shr, { sitemap: ssm });
+  ok(!r.skipped && r.clean && r.base.n === 25 && r.alerts.some(a => a.kind === "drop" && a.lost === 10 && a.of === 25), "the same smaller sitemap on the next run: compared and the new baseline");
+  r = run({ ...prev, shrunk: 25 }, base);
+  ok(!r.skipped && r.clean && r.base.n === 33 && !r.shrunk && !r.alerts.length, "the full sitemap back after a mark: compared as usual");
   const extras = [...base, I("/check/recall/", "NEUTRAL"), { url: "https://www.luchit.app/", verdict: "NEUTRAL", coverage: "דף עם הפניה" }, I("/model/m1/"), I("/model/m2/")];
   ok(run(prev, extras).alerts.length === 0, "EXTRA_URLS duplicates and www variants are ignored");
   const day1 = run(prev, extras), next = run({ ...prev, base: day1.base }, base);

@@ -1,10 +1,14 @@
 // luchit-live: a private business dashboard for the owner. GET /live is the page, GET /live/data the numbers (GA4, Cloudflare Web Analytics, Search Console, Google Play store page, Play Console releases and its statistics reports).
 // Protected twice: Cloudflare Access in front (route luchit.app/live*), and this Worker verifies the Access JWT itself, so a misconfigured Access policy cannot leak data.
 // Returns only aggregate counts, never anything personal. Secrets: GA_SERVICE_ACCOUNT_JSON, CF_API_TOKEN. Vars: see wrangler.toml.
-const CF_TAG = "9bb0e756882c478a808d95596e0deade";
+// Cloudflare Web Analytics keeps luchit.app as two sites: the home page's own beacon (index.html, site tag 03eb..., since 8.10; the token in the
+// page, 9bb0..., is not a site tag) and the beacon Cloudflare adds by itself to every page (5c0a..., since 12.10). A page reports through one of
+// them only, so the two are added up. The owner's own /live screen is left out, and so are automated browsers (headless Chrome: the site's own
+// checks and crawlers, about a sixth of the page views; the page's own beacon already skips them, the added one does not).
+const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-23";   // shown in /live/data so the running version is visible
+const BUILD = "live-24";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -25,9 +29,15 @@ async function verifyAccess(req, env) {
 // one token for every Google API the screen reads (a Worker request may make only 50 outside calls, so no token per API)
 const SCOPES = ["analytics.readonly", "webmasters.readonly", "androidpublisher", "devstorage.read_only"].map(x => "https://www.googleapis.com/auth/" + x).join(" ");
 const gtoks = {};
+// one token request even when every call of the screen asks at once, and a refused one is not asked again by each of them for a minute
+let gtokP = null, gtokErr = null, gtokErrAt = 0;
 async function googleToken(env) {
-  const scope = SCOPES, c = gtoks[scope]; if (c && Date.now() < c.exp) return c.tok;
-  const sa = JSON.parse(env.GA_SERVICE_ACCOUNT_JSON), now = Math.floor(Date.now() / 1000);
+  const c = gtoks[SCOPES]; if (c && Date.now() < c.exp) return c.tok;
+  if (gtokErr && Date.now() - gtokErrAt < 60e3) throw gtokErr;
+  return gtokP || (gtokP = newToken(env).catch(e => { gtokErr = e; gtokErrAt = Date.now(); throw e; }).finally(() => { gtokP = null; }));
+}
+async function newToken(env) {
+  const scope = SCOPES, sa = JSON.parse(env.GA_SERVICE_ACCOUNT_JSON), now = Math.floor(Date.now() / 1000);
   const enc = o => b64u(new TextEncoder().encode(JSON.stringify(o)));
   const unsigned = enc({ alg: "RS256", typ: "JWT" }) + "." + enc({ iss: sa.client_email, scope, aud: "https://oauth2.googleapis.com/token", iat: now, exp: now + 3000 });
   const pem = sa.private_key.replace(/-----[^-]+-----|\s/g, "");
@@ -55,12 +65,12 @@ function ilStart(day) {
   return day + "T00:00:00Z";
 }
 const addDays = (day, k) => new Date(Date.parse(day + "T12:00:00Z") + k * 864e5).toISOString().slice(0, 10);
-async function cfQuery(env, day, dim, limit, lastDay = day) {   // Israel days day..lastDay
+async function cfQuery(env, day, dim, limit, lastDay = day, order = "sum_visits_DESC") {   // Israel days day..lastDay
   const token = cleanToken(env.CF_API_TOKEN), account = String(env.CF_ACCOUNT_ID || "").trim();
   if (!token || !account) return null;
   const dims = dim ? `dimensions{${dim}}` : "";
-  const q = `query($acc:String!,$f:AccountRumPageloadEventsAdaptiveGroupsFilter_InputObject){viewer{accounts(filter:{accountTag:$acc}){rumPageloadEventsAdaptiveGroups(filter:$f,limit:${limit},orderBy:[sum_visits_DESC]){count sum{visits} ${dims}}}}}`;
-  const f = { AND: [{ datetime_geq: ilStart(day), datetime_lt: ilStart(addDays(lastDay, 1)) }, { siteTag: CF_TAG }] };
+  const q = `query($acc:String!,$f:AccountRumPageloadEventsAdaptiveGroupsFilter_InputObject){viewer{accounts(filter:{accountTag:$acc}){rumPageloadEventsAdaptiveGroups(filter:$f,limit:${limit},orderBy:[${order}]){count sum{visits} ${dims}}}}}`;
+  const f = { AND: [{ datetime_geq: ilStart(day), datetime_lt: ilStart(addDays(lastDay, 1)) }, { siteTag_in: CF_SITES }, { requestPath_notlike: "/live%" }, { userAgentBrowser_neq: "ChromeHeadless" }] };
   const r = await fetch("https://api.cloudflare.com/client/v4/graphql", { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body: JSON.stringify({ query: q, variables: { acc: account, f } }) });
   const j = await r.json().catch(() => null);
   if (!r.ok || !j || j.errors) throw new Error("cloudflare " + r.status + " " + JSON.stringify(j?.errors || j).slice(0, 140));
@@ -70,8 +80,8 @@ async function cfVisits(env, day) {
   const g = await cfQuery(env, day, "", 1); if (g == null) return null;
   return g[0] ? { visits: Math.round(g[0].sum.visits), views: g[0].count } : { visits: 0, views: 0 };
 }
-async function cfTop(env, day, dim, lastDay = day) {
-  const g = await cfQuery(env, day, dim, 12, lastDay); if (g == null) return null;
+async function cfTop(env, day, dim, lastDay = day, limit = 12, order) {
+  const g = await cfQuery(env, day, dim, limit, lastDay, order); if (g == null) return null;
   return g.map(x => [x.dimensions[dim] || "", Math.round(x.sum.visits), x.count]);
 }
 
@@ -81,84 +91,97 @@ const withReal = f => ({ andGroup: { expressions: [f, REAL] } });
 // app devices in Israel only: on the site every page load is a new GA4 "user" (the web client id is never saved), so user counts come from the app
 const APP = { andGroup: { expressions: [{ filter: { fieldName: "platform", stringFilter: { value: "Android" } } }, { filter: { fieldName: "countryId", stringFilter: { value: "IL" } } }] } };
 
-let daily = null, dailyAt = 0;
-async function collectDaily(env, today, yday) {
-  if (daily && Date.now() - dailyAt < 300e3) return daily;
-  const errors = {}, safe = (p, k) => p.catch(e => { errors[k] = String(e.message || e).slice(0, 200); return null; });
+// A collector that was answered from memory says so (cached), so a quota error it remembers does not stop this request's own calls. A part that
+// failed keeps its last good numbers (and its error is shown), and the collector asks again after a minute instead of its usual wait.
+const keep = (fresh, prev, keys) => { const o = { ...fresh }; for (const k of keys) if (o[k] == null && prev && prev[k] != null) o[k] = prev[k]; return o; };
+let daily = null, dailyAt = 0, dailyTtl = 0;
+async function collectDaily(env) {
+  if (daily && Date.now() - dailyAt < dailyTtl) return { ...daily, cached: true };
+  const errors = {};
   const dr = [{ startDate: "today", endDate: "today" }, { startDate: "yesterday", endDate: "yesterday" }];
-  const [kpi, evs, vers, src, pages] = await Promise.all([
-    safe(report(env, { dateRanges: dr, metrics: ["activeUsers", "newUsers", "sessions", "userEngagementDuration", "screenPageViews"].map(name => ({ name })), dimensionFilter: REAL }), "ga4 daily"),
-    safe(report(env, { dateRanges: dr, dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }, { name: "totalUsers" }], dimensionFilter: REAL, limit: 100 }), "ga4 events"),
-    safe(report(env, { dateRanges: [dr[0]], dimensions: [{ name: "appVersion" }], metrics: [{ name: "activeUsers" }], dimensionFilter: APP, orderBys: [{ metric: { metricName: "activeUsers" }, desc: true }], limit: 8 }), "ga4 versions"),
-    safe(cfTop(env, today, "refererHost"), "site sources"), safe(cfTop(env, today, "requestPath"), "site pages")]);
+  const evs = await report(env, { dateRanges: dr, dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }, { name: "totalUsers" }], dimensionFilter: REAL, limit: 100 })
+    .catch(e => { errors["ga4 events"] = String(e.message || e).slice(0, 200); return null; });
   const range = r => r.dimensionValues[r.dimensionValues.length - 1].value;   // "date_range_0" (today) or "date_range_1"
-  const k = { today: null, yesterday: null };
-  for (const r of kpi || []) { const o = {}; ["activeUsers", "newUsers", "sessions", "engageSec", "views"].forEach((n, i) => o[n] = Number(r.metricValues[i].value)); k[range(r) === "date_range_0" ? "today" : "yesterday"] = o; }
   const ev = { today: {}, yesterday: {} };
   for (const r of evs || []) ev[range(r) === "date_range_0" ? "today" : "yesterday"][r.dimensionValues[0].value] = [Number(r.metricValues[0].value), Number(r.metricValues[1].value)];
-  daily = { errors, kpi: kpi ? k : null, events: evs ? ev : null, versions: vers ? vers.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]) : null, sources: src, pages };
-  dailyAt = Date.now(); return daily;
+  daily = keep({ errors, events: evs ? ev : null }, daily, ["events"]);
+  dailyAt = Date.now(); dailyTtl = Object.keys(errors).length ? 60e3 : 300e3; return daily;
 }
 
-// Where a visit came from, in the buckets of the marketing plan. The /go/ short links tag utm_source with these names; the app itself is one bucket,
-// because a session inside the app carries no source worth reading.
+// Where a visit came from, in the buckets of the marketing plan. The site's events reach GA4 through the Measurement Protocol, without a
+// session, so their session source is always "(not set)": the page sends the source itself with every event (src, index.html LAND): the
+// utm_source of the /go/ short links, "share" for a shared report or comparison, else the referring site or app (google, search, facebook,
+// whatsapp..., site = another page of luchit.app, direct). The app is one bucket, because a session inside the app carries no source worth
+// reading. Site events from before src existed (20.10.2026) are "unknown".
 const GO_SOURCES = ["tiktok", "instagram", "facebook", "linkedin", "youtube", "whatsapp", "newsletter", "press", "dealer", "qr", "share"];
-function srcBucket(platform, source, medium) {
+const WEB_SOURCES = ["google", "search", "direct", "site"];
+function srcBucket(platform, src) {
   if (platform !== "web") return "app";
-  const s = String(source || "").toLowerCase(), md = String(medium || "").toLowerCase();
-  if (GO_SOURCES.includes(s)) return s;
-  if (s === "(direct)") return "direct";
-  if (md === "organic") return /google/.test(s) ? "google" : "search";
-  for (const k of ["facebook", "instagram", "youtube", "linkedin", "tiktok", "whatsapp"]) if (s.includes(k)) return k;
-  if (/(^|\.)wa\.me$/.test(s)) return "whatsapp";
-  return "other";
+  const s = String(src || "").toLowerCase();
+  if (GO_SOURCES.includes(s) || WEB_SOURCES.includes(s)) return s;
+  return !s || s === "(not set)" ? "unknown" : "other";
 }
 
 // The business view: whole weeks, not "right now". GA4 needs about a day to finish counting, so the week ends yesterday after noon and the day before until then.
 const ilHour = t => Number(new Date(t).toLocaleString("en-US", { timeZone: "Asia/Jerusalem", hour: "2-digit", hourCycle: "h23" }));
-let weekly = null, weeklyAt = 0;
+let weekly = null, weeklyAt = 0, weeklyTtl = 0;
 async function collectWeekly(env, today) {
-  if (weekly && Date.now() - weeklyAt < 900e3) return weekly;
+  if (weekly && Date.now() - weeklyAt < weeklyTtl) return { ...weekly, cached: true };
   const errors = {}, safe = (p, k) => p.catch(e => { errors[k] = String(e.message || e).slice(0, 200); return null; });
   const end = addDays(today, ilHour(Date.now()) >= 12 ? -1 : -2);
   const W = [addDays(end, -6), end], P = [addDays(end, -13), addDays(end, -7)], M = [addDays(end, -27), end];
   const dr = w => ({ startDate: w[0], endDate: w[1] }), only = v => ({ filter: { fieldName: "eventName", stringFilter: { value: v } } }), any = vs => ({ filter: { fieldName: "eventName", inListFilter: { values: vs } } });
   const histFrom = [addDays(end, -62), "2026-10-04"].sort()[0];   // the growth target is chained from the week of 18-24.10, so keep that week in reach
   const CW = [addDays(today, -7), addDays(today, -1)];            // Cloudflare counts in real time: the last 7 whole days
-  const [evs, fails, links, hist, app, money, src, pages, saveU, bySrc] = await Promise.all([
+  const bySrcQ = dims => report(env, { dateRanges: [dr(W), dr(P)], dimensions: [{ name: "platform" }, ...dims, { name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: withReal(any(["session_start", "web_visit", "car_lookup"])), limit: 2000 });
+  const [evs, fails, links, hist, app, money, src, pages, saveU, bySrc, instSrc] = await Promise.all([
     safe(report(env, { dateRanges: [dr(W), dr(P), dr(M)], dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }, { name: "totalUsers" }], dimensionFilter: REAL, limit: 250 }), "ga4 week"),
     safe(report(env, { dateRanges: [dr(W), dr(P)], dimensions: [{ name: "customEvent:kind" }], metrics: [{ name: "eventCount" }], dimensionFilter: withReal(only("lookup_failed")), limit: 20 }), "ga4 failures"),
     safe(report(env, { dateRanges: [dr(W), dr(P)], dimensions: [{ name: "eventName" }, { name: "customEvent:kind" }, { name: "customEvent:via" }], metrics: [{ name: "eventCount" }], dimensionFilter: withReal(any(["link_landing", "link_open", "referral_open"])), limit: 200 }), "ga4 shared links"),
     safe(report(env, { dateRanges: [{ startDate: histFrom, endDate: end }], dimensions: [{ name: "date" }], metrics: [{ name: "eventCount" }], dimensionFilter: withReal(only("car_lookup")), limit: 1000 }), "ga4 history"),
     safe(report(env, { dateRanges: [dr(W), dr(P), dr(M)], dimensions: [{ name: "countryId" }], metrics: [{ name: "newUsers" }, { name: "activeUsers" }], dimensionFilter: { filter: { fieldName: "platform", stringFilter: { value: "Android" } } }, limit: 250 }), "ga4 app"),
     safe(report(env, { dateRanges: [{ startDate: "2026-10-01", endDate: "today" }], dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: any(["b2b_lead_submit", "newsletter_confirm"]) }), "ga4 money"),
-    safe(cfTop(env, CW[0], "refererHost", CW[1]), "site week sources"), safe(cfTop(env, CW[0], "requestPath", CW[1]), "site week pages"),
+    safe(cfTop(env, CW[0], "refererHost", CW[1], 100), "site week sources"), safe(cfTop(env, CW[0], "requestPath", CW[1], 12, "count_DESC"), "site week pages"),
     safe(report(env, { dateRanges: [dr(W)], dimensions: [{ name: "eventName" }], metrics: [{ name: "totalUsers" }], dimensionFilter: { andGroup: { expressions: [APP, any(["car_lookup", "car_save"])] } } }), "ga4 app savers"),
-    safe(report(env, { dateRanges: [dr(W), dr(P)], dimensions: [{ name: "platform" }, { name: "sessionSource" }, { name: "sessionMedium" }, { name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: withReal(any(["session_start", "car_lookup"])), limit: 2000 }), "ga4 sources")]);
+    // without the src field (GA4 answers 400 if it is ever removed) the site is one row, "unknown", rather than no table at all
+    safe(bySrcQ([{ name: "customEvent:src" }]).catch(e => /\b400\b/.test(e.message) ? bySrcQ([]).then(rows => rows.map(r => ({ ...r, dimensionValues: [r.dimensionValues[0], { value: "(not set)" }, ...r.dimensionValues.slice(1)] }))) : Promise.reject(e)), "ga4 sources"),
+    // new app devices in Israel by where the install came from (Google Play's install referrer: share, tiktok..., google-play = found in the store)
+    safe(report(env, { dateRanges: [dr(W), dr(P)], dimensions: [{ name: "firstUserSource" }], metrics: [{ name: "newUsers" }], dimensionFilter: APP, limit: 50 }), "ga4 installs by source")]);
   const ri = r => { const v = r.dimensionValues[r.dimensionValues.length - 1].value; return /^date_range_\d$/.test(v) ? Number(v.slice(-1)) : 0; };
   const ev = [{}, {}, {}];
   for (const r of evs || []) ev[ri(r)][r.dimensionValues[0].value] = [Number(r.metricValues[0].value), Number(r.metricValues[1].value)];
   const fk = [{}, {}];
   for (const r of fails || []) fk[ri(r)][r.dimensionValues[0].value] = Number(r.metricValues[0].value);
-  // arrivals from a shared report: web landings and app opens whose link carried s=img|full|pdf|txt|qr (campaign links are counted apart)
-  const shared = [{ web: 0, app: 0, by: {} }, { web: 0, app: 0, by: {} }];
+  // arrivals from a shared report or comparison: web landings and app opens whose link carried s=img|full|pdf|txt|qr, or a comparison link.
+  // Not arrivals: campaign links (counted apart), the "open in the app" bar and "copy the link" of a page already open (s=bar, s=copy: the
+  // same visit going on, kept as bar) and the first launch after an install from a shared link (referral_open: the landing before it counted)
+  const shared = [{ web: 0, app: 0, bar: 0, inst: 0, by: {} }, { web: 0, app: 0, bar: 0, inst: 0, by: {} }];
   for (const r of links || []) {
     const [name, kind, via] = r.dimensionValues.map(x => x.value), c = Number(r.metricValues[0].value), o = shared[ri(r)];
-    if (kind === "campaign" || !via || via === "none" || via === "(not set)") continue;
-    o[name === "link_landing" ? "web" : "app"] += c; o.by[via] = (o.by[via] || 0) + c;
+    if (name === "referral_open") { o.inst += c; continue; }
+    if (kind === "campaign") continue;
+    if (via === "bar" || via === "copy") { o.bar += c; continue; }
+    const k = kind === "cmp" ? "cmp" : via && via !== "none" && via !== "(not set)" ? via : null;
+    if (!k) continue;
+    o[name === "link_landing" ? "web" : "app"] += c; o.by[k] = (o.by[k] || 0) + c;
   }
   // first opens (new devices) and active devices of the app, in Israel and abroad (abroad is mostly Google's pre-launch test devices)
   const appU = [0, 1, 2].map(i => { const o = { newUsers: 0, activeUsers: 0, abroadNew: 0, abroadActive: 0 };
     for (const r of app || []) if (ri(r) === i) { const il = r.dimensionValues[0].value === "IL"; o[il ? "newUsers" : "abroadNew"] += Number(r.metricValues[0].value); o[il ? "activeUsers" : "abroadActive"] += Number(r.metricValues[1].value); }
     return o; });
   const m = {}; for (const r of money || []) m[r.dimensionValues[0].value] = Number(r.metricValues[0].value);
-  // visits (session_start) and car checks by where the visit came from, this week [0] and the week before [1]: { bucket: [visits, checks] }
-  const bs = [{}, {}];
-  for (const r of bySrc || []) { const [pf, so, me, name] = r.dimensionValues.map(x => x.value), o = bs[ri(r)], k = srcBucket(pf, so, me); (o[k] ||= [0, 0])[name === "car_lookup" ? 1 : 0] += Number(r.metricValues[0].value); }
-  weekly = { errors, end, W, P, M, CW, ev: evs ? ev : null, fails: fails ? fk : null, shared: links ? shared : null,
+  // visits (app: session_start, site: web_visit, once per opening of the page) and car checks by where the visit came from, this week [0] and
+  // the week before [1]: { bucket: [visits, checks] }
+  // srcSeen: the week has site rows with a measured source (from 20.10), so its site rows can be compared with another week's
+  const bs = [{}, {}], srcSeen = [false, false];
+  for (const r of bySrc || []) { const [pf, so, name] = r.dimensionValues.map(x => x.value), i = ri(r), k = srcBucket(pf, so); (bs[i][k] ||= [0, 0])[name === "car_lookup" ? 1 : 0] += Number(r.metricValues[0].value); if (k !== "app" && k !== "unknown") srcSeen[i] = true; }
+  const is = [{}, {}]; for (const r of instSrc || []) { const k = r.dimensionValues[0].value; is[ri(r)][k] = (is[ri(r)][k] || 0) + Number(r.metricValues[0].value); }
+  const fresh = { errors, end, W, P, M, CW, ev: evs ? ev : null, fails: fails ? fk : null, shared: links ? shared : null,
     days: hist ? Object.fromEntries(hist.map(r => { const d = r.dimensionValues[0].value; return [d.slice(0, 4) + "-" + d.slice(4, 6) + "-" + d.slice(6), Number(r.metricValues[0].value)]; })) : null,
-    app: app ? appU : null, savers: saveU ? Object.fromEntries(saveU.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)])) : null, money: money ? { leads: m.b2b_lead_submit || 0, subscribers: m.newsletter_confirm || 0 } : null, sources: src, pages, bySource: bySrc ? bs : null };
-  weeklyAt = Date.now(); return weekly;
+    app: app ? appU : null, savers: saveU ? Object.fromEntries(saveU.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)])) : null, money: money ? { leads: m.b2b_lead_submit || 0, subscribers: m.newsletter_confirm || 0 } : null, sources: src, pages, bySource: bySrc ? bs : null, srcSeen: bySrc ? srcSeen : null, installsBySource: instSrc ? is : null };
+  // the last good numbers stand in for a part that failed, but only for the same week (a new week starts clean)
+  weekly = keep(fresh, weekly && weekly.end === end ? weekly : null, ["ev", "fails", "shared", "days", "app", "savers", "money", "sources", "pages", "bySource", "srcSeen", "installsBySource"]);
+  weeklyAt = Date.now(); weeklyTtl = Object.keys(errors).length ? 60e3 : 900e3; return weekly;
 }
 
 // Is the app public on Google Play? The store page answers 404 until the app is published to everyone; it flips to "live" only when anyone
@@ -267,9 +290,9 @@ async function gaTimeZone(env) {
 }
 
 const SC = "sc-domain:luchit.app";
-let seo = null, seoAt = 0;
+let seo = null, seoAt = 0, seoTtl = 0;
 async function collectSeo(env, today) {
-  if (seo && Date.now() - seoAt < 1800e3) return seo;
+  if (seo && Date.now() - seoAt < seoTtl) return { ...seo, cached: true };
   const t = await googleToken(env), base = `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(SC)}`;
   const errors = {}, safe = (p, k) => p.catch(e => { errors[k] = String(e.message || e).slice(0, 160); return null; });
   const q = async body => { const r = await fetch(base + "/searchAnalytics/query", { method: "POST", headers: { authorization: "Bearer " + t, "content-type": "application/json" }, body: JSON.stringify(body) }); if (!r.ok) throw new Error("search console " + r.status + " " + (await r.text()).replace(/\s+/g, " ").slice(0, 100)); return (await r.json()).rows || []; };
@@ -283,10 +306,14 @@ async function collectSeo(env, today) {
     safe(fetch(base + "/sitemaps", { headers: { authorization: "Bearer " + t } }).then(async r => { if (!r.ok) throw new Error("sitemaps " + r.status); return (await r.json()).sitemap || []; }), "seo sitemaps")]);
   const tot = r => r && r[0] ? { clicks: r[0].clicks, imps: r[0].impressions, ctr: r[0].ctr, pos: r[0].position } : null;
   const row = r => [r.keys[0], r.clicks, r.impressions, r.ctr, r.position];
-  seo = { errors, range: w1, cur: tot(cur), prev: tot(prev), days: days ? days.map(r => [r.keys[0], r.clicks, r.impressions]).sort() : null,
+  const fresh = { errors, range: w1, cur: cur ? tot(cur) : null, prev: prev ? tot(prev) : null, days: days ? days.map(r => [r.keys[0], r.clicks, r.impressions]).sort() : null,
     queries: queries ? queries.map(row) : null, pages: pages ? pages.map(row) : null,
     sitemaps: sm ? sm.map(x => ({ path: x.path, submitted: (x.contents || []).reduce((a, c) => a + Number(c.submitted || 0), 0), errors: Number(x.errors || 0), warnings: Number(x.warnings || 0), last: x.lastDownloaded || null })) : null };
-  seoAt = Date.now(); return seo;
+  // a week with no clicks or views at all is an answer (zeros), not a missing number
+  if (cur && !fresh.cur) fresh.cur = { clicks: 0, imps: 0, ctr: 0, pos: null };
+  if (prev && !fresh.prev) fresh.prev = { clicks: 0, imps: 0, ctr: 0, pos: null };
+  seo = keep(fresh, seo && seo.range && seo.range[1] === w1[1] ? seo : null, ["cur", "prev", "days", "queries", "pages", "sitemaps"]);
+  seoAt = Date.now(); seoTtl = Object.keys(errors).length ? 60e3 : 1800e3; return seo;
 }
 
 // agent news (same items as Telegram, public-safe) written by .github/scripts/flash.mjs to branch "flashes"
@@ -314,22 +341,26 @@ async function collect(env) {
   const safe = (p, k) => p.catch(e => { errors[k] = String(e.message || e).slice(0, 200); return null; });
   // a Worker request may make only 50 outside calls: get the token once, before the parallel calls, or each of them fetches its own
   await googleToken(env).catch(() => {});
-  const [series, events, vers, vToday, vYday, dly, sc, wk, ps, rl, pls, tz] = await Promise.all([
-    safe(realtime(env, { dimensions: [{ name: "minutesAgo" }], metrics: [{ name: "eventCount" }], dimensionFilter: REAL }), "series"),
+  // realtime: events, and active users by platform (the app's devices in Israel, and the site, where every opening of the page is its own "user")
+  const [events, plats, vToday, vYday, dly, sc, wk, ps, rl, pls, tz] = await Promise.all([
     safe(realtime(env, { dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: REAL, limit: 40 }), "events"),
-    safe(realtime(env, { dimensions: [{ name: "appVersion" }], metrics: [{ name: "activeUsers" }], dimensionFilter: APP, limit: 6 }), "versions"),
-    safe(cfVisits(env, today), "visitsToday"), safe(cfVisits(env, yday), "visitsYesterday"), safe(collectDaily(env, today, yday), "daily"), safe(collectSeo(env, today), "seo"),
+    safe(realtime(env, { dimensions: [{ name: "platform" }], metrics: [{ name: "activeUsers" }], dimensionFilter: REAL }), "platforms"),
+    safe(cfVisits(env, today), "visitsToday"), safe(cfVisits(env, yday), "visitsYesterday"), safe(collectDaily(env), "daily"), safe(collectSeo(env, today), "seo"),
     safe(collectWeekly(env, today), "weekly"), playStatus(), playRelease(env), playStats(env, today), gaTimeZone(env)]);
+  // a quota error counts only when this request's own calls met it, not one a collector remembers from an earlier request
+  const own = { ...errors, ...(dly && !dly.cached ? dly.errors : {}), ...(sc && !sc.cached ? sc.errors : {}), ...(wk && !wk.cached ? wk.errors : {}) };
   Object.assign(errors, dly?.errors || {}, sc?.errors || {}, wk?.errors || {});
-  const perMin = Array(30).fill(0);
-  for (const r of series || []) perMin[29 - Number(r.dimensionValues[0].value)] = Number(r.metricValues[0].value);
-  const quota = Object.values(errors).some(m => /429|quota|Exhausted/i.test(m));
+  const quota = Object.values(own).some(m => /429|quota|Exhausted/i.test(m));
   if (quota) backoffUntil = Date.now() + 300e3;
   const prev = cache || {};
-  const activeUsers = vers ? vers.reduce((t, r) => t + Number(r.metricValues[0].value || 0), 0) : (quota ? prev.activeUsers ?? null : null);
-  cache = { build: BUILD, errors: quota ? { ga4: "מכסת Google מלאה, מוצגים נתונים אחרונים ויתעדכנו בעוד כמה דקות" } : errors, stale: quota, at: quota && prev.at ? prev.at : new Date().toISOString(), activeUsers, perMinute: series ? perMin : (quota ? prev.perMinute ?? null : null),
-    events: events ? events.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]).sort((a, b) => b[1] - a[1]) : (quota ? prev.events ?? null : null), versions: vers ? vers.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]) : (quota ? prev.versions ?? null : null), visitsToday: vToday?.visits ?? null, visitsYesterday: vYday?.visits ?? null, viewsToday: vToday?.views ?? null, viewsYesterday: vYday?.views ?? null, seo: sc ? { ...sc, errors: undefined } : (quota ? prev.seo ?? null : null), daily: dly ? { ...dly, errors: undefined } : (quota ? prev.daily ?? null : null),
-    weekly: wk ? { ...wk, errors: undefined } : (quota ? prev.weekly ?? null : null), play: ps, playAt: playSeen, release: rl, stats: pls, gaTz: tz };
+  const plat = k => plats ? plats.filter(r => r.dimensionValues[0].value === k).reduce((t, r) => t + Number(r.metricValues[0].value || 0), 0) : (quota ? prev[k === "web" ? "webUsers" : "activeUsers"] ?? null : null);
+  const strip = o => { if (!o) return null; const { errors: _e, cached: _c, ...rest } = o; return rest; };
+  cache = { build: BUILD, errors: quota ? { ga4: "מכסת Google מלאה, מוצגים נתונים אחרונים ויתעדכנו בעוד כמה דקות", ...errors } : errors, stale: quota, at: quota && prev.at ? prev.at : new Date().toISOString(),
+    activeUsers: plat("Android"), webUsers: plat("web"),
+    events: events ? events.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]).sort((a, b) => b[1] - a[1]) : (quota ? prev.events ?? null : null),
+    visitsToday: vToday?.visits ?? null, visitsYesterday: vYday?.visits ?? null,
+    // a collector that failed as a whole (no token) falls back to the last numbers it had; each carries its own dates
+    seo: strip(sc || seo), daily: strip(dly || daily), weekly: strip(wk || weekly), play: ps, playAt: playSeen, release: rl, stats: pls, gaTz: tz };
   cacheAt = Date.now(); return cache;
 }
 
@@ -413,11 +444,11 @@ const GOALS={first:"2026-11",k:{weekly_checks:[[160,190,240],[190,240,330],[250,
  calib:{key:"weekly_checks",end:"2026-10-25",model:170,lo:.5,hi:2}};   // weekly car checks scale by r = actual week 19-25.10 / 170 (0.5 to 2)
 const SUBMITTED="2026-10-17";      // production access requested in Play Console
 const PRO_MAU=2000;
-const N={car_lookup:"בדיקת רכב",car_save:"שמירת רכב ברשימה",share:"שיתוף תוצאה",compare_open:"השוואת רכבים",tab_view:"מעבר בין לשוניות",link_out:"לחיצה על קישור חיצוני",alerts_toggle:"הדלקה או כיבוי של התראות",alert_kind:"בחירת סוג התראה",upgrade_open:"פתיחת חלונית המנוי (PRO)",voice_search:"חיפוש בקול",bulk_check:"בדיקת כמה רכבים יחד",camera_scan:"סריקת לוחית במצלמה",buy_card_open:"פתיחת כרטיס בלשונית קנייה",settlement_shown:"הצגת הסדר פשרה",checklist_pdf:"הורדת רשימת בדיקה",doc_add:"הוספת מסמך לרכב",simple_view:"מעבר לתצוגה פשוטה",search_no_result:"חיפוש דגם בלי תוצאה",user_screenshot:"צילום מסך",first_open:"התקנה חדשה",lookup_repeat:"פתיחה חוזרת של רכב (רענון)",notification_open:"פתיחת התראה",web_hint_click:"לחיצה על הצעה להתקין מהאתר",web_install_click:"מעבר מהאתר להתקנה",calendar_reminder_click:"הוספת תזכורת ליומן",link_landing:"כניסה לאתר מקישור",link_open:"פתיחת קישור באפליקציה"};
-const BAD={lookup_failed:"בדיקה שנכשלה",lookup_slow:"בדיקה איטית",lookup_abort:"בדיקה שבוטלה",lookup_timeout:"בדיקה שפגה",app_exception:"קריסה"};
-const KIND={source_down:"משרד התחבורה לא ענה",offline:"אין אינטרנט אצל המשתמש",not_found:"מספר שלא קיים (הוקלד לא נכון)","(not set)":"לא ידוע"};
+const N={car_lookup:"בדיקת רכב",car_save:"שמירת רכב ברשימה",share:"שיתוף (דוח רכב או השוואה)",compare_open:"השוואת רכבים",tab_view:"מעבר בין לשוניות",link_out:"לחיצה על קישור חיצוני",alerts_toggle:"הדלקה או כיבוי של התראות",alert_kind:"בחירת סוג התראה",upgrade_open:"פתיחת חלונית המנוי (PRO)",voice_search:"חיפוש בקול",bulk_check:"בדיקת כמה רכבים יחד",camera_scan:"סריקת לוחית במצלמה",buy_card_open:"פתיחת כרטיס בלשונית קנייה",settlement_shown:"הצגת הסדר פשרה",checklist_pdf:"הורדת רשימת בדיקה",doc_add:"הוספת מסמך לרכב",simple_view:"מעבר לתצוגה פשוטה",search_no_result:"חיפוש דגם בלי תוצאה",user_screenshot:"צילום מסך",first_open:"התקנה חדשה",lookup_repeat:"פתיחה חוזרת של רכב (רענון)",notification_open:"פתיחת התראה",web_hint_click:"לחיצה על הצעה להתקין מהאתר",web_install_click:"מעבר מהאתר להתקנה",calendar_reminder_click:"הוספת תזכורת ליומן",link_landing:"כניסה לאתר מקישור",link_open:"פתיחת קישור באפליקציה",web_visit:"כניסה לאתר",referral_open:"פתיחה ראשונה אחרי התקנה מקישור ששותף"};
+const BAD={lookup_failed:"בדיקה שנכשלה",lookup_slow:"בדיקה איטית",lookup_abort:"בדיקה שבוטלה",lookup_timeout:"בדיקה שפגה (נספרת גם בנכשלות)",app_exception:"קריסה"};
+const KIND={source_down:"משרד התחבורה לא ענה",offline:"לא התקבלה תשובה (חיבור או זמן המתנה)",not_found:"מספר שלא קיים (הוקלד לא נכון)","(not set)":"לא ידוע"};
 const FK={data:"נתונים",infra:"תשתית",content:"תוכן",market:"שוק",release:"שחרור",experiment:"ניסוי",reviews:"ביקורות"};
-const VIA={img:"תמונה",full:"תמונה מלאה",pdf:"PDF",txt:"טקסט",qr:"קוד QR"};
+const VIA={img:"תמונה",full:"תמונה מלאה",pdf:"PDF",txt:"טקסט",qr:"קוד QR",cmp:"השוואה"};
 const ST={ok:["תקין","✓"],warn:["דורש תשומת לב","!"],bad:["מתחת ליעד","✕"],early:["מוקדם לשפוט","…"],nodata:["אין נתון","?"],cal:["שבוע כיול","·"],wait:["ממתין","…"]};
 
 const $=i=>document.getElementById(i);
@@ -482,7 +513,7 @@ if(!ev)s="nodata";else{if(Lw>=100){rate=Sw/Lw*100;win=rng(W.W)}else if(Lm>=100){
  if(rate==null)s="early";else if(cal)s="cal";else s=band(rate,GS,false,false)}
 push("share",s,4,rate!=null?rate/GS[1]:1,"שיתופים: "+n1(rate)+" לכל 100 בדיקות, היעד "+n1(GS[1]),s==="nodata"?"חסר נתון על שיתופים":"מעט שיתופים");
 const arr=sh?sh[0].web+sh[0].app:null,arrp=sh?sh[1].web+sh[1].app:null;
-t3={s,title:"הגיעו משיתוף",big:rate!=null?n1(rate):n(Sw),unit:rate!=null?"לכל 100 בדיקות":"שיתופים",lines:[rate!=null?gtxt(GS)+" לכל 100 בדיקות":"עוד מעט מדי בדיקות כדי לחשב: "+n(Sw)+" שיתופים מתוך "+n(Lw)+" בדיקות","נכנסו מקישור ששותף: <b>"+n(arr)+"</b>"+(arrp!=null?" (שבוע קודם "+n(arrp)+")":"")],foot:(win||rng(W&&W.W))+" · אפליקציה ואתר"}}
+t3={s,rate,title:"שיתופים לכל 100 בדיקות",big:!ev?"-":rate!=null?n1(rate):n(Sw),unit:!ev||rate!=null?"":"שיתופים",lines:[!ev?"גוגל אנליטיקס לא ענה":rate!=null?gtxt(GS):"עוד מעט מדי בדיקות כדי לחשב: "+n(Sw)+" שיתופים מתוך "+n(Lw)+" בדיקות","נכנסו מקישור ששותף: <b>"+n(arr)+"</b>"+(arrp!=null?" (שבוע קודם "+n(arrp)+")":""),sh&&sh[0].inst?"התקינו את האפליקציה מקישור ששותף: <b>"+n(sh[0].inst)+"</b>":""],foot:(win||rng(W&&W.W))+" · אפליקציה ואתר"}}
 
 // Google Play: the public store page says whether anyone can install; Play Console, when connected, says where the production release stands
 const RL=d.release&&d.release.ok?d.release:null,top=RL&&RL.list&&RL.list[0]||null;
@@ -539,47 +570,66 @@ box.innerHTML='<svg viewBox="0 0 640 176" direction="ltr" style="direction:ltr" 
 $("trn").textContent="כל עמודה היא 7 ימים. הקו המקווקו הוא היעד השבועי מתוכנית היעדים לשנה, מותאם לשבוע הבסיס (19.10 עד 25.10), והוא מופיע מהשבוע שאחריו."}}
 
 // drawer: now
-{const rt=d.events||[],g=k=>(rt.find(e=>e[0]===k)||[0,0])[1],bad=Object.keys(BAD).reduce((a,k)=>a+g(k),0),dl=d.daily||{},Ed=dl.events||{},T=Ed.today||{},Y=Ed.yesterday||{};
+// problems = checks that failed and app crashes; a slow or cancelled check is not a problem, and a check that ran out of time is already a failed one
+{const rt=d.events||[],g=k=>(rt.find(e=>e[0]===k)||[0,0])[1],bad=g("lookup_failed")+g("app_exception"),Ed=d.daily&&d.daily.events,T=Ed&&Ed.today||{},Y=Ed&&Ed.yesterday||{},dc=o=>Ed?n(o.car_lookup?o.car_lookup[0]:0):"-";
 const li=(l,v,s)=>"<li><span>"+l+(s?"<small>"+s+"</small>":"")+"</span><b>"+v+"</b></li>";
-$("now").innerHTML=li("פעילים באפליקציה, 30 הדקות האחרונות",n(d.activeUsers))+li("בדיקות רכב, 30 הדקות האחרונות",d.events?n(g("car_lookup")):"-")+li("בעיות, 30 הדקות האחרונות",d.events?n(bad):"-",bad?rt.filter(e=>BAD[e[0]]).map(e=>BAD[e[0]]+" "+e[1]).join(", "):"")
-+li("בדיקות רכב היום עד עכשיו",n(T.car_lookup?T.car_lookup[0]:0),"אתמול, יום שלם: "+n(Y.car_lookup?Y.car_lookup[0]:0))+li("ביקורים באתר היום",n(d.visitsToday),"אתמול, יום שלם: "+n(d.visitsYesterday))}
+$("now").innerHTML=li("באפליקציה, 30 הדקות האחרונות",n(d.activeUsers),"מכשירים פעילים בישראל")
++li("באתר, 30 הדקות האחרונות",d.events?n(g("web_visit")):"-","כניסות לדף הבדיקה: כל כניסה נספרת פעם אחת, גם אם רעננו אותה או חזרו אליה. טעינות של הדף: "+n(d.webUsers))
++li("נכנסו לאתר מקישור, 30 הדקות האחרונות",d.events?n(g("link_landing")):"-","מתוך הכניסות לאתר: קישור go/ או דוח רכב או השוואה ששותפו")
++li("בדיקות רכב, 30 הדקות האחרונות",d.events?n(g("car_lookup")):"-","באפליקציה ובאתר יחד")
++li("בעיות, 30 הדקות האחרונות",d.events?n(bad):"-",(d.events?"בדיקות שנכשלו וקריסות. ":"")+rt.filter(e=>BAD[e[0]]).map(e=>BAD[e[0]]+" "+e[1]).join(", "))
++li("בדיקות רכב היום, עד כה",dc(T),"גוגל אנליטיקס מעדכן את היום באיחור של כמה שעות. אתמול, יום שלם: "+dc(Y))
++li("ביקורים באתר היום, עד כה",n(d.visitsToday),"כל דפי האתר, לפי Cloudflare. אתמול, יום שלם: "+n(d.visitsYesterday))}
 
 // drawer: the yearly goals, now against the target of the day, and the month-end targets ahead
 {const td=new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Jerusalem"}),Ad=W&&W.app,mo=W&&W.money,X2=d.metrics&&d.metrics.index,S2=d.seo&&d.seo.cur,PS2=d.stats&&d.stats.ok&&d.stats.cur?d.stats:null;
 const R=[["weekly_checks","בדיקות רכב בשבוע",t1.L,end,RC],["installs_week","התקנות בשבוע",PS2?PS2.cur.users:Ad?Ad[0].newUsers:null,PS2?PS2.last:end],["google_clicks_week","כניסות מגוגל בשבוע",S2?Math.round(S2.clicks):null,d.seo&&d.seo.range?d.seo.range[1]:td],
- ["pages_indexed","דפים שגוגל מכיר",X2?X2.indexed:null,td],["share_per_100","שיתופים לכל 100 בדיקות",t3.big!=null&&t3.unit==="לכל 100 בדיקות"?Number(t3.big):null,end],["app_active_28d","מכשירים פעילים באפליקציה, 28 ימים",Ad?Ad[2].activeUsers:null,td],
+ ["pages_indexed","דפים שגוגל מכיר",X2?X2.indexed:null,td],["share_per_100","שיתופים לכל 100 בדיקות",t3.rate,end],["app_active_28d","מכשירים פעילים באפליקציה, 28 ימים",Ad?Ad[2].activeUsers:null,td],
  ["failures_pct","בדיקות שנכשלו (%)",H.r,end,1,true],["subscribers_total","נרשמים למגזין",mo?mo.subscribers:null,td]];
 const nx=[0,2,5,11].map(i=>MONTHS[i]),ml=m=>Number(m.slice(5))+"."+m.slice(2,4);
+// a goal that has a tile above gets the tile's status, so the two never disagree
+const TK={weekly_checks:"ns",installs_week:"installs",google_clicks_week:"clicks",pages_indexed:"pages",share_per_100:"share",failures_pct:"health"};
 $("goal").innerHTML='<div style="overflow-x:auto"><table class="t tg"><thead><tr><th>מדד</th><th class="n">עכשיו</th><th class="n">יעד להיום</th>'+nx.map(m=>'<th class="n">סוף '+ml(m)+"</th>").join("")+"</tr></thead><tbody>"
-+R.map(([k,l,v,day,r,lower])=>{const g=goal(k,day||td,k==="weekly_checks"?r:1),st=cal&&(k==="weekly_checks"||k==="installs_week")?"cal":band(v,g,lower,!lower),gf=x=>x!=null&&x>=10?n(Math.round(x)):n1(x);return '<tr><td class="w">'+l+'</td><td class="n">'+(k==="failures_pct"||k==="share_per_100"?n1(v):n(v))+" "+mini(st)+'</td><td class="n">'+gf(g&&g[1])+'</td>'+nx.map(m=>'<td class="n">'+gf(goal(k,mEnd(m),k==="weekly_checks"?r:1)[1])+"</td>").join("")+"</tr>"}).join("")+"</tbody></table></div>"
++R.map(([k,l,v,day,r,lower])=>{const g=goal(k,day||td,k==="weekly_checks"?r:1),tk=TK[k],st=tk&&M[tk]?M[tk]:cal?"cal":band(v,g,lower,!lower),gf=x=>x!=null&&x>=10?n(Math.round(x)):n1(x);return '<tr><td class="w">'+l+'</td><td class="n">'+(k==="failures_pct"||k==="share_per_100"?n1(v):n(v))+" "+mini(st)+'</td><td class="n">'+gf(g&&g[1])+'</td>'+nx.map(m=>'<td class="n">'+gf(goal(k,mEnd(m),k==="weekly_checks"?r:1)[1])+"</td>").join("")+"</tr>"}).join("")+"</tbody></table></div>"
 +'<p class="note">היעדים מתוכנית השיווק (תרחיש בסיס, צמיחה אורגנית בלבד). ירוק: ביעד או מעליו. צהוב: בין התרחיש השמרני ליעד. אדום: מתחת לתרחיש השמרני. יעדי בדיקות הרכב מכוילים לפי שבוע הבסיס 19.10 עד 25.10'+(Math.abs(RC-1)>=.005?" (מקדם "+(Math.round(RC*100)/100)+")":"")+'. בין סופי החודשים היעד עולה בקו ישר. בכשלים, נמוך יותר טוב.</p>'}
 
 // drawer: sources, the plan's North Star (car checks a week) split by where the visit came from
 {const B=W&&W.bySource,box=$("src");if(!B){box.innerHTML='<p class="note">'+(W?"גוגל אנליטיקס לא ענה על המקורות.":"אין נתונים")+"</p>"}else{
-const SL={google:"חיפוש בגוגל",search:"מנועי חיפוש אחרים",direct:"ישיר (בלי מקור)",app:"בתוך האפליקציה",share:"שיתוף דוח מהאפליקציה",tiktok:"טיקטוק",instagram:"אינסטגרם",facebook:"פייסבוק",linkedin:"לינקדאין",youtube:"יוטיוב",whatsapp:"וואטסאפ",newsletter:"ניוזלטר",press:"כתבות",dealer:"סוחרים",qr:"QR ודפוס",other:"אתרים אחרים"};
-const c=B[0],p=B[1],ks=[...new Set([...Object.keys(c),...Object.keys(p)])].sort((a,b)=>((c[b]||[0,0])[1]-(c[a]||[0,0])[1])||((c[b]||[0,0])[0]-(c[a]||[0,0])[0])),tc=ks.reduce((a,k)=>a+(c[k]||[0,0])[1],0),tp=ks.reduce((a,k)=>a+(p[k]||[0,0])[1],0),tv=ks.reduce((a,k)=>a+(c[k]||[0,0])[0],0);
-const dl=(x,y)=>{const v=x-y;return v>0?'<small class="up"><bdi dir="ltr">+'+n(v)+"</bdi></small>":v<0?'<small class="down"><bdi dir="ltr">'+n(v)+"</bdi></small>":""};
+const SL={google:"חיפוש בגוגל",search:"מנועי חיפוש אחרים",direct:"ישיר (בלי מקור)",site:"מדף אחר באתר (דגמים, מגזין)",unknown:"האתר, לפני שנמדד המקור",app:"בתוך האפליקציה",share:"שיתוף דוח או השוואה (מהאפליקציה או מהאתר)",tiktok:"טיקטוק",instagram:"אינסטגרם",facebook:"פייסבוק",linkedin:"לינקדאין",youtube:"יוטיוב",whatsapp:"וואטסאפ",newsletter:"ניוזלטר",press:"כתבות",dealer:"סוחרים",qr:"QR ודפוס",other:"אתרים ואפליקציות אחרים"};
+const c=B[0],p=B[1],seen=W.srcSeen||[true,true],ks=[...new Set([...Object.keys(c),...Object.keys(p)])].sort((a,b)=>((c[b]||[0,0])[1]-(c[a]||[0,0])[1])||((c[b]||[0,0])[0]-(c[a]||[0,0])[0])),tc=ks.reduce((a,k)=>a+(c[k]||[0,0])[1],0),tp=ks.reduce((a,k)=>a+(p[k]||[0,0])[1],0);
+// visits: app opens, and on the site web_visit (from 20.10); site checks from before the source was measured have no visits
+const vis=k=>k==="unknown"?null:(c[k]||[0,0])[0],tv=ks.some(k=>k==="unknown"&&(c[k]||[0,0])[1])?null:ks.reduce((a,k)=>a+(vis(k)||0),0);
+// a week before the source was measured has its site checks in one row, so its site rows are not compared
+const pv=k=>k!=="app"&&k!=="unknown"&&!seen[1]?null:(p[k]||[0,0])[1];
+const dl=(x,y)=>{if(y==null)return "";const v=x-y;return v>0?'<small class="up"><bdi dir="ltr">+'+n(v)+"</bdi></small>":v<0?'<small class="down"><bdi dir="ltr">'+n(v)+"</bdi></small>":""};
 box.innerHTML="<h4>בדיקות רכב לפי מקור ("+rng(W.W)+")</h4>"+(ks.length?'<div style="overflow-x:auto"><table class="t tg"><thead><tr><th>מקור</th><th class="n">כניסות</th><th class="n">בדיקות רכב</th><th class="n">חלק מהבדיקות</th><th class="n">שבוע קודם</th></tr></thead><tbody>'
-+ks.map(k=>{const a=c[k]||[0,0],b=p[k]||[0,0];return '<tr><td class="w">'+esc(SL[k]||k)+'</td><td class="n">'+n(a[0])+'</td><td class="n">'+n(a[1])+" "+dl(a[1],b[1])+'</td><td class="n">'+(tc?Math.round(a[1]*100/tc)+"%":"-")+'</td><td class="n">'+n(b[1])+"</td></tr>"}).join("")
++ks.map(k=>{const a=c[k]||[0,0];return '<tr><td class="w">'+esc(SL[k]||k)+'</td><td class="n">'+n(vis(k))+'</td><td class="n">'+n(a[1])+" "+(k==="unknown"?"":dl(a[1],pv(k)))+'</td><td class="n">'+(tc?Math.round(a[1]*100/tc)+"%":"-")+'</td><td class="n">'+n(pv(k))+"</td></tr>"}).join("")
 +'<tr><td class="w"><b>סך הכול</b></td><td class="n"><b>'+n(tv)+'</b></td><td class="n"><b>'+n(tc)+"</b> "+dl(tc,tp)+'</td><td class="n"></td><td class="n">'+n(tp)+"</td></tr></tbody></table></div>":'<p class="note" style="margin:0">אין עדיין נתונים לשבוע הזה.</p>')
-+'<p class="note">כניסות: ביקורים באתר, ובאפליקציה פתיחות. המקור הוא של הביקור שבו נעשתה הבדיקה. קישורי <bdi dir="ltr">luchit.app/go/</bdi> נספרים תחת המקור שלהם; קישור בלי תיוג (למשל מוואטסאפ או מאפליקציה אחרת) נספר לרוב כ"ישיר". באפליקציה עצמה אין מקור לכל פתיחה, ולכן היא שורה אחת. גוגל אנליטיקס מסיימת לספור אחרי כיום, ולכן השבוע נגמר אתמול.</p>'}}
++'<p class="note">כניסות: באתר, כניסה לדף הבדיקה (רענון או חזרה לדף לא נספרים שוב); באפליקציה, פתיחות. המקור הוא של הכניסה שבה נעשתה הבדיקה: קישורי <bdi dir="ltr">luchit.app/go/</bdi> לפי המקור שלהם, קישור לדוח או להשוואה ששותפו כ"שיתוף", ואחרת האתר או האפליקציה שמהם הגיעו (וואטסאפ, פייסבוק, גוגל...). באפליקציה עצמה אין מקור לכל פתיחה, ולכן היא שורה אחת. האתר מוסר את המקור מ-20.10.2026; מה שנספר לפני כן מופיע כ"לפני שנמדד המקור", בלי כניסות ובלי השוואה לשבוע קודם. גוגל אנליטיקס מסיימת לספור אחרי כיום, ולכן השבוע נגמר אתמול.</p>'
++(()=>{const I=W.installsBySource;if(!I)return "";const IL={"google-play":"מצאו אותה ב-Google Play","(direct)":"לא ידוע","(not set)":"לא ידוע","luchit.app":"מהאתר luchit.app",share:"קישור ששותף מדוח רכב"};
+const lb=k=>IL[k]||SL[k]||k,m={},mp={};Object.entries(I[0]).forEach(([k,v])=>{m[lb(k)]=(m[lb(k)]||0)+v});Object.entries(I[1]).forEach(([k,v])=>{mp[lb(k)]=(mp[lb(k)]||0)+v});
+const rows=Object.entries(m).sort((a,b)=>b[1]-a[1]);
+return "<h4>התקנות חדשות לפי מקור ("+rng(W.W)+")</h4>"+(rows.length?'<ul class="kv">'+rows.map(r=>"<li><span>"+esc(r[0])+(mp[r[0]]!=null?" (שבוע קודם "+n(mp[r[0]])+")":"")+"</span><b>"+n(r[1])+"</b></li>").join("")+"</ul>":'<p class="note" style="margin:0">אין התקנות חדשות השבוע.</p>')
++'<p class="note">פתיחה ראשונה של האפליקציה במכשיר בישראל, לפי גוגל אנליטיקס, לפי הקישור שממנו הגיעו לחנות. הסך הכול שווה לפתיחות הראשונות בכרטיס ההתקנות כשהוא מציג את גוגל אנליטיקס.</p>'})()}}
 
 // drawer: usage, this week against last week
 {const box=$("use");if(!ev){box.innerHTML='<p class="note">אין נתון מגוגל אנליטיקס.</p>'}else{
 const rows=Object.keys(N).filter(k=>ge(E0,k)||ge(E1,k)).sort((a,b)=>ge(E0,b)-ge(E0,a)).slice(0,14);
-const SV=W.savers,Lu=SV?SV.car_lookup||0:ge(E0,"car_lookup",1),Su=SV?SV.car_save||0:ge(E0,"car_save",1);
-box.innerHTML='<h4>שמירת רכב</h4><p class="note" style="margin:0 0 6px">'+(Lu>=50?n1(Su/Lu*100)+"% "+(SV?"מהמכשירים באפליקציה שבדקו רכב שמרו אותו":"ממי שבדק רכב שמר אותו")+" ברשימה (היעד 15%).":"מעט מדי "+(SV?"מכשירים באפליקציה":"אנשים")+" בדקו רכב השבוע כדי לחשב אחוז: "+n(Su)+" שמרו מתוך "+n(Lu)+".")+"</p>"
+// saving is an app feature, so the share is of app devices; without that answer there is no fair stand-in (site "users" are page loads)
+const SV=W.savers,Lu=SV?SV.car_lookup||0:null,Su=SV?SV.car_save||0:null;
+box.innerHTML='<h4>שמירת רכב</h4><p class="note" style="margin:0 0 6px">'+(!SV?"אין נתון מגוגל אנליטיקס על מכשירים ששמרו רכב.":Lu>=50?n1(Su/Lu*100)+"% מהמכשירים באפליקציה שבדקו רכב שמרו אותו ברשימה (היעד 15%).":"מעט מדי מכשירים באפליקציה בדקו רכב השבוע כדי לחשב אחוז: "+n(Su)+" שמרו מתוך "+n(Lu)+".")+"</p>"
 +'<h4>פעולות ('+rng(W.W)+")</h4>"+'<table class="t"><thead><tr><th>פעולה</th><th class="n">השבוע</th><th class="n">שבוע קודם</th></tr></thead><tbody>'+rows.map(k=>'<tr><td class="w">'+N[k]+'</td><td class="n">'+n(ge(E0,k))+'</td><td class="n">'+n(ge(E1,k))+"</td></tr>").join("")+"</tbody></table>"
 +(PS?'<h4>התקנות לפי Google Play ('+rng(PS.W)+")</h4>"+'<ul class="kv">'+[["משתמשים חדשים בישראל",PS.cur.users,PS.prev.users],["הסירו את האפליקציה",PS.cur.uninstalls,PS.prev.uninstalls],["כל ההתקנות, כולל התקנה מחדש",PS.cur.events,PS.prev.events],PS.store?["ביקרו בדף האפליקציה בחנות",PS.cur.visitors,PS.prev.visitors]:null,PS.store?["התקינו מתוך דף החנות",PS.cur.acquisitions,PS.prev.acquisitions]:null,PS.cur.abroad?["משתמשים חדשים מחוץ לישראל או בלי מדינה, לא נספרו",PS.cur.abroad,null]:null,PS.total?["משתמשים בישראל שהתקינו אי פעם",PS.total,null]:null].filter(Boolean).map(r=>"<li><span>"+r[0]+(r[2]!=null?" (שבוע קודם "+n(r[2])+")":"")+"</span><b>"+n(r[1])+"</b></li>").join("")+'</ul><p class="note" style="margin:0 0 6px">זה המספר שמוצג בכרטיס ההתקנות. Google Play סופר כל משתמש חדש פעם אחת, גם אם התקין בכמה מכשירים או מחק והתקין שוב, וסופר גם מי שהתקין ועוד לא פתח. גוגל מוסרת את הנתונים באיחור של כמה ימים, ולכן התקופה כאן מוקדמת מהשבוע של שאר המסך.</p>':"")+(W.app?'<h4>מכשירים באפליקציה, לפי גוגל אנליטיקס</h4><ul class="kv">'+[["פתחו את האפליקציה לראשונה בישראל, השבוע",W.app[0].newUsers],["מכשירים פעילים בישראל, 28 ימים",W.app[2].activeUsers],["מכשירים מחוץ לישראל שלא נספרו, 28 ימים",W.app[2].abroadActive]].map(r=>"<li><span>"+r[0]+"</span><b>"+n(r[1])+"</b></li>").join("")+'</ul><p class="note" style="margin:0 0 6px">כל מכשיר שפתח את האפליקציה נספר פעם אחת. מי שהתקין ועוד לא פתח לא נספר כאן. עדכון גרסה לא נספר כהתקנה, אבל התקנה מחדש או מחיקת נתוני האפליקציה נספרות כמכשיר חדש. גוגל מתקינה כל גרסה שמועלית לחנות על מכשירי בדיקה בחו"ל, ולכן מכשירים מחוץ לישראל לא נספרים במסך.</p>':"")
-+(W.shared?'<h4>שיתופים שהביאו אנשים, לפי סוג</h4><p class="note" style="margin:0">'+(Object.entries(W.shared[0].by).map(e=>(VIA[e[0]]||esc(e[0]))+": "+n(e[1])).join(" · ")||"עדיין אין כניסות מקישור ששותף.")+"</p>":"")}}
++(W.shared?'<h4>שיתופים שהביאו אנשים, לפי סוג</h4><p class="note" style="margin:0">'+(Object.entries(W.shared[0].by).map(e=>(VIA[e[0]]||esc(e[0]))+": "+n(e[1])).join(" · ")||"עדיין אין כניסות מקישור ששותף.")+"</p>"
++(W.shared[0].bar?'<p class="note" style="margin:4px 0 0">ועוד '+n(W.shared[0].bar)+' פתיחות מהבר "פתחו באפליקציה" או מ"העתקת הקישור" בדף שכבר היה פתוח. זה אותו ביקור, ולכן הן לא נספרות כהגעה מקישור.</p>':""):"")}}
 
 // drawer: the site
 {const SRC=h=>!h?"כניסה ישירה":/google\\./.test(h)?"גוגל":/bing\\.|duckduckgo|yahoo|ecosia/.test(h)?"מנועי חיפוש אחרים":/whatsapp|wa\\.me/.test(h)?"וואטסאפ":/facebook|instagram|t\\.co|twitter|x\\.com|linkedin|telegram|t\\.me|tiktok|youtube/.test(h)?"רשתות חברתיות":/luchit\\.app/.test(h)?"מתוך האתר":h;
 const agg=(arr,f)=>{const m={};(arr||[]).forEach(r=>{const k=f(r[0]);m[k]=(m[k]||0)+r[1]});return Object.entries(m).sort((a,b)=>b[1]-a[1])};
 const S7=W&&W.sources,tot=S7?S7.reduce((a,r)=>a+r[1],0):null,kv=(a,ltr)=>a&&a.length?'<ul class="kv">'+a.map(r=>"<li><span>"+(ltr?'<bdi dir="ltr">'+esc(r[0])+"</bdi>":esc(r[0]))+"</span><b>"+n(r[1])+"</b></li>").join("")+"</ul>":'<p class="note" style="margin:0">אין נתונים</p>';
-$("web").innerHTML='<h4>ביקורים ב-7 ימים ('+rng(W&&W.CW)+"): "+n(tot)+"</h4>"+kv(S7?agg(S7,SRC):null)+(W&&W.CW&&W.CW[0]<"2026-10-18"?'<p class="note">מ-18.10 נספרים גם דפי הדגמים, המגזין ושאר דפי האתר, ולכן עד 24.10 המספר כאן חלקי.</p>':"")
-+"<h4>הדפים שהכי ראו</h4>"+kv(W&&W.pages?agg(W.pages,h=>h||"/").slice(0,8):null,true)
-+'<p class="note">כניסות מטיקטוק, יוטיוב ושאר המקורות של תוכנית השיווק נמצאות במגירה "מקורות".</p>'}
+$("web").innerHTML='<h4>ביקורים ב-7 ימים ('+rng(W&&W.CW)+"): "+n(tot)+"</h4>"+kv(S7?agg(S7,SRC).filter(r=>r[1]>0):null)
++"<h4>הדפים שהכי ראו (צפיות)</h4>"+kv(W&&W.pages?W.pages.map(r=>[r[0]||"/",r[2]]).slice(0,8):null,true)
++'<p class="note">לפי Cloudflare, בכל דפי האתר: ביקור הוא כניסה לאתר מבחוץ, ומעבר בין דפי האתר לא נספר שוב. Cloudflare סופר במדגם, ולכן בשבוע המספרים מעוגלים לעשרות. המסך הזה לא נספר. כניסות מטיקטוק, יוטיוב ושאר המקורות של תוכנית השיווק נמצאות במגירה "מקורות".</p>'}
 
 // drawer: Google search
 {const S=d.seo,box=$("seo");if(!S||!S.cur){box.innerHTML='<p class="note">'+(S?"אין עדיין נתוני חיפוש.":"Search Console לא ענה.")+"</p>"}else{
@@ -602,8 +652,8 @@ $("fl").innerHTML=(d.flashes||[]).slice(0,12).map(f=>'<li><span class="ft">'+dm(
 {const fk=W&&W.fails?W.fails[0]:null,rt=d.events||[];
 const li=(l,v)=>"<li><span>"+l+"</span><b>"+v+"</b></li>";
 $("tec").innerHTML="<h4>בדיקות שלא החזירו תוצאה, לפי סיבה ("+rng(W&&W.W)+")</h4>"+(fk?'<ul class="kv">'+(Object.entries(fk).sort((a,b)=>b[1]-a[1]).map(e=>li(KIND[e[0]]||esc(e[0]),n(e[1]))).join("")||li("אין","0"))+"</ul>":'<p class="note" style="margin:0">אין נתון</p>')
-+'<p class="note">'+(H.att!=null?"מתוך "+n(H.att)+" ניסיונות בדיקה. רק שתי הסיבות הראשונות נספרות בתקינות השירות.":"")+"</p>"
-+"<h4>עוד סימנים טכניים השבוע</h4>"+'<ul class="kv">'+li("בדיקות איטיות",n(ge(E0,"lookup_slow")))+li("בדיקות שבוטלו באמצע",n(ge(E0,"lookup_abort")))+li("קריסות של האפליקציה",n(ge(E0,"app_exception")))+li("חיפושי דגם בלי תוצאה",n(ge(E0,"search_no_result")))+"</ul>"
++'<p class="note">'+(H.att!=null?"מתוך "+n(H.att)+" ניסיונות בדיקה. בתקינות השירות נספרות רק שתי סיבות: משרד התחבורה לא ענה, ולא התקבלה תשובה. מספר שהוקלד לא נכון אינו תקלה.":"")+"</p>"
++"<h4>עוד סימנים טכניים השבוע</h4>"+'<ul class="kv">'+[["בדיקות איטיות","lookup_slow"],["בדיקות שבוטלו באמצע","lookup_abort"],["קריסות של האפליקציה","app_exception"],["חיפושי דגם בלי תוצאה","search_no_result"]].map(x=>li(x[0],ev?n(ge(E0,x[1])):"-")).join("")+"</ul>"
 +"<h4>אזור הזמן של גוגל אנליטיקס</h4>"+'<p class="note" style="margin:0">'+(!d.gaTz?"לא נבדק":d.gaTz.ok?(d.gaTz.tz==="Asia/Jerusalem"?"שעון ישראל, כמו שהמסך מניח ✓":"<b>"+esc(d.gaTz.tz||"לא ידוע")+"</b>: לא שעון ישראל, ולכן ימים ושבועות במסך נחתכים בשעה אחרת. אפשר לשנות ב-Analytics, בהגדרות הנכס."):"לא נבדק: "+(/not been used|disabled/i.test(d.gaTz.why||"")?"צריך להפעיל את Google Analytics Admin API בפרויקט של חשבון השירות. ":"")+'<bdi dir="ltr">('+esc(d.gaTz.why||"")+")</bdi>")+"</p>"
 +"<h4>דוחות Google Play (התקנות)</h4>"+'<p class="note" style="margin:0">'+(PS?"מחובר. היום האחרון שגוגל מסרה: "+dm(PS.last)+".":!d.stats?"לא נבדק":d.stats.why==="no bucket"?"לא מחובר עדיין: חסר שם הדלי של הדוחות. עד אז כרטיס ההתקנות מציג את גוגל אנליטיקס.":"לא מחובר עדיין"+(/^40[13]/.test(d.stats.why||"")?": לחשבון השירות אין עדיין הרשאה להוריד דוחות. צריך הרשאה ברמת החשבון ב-Play Console, והיא יכולה להיכנס לתוקף רק אחרי עד 48 שעות.":/^404/.test(d.stats.why||"")?": לא נמצאו דוחות התקנות. כדאי לבדוק את שם הדלי.":".")+' <bdi dir="ltr">('+esc(d.stats.why||"")+")</bdi>")+"</p>"
 +"<h4>Play Console</h4>"+'<p class="note" style="margin:0">'+(d.release?d.release.ok?"מחובר. מצב גרסאות הייצור נקרא משם.":"לא מחובר עדיין"+(/not been used|disabled/i.test(d.release.why||"")?": צריך להפעיל את Google Play Android Developer API בפרויקט של חשבון השירות ב-Google Cloud.":/permission|^40[13]/i.test(d.release.why||"")?": לחשבון השירות אין עדיין הרשאת צפייה באפליקציה ב-Play Console.":".")+' <bdi dir="ltr">('+esc(d.release.why||"")+")</bdi>":"לא נבדק")+"</p>"

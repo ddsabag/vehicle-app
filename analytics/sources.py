@@ -6,7 +6,8 @@
   Brevo (mailing list size, signups, last campaign) needs BREVO_API_KEY (or BREVO_KEY) + BREVO_LIST_ID
 """
 import json, os, time, urllib.parse, urllib.request
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 
 def _http(url, data=None, headers=None, timeout=60):
@@ -26,7 +27,8 @@ def search_console(per, cfg):
     site = cfg["sources"]["search_console_site"]
     s = _google_session(["https://www.googleapis.com/auth/webmasters.readonly"])
     url = f"https://www.googleapis.com/webmasters/v3/sites/{urllib.parse.quote(site, safe='')}/searchAnalytics/query"
-    lag = timedelta(days=3)   # Search Console numbers arrive 2-3 days late
+    # Search Console numbers arrive 2-3 days late: the week ends 3 days before the report's day, the same week the live dashboard shows
+    lag = timedelta(days=2)
     def q(a, b, dims=None, limit=10):
         body = {"startDate": (a - lag).isoformat(), "endDate": (b - lag).isoformat(), "rowLimit": limit}
         if dims: body["dimensions"] = dims
@@ -46,16 +48,24 @@ def search_console(per, cfg):
     # 28 days of queries with position and CTR, for the opportunity finder (analytics/insights.py)
     wide = [{"query": r["keys"][0], "clicks": int(r["clicks"]), "impressions": int(r["impressions"]), "position": round(r["position"], 1)}
             for r in q(per["end"] - timedelta(days=27), per["end"], ["query"], 500)]
-    return {"cur": tot(per["start"], per["end"]), "prev": tot(per["prev_start"], per["prev_end"]), "queries": top, "pages": pages, "sections": sections, "wide": wide}
+    return {"cur": tot(per["start"], per["end"]), "prev": tot(per["prev_start"], per["prev_end"]), "queries": top, "pages": pages, "sections": sections, "wide": wide,
+            "range": [(per["start"] - lag).isoformat(), (per["end"] - lag).isoformat()]}
+
+
+def il_start(d):
+    """The first moment of an Israel calendar day, as UTC (the report's weeks are Israel days, like GA4's)."""
+    return datetime(d.year, d.month, d.day, tzinfo=ZoneInfo("Asia/Jerusalem")).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def cloudflare(per, cfg):
-    tok, acc, tag = os.environ["CF_API_TOKEN"], os.environ["CF_ACCOUNT_ID"], cfg["sources"]["cloudflare_site_tag"]
+    """Both Web Analytics sites of luchit.app (the home page's own beacon and the one Cloudflare adds to every page: a page reports through one
+    of them only), without the owner's /live screen and without automated browsers (headless Chrome, which only the added beacon counts)."""
+    tok, acc, tags = os.environ["CF_API_TOKEN"], os.environ["CF_ACCOUNT_ID"], cfg["sources"]["cloudflare_site_tags"]
     def gql(a, b, grouped):
         dim = "dimensions{requestPath}" if grouped else ""
         qry = ("query($acc:String!,$f:AccountRumPageloadEventsAdaptiveGroupsFilter_InputObject){viewer{accounts(filter:{accountTag:$acc}){"
                f"rumPageloadEventsAdaptiveGroups(filter:$f,limit:{300 if grouped else 1},orderBy:[count_DESC]){{count sum{{visits}} {dim}}}}}}}}}")
-        f = {"AND": [{"datetime_geq": a.isoformat() + "T00:00:00Z", "datetime_leq": (b + timedelta(days=1)).isoformat() + "T00:00:00Z"}, {"siteTag": tag}]}
+        f = {"AND": [{"datetime_geq": il_start(a), "datetime_lt": il_start(b + timedelta(days=1))}, {"siteTag_in": tags}, {"requestPath_notlike": "/live%"}, {"userAgentBrowser_neq": "ChromeHeadless"}]}
         r = _http("https://api.cloudflare.com/client/v4/graphql", json.dumps({"query": qry, "variables": {"acc": acc, "f": f}}).encode(),
                   {"Authorization": f"Bearer {tok}", "Content-Type": "application/json"})
         if r.get("errors"): raise RuntimeError(str(r["errors"])[:160])

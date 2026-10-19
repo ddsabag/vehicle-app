@@ -34,13 +34,14 @@ def analyze(d, cfg, extra=None):
     ss_c, ss_p = _ev(d, cfg, "screenshot")
     uo_c, uo_p = _ev(d, cfg, "upgrade_open")
     pu_c, pu_p = _ev(d, cfg, "purchase_start")
-    se_c, se_p = ok_c + fl_c, ok_p + fl_p     # every lookup that ended in a result or an error
+    se_c, se_p = ok_c + fl_c, ok_p + fl_p     # attempts: every check that ended in a result or an error, the base of the rates
 
+    # failures that are ours or the ministry's (a mistyped plate is not one); without the breakdown the rate is unknown, not every failure
     tech = {"offline", "source_down"}
-    fk = d.get("failed_kind", {})
-    tech_c = sum(v["cur"] for k, v in fk.items() if k in tech) if fk else fl_c
-    tech_p = sum(v["prev"] for k, v in fk.items() if k in tech) if fk else fl_p
-    nf_c = fk.get("not_found", {}).get("cur", 0); nf_p = fk.get("not_found", {}).get("prev", 0)
+    fk = d.get("failed_kind")
+    tech_c = sum(v["cur"] for k, v in fk.items() if k in tech) if fk is not None else None
+    tech_p = sum(v["prev"] for k, v in fk.items() if k in tech) if fk is not None else None
+    nf_c = (fk or {}).get("not_found", {}).get("cur", 0); nf_p = (fk or {}).get("not_found", {}).get("prev", 0)
     part = d.get("lookup_partial", {})
     partial_c = part.get("1", {}).get("cur", 0); partial_p = part.get("1", {}).get("prev", 0)
 
@@ -50,19 +51,19 @@ def analyze(d, cfg, extra=None):
     prev7 = daily[-14:-7]
     dau_p = round(mean([x["active"] for x in prev7]), 1) if prev7 else 0
     wau_c, wau_p = d["users"]["activeUsers"]["cur"], d["users"]["activeUsers"]["prev"]
-    ret = d.get("returning", {"cur": 0, "prev": 0})
-    ret_c, ret_p = rate(ret["cur"], wau_c), rate(ret["prev"], wau_p)
+    ret = d.get("returning")   # None when GA4 did not answer: unknown, not zero
+    ret_c, ret_p = (rate(ret["cur"], wau_c), rate(ret["prev"], wau_p)) if ret else (None, None)
 
     m = {
-        "searches": (se_c, se_p), "slow_pct": (rate(slow_c, se_c), rate(slow_p, se_p)), "abort_pct": (rate(ab_c, se_c), rate(ab_p, se_p)),
-        "fail_pct": (rate(tech_c, se_c), rate(tech_p, se_p)),
+        "searches": (ok_c, ok_p), "slow_pct": (rate(slow_c, se_c), rate(slow_p, se_p)), "abort_pct": (rate(ab_c, se_c), rate(ab_p, se_p)),
+        "fail_pct": (rate(tech_c, se_c) if tech_c is not None else None, rate(tech_p, se_p) if tech_p is not None else None),
     }
     kpis = {
         "health": [
-            kpi("searches", "בדיקות רכב (חיפוש לפי לוחית)", se_c, se_p, "", False, "כמה פעמים הקלידו מספר לוחית באפליקציה ופתחו תוצאה"),
+            kpi("searches", "בדיקות רכב", ok_c, ok_p, "", False, "בדיקות לפי מספר רכב שהציגו תוצאה, באפליקציה ובאתר יחד (כמו בדשבורד החי)"),
             kpi("slow", "בדיקות איטיות", m["slow_pct"][0], m["slow_pct"][1], "%", True, f"{slow_c} בדיקות לקחו יותר מ-3.5 שניות", "pct"),
             kpi("abort", "בדיקות שנעצרו באמצע", m["abort_pct"][0], m["abort_pct"][1], "%", True, f"{ab_c} בדיקות שהמשתמש ביטל או עזב לפני התוצאה", "pct"),
-            kpi("fail", "בדיקות שנכשלו", m["fail_pct"][0], m["fail_pct"][1], "%", True, f"{tech_c} בדיקות לא הצליחו (אין אינטרנט או שאתר הממשלה לא ענה)", "pct"),
+            kpi("fail", "בדיקות שנכשלו", m["fail_pct"][0], m["fail_pct"][1], "%", True, f"{tech_c} בדיקות לא הצליחו (לא התקבלה תשובה, או שאתר הממשלה לא ענה)" if tech_c is not None else "הפילוח לפי סיבה לא היה זמין השבוע", "pct"),
             kpi("partial", "תוצאות עם מידע חסר", rate(partial_c, ok_c), rate(partial_p, ok_p), "%", True, "תוצאה הוצגה, אבל אחד ממאגרי משרד התחבורה לא ענה", "pct"),
             kpi("cache", "תוצאות שנפתחו בלי אינטרנט", ca_c, ca_p, "", False, "הוצגה התוצאה האחרונה של רכב שמור"),
         ],
@@ -110,25 +111,25 @@ def analyze(d, cfg, extra=None):
     if wau_c == 0:
         add("red", "לא נקלטו נתונים השבוע", "אין משתמשים פעילים ב-GA4. בדקו שהאנליטיקה באפליקציה פועלת ושהנכס נכון.")
     if not enough and wau_c:
-        add("info", "נפח חיפושים נמוך", f"רק {se_c} חיפושים השבוע, ולכן אחוזים שבועיים רועשים ולא הופעלו בהם התראות.")
+        add("info", "מעט בדיקות רכב", f"רק {se_c} ניסיונות בדיקה השבוע, ולכן אחוזים שבועיים רועשים ולא הופעלו בהם התראות.")
     sp = m["slow_pct"][0]
     if enough and sp is not None:
-        if sp > T["slow_pct_red"]: add("red", "חיפושים איטיים מעל הסף", f"{sp}% מהחיפושים עברו 3.5 שניות (הסף {T['slow_pct_red']}%). בדקו את מאגרי משרד התחבורה ואת הזמינות שלהם.")
-        elif sp > T["slow_pct_yellow"]: add("yellow", "חיפושים איטיים בעלייה", f"{sp}% מהחיפושים איטיים (אזהרה מעל {T['slow_pct_yellow']}%).")
+        if sp > T["slow_pct_red"]: add("red", "בדיקות איטיות מעל הסף", f"{sp}% מהבדיקות עברו 3.5 שניות (הסף {T['slow_pct_red']}%). בדקו את מאגרי משרד התחבורה ואת הזמינות שלהם.")
+        elif sp > T["slow_pct_yellow"]: add("yellow", "בדיקות איטיות בעלייה", f"{sp}% מהבדיקות איטיות (אזהרה מעל {T['slow_pct_yellow']}%).")
     ab_ch = pct(ab_c, ab_p)
     if enough and ab_c >= T["abort_min_count"] and ab_ch is not None and ab_ch >= T["abort_rise_pct"]:
-        add("red", "קפיצה בביטולי חיפוש", f"{ab_c} ביטולים לעומת {ab_p} בשבוע שעבר (+{ab_ch}%). משתמשים מוותרים באמצע המתנה.")
+        add("red", "קפיצה בביטולי בדיקה", f"{ab_c} ביטולים לעומת {ab_p} בשבוע שעבר (+{ab_ch}%). משתמשים מוותרים באמצע המתנה.")
     fp = m["fail_pct"][0]
     if enough and fp is not None:
-        if fp > T["fail_pct_red"]: add("red", "שיעור כשלים טכניים גבוה", f"{fp}% מהחיפושים נכשלו בגלל חיבור או מאגר שלא ענה.")
-        elif fp > T["fail_pct_yellow"]: add("yellow", "כשלים טכניים מעל הרגיל", f"{fp}% מהחיפושים נכשלו (אזהרה מעל {T['fail_pct_yellow']}%).")
+        if fp > T["fail_pct_red"]: add("red", "שיעור כשלים טכניים גבוה", f"{fp}% מהבדיקות נכשלו כי לא התקבלה תשובה או שמאגר לא ענה.")
+        elif fp > T["fail_pct_yellow"]: add("yellow", "כשלים טכניים מעל הרגיל", f"{fp}% מהבדיקות נכשלו (אזהרה מעל {T['fail_pct_yellow']}%).")
     pp = rate(partial_c, ok_c)
     if ok_c >= T["min_searches_for_rates"] and pp is not None and pp > T["partial_pct_yellow"]:
         add("yellow", "תוצאות עם מידע חסר", f"{pp}% מהתוצאות הוצגו בלי מאגר אחד או יותר. ייתכן שמאגר מסוים לא יציב.")
-    lc = pct(se_c, se_p)
-    if se_p >= T["min_searches_for_rates"] and lc is not None:
-        if lc <= -T["lookups_drop_red_pct"]: add("red", "ירידה חדה בחיפושים", f"{se_c} חיפושים לעומת {se_p} בשבוע שעבר ({lc}%).")
-        elif lc <= -T["lookups_drop_yellow_pct"]: add("yellow", "ירידה בחיפושים", f"{se_c} חיפושים לעומת {se_p} בשבוע שעבר ({lc}%).")
+    lc = pct(ok_c, ok_p)
+    if ok_p >= T["min_searches_for_rates"] and lc is not None:
+        if lc <= -T["lookups_drop_red_pct"]: add("red", "ירידה חדה בבדיקות רכב", f"{ok_c} בדיקות רכב לעומת {ok_p} בשבוע שעבר ({lc}%).")
+        elif lc <= -T["lookups_drop_yellow_pct"]: add("yellow", "ירידה בבדיקות רכב", f"{ok_c} בדיקות רכב לעומת {ok_p} בשבוע שעבר ({lc}%).")
     sr_c, sr_p = rate(sh_c, ok_c), rate(sh_p, ok_p)
     if sr_c is not None and sr_p and ok_p >= T["min_searches_for_rates"] and (sr_c - sr_p) / sr_p * 100 <= -T["share_rate_drop_pct"]:
         add("yellow", "ירידה בשיעור השיתוף", f"{sr_c}% מהבדיקות הסתיימו בשיתוף, לעומת {sr_p}% בשבוע שעבר.")
@@ -138,7 +139,7 @@ def analyze(d, cfg, extra=None):
         sd = pstdev(base)
         if sd > 0 and abs(today - mean(base)) / sd >= T["daily_zscore"] and max(today, mean(base)) >= 10:
             direction = "גבוה" if today > mean(base) else "נמוך"
-            add("yellow", "יום חריג בחיפושים", f"ב-{daily[-1]['date']} נרשמו {today} חיפושים, {direction} משמעותית מהממוצע היומי ({round(mean(base))}).")
+            add("yellow", "יום חריג בבדיקות רכב", f"ב-{daily[-1]['date']} נרשמו {today} בדיקות רכב, {direction} משמעותית מהממוצע היומי ({round(mean(base))}).")
     # static reminder removed from the alerts list: it is not an anomaly and repeated every week
     #     add("info", "לא נמדד כרגע", "היצרנים והדגמים הנבדקים ביותר וסוגי ההנעה: האפליקציה לא שולחת אותם. המרה מהאתר להורדה נמדדת ב-Play Console (Acquisition לפי UTM של luchit.app), ולא כאן.")
     X = extra or {}
@@ -190,7 +191,7 @@ def analyze(d, cfg, extra=None):
     # takeaways and recommendations (rule based)
     take = []
     if wau_c:
-        take.append(f"{wau_c} משתמשים פעילים השבוע ({_chg(pct(wau_c, wau_p))}) ו-{se_c} חיפושים ({_chg(lc)}).")
+        take.append(f"{wau_c} משתמשים פעילים באפליקציה השבוע ({_chg(pct(wau_c, wau_p))}) ו-{ok_c} בדיקות רכב באפליקציה ובאתר ({_chg(lc)}).")
     if dur_rows and sum(x[1] for x in dur_rows):
         tot = sum(x[1] for x in dur_rows); fast = dur_rows[0][1]
         take.append(f"{round(fast / tot * 100)}% מהבדיקות הסתיימו תוך 2 שניות.")
@@ -203,7 +204,7 @@ def analyze(d, cfg, extra=None):
         recs.append("לבדוק את זמינות מאגרי משרד התחבורה בימים החריגים ולשקול הגדלת הסתמכות על המטמון המקומי של רכבים שמורים.")
     if sh_c and ok_c and (rate(sh_c, ok_c) or 0) < 5:
         recs.append("שיעור השיתוף נמוך מ-5%: לשקול להבליט את כפתור השיתוף אחרי טעינת תוצאה נקייה.")
-    if (ret_c or 0) < 30 and wau_c:
+    if ret_c is not None and ret_c < 30 and wau_c:
         recs.append("שיעור החוזרים נמוך: להדגיש את שמירת הרכב והתראות הטסט והריקולים כסיבה לחזור.")
     if tabs and (tabs[-1][1] == 0 or len(tabs) < 5):
         recs.append("לבדוק אילו לשוניות כמעט לא נפתחות, ולהחליט אם לאחד או להבליט אותן.")

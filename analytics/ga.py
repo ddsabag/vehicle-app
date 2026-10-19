@@ -12,8 +12,15 @@ def _client():
     return BetaAnalyticsDataClient(credentials=creds)
 
 
-def _report(client, prop, ranges, dims, metrics, event=None, limit=1000, app_only=False):
-    """app_only: the Android stream only. Web beacons (/api/e) carry a fresh client_id per page load, so property-wide user counts would count page loads as people."""
+def _f(field, value):
+    from google.analytics.data_v1beta.types import Filter, FilterExpression
+    return FilterExpression(filter=Filter(field_name=field, string_filter=Filter.StringFilter(value=value, match_type=Filter.StringFilter.MatchType.EXACT)))
+
+
+def _report(client, prop, ranges, dims, metrics, event=None, limit=1000, app_only=False, real=False):
+    """app_only: the Android app in Israel. Web beacons (/api/e) carry a fresh client_id per page load, so property-wide user counts would count
+    page loads as people, and Google Play installs every uploaded build on test devices abroad, which would count as users.
+    real: the site plus the app in Israel, the same rule as the live dashboard (REAL there): every event count leaves the test devices out."""
     from google.analytics.data_v1beta.types import (DateRange, Dimension, Filter, FilterExpression, FilterExpressionList, Metric, RunReportRequest)
     req = RunReportRequest(
         property=f"properties/{prop}",
@@ -22,10 +29,9 @@ def _report(client, prop, ranges, dims, metrics, event=None, limit=1000, app_onl
         metrics=[Metric(name=m) for m in metrics],
         limit=limit)
     flt = []
-    if event:
-        flt.append(FilterExpression(filter=Filter(field_name="eventName", string_filter=Filter.StringFilter(value=event, match_type=Filter.StringFilter.MatchType.EXACT))))
-    if app_only:
-        flt.append(FilterExpression(filter=Filter(field_name="platform", string_filter=Filter.StringFilter(value="Android", match_type=Filter.StringFilter.MatchType.EXACT))))
+    if event: flt.append(_f("eventName", event))
+    if app_only: flt += [_f("platform", "Android"), _f("countryId", "IL")]
+    if real: flt.append(FilterExpression(or_group=FilterExpressionList(expressions=[_f("platform", "web"), _f("countryId", "IL")])))
     if len(flt) == 1: req.dimension_filter = flt[0]
     elif flt: req.dimension_filter = FilterExpression(and_group=FilterExpressionList(expressions=flt))
     out = []
@@ -46,8 +52,8 @@ def _split(rows, ndims):
 
 
 def _email_traffic(c, prop, cur, prev):
-    """Sessions, users and installs that carry email attribution (utm_medium=email or utm_source=newsletter).
-    Only what GA4 sees: the Android app (Firebase). Web visits are not sent to GA4; clicks to the site come from Brevo."""
+    """Sessions, users and installs of the app that carry email attribution (utm_medium=email or utm_source=newsletter), and visits to the
+    site that came from a newsletter link."""
     from google.analytics.data_v1beta.types import (DateRange, Filter, FilterExpression, FilterExpressionList, Metric, RunReportRequest, Dimension)
     def f(field, value): return FilterExpression(filter=Filter(field_name=field, string_filter=Filter.StringFilter(value=value, match_type=Filter.StringFilter.MatchType.EXACT)))
     def run(metrics, flt):
@@ -61,7 +67,10 @@ def _email_traffic(c, prop, cur, prev):
     email = FilterExpression(or_group=FilterExpressionList(expressions=[f("sessionMedium", "email"), f("sessionSource", "newsletter")]))
     t = run(["sessions", "totalUsers"], email)
     inst = run(["eventCount"], FilterExpression(and_group=FilterExpressionList(expressions=[f("eventName", "first_open"), f("firstUserMedium", "email")])))
-    return {"sessions": t["sessions"], "users": t["totalUsers"], "installs": inst["eventCount"]}
+    # the site sends its events without a session, so the newsletter is read from the source the page itself sends (src, from 20.10.2026)
+    try: web = run(["eventCount"], FilterExpression(and_group=FilterExpressionList(expressions=[f("eventName", "web_visit"), f("customEvent:src", "newsletter")])))["eventCount"]
+    except Exception: web = None
+    return {"sessions": t["sessions"], "users": t["totalUsers"], "installs": inst["eventCount"], "web_visits": web}
 
 
 def collect(period, cfg):
@@ -71,8 +80,8 @@ def collect(period, cfg):
     notes = []
     data = {"period": {k: v.isoformat() for k, v in period.items()}, "notes": notes}
 
-    # event totals for the two weeks
-    ev = _split(_report(c, prop, [cur, prev], ["eventName"], ["eventCount"]), 1)
+    # event totals for the two weeks: the site and the app in Israel (Google Play's test devices abroad left out)
+    ev = _split(_report(c, prop, [cur, prev], ["eventName"], ["eventCount"], real=True), 1)
     data["events"] = {k: {"cur": int(v["cur"]), "prev": int(v["prev"])} for k, v in ev.items()}
 
     # people: with two date ranges every row ends with a `dateRange` value, even with no other dimension
@@ -90,24 +99,25 @@ def collect(period, cfg):
     for dims, mets in _report(c, prop, [(start28, period["end"])], ["date"], ["activeUsers"], app_only=True):
         d = f"{dims[0][:4]}-{dims[0][4:6]}-{dims[0][6:]}"
         daily.setdefault(d, {})["active"] = int(mets[0])
-    for dims, mets in _report(c, prop, [(start28, period["end"])], ["date"], ["eventCount"], event=cfg["events"]["lookup"]):
+    for dims, mets in _report(c, prop, [(start28, period["end"])], ["date"], ["eventCount"], event=cfg["events"]["lookup"], real=True):
         d = f"{dims[0][:4]}-{dims[0][4:6]}-{dims[0][6:]}"
         daily.setdefault(d, {})["lookups"] = int(mets[0])
     data["daily"] = [{"date": d, "active": v.get("active", 0), "lookups": v.get("lookups", 0)} for d, v in sorted(daily.items())]
 
     # lookup breakdown by the registered custom parameters
-    def by_param(event, param, quiet=False):
+    def by_param(event, param, quiet=False, unknown=False):
+        """unknown: a failed query gives None instead of an empty breakdown, where an empty one would read as zero (failures by kind)"""
         try:
             return {k: {"cur": int(v["cur"]), "prev": int(v["prev"])}
-                    for k, v in _split(_report(c, prop, [cur, prev], [f"customEvent:{param}"], ["eventCount"], event=event), 1).items()}
+                    for k, v in _split(_report(c, prop, [cur, prev], [f"customEvent:{param}"], ["eventCount"], event=event, real=True), 1).items()}
         except Exception as e:
             if not quiet: notes.append(f"הפרמטר {param} של {event} לא זמין בשבוע זה. ייתכן שעוד לא נרשם ב-GA4 או שאין עדיין נתונים.")
-            return {}
+            return None if unknown else {}
     E = cfg["events"]
     data["lookup_kind"] = by_param(E["lookup"], "kind")
     data["lookup_dur"] = by_param(E["lookup"], "dur")
     data["lookup_partial"] = by_param(E["lookup"], "partial")
-    data["failed_kind"] = by_param(E["lookup_failed"], "kind")
+    data["failed_kind"] = by_param(E["lookup_failed"], "kind", unknown=True)
     data["share_kind"] = by_param(E["share"], "kind")
     data["make"] = by_param(E["lookup"], "make", quiet=True)    # new in 1.25, silent until the custom dimension exists
     data["model"] = by_param(E["lookup"], "model", quiet=True)    # new in 1.25, silent until the custom dimension exists
@@ -118,9 +128,9 @@ def collect(period, cfg):
     data["upgrade_from"] = by_param(E["upgrade_open"], "from")
     data["screenshot_tab"] = by_param(E["screenshot"], "tab")
 
-    # app versions in use
+    # app versions in use (devices in Israel)
     try:
-        data["versions"] = {k: int(v["cur"]) for k, v in _split(_report(c, prop, [cur, prev], ["appVersion"], ["activeUsers"]), 1).items() if k not in ("(not set)", "")}
+        data["versions"] = {k: int(v["cur"]) for k, v in _split(_report(c, prop, [cur, prev], ["appVersion"], ["activeUsers"], app_only=True), 1).items() if k not in ("(not set)", "")}
     except Exception as e:
         data["versions"] = {}; notes.append("גרסאות האפליקציה לא היו זמינות השבוע.")
     # returning users
@@ -128,7 +138,7 @@ def collect(period, cfg):
         nvr = _split(_report(c, prop, [cur, prev], ["newVsReturning"], ["activeUsers"], app_only=True), 1)
         data["returning"] = {"cur": int(nvr.get("returning", {}).get("cur", 0)), "prev": int(nvr.get("returning", {}).get("prev", 0))}
     except Exception as e:
-        data["returning"] = {"cur": 0, "prev": 0}; notes.append("נתוני משתמשים חוזרים לא היו זמינים השבוע.")
+        data["returning"] = None; notes.append("נתוני משתמשים חוזרים לא היו זמינים השבוע.")
     try:
         data["email"] = _email_traffic(c, prop, cur, prev)
     except Exception as e:

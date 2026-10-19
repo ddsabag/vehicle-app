@@ -62,12 +62,12 @@ async function waitlist(req, env) {
 
 /* web usage events (index.html track() on the site): forwarded to the GA4 web stream. Only listed event names, short text or number params,
    nothing that looks like a plate or an email; no IP or user agent is passed on. Without GA_MEASUREMENT_ID/GA_API_SECRET it answers 204 and does nothing. */
-const WEB_EVENTS = new Set(["car_lookup", "search_no_result", "share", "tab_view", "compare_open", "link_landing", "web_hint_click", "web_install_prompt", "web_install_click",
+const WEB_EVENTS = new Set(["car_lookup", "search_no_result", "share", "tab_view", "compare_open", "link_landing", "web_visit", "web_hint_click", "web_install_prompt", "web_install_click",
   "link_out", "checklist_pdf", "simple_view", "lookup_failed", "lookup_timeout", "lookup_slow", "settlement_shown", "buy_step_done", "calendar_reminder_shown", "calendar_reminder_click", "exp_expose",
   "upgrade_open", "buy_card_open", "camera_scan", "lookup_abort", "lookup_from_cache", "car_save", "car_unsave", "voice_search", "bulk_check", "zombie_shown", "simple_more", "alerts_toggle", "alert_kind", "doc_add", "trial_start", "trial_end_shown", "upgrade_purchase_start", "user_screenshot", "link_open", "lookup_repeat"]);
 async function webEvent(req, env) {
   if (req.method !== "POST" || req.headers.get("origin") !== ORIGIN) return new Response(null, { status: 204 });
-  if (/(?:^|[^a-z])bot\b|[a-z]bot\/|crawl|spider|slurp|lighthouse|headlesschrome|pagespeed|inspectiontool/i.test(req.headers.get("user-agent") || "")) return new Response(null, { status: 204 });   // automated browsers are not users
+  if (/(?:^|[^a-z])bot\b|[a-z]bot\/|crawl|spider|slurp|lighthouse|headlesschrome|pagespeed|inspectiontool|adsbot|storebot|googleother|pagerenderer/i.test(req.headers.get("user-agent") || "")) return new Response(null, { status: 204 });   // automated browsers are not users (as BOT_UA in index.html)
   const sfs = req.headers.get("sec-fetch-site"); if (sfs && sfs !== "same-origin") return new Response(null, { status: 204 });   // browsers set it; a cross-site page cannot fake it
   if (!env.GA_MEASUREMENT_ID || !env.GA_API_SECRET) return new Response(null, { status: 204 });
   if (Number(req.headers.get("content-length") || 0) > 4096) return new Response(null, { status: 204 });
@@ -99,7 +99,9 @@ const app = {
       if (!EMAIL_RE.test(email) || !(exp > Date.now()) || !eq(t, await sign(env, email, exp))) return redirect("expired");
       const r = await brevo(env, "/contacts", { email, listIds: [Number(env.BREVO_LIST_ID)], updateEnabled: true, attributes: { SOURCE: "magazine", CONSENT_AT: new Date().toISOString() } });
       if (!r.ok) { console.log("brevo contacts", r.status, "upstream error"); return redirect("error"); }
-      if (env.GA_MEASUREMENT_ID && env.GA_API_SECRET) {   // counted on /live as magazine subscribers; no email or id is sent
+      // counted on /live as magazine subscribers, once per person: Brevo answers 201 when it creates the contact and 204 when a second click
+      // (or a mail scanner opening the link first) only updates it; no email or id is sent
+      if (r.status === 201 && env.GA_MEASUREMENT_ID && env.GA_API_SECRET) {
         try {
           await fetch(`https://www.google-analytics.com/mp/collect?measurement_id=${encodeURIComponent(env.GA_MEASUREMENT_ID)}&api_secret=${encodeURIComponent(env.GA_API_SECRET)}`, { method: "POST",
             body: JSON.stringify({ client_id: crypto.randomUUID(), events: [{ name: "newsletter_confirm", params: { engagement_time_msec: 1 } }] }) });

@@ -81,6 +81,10 @@ def main():
     p = os.path.join(state, "history.json")
     H = json.load(open(p)) if os.path.exists(p) else {"snapshots": [], "done": []}
     cur = json.load(open(os.environ["SEO_TRACK_SAMPLE"])) if os.environ.get("SEO_TRACK_SAMPLE") else fetch_pages(end)
+    if not cur:
+        # an empty answer is a gap in Search Console, not a week without pages: saved, it would report every page as gone from Google now and as
+        # new next week, and close the 3-week judgment of each change due now as "not enough data". The job fails and Failure alert says so.
+        sys.exit(f"Search Console returned no pages for the week ending {end.isoformat()}: nothing compared or saved")
     ledger = json.load(open(os.path.join(ROOT, "analytics", "seo-changes.json"), encoding="utf-8"))
     prev = H["snapshots"][-1]["pages"] if H["snapshots"] else {}
     lines = compare(cur, prev) if prev else ["🆕 זו הרצה ראשונה של מעקב הדירוג; ההשוואה תתחיל בשבוע הבא."]

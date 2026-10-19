@@ -3,7 +3,7 @@
 // only the holder of the private key (kept outside the repo) can read it. Writes out/seo-data.enc.json.
 import crypto from "node:crypto";
 import fs from "node:fs";
-import { putMetric, getMetric } from "./flash.mjs";
+import { putMetric, getMetric, patchMetric } from "./flash.mjs";
 import { compare, message, alertId } from "./index-guard.mjs";
 const SITE = "sc-domain:luchit.app", API = "https://www.googleapis.com/webmasters/v3/sites/" + encodeURIComponent(SITE);
 const sa = JSON.parse(process.env.GA_SERVICE_ACCOUNT_JSON || "null");
@@ -72,8 +72,12 @@ fs.writeFileSync("out/seo-data.enc.json", JSON.stringify({ v: 1, ek: ek.toString
 // definition: "indexed" = URLs whose URL Inspection API verdict is PASS (Google's index state as of the last crawl). The Search Console
 // Pages report counts the same thing but is refreshed only every few days, so it can show a lower number for a while.
 const cnt = f => out.inspection.filter(f).length;
-// index guard: compare with the last clean baseline and say when Google dropped pages (index-guard.mjs has the rules)
-const g = compare(await getMetric("index"), { sitemap: urls, inspection: out.inspection, errors }, iso(new Date()));
+// index guard: compare with the last clean baseline and say when Google dropped pages (index-guard.mjs has the rules). A stored baseline
+// that could not be read is not a missing one: then nothing is compared or published, or today would quietly become the new baseline.
+let prev;
+try { prev = await getMetric("index", true); }
+catch (e) { console.log(`::warning::index guard: the stored baseline could not be read (${e.message || e}), so nothing was compared or published`); process.exit(0); }
+const g = compare(prev, { sitemap: urls, inspection: out.inspection, errors }, iso(new Date()));
 console.log("index guard:", g.skipped || (g.alerts.length ? g.alerts.map(a => a.kind).join("+") : "no change worth an alert"));
 if (g.alerts.length) {
   const link = "https://search.google.com/search-console/index?resource_id=" + encodeURIComponent(SITE), text = message(g.alerts, link);
@@ -88,6 +92,10 @@ if (g.alerts.length) {
   let router = null; try { router = await import("./alert.mjs"); } catch {}
   if (router) await router.alert("day", `seo:index:${alertId(g.alerts)}`, text, link, { today: "loud", legacy }); else await legacy();
 }
-// base: the last clean run (key pages as paths, every other indexed page as a short hash), which the next run compares with
-await putMetric("index", { indexed: g.indexed, crawledNotIndexed: cnt(i => /^נסרק|^Crawled/.test(i.coverage || "")), unknown: cnt(i => /לא ידועה|unknown to Google/i.test(i.coverage || "")),
+// base: the last clean run (key pages as paths, every other indexed page as a short hash), which the next run compares with. Only a clean run
+// is published: a cut-short one would show the live dashboard fewer pages in Google than there are (it keeps the last numbers, and says
+// "no data" once they are 48 hours old). A much smaller sitemap only leaves its mark for the next run (index-guard.mjs).
+if (g.clean) await putMetric("index", { indexed: g.indexed, crawledNotIndexed: cnt(i => /^נסרק|^Crawled/.test(i.coverage || "")), unknown: cnt(i => /לא ידועה|unknown to Google/i.test(i.coverage || "")),
   inspected: g.inspected, total: g.total, base: g.base, source: "URL Inspection API" });
+else if (g.shrunk) await patchMetric("index", { shrunk: g.shrunk });
+else console.log("index metric not published:", g.skipped);

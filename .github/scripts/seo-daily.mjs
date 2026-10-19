@@ -56,15 +56,22 @@ const SECTIONS = [["model", "דפי דגמים"], ["magazine", "מגזין"], ["
 const sectionOf = u => { const p = u.replace(ORIGIN, "/"); return p.startsWith("/model") ? "model" : p.startsWith("/magazine") ? "magazine" : p.startsWith("/guide") ? "guide" : p === "/" ? "home" : "other"; };
 const pagePath = u => u.replace(ORIGIN, "/");
 
-const CF_TAG = "9bb0e756882c478a808d95596e0deade";
-async function cfVisits(day) {   // real visits to the site on one UTC day, from Cloudflare Web Analytics; null when unavailable
+// Cloudflare Web Analytics keeps luchit.app as two sites (the home page's own beacon, and the one Cloudflare adds to every page; a page reports
+// through one of them only), so both are counted, without the owner's /live screen and without automated browsers (headless Chrome). Days
+// are Israel days, like the rest of the reports.
+const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
+const ilDay = t => new Date(t).toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" });
+const ilStart = day => { for (const h of [3, 2]) { const t = Date.parse(day + "T00:00:00Z") - h * 3600e3; if (ilDay(t) === day && ilDay(t - 1) !== day) return new Date(t).toISOString(); } return day + "T00:00:00Z"; };
+async function cfVisits(day) {   // real visits to the site on one Israel day, from Cloudflare Web Analytics; null when unavailable (never a made-up 0)
   const tok = process.env.CF_API_TOKEN, acc = process.env.CF_ACCOUNT_ID;
   if (!tok || !acc) return null;
   try {
     const qry = "query($acc:String!,$f:AccountRumPageloadEventsAdaptiveGroupsFilter_InputObject){viewer{accounts(filter:{accountTag:$acc}){rumPageloadEventsAdaptiveGroups(filter:$f,limit:1){count sum{visits}}}}}";
-    const f = { AND: [{ datetime_geq: day + "T00:00:00Z", datetime_leq: addDays(day, 1) + "T00:00:00Z" }, { siteTag: CF_TAG }] };
+    const f = { AND: [{ datetime_geq: ilStart(day), datetime_lt: ilStart(addDays(day, 1)) }, { siteTag_in: CF_SITES }, { requestPath_notlike: "/live%" }, { userAgentBrowser_neq: "ChromeHeadless" }] };
     const r = await fetch("https://api.cloudflare.com/client/v4/graphql", { method: "POST", headers: { authorization: "Bearer " + tok, "content-type": "application/json" }, body: JSON.stringify({ query: qry, variables: { acc, f } }) });
-    const g = (await r.json())?.data?.viewer?.accounts?.[0]?.rumPageloadEventsAdaptiveGroups?.[0];
+    const j = await r.json().catch(() => null);
+    if (!r.ok || !j || j.errors) { console.log("cloudflare visits unavailable:", r.status); return null; }
+    const g = j.data?.viewer?.accounts?.[0]?.rumPageloadEventsAdaptiveGroups?.[0];
     return g ? Math.round(g.sum.visits) : 0;
   } catch { return null; }
 }
@@ -101,7 +108,7 @@ try {
   const total = await sitemapCount();
   const older = new Set((await q({ startDate: addDays(last.d, -27), endDate: addDays(last.d, -7), dimensions: ["query"], rowLimit: 1000 })).map(r => r.keys[0]));
   const fresh = (await q({ startDate: a7, endDate: last.d, dimensions: ["query"], rowLimit: 1000 })).filter(r => !older.has(r.keys[0])).sort((x, y) => y.impressions - x.impressions).slice(0, 3);
-  const yday = addDays(iso(new Date()), -1), visits = await cfVisits(yday);
+  const yday = addDays(ilDay(Date.now()), -1), visits = await cfVisits(yday);
   const topClick = [...pgAll].filter(r => r.clicks > 0).sort((x, y) => y.clicks - x.clicks)[0];
   const sunday = new Date().getUTCDay() === 0;
   const pageNo = w => w.i ? Math.ceil(Number(pos(w)) / 10) : null;

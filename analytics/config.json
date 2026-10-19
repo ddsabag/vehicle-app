@@ -7,7 +7,7 @@
     "abort_rise_pct": 20.0,
     "abort_min_count": 5,
     "fail_pct_red": 5.0,
-    "fail_pct_yellow": 2.0,
+    "fail_pct_yellow": 3.0,
     "partial_pct_yellow": 10.0,
     "lookups_drop_yellow_pct": 30.0,
     "lookups_drop_red_pct": 50.0,
@@ -35,7 +35,7 @@
   },
   "sources": {
     "search_console_site": "sc-domain:luchit.app",
-    "cloudflare_site_tag": "9bb0e756882c478a808d95596e0deade",
+    "cloudflare_site_tags": ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"],
     "psi_urls": [
       "https://luchit.app/",
       "https://luchit.app/model/"

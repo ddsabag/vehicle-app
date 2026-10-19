@@ -1,6 +1,7 @@
 {
-  "_about": "Read by .github/scripts/ga4-admin.mjs (Ship tail): every entry must exist in the GA4 property; missing ones are created, nothing existing is ever archived, deleted, renamed or changed. Event-scoped parameters the app sends (index.html track()) that the reports read: analytics/ga.py, analytics/experiments.py, worker/live/worker.js. property = GA_PROPERTY_ID in worker/live/wrangler.toml.",
+  "_about": "Read by .github/scripts/ga4-admin.mjs (Ship tail): every entry must exist in the GA4 property; missing ones are created, nothing existing is ever archived, deleted, renamed or changed. timeZone is the property's reporting time zone, set when it differs, because /live and the weekly report count Israel days. Event-scoped parameters the app sends (index.html track()) that the reports read: analytics/ga.py, analytics/experiments.py, worker/live/worker.js. property = GA_PROPERTY_ID in worker/live/wrangler.toml.",
   "property": "557990379",
+  "timeZone": "Asia/Jerusalem",
   "customDimensions": [
     { "parameterName": "kind", "description": "car_lookup, lookup_failed, share, search_no_result, link_landing: what kind (weekly report, /live)" },
     { "parameterName": "dur", "description": "car_lookup, lookup_failed: duration bucket (weekly report)" },
@@ -15,7 +16,8 @@
     { "parameterName": "exp", "description": "exp_expose, share: experiment name (Experimenter)" },
     { "parameterName": "exp_v", "description": "exp_expose, share: experiment variant (Experimenter)" },
     { "parameterName": "n", "description": "car_save, buy_step_done, settlement_shown: a small count" },
-    { "parameterName": "plan", "description": "upgrade_purchase_start: which PRO plan" }
+    { "parameterName": "plan", "description": "upgrade_purchase_start: which PRO plan" },
+    { "parameterName": "src", "description": "every web event: where the visit came from (utm_source of /go/ links, share, google, direct...) (/live sources)" }
   ],
   "keyEvents": [
     { "eventName": "upgrade_open", "countingMethod": "ONCE_PER_EVENT" }
