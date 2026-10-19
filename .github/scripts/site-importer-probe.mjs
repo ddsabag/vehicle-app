@@ -127,12 +127,20 @@ async function checkImporter(url, plate, verbose){
       return out;
     }
     armed = true;
+    // type it key by key: some forms (Vue/React) ignore a value that is set without key events
     await field.el.click({timeout: 5000}).catch(() => {});
-    await field.el.fill(plate);
-    const btn = frame.locator(`button:visible, input[type=submit]:visible, input[type=button]:visible, a:visible`).filter({hasText: /בדיק|בדוק|חפש|חיפוש|שלח|המשך|הצג|search|check|submit/i}).first();
-    const sub = frame.locator(`input[type=submit]:visible`).first();
-    if (await btn.count().catch(() => 0)) await btn.click({timeout: 5000}).catch(() => field.el.press("Enter"));
-    else if (await sub.count().catch(() => 0)) await sub.click({timeout: 5000}).catch(() => field.el.press("Enter"));
+    await field.el.fill("").catch(() => {});
+    await field.el.pressSequentially(plate, {delay: 80});
+    await page.waitForTimeout(500);
+    // the submit button of the field's own form (or of the nearest block that holds a button); a page-wide search hits menu links
+    let btn = null;
+    for (const scope of [field.el.locator("xpath=ancestor::form[1]"), field.el.locator("xpath=ancestor::*[.//button or .//input[@type='submit']][1]")]) {
+      if (!(await scope.count().catch(() => 0))) continue;
+      const b = scope.locator("button:visible, input[type=submit]:visible").first();
+      if (await b.count().catch(() => 0)) { btn = b; break; }
+    }
+    if (verbose) say(`  typed value now: "${await field.el.inputValue().catch(() => "?")}" | button: ${btn ? (await btn.evaluate(e => e.outerHTML.replace(/\s+/g, " ").slice(0, 200)).catch(() => "?")) : "none (Enter)"}`);
+    if (btn) await btn.click({timeout: 5000}).catch(() => field.el.press("Enter"));
     else await field.el.press("Enter");
     await page.waitForLoadState("networkidle", {timeout: 20000}).catch(() => {});
     await page.waitForTimeout(3000);
@@ -272,7 +280,8 @@ for (const p of plates) {
   say(`\nimporter page (as in the app): ${imp.name} ${imp.url}`);
   const r = await checkImporter(imp.url, p, true);
   say(`importer answer: ${r.cls} | "${r.msg}" | final URL ${r.url}`);
-  say("page requests (xhr/fetch/document; load = before the plate was sent):"); printCalls(r.calls.filter(c => c.phase === "submit" || c.t !== "document" || c.u === imp.url));
+  const ADS = /google|doubleclick|outbrain|taboola|clarity\.ms|teads|creativecdn|visualwebsiteoptimizer|facebook|tiktok|hotjar|adnxs|criteo|bing\.com|linkedin|yahoo|vee-crm|commbox|gstatic/;
+  say("page requests (xhr/fetch/document, ad and analytics hosts left out; load = before the plate was sent):"); printCalls(r.calls.filter(c => !ADS.test(new URL(c.u).hostname) && (c.phase === "submit" || c.t !== "document" || c.u === imp.url)));
   say("page text after the plate was sent (first 2,500 chars):\n" + r.text.slice(0, 2500));
 
   if (SAMPLE && !NO_GOV) {
