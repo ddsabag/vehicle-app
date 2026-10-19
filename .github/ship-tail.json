@@ -37,7 +37,7 @@
       "secretsFromGitHub": ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "REVIEWS_SA_JSON"]
     },
     {
-      "key": "live", "dir": "worker/live", "name": "luchit-live", "deploy": "off", "create": false,
+      "key": "live", "dir": "worker/live", "name": "luchit-live", "deploy": "main", "create": false,
       "probe": { "kind": "version" },
       "secretsFromGitHub": []
     },
