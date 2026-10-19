@@ -14,3 +14,6 @@ preview_urls = false   # as live
 enabled = true   # as live: the dashboard's requests carry no plate or email
 [vars]
 GA_PROPERTY_ID = "557990379"
+# PLAY_REPORTS_BUCKET: the Cloud Storage bucket of Play Console's reports (pubsite_prod_..., Download reports > Statistics > Copy Cloud Storage URI).
+# Without it the installs tile counts first opens in GA4; with it, Google Play's own installs (needs the account-level permission
+# "View app information and download bulk reports" for the service account).

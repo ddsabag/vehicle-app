@@ -1,10 +1,10 @@
-// luchit-live: a private business dashboard for the owner. GET /live is the page, GET /live/data the numbers (GA4, Cloudflare Web Analytics, Search Console, Google Play store page and Play Console).
+// luchit-live: a private business dashboard for the owner. GET /live is the page, GET /live/data the numbers (GA4, Cloudflare Web Analytics, Search Console, Google Play store page, Play Console releases and its statistics reports).
 // Protected twice: Cloudflare Access in front (route luchit.app/live*), and this Worker verifies the Access JWT itself, so a misconfigured Access policy cannot leak data.
 // Returns only aggregate counts, never anything personal. Secrets: GA_SERVICE_ACCOUNT_JSON, CF_API_TOKEN. Vars: see wrangler.toml.
 const CF_TAG = "9bb0e756882c478a808d95596e0deade";
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-20";   // shown in /live/data so the running version is visible
+const BUILD = "live-21";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -176,6 +176,62 @@ async function playRelease(env) {
   return rel;
 }
 
+// Exact installs from Google Play's own statistics: the monthly reports Play Console writes to its Cloud Storage bucket (stats/installs and
+// stats/store_performance, by country), read with the same service account. Needs the bucket name (var PLAY_REPORTS_BUCKET, "pubsite_prod_..."
+// from Download reports > Statistics) and the account-level Play Console permission "View app information and download bulk reports".
+// Google posts each day a few days late, so the week here is the last 7 days that have data. Until then { ok: false, why }. Never throws.
+const PKG = "com.ddsabag.pratirechev";
+const csvText = b => {   // Play writes UTF-16LE with a byte order mark; anything else is read as UTF-8
+  const u = new Uint8Array(b), le = u[0] === 0xff && u[1] === 0xfe;
+  if (!le && !(u.length > 1 && u[0] !== 0 && u[1] === 0)) return new TextDecoder().decode(u);
+  const c = []; for (let i = le ? 2 : 0; i + 1 < u.length; i += 2) c.push(u[i] | u[i + 1] << 8);
+  let s = ""; for (let i = 0; i < c.length; i += 8192) s += String.fromCharCode(...c.slice(i, i + 8192));
+  return s;
+};
+const csvRows = t => {   // rows as objects keyed by the header in lower case letters only ("Daily User Installs" -> dailyuserinstalls)
+  const split = l => { const o = []; let c = "", q = false; for (const ch of l) { if (ch === '"') q = !q; else if (ch === "," && !q) { o.push(c.trim()); c = ""; } else c += ch; } o.push(c.trim()); return o; };
+  const lines = t.split(/\r?\n/).filter(l => l.trim()), head = split(lines[0] || "").map(h => h.toLowerCase().replace(/[^a-z]/g, ""));
+  return lines.slice(1).map(l => { const v = split(l), r = {}; head.forEach((h, i) => { r[h] = v[i]; }); return r; });
+};
+const isoDay = s => /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : (t => isNaN(t) ? "" : new Date(t).toISOString().slice(0, 10))(Date.parse(s + " UTC"));
+let pst = null, pstAt = 0;
+async function playStats(env, today) {
+  const bucket = String(env.PLAY_REPORTS_BUCKET || "").trim().replace(/^gs:\/\//, "").split("/")[0];
+  if (!bucket) return { ok: false, why: "no bucket" };
+  if (pst && Date.now() - pstAt < (pst.ok ? 3 * 3600e3 : 900e3)) return pst;
+  pstAt = Date.now();
+  try {
+    const tok = await googleToken(env, "https://www.googleapis.com/auth/devstorage.read_only");
+    const month = k => { const d = new Date(Date.parse(today.slice(0, 7) + "-15T12:00:00Z")); d.setUTCMonth(d.getUTCMonth() + k); return d.toISOString().slice(0, 7).replace("-", ""); };
+    const get = async (kind, m) => {
+      const r = await fetch(`https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(bucket)}/o/${encodeURIComponent(`stats/${kind}/${kind}_${PKG}_${m}_country.csv`)}?alt=media`,
+        { headers: { authorization: "Bearer " + tok }, signal: AbortSignal.timeout(8e3) });
+      if (r.status === 404) return null;   // this month's file does not exist yet
+      if (!r.ok) { const t = await r.text(); let msg = t; try { msg = JSON.parse(t).error.message || t; } catch {} throw new Error(r.status + " " + String(msg).replace(/\s+/g, " ").slice(0, 140)); }
+      return csvRows(csvText(await r.arrayBuffer()));
+    };
+    const [i0, i1, s0, s1] = await Promise.all([get("installs", month(-1)), get("installs", month(0)), get("store_performance", month(-1)), get("store_performance", month(0))]);
+    if (!i0 && !i1) throw new Error("404 no installs report in the bucket for " + month(-1) + " or " + month(0));
+    // per day: new users in Israel, new users abroad, users who uninstalled (Israel), all install events incl. reinstalls (Israel), store listing visitors and acquisitions (Israel)
+    const day = {}, at = d => day[d] || (day[d] = [0, 0, 0, 0, 0, 0]), num = v => Number(String(v || "").replace(/,/g, "")) || 0, cc = r => r.country ?? r.countryregion ?? "";
+    let total = 0, totalDay = "";
+    for (const r of [...(i0 || []), ...(i1 || [])]) {
+      const d = isoDay(r.date || ""); if (!d) continue;
+      const a = at(d);
+      if (cc(r) === "IL") { a[0] += num(r.dailyuserinstalls); a[2] += num(r.dailyuseruninstalls); a[3] += num(r.installevents); if (d >= totalDay && num(r.totaluserinstalls)) { total = num(r.totaluserinstalls); totalDay = d; } }
+      else a[1] += num(r.dailyuserinstalls);
+    }
+    for (const r of [...(s0 || []), ...(s1 || [])]) { const d = isoDay(r.date || ""); if (d && cc(r) === "IL") { const a = at(d); a[4] += num(r.storelistingvisitors); a[5] += num(r.storelistingacquisitions); } }
+    const last = Object.keys(day).sort().pop();   // the newest day Google has posted
+    if (!last) throw new Error("the installs report has no rows");
+    const sum = w => { const o = [0, 0, 0, 0, 0, 0]; for (const [d, a] of Object.entries(day)) if (d >= w[0] && d <= w[1]) a.forEach((v, i) => { o[i] += v; });
+      return { users: o[0], abroad: o[1], uninstalls: o[2], events: o[3], visitors: o[4], acquisitions: o[5] }; };
+    const W = [addDays(last, -6), last], P = [addDays(last, -13), addDays(last, -7)];
+    pst = { ok: true, at: new Date().toISOString(), last, W, P, cur: sum(W), prev: sum(P), total: total || null, store: !!(s0 || s1) };
+  } catch (e) { pst = { ok: false, why: String(e.message || e).slice(0, 160) }; }
+  return pst;
+}
+
 const SC = "sc-domain:luchit.app", SCOPE_SC = "https://www.googleapis.com/auth/webmasters.readonly";
 let seo = null, seoAt = 0;
 async function collectSeo(env, today) {
@@ -222,12 +278,12 @@ async function collect(env) {
   const today = ilDay(Date.now()), yday = addDays(today, -1);
   const errors = {};
   const safe = (p, k) => p.catch(e => { errors[k] = String(e.message || e).slice(0, 200); return null; });
-  const [series, events, vers, vToday, vYday, dly, sc, wk, ps, rl] = await Promise.all([
+  const [series, events, vers, vToday, vYday, dly, sc, wk, ps, rl, pls] = await Promise.all([
     safe(realtime(env, { dimensions: [{ name: "minutesAgo" }], metrics: [{ name: "eventCount" }], dimensionFilter: REAL }), "series"),
     safe(realtime(env, { dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: REAL, limit: 40 }), "events"),
     safe(realtime(env, { dimensions: [{ name: "appVersion" }], metrics: [{ name: "activeUsers" }], dimensionFilter: REAL, limit: 6 }), "versions"),
     safe(cfVisits(env, today), "visitsToday"), safe(cfVisits(env, yday), "visitsYesterday"), safe(collectDaily(env, today, yday), "daily"), safe(collectSeo(env, today), "seo"),
-    safe(collectWeekly(env, today), "weekly"), playStatus(), playRelease(env)]);
+    safe(collectWeekly(env, today), "weekly"), playStatus(), playRelease(env), playStats(env, today)]);
   Object.assign(errors, dly?.errors || {}, sc?.errors || {}, wk?.errors || {});
   const perMin = Array(30).fill(0);
   for (const r of series || []) perMin[29 - Number(r.dimensionValues[0].value)] = Number(r.metricValues[0].value);
@@ -237,7 +293,7 @@ async function collect(env) {
   const activeUsers = vers ? vers.reduce((t, r) => t + Number(r.metricValues[0].value || 0), 0) : (quota ? prev.activeUsers ?? null : null);
   cache = { build: BUILD, errors: quota ? { ga4: "מכסת Google מלאה, מוצגים נתונים אחרונים ויתעדכנו בעוד כמה דקות" } : errors, stale: quota, at: quota && prev.at ? prev.at : new Date().toISOString(), activeUsers, perMinute: series ? perMin : (quota ? prev.perMinute ?? null : null),
     events: events ? events.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]).sort((a, b) => b[1] - a[1]) : (quota ? prev.events ?? null : null), versions: vers ? vers.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]) : (quota ? prev.versions ?? null : null), visitsToday: vToday?.visits ?? null, visitsYesterday: vYday?.visits ?? null, viewsToday: vToday?.views ?? null, viewsYesterday: vYday?.views ?? null, seo: sc ? { ...sc, errors: undefined } : (quota ? prev.seo ?? null : null), daily: dly ? { ...dly, errors: undefined } : (quota ? prev.daily ?? null : null),
-    weekly: wk ? { ...wk, errors: undefined } : (quota ? prev.weekly ?? null : null), play: ps, playAt: playSeen, release: rl };
+    weekly: wk ? { ...wk, errors: undefined } : (quota ? prev.weekly ?? null : null), play: ps, playAt: playSeen, release: rl, stats: pls };
   cacheAt = Date.now(); return cache;
 }
 
@@ -315,7 +371,7 @@ const BASE_END="2026-10-24",GROWTH=1.05;   // weekly car checks: +5% a week, cha
 const CLICKS={start:0,from:"2026-10-14",goal:5,due:"2026-11-15",after:1.10};
 const PAGES={start:90,from:"2026-10-17",goal:150,due:"2026-11-15"};
 const SUBMITTED="2026-10-17";      // production access requested in Play Console
-const INSTALL_BASE=null;           // set {end:"YYYY-MM-DD",value:N} after the first full week in the store; until then installs are not judged
+const INSTALL_BASE=null;           // set {end:"YYYY-MM-DD",value:N} after the first full week in the store (Google Play's count once its reports are connected); until then installs are not judged
 const PRO_MAU=2000;
 const N={car_lookup:"בדיקת רכב",car_save:"שמירת רכב ברשימה",share:"שיתוף תוצאה",compare_open:"השוואת רכבים",tab_view:"מעבר בין לשוניות",link_out:"לחיצה על קישור חיצוני",alerts_toggle:"הדלקה או כיבוי של התראות",alert_kind:"בחירת סוג התראה",upgrade_open:"פתיחת חלונית המנוי (PRO)",voice_search:"חיפוש בקול",bulk_check:"בדיקת כמה רכבים יחד",camera_scan:"סריקת לוחית במצלמה",buy_card_open:"פתיחת כרטיס בלשונית קנייה",settlement_shown:"הצגת הסדר פשרה",checklist_pdf:"הורדת רשימת בדיקה",doc_add:"הוספת מסמך לרכב",simple_view:"מעבר לתצוגה פשוטה",search_no_result:"חיפוש דגם בלי תוצאה",user_screenshot:"צילום מסך",first_open:"התקנה חדשה",notification_open:"פתיחת התראה",web_hint_click:"לחיצה על הצעה להתקין מהאתר",web_install_click:"מעבר מהאתר להתקנה",calendar_reminder_click:"הוספת תזכורת ליומן",link_landing:"כניסה לאתר מקישור",link_open:"פתיחת קישור באפליקציה"};
 const BAD={lookup_failed:"בדיקה שנכשלה",lookup_slow:"בדיקה איטית",lookup_abort:"בדיקה שבוטלה",lookup_timeout:"בדיקה שפגה",app_exception:"קריסה"};
@@ -382,14 +438,16 @@ t3={s,title:"הגיעו משיתוף",big:rate!=null?n1(rate):n(Sw),unit:rate!=n
 
 // Google Play: the public store page says whether anyone can install; Play Console, when connected, says where the production release stands
 const RL=d.release&&d.release.ok?d.release:null,top=RL&&RL.list&&RL.list[0]||null;
+// Google Play statistics reports, when connected: exact installs from the store, a few days late
+const PS=d.stats&&d.stats.ok&&d.stats.cur?d.stats:null;
 const RU={draft:"עדכון בטיוטה",not_sent_for_review:"עדכון שעוד לא נשלח לבדיקה",in_review:"עדכון בבדיקה",approved_not_published:"עדכון שאושר ומחכה שתפרסם",not_approved:"עדכון שנדחה בבדיקה"};
 const GP=d.play==="live"?{s:top&&top.state==="not_approved"?"bad":"ok",txt:"באוויר בחנות"+(top&&RU[top.state]?" · "+RU[top.state]:"")}:top?{s:(RS[top.state]||[0,"wait"])[1],txt:(RS[top.state]||[top.state?"מצב "+esc(top.state):"מצב לא ידוע"])[0]}:RL?{s:"wait",txt:"עוד אין גרסת ייצור"}:d.play==="review"?{s:"wait",txt:"עדיין לא פתוח לכולם"}:{s:"wait",txt:"לא הצלחתי לבדוק את דף החנות"};
-// 4. new app installs, with the store status
-let t4;{const A=W&&W.app,a=A?A[0].newUsers:null,ap=A?A[1].newUsers:null,ab=A?A[0].abroadNew:0,live=d.play==="live";let s,tg=null;
-if(!A)s="nodata";else if(!INSTALL_BASE)s="early";else{tg=INSTALL_BASE.value*Math.pow(1.07,Math.min(8,between(INSTALL_BASE.end,end)/7))*Math.pow(GROWTH,Math.max(0,between(INSTALL_BASE.end,end)/7-8));s=judge(a,tg,0,.8)}
+// 4. new app installs, with the store status: Google Play's own count when its reports are connected, else first opens in Analytics
+let t4;{const A=W&&W.app,ga=A?A[0].newUsers:null,a=PS?PS.cur.users:ga,ap=PS?PS.prev.users:A?A[1].newUsers:null,ab=PS?0:A?A[0].abroadNew:0,wEnd=PS?PS.last:end,live=d.play==="live";let s,tg=null;
+if(a==null)s="nodata";else if(!INSTALL_BASE)s="early";else{tg=INSTALL_BASE.value*Math.pow(1.07,Math.min(8,between(INSTALL_BASE.end,wEnd)/7))*Math.pow(GROWTH,Math.max(0,between(INSTALL_BASE.end,wEnd)/7-8));s=judge(a,tg,0,.8)}
 push("installs",s,5,tg?a/tg:1,"התקנות חדשות: "+n(a)+(tg?", היעד "+n(tg):""),s==="nodata"?"חסר נתון על התקנות":"מעט התקנות");
 push("store",GP.s,0,0,"Google Play: גרסת הייצור נדחתה בבדיקה. הסיבה במייל ובקונסול","גרסת הייצור נדחתה בבדיקה של גוגל","נדחתה");
-t4={s,title:"התקנות חדשות",big:n(a),lines:["Google Play: "+GP.txt+(GP.s==="ok"&&GP.txt.indexOf("·")<0?" ✓":"")+(!live&&!top&&d.play==="review"?" (הבקשה הוגשה "+dm(SUBMITTED)+")":""),tg?n(a/tg*100)+"% מהיעד ("+n(tg)+")":live?"היעד ייקבע אחרי שבוע מלא בחנות":"עד שהאפליקציה בחנות, מתקינים רק בודקים",delta(a,ap),ab?"לא נספרו "+n(ab)+" מכשירים מחוץ לישראל (בדיקות אוטומטיות של גוגל)":""],foot:rng(W&&W.W)+" · התקנה ראשונה במכשיר בישראל"}}
+t4={s,title:"התקנות חדשות",big:n(a),lines:["Google Play: "+GP.txt+(GP.s==="ok"&&GP.txt.indexOf("·")<0?" ✓":"")+(!live&&!top&&d.play==="review"?" (הבקשה הוגשה "+dm(SUBMITTED)+")":""),tg?n(a/tg*100)+"% מהיעד ("+n(tg)+")":live?"היעד ייקבע אחרי שבוע מלא בחנות":"עד שהאפליקציה בחנות, מתקינים רק בודקים",delta(a,ap),PS?(ga!=null?"פתיחות ראשונות לפי גוגל אנליטיקס: "+n(ga):""):ab?"לא נספרו "+n(ab)+" מכשירים מחוץ לישראל (בדיקות אוטומטיות של גוגל)":""],foot:PS?rng(PS.W)+" · לפי Google Play, בישראל":rng(W&&W.W)+" · פתיחה ראשונה במכשיר בישראל, לפי גוגל אנליטיקס"}}
 
 // health: failures caused by us or the ministry, out of all attempts (a mistyped plate is not a failure)
 let H;{const fk=W&&W.fails?W.fails[0]:null,tech=fk?(fk.source_down||0)+(fk.offline||0):null,att2=ev?ge(E0,"car_lookup")+ge(E0,"lookup_failed"):null;let s,r=null;
@@ -443,7 +501,7 @@ const rows=Object.keys(N).filter(k=>ge(E0,k)||ge(E1,k)).sort((a,b)=>ge(E0,b)-ge(
 const Lu=ge(E0,"car_lookup",1),Su=ge(E0,"car_save",1);
 box.innerHTML='<h4>שמירת רכב</h4><p class="note" style="margin:0 0 6px">'+(Lu>=50?n1(Su/Lu*100)+"% ממי שבדק רכב שמר אותו ברשימה (היעד 15%).":"מעט מדי אנשים בדקו רכב השבוע כדי לחשב אחוז: "+n(Su)+" שמרו מתוך "+n(Lu)+".")+"</p>"
 +'<h4>פעולות ('+rng(W.W)+")</h4>"+'<table class="t"><thead><tr><th>פעולה</th><th class="n">השבוע</th><th class="n">שבוע קודם</th></tr></thead><tbody>'+rows.map(k=>'<tr><td class="w">'+N[k]+'</td><td class="n">'+n(ge(E0,k))+'</td><td class="n">'+n(ge(E1,k))+"</td></tr>").join("")+"</tbody></table>"
-+(W.app?'<h4>מכשירים באפליקציה</h4><ul class="kv">'+[["התקנות חדשות בישראל, השבוע",W.app[0].newUsers],["מכשירים פעילים בישראל, 28 ימים",W.app[2].activeUsers],["מכשירים מחוץ לישראל שלא נספרו, 28 ימים",W.app[2].abroadActive]].map(r=>"<li><span>"+r[0]+"</span><b>"+n(r[1])+"</b></li>").join("")+'</ul><p class="note" style="margin:0 0 6px">כל מכשיר שפתח את האפליקציה נספר פעם אחת. עדכון גרסה לא נספר כהתקנה, אבל התקנה מחדש או מחיקת נתוני האפליקציה נספרות כמכשיר חדש. Google מתקינה כל גרסה שמועלית לחנות על מכשירי בדיקה בחו"ל, ולכן מכשירים מחוץ לישראל לא נספרים במסך.</p>':"")
++(PS?'<h4>התקנות לפי Google Play ('+rng(PS.W)+")</h4>"+'<ul class="kv">'+[["משתמשים חדשים בישראל",PS.cur.users,PS.prev.users],["הסירו את האפליקציה",PS.cur.uninstalls,PS.prev.uninstalls],["כל ההתקנות, כולל התקנה מחדש",PS.cur.events,PS.prev.events],PS.store?["ביקרו בדף האפליקציה בחנות",PS.cur.visitors,PS.prev.visitors]:null,PS.store?["התקינו מתוך דף החנות",PS.cur.acquisitions,PS.prev.acquisitions]:null,PS.cur.abroad?["משתמשים חדשים מחוץ לישראל או בלי מדינה, לא נספרו",PS.cur.abroad,null]:null,PS.total?["משתמשים בישראל שהתקינו אי פעם",PS.total,null]:null].filter(Boolean).map(r=>"<li><span>"+r[0]+(r[2]!=null?" (שבוע קודם "+n(r[2])+")":"")+"</span><b>"+n(r[1])+"</b></li>").join("")+'</ul><p class="note" style="margin:0 0 6px">זה המספר שמוצג בכרטיס ההתקנות. Google Play סופר כל משתמש חדש פעם אחת, גם אם התקין בכמה מכשירים או מחק והתקין שוב, וסופר גם מי שהתקין ועוד לא פתח. גוגל מוסרת את הנתונים באיחור של כמה ימים, ולכן התקופה כאן מוקדמת מהשבוע של שאר המסך.</p>':"")+(W.app?'<h4>מכשירים באפליקציה, לפי גוגל אנליטיקס</h4><ul class="kv">'+[["פתחו את האפליקציה לראשונה בישראל, השבוע",W.app[0].newUsers],["מכשירים פעילים בישראל, 28 ימים",W.app[2].activeUsers],["מכשירים מחוץ לישראל שלא נספרו, 28 ימים",W.app[2].abroadActive]].map(r=>"<li><span>"+r[0]+"</span><b>"+n(r[1])+"</b></li>").join("")+'</ul><p class="note" style="margin:0 0 6px">כל מכשיר שפתח את האפליקציה נספר פעם אחת. מי שהתקין ועוד לא פתח לא נספר כאן. עדכון גרסה לא נספר כהתקנה, אבל התקנה מחדש או מחיקת נתוני האפליקציה נספרות כמכשיר חדש. גוגל מתקינה כל גרסה שמועלית לחנות על מכשירי בדיקה בחו"ל, ולכן מכשירים מחוץ לישראל לא נספרים במסך.</p>':"")
 +(W.shared?'<h4>שיתופים שהביאו אנשים, לפי סוג</h4><p class="note" style="margin:0">'+(Object.entries(W.shared[0].by).map(e=>(VIA[e[0]]||esc(e[0]))+": "+n(e[1])).join(" · ")||"עדיין אין כניסות מקישור ששותף.")+"</p>":"")}}
 
 // drawer: the site
@@ -478,6 +536,7 @@ const li=(l,v)=>"<li><span>"+l+"</span><b>"+v+"</b></li>";
 $("tec").innerHTML="<h4>בדיקות שלא החזירו תוצאה, לפי סיבה ("+rng(W&&W.W)+")</h4>"+(fk?'<ul class="kv">'+(Object.entries(fk).sort((a,b)=>b[1]-a[1]).map(e=>li(KIND[e[0]]||esc(e[0]),n(e[1]))).join("")||li("אין","0"))+"</ul>":'<p class="note" style="margin:0">אין נתון</p>')
 +'<p class="note">'+(H.att!=null?"מתוך "+n(H.att)+" ניסיונות בדיקה. רק שתי הסיבות הראשונות נספרות בתקינות השירות.":"")+"</p>"
 +"<h4>עוד סימנים טכניים השבוע</h4>"+'<ul class="kv">'+li("בדיקות איטיות",n(ge(E0,"lookup_slow")))+li("בדיקות שבוטלו באמצע",n(ge(E0,"lookup_abort")))+li("קריסות של האפליקציה",n(ge(E0,"app_exception")))+li("חיפושי דגם בלי תוצאה",n(ge(E0,"search_no_result")))+"</ul>"
++"<h4>דוחות Google Play (התקנות)</h4>"+'<p class="note" style="margin:0">'+(PS?"מחובר. היום האחרון שגוגל מסרה: "+dm(PS.last)+".":!d.stats?"לא נבדק":d.stats.why==="no bucket"?"לא מחובר עדיין: חסר שם הדלי של הדוחות. עד אז כרטיס ההתקנות מציג את גוגל אנליטיקס.":"לא מחובר עדיין"+(/^40[13]/.test(d.stats.why||"")?": לחשבון השירות אין עדיין הרשאה להוריד דוחות. צריך הרשאה ברמת החשבון ב-Play Console, והיא יכולה להיכנס לתוקף רק אחרי עד 48 שעות.":/^404/.test(d.stats.why||"")?": לא נמצאו דוחות התקנות. כדאי לבדוק את שם הדלי.":".")+' <bdi dir="ltr">('+esc(d.stats.why||"")+")</bdi>")+"</p>"
 +"<h4>Play Console</h4>"+'<p class="note" style="margin:0">'+(d.release?d.release.ok?"מחובר. מצב גרסאות הייצור נקרא משם.":"לא מחובר עדיין"+(/not been used|disabled/i.test(d.release.why||"")?": צריך להפעיל את Google Play Android Developer API בפרויקט של חשבון השירות ב-Google Cloud.":/permission|^40[13]/i.test(d.release.why||"")?": לחשבון השירות אין עדיין הרשאת צפייה באפליקציה ב-Play Console.":".")+' <bdi dir="ltr">('+esc(d.release.why||"")+")</bdi>":"לא נבדק")+"</p>"
 +"<h4>מקורות נתונים</h4>"+'<ul class="kv">'+(Object.entries(d.errors||{}).map(e=>li(esc(e[0]),'<span style="font-weight:400">'+esc(e[1])+"</span>")).join("")||li("כל המקורות ענו","✓"))+"</ul>"}
 
