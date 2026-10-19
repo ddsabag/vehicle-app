@@ -1,15 +1,12 @@
-// One-off (probe-go branch, not for main): does the edge inject Cloudflare's own Web Analytics beacon into the pages, and with which token.
-const UA = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36";
+// One-off (probe-go branch, not for main): GA4 property settings after the Ship tail GA4 run (time zone, custom dimensions).
+import crypto from "node:crypto";
+const env = process.env, P = env.GA_PROPERTY_ID || "557990379", sa = JSON.parse(env.GA_SERVICE_ACCOUNT_JSON);
+const b64 = o => Buffer.from(JSON.stringify(o)).toString("base64url"), now = Math.floor(Date.now() / 1000);
+const un = b64({alg: "RS256", typ: "JWT"}) + "." + b64({iss: sa.client_email, scope: "https://www.googleapis.com/auth/analytics.readonly", aud: "https://oauth2.googleapis.com/token", iat: now, exp: now + 3600});
+const tok = (await (await fetch("https://oauth2.googleapis.com/token", {method: "POST", headers: {"content-type": "application/x-www-form-urlencoded"}, body: "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=" + un + "." + crypto.createSign("RSA-SHA256").update(un).sign(sa.private_key).toString("base64url")})).json()).access_token;
+const admin = async p => (await fetch("https://analyticsadmin.googleapis.com/v1beta/" + p, {headers: {authorization: "Bearer " + tok}})).json();
 console.log("at", new Date().toISOString());
-for (const p of ["/", "/?utm_source=youtube&utm_medium=social&utm_campaign=bio", "/magazine/2026-09/", "/model/", "/model/mg4-443/", "/check/recall/", "/guide/", "/privacy.html", "/lib/cfb.js", "/go/yt", "/live"]) {
-  try {
-    const r = await fetch("https://luchit.app" + p, {headers: {"user-agent": UA, accept: "text/html,*/*"}, redirect: "manual"});
-    const t = await r.text();
-    const tokens = [...t.matchAll(/data-cf-beacon='?"?(\{[^>]*?\})/g)].map(m => m[1].replace(/&quot;/g, '"'));
-    const tags = [...t.matchAll(/<script[^>]*cloudflareinsights[^>]*>/g)].map(m => m[0].slice(0, 220));
-    console.log(`\n${p} -> ${r.status} ${r.headers.get("content-type")} | cache-control ${r.headers.get("cache-control")} | cf-cache ${r.headers.get("cf-cache-status")} | enc ${r.headers.get("content-encoding")} | len ${t.length} | location ${r.headers.get("location") || "-"}`);
-    console.log("  beacon script tags in the HTML:", tags.length, JSON.stringify(tags));
-    console.log("  data-cf-beacon values:", JSON.stringify(tokens), "| cfb.js referenced:", t.includes("/lib/cfb.js"));
-    if (p === "/lib/cfb.js") console.log("  body starts:", t.slice(0, 160).replace(/\n/g, " "));
-  } catch (e) { console.log(p, "failed", String(e)); }
-}
+const prop = await admin(`properties/${P}`);
+console.log("timeZone:", prop.timeZone, "| updated:", prop.updateTime);
+const dims = await admin(`properties/${P}/customDimensions?pageSize=200`);
+console.log("src dimension:", JSON.stringify((dims.customDimensions || []).filter(d => d.parameterName === "src")));
