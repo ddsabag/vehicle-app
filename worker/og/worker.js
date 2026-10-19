@@ -2,6 +2,24 @@
    Messaging crawlers (WhatsApp, Telegram, Facebook, X, Slack...) get og:title / og:description for
    ?plate= and ?cmp= links; everyone else gets the page untouched. The plate is not logged; the ministry answer for that link is held in the Cloudflare edge cache for 10 minutes (cacheTtl below) so repeated previews do not hit the ministry again.
    Needs luchit.app proxied by Cloudflare (orange cloud). */
+
+/* Short source links (marketing plan decision 1, 2026-10-19): luchit.app/go/<code> answers a 302 to the home page with the channel's
+   campaign tags, so a bio link or a post is counted by source (GA4 session source, the page's link_landing event, the Play referrer).
+   Optional ?c=<topic> becomes utm_campaign (letters and _ only, as the page keeps them). Sources are letters only, at most 12. */
+const GO = {
+  tiktok: ["tiktok", "social", "bio"], ig: ["instagram", "social", "bio"], fb: ["facebook", "social", "post"], li: ["linkedin", "social", "post"],
+  yt: ["youtube", "social", "bio"], wa: ["whatsapp", "social", "message"], mail: ["newsletter", "email", "magazine"],
+  press: ["press", "referral", "article"], qr: ["qr", "print", "qr"], dealer: ["dealer", "referral", "dealer"],
+};
+function goLink(u) {
+  const m = u.pathname.toLowerCase().match(/^\/go(?:\/([a-z]*))?\/?$/);
+  if (!m) return null;
+  const g = GO[m[1] || ""];
+  if (!g) return new Response(null, {status: 302, headers: {location: u.origin + "/", "cache-control": "no-store"}});
+  const c = (u.searchParams.get("c") || "").toLowerCase().replace(/[^a-z_]/g, "").slice(0, 24) || g[2];
+  const to = `${u.origin}/?utm_source=${g[0]}&utm_medium=${g[1]}&utm_campaign=${c}`;
+  return new Response(null, {status: 302, headers: {location: to, "cache-control": "no-store"}});
+}
 const CRAWLER = /WhatsApp|TelegramBot|facebookexternalhit|Facebot|Twitterbot|Slackbot|LinkedInBot|Discordbot|SkypeUriPreview|Applebot|Google-PageRenderer|Viber/i;
 const DS = "https://data.gov.il/api/3/action/datastore_search?limit=20&resource_id=";
 const ACTIVE = "053cea08-09bc-40ec-8f7a-156f0677aff3", RECALL = "36bf1404-0be4-49d2-82dc-2f1ead4a8b93", CANCELLED = "851ecab1-0622-4dbe-a6c7-f950cf82abf9";
@@ -42,8 +60,10 @@ function cmpInfo(code) {
 
 export default {
   async fetch(req, env, ctx) {
-    const res = await fetch(req);
     const u = new URL(req.url);
+    const go = (req.method === "GET" || req.method === "HEAD") && /^\/go/i.test(u.pathname) && goLink(u);
+    if (go) return versioned(go, env);
+    const res = await fetch(req);
     if (req.method !== "GET" || u.pathname !== "/" || !CRAWLER.test(req.headers.get("User-Agent") || "")) return res;
     const plate = (u.searchParams.get("plate") || "").replace(/\D/g, "");
     const cmp = u.searchParams.get("cmp");
@@ -71,11 +91,15 @@ export default {
       .on('meta[name="twitter:image"]', set("i", image || u.origin + "/og.png"))
       .on('meta[property="og:image:alt"]', set("a", image ? "דוח רכב בלוחית" : "לוחית, בדיקת רכב לפי מספר"))
       .transform(res);
-    // which version answered (binding CF_VERSION_METADATA in wrangler.toml): the Workers deploy check waits for the new one
-    const id = env?.CF_VERSION_METADATA?.id;
-    if (!id) return out;
-    const named = new Response(out.body, out);
-    named.headers.set("x-luchit-version", id);
-    return named;
+    return versioned(out, env);
   },
 };
+
+// which version answered (binding CF_VERSION_METADATA in wrangler.toml): the Workers deploy check waits for the new one
+function versioned(r, env) {
+  const id = env?.CF_VERSION_METADATA?.id;
+  if (!id) return r;
+  const named = new Response(r.body, r);
+  named.headers.set("x-luchit-version", id);
+  return named;
+}
