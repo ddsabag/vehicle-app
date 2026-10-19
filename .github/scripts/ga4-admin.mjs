@@ -1,6 +1,8 @@
 // Ship tail, GA4 part (ship-tail.yml): makes sure the GA4 property has every custom dimension and key event listed in analytics/ga4-admin.json,
 // through the Google Analytics Admin API v1beta (scope analytics.edit). It only creates what is missing: nothing that exists is ever archived,
-// deleted, renamed or changed, so a second run creates nothing. A 403 means the service account is not an Editor yet: a result, not a failure.
+// deleted, renamed or changed, so a second run creates nothing. The one setting it changes is the property's reporting time zone, when the
+// file names one (timeZone) and the property has another: every day the reports count (/live "today", the weekly report) is an Israel day.
+// A 403 means the service account is not an Editor yet: a result, not a failure.
 // The key is SHIP_SA_JSON, a service account only this workflow uses: the reporting key (GA_SERVICE_ACCOUNT_JSON) stays a Viewer, because
 // jobs that install pip packages hold it.
 // Node 20, node: builtins only. Commands:
@@ -31,7 +33,7 @@ class Fail extends Error { constructor(code, why, next = "", status = 0) { super
 const NAME = /^[A-Za-z][A-Za-z0-9_]{0,39}$/;   // GA4 parameter and event names
 export function loadConfig(text) {
   const c = J(text), errs = [];
-  if (!c || typeof c !== "object") return { property: "", dims: [], keys: [], errs: ["not JSON"] };
+  if (!c || typeof c !== "object") return { property: "", dims: [], keys: [], timeZone: "", errs: ["not JSON"] };
   if (!/^\d{6,12}$/.test(String(c.property || ""))) errs.push("property must be the numeric GA4 property id");
   const dims = (c.customDimensions || []).map(d => ({ parameterName: d.parameterName, displayName: d.displayName || d.parameterName,
     description: String(d.description || "").slice(0, 150), scope: d.scope || "EVENT" }));
@@ -48,8 +50,11 @@ export function loadConfig(text) {
   const dup = a => a.filter((x, i) => a.indexOf(x) !== i);
   for (const x of dup(dims.map(d => d.parameterName))) errs.push("duplicate parameterName " + x);
   for (const x of dup(dims.map(d => d.displayName))) errs.push("duplicate displayName " + x);
-  return { property: String(c.property || ""), dims, keys, errs };
+  const timeZone = c.timeZone == null ? "" : String(c.timeZone);
+  if (timeZone && !zoneOk(timeZone)) errs.push("bad timeZone " + timeZone);
+  return { property: String(c.property || ""), dims, keys, timeZone, errs };
 }
+const zoneOk = z => { if (!/^[A-Za-z]+(\/[A-Za-z0-9_+-]+)+$/.test(z)) return false; try { new Intl.DateTimeFormat("en-US", { timeZone: z }); return true; } catch { return false; } };
 
 // ---- HTTP: 5xx, 429 and network errors are tried up to 4 times, 2/4/8 s apart; any other status comes back at once ----
 // Every try and wait fits inside IO.deadline, so the step reports before the job's timeout.
@@ -87,12 +92,14 @@ async function accessToken(sa) {
 }
 
 // ---- Admin API: the only calls this script can make ----
-// GET and POST (create) on the two collections; a PATCH (rename), DELETE or :archive is refused before it leaves the machine.
+// GET and POST (create) on the two collections, GET of the property and a PATCH of its time zone alone (updateMask=timeZone); any other
+// PATCH (a rename), a DELETE or an :archive is refused before it leaves the machine.
 export function allowed(method, url, property) {
   let u; try { u = new URL(url); } catch { return false; }
   const raw = url.startsWith(ADMIN + "/") ? url.slice(ADMIN.length).split("?")[0] : "";
-  return u.origin === ADMIN && raw === u.pathname && (method === "GET" || method === "POST")
-    && new RegExp(`^/v1beta/properties/${property}/(customDimensions|keyEvents)$`).test(raw);
+  if (u.origin !== ADMIN || raw !== u.pathname) return false;
+  if (raw === `/v1beta/properties/${property}`) return method === "GET" && !u.search || method === "PATCH" && u.search === "?updateMask=timeZone";
+  return (method === "GET" || method === "POST") && new RegExp(`^/v1beta/properties/${property}/(customDimensions|keyEvents)$`).test(raw);
 }
 function adminFail(r) {
   const msg = String(J(r.text)?.error?.message || r.text || "").replace(/\s+/g, " ").slice(0, 160);
@@ -105,6 +112,14 @@ async function admin(ctx, method, coll, json) {
   const url = `${ADMIN}/v1beta/properties/${ctx.property}/${coll}`;
   if (!allowed(method, url.split("?")[0], ctx.property)) throw new Fail("error", `refused: ${method} ${coll}`, "", -1);
   return call(method, url, { headers: { authorization: "Bearer " + ctx.token, ...(json ? { "content-type": "application/json" } : {}) }, body: json ? JSON.stringify(json) : undefined });
+}
+// the property itself: read it, or change its time zone and nothing else
+async function property(ctx, timeZone) {
+  const url = `${ADMIN}/v1beta/properties/${ctx.property}` + (timeZone ? "?updateMask=timeZone" : ""), method = timeZone ? "PATCH" : "GET";
+  if (!allowed(method, url, ctx.property)) throw new Fail("error", `refused: ${method} property`, "", -1);
+  const r = await call(method, url, { headers: { authorization: "Bearer " + ctx.token, ...(timeZone ? { "content-type": "application/json" } : {}) }, body: timeZone ? JSON.stringify({ timeZone }) : undefined });
+  if (!r.ok) throw adminFail(r);
+  return J(r.text) || {};
 }
 async function list(ctx, coll) {
   const all = [];
@@ -149,7 +164,9 @@ export async function ensure(configText = fs.readFileSync(CONFIG, "utf8")) {
     R.missing = todo.map(([c, n]) => (c === "keyEvents" ? "key event " : "") + n);
     IO.out(`ga4: ${cfg.dims.length - todo.filter(t => t[0] === "customDimensions").length}/${cfg.dims.length} custom dimensions and ` +
       `${cfg.keys.length - todo.filter(t => t[0] === "keyEvents").length}/${cfg.keys.length} key events already there`);
-    if (!todo.length) return { ...R, code: "ok" };
+    const zone = cfg.timeZone ? String((await property(ctx)).timeZone || "") : "";
+    if (cfg.timeZone) { IO.out(`ga4: time zone ${zone || "unknown"}${zone === cfg.timeZone ? "" : `, wanted ${cfg.timeZone}`}`); if (zone !== cfg.timeZone) R.missing.push("timeZone " + cfg.timeZone); }
+    if (!R.missing.length) return { ...R, code: "ok" };
     if (mode !== "on") { IO.out("dry run: would create " + R.missing.join(", ")); return { ...R, code: "dry" }; }
     for (const [coll, name, body] of todo) {
       const r = await admin(ctx, "POST", coll, body);
@@ -157,6 +174,10 @@ export async function ensure(configText = fs.readFileSync(CONFIG, "utf8")) {
       const f = adminFail(r);
       if (f.code !== "error") throw f;   // a 403 or a disabled API stops here: the next item would get the same answer
       R.failed.push(`${name} (${r.status || "no answer"})`);
+    }
+    if (cfg.timeZone && zone !== cfg.timeZone) {
+      const got = String((await property(ctx, cfg.timeZone)).timeZone || "");
+      if (got === cfg.timeZone) R.created.push("timeZone " + got); else R.failed.push(`timeZone (answered ${got || "nothing"})`);
     }
     IO.out(`created: ${R.created.join(", ") || "-"}${R.failed.length ? `; failed: ${R.failed.join(", ")}` : ""}`);
     if (R.failed.length) return { ...R, code: "error", why: `GA4 לא יצר ${R.failed.join(", ")}`, next: "לבדוק את הלוג של Ship tail" };
@@ -192,7 +213,7 @@ async function selftest() {
   const CFG = JSON.stringify({ property: PROP, customDimensions: [{ parameterName: "kind" }, { parameterName: "n" }, { parameterName: "plan" }],
     keyEvents: [{ eventName: "upgrade_open" }] });
   function world(o = {}) {
-    const W = { calls: [], printed: [], outputs: {}, sums: [], clock: Date.UTC(2026, 9, 18, 6), fail: { ...(o.fail || {}) },
+    const W = { calls: [], printed: [], outputs: {}, sums: [], clock: Date.UTC(2026, 9, 18, 6), fail: { ...(o.fail || {}) }, tz: o.tz ?? "America/Los_Angeles",
       dims: structuredClone(o.dims ?? [{ name: "x/1", parameterName: "kind", displayName: "kind", scope: "EVENT" }]), keys: structuredClone(o.keys ?? []) };
     const res = (status, body, headers = {}) => new Response(JSON.stringify(body ?? {}), { status, headers });
     const take = op => { const q = W.fail[op]; if (q && q.length) { const s = q.shift(); return typeof s === "object" ? res(s.status, { error: { message: s.msg } }) : res(s, { error: { message: "scripted " + s } }); } return null; };
@@ -202,6 +223,10 @@ async function selftest() {
       W.clock += (o.took || 0) * 60000;   // minutes each request takes
       if (url === TOKEN_URL) return take("token") || res(200, { access_token: TOKEN });
       if (opt.headers?.authorization !== "Bearer " + TOKEN) return res(401, {});
+      if (u.pathname === `/v1beta/properties/${PROP}`) {
+        if (method === "GET") return take("prop") || res(200, { name: "properties/" + PROP, timeZone: W.tz, currencyCode: "ILS" });
+        if (method === "PATCH") { const e = take("patch"); if (e) return e; if (u.search !== "?updateMask=timeZone") return res(400, {}); W.tz = J(opt.body).timeZone; return res(200, { name: "properties/" + PROP, timeZone: W.tz }); }
+      }
       const coll = u.pathname.split("/").pop();
       if (method === "GET") {
         const e = take("list"); if (e) return e;
@@ -294,6 +319,30 @@ async function selftest() {
     ok(W.R.code === "mismatch" && W.calls.length === 0, "property mismatch: nothing touched");
     W = await run({}, { GA_PROPERTY_ID: PROP });
     ok(W.R.code === "created", "property cross-check passes");
+
+    // the time zone: read when the file names one, changed alone (updateMask=timeZone) when it differs, left as it is when it matches
+    const TZ = JSON.stringify({ ...J(CFG), timeZone: "Asia/Jerusalem" });
+    W = await run({}, {}, CFG);
+    ok(!W.calls.some(c => new URL(c.url).pathname === `/v1beta/properties/${PROP}`), "no timeZone in the file: the property is not even read");
+    W = await run({}, {}, TZ);
+    const patches = W.calls.filter(c => c.method === "PATCH");
+    ok(W.R.code === "created" && W.R.created.join() === "n,plan,upgrade_open,timeZone Asia/Jerusalem" && W.tz === "Asia/Jerusalem" && patches.length === 1
+      && patches[0].url.endsWith("?updateMask=timeZone") && Object.keys(J(patches[0].body)).join() === "timeZone", "time zone changed alone " + JSON.stringify(W.R));
+    W = await run({ dims: W.dims, keys: W.keys, tz: "Asia/Jerusalem" }, {}, TZ);
+    ok(W.R.code === "ok" && !W.calls.some(c => c.method === "PATCH" || c.method === "POST" && c.url !== TOKEN_URL), "time zone already right: nothing changed");
+    W = await run({ dims: [{ parameterName: "kind", scope: "EVENT" }, { parameterName: "n", scope: "EVENT" }, { parameterName: "plan", scope: "EVENT" }], keys: [{ eventName: "upgrade_open" }] }, { MODE: "dry" }, TZ);
+    ok(W.R.code === "dry" && W.R.missing.join() === "timeZone Asia/Jerusalem" && W.tz === "America/Los_Angeles" && !W.calls.some(c => c.method === "PATCH"), "dry: the time zone is reported, not changed");
+    W = await run({ fail: { patch: [{ status: 403, msg: "The caller does not have permission" }] } }, {}, TZ);
+    ok(W.R.code === "needs-editor" && W.tz === "America/Los_Angeles", "403 on the time zone -> needs-editor");
+    W = await run({ fail: { prop: [{ status: 403, msg: "The caller does not have permission" }] } }, {}, TZ);
+    ok(W.R.code === "needs-editor" && W.posts.length === 0, "403 reading the property -> needs-editor, nothing created");
+    W = await run({}, {}, TZ);
+    ok(W.calls.every(x => x.url === TOKEN_URL || allowed(x.method, x.method === "PATCH" ? x.url : x.url.split("?")[0], PROP)), "a run with a time zone only makes allowed calls");
+    for (const [m, q] of [["PATCH", ""], ["PATCH", "?updateMask=displayName"], ["PATCH", "?updateMask=timeZone,displayName"], ["PATCH", "?updateMask=*"], ["DELETE", ""], ["POST", ""], ["GET", "?x=1"]])
+      ok(!allowed(m, `${ADMIN}/v1beta/properties/${PROP}${q}`, PROP), `allowed() refuses ${m} on the property ${q}`);
+    ok(allowed("PATCH", `${ADMIN}/v1beta/properties/${PROP}?updateMask=timeZone`, PROP) && !allowed("PATCH", `${ADMIN}/v1beta/properties/999?updateMask=timeZone`, PROP), "allowed(): the time zone of this property only");
+    ok(/bad timeZone/.test(loadConfig('{"property":"123456789","timeZone":"Israel Time"}').errs.join()) && /bad timeZone/.test(loadConfig('{"property":"123456789","timeZone":"Mars/Olympus"}').errs.join())
+      && !loadConfig('{"property":"123456789","timeZone":"Asia/Jerusalem"}').errs.length, "timeZone validation");
     const bad = loadConfig('{"property":"1","customDimensions":[{"parameterName":"9x"},{"parameterName":"a","scope":"USER"}],"keyEvents":[{"eventName":"e","countingMethod":"X"}]}').errs.join();
     ok(/property/.test(bad) && /bad parameterName 9x/.test(bad) && /only EVENT/.test(bad) && /bad countingMethod/.test(bad), "config validation " + bad);
 
@@ -301,6 +350,7 @@ async function selftest() {
     const root = new URL("../../", import.meta.url), read = p => { try { return fs.readFileSync(new URL(p, root), "utf8"); } catch { return ""; } };
     const real = loadConfig(read("analytics/ga4-admin.json")), html = read("index.html"), wrangler = read("worker/live/wrangler.toml");
     ok(real.errs.length === 0 && real.dims.length >= 14, "analytics/ga4-admin.json is valid " + real.errs);
+    ok(real.timeZone === "Asia/Jerusalem", "analytics/ga4-admin.json keeps the property on Israel time (/live and the weekly report count Israel days)");
     ok(wrangler.includes(`GA_PROPERTY_ID = "${real.property}"`), "property = worker/live/wrangler.toml GA_PROPERTY_ID");
     for (const d of real.dims) ok(new RegExp(`[{,]\\s*${d.parameterName}\\s*[:},]`).test(html), `index.html sends parameter ${d.parameterName}`);
     for (const k of real.keys) ok(html.includes(`track("${k.eventName}"`), `index.html sends event ${k.eventName}`);
