@@ -44,6 +44,7 @@ export const WF_LEVELS = {
   "Reviews monitor": "silent", "Ownership data mirror": "silent",
   "Back-on-road detector": "silent",
   "Ship tail": "day", "Store listing": "day", "Release watch": "day", "Production": "day",
+  "Settlements": "day",
 };
 
 // fixed Hebrew text for the morning ring and the Sunday block. Lookup: first two key segments, then the first one.
@@ -68,6 +69,7 @@ export const LABELS = {
   "vitals":              { he: "שיעור {ids} בגוגל פליי מעל סף גוגל", sect: "fail", ids: { crash: "הקריסות", anr: "ה-ANR" } },
   "reviews:error":       { he: "הבדיקה של גוגל פליי לא הצליחה לרוץ", sect: "fail" },
   "seo:error":           { he: "הדוח היומי מ-Search Console לא רץ", sect: "fail" },
+  "seo:index":           { he: "גוגל הוציא דפים מהאינדקס", sect: "fail" },   // index-guard.mjs via seo-data.mjs (SEO data snapshot)
   "seo":                 { he: "דוח SEO יומי", sect: "none" },
   "mention":             { he: "אזכור חדש של לוחית ברשת", sect: "fyi" },
   "seo-auto:blocked":    { he: "שינוי SEO מחכה לאישור שלך ({id})", sect: "wait" },
@@ -103,15 +105,18 @@ export const LABELS = {
   "prod:stop":           { he: "הפרסום ל-Production לא נשלח", sect: "fyi" },
   "prod:wait":           { he: "ההפצה ב-Production מחכה לך או ל-Google", sect: "fyi" },
   "prod:fail":           { he: "הפרסום ל-Production נכשל: {ids}", sect: "fail", ids: { access: "אין הרשאה ל-Production", promote: "השליחה לא הצליחה", auto: "הבדיקה של ההפצה לא הצליחה" } },
+  "stl:update":          { he: "הסדרי הפשרה באפליקציה עודכנו", sect: "none" },   // settlements.mjs (Settlements)
+  "stl:stuck":           { he: "הבדיקה השבועית של הסדרי הפשרה לא מטפלת ברשימה", sect: "wait" },
 };
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
 export const FAMILIES_IN_USE = [
   "wf", "smoke", "expiry", "infra", "infra-branches", "guard:core", "guard:break", "guard:warn", "ministry", "checker:data-health",
-  "review", "review3", "vitals", "reviews:error", "seo:daily", "seo:nodata", "seo:error", "mention",
+  "review", "review3", "vitals", "reviews:error", "seo:daily", "seo:nodata", "seo:error", "seo:index", "mention",
   "seo-auto:blocked", "seo-auto:wait", "seo-auto:notice", "seo-auto:done", "catalog", "mag:pub", "mag:fail",
   "webwatch:rollback", "webwatch:rollback-failed", "meta:uptime", "weekly:missing", "workers:refused", "workers:rollback", "workers:failed", "workers:forced",
   "ship:done", "ship:notes", "ship:fail", "ship:dry", "listing:done", "listing:dry", "listing:fail",
   "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:wait", "prod:fail",
+  "stl:update", "stl:stuck",
 ];
 
 const TODAY = ["loud", "silent", "none"];
