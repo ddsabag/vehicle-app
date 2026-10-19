@@ -1,0 +1,25 @@
+name: GA probe (one-off, probe-go branch)
+on:
+  push:
+    branches: [probe-go]
+    paths: [".github/scripts/ga-rt-probe.mjs", ".github/workflows/ga-probe.yml"]
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: mkdir -p out && node .github/scripts/ga-rt-probe.mjs 2>&1 | tee out/report.txt
+        env:
+          GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
+          GA_PROPERTY_ID: ${{ secrets.GA_PROPERTY_ID }}
+      - name: Publish on inspect-output
+        run: |
+          cd out && git init -q && git checkout -q -b inspect-output && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "GA probe"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" inspect-output
