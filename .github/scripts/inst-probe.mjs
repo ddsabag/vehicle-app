@@ -37,6 +37,9 @@ const FO = inList("eventName", ["first_open", "app_remove"]);
 await part("ga.life", () => ga({ dateRanges: [{ startDate: "2026-10-01", endDate: "today" }], dimensions: [{ name: "date" }, { name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: { andGroup: { expressions: [APP, FO] } } }));
 await part("ga.hourly", () => ga({ dateRanges: [{ startDate: "yesterday", endDate: "today" }], dimensions: [{ name: "dateHour" }, { name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: { andGroup: { expressions: [APP, FO] } } }));
 await part("ga.hourlyChecks", () => ga({ dateRanges: [{ startDate: "today", endDate: "today" }], dimensions: [{ name: "dateHour" }, { name: "platform" }], metrics: [{ name: "eventCount" }], dimensionFilter: { andGroup: { expressions: [REAL, eq("eventName", "car_lookup")] } } }));
+// today's processed events by minute (dateHourMinute, property time = Israel), to compare minute by minute with the realtime tally
+await part("ga.minutes", () => ga({ dateRanges: [{ startDate: "today", endDate: "today" }], dimensions: [{ name: "dateHourMinute" }, { name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: { andGroup: { expressions: [REAL, inList("eventName", ["first_open", "car_lookup"])] } } }));
+await part("ga.minutesApp", () => ga({ dateRanges: [{ startDate: "today", endDate: "today" }], dimensions: [{ name: "dateHourMinute" }, { name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: { andGroup: { expressions: [APP, inList("eventName", ["first_open"])] } } }));
 await part("ga.rtMinutes", () => gaRT({ dimensions: [{ name: "minutesAgo" }, { name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: { andGroup: { expressions: [REAL, inList("eventName", ["first_open", "car_lookup"])] } }, limit: 200 }));
 await part("ga.rtPlatform", () => gaRT({ dimensions: [{ name: "platform" }, { name: "countryId" }, { name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: inList("eventName", ["first_open", "app_remove"]), limit: 200 }));
 
@@ -87,6 +90,7 @@ await part("kv.tally", async () => {
   const v = JSON.parse(await r.text()), mins = Object.keys(v.m || {}).map(Number).sort((a, b) => a - b);
   return { day, present: true, ageSec: Math.round((Date.now() - v.at) / 1000), minutes: mins.length, first: mins.length ? new Date(mins[0] * 6e4).toISOString() : null, last: mins.length ? new Date(mins[mins.length - 1] * 6e4).toISOString() : null,
     first_open: Object.values(v.m || {}).reduce((t, x) => t + x[0], 0), car_lookup: Object.values(v.m || {}).reduce((t, x) => t + x[1], 0),
+    perMinute: v.m,
     // per Israel hour: [minutes kept, first opens, car checks], to compare with GA4's processed hours
     byHour: Object.entries(v.m || {}).reduce((o, [m, x]) => { const h = new Date(Number(m) * 6e4).toLocaleString("en-GB", { timeZone: "Asia/Jerusalem", hour: "2-digit", hourCycle: "h23" }); const a = (o[h] ||= [0, 0, 0]); a[0]++; a[1] += x[0]; a[2] += x[1]; return o; }, {}) };
 });
