@@ -1162,6 +1162,8 @@ const posN = v => !empty(v) && Number(String(v).replace(/,/g, "")) > 0;   // 0 c
 const unitPos = (v, u) => posN(v) ? unit(v, u) : "";
 // the first positive value: old, cancelled, personal-import and motorcycle rows write 0 for an unrated safety level, pollution group or weight, which would hide the model's value
 const firstPos = (...vals) => vals.find(posN);
+// old rows write 0 in every safety-system column for "not recorded": a row that marks no system as fitted says nothing about them
+const sysKnown = w => Object.keys(SYSTEMS).some(k => posN(w[k]));
 /* The ministry's safety equipment level (0-8). The ministry scores every car again by its latest list of systems, which counts only the
    newest ones (blind spot, braking in reverse, drowsiness...), so an older car scores low however well equipped it was in its day.
    The active and inactive registers carry each car's level as it stands today, and an empty one on a car built from 2014 is 0: none of
@@ -1170,13 +1172,16 @@ const firstPos = (...vals) => vals.find(posN);
    keep the level of the year the car left the road, so there the WLTP row of the car's own year and trim decides, read the same way;
    a model (no car) reads its WLTP row. */
 const SAFETY_FROM = 2014, SAFETY_OWN = new Set(["active", "inactive"]);
-function safetyLevel(D){
+function safetyLevel(D){ return safetyOf(D).lvl; }
+/* the level, and the model row whose systems are listed under it: the same row, so the list never contradicts the level. A register's own level
+   is the car's own row's, so a borrowed row (another year or trim) lists nothing under it */
+function safetyOf(D){
   const v = D.v, w = D.w || {}, built = num(v.shnat_yitzur) >= SAFETY_FROM, lvl = x => posN(x) ? num(x) : built ? 0 : null;
-  if (D.primary && SAFETY_OWN.has(D.primary.key)) return lvl(v.ramat_eivzur_betihuty);
+  if (D.primary && SAFETY_OWN.has(D.primary.key)) { const l = lvl(v.ramat_eivzur_betihuty); return {lvl: l, row: l === null || ownW(D) ? w : null}; }
   const trim = x => String(x ?? "").trim().toUpperCase();
-  if ("ramat_eivzur_betihuty" in w && (D.kind === "model" || (trim(w.ramat_gimur) === trim(v.ramat_gimur) && num(w.shnat_yitzur) === num(v.shnat_yitzur)))) return lvl(w.ramat_eivzur_betihuty);
+  if ("ramat_eivzur_betihuty" in w && (D.kind === "model" || (trim(w.ramat_gimur) === trim(v.ramat_gimur) && num(w.shnat_yitzur) === num(v.shnat_yitzur)))) return {lvl: lvl(w.ramat_eivzur_betihuty), row: w};
   const p = firstPos(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty);
-  return p !== undefined ? num(p) : null;
+  return {lvl: p !== undefined ? num(p) : null, row: !posN(v.ramat_eivzur_betihuty) || ownW(D) ? w : null};
 }
 const safetyNote = lvl => "משרד התחבורה מחשב מחדש את הרמה של כל הרכבים לפי רשימת מערכות שמתעדכנת כל שנה, ונותן ניקוד רק למערכות החדשות ביותר, כמו התרעת עייפות ובלימה אוטומטית ברוורס. לכן רכב בן כמה שנים מקבל רמה נמוכה גם אם היה מאובזר היטב בזמנו. זה לא ציון של מבחן ריסוק."
   + (lvl === 0 ? " רמה 0 פירושה שלפי הדיווח של היבואן אין ברכב אף אחת מהמערכות שברשימה, או שיש בו פחות כריות אוויר מהנדרש." : "");
@@ -3122,11 +3127,14 @@ function tabSpecs(D){
     ["כושר העמסה", unitPos(v.mishkal_mitan_harama, "ק״ג")], ["סרנים", e(v.sranim)],
     ["צמיג קדמי", mono(D.pick(v.zmig_kidmi, v.mida_zmig_kidmi))], ["צמיג אחורי", mono(D.pick(v.zmig_ahori, v.mida_zmig_ahori))],
   ])));
-  const safetyLvl = safetyLevel(D);
+  // the systems are listed from the row the level comes from; a row that marks none as fitted (old rows write 0 for "not recorded") lists none
+  const sf = safetyOf(D), safetyLvl = sf.lvl, anySys = r => Object.keys(SYSTEMS).some(k => !empty(r[k]));
+  const sys = !sf.row ? (anySys(w) ? `<p class="note">רמת האבזור הבטיחותי היא של הרכב עצמו, ונתוני הדגם כאן לפי ${esc(wAt(D))}, ולכן אין כאן פירוט של המערכות.</p>` : "")
+    : sysKnown(sf.row) ? chkList(sf.row, SYSTEMS) : anySys(sf.row) ? `<p class="note">בנתוני הדגם אין פירוט של מערכות הבטיחות.</p>` : "";
   html.push(card("בטיחות", "shield", "green", facts([
     ["רמת אבזור בטיחותי", empty(safetyLvl) ? "" : `${safetyLvl} מתוך 8`],
     ["כריות אוויר", e(w.mispar_kariot_avir)],
-  ]) + chkList(w, SYSTEMS) + (empty(safetyLvl) ? "" : `<p class="note">${esc(safetyNote(safetyLvl))}</p>`)));
+  ]) + sys + (empty(safetyLvl) ? "" : `<p class="note">${esc(safetyNote(safetyLvl))}</p>`)));
   const equip = chkList(w, EQUIP);
   if (equip) html.push(card("אבזור", "star", "amber", `${equip}<p class="note">האבזור המלא מופיע בקטלוג של היבואן.</p>`));
   const zihum = firstPos(v.kvutzat_zihum, w.kvutzat_zihum);
@@ -3899,6 +3907,8 @@ function renderCompare(){
   const nf = (o, k) => o && isNum(o[k]) && num(o[k]) > 0 ? num(o[k]) : null;
   const tow = (D, k) => D.tSrc ? nf(D.tSrc, k) : towBan(D) ? "אסור" : null;
   const gear = D => empty(D.w.automatic_ind) ? "" : yes(D.w.automatic_ind) ? "אוטומטית" : "ידנית";
+  // the safety systems come from the row the level comes from, and only when it marks any as fitted (old rows write 0 for "not recorded")
+  const sysOf = D => { const r = safetyOf(D).row; return r && sysKnown(r) ? r : null; };
   // [label, value(D), better: "hi" | "lo" | null, unit, plain, carOnly]  — a string label alone opens a section
   const rows = [
     "מנוע וגרירה",
@@ -3918,9 +3928,9 @@ function renderCompare(){
     ["כריות אוויר", D => nf(D.w, "mispar_kariot_avir"), "hi"],
     ["קבוצת זיהום", D => num(firstPos(D.v.kvutzat_zihum, D.w.kvutzat_zihum)), "lo"],
     "מערכות בטיחות ואבזור",
-    ["מערכות בטיחות מתקדמות", D => Object.keys(SYSTEMS).some(k => !empty(D.w[k])) ? Object.keys(SYSTEMS).filter(k => yes(D.w[k])).length : null, "hi", ""],
+    ["מערכות בטיחות מתקדמות", D => { const r = sysOf(D); return r ? Object.keys(SYSTEMS).filter(k => yes(r[k])).length : null; }, "hi", ""],
     ...[...Object.entries(SYSTEMS), ...Object.entries(EQUIP)].filter(([k]) => OK.some(D => !empty(D.w[k]) && num(D.w[k]) > 0))
-      .map(([k, t]) => [t, D => empty(D.w[k]) ? null : num(D.w[k]) > 0, "yes"]),
+      .map(([k, t]) => [t, D => { const r = k in SYSTEMS ? sysOf(D) : D.w; return !r || empty(r[k]) ? null : num(r[k]) > 0; }, "yes"]),
     "מחיר ועלויות",
     ["עלות חודשית (הערכה)", D => D.cost.monthly ? D.cost.monthly.total : null, "lo", "₪"],
     ["מחיר מחירון כחדש", D => D.cost.newPrice || null, null, "₪"],
