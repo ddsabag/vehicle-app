@@ -682,7 +682,7 @@ function compare(c, X, P) {
       }
       check(c, "recalls.model_extra", !extra.length, extra.map(p => `"${p.s.b.slice(0, 40)}" [${p.s.note.slice(0, 90)}]`).join("; "), "(only rows that name this model)", `car kinuy=${R.kinuy_mishari} degem_nm=${R.degem_nm}`);
       check(c, "recalls.model_count", (hist ? N(hist.count) : 0) === (hist ? hist.rlist.length : 0), hist ? hist.count : "", hist ? hist.rlist.length : 0, "");
-      { const ban = P.head.banners.find(b => /^ייתכן שהרכב נכלל ב/.test(b)) || "", n = pend ? pend.rlist.length : 0;
+      { const ban = P.head.banners.find(b => /^ייתכן שהרכב נכלל ב/.test(b)) || "", n = pend && !cancelled ? pend.rlist.length : 0;   // a car off the road: the tab only
         check(c, "recalls.pending_banner", !!ban === n > 0, ban.slice(0, 50) || "(no banner)", n ? `banner for ${n} recalls the per-car list cannot answer yet` : "(none)", ""); }
       if (!hz) NOTES.push(`${c.id}: catalogue meta without the per-car list's reach: pills not checked`);
       else for (const p of pool2.filter(p => p.used)) {

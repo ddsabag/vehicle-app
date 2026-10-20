@@ -2642,8 +2642,9 @@ function renderResult(){
   if (D.recalls.length) {
     html.push(`<button type="button" class="alert-banner" data-tab="recalls">${ico("alert")}<span><b>${D.recalls.length === 1 ? "לרכב יש ריקול פתוח" : `לרכב ${D.recalls.length} ריקולים פתוחים`}</b>ריקול שלא מתוקן עלול למנוע בהמשך חידוש רישיון. התיקון בחינם אצל היבואן.</span></button>`);
   }
-  // a model recall that may include this car while the ministry's per-car list cannot say whether it does (pendingRecalls)
-  const fr = pendingRecalls(D);
+  // a model recall that may include this car while the ministry's per-car list cannot say whether it does (pendingRecalls); a car off the
+  // road has the red banner above and keeps these in its recalls tab, without a second banner
+  const fr = D.isCancelled ? [] : pendingRecalls(D);
   if (fr.length) { const pw = pendingWords(fr); html.push(`<button type="button" class="alert-banner warn" data-tab="recalls">${ico("alert")}<span><b>${pw.title}</b>${pw.body}</span></button>`); }
 
   if (D.kind !== "model" && !D.isCancelled) {

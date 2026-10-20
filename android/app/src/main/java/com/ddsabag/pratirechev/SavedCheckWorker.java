@@ -247,7 +247,10 @@ public class SavedCheckWorker extends Worker {
         p.edit().putInt(key, now).apply();
     }
 
-    /** A car that was active and is no longer in the active register has left the road */
+    /**
+     * A car that was active and is no longer in the active register. This check reads only that register, so it cannot tell a car off the
+     * road from one registered as inactive (the page reads the car's own register and says which): the alert says what the register shows.
+     */
     private void checkStatus(Context c, SharedPreferences p, String plate, String name) throws Exception {
         if (!budget(c)) return;
         boolean active = query(ACTIVE, "mispar_rechev", plate).length() > 0;
@@ -256,8 +259,8 @@ public class SavedCheckWorker extends Worker {
         if (p.getBoolean(key, false) && !active && !repeated(p, key)) return;   // the first empty answer is unknown (the register has empty days); the second in a row is news
         if (p.getBoolean(key, false) && !active) {
             notify(c, plate, ("status" + plate).hashCode(),
-                    "הרכב " + fmtPlate(plate) + " ירד מהכביש",
-                    (name.isEmpty() ? "" : name + ": ") + "הרכב כבר לא מופיע במאגר הרכבים הפעילים.");
+                    "הרכב " + fmtPlate(plate) + " כבר לא במאגר הרכבים הפעילים",
+                    (name.isEmpty() ? "" : name + ": ") + "ייתכן שירד מהכביש, וייתכן שנרשם כלא פעיל. פתחו את הרכב באפליקציה כדי לראות מה רשום.");
         }
         p.edit().putBoolean(key, active).apply();
     }
