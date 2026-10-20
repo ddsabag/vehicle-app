@@ -124,7 +124,7 @@ async function one(browser, base, plate) {
     // most ministry requests open at the same moment: how many were in flight at once
     let peak = 0; for (const a of per) peak = Math.max(peak, per.filter(b => b.start <= a.start && b.start + b.total > a.start).length);
     const beforeDone = per.filter(x => x.endWall <= w.done + 5), last = beforeDone.sort((a, b) => b.endWall - a.endWall)[0];
-    res = { ok: !w.edge, edge: w.edge, lookup: w.done - first, slow: !!w.slow, n: reqs.length, peak, per, last: last && last.key, failed: reqs.filter(x => x.failed).length };
+    res = { ok: !w.edge && !reqs.some(x => x.status === 403), edge: w.edge, blocked: reqs.filter(x => x.status === 403).length, lookup: w.done - first, slow: !!w.slow, n: reqs.length, peak, per, last: last && last.key, failed: reqs.filter(x => x.failed).length };
   } catch (e) { res = { ok: false, err: String(e.message || e).replace(/\d{5,8}/g, "<n>").slice(0, 80) }; }
   await ctx.close();
   return res;
@@ -132,18 +132,18 @@ async function one(browser, base, plate) {
 try {
   const { chromium } = await import("playwright-core");
   const browser = await chromium.launch({ executablePath: "/usr/bin/google-chrome", args: ["--no-sandbox"] });
-  const NEW = await serve(path.resolve(".")), OLD = await serve(path.resolve("old"));
+  const NEW = await serve(path.resolve("new")), OLD = await serve(path.resolve("old"));
   const plates = await randomPlates(Number(process.env.N || 24));
-  const runs = { "1.34": [], "1.35": [] };
+  const runs = { "before": [], "after": [] };
   for (const [i, p] of plates.entries()) {
     // alternate which page goes first, so neither one always meets a server that just answered the same plate
-    const order = i % 2 ? [["1.34", OLD], ["1.35", NEW]] : [["1.35", NEW], ["1.34", OLD]];
-    for (const [v, base] of order) { runs[v].push(await one(browser, base, p)); await sleep(1500); }
+    const order = i % 2 ? [["before", OLD], ["after", NEW]] : [["after", NEW], ["before", OLD]];
+    for (const [v, base] of order) { runs[v].push(await one(browser, base, p)); await sleep(9000); }
   }
   await browser.close();
   for (const [v, rs] of Object.entries(runs)) {
     const ok = rs.filter(r => r.ok), L = ok.map(r => r.lookup);
-    say(`\nChrome ${v}: ${rs.length} checks, ${ok.length} with a car, ${rs.filter(r => r.edge).length} with a message, ${rs.filter(r => r.err).length} not finished (${[...new Set(rs.filter(r => r.err).map(r => r.err))].join(" | ")})`);
+    say(`\nChrome ${v}: ${rs.length} checks, ${ok.length} with a car and no blocked answer, ${rs.filter(r => r.blocked).length} with answers blocked by the ministry's firewall (403), ${rs.filter(r => r.edge).length} with a message, ${rs.filter(r => r.err).length} not finished (${[...new Set(rs.filter(r => r.err).map(r => r.err))].join(" | ")})`);
     if (!ok.length) continue;
     say(`  time from the first ministry request to the result (s): median ${r1(med(L))}, p75 ${r1(q(L, .75))}, p90 ${r1(q(L, .9))}, max ${r1(Math.max(...L))}; showed the "slower than usual" note ${ok.filter(r => r.slow).length} of ${ok.length}`);
     say(`  buckets like the app's dur: under 2 s ${L.filter(x => x < 2000).length}, 2-5 s ${L.filter(x => x >= 2000 && x < 5000).length}, 5-10 s ${L.filter(x => x >= 5000 && x < 10000).length}, over 10 s ${L.filter(x => x >= 10000).length}`);
@@ -156,7 +156,7 @@ try {
     const conns = ok.flatMap(r => r.per.filter(x => x.conn > 0).map(x => x.conn)); say(`  new connections: ${conns.length}, setup median ${Math.round(med(conns) || 0)} ms (one round trip plus TLS from this runner)`);
   }
   // paired: the same car with both pages
-  const pairs = runs["1.34"].map((a, i) => [a, runs["1.35"][i]]).filter(([a, b]) => a.ok && b.ok);
-  if (pairs.length) { const d = pairs.map(([a, b]) => b.lookup - a.lookup); say(`\npaired (${pairs.length} cars): 1.35 minus 1.34, median ${r1(med(d))} s, p25 ${r1(q(d, .25))}, p75 ${r1(q(d, .75))}; 1.35 slower in ${d.filter(x => x > 0).length} of ${d.length}`); }
+  const pairs = runs["before"].map((a, i) => [a, runs["after"][i]]).filter(([a, b]) => a.ok && b.ok);
+  if (pairs.length) { const d = pairs.map(([a, b]) => b.lookup - a.lookup); say(`\npaired (${pairs.length} cars): after minus before, median ${r1(med(d))} s, p25 ${r1(q(d, .25))}, p75 ${r1(q(d, .75))}, min ${r1(Math.min(...d))}; after slower in ${d.filter(x => x > 0).length} of ${d.length}`); }
 } catch (e) { say("Chrome part failed:", String(e.stack || e).slice(0, 400)); }
 say("done", new Date().toISOString());

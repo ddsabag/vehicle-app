@@ -17,11 +17,13 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - run: mkdir -p out && node .github/scripts/forms-probe.mjs > out/forms.txt 2>&1; wc -c out/forms.txt
+      - run: git fetch -q origin main next && git worktree add old origin/main && git worktree add new origin/next && git -C old log -1 --format=%h && git -C new log -1 --format=%h
+      - run: npm i --no-save --no-audit --no-fund playwright-core@1.48.2 > /dev/null 2>&1; ls -la /usr/bin/google-chrome
+      - run: mkdir -p out && node .github/scripts/slow-probe.mjs > out/ab.txt 2>&1; wc -c out/ab.txt
         env:
-          N: "12"
+          N: "10"
       - name: Publish on probe-slow-out
         run: |
           cd out && git init -q && git checkout -q -b probe-slow-out && git add -A
-          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Plate forms probe"
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Speed A/B probe"
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" probe-slow-out
