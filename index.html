@@ -3912,7 +3912,7 @@ function renderCompare(){
       ["ק״מ בטסט האחרון", D => D.km, "lo", "", false, true],
       ["ק״מ לשנה", D => D.kmPerYear, "lo", "", false, true],
       ["יד (ללא סוחרים)", D => handsOf(D) || null, "lo", "", false, true],
-      ["ריקולים פתוחים", D => D.recalls.length, "lo", "", false, true],
+      ["ריקולים פתוחים", D => D.recallUnknown ? "לא זמין כרגע" : D.recalls.length, "lo", "", false, true],   // a query that failed is unknown: never 0, never the best
       ["טסט בתוקף עד", D => D.v.tokef_dt ? fmtDate(D.v.tokef_dt) : "", null, "", false, true],
       ["בעלות ראשונה", D => firstOwner(D.v) || "", null, "", false, true]] : []),
   ];
