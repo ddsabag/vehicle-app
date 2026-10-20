@@ -1076,15 +1076,18 @@ const wAt = D => rowAt(D.w) + (otherSd(D.w, vOwn(D)) ? ` (רכב ${otherSd(D.w, 
 const wFrom = D => ownW(D) ? "" : "לפי נתוני " + wAt(D);
 const notOwnWhy = (r, v, what) => num(r.shnat_yitzur) !== num(v.shnat_yitzur) ? `, כי לשנת הייצור של הרכב אין ${what}` : !trimOk(r, v) ? `, כי לגרסה של הרכב אין ${what}`
   : otherSd(r, v) ? `, כי בנתוני הדגם הוא רשום כרכב ${otherSd(r, v)}` : "";
-/* Towing from the ranked rows of the car's model type. The car's own year decides when it has towing data, so another year can never overrule
-   its 0/0; another year is borrowed only from the same model name. 0/0 is a ban only from 2008: older rows write 0/0 for nearly every model (no data). */
+/* Towing from the ranked rows of the car's model type. The car's own row decides when it has towing data, then a row of its year with towing;
+   another year is borrowed only from the same model name, and never over a 0/0 of the car's year. 0/0 reads as "no towing approved" only from 2008
+   (older rows write 0/0 for nearly every model: no data), and only from the car's own row or when every row of its year says 0/0 */
 const TOW_BAN_FROM = 2008;
+const towZero = r => isNum(r.kosher_grira_im_blamim) && isNum(r.kosher_grira_bli_blamim) && num(r.kosher_grira_im_blamim) === 0 && num(r.kosher_grira_bli_blamim) === 0;
 function towOf(ranked, v){
-  const y = num(v.shnat_yitzur), zero = r => isNum(r.kosher_grira_im_blamim) && isNum(r.kosher_grira_bli_blamim) && num(r.kosher_grira_im_blamim) === 0 && num(r.kosher_grira_bli_blamim) === 0;
-  const t = ranked.find(r => num(r.shnat_yitzur) === y && (hasTow(r) || zero(r)));
-  if (t) return {towRow: hasTow(t) ? t : null, zeroTow: zero(t) && y >= TOW_BAN_FROM};
-  const n = x => String(x || "").trim().toUpperCase(), same = r => !empty(v.kinuy_mishari) && n(r.kinuy_mishari) === n(v.kinuy_mishari) || !empty(v.degem_nm) && n(r.degem_nm) === n(v.degem_nm);
-  return {towRow: ranked.find(r => hasTow(r) && same(r)) || null, zeroTow: false};
+  const y = num(v.shnat_yitzur), yr = ranked.filter(r => num(r.shnat_yitzur) === y), own = yr.find(r => ownRow(r, v));
+  if (own && (hasTow(own) || towZero(own))) return {towRow: hasTow(own) ? own : null, zeroTow: towZero(own) && y >= TOW_BAN_FROM};
+  const t = yr.find(hasTow);
+  if (t) return {towRow: t, zeroTow: false};
+  if (yr.some(towZero)) return {towRow: null, zeroTow: yr.every(towZero) && y >= TOW_BAN_FROM};
+  return {towRow: ranked.find(r => hasTow(r) && sameModel(r, v)) || null, zeroTow: false};
 }
 /* "מקוריות" in the ministry's records is the first ownership type, when the car went on the road new
    (פרטי, ליסינג, השכרה…). It fills the gap for cars older than the January 2017 ownership log. */
@@ -1120,9 +1123,18 @@ function ownerKind(t){
   if (/פרטי/.test(t)) return {k: "private", pct: 0, text: "הרכב נרשם לראשונה על שם אדם פרטי. זה המצב המועדף בשוק היד השנייה."};
   return {k: "other", pct: 0, text: ""};
 }
-/* Towing not allowed: only when the model data writes both towing limits as 0 (the maker approved no towing).
-   A "no" in the registration's towing field means no hook is fitted, not that towing is forbidden. */
-function towBan(D){ return !D.tSrc && D.zeroTow ? {from: "model"} : null; }
+/* No towing approved: only when the model data writes both towing limits as 0 (towOf) and the registration has no towing hook fitted. A fitted
+   hook (461 active cars with a 0/0 row on 20.10.2026, against 816,371 with no hook) means the 0/0 cannot be the whole story for this car, so the
+   data is shown as it is, without the ban. A "no" in the registration's hook field means no hook is fitted, not that towing is forbidden. */
+const hooked = v => { const h = hookField(v); return !!h && !h.none; };
+function towBan(D){ return !D.tSrc && D.zeroTow && !hooked(D.v) ? {from: "model"} : null; }
+/* What the towing data says, read alike by the towing card, the comparison and the share text: both limits (0 counts as none), the model year
+   they come from when it is not the car's own, the 0/0 of the model data, and a 0/0 that the registration's fitted hook contradicts */
+function towInfo(D){
+  const r = D.tSrc, kg = k => r && posN(r[k]) ? num(r[k]) : null, ban = towBan(D);
+  return {ban, b: kg("kosher_grira_im_blamim"), u: kg("kosher_grira_bli_blamim"), zeroHook: !r && !!D.zeroTow && !ban,
+    year: r && r !== D.v && !empty(r.shnat_yitzur) && num(r.shnat_yitzur) !== num(D.v.shnat_yitzur) ? String(r.shnat_yitzur).trim() : ""};
+}
 /* The registration's own towing-hook field, whatever its exact name in the dataset */
 function hookField(v){
   for (const [k, val] of Object.entries(v || {})) {
@@ -2845,18 +2857,18 @@ function tabOverview(D){
   }
   const evCard = tier("ב-PRO: מעקב אחרי הרכב", eventsCard(D)), evFirst = !PRO_LOCK || isPro();
   if (evFirst) html.push(evCard);
-  const tb = D.tSrc && D.tSrc.kosher_grira_im_blamim, tu = D.tSrc && D.tSrc.kosher_grira_bli_blamim;
-  const tv = x => isNum(x) && num(x) > 0 ? fmtN(x) : "—";
+  const tw = towInfo(D), tv = x => x ? fmtN(x) : "—", ban = tw.ban;
   const towNote = [];
-  if (D.towRow && !empty(D.towRow.shnat_yitzur) && num(D.towRow.shnat_yitzur) !== num(v.shnat_yitzur)) towNote.push(`לפי נתוני הדגם משנת ${esc(D.towRow.shnat_yitzur)}, כי לשנת הייצור של הרכב אין נתון.`);
+  if (tw.year) towNote.push(`לפי נתוני הדגם משנת ${esc(tw.year)}, כי לשנת הייצור של הרכב אין נתון.`);
   const hook = hookField(v);
-  const ban = towBan(D);
   const hookBox = hook && !ban ? `<div class="hook-box ${hook.none ? "no" : "yes"}">${ico(hook.none ? "x" : "check")}<b>${hook.none ? "לא מותקן וו גרירה" : "מותקן וו גרירה"}</b>${hook.none ? "" : `<span>${esc(hook.text)}</span>`}</div>` : "";
   const towHtml = [];   // towing is a niche question, so it comes after the test, mileage and ownership cards
-  towHtml.push(card("כמה מותר לגרור", "tow", "amber", `${ban ? `<div class="tow-ban">${ico("alert")}<div><b>אסור להתקין וו גרירה</b><span>לפי נתוני הדגם במשרד התחבורה, כושר הגרירה המותר הוא 0 ק״ג עם בלמים ובלי בלמים. היצרן לא אישר גרירה, ולכן אי אפשר לרשום לרכב וו גרירה.</span></div></div>` : D.tSrc ? `<div class="tow-grid">
-      <div><div class="k">עם בלמים</div><div class="v">${tv(tb)}<span class="u">ק״ג</span></div></div>
-      <div><div class="k">בלי בלמים</div><div class="v">${tv(tu)}<span class="u">ק״ג</span></div></div>
-    </div>` : `<p style="margin:0">אין במאגר של משרד התחבורה נתוני גרירה לדגם הזה.</p>`}
+  // a 0/0 is said as what the model data writes, not as a ruling on this car
+  const zeroTxt = "בנתוני הדגם במשרד התחבורה כושר הגרירה המותר רשום כ-0 ק״ג, עם בלמים ובלי בלמים.";
+  towHtml.push(card("כמה מותר לגרור", "tow", "amber", `${ban ? `<div class="tow-ban">${ico("alert")}<div><b>לפי נתוני הדגם, כושר הגרירה 0</b><span>${zeroTxt} לרוב זה אומר שהיצרן לא אישר לדגם גרירה. לפני שמתקינים וו גרירה, בררו מול היבואן.</span></div></div>` : D.tSrc ? `<div class="tow-grid">
+      <div><div class="k">עם בלמים</div><div class="v">${tv(tw.b)}<span class="u">ק״ג</span></div></div>
+      <div><div class="k">בלי בלמים</div><div class="v">${tv(tw.u)}<span class="u">ק״ג</span></div></div>
+    </div>` : tw.zeroHook ? `<p style="margin:0">${zeroTxt} ברישום של הרכב מותקן וו גרירה, והמאגר לא מראה כמה מותר לגרור איתו. בררו מול היבואן.</p>` : `<p style="margin:0">אין במאגר של משרד התחבורה נתוני גרירה לדגם הזה.</p>`}
     ${hookBox}
     ${towNote.map(t => `<p class="note">${t}</p>`).join("")}
     ${ban ? "" : `<p class="note">משקל הנגרר המותר כולל את המטען שבו. כדי לגרור צריך וו גרירה מאושר ורשום ברישיון הרכב.</p>`}`));
@@ -3905,7 +3917,8 @@ function renderCompare(){
     + (anyCar && anyModel ? `<p class="note" style="margin:0 0 8px">דגם כללי (מסומן "דגם") הוא הרכב "על הנייר": בלי ק״מ, טסט ובעלויות. השורות האלה מלאות רק לרכבים הספציפיים, ומי עדיף נקבע רק בין ערכים שקיימים.</p>` : "");
   const N = x => x === null || x === undefined || x === "" || (typeof x === "number" && isNaN(x)) ? null : x;
   const nf = (o, k) => o && isNum(o[k]) && num(o[k]) > 0 ? num(o[k]) : null;
-  const tow = (D, k) => D.tSrc ? nf(D.tSrc, k) : towBan(D) ? "אסור" : null;
+  // the car page's readings: towing from another model year carries its year (a string, so it gets no "best" dot), a 0/0 says it is the model data's
+  const tow = (D, k) => { const t = towInfo(D), x = t[k]; return t.ban ? "0 לפי הדגם" : x === null ? null : t.year ? `${fmtN(x)} (לפי ${t.year})` : x; };
   const gear = D => empty(D.w.automatic_ind) ? "" : yes(D.w.automatic_ind) ? "אוטומטית" : "ידנית";
   // the safety systems come from the row the level comes from, and only when it marks any as fitted (old rows write 0 for "not recorded")
   const sysOf = D => { const r = safetyOf(D).row; return r && sysKnown(r) ? r : null; };
@@ -3918,8 +3931,8 @@ function renderCompare(){
     ["דלק", D => D.pick(D.v.sug_delek_nm, D.w.delek_nm)],
     ["תיבת הילוכים", gear],
     ["הנעה", D => D.w.hanaa_nm],
-    ["גרירה עם בלמים (ק״ג)", D => tow(D, "kosher_grira_im_blamim"), "hi", ""],
-    ["גרירה בלי בלמים (ק״ג)", D => tow(D, "kosher_grira_bli_blamim"), "hi", ""],
+    ["גרירה עם בלמים (ק״ג)", D => tow(D, "b"), "hi", ""],
+    ["גרירה בלי בלמים (ק״ג)", D => tow(D, "u"), "hi", ""],
     "מרכב ובטיחות",
     ["מרכב", D => D.w.merkav],
     ["מושבים", D => nf(D.w, "mispar_moshavim"), null, ""],
@@ -3998,9 +4011,9 @@ function summaryText(D){
   if (D.km) lines.push(`ק״מ בטסט האחרון: ${fmtN(D.km)}${empty(v.mivchan_acharon_dt) ? "" : " (" + fmtDate(v.mivchan_acharon_dt) + ")"}`);
   if (D.own.length) lines.push(ownersLabel(D));
   if (firstOwner(v)) lines.push(`בעלות ראשונה: ${firstOwner(v)}`);
-  const tb = D.tSrc && D.tSrc.kosher_grira_im_blamim, tu = D.tSrc && D.tSrc.kosher_grira_bli_blamim;
-  if (towBan(D)) lines.push("אסור להתקין וו גרירה");
-  else if (isNum(tb) || isNum(tu)) lines.push(`גרירה: ${isNum(tb) ? fmtN(tb) : "—"} ק״ג עם בלמים, ${isNum(tu) ? fmtN(tu) : "—"} ק״ג בלי בלמים`);
+  const t = towInfo(D), kg = x => x ? fmtN(x) + " ק״ג" : "—";
+  if (t.ban) lines.push("גרירה: לפי נתוני הדגם, כושר הגרירה 0");
+  else if (t.b || t.u) lines.push(`גרירה: ${kg(t.b)} עם בלמים, ${kg(t.u)} בלי בלמים${t.year ? ` (לפי נתוני הדגם משנת ${t.year})` : ""}`);
   if (D.recalls.length) lines.push(D.recalls.length === 1 ? "ריקול פתוח" : `${D.recalls.length} ריקולים פתוחים`);
   if (!empty(D.vin)) lines.push(`שלדה: ${D.vin}`);
   return lines.join("\n");
