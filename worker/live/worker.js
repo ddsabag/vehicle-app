@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-26";   // shown in /live/data so the running version is visible
+const BUILD = "live-27";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -29,12 +29,14 @@ async function verifyAccess(req, env) {
 // one token for every Google API the screen reads (a Worker request may make only 50 outside calls, so no token per API)
 const SCOPES = ["analytics.readonly", "webmasters.readonly", "androidpublisher", "devstorage.read_only"].map(x => "https://www.googleapis.com/auth/" + x).join(" ");
 const gtoks = {};
-// one token request even when every call of the screen asks at once, and a refused one is not asked again by each of them for a minute
-let gtokP = null, gtokErr = null, gtokErrAt = 0;
+// collect() asks for the token once, before its parallel calls, and a refused one is not asked again for a minute. A request never waits on
+// another request's token call: a request that ends mid-load (the screen closed or reloaded) leaves its unfinished calls unsettled for good,
+// and on 20.10 from 14:00 UTC every /live/data request waited on such a shared call until the browser gave up (live-27)
+let gtokErr = null, gtokErrAt = 0;
 async function googleToken(env) {
   const c = gtoks[SCOPES]; if (c && Date.now() < c.exp) return c.tok;
   if (gtokErr && Date.now() - gtokErrAt < 60e3) throw gtokErr;
-  return gtokP || (gtokP = newToken(env).catch(e => { gtokErr = e; gtokErrAt = Date.now(); throw e; }).finally(() => { gtokP = null; }));
+  try { return await newToken(env); } catch (e) { gtokErr = e; gtokErrAt = Date.now(); throw e; }
 }
 async function newToken(env) {
   const scope = SCOPES, sa = JSON.parse(env.GA_SERVICE_ACCOUNT_JSON), now = Math.floor(Date.now() / 1000);
@@ -43,7 +45,7 @@ async function newToken(env) {
   const pem = sa.private_key.replace(/-----[^-]+-----|\s/g, "");
   const key = await crypto.subtle.importKey("pkcs8", Uint8Array.from(atob(pem), c => c.charCodeAt(0)), { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
   const sig = b64u(await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(unsigned)));
-  const r = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: unsigned + "." + sig }) });
+  const r = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: unsigned + "." + sig }), signal: AbortSignal.timeout(10e3) });
   if (!r.ok) throw new Error("google auth " + r.status);
   const tok = (await r.json()).access_token; gtoks[scope] = { tok, exp: Date.now() + 2900e3 }; return tok;
 }
@@ -735,7 +737,7 @@ $("tec").innerHTML="<h4>בדיקות שלא החזירו תוצאה, לפי סי
 $("build").textContent="גרסה "+(d.build||"");
 }
 
-async function go(){const meta=$("meta");try{const r=await fetch("/live/data",{cache:"no-store"});if(!r.ok)throw 0;const d=await r.json();window.lastD=d;render(d);
+async function go(){const meta=$("meta");try{const r=await fetch("/live/data",{cache:"no-store",signal:AbortSignal.timeout?AbortSignal.timeout(45e3):undefined});if(!r.ok)throw 0;const d=await r.json();window.lastD=d;render(d);
 const tm=new Date(d.at).toLocaleTimeString("he-IL",{timeZone:"Asia/Jerusalem",hour:"2-digit",minute:"2-digit"});
 meta.className="meta"+(d.stale?" stale":"");meta.innerHTML='<span class="dot"></span>'+(d.stale?"נתונים ישנים מ-"+tm+", גוגל הגביל זמנית את מספר הבקשות":"עודכן "+tm)}
 catch{meta.className="meta stale";meta.innerHTML='<span class="dot"></span>אין חיבור'+(window.lastD?". מוצגים הנתונים האחרונים":"")}}
