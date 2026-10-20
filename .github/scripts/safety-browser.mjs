@@ -56,25 +56,47 @@ async function search(id, p) {
   throw new Error("search failed");
 }
 
-/* ---------- the cars: one real car per chosen model-year and trim, picked here on the runner ---------- */
+/* ---------- the cars: one real car per case, picked here on the runner; for registers other than the active one, by its model row too ---------- */
 const T = s => String(s ?? "").trim(), U = s => T(s).toUpperCase();
+const WLTP = (html.slice(html.indexOf("const MODEL_SETS")).match(/wltp:\s*"([0-9a-f-]{36})"/) || [])[1];
+const L = v => { const s = T(v); return s === "" ? "-" : String(Number(s)); };
+const MC = new Map();
+async function modelLvl(r) {
+  const k = [Number(r.tozeret_cd), Number(r.degem_cd), Number(r.shnat_yitzur)].join("|");
+  if (!MC.has(k)) { try { MC.set(k, (await search(WLTP, { filters: { tozeret_cd: Number(r.tozeret_cd), degem_cd: Number(r.degem_cd), shnat_yitzur: Number(r.shnat_yitzur) }, limit: 100 })).records); } catch { MC.set(k, []); } }
+  const rows = MC.get(k), sd = U(r.sug_degem), typed = sd && rows.some(x => T(x.sug_degem)) ? rows.filter(x => U(x.sug_degem) === sd) : rows;
+  const mine = typed.filter(x => U(x.ramat_gimur) === U(r.ramat_gimur));
+  return mine.length ? [...new Set(mine.map(x => L(x.ramat_eivzur_betihuty)))].join("/") : rows.length ? "other trims" : "no model row";
+}
 const TARGETS = [
-  { set: "active", q: "", y: 2024, level: 6, why: "level 6" },
-  { set: "active", q: "", y: 2025, level: 7, why: "level 7" },
-  { set: "active", q: "", y: 2026, level: 8, why: "level 8" },
+  { set: "active", q: "IONIQ GLS", kin: /IONIQ/, not: /ELECTRIC|PLUG|EV/, y: 2016, trim: "GLS", why: "the trim with blind-spot monitoring" },
+  { set: "active", q: "IONIQ PREMIUM", kin: /IONIQ/, not: /ELECTRIC|PLUG|EV/, y: 2016, trim: "PREMIUM", why: "the same model-year without it" },
+  { set: "inactive", y: 2017, want: (a, m) => a === "-" && m === "-", why: "inactive, empty level (expect 0)" },
+  { set: "inactive", y: 2019, want: (a, m) => a !== "-" && a === m, why: "inactive, with a level" },
+  { set: "cancel", y: 2017, want: (a, m) => a === "0" && m === "-", why: "cancelled, row 0, model row empty (expect 0)" },
+  { set: "cancel", y: 2018, want: (a, m) => a !== "0" && a !== "-" && a === m, why: "cancelled, with a level" },
+  { set: "cancel", y: 2016, want: (a, m) => a === "0" && m === "no model row", why: "cancelled, no model row (expect nothing)" },
+  { set: "cancel2010", y: 2015, want: (a, m) => a !== "0" && a !== "-" && m === "-", why: "cancelled 2010-on, old level, model row empty today (expect 0)" },
 ];
 const CASES = [];
 for (const t of TARGETS) {
   if (!SETS[t.set]) { say("no dataset", t.set); continue; }
   let rows = [];
-  try { rows = (await search(SETS[t.set], { ...(t.q ? { q: t.q } : {}), filters: { shnat_yitzur: t.y, ...(t.level ? { ramat_eivzur_betihuty: t.level } : {}) }, limit: 200 })).records; }
-  catch (e) { say("search", t.why, e.message); continue; }
-  const fit = rows.filter(r => (!t.kin || t.kin.test(U(r.kinuy_mishari || r.degem_nm))) && !(t.not && t.not.test(U(r.kinuy_mishari || r.degem_nm))) && (!t.trim || U(r.ramat_gimur) === t.trim));
-  const r = fit[Math.floor(fit.length / 2)];
+  for (const yv of [t.y, String(t.y)]) {
+    try { rows = (await search(SETS[t.set], { ...(t.q ? { q: t.q } : {}), filters: { shnat_yitzur: yv }, limit: 300, ...(t.q ? {} : { offset: 100 }) })).records; } catch (e) { say("search", t.why, e.message); }
+    if (rows.length) break;
+  }
+  let r = null, m = "";
+  if (t.want) {
+    for (const x of rows.slice(0, 80)) { if (!T(x.tozeret_cd) || !T(x.degem_cd)) continue; const mm = await modelLvl(x); if (t.want(L(x.ramat_eivzur_betihuty), mm)) { r = x; m = mm; break; } }
+  } else {
+    const fit = rows.filter(x => (!t.kin || t.kin.test(U(x.kinuy_mishari || x.degem_nm))) && !(t.not && t.not.test(U(x.kinuy_mishari || x.degem_nm))) && (!t.trim || U(x.ramat_gimur) === t.trim));
+    r = fit[Math.floor(fit.length / 2)]; if (r) m = await modelLvl(r);
+  }
   if (!r) { say("no car for", t.why, "| rows", rows.length); continue; }
   const id = "c" + String(CASES.length + 1).padStart(2, "0");
-  CASES.push({ id, t, plate: String(r.mispar_rechev), row: r });
-  say(ts(), id, `${T(r.tozeret_nm)} ${T(r.kinuy_mishari || r.degem_nm)} ${T(r.shnat_yitzur)} ${T(r.ramat_gimur)} | type ${T(r.sug_degem)} | register level "${T(r.ramat_eivzur_betihuty)}" | ${t.set} | ${t.why} | ${fit.length} of ${rows.length} fit`);
+  CASES.push({ id, t, plate: String(r.mispar_rechev).replace(/\D/g, "").replace(/^0+/, ""), row: r, model: m });
+  say(ts(), id, `${T(r.tozeret_nm)} ${T(r.kinuy_mishari || r.degem_nm)} ${T(r.shnat_yitzur)} ${T(r.ramat_gimur)} | type ${T(r.sug_degem)} | register level "${T(r.ramat_eivzur_betihuty)}" | model row (own year+trim) "${m}" | ${t.set} | ${t.why}`);
 }
 
 /* ---------- the pages ---------- */
@@ -126,7 +148,7 @@ for (const ref of ["main", "next"]) {
 /* ---------- report: each car, main vs next ---------- */
 say("\n========== each car: main (live) vs next (the fix)");
 for (const c of CASES) {
-  const r = c.row; say(`\n## ${c.id} ${T(r.tozeret_nm)} ${T(r.kinuy_mishari || r.degem_nm)} ${T(r.shnat_yitzur)} ${T(r.ramat_gimur)} | register level "${T(r.ramat_eivzur_betihuty)}" | ${c.t.why}`);
+  const r = c.row; say(`\n## ${c.id} ${T(r.tozeret_nm)} ${T(r.kinuy_mishari || r.degem_nm)} ${T(r.shnat_yitzur)} ${T(r.ramat_gimur)} | register level "${T(r.ramat_eivzur_betihuty)}" | model row "${c.model}" | ${c.t.set}: ${c.t.why}`);
   for (const ref of ["main", "next"]) {
     const o = OUT[ref][c.id] || {};
     if (o.err) { say(`  ${ref}: ERROR ${o.err} | ${o.bad}`); continue; }
