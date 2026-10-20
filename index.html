@@ -962,8 +962,9 @@ function dsFetch(url){
   pr.catch(() => { if (DS_CACHE.get(url) && DS_CACHE.get(url).p === pr) DS_CACHE.delete(url); });
   return pr;
 }
-async function ds(resource_id, filters, limit, signal){
+async function ds(resource_id, filters, limit, signal, sort){
   const p = new URLSearchParams({resource_id, filters: JSON.stringify(filters), limit: String(limit || 100)});
+  if (sort) p.set("sort", sort);
   if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
   // the shared request keeps running for other callers, but this caller stops waiting the moment it is cancelled
   const pend = dsFetch(`${API}?${p}`);
@@ -1019,14 +1020,15 @@ async function zombieLookup(plate, signal){
   } catch (e) { if (e.name === "AbortError") throw e; return null; }
 }
 /* Model datasets: fetch every row for maker + model code (all years), numeric filters first like the
-   ministry's own columns, then text. Rows are ranked in JS so a year or trim mismatch never hides data. */
+   ministry's own columns, then text. Rows are ranked in JS so a year or trim mismatch never hides data.
+   Newest years first, so a code with more rows than the limit (none in 10/2026: 16 at most) would lose its oldest years, not its newest. */
 async function modelRows(id, rec, signal){
   const forms = [
     {tozeret_cd: num(rec.tozeret_cd), degem_cd: num(rec.degem_cd)},
     {tozeret_cd: String(rec.tozeret_cd).trim(), degem_cd: String(rec.degem_cd).trim()},
   ];
   for (const f of forms) {
-    try { const rows = await ds(id, f, 300, signal); if (rows.length) return rows; }
+    try { const rows = await ds(id, f, 300, signal, "shnat_yitzur desc"); if (rows.length) return rows; }
     catch (e) { if (e.name === "AbortError") throw e; }
   }
   return [];
