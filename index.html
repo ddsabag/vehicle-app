@@ -1903,10 +1903,11 @@ function matchModelRecalls(rows, v, models, w){
    catalogue row (the WLTP fields the app shows, the list price, the counts) and one with the maker's recalls. A missing or slow file
    falls back to the live queries below, so the catalogue only ever makes things faster. Plates use it only when the file is already loaded. */
 const CAT_BASE = "https://raw.githubusercontent.com/ddsabag/vehicle-app/catalog-data/", CAT_TIMEOUT = 8000;
+const CAT_MAX_AGE = 2;   // days: an older stored copy of the meta or of a maker's recall file is read again from the network (cachedJson)
 const withTimeout = (p, ms) => Promise.race([p, new Promise(r => setTimeout(() => r(null), ms))]);
 let catMetaP = null, catMetaV = null; const CAT_ROWS = new Map(), CAT_REC = new Map(), CAT_LINKS = new Map();
 function catMeta(){
-  return catMetaP || (catMetaP = cachedJson([CAT_BASE + "meta.json"]).catch(() => null).then(j => { const ok = j && j.makers ? j : null; if (!ok) catMetaP = null; else catMetaV = ok; return ok; }));
+  return catMetaP || (catMetaP = cachedJson([CAT_BASE + "meta.json"], null, CAT_MAX_AGE).catch(() => null).then(j => { const ok = j && j.makers ? j : null; if (!ok) catMetaP = null; else catMetaV = ok; return ok; }));
 }
 const catCd = cd => String(num(cd) || String(cd || "").trim());
 const catFile = (url, key, map) => { if (!map.has(key)) map.set(key, withTimeout(cachedJson([url]).catch(() => null), CAT_TIMEOUT).then(j => { if (!j) map.delete(key); return j; })); return map.get(key); };
@@ -1923,7 +1924,7 @@ async function catRows(cd, files){
 function catRecalls(cd){
   cd = catCd(cd);
   if (!CAT_REC.has(cd)) CAT_REC.set(cd, (async () => {
-    const j = await withTimeout(cachedJson([`${CAT_BASE}r/${cd}.json`]).catch(() => null), CAT_TIMEOUT);
+    const j = await withTimeout(cachedJson([`${CAT_BASE}r/${cd}.json`], null, CAT_MAX_AGE).catch(() => null), CAT_TIMEOUT);
     if (!j || !j.rows) { CAT_REC.delete(cd); return null; }
     CAT_LINKS.set(cd, j.l || null);
     return j.x ? j.rows.concat(j.x) : j.rows;   // x: the sister brands' rows and the per-car list's recalls (catalog-build.mjs); older versions read rows alone
@@ -3225,7 +3226,10 @@ function skScore(q, m){
 /* The catalogues (models.json ~430 KB, modelstats.json ~160 KB) are kept in Cache Storage: a repeat visit reads the local copy at once
    (typing in the model search then costs no request) and a fresh copy is fetched in the background; when it differs, onFresh swaps it in. */
 const DATA_CACHE = "luchit-data-1";
-async function cachedJson(urls, onFresh){
+/* maxAge (days): the stored copy of a file dated by `u` (the catalogue files) is not used once it is older than that while the browser is online: the
+   network copy is awaited, and the stored one is the fallback only when that fails. The service worker never clears this cache, so without it a returning
+   user could read a recall list weeks old. */
+async function cachedJson(urls, onFresh, maxAge){
   let cache = null; try { cache = "caches" in self ? await caches.open(DATA_CACHE) : null; } catch {}
   const stale = cache ? await (async () => { for (const u of urls) { const h = await cache.match(u).catch(() => null); if (h) return {u, txt: await h.text()}; } return null; })() : null;
   const fresh = (async () => {
@@ -3234,8 +3238,10 @@ async function cachedJson(urls, onFresh){
     }
     return null;
   })();
-  if (stale) { fresh.then(f => { if (f && f.txt !== stale.txt && onFresh) { try { onFresh(JSON.parse(f.txt)); } catch {} } }); try { return JSON.parse(stale.txt); } catch {} }
-  const f = await fresh; return f ? JSON.parse(f.txt) : null;
+  let sj = null; if (stale) try { sj = JSON.parse(stale.txt); } catch {}
+  const old = sj && maxAge && navigator.onLine !== false && Math.floor((Date.now() - Date.parse(sj.u)) / 864e5) > maxAge;
+  if (sj && !old) { fresh.then(f => { if (f && f.txt !== stale.txt && onFresh) { try { onFresh(JSON.parse(f.txt)); } catch {} } }); return sj; }
+  const f = await fresh; return f ? JSON.parse(f.txt) : sj;
 }
 let MODELIDX = null, modelIdxP = null;
 function buildModelIndex(j){
