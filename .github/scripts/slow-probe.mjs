@@ -106,7 +106,7 @@ async function one(browser, base, plate) {
   const page = await ctx.newPage(), cdp = await ctx.newCDPSession(page), R = new Map();
   await cdp.send("Network.enable");
   cdp.on("Network.requestWillBeSent", e => { if (/data\.gov\.il/.test(e.request.url) && !R.has(e.requestId)) R.set(e.requestId, { key: keyOf(e.request.url), wall: e.wallTime * 1000, ts: e.timestamp }); });
-  cdp.on("Network.responseReceived", e => { const x = R.get(e.requestId); if (x) { x.proto = e.response.protocol; x.t = e.response.timing; x.status = e.response.status; } });
+  cdp.on("Network.responseReceived", e => { const x = R.get(e.requestId); if (x) { x.proto = e.response.protocol; x.t = e.response.timing; x.status = e.response.status; x.mime = e.response.mimeType; } });
   cdp.on("Network.loadingFinished", e => { const x = R.get(e.requestId); if (x) x.end = e.timestamp; });
   cdp.on("Network.loadingFailed", e => { const x = R.get(e.requestId); if (x) { x.end = e.timestamp; x.failed = e.errorText; } });
   let res = { ok: false };
@@ -114,7 +114,7 @@ async function one(browser, base, plate) {
     await page.goto(base + "?plate=" + plate, { waitUntil: "domcontentloaded", timeout: 30000 });
     await page.waitForFunction(() => window.__doneAt, null, { timeout: 60000, polling: 100 });
     await sleep(300);
-    const w = await page.evaluate(() => ({ done: window.__doneAt, slow: window.__slowAt || 0, edge: !!document.querySelector("#out .msg.edge") }));
+    const w = await page.evaluate(() => ({ done: window.__doneAt, slow: window.__slowAt || 0, edge: !!document.querySelector("#out .msg.edge"), msg: (document.querySelector("#out .msg.edge") || {}).textContent || "" }));
     const reqs = [...R.values()], first = Math.min(...reqs.map(x => x.wall));
     const per = reqs.filter(x => x.end && x.t).map(x => {
       const sent = x.t.requestTime + x.t.sendStart / 1000;
@@ -124,7 +124,7 @@ async function one(browser, base, plate) {
     // most ministry requests open at the same moment: how many were in flight at once
     let peak = 0; for (const a of per) peak = Math.max(peak, per.filter(b => b.start <= a.start && b.start + b.total > a.start).length);
     const beforeDone = per.filter(x => x.endWall <= w.done + 5), last = beforeDone.sort((a, b) => b.endWall - a.endWall)[0];
-    res = { ok: !w.edge && !reqs.some(x => x.status === 403), edge: w.edge, blocked: reqs.filter(x => x.status === 403).length, lookup: w.done - first, slow: !!w.slow, n: reqs.length, peak, per, last: last && last.key, failed: reqs.filter(x => x.failed).length };
+    res = { ok: !w.edge && !reqs.some(x => x.status === 403), edge: w.edge, msg: w.msg.replace(/\d/g, "#").replace(/\s+/g, " ").trim().slice(0, 90), answers: reqs.reduce((o, x) => { const k = (x.status || (x.failed ? "fail:" + x.failed : "none")) + (x.mime && !/json/.test(x.mime) ? " " + x.mime : ""); o[k] = (o[k] || 0) + 1; return o; }, {}), blocked: reqs.filter(x => x.status === 403).length, lookup: w.done - first, slow: !!w.slow, n: reqs.length, peak, per, last: last && last.key, failed: reqs.filter(x => x.failed).length };
   } catch (e) { res = { ok: false, err: String(e.message || e).replace(/\d{5,8}/g, "<n>").slice(0, 80) }; }
   await ctx.close();
   return res;
@@ -144,6 +144,7 @@ try {
   for (const [v, rs] of Object.entries(runs)) {
     const ok = rs.filter(r => r.ok), L = ok.map(r => r.lookup);
     say(`\nChrome ${v}: ${rs.length} checks, ${ok.length} with a car and no blocked answer, ${rs.filter(r => r.blocked).length} with answers blocked by the ministry's firewall (403), ${rs.filter(r => r.edge).length} with a message, ${rs.filter(r => r.err).length} not finished (${[...new Set(rs.filter(r => r.err).map(r => r.err))].join(" | ")})`);
+    const msgs = {}; rs.filter(r => r.edge).forEach(r => { const k = r.msg + " | answers " + JSON.stringify(r.answers); msgs[k] = (msgs[k] || 0) + 1; }); for (const [k, c] of Object.entries(msgs)) say(`  message x${c}: ${k}`);
     if (!ok.length) continue;
     say(`  time from the first ministry request to the result (s): median ${r1(med(L))}, p75 ${r1(q(L, .75))}, p90 ${r1(q(L, .9))}, max ${r1(Math.max(...L))}; showed the "slower than usual" note ${ok.filter(r => r.slow).length} of ${ok.length}`);
     say(`  buckets like the app's dur: under 2 s ${L.filter(x => x < 2000).length}, 2-5 s ${L.filter(x => x >= 2000 && x < 5000).length}, 5-10 s ${L.filter(x => x >= 5000 && x < 10000).length}, over 10 s ${L.filter(x => x >= 10000).length}`);

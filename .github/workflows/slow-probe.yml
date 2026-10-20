@@ -21,7 +21,7 @@ jobs:
       - run: npm i --no-save --no-audit --no-fund playwright-core@1.48.2 > /dev/null 2>&1; ls -la /usr/bin/google-chrome
       - run: mkdir -p out && node .github/scripts/slow-probe.mjs > out/ab.txt 2>&1; wc -c out/ab.txt
         env:
-          N: "10"
+          N: "6"
       - name: Publish on probe-slow-out
         run: |
           cd out && git init -q && git checkout -q -b probe-slow-out && git add -A
