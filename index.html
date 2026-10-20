@@ -2033,14 +2033,26 @@ async function fetchModelData(v, signal, useCat){
 }
 
 /* An empty ministry dataset answers "no rows" for every plate; tell that apart from a plate that does not exist */
-async function sourceEmpty(signal){
+async function sourceEmpty(signal, id = PLATE_SETS[0].id){
   try {
-    const r = await fetch(`${API}?resource_id=${PLATE_SETS[0].id}&limit=0`, {signal: signal || AbortSignal.timeout(10000)});
+    const r = await fetch(`${API}?resource_id=${id}&limit=0`, {signal: signal || AbortSignal.timeout(10000)});
     if (!r.ok) return null;
     const j = await r.json();
     return !!(j && j.success && Number(j.result && j.result.total) === 0);
   } catch (e) { if (e.name === "AbortError") throw e; return null; }
 }
+/* The per-car recall list answers 0 rows for every plate while the ministry reloads it overnight (status.mjs), and that must read as "unknown",
+   never as "no open recall". A plate with no rows reads the list's own total: a list with rows is trusted for the next hour of the session,
+   while an empty or unread answer is asked again by the next plate. true = the list is empty right now. */
+let recEmptyP = null, recEmptyT = 0;
+function recallListEmpty(){
+  if (recEmptyP && Date.now() - recEmptyT < 36e5) return recEmptyP;
+  recEmptyT = Date.now();
+  return recEmptyP = sourceEmpty(null, PLATE_SETS.find(s => s.key === "recall").id).catch(() => null).then(e => { if (e !== false) recEmptyT = 0; return e === true; });
+}
+/* one row per recall: the per-car list could repeat a (plate, recall) pair (none on 20.10.2026), and SavedCheckWorker.java counts distinct ids */
+const recallIds = rows => [...new Set(rows.map(r => String(r.RECALL_ID ?? "").trim()))];
+const uniqRecalls = rows => { const seen = new Set(); return rows.filter(r => { const k = String(r.RECALL_ID ?? "").trim(); return !k || (!seen.has(k) && !!seen.add(k)); }); };
 /* ---------- last result of saved cars, so they can be opened without a connection ---------- */
 const SNAP_KEY = "carSnaps";
 function snapAll(){ try { return JSON.parse(localStorage.getItem(SNAP_KEY) || "{}") || {}; } catch { return {}; } }
@@ -2063,13 +2075,14 @@ function snapGet(plate){
 }
 /* ---------- fetch one vehicle ---------- */
 async function fetchVehicle(plate, signal, onProgress){
-  const res = {}; let done = 0;
+  const res = {}; let done = 0, recEmpty = null;
   const zombieP = zombieLookup(plate, signal).catch(e => { if (e.name === "AbortError") throw e; return null; });
   // the rare vehicle types (motorcycle, heavy, cancelled, ...) are asked only when the ordinary active register has no such plate: a normal car then costs 7 requests instead of 16
   const one = async s => {
     try { res[s.key] = {rows: await byPlate(s, plate, signal)}; }
     catch (err) { if (err.name === "AbortError") throw err; res[s.key] = {rows: [], err: err.message}; }
     if (onProgress) onProgress(++done / (PLATE_SETS.length + 1));
+    if (s.key === "recall" && !res.recall.err && !res.recall.rows.length) recEmpty = recallListEmpty();   // the list's own total, asked alongside the other registers
     // the model data needs only the maker and model codes of the first vehicle record: start it now (same requests, shared through DS_CACHE) instead of after every dataset has answered
     const r0 = s.role === "main" && res[s.key].rows[0];
     if (r0 && !empty(r0.tozeret_cd) && !empty(r0.degem_cd) && !one.warm) { one.warm = true; fetchModelData(r0, signal).catch(() => {}); }
@@ -2083,6 +2096,7 @@ async function fetchVehicle(plate, signal, onProgress){
     await Promise.all(PLATE_SETS.filter(isRare).map(one));
   })();
   await Promise.all([activeP, ...rest, rare]);
+  if (recEmpty && await recEmpty) res.recall = {rows: [], err: "the per-car list is empty", empty: true};
   if (!res.owners.rows.length) { const m = await ownMirror(plate, signal); if (m.length) { res.owners = {rows: m}; res.ownMirror = true; } }
   res.zombie = await zombieP;
   const errs = PLATE_SETS.filter(s => res[s.key].err);
@@ -2105,7 +2119,7 @@ async function fetchVehicle(plate, signal, onProgress){
   const {w, towRow, zeroTow, counts, price, priceRows, modelRecalls, modelRecallsUnknown} = await fetchModelData(v, signal);
   const pick = (...vals) => vals.find(x => !empty(x));
   const own = orderOwners(res.owners.rows.filter(r => !empty(r.baalut)), v.baalut);
-  const recalls = res.recall.rows.map(r => ({...r, detail: modelRecalls.find(m => String(m.RECALL_ID) === String(r.RECALL_ID)) || null}));
+  const recalls = uniqRecalls(res.recall.rows).map(r => ({...r, detail: modelRecalls.find(m => String(m.RECALL_ID) === String(r.RECALL_ID)) || null}));
   // the repair details live in the manufacturers' recall list; when the model name there differs from the
   // car's (or the maker has many recalls), look the open recall up directly by its number
   await Promise.all(recalls.filter(r => !r.detail && !empty(r.RECALL_ID)).map(async r => {
@@ -2128,7 +2142,7 @@ async function fetchVehicle(plate, signal, onProgress){
   const onRoad = parseYM(v.moed_aliya_lakvish) || (isNum(v.shnat_yitzur) ? new Date(num(v.shnat_yitzur), 0, 1) : null);
   const ownersFloor = !onRoad || onRoad < new Date(2017, 0, 1); // the ownership log starts in January 2017
 
-  const D = {plate, v, w, towRow, zeroTow, tSrc, counts, price, priceRows, own, ownersFloor, recalls, modelRecalls, recallUnknown: !!res.recall.err, ownMirror: !!res.ownMirror, modelRecallsUnknown, tag, dpf, primary: mains[0], importKind: res.import.rows[0] ? String(res.import.rows[0].sug_yevu || "יבוא אישי").replace(/-/g, " · ") : null, errs, pick, make, model,
+  const D = {plate, v, w, towRow, zeroTow, tSrc, counts, price, priceRows, own, ownersFloor, recalls, modelRecalls, recallUnknown: !!res.recall.err, recallEmpty: !!res.recall.empty, ownMirror: !!res.ownMirror, modelRecallsUnknown, tag, dpf, primary: mains[0], importKind: res.import.rows[0] ? String(res.import.rows[0].sug_yevu || "יבוא אישי").replace(/-/g, " · ") : null, errs, pick, make, model,
     title: (nm => [/^[A-Za-z]/.test(make) && nm.toUpperCase().startsWith(make.toUpperCase()) && !/^[A-Za-z]/i.test(nm.slice(make.length)) ? "" : make, nm].filter(Boolean).join(" "))(niceModel(model)) || "רכב " + fmtPlate(plate),
     sub: [v.shnat_yitzur, pick(v.ramat_gimur, w.ramat_gimur), v.tzeva_rechev].filter(x => !empty(x)).join(" · "),
     vin: pick(v.misgeret, v.mispar_shilda, v.shilda), km, kmYears, kmPerYear,
@@ -2401,7 +2415,7 @@ function renderResult(){
     const stl = settlementsFor(D);
     if (stl.length) html.push(`<button type="button" class="alert-banner warn" data-tab="recalls">${ico("scale")}<span><b>${stl.length === 1 ? "ייתכן שמגיעה הטבה מהסדר פשרה" : `ייתכן שמגיעות ${stl.length} הטבות מהסדרי פשרה`}</b>ההטבה תלויה בהתאמה לרכב שלכם. הפרטים בלשונית ריקולים.</span></button>`);
   }
-  if (D.recallUnknown) html.push(`<div class="msg err"><b>מידע על ריקולים לא זמין כרגע.</b> מאגר הריקולים של משרד התחבורה לא ענה, ולכן אי אפשר לדעת אם יש ריקול פתוח לרכב. אל תסיקו מכך שאין. נסו שוב בעוד דקה, או בדקו באתר היבואן.</div>`);
+  if (D.recallUnknown) html.push(`<div class="msg err"><b>מידע על ריקולים לא זמין כרגע.</b> ${D.recallEmpty ? "רשימת הריקולים של משרד התחבורה ריקה כרגע" : "מאגר הריקולים של משרד התחבורה לא ענה"}, ולכן אי אפשר לדעת אם יש ריקול פתוח לרכב. אל תסיקו מכך שאין. נסו שוב ${D.recallEmpty ? "מאוחר יותר" : "בעוד דקה"}, או בדקו באתר היבואן.</div>`);
   if (D.errs && D.errs.some(x => x.key !== "recall")) html.push(`<p class="msg">חלק ממאגרי משרד התחבורה לא ענו כרגע, והמידע על הרכב חלקי. נסו שוב בעוד דקה.</p>`);
   if (!window.AndroidApp && !IS_IOS) html.push(appBox(D));
   html.push(`</div><div class="mainc">`);
@@ -4833,6 +4847,29 @@ function savedFlags(s){
   if (!f.length && d && !s.recalls) f.push(`<span class="pill ok">אין התראות</span>`);
   return f.length ? `<span class="flags">${f.join("")}</span>` : "";
 }
+/* A saved car's open recalls, kept by id. A new one is news at once; one that stops showing is "closed" (and leaves the flag) only when two checks
+   at least an hour apart both missed it, since the ministry's per-car list drops rows while it reloads (SavedCheckWorker.java waits for a second
+   empty answer too). recMiss counts the misses of each id. rows: the list's answer for the plate. Returns the events to log. */
+const RECALL_MISS_GAP = 36e5;
+function recallStep(it, rows){
+  const ids = recallIds(rows), ev = [], now = Date.now();
+  const adopt = list => { it.recIds = list; it.recalls = list.length; };
+  if (it.recalls === undefined) { adopt(ids); return ev; }   // the first answer only records what is open
+  // a miss counts once an hour at most, so two looks at one answer (opening the car, then the daily check) are not two checks
+  const tick = !it.recMissAt || now - it.recMissAt >= RECALL_MISS_GAP, was = it.recMiss || {}, miss = {};
+  const gone = id => { const n = (was[id] || 0) + (tick ? 1 : 0) || 1; if (n < 2) miss[id] = n; return n >= 2; };
+  let closed = false;
+  const keep = [], more = it.recIds ? ids.some(id => !it.recIds.includes(id)) : ids.length > it.recalls;
+  if (it.recIds) { for (const id of it.recIds) if (!ids.includes(id)) { if (gone(id)) closed = true; else keep.push(id); } }
+  else if (ids.length < it.recalls) closed = gone("*");   // saved before the ids were kept: only the count is known, and a lower one is a recall missing
+  const wait = !it.recIds && ids.length < it.recalls && !closed;
+  if (Object.keys(miss).length) { it.recMiss = miss; if (tick) it.recMissAt = now; } else { delete it.recMiss; delete it.recMissAt; }
+  if (wait) return ev;   // the old count stands until the second miss
+  if (more) ev.push("ריקול חדש נפתח לרכב");
+  if (closed) ev.push("ריקול נסגר");
+  adopt(ids.concat(keep));
+  return ev;
+}
 let savedChecking = false;
 async function checkSaved(){
   if (savedChecking) return; savedChecking = true;
@@ -4842,11 +4879,12 @@ async function checkSaved(){
       if (s.checked && Date.now() - s.checked < 864e5) continue;
       try {
         let [rec, own, act] = await Promise.all([byPlate(set("recall"), s.plate).catch(() => null), byPlate(set("owners"), s.plate).catch(() => null), byPlate(set("active"), s.plate).catch(() => null)]);
+        if (rec && !rec.length && await recallListEmpty()) rec = null;   // the list's overnight reload: unknown, asked again in an hour
         const list = store.get("savedVehicles"), it = list.find(x => x.plate === s.plate); if (!it) continue;
         // an empty answer from a broken dataset is not "the car left the road": only trust it when the dataset itself has rows
         if (act && !act.length && await sourceEmpty().catch(() => true)) act = null;
         const ev = [], ext = plan() !== "free", add = (k, x) => { if (!ext && (k === "owner" || k === "status")) return; ev.push({t: Date.now(), k, x}); };
-        if (rec) { if (it.recalls !== undefined && rec.length > it.recalls) add("recall", "ריקול חדש נפתח לרכב"); else if (it.recalls !== undefined && rec.length < it.recalls) add("recall", "ריקול נסגר"); if (it.recalls !== rec.length) changed = true; it.recalls = rec.length; }
+        if (rec) { const was = it.recalls; for (const x of recallStep(it, rec)) add("recall", x); if (it.recalls !== was) changed = true; }
         // same rows the card counts (no empty types), compared by the latest ownership month, never by raw count: a dataset that answered empty or from a different source must not look like a new owner
         const ownRows = own ? own.filter(r => !empty(r.baalut)) : [], ownLast = ownRows.reduce((m, r) => Math.max(m, Number(r.baalut_dt) || 0), 0);
         if (ownRows.length && ownLast) {
@@ -4881,19 +4919,15 @@ async function checkSaved(){
 function savedSync(D){
   if (!D || D.kind === "model" || D.fromCache || D.offline || D.notFound) return;
   const list = store.get("savedVehicles"), it = list.find(x => x.plate === D.plate); if (!it) return;
-  const ev = [], add = (k, x) => ev.push({t: Date.now(), k, x}), was = [it.recalls, it.tokef];
-  if (!D.recallUnknown) {
-    if (it.recalls !== undefined && D.recalls.length > it.recalls) add("recall", "ריקול חדש נפתח לרכב");
-    else if (it.recalls !== undefined && D.recalls.length < it.recalls) add("recall", "ריקול נסגר");
-    it.recalls = D.recalls.length;
-  }
+  const ev = [], add = (k, x) => ev.push({t: Date.now(), k, x}), state = () => JSON.stringify([it.recalls, it.recIds, it.recMiss, it.tokef]), was = state();
+  if (!D.recallUnknown) for (const x of recallStep(it, D.recalls)) add("recall", x);
   // the test date only from a full answer of the registers (a car off the road keeps the last one, as in the daily check)
   const t = D.isCancelled || (D.errs || []).some(s => s.role === "main") ? "" : String(D.v.tokef_dt || "").slice(0, 10);
   if (t) { if (it.tokef && t > String(it.tokef).slice(0, 10)) add("test", "הטסט חודש עד " + fmtDate(t)); it.tokef = D.v.tokef_dt; }
   // the settlement summary for the phone's daily check, from the same full answer (NaN is stored as null, so compare as JSON)
   const sc = (D.errs || []).some(s => s.role === "main") ? undefined : JSON.stringify(stlCar(D)), scNew = sc !== undefined && sc !== JSON.stringify(it.stlCar === undefined ? null : it.stlCar);
   if (scNew) it.stlCar = JSON.parse(sc);
-  if (it.recalls === was[0] && it.tokef === was[1] && !scNew) return;
+  if (state() === was && !scNew) return;
   if (ev.length) it.events = [...ev, ...(it.events || [])].slice(0, 30);
   store.set("savedVehicles", list);
 }
@@ -5168,7 +5202,7 @@ function renderFleet(){
 /* ---------- buying companion (PRO / buyer pack) ---------- */
 const savedItem = p => store.get("savedVehicles").find(x => x.plate === p);
 const candFields = D => ({fair: D.cost && D.cost.valueLow ? [D.cost.valueLow, D.cost.valueHigh] : null, c5: D.cost && D.cost.monthly ? D.cost.monthly.total * 60 : null});
-const newSavedItem = D => ({plate: D.plate, title: D.title, sub: D.sub, at: Date.now(), tokef: D.v.tokef_dt || "", recalls: D.recallUnknown ? undefined : D.recalls.length, checked: Date.now(), owners: D.own.length, ownLast: D.own.reduce((m, r) => Math.max(m, Number(r.baalut_dt) || 0), 0), active: !D.isCancelled, events: [], stlCar: stlCar(D), ...candFields(D)});
+const newSavedItem = D => ({plate: D.plate, title: D.title, sub: D.sub, at: Date.now(), tokef: D.v.tokef_dt || "", recalls: D.recallUnknown ? undefined : D.recalls.length, recIds: D.recallUnknown ? undefined : recallIds(D.recalls), checked: Date.now(), owners: D.own.length, ownLast: D.own.reduce((m, r) => Math.max(m, Number(r.baalut_dt) || 0), 0), active: !D.isCancelled, events: [], stlCar: stlCar(D), ...candFields(D)});
 function askVerdict(ask, fair){
   if (!ask || !fair) return null;
   const [lo, hi] = fair, r = x => fmtN(Math.round(x / 100) * 100) + " ₪";
