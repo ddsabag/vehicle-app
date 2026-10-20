@@ -86,7 +86,9 @@ await part("kv.tally", async () => {
   if (!r.ok) throw new Error("value " + r.status);
   const v = JSON.parse(await r.text()), mins = Object.keys(v.m || {}).map(Number).sort((a, b) => a - b);
   return { day, present: true, ageSec: Math.round((Date.now() - v.at) / 1000), minutes: mins.length, first: mins.length ? new Date(mins[0] * 6e4).toISOString() : null, last: mins.length ? new Date(mins[mins.length - 1] * 6e4).toISOString() : null,
-    first_open: Object.values(v.m || {}).reduce((t, x) => t + x[0], 0), car_lookup: Object.values(v.m || {}).reduce((t, x) => t + x[1], 0) };
+    first_open: Object.values(v.m || {}).reduce((t, x) => t + x[0], 0), car_lookup: Object.values(v.m || {}).reduce((t, x) => t + x[1], 0),
+    // per Israel hour: [minutes kept, first opens, car checks], to compare with GA4's processed hours
+    byHour: Object.entries(v.m || {}).reduce((o, [m, x]) => { const h = new Date(Number(m) * 6e4).toLocaleString("en-GB", { timeZone: "Asia/Jerusalem", hour: "2-digit", hourCycle: "h23" }); const a = (o[h] ||= [0, 0, 0]); a[0]++; a[1] += x[0]; a[2] += x[1]; return o; }, {}) };
 });
 
 const data = Buffer.from(JSON.stringify(out));
