@@ -2064,9 +2064,9 @@ async function fetchModelData(v, signal, useCat){
 }
 
 /* An empty ministry dataset answers "no rows" for every plate; tell that apart from a plate that does not exist */
-async function sourceEmpty(signal){
+async function sourceEmpty(signal, id = PLATE_SETS[0].id){
   try {
-    const r = await fetch(`${API}?resource_id=${PLATE_SETS[0].id}&limit=0`, {signal: signal || AbortSignal.timeout(10000)});
+    const r = await fetch(`${API}?resource_id=${id}&limit=0`, {signal: signal || AbortSignal.timeout(10000)});
     if (!r.ok) return null;
     const j = await r.json();
     return !!(j && j.success && Number(j.result && j.result.total) === 0);
@@ -2354,7 +2354,7 @@ async function loadStatus(){
 const appBox = D => `<section class="appbox"><h3>באתר רואים את הרכב. באפליקציה הוא עובד בשבילכם</h3><p>אותה בדיקה, ועוד:</p><ul><li>התראה כשהטסט מתקרב או שנפתח ריקול</li><li>הודעה אם הרכב עבר בעלות או ירד מהכביש</li><li>הסדרי פשרה: בדיקה אם הרכב שלכם זכאי להטבה מהיבואן</li><li>יומן טיפולים ועלויות על הטלפון</li><li>צילום לוחית ואמירת מספר, במקום להקליד</li></ul><button type="button" class="btn" data-url="${playWeb("result_box")}" data-hint="side">להורדה ב-Google Play</button></section>`;
 const appHint = D => {
   if (window.AndroidApp || IS_IOS || D.kind === "model" || D.isCancelled || sharedHere(D)) return "";
-  const t = D.recalls && D.recalls.length ? "התראה כשיוצא ריקול חדש לרכב הזה" : "תזכורת לפני שהטסט פג";
+  const t = D.recalls && D.recalls.length || !(D.primary && D.primary.key === "active") ? "התראה כשיוצא ריקול חדש לרכב הזה" : "תזכורת לפני שהטסט פג";   // the app reads test dates from the active register only
   return `<button type="button" class="apphint" data-url="${playWeb("result_hint")}" data-hint="overview"><span aria-hidden="true">🔔</span><span><b>רוצים לדעת ראשונים?</b> ${t}</span><span class="gox">באפליקציה ›</span></button>`;
 };
 /* web visitors who arrive from a shared report (s= in the link): a bar that opens the app on this very car (Android), or a calendar reminder (everyone else) */
@@ -2874,7 +2874,7 @@ function tabOverview(D){
     D.isCancelled && ["סיבה", e(v.bitul_nm)],
     ["סוג יבוא", e(v.sug_yevu)],
   ]) + (noTest ? `<p class="note">משרד התחבורה לא מפרסם במאגרים הפתוחים תאריכי טסט ${noTest}.</p>` : D.kind !== "model" && !D.isCancelled && !licOf(D) ? `<p class="note">המאגר של משרד התחבורה לא מראה תאריך תוקף לטסט של הרכב הזה.</p>` : "")
-    + (calDate(D) && !pushCoversTest(D.plate) ? calendarBtn(D) : "")));
+    + (calDate(D) && !pushCoversTest(D) ? calendarBtn(D) : "")));
 
   const fo = firstOwner(v);
   const foLine = fo ? `<div class="first-own"><b>בעלות ראשונה: ${esc(fo)}</b>${ownerKind(fo).text ? `<span>${esc(ownerKind(fo).text)}</span>` : ""}</div>` : "";
@@ -4679,7 +4679,8 @@ $("#closeShare").addEventListener("click", () => { $("#shareSheet").hidden = tru
 /* test-expiry reminder: in the app the phone's calendar opens with the event filled in;
    on the web it opens Google Calendar; a calendar file is the last resort */
 /* the calendar button is the fallback for a missing push: always on the web (no push there); in the app only when this car's test alert will not reach the phone */
-const pushCoversTest = p => { try { return alertsSupported() && window.AndroidApp.alertsState() === "on" && isSaved(p) && trackedOk(p) && prefOn("test"); } catch { return false; } };
+// the phone's daily check reads the test date from the active register only, so a car from any other register keeps the button
+const pushCoversTest = D => { try { return !!D.primary && D.primary.key === "active" && alertsSupported() && window.AndroidApp.alertsState() === "on" && isSaved(D.plate) && trackedOk(D.plate) && prefOn("test"); } catch { return false; } };
 const calSeen = new Set();
 function calendarBtn(D){
   if (!reportBuild && !calSeen.has(D.plate)) { calSeen.add(D.plate); track("calendar_reminder_shown", {where: window.AndroidApp ? "app" : "web"}); }
@@ -4858,9 +4859,11 @@ function startVoice(){
 $("#micBtn").addEventListener("click", startVoice);
 
 /* saved cars: test expiry from the saved record, open recalls re-checked once a day */
-const licSaved = s => licState(s.tokef, s.mivchan);
+// a car off the road (found in a cancellation register) or from a register without dates has no licence to judge
+const licSaved = s => s.active === false || NO_TEST[s.reg] ? null : licState(s.tokef, s.mivchan);
 function savedFlags(s){
   const f = [], L = licSaved(s);
+  if (s.active === false) f.push(`<span class="pill bad">ירד מהכביש</span>`);
   if (s.recalls > 0) f.push(`<span class="pill bad">${s.recalls === 1 ? "ריקול פתוח" : s.recalls + " ריקולים פתוחים"}</span>`);
   if (L) { if (L.k === "bad") f.push(`<span class="pill bad">הטסט פג</span>`);
     else if (L.k !== "ok") f.push(`<span class="pill warn">לא ברור אם הטסט חודש</span>`);
@@ -4868,9 +4871,21 @@ function savedFlags(s){
   if (!f.length && L && !s.recalls) f.push(`<span class="pill ok">אין התראות</span>`);
   return f.length ? `<span class="flags">${f.join("")}</span>` : "";
 }
+/* a saved car's register (D.primary.key): "ירד מהכביש" is logged only when the car is found in a cancellation register, once.
+   Earlier builds read every saved car from the active register and logged a motorcycle, heavy, public, import or inactive car as
+   off the road every day: a car that is not in a cancellation register drops those lines */
+const OFF_ROAD = "הרכב ירד מהכביש";
+function regSave(it, key, add){
+  const off = /^cancel/.test(key), had = (it.events || []).some(e => e.k === "status" && e.x === OFF_ROAD);
+  if (!off && had) it.events = it.events.filter(e => !(e.k === "status" && e.x === OFF_ROAD));
+  if (off && it.active === true && !had) add("status", OFF_ROAD);
+  it.reg = key; it.active = !off;
+}
+const savedSig = it => JSON.stringify([it.recalls, it.tokef, it.mivchan, it.reg, it.active, (it.events || []).length]);
 /* a saved car's test dates from its register row (or the car's page): a later valid-until date is logged as a renewal, and a row
    without a real date keeps the last one; the last test goes along, so the list can tell a renewal the register has not shown yet */
 function licSave(it, row, add){
+  if (NO_TEST[it.reg]) { it.tokef = ""; it.mivchan = ""; return; }   // its register has no dates: none from anywhere else either
   const t = toDate(row.tokef_dt) ? String(row.tokef_dt).slice(0, 10) : ""; if (!t) return;
   if (toDate(it.tokef) && t > String(it.tokef).slice(0, 10)) add("test", "הטסט חודש עד " + fmtDate(t));
   it.tokef = row.tokef_dt; it.mivchan = toDate(row.mivchan_acharon_dt) ? row.mivchan_acharon_dt : "";
@@ -4880,13 +4895,24 @@ async function checkSaved(){
   if (savedChecking) return; savedChecking = true;
   try {
     const set = k => PLATE_SETS.find(x => x.key === k); let changed = false;
-    for (const s of store.get("savedVehicles").slice(0, 20)) {
-      if (s.checked && Date.now() - s.checked < 864e5) continue;
+    // 20 cars a run, the ones checked longest ago first, so every car of a long list gets its turn
+    const due = store.get("savedVehicles").filter(s => !(s.checked && Date.now() - s.checked < 864e5)).sort((a, b) => (a.checked || 0) - (b.checked || 0)).slice(0, 20);
+    for (const s of due) {
       try {
-        let [rec, own, act] = await Promise.all([byPlate(set("recall"), s.plate).catch(() => null), byPlate(set("owners"), s.plate).catch(() => null), byPlate(set("active"), s.plate).catch(() => null)]);
+        // each car from its own register (motorcycle, heavy, import...); a car saved before the register was kept starts from the active one
+        const reg = (set(s.reg) || {}).role === "main" ? set(s.reg) : set("active");
+        let [rec, own, main] = await Promise.all([byPlate(set("recall"), s.plate).catch(() => null), byPlate(set("owners"), s.plate).catch(() => null), byPlate(reg, s.plate).catch(() => null)]);
         const list = store.get("savedVehicles"), it = list.find(x => x.plate === s.plate); if (!it) continue;
         // an empty answer from a broken dataset is not "the car left the road": only trust it when the dataset itself has rows
-        if (act && !act.length && await sourceEmpty().catch(() => true)) act = null;
+        if (main && !main.length && (await sourceEmpty(undefined, reg.id).catch(() => null)) !== false) main = null;
+        let at = main && main.length ? reg : null;
+        // no longer in its register: the plate is looked up once in the other main registers, and the first that has it (in the car
+        // page's order) is its register now; a register that did not answer before that one leaves the question for the next run
+        if (main && !main.length) {
+          const others = PLATE_SETS.filter(x => x.role === "main" && x !== reg), got = await Promise.all(others.map(x => byPlate(x, s.plate).catch(() => null)));
+          const i = got.findIndex(r => !r || r.length);
+          if (i >= 0 && got[i]) { at = others[i]; main = got[i]; }
+        }
         const ev = [], ext = plan() !== "free", add = (k, x) => { if (!ext && (k === "owner" || k === "status")) return; ev.push({t: Date.now(), k, x}); };
         if (rec) { if (it.recalls !== undefined && rec.length > it.recalls) add("recall", "ריקול חדש נפתח לרכב"); else if (it.recalls !== undefined && rec.length < it.recalls) add("recall", "ריקול נסגר"); if (it.recalls !== rec.length) changed = true; it.recalls = rec.length; }
         // same rows the card counts (no empty types), compared by the latest ownership month, never by raw count: a dataset that answered empty or from a different source must not look like a new owner
@@ -4896,10 +4922,10 @@ async function checkSaved(){
           if (!it.ownLast && it.events) it.events = it.events.filter(e => e.k !== "owner"); // earlier builds compared raw counts and logged false new owners
           if (!it.ownLast || ownLast >= it.ownLast) { it.ownLast = ownLast; it.owners = ownRows.length; }
         }
-        if (act) {
-          const isAct = act.length > 0;
-          if (it.active === true && !isAct) add("status", "הרכב ירד מהכביש");
-          if (isAct) { it.active = true; licSave(it, act[0], add); }
+        if (at) {
+          const was = savedSig(it);
+          regSave(it, at.key, add); if (it.active) licSave(it, main[0], add);
+          if (savedSig(it) !== was) changed = true;
         }
         if (ext && prefOn("settlement") && await loadSettlements() && (it.stlSig !== STL_SIG || it.stlCar === undefined)) {
           const D = await fetchVehicle(s.plate).catch(() => null);
@@ -4923,18 +4949,18 @@ async function checkSaved(){
 function savedSync(D){
   if (!D || D.kind === "model" || D.fromCache || D.offline || D.notFound) return;
   const list = store.get("savedVehicles"), it = list.find(x => x.plate === D.plate); if (!it) return;
-  const ev = [], add = (k, x) => ev.push({t: Date.now(), k, x}), was = [it.recalls, it.tokef, it.mivchan];
+  const ev = [], add = (k, x) => { if (plan() === "free" && (k === "owner" || k === "status")) return; ev.push({t: Date.now(), k, x}); }, was = savedSig(it);
   if (!D.recallUnknown) {
     if (it.recalls !== undefined && D.recalls.length > it.recalls) add("recall", "ריקול חדש נפתח לרכב");
     else if (it.recalls !== undefined && D.recalls.length < it.recalls) add("recall", "ריקול נסגר");
     it.recalls = D.recalls.length;
   }
-  // the test dates only from a full answer of the registers (a car off the road keeps the last ones, as in the daily check)
-  if (!D.isCancelled && !(D.errs || []).some(s => s.role === "main")) licSave(it, D.v, add);
+  // the register and the test dates only from a full answer of the registers (a car off the road keeps the last dates, as in the daily check)
+  if (D.primary && !(D.errs || []).some(s => s.role === "main")) { regSave(it, D.primary.key, add); if (!D.isCancelled) licSave(it, D.v, add); }
   // the settlement summary for the phone's daily check, from the same full answer (NaN is stored as null, so compare as JSON)
   const sc = (D.errs || []).some(s => s.role === "main") ? undefined : JSON.stringify(stlCar(D)), scNew = sc !== undefined && sc !== JSON.stringify(it.stlCar === undefined ? null : it.stlCar);
   if (scNew) it.stlCar = JSON.parse(sc);
-  if (it.recalls === was[0] && it.tokef === was[1] && it.mivchan === was[2] && !scNew) return;
+  if (savedSig(it) === was && !ev.length && !scNew) return;
   if (ev.length) it.events = [...ev, ...(it.events || [])].slice(0, 30);
   store.set("savedVehicles", list);
 }
@@ -5208,7 +5234,7 @@ function renderFleet(){
 /* ---------- buying companion (PRO / buyer pack) ---------- */
 const savedItem = p => store.get("savedVehicles").find(x => x.plate === p);
 const candFields = D => ({fair: D.cost && D.cost.valueLow ? [D.cost.valueLow, D.cost.valueHigh] : null, c5: D.cost && D.cost.monthly ? D.cost.monthly.total * 60 : null});
-const newSavedItem = D => ({plate: D.plate, title: D.title, sub: D.sub, at: Date.now(), tokef: toDate(D.v.tokef_dt) ? D.v.tokef_dt : "", mivchan: toDate(D.v.mivchan_acharon_dt) ? D.v.mivchan_acharon_dt : "", recalls: D.recallUnknown ? undefined : D.recalls.length, checked: Date.now(), owners: D.own.length, ownLast: D.own.reduce((m, r) => Math.max(m, Number(r.baalut_dt) || 0), 0), active: !D.isCancelled, events: [], stlCar: stlCar(D), ...candFields(D)});
+const newSavedItem = D => ({plate: D.plate, title: D.title, sub: D.sub, at: Date.now(), reg: D.primary ? D.primary.key : undefined, tokef: !noTestFor(D) && toDate(D.v.tokef_dt) ? D.v.tokef_dt : "", mivchan: !noTestFor(D) && toDate(D.v.mivchan_acharon_dt) ? D.v.mivchan_acharon_dt : "", recalls: D.recallUnknown ? undefined : D.recalls.length, checked: Date.now(), owners: D.own.length, ownLast: D.own.reduce((m, r) => Math.max(m, Number(r.baalut_dt) || 0), 0), active: !D.isCancelled, events: [], stlCar: stlCar(D), ...candFields(D)});
 function askVerdict(ask, fair){
   if (!ask || !fair) return null;
   const [lo, hi] = fair, r = x => fmtN(Math.round(x / 100) * 100) + " ₪";
