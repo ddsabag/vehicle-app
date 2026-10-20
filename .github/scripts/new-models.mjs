@@ -80,8 +80,11 @@ export async function newModels(quarterArg) {
     for (const [code, mo] of Object.entries(m.codes)) {
       if (!Object.values(mo).some(v => v > 0)) continue;
       const [t, g] = code.split("|"), flt = JSON.stringify({ tozeret_cd: t, degem_cd: g });
-      const [w, p] = await Promise.all([call(WLTP, { filters: flt, limit: "1", sort: "shnat_yitzur desc" }), call(PRICE, { filters: flt, limit: "1", sort: "shnat_yitzur desc" })]);
-      const x = w.records[0] || {}, pr = p.records[0] || {}, price = Number(pr.mehir) || 0, imp = String(pr.shem_yevuan || "").replace(/\s*בע"מ\s*$/, "").trim(); if (imp) importers.add(imp);
+      const [w, p] = await Promise.all([call(WLTP, { filters: flt, limit: "10", sort: "shnat_yitzur desc" }), call(PRICE, { filters: flt, limit: "10", sort: "shnat_yitzur desc" })]);
+      // one code can be a private and a commercial model (sug_degem P/M), each with its own trim name and price (893 code-years in 10/2026, the
+      // catalogue fix of 20.10): the deliveries above are private cars, so the newest private row, else the newest row
+      const priv = rs => rs.find(r => String(r.sug_degem ?? "").trim().toUpperCase() === "P") || rs[0] || {};
+      const x = priv(w.records), pr = priv(p.records), price = Number(pr.mehir) || 0, imp = String(pr.shem_yevuan || "").replace(/\s*בע"מ\s*$/, "").trim(); if (imp) importers.add(imp);
       const  tn = fixTrim(cleanTrim(x.ramat_gimur), m.name) || "ללא שם";
       const e = byTrim.get(tn) || { name: tn, lo: Infinity, hi: 0, hp: 0, drive: "" };
       if (price) { e.lo = Math.min(e.lo, price); e.hi = Math.max(e.hi, price); }
