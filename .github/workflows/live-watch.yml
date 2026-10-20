@@ -1,0 +1,51 @@
+name: Live watch
+# Every 30 minutes: is the /live dashboard answering? live-watch.mjs reads Cloudflare's record of the luchit-live Worker's requests over the
+# last 35 minutes. Answers that were late, or that the page gave up on, after 20 s or more in two 5-minute steps, or 3 Worker errors: one
+# Telegram through the alert router (live:stuck or live:error, at most once in 6 hours) and a redeploy of the Worker from main through
+# Workers deploy (mode on, workers live, at most once in 6 hours). Quiet when all is well, or when nobody opened the screen. A read problem
+# is one notice line and a green run.
+# Kill switch: repository variable LIVE_WATCH. off = nothing runs, dry = read and print only. Manual runs are dry by default.
+on:
+  schedule:
+    - cron: "12,42 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print what would happen: no Telegram, no redeploy"
+        type: boolean
+        default: true
+permissions:
+  contents: read
+concurrency: live-watch
+jobs:
+  watch:
+    if: ${{ vars.LIVE_WATCH != 'off' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write   # alert.mjs keeps its dedupe state on the alert-state branch
+      actions: write    # reads Workers deploy's recent runs and dispatches the redeploy
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts/live-watch.mjs
+            .github/scripts/alert.mjs
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      - name: Self-test (offline)
+        run: node .github/scripts/live-watch.mjs selftest
+      - name: Watch
+        run: node .github/scripts/live-watch.mjs
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY || secrets.BREVO_KEY }}   # the router's email path for a loud alert
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          LIVE_WATCH: ${{ vars.LIVE_WATCH }}
+          DRY: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
