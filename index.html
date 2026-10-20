@@ -912,6 +912,33 @@ function fmtDate(v){
 }
 // a register date at local midnight; a zero ("0000-00-00T00:00:00"), pre-1950 or impossible one (31.02) is no date, not a day in 1899
 function toDate(v){ const m = String(v).match(/^(\d{4})-?(\d{2})-?(\d{2})/); if (!m || +m[1] < 1950) return null; const d = new Date(+m[1], +m[2]-1, +m[3]); return d.getMonth() === +m[2]-1 && d.getDate() === +m[3] ? d : null; }
+/* The licence ("טסט בתוקף עד", tokef_dt) as the register shows it, in whole days from local midnight, rounded so the 23- and 25-hour
+   days of a clock change cannot move it; the expiry day itself is still valid (days 0). The register is rebuilt nightly and a renewal
+   reaches it a day or two late (20.10.2026: tests from yesterday ~18% present, from two days back complete), so a licence that ended in
+   the last LIC_LAG (3) days is "lag". A renewal moves tokef_dt about a year past its test: of the valid licences on 20.10.2026, 3.29M
+   have the last test 91-400 days before tokef_dt and 14 have it 0-30 days before. So only a last test from LIC_NEAR (30) days before
+   tokef_dt or later is one that has not become a renewal (licences that ended in the last 30 days: 1,877 such cars, while 34,714 have
+   their previous renewal's test 300-364 days before). While that test is at most LIC_FRESH (30) days old the update may still be on its
+   way: "renew", amber. An older one stays red, and the note names it. The app then says what the register shows, never that it is valid.
+   SavedCheckWorker.java (the "expired" push) and worker/og/worker.js (link previews) follow the same rule. */
+const LIC_LAG = 3, LIC_NEAR = 30, LIC_FRESH = 30;
+function licState(tokef, test){
+  const ex = toDate(tokef); if (!ex) return null;
+  const n = new Date(), today = new Date(n.getFullYear(), n.getMonth(), n.getDate()), days = Math.round((ex - today) / 864e5), t = toDate(test);
+  const near = days < 0 && t && t >= new Date(ex.getFullYear(), ex.getMonth(), ex.getDate() - LIC_NEAR);
+  const k = days >= 0 ? "ok" : near && t >= new Date(today.getFullYear(), today.getMonth(), today.getDate() - LIC_FRESH) ? "renew" : days >= -LIC_LAG ? "lag" : "bad";
+  return {k, days, ex, date: fmtDate(tokef), test: near && k !== "lag" ? fmtDate(test) : ""};
+}
+// a car's licence: none for a car off the road or a model
+const licOf = D => !D || !D.v || D.isCancelled || D.kind === "model" ? null : licState(D.v.tokef_dt, D.v.mivchan_acharon_dt);
+// one line for lists (share text, checks, share card, compare): a past date always reads as ended, the lag states as unknown
+const licLine = L => L.k === "ok" ? `טסט בתוקף עד ${L.date}` : L.k === "bad" ? `הטסט פג ב-${L.date}` : L.k === "lag" ? `הטסט פג ב-${L.date} לפי המאגר, ייתכן שכבר חודש` : `נמצא טסט מ-${L.test}, אבל במאגר התוקף לא חודש (פג ב-${L.date})`;
+// the insight and the simple-view banner for a licence that ended; null while it is valid
+const licNote = L => !L || L.k === "ok" ? null : L.k === "bad" ? {level: "bad", title: "הטסט לא בתוקף", text: `לפי מאגר משרד התחבורה, תוקף הטסט פג ב-${L.date}.` + (L.test ? ` במאגר רשום טסט מ-${L.test}, אבל הרישיון לא חודש בו.` : "")}
+  : {level: "warn", title: "לא ברור אם הטסט חודש", text: L.k === "lag" ? `לפי מאגר משרד התחבורה, תוקף הטסט פג ב-${L.date}. חידוש שנעשה בימים האחרונים מגיע למאגר באיחור של יום או יומיים.`
+    : `במאגר משרד התחבורה רשום טסט מ-${L.test}, אבל תוקף הרישיון לא חודש בו (מופיע עד ${L.date}). ייתכן שהעדכון עוד לא הגיע למאגר, וייתכן שהרישיון לא חודש, למשל אם האגרה לא שולמה.`};
+// the test cell of the fleet and bulk tables: [class, text]
+const licCell = L => !L ? ["", "—"] : L.k === "bad" ? ["r", "עבר"] : L.k !== "ok" ? ["w", "לא ברור אם חודש"] : [L.days <= 45 ? "w" : "", L.date];
 /* Make names arrive like "טויוטה יפן" / "פולקסווגן גרמניה": drop the trailing country the record already carries */
 function makeName(v){
   let n = String(v.tozeret_nm || "").trim();
@@ -1187,7 +1214,7 @@ const playWeb = c => {
 /* what a share points to: the live report on the site (opens the app for people who have it, a web report for everyone else). s= says which kind of share it was */
 /* v= changes whenever what the preview shows could have changed (open recalls, test, off the road, owners) and at least once a week, because messaging apps keep a
    link preview for as long as the address stays the same */
-const shareState = D => { try { const t = toDate(D.v.tokef_dt); return [D.recallUnknown ? "u" : Math.min((D.recalls || []).length, 9), D.isCancelled ? 1 : 0, t && t < new Date() ? 1 : 0, Math.min((D.own || []).length, 9)].join("") + "." + Math.floor(Date.now() / (7 * 864e5)).toString(36); } catch { return ""; } };
+const shareState = D => { try { const L = licOf(D); return [D.recallUnknown ? "u" : Math.min((D.recalls || []).length, 9), D.isCancelled ? 1 : 0, !L || L.k === "ok" ? 0 : L.k === "bad" ? 1 : 2, Math.min((D.own || []).length, 9)].join("") + "." + Math.floor(Date.now() / (7 * 864e5)).toString(36); } catch { return ""; } };
 const shareLink = (plate, via) => {
   if (!plate) return `${SITE}?s=${via}`;
   let v = ""; try { v = current && current.plate === plate ? shareState(current) : ""; } catch {}
@@ -2165,12 +2192,9 @@ function buildInsights(D){
   if (!D.isCancelled && D.primary && /^inactive/.test(D.primary.key)) add("warn", "הרכב לא פעיל", "הרכב רשום כלא פעיל במאגר משרד התחבורה.");
   // open recalls are not repeated here: the red banner above the tabs already says it
   { const n = D.kind === "model" || D.isCancelled ? 0 : settlementsFor(D).length; if (n) add("info", "ייתכן שמגיעה לכם הטבה מהסדר פשרה", `${n === 1 ? "נמצא הסדר פשרה אחד שעשוי לחול על הרכב" : `נמצאו ${n} הסדרי פשרה שעשויים לחול על הרכב`}. הפרטים בלשונית ריקולים.`); }
-  const exp = toDate(v.tokef_dt);
-  if (exp && !D.isCancelled) {
-    const days = Math.round((exp - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 864e5);
-    if (days < 0) add("bad", "הטסט לא בתוקף", `תוקף הטסט פג ב-${fmtDate(v.tokef_dt)}.`);
-    else if (days <= 60) add("warn", "הטסט מתקרב", `רישיון הרכב בתוקף עד ${fmtDate(v.tokef_dt)}, ${days === 0 ? "היום" : days === 1 ? "מחר" : "בעוד " + days + " ימים"}.`);
-  }
+  const L = licOf(D), ln = licNote(L);
+  if (ln) add(ln.level, ln.title, ln.text);
+  else if (L && L.days <= 60) add("warn", "הטסט מתקרב", `רישיון הרכב בתוקף עד ${L.date}, ${L.days === 0 ? "היום" : L.days === 1 ? "מחר" : "בעוד " + L.days + " ימים"}.`);
   if (D.kmPerYear) {
     const ratio = D.kmPerYear / AVG_KM_YEAR;
     const base = `כ-${fmtN(D.kmPerYear)} ק״מ בשנה, לעומת ממוצע של כ-${fmtN(AVG_KM_YEAR)} ק״מ לרכב פרטי`;
@@ -2337,7 +2361,7 @@ const IS_IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (/Macintosh/.tes
 /* Facebook, Instagram, TikTok, Telegram... open links in their own browser, where intent:// links and App Links do not work and files cannot be downloaded */
 const IN_APP_BROWSER = /FBAN|FBAV|FB_IAB|FBIOS|Instagram|Snapchat|TikTok|musical_ly|Bytedance|trill|ByteLocale|Telegram|LinkedInApp|Twitter|MicroMessenger|GSA\/|; wv\)/i.test(navigator.userAgent) || /\bLine\//.test(navigator.userAgent) || (IS_IOS && !/Safari\//.test(navigator.userAgent));
 function sharedBar(D){
-  const exp = toDate(D.v.tokef_dt), canCal = exp && !D.isCancelled && !IN_APP_BROWSER;
+  const L = licOf(D), canCal = L && !IN_APP_BROWSER;
   let main;
   if (IS_ANDROID && IN_APP_BROWSER) {
     // no intent:// in these browsers: straight to the store page (the car rides along in the install referrer), with a tip for the better way
@@ -2346,7 +2370,7 @@ function sharedBar(D){
     const intent = `intent://luchit.app/?plate=${D.plate}&s=bar#Intent;scheme=https;package=com.ddsabag.pratirechev;S.browser_fallback_url=${encodeURIComponent(carLink(D.plate, "bar"))};end`;
     main = `<div class="sb-txt"><b>עקבו אחרי הרכב הזה</b><small>התראה על ריקול חדש, טסט שמתקרב והעברת בעלות</small></div><button type="button" class="sb-btn" data-act="openapp" data-intent="${esc(intent)}">פתחו באפליקציה</button>`;
   } else {
-    main = `<div class="sb-txt"><b>שומרים על הרכב הזה בעין</b><small>${canCal ? "הטסט פג ב-" + fmtDate(D.v.tokef_dt) : "בדקו רכב נוסף לפני שמחליטים"}</small></div><div class="sb-btns">` +
+    main = `<div class="sb-txt"><b>שומרים על הרכב הזה בעין</b><small>${canCal ? "הטסט פג ב-" + L.date : "בדקו רכב נוסף לפני שמחליטים"}</small></div><div class="sb-btns">` +
       (canCal ? `<button type="button" class="sb-btn" data-act="barcal">📅 תזכורת טסט ביומן</button>` : "") + `<button type="button" class="sb-btn${canCal ? " alt" : ""}" data-act="another">בדיקת רכב נוסף</button>` + (IN_APP_BROWSER ? `<button type="button" class="sb-btn alt" data-act="copylink">העתקת הקישור</button>` : "") + `</div>`;
   }
   return `<div class="sharebar" role="region" aria-label="מעקב אחרי הרכב"><div class="sb-in${IS_ANDROID ? "" : " sb-col"}">${main}</div>${IS_ANDROID ? `<small class="sb-sub">${IN_APP_BROWSER ? "טיפ: ⋮ ואז \"פתח בדפדפן\" כדי שהאפליקציה תיפתח ישר על הרכב" : "חינם ב-Google Play · נפתח ישר על הרכב הזה"}</small>` : ""}</div><div class="sb-pad"></div>`;
@@ -2357,14 +2381,14 @@ function renderResult(){
   inCompare = false;
   const D = current, v = D.v, w = D.w;
   const html = [];
-  const exp = toDate(v.tokef_dt);
+  const L = licOf(D);
   const pills = [], facts = [];
   // pills show only what is not the norm (a plain "active" status adds nothing) plus drive type and test
   if (D.primary && (D.primary.tone || "ok") !== "ok") pills.push(`<span class="pill ${D.primary.tone}">${esc(D.primary.status)}</span>`);
   if (D.importKind) pills.push(`<span class="pill info">${esc(D.importKind)}</span>`);
   const dt = driveType(D);
   if (dt) facts[2] = (`<span class="pill drive ${["ev", "phev", "hybrid"].includes(dt.k) ? "green" : ""}">${ico(["ev", "phev", "hybrid"].includes(dt.k) ? "bolt" : "fuel")}${dt.label}</span>`);
-  if (exp && !D.isCancelled) facts[0] = (exp < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) ? `<span class="pill bad">טסט לא בתוקף</span>` : `<span class="pill ok">טסט עד ${String(exp.getMonth() + 1).padStart(2, "0")}/${exp.getFullYear()}</span>`);
+  if (L) facts[0] = L.k === "ok" ? `<span class="pill ok">טסט עד ${String(L.ex.getMonth() + 1).padStart(2, "0")}/${L.ex.getFullYear()}</span>` : L.k === "bad" ? `<span class="pill bad">טסט לא בתוקף</span>` : `<span class="pill warn">לא ברור אם הטסט חודש</span>`;
   const vIns = buildInsights(D), clean = !(D.errs && D.errs.length) && !D.recallUnknown && !D.isCancelled && !D.zombie && !D.recalls.length && !freshRecalls(D).length && !vIns.some(x => x.level === "bad" || x.level === "warn");
   if (D.own.length) facts[1] = `<span class="pill">${ownersLabel(D)}</span>`;
   if (!empty(v.shnat_yitzur)) facts[3] = `<span class="pill">${esc(v.shnat_yitzur)}</span>`;
@@ -2386,9 +2410,9 @@ function renderResult(){
     </div>
   </section>`);
 
-  // Off the road, and an expired test in the simple view (the full view says it in the overview cards): banners above everything else
+  // Off the road, and a test that ended in the simple view (the full view says it in the overview cards): banners above everything else
   if (D.isCancelled) html.push(`<div class="alert-banner" role="alert">${ico("alert")}<span><b>הרכב ירד מהכביש</b>הרכב בוטל סופית${empty(v.bitul_dt) ? "" : " ב-" + esc(fmtDate(v.bitul_dt))} ואינו יכול לנסוע.</span></div>`);
-  else if (simpleOn()) { const ex = toDate(v.tokef_dt); if (ex && ex < new Date()) html.push(`<div class="alert-banner" role="alert">${ico("alert")}<span><b>הטסט לא בתוקף</b>תוקף הטסט פג ב-${esc(fmtDate(v.tokef_dt))}.</span></div>`); }
+  else if (simpleOn()) { const ln = licNote(L); if (ln) html.push(`<div class="alert-banner${ln.level === "bad" ? "" : " warn"}" role="${ln.level === "bad" ? "alert" : "status"}">${ico("alert")}<span><b>${esc(ln.title)}</b>${esc(ln.text)}</span></div>`); }
   // An open recall is the one thing that must never be missed: banner above the tabs
   if (D.recalls.length) {
     html.push(`<button type="button" class="alert-banner" data-tab="recalls">${ico("alert")}<span><b>${D.recalls.length === 1 ? "לרכב יש ריקול פתוח" : `לרכב ${D.recalls.length} ריקולים פתוחים`}</b>ריקול שלא מתוקן עלול למנוע בהמשך חידוש רישיון. התיקון בחינם אצל היבואן.</span></button>`);
@@ -2837,6 +2861,7 @@ function tabOverview(D){
   if (stats.length % 2) stats.pop();
   if (stats.length) html.push(`<div class="stats">${stats.map(([k,val,u,c]) => `<div class="stat ${c}"><div class="k">${esc(k)}</div><div class="v">${esc(val)}${u ? `<span class="u">${esc(u)}</span>` : ""}</div></div>`).join("")}</div>`);
 
+  const L = licOf(D);
   html.push(card("רישוי וטסט", "doc", "blue", facts([
     ["טסט אחרון", e(toDate(v.mivchan_acharon_dt) && fmtDate(v.mivchan_acharon_dt))],
     ["טסט בתוקף עד", e(toDate(v.tokef_dt) && fmtDate(v.tokef_dt))],
@@ -2845,7 +2870,7 @@ function tabOverview(D){
     D.isCancelled && ["ירד מהכביש", e(v.bitul_dt && fmtDate(v.bitul_dt))],
     D.isCancelled && ["סיבה", e(v.bitul_nm)],
     ["סוג יבוא", e(v.sug_yevu)],
-  ]) + (toDate(v.tokef_dt) && toDate(v.tokef_dt) > new Date() && !D.isCancelled && !pushCoversTest(D.plate) ? calendarBtn(D) : "")));
+  ]) + (L && L.days > 0 && !pushCoversTest(D.plate) ? calendarBtn(D) : "")));
 
   const fo = firstOwner(v);
   const foLine = fo ? `<div class="first-own"><b>בעלות ראשונה: ${esc(fo)}</b>${ownerKind(fo).text ? `<span>${esc(ownerKind(fo).text)}</span>` : ""}</div>` : "";
@@ -2983,11 +3008,11 @@ function tabCosts(D){
 /* the buyer view: buying help, estimated value, how the model holds up, what to do before paying */
 /* what the open registers were checked for, with ticks, and what they cannot answer */
 function checksCard(D){
-  const v = D.v, exp = toDate(v.tokef_dt), now = new Date(), rows = [];
+  const v = D.v, L = licOf(D), rows = [];
   const row = (ok, t) => rows.push(`<li class="ins ${ok ? "ok" : "warn"}">${ico(ok ? "check" : "alert")}<div><b>${esc(t)}</b></div></li>`);
   const off = D.primary && /^inactive/.test(D.primary.key);   // found only in the inactive registers: not "active", as the insights already say
   row(!D.isCancelled && !off, D.isCancelled ? "הרכב ירד מהכביש" : off ? "הרכב רשום כלא פעיל" : "הרכב פעיל ולא בוטל");
-  if (exp) row(exp >= new Date(now.getFullYear(), now.getMonth(), now.getDate()), exp >= new Date(now.getFullYear(), now.getMonth(), now.getDate()) ? `טסט בתוקף עד ${fmtDate(v.tokef_dt)}` : `הטסט פג ב-${fmtDate(v.tokef_dt)}`);
+  if (L) row(L.k === "ok", licLine(L));
   if (D.recallUnknown) row(false, "ריקולים: מידע לא זמין כרגע"); else row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")}` : "לא נמצא ריקול פתוח");
   if (freshRecalls(D).length) row(false, "ייתכן ריקול חדש לדגם, עוד בלי פירוט לפי רכב");
   if (D.own.length) row(true, "נבדקה היסטוריית הבעלות");
@@ -3913,7 +3938,7 @@ function renderCompare(){
       ["ק״מ לשנה", D => D.kmPerYear, "lo", "", false, true],
       ["יד (ללא סוחרים)", D => handsOf(D) || null, "lo", "", false, true],
       ["ריקולים פתוחים", D => D.recalls.length, "lo", "", false, true],
-      ["טסט בתוקף עד", D => D.v.tokef_dt ? fmtDate(D.v.tokef_dt) : "", null, "", false, true],
+      ["טסט בתוקף עד", D => { const L = licOf(D); return !L ? "" : L.k === "ok" ? L.date : licLine(L); }, null, "", false, true],
       ["בעלות ראשונה", D => firstOwner(D.v) || "", null, "", false, true]] : []),
   ];
   const cell = (x, u, plain) => x === null ? "—" : typeof x === "boolean" ? (x ? `<span class="yes">✓</span>` : `<span class="no">✗</span>`) : typeof x === "number" ? `${plain ? x : fmtN(x)}${u ? ` <span class="u">${u}</span>` : ""}` : esc(x);
@@ -3957,7 +3982,9 @@ function renderCompare(){
 
 function summaryText(D){
   const v = D.v, lines = [`${D.title}${empty(v.shnat_yitzur) ? "" : " " + v.shnat_yitzur} · ${fmtPlate(D.plate)}`];
-  if (!empty(v.tokef_dt)) lines.push(`טסט בתוקף עד ${fmtDate(v.tokef_dt)}`);
+  const L = licOf(D);
+  if (D.isCancelled) lines.push(`הרכב ירד מהכביש${empty(v.bitul_dt) ? "" : " (" + fmtDate(v.bitul_dt) + ")"}`);
+  else if (L) lines.push(licLine(L));
   if (D.km) lines.push(`ק״מ בטסט האחרון: ${fmtN(D.km)}${empty(v.mivchan_acharon_dt) ? "" : " (" + fmtDate(v.mivchan_acharon_dt) + ")"}`);
   if (D.own.length) lines.push(ownersLabel(D));
   if (firstOwner(v)) lines.push(`בעלות ראשונה: ${firstOwner(v)}`);
@@ -4560,10 +4587,10 @@ async function drawShareCard(D, opt = {}){
   // what was found: the same checks, always in the same order
   const rows = [];
   const add = (tone, t) => rows.push([tone, t]);
-  const exp = toDate(v.tokef_dt), now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const L = licOf(D);
   if (D.isCancelled) add("bad", "הרכב ירד מהכביש");
   else {
-    if (exp) add(exp >= today ? "ok" : "bad", exp >= today ? `טסט בתוקף עד ${fmtDate(v.tokef_dt)}` : `הטסט פג ב-${fmtDate(v.tokef_dt)}`);
+    if (L) add(L.k === "ok" ? "ok" : L.k === "bad" ? "bad" : "warn", licLine(L));
     if (D.recallUnknown) add("warn", "מידע על ריקולים לא זמין כרגע, אין להסיק שאין ריקול"); else add(D.recalls.length ? "bad" : "ok", D.recalls.length ? (D.recalls.length === 1 ? "ריקול פתוח אחד" : `${D.recalls.length} ריקולים פתוחים`) : "לא נמצא ריקול פתוח");
     if (freshRecalls(D).length) add("warn", "ייתכן ריקול חדש לדגם, עוד בלי פירוט לפי רכב");
     if (D.own.length) add("info", ownersLabel(D));
@@ -4824,14 +4851,22 @@ function startVoice(){
 $("#micBtn").addEventListener("click", startVoice);
 
 /* saved cars: test expiry from the saved record, open recalls re-checked once a day */
+const licSaved = s => licState(s.tokef, s.mivchan);
 function savedFlags(s){
-  const f = [], d = toDate(s.tokef), now = new Date();
+  const f = [], L = licSaved(s);
   if (s.recalls > 0) f.push(`<span class="pill bad">${s.recalls === 1 ? "ריקול פתוח" : s.recalls + " ריקולים פתוחים"}</span>`);
-  if (d) { const days = Math.ceil((d - now) / 864e5);
-    if (days < 0) f.push(`<span class="pill bad">הטסט פג</span>`);
-    else if (days <= 45) f.push(`<span class="pill warn">טסט עד ${esc(fmtDate(s.tokef))}</span>`); }
-  if (!f.length && d && !s.recalls) f.push(`<span class="pill ok">אין התראות</span>`);
+  if (L) { if (L.k === "bad") f.push(`<span class="pill bad">הטסט פג</span>`);
+    else if (L.k !== "ok") f.push(`<span class="pill warn">לא ברור אם הטסט חודש</span>`);
+    else if (L.days <= 45) f.push(`<span class="pill warn">טסט עד ${esc(L.date)}</span>`); }
+  if (!f.length && L && !s.recalls) f.push(`<span class="pill ok">אין התראות</span>`);
   return f.length ? `<span class="flags">${f.join("")}</span>` : "";
+}
+/* a saved car's test dates from its register row (or the car's page): a later valid-until date is logged as a renewal, and a row
+   without a real date keeps the last one; the last test goes along, so the list can tell a renewal the register has not shown yet */
+function licSave(it, row, add){
+  const t = toDate(row.tokef_dt) ? String(row.tokef_dt).slice(0, 10) : ""; if (!t) return;
+  if (toDate(it.tokef) && t > String(it.tokef).slice(0, 10)) add("test", "הטסט חודש עד " + fmtDate(t));
+  it.tokef = row.tokef_dt; it.mivchan = toDate(row.mivchan_acharon_dt) ? row.mivchan_acharon_dt : "";
 }
 let savedChecking = false;
 async function checkSaved(){
@@ -4857,7 +4892,7 @@ async function checkSaved(){
         if (act) {
           const isAct = act.length > 0;
           if (it.active === true && !isAct) add("status", "הרכב ירד מהכביש");
-          if (isAct) { it.active = true; const t = String(act[0].tokef_dt || "").slice(0, 10); if (t && it.tokef && t > String(it.tokef).slice(0, 10)) add("test", "הטסט חודש עד " + fmtDate(t)); if (t) it.tokef = act[0].tokef_dt; }
+          if (isAct) { it.active = true; licSave(it, act[0], add); }
         }
         if (ext && prefOn("settlement") && await loadSettlements() && (it.stlSig !== STL_SIG || it.stlCar === undefined)) {
           const D = await fetchVehicle(s.plate).catch(() => null);
@@ -4881,19 +4916,18 @@ async function checkSaved(){
 function savedSync(D){
   if (!D || D.kind === "model" || D.fromCache || D.offline || D.notFound) return;
   const list = store.get("savedVehicles"), it = list.find(x => x.plate === D.plate); if (!it) return;
-  const ev = [], add = (k, x) => ev.push({t: Date.now(), k, x}), was = [it.recalls, it.tokef];
+  const ev = [], add = (k, x) => ev.push({t: Date.now(), k, x}), was = [it.recalls, it.tokef, it.mivchan];
   if (!D.recallUnknown) {
     if (it.recalls !== undefined && D.recalls.length > it.recalls) add("recall", "ריקול חדש נפתח לרכב");
     else if (it.recalls !== undefined && D.recalls.length < it.recalls) add("recall", "ריקול נסגר");
     it.recalls = D.recalls.length;
   }
-  // the test date only from a full answer of the registers (a car off the road keeps the last one, as in the daily check)
-  const t = D.isCancelled || (D.errs || []).some(s => s.role === "main") ? "" : String(D.v.tokef_dt || "").slice(0, 10);
-  if (t) { if (it.tokef && t > String(it.tokef).slice(0, 10)) add("test", "הטסט חודש עד " + fmtDate(t)); it.tokef = D.v.tokef_dt; }
+  // the test dates only from a full answer of the registers (a car off the road keeps the last ones, as in the daily check)
+  if (!D.isCancelled && !(D.errs || []).some(s => s.role === "main")) licSave(it, D.v, add);
   // the settlement summary for the phone's daily check, from the same full answer (NaN is stored as null, so compare as JSON)
   const sc = (D.errs || []).some(s => s.role === "main") ? undefined : JSON.stringify(stlCar(D)), scNew = sc !== undefined && sc !== JSON.stringify(it.stlCar === undefined ? null : it.stlCar);
   if (scNew) it.stlCar = JSON.parse(sc);
-  if (it.recalls === was[0] && it.tokef === was[1] && !scNew) return;
+  if (it.recalls === was[0] && it.tokef === was[1] && it.mivchan === was[2] && !scNew) return;
   if (ev.length) it.events = [...ev, ...(it.events || [])].slice(0, 30);
   store.set("savedVehicles", list);
 }
@@ -5154,11 +5188,10 @@ async function retryCompare(i){
 function renderFleet(){
   if (land) setLand(false, false);
   current = null; inCompare = false;
-  const list = store.get("savedVehicles").slice(0, fleetMax()), now = new Date();
-  const need = s => { const d = toDate(s.tokef), days = d ? Math.ceil((d - now) / 864e5) : null; return {days, bad: (days !== null && days < 0) || s.recalls > 0, warn: days !== null && days >= 0 && days <= 45}; };
-  const n = list.filter(s => { const x = need(s); return x.bad || x.warn; }).length;
-  const rows = list.map(s => { const x = need(s), col = x.days === null ? "" : x.days < 0 ? "r" : x.days <= 45 ? "w" : "";
-    return `<tr><td><button type="button" class="lnk" data-open="${s.plate}"><b>${fmtPlate(s.plate)}</b><small style="color:var(--muted)">${esc(s.title)}</small></button></td><td class="${col}">${s.tokef ? (x.days < 0 ? "עבר" : fmtDate(s.tokef)) : "—"}</td><td class="${s.recalls > 0 ? "w" : ""}">${s.recalls > 0 ? s.recalls : "—"}</td></tr>`; }).join("");
+  const list = store.get("savedVehicles").slice(0, fleetMax());
+  const n = list.filter(s => licCell(licSaved(s))[0] || s.recalls > 0).length;
+  const rows = list.map(s => { const [col, tx] = licCell(licSaved(s));
+    return `<tr><td><button type="button" class="lnk" data-open="${s.plate}"><b>${fmtPlate(s.plate)}</b><small style="color:var(--muted)">${esc(s.title)}</small></button></td><td class="${col}">${tx}</td><td class="${s.recalls > 0 ? "w" : ""}">${s.recalls > 0 ? s.recalls : "—"}</td></tr>`; }).join("");
   const html = [];
   if (PRO_LOCK && !atLeast("pro")) html.push(proLockCard("הצי שלי", "כל הרכבים שלכם בטבלה אחת, עם טסט, ריקולים וסימון מה דורש טיפול."));
   else html.push(card("הצי שלי", "car", "blue", list.length ? `<p style="margin:0 0 6px"><b>${n ? (n === 1 ? "רכב אחד דורש טיפול" : `${n} רכבים דורשים טיפול`) : "הכול בסדר"}</b>${n ? `<br><small style="color:var(--muted)">טסט שעבר או קרוב, או ריקול פתוח</small>` : ""}</p><table class="ft"><tr><th>רכב</th><th>טסט</th><th>ריקולים</th></tr>${rows}</table>${store.get("savedVehicles").length > fleetMax() ? `<p class="note">מוצגים ${fleetMax()} הרכבים הראשונים.</p>` : ""}` : `<p style="margin:0">שמרו רכבים כדי לראות אותם כאן בטבלה אחת.</p>`, `${PT("PRO")}`));
@@ -5168,7 +5201,7 @@ function renderFleet(){
 /* ---------- buying companion (PRO / buyer pack) ---------- */
 const savedItem = p => store.get("savedVehicles").find(x => x.plate === p);
 const candFields = D => ({fair: D.cost && D.cost.valueLow ? [D.cost.valueLow, D.cost.valueHigh] : null, c5: D.cost && D.cost.monthly ? D.cost.monthly.total * 60 : null});
-const newSavedItem = D => ({plate: D.plate, title: D.title, sub: D.sub, at: Date.now(), tokef: D.v.tokef_dt || "", recalls: D.recallUnknown ? undefined : D.recalls.length, checked: Date.now(), owners: D.own.length, ownLast: D.own.reduce((m, r) => Math.max(m, Number(r.baalut_dt) || 0), 0), active: !D.isCancelled, events: [], stlCar: stlCar(D), ...candFields(D)});
+const newSavedItem = D => ({plate: D.plate, title: D.title, sub: D.sub, at: Date.now(), tokef: toDate(D.v.tokef_dt) ? D.v.tokef_dt : "", mivchan: toDate(D.v.mivchan_acharon_dt) ? D.v.mivchan_acharon_dt : "", recalls: D.recallUnknown ? undefined : D.recalls.length, checked: Date.now(), owners: D.own.length, ownLast: D.own.reduce((m, r) => Math.max(m, Number(r.baalut_dt) || 0), 0), active: !D.isCancelled, events: [], stlCar: stlCar(D), ...candFields(D)});
 function askVerdict(ask, fair){
   if (!ask || !fair) return null;
   const [lo, hi] = fair, r = x => fmtN(Math.round(x / 100) * 100) + " ₪";
@@ -5246,19 +5279,18 @@ const parsePlates = t => {
 function bulkRow(D){
   if (D.notFound) return {plate: D.plate, title: "לא נמצא במאגר", lvl: 1, nf: "לא נמצא", status: "לא נמצא", test: "", days: "", recalls: "", owners: "", km: "", year: ""};
   if (D.offline) return {plate: D.plate, title: "שגיאת חיבור", lvl: 1, nf: "לא נבדק", status: "לא נבדק", test: "", days: "", recalls: "", owners: "", km: "", year: ""};
-  const exp = toDate(D.v.tokef_dt), days = exp ? Math.round((exp - new Date()) / 864e5) : null;
-  const bad = D.isCancelled || (days !== null && days < 0) || D.recalls.length > 0;
-  const warn = D.recallUnknown || (days !== null && days >= 0 && days <= 45);
+  const L = licOf(D), cell = licCell(L);
+  const bad = D.isCancelled || cell[0] === "r" || D.recalls.length > 0;
+  const warn = D.recallUnknown || cell[0] === "w";
   return {recallUnknown: !!D.recallUnknown, plate: D.plate, title: D.title, year: D.v.shnat_yitzur || "", lvl: bad ? 2 : warn ? 1 : 0, status: D.isCancelled ? "בוטל" : D.primary ? D.primary.status : "",
-    test: exp ? fmtDate(D.v.tokef_dt) : "", days: days === null ? "" : days, recalls: D.recalls.length, first: firstOwner(D.v) || "", owners: D.own.length, km: D.km || ""};
+    test: L ? L.date : "", days: L ? L.days : "", cell, recalls: D.recalls.length, first: firstOwner(D.v) || "", owners: D.own.length, km: D.km || ""};
 }
 function bulkTable(running, total){
   const rows = BULK.slice().sort((a, b) => b.lvl - a.lvl || a.plate.localeCompare(b.plate));
   const n = l => BULK.filter(r => !r.nf && r.lvl === l).length, nfc = BULK.filter(r => r.nf).length;
-  const cls = ["g", "w", "r"], tx = r => r.days === "" ? "—" : r.days < 0 ? "עבר" : r.test;
   return `${running ? `<p class="note" role="status">נבדקו ${BULK.length} מתוך ${total}…</p>` : ""}
     <div class="sum3"><div><b class="g">${n(0)}</b>תקין</div><div><b class="w">${n(1)}</b>לתשומת לב</div><div><b class="r">${n(2)}</b>בעיה</div>${nfc ? `<div><b>${nfc}</b>לא נבדקו</div>` : ""}</div>
-    <table class="ft"><tr><th>לוחית</th><th>טסט</th><th>ריקולים</th><th>בעלויות</th></tr>${rows.map(r => `<tr><td><button type="button" class="lnk" data-open="${r.plate}"><b>${fmtPlate(r.plate)}</b><small style="color:var(--muted)">${esc(r.title)}${r.year ? " " + esc(r.year) : ""}</small>${r.nf ? "" : `<small style="color:var(--muted)">${[r.km ? `<bdi>${fmtN(r.km)} ק״מ</bdi>` : "", r.first ? "מקוריות: " + esc(r.first) : ""].filter(Boolean).join(" · ")}</small>`}</button></td><td class="${r.nf ? "" : cls[r.days === "" ? 0 : r.days < 0 ? 2 : r.days <= 45 ? 1 : 0]}">${r.nf || tx(r)}</td><td>${r.recalls ? `<b class="r">${r.recalls}</b>` : "—"}</td><td>${r.owners === "" ? "—" : r.owners}</td></tr>`).join("")}</table>
+    <table class="ft"><tr><th>לוחית</th><th>טסט</th><th>ריקולים</th><th>בעלויות</th></tr>${rows.map(r => `<tr><td><button type="button" class="lnk" data-open="${r.plate}"><b>${fmtPlate(r.plate)}</b><small style="color:var(--muted)">${esc(r.title)}${r.year ? " " + esc(r.year) : ""}</small>${r.nf ? "" : `<small style="color:var(--muted)">${[r.km ? `<bdi>${fmtN(r.km)} ק״מ</bdi>` : "", r.first ? "מקוריות: " + esc(r.first) : ""].filter(Boolean).join(" · ")}</small>`}</button></td><td class="${r.nf ? "" : r.cell[0] || "g"}">${r.nf || r.cell[1]}</td><td>${r.recalls ? `<b class="r">${r.recalls}</b>` : "—"}</td><td>${r.owners === "" ? "—" : r.owners}</td></tr>`).join("")}</table>
     ${running ? "" : `<p class="note">מסודר לפי מה שדורש טיפול קודם.</p><div class="bulk-acts"><button type="button" class="link-btn" data-act="bulkSave">${ico("star")}שמירת כל הרכבים לרכבים שלי</button><button type="button" class="link-btn" data-act="bulkCsv">${ico("doc")}ייצוא לאקסל (CSV)</button><button type="button" class="link-btn" data-act="bulkPdf">${ico("share")}${bizProfile().name ? "דוח PDF עם המיתוג שלי" : "דוח PDF"}</button><button type="button" class="link-btn" data-act="bulkClear">${ico("x")}ניקוי הרשימה ובדיקה חדשה</button></div>`}`;
 }
 function renderBulk(){
