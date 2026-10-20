@@ -2217,7 +2217,9 @@ function kmAtTest(v){
   const km = isNum(v.kilometer_test_aharon) && num(v.kilometer_test_aharon) > 0 ? num(v.kilometer_test_aharon) : null, t = toDate(v.mivchan_acharon_dt);
   const used = usedImport(v), road = parseYM(v.moed_aliya_lakvish), born = isNum(v.shnat_yitzur) ? new Date(num(v.shnat_yitzur), 6, 1) : null;
   const near = d => !!d && Math.abs(t - d) < 60 * 864e5, none = {km: null, kmYears: null, kmPerYear: null};
-  if (!km || !t || !used && (near(toDate(v.rishum_rishon_dt)) || near(road))) return none;
+  if (!km) return none;
+  if (!t) return km >= 1000 ? {...none, km} : none;   // no test date (a zero date, or a register without dates): a reading this high is no delivery reading
+  if (!used && (near(toDate(v.rishum_rishon_dt)) || near(road))) return none;
   const start = used ? born : road || born, years = start && t > start ? monthsBetween(start, t) / 12 : 0;
   return years >= 0.5 ? {km, kmYears: years, kmPerYear: Math.round(km / years / 100) * 100} : {...none, km};
 }
