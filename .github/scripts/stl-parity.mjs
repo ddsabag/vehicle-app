@@ -1,7 +1,8 @@
 // The phone's daily check matches settlements in Java (android/.../SettlementMatch.java) on the page's summary of a car (stlCar in
 // index.html), while the car's page matches them in JavaScript (stlCompile + settlementsFor). This builds cars from the model catalogue
-// (every model, every year around its range, with varied colour, fuel, trim and engine size, plus cars with missing fields), runs both
-// matches on each and fails on any difference, so a new pattern in settlements.json that Java reads differently is caught before it ships.
+// (every model, every year around its range, with varied colour, fuel, trim, engine size and factory, plus cars with missing fields, personal
+// imports and cars off the road), runs both matches on each and fails on any difference, so a new pattern in settlements.json that Java
+// reads differently is caught before it ships.
 //   node .github/scripts/stl-parity.mjs [settlements.json]
 // Needs javac/java and the org.json jar (JSON_JAR; else it is downloaded from Maven Central into the temp folder).
 import fs from "node:fs";
@@ -22,11 +23,9 @@ const stlCar = new Function("normS", "num", "makerOnly", grab(/(function stlCar\
 const file = process.argv[2] || path.join(ROOT, "settlements.json");
 const items = JSON.parse(fs.readFileSync(file, "utf8")).items;
 const list = items.map(stlCompile).filter(Boolean);
-// settlementsFor in index.html, on a car without the page around it
-const pageMatch = D => {
-  const v = D.v, y = num(v.shnat_yitzur), now = new Date(), x = {mk: normS(makerOnly(D)), md: normS([v.kinuy_mishari, v.degem_nm].join(" "))};
-  return list.filter(s => !(new Date(s.until + "T23:59:59") < now) && s.mk.test(x.mk) && (!s.md || s.md.test(x.md)) && (!s.y || y >= s.y[0] && y <= s.y[1]) && (!s.ok || s.ok(v, y, x))).map(s => s.id);
-};
+// settlementsFor in index.html itself, on a car without the page around it (the compiled file stands for the page's SETTLEMENTS)
+const settlementsFor = new Function("SETTLEMENTS", "normS", "num", "makerOnly", grab(/(function settlementsFor\(D\)\{[\s\S]*?\n\})\n/, "settlementsFor") + "\nreturn settlementsFor;")(list, normS, num, makerOnly);
+const pageMatch = D => settlementsFor(D).map(s => s.id);
 
 // cars: each catalogue model in each year from a year before its range to a year after, two variants per year (a fixed pseudo-random pick)
 let seed = 7;
@@ -38,13 +37,15 @@ const CCS = [undefined, "", 0, 998, "1,598", 1995, 2400, 2999, 3500];
 const cars = [];
 for (const [maker, model, from, to] of JSON.parse(fs.readFileSync(path.join(ROOT, "models.json"), "utf8")).rows) {
   for (let y = Math.max(1990, from - 1); y <= Math.min(2027, to + 1); y++) for (let k = 0; k < 2; k++) {
-    cars.push({make: maker, v: {kinuy_mishari: model, degem_nm: rnd(["", model.split(" ")[0], undefined]), shnat_yitzur: rnd([y, String(y)]), tzeva_rechev: rnd(COLORS), sug_delek_nm: rnd(FUELS), ramat_gimur: rnd(TRIMS), nefach_manoa: rnd(CCS)}});
+    cars.push({make: maker, v: {kinuy_mishari: model, degem_nm: rnd(["", model.split(" ")[0], undefined]), shnat_yitzur: rnd([y, String(y)]), tzeva_rechev: rnd(COLORS), sug_delek_nm: rnd(FUELS), ramat_gimur: rnd(TRIMS), nefach_manoa: rnd(CCS), tozeret_nm: rnd([maker, maker + " סלובקיה", undefined])}});
   }
 }
 // each entry's own names (pickups and other models the private-car catalogue lacks), every year 2005-2027 with every fuel
 const lits = p => String(p || "").replace(/\(\?<?[=!][^)]*\)/g, "").replace(/[\^$()?\\.]/g, "").split("|").filter(Boolean);
 for (const e of items) for (const mk of lits(e.mk).slice(0, 2)) for (const md of [...new Set([...lits(e.md), ...(e.m || []).flatMap(a => lits(a.md))])].slice(0, 8).concat([""])) {
-  for (let y = 2005; y <= 2027; y++) for (const f of FUELS) cars.push({make: mk, v: {kinuy_mishari: md, shnat_yitzur: y, tzeva_rechev: rnd(COLORS), sug_delek_nm: f, ramat_gimur: rnd(TRIMS), nefach_manoa: rnd(CCS)}});
+  for (let y = 2005; y <= 2027; y++) for (const f of FUELS) cars.push({make: mk, v: {kinuy_mishari: md, shnat_yitzur: y, tzeva_rechev: rnd(COLORS), sug_delek_nm: f, ramat_gimur: rnd(TRIMS), nefach_manoa: rnd(CCS), tozeret_nm: rnd([mk + " סלובקיה", mk + " ד. קוריאה", "", undefined])}});
+  // the same car as a personal import and off the road: neither side may match it (the phone has no summary of it)
+  cars.push({make: mk, importKind: "יבוא אישי · משומש", v: {kinuy_mishari: md, shnat_yitzur: (e.y || [2018])[0]}}, {make: mk, isCancelled: true, v: {kinuy_mishari: md, shnat_yitzur: (e.y || [2018])[0]}});
 }
 // missing fields: no year, no names, nothing but the maker
 for (const [maker, model] of JSON.parse(fs.readFileSync(path.join(ROOT, "models.json"), "utf8")).rows.filter((r, i) => i % 50 === 0)) {
@@ -82,7 +83,7 @@ public class StlParity {
       List<String> want = new ArrayList<>();
       JSONArray w = c.getJSONArray("expect");
       for (int k = 0; k < w.length(); k++) want.add(w.getString(k));
-      if (c.isNull("car")) want.clear();   // no summary, nothing to match (the worker skips the car)
+      // no summary (a personal import, a car off the road): the worker skips the car, so the page must not match it either
       if (!got.equals(want) && bad++ < 15) System.out.println("DIFF " + c.opt("car") + " page=" + want + " java=" + got);
     }
     System.out.println("java: " + cases.length() + " cars, " + bad + " differences");

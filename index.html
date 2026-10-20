@@ -1463,17 +1463,20 @@ const IMPORTER_RECALL = [
    An entry is data. mk / md: patterns on the normalised maker / model names (the register's spelling too: מזדה, וולבו, גי.איי.סי);
    y: production years; m: model alternatives, one must fit ({md, not, y}); not: model names it never takes; color / fuel / nofuel: patterns on
    the car's colour and fuel; txt: on fuel + trim + names (any case); cc: engine size range, ccAny lets a missing size pass; age: at most N years
-   old. stlCompile turns it into the {mk, md, y, ok} form the matching uses; an entry with a broken pattern is left out, never the whole list.
+   old; made: on the maker's name as the register writes it, with the country (קיה סלובקיה), a car without that name passes.
+   stlCompile turns it into the {mk, md, y, ok} form the matching uses; an entry with a broken pattern is left out, never the whole list.
+   A deal binds the official importer, so a personal import and a car off the road are never matched (settlementsFor).
    Second-hand and not legal advice: the cards always say "ייתכן". */
 /* stl-compile */
 function stlCompile(e){
   try {
     const rx = (s, f) => s ? new RegExp(s, f) : null, inY = (r, y) => !r || y >= r[0] && y <= r[1];
     if (!e || !e.id || !e.mk || !e.t || !/^\d{4}-\d\d-\d\d$/.test(e.until || "")) return null;
-    const mk = rx(e.mk), md = rx(e.md), not = rx(e.not), color = rx(e.color), fuel = rx(e.fuel), nofuel = rx(e.nofuel), txt = rx(e.txt, "i");
+    const mk = rx(e.mk), md = rx(e.md), not = rx(e.not), color = rx(e.color), fuel = rx(e.fuel), nofuel = rx(e.nofuel), txt = rx(e.txt, "i"), made = rx(e.made);
     const m = (e.m || []).map(a => ({md: rx(a.md), not: rx(a.not), y: a.y}));
     const ok = (v, y, x) => (!not || !not.test(x.md)) && (!m.length || m.some(a => (!a.md || a.md.test(x.md)) && (!a.not || !a.not.test(x.md)) && inY(a.y, y)))
       && (!color || color.test(v.tzeva_rechev || "")) && (!fuel || fuel.test(v.sug_delek_nm || "")) && (!nofuel || !nofuel.test(v.sug_delek_nm || ""))
+      && (!made || !v.tozeret_nm || made.test(v.tozeret_nm))
       && (!txt || txt.test([v.sug_delek_nm, v.ramat_gimur, v.kinuy_mishari, v.degem_nm].join(" ")))
       && (!e.cc || (c => c ? c >= e.cc[0] && c <= e.cc[1] : !!e.ccAny)(num(v.nefach_manoa)))
       && (!e.age || y >= new Date().getFullYear() - e.age);
@@ -1486,7 +1489,7 @@ function stlUse(j){
   const list = j && Array.isArray(j.items) ? j.items.map(stlCompile).filter(Boolean) : [];
   if (!list.length) return false;
   // the signature changes whenever what an entry matches changes, so saved cars are checked again (only ids they did not match before alert)
-  const sig = JSON.stringify(j.items.map(e => [e.id, e.mk, e.md, e.y, e.m, e.not, e.color, e.fuel, e.nofuel, e.txt, e.cc, e.ccAny, e.age]));
+  const sig = JSON.stringify(j.items.map(e => [e.id, e.mk, e.md, e.y, e.m, e.not, e.color, e.fuel, e.nofuel, e.txt, e.cc, e.ccAny, e.age, e.made]));
   let h = 5381; for (let i = 0; i < sig.length; i++) h = (h * 33 ^ sig.charCodeAt(i)) >>> 0;
   SETTLEMENTS = list; STL_SIG = "j" + h.toString(36); STL_DATE = [j.checked, j.updated].find(d => /^\d{4}-\d\d/.test(d || "")) || "";
   return true;
@@ -1500,17 +1503,19 @@ function loadSettlements(){
 }
 const normS = t => String(t || "").toUpperCase().replace(/[^A-Z0-9א-ת]/g, "");
 function settlementsFor(D){
+  if (!D || !D.v || D.kind === "model" || D.isCancelled || D.importKind) return [];
   const v = D.v, y = num(v.shnat_yitzur), now = new Date(), x = {mk: normS(makerOnly(D)), md: normS([v.kinuy_mishari, v.degem_nm].join(" "))};
   return SETTLEMENTS.filter(s => !(new Date(s.until + "T23:59:59") < now) && s.mk.test(x.mk) && (!s.md || s.md.test(x.md)) && (!s.y || y >= s.y[0] && y <= s.y[1]) && (!s.ok || s.ok(v, y, x)));
 }
 /* the car as settlementsFor and stlCompile read it, kept on the saved car for the phone's daily check (SettlementMatch.java matches
-   settlements.json without the page; .github/scripts/stl-parity.mjs checks that both agree). null for a car off the road. */
+   settlements.json without the page; .github/scripts/stl-parity.mjs checks that both agree). null for a car settlementsFor never matches
+   (off the road, a personal import): the phone then skips it. */
 function stlCar(D){
   try {
-    if (!D || !D.v || D.kind === "model" || D.isCancelled) return null;
+    if (!D || !D.v || D.kind === "model" || D.isCancelled || D.importKind) return null;
     const v = D.v;
     return {mk: normS(makerOnly(D)), md: normS([v.kinuy_mishari, v.degem_nm].join(" ")), y: num(v.shnat_yitzur), color: v.tzeva_rechev || "", fuel: v.sug_delek_nm || "",
-      txt: [v.sug_delek_nm, v.ramat_gimur, v.kinuy_mishari, v.degem_nm].join(" "), cc: num(v.nefach_manoa)};
+      txt: [v.sug_delek_nm, v.ramat_gimur, v.kinuy_mishari, v.degem_nm].join(" "), cc: num(v.nefach_manoa), made: v.tozeret_nm || ""};
   } catch { return null; }
 }
 const stlSeen = new Set();
@@ -2318,8 +2323,9 @@ async function lookup(raw){
   track(again ? "lookup_repeat" : "car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: D.errs && D.errs.length ? 1 : 0, ...lookupFacts(D)});
   remember(plate);
   window.scrollTo({top: 0});
-  // a first visit on a slow line can render before the settlements list arrives: show a match once it does
-  if (!SETTLEMENTS.length) loadSettlements().then(l => { if (l && current === D && D.kind !== "model" && settlementsFor(D).length) { const y = window.scrollY; renderResult(); window.scrollTo({top: y}); } });
+  // a first visit on a slow line can render before the settlements list arrives: once it does, show its answer (a match, or "not found"
+  // in place of "not loaded") for every car the list is checked for (settlementsFor)
+  if (!SETTLEMENTS.length) loadSettlements().then(l => { if (l && current === D && !inCompare && D.kind !== "model" && !D.isCancelled && !D.importKind) { const y = window.scrollY; renderResult(); window.scrollTo({top: y}); } });
 }
 // What the recall fixes, from the MoT fields: the affected system and the repair method
 // generic words say nothing about what is repaired, so they are left out
@@ -2979,10 +2985,12 @@ function tabRecalls(D){
     }
     else if (known.length && !plateView) row(false, `${pl(known.length, "ריקול לדגם עשוי לחול", "ריקולים לדגם עשויים לחול")} על שנת הייצור`);
   }
-  if (car && !stl.length) row(SETTLEMENTS.length, SETTLEMENTS.length ? "לא נמצא הסדר פשרה מוכר לדגם ולשנתון" : "רשימת הסדרי הפשרה לא נטענה כרגע");
+  // a personal import is not checked against the deals (settlementsFor): one calm line says why, in place of "not found"
+  if (car && D.importKind) row("info", "הרכב יובא ביבוא אישי, ולכן לא נבדק מול הסדרי הפשרה. ההסדרים חלים על רכבים שיובאו דרך היבואן הרשמי.");
+  else if (car && !stl.length) row(SETTLEMENTS.length, SETTLEMENTS.length ? "לא נמצא הסדר פשרה מוכר לדגם ולשנתון" : "רשימת הסדרי הפשרה לא נטענה כרגע");
   const above = D.recalls.length || stl.length || check;
   const src = [plateView && (hz.max > hz.id ? `ריקולים פתוחים: לפי רשימת משרד התחבורה, שכוללת כרגע ריקולים שנפתחו עד ${esc(fmtDate(hz.d))}.` : "ריקולים פתוחים: לפי רשימת משרד התחבורה."),
-    car && !stl.length && stlActive() && `הסדרי פשרה: נבדקו מול ${stlActive()} הסדרים פעילים, לפי הודעות היבואנים והעיתונות (עודכן ב-${stlAsOf()}). הרשימה אינה מקיפה.`].filter(Boolean);
+    car && !D.importKind && !stl.length && stlActive() && `הסדרי פשרה: נבדקו מול ${stlActive()} הסדרים פעילים, לפי הודעות היבואנים והעיתונות (עודכן ב-${stlAsOf()}). הרשימה אינה מקיפה.`].filter(Boolean);
   if (rows.length || src.length) html.push(card(above ? "בדקנו גם" : `מה נבדק (${rows.length === 1 ? "בדיקה אחת" : rows.length + " בדיקות"})`, "check", rows.some(r => r.includes("ins warn")) ? "amber" : "green",
     `${rows.length ? `<ul class="insights plain">${rows.join("")}</ul>` : ""}${src.length ? `<p class="note">${src.join("<br>")}</p>` : ""}${D.recalls.length || check ? "" : btn}`));
   const hist = mr.filter(r => !fresh.includes(r));   // a fresh recall is listed with what to check, above
@@ -3057,8 +3065,8 @@ function checksCard(D){
   if (D.own.length) row(true, "נבדקה היסטוריית הבעלות");
   const mods = ["shinui_mivne_ind", "gapam_ind", "shnui_zeva_ind", "shinui_zmig_ind"].filter(k => yes(v[k]));
   row(!mods.length, mods.length ? "נרשמו שינויים ברכב" : "לא נרשמו שינויי מבנה, גפ״מ או צבע");
-  const stl = settlementsFor(D).length;
-  row(!stl, stl ? "ייתכן שהרכב נכלל בהסדר פשרה מול היבואן" : "לא נמצא הסדר פשרה מוכר לדגם ולשנתון");
+  // settlements only for a car on the road from the official importer (settlementsFor), and unknown while the list is not in
+  if (D.kind !== "model" && !D.isCancelled && !D.importKind) { const stl = settlementsFor(D).length; row(!stl && !!SETTLEMENTS.length, !SETTLEMENTS.length ? "הסדרי פשרה: מידע לא זמין כרגע" : stl ? "ייתכן שהרכב נכלל בהסדר פשרה מול היבואן" : "לא נמצא הסדר פשרה מוכר לדגם ולשנתון"); }
   return card(`מה נבדק (${rows.length} בדיקות)`, "check", "green", `<ul class="insights plain">${rows.join("")}</ul>
     <p class="note" style="margin:0"><b>מה אי אפשר לדעת ממאגרי משרד התחבורה:</b> שעבודים, תאונות, אובדן גמור וירידת ערך מביטוח, וגניבה. את העבר הביטוחי (תביעות, אובדן גמור) אפשר לבדוק במרכז הסליקה של חברות הביטוח, בשלב הראשון ברשימה "לפני שקונים".</p>`);
 }
@@ -4639,8 +4647,8 @@ async function drawShareCard(D, opt = {}){
     if (D.own.length) add("info", ownersLabel(D));
     const mods = ["shinui_mivne_ind", "gapam_ind", "shnui_zeva_ind", "shinui_zmig_ind"].filter(k => yes(v[k]));
     add(mods.length ? "warn" : "ok", mods.length ? "נרשמו שינויים ברכב" : "לא נרשמו שינויי מבנה, צבע או גפ״מ");
-    const stl = D.kind === "model" ? [] : settlementsFor(D);
-    add(stl.length ? "warn" : "ok", stl.length ? `ייתכן שהרכב נכלל ב${pl(stl.length, "הסדר פשרה", "הסדרי פשרה")}` : "לא נמצא הסדר פשרה לדגם ולשנתון");
+    // as in the buy tab's checks: no line for a model or a personal import (never checked), unknown while the list is not in
+    if (D.kind !== "model" && !D.importKind) { const stl = settlementsFor(D).length; add(stl || !SETTLEMENTS.length ? "warn" : "ok", !SETTLEMENTS.length ? "מידע על הסדרי פשרה לא זמין כרגע" : stl ? `ייתכן שהרכב נכלל ב${pl(stl, "הסדר פשרה", "הסדרי פשרה")}` : "לא נמצא הסדר פשרה לדגם ולשנתון"); }
   }
   for (const i of buildInsights(D)) if ((i.level === "bad" || i.level === "warn") && !i.priv && rows.length < 9 && !rows.some(r => r[1] === i.title) && !/טסט|ריקול|הסדר/.test(i.title)) add(i.level, i.title);
   const tiles = [], cost = D.cost || {};

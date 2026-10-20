@@ -10,7 +10,8 @@ import java.util.regex.Pattern;
 /**
  * The page's settlement matching (stlCompile and settlementsFor in index.html), for the daily check that runs without the page.
  * The car is the page's own summary of it (stlCar in index.html: normalised maker and model, year, colour, fuel, trim text, engine
- * size), so both sides read the same values. An entry with a pattern that does not compile is left out, never the whole list.
+ * size, the maker's name with its country), so both sides read the same values. A car the page never matches (off the road, a personal
+ * import) has no summary. An entry with a pattern that does not compile is left out, never the whole list.
  * Keep in step with index.html: .github/scripts/stl-parity.mjs runs both on every entry whenever the list or this file changes.
  */
 final class SettlementMatch {
@@ -18,7 +19,7 @@ final class SettlementMatch {
 
     static final class Entry {
         final String id, title, until;
-        final Pattern mk, md, not, color, fuel, nofuel, txt;
+        final Pattern mk, md, not, color, fuel, nofuel, txt, made;
         final double[] y, cc;
         final boolean ccAny;
         final double age;
@@ -35,6 +36,7 @@ final class SettlementMatch {
             fuel = rx(str(e, "fuel"), 0);
             nofuel = rx(str(e, "nofuel"), 0);
             txt = rx(str(e, "txt"), Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+            made = rx(str(e, "made"), 0);
             y = range(e, "y");
             cc = range(e, "cc");
             ccAny = e.optBoolean("ccAny", false);
@@ -76,7 +78,7 @@ final class SettlementMatch {
     static List<Entry> match(List<Entry> list, JSONObject car, String today, int year) {
         List<Entry> out = new ArrayList<>();
         if (car == null) return out;
-        String mk = str(car, "mk"), md = str(car, "md"), color = str(car, "color"), fuel = str(car, "fuel"), txt = str(car, "txt");
+        String mk = str(car, "mk"), md = str(car, "md"), color = str(car, "color"), fuel = str(car, "fuel"), txt = str(car, "txt"), made = str(car, "made");
         double y = num(car, "y"), cc = num(car, "cc");
         for (Entry s : list) {
             if (s.until.compareTo(today) < 0) continue;
@@ -97,6 +99,7 @@ final class SettlementMatch {
             if (s.color != null && !s.color.matcher(color).find()) continue;
             if (s.fuel != null && !s.fuel.matcher(fuel).find()) continue;
             if (s.nofuel != null && s.nofuel.matcher(fuel).find()) continue;
+            if (s.made != null && !made.isEmpty() && !s.made.matcher(made).find()) continue;   // a car saved without the maker's name passes
             if (s.txt != null && !s.txt.matcher(txt).find()) continue;
             if (s.cc != null && !(cc != 0 && !Double.isNaN(cc) ? cc >= s.cc[0] && cc <= s.cc[1] : s.ccAny)) continue;   // no engine size passes only with ccAny
             if (s.age != 0 && !(y >= year - s.age)) continue;
