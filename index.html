@@ -1136,16 +1136,16 @@ const firstPos = (...vals) => vals.find(posN);
    newest ones (blind spot, braking in reverse, drowsiness...), so an older car scores low however well equipped it was in its day.
    The active register carries each car's level as it stands today, and an empty one on a car built from 2014 is 0: none of the listed
    systems, or fewer airbags than the minimum (checked 20.10.2026 against all 4.19M active cars and the WLTP rows). Other registers
-   write 0 for "not rated", so there the model row fills in. */
+   write 0 for "not rated", so there the model row fills in; a model (no car) reads its WLTP row like the register. */
 const SAFETY_FROM = 2014;
 function safetyLevel(D){
   const own = D.v.ramat_eivzur_betihuty, built = num(D.v.shnat_yitzur) >= SAFETY_FROM;
   if (D.primary && D.primary.key === "active") return posN(own) ? num(own) : built ? 0 : null;
   const p = firstPos(own, D.w.ramat_eivzur_betihuty);
-  return p !== undefined ? num(p) : D.kind === "model" && built && "ramat_eivzur_betihuty" in D.v ? 0 : null;
+  return p !== undefined ? num(p) : D.kind === "model" && built && ("ramat_eivzur_betihuty" in D.w || "ramat_eivzur_betihuty" in D.v) ? 0 : null;
 }
 const safetyNote = lvl => "משרד התחבורה מחשב מחדש את הרמה של כל הרכבים לפי רשימת מערכות שמתעדכנת כל שנה, ונותן ניקוד רק למערכות החדשות ביותר, כמו התרעת עייפות ובלימה אוטומטית ברוורס. לכן רכב בן כמה שנים מקבל רמה נמוכה גם אם היה מאובזר היטב בזמנו. זה לא ציון של מבחן ריסוק."
-  + (lvl === 0 ? " רמה 0 פירושה שאין ברכב אף אחת מהמערכות שברשימה, או שיש בו פחות כריות אוויר מהנדרש." : "");
+  + (lvl === 0 ? " רמה 0 פירושה שלפי הדיווח של היבואן אין ברכב אף אחת מהמערכות שברשימה, או שיש בו פחות כריות אוויר מהנדרש." : "");
 const unit = (v, u) => empty(v) ? "" : `${esc(fmtN(v))} ${u}`;
 const mono = v => empty(v) ? "" : `<span class="mono">${esc(v)}</span>`;
 const changed = v => empty(v) ? "" : yes(v) ? `<span class="flag">כן</span>` : "לא";
