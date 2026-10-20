@@ -2099,7 +2099,8 @@ const lendsReason = (p, s, a, b) => /^cancel/.test(p.key) && s.key === "public" 
 async function fetchVehicle(plate, signal, onProgress){
   const res = {}; let done = 0;
   const zombieP = zombieLookup(plate, signal).catch(e => { if (e.name === "AbortError") throw e; return null; });
-  // the rare vehicle types (motorcycle, heavy, cancelled, ...) are asked only when the ordinary active register has no such plate: a normal car then costs 7 requests instead of 16
+  // the rare vehicle types (motorcycle, heavy, cancelled, ...) are asked only when the ordinary active register has no such plate: a normal car then costs 8 requests
+  // instead of 16. The personal-import register is always asked: only it says that a car in the active register is a personal import (877 cars in 10/2026)
   const one = async s => {
     try { res[s.key] = {rows: await byPlate(s, plate, signal)}; }
     catch (err) { if (err.name === "AbortError") throw err; res[s.key] = {rows: [], err: err.message}; }
@@ -2108,7 +2109,7 @@ async function fetchVehicle(plate, signal, onProgress){
     const r0 = s.role === "main" && res[s.key].rows[0];
     if (r0 && !empty(r0.tozeret_cd) && !empty(r0.degem_cd) && !one.warm) { one.warm = true; fetchModelData(r0, signal).catch(() => {}); }
   };
-  const isRare = s => s.role === "main" && s.key !== "active";
+  const isRare = s => s.role === "main" && s.key !== "active" && s.key !== "import";
   const activeP = one(PLATE_SETS.find(s => s.key === "active"));
   const rest = PLATE_SETS.filter(s => s.key !== "active" && !isRare(s)).map(one);
   const rare = (async () => {
@@ -2120,7 +2121,8 @@ async function fetchVehicle(plate, signal, onProgress){
   await Promise.all([activeP, ...rest, rare]);
   if (!res.owners.rows.length) { const m = await ownMirror(plate, signal); if (m.length) { res.owners = {rows: m}; res.ownMirror = true; } }
   res.zombie = await zombieP;
-  const errs = PLATE_SETS.filter(s => res[s.key].err);
+  // beside the active register's row the import register adds only the import kind: if it fails the car is partial, not a half-empty main record
+  const errs = PLATE_SETS.filter(s => res[s.key].err).map(s => s.key === "import" && res.active.rows.length ? {...s, role: "extra"} : s);
   const mains = PLATE_SETS.filter(s => s.role === "main" && res[s.key].rows.length);
   const extras = PLATE_SETS.filter(s => s.role === "extra" && res[s.key].rows.length);
   if (errs.length === PLATE_SETS.filter(s => !res[s.key].skip).length) return {plate, offline: true};   // every register asked failed: no connection
