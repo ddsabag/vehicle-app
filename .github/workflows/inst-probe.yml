@@ -1,0 +1,29 @@
+name: Installs probe (one-off, probe-perf branch)
+# Read-only, 20.10: why /live's "installed now" fell within an hour (GA4, Google Play's installs report, Cloudflare's record of the Worker's
+# requests). The output is encrypted with .github/seo-data.pub.pem, so no business number is in the log or the branch in clear. Runs on a
+# push to the probe-perf branch only; output on the probe-inst-out branch.
+on:
+  push:
+    branches: [probe-perf]
+    paths: [".github/scripts/inst-probe.mjs", ".github/workflows/inst-probe.yml"]
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: node .github/scripts/inst-probe.mjs
+        env:
+          GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      - name: Publish on probe-inst-out (encrypted only)
+        run: |
+          cd out && git init -q && git checkout -q -b probe-inst-out && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Installs probe (encrypted)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" probe-inst-out
