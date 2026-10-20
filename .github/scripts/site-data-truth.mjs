@@ -8,7 +8,7 @@
 // One Telegram line through the alert router when a field that has to match did not (key truth:<groups>), or when too few cars could
 // be read to call it a check (truth:fail). Fields that depend on the ministry answering at that moment (the partial-data message) and
 // the monthly model counts go to the files only.
-//   node site-data-truth.mjs               QUERIES optional, e.g. "n=30;rare=10;minutes=45" (seed= replaces the date)
+//   node site-data-truth.mjs               QUERIES optional, e.g. "n=30;rare=10;minutes=55" (seed= replaces the date)
 //   node site-data-truth.mjs --selftest    offline: parsing, privacy scrub, wording, history
 import fs from "node:fs";
 import os from "node:os";
@@ -105,7 +105,7 @@ function runAudit(queries, file) {
 async function main() {
   const OPTS = Object.fromEntries(String(IO.env.QUERIES || "").split(/[;,]\s*(?=[a-z]+=)/).map(s => s.split("=")).filter(a => a[0]).map(([k, ...v]) => [k.trim(), v.join("=").trim()]));
   const day = ilDay(new Date()), seed = OPTS.seed || day.replace(/-/g, "");
-  const n = Number(OPTS.n || 30), rare = Number(OPTS.rare || 10), minutes = Number(OPTS.minutes || 45);
+  const n = Number(OPTS.n || 30), rare = Number(OPTS.rare || 10), minutes = Number(OPTS.minutes || 55);   // a car of another register takes about 2 min, an active one 1: 40 cars fit
   const queries = `seed=${seed};n=${n};rare=${rare};minutes=${minutes};makers=0`;
   const tmp = fs.mkdtempSync(path.join(IO.env.RUNNER_TEMP || os.tmpdir(), "truth-")), file = path.join(tmp, "audit.txt");
   IO.out(`data truth ${day}: auditing ${n} active cars + ${rare} from the other registers (seed ${seed}, up to ${minutes} min); the audit's own output stays in the runner's temp folder`);

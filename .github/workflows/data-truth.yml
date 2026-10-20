@@ -21,7 +21,7 @@ on:
         options: [audit, invariants]
         default: audit
       queries:
-        description: "audit only, e.g. n=30;rare=10;minutes=45 (seed= replaces the date)"
+        description: "audit only, e.g. n=30;rare=10;minutes=55 (seed= replaces the date)"
         default: ""
       dry_run:
         description: "Print the alert instead of sending it (the files are still published)"
