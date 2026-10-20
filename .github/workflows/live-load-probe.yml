@@ -1,5 +1,5 @@
 name: Live load probe (one-off, probe-live branch)
-# Read-only: live-28 before release (live-watch dry, the new Worker code with the real keys, the page in Chrome; digits masked). Runs on a
+# Read-only: replays Live watch over the last two days (the fixed judgement, wall time in microseconds). Runs on a
 # push to the probe-live branch only, output on the probe-live-out branch
 on:
   push:

@@ -1,32 +1,42 @@
 // Live watch: is the /live dashboard answering? live-watch.yml runs it every 30 minutes. It reads Cloudflare's own record of the luchit-live
 // Worker's requests over the last 35 minutes (GraphQL workersInvocationsAdaptive, 5-minute steps). Since live-28 the Worker answers /live/data
 // within 25 s, with the last good data when a source is late, so a step whose requests mostly took 20 s or more means the screen was being
-// served late or not at all; on 20.10 one hung call kept every load on "loading" for two hours. Two such steps, or 3 requests that ended in
-// a Worker error: one Telegram (alert router, live:stuck or live:error, at most once in 6 hours) and a redeploy of the Worker from main
-// (Workers deploy, mode on, workers live: fresh isolates; at most once in 6 hours, so a redeploy that did not help is said, not repeated).
+// served late; and a step where the page gave up on requests that had waited 20 s or more means it was not served at all (on 20.10 one hung
+// call kept every load on "loading" for two hours). Two such steps, or 3 requests that ended in a Worker error: one Telegram (alert router,
+// live:stuck or live:error, at most once in 6 hours) and a redeploy of the Worker from main (Workers deploy, mode on, workers live: fresh
+// isolates; at most once in 6 hours, so a redeploy that did not help is said, not repeated).
 // Quiet when all is well, and when nobody opened the screen (no requests, nothing to judge).
 // Reads Cloudflare with CF_API_TOKEN (analytics); writes only the dispatch and the router's state. Prints the Worker's request counts and
 // times, never a number from the dashboard. Never fails the run on a read problem (one notice line, green), so it cannot page every 30 minutes.
 //   node live-watch.mjs            the watch (DRY=1: print what it would do, send and dispatch nothing; LIVE_WATCH=dry: the same)
-//   node live-watch.mjs selftest   offline checks of the judgement
+//   node live-watch.mjs selftest   offline checks of the judgement, on the requests Cloudflare recorded on 20.10
 const E = process.env, say = (...a) => console.log(...a);
 const WINDOW_MIN = 35, SLOW_MS = 20000, SLOW_STEPS = 2, ERR_N = 3, GAP_MS = 6 * 36e5;
 const SCRIPT = "luchit-live", DEPLOY = "workers-deploy.yml";
 const OK_STATUS = ["success", "clientDisconnected"];
 
-// rows: [{ dimensions: { datetimeFiveMinutes, status }, sum: { requests }, quantiles: { wallTimeP50 } }] (wall time in ms)
-// A step is slow when the rows whose median request took SLOW_MS or more hold at least half of its requests.
+// rows: [{ dimensions: { datetimeFiveMinutes, status }, sum: { requests }, quantiles: { wallTimeP50, wallTimeP99 } }]. Cloudflare gives wall
+// time in MICROseconds (the schema: "Wall time 50th percentile - microseconds"), ms from here on. A 5-minute step is slow when
+//  - the rows whose median request took SLOW_MS or more hold at least half of its requests (since live-28: answers at the 25 s deadline), or
+//  - at least 2 requests were cut off by the client, no fewer than those answered, and the longest of them had waited SLOW_MS or more
+//    (before live-28: the page gave up on a hung call; at 14:50 on 20.10, 6 cut requests, median 9 s, the longest 219 s).
+// One tab closed while its data loads is one cut request in a step: not slow.
+const us = v => (Number(v) || 0) / 1000;
 export function judge(rows) {
   const steps = new Map(), errBy = {};
   let errors = 0;
   for (const r of rows || []) {
-    const t = r.dimensions.datetimeFiveMinutes, st = r.dimensions.status, n = Number(r.sum?.requests) || 0, p50 = Number(r.quantiles?.wallTimeP50) || 0;
-    const o = steps.get(t) || { n: 0, slow: 0 };
+    const t = r.dimensions.datetimeFiveMinutes, st = r.dimensions.status, n = Number(r.sum?.requests) || 0;
+    const p50 = us(r.quantiles?.wallTimeP50), p99 = us(r.quantiles?.wallTimeP99);
+    const o = steps.get(t) || { n: 0, slow: 0, ok: 0, cut: 0, cutMax: 0 };
     o.n += n; if (p50 >= SLOW_MS) o.slow += n;
+    if (st === "success") o.ok += n;
+    if (st === "clientDisconnected") { o.cut += n; o.cutMax = Math.max(o.cutMax, p99); }
     steps.set(t, o);
     if (!OK_STATUS.includes(st)) { errors += n; errBy[st] = (errBy[st] || 0) + n; }
   }
-  const all = [...steps.values()], slowSteps = all.filter(o => o.n && o.slow * 2 >= o.n).length;
+  const all = [...steps.values()];
+  const slowSteps = all.filter(o => o.n && (o.slow * 2 >= o.n || (o.cut >= 2 && o.cut >= o.ok && o.cutMax >= SLOW_MS))).length;
   return { requests: all.reduce((a, o) => a + o.n, 0), steps: all.length, slowSteps, errors, errBy, stuck: slowSteps >= SLOW_STEPS, failing: errors >= ERR_N };
 }
 
@@ -59,7 +69,7 @@ async function watch() {
     if (j.errors && j.errors.length) { say("notice: Cloudflare analytics answered with an error:", j.errors.map(e => e.message).join(" | ").slice(0, 200)); return 0; }
     rows = j.data.viewer.accounts[0]?.workersInvocationsAdaptive || [];
   } catch (e) { say("notice: Cloudflare analytics not read:", String(e.message || e).slice(0, 120)); return 0; }
-  for (const x of rows) say(` ${x.dimensions.datetimeFiveMinutes} ${x.dimensions.status} requests ${x.sum.requests} wall p50/p99 ms ${Math.round(x.quantiles.wallTimeP50)}/${Math.round(x.quantiles.wallTimeP99)}`);
+  for (const x of rows) say(` ${x.dimensions.datetimeFiveMinutes} ${x.dimensions.status} requests ${x.sum.requests} wall p50/p99 ms ${Math.round(us(x.quantiles.wallTimeP50))}/${Math.round(us(x.quantiles.wallTimeP99))}`);
   const v = judge(rows);
   say(`last ${WINDOW_MIN} min: ${v.requests} requests in ${v.steps} steps, slow steps ${v.slowSteps}, errors ${v.errors}`, v.errors ? JSON.stringify(v.errBy) : "");
   if (!v.stuck && !v.failing) { say("ok"); return 0; }
