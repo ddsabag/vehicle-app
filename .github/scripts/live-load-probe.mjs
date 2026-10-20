@@ -1,4 +1,4 @@
-// One-off (probe-live branch, not for main), 20.10 evening: Dudu reports that /live does not load. Read-only: (1) how the luchit-live
+// One-off (probe-live branch, not for main), 20.10 evening (rerun after the live-27 deploy): Dudu reports that /live does not load. Read-only: (1) how the luchit-live
 // Worker's requests ended over the last 24 hours (Cloudflare analytics, by status and hour), (2) which code it runs against main's file,
 // (3) what an outside request gets (Access in front), (4) main's /live code run with the real keys: outside calls, time, CPU, source
 // errors, (5) the page in Chrome with that data. Prints diagnostics only: no numbers from the dashboard, no tokens.
@@ -10,22 +10,24 @@ const acc = String(process.env.CF_ACCOUNT_ID || "").trim(), TOKS = { CF_API_TOKE
 say("at", new Date().toISOString(), "| account id set:", !!acc, "| tokens set:", Object.fromEntries(Object.entries(TOKS).map(([k, v]) => [k, !!v])));
 
 // 1. the Worker's requests by status and hour (GraphQL analytics)
-const until = new Date(), since = new Date(until - 24 * 3600e3);
+const until = new Date(), since = new Date(until - 3 * 3600e3);   // after the live-27 deploy: the last 3 hours in 5-minute steps
 const gql = async (tok, q) => { const r = await fetch("https://api.cloudflare.com/client/v4/graphql", { method: "POST", headers: { authorization: "Bearer " + tok, "content-type": "application/json" }, body: JSON.stringify({ query: q, variables: { acc, since: since.toISOString(), until: until.toISOString() } }) }); return r.json(); };
-const Q = fields => `query($acc: string!, $since: Time!, $until: Time!) { viewer { accounts(filter: {accountTag: $acc}) { workersInvocationsAdaptive(limit: 500, filter: {scriptName: "luchit-live", datetime_geq: $since, datetime_leq: $until}, orderBy: [datetimeHour_ASC]) { dimensions { datetimeHour status } ${fields} } } } }`;
+let STEP = "datetimeFiveMinutes";
+const Q = fields => `query($acc: string!, $since: Time!, $until: Time!) { viewer { accounts(filter: {accountTag: $acc}) { workersInvocationsAdaptive(limit: 500, filter: {scriptName: "luchit-live", datetime_geq: $since, datetime_leq: $until}, orderBy: [${STEP}_ASC]) { dimensions { ${STEP} status } ${fields} } } } }`;
 let inv = null;
 for (const [name, tok] of Object.entries(TOKS)) {
   if (!tok || inv) continue;
   for (const f of ["sum { requests errors subrequests } quantiles { cpuTimeP50 cpuTimeP99 wallTimeP50 wallTimeP99 }", "sum { requests errors subrequests } quantiles { cpuTimeP50 cpuTimeP99 }", "sum { requests errors subrequests }"]) {
-    const j = await gql(tok, Q(f));
+    let j = await gql(tok, Q(f));
+    if (j.errors && j.errors.length && STEP !== "datetimeHour") { say(`analytics in ${STEP}:`, j.errors.map(e => e.message).join(" | ").slice(0, 200)); STEP = "datetimeHour"; j = await gql(tok, Q(f)); }
     if (j.errors && j.errors.length) { say(`analytics with ${name} (${f.slice(0, 40)}...):`, j.errors.map(e => e.message).join(" | ").slice(0, 300)); continue; }
     inv = j.data.viewer.accounts[0]?.workersInvocationsAdaptive || []; say(`analytics read with ${name}`); break;
   }
 }
 if (inv) {
   const byStatus = {}; for (const r of inv) byStatus[r.dimensions.status] = (byStatus[r.dimensions.status] || 0) + r.sum.requests;
-  say("last 24 h, requests by status:", byStatus);
-  for (const r of inv) say(" ", r.dimensions.datetimeHour, r.dimensions.status, "requests", r.sum.requests, "errors", r.sum.errors, "subrequests", r.sum.subrequests, r.quantiles ? "cpu p50/p99 ms " + [r.quantiles.cpuTimeP50, r.quantiles.cpuTimeP99].map(x => x == null ? "-" : Math.round(x / 10) / 100).join("/") + (r.quantiles.wallTimeP50 != null ? " wall p50/p99 ms " + [r.quantiles.wallTimeP50, r.quantiles.wallTimeP99].map(x => Math.round(x / 1000)).join("/") : "") : "");
+  say("last 3 h, requests by status:", byStatus, "| step", STEP);
+  for (const r of inv) say(" ", r.dimensions[STEP], r.dimensions.status, "requests", r.sum.requests, "errors", r.sum.errors, "subrequests", r.sum.subrequests, r.quantiles ? "cpu p50/p99 ms " + [r.quantiles.cpuTimeP50, r.quantiles.cpuTimeP99].map(x => x == null ? "-" : Math.round(x / 10) / 100).join("/") + (r.quantiles.wallTimeP50 != null ? " wall p50/p99 ms " + [r.quantiles.wallTimeP50, r.quantiles.wallTimeP99].map(x => Math.round(x / 1000)).join("/") : "") : "");
 }
 
 // 2. the code the Worker runs, against main's file
