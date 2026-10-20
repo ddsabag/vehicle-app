@@ -2289,8 +2289,9 @@ function kmAtTest(v){
 async function fetchVehicle(plate, signal, onProgress){
   const res = {}; let done = 0, recEmpty = null;
   const zombieP = zombieLookup(plate, signal).catch(e => { if (e.name === "AbortError") throw e; return null; });
-  // the rare vehicle types (motorcycle, heavy, cancelled, ...) are asked only when the ordinary active register has no such plate: a normal car then costs 8 requests
-  // instead of 16. The personal-import register is always asked: only it says that a car in the active register is a personal import (877 cars in 10/2026)
+  // the rare vehicle types (motorcycle, heavy, cancelled, ...) are asked only when the ordinary active register has no such plate: a normal car then costs 9 requests
+  // instead of 16. The personal-import and public registers are always asked: only they say that a car in the active register is a personal import (877 cars
+  // in 10/2026), or has its licence deposited or was taken off the road by the police (about 2,550 taxis and other public vehicles, pubState)
   const one = async s => {
     try { res[s.key] = {rows: await byPlate(s, plate, signal)}; }
     catch (err) { if (err.name === "AbortError") throw err; res[s.key] = {rows: [], err: err.message}; }
@@ -2300,7 +2301,7 @@ async function fetchVehicle(plate, signal, onProgress){
     const r0 = s.role === "main" && res[s.key].rows[0];
     if (r0 && !empty(r0.tozeret_cd) && !empty(r0.degem_cd) && !one.warm) { one.warm = true; fetchModelData(r0, signal).catch(() => {}); }
   };
-  const isRare = s => s.role === "main" && s.key !== "active" && s.key !== "import";
+  const isRare = s => s.role === "main" && s.key !== "active" && s.key !== "import" && s.key !== "public";
   const activeP = one(PLATE_SETS.find(s => s.key === "active"));
   const rest = PLATE_SETS.filter(s => s.key !== "active" && !isRare(s)).map(one);
   const rare = (async () => {
@@ -2313,8 +2314,8 @@ async function fetchVehicle(plate, signal, onProgress){
   if (recEmpty && await recEmpty) res.recall = {rows: [], err: "the per-car list is empty", empty: true};
   if (!res.owners.rows.length) { const m = await ownMirror(plate, signal); if (m.length) { res.owners = {rows: m}; res.ownMirror = true; } }
   res.zombie = await zombieP;
-  // beside the active register's row the import register adds only the import kind: if it fails the car is partial, not a half-empty main record
-  const errs = PLATE_SETS.filter(s => res[s.key].err).map(s => s.key === "import" && res.active.rows.length ? {...s, role: "extra"} : s);
+  // beside the active register's row the import and public registers add only the import kind and a hold: if one fails the car is partial, not a half-empty main record
+  const errs = PLATE_SETS.filter(s => res[s.key].err).map(s => (s.key === "import" || s.key === "public") && res.active.rows.length ? {...s, role: "extra"} : s);
   let mains = PLATE_SETS.filter(s => s.role === "main" && res[s.key].rows.length);
   const extras = PLATE_SETS.filter(s => s.role === "extra" && res[s.key].rows.length);
   // a vehicle cancelled and later registered again as a personal import (2 plates in 10/2026: a cancel row, and an import row of the same
@@ -2368,8 +2369,10 @@ async function fetchVehicle(plate, signal, onProgress){
   const onRoad = parseYM(v.moed_aliya_lakvish) || (isNum(v.shnat_yitzur) ? new Date(num(v.shnat_yitzur), 0, 1) : null);
   const ownersFloor = !onRoad || onRoad < new Date(2017, 0, 1); // the ownership log starts in January 2017
   // the public register's own state, when its row is the car's or lends it its licence date: a permanent cancellation reads like the cancel
-  // registers, a temporary one (a deposit, the police) is a warning beside the car
-  const ps = mains[0] && (mains[0].key === "public" || lent.has("public")) ? pubState(res.public.rows[0]) : null, hold = ps && !ps.gone ? ps : null;
+  // registers, a temporary one (a deposit, the police) is a warning beside the car. Beside an active row of the same vehicle only a temporary
+  // one counts (10/2026: 2,488 deposits and 69 removals by the police or the safety patrol; the active register is what says the car is on the road)
+  const pub = res.public.rows[0], ps = !mains[0] || !pub ? null : mains[0].key === "public" || lent.has("public") ? pubState(pub)
+    : mains[0].key === "active" && sameCar(top, pub) ? (st => st && !st.gone ? st : null)(pubState(pub)) : null, hold = ps && !ps.gone ? ps : null;
   const off = mains[0] && (/^cancel/.test(mains[0].key) || !!(ps && ps.gone));
   const primary = ps ? {...mains[0], ...(ps.gone ? {status: "ירד מהכביש", tone: "bad"} : {status: ps.status, tone: "warn"})} : mains[0];
 
