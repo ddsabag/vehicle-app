@@ -2083,10 +2083,12 @@ const freshRecalls = D => D.kind === "model" || D.recallUnknown || D.isCancelled
 function listPrice(rows, v){
   const ranked = rankRows(rows, v), p = ranked.filter(r => posN(r.mehir)), y = num(v.shnat_yitzur);
   const trims = rows.some(r => !empty(r.ramat_gimur)), sameT = r => !trims || trimOk(r, v), sameY = r => num(r.shnat_yitzur) === y;   // a list without trims: the year decides
-  const r = p.find(x => sameY(x) && sameT(x)) || p.find(sameT) || p.find(sameY) || p[0];
+  // one price per maker, model code and year (10/2026: no code and year with two), and each version has its own model code: the car's
+  // year decides, the trim name only picks among rows of one year, and another year's row is the fallback
+  const r = p.find(x => sameY(x) && sameT(x)) || p.find(sameY) || p.find(sameT) || p[0];
   const imp = (r && !empty(r.shem_yevuan) ? r : ranked.find(x => !empty(x.shem_yevuan)) || {}).shem_yevuan;
   if (!r && empty(imp)) return null;
-  return {mehir: r ? r.mehir : "", shem_yevuan: imp, shnat_yitzur: r ? r.shnat_yitzur : "", ramat_gimur: r ? r.ramat_gimur : "", sug_degem: r ? r.sug_degem : "", own: !!r && sameY(r) && sameT(r) && (!sdOf(v) || !sdOf(r) || sdOf(r) === sdOf(v))};
+  return {mehir: r ? r.mehir : "", shem_yevuan: imp, shnat_yitzur: r ? r.shnat_yitzur : "", ramat_gimur: r ? r.ramat_gimur : "", sug_degem: r ? r.sug_degem : "", own: !!r && sameY(r) && (!sdOf(v) || !sdOf(r) || sdOf(r) === sdOf(v))};
 }
 const priceFrom = D => { const p = D.price; return p && p.own === false && posN(p.mehir) ? `<p class="note">מחיר המחירון לפי ${esc(rowAt(p))}${notOwnWhy(p, D.v, "מחיר במחירון")}.</p>` : ""; };
 /* the model stage of a lookup answered from the catalogue: null when it cannot be (then the live queries run) */
