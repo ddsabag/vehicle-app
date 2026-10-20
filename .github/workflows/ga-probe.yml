@@ -2,7 +2,7 @@ name: GA probe (one-off, probe-go branch)
 on:
   push:
     branches: [probe-go]
-    paths: [".github/scripts/owners-probe2.mjs", ".github/scripts/owners-probe.mjs", ".github/scripts/safety-registers.mjs", ".github/scripts/safety-shots.mjs", ".github/scripts/safety-browser.mjs", ".github/scripts/brake-probe.mjs", ".github/scripts/fields-probe.mjs", ".github/scripts/safety-probe2.mjs", ".github/scripts/safety-probe.mjs", ".github/scripts/live26-verify.mjs", ".github/scripts/live26-probe.mjs", ".github/scripts/live26.mjs", ".github/scripts/live25-verify.mjs", ".github/scripts/live25-probe.mjs", ".github/scripts/rt2-probe.mjs", ".github/scripts/rt-probe.mjs", ".github/scripts/ch-probe.mjs", ".github/scripts/ui-probe.mjs", ".github/scripts/live-ui.mjs", ".github/scripts/cf-off-probe.mjs", ".github/scripts/site-probe.mjs", ".github/scripts/deploy-probe.mjs", ".github/scripts/ga-burst-probe.mjs", ".github/scripts/cf-filter-probe.mjs", ".github/scripts/cf-dup-probe.mjs", ".github/scripts/live24-probe.mjs", ".github/scripts/live24.mjs", ".github/scripts/live-probe.mjs", ".github/scripts/audit-probe.mjs", ".github/scripts/cf-probe.mjs", ".github/workflows/ga-probe.yml"]
+    paths: [".github/scripts/owners-browser.mjs", ".github/scripts/owners-probe2.mjs", ".github/scripts/owners-probe.mjs", ".github/scripts/safety-registers.mjs", ".github/scripts/safety-shots.mjs", ".github/scripts/safety-browser.mjs", ".github/scripts/brake-probe.mjs", ".github/scripts/fields-probe.mjs", ".github/scripts/safety-probe2.mjs", ".github/scripts/safety-probe.mjs", ".github/scripts/live26-verify.mjs", ".github/scripts/live26-probe.mjs", ".github/scripts/live26.mjs", ".github/scripts/live25-verify.mjs", ".github/scripts/live25-probe.mjs", ".github/scripts/rt2-probe.mjs", ".github/scripts/rt-probe.mjs", ".github/scripts/ch-probe.mjs", ".github/scripts/ui-probe.mjs", ".github/scripts/live-ui.mjs", ".github/scripts/cf-off-probe.mjs", ".github/scripts/site-probe.mjs", ".github/scripts/deploy-probe.mjs", ".github/scripts/ga-burst-probe.mjs", ".github/scripts/cf-filter-probe.mjs", ".github/scripts/cf-dup-probe.mjs", ".github/scripts/live24-probe.mjs", ".github/scripts/live24.mjs", ".github/scripts/live-probe.mjs", ".github/scripts/audit-probe.mjs", ".github/scripts/cf-probe.mjs", ".github/workflows/ga-probe.yml"]
 permissions:
   contents: write
 jobs:
@@ -15,7 +15,7 @@ jobs:
         with:
           node-version: 22
       - run: npm i --no-save --no-audit --no-fund playwright-core@1.48.2 > /dev/null 2>&1; ls -la /usr/bin/google-chrome
-      - run: mkdir -p out && node --max-old-space-size=12000 .github/scripts/owners-probe2.mjs > out/report.txt 2>&1; wc -c out/report.txt
+      - run: mkdir -p out && node --max-old-space-size=12000 .github/scripts/owners-browser.mjs > out/report.txt 2>&1; wc -c out/report.txt
         env:
           GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
           GA_PROPERTY_ID: ${{ secrets.GA_PROPERTY_ID }}
