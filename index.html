@@ -842,18 +842,21 @@ const fleetMax = () => plan() === "biz" ? 200 : FLEET_MAX;
 const savedCap = () => plan() === "biz" ? 200 : 50;
 const API = "https://data.gov.il/api/3/action/datastore_search";
 
-/* Datasets keyed by plate. role main = the vehicle record itself. */
+/* Datasets keyed by plate. role main = the vehicle record itself, in the order that decides which register is the car (the first one with a
+   row gives the status): the active register, the other vehicle types, the registers of cars off the road, then public and import, which do
+   not tell the status: public keeps a vehicle after it is cancelled (its own cancellation fields say so), and in 10/2026 3,298 public plates
+   and 2 import plates were also in a cancel register. */
 const PLATE_SETS = [
   {key:"active",     id:"053cea08-09bc-40ec-8f7a-156f0677aff3", role:"main", status:"פעיל"},
   {key:"moto",       id:"bf9df4e2-d90d-4c0a-a400-19e15af8e95f", role:"main", status:"פעיל", kind:"דו-גלגלי"},
   {key:"heavy",      id:"cd3acc5c-03c3-4c89-9c54-d40f93c0d790", role:"main", status:"פעיל", kind:"רכב כבד"},
-  {key:"public",     id:"cf29862d-ca25-4691-84f6-1be60dcb4a1e", role:"main", status:"פעיל", kind:"רכב ציבורי"},
-  {key:"import",     id:"03adc637-b6fe-402b-9937-7c3d3afc9140", role:"main", status:"פעיל", kind:"יבוא אישי"},
   {key:"inactive",   id:"f6efe89a-fb3d-43a4-bb61-9bf12a9b9099", role:"main", status:"לא פעיל", tone:"warn"},
   {key:"inactive2",  id:"6f6acd03-f351-4a8f-8ecf-df792f4f573a", role:"main", status:"לא פעיל", tone:"warn"},
   {key:"cancel",     id:"851ecab1-0622-4dbe-a6c7-f950cf82abf9", role:"main", status:"ירד מהכביש", tone:"bad", pad:true},
   {key:"cancel2010", id:"4e6b9724-4c1e-43f0-909a-154d4cc4e046", role:"main", status:"ירד מהכביש", tone:"bad", pad:true},
   {key:"cancel2000", id:"ec8cbc34-72e1-4b69-9c48-22821ba0bd6c", role:"main", status:"ירד מהכביש", tone:"bad", pad:true},
+  {key:"public",     id:"cf29862d-ca25-4691-84f6-1be60dcb4a1e", role:"main", status:"פעיל", kind:"רכב ציבורי"},
+  {key:"import",     id:"03adc637-b6fe-402b-9937-7c3d3afc9140", role:"main", status:"פעיל", kind:"יבוא אישי"},
   {key:"cont",       id:"0866573c-40cd-4ca8-91d2-9dd2d7a492e5", role:"extra"},
   {key:"tech",       id:"56063a99-8a3e-4ff4-912e-5966c0279bad", role:"extra", pad:true},
   {key:"owners",     id:"bb2355dc-9ec7-4f06-9c3f-3344672171da", role:"extra", pad:true},
@@ -2061,6 +2064,19 @@ function snapGet(plate){
   const e = snapAll()[plate]; if (!e || !e.D) return null;
   const D = e.D; D.pick = (...vals) => vals.find(x => !empty(x)); D.fromCache = e.t; D.own = orderOwners(D.own || [], D.v && D.v.baalut); return D;
 }
+/* ---------- which register is the car ---------- */
+/* The public register writes each vehicle's cancellation (bitul_cd / bitul_nm, 0 "לא מבוטל"). The permanent ones (2 cancelled before a sale,
+   3 dismantled, 5 abroad, 6 to the Palestinian Authority, 8 total loss) are all in the cancel register too, with the same date (3,298 in 10/2026),
+   and that ranks above public. The others are temporary, never in a cancel register: a deposited licence (C, S) or a removal from the road
+   by the police or the safety patrol (A, B, Z, R). They are a warning beside the car, never "ירד מהכביש". */
+function pubState(r){
+  const cd = String(r.bitul_cd ?? "").trim().toUpperCase(), nm = String(r.bitul_nm || "").trim();
+  if (cd === "0" || /לא מבוטל/.test(nm) || !cd && !nm) return null;
+  const dep = /^[CS]$/.test(cd) || /הפקד/.test(nm), patrol = cd === "B" || /ניידת/.test(nm), cop = /^[AZR]$/.test(cd) || /משטרה/.test(nm);
+  if (!dep && !patrol && !cop && (/^[23568]$/.test(cd) || /בטול|ביטול|אובדן|פרוק|העברה/.test(nm))) return {gone: true};
+  // an unknown code is not in the cancel register either: the ministry's own words
+  return {status: dep ? "הרישיון מופקד" : patrol ? "הורד מהכביש בידי ניידת בטיחות" : cop ? "הורד מהכביש בידי המשטרה" : nm || "לא פעיל", nm, dt: r.bitul_dt, temp: dep || patrol || cop};
+}
 /* ---------- fetch one vehicle ---------- */
 async function fetchVehicle(plate, signal, onProgress){
   const res = {}; let done = 0;
@@ -2126,12 +2142,16 @@ async function fetchVehicle(plate, signal, onProgress){
   if (km && start) { kmYears = Math.max(monthsBetween(start, testD || new Date()) / 12, 0.5); kmPerYear = Math.round(km / kmYears / 100) * 100; }
   const onRoad = parseYM(v.moed_aliya_lakvish) || (isNum(v.shnat_yitzur) ? new Date(num(v.shnat_yitzur), 0, 1) : null);
   const ownersFloor = !onRoad || onRoad < new Date(2017, 0, 1); // the ownership log starts in January 2017
+  // the public register's own state, when its row is the car's: a permanent cancellation reads like the cancel registers, a temporary one is a warning
+  const ps = mains[0] && mains[0].key === "public" ? pubState(res.public.rows[0]) : null, hold = ps && !ps.gone ? ps : null;
+  const off = mains[0] && (/^cancel/.test(mains[0].key) || !!(ps && ps.gone));
+  const primary = ps ? {...mains[0], ...(ps.gone ? {status: "ירד מהכביש", tone: "bad"} : {status: ps.status, tone: "warn"})} : mains[0];
 
-  const D = {plate, v, w, towRow, zeroTow, tSrc, counts, price, priceRows, own, ownersFloor, recalls, modelRecalls, recallUnknown: !!res.recall.err, ownMirror: !!res.ownMirror, modelRecallsUnknown, tag, dpf, primary: mains[0], importKind: res.import.rows[0] ? String(res.import.rows[0].sug_yevu || "יבוא אישי").replace(/-/g, " · ") : null, errs, pick, make, model,
+  const D = {plate, v, w, towRow, zeroTow, tSrc, counts, price, priceRows, own, ownersFloor, recalls, modelRecalls, recallUnknown: !!res.recall.err, ownMirror: !!res.ownMirror, modelRecallsUnknown, tag, dpf, primary, importKind: res.import.rows[0] ? String(res.import.rows[0].sug_yevu || "יבוא אישי").replace(/-/g, " · ") : null, errs, pick, make, model,
     title: (nm => [/^[A-Za-z]/.test(make) && nm.toUpperCase().startsWith(make.toUpperCase()) && !/^[A-Za-z]/i.test(nm.slice(make.length)) ? "" : make, nm].filter(Boolean).join(" "))(niceModel(model)) || "רכב " + fmtPlate(plate),
     sub: [v.shnat_yitzur, pick(v.ramat_gimur, w.ramat_gimur), v.tzeva_rechev].filter(x => !empty(x)).join(" · "),
     vin: pick(v.misgeret, v.mispar_shilda, v.shilda), km, kmYears, kmPerYear,
-    isCancelled: mains[0] && /^cancel/.test(mains[0].key)};
+    isCancelled: off, hold};
   D.zombie = D.isCancelled ? null : res.zombie;
   D.cost = costs(D);
   return D;
@@ -2149,6 +2169,7 @@ const INSIGHT_TODO = [
   [/יבוא אישי/, "בררו זמינות חלפים ושירות לפני הקנייה."],
   [/תג חניה לנכה/, "ייתכן שלא ניתן להעביר בעלות לפני שהבעלים מסיר את התג במשרד הרישוי."],
   [/החליף בעלים לאחרונה/, "שאלו למה הרכב נמכר שוב כל כך מהר."],
+  [/^הרישיון מופקד|^הורד מהכביש/, "בררו מתי ואיך הרכב חוזר לכביש, ואל תשלמו לפני כן."],
   [/הרכב לא פעיל|ירד מהכביש/, "אל תשלמו לפני שהרכב חוזר למעמד פעיל ועובר טסט."],
 ];
 const insightTodo = t => { const m = INSIGHT_TODO.find(([re]) => re.test(t)); return m ? m[1] : ""; };
@@ -2162,6 +2183,8 @@ function buildInsights(D){
   const now = new Date();
   // a cancelled car gets the red banner above the tabs, not a card here
   if (!D.isCancelled && D.primary && /^inactive/.test(D.primary.key)) add("warn", "הרכב לא פעיל", "הרכב רשום כלא פעיל במאגר משרד התחבורה.");
+  // a deposited licence or a removal from the road in the public register: the ministry's own words and date
+  if (D.hold) add("warn", D.hold.status, `במאגר הרכב הציבורי של משרד התחבורה רשום "${D.hold.nm || D.hold.status}"${empty(D.hold.dt) ? "" : " מ-" + fmtDate(D.hold.dt)}.${D.hold.temp ? " זה מצב זמני, ולא ביטול של הרכב." : ""}`);
   // open recalls are not repeated here: the red banner above the tabs already says it
   { const n = D.kind === "model" || D.isCancelled ? 0 : settlementsFor(D).length; if (n) add("info", "ייתכן שמגיעה לכם הטבה מהסדר פשרה", `${n === 1 ? "נמצא הסדר פשרה אחד שעשוי לחול על הרכב" : `נמצאו ${n} הסדרי פשרה שעשויים לחול על הרכב`}. הפרטים בלשונית ריקולים.`); }
   const exp = toDate(v.tokef_dt);
@@ -2985,7 +3008,7 @@ function checksCard(D){
   const v = D.v, exp = toDate(v.tokef_dt), now = new Date(), rows = [];
   const row = (ok, t) => rows.push(`<li class="ins ${ok ? "ok" : "warn"}">${ico(ok ? "check" : "alert")}<div><b>${esc(t)}</b></div></li>`);
   const off = D.primary && /^inactive/.test(D.primary.key);   // found only in the inactive registers: not "active", as the insights already say
-  row(!D.isCancelled && !off, D.isCancelled ? "הרכב ירד מהכביש" : off ? "הרכב רשום כלא פעיל" : "הרכב פעיל ולא בוטל");
+  row(!D.isCancelled && !off && !D.hold, D.isCancelled ? "הרכב ירד מהכביש" : off ? "הרכב רשום כלא פעיל" : D.hold ? D.hold.status : "הרכב פעיל ולא בוטל");
   if (exp) row(exp >= new Date(now.getFullYear(), now.getMonth(), now.getDate()), exp >= new Date(now.getFullYear(), now.getMonth(), now.getDate()) ? `טסט בתוקף עד ${fmtDate(v.tokef_dt)}` : `הטסט פג ב-${fmtDate(v.tokef_dt)}`);
   if (D.recallUnknown) row(false, "ריקולים: מידע לא זמין כרגע"); else row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")}` : "לא נמצא ריקול פתוח");
   if (freshRecalls(D).length) row(false, "ייתכן ריקול חדש לדגם, עוד בלי פירוט לפי רכב");
