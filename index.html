@@ -892,7 +892,7 @@ const EQUIP = {
 /* ---------- helpers ---------- */
 const $ = s => document.querySelector(s);
 const esc = v => String(v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const empty = v => v === null || v === undefined || String(v).trim() === "" || String(v).trim() === "0000-00-00";
+const empty = v => v === null || v === undefined || String(v).trim() === "" || String(v).trim().startsWith("0000-00-00");   // the registers write a missing date as 0000-00-00, also with a time
 const digits = s => String(s || "").replace(/\D/g, "");
 const num = v => Number(String(v).replace(/,/g, ""));
 const isNum = v => !empty(v) && !isNaN(num(v));
@@ -910,7 +910,8 @@ function fmtDate(v){
   if ((m = s.match(/^(\d{4})(\d{2})(\d{2})$/))) return `${m[3]}/${m[2]}/${m[1]}`;
   return s.replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
 }
-function toDate(v){ const m = String(v).match(/^(\d{4})-?(\d{2})-?(\d{2})/); return m ? new Date(+m[1], +m[2]-1, +m[3]) : null; }
+// a register date at local midnight; a zero ("0000-00-00T00:00:00"), pre-1950 or impossible one (31.02) is no date, not a day in 1899
+function toDate(v){ const m = String(v).match(/^(\d{4})-?(\d{2})-?(\d{2})/); if (!m || +m[1] < 1950) return null; const d = new Date(+m[1], +m[2]-1, +m[3]); return d.getMonth() === +m[2]-1 && d.getDate() === +m[3] ? d : null; }
 /* Make names arrive like "טויוטה יפן" / "פולקסווגן גרמניה": drop the trailing country the record already carries */
 function makeName(v){
   let n = String(v.tozeret_nm || "").trim();
@@ -2288,7 +2289,7 @@ function simpleCard(D){
     ["סוג דלק", pick(v.sug_delek_nm, w.delek_nm)], ["נפח מנוע", posN(pick(v.nefach_manoa, w.nefah_manoa)) && fmtN(pick(v.nefach_manoa, w.nefah_manoa)) + " סמ״ק"], ["כוח", posN(w.koah_sus) ? fmtN(w.koah_sus) + " כ״ס" : ""],
     ["הנעה", pick(v.hanaa_nm, w.hanaa_nm)], ["תיבת הילוכים", gear], ["מרכב", w.merkav], ["מושבים", pick(w.mispar_moshavim, v.mispar_mekomot)], ["דלתות", w.mispar_dlatot],
     ["עלה לכביש", v.moed_aliya_lakvish], ["סוג יבוא", D.importKind], ["יבואן", importerOf(D)], ["בעלות נוכחית", v.baalut], ["בעלות ראשונה", firstOwner(v)], ["מספר בעלים", own],
-    ["טסט אחרון", empty(v.mivchan_acharon_dt) ? "" : fmtDate(v.mivchan_acharon_dt)], ["טסט בתוקף עד", empty(v.tokef_dt) ? "" : fmtDate(v.tokef_dt)], ["ק״מ בטסט האחרון", D.km ? fmtN(D.km) : ""],
+    ["טסט אחרון", toDate(v.mivchan_acharon_dt) ? fmtDate(v.mivchan_acharon_dt) : ""], ["טסט בתוקף עד", toDate(v.tokef_dt) ? fmtDate(v.tokef_dt) : ""], ["ק״מ בטסט האחרון", D.km ? fmtN(D.km) : ""],
     ["ריקולים פתוחים", D.recallUnknown ? "לא זמין כרגע" : D.recalls.length ? String(D.recalls.length) : "לא נמצאו"], ["תג נכה", D.tag ? "יש" : ""], ["מספר שלדה", vin, vin],
   ];
   const safety = safetyLevel(D), zihum = firstPos(v.kvutzat_zihum, w.kvutzat_zihum);
@@ -2837,8 +2838,8 @@ function tabOverview(D){
   if (stats.length) html.push(`<div class="stats">${stats.map(([k,val,u,c]) => `<div class="stat ${c}"><div class="k">${esc(k)}</div><div class="v">${esc(val)}${u ? `<span class="u">${esc(u)}</span>` : ""}</div></div>`).join("")}</div>`);
 
   html.push(card("רישוי וטסט", "doc", "blue", facts([
-    ["טסט אחרון", e(v.mivchan_acharon_dt && fmtDate(v.mivchan_acharon_dt))],
-    ["טסט בתוקף עד", e(v.tokef_dt && fmtDate(v.tokef_dt))],
+    ["טסט אחרון", e(toDate(v.mivchan_acharon_dt) && fmtDate(v.mivchan_acharon_dt))],
+    ["טסט בתוקף עד", e(toDate(v.tokef_dt) && fmtDate(v.tokef_dt))],
     ["עלה לכביש", e(v.moed_aliya_lakvish && fmtDate(v.moed_aliya_lakvish))],
     ["רישום ראשון", e(v.rishum_rishon_dt && fmtDate(v.rishum_rishon_dt))],
     D.isCancelled && ["ירד מהכביש", e(v.bitul_dt && fmtDate(v.bitul_dt))],
