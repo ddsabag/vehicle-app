@@ -31,7 +31,21 @@ const label = v => [clean(v.tozeret_nm).split(" ")[0], clean(v.kinuy_mishari || 
 const rows = (id, filters) => fetch(DS + id + "&filters=" + encodeURIComponent(JSON.stringify(filters)), {signal: AbortSignal.timeout(2500), cf: {cacheTtl: 600, cacheEverything: true}})
   .then(r => r.ok ? r.json() : null).then(j => j && j.success ? j.result.records : null).catch(() => null);
 
-/* the car and its most important finding: off the road, test expired, open recall, or a clean bill */
+/* The licence like licState in index.html: whole calendar days in Israel time, the expiry day itself still valid. A renewal reaches
+   the nightly register a day or two late, so a licence that ended 1-LIC_LAG days ago, or one with a last test from LIC_NEAR days before
+   the end on that is at most LIC_FRESH days old, is "unknown" (lag / renew), never "expired". */
+const LIC_LAG = 3, LIC_NEAR = 30, LIC_FRESH = 30;
+const IL = new Intl.DateTimeFormat("en-CA", {timeZone: "Asia/Jerusalem", year: "numeric", month: "2-digit", day: "2-digit"});
+const ilToday = () => { const p = Object.fromEntries(IL.formatToParts(new Date()).map(x => [x.type, x.value])); return Date.UTC(+p.year, +p.month - 1, +p.day) / 864e5; };
+// a register date as a day number; a zero ("0000-00-00"), pre-1950 or impossible one is no date
+const regDay = v => { const m = String(v ?? "").match(/^(\d{4})-?(\d{2})-?(\d{2})/); if (!m || +m[1] < 1950) return null; const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])); return d.getUTCMonth() === +m[2] - 1 && d.getUTCDate() === +m[3] ? d.getTime() / 864e5 : null; };
+function licKind(tokef, test) {
+  const ex = regDay(tokef); if (ex === null) return null;
+  const today = ilToday(), t = regDay(test);
+  return ex >= today ? "ok" : t !== null && t >= ex - LIC_NEAR && t >= today - LIC_FRESH ? "renew" : ex >= today - LIC_LAG ? "lag" : "bad";
+}
+
+/* the car and its most important finding: off the road, test expired or not yet seen renewed, open recall, or a clean bill */
 async function plateInfo(plate) {
   const [act, rec, can] = await Promise.all([
     rows(ACTIVE, {mispar_rechev: Number(plate)}),
@@ -40,12 +54,14 @@ async function plateInfo(plate) {
   ]);
   const v = (act && act[0]) || (can && can[0]); if (!v) return null;
   const cancelled = act !== null && !act[0] && !!(can && can[0]);   // only when the active register answered and does not list the car
-  const exp = Date.parse(v.tokef_dt), testOk = !cancelled && exp ? exp >= Date.now() - 864e5 : null, nRec = rec ? rec.length : null;
+  const lic = cancelled ? null : licKind(v.tokef_dt, v.mivchan_acharon_dt), nRec = rec ? rec.length : null;
+  const recs = nRec ? (nRec === 1 ? ", ריקול פתוח" : `, ${nRec} ריקולים פתוחים`) : "";
   let verdict = "", tone = "";
   if (cancelled) { verdict = "ירד מהכביש"; tone = "bad"; }
-  else if (testOk === false) { verdict = "הטסט לא בתוקף"; tone = "bad"; if (nRec) verdict += nRec === 1 ? ", ריקול פתוח" : `, ${nRec} ריקולים פתוחים`; }
-  else if (nRec) { verdict = nRec === 1 ? "ריקול פתוח אחד" : `${nRec} ריקולים פתוחים`; tone = "warn"; if (testOk) verdict = "טסט בתוקף, " + verdict; }
-  else if (testOk && nRec === 0) { verdict = "טסט בתוקף, אין ריקול פתוח"; tone = "ok"; }
+  else if (lic === "bad") { verdict = "הטסט לא בתוקף" + recs; tone = "bad"; }
+  else if (lic === "lag" || lic === "renew") { verdict = "לא ברור אם הטסט חודש" + recs; tone = "warn"; }
+  else if (nRec) { verdict = nRec === 1 ? "ריקול פתוח אחד" : `${nRec} ריקולים פתוחים`; tone = "warn"; if (lic === "ok") verdict = "טסט בתוקף, " + verdict; }
+  else if (lic === "ok" && nRec === 0) { verdict = "טסט בתוקף, אין ריקול פתוח"; tone = "ok"; }
   return {label: label(v), fuel: clean(v.sug_delek_nm), color: clean(v.tzeva_rechev), verdict, tone};
 }
 function cmpInfo(code) {
