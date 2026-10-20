@@ -1,9 +1,9 @@
 name: Slow lookup probe (one-off, probe-slow branch)
-# Read-only: how many car checks are slow and why (20.10). Runs on a push to the probe-slow branch only; output on the probe-slow-out branch
+# Read-only (20.10): how many model names in models.json take a commercial row's price as their "from" price. Runs on a push to the probe-slow branch only; output on the probe-slow-out branch
 on:
   push:
     branches: [probe-slow]
-    paths: [".github/scripts/slow-probe.mjs", ".github/scripts/forms-probe.mjs", ".github/workflows/slow-probe.yml"]
+    paths: [".github/scripts/slow-probe.mjs", ".github/scripts/forms-probe.mjs", ".github/scripts/pm-probe.mjs", ".github/workflows/slow-probe.yml"]
 permissions:
   contents: write
 jobs:
@@ -17,13 +17,9 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - run: git fetch -q origin main next && git worktree add old origin/main && git worktree add new origin/next && git -C old log -1 --format=%h && git -C new log -1 --format=%h
-      - run: npm i --no-save --no-audit --no-fund playwright-core@1.48.2 > /dev/null 2>&1; ls -la /usr/bin/google-chrome
-      - run: mkdir -p out && node .github/scripts/slow-probe.mjs > out/ab.txt 2>&1; wc -c out/ab.txt
-        env:
-          N: "6"
+      - run: mkdir -p out && node .github/scripts/pm-probe.mjs > out/pm.txt 2>&1; wc -c out/pm.txt
       - name: Publish on probe-slow-out
         run: |
           cd out && git init -q && git checkout -q -b probe-slow-out && git add -A
-          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Speed A/B probe"
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "P/M price probe"
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" probe-slow-out
