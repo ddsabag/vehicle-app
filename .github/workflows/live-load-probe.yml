@@ -1,9 +1,10 @@
 name: Live load probe (one-off, probe-live branch)
-# Read-only diagnosis of /live not loading (20.10): runs on a push to the probe-live branch only, output on the probe-live-out branch
+# Read-only: live-28 before release (live-watch dry, the new Worker code with the real keys, the page in Chrome; digits masked). Runs on a
+# push to the probe-live branch only, output on the probe-live-out branch
 on:
   push:
     branches: [probe-live]
-    paths: [".github/scripts/live-load-probe.mjs", ".github/workflows/live-load-probe.yml"]
+    paths: [".github/scripts/live28-probe.mjs", ".github/workflows/live-load-probe.yml"]
 permissions:
   contents: write
 jobs:
@@ -16,12 +17,11 @@ jobs:
         with:
           node-version: 22
       - run: npm i --no-save --no-audit --no-fund playwright-core@1.48.2 > /dev/null 2>&1; ls -la /usr/bin/google-chrome
-      - run: mkdir -p out && node .github/scripts/live-load-probe.mjs > out/report.txt 2>&1; wc -c out/report.txt
+      - run: mkdir -p out && node .github/scripts/live28-probe.mjs > out/report.txt 2>&1; wc -c out/report.txt
         env:
           GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       - name: Publish on probe-live-out
         run: |
           cd out && git init -q && git checkout -q -b probe-live-out && git add -A

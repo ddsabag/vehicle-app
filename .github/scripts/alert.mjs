@@ -1,7 +1,8 @@
 // Alert router: one engine for every Telegram alert (levels critical/day/summary/silent, quiet hours, 24 h dedupe, Sunday queue).
 // Each call site keeps its own unchanged send as `legacy`; a missing, broken, slow or unrouted router means exactly that legacy runs once.
 // The repo variable ALERT_ROUTE (comma list of levels, or "all") switches levels on; unset = shadow (legacy sends, the router only records).
-// State lives on the public branch "alert-state" (state.json + heartbeat.json) and holds no message text: keys, levels, times, counts, links.
+// State lives on the public branch "alert-state" (state.json + heartbeat.json) and holds no message text: keys, levels, times, counts, links,
+// and on each log entry the key's fixed headline from LABELS (he, sc), which the /live dashboard lists as its flashes.
 // Node 20, no imports except node: builtins (failure-alert and alert-daily check out only this file).
 //   Node:   let router = null; try { router = await import("./alert.mjs"); } catch {}   then  router.alert(level, key, text, link, { today, legacy })
 //   shell:  out=$(timeout 45 node .github/scripts/alert.mjs send <level> <key> --today loud --text "$t" 2>/dev/null || true)
@@ -117,6 +118,8 @@ export const LABELS = {
                                   reuse: "מספרים במאגר הפעיל ובמאגר שירד מהכביש", owners: "סוג הבעלות הנוכחי", km: "ק״מ בטסט", hook: "וו גרירה מול נתוני הדגם",
                                   price: "מחירון", wltp: "נתוני דגם", recalls: "רשימת הריקולים לפי רכב", pubcancel: "רכב ציבורי שבוטל לצמיתות",
                                   lend: "מאגרים שמשלימים תאריכים זה לזה" } },
+  "live:stuck":          { he: "הדשבורד /live לא ענה בזמן", sect: "fail" },   // live-watch.mjs (Live watch)
+  "live:error":          { he: "הדשבורד /live החזיר שגיאות", sect: "fail" },
 };
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
 export const FAMILIES_IN_USE = [
@@ -126,7 +129,7 @@ export const FAMILIES_IN_USE = [
   "webwatch:rollback", "webwatch:rollback-failed", "meta:uptime", "weekly:missing", "workers:refused", "workers:rollback", "workers:failed", "workers:forced",
   "ship:done", "ship:notes", "ship:fail", "ship:dry", "listing:done", "listing:dry", "listing:fail",
   "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:wait", "prod:fail",
-  "stl:update", "stl:stuck", "truth", "truth:fail", "truth:inv",
+  "stl:update", "stl:stuck", "truth", "truth:fail", "truth:inv", "live:stuck", "live:error",
 ];
 
 const TODAY = ["loud", "silent", "none"];
@@ -181,6 +184,8 @@ export function label(key) {
   const L = LABELS[f], id = String(key).split(":").slice(f.split(":").length).join(":");
   return { he: L.he.replace("{ids}", id.split("+").map(x => (L.ids && L.ids[x]) || x).join(", ")).replace("{id}", id), sect: L.sect };
 }
+// one log entry; he/sc = the key's fixed headline and section (never the caller's text), so /live can list what reached Telegram
+const logEntry = (t, k, lv, a, td, sh) => { const L = label(k); return { t, k, lv, a, td, sh, he: L.he, sc: L.sect }; };
 export function routed(level, env = process.env) {
   const r = String(env.ALERT_ROUTE || "").split(",").map(s => s.trim().toLowerCase());
   return LEVELS.includes(level) && (r.includes("all") || r.includes(level));
@@ -237,7 +242,8 @@ async function mail(subject, text, links, dl) {
 
 // ---- state I/O (own CAS helper; flash.mjs is not used) ----
 const okState = s => s && typeof s === "object" && !Array.isArray(s) && s.items && typeof s.items === "object" && !Array.isArray(s.items);
-const norm = s => ({ v: 1, items: s.items, hb: s.hb && typeof s.hb === "object" ? s.hb : {}, log: Array.isArray(s.log) ? s.log : [] });
+const norm = s => ({ v: 1, items: s.items, hb: s.hb && typeof s.hb === "object" ? s.hb : {},   // entries from before he/sc get them on read
+  log: Array.isArray(s.log) ? s.log.map(e => e && typeof e === "object" && !("he" in e) && validKey(e.k) ? logEntry(e.t, e.k, e.lv, e.a, e.td, e.sh) : e) : [] });
 // {data, sha} | {missing: true} | null (read error, bad JSON, wrong shape)
 async function getFile(file, dl) {
   const r = await gh("GET", `/contents/${file}?ref=${STATE.branch}`, null, dl);
@@ -311,7 +317,7 @@ function apply(s, o, { count = true, a = null, sh = 0, set = null } = {}) {
     s.items[o.key] = it;
   }
   if (set && s.items[o.key]) Object.assign(s.items[o.key], set);
-  if (a) s.log = [...s.log, { t: now, k: o.key, lv: o.level, a, td: o.today, sh }].slice(-600);
+  if (a) s.log = [...s.log, logEntry(now, o.key, o.level, a, o.today, sh)].slice(-600);
   return s;
 }
 // best-effort record after (or, from the CLI, before) a legacy send: one GET and one PUT, no retry, 10 s. Returns the logged action.
@@ -470,7 +476,7 @@ async function daily() {
       await cas(STATE.file, x => {
         for (const [k, p] of Object.entries(seen)) if (x.items[k] && x.items[k].pend === p) {
           x.items[k].pend = null;
-          x.log = [...x.log, { t: iso(now), k, lv: x.items[k].lv, a: "ring", td: "none", sh: 0 }].slice(-600);
+          x.log = [...x.log, logEntry(iso(now), k, x.items[k].lv, "ring", "none", 0)].slice(-600);
         }
         return x;
       });
@@ -791,7 +797,8 @@ async function selftest() {
       IO.out = s => out.push(s);
       const st = m.state(), sch = schema(st);
       ok(sch === "", "privacy: whitelist schema " + sch);
-      const pub = JSON.stringify({ ...st, items: Object.fromEntries(Object.entries(st.items).map(([k, it], i) => ["k" + i, { ...it, u: [] }])), log: st.log.map(e => ({ ...e, k: "k" })) });
+      const pub = JSON.stringify({ ...st, items: Object.fromEntries(Object.entries(st.items).map(([k, it], i) => ["k" + i, { ...it, u: [] }])), log: st.log.map(e => ({ ...e, k: "k", he: "h" })) });   // he holds the key's id
+      ok(st.log.every(e => e.he === label(e.k).he && e.sc === label(e.k).sect), "privacy: a log headline is the key's fixed label, never the text");
       ok(!JSON.stringify(st).includes("@"), "privacy: no @ in state");
       ok(Object.values(st.items).every(it => it.u.every(u => !/@/.test(decodeURIComponent(decodeURIComponent(u))))), "privacy: no encoded @ in kept links");
       ok(cleanLinks(["https://a.example/?e=d%40g.com", "https://a.example/?e=d%2540g.com", "https://a.example/%E0%A4%A", "https://a.example/ok"]).join() === "https://a.example/ok", "cleanLinks drops %40 and undecodable links");
@@ -801,6 +808,14 @@ async function selftest() {
       ok(!texts.some(t => { for (let i = 0; i + 12 <= t.length; i++) if (grams.has(t.slice(i, i + 12))) return true; return false; }), "privacy: no text piece in state or stdout");
       ok(caught.length === 500 && caught.every(l => /^alert (<invalid-key>|[a-z][\w:+ ().-]* (silent|summary|day|critical)) -> [a-z:-]+( unsaved)?$/.test(l)), "privacy: stdout holds log lines only");
       ok(Object.keys(st.items).length > 5 && st.log.length > 100 && st.log.some(e => e.sh === 1) && st.log.some(e => e.sh === 0), "privacy: the fuzz exercised state");
+    }
+
+    // a log entry written before he/sc gets them when the state is read, so /live lists it with its headline
+    {
+      const m = net({ state: { v: 1, items: {}, hb: {}, log: [{ t: iso(DAY), k: "ship:done:1.35", lv: "day", a: "loud", td: "loud", sh: 1 }] } });
+      IO.fetch = m.fetch; IO.env = ENV;
+      const e = (await readState())?.log?.[0];
+      ok(e && e.he === "גרסה 1.35 עלתה ל-Alpha, הקידום ל-Production אצלך" && e.sc === "wait" && schema({ v: 1, items: {}, hb: {}, log: [e] }) === "", "an old log entry gets its headline on read");
     }
 
     // keys and labels
@@ -931,8 +946,9 @@ function schema(s) {
   }
   const HB = { daily: v => /^\d{4}-\d\d-\d\d$/.test(v), dailyAt: isoN, summaryAt: isoN, tgOkAt: isoN, tgFailAt: isoN, uptimeSeenAt: isoN };
   for (const [f, v] of Object.entries(s.hb)) if (!HB[f] || !HB[f](v)) return "hb field " + f;
-  const LG = { t: isoN, k: validKey, lv: v => LEVELS.includes(v), a: v => ACTIONS.includes(v), td: v => TODAY.includes(v), sh: v => v === 0 || v === 1 };
-  for (const e of s.log) { if (Object.keys(e).length !== 6) return "log entry"; for (const [f, v] of Object.entries(e)) if (!LG[f] || !LG[f](v)) return "log field " + f; }
+  const LG = { t: isoN, k: validKey, lv: v => LEVELS.includes(v), a: v => ACTIONS.includes(v), td: v => TODAY.includes(v), sh: v => v === 0 || v === 1,
+    he: v => typeof v === "string" && v.length > 0 && v.length <= 240, sc: v => ["wait", "fail", "fyi", "none"].includes(v) };
+  for (const e of s.log) { if (Object.keys(e).length !== 8) return "log entry"; for (const [f, v] of Object.entries(e)) if (!LG[f] || !LG[f](v)) return "log field " + f; }
   return "";
 }
 // alert keys used at the converted call sites (files that load the router), as static stems
