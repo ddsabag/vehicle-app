@@ -161,7 +161,9 @@ for (const [cd, rows] of byMaker) {
   fs.mkdirSync(`${OUT}/c/${cd}`, {recursive: true});
   const models = {}, degems = {};
   const impName = x => String(x || "").replace(/\s*בע['"׳״]{0,2}מ\.?\s*$|\s*בעמ\s*$/, "").replace(/\s+/g, " ").trim();
-  const onRoad = new Map(); for (const w of rows) { const nm = impName(w[YEVUAN]); if (nm) onRoad.set(nm, (onRoad.get(nm) || 0) + (Number(w[ACT]) || 0)); }
+  // a code's count of cars (per maker|code|year, step 3) sits on each of its rows: counted once, not once per trim row
+  const onRoad = new Map(), counted = new Set();
+  for (const w of rows) { const nm = impName(w[YEVUAN]), c = Number(w[ACT]) || 0, k = `${w[I.degem_cd]}|${w[I.shnat_yitzur]}`; if (!nm || !(c > 0) || counted.has(k)) continue; counted.add(k); onRoad.set(nm, (onRoad.get(nm) || 0) + c); }
   const roadTotal = [...onRoad.values()].reduce((a, b) => a + b, 0), topImp = [...onRoad.entries()].sort((a, b) => b[1] - a[1])[0];
   const imp = topImp && topImp[1] >= 50 ? {n: topImp[0], c: topImp[1], share: Math.round(topImp[1] / roadTotal * 100)} : null;
   for (const [m, list] of [...byModel.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {

@@ -27,7 +27,7 @@ function lev(a, b, max){   // edit distance with a swap of two neighbouring lett
   }
   return p1[b.length];
 }
-const SPEC = ["nefah_manoa", "koah_sus", "technologiat_hanaa_nm", "delek_nm", "automatic_ind", "hanaa_nm", "merkav", "mispar_dlatot", "mispar_moshavim", "mishkal_kolel", "mispar_kariot_avir", "ramat_eivzur_betihuty", "mehir", "mazgan_ind", "halon_bagg_ind", "galgaley_sagsoget_kala_ind", "hege_koah_ind", "mispar_halonot_hashmal", "abs_ind", "bakarat_yatzivut_ind", "maarechet_ezer_labalam_ind", "bakarat_stiya_menativ_ind", "bakarat_stiya_activ_s", "nitur_merhak_milfanim_ind", "zihuy_beshetah_nistar_ind", "bakarat_shyut_adaptivit_ind", "zihuy_holchey_regel_ind", "blimat_hirum_lifnei_holhei_regel_ofanaim", "zihuy_rechev_do_galgali", "matzlemat_reverse_ind", "blima_otomatit_nesia_leahor", "hayshaney_lahatz_avir_batzmigim_ind", "hayshaney_hagorot_ind", "shlita_automatit_beorot_gvohim_ind", "teura_automatit_benesiya_kadima_ind", "zihuy_tamrurey_tnua_ind", "zihuy_matzav_hitkarvut_mesukenet_ind", "bakarat_mehirut_isa", "hitnagshut_cad_shetah_met"];
+const SPEC = ["nefah_manoa", "koah_sus", "technologiat_hanaa_nm", "delek_nm", "automatic_ind", "hanaa_nm", "merkav", "mispar_dlatot", "mispar_moshavim", "mishkal_kolel", "mispar_kariot_avir", "ramat_eivzur_betihuty", "mehir", "kosher_grira_im_blamim", "kosher_grira_bli_blamim", "CO2_WLTP", "kamut_CO2", "kvutzat_zihum", "kvuzat_agra_cd", "mazgan_ind", "halon_bagg_ind", "galgaley_sagsoget_kala_ind", "hege_koah_ind", "mispar_halonot_hashmal", "abs_ind", "bakarat_yatzivut_ind", "maarechet_ezer_labalam_ind", "bakarat_stiya_menativ_ind", "bakarat_stiya_activ_s", "nitur_merhak_milfanim_ind", "zihuy_beshetah_nistar_ind", "bakarat_shyut_adaptivit_ind", "zihuy_holchey_regel_ind", "blimat_hirum_lifnei_holhei_regel_ofanaim", "zihuy_rechev_do_galgali", "matzlemat_reverse_ind", "blima_otomatit_nesia_leahor", "hayshaney_lahatz_avir_batzmigim_ind", "hayshaney_hagorot_ind", "shlita_automatit_beorot_gvohim_ind", "teura_automatit_benesiya_kadima_ind", "zihuy_tamrurey_tnua_ind", "zihuy_matzav_hitkarvut_mesukenet_ind", "bakarat_mehirut_isa", "hitnagshut_cad_shetah_met"];
 const impName = x => String(x || "").replace(/\s*בע['"׳״]{0,2}מ\.?\s*$|\s*בעמ\s*$/, "").replace(/\s+/g, " ").trim();
 
 // previous state
@@ -64,7 +64,9 @@ for (const cd of Object.keys(meta.makers)) {
       // 4. a year whose names look like codes (the app lists it by engine)
       const codey = [...trims.keys()].filter(t => /\d/.test(norm(t)) && norm(t).length >= 6).length; if (trims.size > 12 && codey > trims.size / 2) found.codeYears.push(`${label}: ${trims.size} גרסאות, ${codey} נראות כקוד`);
       // 5. official importer: none with 20+ cars and half the fleet (every version is parallel import or too new to count)
-      const onRoad = new Map(); for (const r of rs) { const n = impName(r.shem_yevuan); if (n) onRoad.set(n, (onRoad.get(n) || 0) + (Number(r.mispar_rechavim_pailim) || 0)); }
+      // a code's count of cars sits on each of its rows (catalog-build.mjs): counted once per code, as the picker does
+      const onRoad = new Map(), counted = new Set();
+      for (const r of rs) { const n = impName(r.shem_yevuan), c = Number(r.mispar_rechavim_pailim) || 0; if (!n) continue; onRoad.set(n, onRoad.get(n) || 0); if (c > 0 && !counted.has(String(r.degem_cd))) { counted.add(String(r.degem_cd)); onRoad.set(n, onRoad.get(n) + c); } }
       const tot = [...onRoad.values()].reduce((a, b) => a + b, 0), top = [...onRoad.entries()].sort((a, b) => b[1] - a[1])[0];
       if (onRoad.size > 1 && !(top && top[1] >= 20 && top[1] >= tot / 2) && Number(y) >= new Date().getFullYear() - 1) found.parallelOnly.push(`${label}: ${onRoad.size} יבואנים, הגדול ${top ? top[0] + " " + top[1] : "-"} רכבים`);
     }
