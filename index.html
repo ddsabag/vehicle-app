@@ -2114,7 +2114,8 @@ async function fetchVehicle(plate, signal, onProgress){
       catch (err) { if (err.name === "AbortError") throw err; }
     }
   }));
-  const tag = res.tag.rows[0] || null, dpf = res.dpf.rows[0] || null;
+  // a plate can have several tag rows (12,786 plates, 20.10.2026): the newest issue date is the one shown
+  const tagDate = r => Number(digits(r["TAARICH HAFAKAT TAG"]).slice(0, 8)) || 0, tag = res.tag.rows.reduce((a, r) => !a || tagDate(r) > tagDate(a) ? r : a, null), dpf = res.dpf.rows[0] || null;
   const tSrc = towRow || (hasTow(v) ? v : null);
   const make = makeName(v), model = pick(v.kinuy_mishari, w.kinuy_mishari, v.degem_nm) || "";
 
@@ -2158,7 +2159,7 @@ const AVG_KM_YEAR = 15000; // typical private car in Israel, rough benchmark
 const typicalKm = y => AVG_KM_YEAR * Math.min(y, 8) + 9000 * Math.max(0, y - 8);
 const VAL_LATE = 0.95, VAL_LATE_FROM = 8;   // from the eighth year a car loses another 5% of its value a year
 function buildInsights(D){
-  const v = D.v, out = []; const add = (level, title, text) => out.push({level, title, text});
+  const v = D.v, out = []; const add = (level, title, text, priv) => out.push({level, title, text, priv});
   const now = new Date();
   // a cancelled car gets the red banner above the tabs, not a card here
   if (!D.isCancelled && D.primary && /^inactive/.test(D.primary.key)) add("warn", "הרכב לא פעיל", "הרכב רשום כלא פעיל במאגר משרד התחבורה.");
@@ -2207,7 +2208,7 @@ function buildInsights(D){
   if (yes(v.shnui_zeva_ind)) add("info", "הצבע שונה", "צבע הרכב שונה מהצבע המקורי.");
   if (D.importKind) add("info", "יבוא אישי", "הרכב יובא ביבוא אישי, ולא דרך יבואן רשמי. חלפים, שירות וריקולים עשויים להיות פחות זמינים, וחלק מהנתונים על הדגם חסרים במאגר.");
   if (D.primary && D.primary.key === "heavy") add("info", "רכב כבד: מידע חלקי", "במאגר של משרד התחבורה לרכבים כבדים (מעל 3.5 טון) יש פחות פרטים: אין תאריך טסט אחרון, ק״מ בטסט, היסטוריית בעלויות ונתוני דגם כמו מערכות בטיחות וריקולים. מוצג כל מה שקיים.");
-  if (D.tag) add("info", "לרכב יש תג חניה לנכה", `התג הונפק${empty(D.tag["TAARICH HAFAKAT TAG"]) ? "" : " ב-" + fmtDate(D.tag["TAARICH HAFAKAT TAG"])}.`);
+  if (D.tag) add("info", "לרכב יש תג חניה לנכה", `התג הונפק${empty(D.tag["TAARICH HAFAKAT TAG"]) ? "" : " ב-" + fmtDate(D.tag["TAARICH HAFAKAT TAG"])}.`, true);   // personal: shown on the screen, never printed or shared
   // the ministry's level counts only this year's newest systems, so a low one is no warning (1.1M active cars, mostly not new, sit at
   // 1-2, and a better-equipped trim often scores higher than a bare one at 0); a high one still says the car has most of them
   const lvl = safetyLevel(D);
@@ -2289,7 +2290,7 @@ function simpleCard(D){
     ["הנעה", pick(v.hanaa_nm, w.hanaa_nm)], ["תיבת הילוכים", gear], ["מרכב", w.merkav], ["מושבים", pick(w.mispar_moshavim, v.mispar_mekomot)], ["דלתות", w.mispar_dlatot],
     ["עלה לכביש", v.moed_aliya_lakvish], ["סוג יבוא", D.importKind], ["יבואן", importerOf(D)], ["בעלות נוכחית", v.baalut], ["בעלות ראשונה", firstOwner(v)], ["מספר בעלים", own],
     ["טסט אחרון", empty(v.mivchan_acharon_dt) ? "" : fmtDate(v.mivchan_acharon_dt)], ["טסט בתוקף עד", empty(v.tokef_dt) ? "" : fmtDate(v.tokef_dt)], ["ק״מ בטסט האחרון", D.km ? fmtN(D.km) : ""],
-    ["ריקולים פתוחים", D.recallUnknown ? "לא זמין כרגע" : D.recalls.length ? String(D.recalls.length) : "לא נמצאו"], ["תג נכה", D.tag ? "יש" : ""], ["מספר שלדה", vin, vin],
+    ["ריקולים פתוחים", D.recallUnknown ? "לא זמין כרגע" : D.recalls.length ? String(D.recalls.length) : "לא נמצאו"], ["תג נכה", D.tag ? "יש" : "", "", true], ["מספר שלדה", vin, vin],
   ];
   const safety = safetyLevel(D), zihum = firstPos(v.kvutzat_zihum, w.kvutzat_zihum);
   const more = [
@@ -2300,7 +2301,7 @@ function simpleCard(D){
     ["קבוצת זיהום", empty(zihum) ? "" : zihum + " מתוך 15"], ["פליטת CO₂", empty(pick(w.CO2_WLTP, w.kamut_CO2)) ? "" : pick(w.CO2_WLTP, w.kamut_CO2) + " גרם לק״מ"],
   ];
   const ok = r => !empty(r[1]) && r[1] !== false;
-  const row = ([k, x, cp]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(String(x))}${cp ? `<button class="copy-btn" type="button" data-copy="${esc(cp)}" data-label="מספר השלדה" aria-label="העתקת מספר שלדה">${ico("copy")}</button>` : ""}</td></tr>`;
+  const row = ([k, x, cp, priv]) => `<tr${priv ? " data-priv" : ""}><th scope="row">${esc(k)}</th><td>${esc(String(x))}${cp ? `<button class="copy-btn" type="button" data-copy="${esc(cp)}" data-label="מספר השלדה" aria-label="העתקת מספר שלדה">${ico("copy")}</button>` : ""}</td></tr>`;
   const ex = more.filter(ok);
   return `<section class="card"><table class="simple"><tbody>${main.filter(ok).map(row).join("")}${simpleMore ? ex.map(row).join("") : ""}</tbody></table>${ex.length ? `<button type="button" class="simple-more" data-act="simpleMore" aria-expanded="${simpleMore}">${simpleMore ? "הצגת פחות נתונים" : "הצגת עוד נתונים"}</button>` : ""}</section>`;
 }
@@ -2368,7 +2369,7 @@ function renderResult(){
   if (D.own.length) facts[1] = `<span class="pill">${ownersLabel(D)}</span>`;
   if (!empty(v.shnat_yitzur)) facts[3] = `<span class="pill">${esc(v.shnat_yitzur)}</span>`;
   if (clean) pills.push(`<span class="pill ok">${ico("check")}לא נמצאו בעיות במאגרי משרד התחבורה</span>`);
-  if (D.tag) pills.push(`<span class="pill">תג נכה</span>`);
+  if (D.tag) pills.push(`<span class="pill" data-priv>תג נכה</span>`);
   html.push(`<div class="side">`);
   if (sharedHere(D)) html.push(`<div class="shared-top"><span aria-hidden="true">📩</span><span><b>דוח רכב שנשלח אליך</b> · נבדק עכשיו מול משרד התחבורה, מעודכן יותר מכל קובץ</span></div>`);
   if (D.fromCache) html.push(`<div class="msg" role="status"><b>אין חיבור למשרד התחבורה, ולכן מוצגים נתונים שנשמרו ב-${esc(fmtDate(new Date(D.fromCache).toISOString()))}.</b> ייתכן שהם לא מעודכנים. <button type="button" class="link-btn" data-retry="${esc(D.plate)}">נסו שוב</button></div>`);
@@ -2806,8 +2807,8 @@ function tabOverview(D){
       `<ul class="insights">${ins.map(i => {
         const todo = insightTodo(i.title);
         // flags (bad, warn) stay open; notes (info, ok) are one line each and open on tap, so the screen is not a wall of text
-        if (i.level === "info" || i.level === "ok") return `<li class="ins ${i.level}"><details class="ins-d"><summary>${ico(icon[i.level])}<b>${esc(i.title)}</b></summary><div class="ins-body"><span>${esc(i.text)}</span>${todo ? `<span class="todo"><strong>מה לעשות:</strong> ${esc(todo)}</span>` : ""}</div></details></li>`;
-        return `<li class="ins ${i.level}">${ico(icon[i.level])}<div><b>${esc(i.title)}</b><span>${esc(i.text)}</span>${todo ? `<span class="todo"><strong>מה לעשות:</strong> ${esc(todo)}</span>` : ""}</div></li>`;
+        if (i.level === "info" || i.level === "ok") return `<li class="ins ${i.level}"${i.priv ? " data-priv" : ""}><details class="ins-d"><summary>${ico(icon[i.level])}<b>${esc(i.title)}</b></summary><div class="ins-body"><span>${esc(i.text)}</span>${todo ? `<span class="todo"><strong>מה לעשות:</strong> ${esc(todo)}</span>` : ""}</div></details></li>`;
+        return `<li class="ins ${i.level}"${i.priv ? " data-priv" : ""}>${ico(icon[i.level])}<div><b>${esc(i.title)}</b><span>${esc(i.text)}</span>${todo ? `<span class="todo"><strong>מה לעשות:</strong> ${esc(todo)}</span>` : ""}</div></li>`;
       }).join("")}</ul>`));
   }
   const evCard = tier("ב-PRO: מעקב אחרי הרכב", eventsCard(D)), evFirst = !PRO_LOCK || isPro();
@@ -4155,10 +4156,10 @@ function buildReport(D, full, biz){
     const c = li.closest(".card"), h = c && c.querySelector(".head h2"), m = h && h.textContent.match(/\((\d+) בדיקות\)/);
     li.remove(); if (m) h.textContent = h.textContent.replace(m[0], `(${m[1] - 1} בדיקות)`);
   });
-  // the disabled-parking tag is personal, so it is never printed
-  el.querySelectorAll(".pill").forEach(x => { if (x.textContent.trim() === "תג נכה") x.remove(); });
-  el.querySelectorAll(".facts > div").forEach(x => { if (/תג חניה לנכה/.test(x.textContent)) x.remove(); });
-  el.querySelectorAll(".simple tr").forEach(x => { if (/^תג נכה/.test(x.textContent.trim())) x.remove(); });
+  // the disabled-parking tag is personal, so it is never printed: every place that shows it (header pill, overview note, simple-view row) is marked
+  // data-priv, and a notes card left empty by it goes too
+  el.querySelectorAll("[data-priv]").forEach(x => x.remove());
+  el.querySelectorAll("ul.insights:empty").forEach(u => { const c = u.closest(".card"); (c && c.querySelectorAll(".fold-body > *").length === 1 ? c : u).remove(); });
   // a dealer's own branded PDF carries no value estimate or costs unless the dealer switched them on in settings
   if (biz && !biz.value) el.querySelectorAll(".card").forEach(c => { const t = (c.querySelector(".head h2") || {}).textContent || ""; if (/^שווי משוער/.test(t.trim())) c.remove(); });
   el.querySelectorAll("details").forEach(d => d.setAttribute("open", ""));
@@ -4571,7 +4572,7 @@ async function drawShareCard(D, opt = {}){
     const stl = D.kind === "model" ? [] : settlementsFor(D);
     add(stl.length ? "warn" : "ok", stl.length ? `ייתכן שהרכב נכלל ב${pl(stl.length, "הסדר פשרה", "הסדרי פשרה")}` : "לא נמצא הסדר פשרה לדגם ולשנתון");
   }
-  for (const i of buildInsights(D)) if ((i.level === "bad" || i.level === "warn") && rows.length < 9 && !rows.some(r => r[1] === i.title) && !/טסט|ריקול|הסדר/.test(i.title)) add(i.level, i.title);
+  for (const i of buildInsights(D)) if ((i.level === "bad" || i.level === "warn") && !i.priv && rows.length < 9 && !rows.some(r => r[1] === i.title) && !/טסט|ריקול|הסדר/.test(i.title)) add(i.level, i.title);
   const tiles = [], cost = D.cost || {};
   if (D.km) tiles.push(["ק״מ בטסט האחרון", fmtN(D.km)]);
   if (D.kmPerYear && D.kmPerYear > 2000) tiles.push(["ממוצע לשנה", fmtN(Math.round(D.kmPerYear / 100) * 100)]);
