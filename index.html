@@ -845,11 +845,11 @@ const API = "https://data.gov.il/api/3/action/datastore_search";
 /* Datasets keyed by plate. role main = the vehicle record itself, in the order that decides which register is the car (the first one with a
    row gives the status): the active register, the other vehicle types, the registers of cars off the road, then public and import, which do
    not tell the status: public keeps a vehicle after it is cancelled (its own cancellation fields say so), and in 10/2026 3,298 public plates
-   and 2 import plates were also in a cancel register. */
+   and 2 import plates were also in a cancel register. nodates: the register has no test or licence dates (see lendsDates). */
 const PLATE_SETS = [
   {key:"active",     id:"053cea08-09bc-40ec-8f7a-156f0677aff3", role:"main", status:"פעיל"},
-  {key:"moto",       id:"bf9df4e2-d90d-4c0a-a400-19e15af8e95f", role:"main", status:"פעיל", kind:"דו-גלגלי"},
-  {key:"heavy",      id:"cd3acc5c-03c3-4c89-9c54-d40f93c0d790", role:"main", status:"פעיל", kind:"רכב כבד"},
+  {key:"moto",       id:"bf9df4e2-d90d-4c0a-a400-19e15af8e95f", role:"main", status:"פעיל", kind:"דו-גלגלי", nodates:true},
+  {key:"heavy",      id:"cd3acc5c-03c3-4c89-9c54-d40f93c0d790", role:"main", status:"פעיל", kind:"רכב כבד", nodates:true},
   {key:"inactive",   id:"f6efe89a-fb3d-43a4-bb61-9bf12a9b9099", role:"main", status:"לא פעיל", tone:"warn"},
   {key:"inactive2",  id:"6f6acd03-f351-4a8f-8ecf-df792f4f573a", role:"main", status:"לא פעיל", tone:"warn"},
   {key:"cancel",     id:"851ecab1-0622-4dbe-a6c7-f950cf82abf9", role:"main", status:"ירד מהכביש", tone:"bad", pad:true},
@@ -2077,6 +2077,24 @@ function pubState(r){
   // an unknown code is not in the cancel register either: the ministry's own words
   return {status: dep ? "הרישיון מופקד" : patrol ? "הורד מהכביש בידי ניידת בטיחות" : cop ? "הורד מהכביש בידי המשטרה" : nm || "לא פעיל", nm, dt: r.bitul_dt, temp: dep || patrol || cop};
 }
+/* The car's row is the first register's row. Another register's row adds only what names and describes the vehicle, and only when it is
+   the same vehicle (same maker and model codes, or the same chassis number); never a date, the status or the owner: an inactive row keeps
+   the dates of the day the car left the road, and an old cancel row can be another vehicle that had the plate */
+const ID_FIELDS = new Set(["tozeret_cd", "tozeret_nm", "tozeret_eretz_nm", "tozar", "degem_cd", "degem_nm", "kinuy_mishari", "sug_degem", "ramat_gimur",
+  "shnat_yitzur", "tzeva_cd", "tzeva_rechev", "sug_delek_nm", "misgeret", "mispar_shilda", "shilda", "sug_rechev_cd", "sug_rechev_nm", "degem_manoa",
+  "tozar_manoa", "mispar_manoa", "nefach_manoa", "hespek", "hanaa_nm", "mispar_mekomot", "mishkal_kolel", "mishkal_azmi", "mishkal_mitan_harama",
+  "sranim", "zmig_kidmi", "zmig_ahori", "mida_zmig_kidmi", "mida_zmig_ahori"]);
+const sameNum = (a, b, k) => isNum(a[k]) && isNum(b[k]) && num(a[k]) === num(b[k]);
+const vinOf = r => String(r.misgeret || r.mispar_shilda || r.shilda || "").trim().toUpperCase();
+const sameCar = (a, b) => sameNum(a, b, "tozeret_cd") && sameNum(a, b, "degem_cd") || !!vinOf(a) && vinOf(a) === vinOf(b);
+/* Moto and heavy rows have no test or licence dates (nodates). The same vehicle's row in the import register (a personal-import motorcycle:
+   1,808 plates in 10/2026, every one the same maker and year) or in the public register (a bus or truck: 36,422) has them and lends them:
+   same maker and production year, and a public row only while it is not permanently cancelled. Public has the licence date alone. */
+const LEND_DATES = {import: new Set(["tokef_dt", "mivchan_acharon_dt", "moed_aliya_lakvish"]), public: new Set(["tokef_dt"])};
+const lendsDates = (p, s, a, b) => !!(p.nodates && LEND_DATES[s.key]) && !(s.key === "public" && (pubState(b) || {}).gone) && sameNum(a, b, "tozeret_cd") && sameNum(a, b, "shnat_yitzur");
+/* a cancel row has no reason: the public row of the same cancellation (permanent, same date: all 3,298 public plates in a cancel register) gives it */
+const sameDay = (x, y) => { const a = toDate(x), b = toDate(y); return !!a && !!b && +a === +b; };
+const lendsReason = (p, s, a, b) => /^cancel/.test(p.key) && s.key === "public" && !!(pubState(b) || {}).gone && sameDay(a.bitul_dt, b.bitul_dt);
 /* ---------- fetch one vehicle ---------- */
 async function fetchVehicle(plate, signal, onProgress){
   const res = {}; let done = 0;
@@ -2117,9 +2135,16 @@ async function fetchVehicle(plate, signal, onProgress){
     return {plate, notFound: true};
   }
 
-  const v = {};
-  const fill = r => { for (const [k,x] of Object.entries(r)) if (empty(v[k]) && !empty(x)) v[k] = x; };
-  mains.forEach(s => fill(res[s.key].rows[0]));
+  const v = {}, top = mains[0] && res[mains[0].key].rows[0], lent = new Set();
+  const fill = (r, keys) => { for (const [k,x] of Object.entries(r)) if ((!keys || keys.has(k)) && empty(v[k]) && !empty(x)) v[k] = x; };
+  if (top) fill(top);
+  for (const s of mains.slice(1)) {
+    const r = res[s.key].rows[0];
+    if (sameCar(top, r)) fill(r, ID_FIELDS);
+    if (lendsDates(mains[0], s, top, r)) { fill(r, LEND_DATES[s.key]); lent.add(s.key); }
+    if (lendsReason(mains[0], s, top, r)) fill(r, new Set(["bitul_nm"]));
+  }
+  if (res.import.rows[0] && empty(v.sug_yevu)) v.sug_yevu = res.import.rows[0].sug_yevu;   // the import kind is the plate's, like the pill (importKind)
   ["cont","tech"].forEach(k => res[k].rows[0] && fill(res[k].rows[0]));
 
   const {w, towRow, zeroTow, counts, price, priceRows, modelRecalls, modelRecallsUnknown} = await fetchModelData(v, signal);
@@ -2146,8 +2171,9 @@ async function fetchVehicle(plate, signal, onProgress){
   if (km && start) { kmYears = Math.max(monthsBetween(start, testD || new Date()) / 12, 0.5); kmPerYear = Math.round(km / kmYears / 100) * 100; }
   const onRoad = parseYM(v.moed_aliya_lakvish) || (isNum(v.shnat_yitzur) ? new Date(num(v.shnat_yitzur), 0, 1) : null);
   const ownersFloor = !onRoad || onRoad < new Date(2017, 0, 1); // the ownership log starts in January 2017
-  // the public register's own state, when its row is the car's: a permanent cancellation reads like the cancel registers, a temporary one is a warning
-  const ps = mains[0] && mains[0].key === "public" ? pubState(res.public.rows[0]) : null, hold = ps && !ps.gone ? ps : null;
+  // the public register's own state, when its row is the car's or lends it its licence date: a permanent cancellation reads like the cancel
+  // registers, a temporary one (a deposit, the police) is a warning beside the car
+  const ps = mains[0] && (mains[0].key === "public" || lent.has("public")) ? pubState(res.public.rows[0]) : null, hold = ps && !ps.gone ? ps : null;
   const off = mains[0] && (/^cancel/.test(mains[0].key) || !!(ps && ps.gone));
   const primary = ps ? {...mains[0], ...(ps.gone ? {status: "ירד מהכביש", tone: "bad"} : {status: ps.status, tone: "warn"})} : mains[0];
 
