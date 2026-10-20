@@ -1333,6 +1333,7 @@ function driveType(D){
 }
 function costs(D){
   const c = {};
+  if (D.importKind) D = {...D, price: null};   // a personal import: IMPORT_NO_PRICE
   const kind = fuelKind(D);
   const co2 = isNum(D.w.CO2_WLTP) && num(D.w.CO2_WLTP) > 0 ? num(D.w.CO2_WLTP) : isNum(D.w.kamut_CO2) && num(D.w.kamut_CO2) > 0 ? num(D.w.kamut_CO2) : null;
   const kmYear = D.kmPerYear && D.kmPerYear > 2000 ? D.kmPerYear : AVG_KM_YEAR;
@@ -1421,6 +1422,9 @@ function costs(D){
   }
   return c;
 }
+/* the monthly figure's parts in words, and what it leaves out: no loss of value without a list price (a personal import, a model with no price) */
+const partsIn = m => { const n = m.parts.map(p => p[0]); return n.length > 1 ? n.slice(0, -1).join(", ") + " ו" + n[n.length - 1] : n[0]; };
+const partsOut = m => (m.parts.some(p => p[0] === "ירידת ערך") ? "" : "ירידת ערך, ") + "ביטוח וטיפולים";
 
 /* ---------- recalls ---------- */
 /* Importer recall-check pages (verified on the importers' own sites). The plate is copied before opening,
@@ -1540,6 +1544,8 @@ function importerRecall(D){
 }
 /* the official importer, from the model's price list; a personal import has none */
 const importerOf = D => D.importKind || !D.price || empty(D.price.shem_yevuan) ? "" : String(D.price.shem_yevuan).trim();
+/* ...and the official importer's price list is not the price of a personal import: no list price, value or company-car benefit from it (costs) */
+const IMPORT_NO_PRICE = "מחירון היבואן הרשמי לא חל על רכב ביבוא אישי";
 const norm = s => String(s || "").toUpperCase().replace(/[^A-Z0-9֐-׿]/g, "");
 function recallYear(x){ const m = String(x || "").match(/(19|20)\d{2}/); return m ? +m[0] : null; }
 /* every model name the catalogue lists for the car's brand, over all its register codes (אאודי גרמניה, אאודי בלגיה…), normalized, with the first and
@@ -3009,7 +3015,7 @@ function tabCosts(D){
     html.push(card("כמה הרכב עולה בחודש (הערכה)", "tag", "blue", `<div class="month-big">כ-${fmtN(m.total)} ₪ <small>בחודש</small></div>
       <div class="month-bar">${m.parts.map(([, v, col]) => `<span style="flex:${v};background:${col}"></span>`).join("")}</div>
       <div class="month-lg">${m.parts.map(([k, v, col]) => `<span><i style="background:${col}"></i>${k} ${fmtN(v)} ₪</span>`).join("")}</div>
-      <p class="note">לפי ${fmtN(c.kmYear)} ק״מ בשנה. בלי ביטוח וטיפולים.</p>`));
+      <p class="note">לפי ${fmtN(c.kmYear)} ק״מ בשנה. בלי ${partsOut(m)}.</p>`));
   }
   /* a card that only says "no data" is folded into one shared card (when two or more have none); a card with data always stays full */
   const none = [], u = c.usage;
@@ -3019,7 +3025,7 @@ function tabCosts(D){
   if (foldNone) {
     if (noFuel) none.push(noteOf("דלק", "אין במאגר נתוני פליטה לדגם הזה, ולכן אין הערכת צריכה."));
     if (noFee) none.push(noteOf("אגרת רישוי", "לא נמצאה קבוצת אגרה לרכב הזה. ההערכה זמינה לרכב פרטי בלבד."));
-    if (noUsage) none.push(noteOf("שווי שימוש (רכב צמוד)", "אין מספיק נתונים לחישוב לרכב הזה (החישוב כאן לרכב פרטי שעלה לכביש מ-2010)."));
+    if (noUsage) none.push(noteOf("שווי שימוש (רכב צמוד)", D.importKind ? IMPORT_NO_PRICE + ", ולכן אין כאן חישוב של שווי השימוש." : "אין מספיק נתונים לחישוב לרכב הזה (החישוב כאן לרכב פרטי שעלה לכביש מ-2010)."));
   }
   if (!(foldNone && noFuel)) html.push(c.kind === "ev" ? card("חשמל", "bolt", "teal", fuelInner) : card("דלק", "fuel", "red", fuelInner));
   if (!(foldNone && noFee)) html.push(card("אגרת רישוי שנתית", "doc", "violet", c.fee ?
@@ -3029,7 +3035,7 @@ function tabCosts(D){
   if (!(foldNone && noUsage)) html.push(card("שווי שימוש (רכב צמוד)", "users", "teal", u ?
     `<div class="tow-grid"><div><div class="k">לחודש</div><div class="v">${fmtN(u.monthly)}<span class="u">₪</span></div></div><div><div class="k">לשנה</div><div class="v">${fmtN(u.monthly * 12)}<span class="u">₪</span></div></div></div>
      <p class="note">${u.green ? `כולל הפחתה של ${fmtN(u.green[1])} ₪ לרכב ${u.green[0]}. ` : ""}זה הסכום שמתווסף למשכורת לצורך מס, לא המס עצמו.</p>` :
-    `<p style="margin:0">אין מספיק נתונים לחישוב שווי השימוש של הרכב הזה (החישוב כאן לרכב פרטי שעלה לכביש מ-2010).</p>`));
+    `<p style="margin:0">${D.importKind ? IMPORT_NO_PRICE + ", ולכן אין כאן חישוב של שווי השימוש." : "אין מספיק נתונים לחישוב שווי השימוש של הרכב הזה (החישוב כאן לרכב פרטי שעלה לכביש מ-2010)."}</p>`));
   if (foldNone) html.push(card("נתונים שלא זמינים לרכב הזה", "doc", "slate", none.join("")));
   return html.join("");
 }
@@ -3061,7 +3067,7 @@ function tabBuy(D){
     `<div class="tow-grid"><div><div class="k">מחיר מחירון כחדש</div><div class="v">${fmtN(c.newPrice)}<span class="u">₪</span></div></div><div><div class="k">שווי משוער היום</div><div class="v"><span dir="ltr" style="unicode-bidi:isolate;white-space:nowrap">${Math.round(c.valueLow / 1000)}–${Math.round(c.valueHigh / 1000)}</span><span class="u">אלף ₪</span></div></div></div>
      
      <p class="note">הערכה בלבד. היא לא מביאה בחשבון את מצב הרכב, תאונות והביקוש לדגם.</p>` :
-    `<p style="margin:0">אין במאגר מחיר מחירון לדגם הזה, ולכן אין הערכת שווי.</p>`)));
+    `<p style="margin:0">${D.importKind ? IMPORT_NO_PRICE + ", ולכן אין כאן מחיר מחירון והערכת שווי." : "אין במאגר מחיר מחירון לדגם הזה, ולכן אין הערכת שווי."}</p>`)));
   html.push(`<div id="mstat">${msCard(D)}</div>`);
   html.push(checksCard(D));
   const lk = (url, icon, text, copy) => `<button type="button" class="link-btn" data-url="${esc(url)}"${copy ? ` data-copyfirst="${D.plate}"` : ""}>${ico(icon)}${text}</button>`;
@@ -5247,7 +5253,7 @@ function buyerCard(D){
   const it = savedItem(D.plate), ask = it && it.ask || null, f = candFields(D), vd = askVerdict(ask, f.fair);
   const body = `${flags.length ? `<div class="qsec">דגלים לבדיקה</div><ul class="bflags">${flags.slice(0, 5).map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul>` : `<p style="margin:0 0 8px">לא עלו דגלים אדומים בנתונים.</p>`}
     ${qs.length ? `<div class="qsec">מה לשאול את המוכר על הרכב הזה</div><ul class="bq">${qs.slice(0, 6).map(q => `<li>${esc(q)}</li>`).join("")}</ul>` : ""}
-    ${f.c5 ? `<div class="qsec" style="margin-top:10px">עלות בעלות ל-5 שנים (הערכה)</div><p style="margin:0"><b>כ-${fmtN(Math.round(f.c5 / 1000) * 1000)} ₪</b></p><p class="note" style="margin:2px 0 0">${D.cost.kind === "ev" ? "חשמל" : "דלק"}, אגרה וירידת ערך. ביטוח וטיפולים לא נכללים.</p>` : ""}
+    ${f.c5 ? `<div class="qsec" style="margin-top:10px">עלות בעלות ל-5 שנים (הערכה)</div><p style="margin:0"><b>כ-${fmtN(Math.round(f.c5 / 1000) * 1000)} ₪</b></p><p class="note" style="margin:2px 0 0">${partsIn(D.cost.monthly)}. ${partsOut(D.cost.monthly)} לא נכללים.</p>` : ""}
     <div class="qsec" style="margin-top:10px">המחיר שהמוכר מבקש</div>
     <div class="askrow"><input class="inp" id="askIn" inputmode="numeric" placeholder="₪" value="${ask || ""}" aria-label="המחיר המבוקש"><button type="button" class="link-btn" data-act="candSave">${ico("star")}${it ? "עדכון" : "שמירה כמועמד"}</button></div>
     ${vd ? `<p class="vd ${vd.k}" style="margin:6px 0 0">${esc(vd.t)}</p>` : ""}`;
