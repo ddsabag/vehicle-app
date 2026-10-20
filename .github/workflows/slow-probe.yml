@@ -3,7 +3,7 @@ name: Slow lookup probe (one-off, probe-slow branch)
 on:
   push:
     branches: [probe-slow]
-    paths: [".github/scripts/slow-probe.mjs", ".github/workflows/slow-probe.yml"]
+    paths: [".github/scripts/slow-probe.mjs", ".github/scripts/forms-probe.mjs", ".github/workflows/slow-probe.yml"]
 permissions:
   contents: write
 jobs:
@@ -17,14 +17,11 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - run: git worktree add old da376370 && grep -o 'APP_VERSION = "[0-9.]*"' index.html old/index.html
-      - run: npm i --no-save --no-audit --no-fund playwright-core@1.48.2 > /dev/null 2>&1; ls -la /usr/bin/google-chrome
-      - run: mkdir -p out && node .github/scripts/slow-probe.mjs > out/report.txt 2>&1; wc -c out/report.txt
+      - run: mkdir -p out && node .github/scripts/forms-probe.mjs > out/forms.txt 2>&1; wc -c out/forms.txt
         env:
-          GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
-          N: "24"
+          N: "40"
       - name: Publish on probe-slow-out
         run: |
           cd out && git init -q && git checkout -q -b probe-slow-out && git add -A
-          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Slow lookup probe"
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Plate forms probe"
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" probe-slow-out
