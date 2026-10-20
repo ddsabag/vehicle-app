@@ -1,0 +1,223 @@
+[0s] == read import + public
+import 27439 | public 66284
+import values
+   sug_yevu יבוא אישי-משומש: 23160
+   type פרטי נוסעים: 23015
+   sug_yevu יבוא אישי-חדש: 4279
+   type אופנוע: 1752
+   type פרטי נוסעים פתוח: 722
+   type מרכב אחוד: 617
+   type טרקטורון: 199
+   type משא פתוח: 163
+   type מרכב אחוד מגורים: 134
+   type מונית: 129
+   type גרור סגור מגורים: 93
+   type פרטי נוסעים 5 דלתות: 92
+   type משא מגורים: 69
+   type טרקטור חקלאי: 60
+   type פרטי נוסעים 3 דלתות: 39
+   type תלת אופנוע: 38
+   type רכב מדברי: 29
+   type פרטי רכב שדה סגור: 29
+   type פרטי רכב שדה פתוח: 23
+   type רכב סיור: 23
+   type אופנוע עם רכב צדי: 16
+   type גרור לסוסים: 15
+   type גרור פתוח: 15
+   type טרקטור רגיל: 14
+   type רכב שטח: 13
+   type משא סגור: 11
+   type גרור לציוד ספורט: 9
+   type גרור לסירה: 7
+   type טרקטורון חקלאי: 7
+   type גרור  לחפצים: 6
+   type נתמך פתוח: 6
+   type משא אשפה בדחס: 6
+   type פרטי רגיל: 5
+   type משא בלתי אחוד פתוח: 5
+   type טרקטור רגיל עם ארגז: 4
+   type אוטובוס זעיר פרטי: 4
+   type משא ב.אחוד פתוח-תא כפול: 4
+   type מרכב אחוד גג מוגבה: 4
+   type משא סגור  דפן הידראולית: 4
+   type גרור עבודה-גנרטור נייד: 4
+public values
+   tokef future: 60376
+   bitul 0/לא מבוטל: 59856
+   type מונית: 28033
+   type אוטובוס צבורי להסע מיוחד: 10106
+   type אוטובוס צבורי עירוני: 9043
+   type אוטובוס צבורי בין-עירוני: 5848
+   type אוטובוס זעצ הסעות מיוחדות": 5233
+   tokef ended 31-365 days ago: 5126
+   type אוטובוס זעיר צבורי: 4908
+   bitul C/הפקדה +date: 2893
+   bitul 2/בטול רשום לפני מכירה +date: 1991
+   type אוטובוס צבורי עיר מפרק: 1018
+   tokef ended <=30 days ago: 782
+   type אוטובוס  פרטי: 739
+   type אוטובוס צבורי לסיור: 722
+   bitul 8/אובדן גמור +date: 671
+   bitul 3/פרוק +date: 519
+   type טיולית: 422
+   bitul S/הפקדת סוחר +date: 111
+   type מונית-זוטובוס: 111
+   bitul 6/העברה לרשפ" +date: 99
+   bitul A/משטרה בקורת +date: 90
+   type מונית נגישה: 77
+   bitul 5/העברה לחול" +date: 18
+   type אוטובוס זעיר צבורי סיור: 16
+   bitul B/הורדה מהכביש-ניידת בטיחות +date: 15
+   bitul Z/משטרה תאונה +date: 14
+   bitul R/משטרה-תוספת שביעית לפקודה +date: 6
+   type אוטובוס עירוני קומותיים: 4
+   type אוטובוס צבורי בע קומתים": 4
+   bitul 0/לא מבוטל +date: 1
+[9s] == active
+active + import
+   tokef: import vs active same: 877
+   last test: import vs active same: 877
+   maker same, year same: 877
+   sug_yevu יבוא אישי-משומש: 666
+   sug_yevu יבוא אישי-חדש: 211
+active + public
+   tokef: public vs active same: 26439
+   maker same, degem_cd same: 26439
+   public bitul לא מבוטל: 23882
+   public bitul הפקדה: 2488
+   public bitul משטרה בקורת: 44
+   public bitul הורדה מהכביש-ניידת בטיחות: 12
+   public bitul משטרה תאונה: 10
+   public bitul משטרה-תוספת שביעית לפקודה: 3
+[332s] == moto
+moto (and moto + import)
+   mkoriut (empty): 187739
+   mkoriut ביס לנהיגה": 1976
+   +import: maker same, year same: 1808
+   +import: import last test <=400 days: 1576
+   +import: import tokef future: 1491
+   mkoriut יבוא אישי-משומש: 1459
+   +import: mkoriut יבוא אישי-משומש: 1459
+   mkoriut מדינת ישראל: 779
+   mkoriut יבוא אישי: 349
+   +import: mkoriut יבוא אישי: 349
+   +import: import tokef ended 31-365 days ago: 279
+   +import: import last test 401-800 days: 231
+   mkoriut החכר: 107
+   mkoriut דפלומטי: 40
+   +import: import tokef ended <=30 days ago: 30
+   mkoriut השכרה: 14
+   +import: import tokef ended >1 year ago: 8
+   mkoriut יבואן אבטפוס: 4
+   mkoriut לאחר שיקום: 3
+   mkoriut יוש-עזה": 2
+   +import: import last test >800 days: 1
+   mkoriut מונית: 1
+[347s] == heavy
+heavy + public
+   maker same: 36422
+   public bitul לא מבוטל: 35861
+   public tokef future: 34685
+   public tokef ended 31-365 days ago: 1489
+   public bitul הפקדה: 395
+   public tokef ended <=30 days ago: 248
+   public bitul הפקדת סוחר: 111
+   public bitul משטרה בקורת: 46
+   public bitul משטרה תאונה: 3
+   public bitul משטרה-תוספת שביעית לפקודה: 3
+   public bitul הורדה מהכביש-ניידת בטיחות: 3
+[358s] == inactive
+[376s] == inactive2
+[448s] == cancel
+[570s] == cancel2010
+[628s] == cancel2000
+cancel registers vs public / import
+   cancel: cancel date vs public bitul date same: 3298
+   cancel: public bitul בטול רשום לפני מכירה +date: 1991
+   cancel: public tokef ended 31-365 days ago: 1756
+   cancel: public tokef future: 1366
+   cancel: public bitul אובדן גמור +date: 671
+   cancel: public bitul פרוק +date: 519
+   cancel: public tokef ended <=30 days ago: 176
+   cancel: public bitul העברה לרשפ" +date: 99
+   cancel: public bitul העברה לחול" +date: 18
+   cancel2010 + import: import tokef future: 2
+   cancel2010 + import: maker same: 2
+plate in an old cancel register and in active/inactive
+   active + cancel2010: active row (maker not kept): 5
+   inactive + cancel2010: same maker and year: 3
+[671s] == only one register
+import only (in no other register)
+   type פרטי נוסעים: 22218
+   last test <=400 days: 22115
+   sug_yevu יבוא אישי-משומש: 21035
+   tokef future: 20740
+   sug_yevu יבוא אישי-חדש: 3717
+   tokef ended 31-365 days ago: 3266
+   last test 401-800 days: 2555
+   road empty: 2124
+   road 2009: 2036
+   road 2010: 1976
+   road 2008: 1668
+   road 2017: 1513
+   road 2018: 1439
+   road 2011: 1346
+   road 2016: 1307
+   road 2012: 1226
+   road 2013: 1115
+   road 2019: 999
+   road 2014: 990
+   road 2015: 940
+   road 2020: 785
+   type פרטי נוסעים פתוח: 699
+   tokef ended <=30 days ago: 629
+   type מרכב אחוד: 598
+   road 2021: 525
+   road 2022: 330
+   road 2023: 320
+   road 2024: 279
+   road 2007: 273
+   road 1988: 206
+   type טרקטורון: 199
+   road 1987: 180
+   road 1991: 172
+   road 1989: 166
+   road 1990: 166
+   type משא פתוח: 162
+   road 2025: 154
+   road 1986: 145
+   road 1980: 138
+   road 1992: 136
+   type מרכב אחוד מגורים: 134
+   road 1985: 130
+   road 1979: 118
+   type מונית: 118
+   tokef ended >1 year ago: 117
+   road 1984: 105
+   road 1994: 102
+   road 1981: 98
+   type גרור סגור מגורים: 93
+   road 1978: 92
+   road 1977: 89
+   road 1982: 83
+   last test >800 days: 82
+   road 1993: 75
+   type פרטי נוסעים 5 דלתות: 73
+   road 1973: 72
+   road 1983: 72
+   type משא מגורים: 68
+   road 1996: 67
+   road 2006: 67
+public only
+   type מונית: 118
+   tokef future: 116
+   bitul לא מבוטל: 114
+   bitul הפקדה +date: 10
+   tokef ended 31-365 days ago: 8
+   type אוטובוס  פרטי: 3
+   type אוטובוס צבורי להסע מיוחד: 2
+   bitul משטרה תאונה +date: 1
+   tokef ended <=30 days ago: 1
+   type אוטובוס זעיר צבורי: 1
+   type אוטובוס צבורי לסיור: 1
+[671s] done
