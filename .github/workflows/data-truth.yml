@@ -6,7 +6,8 @@ name: Data truth
 #                       through the alert router (key truth:<groups>); too few cars read sends truth:fail.
 #  invariants (weekly): data-invariants.mjs reads the registers in full and checks the facts the app's rules rest on (fresh test dates,
 #                       licence renewals reaching the data, plates shared between registers, the register's current owner against the
-#                       ownership log, the towing hook against the model data, the price list, odd dates) against fixed limits
+#                       ownership log, the towing hook against the model data, the price list, odd dates, public vehicles cancelled for good
+#                       against the cancel registers, the registers that lend each other dates) against fixed limits
 #                       (invariants.json, inv-history.json). A broken limit sends one line (key truth:inv:<ids>).
 on:
   schedule:

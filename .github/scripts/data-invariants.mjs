@@ -13,6 +13,10 @@
 //   price    maker+code+year groups with more than one list price: at most 100 (0)       (the catalogue joins the price list by maker|code|year)
 //   wltp     the largest maker+code group of model rows: at most 250 (16)                 (the app's live query reads 300 rows)
 //   recalls  (plate, recall) pairs on several rows of the per-car recall list: at most 100 (0)
+//   pubcancel public vehicles cancelled for good (bitul 2/3/5/6/8) that no cancel register lists: at most 50 (0 of 3,298)
+//            (a cancel register outranks the public register, so such a vehicle reads as off the road)
+//   lend     a plate in two registers where one lends the other its dates (moto + import, heavy + public) with another maker,
+//            or (import) another model year: at most 50 (0 of 1,808 and 0 of 36,422)  (dates come from the same vehicle)
 // Totals only, never a plate. out/invariants.json = this week's values, limits and verdicts; out/inv-history.json = the last 60 weeks
 // (read back from the data-truth branch). One Telegram line through the alert router when a limit breaks (key truth:inv:<ids>).
 //   node data-invariants.mjs              read everything (about 40 min on a GitHub runner), write, alert
@@ -23,7 +27,8 @@ const API = "https://data.gov.il/api/3/action/";
 const ID = { active: "053cea08-09bc-40ec-8f7a-156f0677aff3", cancel: "851ecab1-0622-4dbe-a6c7-f950cf82abf9", cancel2010: "4e6b9724-4c1e-43f0-909a-154d4cc4e046",
   cancel2000: "ec8cbc34-72e1-4b69-9c48-22821ba0bd6c", cont: "0866573c-40cd-4ca8-91d2-9dd2d7a492e5", tech: "56063a99-8a3e-4ff4-912e-5966c0279bad",
   owners: "bb2355dc-9ec7-4f06-9c3f-3344672171da", recall: "36bf1404-0be4-49d2-82dc-2f1ead4a8b93", wltp: "142afde2-6228-49f9-8a29-9b6c3a0cbe40",
-  price: "39f455bf-6db0-4926-859d-017f34eacbcb" };
+  price: "39f455bf-6db0-4926-859d-017f34eacbcb", moto: "bf9df4e2-d90d-4c0a-a400-19e15af8e95f", heavy: "cd3acc5c-03c3-4c89-9c54-d40f93c0d790",
+  public: "cf29862d-ca25-4691-84f6-1be60dcb4a1e", import: "03adc637-b6fe-402b-9937-7c3d3afc9140" };
 const HISTORY_URL = "https://raw.githubusercontent.com/ddsabag/vehicle-app/data-truth/inv-history.json";
 const LATEST_URL = "https://github.com/ddsabag/vehicle-app/blob/data-truth/invariants.json";
 export const TOW_BAN_FROM = 2008;   // index.html: a 0/0 model row bans towing from this model year on
@@ -40,7 +45,11 @@ export const CHECKS = {
   price:   ["דגם עם כמה מחירי מחירון באותה שנה", v => v <= 100, "עד 100"],
   wltp:    ["יותר מדי שורות לקוד דגם אחד", v => v <= 250, "עד 250"],
   recalls: ["כפילויות ברשימת הריקולים לפי רכב", v => v <= 100, "עד 100"],
+  pubcancel: ["רכב ציבורי שבוטל לצמיתות ולא מופיע במאגר הרכבים שירדו מהכביש", v => v <= 50, "עד 50"],
+  lend:    ["אותו מספר בשני מאגרים עם יצרן או שנת ייצור שונים", v => v <= 50, "עד 50"],
 };
+// public register cancellation codes that end the vehicle's registration (the others, C/S deposit and A/B/Z/R police or safety patrol, are temporary)
+export const PUB_FOR_GOOD = r => /^[23568]$/.test(String(r.bitul_cd ?? "").trim()) || /בטול|אובדן|פרוק|העברה ל/.test(String(r.bitul_nm || ""));
 
 const T0 = Date.now(), log = m => console.log(`[${Math.round((Date.now() - T0) / 1000)}s] ${m}`);
 const IO = { env: process.env, out: s => console.log(s), fetch: (u, o) => fetch(u, o), now: () => new Date() };
@@ -113,10 +122,21 @@ export async function measure(scan, today) {
   const week = sumDays(today - 8, today - 2) / 7, usual = sumDays(today - 63, today - 9) / 55;
   v.tests = usual > 0 ? Math.round(week / usual * 100) / 100 : 0;
   v.renewal = renewal; v.dates = dates; v.hook = hook; info.activeCars = cars; info.testsPerDayLastWeek = Math.round(week); info.testsPerDayUsual = Math.round(usual);
-  // plates in active and in a cancel register (the number reused, or a register that did not drop a car)
-  let reuse = 0;
-  for (const k of ["cancel", "cancel2010", "cancel2000"]) await scan(ID[k], "mispar_rechev", rows => { for (const r of rows) if (own.has(plateOf(r.mispar_rechev))) reuse++; });
+  // the public and import registers: who lends dates to whom, and which public vehicles were cancelled for good
+  const pub = new Map(), imp = new Map();   // plate -> maker (public, 0 when cancelled for good) / maker|year (import)
+  await scan(ID.public, "mispar_rechev,bitul_cd,bitul_nm,tozeret_cd", rows => { for (const r of rows) { const p = plateOf(r.mispar_rechev); if (p) pub.set(p, PUB_FOR_GOOD(r) ? 0 : N(r.tozeret_cd)); } });
+  await scan(ID.import, "mispar_rechev,tozeret_cd,shnat_yitzur", rows => { for (const r of rows) { const p = plateOf(r.mispar_rechev); if (p) imp.set(p, `${N(r.tozeret_cd)}|${N(r.shnat_yitzur)}`); } });
+  // plates in active and in a cancel register (the number reused, or a register that did not drop a car); public vehicles cancelled for good that a cancel register lists
+  let reuse = 0; const listed = new Set();
+  for (const k of ["cancel", "cancel2010", "cancel2000"]) await scan(ID[k], "mispar_rechev", rows => { for (const r of rows) { const p = plateOf(r.mispar_rechev); if (own.has(p)) reuse++; if (pub.get(p) === 0) listed.add(p); } });
   v.reuse = reuse;
+  let forGood = 0; for (const m of pub.values()) if (m === 0) forGood++;
+  v.pubcancel = forGood - listed.size; info.publicCancelledForGood = forGood; listed.clear();
+  // the registers that lend dates: moto takes them from import, heavy from public (index.html), so both rows must be the same vehicle
+  let lend = 0, motoImport = 0, heavyPublic = 0;
+  await scan(ID.moto, "mispar_rechev,tozeret_cd,shnat_yitzur", rows => { for (const r of rows) { const x = imp.get(plateOf(r.mispar_rechev)); if (x === undefined) continue; motoImport++; if (x !== `${N(r.tozeret_cd)}|${N(r.shnat_yitzur)}`) lend++; } });
+  await scan(ID.heavy, "mispar_rechev,tozeret_cd", rows => { for (const r of rows) { const x = pub.get(plateOf(r.mispar_rechev)); if (!x) continue; heavyPublic++; if (x !== N(r.tozeret_cd)) lend++; } });
+  v.lend = lend; info.motoInImport = motoImport; info.heavyInPublic = heavyPublic; pub.clear(); imp.clear();
   // the ownership log's latest month per active plate: which owner kinds it holds
   const last = new Map();   // plate -> month * 16 + kinds
   await scan(ID.owners, "mispar_rechev,baalut_dt,baalut", rows => { for (const r of rows) {
@@ -190,7 +210,14 @@ async function selftest() {
   const D = { [ID.active]: A, [ID.owners]: O, [ID.cont]: C, [ID.tech]: T, [ID.recall]: [{ MISPAR_RECHEV: 5, RECALL_ID: 9 }, { MISPAR_RECHEV: "5", RECALL_ID: 9 }],
     [ID.wltp]: [{ tozeret_cd: 1, degem_cd: 1, sug_degem: "P", shnat_yitzur: 2015, kosher_grira_im_blamim: 0, kosher_grira_bli_blamim: 0 }, { tozeret_cd: 1, degem_cd: 1, sug_degem: "P", shnat_yitzur: 2019, kosher_grira_im_blamim: 1500, kosher_grira_bli_blamim: 750 }],
     [ID.price]: [{ tozeret_cd: 1, degem_cd: 1, shnat_yitzur: 2019, mehir: 100000 }, { tozeret_cd: 1, degem_cd: 1, shnat_yitzur: 2019, mehir: 120000 }],
-    [ID.cancel]: [{ mispar_rechev: A[20].mispar_rechev }], [ID.cancel2010]: [{ mispar_rechev: "00000001" }], [ID.cancel2000]: [] };
+    [ID.cancel]: [{ mispar_rechev: A[20].mispar_rechev }, { mispar_rechev: 9001 }], [ID.cancel2010]: [{ mispar_rechev: "00000001" }], [ID.cancel2000]: [],
+    // public: 9001 scrapped and listed in cancel (fine), 9002 total loss and listed nowhere (counts), 9003 deposited (temporary, fine), 9004 a bus of maker 7
+    [ID.public]: [{ mispar_rechev: 9001, bitul_cd: "3", bitul_nm: "פרוק", tozeret_cd: 5 }, { mispar_rechev: 9002, bitul_cd: "8", bitul_nm: "אובדן גמור", tozeret_cd: 5 },
+      { mispar_rechev: 9003, bitul_cd: "C", bitul_nm: "הפקדה", tozeret_cd: 5 }, { mispar_rechev: 9004, bitul_cd: "0", bitul_nm: "לא מבוטל", tozeret_cd: 7 }],
+    // moto 9101 matches its import row; moto 9102 has another model year; heavy 9004 has another maker than its public row; heavy 9001 is ignored (cancelled for good)
+    [ID.import]: [{ mispar_rechev: 9101, tozeret_cd: 3, shnat_yitzur: 2018 }, { mispar_rechev: 9102, tozeret_cd: 3, shnat_yitzur: 2018 }],
+    [ID.moto]: [{ mispar_rechev: 9101, tozeret_cd: 3, shnat_yitzur: 2018 }, { mispar_rechev: 9102, tozeret_cd: 3, shnat_yitzur: 2019 }, { mispar_rechev: 9200, tozeret_cd: 3, shnat_yitzur: 2019 }],
+    [ID.heavy]: [{ mispar_rechev: 9004, tozeret_cd: 8 }, { mispar_rechev: 9001, tozeret_cd: 9 }] };
   const fake = async (id, fields, onRows) => { onRows(D[id] || []); return (D[id] || []).length; };
   const { v, info } = await measure(fake, today);
   ok(v.fresh === 1, "fresh: newest test yesterday -> 1 day (" + v.fresh + ")");
@@ -202,12 +229,14 @@ async function selftest() {
   ok(info.carsWithOwnershipLog === 2 && info.ownerTypeNotInLatestMonth === 1, "owners: same-month dealer+private is fine, leasing car with a private latest month is off");
   ok(v.km.rows === 10 && v.km.share === 0.7, "km: rows and share with km");
   ok(v.price === 1 && v.wltp === 2 && v.recalls === 1, "price groups, largest code group, duplicate recall pairs");
+  ok(v.pubcancel === 1 && info.publicCancelledForGood === 2, "pubcancel: a total loss no cancel register lists; a deposit is temporary (" + v.pubcancel + ")");
+  ok(v.lend === 2 && info.motoInImport === 2 && info.heavyInPublic === 1, "lend: another model year (moto+import), another maker (heavy+public) (" + v.lend + ")");
   const res = judge({ ...v, owners: 0.5, renewal: 9000, km: { rows: 2.5e6, share: 0.7 } }), m = message(res, "2026-10-25");
   ok(m && m.key === "truth:inv:renewal+owners", "the key names the broken checks: " + (m && m.key));
   ok(m && /50\.00%/.test(m.text) && /9,000/.test(m.text) && /הגבול: עד 5,000/.test(m.text), "wording");
   try { const { validKey, label } = await import("./alert.mjs"); ok(validKey(m.key) && !/^התראה:/.test(label(m.key).he), "a valid router key with a label: " + label(m.key).he); }
   catch (e) { ok(false, "alert.mjs import: " + e.message); }
-  ok(message(judge({ fresh: 1, tests: 1, renewal: 1, dates: 0, reuse: 0, owners: 0, km: { rows: 2.5e6, share: 0.7 }, hook: 0, price: 0, wltp: 16, recalls: 0 }), "x") === null, "nothing to say when every check holds");
+  ok(message(judge({ fresh: 1, tests: 1, renewal: 1, dates: 0, reuse: 0, owners: 0, km: { rows: 2.5e6, share: 0.7 }, hook: 0, price: 0, wltp: 16, recalls: 0, pubcancel: 0, lend: 0 }), "x") === null, "nothing to say when every check holds");
   ok(addWeek({ v: 1, weeks: Array.from({ length: 70 }, (_, i) => ({ d: `2025-${String(1 + i % 12).padStart(2, "0")}-${String(1 + Math.floor(i / 12)).padStart(2, "0")}` })) }, { d: "2026-10-25" }).weeks.length === 60, "history keeps 60 weeks");
 }
 

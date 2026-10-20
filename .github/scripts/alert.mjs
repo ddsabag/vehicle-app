@@ -115,7 +115,8 @@ export const LABELS = {
   "truth:inv":           { he: "הבדיקה השבועית של מאגרי משרד התחבורה מצאה חריגה: {ids}", sect: "fail",   // data-invariants.mjs (Data truth, weekly); ids = its CHECKS
                            ids: { fresh: "תאריכי הטסט לא מתעדכנים", tests: "מעט טסטים חדשים", renewal: "טסטים בלי חידוש רישיון", dates: "תאריכי רישיון לא תקינים",
                                   reuse: "מספרים במאגר הפעיל ובמאגר שירד מהכביש", owners: "סוג הבעלות הנוכחי", km: "ק״מ בטסט", hook: "וו גרירה מול נתוני הדגם",
-                                  price: "מחירון", wltp: "נתוני דגם", recalls: "רשימת הריקולים לפי רכב" } },
+                                  price: "מחירון", wltp: "נתוני דגם", recalls: "רשימת הריקולים לפי רכב", pubcancel: "רכב ציבורי שבוטל לצמיתות",
+                                  lend: "מאגרים שמשלימים תאריכים זה לזה" } },
 };
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
 export const FAMILIES_IN_USE = [
@@ -813,7 +814,7 @@ async function selftest() {
     for (const [f, ids] of [["smoke", "home lookup magazine applinks privacy model sitemap cert domain certcheck"], ["expiry", "cert domain certcheck"],
       ["infra", "site api sitemap quota-cf quota-brevo"], ["vitals", "crash anr"], ["listing:fail", "access files play"], ["prod:fail", "access promote auto"], ["safety:fail", "access files play"],
       ["truth", "page identity status test road owners km recalls settlements tow specs mods fee price value tag insight counts message"],
-      ["truth:inv", "fresh tests renewal dates reuse owners km hook price wltp recalls"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
+      ["truth:inv", "fresh tests renewal dates reuse owners km hook price wltp recalls pubcancel lend"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
       const he = label(f + ":" + ids.split(" ").join("+")).he.split(/[\s,:]+/);
       ok(!ids.split(" ").some(i => he.includes(i)), `label ${f}: no raw id left`);
     }
