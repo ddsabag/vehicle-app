@@ -500,8 +500,11 @@ function compare(c, X, P) {
     if (/היברידי/.test(tech) && /PLUG|פלאג/.test(tech)) { exp.add("היברידי"); exp.add("פלאג-אין"); }
     if (/חשמלי/.test(tech) && !/PLUG|פלאג|היברידי/.test(tech)) exp.add("חשמלי");
     check(c, "identity.drive_pill", exp.size ? exp.has(P.head.drive) : !P.head.drive, P.head.drive, [...exp].join(" / "), `sug_delek_nm=${reg} tech=${vals(Wd, "technologiat_hanaa_nm").join("|")}`); }
-  { const vin = (P.tabs.specs.cards.find(x => x.title === "מספרי זיהוי") || {}).text || "", want = R.misgeret || R.mispar_shilda || R.shilda || "";
-    check(c, "identity.vin", E(want) ? true : vin.includes(String(want).trim()), "(vin hidden)", "(vin hidden)", E(want) ? "" : "register VIN not found in the card"); }
+  { const card = P.tabs.specs.cards.find(x => x.title === "מספרי זיהוי"), vin = card ? card.text : "", want = String([R.misgeret, R.mispar_shilda, R.shilda].find(x => !E(x)) || "");
+    // the card's text comes with its white space collapsed (T), so the register's value is compared the same way; the evidence describes it without printing it
+    const w1 = want.replace(/\s+/g, " ").trim(), shape = s => `${s.trim().length} chars${/\s/.test(s.trim()) ? ", inner spaces" : ""}${/[a-z]/.test(s) ? ", lower case" : ""}${/[^A-Za-z0-9\s]/.test(s) ? ", other signs" : ""}`;
+    if (w1 && w1 !== want.trim()) NOTES.push(`${c.id}: the register writes the VIN with runs of white space (${shape(want)}), compared with them collapsed as a page shows them`);
+    check(c, "identity.vin", !w1 || vin.includes(w1), "(vin hidden)", "(vin hidden)", w1 ? `register VIN (${shape(want)}) not found in the card${!card ? " (no ID card)" : /מספר שלדה/.test(vin) ? "" : " (the card shows no VIN)"}` : ""); }
   // status: which register is the car, and the public register's hold
   const pills = P.head.pills.join(" | "), regs = `primary=${X.primary} registers=${X.mains.join(",")}${X.lent.size ? " lent=" + [...X.lent].join(",") : ""}`;
   check(c, "status.inactive_pill", inactive === P.head.pills.includes("לא פעיל"), pills, inactive ? "לא פעיל" : "(no inactive pill)", regs);
