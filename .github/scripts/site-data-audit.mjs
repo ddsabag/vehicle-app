@@ -501,10 +501,12 @@ function compare(c, X, P) {
     { const se = vals(W, "mispar_moshavim", posV).concat(vals(W, "mispar_moshavim", posV).length ? [] : posV(R.mispar_mekomot) ? [String(R.mispar_mekomot)] : []), ss = spec("מושבים");
       check(c, "specs.seats", se.length ? inSet(ss, se) : E(ss), ss, se.join(" / ") || "(not shown)", E(R.mispar_mekomot) ? "" : `mispar_mekomot=${R.mispar_mekomot}`); }
     { const sr = spec("סרנים"); check(c, "specs.axles", posV(R.sranim) ? dig(sr) === String(N(R.sranim)) : E(sr), sr, posV(R.sranim) ? R.sranim : "(not shown)", E(R.sranim) ? "" : `sranim=${R.sranim}`); }
-    const sl = posV(R.ramat_eivzur_betihuty) ? [String(R.ramat_eivzur_betihuty).trim()] : vals(W, "ramat_eivzur_betihuty", posV);
-    check(c, "specs.safety_level", sl.length ? sl.includes((spec("רמת אבזור בטיחותי").match(/^(\S+) מתוך/) || [])[1] || "") : E(spec("רמת אבזור בטיחותי")), spec("רמת אבזור בטיחותי"), sl.join(" / ") || "(not shown: 0 = not rated)", E(R.ramat_eivzur_betihuty) ? "" : `register=${R.ramat_eivzur_betihuty}`);
-    { const ins = (cardOf(P, "overview", /^מידע חשוב/) || {items: []}).items, low = ins.includes("רמת בטיחות נמוכה"), lv = N(R.ramat_eivzur_betihuty);
-      if (!E(R.ramat_eivzur_betihuty)) check(c, "insight.safety_low", low === (lv >= 1 && lv <= 2), low ? "רמת בטיחות נמוכה" : "(none)", lv >= 1 && lv <= 2 ? "רמת בטיחות נמוכה" : "(none: level " + lv + (lv === 0 ? " = not rated" : "") + ")", ""); }
+    // an active car shows the register's level, and 0 when it is empty on a car built from 2014 (index.html safetyLevel); other registers write 0 for "not rated"
+    const act = c.from === "active", sl = act ? (posV(R.ramat_eivzur_betihuty) ? [String(N(R.ramat_eivzur_betihuty))] : N(R.shnat_yitzur) >= 2014 ? ["0"] : [])
+      : posV(R.ramat_eivzur_betihuty) ? [String(R.ramat_eivzur_betihuty).trim()] : vals(W, "ramat_eivzur_betihuty", posV);
+    check(c, "specs.safety_level", sl.length ? sl.includes((spec("רמת אבזור בטיחותי").match(/^(\S+) מתוך/) || [])[1] || "") : E(spec("רמת אבזור בטיחותי")), spec("רמת אבזור בטיחותי"), sl.join(" / ") || "(not shown)", E(R.ramat_eivzur_betihuty) ? "" : `register=${R.ramat_eivzur_betihuty}`);
+    { const ins = (cardOf(P, "overview", /^מידע חשוב/) || {items: []}).items, low = ins.includes("רמת בטיחות נמוכה");
+      check(c, "insight.safety_low", !low, low ? "רמת בטיחות נמוכה" : "(none)", "(none: the level is in the safety card, never a warning)", ""); }
     const zh = posV(R.kvutzat_zihum) ? [String(R.kvutzat_zihum).trim()] : vals(W, "kvutzat_zihum", posV), zt = ((cardOf(P, "specs", /^סביבה$/) || {}).text || "").match(/קבוצת זיהום (\S+) מתוך 15/);
     check(c, "specs.pollution_group", zh.length ? zh.includes(zt ? zt[1] : "") : !zt, zt ? zt[1] : "", zh.join(" / ") || "(not shown: 0 = no group)", E(R.kvutzat_zihum) ? "" : `register=${R.kvutzat_zihum}`);
     const gb = vals(W, "automatic_ind").map(x => x === "1" ? "אוטומטית" : "ידנית"), gs = spec("תיבת הילוכים");

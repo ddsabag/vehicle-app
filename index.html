@@ -869,7 +869,7 @@ const MODEL_SETS = {
 
 /* Safety systems listed by name when the model has them */
 const SYSTEMS = {
-  abs_ind:"ABS", bakarat_yatzivut_ind:"בקרת יציבות", maarechet_ezer_labalam_ind:"בלימה אוטונומית",
+  abs_ind:"ABS", bakarat_yatzivut_ind:"בקרת יציבות", maarechet_ezer_labalam_ind:"מערכת עזר לבלימה",
   bakarat_stiya_menativ_ind:"התרעת סטייה מנתיב", bakarat_stiya_activ_s:"שמירה על נתיב",
   nitur_merhak_milfanim_ind:"שמירת מרחק", zihuy_beshetah_nistar_ind:"ניטור שטח מת",
   bakarat_shyut_adaptivit_ind:"בקרת שיוט אדפטיבית", zihuy_holchey_regel_ind:"זיהוי הולכי רגל",
@@ -1132,6 +1132,20 @@ const posN = v => !empty(v) && Number(String(v).replace(/,/g, "")) > 0;   // 0 c
 const unitPos = (v, u) => posN(v) ? unit(v, u) : "";
 // the first positive value: old, cancelled, personal-import and motorcycle rows write 0 for an unrated safety level, pollution group or weight, which would hide the model's value
 const firstPos = (...vals) => vals.find(posN);
+/* The ministry's safety equipment level (0-8). The ministry scores every car again by its latest list of systems, which counts only the
+   newest ones (blind spot, braking in reverse, drowsiness...), so an older car scores low however well equipped it was in its day.
+   The active register carries each car's level as it stands today, and an empty one on a car built from 2014 is 0: none of the listed
+   systems, or fewer airbags than the minimum (checked 20.10.2026 against all 4.19M active cars and the WLTP rows). Other registers
+   write 0 for "not rated", so there the model row fills in. */
+const SAFETY_FROM = 2014;
+function safetyLevel(D){
+  const own = D.v.ramat_eivzur_betihuty, built = num(D.v.shnat_yitzur) >= SAFETY_FROM;
+  if (D.primary && D.primary.key === "active") return posN(own) ? num(own) : built ? 0 : null;
+  const p = firstPos(own, D.w.ramat_eivzur_betihuty);
+  return p !== undefined ? num(p) : D.kind === "model" && built && "ramat_eivzur_betihuty" in D.v ? 0 : null;
+}
+const safetyNote = lvl => "משרד התחבורה מחשב מחדש את הרמה של כל הרכבים לפי רשימת מערכות שמתעדכנת כל שנה, ונותן ניקוד רק למערכות החדשות ביותר, כמו התרעת עייפות ובלימה אוטומטית ברוורס. לכן רכב בן כמה שנים מקבל רמה נמוכה גם אם היה מאובזר היטב בזמנו. זה לא ציון של מבחן ריסוק."
+  + (lvl === 0 ? " רמה 0 פירושה שאין ברכב אף אחת מהמערכות שברשימה, או שיש בו פחות כריות אוויר מהנדרש." : "");
 const unit = (v, u) => empty(v) ? "" : `${esc(fmtN(v))} ${u}`;
 const mono = v => empty(v) ? "" : `<span class="mono">${esc(v)}</span>`;
 const changed = v => empty(v) ? "" : yes(v) ? `<span class="flag">כן</span>` : "לא";
@@ -2186,11 +2200,10 @@ function buildInsights(D){
   if (D.importKind) add("info", "יבוא אישי", "הרכב יובא ביבוא אישי, ולא דרך יבואן רשמי. חלפים, שירות וריקולים עשויים להיות פחות זמינים, וחלק מהנתונים על הדגם חסרים במאגר.");
   if (D.primary && D.primary.key === "heavy") add("info", "רכב כבד: מידע חלקי", "במאגר של משרד התחבורה לרכבים כבדים (מעל 3.5 טון) יש פחות פרטים: אין תאריך טסט אחרון, ק״מ בטסט, היסטוריית בעלויות ונתוני דגם כמו מערכות בטיחות וריקולים. מוצג כל מה שקיים.");
   if (D.tag) add("info", "לרכב יש תג חניה לנכה", `התג הונפק${empty(D.tag["TAARICH HAFAKAT TAG"]) ? "" : " ב-" + fmtDate(D.tag["TAARICH HAFAKAT TAG"])}.`);
-  const lvl = num(v.ramat_eivzur_betihuty);
-  if (lvl > 0) {   // 0 is "not rated", not low
-    if (lvl >= 6) add("ok", "אבזור בטיחות מתקדם", `רמת אבזור בטיחותי ${lvl} מתוך 8.`);
-    else if (lvl <= 2) add("warn", "רמת בטיחות נמוכה", `רמת אבזור בטיחותי ${lvl} מתוך 8.`);
-  }
+  // the ministry's level counts only this year's newest systems, so a low one is no warning (1.1M active cars, mostly not new, sit at
+  // 1-2, and a better-equipped trim often scores higher than a bare one at 0); a high one still says the car has most of them
+  const lvl = safetyLevel(D);
+  if (lvl >= 6) add("ok", "אבזור בטיחות מתקדם", `רמת אבזור בטיחותי ${lvl} מתוך 8, לפי הרשימה העדכנית של משרד התחבורה.`);
   const age = isNum(v.shnat_yitzur) ? now.getFullYear() - num(v.shnat_yitzur) : null;
   if (age !== null && age >= 15) add("info", `רכב בן ${age}`, "ברכבים ותיקים כדאי לבדוק במיוחד בלמים, מתלים וחלודה.");
   const order = {bad:0, warn:1, info:2, ok:3};
@@ -2270,7 +2283,7 @@ function simpleCard(D){
     ["טסט אחרון", empty(v.mivchan_acharon_dt) ? "" : fmtDate(v.mivchan_acharon_dt)], ["טסט בתוקף עד", empty(v.tokef_dt) ? "" : fmtDate(v.tokef_dt)], ["ק״מ בטסט האחרון", D.km ? fmtN(D.km) : ""],
     ["ריקולים פתוחים", D.recallUnknown ? "לא זמין כרגע" : D.recalls.length ? String(D.recalls.length) : "לא נמצאו"], ["תג נכה", D.tag ? "יש" : ""], ["מספר שלדה", vin, vin],
   ];
-  const safety = firstPos(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty), zihum = firstPos(v.kvutzat_zihum, w.kvutzat_zihum);
+  const safety = safetyLevel(D), zihum = firstPos(v.kvutzat_zihum, w.kvutzat_zihum);
   const more = [
     ["סוג רכב", v.sug_rechev_nm], ["דגם מנוע", v.degem_manoa],
     ["משקל כולל מותר", kg(firstPos(v.mishkal_kolel, w.mishkal_kolel))], ["משקל עצמי", kg(v.mishkal_azmi)], ["כושר העמסה", kg(v.mishkal_mitan_harama)],
@@ -3027,11 +3040,11 @@ function tabSpecs(D){
     ["כושר העמסה", unitPos(v.mishkal_mitan_harama, "ק״ג")], ["סרנים", e(v.sranim)],
     ["צמיג קדמי", mono(D.pick(v.zmig_kidmi, v.mida_zmig_kidmi))], ["צמיג אחורי", mono(D.pick(v.zmig_ahori, v.mida_zmig_ahori))],
   ])));
-  const safetyLvl = firstPos(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty);
+  const safetyLvl = safetyLevel(D);
   html.push(card("בטיחות", "shield", "green", facts([
-    ["רמת אבזור בטיחותי", empty(safetyLvl) ? "" : `${esc(safetyLvl)} מתוך 8`],
+    ["רמת אבזור בטיחותי", empty(safetyLvl) ? "" : `${safetyLvl} מתוך 8`],
     ["כריות אוויר", e(w.mispar_kariot_avir)],
-  ]) + chkList(w, SYSTEMS)));
+  ]) + chkList(w, SYSTEMS) + (empty(safetyLvl) ? "" : `<p class="note">${esc(safetyNote(safetyLvl))}</p>`)));
   const equip = chkList(w, EQUIP);
   if (equip) html.push(card("אבזור", "star", "amber", `${equip}<p class="note">האבזור המלא מופיע בקטלוג של היבואן.</p>`));
   const zihum = firstPos(v.kvutzat_zihum, w.kvutzat_zihum);
@@ -3819,7 +3832,7 @@ function renderCompare(){
     ["מרכב", D => D.w.merkav],
     ["מושבים", D => nf(D.w, "mispar_moshavim"), null, ""],
     ["משקל כולל (ק״ג)", D => nf(D.w, "mishkal_kolel"), null, ""],
-    ["רמת אבזור בטיחותי", D => num(firstPos(D.v.ramat_eivzur_betihuty, D.w.ramat_eivzur_betihuty)), "hi"],
+    ["רמת אבזור בטיחותי", D => safetyLevel(D), "hi"],
     ["כריות אוויר", D => nf(D.w, "mispar_kariot_avir"), "hi"],
     ["קבוצת זיהום", D => num(firstPos(D.v.kvutzat_zihum, D.w.kvutzat_zihum)), "lo"],
     "מערכות בטיחות ואבזור",
