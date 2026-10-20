@@ -1454,7 +1454,7 @@ function costs(D){
   // company-car taxable benefit (שווי שימוש), cars first registered from 2010: list price in the registration
   // year, indexed to the consumer price index, capped, × 2.48% a month, minus the green-car reduction
   const regYear = recallYear(D.v.moed_aliya_lakvish) || year;
-  if (D.price && isNum(D.price.mehir) && regYear >= 2010 && String(D.v.sug_degem || "P").toUpperCase() === "P") {
+  if (D.price && posN(D.price.mehir) && regYear >= 2010 && String(D.v.sug_degem || "P").toUpperCase() === "P") {
     let idx = 1; for (let y = regYear; y < USAGE.year; y++) idx *= 1 + (CPI[y] || 0) / 100;
     const price = Math.min(num(D.price.mehir) * idx, USAGE.cap);
     const dt = driveType(D);
@@ -2023,6 +2023,18 @@ function modelRecallList(D){
 }
 /* model recalls that may cover this plate and that the per-car list cannot answer yet: the production year inside the build range */
 const freshRecalls = D => D.kind === "model" || D.recallUnknown || D.isCancelled ? [] : modelRecallList(D).filter(r => r.fresh && r.fits === true);
+/* The list price: the car's own year and trim first, then its trim in the nearest year, then any trim of its year, then the nearest row; the live
+   price list and the catalogue read it alike. A price of 0 or none is missing. The row's year and trim go with it (own: the car's own row), so a
+   borrowed price says whose it is; the importer is the chosen row's, else the nearest row's. */
+function listPrice(rows, v){
+  const ranked = rankRows(rows, v), p = ranked.filter(r => posN(r.mehir)), y = num(v.shnat_yitzur);
+  const trims = rows.some(r => !empty(r.ramat_gimur)), sameT = r => !trims || trimOk(r, v), sameY = r => num(r.shnat_yitzur) === y;   // a list without trims: the year decides
+  const r = p.find(x => sameY(x) && sameT(x)) || p.find(sameT) || p.find(sameY) || p[0];
+  const imp = (r && !empty(r.shem_yevuan) ? r : ranked.find(x => !empty(x.shem_yevuan)) || {}).shem_yevuan;
+  if (!r && empty(imp)) return null;
+  return {mehir: r ? r.mehir : "", shem_yevuan: imp, shnat_yitzur: r ? r.shnat_yitzur : "", ramat_gimur: r ? r.ramat_gimur : "", sug_degem: r ? r.sug_degem : "", own: !!r && sameY(r) && sameT(r) && (!sdOf(v) || !sdOf(r) || sdOf(r) === sdOf(v))};
+}
+const priceFrom = D => { const p = D.price; return p && p.own === false && posN(p.mehir) ? `<p class="note">מחיר המחירון לפי ${esc(rowAt(p))}${notOwnWhy(p, D.v, "מחיר במחירון")}.</p>` : ""; };
 /* the model stage of a lookup answered from the catalogue: null when it cannot be (then the live queries run) */
 async function catModelData(v, loadedOnly){
   const cd = catCd(v.tozeret_cd), dg = num(v.degem_cd); if (!cd || isNaN(dg)) return null;
@@ -2035,14 +2047,14 @@ async function catModelData(v, loadedOnly){
   const f = (byName && byName[0]) || (sd && idx.degems[sd + "|" + dg]) || idx.degems[String(dg)]; if (!f) return null;   // not in the catalogue copy (a model newer than the file): ask the ministry
   if (loadedOnly && !CAT_ROWS.has(cd + "/" + f)) return null;
   const rows = await catRows(cd, [f]); if (!rows) return null;
-  let mine = rows.filter(r => num(r.degem_cd) === dg);
-  if (sd && mine.some(r => sdOf(r) === sd)) mine = mine.filter(r => sdOf(r) === sd);   // the type is applied only when the file has rows of that type (a link without the type still resolves)
-  if (!mine.length) return null;
+  const mine = ofType(rows.filter(r => num(r.degem_cd) === dg), v), y = num(v.shnat_yitzur);   // the type as on the live path (a link without the type still resolves)
+  // one file per model name: when the car's year is not in this name's rows, the code's rows of that year may be filed under another name, and the
+  // live query reads them all
+  if (!mine.length || !isNaN(y) && !mine.some(r => num(r.shnat_yitzur) === y)) return null;
   const ranked = rankRows(mine, v), w = ranked[0], {towRow, zeroTow} = towOf(ranked, v);
   const cn = ranked.find(r => isNum(r.mispar_rechavim_pailim) || isNum(r.mispar_rechavim_le_pailim));
   const counts = cn ? {mispar_rechavim_pailim: cn.mispar_rechavim_pailim, mispar_rechavim_le_pailim: cn.mispar_rechavim_le_pailim} : null;
-  const pr = ranked.find(r => isNum(r.mehir) && num(r.mehir) > 0);
-  const price = pr ? {mehir: pr.mehir, shem_yevuan: pr.shem_yevuan} : null, priceRows = mine.filter(r => isNum(r.mehir) && num(r.mehir) > 0);
+  const price = listPrice(mine, v), priceRows = mine.filter(r => posN(r.mehir));
   let modelRecalls = [], modelRecallsUnknown = false;
   if (!meta.rec || meta.rec.includes(cd)) { const rr = await catRecalls(cd); if (rr) modelRecalls = modelRecallsOf(rr, v, meta, w); else modelRecallsUnknown = true; }
   return {w, towRow, zeroTow, counts, price, priceRows, modelRecalls, modelRecallsUnknown, fromCatalog: true};
@@ -2075,7 +2087,7 @@ async function fetchModelData(v, signal, useCat){
     if (ranked.length) w = ranked[0];
     ({towRow, zeroTow} = towOf(ranked, v));
     counts = rankRows(ofType(b, v), v)[0] || null;
-    priceRows = ofType(c, v); price = rankRows(priceRows, v)[0] || null;
+    priceRows = ofType(c, v); price = listPrice(priceRows, v);
     modelRecalls = modelRecallsOf(r, v, meta, w);
   }
   return {w, towRow, zeroTow, counts, price, priceRows, modelRecalls, modelRecallsUnknown};
@@ -3053,7 +3065,7 @@ function tabBuy(D){
   if (entitled) html.push(paid);
   html.push(card("שווי משוער", "tag", "pink", (c.newPrice ?
     `<div class="tow-grid"><div><div class="k">מחיר מחירון כחדש</div><div class="v">${fmtN(c.newPrice)}<span class="u">₪</span></div></div><div><div class="k">שווי משוער היום</div><div class="v"><span dir="ltr" style="unicode-bidi:isolate;white-space:nowrap">${Math.round(c.valueLow / 1000)}–${Math.round(c.valueHigh / 1000)}</span><span class="u">אלף ₪</span></div></div></div>
-     
+     ${priceFrom(D)}
      <p class="note">הערכה בלבד. היא לא מביאה בחשבון את מצב הרכב, תאונות והביקוש לדגם.</p>` :
     `<p style="margin:0">אין במאגר מחיר מחירון לדגם הזה, ולכן אין הערכת שווי.</p>`)));
   html.push(`<div id="mstat">${msCard(D)}</div>`);
@@ -3926,6 +3938,8 @@ function renderCompare(){
   const gear = D => empty(D.w.automatic_ind) ? "" : yes(D.w.automatic_ind) ? "אוטומטית" : "ידנית";
   // the safety systems come from the row the level comes from, and only when it marks any as fitted (old rows write 0 for "not recorded")
   const sysOf = D => { const r = safetyOf(D).row; return r && sysKnown(r) ? r : null; };
+  // a list price of another model year carries its year
+  const listP = D => !D.cost.newPrice ? null : D.price && !empty(D.price.shnat_yitzur) && num(D.price.shnat_yitzur) !== num(D.v.shnat_yitzur) ? `${fmtN(D.cost.newPrice)} ₪ (לפי ${D.price.shnat_yitzur})` : D.cost.newPrice;
   // [label, value(D), better: "hi" | "lo" | null, unit, plain, carOnly]  — a string label alone opens a section
   const rows = [
     "מנוע וגרירה",
@@ -3950,7 +3964,7 @@ function renderCompare(){
       .map(([k, t]) => [t, D => { const r = k in SYSTEMS ? sysOf(D) : D.w; return !r || empty(r[k]) ? null : num(r[k]) > 0; }, "yes"]),
     "מחיר ועלויות",
     ["עלות חודשית (הערכה)", D => D.cost.monthly ? D.cost.monthly.total : null, "lo", "₪"],
-    ["מחיר מחירון כחדש", D => D.cost.newPrice || null, null, "₪"],
+    ["מחיר מחירון כחדש", listP, null, "₪"],
     ["שווי משוער היום", D => D.cost.valueLow ? Math.round((D.cost.valueLow + D.cost.valueHigh) / 2000) * 1000 : null, null, "₪"],
     // one consumption row for every drive type (a petrol car has no kWh and an EV no litres), and one cost row in shekels that compares them fairly;
     // a plug-in has neither (its official figure weighs in electric driving)
