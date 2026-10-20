@@ -1,5 +1,5 @@
 // Data-correctness audit of what a user sees for a plate (runs on GitHub: data.gov.il is not reachable from the dev container).
-// QUERIES: "mode=discover" prints dataset fields and value lists; otherwise "seed=7;n=100;rare=15[;only=c004,c010]" samples plates
+// QUERIES: "mode=discover" prints dataset fields and value lists; otherwise "seed=7;n=100;rare=15[;only=c004,c010][;regs=moto|heavy]" samples plates
 // inside the runner, opens each one in the checkout's index.html like a user, and compares what is rendered with the raw ministry rows.
 // Plates, VINs and owner details are never printed: cars are case ids (c001...), plates are masked (first 2 + last 2 digits).
 import fs from "node:fs";
@@ -90,7 +90,8 @@ if (MODE === "discover") {
 /* ================= audit ================= */
 process.env.TZ = "Asia/Jerusalem";
 const T0 = Date.now(), BUDGET = Number(OPTS.minutes || 52) * 60000;
-const SEED = String(OPTS.seed || "7"), NACT = Number(OPTS.n || 100), NRARE = Number(OPTS.rare || 15);
+const optNum = (k, d) => OPTS[k] === undefined || OPTS[k] === "" ? d : Number(OPTS[k]);   // n=0 means none, not the default
+const SEED = String(OPTS.seed || "7"), NACT = optNum("n", 100), NRARE = optNum("rare", 15);
 const ONLY = OPTS.only ? new Set(OPTS.only.split(/[ |+,]/).filter(Boolean)) : null;
 const E = v => v === null || v === undefined || String(v).trim() === "" || String(v).trim().startsWith("0000-00-00");
 const N = v => Number(String(v).replace(/,/g, "").trim());
@@ -179,12 +180,19 @@ async function sample() {
       }
     }
   }
-  const rare = [["inactive", 2], ["inactive2", 1], ["cancel", 2], ["cancel2010", 1], ["cancel2000", 1], ["import", 3], ["moto", 2], ["heavy", 2], ["public", 1]];
-  let left = NRARE;
-  for (const [k, want] of rare) {
-    const s = SET(k); if (!s || left <= 0) continue;
-    let tot = 0; try { tot = await count(s.id, null); } catch (e) { console.log(`sample ${k}: ${e.message}`); continue; }
-    for (let j = 0; j < want && left > 0; j++) { try { const p = await rowAt(s.id, null, null, pickOf(`r${k}${j}`, tot), s.field); if (add(p, k, `${k} of ${tot}`)) left--; } catch (e) { console.log(`sample ${k}: ${e.message}`); } }
+  // one car from each of the other registers first, starting at a register that turns with the seed, then more by weight: a small rare=
+  // (the daily check's 10) still reaches every register, the motorcycle, heavy and public ones included
+  const RARE_W = [["inactive", 2], ["inactive2", 1], ["cancel", 2], ["cancel2010", 1], ["cancel2000", 1], ["import", 3], ["moto", 2], ["heavy", 2], ["public", 1]]
+    .filter(([k]) => !OPTS.regs || OPTS.regs.split(/[ |+,]/).includes(k));   // regs=moto|heavy|public samples only those
+  const turn = pickOf("rare-turn", RARE_W.length), ring = [...RARE_W.slice(turn), ...RARE_W.slice(0, turn)], plan = ring.map(([k]) => k);
+  while (ring.length && plan.length < NRARE) for (const [k, w] of ring) for (let j = 0; j < w; j++) plan.push(k);
+  const tots = {}, nth = {};
+  for (const k of plan.slice(0, Math.max(0, NRARE))) {
+    const s = SET(k); if (!s) continue;
+    if (!(k in tots)) { tots[k] = 0; try { tots[k] = await count(s.id, null); } catch (e) { console.log(`sample ${k}: ${e.message}`); } }
+    if (!tots[k]) continue;
+    const j = nth[k] = (nth[k] ?? -1) + 1;
+    try { const p = await rowAt(s.id, null, null, pickOf(`r${k}${j}`, tots[k]), s.field); add(p, k, `${k} of ${tots[k]}`); } catch (e) { console.log(`sample ${k}: ${e.message}`); }
   }
   return cases;
 }
@@ -797,7 +805,9 @@ try { await recallList(); console.log(`recall list: ${RECALL_LIST.length} rows`)
 await startBrowser();
 let audited = 0, skipped = [], infra = []; const CASE_MAKERS = new Set();
 const act = cases.filter(c => c.from === "active"), rar = cases.filter(c => c.from !== "active"), order = [];
-for (let i = 0, j = 0; i < act.length || j < rar.length; i++) { if (i < act.length) order.push(act[i]); if ((i % 7 === 6 || i >= act.length) && j < rar.length) order.push(rar[j++]); }
+// the other registers' cars spread between the active ones, all before the last active ones, so the time limit never cuts a register out
+const every = Math.max(1, Math.floor(act.length / (rar.length + 1)));
+for (let i = 0, j = 0; i < act.length || j < rar.length; i++) { if (i < act.length) order.push(act[i]); if (j < rar.length && (i >= act.length || (i + 1) % every === 0)) order.push(rar[j++]); }
 for (const c of order) {
   if (ONLY && !ONLY.has(c.id)) continue;
   if (Date.now() - T0 > BUDGET) { skipped.push(c.id); continue; }
