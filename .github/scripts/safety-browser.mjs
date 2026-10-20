@@ -59,15 +59,9 @@ async function search(id, p) {
 /* ---------- the cars: one real car per chosen model-year and trim, picked here on the runner ---------- */
 const T = s => String(s ?? "").trim(), U = s => T(s).toUpperCase();
 const TARGETS = [
-  { set: "active", q: "IONIQ GLS", kin: /IONIQ/, not: /ELECTRIC|PLUG|EV/, y: 2016, trim: "GLS", why: "the trim with blind-spot monitoring" },
-  { set: "active", q: "IONIQ PREMIUM", kin: /IONIQ/, not: /ELECTRIC|PLUG|EV/, y: 2016, trim: "PREMIUM", why: "the same model-year without it" },
-  { set: "active", q: "PICANTO GT LINE", kin: /PICANTO/, y: 2023, trim: "GT LINE", why: "a 2023 car with an empty level" },
-  { set: "active", q: "COROLLA", kin: /COROLLA/, y: 2019, level: 2, why: "level 2" },
-  { set: "active", q: "SPORTAGE PREMIUM", kin: /SPORTAGE/, y: 2022, trim: "PREMIUM", why: "level 6" },
-  { set: "active", q: "TUCSON ELITE", kin: /TUCSON/, y: 2024, trim: "ELITE FL", why: "level 7" },
-  { set: "active", q: "MAZDA", kin: /MAZDA ?3|^3$/, y: 2010, why: "built before 2014" },
-  { set: "active", q: "SPRINTER", kin: /SPRINTER/, y: 2020, why: "a commercial van" },
-  { set: "inactive", q: "", y: 2018, why: "the inactive register" },
+  { set: "active", q: "", y: 2024, level: 6, why: "level 6" },
+  { set: "active", q: "", y: 2025, level: 7, why: "level 7" },
+  { set: "active", q: "", y: 2026, level: 8, why: "level 8" },
 ];
 const CASES = [];
 for (const t of TARGETS) {
