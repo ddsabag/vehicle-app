@@ -1134,15 +1134,19 @@ const unitPos = (v, u) => posN(v) ? unit(v, u) : "";
 const firstPos = (...vals) => vals.find(posN);
 /* The ministry's safety equipment level (0-8). The ministry scores every car again by its latest list of systems, which counts only the
    newest ones (blind spot, braking in reverse, drowsiness...), so an older car scores low however well equipped it was in its day.
-   The active register carries each car's level as it stands today, and an empty one on a car built from 2014 is 0: none of the listed
-   systems, or fewer airbags than the minimum (checked 20.10.2026 against all 4.19M active cars and the WLTP rows). Other registers
-   write 0 for "not rated", so there the model row fills in; a model (no car) reads its WLTP row like the register. */
-const SAFETY_FROM = 2014;
+   The active and inactive registers carry each car's level as it stands today, and an empty one on a car built from 2014 is 0: none of
+   the listed systems, or fewer airbags than the minimum (checked 20.10.2026: all 4.19M active cars, and a sample of 9.5k inactive ones,
+   match the WLTP row of their model, year and trim, empty for empty). The other registers have no level, or write 0 for "not rated" and
+   keep the level of the year the car left the road, so there the WLTP row of the car's own year and trim decides, read the same way;
+   a model (no car) reads its WLTP row. */
+const SAFETY_FROM = 2014, SAFETY_OWN = new Set(["active", "inactive"]);
 function safetyLevel(D){
-  const own = D.v.ramat_eivzur_betihuty, built = num(D.v.shnat_yitzur) >= SAFETY_FROM;
-  if (D.primary && D.primary.key === "active") return posN(own) ? num(own) : built ? 0 : null;
-  const p = firstPos(own, D.w.ramat_eivzur_betihuty);
-  return p !== undefined ? num(p) : D.kind === "model" && built && ("ramat_eivzur_betihuty" in D.w || "ramat_eivzur_betihuty" in D.v) ? 0 : null;
+  const v = D.v, w = D.w || {}, built = num(v.shnat_yitzur) >= SAFETY_FROM, lvl = x => posN(x) ? num(x) : built ? 0 : null;
+  if (D.primary && SAFETY_OWN.has(D.primary.key)) return lvl(v.ramat_eivzur_betihuty);
+  const trim = x => String(x ?? "").trim().toUpperCase();
+  if ("ramat_eivzur_betihuty" in w && (D.kind === "model" || (trim(w.ramat_gimur) === trim(v.ramat_gimur) && num(w.shnat_yitzur) === num(v.shnat_yitzur)))) return lvl(w.ramat_eivzur_betihuty);
+  const p = firstPos(v.ramat_eivzur_betihuty, w.ramat_eivzur_betihuty);
+  return p !== undefined ? num(p) : null;
 }
 const safetyNote = lvl => "משרד התחבורה מחשב מחדש את הרמה של כל הרכבים לפי רשימת מערכות שמתעדכנת כל שנה, ונותן ניקוד רק למערכות החדשות ביותר, כמו התרעת עייפות ובלימה אוטומטית ברוורס. לכן רכב בן כמה שנים מקבל רמה נמוכה גם אם היה מאובזר היטב בזמנו. זה לא ציון של מבחן ריסוק."
   + (lvl === 0 ? " רמה 0 פירושה שלפי הדיווח של היבואן אין ברכב אף אחת מהמערכות שברשימה, או שיש בו פחות כריות אוויר מהנדרש." : "");

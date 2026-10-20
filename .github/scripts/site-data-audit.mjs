@@ -501,9 +501,13 @@ function compare(c, X, P) {
     { const se = vals(W, "mispar_moshavim", posV).concat(vals(W, "mispar_moshavim", posV).length ? [] : posV(R.mispar_mekomot) ? [String(R.mispar_mekomot)] : []), ss = spec("מושבים");
       check(c, "specs.seats", se.length ? inSet(ss, se) : E(ss), ss, se.join(" / ") || "(not shown)", E(R.mispar_mekomot) ? "" : `mispar_mekomot=${R.mispar_mekomot}`); }
     { const sr = spec("סרנים"); check(c, "specs.axles", posV(R.sranim) ? dig(sr) === String(N(R.sranim)) : E(sr), sr, posV(R.sranim) ? R.sranim : "(not shown)", E(R.sranim) ? "" : `sranim=${R.sranim}`); }
-    // an active car shows the register's level, and 0 when it is empty on a car built from 2014 (index.html safetyLevel); other registers write 0 for "not rated"
-    const act = c.from === "active", sl = act ? (posV(R.ramat_eivzur_betihuty) ? [String(N(R.ramat_eivzur_betihuty))] : N(R.shnat_yitzur) >= 2014 ? ["0"] : [])
-      : posV(R.ramat_eivzur_betihuty) ? [String(R.ramat_eivzur_betihuty).trim()] : vals(W, "ramat_eivzur_betihuty", posV);
+    // an active or inactive car shows the register's level, and 0 when it is empty on a car built from 2014 (index.html safetyLevel); in the other
+    // registers the WLTP row of the car's own year and trim decides the same way, and without one the first positive level of the row or the model
+    const lv0 = x => posV(x) ? String(N(x)) : N(R.shnat_yitzur) >= 2014 ? "0" : null, up = x => String(x ?? "").trim().toUpperCase(), sd0 = up(R.sug_degem);
+    const Wt = (X.wltp || []).filter(r => (!sd0 || !(X.wltp || []).some(q => !E(q.sug_degem)) || up(r.sug_degem) === sd0) && N(r.shnat_yitzur) === N(R.shnat_yitzur) && up(r.ramat_gimur) === up(R.ramat_gimur));
+    const sl = X.primary === "active" || X.primary === "inactive" ? [lv0(R.ramat_eivzur_betihuty)].filter(Boolean)
+      : Wt.length ? [...new Set(Wt.map(r => lv0(r.ramat_eivzur_betihuty)))].filter(Boolean)
+      : posV(R.ramat_eivzur_betihuty) ? [String(N(R.ramat_eivzur_betihuty))] : vals(W, "ramat_eivzur_betihuty", posV).map(x => String(N(x)));
     check(c, "specs.safety_level", sl.length ? sl.includes((spec("רמת אבזור בטיחותי").match(/^(\S+) מתוך/) || [])[1] || "") : E(spec("רמת אבזור בטיחותי")), spec("רמת אבזור בטיחותי"), sl.join(" / ") || "(not shown)", E(R.ramat_eivzur_betihuty) ? "" : `register=${R.ramat_eivzur_betihuty}`);
     { const ins = (cardOf(P, "overview", /^מידע חשוב/) || {items: []}).items, low = ins.includes("רמת בטיחות נמוכה");
       check(c, "insight.safety_low", !low, low ? "רמת בטיחות נמוכה" : "(none)", "(none: the level is in the safety card, never a warning)", ""); }
