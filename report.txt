@@ -1,0 +1,63 @@
+at 2026-10-20T17:41:38.875Z
+rows 97 first 2026-10-19T03:10:00Z last 2026-10-20T17:35:00Z
+requests by status {"success":210,"clientDisconnected":75}
+
+rows 20.10 13:30-16:45 UTC (microseconds, as Cloudflare gives them):
+  10-20T13:30 success 4 221001 5147461
+  10-20T13:35 success 2 925 1522
+  10-20T14:05 success 2 1039 3955
+  10-20T14:05 clientDisconnected 3 1384077 59137364
+  10-20T14:10 clientDisconnected 1 301042300 301042300
+  10-20T14:10 success 1 1105 1105
+  10-20T14:15 clientDisconnected 3 59390404 72102344
+  10-20T14:15 success 3 990 1048
+  10-20T14:30 clientDisconnected 1 5071966 5071966
+  10-20T14:50 success 5 958 222446
+  10-20T14:50 clientDisconnected 6 9387297 218792910
+  10-20T14:55 success 1 803 803
+  10-20T14:55 clientDisconnected 3 98781256 158789150
+  10-20T15:25 clientDisconnected 4 1229158 40259668
+  10-20T15:25 success 3 1208 1516
+  10-20T15:35 success 4 899 1173
+  10-20T15:35 clientDisconnected 5 1162646 13576876
+  10-20T15:40 clientDisconnected 2 92481900 92552790
+  10-20T15:45 success 1 1151 1151
+  10-20T15:45 clientDisconnected 2 4763050 18209364
+  10-20T15:50 clientDisconnected 2 1765294 69336750
+  10-20T15:50 success 1 982 982
+  10-20T15:55 clientDisconnected 4 511798 18621524
+  10-20T15:55 success 2 1183 1638
+  10-20T16:00 success 4 1133 1661
+  10-20T16:00 clientDisconnected 7 682329 21168916
+  10-20T16:15 success 8 1331 5735743
+  10-20T16:15 clientDisconnected 6 829110 45185576
+  10-20T16:20 success 3 1460 1160779
+  10-20T16:35 success 1 5322261 5322261
+
+rows elsewhere that are not success, or took 10 s or more (ms):
+  10-19T05:35 clientDisconnected 1 p50 3213 p99 3213
+  10-19T12:30 clientDisconnected 2 p50 1045 p99 1209
+  10-19T13:10 clientDisconnected 2 p50 100 p99 3657
+  10-19T19:50 clientDisconnected 2 p50 416 p99 4086
+  10-19T19:55 clientDisconnected 1 p50 1164 p99 1164
+  10-20T05:45 clientDisconnected 2 p50 1797 p99 1960
+  10-20T06:00 clientDisconnected 1 p50 35 p99 35
+  10-20T06:05 clientDisconnected 3 p50 21537 p99 27178
+  10-20T06:10 clientDisconnected 1 p50 3750 p99 3750
+  10-20T07:15 clientDisconnected 3 p50 14122 p99 14358
+  10-20T08:05 clientDisconnected 2 p50 3251 p99 3564
+  10-20T08:25 clientDisconnected 3 p50 1547 p99 20394
+  10-20T09:10 clientDisconnected 2 p50 307 p99 6009997
+  10-20T17:25 clientDisconnected 1 p50 3053 p99 3053
+
+the cron's runs (:12 and :42), 35-minute windows:
+  10-20T06:12 one slow step, quiet requests 20 steps 4
+  10-20T06:42 one slow step, quiet requests 6 steps 2
+  10-20T08:42 one slow step, quiet requests 10 steps 2
+  10-20T14:12 STUCK  requests 9 steps 3 slow 2
+  10-20T14:42 STUCK  requests 14 steps 4 slow 3
+  10-20T15:12 STUCK  requests 15 steps 2 slow 2
+  10-20T15:42 STUCK  requests 18 steps 3 slow 2
+  10-20T16:12 STUCK  requests 34 steps 6 slow 3
+runs that would alert 5, one slow step and quiet 3, quiet 75
+done 2026-10-20T17:41:45.219Z
