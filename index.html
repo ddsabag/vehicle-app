@@ -861,6 +861,9 @@ const PLATE_SETS = [
   {key:"tag",        id:"c8b9f9c8-4612-4068-934f-d4acd2e3c06e", role:"extra", field:"MISPAR RECHEV"},
   {key:"dpf",        id:"7cb2bd95-bf2e-49b6-aea1-fcb5ff6f0473", role:"extra"},   /* vehicles fitted with a particulate filter (retrofit) */
 ];
+/* main registers with no test or licence date columns at all (20.10.2026): the licence card says so, and no date stands in for them */
+const NO_TEST = {moto: "לרכב דו-גלגלי", heavy: "לרכב כבד", inactive2: "לחלק מהרכבים הלא פעילים, וביניהם הרכב הזה"};
+const noTestFor = D => D && D.primary && NO_TEST[D.primary.key] || "";
 /* Datasets keyed by model (tozeret_cd + degem_cd, ranked by year in the page) */
 const MODEL_SETS = {
   wltp:   "142afde2-6228-49f9-8a29-9b6c3a0cbe40",
@@ -929,8 +932,8 @@ function licState(tokef, test){
   const k = days >= 0 ? "ok" : near && t >= new Date(today.getFullYear(), today.getMonth(), today.getDate() - LIC_FRESH) ? "renew" : days >= -LIC_LAG ? "lag" : "bad";
   return {k, days, ex, date: fmtDate(tokef), test: near && k !== "lag" ? fmtDate(test) : ""};
 }
-// a car's licence: none for a car off the road or a model
-const licOf = D => !D || !D.v || D.isCancelled || D.kind === "model" ? null : licState(D.v.tokef_dt, D.v.mivchan_acharon_dt);
+// a car's licence, from its own register: none for a car off the road, a model, or a register that publishes no test dates
+const licOf = D => !D || !D.v || D.isCancelled || D.kind === "model" || noTestFor(D) ? null : licState(D.v.tokef_dt, D.v.mivchan_acharon_dt);
 // one line for lists (share text, checks, share card, compare): a past date always reads as ended, the lag states as unknown
 const licLine = L => L.k === "ok" ? `טסט בתוקף עד ${L.date}` : L.k === "bad" ? `הטסט פג ב-${L.date}` : L.k === "lag" ? `הטסט פג ב-${L.date} לפי המאגר, ייתכן שכבר חודש` : `נמצא טסט מ-${L.test}, אבל במאגר התוקף לא חודש (פג ב-${L.date})`;
 // the insight and the simple-view banner for a licence that ended; null while it is valid
@@ -2313,7 +2316,7 @@ function simpleCard(D){
     ["סוג דלק", pick(v.sug_delek_nm, w.delek_nm)], ["נפח מנוע", posN(pick(v.nefach_manoa, w.nefah_manoa)) && fmtN(pick(v.nefach_manoa, w.nefah_manoa)) + " סמ״ק"], ["כוח", posN(w.koah_sus) ? fmtN(w.koah_sus) + " כ״ס" : ""],
     ["הנעה", pick(v.hanaa_nm, w.hanaa_nm)], ["תיבת הילוכים", gear], ["מרכב", w.merkav], ["מושבים", pick(w.mispar_moshavim, v.mispar_mekomot)], ["דלתות", w.mispar_dlatot],
     ["עלה לכביש", v.moed_aliya_lakvish], ["סוג יבוא", D.importKind], ["יבואן", importerOf(D)], ["בעלות נוכחית", v.baalut], ["בעלות ראשונה", firstOwner(v)], ["מספר בעלים", own],
-    ["טסט אחרון", toDate(v.mivchan_acharon_dt) ? fmtDate(v.mivchan_acharon_dt) : ""], ["טסט בתוקף עד", toDate(v.tokef_dt) ? fmtDate(v.tokef_dt) : ""], ["ק״מ בטסט האחרון", D.km ? fmtN(D.km) : ""],
+    ["טסט אחרון", !noTestFor(D) && toDate(v.mivchan_acharon_dt) ? fmtDate(v.mivchan_acharon_dt) : ""], ["טסט בתוקף עד", !noTestFor(D) && toDate(v.tokef_dt) ? fmtDate(v.tokef_dt) : ""], ["ק״מ בטסט האחרון", D.km ? fmtN(D.km) : ""],
     ["ריקולים פתוחים", D.recallUnknown ? "לא זמין כרגע" : D.recalls.length ? String(D.recalls.length) : "לא נמצאו"], ["תג נכה", D.tag ? "יש" : ""], ["מספר שלדה", vin, vin],
   ];
   const safety = safetyLevel(D), zihum = firstPos(v.kvutzat_zihum, w.kvutzat_zihum);
@@ -2861,15 +2864,17 @@ function tabOverview(D){
   if (stats.length % 2) stats.pop();
   if (stats.length) html.push(`<div class="stats">${stats.map(([k,val,u,c]) => `<div class="stat ${c}"><div class="k">${esc(k)}</div><div class="v">${esc(val)}${u ? `<span class="u">${esc(u)}</span>` : ""}</div></div>`).join("")}</div>`);
 
+  const noTest = noTestFor(D);
   html.push(card("רישוי וטסט", "doc", "blue", facts([
-    ["טסט אחרון", e(toDate(v.mivchan_acharon_dt) && fmtDate(v.mivchan_acharon_dt))],
-    ["טסט בתוקף עד", e(toDate(v.tokef_dt) && fmtDate(v.tokef_dt))],
+    !noTest && ["טסט אחרון", e(toDate(v.mivchan_acharon_dt) && fmtDate(v.mivchan_acharon_dt))],
+    !noTest && ["טסט בתוקף עד", e(toDate(v.tokef_dt) && fmtDate(v.tokef_dt))],
     ["עלה לכביש", e(v.moed_aliya_lakvish && fmtDate(v.moed_aliya_lakvish))],
     ["רישום ראשון", e(v.rishum_rishon_dt && fmtDate(v.rishum_rishon_dt))],
     D.isCancelled && ["ירד מהכביש", e(v.bitul_dt && fmtDate(v.bitul_dt))],
     D.isCancelled && ["סיבה", e(v.bitul_nm)],
     ["סוג יבוא", e(v.sug_yevu)],
-  ]) + (calDate(D) && !pushCoversTest(D.plate) ? calendarBtn(D) : "")));
+  ]) + (noTest ? `<p class="note">משרד התחבורה לא מפרסם במאגרים הפתוחים תאריכי טסט ${noTest}.</p>` : D.kind !== "model" && !D.isCancelled && !licOf(D) ? `<p class="note">המאגר של משרד התחבורה לא מראה תאריך תוקף לטסט של הרכב הזה.</p>` : "")
+    + (calDate(D) && !pushCoversTest(D.plate) ? calendarBtn(D) : "")));
 
   const fo = firstOwner(v);
   const foLine = fo ? `<div class="first-own"><b>בעלות ראשונה: ${esc(fo)}</b>${ownerKind(fo).text ? `<span>${esc(ownerKind(fo).text)}</span>` : ""}</div>` : "";
