@@ -38,7 +38,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Syntax
-        run: for f in .github/scripts/alert.mjs .github/scripts/waiting.mjs worker/lib/alert-lib.js worker/mail/worker.js worker/uptime/worker.js worker/reviews/worker.js; do [ ! -f "$f" ] || node --check "$f"; done
+        run: for f in .github/scripts/alert.mjs .github/scripts/waiting.mjs .github/scripts/live-watch.mjs worker/lib/alert-lib.js worker/mail/worker.js worker/uptime/worker.js worker/reviews/worker.js worker/live/worker.js; do [ ! -f "$f" ] || node --check "$f"; done
       - name: Jobs pinned to ubuntu-24.04
         run: "! grep -rnE '^[[:space:]]*runs-on:[[:space:]]*ubuntu-latest' .github/workflows/"
       - name: Engine self-test
@@ -53,6 +53,8 @@ jobs:
         run: node .github/scripts/release-watch.mjs selftest
       - name: Production self-test (production only, 20% start, halt on a new crash, 100% 48 h after published, manual start only)
         run: node .github/scripts/play-production.mjs selftest
+      - name: Live watch self-test (the 20.10 hang is caught, a tab closed mid-load is not)
+        run: node .github/scripts/live-watch.mjs selftest
       - name: Data truth self-tests (no plate published, alert keys and wording, every weekly check on made-up registers)
         run: node .github/scripts/site-data-truth.mjs --selftest && node .github/scripts/data-invariants.mjs --selftest
       - name: Python wrapper self-test

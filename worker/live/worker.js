@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-27";   // shown in /live/data so the running version is visible
+const BUILD = "live-28";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -18,7 +18,7 @@ async function verifyAccess(req, env) {
   const tok = req.headers.get("cf-access-jwt-assertion"); if (!tok) return false;
   const [h, p, s] = tok.split("."); if (!s) return false;
   const head = JSON.parse(new TextDecoder().decode(unb64u(h))), pay = JSON.parse(new TextDecoder().decode(unb64u(p)));
-  if (Date.now() - jwksAt > 3600e3 || !jwks) { jwks = (await (await fetch(`https://${env.ACCESS_TEAM_DOMAIN}/cdn-cgi/access/certs`)).json()).keys; jwksAt = Date.now(); }
+  if (Date.now() - jwksAt > 3600e3 || !jwks) { jwks = (await (await fetch(`https://${env.ACCESS_TEAM_DOMAIN}/cdn-cgi/access/certs`, { signal: AbortSignal.timeout(10e3) })).json()).keys; jwksAt = Date.now(); }
   const jwk = jwks.find(k => k.kid === head.kid); if (!jwk) return false;
   const key = await crypto.subtle.importKey("jwk", jwk, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
   const ok = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, unb64u(s), new TextEncoder().encode(h + "." + p));
@@ -330,11 +330,28 @@ async function collectSeo(env, today) {
   seoAt = Date.now(); seoTtl = Object.keys(errors).length ? 60e3 : 1800e3; return seo;
 }
 
-// agent news (same items as Telegram, public-safe) written by .github/scripts/flash.mjs to branch "flashes"
-let flashes = null, flashesAt = 0;
+// agent news for the flashes card: what .github/scripts/flash.mjs writes (branch "flashes", public-safe text), and every alert the router
+// recorded as sent to Telegram (branch "alert-state": the key's fixed Hebrew headline he and section sc, never the message text). Most
+// alerts go only through the router, so without it the card stopped at 16.10. A router alert of the same kind within 10 minutes of a
+// flash.mjs item is the same news and is left out. l: alert = a failure, wait = asks for the owner's decision, info = news only.
+const RKIND = k => { const f = String(k).split(":")[0];
+  return /^(review|review3|vitals|reviews)$/.test(f) ? "reviews" : /^(ship|listing|watch|safety|prod)$/.test(f) ? "release"
+    : /^(guard|ministry|checker|truth|catalog|stl)$/.test(f) ? "data" : /^(seo|seo-auto|mention|mag)$/.test(f) ? "content" : "infra"; };
+// shadow entries (sh 1): the caller sent as td says; routed ones: the router sent it, or handed it back to the caller's own send
+const RSENT = e => e.sh === 1 ? e.td !== "none" : ["loud", "night", "remind", "remind-night"].includes(e.a) || (["legacy", "failed"].includes(e.a) && e.td !== "none");
+let flashes = null, flashesAt = 0, flRaw = [], stRaw = null;
 async function getFlashes() {
   if (flashes && Date.now() - flashesAt < 300e3) return flashes;
-  try { const r = await fetch("https://raw.githubusercontent.com/ddsabag/vehicle-app/flashes/flashes.json", { cf: { cacheTtl: 120 } }); flashes = r.ok ? await r.json() : (flashes || []); } catch { flashes = flashes || []; }
+  const get = async path => { try { const r = await fetch("https://raw.githubusercontent.com/ddsabag/vehicle-app/" + path, { cf: { cacheTtl: 120 }, signal: AbortSignal.timeout(8e3) }); return r.ok ? await r.json() : null; } catch { return null; } };
+  const [fl, st] = await Promise.all([get("flashes/flashes.json"), get("alert-state/state.json")]);   // a failed read keeps the last good one
+  if (Array.isArray(fl)) flRaw = fl;
+  if (st && Array.isArray(st.log)) stRaw = st;
+  const own = flRaw.filter(f => f && f.t && f.x), at = f => Date.parse(f.t);
+  const routed = stRaw ? stRaw.log.filter(e => e && e.he && e.t && RSENT(e)).map(e => {
+    const u = ((stRaw.items || {})[e.k] || {}).u, link = Array.isArray(u) && typeof u[0] === "string" && u[0].startsWith("https://") ? u[0] : "";
+    return { t: e.t, k: RKIND(e.k), l: e.sc === "fail" ? "alert" : e.sc === "wait" ? "wait" : "info", x: e.he, ...(link ? { u: link } : {}) };
+  }).filter(r => !own.some(f => f.k === r.k && Math.abs(at(f) - at(r)) < 600e3)) : [];
+  flashes = [...own, ...routed].sort((a, b) => at(b) - at(a)).slice(0, 30);
   flashesAt = Date.now(); return flashes;
 }
 
@@ -462,7 +479,7 @@ table.t{width:100%;border-collapse:collapse;font-size:.86rem}.t th{font-weight:5
 <details class="card dr" id="dr-use"><summary><b>שימוש</b><span>מה אנשים עושים, וכמה מכשירים יש לאפליקציה</span></summary><div id="use"></div></details>
 <details class="card dr" id="dr-web"><summary><b>האתר</b><span>מאיפה נכנסו לאתר, והדפים שהכי נצפו</span></summary><div id="web"></div></details>
 <details class="card dr" id="dr-seo"><summary><b>חיפוש בגוגל</b><span>חיפושים, דפים והופעות בתוצאות</span></summary><div id="seo"></div></details>
-<details class="card dr" id="dr-fl"><summary><b>מבזקים</b><span>הודעות מהסוכנים, אותן הודעות שמגיעות לטלגרם</span></summary><ul class="kv fl" id="fl"></ul><p class="note">● התראה שדורשת תשומת לב. ○ מידע בלבד. אם יש התראה אני מטפל בשגרה, ופונה אליך רק כשנדרשת החלטה שלך.</p></details>
+<details class="card dr" id="dr-fl"><summary><b>מבזקים</b><span>ההתראות שנשלחו לטלגרם, בקצרה, מהחדשה לישנה</span></summary><ul class="kv fl" id="fl"></ul><p class="note">● תקלה, או בקשה להחלטה שלך. ○ מידע בלבד. כשיש תקלה אני מטפל בה בשגרה, ופונה אליך רק כשנדרשת החלטה שלך.</p></details>
 <details class="card dr" id="dr-tec"><summary><b>טכני</b><span>כשלים לפי סיבה, קריסות ומקורות שלא ענו</span></summary><div id="tec"></div></details>
 </section>
 
@@ -472,6 +489,7 @@ table.t{width:100%;border-collapse:collapse;font-size:.86rem}.t th{font-weight:5
 <script>
 /* Business dashboard. Spec: Claude Doc "לוחית: אפיון דשבורד מנהלים", sections 3 (targets) and 4 (traffic light). */
 const CAL_END="2026-10-26";        // until the base week 19-25.10 is over, only health, Google pages and the store get a colour
+const SITE_FROM="2026-10-15";      // car checks on the site are counted from this day (the app's from the start)
 // Yearly goals from the CMO plan (reports/marketing-goals-2026-10.json): per month [cons, base, opt], the weekly figure or level expected in the
 // month's last week, Nov 2026 to Oct 2027. Colour vs base: at or above base ok, between cons and base warn, below cons bad (failures: lower is better).
 // Between month ends the target moves in a straight line; "from" gives a starting point where one is known, otherwise the first month holds before it.
@@ -534,10 +552,13 @@ const push=(key,s,prio,ratio,text,short,w)=>{M[key]=s;if(RANK[s]!=null)att.push(
 
 // 1. weekly car checks (north star)
 let t1;{const L=ev?ge(E0,"car_lookup"):null,Lp=ev?ge(E1,"car_lookup"):null,G=end?nsGoal(end):null,tg=G?G[1]:null;let s;
-if(!ev)s="nodata";else if(cal)s="cal";else{s=band(L,G,false,true);if(s==="ok"&&Lp>=30&&L<.8*Lp)s="warn"}
+// a previous week that began before SITE_FROM has no (or only some) site checks: the change is the app's alone
+const BS=W&&W.bySource,mix=W&&W.W&&addD(W.W[0],-7)<SITE_FROM,La=BS&&BS[0].app?BS[0].app[1]:null,Lpa=BS&&BS[1].app?BS[1].app[1]:null,app1=mix&&La!=null&&Lpa!=null;
+if(!ev)s="nodata";else if(cal)s="cal";else{s=band(L,G,false,true);if(s==="ok"&&(app1?Lpa>=30&&La<.8*Lpa:Lp>=30&&L<.8*Lp))s="warn"}
 push("ns",s,1,tg?L/tg:1,"בדיקות רכב: "+n(L)+(tg?", היעד "+n(tg):""),s==="nodata"?"חסר נתון מגוגל אנליטיקס":"הבדיקות מתחת ליעד");
 const l1=!ev?"גוגל אנליטיקס לא ענה":tg?n(L/tg*100)+"% מהיעד ("+n(tg)+", טווח "+n(G[0])+" עד "+n(G[2])+")":"שבוע הבסיס הוא "+rng([addD(CB.end,-6),CB.end])+", ולפיו ייקבע היעד";
-t1={s,title:"בדיקות רכב בשבוע",big:n(L),lines:[l1,delta(L,Lp)],foot:rng(W&&W.W)+" · אפליקציה ואתר",L,Lp,tg}}
+const l2=!mix?delta(L,Lp):app1?"באפליקציה: "+delta(La,Lpa)+". את האתר עוד אי אפשר להשוות, הוא נספר מ-"+dm(SITE_FROM):"";
+t1={s,title:"בדיקות רכב בשבוע",big:n(L),lines:[l1,l2],foot:rng(W&&W.W)+" · אפליקציה ואתר",L,Lp,tg}}
 
 // 2. Google clicks, with pages Google knows under it
 let t2;{const S=d.seo,c=S&&S.cur,a=c?Math.round(c.clicks):null,sd=S&&S.range?S.range[1]:null,GC=goal("google_clicks_week",sd),exp=GC?GC[1]:null;let s;
@@ -569,16 +590,18 @@ const GP=d.play==="live"?{s:top&&top.state==="not_approved"?"bad":"ok",txt:"בא
 // installed now: Google Play's count of devices in Israel that have the app, on the last day its reports reached, plus first opens minus
 // removals in Analytics since that day (today at least what realtime saw while /live was open, as the day's report lags hours behind);
 // without Play reports, Analytics alone since 1.10
-let inst=null,instHow="",instMin=false;{const LF=d.daily&&d.daily.life,td0=new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Jerusalem"}),rf=(d.events||[]).find(e=>e[0]==="first_open"),rtf=d.rtToday?d.rtToday.first_open:rf?rf[1]:0,pa=PS&&PS.active!=null?PS.activeDay:"";
+let inst=null,instHow="",instMin=false,instToday=null,instTodayMin=false;{const LF=d.daily&&d.daily.life,td0=new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Jerusalem"}),rf=(d.events||[]).find(e=>e[0]==="first_open"),rtf=d.rtToday?d.rtToday.first_open:rf?rf[1]:0,pa=PS&&PS.active!=null?PS.activeDay:"";
 if(LF){let fo=LF[td0]?0:rtf,rm=0;instMin=rtf>(LF[td0]?LF[td0][0]:0);for(const [k,v] of Object.entries(LF))if(k>pa){fo+=k===td0?Math.max(v[0],rtf):v[0];rm+=v[1]}
  inst=(pa?PS.active:0)+fo-rm;instHow=(pa?n(PS.active)+" מכשירים לפי Google Play ב-"+dm(pa)+", ועוד ":"")+n(fo)+" התקנות חדשות פחות "+n(rm)+" הסרות "+(pa?"מאז":"מ-1.10")+", לפי גוגל אנליטיקס"+(instMin?". ההתקנות של היום נספרות בינתיים רק ממה שנקלט בזמן אמת כשהמסך הזה היה פתוח, עד שגוגל אנליטיקס יעבד את היום, ולכן זה מינימום":"")}
-else if(pa){inst=PS.active;instHow="לפי Google Play ב-"+dm(pa)}}
+else if(pa){inst=PS.active;instHow="לפי Google Play ב-"+dm(pa)}
+// today, so far: Analytics' report of today, or more when realtime saw more (realtime counts only while this screen is open: a minimum)
+{const tdv=LF&&LF[td0]?LF[td0][0]:null;instToday=tdv==null?rtf:Math.max(tdv,rtf);instTodayMin=tdv==null||rtf>tdv}}
 // 4. new app installs a week: first opens in Israel, the same week as the other tiles; under them what is installed now and the store status
 let t4;{const A=W&&W.app,a=A?A[0].newUsers:null,ap=A?A[1].newUsers:null,live=d.play==="live",GI=goal("installs_week",end),tg=live&&!cal&&GI?GI[1]:null;let s;
 if(a==null)s="nodata";else if(!live)s="early";else if(cal)s="cal";else s=band(a,GI,false,true);
 push("installs",s,5,tg?a/tg:1,"התקנות חדשות: "+n(a)+(tg?", היעד "+n(tg):""),s==="nodata"?"חסר נתון על התקנות":"מעט התקנות");
 push("store",GP.s,0,0,"Google Play: הגרסה החדשה נדחתה בבדיקה של גוגל. הסיבה במייל ובקונסול","גרסה חדשה נדחתה בבדיקה של גוגל","נדחתה");
-t4={s,title:"התקנות חדשות בשבוע",big:n(a),lines:[inst!=null?"מותקנת עכשיו: <b>"+(instMin?"לפחות ":"בערך ")+n(inst)+"</b> מכשירים בישראל":"",delta(a,ap),GP.s!=="ok"||GP.txt.indexOf("·")>=0?"Google Play: "+GP.txt+(!live&&!top&&d.play==="review"?" (הבקשה הוגשה "+dm(SUBMITTED)+")":""):"",tg?n(a/tg*100)+"% מהיעד ("+n(tg)+", טווח "+n(GI[0])+" עד "+n(GI[2])+")":live?"":"עד שהאפליקציה בחנות, מתקינים רק בודקים"],foot:rng(W&&W.W)+" · פתיחה ראשונה של האפליקציה, בישראל"}}
+t4={s,title:"התקנות חדשות בשבוע",big:n(a),lines:[delta(a,ap),instToday!=null?"היום עד עכשיו: <b>"+(instTodayMin&&instToday>0?"לפחות ":"")+n(instToday)+"</b> התקנות חדשות (לא נכללות בשבוע)":"",inst!=null?"מותקנת עכשיו בסך הכול: <b>"+(instMin?"לפחות ":"בערך ")+n(inst)+'</b> מכשירים בישראל (הערכה, <a href="#dr-use" data-open="dr-use">איך מחושב</a>)':"",GP.s!=="ok"||GP.txt.indexOf("·")>=0?"Google Play: "+GP.txt+(!live&&!top&&d.play==="review"?" (הבקשה הוגשה "+dm(SUBMITTED)+")":""):"",tg?n(a/tg*100)+"% מהיעד ("+n(tg)+", טווח "+n(GI[0])+" עד "+n(GI[2])+")":live?"":"עד שהאפליקציה בחנות, מתקינים רק בודקים"],foot:rng(W&&W.W)+", שבוע שלם עד אתמול · התקנה = פתיחה ראשונה של האפליקציה, בישראל"}}
 
 // health: failures caused by us or the ministry, out of all attempts (a mistyped plate is not a failure)
 let H;{const fk=W&&W.fails?W.fails[0]:null,tech=fk?(fk.source_down||0)+(fk.offline||0):null,att2=ev?ge(E0,"car_lookup")+ge(E0,"lookup_failed"):null;let s,r=null;
@@ -599,7 +622,7 @@ $("vn").textContent=cal?"שבוע הבסיס הוא "+rng([addD(CB.end,-6),CB.en
 
 // attention list
 const alerts=(d.flashes||[]).filter(f=>f.l==="alert"&&Date.now()-Date.parse(f.t)<864e5).length;
-$("att").innerHTML=(att.length?att.slice(0,4).map(x=>"<li>"+chip(x.s,x.w||(x.s==="warn"?"מעט מתחת ליעד":""))+"<span>"+esc(x.text)+"</span></li>").join(""):'<li class="none">אין כרגע דבר שדורש תשומת לב.</li>')+(alerts?'<li><span class="chip s-warn"><i aria-hidden="true">!</i>מבזקים</span><span>'+alerts+' התראות מהסוכנים ב-24 השעות האחרונות. <a href="#dr-fl" data-open="dr-fl">לפירוט</a></span></li>':"");
+$("att").innerHTML=(att.length?att.slice(0,4).map(x=>"<li>"+chip(x.s,x.w||(x.s==="warn"?"מעט מתחת ליעד":""))+"<span>"+esc(x.text)+"</span></li>").join(""):'<li class="none">אין כרגע דבר שדורש תשומת לב.</li>')+(alerts?'<li><span class="chip s-warn"><i aria-hidden="true">!</i>מבזקים</span><span>'+(alerts===1?"התראה אחת על תקלה":n(alerts)+" התראות על תקלות")+' ב-24 השעות האחרונות. <a href="#dr-fl" data-open="dr-fl">לפירוט</a></span></li>':"");
 
 // tiles
 const tile=t=>'<article class="card tile s-'+t.s+'"><div class="th"><h3>'+t.title+"</h3>"+chip(t.s)+'</div><div class="big">'+t.big+(t.unit?"<small>"+t.unit+"</small>":"")+"</div>"+t.lines.filter(Boolean).map((l,i)=>'<p class="'+(i?"m":"")+'">'+l+"</p>").join("")+'<p class="foot">'+t.foot+"</p></article>";
@@ -657,12 +680,12 @@ $("goal").innerHTML='<div style="overflow-x:auto"><table class="t tg"><thead><tr
 // from 20.10), and new app devices in Israel by the link they reached the store from (Google Play's install referrer). Then the plan's
 // North Star (car checks a week) split by the source of the visit the check was made in
 {const B=W&&W.bySource,box=$("src"),CH=d.daily&&d.daily.ch;
-const SL={google:"חיפוש בגוגל",search:"מנועי חיפוש אחרים",direct:"ישיר: בלי מקור (הקלדה, וואטסאפ, הודעות)",site:"מדף אחר באתר (דגמים, מגזין)",unknown:"האתר, לפני 20.10 (בלי מקור)",app:"באפליקציה (בלי פירוט מקור)",share:"קישור לדוח רכב או להשוואה ששותפו",tiktok:"טיקטוק",instagram:"אינסטגרם",facebook:"פייסבוק",linkedin:"לינקדאין",youtube:"יוטיוב",whatsapp:"וואטסאפ",newsletter:"ניוזלטר",press:"כתבות",dealer:"סוחרים",qr:"QR ודפוס",other:"אתרים ואפליקציות אחרים",store:"חיפוש ב-Google Play",fromsite:"דרך האתר (כפתור ההורדה)",nolink:"לא ידוע (בלי קישור מזוהה)"};
+const SL={google:"חיפוש בגוגל",search:"מנועי חיפוש אחרים",direct:"בלי מקור מזוהה (הקלדה, או קישור בלי סימון)",site:"מדף אחר באתר (דגמים, מגזין)",unknown:"לפני 20.10, כשהמקור עוד לא נמדד",app:"באפליקציה (בלי פירוט מקור)",share:"קישור לדוח רכב או להשוואה ששותפו",tiktok:"טיקטוק",instagram:"אינסטגרם",facebook:"פייסבוק",linkedin:"לינקדאין",youtube:"יוטיוב",whatsapp:"וואטסאפ",newsletter:"ניוזלטר",press:"כתבות",dealer:"סוחרים",qr:"QR ודפוס",other:"אתרים ואפליקציות אחרים",store:"חיפוש ב-Google Play",fromsite:"דרך האתר (כפתור ההורדה)",nolink:"בלי מקור מזוהה (הקלדה, או קישור בלי סימון)"};
 let h='<p class="note">אין כרגע נתון מגוגל אנליטיקס על הרשתות.</p>';
-if(CH){const NET=["facebook","whatsapp","tiktok","youtube","instagram"],low=k=>String(k||"").toLowerCase(),own=s=>SL[s]&&s!=="unknown"&&s!=="app";
+if(CH){const NET=["facebook","whatsapp","tiktok","youtube"],low=k=>String(k||"").toLowerCase(),own=s=>SL[s]&&s!=="unknown"&&s!=="app";
  // the site sends the plan's names; the app's install referrer is google-play (found in the store), luchit.app (the site's download
  // button after a visit without a campaign), a campaign name, or nothing
- const sb=k=>{const s=low(k);return !s||s==="(not set)"?"nolink":own(s)?s:"other"};
+ const sb=k=>{const s=low(k);return !s||s==="(not set)"||s==="direct"?"nolink":own(s)?s:"other"};
  const ab=k=>{const s=low(k);return s==="google-play"?"store":s==="luchit.app"||s==="luchitapp"?"fromsite":!s||s==="(direct)"||s==="(not set)"?"nolink":own(s)?s:"other"};
  const fold=(o,f)=>{const m={};for(const [k,v] of Object.entries(o||{})){const b=f(k);m[b]=(m[b]||0)+v}return m};
  const s7=CH.site?fold(CH.site[0],sb):null,s1=CH.site?fold(CH.site[1],sb):null,a7=CH.app?fold(CH.app[0],ab):null,a1=CH.app?fold(CH.app[1],ab):null,tot=k=>(s7&&s7[k]||0)+(a7&&a7[k]||0),pos=k=>NET.includes(k)?NET.indexOf(k):9;
@@ -671,18 +694,17 @@ if(CH){const NET=["facebook","whatsapp","tiktok","youtube","instagram"],low=k=>S
  h="<h4>מאיפה הגיעו אנשים, 7 הימים האחרונים (כולל היום)</h4>"+'<div style="overflow-x:auto"><table class="t tg"><thead><tr><th>מקור</th><th class="n">נכנסו לאתר</th><th class="n">התקינו את האפליקציה</th></tr></thead><tbody>'
  +ks.map(k=>'<tr><td class="w">'+esc(SL[k]||k)+'</td><td class="n">'+(k==="store"||k==="fromsite"?"":cell(s7,s1,k))+'</td><td class="n">'+cell(a7,a1,k)+"</td></tr>").join("")+"</tbody></table></div>"
  +(CH.site&&!Object.keys(CH.site[0]).length?'<p class="note">עוד אין כאן כניסות לאתר לפי רשת: האתר מוסר את המקור מ-20.10, וגוגל אנליטיקס מעבד כל יום באיחור של כמה שעות. בינתיים יש כניסות לפי אתר מפנה, לפי Cloudflare, במגירה "האתר".</p>':"")
- +'<p class="note">וואטסאפ: לרוב לא מוסר מאיפה הגיעו (באייפון אף פעם), ולכן קישור רגיל בהודעה נספר בדרך כלל כ"ישיר". כדי לספור אותו בוודאות, משתפים את הקישור <bdi dir="ltr">luchit.app/go/wa</bdi>. דוח רכב ששותף בוואטסאפ נספר בשורת הקישורים ששותפו.</p>'
- +'<p class="note">נכנסו לאתר: כל כניסה נספרת פעם אחת. התקינו: פתיחה ראשונה של האפליקציה בישראל, לפי הקישור שהביא לחנות. התקנה מכפתור ההורדה באתר נספרת לפי קישור go/ או השיתוף שהביאו לאתר, ובלעדיהם כ"דרך האתר". היום מתעדכן באיחור של כמה שעות.</p>'}
+ +'<p class="note">וואטסאפ: לרוב לא מוסר מאיפה הגיעו (באייפון אף פעם), ולכן קישור רגיל בהודעה נספר בדרך כלל בשורה "בלי מקור מזוהה". כדי לספור אותו בוודאות, משתפים את הקישור <bdi dir="ltr">luchit.app/go/wa</bdi>. דוח רכב ששותף בוואטסאפ נספר בשורת הקישורים ששותפו.</p>'
+ +'<p class="note">נכנסו לאתר: כל כניסה נספרת פעם אחת. התקינו: פתיחה ראשונה של האפליקציה בישראל, לפי הקישור שהביא לחנות. התקנה מכפתור ההורדה באתר נספרת לפי קישור go/ או השיתוף שהביאו לאתר, ובלעדיהם כ"דרך האתר". היום מתעדכן באיחור של כמה שעות. כאן 7 הימים כוללים את היום, ולכן הסכומים שונים מהמשבצות למעלה, שסופרות שבוע שלם עד אתמול.</p>'}
 if(!B){box.innerHTML=h+'<p class="note">'+(W?"גוגל אנליטיקס לא ענה על המקורות.":"אין נתונים")+"</p>"}else{
-const c=B[0],p=B[1],seen=W.srcSeen||[true,true],ks=[...new Set([...Object.keys(c),...Object.keys(p)])].sort((a,b)=>((c[b]||[0,0])[1]-(c[a]||[0,0])[1])||((c[b]||[0,0])[0]-(c[a]||[0,0])[0])),tc=ks.reduce((a,k)=>a+(c[k]||[0,0])[1],0),tp=ks.reduce((a,k)=>a+(p[k]||[0,0])[1],0);
-// visits: app opens, and on the site web_visit (from 20.10); site checks from before the source was measured have no visits
-const vis=k=>k==="unknown"?null:(c[k]||[0,0])[0],tv=ks.some(k=>k==="unknown"&&(c[k]||[0,0])[1])?null:ks.reduce((a,k)=>a+(vis(k)||0),0);
-// a week before the source was measured has its site checks in one row, so its site rows are not compared
-const pv=k=>k!=="app"&&k!=="unknown"&&!seen[1]?null:(p[k]||[0,0])[1];
-box.innerHTML=h+"<h4>בדיקות רכב לפי מקור ("+rng(W.W)+")</h4>"+(ks.length?'<div style="overflow-x:auto"><table class="t tg"><thead><tr><th>מקור</th><th class="n">כניסות</th><th class="n">בדיקות רכב</th><th class="n">חלק מהבדיקות</th><th class="n">שבוע קודם</th></tr></thead><tbody>'
-+ks.map(k=>{const a=c[k]||[0,0];return '<tr><td class="w">'+esc(SL[k]||k)+'</td><td class="n">'+n(vis(k))+'</td><td class="n">'+n(a[1])+'</td><td class="n">'+(tc?Math.round(a[1]*100/tc)+"%":"-")+'</td><td class="n">'+n(pv(k))+"</td></tr>"}).join("")
-+'<tr><td class="w"><b>סך הכול</b></td><td class="n"><b>'+n(tv)+'</b></td><td class="n"><b>'+n(tc)+'</b></td><td class="n"></td><td class="n">'+n(tp)+"</td></tr></tbody></table></div>":'<p class="note" style="margin:0">אין עדיין נתונים לשבוע הזה.</p>')
-+'<p class="note">כל בדיקה שייכת למקור של הכניסה שבה נעשתה. כניסות: באתר, כל כניסה לאתר; באפליקציה, כל פתיחה. באפליקציה אין מקור לכל פתיחה, ולכן היא שורה אחת. האתר מוסר מקור מ-20.10, ומה שנספר לפני כן מופיע בשורה נפרדת, בלי השוואה לשבוע קודם. השבוע נגמר אתמול, כי גוגל אנליטיקס מסיים לספור אחרי כיום.</p>'}}
+const c=B[0],p=B[1],seen=W.srcSeen||[true,true],ks=[...new Set([...Object.keys(c),...Object.keys(p)])].filter(k=>(c[k]||[0,0])[1]||(p[k]||[0,0])[1]).sort((a,b)=>(a==="app"?-1:b==="app"?1:0)||((c[b]||[0,0])[1]-(c[a]||[0,0])[1])),tc=ks.reduce((a,k)=>a+(c[k]||[0,0])[1],0);
+// the previous week compares only what both weeks counted: the site from 15.10 (SITE_FROM), and its rows by source from 20.10
+const pSite=W.W&&addD(W.W[0],-7)>=SITE_FROM,pv=k=>k==="app"?(p[k]||[0,0])[1]:!pSite||(k!=="unknown"&&!seen[1])?null:(p[k]||[0,0])[1],tp=pSite?ks.reduce((a,k)=>a+(p[k]||[0,0])[1],0):null;
+const nm=k=>k==="app"?"באפליקציה":"באתר: "+(SL[k]||k);
+box.innerHTML=h+"<h4>בדיקות רכב לפי מקור ("+rng(W.W)+")</h4>"+'<p class="note" style="margin:0 0 6px">אלה '+n(tc)+' בדיקות הרכב של המשבצת "בדיקות רכב בשבוע", לפי המקור של הכניסה שבה נעשתה כל בדיקה: האפליקציה, או באתר הרשת או הקישור שהביאו את הנכנס.</p>'+(ks.length?'<div style="overflow-x:auto"><table class="t tg"><thead><tr><th>מקור</th><th class="n">בדיקות רכב</th><th class="n">חלק מהבדיקות</th><th class="n">שבוע קודם</th></tr></thead><tbody>'
++ks.map(k=>{const a=c[k]||[0,0];return '<tr><td class="w">'+esc(nm(k))+'</td><td class="n">'+n(a[1])+'</td><td class="n">'+(tc?Math.round(a[1]*100/tc)+"%":"-")+'</td><td class="n">'+n(pv(k))+"</td></tr>"}).join("")
++'<tr><td class="w"><b>סך הכול</b></td><td class="n"><b>'+n(tc)+'</b></td><td class="n"></td><td class="n">'+n(tp)+"</td></tr></tbody></table></div>":'<p class="note" style="margin:0">אין עדיין נתונים לשבוע הזה.</p>')
++'<p class="note">באפליקציה אין מקור לכל פתיחה, ולכן היא שורה אחת. האתר נספר מ-15.10 ומוסר מקור מ-20.10: הבדיקות באתר שלפני 20.10 בשורה אחת, ובשבוע קודם שלא נספר בו האתר מופיע מקף, כי אין מה להשוות. השבוע נגמר אתמול, כי גוגל אנליטיקס מסיים לספור אחרי כיום.</p>'}}
 
 // drawer: usage, this week against last week, and how many devices the app is on, from both sources
 {const box=$("use");if(!ev){box.innerHTML='<p class="note">אין נתון מגוגל אנליטיקס.</p>'}else{
@@ -692,7 +714,7 @@ const SV=W.savers,Lu=SV?SV.car_lookup||0:null,Su=SV?SV.car_save||0:null;
 const kvr=r=>"<li><span>"+r[0]+(r[2]!=null?" (שבוע קודם "+n(r[2])+")":"")+"</span><b>"+n(r[1])+"</b></li>";
 box.innerHTML='<h4>שמירת רכב</h4><p class="note" style="margin:0 0 6px">'+(!SV?"אין נתון מגוגל אנליטיקס על מכשירים ששמרו רכב.":Lu>=50?n1(Su/Lu*100)+"% מהמכשירים באפליקציה שבדקו רכב שמרו אותו ברשימה (היעד 15%).":"מעט מדי מכשירים באפליקציה בדקו רכב השבוע כדי לחשב אחוז: "+n(Su)+" שמרו מתוך "+n(Lu)+".")+"</p>"
 +'<h4>פעולות ('+rng(W.W)+")</h4>"+'<table class="t"><thead><tr><th>פעולה</th><th class="n">השבוע</th><th class="n">שבוע קודם</th></tr></thead><tbody>'+rows.map(k=>'<tr><td class="w">'+N[k]+'</td><td class="n">'+n(ge(E0,k))+'</td><td class="n">'+n(ge(E1,k))+"</td></tr>").join("")+"</tbody></table>"
-+(inst!=null?'<h4>כמה מכשירים יש לאפליקציה עכשיו</h4><ul class="kv">'+kvr(["מותקנת בישראל, "+(instMin?"לפחות":"בערך"),inst,null])+'</ul><p class="note" style="margin:0 0 6px">'+instHow+". כולל הטלפונים שלך ושל הבודקים.</p>":"")
++(inst!=null?'<h4>כמה מכשירים יש לאפליקציה עכשיו (הערכה)</h4><ul class="kv">'+kvr(["מותקנת בישראל, "+(instMin?"לפחות":"בערך"),inst,null])+'</ul><p class="note" style="margin:0 0 6px">'+instHow+". כולל הטלפונים שלך ושל הבודקים.</p>":"")
 +(PS?'<h4>לפי Google Play: המספרים המדויקים, עד '+dm(PS.last)+"</h4>"+'<ul class="kv">'+[PS.active!=null?["מכשירים בישראל שהאפליקציה מותקנת בהם, ב-"+dm(PS.activeDay),PS.active,null]:null,["התקנות חדשות בישראל, "+rng(PS.W),PS.cur.users,PS.prev.users],["הסרות, "+rng(PS.W),PS.cur.uninstalls,PS.prev.uninstalls],PS.store&&(PS.cur.visitors||PS.prev.visitors)?["ביקרו בדף האפליקציה בחנות",PS.cur.visitors,PS.prev.visitors]:null,PS.store&&(PS.cur.acquisitions||PS.prev.acquisitions)?["התקינו מתוך דף החנות",PS.cur.acquisitions,PS.prev.acquisitions]:null].filter(Boolean).map(kvr).join("")+'</ul><p class="note" style="margin:0 0 6px">Google Play סופר כל מי שהתקין, גם אם עוד לא פתח. הוא מוסר את המספרים באיחור של כמה ימים, ולכן התאריכים כאן מוקדמים משאר המסך.</p>':"")
 +(W.app?'<h4>לפי גוגל אנליטיקס</h4><ul class="kv">'+[["התקנות חדשות בישראל, "+rng(W.W),W.app[0].newUsers,W.app[1].newUsers],["משתמשים באפליקציה בישראל, 28 ימים",W.app[2].activeUsers,null],['משתמשים בחו"ל, לא נספרים',W.app[2].abroadActive,null]].map(kvr).join("")+'</ul><p class="note" style="margin:0 0 6px">גוגל אנליטיקס רואה התקנה כשפותחים את האפליקציה בפעם הראשונה (האירוע first_open), ולכן מי שהתקין ועוד לא פתח לא נספר. עדכון גרסה לא נספר כהתקנה, אבל התקנה מחדש או מחיקת נתוני האפליקציה נספרות כהתקנה חדשה. מכשירים בחו"ל לא נספרים במסך: רובם מכשירי הבדיקה של גוגל, שמתקינה עליהם כל גרסה חדשה.</p>':"")
 +(W.shared?'<h4>קישורים ששותפו והביאו אנשים, לפי סוג</h4><p class="note" style="margin:0">'+(Object.entries(W.shared[0].by).map(e=>(VIA[e[0]]||esc(e[0]))+": "+n(e[1])).join(" · ")||"עדיין אין כניסות מקישור ששותף.")+"</p>"
@@ -721,7 +743,7 @@ box.innerHTML="<h4>כניסות מגוגל לפי יום, 28 ימים</h4>"+'<sv
 
 // drawer: agent news
 {const tm=t=>new Date(t).toLocaleTimeString("he-IL",{timeZone:"Asia/Jerusalem",hour:"2-digit",minute:"2-digit"});
-$("fl").innerHTML=(d.flashes||[]).slice(0,12).map(f=>'<li><span class="ft">'+dm(new Date(f.t).toLocaleDateString("en-CA",{timeZone:"Asia/Jerusalem"}))+" "+tm(f.t)+'</span><span><span class="lv '+(f.l==="alert"?"alert":"")+'">'+(f.l==="alert"?"●":"○")+"</span> <b>"+esc(FK[f.k]||f.k)+":</b> "+esc(String(f.x||"").replace(/\\s*פירוט:[\\s\\S]*$/,""))+(f.u&&/^https:\\/\\//.test(f.u)?' <a href="'+esc(f.u)+'" target="_blank" rel="noopener">קישור</a>':"")+"</span></li>").join("")||'<li><span class="note">אין מבזקים עדיין.</span></li>'}
+$("fl").innerHTML=(d.flashes||[]).slice(0,12).map(f=>'<li><span class="ft">'+dm(new Date(f.t).toLocaleDateString("en-CA",{timeZone:"Asia/Jerusalem"}))+" "+tm(f.t)+'</span><span><span class="lv '+(f.l==="alert"||f.l==="wait"?"alert":"")+'">'+(f.l==="alert"||f.l==="wait"?"●":"○")+"</span> <b>"+esc(FK[f.k]||f.k)+":</b> "+esc(String(f.x||"").replace(/\\s*פירוט:[\\s\\S]*$/,""))+(f.u&&/^https:\\/\\//.test(f.u)?' <a href="'+esc(f.u)+'" target="_blank" rel="noopener">קישור</a>':"")+"</span></li>").join("")||'<li><span class="note">אין מבזקים עדיין.</span></li>'}
 
 // drawer: technical
 {const fk=W&&W.fails?W.fails[0]:null,rt=d.events||[];
@@ -737,19 +759,40 @@ $("tec").innerHTML="<h4>בדיקות שלא החזירו תוצאה, לפי סי
 $("build").textContent="גרסה "+(d.build||"");
 }
 
-async function go(){const meta=$("meta");try{const r=await fetch("/live/data",{cache:"no-store",signal:AbortSignal.timeout?AbortSignal.timeout(45e3):undefined});if(!r.ok)throw 0;const d=await r.json();window.lastD=d;render(d);
+async function go(){const meta=$("meta");try{const r=await fetch("/live/data",{cache:"no-store",signal:AbortSignal.timeout?AbortSignal.timeout(35e3):undefined});if(!r.ok)throw r.status;const d=await r.json();window.lastD=d;render(d);
 const tm=new Date(d.at).toLocaleTimeString("he-IL",{timeZone:"Asia/Jerusalem",hour:"2-digit",minute:"2-digit"});
-meta.className="meta"+(d.stale?" stale":"");meta.innerHTML='<span class="dot"></span>'+(d.stale?"נתונים ישנים מ-"+tm+", גוגל הגביל זמנית את מספר הבקשות":"עודכן "+tm)}
-catch{meta.className="meta stale";meta.innerHTML='<span class="dot"></span>אין חיבור'+(window.lastD?". מוצגים הנתונים האחרונים":"")}}
+meta.className="meta"+(d.stale||d.late?" stale":"");meta.innerHTML='<span class="dot"></span>'+(d.late?"נתונים מ-"+tm+": השרת לא ענה בזמן, ננסה שוב בעוד דקה":d.stale?"נתונים ישנים מ-"+tm+", גוגל הגביל זמנית את מספר הבקשות":"עודכן "+tm)}
+catch(e){meta.className="meta stale";meta.innerHTML='<span class="dot"></span>'+(e===504?"השרת לא ענה בזמן, ננסה שוב בעוד דקה":"אין חיבור")+(window.lastD?". מוצגים הנתונים האחרונים":"")}}
 document.addEventListener("click",e=>{const a=e.target.closest("[data-open]");if(a){const el=$(a.dataset.open);if(el)el.open=true}});
 go();setInterval(()=>{if(!document.hidden)go()},60000);
 </script></body></html>`;
 
+// /live/data answers within 25 s whatever an outside call does: on time = fresh data, kept as the last good answer (this isolate, and this
+// data centre's cache for a new isolate); late or failed = that last good answer marked late, which the page shows with its time, or a
+// 504 when there is none. On 20.10 one hung call kept every load of the screen on "loading" for two hours.
+const DEADLINE = 25e3, LAST = "https://luchit.app/live/_last";
+let lastGood = null;
+async function liveData(env, ctx) {
+  let timer, failed = false;
+  const work = (async () => ({ ...(await collect(env)), flashes: (await getFlashes()).slice(0, 15), metrics: await getMetrics() }))();
+  const late = new Promise(r => { timer = setTimeout(() => r(null), DEADLINE); });
+  const d = await Promise.race([work.catch(() => { failed = true; return null; }), late]);
+  clearTimeout(timer);
+  if (d) {
+    lastGood = d;
+    ctx?.waitUntil?.(caches.default.put(LAST, new Response(JSON.stringify(d), { headers: { "content-type": "application/json", "cache-control": "max-age=172800" } })).catch(() => {}));
+    return json(d);
+  }
+  let keep = lastGood;
+  if (!keep) try { const r = await caches.default.match(LAST); keep = r ? await r.json() : null; } catch {}
+  return keep ? json({ ...keep, late: true }) : failed ? json({ error: "unavailable" }, 502) : json({ error: "timeout" }, 504);
+}
+
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
     const url = new URL(req.url);
     if (!(await verifyAccess(req, env).catch(() => false))) return new Response("forbidden", { status: 403, headers: HEAD });
-    if (url.pathname === "/live/data") { try { return json({ ...(await collect(env)), flashes: (await getFlashes()).slice(0, 15), metrics: await getMetrics() }); } catch (e) { return json({ error: "unavailable" }, 502); } }
+    if (url.pathname === "/live/data") return liveData(env, ctx);
     if (url.pathname === "/live" || url.pathname === "/live/") return new Response(PAGE, { headers: { ...HEAD, "content-type": "text/html; charset=utf-8" } });
     return new Response("not found", { status: 404, headers: HEAD });
   }
