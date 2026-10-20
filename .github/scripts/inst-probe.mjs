@@ -42,7 +42,7 @@ await part("ga.rtPlatform", () => gaRT({ dimensions: [{ name: "platform" }, { na
 
 // Google Play: the installs report the Worker reads (Israel rows only), and when each file was last written
 const decode = buf => buf[0] === 0xff && buf[1] === 0xfe ? buf.slice(2).toString("utf16le") : buf.toString("utf8").replace(/^﻿/, "");
-await part("play.installs", async () => {
+if (!E.LIGHT) await part("play.installs", async () => {
   const j = await call(`https://storage.googleapis.com/storage/v1/b/${BUCKET}/o?` + new URLSearchParams({ prefix: "stats/installs/installs_" + PKG + "_2026", maxResults: "200" }));
   const items = (j.items || []).map(x => ({ name: x.name, updated: x.updated, size: Number(x.size) }));
   const o = { items, rows: {} };
@@ -64,15 +64,29 @@ async function gql(query, variables) {
 const since = new Date(Date.now() - 5 * 36e5).toISOString(), until = new Date().toISOString(), acc = String(E.CF_ACCOUNT_ID || "").trim();
 const inv = dims => gql(`query($acc:String!,$since:Time!,$until:Time!){viewer{accounts(filter:{accountTag:$acc}){workersInvocationsAdaptive(limit:2000,filter:{scriptName:"luchit-live",datetime_geq:$since,datetime_leq:$until},orderBy:[datetimeFiveMinutes_ASC]){dimensions{${dims}} sum{requests subrequests errors} quantiles{wallTimeP50 wallTimeP99}}}}}`, { acc, since, until })
   .then(d => d.viewer.accounts[0].workersInvocationsAdaptive.map(x => ({ ...x.dimensions, ...x.sum, p50: x.quantiles.wallTimeP50, p99: x.quantiles.wallTimeP99 })));
-await part("cf.byColo", () => inv("datetimeFiveMinutes status coloCode"));
+if (!E.LIGHT) await part("cf.byColo", () => inv("datetimeFiveMinutes status coloCode"));
 await part("cf.byVersion", () => inv("datetimeFiveMinutes status scriptVersion"));
-await part("cf.plain", () => inv("datetimeFiveMinutes status"));
-await part("cf.zone", async () => {
+if (!E.LIGHT) await part("cf.plain", () => inv("datetimeFiveMinutes status"));
+if (!E.LIGHT) await part("cf.zone", async () => {
   const r = await fetch("https://api.cloudflare.com/client/v4/zones?name=luchit.app", { headers: { authorization: "Bearer " + cleanTok(E.CF_API_TOKEN) } });
   const j = await r.json(); if (!j.success) throw new Error("zones " + r.status + " " + JSON.stringify(j.errors).slice(0, 160));
   const zone = j.result[0]?.id; if (!zone) throw new Error("no zone");
   const d = await gql(`query($z:String!,$since:Time!,$until:Time!){viewer{zones(filter:{zoneTag:$z}){httpRequestsAdaptiveGroups(limit:2000,filter:{datetime_geq:$since,datetime_leq:$until,clientRequestPath_like:"/live%"},orderBy:[datetimeFiveMinutes_ASC]){count dimensions{datetimeFiveMinutes coloCode clientRequestPath edgeResponseStatus clientCountryName cacheStatus}}}}}`, { z: zone, since, until });
   return d.viewer.zones[0].httpRequestsAdaptiveGroups.map(x => ({ ...x.dimensions, n: x.count }));
+});
+
+// live-30 check: today's tally in Workers KV (luchit-alerts, key lv:rt:<Israel day>), read with the deploy token (read-only GETs)
+await part("kv.tally", async () => {
+  const tok = cleanTok(E.CLOUDFLARE_API_TOKEN), A = "https://api.cloudflare.com/client/v4/accounts/" + acc + "/storage/kv/namespaces";
+  const ns = await (await fetch(A + "?per_page=100", { headers: { authorization: "Bearer " + tok } })).json();
+  if (!ns.success) throw new Error("namespaces " + JSON.stringify(ns.errors).slice(0, 160));
+  const id = (ns.result || []).find(n => n.title === "luchit-alerts")?.id; if (!id) throw new Error("no luchit-alerts");
+  const day = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" }), r = await fetch(A + "/" + id + "/values/" + encodeURIComponent("lv:rt:" + day), { headers: { authorization: "Bearer " + tok } });
+  if (r.status === 404) return { day, present: false };
+  if (!r.ok) throw new Error("value " + r.status);
+  const v = JSON.parse(await r.text()), mins = Object.keys(v.m || {}).map(Number).sort((a, b) => a - b);
+  return { day, present: true, ageSec: Math.round((Date.now() - v.at) / 1000), minutes: mins.length, first: mins.length ? new Date(mins[0] * 6e4).toISOString() : null, last: mins.length ? new Date(mins[mins.length - 1] * 6e4).toISOString() : null,
+    first_open: Object.values(v.m || {}).reduce((t, x) => t + x[0], 0), car_lookup: Object.values(v.m || {}).reduce((t, x) => t + x[1], 0) };
 });
 
 const data = Buffer.from(JSON.stringify(out));
