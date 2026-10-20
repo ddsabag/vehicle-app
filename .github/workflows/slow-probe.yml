@@ -19,7 +19,7 @@ jobs:
           node-version: 22
       - run: mkdir -p out && node .github/scripts/forms-probe.mjs > out/forms.txt 2>&1; wc -c out/forms.txt
         env:
-          N: "40"
+          N: "12"
       - name: Publish on probe-slow-out
         run: |
           cd out && git init -q && git checkout -q -b probe-slow-out && git add -A

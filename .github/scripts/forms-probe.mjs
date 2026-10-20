@@ -23,49 +23,39 @@ async function ask(id, filters) {
 // the app's forms, in its order (byPlate)
 const formsOf = (s, plate) => { const f = [["text", plate], ["number", Number(plate)]]; if (s.pad && plate.length < 8) f.push(["pad7", plate.padStart(7, "0")], ["pad8", plate.padStart(8, "0")]); const seen = new Set(); return f.filter(([, v]) => { const k = typeof v + v; if (seen.has(k)) return false; seen.add(k); return true; }); };
 
-const N = Number(process.env.N || 40);
+// GENTLE: the first run sent ~27 requests at once per car and the ministry's firewall answered 403 to 85% of them, so this run asks one
+// thing at a time, 1.2 s apart, and first reads each register's own column types (one request per register)
+const gap = () => new Promise(r => setTimeout(r, 1200));
+say(`at ${new Date().toISOString()}: plate column type per register (datastore_search limit=0 fields)`);
+for (const s of ALL) {
+  try { const j = await (await fetch(`${API}?resource_id=${s.id}&limit=0`, { signal: AbortSignal.timeout(60000) })).json(); const f = (j.result && j.result.fields || []).find(x => x.id === s.field); say(`  ${s.key.padEnd(10)} ${s.field}: ${f ? f.type : "NOT FOUND (" + (j.success ? "fields " + (j.result.fields || []).map(x => x.id).slice(0, 6).join(",") : "error") + ")"} total ${j.result ? j.result.total : "?"}${s.pad ? " (app pads)" : ""}`); }
+  catch (e) { say(`  ${s.key}: failed ${String(e).slice(0, 60)}`); }
+  await gap();
+}
+const N = Number(process.env.N || 12);
 const plates = new Set();
 let total = 4188823;
-try { const r = await (await fetch(`${API}?resource_id=${sets[0].id}&limit=0`, { signal: AbortSignal.timeout(60000) })).json(); if (r.success) total = r.result.total; } catch {}
 for (let i = 0; plates.size < N && i < N * 3; i++) {
   try { const r = await (await fetch(`${API}?resource_id=${sets[0].id}&limit=1&offset=${Math.floor(Math.random() * (total - 1))}&fields=mispar_rechev`, { signal: AbortSignal.timeout(90000) })).json(); const p = r.success && r.result.records[0] && String(r.result.records[0].mispar_rechev); if (p) plates.add(p); } catch {}
+  await gap();
 }
 const P = [...plates];
-say(`at ${new Date().toISOString()}: ${P.length} random cars of the active register (${total}); plate length: ${JSON.stringify(P.reduce((o, p) => (o[p.length] = (o[p.length] || 0) + 1, o), {}))}`);
-
-const per = {};   // key -> list of { len, forms: [{name, ms, status, rows}] }
-const checks = [];  // per plate: chain ms of every register as the app runs it, and as a single (first) form
-for (const plate of P) {
-  // every register at once, as the app does; inside a register every form one after the other (all of them, to see which ones answer)
-  const got = await Promise.all(sets.map(async s => { const out = []; for (const [name, v] of formsOf(s, plate)) out.push({ name, ...(await ask(s.id, { [s.field]: v })) }); return [s.key, out]; }));
-  const c = { len: plate.length, chain: {}, first: {} };
-  for (const [k, out] of got) {
-    (per[k] ||= []).push({ len: plate.length, forms: out });
-    // the app stops at the first form with rows; a form that errs with HTTP 4xx moves to the next form, any other error retries once after 700 ms
-    let ms = 0; for (const f of out) { ms += f.ms + (f.rows < 0 && !/^4/.test(String(f.status)) && f.status !== "timeout" ? 700 + f.ms : 0); if (f.rows > 0) break; }
-    c.chain[k] = ms; c.first[k] = out[0].ms;
-  }
-  checks.push(c);
-  await new Promise(r => setTimeout(r, 400));
+say(`\n${P.length} random cars of the active register; plate length: ${JSON.stringify(P.reduce((o, p) => (o[p.length] = (o[p.length] || 0) + 1, o), {}))}`);
+const per = {};
+for (const plate of P) for (const s of sets) {
+  const out = [];
+  for (const [name, v] of formsOf(s, plate)) { out.push({ name, ...(await ask(s.id, { [s.field]: v })) }); await gap(); }
+  (per[s.key] ||= []).push({ len: plate.length, forms: out });
 }
-
-say("\nper register: which form found the car's rows, errors, and time per request");
+say("\nper register: rows found by each form (same cars), errors, time per request; the app stops at the first form with rows");
 for (const s of sets) {
   const L = per[s.key] || []; if (!L.length) continue;
   const names = [...new Set(L.flatMap(x => x.forms.map(f => f.name)))];
-  const parts = names.map(n => { const fs_ = L.map(x => x.forms.find(f => f.name === n)).filter(Boolean); return `${n}: rows ${pct(fs_.filter(f => f.rows > 0).length, fs_.length)}, err ${pct(fs_.filter(f => f.rows < 0).length, fs_.length)} ${JSON.stringify(fs_.filter(f => f.rows < 0).reduce((o, f) => (o[f.status] = (o[f.status] || 0) + 1, o), {}))}, ${med(fs_.map(f => f.ms))} ms`; });
-  const any = L.filter(x => x.forms.some(f => f.rows > 0)).length;
+  const parts = names.map(n => { const fs_ = L.map(x => x.forms.find(f => f.name === n)).filter(Boolean); return `${n}: rows ${fs_.filter(f => f.rows > 0).length}/${fs_.length}, err ${JSON.stringify(fs_.filter(f => f.rows < 0).reduce((o, f) => (o[f.status] = (o[f.status] || 0) + 1, o), {}))}, median ${med(fs_.map(f => f.ms))} ms`; });
   const onlyLater = L.filter(x => !(x.forms[0].rows > 0) && x.forms.some(f => f.rows > 0)).length;
   const reqs = L.map(x => { const i = x.forms.findIndex(f => f.rows > 0); return i < 0 ? x.forms.length : i + 1; });
-  say(`${s.key.padEnd(8)} field ${s.field}${s.pad ? " pad" : ""} | car has rows ${pct(any, L.length)} | rows only by a later form ${onlyLater} of ${L.length} | the app's requests one after the other: median ${med(reqs)}, max ${Math.max(...reqs)}`);
+  const sameRows = L.filter(x => x.forms.length > 1 && x.forms[0].rows === x.forms[1].rows).length;
+  say(`${s.key.padEnd(8)} | cars with rows ${L.filter(x => x.forms.some(f => f.rows > 0)).length}/${L.length} | found only by a later form ${onlyLater} | text and number gave the same rows ${sameRows}/${L.length} | the app's requests one after the other: ${JSON.stringify(reqs.reduce((o, n) => (o[n] = (o[n] || 0) + 1, o), {}))}`);
   say(`         ${parts.join(" | ")}`);
 }
-
-const crit = checks.map(c => Math.max(...Object.values(c.chain))), one = checks.map(c => Math.max(...Object.values(c.first)));
-say(`\nthe registers' part of a check (all at once, the slowest decides; model data and drawing not included):`);
-say(`  as the app asks today:        median ${med(crit)} ms, p75 ${q(crit, .75)}, p90 ${q(crit, .9)}, max ${Math.max(...crit)}`);
-say(`  one form per register:        median ${med(one)} ms, p75 ${q(one, .75)}, p90 ${q(one, .9)}, max ${Math.max(...one)}`);
-for (const len of [7, 8]) { const cs = checks.filter(c => c.len === len); if (!cs.length) continue; say(`  ${len}-digit plates (${cs.length}): today median ${med(cs.map(c => Math.max(...Object.values(c.chain))))} ms, one form median ${med(cs.map(c => Math.max(...Object.values(c.first))))} ms`); }
-const slowest = {}; checks.forEach(c => { const k = Object.entries(c.chain).sort((a, b) => b[1] - a[1])[0][0]; slowest[k] = (slowest[k] || 0) + 1; });
-say("  the register that finished last, as the app asks today:", JSON.stringify(slowest));
 say("done", new Date().toISOString());
