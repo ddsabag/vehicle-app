@@ -2101,6 +2101,21 @@ const lendsDates = (p, s, a, b) => !!(p.nodates && LEND_DATES[s.key]) && !(s.key
 /* a cancel row has no reason: the public row of the same cancellation (permanent, same date: all 3,298 public plates in a cancel register) gives it */
 const sameDay = (x, y) => { const a = toDate(x), b = toDate(y); return !!a && !!b && +a === +b; };
 const lendsReason = (p, s, a, b) => /^cancel/.test(p.key) && s.key === "public" && !!(pubState(b) || {}).gone && sameDay(a.bitul_dt, b.bitul_dt);
+/* ---------- the km at the last test ---------- */
+/* The km is the technical register's (56063a99), which has no date of its own: it is the reading of the car's last test (mivchan_acharon_dt).
+   A car with no test since its registration carries the registration reading (a new car's delivery km), so the km counts only from a test at
+   least 60 days away from the first registration and the on-road month, and km per year only from a test half a year or more after the on-road
+   month. A used personal import was driven abroad before it came: its registration reading is a real one, and its years count from mid
+   production year, not from the day it came to Israel. */
+const usedImport = v => /משומש/.test(String(v.mkoriut_nm || "") + String(v.sug_yevu || ""));
+function kmAtTest(v){
+  const km = isNum(v.kilometer_test_aharon) && num(v.kilometer_test_aharon) > 0 ? num(v.kilometer_test_aharon) : null, t = toDate(v.mivchan_acharon_dt);
+  const used = usedImport(v), road = parseYM(v.moed_aliya_lakvish), born = isNum(v.shnat_yitzur) ? new Date(num(v.shnat_yitzur), 6, 1) : null;
+  const near = d => !!d && Math.abs(t - d) < 60 * 864e5, none = {km: null, kmYears: null, kmPerYear: null};
+  if (!km || !t || !used && (near(toDate(v.rishum_rishon_dt)) || near(road))) return none;
+  const start = used ? born : road || born, years = start && t > start ? monthsBetween(start, t) / 12 : 0;
+  return years >= 0.5 ? {km, kmYears: years, kmPerYear: Math.round(km / years / 100) * 100} : {...none, km};
+}
 /* ---------- fetch one vehicle ---------- */
 async function fetchVehicle(plate, signal, onProgress){
   const res = {}; let done = 0;
@@ -2171,12 +2186,7 @@ async function fetchVehicle(plate, signal, onProgress){
   const tSrc = towRow || (hasTow(v) ? v : null);
   const make = makeName(v), model = pick(v.kinuy_mishari, w.kinuy_mishari, v.degem_nm) || "";
 
-  // mileage per year, from first road date to the last test
-  const km = isNum(v.kilometer_test_aharon) ? num(v.kilometer_test_aharon) : null;
-  const start = parseYM(v.moed_aliya_lakvish) || (isNum(v.shnat_yitzur) ? new Date(num(v.shnat_yitzur), 6, 1) : null);
-  const testD = toDate(v.mivchan_acharon_dt);
-  let kmYears = null, kmPerYear = null;
-  if (km && start) { kmYears = Math.max(monthsBetween(start, testD || new Date()) / 12, 0.5); kmPerYear = Math.round(km / kmYears / 100) * 100; }
+  const {km, kmYears, kmPerYear} = kmAtTest(v);
   const onRoad = parseYM(v.moed_aliya_lakvish) || (isNum(v.shnat_yitzur) ? new Date(num(v.shnat_yitzur), 0, 1) : null);
   const ownersFloor = !onRoad || onRoad < new Date(2017, 0, 1); // the ownership log starts in January 2017
   // the public register's own state, when its row is the car's or lends it its licence date: a permanent cancellation reads like the cancel
@@ -2662,9 +2672,8 @@ function svcDue(p){ if (!maintOk()) return null; const n = svcNext(svcOf(p)); re
 function svcRemember(D, info){
   if (!maintOk() || !info || !info.opts || info.opts.length !== 1) return;
   const o = info.opts[0], s = svcOf(D.plate);
-  const km = isNum(D.v.kilometer_test_aharon) ? num(D.v.kilometer_test_aharon) : 0, reg = parseYM(D.v.moed_aliya_lakvish);
-  const days = reg ? Math.max(dayDiff(reg, new Date()), 0) : 0;
-  const rate = km > 0 && days > 180 ? Math.min(km / days, 150) : AVG_KM_YEAR / 365;
+  // the pace of the km at the last test (kmAtTest): not a delivery reading, and not the km a used import was driven abroad
+  const rate = D.kmPerYear ? Math.min(D.kmPerYear / 365, 150) : AVG_KM_YEAR / 365;
   const meta = {km: o.km, months: o.months || 0, rate: Math.round(rate * 10) / 10};
   if (!s.meta || s.meta.km !== meta.km || s.meta.months !== meta.months || s.meta.rate !== meta.rate) { s.meta = meta; svcSave(D.plate, s); }
 }
@@ -2696,7 +2705,7 @@ function nextCard(D, info){
   if (info.opts.length !== 1) return card("הטיפול הבא", "clock", "teal", `<p style="margin:0">הגרסאות של הדגם מחזיקות מרווחים שונים, ולכן לא ניתן לחשב את הטיפול הבא. בדקו בספר הרכב וקבעו מרווח.</p>`);
   const o = info.opts[0], hint = saved ? "" : `<p class="note">כדי לקבל תזכורות בהתראה, שמרו את הרכב (כפתור "שמירה" למעלה) והפעילו התראות.</p>`;
   if (!n) {
-    const km = isNum(D.v.kilometer_test_aharon) ? num(D.v.kilometer_test_aharon) : null, est = km > 0 ? Math.ceil((km + 1) / o.km) * o.km : null;
+    const km = D.km, est = km > 0 ? Math.ceil((km + 1) / o.km) * o.km : null;
     return card("הטיפול הבא", "clock", "teal", `${est ? `<p style="margin:0">לפי הק״מ בטסט האחרון (${fmtN(km)}), הטיפול הבא לפי המרווח הוא סביב <b>${fmtN(est)} ק״מ</b> (הערכה).</p>` : ""}<p class="note">רשמו ביומן למטה את הטיפול התקופתי האחרון (טיפול תקופתי או שמן ומסננים), ונחשב מתי הטיפול הבא ונזכיר לכם.</p>`);
   }
   const days = n.due ? dayDiff(new Date(new Date().setHours(0, 0, 0, 0)), n.due) : null;
@@ -2719,11 +2728,11 @@ function logCard(D){
 }
 function kmCard(D){
   const s = svcOf(D.plate), pts = s.log.filter(x => x.km > 0 && x.d).map(x => [new Date(x.d), x.km, "טיפול"]);
-  const tk = isNum(D.v.kilometer_test_aharon) ? num(D.v.kilometer_test_aharon) : 0, td = toDate(D.v.mivchan_acharon_dt);
+  const tk = D.km || 0, td = toDate(D.v.mivchan_acharon_dt);
   if (tk > 0 && td) pts.push([td, tk, "טסט"]);
   pts.sort((a, b) => a[0] - b[0]);
   const coh = msCohort(D), typical = coh && coh.km > 0 ? `<p class="note">לשם השוואה, בדגם ובשנתון הזה הק״מ האופייני בטסט הוא כ-${fmtN(Math.round(coh.km / 1000) * 1000)}.</p>` : "";
-  if (pts.length < 2) return card("ציר ק״מ", "chart", "blue", `<p style="margin:0">במאגר הממשלתי יש רק קריאת ק״מ אחת לרכב (בטסט האחרון${tk ? `: ${fmtN(tk)}` : ""}), ולכן הציר נבנה מהטיפולים שתרשמו עם ק״מ. רשמו עוד טיפול כדי לראות את הקצב.</p>${typical}`);
+  if (pts.length < 2) return card("ציר ק״מ", "chart", "blue", `<p style="margin:0">${tk ? `במאגר הממשלתי יש רק קריאת ק״מ אחת לרכב (בטסט האחרון: ${fmtN(tk)})` : "המאגר הממשלתי לא מראה קריאת ק״מ מטסט של הרכב"}, ולכן הציר נבנה מהטיפולים שתרשמו עם ק״מ. רשמו עוד טיפול כדי לראות את הקצב.</p>${typical}`);
   const W = 300, H = 120, t0 = pts[0][0].getTime(), t1 = pts[pts.length - 1][0].getTime(), kmLo = Math.min(...pts.map(p => p[1])), kmHi = Math.max(...pts.map(p => p[1])), sp = Math.max(kmHi - kmLo, 1), ts = Math.max(t1 - t0, 1);
   const X = p => 14 + (p[0].getTime() - t0) / ts * (W - 28), Y = p => 14 + (H - 28) * (1 - (p[1] - kmLo) / sp);
   const line = pts.map(p => `${X(p).toFixed(1)},${Y(p).toFixed(1)}`).join(" ");
