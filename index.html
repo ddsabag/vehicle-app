@@ -3765,7 +3765,9 @@ const TRIM_FIX = {HYBR: "HYBRID", HYBRI: "HYBRID", PREMIU: "PREMIUM", PREMI: "PR
   ESSENTIA: "ESSENTIAL", ESSENTI: "ESSENTIAL", ESSENC: "ESSENCE", EVOLUTIO: "EVOLUTION", EVOLUTI: "EVOLUTION", ADVENTUR: "ADVENTURE", ADVENT: "ADVENTURE", FREESTYL: "FREESTYLE", CROSSOVE: "CROSSOVER", CROSSOV: "CROSSOVER",
   SPECIA: "SPECIAL", CLASSI: "CLASSIC", EDI: "EDITION", EDIT: "EDITION", NAVIGATIO: "NAVIGATION", LONGRANG: "LONG RANGE", STYL: "STYLE", PERFO: "PERFORMANCE", INTELLIGEN: "INTELLIGENT", INTELLIG: "INTELLIGENT", PLU: "PLUS", AUTOBIOGRAPH: "AUTOBIOGRAPHY", UTOBIOGRAPHY: "AUTOBIOGRAPHY"};
 const trimNorm = r => String(r.ramat_gimur || "").toUpperCase().replace(/[^A-Z0-9\u05d0-\u05ea]/g, "");
-const SPEC_KEYS = ["nefah_manoa", "koah_sus", "technologiat_hanaa_nm", "delek_nm", "automatic_ind", "hanaa_nm", "merkav", "mispar_dlatot", "mispar_moshavim", "mishkal_kolel", "mispar_kariot_avir", "ramat_eivzur_betihuty", "mehir", ...Object.keys(EQUIP), ...Object.keys(SYSTEMS)];
+// everything the comparison shows of a version: two versions merge only when none of it differs
+const SPEC_KEYS = ["nefah_manoa", "koah_sus", "technologiat_hanaa_nm", "delek_nm", "automatic_ind", "hanaa_nm", "merkav", "mispar_dlatot", "mispar_moshavim", "mishkal_kolel", "mispar_kariot_avir", "ramat_eivzur_betihuty", "mehir",
+  "kosher_grira_im_blamim", "kosher_grira_bli_blamim", "CO2_WLTP", "kamut_CO2", "kvutzat_zihum", "kvuzat_agra_cd", ...Object.keys(EQUIP), ...Object.keys(SYSTEMS)];
 const specKey = r => SPEC_KEYS.map(k => String(r[k] ?? "")).join("|");
 function trimLabel(r){
   if (r._alias) return r._alias;
@@ -3806,7 +3808,9 @@ function showModel(y){
   // The register lists every importer's type approval, so a Corolla 2026 shows the official importer's two versions next to fifteen
   // parallel-import ones. The importer with most cars of this model and year on the road is the official one: its versions come
   // first, the rest fold under one line (catalogue rows carry the importer and the counts; live ministry rows do not, and show as one list).
-  const onRoad = new Map(); for (const r of inYear) { const n = impName(r.shem_yevuan); if (n) onRoad.set(n, (onRoad.get(n) || 0) + (num(r.mispar_rechavim_pailim) || 0)); }
+  // the catalogue writes a code's count of cars (per maker + code + year) on each of its rows: each is counted once, not once per trim row
+  const onRoad = new Map(), counted = new Set();
+  for (const r of inYear) { const n = impName(r.shem_yevuan), c = num(r.mispar_rechavim_pailim), k = [r.tozeret_cd, r.degem_cd, num(r.shnat_yitzur)].join("|"); if (!n || !(c > 0) || counted.has(k)) continue; counted.add(k); onRoad.set(n, (onRoad.get(n) || 0) + c); }
   const total = [...onRoad.values()].reduce((a, b) => a + b, 0), main = [...onRoad.entries()].sort((a, b) => b[1] - a[1])[0];
   // the year's leading importer is "official" only when it is also the brand's importer over all years (mGroup.imp, from the catalogue index);
   // otherwise it leads the list under a neutral title, since the official importer may simply not have registered that year yet
