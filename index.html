@@ -208,7 +208,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .tow-grid .k{font-size:.9rem;color:var(--tc);color:color-mix(in srgb,var(--tc) 55%,var(--fg));font-weight:700}
 .tow-grid .v{font:600 clamp(1.5rem,7vw,2rem)/1.15 var(--f-num);font-variant-numeric:tabular-nums;margin-top:2px}
 .u{font-size:.85rem;color:var(--muted);margin-inline-start:4px;font-family:var(--f-body);font-weight:600}
-.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}.stat.wide{grid-column:1/-1}
 .stat{background:var(--card);border-radius:16px;padding:14px 16px;min-width:0;box-shadow:var(--shadow);border-top:4px solid var(--tc)}
 .stat .k{font-size:.85rem;color:var(--muted);font-weight:600}
 .stat .v{font:600 clamp(1.25rem,5.6vw,1.55rem)/1.15 var(--f-num);font-variant-numeric:tabular-nums;margin-top:4px;overflow-wrap:anywhere}   /* wraps instead of being cut when the phone's text size is large */
@@ -3016,8 +3016,10 @@ function tabOverview(D){
   if (D.kmPerYear) stats.push(["ממוצע לשנה", fmtN(D.kmPerYear), "ק״מ", "teal"]);
   const hp = specPower(D);
   if (hp) stats.push(["כוח", fmtN(hp.v), hp.u, "teal"]);
-  if (stats.length % 2) stats.pop();
-  if (stats.length) html.push(`<div class="stats">${stats.map(([k,val,u,c]) => `<div class="stat ${c}"><div class="k">${esc(k)}</div><div class="v">${esc(val)}${u ? `<span class="u">${esc(u)}</span>` : ""}</div></div>`).join("")}</div>`);
+  // tiles come in pairs: the power tile only completes one, and a km reading without a yearly pace (a test too soon after the car went on
+  // the road, or no test date) stands alone across the row rather than be dropped
+  if (stats.length % 2 && hp) stats.pop();
+  if (stats.length) html.push(`<div class="stats">${stats.map(([k,val,u,c]) => `<div class="stat ${c}${stats.length === 1 ? " wide" : ""}"><div class="k">${esc(k)}</div><div class="v">${esc(val)}${u ? `<span class="u">${esc(u)}</span>` : ""}</div></div>`).join("")}</div>`);
 
   const noTest = noTestFor(D);
   html.push(card("רישוי וטסט", "doc", "blue", facts([
