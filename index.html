@@ -845,7 +845,8 @@ const API = "https://data.gov.il/api/3/action/datastore_search";
 /* Datasets keyed by plate. role main = the vehicle record itself, in the order that decides which register is the car (the first one with a
    row gives the status): the active register, the other vehicle types, the registers of cars off the road, then public and import, which do
    not tell the status: public keeps a vehicle after it is cancelled (its own cancellation fields say so), and in 10/2026 3,298 public plates
-   and 2 import plates were also in a cancel register. nodates: the register has no test or licence dates (see lendsDates). */
+   and 2 import plates were also in a cancel register. nodates: a register of vehicles on the road with no test or licence dates, which the same
+   vehicle's import or public row may lend (lendsDates). */
 const PLATE_SETS = [
   {key:"active",     id:"053cea08-09bc-40ec-8f7a-156f0677aff3", role:"main", status:"פעיל"},
   {key:"moto",       id:"bf9df4e2-d90d-4c0a-a400-19e15af8e95f", role:"main", status:"פעיל", kind:"דו-גלגלי", nodates:true},
@@ -2158,13 +2159,15 @@ async function fetchVehicle(plate, signal, onProgress){
     return {plate, notFound: true};
   }
 
-  const v = {}, top = mains[0] && res[mains[0].key].rows[0], lent = new Set();
-  const fill = (r, keys) => { for (const [k,x] of Object.entries(r)) if ((!keys || keys.has(k)) && empty(v[k]) && !empty(x)) v[k] = x; };
+  const v = {}, top = mains[0] && res[mains[0].key].rows[0], lent = new Set(); let datesFrom = null;
+  // fills v's empty fields from r (only those in keys, when given) and returns the fields it filled
+  const fill = (r, keys) => Object.entries(r).filter(([k, x]) => (!keys || keys.has(k)) && empty(v[k]) && !empty(x)).map(([k, x]) => (v[k] = x, k));
   if (top) fill(top);
   for (const s of mains.slice(1)) {
     const r = res[s.key].rows[0];
     if (sameCar(top, r)) fill(r, ID_FIELDS);
-    if (lendsDates(mains[0], s, top, r)) { fill(r, LEND_DATES[s.key]); lent.add(s.key); }
+    // datesFrom: the register whose row gave the test or licence date (not only the on-road month)
+    if (lendsDates(mains[0], s, top, r)) { lent.add(s.key); if (fill(r, LEND_DATES[s.key]).some(k => k !== "moed_aliya_lakvish")) datesFrom = datesFrom || s.key; }
     if (lendsReason(mains[0], s, top, r)) fill(r, new Set(["bitul_nm"]));
   }
   if (res.import.rows[0] && empty(v.sug_yevu)) v.sug_yevu = res.import.rows[0].sug_yevu;   // the import kind is the plate's, like the pill (importKind)
@@ -2199,7 +2202,7 @@ async function fetchVehicle(plate, signal, onProgress){
     title: (nm => [/^[A-Za-z]/.test(make) && nm.toUpperCase().startsWith(make.toUpperCase()) && !/^[A-Za-z]/i.test(nm.slice(make.length)) ? "" : make, nm].filter(Boolean).join(" "))(niceModel(model)) || "רכב " + fmtPlate(plate),
     sub: [v.shnat_yitzur, pick(v.ramat_gimur, w.ramat_gimur), v.tzeva_rechev].filter(x => !empty(x)).join(" · "),
     vin: pick(v.misgeret, v.mispar_shilda, v.shilda), km, kmYears, kmPerYear,
-    isCancelled: off, hold};
+    isCancelled: off, hold, datesFrom};
   D.zombie = D.isCancelled ? null : res.zombie;
   D.cost = costs(D);
   return D;
