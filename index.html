@@ -1216,6 +1216,7 @@ const firstPos = (...vals) => vals.find(posN);
 const specCc = D => firstPos(D.v.nefach_manoa, D.w.nefah_manoa);
 const specCo2 = D => firstPos(D.w.CO2_WLTP, D.w.kamut_CO2) ?? (fuelKind(D) === "ev" && isNum(D.w.CO2_WLTP) ? 0 : undefined);   // an electric car's 0 g/km is real
 // horsepower is the model row's koah_sus; a register's hespek has no stated unit, so it is shown bare
+// the register's own power (hespek) carries no unit in the data: the specs tab shows it bare, the simple view leaves it out
 const specPower = D => posN(D.w.koah_sus) ? {v: D.w.koah_sus, u: "כ״ס"} : posN(D.v.hespek) ? {v: D.v.hespek, u: ""} : null;
 const specWeight = D => firstPos(D.v.mishkal_kolel, D.w.mishkal_kolel);
 const specDrive = D => D.pick(D.v.hanaa_nm, D.w.hanaa_nm);
@@ -2466,7 +2467,7 @@ function simpleCard(D){
   const kg = x => posN(x) ? fmtN(x) + " ק״ג" : "", cc = specCc(D), hp = specPower(D), co2 = specCo2(D);
   const main = [
     ["יצרן", D.make], ["דגם", D.model], ["שנת ייצור", v.shnat_yitzur], ["רמת גימור", v.ramat_gimur], ["נתוני הדגם לפי", ownW(D) ? "" : wAt(D)], ["צבע", v.tzeva_rechev],
-    ["סוג דלק", pick(v.sug_delek_nm, w.delek_nm)], ["נפח מנוע", cc ? fmtN(cc) + " סמ״ק" : ""], ["כוח", hp ? fmtN(hp.v) + (hp.u ? " " + hp.u : "") : ""],
+    ["סוג דלק", pick(v.sug_delek_nm, w.delek_nm)], ["נפח מנוע", cc ? fmtN(cc) + " סמ״ק" : ""], ["כוח", hp && hp.u ? fmtN(hp.v) + " " + hp.u : ""],
     ["הנעה", specDrive(D)], ["תיבת הילוכים", gear], ["מרכב", w.merkav], ["מושבים", specSeats(D)], ["דלתות", w.mispar_dlatot],
     ["עלה לכביש", empty(v.moed_aliya_lakvish) ? "" : fmtDate(v.moed_aliya_lakvish)], ["סוג יבוא", D.importKind], ["יבואן", importerOf(D)], ["בעלות נוכחית", v.baalut], ["בעלות ראשונה", firstOwner(v)], ["מספר בעלים", own],
     ["טסט אחרון", !noTestFor(D) && toDate(v.mivchan_acharon_dt) ? fmtDate(v.mivchan_acharon_dt) : ""], ["טסט בתוקף עד", !noTestFor(D) && toDate(v.tokef_dt) ? fmtDate(v.tokef_dt) : ""], ["ק״מ בטסט האחרון", D.km ? fmtN(D.km) : ""],
