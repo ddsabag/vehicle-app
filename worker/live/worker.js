@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-29";   // shown in /live/data so the running version is visible
+const BUILD = "live-30";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -364,24 +364,35 @@ async function getMetrics() {
 }
 
 // today's car checks and new installs as seen in realtime, minute by minute: realtime covers only the last 30 minutes, so each request keeps
-// what it saw (in this data center's cache) and today's count only grows, until GA4's own report for today arrives hours later
-const RT_KEYS = ["first_open", "car_lookup"];
+// what it saw and today's count only grows, until GA4's own report for today arrives hours later. Kept twice: this data centre's cache (every
+// request) and Workers KV (luchit-alerts, key "lv:rt:<day>", one copy for every data centre, written when it changed and at most every 5
+// minutes). On 20.10 the cache alone lost the day's count while the screen was closed for an hour (Cloudflare may drop a cached item nobody
+// reads) and installed-now fell from 227 to 120. Minutes older than the realtime window keep the larger count of the two copies; the last 30
+// minutes are always realtime's own. A failed realtime call still answers with what was kept.
+const RT_KEYS = ["first_open", "car_lookup"], RT_KV_EVERY = 300e3;
 async function rtToday(env, today) {
-  const t1 = Date.now();
-  const rows = await realtime(env, { dimensions: [{ name: "minutesAgo" }, { name: "eventName" }], metrics: [{ name: "eventCount" }],
-    dimensionFilter: { andGroup: { expressions: [REAL, { filter: { fieldName: "eventName", inListFilter: { values: RT_KEYS } } }] } }, limit: 200 });
-  const now = Math.floor(Date.now() / 6e4), key = "https://luchit.app/live/_rt/" + today;
-  let seen = {};
-  try { const r = await caches.default.match(key); if (r) seen = await r.json(); } catch {}
+  const t1 = Date.now(), key = "https://luchit.app/live/_rt/" + today, kvKey = "lv:rt:" + today;
+  let failed = null;
+  const [rows, local, kept] = await Promise.all([
+    realtime(env, { dimensions: [{ name: "minutesAgo" }, { name: "eventName" }], metrics: [{ name: "eventCount" }],
+      dimensionFilter: { andGroup: { expressions: [REAL, { filter: { fieldName: "eventName", inListFilter: { values: RT_KEYS } } }] } }, limit: 200 }).catch(e => { failed = e; return null; }),
+    caches.default.match(key).then(r => (r ? r.json() : null)).catch(() => null),
+    env.ALERTS ? env.ALERTS.get(kvKey, "json").catch(() => null) : null]);
+  const now = Math.floor(Date.now() / 6e4), seen = {};
+  for (const src of [local, kept && kept.m]) for (const [m, v] of Object.entries(src || {})) { const s = (seen[m] ||= [0, 0]); RT_KEYS.forEach((_, i) => { s[i] = Math.max(s[i], Number(v[i]) || 0); }); }
   // a call that crossed a minute boundary cannot tell which minute "00" was, so it only reads what was kept
-  if (Math.floor(t1 / 6e4) === now) {
+  if (rows && Math.floor(t1 / 6e4) === now) {
     for (let a = 0; a < 30; a++) delete seen[now - a];
     for (const r of rows) {
       const m = now - Number(r.dimensionValues[0].value), i = RT_KEYS.indexOf(r.dimensionValues[1].value);
       if (i >= 0 && ilDay(m * 6e4) === today) (seen[m] ||= [0, 0])[i] += Number(r.metricValues[0].value);
     }
-    try { await caches.default.put(key, new Response(JSON.stringify(seen), { headers: { "content-type": "application/json", "cache-control": "max-age=172800" } })); } catch {}
+    const body = JSON.stringify(seen);
+    try { await caches.default.put(key, new Response(body, { headers: { "content-type": "application/json", "cache-control": "max-age=172800" } })); } catch {}
+    if (env.ALERTS && body !== JSON.stringify((kept && kept.m) || {}) && !(kept && Date.now() - kept.at < RT_KV_EVERY))
+      await Promise.race([env.ALERTS.put(kvKey, JSON.stringify({ at: Date.now(), m: seen }), { expirationTtl: 172800 }), new Promise(r => setTimeout(r, 3e3))]).catch(() => {});
   }
+  if (failed && !Object.keys(seen).length) throw failed;
   const o = {}; RT_KEYS.forEach((k, i) => { o[k] = Object.values(seen).reduce((t, v) => t + v[i], 0); }); return o;
 }
 

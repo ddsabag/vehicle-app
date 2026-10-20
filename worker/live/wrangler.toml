@@ -12,6 +12,9 @@ preview_urls = false   # as live
 #   ACCESS_AUD           the Application Audience (AUD) tag of the Access application that protects luchit.app/live*
 [observability]
 enabled = true   # as live: the dashboard's requests carry no plate or email
+[[kv_namespaces]]
+binding = "ALERTS"
+id = "KV_NAMESPACE_ID"   # the id of luchit-alerts (luchit-uptime creates it); the Workers deploy workflow fills it in by title; not a secret. This Worker writes only "lv:" keys: today's realtime counts (live-30)
 [vars]
 GA_PROPERTY_ID = "557990379"
 # PLAY_REPORTS_BUCKET: the Cloud Storage bucket of Play Console's reports (pubsite_prod_..., Download reports > Statistics > Copy Cloud Storage URI).
