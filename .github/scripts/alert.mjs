@@ -44,7 +44,7 @@ export const WF_LEVELS = {
   "Reviews monitor": "silent", "Ownership data mirror": "silent",
   "Back-on-road detector": "silent",
   "Ship tail": "day", "Store listing": "day", "Release watch": "day", "Production": "day",
-  "Settlements": "day",
+  "Settlements": "day", "Data truth": "day",
 };
 
 // fixed Hebrew text for the morning ring and the Sunday block. Lookup: first two key segments, then the first one.
@@ -107,6 +107,15 @@ export const LABELS = {
   "prod:fail":           { he: "הפרסום ל-Production נכשל: {ids}", sect: "fail", ids: { access: "אין הרשאה ל-Production", promote: "השליחה לא הצליחה", auto: "הבדיקה של ההפצה לא הצליחה" } },
   "stl:update":          { he: "הסדרי הפשרה באפליקציה עודכנו", sect: "none" },   // settlements.mjs (Settlements)
   "stl:stuck":           { he: "הבדיקה השבועית של הסדרי הפשרה לא מטפלת ברשימה", sect: "wait" },
+  "truth":               { he: "בדיקת הנתונים היומית מצאה פער מול משרד התחבורה: {ids}", sect: "fail",   // site-data-truth.mjs (Data truth); ids = its GROUPS
+                           ids: { page: "איתור הרכב", identity: "פרטי הרכב", status: "סטטוס הרכב", test: "טסט", road: "עלייה לכביש", owners: "בעלויות", km: "ק״מ",
+                                  recalls: "ריקולים", settlements: "הסדרי פשרה", tow: "גרירה", specs: "מפרט", mods: "שינויים ברכב", fee: "אגרת רישוי",
+                                  price: "מחיר מחירון", value: "שווי", tag: "תג נכה", insight: "תובנות", counts: "ספירת רכבים", message: "הודעות" } },
+  "truth:fail":          { he: "בדיקת הנתונים היומית לא הצליחה לקרוא מספיק רכבים", sect: "fail" },
+  "truth:inv":           { he: "הבדיקה השבועית של מאגרי משרד התחבורה מצאה חריגה: {ids}", sect: "fail",   // data-invariants.mjs (Data truth, weekly); ids = its CHECKS
+                           ids: { fresh: "תאריכי הטסט לא מתעדכנים", tests: "מעט טסטים חדשים", renewal: "טסטים בלי חידוש רישיון", dates: "תאריכי רישיון לא תקינים",
+                                  reuse: "מספרים במאגר הפעיל ובמאגר שירד מהכביש", owners: "סוג הבעלות הנוכחי", km: "ק״מ בטסט", hook: "וו גרירה מול נתוני הדגם",
+                                  price: "מחירון", wltp: "נתוני דגם", recalls: "רשימת הריקולים לפי רכב" } },
 };
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
 export const FAMILIES_IN_USE = [
@@ -116,7 +125,7 @@ export const FAMILIES_IN_USE = [
   "webwatch:rollback", "webwatch:rollback-failed", "meta:uptime", "weekly:missing", "workers:refused", "workers:rollback", "workers:failed", "workers:forced",
   "ship:done", "ship:notes", "ship:fail", "ship:dry", "listing:done", "listing:dry", "listing:fail",
   "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:wait", "prod:fail",
-  "stl:update", "stl:stuck",
+  "stl:update", "stl:stuck", "truth", "truth:fail", "truth:inv",
 ];
 
 const TODAY = ["loud", "silent", "none"];
@@ -802,7 +811,9 @@ async function selftest() {
       "infra:quota-cf+site", "checker:data-health", "mag:pub:2026-10-18-new-cars", "infra-branches:2026-10", "x:v1.2.3"]) ok(validKey(k), "validKey accepts " + k);
     for (const f of FAMILIES_IN_USE) ok(family(f) !== null, "label for family " + f);
     for (const [f, ids] of [["smoke", "home lookup magazine applinks privacy model sitemap cert domain certcheck"], ["expiry", "cert domain certcheck"],
-      ["infra", "site api sitemap quota-cf quota-brevo"], ["vitals", "crash anr"], ["listing:fail", "access files play"], ["prod:fail", "access promote auto"], ["safety:fail", "access files play"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
+      ["infra", "site api sitemap quota-cf quota-brevo"], ["vitals", "crash anr"], ["listing:fail", "access files play"], ["prod:fail", "access promote auto"], ["safety:fail", "access files play"],
+      ["truth", "page identity status test road owners km recalls settlements tow specs mods fee price value tag insight counts message"],
+      ["truth:inv", "fresh tests renewal dates reuse owners km hook price wltp recalls"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
       const he = label(f + ":" + ids.split(" ").join("+")).he.split(/[\s,:]+/);
       ok(!ids.split(" ").some(i => he.includes(i)), `label ${f}: no raw id left`);
     }

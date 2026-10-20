@@ -1,0 +1,85 @@
+name: Data truth
+# Does what the app shows still match the Ministry of Transport's registers? Two jobs, one branch (data-truth) for their files:
+#  audit (daily):       site-data-truth.mjs opens a fresh sample of about 40 cars in this checkout's index.html (main = what is live), reads every
+#                       tab like a user and compares it with the ministry's raw rows (site-data-audit.mjs). Only totals, case ids and plate-free
+#                       values are published (latest.json, history.json). A field that has to match and did not sends one Telegram line
+#                       through the alert router (key truth:<groups>); too few cars read sends truth:fail.
+#  invariants (weekly): data-invariants.mjs reads the registers in full and checks the facts the app's rules rest on (fresh test dates,
+#                       licence renewals reaching the data, plates shared between registers, the register's current owner against the
+#                       ownership log, the towing hook against the model data, the price list, odd dates) against fixed limits
+#                       (invariants.json, inv-history.json). A broken limit sends one line (key truth:inv:<ids>).
+on:
+  schedule:
+    - cron: "47 4 * * *"   # 04:47 UTC = 07:47 Israel summer time, 06:47 winter: after the ministry's nightly rebuild and Ministry watch (04:07)
+    - cron: "17 1 * * 0"   # Sunday 01:17 UTC: the weekly full read (about 40 min), done long before the morning
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "audit = the daily sample of cars, invariants = the weekly full read"
+        type: choice
+        options: [audit, invariants]
+        default: audit
+      queries:
+        description: "audit only, e.g. n=30;rare=10;minutes=45 (seed= replaces the date)"
+        default: ""
+      dry_run:
+        description: "Print the alert instead of sending it (the files are still published)"
+        type: boolean
+        default: false
+permissions:
+  contents: write   # the data-truth branch
+concurrency:
+  group: data-truth-publish   # both jobs commit to the same branch
+  cancel-in-progress: false
+jobs:
+  audit:
+    if: ${{ github.event.schedule == '47 4 * * *' || (github.event_name == 'workflow_dispatch' && inputs.job == 'audit') }}
+    runs-on: ubuntu-24.04   # Playwright 1.49.1 predates Ubuntu 26.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+      - name: Install a browser (the audit opens the app like a user)
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@1.49.1
+          npx playwright install --with-deps chromium
+      - name: Audit a fresh sample of cars
+        run: node .github/scripts/site-data-truth.mjs
+        env:
+          QUERIES: ${{ inputs.queries }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      - name: Publish on the data-truth branch
+        if: ${{ always() && hashFiles('out/latest.json') != '' }}
+        run: .github/scripts/data-truth-publish.sh "audit" out/latest.json out/history.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  invariants:
+    if: ${{ github.event.schedule == '17 1 * * 0' || (github.event_name == 'workflow_dispatch' && inputs.job == 'invariants') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+      - name: Read the registers and check the invariants
+        run: node --max-old-space-size=12000 .github/scripts/data-invariants.mjs
+        env:
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      - name: Publish on the data-truth branch
+        if: ${{ always() && hashFiles('out/invariants.json') != '' }}
+        run: .github/scripts/data-truth-publish.sh "invariants" out/invariants.json out/inv-history.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
