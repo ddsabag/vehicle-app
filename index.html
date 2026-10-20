@@ -2095,7 +2095,8 @@ async function fetchVehicle(plate, signal, onProgress){
   const rest = PLATE_SETS.filter(s => s.key !== "active" && !isRare(s)).map(one);
   const rare = (async () => {
     await activeP;
-    if (res.active.rows.length) { PLATE_SETS.filter(isRare).forEach(s => { res[s.key] = {rows: []}; done++; }); return; }
+    // nor when the active register did not answer: then no other register may be shown as the car (below)
+    if (res.active.rows.length || res.active.err) { PLATE_SETS.filter(isRare).forEach(s => { res[s.key] = {rows: [], skip: true}; done++; }); return; }
     await Promise.all(PLATE_SETS.filter(isRare).map(one));
   })();
   await Promise.all([activeP, ...rest, rare]);
@@ -2104,8 +2105,11 @@ async function fetchVehicle(plate, signal, onProgress){
   const errs = PLATE_SETS.filter(s => res[s.key].err);
   const mains = PLATE_SETS.filter(s => s.role === "main" && res[s.key].rows.length);
   const extras = PLATE_SETS.filter(s => s.role === "extra" && res[s.key].rows.length);
-  if (errs.length === PLATE_SETS.length) return {plate, offline: true};
+  if (errs.length === PLATE_SETS.filter(s => !res[s.key].skip).length) return {plate, offline: true};   // every register asked failed: no connection
   errs.forEach(s => reportErr("dataset_" + s.key));
+  // the active register says whether the car is on the road: without its answer an inactive or cancelled row (the same plate can be in both,
+  // zombie-detector.mjs) is not the car. Offline, so a saved car opens from its last full copy
+  if (res.active.err) return {plate, offline: true};
   if (!mains.length && PLATE_SETS.some(s => s.role === "main" && res[s.key].err)) return {plate, offline: true};   // a main register failed: never render (or snapshot) a half-empty car
   if (!mains.length && !extras.length) {
     const se = await sourceEmpty(signal);
