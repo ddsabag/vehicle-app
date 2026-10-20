@@ -1,0 +1,169 @@
+fees2026.pdf: HTTP 200, 121433 bytes
+tax2026.pdf: HTTP 200, 1380469 bytes
+[7s] == public plates
+public plates 66284
+[12s] == active
+licence state | days from the last test to the licence end
+   valid | 365-400: 1574969
+   valid | 300-364: 1409042
+   valid | >500: 437387
+   valid | 181-299: 257479
+   valid | 401-500: 107954
+   ended 31-365d | 300-364: 97935
+   ended 31-365d | 181-299: 61009
+   valid | 91-180: 52868
+   ended 31-365d | 365-400: 46845
+   ended <=30d | 300-364: 34714
+   ended 31-365d | 91-180: 26316
+   ended 31-365d | >500: 18554
+   ended <=30d | 365-400: 12707
+   ended <=30d | 181-299: 12656
+   ended 31-365d | 401-500: 6004
+   ended <=30d | 91-180: 5570
+   ended <=30d | >500: 4660
+   ended 31-365d | 31-90: 4500
+   valid | 31-90: 2648
+   ended >1y | 300-364: 2628
+   ended 31-365d | 0-30: 2423
+   ended >1y | 181-299: 1922
+   ended <=30d | 0-30: 1811
+   ended <=30d | 401-500: 1382
+   ended >1y | 365-400: 1235
+   ended >1y | 91-180: 919
+   ended 31-365d | test after licence end: 806
+   ended <=30d | 31-90: 798
+   ended >1y | >500: 259
+   ended >1y | 401-500: 251
+   ended >1y | test after licence end: 210
+   ended >1y | 31-90: 148
+   ended >1y | 0-30: 134
+   ended <=30d | test after licence end: 66
+   valid | 0-30: 14
+age | days from the last test to the licence end
+   3-10y | 365-400: 919321
+   3-10y | 300-364: 613359
+   >=10y | 365-400: 585676
+   >=10y | 300-364: 547923
+   <3y | >500: 443892
+   <3y | 300-364: 323367
+   3-10y | 181-299: 131766
+   >=10y | 181-299: 129267
+   <3y | 365-400: 78305
+   age ? | 181-299: 69966
+   3-10y | 401-500: 61913
+   age ? | 300-364: 59670
+   age ? | 365-400: 52454
+   age ? | 91-180: 47810
+   >=10y | 401-500: 41776
+   >=10y | 91-180: 20191
+   3-10y | 91-180: 17448
+   3-10y | >500: 16768
+   <3y | 401-500: 7401
+   age ? | 401-500: 4501
+   <3y | 0-30: 3630
+   age ? | 31-90: 3340
+   >=10y | 31-90: 2715
+   <3y | 181-299: 2067
+   3-10y | 31-90: 1981
+   <3y | test after licence end: 394
+   age ? | 0-30: 375
+   age ? | test after licence end: 351
+   <3y | 91-180: 224
+   age ? | >500: 197
+   3-10y | 0-30: 189
+   >=10y | 0-30: 188
+   3-10y | test after licence end: 182
+   >=10y | test after licence end: 155
+   <3y | 31-90: 58
+   >=10y | >500: 3
+licence ends 0-299 days after the last test: who
+   not public: 429891
+   kind private: 406312
+   type P: 385080
+   licence valid: 313009
+   age >=10y: 152361
+   age 3-10y: 151384
+   age age ?: 121491
+   licence ended 31-365d: 94248
+   type M: 46135
+   licence ended <=30d: 20835
+   kind company: 11559
+   kind dealer: 11049
+   age <3y: 5979
+   licence ended >1y: 3123
+   kind lease: 1850
+   public: 1324
+   kind rental: 445
+licence ends 365-500 days after the last test: who (the usual yearly cycle)
+   not public: 1737720
+   kind private: 1541692
+   kind lease: 107005
+   kind company: 57919
+   kind dealer: 26912
+   kind rental: 17819
+   public: 13627
+licences that ended in the last 30 days: days from the last test
+   300-364: 34714
+   300-364 | private: 31841
+   365-400: 12707
+   181-299: 12656
+   181-299 | private: 12062
+   365-400 | private: 11091
+   91-180: 5570
+   91-180 | private: 5314
+   >500: 4660
+   >500 | private: 3790
+   0-30: 1811
+   300-364 | dealer: 1503
+   401-500: 1382
+   401-500 | private: 1185
+   0-30 | private: 1175
+   300-364 | company: 1156
+   365-400 | dealer: 800
+   31-90: 798
+   31-90 | private: 755
+   0-30 | lease: 414
+   365-400 | company: 399
+   365-400 | lease: 355
+   >500 | lease: 337
+   181-299 | dealer: 320
+   >500 | company: 294
+   181-299 | company: 260
+   0-30 | company: 202
+   300-364 | lease: 175
+   >500 | dealer: 154
+   91-180 | dealer: 138
+   91-180 | company: 114
+   401-500 | dealer: 89
+   >500 | rental: 85
+   test after licence end: 66
+   365-400 | rental: 62
+   test after licence end | private: 58
+   401-500 | lease: 51
+   401-500 | company: 48
+   300-364 | rental: 39
+   31-90 | dealer: 28
+licences that end in the next 30 days: days from the last test
+   300-364: 94952
+   365-400: 94271
+   181-299: 25863
+   >500: 17653
+   91-180: 10405
+   401-500: 4238
+   31-90: 1178
+   0-30: 14
+day of month of the licence end
+   2-27: 3448594
+   28-31: 605195
+   1st: 135034
+public vehicles in active: days from the last test to the licence end
+   365-400: 12569
+   300-364: 11461
+   181-299: 1091
+   401-500: 1058
+   91-180: 197
+   0-30: 25
+   test after licence end: 24
+   31-90: 11
+   >500: 3
+[358s] done
