@@ -10,7 +10,8 @@
 //            of the cars with a log (about 0.07%)                                           (the register is the current owner, the log the history)
 //   km       tech rows (km at the last test) at least 2,000,000 (2,488,584), with km on at least 60% (70%)
 //   hook     2008+ active cars with a towing hook fitted whose own-year model row says 0/0: at most 2,000 (461)   (the ban yields to the hook)
-//   price    maker+code+year groups with more than one list price: at most 100 (0)       (the catalogue joins the price list by maker|code|year)
+//   price    maker+code+type+year groups with more than one list price: at most 100 (0)  (the catalogue joins the price list and the counts by
+//            maker|code|type|year; by maker+code+year alone 893 groups have two prices, a private and a commercial model under one code)
 //   wltp     the largest maker+code group of model rows: at most 250 (16)                 (the app's live query reads 300 rows)
 //   recalls  (plate, recall) pairs on several rows of the per-car recall list: at most 100 (0)
 //   pubcancel public vehicles cancelled for good (bitul 2/3/5/6/8) that no cancel register lists: at most 50 (0 of 3,298)
@@ -99,7 +100,7 @@ export async function measure(scan, today) {
   } });
   v.wltp = 0; for (const n of groups.values()) if (n > v.wltp) v.wltp = n;
   const prices = new Map();
-  await scan(ID.price, "tozeret_cd,degem_cd,shnat_yitzur,mehir", rows => { for (const r of rows) { if (!(N(r.mehir) > 0)) continue; const k = `${N(r.tozeret_cd)}|${N(r.degem_cd)}|${N(r.shnat_yitzur)}`; (prices.get(k) || prices.set(k, new Set()).get(k)).add(N(r.mehir)); } });
+  await scan(ID.price, "tozeret_cd,degem_cd,sug_degem,shnat_yitzur,mehir", rows => { for (const r of rows) { if (!(N(r.mehir) > 0)) continue; const k = `${N(r.tozeret_cd)}|${N(r.degem_cd)}|${String(r.sug_degem || "").trim().toUpperCase()}|${N(r.shnat_yitzur)}`; (prices.get(k) || prices.set(k, new Set()).get(k)).add(N(r.mehir)); } });
   v.price = [...prices.values()].filter(s => s.size > 1).length;
   // per-car recall list: duplicate pairs
   const pairs = new Set(); let dup = 0;
@@ -209,7 +210,9 @@ async function selftest() {
   for (let i = 0; i < 10; i++) T.push({ kilometer_test_aharon: i < 7 ? 1000 : 0 });
   const D = { [ID.active]: A, [ID.owners]: O, [ID.cont]: C, [ID.tech]: T, [ID.recall]: [{ MISPAR_RECHEV: 5, RECALL_ID: 9 }, { MISPAR_RECHEV: "5", RECALL_ID: 9 }],
     [ID.wltp]: [{ tozeret_cd: 1, degem_cd: 1, sug_degem: "P", shnat_yitzur: 2015, kosher_grira_im_blamim: 0, kosher_grira_bli_blamim: 0 }, { tozeret_cd: 1, degem_cd: 1, sug_degem: "P", shnat_yitzur: 2019, kosher_grira_im_blamim: 1500, kosher_grira_bli_blamim: 750 }],
-    [ID.price]: [{ tozeret_cd: 1, degem_cd: 1, shnat_yitzur: 2019, mehir: 100000 }, { tozeret_cd: 1, degem_cd: 1, shnat_yitzur: 2019, mehir: 120000 }],
+    // two prices for one maker, code and year (counts); a private and a commercial model under one code, each with its price (fine)
+    [ID.price]: [{ tozeret_cd: 1, degem_cd: 1, shnat_yitzur: 2019, mehir: 100000 }, { tozeret_cd: 1, degem_cd: 1, shnat_yitzur: 2019, mehir: 120000 },
+      { tozeret_cd: 2, degem_cd: 5, sug_degem: "P", shnat_yitzur: 2015, mehir: 102950 }, { tozeret_cd: 2, degem_cd: 5, sug_degem: "M", shnat_yitzur: 2015, mehir: 79950 }],
     [ID.cancel]: [{ mispar_rechev: A[20].mispar_rechev }, { mispar_rechev: 9001 }], [ID.cancel2010]: [{ mispar_rechev: "00000001" }], [ID.cancel2000]: [],
     // public: 9001 scrapped and listed in cancel (fine), 9002 total loss and listed nowhere (counts), 9003 deposited (temporary, fine), 9004 a bus of maker 7
     [ID.public]: [{ mispar_rechev: 9001, bitul_cd: "3", bitul_nm: "פרוק", tozeret_cd: 5 }, { mispar_rechev: 9002, bitul_cd: "8", bitul_nm: "אובדן גמור", tozeret_cd: 5 },
@@ -228,7 +231,7 @@ async function selftest() {
   ok(v.reuse === 1, "reuse: one active plate in a cancel register (" + v.reuse + ")");
   ok(info.carsWithOwnershipLog === 2 && info.ownerTypeNotInLatestMonth === 1, "owners: same-month dealer+private is fine, leasing car with a private latest month is off");
   ok(v.km.rows === 10 && v.km.share === 0.7, "km: rows and share with km");
-  ok(v.price === 1 && v.wltp === 2 && v.recalls === 1, "price groups, largest code group, duplicate recall pairs");
+  ok(v.price === 1 && v.wltp === 2 && v.recalls === 1, "price groups (a private and a commercial model under one code are two), largest code group, duplicate recall pairs (" + v.price + ")");
   ok(v.pubcancel === 1 && info.publicCancelledForGood === 2, "pubcancel: a total loss no cancel register lists; a deposit is temporary (" + v.pubcancel + ")");
   ok(v.lend === 2 && info.motoInImport === 2 && info.heavyInPublic === 1, "lend: another model year (moto+import), another maker (heavy+public) (" + v.lend + ")");
   const res = judge({ ...v, owners: 0.5, renewal: 9000, km: { rows: 2.5e6, share: 0.7 } }), m = message(res, "2026-10-25");

@@ -57,6 +57,12 @@ async function scan(id, fields, onRows) {
 }
 const val = v => v === null || v === undefined ? "" : typeof v === "string" ? v.trim() : v;
 const key3 = r => `${r.tozeret_cd}|${r.degem_cd}|${r.shnat_yitzur}`;
+// the ministry numbers private (P) and commercial (M) models apart, so one maker + code + year can be two models, each with its own price
+// (957 code-years in 10/2026, 893 with two prices); the WLTP catalogue and the price list hold one row per maker, code, type and year. The
+// counts stay per maker|code|year: the picker, catalog-rules.mjs and the importer share below count a code-year once
+const typeOf = v => String(v ?? "").trim().toUpperCase();
+const key4 = r => `${r.tozeret_cd}|${r.degem_cd}|${typeOf(r.sug_degem)}|${r.shnat_yitzur}`;
+const wKey4 = w => `${w[I.tozeret_cd]}|${w[I.degem_cd]}|${typeOf(w[I.sug_degem])}|${w[I.shnat_yitzur]}`;
 
 // 1. the WLTP catalogue: every row, kept by maker code
 const byMaker = new Map();   // cd -> rows (arrays in COLS order)
@@ -71,25 +77,25 @@ log("wltp: " + await scan(ID.wltp, COLS.join(","), rows => {
 }) + " rows, makers " + byMaker.size);
 function empty(v) { return v === null || v === undefined || String(v).trim() === ""; }
 
-// 2. the price list: same catalogue with the list price and the importer; joined by _id when the two exports line up, else by maker|model|year
+// 2. the price list: same catalogue with the list price and the importer; joined by _id when the two exports line up, else by maker|model|type|year
 const I = Object.fromEntries(COLS.map((c, i) => [c, i])), MEHIR = COLS.length, YEVUAN = COLS.length + 1, ACT = COLS.length + 2, INACT = COLS.length + 3;
 const priceRows = [];
 let aligned = 0, checked = 0;
-log("price: " + await scan(ID.price, "_id,tozeret_cd,degem_cd,shnat_yitzur,kinuy_mishari,mehir,shem_yevuan", rows => {
+log("price: " + await scan(ID.price, "_id,tozeret_cd,degem_cd,sug_degem,shnat_yitzur,kinuy_mishari,mehir,shem_yevuan", rows => {
   for (const x of rows) {
     priceRows.push(x);
     const w = ids.get(Number(x._id)); if (!w) continue; checked++;
-    if (String(w[I.tozeret_cd]) === String(val(x.tozeret_cd)) && String(w[I.degem_cd]) === String(val(x.degem_cd)) && String(w[I.shnat_yitzur]) === String(val(x.shnat_yitzur))) aligned++;
+    if (String(w[I.tozeret_cd]) === String(val(x.tozeret_cd)) && String(w[I.degem_cd]) === String(val(x.degem_cd)) && String(w[I.shnat_yitzur]) === String(val(x.shnat_yitzur)) && typeOf(w[I.sug_degem]) === typeOf(x.sug_degem)) aligned++;
   }
 }) + ` rows, _id aligned ${aligned}/${checked}`);
 const byId = checked > 0 && aligned / checked > 0.98;
 if (byId) { for (const x of priceRows) { const w = ids.get(Number(x._id)); if (w) { w[MEHIR] = val(x.mehir); w[YEVUAN] = val(x.shem_yevuan); } } }
 else {
-  const pk = new Map();   // key3 -> lowest price and its importer
-  for (const x of priceRows) { const k = key3(x), m = Number(x.mehir) || 0; if (!(m > 0)) continue; const e = pk.get(k); if (!e || m < e[0]) pk.set(k, [m, val(x.shem_yevuan)]); }
-  for (const rows of byMaker.values()) for (const w of rows) { const e = pk.get(`${w[I.tozeret_cd]}|${w[I.degem_cd]}|${w[I.shnat_yitzur]}`); if (e) { w[MEHIR] = e[0]; w[YEVUAN] = e[1]; } }
+  const pk = new Map();   // key4 -> its price and importer (the lowest, should a key ever hold two)
+  for (const x of priceRows) { const k = key4(x), m = Number(x.mehir) || 0; if (!(m > 0)) continue; const e = pk.get(k); if (!e || m < e[0]) pk.set(k, [m, val(x.shem_yevuan)]); }
+  for (const rows of byMaker.values()) for (const w of rows) { const e = pk.get(wKey4(w)); if (e) { w[MEHIR] = e[0]; w[YEVUAN] = e[1]; } }
 }
-log("price join: " + (byId ? "by _id" : "by maker|model|year"));
+log("price join: " + (byId ? "by _id" : "by maker|model|type|year"));
 
 // 3. counts: cars on the road / taken off, per maker|model|year (summed over the dataset's duplicates)
 const cnt = new Map();
