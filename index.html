@@ -232,9 +232,10 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .systems{display:flex;flex-wrap:wrap;gap:6px}
 .systems span{font-size:.85rem;padding:4px 10px;border-radius:8px;background:var(--tb);color:var(--tc);font-weight:700}
 .timeline{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;position:relative}
-.timeline li{display:grid;grid-template-columns:16px 82px 1fr;gap:10px;padding:8px 0;align-items:center}
+.timeline li{display:grid;grid-template-columns:16px 82px 1fr;gap:2px 10px;padding:8px 0;align-items:center}
 .timeline .dot{width:12px;height:12px;border-radius:50%;background:var(--tb);border:2px solid var(--tc);justify-self:center}
-.timeline li:first-child .dot{background:var(--tc)}
+.timeline li.cur .dot{background:var(--tc)}
+.timeline .dur{grid-column:3;font-size:.8rem;color:var(--muted)}
 .timeline time{font:500 .92rem var(--f-num);color:var(--muted);direction:ltr;text-align:right}
 .timeline .now{font-size:.78rem;font-weight:700;color:var(--tc);background:var(--tb);padding:1px 7px;border-radius:999px;margin-inline-start:8px}
 .recall{border-inline-start:3px solid var(--bad);padding-inline-start:12px}
@@ -358,8 +359,9 @@ footer a{color:var(--accent)}
 .tow-ban{display:flex;gap:10px;align-items:flex-start;background:var(--bad-bg);color:var(--bad);border-radius:12px;padding:12px 14px}
 .tow-ban b{display:block}.tow-ban span{color:var(--fg);font-size:.9rem}
 .mods-sum{margin:0;font-weight:600}
-.first-own{background:var(--soft);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
-.first-own span{color:var(--muted);font-size:.9rem}
+.first-own,.own-now{background:var(--soft);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.first-own span,.own-now span{color:var(--muted);font-size:.9rem}
+.first-own + .own-now{margin-top:8px}
 .plate .clr{flex:0 0 auto;width:44px;padding:0;margin-inline-start:-2px;border:0;background:transparent;color:#111;display:grid;place-items:center;opacity:.7}
 .plate .clr svg.i{width:20px;height:20px;stroke-width:2.6}
 .cmp-h b{font-size:.9rem;line-height:1.25;word-break:normal;overflow-wrap:normal;hyphens:none}
@@ -2057,7 +2059,7 @@ function snapPut(D){
 }
 function snapGet(plate){
   const e = snapAll()[plate]; if (!e || !e.D) return null;
-  const D = e.D; D.pick = (...vals) => vals.find(x => !empty(x)); D.fromCache = e.t; return D;
+  const D = e.D; D.pick = (...vals) => vals.find(x => !empty(x)); D.fromCache = e.t; D.own = orderOwners(D.own || [], D.v && D.v.baalut); return D;
 }
 /* ---------- fetch one vehicle ---------- */
 async function fetchVehicle(plate, signal, onProgress){
@@ -2102,7 +2104,7 @@ async function fetchVehicle(plate, signal, onProgress){
 
   const {w, towRow, zeroTow, counts, price, priceRows, modelRecalls, modelRecallsUnknown} = await fetchModelData(v, signal);
   const pick = (...vals) => vals.find(x => !empty(x));
-  const own = res.owners.rows.filter(r => !empty(r.baalut)).sort((a,b) => String(a.baalut_dt).localeCompare(String(b.baalut_dt)));
+  const own = orderOwners(res.owners.rows.filter(r => !empty(r.baalut)), v.baalut);
   const recalls = res.recall.rows.map(r => ({...r, detail: modelRecalls.find(m => String(m.RECALL_ID) === String(r.RECALL_ID)) || null}));
   // the repair details live in the manufacturers' recall list; when the model name there differs from the
   // car's (or the maker has many recalls), look the open recall up directly by its number
@@ -2177,17 +2179,19 @@ function buildInsights(D){
     else if (ratio <= 0.5) add("info", "ק״מ נמוך ביחס לשנת הייצור", base + caveat);
     else add("ok", "ק״מ סביר ביחס לשנת הייצור", base + caveat);
   }
-  const own = D.own;
+  // the current owner is the register's type when it names one (ownNow); every other ownership record is a past owner
+  const own = D.own, cur = ownNow(D), past = (cur.inLog ? own.slice(0, -1) : own).map(r => String(r.baalut || ""));
   if (own.length) {
-    const past = own.slice(0, -1).map(r => String(r.baalut || ""));
     if (handsOf(D) >= 4) add("warn", ownersLabel(D), "הרכב עבר הרבה ידיים.");
     if (past.some(t => t.includes("השכר"))) add("warn", "היה רכב השכרה", "בעבר הרכב היה בבעלות חברת השכרה. רכבי השכרה עוברים בין נהגים רבים.");
-    // the ownership log writes leasing as "החכר" (the register's current owner field says "ליסינג")
+    // the ownership log writes leasing as "החכר"
     if (past.some(t => /ליסינג|החכר/.test(t))) add("info", "היה רכב ליסינג", "בעבר הרכב היה בליסינג. רכבי ליסינג צוברים ק״מ מהר.");
-    const curOwn = String(own[own.length - 1].baalut || "");
-    if (/סוחר|יבואן|מסחר/.test(curOwn)) add("warn", "הרכב רשום כעת על סוחר", "המוכר כנראה סוחר רכבים: ייתכן שהמחיר כולל מרווח של הסוחר. בעסקה עם סוחר חלות עליו חובות גילוי לפי החוק. בקשו מסמכים בכתב ובררו מי היו הבעלים הקודמים.");
-    else if (past.some(t => /סוחר|יבואן|מסחר/.test(t))) add("info", "היה אצל סוחר", "בהיסטוריית הבעלות מופיע סוחר. זה נפוץ ברכב שנמכר בטרייד-אין או הועבר דרך מגרש, ואינו פגם בפני עצמו. שווה לשאול את המוכר מי היו הבעלים לפני ואחרי הסוחר ומה הסיבה.");
-    else if (own.length > 1 && /חברה|חברת|תאגיד|השכר|ליסינג|החכר/.test(curOwn)) add("info", "הרכב רשום כעת על חברה", "הבעלות הנוכחית על שם חברה, ולא אדם פרטי. אם המוכר מציג את עצמו כבעלים פרטי, בקשו הסבר והסדירו את העברת הבעלות מול החברה.");
+  }
+  // the register names the current owner also for a car the log does not cover (the log has no cars that went on the road before 2017)
+  if (cur.kind === "dealer") add("warn", "הרכב רשום כעת על סוחר", "המוכר כנראה סוחר רכבים: ייתכן שהמחיר כולל מרווח של הסוחר. בעסקה עם סוחר חלות עליו חובות גילוי לפי החוק. בקשו מסמכים בכתב ובררו מי היו הבעלים הקודמים.");
+  else if (past.some(t => /סוחר|יבואן|מסחר/.test(t))) add("info", "היה אצל סוחר", "בהיסטוריית הבעלות מופיע סוחר. זה נפוץ ברכב שנמכר בטרייד-אין או הועבר דרך מגרש, ואינו פגם בפני עצמו. שווה לשאול את המוכר מי היו הבעלים לפני ואחרי הסוחר ומה הסיבה.");
+  if (own.length > 1 && OWN_FLEET.includes(cur.kind)) add("info", "הרכב רשום כעת על חברה", "הבעלות הנוכחית על שם חברה, ולא אדם פרטי. אם המוכר מציג את עצמו כבעלים פרטי, בקשו הסבר והסדירו את העברת הבעלות מול החברה.");
+  if (own.length) {
     const last = parseYM(own[own.length - 1].baalut_dt);
     if (last && own.length > 1 && monthsBetween(last, now) < 6) add("info", "החליף בעלים לאחרונה", `העברת הבעלות האחרונה הייתה ב-${fmtDate(own[own.length - 1].baalut_dt)}.`);
   }
@@ -2427,13 +2431,54 @@ function watchStrip(){
 }
 /* One ownership record, and the first ownership type (מקוריות) agrees with it */
 const isDealerRec = r => /סוחר|יבואן|מסחר/.test(String((r && r.baalut) || ""));
+/* An owner type's kind: the first-ownership kinds, plus the dealer who holds the car between owners */
+const ownKindOf = t => isDealerRec({baalut: t}) ? "dealer" : ownerKind(t).k;
+/* the register's current owner type against a log record: the same kind, or both a fleet kind (the register writes "חברה" for
+   thousands of cars the log has as leased or rented, and the other way round) */
+const OWN_FLEET = ["company", "lease", "rental"];
+const sameOwnKind = (a, b) => a === b || OWN_FLEET.includes(a) && OWN_FLEET.includes(b);
+/* The ownership log has only the month of each transfer, and the transfers of one month come in no set order: a dealer who
+   bought the car and sold it on within the month is often listed after the buyer. So within a month a dealer goes first (the
+   step between owners) and a private owner last, and in the latest month the register's current owner type goes last.
+   Checked 20.10.2026 against the register's current owner of every active car (owners-probe2.mjs on the probe branch): of
+   242,031 cars with several transfers in their latest month, the log's own order put the wrong one last in 23,800. */
+function orderOwners(rows, cur){
+  if (!rows.length) return rows;
+  const ym = r => num(r.baalut_dt), last = Math.max(...rows.map(ym)), ck = ownKindOf(cur), kinds = rows.map(r => ownKindOf(r.baalut));
+  const find = same => rows.reduce((at, r, i) => ym(r) === last && same(ck, kinds[i]) ? i : at, -1);
+  let now = ck === "other" ? -1 : find((a, b) => a === b);
+  if (now < 0 && ck !== "other") now = find(sameOwnKind);
+  const rank = (r, i) => i === now ? 3 : ({dealer: 0, private: 2})[kinds[i]] ?? 1;
+  return rows.map((r, i) => ({r, i, m: ym(r), k: rank(r, i)})).sort((a, b) => a.m - b.m || a.k - b.k || a.i - b.i).map(x => x.r);
+}
+/* The current owner's kind: the register's when it names one, else the log's last record. inLog: the log's last record is that owner
+   (false for about 0.1% of the cars, whose register names an owner type the log's last month does not have) */
+function ownNow(D){
+  const own = D.own || [], last = own[own.length - 1], ck = ownKindOf((D.v || {}).baalut);
+  if (ck === "other") return {kind: last ? ownKindOf(last.baalut) : "", inLog: !!last};
+  return {kind: ck, inLog: !!last && sameOwnKind(ck, ownKindOf(last.baalut))};
+}
+/* How long each owner held the car: whole months from its transfer month to the next one, the current owner until today (or until
+   the car left the road). The log has months only, so a figure can be off by up to a month. null: the end is not known. */
+function ownSpans(D){
+  const own = D.own, inLog = ownNow(D).inLog, end = D.isCancelled ? parseYM(D.v.bitul_dt) : new Date(), mon = d => d.getFullYear() * 12 + d.getMonth();
+  return own.map((r, i) => { const a = parseYM(r.baalut_dt), b = i < own.length - 1 ? parseYM(own[i + 1].baalut_dt) : inLog ? end : null; return a && b ? Math.max(0, mon(b) - mon(a)) : null; });
+}
+/* 0 -> "פחות מחודש", 11 -> "11 חודשים", 15 -> "שנה ו-3 חודשים", 24 -> "שנתיים" */
+function fmtSpan(m){
+  if (m < 1) return "פחות מחודש";
+  const y = Math.floor(m / 12), r = m % 12, mo = r === 1 ? "חודש" : r === 2 ? "חודשיים" : `${r} חודשים`;
+  if (!y) return mo;
+  const yr = y === 1 ? "שנה" : y === 2 ? "שנתיים" : `${y} שנים`;
+  return !r ? yr : r <= 2 ? `${yr} ו${mo}` : `${yr} ו-${mo}`;
+}
 /* the "hand": a dealer holding the car for resale is not a hand, so only the other records are counted */
 const handsOf = D => D.own.filter(r => !isDealerRec(r)).length;
 const HAND_ORD = ["", "ראשונה", "שנייה", "שלישית", "רביעית", "חמישית", "שישית", "שביעית", "שמינית", "תשיעית", "עשירית"];
 const isFirstHand = D => { const h = D.own.filter(r => !isDealerRec(r)); return h.length === 1 && !D.ownersFloor && (!firstOwner(D.v) || ownerKind(firstOwner(D.v)).k === ownerKind(h[0].baalut).k); };
 const ownersLabel = D => {
   const n = handsOf(D), dealer = D.own.some(isDealerRec);
-  if (!n) return dealer ? "אצל סוחר" : "";
+  if (!n) return dealer && ownNow(D).kind === "dealer" ? "אצל סוחר" : "";   // not when the register says a dealer no longer holds it
   if (n === 1 && !isFirstHand(D)) return "יד אחת במאגר";   // the log may start after the first owner, or the first owner's type differs
   return `${D.ownersFloor ? "לפחות " : ""}יד ${HAND_ORD[n] || n}`;
 };
@@ -2804,9 +2849,14 @@ function tabOverview(D){
   const fo = firstOwner(v);
   const foLine = fo ? `<div class="first-own"><b>בעלות ראשונה: ${esc(fo)}</b>${ownerKind(fo).text ? `<span>${esc(ownerKind(fo).text)}</span>` : ""}</div>` : "";
   if (D.own.length) {
+    // newest first, with how long each owner held the car; "נוכחי" only on the record the register agrees is the current owner
+    const cur = ownNow(D), spans = ownSpans(D), n = D.own.length;
+    const li = (r, i) => { const isNow = i === n - 1 && cur.inLog, m = spans[i];
+      return `<li${isNow ? ' class="cur"' : ""}><span class="dot"></span><time>${esc(fmtDate(r.baalut_dt))}</time><span>${esc(r.baalut || "")}${isNow ? `<span class="now">נוכחי</span>` : ""}</span>${m === null ? "" : `<small class="dur">${esc(fmtSpan(m) + (i < n - 1 ? "" : D.isCancelled ? ", עד שהרכב ירד מהכביש" : ", עד היום"))}</small>`}</li>`; };
+    const nowLine = cur.inLog ? "" : `<div class="own-now"><b>בעלות נוכחית: ${esc(v.baalut)}</b><span>לפי מאגר הרכבים. ההעברה הזו לא מופיעה בהיסטוריית הבעלויות שלמטה.</span></div>`;
     html.push(card("היסטוריית בעלויות", "users", "violet",
-      `${foLine}<ol class="timeline">${D.own.slice().reverse().map((r,i) => `<li><span class="dot"></span><time>${esc(fmtDate(r.baalut_dt))}</time><span>${esc(r.baalut || "")}${i === 0 ? `<span class="now">נוכחי</span>` : ""}</span></li>`).join("")}</ol>
-       <p class="note">${D.own.some(isDealerRec) ? "סוחר שמחזיק את הרכב למכירה לא נספר כיד. " : ""}${D.ownMirror ? "המאגר של המשרד לא החזיר בעלויות כרגע, והרשימה כאן מעותק יומי שלנו, ולכן ייתכן שבעלות שנרשמה היום חסרה. " : ""}${D.ownersFloor ? "יומן הבעלויות מתחיל בינואר 2017, ולכן ברכבים ותיקים יותר ייתכן שהיו בעלים נוספים לפני כן." : ""}</p>`,
+      `${foLine}${nowLine}<ol class="timeline">${D.own.map(li).reverse().join("")}</ol>
+       <p class="note">${D.own.some(isDealerRec) ? "סוחר שמחזיק את הרכב למכירה לא נספר כיד. " : ""}משך הבעלות מחושב לפי חודש ההעברה בלבד, ולכן הוא מדויק עד כדי חודש. ${D.ownMirror ? "המאגר של המשרד לא החזיר בעלויות כרגע, והרשימה כאן מעותק יומי שלנו, ולכן ייתכן שבעלות שנרשמה היום חסרה. " : ""}${D.ownersFloor ? "יומן הבעלויות מתחיל בינואר 2017, ולכן ברכבים ותיקים יותר ייתכן שהיו בעלים נוספים לפני כן." : ""}</p>`,
       `<span class="count">${ownersLabel(D)}</span>`));
   } else if (!empty(v.baalut)) {
     const ownErr = D.errs && D.errs.some(x => x.key === "owners");

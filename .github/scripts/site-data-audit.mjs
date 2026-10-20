@@ -237,7 +237,7 @@ function collect() {
     text: T(c.querySelector(".fold-body")),
     recalls: [...c.querySelectorAll(".recall")].map(r => ({b: T(r.querySelector("b")), note: T(r.querySelector(".note"))})),
     rlist: [...c.querySelectorAll(".rlist > li")].map(li => ({dim: li.classList.contains("dim"), time: T(li.querySelector("time")), pill: T(li.querySelector(".pill")), b: T(li.querySelector(":scope > b")), note: T(li.querySelector(":scope > .note"))})),
-    timeline: [...c.querySelectorAll(".timeline > li")].map(li => ({time: T(li.querySelector("time")), text: T(li.querySelectorAll(":scope > span")[1])})),
+    timeline: [...c.querySelectorAll(".timeline > li")].map(li => ({time: T(li.querySelector("time")), text: T(li.querySelectorAll(":scope > span")[1]), dur: T(li.querySelector(".dur"))})), ownNow: T(c.querySelector(".own-now b")),
     grid: [...c.querySelectorAll(".tow-grid > *")].map(d => ({k: T(d.querySelector(".k")), v: T(d.querySelector(".v"))})),
     hook: T(c.querySelector(".hook-box")), ban: T(c.querySelector(".tow-ban")), firstOwn: T(c.querySelector(".first-own b")),
     items: [...c.querySelectorAll(".insights > li")].map(li => T(li.querySelector("b"))),
@@ -284,6 +284,27 @@ async function readPage(plate) {
 
 /* ---------- expectations from the raw rows (my own rules, written from the app's stated wording) ---------- */
 const DEALER = /סוחר|יבואן/;
+// ownership order (20.10): the log gives months only and a month's transfers come in no set order, so within a month a dealer goes
+// first and a private owner last, and in the latest month the register's current owner type goes last (the same kind first, else any
+// fleet kind: the register and the log mix up company, leasing and rental). The current owner is the register's type when it names
+// one, else the log's last record.
+const ownK = t => DEALER.test(String(t || "")) ? "dealer" : kindOf(t);
+const FLEET = ["company", "lease", "rental"];
+const sameOwnK = (a, b) => a === b || FLEET.includes(a) && FLEET.includes(b);
+function ordOwn(rows, cur) {
+  if (!rows.length) return rows;
+  const m = r => N(r.baalut_dt), last = Math.max(...rows.map(m)), ck = ownK(cur);
+  let now = -1;
+  if (ck !== "other") for (const same of [(a, b) => a === b, sameOwnK]) { rows.forEach((r, i) => { if (m(r) === last && same(ck, ownK(r.baalut))) now = i; }); if (now >= 0) break; }
+  const rk = (r, i) => i === now ? 3 : ownK(r.baalut) === "dealer" ? 0 : ownK(r.baalut) === "private" ? 2 : 1;
+  return rows.map((r, i) => [r, i]).sort((a, b) => m(a[0]) - m(b[0]) || rk(...a) - rk(...b) || a[1] - b[1]).map(x => x[0]);
+}
+// months held, written the way the page writes them
+function spanText(mo) {
+  if (mo < 1) return "פחות מחודש";
+  const y = Math.floor(mo / 12), r = mo % 12, ms = ["", "חודש", "חודשיים"][r] || `${r} חודשים`, ys = ["", "שנה", "שנתיים"][y] || `${y} שנים`;
+  return !y ? ms : !r ? ys : r <= 2 ? `${ys} ו${ms}` : `${ys} ו-${ms}`;
+}
 const kindOf = t => { t = String(t || ""); return /השכר/.test(t) ? "rental" : /ליסינג|החכר|חכיר/.test(t) ? "lease" : /לנהיגה|לימוד|מונית|ממשל|סיור|תיור|הסעה/.test(t) ? "special" : /חברה|חברת|תאגיד/.test(t) ? "company" : /פרטי/.test(t) ? "private" : "other"; };
 function pool(rows, R, opt = {}) {
   let rs = rows || [];
@@ -373,12 +394,15 @@ function compare(c, X, P) {
   { const sh = factOf(P, "overview", /^רישוי וטסט$/, "עלה לכביש"); check(c, "road.first_date", E(R.moed_aliya_lakvish) ? E(sh) : sh === fd(R.moed_aliya_lakvish), sh, E(R.moed_aliya_lakvish) ? "" : fd(R.moed_aliya_lakvish), "");
     const rr = factOf(P, "overview", /^רישוי וטסט$/, "רישום ראשון"); check(c, "road.first_registration", E(R.rishum_rishon_dt) ? E(rr) : rr === fd(R.rishum_rishon_dt), rr, E(R.rishum_rishon_dt) ? "" : fd(R.rishum_rishon_dt), ""); }
   // ownership
-  { const own = (X.sets.owners || []).filter(r => !E(r.baalut)).sort((a, b) => String(a.baalut_dt).localeCompare(String(b.baalut_dt)));
+  { const own = ordOwn((X.sets.owners || []).filter(r => !E(r.baalut)), R.baalut);
+    // the current owner: the register's type when it names one; "נוכחי" goes on the log's last record only when it is that owner
+    const regK = ownK(R.baalut), last = own[own.length - 1], inLog = !!last && (regK === "other" || sameOwnK(regK, ownK(last.baalut)));
+    const curK = regK !== "other" ? regK : last ? ownK(last.baalut) : "";
     const card = cardOf(P, "overview", /^היסטוריית בעלויות$/), mirror = P.head.ownMirror;
     const road = ym(R.moed_aliya_lakvish) || (isN(R.shnat_yitzur) ? new Date(N(R.shnat_yitzur), 0, 1) : null), floor = !road || road < new Date(2017, 0, 1);
     const hands = own.filter(r => !DEALER.test(r.baalut)), n = hands.length, fo = String(R.mkoriut_nm || "").replace(/"/g, "").trim();
     let exp = "";
-    if (!n) exp = own.length ? "אצל סוחר" : "";
+    if (!n) exp = own.length && curK === "dealer" ? "אצל סוחר" : "";
     else if (n === 1) exp = !floor && (!fo || kindOf(fo) === kindOf(hands[0].baalut)) ? "יד ראשונה" : "יד אחת במאגר";
     else exp = `${floor ? "לפחות " : ""}יד ${ORD[n] || n}`;
     const ev = `log=${own.map(r => `${r.baalut}@${r.baalut_dt}`).join(">")} road=${R.moed_aliya_lakvish || ""} mkoriut=${fo}`;
@@ -388,28 +412,37 @@ function compare(c, X, P) {
       check(c, "owners.hands", shown === exp, shown, exp, ev);
       const pill = P.head.pills.find(p => /יד |אצל סוחר/.test(p)) || "";
       check(c, "owners.hands_pill", pill === exp, pill, exp, "");
-      const expTl = own.slice().reverse().map((r, i) => `${fd(r.baalut_dt)} ${sp(r.baalut)}${i === 0 ? "נוכחי" : ""}`).join(" / ");
+      const expTl = own.slice().reverse().map((r, i) => `${fd(r.baalut_dt)} ${sp(r.baalut)}${i === 0 && inLog ? "נוכחי" : ""}`).join(" / ");
       const shTl = card ? card.timeline.map(t => `${t.time} ${t.text}`).join(" / ") : "";
       check(c, "owners.timeline", sp(shTl) === sp(expTl), shTl, expTl, "");
+      // months held: to the next transfer's month, the current owner to this month (or to the month the car left the road)
+      const mon = d => d.getFullYear() * 12 + d.getMonth(), endD = cancelled ? ym(R.bitul_dt) : new Date();
+      const expDur = own.map((r, i) => { const a = ym(r.baalut_dt), b = i < own.length - 1 ? ym(own[i + 1].baalut_dt) : inLog ? endD : null;
+        return a && b ? spanText(Math.max(0, mon(b) - mon(a))) + (i < own.length - 1 ? "" : cancelled ? ", עד שהרכב ירד מהכביש" : ", עד היום") : ""; }).reverse().join(" / ");
+      const shDur = card ? card.timeline.map(t => t.dur).join(" / ") : "";
+      if (own.length) check(c, "owners.durations", sp(shDur) === sp(expDur), shDur, expDur, own.map(r => r.baalut_dt).join(">"));
+      if (own.length) check(c, "owners.now_line", (card ? card.ownNow : "") === (inLog ? "" : `בעלות נוכחית: ${sp(R.baalut)}`), card ? card.ownNow : "", inLog ? "(none)" : `בעלות נוכחית: ${sp(R.baalut)}`, `register "${R.baalut || ""}" log last "${last ? last.baalut : ""}"`);
       if (!own.length && !E(R.baalut)) { const cur = factOf(P, "overview", /^בעלות$/, "בעלות נוכחית"); check(c, "owners.current_no_log", sp(cur) === sp(R.baalut), cur, R.baalut, ""); }
     }
     { const sh = ((cardOf(P, "overview", /^(היסטוריית בעלויות|בעלות)$/) || {}).firstOwn || "").replace(/^בעלות ראשונה: /, ""), ex = /^ביס לנהיגה/.test(fo) ? "בית ספר לנהיגה" : fo;
       check(c, "owners.first_owner", sp(sh) === sp(ex), sh, ex, ""); }
-    if (own.length && !E(R.baalut) && kindOf(own[own.length - 1].baalut) !== kindOf(R.baalut) && !DEALER.test(own[own.length - 1].baalut))
-      NOTES.push(`${c.id} ${mask(c.plate)}: source: last ownership-log type "${own[own.length - 1].baalut}" (${own[own.length - 1].baalut_dt}) differs from the register's current baalut "${R.baalut}"`);
+    if (own.length && !inLog)
+      NOTES.push(`${c.id} ${mask(c.plate)}: source: the register's current owner "${R.baalut}" is not in the log's last month (last record "${last.baalut}" ${last.baalut_dt})`);
     // insights the ownership log drives
-    const past = own.slice(0, -1).map(r => String(r.baalut));
+    const past = (inLog ? own.slice(0, -1) : own).map(r => String(r.baalut));
+    if (!mirror && !own.length && X.sets.owners && !X.errs.owners) {
+      const ins = (cardOf(P, "overview", /^מידע חשוב/) || {items: []}).items, dealerNow = curK === "dealer";
+      check(c, "owners.insight_dealer_now", dealerNow === ins.includes("הרכב רשום כעת על סוחר"), ins.join(" | ").slice(0, 120), dealerNow ? "הרכב רשום כעת על סוחר" : "(none)", `no log rows, register "${R.baalut || ""}"`);
+    }
     if (!mirror && own.length) {
       const ins = (cardOf(P, "overview", /^מידע חשוב/) || {items: []}).items;
       check(c, "owners.insight_rental", past.some(t => /השכר/.test(t)) === ins.includes("היה רכב השכרה"), ins.join(" | ").slice(0, 120), past.some(t => /השכר/.test(t)) ? "היה רכב השכרה" : "(none)", "");
       const pl = past.some(t => /החכר|ליסינג/.test(t));
       check(c, "owners.insight_lease", pl === ins.includes("היה רכב ליסינג"), ins.join(" | ").slice(0, 120), pl ? "היה רכב ליסינג" : "(none)", pl ? "a past log record is " + past.filter(t => /החכר|ליסינג/.test(t)).join(",") : "");
-      const DLR = /סוחר|יבואן|מסחר/, cur = String(own[own.length - 1].baalut), pastDealer = past.some(t => DLR.test(t));
-      const coCur = own.length > 1 && /חברה|חברת|תאגיד|החכר|השכר|ליסינג/.test(cur) && !DLR.test(cur), coNow = coCur && !pastDealer;
-      if (coCur && pastDealer && !ins.includes("הרכב רשום כעת על חברה")) NOTES.push(`${c.id}: current log type ${cur} after a dealer: the page says only "היה אצל סוחר" (the company-now line is in the same else-if chain)`);
-      check(c, "owners.insight_company_now", coNow === ins.includes("הרכב רשום כעת על חברה"), ins.join(" | ").slice(0, 120), coNow ? "הרכב רשום כעת על חברה" : "(none)", coNow ? `current log type ${cur}` : "");
-      const lastDealer = DLR.test(cur);
-      check(c, "owners.insight_dealer_now", lastDealer === ins.includes("הרכב רשום כעת על סוחר"), ins.join(" | ").slice(0, 120), lastDealer ? "הרכב רשום כעת על סוחר" : "(none)", "");
+      const coNow = own.length > 1 && FLEET.includes(curK), dealerNow = curK === "dealer", wasDealer = !dealerNow && past.some(t => DEALER.test(t));
+      check(c, "owners.insight_company_now", coNow === ins.includes("הרכב רשום כעת על חברה"), ins.join(" | ").slice(0, 120), coNow ? "הרכב רשום כעת על חברה" : "(none)", `current owner ${curK} (register "${R.baalut || ""}")`);
+      check(c, "owners.insight_dealer_now", dealerNow === ins.includes("הרכב רשום כעת על סוחר"), ins.join(" | ").slice(0, 120), dealerNow ? "הרכב רשום כעת על סוחר" : "(none)", `current owner ${curK} (register "${R.baalut || ""}")`);
+      check(c, "owners.insight_was_dealer", wasDealer === ins.includes("היה אצל סוחר"), ins.join(" | ").slice(0, 120), wasDealer ? "היה אצל סוחר" : "(none)", "");
     }
   }
   { const has = (X.sets.tag || []).length > 0, said = /לרכב יש תג חניה לנכה/.test(P.tabs.overview.text);
