@@ -52,6 +52,7 @@ public class SavedCheckWorker extends Worker {
     private static final String ACTIVE = "053cea08-09bc-40ec-8f7a-156f0677aff3";
     private static final String OWNERS = "bb2355dc-9ec7-4f06-9c3f-3344672171da";
     private static final String SETTLEMENTS = "https://luchit.app/settlements.json";
+    private static final int LIC_LAG = 3, LIC_NEAR = 30, LIC_FRESH = 30;   // the licence rule of licState in index.html
     private List<SettlementMatch.Entry> settlements;   // read once per run, on the first car that needs it
 
     public SavedCheckWorker(@NonNull Context c, @NonNull WorkerParameters p) {
@@ -261,31 +262,70 @@ public class SavedCheckWorker extends Worker {
         p.edit().putBoolean(key, active).apply();
     }
 
+    /**
+     * The licence date from the active register, judged like licState in index.html: whole days, rounded (the spring clock change
+     * makes one day 23 hours long, and flooring said "פג היום" a day early), the expiry day itself still valid. The register is rebuilt
+     * nightly and a renewal reaches it a day or two late, so "expired" is not sent while the page shows amber: in the first LIC_LAG days
+     * after the expiry, or while the last test is from LIC_NEAR days before the expiry on (a test that has not become a renewal) and at
+     * most LIC_FRESH days old. It is tried for a week from the first day the page shows red, and names such a test when there is one.
+     */
     private void checkTest(Context c, SharedPreferences p, String plate, String name) throws Exception {
         if (!budget(c)) return;
         JSONArray rows = query(ACTIVE, "mispar_rechev", plate);
         if (rows.length() == 0) return;
-        String tokef = rows.getJSONObject(0).optString("tokef_dt", "");
-        if (tokef.length() < 10) return;
-        Date end = new SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(tokef.substring(0, 10));
+        JSONObject r = rows.getJSONObject(0);
+        String tokef = r.optString("tokef_dt", "");
+        Date end = day(tokef);
         if (end == null) return;
-        long days = TimeUnit.MILLISECONDS.toDays(end.getTime() - startOfToday());
-        if (days < -7 || days > 30) return;
+        long days = Math.round((end.getTime() - startOfToday()) / 86400000.0);
+        if (days > 30) return;
+        Date test = day(r.optString("mivchan_acharon_dt", ""));
+        boolean near = test != null && !test.before(shift(end, -LIC_NEAR));
+        if (days < 0) {
+            if (days >= -LIC_LAG || near && !test.before(shift(new Date(startOfToday()), -LIC_FRESH))) return;   // amber on the page
+            long red = near ? Math.max(LIC_LAG + 1, Math.round((test.getTime() - end.getTime()) / 86400000.0) + LIC_FRESH + 1) : LIC_LAG + 1;
+            if (-days > red + 6) return;   // a week of daily tries from the first red day
+        }
         int stage = days < 0 ? -1 : days <= 7 ? 7 : 30;
         String key = "test_" + plate;
         String mark = tokef.substring(0, 10) + "|" + stage;
         if (mark.equals(p.getString(key, ""))) return;
-        String when = new SimpleDateFormat("d.M.yyyy", Locale.US).format(end);
+        SimpleDateFormat dm = new SimpleDateFormat("d.M.yyyy", Locale.US);
+        String when = dm.format(end);
+        boolean shown;
         if (days < 0) {
-            notify(c, plate, ("test" + plate).hashCode(),
+            shown = notify(c, plate, ("test" + plate).hashCode(),
                     "הטסט לרכב " + fmtPlate(plate) + " פג",
-                    (name.isEmpty() ? "" : name + ": ") + "תוקף הרישיון הסתיים ב-" + when + ". נסיעה בלי רישיון בתוקף עלולה לסכן את הביטוח ולגרור קנס.");
+                    (name.isEmpty() ? "" : name + ": ") + "לפי מאגר משרד התחבורה, תוקף הרישיון הסתיים ב-" + when + "."
+                            + (near ? " במאגר רשום טסט מ-" + dm.format(test) + ", אבל הרישיון לא חודש בו." : "")
+                            + " נסיעה בלי רישיון בתוקף עלולה לסכן את הביטוח ולגרור קנס.");
         } else {
-            notify(c, plate, ("test" + plate).hashCode(),
+            shown = notify(c, plate, ("test" + plate).hashCode(),
                     "הטסט לרכב " + fmtPlate(plate) + (days == 0 ? " פג היום" : " פג בעוד " + days + " ימים"),
-                    (name.isEmpty() ? "" : name + ": ") + "תוקף הרישיון עד " + when + ". כדאי לקבוע טסט.");
+                    (name.isEmpty() ? "" : name + ": ") + "תוקף הרישיון עד " + when + ". כדאי לחדש מראש: טסט כשנדרש, ותשלום האגרה.");
         }
-        p.edit().putString(key, mark).apply();
+        if (shown) p.edit().putString(key, mark).apply();   // a reminder the phone did not show (weekly budget, notifications off) is tried again the next day
+    }
+
+    /** d moved by n calendar days; a clock change in between does not move it off midnight */
+    private static Date shift(Date d, int n) {
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(d);
+        cal.add(Calendar.DAY_OF_YEAR, n);
+        return cal.getTime();
+    }
+
+    /** A register date at local midnight, or null for an empty, zero ("0000-00-00"), pre-1950 or impossible one (toDate in index.html) */
+    private static Date day(String s) {
+        if (s == null || s.length() < 10) return null;
+        try {
+            SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+            f.setLenient(false);
+            Date d = f.parse(s.substring(0, 10));
+            return d != null && Integer.parseInt(s.substring(0, 4)) >= 1950 ? d : null;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /** Vehicle-file documents with an expiry date (insurance, licences): a month before, a week before, on the day and a few days after */
@@ -476,7 +516,8 @@ public class SavedCheckWorker extends Worker {
         }
     }
 
-    private static void notify(Context c, String plate, int id, String title, String text) {
+    /** Posts the notification; false when it was not shown (weekly budget spent, notifications blocked or not allowed) */
+    private static boolean notify(Context c, String plate, int id, String title, String text) {
         ensureChannel(c);
         Intent open = new Intent(c, MainActivity.class)
                 .setData(Uri.parse("luchit://plate/" + plate))
@@ -491,12 +532,14 @@ public class SavedCheckWorker extends Worker {
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
                 .setContentIntent(pi)
                 .setAutoCancel(true);
-        if (!budget(c) || !NotificationManagerCompat.from(c).areNotificationsEnabled()) return;   // at most 4 a week, and a blocked notification does not spend the budget
+        if (!budget(c) || !NotificationManagerCompat.from(c).areNotificationsEnabled()) return false;   // at most 4 a week, and a blocked notification does not spend the budget
         try {
             NotificationManagerCompat.from(c).notify(id, b.build());
             logSent(c);
+            return true;
         } catch (SecurityException ignored) {
             // notifications were not allowed
+            return false;
         }
     }
 }
