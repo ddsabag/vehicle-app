@@ -1945,24 +1945,45 @@ function learnedRecalls(rows, links, v, hits){
   for (const r of rows) if (!have.has(String(r.RECALL_ID)) && on(r.RECALL_ID)) { have.add(String(r.RECALL_ID)); out.push({...r, fits: true, byList: true, offRange: off(r)}); }
   return out.length === hits.length ? out : out.sort((a, b) => (num(b.SHNAT_RECALL) || 0) - (num(a.SHNAT_RECALL) || 0) || (num(b.RECALL_ID) || 0) - (num(a.RECALL_ID) || 0));
 }
-/* the model recall history of a car: the free-text match, the per-car list's models and years, and which recalls that list cannot answer for a plate yet */
-const modelRecallsOf = (rows, v, meta, w) => markFresh(learnedRecalls(rows, CAT_LINKS.get(catCd(v.tozeret_cd)), v, matchModelRecalls(rows, v, brandModels(meta, v), w)), meta);
+/* the model recall history of a car: the free-text match, the per-car list's models and years, and what that list can answer for a plate (recallReach) */
+const modelRecallsOf = (rows, v, meta, w) => markReach(learnedRecalls(rows, CAT_LINKS.get(catCd(v.tozeret_cd)), v, matchModelRecalls(rows, v, brandModels(meta, v), w)), meta);
 /* The ministry's per-car list of unfixed cars can lag its recall list: in 10/2026 it held recalls opened up to 14.4.2026 (RECALL_ID 16576) while the
    recall list ran to 16821, and recalls opened in the months before that were often not in it yet. For such a recall ("fresh": newer than the per-car
    list, or opened in the 90 days before its newest recall and not in it) the list says nothing about a plate, so the app says "not yet known if this car
    is included", never "not open on this car". The catalogue writes the current reach daily (meta.recHz, recall-percar.mjs); REC_HZ is the one of 19.10.2026. */
 const REC_HZ = {id: 16576, d: "2026-04-14", from: 16426, max: 16821, ids: [16426, 16436, 16437, 16438, 16439, 16440, 16447, 16452, 16460, 16462, 16463, 16464, 16465, 16467, 16468, 16469, 16471, 16474, 16484, 16485, 16499, 16502, 16506, 16511, 16512, 16513, 16515, 16518, 16530, 16531, 16543, 16544, 16551, 16552, 16573, 16574, 16575, 16576]};
 const recallHz = meta => meta && meta.recHz && meta.recHz.id ? meta.recHz : REC_HZ;
-function markFresh(rows, meta){
-  const hz = recallHz(meta), seen = new Set(hz.ids || []);
-  return rows.map(r => { const id = num(r.RECALL_ID); return id > hz.id || (hz.from && id >= hz.from && !seen.has(id)) ? {...r, fresh: true} : r; });
+/* The list also lacks many recalls altogether, old ones too: 35-65% of every year's recalls on 20.10.2026 (all fixed, no Israeli cars, or never published:
+   the data cannot tell which). The catalogue lists the recalls it holds (meta.recIn, catalog-build.mjs), and this is the one place that decides what the
+   list can say about a plate that is not in it, for one model recall:
+     "fresh"   newer than the list, or opened in the 90 days before its newest recall and not in it: not yet known whether this car is included
+     "absent"  not in the list at all, opened in the last REC_ABSENT_YEARS years: the same, check with the importer
+     "nolist"  not in the list at all, older: the ministry publishes no car list for it, so the data cannot show whether this car was included or fixed
+     "listed"  the list holds the recall and not this plate: fixed, or the car was not included ("not open on this car")
+   A catalogue without recIn (older builds, or a day the list could not be read) answers "fresh" or "listed" only, as before. The recall list gives only
+   the year a recall was opened (SHNAT_RECALL), so "the last N years" counts that year whole. */
+const REC_ABSENT_YEARS = 3;   // to be tuned from measured data
+const REC_IN = new WeakMap();
+const recInOf = meta => { if (!meta || !Array.isArray(meta.recIn)) return null; let s = REC_IN.get(meta); if (!s) REC_IN.set(meta, s = new Set(meta.recIn.map(Number))); return s; };
+function recallReach(r, meta){
+  const hz = recallHz(meta), id = num(r.RECALL_ID), held = recInOf(meta);
+  if (id > hz.id || (hz.from && id >= hz.from && !(hz.ids || []).includes(id))) return "fresh";
+  if (!held || held.has(id)) return "listed";
+  return num(r.SHNAT_RECALL) >= new Date().getFullYear() - REC_ABSENT_YEARS ? "absent" : "nolist";
 }
+function markReach(rows, meta){
+  return rows.map(r => { const k = recallReach(r, meta); return k === "listed" ? r : {...r, reach: k, ...(k === "fresh" ? {fresh: true} : {})}; });
+}
+/* a model recall that may include this car while the per-car list cannot tell: one that has not reached the list (or a saved copy from before recallReach
+   that says fresh), or one missing from it that is recent; a recall of other production years is not */
+const recallPending = r => r.fits !== false && (!!r.fresh || r.reach === "absent");
 /* One defect is often filed as several recalls, a batch of cars each (the Corolla brake recall of 2026 is 14 RECALL_IDs with one text and one build range),
    so one entry per text and build range stands for all: the one that says the most about this car (the production year in range, a near year, no range,
-   other years; fresh first, since a car missing from the earlier batches can still be in a later one). */
+   other years; within each, one the per-car list cannot answer first, since a car missing from the earlier batches can still be in a later one, then one
+   with no car list, then one the list holds). */
 const recallKey = r => [String(r.TEUR_TAKALA || "").replace(/\s+/g, " ").trim() || "#" + r.RECALL_ID, r.BUILD_BEGIN_A || "", r.BUILD_END_A || ""].join("|");
 function recallGroups(rows){
-  const rank = r => (r.fits === true ? 0 : r.near ? 2 : r.fits === null ? 4 : 6) + (r.fresh ? 0 : 1), best = new Map();
+  const rank = r => (r.fits === true ? 0 : r.near ? 3 : r.fits === null ? 6 : 9) + (r.fresh || r.reach === "absent" ? 0 : r.reach === "nolist" ? 1 : 2), best = new Map();
   for (const r of rows) { const k = recallKey(r), o = best.get(k); if (!o || rank(r) < rank(o)) best.set(k, r); }
   const keep = new Set(best.values());
   return rows.filter(r => keep.has(r));
@@ -1972,8 +1993,23 @@ function modelRecallList(D){
   const all = D.modelRecalls || [], open = new Set((D.recalls || []).map(r => String(r.RECALL_ID))), openKeys = new Set(all.filter(r => open.has(String(r.RECALL_ID))).map(recallKey));
   return recallGroups(all.filter(r => !open.has(String(r.RECALL_ID)) && !openKeys.has(recallKey(r))));
 }
-/* model recalls that may cover this plate and that the per-car list cannot answer yet: the production year inside the build range */
-const freshRecalls = D => D.kind === "model" || D.recallUnknown || D.isCancelled ? [] : modelRecallList(D).filter(r => r.fresh && r.fits === true);
+/* The one rule for "a model recall may include this car, and the ministry's per-car list cannot tell yet" (recallPending): the header pill, the banner,
+   the recalls tab, the buy-tab checks, the buyer card and the share card all read it. A model has no plate to ask about, and a per-car list that did
+   not answer is said apart (D.recallUnknown). */
+const pendingRecalls = D => D.kind === "model" || D.recallUnknown ? [] : modelRecallList(D).filter(recallPending);
+/* the words for them: "new" only when none is older than the per-car list, "of the production year" only when every one is */
+function pendingWords(pr){
+  const n = pr.length, isNew = pr.every(r => r.fresh), year = pr.every(r => r.fits === true);
+  return {
+    title: `ייתכן שהרכב נכלל ב${n === 1 ? "ריקול" : "ריקולים"}${isNew ? (n === 1 ? " חדש" : " חדשים") : ""}`,
+    body: `משרד התחבורה פתח לדגם${year ? " ולשנת הייצור" : ""} ${n === 1 ? "ריקול שעדיין אין לו" : `${n} ריקולים שעדיין אין להם`} פירוט לפי מספר רכב. כדאי לבדוק באתר היבואן.`,
+    line: isNew ? "ייתכן ריקול חדש לדגם, עוד בלי פירוט לפי רכב" : "ייתכן ריקול לדגם, בלי פירוט לפי רכב",
+    ask: isNew ? "האם הרכב נכלל בריקול החדש לדגם? אפשר לבדוק באתר היבואן לפי מספר הרישוי." : "האם הרכב נכלל בריקול לדגם? אפשר לבדוק באתר היבואן לפי מספר הרישוי.",
+  };
+}
+/* "no open recall" names how far the per-car list reaches while it lags the recall list (in 10/2026: recalls opened up to 14.4.2026) */
+const perCarTo = () => { const hz = recallHz(catMetaV); return hz.max > hz.id && hz.d ? fmtDate(hz.d) : ""; };
+const noOpenRecall = () => { const d = perCarTo(); return d ? `לא נמצא ריקול פתוח שנפתח עד ${d}` : "לא נמצא ריקול פתוח"; };
 /* the model stage of a lookup answered from the catalogue: null when it cannot be (then the live queries run) */
 async function catModelData(v, loadedOnly){
   const cd = catCd(v.tozeret_cd), dg = num(v.degem_cd); if (!cd || isNaN(dg)) return null;
@@ -2304,7 +2340,7 @@ function simpleCard(D){
     ["הנעה", pick(v.hanaa_nm, w.hanaa_nm)], ["תיבת הילוכים", gear], ["מרכב", w.merkav], ["מושבים", pick(w.mispar_moshavim, v.mispar_mekomot)], ["דלתות", w.mispar_dlatot],
     ["עלה לכביש", v.moed_aliya_lakvish], ["סוג יבוא", D.importKind], ["יבואן", importerOf(D)], ["בעלות נוכחית", v.baalut], ["בעלות ראשונה", firstOwner(v)], ["מספר בעלים", own],
     ["טסט אחרון", empty(v.mivchan_acharon_dt) ? "" : fmtDate(v.mivchan_acharon_dt)], ["טסט בתוקף עד", empty(v.tokef_dt) ? "" : fmtDate(v.tokef_dt)], ["ק״מ בטסט האחרון", D.km ? fmtN(D.km) : ""],
-    ["ריקולים פתוחים", D.recallUnknown ? "לא זמין כרגע" : D.recalls.length ? String(D.recalls.length) : "לא נמצאו"], ["תג נכה", D.tag ? "יש" : "", "", true], ["מספר שלדה", vin, vin],
+    ["ריקולים פתוחים", D.recallUnknown ? "לא זמין כרגע" : D.recalls.length ? String(D.recalls.length) : (d => d ? `לא נמצאו (הרשימה כוללת ריקולים עד ${d})` : "לא נמצאו")(perCarTo())], ["תג נכה", D.tag ? "יש" : "", "", true], ["מספר שלדה", vin, vin],
   ];
   const safety = safetyLevel(D), zihum = firstPos(v.kvutzat_zihum, w.kvutzat_zihum);
   const more = [
@@ -2379,7 +2415,7 @@ function renderResult(){
   const dt = driveType(D);
   if (dt) facts[2] = (`<span class="pill drive ${["ev", "phev", "hybrid"].includes(dt.k) ? "green" : ""}">${ico(["ev", "phev", "hybrid"].includes(dt.k) ? "bolt" : "fuel")}${dt.label}</span>`);
   if (exp && !D.isCancelled) facts[0] = (exp < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) ? `<span class="pill bad">טסט לא בתוקף</span>` : `<span class="pill ok">טסט עד ${String(exp.getMonth() + 1).padStart(2, "0")}/${exp.getFullYear()}</span>`);
-  const vIns = buildInsights(D), clean = !(D.errs && D.errs.length) && !D.recallUnknown && !D.isCancelled && !D.zombie && !D.recalls.length && !freshRecalls(D).length && !vIns.some(x => x.level === "bad" || x.level === "warn");
+  const vIns = buildInsights(D), clean = !(D.errs && D.errs.length) && !D.recallUnknown && !D.modelRecallsUnknown && !D.isCancelled && !D.zombie && !D.recalls.length && !pendingRecalls(D).length && !vIns.some(x => x.level === "bad" || x.level === "warn");
   if (D.own.length) facts[1] = `<span class="pill">${ownersLabel(D)}</span>`;
   if (!empty(v.shnat_yitzur)) facts[3] = `<span class="pill">${esc(v.shnat_yitzur)}</span>`;
   if (clean) pills.push(`<span class="pill ok">${ico("check")}לא נמצאו בעיות במאגרי משרד התחבורה</span>`);
@@ -2407,9 +2443,9 @@ function renderResult(){
   if (D.recalls.length) {
     html.push(`<button type="button" class="alert-banner" data-tab="recalls">${ico("alert")}<span><b>${D.recalls.length === 1 ? "לרכב יש ריקול פתוח" : `לרכב ${D.recalls.length} ריקולים פתוחים`}</b>ריקול שלא מתוקן עלול למנוע בהמשך חידוש רישיון. התיקון בחינם אצל היבואן.</span></button>`);
   }
-  // a recall newer than the ministry's per-car list, for this model and production year: the list cannot say yet whether this car is in it
-  const fr = freshRecalls(D);
-  if (fr.length) html.push(`<button type="button" class="alert-banner warn" data-tab="recalls">${ico("alert")}<span><b>ייתכן שהרכב נכלל ב${fr.length === 1 ? "ריקול חדש" : "ריקולים חדשים"}</b>משרד התחבורה פתח לדגם ולשנת הייצור ${fr.length === 1 ? "ריקול שעדיין אין לו" : `${fr.length} ריקולים שעדיין אין להם`} פירוט לפי מספר רכב. כדאי לבדוק באתר היבואן.</span></button>`);
+  // a model recall that may include this car while the ministry's per-car list cannot say whether it does (pendingRecalls)
+  const fr = pendingRecalls(D);
+  if (fr.length) { const pw = pendingWords(fr); html.push(`<button type="button" class="alert-banner warn" data-tab="recalls">${ico("alert")}<span><b>${pw.title}</b>${pw.body}</span></button>`); }
 
   if (D.kind !== "model" && !D.isCancelled) {
     const stl = settlementsFor(D);
@@ -2889,7 +2925,9 @@ function tabRecalls(D){
   const html = [], imp = importerRecall(D), car = D.kind !== "model" && !D.isCancelled, stl = car ? settlementsFor(D) : [];
   const mr = modelRecallList(D), fits = mr.filter(r => r.fits !== false);   // a recall still open on this car is listed in its own card, not again in the model's history
   const knownOpen = D.kind !== "model" && !D.recallUnknown;   // the ministry's list of unfixed cars answered for this plate
-  const fresh = knownOpen ? fits.filter(r => r.fresh) : [], known = fits.filter(r => !fresh.includes(r)), hz = recallHz(catMetaV);
+  const fresh = pendingRecalls(D), known = fits.filter(r => !fresh.includes(r)), hz = recallHz(catMetaV);
+  // a recall the per-car list does not hold at all says nothing about this plate: never "not open on this car" (recallReach)
+  const noList = knownOpen ? known.filter(r => r.reach === "nolist") : [], listed = known.filter(r => !noList.includes(r));
   const plateView = D.kind !== "model", check = plateView && (fresh.length || D.recallUnknown || D.modelRecallsUnknown);
   const recRow = (r, pill) => `<li class="${r.fits === false ? "dim" : ""}">
          <div class="rhead"><time>${empty(r.SHNAT_RECALL) ? "" : "ריקול משנת " + esc(r.SHNAT_RECALL)}</time>${pill}</div>
@@ -2914,19 +2952,25 @@ function tabRecalls(D){
   if (check) {
     const parts = [];
     if (D.recallUnknown) parts.push(`<p style="margin:0 0 8px">לא הצלחנו לבדוק כרגע אם לרכב יש ריקול פתוח.${known.length ? ` לדגם ${known.length === 1 ? "היה ריקול שעשוי" : `היו ${known.length} ריקולים שעשויים`} לחול על שנת הייצור (ברשימה למטה).` : ""}</p>`);
-    if (fresh.length) parts.push(`<p style="margin:0 0 8px">${fresh.length === 1 ? "ריקול חדש לדגם עשוי" : `${fresh.length} ריקולים חדשים לדגם עשויים`} לחול על הרכב. משרד התחבורה עוד לא פרסם אילו רכבים נכללים ${fresh.length === 1 ? "בו" : "בהם"}, ולכן עוד לא ידוע אם הרכב הזה נכלל.</p>
+    // "new": every one is newer than the per-car list; otherwise some are recent recalls the list does not hold at all
+    const isNew = fresh.every(r => r.fresh), n = fresh.length;
+    if (n) parts.push(`<p style="margin:0 0 8px">${isNew ? (n === 1 ? "ריקול חדש לדגם עשוי" : `${n} ריקולים חדשים לדגם עשויים`) : (n === 1 ? "ריקול לדגם מהשנים האחרונות עשוי" : `${n} ריקולים לדגם מהשנים האחרונות עשויים`)} לחול על הרכב. משרד התחבורה ${isNew ? "עוד " : ""}לא פרסם אילו רכבים נכללים ${n === 1 ? "בו" : "בהם"}, ולכן ${isNew ? "עוד " : ""}לא ידוע אם הרכב הזה נכלל.</p>
       <ul class="rlist">${fresh.map(r => recRow(r, r.fits === true ? `<span class="pill warn">בשנת הייצור</span>` : r.near ? `<span class="pill">שנה סמוכה</span>` : "")).join("")}</ul>`);
     if (D.modelRecallsUnknown) parts.push(`<p style="margin:0 0 8px">רשימת הריקולים לדגם לא נטענה כרגע.</p>`);
     html.push(card("כדאי לבדוק מול היבואן", "alert", "amber", parts.join("") + btn));
   }
   // what came back clean (and the few checks that could not run), without what a card above already says
-  const rows = [], row = (ok, t) => rows.push(`<li class="ins ${ok ? "ok" : "warn"}">${ico(ok ? "check" : "alert")}<div><b>${esc(t)}</b></div></li>`);
+  const rows = [], row = (ok, t) => rows.push(`<li class="ins ${ok === "info" ? "info" : ok ? "ok" : "warn"}">${ico(ok === "info" ? "info" : ok ? "check" : "alert")}<div><b>${esc(t)}</b></div></li>`);
   if (knownOpen && !D.recalls.length) row(true, "אין ריקול פתוח במאגר משרד התחבורה");
   if (!D.modelRecallsUnknown) {
     // with the per-car list answered, a model recall of the production year that is not open on this car was fixed or never included: nothing to do
     if (!mr.length) row(true, "לא נמצאו ריקולים לדגם");
     else if (!fits.length) row(true, `${pl(mr.length, "ריקול לדגם, לא חל", "ריקולים לדגם, אף אחד לא חל")} על שנת הייצור`);
-    else if (known.length && knownOpen) row(true, known.length === 1 ? "לדגם היה ריקול שעשוי לחול על שנת הייצור, והוא לא פתוח ברכב הזה: תוקן, או שהרכב לא נכלל בו" : `לדגם היו ${known.length} ריקולים שעשויים לחול על שנת הייצור, ואף אחד מהם לא פתוח ברכב הזה: תוקנו, או שהרכב לא נכלל בהם`);
+    else if (known.length && knownOpen) {
+      if (listed.length) row(true, listed.length === 1 ? "לדגם היה ריקול שעשוי לחול על שנת הייצור, והוא לא פתוח ברכב הזה: תוקן, או שהרכב לא נכלל בו" : `לדגם היו ${listed.length} ריקולים שעשויים לחול על שנת הייצור, ואף אחד מהם לא פתוח ברכב הזה: תוקנו, או שהרכב לא נכלל בהם`);
+      // one calm line for all the older recalls the per-car list does not hold, not a warning each
+      if (noList.length) row("info", `${noList.length === 1 ? "לריקול אחד לדגם שעשוי" : `ל-${noList.length} ריקולים לדגם שעשויים`} לחול על שנת הייצור משרד התחבורה לא מפרסם רשימת רכבים, ולכן אי אפשר לדעת מהמאגר אם הרכב הזה נכלל ${noList.length === 1 ? "בו" : "בהם"} או תוקן. היבואן יכול לבדוק.`);
+    }
     else if (known.length && !plateView) row(false, `${pl(known.length, "ריקול לדגם עשוי לחול", "ריקולים לדגם עשויים לחול")} על שנת הייצור`);
   }
   if (car && !stl.length) row(SETTLEMENTS.length, SETTLEMENTS.length ? "לא נמצא הסדר פשרה מוכר לדגם ולשנתון" : "רשימת הסדרי הפשרה לא נטענה כרגע");
@@ -2941,7 +2985,7 @@ function tabRecalls(D){
     const pill = r => {
       if (r.fits === false) return `<span class="pill">שנים אחרות</span>`;
       if (!knownOpen) return r.fits === true ? `<span class="pill warn">כולל את שנת הייצור</span>` : r.near ? `<span class="pill">ייתכן שכולל את שנת הייצור</span>` : "";
-      return `<span class="pill">${r.fits === true ? "בשנת הייצור, " : r.near ? "שנה סמוכה, " : ""}לא פתוח ברכב הזה</span>`;
+      return `<span class="pill">${r.fits === true ? "בשנת הייצור, " : r.near ? "שנה סמוכה, " : ""}${noList.includes(r) ? "אין רשימת רכבים" : "לא פתוח ברכב הזה"}</span>`;
     };
     html.push(card("ריקולים שנפתחו לדגם", "clock", "blue",
       `<p class="note" style="margin:0 0 8px">ריקולים שהיבואנים בארץ פתחו לכל הדגם, לפי משרד התחבורה. הם לא בהכרח חלו על הרכב הזה.${knownOpen && D.recalls.length ? " ריקול שפתוח ברכב הזה מופיע למעלה." : ""}</p>
@@ -3002,8 +3046,8 @@ function checksCard(D){
   const off = D.primary && /^inactive/.test(D.primary.key);   // found only in the inactive registers: not "active", as the insights already say
   row(!D.isCancelled && !off, D.isCancelled ? "הרכב ירד מהכביש" : off ? "הרכב רשום כלא פעיל" : "הרכב פעיל ולא בוטל");
   if (exp) row(exp >= new Date(now.getFullYear(), now.getMonth(), now.getDate()), exp >= new Date(now.getFullYear(), now.getMonth(), now.getDate()) ? `טסט בתוקף עד ${fmtDate(v.tokef_dt)}` : `הטסט פג ב-${fmtDate(v.tokef_dt)}`);
-  if (D.recallUnknown) row(false, "ריקולים: מידע לא זמין כרגע"); else row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")}` : "לא נמצא ריקול פתוח");
-  if (freshRecalls(D).length) row(false, "ייתכן ריקול חדש לדגם, עוד בלי פירוט לפי רכב");
+  if (D.recallUnknown) row(false, "ריקולים: מידע לא זמין כרגע"); else row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")}` : noOpenRecall());
+  const pr = pendingRecalls(D); if (pr.length) row(false, pendingWords(pr).line);
   if (D.own.length) row(true, "נבדקה היסטוריית הבעלות");
   const mods = ["shinui_mivne_ind", "gapam_ind", "shnui_zeva_ind", "shinui_zmig_ind"].filter(k => yes(v[k]));
   row(!mods.length, mods.length ? "נרשמו שינויים ברכב" : "לא נרשמו שינויי מבנה, גפ״מ או צבע");
@@ -4166,7 +4210,7 @@ function buildReport(D, full, biz){
   el.querySelectorAll(".card").forEach(c => { if (/^יומן אירועים/.test(((c.querySelector(".head h2") || {}).textContent || "").trim())) c.remove(); });
   // a clean recall result is already stated in the recalls section of a full report, so it is not repeated in the checks list
   if (full) el.querySelectorAll(".insights.plain li").forEach(li => {
-    if (li.textContent.trim() !== "לא נמצא ריקול פתוח") return;
+    if (!li.textContent.trim().startsWith("לא נמצא ריקול פתוח")) return;
     const c = li.closest(".card"), h = c && c.querySelector(".head h2"), m = h && h.textContent.match(/\((\d+) בדיקות\)/);
     li.remove(); if (m) h.textContent = h.textContent.replace(m[0], `(${m[1] - 1} בדיקות)`);
   });
@@ -4578,8 +4622,8 @@ async function drawShareCard(D, opt = {}){
   if (D.isCancelled) add("bad", "הרכב ירד מהכביש");
   else {
     if (exp) add(exp >= today ? "ok" : "bad", exp >= today ? `טסט בתוקף עד ${fmtDate(v.tokef_dt)}` : `הטסט פג ב-${fmtDate(v.tokef_dt)}`);
-    if (D.recallUnknown) add("warn", "מידע על ריקולים לא זמין כרגע, אין להסיק שאין ריקול"); else add(D.recalls.length ? "bad" : "ok", D.recalls.length ? (D.recalls.length === 1 ? "ריקול פתוח אחד" : `${D.recalls.length} ריקולים פתוחים`) : "לא נמצא ריקול פתוח");
-    if (freshRecalls(D).length) add("warn", "ייתכן ריקול חדש לדגם, עוד בלי פירוט לפי רכב");
+    if (D.recallUnknown) add("warn", "מידע על ריקולים לא זמין כרגע, אין להסיק שאין ריקול"); else add(D.recalls.length ? "bad" : "ok", D.recalls.length ? (D.recalls.length === 1 ? "ריקול פתוח אחד" : `${D.recalls.length} ריקולים פתוחים`) : noOpenRecall());
+    const pr = pendingRecalls(D); if (pr.length) add("warn", pendingWords(pr).line);
     if (D.own.length) add("info", ownersLabel(D));
     const mods = ["shinui_mivne_ind", "gapam_ind", "shnui_zeva_ind", "shinui_zmig_ind"].filter(k => yes(v[k]));
     add(mods.length ? "warn" : "ok", mods.length ? "נרשמו שינויים ברכב" : "לא נרשמו שינויי מבנה, צבע או גפ״מ");
@@ -5216,7 +5260,7 @@ function buyerCard(D){
   if (!reportBuild && D.plate && !bcSeen.has(D.plate)) { bcSeen.add(D.plate); track("buy_card_open", {locked: PRO_LOCK && !isPro() ? 1 : 0}); }
   const v = D.v, flags = [], qs = [];
   if (D.recalls.length) { flags.push(["bad", D.recalls.length === 1 ? "ריקול פתוח" : `${D.recalls.length} ריקולים פתוחים`]); qs.push("האם הריקול תוקן? כדאי לבקש אישור תיקון מהיבואן."); }
-  if (freshRecalls(D).length) { flags.push(["warn", "ייתכן ריקול חדש לדגם, עוד בלי פירוט לפי רכב"]); qs.push("האם הרכב נכלל בריקול החדש לדגם? אפשר לבדוק באתר היבואן לפי מספר הרישוי."); }
+  const pr = pendingRecalls(D); if (pr.length) { const pw = pendingWords(pr); flags.push(["warn", pw.line]); qs.push(pw.ask); }
   for (const i of buildInsights(D)) if (i.level === "bad" || i.level === "warn") flags.push([i.level, i.title]);
   const dtk = driveType(D);
   if (dtk && ["ev", "phev", "hybrid"].includes(dtk.k)) qs.unshift("עד מתי ועד כמה ק״מ יש אחריות יצרן על הסוללה?", "אפשר לעשות ביטוח לסוללה או להאריך את האחריות, ובכמה זה עולה?", ...(dtk.k === "hybrid" ? [] : ["יש דוח בדיקת בריאות סוללה?"]));

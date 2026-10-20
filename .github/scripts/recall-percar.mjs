@@ -1,7 +1,9 @@
 // The ministry's per-car list of unfixed cars (36bf1404) read two ways, for catalog-build.mjs (the app reads both from the catalogue) and recall-health.mjs:
 //  1. how far it reaches into the recall list (2c33523f). It can lag: in 10/2026 it held recalls opened up to 14.4.2026 (RECALL_ID 16576) while the recall
 //     list ran to 16821, and a recall opened in the months before that was often not in it yet (2026 recalls: 37% in it, 2024 and 2025: 55-57%). For such a
-//     recall the list says nothing about a plate: the app says "not yet known if this car is included", never "not open on this car".
+//     recall the list says nothing about a plate: the app says "not yet known if this car is included", never "not open on this car". Many recalls are never
+//     in it at all, old ones too (35-65% of each year's recalls on 20.10.2026: all fixed, no Israeli cars, or not published, the data cannot tell), so the
+//     catalogue also lists every recall it holds (meta.recIn, the keys of info) and the app reads a recall outside it as unknown for any plate (recallReach).
 //  2. which models and years each recall holds: every plate in it looked up in the active and inactive registers. A recall that holds cars of a model and
 //     year applies to that year whatever the recall list's free text says (the text often leaves a model out, or gives a build range that misses years),
 //     and 411 of its 1,916 recalls were not in the recall list at all (19.10.2026). Counts only; no plate leaves this module.
