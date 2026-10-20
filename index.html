@@ -2315,7 +2315,7 @@ function simpleCard(D){
     ["יצרן", D.make], ["דגם", D.model], ["שנת ייצור", v.shnat_yitzur], ["רמת גימור", pick(v.ramat_gimur, w.ramat_gimur)], ["צבע", v.tzeva_rechev],
     ["סוג דלק", pick(v.sug_delek_nm, w.delek_nm)], ["נפח מנוע", posN(pick(v.nefach_manoa, w.nefah_manoa)) && fmtN(pick(v.nefach_manoa, w.nefah_manoa)) + " סמ״ק"], ["כוח", posN(w.koah_sus) ? fmtN(w.koah_sus) + " כ״ס" : ""],
     ["הנעה", pick(v.hanaa_nm, w.hanaa_nm)], ["תיבת הילוכים", gear], ["מרכב", w.merkav], ["מושבים", pick(w.mispar_moshavim, v.mispar_mekomot)], ["דלתות", w.mispar_dlatot],
-    ["עלה לכביש", v.moed_aliya_lakvish], ["סוג יבוא", D.importKind], ["יבואן", importerOf(D)], ["בעלות נוכחית", v.baalut], ["בעלות ראשונה", firstOwner(v)], ["מספר בעלים", own],
+    ["עלה לכביש", empty(v.moed_aliya_lakvish) ? "" : fmtDate(v.moed_aliya_lakvish)], ["סוג יבוא", D.importKind], ["יבואן", importerOf(D)], ["בעלות נוכחית", v.baalut], ["בעלות ראשונה", firstOwner(v)], ["מספר בעלים", own],
     ["טסט אחרון", !noTestFor(D) && toDate(v.mivchan_acharon_dt) ? fmtDate(v.mivchan_acharon_dt) : ""], ["טסט בתוקף עד", !noTestFor(D) && toDate(v.tokef_dt) ? fmtDate(v.tokef_dt) : ""], ["ק״מ בטסט האחרון", D.km ? fmtN(D.km) : ""],
     ["ריקולים פתוחים", D.recallUnknown ? "לא זמין כרגע" : D.recalls.length ? String(D.recalls.length) : "לא נמצאו"], ["תג נכה", D.tag ? "יש" : ""], ["מספר שלדה", vin, vin],
   ];
