@@ -1373,13 +1373,16 @@ function driveType(D){
   if (/גפ"?מ|גז/.test(fuel)) return {k: "lpg", label: "גפ״מ"};
   return fuel ? {k: "petrol", label: "בנזין"} : null;
 }
+const PLUGIN_FUEL = "ברכב פלאג-אין נתוני הפליטה הרשמיים משקללים נסיעה על חשמל, ולכן המאגר לא נותן צריכת דלק אמיתית. הצריכה תלויה בכמה טוענים את הרכב, ולכן אין כאן הערכת צריכה ועלות דלק.";
 function costs(D){
   const c = {};
-  const kind = fuelKind(D);
+  const kind = fuelKind(D), plugIn = (driveType(D) || {}).k === "phev";
   const co2 = isNum(D.w.CO2_WLTP) && num(D.w.CO2_WLTP) > 0 ? num(D.w.CO2_WLTP) : isNum(D.w.kamut_CO2) && num(D.w.kamut_CO2) > 0 ? num(D.w.kamut_CO2) : null;
   const kmYear = D.kmPerYear && D.kmPerYear > 2000 ? D.kmPerYear : AVG_KM_YEAR;
-  c.kmYear = kmYear; c.kmFromCar = !!(D.kmPerYear && D.kmPerYear > 2000); c.kind = kind;
-  if (co2 && kind !== "ev") {
+  c.kmYear = kmYear; c.kmFromCar = !!(D.kmPerYear && D.kmPerYear > 2000); c.kind = kind; c.plugIn = plugIn;
+  // a plug-in's official CO2 weighs in the distance it drives on electricity (most plug-in rows are under 60 g/km), so litres read from it
+  // would be 1-2 per 100 km: the data gives no real consumption for plug-ins, and no fuel figure is made up for them
+  if (co2 && kind !== "ev" && !plugIn) {
     c.l100 = co2 / (kind === "diesel" ? 26.4 : 23.2);
     c.litres = c.l100 * kmYear / 100;
     const price = num(setting(kind === "diesel" ? "dieselPrice" : "fuelPrice", String(fuelDefault(kind))));
@@ -1441,8 +1444,9 @@ function costs(D){
     // value lost over the coming year: a model is bought new, so its steeper first year counts
     c.deprYear = D.kind === "model" ? num(D.price.mehir) * (1 - y1) : mid * (1 - yr * (ageY + 1 > VAL_LATE_FROM ? VAL_LATE : 1));
   }
-  // one monthly figure: energy, licence fee and loss of value (insurance and servicing are not in the data)
-  if (c.fuelYear || c.fee || c.deprYear) {
+  // one monthly figure: energy, licence fee and loss of value (insurance and servicing are not in the data); none for a plug-in, whose sum
+  // without energy would read cheaper than it is
+  if (!plugIn && (c.fuelYear || c.fee || c.deprYear)) {
     const parts = [["דלק", c.fuelYear, "#5b7bd5"], ["אגרה", c.fee, "#8e7cc3"], ["ירידת ערך", c.deprYear, "#c9a25a"]].filter(x => x[1] > 0);
     if (kind === "ev" && parts[0] && parts[0][0] === "דלק") parts[0][0] = "חשמל";
     if (parts.length >= 2) c.monthly = {total: Math.round(parts.reduce((t, x) => t + x[1], 0) / 12 / 10) * 10, parts: parts.map(([k, v, col]) => [k, Math.round(v / 12 / 10) * 10, col])};
@@ -2993,7 +2997,7 @@ function tabCosts(D){
         <div><div class="k">${c.fuelYear ? "עלות דלק בשנה" : "ליטרים בשנה"}</div><div class="v">${c.fuelYear ? fmtN(Math.round(c.fuelYear / 100) * 100) : fmtN(Math.round(c.litres))}<span class="u">${c.fuelYear ? "₪" : "ליטר"}</span></div></div>
       </div>
       <p class="note">נסיעה אמיתית צורכת בדרך כלל יותר מהנתון הרשמי.${c.kind === "diesel" && !c.fuelPrice ? " כדי לראות עלות בשקלים, הגדירו מחיר סולר בהגדרות." : " אפשר לשנות את מחיר הדלק בהגדרות."}</p>` :
-    `<p style="margin:0">אין במאגר נתוני פליטה לדגם הזה, ולכן אין הערכת צריכה.</p>`;
+    `<p style="margin:0">${c.plugIn ? PLUGIN_FUEL : "אין במאגר נתוני פליטה לדגם הזה, ולכן אין הערכת צריכה."}</p>`;
   if (c.monthly) {
     const m = c.monthly;
     html.push(card("כמה הרכב עולה בחודש (הערכה)", "tag", "blue", `<div class="month-big">כ-${fmtN(m.total)} ₪ <small>בחודש</small></div>
@@ -3007,7 +3011,7 @@ function tabCosts(D){
   const noteOf = (name, txt) => `<p style="margin:0"><b>${name}:</b> ${txt}</p>`;
   const foldNone = [noFuel, noFee, noUsage].filter(Boolean).length >= 2;
   if (foldNone) {
-    if (noFuel) none.push(noteOf("דלק", "אין במאגר נתוני פליטה לדגם הזה, ולכן אין הערכת צריכה."));
+    if (noFuel) none.push(noteOf("דלק", c.plugIn ? PLUGIN_FUEL : "אין במאגר נתוני פליטה לדגם הזה, ולכן אין הערכת צריכה."));
     if (noFee) none.push(noteOf("אגרת רישוי", "לא נמצאה קבוצת אגרה לרכב הזה. ההערכה זמינה לרכב פרטי בלבד."));
     if (noUsage) none.push(noteOf("שווי שימוש (רכב צמוד)", "אין מספיק נתונים לחישוב לרכב הזה (החישוב כאן לרכב פרטי שעלה לכביש מ-2010)."));
   }
@@ -3948,8 +3952,9 @@ function renderCompare(){
     ["עלות חודשית (הערכה)", D => D.cost.monthly ? D.cost.monthly.total : null, "lo", "₪"],
     ["מחיר מחירון כחדש", D => D.cost.newPrice || null, null, "₪"],
     ["שווי משוער היום", D => D.cost.valueLow ? Math.round((D.cost.valueLow + D.cost.valueHigh) / 2000) * 1000 : null, null, "₪"],
-    // one consumption row for every drive type (a petrol car has no kWh and an EV no litres), and one cost row in shekels that compares them fairly
-    ["צריכת אנרגיה (הערכה)", D => D.cost.kwh100 ? `${D.cost.kwh100} קוט״ש ל-100 ק״מ` : D.cost.l100 ? (kmlUnit() ? `${Math.round(1000 / D.cost.l100) / 10} ק״מ לליטר` : `${Math.round(D.cost.l100 * 10) / 10} ל׳ ל-100 ק״מ`) : null, null, "", true],
+    // one consumption row for every drive type (a petrol car has no kWh and an EV no litres), and one cost row in shekels that compares them fairly;
+    // a plug-in has neither (its official figure weighs in electric driving)
+    ["צריכת אנרגיה (הערכה)", D => D.cost.plugIn ? "אין נתון לפלאג-אין" : D.cost.kwh100 ? `${D.cost.kwh100} קוט״ש ל-100 ק״מ` : D.cost.l100 ? (kmlUnit() ? `${Math.round(1000 / D.cost.l100) / 10} ק״מ לליטר` : `${Math.round(D.cost.l100 * 10) / 10} ל׳ ל-100 ק״מ`) : null, null, "", true],
     ["עלות אנרגיה ל-100 ק״מ (הערכה)", D => D.cost.fuelYear && D.cost.kmYear ? Math.round(D.cost.fuelYear / D.cost.kmYear * 1000) / 10 : null, "lo", "₪", true],
     [OK.some(D => D.cost.kind === "ev") ? "דלק או חשמל בשנה (הערכה)" : "דלק בשנה (הערכה)", D => D.cost.fuelYear ? Math.round(D.cost.fuelYear / 100) * 100 : null, "lo", "₪"],
     ["אגרת רישוי (הערכה)", D => D.cost.fee || null, "lo", "₪"],
@@ -4002,6 +4007,7 @@ function renderCompare(){
     ${mixNote}${simHtml}
     ${n ? `<div class="cmp"><div class="ph"></div>${L.map(head).join("")}</div>` : ""}
     ${n ? `<div class="cmp-table">${body}</div>` : ""}
+    ${OK.some(D => D.cost && D.cost.plugIn) ? `<p class="note">ברכב פלאג-אין המאגר לא נותן צריכת דלק אמיתית, ולכן אין לו כאן הערכת צריכה ועלות אנרגיה.</p>` : ""}
     ${n > 1 ? `<p class="note">מודגש עם נקודה = הערך העדיף בשורה.</p>` : ""}</section>`;
 }
 
