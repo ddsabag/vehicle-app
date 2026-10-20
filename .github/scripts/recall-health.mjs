@@ -1,8 +1,9 @@
 // The recall watchdog: after every catalogue build it mends what the build lost, checks that the app's recall answers still hold, and writes a
 // Telegram line only when something needs a person (state next to the catalogue on the catalog-data branch, as catalog-rules.mjs keeps its own):
 //  0. mends, from the catalogue published the day before (the catalog-data branch): a day the ministry's per-car list could not be read (no meta.recHz),
-//     its reach and what it ties to models (l, and the recalls only it holds, in x) are taken from the files of the day before; a maker that had a recall
-//     file and has none today keeps the one of the day before. The app answers as the day before; a line comes only when that lasts MEND_DAYS builds.
+//     its reach, the recalls it holds (recIn) and what it ties to models (l, and the recalls only it holds, in x) are taken from the files of the day
+//     before; a maker that had a recall file and has none today keeps the one of the day before. The app answers as the day before; a line comes only
+//     when that lasts MEND_DAYS builds.
 //  1. how far the ministry's per-car list of unfixed cars reaches (meta.recHz, recall-percar.mjs). In 10/2026 it stood at recalls opened up to 14.4.2026
 //     while the recall list went on; the app then says "not yet known" for the newer recalls. A line when it stalls or moves on.
 //  2. every recall row new since the last run, run through the app's own matcher (app-matcher.mjs, from index.html) against every catalogue model-year
@@ -69,6 +70,7 @@ else {
     }));
     const max = [...files.values()].reduce((m, j) => all(j).reduce((a, r) => Math.max(a, Number(r.RECALL_ID) || 0), m), pm.recHz.max || 0);
     meta.recHz = {...pm.recHz, max, u: pm.recHz.u || pm.u}; changed = true;
+    if (pm.recIn && !meta.recIn) meta.recIn = pm.recIn;   // which recalls the list holds at all, as read that day
     carry.hz = (was.hz || 0) + 1;
     console.log(`per-car list not read in this build: its reach and links as read on ${meta.recHz.u} (${mended} recall files mended)`);
   }

@@ -1,7 +1,8 @@
 // Builds the static model catalogue the comparison reads instead of querying the ministry live (0 requests to data.gov.il
 // when a model is picked or added). Published on the catalog-data branch (force-pushed, one commit) by catalog.yml.
 //   meta.json          {u, makers: {cd: {n: maker name, m: [model names as the register spells them], r: rows, y: [[first, last production year] per name in m]}}, rec: [maker codes with recalls],
-//                      recHz: how far the ministry's per-car list of unfixed cars reaches {id, d, from, ids, n, max: newest RECALL_ID of the recall list} (recall-percar.mjs)}
+//                      recHz: how far the ministry's per-car list of unfixed cars reaches {id, d, from, ids, n, max: newest RECALL_ID of the recall list} (recall-percar.mjs),
+//                      recIn: every RECALL_ID that list holds, sorted (a recall outside it has no car list at all, so the app never reads it as "not open on this car")}
 //   c/<cd>.json        maker index {u, cd, n, eretz, tozar, cols, imp: {n: brand importer, c: its cars on the road, share}, models: {name: [file, rows, firstYear, lastYear]},
 //                      degems: {"P|degem_cd": file, "M|degem_cd": file, degem_cd: file}} (the ministry numbers private and commercial models apart)
 //   c/<cd>/<file>.json {u, rows: [[...]]}  the catalogue lines of one model name (file = stable hash of the name, so a cached index never points at the wrong file): the WLTP fields the app shows (the maker columns hoisted
@@ -111,11 +112,12 @@ try {
 if (recN < 100) throw new Error("recall list implausibly small: " + recN);
 // the per-car list of unfixed cars (recall-percar.mjs): how far it reaches, and the models and years each recall holds. Without it the app falls back to
 // the horizon it was built with and to the recall list's free text alone.
-let pc = null, recHz = null;
+let pc = null, recHz = null, recIn = null;
 try {
   pc = await perCarRecalls(scan, log);
   const {id, d, from, ids, n} = pc.hz;
   recHz = {id, d, from, ids, n, max: [...recByBrand.values()].flat().reduce((m, r) => Math.max(m, Number(r.RECALL_ID) || 0), 0)};
+  recIn = [...pc.info.keys()].sort((a, b) => a - b);   // about 1,900 numbers (11 KB): 35-65% of every year's recalls are not in the list at all (20.10.2026)
   log(`per-car list: ${pc.found} of ${pc.plates} plates in the registers; newest recall ${id} (${d}), ${ids.length} of its recalls from ${from} on; recall list to ${recHz.max}`);
 } catch (e) { log("per-car list FAILED: " + e.message); pc = null; }
 // register brand (tozar, Hebrew) -> recall brands (TOZAR_TEUR); brands with no entry have no recalls in the list (checked 17.10.2026 against all 84 recall brands)
@@ -203,5 +205,5 @@ log("register brands with no recall map entry (fine when the brand has no recall
 const mappedBrands = new Set([...Object.values(BRANDS), ...Object.values(BRANDS_MORE)].flat()), unusedBrands = [...recByBrand.keys()].filter(b => !mappedBrands.has(b));
 log("recall brands in the list with no register brand (motorcycles, trucks, or a map entry to add): " + unusedBrands.join(", "));
 for (const [cd, {rows, x, l}] of rec) fs.writeFileSync(`${OUT}/r/${cd}.json`, JSON.stringify({u, rows, ...(x.length ? {x} : {}), ...(l ? {l} : {})}));
-fs.writeFileSync(`${OUT}/meta.json`, JSON.stringify({u, rows: total, recalls: recN, makers, rec: [...rec.keys()], ...(recHz ? {recHz} : {})}));
+fs.writeFileSync(`${OUT}/meta.json`, JSON.stringify({u, rows: total, recalls: recN, makers, rec: [...rec.keys()], ...(recHz ? {recHz} : {}), ...(recIn ? {recIn} : {})}));
 log(`written: ${byMaker.size} makers, ${files} model files (${Math.round(bytes / 1e6 * 10) / 10} MB, biggest ${biggest[0]} ${Math.round(biggest[1] / 1e3)} KB), ${rec.size} recall files for ${[...new Set([...rec.keys()].map(cd => brandOf.get(cd)))].length} brands, meta ${Math.round(fs.statSync(OUT + "/meta.json").size / 1e3)} KB`);

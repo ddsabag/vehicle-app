@@ -8,9 +8,10 @@
 //                                        PREV_STATE = last week's state.json, NEXT_FILE = settlements.json on next (its `checked` date counts too)
 //   node settlements.mjs tell <old> <new>   one Telegram line (alert router, day) naming what a push to main added, changed or removed
 //   node settlements.mjs selftest        offline
-// Entry fields (index.html stlCompile has the matching): id, mk, md, not, y, m [{md, not, y}], color, fuel, nofuel, txt, cc, ccAny, age, nocat (a model
-// the private-car catalogue does not hold, e.g. a pickup: no coverage warning), t, b, cond, st (ok | wait = waits for court approval), until, url, low
-// (from the press only). The file's `checked` is the date of the last weekly review, even one that changed nothing.
+// Entry fields (index.html stlCompile has the matching): id, mk, md, not, y, m [{md, not, y}], color, fuel, nofuel, txt, cc, ccAny, age, made (the
+// maker's name with its country as the register writes it, e.g. קיה סלובקיה), nocat (a model the private-car catalogue does not hold, e.g. a pickup:
+// no coverage warning), t, b, cond, st (ok | wait = waits for court approval), until, url, low (from the press only: the card adds "ההתאמה לרכב הזה
+// פחות ודאית", so cond does not say it). The file's `checked` is the date of the last weekly review, even one that changed nothing.
 import fs from "node:fs";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
@@ -30,8 +31,8 @@ export function appCompile(html = fs.readFileSync(path.join(ROOT, "index.html"),
 }
 
 // ---- 1. the file ----
-const KEYS = new Set(["id", "mk", "md", "not", "y", "m", "color", "fuel", "nofuel", "txt", "cc", "ccAny", "age", "nocat", "t", "b", "cond", "st", "until", "url", "low"]);
-const PAT = ["mk", "md", "not", "color", "fuel", "nofuel", "txt"];
+const KEYS = new Set(["id", "mk", "md", "not", "y", "m", "color", "fuel", "nofuel", "txt", "cc", "ccAny", "age", "made", "nocat", "t", "b", "cond", "st", "until", "url", "low"]);
+const PAT = ["mk", "md", "not", "color", "fuel", "nofuel", "txt", "made"];
 const yOk = y => Array.isArray(y) && y.length === 2 && y.every(Number.isInteger) && y[0] >= 1990 && y[0] <= y[1] && y[1] <= 2040;
 // mk and md are tested on normS names (capitals, digits and Hebrew letters only): a lower-case letter, a space or a dash outside the pattern syntax never matches
 const deadChars = p => /[a-z \-]/.test(String(p).replace(/\\[a-zA-Z]|\(\?<?[=!]|\[[^\]]*\]/g, ""));
@@ -72,6 +73,7 @@ export function validate(j, stlCompile){
       else if (/[<>]/.test(e[k])) add(id, `${k} has < or >`);
     }
     if (typeof e.t === "string" && e.t.length > 90) add(id, "t is longer than 90 characters");
+    if (e.low && /פחות ודאית/.test(e.cond || "")) add(id, "cond says the match is less certain, which low already adds");
     if (!["ok", "wait"].includes(e.st)) add(id, "st must be ok or wait");
     if (!realDate(e.until)) add(id, "until is not a YYYY-MM-DD date");
     if (typeof e.url !== "string" || !/^https:\/\/[^\s"<>]+$/.test(e.url)) add(id, "url must be an https link");
@@ -93,7 +95,7 @@ export function coverage(items, rows, stlCompile, prevSnap = {}, on = today()){
     const names = new Set();
     for (const [mk0, md0, y0, y1] of rows) {
       const mk = normS(mk0), md = normS(md0);
-      if (!s.mk.test(mk) || s.md && !s.md.test(md) || e.not && new RegExp(e.not).test(md) || !over(e.y, y0, y1) || !over(aged, y0, y1)) continue;
+      if (!s.mk.test(mk) || s.md && !s.md.test(md) || e.not && new RegExp(e.not).test(md) || !over(e.y, y0, y1) || !over(aged, y0, y1)) continue;   // made is not tested: the catalogue's maker names drop the country
       if (!alts.some(a => (!a.md || new RegExp(a.md).test(md)) && (!a.not || !new RegExp(a.not).test(md)) && over(a.y, y0, y1))) continue;
       names.add(md0);
     }
@@ -247,6 +249,26 @@ function selftest(){
   ok(v({st: "approved"}).length === 1, "unknown status is caught");
   ok(v({m: [{y: [2010, 2012]}]}).length === 1, "m alternative without md/not is caught");
   ok(validate({updated: "2026-10-19", items: [base, base]}, stlCompile).length === 1, "duplicate id is caught");
+  ok(v({made: "סלובקיה"}).length === 0 && v({made: "סלובקיה("}).length >= 1, "made is a pattern");
+  ok(v({low: true, cond: "תנאים. ההתאמה לרכב הזה פחות ודאית."}).length === 1, "cond repeating what low adds is caught");
+  // the matching, as settlementsFor in index.html runs it on the page's car (the until date aside)
+  const fit = (s, mk, car) => { const y = num(car.shnat_yitzur), x = {mk: normS(mk), md: normS([car.kinuy_mishari, car.degem_nm].join(" "))}; return !!s && s.mk.test(x.mk) && (!s.md || s.md.test(x.md)) && (!s.y || y >= s.y[0] && y <= s.y[1]) && (!s.ok || s.ok(car, y, x)); };
+  const sk = stlCompile({...base, mk: "קיה", md: "SPORTAGE", made: "סלובקיה"}), sp = {kinuy_mishari: "SPORTAGE", shnat_yitzur: 2017};
+  ok(fit(sk, "קיה", {...sp, tozeret_nm: "קיה סלובקיה"}) && !fit(sk, "קיה", {...sp, tozeret_nm: "קיה ד. קוריאה"}) && fit(sk, "קיה", sp), "made: the factory's country decides, a car without the maker's name passes");
+  // the file's own entries on the register's spellings (each runs while its entry is in the file)
+  const live = id => { const e = j.items.find(x => x.id === id); return e ? stlCompile(e) : null; }, has = (id, mk, car) => fit(live(id), mk, car);
+  if (live("honda-oil") && live("honda-oil-typer")) {
+    for (const [k, y] of [["CIVIC 5D", 2019], ["CIVIC", 2023], ["CIVIC TYPE R", 2022]]) {
+      const tr = {kinuy_mishari: k, ramat_gimur: "TYPE R", sug_delek_nm: "בנזין", nefach_manoa: 1996, shnat_yitzur: y};
+      ok(has("honda-oil-typer", "הונדה", tr) && !has("honda-oil", "הונדה", tr), `a Civic Type R (${k}, ${y}) takes its own entry only`);
+    }
+    const civic = {kinuy_mishari: "CIVIC", ramat_gimur: "SPORT", sug_delek_nm: "בנזין", shnat_yitzur: 2019};
+    ok(has("honda-oil", "הונדה", civic) && !has("honda-oil-typer", "הונדה", civic), "a Civic 1.5 takes honda-oil only");
+  }
+  if (live("audi-etron")) ok(has("audi-etron", "אאודי", {kinuy_mishari: "ETRON", shnat_yitzur: 2020}) && !has("audi-etron", "אאודי", {kinuy_mishari: "E-TRON GT", shnat_yitzur: 2021}) && !has("audi-etron", "אאודי", {kinuy_mishari: "20I VALVETRONIC", shnat_yitzur: 2020}), "e-tron: not the GT, not a 20I VALVETRONIC engine name");
+  if (live("mazda-screen")) for (const k of ["MAZDA 3", "MAZDA3", "MAZDA3-SPORT", "MAZDA3 SPORT", "MAZDA 3 SPORT"]) ok(has("mazda-screen", "מזדה", {kinuy_mishari: k, shnat_yitzur: 2018}) && !has("mazda-screen", "מזדה", {kinuy_mishari: k, shnat_yitzur: 2016}), `mazda-screen reads "${k}" as a Mazda 3 (2017 on)`);
+  if (live("kia-sport-lamp")) ok(has("kia-sport-lamp", "קיה", {kinuy_mishari: "SPORTAGE", shnat_yitzur: 2017, tozeret_nm: "קיה סלובקיה"}) && !has("kia-sport-lamp", "קיה", {kinuy_mishari: "SPORTAGE", shnat_yitzur: 2017, tozeret_nm: "קיה ד. קוריאה"}), "kia-sport-lamp: a Sportage built in Slovakia only");
+  if (live("sub-cvt")) ok(!has("sub-cvt", "סובארו", {kinuy_mishari: "FORESTER", shnat_yitzur: 2012}), "sub-cvt: a 2012 Subaru is past the 10 years");
   const rows = [["מאזדה יפן", "CX-5", 2017, 2026], ["מאזדה יפן", "CX-50", 2023, 2026], ["מאזדה יפן", "CX-30", 2020, 2026], ["יונדאי קוריאה", "I30", 2010, 2020], ["ב.מ.וו גרמניה", "X5 3.0D", 2008, 2012], ["מאזדה יפן", "מאזדה 323", 1995, 2003]];
   const c = coverage([{...base, id: "mz", mk: "מאזדה", md: "CX5"}, {...base, id: "mz2", mk: "מאזדה", md: "CX5(?!0)"}, {...base, id: "none", md: "I40"}, {...base, id: "old", until: "2020-01-01"}, {...base, id: "pick", mk: "שברולט", md: "SILVERADO", nocat: true}, {...base, id: "bmw", mk: "במוו|BMW", md: "X5"}, {...base, id: "m3", mk: "מאזדה", md: "מאזדה3", y: [1995, 2003]}, {...base, id: "m3a", mk: "מאזדה", md: "מאזדה3", age: 6}], rows, stlCompile, {mz2: ["CX-5"], "x-a": []}, "2026-10-19");
   ok(c.longer.join() === "mz: CX-50,m3: מאזדה 323", "CX5 taking CX-50 and מאזדה3 taking 323 are flagged, X5 3.0D is not: " + c.longer);
