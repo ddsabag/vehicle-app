@@ -1367,7 +1367,10 @@ function costs(D){
     const [y1, yr] = ev ? [0.80, 0.88] : lux ? [0.78, 0.90] : cheap ? [0.90, 0.91] : [0.87, 0.90];
     const factor = (ageY < 1 ? 1 - (1 - y1) * ageY : y1 * Math.pow(yr, ageY - 1)) * Math.pow(VAL_LATE, Math.max(0, ageY - VAL_LATE_FROM));
     const tier = brandTier(D, ev);
-    const base = num(D.price.mehir) * factor * tier.k;
+    // the maker factors were measured on cars aged 5-14: a car a few months old sells near any new car of its price, so its maker's factor comes in over
+    // the first 3 years (in full from day one, a 4-month-old ₪150,000 Corolla read 151-180 thousand and a French car lost 30% on its first day)
+    const k = 1 + (tier.k - 1) * Math.min(1, ageY / 3);
+    const base = num(D.price.mehir) * factor * k;
     const adj = [];
     // first ownership: the registry's "מקוריות" field; failing that the oldest ownership record, unless the log
     // starts after the car's first years (it begins in 2017), when that record may not be the first owner
@@ -1388,11 +1391,13 @@ function costs(D){
       const pct = Math.round(Math.max(-8, Math.min(6, -diff / 10000 * 1.5)));
       if (Math.abs(pct) >= 1) adj.push([pct, `ק״מ: ${fmtN(Math.round(Math.abs(diff) / 1000) * 1000)} ${diff > 0 ? "מעל" : "מתחת"} ${typ ? "לממוצע הדגם והשנתון" : "לממוצע לגיל הרכב"}`]);
     }
-    const mid = adj.reduce((v, [p]) => v * (1 + p / 100), base);
-    c.newPrice = num(D.price.mehir); c.age = age; c.baseValue = Math.round(base / 1000) * 1000; c.adj = adj;
+    const top = num(D.price.mehir), mid = Math.min(top, adj.reduce((v, [p]) => v * (1 + p / 100), base));   // never above the list price of the row it comes from
+    c.newPrice = top; c.age = age; c.baseValue = Math.round(base / 1000) * 1000; c.adj = adj;
     // the range widens with age (old cars spread more: condition counts more than the year) and when the mileage or the first owner is unknown
     const r = tier.r + Math.min(0.10, Math.max(0, ageY - 4) * 0.01) + (D.km && D.kmYears ? 0 : 0.04) + (first.k === "other" ? 0.02 : 0);
-    c.valueLow = Math.round(mid * (1 - r) / 1000) * 1000; c.valueHigh = Math.round(mid * (1 + r) / 1000) * 1000; c.tierK = tier.k; c.range = r;
+    // no value for a model (no registration date, owners or mileage: it read 110-115% of its list price) or for a car off the road (no market)
+    if (D.kind !== "model" && !D.isCancelled) { c.valueLow = Math.round(mid * (1 - r) / 1000) * 1000; c.valueHigh = Math.round(Math.min(top, mid * (1 + r)) / 1000) * 1000; }
+    c.tierK = k; c.range = r;
     // value lost over the coming year: a model is bought new, so its steeper first year counts
     c.deprYear = D.kind === "model" ? num(D.price.mehir) * (1 - y1) : mid * (1 - yr * (ageY + 1 > VAL_LATE_FROM ? VAL_LATE : 1));
   }
@@ -3062,11 +3067,11 @@ function tabBuy(D){
   const paid = tier("ב-PRO ובחבילת הקנייה", buyerCard(D));
   const entitled = !PRO_LOCK || isPro();
   if (entitled) html.push(paid);
-  html.push(card("שווי משוער", "tag", "pink", (c.newPrice ?
+  html.push(card("שווי משוער", "tag", "pink", (c.valueLow ?
     `<div class="tow-grid"><div><div class="k">מחיר מחירון כחדש</div><div class="v">${fmtN(c.newPrice)}<span class="u">₪</span></div></div><div><div class="k">שווי משוער היום</div><div class="v"><span dir="ltr" style="unicode-bidi:isolate;white-space:nowrap">${Math.round(c.valueLow / 1000)}–${Math.round(c.valueHigh / 1000)}</span><span class="u">אלף ₪</span></div></div></div>
      
      <p class="note">הערכה בלבד. היא לא מביאה בחשבון את מצב הרכב, תאונות והביקוש לדגם.</p>` :
-    `<p style="margin:0">אין במאגר מחיר מחירון לדגם הזה, ולכן אין הערכת שווי.</p>`)));
+    `<p style="margin:0">${D.isCancelled ? "הרכב ירד מהכביש, ולכן אין לו הערכת שווי." : "אין במאגר מחיר מחירון לדגם הזה, ולכן אין הערכת שווי."}</p>`)));
   html.push(`<div id="mstat">${msCard(D)}</div>`);
   html.push(checksCard(D));
   const lk = (url, icon, text, copy) => `<button type="button" class="link-btn" data-url="${esc(url)}"${copy ? ` data-copyfirst="${D.plate}"` : ""}>${ico(icon)}${text}</button>`;
@@ -3961,7 +3966,7 @@ function renderCompare(){
     "מחיר ועלויות",
     ["עלות חודשית (הערכה)", D => D.cost.monthly ? D.cost.monthly.total : null, "lo", "₪"],
     ["מחיר מחירון כחדש", D => D.cost.newPrice || null, null, "₪"],
-    ["שווי משוער היום", D => D.cost.valueLow ? Math.round((D.cost.valueLow + D.cost.valueHigh) / 2000) * 1000 : null, null, "₪"],
+    ["שווי משוער היום", D => D.cost.valueLow ? [D.cost.valueLow, D.cost.valueHigh] : null, null, "אלף ₪", false, true],   // the range, as on the car page: a model has none
     // one consumption row for every drive type (a petrol car has no kWh and an EV no litres), and one cost row in shekels that compares them fairly
     ["צריכת אנרגיה (הערכה)", D => D.cost.kwh100 ? `${D.cost.kwh100} קוט״ש ל-100 ק״מ` : D.cost.l100 ? (kmlUnit() ? `${Math.round(1000 / D.cost.l100) / 10} ק״מ לליטר` : `${Math.round(D.cost.l100 * 10) / 10} ל׳ ל-100 ק״מ`) : null, null, "", true],
     ["עלות אנרגיה ל-100 ק״מ (הערכה)", D => D.cost.fuelYear && D.cost.kmYear ? Math.round(D.cost.fuelYear / D.cost.kmYear * 1000) / 10 : null, "lo", "₪", true],
@@ -3980,7 +3985,8 @@ function renderCompare(){
       ["טסט בתוקף עד", D => D.v.tokef_dt ? fmtDate(D.v.tokef_dt) : "", null, "", false, true],
       ["בעלות ראשונה", D => firstOwner(D.v) || "", null, "", false, true]] : []),
   ];
-  const cell = (x, u, plain) => x === null ? "—" : typeof x === "boolean" ? (x ? `<span class="yes">✓</span>` : `<span class="no">✗</span>`) : typeof x === "number" ? `${plain ? x : fmtN(x)}${u ? ` <span class="u">${u}</span>` : ""}` : esc(x);
+  const cell = (x, u, plain) => x === null ? "—" : typeof x === "boolean" ? (x ? `<span class="yes">✓</span>` : `<span class="no">✗</span>`) : typeof x === "number" ? `${plain ? x : fmtN(x)}${u ? ` <span class="u">${u}</span>` : ""}`
+    : Array.isArray(x) ? `<span dir="ltr" style="unicode-bidi:isolate;white-space:nowrap">${Math.round(x[0] / 1000)}–${Math.round(x[1] / 1000)}</span>${u ? ` <span class="u">${u}</span>` : ""}` : esc(x);   // [low, high] in shekels
   // rows are grouped under their section; the long equipment list starts folded (the DOM stays small, the core numbers stay in view)
   const secs = []; let sec = null;
   for (const r of rows) {
@@ -5256,9 +5262,10 @@ const newSavedItem = D => ({plate: D.plate, title: D.title, sub: D.sub, at: Date
 function askVerdict(ask, fair){
   if (!ask || !fair) return null;
   const [lo, hi] = fair, r = x => fmtN(Math.round(x / 100) * 100) + " ₪";
-  if (ask > hi) return {k: "bad", s: "גבוה מהטווח", t: `המחיר המבוקש מעל ההערכה שלנו ב-${r(ask - hi)}. השוו למחירון ולמודעות דומות.`};
-  if (ask < lo) return {k: "ok", s: "נמוך מהטווח", t: `המחיר המבוקש מתחת להערכה שלנו ב-${r(lo - ask)}. כדאי לבדוק למה.`};
-  return {k: "ok", s: "בתוך הטווח", t: "המחיר המבוקש בתוך ההערכה שלנו"};
+  // the estimate is a range, so the price is measured from its nearer end, never from a single figure
+  if (ask > hi) return {k: "bad", s: "גבוה מהטווח", t: `המחיר המבוקש מעל הטווח המשוער, ב-${r(ask - hi)} מעל הקצה העליון שלו. השוו למחירון ולמודעות דומות.`};
+  if (ask < lo) return {k: "ok", s: "נמוך מהטווח", t: `המחיר המבוקש מתחת לטווח המשוער, ב-${r(lo - ask)} מתחת לקצה התחתון שלו. כדאי לבדוק למה.`};
+  return {k: "ok", s: "בתוך הטווח", t: "המחיר המבוקש בתוך הטווח המשוער"};
 }
 const bcSeen = new Set();   // the buyer card is counted once per car on screen, locked or not
 function buyerCard(D){
