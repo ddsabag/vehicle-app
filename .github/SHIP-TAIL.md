@@ -44,6 +44,8 @@ Every new version goes out in two words: "שחרר" (Alpha, above) and then, whe
 - sends it to the production track as a **staged rollout to 20%** of users, in one edit that is validated, committed (which sends it for review) and read back. The very first production release goes to all users (Google allows no staged rollout for it); its countries were chosen once in Play Console (Israel);
 - refuses, with one Telegram that says why, when the Alpha build is not above the one on production, a staged rollout is still running, a halted rollout is not older than the Alpha build, the Alpha release has no notes, Google rejected the build on Alpha, or the newest Alpha version is not the one named.
 
+When the owner asks for all users at once (no 20% step), the run takes `full=true`: the build goes to all users in one edit (status completed), with no staged rollout and so no automatic halt (the watch still tells a crash new in the build, and the fix is a new version). An older rollout that is still running is replaced by it, and the same build running at a fraction goes to 100% at once. Every other refusal above still holds.
+
 What follows is in Release watch (three times a day, by day), `play-production.mjs auto`:
 - while Google reviews the rollout (Play's release lifecycle state) nothing happens;
 - the first look at it published sends one Telegram and starts the 48 hours;

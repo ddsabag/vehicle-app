@@ -4,6 +4,8 @@
 //     newest Alpha release (its build, name and Hebrew notes) to the production track as a staged rollout to 20% of users, and sends it for
 //     review. The first production release goes to all users (Google allows no staged rollout for it; the countries are set once in Play
 //     Console). Never a version that is not above the one on Production, never over a rollout that is still running.
+//     FULL=1 (the owner asked for all users at once): the build goes to all users, no staged rollout and so no automatic halt; an older
+//     rollout that is still running is replaced by it, and the same build running at a fraction goes to 100% now.
 //   auto (release-watch.yml, after the watch): nothing while Google still reviews the rollout (Play's release lifecycle state). Once it is
 //     published: a crash or ANR that is NEW in its build (found by the watch after the rollout was sent) halts it at once; 48 hours after
 //     it was first seen published with no such issue, it goes to 100%. The first look at it published sends one Telegram and starts the 48 h
@@ -12,7 +14,7 @@
 // the commit. When Play does not answer clearly, nothing is committed (fail closed). Each step sends one Telegram (alert.mjs).
 // Node 20, node: builtins only. Commands:
 //   node play-production.mjs gate      SHIP_TAIL, EVENT, REF, INPUT_MODE -> output mode (on|dry|off)
-//   node play-production.mjs promote   SHIP_SA_JSON, MODE (on|dry), EVENT, RUN_URL, VERSION (optional: the version meant, e.g. 1.34)
+//   node play-production.mjs promote   SHIP_SA_JSON, MODE (on|dry), EVENT, RUN_URL, VERSION (optional: the version meant, e.g. 1.34), FULL (1 = all users)
 //   node play-production.mjs auto      SHIP_SA_JSON, MODE (on|dry), STATE (the watch's watch.json; mode on writes state.live back)
 //   node play-production.mjs selftest  offline (mocked fetch, virtual clock)
 import fs from "node:fs";
@@ -149,7 +151,8 @@ const WAITING = { IN_REVIEW: "in review at Google", APPROVED_NOT_PUBLISHED: "app
 
 // ---- what to do ----
 // promote: the newest completed Alpha release, onto a production track that already has a completed release and no rollout running
-export function planPromote(tracks, life = {}, want = "") {
+// (full: all users at once; an older rollout still running is replaced, and the same build running at a fraction goes to 100%)
+export function planPromote(tracks, life = {}, want = "", full = false) {
   const alpha = releasesOf(tracks, ALPHA).filter(r => r.status === "completed").sort((a, b) => top(b) - top(a))[0];
   const prod = releasesOf(tracks, PROD), live = prod.filter(r => r.status === "completed"), running = prod.find(r => r.status === "inProgress");
   const halted = prod.find(r => r.status === "halted"), base = Math.max(0, ...live.map(top));
@@ -158,14 +161,17 @@ export function planPromote(tracks, life = {}, want = "") {
   // "פרסם" names the version the owner means; a newer build that reached Alpha since is not sent in its place
   if (want && vn !== want) return { stop: "other", vn, he: `הגרסה החדשה ב-Alpha היא ${vn}, לא ${want}` };
   if (lifeOf(life[ALPHA], alpha) === "NOT_APPROVED") return { stop: "rejected", vn, he: `${vn} נדחתה בסקירה של Google ב-Alpha` };
-  if (running) return top(running) === top(alpha) ? { stop: "running", vn, he: `${vn} כבר בהפצה הדרגתית ב-Production` }
-    : { stop: "busy", vn, he: `${vname(running)} עדיין בהפצה הדרגתית ב-Production: קודם היא צריכה להגיע ל-100% או להיעצר` };
-  if (top(alpha) <= base) return { stop: "same", vn, he: `${vn} (versionCode ${top(alpha)}) לא חדשה מהגרסה שכבר ב-Production` };
+  if (running && top(running) === top(alpha)) return full ? { vn, vc: top(alpha), full: true, completes: true, release: clean(running, { status: "completed" }) }
+    : { stop: "running", vn, he: `${vn} כבר בהפצה הדרגתית ב-Production` };
+  if (running && !full) return { stop: "busy", vn, he: `${vname(running)} עדיין בהפצה הדרגתית ב-Production: קודם היא צריכה להגיע ל-100% או להיעצר` };
+  if (top(alpha) <= Math.max(base, top(running))) return { stop: "same", vn, he: `${vn} (versionCode ${top(alpha)}) לא חדשה מהגרסה שכבר ב-Production` };
   if (halted && top(halted) >= top(alpha)) return { stop: "paused", vn, he: `ההפצה של ${vname(halted)} עצורה ב-Production, ו-${vn} לא חדשה ממנה` };
   const notes = (alpha.releaseNotes || []).filter(n => n?.language && n?.text);
   if (!notes.length) return { stop: "notes", vn, he: `ל-${vn} ב-Alpha אין הערות שחרור` };
-  if (!live.length && !halted) return { vn, vc: top(alpha), first: true, release: { name: alpha.name, versionCodes: codes(alpha), status: "completed", releaseNotes: notes } };
-  return { vn, vc: top(alpha), release: { name: alpha.name, versionCodes: codes(alpha), status: "inProgress", userFraction: FRACTION, releaseNotes: notes }, replaces: halted ? vname(halted) : "" };
+  const release = { name: alpha.name, versionCodes: codes(alpha), status: "completed", releaseNotes: notes };
+  if (!live.length && !halted) return { vn, vc: top(alpha), first: true, release };
+  if (full) return { vn, vc: top(alpha), full: true, release, replaces: running ? vname(running) : halted ? vname(halted) : "", wasRunning: !!running };
+  return { vn, vc: top(alpha), release: { ...release, status: "inProgress", userFraction: FRACTION }, replaces: halted ? vname(halted) : "" };
 }
 // auto: the staged rollout on production (if any) and its review state, against what the watch found (state.issues: "<vc>:<issue>" -> first
 // found), when the watch first saw the rollout (state.seen["production:<vc>"], i.e. sent) and when this first saw it published (state.live)
@@ -270,13 +276,16 @@ export async function promote() {
       for (const t of [ALPHA, PROD]) try { life[t] = await lifecycle(ctx, t); } catch (e) { note(`the review state of ${t} could not be read: ${String(e?.why || e?.message || e).slice(0, 120)}`); }
       R.tracks = fmt(tracks, life);
       IO.out(`on Play: ${R.tracks}`);
-      const P = planPromote(tracks, life, String(IO.env.VERSION || "").trim().replace(/^v/i, ""));
+      const P = planPromote(tracks, life, String(IO.env.VERSION || "").trim().replace(/^v/i, ""), /^(1|true)$/i.test(String(IO.env.FULL || "").trim()));
       Object.assign(R, { vn: P.vn || "", vc: P.vc || 0 });
       if (P.stop) { IO.out(`not sent: ${P.stop}`); return { ...R, code: P.stop, why: P.he }; }
-      if (ctx.dry) { await probe(ctx, P.release, P.first ? "first" : "start"); IO.out(`dry run: would send ${P.vn} (${P.vc}) to ${PROD} ${P.first ? "for all users (the first production release)" : `at ${FRACTION * 100}%`}; Play accepted it in an edit that was then deleted`); return { ...R, code: "dry" }; }
-      await send(ctx, P.release, P.first ? "first" : "start");
-      IO.out(`sent: ${P.vn} (${P.vc}) to ${PROD} ${P.first ? "for all users (the first production release)" : `at ${FRACTION * 100}%`}, in review`);
-      return { ...R, code: "sent", replaces: P.replaces, first: !!P.first };
+      const kind = P.first ? "first" : P.full ? "full" : "start";
+      const how = P.first ? "for all users (the first production release)" : P.completes ? "at 100% now (it was running at a fraction)"
+        : P.full ? `for all users at once${P.replaces ? `, replacing ${P.replaces}` : ""}` : `at ${FRACTION * 100}%`;
+      if (ctx.dry) { await probe(ctx, P.release, kind); IO.out(`dry run: would send ${P.vn} (${P.vc}) to ${PROD} ${how}; Play accepted it in an edit that was then deleted`); return { ...R, code: "dry" }; }
+      await send(ctx, P.release, kind);
+      IO.out(`sent: ${P.vn} (${P.vc}) to ${PROD} ${how}${P.completes ? "" : ", in review"}`);
+      return { ...R, code: "sent", replaces: P.replaces, first: !!P.first, full: !!P.full, completes: !!P.completes, wasRunning: !!P.wasRunning };
     });
   } catch (e) { return failed(R, e); }
 }
@@ -331,6 +340,10 @@ export function compose(R, env = {}) {
   const v = `לוחית ${R.vn}`, vc = R.vc || "x";
   if (R.code === "sent" && R.first) return { key: `prod:sent:${vc}`, link: pc, text: `${v} נשלחה ל-Production לכל המשתמשים: זו ההפצה הראשונה, ו-Google לא מאפשרת בה הפצה הדרגתית. ` +
     `היא תתחיל אחרי אישור Google (בהפצה ראשונה זה יכול לקחת כמה ימים). מהגרסה הבאה, "פרסם" מתחיל ב-${FRACTION * 100}%.\n${pc}` };
+  if (R.code === "sent" && R.completes) return { key: `prod:full:${vc}`, link: pc, text: `${v} הועברה ל-100% מהמשתמשים ב-Production לפי בקשתך, בלי לחכות ${FULL_AFTER_H} שעות.\n${pc}` };
+  if (R.code === "sent" && R.full) return { key: `prod:sent:${vc}`, link: pc, text: `${v} נשלחה ל-Production לכל המשתמשים בבת אחת, לפי בקשתך` +
+    `${R.replaces ? `, במקום ${R.replaces}${R.wasRunning ? " שהייתה בהפצה הדרגתית" : " שההפצה שלה עצורה"}` : ""}. היא תתחיל אחרי אישור Google. ` +
+    `בהפצה לכולם אין עצירה אוטומטית: אם תופיע קריסה חדשה, תגיע הודעה מהמעקב, והתיקון הוא גרסה חדשה.\n${pc}` };
   if (R.code === "sent") return { key: `prod:sent:${vc}`, link: pc, text: `${v} נשלחה ל-Production בהפצה הדרגתית ל-${FRACTION * 100}% מהמשתמשים. היא תתחיל אחרי אישור Google.` +
     `${R.replaces ? ` היא מחליפה את ${R.replaces}, שההפצה שלה עצורה.` : ""} אם תופיע קריסה חדשה שלא הייתה בגרסאות הקודמות, ההפצה תיעצר לבד. אם לא, היא תגיע ל-100% כ-${FULL_AFTER_H} שעות אחרי שהמעקב יראה אותה.\n${pc}` };
   const pct = `${Math.round((R.fraction || FRACTION) * 100)}%`;
@@ -532,6 +545,47 @@ async function selftest() {
     // a halted older rollout is replaced by the new build
     W = await run({ tracks: T([{ ...A("1.35", 120), name: "120 (1.35)" }], [{ ...A("1.34", 115, "halted", { userFraction: 0.2 }), name: "115 (1.34)" }, A("1.33", 110)]) });
     ok(W.outputs.code === "sent" && W.puts[0].releases[0].versionCodes.join() === "120" && W.puts[0].releases[0].name === "120 (1.35)" && W.tg[0].text.includes("לוחית 1.35 נשלחה") && W.tg[0].text.includes("מחליפה את 1.34"), "promote over a halted older rollout, versions by name " + W.tg.map(x => x.text));
+  });
+
+  await group("promote full", async () => {
+    const FULL = { FULL: "1" }, only = (W, vc) => W.prod.length === 1 && W.prod[0].versionCodes.join() === vc && W.prod[0].status === "completed";
+    // an older rollout still running is replaced: the Alpha build to all users at once, with its notes
+    const BUSY = T([{ ...A("1.35", 120), name: "120 (1.35)" }], [{ ...A("1.34", 115, "inProgress", { userFraction: 0.2 }), name: "115 (1.34)" }, A("1.33", 110)]);
+    W = await run({ tracks: BUSY }, FULL);
+    ok(W.outputs.code === "sent" && W.code === 0 && committed(W) && W.puts.length === 1 && W.puts[0].releases.length === 1 && W.puts[0].releases[0].status === "completed" && !("userFraction" in W.puts[0].releases[0])
+      && W.puts[0].releases[0].versionCodes.join() === "120" && W.puts[0].releases[0].name === "120 (1.35)" && W.puts[0].releases[0].releaseNotes[0].text === NOTES[0].text && only(W, "120"),
+    "full: replaces the running rollout, all users " + JSON.stringify(W.puts) + JSON.stringify(W.prod));
+    ok(W.tg.length === 1 && W.tg[0].text.includes("לוחית 1.35 נשלחה ל-Production לכל המשתמשים בבת אחת") && W.tg[0].text.includes("במקום 1.34 שהייתה בהפצה הדרגתית") && !W.tg[0].text.includes("20%")
+      && W.printed.some(l => l.includes("for all users at once, replacing 1.34, in review")), "full: told " + W.tg.map(x => x.text) + W.printed.join(" | "));
+    W = await run({ tracks: BUSY });
+    ok(W.outputs.code === "busy" && !W.puts.length, "not full: the same picture stands down as before");
+    // nothing running: all users at once
+    W = await run({}, FULL);
+    ok(W.outputs.code === "sent" && W.puts[0].releases[0].status === "completed" && !("userFraction" in W.puts[0].releases[0]) && only(W, "115") && !W.tg[0].text.includes("במקום"), "full: nothing running " + JSON.stringify(W.prod) + W.tg.map(x => x.text));
+    // the same build running at a fraction goes to 100% now, with only the fields a release written here may carry
+    W = await run({ tracks: T([A("1.34", 115)], [A("1.34", 115, "inProgress", { userFraction: 0.2, releaseNotes: NOTES, countryTargeting: { countries: ["IL"], includeRestOfWorld: false } }), A("1.33", 110)]) }, FULL);
+    ok(W.outputs.code === "sent" && W.puts[0].releases[0].status === "completed" && !("userFraction" in W.puts[0].releases[0]) && !("countryTargeting" in W.puts[0].releases[0]) && W.puts[0].releases[0].releaseNotes
+      && only(W, "115") && W.tg[0]?.text.includes("הועברה ל-100%") && !W.printed.some(l => l.includes("in review")), "full: the same build running goes to 100% " + JSON.stringify(W.puts) + W.tg.map(x => x.text));
+    W = await run({ tracks: T([A("1.35", 120)], [A("1.34", 115, "halted", { userFraction: 0.2 }), A("1.33", 110)]) }, FULL);
+    ok(W.outputs.code === "sent" && W.puts[0].releases[0].status === "completed" && W.puts[0].releases[0].versionCodes.join() === "120" && W.tg[0]?.text.includes("במקום 1.34 שההפצה שלה עצורה"), "full: over a halted older rollout " + W.tg.map(x => x.text));
+    // the rules that still hold
+    for (const [name, tracks, env, code] of [["same", T([A("1.33", 110)], [A("1.33", 110)]), {}, "same"],
+      ["older than the running one", T([A("1.34", 115)], [A("1.35", 120, "inProgress", { userFraction: 0.2 }), A("1.33", 110)]), {}, "same"],
+      ["halted newer", T([A("1.34", 115)], [A("1.34", 115, "halted", { userFraction: 0.2 }), A("1.33", 110)]), {}, "paused"],
+      ["no notes", T([{ name: "1.35", versionCodes: ["120"], status: "completed" }], [A("1.34", 115, "inProgress", { userFraction: 0.2 }), A("1.33", 110)]), {}, "notes"],
+      ["another version", BUSY, { VERSION: "1.36" }, "other"], ["no alpha", T([A("1.35", 120, "draft")], [A("1.33", 110)]), {}, "no-alpha"]]) {
+      W = await run({ tracks }, { ...FULL, ...env });
+      ok(W.outputs.code === code && !W.puts.length && !committed(W) && W.tg[0]?.text.startsWith("לא נשלח ל-Production"), `full ${name}: ${W.outputs.code}`);
+    }
+    W = await run({ tracks: BUSY, life: { 120: "NOT_APPROVED" } }, FULL);
+    ok(W.outputs.code === "rejected" && !W.puts.length, "full: a build Google rejected on Alpha is not sent");
+    // dry: tried in an edit that is deleted, the running rollout untouched
+    W = await run({ tracks: BUSY }, { ...FULL, MODE: "dry" });
+    ok(W.outputs.code === "dry" && !committed(W) && W.puts.length === 1 && W.puts[0].releases[0].status === "completed" && W.tg.length === 0 && W.edits.size === 0
+      && W.printed.some(l => l.includes("would send 1.35 (120) to production for all users at once, replacing 1.34")) && W.prod.some(r => r.status === "inProgress"), "full dry: tried, nothing sent " + W.printed.join(" | "));
+    W = await run({ tracks: BUSY }, { FULL: "true" });
+    ok(W.outputs.code === "sent" && W.puts[0].releases[0].status === "completed", "full: FULL=true");
+    for (const f of ["0", "false", ""]) { W = await run({ tracks: BUSY }, { FULL: f }); ok(W.outputs.code === "busy", `full: FULL=${f || "(empty)"} is not full`); }
   });
 
   await group("promote dry and errors", async () => {
