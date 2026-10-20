@@ -2361,7 +2361,7 @@ const IS_IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (/Macintosh/.tes
 /* Facebook, Instagram, TikTok, Telegram... open links in their own browser, where intent:// links and App Links do not work and files cannot be downloaded */
 const IN_APP_BROWSER = /FBAN|FBAV|FB_IAB|FBIOS|Instagram|Snapchat|TikTok|musical_ly|Bytedance|trill|ByteLocale|Telegram|LinkedInApp|Twitter|MicroMessenger|GSA\/|; wv\)/i.test(navigator.userAgent) || /\bLine\//.test(navigator.userAgent) || (IS_IOS && !/Safari\//.test(navigator.userAgent));
 function sharedBar(D){
-  const L = licOf(D), canCal = L && !IN_APP_BROWSER;
+  const L = licOf(D), canCal = L && L.days > 0 && !IN_APP_BROWSER;   // a reminder only for an expiry still ahead
   let main;
   if (IS_ANDROID && IN_APP_BROWSER) {
     // no intent:// in these browsers: straight to the store page (the car rides along in the install referrer), with a tip for the better way
@@ -2370,7 +2370,7 @@ function sharedBar(D){
     const intent = `intent://luchit.app/?plate=${D.plate}&s=bar#Intent;scheme=https;package=com.ddsabag.pratirechev;S.browser_fallback_url=${encodeURIComponent(carLink(D.plate, "bar"))};end`;
     main = `<div class="sb-txt"><b>עקבו אחרי הרכב הזה</b><small>התראה על ריקול חדש, טסט שמתקרב והעברת בעלות</small></div><button type="button" class="sb-btn" data-act="openapp" data-intent="${esc(intent)}">פתחו באפליקציה</button>`;
   } else {
-    main = `<div class="sb-txt"><b>שומרים על הרכב הזה בעין</b><small>${canCal ? "הטסט פג ב-" + L.date : "בדקו רכב נוסף לפני שמחליטים"}</small></div><div class="sb-btns">` +
+    main = `<div class="sb-txt"><b>שומרים על הרכב הזה בעין</b><small>${canCal ? "הטסט בתוקף עד " + L.date : "בדקו רכב נוסף לפני שמחליטים"}</small></div><div class="sb-btns">` +
       (canCal ? `<button type="button" class="sb-btn" data-act="barcal">📅 תזכורת טסט ביומן</button>` : "") + `<button type="button" class="sb-btn${canCal ? " alt" : ""}" data-act="another">בדיקת רכב נוסף</button>` + (IN_APP_BROWSER ? `<button type="button" class="sb-btn alt" data-act="copylink">העתקת הקישור</button>` : "") + `</div>`;
   }
   return `<div class="sharebar" role="region" aria-label="מעקב אחרי הרכב"><div class="sb-in${IS_ANDROID ? "" : " sb-col"}">${main}</div>${IS_ANDROID ? `<small class="sb-sub">${IN_APP_BROWSER ? "טיפ: ⋮ ואז \"פתח בדפדפן\" כדי שהאפליקציה תיפתח ישר על הרכב" : "חינם ב-Google Play · נפתח ישר על הרכב הזה"}</small>` : ""}</div><div class="sb-pad"></div>`;
@@ -2861,7 +2861,6 @@ function tabOverview(D){
   if (stats.length % 2) stats.pop();
   if (stats.length) html.push(`<div class="stats">${stats.map(([k,val,u,c]) => `<div class="stat ${c}"><div class="k">${esc(k)}</div><div class="v">${esc(val)}${u ? `<span class="u">${esc(u)}</span>` : ""}</div></div>`).join("")}</div>`);
 
-  const L = licOf(D);
   html.push(card("רישוי וטסט", "doc", "blue", facts([
     ["טסט אחרון", e(toDate(v.mivchan_acharon_dt) && fmtDate(v.mivchan_acharon_dt))],
     ["טסט בתוקף עד", e(toDate(v.tokef_dt) && fmtDate(v.tokef_dt))],
@@ -2870,7 +2869,7 @@ function tabOverview(D){
     D.isCancelled && ["ירד מהכביש", e(v.bitul_dt && fmtDate(v.bitul_dt))],
     D.isCancelled && ["סיבה", e(v.bitul_nm)],
     ["סוג יבוא", e(v.sug_yevu)],
-  ]) + (L && L.days > 0 && !pushCoversTest(D.plate) ? calendarBtn(D) : "")));
+  ]) + (calDate(D) && !pushCoversTest(D.plate) ? calendarBtn(D) : "")));
 
   const fo = firstOwner(v);
   const foLine = fo ? `<div class="first-own"><b>בעלות ראשונה: ${esc(fo)}</b>${ownerKind(fo).text ? `<span>${esc(ownerKind(fo).text)}</span>` : ""}</div>` : "";
@@ -4681,11 +4680,14 @@ function calendarBtn(D){
   if (!reportBuild && !calSeen.has(D.plate)) { calSeen.add(D.plate); track("calendar_reminder_shown", {where: window.AndroidApp ? "app" : "web"}); }
   return `<button type="button" class="link-btn" data-act="calendar">${ico("clock")}הוספת תזכורת ליומן</button>`;
 }
+// the reminder's text: the action is renewing the licence (a new car renews by paying the fee, with no test)
+const TEST_CAL_DESC = "הטסט של הרכב מסתיים היום. כדאי לחדש את הרישיון מראש: טסט כשנדרש, ותשלום האגרה.";
+const calDate = D => { const L = licOf(D); return L && L.days > 0 ? L.ex : null; };   // only an expiry still ahead, on its own day
 function testReminder(D){
-  const d = toDate(D.v.tokef_dt); if (!d) return;
+  const d = calDate(D); if (!d) return;
   const ymd = x => `${x.getFullYear()}${String(x.getMonth() + 1).padStart(2, "0")}${String(x.getDate()).padStart(2, "0")}`;
   const next = new Date(d); next.setDate(next.getDate() + 1);
-  const title = `טסט לרכב ${fmtPlate(D.plate)} (${D.title})`, desc = "הטסט של הרכב מסתיים היום. כדאי לקבוע טסט מראש.";
+  const title = `טסט לרכב ${fmtPlate(D.plate)} (${D.title})`, desc = TEST_CAL_DESC;
   window.calendarFallback = () => testReminderFile(D);
   const b = bridge();
   if (b && b.addCalendar) { try { b.addCalendar(title, desc, ymd(d)); return; } catch {} }
@@ -4693,7 +4695,7 @@ function testReminder(D){
 }
 /* calendar file: all-day event on the expiry date, alerts 30 and 7 days before */
 function testReminderFile(D){
-  const d = toDate(D.v.tokef_dt); if (!d) return;
+  const d = calDate(D); if (!d) return;
   const ymd = x => `${x.getFullYear()}${String(x.getMonth() + 1).padStart(2, "0")}${String(x.getDate()).padStart(2, "0")}`;
   const next = new Date(d); next.setDate(next.getDate() + 1);
   const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
@@ -4701,7 +4703,7 @@ function testReminderFile(D){
   const alarm = days => ["BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${title}`, `TRIGGER:-P${days}D`, "END:VALARM"];
   const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Luchit//HE", "CALSCALE:GREGORIAN", "BEGIN:VEVENT",
     `UID:test-${D.plate}-${ymd(d)}@luchit`, `DTSTAMP:${stamp}`, `DTSTART;VALUE=DATE:${ymd(d)}`, `DTEND;VALUE=DATE:${ymd(next)}`,
-    `SUMMARY:${title}`, "DESCRIPTION:הטסט של הרכב מסתיים היום. כדאי לקבוע טסט מראש.",
+    `SUMMARY:${title}`, `DESCRIPTION:${TEST_CAL_DESC.replace(/[,;\\]/g, "\\$&")}`,
     ...alarm(30), ...alarm(7), "END:VEVENT", "END:VCALENDAR"].join("\r\n");
   shareFile(new Blob([ics], {type: "text/calendar"}), `Luchit-test-${D.plate}.ics`, title);
 }
