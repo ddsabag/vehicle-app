@@ -70,7 +70,7 @@ const BLOCK = /cloudflareinsights|google-analytics|googletagmanager|doubleclick|
 const { chromium } = await import("playwright-core");
 const browser = await chromium.launch({ executablePath: "/usr/bin/google-chrome", args: ["--no-sandbox"] });
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: "he-IL", timezoneId: "Asia/Jerusalem", serviceWorkers: "block", colorScheme: "light" });
-await ctx.addInitScript(() => { try { localStorage.setItem("analyticsOff", "1"); localStorage.setItem("reviewAsked", "1"); } catch {} });
+await ctx.addInitScript(() => { try { localStorage.setItem("analyticsOff", "1"); localStorage.setItem("reviewAsked", "1"); localStorage.setItem("fold:בטיחות", "0"); localStorage.setItem("fold:מידע חשוב שעלה מהנתונים", "0"); } catch {} });
 await ctx.route("**/*", route => BLOCK.test(route.request().url()) ? route.abort() : route.continue());
 const shots = {};
 async function shoot(ref, r, tab, title, name) {
@@ -86,7 +86,7 @@ async function shoot(ref, r, tab, title, name) {
   else say(ts(), "no card", name, title);
   await page.close();
 }
-await shoot("main", GLS, "overview", "מידע חשוב", "main-gls-insights");
+await shoot("main", GLS, "overview", "מידע חשוב שעלה מהנתונים", "main-gls-insights");
 await shoot("main", GLS, "specs", "בטיחות", "main-gls-safety");
 await shoot("next", GLS, "specs", "בטיחות", "next-gls-safety");
 await shoot("main", PREM, "specs", "בטיחות", "main-premium-safety");
