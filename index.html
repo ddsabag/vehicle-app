@@ -853,14 +853,14 @@ const PLATE_SETS = [
   {key:"heavy",      id:"cd3acc5c-03c3-4c89-9c54-d40f93c0d790", role:"main", status:"פעיל", kind:"רכב כבד", nodates:true},
   {key:"inactive",   id:"f6efe89a-fb3d-43a4-bb61-9bf12a9b9099", role:"main", status:"לא פעיל", tone:"warn"},
   {key:"inactive2",  id:"6f6acd03-f351-4a8f-8ecf-df792f4f573a", role:"main", status:"לא פעיל", tone:"warn"},
-  {key:"cancel",     id:"851ecab1-0622-4dbe-a6c7-f950cf82abf9", role:"main", status:"ירד מהכביש", tone:"bad", pad:true},
+  {key:"cancel",     id:"851ecab1-0622-4dbe-a6c7-f950cf82abf9", role:"main", status:"ירד מהכביש", tone:"bad"},
   {key:"cancel2010", id:"4e6b9724-4c1e-43f0-909a-154d4cc4e046", role:"main", status:"ירד מהכביש", tone:"bad", pad:true},
   {key:"cancel2000", id:"ec8cbc34-72e1-4b69-9c48-22821ba0bd6c", role:"main", status:"ירד מהכביש", tone:"bad", pad:true},
   {key:"public",     id:"cf29862d-ca25-4691-84f6-1be60dcb4a1e", role:"main", status:"פעיל", kind:"רכב ציבורי"},
   {key:"import",     id:"03adc637-b6fe-402b-9937-7c3d3afc9140", role:"main", status:"פעיל", kind:"יבוא אישי"},
   {key:"cont",       id:"0866573c-40cd-4ca8-91d2-9dd2d7a492e5", role:"extra"},
-  {key:"tech",       id:"56063a99-8a3e-4ff4-912e-5966c0279bad", role:"extra", pad:true},
-  {key:"owners",     id:"bb2355dc-9ec7-4f06-9c3f-3344672171da", role:"extra", pad:true},
+  {key:"tech",       id:"56063a99-8a3e-4ff4-912e-5966c0279bad", role:"extra"},
+  {key:"owners",     id:"bb2355dc-9ec7-4f06-9c3f-3344672171da", role:"extra"},
   {key:"recall",     id:"36bf1404-0be4-49d2-82dc-2f1ead4a8b93", role:"extra", field:"MISPAR_RECHEV"},
   {key:"tag",        id:"c8b9f9c8-4612-4068-934f-d4acd2e3c06e", role:"extra", field:"MISPAR RECHEV"},
   {key:"dpf",        id:"7cb2bd95-bf2e-49b6-aea1-fcb5ff6f0473", role:"extra"},   /* vehicles fitted with a particulate filter (retrofit) */
@@ -1009,16 +1009,19 @@ async function ds(resource_id, filters, limit, signal, sort){
   if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
   return rows;
 }
-/* Plate columns are text in some datasets and numeric in others; old archives zero-pad. */
+/* Every register keeps the plate in a numeric column, which matches the plate as typed, except two archives of cancelled vehicles (pad) that
+   keep it as zero-padded text: so a register is asked once, and only those two also in the padded forms. Read from the ministry's own column
+   types on 20.10.2026: on 12 random cars the number form and the padded forms never found a row the plain form missed, while asking them one
+   after the other cost one or two more round trips whenever a car has no row in a register, which is most cars in most registers (6 of the 12
+   asked the ownership register three times in a row, and that register finished last) */
 async function byPlate(set, plate, signal){
   const field = set.field || "mispar_rechev";
-  const forms = [plate, Number(plate)];
-  if (set.pad && plate.length < 8) forms.push(plate.padStart(7,"0"), plate.padStart(8,"0"));
+  const forms = set.pad ? [plate, plate.padStart(7,"0"), plate.padStart(8,"0")] : [plate];
   let lastErr = null, ok = false;
   forms: for (const v of [...new Set(forms)]) {
     for (let attempt = 0; attempt < 2; attempt++) {
       try { const rows = await ds(set.id, {[field]: v}, 100, signal); ok = true; if (rows.length) return rows; break; }
-      catch (e) { if (e.name === "AbortError") throw e; lastErr = e; if (/timeout/.test(e.message)) break forms; /* a stalled server will not answer the next form either */ if (/HTTP 4\d\d/.test(e.message)) break; /* a stalled request is one attempt, not two */ /* a text column rejects the numeric form: next form, no retry */ if (attempt === 0) await new Promise(r => setTimeout(r, 700)); }
+      catch (e) { if (e.name === "AbortError") throw e; lastErr = e; if (/timeout/.test(e.message)) break forms; /* a stalled server will not answer the next form either */ if (/HTTP 4\d\d/.test(e.message)) break; /* a stalled request is one attempt, not two; a 4xx answer will not change on a retry */ if (attempt === 0) await new Promise(r => setTimeout(r, 700)); }
     }
   }
   if (!ok && lastErr) throw lastErr;

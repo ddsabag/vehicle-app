@@ -26,7 +26,7 @@ for (const plate of plates) {
   console.log("-- whole lookup, all datasets in parallel with the app's retry forms (5 runs)");
   for (let i = 0; i < 5; i++) {
     const t = ms(); let reqs = 0;
-    await Promise.all(sets.map(async s => { const forms = [plate, Number(plate)]; if (s.pad) forms.push(plate.padStart(7, "0"), plate.padStart(8, "0")); for (const v of [...new Set(forms)]) { reqs++; const x = await q(s.id, {[s.field]: v}); if (x.rows > 0) break; } }));
+    await Promise.all(sets.map(async s => { const forms = s.pad ? [plate, plate.padStart(7, "0"), plate.padStart(8, "0")] : [plate]; for (const v of [...new Set(forms)]) { reqs++; const x = await q(s.id, {[s.field]: v}); if (x.rows > 0) break; } }));
     console.log(`run ${i + 1}: ${ms() - t}ms, ${reqs} requests`);
   }
   console.log("-- same, but only the first form per dataset (what a learned form would cost)");
