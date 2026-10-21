@@ -10,6 +10,8 @@ preview_urls = false   # as live
 #   CF_ACCOUNT_ID        same value as the GitHub secret CF_ACCOUNT_ID
 #   ACCESS_TEAM_DOMAIN   e.g. myteam.cloudflareaccess.com  (Zero Trust > Settings > Custom pages)
 #   ACCESS_AUD           the Application Audience (AUD) tag of the Access application that protects luchit.app/live*
+[triggers]
+crons = ["*/10 * * * *"]   # live-31: keeps the realtime tally of today's installs and checks going while nobody has the screen open
 [observability]
 enabled = true   # as live: the dashboard's requests carry no plate or email
 [[kv_namespaces]]
