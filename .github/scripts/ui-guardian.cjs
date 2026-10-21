@@ -37,6 +37,8 @@ const FIXTURES = [
   { name: "test-soon", rec: { ...BASE, tokef_dt: iso(18) } },
   { name: "test-expired", rec: { ...BASE, tokef_dt: iso(-30) } },
   { name: "ev", rec: { ...BASE, tozeret_nm: "טסלה", kinuy_mishari: "MODEL 3", degem_nm: "3", sug_delek_nm: "חשמל", nefach_manoa: 0, tozeret_cd: 2 } },
+  // an open recall: the only fixture with the recalls tab (a car without one shows the "checked" line instead)
+  { name: "open-recall", rec: BASE, recall: [{ _id: 1, MISPAR_RECHEV: 12345678, RECALL_ID: 16100, SHNAT_RECALL: 2025, TEUR_TAKALA: "החלפת משאבת דלק", SUG_TAKALA: "מערכת דלק", TAARICH_PTICHA: "2025-06-10T00:00:00" }] },
 ];
 const TABS = contract.tabs.map((t) => t.id);
 const WIDTHS = [320, 390];
@@ -55,8 +57,8 @@ async function runPage(browser, fx, theme, width) {
   const ctx = await browser.newContext({ viewport: { width, height: 800 }, deviceScaleFactor: 1, isMobile: true, colorScheme: theme, locale: "he-IL" });
   await ctx.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (r) => r.abort());   // registered first: Playwright tries later routes first, so the mock below wins
   await ctx.route(/data\.gov\.il/, (r) => {
-    const main = r.request().url().includes("053cea08");
-    r.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify({ success: true, result: { records: main ? [fx.rec] : [], total: main ? 1 : 0 } }) });
+    const u = r.request().url(), recs = u.includes("053cea08") ? [fx.rec] : u.includes("36bf1404") && fx.recall ? fx.recall : [];
+    r.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify({ success: true, result: { records: recs, total: recs.length } }) });
   });
   await ctx.addInitScript(() => { try { localStorage.setItem("analyticsOff", "1"); } catch {} });
   const page = await ctx.newPage();
@@ -66,7 +68,12 @@ async function runPage(browser, fx, theme, width) {
   try { await page.waitForSelector(".tabs [role=tab]", { timeout: 15000 }); } catch { fail(`[${label}] the vehicle screen did not render`); await ctx.close(); return; }
   await page.addStyleTag({ content: "#plateStrip{display:none!important}*{animation:none!important;transition:none!important}" });
 
-  for (const tab of TABS) {
+  // a car shows only the tabs that apply to it (the recalls tab only with an open recall or a settlement), so the run walks the tabs on screen;
+  // every one of them must be in the contract, in the contract's order
+  const shown = await page.$$eval(".tabs [data-tab]", (bs) => bs.map((b) => b.dataset.tab));
+  for (const t of shown) if (!TABS.includes(t)) fail(`[${label}] tab "${t}" is not registered in ui-contract.json`);
+  if (shown.filter((t) => TABS.includes(t)).some((t, i, a) => i && TABS.indexOf(t) < TABS.indexOf(a[i - 1]))) fail(`[${label}] tabs render as ${shown.join(", ")}, not in the contract order`);
+  for (const tab of shown.filter((t) => TABS.includes(t))) {
     const L = `${label}/${tab}`;
     await page.click(`.tabs [data-tab=${tab}]`); await page.waitForTimeout(350);
     const r = await page.evaluate(() => {
@@ -149,7 +156,7 @@ function compareShots() {
   const diffs = compareShots();
   for (const d of diffs) warn(`screenshot: ${d}`);
 
-  const md = ["### UI guardian: browser checks", "", `Screens checked: ${FIXTURES.length} fixtures x ${TABS.length} tabs x ${WIDTHS.length} widths x ${THEMES.length} themes`, "",
+  const md = ["### UI guardian: browser checks", "", `Screens checked: ${FIXTURES.length} fixtures x the tabs each one shows x ${WIDTHS.length} widths x ${THEMES.length} themes`, "",
     `**Blocking problems: ${errors.length}** | warnings: ${warnings.length}`, "",
     ...(errors.length ? ["#### Blocking", ...[...new Set(errors)].slice(0, 30).map((e) => `- ${e}`), ""] : []),
     ...(warnings.length ? ["#### Warnings", ...[...new Set(warnings)].slice(0, 30).map((e) => `- ${e}`), ""] : []),
