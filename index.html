@@ -3180,7 +3180,7 @@ function tabRecalls(D){
          <b>${esc(D.pick(r.TEUR_TAKALA, r.SUG_TAKALA) || "ריקול")}</b>
          <span class="note">${[recType(r.SUG_RECALL), !empty(r.DEGEM) && String(r.DEGEM).split(/\s*,\s*/).join(", "), !empty(r.YEVUAN_TEUR) && String(r.YEVUAN_TEUR).trim() !== importerOf(D) && "יבואן: " + String(r.YEVUAN_TEUR).trim()].filter(x => x && !empty(x)).map(esc).join(" · ")}${(r.BUILD_BEGIN_A || r.BUILD_END_A) && !r.offRange ? ` · ייצור <span dir="ltr" style="unicode-bidi:isolate">${esc(fmtDate(r.BUILD_BEGIN_A || ""))} – ${esc(fmtDate(r.BUILD_END_A || ""))}</span>` : ""}</span>
        </li>`;
-  // the importer button sits once, in the first card that asks for an action
+  // the importer button sits once: in the open-recall card when there is one (asking the importer is what it tells the owner to do), else in the first card that asks for an action
   const copy = D.plate ? (imp.vin ? D.vin || D.plate : D.plate) : "";
   const btn = `<button type="button" class="link-btn" data-url="${esc(imp.url)}"${copy ? ` data-copyfirst="${esc(copy)}"` : ""}>${ico("search")}${imp.gov ? "חיפוש במאגר הריקולים של משרד התחבורה" : `בדיקת ריקולים וקמפיינים באתר ${esc(imp.name)}`}</button>
     <p class="note" style="margin:6px 0 0">${[copy && "מספר הרישוי יועתק, ותדביקו אותו באתר.", imp.gov ? `ל${esc(imp.name || "יבואן הזה")} לא מצאנו עמוד בדיקה לפי מספר רישוי, ובמאגר של משרד התחבורה מחפשים לפי יצרן ודגם.` : "באתר היבואן מופיעות גם קריאות שירות שאינן ריקול בטיחותי.", !imp.gov && imp.note && esc(imp.note)].filter(Boolean).join(" ")}</p>`;
@@ -3192,7 +3192,7 @@ function tabRecalls(D){
         <span class="note">${[recType(r.SUG_RECALL), !empty(r.TAARICH_PTICHA) && "נפתח ב-" + fmtDate(r.TAARICH_PTICHA), !empty(r.RECALL_ID) && "מספר " + r.RECALL_ID].filter(Boolean).map(esc).join(" · ")}</span>
         ${fixRows(r, d)}
         ${contact ? `<p class="note">${contact}</p>` : ""}</div>`;
-    }).join("") + `<p class="note">התיקון ניתן בחינם אצל היבואן.${D.isCancelled ? "" : " ריקול שלא תוקן עלול למנוע בהמשך חידוש רישיון. תוקן כבר ועדיין מופיע כאן? משרד התחבורה מתעדכן באיחור, ואתר היבואן עשוי להראות שאין ריקול. כדאי לבקש מהיבואן לוודא שהתיקון דווח למשרד, כי חידוש הרישיון נשען על הרשומה שם."}</p>${check ? "" : btn}`));
+    }).join("") + `<p class="note">התיקון ניתן בחינם אצל היבואן.${D.isCancelled ? "" : " ריקול שלא תוקן עלול למנוע בהמשך חידוש רישיון. תוקן כבר ועדיין מופיע כאן? משרד התחבורה מתעדכן באיחור, ואתר היבואן עשוי להראות שאין ריקול. כדאי לבקש מהיבואן לוודא שהתיקון דווח למשרד, כי חידוש הרישיון נשען על הרשומה שם."}</p>${btn}`));
   }
   html.push(settlementCard(D));
   if (check) {
@@ -3203,7 +3203,7 @@ function tabRecalls(D){
     if (n) parts.push(`<p style="margin:0 0 8px">${isNew ? (n === 1 ? "ריקול חדש לדגם עשוי" : `${n} ריקולים חדשים לדגם עשויים`) : (n === 1 ? "ריקול לדגם מהשנים האחרונות עשוי" : `${n} ריקולים לדגם מהשנים האחרונות עשויים`)} לחול על הרכב. משרד התחבורה ${isNew ? "עוד " : ""}לא פרסם אילו רכבים נכללים ${n === 1 ? "בו" : "בהם"}, ולכן ${isNew ? "עוד " : ""}לא ידוע אם הרכב הזה נכלל.</p>
       <ul class="rlist">${fresh.map(r => recRow(r, r.fits === true ? `<span class="pill warn">בשנת הייצור</span>` : r.near ? `<span class="pill">שנה סמוכה</span>` : "")).join("")}</ul>`);
     if (D.modelRecallsUnknown) parts.push(`<p style="margin:0 0 8px">רשימת הריקולים לדגם לא נטענה כרגע.</p>`);
-    html.push(card("כדאי לבדוק מול היבואן", "alert", "amber", parts.join("") + btn));
+    html.push(card("כדאי לבדוק מול היבואן", "alert", "amber", parts.join("") + (D.recalls.length ? `<p class="note" style="margin:0">אפשר לבדוק גם את זה בכפתור שבכרטיס הריקולים הפתוחים למעלה.</p>` : btn)));
   }
   // what came back clean (and the few checks that could not run), without what a card above already says
   const rows = [], row = (ok, t) => rows.push(`<li class="ins ${ok === "info" ? "info" : ok ? "ok" : "warn"}">${ico(ok === "info" ? "info" : ok ? "check" : "alert")}<div><b>${esc(t)}</b></div></li>`);
