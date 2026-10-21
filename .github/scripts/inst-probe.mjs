@@ -123,6 +123,36 @@ await part("kv.tally", async () => {
   await part("sh.sharers", () => ga({ dateRanges: [{ startDate: "2026-10-19", endDate: "today" }], dimensions: [{ name: "platform" }], metrics: [{ name: "totalUsers" }, { name: "eventCount" }], dimensionFilter: and(REAL, ev("share")) }));
 }
 
+// 21.10 09:35: the whole funnel since the public launch (19.10): web events by source, app events, new vs returning, first-open sources,
+// an app retention cohort, tabs, web-to-app clicks, Play installs and store listing reports
+{
+  const R = [{ startDate: "2026-10-19", endDate: "today" }], and = (...x) => ({ andGroup: { expressions: x } });
+  const run = (dims, mets, filter, dr = R, extra = {}) => ga({ dateRanges: dr, dimensions: dims.map(d => ({ name: d })), metrics: mets.map(m => ({ name: m })), dimensionFilter: filter, ...extra });
+  await part("fx.webEvents", () => run(["date", "eventName"], ["eventCount"], eq("platform", "web")));
+  await part("fx.webSrc", () => run(["eventName", "customEvent:src"], ["eventCount"], eq("platform", "web"), [{ startDate: "2026-10-20", endDate: "today" }]));
+  await part("fx.appEvents", () => run(["date", "eventName"], ["eventCount", "totalUsers"], APP));
+  await part("fx.appNewRet", () => run(["date", "newVsReturning"], ["activeUsers", "eventCount"], APP));
+  await part("fx.firstSrc", () => run(["firstUserSource", "firstUserMedium", "firstUserCampaignName"], ["newUsers"], APP));
+  await part("fx.tabs", () => run(["platform", "customEvent:tab"], ["eventCount"], and(REAL, eq("eventName", "tab_view"))));
+  await part("fx.webInstall", () => run(["eventName", "customEvent:via", "customEvent:src"], ["eventCount"], and(eq("platform", "web"), inList("eventName", ["web_install_click", "web_install_prompt", "web_hint_click"]))));
+  await part("fx.saves", () => run(["platform", "eventName"], ["eventCount", "totalUsers"], and(REAL, inList("eventName", ["car_save", "car_unsave", "alerts_toggle", "alert_kind", "compare_open", "buy_card_open", "upgrade_open", "checklist_pdf", "simple_view", "link_out", "settlement_shown", "camera_scan", "voice_search", "user_screenshot", "lookup_failed", "lookup_slow", "search_no_result"]))));
+  await part("fx.cohort", () => call(`https://analyticsdata.googleapis.com/v1beta/properties/${PROP}:runReport`, {
+    dimensions: [{ name: "cohort" }, { name: "cohortNthDay" }], metrics: [{ name: "cohortActiveUsers" }],
+    cohortSpec: { cohorts: [{ name: "d19", dimension: "firstSessionDate", dateRange: { startDate: "2026-10-19", endDate: "2026-10-19" } }, { name: "d20", dimension: "firstSessionDate", dateRange: { startDate: "2026-10-20", endDate: "2026-10-20" } }],
+      cohortsRange: { granularity: "DAILY", startOffset: 0, endOffset: 2 } }, dimensionFilter: APP }).then(flat));
+  await part("play.recent", async () => {
+    const out = {};
+    for (const kind of ["installs", "store_performance"]) {
+      const j = await call(`https://storage.googleapis.com/storage/v1/b/${BUCKET}/o?` + new URLSearchParams({ prefix: `stats/${kind}/${kind}_${PKG}_202610`, maxResults: "50" }));
+      for (const x of (j.items || []).filter(x => /_(country|overview|traffic_source)\.csv$/.test(x.name))) {
+        const t = decode(await call(`https://storage.googleapis.com/storage/v1/b/${BUCKET}/o/${encodeURIComponent(x.name)}?alt=media`, null, true)).split(/\r?\n/).filter(Boolean);
+        out[x.name.split("/").pop()] = { head: t[0], rows: t.slice(1).filter(l => !/_country/.test(x.name) || /,IL,/.test(l)).slice(-40) };
+      }
+    }
+    return out;
+  });
+}
+
 const data = Buffer.from(JSON.stringify(out));
 const key = crypto.randomBytes(32), iv = crypto.randomBytes(12), c = crypto.createCipheriv("aes-256-gcm", key, iv);
 const enc = Buffer.concat([c.update(data), c.final()]);
