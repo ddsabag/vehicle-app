@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-31";   // shown in /live/data so the running version is visible
+const BUILD = "live-32";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -137,6 +137,11 @@ function srcBucket(platform, src) {
   return !s || s === "(not set)" ? "unknown" : "other";
 }
 
+// The month's three questions (until 22.11) count from the release of 1.36, the first version that sends share_open, first_save and app_return
+const Q_FROM = "2026-10-21";
+const iso8 = v => v.slice(0, 4) + "-" + v.slice(4, 6) + "-" + v.slice(6);
+const v136 = v => { const m = /^(\d+)\.(\d+)/.exec(v || ""); return !!m && (Number(m[1]) > 1 || Number(m[2]) >= 36); };
+
 // The business view: whole weeks, not "right now". GA4 needs about a day to finish counting, so the week ends yesterday after noon and the day before until then.
 const ilHour = t => Number(new Date(t).toLocaleString("en-US", { timeZone: "Asia/Jerusalem", hour: "2-digit", hourCycle: "h23" }));
 let weekly = null, weeklyAt = 0, weeklyTtl = 0;
@@ -149,7 +154,7 @@ async function collectWeekly(env, today) {
   const histFrom = [addDays(end, -62), "2026-10-04"].sort()[0];   // the growth target is chained from the week of 18-24.10, so keep that week in reach
   const CW = [addDays(today, -7), addDays(today, -1)];            // Cloudflare counts in real time: the last 7 whole days
   const bySrcQ = dims => report(env, { dateRanges: [dr(W), dr(P)], dimensions: [{ name: "platform" }, ...dims, { name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: withReal(any(["session_start", "web_visit", "car_lookup"])), limit: 2000 });
-  const [evs, fails, links, hist, app, money, src, pages, saveU, bySrc] = await Promise.all([
+  const [evs, fails, links, hist, app, money, src, pages, saveU, bySrc, ret, appS] = await Promise.all([
     safe(report(env, { dateRanges: [dr(W), dr(P), dr(M)], dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }, { name: "totalUsers" }], dimensionFilter: REAL, limit: 250 }), "ga4 week"),
     safe(report(env, { dateRanges: [dr(W), dr(P)], dimensions: [{ name: "customEvent:kind" }], metrics: [{ name: "eventCount" }], dimensionFilter: withReal(only("lookup_failed")), limit: 20 }), "ga4 failures"),
     safe(report(env, { dateRanges: [dr(W), dr(P)], dimensions: [{ name: "eventName" }, { name: "customEvent:kind" }, { name: "customEvent:via" }], metrics: [{ name: "eventCount" }], dimensionFilter: withReal(any(["link_landing", "link_open", "referral_open"])), limit: 200 }), "ga4 shared links"),
@@ -159,7 +164,12 @@ async function collectWeekly(env, today) {
     safe(cfTop(env, CW[0], "refererHost", CW[1], 100), "site week sources"), safe(cfTop(env, CW[0], "requestPath", CW[1], 12, "count_DESC"), "site week pages"),
     safe(report(env, { dateRanges: [dr(W)], dimensions: [{ name: "eventName" }], metrics: [{ name: "totalUsers" }], dimensionFilter: { andGroup: { expressions: [APP, any(["car_lookup", "car_save"])] } } }), "ga4 app savers"),
     // without the src field (GA4 answers 400 if it is ever removed) the site is one row, "unknown", rather than no table at all
-    safe(bySrcQ([{ name: "customEvent:src" }]).catch(e => /\b400\b/.test(e.message) ? bySrcQ([]).then(rows => rows.map(r => ({ ...r, dimensionValues: [r.dimensionValues[0], { value: "(not set)" }, ...r.dimensionValues.slice(1)] }))) : Promise.reject(e)), "ga4 sources")]);
+    safe(bySrcQ([{ name: "customEvent:src" }]).catch(e => /\b400\b/.test(e.message) ? bySrcQ([]).then(rows => rows.map(r => ({ ...r, dimensionValues: [r.dimensionValues[0], { value: "(not set)" }, ...r.dimensionValues.slice(1)] }))) : Promise.reject(e)), "ga4 sources"),
+    // the month's questions: each day's new installs from 1.36 on (first_open by app version), their saves on the install day and their returns
+    // on days 1 to 7, both by install day (kind); and new app devices by the link that brought them to the store (google-play = found in the store)
+    end >= Q_FROM ? safe(report(env, { dateRanges: [{ startDate: Q_FROM, endDate: end }], dimensions: [{ name: "date" }, { name: "eventName" }, { name: "appVersion" }, { name: "customEvent:n" }, { name: "customEvent:kind" }], metrics: [{ name: "eventCount" }],
+      dimensionFilter: { andGroup: { expressions: [APP, any(["first_open", "first_save", "app_return"])] } }, limit: 5000 }), "ga4 return") : null,
+    safe(report(env, { dateRanges: [dr(W), dr(P)], dimensions: [{ name: "firstUserSource" }], metrics: [{ name: "newUsers" }], dimensionFilter: APP, limit: 100 }), "ga4 app sources")]);
   const ri = r => { const v = r.dimensionValues[r.dimensionValues.length - 1].value; return /^date_range_\d$/.test(v) ? Number(v.slice(-1)) : 0; };
   const ev = [{}, {}, {}];
   for (const r of evs || []) ev[ri(r)][r.dimensionValues[0].value] = [Number(r.metricValues[0].value), Number(r.metricValues[1].value)];
@@ -188,11 +198,18 @@ async function collectWeekly(env, today) {
   // srcSeen: the week has site rows with a measured source (from 20.10), so its site rows can be compared with another week's
   const bs = [{}, {}], srcSeen = [false, false];
   for (const r of bySrc || []) { const [pf, so, name] = r.dimensionValues.map(x => x.value), i = ri(r), k = srcBucket(pf, so); (bs[i][k] ||= [0, 0])[name === "car_lookup" ? 1 : 0] += Number(r.metricValues[0].value); if (k !== "app" && k !== "unknown") srcSeen[i] = true; }
+  // { install day: [new installs from 1.36, saved a car that day, came back on days 1-7 having saved, having not] }
+  const coh = {};
+  for (const r of ret || []) { const [dt, name, ver, nv, kind] = r.dimensionValues.map(x => x.value), c = Number(r.metricValues[0].value), day = name === "first_open" ? iso8(dt) : kind;
+    if (!/^\d{4}-\d\d-\d\d$/.test(day || "")) continue; const o = coh[day] ||= [0, 0, 0, 0];
+    if (name === "first_open") { if (v136(ver)) o[0] += c; } else if (name === "first_save") o[1] += c; else o[nv === "1" ? 2 : 3] += c; }
+  const aSrc = [{ store: 0, all: 0 }, { store: 0, all: 0 }];
+  for (const r of appS || []) { const o = aSrc[ri(r)], c = Number(r.metricValues[0].value); o.all += c; if (String(r.dimensionValues[0].value).toLowerCase() === "google-play") o.store += c; }
   const fresh = { errors, end, W, P, M, CW, ev: evs ? ev : null, fails: fails ? fk : null, shared: links ? shared : null,
     days: hist ? Object.fromEntries(hist.map(r => { const d = r.dimensionValues[0].value; return [d.slice(0, 4) + "-" + d.slice(4, 6) + "-" + d.slice(6), Number(r.metricValues[0].value)]; })) : null,
-    app: app ? appU : null, savers: saveU ? Object.fromEntries(saveU.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)])) : null, money: money ? { leads: m.b2b_lead_submit || 0, subscribers: m.newsletter_confirm || 0 } : null, sources: src, pages, bySource: bySrc ? bs : null, srcSeen: bySrc ? srcSeen : null };
+    app: app ? appU : null, savers: saveU ? Object.fromEntries(saveU.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)])) : null, money: money ? { leads: m.b2b_lead_submit || 0, subscribers: m.newsletter_confirm || 0 } : null, sources: src, pages, bySource: bySrc ? bs : null, srcSeen: bySrc ? srcSeen : null, coh: ret ? coh : null, appSrc: appS ? aSrc : null };
   // the last good numbers stand in for a part that failed, but only for the same week (a new week starts clean)
-  weekly = keep(fresh, weekly && weekly.end === end ? weekly : null, ["ev", "fails", "shared", "days", "app", "savers", "money", "sources", "pages", "bySource", "srcSeen"]);
+  weekly = keep(fresh, weekly && weekly.end === end ? weekly : null, ["ev", "fails", "shared", "days", "app", "savers", "money", "sources", "pages", "bySource", "srcSeen", "coh", "appSrc"]);
   // a Google part that failed is asked again after a minute; Cloudflare alone after five, so its failure does not re-run the Google queries every minute
   weeklyAt = Date.now(); weeklyTtl = Object.keys(errors).some(k => k.startsWith("ga4")) ? 60e3 : Object.keys(errors).length ? 300e3 : 900e3; return weekly;
 }
@@ -495,6 +512,7 @@ table.t{width:100%;border-collapse:collapse;font-size:.86rem}.t th{font-weight:5
 
 <section class="drs">
 <details class="card dr" id="dr-now"><summary><b>עכשיו</b><span>מי פעיל ברגע זה ומה קרה היום</span></summary><ul class="kv" id="now"></ul><p class="note">נתוני היום חלקיים: גוגל אנליטיקס מעדכן אותם בעיכוב של שעה עד כמה שעות.</p></details>
+<details class="card dr" id="dr-q"><summary><b>שאלות החודש</b><span>שלוש השאלות שיקבעו מה בונים אחרי 22.11, ואיפה כל אחת עומדת</span></summary><div id="q"></div></details>
 <details class="card dr" id="dr-goal"><summary><b>יעדים לשנה</b><span>איפה אנחנו מול היעד, עד אוקטובר 2027</span></summary><div id="goal"></div></details>
 <details class="card dr" id="dr-src"><summary><b>מקורות</b><span>מאיפה מגיעים אנשים: פייסבוק, וואטסאפ, טיקטוק, יוטיוב, גוגל ועוד, לאתר ולאפליקציה</span></summary><div id="src"></div></details>
 <details class="card dr" id="dr-use"><summary><b>שימוש</b><span>מה אנשים עושים, וכמה מכשירים יש לאפליקציה</span></summary><div id="use"></div></details>
@@ -519,7 +537,7 @@ const GOALS={first:"2026-11",k:{weekly_checks:[[160,190,240],[190,240,330],[250,
  calib:{key:"weekly_checks",end:"2026-11-01",model:174,lo:.5,hi:2}};   // weekly car checks scale by r = actual week 26.10-1.11 / 174, the plan's line on 1.11 (0.5 to 2). Not the launch week 19-25.10: its posts would set every later target (decided 20.10)
 const SUBMITTED="2026-10-17";      // production access requested in Play Console
 const PRO_MAU=2000;
-const N={car_lookup:"בדיקת רכב",car_save:"שמירת רכב ברשימה",share:"שיתוף (דוח רכב או השוואה)",compare_open:"השוואת רכבים",tab_view:"מעבר בין לשוניות",link_out:"לחיצה על קישור חיצוני",alerts_toggle:"הדלקה או כיבוי של התראות",alert_kind:"בחירת סוג התראה",upgrade_open:"פתיחת חלונית המנוי (PRO)",voice_search:"חיפוש בקול",bulk_check:"בדיקת כמה רכבים יחד",camera_scan:"סריקת לוחית במצלמה",buy_card_open:"פתיחת כרטיס בלשונית קנייה",settlement_shown:"הצגת הסדר פשרה",checklist_pdf:"הורדת רשימת בדיקה",doc_add:"הוספת מסמך לרכב",simple_view:"מעבר לתצוגה פשוטה",search_no_result:"חיפוש דגם בלי תוצאה",user_screenshot:"צילום מסך",first_open:"התקנה חדשה (פתיחה ראשונה)",lookup_repeat:"פתיחה חוזרת של רכב (רענון)",notification_open:"פתיחת התראה",web_hint_click:"לחיצה על הצעה להתקין מהאתר",web_install_click:"מעבר מהאתר להתקנה",calendar_reminder_click:"הוספת תזכורת ליומן",link_landing:"כניסה לאתר מקישור",link_open:"פתיחת קישור באפליקציה",web_visit:"כניסה לאתר",referral_open:"פתיחה ראשונה אחרי התקנה מקישור ששותף"};
+const N={car_lookup:"בדיקת רכב",car_save:"שמירת רכב ברשימה",share:"שיתוף (דוח רכב או השוואה)",compare_open:"השוואת רכבים",tab_view:"מעבר בין לשוניות",link_out:"לחיצה על קישור חיצוני",alerts_toggle:"הדלקה או כיבוי של התראות",alert_kind:"בחירת סוג התראה",upgrade_open:"פתיחת חלונית המנוי (PRO)",voice_search:"חיפוש בקול",bulk_check:"בדיקת כמה רכבים יחד",camera_scan:"סריקת לוחית במצלמה",buy_card_open:"פתיחת כרטיס בלשונית קנייה",settlement_shown:"הצגת הסדר פשרה",checklist_pdf:"הורדת רשימת בדיקה",doc_add:"הוספת מסמך לרכב",simple_view:"מעבר לתצוגה פשוטה",search_no_result:"חיפוש דגם בלי תוצאה",user_screenshot:"צילום מסך",first_open:"התקנה חדשה (פתיחה ראשונה)",lookup_repeat:"פתיחה חוזרת של רכב (רענון)",notification_open:"פתיחת התראה",web_hint_click:"לחיצה על הצעה להתקין מהאתר",web_install_click:"מעבר מהאתר להתקנה",calendar_reminder_click:"הוספת תזכורת ליומן",link_landing:"כניסה לאתר מקישור",link_open:"פתיחת קישור באפליקציה",web_visit:"כניסה לאתר",referral_open:"פתיחה ראשונה אחרי התקנה מקישור ששותף",share_open:"פתיחת חלון השיתוף"};
 const BAD={lookup_failed:"בדיקה שנכשלה",lookup_slow:"בדיקה איטית",lookup_abort:"בדיקה שבוטלה",lookup_timeout:"בדיקה שפגה (נספרת גם בנכשלות)",app_exception:"קריסה"};
 const KIND={source_down:"משרד התחבורה לא ענה",offline:"לא התקבלה תשובה (חיבור או זמן המתנה)",not_found:"מספר שלא קיים (הוקלד לא נכון)","(not set)":"לא ידוע"};
 const FK={data:"נתונים",infra:"תשתית",content:"תוכן",market:"שוק",release:"שחרור",experiment:"ניסוי",reviews:"ביקורות"};
@@ -726,6 +744,65 @@ box.innerHTML=h+"<h4>בדיקות רכב לפי מקור ("+rng(W.W)+")</h4>"+'<
 +ks.map(k=>{const a=c[k]||[0,0];return '<tr><td class="w">'+esc(nm(k))+'</td><td class="n">'+n(a[1])+'</td><td class="n">'+(tc?Math.round(a[1]*100/tc)+"%":"-")+'</td><td class="n">'+n(pv(k))+"</td></tr>"}).join("")
 +'<tr><td class="w"><b>סך הכול</b></td><td class="n"><b>'+n(tc)+'</b></td><td class="n"></td><td class="n">'+n(tp)+"</td></tr></tbody></table></div>":'<p class="note" style="margin:0">אין עדיין נתונים לשבוע הזה.</p>')
 +'<p class="note">באפליקציה אין מקור לכל פתיחה, ולכן היא שורה אחת. האתר נספר מ-15.10 ומוסר מקור מ-20.10: הבדיקות באתר שלפני 20.10 בשורה אחת, ובשבוע קודם שלא נספר בו האתר מופיע מקף, כי אין מה להשוות. השבוע נגמר אתמול, כי גוגל אנליטיקס מסיים לספור אחרי כיום.</p>'}}
+
+// drawer: the month's three questions (report "רנטגן משפך AARRR", 21.10). Until 22.11 no new features; these readings decide what comes next.
+// Each question: a status, what it reads now, and the numbers behind it. The thresholds are the report's; where it set none, the note says mine.
+{const box=$("q"),QF="2026-10-21",QE="2026-11-22",td=new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Jerusalem"}),left=between(td,QE);
+const row=(l,v,sub)=>"<li><span>"+l+(sub?"<small>"+sub+"</small>":"")+"</span><b>"+v+"</b></li>",pc=x=>x==null||!isFinite(x)?"-":n1(x)+"%";
+const head=(i,t,s,w,read)=>"<h4>"+i+". "+t+"</h4>"+'<p class="note" style="margin:0 0 6px">'+chip(s,w)+" "+read+"</p>";
+let h='<p class="note" style="margin:0 0 6px">'+(left>0?"עד 22.11 לא מוסיפים פיצ'רים, והתשובות לשלוש השאלות קובעות מה בונים אחר כך. נשארו "+n(left)+" ימים.":"הגיע מועד ההחלטה (22.11): התשובות כאן הן הבסיס לה.")+"</p>";
+// 1. organic: site checks from sources that are not our campaign links (Google, other search engines, direct, other pages of the site, shared reports, other sites)
+{const ORG=["google","search","direct","site","share","other"],B=W&&W.bySource,seen=W&&W.srcSeen||[false,false],AS=W&&W.appSrc;
+const sc=(o,ks)=>ks.reduce((a,k)=>a+((o&&o[k]||[0,0])[1]),0),known=o=>Object.keys(o||{}).filter(k=>k!=="app"&&k!=="unknown");
+const o0=B?sc(B[0],ORG):null,m0=B?sc(B[0],known(B[0])):null,o1=B&&seen[1]?sc(B[1],ORG):null,sh=m0?o0/m0*100:null,gr=o1?(o0-o1)/o1*100:null;
+let s,w,r;
+if(!B){s="nodata";r="גוגל אנליטיקס לא ענה על המקורות."}
+else if(!seen[0]||m0<30){s="early";r="מעט נתונים עדיין: "+n(m0)+" בדיקות באתר שהמקור שלהן ידוע (המקור נמדד מ-20.10). צריך לפחות 30 בשבוע."}
+else if(sh<25){s="warn";w="מתחת ל-25%";r="אם זה יישאר כך עד 22.11, החודש הבא מוקדש להפצה: שותפויות, קהילות, סוחרים. לא לפיצ'רים."}
+else if(gr!=null&&gr>=20){s="ok";w="יש משיכה";r="מעל 25% ועולה ב-20% בשבוע או יותר: אפשר להתחיל להשקיע בלולאות (שיתוף, הפניות)."}
+else{s="warn";w="עוד לא צומח";r="מעל 25%, אבל עוד לא עולה ב-20% בשבוע. אם זה לא יעלה עד 22.11, החודש הבא מוקדש להפצה."}
+h+=head(1,"האם לוחית צומחת בלי דחיפה?",s,w,r)+(!B?"":'<ul class="kv">'
++row("בדיקות באתר ממקורות שאינם קישורי קמפיין",n(o0)+(o1!=null?' <small class="flat">(שבוע קודם '+n(o1)+")</small>":""),"גוגל, מנועי חיפוש, ישיר, דפים אחרים באתר, דוחות ששותפו ואתרים אחרים · "+rng(W&&W.W))
++row("החלק שלהן מהבדיקות באתר",pc(sh),"מתוך "+n(m0)+" בדיקות שהמקור שלהן ידוע · הסף 25%")
++(gr!=null?row("שינוי מהשבוע הקודם",'<bdi dir="ltr">'+(gr>0?"+":"")+n(gr)+"%</bdi>","הסף לצמיחה: 20% בשבוע"):"")
++(AS?row("התקנות שמצאו את האפליקציה בחנות",n(AS[0].store)+' <small class="flat">(שבוע קודם '+n(AS[1].store)+")</small>","מתוך "+n(AS[0].all)+" התקנות חדשות בישראל השבוע (Google Play, חיפוש ודפדוף בחנות)"):"")
++'</ul><p class="note">בדיקות באפליקציה לא נכללות, כי לפתיחה של האפליקציה אין מקור. "ישיר" כולל גם קישור שנשלח בוואטסאפ בלי סימון, ולכן המספר אופטימי במעט.</p>')}
+// 2. does a saved car bring people back? new installs from 1.36 that saved a car on the install day vs those that did not, back on days 1 to 7
+{const C=W&&W.coh,mat=end?addD(end,-7):null;let I=0,Sv=0,N1=0,N0=0,R1=0,R0=0;
+for(const [day,o] of Object.entries(C||{})){if(day<QF)continue;const sv=o[1];I+=o[0];Sv+=o[1];if(day<=mat){N1+=sv;N0+=Math.max(0,o[0]-sv);R1+=o[2];R0+=o[3]}}
+const r1=N1?R1/N1*100:null,r0=N0?R0/N0*100:null,x=r1==null||r0==null?null:r0>0?r1/r0:r1>0?Infinity:null;
+let s,w,r;
+if(!W||!end||end<QF){s="wait";w="ממתין לנתונים";r="הנתונים מתחילים עם 1.36: כל יום התקנות נכנס לחשבון שבוע אחרי שהותקן."}
+else if(!C){s="nodata";r="גוגל אנליטיקס לא ענה."}
+else if(N1<20||N0<20){s="early";r="מעט נתונים עדיין: נספרים רק מי שהתקין מ-1.36 ועבר עליו שבוע שלם. צריך לפחות 20 בכל קבוצה ("+n(N1)+" ששמרו, "+n(N0)+" שלא)."}
+else if(x>=3){s="ok";w="השמירה מחזירה";r="מי ששמר רכב חוזר פי 3 או יותר: השמירה היא המנוף, וכדאי לחזק את רגע השמירה אחרי בדיקה."}
+else{s="warn";w="פחות מפי 3";r="השמירה לא מחזירה מספיק: אם זה יישאר כך, מפסיקים לדחוף התקנות, ולוחית היא כלי אתר לשימוש חד-פעמי, עם הכנסה מחבילת קנייה ומעסקים."}
+h+=head(2,"האם רכב שמור מחזיר אנשים?",s,w,r)+(s==="wait"||!C?"":'<ul class="kv">'
++row("התקנות חדשות מ-1.36",n(I),"מ-"+dm(QF)+" עד "+(end?dm(end):"-")+", בישראל")
++row("שמרו רכב ביום ההתקנה",n(Sv)+(I?' <small class="flat">('+pc(Sv/I*100)+")</small>":""),"אחוז השומרים מתוך המתקינים")
++row("חזרו בתוך 7 ימים, מי ששמר",N1?n(R1)+" מתוך "+n(N1)+' <small class="flat">('+pc(r1)+")</small>":"-","התקנות שעבר עליהן שבוע שלם"+(mat&&mat>=QF?" (עד "+dm(mat)+")":""))
++row("חזרו בתוך 7 ימים, מי שלא שמר",N0?n(R0)+" מתוך "+n(N0)+' <small class="flat">('+pc(r0)+")</small>":"-","")
++row("פי כמה חוזרים מי ששמרו",x==null?"-":x===Infinity?"רק הם חזרו":"פי "+n1(x),"הסף: פי 3")+"</ul>")}
+// 3. where sharing breaks: the share sheet opened per report shown, shares per opening, arrivals from a shared link per share
+{const Lw=ge(E0,"car_lookup"),Ow=ge(E0,"share_open"),Sw=ge(E0,"share"),sh=W&&W.shared,Aw=sh?sh[0].web+sh[0].app:null,part=W&&W.W&&W.W[0]<QF;
+const o=Lw?Ow/Lw*100:null,c=Ow?Sw/Ow*100:null,a=Sw&&Aw!=null?Aw/Sw:null;
+let s,w,r;
+if(!ev){s="nodata";r="גוגל אנליטיקס לא ענה."}
+else if(part){s="early";r="פתיחת חלון השיתוף נמדדת מ-"+dm(QF)+". השבוע המלא הראשון ("+dm(QF)+" עד "+dm(addD(QF,6))+") יוצג כאן מ-"+dm(addD(QF,7))+"."}
+else if(Lw<200){s="early";r="מעט בדיקות השבוע כדי לשפוט ("+n(Lw)+", צריך 200)."}
+else if(o<2){s="warn";w="מעטים פותחים";r="פחות מ-2% פותחים את חלון השיתוף: בעיית מוטיבציה. הכיוון: הצד של המוכר, מוכר ששולח דוח לקונה."}
+else if(Ow<20){s="early";r="מעט פתיחות של החלון כדי לשפוט את ההמשך ("+n(Ow)+", צריך 20)."}
+else if(c<30){s="warn";w="מעטים משלימים";r="רבים פותחים את החלון ומעטים משתפים בפועל: תיקון קטן בחלון השיתוף."}
+else if(Sw<10){s="early";r="מעט שיתופים כדי לשפוט אם הם מביאים אנשים ("+n(Sw)+", צריך 10)."}
+else if(a<.1){s="warn";w="שיתופים בלי כניסות";r="משתפים, אבל כמעט אף אחד לא מגיע מהקישור: הקישור בטקסט יהיה ברירת המחדל במקום תמונה או PDF."}
+else{s="ok";w="השיתוף עובד";r="אין שבר בולט בשלבי השיתוף."}
+h+=head(3,"איפה נשבר השיתוף?",s,w,r)+'<ul class="kv">'
++row("דוחות שהוצגו (בדיקות רכב)",n(Lw),rng(W&&W.W)+" · אפליקציה ואתר")
++row("פתחו את חלון השיתוף",n(Ow)+' <small class="flat">('+pc(o)+")</small>","מתוך הדוחות · הסף 2%")
++row("שיתפו בפועל",n(Sw)+' <small class="flat">('+pc(c)+")</small>","מתוך הפתיחות")
++row("נכנסו מקישור ששותף",n(Aw)+(a!=null?' <small class="flat">('+n1(a*10)+" לכל 10 שיתופים)</small>":""),"")
++'</ul><p class="note">פתיחת החלון נמדדת באתר מ-21.10, ובאפליקציה אצל מי שעדכן ל-1.36. ספים שהדוח לא קבע ובחרתי: "מעטים משלימים" הוא פחות מ-30% מהפתיחות, ו"אף אחד לא מגיע" הוא פחות מכניסה אחת לכל 10 שיתופים.</p>'}
+box.innerHTML=h}
 
 // drawer: usage, this week against last week, and how many devices the app is on, from both sources
 {const box=$("use");if(!ev){box.innerHTML='<p class="note">אין נתון מגוגל אנליטיקס.</p>'}else{
