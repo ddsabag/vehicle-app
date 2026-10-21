@@ -2662,7 +2662,7 @@ function renderResult(){
   else if (simpleOn()) { const ln = licNote(L); if (ln) html.push(`<div class="alert-banner${ln.level === "bad" ? "" : " warn"}" role="${ln.level === "bad" ? "alert" : "status"}">${ico("alert")}<span><b>${esc(ln.title)}</b>${esc(ln.text)}</span></div>`); }
   // An open recall is the one thing that must never be missed: banner above the tabs
   if (D.recalls.length) {
-    html.push(`<button type="button" class="alert-banner" data-tab="recalls">${ico("alert")}<span><b>${D.recalls.length === 1 ? "לרכב יש ריקול פתוח" : `לרכב ${D.recalls.length} ריקולים פתוחים`}</b>ריקול שלא מתוקן עלול למנוע בהמשך חידוש רישיון. התיקון בחינם אצל היבואן.</span></button>`);
+    html.push(`<button type="button" class="alert-banner" data-tab="recalls">${ico("alert")}<span><b>${D.recalls.length === 1 ? "לרכב יש ריקול פתוח" : `לרכב ${D.recalls.length} ריקולים פתוחים`}</b>לפי משרד התחבורה. ריקול שלא מתוקן עלול למנוע בהמשך חידוש רישיון. התיקון בחינם אצל היבואן.</span></button>`);
   }
   // a model recall that may include this car while the ministry's per-car list cannot say whether it does (pendingRecalls); a car off the
   // road has the red banner above and keeps these in its recalls tab, without a second banner
@@ -3182,7 +3182,7 @@ function tabRecalls(D){
         <span class="note">${[recType(r.SUG_RECALL), !empty(r.TAARICH_PTICHA) && "נפתח ב-" + fmtDate(r.TAARICH_PTICHA), !empty(r.RECALL_ID) && "מספר " + r.RECALL_ID].filter(Boolean).map(esc).join(" · ")}</span>
         ${fixRows(r, d)}
         ${contact ? `<p class="note">${contact}</p>` : ""}</div>`;
-    }).join("") + `<p class="note">התיקון ניתן בחינם אצל היבואן.${D.isCancelled ? "" : " ריקול שלא תוקן עלול למנוע בהמשך חידוש רישיון."}</p>${check ? "" : btn}`));
+    }).join("") + `<p class="note">התיקון ניתן בחינם אצל היבואן.${D.isCancelled ? "" : " ריקול שלא תוקן עלול למנוע בהמשך חידוש רישיון. תוקן כבר ועדיין מופיע כאן? משרד התחבורה מתעדכן באיחור, ואתר היבואן עשוי להראות שאין ריקול. כדאי לבקש מהיבואן לוודא שהתיקון דווח למשרד, כי חידוש הרישיון נשען על הרשומה שם."}</p>${check ? "" : btn}`));
   }
   html.push(settlementCard(D));
   if (check) {
