@@ -456,7 +456,7 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .bulk-acts{display:flex;flex-direction:column;gap:8px;margin-top:8px}
 .rep-brand.biz{background:var(--soft,#f2f4f8);border-bottom:3px solid #1d4ea8;border-radius:10px}.rep-brand.biz img{width:48px;height:48px;object-fit:contain;border-radius:8px;box-shadow:none}.rep-brand.biz b{font-size:1.3rem}
 .ft{width:100%;border-collapse:collapse;font-size:.9rem}.ft td,.ft th{padding:8px 4px;border-top:1px solid var(--line);text-align:center}.ft td:first-child,.ft th:first-child{text-align:start}.ft th{font-size:.78rem;color:var(--muted);font-weight:600;border-top:0}button.lnk{border:0;background:none;padding:0;font:inherit;font-weight:700;color:var(--accent);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
-.ft button.lnk small{display:block}.ft button.lnk{border:0;background:none;color:inherit;text-decoration:none;font-weight:inherit;font:inherit;text-align:start;padding:0;display:block}
+.ft button.lnk small{display:block}.ft td.svl small{display:block;color:var(--muted);font-size:.75rem}.ft button.lnk b{white-space:nowrap}.ft td small.rc{display:block;font-size:.75rem;font-weight:700}.ft button.lnk{border:0;background:none;color:inherit;text-decoration:none;font-weight:inherit;font:inherit;text-align:start;padding:0;display:block}
 .mk-seg{margin-bottom:10px}.mk-chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 2px}
 .mk-chips button{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:999px;padding:6px 12px;font-weight:700}
 .mk-chips button[aria-pressed="true"]{background:var(--fg);color:var(--card);border-color:var(--fg)}
@@ -2869,6 +2869,8 @@ const SVC_KEYS = ["periodic", "oil", "brakes", "tires", "battery", "ac", "other"
 const maintOk = () => !PRO_LOCK || atLeast("pro");
 const svcAll = () => { try { return JSON.parse(localStorage.getItem("svc") || "{}") || {}; } catch { return {}; } };
 const svcOf = p => { const s = svcAll()[p]; return s && Array.isArray(s.log) ? s : {log: [], meta: null}; };
+// the newest entry of the service log (kept on the phone only), for the fleet table
+const svcLast = p => svcOf(p).log.filter(x => x.d).reduce((a, b) => !a || b.d > a.d ? b : a, null);
 function svcSave(p, s){ const all = svcAll(); all[p] = s; try { localStorage.setItem("svc", JSON.stringify(all)); } catch {} syncSaved(store.get("savedVehicles")); }
 const ymdOf = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + Math.round(n)); return x; };
@@ -5551,11 +5553,14 @@ function renderFleet(){
   current = null; inCompare = false;
   const list = store.get("savedVehicles").slice(0, fleetMax());
   const n = list.filter(s => licCell(licSaved(s))[0] || s.recalls > 0).length;
-  const rows = list.map(s => { const [col, tx] = licCell(licSaved(s));
-    return `<tr><td><button type="button" class="lnk" data-open="${s.plate}"><b>${fmtPlate(s.plate)}</b><small style="color:var(--muted)">${esc(s.nick || s.title)}</small></button></td><td class="${col}">${tx}</td><td class="${s.recalls > 0 ? "w" : ""}">${s.recalls > 0 ? s.recalls : "—"}</td></tr>`; }).join("");
+  // three columns that fit a narrow phone with a large font: dates with a two-digit year, the plate on one line, and an open recall
+  // written under the car (a column of its own was mostly dashes and pushed the table past the screen)
+  const yy = t => String(t).replace(/(\d{2}\/\d{2}\/)\d{2}(\d{2})/, "$1$2");
+  const rows = list.map(s => { const [col, tx] = licCell(licSaved(s)), sv = svcLast(s.plate);
+    return `<tr><td><button type="button" class="lnk" data-open="${s.plate}"><b>${fmtPlate(s.plate)}</b><small style="color:var(--muted)">${esc(s.nick || s.title)}</small></button>${s.recalls > 0 ? `<small class="w rc">${s.recalls === 1 ? "ריקול פתוח" : `${s.recalls} ריקולים פתוחים`}</small>` : ""}</td><td class="${col}">${yy(tx)}</td><td class="svl">${sv ? `${esc(yy(fmtDate(sv.d)))}${sv.km ? `<small>${fmtN(sv.km)} ק״מ</small>` : ""}` : "—"}</td></tr>`; }).join("");
   const html = [];
-  if (PRO_LOCK && !atLeast("pro")) html.push(proLockCard("הצי שלי", "כל הרכבים שלכם בטבלה אחת, עם טסט, ריקולים וסימון מה דורש טיפול."));
-  else html.push(card("הצי שלי", "car", "blue", list.length ? `<p style="margin:0 0 6px"><b>${n ? (n === 1 ? "רכב אחד דורש טיפול" : `${n} רכבים דורשים טיפול`) : "הכול בסדר"}</b>${n ? `<br><small style="color:var(--muted)">טסט שעבר או קרוב, או ריקול פתוח</small>` : ""}</p><table class="ft"><tr><th>רכב</th><th>טסט</th><th>ריקולים</th></tr>${rows}</table>${store.get("savedVehicles").length > fleetMax() ? `<p class="note">מוצגים ${fleetMax()} הרכבים הראשונים.</p>` : ""}` : `<p style="margin:0">שמרו רכבים כדי לראות אותם כאן בטבלה אחת.</p>`, `${PT("PRO")}`));
+  if (PRO_LOCK && !atLeast("pro")) html.push(proLockCard("הצי שלי", "כל הרכבים שלכם בטבלה אחת, עם טסט, טיפול אחרון, ריקולים וסימון מה דורש תשומת לב."));
+  else html.push(card("הצי שלי", "car", "blue", list.length ? `<p style="margin:0 0 6px"><b>${n ? (n === 1 ? "רכב אחד דורש תשומת לב" : `${n} רכבים דורשים תשומת לב`) : "הכול בסדר"}</b>${n ? `<br><small style="color:var(--muted)">טסט שעבר או קרוב, או ריקול פתוח</small>` : ""}</p><table class="ft"><tr><th>רכב</th><th>טסט</th><th>טיפול אחרון</th></tr>${rows}</table>${store.get("savedVehicles").length > fleetMax() ? `<p class="note">מוצגים ${fleetMax()} הרכבים הראשונים.</p>` : ""}` : `<p style="margin:0">שמרו רכבים כדי לראות אותם כאן בטבלה אחת.</p>`, `${PT("PRO")}`));
   html.push(`<button type="button" class="link-btn" data-act="marketBack">${ico("back")}חזרה</button>`);
   $("#out").innerHTML = html.join(""); updateSavedBar(); window.scrollTo({top: 0});
 }
