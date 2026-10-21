@@ -10,7 +10,7 @@ const sa = JSON.parse(E.GA_SERVICE_ACCOUNT_JSON || "null");
 const b64 = b => Buffer.from(b).toString("base64url");
 async function token() {
   const now = Math.floor(Date.now() / 1000), head = b64(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-  const scope = ["analytics.readonly", "devstorage.read_only"].map(x => "https://www.googleapis.com/auth/" + x).join(" ");
+  const scope = ["analytics.readonly", "devstorage.read_only", "webmasters.readonly"].map(x => "https://www.googleapis.com/auth/" + x).join(" ");
   const claim = b64(JSON.stringify({ iss: sa.client_email, scope, aud: "https://oauth2.googleapis.com/token", iat: now, exp: now + 3000 }));
   const sig = crypto.createSign("RSA-SHA256").update(`${head}.${claim}`).sign(sa.private_key, "base64url");
   const r = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -94,6 +94,18 @@ await part("kv.tally", async () => {
     // per Israel hour: [minutes kept, first opens, car checks], to compare with GA4's processed hours
     byHour: Object.entries(v.m || {}).reduce((o, [m, x]) => { const h = new Date(Number(m) * 6e4).toLocaleString("en-GB", { timeZone: "Asia/Jerusalem", hour: "2-digit", hourCycle: "h23" }); const a = (o[h] ||= [0, 0, 0]); a[0]++; a[1] += x[0]; a[2] += x[1]; return o; }, {}) };
 });
+
+// Search Console exactly as /live asks it (collectSeo: week ending 3 days ago, the week before, 28 days by date, default dataState), and the
+// same days with dataState "all" as the daily SEO snapshot asks, to compare the two screens
+{
+  const SC = "https://www.googleapis.com/webmasters/v3/sites/" + encodeURIComponent("sc-domain:luchit.app") + "/searchAnalytics/query";
+  const il = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" }), add = (d, n) => new Date(Date.parse(d + "T12:00:00Z") + n * 864e5).toISOString().slice(0, 10);
+  const end = add(il, -3), w1 = [add(end, -6), end], w0 = [add(end, -13), add(end, -7)], d28 = [add(end, -27), end];
+  const q = b => call(SC, b).then(j => j.rows || []);
+  await part("sc.live", async () => ({ today: il, w1, w0, cur: await q({ startDate: w1[0], endDate: w1[1] }), prev: await q({ startDate: w0[0], endDate: w0[1] }),
+    days: await q({ startDate: d28[0], endDate: d28[1], dimensions: ["date"], rowLimit: 40 }) }));
+  await part("sc.all", async () => ({ days: await q({ startDate: add(il, -12), endDate: il, dimensions: ["date"], rowLimit: 40, dataState: "all" }) }));
+}
 
 const data = Buffer.from(JSON.stringify(out));
 const key = crypto.randomBytes(32), iv = crypto.randomBytes(12), c = crypto.createCipheriv("aes-256-gcm", key, iv);
