@@ -160,6 +160,16 @@ await part("kv.tally", async () => {
     dimensionFilter: and(APP, inList("eventName", ["first_open", "first_save", "app_return"])), limit: 5000 }));
 }
 
+// 21.10 saver value research: saves and removals by where they were made (from) and the saved-list size (n), and alert settings
+{
+  const and = (...x) => ({ andGroup: { expressions: x } });
+  await part("sv.saves", () => ga({ dateRanges: [{ startDate: "2026-10-12", endDate: "today" }], dimensions: ["platform", "eventName", "customEvent:from", "customEvent:n"].map(name => ({ name })), metrics: [{ name: "eventCount" }, { name: "totalUsers" }],
+    dimensionFilter: and(REAL, inList("eventName", ["car_save", "car_unsave"])) }));
+  await part("sv.alerts", () => ga({ dateRanges: [{ startDate: "2026-10-12", endDate: "today" }], dimensions: ["platform", "eventName", "customEvent:kind"].map(name => ({ name })), metrics: [{ name: "eventCount" }, { name: "totalUsers" }],
+    dimensionFilter: and(REAL, inList("eventName", ["alerts_toggle", "alert_kind", "doc_add", "calendar_reminder_click", "calendar_reminder_shown", "trial_start"])) }));
+  await part("sv.users", () => ga({ dateRanges: [{ startDate: "2026-10-19", endDate: "today" }], dimensions: [{ name: "platform" }], metrics: [{ name: "totalUsers" }, { name: "activeUsers" }], dimensionFilter: REAL }));
+}
+
 const data = Buffer.from(JSON.stringify(out));
 const key = crypto.randomBytes(32), iv = crypto.randomBytes(12), c = crypto.createCipheriv("aes-256-gcm", key, iv);
 const enc = Buffer.concat([c.update(data), c.final()]);
