@@ -2539,7 +2539,7 @@ function simpleCard(D){
   const main = [
     ["יצרן", D.make], ["דגם", D.model], ["שנת ייצור", v.shnat_yitzur], ["רמת גימור", v.ramat_gimur], ["נתוני הדגם לפי", ownW(D) ? "" : wAt(D)], ["צבע", v.tzeva_rechev],
     ["סוג דלק", pick(v.sug_delek_nm, w.delek_nm)], ["נפח מנוע", cc ? fmtN(cc) + " סמ״ק" : ""], ["כוח", hp && hp.u ? fmtN(hp.v) + " " + hp.u : ""],
-    ["הנעה", specDrive(D)], ["תיבת הילוכים", gear], ["מרכב", w.merkav], ["מושבים", specSeats(D)], ["דלתות", w.mispar_dlatot],
+    ["הנעה", specDrive(D)], ["תיבת הילוכים", gear], ["מרכב", w.merkav], ["מושבים", specSeats(D)], ["דלתות", posN(w.mispar_dlatot) ? w.mispar_dlatot : ""],
     ["עלה לכביש", empty(v.moed_aliya_lakvish) ? "" : fmtDate(v.moed_aliya_lakvish)], ["סוג יבוא", D.importKind], ["יבואן", importerOf(D)], ["בעלות נוכחית", v.baalut], ["בעלות ראשונה", firstOwner(v)], ["מספר בעלים", own],
     ["טסט אחרון", !noTestFor(D) && toDate(v.mivchan_acharon_dt) ? fmtDate(v.mivchan_acharon_dt) : ""], ["טסט בתוקף עד", !noTestFor(D) && toDate(v.tokef_dt) ? fmtDate(v.tokef_dt) : ""], ["ק״מ בטסט האחרון", D.km ? fmtN(D.km) : ""],
     ["ריקולים פתוחים", D.recallUnknown ? "לא זמין כרגע" : D.recalls.length ? String(D.recalls.length) : (d => d ? `לא נמצאו (הרשימה כוללת ריקולים עד ${d})` : "לא נמצאו")(perCarTo())], ["תג נכה", D.tag ? "יש" : "", "", true], ["מספר שלדה", vin, vin],
@@ -3349,7 +3349,8 @@ function tabSpecs(D){
     ["יצרן", e(D.make)], ["דגם", e(D.model)],
     ["שנת ייצור", e(v.shnat_yitzur)], ["רמת גימור", e(v.ramat_gimur)],
     ["סוג רכב", e(v.sug_rechev_nm)], ["מרכב", e(w.merkav)], ["יבואן", e(importerOf(D))],
-    ["דלתות", e(w.mispar_dlatot)], ["מושבים", e(specSeats(D))],
+    ["דלתות", posN(w.mispar_dlatot) ? e(w.mispar_dlatot) : ""],   // 0 doors = the register has no value (old cancelled cars)
+    ["מושבים", e(specSeats(D))],
     ["צבע", e(v.tzeva_rechev)],
   ]) + (ownW(D) ? "" : `<p class="note">נתוני הדגם במפרט לפי ${esc(rowAt(w))}${notOwnWhy(w, v, "שורה במאגר")}.</p>`)));
   html.push(card("מנוע והנעה", "engine", "red", facts([

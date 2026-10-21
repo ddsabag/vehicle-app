@@ -754,7 +754,7 @@ function compare(c, X, P) {
     const zt = ((cardOf(P, "specs", /^סביבה$/) || {}).text || "").match(/קבוצת זיהום (\S+) מתוך 15/);
     oneOf("specs.pollution_group", zt ? zt[1] : "", Ws.map(w => firstPosE(R.kvutzat_zihum, w.kvutzat_zihum)), numS, E(R.kvutzat_zihum) ? "" : `register=${R.kvutzat_zihum}`);
     oneOf("specs.gearbox", spec("תיבת הילוכים"), Ws.map(w => E(w.automatic_ind) ? "" : String(w.automatic_ind).trim() === "1" ? "אוטומטית" : "ידנית"));
-    oneOf("specs.mispar_dlatot", spec("דלתות"), Ws.map(w => w.mispar_dlatot));
+    oneOf("specs.mispar_dlatot", spec("דלתות"), Ws.map(w => Number(w.mispar_dlatot) > 0 ? w.mispar_dlatot : ""));   // 0 doors = no value, not shown
     oneOf("specs.merkav", spec("מרכב"), Ws.map(w => w.merkav));
     oneOf("specs.mispar_kariot_avir", spec("כריות אוויר"), Ws.map(w => firstPosE(w.mispar_kariot_avir)), numS);
     { const ev = t => t.includes("חשמל") && !t.includes("בנזין") && !t.includes("דיזל");
