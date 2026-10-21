@@ -4236,7 +4236,8 @@ function renderCompare(){
     ["אגרת רישוי (הערכה)", D => D.cost.fee || null, "lo", "₪"],
     ["שווי שימוש לחודש", D => D.cost.usage ? D.cost.usage.monthly : null, "lo", "₪"],
     "אמינות",
-    ["ריקולים לדגם", D => D.modelRecallsUnknown ? null : recallGroups(D.modelRecalls).filter(r => r.fits !== false).length, "lo"],
+    // a count of model recalls is not a quality score (a careful importer opens more), so no value in this row is marked as the better one
+    ["ריקולים לדגם", D => D.modelRecallsUnknown ? null : recallGroups(D.modelRecalls).filter(r => r.fits !== false).length, null, ""],
     ["רכבים מהדגם והשנתון על הכביש", D => { const p = msPop(D); return p ? p.n : null; }, null, ""],
     ["ירדו מהכביש (כל הדגם והשנתון)", D => { const p = msPop(D); return p ? Math.round(p.pct * 10) / 10 : null; }, "lo", "%", true],
     ...(anyCar ? [anyModel ? "הרכב הספציפי (לא לדגמים)" : "הרכב הספציפי",
