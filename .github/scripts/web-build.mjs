@@ -6,7 +6,7 @@ import fs from "node:fs"; import path from "node:path"; import crypto from "node
 import {minify} from "terser";
 
 const OUT = path.resolve(process.argv[2] || "site");
-const SKIP = new Set([".git", ".github", "android", "worker", "analytics", "node_modules", "site", "ui-contract.json", "ui-guardian-baseline.json", "ui-lint-baseline.json", "README.md", "LICENSE", "service.json"]);
+const SKIP = new Set([".git", ".github", "android", "worker", "analytics", "node_modules", "site", "ui-contract.json", "ui-guardian-baseline.json", "ui-lint-baseline.json", "README.md", "LICENSE", "service.json", "service.bin"]);
 fs.rmSync(OUT, {recursive: true, force: true});
 (function copy(src, dst) {
   fs.mkdirSync(dst, {recursive: true});

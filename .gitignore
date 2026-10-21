@@ -1,6 +1,7 @@
 android/build-web/
 .github/scripts/node_modules
 service.json
+service.bin
 *.jks
 *.keystore
 keystore.properties

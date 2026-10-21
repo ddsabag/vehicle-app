@@ -2768,12 +2768,23 @@ const isCommercial = D => /משא|מסחרי|אוטובוס|מונית|טנדר/
   || /TRANSPORTER|CADDY|CRAFTER|AMAROK|טרנספורטר|קאדי|קראפטר|אמארוק/i.test([D.v.kinuy_mishari, D.v.degem_nm].join(" "));
 /* service.json: importer service-interval rows by maker + model words + drive + engine size ([maker, words, drive e/h/i, cc, km, months]) */
 let SERVICE = null, svP = null;
+const SVK = "__SVK__";
 function loadService(){
   if (SERVICE) return Promise.resolve(SERVICE);
   return svP || (svP = (async () => {
     for (const u of [SITE + "service.json", "service.json"]) {
       try { const r = await fetch(u, {cache: "no-cache"}); if (r.ok) { const j = await r.json(); if (j && j.rows) return SERVICE = j; } } catch {}
     }
+    // release builds carry the table sealed (service.bin) with its key written into the page at build time (seal-service.mjs)
+    if (SVK[0] !== "_" && window.crypto && crypto.subtle) try {   // the slot is still "__SVK__" outside release builds; base64 never starts with "_"
+      const r = await fetch("service.bin", {cache: "no-cache"});
+      if (r.ok) {
+        const b = new Uint8Array(await r.arrayBuffer()), raw = Uint8Array.from(atob(SVK), ch => ch.charCodeAt(0));
+        const k = await crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["decrypt"]);
+        const j = JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name: "AES-GCM", iv: b.slice(0, 12)}, k, b.slice(12))));
+        if (j && j.rows) return SERVICE = j;
+      }
+    } catch {}
     svP = null; return null;
   })());
 }
