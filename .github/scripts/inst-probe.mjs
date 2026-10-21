@@ -1,3 +1,4 @@
+// 21.10 08:07: re-run to confirm the live-31 cron keeps the tally with /live closed
 // One-off (probe-perf branch, not for main), 20.10 evening: why /live's "installed now" fell from 227 to 120 within an hour. Reads what the
 // Worker reads (GA4 first opens and removals in Israel by day and by hour, GA4 realtime by minute, Google Play's installs report) and
 // Cloudflare's record of the luchit-live Worker's requests (by 5 minutes, status, data centre when the dataset has it). Business numbers
