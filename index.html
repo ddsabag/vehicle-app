@@ -252,6 +252,15 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .row .t b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere}
 .row .t small{color:var(--muted)}
 a.row{color:var(--fg);text-decoration:none}a.row .t small{text-decoration:none}a.more{display:inline-block;margin-top:8px;color:var(--accent);font-weight:600;text-decoration:none}
+/* a saved car, the same on every screen and phone font size: the plate on top, the name and details under it at the row's full width,
+   bell and remove stacked at the side (side by side they left the text a few pixels on a narrow screen or a large font) */
+.sv{flex-wrap:wrap;row-gap:2px}
+.sv-open{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:0;margin:0;background:none;border:0;color:inherit;font:inherit;text-align:start;cursor:pointer}
+.sv-open .t{align-self:stretch;min-width:0}
+.sv-open .mini-plate{white-space:nowrap}
+.sv-acts{flex:0 0 auto;display:flex;flex-direction:column;align-self:center}
+.sv-nick{flex:1 0 100%;border:0;background:none;padding:4px 0 0;margin:0;font:inherit;font-size:.82rem;color:var(--accent);text-align:start;cursor:pointer;min-height:32px}
+.sv-nickf{flex:1 0 100%;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding-top:6px}.sv-nickf .inp{flex:1 1 10rem;min-width:0}.sv-nickf .link-btn{flex:0 0 auto;margin:0}
 .row .x.bell[aria-pressed="false"]{opacity:.4}
 .row .x.bell[aria-pressed="true"]{color:var(--accent)}
 .savedbar{display:flex;align-items:center;gap:8px;margin:10px 16px 0;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:8px 14px;font-weight:700;color:var(--fg);width:calc(100% - 32px)}
@@ -1328,7 +1337,7 @@ const store = {
 /* the app checks saved cars once a day for a new recall or a test about to expire */
 function syncSaved(list){
   const b = window.AndroidApp; if (!b || !b.syncSaved) return;
-  try { b.syncSaved(JSON.stringify((list || []).map((x, i) => ({plate: x.plate, title: x.title || "", alerts: alertSet().includes(x.plate), ext: plan() !== "free", svcDue: svcDue(x.plate), stlCar: x.stlCar || null, prefs: alertPrefs(), docs: docExpAll().filter(d => d.plate === x.plate).map(d => ({cat: d.cat, exp: d.exp}))})))); } catch {}
+  try { b.syncSaved(JSON.stringify((list || []).map((x, i) => ({plate: x.plate, title: x.nick || x.title || "", alerts: alertSet().includes(x.plate), ext: plan() !== "free", svcDue: svcDue(x.plate), stlCar: x.stlCar || null, prefs: alertPrefs(), docs: docExpAll().filter(d => d.plate === x.plate).map(d => ({cat: d.cat, exp: d.exp}))})))); } catch {}
 }
 /* what to be alerted about: every kind is on by default and the user can switch each one off in settings */
 const ALERT_KINDS = [["test", "טסט שעומד לפוג או שפג"], ["recall", "ריקול חדש או שנסגר"], ["service", "תזכורות טיפול"], ["docs", "תוקף ביטוח ומסמכים"], ["owner", "בעלות חדשה (PRO)"], ["status", "ירידה מהכביש ושינוי רשום (PRO)"], ["settlement", "הסדר פשרה חדש (PRO)"]];
@@ -2856,6 +2865,7 @@ function intervalCard(D, info){
 
 /* ---------- maintenance tab: service log, next service, km timeline, cumulative cost (the log stays on the phone) ---------- */
 const SVC_TYPES = ["טיפול תקופתי", "שמן ומסננים", "בלמים", "צמיגים", "מצבר", "מזגן", "אחר"];
+const SVC_KEYS = ["periodic", "oil", "brakes", "tires", "battery", "ac", "other"];   // the same types, as the usage count names them
 const maintOk = () => !PRO_LOCK || atLeast("pro");
 const svcAll = () => { try { return JSON.parse(localStorage.getItem("svc") || "{}") || {}; } catch { return {}; } };
 const svcOf = p => { const s = svcAll()[p]; return s && Array.isArray(s.log) ? s : {log: [], meta: null}; };
@@ -3752,7 +3762,7 @@ function renderQuick(){
   const mine = [];
   if (current && !inCmp(current.plate)) mine.push(`<button type="button" class="qrow cur" data-qcur="1"><span class="mini-plate"><i></i>${fmtPlate(current.plate)}</span><span class="t"><b>${esc(current.title)}</b><small>הרכב שחיפשתם</small></span><span class="qadd">${ico("plus")}הוספה</span></button>`);
   for (const s of store.get("savedVehicles").filter(s => !inCmp(s.plate) && !(current && s.plate === current.plate)).slice(0, 3))
-    mine.push(`<button type="button" class="qrow" data-qplate="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b>${esc(s.title)}</b><small>${esc(s.sub || "רכב שמור")}</small></span><span class="qadd">${ico("plus")}הוספה</span></button>`);
+    mine.push(`<button type="button" class="qrow" data-qplate="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b>${esc(s.nick || s.title)}</b><small>${esc(s.nick ? s.title : s.sub || "רכב שמור")}</small></span><span class="qadd">${ico("plus")}הוספה</span></button>`);
   if (mine.length) parts.push(`<div class="qsec">להוספה מהירה מהרכבים שלכם</div><div class="list">${mine.join("")}</div>`);
   parts.push(`<div class="qsec">יצרנים נפוצים</div><div class="makers">${MAKERS.map(m => `<button type="button" data-maker="${m}">${m}</button>`).join("")}</div>`);
   box.innerHTML = parts.join("");
@@ -4314,6 +4324,8 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.open) { run(b.dataset.open); return; }
   if (b.dataset.bell) { const list = store.get("savedVehicles"), it = list.find(x => x.plate === b.dataset.bell); if (it && it.alerts === false && list.filter(x => x.alerts !== false).length >= alertCap()) { toast(`התראות ליותר מ-${alertCap()} רכבים זמינות בחבילה גבוהה יותר`); return; } if (it) { it.alerts = it.alerts === false; track("alerts_toggle", {on: it.alerts !== false ? "1" : "0"}); store.set("savedVehicles", list); toast(it.alerts === false ? "ההתראות לרכב הזה כבויות" : "תקבלו התראות על הרכב הזה"); renderHome(); } return; }
   if (b.dataset.unsave) { store.set("savedVehicles", store.get("savedVehicles").filter(x => x.plate !== b.dataset.unsave)); renderHome(); return; }
+  if (b.dataset.nick) { nickEdit(b); return; }
+  if (b.dataset.nicksave) { const i = b.parentElement.querySelector("input"); nickSave(b.dataset.nicksave, i ? i.value : ""); return; }
   if (b.dataset.rm) { cmp.splice(+b.dataset.rm, 1); renderCompare(); return; }
   if (b.dataset.retryCmp) { retryCompare(+b.dataset.retryCmp); return; }
   if (b.dataset.sec) { const t = b.dataset.sec, y = window.scrollY; if (b.getAttribute("aria-expanded") === "true") { cmpOpen.delete(t); CMP_FOLDED.add(t); } else { cmpOpen.add(t); } renderCompare(); window.scrollTo(0, y); return; }
@@ -4350,7 +4362,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "diffOnly") { diffOnly = !diffOnly; try { localStorage.setItem("cmpDiffOnly", diffOnly ? "1" : ""); } catch {} renderCompare(); return; }
   if (b.dataset.act === "land") { setLand(!land); return; }
   if (!current) return;
-  if (b.dataset.tab) { currentTab = b.dataset.tab; track("tab_view", {tab: b.dataset.tab}); renderResult(); focusResult(); $("#out").classList.add("rise"); setTimeout(() => $("#out").classList.remove("rise"), 300); const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"}); return; }
+  if (b.dataset.tab) { currentTab = b.dataset.tab; track("tab_view", {tab: b.dataset.tab, own: current && current.plate && isSaved(current.plate) ? 1 : 0}); renderResult(); focusResult(); $("#out").classList.add("rise"); setTimeout(() => $("#out").classList.remove("rise"), 300); const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"}); return; }
   const act = b.dataset.act;
   if (act === "share") { track("share_open");   // the sheet opening; track("share") counts only a choice in it
     $("#shareMsg").textContent = ""; $("[data-share=bizpdf]").hidden = !(PRO_LOCK && isBiz()); $("#shareSheet").hidden = false; shareWarm = {}; warmShare(); }
@@ -5252,7 +5264,11 @@ async function checkSaved(){
         }
         if (ev.length) { it.events = [...ev, ...(it.events || [])].slice(0, 30); changed = true; }
         it.checked = rec ? Date.now() : Date.now() - 864e5 + 36e5;   // a recall query that failed is asked again in an hour, not tomorrow
-        store.set("savedVehicles", list);
+        // the checks above wait on the network: write onto the list as it is now, so what the owner changed meanwhile (a nickname, the
+        // bell, the asking price) stays, and a car removed meanwhile does not come back
+        const now = store.get("savedVehicles"), cur = now.find(x => x.plate === s.plate); if (!cur) continue;
+        for (const k of OWNER_KEYS) { if (k in cur) it[k] = cur[k]; else delete it[k]; }
+        Object.assign(cur, it); store.set("savedVehicles", now);
       } catch {}
     }
     if (changed && !current && !inCompare) renderHome();
@@ -5534,7 +5550,7 @@ function renderFleet(){
   const list = store.get("savedVehicles").slice(0, fleetMax());
   const n = list.filter(s => licCell(licSaved(s))[0] || s.recalls > 0).length;
   const rows = list.map(s => { const [col, tx] = licCell(licSaved(s));
-    return `<tr><td><button type="button" class="lnk" data-open="${s.plate}"><b>${fmtPlate(s.plate)}</b><small style="color:var(--muted)">${esc(s.title)}</small></button></td><td class="${col}">${tx}</td><td class="${s.recalls > 0 ? "w" : ""}">${s.recalls > 0 ? s.recalls : "—"}</td></tr>`; }).join("");
+    return `<tr><td><button type="button" class="lnk" data-open="${s.plate}"><b>${fmtPlate(s.plate)}</b><small style="color:var(--muted)">${esc(s.nick || s.title)}</small></button></td><td class="${col}">${tx}</td><td class="${s.recalls > 0 ? "w" : ""}">${s.recalls > 0 ? s.recalls : "—"}</td></tr>`; }).join("");
   const html = [];
   if (PRO_LOCK && !atLeast("pro")) html.push(proLockCard("הצי שלי", "כל הרכבים שלכם בטבלה אחת, עם טסט, ריקולים וסימון מה דורש טיפול."));
   else html.push(card("הצי שלי", "car", "blue", list.length ? `<p style="margin:0 0 6px"><b>${n ? (n === 1 ? "רכב אחד דורש טיפול" : `${n} רכבים דורשים טיפול`) : "הכול בסדר"}</b>${n ? `<br><small style="color:var(--muted)">טסט שעבר או קרוב, או ריקול פתוח</small>` : ""}</p><table class="ft"><tr><th>רכב</th><th>טסט</th><th>ריקולים</th></tr>${rows}</table>${store.get("savedVehicles").length > fleetMax() ? `<p class="note">מוצגים ${fleetMax()} הרכבים הראשונים.</p>` : ""}` : `<p style="margin:0">שמרו רכבים כדי לראות אותם כאן בטבלה אחת.</p>`, `${PT("PRO")}`));
@@ -5543,6 +5559,25 @@ function renderFleet(){
 }
 /* ---------- buying companion (PRO / buyer pack) ---------- */
 const savedItem = p => store.get("savedVehicles").find(x => x.plate === p);
+/* a nickname of the owner's choice ("הרכב של אמא"): shown instead of the model name in "הרכבים שלי", the fleet tables and the phone's alerts */
+const NICK_MAX = 24;
+const OWNER_KEYS = ["nick", "alerts", "ask"];   // set by the owner on a saved car, never by a check
+function nickEdit(b){
+  const p = b.dataset.nick, it = savedItem(p); if (!it) return;
+  const f = document.createElement("span"); f.className = "sv-nickf";
+  f.innerHTML = `<input class="inp" type="text" maxlength="${NICK_MAX}" enterkeyhint="done" aria-label="כינוי לרכב" placeholder="למשל: הרכב של אמא" value="${esc(it.nick || "")}"><button type="button" class="link-btn" data-nicksave="${esc(p)}">שמירה</button>`;
+  b.replaceWith(f);
+  const i = f.querySelector("input"); i.focus();
+  i.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); nickSave(p, i.value); } });
+}
+function nickSave(p, v){
+  const list = store.get("savedVehicles"), it = list.find(x => x.plate === p); if (!it) return;
+  const had = !!it.nick; v = String(v || "").replace(/\s+/g, " ").trim().slice(0, NICK_MAX);
+  if (v) it.nick = v; else delete it.nick;
+  store.set("savedVehicles", list);
+  if (v || had) { track("car_nick", {kind: v ? "set" : "clear"}); toast(v ? "הכינוי נשמר" : "הכינוי הוסר"); }
+  renderHome();
+}
 const candFields = D => ({fair: D.cost && D.cost.valueLow ? [D.cost.valueLow, D.cost.valueHigh] : null, c5: D.cost && D.cost.monthly ? D.cost.monthly.total * 60 : null});
 const newSavedItem = D => ({plate: D.plate, title: D.title, sub: D.sub, at: Date.now(), reg: D.primary ? D.primary.key : undefined, tokef: !(D.primary && NO_TEST[D.primary.key]) && toDate(D.v.tokef_dt) ? D.v.tokef_dt : "", mivchan: !(D.primary && NO_TEST[D.primary.key]) && toDate(D.v.mivchan_acharon_dt) ? D.v.mivchan_acharon_dt : "", recalls: D.recallUnknown ? undefined : D.recalls.length, recIds: D.recallUnknown ? undefined : recallIds(D.recalls), checked: Date.now(), owners: D.own.length, ownLast: D.own.reduce((m, r) => Math.max(m, Number(r.baalut_dt) || 0), 0), active: !D.isCancelled, events: [], stlCar: stlCar(D), ...candFields(D)});
 function askVerdict(ask, fair){
@@ -5587,7 +5622,7 @@ function renderCandidates(){
       return {s, vd, tot: s.c5 && s.ask && mid ? s.c5 + (s.ask - mid) : null};
     });
     const best = rows.filter(r => r.tot).sort((a, b) => a.tot - b.tot)[0];
-    const tbl = rows.map(({s, vd, tot}) => `<tr><td><button type="button" class="lnk" data-open="${s.plate}"><b>${fmtPlate(s.plate)}</b><small style="color:var(--muted)">${esc(s.title)}</small></button></td><td>${s.ask ? fmtN(s.ask) : "—"}${vd ? `<small class="vd ${vd.k}" style="display:block">${vd.s}</small>` : ""}</td><td>${s.fair ? `<span dir="ltr">${Math.round(s.fair[0] / 1000)}–${Math.round(s.fair[1] / 1000)}K</span>` : "—"}</td><td>${tot ? Math.round(tot / 1000) + "K" : "—"}</td></tr>`).join("");
+    const tbl = rows.map(({s, vd, tot}) => `<tr><td><button type="button" class="lnk" data-open="${s.plate}"><b>${fmtPlate(s.plate)}</b><small style="color:var(--muted)">${esc(s.nick || s.title)}</small></button></td><td>${s.ask ? fmtN(s.ask) : "—"}${vd ? `<small class="vd ${vd.k}" style="display:block">${vd.s}</small>` : ""}</td><td>${s.fair ? `<span dir="ltr">${Math.round(s.fair[0] / 1000)}–${Math.round(s.fair[1] / 1000)}K</span>` : "—"}</td><td>${tot ? Math.round(tot / 1000) + "K" : "—"}</td></tr>`).join("");
     html.push(card("רשימת מועמדים", "star", "amber", rows.length ? `<table class="ft"><tr><th>רכב</th><th>מבוקש</th><th>טווח משוער</th><th>עלות ל-5 שנים</th></tr>${tbl}</table>
       <p class="note">טווח משוער הוא הערכת שווי הרכב לפי מחירון, שנתון, בעלויות וק״מ. מתחת למחיר המבוקש כתוב אם הוא גבוה מהטווח, בתוכו או נמוך ממנו. עלות ל-5 שנים כוללת דלק, אגרה וירידת ערך, ואת ההפרש בין המחיר המבוקש להערכת השווי. הערכה בלבד.</p>
       ${best && rows.filter(r => r.tot).length > 1 ? `<p style="margin:8px 0 0"><b>הכי משתלם לפי העלות הכוללת: ${esc(best.s.title)}</b></p>` : ""}`
@@ -5742,7 +5777,7 @@ function renderHome(){
     <div class="try"><span>רוצים לראות איך זה נראה?</span><button type="button" class="chip" data-open="${EXAMPLE_PLATE}">נסו לדוגמה <bdi dir="ltr">${fmtPlate(EXAMPLE_PLATE)}</bdi></button></div>
     <ol class="how"><li><b>מקלידים מספר רישוי</b> או מצלמים את הלוחית.</li><li><b>מקבלים תמונה מלאה</b> מנתוני משרד התחבורה: ריקולים והסדרי פשרה, טסט, בעלויות ומחיר משוער.</li><li><b>שומרים ומשתפים</b>, ומקבלים התראה על ריקול חדש או טסט שעומד לפוג.</li></ol></section>`);
   const pn = planNotice(); if (pn) html.push(pn);
-  if (saved.length) html.push(card("הרכבים שלי", "star", "amber", `<div class="list">${saved.map(s => `<div class="row"><button type="button" class="row" style="padding:0;background:none" data-open="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b><bdi>${esc(s.title)}</bdi></b><small>${esc(s.sub || "")}</small>${savedFlags(s)}</span></button><button type="button" class="x bell" data-bell="${s.plate}" aria-pressed="${s.alerts !== false && (!PRO_LOCK || alertSet().includes(s.plate))}" aria-label="התראות לרכב הזה">${ico("bell")}</button><button type="button" class="x" data-unsave="${s.plate}" aria-label="הסרה">${ico("x")}</button></div>`).join("")}</div><p class="note">${alertsSupported() ? "הפעמון קובע על אילו רכבים תקבלו התראה על ריקול חדש או טסט שעומד לפוג." : `התראות על ריקול חדש ועל טסט שעומד לפוג זמינות באפליקציית לוחית באנדרואיד. <button type="button" class="lnk" data-url="${PLAY_URL}">להתקנה</button>`}</p>`));
+  if (saved.length) html.push(card("הרכבים שלי", "star", "amber", `<div class="list">${saved.map(s => `<div class="row sv"><button type="button" class="sv-open" data-open="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b><bdi>${esc(s.nick || s.title)}</bdi></b><small>${s.nick ? `<bdi>${esc(s.title)}</bdi> · ` : ""}${esc(s.sub || "")}</small>${savedFlags(s)}</span></button><span class="sv-acts"><button type="button" class="x bell" data-bell="${s.plate}" aria-pressed="${s.alerts !== false && (!PRO_LOCK || alertSet().includes(s.plate))}" aria-label="התראות לרכב הזה">${ico("bell")}</button><button type="button" class="x" data-unsave="${s.plate}" aria-label="הסרה">${ico("x")}</button></span><button type="button" class="sv-nick" data-nick="${s.plate}">${s.nick ? "שינוי כינוי" : "הוספת כינוי"}</button></div>`).join("")}</div><p class="note">${alertsSupported() ? "הפעמון קובע על אילו רכבים תקבלו התראה על ריקול חדש או טסט שעומד לפוג." : `התראות על ריקול חדש ועל טסט שעומד לפוג זמינות באפליקציית לוחית באנדרואיד. <button type="button" class="lnk" data-url="${PLAY_URL}">להתקנה</button>`}</p>`));
   if (recent.length) html.push(card("חיפושים אחרונים", "clock", "blue", `<div class="chips">${recent.map(p => `<button type="button" class="chip" data-open="${p}">${fmtPlate(p)}</button>`).join("")}</div>`));
   const tool = (act, icon, title, text, tag, col) => `<button type="button" class="tool ${col}" data-act="${act}"><i class="tb">${ico(icon)}</i><span>${title}${tag ? PT(tag) : ""}</span><small>${text}</small></button>`;
   html.push(`<div class="qsec">כלים</div><div class="tools">${[
@@ -6132,13 +6167,14 @@ $("#out").addEventListener("click", ev => {
   const b = ev.target.closest("[data-svc]"); if (!b || !current) return;
   const p = current.plate, a = b.dataset.svc;
   if (a === "toggle") { const f = $("#svcForm"); if (f) f.hidden = !f.hidden; return; }
-  if (a === "cal") { const n = svcNext(svcOf(p)); if (n && n.due) svcCalendar(current, n.due); return; }
+  if (a === "cal") { const n = svcNext(svcOf(p)); if (n && n.due) { track("svc_cal"); svcCalendar(current, n.due); } return; }
   if (a === "del") { const s = svcOf(p); s.log = s.log.filter(x => String(x.id) !== b.dataset.id); svcSave(p, s); renderResult(); toast("נמחק מהיומן"); return; }
   if (a === "save") {
     const d = $("#svcDate").value, km = Math.round(Number($("#svcKm").value) || 0), cost = Math.round((Number($("#svcCost").value) || 0) * 100) / 100;
     if (!d || isNaN(new Date(d))) { toast("בחרו תאריך לטיפול"); return; }
     const s = svcOf(p); s.log.push({id: Date.now(), d, km: km > 0 ? km : 0, type: $("#svcType").value, cost: cost > 0 ? cost : 0, note: $("#svcNote").value.trim().slice(0, 80)});
     s.log = s.log.slice(-200); svcSave(p, s); renderResult(); toast("הטיפול נשמר ביומן");
+    const t = s.log[s.log.length - 1]; track("svc_add", {kind: SVC_KEYS[SVC_TYPES.indexOf(t.type)] || "other", n: s.log.length, km: t.km > 0 ? 1 : 0, cost: t.cost > 0 ? 1 : 0});
   }
 });
 </script>

@@ -198,7 +198,7 @@ public class SavedCheckWorker extends Worker {
             title = "הטיפול לרכב " + fmtPlate(plate) + " מתעכב";
             text = prefix + "עבר שבוע מהמועד המשוער לטיפול (" + when + "). אם כבר טיפלת, רשום את זה ביומן.";
         }
-        notify(c, plate, ("svc" + plate).hashCode(), title, text);
+        notify(c, plate, "svc", ("svc" + plate).hashCode(), title, text);
         sent.add(mark);
         p.edit().putStringSet(key, sent).apply();
     }
@@ -217,13 +217,13 @@ public class SavedCheckWorker extends Worker {
             if (!now.isEmpty()) p.edit().remove("miss_" + key).apply();
             if (!fresh && known.size() > now.size() && now.isEmpty() && !repeated(p, key)) return;   // the register answered with nothing: unknown, not "closed"; alert only when it repeats
             if (!fresh && known.size() > now.size()) {
-                notify(c, plate, ("recall" + plate).hashCode(),
+                notify(c, plate, "recall", ("recall" + plate).hashCode(),
                         "ריקול נסגר ברכב " + fmtPlate(plate),
                         (name.isEmpty() ? "" : name + ": ") + "ריקול שהיה פתוח כבר לא מופיע ברשימה. כדאי לוודא שהתיקון בוצע.");
             }
             for (String id : now) {
                 if (!known.contains(id)) {
-                    notify(c, plate, ("recall" + plate).hashCode(),
+                    notify(c, plate, "recall", ("recall" + plate).hashCode(),
                             "ריקול חדש לרכב " + fmtPlate(plate),
                             (name.isEmpty() ? "" : name + ": ") + "נפתח ריקול חדש. כדאי לתאם תיקון אצל היבואן.");
                     break;
@@ -240,7 +240,7 @@ public class SavedCheckWorker extends Worker {
         String key = "owners_" + plate;
         if (now == 0 && p.getInt(key, 0) > 0) return;   // an empty answer for a car that had owners is a register hiccup, not a change
         if (p.contains(key) && now > p.getInt(key, now)) {
-            notify(c, plate, ("owner" + plate).hashCode(),
+            notify(c, plate, "owner", ("owner" + plate).hashCode(),
                     "בעלות חדשה לרכב " + fmtPlate(plate),
                     (name.isEmpty() ? "" : name + ": ") + "נרשמה בעלות חדשה ברכב.");
         }
@@ -258,7 +258,7 @@ public class SavedCheckWorker extends Worker {
         if (active) p.edit().remove("miss_" + key).apply();
         if (p.getBoolean(key, false) && !active && !repeated(p, key)) return;   // the first empty answer is unknown (the register has empty days); the second in a row is news
         if (p.getBoolean(key, false) && !active) {
-            notify(c, plate, ("status" + plate).hashCode(),
+            notify(c, plate, "status", ("status" + plate).hashCode(),
                     "הרכב " + fmtPlate(plate) + " כבר לא במאגר הרכבים הפעילים",
                     (name.isEmpty() ? "" : name + ": ") + "ייתכן שירד מהכביש, וייתכן שנרשם כלא פעיל. פתחו את הרכב באפליקציה כדי לראות מה רשום.");
         }
@@ -297,13 +297,13 @@ public class SavedCheckWorker extends Worker {
         String when = dm.format(end);
         boolean shown;
         if (days < 0) {
-            shown = notify(c, plate, ("test" + plate).hashCode(),
+            shown = notify(c, plate, "test", ("test" + plate).hashCode(),
                     "הטסט לרכב " + fmtPlate(plate) + " פג",
                     (name.isEmpty() ? "" : name + ": ") + "לפי מאגר משרד התחבורה, תוקף הרישיון הסתיים ב-" + when + "."
                             + (near ? " במאגר רשום טסט מ-" + dm.format(test) + ", אבל הרישיון לא חודש בו." : "")
                             + " נסיעה בלי רישיון בתוקף עלולה לסכן את הביטוח ולגרור קנס.");
         } else {
-            shown = notify(c, plate, ("test" + plate).hashCode(),
+            shown = notify(c, plate, "test", ("test" + plate).hashCode(),
                     "הטסט לרכב " + fmtPlate(plate) + (days == 0 ? " פג היום" : " פג בעוד " + days + " ימים"),
                     (name.isEmpty() ? "" : name + ": ") + "תוקף הרישיון עד " + when + ". כדאי לחדש מראש: טסט כשנדרש, ותשלום האגרה.");
         }
@@ -361,7 +361,7 @@ public class SavedCheckWorker extends Worker {
             else if (stage == 0) title = cat + " לרכב " + fmtPlate(plate) + " פג היום";
             else title = cat + " לרכב " + fmtPlate(plate) + " פג בעוד " + days + " ימים";
             String text = prefix + "התוקף ב-תיק הרכב: " + when + (stage == -1 ? ". כדאי לחדש בהקדם." : ". כדאי לחדש מראש.");
-            notify(c, plate, ("doc" + plate + cat).hashCode(), title, text);
+            notify(c, plate, "doc", ("doc" + plate + cat).hashCode(), title, text);
             sent.add(mark);
             dirty = true;
         }
@@ -378,7 +378,7 @@ public class SavedCheckWorker extends Worker {
         String key = "mods_" + plate;
         String old = p.getString(key, null);
         if (old != null && !old.equals(sig)) {
-            notify(c, plate, ("mods" + plate).hashCode(),
+            notify(c, plate, "mods", ("mods" + plate).hashCode(),
                     "נרשם שינוי ברכב " + fmtPlate(plate),
                     (name.isEmpty() ? "" : name + ": ") + "במאגר הרכבים נרשם שינוי במבנה, בצבע, בגפ״מ או בצמיגים.");
         }
@@ -409,7 +409,7 @@ public class SavedCheckWorker extends Worker {
                 fresh++;
             }
             if (first != null) {
-                notify(c, plate, ("stl" + plate).hashCode(),
+                notify(c, plate, "stl", ("stl" + plate).hashCode(),
                         "ייתכן שמגיעה הטבה לרכב " + fmtPlate(plate),
                         (name.isEmpty() ? "" : name + ": ") + (fresh == 1 ? "נוסף הסדר פשרה שעשוי לחול על הרכב: " : "נוספו " + fresh + " הסדרי פשרה שעשויים לחול על הרכב, ביניהם: ")
                                 + first.title + ". הפרטים בלשונית ריקולים.");
@@ -435,6 +435,18 @@ public class SavedCheckWorker extends Worker {
             }
         }
         return n < 4;
+    }
+
+    /** Anonymous usage count (the kind of alert only, never the plate), kept off when the owner switched usage statistics off in the app */
+    static void logUsage(Context c, String name, String kind) {
+        try {
+            if (!c.getSharedPreferences("analytics", Context.MODE_PRIVATE).getBoolean("on", true)) return;
+            android.os.Bundle b = new android.os.Bundle();
+            b.putString("kind", kind);
+            com.google.firebase.analytics.FirebaseAnalytics.getInstance(c).logEvent(name, b);
+        } catch (Throwable ignored) {
+            // analytics must never break an alert
+        }
     }
 
     private static void logSent(Context c) {
@@ -520,11 +532,12 @@ public class SavedCheckWorker extends Worker {
     }
 
     /** Posts the notification; false when it was not shown (weekly budget spent, notifications blocked or not allowed) */
-    private static boolean notify(Context c, String plate, int id, String title, String text) {
+    private static boolean notify(Context c, String plate, String kind, int id, String title, String text) {
         ensureChannel(c);
         Intent open = new Intent(c, MainActivity.class)
                 .setData(Uri.parse("luchit://plate/" + plate))
                 .putExtra("plate", plate)
+                .putExtra("nkind", kind)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent pi = PendingIntent.getActivity(c, id, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         NotificationCompat.Builder b = new NotificationCompat.Builder(c, CHANNEL)
@@ -539,6 +552,7 @@ public class SavedCheckWorker extends Worker {
         try {
             NotificationManagerCompat.from(c).notify(id, b.build());
             logSent(c);
+            logUsage(c, "notif_sent", kind);
             return true;
         } catch (SecurityException ignored) {
             // notifications were not allowed

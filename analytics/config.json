@@ -32,7 +32,12 @@
     "trial_start": "trial_start",
     "screenshot": "user_screenshot",
     "no_result": "search_no_result",
-    "buy_card": "buy_card_open"
+    "buy_card": "buy_card_open",
+    "nick": "car_nick",
+    "svc_add": "svc_add",
+    "svc_cal": "svc_cal",
+    "notif_sent": "notif_sent",
+    "notif_open": "notif_open"
   },
   "sources": {
     "search_console_site": "sc-domain:luchit.app",

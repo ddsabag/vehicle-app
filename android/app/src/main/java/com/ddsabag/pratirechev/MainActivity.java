@@ -473,6 +473,7 @@ public class MainActivity extends Activity {
         SavedCheckWorker.ensureChannel(this);
         SavedCheckWorker.schedule(this);
         String plate = plateFrom(getIntent());
+        if (savedInstanceState == null) notifOpened(getIntent());
         if (plate != null) {
             webView.loadUrl(START_URL + "#" + plate);
         } else if (savedInstanceState != null) {
@@ -680,6 +681,15 @@ public class MainActivity extends Activity {
         return androidx.core.app.NotificationManagerCompat.from(this).areNotificationsEnabled();
     }
 
+    // a tapped alert is counted once by its kind (never the plate); reopening the app from recent apps repeats the old intent and is not counted
+    private void notifOpened(Intent i) {
+        if (i == null || (i.getFlags() & Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0) return;
+        String kind = i.getStringExtra("nkind");
+        if (kind == null || !kind.matches("[a-z]{1,12}")) return;
+        i.removeExtra("nkind");
+        SavedCheckWorker.logUsage(this, "notif_open", kind);
+    }
+
     // a tapped notification carries the plate of the saved car
     private static String plateFrom(Intent i) {
         if (i == null) return null;
@@ -731,6 +741,7 @@ public class MainActivity extends Activity {
         super.onNewIntent(intent);
         setIntent(intent);
         String plate = plateFrom(intent);
+        notifOpened(intent);
         if (plate != null) pageJs("window.run && run(" + JSONObject.quote(plate) + ")");
         handleIncoming(intent);
     }
