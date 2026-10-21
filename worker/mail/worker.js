@@ -8,7 +8,7 @@
 //   day     privacy, crash: loud by day; at night silent plus a pointer for luchit-uptime's morning ring, only while luchit-uptime is
 //           alive (else loud)
 //   summary data, biz, other: one silent message at once, same text
-//   silent  bulk mail (mailing lists, newsletters, auto-replies; by headers only): no Telegram, Gmail only
+//   silent  bulk mail (mailing lists, newsletters, auto-replies; by headers only) and cold marketing (promo): no Telegram, Gmail only
 // The block between the alert-lib v1 markers is a byte-identical copy of worker/lib/alert-lib.js (CI compares them).
 
 const CLASSES = [
@@ -55,10 +55,17 @@ function plainText(raw) {
 }
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+// cold marketing (app-listing sites, "launch boost" offers), checked before the classes: its own phrases, or a sender that is a bulk-mail
+// service's bounce address (Amazon SES and the like), which a person writing to support never has
+const PROMO = { key: "promo", icon: "⚫", label: "פרסומת", re: /claim your (free )?(spot|page|listing)|free spots? (open|left)|first come,? first serve|congrat\w* on (launching|releasing|shipping|the launch|your (new )?(app|launch|release))|(newest|latest|new) (releases|apps|launches) on (the )?google play|dofollow|backlinks?\b|overall rank|(boost|grow|increase) your (app'?s? )?(downloads|installs|ranking|visibility)|get more (downloads|installs|reviews)|utm_(source|medium)=outreach/i };
+const BULK_SENDER = /@([\w-]+\.)*(amazonses\.com|sendgrid\.net|mailgun\.org|mcsv\.net|mcdlv\.net|sparkpostmail\.com|mandrillapp\.com)$|^0[0-9a-f]{15}-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-0{6}@/i;
+// the app's own store title holds "מספר רישוי" (a data word): a mail quoting it says nothing about a data error
+const OWN_TITLE = /לוחית\s*[:\-–]?\s*בדיקת רכב( ו?מספר רישוי| לפי מספר)?/g;
+
 export function summarise(from, subject, rawText) {
   const text = plainText(rawText).replace(/^>.*$/gm, "").replace(/\s+/g, " ").trim();
-  const hay = subject + " " + text;
-  const cls = CLASSES.find(c => c.re.test(hay)) || { key: "other", icon: "⚪", label: "אחר" };
+  const hay = (subject + " " + text).replace(/[­​-‏⁠﻿]/g, "").replace(OWN_TITLE, "לוחית");
+  const cls = (PROMO.re.test(hay) || BULK_SENDER.test(String(from || "").trim()) ? PROMO : null) || CLASSES.find(c => c.re.test(hay)) || { key: "other", icon: "⚪", label: "אחר" };
   return { cls, text: text.slice(0, 700) };
 }
 // mailing lists, newsletters and auto-replies, by headers only (a "no-reply" sender alone is not bulk)
@@ -67,7 +74,7 @@ function isBulk(h) {
   return h.has("list-unsubscribe") || h.has("list-id") || /^\s*(bulk|list|junk)\b/i.test(h.get("precedence") || "") || (!!auto && !/^no\b/i.test(auto));
 }
 // router level per mail; key = "mail:<class>" (luchit-uptime's morning ring reads the class from it, never the mail)
-const LEVEL = { privacy: "day", crash: "day", data: "summary", biz: "summary", other: "summary" };
+const LEVEL = { privacy: "day", crash: "day", data: "summary", biz: "summary", other: "summary", promo: "silent" };
 
 // >>> alert-lib v1
 const QUIET = { tz: "Asia/Jerusalem", dayStart: 8, dayEnd: 22 };   // CI: must equal alert.mjs QUIET

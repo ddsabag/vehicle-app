@@ -63,6 +63,15 @@ for (const t of ["Your weekly digest. To unsubscribe, click here.", "להסרה 
 ok(cls("שלום", "כתבתי לכם לגבי הבדיקה") !== "biz", "not biz: כתבתי לכם");
 for (const t of ["אני עיתונאית מ-ynet", "רוצים לכתוב כתבה על האפליקציה", "הוא כתב בעיתון", "הצעה לשיתוף פעולה"]) ok(cls("שלום", t) === "biz", "biz: " + t);
 ok(cls("האפליקציה קורסת") === "crash" && cls("נתון שגוי ברכב") === "data" && cls("שאלה כללית", "תודה רבה") === "other", "crash, data, other unchanged");
+// cold marketing (21.10: two launch-boost mails rang as "privacy" and "data error"): promo, whatever words it quotes
+const sum = (from, subject, body = "") => summarise(from, subject, mime(subject, body)).cls.key;
+ok(cls("Claim your free spot for \"לוחית: בדיקת רכב ומספר רישוי\"", "Congrats on releasing \"לוחית: בדיקת רכב ומספר רישוי\". It's one of the newest releases on the Google Play and gets a dofollow backlink to your store listing. Privacy policy. To remove my address from this list reply STOP.") === "promo", "promo: listing-site offer that quotes privacy words");
+ok(cls("The first 2 weeks decide how far לוחית: בדיקת רכב ומספר רישוי goes", "You just shipped on Google Play. ExtensionBooster (https://extensionbooster.net?utm_source=outreach&utm_medium=email) Congrats on launching לוחית: בדיקת רכב ומספר רישוי. Your Google Play starting line #2,585,105 overall rank") === "promo", "promo: launch-boost offer that quotes the store title");
+ok(sum("010e01a15fb88c73-864bc7b4-6cf1-42f5-a102-338896bc0dab-000000@ap-southeast-1.amazonses.com", "שלום", "יש לי שאלה") === "promo"
+  && sum("010e01a15f680a21-5e114ea7-15e2-4e91-b462-9beec613d577-000000@mx.extensionbooster.com", "Hi", "quick question") === "promo", "promo: an Amazon SES bounce sender, on its own domain too");
+for (const t of ["הורדתי את לוחית: בדיקת רכב ומספר רישוי ואני מאוד מרוצה", "ברכות על ההשקה של לוחית: בדיקת רכב לפי מספר", "לוחית: בדיקת‏ רכב ומספר רישוי"]) ok(cls("שאלה", t) === "other", "the store title is not a data word: " + t);
+ok(cls("טעות", "הורדתי את לוחית: בדיקת רכב ומספר רישוי ושנת הייצור לא נכונה") === "data" && cls("שלום", "מספר רישוי 12-345-67 מראה דגם אחר") === "data", "data still: a real error next to the title, a plate number");
+ok(cls("שלום", "אשמח לשיתוף פעולה בקידום האפליקציה") === "biz" && sum("dana@gmail.com", "Congrats", "Congrats on the new car!") === "other" && cls("בקשה", "Please delete my account") === "privacy", "biz, a person's congrats and a privacy request are not promo");
 
 // 2. routing matrix (spec 13.3): class x ALERT_ROUTE x day/night x KV
 const MAILS = {
@@ -76,6 +85,8 @@ const MAILS = {
     text: "🔵 <b>פנייה חדשה ללוחית: שיתוף פעולה או עיתונות</b>\nמאת: dana.cohen@example.com\nנושא: הצעה לשיתוף פעולה\n\n(אין טקסט רגיל בהודעה)\n\nלמענה: השיבו מהמייל (נשמר גם בג'ימייל)" },
   other: { m: () => msg("שלום", "כתבתי לכם לגבי הבדיקה"), level: "summary",
     text: "⚪ <b>פנייה חדשה ללוחית: אחר</b>\nמאת: dana.cohen@example.com\nנושא: שלום\n\nכתבתי לכם לגבי הבדיקה\n\nלמענה: השיבו מהמייל (נשמר גם בג'ימייל)" },
+  promo: { m: () => msg("Claim your free spot", "Congrats on releasing your app"), level: "silent",
+    text: "⚫ <b>פנייה חדשה ללוחית: פרסומת</b>\nמאת: dana.cohen@example.com\nנושא: Claim your free spot\n\nCongrats on releasing your app\n\nלמענה: השיבו מהמייל (נשמר גם בג'ימייל)" },
   bulk: { m: () => msg("הניוזלטר השבועי", "להסרה מרשימת התפוצה", { "List-Unsubscribe": "<https://news.example.com/u>" }), level: "silent",
     text: "⚪ <b>פנייה חדשה ללוחית: אחר</b>\nמאת: dana.cohen@example.com\nנושא: הניוזלטר השבועי\n\nלהסרה מרשימת התפוצה\n\nלמענה: השיבו מהמייל (נשמר גם בג'ימייל)" },
 };
