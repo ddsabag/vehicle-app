@@ -23,6 +23,7 @@
     "timeout": "lookup_timeout",
     "from_cache": "lookup_from_cache",
     "share": "share",
+    "share_open": "share_open",
     "compare": "compare_open",
     "save": "car_save",
     "tab": "tab_view",
