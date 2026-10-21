@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-30";   // shown in /live/data so the running version is visible
+const BUILD = "live-31";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -396,6 +396,16 @@ async function rtToday(env, today) {
   const o = {}; RT_KEYS.forEach((k, i) => { o[k] = Object.values(seen).reduce((t, v) => t + v[i], 0); }); return o;
 }
 
+// yesterday's tally as kept in KV: GA4's report of yesterday is still incomplete for hours after midnight (on 21.10 it read 44 first opens
+// of 19.10 at night and 63 the next morning), so yesterday counts at least what realtime saw. Read at most every 5 minutes.
+let rtY = null, rtYAt = 0, rtYDay = "";
+async function rtKept(env, day) {
+  if (rtY && rtYDay === day && Date.now() - rtYAt < 300e3) return rtY;
+  const kept = env.ALERTS ? await env.ALERTS.get("lv:rt:" + day, "json") : null;
+  const o = {}; RT_KEYS.forEach((k, i) => { o[k] = Object.values((kept && kept.m) || {}).reduce((t, v) => t + (Number(v[i]) || 0), 0); });
+  rtY = o; rtYAt = Date.now(); rtYDay = day; return o;
+}
+
 let cache = null, cacheAt = 0, backoffUntil = 0;
 async function collect(env) {
   // GA4 realtime has an hourly token quota: answer from cache for a minute, and after a 429 stop asking for 5 minutes (serve the last good numbers)
@@ -406,11 +416,11 @@ async function collect(env) {
   // a Worker request may make only 50 outside calls: get the token once, before the parallel calls, or each of them fetches its own
   await googleToken(env).catch(() => {});
   // realtime: events, and active users by platform (the app's devices in Israel, and the site, where every opening of the page is its own "user")
-  const [events, plats, vToday, vYday, dly, sc, wk, ps, rl, pls, tz, rt] = await Promise.all([
+  const [events, plats, vToday, vYday, dly, sc, wk, ps, rl, pls, tz, rt, rty] = await Promise.all([
     safe(realtime(env, { dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: REAL, limit: 40 }), "events"),
     safe(realtime(env, { dimensions: [{ name: "platform" }], metrics: [{ name: "activeUsers" }], dimensionFilter: REAL }), "platforms"),
     safe(cfVisits(env, today), "visitsToday"), safe(cfVisits(env, yday), "visitsYesterday"), safe(collectDaily(env), "daily"), safe(collectSeo(env, today), "seo"),
-    safe(collectWeekly(env, today), "weekly"), playStatus(), playRelease(env), playStats(env, today), gaTimeZone(env), safe(rtToday(env, today), "today")]);
+    safe(collectWeekly(env, today), "weekly"), playStatus(), playRelease(env), playStats(env, today), gaTimeZone(env), safe(rtToday(env, today), "today"), safe(rtKept(env, yday), "yesterday tally")]);
   // a quota error counts only when this request's own calls met it, not one a collector remembers from an earlier request
   const own = { ...errors, ...(dly && !dly.cached ? dly.errors : {}), ...(sc && !sc.cached ? sc.errors : {}), ...(wk && !wk.cached ? wk.errors : {}) };
   Object.assign(errors, dly?.errors || {}, sc?.errors || {}, wk?.errors || {});
@@ -422,7 +432,7 @@ async function collect(env) {
   cache = { build: BUILD, errors: quota ? { ga4: "מכסת Google מלאה, מוצגים נתונים אחרונים ויתעדכנו בעוד כמה דקות", ...errors } : errors, stale: quota, at: quota && prev.at ? prev.at : new Date().toISOString(),
     activeUsers: plat("Android"), webUsers: plat("web"),
     events: events ? events.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]).sort((a, b) => b[1] - a[1]) : (quota ? prev.events ?? null : null),
-    rtToday: rt ?? (quota ? prev.rtToday ?? null : null), visitsToday: vToday?.visits ?? null, visitsYesterday: vYday?.visits ?? null,
+    rtToday: rt ?? (quota ? prev.rtToday ?? null : null), rtYday: rty ?? prev.rtYday ?? null, visitsToday: vToday?.visits ?? null, visitsYesterday: vYday?.visits ?? null,
     // a collector that failed as a whole (no token) falls back to the last numbers it had; each carries its own dates
     seo: strip(sc || seo), daily: strip(dly || daily), weekly: strip(wk || weekly), play: ps, playAt: playSeen, release: rl, stats: pls, gaTz: tz };
   cacheAt = Date.now(); return cache;
@@ -599,11 +609,11 @@ const PS=d.stats&&d.stats.ok&&d.stats.cur?d.stats:null;
 const RU={draft:"עדכון בטיוטה",not_sent_for_review:"עדכון שעוד לא נשלח לבדיקה",in_review:"עדכון בבדיקה",approved_not_published:"עדכון שאושר ומחכה שתפרסם",not_approved:"עדכון שנדחה בבדיקה"};
 const GP=d.play==="live"?{s:top&&top.state==="not_approved"?"bad":"ok",txt:"באוויר בחנות"+(top&&RU[top.state]?" · "+RU[top.state]:"")}:top?{s:(RS[top.state]||[0,"wait"])[1],txt:(RS[top.state]||[top.state?"מצב "+esc(top.state):"מצב לא ידוע"])[0]}:RL?{s:"wait",txt:"עוד אין גרסה בחנות"}:d.play==="review"?{s:"wait",txt:"עדיין לא פתוח לכולם"}:{s:"wait",txt:"לא הצלחתי לבדוק את דף החנות"};
 // installed now: Google Play's count of devices in Israel that have the app, on the last day its reports reached, plus first opens minus
-// removals in Analytics since that day (today at least what realtime saw while /live was open, as the day's report lags hours behind);
+// removals in Analytics since that day (today and yesterday at least what the realtime tally saw, as the day's report lags hours behind);
 // without Play reports, Analytics alone since 1.10
 let inst=null,instHow="",instMin=false,instToday=null,instTodayMin=false;{const LF=d.daily&&d.daily.life,td0=new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Jerusalem"}),rf=(d.events||[]).find(e=>e[0]==="first_open"),rtf=d.rtToday?d.rtToday.first_open:rf?rf[1]:0,pa=PS&&PS.active!=null?PS.activeDay:"";
-if(LF){let fo=LF[td0]?0:rtf,rm=0;instMin=rtf>(LF[td0]?LF[td0][0]:0);for(const [k,v] of Object.entries(LF))if(k>pa){fo+=k===td0?Math.max(v[0],rtf):v[0];rm+=v[1]}
- inst=(pa?PS.active:0)+fo-rm;instHow=(pa?n(PS.active)+" מכשירים לפי Google Play ב-"+dm(pa)+", ועוד ":"")+n(fo)+" התקנות חדשות פחות "+n(rm)+" הסרות "+(pa?"מאז":"מ-1.10")+", לפי גוגל אנליטיקס"+(instMin?". ההתקנות של היום נספרות בינתיים רק ממה שנקלט בזמן אמת כשהמסך הזה היה פתוח, עד שגוגל אנליטיקס יעבד את היום, ולכן זה מינימום":"")}
+if(LF){const yd0=new Date(Date.parse(td0+"T12:00:00Z")-864e5).toISOString().slice(0,10),rty=d.rtYday?d.rtYday.first_open||0:0;let fo=LF[td0]?0:rtf,rm=0;instMin=rtf>(LF[td0]?LF[td0][0]:0);if(yd0>pa&&!LF[yd0])fo+=rty;for(const [k,v] of Object.entries(LF))if(k>pa){fo+=k===td0?Math.max(v[0],rtf):k===yd0?Math.max(v[0],rty):v[0];rm+=v[1]}
+ inst=(pa?PS.active:0)+fo-rm;instHow=(pa?n(PS.active)+" מכשירים לפי Google Play ב-"+dm(pa)+", ועוד ":"")+n(fo)+" התקנות חדשות פחות "+n(rm)+" הסרות "+(pa?"מאז":"מ-1.10")+", לפי גוגל אנליטיקס"+(instMin?". ההתקנות של היום נספרות בינתיים בזמן אמת, כל 10 דקות, עד שגוגל אנליטיקס יעבד את היום":"")}
 else if(pa){inst=PS.active;instHow="לפי Google Play ב-"+dm(pa)}
 // today, so far: Analytics' report of today, or more when realtime saw more (realtime counts only while this screen is open: a minimum)
 {const tdv=LF&&LF[td0]?LF[td0][0]:null;instToday=tdv==null?rtf:Math.max(tdv,rtf);instTodayMin=tdv==null||rtf>tdv}}
@@ -663,7 +673,7 @@ $("trn").textContent="כל עמודה היא שבוע, ומתחתיה היום �
 {const rt=d.events||[],g=k=>(rt.find(e=>e[0]===k)||[0,0])[1],bad=g("lookup_failed")+g("app_exception"),Ed=d.daily&&d.daily.events,T=Ed&&Ed.today||{},Y=Ed&&Ed.yesterday||{},dv=(o,k)=>o[k]?o[k][0]:0;
 const li=(l,v,s)=>"<li><span>"+l+(s?"<small>"+s+"</small>":"")+"</span><b>"+v+"</b></li>";
 // today's report lags hours behind: when the last 30 minutes alone saw more than it has, today is at least that many
-const sofar=(k,l,s)=>{const t=Ed?dv(T,k):null,r=d.rtToday&&d.rtToday[k]!=null?d.rtToday[k]:d.events?g(k):0,low=t!=null&&r>t;return li(l,t==null?"-":low?"לפחות "+n(r):n(t),(low?"לפי מה שנקלט בזמן אמת כשהמסך היה פתוח. ":"")+s+" אתמול, יום שלם: "+(Ed?n(dv(Y,k)):"-"))};
+const sofar=(k,l,s)=>{const t=Ed?dv(T,k):null,r=d.rtToday&&d.rtToday[k]!=null?d.rtToday[k]:d.events?g(k):0,low=t!=null&&r>t;return li(l,t==null?"-":low?"לפחות "+n(r):n(t),(low?"לפי הספירה בזמן אמת. ":"")+s+" אתמול, יום שלם: "+(Ed?n(Math.max(dv(Y,k),d.rtYday&&d.rtYday[k]||0)):"-"))};
 $("now").innerHTML=li("באפליקציה, 30 הדקות האחרונות",n(d.activeUsers),"משתמשים בישראל")
 +li("באתר, 30 הדקות האחרונות",d.events?n(g("web_visit")):"-","אנשים שנכנסו לאתר. מי שרענן את הדף או חזר אליו נספר פעם אחת")
 +li("נכנסו לאתר מקישור, 30 הדקות האחרונות",d.events?n(g("link_landing")):"-","מתוך הנכנסים לאתר: מקישור לדוח רכב או להשוואה ששותפו, או מקישור go/ של רשת חברתית")
@@ -800,6 +810,14 @@ async function liveData(env, ctx) {
 }
 
 export default {
+  // every 10 minutes, whether or not anyone has the screen open: keep the realtime tally going (realtime covers only 30 minutes). Until
+  // live-31 the tally saw only the minutes /live was open: on 20.10 it held 188 of the day's 286 first opens. Just after midnight the run
+  // also keeps yesterday's last minutes.
+  async scheduled(ev, env, ctx) {
+    const now = Date.now(), today = ilDay(now), before = ilDay(now - 30 * 6e4);
+    await rtToday(env, today).catch(() => {});
+    if (before !== today) await rtToday(env, before).catch(() => {});
+  },
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
     if (!(await verifyAccess(req, env).catch(() => false))) return new Response("forbidden", { status: 403, headers: HEAD });
