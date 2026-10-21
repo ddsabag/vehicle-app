@@ -670,7 +670,7 @@ button:not(:disabled):active,.link-btn:active,.act:active,.tabs button:active,a.
     </div>
     <div class="set-row" id="kindsRow" hidden><span>על מה להתריע</span>
       <div id="alertKinds" class="kinds"></div>
-      <p class="note">לא נשלחות יותר מ-4 התראות בשבוע.</p>
+      <p class="note">לא נשלחות יותר מ-2 התראות ביום ו-4 בשבוע, רק בין 9:00 ל-21:00, ולא משישי בצהריים עד סוף השבת.</p>
     </div>
     <div class="set-row"><span>מחירי דלק וחשמל לחישוב העלויות</span>
       <div class="seg two" role="group" aria-label="יחידת צריכת דלק" id="unitSeg" style="margin-bottom:8px"><button type="button" data-unit="l100">ליטר ל-100 ק״מ</button><button type="button" data-unit="kml">ק״מ לליטר</button></div>
@@ -4988,31 +4988,33 @@ function calendarBtn(D){
   if (!reportBuild && !calSeen.has(D.plate)) { calSeen.add(D.plate); track("calendar_reminder_shown", {where: window.AndroidApp ? "app" : "web"}); }
   return `<button type="button" class="link-btn" data-act="calendar">${ico("clock")}הוספת תזכורת ליומן</button>`;
 }
-// the reminder's text: the action is renewing the licence (a new car renews by paying the fee, with no test)
-const TEST_CAL_DESC = "הטסט של הרכב מסתיים היום. כדאי לחדש את הרישיון מראש: טסט כשנדרש, ותשלום האגרה.";
-const calDate = D => { const L = licOf(D); return L && L.days > 0 ? L.ex : null; };   // only an expiry still ahead, on its own day
+// the reminder's text: the action is renewing the licence (a new car renews by paying the fee, with no test; fee and test are possible from 60 days before)
+const testCalDesc = D => `תוקף הטסט של הרכב מסתיים ב-${fmtDate(D.v.tokef_dt)}. כדאי לחדש את הרישיון מראש: טסט כשנדרש, ותשלום האגרה. אפשר לחדש החל מ-60 יום לפני תום התוקף.`;
+const calDate = D => { const L = licOf(D); return L && L.days > 0 ? L.ex : null; };   // only an expiry still ahead
+// the event sits two weeks before the expiry (tomorrow when less is left): a reminder on the day itself leaves no time to renew
+const calWhen = D => { const L = licOf(D), d = new Date(L.ex); d.setDate(d.getDate() - Math.min(14, L.days - 1)); return d; };
 function testReminder(D){
-  const d = calDate(D); if (!d) return;
+  if (!calDate(D)) return; const d = calWhen(D);
   const ymd = x => `${x.getFullYear()}${String(x.getMonth() + 1).padStart(2, "0")}${String(x.getDate()).padStart(2, "0")}`;
   const next = new Date(d); next.setDate(next.getDate() + 1);
-  const title = `טסט לרכב ${fmtPlate(D.plate)} (${D.title})`, desc = TEST_CAL_DESC;
+  const title = `חידוש רישיון לרכב ${fmtPlate(D.plate)} (${D.title})`, desc = testCalDesc(D);
   window.calendarFallback = () => testReminderFile(D);
   const b = bridge();
   if (b && b.addCalendar) { try { b.addCalendar(title, desc, ymd(d)); return; } catch {} }
   openExternal(`https://calendar.google.com/calendar/render?${new URLSearchParams({action: "TEMPLATE", text: title, details: desc, dates: `${ymd(d)}/${ymd(next)}`})}`);
 }
-/* calendar file: all-day event on the expiry date, alerts 30 and 7 days before */
+/* calendar file: the same all-day event, alerts a month before the expiry and on the event's morning */
 function testReminderFile(D){
-  const d = calDate(D); if (!d) return;
+  if (!calDate(D)) return; const d = calWhen(D);
   const ymd = x => `${x.getFullYear()}${String(x.getMonth() + 1).padStart(2, "0")}${String(x.getDate()).padStart(2, "0")}`;
   const next = new Date(d); next.setDate(next.getDate() + 1);
   const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
-  const title = `טסט לרכב ${fmtPlate(D.plate)} (${D.title})`;
-  const alarm = days => ["BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${title}`, `TRIGGER:-P${days}D`, "END:VALARM"];
+  const title = `חידוש רישיון לרכב ${fmtPlate(D.plate)} (${D.title})`;
+  const alarm = t => ["BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${title}`, `TRIGGER:${t}`, "END:VALARM"];
   const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Luchit//HE", "CALSCALE:GREGORIAN", "BEGIN:VEVENT",
     `UID:test-${D.plate}-${ymd(d)}@luchit`, `DTSTAMP:${stamp}`, `DTSTART;VALUE=DATE:${ymd(d)}`, `DTEND;VALUE=DATE:${ymd(next)}`,
-    `SUMMARY:${title}`, `DESCRIPTION:${TEST_CAL_DESC.replace(/[,;\\]/g, "\\$&")}`,
-    ...alarm(30), ...alarm(7), "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+    `SUMMARY:${title}`, `DESCRIPTION:${testCalDesc(D).replace(/[,;\\]/g, "\\$&")}`,
+    ...alarm("-P16D"), ...alarm("PT9H"), "END:VEVENT", "END:VCALENDAR"].join("\r\n");   // a month before the expiry, and 9:00 on the day of the event
   shareFile(new Blob([ics], {type: "text/calendar"}), `Luchit-test-${D.plate}.ics`, title);
 }
 
