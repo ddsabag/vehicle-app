@@ -336,10 +336,14 @@ async function readPage(plate) {
       return {title: T(o.querySelector(".id-title")), sub: T(o.querySelector(".id-sub")), pills: [...o.querySelectorAll(".id-card .pill")].map(T), drive: T(o.querySelector(".id-card .pill.drive")),
         banners: [...o.querySelectorAll(".alert-banner")].map(T), msgs: [...o.querySelectorAll(".side .msg, .side p.msg")].map(T),
         errs: typeof current !== "undefined" && current && current.errs ? current.errs.map(s => s.key) : [], ownMirror: !!(typeof current !== "undefined" && current && current.ownMirror),
-        srcFoot: T(o.querySelector("#srcFoot"))};
+        srcFoot: T(o.querySelector("#srcFoot")),
+        // the "checked" line above the tabs (a car without an open recall or a settlement): its state, title, text and the recalls it lists
+        line: (l => l ? {state: l.dataset.line || "", title: T(l.querySelector("summary b")), text: T(l),
+          rlist: [...l.querySelectorAll(".rlist > li")].map(li => ({dim: li.classList.contains("dim"), time: T(li.querySelector("time")), pill: T(li.querySelector(".pill")), b: T(li.querySelector(":scope > b")), note: T(li.querySelector(":scope > .note"))}))} : null)(o.querySelector("details.ckl")),
+        tabs: [...o.querySelectorAll(".tabs [data-tab]")].map(b => b.dataset.tab)};
     });
     const tabs = {};
-    for (const k of ["overview", "recalls", "buy", "maint", "specs"]) {
+    for (const k of head.tabs) {
       await page.click(`.tabs [data-tab="${k}"]`);
       await page.waitForFunction(k => { const b = document.querySelector(`#tab-${k}`); return b && b.getAttribute("aria-selected") === "true"; }, k, {timeout: 5000}).catch(() => null);
       await page.waitForTimeout(k === "buy" ? 900 : 250);
@@ -621,8 +625,10 @@ function compare(c, X, P) {
       if (s && !E(r.TAARICH_PTICHA)) check(c, "recalls.open_date", s.note.includes("נפתח ב-" + fd(r.TAARICH_PTICHA)), s.note, "נפתח ב-" + fd(r.TAARICH_PTICHA), ""); } }
   // model recalls: the recall list's rows that name this model, as the app lists them (one entry per defect and build range, the per-car list's reach)
   { const br = brandRe(R.tozeret_nm, R.tozar);
-    const hist = cardOf(P, "recalls", /^ריקולים שנפתחו לדגם$/), pend = cardOf(P, "recalls", /^כדאי לבדוק מול היבואן$/);
-    const shown = [...(hist ? hist.rlist.map(s => ({...s, card: "hist"})) : []), ...(pend ? pend.rlist.map(s => ({...s, card: "pend"})) : [])];
+    // a car page lists only the model recalls to check with the importer: in the recalls tab when the car has one, else in the amber
+    // "checked" line above the tabs; the model's recall history is on model pages only
+    const hist = cardOf(P, "recalls", /^ריקולים שנפתחו לדגם$/), pend = cardOf(P, "recalls", /^כדאי לבדוק מול היבואן$/), line = P.head.line;
+    const shown = [...(hist ? hist.rlist.map(s => ({...s, card: "hist"})) : []), ...(pend ? pend.rlist.map(s => ({...s, card: "pend"})) : []), ...(line ? line.rlist.map(s => ({...s, card: "pend"})) : [])];
     const knownOpen = !P.head.msgs.some(t => /מידע על ריקולים לא זמין/.test(t));   // the per-car list answered the app for this plate
     const meta = X.catMeta, hz = meta && meta.recHz && meta.recHz.id ? meta.recHz : null, held = meta && Array.isArray(meta.recIn) ? new Set(meta.recIn.map(Number)) : null;
     const links = X.catRec && X.catRec.l || null, lk = linkKeyR(R);
@@ -641,7 +647,7 @@ function compare(c, X, P) {
       return {card: "hist", pill: (f.fits === true ? "בשנת הייצור, " : f.near ? "שנה סמוכה, " : "") + (k === "nolist" ? "אין רשימת רכבים" : "לא פתוח ברכב הזה"), dim: false, f, k}; };
     if (E(R.degem_cd)) NOTES.push(`${c.id}: no model code (${X.primary}): model recalls not looked up by the app`);
     else if (!RECALL_LIST) NOTES.push(`${c.id}: recall list not loaded`);
-    else if (P.tabs.recalls.text.includes("רשימת הריקולים לדגם לא נטענה")) NOTES.push(`${c.id}: the app could not load the model's recall list (catalogue)`);
+    else if (((P.tabs.recalls || {}).text || "").includes("רשימת הריקולים לדגם לא נטענה") || (line && line.text.includes("רשימת הריקולים לדגם לא נטענה"))) NOTES.push(`${c.id}: the app could not load the model's recall list (catalogue)`);
     else {
       const tk = x => String(x || "").toUpperCase().replace(/([A-Z])(\d)/g, "$1 $2").replace(/(\d)([A-Z])/g, "$1 $2").split(/[^A-Z0-9א-ת]+/).filter(Boolean);
       const LAT = new Set(["TOYOTA", "MAZDA", "HYUNDAI", "KIA", "SKODA", "SEAT", "AUDI", "BMW", "MERCEDES", "NISSAN", "HONDA", "SUZUKI", "SUBARU", "PEUGEOT", "CITROEN", "RENAULT", "OPEL", "FORD", "FIAT", "JEEP", "VOLVO", "LEXUS", "MITSUBISHI", "CHEVROLET", "VOLKSWAGEN", "VW", "TESLA", "BYD", "MG", "DACIA", "CUPRA", "MINI", "PORSCHE", "GEELY", "CHERY", "DS", "ALFA", "ROMEO"]);
@@ -672,7 +678,9 @@ function compare(c, X, P) {
       // one entry stands for every batch of a defect: a strict row of this brand is missing only when nothing of its defect and build range is shown
       const shownKeys = new Set(pool2.filter(p => p.used).map(p => recKey(p.x.r)));
       const catIds = X.catRec ? new Set([...(X.catRec.rows || []), ...(X.catRec.x || [])].map(r => String(r.RECALL_ID))) : null;
-      const miss = cands.filter(x => x.k === "strict" && x.brand && !pool2.some(p => p.x === x) && !shownKeys.has(recKey(x.r)));
+      // only a recall to check with the importer is listed; a car off the road lists them in its recalls tab, which it has only with an open recall
+      const pendShown = !cancelled || P.head.tabs.includes("recalls");
+      const miss = cands.filter(x => x.k === "strict" && x.brand && pendShown && expOf(x.r).card === "pend" && !pool2.some(p => p.x === x) && !shownKeys.has(recKey(x.r)));
       const lag = catIds ? miss.filter(x => !catIds.has(String(x.r.RECALL_ID))) : [];
       for (const x of lag) NOTES.push(`${c.id}: recall #${x.r.RECALL_ID} (${x.r.SHNAT_RECALL}) names this model but is not in the catalogue yet (it is rebuilt daily)`);
       const miss2 = miss.filter(x => !lag.includes(x));
@@ -693,7 +701,7 @@ function compare(c, X, P) {
       }
       check(c, "recalls.model_extra", !extra.length, extra.map(p => `"${p.s.b.slice(0, 40)}" [${p.s.note.slice(0, 90)}]`).join("; "), "(only rows that name this model)", `car kinuy=${R.kinuy_mishari} degem_nm=${R.degem_nm}`);
       check(c, "recalls.model_count", (hist ? N(hist.count) : 0) === (hist ? hist.rlist.length : 0), hist ? hist.count : "", hist ? hist.rlist.length : 0, "");
-      { const ban = P.head.banners.find(b => /^ייתכן שהרכב נכלל ב/.test(b)) || "", n = pend && !cancelled ? pend.rlist.length : 0;   // a car off the road: the tab only
+      { const ban = P.head.banners.find(b => /^ייתכן שהרכב נכלל ב/.test(b)) || (line && line.state === "warn" ? line.title : ""), n = cancelled ? 0 : shown.filter(s => s.card === "pend").length;   // a car off the road: the tab only
         check(c, "recalls.pending_banner", !!ban === n > 0, ban.slice(0, 50) || "(no banner)", n ? `banner for ${n} recalls the per-car list cannot answer yet` : "(none)", ""); }
       if (!hz) NOTES.push(`${c.id}: catalogue meta without the per-car list's reach: pills not checked`);
       else for (const p of pool2.filter(p => p.used)) {
@@ -709,8 +717,13 @@ function compare(c, X, P) {
   { const card = cardOf(P, "recalls", /הסדר פשרה/), list = card ? card.stl : [];
     const ban = P.head.banners.find(b => /הסדר/.test(b)) || "", bn = ban ? (/ייתכן שמגיעה הטבה/.test(ban) ? 1 : N((ban.match(/(\d+) הטבות/) || [])[1])) : 0;
     check(c, "settlements.consistent", bn === list.length, ban.slice(0, 50) || "(no banner)", list.length, "");
+    // the recalls tab only with an open recall or a settlement; otherwise the "checked" line, unless the ministry's recall list did not answer the app
+    const hasTab = P.head.tabs.includes("recalls"), known = !P.head.msgs.some(t => /מידע על ריקולים לא זמין/.test(t)), wantTab = (known && openIds.length > 0) || bn > 0;
+    check(c, "recalls.tab_shown", hasTab === wantTab, hasTab ? "tab" : "(no tab)", wantTab ? "tab (open recall or settlement)" : "(no tab)", `open=${openIds.length} settlement banners=${bn}`);
+    const ln = P.head.line, wantLine = !cancelled && known && !hasTab;
+    check(c, "recalls.check_line", !!ln === wantLine, ln ? ln.title.slice(0, 50) : "(no line)", wantLine ? "the checked line" : "(no line)", "");
     if (imp || cancelled) check(c, "settlements.scope", !list.length && !bn, `${list.length} shown`, imp ? "(none: a personal import)" : "(none: off the road)", regs);
-    if (imp && !cancelled) { const said = P.tabs.recalls.text.includes("הרכב יובא ביבוא אישי, ולכן לא נבדק מול הסדרי הפשרה");
+    if (imp && !cancelled) { const said = ((P.tabs.recalls || {}).text || "").includes("הרכב יובא ביבוא אישי, ולכן לא נבדק מול הסדרי הפשרה") || !!(P.head.line && P.head.line.text.includes("לא נבדק מול הסדרי פשרה"));
       check(c, "settlements.import_line", said, said ? "line shown" : "(none)", "הרכב יובא ביבוא אישי, ולכן לא נבדק מול הסדרי הפשרה", ""); }
     if (list.length) STLS.push(`${c.id} ${sp(R.tozeret_nm)} | ${sp(R.kinuy_mishari)} ${R.degem_nm || ""} | ${y} | ${R.tzeva_rechev || ""} | ${R.sug_delek_nm || ""} | cc=${R.nefach_manoa || ""} => ${list.join(" ; ")}`); }
   // towing: the car's own model row decides, then a row of its year, then the same model name in another year; 0/0 from 2008 is "no towing
@@ -771,11 +784,11 @@ function compare(c, X, P) {
     oneOf("specs.drive", spec("הנעה"), Ws.map(w => pickE(R.hanaa_nm, w.hanaa_nm)));
     if (imp) { const sy = factOf(P, "overview", /^רישוי וטסט$/, "סוג יבוא"); check(c, "status.import_type", sp(sy) === sp(R.sug_yevu || ""), sy, R.sug_yevu || "", ""); } }
   // licence fee: the model row's fee group, private cars only
-  { const card = cardOf(P, "maint", /^אגרת רישוי שנתית$/), g = card ? card.grid : [], fee = N(dig((g.find(x => x.k === "הערכה") || {}).v)), grp = N(((g.find(x => x.k === "קבוצת מחיר") || {}).v || "").match(/^\d/));
+  { const fee = N(dig(factOf(P, "overview", /^רישוי וטסט$/, "אגרת רישוי שנתית (הערכה)")));   // a row of "רישוי וטסט"; the price group is no longer shown
     const groups = [...new Set(W0.map(w => N(w.kvuzat_agra_cd)))].filter(x => FEE[x]), priv = String(R.sug_degem || "P").toUpperCase() === "P";
     const col = y >= 2024 ? 0 : y >= 2021 ? 1 : y >= 2017 ? 2 : 3;
-    const exp = priv && groups.length && !isNaN(y) ? groups.map(gr => `${gr}:${FEE[gr][col] + 135}`) : [];
-    const shown = fee ? `${grp}:${fee}` : "";
+    const exp = priv && groups.length && !isNaN(y) && !cancelled ? [...new Set(groups.map(gr => String(FEE[gr][col] + 135)))] : [];
+    const shown = fee ? String(fee) : "";
     check(c, "fee.licence", exp.length ? exp.includes(shown) : !fee, shown || "(no fee)", exp.join(" or ") || "(no fee)", `kvuzat_agra_cd of the model row=${W0.map(w => w.kvuzat_agra_cd ?? "").join(",")} sug_degem=${R.sug_degem || ""} year=${y}`); }
   // list price and the value estimate: none for a personal import or a car off the road
   { const card = cardOf(P, "buy", /^שווי משוער$/) || {grid: [], notes: [], text: ""}, g = card.grid, sh = N(dig((g.find(x => x.k === "מחיר מחירון כחדש") || {}).v));
