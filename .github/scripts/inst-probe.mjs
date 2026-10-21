@@ -107,6 +107,21 @@ await part("kv.tally", async () => {
   await part("sc.all", async () => ({ days: await q({ startDate: add(il, -12), endDate: il, dimensions: ["date"], rowLimit: 40, dataState: "all" }) }));
 }
 
+// 21.10: the share feature: shares by day, platform and kind; car checks and report views (exp_expose) as the base; arrivals from shared
+// links (link_landing by kind and via, web visits and checks whose source is "share", app referral_open), and how many devices shared
+{
+  const R = [{ startDate: "2026-10-12", endDate: "today" }], ev = n => eq("eventName", n), and = (...x) => ({ andGroup: { expressions: x } });
+  const by = (name, dims, mets = ["eventCount"]) => ga({ dateRanges: R, dimensions: dims.map(d => ({ name: d })), metrics: mets.map(m => ({ name: m })), dimensionFilter: and(REAL, ev(name)) });
+  await part("sh.share", () => by("share", ["date", "platform", "customEvent:kind"], ["eventCount", "totalUsers"]));
+  await part("sh.lookup", () => by("car_lookup", ["date", "platform"], ["eventCount", "totalUsers"]));
+  await part("sh.expose", () => by("exp_expose", ["date", "platform"], ["eventCount", "totalUsers"]));
+  await part("sh.landing", () => by("link_landing", ["date", "platform", "customEvent:kind", "customEvent:via"]));
+  await part("sh.referral", () => by("referral_open", ["date", "customEvent:via"]));
+  await part("sh.webSrc", () => ga({ dateRanges: [{ startDate: "2026-10-20", endDate: "today" }], dimensions: [{ name: "eventName" }, { name: "customEvent:src" }], metrics: [{ name: "eventCount" }],
+    dimensionFilter: and(eq("platform", "web"), inList("eventName", ["web_visit", "car_lookup", "share", "web_hint_click", "link_landing"])) }));
+  await part("sh.sharers", () => ga({ dateRanges: [{ startDate: "2026-10-19", endDate: "today" }], dimensions: [{ name: "platform" }], metrics: [{ name: "totalUsers" }, { name: "eventCount" }], dimensionFilter: and(REAL, ev("share")) }));
+}
+
 const data = Buffer.from(JSON.stringify(out));
 const key = crypto.randomBytes(32), iv = crypto.randomBytes(12), c = crypto.createCipheriv("aes-256-gcm", key, iv);
 const enc = Buffer.concat([c.update(data), c.final()]);
