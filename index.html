@@ -334,11 +334,25 @@ footer a{color:var(--accent)}
 .simple-more{width:100%;margin-top:6px;border:0;background:transparent;color:var(--accent,#2556c8);font-weight:700;min-height:44px}.simple td .copy-btn{display:inline-flex;align-items:center;margin-inline-start:8px;padding:0 9px;min-height:32px;background:var(--soft);color:var(--muted);border:1px solid var(--line);border-radius:8px;vertical-align:middle}.simple td .copy-btn svg{width:16px;height:16px}.act[aria-pressed="true"][data-act="simple"]{background:var(--card);box-shadow:inset 0 0 0 1.5px var(--line)}.report .simple-more,.report .simple td .copy-btn{display:none}.simple{width:100%;border-collapse:collapse;font-size:.9rem}.simple th,.simple td{padding:6px 4px;border-top:1px solid var(--line);text-align:start;vertical-align:top}.simple tr:first-child th,.simple tr:first-child td{border-top:0}.simple th{color:var(--muted);font-weight:400;width:34%}.simple td{font-weight:600;overflow-wrap:anywhere}
 .alert-banner.warn{background:var(--warn-bg)}.alert-banner.warn::before{background:var(--warn)}.alert-banner.warn b,.alert-banner.warn svg.i{color:var(--warn)}
 .alert-banner svg.i{width:26px;height:26px;margin-top:2px;color:var(--bad)}
-.tabs{display:grid;grid-template-columns:repeat(5,minmax(max-content,1fr));overflow-x:auto;scrollbar-width:none;gap:4px;background:var(--card);border-radius:14px;padding:5px;box-shadow:var(--shadow);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.tabs{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(max-content,1fr);overflow-x:auto;scrollbar-width:none;gap:4px;background:var(--card);border-radius:14px;padding:5px;box-shadow:var(--shadow);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
 .tabs button{border:0;background:transparent;border-radius:10px;padding:12px 2px;min-height:44px;font-size:.9rem;font-weight:700;white-space:nowrap;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:5px}
 .tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-fg)}
 .tabs i{font-style:normal;font-size:.78rem;min-width:18px;padding:0 5px;border-radius:999px;background:var(--soft);color:var(--fg)}
 .tabs i.hot{background:var(--bad);color:#fff}
+/* "checked" line above the tabs when there is no recall or settlement to show: one calm row that opens in place */
+.ckl{background:var(--card);border:1px solid var(--line);border-radius:14px}
+.ckl summary{display:flex;align-items:center;gap:10px;min-height:44px;padding:8px 14px;cursor:pointer;list-style:none;font-size:.9rem}
+.ckl summary::-webkit-details-marker{display:none}
+.ckl summary>svg.i{width:20px;height:20px;color:var(--ok);flex:none}.ckl summary b{flex:1;min-width:0;font-weight:700}
+.ckl summary .chev{width:18px;height:18px;color:var(--muted);flex:none;transition:transform .2s}.ckl[open] summary .chev{transform:rotate(180deg)}
+.ckl.warn{background:var(--warn-bg);border-color:transparent}.ckl.warn summary>svg.i,.ckl.warn summary b{color:var(--warn)}
+.ckl-body{display:flex;flex-direction:column;gap:10px;padding:0 14px 12px;font-size:.85rem}.ckl-body p{margin:0}
+.ckl-rows{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.ckl-rows li{display:grid;grid-template-columns:auto 1fr;gap:2px 10px}.ckl-rows li>svg.i{width:18px;height:18px;color:var(--ok);grid-row:span 2;margin-top:1px}
+.ckl-rows li.info>svg.i{color:var(--muted)}.ckl-rows li.warn>svg.i{color:var(--warn)}.ckl-rows li span{color:var(--muted);font-size:.78rem}
+.ckl .rlist{margin:0}
+@media (prefers-reduced-motion:reduce){.ckl summary .chev{transition:none}}
+.report .ckl summary .chev{display:none}
 .tab-body{display:flex;flex-direction:column;gap:12px}
 .rlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
 .rlist li{padding:10px 0;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:2px}
@@ -361,9 +375,6 @@ footer a{color:var(--accent)}
 .cmp-tool.add{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
 .cmp-tool.ic{padding:8px 11px}
 .cmp-tool[aria-pressed="true"]{background:var(--info-bg);color:var(--accent);border-color:var(--accent)}
-.month-big{font-size:2rem;font-weight:900;color:var(--accent)}.month-big small{font-size:.95rem;color:var(--muted);font-weight:600}
-.month-bar{display:flex;height:12px;border-radius:999px;overflow:hidden;margin:8px 0}
-.month-lg{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.9rem}.month-lg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:5px}
 .cmp-h{position:relative}
 .tow-ban{display:flex;gap:10px;align-items:flex-start;background:var(--bad-bg);color:var(--bad);border-radius:12px;padding:12px 14px}
 .tow-ban b{display:block}.tow-ban span{color:var(--fg);font-size:.9rem}
@@ -672,7 +683,7 @@ button:not(:disabled):active,.link-btn:active,.act:active,.tabs button:active,a.
       <div id="alertKinds" class="kinds"></div>
       <p class="note">לא נשלחות יותר מ-2 התראות ביום ו-4 בשבוע, רק בין 9:00 ל-21:00, ולא משישי בצהריים עד סוף השבת.</p>
     </div>
-    <div class="set-row"><span>מחירי דלק וחשמל לחישוב העלויות</span>
+    <div class="set-row"><span>מחירי דלק וחשמל להשוואת רכבים</span>
       <div class="seg two" role="group" aria-label="יחידת צריכת דלק" id="unitSeg" style="margin-bottom:8px"><button type="button" data-unit="l100">ליטר ל-100 ק״מ</button><button type="button" data-unit="kml">ק״מ לליטר</button></div>
       <div class="fuel-set"><label for="fuelPrice">בנזין (₪ לליטר)</label><input id="fuelPrice" inputmode="decimal" placeholder="8.27"></div>
       <div class="fuel-set"><label for="dieselPrice">סולר (₪ לליטר)</label><input id="dieselPrice" inputmode="decimal" placeholder="לא הוגדר"></div>
@@ -686,7 +697,7 @@ button:not(:disabled):active,.link-btn:active,.act:active,.tabs button:active,a.
       <div class="fuel-set"><label for="bizAddr">כתובת</label><input id="bizAddr" class="wide"></div>
       <div class="fuel-set"><label for="bizNote">הערה בדוח</label><input id="bizNote" class="wide"></div>
       <div class="fuel-set"><span>לוגו</span><label class="pick" for="bizLogo">בחירת קובץ</label><input id="bizLogo" type="file" accept="image/*" hidden></div>
-      <div class="kinds"><label><input id="bizCosts" type="checkbox">להוסיף לדוח: עלויות ושווי שימוש</label><label><input id="bizValue" type="checkbox">להוסיף לדוח: שווי משוער</label></div>
+      <div class="kinds"><label><input id="bizCosts" type="checkbox">להוסיף לדוח: שווי שימוש</label><label><input id="bizValue" type="checkbox">להוסיף לדוח: שווי משוער</label></div>
       <button class="link-btn danger" type="button" id="bizLogoClear" hidden>הסרת הלוגו</button>
       <p class="note">הפרטים מופיעים בדוחות ה-PDF הממותגים: בלי לוגו של לוחית ובלי קישור לחנות.</p>
     </div>
@@ -1471,7 +1482,7 @@ function costs(D){
   if (kind === "ev") {
     c.kwh100 = evKwh100(D); c.kwhYear = c.kwh100 * kmYear / 100;
     c.elecPrice = num(setting("elecPrice", String(ELEC.home))) || ELEC.home;
-    c.fuelYear = c.kwhYear * c.elecPrice; c.fastYear = c.kwhYear * ELEC.fastDc;
+    c.fuelYear = c.kwhYear * c.elecPrice;
   }
   const grp = num(D.w.kvuzat_agra_cd), year = num(D.v.shnat_yitzur);
   if (FEE_TABLE[grp] && !isNaN(year) && String(D.v.sug_degem || "P").toUpperCase() === "P") {
@@ -1526,15 +1537,6 @@ function costs(D){
     // no value for a model (no registration date, owners or mileage: it read 110-115% of its list price) or for a car off the road (no market)
     if (D.kind !== "model" && !D.isCancelled) { c.valueLow = Math.round(mid * (1 - r) / 1000) * 1000; c.valueHigh = Math.round(Math.min(top, mid * (1 + r)) / 1000) * 1000; }
     c.tierK = k; c.range = r;
-    // value lost over the coming year: a model is bought new, so its steeper first year counts
-    c.deprYear = D.kind === "model" ? num(D.price.mehir) * (1 - y1) : mid * (1 - yr * (ageY + 1 > VAL_LATE_FROM ? VAL_LATE : 1));
-  }
-  // one monthly figure: energy, licence fee and loss of value (insurance and servicing are not in the data); none for a plug-in, whose sum
-  // without energy would read cheaper than it is
-  if (!plugIn && (c.fuelYear || c.fee || c.deprYear)) {
-    const parts = [["דלק", c.fuelYear, "#5b7bd5"], ["אגרה", c.fee, "#8e7cc3"], ["ירידת ערך", c.deprYear, "#c9a25a"]].filter(x => x[1] > 0);
-    if (kind === "ev" && parts[0] && parts[0][0] === "דלק") parts[0][0] = "חשמל";
-    if (parts.length >= 2) c.monthly = {total: Math.round(parts.reduce((t, x) => t + x[1], 0) / 12 / 10) * 10, parts: parts.map(([k, v, col]) => [k, Math.round(v / 12 / 10) * 10, col])};
   }
   // company-car taxable benefit (שווי שימוש), cars first registered from 2010: list price in the registration
   // year, indexed to the consumer price index, capped, × 2.48% a month, minus the green-car reduction
@@ -1552,9 +1554,6 @@ function costs(D){
   }
   return c;
 }
-/* the monthly figure's parts in words, and what it leaves out: no loss of value without a list price (a personal import, a model with no price) */
-const partsIn = m => { const n = m.parts.map(p => p[0]); return n.length > 1 ? n.slice(0, -1).join(", ") + " ו" + n[n.length - 1] : n[0]; };
-const partsOut = m => (m.parts.some(p => p[0] === "ירידת ערך") ? "" : "ירידת ערך, ") + "ביטוח וטיפולים";
 
 /* ---------- recalls ---------- */
 /* Importer recall-check pages (verified on the importers' own sites). The plate is copied before opening,
@@ -2446,7 +2445,7 @@ function buildInsights(D){
   // a deposited licence or a removal from the road in the public register: the ministry's own words and date
   if (D.hold) add("warn", D.hold.status, `במאגר הרכב הציבורי של משרד התחבורה רשום "${D.hold.nm || D.hold.status}"${empty(D.hold.dt) ? "" : " מ-" + fmtDate(D.hold.dt)}.${D.hold.temp ? " זה מצב זמני, ולא ביטול של הרכב." : ""}`);
   // open recalls are not repeated here: the red banner above the tabs already says it
-  { const n = D.kind === "model" || D.isCancelled ? 0 : settlementsFor(D).length; if (n) add("info", "ייתכן שמגיעה לכם הטבה מהסדר פשרה", `${n === 1 ? "נמצא הסדר פשרה אחד שעשוי לחול על הרכב" : `נמצאו ${n} הסדרי פשרה שעשויים לחול על הרכב`}. הפרטים בלשונית ריקולים.`); }
+  { const n = D.kind === "model" || D.isCancelled ? 0 : settlementsFor(D).length; if (n) add("info", "ייתכן שמגיעה לכם הטבה מהסדר פשרה", `${n === 1 ? "נמצא הסדר פשרה אחד שעשוי לחול על הרכב" : `נמצאו ${n} הסדרי פשרה שעשויים לחול על הרכב`}. הפרטים בלשונית ${recTabOf(D)}.`); }
   const L = licOf(D), ln = licNote(L);
   if (ln) add(ln.level, ln.title, ln.text);
   else if (L && L.days <= 60) add("warn", "הטסט מתקרב", `רישיון הרכב בתוקף עד ${L.date}, ${L.days === 0 ? "היום" : L.days === 1 ? "מחר" : "בעוד " + L.days + " ימים"}.`);
@@ -2500,9 +2499,13 @@ function buildInsights(D){
 
 /* ---------- result screen ---------- */
 let ctrl = null, current = null, currentTab = "overview";
-const TABS = [["overview","סקירה"],["recalls","ריקולים"],["buy","קנייה"],["maint","טיפולים ועלויות"],["specs","מפרט"]];
-// the report lists the buyer view and the costs, never the private maintenance log
-const REPORT_TABS = [["overview","סקירה"],["buy","קנייה"],["costs","עלויות"],["recalls","ריקולים והסדרים"],["specs","מפרט"]];
+// the recalls tab is there only when there is something to act on (recTab); otherwise the "checked" line above the tabs says so (checkLine)
+const TABS = [["overview","סקירה"],["recalls","ריקולים"],["buy","קנייה"],["maint","טיפולים"],["specs","מפרט"]];
+// the report lists the buyer view, never the private maintenance log
+const REPORT_TABS = [["overview","סקירה"],["buy","קנייה"],["recalls","ריקולים והסדרים"],["specs","מפרט"]];
+/* the recalls tab's name for this car, or "" when it has no tab: a model keeps its recall history there; a car gets the tab for an open recall,
+   or for a settlement alone ("הסדר פשרה") */
+const recTabOf = D => D.kind === "model" || D.recalls.length ? "ריקולים" : (D.isCancelled ? [] : settlementsFor(D)).length ? "הסדר פשרה" : "";
 
 /* a reload or Back that re-opens the car already on screen is not a new check: it is counted as lookup_repeat, so car_lookup stays one per check */
 let lookupAgain = false;
@@ -2645,10 +2648,8 @@ function renderResult(){
   const dt = driveType(D);
   if (dt) facts[2] = (`<span class="pill drive ${["ev", "phev", "hybrid"].includes(dt.k) ? "green" : ""}">${ico(["ev", "phev", "hybrid"].includes(dt.k) ? "bolt" : "fuel")}${dt.label}</span>`);
   if (L) facts[0] = L.k === "ok" ? `<span class="pill ok">טסט עד ${String(L.ex.getMonth() + 1).padStart(2, "0")}/${L.ex.getFullYear()}</span>` : L.k === "bad" ? `<span class="pill bad">טסט לא בתוקף</span>` : `<span class="pill warn">לא ברור אם הטסט חודש</span>`;
-  const vIns = buildInsights(D), clean = !(D.errs && D.errs.length) && !D.recallUnknown && !D.modelRecallsUnknown && !D.isCancelled && !D.zombie && !D.recalls.length && !pendingRecalls(D).length && !vIns.some(x => x.level === "bad" || x.level === "warn");
   if (D.own.length) facts[1] = `<span class="pill">${ownersLabel(D)}</span>`;
   if (!empty(v.shnat_yitzur)) facts[3] = `<span class="pill">${esc(v.shnat_yitzur)}</span>`;
-  if (clean) pills.push(`<span class="pill ok">${ico("check")}לא נמצאו בעיות במאגרי משרד התחבורה</span>`);
   if (D.tag) pills.push(`<span class="pill" data-priv>תג נכה</span>`);
   html.push(`<div class="side">`);
   if (sharedHere(D)) html.push(`<div class="shared-top"><span aria-hidden="true">📩</span><span><b>דוח רכב שנשלח אליך</b> · נבדק עכשיו מול משרד התחבורה, מעודכן יותר מכל קובץ</span></div>`);
@@ -2673,23 +2674,27 @@ function renderResult(){
   if (D.recalls.length) {
     html.push(`<button type="button" class="alert-banner" data-tab="recalls">${ico("alert")}<span><b>${D.recalls.length === 1 ? "לרכב יש ריקול פתוח" : `לרכב ${D.recalls.length} ריקולים פתוחים`}</b>לפי משרד התחבורה. ריקול שלא מתוקן עלול למנוע בהמשך חידוש רישיון. התיקון בחינם אצל היבואן.</span></button>`);
   }
-  // a model recall that may include this car while the ministry's per-car list cannot say whether it does (pendingRecalls); a car off the
-  // road has the red banner above and keeps these in its recalls tab, without a second banner
-  const fr = D.isCancelled ? [] : pendingRecalls(D);
-  if (fr.length) { const pw = pendingWords(fr); html.push(`<button type="button" class="alert-banner warn" data-tab="recalls">${ico("alert")}<span><b>${pw.title}</b>${pw.body}</span></button>`); }
+  // a model recall that may include this car while the ministry's per-car list cannot say whether it does (pendingRecalls): a banner to the
+  // recalls tab when the car has one, else the checked line turns amber and opens in place; a car off the road has the red banner above
+  // and keeps these in its recalls tab, without a second banner
+  const fr = D.isCancelled ? [] : pendingRecalls(D), recTab = recTabOf(D);
+  if (fr.length && recTab) { const pw = pendingWords(fr); html.push(`<button type="button" class="alert-banner warn" data-tab="recalls">${ico("alert")}<span><b>${pw.title}</b>${pw.body}</span></button>`); }
 
   if (D.kind !== "model" && !D.isCancelled) {
     const stl = settlementsFor(D);
-    if (stl.length) html.push(`<button type="button" class="alert-banner warn" data-tab="recalls">${ico("scale")}<span><b>${stl.length === 1 ? "ייתכן שמגיעה הטבה מהסדר פשרה" : `ייתכן שמגיעות ${stl.length} הטבות מהסדרי פשרה`}</b>ההטבה תלויה בהתאמה לרכב שלכם. הפרטים בלשונית ריקולים.</span></button>`);
+    if (stl.length) html.push(`<button type="button" class="alert-banner warn" data-tab="recalls">${ico("scale")}<span><b>${stl.length === 1 ? "ייתכן שמגיעה הטבה מהסדר פשרה" : `ייתכן שמגיעות ${stl.length} הטבות מהסדרי פשרה`}</b>ההטבה תלויה בהתאמה לרכב שלכם. הפרטים בלשונית ${recTab}.</span></button>`);
   }
-  if (D.recallUnknown) html.push(`<div class="msg err"><b>מידע על ריקולים לא זמין כרגע.</b> ${D.recallEmpty ? "רשימת הריקולים של משרד התחבורה ריקה כרגע" : "מאגר הריקולים של משרד התחבורה לא ענה"}, ולכן אי אפשר לדעת אם יש ריקול פתוח לרכב. אל תסיקו מכך שאין. נסו שוב ${D.recallEmpty ? "מאוחר יותר" : "בעוד דקה"}, או בדקו באתר היבואן.</div>`);
+  if (D.recallUnknown) html.push(`<div class="msg err"><b>מידע על ריקולים לא זמין כרגע.</b> ${D.recallEmpty ? "רשימת הריקולים של משרד התחבורה ריקה כרגע" : "מאגר הריקולים של משרד התחבורה לא ענה"}, ולכן אי אפשר לדעת אם יש ריקול פתוח לרכב. אל תסיקו מכך שאין. נסו שוב ${D.recallEmpty ? "מאוחר יותר" : "בעוד דקה"}, או בדקו באתר היבואן.${D.kind !== "model" && !recTab ? `<div style="margin-top:10px">${importerBtn(D)}</div>` : ""}</div>`);
+  // the simple view has its own "open recalls" row, so it gets the line only when the line asks for something
+  else if (!recTab && (fr.length || !simpleOn())) html.push(checkLine(D, fr));
   if (D.errs && D.errs.some(x => x.key !== "recall")) html.push(`<p class="msg">חלק ממאגרי משרד התחבורה לא ענו כרגע, והמידע על הרכב חלקי. נסו שוב בעוד דקה.</p>`);
   if (!window.AndroidApp && !IS_IOS) html.push(appBox(D));
   html.push(`</div><div class="mainc">`);
-  const recallCount = D.recalls.length;
+  const recallCount = D.recalls.length, tabs = TABS.filter(([k]) => k !== "recalls" || recTab).map(([k, t]) => [k, k === "recalls" ? recTab : t]);
+  if (!tabs.some(([k]) => k === currentTab)) currentTab = "overview";
   if (simpleOn()) html.push(simpleCard(D));
   else {
-      html.push(`<div class="tabs" role="tablist">${TABS.map(([k, t]) => `<button type="button" role="tab" id="tab-${k}" data-tab="${k}" aria-selected="${k === currentTab}" aria-controls="tabpanel" tabindex="${k === currentTab ? 0 : -1}">${t}${k === "recalls" && recallCount ? `<i class="hot">${recallCount}</i>` : ""}</button>`).join("")}</div>`);
+      html.push(`<div class="tabs" role="tablist">${tabs.map(([k, t]) => `<button type="button" role="tab" id="tab-${k}" data-tab="${k}" aria-selected="${k === currentTab}" aria-controls="tabpanel" tabindex="${k === currentTab ? 0 : -1}">${t}${k === "recalls" && recallCount ? `<i class="hot">${recallCount}</i>` : ""}</button>`).join("")}</div>`);
       html.push(`<div class="tab-body" id="tabpanel" role="tabpanel" aria-labelledby="tab-${currentTab}">${TAB_FN()[currentTab](D)}${currentTab === "overview" ? appHint(D) : ""}</div>`);
   }
   html.push(`</div>`);
@@ -3142,7 +3147,8 @@ function tabOverview(D){
     D.isCancelled && ["ירד מהכביש", e(v.bitul_dt && fmtDate(v.bitul_dt))],
     D.isCancelled && ["סיבה", e(v.bitul_nm)],
     ["סוג יבוא", e(v.sug_yevu)],
-  ]) + (noTest ? `<p class="note">משרד התחבורה לא מפרסם במאגרים הפתוחים תאריכי טסט ${noTest}.</p>` : D.kind !== "model" && !D.isCancelled && !licOf(D) ? `<p class="note">המאגר של משרד התחבורה לא מראה תאריך תוקף לטסט של הרכב הזה.</p>` : "")
+    !D.isCancelled && D.cost && D.cost.fee && ["אגרת רישוי שנתית (הערכה)", unit(D.cost.fee, "₪")],
+  ]) + (!D.isCancelled && D.cost && D.cost.fee ? `<p class="note">האגרה לפי התעריף הרשמי לשנת 2026${new Date() >= new Date(2027, 3, 1) ? ", וייתכן שכבר עודכן מאז" : ""}, בלי הנחות.</p>` : "") + (noTest ? `<p class="note">משרד התחבורה לא מפרסם במאגרים הפתוחים תאריכי טסט ${noTest}.</p>` : D.kind !== "model" && !D.isCancelled && !licOf(D) ? `<p class="note">המאגר של משרד התחבורה לא מראה תאריך תוקף לטסט של הרכב הזה.</p>` : "")
     + (calDate(D) && !pushCoversTest(D) ? calendarBtn(D) : "")));
 
   const fo = firstOwner(v);
@@ -3167,25 +3173,52 @@ function tabOverview(D){
   return html.join("");
 }
 
-/* the recalls tab, by what to do: an open recall (fix it), what to check with the importer (a fresh recall, or data that did not load), then the
-   checks that came back clean, folded when one of those is shown. Each fact has one place: no row repeats a card above it. */
-function tabRecalls(D){
-  const html = [], imp = importerRecall(D), car = D.kind !== "model" && !D.isCancelled, stl = car ? settlementsFor(D) : [];
-  const mr = modelRecallList(D), fits = mr.filter(r => r.fits !== false);   // a recall still open on this car is listed in its own card, not again in the model's history
-  const knownOpen = D.kind !== "model" && !D.recallUnknown;   // the ministry's list of unfixed cars answered for this plate
-  const fresh = pendingRecalls(D), known = fits.filter(r => !fresh.includes(r)), hz = recallHz(catMetaV);
-  // a recall the per-car list does not hold at all says nothing about this plate: never "not open on this car" (recallReach)
-  const noList = knownOpen ? known.filter(r => r.reach === "nolist") : [], listed = known.filter(r => !noList.includes(r));
-  const plateView = D.kind !== "model", check = plateView && (fresh.length || D.recallUnknown || D.modelRecallsUnknown);
-  const recRow = (r, pill) => `<li class="${r.fits === false ? "dim" : ""}">
+/* one model recall: year, what it fixes, type, models, importer when not the car's own, production range */
+const recRow = (D, r, pill) => `<li class="${r.fits === false ? "dim" : ""}">
          <div class="rhead"><time>${empty(r.SHNAT_RECALL) ? "" : "ריקול משנת " + esc(r.SHNAT_RECALL)}</time>${pill}</div>
          <b>${esc(D.pick(r.TEUR_TAKALA, r.SUG_TAKALA) || "ריקול")}</b>
          <span class="note">${[recType(r.SUG_RECALL), !empty(r.DEGEM) && String(r.DEGEM).split(/\s*,\s*/).join(", "), !empty(r.YEVUAN_TEUR) && String(r.YEVUAN_TEUR).trim() !== importerOf(D) && "יבואן: " + String(r.YEVUAN_TEUR).trim()].filter(x => x && !empty(x)).map(esc).join(" · ")}${(r.BUILD_BEGIN_A || r.BUILD_END_A) && !r.offRange ? ` · ייצור <span dir="ltr" style="unicode-bidi:isolate">${esc(fmtDate(r.BUILD_BEGIN_A || ""))} – ${esc(fmtDate(r.BUILD_END_A || ""))}</span>` : ""}</span>
        </li>`;
-  // the importer button sits once: in the open-recall card when there is one (asking the importer is what it tells the owner to do), else in the first card that asks for an action
-  const copy = D.plate ? (imp.vin ? D.vin || D.plate : D.plate) : "";
-  const btn = `<button type="button" class="link-btn" data-url="${esc(imp.url)}"${copy ? ` data-copyfirst="${esc(copy)}"` : ""}>${ico("search")}${imp.gov ? "חיפוש במאגר הריקולים של משרד התחבורה" : `בדיקת ריקולים וקמפיינים באתר ${esc(imp.name)}`}</button>
+const pendPill = r => r.fits === true ? `<span class="pill warn">בשנת הייצור</span>` : r.near ? `<span class="pill">שנה סמוכה</span>` : "";
+/* the importer's own recall check (the plate, or the VIN where the importer asks for it, is copied first), else the ministry's search */
+function importerBtn(D){
+  const imp = importerRecall(D), copy = D.plate ? (imp.vin ? D.vin || D.plate : D.plate) : "";
+  return `<button type="button" class="link-btn" data-url="${esc(imp.url)}"${copy ? ` data-copyfirst="${esc(copy)}"` : ""}>${ico("search")}${imp.gov ? "חיפוש במאגר הריקולים של משרד התחבורה" : `בדיקת ריקולים וקמפיינים באתר ${esc(imp.name)}`}</button>
     <p class="note" style="margin:6px 0 0">${[copy && "מספר הרישוי יועתק, ותדביקו אותו באתר.", imp.gov ? `ל${esc(imp.name || "יבואן הזה")} לא מצאנו עמוד בדיקה לפי מספר רישוי, ובמאגר של משרד התחבורה מחפשים לפי יצרן ודגם.` : "באתר היבואן מופיעות גם קריאות שירות שאינן ריקול בטיחותי.", !imp.gov && imp.note && esc(imp.note)].filter(Boolean).join(" ")}</p>`;
+}
+/* The "checked" line above the tabs, for a car with no open recall and no settlement (with either, the recalls tab says it all): one line closed,
+   where each answer comes from when opened. Amber when a model recall may include the car and the per-car list cannot tell (pendingRecalls),
+   with the recall and the importer check. Recalls and settlements only: the other checks are in the overview and buy cards. Never "checked"
+   while the per-car list did not answer (D.recallUnknown has its own message). A car page does not list the model's recall history: a recall
+   not open on the car does not say whether it was fixed or never included, and how many a model had says little about it. */
+function checkLine(D, fr){
+  if (D.kind === "model" || D.isCancelled || D.recallUnknown) return "";
+  const stlOn = !D.importKind && SETTLEMENTS.length, pw = fr.length ? pendingWords(fr) : null, hz = perCarTo();
+  const noList = D.modelRecallsUnknown ? [] : modelRecallList(D).filter(r => r.fits !== false && !recallPending(r) && r.reach === "nolist");
+  const rows = [], row = (k, t, sub) => rows.push(`<li class="${k}">${ico(k === "ok" ? "check" : "info")}<b>${esc(t)}</b><span>${esc(sub)}</span></li>`);
+  row("ok", "אין ריקול פתוח לרכב הזה", hz ? `לפי רשימת משרד התחבורה, שכוללת ריקולים שנפתחו עד ${hz}` : "לפי רשימת משרד התחבורה");
+  if (D.importKind) row("info", "לא נבדק מול הסדרי פשרה", "הרכב יובא ביבוא אישי, וההסדרים חלים על רכבים שיובאו דרך היבואן הרשמי");
+  else if (stlOn) row("ok", "לא נמצא הסדר פשרה מוכר לדגם ולשנתון", `נבדק מול ${stlActive()} הסדרים פעילים, לפי הודעות היבואנים והעיתונות (עודכן ב-${stlAsOf()}). הרשימה אינה מקיפה`);
+  else row("info", "רשימת הסדרי הפשרה לא נטענה כרגע", "");
+  // one calm row for older model recalls the ministry published no car list for: not a warning (most years, a third or more of recalls have none)
+  if (noList.length) row("info", noList.length === 1 ? "לריקול אחד לדגם אין רשימת רכבים" : `ל-${noList.length} ריקולים לדגם אין רשימת רכבים`, `ריקול${noList.length === 1 ? "" : "ים"} משנים קודמות שעשוי${noList.length === 1 ? "" : "ים"} לחול על שנת הייצור. משרד התחבורה לא פרסם אילו רכבים נכללו, ולכן אי אפשר לדעת מהמאגר אם הרכב הזה נכלל או תוקן. היבואן יכול לבדוק.`);
+  if (D.modelRecallsUnknown) row("info", "רשימת הריקולים לדגם לא נטענה כרגע", "ולכן לא נבדק אם נפתח לדגם ריקול חדש שעוד אין לו פירוט לפי רכב");
+  const title = pw ? pw.title : `נבדק: אין ריקול פתוח${stlOn ? " ואין הסדר פשרה" : ""}`;
+  return `<details class="ckl${pw ? " warn" : ""}" data-line="${pw ? "warn" : "ok"}"><summary>${ico(pw ? "alert" : "check")}<b>${title}</b><svg class="i chev" aria-hidden="true"><use href="#i-chev"/></svg></summary><div class="ckl-body">${pw ? `<p>${pw.body}</p><ul class="rlist">${fr.map(r => recRow(D, r, pendPill(r))).join("")}</ul>` : ""}<ul class="ckl-rows">${rows.join("")}</ul>${pw || noList.length ? `<div>${importerBtn(D)}</div>` : ""}</div></details>`;
+}
+/* the recalls tab, by what to do: an open recall (fix it), what to check with the importer (a fresh recall, or data that did not load), then the
+   checks that came back clean, folded when one of those is shown. Each fact has one place: no row repeats a card above it. A car has the tab only
+   with an open recall or a settlement (recTabOf); a model keeps its recall history here. */
+function tabRecalls(D){
+  const html = [], car = D.kind !== "model" && !D.isCancelled, stl = car ? settlementsFor(D) : [];
+  const mr = modelRecallList(D), fits = mr.filter(r => r.fits !== false);   // a recall still open on this car is listed in its own card, not again in the model's history
+  const knownOpen = D.kind !== "model" && !D.recallUnknown;   // the ministry's list of unfixed cars answered for this plate
+  const fresh = pendingRecalls(D), known = fits.filter(r => !fresh.includes(r)), hz = recallHz(catMetaV);
+  // a recall the per-car list does not hold at all says nothing about this plate: never "not open on this car" (recallReach)
+  const noList = knownOpen ? known.filter(r => r.reach === "nolist") : [];
+  const plateView = D.kind !== "model", check = plateView && (fresh.length || D.recallUnknown || D.modelRecallsUnknown);
+  // the importer button sits once: in the open-recall card when there is one (asking the importer is what it tells the owner to do), else in the first card that asks for an action
+  const btn = importerBtn(D);
   if (D.recalls.length) {
     html.push(card("ריקולים פתוחים לרכב הזה", "alert", "red", D.recalls.map(r => {
       const d = r.detail || {};
@@ -3199,11 +3232,12 @@ function tabRecalls(D){
   html.push(settlementCard(D));
   if (check) {
     const parts = [];
-    if (D.recallUnknown) parts.push(`<p style="margin:0 0 8px">לא הצלחנו לבדוק כרגע אם לרכב יש ריקול פתוח.${known.length ? ` לדגם ${known.length === 1 ? "היה ריקול שעשוי" : `היו ${known.length} ריקולים שעשויים`} לחול על שנת הייצור (ברשימה למטה).` : ""}</p>`);
+    // with the per-car list down, the model's recalls of the production year are the ones that may be open: listed here, since a car page has no model history
+    if (D.recallUnknown) parts.push(`<p style="margin:0 0 8px">לא הצלחנו לבדוק כרגע אם לרכב יש ריקול פתוח.${known.length ? ` לדגם ${known.length === 1 ? "היה ריקול שעשוי" : `היו ${known.length} ריקולים שעשויים`} לחול על שנת הייצור:` : ""}</p>${known.length ? `<ul class="rlist">${known.map(r => recRow(D, r, pendPill(r))).join("")}</ul>` : ""}`);
     // "new": every one is newer than the per-car list; otherwise some are recent recalls the list does not hold at all
     const isNew = fresh.every(r => r.fresh), n = fresh.length;
     if (n) parts.push(`<p style="margin:0 0 8px">${isNew ? (n === 1 ? "ריקול חדש לדגם עשוי" : `${n} ריקולים חדשים לדגם עשויים`) : (n === 1 ? "ריקול לדגם מהשנים האחרונות עשוי" : `${n} ריקולים לדגם מהשנים האחרונות עשויים`)} לחול על הרכב. משרד התחבורה ${isNew ? "עוד " : ""}לא פרסם אילו רכבים נכללים ${n === 1 ? "בו" : "בהם"}, ולכן ${isNew ? "עוד " : ""}לא ידוע אם הרכב הזה נכלל.</p>
-      <ul class="rlist">${fresh.map(r => recRow(r, r.fits === true ? `<span class="pill warn">בשנת הייצור</span>` : r.near ? `<span class="pill">שנה סמוכה</span>` : "")).join("")}</ul>`);
+      <ul class="rlist">${fresh.map(r => recRow(D, r, pendPill(r))).join("")}</ul>`);
     if (D.modelRecallsUnknown) parts.push(`<p style="margin:0 0 8px">רשימת הריקולים לדגם לא נטענה כרגע.</p>`);
     html.push(card("כדאי לבדוק מול היבואן", "alert", "amber", parts.join("") + (D.recalls.length ? `<p class="note" style="margin:0">אפשר לבדוק גם את זה בכפתור שבכרטיס הריקולים הפתוחים למעלה.</p>` : btn)));
   }
@@ -3211,15 +3245,13 @@ function tabRecalls(D){
   const rows = [], row = (ok, t) => rows.push(`<li class="ins ${ok === "info" ? "info" : ok ? "ok" : "warn"}">${ico(ok === "info" ? "info" : ok ? "check" : "alert")}<div><b>${esc(t)}</b></div></li>`);
   if (knownOpen && !D.recalls.length) row(true, "אין ריקול פתוח במאגר משרד התחבורה");
   if (!D.modelRecallsUnknown) {
-    // with the per-car list answered, a model recall of the production year that is not open on this car was fixed or never included: nothing to do
-    if (!mr.length) row(true, "לא נמצאו ריקולים לדגם");
-    else if (!fits.length) row(true, `${pl(mr.length, "ריקול לדגם, לא חל", "ריקולים לדגם, אף אחד לא חל")} על שנת הייצור`);
-    else if (known.length && knownOpen) {
-      if (listed.length) row(true, listed.length === 1 ? "לדגם היה ריקול שעשוי לחול על שנת הייצור, והוא לא פתוח ברכב הזה: תוקן, או שהרכב לא נכלל בו" : `לדגם היו ${listed.length} ריקולים שעשויים לחול על שנת הייצור, ואף אחד מהם לא פתוח ברכב הזה: תוקנו, או שהרכב לא נכלל בהם`);
-      // one calm line for all the older recalls the per-car list does not hold, not a warning each
-      if (noList.length) row("info", `${noList.length === 1 ? "לריקול אחד לדגם שעשוי" : `ל-${noList.length} ריקולים לדגם שעשויים`} לחול על שנת הייצור משרד התחבורה לא מפרסם רשימת רכבים, ולכן אי אפשר לדעת מהמאגר אם הרכב הזה נכלל ${noList.length === 1 ? "בו" : "בהם"} או תוקן. היבואן יכול לבדוק.`);
+    if (!plateView) {
+      if (!mr.length) row(true, "לא נמצאו ריקולים לדגם");
+      else if (!fits.length) row(true, `${pl(mr.length, "ריקול לדגם, לא חל", "ריקולים לדגם, אף אחד לא חל")} על שנת הייצור`);
+      else if (known.length) row(false, `${pl(known.length, "ריקול לדגם עשוי לחול", "ריקולים לדגם עשויים לחול")} על שנת הייצור`);
     }
-    else if (known.length && !plateView) row(false, `${pl(known.length, "ריקול לדגם עשוי לחול", "ריקולים לדגם עשויים לחול")} על שנת הייצור`);
+    // one calm line for all the older recalls the per-car list does not hold, not a warning each
+    else if (noList.length) row("info", `${noList.length === 1 ? "לריקול אחד לדגם שעשוי" : `ל-${noList.length} ריקולים לדגם שעשויים`} לחול על שנת הייצור משרד התחבורה לא מפרסם רשימת רכבים, ולכן אי אפשר לדעת מהמאגר אם הרכב הזה נכלל ${noList.length === 1 ? "בו" : "בהם"} או תוקן. היבואן יכול לבדוק.`);
   }
   // a personal import is not checked against the deals (settlementsFor): one calm line says why, in place of "not found"
   if (car && D.importKind) row("info", "הרכב יובא ביבוא אישי, ולכן לא נבדק מול הסדרי הפשרה. ההסדרים חלים על רכבים שיובאו דרך היבואן הרשמי.");
@@ -3229,63 +3261,27 @@ function tabRecalls(D){
     car && !D.importKind && !stl.length && stlActive() && `הסדרי פשרה: נבדקו מול ${stlActive()} הסדרים פעילים, לפי הודעות היבואנים והעיתונות (עודכן ב-${stlAsOf()}). הרשימה אינה מקיפה.`].filter(Boolean);
   if (rows.length || src.length) html.push(card(above ? "בדקנו גם" : `מה נבדק (${rows.length === 1 ? "בדיקה אחת" : rows.length + " בדיקות"})`, "check", rows.some(r => r.includes("ins warn")) ? "amber" : "green",
     `${rows.length ? `<ul class="insights plain">${rows.join("")}</ul>` : ""}${src.length ? `<p class="note">${src.join("<br>")}</p>` : ""}${D.recalls.length || check ? "" : btn}`));
-  const hist = mr.filter(r => !fresh.includes(r));   // a fresh recall is listed with what to check, above
-  if (hist.length) {
-    // a plate: the per-car list says whether the recall is open on this car; a model: the years only
-    const pill = r => {
-      if (r.fits === false) return `<span class="pill">שנים אחרות</span>`;
-      if (!knownOpen) return r.fits === true ? `<span class="pill warn">כולל את שנת הייצור</span>` : r.near ? `<span class="pill">ייתכן שכולל את שנת הייצור</span>` : "";
-      return `<span class="pill">${r.fits === true ? "בשנת הייצור, " : r.near ? "שנה סמוכה, " : ""}${noList.includes(r) ? "אין רשימת רכבים" : "לא פתוח ברכב הזה"}</span>`;
-    };
+  // the model's recall history: on a model's page and model searches only (checkLine says why a car page has none)
+  if (!plateView && mr.length) {
+    const pill = r => r.fits === false ? `<span class="pill">שנים אחרות</span>` : r.fits === true ? `<span class="pill warn">כולל את שנת הייצור</span>` : r.near ? `<span class="pill">ייתכן שכולל את שנת הייצור</span>` : "";
     html.push(card("ריקולים שנפתחו לדגם", "clock", "blue",
-      `<p class="note" style="margin:0 0 8px">ריקולים שהיבואנים בארץ פתחו לכל הדגם, לפי משרד התחבורה. הם לא בהכרח חלו על הרכב הזה.${knownOpen && D.recalls.length ? " ריקול שפתוח ברכב הזה מופיע למעלה." : ""}</p>
-       <ul class="rlist">${hist.map(r => recRow(r, pill(r))).join("")}</ul>`, `<span class="count">${hist.length}</span>`));
+      `<p class="note" style="margin:0 0 8px">ריקולים שהיבואנים בארץ פתחו לכל הדגם, לפי משרד התחבורה. הם לא בהכרח חלו על כל רכב מהדגם.</p>
+       <ul class="rlist">${mr.map(r => recRow(D, r, pill(r))).join("")}</ul>`, `<span class="count">${mr.length}</span>`));
   }
   return html.join("");
 }
 
-function tabCosts(D){
-  const c = D.cost, html = [];
-  const r100 = x => Math.round(x / 100) * 100;
-  const fuelInner = c.kind === "ev" ? `<div class="tow-grid">
-        <div><div class="k">צריכה משוערת</div><div class="v">${c.kwh100}<span class="u">קוט״ש/100 ק״מ</span></div></div>
-        <div><div class="k">טעינה בבית בשנה</div><div class="v">${fmtN(r100(c.fuelYear))}<span class="u">₪</span></div></div>
-      </div>
-      <p class="note">לפי ${fmtN(c.kmYear)} ק״מ בשנה ו-${c.elecPrice.toFixed(2)} ₪ לקוט״ש. בטעינה ציבורית מהירה (כ-${ELEC.fastDc.toFixed(0)} ₪ לקוט״ש) העלות כ-${fmtN(r100(c.fastYear))} ₪ בשנה. אפשר לשנות את מחיר החשמל בהגדרות.</p>` :
-    c.l100 ? `<div class="tow-grid">
-        <button type="button" class="unit-flip" data-act="fuelUnit" aria-label="החלפת יחידה"><div class="k">צריכה משוערת <span class="flip">⇄</span></div><div class="v">${kmlUnit() ? (100 / c.l100).toFixed(1) : c.l100.toFixed(1)}<span class="u">${kmlUnit() ? "ק״מ לליטר" : "ל׳/100 ק״מ"}</span></div></button>
-        <div><div class="k">${c.fuelYear ? "עלות דלק בשנה" : "ליטרים בשנה"}</div><div class="v">${c.fuelYear ? fmtN(Math.round(c.fuelYear / 100) * 100) : fmtN(Math.round(c.litres))}<span class="u">${c.fuelYear ? "₪" : "ליטר"}</span></div></div>
-      </div>
-      <p class="note">נסיעה אמיתית צורכת בדרך כלל יותר מהנתון הרשמי.${c.kind === "diesel" && !c.fuelPrice ? " כדי לראות עלות בשקלים, הגדירו מחיר סולר בהגדרות." : " אפשר לשנות את מחיר הדלק בהגדרות."}</p>` :
-    `<p style="margin:0">${c.plugIn ? PLUGIN_FUEL : "אין במאגר נתוני פליטה לדגם הזה, ולכן אין הערכת צריכה."}</p>`;
-  if (c.monthly) {
-    const m = c.monthly;
-    html.push(card("כמה הרכב עולה בחודש (הערכה)", "tag", "blue", `<div class="month-big">כ-${fmtN(m.total)} ₪ <small>בחודש</small></div>
-      <div class="month-bar">${m.parts.map(([, v, col]) => `<span style="flex:${v};background:${col}"></span>`).join("")}</div>
-      <div class="month-lg">${m.parts.map(([k, v, col]) => `<span><i style="background:${col}"></i>${k} ${fmtN(v)} ₪</span>`).join("")}</div>
-      <p class="note">לפי ${fmtN(c.kmYear)} ק״מ בשנה. בלי ${partsOut(m)}.</p>`));
-  }
-  /* a card that only says "no data" is folded into one shared card (when two or more have none); a card with data always stays full */
-  const none = [], u = c.usage;
-  const noFuel = c.kind !== "ev" && !c.l100, noFee = !c.fee, noUsage = !u;
-  const noteOf = (name, txt) => `<p style="margin:0"><b>${name}:</b> ${txt}</p>`;
-  const foldNone = [noFuel, noFee, noUsage].filter(Boolean).length >= 2;
-  if (foldNone) {
-    if (noFuel) none.push(noteOf("דלק", c.plugIn ? PLUGIN_FUEL : "אין במאגר נתוני פליטה לדגם הזה, ולכן אין הערכת צריכה."));
-    if (noFee) none.push(noteOf("אגרת רישוי", "לא נמצאה קבוצת אגרה לרכב הזה. ההערכה זמינה לרכב פרטי בלבד."));
-    if (noUsage) none.push(noteOf("שווי שימוש (רכב צמוד)", D.importKind ? IMPORT_NO_PRICE + ", ולכן אין כאן חישוב של שווי השימוש." : "אין מספיק נתונים לחישוב לרכב הזה (החישוב כאן לרכב פרטי שעלה לכביש מ-2010)."));
-  }
-  if (!(foldNone && noFuel)) html.push(c.kind === "ev" ? card("חשמל", "bolt", "teal", fuelInner) : card("דלק", "fuel", "red", fuelInner));
-  if (!(foldNone && noFee)) html.push(card("אגרת רישוי שנתית", "doc", "violet", c.fee ?
-    `<div class="tow-grid"><div><div class="k">הערכה</div><div class="v">${fmtN(c.fee)}<span class="u">₪</span></div></div><div><div class="k">קבוצת מחיר</div><div class="v">${c.feeGroup}<span class="u">מתוך 7</span></div></div></div>
-     <p class="note">לפי התעריף הרשמי לשנת 2026${new Date() >= new Date(2027, 3, 1) ? ", וייתכן שכבר עודכן מאז" : ""}. לא כולל הנחות.</p>` :
-    `<p style="margin:0">לא נמצאה קבוצת אגרה לרכב הזה. ההערכה זמינה לרכב פרטי בלבד.</p>`));
-  if (!(foldNone && noUsage)) html.push(card("שווי שימוש (רכב צמוד)", "users", "teal", u ?
+/* the model's estimated consumption, in the unit picked in settings: litres from the official CO2 (WLTP), kWh for an electric car; none for a
+   plug-in, whose official figure weighs in its electric driving (PLUGIN_FUEL) */
+const consumption = D => { const c = D.cost || {}; return c.kind === "ev" && c.kwh100 ? `${c.kwh100} קוט״ש ל-100 ק״מ` : c.l100 ? (kmlUnit() ? `${(100 / c.l100).toFixed(1)} ק״מ לליטר` : `${c.l100.toFixed(1)} ל׳ ל-100 ק״מ`) : ""; };
+/* company-car taxable benefit (שווי שימוש): an official formula, so it is shown as is, without "(הערכה)" */
+function usageCard(D){
+  const u = D.cost && D.cost.usage;
+  if (!u) return D.kind === "model" || D.isCancelled ? "" : card("שווי שימוש (רכב צמוד)", "users", "teal",
+    `<p style="margin:0">${D.importKind ? IMPORT_NO_PRICE + ", ולכן אין כאן חישוב של שווי השימוש." : "אין מספיק נתונים לחישוב שווי השימוש של הרכב הזה (החישוב כאן לרכב פרטי שעלה לכביש מ-2010)."}</p>`);
+  return card("שווי שימוש (רכב צמוד)", "users", "teal",
     `<div class="tow-grid"><div><div class="k">לחודש</div><div class="v">${fmtN(u.monthly)}<span class="u">₪</span></div></div><div><div class="k">לשנה</div><div class="v">${fmtN(u.monthly * 12)}<span class="u">₪</span></div></div></div>
-     <p class="note">${u.green ? `כולל הפחתה של ${fmtN(u.green[1])} ₪ לרכב ${u.green[0]}. ` : ""}זה הסכום שמתווסף למשכורת לצורך מס, לא המס עצמו.</p>` :
-    `<p style="margin:0">${D.importKind ? IMPORT_NO_PRICE + ", ולכן אין כאן חישוב של שווי השימוש." : "אין מספיק נתונים לחישוב שווי השימוש של הרכב הזה (החישוב כאן לרכב פרטי שעלה לכביש מ-2010)."}</p>`));
-  if (foldNone) html.push(card("נתונים שלא זמינים לרכב הזה", "doc", "slate", none.join("")));
-  return html.join("");
+     <p class="note">${u.green ? `כולל הפחתה של ${fmtN(u.green[1])} ₪ לרכב ${u.green[0]}. ` : ""}זה הסכום שמתווסף למשכורת לצורך מס, לא המס עצמו.</p>`);
 }
 
 /* the buyer view: buying help, estimated value, how the model holds up, what to do before paying */
@@ -3399,7 +3395,8 @@ function tabSpecs(D){
     ["דלק", e(D.pick(v.sug_delek_nm, w.delek_nm))], ["נפח מנוע", unitPos(specCc(D), "סמ״ק")],
     ["כוח", !pw ? "" : pw.u ? unit(pw.v, pw.u) : e(pw.v)], ["תיבת הילוכים", e(gearbox)],
     ["הנעה", e(specDrive(D))], ["דגם מנוע", mono(v.degem_manoa)],
-  ])));
+    ["צריכה משוערת", consumption(D)],
+  ]) + (consumption(D) ? `<p class="note">${D.cost.kind === "ev" ? "הערכה לפי נתוני הדגם." : "הערכה לפי נתון הפליטה הרשמי של הדגם (WLTP)."} נסיעה אמיתית צורכת בדרך כלל יותר.</p>` : D.cost && D.cost.plugIn ? `<p class="note">${PLUGIN_FUEL}</p>` : "")));
   html.push(card("משקלים וצמיגים", "scale", "slate", facts([
     ["משקל כולל מותר", unitPos(specWeight(D), "ק״ג")], ["משקל עצמי", unitPos(v.mishkal_azmi, "ק״ג")],
     ["כושר העמסה", unitPos(v.mishkal_mitan_harama, "ק״ג")], ["סרנים", e(v.sranim)],
@@ -3420,6 +3417,7 @@ function tabSpecs(D){
     ["פליטת CO₂", co2 === undefined ? "" : unit(co2, "גרם לק״מ")], ["מדד ירוק", e(w.madad_yarok)],
     ["מסנן חלקיקים", D.dpf ? `הותקן${empty(D.dpf.taarich_hatkana) ? "" : " ב-" + fmtDate(D.dpf.taarich_hatkana)}` : ""],
   ]) + (empty(zihum) ? "" : `<div class="qsec" style="margin:10px 0 6px">קבוצת זיהום ${esc(zihum)} מתוך 15</div>${zihumScale(zihum)}`)));
+  html.push(usageCard(D));
   html.push(card("מספרי זיהוי", "id", "slate",
     (D.vin ? `<div><p class="note" style="margin-bottom:6px">מספר שלדה (VIN)</p><div class="copy-row"><span class="mono">${esc(D.vin)}</span><button class="copy-btn" type="button" data-copy="${esc(D.vin)}" data-label="מספר השלדה">${ico("copy")}העתקה</button></div></div>` : "") +
     `<div><p class="note" style="margin-bottom:6px">מספר רישוי</p><div class="copy-row"><span class="mono">${fmtPlate(D.plate)}</span><button class="copy-btn" type="button" data-copy="${D.plate}" data-label="מספר הרישוי">${ico("copy")}העתקה</button></div></div>`));
@@ -4222,14 +4220,19 @@ function renderCompare(){
     ...[...Object.entries(SYSTEMS), ...Object.entries(EQUIP)].filter(([k]) => OK.some(D => !empty(D.w[k]) && num(D.w[k]) > 0))
       .map(([k, t]) => [t, D => { const r = k in SYSTEMS ? sysOf(D) : D.w; return !r || empty(r[k]) ? null : num(r[k]) > 0; }, "yes"]),
     "מחיר ועלויות",
-    ["עלות חודשית (הערכה)", D => D.cost.monthly ? D.cost.monthly.total : null, "lo", "₪"],
     ["מחיר מחירון כחדש", listP, null, "₪"],
     ["שווי משוער היום", D => D.cost.valueLow ? [D.cost.valueLow, D.cost.valueHigh] : null, null, "אלף ₪", false, true],   // the range, as on the car page: a model has none
     // one consumption row for every drive type (a petrol car has no kWh and an EV no litres), and one cost row in shekels that compares them fairly;
     // a plug-in has neither (its official figure weighs in electric driving)
     ["צריכת אנרגיה (הערכה)", D => D.cost.plugIn ? "אין נתון לפלאג-אין" : D.cost.kwh100 ? `${D.cost.kwh100} קוט״ש ל-100 ק״מ` : D.cost.l100 ? (kmlUnit() ? `${Math.round(1000 / D.cost.l100) / 10} ק״מ לליטר` : `${Math.round(D.cost.l100 * 10) / 10} ל׳ ל-100 ק״מ`) : null, null, "", true],
     ["עלות אנרגיה ל-100 ק״מ (הערכה)", D => D.cost.fuelYear && D.cost.kmYear ? Math.round(D.cost.fuelYear / D.cost.kmYear * 1000) / 10 : null, "lo", "₪", true],
-    [OK.some(D => D.cost.kind === "ev") ? "דלק או חשמל בשנה (הערכה)" : "דלק בשנה (הערכה)", D => D.cost.fuelYear ? Math.round(D.cost.fuelYear / 100) * 100 : null, "lo", "₪"],
+    // the same mileage and fuel prices for every car, so how much more one costs a month holds better than either sum
+    [OK.some(D => D.cost.kind === "ev") ? "הפרש דלק או חשמל בחודש (הערכה)" : "הפרש דלק בחודש (הערכה)", D => {
+      const all = OK.map(x => x.cost.fuelYear).filter(x => x > 0), low = Math.min(...all), f = D.cost.fuelYear;
+      if (all.length < 2 || !(f > 0)) return null;
+      const d = Math.round((f - low) / 12 / 10) * 10;
+      return f === low ? "הזול ביותר" : d ? `${fmtN(d)} ₪ יותר` : "כמעט כמו הזול ביותר";
+    }, null, "", true],
     ["אגרת רישוי (הערכה)", D => D.cost.fee || null, "lo", "₪"],
     ["שווי שימוש לחודש", D => D.cost.usage ? D.cost.usage.monthly : null, "lo", "₪"],
     "אמינות",
@@ -4465,17 +4468,19 @@ function loadScriptOnce(src, key){
 }
 // the off-screen report re-renders every tab, so a card counted as seen there was never on the screen
 let reportBuild = 0;
-const TAB_FN = () => ({overview: tabOverview, buy: tabBuy, recalls: tabRecalls, costs: tabCosts, maint: D => tabMaint(D) + tabCosts(D), specs: tabSpecs});
+const TAB_FN = () => ({overview: tabOverview, buy: tabBuy, recalls: tabRecalls, maint: tabMaint, specs: tabSpecs});
 /* The report is built off-screen from the same cards the app shows, with every card open */
 function buildReport(D, full, biz){
   const el = document.createElement("div"); el.className = "report";
   const today = new Date().toLocaleDateString("he-IL");
   const parts = [biz ? bizHead(biz) : brandHead(), `<div class="rep-head"><b>דוח רכב</b><span>${fmtPlate(D.plate)} · ${today}</span></div>`];
-  const idc = $("#out .id-card"), banner = $("#out .alert-banner");
+  const idc = $("#out .id-card"), banner = $("#out .alert-banner"), ck = $("#out details.ckl");
   if (idc) parts.push(idc.outerHTML);
   if (banner) parts.push(banner.outerHTML.replace(/^<button/, "<div").replace(/<\/button>$/, "</div>"));
+  // with no recalls section, the checked line says what was checked (opened below with every details)
+  else if (ck) parts.push(ck.outerHTML);
   // the maintenance tab holds the private service log and interval table, so it is never part of a shared report
-  const tabs = (full ? REPORT_TABS : REPORT_TABS.filter(([k]) => k === (currentTab === "maint" ? "overview" : currentTab))).filter(([k]) => !biz || k !== "costs" || biz.costs);
+  const recTab = recTabOf(D), tabs = (full ? REPORT_TABS : REPORT_TABS.filter(([k]) => k === (currentTab === "maint" ? "overview" : currentTab))).filter(([k]) => k !== "recalls" || recTab);
   if (!full && !biz && simpleOn()) parts.push(simpleCard(D));
   else { reportBuild++; try { for (const [k, t] of tabs) { if (full) parts.push(`<h3 class="rep-sec">${t}</h3>`); parts.push(TAB_FN()[k](D)); } } finally { reportBuild--; } }
   parts.push(`<p class="rep-foot">${biz ? bizFoot(biz) : "המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il, ואינו מחליף נסח רישום רשמי. " + BRAND_FOOT}</p>`);
@@ -4497,6 +4502,7 @@ function buildReport(D, full, biz){
   el.querySelectorAll("ul.insights:empty").forEach(u => { const c = u.closest(".card"); (c && c.querySelectorAll(".fold-body > *").length === 1 ? c : u).remove(); });
   // a dealer's own branded PDF carries no value estimate or costs unless the dealer switched them on in settings
   if (biz && !biz.value) el.querySelectorAll(".card").forEach(c => { const t = (c.querySelector(".head h2") || {}).textContent || ""; if (/^שווי משוער/.test(t.trim())) c.remove(); });
+  if (biz && !biz.costs) el.querySelectorAll(".card").forEach(c => { const t = (c.querySelector(".head h2") || {}).textContent || ""; if (/^שווי שימוש/.test(t.trim())) c.remove(); });
   el.querySelectorAll("details").forEach(d => d.setAttribute("open", ""));
   el.querySelectorAll(".card.folded").forEach(c => c.classList.remove("folded"));
   return inlineIcons(el);
@@ -5585,7 +5591,7 @@ function nickSave(p, v){
   if (v || had) { track("car_nick", {kind: v ? "set" : "clear"}); toast(v ? "הכינוי נשמר" : "הכינוי הוסר"); }
   renderHome();
 }
-const candFields = D => ({fair: D.cost && D.cost.valueLow ? [D.cost.valueLow, D.cost.valueHigh] : null, c5: D.cost && D.cost.monthly ? D.cost.monthly.total * 60 : null});
+const candFields = D => ({fair: D.cost && D.cost.valueLow ? [D.cost.valueLow, D.cost.valueHigh] : null});
 const newSavedItem = D => ({plate: D.plate, title: D.title, sub: D.sub, at: Date.now(), reg: D.primary ? D.primary.key : undefined, tokef: !(D.primary && NO_TEST[D.primary.key]) && toDate(D.v.tokef_dt) ? D.v.tokef_dt : "", mivchan: !(D.primary && NO_TEST[D.primary.key]) && toDate(D.v.mivchan_acharon_dt) ? D.v.mivchan_acharon_dt : "", recalls: D.recallUnknown ? undefined : D.recalls.length, recIds: D.recallUnknown ? undefined : recallIds(D.recalls), checked: Date.now(), owners: D.own.length, ownLast: D.own.reduce((m, r) => Math.max(m, Number(r.baalut_dt) || 0), 0), active: !D.isCancelled, events: [], stlCar: stlCar(D), ...candFields(D)});
 function askVerdict(ask, fair){
   if (!ask || !fair) return null;
@@ -5607,12 +5613,11 @@ function buyerCard(D){
   if (dtk && ["ev", "phev", "hybrid"].includes(dtk.k)) qs.unshift("עד מתי ועד כמה ק״מ יש אחריות יצרן על הסוללה?", "אפשר לעשות ביטוח לסוללה או להאריך את האחריות, ובכמה זה עולה?", ...(dtk.k === "hybrid" ? [] : ["יש דוח בדיקת בריאות סוללה?"]));
   if (PRO_LOCK && !isPro()) {
     const top = flags.slice(0, 2), more = Math.max(0, flags.length - 2);
-    return `<div class="buyer-card">${card("ליווי קנייה", "bulb", "amber", `${top.length ? `<div class="qsec">דגלים לבדיקה</div><ul class="bflags">${top.map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul>` : `<p style="margin:0 0 8px">לא עלו דגלים אדומים בנתונים.</p>`}<p class="note" style="margin:6px 0 8px">${more ? (more === 1 ? "יש עוד דגל אחד, " : `יש עוד ${more} דגלים, `) : ""}שאלות למוכר, ועלות ל-5 שנים נמצאים בחבילת קנייה.</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לפרטים על חבילת קנייה</button>`, `${PT("חבילת קנייה")}`)}</div>`;
+    return `<div class="buyer-card">${card("ליווי קנייה", "bulb", "amber", `${top.length ? `<div class="qsec">דגלים לבדיקה</div><ul class="bflags">${top.map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul>` : `<p style="margin:0 0 8px">לא עלו דגלים אדומים בנתונים.</p>`}<p class="note" style="margin:6px 0 8px">${more ? (more === 1 ? "יש עוד דגל אחד, " : `יש עוד ${more} דגלים, `) : ""}ושאלות למוכר נמצאים בחבילת קנייה.</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לפרטים על חבילת קנייה</button>`, `${PT("חבילת קנייה")}`)}</div>`;
   }
   const it = savedItem(D.plate), ask = it && it.ask || null, f = candFields(D), vd = askVerdict(ask, f.fair);
   const body = `${flags.length ? `<div class="qsec">דגלים לבדיקה</div><ul class="bflags">${flags.slice(0, 5).map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul>` : `<p style="margin:0 0 8px">לא עלו דגלים אדומים בנתונים.</p>`}
     ${qs.length ? `<div class="qsec">מה לשאול את המוכר על הרכב הזה</div><ul class="bq">${qs.slice(0, 6).map(q => `<li>${esc(q)}</li>`).join("")}</ul>` : ""}
-    ${f.c5 ? `<div class="qsec" style="margin-top:10px">עלות בעלות ל-5 שנים (הערכה)</div><p style="margin:0"><b>כ-${fmtN(Math.round(f.c5 / 1000) * 1000)} ₪</b></p><p class="note" style="margin:2px 0 0">${partsIn(D.cost.monthly)}. ${partsOut(D.cost.monthly)} לא נכללים.</p>` : ""}
     <div class="qsec" style="margin-top:10px">המחיר שהמוכר מבקש</div>
     <div class="askrow"><input class="inp" id="askIn" inputmode="numeric" placeholder="₪" value="${ask || ""}" aria-label="המחיר המבוקש"><button type="button" class="link-btn" data-act="candSave">${ico("star")}${it ? "עדכון" : "שמירה כמועמד"}</button></div>
     ${vd ? `<p class="vd ${vd.k}" style="margin:6px 0 0">${esc(vd.t)}</p>` : ""}`;
@@ -5622,17 +5627,16 @@ function renderCandidates(){
   if (land) setLand(false, false);
   current = null; inCompare = false;
   const html = [];
-  if (PRO_LOCK && !isPro()) html.push(proLockCard("רשימת מועמדים", "משווים רכבים שמורים לפי המחיר המבוקש, הטווח המשוער והעלות ל-5 שנים."));
+  if (PRO_LOCK && !isPro()) html.push(proLockCard("רשימת מועמדים", "משווים רכבים שמורים לפי המחיר המבוקש והטווח המשוער."));
   else {
     const rows = store.get("savedVehicles").filter(s => s.ask || s.fair).map(s => {
       const vd = askVerdict(s.ask, s.fair), mid = s.fair ? (s.fair[0] + s.fair[1]) / 2 : null;
-      return {s, vd, tot: s.c5 && s.ask && mid ? s.c5 + (s.ask - mid) : null};
+      return {s, vd};
     });
-    const best = rows.filter(r => r.tot).sort((a, b) => a.tot - b.tot)[0];
-    const tbl = rows.map(({s, vd, tot}) => `<tr><td><button type="button" class="lnk" data-open="${s.plate}"><b>${fmtPlate(s.plate)}</b><small style="color:var(--muted)">${esc(s.nick || s.title)}</small></button></td><td>${s.ask ? fmtN(s.ask) : "—"}${vd ? `<small class="vd ${vd.k}" style="display:block">${vd.s}</small>` : ""}</td><td>${s.fair ? `<span dir="ltr">${Math.round(s.fair[0] / 1000)}–${Math.round(s.fair[1] / 1000)}K</span>` : "—"}</td><td>${tot ? Math.round(tot / 1000) + "K" : "—"}</td></tr>`).join("");
-    html.push(card("רשימת מועמדים", "star", "amber", rows.length ? `<table class="ft"><tr><th>רכב</th><th>מבוקש</th><th>טווח משוער</th><th>עלות ל-5 שנים</th></tr>${tbl}</table>
-      <p class="note">טווח משוער הוא הערכת שווי הרכב לפי מחירון, שנתון, בעלויות וק״מ. מתחת למחיר המבוקש כתוב אם הוא גבוה מהטווח, בתוכו או נמוך ממנו. עלות ל-5 שנים כוללת דלק, אגרה וירידת ערך, ואת ההפרש בין המחיר המבוקש להערכת השווי. הערכה בלבד.</p>
-      ${best && rows.filter(r => r.tot).length > 1 ? `<p style="margin:8px 0 0"><b>הכי משתלם לפי העלות הכוללת: ${esc(best.s.title)}</b></p>` : ""}`
+    const tbl = rows.map(({s, vd}) => `<tr><td><button type="button" class="lnk" data-open="${s.plate}"><b>${fmtPlate(s.plate)}</b><small style="color:var(--muted)">${esc(s.nick || s.title)}</small></button></td><td>${s.ask ? fmtN(s.ask) : "—"}${vd ? `<small class="vd ${vd.k}" style="display:block">${vd.s}</small>` : ""}</td><td>${s.fair ? `<span dir="ltr">${Math.round(s.fair[0] / 1000)}–${Math.round(s.fair[1] / 1000)}K</span>` : "—"}</td></tr>`).join("");
+    html.push(card("רשימת מועמדים", "star", "amber", rows.length ? `<table class="ft"><tr><th>רכב</th><th>מבוקש</th><th>טווח משוער</th></tr>${tbl}</table>
+      <p class="note">טווח משוער הוא הערכת שווי הרכב לפי מחירון, שנתון, בעלויות וק״מ. מתחת למחיר המבוקש כתוב אם הוא גבוה מהטווח, בתוכו או נמוך ממנו. הערכה בלבד.</p>
+`
       : `<p style="margin:0">כדי להוסיף מועמד, פתחו רכב ובכרטיס "ליווי קנייה" הזינו את המחיר שהמוכר מבקש ולחצו על "שמירה כמועמד".</p>`, `${PT("PRO")}`));
   }
   html.push(`<button type="button" class="link-btn" data-act="marketBack">${ico("back")}חזרה</button>`);
@@ -5768,7 +5772,7 @@ const FAQ = [
   ["מה זה \"יד\" ולמה זה לא תמיד מדויק?", "הספירה מבוססת על רשומות הבעלות במאגר. רכב שעבר בין חברות ליסינג או סוחרים יכול להציג יותר רשומות מבעלים פרטיים בפועל. מוצג \"לפחות\" כשהמאגר חלקי."],
   ["למה לא מצאתם את הרכב שלי?", "בדקו שהמספר נכון. רכב שירד מהכביש או שיצא מהמאגר לא יופיע, ולפעמים מאגר של המשרד מושבת זמנית. במקרה כזה נסו שוב מאוחר יותר."],
   ["האם אפשר לסמוך על שווי הרכב?", "זו הערכה לפי מחיר מחירון, שנת ייצור וק״מ, ללא מצב הרכב, תאונות והביקוש לדגם. השתמשו בה כנקודת התחלה למשא ומתן בלבד."],
-  ["האם אתם בודקים הסדרי פשרה?", "כן. בלשונית \"ריקולים\" בודקים אם לדגם ולשנתון של הרכב יש הסדר פשרה (תובענה ייצוגית) מול היבואן, למשל תיבת הילוכים, לוח מחוונים או קילוף צבע. הרשימה נאספה מהודעות יבואנים ומהעיתונות, אינה מקיפה ואינה ייעוץ משפטי, ולכן כתוב תמיד \"ייתכן\"."],
+  ["האם אתם בודקים הסדרי פשרה?", "כן. בכל בדיקת רכב בודקים אם לדגם ולשנתון של הרכב יש הסדר פשרה (תובענה ייצוגית) מול היבואן, למשל תיבת הילוכים, לוח מחוונים או קילוף צבע. הרשימה נאספה מהודעות יבואנים ומהעיתונות, אינה מקיפה ואינה ייעוץ משפטי, ולכן כתוב תמיד \"ייתכן\"."],
   ["האם זה מחליף בדיקה במכון?", "לא. הנתונים מראים מה רשום ברשויות. מצב מכני, תאונות שלא דווחו ושעבודים נבדקים במכון מורשה ובשירותי הבדיקה בלשונית \"לפני שקונים\"."],
 ];
 function faqCard(){
@@ -5990,6 +5994,8 @@ const focusResult = () => { const h = $("#resHead"); if (h) try { h.focus({preve
 function goHome(){ if (land) setLand(false, false); inCompare = false; renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} window.scrollTo({top: 0}); }
 $(".brand h1").addEventListener("click", ev => { ev.preventDefault(); goHome(); });
 $("#homeBtn").addEventListener("click", goHome);
+// the checked line above the tabs: opened, calm or amber (checkLine)
+document.addEventListener("toggle", ev => { const d = ev.target; if (d.classList && d.classList.contains("ckl") && d.open) track("check_open", {state: d.dataset.line}); }, true);
 window.appBack = () => { const dv = document.querySelector(".doc-view"); if (dv) { dv.click(); return true; } if (!sheet.hidden) { sheet.hidden = true; return true; } if (!$("#compareSheet").hidden) { if (mGroup) stepBack(); else hideCmpSheet(); return true; } if (!$("#shareSheet").hidden) { $("#shareSheet").hidden = true; return true; } if (inCompare) { closeCompare(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} return true; } if (!$("#homeMark")) { renderHome(); window.scrollTo({top: 0}); return true; } return false; };
 
 /* Text shared from another app (an ad, a message): find a plate number in it.
