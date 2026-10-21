@@ -24,6 +24,7 @@ jobs:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           LIGHT: "1"
+          DAY: "2026-10-20"
       - name: Publish on probe-inst-out (encrypted only)
         run: |
           cd out && git init -q && git checkout -q -b probe-inst-out && git add -A

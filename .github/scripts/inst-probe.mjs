@@ -38,8 +38,8 @@ await part("ga.life", () => ga({ dateRanges: [{ startDate: "2026-10-01", endDate
 await part("ga.hourly", () => ga({ dateRanges: [{ startDate: "yesterday", endDate: "today" }], dimensions: [{ name: "dateHour" }, { name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: { andGroup: { expressions: [APP, FO] } } }));
 await part("ga.hourlyChecks", () => ga({ dateRanges: [{ startDate: "today", endDate: "today" }], dimensions: [{ name: "dateHour" }, { name: "platform" }], metrics: [{ name: "eventCount" }], dimensionFilter: { andGroup: { expressions: [REAL, eq("eventName", "car_lookup")] } } }));
 // today's processed events by minute (dateHourMinute, property time = Israel), to compare minute by minute with the realtime tally
-await part("ga.minutes", () => ga({ dateRanges: [{ startDate: "today", endDate: "today" }], dimensions: [{ name: "dateHourMinute" }, { name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: { andGroup: { expressions: [REAL, inList("eventName", ["first_open", "car_lookup"])] } } }));
-await part("ga.minutesApp", () => ga({ dateRanges: [{ startDate: "today", endDate: "today" }], dimensions: [{ name: "dateHourMinute" }, { name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: { andGroup: { expressions: [APP, inList("eventName", ["first_open"])] } } }));
+await part("ga.minutes", () => ga({ dateRanges: [{ startDate: E.DAY || "today", endDate: E.DAY || "today" }], dimensions: [{ name: "dateHourMinute" }, { name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: { andGroup: { expressions: [REAL, inList("eventName", ["first_open", "car_lookup"])] } } }));
+await part("ga.minutesApp", () => ga({ dateRanges: [{ startDate: E.DAY || "today", endDate: E.DAY || "today" }], dimensions: [{ name: "dateHourMinute" }, { name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: { andGroup: { expressions: [APP, inList("eventName", ["first_open"])] } } }));
 await part("ga.rtMinutes", () => gaRT({ dimensions: [{ name: "minutesAgo" }, { name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: { andGroup: { expressions: [REAL, inList("eventName", ["first_open", "car_lookup"])] } }, limit: 200 }));
 await part("ga.rtPlatform", () => gaRT({ dimensions: [{ name: "platform" }, { name: "countryId" }, { name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: inList("eventName", ["first_open", "app_remove"]), limit: 200 }));
 
@@ -84,7 +84,7 @@ await part("kv.tally", async () => {
   const ns = await (await fetch(A + "?per_page=100", { headers: { authorization: "Bearer " + tok } })).json();
   if (!ns.success) throw new Error("namespaces " + JSON.stringify(ns.errors).slice(0, 160));
   const id = (ns.result || []).find(n => n.title === "luchit-alerts")?.id; if (!id) throw new Error("no luchit-alerts");
-  const day = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" }), r = await fetch(A + "/" + id + "/values/" + encodeURIComponent("lv:rt:" + day), { headers: { authorization: "Bearer " + tok } });
+  const day = E.DAY || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" }), r = await fetch(A + "/" + id + "/values/" + encodeURIComponent("lv:rt:" + day), { headers: { authorization: "Bearer " + tok } });
   if (r.status === 404) return { day, present: false };
   if (!r.ok) throw new Error("value " + r.status);
   const v = JSON.parse(await r.text()), mins = Object.keys(v.m || {}).map(Number).sort((a, b) => a - b);
