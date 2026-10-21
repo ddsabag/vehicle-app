@@ -153,6 +153,13 @@ await part("kv.tally", async () => {
   });
 }
 
+// 21.10 live-32: the questions drawer's query for new installs (date, event, app version, n, kind), to check GA4 takes its shape
+{
+  const and = (...x) => ({ andGroup: { expressions: x } });
+  await part("q.ret", () => ga({ dateRanges: [{ startDate: "2026-10-14", endDate: "yesterday" }], dimensions: ["date", "eventName", "appVersion", "customEvent:n", "customEvent:kind"].map(name => ({ name })), metrics: [{ name: "eventCount" }],
+    dimensionFilter: and(APP, inList("eventName", ["first_open", "first_save", "app_return"])), limit: 5000 }));
+}
+
 const data = Buffer.from(JSON.stringify(out));
 const key = crypto.randomBytes(32), iv = crypto.randomBytes(12), c = crypto.createCipheriv("aes-256-gcm", key, iv);
 const enc = Buffer.concat([c.update(data), c.final()]);
