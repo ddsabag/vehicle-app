@@ -624,6 +624,17 @@ public class MainActivity extends Activity {
             if (cmp != null && cmp.matches("[A-Za-z0-9_-]{1,4000}")) runJs("window.loadCompareLink && loadCompareLink(" + JSONObject.quote(cmp) + ");" + seen + "cmp'});");
             else if (compare != null && !compare.trim().isEmpty() && compare.length() <= 2000) runJs("window.loadCompareLink && loadCompareLink(" + JSONObject.quote(compare.trim()) + ");" + seen + "cmp'});");
             else if (plate != null && plate.length() >= 5 && plate.length() <= 8) runJs("window.run && run(" + JSONObject.quote(plate) + ");" + seen + "plate'});");
+            else {
+                // a campaign link (luchit.app/go/fb?c=market answers luchit.app/?utm_source=...&utm_campaign=market): counted as the site's link_landing kind campaign, with its topic
+                String src = d.getQueryParameter("utm_source");
+                src = src == null ? "" : src.toLowerCase().replaceAll("[^a-z]", "");
+                if (src.length() > 12) src = src.substring(0, 12);
+                String camp = d.getQueryParameter("utm_campaign");
+                camp = camp == null ? "" : camp.toLowerCase().replaceAll("[^a-z0-9_]", "");
+                if (camp.length() > 24) camp = camp.substring(0, 24);
+                if (!src.isEmpty() && !"share".equals(src) && !"luchitapp".equals(src))
+                    runJs("typeof track==='function'&&track('link_open',{kind:'campaign',via:(typeof srcName==='function'?srcName('" + src + "'):'" + src + "')" + (camp.isEmpty() ? "" : ",camp:'" + camp + "'") + "});");
+            }
             i.setAction(null);
         } else if (Intent.ACTION_VIEW.equals(action) && i.getData() != null && "luchit".equals(i.getData().getScheme())) {
             String what = i.getData().getHost();
