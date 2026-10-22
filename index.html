@@ -790,12 +790,15 @@ function lookupFacts(D) {
 /* app: Firebase. web: the same events go to our own /api/e (luchit-api Worker -> GA4 web stream), no cookies, no stored id; the Worker drops anything that looks like a plate */
 const track = (name, params) => { try { if (!analyticsOn()) return; const b = window.AndroidApp; if (b) { if (b.logEvent) b.logEvent(name, JSON.stringify(params || {})); return; }
   if (document.prerendering) { document.addEventListener("prerenderingchange", () => track(name, params), {once: true}); return; }   // a page Chrome loaded ahead counts only once it is opened
-  if (location.protocol === "https:" && navigator.sendBeacon) navigator.sendBeacon("/api/e", new Blob([JSON.stringify({n: name, p: {src: LAND, ...(params || {})}, cid: WEB_CID})], {type: "text/plain"})); } catch {} };
+  if (location.protocol === "https:" && navigator.sendBeacon) navigator.sendBeacon("/api/e", new Blob([JSON.stringify({n: name, p: {src: LAND, ...landCamp(), ...(params || {})}, cid: WEB_CID})], {type: "text/plain"})); } catch {} };
+// the topic of the tagged link this visit came by (luchit.app/go/fb?c=market → camp "market"), kept with the campaign for the visit (FT), so the
+// live dashboard counts visits and car checks per post; nothing for a visit that came another way
+function landCamp() { try { return FT && FT.c && srcName(FT.s) === LAND ? {camp: FT.c} : {}; } catch { return {}; } }
 const WEB_CID = Math.floor(Math.random() * 2e9) + "." + Math.floor(Date.now() / 1000);   // per page load only, never saved
 /* app, new installs from 1.36: does a car saved on the first day bring people back? A new install (FRESH) keeps its install day in coh.d;
    a phone that had the app before is "old" and sends nothing. first_save goes once, at the first save on the install day; app_return once, at
-   the first opening on days 1 to 7 after it, with whether the install day saved a car (n). Both carry the install day (kind), so the live
-   dashboard follows each day's installs for a whole week. */
+   the first opening on days 1 to 7 after it, with whether the install day saved a car (n). Both carry the install day (kind) as MM-DD: the
+   app's event bridge drops any value with 5 digits or more, so a full date never arrived. The live dashboard follows each day's installs for a week. */
 const cohDay = () => new Date().toLocaleDateString("en-CA");
 const coh = (() => { if (!window.AndroidApp) return null; try { let c = JSON.parse(localStorage.getItem("coh") || "null"); if (!c || !c.d) { c = {d: FRESH ? cohDay() : "old"}; localStorage.setItem("coh", JSON.stringify(c)); } return c; } catch { return null; } })();
 const cohKeep = () => { try { localStorage.setItem("coh", JSON.stringify(coh)); } catch {} };
@@ -804,9 +807,9 @@ function cohCheck() {
   const k = Math.round((Date.parse(cohDay()) - Date.parse(coh.d)) / 864e5);
   if (!(k >= 1)) return;
   coh.r = 1; cohKeep();
-  if (k <= 7) track("app_return", {kind: coh.d, n: coh.s ? "1" : "0"});
+  if (k <= 7) track("app_return", {kind: coh.d.slice(5), n: coh.s ? "1" : "0"});
 }
-function cohSaved() { if (!coh || coh.d === "old" || coh.s || coh.r || cohDay() !== coh.d) return; coh.s = 1; cohKeep(); track("first_save", {kind: coh.d}); }
+function cohSaved() { if (!coh || coh.d === "old" || coh.s || coh.r || cohDay() !== coh.d) return; coh.s = 1; cohKeep(); track("first_save", {kind: coh.d.slice(5)}); }
 setTimeout(cohCheck, 1500);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") cohCheck(); });
 /* web: where this visit came from, sent with every web event (src) so the live dashboard can count visits and car checks by source. GA4 gets
