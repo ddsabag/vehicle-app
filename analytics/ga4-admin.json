@@ -18,7 +18,8 @@
     { "parameterName": "exp_v", "description": "exp_expose, share: experiment variant (Experimenter)" },
     { "parameterName": "n", "description": "car_save, buy_step_done, settlement_shown: a small count" },
     { "parameterName": "plan", "description": "upgrade_purchase_start: which PRO plan" },
-    { "parameterName": "src", "description": "every web event: where the visit came from (utm_source of /go/ links, share, google, direct...) (/live sources)" }
+    { "parameterName": "src", "description": "every web event: where the visit came from (utm_source of /go/ links, share, google, direct...) (/live sources)" },
+    { "parameterName": "camp", "description": "every web event of a visit that came by a tagged link: its topic (utm_campaign, ?c= of /go/ links) (/live sources, per post)" }
   ],
   "keyEvents": [
     { "eventName": "upgrade_open", "countingMethod": "ONCE_PER_EVENT" }

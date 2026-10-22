@@ -45,7 +45,7 @@ export const WF_LEVELS = {
   "Reviews monitor": "silent", "Ownership data mirror": "silent",
   "Back-on-road detector": "silent",
   "Ship tail": "day", "Store listing": "day", "Release watch": "day", "Production": "day",
-  "Settlements": "day", "Data truth": "day",
+  "Settlements": "day", "Data truth": "day", "Social publish": "day",
 };
 
 // fixed Hebrew text for the morning ring and the Sunday block. Lookup: first two key segments, then the first one.
@@ -120,6 +120,13 @@ export const LABELS = {
                                   lend: "מאגרים שמשלימים תאריכים זה לזה" } },
   "live:stuck":          { he: "הדשבורד /live לא ענה בזמן", sect: "fail" },   // live-watch.mjs (Live watch)
   "live:error":          { he: "הדשבורד /live החזיר שגיאות", sect: "fail" },
+  "social:fail":         { he: "פרסום אוטומטי בפייסבוק או באינסטגרם נכשל", sect: "fail" },   // social-publish.mjs (Social publish)
+  "social:missed":       { he: "פוסט מתוזמן לא יצא בזמן ולא פורסם", sect: "fail" },
+  "social:unsure":       { he: "לא ברור אם סטורי עלה לאינסטגרם", sect: "fyi" },
+  "social:held":         { he: "פוסט מתוזמן מחכה לגרסה חדשה בגוגל פליי", sect: "fyi" },
+  "social:done":         { he: "עלה תוכן חדש בפייסבוק או באינסטגרם", sect: "none" },
+  "social:remind":       { he: "תזכורת: לתזמן את תוכן השבוע בטיקטוק", sect: "wait" },
+  "social:check":        { he: "החיבור לפייסבוק ולאינסטגרם נבדק", sect: "none" },
   "pipe":                { he: "בדיקת צנרת האנליטיקה מצאה בעיה: {ids}", sect: "fail",   // pipe-canary.mjs (Web watch); ids = its checks
                            ids: { web: "אירועים מהאתר", app: "אירועים מהאפליקציה", errors: "קפיצה בשגיאות קוד", ga: "אין נתונים ב-GA4" } },
 };
@@ -132,6 +139,7 @@ export const FAMILIES_IN_USE = [
   "ship:done", "ship:notes", "ship:fail", "ship:dry", "listing:done", "listing:dry", "listing:fail",
   "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:wait", "prod:fail",
   "stl:update", "stl:stuck", "truth", "truth:fail", "truth:inv", "live:stuck", "live:error", "pipe",
+  "social:fail", "social:missed", "social:unsure", "social:held", "social:done", "social:remind", "social:check",
 ];
 
 const TODAY = ["loud", "silent", "none"];

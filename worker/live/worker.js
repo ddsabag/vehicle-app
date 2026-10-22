@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-32";   // shown in /live/data so the running version is visible
+const BUILD = "live-35";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -153,23 +153,28 @@ async function collectWeekly(env, today) {
   const dr = w => ({ startDate: w[0], endDate: w[1] }), only = v => ({ filter: { fieldName: "eventName", stringFilter: { value: v } } }), any = vs => ({ filter: { fieldName: "eventName", inListFilter: { values: vs } } });
   const histFrom = [addDays(end, -62), "2026-10-04"].sort()[0];   // the growth target is chained from the week of 18-24.10, so keep that week in reach
   const CW = [addDays(today, -7), addDays(today, -1)];            // Cloudflare counts in real time: the last 7 whole days
-  const bySrcQ = dims => report(env, { dateRanges: [dr(W), dr(P)], dimensions: [{ name: "platform" }, ...dims, { name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: withReal(any(["session_start", "web_visit", "car_lookup"])), limit: 2000 });
+  const bySrcQ = dims => report(env, { dateRanges: [dr(W), dr(P)], dimensions: [{ name: "platform" }, ...dims, { name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: withReal(any(["web_visit", "car_lookup"])), limit: 5000 });
+  // src (from 20.10) and camp (the topic of a go/ link, ?c=, from 23.10) are custom fields: GA4 answers 400 for a field it does not know, so
+  // each is dropped in turn and its column reads "(not set)"
+  const is400 = e => /\b400\b/.test(e.message), pad = (rows, at, k) => rows.map(r => ({ ...r, dimensionValues: [...r.dimensionValues.slice(0, at), ...Array(k).fill({ value: "(not set)" }), ...r.dimensionValues.slice(at)] }));
+  const srcRows = () => bySrcQ([{ name: "customEvent:src" }, { name: "customEvent:camp" }]).catch(e => !is400(e) ? Promise.reject(e)
+    : bySrcQ([{ name: "customEvent:src" }]).then(rows => pad(rows, 2, 1)).catch(e2 => !is400(e2) ? Promise.reject(e2) : bySrcQ([]).then(rows => pad(rows, 1, 2))));
   const [evs, fails, links, hist, app, money, src, pages, saveU, bySrc, ret, appS] = await Promise.all([
     safe(report(env, { dateRanges: [dr(W), dr(P), dr(M)], dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }, { name: "totalUsers" }], dimensionFilter: REAL, limit: 250 }), "ga4 week"),
     safe(report(env, { dateRanges: [dr(W), dr(P)], dimensions: [{ name: "customEvent:kind" }], metrics: [{ name: "eventCount" }], dimensionFilter: withReal(only("lookup_failed")), limit: 20 }), "ga4 failures"),
-    safe(report(env, { dateRanges: [dr(W), dr(P)], dimensions: [{ name: "eventName" }, { name: "customEvent:kind" }, { name: "customEvent:via" }], metrics: [{ name: "eventCount" }], dimensionFilter: withReal(any(["link_landing", "link_open", "referral_open"])), limit: 200 }), "ga4 shared links"),
+    safe(report(env, { dateRanges: [dr(W), dr(P)], dimensions: [{ name: "eventName" }, { name: "customEvent:kind" }, { name: "customEvent:via" }], metrics: [{ name: "eventCount" }], dimensionFilter: withReal(any(["link_landing", "link_open", "referral_open", "link_out"])), limit: 200 }), "ga4 shared links"),
     safe(report(env, { dateRanges: [{ startDate: histFrom, endDate: end }], dimensions: [{ name: "date" }], metrics: [{ name: "eventCount" }], dimensionFilter: withReal(only("car_lookup")), limit: 1000 }), "ga4 history"),
     safe(report(env, { dateRanges: [dr(W), dr(P), dr(M)], dimensions: [{ name: "countryId" }], metrics: [{ name: "newUsers" }, { name: "activeUsers" }], dimensionFilter: { filter: { fieldName: "platform", stringFilter: { value: "Android" } } }, limit: 250 }), "ga4 app"),
     safe(report(env, { dateRanges: [{ startDate: "2026-10-01", endDate: "today" }], dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: any(["b2b_lead_submit", "newsletter_confirm"]) }), "ga4 money"),
     safe(cfTop(env, CW[0], "refererHost", CW[1], 100), "site week sources"), safe(cfTop(env, CW[0], "requestPath", CW[1], 12, "count_DESC"), "site week pages"),
     safe(report(env, { dateRanges: [dr(W)], dimensions: [{ name: "eventName" }], metrics: [{ name: "totalUsers" }], dimensionFilter: { andGroup: { expressions: [APP, any(["car_lookup", "car_save"])] } } }), "ga4 app savers"),
-    // without the src field (GA4 answers 400 if it is ever removed) the site is one row, "unknown", rather than no table at all
-    safe(bySrcQ([{ name: "customEvent:src" }]).catch(e => /\b400\b/.test(e.message) ? bySrcQ([]).then(rows => rows.map(r => ({ ...r, dimensionValues: [r.dimensionValues[0], { value: "(not set)" }, ...r.dimensionValues.slice(1)] }))) : Promise.reject(e)), "ga4 sources"),
+    // without the src field the site is one row, "unknown", rather than no table at all
+    safe(srcRows(), "ga4 sources"),
     // the month's questions: each day's new installs from 1.36 on (first_open by app version), their saves on the install day and their returns
     // on days 1 to 7, both by install day (kind); and new app devices by the link that brought them to the store (google-play = found in the store)
     end >= Q_FROM ? safe(report(env, { dateRanges: [{ startDate: Q_FROM, endDate: end }], dimensions: [{ name: "date" }, { name: "eventName" }, { name: "appVersion" }, { name: "customEvent:n" }, { name: "customEvent:kind" }], metrics: [{ name: "eventCount" }],
       dimensionFilter: { andGroup: { expressions: [APP, any(["first_open", "first_save", "app_return"])] } }, limit: 5000 }), "ga4 return") : null,
-    safe(report(env, { dateRanges: [dr(W), dr(P)], dimensions: [{ name: "firstUserSource" }], metrics: [{ name: "newUsers" }], dimensionFilter: APP, limit: 100 }), "ga4 app sources")]);
+    safe(report(env, { dateRanges: [dr(W), dr(P)], dimensions: [{ name: "firstUserSource" }, { name: "firstUserCampaignName" }], metrics: [{ name: "newUsers" }], dimensionFilter: APP, limit: 250 }), "ga4 app sources")]);
   const ri = r => { const v = r.dimensionValues[r.dimensionValues.length - 1].value; return /^date_range_\d$/.test(v) ? Number(v.slice(-1)) : 0; };
   const ev = [{}, {}, {}];
   for (const r of evs || []) ev[ri(r)][r.dimensionValues[0].value] = [Number(r.metricValues[0].value), Number(r.metricValues[1].value)];
@@ -178,9 +183,11 @@ async function collectWeekly(env, today) {
   // arrivals from a shared report or comparison: web landings and app opens whose link carried s=img|full|pdf|txt|qr, or a comparison link.
   // Not arrivals: campaign links (counted apart), the "open in the app" bar and "copy the link" of a page already open (s=bar, s=copy: the
   // same visit going on, kept as bar) and the first launch after an install from a shared link (referral_open: the landing before it counted)
-  const shared = [{ web: 0, app: 0, bar: 0, inst: 0, by: {} }, { web: 0, app: 0, bar: 0, inst: 0, by: {} }];
+  // social: clicks on the site footer's links to our pages (link_out kind social, via = the network); other outbound links are not counted here
+  const shared = [{ web: 0, app: 0, bar: 0, inst: 0, by: {} }, { web: 0, app: 0, bar: 0, inst: 0, by: {} }], social = [{}, {}];
   for (const r of links || []) {
     const [name, kind, via] = r.dimensionValues.map(x => x.value), c = Number(r.metricValues[0].value), o = shared[ri(r)];
+    if (name === "link_out") { if (kind === "social" && via && via !== "(not set)") social[ri(r)][via] = (social[ri(r)][via] || 0) + c; continue; }
     if (name === "referral_open") { o.inst += c; continue; }
     if (kind === "campaign") continue;
     if (via === "bar" || via === "copy") { o.bar += c; continue; }
@@ -193,23 +200,27 @@ async function collectWeekly(env, today) {
     for (const r of app || []) if (ri(r) === i) { const il = r.dimensionValues[0].value === "IL"; o[il ? "newUsers" : "abroadNew"] += Number(r.metricValues[0].value); o[il ? "activeUsers" : "abroadActive"] += Number(r.metricValues[1].value); }
     return o; });
   const m = {}; for (const r of money || []) m[r.dimensionValues[0].value] = Number(r.metricValues[0].value);
-  // visits (app: session_start, site: web_visit, once per opening of the page) and car checks by where the visit came from, this week [0] and
-  // the week before [1]: { bucket: [visits, checks] }
+  // site visits (web_visit, once per opening of the page) and car checks (site and app) by where the visit came from, this week [0] and the
+  // week before [1]: { bucket: [visits, checks] }; byCamp the same for visits that came by a tagged link with a topic: { "source|topic": [visits, checks] }
   // srcSeen: the week has site rows with a measured source (from 20.10), so its site rows can be compared with another week's
-  const bs = [{}, {}], srcSeen = [false, false];
-  for (const r of bySrc || []) { const [pf, so, name] = r.dimensionValues.map(x => x.value), i = ri(r), k = srcBucket(pf, so); (bs[i][k] ||= [0, 0])[name === "car_lookup" ? 1 : 0] += Number(r.metricValues[0].value); if (k !== "app" && k !== "unknown") srcSeen[i] = true; }
+  const bs = [{}, {}], srcSeen = [false, false], bc = [{}, {}], tagged = v => v && v !== "(not set)";
+  for (const r of bySrc || []) { const [pf, so, cp, name] = r.dimensionValues.map(x => x.value), i = ri(r), k = srcBucket(pf, so), j = name === "car_lookup" ? 1 : 0, c = Number(r.metricValues[0].value);
+    (bs[i][k] ||= [0, 0])[j] += c; if (k !== "app" && k !== "unknown") srcSeen[i] = true;
+    if (pf === "web" && tagged(cp) && k !== "share" && k !== "site") (bc[i][k + "|" + cp] ||= [0, 0])[j] += c; }
   // { install day: [new installs from 1.36, saved a car that day, came back on days 1-7 having saved, having not] }
   const coh = {};
-  for (const r of ret || []) { const [dt, name, ver, nv, kind] = r.dimensionValues.map(x => x.value), c = Number(r.metricValues[0].value), day = name === "first_open" ? iso8(dt) : kind;
+  for (const r of ret || []) { const [dt, name, ver, nv, kind] = r.dimensionValues.map(x => x.value), c = Number(r.metricValues[0].value), day = name === "first_open" ? iso8(dt) : /^\d\d-\d\d$/.test(kind || "") ? Q_FROM.slice(0, 5) + kind : kind;
     if (!/^\d{4}-\d\d-\d\d$/.test(day || "")) continue; const o = coh[day] ||= [0, 0, 0, 0];
     if (name === "first_open") { if (v136(ver)) o[0] += c; } else if (name === "first_save") o[1] += c; else o[nv === "1" ? 2 : 3] += c; }
-  const aSrc = [{ store: 0, all: 0 }, { store: 0, all: 0 }];
-  for (const r of appS || []) { const o = aSrc[ri(r)], c = Number(r.metricValues[0].value); o.all += c; if (String(r.dimensionValues[0].value).toLowerCase() === "google-play") o.store += c; }
-  const fresh = { errors, end, W, P, M, CW, ev: evs ? ev : null, fails: fails ? fk : null, shared: links ? shared : null,
+  // new app devices by the link that brought them to the store: all, found in the store (google-play), and by tagged link and topic ("source|topic")
+  const aSrc = [{ store: 0, all: 0, camp: {} }, { store: 0, all: 0, camp: {} }];
+  for (const r of appS || []) { const o = aSrc[ri(r)], c = Number(r.metricValues[0].value), so = String(r.dimensionValues[0].value).toLowerCase(), cp = String(r.dimensionValues[1].value).toLowerCase();
+    o.all += c; if (so === "google-play") o.store += c; else if (tagged(so) && so !== "(direct)" && so !== "luchit.app" && tagged(cp) && cp !== "(direct)" && cp !== "(organic)" && cp !== "car_share") o.camp[so + "|" + cp] = (o.camp[so + "|" + cp] || 0) + c; }
+  const fresh = { errors, end, W, P, M, CW, ev: evs ? ev : null, fails: fails ? fk : null, shared: links ? shared : null, social: links ? social : null,
     days: hist ? Object.fromEntries(hist.map(r => { const d = r.dimensionValues[0].value; return [d.slice(0, 4) + "-" + d.slice(4, 6) + "-" + d.slice(6), Number(r.metricValues[0].value)]; })) : null,
-    app: app ? appU : null, savers: saveU ? Object.fromEntries(saveU.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)])) : null, money: money ? { leads: m.b2b_lead_submit || 0, subscribers: m.newsletter_confirm || 0 } : null, sources: src, pages, bySource: bySrc ? bs : null, srcSeen: bySrc ? srcSeen : null, coh: ret ? coh : null, appSrc: appS ? aSrc : null };
+    app: app ? appU : null, savers: saveU ? Object.fromEntries(saveU.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)])) : null, money: money ? { leads: m.b2b_lead_submit || 0, subscribers: m.newsletter_confirm || 0 } : null, sources: src, pages, bySource: bySrc ? bs : null, srcSeen: bySrc ? srcSeen : null, byCamp: bySrc ? bc : null, coh: ret ? coh : null, appSrc: appS ? aSrc : null };
   // the last good numbers stand in for a part that failed, but only for the same week (a new week starts clean)
-  weekly = keep(fresh, weekly && weekly.end === end ? weekly : null, ["ev", "fails", "shared", "days", "app", "savers", "money", "sources", "pages", "bySource", "srcSeen", "coh", "appSrc"]);
+  weekly = keep(fresh, weekly && weekly.end === end ? weekly : null, ["ev", "fails", "shared", "social", "days", "app", "savers", "money", "sources", "pages", "bySource", "srcSeen", "byCamp", "coh", "appSrc"]);
   // a Google part that failed is asked again after a minute; Cloudflare alone after five, so its failure does not re-run the Google queries every minute
   weeklyAt = Date.now(); weeklyTtl = Object.keys(errors).some(k => k.startsWith("ga4")) ? 60e3 : Object.keys(errors).length ? 300e3 : 900e3; return weekly;
 }
@@ -372,6 +383,7 @@ async function getFlashes() {
   flashesAt = Date.now(); return flashes;
 }
 
+const slimMetrics = m => { const x = m && m.index; return x ? { index: { indexed: x.indexed, crawledNotIndexed: x.crawledNotIndexed, inspected: x.inspected, total: x.total, at: x.at } } : {}; };
 // aggregate numbers published by the workflows (branch "flashes", metrics.json), e.g. how many pages Google reports as indexed
 let metrics = null, metricsAt = 0;
 async function getMetrics() {
@@ -444,10 +456,10 @@ async function collect(env) {
   const quota = Object.values(own).some(m => /429|quota|Exhausted/i.test(m));
   if (quota) backoffUntil = Date.now() + 300e3;
   const prev = cache || {};
-  const plat = k => plats ? plats.filter(r => r.dimensionValues[0].value === k).reduce((t, r) => t + Number(r.metricValues[0].value || 0), 0) : (quota ? prev[k === "web" ? "webUsers" : "activeUsers"] ?? null : null);
+  const plat = k => plats ? plats.filter(r => r.dimensionValues[0].value === k).reduce((t, r) => t + Number(r.metricValues[0].value || 0), 0) : (quota ? prev.activeUsers ?? null : null);
   const strip = o => { if (!o) return null; const { errors: _e, cached: _c, ...rest } = o; return rest; };
   cache = { build: BUILD, errors: quota ? { ga4: "מכסת Google מלאה, מוצגים נתונים אחרונים ויתעדכנו בעוד כמה דקות", ...errors } : errors, stale: quota, at: quota && prev.at ? prev.at : new Date().toISOString(),
-    activeUsers: plat("Android"), webUsers: plat("web"),
+    activeUsers: plat("Android"),
     events: events ? events.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]).sort((a, b) => b[1] - a[1]) : (quota ? prev.events ?? null : null),
     rtToday: rt ?? (quota ? prev.rtToday ?? null : null), rtYday: rty ?? prev.rtYday ?? null, visitsToday: vToday?.visits ?? null, visitsYesterday: vYday?.visits ?? null,
     // a collector that failed as a whole (no token) falls back to the last numbers it had; each carries its own dates
@@ -537,11 +549,10 @@ const GOALS={first:"2026-11",k:{weekly_checks:[[160,190,240],[190,240,330],[250,
  calib:{key:"weekly_checks",end:"2026-11-01",model:174,lo:.5,hi:2}};   // weekly car checks scale by r = actual week 26.10-1.11 / 174, the plan's line on 1.11 (0.5 to 2). Not the launch week 19-25.10: its posts would set every later target (decided 20.10)
 const SUBMITTED="2026-10-17";      // production access requested in Play Console
 const PRO_MAU=2000;
-const N={car_lookup:"בדיקת רכב",car_save:"שמירת רכב ברשימה",share:"שיתוף (דוח רכב או השוואה)",compare_open:"השוואת רכבים",tab_view:"מעבר בין לשוניות",link_out:"לחיצה על קישור חיצוני",alerts_toggle:"הדלקה או כיבוי של התראות",alert_kind:"בחירת סוג התראה",upgrade_open:"פתיחת חלונית המנוי (PRO)",voice_search:"חיפוש בקול",bulk_check:"בדיקת כמה רכבים יחד",camera_scan:"סריקת לוחית במצלמה",buy_card_open:"פתיחת כרטיס בלשונית קנייה",settlement_shown:"הצגת הסדר פשרה",checklist_pdf:"הורדת רשימת בדיקה",doc_add:"הוספת מסמך לרכב",simple_view:"מעבר לתצוגה פשוטה",search_no_result:"חיפוש דגם בלי תוצאה",user_screenshot:"צילום מסך",first_open:"התקנה חדשה (פתיחה ראשונה)",lookup_repeat:"פתיחה חוזרת של רכב (רענון)",notification_open:"פתיחת התראה",web_hint_click:"לחיצה על הצעה להתקין מהאתר",web_install_click:"מעבר מהאתר להתקנה",calendar_reminder_click:"הוספת תזכורת ליומן",link_landing:"כניסה לאתר מקישור",link_open:"פתיחת קישור באפליקציה",web_visit:"כניסה לאתר",referral_open:"פתיחה ראשונה אחרי התקנה מקישור ששותף",share_open:"פתיחת חלון השיתוף"};
-const BAD={lookup_failed:"בדיקה שנכשלה",lookup_slow:"בדיקה איטית",lookup_abort:"בדיקה שבוטלה",lookup_timeout:"בדיקה שפגה (נספרת גם בנכשלות)",app_exception:"קריסה"};
-const KIND={source_down:"משרד התחבורה לא ענה",offline:"לא התקבלה תשובה (חיבור או זמן המתנה)",not_found:"מספר שלא קיים (הוקלד לא נכון)","(not set)":"לא ידוע"};
-const FK={data:"נתונים",infra:"תשתית",content:"תוכן",market:"שוק",release:"שחרור",experiment:"ניסוי",reviews:"ביקורות"};
-const VIA={img:"תמונה",full:"תמונה מלאה",pdf:"PDF",txt:"טקסט",qr:"קוד QR",cmp:"השוואה"};
+const N={car_lookup:"בדיקת רכב",car_save:"שמירת רכב ברשימה",share:"שיתוף (דוח רכב או השוואה)",compare_open:"השוואת רכבים",tab_view:"מעבר בין לשוניות",link_out:"לחיצה על קישור חיצוני",alerts_toggle:"הדלקה או כיבוי של התראות",alert_kind:"בחירת סוג התראה",upgrade_open:"פתיחת חלונית המנוי (PRO)",voice_search:"חיפוש בקול",bulk_check:"בדיקת כמה רכבים יחד",camera_scan:"סריקת לוחית במצלמה",buy_card_open:"פתיחת כרטיס בלשונית קנייה",settlement_shown:"הצגת הסדר פשרה",checklist_pdf:"הורדת רשימת בדיקה",doc_add:"הוספת מסמך לרכב",simple_view:"מעבר לתצוגה פשוטה",search_no_result:"חיפוש דגם בלי תוצאה",user_screenshot:"צילום מסך",first_open:"התקנה חדשה (פתיחה ראשונה)",lookup_repeat:"פתיחה חוזרת של רכב (רענון)",notif_open:"פתיחת התראה מהטלפון",notif_sent:"התראה שנשלחה לטלפון",web_hint_click:"לחיצה על הצעה להתקין מהאתר",web_install_click:"מעבר מהאתר להתקנה",calendar_reminder_click:"הוספת תזכורת ליומן",link_landing:"כניסה לאתר מקישור",link_open:"פתיחת קישור באפליקציה",web_visit:"כניסה לאתר",referral_open:"פתיחה ראשונה אחרי התקנה מקישור ששותף",share_open:"פתיחת חלון השיתוף",nav:"מעבר בתפריט התחתון",cars_mode:"החלפת תצוגה ברכבים שלי",alert_item:"לחיצה על פריט במסך ההתראות",road_docs:"פתיחת מסמכים לנסיעה",history_pdf:"הפקת דוח היסטוריה (PDF)",mine_set:"פתיחת תיק לרכב שלי",mine_unset:"ביטול סימון הרכב שלי",car_unsave:"הסרת רכב מהרכבים שלי",first_save:"שמירת רכב ראשונה (ביום ההתקנה)",app_return:"חזרה לאפליקציה בשבוע הראשון",zombie_shown:"הצגת רכב שירד מהכביש וחזר",lookup_from_cache:"הצגת בדיקה שמורה (בלי חיבור)",buy_step_done:"סימון שלב ברשימת הקנייה",check_open:"פתיחת סעיף ברשימת הבדיקה",simple_more:"הרחבה בתצוגה הפשוטה",calendar_reminder_shown:"הצגת הצעה לתזכורת ביומן",car_nick:"כינוי לרכב",web_install_prompt:"הצגת הצעה להתקין (באתר)",svc_add:"רישום טיפול לרכב",svc_cal:"הטיפול הבא ליומן",trial_start:"התחלת ניסיון PRO",trial_end_shown:"הודעת סוף ניסיון PRO",upgrade_purchase_start:"התחלת רכישת PRO",update_prompt:"הצעה לעדכן גרסה",update_start:"התחלת עדכון גרסה",update_done:"התקנת עדכון גרסה"};
+const KIND={source_down:"משרד התחבורה לא ענה",offline:"לא התקבלה תשובה (חיבור או זמן המתנה)",not_found:"מספר שלא קיים (הוקלד לא נכון)",net_err:"החיבור למאגרי משרד התחבורה נכשל",js_err:"תקלה בקוד שלנו בזמן הבדיקה","(not set)":"לא ידוע"};
+const FK={data:"נתונים",infra:"תשתית",content:"תוכן",release:"שחרור",experiment:"ניסוי",reviews:"ביקורות"};
+const VIA={img:"תמונה",full:"תמונה מלאה",pdf:"PDF",txt:"טקסט",cmp:"השוואה"};
 const ST={ok:["תקין","✓"],warn:["דורש תשומת לב","!"],bad:["מתחת ליעד","✕"],early:["מוקדם לשפוט","…"],nodata:["אין נתון","?"],cal:["יעד מ-"+Number(CAL_END.slice(8))+"."+Number(CAL_END.slice(5,7)),"·"],wait:["ממתין","…"]};
 
 const $=i=>document.getElementById(i);
@@ -643,7 +654,7 @@ push("store",GP.s,0,0,"Google Play: הגרסה החדשה נדחתה בבדיק�
 t4={s,title:"התקנות חדשות בשבוע",big:n(a),lines:[delta(a,ap),instToday!=null?"היום עד עכשיו: <b>"+(instTodayMin&&instToday>0?"לפחות ":"")+n(instToday)+"</b> התקנות חדשות (לא נכללות בשבוע)":"",inst!=null?"מותקנת עכשיו בסך הכול: <b>"+(instMin?"לפחות ":"בערך ")+n(inst)+'</b> מכשירים בישראל (הערכה, <a href="#dr-use" data-open="dr-use">איך מחושב</a>)':"",GP.s!=="ok"||GP.txt.indexOf("·")>=0?"Google Play: "+GP.txt+(!live&&!top&&d.play==="review"?" (הבקשה הוגשה "+dm(SUBMITTED)+")":""):"",tg?n(a/tg*100)+"% מהיעד ("+n(tg)+", טווח "+n(GI[0])+" עד "+n(GI[2])+")":live?"":"עד שהאפליקציה בחנות, מתקינים רק בודקים"],foot:rng(W&&W.W)+", שבוע שלם עד אתמול · התקנה = פתיחה ראשונה של האפליקציה, בישראל"}}
 
 // health: failures caused by us or the ministry, out of all attempts (a mistyped plate is not a failure)
-let H;{const fk=W&&W.fails?W.fails[0]:null,tech=fk?(fk.source_down||0)+(fk.offline||0):null,att2=ev?ge(E0,"car_lookup")+ge(E0,"lookup_failed"):null;let s,r=null;
+let H;{const fk=W&&W.fails?W.fails[0]:null,tech=fk?(fk.source_down||0)+(fk.offline||0)+(fk.net_err||0)+(fk.js_err||0):null,att2=ev?ge(E0,"car_lookup")+ge(E0,"lookup_failed"):null;let s,r=null;
 const GF=goal("failures_pct",end||new Date().toISOString().slice(0,10));
 if(!fk||!ev)s="nodata";else if(att2<50)s="early";else{r=tech/att2*100;s=band(r,GF,true);if(s==="bad"&&tech<5)s="warn"}
 push("health",s,0,r!=null?GF[1]/Math.max(r,.01):1,"בדיקות שנכשלו: "+n1(r)+"%, היעד עד "+n1(GF[1])+"%","",s==="bad"?"יותר מדי כשלים":s==="warn"?"מעט יותר כשלים":"");
@@ -721,7 +732,7 @@ $("goal").innerHTML='<div style="overflow-x:auto"><table class="t tg"><thead><tr
 {const B=W&&W.bySource,box=$("src"),CH=d.daily&&d.daily.ch;
 const SL={google:"חיפוש בגוגל",search:"מנועי חיפוש אחרים",direct:"בלי מקור מזוהה (הקלדה, או קישור בלי סימון)",site:"מדף אחר באתר (דגמים, מגזין)",unknown:"לפני 20.10, כשהמקור עוד לא נמדד",app:"באפליקציה (בלי פירוט מקור)",share:"קישור לדוח רכב או להשוואה ששותפו",tiktok:"טיקטוק",instagram:"אינסטגרם",facebook:"פייסבוק",linkedin:"לינקדאין",youtube:"יוטיוב",whatsapp:"וואטסאפ",newsletter:"ניוזלטר",press:"כתבות",dealer:"סוחרים",qr:"QR ודפוס",other:"אתרים ואפליקציות אחרים",store:"חיפוש ב-Google Play",fromsite:"דרך האתר (כפתור ההורדה)",nolink:"בלי מקור מזוהה (הקלדה, או קישור בלי סימון)"};
 let h='<p class="note">אין כרגע נתון מגוגל אנליטיקס על הרשתות.</p>';
-if(CH){const NET=["facebook","whatsapp","tiktok","youtube"],low=k=>String(k||"").toLowerCase(),own=s=>SL[s]&&s!=="unknown"&&s!=="app";
+if(CH){const NET=["facebook","instagram","whatsapp","tiktok","youtube"],low=k=>String(k||"").toLowerCase(),own=s=>SL[s]&&s!=="unknown"&&s!=="app";
  // the site sends the plan's names; the app's install referrer is google-play (found in the store), luchit.app (the site's download
  // button after a visit without a campaign), a campaign name, or nothing
  const sb=k=>{const s=low(k);return !s||s==="(not set)"||s==="direct"?"nolink":own(s)?s:"other"};
@@ -735,6 +746,20 @@ if(CH){const NET=["facebook","whatsapp","tiktok","youtube"],low=k=>String(k||"")
  +(CH.site&&!Object.keys(CH.site[0]).length?'<p class="note">עוד אין כאן כניסות לאתר לפי רשת: האתר מוסר את המקור מ-20.10, וגוגל אנליטיקס מעבד כל יום באיחור של כמה שעות. בינתיים יש כניסות לפי אתר מפנה, לפי Cloudflare, במגירה "האתר".</p>':"")
  +'<p class="note">וואטסאפ: לרוב לא מוסר מאיפה הגיעו (באייפון אף פעם), ולכן קישור רגיל בהודעה נספר בדרך כלל בשורה "בלי מקור מזוהה". כדי לספור אותו בוודאות, משתפים את הקישור <bdi dir="ltr">luchit.app/go/wa</bdi>. דוח רכב ששותף בוואטסאפ נספר בשורת הקישורים ששותפו.</p>'
  +'<p class="note">נכנסו לאתר: כל כניסה נספרת פעם אחת. התקינו: פתיחה ראשונה של האפליקציה בישראל, לפי הקישור שהביא לחנות. התקנה מכפתור ההורדה באתר נספרת לפי קישור go/ או השיתוף שהביאו לאתר, ובלעדיהם כ"דרך האתר". היום מתעדכן באיחור של כמה שעות. כאן 7 הימים כוללים את היום, ולכן הסכומים שונים מהמשבצות למעלה, שסופרות שבוע שלם עד אתמול.</p>'}
+// every tagged link with a topic (luchit.app/go/fb?c=market, a bio link, a newsletter issue): site visits and car checks in the week, and the
+// app installs it brought (the topic rides the store link as utm_campaign). Topics are counted from 23.10 (the page sends them from then)
+{const BC=W&&W.byCamp,AC=W&&W.appSrc&&W.appSrc[0]&&W.appSrc[0].camp,cv=BC?BC[0]:{},ks=[...new Set([...Object.keys(cv),...Object.keys(AC||{})])],ins=k=>AC&&AC[k]||0,ck=k=>(cv[k]||[0,0])[1];
+const TOP={bio:"קישור בביו",post:"פוסט",message:"הודעה",magazine:"גיליון המגזין",article:"כתבה",qr:"קוד QR",dealer:"סוחר",market:"פוסט על השוק",offroad:"פוסט על רכבים שירדו מהכביש",one_line:"פוסט בשורה אחת",fb_group:"קבוצת פייסבוק",friend_post:"פוסט של חבר",personal_post:"פוסט אישי"};
+const tl=t=>TOP[t]||(/^fb_group_/.test(t)?"קבוצה: "+'<bdi dir="ltr">'+esc(t.slice(9))+"</bdi>":'<bdi dir="ltr">'+esc(t)+"</bdi>"),nm2=k=>{const i=k.indexOf("|");return esc(SL[k.slice(0,i)]||k.slice(0,i))+" · "+tl(k.slice(i+1))};
+ks.sort((a,b)=>ck(b)-ck(a)||ins(b)-ins(a)||(cv[b]||[0,0])[0]-(cv[a]||[0,0])[0]);
+h+="<h4>לפי קישור ונושא ("+rng(W&&W.W)+")</h4>"+(!BC&&!AC?'<p class="note" style="margin:0">אין כרגע נתון מגוגל אנליטיקס.</p>':ks.length?'<div style="overflow-x:auto"><table class="t tg"><thead><tr><th>קישור</th><th class="n">נכנסו לאתר</th><th class="n">בדיקות רכב</th><th class="n">התקינו</th></tr></thead><tbody>'
++ks.map(k=>'<tr><td class="w">'+nm2(k)+'</td><td class="n">'+n((cv[k]||[0,0])[0])+'</td><td class="n">'+n(ck(k))+'</td><td class="n">'+n(ins(k))+"</td></tr>").join("")+"</tbody></table></div>"
+:'<p class="note" style="margin:0">עוד אין השבוע כניסות מקישור עם נושא.</p>')
++'<p class="note">כל קישור <bdi dir="ltr">luchit.app/go/</bdi> נספר כאן לפי הרשת והנושא שלו, למשל <bdi dir="ltr">go/fb?c=market</bdi> מופיע כ"פייסבוק · פוסט על השוק". קישור בלי נושא נספר לפי ברירת המחדל של הרשת (בביו, פוסט, הודעה). הנושא נמדד מ-23.10. התקינו: פתיחה ראשונה של האפליקציה אחרי הורדה דרך הקישור.</p>'}
+// clicks from the site to our own pages on the networks (the footer links), this week and the week before
+{const SO=W&&W.social;if(SO){const ks=[...new Set(["facebook","instagram","tiktok",...Object.keys(SO[0]),...Object.keys(SO[1])])];
+h+="<h4>מהאתר לעמודים שלנו ברשתות ("+rng(W.W)+")</h4>"+'<div style="overflow-x:auto"><table class="t tg"><thead><tr><th>עמוד</th><th class="n">לחיצות השבוע</th><th class="n">שבוע קודם</th></tr></thead><tbody>'+ks.map(k=>'<tr><td class="w">'+esc(SL[k]||k)+'</td><td class="n">'+n(SO[0][k]||0)+'</td><td class="n">'+n(SO[1][k]||0)+"</td></tr>").join("")+"</tbody></table></div>"
++'<p class="note">לחיצות על הקישורים לעמודי פייסבוק, אינסטגרם וטיקטוק שבתחתית האתר. נספרות מהיום שהקישורים עלו לאתר.</p>'}}
 if(!B){box.innerHTML=h+'<p class="note">'+(W?"גוגל אנליטיקס לא ענה על המקורות.":"אין נתונים")+"</p>"}else{
 const c=B[0],p=B[1],seen=W.srcSeen||[true,true],ks=[...new Set([...Object.keys(c),...Object.keys(p)])].filter(k=>(c[k]||[0,0])[1]||(p[k]||[0,0])[1]).sort((a,b)=>(a==="app"?-1:b==="app"?1:0)||((c[b]||[0,0])[1]-(c[a]||[0,0])[1])),tc=ks.reduce((a,k)=>a+(c[k]||[0,0])[1],0);
 // the previous week compares only what both weeks counted: the site from 15.10 (SITE_FROM), and its rows by source from 20.10
@@ -844,7 +869,7 @@ box.innerHTML="<h4>כניסות מגוגל לפי יום, 28 ימים</h4>"+'<sv
 $("fl").innerHTML=(d.flashes||[]).slice(0,12).map(f=>'<li><span class="ft">'+dm(new Date(f.t).toLocaleDateString("en-CA",{timeZone:"Asia/Jerusalem"}))+" "+tm(f.t)+'</span><span><span class="lv '+(f.l==="alert"||f.l==="wait"?"alert":"")+'">'+(f.l==="alert"||f.l==="wait"?"●":"○")+"</span> <b>"+esc(FK[f.k]||f.k)+":</b> "+esc(String(f.x||"").replace(/\\s*פירוט:[\\s\\S]*$/,""))+(f.u&&/^https:\\/\\//.test(f.u)?' <a href="'+esc(f.u)+'" target="_blank" rel="noopener">קישור</a>':"")+"</span></li>").join("")||'<li><span class="note">אין מבזקים עדיין.</span></li>'}
 
 // drawer: technical
-{const fk=W&&W.fails?W.fails[0]:null,rt=d.events||[];
+{const fk=W&&W.fails?W.fails[0]:null;
 const li=(l,v)=>"<li><span>"+l+"</span><b>"+v+"</b></li>";
 $("tec").innerHTML="<h4>בדיקות שלא החזירו תוצאה, לפי סיבה ("+rng(W&&W.W)+")</h4>"+(fk?'<ul class="kv">'+(Object.entries(fk).sort((a,b)=>b[1]-a[1]).map(e=>li(KIND[e[0]]||esc(e[0]),n(e[1]))).join("")||li("אין","0"))+"</ul>":'<p class="note" style="margin:0">אין נתון</p>')
 +'<p class="note">'+(H.att!=null?"מתוך "+n(H.att)+" ניסיונות בדיקה. בתקינות השירות נספרות רק שתי סיבות: משרד התחבורה לא ענה, ולא התקבלה תשובה. מספר שהוקלד לא נכון אינו תקלה.":"")+"</p>"
@@ -872,7 +897,7 @@ const DEADLINE = 25e3, LAST = "https://luchit.app/live/_last";
 let lastGood = null;
 async function liveData(env, ctx) {
   let timer, failed = false;
-  const work = (async () => ({ ...(await collect(env)), flashes: (await getFlashes()).slice(0, 15), metrics: await getMetrics() }))();
+  const work = (async () => ({ ...(await collect(env)), flashes: (await getFlashes()).slice(0, 15), metrics: slimMetrics(await getMetrics()) }))();
   const late = new Promise(r => { timer = setTimeout(() => r(null), DEADLINE); });
   const d = await Promise.race([work.catch(() => { failed = true; return null; }), late]);
   clearTimeout(timer);
