@@ -45,7 +45,9 @@ function licKind(tokef, test) {
   return ex >= today ? "ok" : t !== null && t >= ex - LIC_NEAR && t >= today - LIC_FRESH ? "renew" : ex >= today - LIC_LAG ? "lag" : "bad";
 }
 
-/* the car and its most important finding: off the road, test expired or not yet seen renewed, open recall, or a clean bill */
+/* the car and its most important finding: off the road, test expired or not yet seen renewed, open recall, or the test date. A preview stays in
+   the chat for good, so it never says "no open recall": the app can mark a car "maybe in a recall" that the per-car list does not hold yet, and the
+   list answers 0 rows for every plate while the ministry reloads it overnight. A clean car gets the neutral picture, not the green "no problems". */
 async function plateInfo(plate) {
   const [act, rec, can] = await Promise.all([
     rows(ACTIVE, {mispar_rechev: Number(plate)}),
@@ -61,17 +63,26 @@ async function plateInfo(plate) {
   else if (lic === "bad") { verdict = "הטסט לא בתוקף" + recs; tone = "bad"; }
   else if (lic === "lag" || lic === "renew") { verdict = "לא ברור אם הטסט חודש" + recs; tone = "warn"; }
   else if (nRec) { verdict = nRec === 1 ? "ריקול פתוח אחד" : `${nRec} ריקולים פתוחים`; tone = "warn"; if (lic === "ok") verdict = "טסט בתוקף, " + verdict; }
-  else if (lic === "ok" && nRec === 0) { verdict = "טסט בתוקף, אין ריקול פתוח"; tone = "ok"; }
+  else if (lic === "ok") { const m = String(v.tokef_dt || "").match(/^(\d{4})-?(\d{2})/); verdict = m ? `טסט בתוקף עד ${m[2]}/${m[1].slice(2)}` : "טסט בתוקף"; }
   return {label: label(v), fuel: clean(v.sug_delek_nm), color: clean(v.tzeva_rechev), verdict, tone};
 }
-function cmpInfo(code) {
+/* a compare link: ?cmp=<base64 JSON> (items {p: plate} or {m: model fields}) or ?compare=<plate or model token, comma separated>. A plate is named
+   by its car (the first 3, in parallel, inside the same 2.5 s budget) and never printed; a model token is "דגם". */
+async function cmpInfo(code, plain) {
+  let items;
   try {
-    const t = atob(code.replace(/-/g, "+").replace(/_/g, "/"));
-    const items = JSON.parse(decodeURIComponent(escape(t)));
-    if (!Array.isArray(items) || !items.length) return null;
-    const names = items.slice(0, 6).map(it => it.m ? label(Object.fromEntries(CMP_KEYS.map((k, i) => [k, it.m[i]]))) : it.p ? "רכב " + String(it.p).replace(/\D/g, "") : "").filter(Boolean);
-    return {n: items.length, names};
+    if (plain) items = code.split(",").slice(0, 6).map(x => /^\d{5,8}$/.test(x.trim()) ? {p: x.trim()} : x.trim() ? {t: 1} : null).filter(Boolean);
+    else { const j = JSON.parse(decodeURIComponent(escape(atob(code.replace(/-/g, "+").replace(/_/g, "/"))))); items = Array.isArray(j) ? j : []; }
   } catch { return null; }
+  if (!items.length || items.length > 6) return null;
+  let asked = 0;
+  const names = await Promise.all(items.map(async it => {
+    if (it.m) return label(Object.fromEntries(CMP_KEYS.map((k, i) => [k, it.m[i]])));
+    const p = String(it.p || "").replace(/\D/g, "");
+    if (p.length >= 5 && p.length <= 8 && asked++ < 3) { const r = await rows(ACTIVE, {mispar_rechev: Number(p)}); if (r && r[0]) return label(r[0]); }
+    return it.p ? "רכב" : "דגם";
+  }));
+  return {n: items.length, names};
 }
 
 export default {
@@ -82,11 +93,11 @@ export default {
     const res = await fetch(req);
     if (req.method !== "GET" || u.pathname !== "/" || !CRAWLER.test(req.headers.get("User-Agent") || "")) return res;
     const plate = (u.searchParams.get("plate") || "").replace(/\D/g, "");
-    const cmp = u.searchParams.get("cmp");
+    const cmp = u.searchParams.get("cmp"), compare = u.searchParams.get("compare");
     let title, desc, image;
-    if (cmp && cmp.length < 4000) {
-      const c = cmpInfo(cmp);
-      if (c) { title = `השוואת ${c.n} רכבים בלוחית`; desc = c.names.join(" מול ") + ". עלות, אמינות וירידת ערך, זה לצד זה."; }
+    if ((cmp && cmp.length < 4000) || (compare && compare.length < 400)) {
+      const c = await cmpInfo(cmp || compare, !cmp);
+      if (c) { title = `השוואת ${c.n} רכבים בלוחית`; desc = (c.names.some(n => n !== "רכב" && n !== "דגם") ? c.names.join(" מול ") + ". " : "") + "טסט, ריקולים, ק״מ ומפרט זה לצד זה, ממאגרי משרד התחבורה."; }
     } else if (plate.length >= 5 && plate.length <= 8) {
       const p = await plateInfo(plate);
       if (p) {
