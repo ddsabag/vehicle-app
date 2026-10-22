@@ -2,7 +2,9 @@ name: Social publish
 # Posts the weekly content kit to the Facebook Page and the Instagram business account (.github/scripts/social-publish.mjs, Meta Graph API).
 # The queue is the public branch social-queue (kits/<date>/autopost.json + media + state.json), written by content-factory/enqueue.mjs after
 # the kit passed its lint. Every 15 minutes: publish what is due, then commit state.json back. Nothing to do = a quick green run.
-# Before the token exists (META_PUBLISH_TOKEN: the לוחית Page's own token, which does not expire) the scheduled run only says so.
+# Two tokens, each optional: META_PUBLISH_TOKEN (Facebook: the לוחית Page's own token, which does not expire) and IG_PUBLISH_TOKEN
+# (Instagram business login, no Page link; refreshed weekly by the script, a new string kept sealed in state.json). A network without a
+# working token is reported and the other one still publishes.
 # Manual run: mode check (token, Page, Instagram account; one Telegram line), dry-run (what would be published now) or run.
 # The script alerts on its own (alert router, day) and ends green after a failed post; a crash is left to Failure alert.
 # An item that shows new app screens carries needs_live (e.g. "1.37"): it waits until Google Play shows that version published (read-only
@@ -29,6 +31,7 @@ jobs:
     env:
       MODE: ${{ github.event.inputs.mode || 'run' }}
       META_PUBLISH_TOKEN: ${{ secrets.META_PUBLISH_TOKEN }}
+      IG_PUBLISH_TOKEN: ${{ secrets.IG_PUBLISH_TOKEN }}
       META_PAGE_ID: ${{ vars.META_PAGE_ID }}
       SHIP_SA_JSON: ${{ secrets.SHIP_SA_JSON }}   # read-only: is the app version an item shows (needs_live) published in Google Play
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -51,6 +54,8 @@ jobs:
         run: node .github/scripts/social-publish.mjs selftest
       - name: Check the connection
         if: ${{ env.MODE == 'check' }}
+        env:
+          QUEUE: queue   # state.json may hold the refreshed Instagram token
         run: node .github/scripts/social-publish.mjs check
       - name: Publish what is due
         if: ${{ env.MODE != 'check' && steps.q.outputs.have == '1' }}

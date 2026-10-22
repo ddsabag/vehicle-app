@@ -13,15 +13,25 @@
 // An item with needs_live waits until Google Play shows that version (or a later one) PUBLISHED on the production track: a read-only call
 // with the Ship tail key SHIP_SA_JSON (tracks.releases.list, no edit is opened). Not live at its time = held and checked again every run;
 // still not live LATE_MS after its time = missed and reported, so content never promotes a screen users cannot get yet.
-// Instagram takes media only from a public URL, so each image is first uploaded to the Page as an unpublished, temporary photo and its CDN
-// address is handed to Instagram. Reels go up as bytes (resumable upload) on both networks. Stories carry no stickers (the API has none).
-//   node social-publish.mjs run        QUEUE=<checkout of social-queue>, META_PUBLISH_TOKEN; DRY_RUN=1 = read-only Graph calls, no posts
-//   node social-publish.mjs check      the token reaches the Page and the Instagram account; one Telegram line; step summary
+// Two tokens, each optional; a network whose token is missing or refused is reported and the other one still publishes:
+//   META_PUBLISH_TOKEN  Facebook: the לוחית Page's own token (from a long-lived user token of the app "Luchit Publisher"; it does not expire),
+//                       or a user / system-user token that manages the Page. Its Page-linked Instagram account is used when there is no
+//                       IG_PUBLISH_TOKEN: images reach Instagram as the CDN address of an unpublished, temporary Page photo, reels as bytes.
+//   IG_PUBLISH_TOKEN    Instagram alone (Instagram business login, graph.instagram.com; no Facebook Page needed). Valid 60 days and
+//                       refreshed here once a week. When a refresh hands back a different string it is kept in state.json sealed
+//                       (AES-256-GCM, key derived from IG_PUBLISH_TOKEN), so the GitHub secret never has to change; a new secret
+//                       starts over. No successful refresh for IG_ALARM_MS = one alert a day. Instagram fetches the media from the
+//                       public queue branch: images as the JPEG copy enqueue.mjs writes next to each PNG (<name>.ig.jpg; Instagram
+//                       takes JPEG only), reels as they are.
+// Stories carry no stickers (the API has none).
+//   node social-publish.mjs run        QUEUE=<checkout of social-queue>; DRY_RUN=1 = read-only calls, no posts, nothing recorded
+//   node social-publish.mjs check      each token reaches its account; one Telegram line; step summary
 //   node social-publish.mjs selftest   offline, mocked Graph and clock
-// Optional: META_PAGE_ID (when the token sees more than one Page), GRAPH_VERSION (default v24.0), SHIP_SA_JSON (items with needs_live).
-// The token is the לוחית Page's own token (from a long-lived user token of the app "Luchit Publisher"; it does not expire) or a system-user
-// token of a business portfolio, never printed: it travels only in
-// request bodies, in the query string of reads (never logged) and in the rupload Authorization header.
+// Optional: META_PAGE_ID (when the token sees more than one Page), GRAPH_VERSION (default v24.0), SHIP_SA_JSON (items with needs_live),
+// GITHUB_REPOSITORY (the public queue's repository, for Instagram media addresses).
+// Tokens are never printed: they travel only in request bodies, in the query string of reads (never logged) and in the rupload
+// Authorization header.
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import url from "node:url";
@@ -31,6 +41,12 @@ export const DEDUPE_MS = 3 * 864e5;
 export const MAX_TRIES = 3;
 const VERSION = process.env.GRAPH_VERSION || "v24.0";
 const GRAPH = `https://graph.facebook.com/${VERSION}`;
+const IG_GRAPH = `https://graph.instagram.com/${VERSION}`;
+export const IG_REFRESH_MS = 7 * 864e5, IG_ALARM_MS = 45 * 864e5;   // refresh weekly; no successful refresh for 45 of the 60 days = alert
+const QUEUE_BRANCH = "social-queue";
+// the JPEG copy of a queued image that Instagram gets (enqueue.mjs writes it); a JPEG is its own copy
+export const igFile = f => /\.jpe?g$/i.test(f) ? f : f.replace(/\.png$/i, ".ig.jpg");
+const rawUrl = (kit, f) => `https://raw.githubusercontent.com/${IO.env.GITHUB_REPOSITORY || "ddsabag/vehicle-app"}/${QUEUE_BRANCH}/kits/${kit}/${encodeURIComponent(f)}`;
 const TYPES = ["image", "carousel", "reel", "story"];
 const TARGETS = ["facebook", "instagram"];
 const NAMES = { image: "פוסט", carousel: "קרוסלה", reel: "ריל", story: "סטורי", facebook: "פייסבוק", instagram: "אינסטגרם" };
@@ -92,6 +108,71 @@ export async function accounts(token) {
   const ig = page.instagram_business_account || null;
   return { page: { id: page.id, name: page.name, token: page.access_token || token }, ig: ig ? { id: ig.id, username: ig.username } : null, userToken: token, kind: "user" };
 }
+// Both networks from the tokens that exist: {page, ig: {id, username, token, base, login}, errs: {facebook?, instagram?}}
+// igToken: the Instagram token to use (igToken(state): the refreshed one sealed in state.json, else the secret)
+export async function connect({ igToken: igT = IO.env.IG_PUBLISH_TOKEN } = {}) {
+  const fbT = IO.env.META_PUBLISH_TOKEN, A = { page: null, ig: null, errs: {} };
+  if (fbT) {
+    try { const a = await accounts(fbT); A.page = a.page; if (a.ig && !igT) A.ig = { ...a.ig, token: a.userToken, base: GRAPH, login: false }; }
+    catch (e) { A.errs.facebook = e; }
+  }
+  if (igT) {
+    try {
+      const me = await graph("GET", "/me", { fields: "user_id,username" }, { token: igT, base: IG_GRAPH });
+      A.ig = { id: String(me.user_id || me.id), username: me.username, token: igT, base: IG_GRAPH, login: true };
+    } catch (e) { A.errs.instagram = e; }
+  }
+  return A;
+}
+
+// ---- the Instagram token: weekly refresh, a new string sealed in state.json ----
+const iso = t => new Date(t).toISOString();
+const igKey = t => crypto.createHash("sha256").update("luchit-ig-seal-v1\n" + t).digest();
+const igFp = t => crypto.createHash("sha256").update("luchit-ig-fp-v1\n" + t).digest("hex").slice(0, 12);
+export function seal(key, text) {
+  const iv = crypto.randomBytes(12), c = crypto.createCipheriv("aes-256-gcm", key, iv), b = Buffer.concat([c.update(text, "utf8"), c.final()]);
+  return Buffer.concat([iv, c.getAuthTag(), b]).toString("base64");
+}
+export function unseal(key, b64) {
+  try {
+    const r = Buffer.from(String(b64), "base64"), d = crypto.createDecipheriv("aes-256-gcm", key, r.subarray(0, 12));
+    d.setAuthTag(r.subarray(12, 28)); return Buffer.concat([d.update(r.subarray(28)), d.final()]).toString("utf8");
+  } catch { return null; }
+}
+export function igToken(state) {
+  const base = IO.env.IG_PUBLISH_TOKEN, s = state?.ig;
+  if (!base) return null;
+  return (s?.fp === igFp(base) && s.tok && unseal(igKey(base), s.tok)) || base;
+}
+// once every IG_REFRESH_MS (and not within 6 h of a failed try); the first refresh comes a week after the bot first sees a secret,
+// so a token younger than the 24 h Instagram requires is never sent. Returns the token to use now.
+export async function refreshIg(Q, now) {
+  const base = IO.env.IG_PUBLISH_TOKEN;
+  if (!base) return null;
+  if (Q.state.ig?.fp !== igFp(base)) { Q.state.ig = { fp: igFp(base), since: iso(now) }; Q.save(); }   // a new secret: start over
+  const s = Q.state.ig, cur = igToken(Q.state), last = Date.parse(s.refreshed || s.since);
+  if (now - last < IG_REFRESH_MS || (s.tried && now - Date.parse(s.tried) < 6 * 36e5)) return cur;
+  try {
+    const j = await graph("GET", "https://graph.instagram.com/refresh_access_token", { grant_type: "ig_refresh_token" }, { token: cur });
+    if (!j.access_token) throw new GraphError("Instagram answered without a token");
+    if (j.access_token !== cur) s.tok = seal(igKey(base), j.access_token);
+    Object.assign(s, { refreshed: iso(now) }); delete s.tried; delete s.err;
+    if (j.expires_in) s.expires = iso(now + j.expires_in * 1000);
+    Q.save(); IO.log("Instagram token refreshed");
+    return j.access_token;
+  } catch (e) {
+    Object.assign(s, { tried: iso(now), err: String(e.message).slice(0, 200) }); Q.save();
+    IO.log(`Instagram token refresh failed: ${e.message}`);
+    if (e.auth || now - last > IG_ALARM_MS)
+      await tell("day", "social:fail:token-instagram", `לוחית · פרסום אוטומטי\nחידוש הטוקן של אינסטגרם נכשל: ${e.message}\n` +
+        `הטוקן תקף עד ${s.expires ? s.expires.slice(0, 10) : "60 יום מהיצירה"}. ${HINT.instagram}`, runUrl());
+    return cur;
+  }
+}
+const HINT = {
+  facebook: "צריך ליצור טוקן חדש לעמוד לפי הפרומפט (סעיף ב) ולשמור אותו ב-GitHub בשם META_PUBLISH_TOKEN.",
+  instagram: "צריך ליצור טוקן חדש לאינסטגרם לפי הפרומפט (סעיף ג) ולשמור אותו ב-GitHub בשם IG_PUBLISH_TOKEN.",
+};
 
 // ---- Facebook ----
 async function fbPhoto(A, file, { caption, published }) {
@@ -151,10 +232,11 @@ export async function publishFacebook(A, item, dir) {
 }
 
 // ---- Instagram ----
+const igGraph = (A, method, p, params = {}, o = {}) => graph(method, p, params, { ...o, token: A.ig.token, base: A.ig.base });
 async function igReady(A, id, maxMs) {
   const t0 = IO.now();
   for (;;) {
-    const s = await graph("GET", `/${id}`, { fields: "status_code,status" }, { token: A.userToken });
+    const s = await igGraph(A, "GET", `/${id}`, { fields: "status_code,status" });
     if (s.status_code === "FINISHED" || s.status_code === "PUBLISHED") return;
     if (s.status_code === "ERROR" || s.status_code === "EXPIRED") throw new GraphError(`Instagram could not process the media: ${s.status_code} ${scrub(s.status || "")}`);
     if (IO.now() - t0 > maxMs) throw new GraphError(`Instagram still processing after ${Math.round(maxMs / 6e4)} min`, { transient: true });
@@ -162,25 +244,38 @@ async function igReady(A, id, maxMs) {
   }
 }
 const item_wait = code => code === "IN_PROGRESS" ? 10000 : 5000;
-async function igContainer(A, params) { return graph("POST", `/${A.ig.id}/media`, params, { token: A.userToken }); }
+async function igContainer(A, params) { return igGraph(A, "POST", `/${A.ig.id}/media`, params); }
 async function igFinish(A, creation) {
-  const j = await graph("POST", `/${A.ig.id}/media_publish`, { creation_id: creation }, { token: A.userToken });
-  const m = await graph("GET", `/${j.id}`, { fields: "permalink" }, { token: A.userToken }).catch(() => ({}));
+  const j = await igGraph(A, "POST", `/${A.ig.id}/media_publish`, { creation_id: creation });
+  const m = await igGraph(A, "GET", `/${j.id}`, { fields: "permalink" }).catch(() => ({}));
   return { id: j.id, link: m.permalink || `https://www.instagram.com/${A.ig.username || ""}` };
 }
 export async function publishInstagram(A, item, dir) {
-  if (!A.ig) throw new GraphError("no Instagram business account is linked to the Page");
-  const files = item.files.map(f => path.join(dir, f));
+  if (!A.ig) throw new GraphError("no Instagram account (IG_PUBLISH_TOKEN, or one linked to the Page)");
+  const files = item.files.map(f => path.join(dir, f)), kit = path.basename(dir);
+  // an image's public address: the queue's JPEG copy (Instagram login) or a temporary Page photo (Instagram linked to the Page)
+  const imgUrl = async file => {
+    if (!A.ig.login) return cdnUrl(A, file);
+    const jpg = igFile(path.basename(file));
+    if (!fs.existsSync(path.join(dir, jpg))) throw new GraphError(`${jpg} is missing in the queue: queue the kit again with enqueue.mjs`);
+    return rawUrl(kit, jpg);
+  };
   if (item.type === "image") {
-    const c = await igContainer(A, { image_url: await cdnUrl(A, files[0]), caption: item.caption });
+    const c = await igContainer(A, { image_url: await imgUrl(files[0]), caption: item.caption });
     await igReady(A, c.id, 5 * 6e4); return igFinish(A, c.id);
   }
   if (item.type === "carousel") {
     const kids = [];
-    for (const f of files) { const c = await igContainer(A, { image_url: await cdnUrl(A, f), is_carousel_item: "true" }); kids.push(c.id); }
+    for (const f of files) { const c = await igContainer(A, { image_url: await imgUrl(f), is_carousel_item: "true" }); kids.push(c.id); }
     for (const k of kids) await igReady(A, k, 5 * 6e4);
     const c = await igContainer(A, { media_type: "CAROUSEL", children: kids.join(","), caption: item.caption });
     await igReady(A, c.id, 5 * 6e4); return igFinish(A, c.id);
+  }
+  if (item.type === "reel" && A.ig.login) {   // Instagram login has no resumable upload: Instagram fetches the file from the public queue
+    const p = { media_type: "REELS", video_url: rawUrl(kit, item.files[0]), caption: item.caption, share_to_feed: "true" };
+    if (item.cover) p.cover_url = await imgUrl(path.join(dir, item.cover));
+    const c = await igContainer(A, p);
+    await igReady(A, c.id, 15 * 6e4); return igFinish(A, c.id);
   }
   if (item.type === "reel") {
     const p = { media_type: "REELS", upload_type: "resumable", caption: item.caption, share_to_feed: "true" };
@@ -189,13 +284,13 @@ export async function publishInstagram(A, item, dir) {
     const bytes = fs.readFileSync(files[0]);
     const up = await IO.fetch(c.uri || `https://rupload.facebook.com/ig-api-upload/${VERSION}/${c.id}`, {
       method: "POST", body: bytes, signal: AbortSignal.timeout(300000),
-      headers: { Authorization: `OAuth ${A.userToken}`, offset: "0", file_size: String(bytes.length) } });
+      headers: { Authorization: `OAuth ${A.ig.token}`, offset: "0", file_size: String(bytes.length) } });
     const uj = await up.json().catch(() => ({}));
     if (!up.ok || uj.success === false) throw new GraphError(`reel upload to Instagram failed: HTTP ${up.status} ${scrub(JSON.stringify(uj.debug_info || uj.error || ""))}`, { transient: up.status >= 500 });
     await igReady(A, c.id, 15 * 6e4); return igFinish(A, c.id);
   }
   if (item.type === "story") {
-    const c = await igContainer(A, { media_type: "STORIES", image_url: await cdnUrl(A, files[0]) });
+    const c = await igContainer(A, { media_type: "STORIES", image_url: await imgUrl(files[0]) });
     await igReady(A, c.id, 5 * 6e4); return igFinish(A, c.id);
   }
   throw new GraphError(`unknown type ${item.type}`);
@@ -212,7 +307,7 @@ export async function alreadyPosted(A, target, caption) {
       const hit = (j.data || []).find(p => norm(p.message) === norm(caption) && Date.parse(p.created_time) >= since);
       return hit ? { id: hit.id, link: hit.permalink_url || `https://www.facebook.com/${hit.id}` } : null;
     }
-    const j = await graph("GET", `/${A.ig.id}/media`, { fields: "id,caption,timestamp,permalink", limit: "15" }, { token: A.userToken });
+    const j = await igGraph(A, "GET", `/${A.ig.id}/media`, { fields: "id,caption,timestamp,permalink", limit: "15" });
     const hit = (j.data || []).find(p => norm(p.caption) === norm(caption) && Date.parse(p.timestamp) >= since);
     return hit ? { id: hit.id, link: hit.permalink } : null;
   } catch { return null; }   // a failed lookup must not block the post; state.json still guards the normal case
@@ -248,13 +343,13 @@ export function loadQueue(q) {
     const f = path.join(root, d, "autopost.json");
     if (!fs.existsSync(f)) continue;
     const j = JSON.parse(fs.readFileSync(f, "utf8"));
-    kits.push({ name: d, dir: path.join(root, d), items: validate(j, path.join(root, d)) });
+    kits.push({ name: d, dir: path.join(root, d), items: validate(j, path.join(root, d), { queue: true }) });
   }
   const sf = path.join(q, "state.json");
   const state = fs.existsSync(sf) ? JSON.parse(fs.readFileSync(sf, "utf8")) : { v: 1, posts: {} };
   return { kits, state, save: () => fs.writeFileSync(sf, JSON.stringify(state, null, 1) + "\n") };
 }
-export function validate(j, dir) {
+export function validate(j, dir, { queue = false } = {}) {
   const out = [];
   for (const it of j.items || []) {
     const bad = m => { throw new Error(`autopost.json item ${it.id || "?"}: ${m}`); };
@@ -265,6 +360,9 @@ export function validate(j, dir) {
     const n = (it.files || []).length;
     if (!n || (it.type === "carousel" ? n < 2 || n > 10 : n !== 1)) bad(it.type === "carousel" ? "a carousel needs 2-10 files" : "needs exactly one file");
     for (const f of [...it.files, ...(it.cover ? [it.cover] : [])]) if (f.includes("/") || f.includes("\\") || !fs.existsSync(path.join(dir, f))) bad(`file ${f} is missing`);
+    if (queue && it.targets.includes("instagram"))
+      for (const f of it.type === "reel" ? (it.cover ? [it.cover] : []) : it.files)
+        if (!fs.existsSync(path.join(dir, igFile(f)))) bad(`${igFile(f)} (the JPEG copy for Instagram) is missing: queue the kit with enqueue.mjs`);
     if (it.needs_live !== undefined && !/^\d+\.\d+(\.\d+)?$/.test(String(it.needs_live))) bad("needs_live must be an app version such as 1.37");
     if (it.type === "reel" ? !/\.mp4$/i.test(it.files[0]) : it.files.some(f => !/\.(png|jpe?g)$/i.test(f))) bad("wrong file type for " + it.type);
     for (const t of it.targets) {
@@ -298,8 +396,9 @@ async function tell(level, key, text, link = "", today = "loud") {
 
 // ---- run ----
 export async function run(qdir) {
-  const token = IO.env.META_PUBLISH_TOKEN, dry = !!IO.env.DRY_RUN;
+  const dry = !!IO.env.DRY_RUN;
   const Q = loadQueue(qdir), now = IO.now(), summary = [];
+  const igT = dry ? igToken(Q.state) : await refreshIg(Q, now);   // every run, so the token stays fresh in weeks with nothing queued
   const due = [];
   for (const k of Q.kits) for (const it of k.items) for (const t of it.targets) {
     const key = `${k.name}/${it.id}/${t}`, s = Q.state.posts[key];
@@ -310,13 +409,14 @@ export async function run(qdir) {
   }
   IO.log(`queue: ${Q.kits.length} kit(s), ${due.length} target(s) due${dry ? " (dry run)" : ""}`);
   if (!due.length) return { published: 0, summary };
-  if (!token) { IO.log("META_PUBLISH_TOKEN is not set: nothing published"); return { published: 0, summary, noToken: true }; }
-  let A;
-  try { A = await accounts(token); }
-  catch (e) {
-    await tell("day", "social:fail:token", `לוחית · פרסום אוטומטי\nהחיבור לפייסבוק ולאינסטגרם לא עובד, ולכן ${due.length} פרסומים מחכים.\n${e.message}\nצריך ליצור טוקן חדש לפי הפרומפט (סעיף ו) ולשמור אותו ב-GitHub בשם META_PUBLISH_TOKEN.`, runUrl());
-    throw e;
+  if (!IO.env.META_PUBLISH_TOKEN && !igT) { IO.log("neither META_PUBLISH_TOKEN nor IG_PUBLISH_TOKEN is set: nothing published"); return { published: 0, summary, noToken: true }; }
+  const A = await connect({ igToken: igT });
+  for (const [t, e] of Object.entries(A.errs)) {   // that network's items wait for the next run; the other network still publishes
+    const n = due.filter(d => d.t === t).length;
+    IO.log(`${t} not connected: ${e.message}`);
+    if (n && !dry) await tell("day", `social:fail:token-${t}`, `לוחית · פרסום אוטומטי\nהחיבור ל${NAMES[t]} לא עובד, ולכן ${n} פרסומים שם מחכים.\n${e.message}\n${HINT[t]}`, runUrl());
   }
+  if (!A.page && !A.ig && Object.keys(A.errs).length) throw Object.values(A.errs)[0];
   let published = 0, live = null;
   const isLive = async need => {   // Google Play is read once per run, and only when a due item waits for a version
     if (!live) live = await liveVersion().then(v => ({ v }), e => ({ err: e.message }));
@@ -345,7 +445,15 @@ export async function run(qdir) {
       }
       continue;
     }
-    if (t === "instagram" && !A.ig) { Object.assign(st, { status: "failed", err: "no Instagram account linked to the Page" }); Q.save(); summary.push(`failed ${key}: no Instagram`); continue; }
+    if (!(t === "facebook" ? A.page : A.ig)) {
+      if (A.errs[t]) { summary.push(`waiting ${key}: ${t} not connected`); continue; }   // a refused or unreachable token: retried next run
+      const why = t === "facebook" ? "META_PUBLISH_TOKEN is not set" : "no Instagram account (IG_PUBLISH_TOKEN is not set and none is linked to the Page)";
+      summary.push(`failed ${key}: ${why}`);
+      if (dry) continue;
+      Object.assign(st, { status: "failed", err: why }); Q.save();
+      await tell("day", `social:fail:notoken-${t}`, `לוחית · פרסום אוטומטי\nה${label} לא פורסם: אין חיבור ל${NAMES[t]}. ${HINT[t]}`, runUrl());
+      continue;
+    }
     if (it.type === "story" && st.tries > 0) {   // no caption to look for: a story that may already be up is not posted again
       Object.assign(st, { status: "unsure" }); Q.save(); summary.push(`unsure ${key}`);
       await tell("day", `social:unsure:${k.name}-${it.id}`, `לוחית · פרסום אוטומטי\nלא ברור אם ה${label} עלה (ניסיון קודם נקטע). כדאי להציץ בחשבון.`, runUrl());
@@ -363,9 +471,12 @@ export async function run(qdir) {
     } catch (e) {
       st.err = String(e.message).slice(0, 300); Q.save();
       IO.log(`failed ${key}: ${e.message}`);
-      if (e.auth) {
-        await tell("day", "social:fail:token", `לוחית · פרסום אוטומטי\nפייסבוק או אינסטגרם דחו את הטוקן: ${e.message}\nצריך ליצור טוקן חדש לפי הפרומפט (סעיף ו) ולשמור אותו ב-GitHub בשם META_PUBLISH_TOKEN.`, runUrl());
-        break;
+      if (e.auth) {   // nothing was posted: this network stops for the run, its items wait; the other network goes on
+        st.tries--; Q.save();
+        A.errs[t] = e; if (t === "facebook") A.page = null; else A.ig = null;
+        summary.push(`waiting ${key}: ${t} refused the token`);
+        await tell("day", `social:fail:token-${t}`, `לוחית · פרסום אוטומטי\n${NAMES[t]} דחה את הטוקן: ${e.message}\n${HINT[t]}`, runUrl());
+        continue;
       }
       if (st.tries >= MAX_TRIES) {
         st.status = "failed"; Q.save(); summary.push(`failed ${key}: ${e.message}`);
@@ -384,16 +495,21 @@ export async function run(qdir) {
 }
 
 export async function check() {
-  const token = IO.env.META_PUBLISH_TOKEN;
-  if (!token) throw new Error("META_PUBLISH_TOKEN is not set (GitHub: Settings > Secrets and variables > Actions)");
-  const A = await accounts(token);
-  const lim = A.ig ? await graph("GET", `/${A.ig.id}/content_publishing_limit`, { fields: "quota_usage,config" }, { token: A.userToken }).catch(() => null) : null;
-  const q = lim?.data?.[0];
-  const lines = [`עמוד הפייסבוק: ${A.page.name}`, A.ig ? `אינסטגרם: @${A.ig.username}` : "אינסטגרם: לא מחובר לעמוד (צריך לחבר ב-Business Suite)",
-    q ? `מכסת פרסום באינסטגרם: ${q.quota_usage} מתוך ${q.config?.quota_total ?? "?"} ב-24 שעות` : ""].filter(Boolean);
+  if (!IO.env.META_PUBLISH_TOKEN && !IO.env.IG_PUBLISH_TOKEN) throw new Error("neither META_PUBLISH_TOKEN nor IG_PUBLISH_TOKEN is set (GitHub: Settings > Secrets and variables > Actions)");
+  const sf = IO.env.QUEUE && path.join(IO.env.QUEUE, "state.json");
+  const state = sf && fs.existsSync(sf) ? JSON.parse(fs.readFileSync(sf, "utf8")) : {};
+  const A = await connect({ igToken: igToken(state) });
+  const lim = A.ig ? await igGraph(A, "GET", `/${A.ig.id}/content_publishing_limit`, { fields: "quota_usage,config" }).catch(() => null) : null;
+  const q = lim?.data?.[0], err = t => A.errs[t] ? `לא מחובר (${A.errs[t].message})` : null;
+  const lines = [
+    `פייסבוק: ${A.page ? `העמוד ${A.page.name}` : err("facebook") || "אין טוקן (META_PUBLISH_TOKEN)"}`,
+    `אינסטגרם: ${A.ig ? `@${A.ig.username}${A.ig.login ? " (טוקן נפרד)" : " (דרך העמוד)"}` : err("instagram") || "אין טוקן (IG_PUBLISH_TOKEN) ואין חשבון שמקושר לעמוד"}`,
+    q ? `מכסת פרסום באינסטגרם: ${q.quota_usage} מתוך ${q.config?.quota_total ?? "?"} ב-24 שעות` : "",
+    state.ig?.refreshed ? `הטוקן של אינסטגרם חודש ב-${state.ig.refreshed.slice(0, 10)}` : ""].filter(Boolean);
+  const ok = !Object.keys(A.errs).length && !!(A.page || A.ig);
   IO.log(lines.join("\n"));
-  await tell("summary", "social:check", `לוחית · פרסום אוטומטי\nהחיבור עובד.\n${lines.join("\n")}`, "", "silent");
-  return { ok: !!A.ig, A };
+  await tell("summary", "social:check", `לוחית · פרסום אוטומטי\n${ok ? "החיבור עובד." : "יש בעיה בחיבור."}\n${lines.join("\n")}`, "", "silent");
+  return { ok, A };
 }
 const runUrl = () => IO.env.RUN_URL || "";
 
@@ -403,7 +519,8 @@ async function selftest() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "social-selftest-"));
   const kit = path.join(tmp, "kits", "2026-10-22");
   fs.mkdirSync(kit, { recursive: true });
-  for (const f of ["dealer-post.png", "carousel-01.png", "carousel-02.png", "reel.mp4", "reel-cover.jpg", "story-02.png"]) fs.writeFileSync(path.join(kit, f), "x");
+  for (const f of ["dealer-post.png", "carousel-01.png", "carousel-02.png", "reel.mp4", "reel-cover.jpg", "story-02.png",
+    "dealer-post.ig.jpg", "carousel-01.ig.jpg", "carousel-02.ig.jpg", "story-02.ig.jpg"]) fs.writeFileSync(path.join(kit, f), "x");
   const T = s => Date.parse(s);
   fs.writeFileSync(path.join(kit, "autopost.json"), JSON.stringify({ items: [
     { id: "dealer", type: "image", at: "2026-10-25T06:30:00Z", targets: ["facebook", "instagram"], files: ["dealer-post.png"], caption: "פוסט לסוחרים", caption_facebook: "פוסט לסוחרים luchit.app/go/fb" },
@@ -472,7 +589,7 @@ async function selftest() {
   ck(st()["2026-10-15/old/facebook"].status === "missed" && !calls.some(c => c.startsWith("POST /111")), "a stale item is marked missed, not posted");
 
   // dedupe: a retry finds the earlier post on the account
-  const k3 = path.join(tmp, "kits", "2026-10-30"); fs.mkdirSync(k3); fs.writeFileSync(path.join(k3, "b.png"), "x");
+  const k3 = path.join(tmp, "kits", "2026-10-30"); fs.mkdirSync(k3); fs.writeFileSync(path.join(k3, "b.png"), "x"); fs.writeFileSync(path.join(k3, "b.ig.jpg"), "x");
   fs.writeFileSync(path.join(k3, "autopost.json"), JSON.stringify({ items: [{ id: "dup", type: "image", at: "2026-10-29T18:00:00Z", targets: ["instagram"], files: ["b.png"], caption: "כבר עלה" }] }));
   const s0 = JSON.parse(fs.readFileSync(path.join(tmp, "state.json"), "utf8")); s0.posts["2026-10-30/dup/instagram"] = { tries: 1, err: "died" }; fs.writeFileSync(path.join(tmp, "state.json"), JSON.stringify(s0));
   const realFetch = IO.fetch;
@@ -530,6 +647,83 @@ async function selftest() {
   const UA = await accounts("USER-TOKEN");
   ck(UA.kind === "user" && UA.page.token === "PAGE", "a user token still finds the Page through /me/accounts");
 
+  // Instagram business login: its own token (no Page link), media from the public queue, weekly refresh sealed in state.json
+  {
+    const q2 = path.join(tmp, "q2"), kd = path.join(q2, "kits", "2026-11-05"); fs.mkdirSync(kd, { recursive: true });
+    for (const f of ["post.png", "post.ig.jpg", "reel.mp4", "cover.png", "cover.ig.jpg", "story.png", "story.ig.jpg", "fb.png", "ig.png", "ig.ig.jpg"]) fs.writeFileSync(path.join(kd, f), "x");
+    const items = [
+      { id: "post", type: "image", at: "2026-11-08T18:00:00Z", targets: ["facebook", "instagram"], files: ["post.png"], caption: "פוסט" },
+      { id: "reel", type: "reel", at: "2026-11-08T18:00:00Z", targets: ["facebook", "instagram"], files: ["reel.mp4"], cover: "cover.png", caption: "ריל" },
+      { id: "story", type: "story", at: "2026-11-08T18:00:00Z", targets: ["instagram"], files: ["story.png"] },
+      { id: "both", type: "image", at: "2026-11-16T18:00:00Z", targets: ["facebook", "instagram"], files: ["ig.png"], caption: "שניהם" },
+    ];
+    fs.writeFileSync(path.join(kd, "autopost.json"), JSON.stringify({ items }));
+    const igc = [], used = [], st2 = () => JSON.parse(fs.readFileSync(path.join(q2, "state.json"), "utf8"));
+    let refreshes = 0, refreshBad = false, n2 = 0;
+    const tok = (u, o) => u.searchParams.get("access_token") || o.body?.get?.("access_token");
+    IO.fetch = async (u0, o = {}) => {
+      const u = new URL(String(u0)), m = o.method || "GET", p = u.pathname.replace(/^\/v[\d.]+/, ""), t = tok(u, o);
+      if (u.host === "graph.instagram.com") {
+        used.push(t); n2++;
+        if (!["IG-OLD", "IG-NEW"].includes(t)) return J({ error: { message: "Invalid OAuth access token", type: "OAuthException", code: 190 } }, 400);
+        if (p === "/refresh_access_token") { refreshes++; return refreshBad ? J({ error: { message: "Session has expired", type: "OAuthException", code: 190 } }, 400) : J({ access_token: "IG-NEW", token_type: "bearer", expires_in: 5184000 }); }
+        if (p === "/me") return J({ id: "9", user_id: "333", username: "luchit.app" });
+        if (m === "POST" && p === "/333/media") { igc.push(Object.fromEntries(o.body)); return J({ id: "ic" + n2 }); }
+        if (m === "GET" && /^\/ic\d+$/.test(p)) return J({ status_code: "FINISHED" });
+        if (m === "POST" && p === "/333/media_publish") return J({ id: "im" + n2 });
+        if (m === "GET" && /^\/im\d+$/.test(p)) return J({ permalink: "https://www.instagram.com/p/im" + n2 });
+        if (m === "GET" && p === "/333/media") return J({ data: [] });
+        if (m === "GET" && p === "/333/content_publishing_limit") return J({ data: [{ quota_usage: 2, config: { quota_total: 100 } }] });
+        return J({ error: { message: "unexpected " + m + " " + p } }, 400);
+      }
+      if (u.host === "graph.facebook.com" && p === "/me")
+        return t === "PAGE-TOKEN" ? J({ id: "111", name: "לוחית" }) : J({ error: { message: "Error validating access token", type: "OAuthException", code: 190 } }, 400);
+      if (u.host === "graph.facebook.com" && t !== "PAGE-TOKEN") return J({ error: { message: "wrong token " + p } }, 400);
+      return realFetch(u0, o);
+    };
+    IO.env = { META_PUBLISH_TOKEN: "PAGE-TOKEN", IG_PUBLISH_TOKEN: "IG-OLD", GITHUB_REPOSITORY: "ddsabag/vehicle-app", SOCIAL_SELFTEST: "1" };
+    clock = T("2026-11-01T10:00:00Z"); logs.length = 0; calls.length = 0;
+    await run(q2);
+    ck(refreshes === 0 && st2().ig?.since && !st2().ig.tok, "a new Instagram secret is not refreshed at once (Instagram needs it 24 h old)");
+    clock = T("2026-11-08T18:10:00Z"); igc.length = 0; used.length = 0; calls.length = 0;
+    r = await run(q2);
+    const raw = f => `https://raw.githubusercontent.com/ddsabag/vehicle-app/social-queue/kits/2026-11-05/${f}`;
+    ck(refreshes === 1 && igToken(st2()) === "IG-NEW", "after a week the token is refreshed and the new one is kept");
+    ck(!fs.readFileSync(path.join(q2, "state.json"), "utf8").match(/IG-NEW|IG-OLD|PAGE-TOKEN/), "state.json holds the token only sealed");
+    ck(used.slice(1).every(t => t === "IG-NEW"), "Instagram calls after the refresh use the new token");
+    ck(igc.some(c => c.image_url === raw("post.ig.jpg") && c.caption === "פוסט"), "Instagram image = the queue's JPEG copy");
+    ck(igc.some(c => c.media_type === "REELS" && c.video_url === raw("reel.mp4") && c.cover_url === raw("cover.ig.jpg") && !c.upload_type), "Instagram reel = video_url from the queue, cover as JPEG");
+    ck(igc.some(c => c.media_type === "STORIES" && c.image_url === raw("story.ig.jpg")), "Instagram story = the queue's JPEG copy");
+    ck(!calls.some(c => c.includes("ig-api-upload")) && calls.includes("POST /111/photos") && calls.some(c => c.startsWith("POST /video-upload")), "no Instagram byte upload; Facebook posts with the Page token");
+    ck(["post/facebook", "post/instagram", "reel/facebook", "reel/instagram", "story/instagram"].every(k => st2().posts["2026-11-05/" + k]?.status === "done"), "all five targets done");
+    ck(!logs.join("\n").match(/IG-NEW|IG-OLD|PAGE-TOKEN/), "no token in the logs");
+    clock = T("2026-11-08T19:10:00Z"); r = await run(q2);
+    ck(refreshes === 1, "no second refresh within the week");
+    // a refused refresh: one alert, the current token keeps working, no new try for 6 h
+    refreshBad = true; clock = T("2026-11-16T18:05:00Z"); logs.length = 0;
+    IO.env.META_PUBLISH_TOKEN = "PAGE-EXPIRED";
+    r = await run(q2);
+    ck(refreshes === 2 && logs.some(l => l.includes("social:fail:token-instagram")) && st2().ig.tried, "a refused refresh alerts once and is recorded");
+    ck(st2().posts["2026-11-05/both/instagram"]?.status === "done" && !st2().posts["2026-11-05/both/facebook"]?.status, "Facebook refused: Instagram still publishes, Facebook waits");
+    ck(logs.some(l => l.includes("social:fail:token-facebook")), "the refused Facebook token gets its own alert");
+    clock = T("2026-11-16T19:05:00Z"); IO.env.META_PUBLISH_TOKEN = "PAGE-TOKEN"; r = await run(q2);
+    ck(refreshes === 2 && st2().posts["2026-11-05/both/facebook"]?.status === "done", "no refresh retry within 6 h; Facebook catches up when the token works");
+    // check: both networks, the sealed token, the quota
+    IO.env.QUEUE = q2; logs.length = 0;
+    const c = await check();
+    ck(c.ok && logs.some(l => l.includes("@luchit.app (טוקן נפרד)") && l.includes("העמוד לוחית") && l.includes("2 מתוך 100")), "check reports both networks and the Instagram quota");
+    delete IO.env.QUEUE;
+    IO.env.IG_PUBLISH_TOKEN = "IG-OTHER";
+    ck(igToken(st2()) === "IG-OTHER" && unseal(crypto.createHash("sha256").update("x").digest(), st2().ig.tok) === null, "a replaced secret wins over the sealed token; a wrong key opens nothing");
+    // no Instagram token and no Page link: the Instagram target fails with one alert, Facebook still posts
+    delete IO.env.IG_PUBLISH_TOKEN;
+    const kd2 = path.join(q2, "kits", "2026-11-20"); fs.mkdirSync(kd2); for (const f of ["a.png", "a.ig.jpg"]) fs.writeFileSync(path.join(kd2, f), "x");
+    fs.writeFileSync(path.join(kd2, "autopost.json"), JSON.stringify({ items: [{ id: "noig", type: "image", at: "2026-11-20T08:00:00Z", targets: ["facebook", "instagram"], files: ["a.png"], caption: "בלי אינסטגרם" }] }));
+    clock = T("2026-11-20T08:05:00Z"); logs.length = 0; r = await run(q2);
+    ck(st2().posts["2026-11-20/noig/instagram"]?.status === "failed" && st2().posts["2026-11-20/noig/facebook"]?.status === "done" && logs.some(l => l.includes("social:fail:notoken-instagram")), "no Instagram connection: that target fails with an alert, Facebook posts");
+    IO.fetch = realFetch; IO.env = { META_PUBLISH_TOKEN: "SECRET-TOKEN", SOCIAL_SELFTEST: "1" };
+  }
+
   // validation
   const bad = (it, m) => { try { validate({ items: [it] }, kit); ck(false, "should reject: " + m); } catch { ck(true, m); } };
   bad({ id: "x", type: "image", at: "2026-10-25T08:30:00", targets: ["facebook"], files: ["dealer-post.png"], caption: "a" }, "time without a zone");
@@ -539,6 +733,9 @@ async function selftest() {
   bad({ id: "x", type: "image", at: "2026-10-25T08:30:00Z", targets: ["facebook"], files: ["dealer-post.png"], caption: "#a ".repeat(31) }, "more than 30 hashtags");
   bad({ id: "x", type: "reel", at: "2026-10-25T08:30:00Z", targets: ["facebook"], files: ["dealer-post.png"], caption: "a" }, "reel that is not mp4");
   bad({ id: "x", type: "image", at: "2026-10-25T08:30:00Z", targets: ["facebook"], files: ["dealer-post.png"], caption: "a", needs_live: "soon" }, "needs_live that is not a version");
+  fs.writeFileSync(path.join(kit, "plain.png"), "x");
+  let qbad = false; try { validate({ items: [{ id: "x", type: "image", at: "2026-10-25T08:30:00Z", targets: ["instagram"], files: ["plain.png"], caption: "a" }] }, kit, { queue: true }); } catch { qbad = true; }
+  ck(qbad, "a queued Instagram image without its JPEG copy is rejected");
 
   // auth failure: one alert, nothing posted, the run fails
   IO.env.META_PUBLISH_TOKEN = "EXPIRED";
