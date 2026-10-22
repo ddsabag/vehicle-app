@@ -1,0 +1,79 @@
+name: Social publish
+# Posts the weekly content kit to the Facebook Page and the Instagram business account (.github/scripts/social-publish.mjs, Meta Graph API).
+# The queue is the public branch social-queue (kits/<date>/autopost.json + media + state.json), written by content-factory/enqueue.mjs after
+# the kit passed its lint. Every 15 minutes: publish what is due, then commit state.json back. Nothing to do = a quick green run.
+# Two tokens, each optional: META_PUBLISH_TOKEN (Facebook: the לוחית Page's own token, which does not expire) and IG_PUBLISH_TOKEN
+# (Instagram business login, no Page link; refreshed weekly by the script, a new string kept sealed in state.json). A network without a
+# working token is reported and the other one still publishes.
+# Manual run: mode check (token, Page, Instagram account; one Telegram line), dry-run (what would be published now) or run.
+# The script alerts on its own (alert router, day) and ends green after a failed post; a crash is left to Failure alert.
+# An item that shows new app screens carries needs_live (e.g. "1.37"): it waits until Google Play shows that version published (read-only
+# call with the Ship tail key; this job installs no packages, node builtins only).
+on:
+  schedule:
+    - cron: "4,19,34,49 * * * *"   # off the full hour; GitHub drifts these by up to ~40 min, the script accepts up to 6 h late
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "check = test the connection, dry-run = list what is due, run = publish what is due"
+        type: choice
+        options: [check, dry-run, run]
+        default: check
+permissions:
+  contents: write   # state.json on social-queue; alert.mjs keeps its dedupe state on alert-state
+concurrency:
+  group: social-publish
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      MODE: ${{ github.event.inputs.mode || 'run' }}
+      META_PUBLISH_TOKEN: ${{ secrets.META_PUBLISH_TOKEN }}
+      IG_PUBLISH_TOKEN: ${{ secrets.IG_PUBLISH_TOKEN }}
+      META_PAGE_ID: ${{ vars.META_PAGE_ID }}
+      SHIP_SA_JSON: ${{ secrets.SHIP_SA_JSON }}   # read-only: is the app version an item shows (needs_live) published in Google Play
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Queue (social-queue branch)
+        id: q
+        run: |
+          if git clone -q --depth 1 --branch social-queue "https://github.com/${{ github.repository }}.git" queue 2>/dev/null; then echo "have=1" >> "$GITHUB_OUTPUT"; else echo "no social-queue branch yet"; fi
+      - name: Selftest
+        run: node .github/scripts/social-publish.mjs selftest
+      - name: Check the connection
+        if: ${{ env.MODE == 'check' }}
+        env:
+          QUEUE: queue   # state.json may hold the refreshed Instagram token
+        run: node .github/scripts/social-publish.mjs check
+      - name: Publish what is due
+        if: ${{ env.MODE != 'check' && steps.q.outputs.have == '1' }}
+        env:
+          QUEUE: queue
+          DRY_RUN: ${{ env.MODE == 'dry-run' && '1' || '' }}
+        run: node .github/scripts/social-publish.mjs run
+      - name: Save state.json on social-queue
+        if: ${{ always() && env.MODE == 'run' && steps.q.outputs.have == '1' }}
+        run: |
+          cd queue
+          git diff --quiet -- state.json 2>/dev/null && [ -z "$(git status --porcelain -- state.json)" ] && { echo "state unchanged"; exit 0; }
+          git add state.json
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Social publish state $(date -u +%FT%H:%MZ)"
+          remote="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          for i in 1 2 3; do
+            git push -q "$remote" HEAD:social-queue && exit 0
+            git pull -q --rebase "$remote" social-queue || true   # enqueue.mjs only adds kits/, so state.json never conflicts
+            sleep $((i * 5))
+          done
+          echo "could not save state.json"; exit 1

@@ -21,7 +21,8 @@
     { "parameterName": "src", "description": "every web event: where the visit came from (utm_source of /go/ links, share, google, direct...) (/live sources)" },
     { "parameterName": "role", "description": "car_lookup, tab_view: owner (car marked as theirs), saved (tracked or to buy) or none; splits owners from buyers in the 22.11 read" },
     { "parameterName": "to", "description": "nav: which bottom-bar screen was opened (search, cars, alerts)" },
-    { "parameterName": "mode", "description": "cars_mode: the list or table view of הרכבים שלי" }
+    { "parameterName": "mode", "description": "cars_mode: the list or table view of הרכבים שלי" },
+    { "parameterName": "camp", "description": "every web event of a visit that came by a tagged link: its topic (utm_campaign, ?c= of /go/ links) (/live sources, per post)" }
   ],
   "keyEvents": [
     { "eventName": "upgrade_open", "countingMethod": "ONCE_PER_EVENT" }
