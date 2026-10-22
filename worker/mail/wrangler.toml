@@ -11,7 +11,7 @@ keep_vars = true   # a deploy never deletes a dashboard variable (ALERT_ROUTE); 
 [observability]
 enabled = false   # Workers Logs would keep who wrote to support: not kept
 [vars]
-FORWARD_TO = "ddsabag@gmail.com"
+FORWARD_TO = "luchit.app.service@gmail.com"
 [[kv_namespaces]]
 binding = "ALERTS"
 id = "KV_NAMESPACE_ID"   # the id of luchit-alerts (luchit-uptime creates it); the Workers deploy workflow fills it in by title; not a secret

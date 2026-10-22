@@ -47,7 +47,7 @@ async function waitlist(req, env) {
 
   // best effort from here on: the lead is already saved
   try {
-    await brevo(env, "/smtp/email", { sender: { name: "לוחית", email: "updates@luchit.app" }, to: [{ email: env.NOTIFY_TO || "ddsabag@gmail.com" }], replyTo: { email },
+    await brevo(env, "/smtp/email", { sender: { name: "לוחית", email: "updates@luchit.app" }, to: [{ email: env.NOTIFY_TO || "luchit.app.service@gmail.com" }], replyTo: { email },
       subject: `ליד עסקי חדש: ${type}`,
       htmlContent: `<div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.7"><b>פנייה חדשה מרשימת ההמתנה העסקית</b><br>שם: ${esc(name)}<br>עסק: ${esc(company)}<br>סוג: ${esc(type)}<br>עניין: ${esc(interest) || "לא צוין"}<br>אימייל: ${esc(email)}<br>טלפון: ${esc(phone) || "לא צוין"}<br>הודעה: ${esc(notes) || "ללא"}</div>` });
   } catch (e) { console.log("notify failed", String(e).slice(0, 200)); }

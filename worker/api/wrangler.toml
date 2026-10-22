@@ -8,7 +8,7 @@ keep_vars = true   # no [vars] block at all: the values live in the dashboard, s
 # Dashboard variables (Settings > Variables and Secrets, type Text), read by worker.js:
 #   BREVO_LIST_ID       numeric id of the "Magazine" list in Brevo
 #   BREVO_B2B_LIST_ID   numeric id of the business waitlist in Brevo
-#   NOTIFY_TO           where a business lead is mailed (unset = the owner's Gmail, the default in worker.js)
+#   NOTIFY_TO           where a business lead is mailed (unset = the support inbox luchit.app.service@gmail.com, the default in worker.js)
 #   GA_MEASUREMENT_ID   optional, G-XXXXXXXXXX of the web data stream, together with the secret GA_API_SECRET
 # Secrets (never in this file): BREVO_KEY; optional CONFIRM_SECRET and GA_API_SECRET.
 [observability]
