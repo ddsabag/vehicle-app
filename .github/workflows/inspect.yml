@@ -3,8 +3,8 @@ on:
   workflow_dispatch:
     inputs:
       plates:
-        description: "Comma-separated plates"
-        default: "75350003,46644401"
+        description: "Plates: b64:<base64 of a comma-separated list> (the run log and inspect-output are public); empty = the app's example plate"
+        default: ""
       script:
         description: "Script in .github/scripts"
         default: "inspect.mjs"

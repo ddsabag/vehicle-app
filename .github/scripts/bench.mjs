@@ -4,7 +4,8 @@ const html = fs.readFileSync("index.html", "utf8");
 const block = html.slice(html.indexOf("const PLATE_SETS"), html.indexOf("const MODEL_SETS"));
 const sets = [...block.matchAll(/\{key:"([^"]+)",\s*id:"([0-9a-f-]{36})"([^}]*)\}/g)].map(m => ({key: m[1], id: m[2], field: (m[3].match(/field:"([^"]+)"/) || [])[1] || "mispar_rechev", pad: /pad:true/.test(m[3])}));
 const API = "https://data.gov.il/api/3/action/datastore_search";
-const plates = (process.env.PLATES || "75350003,46644401").split(",");
+const PLATES_RAW = process.env.PLATES || "38548003";   // the app's public example plate (EXAMPLE_PLATE); others come as "b64:<base64 of a comma-separated list>"
+const plates = (PLATES_RAW.startsWith("b64:") ? Buffer.from(PLATES_RAW.slice(4), "base64").toString("utf8") : PLATES_RAW).split(",").map(s => s.replace(/\D/g, "")).filter(Boolean);
 const ms = () => Number(process.hrtime.bigint() / 1000000n);
 async function q(id, filters, limit = 100, extra = {}) {
   const t = ms();
@@ -15,8 +16,8 @@ async function q(id, filters, limit = 100, extra = {}) {
   } catch (e) { return {ms: ms() - t, status: "ERR " + e.message, rows: -1, bytes: 0}; }
 }
 const med = a => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)];
-for (const plate of plates) {
-  console.log(`\n===== plate ${plate} =====`);
+for (const [pi, plate] of plates.entries()) {
+  console.log(`\n===== plate #${pi + 1} =====`);   // the number itself never goes to the log
   console.log("-- one request per dataset, string form vs number form (3 reps each), median ms");
   for (const s of sets) {
     const a = [], b = []; let ra = 0, rb = 0;

@@ -1,5 +1,6 @@
 name: Web watch
 # Daily PageSpeed (mobile, median of 3) and real-user LCP for the split web build. Silent unless the rollback rule trips (see analytics/web_watch.py).
+# Then the pipe canary (.github/scripts/pipe-canary.mjs): yesterday in GA4 against Cloudflare, silent unless the analytics pipe looks broken.
 on:
   schedule:
     - cron: "25 7 * * *"
@@ -35,6 +36,24 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # flash.mjs: the alert on the /live dashboard
         run: python analytics/web_watch.py state ${{ inputs.dry_run && '--dry' || '' }}
+      - uses: actions/setup-node@v7
+        if: ${{ !cancelled() }}
+        with: { node-version: 20 }
+      # never costs the speed watch or its saved state: a failed canary shows as a failed step, the job goes on
+      - name: Pipe canary (analytics)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+        run: node .github/scripts/pipe-canary.mjs
       - name: Save state
         if: ${{ !inputs.dry_run }}
         run: |

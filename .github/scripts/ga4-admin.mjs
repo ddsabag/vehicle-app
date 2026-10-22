@@ -358,6 +358,23 @@ async function selftest() {
     for (const p of ["kind", "dur", "partial", "make", "model", "fuel", "term", "tab", "from", "via", "exp", "exp_v"])
       ok(real.dims.some(d => d.parameterName === p) && (reports.includes(`customEvent:${p}`) || reports.includes(`"${p}"`)), `report parameter ${p} is listed`);
 
+    // the analytics contract: what the app sends, what the web endpoint passes on and what the reports read stay one list. A web event missing
+    // from WEB_EVENTS is dropped by worker/api without a word, a parameter name outside [a-z_] is dropped there too, and a report that asks GA4
+    // for a parameter it has no dimension for gets a 400 for the whole query. Runs in alert-check and in ui-guardian (every index.html change).
+    const api = read("worker/api/worker.js"), webEv = new Set([...((api.match(/WEB_EVENTS = new Set\(\[([^\]]+)\]/) || [])[1] || "").matchAll(/"([a-z_0-9]+)"/g)].map(m => m[1]));
+    const APP_ONLY = ["app_return", "first_save", "update_prompt", "update_start", "update_done"];   // sent only where window.AndroidApp is (install cohort, in-app update)
+    const sentEv = new Set([...html.matchAll(/\btrack\(([^,)]*)/g)].flatMap(m => [...m[1].matchAll(/"([a-z_0-9]+)"/g)].map(x => x[1])));
+    ok(webEv.size >= 30 && sentEv.size >= 30, `contract: read ${webEv.size} WEB_EVENTS and ${sentEv.size} events index.html sends`);
+    for (const e of sentEv) ok(webEv.has(e) || APP_ONLY.includes(e), `contract: index.html sends ${e}; add it to WEB_EVENTS in worker/api/worker.js (or to APP_ONLY here if only the app sends it)`);
+    for (const e of APP_ONLY) ok(sentEv.has(e) && !webEv.has(e), `contract: APP_ONLY ${e} is still sent and is not a web event`);
+    const keys = [...html.matchAll(/\btrack\([^,)]*,\s*\{([^{}]*)\}/g)].flatMap(m => [...m[1].matchAll(/(?:^|,)\s*([A-Za-z_$][\w$]*)\s*:/g)].map(x => x[1]));
+    ok(keys.length >= 40, `contract: read ${keys.length} parameter names`);
+    for (const k of new Set(keys)) ok(/^[a-z_]{1,24}$/.test(k), `contract: parameter ${k} fits worker/api's [a-z_]{1,24}, or the web drops it`);
+    const readers = fs.readdirSync(new URL("analytics/", root)).filter(f => f.endsWith(".py")).map(f => read("analytics/" + f)).join("\n") + read("worker/live/worker.js");
+    const readP = new Set([...readers.matchAll(/customEvent:([A-Za-z_]+)/g), ...readers.matchAll(/by_param\([^,()]+,\s*"([a-z_]+)"/g)].map(m => m[1]));
+    ok(readP.size >= 6, `contract: read ${readP.size} parameters the reports ask for`);
+    for (const p of readP) ok(real.dims.some(d => d.parameterName === p), `contract: a report reads ${p}; register it in analytics/ga4-admin.json`);
+
     // secrets never printed
     for (const [o, env] of [[{}, {}], [{ fail: { create: [403] } }, {}], [{ fail: { token: [400] } }, {}], [{}, { MODE: "dry" }]]) {
       W = await run(o, env);

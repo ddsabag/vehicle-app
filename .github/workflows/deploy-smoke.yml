@@ -10,7 +10,7 @@ on:
     branches: [main]
 permissions:
   contents: write   # flash() writes the flashes branch the /live dashboard reads
-  actions: read     # to see whether the deploy job ran
+  actions: write    # to see whether the deploy job ran, and to start the data truth audit after a deploy that changed the app page
 jobs:
   smoke:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
@@ -45,3 +45,24 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      # The web has no staged rollout: a deploy that changed index.html reaches everyone at once, and the daily data truth audit would read it
+      # only the next morning. So such a deploy starts the audit now, on a sample of its own (12 active cars and 6 from the other registers,
+      # about 25 minutes, alerts through the router as truth:<groups>), without replacing the morning's record. Started even when the smoke
+      # check failed: the two look at different things.
+      - name: Real cars on the new page
+        if: ${{ always() && steps.gate.outputs.go == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN: ${{ github.run_id }}
+        run: |
+          prev=$(gh run list -R "$GITHUB_REPOSITORY" --workflow "Web deploy (build)" --branch main --status success --limit 10 --json headSha --jq "[.[].headSha | select(. != \"$HEAD_SHA\")][0] // \"\"") || prev=""
+          changed=yes
+          if [ -n "$prev" ]; then
+            files=$(gh api "repos/$GITHUB_REPOSITORY/compare/$prev...$HEAD_SHA" --jq '[.files[].filename] | join(" ")') || files="index.html"
+            case " $files " in *" index.html "*) changed=yes;; *) changed=no;; esac
+          fi
+          echo "index.html changed in this deploy: $changed"
+          if [ "$changed" = yes ]; then
+            gh workflow run data-truth.yml -R "$GITHUB_REPOSITORY" --ref main -f job=audit -f "queries=n=12;rare=6;minutes=25;seed=$RUN" -f publish=false && echo "data truth audit started"
+          fi

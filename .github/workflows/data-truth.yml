@@ -27,6 +27,10 @@ on:
         description: "Print the alert instead of sending it (the files are still published)"
         type: boolean
         default: false
+      publish:
+        description: "Publish latest.json and the day in history.json (off for the check after a web deploy, so the morning's sample stays the day's record)"
+        type: boolean
+        default: true
 permissions:
   contents: write   # the data-truth branch
 concurrency:
@@ -57,7 +61,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       - name: Publish on the data-truth branch
-        if: ${{ always() && hashFiles('out/latest.json') != '' }}
+        if: ${{ always() && hashFiles('out/latest.json') != '' && (github.event_name != 'workflow_dispatch' || inputs.publish) }}
         run: .github/scripts/data-truth-publish.sh "audit" out/latest.json out/history.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

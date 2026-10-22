@@ -10,14 +10,17 @@ const get = async (act, params) => {
   if (!r.ok) throw new Error(act + " HTTP " + r.status);
   return (await r.json()).result;
 };
-const plates = (process.env.PLATES || "75350003,46644401").split(",");
-for (const plate of plates) {
-  console.log(`\n===== plate ${plate} =====`);
+const PLATES_RAW = process.env.PLATES || "38548003";   // the app's public example plate (EXAMPLE_PLATE); others come as "b64:<base64 of a comma-separated list>"
+const plates = (PLATES_RAW.startsWith("b64:") ? Buffer.from(PLATES_RAW.slice(4), "base64").toString("utf8") : PLATES_RAW).split(",").map(s => s.replace(/\D/g, "")).filter(Boolean);
+for (const [pi, plate] of plates.entries()) {
+  console.log(`\n===== plate #${pi + 1} =====`);   // the number itself never goes to the log
   for (const s of sets) {
     for (const v of [plate, Number(plate), plate.padStart(8, "0")]) {
       try {
         const res = await get("datastore_search", {resource_id: s.id, filters: JSON.stringify({[s.field]: v}), limit: "3"});
-        if (res.records.length) { console.log(`--- ${s.key} (${s.id}) ${s.field}=${JSON.stringify(v)} -> ${res.records.length} rows`); console.log(JSON.stringify(res.records[0])); break; }
+        // the row with its plate and VIN masked: the log and the inspect-output branch are public
+        const row = () => JSON.stringify(res.records[0]).split(String(Number(plate))).join("#plate").replace(/"(misgeret|mispar_shilda|vin)":"[^"]*"/gi, '"$1":"#"');
+        if (res.records.length) { console.log(`--- ${s.key} (${s.id}) ${s.field}=#plate -> ${res.records.length} rows`); console.log(row()); break; }
       } catch (e) { console.log(`--- ${s.key}: ${e.message}`); break; }
     }
   }
