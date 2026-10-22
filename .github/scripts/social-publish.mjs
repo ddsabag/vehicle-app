@@ -108,11 +108,26 @@ export async function accounts(token) {
   const ig = page.instagram_business_account || null;
   return { page: { id: page.id, name: page.name, token: page.access_token || token }, ig: ig ? { id: ig.id, username: ig.username } : null, userToken: token, kind: "user" };
 }
-// a secret pasted with a line break, spaces or the JSON quotes around it still works
-export const secret = name => String(IO.env[name] || "").trim().replace(/^(["'])(.*)\1$/s, "$2").trim();
+// A secret pasted with a line break, spaces or quotes around it still works, and so does one pasted with more around it (e.g. the whole
+// Graph API Explorer answer of me/accounts): the token is taken out of it (the לוחית Page's, when there are several).
+const MESSY = /[\s"'{}:,]/;
+export function secretInfo(name) {
+  const raw = String(IO.env[name] || ""), t = raw.trim().replace(/^(["'])(.*)\1$/s, "$2").trim();
+  if (!MESSY.test(t)) return { token: t, how: t === raw ? "clean" : "trimmed" };
+  let found = [];
+  try {
+    const walk = o => { if (o && typeof o === "object") { if (typeof o.access_token === "string") found.push(o); Object.values(o).forEach(walk); } };
+    walk(JSON.parse(t));
+  } catch { found = [...t.matchAll(/"access_token"\s*:\s*"([^"]+)"/g)].map(m => ({ access_token: m[1] })); }
+  if (!found.length) found = [...new Set(t.match(/\b(?:EAA|IG)[A-Za-z0-9_-]{40,}/g) || [])].map(x => ({ access_token: x }));
+  const pick = found.length === 1 ? found[0] : found.find(o => /לוחית|luchit/i.test(o.name || ""));
+  return pick && !MESSY.test(pick.access_token) ? { token: pick.access_token, how: "extracted" } : { token: t, how: "messy" };
+}
+export const secret = name => secretInfo(name).token;
 // what a refused token looks like, without showing it: length, the usual prefix, stray characters
-const shape = (name, prefix) => { const raw = String(IO.env[name] || ""), t = secret(name);
-  return `${t.length} תווים, ${t.startsWith(prefix) ? `מתחיל ב-${prefix} כמו שצריך` : `לא מתחיל ב-${prefix}`}${/[\s"'{}:,]/.test(t) ? ", יש בו רווחים, מירכאות או סימנים שלא שייכים לטוקן" : ""}${raw !== t ? " (רווחים או מירכאות בקצוות הוסרו)" : ""}`; };
+const shape = (name, prefix) => { const { token: t, how } = secretInfo(name);
+  return `${t.length} תווים, ${t.startsWith(prefix) ? `מתחיל ב-${prefix} כמו שצריך` : `לא מתחיל ב-${prefix}`}` +
+    ({ messy: ", יש בו רווחים, מירכאות או סימנים שלא שייכים לטוקן", extracted: " (נלקח מתוך טקסט ארוך יותר שהודבק)", trimmed: " (רווחים או מירכאות בקצוות הוסרו)" }[how] || ""); };
 // Both networks from the tokens that exist: {page, ig: {id, username, token, base, login}, errs: {facebook?, instagram?}}
 // igToken: the Instagram token to use (igToken(state): the refreshed one sealed in state.json, else the secret)
 export async function connect({ igToken: igT = secret("IG_PUBLISH_TOKEN") } = {}) {
@@ -720,6 +735,10 @@ async function selftest() {
     IO.env.META_PUBLISH_TOKEN = "EAAbad token"; logs.length = 0;
     const c2 = await check();
     ck(!c2.ok && logs.some(l => l.includes("12 תווים") && l.includes("מתחיל ב-EAA") && l.includes("רווחים")) && !logs.join("\n").includes("EAAbad"), "a refused token is described by its shape, never shown");
+    IO.env.META_PUBLISH_TOKEN = JSON.stringify({ data: [{ name: "אחר", access_token: "OTHER", id: "1" }, { name: "לוחית", access_token: "PAGE-TOKEN", id: "111" }], paging: { cursors: { before: "a", after: "b" } } }, null, 2);
+    ck(secretInfo("META_PUBLISH_TOKEN").how === "extracted" && (await connect()).page?.id === "111", "the whole me/accounts answer pasted as the secret: the לוחית Page's token is taken out of it");
+    IO.env.META_PUBLISH_TOKEN = '"access_token": "EAAxyz' + "1".repeat(60) + '",';
+    ck(secret("META_PUBLISH_TOKEN") === "EAAxyz" + "1".repeat(60), "a token pasted with its JSON key around it is taken out of it");
     IO.env.META_PUBLISH_TOKEN = "PAGE-TOKEN";
     delete IO.env.QUEUE;
     IO.env.IG_PUBLISH_TOKEN = "IG-OTHER";
