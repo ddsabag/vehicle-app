@@ -511,7 +511,7 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .bulk-acts{display:flex;flex-direction:column;gap:8px;margin-top:8px}
 .rep-brand.biz{background:var(--soft,#f2f4f8);border-bottom:3px solid #1d4ea8;border-radius:10px}.rep-brand.biz img{width:48px;height:48px;object-fit:contain;border-radius:8px;box-shadow:none}.rep-brand.biz b{font-size:1.3rem}
 .ft{width:100%;border-collapse:collapse;font-size:.9rem}.ft td,.ft th{padding:8px 4px;border-top:1px solid var(--line);text-align:center}.ft td:first-child,.ft th:first-child{text-align:start}.ft th{font-size:.78rem;color:var(--muted);font-weight:600;border-top:0}button.lnk{border:0;background:none;padding:0;font:inherit;font-weight:700;color:var(--accent);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
-.ft button.lnk small{display:block}.ft td.svl small{display:block;color:var(--muted);font-size:.75rem}.ft button.lnk b{white-space:nowrap}.ft td small.rc{display:block;font-size:.75rem;font-weight:700}.ft button.lnk{border:0;background:none;color:inherit;text-decoration:none;font-weight:inherit;font:inherit;text-align:start;padding:0;display:block}
+.ft button.lnk small{display:block}.ft td.svl small{display:block;color:var(--muted);font-size:.75rem}.ft button.lnk b{white-space:nowrap}.ft td small.rc{display:block;font-size:.75rem;font-weight:700}.ft button.lnk{border:0;background:none;color:inherit;text-decoration:none;font-weight:inherit;font:inherit;text-align:start;padding:0;display:block;min-height:40px}
 .mk-seg{margin-bottom:10px}.mk-chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 2px}
 .mk-chips button{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:999px;padding:6px 12px;font-weight:700}
 .mk-chips button[aria-pressed="true"]{background:var(--fg);color:var(--card);border-color:var(--fg)}
@@ -686,10 +686,10 @@ html.web main#out > .chead{grid-column:1/-1}
 .dot.ok{color:var(--t-green);background:var(--t-green)}.dot.warn{color:var(--t-amber);background:var(--t-amber)}.dot.bad{color:var(--t-red);background:var(--t-red)}
 /* list or table: one switch, the same cars */
 .vseg{display:grid;grid-template-columns:1fr 1fr;padding:4px;border-radius:14px;background:color-mix(in srgb,var(--accent) 10%,transparent)}
-.vseg button{border:0;background:none;height:36px;border-radius:11px;font-weight:800;color:var(--accent)}
+.vseg button{border:0;background:none;height:40px;border-radius:11px;font-weight:800;color:var(--accent)}
 .vseg button[aria-selected=true]{background:var(--accent);color:var(--accent-fg);box-shadow:0 6px 16px -8px var(--accent)}
 .fchips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding-inline:16px}.fchips::-webkit-scrollbar{display:none}
-.fchips button{flex:0 0 auto;height:34px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted);font-weight:700;font-size:.9rem}
+.fchips button{flex:0 0 auto;height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted);font-weight:700;font-size:.9rem}
 .fchips button[aria-pressed=true]{background:var(--fg);border-color:var(--fg);color:var(--bg)}
 /* a saved car: no stock picture; the card shows the one thing that matters for this car now */
 .ccards{display:grid;gap:12px}
@@ -751,8 +751,8 @@ body.kb .cfab{display:none}
 .aitem.warn .ai{background:var(--warn-bg);color:var(--warn)}.aitem.info .ai{background:var(--soft);color:var(--muted)}
 .aitem .t{flex:1;min-width:0;display:grid;gap:2px}.aitem .t small{color:var(--muted)}
 .aitem .acts{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}
-.aitem .acts .mini-plate{font-size:.85rem;padding:1px 6px 1px 3px;border:0;cursor:pointer}
-.aitem .acts .ago{border:0;background:none;color:var(--accent);font-weight:800;padding:6px 2px;margin-inline-start:auto}
+.aitem .acts .ap,.arow .ap{border:0;background:none;padding:0;min-height:40px;display:flex;align-items:center;cursor:pointer;flex:0 0 auto}.aitem .acts .mini-plate,.arow .ap .mini-plate{font-size:.85rem;padding:1px 6px 1px 3px;border:0}
+.aitem .acts .ago{border:0;background:none;color:var(--accent);font-weight:800;min-height:40px;padding:0 8px;margin-inline-start:auto}
 .allok{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:18px;padding:16px;box-shadow:var(--shadow)}
 .allok .ai{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto;background:var(--ok-bg);color:var(--ok)}
 .arows{display:grid;background:var(--card);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
@@ -5914,10 +5914,10 @@ function renderAlerts(){
   if (!all.length) html.push(emptyCard("אין עדיין רכבים לעקוב אחריהם", "bell", "blue", `<p style="margin:0 0 10px">שומרים רכב בכוכב שבראש הדוח, ומכאן רואים ריקול פתוח וטסט שמתקרב${alertsSupported() ? ", ומקבלים התראה לטלפון" : ""}.</p><button type="button" class="link-btn" data-act="addCar">${ico("search")}בדיקת רכב</button>`));
   else if (!items.length) html.push(`<div class="allok"><span class="ai">${ico("check")}</span><div><b>הכול תקין</b><br><small style="color:var(--muted)">אין ריקול פתוח ואין טסט בחודש הקרוב. נתריע כשמשהו ישתנה.</small></div></div>`);
   else html.push(`<div class="aitems">${items.map((x, i) => `<div class="aitem ${x.lv}"><span class="ai">${ico(x.go === "cal" ? "clock" : "alert")}</span><div class="t"><b>${esc(x.t)}</b><small>${esc(x.b)}</small>
-      <div class="acts"><button type="button" class="mini-plate" data-open="${x.s.plate}" aria-label="פתיחת הרכב ${fmtPlate(x.s.plate)}"><i></i>${fmtPlate(x.s.plate)}</button><button type="button" class="ago" data-aitem="${i}">${x.g || "פרטים"}</button></div></div></div>`).join("")}</div>`);
+      <div class="acts"><button type="button" class="ap" data-open="${x.s.plate}" aria-label="פתיחת הרכב ${fmtPlate(x.s.plate)}"><span class="mini-plate"><i></i>${fmtPlate(x.s.plate)}</span></button><button type="button" class="ago" data-aitem="${i}">${x.g || "פרטים"}</button></div></div></div>`).join("")}</div>`);
   // what changed lately: the daily check's log of each car, the last two weeks
   const since = Date.now() - 14 * 864e5, ev = all.flatMap(s => (s.events || []).filter(e => e.t >= since).map(e => ({...e, s}))).sort((a, b) => b.t - a.t).slice(0, 6);
-  if (ev.length) html.push(`<div class="qhead">עדכונים אחרונים</div><div class="arows">${ev.map(e => `<div class="arow"><div class="t"><b>${esc(e.x)}</b><small>${esc(e.s.nick || e.s.title)} · ${esc(dmy(e.t))}</small></div><button type="button" class="mini-plate" data-open="${e.s.plate}" aria-label="פתיחת הרכב"><i></i>${fmtPlate(e.s.plate)}</button></div>`).join("")}</div>`);
+  if (ev.length) html.push(`<div class="qhead">עדכונים אחרונים</div><div class="arows">${ev.map(e => `<div class="arow"><div class="t"><b>${esc(e.x)}</b><small>${esc(e.s.nick || e.s.title)} · ${esc(dmy(e.t))}</small></div><button type="button" class="ap" data-open="${e.s.plate}" aria-label="פתיחת הרכב ${fmtPlate(e.s.plate)}"><span class="mini-plate"><i></i>${fmtPlate(e.s.plate)}</span></button></div>`).join("")}</div>`);
   if (all.length) {
     if (alertsSupported()) {
       let st = "off"; try { st = window.AndroidApp.alertsState(); } catch {}
