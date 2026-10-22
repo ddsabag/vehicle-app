@@ -2704,6 +2704,7 @@ const recTabOf = D => D.kind === "model" || D.recalls.length ? "ריקולים" 
 let lookupAgain = false;
 async function lookup(raw){
   const again = lookupAgain; lookupAgain = false;
+  const ot = openTab; openTab = null;
   const plate = digits(raw).replace(/^0+(?=\d{5})/, "");
   const out = $("#out");
   if (plate.length < 5 || plate.length > 8) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true">🔢</div>מספר רישוי צריך להכיל 5 עד 8 ספרות.</div>`; return; }
@@ -2713,7 +2714,7 @@ async function lookup(raw){
   $("#plate").value = fmtPlate(plate); $("#plate").blur();
   $("#go").disabled = true;
   if (document.body.dataset.screen === "car") setScreen("home");   // a new plate from a car page (shared text, a launcher shortcut): the band shows what is being looked up
-  try { history.replaceState(null, "", "#" + plate); } catch {}
+  try { const u = new URL(location.href); u.searchParams.delete("nk"); history.replaceState(null, "", u.pathname + u.search + "#" + plate); } catch {}
   out.innerHTML = loadingHtml(plate);
   // a slow ministry server: say so after 3.5 s instead of leaving a silent bar
   const t0 = Date.now();
@@ -2727,12 +2728,12 @@ async function lookup(raw){
   if (signal.aborted && !timedOut) return;
   await side;
   if (signal.aborted && !timedOut) return;
-  if (D.offline || (D.notFound && isSaved(plate))) { const sn = snapGet(plate); if (sn) { track("lookup_from_cache"); current = sn; currentTab = "overview"; renderResult(); focusResult(); window.scrollTo({top: 0}); return; } }
+  if (D.offline || (D.notFound && isSaved(plate))) { const sn = snapGet(plate); if (sn) { track("lookup_from_cache"); current = sn; currentTab = ot && ot.p === plate ? ot.t : "overview"; renderResult(); focusResult(); window.scrollTo({top: 0}); return; } }
   if (D.sourceDown) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true">🛠️</div>מאגר הרכבים של משרד התחבורה לא מחזיר נתונים כרגע, בלי קשר למספר שהקלדתם. זו תקלה אצל המשרד. נסו שוב מאוחר יותר.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; track("lookup_failed", {kind: "source_down", dur: durB}); return; }
   if (D.offline || D.notFound) track("lookup_failed", {kind: D.sourceDown ? "source_down" : D.offline ? "offline" : "not_found", dur: durB});
   if (D.offline) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true">📡</div>${navigator.onLine === false ? "אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב." : "מאגרי משרד התחבורה לא עונים כרגע (תקלה או עומס אצל המשרד, לא אצלכם). נסו שוב בעוד כמה דקות."}</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; return; }
   if (D.notFound) { out.innerHTML = `<div class="msg edge"><div class="edge-i" aria-hidden="true">🔍</div>לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.<p class="note" style="margin:8px 0 0">בדקנו את כל מאגרי משרד התחבורה, כולל רכבים שירדו מהכביש, דו-גלגלי ויבוא אישי. רכב שעלה לכביש בימים האחרונים יופיע אחרי העדכון הבא של המאגר.</p></div>`; return; }
-  current = D; currentTab = openTab && openTab.p === D.plate ? openTab.t : "overview"; openTab = null;
+  current = D; currentTab = ot && ot.p === D.plate ? ot.t : "overview";
   snapPut(D); savedSync(D);
   renderResult(); focusResult();
   track(again ? "lookup_repeat" : "car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: D.errs && D.errs.length ? 1 : 0, role: roleOf(D), ...lookupFacts(D)});
@@ -3288,7 +3289,7 @@ function fileTiles(D, n, est){
   if (!maintOk()) svc = tile("", "טיפול", "PRO", "", `data-act="proInfo"`);
   else if (n && n.due) { const d = dayDiff(t0, n.due); svc = d < 0 ? tile("bad", "טיפול", "באיחור", dShort(n.due)) : tile(d <= 30 ? "warn" : "ok", "טיפול", aheadWord(d), n.dueKm ? `${fmtN(n.dueKm)} ק״מ` : dShort(n.due)); }
   else if (est) svc = tile("", "טיפול", fmtN(est), "ק״מ, הערכה");
-  else svc = tile("", "טיפול", "לא נרשם", "רישום טיפול", `data-cf="svc"`);
+  else { const l = svcLast(D.plate), ld = l && toDate(l.d); svc = ld ? tile("", "טיפול", dShort(ld), "האחרון שנרשם") : tile("", "טיפול", "לא נרשם", "רישום טיפול", `data-cf="svc"`); }
   const ins = docExpAll().filter(x => x.plate === D.plate && x.cat === "ביטוח" && toDate(x.exp)).sort((a, b) => a.exp < b.exp ? 1 : -1)[0];
   const insD = ins ? dayDiff(t0, toDate(ins.exp)) : 0;
   const insT = !ins ? tile("", "ביטוח", "לא נשמר", "הוספת פוליסה", `data-cf="ins"`)
@@ -3362,9 +3363,9 @@ async function roadDocs(D){
   let list = [];
   try { list = (await DocDB.byPlate(D.plate)).filter(x => ROAD_CATS.includes(x.cat)).sort((a, b) => ROAD_CATS.indexOf(a.cat) - ROAD_CATS.indexOf(b.cat) || b.at - a.at); } catch {}
   track("road_docs", {n: list.length});
-  if (!list.length) { if (currentTab !== "file") { currentTab = "file"; renderResult(); } openDocsFold("רישיון רכב"); toast("שמרו כאן צילום של רישיון הרכב ושל הביטוח, והם ייפתחו גם בלי אינטרנט"); return; }
+  if (!list.length) { if (simpleOn()) { try { localStorage.setItem("simpleView", "0"); } catch {} currentTab = ""; } if (currentTab !== "file") { currentTab = "file"; renderResult(); } openDocsFold("רישיון רכב"); toast("שמרו כאן צילום של רישיון הרכב ושל הביטוח, והם ייפתחו גם בלי אינטרנט"); return; }
   if (list.length === 1) { openDoc(list[0]); return; }
-  const el = document.createElement("div"); el.className = "sheet"; el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); el.setAttribute("aria-label", "מסמכים לנסיעה");
+  const el = document.createElement("div"); el.className = "sheet"; el.id = "roadSheet"; el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); el.setAttribute("aria-label", "מסמכים לנסיעה");
   el.innerHTML = `<div class="sheet-in"><div class="sheet-head"><h2>מסמכים לנסיעה</h2><button class="icon-btn" type="button" data-road="x" aria-label="סגירה">${ico("x")}</button></div><div class="cf-road-list">${list.map(x => `<button type="button" class="link-btn" data-road="${x.id}">${ico(x.type === "application/pdf" ? "doc" : "image")}<span>${esc(x.cat)}${x.exp ? ` · בתוקף עד ${esc(fmtDate(x.exp))}` : ""}</span></button>`).join("")}</div></div>`;
   el.addEventListener("click", ev => {
     const b = ev.target.closest("[data-road]");
@@ -4734,7 +4735,9 @@ $("#out").addEventListener("click", ev => {
     track("link_out", {kind: (b.dataset.copyfirst ? "importer" : "other")}); openExternal(b.dataset.url); return;
   }
   if (b.dataset.open) { run(b.dataset.open); return; }
-  if (b.dataset.bell) { const list = store.get("savedVehicles"), it = list.find(x => x.plate === b.dataset.bell); if (it && it.alerts === false && list.filter(x => x.alerts !== false).length >= alertCap()) { toast(`התראות ליותר מ-${alertCap()} רכבים זמינות בחבילה גבוהה יותר`); return; } if (it) { it.alerts = it.alerts === false; track("alerts_toggle", {on: it.alerts !== false ? "1" : "0"}); store.set("savedVehicles", list); toast(it.alerts === false ? "ההתראות לרכב הזה כבויות" : "תקבלו התראות על הרכב הזה"); refreshView(); } return; }
+  if (b.dataset.bell) { const list = store.get("savedVehicles"), it = list.find(x => x.plate === b.dataset.bell); // the switch as drawn: on only for a car inside the plan's alert slots
+    const on = !!it && it.alerts !== false && (!PRO_LOCK || trackedOk(it.plate));
+    if (it && !on && list.filter(x => x.alerts !== false).length >= alertCap()) { toast(`התראות ליותר מ-${alertCap()} רכבים זמינות בחבילה גבוהה יותר`); return; } if (it) { it.alerts = !on; track("alerts_toggle", {on: it.alerts !== false ? "1" : "0"}); store.set("savedVehicles", list); toast(it.alerts === false ? "ההתראות לרכב הזה כבויות" : "תקבלו התראות על הרכב הזה"); refreshView(); } return; }
   if (b.dataset.unsave) { store.set("savedVehicles", store.get("savedVehicles").filter(x => x.plate !== b.dataset.unsave)); refreshView(); return; }
   if (b.dataset.nick) { nickEdit(b); return; }
   if (b.dataset.nicksave) { const i = b.parentElement.querySelector("input"); nickSave(b.dataset.nicksave, i ? i.value : ""); return; }
@@ -4841,7 +4844,8 @@ function setLand(on, redraw = true){
 }
 function closeCompare(){ if (land) setLand(false, false); inCompare = false; if (current) renderResult(); else if (view === "cars") renderCars(); else renderHome(); window.scrollTo({top: 0}); }
 // closing the picker on an empty comparison goes back to where the user came from
-function hideCmpSheet(){ $("#compareSheet").hidden = true; if (inCompare && !cmp.length && current) closeCompare(); }
+// a picker closed with nothing chosen goes back to where it was opened, not to an empty comparison
+function hideCmpSheet(){ $("#compareSheet").hidden = true; if (inCompare && !cmp.length) closeCompare(); }
 $("#closeCompareSheet").addEventListener("click", hideCmpSheet);
 $("#compareSheet").addEventListener("click", ev => { if (ev.target.id === "compareSheet") hideCmpSheet(); });
 
@@ -5734,11 +5738,12 @@ function syncNav(){
   const al = document.querySelector('#bnav [data-nav="alerts"]'); if (al) al.setAttribute("aria-label", n ? `התראות, ${pl(n, "פריט אחד", "פריטים")} דורשים פעולה` : "התראות");
 }
 function navTo(v, opts = {}){
-  if (ctrl && v !== "search") { ctrl.abort(); ctrl = null; $("#go").disabled = false; }
-  if (v === view && document.body.dataset.screen === (v === "search" ? "home" : v) && !opts.filter) {
+  // the tab the user is on, drawn and settled (not a car loading or an error in its place): a tap scrolls up
+  if (v === view && $({search: "#homeMark", cars: "#carsHead", alerts: "#alertsHead"}[v] || "#homeMark") && !opts.filter) {
     if (v === "search" && window.scrollY < 40) { $("#plate").focus(); return; }
     window.scrollTo({top: 0, behavior: "smooth"}); return;
   }
+  if (ctrl) { ctrl.abort(); ctrl = null; $("#go").disabled = false; }
   track("nav", {to: v, via: opts.via || "bar"});
   if (v === "cars") { carsSel = null; if (opts.filter) carsFilter = opts.filter; view = v; renderCars(); }
   else if (v === "alerts") { view = v; renderAlerts(); }
@@ -5762,7 +5767,8 @@ function leaveCar(){
 }
 document.getElementById("bnav").addEventListener("click", ev => { const b = ev.target.closest("[data-nav]"); if (b) navTo(b.dataset.nav); });
 // the keyboard covers the bottom of the screen: the bar steps aside while a field has focus
-document.addEventListener("focusin", ev => { if (ev.target.matches && ev.target.matches("input:not([type=checkbox]):not([type=radio]):not([type=file]),textarea,select")) document.body.classList.add("kb"); });
+const touchKb = () => { try { return matchMedia("(pointer: coarse)").matches; } catch { return true; } };
+document.addEventListener("focusin", ev => { if (touchKb() && ev.target.matches && ev.target.matches("input:not([type=checkbox]):not([type=radio]):not([type=file]),textarea,select")) document.body.classList.add("kb"); });
 document.addEventListener("focusout", () => setTimeout(() => { const a = document.activeElement; if (!(a && a.matches && a.matches("input:not([type=checkbox]):not([type=radio]):not([type=file]),textarea,select"))) document.body.classList.remove("kb"); }, 60));
 
 /* a tool's header (compare, market, bulk check, plans): back to the tab it was opened from, and its name */
@@ -5790,12 +5796,14 @@ function carMenu(b){
 }
 const closeCarMenu = () => { const m = document.querySelector(".ch-menu"); if (m) { const b = m.parentElement.querySelector("[data-act=cmenu]"); m.remove(); if (b) b.setAttribute("aria-expanded", "false"); } };
 document.addEventListener("click", ev => { if (!ev.target.closest(".ch-m")) closeCarMenu(); }, true);
-document.addEventListener("keydown", ev => { if (ev.key === "Escape") closeCarMenu(); });
+document.addEventListener("keydown", ev => { if (ev.key === "Escape") { closeCarMenu(); const rs = $("#roadSheet"); if (rs) rs.remove(); } });
 // the header gets a hairline once the page scrolls under it
 addEventListener("scroll", () => { const h = $("#chead"); if (h) h.classList.toggle("sc", window.scrollY > 8); }, {passive: true});
 function nickInline(){
   const D = current, it = D && savedItem(D.plate); if (!it || $("#nickBar")) return;
-  $("#chead").insertAdjacentHTML("afterend", `<div class="nickbar" id="nickBar"><input class="inp" type="text" maxlength="${NICK_MAX}" enterkeyhint="done" aria-label="כינוי לרכב" placeholder="למשל: הרכב של אמא" value="${esc(it.nick || "")}"><button type="button" class="link-btn" data-nicksave="${esc(D.plate)}">שמירה</button></div>`);
+  // first in the car card's column: under the header on a phone, next to the car card on a wide screen
+  const bar = `<div class="nickbar" id="nickBar"><input class="inp" type="text" maxlength="${NICK_MAX}" enterkeyhint="done" aria-label="כינוי לרכב" placeholder="למשל: הרכב של אמא" value="${esc(it.nick || "")}"><button type="button" class="link-btn" data-nicksave="${esc(D.plate)}">שמירה</button></div>`, sd = $("#out > .side");
+  if (sd) sd.insertAdjacentHTML("afterbegin", bar); else $("#chead").insertAdjacentHTML("afterend", bar);
   const i = $("#nickBar input"); i.focus();
   i.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); nickSave(D.plate, i.value); } });
 }
@@ -5831,11 +5839,11 @@ function carCard(s){
     <b class="cc-t"><bdi>${esc(s.nick || s.title)}</bdi></b><small class="cc-s">${s.nick ? `<bdi>${esc(s.title)}</bdi> · ` : ""}${esc(s.sub || "")}</small>
     ${strip || meter ? `<span class="cc-m">${strip}${meter}</span>` : ""}</button>`;
 }
-const carsModeOf = n => { let m = null; try { m = localStorage.getItem("carsMode"); } catch {} return m === "list" || m === "table" ? m : n >= 6 ? "table" : "list"; };
+const carsModeOf = n => { let m = null; try { m = localStorage.getItem("carsMode"); } catch {} return m === "list" || m === "table" ? m : n >= 6 && (!PRO_LOCK || atLeast("pro")) ? "table" : "list"; };
 function carsTable(list){
   const buy = carsFilter === "buy", yy = t => String(t).replace(/(\d{2}\/\d{2}\/)\d{2}(\d{2})/, "$1$2"), lv = {ok: 0, warn: 0, bad: 0};
   store.get("savedVehicles").forEach(s => lv[carLevel(s)]++);
-  const rows = list.slice(0, fleetMax()).sort((a, b) => ({bad: 0, warn: 1, ok: 2}[carLevel(a)] - {bad: 0, warn: 1, ok: 2}[carLevel(b)])).map(s => {
+  const rows = list.slice().sort((a, b) => ({bad: 0, warn: 1, ok: 2}[carLevel(a)] - {bad: 0, warn: 1, ok: 2}[carLevel(b)])).slice(0, fleetMax()).map(s => {
     const [col, tx] = licCell(licSaved(s)), sv = svcLast(s.plate), on = carsSel && carsSel.includes(s.plate), vd = askVerdict(s.ask, s.fair);
     const third = buy ? `<td>${s.ask ? fmtN(Math.round(s.ask / 1000)) + " אלף" : "—"}${vd ? `<small class="vd" style="display:block;font-weight:600;color:var(--muted)">${esc(vd.s)}</small>` : ""}</td>` : `<td class="${s.recalls > 0 ? "r" : ""}">${s.active === false ? "ירד מהכביש" : s.recalls > 0 ? (s.recalls === 1 ? "פתוח" : `${s.recalls} פתוחים`) : "אין"}</td>`;
     return `<tr${on ? ` class="on"` : ""}><td><span class="cr"><span class="dot ${carLevel(s)}" aria-hidden="true"></span><button type="button" class="lnk" ${carsSel ? `data-pick="${s.plate}" aria-pressed="${!!on}"` : `data-open="${s.plate}"`}><b>${fmtPlate(s.plate)}</b><small style="color:var(--muted)">${esc(s.nick || s.title)}</small></button></span></td><td class="${col}">${yy(tx)}</td>${third}<td class="svl">${sv ? `${esc(yy(fmtDate(sv.d)))}${sv.km ? `<small>${fmtN(sv.km)} ק״מ</small>` : ""}` : "—"}</td></tr>`;
@@ -5872,11 +5880,13 @@ function renderCars(){
   { const ft = document.querySelector("body > footer"); if (ft) ft.hidden = true; }
   $("#out").innerHTML = html.join("");
 }
+let cmpLoad = 0;
 function compareSaved(plates){
   track("compare_open", {from: "cars"});
   carsSel = null; current = null; cmp = [];
-  setScreen("sub"); $("#out").innerHTML = toolHead("השוואת רכבים") + cmpSkeleton(Math.min(plates.length, 3)); window.scrollTo({top: 0});
-  loadCompareSet(plates.map(p => ({plate: p}))).then(() => { renderCompare(); window.scrollTo({top: 0}); }).catch(() => { toast("לא הצלחנו לטעון את ההשוואה"); renderCars(); });
+  const tok = ++cmpLoad, still = () => tok === cmpLoad && !!$(`#out [data-load="${tok}"]`);
+  setScreen("sub"); $("#out").innerHTML = toolHead("השוואת רכבים") + `<div data-load="${tok}">${cmpSkeleton(Math.min(plates.length, 3))}</div>`; window.scrollTo({top: 0});
+  loadCompareSet(plates.map(p => ({plate: p}))).then(() => { if (still()) { renderCompare(); window.scrollTo({top: 0}); } }).catch(() => { if (still()) { toast("לא הצלחנו לטעון את ההשוואה"); renderCars(); } });
 }
 
 /* ---------- "התראות": what needs action now, what changed lately, and what to be alerted about ---------- */
@@ -5889,7 +5899,7 @@ function alertItems(){
     if (L) {
       if (L.k === "bad") out.push({lv: "bad", s, t: "הטסט פג", b: `${name}. התוקף הסתיים ב-${L.date}.`, go: "open", g: "פרטים"});
       else if (L.k !== "ok") out.push({lv: "warn", s, t: "לא ברור אם הטסט חודש", b: name, go: "open", g: "פרטים"});
-      else if (L.days <= 30) out.push({lv: "warn", s, t: testWords(L), b: `${name}, בתוקף עד ${L.date}`, go: "cal", g: "ליומן", d: L.days});
+      else if (L.days <= 30) out.push({lv: "warn", s, t: testWords(L), b: `${name}, בתוקף עד ${L.date}`, ...(L.days > 0 ? {go: "cal", g: "ליומן"} : {go: "open", g: "פרטים"}), d: L.days});
     }
   }
   return out.sort((a, b) => (a.lv === "bad" ? 0 : 1) - (b.lv === "bad" ? 0 : 1) || (a.d || 0) - (b.d || 0));
@@ -6639,7 +6649,7 @@ $(".brand h1").addEventListener("click", ev => { ev.preventDefault(); goHome(); 
 $("#homeBtn").addEventListener("click", goHome);
 // the checked line above the tabs: opened, calm or amber (checkLine)
 document.addEventListener("toggle", ev => { const d = ev.target; if (d.classList && d.classList.contains("ckl") && d.open) track("check_open", {kind: d.dataset.line}); }, true);
-window.appBack = () => { const dv = document.querySelector(".doc-view"); if (dv) { dv.click(); return true; } if (document.querySelector(".ch-menu")) { closeCarMenu(); return true; } if (!sheet.hidden) { sheet.hidden = true; return true; } if (!$("#compareSheet").hidden) { if (mGroup) stepBack(); else hideCmpSheet(); return true; } if (!$("#shareSheet").hidden) { $("#shareSheet").hidden = true; return true; } if (inCompare) { closeCompare(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { leaveCar(); return true; } if (!$("#homeMark")) { goHome(); return true; } return false; };
+window.appBack = () => { const dv = document.querySelector(".doc-view"); if (dv) { dv.click(); return true; } { const rs = $("#roadSheet"); if (rs) { rs.remove(); return true; } } if (document.querySelector(".ch-menu")) { closeCarMenu(); return true; } if (!sheet.hidden) { sheet.hidden = true; return true; } if (!$("#compareSheet").hidden) { if (mGroup) stepBack(); else hideCmpSheet(); return true; } if (!$("#shareSheet").hidden) { $("#shareSheet").hidden = true; return true; } if (inCompare) { closeCompare(); return true; } if (document.body.dataset.screen === "sub") { leaveTool(); return true; } if (document.body.dataset.screen === "cars" && carsSel) { carsSel = null; renderCars(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { leaveCar(); return true; } if (!$("#homeMark")) { goHome(); return true; } return false; };
 
 /* Text shared from another app (an ad, a message): find a plate number in it.
    Phone numbers, prices and mileage are skipped; a number next to the words רכב/רישוי/לוחית wins. */
