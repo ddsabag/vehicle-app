@@ -4,7 +4,7 @@ name: Social check (branch)
 on:
   push:
     branches: [social-autopost]
-    paths: [.github/workflows/social-check-branch.yml]
+    paths: [.github/workflows/social-check-branch.yml, .github/scripts/social-publish.mjs]
 permissions:
   contents: read
 jobs:

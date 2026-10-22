@@ -108,10 +108,15 @@ export async function accounts(token) {
   const ig = page.instagram_business_account || null;
   return { page: { id: page.id, name: page.name, token: page.access_token || token }, ig: ig ? { id: ig.id, username: ig.username } : null, userToken: token, kind: "user" };
 }
+// a secret pasted with a line break, spaces or the JSON quotes around it still works
+export const secret = name => String(IO.env[name] || "").trim().replace(/^(["'])(.*)\1$/s, "$2").trim();
+// what a refused token looks like, without showing it: length, the usual prefix, stray characters
+const shape = (name, prefix) => { const raw = String(IO.env[name] || ""), t = secret(name);
+  return `${t.length} תווים, ${t.startsWith(prefix) ? `מתחיל ב-${prefix} כמו שצריך` : `לא מתחיל ב-${prefix}`}${/[\s"'{}:,]/.test(t) ? ", יש בו רווחים, מירכאות או סימנים שלא שייכים לטוקן" : ""}${raw !== t ? " (רווחים או מירכאות בקצוות הוסרו)" : ""}`; };
 // Both networks from the tokens that exist: {page, ig: {id, username, token, base, login}, errs: {facebook?, instagram?}}
 // igToken: the Instagram token to use (igToken(state): the refreshed one sealed in state.json, else the secret)
-export async function connect({ igToken: igT = IO.env.IG_PUBLISH_TOKEN } = {}) {
-  const fbT = IO.env.META_PUBLISH_TOKEN, A = { page: null, ig: null, errs: {} };
+export async function connect({ igToken: igT = secret("IG_PUBLISH_TOKEN") } = {}) {
+  const fbT = secret("META_PUBLISH_TOKEN"), A = { page: null, ig: null, errs: {} };
   if (fbT) {
     try { const a = await accounts(fbT); A.page = a.page; if (a.ig && !igT) A.ig = { ...a.ig, token: a.userToken, base: GRAPH, login: false }; }
     catch (e) { A.errs.facebook = e; }
@@ -140,14 +145,14 @@ export function unseal(key, b64) {
   } catch { return null; }
 }
 export function igToken(state) {
-  const base = IO.env.IG_PUBLISH_TOKEN, s = state?.ig;
+  const base = secret("IG_PUBLISH_TOKEN"), s = state?.ig;
   if (!base) return null;
   return (s?.fp === igFp(base) && s.tok && unseal(igKey(base), s.tok)) || base;
 }
 // once every IG_REFRESH_MS (and not within 6 h of a failed try); the first refresh comes a week after the bot first sees a secret,
 // so a token younger than the 24 h Instagram requires is never sent. Returns the token to use now.
 export async function refreshIg(Q, now) {
-  const base = IO.env.IG_PUBLISH_TOKEN;
+  const base = secret("IG_PUBLISH_TOKEN");
   if (!base) return null;
   if (Q.state.ig?.fp !== igFp(base)) { Q.state.ig = { fp: igFp(base), since: iso(now) }; Q.save(); }   // a new secret: start over
   const s = Q.state.ig, cur = igToken(Q.state), last = Date.parse(s.refreshed || s.since);
@@ -409,7 +414,7 @@ export async function run(qdir) {
   }
   IO.log(`queue: ${Q.kits.length} kit(s), ${due.length} target(s) due${dry ? " (dry run)" : ""}`);
   if (!due.length) return { published: 0, summary };
-  if (!IO.env.META_PUBLISH_TOKEN && !igT) { IO.log("neither META_PUBLISH_TOKEN nor IG_PUBLISH_TOKEN is set: nothing published"); return { published: 0, summary, noToken: true }; }
+  if (!secret("META_PUBLISH_TOKEN") && !igT) { IO.log("neither META_PUBLISH_TOKEN nor IG_PUBLISH_TOKEN is set: nothing published"); return { published: 0, summary, noToken: true }; }
   const A = await connect({ igToken: igT });
   for (const [t, e] of Object.entries(A.errs)) {   // that network's items wait for the next run; the other network still publishes
     const n = due.filter(d => d.t === t).length;
@@ -495,12 +500,12 @@ export async function run(qdir) {
 }
 
 export async function check() {
-  if (!IO.env.META_PUBLISH_TOKEN && !IO.env.IG_PUBLISH_TOKEN) throw new Error("neither META_PUBLISH_TOKEN nor IG_PUBLISH_TOKEN is set (GitHub: Settings > Secrets and variables > Actions)");
+  if (!secret("META_PUBLISH_TOKEN") && !secret("IG_PUBLISH_TOKEN")) throw new Error("neither META_PUBLISH_TOKEN nor IG_PUBLISH_TOKEN is set (GitHub: Settings > Secrets and variables > Actions)");
   const sf = IO.env.QUEUE && path.join(IO.env.QUEUE, "state.json");
   const state = sf && fs.existsSync(sf) ? JSON.parse(fs.readFileSync(sf, "utf8")) : {};
   const A = await connect({ igToken: igToken(state) });
   const lim = A.ig ? await igGraph(A, "GET", `/${A.ig.id}/content_publishing_limit`, { fields: "quota_usage,config" }).catch(() => null) : null;
-  const q = lim?.data?.[0], err = t => A.errs[t] ? `לא מחובר (${A.errs[t].message})` : null;
+  const q = lim?.data?.[0], err = t => A.errs[t] ? `לא מחובר (${A.errs[t].message}). הטוקן: ${t === "facebook" ? shape("META_PUBLISH_TOKEN", "EAA") : shape("IG_PUBLISH_TOKEN", "IG")}` : null;
   const lines = [
     `פייסבוק: ${A.page ? `העמוד ${A.page.name}` : err("facebook") || "אין טוקן (META_PUBLISH_TOKEN)"}`,
     `אינסטגרם: ${A.ig ? `@${A.ig.username}${A.ig.login ? " (טוקן נפרד)" : " (דרך העמוד)"}` : err("instagram") || "אין טוקן (IG_PUBLISH_TOKEN) ואין חשבון שמקושר לעמוד"}`,
@@ -681,7 +686,7 @@ async function selftest() {
       if (u.host === "graph.facebook.com" && t !== "PAGE-TOKEN") return J({ error: { message: "wrong token " + p } }, 400);
       return realFetch(u0, o);
     };
-    IO.env = { META_PUBLISH_TOKEN: "PAGE-TOKEN", IG_PUBLISH_TOKEN: "IG-OLD", GITHUB_REPOSITORY: "ddsabag/vehicle-app", SOCIAL_SELFTEST: "1" };
+    IO.env = { META_PUBLISH_TOKEN: ' "PAGE-TOKEN"\n', IG_PUBLISH_TOKEN: "IG-OLD\n", GITHUB_REPOSITORY: "ddsabag/vehicle-app", SOCIAL_SELFTEST: "1" };
     clock = T("2026-11-01T10:00:00Z"); logs.length = 0; calls.length = 0;
     await run(q2);
     ck(refreshes === 0 && st2().ig?.since && !st2().ig.tok, "a new Instagram secret is not refreshed at once (Instagram needs it 24 h old)");
@@ -712,6 +717,10 @@ async function selftest() {
     IO.env.QUEUE = q2; logs.length = 0;
     const c = await check();
     ck(c.ok && logs.some(l => l.includes("@luchit.app (טוקן נפרד)") && l.includes("העמוד לוחית") && l.includes("2 מתוך 100")), "check reports both networks and the Instagram quota");
+    IO.env.META_PUBLISH_TOKEN = "EAAbad token"; logs.length = 0;
+    const c2 = await check();
+    ck(!c2.ok && logs.some(l => l.includes("12 תווים") && l.includes("מתחיל ב-EAA") && l.includes("רווחים")) && !logs.join("\n").includes("EAAbad"), "a refused token is described by its shape, never shown");
+    IO.env.META_PUBLISH_TOKEN = "PAGE-TOKEN";
     delete IO.env.QUEUE;
     IO.env.IG_PUBLISH_TOKEN = "IG-OTHER";
     ck(igToken(st2()) === "IG-OTHER" && unseal(crypto.createHash("sha256").update("x").digest(), st2().ig.tok) === null, "a replaced secret wins over the sealed token; a wrong key opens nothing");
