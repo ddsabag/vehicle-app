@@ -1397,7 +1397,7 @@ function syncSaved(list){
   try { b.syncSaved(JSON.stringify((list || []).map((x, i) => ({plate: x.plate, title: x.nick || x.title || "", alerts: alertSet().includes(x.plate), ext: plan() !== "free", svcDue: svcDue(x.plate), stlCar: x.stlCar || null, prefs: alertPrefs(), docs: docExpAll().filter(d => d.plate === x.plate).map(d => ({cat: d.cat, exp: d.exp}))})))); } catch {}
 }
 /* what to be alerted about: every kind is on by default and the user can switch each one off in settings */
-const ALERT_KINDS = [["test", "טסט שעומד לפוג או שפג"], ["recall", "ריקול חדש או שנסגר"], ["service", "תזכורות טיפול"], ["docs", "תוקף ביטוח ומסמכים"], ["owner", "בעלות חדשה (PRO)"], ["status", "ירידה מהכביש ושינוי רשום (PRO)"], ["settlement", "הסדר פשרה חדש (PRO)"]];
+const ALERT_KINDS = [["test", "טסט שעומד לפוג או שפג"], ["recall", "ריקול חדש או שנסגר"], ["service", "תזכורות טיפול"], ["docs", "תוקף ביטוח ומסמכים"], ["owner", "בעלות חדשה", 1], ["status", "ירידה מהכביש ושינוי רשום", 1], ["settlement", "הסדר פשרה חדש", 1]];   // third item: a PRO kind, labelled only while the lock is on
 const alertPrefs = () => { try { return Object.assign({}, JSON.parse(localStorage.getItem("alertPrefs") || "{}")); } catch { return {}; } };
 const prefOn = k => alertPrefs()[k] !== false;
 function fillAnalytics(){
@@ -1411,7 +1411,7 @@ function fillAlertKinds(){
   const row = $("#kindsRow"); if (!row) return;
   row.hidden = !alertsSupported(); if (row.hidden) return;
   const pr = alertPrefs();
-  $("#alertKinds").innerHTML = ALERT_KINDS.map(([k, t]) => `<label><input type="checkbox" data-kind="${k}"${pr[k] === false ? "" : " checked"}>${esc(t)}</label>`).join("");
+  $("#alertKinds").innerHTML = ALERT_KINDS.map(([k, t, pro]) => `<label><input type="checkbox" data-kind="${k}"${pr[k] === false ? "" : " checked"}>${esc(t)}${pro && PRO_LOCK ? " (PRO)" : ""}</label>`).join("");
 }
 document.addEventListener("change", ev => {
   const c = ev.target.closest && ev.target.closest("[data-kind]"); if (!c) return;
@@ -4013,11 +4013,11 @@ const isBiz = () => atLeast("biz");
 const cmpMax = () => Math.min(isPro() ? PRO_CMP : FREE_CMP, matchMedia("(max-width:419px)").matches ? 3 : 99);   // narrow screens: more columns break the sticky header and the row labels
 let cmp = [], inCompare = false, mResults = [], mCtrl = null;
 const CMP_FOLDED = new Set(["מערכות בטיחות ואבזור"]), cmpOpen = new Set();   // sections folded by default in the comparison
-function openCompare(){
+function openCompare(from){
   loadModelIndex(); loadModelStats().catch(() => null);
   $("#compareSheet").hidden = false; $("#compareMsg").textContent = "";
   $("#mq").value = ""; $("#mres").innerHTML = ""; mResults = []; mGroup = null; mYear = null; mShowAll = false;
-  $("#cmpTitle").textContent = cmp.length ? `הוספת רכב ${cmp.length + 1} להשוואה` : "בחירת רכב להשוואה";
+  $("#cmpTitle").textContent = cmp.length ? `הוספת רכב ${cmp.length + 1} להשוואה` : from === "search" ? "חיפוש דגמים" : "בחירת רכב להשוואה";   // the home tool keeps its own name
   renderQuick(); $("#mq").focus();
 }
 const MAKERS = ["טויוטה", "יונדאי", "קיה", "סקודה", "מאזדה", "טסלה", "שברולט", "מיצובישי", "סוזוקי", "ניסאן", "פולקסווגן", "רנו"];
@@ -4605,7 +4605,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.sec) { const t = b.dataset.sec, y = window.scrollY; if (b.getAttribute("aria-expanded") === "true") { cmpOpen.delete(t); CMP_FOLDED.add(t); } else { cmpOpen.add(t); } renderCompare(); window.scrollTo(0, y); return; }
   if (b.dataset.cmpsave) { const D = cmp[+b.dataset.cmpsave]; if (D && D.plate && D.kind !== "fail") { const on = toggleSaved(newSavedItem(D)); toast(on ? "נשמר ברכבים שלי" : "הוסר מהרכבים שלי"); const y = window.scrollY; renderCompare(); window.scrollTo(0, y); } return; }
   if (b.dataset.act === "addCompare") { openCompare(); return; }
-  if (b.dataset.act === "compareHome") { cmp = []; renderCompare(); openCompare("model"); return; }
+  if (b.dataset.act === "compareHome") { cmp = []; renderCompare(); openCompare("search"); return; }
   if (b.dataset.act === "market") { openMarket(); return; }
   if (b.dataset.act === "fleet") { renderFleet(); return; }
   if (b.dataset.act === "cands") { renderCandidates(); return; }
@@ -5599,7 +5599,7 @@ function msCohort(D){
   const t = msFold(D), y = num(D.v.shnat_yitzur);
   // the folded count covers every version of the base model (CIVIC HYBRID counts all CIVIC): fam names that group when it is wider than the car's own name
   const fam = normModel(D.v.kinuy_mishari), own = String(D.v.kinuy_mishari || "").trim().toUpperCase().replace(/\s+/g, " ");
-  if (t && t.n + t.c >= POP_MIN) return {n: t.n, c: t.c, km: t.kW ? t.kS / t.kW : null, own: t.oW ? t.oS / t.oW : null, rec: t.n ? t.rS / t.n : 0, year: y, fam: fam !== own ? fam : ""};
+  if (t && t.n + t.c >= POP_MIN) return {n: t.n, c: t.c, km: t.kW ? Math.round(t.kS / t.kW) : null, own: t.oW ? t.oS / t.oW : null, rec: t.n ? t.rS / t.n : 0, year: y, fam: fam !== own ? fam : ""};
   const k = msKey(D), m = k && MSTATS.m[k], row = m && y && m.y[y];
   return row ? {n: row[0], c: row[1], km: row[2], own: row[3], rec: row[4], year: y} : null;
 }
