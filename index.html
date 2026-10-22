@@ -281,7 +281,7 @@ a.row{color:var(--fg);text-decoration:none}a.row .t small{text-decoration:none}a
 .seg button{border:0;background:transparent;border-radius:8px;padding:8px 6px;font-weight:700;color:var(--muted)}
 .seg button[aria-pressed="true"]{background:var(--card);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.15)}
 .link-btn{border:1px solid var(--line);background:transparent;border-radius:10px;padding:10px 12px;font-weight:700;text-align:start}
-.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:30;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:16px;font-weight:700;z-index:30;box-shadow:0 4px 14px rgba(0,0,0,.2);width:max-content;max-width:calc(100vw - 32px);text-align:center}   /* left:50% alone would cap a long toast at half the screen */
 footer a{display:inline;padding:0;text-decoration:underline}
 .mini-plate{max-width:100%}.card table{display:block;max-width:100%;overflow-x:auto}.card table>tbody{display:table;width:100%}
 /* website: photo and voice entry stay in the app (the side card says so) */
@@ -356,8 +356,6 @@ footer a{color:var(--accent)}
 /* "תיק הרכב" */
 .cf-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .cf-top p{margin:0;color:var(--muted);font-size:.85rem;min-width:0}
-.cf-road{display:inline-flex;align-items:center;gap:8px;flex:none;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:999px;padding:8px 14px;min-height:44px;font:inherit;font-size:.85rem;font-weight:700;cursor:pointer}
-.cf-road .i{width:18px;height:18px;color:var(--accent)}
 .cf-road-list{display:grid;gap:8px}
 .cf-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
 .cf-tile{background:var(--card);border:0;border-top:3px solid var(--line);border-radius:14px;padding:10px 4px;display:grid;gap:2px;justify-items:center;align-content:start;text-align:center;box-shadow:var(--shadow);color:var(--fg);font:inherit;min-width:0;min-height:44px}
@@ -666,13 +664,15 @@ body[data-screen=car] main,body[data-screen=cars] main,body[data-screen=alerts] 
 .ch-t .mini-plate{font-size:.85rem;padding:1px 6px 1px 3px;gap:4px;white-space:nowrap}
 .ch-t b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:800;font-size:1rem}
 .ch-b.star[aria-pressed=true] svg.i{fill:currentColor}
+.ch-doc{flex:0 0 auto;height:36px;margin-inline:4px;padding:0 12px 0 10px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--accent);font-weight:800;font-size:.9rem;display:inline-flex;align-items:center;gap:6px}.ch-doc svg.i{width:18px;height:18px}
 .ch-m{position:relative;flex:0 0 auto}
 .ch-menu{position:absolute;inset-inline-end:0;top:46px;min-width:220px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 14px 34px -12px rgba(20,30,50,.35);padding:6px 0;z-index:13}
 .ch-menu button{display:block;width:100%;text-align:start;background:none;border:0;padding:11px 16px;font-weight:600;min-height:44px}
 .ch-menu .danger{color:var(--bad)}
 .nickbar{display:flex;gap:8px;align-items:center}.nickbar .inp{flex:1;min-width:0}.nickbar .link-btn{flex:0 0 auto;width:auto;margin:0}
 /* the tabs stick under the car header, not behind it */
-body[data-screen=car] .tabs{top:calc(53px + env(safe-area-inset-top,0px))}
+body[data-screen=car] .tabs{top:calc(53px + env(safe-area-inset-top,0px));scroll-margin-top:calc(53px + env(safe-area-inset-top,0px))}
+body[data-screen=car] [data-fold],body[data-screen=car] #tabpanel > *{scroll-margin-top:calc(124px + env(safe-area-inset-top,0px))}
 html.web main#out > .chead{grid-column:1/-1}
 /* a screen's own large title */
 .vhead{display:grid;gap:4px;padding-top:10px}
@@ -2726,10 +2726,10 @@ async function lookup(raw){
   if (D.offline || D.notFound) track("lookup_failed", {kind: D.sourceDown ? "source_down" : D.offline ? "offline" : "not_found", dur: durB});
   if (D.offline) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true">📡</div>${navigator.onLine === false ? "אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב." : "מאגרי משרד התחבורה לא עונים כרגע (תקלה או עומס אצל המשרד, לא אצלכם). נסו שוב בעוד כמה דקות."}</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; return; }
   if (D.notFound) { out.innerHTML = `<div class="msg edge"><div class="edge-i" aria-hidden="true">🔍</div>לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.<p class="note" style="margin:8px 0 0">בדקנו את כל מאגרי משרד התחבורה, כולל רכבים שירדו מהכביש, דו-גלגלי ויבוא אישי. רכב שעלה לכביש בימים האחרונים יופיע אחרי העדכון הבא של המאגר.</p></div>`; return; }
-  current = D; currentTab = openTab || "overview"; openTab = null;
+  current = D; currentTab = openTab && openTab.p === D.plate ? openTab.t : "overview"; openTab = null;
   snapPut(D); savedSync(D);
   renderResult(); focusResult();
-  track(again ? "lookup_repeat" : "car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: D.errs && D.errs.length ? 1 : 0, ...lookupFacts(D)});
+  track(again ? "lookup_repeat" : "car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: D.errs && D.errs.length ? 1 : 0, role: roleOf(D), ...lookupFacts(D)});
   remember(plate);
   window.scrollTo({top: 0});
   // a first visit on a slow line can render before the settlements list arrives: once it does, show its answer (a match, or "not found"
@@ -3246,6 +3246,8 @@ document.addEventListener("change", ev => { const c = ev.target.closest("#docCat
 const mineAll = () => { try { return JSON.parse(localStorage.getItem("mine") || "{}") || {}; } catch { return {}; } };
 let docPlates = new Set();   // plates with a document on this phone: read once at start (DocDB.plates), kept by docsAdd
 const hasFile = p => svcOf(p).log.length > 0 || docPlates.has(p) || docExpAll().some(d => d.plate === p);
+/* who is looking at this car, for the reports (never the plate): its owner (marked "הרכב שלי"), someone who saved it (tracking or buying), or neither */
+const roleOf = D => !D || !D.plate || D.kind === "model" ? "none" : isMine(D) ? "owner" : isSaved(D.plate) ? "saved" : "none";
 function isMine(D){
   if (!D || D.kind === "model" || !D.plate) return false;
   const m = mineAll()[D.plate];
@@ -3354,7 +3356,7 @@ async function roadDocs(D){
   let list = [];
   try { list = (await DocDB.byPlate(D.plate)).filter(x => ROAD_CATS.includes(x.cat)).sort((a, b) => ROAD_CATS.indexOf(a.cat) - ROAD_CATS.indexOf(b.cat) || b.at - a.at); } catch {}
   track("road_docs", {n: list.length});
-  if (!list.length) { openDocsFold("רישיון רכב"); toast("שמרו כאן צילום של רישיון הרכב ושל הביטוח, והם ייפתחו גם בלי אינטרנט"); return; }
+  if (!list.length) { if (currentTab !== "file") { currentTab = "file"; renderResult(); } openDocsFold("רישיון רכב"); toast("שמרו כאן צילום של רישיון הרכב ושל הביטוח, והם ייפתחו גם בלי אינטרנט"); return; }
   if (list.length === 1) { openDoc(list[0]); return; }
   const el = document.createElement("div"); el.className = "sheet"; el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); el.setAttribute("aria-label", "מסמכים לנסיעה");
   el.innerHTML = `<div class="sheet-in"><div class="sheet-head"><h2>מסמכים לנסיעה</h2><button class="icon-btn" type="button" data-road="x" aria-label="סגירה">${ico("x")}</button></div><div class="cf-road-list">${list.map(x => `<button type="button" class="link-btn" data-road="${x.id}">${ico(x.type === "application/pdf" ? "doc" : "image")}<span>${esc(x.cat)}${x.exp ? ` · בתוקף עד ${esc(fmtDate(x.exp))}` : ""}</span></button>`).join("")}</div></div>`;
@@ -3378,11 +3380,14 @@ async function historyPdf(D, btn){
   try {
     await loadScript(LIBS.pdf);
     const today = new Date().toLocaleDateString("he-IL"), ev = fileEvents(D, [], true);
+    // a buyer must not read the owner's own entries as official: they get their own section, apart from the ministry's records
+    const gov = ev.filter(e => e.k === "gov"), own = ev.filter(e => e.k !== "gov");
+    const sec = (t, i, list, note) => list.length ? `<section class="card"><div class="head"><span class="badge">${ico(i)}</span><h2>${t}</h2></div>${note ? `<p class="note">${note}</p>` : ""}<dl class="facts">${list.map(e => `<div class="wide"><dt>${esc(e.when)}</dt><dd>${esc(e.title)}${e.sub ? ` · ${esc(e.sub)}` : ""}</dd></div>`).join("")}</dl></section>` : "";
     track("history_pdf", {n: ev.filter(e => e.k === "svc").length});
     const el = document.createElement("div"); el.className = "report pdf";
     const idc = $("#out .id-card");
     el.innerHTML = brandHead() + `<div class="rep-head"><b>היסטוריית הרכב</b><span>${fmtPlate(D.plate)} · ${today}</span></div>${idc ? idc.outerHTML : ""}
-      <section class="card"><div class="head"><span class="badge">${ico("rotate")}</span><h2>היסטוריה</h2></div><dl class="facts">${ev.map(e => `<div class="wide"><dt>${esc(e.when)}</dt><dd>${esc(e.title)}${e.sub ? ` · ${esc(e.sub)}` : ""}</dd></div>`).join("")}</dl></section>
+      ${sec("ממשרד התחבורה", "rotate", gov)}${sec("רשומות שהזין הבעלים", "wrench", own, "לפי מה שהבעלים רשמו באפליקציה, ללא אימות.")}
       <p class="rep-foot">טיפולים וקריאות ק״מ: לפי מה שהבעלים רשמו באפליקציה, ללא אימות. טסט, בעלויות, עלייה לכביש וריקולים: מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il. ${BRAND_FOOT}</p>`;
     el.querySelectorAll(".id-card .actions, button").forEach(x => x.remove());
     inlineIcons(el);
@@ -3398,7 +3403,7 @@ function tabFile(D){
   if (maintOk()) svcRemember(D, info);
   const n = maintOk() ? svcNext(svcOf(D.plate)) : null, est = n ? null : svcEst(D, info);
   const html = [];
-  html.push(`<div class="cf-top"><p>הכול נשמר רק בטלפון הזה</p><button type="button" class="cf-road" data-cf="road">${ico("id")}מסמכים לנסיעה</button></div>`);
+  html.push(`<div class="cf-top"><p>הכול נשמר רק בטלפון הזה</p></div>`);   // the road documents open from the header's "מסמכים"
   html.push(fileTiles(D, n, est));
   html.push(fileNext(D, info, n, est));
   html.push(`<div class="cf-quick"><button type="button" ${maintOk() ? `data-cf="svc" aria-expanded="false"` : `data-act="proInfo"`}>${ico("wrench")}טיפול</button><button type="button" data-cf="doc">${ico("camera")}קבלה או מסמך</button><button type="button" ${maintOk() ? `data-cf="km" aria-expanded="false"` : `data-act="proInfo"`}>${ico("chart")}עדכון ק״מ</button></div>${maintOk() ? svcForm() : ""}`);
@@ -4763,7 +4768,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "diffOnly") { diffOnly = !diffOnly; try { localStorage.setItem("cmpDiffOnly", diffOnly ? "1" : ""); } catch {} renderCompare(); return; }
   if (b.dataset.act === "land") { setLand(!land); return; }
   if (!current) return;
-  if (b.dataset.tab) { currentTab = b.dataset.tab; track("tab_view", {tab: b.dataset.tab, own: current && current.plate && isSaved(current.plate) ? 1 : 0}); renderResult(); focusResult(); $("#out").classList.add("rise"); setTimeout(() => $("#out").classList.remove("rise"), 300); const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"}); return; }
+  if (b.dataset.tab) { currentTab = b.dataset.tab; track("tab_view", {tab: b.dataset.tab, own: current && current.plate && isSaved(current.plate) ? 1 : 0, role: roleOf(current)}); renderResult(); focusResult(); $("#out").classList.add("rise"); setTimeout(() => $("#out").classList.remove("rise"), 300); const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"}); return; }
   const act = b.dataset.act;
   if (act === "share") { track("share_open");   // the sheet opening; track("share") counts only a choice in it
     $("#shareMsg").textContent = ""; $("[data-share=bizpdf]").hidden = !(PRO_LOCK && isBiz()); $("#shareSheet").hidden = false; shareWarm = {}; warmShare(); }
@@ -5715,7 +5720,7 @@ for (const nm of ["renderResult", "renderCompare", "renderHome"]) {
    view: the tab the user is in; a car opened from "הרכבים שלי" or "התראות" goes back there. body[data-screen] says which screen is
    drawn (home, car, cars, alerts, sub for the tools), and the search band shows only on home and the tools */
 let view = "search", carsFilter = "all", carsSel = null, carsY = 0;
-let openTab = null;   // a tab to open on the next car page (an open recall from "התראות" lands on the recalls tab)
+let openTab = null;   // {p: plate, t: tab}: the tab that car opens on next (an open recall from "התראות" lands on the recalls tab); another car ignores it
 function setScreen(s){ document.body.dataset.screen = s; syncNav(); }
 function syncNav(){
   document.querySelectorAll("#bnav [data-nav]").forEach(b => { if (b.dataset.nav === view) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
@@ -5756,10 +5761,11 @@ document.addEventListener("focusout", () => setTimeout(() => { const a = documen
 
 /* ---------- the car page's header ---------- */
 function carHead(D){
-  const car = D.plate && D.kind !== "model", saved = car && isSaved(D.plate);
+  const car = D.plate && D.kind !== "model", saved = car && isSaved(D.plate), mine = car && isMine(D);
+  // the owner's own car: the road documents take the share button's place (sharing moves to the menu)
   return `<header class="chead" id="chead"><button type="button" class="ch-b back" data-act="back" aria-label="חזרה">${ico("back")}</button>
     <div class="ch-t">${car ? `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>` : ""}<b>${esc(D.title)}</b></div>
-    <button type="button" class="ch-b" data-act="share" aria-label="שיתוף הדוח">${ico("share")}</button>
+    ${mine ? `<button type="button" class="ch-doc" data-cf="road" aria-label="מסמכים לנסיעה">${ico("id")}מסמכים</button>` : `<button type="button" class="ch-b" data-act="share" aria-label="שיתוף הדוח">${ico("share")}</button>`}
     ${car ? `<button type="button" class="ch-b star" data-act="save" aria-pressed="${saved}" aria-label="${saved ? "שמור ברכבים שלי" : "שמירה ברכבים שלי"}">${ico("star")}</button>` : ""}
     <span class="ch-m"><button type="button" class="ch-b" data-act="cmenu" aria-label="עוד פעולות" aria-haspopup="menu" aria-expanded="false">${ico("more")}</button></span></header>`;
 }
@@ -5767,7 +5773,7 @@ function carMenu(b){
   const box = b.parentElement, open = box.querySelector(".ch-menu");
   if (open) { open.remove(); b.setAttribute("aria-expanded", "false"); return; }
   const D = current, saved = D.plate && D.kind !== "model" && savedItem(D.plate);
-  const items = [["compare", "השוואה עם רכב אחר"], ["simple", simpleOn() ? "תצוגה מלאה" : "תצוגה פשוטה"], ...(saved ? [["nickCar", saved.nick ? "שינוי כינוי" : "הוספת כינוי"], ["unsaveCar", "הסרה מהרכבים שלי", "danger"]] : [])];
+  const items = [...(isMine(D) ? [["share", "שיתוף הדוח"]] : []), ["compare", "השוואה עם רכב אחר"], ["simple", simpleOn() ? "תצוגה מלאה" : "תצוגה פשוטה"], ...(saved ? [["nickCar", saved.nick ? "שינוי כינוי" : "הוספת כינוי"], ["unsaveCar", "הסרה מהרכבים שלי", "danger"]] : [])];
   box.insertAdjacentHTML("beforeend", `<div class="ch-menu" role="menu">${items.map(([a, t, c]) => `<button type="button" role="menuitem" data-act="${a}"${c ? ` class="${c}"` : ""}>${t}</button>`).join("")}</div>`);
   b.setAttribute("aria-expanded", "true");
   const f = box.querySelector(".ch-menu button"); if (f) f.focus();
@@ -5920,7 +5926,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.aitem) { ev.stopImmediatePropagation(); const x = alertItems()[+b.dataset.aitem]; if (!x) return;
     track("alert_item", {kind: x.go});
     if (x.go === "cal") { track("calendar_reminder_click", {where: "alerts"}); testReminder(savedCalD(x.s)); }
-    else { openTab = x.go === "recalls" ? "recalls" : null; run(x.s.plate); } return; }
+    else { openTab = x.go === "recalls" ? {p: x.s.plate, t: "recalls"} : null; run(x.s.plate); } return; }
   if (b.dataset.alerts && document.body.dataset.screen === "alerts") { ev.stopImmediatePropagation(); try { window.AndroidApp.setAlerts(b.dataset.alerts === "on"); localStorage.setItem("alertsAsked", "1"); } catch {} setTimeout(refreshView, 300); return; }
   if (b.dataset.open && (document.body.dataset.screen === "cars")) carsY = window.scrollY;
   if (!a) return;
@@ -6799,6 +6805,11 @@ if (!window.AndroidApp && !NAV_AGAIN && !REF_OWN && SHARE_VIA !== "bar" && SHARE
   if (digits(q.get("plate")) || cmpParam) track("link_landing", {kind: cmpParam ? "cmp" : "plate", via: SHARE_VIA});
   else if (u && u !== "share" && u !== "luchitapp") track("link_landing", {kind: "campaign", via: u});
 }
+/* a tapped phone alert opens its car on the tab the alert is about: a recall on the recalls tab, a test, service or document in the car file
+   (a car that has no such tab opens on the overview). The app passes the kind as ?nk= on a cold start, or calls openAlert */
+const alertTab = k => k === "recall" ? "recalls" : /^(test|svc|doc)$/.test(k || "") ? "file" : null;
+window.openAlert = (plate, kind) => { const p = digits(plate), t = alertTab(kind); openTab = t ? {p, t} : null; run(p); };
+{ const t = window.AndroidApp && start ? alertTab(new URLSearchParams(location.search).get("nk")) : null; if (t) openTab = {p: start, t}; }
 if (cmpParam) loadCompareLink(cmpParam).then(ok => { if (!ok) renderHome(); }); else if (start) { lookupAgain = NAV_AGAIN; run(start); } else renderHome();
 requestAnimationFrame(() => document.body.classList.add("rdy"));
 /* the plates with a document on this phone; the car on screen is drawn again only if that changes whose it is */

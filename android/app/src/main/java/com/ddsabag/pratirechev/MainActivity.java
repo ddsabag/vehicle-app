@@ -473,9 +473,10 @@ public class MainActivity extends Activity {
         SavedCheckWorker.ensureChannel(this);
         SavedCheckWorker.schedule(this);
         String plate = plateFrom(getIntent());
+        String nk = kindFrom(getIntent());
         if (savedInstanceState == null) notifOpened(getIntent());
         if (plate != null) {
-            webView.loadUrl(START_URL + "#" + plate);
+            webView.loadUrl(START_URL + (nk != null ? "?nk=" + nk : "") + "#" + plate);
         } else if (savedInstanceState != null) {
             if (webView.restoreState(savedInstanceState) == null) webView.loadUrl(START_URL);   // a restore that fails must not leave a white screen
         } else {
@@ -690,6 +691,12 @@ public class MainActivity extends Activity {
         SavedCheckWorker.logUsage(this, "notif_open", kind);
     }
 
+    // the kind of a tapped alert (test, recall, svc, doc ...), read before notifOpened removes it: the page opens the tab it is about
+    private static String kindFrom(Intent i) {
+        String k = i == null ? null : i.getStringExtra("nkind");
+        return k != null && k.matches("[a-z]{1,12}") ? k : null;
+    }
+
     // a tapped notification carries the plate of the saved car
     private static String plateFrom(Intent i) {
         if (i == null) return null;
@@ -741,8 +748,9 @@ public class MainActivity extends Activity {
         super.onNewIntent(intent);
         setIntent(intent);
         String plate = plateFrom(intent);
+        String nk = kindFrom(intent);
         notifOpened(intent);
-        if (plate != null) pageJs("window.run && run(" + JSONObject.quote(plate) + ")");
+        if (plate != null) pageJs("window.openAlert ? openAlert(" + JSONObject.quote(plate) + "," + JSONObject.quote(nk == null ? "" : nk) + ") : window.run && run(" + JSONObject.quote(plate) + ")");
         handleIncoming(intent);
     }
 
