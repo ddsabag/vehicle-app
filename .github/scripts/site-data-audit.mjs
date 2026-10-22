@@ -722,6 +722,8 @@ function compare(c, X, P) {
     check(c, "recalls.tab_shown", hasTab === wantTab, hasTab ? "tab" : "(no tab)", wantTab ? "tab (open recall or settlement)" : "(no tab)", `open=${openIds.length} settlement banners=${bn}`);
     const ln = P.head.line, wantLine = !cancelled && known && !hasTab;
     check(c, "recalls.check_line", !!ln === wantLine, ln ? ln.title.slice(0, 50) : "(no line)", wantLine ? "the checked line" : "(no line)", "");
+    // "checked" is a claim that every check ran on a live answer: never with a part that did not load
+    if (ln) check(c, "recalls.line_honest", !(/^נבדק/.test(ln.title) && /לא נטענה/.test(ln.text)), ln.title.slice(0, 50), "(not \"נבדק\" while a list did not load)", ln.state || "");
     if (imp || cancelled) check(c, "settlements.scope", !list.length && !bn, `${list.length} shown`, imp ? "(none: a personal import)" : "(none: off the road)", regs);
     if (imp && !cancelled) { const said = ((P.tabs.recalls || {}).text || "").includes("הרכב יובא ביבוא אישי, ולכן לא נבדק מול הסדרי הפשרה") || !!(P.head.line && P.head.line.text.includes("לא נבדק מול הסדרי פשרה"));
       check(c, "settlements.import_line", said, said ? "line shown" : "(none)", "הרכב יובא ביבוא אישי, ולכן לא נבדק מול הסדרי הפשרה", ""); }

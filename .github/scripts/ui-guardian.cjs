@@ -37,12 +37,19 @@ const FIXTURES = [
   { name: "test-soon", rec: { ...BASE, tokef_dt: iso(18) } },
   { name: "test-expired", rec: { ...BASE, tokef_dt: iso(-30) } },
   { name: "ev", rec: { ...BASE, tozeret_nm: "טסלה", kinuy_mishari: "MODEL 3", degem_nm: "3", sug_delek_nm: "חשמל", nefach_manoa: 0, tozeret_cd: 2 } },
-  // an open recall: the only fixture with the recalls tab (a car without one shows the "checked" line instead)
+  // an open recall: the recalls tab (a car without an open recall or a settlement shows the "checked" line instead)
   { name: "open-recall", rec: BASE, recall: [{ _id: 1, MISPAR_RECHEV: 12345678, RECALL_ID: 16100, SHNAT_RECALL: 2025, TEUR_TAKALA: "החלפת משאבת דלק", SUG_TAKALA: "מערכת דלק", TAARICH_PTICHA: "2025-06-10T00:00:00" }] },
+  // the states where the "checked" line must not say "checked": each is drawn once, and the page must not throw on it
+  { name: "settlement-only", rec: { ...BASE, tozeret_nm: "קיה סלובקיה", kinuy_mishari: "SPORTAGE", degem_nm: "QL", shnat_yitzur: 2019, tozeret_cd: 3 } },
+  { name: "checked", rec: BASE, model: { modelRecalls: [] } },
+  { name: "maybe-recall", rec: BASE, model: { modelRecalls: [{ RECALL_ID: 16900, SHNAT_RECALL: 2026, TEUR_TAKALA: "עדכון תוכנה ליחידת הבלמים", SUG_RECALL: "ריקול בטיחות", fits: true, fresh: true }] } },
+  { name: "recall-unknown", rec: BASE, recallStatus: 500 },
+  { name: "list-reloading", rec: BASE, listTotal: 0 },
+  { name: "saved-copy", rec: BASE, savedDaysAgo: 12 },
 ];
 const TABS = contract.tabs.map((t) => t.id);
-const WIDTHS = [320, 390];
-const THEMES = ["light", "dark"];
+const WIDTHS = process.env.UG_QUICK ? [390] : [320, 390];
+const THEMES = process.env.UG_QUICK ? ["light"] : ["light", "dark"];
 
 // ---- contract helpers
 const tabOf = {}; // title -> tab
@@ -57,21 +64,39 @@ async function runPage(browser, fx, theme, width) {
   const ctx = await browser.newContext({ viewport: { width, height: 800 }, deviceScaleFactor: 1, isMobile: true, colorScheme: theme, locale: "he-IL" });
   await ctx.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (r) => r.abort());   // registered first: Playwright tries later routes first, so the mock below wins
   await ctx.route(/data\.gov\.il/, (r) => {
-    const u = r.request().url(), recs = u.includes("053cea08") ? [fx.rec] : u.includes("36bf1404") && fx.recall ? fx.recall : [];
+    const u = r.request().url(), recList = u.includes("36bf1404");
+    if (recList && fx.recallStatus) return r.fulfill({ status: fx.recallStatus, body: "" });
+    // a dataset's own size (limit=0): the per-car recall list is loaded unless the fixture says it is being reloaded
+    if (/[?&]limit=0\b/.test(u)) return r.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify({ success: true, result: { records: [], total: recList && fx.listTotal !== undefined ? fx.listTotal : 120000 } }) });
+    const recs = u.includes("053cea08") ? [fx.rec] : recList && fx.recall ? fx.recall : [];
     r.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify({ success: true, result: { records: recs, total: recs.length } }) });
   });
+  // model data the catalogue would give (the catalogue itself is not fetched in the run): fetchModelData is a page-level function
+  if (fx.model) await ctx.addInitScript((m) => { addEventListener("DOMContentLoaded", () => { const f = window.fetchModelData; window.fetchModelData = async (...a) => ({ ...(await f(...a)), modelRecallsUnknown: false, ...m }); }); }, fx.model);
   await ctx.addInitScript(() => { try { localStorage.setItem("analyticsOff", "1"); } catch {} });
   const page = await ctx.newPage();
   const label = `${fx.name}/${theme}/${width}px`;
   page.on("pageerror", (e) => fail(`[${label}] page error: ${e.message}`));
   await page.goto(`http://127.0.0.1:${server.address().port}/?plate=12345678`);
   try { await page.waitForSelector(".tabs [role=tab]", { timeout: 15000 }); } catch { fail(`[${label}] the vehicle screen did not render`); await ctx.close(); return; }
+  // a saved car opened while the ministry does not answer: the page draws its stored copy, dated
+  if (fx.savedDaysAgo) await page.evaluate((d) => { current.fromCache = Date.now() - d * 864e5; renderResult(); }, fx.savedDaysAgo);
+  // the "checked" line says "checked" only when every check ran on a live answer
+  const line = await page.$eval("details.ckl", (d) => ({ state: d.dataset.line, title: d.querySelector("summary b").textContent })).catch(() => null);
+  if (theme === "light" && width === 390) console.log(`  line [${fx.name}] ${line ? line.state + ": " + line.title : "none"}`);
+  const live = !fx.savedDaysAgo && !fx.recallStatus && fx.listTotal !== 0 && !!fx.model;
+  if (line && /^נבדק/.test(line.title) && !live) fail(`[${label}] the line says "${line.title}" although a check did not run on a live answer`);
+  if ((fx.recallStatus || fx.listTotal === 0) && line) fail(`[${label}] the "checked" line shows while the per-car recall list did not answer`);
+  if (fx.model && fx.model.modelRecalls.some((r) => r.fresh) && (!line || line.state !== "warn")) fail(`[${label}] a fresh model recall did not turn the line amber`);
+  if (live && !fx.model.modelRecalls.length && (!line || line.state !== "ok")) fail(`[${label}] every check ran clean, but the line is "${line ? line.title : "missing"}"`);
+  if (fx.savedDaysAgo && line && line.state !== "cached") fail(`[${label}] a saved copy shows the line as "${line.state}", not "cached"`);
   await page.addStyleTag({ content: "#plateStrip{display:none!important}*{animation:none!important;transition:none!important}" });
 
   // a car shows only the tabs that apply to it (the recalls tab only with an open recall or a settlement), so the run walks the tabs on screen;
   // every one of them must be in the contract, in the contract's order
   const shown = await page.$$eval(".tabs [data-tab]", (bs) => bs.map((b) => b.dataset.tab));
   for (const t of shown) if (!TABS.includes(t)) fail(`[${label}] tab "${t}" is not registered in ui-contract.json`);
+  if (/^(open-recall|settlement-only)$/.test(fx.name) !== shown.includes("recalls")) fail(`[${label}] the recalls tab ${shown.includes("recalls") ? "shows" : "is missing"} (tabs: ${shown.join(", ")})`);
   if (shown.filter((t) => TABS.includes(t)).some((t, i, a) => i && TABS.indexOf(t) < TABS.indexOf(a[i - 1]))) fail(`[${label}] tabs render as ${shown.join(", ")}, not in the contract order`);
   for (const tab of shown.filter((t) => TABS.includes(t))) {
     const L = `${label}/${tab}`;
