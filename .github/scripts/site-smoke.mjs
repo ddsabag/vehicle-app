@@ -1,5 +1,8 @@
 // End-to-end check of the live site (runs on GitHub: the dev container cannot reach luchit.app or data.gov.il).
-// 1. static pages answer, 2. a real plate lookup works in a real browser, 3. TLS certificate and domain registration are not about to expire.
+// 1. static pages answer, and the share path works: a compare link and a car link get their WhatsApp preview, a /go/ link its 302 with the
+//    campaign tags (luchit-og rewrites the page's meta tags, so a web deploy can break it while the home page still answers 200),
+// 2. a real plate lookup works in a real browser, 3. TLS certificate and domain registration are not about to expire.
+// No plate is printed: the run log is public, and the alert text also goes to the public flashes branch.
 // Alerts go to Telegram only. DRY_RUN=1 prints instead of sending, PREVIEW=1 sends a labelled sample.
 // A push run first waits 3 minutes for the deploy.
 // In the daily run INFRA_REPORT carries what the infra part (infra-watch.mjs, INFRA_HANDOFF=1) found, as JSON {alert, notice}: it goes out in the same
@@ -56,6 +59,28 @@ async function pagesCheck() {
   await need("מדיניות הפרטיות", SITE + "privacy.html", t => t.includes("פרטיות"), "גוגל פליי דורש שהקישור לפרטיות יעבוד.");
   try { const { t } = await get(SITE + "sitemap.xml"); const u = (t.match(/<loc>([^<]*\/model\/[^<]*)<\/loc>/) || [])[1]; if (u) await need("דף דגם", u, t2 => t2.includes("לוחית"), "דפי הדגם (מקור עיקרי לכניסות מגוגל) לא נפתחים."); else out.push({ title: "מפת האתר", detail: "לא נמצאו בה דפי דגם.", impact: "גוגל לא יאנדקס את דפי הדגם." }); }
   catch (e) { out.push({ title: "מפת האתר", detail: `sitemap.xml לא נפתח (${e.message}).`, impact: "גוגל לא יאנדקס את הדפים." }); }
+  out.push(...await shareCheck());
+  return out;
+}
+
+// ---- 1b. the share path, as a messaging app sees it (the same URLs the Workers deploy checks, .github/ship-tail.json)
+const WA = "WhatsApp/2.23.20.0 A", ogTitle = t => ((t.match(/<meta[^>]+property="og:title"[^>]+content="([^"]*)"/) || [])[1] || "");
+async function shareCheck() {
+  const out = [], st = "&st=" + Date.now();
+  try {
+    const { r, t } = await get(SITE + "?cmp=W3t9LHt9XQ" + st, { headers: { "user-agent": WA } });
+    if (!r.ok || !ogTitle(t).includes("השוואת 2 רכבים בלוחית")) out.push({ title: "תצוגה מקדימה של קישור השוואה", detail: `קישור השוואה החזיר HTTP ${r.status} עם כותרת "${ogTitle(t).slice(0, 60)}" במקום "השוואת 2 רכבים בלוחית".`, impact: "קישורים שנשלחים בוואטסאפ יופיעו בלי תצוגה מקדימה. כנראה ה-Worker luchit-og או הנתיב luchit.app/* שלו." });
+  } catch (e) { out.push({ title: "תצוגה מקדימה של קישור השוואה", detail: `הבקשה נכשלה (${e.message.slice(0, 80)}).`, impact: "קישורים שנשלחים בוואטסאפ יופיעו בלי תצוגה מקדימה." }); }
+  try {
+    const r = await fetch(SITE + "go/wa?c=probe" + st, { redirect: "manual", signal: AbortSignal.timeout(20000), headers: { "user-agent": "luchit-smoke/1.0" } });
+    const loc = r.headers.get("location") || "";
+    if (r.status !== 302 || !loc.includes("utm_source=whatsapp")) out.push({ title: "קישורי /go/ (פוסטים וביו)", detail: `luchit.app/go/wa החזיר HTTP ${r.status}${loc ? " אל " + loc.slice(0, 80) : ""}, ולא הפניה עם utm_source=whatsapp.`, impact: "קישורי הקמפיין לא ייפתחו או לא ייספרו לפי מקור. כנראה ה-Worker luchit-og או הנתיב שלו." });
+  } catch (e) { out.push({ title: "קישורי /go/ (פוסטים וביו)", detail: `הבקשה נכשלה (${e.message.slice(0, 80)}).`, impact: "קישורי הקמפיין לא ייפתחו." }); }
+  // once a day: a car link names the car (the preview's own 2.5 s ministry budget), with the app's public example plate
+  if (process.env.GITHUB_EVENT_NAME !== "push") try {
+    const html = await get(SITE).then(x => x.t), ex = (html.match(/const EXAMPLE_PLATE = "(\d+)"/) || [])[1];
+    if (ex) { const { t } = await get(SITE + "?plate=" + ex + st, { headers: { "user-agent": WA } }); if (!ogTitle(t).includes(" · ")) out.push({ title: "תצוגה מקדימה של קישור לרכב", detail: `קישור לרכב הדוגמה קיבל את הכותרת הכללית "${ogTitle(t).slice(0, 60)}" במקום שם הרכב.`, impact: "רכב שנשלח בוואטסאפ יופיע בלי שם ובלי מצב הטסט. ייתכן שמשרד התחבורה איטי כרגע; אם זה חוזר מחר, זו תקלה ב-luchit-og." }); }
+  } catch (e) { console.log("car preview not checked:", e.message.slice(0, 80)); }
   return out;
 }
 
@@ -75,11 +100,11 @@ async function lookupCheck() {
     const t0 = Date.now();
     await page.waitForFunction(() => { const o = document.querySelector("#out"); return o && (o.querySelector(".msg.edge") || /סקירה/.test(o.innerText)); }, null, { timeout: 40000 });
     const bad = await page.evaluate(() => { const m = document.querySelector("#out .msg.edge"); return m ? m.innerText.slice(0, 80) : ""; });
-    if (bad) return { title: "בדיקת מספר רישוי בדפדפן", detail: `מספר ${plate} החזיר: "${bad}".`, impact: "משתמשים יראו הודעת שגיאה במקום תוצאת בדיקה (אם זו תקלה זמנית של משרד התחבורה, היא תחלוף בעצמה)." };
-    console.log(`lookup ok in ${Date.now() - t0}ms for ${plate}`);
+    if (bad) return { title: "בדיקת מספר רישוי בדפדפן", detail: `רכב מהמאגר החזיר: "${bad}".`, impact: "משתמשים יראו הודעת שגיאה במקום תוצאת בדיקה (אם זו תקלה זמנית של משרד התחבורה, היא תחלוף בעצמה)." };
+    console.log(`lookup ok in ${Date.now() - t0}ms`);
     if (errs.length) console.log("page errors:", errs.join(" | "));
     return null;
-  } catch (e) { return { title: "בדיקת מספר רישוי בדפדפן", detail: `בדיקת מספר ${plate} לא החזירה תוצאה (${e.name === "TimeoutError" ? "פג הזמן, 40 שניות" : e.message.slice(0, 100)}).`, impact: "משתמשים לא יוכלו לבדוק רכב." }; }
+  } catch (e) { return { title: "בדיקת מספר רישוי בדפדפן", detail: `בדיקת רכב מהמאגר לא החזירה תוצאה (${e.name === "TimeoutError" ? "פג הזמן, 40 שניות" : e.message.slice(0, 100)}).`, impact: "משתמשים לא יוכלו לבדוק רכב." }; }
   finally { await b.close(); }
 }
 

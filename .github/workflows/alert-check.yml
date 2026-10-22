@@ -43,7 +43,7 @@ jobs:
         run: "! grep -rnE '^[[:space:]]*runs-on:[[:space:]]*ubuntu-latest' .github/workflows/"
       - name: Engine self-test
         run: node .github/scripts/alert.mjs selftest
-      - name: Ship tail self-tests (alpha-only guard, data-rebuild skip, release notes, GA4 create-only)
+      - name: Ship tail self-tests (alpha-only guard, data-rebuild skip, release notes, GA4 create-only, analytics contract)
         run: node .github/scripts/play-alpha.mjs selftest && node .github/scripts/ga4-admin.mjs selftest
       - name: Store listing self-test and files (iw-IL only, Play's limits, nothing committed when Play keeps something else)
         run: node .github/scripts/play-listing.mjs selftest && node .github/scripts/play-listing.mjs check
@@ -55,6 +55,8 @@ jobs:
         run: node .github/scripts/play-production.mjs selftest
       - name: Live watch self-test (the 20.10 hang is caught, a tab closed mid-load is not)
         run: node .github/scripts/live-watch.mjs selftest
+      - name: Pipe canary self-test (a broken analytics pipe is caught, quiet days are not, no count in the log)
+        run: node .github/scripts/pipe-canary.mjs selftest
       - name: Data truth self-tests (no plate published, alert keys and wording, every weekly check on made-up registers)
         run: node .github/scripts/site-data-truth.mjs --selftest && node .github/scripts/data-invariants.mjs --selftest
       - name: Python wrapper self-test
