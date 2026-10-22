@@ -38,6 +38,8 @@ const FIXTURES = [
   { name: "test-expired", rec: { ...BASE, tokef_dt: iso(-30) } },
   { name: "ev", rec: { ...BASE, tozeret_nm: "טסלה", kinuy_mishari: "MODEL 3", degem_nm: "3", sug_delek_nm: "חשמל", nefach_manoa: 0, tozeret_cd: 2 } },
   // an open recall: the only fixture with the recalls tab (a car without one shows the "checked" line instead)
+  // the owner's file: a car marked as theirs, with a service log, shows "תיק הרכב" in place of "קנייה"
+  { name: "owner", rec: BASE, ls: { mine: '{"12345678":1}', svc: JSON.stringify({ 12345678: { log: [{ id: 1, d: iso(-140).slice(0, 10), km: 63900, type: "טיפול תקופתי", cost: 1250, note: "" }, { id: 2, d: iso(-20).slice(0, 10), km: 66100, type: "קריאת ק״מ", cost: 0, note: "" }], meta: null } }) } },
   { name: "open-recall", rec: BASE, recall: [{ _id: 1, MISPAR_RECHEV: 12345678, RECALL_ID: 16100, SHNAT_RECALL: 2025, TEUR_TAKALA: "החלפת משאבת דלק", SUG_TAKALA: "מערכת דלק", TAARICH_PTICHA: "2025-06-10T00:00:00" }] },
 ];
 const TABS = contract.tabs.map((t) => t.id);
@@ -60,7 +62,7 @@ async function runPage(browser, fx, theme, width) {
     const u = r.request().url(), recs = u.includes("053cea08") ? [fx.rec] : u.includes("36bf1404") && fx.recall ? fx.recall : [];
     r.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify({ success: true, result: { records: recs, total: recs.length } }) });
   });
-  await ctx.addInitScript(() => { try { localStorage.setItem("analyticsOff", "1"); } catch {} });
+  await ctx.addInitScript((ls) => { try { localStorage.setItem("analyticsOff", "1"); for (const [k, v] of Object.entries(ls)) localStorage.setItem(k, v); } catch {} }, fx.ls || {});
   const page = await ctx.newPage();
   const label = `${fx.name}/${theme}/${width}px`;
   page.on("pageerror", (e) => fail(`[${label}] page error: ${e.message}`));

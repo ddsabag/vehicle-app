@@ -353,6 +353,52 @@ footer a{color:var(--accent)}
 .ckl .rlist{margin:0}
 @media (prefers-reduced-motion:reduce){.ckl summary .chev{transition:none}}
 .report .ckl summary .chev{display:none}
+/* "תיק הרכב" */
+.cf-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.cf-top p{margin:0;color:var(--muted);font-size:.85rem;min-width:0}
+.cf-road{display:inline-flex;align-items:center;gap:8px;flex:none;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:999px;padding:8px 14px;min-height:44px;font:inherit;font-size:.85rem;font-weight:700;cursor:pointer}
+.cf-road .i{width:18px;height:18px;color:var(--accent)}
+.cf-road-list{display:grid;gap:8px}
+.cf-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.cf-tile{background:var(--card);border:0;border-top:3px solid var(--line);border-radius:14px;padding:10px 4px;display:grid;gap:2px;justify-items:center;align-content:start;text-align:center;box-shadow:var(--shadow);color:var(--fg);font:inherit;min-width:0;min-height:44px}
+button.cf-tile{cursor:pointer}
+.cf-tile.ok{border-top-color:var(--ok)}.cf-tile.warn{border-top-color:var(--warn)}.cf-tile.bad{border-top-color:var(--bad)}
+.cf-tile small{color:var(--muted);font-size:.78rem;font-weight:700}
+.cf-tile b{font-size:.9rem;line-height:1.25;overflow-wrap:anywhere}
+.cf-tile span{color:var(--muted);font-size:.78rem;overflow-wrap:anywhere}
+.cf-next{list-style:none;margin:0;padding:0;display:grid}
+.cf-next li{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;padding:12px 0;border-top:1px solid var(--line)}
+.cf-next li:first-child{border-top:0;padding-top:0}.cf-next li:last-child{padding-bottom:0}
+.cf-date{grid-row:span 2;align-self:start;display:grid;justify-items:center;text-align:center;background:var(--soft);border-radius:10px;padding:6px 8px;min-width:58px;font-weight:700;line-height:1.15;font-variant-numeric:tabular-nums}
+.cf-date small{display:block;font-size:.78rem;color:var(--muted);font-weight:600}
+.cf-date .i{width:20px;height:20px}
+.cf-date.warn{background:var(--warn-bg);color:var(--warn)}.cf-date.bad{background:var(--bad-bg);color:var(--bad)}
+.cf-date.warn small,.cf-date.bad small{color:inherit}
+.cf-next .d{display:grid;gap:2px;min-width:0}.cf-next .d span{color:var(--muted);font-size:.85rem}
+.cf-acts{grid-column:2;display:flex;flex-wrap:wrap;gap:8px}.cf-acts .link-btn{width:auto;margin:0}
+.cf-quick{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.cf-quick button{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:14px;padding:12px 4px;min-height:64px;display:grid;justify-items:center;align-content:center;gap:6px;font:inherit;font-size:.85rem;font-weight:700;cursor:pointer}
+.cf-quick button[aria-expanded="true"]{border-color:var(--accent)}
+.cf-quick .i{width:22px;height:22px;color:var(--accent)}
+.cf-form{background:var(--card);border-radius:14px;padding:12px 14px 14px;margin-top:0;box-shadow:var(--shadow)}
+.cf-chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 0 6px;padding-bottom:2px}
+.cf-chips button{flex:0 0 auto;border:1px solid var(--line);background:none;color:var(--muted);border-radius:999px;padding:6px 10px;min-height:40px;font:inherit;font-size:.85rem;font-weight:700;cursor:pointer}
+.cf-chips button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.cf-tl{list-style:none;margin:0;padding:0;position:relative}
+.cf-tl:before{content:"";position:absolute;inset-block:16px;inset-inline-start:7px;width:2px;background:var(--line)}
+.cf-tl li{position:relative;display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:10px 0;padding-inline-start:28px}
+.cf-tl li:before{content:"";position:absolute;inset-inline-start:2px;top:14px;width:12px;height:12px;border-radius:50%;background:var(--card);border:2px solid var(--muted);box-sizing:border-box}
+.cf-tl li.own:before{background:var(--accent);border-color:var(--accent)}
+.cf-tl li.warn:before{border-color:var(--warn);background:var(--warn-bg)}
+.cf-tl time{font-size:.78rem;color:var(--muted);font-weight:700;grid-column:1}
+.cf-tl b{font-size:.95rem;grid-column:1;min-width:0}.cf-tl span{color:var(--muted);font-size:.85rem;grid-column:1;min-width:0}
+.cf-tl .x{grid-column:2;grid-row:1/span 3;align-self:center;border:0;background:transparent;color:var(--muted);min-width:44px;min-height:44px;border-radius:8px;display:grid;place-items:center}.cf-tl .x .i{width:18px;height:18px}
+.cf-more{justify-content:center}
+.cf-sum{color:var(--muted);font-size:.85rem;font-weight:500;margin-inline-start:auto;white-space:nowrap}
+.cf-sub{display:flex;align-items:center;gap:8px;margin:16px 0 6px;font-size:.9rem}.cf-sub:first-child{margin-top:0}
+.cf-cta{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--soft);border-radius:14px;padding:12px 14px;font-size:.9rem}
+.cf-cta span{flex:1 1 200px;min-width:0}.cf-cta .link-btn{width:auto;margin:0}
+.cf-not{align-self:center;background:none;border:0;color:var(--muted);font:inherit;font-size:.85rem;text-decoration:underline;min-height:44px;cursor:pointer}
 .tab-body{display:flex;flex-direction:column;gap:12px}
 .rlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
 .rlist li{padding:10px 0;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:2px}
@@ -1240,7 +1286,7 @@ function proLockCard(title, text){
   return card(title, "star", "amber", `<p style="margin:0">${esc(text)}</p><button type="button" class="link-btn" data-act="proInfo">הצטרפות ל-PRO</button>`, `${PT("PRO")}`);
 }
 const foldKey = t => "fold:" + t;
-const FOLD_DEFAULT = new Set(["שאלות נפוצות", "בעלות", "מסירות בתקופה", "שינויים ברכב", "היסטוריית בעלויות", "ריקולים שנפתחו לדגם", "בדקנו גם", "לפני שקונים", "ציר ק״מ", "עלות אחזקה מצטברת", "משקלים וצמיגים", "בטיחות", "אבזור", "סביבה", "מספרי זיהוי", "כמה מותר לגרור"]);
+const FOLD_DEFAULT = new Set(["שאלות נפוצות", "בעלות", "מסירות בתקופה", "שינויים ברכב", "היסטוריית בעלויות", "ריקולים שנפתחו לדגם", "בדקנו גם", "לפני שקונים", "מסמכים", "כמה הרכב עולה", "נתוני הדגם", "משקלים וצמיגים", "בטיחות", "אבזור", "סביבה", "מספרי זיהוי", "כמה מותר לגרור"]);
 const foldDef = t => FOLD_DEFAULT.has(t) || /^סימני גיול/.test(t);
 const isFolded = t => { try { const k = localStorage.getItem(foldKey(t)); return k === null ? foldDef(t) : k === "1"; } catch { return foldDef(t); } };
 const card = (title, icon, color, inner, extra) => {
@@ -2500,7 +2546,8 @@ function buildInsights(D){
 /* ---------- result screen ---------- */
 let ctrl = null, current = null, currentTab = "overview";
 // the recalls tab is there only when there is something to act on (recTab); otherwise the "checked" line above the tabs says so (checkLine)
-const TABS = [["overview","סקירה"],["recalls","ריקולים"],["buy","קנייה"],["maint","טיפולים"],["specs","מפרט"]];
+// a car marked as the owner's ("הרכב שלי", isMine) shows "תיק הרכב" where any other car shows "קנייה"
+const TABS = [["overview","סקירה"],["recalls","ריקולים"],["buy","קנייה"],["file","תיק הרכב"],["specs","מפרט"]];
 // the report lists the buyer view, never the private maintenance log
 const REPORT_TABS = [["overview","סקירה"],["buy","קנייה"],["recalls","ריקולים והסדרים"],["specs","מפרט"]];
 /* the recalls tab's name for this car, or "" when it has no tab: a model keeps its recall history there; a car gets the tab for an open recall,
@@ -2607,7 +2654,7 @@ async function loadStatus(){
     const el = $("#srcFoot"); if (el) el.outerHTML = srcFoot();
   } catch {}
 }
-const appBox = D => `<section class="appbox"><h3>באתר רואים את הרכב. באפליקציה הוא עובד בשבילכם</h3><p>אותה בדיקה, ועוד:</p><ul><li>התראה כשהטסט מתקרב או שנפתח ריקול</li><li>הודעה אם הרכב עבר בעלות או ירד מהכביש</li><li>הסדרי פשרה: בדיקה אם הרכב שלכם זכאי להטבה מהיבואן</li><li>יומן טיפולים ועלויות על הטלפון</li><li>צילום לוחית ואמירת מספר, במקום להקליד</li></ul><button type="button" class="btn" data-url="${playWeb("result_box")}" data-hint="side">להורדה ב-Google Play</button></section>`;
+const appBox = D => `<section class="appbox"><h3>באתר רואים את הרכב. באפליקציה הוא עובד בשבילכם</h3><p>אותה בדיקה, ועוד:</p><ul><li>התראה כשהטסט מתקרב או שנפתח ריקול</li><li>הודעה אם הרכב עבר בעלות או ירד מהכביש</li><li>הסדרי פשרה: בדיקה אם הרכב שלכם זכאי להטבה מהיבואן</li><li>תיק רכב: מה הבא, טיפולים ומסמכים, על הטלפון</li><li>צילום לוחית ואמירת מספר, במקום להקליד</li></ul><button type="button" class="btn" data-url="${playWeb("result_box")}" data-hint="side">להורדה ב-Google Play</button></section>`;
 const appHint = D => {
   if (window.AndroidApp || IS_IOS || D.kind === "model" || D.isCancelled || sharedHere(D)) return "";
   const t = D.recalls && D.recalls.length || !(D.primary && D.primary.key === "active") ? "התראה כשיוצא ריקול חדש לרכב הזה" : "תזכורת לפני שהטסט פג";   // the app reads test dates from the active register only
@@ -2690,7 +2737,7 @@ function renderResult(){
   if (D.errs && D.errs.some(x => x.key !== "recall")) html.push(`<p class="msg">חלק ממאגרי משרד התחבורה לא ענו כרגע, והמידע על הרכב חלקי. נסו שוב בעוד דקה.</p>`);
   if (!window.AndroidApp && !IS_IOS) html.push(appBox(D));
   html.push(`</div><div class="mainc">`);
-  const recallCount = D.recalls.length, tabs = TABS.filter(([k]) => k !== "recalls" || recTab).map(([k, t]) => [k, k === "recalls" ? recTab : t]);
+  const mine = isMine(D), recallCount = D.recalls.length, tabs = TABS.filter(([k]) => (k !== "recalls" || recTab) && k !== (mine ? "buy" : "file")).map(([k, t]) => [k, k === "recalls" ? recTab : t]);
   if (!tabs.some(([k]) => k === currentTab)) currentTab = "overview";
   if (simpleOn()) html.push(simpleCard(D));
   else {
@@ -2859,23 +2906,32 @@ function serviceInfo(D){
   const r = serviceRule(D);
   return r ? {opts: [{km: r.km, months: r.months || 0}], src: r.src, url: r.url || ""} : null;
 }
-function intervalCard(D, info){
+function intervalInner(D, info){
   if (!info) return "";
-  if (info.none) return card("מרווח טיפולים", "wrench", "teal", `<p style="margin:0"><b>אין טיפול תקופתי קבוע</b></p><p class="note">היצרן ממליץ על בדיקות לפי רכיב: נוזל בלמים כל 4 שנים, מסנן מזגן כל שנתיים, וניקוי קליפרים אחת לשנה או 20,000 ק״מ. לפרטים ראו את הנחיות היצרן.</p>`);
+  if (info.none) return `<p style="margin:0"><b>אין טיפול תקופתי קבוע</b></p><p class="note">היצרן ממליץ על בדיקות לפי רכיב: נוזל בלמים כל 4 שנים, מסנן מזגן כל שנתיים, וניקוי קליפרים אחת לשנה או 20,000 ק״מ. לפרטים ראו את הנחיות היצרן.</p>`;
   const opts = info.opts;
   const when = opts.length === 1 ? `<b>${svWhen(opts[0])}</b>` : `<b>לפי הגרסה: ${opts.map(svWhen).join(" · ")}</b>`;
   const srcEl = info.url ? `<button type="button" class="lnk" data-url="${info.url}">${esc(info.src)}</button>` : esc(info.src);
-  return card("מרווח טיפולים", "wrench", "teal", `<p style="margin:0">${when}</p><p class="note">מקור: ${srcEl}. ${opts.length > 1 ? "לא ניתן לקבוע את הגרסה המדויקת מהנתונים. " : ""}המרווחים עשויים להשתנות בין גרסאות ושנתונים, ולכן כדאי לאמת את המרווח המדויק מול ספר הרכב או היבואן.</p>`);
+  return `<p style="margin:0">${when}</p><p class="note">מקור: ${srcEl}. ${opts.length > 1 ? "לא ניתן לקבוע את הגרסה המדויקת מהנתונים. " : ""}המרווחים עשויים להשתנות בין גרסאות ושנתונים, ולכן כדאי לאמת את המרווח המדויק מול ספר הרכב או היבואן.</p>`;
 }
-
+const intervalCard = (D, info, extra) => info ? card("מרווח טיפולים", "wrench", "teal", intervalInner(D, info) + (extra || ""), `<span class="src-tag db">מאגר לוחית</span>`) : "";
+/* the buyer's view of the model's service interval: where the next periodic service falls by the km at the last test, and what to ask the seller */
+function buyService(D){
+  const info = serviceInfo(D);
+  if (!info) return !window.AndroidApp && !IS_IOS && !SERVICE && D.kind !== "model" && !isCommercial(D) ? card("מרווחי טיפול מלאים", "wrench", "teal", `<p style="margin:0">הטבלה המלאה של מרווחי הטיפול לפי דגם, גרסה ונפח מנוע זמינה באפליקציית לוחית באנדרואיד.</p><button type="button" class="link-btn" data-url="${PLAY_URL}">${ico("share")}להורדה מ-Google Play</button>`) : "";
+  if (!maintOk()) return info.none ? "" : card("מרווח טיפולים", "wrench", "amber", `<p style="margin:0 0 6px"><span class="blur" aria-hidden="true">כל ••,••• ק״מ או •••</span></p><p class="note" style="margin:0 0 8px">יש לדגם הזה מרווח טיפולים מוכר. ב-PRO תראו אותו, ומתי הטיפול הבא לפי הק״מ.</p><button type="button" class="link-btn" data-act="proInfo">${ico("star")}מה כולל PRO</button>`, PT("PRO"));
+  const est = info.none ? null : svcEst(D, info);
+  return intervalCard(D, info, info.none ? "" : `<p style="margin:10px 0 0">${est ? `לפי הק״מ בטסט האחרון (${fmtN(D.km)}), הטיפול התקופתי הבא הוא סביב <b>${fmtN(est)} ק״מ</b> (הערכה). ` : ""}כדאי לבקש מהמוכר את ספר הטיפולים ולבדוק שהטיפולים נעשו בזמן.</p>`);
+}
 /* ---------- maintenance tab: service log, next service, km timeline, cumulative cost (the log stays on the phone) ---------- */
 const SVC_TYPES = ["טיפול תקופתי", "שמן ומסננים", "בלמים", "צמיגים", "מצבר", "מזגן", "אחר"];
 const SVC_KEYS = ["periodic", "oil", "brakes", "tires", "battery", "ac", "other"];   // the same types, as the usage count names them
+const SVC_KM = "קריאת ק״מ";   // a km reading entered without a service: it sets the km pace, never the next service or the last service
 const maintOk = () => !PRO_LOCK || atLeast("pro");
 const svcAll = () => { try { return JSON.parse(localStorage.getItem("svc") || "{}") || {}; } catch { return {}; } };
 const svcOf = p => { const s = svcAll()[p]; return s && Array.isArray(s.log) ? s : {log: [], meta: null}; };
 // the newest entry of the service log (kept on the phone only), for the fleet table
-const svcLast = p => svcOf(p).log.filter(x => x.d).reduce((a, b) => !a || b.d > a.d ? b : a, null);
+const svcLast = p => svcOf(p).log.filter(x => x.d && x.type !== SVC_KM).reduce((a, b) => !a || b.d > a.d ? b : a, null);
 function svcSave(p, s){ const all = svcAll(); all[p] = s; try { localStorage.setItem("svc", JSON.stringify(all)); } catch {} syncSaved(store.get("savedVehicles")); }
 const ymdOf = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + Math.round(n)); return x; };
@@ -2923,61 +2979,50 @@ function manualHit(D){
   const m = [D.v.tozeret_nm, D.make].filter(x => !empty(x)).join(" ");
   return BRAND_MANUAL.find(x => x.re.test(m)) || null;
 }
-function seasonCard(){
+function seasonInner(){
   const mo = new Date().getMonth() + 1, summer = mo >= 4 && mo <= 9;
   const items = summer ? ["מזגן: בדיקת קירור ומסנן מזגן", "נוזל קירור ומפלס שמן", "לחץ אוויר ובלאי בצמיגים", "מצבר, שחום קשה מקצר את חייו"]
     : ["מגבים וניקוי שמשות", "פנסים ומצבר לפני הקור והגשם", "בלמים ועומק חריץ בצמיגים", "נוזל שמשות ומפלס שמן"];
-  return card(summer ? "בדיקות לפני הקיץ" : "בדיקות לפני החורף", "check", "green", `<ul class="insights plain">${items.map(x => `<li class="ins ok">${ico("check")}<div><b>${esc(x)}</b></div></li>`).join("")}</ul><p class="note">רשימה כללית, לא תלויה בדגם.</p>`);
+  return `<h3 class="cf-sub">${summer ? "בדיקות לפני הקיץ" : "בדיקות לפני החורף"}</h3><ul class="insights plain">${items.map(x => `<li class="ins ok">${ico("check")}<div><b>${esc(x)}</b></div></li>`).join("")}</ul><p class="note">רשימה כללית, לא תלויה בדגם.</p>`;
 }
-function nextCard(D, info){
-  const s = svcOf(D.plate), n = svcNext(s), saved = isSaved(D.plate);
-  if (!info || !info.opts) return card("הטיפול הבא", "clock", "teal", `<p style="margin:0">אין לרכב הזה מרווח טיפולים במאגר, ולכן אי אפשר לחשב את הטיפול הבא. אפשר עדיין לרשום טיפולים ביומן.</p>`);
-  if (info.opts.length !== 1) return card("הטיפול הבא", "clock", "teal", `<p style="margin:0">הגרסאות של הדגם מחזיקות מרווחים שונים, ולכן לא ניתן לחשב את הטיפול הבא. בדקו בספר הרכב וקבעו מרווח.</p>`);
-  const o = info.opts[0], hint = saved ? "" : `<p class="note">כדי לקבל תזכורות בהתראה, שמרו את הרכב (כפתור "שמירה" למעלה) והפעילו התראות.</p>`;
-  if (!n) {
-    const km = D.km, est = km > 0 ? Math.ceil((km + 1) / o.km) * o.km : null;
-    return card("הטיפול הבא", "clock", "teal", `${est ? `<p style="margin:0">לפי הק״מ בטסט האחרון (${fmtN(km)}), הטיפול הבא לפי המרווח הוא סביב <b>${fmtN(est)} ק״מ</b> (הערכה).</p>` : ""}<p class="note">רשמו ביומן למטה את הטיפול התקופתי האחרון (טיפול תקופתי או שמן ומסננים), ונחשב מתי הטיפול הבא ונזכיר לכם.</p>`);
-  }
-  const days = n.due ? dayDiff(new Date(new Date().setHours(0, 0, 0, 0)), n.due) : null;
-  const status = days == null ? "" : days < 0 ? days === -1 ? "באיחור של יום" : `באיחור של ${-days} ימים` : days === 0 ? "היום" : days === 1 ? "מחר" : `בעוד ${days} ימים`;
-  const rows = [["טיפול אחרון", `${fmtDate(n.last.d)}${n.last.km ? " · " + fmtN(n.last.km) + " ק״מ" : ""}`], ["הטיפול הבא עד", n.due ? `${fmtDate(ymdOf(n.due))}${status ? " (" + status + ")" : ""}` : "—"], ["או בק״מ", n.dueKm ? fmtN(n.dueKm) + " ק״מ" : "—"]];
-  const cls = days != null && days < 0 ? "bad" : days != null && days <= 30 ? "warn" : "";
-  return card("הטיפול הבא", "clock", "teal", `<dl class="facts">${rows.map(([k, v], i) => `<div class="${i === 1 ? cls : ""}"><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>${n.due ? `<button type="button" class="link-btn" data-svc="cal">הוספה ליומן</button>` : ""}<p class="note">${o.months ? `התאריך הוא ${svMonths(o.months)} אחרי הטיפול שרשמתם. אם תגיעו קודם ל-${fmtN(o.km)} ק״מ, כדאי לטפל אז.` : "התאריך הוא הערכה לפי קצב הנסיעה."}</p>${hint}`);
-}
-function logCard(D){
-  const s = svcOf(D.plate), list = [...s.log].sort((a, b) => a.d < b.d ? 1 : -1), today = ymdOf(new Date());
-  const form = `<div id="svcForm" class="svc-form" hidden>
+/* the two quick forms of the file: a service, and a km reading */
+function svcForm(){
+  const today = ymdOf(new Date());
+  return `<div id="svcForm" class="svc-form cf-form" hidden>
+    <label>סוג<select class="inp" id="svcType">${SVC_TYPES.map(t => `<option>${t}</option>`).join("")}</select></label>
     <label>תאריך<input class="inp" id="svcDate" type="date" value="${today}" max="${today}"></label>
     <label>ק״מ בטיפול<input class="inp" id="svcKm" type="number" inputmode="numeric" min="0" placeholder="לא חובה"></label>
-    <label>סוג<select class="inp" id="svcType">${SVC_TYPES.map(t => `<option>${t}</option>`).join("")}</select></label>
     <label>עלות (₪)<input class="inp" id="svcCost" type="number" inputmode="decimal" min="0" placeholder="לא חובה"></label>
     <label>הערה<input class="inp" id="svcNote" type="text" maxlength="80" placeholder="לא חובה"></label>
-    <button type="button" class="link-btn" data-svc="save">שמירה ביומן</button></div>`;
-  const rows = list.length ? `<ul class="svc-list">${list.map(x => `<li><div><b>${esc(x.type)}</b><span>${esc(fmtDate(x.d))}${x.km ? " · " + fmtN(x.km) + " ק״מ" : ""}${x.cost ? " · " + fmtN(x.cost) + " ₪" : ""}</span>${x.note ? `<small>${esc(x.note)}</small>` : ""}</div><button type="button" class="x" data-svc="del" data-id="${x.id}" aria-label="מחיקה">${ico("trash")}</button></li>`).join("")}</ul>` : `<p style="margin:0">עוד לא נרשמו טיפולים לרכב הזה.</p>`;
-  return card("יומן טיפולים", "wrench", "amber", `${rows}<button type="button" class="link-btn" data-svc="toggle">${ico("plus")}הוספת טיפול</button>${form}<p class="note">היומן נשמר רק בטלפון שלכם ולא נשלח לשום מקום.</p>`);
+    <button type="button" class="link-btn" data-svc="save">שמירה בתיק</button></div>
+  <div id="kmForm" class="svc-form cf-form" hidden>
+    <label>ק״מ במד המרחק<input class="inp" id="kmVal" type="number" inputmode="numeric" min="1"></label>
+    <label>תאריך<input class="inp" id="kmDate" type="date" value="${today}" max="${today}"></label>
+    <button type="button" class="link-btn" data-svc="km">שמירה בתיק</button></div>`;
 }
-function kmCard(D){
-  const s = svcOf(D.plate), pts = s.log.filter(x => x.km > 0 && x.d).map(x => [new Date(x.d), x.km, "טיפול"]);
+function kmInner(D){
+  const s = svcOf(D.plate), pts = s.log.filter(x => x.km > 0 && x.d).map(x => [new Date(x.d), x.km]);
   const tk = D.km || 0, td = toDate(D.v.mivchan_acharon_dt);
-  if (tk > 0 && td) pts.push([td, tk, "טסט"]);
+  if (tk > 0 && td) pts.push([td, tk]);
   pts.sort((a, b) => a[0] - b[0]);
   const coh = msCohort(D), typical = coh && coh.km > 0 ? `<p class="note">לשם השוואה, בדגם ובשנתון הזה הק״מ האופייני בטסט הוא כ-${fmtN(Math.round(coh.km / 1000) * 1000)}.</p>` : "";
-  if (pts.length < 2) return card("ציר ק״מ", "chart", "blue", `<p style="margin:0">${tk ? `במאגר הממשלתי יש רק קריאת ק״מ אחת לרכב (בטסט האחרון: ${fmtN(tk)})` : "המאגר הממשלתי לא מראה קריאת ק״מ מטסט של הרכב"}, ולכן הציר נבנה מהטיפולים שתרשמו עם ק״מ. רשמו עוד טיפול כדי לראות את הקצב.</p>${typical}`);
+  if (pts.length < 2) return `<p style="margin:0">${tk ? `במאגר הממשלתי יש רק קריאת ק״מ אחת לרכב (בטסט האחרון: ${fmtN(tk)})` : "המאגר הממשלתי לא מראה קריאת ק״מ מטסט של הרכב"}, ולכן הציר נבנה ממה שתרשמו. עדכון ק״מ או טיפול עם ק״מ יראו כאן את הקצב.</p>${typical}`;
   const W = 300, H = 120, t0 = pts[0][0].getTime(), t1 = pts[pts.length - 1][0].getTime(), kmLo = Math.min(...pts.map(p => p[1])), kmHi = Math.max(...pts.map(p => p[1])), sp = Math.max(kmHi - kmLo, 1), ts = Math.max(t1 - t0, 1);
   const X = p => 14 + (p[0].getTime() - t0) / ts * (W - 28), Y = p => 14 + (H - 28) * (1 - (p[1] - kmLo) / sp);
   const line = pts.map(p => `${X(p).toFixed(1)},${Y(p).toFixed(1)}`).join(" ");
   const yrs = Math.max((t1 - t0) / 864e5 / 365, 0.1), perYear = Math.round((pts[pts.length - 1][1] - pts[0][1]) / yrs / 100) * 100;
-  return card("ציר ק״מ", "chart", "blue", `<svg class="ph-svg" viewBox="0 0 ${W} ${H + 18}" dir="ltr" role="img" aria-label="ק״מ לאורך זמן"><polyline points="${line}" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linejoin="round"/>${pts.map(p => `<circle cx="${X(p).toFixed(1)}" cy="${Y(p).toFixed(1)}" r="3.5" fill="var(--accent)"/>`).join("")}<text x="14" y="${H + 12}" font-size="10" fill="currentColor" opacity=".6">${pts[0][0].getFullYear()}</text><text x="${W - 14}" y="${H + 12}" text-anchor="end" font-size="10" fill="currentColor" opacity=".6">${pts[pts.length - 1][0].getFullYear()}</text></svg>
-    <dl class="facts"><div><dt>קריאה ראשונה</dt><dd>${fmtN(pts[0][1])}</dd></div><div><dt>קריאה אחרונה</dt><dd>${fmtN(pts[pts.length - 1][1])}</dd></div>${perYear > 0 ? `<div><dt>קצב</dt><dd>${fmtN(perYear)} ק״מ בשנה</dd></div>` : ""}</dl>${typical}<p class="note">הנקודות הן הטיפולים שרשמתם והטסט האחרון מהמאגר.</p>`);
+  return `<svg class="ph-svg" viewBox="0 0 ${W} ${H + 18}" dir="ltr" role="img" aria-label="ק״מ לאורך זמן"><polyline points="${line}" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linejoin="round"/>${pts.map(p => `<circle cx="${X(p).toFixed(1)}" cy="${Y(p).toFixed(1)}" r="3.5" fill="var(--accent)"/>`).join("")}<text x="14" y="${H + 12}" font-size="10" fill="currentColor" opacity=".6">${pts[0][0].getFullYear()}</text><text x="${W - 14}" y="${H + 12}" text-anchor="end" font-size="10" fill="currentColor" opacity=".6">${pts[pts.length - 1][0].getFullYear()}</text></svg>
+    <dl class="facts"><div><dt>קריאה ראשונה</dt><dd>${fmtN(pts[0][1])}</dd></div><div><dt>קריאה אחרונה</dt><dd>${fmtN(pts[pts.length - 1][1])}</dd></div>${perYear > 0 ? `<div><dt>קצב</dt><dd>${fmtN(perYear)} ק״מ בשנה</dd></div>` : ""}</dl>${typical}<p class="note">הנקודות הן מה שרשמתם בתיק והטסט האחרון מהמאגר.</p>`;
 }
-function costLogCard(D){
+/* what the owner recorded paying: the total, the monthly average and each year; null when nothing has a cost */
+function costInner(D){
   const s = svcOf(D.plate), items = s.log.filter(x => x.cost > 0 && x.d);
-  if (!items.length) return "";
+  if (!items.length) return null;
   const total = items.reduce((t, x) => t + x.cost, 0), by = {};
   for (const x of items) { const y = x.d.slice(0, 4); by[y] = (by[y] || 0) + x.cost; }
   const first = new Date(items.reduce((m, x) => x.d < m ? x.d : m, items[0].d)), months = Math.max(monthsBetween(first, new Date()), 1);
-  return card("עלות אחזקה מצטברת", "tag", "green", `<dl class="facts"><div><dt>סה״כ</dt><dd>${fmtN(Math.round(total))} ₪</dd></div><div><dt>ממוצע לחודש</dt><dd>${fmtN(Math.round(total / months / 10) * 10)} ₪</dd></div></dl>
-    <dl class="facts" style="margin-top:12px">${Object.keys(by).sort().reverse().map(y => `<div><dt>${y}</dt><dd>${fmtN(Math.round(by[y]))} ₪</dd></div>`).join("")}</dl><p class="note">לפי הטיפולים שרשמתם ביומן, בלי דלק, ביטוח ואגרות.</p>`);
+  return {year: by[String(new Date().getFullYear())] || 0, html: `<dl class="facts"><div><dt>סה״כ</dt><dd>${fmtN(Math.round(total))} ₪</dd></div><div><dt>ממוצע לחודש</dt><dd>${fmtN(Math.round(total / months / 10) * 10)} ₪</dd></div></dl>
+    <dl class="facts" style="margin-top:12px">${Object.keys(by).sort().reverse().map(y => `<div><dt>${y}</dt><dd>${fmtN(Math.round(by[y]))} ₪</dd></div>`).join("")}</dl><p class="note">לפי מה שרשמתם בתיק, בלי דלק, ביטוח ואגרות.</p>`};
 }
 /* vehicle file ("תיק רכב"): invoices, licence photos and other papers, kept only on this phone (IndexedDB) */
 const DOC_CATS = ["חשבונית טיפול או תיקון", "רישיון רכב", "רישיון נהיגה", "ביטוח", "טסט", "קנייה ומכירה", "אחר"];
@@ -2992,6 +3037,8 @@ const DocDB = {
   get(id){ return this.tx("readonly", st => st.get(id)); },
   all(){ return this.tx("readonly", st => st.getAll()); },
   byPlate(p){ return this.tx("readonly", st => st.index("plate").getAll(p)); },
+  // the plates that have a document, without reading the files
+  async plates(){ const db = await this.open(); return new Promise((ok, no) => { const out = new Set(), rq = db.transaction("docs").objectStore("docs").index("plate").openKeyCursor(null, "nextunique"); rq.onsuccess = () => { const c = rq.result; if (c) { out.add(c.key); c.continue(); } else ok(out); }; rq.onerror = () => no(rq.error); }); },
 };
 async function docPrepare(file){
   if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) return file.size > DOC_MAX_BYTES ? null : {blob: file, type: "application/pdf", name: file.name};
@@ -3014,16 +3061,16 @@ async function docsAdd0(files, plate, cat, exp){
     if (!docsOk(n)) { locked = true; break; }
     const d = await docPrepare(f).catch(() => null);
     if (!d) { skipped++; continue; }
-    const id = await DocDB.put({plate, cat, name: d.name, type: d.type, size: d.blob.size, at: Date.now(), exp: exp || "", blob: d.blob}); n++; added++;
+    const id = await DocDB.put({plate, cat, name: d.name, type: d.type, size: d.blob.size, at: Date.now(), exp: exp || "", blob: d.blob}); n++; added++; docPlates.add(plate);
     if (exp) docExpSave([...docExpAll(), {id, plate, cat, exp}]);
   }
   toast(locked ? `בחינם אפשר לשמור עד ${FREE_DOCS} מסמכים לרכב. ${added ? "נשמרו " + added + "." : ""}` : added ? (added === 1 ? "המסמך נשמר בתיק הרכב" : `נשמרו ${added} מסמכים בתיק הרכב`) + (skipped ? `, ${skipped} לא נתמכו או גדולים מדי` : "") : "לא הצלחנו לשמור. אפשר תמונות ו-PDF עד 12MB.");
-  fillDocs();
+  fillDocs(); fillFile();
   if (added && exp && !trackedOk(plate)) setTimeout(() => toast("כדי לקבל התראה על התוקף, שמרו את הרכב ב\"הרכבים שלי\""), 2600);
 }
 function docsCard(D){
   const mh = manualHit(D);
-  return card(mh ? "מסמכים וספר הרכב" : "תיק הרכב", "doc", "teal", `<p style="margin:0">חשבוניות תיקון, רישיון הרכב, רישיון נהיגה, ביטוח ועוד, במקום אחד.</p>
+  return card("מסמכים", "doc", "teal", `<p style="margin:0">חשבוניות תיקון, רישיון הרכב, רישיון נהיגה, ביטוח ועוד, במקום אחד.</p>
     <div id="docList"></div>
     <div class="doc-add"><select class="inp" id="docCat" aria-label="סוג המסמך">${DOC_CATS.map(c => `<option>${c}</option>`).join("")}</select>
     <button type="button" class="link-btn" data-doc="add">${ico("plus")}הוספת מסמך או צילום</button>
@@ -3053,27 +3100,232 @@ document.addEventListener("click", async ev => {
   const rec = b.dataset.id ? await DocDB.get(+b.dataset.id).catch(() => null) : null; if (!rec) return;
   if (a === "open") { if (rec.type === "application/pdf") shareFile(rec.blob, rec.name, rec.cat); else docViewer(rec.blob, rec.name); }
   else if (a === "share") shareFile(rec.blob, rec.name, rec.cat);
-  else if (a === "del" && confirm("למחוק את המסמך מהתיק?")) { await DocDB.del(rec.id); docExpSave(docExpAll().filter(d => d.id !== rec.id)); fillDocs(); }
+  else if (a === "del" && confirm("למחוק את המסמך מהתיק?")) { await DocDB.del(rec.id); docExpSave(docExpAll().filter(d => d.id !== rec.id)); fillDocs(); fillFile(); }
 });
 document.addEventListener("click", ev => { const b = ev.target.closest("[data-retry]"); if (b) run(b.dataset.retry); });
 document.addEventListener("change", ev => { const f = ev.target.closest("#docFile"); if (!f || !current) return; const files = [...f.files]; f.value = ""; if (files.length) { const ex = $("#docExp"); docsAdd(files, current.plate, ($("#docCat") || {}).value || "אחר", ex && DOC_EXP_CATS.includes(($("#docCat") || {}).value) ? ex.value : ""); if (ex) ex.value = ""; } });
 document.addEventListener("change", ev => { const c = ev.target.closest("#docCat"); const r = $("#docExpRow"); if (c && r) r.hidden = !DOC_EXP_CATS.includes(c.value); });
 
-function tabMaint(D){
-  const info = serviceInfo(D);
-  let paid;
-  if (!maintOk()) paid = info && !info.none
-    ? card("הטיפול הבא", "wrench", "amber", `<p style="margin:0 0 6px"><span class="blur" aria-hidden="true">••/•••• · ••,••• ק״מ</span></p><p class="note" style="margin:0 0 8px">יש לדגם הזה מרווח טיפולים מוכר. ב-PRO תראו מתי הטיפול הבא, תנהלו יומן טיפולים ותקבלו תזכורת.</p><button type="button" class="link-btn" data-act="proInfo">${ico("star")}מה כולל PRO</button>`, PT("PRO"))
-    : proLockCard("אחזקה", "יומן טיפולים, הטיפול הבא, ציר ק״מ ועלות אחזקה מצטברת, עם תזכורות בהתראה.");
-  else { svcRemember(D, info); paid = [intervalCard(D, info), nextCard(D, info), logCard(D), kmCard(D), costLogCard(D)].join(""); }
-  const webNote = !window.AndroidApp && !IS_IOS && !SERVICE ? card("מרווחי טיפול מלאים", "wrench", "teal", `<p style="margin:0">הטבלה המלאה של מרווחי הטיפול לפי דגם, גרסה ונפח מנוע זמינה באפליקציית לוחית באנדרואיד.</p><button type="button" class="link-btn" data-url="${PLAY_URL}">${ico("share")}להורדה מ-Google Play</button>`) : "";
-  /* two kinds of service data, labelled so they are never confused: the interval comes from Luchit's own database, the rest from what the user records */
-  const srcTag = (h, title, cls, txt) => h.replace(`<h2>${title}</h2>`, `<h2>${title}</h2><span class="src-tag ${cls}">${txt}</span>`);
-  paid = srcTag(srcTag(srcTag(srcTag(paid, "מרווח טיפולים", "db", "מאגר לוחית"), "הטיפול הבא", "user", "לפי היומן שלכם"), "יומן טיפולים", "user", "הנתונים שלכם"), "עלות אחזקה מצטברת", "user", "הנתונים שלכם");
-  const free = [docsCard(D), seasonCard(), webNote].join("");
-  const pg = tier("ב-PRO: מעקב טיפולים", paid);
-  return maintOk() || (info && !info.none) ? pg + free : free + pg;
+/* ---------- "תיק הרכב": the owner's tab, for a car marked as theirs; any other car gets the buyer's tabs (סקירה, קנייה, מפרט) ---------- */
+// the mark, {plate: 1 | 0} on this phone: a car with a service log or a document is the owner's until they say it is not (0)
+const mineAll = () => { try { return JSON.parse(localStorage.getItem("mine") || "{}") || {}; } catch { return {}; } };
+let docPlates = new Set();   // plates with a document on this phone: read once at start (DocDB.plates), kept by docsAdd
+const hasFile = p => svcOf(p).log.length > 0 || docPlates.has(p) || docExpAll().some(d => d.plate === p);
+function isMine(D){
+  if (!D || D.kind === "model" || !D.plate) return false;
+  const m = mineAll()[D.plate];
+  return m === 1 || (m !== 0 && hasFile(D.plate));
 }
+function setMine(D, on){
+  const m = mineAll(); m[D.plate] = on ? 1 : 0;
+  try { localStorage.setItem("mine", JSON.stringify(m)); } catch {}
+  track(on ? "mine_set" : "mine_unset", {saved: isSaved(D.plate) ? 1 : 0});
+}
+/* the calm row at the end of the overview that opens the file; never on a shared report, a model or a car off the road */
+function fileCta(D){
+  if (D.kind === "model" || !D.plate || D.isCancelled || reportBuild || sharedHere(D) || isMine(D)) return "";
+  return `<div class="cf-cta"><span><b>זה הרכב שלכם?</b> פתחו לו תיק: מה הבא, טיפולים ומסמכים, במקום אחד ורק בטלפון שלכם.</span><button type="button" class="link-btn" data-cf="mine">${ico("car")}פתיחת תיק</button></div>`;
+}
+const RENEW_URL = "https://www.gov.il/he/service/car_licence_renewal";
+const ROAD_CATS = ["רישיון רכב", "ביטוח", "רישיון נהיגה"];
+const today0 = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); };
+const dShort = d => `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getFullYear()).slice(2)}`;
+const daysWord = n => n === 0 ? "היום" : n === 1 ? "מחר" : n === 2 ? "יומיים" : `${n} ימים`;
+const aheadWord = n => n < 60 ? daysWord(n) : `${Math.round(n / 30.44)} חודשים`;
+// the next periodic service by km alone, from the km at the last test, when the owner has logged none
+const svcEst = (D, info) => { const o = info && info.opts && info.opts.length === 1 ? info.opts[0] : null; return o && D.km > 0 ? Math.ceil((D.km + 1) / o.km) * o.km : null; };
+/* four tiles answer "is all well": the test, the service, insurance, recalls; colour only where something is near or late */
+function fileTiles(D, n, est){
+  const t0 = today0(), tile = (k, t, b, s, attrs) => `<${attrs ? `button type="button" ${attrs}` : "div"} class="cf-tile${k ? " " + k : ""}"><small>${t}</small><b>${esc(b)}</b><span>${esc(s)}</span></${attrs ? "button" : "div"}>`;
+  const L = licOf(D);
+  const test = !L ? tile("", "טסט", "—", D.isCancelled ? "ירד מהכביש" : "אין במאגר")
+    : L.k === "ok" ? (L.days <= 60 ? tile("warn", "טסט", daysWord(L.days), dShort(L.ex)) : tile("ok", "טסט", "בתוקף", dShort(L.ex)))
+    : tile(L.k === "bad" ? "bad" : "warn", "טסט", L.k === "bad" ? "פג" : "לא ברור", dShort(L.ex));
+  let svc;
+  if (!maintOk()) svc = tile("", "טיפול", "PRO", "", `data-act="proInfo"`);
+  else if (n && n.due) { const d = dayDiff(t0, n.due); svc = d < 0 ? tile("bad", "טיפול", "באיחור", dShort(n.due)) : tile(d <= 30 ? "warn" : "ok", "טיפול", aheadWord(d), n.dueKm ? `${fmtN(n.dueKm)} ק״מ` : dShort(n.due)); }
+  else if (est) svc = tile("", "טיפול", fmtN(est), "ק״מ, הערכה");
+  else svc = tile("", "טיפול", "לא נרשם", "רישום טיפול", `data-cf="svc"`);
+  const ins = docExpAll().filter(x => x.plate === D.plate && x.cat === "ביטוח" && toDate(x.exp)).sort((a, b) => a.exp < b.exp ? 1 : -1)[0];
+  const insD = ins ? dayDiff(t0, toDate(ins.exp)) : 0;
+  const insT = !ins ? tile("", "ביטוח", "לא נשמר", "הוספת פוליסה", `data-cf="ins"`)
+    : insD < 0 ? tile("bad", "ביטוח", "פג", dShort(toDate(ins.exp))) : tile(insD <= 30 ? "warn" : "ok", "ביטוח", insD <= 30 ? daysWord(insD) : "בתוקף", dShort(toDate(ins.exp)));
+  const pr = D.isCancelled || D.recallUnknown ? [] : pendingRecalls(D);
+  const rec = D.recallUnknown ? tile("", "ריקולים", "לא זמין", "נסו שוב בהמשך")
+    : D.recalls.length ? tile("bad", "ריקולים", D.recalls.length === 1 ? "פתוח" : `${D.recalls.length} פתוחים`, "התיקון בחינם", `data-tab="recalls"`)
+    : pr.length ? tile("warn", "ריקולים", "ייתכן", "לבדוק ביבואן") : tile("ok", "ריקולים", "אין פתוח", "משרד התחבורה");
+  return `<div class="cf-tiles">${test}${svc}${insT}${rec}</div>`;
+}
+/* "מה הבא": what comes next and when, each with the one action it needs (renew, a calendar entry, log a service) */
+function fileNext(D, info, n, est){
+  const t0 = today0(), out = [], dm = d => `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+  const li = (when, sub, cls, title, text, acts, at) => out.push({at, h: `<li><span class="cf-date${cls ? " " + cls : ""}">${when}<small>${sub}</small></span><div class="d"><b>${esc(title)}</b>${text ? `<span>${esc(text)}</span>` : ""}</div>${acts ? `<div class="cf-acts">${acts}</div>` : ""}</li>`});
+  const renew = `<button type="button" class="link-btn" data-url="${RENEW_URL}">${ico("globe")}חידוש באתר משרד התחבורה</button>`;
+  if (D.recalls.length) li(ico("alert"), "עכשיו", "bad", D.recalls.length === 1 ? "ריקול פתוח לרכב" : `${D.recalls.length} ריקולים פתוחים לרכב`, "התיקון בחינם אצל היבואן. ריקול שלא תוקן עלול לעכב את חידוש הרישיון.", `<button type="button" class="link-btn" data-tab="recalls">${ico("alert")}לפרטים</button>`, -Infinity);
+  const L = licOf(D);
+  if (L && L.k === "ok") {
+    const open = L.days <= 60, from = new Date(L.ex); from.setDate(from.getDate() - 60);
+    li(dm(L.ex), L.ex.getFullYear(), open ? "warn" : "", "חידוש רישיון הרכב", open ? "אפשר כבר לחדש: טסט כשנדרש, ותשלום האגרה." : `אפשר לחדש מ-60 יום לפני תום התוקף: החל מ-${fmtDate(ymdOf(from))}.`, (open ? renew : "") + (pushCoversTest(D) ? "" : calendarBtn(D)), L.ex.getTime());
+  } else if (L) { const nt = licNote(L); li(dm(L.ex), L.ex.getFullYear(), L.k === "bad" ? "bad" : "warn", nt.title, nt.text, renew, L.ex.getTime()); }
+  if (maintOk() && n && n.due) {
+    const d = dayDiff(t0, n.due), o = info && info.opts && info.opts.length === 1 ? info.opts[0] : (svcOf(D.plate).meta || {});
+    li(`${String(n.due.getMonth() + 1).padStart(2, "0")}/${String(n.due.getFullYear()).slice(2)}`, "בערך", d < 0 ? "bad" : d <= 30 ? "warn" : "", d < 0 ? "הטיפול התקופתי באיחור" : n.dueKm ? `טיפול ${fmtN(n.dueKm)} ק״מ` : "טיפול תקופתי",
+      o.months ? `${svMonths(o.months)} אחרי הטיפול שרשמתם${n.dueKm ? `, או ב-${fmtN(n.dueKm)} ק״מ אם תגיעו קודם` : ""}.` : "לפי קצב הנסיעה שלכם.", `<button type="button" class="link-btn" data-svc="cal">${ico("clock")}ליומן</button>`, n.due.getTime());
+  } else if (maintOk() && est) li(fmtN(Math.round(est / 1000)), "אלף ק״מ", "", `טיפול סביב ${fmtN(est)} ק״מ (הערכה)`, "לפי הק״מ בטסט האחרון ומרווח הטיפולים של הדגם. רשמו את הטיפול האחרון, ונחשב תאריך ונזכיר לכם.", `<button type="button" class="link-btn" data-cf="svc">${ico("wrench")}רישום טיפול</button>`, Infinity);
+  // a document's expiry, the newest of each kind; the licence's own date is the row above
+  const last = {};
+  for (const x of docExpAll()) if (x.plate === D.plate && toDate(x.exp) && (!last[x.cat] || x.exp > last[x.cat].exp)) last[x.cat] = x;
+  const NEXT_DOC = {"ביטוח": "ביטוח מתחדש", "רישיון נהיגה": "חידוש רישיון נהיגה"};
+  for (const x of Object.values(last)) {
+    const d = toDate(x.exp), dd = dayDiff(t0, d);
+    if (dd < -30 || (L && ["רישיון רכב", "טסט"].includes(x.cat) && Math.abs(d - L.ex) < 15 * 864e5)) continue;
+    li(dm(d), d.getFullYear(), dd < 0 ? "bad" : dd <= 30 ? "warn" : "", dd < 0 ? `${x.cat}: התוקף פג` : NEXT_DOC[x.cat] || `${x.cat} בתוקף עד`, "לפי המסמך ששמרתם.", "", d.getTime());
+  }
+  out.sort((a, b) => a.at - b.at);
+  return card("מה הבא", "clock", "blue", out.length ? `<ul class="cf-next">${out.map(x => x.h).join("")}</ul>` : `<p style="margin:0">אין כרגע משהו שמחכה לכם. כשיתקרב מועד, הוא יופיע כאן.</p>`);
+}
+/* the car's story, newest first: what the owner recorded (a full dot) and what the ministry's registers say (an empty one) */
+let cfFilter = "all", cfMore = false, cfFor = "", cfDocs = [];
+const CF_CHIPS = [["all", "הכול"], ["svc", "טיפולים"], ["doc", "מסמכים"], ["gov", "משרד התחבורה"]];
+function fileEvents(D, docs, forPdf){
+  const ev = [], gov = "לפי משרד התחבורה", ym = d => `${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+  for (const x of svcOf(D.plate).log) {
+    const t = toDate(x.d); if (!t) continue;
+    const km = x.type === SVC_KM;
+    // a report for a buyer leaves out what the owner paid and their own notes
+    ev.push({t, when: fmtDate(x.d), k: "svc", cls: "own", title: km ? `קריאת ק״מ: ${fmtN(x.km)}` : `${x.type}${x.cost && !forPdf ? ` · ${fmtN(x.cost)} ₪` : ""}`,
+      sub: [!km && x.km ? `${fmtN(x.km)} ק״מ` : "", forPdf ? "" : x.note || ""].filter(Boolean).join(" · "), del: x.id});
+  }
+  for (const x of docs) ev.push({t: new Date(x.at), when: fmtDate(ymdOf(new Date(x.at))), k: "doc", cls: "own", title: x.cat, sub: [x.name, x.exp ? `תוקף עד ${fmtDate(x.exp)}` : ""].filter(Boolean).join(" · "), open: x.id, pdf: x.type === "application/pdf"});
+  const tt = toDate(D.v.mivchan_acharon_dt);
+  if (tt) ev.push({t: tt, when: fmtDate(D.v.mivchan_acharon_dt), k: "gov", title: "טסט", sub: [D.km ? `${fmtN(D.km)} ק״מ` : "", gov].filter(Boolean).join(" · ")});
+  D.own.forEach((r, i) => { const t = parseYM(r.baalut_dt); if (t) ev.push({t, when: ym(t), k: "gov", title: i === 0 && !D.ownersFloor ? "בעלות ראשונה" : isDealerRec(r) ? "עבר לסוחר" : "העברת בעלות", sub: [String(r.baalut || "").trim(), gov].filter(Boolean).join(" · ")}); });
+  const road = parseYM(D.v.moed_aliya_lakvish);
+  if (road) ev.push({t: road, when: ym(road), k: "gov", title: "עלה לכביש", sub: gov});
+  for (const r of D.recalls) { const t = toDate(r.TAARICH_PTICHA); if (t) ev.push({t, when: fmtDate(r.TAARICH_PTICHA), k: "gov", cls: "warn", title: `נפתח ריקול: ${D.pick(r.TEUR_TAKALA, (r.detail || {}).TEUR_TAKALA, r.SUG_TAKALA) || "ריקול"}`, sub: "עדיין פתוח · " + gov}); }
+  return ev.sort((a, b) => b.t - a.t);
+}
+function fileHist(D, docs){
+  const all = fileEvents(D, docs), list = cfFilter === "all" ? all : all.filter(e => e.k === cfFilter), shown = cfMore ? list : list.slice(0, 6);
+  const chips = `<div class="cf-chips" role="group" aria-label="סינון ההיסטוריה">${CF_CHIPS.map(([k, t]) => `<button type="button" data-cfh="${k}" aria-pressed="${k === cfFilter}">${t}</button>`).join("")}</div>`;
+  const row = e => `<li class="${e.cls || ""}"><time>${esc(e.when)}</time><b>${esc(e.title)}</b>${e.sub ? `<span>${esc(e.sub)}</span>` : ""}${e.del ? `<button type="button" class="x" data-svc="del" data-id="${e.del}" aria-label="מחיקה מהתיק">${ico("trash")}</button>` : e.open ? `<button type="button" class="x" data-doc="open" data-id="${e.open}" aria-label="פתיחת המסמך">${ico(e.pdf ? "doc" : "image")}</button>` : ""}</li>`;
+  const none = cfFilter === "svc" ? "עוד לא רשמתם טיפול. הכפתור \"טיפול\" למעלה רושם אחד בכמה שניות." : cfFilter === "doc" ? "עוד לא שמרתם מסמכים לרכב." : "אין רשומות.";
+  return chips + (list.length ? `<ul class="cf-tl">${shown.map(row).join("")}</ul>${list.length > shown.length ? `<button type="button" class="link-btn cf-more" data-cfh="more">${ico("chev")}עוד ${list.length - shown.length} רשומות</button>` : ""}` : `<p class="note">${none}</p>`)
+    + `<p class="note">נקודה מלאה: מה שרשמתם בתיק, שנשמר רק בטלפון הזה. נקודה ריקה: מהמאגרים של משרד התחבורה.</p>`;
+}
+/* the documents for a stop on the road (vehicle licence, insurance, driving licence), offline: one opens at once, several in a list */
+const openDoc = rec => rec.type === "application/pdf" ? shareFile(rec.blob, rec.name, rec.cat) : docViewer(rec.blob, rec.name);
+async function roadDocs(D){
+  let list = [];
+  try { list = (await DocDB.byPlate(D.plate)).filter(x => ROAD_CATS.includes(x.cat)).sort((a, b) => ROAD_CATS.indexOf(a.cat) - ROAD_CATS.indexOf(b.cat) || b.at - a.at); } catch {}
+  track("road_docs", {n: list.length});
+  if (!list.length) { openDocsFold("רישיון רכב"); toast("שמרו כאן צילום של רישיון הרכב ושל הביטוח, והם ייפתחו גם בלי אינטרנט"); return; }
+  if (list.length === 1) { openDoc(list[0]); return; }
+  const el = document.createElement("div"); el.className = "sheet"; el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); el.setAttribute("aria-label", "מסמכים לנסיעה");
+  el.innerHTML = `<div class="sheet-in"><div class="sheet-head"><h2>מסמכים לנסיעה</h2><button class="icon-btn" type="button" data-road="x" aria-label="סגירה">${ico("x")}</button></div><div class="cf-road-list">${list.map(x => `<button type="button" class="link-btn" data-road="${x.id}">${ico(x.type === "application/pdf" ? "doc" : "image")}<span>${esc(x.cat)}${x.exp ? ` · בתוקף עד ${esc(fmtDate(x.exp))}` : ""}</span></button>`).join("")}</div></div>`;
+  el.addEventListener("click", ev => {
+    const b = ev.target.closest("[data-road]");
+    if (b && b.dataset.road !== "x") { const r = list.find(x => String(x.id) === b.dataset.road); if (r) openDoc(r); }
+    if (b || ev.target === el) el.remove();
+  });
+  document.body.appendChild(el);
+}
+/* the documents card opened in place, with the kind already chosen */
+function openDocsFold(cat){
+  const h = document.querySelector('#tabpanel [data-fold="מסמכים"]'); if (!h) return;
+  if (h.getAttribute("aria-expanded") === "false") h.click();
+  const sel = $("#docCat"); if (sel && cat) { sel.value = cat; sel.dispatchEvent(new Event("change", {bubbles: true})); }
+  h.scrollIntoView({block: "start", behavior: "smooth"});
+}
+/* the file as a PDF for a buyer: the services and km readings without what they cost or the owner's notes, and the ministry's records */
+async function historyPdf(D, btn){
+  const old = btn.innerHTML; btn.disabled = true; btn.textContent = "מכין PDF…";
+  try {
+    await loadScript(LIBS.pdf);
+    const today = new Date().toLocaleDateString("he-IL"), ev = fileEvents(D, [], true);
+    track("history_pdf", {n: ev.filter(e => e.k === "svc").length});
+    const el = document.createElement("div"); el.className = "report pdf";
+    const idc = $("#out .id-card");
+    el.innerHTML = brandHead() + `<div class="rep-head"><b>היסטוריית הרכב</b><span>${fmtPlate(D.plate)} · ${today}</span></div>${idc ? idc.outerHTML : ""}
+      <section class="card"><div class="head"><span class="badge">${ico("rotate")}</span><h2>היסטוריה</h2></div><dl class="facts">${ev.map(e => `<div class="wide"><dt>${esc(e.when)}</dt><dd>${esc(e.title)}${e.sub ? ` · ${esc(e.sub)}` : ""}</dd></div>`).join("")}</dl></section>
+      <p class="rep-foot">טיפולים וקריאות ק״מ: לפי מה שהבעלים רשמו באפליקציה, ללא אימות. טסט, בעלויות, עלייה לכביש וריקולים: מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il. ${BRAND_FOOT}</p>`;
+    el.querySelectorAll(".id-card .actions, button").forEach(x => x.remove());
+    inlineIcons(el);
+    const {canvas, breaks} = await captureEl(el, ".card, .facts > div, .rep-foot");
+    const blob = await pdfFromCanvas(canvas, breaks, `לוחית · היסטוריית הרכב`, fmtPlate(D.plate), {link: shareLink(D.plate, "pdf")});
+    await shareFile(blob, `Luchit-history-${new Date().toISOString().slice(0, 10)}.pdf`, "היסטוריית הרכב");
+  } catch { toast("לא הצלחנו להכין את הקובץ. נסו שוב."); }
+  finally { btn.disabled = false; btn.innerHTML = old; }
+}
+function tabFile(D){
+  if (cfFor !== D.plate) { cfFor = D.plate; cfFilter = "all"; cfMore = false; cfDocs = []; }
+  const info = serviceInfo(D);
+  if (maintOk()) svcRemember(D, info);
+  const n = maintOk() ? svcNext(svcOf(D.plate)) : null, est = n ? null : svcEst(D, info);
+  const html = [];
+  html.push(`<div class="cf-top"><p>הכול נשמר רק בטלפון הזה</p><button type="button" class="cf-road" data-cf="road">${ico("id")}מסמכים לנסיעה</button></div>`);
+  html.push(fileTiles(D, n, est));
+  html.push(fileNext(D, info, n, est));
+  html.push(`<div class="cf-quick"><button type="button" ${maintOk() ? `data-cf="svc" aria-expanded="false"` : `data-act="proInfo"`}>${ico("wrench")}טיפול</button><button type="button" data-cf="doc">${ico("camera")}קבלה או מסמך</button><button type="button" ${maintOk() ? `data-cf="km" aria-expanded="false"` : `data-act="proInfo"`}>${ico("chart")}עדכון ק״מ</button></div>${maintOk() ? svcForm() : ""}`);
+  html.push(card("היסטוריה", "rotate", "violet", `<div id="cfHist">${fileHist(D, cfDocs)}</div>`));
+  html.push(docsCard(D));
+  const cost = costInner(D);
+  if (cost) html.push(card("כמה הרכב עולה", "tag", "green", cost.html, cost.year ? `<span class="cf-sum">${fmtN(Math.round(cost.year))} ₪ השנה</span>` : ""));
+  const interval = !maintOk() ? (info && !info.none ? `<p style="margin:0 0 6px"><span class="blur" aria-hidden="true">כל ••,••• ק״מ או •••</span></p><p class="note" style="margin:0 0 8px">יש לדגם הזה מרווח טיפולים מוכר. ב-PRO תראו אותו ומתי הטיפול הבא, עם תזכורת.</p>` : "") : intervalInner(D, info);
+  html.push(card("נתוני הדגם", "car", "teal", `${interval ? `<h3 class="cf-sub">מרווח טיפולים <span class="src-tag db">מאגר לוחית</span></h3>${interval}` : ""}<h3 class="cf-sub">ק״מ לאורך זמן</h3>${kmInner(D)}${seasonInner()}`, `<span class="cf-sum">מרווח טיפולים וק״מ</span>`));
+  html.push(`<button type="button" class="link-btn" data-cf="pdf">${ico("share")}דו״ח היסטוריה למכירת הרכב (PDF)</button>`);
+  html.push(`<button type="button" class="cf-not" data-cf="unmine">זה לא הרכב שלי</button>`);
+  return html.join("");
+}
+/* the documents of the car on screen, for the history: read after the tab is drawn (IndexedDB answers asynchronously) */
+async function fillFile(){
+  if (!current || currentTab !== "file" || !$("#cfHist")) return;
+  const D = current; let list = [];
+  try { list = (await DocDB.byPlate(D.plate)).sort((a, b) => b.at - a.at); } catch { return; }
+  if (current !== D || cfFor !== D.plate) return;
+  const key = l => l.map(x => x.id).join(",");
+  if (key(list) === key(cfDocs)) return;
+  cfDocs = list.map(({blob, ...x}) => x);   // the history needs the names and dates, never the files
+  const el = $("#cfHist"); if (el) el.innerHTML = fileHist(D, cfDocs);
+}
+document.addEventListener("click", ev => {
+  const b = ev.target.closest && ev.target.closest("[data-cfh]"); if (!b || !current) return;
+  if (b.dataset.cfh === "more") cfMore = true; else { cfFilter = b.dataset.cfh; cfMore = false; }
+  const el = $("#cfHist"); if (el) el.innerHTML = fileHist(current, cfDocs);
+});
+$("#out").addEventListener("click", ev => {
+  const b = ev.target.closest("[data-cf]"); if (!b || !current) return;
+  const D = current, a = b.dataset.cf;
+  if (a === "mine") {
+    setMine(D, true);
+    if (!isSaved(D.plate)) {
+      const on = toggleSaved(newSavedItem(D));
+      if (on) { startTrial(); cohSaved(); track("car_save", {n: String(Math.min(store.get("savedVehicles").length, 4)) + (store.get("savedVehicles").length > 3 ? "+" : ""), from: "file"}); }
+      if (on && alertsSupported()) { let asked = false; try { asked = !!localStorage.getItem("alertsAsked"); localStorage.setItem("alertsAsked", "1"); } catch {} if (!asked) try { window.AndroidApp.setAlerts(true); } catch {} }
+    }
+    currentTab = "file"; renderResult(); focusResult();
+    const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"});
+    toast("נפתח תיק לרכב. מה שתרשמו נשמר רק בטלפון הזה");
+    return;
+  }
+  if (a === "unmine") {
+    if (!confirm("להסתיר את תיק הרכב? הטיפולים והמסמכים שרשמתם נשארים בטלפון, ויחזרו אם תפתחו את התיק שוב.")) return;
+    setMine(D, false); currentTab = "overview"; renderResult(); focusResult(); toast("התיק הוסתר");
+    return;
+  }
+  if (a === "svc" || a === "km") {
+    const f = $(a === "svc" ? "#svcForm" : "#kmForm"), other = $(a === "svc" ? "#kmForm" : "#svcForm"); if (!f) return;
+    if (other) { other.hidden = true; const ob = document.querySelector(`[data-cf="${a === "svc" ? "km" : "svc"}"]`); if (ob) ob.setAttribute("aria-expanded", "false"); }
+    f.hidden = !f.hidden;
+    document.querySelectorAll(`.cf-quick [data-cf="${a}"]`).forEach(x => x.setAttribute("aria-expanded", String(!f.hidden)));
+    if (!f.hidden) { f.scrollIntoView({block: "nearest", behavior: "smooth"}); const i = f.querySelector(a === "svc" ? "#svcType" : "#kmVal"); if (i) try { i.focus({preventScroll: true}); } catch {} }
+    return;
+  }
+  if (a === "doc" || a === "ins") { openDocsFold(a === "ins" ? "ביטוח" : DOC_CATS[0]); return; }
+  if (a === "road") { roadDocs(D); return; }
+  if (a === "pdf") historyPdf(D, b);
+});
+
 const ymText = n => { n = Number(n) || 0; return n > 190000 ? `${MON_FULL[n % 100 - 1]} ${Math.floor(n / 100)}` : ""; };
 const MON_FULL = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
 const zSeen = new Set();
@@ -3170,6 +3422,7 @@ function tabOverview(D){
   html.push(card("שינויים ברכב", "wrench", "teal", modsCard(v)));
   html.push(...towHtml);
   if (!evFirst) html.push(evCard);
+  html.push(fileCta(D));
   return html.join("");
 }
 
@@ -3334,6 +3587,7 @@ function tabBuy(D){
        ${lk("https://car.cma.gov.il/", "doc", "השוואת מחירי ביטוח חובה")}</div></li>
      </ol>
      <button type="button" class="link-btn" data-act="checklistPdf">${ico("doc")}הורדה או הדפסה של רשימת הבדיקות (PDF)</button>`));
+  html.push(buyService(D));
   if (!entitled) html.push(paid);
   return html.join("");
 }
@@ -4469,7 +4723,7 @@ function loadScriptOnce(src, key){
 }
 // the off-screen report re-renders every tab, so a card counted as seen there was never on the screen
 let reportBuild = 0;
-const TAB_FN = () => ({overview: tabOverview, buy: tabBuy, recalls: tabRecalls, maint: tabMaint, specs: tabSpecs});
+const TAB_FN = () => ({overview: tabOverview, buy: tabBuy, recalls: tabRecalls, file: tabFile, specs: tabSpecs});
 /* The report is built off-screen from the same cards the app shows, with every card open */
 function buildReport(D, full, biz){
   const el = document.createElement("div"); el.className = "report";
@@ -4480,8 +4734,8 @@ function buildReport(D, full, biz){
   if (banner) parts.push(banner.outerHTML.replace(/^<button/, "<div").replace(/<\/button>$/, "</div>"));
   // with no recalls section, the checked line says what was checked (opened below with every details)
   else if (ck) parts.push(ck.outerHTML);
-  // the maintenance tab holds the private service log and interval table, so it is never part of a shared report
-  const recTab = recTabOf(D), tabs = (full ? REPORT_TABS : REPORT_TABS.filter(([k]) => k === (currentTab === "maint" ? "overview" : currentTab))).filter(([k]) => k !== "recalls" || recTab);
+  // the owner's file holds the private service log and documents, so it is never part of a shared report (its own history PDF leaves out costs and notes)
+  const recTab = recTabOf(D), tabs = (full ? REPORT_TABS : REPORT_TABS.filter(([k]) => k === (currentTab === "file" ? "overview" : currentTab))).filter(([k]) => k !== "recalls" || recTab);
   if (!full && !biz && simpleOn()) parts.push(simpleCard(D));
   else { reportBuild++; try { for (const [k, t] of tabs) { if (full) parts.push(`<h3 class="rep-sec">${t}</h3>`); parts.push(TAB_FN()[k](D)); } } finally { reportBuild--; } }
   parts.push(`<p class="rep-foot">${biz ? bizFoot(biz) : "המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il, ואינו מחליף נסח רישום רשמי. " + BRAND_FOOT}</p>`);
@@ -5310,7 +5564,7 @@ function updateSavedBar(){
 $("#savedBar").addEventListener("click", () => { renderHome(); const c = [...document.querySelectorAll("#out .card")].find(x => x.textContent.includes("הרכבים שלי")); if (c) c.scrollIntoView({block: "start"}); });
 for (const nm of ["renderResult", "renderCompare", "renderHome"]) {
   const f = window[nm] || eval(nm);
-  const w = function(...a){ const r = f.apply(this, a); updateSavedBar(); if (nm === "renderResult") { expExpose("share_label"); fillModelStats(); fillDocs(); } return r; };
+  const w = function(...a){ const r = f.apply(this, a); updateSavedBar(); if (nm === "renderResult") { expExpose("share_label"); fillModelStats(); fillDocs(); fillFile(); } return r; };
   if (nm === "renderResult") renderResult = w; else if (nm === "renderCompare") renderCompare = w; else renderHome = w;
 }
 
@@ -6173,21 +6427,34 @@ if (!window.AndroidApp && !NAV_AGAIN && !REF_OWN && SHARE_VIA !== "bar" && SHARE
 }
 if (cmpParam) loadCompareLink(cmpParam).then(ok => { if (!ok) renderHome(); }); else if (start) { lookupAgain = NAV_AGAIN; run(start); } else renderHome();
 requestAnimationFrame(() => document.body.classList.add("rdy"));
+/* the plates with a document on this phone; the car on screen is drawn again only if that changes whose it is */
+if (window.indexedDB) (window.requestIdleCallback || (f => setTimeout(f, 1500)))(() => DocDB.plates().then(set => {
+  const was = current && !inCompare ? isMine(current) : null; docPlates = set;
+  if (was !== null && current && isMine(current) !== was) renderResult();
+}).catch(() => {}));
 /* web: the catalogues are warmed when the browser is idle, so the first model search answers from memory */
 if (!window.AndroidApp) (window.requestIdleCallback || (f => setTimeout(f, 2500)))(() => { loadModelIndex(); loadModelStats().catch(() => null); });
 
-/* maintenance tab actions: add / delete a service entry, calendar */
+/* the file's service actions: add a service or a km reading, delete an entry, the next service in the calendar */
 $("#out").addEventListener("click", ev => {
   const b = ev.target.closest("[data-svc]"); if (!b || !current) return;
   const p = current.plate, a = b.dataset.svc;
-  if (a === "toggle") { const f = $("#svcForm"); if (f) f.hidden = !f.hidden; return; }
+  if (a === "km") {
+    const d = $("#kmDate").value, km = Math.round(Number($("#kmVal").value) || 0);
+    if (!d || isNaN(new Date(d))) { toast("בחרו תאריך"); return; }
+    if (!(km > 0)) { toast("הקלידו את הק״מ שבמד המרחק"); return; }
+    const s = svcOf(p); s.log.push({id: Date.now(), d, km, type: SVC_KM, cost: 0, note: ""});
+    s.log = s.log.slice(-200); svcSave(p, s); renderResult(); toast("הק״מ נשמר בתיק");
+    track("svc_add", {kind: "km", n: s.log.length, km: 1, cost: 0});
+    return;
+  }
   if (a === "cal") { const n = svcNext(svcOf(p)); if (n && n.due) { track("svc_cal"); svcCalendar(current, n.due); } return; }
-  if (a === "del") { const s = svcOf(p); s.log = s.log.filter(x => String(x.id) !== b.dataset.id); svcSave(p, s); renderResult(); toast("נמחק מהיומן"); return; }
+  if (a === "del") { if (!confirm("למחוק את הרשומה מהתיק?")) return; const s = svcOf(p); s.log = s.log.filter(x => String(x.id) !== b.dataset.id); svcSave(p, s); renderResult(); toast("נמחק מהתיק"); return; }
   if (a === "save") {
     const d = $("#svcDate").value, km = Math.round(Number($("#svcKm").value) || 0), cost = Math.round((Number($("#svcCost").value) || 0) * 100) / 100;
     if (!d || isNaN(new Date(d))) { toast("בחרו תאריך לטיפול"); return; }
     const s = svcOf(p); s.log.push({id: Date.now(), d, km: km > 0 ? km : 0, type: $("#svcType").value, cost: cost > 0 ? cost : 0, note: $("#svcNote").value.trim().slice(0, 80)});
-    s.log = s.log.slice(-200); svcSave(p, s); renderResult(); toast("הטיפול נשמר ביומן");
+    s.log = s.log.slice(-200); svcSave(p, s); renderResult(); toast("הטיפול נשמר בתיק");
     const t = s.log[s.log.length - 1]; track("svc_add", {kind: SVC_KEYS[SVC_TYPES.indexOf(t.type)] || "other", n: s.log.length, km: t.km > 0 ? 1 : 0, cost: t.cost > 0 ? 1 : 0});
   }
 });
