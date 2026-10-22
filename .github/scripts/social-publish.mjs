@@ -4,6 +4,9 @@
 //   kits/<YYYY-MM-DD>/autopost.json  items {id, type image|carousel|reel|story, at (UTC ISO), targets [facebook, instagram], files, cover?, caption,
 //                                    caption_facebook?, caption_instagram? (a network's own wording, e.g. a clickable link on Facebook),
 //                                    needs_live? (an app version, e.g. "1.37": the item shows UI that ships in it)}
+//                                    reminders? [{id, at, text, link?, needs_live?, until?}]: a Telegram line to the owner at that time (or,
+//                                    with needs_live, once that version is live), until `until` (default at + LATE_MS), for what only a
+//                                    person can do (TikTok: its API posts privately only, so the browser extension schedules it)
 //   kits/<YYYY-MM-DD>/<media>        the kit's PNG/JPG/MP4 files, unchanged
 //   state.json                       what was published: per "<kit>/<item>/<target>" status, ids, link, times, error (no caption text)
 // Each run publishes every item whose time has come, at most LATE_MS late, to each target not done yet, and writes state.json after every
@@ -23,7 +26,9 @@
 //                       starts over. No successful refresh for IG_ALARM_MS = one alert a day. Instagram fetches the media from the
 //                       public queue branch: images as the JPEG copy enqueue.mjs writes next to each PNG (<name>.ig.jpg; Instagram
 //                       takes JPEG only), reels as they are.
-// Stories carry no stickers (the API has none).
+// Stories carry no stickers (the API has none). Every link in a caption must answer (final status below 400) right before the post goes
+// out; a dead link holds the post (one alert) and it is tried again every run until LATE_MS. Each item that went up sends one Telegram
+// line with its links ("עלה סטורי", "עלתה קרוסלה"...).
 //   node social-publish.mjs run        QUEUE=<checkout of social-queue>; DRY_RUN=1 = read-only calls, no posts, nothing recorded
 //   node social-publish.mjs check      each token reaches its account; one Telegram line; step summary
 //   node social-publish.mjs selftest   offline, mocked Graph and clock
@@ -363,7 +368,7 @@ export function loadQueue(q) {
     const f = path.join(root, d, "autopost.json");
     if (!fs.existsSync(f)) continue;
     const j = JSON.parse(fs.readFileSync(f, "utf8"));
-    kits.push({ name: d, dir: path.join(root, d), items: validate(j, path.join(root, d), { queue: true }) });
+    kits.push({ name: d, dir: path.join(root, d), items: validate(j, path.join(root, d), { queue: true }), reminders: validateReminders(j) });
   }
   const sf = path.join(q, "state.json");
   const state = fs.existsSync(sf) ? JSON.parse(fs.readFileSync(sf, "utf8")) : { v: 1, posts: {} };
@@ -396,6 +401,29 @@ export function validate(j, dir, { queue = false } = {}) {
   return out;
 }
 
+export function validateReminders(j) {
+  const out = [];
+  for (const r of j.reminders || []) {
+    const bad = m => { throw new Error(`autopost.json reminder ${r.id || "?"}: ${m}`); };
+    if (!/^[a-z0-9-]{1,40}$/.test(r.id || "")) bad("id must be a-z, 0-9 or -");
+    if (!Number.isFinite(Date.parse(r.at)) || !/(Z|[+-]\d\d:\d\d)$/.test(r.at)) bad("at must be an ISO time with a zone");
+    if (!norm(r.text) || String(r.text).length > 1500) bad("text is required (at most 1,500 characters)");
+    if (r.link !== undefined && !/^https:\/\/\S+$/.test(r.link)) bad("link must be an https address");
+    if (r.needs_live !== undefined && !/^\d+\.\d+(\.\d+)?$/.test(String(r.needs_live))) bad("needs_live must be an app version such as 1.37");
+    if (r.until !== undefined && !(/(Z|[+-]\d\d:\d\d)$/.test(r.until) && Date.parse(r.until) > Date.parse(r.at))) bad("until must be an ISO time with a zone, after at");
+    out.push(r);
+  }
+  return out;
+}
+
+// ---- links in a caption: each must answer before the post goes out ----
+export const captionLinks = c => [...new Set((String(c || "").match(/(?:https?:\/\/|\b(?:www\.)?luchit\.app\/)[^\s"'<>()]*/gi) || [])
+  .map(u => u.replace(/[.,!?:;]+$/, "")).map(u => /^https?:/i.test(u) ? u : "https://" + u))];
+async function linkOk(u) {
+  try { const r = await IO.fetch(u, { redirect: "follow", signal: AbortSignal.timeout(15000), headers: { "user-agent": "luchit-social-publish" } }); return r.status < 400; }
+  catch { return false; }
+}
+
 // ---- Telegram (alert router, legacy = direct send) ----
 async function telegram(text) {
   const e = IO.env;
@@ -419,6 +447,21 @@ export async function run(qdir) {
   const dry = !!IO.env.DRY_RUN;
   const Q = loadQueue(qdir), now = IO.now(), summary = [];
   const igT = dry ? igToken(Q.state) : await refreshIg(Q, now);   // every run, so the token stays fresh in weeks with nothing queued
+  let live = null;
+  const isLive = async need => {   // Google Play is read once per run, and only when something due waits for a version
+    if (!live) live = await liveVersion().then(v => ({ v }), e => ({ err: e.message }));
+    return !!live.v && vcmp(live.v, need) >= 0;
+  };
+  for (const k of Q.kits) for (const r of k.reminders) {   // reminders need no Meta token
+    const key = `${k.name}/${r.id}/telegram`, at = Date.parse(r.at), until = r.until ? Date.parse(r.until) : at + LATE_MS;
+    if (Q.state.posts[key]?.status || at > now) continue;
+    if (now > until) { summary.push(`missed ${key}`); if (!dry) { Q.state.posts[key] = { status: "missed", at: iso(now) }; Q.save(); } continue; }
+    if (r.needs_live && !(await isLive(r.needs_live))) { summary.push(`held ${key}: waits for ${r.needs_live} in Google Play`); continue; }
+    summary.push(`remind ${key}`);
+    if (dry) continue;
+    await tell("day", `social:remind:${k.name}-${r.id}`, `לוחית · תזכורת\n${r.text}`, r.link || "");
+    Q.state.posts[key] = { status: "done", at: iso(now) }; Q.save();
+  }
   const due = [];
   for (const k of Q.kits) for (const it of k.items) for (const t of it.targets) {
     const key = `${k.name}/${it.id}/${t}`, s = Q.state.posts[key];
@@ -437,11 +480,9 @@ export async function run(qdir) {
     if (n && !dry) await tell("day", `social:fail:token-${t}`, `לוחית · פרסום אוטומטי\nהחיבור ל${NAMES[t]} לא עובד, ולכן ${n} פרסומים שם מחכים.\n${e.message}\n${HINT[t]}`, runUrl());
   }
   if (!A.page && !A.ig && Object.keys(A.errs).length) throw Object.values(A.errs)[0];
-  let published = 0, live = null;
-  const isLive = async need => {   // Google Play is read once per run, and only when a due item waits for a version
-    if (!live) live = await liveVersion().then(v => ({ v }), e => ({ err: e.message }));
-    return !!live.v && vcmp(live.v, need) >= 0;
-  };
+  let published = 0;
+  const posted = [], links = new Map();
+  const deadLink = async c => { for (const u of captionLinks(c)) { if (!links.has(u)) links.set(u, await linkOk(u)); if (!links.get(u)) return u; } return ""; };
   for (const d of due) {
     const { k, t, key } = d, it = { ...d.it, caption: d.it[`caption_${t}`] ?? d.it.caption }, st = Q.state.posts[key] || { tries: 0 };
     if (!dry) Q.state.posts[key] = st;   // a dry run records nothing
@@ -480,13 +521,22 @@ export async function run(qdir) {
       continue;
     }
     if (dry) { summary.push(`would publish ${key}`); IO.log(`dry: would publish ${key} (${it.files.join(", ")})`); continue; }
+    const dead = await deadLink(it.caption);
+    if (dead) {   // the post waits for its link; tried again every run until LATE_MS
+      summary.push(`waiting ${key}: link ${dead} does not answer`);
+      if (!st.linkWarned) {
+        st.linkWarned = iso(now); Q.save();
+        await tell("day", `social:fail:link-${k.name}-${it.id}`, `לוחית · פרסום אוטומטי\nה${label} מחכה: הקישור ${dead} לא עובד כרגע. הבוט בודק שוב כל רבע שעה, ומפרסם כשהקישור עובד (עד שש שעות אחרי הזמן שנקבע).`, runUrl());
+      }
+      continue;
+    }
     const prev = st.tries > 0 ? await alreadyPosted(A, t, it.caption) : null;
     if (prev) { Object.assign(st, { status: "done", id: prev.id, link: prev.link, at: new Date(IO.now()).toISOString(), note: "found on the account" }); Q.save(); summary.push(`done ${key} (found)`); continue; }
     st.tries++; st.last = new Date(IO.now()).toISOString(); Q.save();
     try {
       const r = t === "facebook" ? await publishFacebook(A, it, k.dir) : await publishInstagram(A, it, k.dir);
       Object.assign(st, { status: "done", id: r.id, link: r.link, at: new Date(IO.now()).toISOString() }); delete st.err; Q.save();
-      published++; summary.push(`done ${key} ${r.link}`);
+      published++; summary.push(`done ${key} ${r.link}`); posted.push({ k, it, t, link: r.link });
       IO.log(`published ${key}: ${r.link}`);
     } catch (e) {
       st.err = String(e.message).slice(0, 300); Q.save();
@@ -505,10 +555,12 @@ export async function run(qdir) {
     }
   }
   const done = summary.filter(s => s.startsWith("done ")).length;
-  if (published) {
-    const lines = due.filter(d => Q.state.posts[d.key]?.status === "done" && Q.state.posts[d.key].at >= new Date(now).toISOString())
-      .map(d => `- ${NAMES[d.it.type]} ב${NAMES[d.t]}: ${Q.state.posts[d.key].link}`);
-    await tell("summary", `social:done:${due[0].k.name}-${published}`, `לוחית · פרסום אוטומטי\nפורסם עכשיו:\n${lines.join("\n")}`, "", "silent");
+  // one Telegram line per item that went up in this run, with its links
+  const UP = { image: "עלה פוסט", carousel: "עלתה קרוסלה", reel: "עלה סרטון (ריל)", story: "עלה סטורי" };
+  for (const id of [...new Set(posted.map(p => `${p.k.name}/${p.it.id}`))]) {
+    const ps = posted.filter(p => `${p.k.name}/${p.it.id}` === id), { k, it } = ps[0];
+    await tell("day", `social:done:${k.name}-${it.id}-${ps.map(p => p.t).join("+")}`,
+      `לוחית · פרסום אוטומטי\n${UP[it.type]} (${it.id}):\n${ps.map(p => `${NAMES[p.t]}: ${p.link}`).join("\n")}`, "", "loud");
   }
   IO.log(`published ${published}, recorded ${done}`);
   return { published, summary };
@@ -520,13 +572,17 @@ export async function check() {
   const state = sf && fs.existsSync(sf) ? JSON.parse(fs.readFileSync(sf, "utf8")) : {};
   const A = await connect({ igToken: igToken(state) });
   const lim = A.ig ? await igGraph(A, "GET", `/${A.ig.id}/content_publishing_limit`, { fields: "quota_usage,config" }).catch(() => null) : null;
+  // the Page token must not expire: a short one (not taken from an extended user token) would stop the bot within hours
+  const dbg = A.page ? (await graph("GET", "/debug_token", { input_token: A.page.token }, { token: A.page.token }).catch(() => null))?.data : null;
+  const exp = !dbg ? "" : dbg.expires_at === 0 ? "הטוקן של העמוד לא פג" : `הטוקן של העמוד פג ב-${iso(dbg.expires_at * 1000).slice(0, 16).replace("T", " ")} UTC: צריך ליצור טוקן מטוקן מוארך (Extend Access Token)`;
   const q = lim?.data?.[0], err = t => A.errs[t] ? `לא מחובר (${A.errs[t].message}). הטוקן: ${t === "facebook" ? shape("META_PUBLISH_TOKEN", "EAA") : shape("IG_PUBLISH_TOKEN", "IG")}` : null;
   const lines = [
     `פייסבוק: ${A.page ? `העמוד ${A.page.name}` : err("facebook") || "אין טוקן (META_PUBLISH_TOKEN)"}`,
     `אינסטגרם: ${A.ig ? `@${A.ig.username}${A.ig.login ? " (טוקן נפרד)" : " (דרך העמוד)"}` : err("instagram") || "אין טוקן (IG_PUBLISH_TOKEN) ואין חשבון שמקושר לעמוד"}`,
+    exp,
     q ? `מכסת פרסום באינסטגרם: ${q.quota_usage} מתוך ${q.config?.quota_total ?? "?"} ב-24 שעות` : "",
     state.ig?.refreshed ? `הטוקן של אינסטגרם חודש ב-${state.ig.refreshed.slice(0, 10)}` : ""].filter(Boolean);
-  const ok = !Object.keys(A.errs).length && !!(A.page || A.ig);
+  const ok = !Object.keys(A.errs).length && !!(A.page || A.ig) && !(dbg && dbg.expires_at !== 0);
   IO.log(lines.join("\n"));
   await tell("summary", "social:check", `לוחית · פרסום אוטומטי\n${ok ? "החיבור עובד." : "יש בעיה בחיבור."}\n${lines.join("\n")}`, "", "silent");
   return { ok, A };
@@ -547,14 +603,15 @@ async function selftest() {
     { id: "carousel", type: "carousel", at: "2026-10-26T18:30:00Z", targets: ["facebook", "instagram"], files: ["carousel-01.png", "carousel-02.png"], caption: "קרוסלה" },
     { id: "reel", type: "reel", at: "2026-10-29T18:30:00Z", targets: ["facebook", "instagram"], files: ["reel.mp4"], cover: "reel-cover.jpg", caption: "ריל" },
     { id: "story", type: "story", at: "2026-10-27T06:15:00Z", targets: ["instagram"], files: ["story-02.png"] },
-  ] }));
+  ], reminders: [{ id: "tiktok", at: "2026-10-25T06:00:00Z", text: "להדביק בתוסף את פרומפט הטיקטוק של ערכה 2", link: "https://www.tiktok.com/tiktokstudio" }] }));
   const calls = [], sent = [];
-  let clock = T("2026-10-25T06:40:00Z"), failNext = 0, igPosts = [];
+  let clock = T("2026-10-25T06:40:00Z"), failNext = 0, igPosts = [], linkStatus = 200;
   const J = (o, status = 200) => ({ ok: status < 400, status, json: async () => o });
   IO.fetch = async (u, o = {}) => {
     const s = String(u), m = o.method || "GET", p = new URL(s).pathname.replace(/^\/v[\d.]+/, "");
     calls.push(`${m} ${p}`);
     if (s.includes("api.telegram.org")) return J({ ok: true });
+    if (new URL(s).host === "luchit.app") return J({}, linkStatus);
     if (failNext && m === "POST" && p.endsWith("/media_publish")) { failNext--; return J({ error: { message: "temporary", code: 2, is_transient: true } }, 500); }
     if (p === "/me/accounts") return J({ data: [{ id: "111", name: "לוחית", access_token: "PAGE", instagram_business_account: { id: "222", username: "luchit.app" } }] });
     if (m === "POST" && o.body?.get) sent.push({ message: o.body.get("message"), caption: o.body.get("caption") });
@@ -580,13 +637,17 @@ async function selftest() {
 
   let r = await run(tmp);
   ck(r.published === 2, `first run publishes the dealer post twice (FB + IG), got ${r.published}`);
+  ck(logs.filter(l => l.includes("[tell day social:done:2026-10-22-dealer-facebook+instagram]") && l.includes("עלה פוסט (dealer)") && l.includes("פייסבוק: https://") && l.includes("אינסטגרם: https://")).length === 1, "one Telegram line for the item, with both links");
+  ck(logs.some(l => l.includes("[tell day social:remind:2026-10-22-tiktok]") && l.includes("פרומפט הטיקטוק")) && st()["2026-10-22/tiktok/telegram"]?.status === "done", "the TikTok reminder goes out once at its time");
+  ck(calls.includes("GET /go/fb"), "the link in the Facebook caption was checked before the post");
   ck(st()["2026-10-22/dealer/facebook"].status === "done" && st()["2026-10-22/dealer/instagram"].status === "done", "dealer post marked done on both");
   ck(sent.some(b => b.message === "פוסט לסוחרים luchit.app/go/fb") && sent.some(b => b.caption === "פוסט לסוחרים"), "each network gets its own caption");
   ck(!st()["2026-10-22/carousel/facebook"], "the carousel is not due yet");
   ck(!logs.join("\n").includes("SECRET-TOKEN") && !calls.join(" ").includes("SECRET"), "the token never appears in logs or paths");
   ck(calls.includes("GET /ph2") || calls.some(c => /^GET \/ph\d+$/.test(c)), "Instagram image went through a Page photo address");
-  calls.length = 0; r = await run(tmp);
+  logs.length = 0; calls.length = 0; r = await run(tmp);
   ck(r.published === 0 && !calls.some(c => c.startsWith("POST")), "a second run posts nothing again");
+  ck(!logs.some(l => l.includes("social:remind")), "the reminder is not sent twice");
 
   clock = T("2026-10-26T18:45:00Z"); failNext = 1; calls.length = 0;
   r = await run(tmp);
@@ -619,6 +680,17 @@ async function selftest() {
   ck(st()["2026-10-30/dup/instagram"].status === "done" && st()["2026-10-30/dup/instagram"].id === "m9" && !calls.includes("POST /222/media_publish"), "a retry that finds the post on the account does not post again");
   IO.fetch = realFetch;
 
+  // a dead link holds the post with one alert; it goes out once the link answers
+  const k7 = path.join(tmp, "kits", "2026-10-29"); fs.mkdirSync(k7); fs.writeFileSync(path.join(k7, "g.png"), "x");
+  fs.writeFileSync(path.join(k7, "autopost.json"), JSON.stringify({ items: [{ id: "link", type: "image", at: "2026-10-29T18:30:00Z", targets: ["facebook"], files: ["g.png"], caption: "בדיקה https://luchit.app/go/fb?c=test." }] }));
+  linkStatus = 503; logs.length = 0; calls.length = 0; r = await run(tmp);
+  ck(!st()["2026-10-29/link/facebook"]?.status && logs.some(l => l.includes("social:fail:link-2026-10-29-link") && l.includes("https://luchit.app/go/fb?c=test")) && !calls.includes("POST /111/photos"), "a dead link: the post waits, one alert");
+  logs.length = 0; r = await run(tmp);
+  ck(!logs.some(l => l.includes("social:fail:link")), "no second link alert");
+  linkStatus = 200; r = await run(tmp);
+  ck(st()["2026-10-29/link/facebook"]?.status === "done", "the link answers again: the post goes out");
+  ck(captionLinks("ראו luchit.app/go/ig?c=a, וגם https://play.google.com/store/apps/details?id=x. ו-@luchit.app").join(" ") === "https://luchit.app/go/ig?c=a https://play.google.com/store/apps/details?id=x", "caption links: bare luchit.app paths and full URLs, no handles, no trailing punctuation");
+
   // a dry run writes nothing
   const k4 = path.join(tmp, "kits", "2026-10-31"); fs.mkdirSync(k4); fs.writeFileSync(path.join(k4, "c.png"), "x");
   fs.writeFileSync(path.join(k4, "autopost.json"), JSON.stringify({ items: [{ id: "dry", type: "image", at: "2026-10-29T18:30:00Z", targets: ["facebook"], files: ["c.png"], caption: "יבש" }] }));
@@ -631,7 +703,8 @@ async function selftest() {
   const k6 = path.join(tmp, "kits", "2026-11-02"); fs.mkdirSync(k6); fs.writeFileSync(path.join(k6, "e.png"), "x"); fs.writeFileSync(path.join(k6, "f.png"), "x");
   fs.writeFileSync(path.join(k6, "autopost.json"), JSON.stringify({ items: [
     { id: "gated", type: "image", at: "2026-10-29T18:30:00Z", targets: ["facebook"], files: ["e.png"], caption: "גרסה", needs_live: "1.37" },
-    { id: "never", type: "image", at: "2026-10-29T18:30:00Z", targets: ["facebook"], files: ["f.png"], caption: "לעולם לא", needs_live: "1.40" } ] }));
+    { id: "never", type: "image", at: "2026-10-29T18:30:00Z", targets: ["facebook"], files: ["f.png"], caption: "לעולם לא", needs_live: "1.40" } ],
+    reminders: [{ id: "tt", at: "2026-10-29T18:00:00Z", until: "2026-10-31T18:00:00Z", text: "טיקטוק אחרי הגרסה", needs_live: "1.37" }] }));
   let releases = [{ releaseName: "127 (1.37)", releaseLifecycleState: "RELEASE_LIFECYCLE_STATE_IN_REVIEW" }, { releaseName: "123 (1.36)", releaseLifecycleState: "RELEASE_LIFECYCLE_STATE_PUBLISHED" }];
   IO.fetch = async (u, o = {}) => {
     const s = String(u);
@@ -649,6 +722,7 @@ async function selftest() {
   releases = [{ releaseName: "127 (1.37)", releaseLifecycleState: "RELEASE_LIFECYCLE_STATE_PUBLISHED" }, ...releases.slice(1)];
   clock = T("2026-10-29T21:00:00Z"); r = await run(tmp);
   ck(gated().status === "done" && !st()["2026-11-02/never/facebook"]?.status, "1.37 published: the gated post goes out, the 1.40 one still waits");
+  ck(st()["2026-11-02/tt/telegram"]?.status === "done", "a reminder that waits for a version goes out once the version is live");
   clock = T("2026-10-30T01:00:00Z"); logs.length = 0; r = await run(tmp);
   ck(st()["2026-11-02/never/facebook"].status === "missed" && logs.some(l => l.includes("social:missed:2026-11-02-never") && l.includes("1.40")), "never live within 6 h: missed, the alert names the version");
   ck(!logs.join("\n").includes("GOOGLE-TOKEN") && !logs.join("\n").includes("PRIVATE KEY"), "the Google token and key never appear in logs");
@@ -696,6 +770,7 @@ async function selftest() {
         if (m === "GET" && p === "/333/content_publishing_limit") return J({ data: [{ quota_usage: 2, config: { quota_total: 100 } }] });
         return J({ error: { message: "unexpected " + m + " " + p } }, 400);
       }
+      if (u.host === "graph.facebook.com" && p === "/debug_token") return J({ data: { type: "PAGE", is_valid: true, expires_at: t === "PAGE-TOKEN" ? 0 : 1798000000 } });
       if (u.host === "graph.facebook.com" && p === "/me")
         return t === "PAGE-TOKEN" ? J({ id: "111", name: "לוחית" }) : J({ error: { message: "Error validating access token", type: "OAuthException", code: 190 } }, 400);
       if (u.host === "graph.facebook.com" && t !== "PAGE-TOKEN") return J({ error: { message: "wrong token " + p } }, 400);
@@ -731,7 +806,7 @@ async function selftest() {
     // check: both networks, the sealed token, the quota
     IO.env.QUEUE = q2; logs.length = 0;
     const c = await check();
-    ck(c.ok && logs.some(l => l.includes("@luchit.app (טוקן נפרד)") && l.includes("העמוד לוחית") && l.includes("2 מתוך 100")), "check reports both networks and the Instagram quota");
+    ck(c.ok && logs.some(l => l.includes("@luchit.app (טוקן נפרד)") && l.includes("העמוד לוחית") && l.includes("2 מתוך 100") && l.includes("לא פג")), "check reports both networks, the Instagram quota and a Page token that does not expire");
     IO.env.META_PUBLISH_TOKEN = "EAAbad token"; logs.length = 0;
     const c2 = await check();
     ck(!c2.ok && logs.some(l => l.includes("12 תווים") && l.includes("מתחיל ב-EAA") && l.includes("רווחים")) && !logs.join("\n").includes("EAAbad"), "a refused token is described by its shape, never shown");
@@ -764,6 +839,9 @@ async function selftest() {
   fs.writeFileSync(path.join(kit, "plain.png"), "x");
   let qbad = false; try { validate({ items: [{ id: "x", type: "image", at: "2026-10-25T08:30:00Z", targets: ["instagram"], files: ["plain.png"], caption: "a" }] }, kit, { queue: true }); } catch { qbad = true; }
   ck(qbad, "a queued Instagram image without its JPEG copy is rejected");
+  let rbad = 0; for (const rr of [{ id: "x", at: "2026-10-25 08:30", text: "a" }, { id: "x", at: "2026-10-25T08:30:00Z", text: "" }, { id: "x", at: "2026-10-25T08:30:00Z", text: "a", link: "http://x" }])
+    try { validateReminders({ reminders: [rr] }); } catch { rbad++; }
+  ck(rbad === 3, "reminders need a zoned time, a text and an https link");
 
   // auth failure: one alert, nothing posted, the run fails
   IO.env.META_PUBLISH_TOKEN = "EXPIRED";
