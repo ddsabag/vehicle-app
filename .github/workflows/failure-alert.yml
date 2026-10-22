@@ -38,6 +38,7 @@ on:
       - "Weekly analytics report"
       - "Back-on-road detector"
       - "Workers deploy"
+      - "Social publish"
       - "Ship tail"
       - "Store listing"
       - "Release watch"
