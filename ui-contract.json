@@ -71,16 +71,12 @@
     ],
     "other": [
       "הצי שלי",
-      "שאלות נפוצות",
       "מסירות בתקופה"
     ],
     "home": [
-      "הרכבים שלי",
-      "רשימת מועמדים",
-      "בדיקת כמה רכבים בבת אחת",
-      "חיפושים אחרונים",
       "השוואות שמורות",
-      "מהמגזין"
+      "מהמגזין",
+      "שאלות נפוצות"
     ],
     "market": [
       "שוק הרכב",
@@ -93,6 +89,15 @@
       "חבילת הקנייה מסתיימת בקרוב",
       "לוחית PRO",
       "חינם מול PRO"
+    ],
+    "cars": [
+      "עוד לא שמרתם רכב",
+      "הרכבים שלי",
+      "רשימת מועמדים",
+      "בדיקת כמה רכבים בבת אחת"
+    ],
+    "alerts": [
+      "אין עדיין רכבים לעקוב אחריהם"
     ]
   },
   "dynamicCards": [
@@ -116,5 +121,6 @@
       2,
       2.6
     ]
-  }
+  },
+  "_screens": "Bottom navigation (from the de-clutter build): חיפוש (home), הרכבים שלי (cars), התראות (alerts). Home cards come after the attention line, recent checks and the tools list; cars and alerts have their own large titles and no search band."
 }
