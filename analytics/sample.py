@@ -38,9 +38,9 @@ def make(period, scenario="busy"):
         "make": split(ok_c, ok_p, {"טויוטה": 0.2, "יונדאי": 0.15, "קיה": 0.12, "מאזדה": 0.1, "סקודה": 0.08}),
         "model": split(ok_c, ok_p, {"COROLLA": 0.07, "TUCSON": 0.05, "OCTAVIA": 0.04}),
         "fuel": split(ok_c, ok_p, {"בנזין": 0.6, "היברידי": 0.2, "חשמל": 0.1, "דיזל": 0.1}),
-        "tabs": split(ev["tab_view"][0], ev["tab_view"][1], {"overview": 0.3, "buy": 0.24, "maint": 0.14, "recalls": 0.2, "specs": 0.12}),
-        "screenshot_tab": split(ev["user_screenshot"][0], ev["user_screenshot"][1], {"overview": 0.2, "buy": 0.45, "maint": 0.1, "recalls": 0.2, "specs": 0.05}),
-        "upgrade_from": {"home": {"cur": 4, "prev": 3}, "maint": {"cur": 2, "prev": 1}},
+        "tabs": split(ev["tab_view"][0], ev["tab_view"][1], {"overview": 0.3, "buy": 0.24, "file": 0.14, "recalls": 0.2, "specs": 0.12}),
+        "screenshot_tab": split(ev["user_screenshot"][0], ev["user_screenshot"][1], {"overview": 0.2, "buy": 0.4, "file": 0.1, "recalls": 0.2, "specs": 0.05, "cars": 0.05}),
+        "upgrade_from": {"home": {"cur": 4, "prev": 3}, "file": {"cur": 2, "prev": 1}},
         "email": {"sessions": {"cur": 31, "prev": 18}, "users": {"cur": 24, "prev": 15}, "installs": {"cur": 6, "prev": 3}},
         "versions": {"1.23": int(wau_c * 0.5), "1.22": int(wau_c * 0.3), "1.21": int(wau_c * 0.1)},
     }

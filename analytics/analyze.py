@@ -90,7 +90,8 @@ def analyze(d, cfg, extra=None):
         kpi("ratio", "צילומי מסך מול שיתופים", ratio_c, ratio_p, "", False, "אם המספר מעל 1, אנשים מצלמים יותר ממה ששולחים בכפתור, וכדאי להפוך את הצילום לשיתוף נוח", "ratio"),
         kpi("shot_rate", "צילומי מסך על כל 100 בדיקות", round(ss_c / ok_c * 100, 1) if ok_c else None, round(ss_p / ok_p * 100, 1) if ok_p else None, "", False, "כמה מ-100 בדיקות הסתיימו בצילום מסך", "ratio"),
     ]
-    TAB_HE0 = {"overview": "סקירה", "buy": "קנייה", "maint": "אחזקה", "recalls": "ריקולים והסדרים", "specs": "מפרט", "home": "מסך הבית", "compare": "השוואה"}
+    TAB_HE0 = {"overview": "סקירה", "buy": "קנייה", "maint": "אחזקה (עד 1.37)", "file": "תיק הרכב", "recalls": "ריקולים והסדרים", "specs": "מפרט", "home": "מסך הבית", "compare": "השוואה",
+               "cars": "הרכבים שלי", "alerts": "התראות", "tool": "כלים (שוק, בדיקת כמה רכבים)"}
     st = sorted(((TAB_HE0.get(k, k), v["cur"], v["prev"]) for k, v in d.get("screenshot_tab", {}).items()), key=lambda x: -x[1])
     shot_insight = ""
     if ss_c == 0:
@@ -178,7 +179,7 @@ def analyze(d, cfg, extra=None):
     dur_order = [("lt2", "עד 2 שניות"), ("2to5", "2 עד 5"), ("5to10", "5 עד 10"), ("gt10", "מעל 10")]
     dur_rows = [(lbl, dur.get(k, {}).get("cur", 0), dur.get(k, {}).get("prev", 0)) for k, lbl in dur_order]
     tabs = sorted(((k, v["cur"], v["prev"]) for k, v in d.get("tabs", {}).items()), key=lambda x: -x[1])
-    TAB_HE = {"overview": "סקירה", "buy": "קנייה", "maint": "אחזקה", "recalls": "ריקולים והסדרים", "specs": "מפרט"}
+    TAB_HE = {"overview": "סקירה", "buy": "קנייה", "maint": "אחזקה (עד 1.37)", "file": "תיק הרכב", "recalls": "ריקולים והסדרים", "specs": "מפרט"}
     tabs = [(TAB_HE.get(k, "לא צוין" if k in ("(not set)", "") else k), c, p) for k, c, p in tabs]
     SHARE_HE = {"pdf": "PDF", "image": "תמונה", "card": "כרטיס", "text": "טקסט", "bizpdf": "PDF עסקי", "cmp": "השוואה (קישור)", "cmp_pdf": "השוואה (PDF)"}
     shares = sorted(((SHARE_HE.get(k, "לא צוין" if k in ("(not set)", "") else k), v["cur"], v["prev"]) for k, v in d.get("share_kind", {}).items()), key=lambda x: -x[1])

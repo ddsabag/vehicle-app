@@ -798,7 +798,7 @@ function compare(c, X, P) {
     check(c, "price.list", ex.length ? ex.includes(sh) : !sh, sh || "(none)", ex.join(" / ") || (imp ? "(none: a personal import)" : cancelled ? "(none: off the road)" : "(none)"), `price rows for model=${(X.price || []).length}, years=${[...new Set((X.price || []).map(r => r.shnat_yitzur))].sort().join(",")}`);
     if (sh) { const note = card.notes.some(t => /^מחיר המחירון לפי/.test(t)), expN = [...new Set(cand.filter(x => N(x.r.mehir) === sh).map(x => !x.own))];
       check(c, "price.borrowed_note", expN.includes(note), note ? "note shown" : "(none)", expN.map(b => b ? "note: the price of another year or type" : "(none)").join(" or "), cand.map(x => `${x.r.sug_degem || ""}/${x.r.shnat_yitzur}/${sp(x.r.ramat_gimur)}`).join(" | "));
-      const vt = (g.find(x => x.k === "שווי משוער היום") || {}).v || "";
+      const vt = (g.find(x => /^שווי (משוער )?היום/.test(x.k)) || {}).v || "";
       check(c, "value.labelled_estimate", /הערכה בלבד/.test(card.text) && /\d+–\d+/.test(vt), vt + " / " + (card.notes.slice(-1)[0] || "").slice(0, 40), "range + 'הערכה בלבד'", ""); }
     else { const want = cancelled ? "הרכב ירד מהכביש, ולכן אין לו הערכת שווי." : imp ? "מחירון היבואן הרשמי לא חל על רכב ביבוא אישי, ולכן אין כאן מחיר מחירון והערכת שווי." : "אין במאגר מחיר מחירון לדגם הזה, ולכן אין הערכת שווי.";
       check(c, "value.fallback", sp(card.text) === want, sp(card.text).slice(0, 80), want, ""); } }
