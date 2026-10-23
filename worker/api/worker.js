@@ -65,7 +65,7 @@ async function waitlist(req, env) {
 const WEB_EVENTS = new Set(["car_lookup", "search_no_result", "share", "share_open", "tab_view", "compare_open", "link_landing", "web_visit", "web_hint_click", "web_install_prompt", "web_install_click",
   "link_out", "checklist_pdf", "simple_view", "lookup_failed", "lookup_timeout", "lookup_slow", "settlement_shown", "buy_step_done", "calendar_reminder_shown", "calendar_reminder_click", "exp_expose",
   "upgrade_open", "buy_card_open", "camera_scan", "lookup_abort", "lookup_from_cache", "car_save", "car_unsave", "voice_search", "bulk_check", "zombie_shown", "simple_more", "alerts_toggle", "alert_kind", "doc_add", "trial_start", "trial_end_shown", "upgrade_purchase_start", "user_screenshot", "link_open", "lookup_repeat", "car_nick", "svc_add", "svc_cal", "check_open", "js_error",
-  "mine_set", "mine_unset", "road_docs", "history_pdf", "nav", "cars_mode", "alert_item"]);
+  "mine_set", "mine_unset", "road_docs", "history_pdf", "nav", "cars_mode", "alert_item", "home_sheet", "home_open"]);
 async function webEvent(req, env) {
   if (req.method !== "POST" || req.headers.get("origin") !== ORIGIN) return new Response(null, { status: 204 });
   if (/(?:^|[^a-z])bot\b|[a-z]bot\/|crawl|spider|slurp|lighthouse|headlesschrome|pagespeed|inspectiontool|adsbot|storebot|googleother|pagerenderer/i.test(req.headers.get("user-agent") || "")) return new Response(null, { status: 204 });   // automated browsers are not users (as BOT_UA in index.html)

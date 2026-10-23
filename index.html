@@ -275,6 +275,13 @@ a.row{color:var(--fg);text-decoration:none}a.row .t small{text-decoration:none}a
 .sheet-in{background:var(--card);color:var(--fg);width:100%;max-width:680px;border-radius:18px 18px 0 0;padding:18px 16px calc(22px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:16px;max-height:90vh;overflow:auto}
 .sheet-head{display:flex;justify-content:space-between;align-items:center}
 .sheet-head h2{margin:0;font-size:1.2rem}
+.hs-lead{margin:0;line-height:1.55}
+.hs-steps{margin:0;padding:0;list-style:none;counter-reset:hs;display:grid;gap:10px}
+.hs-steps li{counter-increment:hs;display:flex;gap:12px;align-items:flex-start;line-height:1.7}
+.hs-steps li::before{content:counter(hs);flex:0 0 auto;width:28px;height:28px;border-radius:50%;background:var(--soft);border:1px solid var(--line);display:grid;place-items:center;font-weight:800;font-family:var(--f-num)}
+.hs-k{display:inline-flex;align-items:center;gap:5px;padding:1px 8px;border:1px solid var(--line);border-radius:8px;background:var(--soft);white-space:nowrap;vertical-align:middle}
+.hs-k .i{width:18px;height:18px;color:var(--accent)}
+.hs-ok{border:0;border-radius:12px;background:var(--accent);color:var(--accent-fg);font-weight:800;min-height:48px}
 .set-row{display:flex;flex-direction:column;gap:8px}
 .set-row>span{font-weight:700}
 .seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--soft);border-radius:11px;padding:4px;gap:4px}
@@ -711,6 +718,7 @@ html.web main#out > .chead{grid-column:1/-1}
 .vh-s{margin:0;color:var(--muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:28px}
 .vh-s.sel{justify-content:space-between;color:var(--fg);font-weight:600}
 .vh-s .lnk{border:0;background:none;color:var(--accent);font-weight:800;padding:4px}
+.vh-c{margin:2px 0 0;color:var(--muted);font-size:.85rem;display:flex;align-items:center;gap:6px}.vh-c svg.i{width:16px;height:16px}
 .vh-add{width:42px;height:42px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--accent);display:grid;place-items:center;flex:0 0 auto}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;box-shadow:0 0 0 4px color-mix(in srgb,currentColor 15%,transparent);flex:0 0 auto}
 .dot.ok{color:var(--t-green);background:var(--t-green)}.dot.warn{color:var(--t-amber);background:var(--t-amber)}.dot.bad{color:var(--t-red);background:var(--t-red)}
@@ -787,6 +795,7 @@ body.kb .cfab{display:none}
 .allok .ai{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto;background:var(--ok-bg);color:var(--ok)}
 .arows{display:grid;background:var(--card);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
 .arow{display:flex;align-items:center;gap:12px;padding:12px 14px;min-height:60px}.arow + .arow{border-top:1px solid var(--line)}
+.arow .acal{width:auto;margin:0;flex:0 0 auto;padding:8px 12px}
 .arow .t{flex:1;min-width:0;display:grid;justify-items:start;gap:3px}.arow .t small{color:var(--muted);font-size:.85rem}.arow .mini-plate{font-size:.9rem;padding:2px 7px 2px 3px}
 .sw{position:relative;width:48px;height:28px;flex:0 0 auto;border:0;border-radius:999px;background:var(--line);padding:0;transition:background .15s}
 .sw::after{content:"";position:absolute;top:3px;inset-inline-start:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
@@ -842,6 +851,8 @@ body.kb .cfab{display:none}
   <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/></symbol>
   <symbol id="i-back" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
   <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="i-ios-share" viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M8.5 10H6.5a1.5 1.5 0 0 0-1.5 1.5v8A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5v-8A1.5 1.5 0 0 0 17.5 10h-2"/></symbol>
+  <symbol id="i-add-sq" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8.5v7M8.5 12h7"/></symbol>
   <symbol id="i-brand" viewBox="0 0 108 108"><rect width="108" height="108" rx="24" fill="#FFC400"/><g transform="translate(54,54) scale(1.28) translate(-56,-54)"><g transform="translate(54,68) scale(0.8) translate(-54,-67)"><path fill="#111111" d="M24,70l6,-15c1.6,-4 4.4,-6 9,-6h30c4.6,0 7.4,2 9,6l6,15v12a3,3 0 0 1 -3,3h-7a3,3 0 0 1 -3,-3v-3h-36v3a3,3 0 0 1 -3,3h-7a3,3 0 0 1 -3,-3z"/><path fill="#FFC400" d="M33,65l4.5,-10.5c0.8,-2 2,-3 4,-3h25c2,0 3.2,1 4,3l4.5,10.5z"/><path fill="#FFFFFF" d="M29,72a4.5,4.5 0 1 0 9,0a4.5,4.5 0 1 0 -9,0z M70,72a4.5,4.5 0 1 0 9,0a4.5,4.5 0 1 0 -9,0z"/><path fill="#FFFFFF" d="M42.5,68h23a1.5,1.5 0 0 1 1.5,1.5v6a1.5,1.5 0 0 1 -1.5,1.5h-23a1.5,1.5 0 0 1 -1.5,-1.5v-6a1.5,1.5 0 0 1 1.5,-1.5z"/><path fill="#1D4EA8" d="M42.5,68h3.5v9h-3.5a1.5,1.5 0 0 1 -1.5,-1.5v-6a1.5,1.5 0 0 1 1.5,-1.5z"/></g><path stroke="#111111" stroke-width="7" stroke-linecap="round" fill="none" d="M75.5,48.5L83,56"/><path fill="#FFFFFF" stroke="#111111" stroke-width="5" d="M53,39a14,14 0 1 0 28,0a14,14 0 1 0 -28,0z"/><path fill="#E53935" d="M60.7,32.6h13a1.7,1.7 0 0 1 0,3.4h-13a1.7,1.7 0 0 1 0,-3.4z"/><path fill="#22A355" d="M60.7,37.3h9a1.7,1.7 0 0 1 0,3.4h-9a1.7,1.7 0 0 1 0,-3.4z"/><path fill="#2457C5" d="M60.7,42h11a1.7,1.7 0 0 1 0,3.4h-11a1.7,1.7 0 0 1 0,-3.4z"/></g></symbol>
 </svg>
 
@@ -954,6 +965,18 @@ body.kb .cfab{display:none}
       <button type="button" class="row" data-share="text"><span class="badge-s slate"><svg class="i"><use href="#i-copy"/></svg></span><span class="t"><b>טקסט</b><small>סיכום קצר בהודעה</small></span></button>
     </div>
     <p class="note">הדוח כולל את מספר הרישוי והיסטוריית סוגי הבעלות (בלי שמות). שתפו אותו רק עם מי שצריך.</p><p class="note" id="shareMsg" role="status"></p>
+  </div>
+</div>
+<div class="sheet" id="homeSheet" hidden role="dialog" aria-modal="true" aria-labelledby="homeTitle">
+  <div class="sheet-in hs">
+    <div class="sheet-head"><h2 id="homeTitle">לוחית במסך הבית</h2><button class="icon-btn" type="button" data-hs="x" aria-label="סגירה"><svg class="i"><use href="#i-x"/></svg></button></div>
+    <p class="hs-lead">הרכב נשמר. כדי לפתוח את הרכבים שלכם בלחיצה אחת, בלי לחפש את הקישור:</p>
+    <ol class="hs-steps">
+      <li><span>מקישים על <b class="hs-k"><svg class="i"><use href="#i-ios-share"/></svg>שיתוף</b> של ספארי. בגרסאות החדשות הוא בתפריט <b class="hs-k"><svg class="i"><use href="#i-more"/></svg></b></span></li>
+      <li><span>בוחרים <b class="hs-k"><svg class="i"><use href="#i-add-sq"/></svg>הוספה למסך הבית</b></span></li>
+    </ol>
+    <p class="note">מאותו רגע לוחית נפתחת מהאייקון הצהוב בלי סרגלי הדפדפן, והרכבים השמורים נבדקים בכל פתיחה. בלי התקנה ובלי App Store.</p>
+    <button type="button" class="hs-ok" data-hs="ok">הבנתי</button>
   </div>
 </div>
 <div class="toast" id="toast" role="status"></div>
@@ -2849,7 +2872,9 @@ const IS_ANDROID = /Android/i.test(navigator.userAgent);
 /* iPhone and iPad: there is no app for them, so nothing points them at Google Play */
 const IS_IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
 /* Facebook, Instagram, TikTok, Telegram... open links in their own browser, where intent:// links and App Links do not work and files cannot be downloaded */
-const IN_APP_BROWSER = /FBAN|FBAV|FB_IAB|FBIOS|Instagram|Snapchat|TikTok|musical_ly|Bytedance|trill|ByteLocale|Telegram|LinkedInApp|Twitter|MicroMessenger|GSA\/|; wv\)/i.test(navigator.userAgent) || /\bLine\//.test(navigator.userAgent) || (IS_IOS && !/Safari\//.test(navigator.userAgent));
+/* opened from the icon on the iPhone home screen: Safari without its bars. Its user agent has no "Safari/", so it is not an in-app browser */
+const IOS_HOME = IS_IOS && (navigator.standalone === true || matchMedia("(display-mode: standalone)").matches);
+const IN_APP_BROWSER = /FBAN|FBAV|FB_IAB|FBIOS|Instagram|Snapchat|TikTok|musical_ly|Bytedance|trill|ByteLocale|Telegram|LinkedInApp|Twitter|MicroMessenger|GSA\/|; wv\)/i.test(navigator.userAgent) || /\bLine\//.test(navigator.userAgent) || (IS_IOS && !/Safari\//.test(navigator.userAgent) && !IOS_HOME);
 function sharedBar(D){
   const L = licOf(D), canCal = L && L.days > 0 && !IN_APP_BROWSER;   // a reminder only for an expiry still ahead
   let main;
@@ -3487,6 +3512,7 @@ $("#out").addEventListener("click", ev => {
       const on = toggleSaved(newSavedItem(D));
       if (on) { startTrial(); cohSaved(); track("car_save", {n: String(Math.min(store.get("savedVehicles").length, 4)) + (store.get("savedVehicles").length > 3 ? "+" : ""), from: "file"}); }
       if (on && alertsSupported()) { let asked = false; try { asked = !!localStorage.getItem("alertsAsked"); localStorage.setItem("alertsAsked", "1"); } catch {} if (!asked) try { window.AndroidApp.setAlerts(true); } catch {} }
+      if (on) homeSheetMaybe();
     }
     currentTab = "file"; renderResult(); focusResult();
     const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"});
@@ -4826,6 +4852,7 @@ $("#out").addEventListener("click", ev => {
     Object.assign(it, {ask, ...candFields(current)}); store.set("savedVehicles", list);
     toast(ask ? "נשמר ברכבים שלי, בסינון לקנייה" : "נשמר ברכבים שלי");
     { const y = window.scrollY; renderResult(); window.scrollTo(0, y); }
+    homeSheetMaybe();
   }
   if (act === "copy") copyText(summaryText(current), "הסיכום");
   if (act === "calendar") { track("calendar_reminder_click", {where: window.AndroidApp ? "app" : "web"}); testReminder(current); }
@@ -4839,6 +4866,7 @@ $("#out").addEventListener("click", ev => {
     toast(on ? "נשמר ברכבים שלי" : "הוסר מהרכבים שלי");
     { const y = window.scrollY; renderResult(); window.scrollTo(0, y); }
     if (on && alertsSupported()) { let asked = false; try { asked = !!localStorage.getItem("alertsAsked"); localStorage.setItem("alertsAsked", "1"); } catch {} if (!asked) try { window.AndroidApp.setAlerts(true); } catch {} }
+    if (on) homeSheetMaybe();
   }
 });
 $("#out").addEventListener("change", ev => { const s = ev.target.closest("[data-trim]"); if (s) switchTrim(+s.dataset.trim, +s.value); });
@@ -5434,6 +5462,17 @@ $("#shareSheet").addEventListener("click", ev => {
   const b = ev.target.closest("[data-share]"); if (b) doShare(b.dataset.share);
 });
 $("#closeShare").addEventListener("click", () => { $("#shareSheet").hidden = true; shareWarm = {}; });
+/* iPhone in Safari: once, after a car is saved, how to put לוחית on the home screen. There is no app for iPhone; from the icon the site opens
+   without the browser's bars and checks the saved cars on opening (as "הרכבים שלי" says) */
+function homeSheetMaybe(){
+  if (window.AndroidApp || !IS_IOS || IN_APP_BROWSER || IOS_HOME) return;
+  try { if (localStorage.getItem("homeSheet")) return; localStorage.setItem("homeSheet", "1"); } catch { return; }
+  setTimeout(() => { if (document.querySelector(".sheet[role=dialog]:not([hidden])")) return; $("#homeSheet").hidden = false; track("home_sheet", {act: "shown"}); }, 900);
+}
+$("#homeSheet").addEventListener("click", ev => {
+  const b = ev.target.closest("[data-hs]"); if (!b && ev.target.id !== "homeSheet") return;
+  $("#homeSheet").hidden = true; track("home_sheet", {act: b ? b.dataset.hs : "out"});
+});
 
 /* test-expiry reminder: in the app the phone's calendar opens with the event filled in;
    on the web it opens Google Calendar; a calendar file is the last resort */
@@ -5458,21 +5497,29 @@ function testReminder(D){
   window.calendarFallback = () => testReminderFile(D);
   const b = bridge();
   if (b && b.addCalendar) { try { b.addCalendar(title, desc, ymd(d)); return; } catch {} }
+  // iPhone: the phone's own calendar opens a calendar file from a blob: link (WebKit refuses a data: link); Google Calendar's page would ask for a Google sign-in
+  if (IS_IOS && !IN_APP_BROWSER) {
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([testIcs(D)], {type: "text/calendar"}));
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 60000); return;
+  }
   openExternal(`https://calendar.google.com/calendar/render?${new URLSearchParams({action: "TEMPLATE", text: title, details: desc, dates: `${ymd(d)}/${ymd(next)}`})}`);
 }
 /* calendar file: the same all-day event, alerts a month before the expiry and on the event's morning */
-function testReminderFile(D){
-  if (!calDate(D)) return; const d = calWhen(D);
+function testIcs(D){
+  const d = calWhen(D);
   const ymd = x => `${x.getFullYear()}${String(x.getMonth() + 1).padStart(2, "0")}${String(x.getDate()).padStart(2, "0")}`;
   const next = new Date(d); next.setDate(next.getDate() + 1);
   const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
   const title = `חידוש רישיון לרכב ${fmtPlate(D.plate)} (${D.title})`;
   const alarm = t => ["BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${title}`, `TRIGGER:${t}`, "END:VALARM"];
-  const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Luchit//HE", "CALSCALE:GREGORIAN", "BEGIN:VEVENT",
+  return ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Luchit//HE", "CALSCALE:GREGORIAN", "BEGIN:VEVENT",
     `UID:test-${D.plate}-${ymd(d)}@luchit`, `DTSTAMP:${stamp}`, `DTSTART;VALUE=DATE:${ymd(d)}`, `DTEND;VALUE=DATE:${ymd(next)}`,
     `SUMMARY:${title}`, `DESCRIPTION:${testCalDesc(D).replace(/[,;\\]/g, "\\$&")}`,
     ...alarm("-P16D"), ...alarm("PT9H"), "END:VEVENT", "END:VCALENDAR"].join("\r\n");   // a month before the expiry, and 9:00 on the day of the event
-  shareFile(new Blob([ics], {type: "text/calendar"}), `Luchit-test-${D.plate}.ics`, title);
+}
+function testReminderFile(D){
+  if (!calDate(D)) return;
+  shareFile(new Blob([testIcs(D)], {type: "text/calendar"}), `Luchit-test-${D.plate}.ics`, `חידוש רישיון לרכב ${fmtPlate(D.plate)} (${D.title})`);
 }
 
 /* ---------- plate from a photo ---------- */
@@ -5731,7 +5778,10 @@ async function checkSaved(){
         Object.assign(cur, it); store.set("savedVehicles", now);
       } catch {}
     }
-    if (changed) refreshView();
+    // the screen is drawn again after the run (the run is over by then, so it does not start another); on the web "הרכבים שלי" also
+    // when nothing changed, so its "בודקים עכשיו" line turns into the time of the check
+    savedChecking = false;
+    if (changed || due.length && !window.AndroidApp && document.body.dataset.screen === "cars") refreshView();
   } finally { savedChecking = false; }
 }
 /* opening a saved car brings its line in "הרכבים שלי" up to date at once: the check above runs once a day, so the line could still say
@@ -5898,11 +5948,12 @@ function renderCars(){
   if (carsFilter === "attn" && !attn.length || carsFilter === "buy" && !buy.length) carsFilter = "all";
   if (carsSel) carsSel = carsSel.filter(p => all.some(s => s.plate === p));
   const mode = all.length >= 2 ? carsModeOf(all.length) : "list", shown = carsFilter === "attn" ? attn : carsFilter === "buy" ? buy : all;
+  if (!window.AndroidApp && all.length) checkSaved();   // before drawing: a run that starts now shows "בודקים עכשיו"
   const html = [];
   const sub = carsSel
     ? `<p class="vh-s sel"><span>בוחרים 2 עד ${Math.min(cmpMax(), all.length)} רכבים להשוואה</span><button type="button" class="lnk" data-act="carsCancel">ביטול</button></p>`
     : !all.length ? "" : `<p class="vh-s">${pl(all.length, "רכב אחד", "רכבים")}${attn.length ? `<span style="display:inline-flex;align-items:center;gap:8px"><i class="dot bad" aria-hidden="true"></i>${attn.length === 1 ? "אחד צריך תשומת לב" : `${attn.length} צריכים תשומת לב`}</span>` : ""}</p>`;
-  html.push(`<header class="vhead"><div class="vh-r"><h2 class="vh-t" id="carsHead" tabindex="-1">הרכבים שלי</h2><button type="button" class="vh-add" data-act="addCar" aria-label="בדיקת רכב להוספה">${ico("plus")}</button></div>${sub}</header>`);
+  html.push(`<header class="vhead"><div class="vh-r"><h2 class="vh-t" id="carsHead" tabindex="-1">הרכבים שלי</h2><button type="button" class="vh-add" data-act="addCar" aria-label="בדיקת רכב להוספה">${ico("plus")}</button></div>${sub}${!window.AndroidApp && all.length && !carsSel ? checkedLine(all) : ""}</header>`);
   if (!all.length) {
     html.push(emptyCard("עוד לא שמרתם רכב", "star", "amber", `<p style="margin:0 0 10px">בודקים רכב ולוחצים על הכוכב בראש הדוח. ${alertsSupported() ? "מכאן נתריע על ריקול חדש ועל טסט שמתקרב" : "מכאן רואים ריקול פתוח וטסט שמתקרב"}, ואפשר להשוות בין הרכבים.</p><button type="button" class="link-btn" data-act="addCar">${ico("search")}בדיקת רכב</button>`));
   } else {
@@ -5919,6 +5970,15 @@ function renderCars(){
   }
   { const ft = document.querySelector("body > footer"); if (ft) ft.hidden = true; }
   $("#out").innerHTML = html.join("");
+}
+/* web: the line under "הרכבים שלי" that says when the saved cars were last checked against the registers (the site checks them when it is
+   opened, at most once a day per car; there is no background check as in the phone app) */
+function checkedLine(all){
+  if (savedChecking) return `<p class="vh-c">${ico("rotate")}בודקים עכשיו מול משרד התחבורה</p>`;
+  const t = Math.max(0, ...all.map(s => s.checked || 0)); if (!t) return "";
+  const d = new Date(t), today = new Date(), y = new Date(); y.setDate(y.getDate() - 1);
+  const same = (a, b) => a.toDateString() === b.toDateString(), hm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return `<p class="vh-c">${ico("check")}נבדקו מול משרד התחבורה ${same(d, today) ? `היום ב-${hm}` : same(d, y) ? `אתמול ב-${hm}` : `ב-${dmy(t)}`}</p>`;
 }
 let cmpLoad = 0;
 function compareSaved(plates){
@@ -5944,6 +6004,7 @@ function alertItems(){
   }
   return out.sort((a, b) => (a.lv === "bad" ? 0 : 1) - (b.lv === "bad" ? 0 : 1) || (a.d || 0) - (b.d || 0));
 }
+const calSentGet = () => { try { return JSON.parse(localStorage.getItem("calSent")) || {}; } catch { return {}; } };
 // a saved car's test reminder from the list: the same calendar event the car page adds
 const savedCalD = s => ({plate: s.plate, title: s.title, kind: "car", v: {tokef_dt: s.tokef, mivchan_acharon_dt: s.mivchan}, primary: s.reg ? {key: s.reg} : null});
 function renderAlerts(){
@@ -5968,8 +6029,15 @@ function renderAlerts(){
       </div>
       <details class="akinds"><summary>סוגי ההתראות</summary><div class="kinds">${ALERT_KINDS.map(([k, t, pro]) => `<label><input type="checkbox" data-kind="${k}"${pr[k] === false ? "" : " checked"}>${esc(t)}${pro && PRO_LOCK ? " (PRO)" : ""}</label>`).join("")}</div>
       <p class="note">לא נשלחות יותר מ-2 התראות ביום ו-4 בשבוע, רק בין 9:00 ל-21:00, ולא משישי בצהריים עד סוף השבת.</p></details>`);
-    } else if (IS_IOS) html.push(`<p class="note">לטסט שמתקרב יש כפתור "ליומן": היומן של הטלפון יזכיר לכם גם כשלוחית סגורה.</p>`);
-    else html.push(`<p class="note">התראות לטלפון על ריקול חדש ועל טסט שמתקרב זמינות באפליקציית לוחית באנדרואיד. <button type="button" class="lnk" data-url="${playWeb("alerts_hint")}" data-hint="alerts">להתקנה</button></p>`);
+    } else {
+      // a car whose test is within 30 days already has "ליומן" in the list above
+      const near = new Set(items.filter(x => x.go === "cal").map(x => x.s.plate)), sent = calSentGet();
+      const cal = all.filter(s => { const L = licSaved(s); return L && L.k === "ok" && L.days > 0 && !near.has(s.plate); });
+      if (cal.length) html.push(`<div class="qhead">תזכורות ביומן</div><div class="arows">${cal.map(s => { const L = licSaved(s), w = sent[s.plate] && sent[s.plate].d === s.tokef ? sent[s.plate].t : 0;
+        return `<div class="arow"><div class="t"><b>${esc(s.nick || s.title)}</b><small>הטסט בתוקף עד ${esc(L.date)}${w ? ` · נשלח ליומן ב-${esc(dmy(w))}` : ""}</small></div><button type="button" class="link-btn acal" data-calsaved="${s.plate}">${ico("clock")}ליומן</button></div>`; }).join("")}</div>`);
+      html.push(IS_IOS ? `<p class="note">לוחית בודקת את הרכבים כשפותחים אותה. היומן של הטלפון מזכיר את הטסט גם כשלוחית סגורה.</p>`
+        : `<p class="note">התראות לטלפון על ריקול חדש ועל טסט שמתקרב זמינות באפליקציית לוחית באנדרואיד. <button type="button" class="lnk" data-url="${playWeb("alerts_hint")}" data-hint="alerts">להתקנה</button></p>`);
+    }
   }
   { const ft = document.querySelector("body > footer"); if (ft) ft.hidden = true; }
   $("#out").innerHTML = html.join("");
@@ -5989,6 +6057,10 @@ $("#out").addEventListener("click", ev => {
     track("alert_item", {kind: x.go});
     if (x.go === "cal") { track("calendar_reminder_click", {where: "alerts"}); testReminder(savedCalD(x.s)); }
     else { openTab = x.go === "recalls" ? {p: x.s.plate, t: "recalls"} : null; run(x.s.plate); } return; }
+  if (b.dataset.calsaved) { ev.stopImmediatePropagation(); const s = store.get("savedVehicles").find(x => x.plate === b.dataset.calsaved); if (!s) return;
+    track("calendar_reminder_click", {where: "alerts_list"}); testReminder(savedCalD(s));
+    const m = calSentGet(); m[s.plate] = {d: s.tokef, t: Date.now()}; try { localStorage.setItem("calSent", JSON.stringify(m)); } catch {}
+    setTimeout(refreshView, 400); return; }
   if (b.dataset.alerts && document.body.dataset.screen === "alerts") { ev.stopImmediatePropagation(); try { window.AndroidApp.setAlerts(b.dataset.alerts === "on"); localStorage.setItem("alertsAsked", "1"); } catch {} setTimeout(refreshView, 300); return; }
   if (b.dataset.open && (document.body.dataset.screen === "cars")) carsY = window.scrollY;
   if (!a) return;
@@ -6602,7 +6674,7 @@ $("#toAlerts").addEventListener("click", () => { sheet.hidden = true; navTo("ale
 document.querySelectorAll("[data-alerts]").forEach(b => b.addEventListener("click", () => { try { window.AndroidApp.setAlerts(b.dataset.alerts === "on"); localStorage.setItem("alertsAsked", "1"); } catch {} syncAlertsSeg(); }));
 $("#closeSettings").addEventListener("click", () => { sheet.hidden = true; $("#openSettings").focus(); });
 sheet.addEventListener("click", ev => { if (ev.target === sheet) sheet.hidden = true; });
-document.addEventListener("keydown", ev => { if (ev.key === "Escape") { const dv = document.querySelector(".doc-view"); if (dv) dv.click(); sheet.hidden = true; $("#compareSheet").hidden = true; $("#shareSheet").hidden = true; } });
+document.addEventListener("keydown", ev => { if (ev.key === "Escape") { const dv = document.querySelector(".doc-view"); if (dv) dv.click(); sheet.hidden = true; $("#compareSheet").hidden = true; $("#shareSheet").hidden = true; $("#homeSheet").hidden = true; } });
 $("#clearRecent").addEventListener("click", () => { store.set("recentPlates", []); toast("היסטוריית החיפושים נמחקה"); refreshView(); });
 $("#clearSaved").addEventListener("click", () => { store.set("savedVehicles", []); toast("הרכבים שלי נמחקו"); refreshView(); });
 $("#ver").textContent = APP_VERSION;
@@ -6854,6 +6926,7 @@ const NAV_AGAIN = (() => { try { return ["reload", "back_forward"].includes(perf
    sources drawer. Going to a model page and back, a reload, or the same link reopened from "copy the link" (s=copy) is the same visit */
 const NEW_VISIT = (() => { if (window.AndroidApp || NAV_AGAIN || SHARE_VIA === "bar" || SHARE_VIA === "copy") return false; try { if (sessionStorage.getItem("wv")) return false; sessionStorage.setItem("wv", "1"); } catch {} return true; })();
 if (NEW_VISIT) track("web_visit");
+if (NEW_VISIT && (IOS_HOME || matchMedia("(display-mode: standalone)").matches)) track("home_open", {os: IS_IOS ? "ios" : "other"});
 /* web: someone opened a link from outside the site, counted once per opening: a link to a car or a comparison (s= says which kind of share it
    came from, when the link carries it), else one of our own campaign links (profile or video descriptions: utm_source=youtube, tiktok ...).
    A link on one of our own pages, a plate kept in the address (#1234567, a bookmark) and a plate typed into a model page's form are not
