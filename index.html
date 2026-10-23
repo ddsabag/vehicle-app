@@ -315,7 +315,7 @@ body:has(.sharebar) .toast{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
   html.web body:has(#out > .side) .band-in,html.web main#out:has(> .side),html.web footer,html.web body:has(#out .cmp-wide) .band-in,html.web main#out:has(.cmp-wide){max-width:1080px}
   html.web main#out:has(> .side){display:grid;grid-template-columns:minmax(0,1fr) 340px;column-gap:16px;row-gap:12px;align-items:start}
   html.web main#out > .plate-strip{grid-column:1/-1}
-  html.web main#out > .side{grid-column:2;grid-row:2/4;display:flex;flex-direction:column;gap:12px;position:sticky;top:56px}
+  html.web main#out > .side{grid-column:2;grid-row:2/4;display:flex;flex-direction:column;gap:12px;position:sticky;top:116px}
   html.web main#out > .mainc{grid-column:1;grid-row:2;display:flex;flex-direction:column;gap:12px;min-width:0}
   html.web main#out > .src-foot{grid-column:1;grid-row:3}
   html.web .appbox{order:0}
@@ -651,6 +651,36 @@ body:has(> footer:not([hidden])) main{padding-bottom:24px}
 body:has(.sharebar) .bnav,body.kb .bnav,body.land .bnav{display:none}
 body:not(:has(.sharebar)):not(.kb) .toast{bottom:calc(84px + env(safe-area-inset-bottom,0px))}
 body:not(:has(.sharebar)):not(.kb) .snack{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+/* the website on a wide screen: the navigation is a bar at the top, as on any site, with the brand and a plate search on the screens that have
+   no search band; phones and the app keep the bottom bar */
+.bn-brand,.bn-f{display:none}
+@media (min-width:1000px){
+  html.web .bnav{top:0;bottom:auto;border-top:0;border-bottom:1px solid var(--line);padding-bottom:0}
+  html.web .bnav-in{max-width:1080px;padding-inline:16px;display:flex;align-items:stretch;gap:4px;height:60px}
+  html.web .bnav button{flex-direction:row;gap:7px;min-height:0;padding:0 14px;font-size:.95rem;border-bottom:3px solid transparent;border-radius:0;cursor:pointer}
+  html.web .bnav button:hover{color:var(--fg)}
+  html.web .bnav .bn-i,html.web .bnav button[aria-current=page] .bn-i{width:auto;height:auto;background:none}
+  html.web .bnav button[aria-current=page]{border-bottom-color:var(--accent)}
+  html.web .bn-badge{top:-8px;inset-inline-end:-12px}
+  html.web body:is([data-screen=car],[data-screen=sub],[data-screen=cars],[data-screen=alerts]) .bn-brand{display:flex;align-items:center;gap:8px;margin-inline-end:14px;color:var(--fg);text-decoration:none;font-weight:800;font-size:1.15rem}
+  html.web .bn-brand .logo{width:34px;height:34px}
+  html.web body:is([data-screen=car],[data-screen=sub],[data-screen=cars],[data-screen=alerts]) .bn-f{display:flex;align-items:center;gap:8px;margin-inline-start:auto}
+  html.web .bn-pl{display:flex;align-items:stretch;direction:ltr;height:38px;border:2px solid var(--plate-ink);border-radius:8px;background:var(--plate);overflow:hidden}
+  html.web .bn-il{display:grid;place-items:center;padding:0 6px;background:var(--il);color:#fff;font:800 .7rem var(--f-body)}
+  html.web .bn-pl input{width:150px;border:0;background:none;color:var(--plate-ink);font:600 1.05rem var(--f-num);text-align:center;letter-spacing:.04em;padding:0 8px}
+  html.web .bn-pl input::placeholder{color:color-mix(in srgb,var(--plate-ink) 40%,transparent)}
+  html.web .bn-pl:focus-within{outline:3px solid var(--accent);outline-offset:2px}
+  html.web .bn-go{width:40px;height:38px;border:0;border-radius:9px;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;cursor:pointer}
+  html.web .bn-go svg.i{width:19px;height:19px}
+  html.web body:not(.land):not(:has(.sharebar)){padding-top:60px}
+  html.web main,html.web footer{padding-bottom:24px}
+  html.web .chead{top:60px}
+  html.web body[data-screen=car] .tabs{top:113px;scroll-margin-top:113px}
+  html.web body[data-screen=car] [data-fold],html.web body[data-screen=car] #tabpanel > *{scroll-margin-top:184px}
+  html.web body:not(:has(.sharebar)):not(.kb) .toast{bottom:24px}
+  html.web body:not(:has(.sharebar)):not(.kb) .snack{bottom:16px}
+  html.web .cfab{bottom:24px}
+}
 /* the search band belongs to the home screen; the car page, the tools, "הרכבים שלי" and "התראות" have their own headers */
 body[data-screen=car] .band,body[data-screen=sub] .band,body[data-screen=cars] .band,body[data-screen=alerts] .band{display:none}
 body[data-screen=car] main,body[data-screen=sub] main,body[data-screen=cars] main,body[data-screen=alerts] main{padding-top:calc(4px + env(safe-area-inset-top,0px))}
@@ -812,6 +842,7 @@ body.kb .cfab{display:none}
   <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/></symbol>
   <symbol id="i-back" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
   <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="i-brand" viewBox="0 0 108 108"><rect width="108" height="108" rx="24" fill="#FFC400"/><g transform="translate(54,54) scale(1.28) translate(-56,-54)"><g transform="translate(54,68) scale(0.8) translate(-54,-67)"><path fill="#111111" d="M24,70l6,-15c1.6,-4 4.4,-6 9,-6h30c4.6,0 7.4,2 9,6l6,15v12a3,3 0 0 1 -3,3h-7a3,3 0 0 1 -3,-3v-3h-36v3a3,3 0 0 1 -3,3h-7a3,3 0 0 1 -3,-3z"/><path fill="#FFC400" d="M33,65l4.5,-10.5c0.8,-2 2,-3 4,-3h25c2,0 3.2,1 4,3l4.5,10.5z"/><path fill="#FFFFFF" d="M29,72a4.5,4.5 0 1 0 9,0a4.5,4.5 0 1 0 -9,0z M70,72a4.5,4.5 0 1 0 9,0a4.5,4.5 0 1 0 -9,0z"/><path fill="#FFFFFF" d="M42.5,68h23a1.5,1.5 0 0 1 1.5,1.5v6a1.5,1.5 0 0 1 -1.5,1.5h-23a1.5,1.5 0 0 1 -1.5,-1.5v-6a1.5,1.5 0 0 1 1.5,-1.5z"/><path fill="#1D4EA8" d="M42.5,68h3.5v9h-3.5a1.5,1.5 0 0 1 -1.5,-1.5v-6a1.5,1.5 0 0 1 1.5,-1.5z"/></g><path stroke="#111111" stroke-width="7" stroke-linecap="round" fill="none" d="M75.5,48.5L83,56"/><path fill="#FFFFFF" stroke="#111111" stroke-width="5" d="M53,39a14,14 0 1 0 28,0a14,14 0 1 0 -28,0z"/><path fill="#E53935" d="M60.7,32.6h13a1.7,1.7 0 0 1 0,3.4h-13a1.7,1.7 0 0 1 0,-3.4z"/><path fill="#22A355" d="M60.7,37.3h9a1.7,1.7 0 0 1 0,3.4h-9a1.7,1.7 0 0 1 0,-3.4z"/><path fill="#2457C5" d="M60.7,42h11a1.7,1.7 0 0 1 0,3.4h-11a1.7,1.7 0 0 1 0,-3.4z"/></g></symbol>
 </svg>
 
 <div class="band">
@@ -840,9 +871,11 @@ body.kb .cfab{display:none}
 <button type="button" class="savedbar" id="savedBar" hidden><svg class="i"><use href="#i-star"/></svg><span id="savedBarTxt"></span></button>
 <main id="out"></main>
 <nav class="bnav" id="bnav" aria-label="ניווט ראשי"><div class="bnav-in">
+  <a class="bn-brand" href="./" aria-label="לוחית, מסך הבית"><svg class="logo" viewBox="0 0 108 108" aria-hidden="true"><use href="#i-brand"/></svg><span>לוחית</span></a>
   <button type="button" data-nav="search" aria-current="page"><span class="bn-i"><svg class="i"><use href="#i-search"/></svg></span><span>חיפוש</span></button>
   <button type="button" data-nav="cars"><span class="bn-i"><svg class="i"><use href="#i-car"/></svg></span><span>הרכבים שלי</span></button>
   <button type="button" data-nav="alerts"><span class="bn-i"><svg class="i"><use href="#i-bell"/></svg><i class="bn-badge" id="bnBadge" hidden></i></span><span>התראות</span></button>
+  <form class="bn-f" id="bnF" autocomplete="off" role="search"><label class="bn-pl"><span class="bn-il" aria-hidden="true">IL</span><input id="bnPlate" inputmode="numeric" placeholder="12-345-67" maxlength="10" aria-label="מספר רישוי לבדיקה"></label><button type="submit" class="bn-go" aria-label="חיפוש"><svg class="i"><use href="#i-search"/></svg></button></form>
 </div></nav>
 <footer>המידע מגיע מהמאגרים הפתוחים של משרד התחבורה ב-<a href="https://data.gov.il/" target="_blank" rel="noopener">data.gov.il</a>, ואינו מחליף נסח רישום רשמי. האפליקציה אינה קשורה למשרד התחבורה או לגוף ממשלתי.<span id="mdlLink"> <a href="check/">מה אפשר לבדוק לפי מספר רישוי</a> · <a href="model/">דגמים נפוצים בישראל</a> · <a href="business/">לעסקים</a> · <a href="magazine/">מגזין</a> · <a href="guide/buy-used-car/">מדריך לקונה</a> · <a href="privacy.html">מדיניות פרטיות</a></span><span id="soc" class="soc">עקבו אחרינו: <a href="https://www.tiktok.com/@luchit.app" target="_blank" rel="noopener me" data-soc="tiktok" aria-label="לוחית בטיקטוק" title="לוחית בטיקטוק"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg></a><a href="https://www.instagram.com/luchit.app/" target="_blank" rel="noopener me" data-soc="instagram" aria-label="לוחית באינסטגרם" title="לוחית באינסטגרם"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.3" cy="6.7" r="1.3" fill="currentColor"/></svg></a><a href="https://www.facebook.com/profile.php?id=61595507021640" target="_blank" rel="noopener me" data-soc="facebook" aria-label="לוחית בפייסבוק" title="לוחית בפייסבוק"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg></a></span></footer>
 <script>(function(){if(!window.AndroidApp)document.documentElement.classList.add("web");if(window.AndroidApp){["mdlLink","soc"].forEach(function(i){var x=document.getElementById(i);if(x)x.remove()})}})()</script>
@@ -5771,6 +5804,8 @@ function leaveCar(){
   else goHome();
 }
 document.getElementById("bnav").addEventListener("click", ev => { const b = ev.target.closest("[data-nav]"); if (b) navTo(b.dataset.nav); });
+document.querySelector("#bnav .bn-brand").addEventListener("click", ev => { ev.preventDefault(); goHome(); });
+$("#bnF").addEventListener("submit", ev => { ev.preventDefault(); const v = $("#bnPlate").value; if (!v.replace(/\D/g, "")) { $("#bnPlate").focus(); return; } $("#bnPlate").value = ""; $("#bnPlate").blur(); run(v); });
 // the keyboard covers the bottom of the screen: the bar steps aside while a field has focus
 const touchKb = () => { try { return matchMedia("(pointer: coarse)").matches; } catch { return true; } };
 document.addEventListener("focusin", ev => { if (touchKb() && ev.target.matches && ev.target.matches("input:not([type=checkbox]):not([type=radio]):not([type=file]),textarea,select")) document.body.classList.add("kb"); });
@@ -5869,7 +5904,7 @@ function renderCars(){
     : !all.length ? "" : `<p class="vh-s">${pl(all.length, "רכב אחד", "רכבים")}${attn.length ? `<span style="display:inline-flex;align-items:center;gap:8px"><i class="dot bad" aria-hidden="true"></i>${attn.length === 1 ? "אחד צריך תשומת לב" : `${attn.length} צריכים תשומת לב`}</span>` : ""}</p>`;
   html.push(`<header class="vhead"><div class="vh-r"><h2 class="vh-t" id="carsHead" tabindex="-1">הרכבים שלי</h2><button type="button" class="vh-add" data-act="addCar" aria-label="בדיקת רכב להוספה">${ico("plus")}</button></div>${sub}</header>`);
   if (!all.length) {
-    html.push(emptyCard("עוד לא שמרתם רכב", "star", "amber", `<p style="margin:0 0 10px">בודקים רכב ולוחצים על הכוכב בראש הדוח. מכאן נתריע על ריקול חדש ועל טסט שמתקרב, ואפשר להשוות בין הרכבים.</p><button type="button" class="link-btn" data-act="addCar">${ico("search")}בדיקת רכב</button>`));
+    html.push(emptyCard("עוד לא שמרתם רכב", "star", "amber", `<p style="margin:0 0 10px">בודקים רכב ולוחצים על הכוכב בראש הדוח. ${alertsSupported() ? "מכאן נתריע על ריקול חדש ועל טסט שמתקרב" : "מכאן רואים ריקול פתוח וטסט שמתקרב"}, ואפשר להשוות בין הרכבים.</p><button type="button" class="link-btn" data-act="addCar">${ico("search")}בדיקת רכב</button>`));
   } else {
     if (all.length >= 2) html.push(`<div class="vseg" role="tablist" aria-label="צורת התצוגה"><button type="button" role="tab" data-cmode="list" aria-selected="${mode === "list"}">רשימה</button><button type="button" role="tab" data-cmode="table" aria-selected="${mode === "table"}">טבלה</button></div>`);
     const chip = (k, t) => `<button type="button" data-cfilter="${k}" aria-pressed="${carsFilter === k}">${t}</button>`;
@@ -5878,7 +5913,7 @@ function renderCars(){
     else if (carsFilter === "buy" && PRO_LOCK && !isPro()) html.push(proLockCard("רכבים לקנייה", "משווים רכבים שמורים לפי המחיר המבוקש והטווח המשוער."));
     else html.push(mode === "table" ? carsTable(shown) : `<div class="ccards">${shown.map(carCard).join("")}</div>`);
     if (carsFilter === "buy") html.push(`<p class="note">המחיר המבוקש מול טווח משוער לפי מחירון, שנתון, בעלויות וק״מ. הערכה בלבד. מזינים מחיר בלשונית "קנייה" של הרכב.</p>`);
-    if (!alertsSupported()) html.push(`<p class="note">התראות על ריקול חדש ועל טסט שמתקרב זמינות באפליקציית לוחית באנדרואיד. <button type="button" class="lnk" data-url="${playWeb("cars_hint")}" data-hint="cars">להתקנה</button></p>`);
+    if (!alertsSupported() && !IS_IOS) html.push(`<p class="note">התראות על ריקול חדש ועל טסט שמתקרב זמינות באפליקציית לוחית באנדרואיד. <button type="button" class="lnk" data-url="${playWeb("cars_hint")}" data-hint="cars">להתקנה</button></p>`);
     if (all.length >= 2) { const n = carsSel ? carsSel.length : 0, ready = carsSel && n >= 2;
       html.push(`<button type="button" class="cfab${ready ? " on" : ""}" data-act="carsFab">${ico("compare")}${!carsSel ? "השוואה" : ready ? `השוו ${n} רכבים` : n ? "בחרו עוד רכב" : "בחרו 2 רכבים"}</button>`); }
   }
@@ -5917,7 +5952,7 @@ function renderAlerts(){
   const all = store.get("savedVehicles"), items = alertItems(), html = [];
   html.push(`<header class="vhead"><h2 class="vh-t" id="alertsHead" tabindex="-1">התראות</h2><p class="vh-s">${!all.length ? "ריקולים וטסט של הרכבים ששמרתם" : alertsSupported() ? "מה דורש פעולה, ועל מה תקבלו התראה לטלפון" : "מה דורש פעולה ברכבים ששמרתם"}</p></header>`);
   if (!all.length) html.push(emptyCard("אין עדיין רכבים לעקוב אחריהם", "bell", "blue", `<p style="margin:0 0 10px">שומרים רכב בכוכב שבראש הדוח, ומכאן רואים ריקול פתוח וטסט שמתקרב${alertsSupported() ? ", ומקבלים התראה לטלפון" : ""}.</p><button type="button" class="link-btn" data-act="addCar">${ico("search")}בדיקת רכב</button>`));
-  else if (!items.length) html.push(`<div class="allok"><span class="ai">${ico("check")}</span><div><b>הכול תקין</b><br><small style="color:var(--muted)">אין ריקול פתוח ואין טסט בחודש הקרוב. נתריע כשמשהו ישתנה.</small></div></div>`);
+  else if (!items.length) html.push(`<div class="allok"><span class="ai">${ico("check")}</span><div><b>הכול תקין</b><br><small style="color:var(--muted)">אין ריקול פתוח ואין טסט בחודש הקרוב.${alertsSupported() ? " נתריע כשמשהו ישתנה." : ""}</small></div></div>`);
   else html.push(`<div class="aitems">${items.map((x, i) => `<div class="aitem ${x.lv}"><span class="ai">${ico(x.go === "cal" ? "clock" : "alert")}</span><div class="t"><b>${esc(x.t)}</b><small>${esc(x.b)}</small>
       <div class="acts"><button type="button" class="ap" data-open="${x.s.plate}" aria-label="פתיחת הרכב ${fmtPlate(x.s.plate)}"><span class="mini-plate"><i></i>${fmtPlate(x.s.plate)}</span></button><button type="button" class="ago" data-aitem="${i}">${x.g || "פרטים"}</button></div></div></div>`).join("")}</div>`);
   // what changed lately: the daily check's log of each car, the last two weeks
@@ -5933,7 +5968,8 @@ function renderAlerts(){
       </div>
       <details class="akinds"><summary>סוגי ההתראות</summary><div class="kinds">${ALERT_KINDS.map(([k, t, pro]) => `<label><input type="checkbox" data-kind="${k}"${pr[k] === false ? "" : " checked"}>${esc(t)}${pro && PRO_LOCK ? " (PRO)" : ""}</label>`).join("")}</div>
       <p class="note">לא נשלחות יותר מ-2 התראות ביום ו-4 בשבוע, רק בין 9:00 ל-21:00, ולא משישי בצהריים עד סוף השבת.</p></details>`);
-    } else html.push(`<p class="note">התראות לטלפון על ריקול חדש ועל טסט שמתקרב זמינות באפליקציית לוחית באנדרואיד. <button type="button" class="lnk" data-url="${playWeb("alerts_hint")}" data-hint="alerts">להתקנה</button></p>`);
+    } else if (IS_IOS) html.push(`<p class="note">לטסט שמתקרב יש כפתור "ליומן": היומן של הטלפון יזכיר לכם גם כשלוחית סגורה.</p>`);
+    else html.push(`<p class="note">התראות לטלפון על ריקול חדש ועל טסט שמתקרב זמינות באפליקציית לוחית באנדרואיד. <button type="button" class="lnk" data-url="${playWeb("alerts_hint")}" data-hint="alerts">להתקנה</button></p>`);
   }
   { const ft = document.querySelector("body > footer"); if (ft) ft.hidden = true; }
   $("#out").innerHTML = html.join("");
