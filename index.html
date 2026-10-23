@@ -326,7 +326,21 @@ body:has(.sharebar) .toast{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
   html.web main#out > .mainc{grid-column:1;grid-row:2;display:flex;flex-direction:column;gap:12px;min-width:0}
   html.web main#out > .src-foot{grid-column:1;grid-row:3}
   html.web .appbox{order:0}
+  html.web main#out:has(> .hrail){display:grid;grid-template-columns:minmax(0,1fr) 320px;column-gap:20px;align-items:start;max-width:1080px}
+  html.web body:has(#out > .hrail) .band-in{max-width:1080px}
+  html.web body:has(#out > .hrail) .band-in > *{width:100%;max-width:708px}
+  html.web main#out > .hmain{display:flex;flex-direction:column;gap:12px;min-width:0}
+  html.web main#out > .hrail{display:block;position:sticky;top:76px}
 }
+.hmain{display:contents}.hrail{display:none}
+.hr-p{background:var(--card);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
+.hr-h{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 10px 10px 14px}
+.hr-h h2{margin:0;font-size:1.05rem}.hr-h .lnk{border:0;background:none;color:var(--accent);font-weight:800;padding:6px;min-height:40px;cursor:pointer}
+.hr-row{display:flex;gap:12px;align-items:center;width:100%;border:0;border-top:1px solid var(--line);background:none;color:var(--fg);font:inherit;text-align:start;padding:11px 14px;cursor:pointer}
+.hr-row:hover{background:var(--soft)}
+.hr-row .t{flex:1;min-width:0;display:grid;gap:2px}.hr-row .t b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hr-row .t small{color:var(--muted);font-size:.85rem;display:flex;align-items:center;gap:6px}.hr-row .t small.bad{color:var(--bad)}.hr-row .t small.warn{color:var(--warn)}
+.hr-f{margin:0;padding:10px 14px;border-top:1px solid var(--line);color:var(--muted);font-size:.78rem}
 footer a{color:var(--accent)}
 /* social pages: one quiet line under the footer links; a new network is one more <a> in #soc */
 .soc{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:6px}
@@ -6546,10 +6560,10 @@ function renderHome(){
   current = null; inCompare = false; view = "search"; setScreen("home");
   const saved = store.get("savedVehicles"), recent = store.get("recentPlates");
   const html = [];
-  if (!window.AndroidApp) html.push(`<button type="button" class="webcta" data-url="${playWeb("home_top")}" data-hint="home-top">באפליקציה: התראות על ריקול וטסט · <b><bdi>Google Play</bdi></b></button>`);
+  if (!window.AndroidApp && !IS_IOS) html.push(`<button type="button" class="webcta" data-url="${playWeb("home_top")}" data-hint="home-top">באפליקציה: התראות על ריקול וטסט · <b><bdi>Google Play</bdi></b></button>`);
   if (!saved.length && !recent.length) html.push(`<section class="hero"><h2>לפני שקונים רכב, בודקים אותו כאן</h2><p>מספר רישוי אחד: ריקולים, בעלים, ק״מ ומחיר משוער, בשניות.</p>
     <div class="try"><span>רוצים לראות איך זה נראה?</span><button type="button" class="chip" data-open="${EXAMPLE_PLATE}">נסו לדוגמה <bdi dir="ltr">${fmtPlate(EXAMPLE_PLATE)}</bdi></button></div>
-    <ol class="how"><li><b>מקלידים מספר רישוי</b> או מצלמים את הלוחית.</li><li><b>מקבלים תמונה מלאה</b> מנתוני משרד התחבורה: ריקולים והסדרי פשרה, טסט, בעלויות ומחיר משוער.</li><li><b>שומרים ומשתפים</b>, ומקבלים התראה על ריקול חדש או טסט שעומד לפוג.</li></ol></section>`);
+    <ol class="how"><li><b>מקלידים מספר רישוי</b> או מצלמים את הלוחית.</li><li><b>מקבלים תמונה מלאה</b> מנתוני משרד התחבורה: ריקולים והסדרי פשרה, טסט, בעלויות ומחיר משוער.</li><li><b>שומרים ומשתפים</b>, ${IS_IOS && !window.AndroidApp ? "ומוסיפים ליומן תזכורת לפני שהטסט פג." : "ומקבלים התראה על ריקול חדש או טסט שעומד לפוג."}</li></ol></section>`);
   const pn = planNotice(); if (pn) html.push(pn);
   // what needs attention on a saved car opens "התראות"; the cars themselves live in "הרכבים שלי"
   const attn = saved.filter(carAttn);
@@ -6566,9 +6580,21 @@ function renderHome(){
   if (!window.AndroidApp) html.push(faqCard());   // in the app the questions live in "הגדרות"
   { const ft = document.querySelector("body > footer"); if (ft) ft.hidden = false; }
   html.push(`<i id="homeMark" hidden></i>`);
-  $("#out").innerHTML = html.join("");
+  $("#out").innerHTML = !window.AndroidApp && saved.length ? `<div class="hmain">${html.join("")}</div>${homeRail(saved)}` : html.join("");
   if (saved.length) checkSaved();
   if (!window.AndroidApp) loadMagazine();
+}
+/* web, wide screens: the saved cars beside the home page, the ones that need attention first, each with the one line that matters now */
+function homeRail(saved){
+  const rank = {bad: 0, warn: 1, ok: 2}, line = s => { const L = licSaved(s);
+    if (s.active === false) return ["bad", "הרכב ירד מהכביש"];
+    if (s.recalls > 0) return ["bad", `${recallsWord(s.recalls)}. התיקון בחינם`];
+    if (L && (L.k !== "ok" || L.days <= 30)) return [L.k === "ok" ? "warn" : "bad", testWords(L)];
+    return ["ok", L ? `טסט בתוקף עד ${L.date}` : esc(s.sub || "")]; };
+  const list = saved.slice().sort((a, b) => rank[carLevel(a)] - rank[carLevel(b)]).slice(0, 6);
+  return `<aside class="hrail" aria-labelledby="hrailHead"><section class="hr-p"><div class="hr-h"><h2 id="hrailHead">הרכבים שלי</h2><button type="button" class="lnk" data-nav="cars">${saved.length > list.length ? `לכל ${saved.length} הרכבים` : "לכל הרכבים"}</button></div>
+    ${list.map(s => { const [lv, t] = line(s); return `<button type="button" class="hr-row" data-open="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b><bdi>${esc(s.nick || s.title)}</bdi></b><small class="${lv}">${lv === "ok" ? "" : `<i class="dot ${lv}" aria-hidden="true"></i>`}${t}</small></span></button>`; }).join("")}
+    <p class="hr-f">נשמרים בדפדפן הזה בלבד</p></section></aside>`;
 }
 /* web only: the latest magazine articles on the home page (magazine/posts.json is built monthly) */
 /* card height = 134px + 76px per article shown (measured); the count seen last time is remembered, one article on a first visit */
