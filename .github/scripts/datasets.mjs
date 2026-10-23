@@ -1,5 +1,19 @@
 // The ministry datasets the app depends on: shared by the daily health check and the schema guard.
 export const SAMPLE_PLATE = "38548003";
+
+// What Ministry watch published this morning (status.json on the data-status branch, the file the app reads): the keys and titles of the
+// datasets it found down, when it checked in the last 12 hours. [] = every dataset answered; null = no fresh reading (unread, stale, broken).
+// Data truth and Site smoke ask it before ringing about a failure that a ministry outage explains: Ministry watch already rang for it.
+export const STATUS_URL = "https://raw.githubusercontent.com/ddsabag/vehicle-app/data-status/status.json";
+export async function ministryDown(now = Date.now(), get = u => fetch(u, { signal: AbortSignal.timeout(10000) })) {
+  try {
+    const r = await get(STATUS_URL);
+    if (!r.ok) return null;
+    const j = await r.json(), age = now - Date.parse(j?.checked);
+    if (!(age >= 0 && age < 12 * 36e5) || !j.sets) return null;
+    return SETS.filter(s => j.sets[s.key]?.ok === false).map(s => ({ key: s.key, title: s.title }));
+  } catch { return null; }
+}
 // maxAge = days since last_modified before we call the data stale (per-car sets update daily-ish, per-model sets rarely)
 // filter = a known-good lookup (also proves the filter column still works); expectEmpty = known ministry outage, reported as a note, not an alert
 // (none today: owners carried it until it answered again, with 5.5 million rows and the sample plate found, in October 2026)
