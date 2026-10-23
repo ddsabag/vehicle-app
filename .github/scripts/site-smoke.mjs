@@ -11,6 +11,7 @@ import fs from "node:fs";
 import tls from "node:tls";
 import { flash } from "./flash.mjs";
 import { ilTime } from "./notify.mjs";
+import { ministryDown } from "./datasets.mjs";
 const SITE = (process.env.SITE || "https://luchit.app/").replace(/\/?$/, "/"), HOST = new URL(SITE).hostname;
 const DRY = process.env.DRY_RUN === "1", sleep = ms => new Promise(r => setTimeout(r, ms));
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -24,8 +25,8 @@ async function telegram(text, silent = false) {
   return r.ok;
 }
 // one /live line per finding (as when the two checks ran apart), then one Telegram message; two when together they pass Telegram's 4096-character limit
-async function send(own, infra) {
-  const silent = !own && !infra.alert, infraText = infra.alert || infra.notice || "";
+async function send(own, infra, quiet = false) {
+  const silent = (!own || quiet) && !infra.alert, infraText = infra.alert || infra.notice || "";
   if (own) await flash("infra", "alert", own);
   if (infraText && await flash("infra", infra.alert ? "alert" : "info", infraText)) markOutput("infra_flashed=1");   // the fallback step must not add it to /live again
   const both = [own, infraText].filter(Boolean).join("\n\n");
@@ -79,7 +80,7 @@ async function shareCheck() {
   // once a day: a car link names the car (the preview's own 2.5 s ministry budget), with the app's public example plate
   if (process.env.GITHUB_EVENT_NAME !== "push") try {
     const html = await get(SITE).then(x => x.t), ex = (html.match(/const EXAMPLE_PLATE = "(\d+)"/) || [])[1];
-    if (ex) { const { t } = await get(SITE + "?plate=" + ex + st, { headers: { "user-agent": WA } }); if (!ogTitle(t).includes(" · ")) out.push({ title: "תצוגה מקדימה של קישור לרכב", detail: `קישור לרכב הדוגמה קיבל את הכותרת הכללית "${ogTitle(t).slice(0, 60)}" במקום שם הרכב.`, impact: "רכב שנשלח בוואטסאפ יופיע בלי שם ובלי מצב הטסט. ייתכן שמשרד התחבורה איטי כרגע; אם זה חוזר מחר, זו תקלה ב-luchit-og." }); }
+    if (ex) { const { t } = await get(SITE + "?plate=" + ex + st, { headers: { "user-agent": WA } }); if (!ogTitle(t).includes(" · ")) out.push({ ministry: true, title: "תצוגה מקדימה של קישור לרכב", detail: `קישור לרכב הדוגמה קיבל את הכותרת הכללית "${ogTitle(t).slice(0, 60)}" במקום שם הרכב.`, impact: "רכב שנשלח בוואטסאפ יופיע בלי שם ובלי מצב הטסט. ייתכן שמשרד התחבורה איטי כרגע; אם זה חוזר מחר, זו תקלה ב-luchit-og." }); }
   } catch (e) { console.log("car preview not checked:", e.message.slice(0, 80)); }
   return out;
 }
@@ -100,11 +101,11 @@ async function lookupCheck() {
     const t0 = Date.now();
     await page.waitForFunction(() => { const o = document.querySelector("#out"); return o && (o.querySelector(".msg.edge") || /סקירה/.test(o.innerText)); }, null, { timeout: 40000 });
     const bad = await page.evaluate(() => { const m = document.querySelector("#out .msg.edge"); return m ? m.innerText.slice(0, 80) : ""; });
-    if (bad) return { title: "בדיקת מספר רישוי בדפדפן", detail: `רכב מהמאגר החזיר: "${bad}".`, impact: "משתמשים יראו הודעת שגיאה במקום תוצאת בדיקה (אם זו תקלה זמנית של משרד התחבורה, היא תחלוף בעצמה)." };
+    if (bad) return { ministry: true, title: "בדיקת מספר רישוי בדפדפן", detail: `רכב מהמאגר החזיר: "${bad}".`, impact: "משתמשים יראו הודעת שגיאה במקום תוצאת בדיקה (אם זו תקלה זמנית של משרד התחבורה, היא תחלוף בעצמה)." };
     console.log(`lookup ok in ${Date.now() - t0}ms`);
     if (errs.length) console.log("page errors:", errs.join(" | "));
     return null;
-  } catch (e) { return { title: "בדיקת מספר רישוי בדפדפן", detail: `בדיקת רכב מהמאגר לא החזירה תוצאה (${e.name === "TimeoutError" ? "פג הזמן, 40 שניות" : e.message.slice(0, 100)}).`, impact: "משתמשים לא יוכלו לבדוק רכב." }; }
+  } catch (e) { return { ministry: true, title: "בדיקת מספר רישוי בדפדפן", detail: `בדיקת רכב מהמאגר לא החזירה תוצאה (${e.name === "TimeoutError" ? "פג הזמן, 40 שניות" : e.message.slice(0, 100)}).`, impact: "משתמשים לא יוכלו לבדוק רכב." }; }
   finally { await b.close(); }
 }
 
@@ -133,6 +134,18 @@ for (let attempt = 1; attempt <= 2; attempt++) {
   if (attempt < 2) { console.log("attempt 1 found", problems.length, "problem(s):", JSON.stringify(problems.map(p => p.title)), "- retrying in 60s"); await sleep(60000); }
 }
 problems.push(...(await expiryCheck()));
+// a car lookup or car-link preview that failed while Ministry watch found the active register down this morning: the same outage it already
+// rang for. Each such finding says so, and when they are all there is, the daily run sends silently (after a deploy it still rings: the new
+// page may be the cause)
+let quiet = false;
+if (problems.some(p => p.ministry)) {
+  const down = (await ministryDown()) || [], active = down.find(d => d.key === "active");
+  if (active) {
+    for (const p of problems) if (p.ministry) p.detail += ` Ministry watch כבר דיווח הבוקר שהמאגר "${active.title}" לא ענה, כנראה זו אותה תקלה.`;
+    quiet = process.env.GITHUB_EVENT_NAME === "schedule" && problems.every(p => p.ministry);
+    console.log("same outage Ministry watch reported" + (quiet ? ": sent silently" : ""));
+  }
+}
 if (!problems.length) console.log("all checks passed"); else console.log(JSON.stringify(problems, null, 1));
 if (!problems.length && !infra.alert && !infra.notice) process.exit(0);
-process.exit((await send(problems.length ? alertText(problems) : "", infra)) ? 0 : 1);
+process.exit((await send(problems.length ? alertText(problems) : "", infra, quiet)) ? 0 : 1);

@@ -15,6 +15,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { ministryDown } from "./datasets.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const IO = { env: process.env, out: s => console.log(s), fetch: (u, o) => fetch(u, o) };
@@ -79,17 +80,30 @@ export function addDay(hist, entry) {
   return { v: 1, days: days.slice(-KEEP_DAYS) };
 }
 
-async function telegram(text) {
+async function telegram(text, silent = false) {
   try {
     const r = await IO.fetch(`https://api.telegram.org/bot${IO.env.TELEGRAM_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ chat_id: IO.env.TELEGRAM_CHAT_ID, text, disable_web_page_preview: true }), signal: AbortSignal.timeout(20000) });
+      body: JSON.stringify({ chat_id: IO.env.TELEGRAM_CHAT_ID, text, disable_web_page_preview: true, ...(silent ? { disable_notification: true } : {}) }), signal: AbortSignal.timeout(20000) });
     IO.out(`telegram ${r.status}`); return r.ok;
   } catch (e) { IO.out(`telegram failed: ${e.message}`); return false; }
 }
+// too few cars read while Ministry watch found a register the audit reads down this morning: the same outage it already rang for. The line
+// says so, and the morning run sends it silently (a run started by a deploy still rings: the new page may be the cause)
+const AUDIT_SETS = new Set(["active", "tech", "owners"]);
+export async function sameOutage(v) {
+  if (v.key !== "truth:fail") return null;
+  const down = (await ministryDown(Date.now(), u => IO.fetch(u, { signal: AbortSignal.timeout(10000) })) || []).filter(d => AUDIT_SETS.has(d.key));
+  return down.length ? { text: `${v.text}\nMinistry watch כבר דיווח הבוקר שלא ענה: ${down.map(d => d.title).join(", ")}. כנראה זו אותה תקלה.`,
+    silent: IO.env.GITHUB_EVENT_NAME === "schedule" } : null;
+}
 async function send(v, links) {
+  const same = await sameOutage(v);
+  if (same) { v = { ...v, text: same.text }; IO.out(`same outage Ministry watch reported${same.silent ? ": sent silently" : ""}`); }
   if (IO.env.DRY_RUN === "1" || !IO.env.TELEGRAM_BOT_TOKEN || !IO.env.TELEGRAM_CHAT_ID) { IO.out(`(no message sent: ${IO.env.DRY_RUN === "1" ? "dry run" : "no Telegram secrets"})\n${v.key}\n${v.text}`); return true; }
+  const silent = !!same?.silent;
   let router = null; try { router = await import("./alert.mjs"); } catch { /* legacy below */ }
-  const r = router ? await router.alert("day", v.key, v.text, links, { today: "loud", plain: true, legacy: () => telegram(v.text) }) : { delivered: await telegram(v.text) };
+  // the router rings a "day" item by day whatever `today` says: the same-outage line goes as "summary" (the Sunday block, or a silent line)
+  const r = router ? await router.alert(silent ? "summary" : "day", v.key, v.text, links, { today: silent ? "silent" : "loud", plain: true, legacy: () => telegram(v.text, silent) }) : { delivered: await telegram(v.text, silent) };
   return !!(r && r.delivered);
 }
 
@@ -157,6 +171,26 @@ async function selftest() {
   const h = addDay({ v: 1, days: Array.from({ length: 130 }, (_, i) => ({ d: `2026-0${1 + Math.floor(i / 28)}-${String(1 + i % 28).padStart(2, "0")}` })) }, { d: "2026-10-21" });
   ok(h.days.length === KEEP_DAYS && h.days.at(-1).d === "2026-10-21", "history keeps the last 120 days");
   ok(addDay({ v: 1, days: [{ d: "2026-10-21", cars: 1 }] }, { d: "2026-10-21", cars: 2 }).days.length === 1, "a second run the same day replaces the entry");
+  // Ministry watch's morning reading (status.json), mocked
+  const keep = { fetch: IO.fetch, env: IO.env };
+  const status = (sets, checked = new Date(Date.now() - 36e5).toISOString()) => { IO.fetch = async () => ({ ok: true, json: async () => ({ checked, sets }) }); };
+  const fail = verdict(parse(fake.replace("12 cars audited", "3 cars audited")), "x");
+  IO.env = { GITHUB_EVENT_NAME: "schedule" };
+  status({ active: { ok: false }, tech: { ok: true }, wltp: { ok: true } });
+  let s = await sameOutage(fail);
+  ok(s && s.silent && /Ministry watch כבר דיווח/.test(s.text) && s.text.includes("רכב פרטי ומסחרי"), "active register down this morning: same outage, silent");
+  ok(await sameOutage(v) === null, "a field mismatch is never put down to an outage");
+  IO.env = { GITHUB_EVENT_NAME: "workflow_dispatch" };
+  s = await sameOutage(fail);
+  ok(s && !s.silent, "a run started by a deploy still rings, with the line");
+  IO.env = { GITHUB_EVENT_NAME: "schedule" };
+  status({ active: { ok: true }, wltp: { ok: false } });
+  ok(await sameOutage(fail) === null, "a register the audit does not read being down explains nothing");
+  status({ active: { ok: false } }, new Date(Date.now() - 13 * 36e5).toISOString());
+  ok(await sameOutage(fail) === null, "a reading older than 12 hours is not used");
+  IO.fetch = async () => { throw new Error("offline"); };
+  ok(await sameOutage(fail) === null, "status.json unreadable: rings as before");
+  Object.assign(IO, keep);
 }
 
 if (process.argv.includes("--selftest")) await selftest();

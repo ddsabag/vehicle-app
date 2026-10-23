@@ -1,4 +1,4 @@
-// Daily health check of the data.gov.il datasets the app reads: availability, latency, schema drift, freshness.
+// Daily health check of the data.gov.il datasets the app reads: availability, latency, freshness (a removed column is noted; Data guard reports it).
 // Sends a Telegram alert on any failure (needs TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID). DRY_RUN=1 prints instead of sending.
 // Part of Ministry watch: what it reads that the app's status.json also needs (unfiltered row counts, last-update stamps) is handed to status.mjs
 // as the step output "seen", so each dataset is asked once a day (see status.mjs for the format).
@@ -47,8 +47,10 @@ async function check(s) {
     if (!s.filters) sawCount(s, total > 0, total);
     const have = new Set((r.fields || []).map(f => f.id));
     if (ms > SLOW_MS) problems.push(`תגובה איטית: ${(ms / 1000).toFixed(1)} שניות (סף ${SLOW_MS / 1000})`);
+    // a removed column is Data guard's to report (once, with the build gate; it covers every field listed here): only noted here, so
+    // one schema change is not told twice the same morning and again every day after
     const missing = s.fields.filter(f => !have.has(f));
-    if (missing.length) problems.push(`שינוי סכמה, שדות חסרים: ${missing.join(", ")}`);
+    if (missing.length) notes.push(`שדות חסרים (Data guard מדווח): ${missing.join(", ")}`);
     if (total === 0) (s.expectEmpty ? notes : problems).push(s.expectEmpty ? "ריק (" + s.expectEmpty + ")" : (s.filters ? `המאגר לא החזיר תוצאה לרכב בדיקה שידוע שהוא רשום בו (${SAMPLE_PLATE})` : "המאגר ריק"));
     else if (rec && s.fields.every(f => have.has(f))) {
       const empty = s.fields.filter(f => rec[f] === null || rec[f] === undefined || rec[f] === "").filter(f => f !== "tokef_dt" && f !== "kosher_grira_im_blamim");
