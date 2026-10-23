@@ -1,4 +1,4 @@
-// 21.10 08:07: re-run to confirm the live-31 cron keeps the tally with /live closed
+// 23.10: web visitors by device for the website design question (wd.* parts)
 // One-off (probe-perf branch, not for main), 20.10 evening: why /live's "installed now" fell from 227 to 120 within an hour. Reads what the
 // Worker reads (GA4 first opens and removals in Israel by day and by hour, GA4 realtime by minute, Google Play's installs report) and
 // Cloudflare's record of the luchit-live Worker's requests (by 5 minutes, status, data centre when the dataset has it). Business numbers
@@ -168,6 +168,34 @@ await part("kv.tally", async () => {
   await part("sv.alerts", () => ga({ dateRanges: [{ startDate: "2026-10-12", endDate: "today" }], dimensions: ["platform", "eventName", "customEvent:kind"].map(name => ({ name })), metrics: [{ name: "eventCount" }, { name: "totalUsers" }],
     dimensionFilter: and(REAL, inList("eventName", ["alerts_toggle", "alert_kind", "doc_add", "calendar_reminder_click", "calendar_reminder_shown", "trial_start"])) }));
   await part("sv.users", () => ga({ dateRanges: [{ startDate: "2026-10-19", endDate: "today" }], dimensions: [{ name: "platform" }], metrics: [{ name: "totalUsers" }, { name: "activeUsers" }], dimensionFilter: REAL }));
+}
+
+// 23.10 website design question: who uses the website (not the app) and on what device. Web in Israel (Actions runners and crawlers abroad
+// are left out), the last 30 days: users, sessions and engagement by device; car checks, installs clicks, saves and shares by device; landing
+// pages, sources, screen sizes, browsers and hours by device; Search Console by device and page and by device and query (28 days)
+{
+  const R = [{ startDate: "30daysAgo", endDate: "today" }], and = (...x) => ({ andGroup: { expressions: x } });
+  const WEB = and(eq("platform", "web"), eq("countryId", "IL"));
+  const run = (dims, mets, filter = WEB, extra = {}) => ga({ dateRanges: R, dimensions: dims.map(d => ({ name: d })), metrics: mets.map(m => ({ name: m })), dimensionFilter: filter, ...extra });
+  await part("wd.users", () => run(["deviceCategory"], ["totalUsers", "newUsers", "sessions", "engagedSessions", "userEngagementDuration", "screenPageViews"]));
+  await part("wd.events", () => run(["deviceCategory", "eventName"], ["eventCount", "totalUsers"]));
+  await part("wd.byDay", () => run(["date", "deviceCategory"], ["totalUsers", "sessions"]));
+  await part("wd.lookupDay", () => run(["date", "deviceCategory"], ["eventCount", "totalUsers"], and(WEB, eq("eventName", "car_lookup"))));
+  await part("wd.landing", () => run(["landingPage", "deviceCategory"], ["sessions", "totalUsers", "engagedSessions"], WEB, { orderBys: [{ metric: { metricName: "sessions" }, desc: true }], limit: 300 }));
+  await part("wd.pages", () => run(["pagePath", "deviceCategory"], ["screenPageViews", "totalUsers"], WEB, { orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }], limit: 300 }));
+  await part("wd.source", () => run(["sessionSource", "sessionMedium", "deviceCategory"], ["sessions", "totalUsers"], WEB, { orderBys: [{ metric: { metricName: "sessions" }, desc: true }], limit: 200 }));
+  await part("wd.screen", () => run(["screenResolution", "deviceCategory"], ["totalUsers"], WEB, { orderBys: [{ metric: { metricName: "totalUsers" }, desc: true }], limit: 80 }));
+  await part("wd.browser", () => run(["deviceCategory", "operatingSystem", "browser"], ["totalUsers"], WEB, { orderBys: [{ metric: { metricName: "totalUsers" }, desc: true }], limit: 80 }));
+  await part("wd.hour", () => run(["dayOfWeek", "hour", "deviceCategory"], ["eventCount"], and(WEB, eq("eventName", "car_lookup"))));
+  await part("wd.newRet", () => run(["newVsReturning", "deviceCategory"], ["activeUsers", "sessions"]));
+  await part("wd.srcEvents", () => run(["deviceCategory", "eventName", "customEvent:src"], ["eventCount"], and(WEB, inList("eventName", ["web_visit", "car_lookup", "web_install_click", "web_hint_click", "car_save", "share"])), { dateRanges: [{ startDate: "2026-10-20", endDate: "today" }] }));
+  await part("wd.country", () => run(["countryId", "deviceCategory"], ["totalUsers"], eq("platform", "web"), { orderBys: [{ metric: { metricName: "totalUsers" }, desc: true }], limit: 40 }));
+  const SC = "https://www.googleapis.com/webmasters/v3/sites/" + encodeURIComponent("sc-domain:luchit.app") + "/searchAnalytics/query";
+  const il = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" }), add = (d, n) => new Date(Date.parse(d + "T12:00:00Z") + n * 864e5).toISOString().slice(0, 10);
+  const q = b => call(SC, { startDate: add(il, -30), endDate: add(il, -2), dataState: "all", ...b }).then(j => j.rows || []);
+  await part("wd.scDevice", () => q({ dimensions: ["device"] }));
+  await part("wd.scDevicePage", () => q({ dimensions: ["device", "page"], rowLimit: 600 }));
+  await part("wd.scDeviceQuery", () => q({ dimensions: ["device", "query"], rowLimit: 400 }));
 }
 
 const data = Buffer.from(JSON.stringify(out));
