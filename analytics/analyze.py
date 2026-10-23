@@ -24,7 +24,12 @@ def analyze(d, cfg, extra=None):
     T = cfg["thresholds"]
     ok_c, ok_p = _ev(d, cfg, "lookup")
     fl_c, fl_p = _ev(d, cfg, "lookup_failed")
-    slow_c, slow_p = _ev(d, cfg, "slow")
+    # slow = a check that took more than 5 s, from the duration bucket car_lookup carries in every app version and on the site (lt2, 2to5,
+    # 5to10, gt10). The lookup_slow event marks the on-screen note, which apps before 1.38 show after 3.5 s, so counting it would mix two lines
+    du = {k: v for k, v in (d.get("lookup_dur") or {}).items() if k in ("lt2", "2to5", "5to10", "gt10")}
+    dur_c, dur_p = sum(v["cur"] for v in du.values()), sum(v["prev"] for v in du.values())
+    slow_c = sum(du[k]["cur"] for k in ("5to10", "gt10") if k in du) if dur_c else None
+    slow_p = sum(du[k]["prev"] for k in ("5to10", "gt10") if k in du) if dur_p else None
     ab_c, ab_p = _ev(d, cfg, "abort")
     to_c, to_p = _ev(d, cfg, "timeout")
     ca_c, ca_p = _ev(d, cfg, "from_cache")
@@ -55,13 +60,13 @@ def analyze(d, cfg, extra=None):
     ret_c, ret_p = (rate(ret["cur"], wau_c), rate(ret["prev"], wau_p)) if ret else (None, None)
 
     m = {
-        "searches": (ok_c, ok_p), "slow_pct": (rate(slow_c, se_c), rate(slow_p, se_p)), "abort_pct": (rate(ab_c, se_c), rate(ab_p, se_p)),
+        "searches": (ok_c, ok_p), "slow_pct": (rate(slow_c, dur_c) if slow_c is not None else None, rate(slow_p, dur_p) if slow_p is not None else None), "abort_pct": (rate(ab_c, se_c), rate(ab_p, se_p)),
         "fail_pct": (rate(tech_c, se_c) if tech_c is not None else None, rate(tech_p, se_p) if tech_p is not None else None),
     }
     kpis = {
         "health": [
             kpi("searches", "בדיקות רכב", ok_c, ok_p, "", False, "בדיקות לפי מספר רכב שהציגו תוצאה, באפליקציה ובאתר יחד (כמו בדשבורד החי)"),
-            kpi("slow", "בדיקות איטיות", m["slow_pct"][0], m["slow_pct"][1], "%", True, f"{slow_c} בדיקות לקחו יותר מ-3.5 שניות", "pct"),
+            kpi("slow", "בדיקות איטיות", m["slow_pct"][0], m["slow_pct"][1], "%", True, f"{slow_c} בדיקות לקחו יותר מ-5 שניות" if slow_c is not None else "הפילוח לפי זמן הבדיקה לא היה זמין השבוע", "pct"),
             kpi("abort", "בדיקות שנעצרו באמצע", m["abort_pct"][0], m["abort_pct"][1], "%", True, f"{ab_c} בדיקות שהמשתמש ביטל או עזב לפני התוצאה", "pct"),
             kpi("fail", "בדיקות שנכשלו", m["fail_pct"][0], m["fail_pct"][1], "%", True, f"{tech_c} בדיקות לא הצליחו (לא התקבלה תשובה, או שאתר הממשלה לא ענה)" if tech_c is not None else "הפילוח לפי סיבה לא היה זמין השבוע", "pct"),
             kpi("partial", "תוצאות עם מידע חסר", rate(partial_c, ok_c), rate(partial_p, ok_p), "%", True, "תוצאה הוצגה, אבל אחד ממאגרי משרד התחבורה לא ענה", "pct"),
@@ -115,8 +120,8 @@ def analyze(d, cfg, extra=None):
         add("info", "מעט בדיקות רכב", f"רק {se_c} ניסיונות בדיקה השבוע, ולכן אחוזים שבועיים רועשים ולא הופעלו בהם התראות.")
     sp = m["slow_pct"][0]
     if enough and sp is not None:
-        if sp > T["slow_pct_red"]: add("red", "בדיקות איטיות מעל הסף", f"{sp}% מהבדיקות עברו 3.5 שניות (הסף {T['slow_pct_red']}%). בדקו את מאגרי משרד התחבורה ואת הזמינות שלהם.")
-        elif sp > T["slow_pct_yellow"]: add("yellow", "בדיקות איטיות בעלייה", f"{sp}% מהבדיקות איטיות (אזהרה מעל {T['slow_pct_yellow']}%).")
+        if sp > T["slow_pct_red"]: add("red", "בדיקות איטיות מעל הסף", f"{sp}% מהבדיקות עברו 5 שניות (הסף {T['slow_pct_red']}%). בדקו את מאגרי משרד התחבורה ואת הזמינות שלהם.")
+        elif sp > T["slow_pct_yellow"]: add("yellow", "בדיקות איטיות בעלייה", f"{sp}% מהבדיקות עברו 5 שניות (אזהרה מעל {T['slow_pct_yellow']}%).")
     ab_ch = pct(ab_c, ab_p)
     if enough and ab_c >= T["abort_min_count"] and ab_ch is not None and ab_ch >= T["abort_rise_pct"]:
         add("red", "קפיצה בביטולי בדיקה", f"{ab_c} ביטולים לעומת {ab_p} בשבוע שעבר (+{ab_ch}%). משתמשים מוותרים באמצע המתנה.")

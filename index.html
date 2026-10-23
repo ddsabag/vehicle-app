@@ -2789,9 +2789,10 @@ async function lookup(raw){
   if (document.body.dataset.screen === "car") setScreen("home");   // a new plate from a car page (shared text, a launcher shortcut): the band shows what is being looked up
   try { const u = new URL(location.href); u.searchParams.delete("nk"); history.replaceState(null, "", u.pathname + u.search + "#" + plate); } catch {}
   out.innerHTML = loadingHtml(plate);
-  // a slow ministry server: say so after 3.5 s instead of leaving a silent bar
+  // a slow ministry server: say so after 5 s instead of leaving a silent bar. Since 1.36 about 1 check in 10 passes 3.5 s and 1 in 25 passes 5 s
+  // (GA4, 22-23.10), so 5 s is the line where a check is really slower than usual; it is also the dur bucket edge every version reports
   const t0 = Date.now();
-  const slowT = setTimeout(() => { if (!signal.aborted && $("#skl") && !$("#slowNote")) track("lookup_slow"); if (!signal.aborted && $("#skl") && !$("#slowNote")) out.insertAdjacentHTML("beforeend", `<p class="note" id="slowNote" role="status" style="text-align:center">בודק, לוקח יותר מהרגיל. שרתי משרד התחבורה איטיים כרגע. <button type="button" class="link-btn" id="cancelLook">ביטול</button></p>`); const cb = $("#cancelLook"); if (cb) cb.addEventListener("click", () => { ctrl.abort(); goHome(); }); }, 3500);
+  const slowT = setTimeout(() => { if (!signal.aborted && $("#skl") && !$("#slowNote")) track("lookup_slow"); if (!signal.aborted && $("#skl") && !$("#slowNote")) out.insertAdjacentHTML("beforeend", `<p class="note" id="slowNote" role="status" style="text-align:center">בודק, לוקח יותר מהרגיל. שרתי משרד התחבורה איטיים כרגע. <button type="button" class="link-btn" id="cancelLook">ביטול</button></p>`); const cb = $("#cancelLook"); if (cb) cb.addEventListener("click", () => { ctrl.abort(); goHome(); }); }, 5000);
   const side = Promise.race([Promise.all([loadModelStats().catch(() => null), loadService().catch(() => null), loadSettlements()]), new Promise(r => setTimeout(r, 1500))]);
   let D;
   try { D = await fetchVehicle(plate, signal, () => {}); }
