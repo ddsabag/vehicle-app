@@ -5,7 +5,7 @@
 // that is not routed, or any exception, runs the caller's legacy (today's send). No imports; cloudflare:email is loaded only when needed.
 // >>> alert-lib v1
 const QUIET = { tz: "Asia/Jerusalem", dayStart: 8, dayEnd: 22 };   // CI: must equal alert.mjs QUIET
-const ALERT_MAIL = { name: "לוחית התראות", from: "alerts@luchit.app", brevoFrom: "updates@luchit.app", to: "ddsabag@gmail.com" };   // to = FORWARD_TO of luchit-mail
+const ALERT_MAIL = { name: "לוחית התראות", from: "alerts@luchit.app", brevoFrom: "updates@luchit.app", to: "luchit.app.service@gmail.com" };   // to = FORWARD_TO of luchit-mail
 const ALERT_NIGHT = "\n\n🌙 נשלח בשקט כי עכשיו לילה. צלצול תזכורת יגיע בבוקר.";
 const ALERT_MS = { call: 10000, deadline: 40000 };   // per binding call (send_email, KV, the cloudflare:email import) and per alert(); tests lower them
 // a promise that has not settled after t ms counts as failed (bindings take no AbortSignal)

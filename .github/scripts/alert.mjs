@@ -26,7 +26,7 @@ export const IDLE_MS   = 26 * 36e5;              // an open key not seen for 26 
 export const GATE_NIGHT_MS   = 30 * 36e5;        // hb.dailyAt must be this fresh to delay a night "day" item
 export const GATE_SUMMARY_MS = 8 * 864e5;        // hb.summaryAt must be this fresh to keep summary/silent out of Telegram
 export const DEADLINE_MS = 40000;
-export const EMAIL_TO = "ddsabag@gmail.com";     // NOTIFY_TO in worker/api/wrangler.toml
+export const EMAIL_TO = "luchit.app.service@gmail.com";   // NOTIFY_TO in worker/api/wrangler.toml
 export const EMAIL_FROM = { name: "לוחית התראות", email: "updates@luchit.app" };   // already a verified Brevo sender (worker/api/worker.js:49)
 export const STATE = { branch: "alert-state", file: "state.json", heartbeat: "heartbeat.json" };
 
