@@ -170,30 +170,33 @@ await part("kv.tally", async () => {
   await part("sv.users", () => ga({ dateRanges: [{ startDate: "2026-10-19", endDate: "today" }], dimensions: [{ name: "platform" }], metrics: [{ name: "totalUsers" }, { name: "activeUsers" }], dimensionFilter: REAL }));
 }
 
-// 23.10 website design question: who uses the website (not the app) and on what device. Web in Israel (Actions runners and crawlers abroad
-// are left out), the last 30 days: users, sessions and engagement by device; car checks, installs clicks, saves and shares by device; landing
-// pages, sources, screen sizes, browsers and hours by device; Search Console by device and page and by device and query (28 days)
+// 23.10 website design question: who uses the website (not the app) and on what device. Web events reach GA4 through /api/e (Measurement
+// Protocol), which carries no device or country, so the device split comes from Cloudflare Web Analytics (the beacon, as /live reads it: both
+// site tags, no /live, no headless browsers) for the last 7 days and the 7 before; GA4 gives web event totals, and Search Console by device
 {
-  const R = [{ startDate: "30daysAgo", endDate: "today" }], and = (...x) => ({ andGroup: { expressions: x } });
-  const WEB = and(eq("platform", "web"), eq("countryId", "IL"));
-  const run = (dims, mets, filter = WEB, extra = {}) => ga({ dateRanges: R, dimensions: dims.map(d => ({ name: d })), metrics: mets.map(m => ({ name: m })), dimensionFilter: filter, ...extra });
-  await part("wd.users", () => run(["deviceCategory"], ["totalUsers", "newUsers", "sessions", "engagedSessions", "userEngagementDuration", "screenPageViews"]));
-  await part("wd.events", () => run(["deviceCategory", "eventName"], ["eventCount", "totalUsers"]));
-  await part("wd.byDay", () => run(["date", "deviceCategory"], ["totalUsers", "sessions"]));
-  await part("wd.lookupDay", () => run(["date", "deviceCategory"], ["eventCount", "totalUsers"], and(WEB, eq("eventName", "car_lookup"))));
-  await part("wd.landing", () => run(["landingPage", "deviceCategory"], ["sessions", "totalUsers", "engagedSessions"], WEB, { orderBys: [{ metric: { metricName: "sessions" }, desc: true }], limit: 300 }));
-  await part("wd.pages", () => run(["pagePath", "deviceCategory"], ["screenPageViews", "totalUsers"], WEB, { orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }], limit: 300 }));
-  await part("wd.source", () => run(["sessionSource", "sessionMedium", "deviceCategory"], ["sessions", "totalUsers"], WEB, { orderBys: [{ metric: { metricName: "sessions" }, desc: true }], limit: 200 }));
-  await part("wd.screen", () => run(["screenResolution", "deviceCategory"], ["totalUsers"], WEB, { orderBys: [{ metric: { metricName: "totalUsers" }, desc: true }], limit: 80 }));
-  await part("wd.browser", () => run(["deviceCategory", "operatingSystem", "browser"], ["totalUsers"], WEB, { orderBys: [{ metric: { metricName: "totalUsers" }, desc: true }], limit: 80 }));
-  await part("wd.hour", () => run(["dayOfWeek", "hour", "deviceCategory"], ["eventCount"], and(WEB, eq("eventName", "car_lookup"))));
-  await part("wd.newRet", () => run(["newVsReturning", "deviceCategory"], ["activeUsers", "sessions"]));
-  await part("wd.srcEvents", () => run(["deviceCategory", "eventName", "customEvent:src"], ["eventCount"], and(WEB, inList("eventName", ["web_visit", "car_lookup", "web_install_click", "web_hint_click", "car_save", "share"])), { dateRanges: [{ startDate: "2026-10-20", endDate: "today" }] }));
-  await part("wd.country", () => run(["countryId", "deviceCategory"], ["totalUsers"], eq("platform", "web"), { orderBys: [{ metric: { metricName: "totalUsers" }, desc: true }], limit: 40 }));
+  const and = (...x) => ({ andGroup: { expressions: x } }), WEB = eq("platform", "web");
+  const run = (dims, mets, filter, dr) => ga({ dateRanges: dr || [{ startDate: "30daysAgo", endDate: "today" }], dimensions: dims.map(d => ({ name: d })), metrics: mets.map(m => ({ name: m })), dimensionFilter: filter });
+  await part("wd.events", () => run(["eventName"], ["eventCount"], WEB));
+  await part("wd.eventsWeek", () => run(["eventName"], ["eventCount"], WEB, [{ startDate: "7daysAgo", endDate: "yesterday" }]));
+  await part("wd.srcEvents", () => run(["eventName", "customEvent:src"], ["eventCount"], and(WEB, inList("eventName", ["web_visit", "car_lookup", "web_install_click", "web_hint_click", "car_save", "share"])), [{ startDate: "2026-10-20", endDate: "today" }]));
+  await part("wd.hour", () => run(["dayOfWeek", "hour"], ["eventCount"], and(WEB, eq("eventName", "car_lookup"))));
+  const SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"], day = n => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10) + "T00:00:00Z";
+  const rum = (dims, from, to, limit = 500) => gql(`query($acc:String!,$f:AccountRumPageloadEventsAdaptiveGroupsFilter_InputObject){viewer{accounts(filter:{accountTag:$acc}){rumPageloadEventsAdaptiveGroups(filter:$f,limit:${limit},orderBy:[count_DESC]){count sum{visits} dimensions{${dims}}}}}}`,
+    { acc, f: { AND: [{ datetime_geq: day(from), datetime_lt: day(to) }, { siteTag_in: SITES }, { requestPath_notlike: "/live%" }, { userAgentBrowser_neq: "ChromeHeadless" }] } })
+    .then(d => d.viewer.accounts[0].rumPageloadEventsAdaptiveGroups.map(x => ({ ...x.dimensions, n: x.count, visits: x.sum.visits })));
+  for (const [w, from, to] of [["w1", 7, 0], ["w0", 14, 7]]) {
+    await part("wd.rumDevice." + w, () => rum("deviceType", from, to));
+    await part("wd.rumPath." + w, () => rum("deviceType requestPath", from, to, 400));
+    await part("wd.rumRef." + w, () => rum("deviceType refererHost", from, to, 200));
+    await part("wd.rumOS." + w, () => rum("deviceType userAgentOS userAgentBrowser", from, to, 100));
+    await part("wd.rumCountry." + w, () => rum("deviceType countryName", from, to, 60));
+  }
+  await part("wd.rumDay", () => rum("date deviceType", 14, 0, 100));
   const SC = "https://www.googleapis.com/webmasters/v3/sites/" + encodeURIComponent("sc-domain:luchit.app") + "/searchAnalytics/query";
   const il = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" }), add = (d, n) => new Date(Date.parse(d + "T12:00:00Z") + n * 864e5).toISOString().slice(0, 10);
   const q = b => call(SC, { startDate: add(il, -30), endDate: add(il, -2), dataState: "all", ...b }).then(j => j.rows || []);
   await part("wd.scDevice", () => q({ dimensions: ["device"] }));
+  await part("wd.scDeviceDay", () => q({ dimensions: ["device", "date"], rowLimit: 200 }));
   await part("wd.scDevicePage", () => q({ dimensions: ["device", "page"], rowLimit: 600 }));
   await part("wd.scDeviceQuery", () => q({ dimensions: ["device", "query"], rowLimit: 400 }));
 }
