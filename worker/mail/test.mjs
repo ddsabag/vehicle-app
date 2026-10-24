@@ -76,19 +76,19 @@ ok(cls("שלום", "אשמח לשיתוף פעולה בקידום האפליקצ
 // 2. routing matrix (spec 13.3): class x ALERT_ROUTE x day/night x KV
 const MAILS = {
   privacy: { m: () => msg("בקשה", "תמחקו את הפרטים שלי"), level: "day", key: "mail:privacy",
-    text: "🔴 <b>פנייה חדשה ללוחית: פרטיות או מחיקה</b>\nמאת: dana.cohen@example.com\nנושא: בקשה\n\nתמחקו את הפרטים שלי\n\nלמענה: השיבו מהמייל (נשמר גם בג'ימייל)" },
+    text: "<b>🟠 לטיפול היום · מייל</b>\n<b>פנייה חדשה ללוחית: פרטיות או מחיקה</b>\nמאת: dana.cohen@example.com\nנושא: בקשה\n\nתמחקו את הפרטים שלי\n\n👉 מה לעשות: לענות מהג'ימייל תוך כמה ימים. בקשת מחיקה או פרטיות מחייבת תשובה לפי החוק." },
   crash: { m: () => msg("האפליקציה קורסת", "נפתחת ונסגרת <מיד> & זהו"), level: "day", key: "mail:crash",
-    text: "🔴 <b>פנייה חדשה ללוחית: תקלה באפליקציה</b>\nמאת: dana.cohen@example.com\nנושא: האפליקציה קורסת\n\nנפתחת ונסגרת &lt;מיד&gt; &amp; זהו\n\nלמענה: השיבו מהמייל (נשמר גם בג'ימייל)" },
+    text: "<b>🟠 לטיפול היום · מייל</b>\n<b>פנייה חדשה ללוחית: תקלה באפליקציה</b>\nמאת: dana.cohen@example.com\nנושא: האפליקציה קורסת\n\nנפתחת ונסגרת &lt;מיד&gt; &amp; זהו\n\n👉 מה לעשות: לענות מהג'ימייל ולהעביר את התיאור לשרשור \"מוצר ושחרורים\"." },
   data: { m: () => msg("טעות", "שנת הייצור לא נכונה"), level: "summary",
-    text: "🟡 <b>פנייה חדשה ללוחית: טעות בנתוני רכב</b>\nמאת: dana.cohen@example.com\nנושא: טעות\n\nשנת הייצור לא נכונה\n\nלמענה: השיבו מהמייל (נשמר גם בג'ימייל)" },
+    text: "<b>🟠 לטיפול היום · מייל</b>\n<b>פנייה חדשה ללוחית: טעות בנתוני רכב</b>\nמאת: dana.cohen@example.com\nנושא: טעות\n\nשנת הייצור לא נכונה\n\n👉 מה לעשות: לענות מהג'ימייל ולהעביר את מספר הרכב לשרשור \"נתונים ואמינות\" לבדיקה." },
   biz: { m: () => msg("הצעה לשיתוף פעולה", ""), level: "summary",
-    text: "🔵 <b>פנייה חדשה ללוחית: שיתוף פעולה או עיתונות</b>\nמאת: dana.cohen@example.com\nנושא: הצעה לשיתוף פעולה\n\n(אין טקסט רגיל בהודעה)\n\nלמענה: השיבו מהמייל (נשמר גם בג'ימייל)" },
+    text: "<b>🔵 לידיעה · מייל</b>\n<b>פנייה חדשה ללוחית: שיתוף פעולה או עיתונות</b>\nמאת: dana.cohen@example.com\nנושא: הצעה לשיתוף פעולה\n\n(אין טקסט רגיל בהודעה)\n\n👉 מה לעשות: לענות מהג'ימייל אם זה רלוונטי." },
   other: { m: () => msg("שלום", "כתבתי לכם לגבי הבדיקה"), level: "summary",
-    text: "⚪ <b>פנייה חדשה ללוחית: אחר</b>\nמאת: dana.cohen@example.com\nנושא: שלום\n\nכתבתי לכם לגבי הבדיקה\n\nלמענה: השיבו מהמייל (נשמר גם בג'ימייל)" },
+    text: "<b>🔵 לידיעה · מייל</b>\n<b>פנייה חדשה ללוחית: אחר</b>\nמאת: dana.cohen@example.com\nנושא: שלום\n\nכתבתי לכם לגבי הבדיקה\n\n👉 מה לעשות: לענות מהג'ימייל אם צריך." },
   promo: { m: () => msg("Claim your free spot", "Congrats on releasing your app"), level: "silent",
-    text: "⚫ <b>פנייה חדשה ללוחית: פרסומת</b>\nמאת: dana.cohen@example.com\nנושא: Claim your free spot\n\nCongrats on releasing your app\n\nלמענה: השיבו מהמייל (נשמר גם בג'ימייל)" },
+    text: "<b>🔵 לידיעה · מייל</b>\n<b>פנייה חדשה ללוחית: פרסומת</b>\nמאת: dana.cohen@example.com\nנושא: Claim your free spot\n\nCongrats on releasing your app\n\n👌 לא צריך לעשות כלום (נראה כמו דיוור או פרסום)." },
   bulk: { m: () => msg("הניוזלטר השבועי", "להסרה מרשימת התפוצה", { "List-Unsubscribe": "<https://news.example.com/u>" }), level: "silent",
-    text: "⚪ <b>פנייה חדשה ללוחית: אחר</b>\nמאת: dana.cohen@example.com\nנושא: הניוזלטר השבועי\n\nלהסרה מרשימת התפוצה\n\nלמענה: השיבו מהמייל (נשמר גם בג'ימייל)" },
+    text: "<b>🔵 לידיעה · מייל</b>\n<b>פנייה חדשה ללוחית: אחר</b>\nמאת: dana.cohen@example.com\nנושא: הניוזלטר השבועי\n\nלהסרה מרשימת התפוצה\n\n👉 מה לעשות: לענות מהג'ימייל אם צריך." },
 };
 // today's request (worker.js before the router), byte for byte
 const today = text => JSON.stringify({ chat_id: "c", text, parse_mode: "HTML", disable_web_page_preview: true });

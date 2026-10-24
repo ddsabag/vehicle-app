@@ -51,7 +51,7 @@ export const WF_LEVELS = {
 // fixed Hebrew text for the morning ring and the Sunday block. Lookup: first two key segments, then the first one.
 // {id} = the rest of the key after the family; {ids} = that rest split on "+" and mapped through ids. sect: wait|fail|fyi|none
 export const LABELS = {
-  "wf":                  { he: 'התהליך "{id}" נכשל', sect: "fail" },
+  "wf":                  { he: 'הבוט "{id}" נכשל', sect: "fail" },
   "smoke":               { he: "בדיקת האתר החי מצאה בעיה: {ids}", sect: "fail",
                            ids: { home: "דף הבית", lookup: "בדיקת רכב", magazine: "דף המגזין", applinks: "קישורי האפליקציה",
                                   privacy: "מדיניות הפרטיות", model: "דף דגם", sitemap: "מפת האתר",
@@ -188,10 +188,16 @@ const decoded = u => { try { return decodeURIComponent(u); } catch { return "@";
 const cleanLinks = l => (Array.isArray(l) ? l : [l]).filter(u => typeof u === "string" && u.startsWith("https://") && u.length <= 300 &&
   !/@|%40/i.test(u + decoded(u)) && !/\s/.test(u)).slice(0, 3);
 const family = key => { const s = String(key).split(":"), two = s.slice(0, 2).join(":"); return s.length > 1 && LABELS[two] ? two : LABELS[s[0]] ? s[0] : null; };
+// Hebrew bot names for the "wf" family (bot-names.json, shared with tg-text.mjs); a sparse checkout without the file keeps the English name
+let BOT_HE = {};
+try { BOT_HE = JSON.parse(fs.readFileSync(new URL("./bot-names.json", import.meta.url), "utf8")); } catch {}
+const PART_HE = { data: "נתונים", monthly: "חודשי", newsletter: "ניוזלטר" };
+const botHe = n => BOT_HE[n] || n.replace(/^(.*) \(([^)]+)\)$/, (m, a, b) => (BOT_HE[a] ? `${BOT_HE[a]} (${PART_HE[b] || b})` : m));
 export function label(key) {
   const f = family(key);
+  if (!f && /^magazine-/.test(key)) return { he: "ניוזלטר המגזין נשלח או מחכה ב-Brevo", sect: "fyi" };   // newsletter.mjs keys its campaign name
   if (!f) return { he: "התראה: " + key, sect: "fyi" };
-  const L = LABELS[f], id = String(key).split(":").slice(f.split(":").length).join(":");
+  const L = LABELS[f], id0 = String(key).split(":").slice(f.split(":").length).join(":"), id = f === "wf" ? botHe(id0) : id0;
   return { he: L.he.replace("{ids}", id.split("+").map(x => (L.ids && L.ids[x]) || x).join(", ")).replace("{id}", id), sect: L.sect };
 }
 // one log entry; he/sc = the key's fixed headline and section (never the caller's text), so /live can list what reached Telegram
@@ -446,8 +452,8 @@ export function prune(s, now) {
   s.log = s.log.filter(e => now - t0(e.t) <= 35 * 864e5).slice(-600);
   return s;
 }
-const ringText = items => [`☀️ לוחית: מה קרה בלילה (${items.length})`, ...items.map(([k, it]) => `• ${label(k).he} (${hhmm(new Date(t0(it.pend)))})`),
-  "הפרטים בהודעות השקטות שנשלחו בלילה."].join("\n");
+const ringText = items => ["🟠 לטיפול היום · בוטים", `☀️ מה קרה בלילה (${items.length})`, ...items.map(([k, it]) => `• ${label(k).he} (${hhmm(new Date(t0(it.pend)))})`),
+  "👉 מה לעשות: לעבור על ההודעות השקטות מהלילה. בכל אחת כתוב אם צריך לעשות משהו."].join("\n");
 async function daily() {
   const env = IO.env, now = IO.now(), dry = isDry(env), today = ilDate(new Date(now));
   if (!env.GITHUB_TOKEN) { IO.out("daily: no GITHUB_TOKEN"); return 1; }
@@ -503,7 +509,7 @@ async function daily() {
     upSeen = now - tick <= 30 * 6e4;
     IO.out("uptime worker: " + (upSeen ? "ok" : "stale"));
     if (!upSeen && s.hb.uptimeSeenAt) {
-      const text = `⚠️ בדיקת הזמינות ב-Cloudflare (luchit-uptime) לא דיווחה מאז ${ilTime(new Date(tick > 0 ? tick : t0(s.hb.uptimeSeenAt)))}. הבדיקות היומיות ב-GitHub ממשיכות כרגיל.`;
+      const text = `🟠 לטיפול היום · בוטים\nשומר הזמינות של האתר לא דיווח מאז ${ilTime(new Date(tick > 0 ? tick : t0(s.hb.uptimeSeenAt)))}\nבינתיים אף אחד לא יתריע אם האתר ייפול. הבדיקות היומיות ב-GitHub ממשיכות כרגיל.\n👉 מה לעשות: לכתוב בשרשור "תפעול, בוטים ומייל".`;
       if (dry) IO.out("would alert meta:uptime"); else await alert("day", "meta:uptime", text, "", { today: "loud", plain: true, legacy: direct(text) });
     }
   }
@@ -511,7 +517,7 @@ async function daily() {
   if (parts(new Date(now)).weekday === "Mon" && s.hb.summaryAt) {
     const sa = new Date(t0(s.hb.summaryAt)), sunday = ilDate(new Date(now - 864e5));
     if (`${ilDate(sa)} ${parts(sa).hour}` < `${sunday} 08`) {
-      const text = "⚠️ הסיכום השבועי של יום ראשון לא נשלח. להריץ ידנית: Actions ← Weekly analytics report ← Run workflow, לסמן send.";
+      const text = "🟠 לטיפול היום · מדידה\nהדוח השבועי של יום ראשון לא נשלח\n👉 מה לעשות: לכתוב בשרשור \"דשבורד LIVE\" כדי שישלחו אותו ידנית.";
       const link = `https://github.com/${repo()}/actions/workflows/weekly-analytics.yml`;
       if (dry) IO.out("would alert weekly:missing"); else await alert("day", "weekly:missing", text, link, { today: "loud", plain: true, legacy: direct(text) });
     }
@@ -843,7 +849,7 @@ async function selftest() {
       const he = label(f + ":" + ids.split(" ").join("+")).he.split(/[\s,:]+/);
       ok(!ids.split(" ").some(i => he.includes(i)), `label ${f}: no raw id left`);
     }
-    ok(label("smoke:home+lookup").he === "בדיקת האתר החי מצאה בעיה: דף הבית, בדיקת רכב" && label("wf:Data guard").he === 'התהליך "Data guard" נכשל'
+    ok(label("smoke:home+lookup").he === "בדיקת האתר החי מצאה בעיה: דף הבית, בדיקת רכב" && label("wf:Data guard").he === 'הבוט "שומר הנתונים" נכשל' && label("wf:Magazine (data)").he === 'הבוט "המגזין (נתונים)" נכשל'
       && label("seo:daily").sect === "none" && label("nope:x").he === "התראה: nope:x" && label("mag:fail:2026-10").sect === "wait", "label rendering");
     const used = scanKeys(ROOT), missing = used.filter(k => !FAMILIES_IN_USE.some(f => f === k || f.startsWith(k + ":") || k.startsWith(f + ":")));
     ok(missing.length === 0, "call-site keys missing from FAMILIES_IN_USE: " + missing.join(", "));
