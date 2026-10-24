@@ -353,7 +353,7 @@ async function selftest() {
     ok(real.timeZone === "Asia/Jerusalem", "analytics/ga4-admin.json keeps the property on Israel time (/live and the weekly report count Israel days)");
     ok(wrangler.includes(`GA_PROPERTY_ID = "${real.property}"`), "property = worker/live/wrangler.toml GA_PROPERTY_ID");
     for (const d of real.dims) ok(new RegExp(`[{,]\\s*${d.parameterName}\\s*[:},]`).test(html), `index.html sends parameter ${d.parameterName}`);
-    for (const k of real.keys) ok(html.includes(`track("${k.eventName}"`), `index.html sends event ${k.eventName}`);
+    for (const k of real.keys) ok(new RegExp(`track\\([^;\\n]*"${k.eventName}"`).test(html), `index.html sends event ${k.eventName}`);   // also track(on ? "car_save" : ...)
     const reports = read("analytics/ga.py") + read("analytics/experiments.py") + read("worker/live/worker.js");
     for (const p of ["kind", "dur", "partial", "make", "model", "fuel", "term", "tab", "from", "via", "exp", "exp_v"])
       ok(real.dims.some(d => d.parameterName === p) && (reports.includes(`customEvent:${p}`) || reports.includes(`"${p}"`)), `report parameter ${p} is listed`);

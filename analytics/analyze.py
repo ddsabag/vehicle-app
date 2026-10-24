@@ -36,8 +36,9 @@ def analyze(d, cfg, extra=None):
     pu_c, pu_p = _ev(d, cfg, "purchase_start")
     se_c, se_p = ok_c + fl_c, ok_p + fl_p     # attempts: every check that ended in a result or an error, the base of the rates
 
-    # failures that are ours or the ministry's (a mistyped plate is not one); without the breakdown the rate is unknown, not every failure
-    tech = {"offline", "source_down"}
+    # failures that are ours or the ministry's (a mistyped plate is not one); without the breakdown the rate is unknown, not every failure.
+    # The same four kinds /live counts as failed checks, so the two never disagree on the rate
+    tech = {"offline", "source_down", "net_err", "js_err"}
     fk = d.get("failed_kind")
     tech_c = sum(v["cur"] for k, v in fk.items() if k in tech) if fk is not None else None
     tech_p = sum(v["prev"] for k, v in fk.items() if k in tech) if fk is not None else None
@@ -121,7 +122,7 @@ def analyze(d, cfg, extra=None):
         add("red", "קפיצה בביטולי בדיקה", f"{ab_c} ביטולים לעומת {ab_p} בשבוע שעבר (+{ab_ch}%). משתמשים מוותרים באמצע המתנה.")
     fp = m["fail_pct"][0]
     if enough and fp is not None:
-        if fp > T["fail_pct_red"]: add("red", "שיעור כשלים טכניים גבוה", f"{fp}% מהבדיקות נכשלו כי לא התקבלה תשובה או שמאגר לא ענה.")
+        if fp > T["fail_pct_red"]: add("red", "שיעור כשלים טכניים גבוה", f"{fp}% מהבדיקות נכשלו: לא התקבלה תשובה, מאגר לא ענה, החיבור למאגר נכשל או תקלה בקוד שלנו.")
         elif fp > T["fail_pct_yellow"]: add("yellow", "כשלים טכניים מעל הרגיל", f"{fp}% מהבדיקות נכשלו (אזהרה מעל {T['fail_pct_yellow']}%).")
     pp = rate(partial_c, ok_c)
     if ok_c >= T["min_searches_for_rates"] and pp is not None and pp > T["partial_pct_yellow"]:
