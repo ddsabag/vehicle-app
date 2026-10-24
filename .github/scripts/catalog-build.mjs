@@ -42,17 +42,21 @@ async function call(params, tries = 5) {
   }
   throw new Error("failed " + JSON.stringify(params).slice(0, 100) + ": " + (last && last.message));
 }
-// the whole dataset, page by page; the "fields" form is tried first (smaller answers), the plain form when the server rejects it
+// the whole dataset, page by page; the "fields" form is tried first (smaller answers), the plain form when the server rejects it.
+// A read that ends short of the dataset's own total is an error (a short page mid-scan would otherwise publish half a catalogue),
+// as in modelstats.mjs, market.mjs and data-invariants.mjs
 async function scan(id, fields, onRows) {
-  let total = 0, useFields = !!fields;
+  let total = 0, all = null, useFields = !!fields;
   for (let off = 0; ; off += PAGE) {
     let r;
     try { r = await call(useFields ? {resource_id: id, limit: String(PAGE), offset: String(off), fields} : {resource_id: id, limit: String(PAGE), offset: String(off)}, useFields ? 2 : 5); }
     catch (e) { if (!useFields) throw e; useFields = false; off -= PAGE; continue; }
+    if (all === null && Number.isFinite(r.total)) all = r.total;
     if (!r.records.length) break;
     onRows(r.records); total += r.records.length;
     if (r.records.length < PAGE) break;
   }
+  if (all && total < all * 0.995) throw new Error(`${id}: read ${total} of ${all}`);
   return total;
 }
 const val = v => v === null || v === undefined ? "" : typeof v === "string" ? v.trim() : v;
@@ -89,13 +93,17 @@ log("price: " + await scan(ID.price, "_id,tozeret_cd,degem_cd,sug_degem,shnat_yi
   }
 }) + ` rows, _id aligned ${aligned}/${checked}`);
 const byId = checked > 0 && aligned / checked > 0.98;
-if (byId) { for (const x of priceRows) { const w = ids.get(Number(x._id)); if (w) { w[MEHIR] = val(x.mehir); w[YEVUAN] = val(x.shem_yevuan); } } }
-else {
+// by _id only where that row's maker, code, type and year agree: up to 2% of the ids may point at another model, and such a row (or one with no
+// _id twin) is joined by maker|model|type|year instead of taking a stranger's price
+const same = (w, x) => String(w[I.tozeret_cd]) === String(val(x.tozeret_cd)) && String(w[I.degem_cd]) === String(val(x.degem_cd)) && String(w[I.shnat_yitzur]) === String(val(x.shnat_yitzur)) && typeOf(w[I.sug_degem]) === typeOf(x.sug_degem);
+const joined = new Set();
+if (byId) { for (const x of priceRows) { const w = ids.get(Number(x._id)); if (w && same(w, x)) { w[MEHIR] = val(x.mehir); w[YEVUAN] = val(x.shem_yevuan); joined.add(w); } } }
+{
   const pk = new Map();   // key4 -> its price and importer (the lowest, should a key ever hold two)
   for (const x of priceRows) { const k = key4(x), m = Number(x.mehir) || 0; if (!(m > 0)) continue; const e = pk.get(k); if (!e || m < e[0]) pk.set(k, [m, val(x.shem_yevuan)]); }
-  for (const rows of byMaker.values()) for (const w of rows) { const e = pk.get(wKey4(w)); if (e) { w[MEHIR] = e[0]; w[YEVUAN] = e[1]; } }
+  for (const rows of byMaker.values()) for (const w of rows) { if (joined.has(w)) continue; const e = pk.get(wKey4(w)); if (e) { w[MEHIR] = e[0]; w[YEVUAN] = e[1]; } }
 }
-log("price join: " + (byId ? "by _id" : "by maker|model|type|year"));
+log("price join: " + (byId ? `by _id (${joined.size} rows), the rest by maker|model|type|year` : "by maker|model|type|year"));
 
 // 3. counts: cars on the road / taken off, per maker|model|year (summed over the dataset's duplicates)
 const cnt = new Map();
@@ -147,6 +155,16 @@ const BRANDS_MORE = {"טויוטה": ["LEXUS"], "פורד": ["LINCOLN"], "ב מ 
 // 5. write
 const total = [...byMaker.values()].reduce((s, r) => s + r.length, 0);
 if (total < 50000) throw new Error("catalogue implausibly small: " + total);
+// a big drop against the catalogue published the day before writes nothing (the workflow fails, Failure alert rings, yesterday's stays), as in
+// models.mjs; SKIP_GATE=1 publishes anyway when the drop is real
+try {
+  const pr = await fetch("https://raw.githubusercontent.com/ddsabag/vehicle-app/catalog-data/meta.json", {signal: AbortSignal.timeout(30000)});
+  const pm = pr.ok ? await pr.json() : null;
+  if (pm && pm.rows > 0) {
+    log(`rows ${total} (the day before ${pm.rows}), recalls ${recN} (${pm.recalls})`);
+    if ((total < pm.rows * 0.97 || recN < (pm.recalls || 0) * 0.97) && process.env.SKIP_GATE !== "1") throw new Error(`catalogue dropped against the day before: rows ${total} of ${pm.rows}, recalls ${recN} of ${pm.recalls}; re-run with SKIP_GATE=1 if the change is real`);
+  }
+} catch (e) { if (/dropped/.test(e.message)) throw e; log("the day before's meta.json could not be read: no drop check (" + e.message + ")"); }
 for (const d of ["c", "r"]) fs.rmSync(`${OUT}/${d}`, {recursive: true, force: true});
 fs.mkdirSync(OUT + "/c", {recursive: true}); fs.mkdirSync(OUT + "/r", {recursive: true});
 const u = new Date().toISOString().slice(0, 10);

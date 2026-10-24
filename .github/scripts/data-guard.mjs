@@ -29,6 +29,16 @@ const EXTRA = [
   { key: "cancel2", id: "4e6b9724-4c1e-43f0-909a-154d4cc4e046", title: "רכבים שירדו מהכביש (2)", impact: "שיעור הירידה מהכביש לדגם לא יתעדכן", use: ["tozeret_cd", "kinuy_mishari", "shnat_yitzur"] },
   { key: "cancel3", id: "ec8cbc34-72e1-4b69-9c48-22821ba0bd6c", title: "רכבים שירדו מהכביש (3)", impact: "שיעור הירידה מהכביש לדגם לא יתעדכן", use: ["tozeret_cd", "kinuy_mishari", "shnat_yitzur"] },
   { key: "disabled", id: "c8b9f9c8-4612-4068-934f-d4acd2e3c06e", title: "תו נכה", impact: "חיווי תו נכה לא יוצג", use: ["MISPAR RECHEV", "TAARICH HAFAKAT TAG"] },
+  // the other registers the app asks by plate (index.html PLATE_SETS) and the price list: added 24.10.2026, until then no schema watch at all
+  { key: "moto", id: "bf9df4e2-d90d-4c0a-a400-19e15af8e95f", title: "דו-גלגלי", impact: "בדיקת אופנוע לפי מספר תציג ״הרכב לא נמצא״", use: ["mispar_rechev", "tozeret_cd", "shnat_yitzur"] },
+  { key: "heavy", id: "cd3acc5c-03c3-4c89-9c54-d40f93c0d790", title: "רכב כבד", impact: "בדיקת רכב כבד לפי מספר תציג ״הרכב לא נמצא״", use: ["mispar_rechev", "tozeret_cd"] },
+  { key: "inactive", id: "f6efe89a-fb3d-43a4-bb61-9bf12a9b9099", title: "רכבים לא פעילים", impact: "רכב לא פעיל יוצג כ״לא נמצא״, וריקולים לפי רכב יקושרו לפחות דגמים", use: ["mispar_rechev", "tozeret_cd", "kinuy_mishari", "shnat_yitzur"] },
+  { key: "inactive2", id: "6f6acd03-f351-4a8f-8ecf-df792f4f573a", title: "רכבים לא פעילים (2)", impact: "חלק מהרכבים הלא פעילים יוצגו כ״לא נמצא״", use: ["mispar_rechev"] },
+  { key: "public", id: "cf29862d-ca25-4691-84f6-1be60dcb4a1e", title: "רכב ציבורי", impact: "רכב ציבורי לא יימצא, או שביטול שלו לא יוצג", use: ["mispar_rechev", "bitul_cd", "bitul_nm", "tozeret_cd"] },
+  { key: "import", id: "03adc637-b6fe-402b-9937-7c3d3afc9140", title: "יבוא אישי", impact: "רכב ביבוא אישי לא יימצא", use: ["mispar_rechev", "tozeret_cd", "shnat_yitzur"] },
+  { key: "cont", id: "0866573c-40cd-4ca8-91d2-9dd2d7a492e5", title: "המשך פרטי רכב", impact: "וו גרירה ופרטים נוספים לא יוצגו", use: ["mispar_rechev", "grira_nm"] },
+  { key: "dpf", id: "7cb2bd95-bf2e-49b6-aea1-fcb5ff6f0473", title: "מסנן חלקיקים", impact: "התקנת מסנן חלקיקים לא תוצג", use: ["mispar_rechev"] },
+  { key: "price", id: "39f455bf-6db0-4926-859d-017f34eacbcb", title: "מחירון", impact: "מחיר מחירון ושם היבואן לא יוצגו, והערכת השווי תיפגע", use: ["tozeret_cd", "degem_cd", "sug_degem", "shnat_yitzur", "mehir", "shem_yevuan"] },
 ];
 const DATASETS = [...SETS.map(s => ({ key: s.key, id: s.id, title: s.title, impact: s.impact, use: USED[s.id] || s.fields })), ...EXTRA];
 
@@ -105,6 +115,10 @@ async function main() {
   const breaking = findings.filter(f => f.level === "breaking"), warn = findings.filter(f => f.level === "warn");
   fs.mkdirSync("out", { recursive: true });
   fs.writeFileSync("out/schema.json", JSON.stringify(Object.keys(now).length ? { ...(baseline || {}), ...now } : baseline || {}));   // a dataset that did not answer keeps its old baseline
+  // a dataset new to the list joins the baseline by itself (only that dataset: a change in one already there still waits for accept), so a newly
+  // watched register is compared from the next day on instead of never
+  const grown = baseline ? Object.keys(now).filter(k => !(k in baseline)) : [];
+  if (grown.length) { fs.writeFileSync("out/schema-grown.json", JSON.stringify({ ...baseline, ...Object.fromEntries(grown.map(k => [k, now[k]])) })); console.log("new in the baseline: " + grown.join(", ")); }
   fs.writeFileSync("out/guard.json", JSON.stringify({ checked: new Date().toISOString(), freshBaseline, findings }));
   fs.writeFileSync("out/sig.txt", findings.filter(f => f.level !== "inconclusive").map(f => f.key + f.level + f.text).sort().join("|") || "clean");
   for (const f of findings) console.log(f.level.padEnd(12), f.key.padEnd(10), f.text);

@@ -6,6 +6,11 @@ on:
   schedule:
     - cron: "20 9 * * *"   # 09:20 UTC (12:20 Israel summer time, 11:20 winter): a failure alert never comes at night, clear of the 04:00-04:30 data.gov.il checks
   workflow_dispatch:
+    inputs:
+      skip_gate:
+        description: "Publish even when the catalogue dropped against the day before (the drop is real)"
+        type: boolean
+        default: false
 permissions:
   contents: write
 jobs:
@@ -20,6 +25,7 @@ jobs:
       - run: node --max-old-space-size=6144 .github/scripts/catalog-build.mjs
         env:
           OUT: cat-out
+          SKIP_GATE: ${{ inputs.skip_gate && '1' || '0' }}
       - name: Run the picker rules on what is new in the register (report + state next to the catalogue)
         run: node .github/scripts/catalog-rules.mjs
         env:

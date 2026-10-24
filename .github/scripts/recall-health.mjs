@@ -22,6 +22,8 @@ const OUT = process.env.OUT || "out", PREV = process.env.PREV || "", PREV_CAT = 
 const CAT = "https://raw.githubusercontent.com/ddsabag/vehicle-app/catalog-data/";
 const STALL = 20;   // recalls in the recall list newer than the per-car list's newest before the list counts as stalled
 const MEND_DAYS = 3;   // builds in a row on the day before's copy before a line says so
+// the line again every 7 builds while it lasts, so a mend that never ends is not told once and then forgotten
+const due = n => n === MEND_DAYS || n > MEND_DAYS && (n - MEND_DAYS) % 7 === 0;
 async function prevCat(p){   // a file of the catalogue published the day before; null when it has none or cannot be read
   if (PREV_CAT) { const f = `${PREV_CAT}/${p}`; return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : null; }
   for (let i = 0; i < 3; i++) { try { const r = await fetch(CAT + p, {signal: AbortSignal.timeout(30000)}); if (r.status === 404) return null; if (r.ok) return await r.json(); } catch {} }
@@ -87,7 +89,7 @@ const known = status === "unread" ? (prev && prev.known) || null : status;   // 
 if (!first) {
   if (status === "unread") {
     if (!hz) { if (prev.status !== "unread") lines.push("רשימת משרד התחבורה של רכבים שלא תוקנו לא נקראה בבנייה של היום, ואין עותק קודם שלה. האפליקציה ממשיכה עם הגבול האחרון שידוע לה."); }
-    else if (carry.hz === MEND_DAYS) lines.push(`רשימת משרד התחבורה של רכבים שלא תוקנו לא נקראה ${MEND_DAYS} ימים ברצף. האפליקציה ממשיכה לשייך ריקולים לדגמים לפי העותק מ-${fmt(hz.u)}, וזה בסדר לכמה ימים. אם זה נמשך, צריך לבדוק למה הקריאה נכשלת.`);
+    else if (due(carry.hz)) lines.push(`רשימת משרד התחבורה של רכבים שלא תוקנו לא נקראה ${carry.hz} ימים ברצף. האפליקציה ממשיכה לשייך ריקולים לדגמים לפי העותק מ-${fmt(hz.u)}, וזה בסדר לכמה ימים. אם זה נמשך, צריך לבדוק למה הקריאה נכשלת.`);
   }
   else if (prev.id && hz.id !== prev.id) lines.push(status === "ok" ? `רשימת משרד התחבורה של רכבים שלא תוקנו התעדכנה: היא כוללת עכשיו ריקולים עד ${fmt(hz.d)}, ואין פער מול רשימת הריקולים.` : `רשימת משרד התחבורה של רכבים שלא תוקנו התקדמה לריקולים שנפתחו עד ${fmt(hz.d)}, ועדיין יש ${newer} ריקולים חדשים יותר.`);
   else if (prev.known && status !== prev.known) lines.push(status === "stalled" ? `רשימת משרד התחבורה של רכבים שלא תוקנו נעצרה בריקולים שנפתחו עד ${fmt(hz.d)}, וברשימת הריקולים יש ${newer} ריקולים חדשים יותר. האפליקציה מציגה אותם כ"עוד לא ידוע אם כולל את הרכב".` : `רשימת משרד התחבורה של רכבים שלא תוקנו השלימה את הפער: היא כוללת ריקולים עד ${fmt(hz.d)}.`);
@@ -122,8 +124,8 @@ const lost = first || !prev.rec ? [] : prev.rec.filter(cd => !(meta.rec || []).i
 if (lost.length) { console.log("makers that lost their recall file: " + lost.map(nm).join(", "));
   lines.push(lost.length === 1 ? `קובץ הריקולים של היצרן ${few(lost, nm)} לא נבנה היום (בבדיקה הקודמת היה), ולכן הרכבים שלו מוצגים בלי ריקולים לדגם.`
     : `קובצי הריקולים של ${lost.length} יצרנים לא נבנו היום (בבדיקה הקודמת היו), ולכן הרכבים שלהם מוצגים בלי ריקולים לדגם: ${few(lost, nm)}.`); }
-const long = Object.keys(carry.makers).filter(cd => carry.makers[cd] === MEND_DAYS);
-if (!first && long.length) lines.push(`${long.length === 1 ? `קובץ הריקולים של היצרן ${few(long, nm)} לא נבנה` : `קובצי הריקולים של ${long.length} יצרנים לא נבנו`} ${MEND_DAYS} ימים ברצף. האפליקציה מציגה את העותק האחרון שנבנה, בלי ריקולים שנוספו מאז, וצריך לבדוק למה${long.length === 1 ? "" : `: ${few(long, nm)}`}.`);
+const long = Object.keys(carry.makers).filter(cd => due(carry.makers[cd])), most = Math.max(0, ...long.map(cd => carry.makers[cd]));
+if (!first && long.length) lines.push(`${long.length === 1 ? `קובץ הריקולים של היצרן ${few(long, nm)} לא נבנה` : `קובצי הריקולים של ${long.length} יצרנים לא נבנו`} ${most} ימים ברצף. האפליקציה מציגה את העותק האחרון שנבנה, בלי ריקולים שנוספו מאז, וצריך לבדוק למה${long.length === 1 ? "" : `: ${few(long, nm)}`}.`);
 // motorcycles and heavy trucks filed under a car brand (BMW Motorrad, Mercedes Actros, Ford F-250 and up, RAM 2500 and up) are not in the catalogue,
 // which holds the WLTP models; such a row matches no model by design and is left out of the alert
 const NOT_CARS = /MOTOR+A?D|\bK-?1[0-6]?00(?:[A-Z]{1,3})?\b|\b[RSM]\s?1[0-3]00(?:[A-Z]{1,3})?\b|\bGL\s?1800\b|\bNC\s*7[05]0|ACTROS|AROCS|ATEGO|ECONIC|UNIMOG|\bTG[LMSX]\b|\bF-?(2|3|4|5|6|7)50\b|\bF-?600\b|\b[2-5]500\b|SAVANA/;
