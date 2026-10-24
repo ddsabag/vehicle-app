@@ -1098,8 +1098,11 @@ const LAND = (() => { try {
 /* a JavaScript error nobody sees: counted (line number only, never the message, which could hold a plate), at most 5 per session */
 let jsErrN = 0;
 const jsErr = (where, line) => { if (jsErrN++ < 5) { try { const b = window.AndroidApp; if (b && b.logError && analyticsOn()) b.logError(("js_" + where + "_" + (line || 0)).slice(0, 60)); else track("js_error", {kind: where, line: line || 0}); } catch {} } };   // the web has no Crashlytics: the count goes to GA
-window.addEventListener("error", ev => jsErr("err", ev && ev.lineno));
-window.addEventListener("unhandledrejection", () => jsErr("rej", 0));
+// Facebook, Instagram and TikTok open links in their own in-app browser, which runs scripts of its own that land on these listeners too:
+// those count apart (kind "iab"), so the pipe canary watches our code only (22-23.10: all 10 web errors came from such visits, none on our pages)
+const IAB = /FBAN|FBAV|FB_IAB|Instagram|BytedanceWebview|musical_ly/i.test(navigator.userAgent || "");
+window.addEventListener("error", ev => jsErr(IAB ? "iab" : "err", ev && ev.lineno));
+window.addEventListener("unhandledrejection", () => jsErr(IAB ? "iab" : "rej", 0));
 /* the Android app tells the page when a screenshot of it was taken (Android 14+): counted with the screen it happened on, never the picture */
 window.onScreenshot = () => { try { track("user_screenshot", {tab: typeof inCompare !== "undefined" && inCompare ? "compare" : typeof current !== "undefined" && current ? (currentTab || "overview") : ({cars: "cars", alerts: "alerts", sub: "tool"})[document.body.dataset.screen] || "home"}); } catch {} };
 const reportErr = tag => { try { const b = window.AndroidApp; if (b && b.logError && analyticsOn()) b.logError(String(tag).slice(0, 60)); } catch {} };
@@ -3069,8 +3072,9 @@ let SERVICE = null, svP = null;
 const SVK = "__SVK__";
 function loadService(){
   if (SERVICE) return Promise.resolve(SERVICE);
+  if (!window.AndroidApp) return Promise.resolve(null);   // the table is private and only the app carries it: the site asks for nothing (it got two 404s per car page)
   return svP || (svP = (async () => {
-    for (const u of [SITE + "service.json", "service.json"]) {
+    for (const u of ["service.json"]) {
       try { const r = await fetch(u, {cache: "no-cache"}); if (r.ok) { const j = await r.json(); if (j && j.rows) return SERVICE = j; } } catch {}
     }
     // release builds carry the table sealed (service.bin) with its key written into the page at build time (seal-service.mjs)
