@@ -19,10 +19,12 @@ jobs:
           node-version: 22
       - run: |
           npm install --no-save playwright@1.49.1
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps webkit
       - run: node .github/scripts/err-probe.mjs
         env:
           GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
+          SKIP_GA: "1"
+          ENGINE: webkit
       - name: Publish on probe-err-out (encrypted only)
         run: |
           cd out && git init -q && git checkout -q -b probe-err-out && git add -A

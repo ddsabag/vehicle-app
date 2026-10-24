@@ -33,7 +33,7 @@ const eq = (f, v) => ({ filter: { fieldName: f, stringFilter: { value: v } } }),
 const ERR = { orGroup: { expressions: [eq("eventName", "js_error"), { andGroup: { expressions: [eq("eventName", "lookup_failed"), eq("customEvent:kind", "js_err")] } }] } };
 const days = (a, b) => [{ startDate: a, endDate: b }];
 
-if (sa) {
+if (sa && !E.SKIP_GA) {
   // the canary's own view: errors per day, platform and kind, two weeks
   await part("ga.daily", () => ga({ dateRanges: days("2026-10-10", "today"), dimensions: [{ name: "date" }, { name: "platform" }, { name: "eventName" }, { name: "customEvent:kind" }], metrics: [{ name: "eventCount" }, { name: "totalUsers" }],
     dimensionFilter: inList("eventName", ["js_error", "lookup_failed"]) }));
@@ -52,8 +52,12 @@ let pw = null; try { pw = await import("playwright"); } catch { /* no browser on
 if (pw) {
   const SITE = "https://luchit.app/";
   const pages = ["", "?plate=1234567", "check/", "model/", "magazine/", "business/", "guide/buy-used-car/", "email/signature.html", "privacy.html"];
-  const devices = { phone: { ...pw.devices["iPhone 13"] }, android: { ...pw.devices["Pixel 7"] }, desk: { viewport: { width: 1440, height: 900 } } };
-  const browser = await pw.chromium.launch();
+  // 24.10 second run: WebKit (the iPhone engine), plain Safari and with the Instagram / Facebook in-app browser user agents
+  const IG = " Instagram 350.0.0.0.0 (iPhone14,5; iOS 17_6; he_IL; he; scale=3.00; 1170x2532; 0)", FB = " [FBAN/FBIOS;FBAV/480.0.0.0;FBBV/0;FBDV/iPhone14,5;FBMD/iPhone;FBSN/iOS;FBSV/17.6;FBSS/3;FBLC/he_IL;FBOP/5]";
+  const ip = pw.devices["iPhone 13"];
+  const devices = E.ENGINE === "webkit" ? { safari: { ...ip }, instagram: { ...ip, userAgent: ip.userAgent + IG }, facebook: { ...ip, userAgent: ip.userAgent + FB } }
+    : { phone: { ...ip }, android: { ...pw.devices["Pixel 7"] }, desk: { viewport: { width: 1440, height: 900 } } };
+  const browser = await (E.ENGINE === "webkit" ? pw.webkit : pw.chromium).launch();
   for (const [dn, dev] of Object.entries(devices)) {
     await part("site." + dn, async () => {
       const ctx = await browser.newContext({ ...dev, locale: "he-IL", serviceWorkers: "block" });
