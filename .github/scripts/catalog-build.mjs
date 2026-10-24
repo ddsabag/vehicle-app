@@ -49,7 +49,10 @@ async function scan(id, fields, onRows) {
   let total = 0, all = null, useFields = !!fields;
   for (let off = 0; ; off += PAGE) {
     let r;
-    try { r = await call(useFields ? {resource_id: id, limit: String(PAGE), offset: String(off), fields} : {resource_id: id, limit: String(PAGE), offset: String(off)}, useFields ? 2 : 5); }
+    // sorted by _id: without a sort the datastore's pages are not stable (on 24.10.2026 the unsorted price list ended after 102,116 of its
+    // 130,885 rows, so about a fifth of the list prices never reached the catalogue); data-invariants.mjs reads the same way
+    const q = {resource_id: id, limit: String(PAGE), offset: String(off), sort: "_id"};
+    try { r = await call(useFields ? {...q, fields} : q, useFields ? 2 : 5); }
     catch (e) { if (!useFields) throw e; useFields = false; off -= PAGE; continue; }
     if (all === null && Number.isFinite(r.total)) all = r.total;
     if (!r.records.length) break;
