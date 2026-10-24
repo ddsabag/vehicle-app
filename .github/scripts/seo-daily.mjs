@@ -28,7 +28,11 @@ async function telegram(text, silent = false) {
   return r.ok;
 }
 let WEEKLY = "";   // the Monday weekly ranking report, plain text ("" on other days)
-if (process.env.SEO_WEEKLY) { try { WEEKLY = readFileSync(process.env.SEO_WEEKLY, "utf8").trim(); } catch (e) { console.log("no weekly report:", e.message); } }
+// a .enc report is sealed by seo_track.py (AES-256-GCM, key = sha256 of a label and the service account's private key; nonce 12 + data + tag 16)
+const unseal = blob => { const raw = Buffer.from(blob, "base64"), key = crypto.createHash("sha256").update("luchit seo-track v1\n" + sa.private_key).digest();
+  const d = crypto.createDecipheriv("aes-256-gcm", key, raw.subarray(0, 12)); d.setAuthTag(raw.subarray(raw.length - 16));
+  return Buffer.concat([d.update(raw.subarray(12, raw.length - 16)), d.final()]).toString("utf8"); };
+if (process.env.SEO_WEEKLY) { try { const t = readFileSync(process.env.SEO_WEEKLY, "utf8").trim(); WEEKLY = (process.env.SEO_WEEKLY.endsWith(".enc") ? unseal(t) : t).trim(); } catch (e) { console.log("no weekly report:", e.message); } }
 const weeklyAlone = () => telegram(esc(WEEKLY), true);   // silent, like the SEO tracker message it replaces
 // Re-run of a Monday run whose daily part was already delivered (Re-run failed jobs also re-runs this job when the weekly part failed):
 // SEO_DIGEST_SENT=1 sends only the weekly report, as re-running SEO tracker did, never the same digest twice (also a manual weekly_only run, as running SEO tracker did). SEO_SENT_MARK names the file
