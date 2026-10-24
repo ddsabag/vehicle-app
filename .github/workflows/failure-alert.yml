@@ -2,6 +2,7 @@ name: Failure alert
 # One Telegram message (loud) when a scheduled or push-triggered production workflow crashes on main without having sent its own alert.
 # Scripts that already alert on their own finish green on purpose, so this only fires for the failures nobody else reported (e.g. a build or a job that died).
 # Manual runs (workflow_dispatch) and the next-branch UI checks are left out: the person who started them sees the result.
+# Pull-request runs and runs from a fork are left out too: a fork's branch may be named main (24.10 ops review).
 # A run cancelled before any job started is not a failure when a newer run of the same workflow took its place (that run redoes the work); one pushed out of the shared
 # main-writer queue by another workflow lost its work and is reported loudly, as is one cancelled mid-job (e.g. a timeout).
 # A run whose only cancelled jobs never started (e.g. SEO auto-publish's publish job pushed out of the queue after its check job ran) counts as cancelled before it started.
@@ -50,7 +51,7 @@ permissions:
   actions: read     # jobs and previous runs of the failed workflow
 jobs:
   tell:
-    if: ${{ (github.event.workflow_run.conclusion == 'failure' || github.event.workflow_run.conclusion == 'timed_out' || github.event.workflow_run.conclusion == 'cancelled') && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event != 'workflow_dispatch' }}
+    if: ${{ (github.event.workflow_run.conclusion == 'failure' || github.event.workflow_run.conclusion == 'timed_out' || github.event.workflow_run.conclusion == 'cancelled') && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event != 'workflow_dispatch' && github.event.workflow_run.event != 'pull_request' && github.event.workflow_run.head_repository.full_name == github.repository }}
     runs-on: ubuntu-24.04
     timeout-minutes: 3
     steps:

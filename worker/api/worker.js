@@ -41,15 +41,25 @@ async function waitlist(req, env) {
   if (!BIZ_TYPES.includes(type) || (interest && !BIZ_INTERESTS.includes(interest))) return json({ error: "choice" }, 400);
   if (!EMAIL_RE.test(email) || (phone && !PHONE_RE.test(phone))) return json({ error: "contact" }, 400);
 
-  const r = await brevo(env, "/contacts", { email, listIds: [Number(env.BREVO_B2B_LIST_ID)], updateEnabled: true,
+  // A new contact is created with the form's details. An existing one is never overwritten (the Origin check stops browsers only, so anyone
+  // could otherwise rewrite a real lead's name or phone, or stamp a subscriber with business consent): it is only added to the business list,
+  // and the details sent now reach the owner in the notification mail below, marked as not saved (24.10 ops review).
+  const list = Number(env.BREVO_B2B_LIST_ID);
+  let existing = false;
+  const r = await brevo(env, "/contacts", { email, listIds: [list], updateEnabled: false,
     attributes: { FIRSTNAME: name, COMPANY_NAME: company, BUSINESS_TYPE: type, INTEREST: interest, PHONE: phone, NOTES: notes, SOURCE: "business", CONSENT_AT: new Date().toISOString() } });
-  if (!r.ok) { console.log("brevo waitlist", r.status, "upstream error"); return json({ error: "upstream" }, 502); }
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    existing = r.status === 400 && err.code === "duplicate_parameter";
+    const added = existing && (await brevo(env, `/contacts/lists/${list}/contacts/add`, { emails: [email] })).status < 500;
+    if (!added) { console.log("brevo waitlist", r.status, "upstream error"); return json({ error: "upstream" }, 502); }
+  }
 
   // best effort from here on: the lead is already saved
   try {
     await brevo(env, "/smtp/email", { sender: { name: "לוחית", email: "updates@luchit.app" }, to: [{ email: env.NOTIFY_TO || "luchit.app.service@gmail.com" }], replyTo: { email },
       subject: `ליד עסקי חדש: ${type}`,
-      htmlContent: `<div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.7"><b>פנייה חדשה מרשימת ההמתנה העסקית</b><br>שם: ${esc(name)}<br>עסק: ${esc(company)}<br>סוג: ${esc(type)}<br>עניין: ${esc(interest) || "לא צוין"}<br>אימייל: ${esc(email)}<br>טלפון: ${esc(phone) || "לא צוין"}<br>הודעה: ${esc(notes) || "ללא"}</div>` });
+      htmlContent: `<div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.7"><b>פנייה חדשה מרשימת ההמתנה העסקית</b><br>${existing ? "<i>הכתובת כבר קיימת ב-Brevo: הפרטים כאן לא נשמרו שם ולא דרסו את הקיימים.</i><br>" : ""}שם: ${esc(name)}<br>עסק: ${esc(company)}<br>סוג: ${esc(type)}<br>עניין: ${esc(interest) || "לא צוין"}<br>אימייל: ${esc(email)}<br>טלפון: ${esc(phone) || "לא צוין"}<br>הודעה: ${esc(notes) || "ללא"}</div>` });
   } catch (e) { console.log("notify failed", String(e).slice(0, 200)); }
   if (env.GA_MEASUREMENT_ID && env.GA_API_SECRET) {
     try {
