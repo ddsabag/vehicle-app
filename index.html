@@ -118,7 +118,7 @@ form{display:flex;gap:10px}
 main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;display:flex;flex-direction:column;gap:12px;padding-bottom:calc(40px + env(safe-area-inset-bottom,0px))}
 .card{background:var(--card);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0;box-shadow:var(--shadow)}
 .head{display:flex;align-items:center;gap:10px}
-.head h2{margin:0;font-size:1.02rem;font-weight:800}
+.head h2{margin:0;font-size:1.05rem;font-weight:800}
 .head[data-fold]{cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;margin:-6px;padding:6px;border-radius:12px}
 .head[data-fold]:focus-visible{outline:2px solid var(--tc)}
 .head .chev{margin-inline-start:auto;color:var(--muted);transition:transform .2s}
@@ -235,7 +235,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .timeline li{display:grid;grid-template-columns:16px 82px 1fr;gap:2px 10px;padding:8px 0;align-items:center}
 .timeline .dot{width:12px;height:12px;border-radius:50%;background:var(--tb);border:2px solid var(--tc);justify-self:center}
 .timeline li.cur .dot{background:var(--tc)}
-.timeline .dur{grid-column:3;font-size:.8rem;color:var(--muted)}
+.timeline .dur{grid-column:3;font-size:.78rem;color:var(--muted)}
 .timeline time{font:500 .92rem var(--f-num);color:var(--muted);direction:ltr;text-align:right}
 .timeline .now{font-size:.78rem;font-weight:700;color:var(--tc);background:var(--tb);padding:1px 7px;border-radius:999px;margin-inline-start:8px}
 .recall{border-inline-start:3px solid var(--bad);padding-inline-start:12px}
@@ -259,7 +259,7 @@ a.row{color:var(--fg);text-decoration:none}a.row .t small{text-decoration:none}a
 .sv-open .t{align-self:stretch;min-width:0}
 .sv-open .mini-plate{white-space:nowrap}
 .sv-acts{flex:0 0 auto;display:flex;flex-direction:column;align-self:center}
-.sv-nick{flex:1 0 100%;border:0;background:none;padding:4px 0 0;margin:0;font:inherit;font-size:.82rem;color:var(--accent);text-align:start;cursor:pointer;min-height:32px}
+.sv-nick{flex:1 0 100%;border:0;background:none;padding:4px 0 0;margin:0;font:inherit;font-size:.85rem;color:var(--accent);text-align:start;cursor:pointer;min-height:32px}
 .sv-nickf{flex:1 0 100%;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding-top:6px}.sv-nickf .inp{flex:1 1 10rem;min-width:0}.sv-nickf .link-btn{flex:0 0 auto;margin:0}
 .row .x.bell[aria-pressed="false"]{opacity:.4}
 .row .x.bell[aria-pressed="true"]{color:var(--accent)}
@@ -307,7 +307,7 @@ footer{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:4px 24px;
 .appbox .btn{display:block;width:100%;text-align:center;background:#111;color:#fff;border:0;border-radius:12px;padding:12px;font-weight:700;font-size:.9rem;min-height:44px}
 .webcta{display:block;width:100%;border:0;background:none;color:var(--muted);font:inherit;font-size:.85rem;text-align:center;padding:6px 8px;margin:0 0 6px;min-height:44px;cursor:pointer}.webcta b{color:var(--accent);font-weight:700}
 .apphint{display:flex;gap:10px;align-items:center;width:100%;border:0;text-align:start;background:var(--hint-bg);color:var(--fg);border-radius:12px;padding:10px 12px;font-size:.9rem;margin:0 0 10px;min-height:44px}
-.shared-top{display:flex;gap:9px;align-items:center;background:var(--info-bg);color:var(--info);border-radius:12px;padding:10px 12px;font-size:.88rem;margin:0 0 10px;line-height:1.4}
+.shared-top{display:flex;gap:9px;align-items:center;background:var(--info-bg);color:var(--info);border-radius:12px;padding:10px 12px;font-size:.9rem;margin:0 0 10px;line-height:1.4}
 .sharebar{position:fixed;inset-inline:0;bottom:0;z-index:15;background:var(--card);border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(0,0,0,.08);padding:10px 14px calc(12px + env(safe-area-inset-bottom,0px))}
 .sb-in{display:flex;flex-wrap:wrap;align-items:center;gap:10px;max-width:760px;margin:0 auto}.sb-txt{flex:1;min-width:0}.sb-txt b{display:block;font-size:.95rem}.sb-txt small,.sb-sub{color:var(--muted);font-size:.78rem}.sb-sub{display:block;max-width:760px;margin:5px auto 0}
 .sb-btn{border:0;border-radius:12px;background:var(--fg);color:var(--card);font:inherit;font-weight:700;font-size:.9rem;padding:11px 14px;min-height:44px;white-space:nowrap;cursor:pointer}.sb-btn.alt{background:var(--soft);color:var(--fg)}
@@ -532,7 +532,7 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .bulk-acts{display:flex;flex-direction:column;gap:8px;margin-top:8px}
 .rep-brand.biz{background:var(--soft,#f2f4f8);border-bottom:3px solid #1d4ea8;border-radius:10px}.rep-brand.biz img{width:48px;height:48px;object-fit:contain;border-radius:8px;box-shadow:none}.rep-brand.biz b{font-size:1.3rem}
 .ft{width:100%;border-collapse:collapse;font-size:.9rem}.ft td,.ft th{padding:8px 4px;border-top:1px solid var(--line);text-align:center}.ft td:first-child,.ft th:first-child{text-align:start}.ft th{font-size:.78rem;color:var(--muted);font-weight:600;border-top:0}button.lnk{border:0;background:none;padding:0;font:inherit;font-weight:700;color:var(--accent);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
-.ft button.lnk small{display:block}.ft td.svl small{display:block;color:var(--muted);font-size:.75rem}.ft button.lnk b{white-space:nowrap}.ft td small.rc{display:block;font-size:.75rem;font-weight:700}.ft button.lnk{border:0;background:none;color:inherit;text-decoration:none;font-weight:inherit;font:inherit;text-align:start;padding:0;display:block;min-height:40px}
+.ft button.lnk small{display:block}.ft td.svl small{display:block;color:var(--muted);font-size:.78rem}.ft button.lnk b{white-space:nowrap}.ft td small.rc{display:block;font-size:.78rem;font-weight:700}.ft button.lnk{border:0;background:none;color:inherit;text-decoration:none;font-weight:inherit;font:inherit;text-align:start;padding:0;display:block;min-height:40px}
 .mk-seg{margin-bottom:10px}.mk-chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 2px}
 .mk-chips button{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:999px;padding:6px 12px;font-weight:700}
 .mk-chips button[aria-pressed="true"]{background:var(--fg);color:var(--card);border-color:var(--fg)}
@@ -642,10 +642,10 @@ section[style*="--n:3"] .cmp-table>.cmp-k{font-size:.85rem}
 body.land main{max-width:1100px}
 body.land .band{display:none}
 .cmp-v{font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:normal!important;font-size:.95rem}
-.cmp-v.na{color:var(--muted);font-size:.8rem}.cmp-v.win{font-weight:700;background:var(--soft);border-radius:8px}.cmp-v.win::after{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-inline-start:5px;vertical-align:middle}
-.cmp-h.fail{border:1px dashed var(--line);background:transparent;justify-content:center;text-align:center;align-items:center}.cmp-h.fail small{white-space:normal;color:var(--muted)}.cmp-h.fail .retry{border:0;border-radius:8px;background:var(--fg);color:var(--card);font:inherit;font-weight:700;font-size:.8rem;padding:6px 10px;min-height:32px;margin-top:4px}
-.cmp-sec button{all:unset;cursor:pointer;display:flex;justify-content:space-between;align-items:center;width:100%;min-height:36px}.cmp-sec button small{font-weight:400;color:var(--muted);font-size:.8rem}.cmp-sec button svg.i{width:16px;height:16px;transition:transform .15s}.cmp-sec button[aria-expanded="false"] svg.i{transform:rotate(180deg)}
-.cmp-save{border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font:inherit;font-weight:700;font-size:.8rem;padding:6px 4px;min-height:36px;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cmp-save[aria-pressed="true"]{background:var(--soft);color:var(--muted);font-weight:400}
+.cmp-v.na{color:var(--muted);font-size:.78rem}.cmp-v.win{font-weight:700;background:var(--soft);border-radius:8px}.cmp-v.win::after{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-inline-start:5px;vertical-align:middle}
+.cmp-h.fail{border:1px dashed var(--line);background:transparent;justify-content:center;text-align:center;align-items:center}.cmp-h.fail small{white-space:normal;color:var(--muted)}.cmp-h.fail .retry{border:0;border-radius:8px;background:var(--fg);color:var(--card);font:inherit;font-weight:700;font-size:.78rem;padding:6px 10px;min-height:32px;margin-top:4px}
+.cmp-sec button{all:unset;cursor:pointer;display:flex;justify-content:space-between;align-items:center;width:100%;min-height:36px}.cmp-sec button small{font-weight:400;color:var(--muted);font-size:.78rem}.cmp-sec button svg.i{width:16px;height:16px;transition:transform .15s}.cmp-sec button[aria-expanded="false"] svg.i{transform:rotate(180deg)}
+.cmp-save{border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font:inherit;font-weight:700;font-size:.78rem;padding:6px 4px;min-height:36px;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cmp-save[aria-pressed="true"]{background:var(--soft);color:var(--muted);font-weight:400}
 .cmp-v .yes{color:var(--fg);font-weight:800}.cmp-v .no{color:var(--muted);font-weight:400}
 @media (max-width:360px){.facts{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -701,6 +701,7 @@ body:not(:has(.sharebar)):not(.kb) .snack{bottom:calc(76px + env(safe-area-inset
   html.web body:not(:has(.sharebar)):not(.kb) .toast{bottom:24px}
   html.web body:not(:has(.sharebar)):not(.kb) .snack{bottom:16px}
   html.web .cfab{bottom:24px}
+  html.web body:has(.cfab) main{padding-bottom:88px}
 }
 /* the search band belongs to the home screen; the car page, the tools, "הרכבים שלי" and "התראות" have their own headers */
 body[data-screen=car] .band,body[data-screen=sub] .band,body[data-screen=cars] .band,body[data-screen=alerts] .band{display:none}
@@ -716,6 +717,7 @@ body[data-screen=car] main,body[data-screen=sub] main,body[data-screen=cars] mai
 .ch-t b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:800;font-size:1rem}
 .ch-b.star[aria-pressed=true] svg.i{fill:currentColor}
 .ch-doc{flex:0 0 auto;height:36px;margin-inline:4px;padding:0 12px 0 10px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--accent);font-weight:800;font-size:.9rem;display:inline-flex;align-items:center;gap:6px}.ch-doc svg.i{width:18px;height:18px}
+@media (max-width:359px){.ch-doc{padding:0 11px}.ch-doc .ch-dt{display:none}}   /* 320px: the plate keeps its room next to back, star and more */
 .ch-m{position:relative;flex:0 0 auto}
 .ch-menu{position:absolute;inset-inline-end:0;top:46px;min-width:220px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 14px 34px -12px rgba(20,30,50,.35);padding:6px 0;z-index:13}
 .ch-menu button{display:block;width:100%;text-align:start;background:none;border:0;padding:11px 16px;font-weight:600;min-height:44px}
@@ -779,6 +781,7 @@ html.web main#out > .chead{grid-column:1/-1}
 .cfab{position:fixed;z-index:13;bottom:calc(74px + env(safe-area-inset-bottom,0px));inset-inline-end:16px;height:48px;padding:0 20px 0 16px;border-radius:999px;display:flex;align-items:center;gap:8px;font-weight:800;font-size:1rem;border:1px solid var(--line);background:var(--card);background:color-mix(in srgb,var(--card) 82%,transparent);-webkit-backdrop-filter:saturate(1.6) blur(18px);backdrop-filter:saturate(1.6) blur(18px);color:var(--accent);box-shadow:0 14px 34px -12px rgba(20,30,50,.35)}
 .cfab.on{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
 body.kb .cfab{display:none}
+body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px))}   /* the last card and the note scroll clear of the compare button */
 @media (min-width:720px){.cfab{inset-inline-end:calc(50% - 324px)}}
 /* home: what needs attention, recent checks, tools */
 .attn{display:flex;align-items:center;gap:12px;width:100%;text-align:start;border:0;background:var(--card);border-radius:18px;padding:14px;box-shadow:var(--shadow);color:var(--fg)}
@@ -2795,7 +2798,7 @@ async function lookup(raw){
   // a slow ministry server: say so after 5 s instead of leaving a silent bar. Since 1.36 about 1 check in 10 passes 3.5 s and 1 in 25 passes 5 s
   // (GA4, 22-23.10), so 5 s is the line where a check is really slower than usual; it is also the dur bucket edge every version reports
   const t0 = Date.now();
-  const slowT = setTimeout(() => { if (!signal.aborted && $("#skl") && !$("#slowNote")) track("lookup_slow"); if (!signal.aborted && $("#skl") && !$("#slowNote")) out.insertAdjacentHTML("beforeend", `<p class="note" id="slowNote" role="status" style="text-align:center">בודק, לוקח יותר מהרגיל. שרתי משרד התחבורה איטיים כרגע. <button type="button" class="link-btn" id="cancelLook">ביטול</button></p>`); const cb = $("#cancelLook"); if (cb) cb.addEventListener("click", () => { ctrl.abort(); goHome(); }); }, 5000);
+  const slowT = setTimeout(() => { if (!signal.aborted && $("#skl") && !$("#slowNote")) track("lookup_slow"); if (!signal.aborted && $("#skl") && !$("#slowNote")) out.insertAdjacentHTML("beforeend", `<p class="note" id="slowNote" role="status" style="text-align:center">בודקים, זה לוקח יותר מהרגיל. שרתי משרד התחבורה איטיים כרגע. <button type="button" class="link-btn" id="cancelLook">ביטול</button></p>`); const cb = $("#cancelLook"); if (cb) cb.addEventListener("click", () => { ctrl.abort(); goHome(); }); }, 5000);
   const side = Promise.race([Promise.all([loadModelStats().catch(() => null), loadService().catch(() => null), loadSettlements()]), new Promise(r => setTimeout(r, 1500))]);
   let D;
   try { D = await fetchVehicle(plate, signal, () => {}); }
@@ -2879,7 +2882,7 @@ async function loadStatus(){
     const el = $("#srcFoot"); if (el) el.outerHTML = srcFoot();
   } catch {}
 }
-const appBox = D => `<section class="appbox"><h3>באתר רואים את הרכב. באפליקציה הוא עובד בשבילכם</h3><p>אותה בדיקה, ועוד:</p><ul><li>התראה כשהטסט מתקרב או שנפתח ריקול</li><li>הודעה אם הרכב עבר בעלות או ירד מהכביש</li><li>הסדרי פשרה: בדיקה אם הרכב שלכם זכאי להטבה מהיבואן</li><li>תיק רכב: מה הבא, טיפולים ומסמכים, על הטלפון</li><li>צילום לוחית ואמירת מספר, במקום להקליד</li></ul><button type="button" class="btn" data-url="${playWeb("result_box")}" data-hint="side">להורדה ב-Google Play</button></section>`;
+const appBox = D => `<section class="appbox"><h3>באתר רואים את הרכב. באפליקציה הוא עובד בשבילכם</h3><p>אותה בדיקה, ועוד:</p><ul><li>התראה כשהטסט מתקרב או שנפתח ריקול</li><li>הודעה אם הרכב עבר בעלות או ירד מהכביש</li><li>הסדרי פשרה: בדיקה אם ייתכן שהרכב שלכם נכלל בהטבה מהיבואן</li><li>תיק רכב: מה הבא, טיפולים ומסמכים, על הטלפון</li><li>צילום לוחית ואמירת מספר, במקום להקליד</li></ul><button type="button" class="btn" data-url="${playWeb("result_box")}" data-hint="side">להורדה ב-Google Play</button></section>`;
 const appHint = D => {
   if (window.AndroidApp || IS_IOS || D.kind === "model" || D.isCancelled || sharedHere(D)) return "";
   const t = D.recalls && D.recalls.length || !(D.primary && D.primary.key === "active") ? "התראה כשיוצא ריקול חדש לרכב הזה" : "תזכורת לפני שהטסט פג";   // the app reads test dates from the active register only
@@ -5795,7 +5798,7 @@ async function checkSaved(){
         const now = store.get("savedVehicles"), cur = now.find(x => x.plate === s.plate); if (!cur) continue;
         for (const k of OWNER_KEYS) { if (k in cur) it[k] = cur[k]; else delete it[k]; }
         Object.assign(cur, it); store.set("savedVehicles", now);
-      } catch {}
+      } catch { try { const now = store.get("savedVehicles"), cur = now.find(x => x.plate === s.plate); if (cur) { cur.checked = Date.now() - 864e5 + 36e5; store.set("savedVehicles", now); } } catch {} }   // a check that threw is asked again in an hour, not at once: the web "הרכבים שלי" draws again after a run and would start it over
     }
     // the screen is drawn again after the run (the run is over by then, so it does not start another); on the web "הרכבים שלי" also
     // when nothing changed, so its "בודקים עכשיו" line turns into the time of the check
@@ -5890,8 +5893,8 @@ function carHead(D){
   // the owner's own car: the road documents take the share button's place (sharing moves to the menu)
   return `<header class="chead" id="chead"><button type="button" class="ch-b back" data-act="back" aria-label="חזרה">${ico("back")}</button>
     <div class="ch-t">${car ? `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>` : ""}<b>${esc(D.title)}</b></div>
-    ${mine ? `<button type="button" class="ch-doc" data-cf="road" aria-label="מסמכים לנסיעה">${ico("id")}מסמכים</button>` : `<button type="button" class="ch-b" data-act="share" aria-label="שיתוף הדוח">${ico("share")}</button>`}
-    ${car ? `<button type="button" class="ch-b star" data-act="save" aria-pressed="${saved}" aria-label="${saved ? "שמור ברכבים שלי" : "שמירה ברכבים שלי"}">${ico("star")}</button>` : ""}
+    ${mine ? `<button type="button" class="ch-doc" data-cf="road" aria-label="מסמכים לנסיעה">${ico("id")}<span class="ch-dt">מסמכים</span></button>` : `<button type="button" class="ch-b" data-act="share" aria-label="שיתוף הדוח">${ico("share")}</button>`}
+    ${car ? `<button type="button" class="ch-b star" data-act="save" aria-pressed="${saved}" aria-label="שמירה ברכבים שלי">${ico("star")}</button>` : ""}
     <span class="ch-m"><button type="button" class="ch-b" data-act="cmenu" aria-label="עוד פעולות" aria-haspopup="menu" aria-expanded="false">${ico("more")}</button></span></header>`;
 }
 function carMenu(b){
@@ -6053,7 +6056,7 @@ function renderAlerts(){
       const near = new Set(items.filter(x => x.go === "cal").map(x => x.s.plate)), sent = calSentGet();
       const cal = all.filter(s => { const L = licSaved(s); return L && L.k === "ok" && L.days > 0 && !near.has(s.plate); });
       if (cal.length) html.push(`<div class="qhead">תזכורות ביומן</div><div class="arows">${cal.map(s => { const L = licSaved(s), w = sent[s.plate] && sent[s.plate].d === s.tokef ? sent[s.plate].t : 0;
-        return `<div class="arow"><div class="t"><b>${esc(s.nick || s.title)}</b><small>הטסט בתוקף עד ${esc(L.date)}${w ? ` · נשלח ליומן ב-${esc(dmy(w))}` : ""}</small></div><button type="button" class="link-btn acal" data-calsaved="${s.plate}">${ico("clock")}ליומן</button></div>`; }).join("")}</div>`);
+        return `<div class="arow"><div class="t"><b>${esc(s.nick || s.title)}</b><small>הטסט בתוקף עד ${esc(L.date)}${w ? ` · נפתח ביומן ב-${esc(dmy(w))}` : ""}</small></div><button type="button" class="link-btn acal" data-calsaved="${s.plate}">${ico("clock")}ליומן</button></div>`; }).join("")}</div>`);
       html.push(IS_IOS ? `<p class="note">לוחית בודקת את הרכבים כשפותחים אותה. היומן של הטלפון מזכיר את הטסט גם כשלוחית סגורה.</p>`
         : `<p class="note">התראות לטלפון על ריקול חדש ועל טסט שמתקרב זמינות באפליקציית לוחית באנדרואיד. <button type="button" class="lnk" data-url="${playWeb("alerts_hint")}" data-hint="alerts">להתקנה</button></p>`);
     }
@@ -6572,7 +6575,7 @@ function renderHome(){
   const pn = planNotice(); if (pn) html.push(pn);
   // what needs attention on a saved car opens "התראות"; the cars themselves live in "הרכבים שלי"
   const attn = saved.filter(carAttn);
-  if (attn.length) html.push(`<button type="button" class="attn${attn.some(s => carLevel(s) === "bad") ? "" : " warn"}" data-nav="alerts"><span class="ai">${ico("alert")}</span><span class="t"><b>${attn.length === 1 ? "רכב אחד שלך צריך תשומת לב" : `${attn.length} מהרכבים שלך צריכים תשומת לב`}</b><small>${esc(alertItems().slice(0, 2).map(x => x.t.replace(/ ב-.*$/, "") + ": " + (x.s.nick || x.s.title)).join(" · "))}</small></span>${ico("chev")}</button>`);
+  if (attn.length) html.push(`<button type="button" class="attn${attn.some(s => carLevel(s) === "bad") ? "" : " warn"}" data-nav="alerts"><span class="ai">${ico("alert")}</span><span class="t"><b>${attn.length === 1 ? "רכב אחד מהרכבים שלכם צריך תשומת לב" : `${attn.length} מהרכבים שלכם צריכים תשומת לב`}</b><small>${esc(alertItems().slice(0, 2).map(x => x.t.replace(/ ב-.*$/, "") + ": " + (x.s.nick || x.s.title)).join(" · "))}</small></span>${ico("chev")}</button>`);
   if (recent.length) html.push(`<section class="recents" aria-label="בדיקות אחרונות"><div class="qhead">בדיקות אחרונות</div><div class="rc-row">${recent.map(p => { const s = saved.find(x => x.plate === p); return `<button type="button" class="rc" data-open="${p}"><span class="mini-plate"><i></i>${fmtPlate(p)}</span>${s ? `<small><bdi>${esc(s.nick || s.title)}</bdi></small>` : ""}</button>`; }).join("")}</div></section>`);
   const tool = (act, icon, title, text, tag, col) => `<button type="button" class="trow" data-act="${act}"><i class="tb ${col}">${ico(icon)}</i><span class="t"><b>${title}${tag ? PT(tag) : ""}</b><small>${text}</small></span>${ico("chev")}</button>`;
   html.push(`<div class="qhead">כלים</div><div class="tlist">${[

@@ -43,7 +43,7 @@ jobs:
 
       - name: Minify the page for the release build
         run: |
-          mkdir -p /tmp/minify && cd /tmp/minify && npm init -y >/dev/null && npm i terser@5 >/dev/null
+          mkdir -p /tmp/minify && cd /tmp/minify && npm init -y >/dev/null && npm i --ignore-scripts --no-audit --no-fund terser@5.51.2 >/dev/null
           cd "$GITHUB_WORKSPACE"
           ln -sfn /tmp/minify/node_modules .github/scripts/node_modules
           node .github/scripts/obfuscate.mjs

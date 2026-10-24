@@ -85,7 +85,7 @@ jobs:
         with:
           node-version: 20
       - if: ${{ steps.live.outputs.live != 'true' }}
-        run: mkdir -p /tmp/minify && cd /tmp/minify && npm init -y >/dev/null && npm i terser@5 >/dev/null
+        run: mkdir -p /tmp/minify && cd /tmp/minify && npm init -y >/dev/null && npm i --ignore-scripts --no-audit --no-fund terser@5.51.2 >/dev/null
       - name: Build the site
         if: ${{ steps.live.outputs.live != 'true' }}
         run: |

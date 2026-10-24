@@ -76,7 +76,7 @@ async function runPage(browser, fx, theme, width) {
   });
   // model data the catalogue would give (the catalogue itself is not fetched in the run): fetchModelData is a page-level function
   if (fx.model) await ctx.addInitScript((m) => { addEventListener("DOMContentLoaded", () => { const f = window.fetchModelData; window.fetchModelData = async (...a) => ({ ...(await f(...a)), modelRecallsUnknown: false, ...m }); }); }, fx.model);
-  await ctx.addInitScript((ls) => { try { localStorage.setItem("analyticsOff", "1"); for (const [k, v] of Object.entries(ls)) localStorage.setItem(k, v); } catch {} }, fx.ls || {});
+  await ctx.addInitScript((ls) => { try { localStorage.setItem("analyticsOff", "1"); for (const [k, v] of Object.entries(ls)) localStorage.setItem(k, v); } catch {} }, { theme, ...(fx.ls || {}) });   // the app starts light whatever the phone says, so the dark run sets the choice
   const page = await ctx.newPage();
   const label = `${fx.name}/${theme}/${width}px`;
   page.on("pageerror", (e) => fail(`[${label}] page error: ${e.message}`));
@@ -169,7 +169,7 @@ const SCREENS = [
 async function runScreen(browser, sc, theme, width) {
   const ctx = await browser.newContext({ viewport: { width, height: 800 }, deviceScaleFactor: 1, isMobile: true, colorScheme: theme, locale: "he-IL" });
   await ctx.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (r) => r.abort());
-  await ctx.addInitScript((ls) => { try { localStorage.setItem("analyticsOff", "1"); for (const [k, v] of Object.entries(ls)) localStorage.setItem(k, v); } catch {} }, sc.ls || {});
+  await ctx.addInitScript((ls) => { try { localStorage.setItem("analyticsOff", "1"); for (const [k, v] of Object.entries(ls)) localStorage.setItem(k, v); } catch {} }, { theme, ...(sc.ls || {}) });
   const page = await ctx.newPage();
   const L = `${sc.name}/${theme}/${width}px`;
   page.on("pageerror", (e) => fail(`[${L}] page error: ${e.message}`));
