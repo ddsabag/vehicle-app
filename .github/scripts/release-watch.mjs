@@ -11,7 +11,8 @@
 //   node release-watch.mjs selftest  offline (mocked fetch, virtual clock)
 import fs from "node:fs";
 import crypto from "node:crypto";
-import { jwt, Fail, gate, PKG, SECRET } from "./play-alpha.mjs";
+import { jwt, Fail, gate, PKG, SECRET, escH, whyHe } from "./play-alpha.mjs";
+import { msg } from "./tg-text.mjs";
 
 export const WATCH_H = 72, HISTORY_D = 30, MAX_TELLS = 3;
 export const LIVE = ["completed", "inProgress"];   // a draft or halted release reaches no one
@@ -176,17 +177,31 @@ export async function watch() {
   R.state = S;
   return R;
 }
+// one new issue -> one 🟠 message: how many people, crash or freeze, and what to do by track; the code details fold away
 export function compose(t, env = {}) {
   const { b, i } = t, n = +i.errorReportCount || 0, u = +i.distinctUsers || 0;
   const where = String(i.location || "").slice(0, 120), cause = String(i.cause || "").slice(0, 160);
-  const text = `⚠️ בעיה חדשה בלוחית ${b.vn || ""} (versionCode ${b.vc}), מאז שהגרסה עלתה ל-${TRACK_HE[b.track] || b.track}: ${TYPE_HE[i.type] || i.type}, ` +
-    `${n} ${n === 1 ? "דיווח" : "דיווחים"} מ-${u || "?"} ${u === 1 ? "משתמש" : "משתמשים"}. בגרסאות הקודמות היא לא הופיעה ב-30 הימים האחרונים.\n` +
-    `${cause}${where ? `\nאיפה: ${where}` : ""}${i.issueUri ? `\n${i.issueUri}` : ""}`;
-  return { key: `watch:new:${b.vc}:${tag(i.name)}`, text, link: /^https:\/\/play\.google\.com\//.test(i.issueUri || "") ? i.issueUri : "" };
+  const link = /^https:\/\/play\.google\.com\//.test(i.issueUri || "") ? i.issueUri : "";
+  const what = i.type === "ANR" ? "האפליקציה נתקעה ולא הגיבה" : "האפליקציה קרסה", who = u ? (u === 1 ? "משתמש אחד" : `${u} משתמשים`) : "משתמשים";
+  const prod = b.track === "production", tr = TRACK_HE[b.track] || b.track;
+  const todo = (prod ? "אם זו הפצה הדרגתית, היא נעצרת לבד ותגיע הודעה נפרדת. " : 'עדיף לא לכתוב "פרסם" לגרסה הזו לפני שבודקים. ')
+    + 'לכתוב בשרשור "מוצר ושחרורים" כדי לבדוק ולתקן.' + (link ? ` <a href="${escH(link)}">הדיווח ב-Play Console</a>` : "");
+  const text = msg({ kind: "today", area: "app", title: `בעיה חדשה בגרסה ${escH(b.vn || "")}: ${what}`,
+    text: `זה קרה ל-${who} (${n} ${n === 1 ? "דיווח" : "דיווחים"}) מאז שהגרסה עלתה ${/^[A-Za-z]/.test(tr) ? "ל-" : "ל"}${escH(tr)}. ` +
+      `בגרסאות הקודמות זה לא הופיע ב-30 הימים האחרונים.${!prod ? " בשלב הזה רק הבודקים מקבלים את הגרסה." : ""}`,
+    what: todo, raw: [`versionCode ${b.vc}`, `${i.type || "?"}: ${cause}`, where ? `איפה: ${where}` : "", i.issueUri || ""].filter(Boolean).join(" · ") });
+  return { key: `watch:new:${b.vc}:${tag(i.name)}`, text, link };
+}
+// the check itself broke: once a day at most (alert.mjs dedupe on the fixed key)
+export function composeError(R, env = {}) {
+  const w = whyHe(R.why), run = env.RUN_URL || "";
+  return msg({ kind: "today", area: "app", title: "המעקב אחרי הגרסה החדשה לא הצליח לקרוא מ-Google Play",
+    text: `${w.he}. עד שזה מתוקן, קריסות חדשות בגרסה לא יגיעו כהודעה.`,
+    what: `${R.next ? escH(R.next) + "." : 'לכתוב בשרשור "מוצר ושחרורים".'}${run ? ` <a href="${escH(run)}">הלוג</a>` : ""}`, raw: w.raw });
 }
 async function telegram(text) {
   const r = await call("POST", `https://api.telegram.org/bot${IO.env.TELEGRAM_BOT_TOKEN}/sendMessage`, { headers: { "content-type": "application/json" },
-    body: JSON.stringify({ chat_id: IO.env.TELEGRAM_CHAT_ID, text, disable_web_page_preview: true }), timeout: 20000, once: true });
+    body: JSON.stringify({ chat_id: IO.env.TELEGRAM_CHAT_ID, text, parse_mode: "HTML", disable_web_page_preview: true }), timeout: 20000, once: true });
   IO.out(`telegram ${r.status || "no answer"}`);
   return r.ok;
 }
@@ -194,7 +209,7 @@ async function send(key, text, link) {
   if (!IO.env.TELEGRAM_BOT_TOKEN || !IO.env.TELEGRAM_CHAT_ID) { note("TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID are not set: no message"); return false; }
   let router = IO.router;
   if (!router) try { router = await import("./alert.mjs"); } catch { /* legacy below */ }
-  const r = router ? await router.alert("day", key, text, link, { today: "loud", plain: true, legacy: () => telegram(text) }) : { delivered: await telegram(text) };
+  const r = router ? await router.alert("day", key, text, link, { today: "loud", legacy: () => telegram(text) }) : { delivered: await telegram(text) };
   return !!r.delivered;
 }
 
@@ -217,7 +232,7 @@ export async function cli(argv) {
   if (R.code === "error") {
     IO.out(`::warning::Release watch could not read Play: ${R.why}`);
     // a broken check is told once a day at most (alert.mjs dedupe on the fixed key)
-    if (!dry && !(await send("watch:error", `המעקב אחרי השחרור לא הצליח לקרוא מ-Google Play: ${R.why}.${R.next ? `\nמה לעשות: ${R.next}.` : ""}${IO.env.RUN_URL ? `\n${IO.env.RUN_URL}` : ""}`, IO.env.RUN_URL || ""))) failed = true;
+    if (!dry && !(await send("watch:error", composeError(R, IO.env), IO.env.RUN_URL || ""))) failed = true;
   }
   for (const t of R.tells.slice(0, MAX_TELLS)) {
     const m = compose(t, IO.env);
@@ -303,7 +318,7 @@ async function selftest() {
     // a crash that only 110 has: one Telegram with what and where, the issue remembered; the next run does not repeat it
     const crash = ISSUE("i1", "CRASH", 110, 5, 3);
     W = await run({ state: { seen: { "alpha:110": T0 - 20 * HOUR, "production:108": T0 - 5 * DAY } }, mine: { 110: [crash] }, history: [crash] });
-    ok(W.outputs.code === "new" && W.tg.length === 1 && W.tg[0].text.includes("1.33") && W.tg[0].text.includes("Alpha") && W.tg[0].text.includes("5 דיווחים מ-3 משתמשים") && W.tg[0].text.includes("MainActivity"), "new: told " + W.tg.map(x => x.text));
+    ok(W.outputs.code === "new" && W.tg.length === 1 && W.tg[0].text.includes("1.33") && W.tg[0].text.includes("Alpha") && W.tg[0].text.includes("3 משתמשים (5 דיווחים)") && W.tg[0].text.includes("🟠") && /<blockquote expandable>[^]*MainActivity/.test(W.tg[0].text) && W.tg[0].parse_mode === "HTML", "new: told " + W.tg.map(x => x.text));
     ok(Object.keys(W.state.told).length === 1 && W.state.issues[`110:apps/${PKG}/i1`] === T0 && W.state.checked["110"] === Date.UTC(2026, 9, 20, 8), "new: remembered, with when it was found and how far the data was read " + JSON.stringify(W.state));
     const searches = W.calls.filter(c => c.url.includes("errorIssues:search")).map(c => new URL(c.url).searchParams);
     ok(searches[0].get("filter") === "versionCode = 110 AND errorIssueType = CRASH OR errorIssueType = ANR" && searches[0].get("interval.startTime.hours") === String(new Date(T0 - 44 * HOUR).getUTCHours()) && searches[0].get("interval.endTime.hours") === "8", "new: filter and hour-aligned interval");
@@ -356,7 +371,7 @@ async function selftest() {
     const { validKey } = await import("./alert.mjs");
     W = await run({ router, state: { seen: { "alpha:110": T0 - HOUR } }, mine: { 110: [ISSUE("r1", "CRASH", 110)] } });
     W = await run({ router, repFail: { status: 500 } });
-    ok(seen.length === 2 && seen.every(s => s.lv === "day" && validKey(s.key) && s.o.plain) && seen[0].key.startsWith("watch:new:110:") && seen[1].key === "watch:error" && seen[0].link.startsWith("https://play.google.com/"), "router: day, valid keys " + seen.map(s => s.key));
+    ok(seen.length === 2 && seen.every(s => s.lv === "day" && validKey(s.key) && !s.o.plain) && seen[0].key.startsWith("watch:new:110:") && seen[1].key === "watch:error" && seen[0].link.startsWith("https://play.google.com/"), "router: day, valid keys " + seen.map(s => s.key));
     W = await run({ state: { seen: { "alpha:110": T0 - HOUR } }, mine: { 110: [ISSUE("s1", "CRASH", 110)] } });
     const all = [...W.printed, ...W.sums, ...Object.values(W.outputs), ...W.tg.map(x => x.text)].join("\n");
     ok(![TOKEN, TG, "PRIVATE KEY", SA.client_email].some(x => all.includes(x)), "secrets stay out of the output");

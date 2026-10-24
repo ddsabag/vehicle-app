@@ -1,8 +1,8 @@
 // Daily infrastructure watch, the infra part of Site smoke test's daily run: sign-up Worker liveness, free-quota headroom (Cloudflare Workers, Brevo),
 // and on the 1st of the month a list of stale branches. The home page and sitemap.xml are checked by site-smoke.mjs, so not here.
 import fs from "node:fs";
-import { ilTime } from "./notify.mjs";
 import { flash } from "./flash.mjs";
+import { msg, heError } from "./tg-text.mjs";
 // Alerts to Telegram only when something needs attention (needs TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID). DRY_RUN=1 prints instead of sending.
 // Optional: CF_API_TOKEN + CF_ACCOUNT_ID (Workers usage), BREVO_API_KEY (daily send count), GITHUB_TOKEN + GITHUB_REPOSITORY (branches).
 // STALE_BRANCHES=yes|no picks the stale-branch list by the cron line that fired; unset = on the 1st by the clock (and always with DRY_RUN=1).
@@ -12,7 +12,10 @@ import { flash } from "./flash.mjs";
 const DRY = process.env.DRY_RUN === "1", E = process.env;
 const SITE = "https://luchit.app";
 const CF_DAILY_LIMIT = 100000, BREVO_DAILY_LIMIT = 300, WARN = 0.8;
-const problems = [], notes = [];
+// problems: {he, raw, urgent}; notes: Hebrew lines; raws: the technical side of the notes (secret names, API errors), folded in the message
+const problems = [], notes = [], raws = [];
+let stale = [];
+const he = raw => heError(raw).split("\n<blockquote")[0].replace(/\.$/, "");
 const day = d => d.toISOString().slice(0, 10);
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -21,34 +24,34 @@ const get = (url, opt = {}) => fetch(url, { signal: AbortSignal.timeout(15000), 
 
 async function liveness() {
   const checks = [
-    ["Worker ההרשמה (/api/confirm)", async () => { const r = await get(SITE + "/api/confirm?e=x&x=1&t=x", { redirect: "manual" }); return r.status === 302 && /subscribed=expired/.test(r.headers.get("location") || ""); }],
+    ["שירות ההרשמה למגזין", "/api/confirm", async () => { const r = await get(SITE + "/api/confirm?e=x&x=1&t=x", { redirect: "manual" }); return r.status === 302 && /subscribed=expired/.test(r.headers.get("location") || ""); }],
   ];
-  for (const [name, fn] of checks) { let ok = false; try { ok = await retry(fn); } catch { /* counted as down */ } if (!ok) problems.push(`${name} לא מגיב כצפוי`); }
+  for (const [name, raw, fn] of checks) { let ok = false; try { ok = await retry(fn); } catch { /* counted as down */ } if (!ok) problems.push({ he: `${name} לא מגיב כצפוי, ולכן הרשמות חדשות לא מאושרות`, raw: `Worker ${raw}`, urgent: true }); }
 }
 
 async function cloudflareQuota() {
-  if (!E.CF_API_TOKEN || !E.CF_ACCOUNT_ID) return notes.push("מכסת Cloudflare: דילוג (אין CF_API_TOKEN)");
+  if (!E.CF_API_TOKEN || !E.CF_ACCOUNT_ID) { raws.push("Cloudflare: no CF_API_TOKEN/CF_ACCOUNT_ID"); return notes.push("מכסת הבקשות היומית לא נבדקה (חסר מפתח)"); }
   const since = new Date(Date.now() - 86400e3).toISOString(), now = new Date().toISOString();
   const q = `query($a:String!,$f:AccountWorkersInvocationsAdaptiveFilter_InputObject){viewer{accounts(filter:{accountTag:$a}){workersInvocationsAdaptive(limit:1000,filter:$f){sum{requests}}}}}`;
   const r = await get("https://api.cloudflare.com/client/v4/graphql", { method: "POST", headers: { Authorization: `Bearer ${E.CF_API_TOKEN}`, "content-type": "application/json" },
     body: JSON.stringify({ query: q, variables: { a: E.CF_ACCOUNT_ID, f: { datetime_geq: since, datetime_leq: now } } }) }).then(r => r.json());
-  if (r.errors) return notes.push("מכסת Cloudflare: אין הרשאת קריאה לשימוש ב-Workers (" + String(r.errors[0]?.message).slice(0, 80) + ")");
+  if (r.errors) { raws.push("Cloudflare GraphQL: " + String(r.errors[0]?.message).slice(0, 80)); return notes.push("מכסת הבקשות היומית לא נבדקה: למפתח אין הרשאת קריאה לנתוני השימוש"); }
   const n = (r.data.viewer.accounts[0]?.workersInvocationsAdaptive || []).reduce((s, x) => s + x.sum.requests, 0);
   console.log("cloudflare workers requests (24h):", n);
-  if (n >= CF_DAILY_LIMIT * WARN) problems.push(`Cloudflare Workers: ${n.toLocaleString("en")} בקשות ב-24 שעות מתוך מכסה יומית של ${CF_DAILY_LIMIT.toLocaleString("en")}`);
+  if (n >= CF_DAILY_LIMIT * WARN) problems.push({ he: `מכסת הבקשות היומית של שרתי האתר: ${n.toLocaleString("en")} ב-24 שעות מתוך ${CF_DAILY_LIMIT.toLocaleString("en")}`, raw: "Cloudflare Workers requests" });
 }
 
 async function brevoQuota() {
-  if (!E.BREVO_API_KEY) return notes.push("מכסת Brevo: דילוג (אין BREVO_API_KEY)");
+  if (!E.BREVO_API_KEY) { raws.push("Brevo: no BREVO_API_KEY"); return notes.push("מכסת המיילים היומית לא נבדקה (חסר מפתח)"); }
   let peak = 0;
   for (let i = 0; i < 3; i++) {
     const d = day(new Date(Date.now() - i * 86400e3));
     const r = await get(`https://api.brevo.com/v3/smtp/statistics/aggregatedReport?startDate=${d}&endDate=${d}`, { headers: { "api-key": E.BREVO_API_KEY, accept: "application/json" } });
-    if (!r.ok) return notes.push("מכסת Brevo: שגיאת API " + r.status);
+    if (!r.ok) { raws.push("Brevo API HTTP " + r.status); return notes.push(`מכסת המיילים היומית לא נבדקה: ${he("HTTP " + r.status)}`); }
     peak = Math.max(peak, (await r.json()).requests || 0);
   }
   console.log("brevo peak sends/day (3d, transactional):", peak);
-  if (peak >= BREVO_DAILY_LIMIT * WARN) problems.push(`Brevo: ${peak} שליחות ביום מתוך ${BREVO_DAILY_LIMIT} (מכסה חינמית)`);
+  if (peak >= BREVO_DAILY_LIMIT * WARN) problems.push({ he: `מכסת המיילים היומית: ${peak} שליחות ביום מתוך ${BREVO_DAILY_LIMIT} (המכסה החינמית)`, raw: "Brevo transactional" });
 }
 
 async function staleBranches() {
@@ -64,7 +67,7 @@ async function staleBranches() {
     const age = (Date.now() - Date.parse(c.commit.committer.date)) / 86400e3;
     if (age > 30) old.push(`${b.name} (${Math.round(age)} ימים)`);
   }
-  if (old.length) notes.push("ענפים ישנים שאפשר למחוק: " + old.join(", "));
+  stale = old;
 }
 
 async function telegram(text, silent = false) {
@@ -76,8 +79,13 @@ async function telegram(text, silent = false) {
   return r.ok;
 }
 
-const alertText = () => `⚠️ <b>לוחית: שירות באתר או במכסה דורש תשומת לב</b>\nהבדיקה היומית של האתר, של Cloudflare ושל שליחת המיילים מצאה:\n${problems.map(p => "• " + esc(p)).join("\n")}\n\nמה לעשות: אם כתוב שירות לא מגיב, כתבו לי ואבדוק. אם כתוב שמכסה מתקרבת לגבול, אין בעיה כרגע, אבל כדאי לדעת לפני שהשירות ייחסם.${notes.length ? "\n\nהערות:\n" + notes.map(esc).join("\n") : ""}\n\nזמן: ${ilTime()} (שעון ישראל)`;
-const noticeText = () => `🧹 <b>לוחית: תחזוקה חודשית</b>\n${esc(notes.find(n => n.startsWith("ענפים")))}`;
+// 🔴 when a service users need is down, 🟠 when a quota nears its limit; the monthly branch list is 🔵, silent
+const alertText = () => msg({ kind: problems.some(p => p.urgent) ? "urgent" : "today", area: "site", title: "שירות באתר או מכסה דורשים תשומת לב",
+  text: problems.map(p => "• " + esc(p.he)).join("\n") + (notes.length ? "\n" + notes.map(n => "• " + esc(n)).join("\n") : ""),
+  what: problems.some(p => p.urgent) ? 'לכתוב בשרשור "תפעול, בוטים ומייל", ואבדוק.' : "כרגע אין תקלה. כדאי לדעת לפני שהשירות ייחסם; אם זה נמשך כמה ימים, לכתוב בשרשור \"תפעול, בוטים ומייל\".",
+  raw: [...problems.map(p => p.raw), ...raws].filter(Boolean).join(" · ") });
+const noticeText = () => msg({ kind: "info", area: "bots", title: "🧹 תחזוקה חודשית: ענפים ישנים במאגר הקוד",
+  text: `${stale.length} ענפים בלי שינוי יותר מ-30 יום. אפשר למחוק אותם כשנוח, הם לא מפריעים לכלום.`, raw: stale.join(", ") });
 
 // send what was found: the alert (loud) when there is a problem, otherwise the monthly branch list (silent)
 async function deliver({ alert, notice }) {
@@ -94,10 +102,10 @@ if (E.INFRA_REPORT) {   // fallback in Site smoke test: the report the infra job
   await deliver(report);
 } else {
   for (const step of [liveness, cloudflareQuota, brevoQuota, staleBranches]) {
-    try { await step(); } catch (e) { notes.push(`${step.name}: ${String(e.message).slice(0, 100)}`); }
+    try { await step(); } catch (e) { notes.push(`בדיקה אחת לא רצה עד הסוף: ${he(e.message)}`); raws.push(`${step.name}: ${String(e.message).slice(0, 100)}`); }
   }
-  console.log(notes.join("\n") || "no notes");
-  const report = problems.length ? { alert: alertText() } : notes.some(n => n.startsWith("ענפים")) ? { notice: noticeText() } : {};
+  console.log([...notes, ...raws].join("\n") || "no notes");
+  const report = problems.length ? { alert: alertText() } : stale.length ? { notice: noticeText() } : {};
   if (E.INFRA_HANDOFF === "1") {
     console.log(report.alert || report.notice || "all clear: nothing to hand over");
     const line = report.alert || report.notice ? `report=${JSON.stringify(report)}\n` : "";   // one line: JSON escapes the newlines
