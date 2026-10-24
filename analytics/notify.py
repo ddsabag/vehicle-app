@@ -9,11 +9,11 @@ def _post(url, data, headers):
         return r.read()
 
 
-def telegram(text, html_path):
+def telegram(text, html_path, silent=True):
     tok, chat = os.environ.get("TELEGRAM_BOT_TOKEN"), os.environ.get("TELEGRAM_CHAT_ID")
     if not (tok and chat): return None
     base = f"https://api.telegram.org/bot{tok}/"
-    _post(base + "sendMessage", urllib.parse.urlencode({"chat_id": chat, "text": text, "disable_web_page_preview": "true", "disable_notification": "true"}).encode(),
+    _post(base + "sendMessage", urllib.parse.urlencode({"chat_id": chat, "text": text, "disable_web_page_preview": "true", "disable_notification": "true" if silent else "false"}).encode(),
           {"Content-Type": "application/x-www-form-urlencoded"})
     if html_path:
         b = uuid.uuid4().hex; body = bytearray()
@@ -48,9 +48,10 @@ def email(subject, text, html_path):
     return "email"
 
 
-def send_all(subject, text, html_path):
+def send_all(subject, text, html_path, silent=True):
+    """silent: the Telegram message does not ring (a red report rings, by the Telegram standard of 24.10)."""
     sent, errs = [], []
-    for name, fn in (("telegram", lambda: telegram(text, html_path)), ("slack", lambda: slack(text)), ("email", lambda: email(subject, text, html_path))):
+    for name, fn in (("telegram", lambda: telegram(text, html_path, silent)), ("slack", lambda: slack(text)), ("email", lambda: email(subject, text, html_path))):
         try:
             r = fn()
             if r: sent.append(r)

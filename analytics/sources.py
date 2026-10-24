@@ -151,6 +151,9 @@ def brevo(per, cfg):
     return {"total": total, "new": {"cur": new_cur, "prev": new_prev}, "lost": {"cur": lost(per["start"], per["end"]), "prev": lost(per["prev_start"], per["prev_end"])}, "last": last}
 
 
+SRC_HE = {"search_console": "חיפוש בגוגל (Search Console)", "cloudflare": "ביקורי האתר (Cloudflare)", "psi": "מהירות האתר", "brevo": "דיוור (Brevo)", "play": "Google Play"}
+
+
 def collect_all(per, cfg):
     """Returns ({source: data}, [notes]) for every source whose secrets are present."""
     res, notes = {}, []
@@ -158,7 +161,7 @@ def collect_all(per, cfg):
     plan = [("search_console", search_console, have_sa), ("cloudflare", cloudflare, bool(os.environ.get("CF_API_TOKEN") and os.environ.get("CF_ACCOUNT_ID"))),
             ("psi", psi, True), ("brevo", brevo, bool((os.environ.get("BREVO_API_KEY") or os.environ.get("BREVO_KEY")) and os.environ.get("BREVO_LIST_ID"))), ("play", play_vitals, have_sa and os.environ.get("PLAY_VITALS", "1") != "0")]
     for name, fn, on in plan:
-        if not on: (notes.append(f"המקור {name} לא הוגדר, ולכן לא נכלל.") if name != "brevo" else None); continue
+        if not on: (notes.append(f"המקור {SRC_HE.get(name, name)} לא הוגדר, ולכן לא נכלל.") if name != "brevo" else None); continue
         try: res[name] = fn(per, cfg)
         except Exception as e:
             import sys; print(f"source {name} failed: {type(e).__name__}: {str(e)[:200]}", file=sys.stderr)    # technical detail stays in the Actions log, never in the report

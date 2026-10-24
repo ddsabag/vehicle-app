@@ -10,6 +10,7 @@
 // times, never a number from the dashboard. Never fails the run on a read problem (one notice line, green), so it cannot page every 30 minutes.
 //   node live-watch.mjs            the watch (DRY=1: print what it would do, send and dispatch nothing; LIVE_WATCH=dry: the same)
 //   node live-watch.mjs selftest   offline checks of the judgement, on the requests Cloudflare recorded on 20.10
+import { msg } from "./tg-text.mjs";
 const E = process.env, say = (...a) => console.log(...a);
 const WINDOW_MIN = 35, SLOW_MS = 20000, SLOW_STEPS = 2, ERR_N = 3, GAP_MS = 6 * 36e5;
 const SCRIPT = "luchit-live", DEPLOY = "workers-deploy.yml";
@@ -51,7 +52,7 @@ async function gh(method, path, body) {
 async function telegram(text) {
   try {
     const r = await fetch(`https://api.telegram.org/bot${E.TELEGRAM_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" }, signal: AbortSignal.timeout(20000),
-      body: JSON.stringify({ chat_id: E.TELEGRAM_CHAT_ID, text, disable_web_page_preview: true }) });
+      body: JSON.stringify({ chat_id: E.TELEGRAM_CHAT_ID, text, disable_web_page_preview: true, parse_mode: "HTML" }) });
     say("telegram", r.status); return r.ok;
   } catch (e) { say("telegram failed:", String(e.message || e).slice(0, 80)); return false; }
 }
@@ -93,18 +94,23 @@ async function watch() {
     action = d.ok ? "redeploy dispatched" : `redeploy dispatch refused (${d.status})`;
   }
   say(action);
-  const what = v.stuck ? `ב-${WINDOW_MIN} הדקות האחרונות רוב הבקשות לנתונים לקחו 20 שניות ויותר (${v.slowSteps} פרקי זמן של 5 דקות). המסך מציג בינתיים את הנתונים האחרונים שנשמרו, עם השעה שלהם.`
-    : `${v.errors} בקשות ב-${WINDOW_MIN} הדקות האחרונות הסתיימו בשגיאה של ה-Worker (${Object.keys(v.errBy).join(", ")}).`;
-  const next = redeployedAt ? `פריסה מחדש כבר רצה ב-${hhmm(redeployedAt)} ולא עזרה, ולכן לא הופעלה שוב. צריך לבדוק את הקוד של ה-Worker.`
-    : /dispatched|would/.test(action) ? "הפעלתי פריסה מחדש של ה-Worker מ-main, וזה בדרך כלל פותר תקיעה. אם זה חוזר, צריך לבדוק את הקוד שלו."
-    : "ניסיתי להפעיל פריסה מחדש של ה-Worker והיא לא הופעלה. אפשר להפעיל אותה ידנית: Workers deploy, mode on, workers live.";
-  const text = `⚠️ לוחית: ${v.stuck ? "הדשבורד /live לא ענה בזמן" : "הדשבורד /live החזיר שגיאות"}\n\n${what}\n${next}`;
+  // the Telegram standard (24.10): tag line, a short Hebrew title, why it matters, what to do; Cloudflare's own status keys go folded
+  const ST_HE = { exceededResources: "חרג ממגבלת המשאבים", scriptThrewException: "זרק שגיאה", exceededCpu: "חרג מזמן המעבד", internalError: "תקלה פנימית ב-Cloudflare" };
+  const errs = Object.keys(v.errBy).map(k => ST_HE[k] || "שגיאה אחרת").filter((x, i, a) => a.indexOf(x) === i).join(", ");
+  const text = msg({ kind: "today", area: "measure", title: v.stuck ? "הדשבורד /live לא ענה בזמן" : "הדשבורד /live החזיר שגיאות",
+    text: (v.stuck ? `ב-${WINDOW_MIN} הדקות האחרונות רוב הבקשות לנתונים לקחו 20 שניות ויותר. המסך מציג בינתיים את הנתונים האחרונים שנשמרו, עם השעה שלהם.`
+      : `${v.errors} בקשות ב-${WINDOW_MIN} הדקות האחרונות נכשלו בשרת של הדשבורד (${errs}).`)
+      + (redeployedAt ? ` פריסה מחדש כבר רצה ב-${hhmm(redeployedAt)} ולא עזרה, ולכן לא הופעלה שוב.`
+        : /dispatched|would/.test(action) ? " הפעלתי פריסה מחדש של הדשבורד, וזה בדרך כלל פותר את זה." : " ניסיתי להפעיל פריסה מחדש של הדשבורד, והיא לא הופעלה."),
+    what: redeployedAt ? "לכתוב לי בשרשור \"דשבורד LIVE\", צריך לבדוק את הקוד שלו."
+      : /dispatched|would/.test(action) ? "" : "להריץ את פריסת ה-Workers של הדשבורד (בפעולות של GitHub), או לכתוב לי בשרשור \"דשבורד LIVE\".",
+    raw: [`slow steps ${v.slowSteps}, errors ${v.errors}`, Object.keys(v.errBy).length ? JSON.stringify(v.errBy) : "", action, "manual: Workers deploy, mode on, workers live"].filter(Boolean).join(" | ") });
   if (until - told < GAP_MS) { say(`already told at ${new Date(told).toISOString()}, no message`); return 0; }
   if (dry) { say("would send:\n" + text); return 0; }
   if (!E.TELEGRAM_BOT_TOKEN || !E.TELEGRAM_CHAT_ID) { say("notice: TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID are not set: no message"); return 0; }
   const link = E.RUN_URL || "";
-  if (v.stuck) await (router ? router.alert("day", "live:stuck", text, link, { today: "loud", plain: true, legacy: () => telegram(text) }) : telegram(text));
-  else await (router ? router.alert("day", "live:error", text, link, { today: "loud", plain: true, legacy: () => telegram(text) }) : telegram(text));
+  if (v.stuck) await (router ? router.alert("day", "live:stuck", text, link, { today: "loud", legacy: () => telegram(text) }) : telegram(text));
+  else await (router ? router.alert("day", "live:error", text, link, { today: "loud", legacy: () => telegram(text) }) : telegram(text));
   return 0;
 }
 

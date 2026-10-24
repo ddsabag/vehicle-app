@@ -38,6 +38,8 @@ def selftest():
     assert decide({"0": (1000, 50), "1": (1000, 52)})[0] is None
     assert decide({"0": (1000, 50), "1": (1000, 90)})[0] == 1
     assert decide({"0": (1000, 90), "1": (1000, 50)})[0] == 0
+    m = message([("share_btn", 1, "0: 50/1000 (5.0%), 1: 90/1000 (9.0%), z=3.40")])
+    assert m.startswith("✅ בוצע · מדידה\n") and "z=" in m.splitlines()[-1] and "z=" not in "\n".join(m.splitlines()[:-1])
     print("selftest ok")
 
 
@@ -48,6 +50,14 @@ def counts(client, prop, event, since):
     for (e, v), (n,) in rows:
         if e and e != "(not set)" and v and v != "(not set)": out.setdefault(e, {})[v] = int(n)
     return out
+
+
+def message(changed):
+    """The Telegram standard (24.10): tag line, a plain sentence per experiment, the closing line; the experiment's id and z go last, as detail."""
+    lines = ["✅ בוצע · מדידה", "ניסוי הסתיים" if len(changed) == 1 else f"{len(changed)} ניסויים הסתיימו"]
+    lines += [f"וריאנט {w} ניצח בביטחון סטטיסטי, והתוצאה נשמרה." for _, w, _ in changed]
+    lines += ["👌 לא צריך לעשות כלום.", "פרטים טכניים: " + "; ".join(f"{n}: {s}" for n, _, s in changed)]
+    return "\n".join(lines)
 
 
 def telegram(text):
@@ -74,11 +84,11 @@ def main():
         print(name, win, summary)
         if win is not None:
             cur["winner"] = win; cur["decided"] = date.today().isoformat(); cur["summary"] = summary
-            changed.append(f"ניסוי {name}: המנצח הוא וריאנט {win}. {summary}")
+            changed.append((name, win, summary))
     if changed and "--dry" not in sys.argv:
         json.dump(cfg, open(FILE, "w", encoding="utf8"), ensure_ascii=False, indent=1)
-        open("out-experiments.txt", "w", encoding="utf8").write("\n".join(changed))
-        telegram("🧪 לוחית: ניסוי הסתיים\n" + "\n".join(changed))
+        open("out-experiments.txt", "w", encoding="utf8").write("\n".join(f"{n}: {w}. {s}" for n, w, s in changed))
+        telegram(message(changed))
 
 
 if __name__ == "__main__":
