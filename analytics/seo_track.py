@@ -4,6 +4,7 @@ Usage: python analytics/seo_track.py <state_dir> [--dry] [--out FILE]   (needs G
 --out FILE writes the message to FILE instead of sending it: SEO daily digest runs this on Mondays and sends it inside its own message (one SEO message).
 The file is written before --dry stops, so a dry run still shows the combined message."""
 import json, os, sys, urllib.parse, urllib.request
+import re
 from datetime import date, timedelta
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -92,7 +93,7 @@ def main():
     tot_c, tot_i = sum(v["c"] for v in cur.values()), sum(v["i"] for v in cur.values())
     head = f"🔍 מעקב SEO שבועי: {len(cur)} דפים בגוגל, {tot_i} חשיפות, {tot_c} קליקים (7 ימים)."
     msg = head + "\n" + ("\n".join(lines) if lines else "אין שינוי דירוג חריג.")
-    print(msg)
+    print(re.sub(r"\d", "#", msg))  # the Actions log is public: digits masked; the full text goes to --out and Telegram
     if out:
         os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
         with open(out, "w", encoding="utf-8") as f: f.write(msg)

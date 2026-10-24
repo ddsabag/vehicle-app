@@ -1,6 +1,6 @@
 // Daily Google Search digest to Telegram: impressions, clicks, CTR, position, top queries and pages, split by page type.
 // Search Console numbers arrive about 2-3 days late, so the digest reports the latest day that has data and says which day it is.
-// DRY_RUN=1 prints instead of sending. Alerts and digest go to Telegram only.
+// DRY_RUN=1 prints instead of sending, with every digit masked (the Actions log is public: no business numbers in it). Alerts and digest go to Telegram only.
 // Mondays: SEO_WEEKLY names a file with the weekly ranking report (analytics/seo_track.py --out, the job before this one); it is added at the end of
 // the digest, so Monday has one SEO message. Too long for one Telegram message, or the digest itself failed: the weekly part goes as its own silent message.
 import crypto from "node:crypto";
@@ -21,7 +21,7 @@ async function token() {
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 async function telegram(text, silent = false) {
   const tok = process.env.TELEGRAM_BOT_TOKEN, chat = process.env.TELEGRAM_CHAT_ID;
-  if (DRY || !tok || !chat) { console.log("--- Telegram (" + (DRY ? "dry run" : "no credentials") + ") ---\n" + text); return DRY; }
+  if (DRY || !tok || !chat) { console.log("--- Telegram (" + (DRY ? "dry run" : "no credentials") + ", digits masked) ---\n" + String(text).replace(/\d/g, "#")); return DRY; }
   const r = await fetch(`https://api.telegram.org/bot${tok}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true, disable_notification: silent }) });
   if (!r.ok) console.log("telegram failed", r.status);
