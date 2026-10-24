@@ -32,10 +32,12 @@ const errText = (errors, since) => `⚠️ <b>הבדיקה האוטומטית ש
   `פירוט: ${errors.map(esc).join("; ")}\n\nמה לעשות: ${since ? "זה לא עובר מעצמו, כדאי לכתוב לי." : "בדרך כלל כלום, והבדיקה הבאה תרוץ בעוד כמה שעות. אם זה חוזר, כתבו לי."}\n\nזמן: ${ilTime()} (שעון ישראל)`;
 // true when Telegram took the message (or a dry run printed it). A failed send is only logged, never fails the run; an alert with a
 // state key is tried again on the next run, and its /live flash ("f:" + key) goes out once, not on every retry.
-async function telegram(text, silent = false, key = "") {
-  if (!key || !seen["f:" + key]) { await flash("reviews", silent ? "info" : "alert", text); if (key) seen["f:" + key] = Date.now(); }
+// The flash branch and the job log are public: flashText is the alert without business numbers (default: the text itself), and a dry
+// run prints the text with every digit masked.
+async function telegram(text, silent = false, key = "", flashText = text) {
+  if (!key || !seen["f:" + key]) { await flash("reviews", silent ? "info" : "alert", flashText); if (key) seen["f:" + key] = Date.now(); }
   const tok = process.env.TELEGRAM_BOT_TOKEN, chat = process.env.TELEGRAM_CHAT_ID;
-  if (DRY || !tok || !chat) { console.log("--- Telegram (" + (DRY ? "dry run" : "no credentials") + ") ---\n" + text); return DRY; }
+  if (DRY || !tok || !chat) { console.log("--- Telegram (" + (DRY ? "dry run" : "no credentials") + ", digits masked) ---\n" + String(text).replace(/\d/g, "#")); return DRY; }
   try {
     const r = await fetch(`https://api.telegram.org/bot${tok}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true, disable_notification: silent }) });
@@ -92,9 +94,9 @@ try {
     const row = ((await r.json()).rows || [])[0]; if (!row) continue;
     const m = Object.fromEntries((row.metrics || []).map(x => [x.metric, +(x.decimalValue?.value ?? NaN)]));
     const pct = m[metric] * 100, users = m.distinctUsers, k = `vitals:${kind}:${JSON.stringify(row.startTime)}`;
-    console.log(`${kind}: ${pct.toFixed(2)}% (${users} users)`);
+    console.log(`${kind}: ${pct.toFixed(2)}%${users >= 20 ? "" : " (too few users to alert)"}`);   // the user count is a business number: never in the public log
     if (pct >= limit && users >= 20 && !seen[k]) {
-      if (await telegram(`🚨 <b>שיעור ${label} גבוה בגוגל פליי</b>\n${pct.toFixed(2)}% ממשתמשים (סף גוגל ${limit}%), מתוך ${users} משתמשים ביום ${d.toISOString().slice(0, 10)}.\nפירוט לפי גרסה ומכשיר: Play Console ← Android vitals.`, false, k)) seen[k] = Date.now();
+      if (await telegram(`🚨 <b>שיעור ${label} גבוה בגוגל פליי</b>\n${pct.toFixed(2)}% ממשתמשים (סף גוגל ${limit}%), מתוך ${users} משתמשים ביום ${d.toISOString().slice(0, 10)}.\nפירוט לפי גרסה ומכשיר: Play Console ← Android vitals.`, false, k, `🚨 <b>שיעור ${label} גבוה בגוגל פליי</b>\n${pct.toFixed(2)}% ממשתמשים (סף גוגל ${limit}%). פירוט ב-Play Console ← Android vitals.`)) seen[k] = Date.now();
     }
   }
 } catch (e) { errors.push("vitals: " + e.message); console.log("vitals failed:", e.message); }
