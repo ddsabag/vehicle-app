@@ -182,6 +182,14 @@ async function alert(env, level, key, text, link = "", { legacy } = {}) {
 }
 // <<< alert-lib v1
 
+const MAIL_TODO = {
+  privacy: ["🟠 לטיפול היום", "👉 מה לעשות: לענות מהג'ימייל תוך כמה ימים. בקשת מחיקה או פרטיות מחייבת תשובה לפי החוק."],
+  crash: ["🟠 לטיפול היום", "👉 מה לעשות: לענות מהג'ימייל ולהעביר את התיאור לשרשור \"מוצר ושחרורים\"."],
+  data: ["🟠 לטיפול היום", "👉 מה לעשות: לענות מהג'ימייל ולהעביר את מספר הרכב לשרשור \"נתונים ואמינות\" לבדיקה."],
+  biz: ["🔵 לידיעה", "👉 מה לעשות: לענות מהג'ימייל אם זה רלוונטי."],
+  other: ["🔵 לידיעה", "👉 מה לעשות: לענות מהג'ימייל אם צריך."],
+  promo: ["🔵 לידיעה", "👌 לא צריך לעשות כלום (נראה כמו דיוור או פרסום)."],
+};
 export default {
   async email(message, env) {
     let body = "", tried = false;
@@ -199,7 +207,9 @@ export default {
       const raw = await new Response(message.raw).text();
       const subject = decodeWords(message.headers.get("subject") || "(בלי נושא)");
       const { cls, text } = summarise(message.from, subject, raw);
-      body = `${cls.icon} <b>פנייה חדשה ללוחית: ${cls.label}</b>\nמאת: ${esc(message.from)}\nנושא: ${esc(subject)}\n\n${esc(text) || "(אין טקסט רגיל בהודעה)"}\n\nלמענה: השיבו מהמייל (נשמר גם בג'ימייל)`;
+      // the shared message shape of .github/scripts/tg-text.mjs: classification line, the mail itself, what to do
+      const [tag, todo] = MAIL_TODO[cls.key] || MAIL_TODO.other;
+      body = `<b>${tag} · מייל</b>\n<b>פנייה חדשה ללוחית: ${cls.label}</b>\nמאת: ${esc(message.from)}\nנושא: ${esc(subject)}\n\n${esc(text) || "(אין טקסט רגיל בהודעה)"}\n\n${todo}`;
       const bulk = isBulk(message.headers);
       await alert(env, bulk ? "silent" : LEVEL[cls.key] || "summary", "mail:" + (bulk ? "bulk" : cls.key), body, "", { legacy });
     } catch (e) {

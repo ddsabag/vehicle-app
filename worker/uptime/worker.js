@@ -19,8 +19,12 @@ const version = env => (env.CF_VERSION_METADATA?.id ? { "x-luchit-version": env.
 const MARK = new TextEncoder().encode('id="plate"'), MARK_MAX = 256 * 1024;
 const UP = { probe: 10000, retry: 5000, hb: 5000, stale: 50 * 36e5, remind: 24 * 36e5 - 90 * 6e4, ghHours: [0, 6, 12, 18] };   // remind = alert.mjs REMIND_MS
 const TRIAL = "🧪 (מצב ניסיון) ";
-const WHY = { timeout: "פג הזמן", net: "שגיאת רשת", marker: 'הסימן id="plate" חסר', redirect: "הפניה לא צפויה" };   // else "HTTP <status>"
+const WHY = { timeout: "האתר לא ענה בזמן", net: "תקלת רשת בדרך לאתר", marker: "הדף נטען אבל בלי תיבת המספר", redirect: "הפניה לא צפויה" };   // else "השרת החזיר קוד <status>"
 const MAIL_CLS = { privacy: "פרטיות או מחיקה", crash: "תקלה באפליקציה" };
+// the shared message shape of .github/scripts/tg-text.mjs (a Worker is one file, so the few lines it needs are copied): classification line, short text, what to do
+const TAG = { down: "<b>🔴 דחוף · אתר</b>", back: "<b>✅ בוצע · אתר</b>", mail: "<b>🟠 לטיפול היום · מייל</b>", gh: "<b>🟠 לטיפול היום · בוטים</b>" };
+const TODO = { down: '👉 מה לעשות: לפתוח את luchit.app בטלפון, ברשת סלולרית. אם גם שם הוא לא נפתח, לכתוב בשרשור "תפעול, בוטים ומייל". אם הוא נפתח, כנראה תקלה רגעית, וההודעה הבאה תגיד שהוא חזר.',
+  mail: "👉 מה לעשות: לענות מהג'ימייל. הפרטים בהודעות השקטות מהלילה.", gh: '👉 מה לעשות: לבדוק ב-githubstatus.com אם יש תקלה אצל GitHub. אם אין, לכתוב בשרשור "תפעול, בוטים ומייל".' };
 
 // >>> alert-lib v1
 const QUIET = { tz: "Asia/Jerusalem", dayStart: 8, dayEnd: 22 };   // CI: must equal alert.mjs QUIET
@@ -246,13 +250,13 @@ async function tick(env) {
   if (day && u.morning !== today) { if (keys) u.tg = await tgCheck(env); u.morning = today; }
   if (!u.hello && keys && await send("✅ בדיקת הזמינות פועלת (כל 10 דקות)", { silent: true })) u.hello = true;
   const lines = list => list.map(id => { const p = u.probes[id];
-    return `${PROBES[id].name} לא עונה כבר ${dur(now - ms(p.since))} (${p.fails} בדיקות ברצף, כל 10 דקות).\nבדיקה אחרונה: ${WHY[p.last] || "HTTP " + p.last}`; }).join("\n");
-  if (down.length && await fire("critical", "up:" + down.join("+"), `🚨 <b>לוחית לא זמינה</b>\n${lines(down)}\nזמן: ${ilTime(new Date(now))}`))
+    return `${PROBES[id].name} לא עונה כבר ${dur(now - ms(p.since))} (${p.fails} בדיקות ברצף, כל 10 דקות). בבדיקה האחרונה: ${WHY[p.last] || "השרת החזיר קוד " + p.last}.`; }).join("\n");
+  if (down.length && await fire("critical", "up:" + down.join("+"), `${TAG.down}\n<b>לוחית לא זמינה</b>\n${lines(down)}\n${TODO.down}\nזמן: ${ilTime(new Date(now))}`))
     for (const id of down) Object.assign(u.probes[id], { pagedAt: iso(now), back: null });
   if (rem.length && await fire("critical", "up:" + rem.join("+"),
-    `🔁 תזכורת: זה עדיין קורה (מאז ${ilTime(new Date(ms(u.probes[rem[0]].since)))})\n\n🚨 <b>לוחית לא זמינה</b>\n${lines(rem)}\nזמן: ${ilTime(new Date(now))}`))
+    `🔁 תזכורת: זה עדיין קורה (מאז ${ilTime(new Date(ms(u.probes[rem[0]].since)))})\n\n${TAG.down}\n<b>לוחית לא זמינה</b>\n${lines(rem)}\n${TODO.down}\nזמן: ${ilTime(new Date(now))}`))
     for (const id of rem) u.probes[id].remAt = iso(now);
-  if (back.length && await send((page ? "" : TRIAL) + back.map(id => `✅ ${PROBES[id].name} חזר לעבוד אחרי ${dur(u.probes[id].back)}`).join("\n"), { silent: true }))
+  if (back.length && await send((page ? "" : TRIAL) + `${TAG.back}\n` + back.map(id => `${PROBES[id].name} חזר לעבוד אחרי ${dur(u.probes[id].back)}.`).join("\n") + "\n👌 לא צריך לעשות כלום.", { silent: true }))
     for (const id of back) u.probes[id].back = null;   // a failed line is sent again on the next OK tick
 
   // the ring for luchit-mail's night pointers: listed on every daytime tick (84 lists/day of the free 1,000), so a pointer written
@@ -263,7 +267,7 @@ async function tick(env) {
     const ring = ptr.slice(0, 20).map(x => { const c = MAIL_CLS[String(x.c).split(":").pop()], at = ilTime(new Date(ms(x.at)));
       return `• ${c ? "פנייה בנושא " + c : "פנייה"} התקבלה ב-${now - ms(x.at) > 12 * 36e5 ? at : at.slice(-5)}`; });
     if (ptr.length > 20) ring.push(`ועוד ${ptr.length - 20} פניות`);
-    if (!ring.length || await send(`☀️ <b>מהלילה</b>\n${ring.join("\n")}\nהפרטים בהודעות השקטות ובג'ימייל.`))   // a failed ring keeps the keys
+    if (!ring.length || await send(`${TAG.mail}\n☀️ <b>פניות שהגיעו בלילה</b>\n${ring.join("\n")}\n${TODO.mail}`))   // a failed ring keeps the keys
       await Promise.all(names.map(k => within(env.ALERTS.delete(k)).catch(() => {})));   // a key left behind expires by its TTL (48 h)
   } catch (e) { console.log("morning ring: KV failed, next tick retries:", String(e).slice(0, 120)); }
 
@@ -273,7 +277,7 @@ async function tick(env) {
     if (hb) { u.gh.t = iso(hb); u.gh.seenAt = iso(now); }
     const t = ms(u.gh.t);
     if (u.gh.seenAt && now - t > UP.stale && day && !(now - ms(u.gh.staleAt) < UP.remind)) {
-      const text = `⚠️ האוטומציות ב-GitHub לא רצו כבר יומיים (דופק אחרון: ${ilTime(new Date(t))}). כדאי לבדוק את Actions.\nhttps://github.com/${REPO}/actions`;
+      const text = `${TAG.gh}\n<b>הבוטים ב-GitHub לא רצו כבר יומיים</b>\nהדופק האחרון שלהם היה ב-${ilTime(new Date(t))}, ובינתיים שום בדיקה אוטומטית לא רצה.\n${TODO.gh}\nhttps://github.com/${REPO}/actions`;
       const [ok] = await Promise.all([fire("day", "up:github-stale", text), page ? emailSend(env, "⚠️ לוחית: האוטומציות ב-GitHub לא רצו כבר יומיים", text) : false]);
       if (ok) u.gh.staleAt = iso(now);
     }

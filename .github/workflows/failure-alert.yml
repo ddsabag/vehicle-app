@@ -58,7 +58,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
-          sparse-checkout: .github/scripts/flash.mjs
+          sparse-checkout: |
+            .github/scripts/flash.mjs
+            .github/scripts/tg-text.mjs
+            .github/scripts/bot-names.json
+            .github/scripts/alert.mjs
           sparse-checkout-cone-mode: false
       - name: Send the alert
         env:
@@ -77,6 +81,16 @@ jobs:
           TITLE: ${{ github.event.workflow_run.display_title }}
         run: |
           [ -n "$TELEGRAM_BOT_TOKEN" ] || { echo "no Telegram credentials"; exit 0; }
+          # one Hebrew message per case (tg-text.mjs wfFailure: classification line, what happened, what to do, the log link); level from alert.mjs WF_LEVELS
+          send() {
+            local out silent text
+            out=$(node .github/scripts/tg-text.mjs wf "$1" "$NAME" "$WF" "$URL" 2>/dev/null) || out=""
+            if [ -n "$out" ]; then silent=${out%%$'\n'*}; text=${out#*$'\n'}; else silent=0; text=$(printf 'לוחית: הבוט "%s" נכשל\n%s' "$NAME" "$URL"); fi
+            [ "$1" = repeat ] && silent=1
+            curl -s -o /dev/null -w "telegram %{http_code}\n" "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$text" \
+              --data-urlencode "parse_mode=HTML" --data-urlencode "disable_web_page_preview=true" --data-urlencode "disable_notification=$([ "$silent" = 1 ] && echo true || echo false)"
+          }
+          HE=$(node .github/scripts/tg-text.mjs bot "$NAME" 2>/dev/null) || HE=$NAME
           # names of the jobs of a run that started and did not succeed (failed, timed out, or cancelled while running), one per line; "x" when the API
           # call fails. A job cancelled while it waited in a queue has no steps and is not listed.
           bad() { local n; n=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1/jobs?per_page=100" \
@@ -97,9 +111,8 @@ jobs:
             esac
             if [ -n "$newer" ]; then echo "cancelled before any job started, superseded by run #$newer: no alert"; exit 0; fi
             echo "cancelled before any job started, no newer run of this workflow (of this part) took its place: the work is lost, loud alert"
-            text=$(printf '🔴 לוחית: תהליך אוטומטי לא רץ\nהתהליך "%s" בוטל לפני שהתחיל, כנראה כי הרצה של תהליך אחר תפסה את מקומו בתור, ולכן העבודה שלו לא נעשתה. כדאי להריץ אותו שוב:\n%s' "$NAME" "$URL")
-            curl -s -o /dev/null -w "telegram %{http_code}\n" "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$text" --data-urlencode "disable_web_page_preview=true"
-            node .github/scripts/flash.mjs infra alert "תהליך אוטומטי לא רץ: $NAME" "$URL"
+            send lost
+            node .github/scripts/flash.mjs infra alert "בוט לא רץ: $HE" "$URL"
             exit 0
           fi
           # walk back to the previous completed run: it failed too, in one of the same jobs, within 26 h = repeat. A manual run that succeeded ends the streak;
@@ -143,10 +156,8 @@ jobs:
           done
           if [ -n "$repeat" ]; then
             echo "the previous run failed too: silent message, no new flash"
-            text=$(printf '🔴 לוחית: תהליך אוטומטי נכשל שוב\nהתהליך "%s" נכשל גם בהרצה הקודמת, לכן ההודעה שקטה. הלוג:\n%s' "$NAME" "$URL")
-            curl -s -o /dev/null -w "telegram %{http_code}\n" "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$text" --data-urlencode "disable_web_page_preview=true" --data-urlencode "disable_notification=true"
+            send repeat
             exit 0
           fi
-          text=$(printf '🔴 לוחית: תהליך אוטומטי נכשל\nהתהליך "%s" נכשל ולא שלח התראה משלו. כדאי לבדוק את הלוג:\n%s' "$NAME" "$URL")
-          curl -s -o /dev/null -w "telegram %{http_code}\n" "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$text" --data-urlencode "disable_web_page_preview=true"
-          node .github/scripts/flash.mjs infra alert "תהליך אוטומטי נכשל: $NAME" "$URL"
+          send failed
+          node .github/scripts/flash.mjs infra alert "בוט נכשל: $HE" "$URL"
