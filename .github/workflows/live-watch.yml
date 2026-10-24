@@ -34,6 +34,8 @@ jobs:
             .github/scripts/alert.mjs
             .github/scripts/bots-status.mjs
             .github/scripts/flash.mjs
+            .github/scripts/tg-text.mjs
+            .github/scripts/bot-names.json
             .github/workflows/
           sparse-checkout-cone-mode: false
       - uses: actions/setup-node@v7

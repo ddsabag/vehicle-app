@@ -25,6 +25,11 @@ def periods(today):
     return {"start": end - timedelta(days=6), "end": end, "prev_start": end - timedelta(days=13), "prev_end": end - timedelta(days=7)}
 
 
+def tag_line(status):
+    """The Telegram standard (24.10): the message's first line, above the Sunday block too. A red week needs a look today (and rings)."""
+    return "🟠 לטיפול היום · מדידה" if status == "red" else "🔵 לידיעה · מדידה"
+
+
 def brief(d, a, link, ins=None):
     em = {"green": "🟢", "yellow": "🟡", "red": "🔴"}[a["status"]]
     k = {x["key"]: x for g in a["kpis"].values() for x in g}
@@ -50,6 +55,7 @@ def brief(d, a, link, ins=None):
     if ins and ins["lines"]:
         lines += ["", "תובנות:"] + ins["lines"]
     lines += ["", "המלצות:"] + [f"{i}. {r}" for i, r in enumerate(a["recommendations"], 1)]
+    lines += ["", "👉 מה לעשות: לעבור על החריגות האדומות למעלה, ואם משהו לא ברור, לכתוב לי בשרשור \"דשבורד LIVE\"." if a["status"] == "red" else "👌 לא צריך לעשות כלום."]
     if link: lines += ["", link]
     return "\n".join(lines)
 
@@ -122,7 +128,8 @@ def main():
         head, complete = sunday_block(a_.out)
         try: text, whole = with_block(head, text)
         except Exception: whole = False   # never let the block cost the brief
-        sent, errs = notify.send_all(f"לוחית, דוח שבועי {per['end']}", text, html_path)
+        text = tag_line(res["status"]) + "\n" + text
+        sent, errs = notify.send_all(f"לוחית, דוח שבועי {per['end']}", text, html_path, silent=res["status"] != "red")
         print("sent via:", sent or "nothing (no channel configured)")
         for e in errs: print("delivery error:", e)
         # the "mark" job then sets the router's hb.summaryAt. While summary/silent items are held for Sunday (ALERT_ROUTE), only a whole block
