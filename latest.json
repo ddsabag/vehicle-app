@@ -1,7 +1,7 @@
 {
  "v": 1,
- "d": "2026-10-23",
- "seed": "20261023",
+ "d": "2026-10-24",
+ "seed": "20261024",
  "cars": 40,
  "sampled": 40,
  "mism": 0,
@@ -9,7 +9,7 @@
  "refused": 0,
  "fields": {
   "counts.model_year_active": [
-   9,
+   10,
    0
   ],
   "fee.licence": [
@@ -85,11 +85,11 @@
    0
   ],
   "owners.current_no_log": [
-   28,
+   26,
    0
   ],
   "owners.durations": [
-   8,
+   10,
    0
   ],
   "owners.first_owner": [
@@ -105,7 +105,7 @@
    0
   ],
   "owners.insight_company_now": [
-   8,
+   10,
    0
   ],
   "owners.insight_dealer_now": [
@@ -113,19 +113,19 @@
    0
   ],
   "owners.insight_lease": [
-   8,
+   10,
    0
   ],
   "owners.insight_rental": [
-   8,
+   10,
    0
   ],
   "owners.insight_was_dealer": [
-   8,
+   10,
    0
   ],
   "owners.now_line": [
-   8,
+   10,
    0
   ],
   "owners.timeline": [
@@ -145,19 +145,19 @@
    0
   ],
   "recalls.line_honest": [
-   32,
+   35,
    0
   ],
   "recalls.model_count": [
-   32,
+   33,
    0
   ],
   "recalls.model_extra": [
-   32,
+   33,
    0
   ],
   "recalls.model_fits": [
-   19,
+   7,
    0
   ],
   "recalls.model_missing": [
@@ -173,7 +173,7 @@
    0
   ],
   "recalls.pending_banner": [
-   32,
+   33,
    0
   ],
   "recalls.tab_shown": [
@@ -197,7 +197,7 @@
    0
   ],
   "settlements.scope": [
-   5,
+   4,
    0
   ],
   "specs.axles": [
@@ -289,7 +289,7 @@
    0
   ],
   "status.cancel_date": [
-   4,
+   3,
    0
   ],
   "status.cancel_pill": [
@@ -297,11 +297,11 @@
    0
   ],
   "status.cancel_reason": [
-   4,
+   3,
    0
   ],
   "status.heavy_note": [
-   1,
+   3,
    0
   ],
   "status.hold_insight": [
@@ -353,7 +353,7 @@
    0
   ],
   "tow.hook": [
-   25,
+   23,
    0
   ],
   "tow.limits": [
