@@ -2883,11 +2883,6 @@ async function loadStatus(){
   } catch {}
 }
 const appBox = D => `<section class="appbox"><h3>באתר רואים את הרכב. באפליקציה הוא עובד בשבילכם</h3><p>אותה בדיקה, ועוד:</p><ul><li>התראה כשהטסט מתקרב או שנפתח ריקול</li><li>הודעה אם הרכב עבר בעלות או ירד מהכביש</li><li>הסדרי פשרה: בדיקה אם ייתכן שהרכב שלכם נכלל בהטבה מהיבואן</li><li>תיק רכב: מה הבא, טיפולים ומסמכים, על הטלפון</li><li>צילום לוחית ואמירת מספר, במקום להקליד</li></ul><button type="button" class="btn" data-url="${playWeb("result_box")}" data-hint="side">להורדה ב-Google Play</button></section>`;
-const appHint = D => {
-  if (window.AndroidApp || IS_IOS || D.kind === "model" || D.isCancelled || sharedHere(D)) return "";
-  const t = D.recalls && D.recalls.length || !(D.primary && D.primary.key === "active") ? "התראה כשיוצא ריקול חדש לרכב הזה" : "תזכורת לפני שהטסט פג";   // the app reads test dates from the active register only
-  return `<button type="button" class="apphint" data-url="${playWeb("result_hint")}" data-hint="overview"><span aria-hidden="true">🔔</span><span><b>רוצים לדעת ראשונים?</b> ${t}</span><span class="gox">באפליקציה ›</span></button>`;
-};
 /* web visitors who arrive from a shared report (s= in the link): a bar that opens the app on this very car (Android), or a calendar reminder (everyone else) */
 const IS_ANDROID = /Android/i.test(navigator.userAgent);
 /* iPhone and iPad: there is no app for them, so nothing points them at Google Play */
@@ -2967,7 +2962,7 @@ function renderResult(){
   if (simpleOn()) html.push(simpleCard(D));
   else {
       html.push(`<div class="tabs" role="tablist">${tabs.map(([k, t]) => `<button type="button" role="tab" id="tab-${k}" data-tab="${k}" aria-selected="${k === currentTab}" aria-controls="tabpanel" tabindex="${k === currentTab ? 0 : -1}">${t}${k === "recalls" && recallCount ? `<i class="hot">${recallCount}</i>` : ""}</button>`).join("")}</div>`);
-      html.push(`<div class="tab-body" id="tabpanel" role="tabpanel" aria-labelledby="tab-${currentTab}">${TAB_FN()[currentTab](D)}${currentTab === "overview" ? appHint(D) : ""}</div>`);
+      html.push(`<div class="tab-body" id="tabpanel" role="tabpanel" aria-labelledby="tab-${currentTab}">${TAB_FN()[currentTab](D)}</div>`);
   }
   html.push(`</div>`);
   html.push(srcFoot());
