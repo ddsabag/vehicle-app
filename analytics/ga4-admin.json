@@ -22,6 +22,9 @@
     { "parameterName": "camp", "description": "every web event of a visit that came by a tagged link: its topic (utm_campaign, ?c= of /go/ links) (/live sources, per post)" }
   ],
   "keyEvents": [
-    { "eventName": "upgrade_open", "countingMethod": "ONCE_PER_EVENT" }
+    { "eventName": "upgrade_open", "countingMethod": "ONCE_PER_EVENT" },
+    { "eventName": "car_save", "countingMethod": "ONCE_PER_EVENT" },
+    { "eventName": "share", "countingMethod": "ONCE_PER_EVENT" },
+    { "eventName": "web_install_click", "countingMethod": "ONCE_PER_EVENT" }
   ]
 }
