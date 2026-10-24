@@ -1,0 +1,16 @@
+[0s] data invariants 2026-10-24: reading the registers in full
+ok   fresh    2 (limit עד 3 ימים)
+ok   tests    0.87 (limit לפחות מחצית מהקצב הרגיל)
+ok   renewal  1107 (limit עד 5,000)
+ok   dates    0 (limit עד 2,000)
+ok   reuse    5 (limit עד 100)
+ok   owners   0.00111 (limit עד 0.5%)
+ok   km       {"rows":2492147,"share":0.7} (limit לפחות 2 מיליון שורות, 60% עם ק״מ)
+ok   hook     461 (limit עד 2,000)
+ok   price    0 (limit עד 100)
+ok   wltp     16 (limit עד 250)
+ok   recalls  0 (limit עד 100)
+ok   pubcancel 0 (limit עד 50)
+ok   lend     0 (limit עד 50)
+info {"activeCars":4191320,"testsPerDayLastWeek":7384,"testsPerDayUsual":8450,"publicCancelledForGood":3293,"motoInImport":1813,"heavyInPublic":11000,"carsWithOwnershipLog":2482731,"ownerTypeNotInLatestMonth":2767}
+[965s] every invariant holds
