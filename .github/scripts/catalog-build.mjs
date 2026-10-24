@@ -42,24 +42,25 @@ async function call(params, tries = 5) {
   }
   throw new Error("failed " + JSON.stringify(params).slice(0, 100) + ": " + (last && last.message));
 }
-// the whole dataset, page by page; the "fields" form is tried first (smaller answers), the plain form when the server rejects it.
-// A read that ends short of the dataset's own total is an error (a short page mid-scan would otherwise publish half a catalogue),
-// as in modelstats.mjs, market.mjs and data-invariants.mjs
+// the whole dataset, page by page, sorted by _id (the datastore's unsorted pages are not stable); the "fields" form is tried first (smaller
+// answers), the plain form when the server rejects it. A short page is only the end when nothing lies past it: one more row is asked for there,
+// and a row found means the read stopped early, which is an error (a catalogue built on part of a dataset is not published). The dataset's own
+// total is no measure: for the price list it is an estimate (130,885 on 24.10.2026, while every read ends at its 102,116 rows)
 async function scan(id, fields, onRows) {
-  let total = 0, all = null, useFields = !!fields;
+  let total = 0, useFields = !!fields;
+  const q = off => ({resource_id: id, limit: String(PAGE), offset: String(off), sort: "_id"});
   for (let off = 0; ; off += PAGE) {
     let r;
-    // sorted by _id: without a sort the datastore's pages are not stable (on 24.10.2026 the unsorted price list ended after 102,116 of its
-    // 130,885 rows, so about a fifth of the list prices never reached the catalogue); data-invariants.mjs reads the same way
-    const q = {resource_id: id, limit: String(PAGE), offset: String(off), sort: "_id"};
-    try { r = await call(useFields ? {...q, fields} : q, useFields ? 2 : 5); }
+    try { r = await call(useFields ? {...q(off), fields} : q(off), useFields ? 2 : 5); }
     catch (e) { if (!useFields) throw e; useFields = false; off -= PAGE; continue; }
-    if (all === null && Number.isFinite(r.total)) all = r.total;
     if (!r.records.length) break;
     onRows(r.records); total += r.records.length;
-    if (r.records.length < PAGE) break;
+    if (r.records.length < PAGE) {
+      const more = await call({...q(total), limit: "1", fields: "_id"});
+      if (more.records.length) throw new Error(`${id}: the read stopped after ${total} rows, and the dataset goes on`);
+      break;
+    }
   }
-  if (all && total < all * 0.995) throw new Error(`${id}: read ${total} of ${all}`);
   return total;
 }
 const val = v => v === null || v === undefined ? "" : typeof v === "string" ? v.trim() : v;
