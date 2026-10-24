@@ -66,16 +66,20 @@ async function call(params, tries = 8) {
   throw new Error("failed " + last);
 }
 const PAGE = 32000;
-// every row of a dataset, in _id order; a read that ends short of the total is an error (no check runs on half a register)
+// every row of a dataset, in _id order; a read that ends early is an error (no check runs on half a register). A short page is the end only
+// when no row lies past it: the dataset's own total is no measure, since for the price list it is an estimate (130,885 on 24.10.2026, while
+// every read ends at its 102,116 rows), and holding the read to it would fail the whole weekly check
 async function scanLive(id, fields, onRows) {
-  let total = 0, all = null;
+  let total = 0;
   for (let off = 0; ; off += PAGE) {
     const r = await call({ resource_id: id, limit: String(PAGE), offset: String(off), sort: "_id", fields });
-    if (all === null) all = r.total;
     onRows(r.records); total += r.records.length;
-    if (r.records.length < PAGE) break;
+    if (r.records.length < PAGE) {
+      const more = await call({ resource_id: id, limit: "1", offset: String(total), sort: "_id", fields: "_id" });
+      if (more.records.length) throw new Error(`${id}: the read stopped after ${total} rows, and the dataset goes on`);
+      break;
+    }
   }
-  if (total < all * 0.995) throw new Error(`${id}: read ${total} of ${all}`);
   return total;
 }
 

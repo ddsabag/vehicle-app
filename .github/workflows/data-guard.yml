@@ -48,10 +48,11 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      - name: Save the baseline (first run, or accepted)
-        if: steps.guard.outputs.fresh == 'true' || inputs.accept
+      - name: Save the baseline (first run, or accepted; or only new datasets added to it)
+        if: steps.guard.outputs.fresh == 'true' || inputs.accept || (hashFiles('out/schema-grown.json') != '' && !inputs.dry_run)
         run: |
           cd out
+          if [ "${{ steps.guard.outputs.fresh }}" != "true" ] && [ "${{ inputs.accept }}" != "true" ]; then mv schema-grown.json schema.json; fi
           git init -q -b guard-baseline
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
