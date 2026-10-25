@@ -1,4 +1,4 @@
-// One-off (probe-perf branch, not for main), 24.10: the pipe canary counted 8 code errors on 23.10 against a median of 0. Which errors,
+// One-off (probe-perf branch, not for main), 24.10 (third run 25.10: slow checks and PageSpeed for the weekly report of 18-24.10): the pipe canary counted 8 code errors on 23.10 against a median of 0. Which errors,
 // from where (web or app, which app version, which hour), and do the live pages throw today? Part 1 reads GA4 (js_error and
 // lookup_failed of kind js_err, with car checks for scale). Part 2 opens the live site in Chromium (phone and desktop) on pages that
 // changed lately and records every page error and console error with its line. Demo plate only. Business numbers never reach the log
@@ -38,14 +38,33 @@ if (sa && !E.SKIP_GA) {
   await part("ga.daily", () => ga({ dateRanges: days("2026-10-10", "today"), dimensions: [{ name: "date" }, { name: "platform" }, { name: "eventName" }, { name: "customEvent:kind" }], metrics: [{ name: "eventCount" }, { name: "totalUsers" }],
     dimensionFilter: inList("eventName", ["js_error", "lookup_failed"]) }));
   // 22-24.10 in detail: hour, app version, source of the visit, country
-  await part("ga.detail", () => ga({ dateRanges: days("2026-10-22", "today"), dimensions: [{ name: "dateHour" }, { name: "platform" }, { name: "eventName" }, { name: "customEvent:kind" }, { name: "appVersion" }, { name: "countryId" }, { name: "customEvent:src" }], metrics: [{ name: "eventCount" }], dimensionFilter: ERR }));
-  await part("ga.devices", () => ga({ dateRanges: days("2026-10-22", "today"), dimensions: [{ name: "date" }, { name: "platform" }, { name: "deviceModel" }, { name: "operatingSystemWithVersion" }, { name: "browser" }], metrics: [{ name: "eventCount" }], dimensionFilter: ERR }));
+  await part("ga.detail", () => ga({ dateRanges: days("2026-10-24", "today"), dimensions: [{ name: "dateHour" }, { name: "platform" }, { name: "eventName" }, { name: "customEvent:kind" }, { name: "appVersion" }, { name: "countryId" }, { name: "customEvent:src" }], metrics: [{ name: "eventCount" }], dimensionFilter: ERR }));
+  await part("ga.devices", () => ga({ dateRanges: days("2026-10-24", "today"), dimensions: [{ name: "date" }, { name: "platform" }, { name: "deviceModel" }, { name: "operatingSystemWithVersion" }, { name: "browser" }], metrics: [{ name: "eventCount" }], dimensionFilter: ERR }));
   // scale: car checks and page views per day and platform
   await part("ga.scale", () => ga({ dateRanges: days("2026-10-10", "today"), dimensions: [{ name: "date" }, { name: "platform" }, { name: "eventName" }], metrics: [{ name: "eventCount" }],
     dimensionFilter: inList("eventName", ["car_lookup", "web_visit", "first_open", "link_out", "exp_expose"]) }));
+  // 25.10 run: the weekly report's 25% slow checks (18-24.10): car checks by day, platform, app version and duration bucket, so the share
+  // over 5 s (5to10, gt10) can be set beside the over-3.5 s note the report counted
+  await part("ga.dur", () => ga({ dateRanges: days("2026-10-18", "2026-10-24"), dimensions: [{ name: "date" }, { name: "platform" }, { name: "appVersion" }, { name: "customEvent:dur" }], metrics: [{ name: "eventCount" }],
+    dimensionFilter: eq("eventName", "car_lookup") }));
+  await part("ga.slowNote", () => ga({ dateRanges: days("2026-10-18", "2026-10-24"), dimensions: [{ name: "date" }, { name: "platform" }, { name: "eventName" }], metrics: [{ name: "eventCount" }],
+    dimensionFilter: inList("eventName", ["lookup_slow", "lookup_failed", "car_lookup"]) }));
   // events fired in the same hours as the errors (what people were doing)
   await part("ga.sameHours", () => ga({ dateRanges: days("2026-10-23", "2026-10-23"), dimensions: [{ name: "dateHour" }, { name: "platform" }, { name: "eventName" }], metrics: [{ name: "eventCount" }] }));
 }
+
+// 25.10: the weekly report's "site speed dropped": PageSpeed (mobile, lab) three times per page, as the report runs it once
+await part("psi", async () => {
+  const res = [];
+  for (const u of ["https://luchit.app/", "https://luchit.app/model/"]) for (let i = 0; i < 3; i++) {
+    const q = new URLSearchParams({ url: u, strategy: "mobile", category: "performance" }); if (E.PSI_API_KEY) q.set("key", E.PSI_API_KEY);
+    try { const r = await fetch("https://www.googleapis.com/pagespeedonline/v5/runPagespeed?" + q, { signal: AbortSignal.timeout(120000) }); const j = await r.json(); const lh = j.lighthouseResult, a = lh && lh.audits;
+      res.push(lh ? { u, i, score: Math.round(lh.categories.performance.score * 100), lcp: a["largest-contentful-paint"].numericValue, cls: a["cumulative-layout-shift"].numericValue, tbt: a["total-blocking-time"].numericValue, fcp: a["first-contentful-paint"].numericValue,
+        top: Object.values(a).filter(x => x.details && x.details.type === "opportunity" && x.numericValue > 200).map(x => [x.id, Math.round(x.numericValue)]).slice(0, 6) } : { u, i, error: JSON.stringify(j).slice(0, 200) }); }
+    catch (e) { res.push({ u, i, error: String(e.message).slice(0, 120) }); }
+  }
+  return res;
+});
 
 // Part 2: the live site in a browser
 let pw = null; try { pw = await import("playwright"); } catch { /* no browser on this run */ }
