@@ -13,8 +13,8 @@
 // target (the workflow commits it back, also when the run fails). An item later than LATE_MS is marked missed and reported, never posted late.
 // Before a publish it looks at the account's latest posts: a post with the same caption from the last DEDUPE_MS means an earlier run published
 // it and died before saving state, so it is recorded as done and not posted twice.
-// An item with needs_live waits until Google Play shows that version (or a later one) PUBLISHED on the production track: a read-only call
-// with the Ship tail key SHIP_SA_JSON (tracks.releases.list, no edit is opened). Not live at its time = held and checked again every run;
+// An item with needs_live waits until Google Play shows that version (or a later one) fully rolled out (100%) on the production track: a
+// read with the Ship tail key SHIP_SA_JSON (a throwaway edit, deleted at once and never committed). Not live at its time = held and checked again every run;
 // still not live LATE_MS after its time = missed and reported, so content never promotes a screen users cannot get yet.
 // Two tokens, each optional; a network whose token is missing or refused is reported and the other one still publishes:
 //   META_PUBLISH_TOKEN  Facebook: the לוחית Page's own token (from a long-lived user token of the app "Luchit Publisher"; it does not expire),
@@ -342,7 +342,7 @@ export async function alreadyPosted(A, target, caption) {
 // ---- app version live in Google Play (items with needs_live) ----
 const vparts = v => String(v).split(".").map(Number);
 export const vcmp = (a, b) => { const x = vparts(a), y = vparts(b); for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d; } return 0; };
-// the newest version PUBLISHED on the production track ("" when none), also while a staged rollout is below 100%
+// the newest version fully rolled out (100%) on the production track ("" when none)
 export async function liveVersion() {
   const raw = String(IO.env.SHIP_SA_JSON || "").trim();
   if (!raw) throw new Error("SHIP_SA_JSON is not set, so Google Play cannot be read");
@@ -353,11 +353,17 @@ export async function liveVersion() {
     signal: AbortSignal.timeout(30000) });
   const tok = tr.ok ? (await tr.json().catch(() => ({}))).access_token : "";
   if (!tok) throw new Error(`Google sign-in failed (${tr.status})`);
-  const r = await IO.fetch(`https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${PKG}/tracks/production/releases`,
-    { headers: { authorization: "Bearer " + tok }, signal: AbortSignal.timeout(30000) });
+  // a staged rollout (20% first, Release watch takes it to 100% after 48 h) is not "live" yet: only a COMPLETED release counts. tracks.releases.list
+  // does not say how far a rollout got, so a throwaway edit is opened to read the track and deleted again (never committed, changes nothing)
+  const P = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${PKG}/edits`, H = { authorization: "Bearer " + tok };
+  const e = await IO.fetch(P, { method: "POST", headers: H, signal: AbortSignal.timeout(30000) });
+  const id = e.ok ? (await e.json().catch(() => ({}))).id : "";
+  if (!id) throw new Error(`Google Play answered ${e.status}`);
+  let r; try { r = await IO.fetch(`${P}/${id}/tracks/production`, { headers: H, signal: AbortSignal.timeout(30000) }); }
+  finally { await IO.fetch(`${P}/${id}`, { method: "DELETE", headers: H, signal: AbortSignal.timeout(30000) }).catch(() => {}); }
   if (!r.ok) throw new Error(`Google Play answered ${r.status}`);
-  const pub = ((await r.json().catch(() => ({}))).releases || []).filter(x => String(x.releaseLifecycleState || "").replace("RELEASE_LIFECYCLE_STATE_", "") === "PUBLISHED")
-    .map(x => String(x.releaseName || "").match(/\d+\.\d+(?:\.\d+)?/)?.[0]).filter(Boolean).sort(vcmp);
+  const pub = ((await r.json().catch(() => ({}))).releases || []).filter(x => x.status === "completed")
+    .map(x => String(x.name || "").match(/\d+\.\d+(?:\.\d+)?/)?.[0]).filter(Boolean).sort(vcmp);
   return pub.at(-1) || "";
 }
 
@@ -744,7 +750,7 @@ async function selftest() {
   IO.env.DRY_RUN = "1"; calls.length = 0; r = await run(tmp); delete IO.env.DRY_RUN;
   ck(!calls.some(c => c.startsWith("POST")) && !st()["2026-10-31/dry/facebook"], "a dry run posts and records nothing");
 
-  // needs_live: held (one alert) until Google Play shows the version PUBLISHED on production; missed when it never comes
+  // needs_live: held (one alert) until Google Play shows the version at 100% on production; missed when it never comes
   const crypto = await import("node:crypto");
   const { privateKey } = crypto.generateKeyPairSync("rsa", { modulusLength: 2048, privateKeyEncoding: { type: "pkcs8", format: "pem" }, publicKeyEncoding: { type: "spki", format: "pem" } });
   const k6 = path.join(tmp, "kits", "2026-11-02"); fs.mkdirSync(k6); fs.writeFileSync(path.join(k6, "e.png"), "x"); fs.writeFileSync(path.join(k6, "f.png"), "x");
@@ -752,11 +758,14 @@ async function selftest() {
     { id: "gated", type: "image", at: "2026-10-29T18:30:00Z", targets: ["facebook"], files: ["e.png"], caption: "גרסה", needs_live: "1.37" },
     { id: "never", type: "image", at: "2026-10-29T18:30:00Z", targets: ["facebook"], files: ["f.png"], caption: "לעולם לא", needs_live: "1.40" } ],
     reminders: [{ id: "tt", at: "2026-10-29T18:00:00Z", until: "2026-10-31T18:00:00Z", text: "טיקטוק אחרי הגרסה", needs_live: "1.37" }] }));
-  let releases = [{ releaseName: "127 (1.37)", releaseLifecycleState: "RELEASE_LIFECYCLE_STATE_IN_REVIEW" }, { releaseName: "123 (1.36)", releaseLifecycleState: "RELEASE_LIFECYCLE_STATE_PUBLISHED" }];
+  let releases = [{ name: "127 (1.37)", status: "inProgress", userFraction: 0.2 }, { name: "123 (1.36)", status: "completed" }];
   IO.fetch = async (u, o = {}) => {
     const s = String(u);
     if (s.startsWith("https://oauth2.googleapis.com/")) { calls.push("POST google-token"); return J({ access_token: "GOOGLE-TOKEN" }); }
-    if (s.startsWith("https://androidpublisher.googleapis.com/")) { calls.push("GET play-releases " + (o.headers?.authorization === "Bearer GOOGLE-TOKEN")); return J({ releases }); }
+    if (s.startsWith("https://androidpublisher.googleapis.com/")) {
+      if (o.method === "POST") { calls.push("POST play-edit"); return J({ id: "E1" }); }
+      if (o.method === "DELETE") { calls.push("DELETE play-edit " + s.endsWith("/edits/E1")); return J({}); }
+      calls.push("GET play-releases " + (o.headers?.authorization === "Bearer GOOGLE-TOKEN" && s.endsWith("/edits/E1/tracks/production"))); return J({ releases }); }
     return realFetch(u, o);
   };
   const gated = () => st()["2026-11-02/gated/facebook"] || {};
@@ -764,11 +773,12 @@ async function selftest() {
   ck(!gated().status && gated().held && logs.some(l => l.includes("social:held:2026-11-02-gated")) && !calls.includes("POST google-token"), "no Play key: held with one alert, Play not called");
   IO.env.SHIP_SA_JSON = JSON.stringify({ client_email: "ship@x.iam.gserviceaccount.com", private_key: privateKey });
   logs.length = 0; calls.length = 0; clock = T("2026-10-29T19:00:00Z"); r = await run(tmp);
-  ck(!gated().status && !logs.some(l => l.includes("social:held")) && calls.includes("GET play-releases true"), "1.37 in review: still held, no second alert");
+  ck(!gated().status && !logs.some(l => l.includes("social:held")) && calls.includes("GET play-releases true"), "1.37 at 20% of users: still held, no second alert");
+  ck(calls.includes("DELETE play-edit true") && !calls.some(c => c.includes(":commit")), "the edit opened to read the track is deleted, never committed");
   ck(calls.filter(c => c === "POST google-token").length === 1, "Google Play is read once per run");
-  releases = [{ releaseName: "127 (1.37)", releaseLifecycleState: "RELEASE_LIFECYCLE_STATE_PUBLISHED" }, ...releases.slice(1)];
+  releases = [{ name: "127 (1.37)", status: "completed" }];
   clock = T("2026-10-29T21:00:00Z"); r = await run(tmp);
-  ck(gated().status === "done" && !st()["2026-11-02/never/facebook"]?.status, "1.37 published: the gated post goes out, the 1.40 one still waits");
+  ck(gated().status === "done" && !st()["2026-11-02/never/facebook"]?.status, "1.37 at 100%: the gated post goes out, the 1.40 one still waits");
   ck(st()["2026-11-02/tt/telegram"]?.status === "done", "a reminder that waits for a version goes out once the version is live");
   clock = T("2026-10-30T01:00:00Z"); logs.length = 0; r = await run(tmp);
   ck(st()["2026-11-02/never/facebook"].status === "missed" && logs.some(l => l.includes("social:missed:2026-11-02-never") && l.includes("1.40")), "never live within 6 h: missed, the alert names the version");
