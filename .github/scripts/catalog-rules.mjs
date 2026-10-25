@@ -93,7 +93,7 @@ if (!first && (found.cutsUnknown.length || found.newModels.length)) {
   const n = found.newModels.length, c = found.cutsUnknown.length, known = found.cutsKnown.length + found.typoTwins.length + found.specTwins.length;
   const msg = tgMsg({ kind: c ? "today" : "info", area: "data", title: c ? `נמצאו ${c} שמות דגם קצוצים שהכללים לא מכירים` : `נמצאו ${n} דגמים חדשים במאגר`,
     text: [n && c ? `בנוסף נמצאו ${n} דגמים חדשים במאגר.` : "", c ? "הבוחר יציג אותם בשם קצוץ עד שיתווסף להם כלל." : "הבוחר כבר מציג אותם.", `הכללים הקיימים טיפלו ב-${known} מקרים נוספים (${meta.u}).`].filter(Boolean).join(" "),
-    what: c ? "לכתוב לי בשרשור \"נתונים ואמינות\" כדי שאוסיף כלל." : "",
+    what: c ? "כלום. זה עובר לבד לטיפול בשרשור \"נתונים ואמינות\", ועדכון יגיע כשזה מטופל." : "",
     raw: [n ? `new models: ${found.newModels.slice(0, 8).join(", ")}${n > 8 ? "…" : ""}` : "", c ? `unknown cuts: ${found.cutsUnknown.slice(0, 6).join(" | ")}` : ""].filter(Boolean).join("; ") }) + "\n🔗 https://github.com/ddsabag/vehicle-app/blob/catalog-data/rules-report.md";
   fs.writeFileSync(`${OUT}/rules-alert.txt`, msg);
 }

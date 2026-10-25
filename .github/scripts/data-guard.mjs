@@ -7,6 +7,7 @@
 //   node data-guard.mjs --send     send the Telegram alert for out/guard.json (DRY_RUN=1 prints it)
 //   node data-guard.mjs --selftest offline check of the comparison logic
 import fs from "node:fs";
+import crypto from "node:crypto";
 import { flash } from "./flash.mjs";
 import { SETS } from "./datasets.mjs";
 import { msg } from "./tg-text.mjs";
@@ -98,7 +99,13 @@ function selftest() {
 }
 
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-async function telegram(text, silent = false) {
+// through the alert router (alert.mjs): a breaking change rings today, a harmless one waits for the Sunday summary; the direct send stays the fallback
+async function telegram(text, silent = false, key = silent ? "guard:warn" : "guard:break") {
+  let router = null; try { router = await import("./alert.mjs"); } catch { /* direct below */ }
+  if (router) return !!(await router.alert(silent ? "summary" : "day", key, text, process.env.RUN_URL || "", { today: silent ? "silent" : "loud", legacy: () => direct(text, silent) })).delivered;
+  return direct(text, silent);
+}
+async function direct(text, silent) {
   await flash("data", silent ? "info" : "alert", text);
   const token = process.env.TELEGRAM_BOT_TOKEN, chat = process.env.TELEGRAM_CHAT_ID;
   if (process.env.DRY_RUN === "1" || !token || !chat) { console.log("--- Telegram (dry run) ---\n" + text); return true; }
@@ -138,9 +145,10 @@ async function send() {
   const raw = [...bad, ...warn].map(f => f.tech || f.text).join("; ");
   const text = bad.length
     ? msg({ kind: "urgent", area: "data", title: "משרד התחבורה שינה מבנה של מאגר, והאפליקציה נפגעת", text: `בניית גרסה חדשה של האפליקציה נעצרת עד שהקוד יותאם.\n${bad.map(line).join("\n")}${warn.length ? `\nבנוסף, לא פוגע באפליקציה:\n${warn.map(line).join("\n")}` : ""}`,
-        what: "לכתוב לי בשרשור \"נתונים ואמינות\". אתאים את הקוד ואאשר את המבנה החדש.", raw })
+        what: "כלום. זה עובר לבד לטיפול בשרשור \"נתונים ואמינות\", ועדכון יגיע כשזה מטופל.", raw })
     : msg({ kind: "info", area: "data", title: "שינוי קטן במבנה של מאגר", text: `האפליקציה לא נפגעת.\n${warn.map(line).join("\n")}`, what: "", raw });
-  process.exit((await telegram(text, !bad.length)) ? 0 : 1);
+  const sig = crypto.createHash("sha1").update(fs.readFileSync("out/sig.txt", "utf8")).digest("hex").slice(0, 10), h = /[a-f]/.test(sig) ? sig : "a" + sig.slice(1);   // one key per change, so the same change is not told twice
+  process.exit((await telegram(text, !bad.length, `${bad.length ? "guard:break" : "guard:warn"}:${h}`)) ? 0 : 1);
 }
 
 if (process.argv.includes("--selftest")) selftest();

@@ -39,6 +39,8 @@ jobs:
         id: check
         run: node .github/scripts/data-health-check.mjs
         env:
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}   # the alert router (alert.mjs): its state lives on the branch alert-state
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           PREVIEW: ${{ inputs.preview && '1' || '0' }}
           DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

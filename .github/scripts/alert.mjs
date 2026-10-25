@@ -63,7 +63,8 @@ export const LABELS = {
   "guard:core":          { he: "משרד התחבורה שינה עמודה שבדיקת הרכב קוראת", sect: "wait" },
   "guard:break":         { he: "משרד התחבורה שינה מבנה של מאגר, בניית אנדרואיד עצורה", sect: "wait" },
   "guard:warn":          { he: "שינוי לא שובר במבנה מאגר של משרד התחבורה", sect: "fyi" },
-  "ministry":            { he: "מאגר של משרד התחבורה לא תקין: {ids}", sect: "fail" },   // ids: SETS[].title from datasets.mjs (waiting.mjs)
+  "ministry":            { he: "מאגר של משרד התחבורה לא תקין: {ids}", sect: "fail",
+                           ids: { active: "רכב פרטי ומסחרי", tech: "היסטוריית מפרט ורישוי", recalls: "ריקולים לפי רכב", modelRecalls: "ריקולים לפי דגם", wltp: "מפרט טכני", owners: "היסטוריית בעלויות" } },   // ids: SETS[].title from datasets.mjs (waiting.mjs)
   "checker:data-health": { he: "בדיקת בריאות הנתונים קרסה", sect: "fail" },
   "review":              { he: "ביקורת 1–2 כוכבים בגוגל פליי, לענות", sect: "wait" },
   "review3":             { he: "ביקורת 3 כוכבים בגוגל פליי, כדאי לענות", sect: "wait" },
@@ -77,6 +78,7 @@ export const LABELS = {
   "seo-auto:notice":     { he: "שינוי SEO יעלה לאתר בעוד 24 שעות ({id})", sect: "none" },
   "seo-auto":            { he: "שינוי SEO ({id})", sect: "none" },
   "catalog":             { he: "שמות דגמים חדשים בקטלוג לבדיקה", sect: "wait" },
+  "recalls":             { he: "בדיקת הריקולים היומית מצאה משהו לבדוק", sect: "fail" },   // recall-health.mjs (Model catalogue)
   "mag:fail":            { he: "כתבת מגזין לא פורסמה, הבדיקות נכשלו: {id}", sect: "wait" },
   "mag":                 { he: "כתבת מגזין פורסמה: {id}", sect: "none" },
   "webwatch:rollback":   { he: "האתר הוחזר לגרסה הקודמת בגלל מהירות, צריך להחליט מתי להחזיר", sect: "wait" },
@@ -135,7 +137,7 @@ export const LABELS = {
 export const FAMILIES_IN_USE = [
   "wf", "smoke", "expiry", "infra", "infra-branches", "guard:core", "guard:break", "guard:warn", "ministry", "checker:data-health",
   "review", "review3", "vitals", "reviews:error", "seo:daily", "seo:nodata", "seo:error", "seo:index", "mention",
-  "seo-auto:blocked", "seo-auto:wait", "seo-auto:notice", "seo-auto:done", "catalog", "mag:pub", "mag:fail",
+  "seo-auto:blocked", "seo-auto:wait", "seo-auto:notice", "seo-auto:done", "catalog", "recalls", "mag:pub", "mag:fail",
   "webwatch:rollback", "webwatch:rollback-failed", "meta:uptime", "weekly:missing", "workers:refused", "workers:rollback", "workers:failed", "workers:forced",
   "ship:done", "ship:notes", "ship:fail", "ship:dry", "listing:done", "listing:dry", "listing:fail",
   "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:wait", "prod:fail",
