@@ -32,6 +32,8 @@ jobs:
             .github/scripts/release-watch.mjs
             .github/scripts/play-production.mjs
             .github/scripts/play-alpha.mjs
+            .github/scripts/tg-text.mjs
+            .github/scripts/bot-names.json
             .github/scripts/alert.mjs
           sparse-checkout-cone-mode: false
       - uses: actions/setup-node@v7

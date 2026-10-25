@@ -5,6 +5,7 @@
 // the digest, so Monday has one SEO message. Too long for one Telegram message, or the digest itself failed: the weekly part goes as its own silent message.
 import crypto from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
+import { msg, tag, todo, heError } from "./tg-text.mjs";   // the Telegram standard of 24.10: class line, plain Hebrew, what to do, English folded
 const DRY = process.env.DRY_RUN === "1", SITE = "sc-domain:luchit.app", ORIGIN = "https://luchit.app/";
 const sa = JSON.parse(process.env.GA_SERVICE_ACCOUNT_JSON || "null");
 if (!sa) { console.log("no service account secret, nothing to do"); process.exit(0); }
@@ -33,7 +34,7 @@ const unseal = blob => { const raw = Buffer.from(blob, "base64"), key = crypto.c
   const d = crypto.createDecipheriv("aes-256-gcm", key, raw.subarray(0, 12)); d.setAuthTag(raw.subarray(raw.length - 16));
   return Buffer.concat([d.update(raw.subarray(12, raw.length - 16)), d.final()]).toString("utf8"); };
 if (process.env.SEO_WEEKLY) { try { const t = readFileSync(process.env.SEO_WEEKLY, "utf8").trim(); WEEKLY = (process.env.SEO_WEEKLY.endsWith(".enc") ? unseal(t) : t).trim(); } catch (e) { console.log("no weekly report:", e.message); } }
-const weeklyAlone = () => telegram(esc(WEEKLY), true);   // silent, like the SEO tracker message it replaces
+const weeklyAlone = () => telegram(tag("info", "seo") + "\n" + esc(WEEKLY) + "\n" + todo(), true);   // silent, like the SEO tracker message it replaces
 // Re-run of a Monday run whose daily part was already delivered (Re-run failed jobs also re-runs this job when the weekly part failed):
 // SEO_DIGEST_SENT=1 sends only the weekly report, as re-running SEO tracker did, never the same digest twice (also a manual weekly_only run, as running SEO tracker did). SEO_SENT_MARK names the file
 // written once the daily part is delivered (the workflow keeps it for the run's later attempts).
@@ -93,7 +94,7 @@ try {
   const end = addDays(iso(new Date()), -1), start = addDays(end, -20);
   const days = (await q({ startDate: start, endDate: end, dimensions: ["date"] })).map(r => ({ d: r.keys[0], c: r.clicks, i: r.impressions, p: r.position })).sort((a, b) => a.d.localeCompare(b.d));
   if (!days.length) {
-    const ok = await sendDigest("📈 <b>לוחית בגוגל, עדכון יומי</b>\n\nעדיין אין נתוני חיפוש ב-Search Console. גוגל מתחיל להציג חשיפות אחרי כמה ימים מהגשת מפת האתר, והנתונים מתעכבים בכ-2 עד 3 ימים. אעדכן כשיופיעו.", true);
+    const ok = await sendDigest(msg({ kind: "info", area: "seo", title: "📈 לוחית בגוגל: עדיין אין נתוני חיפוש", text: "גוגל מתחיל להציג חשיפות אחרי כמה ימים מהגשת מפת האתר, והנתונים מתעכבים בכ-2 עד 3 ימים. אעדכן כשיופיעו." }), true);
     process.exit(WEEKLY && !ok ? 1 : 0);   // a weekly report that was not delivered fails the run (and its state is not saved), as SEO tracker did
   }
   const last = days[days.length - 1];
@@ -121,6 +122,7 @@ try {
     : `האתר מקבל כניסות מגוגל: ${n(cur.c)} ב-7 הימים האחרונים.`;
   // Daily view: the verdict, four numbers, and only what changed. Position, page-type split and the glossary are for Sundays.
   const lines = [
+    tag("info", "seo"),
     `📈 <b>לוחית בגוגל</b> · נתוני ${dm(last.d)} <i>(גוגל מתעכב 2 עד 3 ימים)</i>`,
     "",
     `<b>${verdict}</b>`,
@@ -139,10 +141,13 @@ try {
     if (secLine) lines.push(`הופענו לפי סוג דף: ${secLine}`);
     lines.push("", "<i>הופעה = האתר הוצג למישהו בתוצאות. כניסה = הוא לחץ עליו. עמוד ראשון בגוגל = מקומות 1 עד 10.</i>");
   }
+  lines.push("", todo());
   const ok = await sendDigest(lines.join("\n"), true);
   process.exit(ok ? 0 : 1);
 } catch (e) {
-  let ok = await telegram(`⚠️ <b>הדוח היומי מ-Search Console לא הצליח לרוץ</b>\nהסיבה: ${esc(String(e.message || e).slice(0, 300))}\nהבדיקה תרוץ שוב מחר. אם זה חוזר, כנראה שחשבון השירות אינו מחובר לנכס luchit.app ב-Search Console (הרשאת Restricted מספיקה) או ש-Google Search Console API כבוי בפרויקט.`);
+  const raw = String(e.message || e).slice(0, 300), why = heError(raw).split("\n<blockquote")[0];
+  let ok = await telegram(msg({ kind: "today", area: "seo", title: "הסיכום היומי מגוגל לא הצליח לרוץ", text: `${why} הבדיקה תרוץ שוב מחר.`,
+    what: "אם זה חוזר גם מחר, לכתוב לי בשרשור SEO. סיבה נפוצה: חשבון השירות הוסר מהנכס luchit.app ב-Search Console (מספיקה הרשאה מוגבלת, Restricted), או ש-Search Console API כבוי בפרויקט.", raw }));
   if (ok) markSent();   // that error message stands for the day's digest: a re-run sends only the weekly report
   if (WEEKLY) ok = (await weeklyAlone()) && ok;   // the weekly report was built by its own job: still deliver it, silently and apart from the loud error
   process.exit(ok ? 0 : 1);

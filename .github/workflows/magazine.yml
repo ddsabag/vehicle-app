@@ -99,6 +99,7 @@ jobs:
         run: |
           # Dudu 2026-10-15: publish on its own after the automatic checks; a failed check sends an alert (monthly: and opens a PR instead).
           tg() { [ -n "$TELEGRAM_BOT_TOKEN" ] && curl -s -o /dev/null "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$1" --data-urlencode "disable_notification=${2:-false}" || true; }   # 2nd argument "true" = silent (routine notice)
+          cls() { node .github/scripts/tg-text.mjs tag "$1" seo; }   # the Telegram standard's first line (plain text), e.g. "✅ בוצע · SEO"
           if [ "$KIND" = monthly ]; then
             node .github/scripts/pages.mjs
             paths=(magazine sitemap.xml model)
@@ -119,7 +120,7 @@ jobs:
             git commit -m "$msg"
             git push origin HEAD:main || { git pull --rebase -q origin main && git push origin HEAD:main; }
             gh api -X POST "repos/$GITHUB_REPOSITORY/pages/builds" >/dev/null 2>&1 || true
-            tg "המגזין פורסם: $title https://luchit.app/magazine/$slug/" true
+            tg "$(cls done)"$'\n'"כתבה חדשה במגזין עלתה לאתר"$'\n'"$title"$'\n'"https://luchit.app/magazine/$slug/"$'\n'"👌 לא צריך לעשות כלום." true
             node .github/scripts/flash.mjs content info "המגזין פורסם: $title" "https://luchit.app/magazine/$slug/"
           elif [ "$KIND" = monthly ]; then
             branch="magazine/$slug"
@@ -128,11 +129,11 @@ jobs:
             git commit -m "Magazine: article for $slug"
             git push --force origin "$branch"
             gh pr create --base main --head "$branch" --title "Magazine: $slug" --body "The automatic checks failed, so this article was not published. See the run log." || true
-            tg "כתבת המגזין $slug לא פורסמה: בדיקות ה-SEO האוטומטיות נכשלו. נפתח PR."
+            tg "$(cls today)"$'\n'"כתבת המגזין החודשית לא עלתה"$'\n'"הבדיקות האוטומטיות של הדפים נכשלו, ולכן הכתבה ($slug) נשמרה בבקשת שינוי (PR) ב-GitHub ולא פורסמה."$'\n'"👉 מה לעשות: לכתוב לי בשרשור SEO, ואבדוק ואפרסם אותה."
             node .github/scripts/flash.mjs content alert "כתבת המגזין $slug לא פורסמה: בדיקות ה-SEO האוטומטיות נכשלו, נפתח PR"
           else
             # a data article is not kept: the next weekly run writes it again. The red run also makes Failure alert page, as before.
-            tg "כתבת המגזין $slug לא פורסמה: בדיקות ה-SEO האוטומטיות נכשלו."
+            tg "$(cls today)"$'\n'"כתבת נתונים במגזין לא עלתה"$'\n'"הבדיקות האוטומטיות של הדפים נכשלו ($slug). ההרצה השבועית הבאה תכתוב אותה מחדש."$'\n'"👉 מה לעשות: אם זה חוזר גם בשבוע הבא, לכתוב לי בשרשור SEO."
             node .github/scripts/flash.mjs content alert "כתבת המגזין $slug לא פורסמה: בדיקות ה-SEO האוטומטיות נכשלו"
             exit 1
           fi

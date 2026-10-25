@@ -9,6 +9,7 @@
 import fs from "node:fs";
 import { flash } from "./flash.mjs";
 import { SETS } from "./datasets.mjs";
+import { msg } from "./tg-text.mjs";
 
 const API = "https://data.gov.il/api/3/action/datastore_search";
 const BASELINE_URL = "https://raw.githubusercontent.com/ddsabag/vehicle-app/guard-baseline/schema.json";
@@ -67,15 +68,16 @@ export function compare(datasets, now, baseline) {
     const used = new Set(d.use);
     // breaking only when the column was there before; a column that was never in the baseline is a mistake in USED, not a ministry change
     for (const c of d.use) if (!(c in cur)) findings.push(old && c in old
-      ? { key: d.key, title: d.title, impact: d.impact, level: "breaking", text: `העמודה ${c} נעלמה מהמאגר, והאפליקציה קוראת אותה` }
-      : { key: d.key, title: d.title, level: "warn", text: `העמודה ${c} לא נמצאה ולא הייתה בבסיס ההשוואה, כדאי לבדוק את רשימת העמודות בקוד` });
+      ? { key: d.key, title: d.title, impact: d.impact, level: "breaking", text: `העמודה ${c} נעלמה מהמאגר, והאפליקציה קוראת אותה`, he: "שדה שהאפליקציה קוראת נעלם מהמאגר", tech: `${d.key}: column ${c} removed` }
+      : { key: d.key, title: d.title, level: "warn", text: `העמודה ${c} לא נמצאה ולא הייתה בבסיס ההשוואה, כדאי לבדוק את רשימת העמודות בקוד`, he: "שדה שרשום בקוד לא נמצא במאגר (כנראה טעות ברשימה שלנו)", tech: `${d.key}: listed column ${c} not found` });
     if (!old) continue;
     for (const [c, t] of Object.entries(old)) {
-      if (!(c in cur)) { if (!used.has(c)) findings.push({ key: d.key, title: d.title, level: "warn", text: `העמודה ${c} הוסרה (האפליקציה לא משתמשת בה)` }); }
-      else if (cur[c] !== t) findings.push({ key: d.key, title: d.title, impact: used.has(c) ? d.impact : undefined, level: used.has(c) ? "breaking" : "warn", text: `סוג העמודה ${c} השתנה מ-${t} ל-${cur[c]}` });
+      if (!(c in cur)) { if (!used.has(c)) findings.push({ key: d.key, title: d.title, level: "warn", text: `העמודה ${c} הוסרה (האפליקציה לא משתמשת בה)`, he: "שדה שהאפליקציה לא קוראת הוסר מהמאגר", tech: `${d.key}: unused column ${c} removed` }); }
+      else if (cur[c] !== t) findings.push({ key: d.key, title: d.title, impact: used.has(c) ? d.impact : undefined, level: used.has(c) ? "breaking" : "warn", text: `סוג העמודה ${c} השתנה מ-${t} ל-${cur[c]}`,
+        he: used.has(c) ? "סוג של שדה שהאפליקציה קוראת השתנה" : "סוג של שדה שהאפליקציה לא קוראת השתנה", tech: `${d.key}: column ${c} type ${t} -> ${cur[c]}` });
     }
     const added = Object.keys(cur).filter(c => !(c in old));
-    if (added.length) findings.push({ key: d.key, title: d.title, level: "info", text: `עמודות חדשות: ${added.join(", ")}` });
+    if (added.length) findings.push({ key: d.key, title: d.title, level: "info", text: `עמודות חדשות: ${added.join(", ")}`, he: "נוספו למאגר שדות חדשים", tech: `${d.key}: new columns ${added.join(", ")}` });
   }
   return findings;
 }
@@ -132,10 +134,12 @@ async function main() {
 async function send() {
   const g = JSON.parse(fs.readFileSync("out/guard.json", "utf8")), bad = g.findings.filter(f => f.level === "breaking"), warn = g.findings.filter(f => f.level === "warn");
   if (!bad.length && !warn.length) return console.log("nothing to send");
-  const line = f => `• <b>${esc(f.title)}</b>: ${esc(f.text)}${f.impact ? `\nהשפעה: ${esc(f.impact)}.` : ""}`;
+  const line = f => `• <b>${esc(f.title)}</b>: ${esc(f.he || f.text)}${f.impact ? `. מה זה אומר למשתמשים: ${esc(f.impact)}` : ""}.`;
+  const raw = [...bad, ...warn].map(f => f.tech || f.text).join("; ");
   const text = bad.length
-    ? `⛔ <b>לוחית: משרד התחבורה שינה מבנה של מאגר</b>\nהשינוי פוגע בעמודות שהאפליקציה קוראת. בניית גרסה חדשה לאנדרואיד נעצרת עד שייבדק.\n\n${bad.map(line).join("\n")}${warn.length ? `\n\nבנוסף:\n${warn.map(line).join("\n")}` : ""}`
-    : `ℹ️ <b>לוחית: שינוי קטן במבנה מאגר</b>\nהאפליקציה לא נפגעת, רק לידיעה.\n\n${warn.map(line).join("\n")}`;
+    ? msg({ kind: "urgent", area: "data", title: "משרד התחבורה שינה מבנה של מאגר, והאפליקציה נפגעת", text: `בניית גרסה חדשה של האפליקציה נעצרת עד שהקוד יותאם.\n${bad.map(line).join("\n")}${warn.length ? `\nבנוסף, לא פוגע באפליקציה:\n${warn.map(line).join("\n")}` : ""}`,
+        what: "לכתוב לי בשרשור \"נתונים ואמינות\". אתאים את הקוד ואאשר את המבנה החדש.", raw })
+    : msg({ kind: "info", area: "data", title: "שינוי קטן במבנה של מאגר", text: `האפליקציה לא נפגעת.\n${warn.map(line).join("\n")}`, what: "", raw });
   process.exit((await telegram(text, !bad.length)) ? 0 : 1);
 }
 

@@ -3,6 +3,7 @@
 // A campaign is named "magazine-<slug>"; if one already exists the script stops, so a re-run never mails twice.
 // After a draft or a send, one Telegram line (alert router, day) tells Dudu, so a draft never waits in Brevo unseen.
 import fs from "node:fs";
+import { msg } from "./tg-text.mjs";
 const MODE = process.env.MODE || "preview", KEY = process.env.BREVO_KEY, LIST = Number(process.env.BREVO_LIST_ID);
 const posts = JSON.parse(fs.readFileSync("magazine/posts.json", "utf8"));
 const post = posts.find(p => /^\d{4}-\d{2}$/.test(p.slug)) || posts[0];   // the monthly issue (slug YYYY-MM); a weekly data article can be newer
@@ -37,23 +38,24 @@ if (MODE === "send") {
   const s = await api(`/emailCampaigns/${j.id}/sendNow`, { method: "POST" });
   if (!s.ok) { console.error("send failed", s.status, (await s.text()).slice(0, 300)); process.exit(1); }
   console.log("sent");
-  await tell(`הניוזלטר של ${post.month} נשלח לרשימה: ${post.title}`);
+  await tell(msg({ kind: "done", area: "marketing", title: `הניוזלטר של ${esc(post.month)} נשלח לרשימה`, text: esc(post.title) }), true);
 } else {
   console.log("left as a draft in Brevo: review it there and press Send");
-  await tell(`טיוטת הניוזלטר של ${post.month} מחכה ב-Brevo: ${post.title}\nבקמפיינים, תחת ${name}: לקרוא ולשלוח.`);
+  await tell(msg({ kind: "today", area: "marketing", title: `טיוטת הניוזלטר של ${esc(post.month)} מחכה לך`, text: esc(post.title), what: `ב-Brevo, Campaigns, לפתוח את ${esc(name)}, לקרוא וללחוץ Send.` }));
 }
 
-async function telegram(text){
+async function telegram(text, silent = false){
   const e = process.env;
   try {
-    const r = await fetch(`https://api.telegram.org/bot${e.TELEGRAM_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: e.TELEGRAM_CHAT_ID, text, disable_web_page_preview: true }), signal: AbortSignal.timeout(20000) });
+    const r = await fetch(`https://api.telegram.org/bot${e.TELEGRAM_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: e.TELEGRAM_CHAT_ID, text, parse_mode: "HTML", disable_web_page_preview: true, disable_notification: silent }), signal: AbortSignal.timeout(20000) });
     console.log("telegram " + r.status); return r.ok;
   } catch (x) { console.log("telegram failed " + x.message); return false; }
 }
-async function tell(text){
+// text is HTML (tg-text.mjs msg); silent for a newsletter that went out (✅), loud for a draft that waits for Dudu
+async function tell(text, silent = false){
   if (!process.env.TELEGRAM_BOT_TOKEN || !process.env.TELEGRAM_CHAT_ID) { console.log("no Telegram credentials:\n" + text); return; }
   let router = null; try { router = await import("./alert.mjs"); } catch {}
-  const legacy = () => telegram(text);
-  if (router) await router.alert("day", name, text, "https://app.brevo.com/", { today: "loud", plain: true, legacy });
+  const legacy = () => telegram(text, silent);
+  if (router) await router.alert("day", name, text, "https://app.brevo.com/", { today: silent ? "silent" : "loud", legacy });
   else await legacy();
 }
