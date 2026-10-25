@@ -81,21 +81,37 @@ def cloudflare(per, cfg):
     return {"cur": total(per["start"], per["end"]), "prev": total(per["prev_start"], per["prev_end"]), "sections": parts}
 
 
-def psi(per, cfg):
+# the Lighthouse opportunities a page most often has, in plain Hebrew; any other one keeps its English title
+FIX_HE = {"unused-javascript": "להוריד קוד JavaScript שלא בשימוש בדף", "render-blocking-resources": "לטעון אחרי הציור את מה שחוסם אותו",
+          "unused-css-rules": "להוריד CSS שלא בשימוש", "modern-image-formats": "תמונות בפורמט קל יותר", "uses-optimized-images": "לכווץ תמונות",
+          "offscreen-images": "לטעון תמונות רק כשמגיעים אליהן", "uses-text-compression": "לדחוס את הקבצים", "server-response-time": "תשובה מהירה יותר מהשרת"}
+
+
+def psi_run(u):
+    q = {"url": u, "strategy": "mobile", "category": "performance"}
+    if os.environ.get("PSI_API_KEY"): q["key"] = os.environ["PSI_API_KEY"]
+    for wait in (0, 20, 45):    # PageSpeed answers 429 when called without a key; a short backoff usually gets through
+        time.sleep(wait)
+        try: return _http("https://www.googleapis.com/pagespeedonline/v5/runPagespeed?" + urllib.parse.urlencode(q), timeout=120)
+        except Exception as e:
+            if "429" not in str(e): raise
+    raise RuntimeError("PageSpeed מגביל בקשות בלי מפתח (429). הוסיפו סוד PSI_API_KEY, בחינם")
+
+
+def psi(per, cfg, runs=3):
+    """Mobile lab speed per URL: the median of 3 runs, since one run moves by up to 10 points (25.10: the home page gave 84, 93, 84),
+    plus the opportunity that saves the most time, so a slow page comes with what to fix."""
     out = []
     for u in cfg["sources"]["psi_urls"]:
-        q = {"url": u, "strategy": "mobile", "category": "performance"}
-        if os.environ.get("PSI_API_KEY"): q["key"] = os.environ["PSI_API_KEY"]
-        j = None
-        for wait in (0, 20, 45):    # PageSpeed answers 429 when called without a key; a short backoff usually gets through
-            time.sleep(wait)
-            try: j = _http("https://www.googleapis.com/pagespeedonline/v5/runPagespeed?" + urllib.parse.urlencode(q), timeout=120); break
-            except Exception as e:
-                if "429" not in str(e): raise
-        if j is None: raise RuntimeError("PageSpeed מגביל בקשות בלי מפתח (429). הוסיפו סוד PSI_API_KEY, בחינם")
-        lh = j["lighthouseResult"]; a = lh["audits"]
-        out.append({"url": u, "score": round(lh["categories"]["performance"]["score"] * 100), "lcp": round(a["largest-contentful-paint"]["numericValue"] / 1000, 1),
-                    "cls": round(a["cumulative-layout-shift"]["numericValue"], 3), "tbt": round(a["total-blocking-time"]["numericValue"])})
+        rs = []
+        for _ in range(runs):
+            lh = psi_run(u)["lighthouseResult"]; a = lh["audits"]
+            ops = sorted(((k, (v.get("details") or {}).get("overallSavingsMs") or 0) for k, v in a.items()), key=lambda x: -x[1])
+            rs.append({"score": round(lh["categories"]["performance"]["score"] * 100), "lcp": round(a["largest-contentful-paint"]["numericValue"] / 1000, 1),
+                       "cls": round(a["cumulative-layout-shift"]["numericValue"], 3), "tbt": round(a["total-blocking-time"]["numericValue"]),
+                       "fix": FIX_HE.get(ops[0][0], a[ops[0][0]].get("title", ops[0][0])) if ops and ops[0][1] >= 300 else None})
+        rs.sort(key=lambda r: r["score"])
+        out.append({"url": u, "runs": [r["score"] for r in rs], **rs[len(rs) // 2]})
     return out
 
 
