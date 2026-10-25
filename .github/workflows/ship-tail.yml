@@ -45,7 +45,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          sparse-checkout: .github/scripts/play-alpha.mjs
+          sparse-checkout: |
+            .github/scripts/play-alpha.mjs
+            .github/scripts/tg-text.mjs
+            .github/scripts/bot-names.json
           sparse-checkout-cone-mode: false
       - uses: actions/setup-node@v7
         with: { node-version: 20 }
@@ -81,7 +84,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          sparse-checkout: .github/scripts/play-alpha.mjs
+          sparse-checkout: |
+            .github/scripts/play-alpha.mjs
+            .github/scripts/tg-text.mjs
+            .github/scripts/bot-names.json
           sparse-checkout-cone-mode: false
       - uses: actions/setup-node@v7
         with: { node-version: 20 }
@@ -140,6 +146,8 @@ jobs:
         with:
           sparse-checkout: |
             .github/scripts/play-alpha.mjs
+            .github/scripts/tg-text.mjs
+            .github/scripts/bot-names.json
             .github/scripts/alert.mjs
           sparse-checkout-cone-mode: false
       - uses: actions/setup-node@v7

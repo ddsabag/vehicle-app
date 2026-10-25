@@ -16,6 +16,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { ministryDown } from "./datasets.mjs";
+import { msg } from "./tg-text.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const IO = { env: process.env, out: s => console.log(s), fetch: (u, o) => fetch(u, o) };
@@ -57,7 +58,8 @@ const carsWord = n => n === 1 ? "רכב אחד" : `${n} רכבים`;
 // what goes to Telegram: null when every field that has to match did
 export function verdict(r, day) {
   if (!r.done || r.cars < MIN_CARS)
-    return { key: "truth:fail", text: `🔎 בדיקת הנתונים היומית (${day}) לא הצליחה לקרוא מספיק רכבים: ${r.cars} מתוך ${r.sampled || "?"}. בדרך כלל זה אומר שמאגרי משרד התחבורה לא ענו. אם זה חוזר מחר, צריך לבדוק את הבדיקה עצמה.` };
+    return { key: "truth:fail", title: "בדיקת הנתונים היומית לא הצליחה לקרוא מספיק רכבים", body: `נקראו ${r.cars} מתוך ${r.sampled || "?"} רכבים (${day}). בדרך כלל זה אומר שמאגרי משרד התחבורה לא ענו, והאפליקציה עצמה לא נפגעה.`,
+      what: "בדרך כלל כלום. אם זה חוזר מחר, לכתוב לי בשרשור \"נתונים ואמינות\"." , get text() { return msg({ kind: "today", area: "data", title: this.title, text: this.body, what: this.what }); } };
   const hard = Object.entries(r.fields).filter(([f, [, bad]]) => bad > 0 && !SOFT.has(f));
   if (!hard.length) return null;
   const byGroup = new Map(), cars = new Set();
@@ -71,7 +73,9 @@ export function verdict(r, day) {
   const groups = [...byGroup.keys()].sort();
   const lines = groups.map(g => `${GROUPS[g] || g}: ${carsWord(byGroup.get(g).size)}`);
   return { key: "truth:" + groups.join("+"),
-    text: `🔎 בדיקת הנתונים היומית (${day}): ב-${carsWord(k)} מתוך ${r.cars} שנבדקו היום, משהו שהאפליקציה מציגה לא תאם את מאגרי משרד התחבורה.\n${lines.join(" · ")}\nהפירוט, בלי מספרי רכב, בקובץ היומי.` };
+    text: msg({ kind: "today", area: "data", title: "האפליקציה הציגה משהו שלא תואם את משרד התחבורה",
+      text: `בבדיקה היומית (${day}), ב-${carsWord(k)} מתוך ${r.cars} שנבדקו, משהו שהאפליקציה מציגה לא תאם את מאגרי משרד התחבורה.\n${lines.join(" · ")}\nהפירוט, בלי מספרי רכב, בקובץ היומי.`,
+      what: "לכתוב לי בשרשור \"נתונים ואמינות\" כדי שאבדוק ואתקן.", raw: hard.map(([f, [n, bad]]) => `${f} ${bad}/${n}`).join(", ") }) };
 }
 
 export function addDay(hist, entry) {
@@ -83,7 +87,7 @@ export function addDay(hist, entry) {
 async function telegram(text, silent = false) {
   try {
     const r = await IO.fetch(`https://api.telegram.org/bot${IO.env.TELEGRAM_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ chat_id: IO.env.TELEGRAM_CHAT_ID, text, disable_web_page_preview: true, ...(silent ? { disable_notification: true } : {}) }), signal: AbortSignal.timeout(20000) });
+      body: JSON.stringify({ chat_id: IO.env.TELEGRAM_CHAT_ID, text, parse_mode: "HTML", disable_web_page_preview: true, ...(silent ? { disable_notification: true } : {}) }), signal: AbortSignal.timeout(20000) });
     IO.out(`telegram ${r.status}`); return r.ok;
   } catch (e) { IO.out(`telegram failed: ${e.message}`); return false; }
 }
@@ -93,8 +97,10 @@ const AUDIT_SETS = new Set(["active", "tech", "owners"]);
 export async function sameOutage(v) {
   if (v.key !== "truth:fail") return null;
   const down = (await ministryDown(Date.now(), u => IO.fetch(u, { signal: AbortSignal.timeout(10000) })) || []).filter(d => AUDIT_SETS.has(d.key));
-  return down.length ? { text: `${v.text}\nMinistry watch כבר דיווח הבוקר שלא ענה: ${down.map(d => d.title).join(", ")}. כנראה זו אותה תקלה.`,
-    silent: IO.env.GITHUB_EVENT_NAME === "schedule" } : null;
+  if (!down.length) return null;
+  const silent = IO.env.GITHUB_EVENT_NAME === "schedule";
+  return { text: msg({ kind: silent ? "info" : "today", area: "data", title: v.title,
+    text: `${v.body}\nשומר מאגרי משרד התחבורה כבר דיווח הבוקר שלא ענה: ${down.map(d => d.title).join(", ")}. כנראה זו אותה תקלה.`, what: silent ? "" : v.what }), silent };
 }
 async function send(v, links) {
   const same = await sameOutage(v);
@@ -103,7 +109,7 @@ async function send(v, links) {
   const silent = !!same?.silent;
   let router = null; try { router = await import("./alert.mjs"); } catch { /* legacy below */ }
   // the router rings a "day" item by day whatever `today` says: the same-outage line goes as "summary" (the Sunday block, or a silent line)
-  const r = router ? await router.alert(silent ? "summary" : "day", v.key, v.text, links, { today: silent ? "silent" : "loud", plain: true, legacy: () => telegram(v.text, silent) }) : { delivered: await telegram(v.text, silent) };
+  const r = router ? await router.alert(silent ? "summary" : "day", v.key, v.text, links, { today: silent ? "silent" : "loud", legacy: () => telegram(v.text, silent) }) : { delivered: await telegram(v.text, silent) };
   return !!(r && r.delivered);
 }
 
@@ -162,7 +168,7 @@ async function selftest() {
   ok(!/\d{2}x+\d{2}|1234567|JTDBR32E720123456/.test(pub), "no plate, masked plate or VIN in what is published");
   const v = verdict(r, "2026-10-21");
   ok(v && v.key === "truth:tag+test", "key names the groups, soft fields left out: " + (v && v.key));
-  ok(v && /ב-רכב אחד מתוך 12/.test(v.text) && /טסט: רכב אחד/.test(v.text) && /תג נכה: רכב אחד/.test(v.text), "wording");
+  ok(v && /ב-רכב אחד מתוך 12/.test(v.text) && /טסט: רכב אחד/.test(v.text) && /תג נכה: רכב אחד/.test(v.text) && v.text.startsWith("<b>🟠 לטיפול היום · נתונים</b>") && v.text.includes("👉 מה לעשות"), "wording");
   try { const { validKey, label } = await import("./alert.mjs"); ok(validKey(v.key) && validKey("truth:fail"), "keys are valid router keys");
     ok(/תג נכה/.test(label(v.key).he) && !/^התראה:/.test(label("truth:fail").he), "the router has labels for them: " + label(v.key).he); }
   catch (e) { ok(false, "alert.mjs import: " + e.message); }
@@ -178,7 +184,7 @@ async function selftest() {
   IO.env = { GITHUB_EVENT_NAME: "schedule" };
   status({ active: { ok: false }, tech: { ok: true }, wltp: { ok: true } });
   let s = await sameOutage(fail);
-  ok(s && s.silent && /Ministry watch כבר דיווח/.test(s.text) && s.text.includes("רכב פרטי ומסחרי"), "active register down this morning: same outage, silent");
+  ok(s && s.silent && /שומר מאגרי משרד התחבורה כבר דיווח/.test(s.text) && s.text.startsWith("<b>🔵 לידיעה") && s.text.includes("👌") && s.text.includes("רכב פרטי ומסחרי"), "active register down this morning: same outage, silent");
   ok(await sameOutage(v) === null, "a field mismatch is never put down to an outage");
   IO.env = { GITHUB_EVENT_NAME: "workflow_dispatch" };
   s = await sameOutage(fail);

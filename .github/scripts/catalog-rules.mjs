@@ -6,6 +6,7 @@
 //   OUT   catalogue directory written by catalog-build.mjs (default out)
 //   PREV  previous rules-state.json (default: fetched from the catalog-data branch; missing = first run, no alert)
 import fs from "node:fs";
+import { msg as tgMsg } from "./tg-text.mjs";
 const OUT = process.env.OUT || "out", PREV = process.env.PREV || "";
 const RAW = "https://raw.githubusercontent.com/ddsabag/vehicle-app/catalog-data/rules-state.json";
 const page = fs.readFileSync("index.html", "utf8");
@@ -88,6 +89,11 @@ fs.writeFileSync(`${OUT}/rules-report.md`, lines.join("\n") + "\n");
 console.log(lines.join("\n"));
 // a Telegram line only for what needs a human: unknown cuts (rule table) and new model names to eyeball
 if (!first && (found.cutsUnknown.length || found.newModels.length)) {
-  const msg = [`לוחית · כללי הקטלוג ${meta.u}`, found.newModels.length ? `דגמים חדשים במאגר: ${found.newModels.length} (${found.newModels.slice(0, 5).join(", ")}${found.newModels.length > 5 ? "…" : ""})` : "", found.cutsUnknown.length ? `קיצוצי שם שהטבלה לא מכירה: ${found.cutsUnknown.length}\n${found.cutsUnknown.slice(0, 6).map(x => "• " + x).join("\n")}` : "", `הכללים הקיימים טיפלו ב-${found.cutsKnown.length + found.typoTwins.length + found.specTwins.length} מקרים נוספים. הדוח המלא: https://github.com/ddsabag/vehicle-app/blob/catalog-data/rules-report.md`].filter(Boolean).join("\n");
+  // the Telegram standard (tg-text.mjs, HTML): the counts in words, the English model names folded
+  const n = found.newModels.length, c = found.cutsUnknown.length, known = found.cutsKnown.length + found.typoTwins.length + found.specTwins.length;
+  const msg = tgMsg({ kind: c ? "today" : "info", area: "data", title: c ? `נמצאו ${c} שמות דגם קצוצים שהכללים לא מכירים` : `נמצאו ${n} דגמים חדשים במאגר`,
+    text: [n && c ? `בנוסף נמצאו ${n} דגמים חדשים במאגר.` : "", c ? "הבוחר יציג אותם בשם קצוץ עד שיתווסף להם כלל." : "הבוחר כבר מציג אותם.", `הכללים הקיימים טיפלו ב-${known} מקרים נוספים (${meta.u}).`].filter(Boolean).join(" "),
+    what: c ? "לכתוב לי בשרשור \"נתונים ואמינות\" כדי שאוסיף כלל." : "",
+    raw: [n ? `new models: ${found.newModels.slice(0, 8).join(", ")}${n > 8 ? "…" : ""}` : "", c ? `unknown cuts: ${found.cutsUnknown.slice(0, 6).join(" | ")}` : ""].filter(Boolean).join("; ") }) + "\n🔗 https://github.com/ddsabag/vehicle-app/blob/catalog-data/rules-report.md";
   fs.writeFileSync(`${OUT}/rules-alert.txt`, msg);
 }

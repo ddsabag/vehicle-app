@@ -37,7 +37,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           [ -n "$TELEGRAM_BOT_TOKEN" ] || { echo "no Telegram credentials"; exit 0; }
-          curl -s -o /dev/null -w "telegram %{http_code}\n" "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text@cat-out/rules-alert.txt" --data-urlencode "disable_web_page_preview=true"
+          curl -s -o /dev/null -w "telegram %{http_code}\n" "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text@cat-out/rules-alert.txt" --data-urlencode "parse_mode=HTML" --data-urlencode "disable_notification=$(grep -q '^<b>🔵\|^<b>✅' cat-out/rules-alert.txt && echo true || echo false)" --data-urlencode "disable_web_page_preview=true"
           rm -f cat-out/rules-alert.txt
       - name: Mend and check the recall answers (what the build lost is kept from the day before; the per-car list's reach, new recall rows that match no model; report + state next to the catalogue)
         run: node .github/scripts/recall-health.mjs
@@ -50,7 +50,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           [ -n "$TELEGRAM_BOT_TOKEN" ] || { echo "no Telegram credentials"; exit 0; }
-          curl -s -o /dev/null -w "telegram %{http_code}\n" "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text@cat-out/recall-alert.txt" --data-urlencode "disable_web_page_preview=true"
+          curl -s -o /dev/null -w "telegram %{http_code}\n" "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text@cat-out/recall-alert.txt" --data-urlencode "parse_mode=HTML" --data-urlencode "disable_notification=$(grep -q '^<b>🔵\|^<b>✅' cat-out/recall-alert.txt && echo true || echo false)" --data-urlencode "disable_web_page_preview=true"
           rm -f cat-out/recall-alert.txt
       - name: Publish on the catalog-data branch
         run: |

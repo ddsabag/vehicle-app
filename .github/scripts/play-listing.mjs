@@ -16,7 +16,8 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import crypto from "node:crypto";
-import { jwt, Fail, playFail, gate, chars, PKG, SECRET } from "./play-alpha.mjs";
+import { jwt, Fail, playFail, gate, chars, PKG, SECRET, escH, whyHe } from "./play-alpha.mjs";
+import { msg } from "./tg-text.mjs";
 
 export const DIR = ".github/store-listing", SHOTS = "phone-screenshots";
 export const LANG = "iw-IL", KIND = "phoneScreenshots";   // the only listing and the only image type this script may write; hard-coded on purpose
@@ -296,17 +297,23 @@ export function compose(R, env = {}) {
   const dev = env.PLAY_DEVELOPER_ID, app = env.PLAY_APP_ID, run = env.RUN_URL || "";
   const pc = dev && app ? `https://play.google.com/console/developers/${dev}/app/${app}/main-store-listing` : "https://play.google.com/console";
   const tag = hash(R.what || R.why || "-", "sha1").slice(0, 12).replace(/^\d/, "a");   // a key segment: hex with a letter, never a number
-  if (R.code === "done") return { key: `listing:done:${tag}`, link: pc,
-    text: `דף החנות של לוחית ב-Google Play עודכן ונשלח לסקירה: ${R.what}. אם גרסה חדשה כבר חיכתה בסקירה, היא נשלחה שוב יחד איתו.\n${pc}` };
-  if (R.code === "dry") return { key: `listing:dry:${tag}`, link: run,
-    text: `בדיקה יבשה: דף החנות ב-Google Play היה מתעדכן (${R.what}), ולא נשלח כלום כי המשתנה SHIP_TAIL הוא dry. כדי לשלוח: להעביר אותו ל-on (או למחוק אותו), ואז Actions ← Store listing ← Run workflow עם mode=on.${run ? `\n${run}` : ""}` };
-  const kind = R.access ? "access" : R.stage === "files" ? "files" : "play";
-  return { key: `listing:fail:${kind}`, link: run,
-    text: `עדכון דף החנות ב-Google Play נכשל: ${R.why}.${R.next ? `\nמה לעשות: ${R.next}.` : ""} שום דבר בחנות לא השתנה.${run ? `\n${run}` : ""}` };
+  const A = (u, t) => u ? ` <a href="${escH(u)}">${t}</a>` : "";
+  if (R.code === "done") return { key: `listing:done:${tag}`, link: pc, today: "silent",
+    text: msg({ kind: "done", area: "store", title: "דף החנות של לוחית ב-Google Play עודכן ונשלח לסקירה",
+      text: `מה השתנה: ${escH(R.what)}. אם גרסה חדשה כבר חיכתה בסקירה, היא נשלחה שוב יחד איתו.`, what: `אין צורך לעשות כלום.${A(pc, "Play Console")}` }) };
+  if (R.code === "dry") return { key: `listing:dry:${tag}`, link: run, today: "silent",
+    text: msg({ kind: "info", area: "store", title: "בדיקה יבשה: דף החנות ב-Google Play היה מתעדכן",
+      text: `מה היה משתנה: ${escH(R.what)}. לא נשלח כלום, כי השליחה האוטומטית במצב בדיקה.`,
+      what: `כדי לשלוח: להפעיל את השליחה האוטומטית (המשתנה בפרטים הטכניים: on, או למחוק אותו), ואז Actions ← Store listing ← Run workflow עם mode=on.${A(run, "הלוג")}`,
+      raw: "SHIP_TAIL=dry" }) };
+  const kind = R.access ? "access" : R.stage === "files" ? "files" : "play", w = whyHe(R.why);
+  return { key: `listing:fail:${kind}`, link: run, today: "loud",
+    text: msg({ kind: "today", area: "store", title: "עדכון דף החנות ב-Google Play נכשל", text: `${w.he}. שום דבר בחנות לא השתנה.`,
+      what: `${R.next ? escH(R.next) + "." : 'לכתוב בשרשור "מוצר ושחרורים".'}${A(run, "הלוג")}`, raw: w.raw }) };
 }
 async function telegram(text) {
   const r = await call("POST", `https://api.telegram.org/bot${IO.env.TELEGRAM_BOT_TOKEN}/sendMessage`, { headers: { "content-type": "application/json" },
-    body: JSON.stringify({ chat_id: IO.env.TELEGRAM_CHAT_ID, text, disable_web_page_preview: true }), timeout: 20000, once: true });
+    body: JSON.stringify({ chat_id: IO.env.TELEGRAM_CHAT_ID, text, parse_mode: "HTML", disable_web_page_preview: true }), timeout: 20000, once: true });
   IO.out(`telegram ${r.status || "no answer"}`);
   return r.ok;
 }
@@ -320,7 +327,7 @@ export async function tell(R) {
   if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) { note("TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID are not set: the message is only in the job summary"); return true; }
   let router = IO.router;
   if (!router) try { router = await import("./alert.mjs"); } catch { /* legacy below */ }
-  const r = router ? await router.alert("day", m.key, m.text, m.link, { today: "loud", plain: true, fresh: manual, legacy: () => telegram(m.text) })
+  const r = router ? await router.alert("day", m.key, m.text, m.link, { today: m.today, fresh: manual, legacy: () => telegram(m.text) })
     : { delivered: await telegram(m.text) };
   return !!r.delivered;
 }
@@ -534,7 +541,7 @@ async function selftest() {
     ok(patch.title === TITLE && W.listing.title === TITLE, "dry: the write-back is Play's own text");
     ok(W.tg.length === 0 && W.code === 0 && W.sums.some(s => s.includes("הכותרת")), "dry manual: job summary only");
     W = await run({ repo: { shots } }, { MODE: "dry", EVENT: "push" });
-    ok(W.outputs.code === "dry" && W.tg.length === 1 && W.tg[0].text.includes("SHIP_TAIL"), "dry push (SHIP_TAIL=dry): one Telegram");
+    ok(W.outputs.code === "dry" && W.tg.length === 1 && W.tg[0].text.includes("SHIP_TAIL") && W.tg[0].parse_mode === "HTML", "dry push (SHIP_TAIL=dry): one Telegram");
     W = await run({ fail: { patch: [403] } }, { MODE: "dry", EVENT: "workflow_dispatch" });
     ok(W.outputs.code === "same" && !W.calls.some(c => c.method === "PATCH"), "dry with nothing to change: no permission probe needed");
     W = await run({ repo: { text: { title: "חדש" } }, fail: { patch: [403] } }, { MODE: "dry", EVENT: "workflow_dispatch" });
@@ -570,7 +577,7 @@ async function selftest() {
     W = await run({ router, repo: { text: { title: "א".repeat(31) } } });
     W = await run({ router, repo: { text: { title: "חדש" } } }, { MODE: "dry" });
     ok(seen.map(s => s.key.split(":").slice(0, 3).join(":").replace(/:[0-9a-f]{12}$/, "")).join() === "listing:done,listing:fail:access,listing:fail:files,listing:dry", "router: keys " + seen.map(s => s.key));
-    ok(seen.every(s => s.lv === "day" && validKey(s.key) && s.o.plain) && seen[1].o.fresh && !seen[0].o.fresh, "router: day, valid keys, fresh when manual");
+    ok(seen.every(s => s.lv === "day" && validKey(s.key) && !s.o.plain) && seen[1].o.fresh && !seen[0].o.fresh, "router: day, valid keys, fresh when manual");
   });
 
   await group("secrets", async () => {

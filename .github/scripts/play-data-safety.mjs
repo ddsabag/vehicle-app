@@ -13,7 +13,8 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import crypto from "node:crypto";
-import { jwt, Fail, playFail, PKG, SECRET } from "./play-alpha.mjs";
+import { jwt, Fail, playFail, PKG, SECRET, escH, whyHe } from "./play-alpha.mjs";
+import { msg } from "./tg-text.mjs";
 
 export const FILE = ".github/store-listing/data-safety.csv", MAX_BYTES = 512 * 1024, MIN_ROWS = 10;
 export const PERM_SAFETY = "Manage store presence";   // the account's store permission; if Google asks for another, the 403 text says so
@@ -138,12 +139,18 @@ export function compose(R, env = {}) {
   const dev = env.PLAY_DEVELOPER_ID, app = env.PLAY_APP_ID, run = env.RUN_URL || "";
   const pc = dev && app ? `https://play.google.com/console/developers/${dev}/app/${app}/app-content/data-privacy-security` : "https://play.google.com/console";
   const tag = (R.hash || "x").replace(/^\d/, "a");
-  if (R.code === "sent") return { key: `safety:done:${tag}`, link: pc, text: `ה-Data safety של לוחית ב-Google Play עודכן מהקובץ ב-GitHub (${R.rows} תשובות).\n${pc}` };
-  return { key: `safety:fail:${R.kind || "play"}`, link: run, text: `עדכון ה-Data safety ב-Google Play נכשל: ${R.why}.${R.next ? `\nמה לעשות: ${R.next}.` : ""}${run ? `\n${run}` : ""}` };
+  const A = (u, t) => u ? ` <a href="${escH(u)}">${t}</a>` : "";
+  if (R.code === "sent") return { key: `safety:done:${tag}`, link: pc, today: "silent",
+    text: msg({ kind: "done", area: "store", title: "טופס בטיחות הנתונים של לוחית ב-Google Play עודכן",
+      text: `העדכון נלקח מהקובץ ב-GitHub (${R.rows} תשובות).`, what: `אין צורך לעשות כלום.${A(pc, "Play Console")}`, raw: "Data safety" }) };
+  const w = whyHe(R.why);
+  return { key: `safety:fail:${R.kind || "play"}`, link: run, today: "loud",
+    text: msg({ kind: "today", area: "store", title: "עדכון טופס בטיחות הנתונים ב-Google Play נכשל", text: `${w.he}. שום דבר בחנות לא השתנה.`,
+      what: `${R.next ? escH(R.next) + "." : 'לכתוב בשרשור "מוצר ושחרורים".'}${A(run, "הלוג")}`, raw: ["Data safety", w.raw].filter(Boolean).join(" · ") }) };
 }
 async function telegram(text) {
   const r = await call("POST", `https://api.telegram.org/bot${IO.env.TELEGRAM_BOT_TOKEN}/sendMessage`, { headers: { "content-type": "application/json" },
-    body: JSON.stringify({ chat_id: IO.env.TELEGRAM_CHAT_ID, text, disable_web_page_preview: true }), timeout: 20000 });
+    body: JSON.stringify({ chat_id: IO.env.TELEGRAM_CHAT_ID, text, parse_mode: "HTML", disable_web_page_preview: true }), timeout: 20000 });
   IO.out(`telegram ${r.status || "no answer"}`);
   return r.ok;
 }
@@ -155,7 +162,7 @@ export async function tell(R) {
   if (!IO.env.TELEGRAM_BOT_TOKEN || !IO.env.TELEGRAM_CHAT_ID) { note("TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID are not set: the message is only in the job summary"); return true; }
   let router = IO.router;
   if (!router) try { router = await import("./alert.mjs"); } catch { /* legacy below */ }
-  const r = router ? await router.alert("day", m.key, m.text, m.link, { today: "loud", plain: true, fresh: IO.env.EVENT === "workflow_dispatch", legacy: () => telegram(m.text) })
+  const r = router ? await router.alert("day", m.key, m.text, m.link, { today: m.today, fresh: IO.env.EVENT === "workflow_dispatch", legacy: () => telegram(m.text) })
     : { delivered: await telegram(m.text) };
   return !!r.delivered;
 }

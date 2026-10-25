@@ -1,23 +1,27 @@
 // SEO auto-publish: site-only SEO changes staged on branch "seo-auto" go to main by themselves after a 24 h window, if every check passes.
-// Telegram (silent) says what is going out and when; deleting the branch (or telling Claude) cancels. Never touches the app, workflows or code:
+// Telegram says what is going out and when (silent; a change that needs Dudu or failed its checks rings); deleting the branch (or telling Claude) cancels. Never touches the app, workflows or code:
 // only the paths in ALLOW. A changed existing page must not have been changed in the last 21 days (analytics/seo-changes.json on main), new pages are exempt.
 // Env: GITHUB_TOKEN, GITHUB_REPOSITORY (git credentials come from actions/checkout), TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID. DRY=1 prints only.
 // CHECK=1 (the workflow's lock-free "check" job): notices, tags and the 24 h window as usual, but a change that is due is not merged:
 // it writes ready=true to GITHUB_OUTPUT and the "publish" job (main-writer group) runs this script again without CHECK.
 import { execSync, execFileSync } from "node:child_process";
 import { readFileSync, appendFileSync } from "node:fs";
+import { msg } from "./tg-text.mjs";
 
 const BR = "seo-auto", HOURS = 24, COOL_DAYS = 21, DRY = process.env.DRY === "1", CHECK = process.env.CHECK === "1";
 const ALLOW = [/^(check|brand|model|magazine|guide)\//, /^sitemap\.xml$/, /^robots\.txt$/, /^404\.html$/, /^analytics\/seo-changes\.json$/];
 const sh = c => execSync(c, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 const trysh = c => { try { return sh(c); } catch { return null; } };
 
-async function tg(text) {
+// m = msg() fields (tg-text.mjs, HTML); 🔵 and ✅ are silent, a message that asks for something rings
+async function tg(m) {
+  const text = msg({ area: "seo", ...m }), silent = m.kind === "info" || m.kind === "done";
   console.log("TG:", text);
   const t = process.env.TELEGRAM_BOT_TOKEN, c = process.env.TELEGRAM_CHAT_ID;
   if (DRY || !t || !c) return;
-  await fetch(`https://api.telegram.org/bot${t}/sendMessage`, { method: "POST", body: new URLSearchParams({ chat_id: c, text, disable_notification: "true" }) }).catch(() => {});
+  await fetch(`https://api.telegram.org/bot${t}/sendMessage`, { method: "POST", body: new URLSearchParams({ chat_id: c, text, parse_mode: "HTML", disable_web_page_preview: "true", disable_notification: String(silent) }) }).catch(() => {});
 }
+const esc = x => String(x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 let TAGS = null;
 const hasTag = n => {
   if (TAGS === null) TAGS = (tryOut("git ls-remote --tags origin 'seo-auto-*'") || "").split("\n").map(l => l.split("refs/tags/")[1]).filter(Boolean);
@@ -35,7 +39,7 @@ if (!files.length) { console.log("branch has nothing new"); if (!DRY) tryOut(`gi
 
 const bad = files.filter(x => !ALLOW.some(r => r.test(x.f)) || (x.st === "R" && !ALLOW.some(r => r.test(x.old))));
 if (bad.length) {
-  if (!hasTag("seo-auto-blocked-" + s7)) { await tg(`🛑 שינוי SEO לא יעלה אוטומטית: נוגע בקבצים שמחוץ לאתר (${bad.slice(0, 3).map(x => x.f).join(", ")}). דורש אישור שלך.`); markTag("seo-auto-blocked-" + s7); }
+  if (!hasTag("seo-auto-blocked-" + s7)) { await tg({ kind: "today", title: "שינוי SEO מחכה לאישור שלך", text: `הוא נוגע בקבצים שמחוץ לדפי האתר (${esc(bad.slice(0, 3).map(x => x.f).join(", "))}), ולכן לא יעלה לבד.`, what: "לכתוב לי בשרשור SEO אם לאשר אותו." }); markTag("seo-auto-blocked-" + s7); }
   process.exit(0);
 }
 // 21-day rule against the ledger on main
@@ -52,7 +56,7 @@ for (const x of files) {
   }
 }
 if (recent.length) {
-  if (!hasTag("seo-auto-blocked-" + s7)) { await tg(`⏳ שינוי SEO מחכה: ${recent.length} דפים שונו בפחות מ-21 יום (${recent.slice(0, 3).join(", ")}). לא יעלה לפני תום החלון.`); markTag("seo-auto-blocked-" + s7); }
+  if (!hasTag("seo-auto-blocked-" + s7)) { await tg({ kind: "info", title: "שינוי SEO מחכה לסוף 21 הימים", text: `${recent.length} מהדפים שלו שונו לפני פחות מ-21 יום (${esc(recent.slice(0, 3).join(", "))}). הוא יעלה רק אחרי שהחלון ייגמר.` }); markTag("seo-auto-blocked-" + s7); }
   process.exit(0);
 }
 const subject = sh(`git log -1 --format=%s origin/${BR}`);
@@ -60,7 +64,7 @@ const subject = sh(`git log -1 --format=%s origin/${BR}`);
 hasTag("");
 const noteTag = TAGS.find(t => t.startsWith("seo-auto-notified-" + s7 + "-"));
 if (!noteTag) {
-  await tg(`🕓 שינוי SEO יעלה לאתר בעוד כיום (בהרצה הקבועה הראשונה אחרי ${HOURS - 1} שעות, בצהריים או בערב): ${subject}\n${files.length} קבצים (${files.filter(x => x.st === "A").length} חדשים). לביטול: למחוק את הענף ${BR} או לכתוב לקלוד.`);
+  await tg({ kind: "info", title: "שינוי SEO יעלה לאתר בעוד כיום", text: `${esc(subject)}\n${files.length} קבצים (${files.filter(x => x.st === "A").length} חדשים). הוא יעלה בהרצה הקבועה הראשונה אחרי ${HOURS - 1} שעות, בצהריים או בערב. כדי לעצור אותו, לכתוב לי בשרשור SEO.` });
   markTag(`seo-auto-notified-${s7}-${Math.floor(now / 6e4)}`);   // minutes since 1970
   process.exit(0);
 }
@@ -77,11 +81,11 @@ try {
   sh("node .github/scripts/seo-check.mjs");
 } catch (e) {
   tryOut("git merge --abort");
-  if (!hasTag("seo-auto-blocked-" + s7)) { await tg(`🛑 שינוי SEO נעצר: הבדיקות נכשלו (${String(e.stderr || e.message).split("\n").filter(Boolean).slice(-2).join(" | ").slice(0, 200)}). לא פורסם.`); markTag("seo-auto-blocked-" + s7); }
+  if (!hasTag("seo-auto-blocked-" + s7)) { await tg({ kind: "today", title: "שינוי SEO נעצר ולא עלה לאתר", text: "הבדיקות האוטומטיות של הדפים נכשלו, ולכן האתר נשאר כמו שהיה.", what: "לכתוב לי בשרשור SEO, ואבדוק מה נכשל.", raw: String(e.stderr || e.message).split("\n").filter(Boolean).slice(-4).join(" | ") }); markTag("seo-auto-blocked-" + s7); }
   process.exit(0);
 }
 if (DRY) { console.log("DRY: would push"); process.exit(0); }
 sh("git push -q origin seo-merge:main");
 tryOut(`git push -q origin :${BR}`);
 for (const t of TAGS.filter(t => t.startsWith("seo-auto-") && t.includes(s7))) tryOut(`git push -q origin :refs/tags/${t}`);
-await tg(`✅ שינוי SEO עלה לאתר: ${subject} (${files.length} קבצים).`);
+await tg({ kind: "done", title: "שינוי SEO עלה לאתר", text: `${esc(subject)} (${files.length} קבצים).` });
