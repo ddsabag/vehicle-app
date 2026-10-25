@@ -77,7 +77,13 @@ async function check(s) {
 }
 
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-async function telegram(text) {
+// through the alert router (alert.mjs, key ministry:<dataset keys> or checker:data-health); the direct send stays the fallback
+async function telegram(text, key) {
+  let router = null; try { router = await import("./alert.mjs"); } catch { /* direct below */ }
+  if (router) return !!(await router.alert("day", key, text, process.env.RUN_URL || "", { today: "loud", legacy: () => direct(text) })).delivered;
+  return direct(text);
+}
+async function direct(text) {
   await flash("data", "alert", text);
   const token = process.env.TELEGRAM_BOT_TOKEN, chat = process.env.TELEGRAM_CHAT_ID;
   if (DRY || !token || !chat) { console.log("--- Telegram (" + (DRY ? "dry run" : "no credentials") + ") ---\n" + text); return DRY; }
@@ -91,12 +97,12 @@ const failText = (bad, total) => {
   const lines = bad.map(r => `❌ <b>${esc(r.title)}</b>\n${r.problems.map(p => "• " + esc(p)).join("\n")}${r.impact ? "\nמה זה אומר למשתמשים: " + esc(r.impact) + "." : ""}`);
   return msg({ kind: "today", area: "data", title: "מאגר של משרד התחבורה לא תקין",
     text: `${bad.length} מתוך ${total} מאגרים נכשלו בבדיקה, גם אחרי 3 ניסיונות בהפרש של כשתי דקות. זו תקלה אצל משרד התחבורה, והמאגרים חוזרים לעבוד בעצמם, בדרך כלל תוך כמה שעות.\n\n${lines.join("\n\n")}\n\nזמן: ${ilTime()} (שעון ישראל)`,
-    what: "בדרך כלל כלום. אם ההתראה חוזרת גם מחר, לכתוב לי בשרשור \"נתונים ואמינות\".", raw: raws.slice(-6).join("; ") });
+    what: "כלום. אם זה חוזר, זה עובר לבד לטיפול בשרשור \"נתונים ואמינות\".", raw: raws.slice(-6).join("; ") });
 };
 // PREVIEW=1 sends a clearly labelled sample of the alert, to check the wording on the phone
 if (process.env.PREVIEW === "1") {
   const fake = [{ ...SETS[0], problems: ["המאגר לא החזיר תוצאה לרכב בדיקה שידוע שהוא רשום בו (דוגמה)"], notes: [] }];
-  await telegram("🧪 <b>הודעת בדיקה, אין תקלה אמיתית</b>\n\n" + failText(fake, SETS.length));
+  await direct("🧪 <b>הודעת בדיקה, אין תקלה אמיתית</b>\n\n" + failText(fake, SETS.length));
   process.exit(0);
 }
 // a ministry dataset sometimes answers "nothing" for a few minutes and then recovers by itself: look again before waking anyone up
@@ -112,11 +118,11 @@ try {
 emitSeen();   // before any alert or exit, so the status snapshot gets what was read even when this check fails
 if (crash) { const e = crash; await telegram(msg({ kind: "today", area: "data", title: "הבדיקה היומית של מאגרי משרד התחבורה קרסה",
   text: `${heOnly(e.message)} לכן הבוקר לא ברור אם המאגרים תקינים. זו תקלה בבדיקה עצמה, לא באפליקציה.\nזמן: ${ilTime()} (שעון ישראל)`,
-  what: "בדרך כלל כלום. אם זה חוזר מחר, לכתוב לי בשרשור \"נתונים ואמינות\".", raw: e.stack || e.message })); process.exit(1); }
+  what: "כלום. אם זה חוזר, זה עובר לבד לטיפול בשרשור \"נתונים ואמינות\".", raw: e.stack || e.message }), "checker:data-health"); process.exit(1); }
 
 for (const r of results) console.log(`${r.problems.length ? "FAIL" : "ok  "} ${r.key.padEnd(13)} ${String(r.ms).padStart(5)}ms ${[...r.problems, ...r.notes].join(" | ")}`);
 if (bad.length) {
   // the alert reached Telegram: finish green, so GitHub does not also send its own "workflow failed" mail; a failed send keeps the red run as a fallback
-  process.exit((await telegram(failText(bad, results.length))) ? 0 : 1);
+  process.exit((await telegram(failText(bad, results.length), "ministry:" + bad.map(r => r.key).join("+").slice(0, 80))) ? 0 : 1);
 }
 console.log("all datasets healthy");

@@ -169,7 +169,7 @@ export function message(res, day) {
   return { key: "truth:inv:" + bad.map(r => r.id).join("+"),
     text: msg({ kind: "today", area: "data", title: "הבדיקה השבועית מצאה שינוי במאגרי משרד התחבורה",
       text: `בבדיקה של ${day} נמצא שינוי שיכול להטעות את האפליקציה:\n${bad.map(r => `• ${r.he}: ${val(r)} (הגבול: ${r.limit})`).join("\n")}\nהאפליקציה ממשיכה לעבוד.`,
-      what: "לכתוב לי בשרשור \"נתונים ואמינות\", כדי שאבדוק לפני שזה מגיע למשתמשים.", raw: bad.map(r => `${r.id}=${JSON.stringify(r.value)}`).join(", ") }) };
+      what: "כלום. זה עובר לבד לטיפול בשרשור \"נתונים ואמינות\", ועדכון יגיע כשזה מטופל.", raw: bad.map(r => `${r.id}=${JSON.stringify(r.value)}`).join(", ") }) };
 }
 export const addWeek = (hist, e) => { const w = (hist && Array.isArray(hist.weeks) ? hist.weeks : []).filter(x => x.d !== e.d); w.push(e); w.sort((a, b) => a.d < b.d ? -1 : 1); return { v: 1, weeks: w.slice(-60) }; };
 
@@ -190,7 +190,7 @@ async function main() {
   let got;
   try { got = await measure(scanLive, today); }
   catch (e) { log("read failed: " + e.message); return (await send({ key: "truth:fail", text: msg({ kind: "today", area: "data", title: "הבדיקה השבועית של מאגרי משרד התחבורה לא הצליחה לקרוא את המאגרים",
-    text: `${heError(e.message).split("\n<blockquote")[0]} הבדיקה של ${day} לא רצה, והאפליקציה עצמה לא נפגעה.`, what: "בדרך כלל כלום. אם זה חוזר בשבוע הבא, לכתוב לי בשרשור \"נתונים ואמינות\".", raw: e.message }) }, [IO.env.RUN_URL].filter(Boolean))) ? 0 : 1; }
+    text: `${heError(e.message).split("\n<blockquote")[0]} הבדיקה של ${day} לא רצה, והאפליקציה עצמה לא נפגעה.`, what: "כלום. אם זה חוזר, זה עובר לבד לטיפול בשרשור \"נתונים ואמינות\".", raw: e.message }) }, [IO.env.RUN_URL].filter(Boolean))) ? 0 : 1; }
   const res = judge(got.v);
   for (const r of res) IO.out(`${r.ok ? "ok  " : "FAIL"} ${r.id.padEnd(8)} ${JSON.stringify(r.value)} (limit ${r.limit})`);
   IO.out("info " + JSON.stringify(got.info));
