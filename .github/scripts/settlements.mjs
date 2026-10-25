@@ -199,7 +199,7 @@ async function watch(){
   console.log(md.join("\n"));
   if (stuck.length) await tell1("day", `stl:stuck:${on}`, msg({kind: "today", area: "data", title: "פריטים בהסדרי הפשרה מחכים יותר משבועיים",
     text: `הבדיקה השבועית של הסדרי הפשרה לא טיפלה בהם:\n${stuck.slice(0, 6).map(x => "• " + esc(issueHe(x).slice(0, 140))).join("\n")}${stuck.length > 6 ? `\nועוד ${stuck.length - 6}.` : ""}`,
-    what: "לכתוב לי בשרשור \"נתונים ואמינות\" לעבור על הרשימה."}), process.env.RUN_URL || "");
+    what: "כלום. זה עובר לבד לטיפול בשרשור \"נתונים ואמינות\", ועדכון יגיע כשזה מטופל."}), process.env.RUN_URL || "");
   return bad.length ? 1 : 0;
 }
 

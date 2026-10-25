@@ -35,9 +35,17 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}   # the alert router (alert.mjs): its state lives on the branch alert-state
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           [ -n "$TELEGRAM_BOT_TOKEN" ] || { echo "no Telegram credentials"; exit 0; }
+          # through the alert router: a 🔵/✅ line waits for the Sunday summary (silent now), the rest rings today; a direct send when the router does not take it
+          if grep -q '^<b>🔵\|^<b>✅' cat-out/rules-alert.txt; then lv=summary; td=silent; else lv=day; td=loud; fi
+          r=$(node .github/scripts/alert.mjs send "$lv" catalog --file cat-out/rules-alert.txt --today "$td" --link "$RUN_URL" || true); echo "$r"
+          if ! echo "$r" | grep -q '^ALERT_DONE'; then
           curl -s -o /dev/null -w "telegram %{http_code}\n" "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text@cat-out/rules-alert.txt" --data-urlencode "parse_mode=HTML" --data-urlencode "disable_notification=$(grep -q '^<b>🔵\|^<b>✅' cat-out/rules-alert.txt && echo true || echo false)" --data-urlencode "disable_web_page_preview=true"
+          fi
           rm -f cat-out/rules-alert.txt
       - name: Mend and check the recall answers (what the build lost is kept from the day before; the per-car list's reach, new recall rows that match no model; report + state next to the catalogue)
         run: node .github/scripts/recall-health.mjs
@@ -48,9 +56,17 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}   # the alert router (alert.mjs): its state lives on the branch alert-state
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           [ -n "$TELEGRAM_BOT_TOKEN" ] || { echo "no Telegram credentials"; exit 0; }
+          # through the alert router: a 🔵/✅ line waits for the Sunday summary (silent now), the rest rings today; a direct send when the router does not take it
+          if grep -q '^<b>🔵\|^<b>✅' cat-out/recall-alert.txt; then lv=summary; td=silent; else lv=day; td=loud; fi
+          r=$(node .github/scripts/alert.mjs send "$lv" recalls --file cat-out/recall-alert.txt --today "$td" --link "$RUN_URL" || true); echo "$r"
+          if ! echo "$r" | grep -q '^ALERT_DONE'; then
           curl -s -o /dev/null -w "telegram %{http_code}\n" "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text@cat-out/recall-alert.txt" --data-urlencode "parse_mode=HTML" --data-urlencode "disable_notification=$(grep -q '^<b>🔵\|^<b>✅' cat-out/recall-alert.txt && echo true || echo false)" --data-urlencode "disable_web_page_preview=true"
+          fi
           rm -f cat-out/recall-alert.txt
       - name: Publish on the catalog-data branch
         run: |
