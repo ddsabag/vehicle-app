@@ -376,10 +376,10 @@ async function selftest() {
 
     // an Alpha upload that later reached Production, or was followed by a newer upload, is no longer waiting (25.10)
     const shipSt = (extra) => stateRes({ v: 1, hb: STATE.hb, log: [], items: { "ship:done:1.37": it(72), ...extra } });
-    ok((x = await run({ pulls: [], state: shipSt({}) })).text.includes("גרסה 1.37 עלתה ל-Alpha"), "an Alpha upload alone is waiting\n" + x.text);
-    ok(!(x = await run({ pulls: [], state: shipSt({ "prod:sent:127": it(70) }) })).text.includes("גרסה 1.37 עלתה ל-Alpha"), "settled by a later Production step\n" + x.text);
-    ok(!(x = await run({ pulls: [], state: shipSt({ "ship:done:1.38": it(10) }) })).text.includes("גרסה 1.37 עלתה ל-Alpha"), "settled by a newer upload\n" + x.text);
-    ok((x = await run({ pulls: [], state: shipSt({ "prod:sent:126": it(80) }) })).text.includes("גרסה 1.37 עלתה ל-Alpha"), "an older Production step does not settle it\n" + x.text);
+    ok((x = await run({ pulls: [], state: shipSt({}) })).text.includes("גרסה 1.37 ב-Alpha"), "an Alpha upload alone is waiting\n" + x.text);
+    ok(!(x = await run({ pulls: [], state: shipSt({ "prod:sent:127": it(70) }) })).text.includes("גרסה 1.37 ב-Alpha"), "settled by a later Production step\n" + x.text);
+    ok(!(x = await run({ pulls: [], state: shipSt({ "ship:done:1.38": it(10) }) })).text.includes("גרסה 1.37 ב-Alpha"), "settled by a newer upload\n" + x.text);
+    ok((x = await run({ pulls: [], state: shipSt({ "prod:sent:126": it(80) }) })).text.includes("גרסה 1.37 ב-Alpha"), "an older Production step does not settle it\n" + x.text);
 
     // each source failing gives its own line and leaves the others intact
     // "(N)" counts the "• " lines under the header; a failed source is a line of its own and is not counted
