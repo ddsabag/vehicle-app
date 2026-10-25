@@ -855,18 +855,23 @@ async function recover(ctx, w, R, prev, why) {
   return Object.assign(R, { action: "rolled-back", version: prev });
 }
 
+// the shared message shape of tg-text.mjs, in plain text (these alerts go out with plain: true): classification line, what happened, what to do
+const WHE = { "luchit-og": "תצוגות הקישור", "luchit-api": "שירות ההרשמה והטפסים", "luchit-mail": "המייל הנכנס", "luchit-uptime": "שומר הזמינות", "luchit-live": "הדשבורד", "luchit-reviews": "מענה לביקורות" };
+const wn = n => (WHE[n] ? `${WHE[n]} (${n})` : n);
+const TODO_OPS = '👉 מה לעשות: לכתוב בשרשור "תפעול, בוטים ומייל".';
 function alertFor(r) {
   const he = r.he || [];
   if (r.action === "refused") return ["day", `workers:refused:${r.name}`,
-    `⚠️ לוחית: הפריסה של ${r.name} נעצרה\n${he.map(x => "• " + x).join("\n")}\nשום דבר לא השתנה ב-Cloudflare.`];
+    `🟠 לטיפול היום · אתר\nהעדכון של ${wn(r.name)} נעצר לפני שעלה\n${he.map(x => "• " + x).join("\n")}\nשום דבר לא השתנה, והגרסה הקיימת ממשיכה לעבוד.\n${TODO_OPS}`];
   if (r.action === "rolled-back" || r.action === "rollback-failed" || (r.action === "failed" && r.probe === "failed")) {
     const after = r.action === "rollback-failed" ? "ההחזרה לגרסה הקודמת לא הצליחה. צריך לבדוק עכשיו ב-Cloudflare."
       : r.after === "none" ? "זה Worker חדש, ואין גרסה קודמת להחזיר."
       : r.after === "ok" ? "הגרסה הקודמת חזרה לפעול והבדיקה עוברת שוב." : "הגרסה הקודמת חזרה, אבל גם היא לא עוברת את הבדיקה. צריך לבדוק עכשיו.";
-    const title = r.action === "rolled-back" ? `הפריסה של ${r.name} נכשלה בבדיקה והוחזרה לגרסה הקודמת` : `הפריסה של ${r.name} נכשלה בבדיקה`;
-    return ["critical", `workers:rollback:${r.name}`, `🔴 לוחית: ${title}\nמה נכשל: ${r.why}\n${after}`];
+    const title = r.action === "rolled-back" ? `העדכון של ${wn(r.name)} נכשל בבדיקה והוחזר לגרסה הקודמת` : `העדכון של ${wn(r.name)} נכשל בבדיקה`;
+    const ok = r.after === "ok";
+    return [ok ? "day" : "critical", `workers:rollback:${r.name}`, `${ok ? "🟠 לטיפול היום" : "🔴 דחוף"} · אתר\n${title}\n${after}\n${ok ? TODO_OPS : '👉 מה לעשות: לכתוב עכשיו בשרשור "תפעול, בוטים ומייל". אם האתר לא נפתח, הדף "מה עושים כשלוחית נתקעת".'}\nפרטים טכניים: ${r.why}`];
   }
-  if (r.action === "failed") return ["day", `workers:failed:${r.name}`, `⚠️ לוחית: הפריסה של ${r.name} נכשלה\n${he.join("\n")}`];
+  if (r.action === "failed") return ["day", `workers:failed:${r.name}`, `🟠 לטיפול היום · אתר\nהעדכון של ${wn(r.name)} נכשל\n${he.join("\n")}\n${TODO_OPS}`];
   return null;
 }
 
@@ -1011,11 +1016,11 @@ export async function after() {
   // alerts: Cloudflare unreadable for several Workers is one cause, so one alert
   const unread = workers.filter(r => r.action === "refused" && r.unreadable), grouped = unread.length >= 2, list = [];
   if (grouped) list.push(["day", "workers:refused:cloudflare-read",
-    `⚠️ לוחית: הפריסה של ${unread.map(r => r.name).join(", ")} נעצרה\n• ${readHe(unread[0].unreadable)}\nשום דבר לא השתנה ב-Cloudflare.`]);
+    `🟠 לטיפול היום · אתר\nהעדכון של ${unread.map(r => wn(r.name)).join(", ")} נעצר לפני שעלה\n• ${readHe(unread[0].unreadable)}\nשום דבר לא השתנה, והגרסה הקיימת ממשיכה לעבוד.\n${TODO_OPS}`]);
   for (const r of workers) {
     if (!(grouped && r.action === "refused" && r.unreadable)) { const a = alertFor(r); if (a) list.push(a); }
     if (r.forced && ["deployed", "created"].includes(r.action)) list.push(["day", `workers:forced:${r.name}`,
-      `⚠️ לוחית: הקוד החי של ${r.name} הוחלף בקוד מ-git (force_code)\nהקוד שהיה שם לא היה ב-main (${r.forced}). הוא עדיין שמור ב-Cloudflare, בגרסאות הקודמות של ה-Worker.`]);
+      `🔵 לידיעה · אתר\nהקוד של ${wn(r.name)} הוחלף בקוד מהמאגר\nהקוד שרץ שם לא היה בענף הראשי (${r.forced}). הוא עדיין שמור ב-Cloudflare, בגרסאות הקודמות.\n👌 לא צריך לעשות כלום.`]);
   }
   let undelivered = 0;
   for (const a of list) if (!(await tell(...a))) { undelivered++; say(`::warning::the alert ${a[1]} was not delivered`); }
@@ -1388,7 +1393,7 @@ async function selftest() {
       ok(!g.st.deploys.some(d => d.name === (w && w.name)), `guard ${m}: nothing deployed for it`);
       ok(g.res.workers.filter(x => x.key !== key && x.action !== "refused").every(x => ["deployed", "created"].includes(x.action)), `guard ${m}: the others continue ` + JSON.stringify(g.res.workers.map(x => [x.key, x.action])));
       const a = g.alerts.filter(x => x.key === `workers:refused:${w?.name}`);
-      ok(a.length === 1 && a[0].level === "day" && a[0].text.includes("נעצרה") && !/—/.test(a[0].text) && a[0].text.includes("https://github.com/o/r/actions/runs/1"), `guard ${m}: one day alert`);
+      ok(a.length === 1 && a[0].level === "day" && a[0].text.includes("נעצר") && !/—/.test(a[0].text) && a[0].text.includes("https://github.com/o/r/actions/runs/1"), `guard ${m}: one day alert`);
       noSecrets(g, "guard " + m);
       return g;
     };
@@ -1443,7 +1448,7 @@ async function selftest() {
     r = await runWith({ bad: ["luchit-og"], env: { WORKERS: "og" } });
     const prevOg = r.st.S["luchit-og"].versions[0].id;
     ok(r.w("og").action === "rolled-back" && r.st.S["luchit-og"].active[0].version_id === prevOg && r.st.rollbacks === 1 && r.w("og").version === prevOg && !r.st.marks, "rollback: previous version active again, nothing marked verified " + JSON.stringify(r.w("og")));
-    ok(r.alerts.length === 1 && r.alerts[0].level === "critical" && r.alerts[0].key === "workers:rollback:luchit-og" && /הוחזרה לגרסה הקודמת/.test(r.alerts[0].text) && /הבדיקה עוברת שוב/.test(r.alerts[0].text) && /ענה 502/.test(r.alerts[0].text), "rollback: one loud alert " + r.alerts.map(a => a.text));
+    ok(r.alerts.length === 1 && r.alerts[0].level === "day" && r.alerts[0].key === "workers:rollback:luchit-og" && /הוחזר לגרסה הקודמת/.test(r.alerts[0].text) && /הבדיקה עוברת שוב/.test(r.alerts[0].text) && /ענה 502/.test(r.alerts[0].text), "rollback: one loud alert " + r.alerts.map(a => a.text));
     ok(r.code === 0 && r.res.outcome === "rolled-back" && r.a1 === 0, "rollback: green run, outcome rolled-back, the alert from the after job");
     noSecrets(r, "rollback");
     r = await runWith({ bad: ["luchit-api"], rollbackErr: 1, env: { WORKERS: "api" } });
@@ -1455,7 +1460,7 @@ async function selftest() {
     ok(r.w("uptime").action === "failed" && keys(r).join() === "day workers:failed:luchit-uptime" && /הוספת הסוד TELEGRAM_BOT_TOKEN נכשלה/.test(r.alerts[0].text), "secret put failure: day alert " + keys(r));
     r = await runWith({ secretBad: true, kv: KVE, env: { WORKERS: "uptime" } });
     const upCode = r.st.S["luchit-uptime"].versions.find(v => /-new/.test(v.id)).id;
-    ok(r.w("uptime").action === "rolled-back" && r.st.S["luchit-uptime"].active[0].version_id === upCode && keys(r).join() === "critical workers:rollback:luchit-uptime", "secret version failing its check: back to the checked code version " + JSON.stringify([r.w("uptime").action, keys(r)]));
+    ok(r.w("uptime").action === "rolled-back" && r.st.S["luchit-uptime"].active[0].version_id === upCode && keys(r).join() === "day workers:rollback:luchit-uptime", "secret version failing its check: back to the checked code version " + JSON.stringify([r.w("uptime").action, keys(r)]));
     // a failed deploy that changed nothing: one day alert; an undelivered alert turns the run red
     r = await runWith({ deployFail: ["luchit-api"], env: { WORKERS: "api" } });
     ok(r.w("api").action === "failed" && r.alerts.length === 1 && r.alerts[0].key === "workers:failed:luchit-api" && r.alerts[0].level === "day", "wrangler failure: day alert");
@@ -1464,7 +1469,7 @@ async function selftest() {
     ok(r.code === 1 && r.c1 === 0 && r.c2 === 1, "undelivered alert: the after job exits 1 so failure-alert speaks");
     // without the router module, the legacy Telegram send carries the alert
     r = await runWith({ router: null, env: { WORKERS: "api" }, tweak: S => S["luchit-api"].routes.push("x.luchit.app/*") });
-    ok(r.st.tg.length === 1 && r.tg1 === 0 && r.st.tg[0].chat_id === CHAT && /נעצרה/.test(r.st.tg[0].text), "no router: legacy Telegram send, from the after job");
+    ok(r.st.tg.length === 1 && r.tg1 === 0 && r.st.tg[0].chat_id === CHAT && /נעצר/.test(r.st.tg[0].text), "no router: legacy Telegram send, from the after job");
     // the real router accepts the keys and has labels for them
     const rtr = await import("./alert.mjs");
     for (const k of ["workers:refused:luchit-og", "workers:rollback:luchit-api", "workers:failed:luchit-uptime", "workers:forced:luchit-og", "workers:refused:cloudflare-read"])

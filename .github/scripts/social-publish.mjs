@@ -37,6 +37,7 @@
 // Tokens are never printed: they travel only in request bodies, in the query string of reads (never logged) and in the rupload
 // Authorization header.
 import crypto from "node:crypto";
+import { msg, heError } from "./tg-text.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import url from "node:url";
@@ -189,8 +190,8 @@ export async function refreshIg(Q, now) {
     Object.assign(s, { tried: iso(now), err: String(e.message).slice(0, 200) }); Q.save();
     IO.log(`Instagram token refresh failed: ${e.message}`);
     if (e.auth || now - last > IG_ALARM_MS)
-      await tell("day", "social:fail:token-instagram", `לוחית · פרסום אוטומטי\nחידוש הטוקן של אינסטגרם נכשל: ${e.message}\n` +
-        `הטוקן תקף עד ${s.expires ? s.expires.slice(0, 10) : "60 יום מהיצירה"}. ${HINT.instagram}`, runUrl());
+      await tell("day", "social:fail:token-instagram", say("today", "חידוש הטוקן של אינסטגרם נכשל",
+        `${heError(e.message).split("\n")[0]} הטוקן הנוכחי תקף עד ${s.expires ? s.expires.slice(0, 10) : "60 יום מהיצירה"}, ועד אז הפרסום ממשיך.`, HINT.instagram, e.message) + link(runUrl()), runUrl());
     return cur;
   }
 }
@@ -425,12 +426,16 @@ async function linkOk(u) {
 }
 
 // ---- Telegram (alert router, legacy = direct send) ----
-async function telegram(text) {
+// every message in the shared shape (tg-text.mjs): classification line, a short Hebrew sentence, what to do; English API text folded
+const esc = t => String(t ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const say = (kind, title, text, what = "", raw = "") => msg({ kind, area: "marketing", title: "פרסום אוטומטי: " + title, text, what, raw });
+const link = u => (u ? `\n🔗 ${esc(u)}` : "");
+async function telegram(text, silent = false) {
   const e = IO.env;
   if (!e.TELEGRAM_BOT_TOKEN || !e.TELEGRAM_CHAT_ID) { IO.log("no Telegram credentials:\n" + text); return false; }
   try {
     const r = await IO.fetch(`https://api.telegram.org/bot${e.TELEGRAM_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ chat_id: e.TELEGRAM_CHAT_ID, text, disable_web_page_preview: true }), signal: AbortSignal.timeout(20000) });
+      body: JSON.stringify({ chat_id: e.TELEGRAM_CHAT_ID, text, parse_mode: "HTML", disable_web_page_preview: true, disable_notification: silent }), signal: AbortSignal.timeout(20000) });
     IO.log("telegram " + r.status); return r.ok;
   } catch (x) { IO.log("telegram failed " + x.message); return false; }
 }
@@ -438,8 +443,8 @@ async function tell(level, key, text, link = "", today = "loud") {
   if (IO.env.SOCIAL_SELFTEST) { IO.log(`[tell ${level} ${key}] ${text}`); return; }
   if (!IO.env.TELEGRAM_BOT_TOKEN) { IO.log("no Telegram credentials:\n" + text); return; }
   let router = null; try { router = await import("./alert.mjs"); } catch {}
-  if (router) await router.alert(level, key, text, link, { today, plain: true, legacy: () => telegram(text) });
-  else await telegram(text);
+  if (router) await router.alert(level, key, text, link, { today, legacy: () => telegram(text, today === "silent") });
+  else await telegram(text, today === "silent");
 }
 
 // ---- run ----
@@ -459,7 +464,7 @@ export async function run(qdir) {
     if (r.needs_live && !(await isLive(r.needs_live))) { summary.push(`held ${key}: waits for ${r.needs_live} in Google Play`); continue; }
     summary.push(`remind ${key}`);
     if (dry) continue;
-    await tell("day", `social:remind:${k.name}-${r.id}`, `לוחית · תזכורת\n${r.text}`, r.link || "");
+    await tell("day", `social:remind:${k.name}-${r.id}`, msg({ kind: "today", area: "marketing", title: "תזכורת", text: esc(r.text), what: "מה שכתוב למעלה." }) + link(r.link), r.link || "");
     Q.state.posts[key] = { status: "done", at: iso(now) }; Q.save();
   }
   const due = [];
@@ -477,7 +482,8 @@ export async function run(qdir) {
   for (const [t, e] of Object.entries(A.errs)) {   // that network's items wait for the next run; the other network still publishes
     const n = due.filter(d => d.t === t).length;
     IO.log(`${t} not connected: ${e.message}`);
-    if (n && !dry) await tell("day", `social:fail:token-${t}`, `לוחית · פרסום אוטומטי\nהחיבור ל${NAMES[t]} לא עובד, ולכן ${n} פרסומים שם מחכים.\n${e.message}\n${HINT[t]}`, runUrl());
+    if (n && !dry) await tell("day", `social:fail:token-${t}`, say("urgent", `החיבור ל${NAMES[t]} לא עובד`,
+      `${n === 1 ? "פרסום אחד מחכה" : `${n} פרסומים מחכים`} שם. ${heError(e.message).split("\n")[0]}`, HINT[t], e.message) + link(runUrl()), runUrl());
   }
   if (!A.page && !A.ig && Object.keys(A.errs).length) throw Object.values(A.errs)[0];
   let published = 0;
@@ -486,15 +492,15 @@ export async function run(qdir) {
   for (const d of due) {
     const { k, t, key } = d, it = { ...d.it, caption: d.it[`caption_${t}`] ?? d.it.caption }, st = Q.state.posts[key] || { tries: 0 };
     if (!dry) Q.state.posts[key] = st;   // a dry run records nothing
-    const label = `${NAMES[it.type]} ${it.id} ב${NAMES[t]}`;
+    const label = `${NAMES[it.type]} של ${ilDay(it.at)} ב${NAMES[t]}`, ref = `ערכה ${k.name}, פריט ${it.id}`;
     const waits = !!it.needs_live && !(await isLive(it.needs_live));
     if (d.late > LATE_MS) {
       Object.assign(st, { status: "missed", at: new Date(now).toISOString(), ...(waits ? { err: `waited for ${it.needs_live} in Google Play` } : {}) });
       if (!dry) Q.save();
       summary.push(`missed ${key}${waits ? ` (waited for ${it.needs_live})` : ""}`);
-      if (!dry) await tell("day", `social:missed:${k.name}-${it.id}`, `לוחית · פרסום אוטומטי\nה${label} לא פורסם ` + (waits
-        ? `כי גרסה ${it.needs_live} עוד לא זמינה בגוגל פליי, והוא מראה מסכים מהגרסה הזו. ערכה ${k.name}. אפשר לתזמן אותו מחדש לשבוע הבא.`
-        : `בזמן (באיחור של יותר משש שעות), ולכן לא יפורסם. ערכה ${k.name}.`), runUrl());
+      if (!dry) await tell("day", `social:missed:${k.name}-${it.id}`, say("info", `ה${label} לא יפורסם`, waits
+        ? `הוא מראה מסכים מגרסה ${it.needs_live}, והיא עוד לא זמינה בגוגל פליי.`
+        : "הוא לא יצא בזמן, ואחרי שש שעות של איחור הבוט כבר לא מפרסם.", waits ? "אם רוצים אותו, לבקש בשרשור הערכה השבועית לתזמן אותו מחדש." : "", ref) + link(runUrl()), runUrl());
       continue;
     }
     if (waits) {
@@ -502,7 +508,8 @@ export async function run(qdir) {
       summary.push(`held ${key}: waits for ${it.needs_live} in Google Play (${live.v || live.err || "none"})`);
       if (!dry && !st.held) {
         st.held = new Date(now).toISOString(); Q.save();
-        await tell("day", `social:held:${k.name}-${it.id}`, `לוחית · פרסום אוטומטי\nה${label} מחכה: ${why}. הוא מראה מסכים מגרסה ${it.needs_live}, ולכן ייצא רק כשהיא זמינה, ועד שש שעות אחרי הזמן שנקבע.`, runUrl());
+        await tell("day", `social:held:${k.name}-${it.id}`, say("info", `ה${label} מחכה לגרסה ${it.needs_live}`,
+          `${esc(why)}. הוא מראה מסכים מהגרסה הזו, אז הוא ייצא רק כשהיא זמינה, עד שש שעות אחרי הזמן שנקבע.`, "", ref) + link(runUrl()), runUrl());
       }
       continue;
     }
@@ -512,12 +519,12 @@ export async function run(qdir) {
       summary.push(`failed ${key}: ${why}`);
       if (dry) continue;
       Object.assign(st, { status: "failed", err: why }); Q.save();
-      await tell("day", `social:fail:notoken-${t}`, `לוחית · פרסום אוטומטי\nה${label} לא פורסם: אין חיבור ל${NAMES[t]}. ${HINT[t]}`, runUrl());
+      await tell("day", `social:fail:notoken-${t}`, say("urgent", `ה${label} לא פורסם`, `אין חיבור ל${NAMES[t]}.`, HINT[t], ref) + link(runUrl()), runUrl());
       continue;
     }
     if (it.type === "story" && st.tries > 0) {   // no caption to look for: a story that may already be up is not posted again
       Object.assign(st, { status: "unsure" }); Q.save(); summary.push(`unsure ${key}`);
-      await tell("day", `social:unsure:${k.name}-${it.id}`, `לוחית · פרסום אוטומטי\nלא ברור אם ה${label} עלה (ניסיון קודם נקטע). כדאי להציץ בחשבון.`, runUrl());
+      await tell("day", `social:unsure:${k.name}-${it.id}`, say("today", `לא ברור אם ה${label} עלה`, "הניסיון הקודם נקטע באמצע.", `להציץ בחשבון ב${NAMES[t]}. אם הוא לא שם, לכתוב בשרשור הערכה השבועית.`, ref) + link(runUrl()), runUrl());
       continue;
     }
     if (dry) { summary.push(`would publish ${key}`); IO.log(`dry: would publish ${key} (${it.files.join(", ")})`); continue; }
@@ -526,7 +533,8 @@ export async function run(qdir) {
       summary.push(`waiting ${key}: link ${dead} does not answer`);
       if (!st.linkWarned) {
         st.linkWarned = iso(now); Q.save();
-        await tell("day", `social:fail:link-${k.name}-${it.id}`, `לוחית · פרסום אוטומטי\nה${label} מחכה: הקישור ${dead} לא עובד כרגע. הבוט בודק שוב כל רבע שעה, ומפרסם כשהקישור עובד (עד שש שעות אחרי הזמן שנקבע).`, runUrl());
+        await tell("day", `social:fail:link-${k.name}-${it.id}`, say("today", `ה${label} מחכה לקישור שעובד`,
+          `הקישור ${esc(dead)} לא נפתח כרגע. הבוט בודק שוב כל רבע שעה ומפרסם כשהקישור חוזר, עד שש שעות אחרי הזמן שנקבע.`, "לפתוח את הקישור. אם הוא לא עובד גם אצלך, לכתוב לי בשרשור \"תפעול, בוטים ומייל\".", ref) + link(runUrl()), runUrl());
       }
       continue;
     }
@@ -545,12 +553,13 @@ export async function run(qdir) {
         st.tries--; Q.save();
         A.errs[t] = e; if (t === "facebook") A.page = null; else A.ig = null;
         summary.push(`waiting ${key}: ${t} refused the token`);
-        await tell("day", `social:fail:token-${t}`, `לוחית · פרסום אוטומטי\n${NAMES[t]} דחה את הטוקן: ${e.message}\n${HINT[t]}`, runUrl());
+        await tell("day", `social:fail:token-${t}`, say("urgent", `${NAMES[t]} דחה את הטוקן`, "הפרסומים שם מחכים עד שיהיה טוקן חדש.", HINT[t], e.message) + link(runUrl()), runUrl());
         continue;
       }
       if (st.tries >= MAX_TRIES) {
         st.status = "failed"; Q.save(); summary.push(`failed ${key}: ${e.message}`);
-        await tell("day", `social:fail:${k.name}-${it.id}`, `לוחית · פרסום אוטומטי\nה${label} לא פורסם אחרי ${MAX_TRIES} ניסיונות.\n${e.message}`, runUrl());
+        await tell("day", `social:fail:${k.name}-${it.id}`, say("today", `ה${label} לא פורסם`, `${MAX_TRIES} ניסיונות נכשלו. ${heError(e.message).split("\n")[0]}`,
+          "לכתוב לי בשרשור \"תפעול, בוטים ומייל\". אם הפוסט חשוב, אפשר להעלות אותו ידנית מהערכה.", `${ref}: ${e.message}`) + link(runUrl()), runUrl());
       } else summary.push(`retry ${key}: ${e.message}`);
     }
   }
@@ -560,7 +569,7 @@ export async function run(qdir) {
   for (const id of [...new Set(posted.map(p => `${p.k.name}/${p.it.id}`))]) {
     const ps = posted.filter(p => `${p.k.name}/${p.it.id}` === id), { k, it } = ps[0];
     await tell("day", `social:done:${k.name}-${it.id}-${ps.map(p => p.t).join("+")}`,
-      `לוחית · פרסום אוטומטי\n${UP[it.type]} (${it.id}):\n${ps.map(p => `${NAMES[p.t]}: ${p.link}`).join("\n")}`, "", "loud");
+      msg({ kind: "done", area: "marketing", title: `${UP[it.type]} (${esc(it.id)})`, text: ps.map(p => `${NAMES[p.t]}: ${esc(p.link)}`).join("\n") }), "", "silent");
   }
   IO.log(`published ${published}, recorded ${done}`);
   return { published, summary };
@@ -584,10 +593,12 @@ export async function check() {
     state.ig?.refreshed ? `הטוקן של אינסטגרם חודש ב-${state.ig.refreshed.slice(0, 10)}` : ""].filter(Boolean);
   const ok = !Object.keys(A.errs).length && !!(A.page || A.ig) && !(dbg && dbg.expires_at !== 0);
   IO.log(lines.join("\n"));
-  await tell("summary", "social:check", `לוחית · פרסום אוטומטי\n${ok ? "החיבור עובד." : "יש בעיה בחיבור."}\n${lines.join("\n")}`, "", "silent");
+  await tell("summary", "social:check", say(ok ? "info" : "today", ok ? "החיבור לפייסבוק ולאינסטגרם עובד" : "יש בעיה בחיבור לפייסבוק או לאינסטגרם",
+    esc(lines.join("\n")), ok ? "" : "לכתוב לי בשרשור \"תפעול, בוטים ומייל\"."), "", "silent");
   return { ok, A };
 }
 const runUrl = () => IO.env.RUN_URL || "";
+const ilDay = at => { const d = new Date(at); return isNaN(d) ? "" : new Intl.DateTimeFormat("he-IL", { timeZone: "Asia/Jerusalem", day: "numeric", month: "numeric" }).format(d); };
 
 // ---- selftest ----
 async function selftest() {

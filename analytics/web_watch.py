@@ -40,7 +40,7 @@ def verdict(hist):
     slow = len(f) == LCP_DAYS and all(x is not None and x > LCP_MAX for x in f)
     why = []
     if low: why.append(f"ציון המובייל מתחת ל-{SCORE_MIN} {SCORE_DAYS} ימים ברצף ({', '.join(str(h['score']) for h in last)})")
-    if slow: why.append(f"LCP של משתמשים אמיתיים מעל {LCP_MAX/1000:g} שניות {LCP_DAYS} ימים ברצף ({', '.join(str(x) for x in f)} ms)")
+    if slow: why.append(f"אצל משתמשים אמיתיים התוכן הראשי נטען אחרי יותר מ-{LCP_MAX/1000:g} שניות {LCP_DAYS} ימים ברצף ({', '.join(f'{x/1000:.1f}' for x in f)} שניות)")
     return why
 
 
@@ -69,7 +69,7 @@ def rollback():
     """With PAGES_ADMIN_TOKEN (fine-grained PAT: Pages + Variables read/write on this repo) the rollback runs by itself:
     Pages back to branch main / root and WEB_DEPLOY=false. Returns a short result line for the alert."""
     tok, repo = os.environ.get("PAGES_ADMIN_TOKEN"), os.environ.get("GITHUB_REPOSITORY", "ddsabag/vehicle-app")
-    if not tok: return "אין טוקן PAGES_ADMIN_TOKEN, לכן החזרה דורשת פעולה ידנית: Pages > Source > Deploy from a branch (main, root) ו-WEB_DEPLOY=false."
+    if not tok: return "MANUAL"
     h = {"Authorization": f"Bearer {tok}", "Accept": "application/vnd.github+json", "Content-Type": "application/json"}
     def call(method, path, body):
         req = urllib.request.Request(f"https://api.github.com{path}", data=json.dumps(body).encode(), headers=h, method=method)
@@ -77,9 +77,9 @@ def rollback():
     try:
         call("PUT", f"/repos/{repo}/pages", {"build_type": "legacy", "source": {"branch": "main", "path": "/"}})
         call("PATCH", f"/repos/{repo}/actions/variables/WEB_DEPLOY", {"name": "WEB_DEPLOY", "value": "false"})
-        return "בוצעה חזרה אוטומטית: Pages מפרסם שוב מהענף main ו-WEB_DEPLOY כבוי. האתר יתעדכן תוך דקות."
+        return "DONE"
     except Exception as e:
-        return f"החזרה האוטומטית נכשלה ({str(e)[:80]}). לבצע ידנית: Pages > Source > Deploy from a branch (main, root) ו-WEB_DEPLOY=false."
+        return "MANUAL:" + str(e)[:200]
 
 
 def main():
@@ -92,11 +92,23 @@ def main():
     print(m)
     why = verdict(H["days"])
     if why and H.get("alerted") != m["date"]:
-        msg = "⚠️ לוחית: מהירות האתר (הבנייה המפוצלת) מעבר לסף. " + "; ".join(why) + ".\n" + ("(הרצה יבשה, לא בוצעה חזרה)" if dry else rollback())
+        # the shared message shape of .github/scripts/tg-text.mjs: classification line, short text, what to do (English detail last)
+        rb = "DRY" if dry else rollback()
+        msg = ("🟠 לטיפול היום · אתר\nהאתר נהיה איטי מעבר לסף\n" + "; ".join(why) + ".\n" +
+               {"DRY": "(הרצת ניסיון, לא הוחזר כלום.)\n👌 לא צריך לעשות כלום.",
+                "DONE": "האתר הוחזר אוטומטית לגרסה הפשוטה (בלי הבנייה המפוצלת), והוא יתעדכן תוך כמה דקות.\n👉 מה לעשות: לכתוב לי בשרשור \"תפעול, בוטים ומייל\" כדי שאבדוק מה האט את האתר."}.get(rb,
+               "החזרה האוטומטית לגרסה הפשוטה לא בוצעה.\n👉 מה לעשות: לכתוב לי בשרשור \"תפעול, בוטים ומייל\", ואחזיר אותה." +
+               (f"\nפרטים טכניים: {rb[7:]}" if rb.startswith("MANUAL:") else "")))
         print(msg)
         if not dry:
             flash(msg)
-            if not telegram(msg) and os.environ.get("GITHUB_OUTPUT"): open(os.environ["GITHUB_OUTPUT"], "a").write("telegram_failed=1\n")
+            try:
+                import alert as router   # analytics/alert.py: the alert router, falls back to the direct send
+            except Exception:
+                router = None
+            key = "webwatch:rollback" if rb == "DONE" else "webwatch:rollback-failed"
+            sent = router.alert("day", key, msg, today="loud", legacy=lambda: telegram(msg)) if router else telegram(msg)
+            if not sent and os.environ.get("GITHUB_OUTPUT"): open(os.environ["GITHUB_OUTPUT"], "a").write("telegram_failed=1\n")
             H["alerted"] = m["date"]
     elif not why: H["alerted"] = None
     if not dry: os.makedirs(state, exist_ok=True); json.dump(H, open(p, "w"), ensure_ascii=False)

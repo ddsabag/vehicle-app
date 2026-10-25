@@ -24,7 +24,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          sparse-checkout: .github/scripts/alert.mjs
+          sparse-checkout: |
+            .github/scripts/alert.mjs
+            .github/scripts/bot-names.json
           sparse-checkout-cone-mode: false
       - name: Daily
         run: node .github/scripts/alert.mjs daily

@@ -1,10 +1,11 @@
 // Daily Google Search digest to Telegram: impressions, clicks, CTR, position, top queries and pages, split by page type.
 // Search Console numbers arrive about 2-3 days late, so the digest reports the latest day that has data and says which day it is.
-// DRY_RUN=1 prints instead of sending. Alerts and digest go to Telegram only.
+// DRY_RUN=1 prints instead of sending, with every digit masked (the Actions log is public: no business numbers in it). Alerts and digest go to Telegram only.
 // Mondays: SEO_WEEKLY names a file with the weekly ranking report (analytics/seo_track.py --out, the job before this one); it is added at the end of
 // the digest, so Monday has one SEO message. Too long for one Telegram message, or the digest itself failed: the weekly part goes as its own silent message.
 import crypto from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
+import { msg, tag, todo, heError } from "./tg-text.mjs";   // the Telegram standard of 24.10: class line, plain Hebrew, what to do, English folded
 const DRY = process.env.DRY_RUN === "1", SITE = "sc-domain:luchit.app", ORIGIN = "https://luchit.app/";
 const sa = JSON.parse(process.env.GA_SERVICE_ACCOUNT_JSON || "null");
 if (!sa) { console.log("no service account secret, nothing to do"); process.exit(0); }
@@ -19,17 +20,31 @@ async function token() {
   return (await r.json()).access_token;
 }
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-async function telegram(text, silent = false) {
+// route = [level, key] for the alert router (alert.mjs, Dudu 25.10 "כן": every sender goes through it): the digest is "summary" (the Sunday
+// summary, not a daily message: nothing in it needs Dudu), a failed run is "day". Without the router, or when it hands back, the direct send runs.
+async function telegram(text, silent = false, route = null) {
   const tok = process.env.TELEGRAM_BOT_TOKEN, chat = process.env.TELEGRAM_CHAT_ID;
-  if (DRY || !tok || !chat) { console.log("--- Telegram (" + (DRY ? "dry run" : "no credentials") + ") ---\n" + text); return DRY; }
+  if (DRY || !tok || !chat) { console.log("--- Telegram (" + (DRY ? "dry run" : "no credentials") + ", digits masked) ---\n" + String(text).replace(/\d/g, "#")); return DRY; }
+  if (route) {
+    let router = null; try { router = await import("./alert.mjs"); } catch {}
+    if (router) { const r = await router.alert(route[0], route[1], text, "https://search.google.com/search-console", { today: silent ? "silent" : "loud", legacy: () => direct(text, silent) }); return !!r?.delivered; }
+  }
+  return direct(text, silent);
+}
+async function direct(text, silent) {
+  const tok = process.env.TELEGRAM_BOT_TOKEN, chat = process.env.TELEGRAM_CHAT_ID;
   const r = await fetch(`https://api.telegram.org/bot${tok}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true, disable_notification: silent }) });
   if (!r.ok) console.log("telegram failed", r.status);
   return r.ok;
 }
 let WEEKLY = "";   // the Monday weekly ranking report, plain text ("" on other days)
-if (process.env.SEO_WEEKLY) { try { WEEKLY = readFileSync(process.env.SEO_WEEKLY, "utf8").trim(); } catch (e) { console.log("no weekly report:", e.message); } }
-const weeklyAlone = () => telegram(esc(WEEKLY), true);   // silent, like the SEO tracker message it replaces
+// a .enc report is sealed by seo_track.py (AES-256-GCM, key = sha256 of a label and the service account's private key; nonce 12 + data + tag 16)
+const unseal = blob => { const raw = Buffer.from(blob, "base64"), key = crypto.createHash("sha256").update("luchit seo-track v1\n" + sa.private_key).digest();
+  const d = crypto.createDecipheriv("aes-256-gcm", key, raw.subarray(0, 12)); d.setAuthTag(raw.subarray(raw.length - 16));
+  return Buffer.concat([d.update(raw.subarray(12, raw.length - 16)), d.final()]).toString("utf8"); };
+if (process.env.SEO_WEEKLY) { try { const t = readFileSync(process.env.SEO_WEEKLY, "utf8").trim(); WEEKLY = (process.env.SEO_WEEKLY.endsWith(".enc") ? unseal(t) : t).trim(); } catch (e) { console.log("no weekly report:", e.message); } }
+const weeklyAlone = () => telegram(tag("info", "seo") + "\n" + esc(WEEKLY) + "\n" + todo(), true, ["summary", "seo:daily"]);   // silent, like the SEO tracker message it replaces
 // Re-run of a Monday run whose daily part was already delivered (Re-run failed jobs also re-runs this job when the weekly part failed):
 // SEO_DIGEST_SENT=1 sends only the weekly report, as re-running SEO tracker did, never the same digest twice (also a manual weekly_only run, as running SEO tracker did). SEO_SENT_MARK names the file
 // written once the daily part is delivered (the workflow keeps it for the run's later attempts).
@@ -40,10 +55,10 @@ if (process.env.SEO_DIGEST_SENT === "1") {
   process.exit((await weeklyAlone()) ? 0 : 1);
 }
 // the digest with the weekly report at the end; split in two when that is longer than one Telegram message (4096 characters)
-async function sendDigest(text, silent) {
+async function sendDigest(text, silent, key = "seo:daily") {
   const one = WEEKLY ? text + "\n\n" + esc(WEEKLY) : text;
-  if (!WEEKLY || one.length <= 4000) { const ok = await telegram(one, silent); if (ok) markSent(); return ok; }
-  const a = await telegram(text, silent);
+  if (!WEEKLY || one.length <= 4000) { const ok = await telegram(one, silent, ["summary", key]); if (ok) markSent(); return ok; }
+  const a = await telegram(text, silent, ["summary", key]);
   if (a) markSent();
   return (await weeklyAlone()) && a;
 }
@@ -89,7 +104,7 @@ try {
   const end = addDays(iso(new Date()), -1), start = addDays(end, -20);
   const days = (await q({ startDate: start, endDate: end, dimensions: ["date"] })).map(r => ({ d: r.keys[0], c: r.clicks, i: r.impressions, p: r.position })).sort((a, b) => a.d.localeCompare(b.d));
   if (!days.length) {
-    const ok = await sendDigest("📈 <b>לוחית בגוגל, עדכון יומי</b>\n\nעדיין אין נתוני חיפוש ב-Search Console. גוגל מתחיל להציג חשיפות אחרי כמה ימים מהגשת מפת האתר, והנתונים מתעכבים בכ-2 עד 3 ימים. אעדכן כשיופיעו.", true);
+    const ok = await sendDigest(msg({ kind: "info", area: "seo", title: "📈 לוחית בגוגל: עדיין אין נתוני חיפוש", text: "גוגל מתחיל להציג חשיפות אחרי כמה ימים מהגשת מפת האתר, והנתונים מתעכבים בכ-2 עד 3 ימים. אעדכן כשיופיעו." }), true, "seo:nodata");
     process.exit(WEEKLY && !ok ? 1 : 0);   // a weekly report that was not delivered fails the run (and its state is not saved), as SEO tracker did
   }
   const last = days[days.length - 1];
@@ -117,6 +132,7 @@ try {
     : `האתר מקבל כניסות מגוגל: ${n(cur.c)} ב-7 הימים האחרונים.`;
   // Daily view: the verdict, four numbers, and only what changed. Position, page-type split and the glossary are for Sundays.
   const lines = [
+    tag("info", "seo"),
     `📈 <b>לוחית בגוגל</b> · נתוני ${dm(last.d)} <i>(גוגל מתעכב 2 עד 3 ימים)</i>`,
     "",
     `<b>${verdict}</b>`,
@@ -135,10 +151,13 @@ try {
     if (secLine) lines.push(`הופענו לפי סוג דף: ${secLine}`);
     lines.push("", "<i>הופעה = האתר הוצג למישהו בתוצאות. כניסה = הוא לחץ עליו. עמוד ראשון בגוגל = מקומות 1 עד 10.</i>");
   }
+  lines.push("", todo());
   const ok = await sendDigest(lines.join("\n"), true);
   process.exit(ok ? 0 : 1);
 } catch (e) {
-  let ok = await telegram(`⚠️ <b>הדוח היומי מ-Search Console לא הצליח לרוץ</b>\nהסיבה: ${esc(String(e.message || e).slice(0, 300))}\nהבדיקה תרוץ שוב מחר. אם זה חוזר, כנראה שחשבון השירות אינו מחובר לנכס luchit.app ב-Search Console (הרשאת Restricted מספיקה) או ש-Google Search Console API כבוי בפרויקט.`);
+  const raw = String(e.message || e).slice(0, 300), why = heError(raw).split("\n<blockquote")[0];
+  let ok = await telegram(msg({ kind: "today", area: "seo", title: "הסיכום היומי מגוגל לא הצליח לרוץ", text: `${why} הבדיקה תרוץ שוב מחר.`,
+    what: "אם זה חוזר גם מחר, לכתוב לי בשרשור SEO. סיבה נפוצה: חשבון השירות הוסר מהנכס luchit.app ב-Search Console (מספיקה הרשאה מוגבלת, Restricted), או ש-Search Console API כבוי בפרויקט.", raw }), false, ["day", "seo:error"]);
   if (ok) markSent();   // that error message stands for the day's digest: a re-run sends only the weekly report
   if (WEEKLY) ok = (await weeklyAlone()) && ok;   // the weekly report was built by its own job: still deliver it, silently and apart from the loud error
   process.exit(ok ? 0 : 1);

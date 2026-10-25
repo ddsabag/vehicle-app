@@ -6,6 +6,7 @@ import { appendFileSync } from "node:fs";
 import { ilTime } from "./notify.mjs";
 import { flash } from "./flash.mjs";
 import { SETS, SAMPLE_PLATE } from "./datasets.mjs";
+import { msg, heError } from "./tg-text.mjs";
 const API = "https://data.gov.il/api/3/action/";
 const SLOW_MS = 5000, TIMEOUT_MS = 20000;
 const DRY = process.env.DRY_RUN === "1";
@@ -34,6 +35,9 @@ async function call(action, params) {
 // one retry so a single network blip does not page anyone
 async function withRetry(fn) { try { return await fn(); } catch (e) { await sleep(3000); return fn(); } }
 
+// the Hebrew sentence of a raw error (tg-text.mjs heError) without its folded block: the raw texts are folded once, at the end of the message
+const heOnly = raw => heError(raw).split("\n<blockquote")[0];
+const raws = [];
 async function check(s) {
   const problems = [], notes = [];
   let ms = 0;
@@ -56,7 +60,7 @@ async function check(s) {
       const empty = s.fields.filter(f => rec[f] === null || rec[f] === undefined || rec[f] === "").filter(f => f !== "tokef_dt" && f !== "kosher_grira_im_blamim");
       if (empty.length && s.filters) problems.push(`שדות מפתח ריקים ברשומת הבדיקה: ${empty.join(", ")}`);
     }
-  } catch (e) { problems.push(`${e.name === "TimeoutError" ? "פג הזמן (" + TIMEOUT_MS / 1000 + " שניות)" : e.message}`); ms = e.ms ?? ms; }
+  } catch (e) { problems.push(e.name === "TimeoutError" ? "המאגר לא ענה תוך " + TIMEOUT_MS / 1000 + " שניות" : heOnly(e.message)); raws.push(`${s.key}: ${e.message}`); ms = e.ms ?? ms; }
   // freshness
   try {
     const { j } = await withRetry(() => call("resource_show", { id: s.id }));
@@ -68,12 +72,18 @@ async function check(s) {
       if (age > s.maxAge && !s.expectEmpty) problems.push(`נתונים ישנים: עודכן לפני ${Math.floor(age)} ימים (סף ${s.maxAge}), ${lm.slice(0, 10)}`);
       notes.push(`עודכן ${lm.slice(0, 10)}`);
     }
-  } catch (e) { if (!s.expectEmpty) problems.push("לא ניתן לקרוא חותמת עדכון: " + e.message); }
+  } catch (e) { if (!s.expectEmpty) { problems.push("לא הצלחנו לקרוא מתי המאגר עודכן: " + heOnly(e.message)); raws.push(`${s.key} resource_show: ${e.message}`); } }
   return { ...s, ms, problems, notes };
 }
 
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-async function telegram(text) {
+// through the alert router (alert.mjs, key ministry:<dataset keys> or checker:data-health); the direct send stays the fallback
+async function telegram(text, key) {
+  let router = null; try { router = await import("./alert.mjs"); } catch { /* direct below */ }
+  if (router) return !!(await router.alert("day", key, text, process.env.RUN_URL || "", { today: "loud", legacy: () => direct(text) })).delivered;
+  return direct(text);
+}
+async function direct(text) {
   await flash("data", "alert", text);
   const token = process.env.TELEGRAM_BOT_TOKEN, chat = process.env.TELEGRAM_CHAT_ID;
   if (DRY || !token || !chat) { console.log("--- Telegram (" + (DRY ? "dry run" : "no credentials") + ") ---\n" + text); return DRY; }
@@ -84,13 +94,15 @@ async function telegram(text) {
 }
 
 const failText = (bad, total) => {
-  const lines = bad.map(r => `❌ <b>${esc(r.title)}</b>\n${r.problems.map(p => "• " + esc(p)).join("\n")}${r.impact ? "\nהשפעה על המשתמשים: " + esc(r.impact) + "." : ""}`);
-  return `⚠️ <b>לוחית: מאגר של משרד התחבורה לא תקין</b>\n${bad.length} מתוך ${total} מאגרים נכשלו בבדיקה, גם אחרי 3 ניסיונות בהפרש של כשתי דקות.\n\n${lines.join("\n\n")}\n\nמה לעשות: בדרך כלל כלום. המאגרים נמצאים אצל משרד התחבורה וחוזרים לעבוד בעצמם, בדרך כלל תוך שעות. אם ההתראה חוזרת גם מחר, כתבו לי ואבדוק.\n\nזמן: ${ilTime()} (שעון ישראל)`;
+  const lines = bad.map(r => `❌ <b>${esc(r.title)}</b>\n${r.problems.map(p => "• " + esc(p)).join("\n")}${r.impact ? "\nמה זה אומר למשתמשים: " + esc(r.impact) + "." : ""}`);
+  return msg({ kind: "today", area: "data", title: "מאגר של משרד התחבורה לא תקין",
+    text: `${bad.length} מתוך ${total} מאגרים נכשלו בבדיקה, גם אחרי 3 ניסיונות בהפרש של כשתי דקות. זו תקלה אצל משרד התחבורה, והמאגרים חוזרים לעבוד בעצמם, בדרך כלל תוך כמה שעות.\n\n${lines.join("\n\n")}\n\nזמן: ${ilTime()} (שעון ישראל)`,
+    what: "כלום. אם זה חוזר, זה עובר לבד לטיפול בשרשור \"נתונים ואמינות\".", raw: raws.slice(-6).join("; ") });
 };
 // PREVIEW=1 sends a clearly labelled sample of the alert, to check the wording on the phone
 if (process.env.PREVIEW === "1") {
   const fake = [{ ...SETS[0], problems: ["המאגר לא החזיר תוצאה לרכב בדיקה שידוע שהוא רשום בו (דוגמה)"], notes: [] }];
-  await telegram("🧪 <b>הודעת בדיקה, אין תקלה אמיתית</b>\n\n" + failText(fake, SETS.length));
+  await direct("🧪 <b>הודעת בדיקה, אין תקלה אמיתית</b>\n\n" + failText(fake, SETS.length));
   process.exit(0);
 }
 // a ministry dataset sometimes answers "nothing" for a few minutes and then recovers by itself: look again before waking anyone up
@@ -104,11 +116,13 @@ try {
   }
 } catch (e) { crash = e; }
 emitSeen();   // before any alert or exit, so the status snapshot gets what was read even when this check fails
-if (crash) { const e = crash; await telegram(`⚠️ <b>בדיקת בריאות הנתונים קרסה</b>\nהבדיקה היומית של מאגרי משרד התחבורה לא הצליחה לרוץ, ולכן לא ברור אם המאגרים תקינים. זו תקלה בבדיקה עצמה ולא בהכרח באפליקציה.\nפירוט: ${esc(e.message)}\n\nמה לעשות: בדרך כלל כלום. אם זה חוזר מחר, כתבו לי.\n\nזמן: ${ilTime()} (שעון ישראל)`); process.exit(1); }
+if (crash) { const e = crash; await telegram(msg({ kind: "today", area: "data", title: "הבדיקה היומית של מאגרי משרד התחבורה קרסה",
+  text: `${heOnly(e.message)} לכן הבוקר לא ברור אם המאגרים תקינים. זו תקלה בבדיקה עצמה, לא באפליקציה.\nזמן: ${ilTime()} (שעון ישראל)`,
+  what: "כלום. אם זה חוזר, זה עובר לבד לטיפול בשרשור \"נתונים ואמינות\".", raw: e.stack || e.message }), "checker:data-health"); process.exit(1); }
 
 for (const r of results) console.log(`${r.problems.length ? "FAIL" : "ok  "} ${r.key.padEnd(13)} ${String(r.ms).padStart(5)}ms ${[...r.problems, ...r.notes].join(" | ")}`);
 if (bad.length) {
   // the alert reached Telegram: finish green, so GitHub does not also send its own "workflow failed" mail; a failed send keeps the red run as a fallback
-  process.exit((await telegram(failText(bad, results.length))) ? 0 : 1);
+  process.exit((await telegram(failText(bad, results.length), "ministry:" + bad.map(r => r.key).join("+").slice(0, 80))) ? 0 : 1);
 }
 console.log("all datasets healthy");

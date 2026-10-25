@@ -25,15 +25,22 @@ def periods(today):
     return {"start": end - timedelta(days=6), "end": end, "prev_start": end - timedelta(days=13), "prev_end": end - timedelta(days=7)}
 
 
+def tag_line(status):
+    """The Telegram standard (24.10): the message's first line, above the Sunday block too. Always 🔵 and silent since 25.10 (Dudu: a bot fixes
+    what it can and reports; only what needs him asks him): each anomaly names the thread that handles it, and the weekly review task takes it there."""
+    return "🔵 לידיעה · מדידה"
+
+
 def brief(d, a, link, ins=None):
-    em = {"green": "🟢", "yellow": "🟡", "red": "🔴"}[a["status"]]
     k = {x["key"]: x for g in a["kpis"].values() for x in g}
     def c(x):
         if x["cur"] is None or not x["prev"]: return ""
+        if x["fmt"] not in ("pct", "ratio") and x["prev"] < analyze.MIN_BASE: return f" (בשבוע שעבר {x['prev']:g})"   # a quiet week: no percent
+        if x["fmt"] not in ("pct", "ratio") and analyze.times(x["cur"], x["prev"]): return f" ({analyze.times(x['cur'], x['prev'])} מהשבוע שעבר)"
         dlt = round(x["cur"] - x["prev"], 1) if x["fmt"] == "pct" else round((x["cur"] - x["prev"]) / x["prev"] * 100, 1)
         return f" ({'▲' if dlt > 0 else '▼'}{abs(dlt):g}{' נק׳' if x['fmt'] == 'pct' else '%'})" if dlt else ""   # no plus/minus sign: it flips inside Hebrew text
     def pc(x): return "—" if x["cur"] is None else f"{x['cur']}%"
-    lines = [f"{em} לוחית, דוח שבועי {d['period']['start']} עד {d['period']['end']}", "",
+    lines = [f"📊 לוחית, דוח שבועי {d['period']['start']} עד {d['period']['end']}", "",
              f"בדיקות רכב: {k['searches']['cur']:,}{c(k['searches'])}", f"פעילים באפליקציה בשבוע: {k['wau']['cur']:,}{c(k['wau'])}",
              f"איטיים: {pc(k['slow'])}  ביטולים: {pc(k['abort'])}  כשלים: {pc(k['fail'])}",
              f"שיתופים: {k['share']['cur']:,}{c(k['share'])}  השוואות: {k['compare']['cur']:,}{c(k['compare'])}",
@@ -44,12 +51,13 @@ def brief(d, a, link, ins=None):
         lines += ["", f"רשימת תפוצה: {bv['total']:,} מנויים [{'+' if n >= 0 else ''}{n} השבוע]" + (f" | פתיחות קמפיין אחרון: {L['open_pct']:g}%" if L and L["open_pct"] is not None else "")]
     flags = [x for x in a["anomalies"] if x["level"] in ("red", "yellow")]
     if flags:
-        lines += ["", "חריגות:"] + [f"{'🔴' if x['level'] == 'red' else '🟡'} {x['title']}" for x in flags[:4]]
+        lines += ["", "חריגות (כל אחת עוברת לשרשור שמטפל בה):"] + [f"{'🔴' if x['level'] == 'red' else '🟡'} {x['title']} · {x.get('owner') or 'דשבורד LIVE'}" for x in flags[:4]]
     else:
         lines += ["", "אין חריגות."]
     if ins and ins["lines"]:
         lines += ["", "תובנות:"] + ins["lines"]
-    lines += ["", "המלצות:"] + [f"{i}. {r}" for i, r in enumerate(a["recommendations"], 1)]
+    if a["recommendations"]: lines += ["", "המלצות:"] + [f"{i}. {r}" for i, r in enumerate(a["recommendations"], 1)]
+    lines += ["", "👌 לא צריך לעשות כלום. החריגות נבדקות ומטופלות בשרשורים, ומה שיצטרך אותך יגיע בנפרד." if flags else "👌 לא צריך לעשות כלום."]
     if link: lines += ["", link]
     return "\n".join(lines)
 
@@ -122,7 +130,8 @@ def main():
         head, complete = sunday_block(a_.out)
         try: text, whole = with_block(head, text)
         except Exception: whole = False   # never let the block cost the brief
-        sent, errs = notify.send_all(f"לוחית, דוח שבועי {per['end']}", text, html_path)
+        text = tag_line(res["status"]) + "\n" + text
+        sent, errs = notify.send_all(f"לוחית, דוח שבועי {per['end']}", text, html_path, silent=True)
         print("sent via:", sent or "nothing (no channel configured)")
         for e in errs: print("delivery error:", e)
         # the "mark" job then sets the router's hb.summaryAt. While summary/silent items are held for Sunday (ALERT_ROUTE), only a whole block

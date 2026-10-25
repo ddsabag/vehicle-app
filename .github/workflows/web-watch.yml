@@ -34,7 +34,8 @@ jobs:
           PAGES_ADMIN_TOKEN: ${{ secrets.PAGES_ADMIN_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # flash.mjs: the alert on the /live dashboard
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # flash.mjs: the alert on the /live dashboard; the alert router's state
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
         run: python analytics/web_watch.py state ${{ inputs.dry_run && '--dry' || '' }}
       - uses: actions/setup-node@v7
         if: ${{ !cancelled() }}

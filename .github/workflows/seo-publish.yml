@@ -1,6 +1,6 @@
 name: SEO auto-publish
 # Site-only SEO changes staged on branch "seo-auto" are published to main by themselves after about a day (23-24 h), if every check passes
-# (allowed paths only, 21-day rule from analytics/seo-changes.json, SEO lint). Silent Telegram notices; deleting the branch cancels. See .github/scripts/seo-publish.mjs.
+# (allowed paths only, 21-day rule from analytics/seo-changes.json, SEO lint). Telegram notices are silent unless the change needs Dudu or failed its checks. See .github/scripts/seo-publish.mjs.
 # Twice a day (10:40/18:40 UTC, clear of the 04:40-08:10 data writers), and on each push to seo-auto so the 24 h notice goes out at once.
 # Two jobs: "check" (notices, tags, the 24 h window) holds no lock; only a change that is due reaches "publish", which alone joins
 # main-writer (a run waiting there cancels another waiting data writer, which Failure alert then reports loudly).
@@ -35,6 +35,8 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}   # the alert router (alert.mjs): its state lives on the branch alert-state
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DRY: ${{ inputs.dry_run && '1' || '0' }}
           CHECK: "1"
         run: node .github/scripts/seo-publish.mjs
@@ -58,5 +60,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}   # the alert router (alert.mjs): its state lives on the branch alert-state
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DRY: ${{ inputs.dry_run && '1' || '0' }}
         run: node .github/scripts/seo-publish.mjs

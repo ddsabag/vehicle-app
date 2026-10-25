@@ -15,7 +15,7 @@ def ok(c, m):
     global n, bad; n += 1
     if not c: bad += 1; print("FAIL", m)
 SENT = []
-notify.send_all = lambda subject, text, html: (SENT.append(text) or (["telegram"], []))
+notify.send_all = lambda subject, text, html, silent=True: (SENT.append(text) or (["telegram"], []))
 REAL, TMP = subprocess.run, tempfile.TemporaryDirectory()
 FALLBACK = "⚠️ רשימת 'מחכה לך' לא נבנתה השבוע (הדוח עצמו תקין)."
 BODY = {"ok": "🧾 לוחית · סיכום שבועי\n\n⏳ מחכה לך: אין כלום השבוע ✓\n\n🔔 x", "exit3": "🧾 block without state", "crash": None, "crashw": "🧾 half-written block", "empty": "  \n", "nofile": None,
@@ -37,12 +37,15 @@ def main(mode, route="", argv=("--send",), stale=False):
     try:
         with contextlib.redirect_stdout(buf): rc = run.main()
     finally: run.subprocess.run = REAL
-    return rc, (SENT[0] if SENT else None), open(go).read(), buf.getvalue()
+    s = SENT[0] if SENT else None
+    if s is not None:   # the Telegram standard's tag line comes first, above the block; the checks below read what follows it
+        ok(s.split("\n", 1)[0] in (run.tag_line("green"), run.tag_line("red")), f"{mode}: tag line first {s[:30]!r}"); s = s.split("\n", 1)[1]
+    return rc, s, open(go).read(), buf.getvalue()
 
 # the brief as it is sent without the block
 wb = run.with_block; run.with_block = lambda head, text, limit=4000: (text, True)
 brief = main("ok")[1]; run.with_block = wb
-ok(bool(brief) and brief.startswith(("🟢", "🟡", "🔴")), "brief built")
+ok(bool(brief) and brief.startswith("📊 לוחית, דוח שבועי"), "brief built")
 rc, text, _, _ = main("ok")
 ok(rc == 0 and text == BODY["ok"] + "\n\n" + brief, "ok: block on top, blank line, brief below")
 # mode, ALERT_ROUTE, expected start, sent=1 expected
@@ -66,9 +69,9 @@ run.with_block = boom
 rc, text, gho, _ = main("ok"); ok(rc == 0 and text == brief and gho == "sent=1\n", "with_block raising in shadow: the brief alone, marked")
 rc, text, gho, _ = main("ok", "all"); ok(rc == 0 and text == brief and gho == "", "with_block raising, routed: the brief alone, not marked")
 run.with_block = wb
-notify.send_all = lambda subject, text, html: ([], ["telegram: HTTP 500"])
+notify.send_all = lambda subject, text, html, silent=True: ([], ["telegram: HTTP 500"])
 rc, _, gho, _ = main("ok"); ok(rc == 1 and gho == "", "nothing delivered: red run, not marked")
-notify.send_all = lambda subject, text, html: (SENT.append(text) or (["telegram"], []))
+notify.send_all = lambda subject, text, html, silent=True: (SENT.append(text) or (["telegram"], []))
 # with_block: the block is cut or dropped, never the brief (UTF-16 count)
 t, whole = run.with_block("🧾 head\n• a\n• b", "x" * 3995); ok(t == "x" * 3995 and not whole, "no room: block dropped")
 t, whole = run.with_block("🧾 head\n• a\n• " + "b" * 50, "x" * 3940); ok(t.startswith("🧾 head\n• a\n…\n\n") and t.endswith("x" * 3940) and not whole and run.u16(t) <= 4000, "cut at a line end " + repr(t[:30]))

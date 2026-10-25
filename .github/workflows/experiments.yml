@@ -38,6 +38,8 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           python analytics/experiments.py ${{ inputs.dry_run && '--dry' || '' }}
           [ -f out-experiments.txt ] && node .github/scripts/flash.mjs experiment info "$(cat out-experiments.txt)" || true

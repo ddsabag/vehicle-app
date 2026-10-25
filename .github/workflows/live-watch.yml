@@ -4,6 +4,7 @@ name: Live watch
 # Telegram through the alert router (live:stuck or live:error, at most once in 6 hours) and a redeploy of the Worker from main through
 # Workers deploy (mode on, workers live, at most once in 6 hours). Quiet when all is well, or when nobody opened the screen. A read problem
 # is one notice line and a green run.
+# Also writes the bots board /live shows (bots-status.mjs).
 # Kill switch: repository variable LIVE_WATCH. off = nothing runs, dry = read and print only. Manual runs are dry by default.
 on:
   schedule:
@@ -31,6 +32,11 @@ jobs:
           sparse-checkout: |
             .github/scripts/live-watch.mjs
             .github/scripts/alert.mjs
+            .github/scripts/bots-status.mjs
+            .github/scripts/flash.mjs
+            .github/scripts/tg-text.mjs
+            .github/scripts/bot-names.json
+            .github/workflows/
           sparse-checkout-cone-mode: false
       - uses: actions/setup-node@v7
         with: { node-version: 20 }
@@ -49,3 +55,12 @@ jobs:
           LIVE_WATCH: ${{ vars.LIVE_WATCH }}
           DRY: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      # the bots board on /live: each scheduled workflow's latest run on main (metrics.json "bots" on the flashes branch); never fails the job
+      - name: Bots board
+        if: ${{ always() && vars.LIVE_WATCH != 'dry' }}
+        continue-on-error: true
+        timeout-minutes: 2
+        run: node .github/scripts/bots-status.mjs selftest && node .github/scripts/bots-status.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}

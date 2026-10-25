@@ -12,6 +12,7 @@
 // metrics.json is public: key pages are stored as paths, every other indexed page only as a short hash of its path.
 //   node index-guard.mjs selftest      offline
 import { createHash } from "node:crypto";
+import { tag, todo } from "./tg-text.mjs";
 export const DROP = 0.1, MIN_BASE = 20, MAX_ERRORS = 5, SHRINK = 0.9;
 export const KEY = p => p === "/" || /^\/(check|magazine)\//.test(p);
 export const pathOf = u => { try { return new URL(u).pathname; } catch { return String(u); } };
@@ -43,17 +44,26 @@ export function compare(prev, now, at = "") {
 }
 
 const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+// seo-data asks URL Inspection for Hebrew (languageCode "he"); an English coverage state that still comes through gets a Hebrew name
+const COVERAGE_HE = { "Submitted and indexed": "נשלח ונוסף לאינדקס", "Indexed, not submitted in sitemap": "באינדקס, לא דרך מפת האתר",
+  "Crawled - currently not indexed": "גוגל סרק ולא הכניס לאינדקס", "Discovered - currently not indexed": "גוגל מכיר את הכתובת ועוד לא סרק אותה",
+  "URL is unknown to Google": "הכתובת לא ידועה לגוגל", "Page with redirect": "דף עם הפניה", "Not found (404)": "הדף לא נמצא (404)",
+  "Soft 404": "הדף נראה לגוגל ריק (soft 404)", "Server error (5xx)": "שגיאת שרת (5xx)", "Redirect error": "שגיאה בהפניה",
+  "Blocked by robots.txt": "חסום ב-robots.txt", "Excluded by ‘noindex’ tag": "הוחרג בתג noindex", "Excluded by 'noindex' tag": "הוחרג בתג noindex",
+  "Duplicate, Google chose different canonical than user": "כפילות: גוגל בחר דף ראשי אחר", "Duplicate without user-selected canonical": "כפילות בלי דף ראשי מוגדר",
+  "Alternate page with proper canonical tag": "גרסה חלופית של דף אחר (תקין)" };
+export const coverageHe = c => COVERAGE_HE[String(c).trim()] || c;
 export function message(alerts, link = "") {
-  const lines = ["⚠️ <b>גוגל הוציא דפים מהאינדקס</b>", ""];
+  const lines = [tag("today", "seo"), "<b>גוגל הוציא דפים מהאינדקס</b>", "דפים שהיו בתוצאות החיפוש כבר לא מופיעים בהן."];
   for (const a of alerts) {
     if (a.kind === "drop") lines.push(`${a.lost} מתוך ${a.of} הדפים שהיו באינדקס כבר לא בו (${Math.round(a.lost / a.of * 100)}%). כרגע באינדקס: ${a.indexed}.`);
     if (a.kind === "key") {
       lines.push("דפים חשובים שיצאו מהאינדקס:");
-      for (const l of a.lost.slice(0, 10)) lines.push(`• ${l.path === "/" ? "דף הבית" : esc(l.path)}${l.coverage ? ` (${esc(l.coverage)})` : ""}`);
+      for (const l of a.lost.slice(0, 10)) lines.push(`• ${l.path === "/" ? "דף הבית" : esc(l.path)}${l.coverage ? ` (${esc(coverageHe(l.coverage))})` : ""}`);
       if (a.lost.length > 10) lines.push(`ועוד ${a.lost.length - 10}.`);
     }
   }
-  lines.push("", "כדאי לבדוק ב-Search Console, במסך Pages, אם יש שגיאה או שינוי באתר.");
+  lines.push("", todo("לבדוק ב-Search Console, במסך Pages, אם יש שגיאה או שינוי באתר, או לכתוב לי בשרשור SEO."));
   if (link) lines.push(`<a href="${esc(link)}">Search Console</a>`);
   return lines.join("\n");
 }
@@ -84,6 +94,8 @@ if (process.argv[1] && process.argv[1].endsWith("index-guard.mjs") && process.ar
   r = run(prev, key);
   ok(r.alerts.length === 1 && r.alerts[0].kind === "key" && r.alerts[0].lost[0].path === "/check/recall/", "key page lost: alert");
   ok(message(r.alerts, "https://x.example/").includes("/check/recall/") && message(r.alerts).includes("לא ידועה"), "message names the page and its state");
+  ok(message(r.alerts).startsWith("<b>🟠 לטיפול היום · SEO</b>") && message(r.alerts).includes("👉 מה לעשות:"), "message has the class line and what to do");
+  ok(coverageHe("Crawled - currently not indexed") === "גוגל סרק ולא הכניס לאינדקס" && coverageHe("נסרק אך לא נכלל באינדקס") === "נסרק אך לא נכלל באינדקס", "English coverage gets a Hebrew name");
   ok(alertId(r.alerts) === alertId(run(prev, key).alerts) && alertId(r.alerts) !== alertId(run(prev, lose(4)).alerts), "alert id: same news same id");
   // false-alarm cases found in review
   r = run(prev, [], { sitemap: [] });

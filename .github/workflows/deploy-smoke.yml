@@ -2,7 +2,7 @@ name: Site smoke test (after deploy)
 # The same live-site check as Site smoke test (site-smoke.mjs), right after Web deploy published a new version: bot and cron commits
 # (made with GITHUB_TOKEN, so no push trigger sees them) and pushes, whatever files they change. With WEB_DEPLOY on, Site smoke test's own
 # push trigger stands down; it still covers the legacy Pages mode the auto-rollback falls back to. Nothing runs when the deploy job did not
-# (main already live, WEB_DEPLOY off, or a build-only manual run). Kept out of the web-deploy concurrency group on purpose. Alerts go to Telegram only.
+# (main already live, WEB_DEPLOY off, or a build-only manual run). Kept out of the web-deploy concurrency group on purpose. Alerts go to Telegram through the alert router (alert.mjs).
 on:
   workflow_run:
     workflows: ["Web deploy (build)"]
@@ -45,6 +45,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}   # the alert router (alert.mjs): its state lives on the branch alert-state
       # The web has no staged rollout: a deploy that changed index.html reaches everyone at once, and the daily data truth audit would read it
       # only the next morning. So such a deploy starts the audit now, on a sample of its own (12 active cars and 6 from the other registers,
       # about 25 minutes, alerts through the router as truth:<groups>), without replacing the morning's record. Started even when the smoke

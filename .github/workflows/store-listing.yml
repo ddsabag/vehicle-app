@@ -43,6 +43,8 @@ jobs:
             .github/scripts/play-listing.mjs
             .github/scripts/play-data-safety.mjs
             .github/scripts/play-alpha.mjs
+            .github/scripts/tg-text.mjs
+            .github/scripts/bot-names.json
             .github/scripts/alert.mjs
             .github/store-listing
           sparse-checkout-cone-mode: false

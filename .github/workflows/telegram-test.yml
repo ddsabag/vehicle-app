@@ -1,0 +1,41 @@
+name: Telegram test
+# Manual only: sends ONE sample message in the 24.10 shape (tg-text.mjs), so the owner sees how a message looks on the phone.
+# Dry by default (prints the text, sends nothing). The token never appears in the log; the message holds no numbers or personal details.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run: print the message, send nothing"
+        type: boolean
+        default: true
+permissions:
+  contents: read
+jobs:
+  send:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts/tg-text.mjs
+            .github/scripts/bot-names.json
+          sparse-checkout-cone-mode: false
+      - name: Send
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DRY: ${{ inputs.dry_run && '1' || '0' }}
+        run: |
+          text=$(node --input-type=module -e '
+            import { msg } from "./.github/scripts/tg-text.mjs";
+            console.log(msg({ kind: "info", area: "bots", title: "הודעת בדיקה: ככה תיראה כל התראה מעכשיו",
+              text: "בשורה הראשונה הסיווג והתחום, אחריה הסבר קצר בעברית, ובסוף שורה שאומרת אם צריך לעשות משהו. פרטים טכניים באנגלית מקופלים למטה ונפתחים בלחיצה.",
+              what: "", raw: "Sample technical detail: HTTP 503 Service Unavailable (this is only a test)" }));')
+          printf '%s\n' "$text"
+          [ "$DRY" = 1 ] && { echo "dry run: nothing sent"; exit 0; }
+          [ -n "$TELEGRAM_BOT_TOKEN" ] || { echo "no Telegram credentials"; exit 1; }
+          code=$(curl -s -o /dev/null -w "%{http_code}" "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
+            --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$text" \
+            --data-urlencode "parse_mode=HTML" --data-urlencode "disable_web_page_preview=true")
+          echo "telegram $code"; [ "$code" = 200 ]

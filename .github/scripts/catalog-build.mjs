@@ -42,16 +42,24 @@ async function call(params, tries = 5) {
   }
   throw new Error("failed " + JSON.stringify(params).slice(0, 100) + ": " + (last && last.message));
 }
-// the whole dataset, page by page; the "fields" form is tried first (smaller answers), the plain form when the server rejects it
+// the whole dataset, page by page, sorted by _id (the datastore's unsorted pages are not stable); the "fields" form is tried first (smaller
+// answers), the plain form when the server rejects it. A short page is only the end when nothing lies past it: one more row is asked for there,
+// and a row found means the read stopped early, which is an error (a catalogue built on part of a dataset is not published). The dataset's own
+// total is no measure: for the price list it is an estimate (130,885 on 24.10.2026, while every read ends at its 102,116 rows)
 async function scan(id, fields, onRows) {
   let total = 0, useFields = !!fields;
+  const q = off => ({resource_id: id, limit: String(PAGE), offset: String(off), sort: "_id"});
   for (let off = 0; ; off += PAGE) {
     let r;
-    try { r = await call(useFields ? {resource_id: id, limit: String(PAGE), offset: String(off), fields} : {resource_id: id, limit: String(PAGE), offset: String(off)}, useFields ? 2 : 5); }
+    try { r = await call(useFields ? {...q(off), fields} : q(off), useFields ? 2 : 5); }
     catch (e) { if (!useFields) throw e; useFields = false; off -= PAGE; continue; }
     if (!r.records.length) break;
     onRows(r.records); total += r.records.length;
-    if (r.records.length < PAGE) break;
+    if (r.records.length < PAGE) {
+      const more = await call({...q(total), limit: "1", fields: "_id"});
+      if (more.records.length) throw new Error(`${id}: the read stopped after ${total} rows, and the dataset goes on`);
+      break;
+    }
   }
   return total;
 }
@@ -89,13 +97,17 @@ log("price: " + await scan(ID.price, "_id,tozeret_cd,degem_cd,sug_degem,shnat_yi
   }
 }) + ` rows, _id aligned ${aligned}/${checked}`);
 const byId = checked > 0 && aligned / checked > 0.98;
-if (byId) { for (const x of priceRows) { const w = ids.get(Number(x._id)); if (w) { w[MEHIR] = val(x.mehir); w[YEVUAN] = val(x.shem_yevuan); } } }
-else {
+// by _id only where that row's maker, code, type and year agree: up to 2% of the ids may point at another model, and such a row (or one with no
+// _id twin) is joined by maker|model|type|year instead of taking a stranger's price
+const same = (w, x) => String(w[I.tozeret_cd]) === String(val(x.tozeret_cd)) && String(w[I.degem_cd]) === String(val(x.degem_cd)) && String(w[I.shnat_yitzur]) === String(val(x.shnat_yitzur)) && typeOf(w[I.sug_degem]) === typeOf(x.sug_degem);
+const joined = new Set();
+if (byId) { for (const x of priceRows) { const w = ids.get(Number(x._id)); if (w && same(w, x)) { w[MEHIR] = val(x.mehir); w[YEVUAN] = val(x.shem_yevuan); joined.add(w); } } }
+{
   const pk = new Map();   // key4 -> its price and importer (the lowest, should a key ever hold two)
   for (const x of priceRows) { const k = key4(x), m = Number(x.mehir) || 0; if (!(m > 0)) continue; const e = pk.get(k); if (!e || m < e[0]) pk.set(k, [m, val(x.shem_yevuan)]); }
-  for (const rows of byMaker.values()) for (const w of rows) { const e = pk.get(wKey4(w)); if (e) { w[MEHIR] = e[0]; w[YEVUAN] = e[1]; } }
+  for (const rows of byMaker.values()) for (const w of rows) { if (joined.has(w)) continue; const e = pk.get(wKey4(w)); if (e) { w[MEHIR] = e[0]; w[YEVUAN] = e[1]; } }
 }
-log("price join: " + (byId ? "by _id" : "by maker|model|type|year"));
+log("price join: " + (byId ? `by _id (${joined.size} rows), the rest by maker|model|type|year` : "by maker|model|type|year"));
 
 // 3. counts: cars on the road / taken off, per maker|model|year (summed over the dataset's duplicates)
 const cnt = new Map();
@@ -147,6 +159,16 @@ const BRANDS_MORE = {"טויוטה": ["LEXUS"], "פורד": ["LINCOLN"], "ב מ 
 // 5. write
 const total = [...byMaker.values()].reduce((s, r) => s + r.length, 0);
 if (total < 50000) throw new Error("catalogue implausibly small: " + total);
+// a big drop against the catalogue published the day before writes nothing (the workflow fails, Failure alert rings, yesterday's stays), as in
+// models.mjs; SKIP_GATE=1 publishes anyway when the drop is real
+try {
+  const pr = await fetch("https://raw.githubusercontent.com/ddsabag/vehicle-app/catalog-data/meta.json", {signal: AbortSignal.timeout(30000)});
+  const pm = pr.ok ? await pr.json() : null;
+  if (pm && pm.rows > 0) {
+    log(`rows ${total} (the day before ${pm.rows}), recalls ${recN} (${pm.recalls})`);
+    if ((total < pm.rows * 0.97 || recN < (pm.recalls || 0) * 0.97) && process.env.SKIP_GATE !== "1") throw new Error(`catalogue dropped against the day before: rows ${total} of ${pm.rows}, recalls ${recN} of ${pm.recalls}; re-run with SKIP_GATE=1 if the change is real`);
+  }
+} catch (e) { if (/dropped/.test(e.message)) throw e; log("the day before's meta.json could not be read: no drop check (" + e.message + ")"); }
 for (const d of ["c", "r"]) fs.rmSync(`${OUT}/${d}`, {recursive: true, force: true});
 fs.mkdirSync(OUT + "/c", {recursive: true}); fs.mkdirSync(OUT + "/r", {recursive: true});
 const u = new Date().toISOString().slice(0, 10);
@@ -157,9 +179,14 @@ const brandOf = new Map();   // register maker code -> Hebrew brand (tozar)
 const top = (rows, i) => { const m = new Map(); for (const w of rows) m.set(String(w[i]), (m.get(String(w[i])) || 0) + 1); return [...m.entries()].sort((a, b) => b[1] - a[1])[0][0]; };
 // the brand of a maker whose WLTP rows mostly or all leave tozar empty (לקסוס ארה"ב and פורד ד. אפריקה on 19.10.2026): the brand its rows that have one name,
 // else the brand its name starts with, so the maker keeps its recall file
+// The register cuts a maker name short and spells it its own way (קיי ג'י מובילי for the brand קיי גי מוביליט, ג'י.אם.סי for ג'י.אמ.סי: KG Mobility lost its
+// recall file on 22.10.2026 when its rows stopped naming a brand), so the name is also compared without marks, spaces and final letters
 const nameBrands = Object.keys({...BRANDS, ...BRANDS_MORE}).sort((a, b) => b.length - a.length), noBrand = [];
+const bare = s => String(s).replace(/['"׳״.\s-]/g, "").replace(/[םןץףך]/g, c => "מנצפכ"["םןץףך".indexOf(c)]);
+const brandOfName = n => nameBrands.find(k => n === k || n.startsWith(k + " "))
+  || nameBrands.find(k => { const a = bare(n), b = bare(k); return a === b || a.startsWith(b) && b.length >= 5 || b.startsWith(a) && a.length >= 6; }) || "";
 const brandOfMaker = (rows, n) => { const named = rows.filter(w => String(w[I.tozar]).trim()); if (named.length) return top(named, I.tozar);
-  const b = nameBrands.find(k => n === k || n.startsWith(k + " ")) || ""; noBrand.push(`${n}${b ? " -> " + b : ""}`); return b; };
+  const b = brandOfName(n); noBrand.push(`${n}${b ? " -> " + b : ""}`); return b; };
 for (const [cd, rows] of byMaker) {
   for (const w of rows) for (let i = 0; i < COLS.length + EXTRA.length; i++) if (w[i] === undefined) w[i] = "";
   rows.sort((a, b) => (b[I.shnat_yitzur] || 0) - (a[I.shnat_yitzur] || 0) || String(a[I.kinuy_mishari]).localeCompare(String(b[I.kinuy_mishari])));

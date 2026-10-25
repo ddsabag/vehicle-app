@@ -19,7 +19,8 @@
 //   node play-production.mjs selftest  offline (mocked fetch, virtual clock)
 import fs from "node:fs";
 import crypto from "node:crypto";
-import { jwt, Fail, playFail, gate, PKG, SECRET, TRACK as ALPHA } from "./play-alpha.mjs";
+import { jwt, Fail, playFail, gate, PKG, SECRET, TRACK as ALPHA, escH, whyHe } from "./play-alpha.mjs";
+import { msg } from "./tg-text.mjs";
 
 export const PROD = "production", FRACTION = 0.2, FULL_AFTER_H = 48;   // the only track written here, and the only first fraction
 export const PERM_PROD = "Release to production, exclude devices, and use Play App Signing";
@@ -164,7 +165,7 @@ export function planPromote(tracks, life = {}, want = "", full = false) {
   if (running && top(running) === top(alpha)) return full ? { vn, vc: top(alpha), full: true, completes: true, release: clean(running, { status: "completed" }) }
     : { stop: "running", vn, he: `${vn} כבר בהפצה הדרגתית ב-Production` };
   if (running && !full) return { stop: "busy", vn, he: `${vname(running)} עדיין בהפצה הדרגתית ב-Production: קודם היא צריכה להגיע ל-100% או להיעצר` };
-  if (top(alpha) <= Math.max(base, top(running))) return { stop: "same", vn, he: `${vn} (versionCode ${top(alpha)}) לא חדשה מהגרסה שכבר ב-Production` };
+  if (top(alpha) <= Math.max(base, top(running))) return { stop: "same", vn, he: `${vn} לא חדשה מהגרסה שכבר ב-Production` };
   if (halted && top(halted) >= top(alpha)) return { stop: "paused", vn, he: `ההפצה של ${vname(halted)} עצורה ב-Production, ו-${vn} לא חדשה ממנה` };
   const notes = (alpha.releaseNotes || []).filter(n => n?.language && n?.text);
   if (!notes.length) return { stop: "notes", vn, he: `ל-${vn} ב-Alpha אין הערות שחרור` };
@@ -334,45 +335,61 @@ function failed(R, e) {
 }
 
 // ---- the one Telegram ----
+// Play's review states in the owner's words (a state not listed shows as it is, folded)
+const LIFE_HE = { IN_REVIEW: "בסקירה של גוגל", APPROVED_NOT_PUBLISHED: "אושרה ומחכה ללחיצה על Publish", NOT_APPROVED: "נדחתה בסקירה של גוגל",
+  NOT_SENT_FOR_REVIEW: "לא נשלחה לסקירה", DRAFT: "טיוטה", PUBLISHED: "פורסמה" };
 export function compose(R, env = {}) {
   const dev = env.PLAY_DEVELOPER_ID, app = env.PLAY_APP_ID, run = env.RUN_URL || "";
   const pc = dev && app ? `https://play.google.com/console/developers/${dev}/app/${app}/tracks/production` : "https://play.google.com/console";
-  const v = `לוחית ${R.vn}`, vc = R.vc || "x";
-  if (R.code === "sent" && R.first) return { key: `prod:sent:${vc}`, link: pc, text: `${v} נשלחה ל-Production לכל המשתמשים: זו ההפצה הראשונה, ו-Google לא מאפשרת בה הפצה הדרגתית. ` +
-    `היא תתחיל אחרי אישור Google (בהפצה ראשונה זה יכול לקחת כמה ימים). מהגרסה הבאה, "פרסם" מתחיל ב-${FRACTION * 100}%.\n${pc}` };
-  if (R.code === "sent" && R.completes) return { key: `prod:full:${vc}`, link: pc, text: `${v} הועברה ל-100% מהמשתמשים ב-Production לפי בקשתך, בלי לחכות ${FULL_AFTER_H} שעות.\n${pc}` };
-  if (R.code === "sent" && R.full) return { key: `prod:sent:${vc}`, link: pc, text: `${v} נשלחה ל-Production לכל המשתמשים בבת אחת, לפי בקשתך` +
-    `${R.replaces ? `, במקום ${R.replaces}${R.wasRunning ? " שהייתה בהפצה הדרגתית" : " שההפצה שלה עצורה"}` : ""}. היא תתחיל אחרי אישור Google. ` +
-    `בהפצה לכולם אין עצירה אוטומטית: אם תופיע קריסה חדשה, תגיע הודעה מהמעקב, והתיקון הוא גרסה חדשה.\n${pc}` };
-  if (R.code === "sent") return { key: `prod:sent:${vc}`, link: pc, text: `${v} נשלחה ל-Production בהפצה הדרגתית ל-${FRACTION * 100}% מהמשתמשים. היא תתחיל אחרי אישור Google.` +
-    `${R.replaces ? ` היא מחליפה את ${R.replaces}, שההפצה שלה עצורה.` : ""} אם תופיע קריסה חדשה שלא הייתה בגרסאות הקודמות, ההפצה תיעצר לבד. אם לא, היא תגיע ל-100% כ-${FULL_AFTER_H} שעות אחרי שהמעקב יראה אותה.\n${pc}` };
+  const v = `לוחית ${escH(R.vn)}`, vc = R.vc || "x", A = (u, t) => `<a href="${escH(u)}">${t}</a>`;
+  const tech = [R.vc ? `versionCode ${R.vc}` : ""];
+  // kind: done/info are quiet, today rings by day, urgent (a halt) rings at once
+  const out = (key, link, kind, title, text, what = "") => ({ key, link, kind, level: kind === "urgent" ? "critical" : "day", today: kind === "done" || kind === "info" ? "silent" : "loud",
+    text: msg({ kind, area: "app", title, text, what, raw: tech.filter(Boolean).join(" · ") }) });
+  const watch = `אם תופיע קריסה חדשה שלא הייתה בגרסאות הקודמות, ההפצה תיעצר לבד. אם לא, היא תגיע ל-100% כ-${FULL_AFTER_H} שעות אחרי שהמעקב יראה אותה.`;
+  if (R.code === "sent" && R.first) return out(`prod:sent:${vc}`, pc, "done", `${v} נשלחה ל-Production לכל המשתמשים`,
+    `זו ההפצה הראשונה, ו-Google לא מאפשרת בה הפצה הדרגתית. היא תתחיל אחרי אישור Google (בהפצה ראשונה זה יכול לקחת כמה ימים). מהגרסה הבאה, "פרסם" מתחיל ב-${FRACTION * 100}%.`, `לחכות לאישור. ${A(pc, "Play Console")}`);
+  if (R.code === "sent" && R.completes) return out(`prod:full:${vc}`, pc, "done", `${v} הועברה ל-100% מהמשתמשים ב-Production`, `לפי הבקשה, בלי לחכות ${FULL_AFTER_H} שעות.`);
+  if (R.code === "sent" && R.full) return out(`prod:sent:${vc}`, pc, "done", `${v} נשלחה ל-Production לכל המשתמשים בבת אחת, לפי הבקשה` +
+    `${R.replaces ? `, במקום ${escH(R.replaces)}${R.wasRunning ? " שהייתה בהפצה הדרגתית" : " שההפצה שלה עצורה"}` : ""}`,
+    "היא תתחיל אחרי אישור Google. בהפצה לכולם אין עצירה אוטומטית: אם תופיע קריסה חדשה, תגיע הודעה מהמעקב, והתיקון הוא גרסה חדשה.");
+  if (R.code === "sent") return out(`prod:sent:${vc}`, pc, "done", `${v} נשלחה ל-Production בהפצה הדרגתית ל-${FRACTION * 100}% מהמשתמשים`,
+    `היא תתחיל אחרי אישור Google.${R.replaces ? ` היא מחליפה את ${escH(R.replaces)}, שההפצה שלה עצורה.` : ""} ${watch}`);
   const pct = `${Math.round((R.fraction || FRACTION) * 100)}%`;
-  if (R.code === "live" && R.resumed) return { key: `prod:live:${vc}`, link: pc, text: `ההפצה של ${v} ב-Production חודשה (${pct} מהמשתמשים). ` +
-    `אם לא תופיע קריסה חדשה מאז העצירה, היא תגיע ל-100% לבד בעוד ${FULL_AFTER_H} שעות.` };
-  if (R.code === "live") return { key: `prod:live:${vc}`, link: pc, text: `Google אישרה את ${v}, והיא עלתה ל-${pct} מהמשתמשים ב-Production. ` +
-    `אם לא תופיע קריסה חדשה, היא תגיע ל-100% לבד בעוד ${FULL_AFTER_H} שעות.` };
+  if (R.code === "live" && R.resumed) return out(`prod:live:${vc}`, pc, "done", `ההפצה של ${v} ב-Production חודשה (${pct} מהמשתמשים)`,
+    `אם לא תופיע קריסה חדשה מאז העצירה, היא תגיע ל-100% לבד בעוד ${FULL_AFTER_H} שעות.`);
+  if (R.code === "live") return out(`prod:live:${vc}`, pc, "done", `Google אישרה את ${v}, והיא עלתה ל-${pct} מהמשתמשים ב-Production`,
+    `אם לא תופיע קריסה חדשה, היא תגיע ל-100% לבד בעוד ${FULL_AFTER_H} שעות.`);
   if (R.code === "stuck") {
-    const po = dev && app ? `https://play.google.com/console/developers/${dev}/app/${app}/publishing` : "https://play.google.com/console";
-    const text = { NOT_APPROVED: `Google דחתה את ${v} ל-Production. הסיבה במייל מ-Google וב-Play Console ← Policy status. אחרי התיקון: "שחרר" לגרסה חדשה, ואז "פרסם".`,
-      APPROVED_NOT_PUBLISHED: `Google אישרה את ${v} ל-Production, והיא מחכה ללחיצה שלך: Play Console ← Publishing overview ← Publish (מופעל Managed publishing).`,
-      NOT_SENT_FOR_REVIEW: `${v} ב-Production לא נשלחה לסקירה של Google. Play Console ← Publishing overview ← Send changes for review.`,
-      DRAFT: `${v} ב-Production נשמרה כטיוטה ולא נשלחה לסקירה. Play Console ← Publishing overview.`,
-      SLOW: `${v} בסקירה של Google ל-Production כבר יותר מ-${SLOW_D} ימים. אין מה לעשות חוץ מלחכות; אפשר לבדוק ב-Play Console ← Publishing overview.` }[R.life] || `${v} ב-Production: ${R.life}.`;
-    return { key: `prod:wait:${vc}:${tag(R.life)}`, link: po, text: `${text}\n${po}` };
+    const po = dev && app ? `https://play.google.com/console/developers/${dev}/app/${app}/publishing` : "https://play.google.com/console", P = A(po, "Play Console");
+    const key = `prod:wait:${vc}:${tag(R.life)}`;
+    const t = {
+      NOT_APPROVED: ["today", `Google דחתה את ${v} ל-Production`, "הגרסה לא מגיעה למשתמשים. הסיבה במייל מ-Google וב-Play Console ← Policy status.", `לכתוב בשרשור "מוצר ושחרורים". אחרי התיקון: "שחרר" לגרסה חדשה, ואז "פרסם". ${P}`],
+      APPROVED_NOT_PUBLISHED: ["today", `Google אישרה את ${v} ל-Production, והיא מחכה ללחיצה`, "Managed publishing מופעל, ולכן הגרסה לא יוצאת עד שמפרסמים אותה ידנית.", `Play Console ← Publishing overview ← Publish. ${P}`],
+      NOT_SENT_FOR_REVIEW: ["today", `${v} ב-Production לא נשלחה לסקירה של Google`, "בלי הסקירה הגרסה לא מגיעה למשתמשים.", `Play Console ← Publishing overview ← Send changes for review. ${P}`],
+      DRAFT: ["today", `${v} ב-Production נשמרה כטיוטה`, "היא לא נשלחה לסקירה, ולכן לא מגיעה למשתמשים.", `Play Console ← Publishing overview. ${P}`],
+      SLOW: ["info", `${v} בסקירה של Google ל-Production כבר יותר מ-${SLOW_D} ימים`, "זה קורה לפעמים, והגרסה הקודמת ממשיכה לעבוד.", ""],
+    }[R.life];
+    if (t) return out(key, po, t[0], t[1], t[2], t[3]);
+    tech.push(`state ${R.life}`);
+    return out(key, po, "info", `${v} ב-Production: ${escH(LIFE_HE[R.life] || "מצב לא מוכר")}`, "", `לבדוק ב-${P}.`);
   }
-  if (R.code === "full") return { key: `prod:full:${vc}`, link: pc, text: `${v} הגיעה ל-100% מהמשתמשים ב-Production: ${FULL_AFTER_H} שעות בלי קריסה חדשה.` };
-  if (R.code === "halted") return { key: `prod:halt:${vc}`, link: pc, text: `עצרתי את ההפצה של ${v} ב-Production (${Math.round((R.fraction || 0) * 100)}% מהמשתמשים): ` +
-    `${R.n === 1 ? "קריסה חדשה אחת" : `${R.n} קריסות חדשות`} שלא היו בגרסאות הקודמות (הפרטים בהודעה מהמעקב). מי שכבר עדכן נשאר עם ${R.vn}, וכל השאר נשארים עם הגרסה הקודמת.\n` +
-    `מה לעשות: לתקן ולשחרר גרסה חדשה. אם זו לא בעיה אמיתית: Play Console ← Production ← Resume rollout.\n${pc}` };
-  if (R.code === "error") return { key: `prod:fail:${R.access ? "access" : R.cmd}`, link: run,
-    text: `${R.cmd === "promote" ? "הפרסום ל-Production" : "הבדיקה של ההפצה ב-Production"} נכשל${R.cmd === "promote" ? "" : "ה"}: ${R.why}.${R.next ? `\nמה לעשות: ${R.next}.` : ""}` +
-      `${R.unsure ? " ייתכן שהשינוי כן נקלט." : " שום דבר ב-Production לא השתנה."}${run ? `\n${run}` : ""}` };
-  // promote stood down (same, busy, running, paused, notes, rejected, other, no-alpha): the owner asked, so he hears why
-  return { key: `prod:stop:${tag(R.code + R.vn)}`, link: run, text: `לא נשלח ל-Production: ${R.why}.` };
+  if (R.code === "full") return out(`prod:full:${vc}`, pc, "done", `${v} הגיעה ל-100% מהמשתמשים ב-Production`, `${FULL_AFTER_H} שעות בלי קריסה חדשה.`);
+  if (R.code === "halted") return out(`prod:halt:${vc}`, pc, "urgent", `עצרתי את ההפצה של ${v} ב-Production (${Math.round((R.fraction || 0) * 100)}% מהמשתמשים)`,
+    `${R.n === 1 ? "קריסה חדשה אחת" : `${R.n} קריסות חדשות`} שלא היו בגרסאות הקודמות (הפרטים בהודעה מהמעקב). מי שכבר עדכן נשאר עם ${escH(R.vn)}, וכל השאר נשארים עם הגרסה הקודמת.`,
+    `לכתוב בשרשור "מוצר ושחרורים": מתקנים ומשחררים גרסה חדשה. אם זו לא בעיה אמיתית: Play Console ← Production ← Resume rollout. ${A(pc, "Play Console")}`);
+  if (R.code === "error") {
+    const w = whyHe(R.why); if (w.raw) tech.push(w.raw);
+    return out(`prod:fail:${R.access ? "access" : R.cmd}`, run, "today", `${R.cmd === "promote" ? "הפרסום ל-Production" : "הבדיקה של ההפצה ב-Production"} נכשל${R.cmd === "promote" ? "" : "ה"}`,
+      `${w.he}.${R.unsure ? " ייתכן שהשינוי כן נקלט." : " שום דבר ב-Production לא השתנה."}`, `${R.next ? escH(R.next) + "." : 'לכתוב בשרשור "מוצר ושחרורים".'}${run ? ` ${A(run, "הלוג")}` : ""}`);
+  }
+  // promote stood down (same, busy, running, paused, notes, rejected, other, no-alpha): the owner asked, so the owner hears why
+  { const w = whyHe(R.why); if (w.raw) tech.push(w.raw);
+    return out(`prod:stop:${tag(R.code + R.vn)}`, run, "today", "לא נשלח ל-Production", `${w.he}.`, run ? A(run, "הלוג") : ""); }
 }
 async function telegram(text) {
   const r = await call("POST", `https://api.telegram.org/bot${IO.env.TELEGRAM_BOT_TOKEN}/sendMessage`, { headers: { "content-type": "application/json" },
-    body: JSON.stringify({ chat_id: IO.env.TELEGRAM_CHAT_ID, text, disable_web_page_preview: true }), timeout: 20000, once: true });
+    body: JSON.stringify({ chat_id: IO.env.TELEGRAM_CHAT_ID, text, parse_mode: "HTML", disable_web_page_preview: true }), timeout: 20000, once: true });
   IO.out(`telegram ${r.status || "no answer"}`);
   return r.ok;
 }
@@ -386,8 +403,10 @@ export async function tell(R) {
   if (!IO.env.TELEGRAM_BOT_TOKEN || !IO.env.TELEGRAM_CHAT_ID) { note("TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID are not set: the message is only in the job summary"); return true; }
   let router = IO.router;
   if (!router) try { router = await import("./alert.mjs"); } catch { /* legacy below */ }
-  const r = router ? await router.alert("day", m.key, m.text, m.link, { today: "loud", plain: true, fresh: R.cmd === "promote", legacy: () => telegram(m.text) })
+  const r = router ? await router.alert(m.level, m.key, m.text, m.link, { today: m.today, fresh: R.cmd === "promote", legacy: () => telegram(m.text) })
     : { delivered: await telegram(m.text) };
+  // a build on its way to Production settles every Alpha upload notice before it (the Sunday summary's "waiting for you" list)
+  if (router?.resolve && ["sent", "live", "full"].includes(R.code)) try { await router.resolve(["ship:done:"]); } catch { /* the summary hides it anyway */ }
   return !!r.delivered;
 }
 
@@ -534,7 +553,7 @@ async function selftest() {
       ["busy", T([A("1.35", 120)], [A("1.34", 115, "inProgress", { userFraction: 0.2 }), A("1.33", 110)]), "busy"], ["no alpha", T([A("1.34", 115, "draft")], [A("1.33", 110)]), "no-alpha"],
       ["halted newer", T([A("1.34", 115)], [A("1.34", 115, "halted", { userFraction: 0.2 }), A("1.33", 110)]), "paused"], ["no notes", T([{ name: "1.34", versionCodes: ["115"], status: "completed" }], [A("1.33", 110)]), "notes"]]) {
       W = await run({ tracks });
-      ok(W.outputs.code === code && !W.puts.length && !committed(W) && W.tg.length === 1 && W.tg[0].text.startsWith("לא נשלח ל-Production") && W.code === 0, `promote ${name}: ${W.outputs.code} ${W.tg.map(x => x.text)}`);
+      ok(W.outputs.code === code && !W.puts.length && !committed(W) && W.tg.length === 1 && W.tg[0].text.includes("<b>לא נשלח ל-Production</b>") && W.code === 0, `promote ${name}: ${W.outputs.code} ${W.tg.map(x => x.text)}`);
     }
     W = await run({ life: { 115: "NOT_APPROVED" } });
     ok(W.outputs.code === "rejected" && !W.puts.length && W.tg[0]?.text.includes("נדחתה"), "promote: a build Google rejected on Alpha is not sent");
@@ -575,7 +594,7 @@ async function selftest() {
       ["no notes", T([{ name: "1.35", versionCodes: ["120"], status: "completed" }], [A("1.34", 115, "inProgress", { userFraction: 0.2 }), A("1.33", 110)]), {}, "notes"],
       ["another version", BUSY, { VERSION: "1.36" }, "other"], ["no alpha", T([A("1.35", 120, "draft")], [A("1.33", 110)]), {}, "no-alpha"]]) {
       W = await run({ tracks }, { ...FULL, ...env });
-      ok(W.outputs.code === code && !W.puts.length && !committed(W) && W.tg[0]?.text.startsWith("לא נשלח ל-Production"), `full ${name}: ${W.outputs.code}`);
+      ok(W.outputs.code === code && !W.puts.length && !committed(W) && W.tg[0]?.text.includes("<b>לא נשלח ל-Production</b>"), `full ${name}: ${W.outputs.code}`);
     }
     W = await run({ tracks: BUSY, life: { 120: "NOT_APPROVED" } }, FULL);
     ok(W.outputs.code === "rejected" && !W.puts.length, "full: a build Google rejected on Alpha is not sent");
@@ -697,13 +716,15 @@ async function selftest() {
   });
 
   await group("router and secrets", async () => {
-    const seen = [], router = { alert: async (lv, key, text, link, o) => { seen.push({ lv, key, o }); return { delivered: true }; } };
+    const seen = [], settled = [], router = { alert: async (lv, key, text, link, o) => { seen.push({ lv, key, o }); return { delivered: true }; },
+      resolve: async p => { settled.push(`${seen.at(-1)?.key}>${p.join("|")}`); return 1; } };
     const { validKey } = await import("./alert.mjs");
     await run({ router });
     await run({ router, tracks: T([A("1.33", 110)], [A("1.33", 110)]) });
     await run({ router, fail: { put: [403] } });
     await run({ router, tracks: T([A("1.34", 115)], [A("1.34", 115, "inProgress", { userFraction: 0.2 }), A("1.33", 110)]), state: { seen: { "production:115": T0 - 49 * HOUR }, live: { "production:115": T0 - 49 * HOUR }, issues: { "115:a": T0 } } }, { EVENT: "schedule" }, ["auto"]);
-    ok(seen.map(s => s.key.replace(/:[0-9a-f]{12}$/, ":H")).join() === "prod:sent:115,prod:stop:H,prod:fail:access,prod:halt:115" && seen.every(s => s.lv === "day" && validKey(s.key)), "router: keys " + seen.map(s => s.key));
+    ok(seen.map(s => s.key.replace(/:[0-9a-f]{12}$/, ":H")).join() === "prod:sent:115,prod:stop:H,prod:fail:access,prod:halt:115" && seen.every(s => s.lv === (s.key.startsWith("prod:halt") ? "critical" : "day") && validKey(s.key)), "router: keys " + seen.map(s => s.key));
+    ok(settled.join() === "prod:sent:115>ship:done:", "router: only a send to Production settles the Alpha upload notices " + settled);
     W = await run();
     const all = [...W.printed, ...W.sums, ...Object.values(W.outputs), ...W.tg.map(x => x.text)].join("\n");
     ok(![TOKEN, TG, "PRIVATE KEY", SA.client_email].some(x => all.includes(x)), "secrets stay out of the output");

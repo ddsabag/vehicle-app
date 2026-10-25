@@ -15,6 +15,7 @@
 // and drops any job output that contains one. Secrets (the key, the access token, the Telegram token) never reach stdout, outputs or the job summary.
 import fs from "node:fs";
 import crypto from "node:crypto";
+import { msg, heError } from "./tg-text.mjs";
 
 export const TRACK = "alpha";   // the only track this script may write; hard-coded on purpose, no input or variable can change it
 export const NOTES_FILE = "android/release-notes.txt", NOTES_MAX = 500, NOTES_LANG = "iw-IL";   // Play counts characters, not bytes; iw-IL = Hebrew
@@ -26,6 +27,16 @@ export const BUDGET_MS = 20 * 60000;   // the Play step's own deadline; the job'
 const PLAY = "https://androidpublisher.googleapis.com", TOKEN_URL = "https://oauth2.googleapis.com/token";
 const SCOPE = "https://www.googleapis.com/auth/androidpublisher";
 const SHA40 = /^[0-9a-f]{40}$/;
+// Telegram text (24.10 standard, tg-text.mjs): HTML, so every dynamic piece is escaped; a raw refusal or an English API answer becomes one
+// Hebrew sentence and its raw text goes to the folded block
+export const escH = t => String(t ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+export function whyHe(why) {
+  const s = String(why || "");
+  // refused: the script's own guard stopped a request it may not send, before it left the machine
+  if (/^refused:/.test(s)) return { he: "הסקריפט עצר בעצמו בקשה שאסור לו לשלוח ל-Google Play (הגנה פנימית, לא תקלה בחשבון)", raw: s };
+  if (/^(Google Play החזיר \d+:|תקלה בסקריפט:)/.test(s)) return { he: heError(s).split("\n<blockquote")[0].replace(/\.$/, ""), raw: s };
+  return { he: escH(s), raw: "" };
+}
 const RERUN = b => `Actions ← Ship tail ← Run workflow עם step=play, mode=on${b ? `, build=${b}` : ""}`;
 
 // injectable I/O: the selftest swaps these (mocked fetch, a virtual clock and sleep, captured stdout and step outputs)
@@ -147,7 +158,7 @@ export function playFail(r, vc = "") {
   if (/in review|under review|pending review/i.test(msg))
     return new Fail("גרסה קודמת עדיין בסקירה של Google", "לחכות שהסקירה תסתיים ולהריץ שוב", r.status);
   if (/version ?code.*(already been used|already used|already exists)/i.test(msg))
-    return new Fail(`versionCode ${vc} כבר קיים ב-Play`, "להריץ את Android build מחדש (הבנייה החדשה מקבלת versionCode חדש)", r.status);
+    return new Fail(`הבנייה ${vc} כבר קיימת ב-Play`, "להריץ את Android build מחדש (הבנייה החדשה מקבלת מספר חדש)", r.status);
   if (r.status === 401 || r.status === 403)
     return new Fail("לחשבון השירות אין הרשאה מתאימה ב-Play Console", `Play Console ← Users and permissions ← חשבון השירות ← App permissions: לסמן באפליקציה "${PERM}" ו-"${PERM_READ}"`, r.status);
   if (r.status === 404) return new Fail("Google Play לא מצא את האפליקציה או את העריכה", "לבדוק שחשבון השירות הוזמן ל-Play Console עם הרשאה לאפליקציה", r.status);
@@ -202,7 +213,7 @@ export function decide(tracks, vn, vc, shipped = new Map()) {
   // the app already has builds on Play (alpha at least; production access was requested in 10/2026): an answer with none is not a picture to act on
   if (!codes.length) return { release: false, unknown: true, why: "Play listed no release on any track", he: "Google Play לא החזיר אף גרסה באף מסלול" };
   const top = [...new Set([shipped.get(max), ...rel.filter(r => r.codes.includes(max)).flatMap(r => versionsIn(r.name))].filter(Boolean))];
-  if (!top.length) return { release: false, unknown: true, lookup: true, why: `the version of versionCode ${max}, the newest on Play, is not known`, he: `לא ידוע מאיזו גרסה נבנה versionCode ${max}, החדש ביותר ב-Play` };
+  if (!top.length) return { release: false, unknown: true, lookup: true, why: `the version of versionCode ${max}, the newest on Play, is not known`, he: `לא ידוע מאיזו גרסה נבנתה הבנייה ${max}, החדשה ביותר ב-Play` };
   if (!top.every(t => cmpVersion(vn, t) > 0)) return { release: false, why: `${vn} is not above ${top.join(" / ")}, the newest on Play (versionCode ${max})` };
   return { release: true, max, top: top.join(" / ") };
 }
@@ -368,7 +379,7 @@ async function judge(manual) {
     if (!nt.ok && manual) { const m = parseNotes(await notesAt("main"), v.vn); if (m.ok) nt = m; }
     if (!nt.ok) { IO.out(`release notes ${nt.code}: nothing uploaded`); return { ...R, code: "notes", notes: nt.code, got: nt.got || "", n: nt.n || 0 }; }
     R.n = nt.n;
-    if (!v.signed) throw new Fail(`הבנייה ${v.vc} לא חתומה (חסרים סודות החתימה ב-Android build)`, "להוסיף את סודות החתימה (KEYSTORE_B64, KEYSTORE_PASSWORD) ולהריץ את Android build מחדש");
+    if (!v.signed) throw new Fail(`הבנייה ${v.vc} לא חתומה (חסרים סודות החתימה ב-Android build)`, "להוסיף ב-GitHub את סודות החתימה של האנדרואיד ולהריץ את Android build מחדש");
     const aab = d.assets.find(a => a.name === `luchit-${v.vn}.aab`);
     if (!aab) throw new Fail(`ב-draft של build-${d.n} אין luchit-${v.vn}.aab`, "להריץ את Android build מחדש");
 
@@ -393,7 +404,7 @@ async function judge(manual) {
     let committed = false;
     try {
       const up = await play(ctx, "POST", `/upload${EDITS(ctx)}/${id}/bundles?uploadType=media`, { buf });
-      if (+up.versionCode !== v.vc) throw new Fail(`Google Play קרא versionCode ${up.versionCode} מהקובץ ולא ${v.vc}`);
+      if (+up.versionCode !== v.vc) throw new Fail(`Google Play קרא מהקובץ מספר בנייה ${up.versionCode} ולא ${v.vc}`);
       if (up.sha256 && up.sha256 !== sha256(buf)) throw new Fail("הקובץ שהגיע ל-Google Play שונה מהקובץ שנבנה", "להריץ שוב");
       await updateTrack(ctx, id, TRACK, [{ name: v.vn, versionCodes: [String(v.vc)], status: "completed", releaseNotes: [{ language: NOTES_LANG, text: nt.text }] }]);
       await play(ctx, "POST", `${EDITS(ctx)}/${id}:validate`);
@@ -451,34 +462,40 @@ export function compose(P, G, runs, env = {}) {
   if (runs.workers?.status === "completed" && runs.workers.conclusion !== "success") fix.push(`Workers: ${runs.workers.html_url}`);
   if (G?.why && G.code !== "ok" && G.code !== "created" && G.code !== "dry") fix.push(`GA4: ${G.why}${G.next ? `. ${G.next}` : ""}.`);
   const vn = P.vn, vc = P.vc, run = env.RUN_URL || "";
-  let level = "day", key, text;
+  const tech = [vc ? `versionCode ${vc}` : "", P.sha ? `commit ${String(P.sha).slice(0, 7)}` : ""].filter(Boolean);
+  let level = "day", key, today = "loud", m;
   if (P.code === "uploaded") {
-    key = `ship:done:${vn}`;
-    text = `לוחית ${vn} עלתה ל-Alpha ונשלחה לסקירה (versionCode ${vc}). ${status}. כשתרצה להפיץ אותה לכולם: "פרסם" בשרשור (או Actions ← Production ← Run workflow).\n${pc}`;
+    key = `ship:done:${vn}`; today = "silent";   // a step that finished as planned is quiet
+    m = { kind: "done", title: `לוחית ${escH(vn)} עלתה ל-Alpha ונשלחה לבדיקה של גוגל`,
+      text: `${escH(status)}.\nאחרי האישור של גוגל הבודקים מקבלים אותה. משתמשי החנות מקבלים אותה רק אחרי "פרסם".`,
+      what: `כשרוצים להפיץ לכולם: לכתוב "פרסם" בשרשור "מוצר ושחרורים". <a href="${escH(pc)}">Play Console</a>` };
   } else if (P.code === "dry") {
     key = `ship:dry:${vn}`;
     const checked = P.checked === "permission" ? "נבדקו הגישה ל-Play וההרשאה ל-Alpha, לא ההעלאה עצמה" : "נבדקה הגישה ל-Play, לא ההרשאה ל-Alpha (המסלול ריק) ולא ההעלאה עצמה";
-    text = `בדיקה יבשה: לוחית ${vn} מוכנה ל-Alpha (versionCode ${vc}, הערות שחרור ${P.n} תווים). ${checked}. לא הועלה כלום. ${status}.\n` +
-      (gate({ ...env, REF: "refs/heads/main" }).mode === "dry" && String(env.SHIP_TAIL || "").trim() ? `כדי להעלות: להעביר את המשתנה SHIP_TAIL ל-on (או למחוק אותו), ואז ${RERUN(vc)}.` : `כדי להעלות: ${RERUN(vc)}.`);
+    m = { kind: "info", title: `בדיקה יבשה: לוחית ${escH(vn)} מוכנה ל-Alpha`, text: `${checked}. לא הועלה כלום. ${escH(status)}.`,
+      what: (gate({ ...env, REF: "refs/heads/main" }).mode === "dry" && String(env.SHIP_TAIL || "").trim() ? `להפעיל את ההעלאה האוטומטית (המשתנה בפרטים הטכניים: on, או למחוק אותו), ואז ${escH(RERUN(vc))}.` : `כדי להעלות באמת: ${escH(RERUN(vc))}.`) };
+    tech.push(`הערות שחרור: ${P.n} תווים`);
+    if (String(env.SHIP_TAIL || "").trim()) tech.push(`SHIP_TAIL=${String(env.SHIP_TAIL).trim().slice(0, 12)}`);
   } else if (P.code === "notes") {
     key = `ship:notes:${vn}`;
     const why = { missing: " (הקובץ חסר)", format: ` (השורה הראשונה צריכה להיות "# ${vn}")`, stale: ` (בקובץ כתוב ${P.got})`, empty: " (אין טקסט מתחת לכותרת)",
       long: ` (${P.n} תווים, המקסימום ${NOTES_MAX})` }[P.notes] || "";
-    text = `העלאת לוחית ${vn} ל-Alpha מחכה להערות שחרור${why}. ${status}.\n` +
-      `מה לעשות: ב-main, בקובץ ${NOTES_FILE}, שורה ראשונה "# ${vn}" ומתחתיה ההערות בעברית (עד ${NOTES_MAX} תווים). השמירה בונה את האפליקציה מחדש וההעלאה רצה לבד. ` +
-      `אם לא: ${RERUN(vc)}.`;
+    m = { kind: "today", title: `העלאת לוחית ${escH(vn)} ל-Alpha מחכה להערות שחרור${escH(why)}`, text: `בלי "מה חדש" בעברית הגרסה לא עולה לגוגל. ${escH(status)}.`,
+      what: escH(`ב-main, בקובץ ${NOTES_FILE}, שורה ראשונה "# ${vn}" ומתחתיה ההערות בעברית (עד ${NOTES_MAX} תווים). השמירה בונה את האפליקציה מחדש וההעלאה רצה לבד. אם לא: ${RERUN(vc)}.`) };
   } else {
     key = P.stage === "decide" || P.stage === "secret" ? "ship:fail:access" : P.stage === "github" ? "ship:fail:github" : `ship:fail:${vn}`;
-    const head = P.stage === "decide" ? `Ship tail לא הצליח לקבוע אם לוחית ${vn} כבר ב-Google Play: ${P.why}.`
-      : P.stage === "secret" ? `Ship tail לא מתחבר ל-Google Play: ${P.why}.`
-      : P.stage === "github" ? `Ship tail לא קרא מ-GitHub את בניית Android${vc ? ` ${vc}` : ""}: ${P.why}.`
-      : `העלאת לוחית ${vn} ל-Alpha נכשלה: ${P.why}. ${status}.`;
+    const w = whyHe(P.why);
+    const head = P.stage === "decide" ? `לא ברור אם לוחית ${escH(vn)} כבר ב-Google Play` : P.stage === "secret" ? "ההעלאה האוטומטית לא מתחברת ל-Google Play"
+      : P.stage === "github" ? `ההעלאה לא קראה מ-GitHub את בניית האנדרואיד${vc ? ` ${vc}` : ""}` : `העלאת לוחית ${escH(vn)} ל-Alpha נכשלה`;
     // "run again (in a few minutes)" is the re-run itself, not a step before it
-    const again = /^להריץ שוב/.test(P.next || ""), todo = again ? RERUN(vc) + P.next.slice(9) : `${P.next ? P.next + ", ואז " : ""}${RERUN(vc)}`;
-    text = `${head}\nמה לעשות: ${todo}.${run ? `\n${run}` : ""}`;
+    const again = /^להריץ שוב/.test(P.next || ""), next = again ? RERUN(vc) + P.next.slice(9) : `${P.next ? P.next + ", ואז " : ""}${RERUN(vc)}`;
+    m = { kind: "today", title: head, text: `${w.he}.${P.stage === "upload" || !P.stage ? ` ${escH(status)}.` : ""} הגרסה לא מגיעה לבודקים עד שזה מתוקן.`.replace("..", "."),
+      what: `${escH(next)}.${run ? ` <a href="${escH(run)}">הלוג</a>` : ""}` };
+    if (w.raw) tech.push(w.raw);
   }
-  if (fix.length) text += "\n" + fix.join("\n");
-  return { level, key, text, link: P.code === "uploaded" ? pc : run };
+  if (fix.length) m.text += "\n" + fix.map(escH).join("\n");
+  const text = msg({ ...m, area: "app", raw: tech.join(" · ") });
+  return { level, key, text, today, link: P.code === "uploaded" ? pc : run };
 }
 async function runsFor(sha) {
   if (!SHA40.test(sha || "")) return { ok: false };
@@ -490,7 +507,7 @@ async function runsFor(sha) {
 }
 async function telegram(text) {
   const r = await call("POST", `https://api.telegram.org/bot${IO.env.TELEGRAM_BOT_TOKEN}/sendMessage`, { headers: { "content-type": "application/json" },
-    body: JSON.stringify({ chat_id: IO.env.TELEGRAM_CHAT_ID, text, disable_web_page_preview: true }), timeout: 20000, once: true });
+    body: JSON.stringify({ chat_id: IO.env.TELEGRAM_CHAT_ID, text, parse_mode: "HTML", disable_web_page_preview: true }), timeout: 20000, once: true });
   IO.out(`telegram ${r.status || "no answer"}`);
   return r.ok;
 }
@@ -506,7 +523,7 @@ export async function summary() {
   let router = IO.router;
   if (!router) try { router = await import("./alert.mjs"); } catch { /* legacy below */ }
   const fresh = env.EVENT === "workflow_dispatch" && P.code !== "dry";   // a manual re-run always reports, even inside the 24 h dedupe
-  const r = router ? await router.alert(m.level, m.key, m.text, m.link, { today: "loud", plain: true, fresh, legacy: () => telegram(m.text) })
+  const r = router ? await router.alert(m.level, m.key, m.text, m.link, { today: m.today || "loud", fresh, legacy: () => telegram(m.text) })
     : { delivered: await telegram(m.text) };
   return r.delivered ? 0 : 1;
 }
@@ -955,22 +972,22 @@ async function selftest() {
   await group("messages", async () => {
     const runsOk = { ok: true, smoke: { status: "completed", conclusion: "success" }, workers: { status: "completed", conclusion: "success" } };
     let m = compose({ code: "uploaded", vn: "1.33", vc: 110 }, { code: "ok" }, runsOk, { PLAY_DEVELOPER_ID: "1", PLAY_APP_ID: "2" });
-    ok(m.text.startsWith("לוחית 1.33 עלתה ל-Alpha ונשלחה לסקירה (versionCode 110). אתר ✓ · Workers ✓ · GA4 ✓. כשתרצה להפיץ אותה לכולם: \"פרסם\" בשרשור (או Actions ← Production ← Run workflow).\nhttps://play.google.com/console/developers/1/app/2/")
-      && m.key === "ship:done:1.33" && m.level === "day", "message: uploaded\n" + m.text);
+    ok(m.text.startsWith("<b>✅ בוצע · אפליקציה</b>\n<b>לוחית 1.33 עלתה ל-Alpha ונשלחה לבדיקה של גוגל</b>\nאתר ✓ · Workers ✓ · GA4 ✓.") && m.text.includes('href="https://play.google.com/console/developers/1/app/2/')
+      && /<blockquote expandable>[^]*versionCode 110/.test(m.text) && m.key === "ship:done:1.33" && m.level === "day" && m.today === "silent", "message: uploaded\n" + m.text);
     m = compose({ code: "uploaded", vn: "1.33", vc: 110 }, { code: "needs-editor", why: "לחשבון השירות אין תפקיד Editor בנכס GA4", next: "x" }, { ok: true, smoke: { status: "in_progress" } }, {});
-    ok(/אתר: עוד רץ · GA4: חסר תפקיד Editor\./.test(m.text) && !/Workers/.test(m.text) && /Editor/.test(m.text.split("\n").at(-1)), "message: smoke still running, no Workers run, GA4 403\n" + m.text);
+    ok(/אתר: עוד רץ · GA4: חסר תפקיד Editor\./.test(m.text) && !/Workers/.test(m.text) && m.text.includes("GA4: לחשבון השירות אין תפקיד Editor בנכס GA4. x."), "message: smoke still running, no Workers run, GA4 403\n" + m.text);
     m = compose({ code: "notes", notes: "stale", got: "1.32", vn: "1.33", vc: 110 }, null, { ok: true }, {});
     ok(m.key === "ship:notes:1.33" && /מחכה להערות שחרור \(בקובץ כתוב 1\.32\)/.test(m.text) && /# 1\.33/.test(m.text) && /build=110/.test(m.text), "message: notes\n" + m.text);
     m = compose({ code: "error", stage: "upload", vn: "1.33", vc: 110, why: "w", next: "n" }, { code: "error", why: "g" }, { ok: true, smoke: { status: "completed", conclusion: "failure", html_url: "https://github.com/x/1" } }, { RUN_URL: "https://github.com/r/2" });
-    ok(m.key === "ship:fail:1.33" && /נכשלה: w\./.test(m.text) && /אתר ✗/.test(m.text) && /GA4 ✗/.test(m.text) && m.text.includes("https://github.com/x/1") && m.text.includes("https://github.com/r/2"), "message: failure\n" + m.text);
+    ok(m.key === "ship:fail:1.33" && /נכשלה<\/b>\nw\./.test(m.text) && /^<b>🟠 לטיפול היום · אפליקציה<\/b>/.test(m.text) && /אתר ✗/.test(m.text) && /GA4 ✗/.test(m.text) && m.text.includes("https://github.com/x/1") && m.text.includes("https://github.com/r/2"), "message: failure\n" + m.text);
     m = compose({ code: "dry", vn: "1.33", vc: 110, n: 40, checked: "permission" }, null, { ok: true }, { SHIP_TAIL: "dry" });
-    ok(/להעביר את המשתנה SHIP_TAIL ל-on/.test(m.text) && m.key === "ship:dry:1.33" && /לא ההעלאה עצמה/.test(m.text), "message: dry under SHIP_TAIL=dry says to switch it, and what was checked\n" + m.text);
+    ok(/להפעיל את ההעלאה האוטומטית/.test(m.text) && /<blockquote expandable>[^]*SHIP_TAIL=dry/.test(m.text) && m.key === "ship:dry:1.33" && /לא ההעלאה עצמה/.test(m.text), "message: dry under SHIP_TAIL=dry says to switch it, and what was checked\n" + m.text);
     m = compose({ code: "dry", vn: "1.33", vc: 110, n: 40 }, null, { ok: true }, {});
     ok(!/SHIP_TAIL/.test(m.text) && /mode=on, build=110/.test(m.text), "message: manual dry run says to run with mode=on\n" + m.text);
     m = compose({ code: "error", stage: "decide", vn: "1.33", vc: 110, why: "w", next: "n" }, null, { ok: true }, {});
     ok(m.key === "ship:fail:access", "message: access problems share one key");
     m = compose({ code: "error", stage: "github", vn: "", vc: 111, why: "w", next: "n" }, null, { ok: true }, {});
-    ok(m.key === "ship:fail:github" && /בניית Android 111/.test(m.text) && /build=111/.test(m.text), "message: GitHub stage\n" + m.text);
+    ok(m.key === "ship:fail:github" && /בניית האנדרואיד 111/.test(m.text) && /build=111/.test(m.text), "message: GitHub stage\n" + m.text);
     for (const P of [{ code: "uploaded" }, { code: "dry", n: 40 }, { code: "notes", notes: "long", n: 600 }, { code: "error", why: "w", next: "n" }, { code: "error", stage: "secret", why: "w", next: "n" }]) {
       const t = compose({ vn: "1.33", vc: 110, ...P }, { code: "created" }, runsOk, {}).text;
       ok(!/[—–]/.test(t) && t.length < 900, "message: no em-dash, short: " + P.code);
@@ -983,7 +1000,7 @@ async function selftest() {
     const seen = [];
     IO.router = { alert: async (lv, key, text, link, o) => { seen.push({ lv, key, o }); return { delivered: true }; } };
     W = await run({ headRuns }, { PLAY_RESULT: PR, TELEGRAM_BOT_TOKEN: TG, TELEGRAM_CHAT_ID: "42", EVENT: "workflow_dispatch" }, ["summary"]);
-    ok(seen.length === 1 && seen[0].lv === "day" && seen[0].key === "ship:done:1.33" && seen[0].o.plain && seen[0].o.fresh && W.tg.length === 0, "summary: through the router, fresh on a manual run");
+    ok(seen.length === 1 && seen[0].lv === "day" && seen[0].key === "ship:done:1.33" && !seen[0].o.plain && seen[0].o.today === "silent" && seen[0].o.fresh && W.tg.length === 0, "summary: through the router, fresh on a manual run");
     IO.router = null;
     W = await run({}, { PLAY_RESULT: PR, TELEGRAM_BOT_TOKEN: "", TELEGRAM_CHAT_ID: "" }, ["summary"]);
     ok(W.code === 0 && W.tg.length === 0 && W.printed.filter(l => l.startsWith("::notice::")).length === 1, "summary: no Telegram secrets -> one notice");

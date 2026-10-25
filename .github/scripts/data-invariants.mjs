@@ -23,6 +23,7 @@
 //   node data-invariants.mjs              read everything (about 40 min on a GitHub runner), write, alert
 //   node data-invariants.mjs --selftest   offline: every check on small made-up registers
 import fs from "node:fs";
+import { msg, heError } from "./tg-text.mjs";
 
 const API = "https://data.gov.il/api/3/action/";
 const ID = { active: "053cea08-09bc-40ec-8f7a-156f0677aff3", cancel: "851ecab1-0622-4dbe-a6c7-f950cf82abf9", cancel2010: "4e6b9724-4c1e-43f0-909a-154d4cc4e046",
@@ -66,16 +67,20 @@ async function call(params, tries = 8) {
   throw new Error("failed " + last);
 }
 const PAGE = 32000;
-// every row of a dataset, in _id order; a read that ends short of the total is an error (no check runs on half a register)
+// every row of a dataset, in _id order; a read that ends early is an error (no check runs on half a register). A short page is the end only
+// when no row lies past it: the dataset's own total is no measure, since for the price list it is an estimate (130,885 on 24.10.2026, while
+// every read ends at its 102,116 rows), and holding the read to it would fail the whole weekly check
 async function scanLive(id, fields, onRows) {
-  let total = 0, all = null;
+  let total = 0;
   for (let off = 0; ; off += PAGE) {
     const r = await call({ resource_id: id, limit: String(PAGE), offset: String(off), sort: "_id", fields });
-    if (all === null) all = r.total;
     onRows(r.records); total += r.records.length;
-    if (r.records.length < PAGE) break;
+    if (r.records.length < PAGE) {
+      const more = await call({ resource_id: id, limit: "1", offset: String(total), sort: "_id", fields: "_id" });
+      if (more.records.length) throw new Error(`${id}: the read stopped after ${total} rows, and the dataset goes on`);
+      break;
+    }
   }
-  if (total < all * 0.995) throw new Error(`${id}: read ${total} of ${all}`);
   return total;
 }
 
@@ -162,18 +167,20 @@ export function message(res, day) {
   if (!bad.length) return null;
   const val = r => typeof r.value === "object" ? `${r.value.rows.toLocaleString("en-US")} שורות, ${Math.round(r.value.share * 100)}% עם ק״מ` : r.id === "owners" ? `${(r.value * 100).toFixed(2)}%` : r.id === "tests" ? `${Math.round(r.value * 100)}% מהקצב הרגיל` : Number(r.value).toLocaleString("en-US");
   return { key: "truth:inv:" + bad.map(r => r.id).join("+"),
-    text: `🔎 הבדיקה השבועית של מאגרי משרד התחבורה (${day}) מצאה שינוי שיכול להטעות את האפליקציה:\n${bad.map(r => `• ${r.he}: ${val(r)} (הגבול: ${r.limit})`).join("\n")}\nהאפליקציה ממשיכה לעבוד. כדאי לבקש מ-Claude בפרויקט לבדוק לפני שזה מגיע למשתמשים.` };
+    text: msg({ kind: "today", area: "data", title: "הבדיקה השבועית מצאה שינוי במאגרי משרד התחבורה",
+      text: `בבדיקה של ${day} נמצא שינוי שיכול להטעות את האפליקציה:\n${bad.map(r => `• ${r.he}: ${val(r)} (הגבול: ${r.limit})`).join("\n")}\nהאפליקציה ממשיכה לעבוד.`,
+      what: "כלום. זה עובר לבד לטיפול בשרשור \"נתונים ואמינות\", ועדכון יגיע כשזה מטופל.", raw: bad.map(r => `${r.id}=${JSON.stringify(r.value)}`).join(", ") }) };
 }
 export const addWeek = (hist, e) => { const w = (hist && Array.isArray(hist.weeks) ? hist.weeks : []).filter(x => x.d !== e.d); w.push(e); w.sort((a, b) => a.d < b.d ? -1 : 1); return { v: 1, weeks: w.slice(-60) }; };
 
 async function telegram(text) {
-  try { const r = await IO.fetch(`https://api.telegram.org/bot${IO.env.TELEGRAM_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: IO.env.TELEGRAM_CHAT_ID, text, disable_web_page_preview: true }), signal: AbortSignal.timeout(20000) }); IO.out(`telegram ${r.status}`); return r.ok; }
+  try { const r = await IO.fetch(`https://api.telegram.org/bot${IO.env.TELEGRAM_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: IO.env.TELEGRAM_CHAT_ID, text, parse_mode: "HTML", disable_web_page_preview: true }), signal: AbortSignal.timeout(20000) }); IO.out(`telegram ${r.status}`); return r.ok; }
   catch (e) { IO.out(`telegram failed: ${e.message}`); return false; }
 }
 async function send(m, links) {
   if (IO.env.DRY_RUN === "1" || !IO.env.TELEGRAM_BOT_TOKEN || !IO.env.TELEGRAM_CHAT_ID) { IO.out(`(no message sent: ${IO.env.DRY_RUN === "1" ? "dry run" : "no Telegram secrets"})\n${m.key}\n${m.text}`); return true; }
   let router = null; try { router = await import("./alert.mjs"); } catch { /* legacy below */ }
-  const r = router ? await router.alert("day", m.key, m.text, links, { today: "loud", plain: true, legacy: () => telegram(m.text) }) : { delivered: await telegram(m.text) };
+  const r = router ? await router.alert("day", m.key, m.text, links, { today: "loud", legacy: () => telegram(m.text) }) : { delivered: await telegram(m.text) };
   return !!(r && r.delivered);
 }
 
@@ -182,7 +189,8 @@ async function main() {
   log(`data invariants ${day}: reading the registers in full`);
   let got;
   try { got = await measure(scanLive, today); }
-  catch (e) { log("read failed: " + e.message); return (await send({ key: "truth:fail", text: `🔎 הבדיקה השבועית של מאגרי משרד התחבורה (${day}) לא הצליחה לקרוא את המאגרים: ${String(e.message).slice(0, 120)}. אם זה חוזר בשבוע הבא, צריך לבדוק את הבדיקה עצמה.` }, [IO.env.RUN_URL].filter(Boolean))) ? 0 : 1; }
+  catch (e) { log("read failed: " + e.message); return (await send({ key: "truth:fail", text: msg({ kind: "today", area: "data", title: "הבדיקה השבועית של מאגרי משרד התחבורה לא הצליחה לקרוא את המאגרים",
+    text: `${heError(e.message).split("\n<blockquote")[0]} הבדיקה של ${day} לא רצה, והאפליקציה עצמה לא נפגעה.`, what: "כלום. אם זה חוזר, זה עובר לבד לטיפול בשרשור \"נתונים ואמינות\".", raw: e.message }) }, [IO.env.RUN_URL].filter(Boolean))) ? 0 : 1; }
   const res = judge(got.v);
   for (const r of res) IO.out(`${r.ok ? "ok  " : "FAIL"} ${r.id.padEnd(8)} ${JSON.stringify(r.value)} (limit ${r.limit})`);
   IO.out("info " + JSON.stringify(got.info));
@@ -236,7 +244,7 @@ async function selftest() {
   ok(v.lend === 2 && info.motoInImport === 2 && info.heavyInPublic === 1, "lend: another model year (moto+import), another maker (heavy+public) (" + v.lend + ")");
   const res = judge({ ...v, owners: 0.5, renewal: 9000, km: { rows: 2.5e6, share: 0.7 } }), m = message(res, "2026-10-25");
   ok(m && m.key === "truth:inv:renewal+owners", "the key names the broken checks: " + (m && m.key));
-  ok(m && /50\.00%/.test(m.text) && /9,000/.test(m.text) && /הגבול: עד 5,000/.test(m.text), "wording");
+  ok(m && /50\.00%/.test(m.text) && /9,000/.test(m.text) && /הגבול: עד 5,000/.test(m.text) && m.text.startsWith("<b>🟠 לטיפול היום · נתונים</b>") && m.text.includes("👉 מה לעשות"), "wording");
   try { const { validKey, label } = await import("./alert.mjs"); ok(validKey(m.key) && !/^התראה:/.test(label(m.key).he), "a valid router key with a label: " + label(m.key).he); }
   catch (e) { ok(false, "alert.mjs import: " + e.message); }
   ok(message(judge({ fresh: 1, tests: 1, renewal: 1, dates: 0, reuse: 0, owners: 0, km: { rows: 2.5e6, share: 0.7 }, hook: 0, price: 0, wltp: 16, recalls: 0, pubcancel: 0, lend: 0 }), "x") === null, "nothing to say when every check holds");

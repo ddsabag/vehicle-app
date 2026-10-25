@@ -51,10 +51,10 @@ export const WF_LEVELS = {
 // fixed Hebrew text for the morning ring and the Sunday block. Lookup: first two key segments, then the first one.
 // {id} = the rest of the key after the family; {ids} = that rest split on "+" and mapped through ids. sect: wait|fail|fyi|none
 export const LABELS = {
-  "wf":                  { he: 'התהליך "{id}" נכשל', sect: "fail" },
+  "wf":                  { he: 'הבוט "{id}" נכשל', sect: "fail" },
   "smoke":               { he: "בדיקת האתר החי מצאה בעיה: {ids}", sect: "fail",
                            ids: { home: "דף הבית", lookup: "בדיקת רכב", magazine: "דף המגזין", applinks: "קישורי האפליקציה",
-                                  privacy: "מדיניות הפרטיות", model: "דף דגם", sitemap: "מפת האתר",
+                                  privacy: "מדיניות הפרטיות", model: "דף דגם", sitemap: "מפת האתר", og: "תצוגה מקדימה של קישור השוואה", go: "קישורי הקמפיין (/go/)", carlink: "תצוגה מקדימה של קישור לרכב",
                                   cert: "אישור האבטחה (SSL)", domain: "הדומיין luchit.app", certcheck: "בדיקת אישור האבטחה נכשלה" } },   // mixed smoke keys carry expiry ids
   "expiry":              { he: "צריך לחדש בקרוב: {ids}", sect: "wait", ids: { cert: "אישור האבטחה (SSL)", domain: "הדומיין luchit.app", certcheck: "בדיקת אישור האבטחה נכשלה" } },
   "infra":               { he: "שירותי האתר או המכסה: {ids}", sect: "fail",
@@ -63,7 +63,8 @@ export const LABELS = {
   "guard:core":          { he: "משרד התחבורה שינה עמודה שבדיקת הרכב קוראת", sect: "wait" },
   "guard:break":         { he: "משרד התחבורה שינה מבנה של מאגר, בניית אנדרואיד עצורה", sect: "wait" },
   "guard:warn":          { he: "שינוי לא שובר במבנה מאגר של משרד התחבורה", sect: "fyi" },
-  "ministry":            { he: "מאגר של משרד התחבורה לא תקין: {ids}", sect: "fail" },   // ids: SETS[].title from datasets.mjs (waiting.mjs)
+  "ministry":            { he: "מאגר של משרד התחבורה לא תקין: {ids}", sect: "fail",
+                           ids: { active: "רכב פרטי ומסחרי", tech: "היסטוריית מפרט ורישוי", recalls: "ריקולים לפי רכב", modelRecalls: "ריקולים לפי דגם", wltp: "מפרט טכני", owners: "היסטוריית בעלויות" } },   // ids: SETS[].title from datasets.mjs (waiting.mjs)
   "checker:data-health": { he: "בדיקת בריאות הנתונים קרסה", sect: "fail" },
   "review":              { he: "ביקורת 1–2 כוכבים בגוגל פליי, לענות", sect: "wait" },
   "review3":             { he: "ביקורת 3 כוכבים בגוגל פליי, כדאי לענות", sect: "wait" },
@@ -77,6 +78,7 @@ export const LABELS = {
   "seo-auto:notice":     { he: "שינוי SEO יעלה לאתר בעוד 24 שעות ({id})", sect: "none" },
   "seo-auto":            { he: "שינוי SEO ({id})", sect: "none" },
   "catalog":             { he: "שמות דגמים חדשים בקטלוג לבדיקה", sect: "wait" },
+  "recalls":             { he: "בדיקת הריקולים היומית מצאה משהו לבדוק", sect: "fail" },   // recall-health.mjs (Model catalogue)
   "mag:fail":            { he: "כתבת מגזין לא פורסמה, הבדיקות נכשלו: {id}", sect: "wait" },
   "mag":                 { he: "כתבת מגזין פורסמה: {id}", sect: "none" },
   "webwatch:rollback":   { he: "האתר הוחזר לגרסה הקודמת בגלל מהירות, צריך להחליט מתי להחזיר", sect: "wait" },
@@ -88,7 +90,7 @@ export const LABELS = {
   "workers:rollback":    { he: "פריסת Worker נכשלה בבדיקה: {id}", sect: "fail" },
   "workers:failed":      { he: "פריסת Worker נכשלה: {id}", sect: "fail" },
   "workers:forced":      { he: "קוד שלא היה ב-main הוחלף בפריסה: {id}", sect: "fyi" },
-  "ship:done":           { he: "גרסה {id} עלתה ל-Alpha, הקידום ל-Production אצלך", sect: "wait" },   // play-alpha.mjs summary (Ship tail)
+  "ship:done":           { he: "גרסה {id} ב-Alpha, מחכה ל'פרסם' כדי להגיע לכולם", sect: "wait" },   // play-alpha.mjs summary (Ship tail)
   "ship:notes":          { he: "העלאת גרסה {id} ל-Alpha מחכה להערות שחרור", sect: "wait" },
   "ship:fail":           { he: "העלאה ל-Alpha נכשלה: {ids}", sect: "fail", ids: { access: "אין גישה ל-Google Play", github: "הבנייה לא נקראה מ-GitHub" } },
   "ship:dry":            { he: "בדיקה יבשה של העלאת {id} ל-Alpha", sect: "fyi" },
@@ -127,6 +129,7 @@ export const LABELS = {
   "social:done":         { he: "עלה תוכן חדש בפייסבוק או באינסטגרם", sect: "none" },
   "social:remind":       { he: "תזכורת: לתזמן את תוכן השבוע בטיקטוק", sect: "wait" },
   "social:check":        { he: "החיבור לפייסבוק ולאינסטגרם נבדק", sect: "none" },
+  "exp":                 { he: "ניסוי הסתיים, והוריאנט המנצח נשמר: {ids}", sect: "fyi" },   // analytics/experiments.py (Experimenter)
   "pipe":                { he: "בדיקת צנרת האנליטיקה מצאה בעיה: {ids}", sect: "fail",   // pipe-canary.mjs (Web watch); ids = its checks
                            ids: { web: "אירועים מהאתר", app: "אירועים מהאפליקציה", errors: "קפיצה בשגיאות קוד", ga: "אין נתונים ב-GA4" } },
 };
@@ -134,12 +137,12 @@ export const LABELS = {
 export const FAMILIES_IN_USE = [
   "wf", "smoke", "expiry", "infra", "infra-branches", "guard:core", "guard:break", "guard:warn", "ministry", "checker:data-health",
   "review", "review3", "vitals", "reviews:error", "seo:daily", "seo:nodata", "seo:error", "seo:index", "mention",
-  "seo-auto:blocked", "seo-auto:wait", "seo-auto:notice", "seo-auto:done", "catalog", "mag:pub", "mag:fail",
+  "seo-auto:blocked", "seo-auto:wait", "seo-auto:notice", "seo-auto:done", "catalog", "recalls", "mag:pub", "mag:fail",
   "webwatch:rollback", "webwatch:rollback-failed", "meta:uptime", "weekly:missing", "workers:refused", "workers:rollback", "workers:failed", "workers:forced",
   "ship:done", "ship:notes", "ship:fail", "ship:dry", "listing:done", "listing:dry", "listing:fail",
   "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:wait", "prod:fail",
   "stl:update", "stl:stuck", "truth", "truth:fail", "truth:inv", "live:stuck", "live:error", "pipe",
-  "social:fail", "social:missed", "social:unsure", "social:held", "social:done", "social:remind", "social:check",
+  "social:fail", "social:missed", "social:unsure", "social:held", "social:done", "social:remind", "social:check", "exp",
 ];
 
 const TODAY = ["loud", "silent", "none"];
@@ -188,10 +191,16 @@ const decoded = u => { try { return decodeURIComponent(u); } catch { return "@";
 const cleanLinks = l => (Array.isArray(l) ? l : [l]).filter(u => typeof u === "string" && u.startsWith("https://") && u.length <= 300 &&
   !/@|%40/i.test(u + decoded(u)) && !/\s/.test(u)).slice(0, 3);
 const family = key => { const s = String(key).split(":"), two = s.slice(0, 2).join(":"); return s.length > 1 && LABELS[two] ? two : LABELS[s[0]] ? s[0] : null; };
+// Hebrew bot names for the "wf" family (bot-names.json, shared with tg-text.mjs); a sparse checkout without the file keeps the English name
+let BOT_HE = {};
+try { BOT_HE = JSON.parse(fs.readFileSync(new URL("./bot-names.json", import.meta.url), "utf8")); } catch {}
+const PART_HE = { data: "נתונים", monthly: "חודשי", newsletter: "ניוזלטר" };
+const botHe = n => BOT_HE[n] || n.replace(/^(.*) \(([^)]+)\)$/, (m, a, b) => (BOT_HE[a] ? `${BOT_HE[a]} (${PART_HE[b] || b})` : m));
 export function label(key) {
   const f = family(key);
+  if (!f && /^magazine-/.test(key)) return { he: "ניוזלטר המגזין נשלח או מחכה ב-Brevo", sect: "fyi" };   // newsletter.mjs keys its campaign name
   if (!f) return { he: "התראה: " + key, sect: "fyi" };
-  const L = LABELS[f], id = String(key).split(":").slice(f.split(":").length).join(":");
+  const L = LABELS[f], id0 = String(key).split(":").slice(f.split(":").length).join(":"), id = f === "wf" ? botHe(id0) : id0;
   return { he: L.he.replace("{ids}", id.split("+").map(x => (L.ids && L.ids[x]) || x).join(", ")).replace("{id}", id), sect: L.sect };
 }
 // one log entry; he/sc = the key's fixed headline and section (never the caller's text), so /live can list what reached Telegram
@@ -446,8 +455,8 @@ export function prune(s, now) {
   s.log = s.log.filter(e => now - t0(e.t) <= 35 * 864e5).slice(-600);
   return s;
 }
-const ringText = items => [`☀️ לוחית: מה קרה בלילה (${items.length})`, ...items.map(([k, it]) => `• ${label(k).he} (${hhmm(new Date(t0(it.pend)))})`),
-  "הפרטים בהודעות השקטות שנשלחו בלילה."].join("\n");
+const ringText = items => ["🟠 לטיפול היום · בוטים", `☀️ מה קרה בלילה (${items.length})`, ...items.map(([k, it]) => `• ${label(k).he} (${hhmm(new Date(t0(it.pend)))})`),
+  "👉 מה לעשות: לעבור על ההודעות השקטות מהלילה. בכל אחת כתוב אם צריך לעשות משהו."].join("\n");
 async function daily() {
   const env = IO.env, now = IO.now(), dry = isDry(env), today = ilDate(new Date(now));
   if (!env.GITHUB_TOKEN) { IO.out("daily: no GITHUB_TOKEN"); return 1; }
@@ -503,7 +512,7 @@ async function daily() {
     upSeen = now - tick <= 30 * 6e4;
     IO.out("uptime worker: " + (upSeen ? "ok" : "stale"));
     if (!upSeen && s.hb.uptimeSeenAt) {
-      const text = `⚠️ בדיקת הזמינות ב-Cloudflare (luchit-uptime) לא דיווחה מאז ${ilTime(new Date(tick > 0 ? tick : t0(s.hb.uptimeSeenAt)))}. הבדיקות היומיות ב-GitHub ממשיכות כרגיל.`;
+      const text = `🟠 לטיפול היום · בוטים\nשומר הזמינות של האתר לא דיווח מאז ${ilTime(new Date(tick > 0 ? tick : t0(s.hb.uptimeSeenAt)))}\nבינתיים אף אחד לא יתריע אם האתר ייפול. הבדיקות היומיות ב-GitHub ממשיכות כרגיל.\n👉 מה לעשות: לכתוב בשרשור "תפעול, בוטים ומייל".`;
       if (dry) IO.out("would alert meta:uptime"); else await alert("day", "meta:uptime", text, "", { today: "loud", plain: true, legacy: direct(text) });
     }
   }
@@ -511,7 +520,7 @@ async function daily() {
   if (parts(new Date(now)).weekday === "Mon" && s.hb.summaryAt) {
     const sa = new Date(t0(s.hb.summaryAt)), sunday = ilDate(new Date(now - 864e5));
     if (`${ilDate(sa)} ${parts(sa).hour}` < `${sunday} 08`) {
-      const text = "⚠️ הסיכום השבועי של יום ראשון לא נשלח. להריץ ידנית: Actions ← Weekly analytics report ← Run workflow, לסמן send.";
+      const text = "🟠 לטיפול היום · מדידה\nהדוח השבועי של יום ראשון לא נשלח\n👉 מה לעשות: לכתוב בשרשור \"דשבורד LIVE\" כדי שישלחו אותו ידנית.";
       const link = `https://github.com/${repo()}/actions/workflows/weekly-analytics.yml`;
       if (dry) IO.out("would alert weekly:missing"); else await alert("day", "weekly:missing", text, link, { today: "loud", plain: true, legacy: direct(text) });
     }
@@ -825,7 +834,7 @@ async function selftest() {
       const m = net({ state: { v: 1, items: {}, hb: {}, log: [{ t: iso(DAY), k: "ship:done:1.35", lv: "day", a: "loud", td: "loud", sh: 1 }] } });
       IO.fetch = m.fetch; IO.env = ENV;
       const e = (await readState())?.log?.[0];
-      ok(e && e.he === "גרסה 1.35 עלתה ל-Alpha, הקידום ל-Production אצלך" && e.sc === "wait" && schema({ v: 1, items: {}, hb: {}, log: [e] }) === "", "an old log entry gets its headline on read");
+      ok(e && e.he === "גרסה 1.35 ב-Alpha, מחכה ל'פרסם' כדי להגיע לכולם" && e.sc === "wait" && schema({ v: 1, items: {}, hb: {}, log: [e] }) === "", "an old log entry gets its headline on read");
     }
 
     // keys and labels
@@ -843,7 +852,7 @@ async function selftest() {
       const he = label(f + ":" + ids.split(" ").join("+")).he.split(/[\s,:]+/);
       ok(!ids.split(" ").some(i => he.includes(i)), `label ${f}: no raw id left`);
     }
-    ok(label("smoke:home+lookup").he === "בדיקת האתר החי מצאה בעיה: דף הבית, בדיקת רכב" && label("wf:Data guard").he === 'התהליך "Data guard" נכשל'
+    ok(label("smoke:home+lookup").he === "בדיקת האתר החי מצאה בעיה: דף הבית, בדיקת רכב" && label("wf:Data guard").he === 'הבוט "שומר הנתונים" נכשל' && label("wf:Magazine (data)").he === 'הבוט "המגזין (נתונים)" נכשל'
       && label("seo:daily").sect === "none" && label("nope:x").he === "התראה: nope:x" && label("mag:fail:2026-10").sect === "wait", "label rendering");
     const used = scanKeys(ROOT), missing = used.filter(k => !FAMILIES_IN_USE.some(f => f === k || f.startsWith(k + ":") || k.startsWith(f + ":")));
     ok(missing.length === 0, "call-site keys missing from FAMILIES_IN_USE: " + missing.join(", "));

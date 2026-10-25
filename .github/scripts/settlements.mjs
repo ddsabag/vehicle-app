@@ -15,6 +15,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
+import {msg} from "./tg-text.mjs";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const OUT = process.env.OUT || "out";
 const num = x => { const n = parseFloat(x); return isNaN(n) ? 0 : n; };
@@ -196,24 +197,31 @@ async function watch(){
     ...(down.length ? ["## מקורות שלא ענו", ...down.map(s => "- " + s), ""] : [])];
   fs.writeFileSync(`${OUT}/inbox.md`, md.join("\n") + "\n");
   console.log(md.join("\n"));
-  if (stuck.length) await tell1("day", `stl:stuck:${on}`, `לוחית · הסדרי פשרה\nהבדיקה השבועית של הסדרי הפשרה לא טיפלה בזה כבר יותר משבועיים:\n${stuck.slice(0, 6).map(s => "- " + s.slice(0, 140)).join("\n")}${stuck.length > 6 ? `\nועוד ${stuck.length - 6}.` : ""}\nכדאי לבקש מ-Claude בשרשור של לוחית לעבור על הרשימה.`, process.env.RUN_URL || "");
+  if (stuck.length) await tell1("day", `stl:stuck:${on}`, msg({kind: "today", area: "data", title: "פריטים בהסדרי הפשרה מחכים יותר משבועיים",
+    text: `הבדיקה השבועית של הסדרי הפשרה לא טיפלה בהם:\n${stuck.slice(0, 6).map(x => "• " + esc(issueHe(x).slice(0, 140))).join("\n")}${stuck.length > 6 ? `\nועוד ${stuck.length - 6}.` : ""}`,
+    what: "כלום. זה עובר לבד לטיפול בשרשור \"נתונים ואמינות\", ועדכון יגיע כשזה מטופל."}), process.env.RUN_URL || "");
   return bad.length ? 1 : 0;
 }
 
 // ---- Telegram ----
-async function telegram(text){
+const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+// an issue key of state.json ("none honda-oil", "news <title>") in words for the message; the keys themselves stay as they are (state is matched on them)
+const ISSUE_HE = {news: "כתבה חדשה לבדיקה", invalid: "רשומה לא תקינה בקובץ", none: "כלל שלא מתאים לאף דגם", longer: "כלל שתופס גם קוד דגם ארוך יותר", fresh: "דגמים חדשים שנכנסו לכלל", retire: "הסדר שהסתיים וצריך להסיר", "source down:": "מקור חדשות שלא ענה"};
+export const issueHe = x => { const m = String(x).match(/^(source down:|\w+)\s+(.*)$/s); return m && ISSUE_HE[m[1]] ? `${ISSUE_HE[m[1]]}: ${m[2]}` : String(x); };
+async function telegram(text, silent = false){
   const e = process.env;
   if (!e.TELEGRAM_BOT_TOKEN || !e.TELEGRAM_CHAT_ID) { console.log("no Telegram credentials"); return false; }
   try {
-    const r = await fetch(`https://api.telegram.org/bot${e.TELEGRAM_BOT_TOKEN}/sendMessage`, {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({chat_id: e.TELEGRAM_CHAT_ID, text, disable_web_page_preview: true}), signal: AbortSignal.timeout(20000)});
+    const r = await fetch(`https://api.telegram.org/bot${e.TELEGRAM_BOT_TOKEN}/sendMessage`, {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({chat_id: e.TELEGRAM_CHAT_ID, text, parse_mode: "HTML", disable_web_page_preview: true, ...(silent ? {disable_notification: true} : {})}), signal: AbortSignal.timeout(20000)});
     console.log("telegram " + r.status); return r.ok;
   } catch (x) { console.log("telegram failed " + x.message); return false; }
 }
-async function tell1(level, key, text, link){
+// HTML text (tg-text.mjs); quiet = an update for information only: the router's "summary" level, sent without a ring
+async function tell1(level, key, text, link, quiet = false){
   if (!process.env.TELEGRAM_BOT_TOKEN) { console.log("no Telegram credentials:\n" + text); return; }
   let router = null; try { router = await import("./alert.mjs"); } catch {}
-  if (router) await router.alert(level, key, text, link || "", {today: "loud", plain: true, legacy: () => telegram(text)});
-  else await telegram(text);
+  if (router) await router.alert(level, key, text, link || "", {today: quiet ? "silent" : "loud", legacy: () => telegram(text, quiet)});
+  else await telegram(text, quiet);
 }
 const maker = e => [...new Set(String(e.mk).split("|").map(t => t.replace(/\(\?<?[=!][^)]*\)|[\\^$()[\]?*+.]/g, "")).filter(t => /^[א-ת]{2,}$/.test(t)))].slice(0, 2).join(", ") || String(e.mk).split("|")[0];
 export function describe(oldJ, newJ){
@@ -222,9 +230,9 @@ export function describe(oldJ, newJ){
   const added = [...n.values()].filter(e => !o.has(e.id)), gone = [...o.values()].filter(e => !n.has(e.id));
   const changed = [...n.values()].filter(e => o.has(e.id) && JSON.stringify(o.get(e.id)) !== JSON.stringify(e));
   if (!added.length && !gone.length && !changed.length) return "";
-  return ["לוחית · הסדרי פשרה עודכנו באפליקציה ובאתר (לידיעה, אין מה לעשות):",
-    ...added.map(e => "נוסף: " + line(e)), ...changed.map(e => "עודכן: " + line(e) + (o.get(e.id).st === "wait" && e.st === "ok" ? " · אושר בבית המשפט" : "")), ...gone.map(e => "הוסר: " + line(e)),
-    `סך הכול ${n.size} הסדרים.`].join("\n");
+  return msg({kind: "done", area: "data", title: "הסדרי הפשרה עודכנו באפליקציה ובאתר", text: [
+    ...added.map(e => "נוסף: " + esc(line(e))), ...changed.map(e => "עודכן: " + esc(line(e)) + (o.get(e.id).st === "wait" && e.st === "ok" ? " · אושר בבית המשפט" : "")), ...gone.map(e => "הוסר: " + esc(line(e))),
+    `סך הכול ${n.size} הסדרים.`].join("\n"), what: ""});
 }
 
 // ---- selftest (offline) ----
@@ -290,6 +298,8 @@ function selftest(){
   const d = describe({items: [{...base, st: "wait"}, {...base, id: "gone"}]}, {items: [{...base, st: "ok"}, {...base, id: "new", mk: "טויוטה|לקסוס"}]});
   ok(/נוסף: כותרת \(טויוטה, לקסוס\)/.test(d) && /עודכן: כותרת \(יונדאי\) · אושר/.test(d) && /הוסר: /.test(d) && /סך הכול 2/.test(d), "describe: " + d);
   ok(describe({items: [base]}, {items: [base], checked: "2026-10-26"}) === "", "a review that changed nothing says nothing");
+  ok(d.startsWith("<b>✅ בוצע · נתונים</b>") && d.includes("👌"), "describe in the Telegram standard");
+  ok(issueHe("none honda-oil") === "כלל שלא מתאים לאף דגם: honda-oil" && issueHe("source down: TheCar (1)") === "מקור חדשות שלא ענה: TheCar (1)" && issueHe("news כותרת") === "כתבה חדשה לבדיקה: כותרת", "issue keys in words");
   console.log(fails ? `${fails} failed` : "settlements selftest ok");
   return fails ? 1 : 0;
 }
@@ -313,7 +323,7 @@ else if (cmd === "tell") {
   const rd = f => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return {items: []}; } };
   const old = rd(a1), text = old.items && old.items.length ? describe(old, rd(a2)) : "";
   if (!old.items || !old.items.length) console.log("no earlier list (the file is new): nothing to tell");
-  else if (text) await tell1("day", `stl:update:${today()}`, text + "\nhttps://luchit.app", "https://luchit.app");
+  else if (text) await tell1("summary", `stl:update:${today()}`, text + "\nhttps://luchit.app", "https://luchit.app", true);
   else console.log("no entry changed: nothing to tell");
 } else if (cmd === "selftest") code = selftest();
 else { console.log("usage: settlements.mjs check [file] | watch | tell <old> <new> | selftest"); code = 2; }
