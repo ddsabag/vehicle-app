@@ -88,7 +88,7 @@ export const LABELS = {
   "workers:rollback":    { he: "פריסת Worker נכשלה בבדיקה: {id}", sect: "fail" },
   "workers:failed":      { he: "פריסת Worker נכשלה: {id}", sect: "fail" },
   "workers:forced":      { he: "קוד שלא היה ב-main הוחלף בפריסה: {id}", sect: "fyi" },
-  "ship:done":           { he: "גרסה {id} עלתה ל-Alpha, הקידום ל-Production אצלך", sect: "wait" },   // play-alpha.mjs summary (Ship tail)
+  "ship:done":           { he: "גרסה {id} ב-Alpha, מחכה ל'פרסם' כדי להגיע לכולם", sect: "wait" },   // play-alpha.mjs summary (Ship tail)
   "ship:notes":          { he: "העלאת גרסה {id} ל-Alpha מחכה להערות שחרור", sect: "wait" },
   "ship:fail":           { he: "העלאה ל-Alpha נכשלה: {ids}", sect: "fail", ids: { access: "אין גישה ל-Google Play", github: "הבנייה לא נקראה מ-GitHub" } },
   "ship:dry":            { he: "בדיקה יבשה של העלאת {id} ל-Alpha", sect: "fyi" },
@@ -831,7 +831,7 @@ async function selftest() {
       const m = net({ state: { v: 1, items: {}, hb: {}, log: [{ t: iso(DAY), k: "ship:done:1.35", lv: "day", a: "loud", td: "loud", sh: 1 }] } });
       IO.fetch = m.fetch; IO.env = ENV;
       const e = (await readState())?.log?.[0];
-      ok(e && e.he === "גרסה 1.35 עלתה ל-Alpha, הקידום ל-Production אצלך" && e.sc === "wait" && schema({ v: 1, items: {}, hb: {}, log: [e] }) === "", "an old log entry gets its headline on read");
+      ok(e && e.he === "גרסה 1.35 ב-Alpha, מחכה ל'פרסם' כדי להגיע לכולם" && e.sc === "wait" && schema({ v: 1, items: {}, hb: {}, log: [e] }) === "", "an old log entry gets its headline on read");
     }
 
     // keys and labels

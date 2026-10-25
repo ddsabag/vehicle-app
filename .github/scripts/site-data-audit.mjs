@@ -828,7 +828,13 @@ for (const c of order) {
   if (Date.now() - T0 > BUDGET) { skipped.push(c.id); continue; }
   let P = await readPage(c.plate);
   if (P.net.bad.length) { LIMIT = Math.max(30, Math.round(LIMIT * 0.9)); console.log(`  ${c.id}: the ministry refused ${P.net.bad.length} of the app's ${P.net.n} requests (${[...new Set(P.net.bad)].join(",")}); cooling down 75s, limit now ${LIMIT}/min, opening it again`); cool(75000); P = await readPage(c.plate); }
+  // the app's "the ministry does not answer" page after requests that failed in the browser (25.10.2026: 18 of 18 within a second, one car of 40):
+  // a network blip between the runner and the ministry, not something the app shows wrong. Opened again once; twice in a row it counts as refused,
+  // so many such cars still ring through "too few cars read"
+  const blip = P => !!P.edge && /לא עונים/.test(P.edge) && P.net.failed > 0;
+  if (blip(P)) { console.log(`  ${c.id}: the app could not reach the ministry (${P.net.failed} of ${P.net.n} requests failed in the browser); opening it again in 30s`); cool(30000); P = await readPage(c.plate); }
   let X; try { X = await raw(c); } catch (e) { console.log(`CASE ${c.id} ${mask(c.plate)} raw read failed: ${e.message}`); continue; }
+  if (blip(P) && X.primary) { infra.push(c.id); console.log(`CASE ${c.id} ${mask(c.plate)} skipped: the app could not reach the ministry twice (${P.net.failed} of ${P.net.n} requests failed in the browser), while my reads did`); continue; }
   if (P.net.bad.length) { infra.push(c.id); cool(60000); console.log(`CASE ${c.id} ${mask(c.plate)} skipped: the ministry refused ${P.net.bad.length} of the app's requests again`); continue; }
   const R = X.R;
   if (P.edge) { const ln = `CASE ${c.id} ${mask(c.plate)} ${X.primary || "-"} page: ${P.edge.slice(0, 90)} | after ${Math.round(P.net.ms / 1000)}s, app requests=${P.net.n} failed-in-browser=${P.net.failed} | in my reads: ${Object.entries(X.sets).filter(([, r]) => r.length).map(([k]) => k).join(",") || "nothing"} errs: ${Object.keys(X.errs).join(",") || "-"}`; console.log(ln);

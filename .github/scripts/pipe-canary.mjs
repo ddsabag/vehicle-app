@@ -16,6 +16,7 @@ import { msg } from "./tg-text.mjs";
 export const WEB_VISITS = 50, APP_INSTALLS = 3, ERR_MIN = 5, ERR_X = 3;
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];   // as seo-daily.mjs: both site tags, no /live, no headless
 const EVENTS = ["car_lookup", "first_open", "js_error", "lookup_failed"];
+const IAB = new Set(["facebook", "instagram", "tiktok"]);   // customEvent:src of a visit opened inside that app
 const PROPERTY = (() => { try { return String(JSON.parse(fs.readFileSync(new URL("../../analytics/ga4-admin.json", import.meta.url), "utf8")).property || ""); } catch { return ""; } })();
 
 const IO = { env: process.env, fetch: (u, o) => fetch(u, o), out: s => process.stdout.write(s + "\n"), now: () => Date.now(), router: () => import("./alert.mjs") };
@@ -44,14 +45,14 @@ export async function readGa(env = IO.env) {
     const tok = await gaToken(sa);
     if (!tok) return null;
     const body = { dateRanges: [{ startDate: "8daysAgo", endDate: "yesterday" }], metrics: [{ name: "eventCount" }], limit: 2000,
-      dimensions: [{ name: "date" }, { name: "platform" }, { name: "eventName" }, { name: "customEvent:kind" }],
+      dimensions: [{ name: "date" }, { name: "platform" }, { name: "eventName" }, { name: "customEvent:kind" }, { name: "customEvent:src" }],
       dimensionFilter: { filter: { fieldName: "eventName", inListFilter: { values: EVENTS } } } };
     const r = await IO.fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${PROPERTY}:runReport`, { method: "POST",
       headers: { authorization: "Bearer " + tok, "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(60000) });
     const j = J(await r.text());
     if (!r.ok || !j) return null;
-    return (j.rows || []).map(x => { const [d, platform, ev, kind] = x.dimensionValues.map(v => v.value);
-      return { day: `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`, platform: platform.toLowerCase(), ev, kind, n: +x.metricValues[0].value || 0 }; });
+    return (j.rows || []).map(x => { const [d, platform, ev, kind, src] = x.dimensionValues.map(v => v.value);
+      return { day: `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`, platform: platform.toLowerCase(), ev, kind, src: String(src || "").toLowerCase(), n: +x.metricValues[0].value || 0 }; });
   } catch { return null; }
 }
 
@@ -77,7 +78,8 @@ export function judge(rows, visits, day) {
   const sum = (d, pred) => rows.filter(r => r.day === d && pred(r)).reduce((a, r) => a + r.n, 0);
   const lookups = p => sum(day, r => r.ev === "car_lookup" && r.platform === p);
   const any = sum(day, () => true), webLook = lookups("web"), appLook = lookups("android"), installs = sum(day, r => r.ev === "first_open" && r.platform === "android");
-  const errs = d => sum(d, r => r.ev === "js_error" || (r.ev === "lookup_failed" && r.kind === "js_err"));
+  // errors from inside the Facebook, Instagram and TikTok apps' browsers are their noise, not ours (24-25.10; the site's own fix ships with 1.38)
+  const errs = d => sum(d, r => (r.ev === "js_error" || (r.ev === "lookup_failed" && r.kind === "js_err")) && !IAB.has(r.src));
   if (visits !== null) {
     state.ga = any === 0 && visits >= WEB_VISITS ? "alarm" : "ok";
     if (state.ga === "alarm") alarms.push({ id: "ga", text: `Google Analytics לא קיבל אף אירוע, לא מהאתר ולא מהאפליקציה, למרות ${visits} כניסות לאתר.` });
@@ -142,6 +144,8 @@ async function selftest() {
   ok(v.state.errors === "alarm", "lookup_failed of kind js_err counts as a code error");
   v = judge(rowsOf({ ...normal, 0: [...week(0), ["android", "lookup_failed", 90, "net_err"]] }), 900, D);
   ok(v.state.errors === "ok", "network failures are not code errors");
+  v = judge(rowsOf({ ...normal, 0: [...week(0), ["web", "js_error", 40, "run"]] }).map(r => (r.ev === "js_error" && r.n === 40 ? { ...r, src: "facebook" } : r)), 900, D);
+  ok(v.state.errors === "ok", "errors inside the Facebook app's browser are not counted");
   v = judge(rowsOf({ ...normal, 0: [...week(0), ["web", "js_error", 4, "run"]] }), 900, D);
   ok(v.state.errors === "ok", "4 errors over a median of 1: under ERR_MIN");
   const busy = Object.fromEntries(Object.entries(normal).map(([k, l]) => [k, [...l, ["web", "js_error", 10, "run"]]]));
