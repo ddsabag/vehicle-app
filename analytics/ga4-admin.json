@@ -19,6 +19,10 @@
     { "parameterName": "n", "description": "car_save, buy_step_done, settlement_shown: a small count" },
     { "parameterName": "plan", "description": "upgrade_purchase_start: which PRO plan" },
     { "parameterName": "src", "description": "every web event: where the visit came from (utm_source of /go/ links, share, google, direct...) (/live sources)" },
+    { "parameterName": "role", "description": "car_lookup, tab_view: owner (car marked as theirs), saved (tracked or to buy) or none; splits owners from buyers in the 22.11 read (from 1.38)" },
+    { "parameterName": "to", "description": "nav: which bottom-bar screen was opened (search, cars, alerts) (from 1.38)" },
+    { "parameterName": "mode", "description": "cars_mode: the list or table view of הרכבים שלי (from 1.38)" },
+    { "parameterName": "act", "description": "home_sheet: the iPhone add-to-home-screen sheet shown, tapped or closed (site, from 1.38)" },
     { "parameterName": "camp", "description": "every web event of a visit that came by a tagged link: its topic (utm_campaign, ?c= of /go/ links) (/live sources, per post)" }
   ],
   "keyEvents": [

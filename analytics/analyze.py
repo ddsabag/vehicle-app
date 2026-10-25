@@ -156,7 +156,8 @@ def analyze(d, cfg, extra=None):
         if lc <= -T["lookups_drop_red_pct"]: add("red", "ירידה חדה בבדיקות רכב", f"{ok_c} בדיקות רכב לעומת {ok_p} בשבוע שעבר ({lc}%).")
         elif lc <= -T["lookups_drop_yellow_pct"]: add("yellow", "ירידה בבדיקות רכב", f"{ok_c} בדיקות רכב לעומת {ok_p} בשבוע שעבר ({lc}%).")
     sr_c, sr_p = rate(sh_c, ok_c), rate(sh_p, ok_p)
-    if sr_c is not None and sr_p and ok_p >= T["min_searches_for_rates"] and (sr_c - sr_p) / sr_p * 100 <= -T["share_rate_drop_pct"]:
+    # from MIN_BASE shares last week only: about 13 a week is noise (25.10), and 1.38 moves the button into the car header, so the rate shifts anyway
+    if sr_c is not None and sr_p and ok_p >= T["min_searches_for_rates"] and (sh_p or 0) >= MIN_BASE and (sr_c - sr_p) / sr_p * 100 <= -T["share_rate_drop_pct"]:
         add("yellow", "ירידה בשיעור השיתוף", f"{sr_c}% מהבדיקות הסתיימו בשיתוף, לעומת {sr_p}% בשבוע שעבר.")
     series = [x["lookups"] for x in daily]
     if len(series) >= 22:
