@@ -116,12 +116,20 @@ const heOf = k => {   // ministry ids are dataset keys: render their titles
   const s = k.split(":");
   return s[0] === "ministry" && s[1] ? LABELS.ministry.he.replace("{ids}", s[1].split("+").map(x => SETS.find(z => z.key === x)?.title || x).join(", ")) : label(k).he;
 };
+// a waiting item that later events already settled (25.10: "1.36 and 1.37 went to Alpha, promoting is yours" stayed listed after both reached Production):
+// an Alpha upload is settled by any later step towards Production (sent, live, 100%) or by a newer Alpha upload
+const SETTLED_BY = { "ship:done:": ["prod:sent:", "prod:live:", "prod:full:", "ship:done:"] };
+export function settled(k, it, items) {
+  const pre = Object.keys(SETTLED_BY).find(p => k.startsWith(p)), t = Date.parse(it?.last);
+  return !!pre && Object.entries(items).some(([k2, x]) => k2 !== k && SETTLED_BY[pre].some(p => k2.startsWith(p)) && Date.parse(x?.last) > t);
+}
 // state items of one section in [from, now], grouped by Hebrew label: count (log occurrences, else n), newest date, up to 2 links
 function groups(s, sect, from) {
   const g = new Map();
   for (const [k, it] of Object.entries(s.items || {})) {
     const last = Date.parse(it?.last);
     if (label(k).sect !== sect || !(last >= from) || (sect === "wait" && it.open === false)) continue;   // a resolved decision is done
+    if (sect === "wait" && settled(k, it, s.items)) continue;
     const he = heOf(k), x = g.get(he) || { he, keys: new Set(), last: 0, n: 0, its: [] };
     x.keys.add(k); x.last = Math.max(x.last, last); x.n += it.n || 1; x.its.push(it);
     g.set(he, x);
@@ -196,7 +204,7 @@ export function build(src, now, env = process.env) {
   const sa = Date.parse(hb.summaryAt);   // failures and FYI since the last summary (7 to 14 days), so a late or missed Sunday skips nothing
   const from = Number.isFinite(sa) ? Math.max(now - 14 * D, Math.min(now - 7 * D, sa)) : now - 7 * D;
   const head = [`🧾 לוחית · סיכום שבועי ${dm(from)}–${dm(now - D)}`];
-  if (shadow) head.push(on.length ? `(תצוגה מקדימה: הנתב פעיל רק עבור: ${on.join(", ")})` : "(תצוגה מקדימה: הנתב עוד לא פעיל, ההתראות נשלחות כרגיל)");
+  if (shadow) head.push(on.length ? `(הנתב פעיל רק עבור: ${on.join(", ")}. השאר נשלח כרגיל)` : "(הנתב במצב ניסיון: ההודעות עדיין נשלחות כרגיל, והשורה האחרונה מראה מה היה משתנה איתו)");
   const wg = s ? groups(s, "wait", now - 14 * D).sort((a, b) => b.last - a.last) : [], wait = wg.map(itemLine);
   const mag = new Set(wg.flatMap(g => [...g.keys]).filter(k => k.startsWith("mag:fail:")).map(k => k.slice(9)));
   const pr = src.pulls && prLine(src.pulls, env, mag);
@@ -313,7 +321,7 @@ async function selftest() {
     let x = await run();
     const SNAP = [
       "🧾 לוחית · סיכום שבועי 11.10–17.10",
-      "(תצוגה מקדימה: הנתב עוד לא פעיל, ההתראות נשלחות כרגיל)",
+      "(הנתב במצב ניסיון: ההודעות עדיין נשלחות כרגיל, והשורה האחרונה מראה מה היה משתנה איתו)",
       "",
       "⏳ מחכה לך (4)",
       "• שמות דגמים חדשים בקטלוג לבדיקה ×4 · אחרון 17.10 · " + RULES,
@@ -339,14 +347,14 @@ async function selftest() {
     ok(x.text === SNAP, "layout snapshot:\n" + x.text);
     ok(x.complete === true && !x.text.includes("—"), "complete, no em-dash");
     x = await run({}, { ...ENV, ALERT_ROUTE: "critical,silent" });
-    ok(x.text.split("\n")[1] === "(תצוגה מקדימה: הנתב פעיל רק עבור: silent, critical)", "partial rollout preview line");
+    ok(x.text.split("\n")[1] === "(הנתב פעיל רק עבור: silent, critical. השאר נשלח כרגיל)", "partial rollout preview line");
     x = await run({ state: stateRes({ ...STATE, log: STATE.log.map(e => ({ ...e, sh: 0 })) }) }, { ...ENV, ALERT_ROUTE: "all" });
-    ok(!x.text.includes("תצוגה מקדימה") && x.text.endsWith("🔔 התראות השבוע: 2 צלצלו · 1 נשלחה בשקט בלילה · 6 נרשמו בלי הודעה"), "routed: no preview, counts line\n" + x.text.split("\n").at(-1));
+    ok(!x.text.includes("במצב ניסיון") && !x.text.includes("השאר נשלח כרגיל") && x.text.endsWith("🔔 התראות השבוע: 2 צלצלו · 1 נשלחה בשקט בלילה · 6 נרשמו בלי הודעה"), "routed: no preview, counts line\n" + x.text.split("\n").at(-1));
     x = await run({ state: stateRes({ ...STATE, log: [lg("a:b", 1, "loud", "loud", 0), lg("a:b", 2, "legacy", "silent", 0), lg("a:b", 3, "queued", "loud", 0)] }) }, { ...ENV, ALERT_ROUTE: "all" });
     ok(x.text.endsWith("🔔 התראות השבוע: 1 צלצלה · 0 נשלחו בשקט בלילה · 1 נשלחה בשקט · 1 נרשמה בלי הודעה"), "routed counts, singular\n" + x.text.split("\n").at(-1));
     // empty case: nothing waiting, nothing stale
     x = await run({ state: stateRes({ v: 1, items: {}, hb: STATE.hb, log: [] }), pulls: [], list: { workflows: [] } });
-    ok(x.text === "🧾 לוחית · סיכום שבועי 11.10–17.10\n(תצוגה מקדימה: הנתב עוד לא פעיל, ההתראות נשלחות כרגיל)\n\n⏳ מחכה לך: אין כלום השבוע ✓\n\n🔔 השבוע בפועל: 0 הודעות (0 מצלצלות). עם הנתב: 0 הודעות (0 מצלצלות, 0 בלילה).", "empty case\n" + x.text);
+    ok(x.text === "🧾 לוחית · סיכום שבועי 11.10–17.10\n(הנתב במצב ניסיון: ההודעות עדיין נשלחות כרגיל, והשורה האחרונה מראה מה היה משתנה איתו)\n\n⏳ מחכה לך: אין כלום השבוע ✓\n\n🔔 השבוע בפועל: 0 הודעות (0 מצלצלות). עם הנתב: 0 הודעות (0 מצלצלות, 0 בלילה).", "empty case\n" + x.text);
     // dead-man through the mock: late workflow, stale files, the router, uptime
     x = await run({ "runs:fuel.yml": { workflow_runs: daily(3).map(c => ({ created_at: c })) }, "fuel.json": { checked: "2026-09-01" }, "meta.json": { u: "2026-10-14" },
       state: stateRes({ ...STATE, hb: { dailyAt: ago(31), tgOkAt: ago(50), tgFailAt: ago(31) } }),
@@ -365,6 +373,13 @@ async function selftest() {
       [stateRes({ v: 1, hb: STATE.hb, log: [], items: { "mag:fail:2026-09": it(12 * 24) } }), "mag:fail of another slug"]])
       ok((x = await run({ pulls: magPR, state: st })).text.includes("• בקשות מיזוג פתוחות: 1 · " + PRS), "magazine PR still listed: " + m + "\n" + x.text);
     ok(build({ state: null, pulls: magPR, wf: { off: [], late: [], unchecked: 0 }, files: [] }, NOW, ENV).text.includes("• בקשות מיזוג פתוחות: 1 · " + PRS), "magazine PR listed when the state is not read");
+
+    // an Alpha upload that later reached Production, or was followed by a newer upload, is no longer waiting (25.10)
+    const shipSt = (extra) => stateRes({ v: 1, hb: STATE.hb, log: [], items: { "ship:done:1.37": it(72), ...extra } });
+    ok((x = await run({ pulls: [], state: shipSt({}) })).text.includes("גרסה 1.37 עלתה ל-Alpha"), "an Alpha upload alone is waiting\n" + x.text);
+    ok(!(x = await run({ pulls: [], state: shipSt({ "prod:sent:127": it(70) }) })).text.includes("גרסה 1.37 עלתה ל-Alpha"), "settled by a later Production step\n" + x.text);
+    ok(!(x = await run({ pulls: [], state: shipSt({ "ship:done:1.38": it(10) }) })).text.includes("גרסה 1.37 עלתה ל-Alpha"), "settled by a newer upload\n" + x.text);
+    ok((x = await run({ pulls: [], state: shipSt({ "prod:sent:126": it(80) }) })).text.includes("גרסה 1.37 עלתה ל-Alpha"), "an older Production step does not settle it\n" + x.text);
 
     // each source failing gives its own line and leaves the others intact
     // "(N)" counts the "• " lines under the header; a failed source is a line of its own and is not counted

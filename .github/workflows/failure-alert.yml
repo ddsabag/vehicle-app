@@ -10,6 +10,9 @@ name: Failure alert
 # and no run in between in which one of those jobs ran and passed; in Site smoke test, SEO daily digest, Magazine and Data truth, whose jobs are skipped by the kind of run, a green
 # run that skipped all of them is passed over, in any other workflow a green run ends the streak)
 # is sent silently and not added to /live again; the first one is loud. Another job failing, or a failure after a gap (a monthly or days-1-3 job), is news and loud.
+# Self-repair (Dudu 25.10: fix by itself, tell only "done"): a workflow in tg-text.mjs RETRY (reads, checks and data rebuilds, safe to run twice) that
+# failed for the first time, or was pushed out of the queue, is re-run once by this job, which waits for it: passed = one silent ✅, failed again = the loud
+# message. The re-run's own completion (attempt 2+) is left to the job that started it. Other workflows (publishing, mail, Play, Worker deploys) are not re-run.
 # Names must match each workflow's name: exactly (no error when one does not).
 on:
   workflow_run:
@@ -48,12 +51,12 @@ on:
     types: [completed]
 permissions:
   contents: write   # flash.mjs writes the flashes branch the /live dashboard reads
-  actions: read     # jobs and previous runs of the failed workflow
+  actions: write    # jobs and previous runs of the failed workflow; the one automatic re-run
 jobs:
   tell:
     if: ${{ (github.event.workflow_run.conclusion == 'failure' || github.event.workflow_run.conclusion == 'timed_out' || github.event.workflow_run.conclusion == 'cancelled') && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event != 'workflow_dispatch' && github.event.workflow_run.event != 'pull_request' && github.event.workflow_run.head_repository.full_name == github.repository }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 3
+    timeout-minutes: 50   # 3 minutes, plus up to 45 waiting for an automatic re-run
     steps:
       - uses: actions/checkout@v4
         with:
@@ -79,6 +82,7 @@ jobs:
           WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
           RUN_CREATED: ${{ github.event.workflow_run.created_at }}
           TITLE: ${{ github.event.workflow_run.display_title }}
+          ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
         run: |
           [ -n "$TELEGRAM_BOT_TOKEN" ] || { echo "no Telegram credentials"; exit 0; }
           # one Hebrew message per case (tg-text.mjs wfFailure: classification line, what happened, what to do, the log link); level from alert.mjs WF_LEVELS
@@ -91,6 +95,25 @@ jobs:
               --data-urlencode "parse_mode=HTML" --data-urlencode "disable_web_page_preview=true" --data-urlencode "disable_notification=$([ "$silent" = 1 ] && echo true || echo false)"
           }
           HE=$(node .github/scripts/tg-text.mjs bot "$NAME" 2>/dev/null) || HE=$NAME
+          retry=$(node .github/scripts/tg-text.mjs retry "$WF" 2>/dev/null) || retry=0
+          if [ "$retry" = 1 ] && [ "${ATTEMPT:-1}" -gt 1 ] 2>/dev/null; then echo "attempt $ATTEMPT of a self-repairing workflow: the run that re-ran it reports"; exit 0; fi
+          # the one automatic re-run (whole run when it never started, else the failed jobs), then wait for it: 0 passed, 1 failed or still running after 45 min, 2 not started
+          rerun() {
+            if [ "$1" = lost ]; then gh run rerun "$RUN_ID" -R "$GITHUB_REPOSITORY" || return 2; else gh run rerun "$RUN_ID" --failed -R "$GITHUB_REPOSITORY" || return 2; fi
+            echo "re-run started, waiting"; sleep 30
+            timeout 45m gh run watch "$RUN_ID" -R "$GITHUB_REPOSITORY" --exit-status --interval 30 >/dev/null 2>&1 && return 0 || return 1
+          }
+          # re-run (when allowed) and say how it ended; returns 1 when nothing was re-run, so the caller sends its usual message
+          repair() {
+            [ "$retry" = 1 ] || return 1
+            local rc=0; rerun "$1" || rc=$?
+            case $rc in
+              0) echo "the re-run passed: silent done message"; send fixed;;
+              1) echo "the re-run failed too: loud message"; send again; node .github/scripts/flash.mjs infra alert "בוט נכשל: $HE" "$URL";;
+              *) echo "could not start a re-run"; return 1;;
+            esac
+            return 0
+          }
           # names of the jobs of a run that started and did not succeed (failed, timed out, or cancelled while running), one per line; "x" when the API
           # call fails. A job cancelled while it waited in a queue has no steps and is not listed.
           bad() { local n; n=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1/jobs?per_page=100" \
@@ -110,7 +133,8 @@ jobs:
               *) for r in $runs; do [ "${r%%:*}" -gt "$RUN_NUMBER" ] 2>/dev/null && { newer=${r%%:*}; break; }; done;;
             esac
             if [ -n "$newer" ]; then echo "cancelled before any job started, superseded by run #$newer: no alert"; exit 0; fi
-            echo "cancelled before any job started, no newer run of this workflow (of this part) took its place: the work is lost, loud alert"
+            echo "cancelled before any job started, no newer run of this workflow (of this part) took its place: the work is lost"
+            repair lost && exit 0
             send lost
             node .github/scripts/flash.mjs infra alert "בוט לא רץ: $HE" "$URL"
             exit 0
@@ -159,5 +183,6 @@ jobs:
             send repeat
             exit 0
           fi
+          repair failed && exit 0
           send failed
           node .github/scripts/flash.mjs infra alert "בוט נכשל: $HE" "$URL"
