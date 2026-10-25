@@ -3,7 +3,8 @@
 //   opens     app opens by a tagged link (link_open kind campaign) and site landings (link_landing), by network and topic
 //   checks    site car checks by the visit's network and topic (what the visit did after it landed)
 //   installs  new app users by the store link's source and campaign (firstUserSource / firstUserCampaignName)
-//   topics    the three above summed per topic, best first: the line the kit ranks by
+//   topics    the three above summed per topic, best first, over 7 and 28 days
+//   rows      the kit's shape (ideas.mjs --camp): one row per topic and network, last 7 days: opens, landings, checks
 // The numbers are private and the repo is public, so the JSON is encrypted like seo-data (.github/seo-data.pub.pem, RSA-OAEP wrapped
 // AES-256-GCM key) and only states and row counts are printed. Writes out/camp-data.enc.json; the workflow puts it on branch camp-data.
 // Read it: node seo-key/decrypt.mjs camp-data.enc.json > camp-data.json (private key outside the repo), then ideas.mjs reads it like --gsc.
@@ -77,6 +78,19 @@ export function topics(S) {
   return [...T.values()].sort((a, b) => b.opens[0] - a.opens[0] || b.opens[1] - a.opens[1] || b.installs[1] - a.installs[1] || (a.camp < b.camp ? -1 : 1));
 }
 
+// the kit's own shape (content-factory/ideas.mjs --camp, 25.10): one row per topic and network for the last 7 days. opens = app opens by a
+// campaign link (link_open kind campaign), landings = site landings with that topic, checks = site car checks of visits with that topic
+export function kitRows(S) {
+  const M = new Map(), r = (camp, via) => { const k = low(camp) + "\u0001" + via; if (!M.has(k)) M.set(k, { camp: low(camp), via, opens: 0, landings: 0, checks: 0 }); return M.get(k); };
+  for (const o of S.opens) {
+    if (!tagged(o.camp) || !o.d7[0]) continue;
+    if (o.eventName === "link_open") { if (o.kind === "campaign") r(o.camp, low(tagged(o.via) ? o.via : o.src) || "?").opens += o.d7[0]; }
+    else r(o.camp, low(tagged(o.src) ? o.src : o.via) || "?").landings += o.d7[0];
+  }
+  for (const c of S.checks) if (tagged(c.camp) && c.d7[0]) r(c.camp, low(c.src) || "?").checks += c.d7[0];
+  return [...M.values()].sort((a, b) => b.opens + b.landings - a.opens - a.landings || b.checks - a.checks || (a.camp < b.camp ? -1 : 1));
+}
+
 export function encrypt(obj, pub) {
   const key = crypto.randomBytes(32), iv = crypto.randomBytes(12), c = crypto.createCipheriv("aes-256-gcm", key, iv);
   const data = Buffer.concat([c.update(JSON.stringify(obj)), c.final()]);
@@ -100,7 +114,7 @@ async function main() {
       S[k] = fold(j.rows, NAMES[k]);
     } catch (e) { errors.push(`${k} ${e.name}`); S[k] = []; }
   }
-  const out = { generated: new Date(IO.now()).toISOString(), ranges: R, metrics: { opens: ["events", "users"], checks: ["events"], installs: ["newUsers"] },
+  const out = { generated: ilDay(IO.now()), generatedAt: new Date(IO.now()).toISOString(), range: { start: R.d7[0], end: R.d7[1] }, rows: kitRows(S), ranges: R, metrics: { opens: ["events", "users"], checks: ["events"], installs: ["newUsers"] },
     note: "d7 / d28 hold [metrics] for the last 7 / 28 Israel days ending yesterday; topics sums them per camp: [7 days, 28 days]", ...S, topics: topics(S), errors };
   fs.mkdirSync("out", { recursive: true });
   fs.writeFileSync("out/camp-data.enc.json", JSON.stringify(encrypt(out, fs.readFileSync(".github/seo-data.pub.pem", "utf8"))));
@@ -126,6 +140,9 @@ function selftest() {
   ok(T.length === 2 && T[0].camp === "market" && T[0].opens.join() === "5,12" && T[0].appOpens.join() === "5,9" && T[0].landings.join() === "0,3", "topics market " + JSON.stringify(T[0]));
   ok(T[0].installs.join() === "0,2" && T[0].via.facebook === 9 && T[0].via.tiktok === 3, "installs and networks " + JSON.stringify(T[0]));
   ok(T[1].camp === "one_line" && T[1].checks.join() === "6,11", "checks " + JSON.stringify(T[1]));
+  const K = kitRows({ opens, checks, installs });
+  ok(K.length === 2 && K[0].camp === "market" && K[0].via === "facebook" && K[0].opens === 5 && K[0].landings === 0, "kit rows market " + JSON.stringify(K));
+  ok(K[1].camp === "one_line" && K[1].via === "facebook" && K[1].landings === 2 && K[1].checks === 6, "kit rows one_line " + JSON.stringify(K[1]));
   const kp = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 }), pubPem = kp.publicKey.export({ type: "spki", format: "pem" });
   const e = encrypt({ topics: T }, pubPem), key = crypto.privateDecrypt({ key: kp.privateKey, padding: crypto.constants.RSA_PKCS1_OAEP_PADDING, oaepHash: "sha256" }, Buffer.from(e.ek, "base64"));
   const d = crypto.createDecipheriv("aes-256-gcm", key, Buffer.from(e.iv, "base64")); d.setAuthTag(Buffer.from(e.tag, "base64"));
