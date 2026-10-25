@@ -40,7 +40,7 @@ try { await check(); } catch (e) {
   try {
     if (prev) fs.writeFileSync(`${OUT}/recall-state.json`, JSON.stringify(prev));
     fs.writeFileSync(`${OUT}/recall-alert.txt`, msg({kind: "today", area: "data", title: "בדיקת הריקולים היומית לא רצה", text: `${heError(String(e && e.message || e)).split("\n<blockquote")[0]} הקטלוג פורסם כרגיל, והאפליקציה מציגה ריקולים כמו אתמול.`,
-      what: "בדרך כלל כלום. אם זה חוזר מחר, לכתוב לי בשרשור \"נתונים ואמינות\".", raw: String(e && e.stack || e)}));
+      what: "כלום. אם זה חוזר, זה עובר לבד לטיפול בשרשור \"נתונים ואמינות\".", raw: String(e && e.stack || e)}));
   } catch (w) { console.log("could not write the alert: " + w.message); }
 }
 
@@ -142,7 +142,7 @@ fs.writeFileSync(`${OUT}/recall-state.json`, JSON.stringify({u: meta.u, status, 
 if (lines.length) {
   // the Telegram standard (tg-text.mjs, HTML): to do today when a line needs a person, else for information (sent without a ring)
   const text = msg({kind: act.length ? "today" : "info", area: "data", title: act.length ? "בדיקת הריקולים מצאה משהו שצריך לבדוק" : "עדכון ברשימת הריקולים של משרד התחבורה",
-    text: `${lines.join("\n")}\n(${fmt(meta.u)})`, what: act.length ? "לכתוב לי בשרשור \"נתונים ואמינות\"." : "", raw: raw.join("; ")});
+    text: `${lines.join("\n")}\n(${fmt(meta.u)})`, what: act.length ? "כלום. זה עובר לבד לטיפול בשרשור \"נתונים ואמינות\", ועדכון יגיע כשזה מטופל." : "", raw: raw.join("; ")});
   fs.writeFileSync(`${OUT}/recall-alert.txt`, text);
   console.log("\n" + text);
 }

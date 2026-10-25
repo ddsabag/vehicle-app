@@ -59,7 +59,7 @@ const carsWord = n => n === 1 ? "רכב אחד" : `${n} רכבים`;
 export function verdict(r, day) {
   if (!r.done || r.cars < MIN_CARS)
     return { key: "truth:fail", title: "בדיקת הנתונים היומית לא הצליחה לקרוא מספיק רכבים", body: `נקראו ${r.cars} מתוך ${r.sampled || "?"} רכבים (${day}). בדרך כלל זה אומר שמאגרי משרד התחבורה לא ענו, והאפליקציה עצמה לא נפגעה.`,
-      what: "בדרך כלל כלום. אם זה חוזר מחר, לכתוב לי בשרשור \"נתונים ואמינות\"." , get text() { return msg({ kind: "today", area: "data", title: this.title, text: this.body, what: this.what }); } };
+      what: "כלום. אם זה חוזר, זה עובר לבד לטיפול בשרשור \"נתונים ואמינות\"." , get text() { return msg({ kind: "today", area: "data", title: this.title, text: this.body, what: this.what }); } };
   const hard = Object.entries(r.fields).filter(([f, [, bad]]) => bad > 0 && !SOFT.has(f));
   if (!hard.length) return null;
   const byGroup = new Map(), cars = new Set();
@@ -75,7 +75,7 @@ export function verdict(r, day) {
   return { key: "truth:" + groups.join("+"),
     text: msg({ kind: "today", area: "data", title: "האפליקציה הציגה משהו שלא תואם את משרד התחבורה",
       text: `בבדיקה היומית (${day}), ב-${carsWord(k)} מתוך ${r.cars} שנבדקו, משהו שהאפליקציה מציגה לא תאם את מאגרי משרד התחבורה.\n${lines.join(" · ")}\nהפירוט, בלי מספרי רכב, בקובץ היומי.`,
-      what: "לכתוב לי בשרשור \"נתונים ואמינות\" כדי שאבדוק ואתקן.", raw: hard.map(([f, [n, bad]]) => `${f} ${bad}/${n}`).join(", ") }) };
+      what: "כלום. זה עובר לבד לטיפול בשרשור \"נתונים ואמינות\", ועדכון יגיע כשזה מטופל.", raw: hard.map(([f, [n, bad]]) => `${f} ${bad}/${n}`).join(", ") }) };
 }
 
 export function addDay(hist, entry) {
