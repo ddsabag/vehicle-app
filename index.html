@@ -1040,8 +1040,10 @@ function lookupFacts(D) {
   Object.keys(o).forEach(k => { if (!o[k]) delete o[k]; });
   return o;
 }
-/* app: Firebase. web: the same events go to our own /api/e (luchit-api Worker -> GA4 web stream), no cookies, no stored id; the Worker drops anything that looks like a plate */
-const track = (name, params) => { try { if (!analyticsOn()) return; const b = window.AndroidApp; if (b) { if (b.logEvent) b.logEvent(name, JSON.stringify(params || {})); return; }
+/* app: Firebase. web: the same events go to our own /api/e (luchit-api Worker -> GA4 web stream), no cookies, no stored id; the Worker drops anything that looks like a plate.
+   The app sends every value as text: a number reached Firebase as a long, and GA4's text dimensions showed it empty (own, on, n, km...). */
+const appParams = p => { const o = {}; for (const [k, v] of Object.entries(p || {})) o[k] = typeof v === "boolean" ? (v ? "1" : "0") : typeof v === "number" ? String(v) : v; return o; };
+const track = (name, params) => { try { if (!analyticsOn()) return; const b = window.AndroidApp; if (b) { if (b.logEvent) b.logEvent(name, JSON.stringify(appParams(params))); return; }
   if (document.prerendering) { document.addEventListener("prerenderingchange", () => track(name, params), {once: true}); return; }   // a page Chrome loaded ahead counts only once it is opened
   if (location.protocol === "https:" && navigator.sendBeacon) navigator.sendBeacon("/api/e", new Blob([JSON.stringify({n: name, p: {src: LAND, ...landCamp(), ...(params || {})}, cid: WEB_CID})], {type: "text/plain"})); } catch {} };
 // the topic of the tagged link this visit came by (luchit.app/go/fb?c=market → camp "market"), kept with the campaign for the visit (FT), so the
@@ -1051,9 +1053,14 @@ const WEB_CID = Math.floor(Math.random() * 2e9) + "." + Math.floor(Date.now() / 
 /* app, new installs from 1.36: does a car saved on the first day bring people back? A new install (FRESH) keeps its install day in coh.d;
    a phone that had the app before is "old" and sends nothing. first_save goes once, at the first save on the install day; app_return once, at
    the first opening on days 1 to 7 after it, with whether the install day saved a car (n). Both carry the install day (kind) as MM-DD: the
-   app's event bridge drops any value with 5 digits or more, so a full date never arrived. The live dashboard follows each day's installs for a week. */
-const cohDay = () => new Date().toLocaleDateString("en-CA");
-const coh = (() => { if (!window.AndroidApp) return null; try { let c = JSON.parse(localStorage.getItem("coh") || "null"); if (!c || !c.d) { c = {d: FRESH ? cohDay() : "old"}; localStorage.setItem("coh", JSON.stringify(c)); } return c; } catch { return null; } })();
+   app's event bridge drops any value with 5 digits or more, so a full date never arrived. The live dashboard follows each day's installs for a week.
+   The day is built from its parts: toLocaleDateString("en-CA") gave "10/22/2026" in Android WebView, so until 1.38 kind was 5 digits and
+   dropped; a day stored that way is rewritten as YYYY-MM-DD on the next start. */
+const cohYmd = t => `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+const cohDay = () => cohYmd(new Date());
+const coh = (() => { if (!window.AndroidApp) return null; try { let c = JSON.parse(localStorage.getItem("coh") || "null"); if (!c || !c.d) { c = {d: FRESH ? cohDay() : "old"}; localStorage.setItem("coh", JSON.stringify(c)); }
+  else if (c.d !== "old" && !/^\d{4}-\d\d-\d\d$/.test(c.d)) { const t = new Date(Date.parse(c.d)); c.d = isNaN(t) ? "old" : cohYmd(t); localStorage.setItem("coh", JSON.stringify(c)); }
+  return c; } catch { return null; } })();
 const cohKeep = () => { try { localStorage.setItem("coh", JSON.stringify(coh)); } catch {} };
 function cohCheck() {
   if (!coh || coh.d === "old" || coh.r) return;
@@ -2816,6 +2823,7 @@ async function lookup(raw){
   current = D; currentTab = ot && ot.p === D.plate ? ot.t : "overview";
   snapPut(D); savedSync(D);
   renderResult(); focusResult();
+  // exactly 8 params: the app bridge keeps the first 8 (MainActivity.logEvent) and the web Worker 10 with src+camp; a 9th silently drops the last
   track(again ? "lookup_repeat" : "car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: D.errs && D.errs.length ? 1 : 0, role: roleOf(D), ...lookupFacts(D)});
   remember(plate);
   window.scrollTo({top: 0});
@@ -4864,7 +4872,9 @@ $("#out").addEventListener("click", ev => {
     $("#shareMsg").textContent = ""; $("[data-share=bizpdf]").hidden = !(PRO_LOCK && isBiz()); $("#shareSheet").hidden = false; shareWarm = {}; warmShare(); }
   if (act === "candSave") {
     const raw = digits(($("#askIn") || {}).value), ask = raw ? Number(raw) : null;
-    if (!isSaved(current.plate)) toggleSaved(newSavedItem(current));
+    if (!isSaved(current.plate) && toggleSaved(newSavedItem(current))) {   // a new save counts like the star's
+      startTrial(); cohSaved(); const L = store.get("savedVehicles").length; track("car_save", {n: String(Math.min(L, 4)) + (L > 3 ? "+" : ""), from: "buy_ask"});
+    }
     const list = store.get("savedVehicles"), it = list.find(x => x.plate === current.plate);
     Object.assign(it, {ask, ...candFields(current)}); store.set("savedVehicles", list);
     toast(ask ? "נשמר ברכבים שלי, בסינון לקנייה" : "נשמר ברכבים שלי");
@@ -4874,7 +4884,8 @@ $("#out").addEventListener("click", ev => {
   if (act === "copy") copyText(summaryText(current), "הסיכום");
   if (act === "calendar") { track("calendar_reminder_click", {where: window.AndroidApp ? "app" : "web"}); testReminder(current); }
   if (act === "fuelUnit") { try { localStorage.setItem("fuelUnit", kmlUnit() ? "l100" : "kml"); } catch {} syncUnit(); renderResult(); }
-  if (act === "compare") { track("compare_open"); cmp = []; renderCompare(); openCompare("model"); }
+  // from a car page the car on screen is the first one compared, so the picker adds the second (until 1.38 it started empty, and the car looked up was missing)
+  if (act === "compare") { track("compare_open"); cmp = current && current.kind !== "fail" ? [current] : []; renderCompare(); openCompare("model"); }
   if (act === "save") {
     const on = toggleSaved(newSavedItem(current));
     if (on) { startTrial(); cohSaved(); }
@@ -5824,7 +5835,7 @@ function updateSavedBar(){
   bar.hidden = !n || !(current || inCompare);
   if (n) $("#savedBarTxt").textContent = `הרכבים שלי (${n})`;
 }
-$("#savedBar").addEventListener("click", () => navTo("cars"));
+$("#savedBar").addEventListener("click", () => navTo("cars", {via: "saved_bar"}));
 for (const nm of ["renderResult", "renderCompare", "renderHome"]) {
   const f = window[nm] || eval(nm);
   const w = function(...a){ const r = f.apply(this, a); updateSavedBar(); if (nm === "renderResult") { fillModelStats(); fillDocs(); fillFile(); } return r; };
@@ -6063,7 +6074,7 @@ function renderAlerts(){
 $("#out").addEventListener("click", ev => {
   const b = ev.target.closest("button"); if (!b) return;
   const a = b.dataset.act;
-  if (b.dataset.nav) { ev.stopImmediatePropagation(); navTo(b.dataset.nav, {filter: b.dataset.f}); return; }
+  if (b.dataset.nav) { ev.stopImmediatePropagation(); navTo(b.dataset.nav, {filter: b.dataset.f, via: b.dataset.via}); return; }
   if (a === "toolBack") { ev.stopImmediatePropagation(); leaveTool(); return; }
   if (b.dataset.cmode) { ev.stopImmediatePropagation(); try { localStorage.setItem("carsMode", b.dataset.cmode); } catch {} track("cars_mode", {mode: b.dataset.cmode}); renderCars(); return; }
   if (b.dataset.cfilter) { ev.stopImmediatePropagation(); carsFilter = b.dataset.cfilter; renderCars(); return; }
@@ -6081,7 +6092,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.alerts && document.body.dataset.screen === "alerts") { ev.stopImmediatePropagation(); try { window.AndroidApp.setAlerts(b.dataset.alerts === "on"); localStorage.setItem("alertsAsked", "1"); } catch {} setTimeout(refreshView, 300); return; }
   if (b.dataset.open && (document.body.dataset.screen === "cars")) carsY = window.scrollY;
   if (!a) return;
-  if (a === "addCar") { ev.stopImmediatePropagation(); navTo("search"); setTimeout(() => $("#plate").focus(), 50); return; }
+  if (a === "addCar") { ev.stopImmediatePropagation(); navTo("search", {via: "add"}); setTimeout(() => $("#plate").focus(), 50); return; }
   if (a === "carsCancel") { ev.stopImmediatePropagation(); carsSel = null; renderCars(); return; }
   if (a === "carsFab") { ev.stopImmediatePropagation();
     if (!carsSel) { carsSel = []; renderCars(); return; }
@@ -6570,7 +6581,7 @@ function renderHome(){
   const pn = planNotice(); if (pn) html.push(pn);
   // what needs attention on a saved car opens "התראות"; the cars themselves live in "הרכבים שלי"
   const attn = saved.filter(carAttn);
-  if (attn.length) html.push(`<button type="button" class="attn${attn.some(s => carLevel(s) === "bad") ? "" : " warn"}" data-nav="alerts"><span class="ai">${ico("alert")}</span><span class="t"><b>${attn.length === 1 ? "רכב אחד מהרכבים שלכם צריך תשומת לב" : `${attn.length} מהרכבים שלכם צריכים תשומת לב`}</b><small>${esc(alertItems().slice(0, 2).map(x => x.t.replace(/ ב-.*$/, "") + ": " + (x.s.nick || x.s.title)).join(" · "))}</small></span>${ico("chev")}</button>`);
+  if (attn.length) html.push(`<button type="button" class="attn${attn.some(s => carLevel(s) === "bad") ? "" : " warn"}" data-nav="alerts" data-via="attn"><span class="ai">${ico("alert")}</span><span class="t"><b>${attn.length === 1 ? "רכב אחד מהרכבים שלכם צריך תשומת לב" : `${attn.length} מהרכבים שלכם צריכים תשומת לב`}</b><small>${esc(alertItems().slice(0, 2).map(x => x.t.replace(/ ב-.*$/, "") + ": " + (x.s.nick || x.s.title)).join(" · "))}</small></span>${ico("chev")}</button>`);
   if (recent.length) html.push(`<section class="recents" aria-label="בדיקות אחרונות"><div class="qhead">בדיקות אחרונות</div><div class="rc-row">${recent.map(p => { const s = saved.find(x => x.plate === p); return `<button type="button" class="rc" data-open="${p}"><span class="mini-plate"><i></i>${fmtPlate(p)}</span>${s ? `<small><bdi>${esc(s.nick || s.title)}</bdi></small>` : ""}</button>`; }).join("")}</div></section>`);
   const tool = (act, icon, title, text, tag, col) => `<button type="button" class="trow" data-act="${act}"><i class="tb ${col}">${ico(icon)}</i><span class="t"><b>${title}${tag ? PT(tag) : ""}</b><small>${text}</small></span>${ico("chev")}</button>`;
   html.push(`<div class="qhead">כלים</div><div class="tlist">${[
@@ -6595,7 +6606,7 @@ function homeRail(saved){
     if (L && (L.k !== "ok" || L.days <= 30)) return [L.k === "ok" ? "warn" : "bad", testWords(L)];
     return ["ok", L ? `טסט בתוקף עד ${L.date}` : esc(s.sub || "")]; };
   const list = saved.slice().sort((a, b) => rank[carLevel(a)] - rank[carLevel(b)]).slice(0, 6);
-  return `<aside class="hrail" aria-labelledby="hrailHead"><section class="hr-p"><div class="hr-h"><h2 id="hrailHead">הרכבים שלי</h2><button type="button" class="lnk" data-nav="cars">${saved.length > list.length ? `לכל ${saved.length} הרכבים` : "לכל הרכבים"}</button></div>
+  return `<aside class="hrail" aria-labelledby="hrailHead"><section class="hr-p"><div class="hr-h"><h2 id="hrailHead">הרכבים שלי</h2><button type="button" class="lnk" data-nav="cars" data-via="rail">${saved.length > list.length ? `לכל ${saved.length} הרכבים` : "לכל הרכבים"}</button></div>
     ${list.map(s => { const [lv, t] = line(s); return `<button type="button" class="hr-row" data-open="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b><bdi>${esc(s.nick || s.title)}</bdi></b><small class="${lv}">${lv === "ok" ? "" : `<i class="dot ${lv}" aria-hidden="true"></i>`}${t}</small></span></button>`; }).join("")}
     <p class="hr-f">נשמרים בדפדפן הזה בלבד</p></section></aside>`;
 }
@@ -6699,7 +6710,7 @@ $("#out").addEventListener("keydown", ev => {
 })();
 
 $("#openSettings").addEventListener("click", () => { fillAnalytics(); syncPlanUi(); $("#faqBox").innerHTML = FAQ.map(([q, a]) => `<details class="faq"><summary>${q}</summary><p>${a}</p></details>`).join(""); sheet.hidden = false; $("#closeSettings").focus(); });
-$("#toAlerts").addEventListener("click", () => { sheet.hidden = true; navTo("alerts"); });
+$("#toAlerts").addEventListener("click", () => { sheet.hidden = true; navTo("alerts", {via: "settings"}); });
 document.querySelectorAll("[data-alerts]").forEach(b => b.addEventListener("click", () => { try { window.AndroidApp.setAlerts(b.dataset.alerts === "on"); localStorage.setItem("alertsAsked", "1"); } catch {} syncAlertsSeg(); }));
 $("#closeSettings").addEventListener("click", () => { sheet.hidden = true; $("#openSettings").focus(); });
 sheet.addEventListener("click", ev => { if (ev.target === sheet) sheet.hidden = true; });
