@@ -69,7 +69,7 @@ export function botName(name) {
 // Workflows the failure alert re-runs once by itself (Dudu 25.10: "כשהבוט מזהה בעיה יתקן אותה אוטומטית ורק יעדכן אותי שבוצע").
 // Only reads, checks and data rebuilds that are safe to run twice; never one that publishes, sends mail or a report, uploads to Play or deploys a Worker.
 export const RETRY = new Set(["Data guard", "Fuel price", "Ministry watch", "Web deploy (build)", "SEO check", "Web watch", "Market data", "Model catalogue",
-  "Model names", "Model statistics", "Ownership data mirror", "Reviews monitor", "SEO data snapshot", "Site smoke test", "Site smoke test (after deploy)",
+  "Model names", "Model statistics", "Ownership data mirror", "Reviews monitor", "SEO data snapshot", "Campaign data snapshot", "Site smoke test", "Site smoke test (after deploy)",
   "Back-on-road detector", "Release watch", "Data truth", "Settlements"]);
 
 // failure-alert.yml: a workflow that failed without its own alert. what = failed | repeat | lost | fixed | again; level from alert.mjs WF_LEVELS (passed in).

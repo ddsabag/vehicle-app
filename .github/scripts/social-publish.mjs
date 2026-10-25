@@ -13,8 +13,8 @@
 // target (the workflow commits it back, also when the run fails). An item later than LATE_MS is marked missed and reported, never posted late.
 // Before a publish it looks at the account's latest posts: a post with the same caption from the last DEDUPE_MS means an earlier run published
 // it and died before saving state, so it is recorded as done and not posted twice.
-// An item with needs_live waits until Google Play shows that version (or a later one) PUBLISHED on the production track: a read-only call
-// with the Ship tail key SHIP_SA_JSON (tracks.releases.list, no edit is opened). Not live at its time = held and checked again every run;
+// An item with needs_live waits until Google Play shows that version (or a later one) fully rolled out (100%) on the production track: a
+// read with the Ship tail key SHIP_SA_JSON (a throwaway edit, deleted at once and never committed). Not live at its time = held and checked again every run;
 // still not live LATE_MS after its time = missed and reported, so content never promotes a screen users cannot get yet.
 // Two tokens, each optional; a network whose token is missing or refused is reported and the other one still publishes:
 //   META_PUBLISH_TOKEN  Facebook: the לוחית Page's own token (from a long-lived user token of the app "Luchit Publisher"; it does not expire),
@@ -342,7 +342,7 @@ export async function alreadyPosted(A, target, caption) {
 // ---- app version live in Google Play (items with needs_live) ----
 const vparts = v => String(v).split(".").map(Number);
 export const vcmp = (a, b) => { const x = vparts(a), y = vparts(b); for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d; } return 0; };
-// the newest version PUBLISHED on the production track ("" when none), also while a staged rollout is below 100%
+// the newest version fully rolled out (100%) on the production track ("" when none)
 export async function liveVersion() {
   const raw = String(IO.env.SHIP_SA_JSON || "").trim();
   if (!raw) throw new Error("SHIP_SA_JSON is not set, so Google Play cannot be read");
@@ -353,11 +353,17 @@ export async function liveVersion() {
     signal: AbortSignal.timeout(30000) });
   const tok = tr.ok ? (await tr.json().catch(() => ({}))).access_token : "";
   if (!tok) throw new Error(`Google sign-in failed (${tr.status})`);
-  const r = await IO.fetch(`https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${PKG}/tracks/production/releases`,
-    { headers: { authorization: "Bearer " + tok }, signal: AbortSignal.timeout(30000) });
+  // a staged rollout (20% first, Release watch takes it to 100% after 48 h) is not "live" yet: only a COMPLETED release counts. tracks.releases.list
+  // does not say how far a rollout got, so a throwaway edit is opened to read the track and deleted again (never committed, changes nothing)
+  const P = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${PKG}/edits`, H = { authorization: "Bearer " + tok };
+  const e = await IO.fetch(P, { method: "POST", headers: H, signal: AbortSignal.timeout(30000) });
+  const id = e.ok ? (await e.json().catch(() => ({}))).id : "";
+  if (!id) throw new Error(`Google Play answered ${e.status}`);
+  let r; try { r = await IO.fetch(`${P}/${id}/tracks/production`, { headers: H, signal: AbortSignal.timeout(30000) }); }
+  finally { await IO.fetch(`${P}/${id}`, { method: "DELETE", headers: H, signal: AbortSignal.timeout(30000) }).catch(() => {}); }
   if (!r.ok) throw new Error(`Google Play answered ${r.status}`);
-  const pub = ((await r.json().catch(() => ({}))).releases || []).filter(x => String(x.releaseLifecycleState || "").replace("RELEASE_LIFECYCLE_STATE_", "") === "PUBLISHED")
-    .map(x => String(x.releaseName || "").match(/\d+\.\d+(?:\.\d+)?/)?.[0]).filter(Boolean).sort(vcmp);
+  const pub = ((await r.json().catch(() => ({}))).releases || []).filter(x => x.status === "completed")
+    .map(x => String(x.name || "").match(/\d+\.\d+(?:\.\d+)?/)?.[0]).filter(Boolean).sort(vcmp);
   return pub.at(-1) || "";
 }
 
@@ -420,6 +426,22 @@ export function validateReminders(j) {
 // ---- links in a caption: each must answer before the post goes out ----
 export const captionLinks = c => [...new Set((String(c || "").match(/(?:https?:\/\/|\b(?:www\.)?luchit\.app\/)[^\s"'<>()]*/gi) || [])
   .map(u => u.replace(/[.,!?:;]+$/, "")).map(u => /^https?:/i.test(u) ? u : "https://" + u))];
+// Gates read before anything goes out (25.10, Dudu "כולם" on the bot-links table):
+//   the site answers: a post sends people to luchit.app, so while the home page does not answer every due item waits (retried every run,
+//   missed after LATE_MS like any late item)
+//   no halted rollout: while the alert router has a prod:halt item from the last HALT_MS (Production stopped a rollout on a new crash),
+//   items that promote an app version (needs_live) wait; other items still go out
+export const HALT_MS = 72 * 36e5;
+export async function gates() {
+  const site = await linkOk("https://luchit.app/");
+  let halt = "";
+  try {
+    const r = await IO.fetch(`https://raw.githubusercontent.com/${IO.env.GITHUB_REPOSITORY || "ddsabag/vehicle-app"}/alert-state/state.json`, { signal: AbortSignal.timeout(15000) });
+    const items = r.ok ? (await r.json())?.items || {} : {};
+    halt = Object.entries(items).find(([k, it]) => k.startsWith("prod:halt") && IO.now() - Date.parse(it?.last) < HALT_MS)?.[0] || "";
+  } catch {}   // unreadable state = no known halt (Production's own alert already rang)
+  return { site, halt };
+}
 async function linkOk(u) {
   try { const r = await IO.fetch(u, { redirect: "follow", signal: AbortSignal.timeout(15000), headers: { "user-agent": "luchit-social-publish" } }); return r.status < 400; }
   catch { return false; }
@@ -486,6 +508,12 @@ export async function run(qdir) {
       `${n === 1 ? "פרסום אחד מחכה" : `${n} פרסומים מחכים`} שם. ${heError(e.message).split("\n")[0]}`, HINT[t], e.message) + link(runUrl()), runUrl());
   }
   if (!A.page && !A.ig && Object.keys(A.errs).length) throw Object.values(A.errs)[0];
+  const G = await gates();
+  if (!G.site) {
+    summary.push("held: luchit.app does not answer");
+    if (!dry) await tell("summary", "social:held:site", say("info", "הפרסומים מחכים", "האתר לא ענה, ופוסט עכשיו היה שולח אנשים לאתר שלא עובד. הבוט ינסה שוב בהרצה הבאה.", "", "luchit.app"), runUrl(), "silent");
+    return { published: 0, summary };
+  }
   let published = 0;
   const posted = [], links = new Map();
   const deadLink = async c => { for (const u of captionLinks(c)) { if (!links.has(u)) links.set(u, await linkOk(u)); if (!links.get(u)) return u; } return ""; };
@@ -493,6 +521,12 @@ export async function run(qdir) {
     const { k, t, key } = d, it = { ...d.it, caption: d.it[`caption_${t}`] ?? d.it.caption }, st = Q.state.posts[key] || { tries: 0 };
     if (!dry) Q.state.posts[key] = st;   // a dry run records nothing
     const label = `${NAMES[it.type]} של ${ilDay(it.at)} ב${NAMES[t]}`, ref = `ערכה ${k.name}, פריט ${it.id}`;
+    if (it.needs_live && G.halt && d.late <= LATE_MS) {
+      summary.push(`held ${key}: the Production rollout is halted (${G.halt})`);
+      if (!dry && !st.halted) { st.halted = new Date(now).toISOString(); Q.save();
+        await tell("summary", `social:held:${k.name}-${it.id}`, say("info", `ה${label} מחכה`, "הוא מקדם גרסה של האפליקציה, וההפצה שלה נעצרה בגלל קריסה חדשה. הוא ייצא כשההפצה תחזור, עד שש שעות אחרי הזמן שנקבע.", "", ref), runUrl(), "silent"); }
+      continue;
+    }
     const waits = !!it.needs_live && !(await isLive(it.needs_live));
     if (d.late > LATE_MS) {
       Object.assign(st, { status: "missed", at: new Date(now).toISOString(), ...(waits ? { err: `waited for ${it.needs_live} in Google Play` } : {}) });
@@ -616,13 +650,14 @@ async function selftest() {
     { id: "story", type: "story", at: "2026-10-27T06:15:00Z", targets: ["instagram"], files: ["story-02.png"] },
   ], reminders: [{ id: "tiktok", at: "2026-10-25T06:00:00Z", text: "להדביק בתוסף את פרומפט הטיקטוק של ערכה 2", link: "https://www.tiktok.com/tiktokstudio" }] }));
   const calls = [], sent = [];
-  let clock = T("2026-10-25T06:40:00Z"), failNext = 0, igPosts = [], linkStatus = 200;
+  let clock = T("2026-10-25T06:40:00Z"), failNext = 0, igPosts = [], linkStatus = 200, siteStatus = 200, alertState = null;
   const J = (o, status = 200) => ({ ok: status < 400, status, json: async () => o });
   IO.fetch = async (u, o = {}) => {
     const s = String(u), m = o.method || "GET", p = new URL(s).pathname.replace(/^\/v[\d.]+/, "");
     calls.push(`${m} ${p}`);
     if (s.includes("api.telegram.org")) return J({ ok: true });
-    if (new URL(s).host === "luchit.app") return J({}, linkStatus);
+    if (new URL(s).host === "luchit.app") return J({}, new URL(s).pathname === "/" ? siteStatus : linkStatus);
+    if (s.includes("/alert-state/state.json")) return alertState ? J(alertState) : J({}, 404);
     if (failNext && m === "POST" && p.endsWith("/media_publish")) { failNext--; return J({ error: { message: "temporary", code: 2, is_transient: true } }, 500); }
     if (p === "/me/accounts") return J({ data: [{ id: "111", name: "לוחית", access_token: "PAGE", instagram_business_account: { id: "222", username: "luchit.app" } }] });
     if (m === "POST" && o.body?.get) sent.push({ message: o.body.get("message"), caption: o.body.get("caption") });
@@ -694,10 +729,17 @@ async function selftest() {
   // a dead link holds the post with one alert; it goes out once the link answers
   const k7 = path.join(tmp, "kits", "2026-10-29"); fs.mkdirSync(k7); fs.writeFileSync(path.join(k7, "g.png"), "x");
   fs.writeFileSync(path.join(k7, "autopost.json"), JSON.stringify({ items: [{ id: "link", type: "image", at: "2026-10-29T18:30:00Z", targets: ["facebook"], files: ["g.png"], caption: "בדיקה https://luchit.app/go/fb?c=test." }] }));
+  // the site does not answer: nothing goes out, one quiet line, retried next run
+  siteStatus = 503; logs.length = 0; calls.length = 0; r = await run(tmp);
+  ck(!st()["2026-10-29/link/facebook"]?.status && r.summary.includes("held: luchit.app does not answer") && logs.some(l => l.includes("social:held:site")) && !calls.includes("POST /111/photos"), "site down: posts wait");
+  siteStatus = 200;
   linkStatus = 503; logs.length = 0; calls.length = 0; r = await run(tmp);
   ck(!st()["2026-10-29/link/facebook"]?.status && logs.some(l => l.includes("social:fail:link-2026-10-29-link") && l.includes("https://luchit.app/go/fb?c=test")) && !calls.includes("POST /111/photos"), "a dead link: the post waits, one alert");
   logs.length = 0; r = await run(tmp);
   ck(!logs.some(l => l.includes("social:fail:link")), "no second link alert");
+  // a halted Production rollout holds items that promote an app version; others still go out
+  ck((await (async () => { alertState = { items: { "prod:halt:130": { last: new Date(clock - 36e5).toISOString() } } }; const g = await gates(); alertState = null; return g.halt === "prod:halt:130"; })()), "a recent prod:halt is read");
+  ck((await (async () => { alertState = { items: { "prod:halt:130": { last: new Date(clock - HALT_MS - 1).toISOString() } } }; const g = await gates(); alertState = null; return g.halt === ""; })()), "an old prod:halt is not");
   linkStatus = 200; r = await run(tmp);
   ck(st()["2026-10-29/link/facebook"]?.status === "done", "the link answers again: the post goes out");
   ck(captionLinks("ראו luchit.app/go/ig?c=a, וגם https://play.google.com/store/apps/details?id=x. ו-@luchit.app").join(" ") === "https://luchit.app/go/ig?c=a https://play.google.com/store/apps/details?id=x", "caption links: bare luchit.app paths and full URLs, no handles, no trailing punctuation");
@@ -708,7 +750,7 @@ async function selftest() {
   IO.env.DRY_RUN = "1"; calls.length = 0; r = await run(tmp); delete IO.env.DRY_RUN;
   ck(!calls.some(c => c.startsWith("POST")) && !st()["2026-10-31/dry/facebook"], "a dry run posts and records nothing");
 
-  // needs_live: held (one alert) until Google Play shows the version PUBLISHED on production; missed when it never comes
+  // needs_live: held (one alert) until Google Play shows the version at 100% on production; missed when it never comes
   const crypto = await import("node:crypto");
   const { privateKey } = crypto.generateKeyPairSync("rsa", { modulusLength: 2048, privateKeyEncoding: { type: "pkcs8", format: "pem" }, publicKeyEncoding: { type: "spki", format: "pem" } });
   const k6 = path.join(tmp, "kits", "2026-11-02"); fs.mkdirSync(k6); fs.writeFileSync(path.join(k6, "e.png"), "x"); fs.writeFileSync(path.join(k6, "f.png"), "x");
@@ -716,11 +758,14 @@ async function selftest() {
     { id: "gated", type: "image", at: "2026-10-29T18:30:00Z", targets: ["facebook"], files: ["e.png"], caption: "גרסה", needs_live: "1.37" },
     { id: "never", type: "image", at: "2026-10-29T18:30:00Z", targets: ["facebook"], files: ["f.png"], caption: "לעולם לא", needs_live: "1.40" } ],
     reminders: [{ id: "tt", at: "2026-10-29T18:00:00Z", until: "2026-10-31T18:00:00Z", text: "טיקטוק אחרי הגרסה", needs_live: "1.37" }] }));
-  let releases = [{ releaseName: "127 (1.37)", releaseLifecycleState: "RELEASE_LIFECYCLE_STATE_IN_REVIEW" }, { releaseName: "123 (1.36)", releaseLifecycleState: "RELEASE_LIFECYCLE_STATE_PUBLISHED" }];
+  let releases = [{ name: "127 (1.37)", status: "inProgress", userFraction: 0.2 }, { name: "123 (1.36)", status: "completed" }];
   IO.fetch = async (u, o = {}) => {
     const s = String(u);
     if (s.startsWith("https://oauth2.googleapis.com/")) { calls.push("POST google-token"); return J({ access_token: "GOOGLE-TOKEN" }); }
-    if (s.startsWith("https://androidpublisher.googleapis.com/")) { calls.push("GET play-releases " + (o.headers?.authorization === "Bearer GOOGLE-TOKEN")); return J({ releases }); }
+    if (s.startsWith("https://androidpublisher.googleapis.com/")) {
+      if (o.method === "POST") { calls.push("POST play-edit"); return J({ id: "E1" }); }
+      if (o.method === "DELETE") { calls.push("DELETE play-edit " + s.endsWith("/edits/E1")); return J({}); }
+      calls.push("GET play-releases " + (o.headers?.authorization === "Bearer GOOGLE-TOKEN" && s.endsWith("/edits/E1/tracks/production"))); return J({ releases }); }
     return realFetch(u, o);
   };
   const gated = () => st()["2026-11-02/gated/facebook"] || {};
@@ -728,11 +773,12 @@ async function selftest() {
   ck(!gated().status && gated().held && logs.some(l => l.includes("social:held:2026-11-02-gated")) && !calls.includes("POST google-token"), "no Play key: held with one alert, Play not called");
   IO.env.SHIP_SA_JSON = JSON.stringify({ client_email: "ship@x.iam.gserviceaccount.com", private_key: privateKey });
   logs.length = 0; calls.length = 0; clock = T("2026-10-29T19:00:00Z"); r = await run(tmp);
-  ck(!gated().status && !logs.some(l => l.includes("social:held")) && calls.includes("GET play-releases true"), "1.37 in review: still held, no second alert");
+  ck(!gated().status && !logs.some(l => l.includes("social:held")) && calls.includes("GET play-releases true"), "1.37 at 20% of users: still held, no second alert");
+  ck(calls.includes("DELETE play-edit true") && !calls.some(c => c.includes(":commit")), "the edit opened to read the track is deleted, never committed");
   ck(calls.filter(c => c === "POST google-token").length === 1, "Google Play is read once per run");
-  releases = [{ releaseName: "127 (1.37)", releaseLifecycleState: "RELEASE_LIFECYCLE_STATE_PUBLISHED" }, ...releases.slice(1)];
+  releases = [{ name: "127 (1.37)", status: "completed" }];
   clock = T("2026-10-29T21:00:00Z"); r = await run(tmp);
-  ck(gated().status === "done" && !st()["2026-11-02/never/facebook"]?.status, "1.37 published: the gated post goes out, the 1.40 one still waits");
+  ck(gated().status === "done" && !st()["2026-11-02/never/facebook"]?.status, "1.37 at 100%: the gated post goes out, the 1.40 one still waits");
   ck(st()["2026-11-02/tt/telegram"]?.status === "done", "a reminder that waits for a version goes out once the version is live");
   clock = T("2026-10-30T01:00:00Z"); logs.length = 0; r = await run(tmp);
   ck(st()["2026-11-02/never/facebook"].status === "missed" && logs.some(l => l.includes("social:missed:2026-11-02-never") && l.includes("1.40")), "never live within 6 h: missed, the alert names the version");

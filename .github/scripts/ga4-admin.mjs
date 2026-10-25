@@ -375,6 +375,17 @@ async function selftest() {
     ok(readP.size >= 6, `contract: read ${readP.size} parameters the reports ask for`);
     for (const p of readP) ok(real.dims.some(d => d.parameterName === p), `contract: a report reads ${p}; register it in analytics/ga4-admin.json`);
 
+    // full monitoring (Dudu, 25.10): every event the site or the app sends has a name on /live, and every parameter it carries has a GA4 dimension,
+    // so a new event or parameter is caught at the commit that adds it and never reaches GA4 unseen. The app's own sends are the java files
+    // (track('...') injected into the page, logUsage(c, "...")); NO_DIM are parameters kept out of GA4 on purpose
+    const javaDir = "android/app/src/main/java/com/ddsabag/pratirechev/", java = (() => { try { return fs.readdirSync(new URL(javaDir, root)).filter(f => f.endsWith(".java")).map(f => read(javaDir + f)).join("\n"); } catch { return ""; } })();
+    const nativeEv = new Set([...java.matchAll(/track\('([a-z_0-9]+)'/g), ...java.matchAll(/logUsage\([^,()]+,\s*"([a-z_0-9]+)"/g)].map(m => m[1]));
+    const live = read("worker/live/worker.js"), named = new Set([...(((live.match(/const N=\{([\s\S]*?)\};/) || [])[1]) || "").matchAll(/(?:^|,)([a-z_0-9]+):"/g)].map(m => m[1]));
+    ok(named.size >= 40, `contract: read ${named.size} event names on /live`);
+    for (const e of [...sentEv, ...nativeEv]) ok(named.has(e), `contract: ${e} is sent; give it a Hebrew name in N in worker/live/worker.js, so /live shows it by name`);
+    const NO_DIM = ["line"];   // js_error's line number: one value per line of code, read from the probe when needed
+    for (const k of new Set(keys)) ok(real.dims.some(d => d.parameterName === k) || NO_DIM.includes(k), `contract: index.html sends parameter ${k}; register it in analytics/ga4-admin.json (or add it to NO_DIM here)`);
+
     // secrets never printed
     for (const [o, env] of [[{}, {}], [{ fail: { create: [403] } }, {}], [{ fail: { token: [400] } }, {}], [{}, { MODE: "dry" }]]) {
       W = await run(o, env);

@@ -41,7 +41,7 @@ export const WF_LEVELS = {
   "Site smoke test (after deploy)": "day", "Weekly analytics report": "day", "Alert daily": "day",
   "SEO check": "summary", "SEO auto-publish": "summary", "Web watch": "summary",
   "Model catalogue": "summary",
-  "SEO daily digest": "summary", "SEO data snapshot": "summary", "Experimenter": "summary",
+  "SEO daily digest": "summary", "SEO data snapshot": "summary", "Campaign data snapshot": "summary", "Release guard": "summary", "Experimenter": "summary",
   "Reviews monitor": "silent", "Ownership data mirror": "silent",
   "Back-on-road detector": "silent",
   "Ship tail": "day", "Store listing": "day", "Release watch": "day", "Production": "day",
@@ -50,6 +50,7 @@ export const WF_LEVELS = {
 
 // fixed Hebrew text for the morning ring and the Sunday block. Lookup: first two key segments, then the first one.
 // {id} = the rest of the key after the family; {ids} = that rest split on "+" and mapped through ids. sect: wait|fail|fyi|none
+const AUTO_ZONES = { a: "לוח ההחלטות", b: "שיווק ותוכן", c: "ניסויי ניסוח", d: "הערות באפליקציה", seo: "SEO" };
 export const LABELS = {
   "wf":                  { he: 'הבוט "{id}" נכשל', sect: "fail" },
   "smoke":               { he: "בדיקת האתר החי מצאה בעיה: {ids}", sect: "fail",
@@ -130,8 +131,16 @@ export const LABELS = {
   "social:remind":       { he: "תזכורת: לתזמן את תוכן השבוע בטיקטוק", sect: "wait" },
   "social:check":        { he: "החיבור לפייסבוק ולאינסטגרם נבדק", sect: "none" },
   "exp":                 { he: "ניסוי הסתיים, והוריאנט המנצח נשמר: {ids}", sect: "fyi" },   // analytics/experiments.py (Experimenter)
+  // autopilot (strategy/autopilot-rules.md, Dudu 25.10): key auto:<what>:<zone>. done = level "summary", today "silent" ("✅ בוצע · <area>");
+  // revert = level "day", loud (the one loud message of safety limit 5); mode = the kill switch ("עצור אוטומציה" / "הפעל אוטומציה"), silent
+  "auto:done":           { he: "✅ בוצע · שינוי אוטומטי ב{ids}", sect: "fyi", ids: AUTO_ZONES },
+  "auto:revert":         { he: "שינוי אוטומטי ב{ids} בוטל, כי מדד הבקרה ירד", sect: "fail", ids: AUTO_ZONES },
+  "auto:mode":           { he: "מצב האוטומציה השתנה: {ids}", sect: "fyi", ids: { observe: "הכל במצב צפייה בלבד", restore: "המצבים הקודמים חזרו" } },
   "pipe":                { he: "בדיקת צנרת האנליטיקה מצאה בעיה: {ids}", sect: "fail",   // pipe-canary.mjs (Web watch); ids = its checks
                            ids: { web: "אירועים מהאתר", app: "אירועים מהאפליקציה", errors: "קפיצה בשגיאות קוד", ga: "אין נתונים ב-GA4" } },
+  "relguard":            { he: "גרסה חדשה מחוץ לסף אחרי השחרור: {id}", sect: "fail" },   // release-guard.mjs (Release guard); id = version-dN
+  "relguard:ok":         { he: "גרסה חדשה בטווח אחרי השחרור: {id}", sect: "none" },
+  "relguard:thin":       { he: "אין מספיק נתונים לבדיקת גרסה אחרי השחרור: {id}", sect: "none" },
 };
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
 export const FAMILIES_IN_USE = [
@@ -142,7 +151,8 @@ export const FAMILIES_IN_USE = [
   "ship:done", "ship:notes", "ship:fail", "ship:dry", "listing:done", "listing:dry", "listing:fail",
   "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:wait", "prod:fail",
   "stl:update", "stl:stuck", "truth", "truth:fail", "truth:inv", "live:stuck", "live:error", "pipe",
-  "social:fail", "social:missed", "social:unsure", "social:held", "social:done", "social:remind", "social:check", "exp",
+  "social:fail", "social:missed", "social:unsure", "social:held", "social:done", "social:remind", "social:check", "exp", "auto:done", "auto:revert", "auto:mode",
+  "relguard", "relguard:ok", "relguard:thin",
 ];
 
 const TODAY = ["loud", "silent", "none"];

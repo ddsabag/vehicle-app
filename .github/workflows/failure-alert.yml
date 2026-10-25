@@ -37,6 +37,8 @@ on:
       - "Reviews monitor"
       - "SEO daily digest"
       - "SEO data snapshot"
+      - "Campaign data snapshot"
+      - "Release guard"
       - "Site smoke test"
       - "Site smoke test (after deploy)"
       - "Weekly analytics report"

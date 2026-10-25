@@ -2,7 +2,8 @@
 // and raises one alert when the analytics pipe looks broken, so a lost event is caught the next morning and not at the 22.11 read:
 //   web     the site had real visits (Cloudflare, at least WEB_VISITS) but GA4 got no car check from the web (worker/api dropped them, or track broke)
 //   app     the app had new installs (first_open, at least APP_INSTALLS) but GA4 got no car check from the app
-//   errors  code errors (js_error, and lookup_failed of kind js_err) at least ERR_MIN and at least ERR_X times the median of the 7 days before
+//   errors  code errors (js_error, and lookup_failed of kind js_err) at least ERR_MIN and at least ERR_X times the median of the 7 days before;
+//           js_error of kind "iab" (scripts of the Facebook / Instagram / TikTok in-app browser, not ours) does not count
 //   ga      GA4 has no event at all for yesterday while Cloudflare counted real visits
 // A source that does not answer leaves its checks unknown (never a made-up 0). The repo's logs are public, so this prints states only and never
 // a count; the counts go to Telegram, through the alert router (key pipe:<ids>).
@@ -78,8 +79,9 @@ export function judge(rows, visits, day) {
   const sum = (d, pred) => rows.filter(r => r.day === d && pred(r)).reduce((a, r) => a + r.n, 0);
   const lookups = p => sum(day, r => r.ev === "car_lookup" && r.platform === p);
   const any = sum(day, () => true), webLook = lookups("web"), appLook = lookups("android"), installs = sum(day, r => r.ev === "first_open" && r.platform === "android");
-  // errors from inside the Facebook, Instagram and TikTok apps' browsers are their noise, not ours (24-25.10; the site's own fix ships with 1.38)
-  const errs = d => sum(d, r => (r.ev === "js_error" || (r.ev === "lookup_failed" && r.kind === "js_err")) && !IAB.has(r.src));
+  // errors from inside the Facebook, Instagram and TikTok apps' browsers are their noise, not ours (24-25.10): by the GA source until 1.38,
+  // and by the site's own kind "iab" from 1.38 on
+  const errs = d => sum(d, r => ((r.ev === "js_error" && r.kind !== "iab") || (r.ev === "lookup_failed" && r.kind === "js_err")) && !IAB.has(r.src));
   if (visits !== null) {
     state.ga = any === 0 && visits >= WEB_VISITS ? "alarm" : "ok";
     if (state.ga === "alarm") alarms.push({ id: "ga", text: `Google Analytics לא קיבל אף אירוע, לא מהאתר ולא מהאפליקציה, למרות ${visits} כניסות לאתר.` });
@@ -142,6 +144,8 @@ async function selftest() {
   ok(v.state.errors === "alarm" && v.alarms[0].text.includes("40"), "a jump in code errors: errors alarm");
   v = judge(rowsOf({ ...normal, 0: [...week(0), ["android", "lookup_failed", 9, "js_err"]] }), 900, D);
   ok(v.state.errors === "alarm", "lookup_failed of kind js_err counts as a code error");
+  v = judge(rowsOf({ ...normal, 0: [...week(0), ["web", "js_error", 40, "iab"]] }), 900, D);
+  ok(v.state.errors === "ok", "errors from an in-app browser's own scripts are not ours");
   v = judge(rowsOf({ ...normal, 0: [...week(0), ["android", "lookup_failed", 90, "net_err"]] }), 900, D);
   ok(v.state.errors === "ok", "network failures are not code errors");
   v = judge(rowsOf({ ...normal, 0: [...week(0), ["web", "js_error", 40, "run"]] }).map(r => (r.ev === "js_error" && r.n === 40 ? { ...r, src: "facebook" } : r)), 900, D);

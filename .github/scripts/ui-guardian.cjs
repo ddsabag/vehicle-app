@@ -1,4 +1,5 @@
-// UI guardian, phase B: drives the real page in Chromium with mocked registry answers and checks the vehicle screen.
+// UI guardian, phase B: drives the real page in Chromium with mocked registry answers and checks the vehicle screen and the other screens
+// (home, "הרכבים שלי", "התראות", a tool) with the bottom bar.
 //   blocking (exit 1): script errors, horizontal overflow, card order / unregistered cards vs ui-contract.json, promo card not last in overview
 //   warning:           tap targets < 40px, text < 12px, axe-core (WCAG A/AA) violations above baseline, screenshot diff vs ui-baseline/
 // Usage: node .github/scripts/ui-guardian.cjs [--shots] [--update-baseline]
@@ -37,6 +38,8 @@ const FIXTURES = [
   { name: "test-soon", rec: { ...BASE, tokef_dt: iso(18) } },
   { name: "test-expired", rec: { ...BASE, tokef_dt: iso(-30) } },
   { name: "ev", rec: { ...BASE, tozeret_nm: "טסלה", kinuy_mishari: "MODEL 3", degem_nm: "3", sug_delek_nm: "חשמל", nefach_manoa: 0, tozeret_cd: 2 } },
+  // the owner's file: a car marked as theirs, with a service log, shows "תיק הרכב" in place of "קנייה"
+  { name: "owner", rec: BASE, ls: { mine: '{"12345678":1}', svc: JSON.stringify({ 12345678: { log: [{ id: 1, d: iso(-140).slice(0, 10), km: 63900, type: "טיפול תקופתי", cost: 1250, note: "" }, { id: 2, d: iso(-20).slice(0, 10), km: 66100, type: "קריאת ק״מ", cost: 0, note: "" }], meta: null } }) } },
   // an open recall: the recalls tab (a car without an open recall or a settlement shows the "checked" line instead)
   { name: "open-recall", rec: BASE, recall: [{ _id: 1, MISPAR_RECHEV: 12345678, RECALL_ID: 16100, SHNAT_RECALL: 2025, TEUR_TAKALA: "החלפת משאבת דלק", SUG_TAKALA: "מערכת דלק", TAARICH_PTICHA: "2025-06-10T00:00:00" }] },
   // the states where the "checked" line must not say "checked": each is drawn once, and the page must not throw on it
@@ -73,7 +76,7 @@ async function runPage(browser, fx, theme, width) {
   });
   // model data the catalogue would give (the catalogue itself is not fetched in the run): fetchModelData is a page-level function
   if (fx.model) await ctx.addInitScript((m) => { addEventListener("DOMContentLoaded", () => { const f = window.fetchModelData; window.fetchModelData = async (...a) => ({ ...(await f(...a)), modelRecallsUnknown: false, ...m }); }); }, fx.model);
-  await ctx.addInitScript(() => { try { localStorage.setItem("analyticsOff", "1"); } catch {} });
+  await ctx.addInitScript((ls) => { try { localStorage.setItem("analyticsOff", "1"); for (const [k, v] of Object.entries(ls)) localStorage.setItem(k, v); } catch {} }, { theme, ...(fx.ls || {}) });   // the app starts light whatever the phone says, so the dark run sets the choice
   const page = await ctx.newPage();
   const label = `${fx.name}/${theme}/${width}px`;
   page.on("pageerror", (e) => fail(`[${label}] page error: ${e.message}`));
@@ -90,7 +93,7 @@ async function runPage(browser, fx, theme, width) {
   if (fx.model && fx.model.modelRecalls.some((r) => r.fresh) && (!line || line.state !== "warn")) fail(`[${label}] a fresh model recall did not turn the line amber`);
   if (live && !fx.model.modelRecalls.length && (!line || line.state !== "ok")) fail(`[${label}] every check ran clean, but the line is "${line ? line.title : "missing"}"`);
   if (fx.savedDaysAgo && line && line.state !== "cached") fail(`[${label}] a saved copy shows the line as "${line.state}", not "cached"`);
-  await page.addStyleTag({ content: "#plateStrip{display:none!important}*{animation:none!important;transition:none!important}" });
+  await page.addStyleTag({ content: "*{animation:none!important;transition:none!important}" });
 
   // a car shows only the tabs that apply to it (the recalls tab only with an open recall or a settlement), so the run walks the tabs on screen;
   // every one of them must be in the contract, in the contract's order
@@ -148,6 +151,63 @@ async function runPage(browser, fx, theme, width) {
   await ctx.close();
 }
 
+// ---- the screens around the car page: each opens from the bottom bar (or a home tool), shows its own header, keeps the bar, never overflows
+const SAVED = (() => { const d = (n) => iso(n).slice(0, 10);
+  return JSON.stringify([
+    { plate: "11122233", title: "קיה SPORTAGE", sub: "2019", nick: "רכב המשפחה", at: 1, reg: "active", tokef: d(25), mivchan: d(-340), recalls: 1, recIds: "16100", checked: 1, owners: 1, active: true, events: [], alerts: true, color: "כסף מטלי" },
+    { plate: "44455566", title: "מאזדה CX-5", sub: "2020", at: 2, reg: "active", tokef: d(160), mivchan: d(-205), recalls: 0, checked: 1, owners: 2, active: true, events: [], alerts: true, color: "אדום" },
+    { plate: "33344455", title: "סקודה OCTAVIA", sub: "2018", at: 3, reg: "active", tokef: d(90), mivchan: d(-275), recalls: 0, checked: 1, owners: 1, active: true, events: [], alerts: true, color: "שחור", ask: 72000, fair: [68000, 75000] }]); })();
+const SCREENS = [
+  { name: "home-new", head: "#plate" },
+  { name: "home", head: "#plate", ls: { savedVehicles: SAVED, recentPlates: '["44455566"]' } },
+  { name: "cars", nav: "cars", head: "#carsHead", ls: { savedVehicles: SAVED, carsMode: "list" } },
+  { name: "cars-table", nav: "cars", head: "#carsHead", ls: { savedVehicles: SAVED, carsMode: "table" } },
+  { name: "cars-empty", nav: "cars", head: "#carsHead" },
+  { name: "alerts", nav: "alerts", head: "#alertsHead", ls: { savedVehicles: SAVED } },
+  { name: "bulk", act: "bulk", head: "#chead [data-act=toolBack]" },
+];
+async function runScreen(browser, sc, theme, width) {
+  const ctx = await browser.newContext({ viewport: { width, height: 800 }, deviceScaleFactor: 1, isMobile: true, colorScheme: theme, locale: "he-IL" });
+  await ctx.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (r) => r.abort());
+  await ctx.addInitScript((ls) => { try { localStorage.setItem("analyticsOff", "1"); for (const [k, v] of Object.entries(ls)) localStorage.setItem(k, v); } catch {} }, { theme, ...(sc.ls || {}) });
+  const page = await ctx.newPage();
+  const L = `${sc.name}/${theme}/${width}px`;
+  page.on("pageerror", (e) => fail(`[${L}] page error: ${e.message}`));
+  await page.goto(`http://127.0.0.1:${server.address().port}/`);
+  try { await page.waitForSelector("#homeMark", { state: "attached", timeout: 15000 }); } catch { fail(`[${L}] the home screen did not render`); await ctx.close(); return; }
+  await page.addStyleTag({ content: "*{animation:none!important;transition:none!important}" });
+  if (sc.nav) await page.click(`#bnav [data-nav=${sc.nav}]`);
+  if (sc.act) await page.click(`#out [data-act=${sc.act}]`);
+  await page.waitForTimeout(350);
+  const r = await page.evaluate((head) => {
+    const vis = (e) => { const b = e && e.getBoundingClientRect(); return !!b && b.width > 0 && b.height > 0; };
+    // a link inside a sentence (".note .lnk") is exempt, as in WCAG 2.5.8
+    const small = [...document.querySelectorAll("#out button, #out a[href], #out [role=button], #out summary, #out input:not([type=hidden]), #bnav button")].filter((e) => vis(e) && !e.matches(".note .lnk")).map((e) => ({ e, b: e.getBoundingClientRect() })).filter((x) => x.b.height < 40 && x.b.width < 200).map((x) => (x.e.textContent || x.e.getAttribute("aria-label") || "").trim().slice(0, 20));
+    const fonts = []; document.querySelectorAll("#out *, #bnav *").forEach((e) => { if (e.children.length === 0 && e.textContent.trim() && vis(e)) { const f = parseFloat(getComputedStyle(e).fontSize); if (f < 12) fonts.push(e.textContent.trim().slice(0, 20) + " " + f + "px"); } });
+    return { head: vis(document.querySelector(head)), bar: vis(document.getElementById("bnav")), band: vis(document.querySelector(".band")), screen: document.body.dataset.screen, small, fonts, over: [document.documentElement.scrollWidth, innerWidth] };
+  }, sc.head);
+  if (!r.head) fail(`[${L}] the screen's own header (${sc.head}) is not on screen (screen: ${r.screen})`);
+  if (!r.bar) fail(`[${L}] the bottom bar is hidden`);
+  if (r.band !== (r.screen === "home")) fail(`[${L}] the search band ${r.band ? "shows" : "is missing"} on the "${r.screen}" screen`);
+  if (r.over[0] > r.over[1]) fail(`[${L}] horizontal overflow: page ${r.over[0]}px wide in a ${r.over[1]}px viewport`);
+  totals.tapSmall += r.small.length; totals.fontSmall += r.fonts.length;
+  if (r.small.length) console.log(`  tap<40 [${L}] ${[...new Set(r.small)].slice(0, 4).join(", ")}`);
+  if (r.fonts.length) console.log(`  font<12 [${L}] ${[...new Set(r.fonts)].slice(0, 4).join(", ")}`);
+  try {
+    await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
+    const ax = await page.evaluate(async () => (await axe.run(document.body, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa"] } })).violations.map((v) => ({ id: v.id, n: v.nodes.length })));
+    for (const v of ax) totals.axe[v.id] = (totals.axe[v.id] || 0) + v.n;
+  } catch (e) { warn(`[${L}] axe did not run: ${e.message.slice(0, 80)}`); }
+  if (wantShots) {
+    fs.mkdirSync(OUT, { recursive: true });
+    const name = `screen-${sc.name}-${width}-${theme}.png`;
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: path.join(OUT, name), fullPage: true });
+    shotResults.push(name);
+  }
+  await ctx.close();
+}
+
 function compareShots() {
   if (!wantShots || !fs.existsSync(BASE_SHOTS)) { if (wantShots) console.log("no ui-baseline/ folder: screenshot comparison skipped (run the workflow with update_baseline to create it)"); return []; }
   const { PNG } = require("pngjs"); const pixelmatch = require("pixelmatch");
@@ -169,6 +229,7 @@ function compareShots() {
   let browser;
   try { browser = await chromium.launch(); } catch { browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM || "/opt/pw-browsers/chromium" }); }
   for (const fx of FIXTURES) for (const theme of THEMES) for (const w of WIDTHS) await runPage(browser, fx, theme, w);
+  for (const sc of SCREENS) for (const theme of THEMES) for (const w of WIDTHS) await runScreen(browser, sc, theme, w);
   await browser.close(); server.close();
 
   if (updateBaseline) { fs.writeFileSync(BASE_FILE, JSON.stringify({ tapSmall: totals.tapSmall, fontSmall: totals.fontSmall, axe: totals.axe }, null, 2) + "\n"); console.log("baseline written", totals); }
@@ -181,7 +242,7 @@ function compareShots() {
   const diffs = compareShots();
   for (const d of diffs) warn(`screenshot: ${d}`);
 
-  const md = ["### UI guardian: browser checks", "", `Screens checked: ${FIXTURES.length} fixtures x the tabs each one shows x ${WIDTHS.length} widths x ${THEMES.length} themes`, "",
+  const md = ["### UI guardian: browser checks", "", `Screens checked: ${FIXTURES.length} car fixtures x the tabs each one shows, and ${SCREENS.length} other screens, x ${WIDTHS.length} widths x ${THEMES.length} themes`, "",
     `**Blocking problems: ${errors.length}** | warnings: ${warnings.length}`, "",
     ...(errors.length ? ["#### Blocking", ...[...new Set(errors)].slice(0, 30).map((e) => `- ${e}`), ""] : []),
     ...(warnings.length ? ["#### Warnings", ...[...new Set(warnings)].slice(0, 30).map((e) => `- ${e}`), ""] : []),
