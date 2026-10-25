@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-41";   // shown in /live/data so the running version is visible
+const BUILD = "live-42";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -479,6 +479,16 @@ async function getMetrics() {
   metricsAt = Date.now(); return metrics;
 }
 
+// what the bots changed by themselves (autopilot rules, strategy/autopilot-rules.md, Dudu 25.10): branch "autopilot", log.json, a mirror of
+// the private change log with no numbers in it (autopilot-mirror.mjs in the project files masks them): each zone's mode and the latest rows
+let auto = null, autoAt = 0;
+async function getAuto() {
+  if (auto && Date.now() - autoAt < 300e3) return auto;
+  try { const r = await fetch("https://raw.githubusercontent.com/ddsabag/vehicle-app/autopilot/log.json", { cf: { cacheTtl: 120 }, signal: AbortSignal.timeout(8e3) }); if (r.ok) auto = await r.json(); } catch {}
+  autoAt = Date.now(); return auto;
+}
+const slimAuto = a => a && typeof a === "object" ? { at: a.at, modes: a.modes || {}, rows: (Array.isArray(a.rows) ? a.rows : []).slice(0, 20).map(r => ({ d: r.d, z: r.z, m: r.m, x: String(r.x || "").slice(0, 240), r: r.r })) } : null;
+
 // today's car checks and new installs as seen in realtime, minute by minute: realtime covers only the last 30 minutes, so each request keeps
 // what it saw and today's count only grows, until GA4's own report for today arrives hours later. Kept twice: this data centre's cache (every
 // request) and Workers KV (luchit-alerts, key "lv:rt:<day>", one copy for every data centre, written when it changed and at most every 5
@@ -653,6 +663,7 @@ table.t{width:100%;border-collapse:collapse;font-size:.86rem}.t th{font-weight:5
 <details class="dr" id="dr-now"><summary><b>עכשיו</b><span>מי פעיל ברגע זה ומה קרה היום</span></summary><ul class="kv" id="now"></ul><p class="note">נתוני היום חלקיים: גוגל אנליטיקס מעדכן אותם בעיכוב של שעה עד כמה שעות.</p></details>
 <details class="dr" id="dr-bots"><summary><b>בוטים</b><span>כל המשימות האוטומטיות: מתי רצו, ואם הצליחו</span></summary><div id="bots"></div></details>
 <details class="dr" id="dr-tec"><summary><b>טכני</b><span>כשלים לפי סיבה, קריסות ומקורות שלא ענו</span></summary><div id="tec"></div></details>
+<details class="dr" id="dr-auto"><summary><b>מה השתנה לבד</b><span>מה הבוטים שינו בעצמם, ומה רק היו משנים</span></summary><div id="auto"></div></details>
 <details class="dr" id="dr-fl"><summary><b>מבזקים</b><span>ההתראות שנשלחו לטלגרם, מהחדשה לישנה</span></summary><ul class="kv fl" id="fl"></ul><p class="note">● תקלה, או בקשה להחלטה שלך. ○ מידע בלבד. כשיש תקלה אני מטפל בה בשגרה, ופונה אליך רק כשנדרשת החלטה שלך.</p></details>
 </div>
 </section>
@@ -1096,6 +1107,12 @@ box.innerHTML="<h4>כניסות מגוגל לפי יום, 28 ימים</h4>"+'<sv
 {const tm=t=>new Date(t).toLocaleTimeString("he-IL",{timeZone:"Asia/Jerusalem",hour:"2-digit",minute:"2-digit"});
 $("fl").innerHTML=(d.flashes||[]).slice(0,12).map(f=>'<li><span class="ft">'+dm(new Date(f.t).toLocaleDateString("en-CA",{timeZone:"Asia/Jerusalem"}))+" "+tm(f.t)+'</span><span><span class="lv '+(f.l==="alert"||f.l==="wait"?"alert":"")+'">'+(f.l==="alert"||f.l==="wait"?"●":"○")+"</span> <b>"+esc(FK[f.k]||f.k)+":</b> "+esc(String(f.x||"").replace(/\\s*פירוט:[\\s\\S]*$/,""))+(f.u&&/^https:\\/\\//.test(f.u)?' <a href="'+esc(f.u)+'" target="_blank" rel="noopener">קישור</a>':"")+"</span></li>").join("")||'<li><span class="note">אין מבזקים עדיין.</span></li>'}
 
+// drawer: what changed by itself (autopilot): each zone's mode, then the latest changes and would-be changes
+{const A=d.auto,ZN={A:"לוח החלטות (בדיקות בזמנים קבועים)",B:"שיווק ותוכן",C:"ניסויי ניסוח",D:"הודעות באפליקציה",E:"סידור המסך",SEO:"SEO"},MD={on:["ok","פועל"],observe:["wait","בתצפית, לא משנה"],off:["cal","כבוי"]},RS={kept:"נשאר",reverted:"הוחזר",pending:"בבדיקה"};
+$("auto").innerHTML=!A?'<p class="note" style="margin:0">אין עדיין יומן שינויים.</p>':"<h4>מצב כל אזור</h4>"+'<ul class="kv">'+Object.keys(ZN).map(z=>{const m=MD[(A.modes||{})[z]]||MD.off;return "<li><span>"+ZN[z]+"</span><b>"+chip(m[0],z==="E"&&(A.modes||{})[z]!=="on"?"לא אושר עדיין":m[1])+"</b></li>"}).join("")+"</ul>"
++"<h4>שינויים אחרונים</h4>"+((A.rows||[]).length?'<ul class="kv fl">'+A.rows.slice(0,12).map(r=>'<li><span class="ft">'+(r.d?dm(r.d):"")+"</span><span><b>"+esc(ZN[r.z]||r.z||"")+":</b> "+(r.m==="observe"?"היה משנה: ":r.m==="on"?"שינה: ":"")+esc(r.x||"")+(RS[r.r]?' <span class="note">('+RS[r.r]+")</span>":"")+"</span></li>").join("")+"</ul>":'<p class="note" style="margin:0">עוד לא היו שינויים.</p>')
++'<p class="note">בתצפית: הבוט רק רושם מה היה משנה, ולא משנה כלום. כל שינוי נבדק אחרי שבוע, ומוחזר לבד אם המדד שלו ירד. המספרים עצמם נשמרים ביומן הפרטי.'+(A.at?" עודכן "+dm(String(A.at).slice(0,10))+".":"")+"</p>"}
+
 // drawer: technical
 {const fk=W&&W.fails?W.fails[0]:null;
 const li=(l,v)=>"<li><span>"+l+"</span><b>"+v+"</b></li>";
@@ -1127,7 +1144,7 @@ const DEADLINE = 25e3, LAST = "https://luchit.app/live/_last";
 let lastGood = null;
 async function liveData(env, ctx) {
   let timer, failed = false;
-  const work = (async () => ({ ...(await collect(env)), flashes: (await getFlashes()).slice(0, 15), metrics: slimMetrics(await getMetrics()) }))();
+  const work = (async () => ({ ...(await collect(env)), flashes: (await getFlashes()).slice(0, 15), metrics: slimMetrics(await getMetrics()), auto: slimAuto(await getAuto()) }))();
   const late = new Promise(r => { timer = setTimeout(() => r(null), DEADLINE); });
   const d = await Promise.race([work.catch(() => { failed = true; return null; }), late]);
   clearTimeout(timer);
