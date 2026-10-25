@@ -1,0 +1,27 @@
+name: UI 1.38 baseline probe B (one-off, probe-perf branch)
+# Read-only, 25.10: the old-UI baseline (GA4) before 1.38 ships on 29.10, for the deep check of the new screens and their events.
+# The output is encrypted with .github/seo-data.pub.pem, so no business number is in the log or the branch in clear. Runs on a push to the
+# probe-perf branch only; output on the probe-ui138b-out branch.
+on:
+  push:
+    branches: [probe-perf]
+    paths: [".github/scripts/ui138b-probe.mjs", ".github/workflows/ui138b-probe.yml"]
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: node .github/scripts/ui138b-probe.mjs
+        env:
+          GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
+      - name: Publish on probe-ui138b-out (encrypted only)
+        run: |
+          cd out && git init -q && git checkout -q -b probe-ui138b-out && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "UI 1.38 baseline probe B (encrypted)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" probe-ui138b-out
