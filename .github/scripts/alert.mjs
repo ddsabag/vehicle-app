@@ -127,6 +127,7 @@ export const LABELS = {
   "social:done":         { he: "עלה תוכן חדש בפייסבוק או באינסטגרם", sect: "none" },
   "social:remind":       { he: "תזכורת: לתזמן את תוכן השבוע בטיקטוק", sect: "wait" },
   "social:check":        { he: "החיבור לפייסבוק ולאינסטגרם נבדק", sect: "none" },
+  "exp":                 { he: "ניסוי הסתיים, והוריאנט המנצח נשמר: {ids}", sect: "fyi" },   // analytics/experiments.py (Experimenter)
   "pipe":                { he: "בדיקת צנרת האנליטיקה מצאה בעיה: {ids}", sect: "fail",   // pipe-canary.mjs (Web watch); ids = its checks
                            ids: { web: "אירועים מהאתר", app: "אירועים מהאפליקציה", errors: "קפיצה בשגיאות קוד", ga: "אין נתונים ב-GA4" } },
 };
@@ -139,7 +140,7 @@ export const FAMILIES_IN_USE = [
   "ship:done", "ship:notes", "ship:fail", "ship:dry", "listing:done", "listing:dry", "listing:fail",
   "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:wait", "prod:fail",
   "stl:update", "stl:stuck", "truth", "truth:fail", "truth:inv", "live:stuck", "live:error", "pipe",
-  "social:fail", "social:missed", "social:unsure", "social:held", "social:done", "social:remind", "social:check",
+  "social:fail", "social:missed", "social:unsure", "social:held", "social:done", "social:remind", "social:check", "exp",
 ];
 
 const TODAY = ["loud", "silent", "none"];
