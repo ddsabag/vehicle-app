@@ -179,9 +179,14 @@ const brandOf = new Map();   // register maker code -> Hebrew brand (tozar)
 const top = (rows, i) => { const m = new Map(); for (const w of rows) m.set(String(w[i]), (m.get(String(w[i])) || 0) + 1); return [...m.entries()].sort((a, b) => b[1] - a[1])[0][0]; };
 // the brand of a maker whose WLTP rows mostly or all leave tozar empty (לקסוס ארה"ב and פורד ד. אפריקה on 19.10.2026): the brand its rows that have one name,
 // else the brand its name starts with, so the maker keeps its recall file
+// The register cuts a maker name short and spells it its own way (קיי ג'י מובילי for the brand קיי גי מוביליט, ג'י.אם.סי for ג'י.אמ.סי: KG Mobility lost its
+// recall file on 22.10.2026 when its rows stopped naming a brand), so the name is also compared without marks, spaces and final letters
 const nameBrands = Object.keys({...BRANDS, ...BRANDS_MORE}).sort((a, b) => b.length - a.length), noBrand = [];
+const bare = s => String(s).replace(/['"׳״.\s-]/g, "").replace(/[םןץףך]/g, c => "מנצפכ"["םןץףך".indexOf(c)]);
+const brandOfName = n => nameBrands.find(k => n === k || n.startsWith(k + " "))
+  || nameBrands.find(k => { const a = bare(n), b = bare(k); return a === b || a.startsWith(b) && b.length >= 5 || b.startsWith(a) && a.length >= 6; }) || "";
 const brandOfMaker = (rows, n) => { const named = rows.filter(w => String(w[I.tozar]).trim()); if (named.length) return top(named, I.tozar);
-  const b = nameBrands.find(k => n === k || n.startsWith(k + " ")) || ""; noBrand.push(`${n}${b ? " -> " + b : ""}`); return b; };
+  const b = brandOfName(n); noBrand.push(`${n}${b ? " -> " + b : ""}`); return b; };
 for (const [cd, rows] of byMaker) {
   for (const w of rows) for (let i = 0; i < COLS.length + EXTRA.length; i++) if (w[i] === undefined) w[i] = "";
   rows.sort((a, b) => (b[I.shnat_yitzur] || 0) - (a[I.shnat_yitzur] || 0) || String(a[I.kinuy_mishari]).localeCompare(String(b[I.kinuy_mishari])));

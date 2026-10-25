@@ -66,21 +66,32 @@ export function botName(name) {
   return m && BOTS[m[1]] ? `${BOTS[m[1]]} (${PARTS[m[2]] || m[2]})` : s;
 }
 
-// failure-alert.yml: a workflow that failed without its own alert. what = failed | repeat | lost; level from alert.mjs WF_LEVELS (passed in).
+// Workflows the failure alert re-runs once by itself (Dudu 25.10: "כשהבוט מזהה בעיה יתקן אותה אוטומטית ורק יעדכן אותי שבוצע").
+// Only reads, checks and data rebuilds that are safe to run twice; never one that publishes, sends mail or a report, uploads to Play or deploys a Worker.
+export const RETRY = new Set(["Data guard", "Fuel price", "Ministry watch", "Web deploy (build)", "SEO check", "Web watch", "Market data", "Model catalogue",
+  "Model names", "Model statistics", "Ownership data mirror", "Reviews monitor", "SEO data snapshot", "Site smoke test", "Site smoke test (after deploy)",
+  "Back-on-road detector", "Release watch", "Data truth", "Settlements"]);
+
+// failure-alert.yml: a workflow that failed without its own alert. what = failed | repeat | lost | fixed | again; level from alert.mjs WF_LEVELS (passed in).
+//   fixed: it failed (or was pushed out of the queue) and the automatic re-run passed: silent ✅.   again: the automatic re-run failed too.
 // Returns {text (HTML), silent}: critical/day ring (repeat: silent), summary/silent never ring.
 export function wfFailure(what, runName, level, url) {
-  const kind = LEVEL_KIND[level] || "today", quiet = kind === "info" || what === "repeat", name = botName(runName);
+  const kind = LEVEL_KIND[level] || "today", quiet = kind === "info" || what === "repeat" || what === "fixed", name = botName(runName);
   const T = {
     failed: [`הבוט "${name}" נכשל`, "הוא נעצר באמצע ולא שלח הודעה משלו, אז העבודה שלו הפעם לא הושלמה.",
       kind === "info" ? "" : "לכתוב לי בשרשור \"תפעול, בוטים ומייל\". אם זו פעם ראשונה, לרוב ההרצה הבאה מסתדרת לבד."],
     repeat: [`הבוט "${name}" נכשל שוב`, "גם ההרצה הקודמת נכשלה, לכן ההודעה הזו שקטה.", "אם זה נמשך יותר מיום, לכתוב לי בשרשור \"תפעול, בוטים ומייל\"."],
+    fixed: [`הבוט "${name}" נתקע ותוקן לבד`, "ההרצה נכשלה או לא התחילה, אז הפעלתי אותה שוב אוטומטית, והפעם היא עברה.", ""],
+    again: [`הבוט "${name}" נכשל גם בהרצה חוזרת`, "הוא נכשל, הפעלתי אותו שוב אוטומטית, וגם ההרצה השנייה נכשלה. כנראה צריך תיקון בקוד.",
+      kind === "info" ? "" : "לכתוב לי בשרשור \"תפעול, בוטים ומייל\"."],
     lost: [`הבוט "${name}" לא רץ`, "ההרצה בוטלה לפני שהתחילה, כי בוט אחר תפס את מקומו בתור, והעבודה שלו לא נעשתה.", "להריץ שוב: לפתוח את הקישור וללחוץ Re-run all jobs."],
   }[what] || [];
-  return { text: msg({ kind: what === "repeat" ? "info" : kind, area: "bots", title: esc(T[0] || name), text: T[1], what: T[2] }) + (url ? `\n🔗 ${esc(url)}` : ""), silent: quiet };
+  return { text: msg({ kind: what === "fixed" ? "done" : what === "repeat" ? "info" : kind, area: "bots", title: esc(T[0] || name), text: T[1], what: T[2] }) + (url ? `\n🔗 ${esc(url)}` : ""), silent: quiet };
 }
 
 // CLI for shell callers: node tg-text.mjs bot "<workflow name>"   |   node tg-text.mjs tag <kind> <area>   |   node tg-text.mjs selftest
-//   node tg-text.mjs wf <failed|repeat|lost> "<run name>" "<workflow name>" "<url>"   prints "0" or "1" (silent) on the first line, then the HTML text
+//   node tg-text.mjs retry "<workflow name>"   prints 1 when the failure alert may re-run it once by itself
+//   node tg-text.mjs wf <failed|repeat|lost|fixed|again> "<run name>" "<workflow name>" "<url>"   prints "0" or "1" (silent) on the first line, then the HTML text
 if (import.meta.url === `file://${process.argv[1]}`) {
   const [cmd, a, b] = process.argv.slice(2);
   if (cmd === "wf") {
@@ -89,6 +100,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const r = wfFailure(what, run, level, url);
     console.log((r.silent ? "1" : "0") + "\n" + r.text);
   } else if (cmd === "bot") console.log(botName(a));
+  else if (cmd === "retry") console.log(RETRY.has(a) ? "1" : "0");
   else if (cmd === "tag") console.log(tagPlain(a, b));
   else if (cmd === "selftest") {
     let n = 0; const ok = (c, m) => { n++; if (!c) { console.error("FAIL " + m); process.exit(1); } };
@@ -106,6 +118,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     ok(!wfFailure("failed", "Web deploy (build)", "critical", "").silent && wfFailure("failed", "Web deploy (build)", "critical", "").text.startsWith("<b>🔴 דחוף"), "wf critical");
     ok(wfFailure("repeat", "Data guard", "day", "").silent, "wf repeat silent");
     ok(wfFailure("lost", "Data guard", "day", "").text.includes("Re-run"), "wf lost");
+    const f = wfFailure("fixed", "Data guard", "day", "");
+    ok(f.silent && f.text.startsWith("<b>✅ בוצע · בוטים</b>") && f.text.includes("👌"), "wf fixed silent done");
+    const g = wfFailure("again", "Data guard", "day", "");
+    ok(!g.silent && g.text.startsWith("<b>🟠 לטיפול היום") && g.text.includes("👉"), "wf again loud");
+    ok(!RETRY.has("Android build") && !RETRY.has("Social publish") && !RETRY.has("Magazine") && RETRY.has("Data guard"), "retry list");
+    for (const w of RETRY) ok(BOTS[w], "retry name known " + w);
     ok(todo() === "👌 לא צריך לעשות כלום." && todo("x") === "👉 מה לעשות: x", "todo");
     ok(msg({ kind: "today", area: "bots", title: "t", what: "" }) === "<b>🟠 לטיפול היום · בוטים</b>\n<b>t</b>\n👌 לא צריך לעשות כלום.", "msg");
     ok(tag("urgent", "site") === "<b>🔴 דחוף · אתר</b>", "tag");

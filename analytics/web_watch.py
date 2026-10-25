@@ -102,7 +102,13 @@ def main():
         print(msg)
         if not dry:
             flash(msg)
-            if not telegram(msg) and os.environ.get("GITHUB_OUTPUT"): open(os.environ["GITHUB_OUTPUT"], "a").write("telegram_failed=1\n")
+            try:
+                import alert as router   # analytics/alert.py: the alert router, falls back to the direct send
+            except Exception:
+                router = None
+            key = "webwatch:rollback" if rb == "DONE" else "webwatch:rollback-failed"
+            sent = router.alert("day", key, msg, today="loud", legacy=lambda: telegram(msg)) if router else telegram(msg)
+            if not sent and os.environ.get("GITHUB_OUTPUT"): open(os.environ["GITHUB_OUTPUT"], "a").write("telegram_failed=1\n")
             H["alerted"] = m["date"]
     elif not why: H["alerted"] = None
     if not dry: os.makedirs(state, exist_ok=True); json.dump(H, open(p, "w"), ensure_ascii=False)

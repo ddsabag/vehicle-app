@@ -405,6 +405,8 @@ export async function tell(R) {
   if (!router) try { router = await import("./alert.mjs"); } catch { /* legacy below */ }
   const r = router ? await router.alert(m.level, m.key, m.text, m.link, { today: m.today, fresh: R.cmd === "promote", legacy: () => telegram(m.text) })
     : { delivered: await telegram(m.text) };
+  // a build on its way to Production settles every Alpha upload notice before it (the Sunday summary's "waiting for you" list)
+  if (router?.resolve && ["sent", "live", "full"].includes(R.code)) try { await router.resolve(["ship:done:"]); } catch { /* the summary hides it anyway */ }
   return !!r.delivered;
 }
 
@@ -714,13 +716,15 @@ async function selftest() {
   });
 
   await group("router and secrets", async () => {
-    const seen = [], router = { alert: async (lv, key, text, link, o) => { seen.push({ lv, key, o }); return { delivered: true }; } };
+    const seen = [], settled = [], router = { alert: async (lv, key, text, link, o) => { seen.push({ lv, key, o }); return { delivered: true }; },
+      resolve: async p => { settled.push(`${seen.at(-1)?.key}>${p.join("|")}`); return 1; } };
     const { validKey } = await import("./alert.mjs");
     await run({ router });
     await run({ router, tracks: T([A("1.33", 110)], [A("1.33", 110)]) });
     await run({ router, fail: { put: [403] } });
     await run({ router, tracks: T([A("1.34", 115)], [A("1.34", 115, "inProgress", { userFraction: 0.2 }), A("1.33", 110)]), state: { seen: { "production:115": T0 - 49 * HOUR }, live: { "production:115": T0 - 49 * HOUR }, issues: { "115:a": T0 } } }, { EVENT: "schedule" }, ["auto"]);
     ok(seen.map(s => s.key.replace(/:[0-9a-f]{12}$/, ":H")).join() === "prod:sent:115,prod:stop:H,prod:fail:access,prod:halt:115" && seen.every(s => s.lv === (s.key.startsWith("prod:halt") ? "critical" : "day") && validKey(s.key)), "router: keys " + seen.map(s => s.key));
+    ok(settled.join() === "prod:sent:115>ship:done:", "router: only a send to Production settles the Alpha upload notices " + settled);
     W = await run();
     const all = [...W.printed, ...W.sums, ...Object.values(W.outputs), ...W.tg.map(x => x.text)].join("\n");
     ok(![TOKEN, TG, "PRIVATE KEY", SA.client_email].some(x => all.includes(x)), "secrets stay out of the output");
