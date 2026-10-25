@@ -12,7 +12,7 @@
     { "parameterName": "term", "description": "search_no_result: the cleaned search term (weekly report)" },
     { "parameterName": "tab", "description": "tab_view, user_screenshot: which tab (weekly report)" },
     { "parameterName": "own", "description": "tab_view: 1 when the car viewed is saved, so the tab read of 22.11 splits owners from buyers" },
-    { "parameterName": "from", "description": "upgrade_open, car_save, update_prompt: where it was opened from (weekly report)" },
+    { "parameterName": "from", "description": "upgrade_open, car_save, update_prompt, compare_open (card, menu, cars from 1.38): where it was opened from (weekly report, 5.11 read)" },
     { "parameterName": "via", "description": "link_landing: share or campaign source (/live)" },
     { "parameterName": "exp", "description": "exp_expose, share: experiment name (Experimenter)" },
     { "parameterName": "exp_v", "description": "exp_expose, share: experiment variant (Experimenter)" },
