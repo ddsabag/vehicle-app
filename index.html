@@ -2966,7 +2966,7 @@ function renderResult(){
   else if (simpleOn()) { const ln = licNote(L); if (ln) html.push(`<div class="alert-banner${ln.level === "bad" ? "" : " warn"}" role="${ln.level === "bad" ? "alert" : "status"}">${ico("alert")}<span><b>${esc(ln.title)}</b>${esc(ln.text)}</span></div>`); }
   // An open recall is the one thing that must never be missed: banner above the tabs
   if (D.recalls.length) {
-    html.push(`<button type="button" class="alert-banner" data-tab="recalls">${ico("alert")}<span><b>${D.recalls.length === 1 ? "לרכב יש ריקול פתוח" : `לרכב ${D.recalls.length} ריקולים פתוחים`}</b>לפי משרד התחבורה. ריקול שלא מתוקן עלול למנוע בהמשך חידוש רישיון. התיקון בחינם אצל היבואן.</span></button>`);
+    html.push(`<button type="button" class="alert-banner" data-tab="recalls">${ico("alert")}<span><b>${D.recalls.length === 1 ? "לרכב יש ריקול פתוח" : `לרכב ${D.recalls.length} ריקולים פתוחים`}</b>לפי משרד התחבורה. ריקול שלא מתוקן עלול למנוע בהמשך חידוש רישיון. התיקון ניתן בדרך כלל ללא עלות אצל היבואן של הרכב.</span></button>`);
   }
   // a model recall that may include this car while the ministry's per-car list cannot say whether it does (pendingRecalls): a banner to the
   // recalls tab when the car has one, else the checked line turns amber and opens in place; a car off the road has the red banner above
@@ -3422,7 +3422,7 @@ function fileTiles(D, n, est){
     : insD < 0 ? tile("bad", "ביטוח", "פג", dShort(toDate(ins.exp))) : tile(insD <= 30 ? "warn" : "ok", "ביטוח", insD <= 30 ? daysWord(insD) : "בתוקף", dShort(toDate(ins.exp)));
   const pr = D.isCancelled || D.recallUnknown ? [] : pendingRecalls(D);
   const rec = D.recallUnknown ? tile("", "ריקולים", "לא זמין", "נסו שוב בהמשך")
-    : D.recalls.length ? tile("bad", "ריקולים", D.recalls.length === 1 ? "פתוח" : `${D.recalls.length} פתוחים`, "התיקון בחינם", `data-tab="recalls"`)
+    : D.recalls.length ? tile("bad", "ריקולים", D.recalls.length === 1 ? "פתוח" : `${D.recalls.length} פתוחים`, "בדרך כלל ללא עלות", `data-tab="recalls"`)
     : pr.length ? tile("warn", "ריקולים", "ייתכן", "לבדוק ביבואן") : tile("ok", "ריקולים", "אין פתוח", "משרד התחבורה");
   return `<div class="cf-tiles">${test}${svc}${insT}${rec}</div>`;
 }
@@ -3431,7 +3431,7 @@ function fileNext(D, info, n, est){
   const t0 = today0(), out = [], dm = d => `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
   const li = (when, sub, cls, title, text, acts, at) => out.push({at, h: `<li><span class="cf-date${cls ? " " + cls : ""}">${when}<small>${sub}</small></span><div class="d"><b>${esc(title)}</b>${text ? `<span>${esc(text)}</span>` : ""}</div>${acts ? `<div class="cf-acts">${acts}</div>` : ""}</li>`});
   const renew = `<button type="button" class="link-btn" data-url="${RENEW_URL}">${ico("globe")}חידוש באתר משרד התחבורה</button>`;
-  if (D.recalls.length) li(ico("alert"), "עכשיו", "bad", D.recalls.length === 1 ? "ריקול פתוח לרכב" : `${D.recalls.length} ריקולים פתוחים לרכב`, "התיקון בחינם אצל היבואן. ריקול שלא תוקן עלול לעכב את חידוש הרישיון.", `<button type="button" class="link-btn" data-tab="recalls">${ico("alert")}לפרטים</button>`, -Infinity);
+  if (D.recalls.length) li(ico("alert"), "עכשיו", "bad", D.recalls.length === 1 ? "ריקול פתוח לרכב" : `${D.recalls.length} ריקולים פתוחים לרכב`, "התיקון ניתן בדרך כלל ללא עלות אצל היבואן של הרכב. ריקול שלא תוקן עלול לעכב את חידוש הרישיון.", `<button type="button" class="link-btn" data-tab="recalls">${ico("alert")}לפרטים</button>`, -Infinity);
   const L = licOf(D);
   if (L && L.k === "ok") {
     const open = L.days <= 60, from = new Date(L.ex); from.setDate(from.getDate() - 60);
@@ -5902,6 +5902,7 @@ function navTo(v, opts = {}){
     window.scrollTo({top: 0, behavior: "smooth"}); return;
   }
   if (ctrl) { ctrl.abort(); ctrl = null; $("#go").disabled = false; }
+  if (v !== "search") fileIntent = false;
   track("nav", {to: v, via: opts.via || "bar"});
   if (v === "cars") { carsSel = null; if (opts.filter) carsFilter = opts.filter; view = v; renderCars(); }
   else if (v === "alerts") { view = v; renderAlerts(); }
@@ -5917,7 +5918,7 @@ function refreshView(){
 }
 /* back from a car page: to the tab it was opened from */
 function leaveCar(){
-  current = null; currentTab = "overview";
+  current = null; currentTab = "overview"; fileIntent = false;
   try { history.replaceState(null, "", location.pathname); } catch {}
   if (view === "cars") { renderCars(); window.scrollTo({top: carsY}); }
   else if (view === "alerts") { renderAlerts(); window.scrollTo({top: 0}); }
@@ -5992,7 +5993,7 @@ function priceMeter(s){
 const recallsWord = n => n === 1 ? "ריקול פתוח" : `${n} ריקולים פתוחים`;
 function carCard(s){
   const L = licSaved(s), sel = carsSel, on = sel && sel.includes(s.plate), hex = paintHex(s.color);
-  const strip = s.active === false ? `<span class="cc-strip bad">${ico("alert")}הרכב ירד מהכביש</span>` : s.recalls > 0 ? `<span class="cc-strip bad">${ico("alert")}${recallsWord(s.recalls)}. התיקון בחינם אצל היבואן</span>` : "";
+  const strip = s.active === false ? `<span class="cc-strip bad">${ico("alert")}הרכב ירד מהכביש</span>` : s.recalls > 0 ? `<span class="cc-strip bad">${ico("alert")}${recallsWord(s.recalls)}. התיקון בדרך כלל ללא עלות אצל היבואן</span>` : "";
   const meter = s.ask && s.fair ? priceMeter(s) : L && s.active !== false ? testMeter(L) : "";
   return `<button type="button" class="ccard${on ? " on" : ""}" ${sel ? `data-pick="${s.plate}" aria-pressed="${!!on}"` : `data-open="${s.plate}"`}>
     <span class="cc-top"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span>${s.color ? `<span class="cc-col">${hex ? `<i class="pdot" style="background:${hex}"></i>` : ""}${esc(s.color)}</span>` : ""}${sel ? `<span class="cc-chk">${ico("check")}</span>` : `<span class="cc-go">${ico("chev")}</span>`}</span>
@@ -6065,7 +6066,7 @@ function alertItems(){
   for (const s of store.get("savedVehicles")) {
     const L = licSaved(s), name = s.nick || s.title;
     if (s.active === false) { out.push({lv: "bad", s, t: "הרכב ירד מהכביש", b: name, go: "open"}); continue; }
-    if (s.recalls > 0) out.push({lv: "bad", s, k: recallsWord(s.recalls), t: `${recallsWord(s.recalls)} ${/^[\u0590-\u05ff]/.test(s.title) ? "ב" : "ב-"}${s.title}`, b: `${s.nick ? s.nick + ". " : ""}התיקון בחינם אצל היבואן, כדאי לתאם מועד.`, go: "recalls", g: "פרטים"});
+    if (s.recalls > 0) out.push({lv: "bad", s, k: recallsWord(s.recalls), t: `${recallsWord(s.recalls)} ${/^[\u0590-\u05ff]/.test(s.title) ? "ב" : "ב-"}${s.title}`, b: `${s.nick ? s.nick + ". " : ""}התיקון ניתן בדרך כלל ללא עלות אצל היבואן של הרכב, כדאי לתאם מועד.`, go: "recalls", g: "פרטים"});
     if (L) {
       if (L.k === "bad") out.push({lv: "bad", s, t: "הטסט פג", b: `${name}. התוקף הסתיים ב-${L.date}.`, go: "open", g: "פרטים"});
       else if (L.k !== "ok") out.push({lv: "warn", s, t: "לא ברור אם הטסט חודש", b: name, go: "open", g: "פרטים"});
@@ -6647,7 +6648,7 @@ function renderHome(){
 function homeRail(saved){
   const rank = {bad: 0, warn: 1, ok: 2}, line = s => { const L = licSaved(s);
     if (s.active === false) return ["bad", "הרכב ירד מהכביש"];
-    if (s.recalls > 0) return ["bad", `${recallsWord(s.recalls)}. התיקון בחינם`];
+    if (s.recalls > 0) return ["bad", `${recallsWord(s.recalls)}. התיקון בדרך כלל ללא עלות`];
     if (L && (L.k !== "ok" || L.days <= 30)) return [L.k === "ok" ? "warn" : "bad", testWords(L)];
     return ["ok", L ? `טסט בתוקף עד ${L.date}` : esc(s.sub || "")]; };
   const list = saved.slice().sort((a, b) => rank[carLevel(a)] - rank[carLevel(b)]).slice(0, 6);
