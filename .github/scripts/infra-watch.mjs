@@ -26,7 +26,7 @@ async function liveness() {
   const checks = [
     ["שירות ההרשמה למגזין", "/api/confirm", async () => { const r = await get(SITE + "/api/confirm?e=x&x=1&t=x", { redirect: "manual" }); return r.status === 302 && /subscribed=expired/.test(r.headers.get("location") || ""); }],
   ];
-  for (const [name, raw, fn] of checks) { let ok = false; try { ok = await retry(fn); } catch { /* counted as down */ } if (!ok) problems.push({ he: `${name} לא מגיב כצפוי, ולכן הרשמות חדשות לא מאושרות`, raw: `Worker ${raw}`, urgent: true }); }
+  for (const [name, raw, fn] of checks) { let ok = false; try { ok = await retry(fn); } catch { /* counted as down */ } if (!ok) problems.push({ id: "api", he: `${name} לא מגיב כצפוי, ולכן הרשמות חדשות לא מאושרות`, raw: `Worker ${raw}`, urgent: true }); }
 }
 
 async function cloudflareQuota() {
@@ -38,7 +38,7 @@ async function cloudflareQuota() {
   if (r.errors) { raws.push("Cloudflare GraphQL: " + String(r.errors[0]?.message).slice(0, 80)); return notes.push("מכסת הבקשות היומית לא נבדקה: למפתח אין הרשאת קריאה לנתוני השימוש"); }
   const n = (r.data.viewer.accounts[0]?.workersInvocationsAdaptive || []).reduce((s, x) => s + x.sum.requests, 0);
   console.log("cloudflare workers requests (24h):", n);
-  if (n >= CF_DAILY_LIMIT * WARN) problems.push({ he: `מכסת הבקשות היומית של שרתי האתר: ${n.toLocaleString("en")} ב-24 שעות מתוך ${CF_DAILY_LIMIT.toLocaleString("en")}`, raw: "Cloudflare Workers requests" });
+  if (n >= CF_DAILY_LIMIT * WARN) problems.push({ id: "quota-cf", he: `מכסת הבקשות היומית של שרתי האתר: ${n.toLocaleString("en")} ב-24 שעות מתוך ${CF_DAILY_LIMIT.toLocaleString("en")}`, raw: "Cloudflare Workers requests" });
 }
 
 async function brevoQuota() {
@@ -51,7 +51,7 @@ async function brevoQuota() {
     peak = Math.max(peak, (await r.json()).requests || 0);
   }
   console.log("brevo peak sends/day (3d, transactional):", peak);
-  if (peak >= BREVO_DAILY_LIMIT * WARN) problems.push({ he: `מכסת המיילים היומית: ${peak} שליחות ביום מתוך ${BREVO_DAILY_LIMIT} (המכסה החינמית)`, raw: "Brevo transactional" });
+  if (peak >= BREVO_DAILY_LIMIT * WARN) problems.push({ id: "quota-brevo", he: `מכסת המיילים היומית: ${peak} שליחות ביום מתוך ${BREVO_DAILY_LIMIT} (המכסה החינמית)`, raw: "Brevo transactional" });
 }
 
 async function staleBranches() {
@@ -70,8 +70,8 @@ async function staleBranches() {
   stale = old;
 }
 
+const toLive = (text, silent) => E.INFRA_REPORT && E.INFRA_FLASHED === "1" ? null : flash("infra", silent ? "info" : "alert", text);   // INFRA_FLASHED=1: site-smoke.mjs already put it on /live
 async function telegram(text, silent = false) {
-  if (!(E.INFRA_REPORT && E.INFRA_FLASHED === "1")) await flash("infra", silent ? "info" : "alert", text);   // INFRA_FLASHED=1: site-smoke.mjs already put it on /live
   if (DRY || !E.TELEGRAM_BOT_TOKEN) { console.log("[telegram]\n" + text); return DRY; }
   const r = await fetch(`https://api.telegram.org/bot${E.TELEGRAM_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({ chat_id: E.TELEGRAM_CHAT_ID, text, parse_mode: "HTML", disable_web_page_preview: true, disable_notification: silent }) });
@@ -87,13 +87,21 @@ const alertText = () => msg({ kind: problems.some(p => p.urgent) ? "urgent" : "t
 const noticeText = () => msg({ kind: "info", area: "bots", title: "🧹 תחזוקה חודשית: ענפים ישנים במאגר הקוד",
   text: `${stale.length} ענפים בלי שינוי יותר מ-30 יום. אפשר למחוק אותם כשנוח, הם לא מפריעים לכלום.`, raw: stale.join(", ") });
 
-// send what was found: the alert (loud) when there is a problem, otherwise the monthly branch list (silent)
-async function deliver({ alert, notice }) {
+// send what was found, through the alert router (alert.mjs) with the direct send as its fallback: the alert (infra:<ids>, critical when a
+// service is down, else day) rings; the monthly branch list (infra-branches) is a silent notice for the Sunday summary
+async function route(level, key, text, silent) {
+  await toLive(text, silent);
+  let router = null; try { router = await import("./alert.mjs"); } catch { /* direct below */ }
+  if (!router) return telegram(text, silent);
+  const run = E.GITHUB_SERVER_URL && E.GITHUB_RUN_ID ? `${E.GITHUB_SERVER_URL}/${E.GITHUB_REPOSITORY}/actions/runs/${E.GITHUB_RUN_ID}` : "";
+  return !!(await router.alert(level, key, text, run, { today: silent ? "silent" : "loud", legacy: () => telegram(text, silent) })).delivered;
+}
+async function deliver({ alert, notice, key, level }) {
   if (alert) {
-    const sent = await telegram(alert);
+    const sent = await route(level || "day", key || "infra:site", alert, false);
     process.exit(sent ? 0 : 1);   // alert delivered: finish green so GitHub does not also mail "workflow failed"
   }
-  if (notice) await telegram(notice, true);
+  if (notice) await route("summary", "infra-branches", notice, true);
   console.log("all clear");
 }
 
@@ -105,7 +113,8 @@ if (E.INFRA_REPORT) {   // fallback in Site smoke test: the report the infra job
     try { await step(); } catch (e) { notes.push(`בדיקה אחת לא רצה עד הסוף: ${he(e.message)}`); raws.push(`${step.name}: ${String(e.message).slice(0, 100)}`); }
   }
   console.log([...notes, ...raws].join("\n") || "no notes");
-  const report = problems.length ? { alert: alertText() } : stale.length ? { notice: noticeText() } : {};
+  const report = problems.length ? { alert: alertText(), key: "infra:" + [...new Set(problems.map(p => p.id))].sort().join("+"), level: problems.some(p => p.urgent) ? "critical" : "day" }
+    : stale.length ? { notice: noticeText(), key: "infra-branches", level: "summary" } : {};
   if (E.INFRA_HANDOFF === "1") {
     console.log(report.alert || report.notice || "all clear: nothing to hand over");
     const line = report.alert || report.notice ? `report=${JSON.stringify(report)}\n` : "";   // one line: JSON escapes the newlines

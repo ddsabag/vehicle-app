@@ -54,7 +54,7 @@ export const LABELS = {
   "wf":                  { he: 'הבוט "{id}" נכשל', sect: "fail" },
   "smoke":               { he: "בדיקת האתר החי מצאה בעיה: {ids}", sect: "fail",
                            ids: { home: "דף הבית", lookup: "בדיקת רכב", magazine: "דף המגזין", applinks: "קישורי האפליקציה",
-                                  privacy: "מדיניות הפרטיות", model: "דף דגם", sitemap: "מפת האתר",
+                                  privacy: "מדיניות הפרטיות", model: "דף דגם", sitemap: "מפת האתר", og: "תצוגה מקדימה של קישור השוואה", go: "קישורי הקמפיין (/go/)", carlink: "תצוגה מקדימה של קישור לרכב",
                                   cert: "אישור האבטחה (SSL)", domain: "הדומיין luchit.app", certcheck: "בדיקת אישור האבטחה נכשלה" } },   // mixed smoke keys carry expiry ids
   "expiry":              { he: "צריך לחדש בקרוב: {ids}", sect: "wait", ids: { cert: "אישור האבטחה (SSL)", domain: "הדומיין luchit.app", certcheck: "בדיקת אישור האבטחה נכשלה" } },
   "infra":               { he: "שירותי האתר או המכסה: {ids}", sect: "fail",
