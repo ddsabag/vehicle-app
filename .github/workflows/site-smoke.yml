@@ -1,5 +1,5 @@
 name: Site smoke test
-# Daily at 05:30 UTC, and after every change to the site while WEB_DEPLOY is off (with it on, Site smoke test (after deploy) checks each deploy): opens the live site in a real browser, looks up a real plate, checks key pages, and watches the certificate and domain expiry. Alerts go to Telegram only.
+# Daily at 05:30 UTC, and after every change to the site while WEB_DEPLOY is off (with it on, Site smoke test (after deploy) checks each deploy): opens the live site in a real browser, looks up a real plate, checks key pages, and watches the certificate and domain expiry. Alerts go to Telegram through the alert router (alert.mjs).
 # The daily run also does the infra part (formerly Infra watch, infra-watch.mjs): the sign-up Worker answers, free-quota headroom (Cloudflare Workers, Brevo),
 # and on the 1st of the month a list of stale branches. It never runs on a push (or after a deploy: that is deploy-smoke.yml, which runs site-smoke.mjs alone).
 # The infra job only collects; the smoke job sends what both found as ONE morning message (or nothing when all is well). If the smoke job dies before
@@ -76,6 +76,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}   # the alert router (alert.mjs): its state lives on the branch alert-state
       - name: Send the infra part on its own (the check above did not deliver it)
         if: ${{ failure() && needs.infra.outputs.report != '' && steps.check.outputs.infra_sent != '1' }}
         run: node .github/scripts/infra-watch.mjs
@@ -86,3 +87,4 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}   # the alert router (alert.mjs): its state lives on the branch alert-state
