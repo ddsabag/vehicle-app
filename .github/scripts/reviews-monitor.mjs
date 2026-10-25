@@ -36,10 +36,20 @@ const errText = (errors, since) => `${tag(since ? "today" : "info", "reviews")}\
 // state key is tried again on the next run, and its /live flash ("f:" + key) goes out once, not on every retry.
 // The flash branch and the job log are public: flashText is the alert without business numbers (default: the text itself), and a dry
 // run prints the text with every digit masked.
-async function telegram(text, silent = false, key = "", flashText = text) {
+// route = [level, router key]: the alert router (alert.mjs) decides when it reaches Telegram (night items wait for the morning, summary items
+// go to the Sunday summary, a repeat within 24 h is deduped); without the router, or when it hands back, the direct send below runs as before.
+async function telegram(text, silent = false, key = "", flashText = text, route = null) {
   if (!key || !seen["f:" + key]) { await flash("reviews", silent ? "info" : "alert", flashText); if (key) seen["f:" + key] = Date.now(); }
   const tok = process.env.TELEGRAM_BOT_TOKEN, chat = process.env.TELEGRAM_CHAT_ID;
   if (DRY || !tok || !chat) { console.log("--- Telegram (" + (DRY ? "dry run" : "no credentials") + ", digits masked) ---\n" + String(text).replace(/\d/g, "#")); return DRY; }
+  if (route) {
+    let router = null; try { router = await import("./alert.mjs"); } catch {}
+    if (router) { const r = await router.alert(route[0], route[1], text, "", { today: silent ? "silent" : "loud", legacy: () => direct(text, silent, key) }); return !!r?.delivered; }
+  }
+  return direct(text, silent, key);
+}
+async function direct(text, silent, key) {
+  const tok = process.env.TELEGRAM_BOT_TOKEN, chat = process.env.TELEGRAM_CHAT_ID;
   try {
     const r = await fetch(`https://api.telegram.org/bot${tok}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true, disable_notification: silent }) });
@@ -73,7 +83,7 @@ else try {
     if (await telegram(`${tag(low ? "today" : "info", "reviews")}\n${"⭐".repeat(c.starRating)}${"☆".repeat(5 - c.starRating)} <b>ביקורת חדשה בגוגל פליי, ${c.starRating} מתוך 5</b>${replied ? " (כבר נענתה)" : ""}\n` +
       `מה נכתב: ${esc((c.text || "(בלי טקסט)").trim().slice(0, 900))}\n` +
       `${replied ? todo() : todo(low ? `לענות בקצרה ובנימוס ב-<a href="${base}">Play Console</a>. תשובה עניינית מרככת את הרושם אצל מי שקורא את הביקורות.` : `אפשר לענות ב-<a href="${base}">Play Console</a>, לא חובה.`)}` +
-      folded(`גרסה ${c.appVersionName || "?"} (${c.appVersionCode || "?"}) · ${[dm.manufacturer, dm.productName].filter(Boolean).join(" ") || c.device || "?"} · אנדרואיד ${c.androidOsVersion ?? "?"} · מזהה ${rv.reviewId}`, "פרטי המכשיר"), c.starRating >= 3, key)) { seen[key] = Date.now(); sent++; } else failed++;
+      folded(`גרסה ${c.appVersionName || "?"} (${c.appVersionCode || "?"}) · ${[dm.manufacturer, dm.productName].filter(Boolean).join(" ") || c.device || "?"} · אנדרואיד ${c.androidOsVersion ?? "?"} · מזהה ${rv.reviewId}`, "פרטי המכשיר"), c.starRating >= 3, key, undefined, low ? ["day", "review:" + rv.reviewId] : ["summary", "review3:" + rv.reviewId])) { seen[key] = Date.now(); sent++; } else failed++;
   }
   console.log(`reviews: ${list.length} returned, ${sent} alerts sent${failed ? `, ${failed} not delivered (tried again next run)` : ""}`);
 } catch (e) { errors.push("reviews: " + e.message); console.log("reviews failed:", e.message); }
@@ -102,7 +112,7 @@ try {
     if (pct >= limit && users >= 20 && !seen[k]) {
       const head = `${tag("urgent", "app")}\n<b>שיעור ${label} גבוה בגוגל פליי</b>\n${pct.toFixed(2)}% מהמשתמשים חוו את זה ביום ${d.toISOString().slice(0, 10)}, מעל הסף של גוגל (${limit}%). מעל הסף גוגל מציגה את האפליקציה פחות בחנות.\n`;
       const what = todo("לכתוב בשרשור \"מוצר ושחרורים\" כדי לבדוק איזו גרסה ואיזה מכשיר. הפירוט ב-Play Console ← Android vitals.");
-      if (await telegram(head + `(מתוך ${users} משתמשים)\n` + what, false, k, head + what)) seen[k] = Date.now();
+      if (await telegram(head + `(מתוך ${users} משתמשים)\n` + what, false, k, head + what, ["critical", "vitals:" + (kind.startsWith("crash") ? "crash" : "anr")])) seen[k] = Date.now();
     }
   }
 } catch (e) { errors.push("vitals: " + e.message); console.log("vitals failed:", e.message); }
@@ -114,7 +124,7 @@ for (const k of Object.keys(seen)) if (k !== "errOn" && Date.now() - seen[k] > 1
 const now = Date.now(), DAY = 20 * 36e5;   // 20 h: scheduled runs start late by varying amounts
 if (errors.length) { seen.errOn ||= now; seen.errAt = now; } else if (now - (seen.errAt || 0) > DAY) { delete seen.errOn; delete seen.errAt; }
 const ek = "err:" + errors.join("|").slice(0, 80), lasting = errors.length && now - seen.errOn > DAY;
-if (errors.length && (!seen[ek] || now - seen[ek] > DAY) && await telegram(errText(errors, lasting && seen.errOn), false, ek)) seen[ek] = Date.now();
+if (errors.length && (!seen[ek] || now - seen[ek] > DAY) && await telegram(errText(errors, lasting && seen.errOn), !lasting, ek, undefined, [lasting ? "day" : "summary", "reviews:error"])) seen[ek] = Date.now();
 save();
 // finish green: an alert already told you, and a failed send is logged above and tried again next run (no "workflow failed" mail on top)
 process.exit(0);
