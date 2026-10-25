@@ -23,6 +23,15 @@
     { "parameterName": "to", "description": "nav: which bottom-bar screen was opened (search, cars, alerts) (from 1.38)" },
     { "parameterName": "mode", "description": "cars_mode: the list or table view of הרכבים שלי (from 1.38)" },
     { "parameterName": "act", "description": "home_sheet: the iPhone add-to-home-screen sheet shown, tapped or closed (site, from 1.38)" },
+    { "parameterName": "on", "description": "simple_view, simple_more, alerts_toggle, alert_kind: switched on (1) or off (0)" },
+    { "parameterName": "where", "description": "calendar_reminder_shown/click, web_hint_click: which screen it was on (the alerts list adds clicks with no shown)" },
+    { "parameterName": "os", "description": "home_open: ios or other (site opened from the home-screen icon)" },
+    { "parameterName": "recalls", "description": "car_lookup, lookup_repeat: open recalls on the car, up to 5" },
+    { "parameterName": "locked", "description": "buy_card_open, zombie_shown: whether the card was behind the PRO lock" },
+    { "parameterName": "saved", "description": "mine_set, mine_unset: whether the car was already in הרכבים שלי" },
+    { "parameterName": "cat", "description": "doc_add: the kind of document added to the car" },
+    { "parameterName": "km", "description": "svc_add: the entry carries a mileage (1) or not (0); kind km is a mileage-only entry" },
+    { "parameterName": "cost", "description": "svc_add: the entry carries a cost (1) or not (0)" },
     { "parameterName": "camp", "description": "every web event of a visit that came by a tagged link: its topic (utm_campaign, ?c= of /go/ links) (/live sources, per post)" }
   ],
   "keyEvents": [
