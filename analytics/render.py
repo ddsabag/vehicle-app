@@ -1,6 +1,7 @@
 """One self-contained HTML file: no external fonts, scripts or images, RTL, light and dark, readable on a phone."""
 from html import escape as E
 from datetime import date
+from analyze import MIN_BASE, times
 
 
 class Raw(str):
@@ -68,6 +69,8 @@ def chip(k):
         up = diff > 0; txt = f"{'+' if up else ''}{diff:g}" + (" נק׳" if k["fmt"] == "pct" else "")
     else:
         if not prev: return '<span class="chip flat">אין השוואה</span>'
+        if prev < MIN_BASE: return f'<span class="chip flat">בשבוע שעבר {prev:g}</span>'   # a quiet week: a percent would say nothing
+        if times(cur, prev): return f'<span class="chip good">▲ {times(cur, prev)}</span>' if not k["bad_up"] else f'<span class="chip badc">▲ {times(cur, prev)}</span>'
         d = round((cur - prev) / prev * 100, 1)
         if d == 0: return '<span class="chip flat">ללא שינוי</span>'
         up = d > 0; txt = f"{'+' if up else ''}{d:g}%"
@@ -118,7 +121,7 @@ def grid_html(title, kpis):
 def page(d, a):
     p = d["period"]
     status = {"green": ("green", "תקין"), "yellow": ("yellow", "דורש תשומת לב"), "red": ("red", "יש חריגות")}[a["status"]]
-    al = "".join(f'<div class="al {x["level"]}"><span class="dot"></span><div><b>{E(x["title"])}</b>{E(x["detail"])}</div></div>' for x in a["anomalies"]) or '<p class="muted">אין חריגות.</p>'
+    al = "".join(f'<div class="al {x["level"]}"><span class="dot"></span><div><b>{E(x["title"])}</b>{E(x["detail"])}' + (f'<span class="muted"> מטפל: שרשור «{E(x["owner"])}»</span>' if x["level"] != "info" and x.get("owner") else "") + '</div></div>' for x in a["anomalies"]) or '<p class="muted">אין חריגות.</p>'
     def group(title, key): return grid_html(title, a["kpis"][key])
     versions = bars([(Raw(f'גרסה <bdi dir="ltr">{E(str(v))}</bdi>'), n) for v, n in a["versions"]], "גרסאות בשימוש (משתמשים פעילים)") if a["versions"] else ""
     take = "".join(f"<li>{E(t)}</li>" for t in a["takeaways"]) or "<li>אין מספיק נתונים לסיכום.</li>"

@@ -7,6 +7,16 @@ def _ev(d, cfg, key):
     return e["cur"], e["prev"]
 
 
+# a count is compared in percent only from this base: against a quiet week (the week before the public launch of 19.10 had a few dozen
+# checks) "+1603%" says nothing, so a smaller base shows the previous number itself, and a jump of 3 times or more reads "פי 17"
+MIN_BASE = 30
+
+
+def times(cur, prev):
+    """"פי 17" for a jump of 3 times or more, else None."""
+    return f"פי {round(cur / prev):g}" if prev and cur is not None and cur >= 3 * prev else None
+
+
 def pct(a, b):
     return None if not b else round((a - b) / b * 100, 1)
 
@@ -20,11 +30,25 @@ def kpi(key, title, cur, prev, unit="", bad_when_up=False, note="", fmt="n"):
             "unit": unit, "bad_up": bad_when_up, "note": note, "fmt": fmt}
 
 
+# who handles each anomaly: the project thread (by its title) that checks and fixes it, so the brief tells Dudu who has it instead of asking him
+OWNERS = {"נתונים ואמינות": ("בדיקות איטיות", "כשלים טכניים", "תוצאות עם מידע חסר"),
+          "מוצר ושחרורים": ("ביטולי בדיקה", "שיעור השיתוף", "מהירות", "קריסות", "ANR"),
+          "SEO": ("קליקים מגוגל", "ביקורים באתר"),
+          "ערכת תוכן שבועית ראשונה": ("ירידה חדה בבדיקות רכב", "ירידה בבדיקות רכב", "ניוזלטר")}
+def owner_of(title):
+    return next((t for t, keys in OWNERS.items() if any(k in title for k in keys)), "דשבורד LIVE")
+
+
 def analyze(d, cfg, extra=None):
     T = cfg["thresholds"]
     ok_c, ok_p = _ev(d, cfg, "lookup")
     fl_c, fl_p = _ev(d, cfg, "lookup_failed")
-    slow_c, slow_p = _ev(d, cfg, "slow")
+    # slow = a check that took more than 5 s, from the duration bucket car_lookup carries in every app version and on the site (lt2, 2to5,
+    # 5to10, gt10). The lookup_slow event marks the on-screen note, which apps before 1.38 show after 3.5 s, so counting it would mix two lines
+    du = {k: v for k, v in (d.get("lookup_dur") or {}).items() if k in ("lt2", "2to5", "5to10", "gt10")}
+    dur_c, dur_p = sum(v["cur"] for v in du.values()), sum(v["prev"] for v in du.values())
+    slow_c = sum(du[k]["cur"] for k in ("5to10", "gt10") if k in du) if dur_c else None
+    slow_p = sum(du[k]["prev"] for k in ("5to10", "gt10") if k in du) if dur_p else None
     ab_c, ab_p = _ev(d, cfg, "abort")
     to_c, to_p = _ev(d, cfg, "timeout")
     ca_c, ca_p = _ev(d, cfg, "from_cache")
@@ -56,13 +80,13 @@ def analyze(d, cfg, extra=None):
     ret_c, ret_p = (rate(ret["cur"], wau_c), rate(ret["prev"], wau_p)) if ret else (None, None)
 
     m = {
-        "searches": (ok_c, ok_p), "slow_pct": (rate(slow_c, se_c), rate(slow_p, se_p)), "abort_pct": (rate(ab_c, se_c), rate(ab_p, se_p)),
+        "searches": (ok_c, ok_p), "slow_pct": (rate(slow_c, dur_c) if slow_c is not None else None, rate(slow_p, dur_p) if slow_p is not None else None), "abort_pct": (rate(ab_c, se_c), rate(ab_p, se_p)),
         "fail_pct": (rate(tech_c, se_c) if tech_c is not None else None, rate(tech_p, se_p) if tech_p is not None else None),
     }
     kpis = {
         "health": [
             kpi("searches", "בדיקות רכב", ok_c, ok_p, "", False, "בדיקות לפי מספר רכב שהציגו תוצאה, באפליקציה ובאתר יחד (כמו בדשבורד החי)"),
-            kpi("slow", "בדיקות איטיות", m["slow_pct"][0], m["slow_pct"][1], "%", True, f"{slow_c} בדיקות לקחו יותר מ-3.5 שניות", "pct"),
+            kpi("slow", "בדיקות איטיות", m["slow_pct"][0], m["slow_pct"][1], "%", True, f"{slow_c} בדיקות לקחו יותר מ-5 שניות" if slow_c is not None else "הפילוח לפי זמן הבדיקה לא היה זמין השבוע", "pct"),
             kpi("abort", "בדיקות שנעצרו באמצע", m["abort_pct"][0], m["abort_pct"][1], "%", True, f"{ab_c} בדיקות שהמשתמש ביטל או עזב לפני התוצאה", "pct"),
             kpi("fail", "בדיקות שנכשלו", m["fail_pct"][0], m["fail_pct"][1], "%", True, f"{tech_c} בדיקות לא הצליחו (לא התקבלה תשובה, או שאתר הממשלה לא ענה)" if tech_c is not None else "הפילוח לפי סיבה לא היה זמין השבוע", "pct"),
             kpi("partial", "תוצאות עם מידע חסר", rate(partial_c, ok_c), rate(partial_p, ok_p), "%", True, "תוצאה הוצגה, אבל אחד ממאגרי משרד התחבורה לא ענה", "pct"),
@@ -107,7 +131,7 @@ def analyze(d, cfg, extra=None):
             parts.append(f"מצלמים {ratio_c} צילומים על כל שיתוף: חלק גדול מהמשתמשים מעדיף לצלם מאשר ללחוץ על שיתוף.")
         shot_insight = " ".join(parts) or "אין שינוי משמעותי בצילומי המסך."
     anomalies = []
-    def add(level, title, detail): anomalies.append({"level": level, "title": title, "detail": detail})
+    def add(level, title, detail): anomalies.append({"level": level, "title": title, "detail": detail, "owner": owner_of(title)})
     enough = se_c >= T["min_searches_for_rates"]
     if wau_c == 0:
         add("red", "לא נקלטו נתונים השבוע", "אין משתמשים פעילים ב-GA4. בדקו שהאנליטיקה באפליקציה פועלת ושהנכס נכון.")
@@ -115,8 +139,8 @@ def analyze(d, cfg, extra=None):
         add("info", "מעט בדיקות רכב", f"רק {se_c} ניסיונות בדיקה השבוע, ולכן אחוזים שבועיים רועשים ולא הופעלו בהם התראות.")
     sp = m["slow_pct"][0]
     if enough and sp is not None:
-        if sp > T["slow_pct_red"]: add("red", "בדיקות איטיות מעל הסף", f"{sp}% מהבדיקות עברו 3.5 שניות (הסף {T['slow_pct_red']}%). בדקו את מאגרי משרד התחבורה ואת הזמינות שלהם.")
-        elif sp > T["slow_pct_yellow"]: add("yellow", "בדיקות איטיות בעלייה", f"{sp}% מהבדיקות איטיות (אזהרה מעל {T['slow_pct_yellow']}%).")
+        if sp > T["slow_pct_red"]: add("red", "בדיקות איטיות מעל הסף", f"{sp}% מהבדיקות עברו 5 שניות (הסף {T['slow_pct_red']}%). בדקו את מאגרי משרד התחבורה ואת הזמינות שלהם.")
+        elif sp > T["slow_pct_yellow"]: add("yellow", "בדיקות איטיות בעלייה", f"{sp}% מהבדיקות עברו 5 שניות (אזהרה מעל {T['slow_pct_yellow']}%).")
     ab_ch = pct(ab_c, ab_p)
     if enough and ab_c >= T["abort_min_count"] and ab_ch is not None and ab_ch >= T["abort_rise_pct"]:
         add("red", "קפיצה בביטולי בדיקה", f"{ab_c} ביטולים לעומת {ab_p} בשבוע שעבר (+{ab_ch}%). משתמשים מוותרים באמצע המתנה.")
@@ -153,10 +177,10 @@ def analyze(d, cfg, extra=None):
         ch = pct(cf["cur"]["visits"], cf["prev"]["visits"])
         if cf["prev"]["visits"] >= 50 and ch is not None and ch <= -T["lookups_drop_yellow_pct"]:
             add("yellow", "ירידה בביקורים באתר", f"{cf['cur']['visits']} ביקורים לעומת {cf['prev']['visits']} ({ch}%).")
-    for r in ps or []:
+    for r in ps or []:   # the median of 3 lab runs (sources.psi): a single run moves by up to 10 points
         short = r["url"].replace("https://", "")
         if r["score"] < 85 or r["lcp"] > 4 or r["cls"] > 0.1:
-            add("yellow", "מהירות האתר ירדה", f"{short}: ציון {r['score']}, LCP {r['lcp']} שניות, CLS {r['cls']}.")
+            add("yellow", "מהירות האתר מתחת לסף", f"{short}: ציון {r['score']} (הסף 85), LCP {r['lcp']} שניות, CLS {r['cls']}." + (f" מה הכי יעזור: {r['fix']}." if r.get("fix") else ""))
     if pl:
         if pl.get("crash_pct") is not None and pl["crash_pct"] > 1.09: add("red", "שיעור קריסות מעל סף Google Play", f"{pl['crash_pct']}% מהמשתמשים חוו קריסה (הסף של Play הוא 1.09%). חשיפה בחנות עלולה לרדת.")
         if pl.get("anr_pct") is not None and pl["anr_pct"] > 0.47: add("red", "שיעור ANR מעל סף Google Play", f"{pl['anr_pct']}% מהמשתמשים חוו ANR (הסף 0.47%).")
@@ -192,7 +216,7 @@ def analyze(d, cfg, extra=None):
     # takeaways and recommendations (rule based)
     take = []
     if wau_c:
-        take.append(f"{wau_c} משתמשים פעילים באפליקציה השבוע ({_chg(pct(wau_c, wau_p))}) ו-{ok_c} בדיקות רכב באפליקציה ובאתר ({_chg(lc)}).")
+        take.append(f"{wau_c} משתמשים פעילים באפליקציה השבוע ({_chg(pct(wau_c, wau_p), wau_p)}) ו-{ok_c} בדיקות רכב באפליקציה ובאתר ({_chg(lc, ok_p)}).")
     if dur_rows and sum(x[1] for x in dur_rows):
         tot = sum(x[1] for x in dur_rows); fast = dur_rows[0][1]
         take.append(f"{round(fast / tot * 100)}% מהבדיקות הסתיימו תוך 2 שניות.")
@@ -209,14 +233,16 @@ def analyze(d, cfg, extra=None):
         recs.append("שיעור החוזרים נמוך: להדגיש את שמירת הרכב והתראות הטסט והריקולים כסיבה לחזור.")
     if tabs and (tabs[-1][1] == 0 or len(tabs) < 5):
         recs.append("לבדוק אילו לשוניות כמעט לא נפתחות, ולהחליט אם לאחד או להבליט אותן.")
-    recs += ["לפני שחרור גרסה, לבדוק ב-Firebase שאחוז המשתמשים בגרסה האחרונה עולה, ושאין עלייה בכשלים אחרי העדכון.",
-             "לבדוק פעם בחודש שהאירועים החדשים מופיעים ב-GA4 וששמות הממדים תואמים לקוד."]
+    # the two fixed weekly chores (check Firebase before a release, check GA4 events monthly) left on 25.10: they read as tasks for Dudu,
+    # and the release task and the ga4-admin selftest already do them
     recs = recs[:3]
     return {"kpis": kpis, "anomalies": anomalies, "dur": dur_rows, "tabs": tabs, "shares": shares, "makes": makes, "models": models, "fuels": fuels, "versions": versions,
             "takeaways": take, "recommendations": recs, "extra": X, "shot_tabs": st, "shot_insight": shot_insight, "daily": daily, "metrics": m,
             "status": "red" if reds else ("yellow" if any(a["level"] == "yellow" for a in anomalies) else "green")}
 
 
-def _chg(v):
+def _chg(v, base=None):
     # the number sits in a left-to-right isolate so the sign and the percent sign stay on the right sides
+    if base is not None and base < MIN_BASE: return f"בשבוע שעבר {base}"
+    if v is not None and v >= 200: return f"פי {round(v / 100 + 1):g} מהשבוע שעבר"
     return "ללא שינוי" if not v else "\u2066" + (f"+{v}%" if v > 0 else f"{v}%") + "\u2069 לעומת שבוע שעבר"

@@ -45,7 +45,7 @@ def main(mode, route="", argv=("--send",), stale=False):
 # the brief as it is sent without the block
 wb = run.with_block; run.with_block = lambda head, text, limit=4000: (text, True)
 brief = main("ok")[1]; run.with_block = wb
-ok(bool(brief) and brief.startswith(("🟢", "🟡", "🔴")), "brief built")
+ok(bool(brief) and brief.startswith("📊 לוחית, דוח שבועי"), "brief built")
 rc, text, _, _ = main("ok")
 ok(rc == 0 and text == BODY["ok"] + "\n\n" + brief, "ok: block on top, blank line, brief below")
 # mode, ALERT_ROUTE, expected start, sent=1 expected
