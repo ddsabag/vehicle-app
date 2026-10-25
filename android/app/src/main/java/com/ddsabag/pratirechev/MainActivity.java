@@ -473,9 +473,10 @@ public class MainActivity extends Activity {
         SavedCheckWorker.ensureChannel(this);
         SavedCheckWorker.schedule(this);
         String plate = plateFrom(getIntent());
+        String nk = kindFrom(getIntent());
         if (savedInstanceState == null) notifOpened(getIntent());
         if (plate != null) {
-            webView.loadUrl(START_URL + "#" + plate);
+            webView.loadUrl(START_URL + (nk != null ? "?nk=" + nk : "") + "#" + plate);
         } else if (savedInstanceState != null) {
             if (webView.restoreState(savedInstanceState) == null) webView.loadUrl(START_URL);   // a restore that fails must not leave a white screen
         } else {
@@ -623,6 +624,17 @@ public class MainActivity extends Activity {
             if (cmp != null && cmp.matches("[A-Za-z0-9_-]{1,4000}")) runJs("window.loadCompareLink && loadCompareLink(" + JSONObject.quote(cmp) + ");" + seen + "cmp'});");
             else if (compare != null && !compare.trim().isEmpty() && compare.length() <= 2000) runJs("window.loadCompareLink && loadCompareLink(" + JSONObject.quote(compare.trim()) + ");" + seen + "cmp'});");
             else if (plate != null && plate.length() >= 5 && plate.length() <= 8) runJs("window.run && run(" + JSONObject.quote(plate) + ");" + seen + "plate'});");
+            else {
+                // a campaign link (luchit.app/go/fb?c=market answers luchit.app/?utm_source=...&utm_campaign=market): counted as the site's link_landing kind campaign, with its topic
+                String src = d.getQueryParameter("utm_source");
+                src = src == null ? "" : src.toLowerCase().replaceAll("[^a-z]", "");
+                if (src.length() > 12) src = src.substring(0, 12);
+                String camp = d.getQueryParameter("utm_campaign");
+                camp = camp == null ? "" : camp.toLowerCase().replaceAll("[^a-z0-9_]", "");
+                if (camp.length() > 24) camp = camp.substring(0, 24);
+                if (!src.isEmpty() && !"share".equals(src) && !"luchitapp".equals(src))
+                    runJs("typeof track==='function'&&track('link_open',{kind:'campaign',via:(typeof srcName==='function'?srcName('" + src + "'):'" + src + "')" + (camp.isEmpty() ? "" : ",camp:'" + camp + "'") + "});");
+            }
             i.setAction(null);
         } else if (Intent.ACTION_VIEW.equals(action) && i.getData() != null && "luchit".equals(i.getData().getScheme())) {
             String what = i.getData().getHost();
@@ -690,6 +702,12 @@ public class MainActivity extends Activity {
         SavedCheckWorker.logUsage(this, "notif_open", kind);
     }
 
+    // the kind of a tapped alert (test, recall, svc, doc ...), read before notifOpened removes it: the page opens the tab it is about
+    private static String kindFrom(Intent i) {
+        String k = i == null ? null : i.getStringExtra("nkind");
+        return k != null && k.matches("[a-z]{1,12}") ? k : null;
+    }
+
     // a tapped notification carries the plate of the saved car
     private static String plateFrom(Intent i) {
         if (i == null) return null;
@@ -741,8 +759,9 @@ public class MainActivity extends Activity {
         super.onNewIntent(intent);
         setIntent(intent);
         String plate = plateFrom(intent);
+        String nk = kindFrom(intent);
         notifOpened(intent);
-        if (plate != null) pageJs("window.run && run(" + JSONObject.quote(plate) + ")");
+        if (plate != null) pageJs("window.openAlert ? openAlert(" + JSONObject.quote(plate) + "," + JSONObject.quote(nk == null ? "" : nk) + ") : window.run && run(" + JSONObject.quote(plate) + ")");
         handleIncoming(intent);
     }
 

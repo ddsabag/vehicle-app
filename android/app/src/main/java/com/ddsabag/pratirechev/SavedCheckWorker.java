@@ -198,13 +198,13 @@ public class SavedCheckWorker extends Worker {
         String title, text;
         if (stage == 30) {
             title = "טיפול לרכב " + fmtPlate(plate) + " בעוד כחודש";
-            text = prefix + "מועד הטיפול הבא לפי היומן: " + when + ". כדאי לתאם מראש.";
+            text = prefix + "מועד הטיפול הבא לפי תיק הרכב: " + when + ". כדאי לתאם מראש.";
         } else if (stage == 7) {
             title = "טיפול לרכב " + fmtPlate(plate) + (days == 0 ? " היום" : " בעוד " + days + " ימים");
-            text = prefix + "מועד הטיפול הבא לפי היומן: " + when + ".";
+            text = prefix + "מועד הטיפול הבא לפי תיק הרכב: " + when + ".";
         } else {
             title = "הטיפול לרכב " + fmtPlate(plate) + " מתעכב";
-            text = prefix + "עבר שבוע מהמועד המשוער לטיפול (" + when + "). אם כבר טיפלת, רשום את זה ביומן.";
+            text = prefix + "עבר שבוע מהמועד המשוער לטיפול (" + when + "). אם כבר טיפלתם, רשמו את זה בתיק הרכב.";
         }
         notify(c, plate, "svc", ("svc" + plate).hashCode(), title, text);
         sent.add(mark);
