@@ -88,7 +88,13 @@ def main():
     if changed and "--dry" not in sys.argv:
         json.dump(cfg, open(FILE, "w", encoding="utf8"), ensure_ascii=False, indent=1)
         open("out-experiments.txt", "w", encoding="utf8").write("\n".join(f"{n}: {w}. {s}" for n, w, s in changed))
-        telegram(message(changed))
+        text = message(changed)
+        try:
+            import alert as router   # the alert router (25.10: every sender goes through it); level summary: Dudu has nothing to do
+        except Exception:
+            router = None
+        key = "exp:" + "+".join(n for n, _, _ in changed)
+        router.alert("summary", key, text, os.environ.get("RUN_URL", ""), today="silent", legacy=lambda: telegram(text) or True) if router else telegram(text)
 
 
 if __name__ == "__main__":
