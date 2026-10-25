@@ -41,7 +41,7 @@ export const WF_LEVELS = {
   "Site smoke test (after deploy)": "day", "Weekly analytics report": "day", "Alert daily": "day",
   "SEO check": "summary", "SEO auto-publish": "summary", "Web watch": "summary",
   "Model catalogue": "summary",
-  "SEO daily digest": "summary", "SEO data snapshot": "summary", "Campaign data snapshot": "summary", "Experimenter": "summary",
+  "SEO daily digest": "summary", "SEO data snapshot": "summary", "Campaign data snapshot": "summary", "Release guard": "summary", "Experimenter": "summary",
   "Reviews monitor": "silent", "Ownership data mirror": "silent",
   "Back-on-road detector": "silent",
   "Ship tail": "day", "Store listing": "day", "Release watch": "day", "Production": "day",
