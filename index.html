@@ -378,6 +378,8 @@ footer a{color:var(--accent)}
 /* "תיק הרכב" */
 .cf-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .cf-top p{margin:0;color:var(--muted);font-size:.85rem;min-width:0}
+.cf-val{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--soft);border-radius:14px;padding:12px 14px}
+.cf-val b{font-size:1.05rem}.cf-val small{flex-basis:100%;color:var(--muted);font-size:.8rem}
 .cf-road-list{display:grid;gap:8px}
 .cf-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
 .cf-tile{background:var(--card);border:0;border-top:3px solid var(--line);border-radius:14px;padding:10px 4px;display:grid;gap:2px;justify-items:center;align-content:start;text-align:center;box-shadow:var(--shadow);color:var(--fg);font:inherit;min-width:0;min-height:44px}
@@ -1647,12 +1649,14 @@ document.addEventListener("change", ev => {
 const docExpAll = () => { try { return JSON.parse(localStorage.getItem("docExp") || "[]"); } catch { return []; } };
 const docExpSave = a => { try { localStorage.setItem("docExp", JSON.stringify(a)); } catch {} syncSaved(store.get("savedVehicles")); };
 const alertsSupported = () => !!(window.AndroidApp && window.AndroidApp.setAlerts);
+/* the phone's alerts are really on: not turned off here and not blocked in the phone's settings */
+const alertsOn = () => { try { return alertsSupported() && window.AndroidApp.alertsState() === "on"; } catch { return false; } };
 window.onAlertsPermission = ok => { toast(ok ? "ההתראות פועלות: נעדכן אתכם על ריקול חדש או טסט שעומד לפוג" : "ההתראות כבויות. אפשר להפעיל אותן במסך התראות."); syncAlertsSeg(); refreshView(); };
 function syncAlertsSeg(){
   const row = document.getElementById("alertsRow"); if (!row) return;
   row.hidden = !alertsSupported(); if (row.hidden) return;
   let st = "off"; try { st = window.AndroidApp.alertsState(); } catch {}
-  document.querySelectorAll("[data-alerts]").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.alerts === "on") === (st !== "off"))));
+  document.querySelectorAll("[data-alerts]").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.alerts === "on") === (st === "on"))));
   $("#alertsNote").textContent = st === "blocked" ? "ההתראות חסומות בהגדרות הטלפון. כדי לקבל אותן, אפשרו התראות ללוחית בהגדרות האפליקציה בטלפון." : "התראה כשנפתח ריקול חדש לרכב שמור, וחודש ושבוע לפני שהטסט שלו פג.";
 }
 // alert slots go to the cars that were saved first, so a new car never takes the slot of one the user already follows
@@ -3368,15 +3372,29 @@ function isMine(D){
   const m = mineAll()[D.plate];
   return m === 1 || (m !== 0 && hasFile(D.plate));
 }
-function setMine(D, on){
+function setMine(D, on, from){
   const m = mineAll(); m[D.plate] = on ? 1 : 0;
   try { localStorage.setItem("mine", JSON.stringify(m)); } catch {}
-  track(on ? "mine_set" : "mine_unset", {saved: isSaved(D.plate) ? 1 : 0});
+  track(on ? "mine_set" : "mine_unset", on ? {saved: isSaved(D.plate) ? 1 : 0, from: from || "overview"} : {saved: isSaved(D.plate) ? 1 : 0});
 }
-/* the calm row at the end of the overview that opens the file; never on a shared report, a model or a car off the road */
+/* a file can be opened for this car: never on a shared report, a model or a car off the road, nor when it is already the owner's */
+const fileOk = D => !!D && D.kind !== "model" && !!D.plate && !D.isCancelled && !reportBuild && !sharedHere(D) && !isMine(D);
+/* the home line "יש לכם כבר רכב?" leads to the plate field; the next car opened from there counts its file as from home */
+let fileIntent = false;
+const anyMine = () => { const m = mineAll(); return Object.values(m).some(v => v === 1) || store.get("savedVehicles").some(s => m[s.plate] !== 0 && hasFile(s.plate)); };
+/* "shown" for the file row: once per car per visit, when most of it is on screen */
+const ctaSeen = new Set();
+function watchCta(p){
+  if (ctaSeen.has(p) || !("IntersectionObserver" in window)) return;
+  const el = document.querySelector(".cf-cta"); if (!el) return;
+  const io = new IntersectionObserver(es => { if (!es.some(x => x.isIntersecting)) return; io.disconnect(); if (ctaSeen.has(p)) return; ctaSeen.add(p); track("file_cta_shown", {from: "overview"}); }, {threshold: 0.6});
+  io.observe(el);
+}
+/* the calm row in the overview, above the ownership history, that opens the file */
 function fileCta(D){
-  if (D.kind === "model" || !D.plate || D.isCancelled || reportBuild || sharedHere(D) || isMine(D)) return "";
-  return `<div class="cf-cta"><span><b>זה הרכב שלכם?</b> פתחו לו תיק: מה הבא, טיפולים ומסמכים, במקום אחד ורק בטלפון שלכם.</span><button type="button" class="link-btn" data-cf="mine">${ico("car")}פתיחת תיק</button></div>`;
+  if (!fileOk(D)) return "";
+  setTimeout(() => { if (current === D) watchCta(D.plate); }, 0);
+  return `<div class="cf-cta"><span><b>זה הרכב שלכם?</b> פתחו לו תיק: מה הבא, טיפולים ומסמכים, במקום אחד ורק בטלפון שלכם.</span><button type="button" class="link-btn" data-cf="mine" data-from="overview">${ico("car")}פתיחת תיק</button></div>`;
 }
 const RENEW_URL = "https://www.gov.il/he/service/car_licence_renewal";
 const ROAD_CATS = ["רישיון רכב", "ביטוח", "רישיון נהיגה"];
@@ -3522,6 +3540,8 @@ function tabFile(D){
   html.push(fileTiles(D, n, est));
   html.push(fileNext(D, info, n, est));
   html.push(`<div class="cf-quick"><button type="button" ${maintOk() ? `data-cf="svc" aria-expanded="false"` : `data-act="proInfo"`}>${ico("wrench")}טיפול</button><button type="button" data-cf="doc">${ico("camera")}קבלה או מסמך</button><button type="button" ${maintOk() ? `data-cf="km" aria-expanded="false"` : `data-act="proInfo"`}>${ico("chart")}עדכון ק״מ</button></div>${maintOk() ? svcForm() : ""}`);
+  // the owner has no buy tab: today's value estimate, one line
+  if (D.cost && D.cost.valueLow && D.cost.valueHigh) html.push(`<div class="cf-val"><span>שווי היום (הערכה)</span><b><span dir="ltr" style="unicode-bidi:isolate;white-space:nowrap">${Math.round(D.cost.valueLow / 1000)}–${Math.round(D.cost.valueHigh / 1000)}</span> אלף ₪</b><small>לפי מחיר מחירון, שנה וק״מ, בלי מצב הרכב ותאונות.</small></div>`);
   html.push(card("היסטוריה", "rotate", "violet", `<div id="cfHist">${fileHist(D, cfDocs)}</div>`));
   html.push(docsCard(D));
   const cost = costInner(D);
@@ -3548,22 +3568,24 @@ document.addEventListener("click", ev => {
   if (b.dataset.cfh === "more") cfMore = true; else { cfFilter = b.dataset.cfh; cfMore = false; }
   const el = $("#cfHist"); if (el) el.innerHTML = fileHist(current, cfDocs);
 });
+/* open the car's file: mark it as the owner's, save it when it is not saved yet, and go to the file tab. from: overview, menu or home */
+function openFile(D, from){
+  fileIntent = false;
+  setMine(D, true, from);
+  if (!isSaved(D.plate)) {
+    const on = toggleSaved(newSavedItem(D));
+    if (on) { startTrial(); cohSaved(); track("car_save", {n: String(Math.min(store.get("savedVehicles").length, 4)) + (store.get("savedVehicles").length > 3 ? "+" : ""), from: "file"}); }
+    if (on && alertsSupported()) { let asked = false; try { asked = !!localStorage.getItem("alertsAsked"); localStorage.setItem("alertsAsked", "1"); } catch {} if (!asked) try { window.AndroidApp.setAlerts(true); } catch {} }
+    if (on) homeSheetMaybe();
+  }
+  currentTab = "file"; renderResult(); focusResult();
+  const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"});
+  toast("נפתח תיק לרכב. מה שתרשמו נשמר רק בטלפון הזה");
+}
 $("#out").addEventListener("click", ev => {
   const b = ev.target.closest("[data-cf]"); if (!b || !current) return;
   const D = current, a = b.dataset.cf;
-  if (a === "mine") {
-    setMine(D, true);
-    if (!isSaved(D.plate)) {
-      const on = toggleSaved(newSavedItem(D));
-      if (on) { startTrial(); cohSaved(); track("car_save", {n: String(Math.min(store.get("savedVehicles").length, 4)) + (store.get("savedVehicles").length > 3 ? "+" : ""), from: "file"}); }
-      if (on && alertsSupported()) { let asked = false; try { asked = !!localStorage.getItem("alertsAsked"); localStorage.setItem("alertsAsked", "1"); } catch {} if (!asked) try { window.AndroidApp.setAlerts(true); } catch {} }
-      if (on) homeSheetMaybe();
-    }
-    currentTab = "file"; renderResult(); focusResult();
-    const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"});
-    toast("נפתח תיק לרכב. מה שתרשמו נשמר רק בטלפון הזה");
-    return;
-  }
+  if (a === "mine") { openFile(D, fileIntent ? "home" : b.dataset.from || "overview"); return; }
   if (a === "unmine") {
     if (!confirm("להסתיר את תיק הרכב? הטיפולים והמסמכים שרשמתם נשארים בטלפון, ויחזרו אם תפתחו את התיק שוב.")) return;
     setMine(D, false); currentTab = "overview"; renderResult(); focusResult(); toast("התיק הוסתר");
@@ -3659,6 +3681,7 @@ function tabOverview(D){
   ]) + (!D.isCancelled && D.cost && D.cost.fee ? `<p class="note">האגרה לפי התעריף הרשמי לשנת 2026${new Date() >= new Date(2027, 3, 1) ? ", וייתכן שכבר עודכן מאז" : ""}, בלי הנחות.</p>` : "") + (noTest ? `<p class="note">משרד התחבורה לא מפרסם במאגרים הפתוחים תאריכי טסט ${noTest}.</p>` : D.kind !== "model" && !D.isCancelled && !licOf(D) ? `<p class="note">המאגר של משרד התחבורה לא מראה תאריך תוקף לטסט של הרכב הזה.</p>` : "")
     + (calDate(D) && !pushCoversTest(D) ? calendarBtn(D) : "")));
 
+  html.push(fileCta(D));
   const fo = firstOwner(v);
   const foLine = fo ? `<div class="first-own"><b>בעלות ראשונה: ${esc(fo)}</b>${ownerKind(fo).text ? `<span>${esc(ownerKind(fo).text)}</span>` : ""}</div>` : "";
   if (D.own.length) {
@@ -3678,7 +3701,6 @@ function tabOverview(D){
   html.push(card("שינויים ברכב", "wrench", "teal", modsCard(v)));
   html.push(...towHtml);
   if (!evFirst) html.push(evCard);
-  html.push(fileCta(D));
   return html.join("");
 }
 
@@ -5927,7 +5949,7 @@ function carMenu(b){
   const box = b.parentElement, open = box.querySelector(".ch-menu");
   if (open) { open.remove(); b.setAttribute("aria-expanded", "false"); return; }
   const D = current, saved = D.plate && D.kind !== "model" && savedItem(D.plate);
-  const items = [...(isMine(D) ? [["share", "שיתוף הדוח"]] : []), ["compare", "השוואה עם רכב אחר"], ["simple", simpleOn() ? "תצוגה מלאה" : "תצוגה פשוטה"], ...(saved ? [["nickCar", saved.nick ? "שינוי כינוי" : "הוספת כינוי"], ["unsaveCar", "הסרה מהרכבים שלי", "danger"]] : [])];
+  const items = [...(isMine(D) ? [["share", "שיתוף הדוח"]] : []), ["compare", "השוואה עם רכב אחר"], ...(fileOk(D) ? [["mineMenu", "זה הרכב שלי"]] : []), ["simple", simpleOn() ? "תצוגה מלאה" : "תצוגה פשוטה"], ...(saved ? [["nickCar", saved.nick ? "שינוי כינוי" : "הוספת כינוי"], ["unsaveCar", "הסרה מהרכבים שלי", "danger"]] : [])];
   box.insertAdjacentHTML("beforeend", `<div class="ch-menu" role="menu">${items.map(([a, t, c]) => `<button type="button" role="menuitem" data-act="${a}"${c ? ` class="${c}"` : ""}>${t}</button>`).join("")}</div>`);
   b.setAttribute("aria-expanded", "true");
   const f = box.querySelector(".ch-menu button"); if (f) f.focus();
@@ -6043,7 +6065,7 @@ function alertItems(){
   for (const s of store.get("savedVehicles")) {
     const L = licSaved(s), name = s.nick || s.title;
     if (s.active === false) { out.push({lv: "bad", s, t: "הרכב ירד מהכביש", b: name, go: "open"}); continue; }
-    if (s.recalls > 0) out.push({lv: "bad", s, t: `${recallsWord(s.recalls)} ${/^[\u0590-\u05ff]/.test(s.title) ? "ב" : "ב-"}${s.title}`, b: `${s.nick ? s.nick + ". " : ""}התיקון בחינם אצל היבואן, כדאי לתאם מועד.`, go: "recalls", g: "פרטים"});
+    if (s.recalls > 0) out.push({lv: "bad", s, k: recallsWord(s.recalls), t: `${recallsWord(s.recalls)} ${/^[\u0590-\u05ff]/.test(s.title) ? "ב" : "ב-"}${s.title}`, b: `${s.nick ? s.nick + ". " : ""}התיקון בחינם אצל היבואן, כדאי לתאם מועד.`, go: "recalls", g: "פרטים"});
     if (L) {
       if (L.k === "bad") out.push({lv: "bad", s, t: "הטסט פג", b: `${name}. התוקף הסתיים ב-${L.date}.`, go: "open", g: "פרטים"});
       else if (L.k !== "ok") out.push({lv: "warn", s, t: "לא ברור אם הטסט חודש", b: name, go: "open", g: "פרטים"});
@@ -6061,7 +6083,7 @@ function renderAlerts(){
   const all = store.get("savedVehicles"), items = alertItems(), html = [];
   html.push(`<header class="vhead"><h2 class="vh-t" id="alertsHead" tabindex="-1">התראות</h2><p class="vh-s">${!all.length ? "ריקולים וטסט של הרכבים ששמרתם" : alertsSupported() ? "מה דורש פעולה, ועל מה תקבלו התראה לטלפון" : "מה דורש פעולה ברכבים ששמרתם"}</p></header>`);
   if (!all.length) html.push(emptyCard("אין עדיין רכבים לעקוב אחריהם", "bell", "blue", `<p style="margin:0 0 10px">שומרים רכב בכוכב שבראש הדוח, ומכאן רואים ריקול פתוח וטסט שמתקרב${alertsSupported() ? ", ומקבלים התראה לטלפון" : ""}.</p><button type="button" class="link-btn" data-act="addCar">${ico("search")}בדיקת רכב</button>`));
-  else if (!items.length) html.push(`<div class="allok"><span class="ai">${ico("check")}</span><div><b>הכול תקין</b><br><small style="color:var(--muted)">אין ריקול פתוח ואין טסט בחודש הקרוב.${alertsSupported() ? " נתריע כשמשהו ישתנה." : ""}</small></div></div>`);
+  else if (!items.length) html.push(`<div class="allok"><span class="ai">${ico("check")}</span><div><b>הכול תקין</b><br><small style="color:var(--muted)">אין ריקול פתוח ואין טסט בחודש הקרוב.${alertsOn() ? " נתריע כשמשהו ישתנה." : ""}</small></div></div>`);
   else html.push(`<div class="aitems">${items.map((x, i) => `<div class="aitem ${x.lv}"><span class="ai">${ico(x.go === "cal" ? "clock" : "alert")}</span><div class="t"><b>${esc(x.t)}</b><small>${esc(x.b)}</small>
       <div class="acts"><button type="button" class="ap" data-open="${x.s.plate}" aria-label="פתיחת הרכב ${fmtPlate(x.s.plate)}"><span class="mini-plate"><i></i>${fmtPlate(x.s.plate)}</span></button><button type="button" class="ago" data-aitem="${i}">${x.g || "פרטים"}</button></div></div></div>`).join("")}</div>`);
   // what changed lately: the daily check's log of each car, the last two weeks
@@ -6072,7 +6094,7 @@ function renderAlerts(){
       let st = "off"; try { st = window.AndroidApp.alertsState(); } catch {}
       const set = alertSet(), pr = alertPrefs();
       html.push(`<div class="qhead">להתריע על</div><div class="arows">
-        <div class="arow"><div class="t"><b>התראות בטלפון</b><small>${st === "blocked" ? "חסומות בהגדרות הטלפון. כדי לקבל אותן, אפשרו התראות ללוחית בהגדרות האפליקציה בטלפון." : "ריקול חדש לרכב שמור, ותזכורות לפני שהטסט פג."}</small></div><button type="button" class="sw" role="switch" aria-checked="${st !== "off"}" data-alerts="${st !== "off" ? "off" : "on"}" aria-label="התראות בטלפון"></button></div>
+        <div class="arow"><div class="t"><b>התראות בטלפון</b><small>${st === "blocked" ? "כבויות: הטלפון חוסם התראות מלוחית. כדי לקבל אותן, אפשרו התראות ללוחית בהגדרות האפליקציה בטלפון." : "ריקול חדש לרכב שמור, ותזכורות לפני שהטסט פג."}</small></div><button type="button" class="sw" role="switch" aria-checked="${st === "on"}" data-alerts="${st === "on" ? "off" : "on"}" aria-label="התראות בטלפון"></button></div>
         ${all.map(s => { const on = s.alerts !== false && (!PRO_LOCK || set.includes(s.plate)); return `<div class="arow"><div class="t"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><small>${esc(s.nick || s.title)}</small></div><button type="button" class="sw" role="switch" aria-checked="${on}" data-bell="${s.plate}" aria-label="התראות על ${esc(s.nick || s.title)}"></button></div>`; }).join("")}
       </div>
       <details class="akinds"><summary>סוגי ההתראות</summary><div class="kinds">${ALERT_KINDS.map(([k, t, pro]) => `<label><input type="checkbox" data-kind="${k}"${pr[k] === false ? "" : " checked"}>${esc(t)}${pro && PRO_LOCK ? " (PRO)" : ""}</label>`).join("")}</div>
@@ -6112,6 +6134,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.alerts && document.body.dataset.screen === "alerts") { ev.stopImmediatePropagation(); try { window.AndroidApp.setAlerts(b.dataset.alerts === "on"); localStorage.setItem("alertsAsked", "1"); } catch {} setTimeout(refreshView, 300); return; }
   if (b.dataset.open && (document.body.dataset.screen === "cars")) carsY = window.scrollY;
   if (!a) return;
+  if (a === "fileHome") { ev.stopImmediatePropagation(); fileIntent = true; window.scrollTo({top: 0, behavior: "smooth"}); $("#plate").focus(); toast("הקלידו את מספר הרכב שלכם, ובדף הרכב לחצו \"פתיחת תיק\""); return; }
   if (a === "addCar") { ev.stopImmediatePropagation(); navTo("search", {via: "add"}); setTimeout(() => $("#plate").focus(), 50); return; }
   if (a === "carsCancel") { ev.stopImmediatePropagation(); carsSel = null; renderCars(); return; }
   if (a === "carsFab") { ev.stopImmediatePropagation();
@@ -6122,6 +6145,7 @@ $("#out").addEventListener("click", ev => {
   if (a === "back") { ev.stopImmediatePropagation(); leaveCar(); return; }
   if (a === "cmenu") { ev.stopImmediatePropagation(); carMenu(b); return; }
   if (a === "nickCar") { ev.stopImmediatePropagation(); closeCarMenu(); nickInline(); return; }
+  if (a === "mineMenu") { ev.stopImmediatePropagation(); closeCarMenu(); openFile(current, "menu"); return; }
   if (a === "unsaveCar") { ev.stopImmediatePropagation(); closeCarMenu(); store.set("savedVehicles", store.get("savedVehicles").filter(x => x.plate !== current.plate)); track("car_unsave", {from: "menu"}); toast("הרכב הוסר מהרכבים שלי"); const y = window.scrollY; renderResult(); window.scrollTo({top: y}); return; }
   if (b.closest(".ch-menu")) closeCarMenu();
 }, true);
@@ -6601,7 +6625,8 @@ function renderHome(){
   const pn = planNotice(); if (pn) html.push(pn);
   // what needs attention on a saved car opens "התראות"; the cars themselves live in "הרכבים שלי"
   const attn = saved.filter(carAttn);
-  if (attn.length) html.push(`<button type="button" class="attn${attn.some(s => carLevel(s) === "bad") ? "" : " warn"}" data-nav="alerts" data-via="attn"><span class="ai">${ico("alert")}</span><span class="t"><b>${attn.length === 1 ? "רכב אחד מהרכבים שלכם צריך תשומת לב" : `${attn.length} מהרכבים שלכם צריכים תשומת לב`}</b><small>${esc(alertItems().slice(0, 2).map(x => x.t.replace(/ ב-.*$/, "") + ": " + (x.s.nick || x.s.title)).join(" · "))}</small></span>${ico("chev")}</button>`);
+  if (attn.length) html.push(`<button type="button" class="attn${attn.some(s => carLevel(s) === "bad") ? "" : " warn"}" data-nav="alerts" data-via="attn"><span class="ai">${ico("alert")}</span><span class="t"><b>${attn.length === 1 ? "רכב אחד מהרכבים שלכם צריך תשומת לב" : `${attn.length} מהרכבים שלכם צריכים תשומת לב`}</b><small>${alertItems().slice(0, 2).map(x => `${esc(x.k || x.t)}: <bdi>${esc(x.s.nick || x.s.title)}</bdi>`).join(" · ")}</small></span>${ico("chev")}</button>`);
+  if ((saved.length || recent.length) && !anyMine()) html.push(`<div class="tlist hfile"><button type="button" class="trow" data-act="fileHome"><i class="tb blue">${ico("car")}</i><span class="t"><b>יש לכם כבר רכב? פתחו לו תיק</b><small>טסט, טיפולים ומסמכים לנסיעה, במקום אחד</small></span>${ico("chev")}</button></div>`);
   if (recent.length) html.push(`<section class="recents" aria-label="בדיקות אחרונות"><div class="qhead">בדיקות אחרונות</div><div class="rc-row">${recent.map(p => { const s = saved.find(x => x.plate === p); return `<button type="button" class="rc" data-open="${p}"><span class="mini-plate"><i></i>${fmtPlate(p)}</span>${s ? `<small><bdi>${esc(s.nick || s.title)}</bdi></small>` : ""}</button>`; }).join("")}</div></section>`);
   const tool = (act, icon, title, text, tag, col) => `<button type="button" class="trow" data-act="${act}"><i class="tb ${col}">${ico(icon)}</i><span class="t"><b>${title}${tag ? PT(tag) : ""}</b><small>${text}</small></span>${ico("chev")}</button>`;
   html.push(`<div class="qhead">כלים</div><div class="tlist">${[
