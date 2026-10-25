@@ -603,9 +603,14 @@ function compare(c, X, P) {
     if (!mirror && own.length) {
       const ins = (cardOf(P, "overview", /^מידע חשוב/) || {items: []}).items;
       check(c, "owners.insight_rental", past.some(t => /השכר/.test(t)) === ins.includes("היה רכב השכרה"), ins.join(" | ").slice(0, 120), past.some(t => /השכר/.test(t)) ? "היה רכב השכרה" : "(none)", "");
-      const pl = past.some(t => /החכר|ליסינג/.test(t));
+      // an owner held for 3 months or less (to the next transfer's month) is a registration before delivery and makes no lease or dealer line
+      const monA = d => d.getFullYear() * 12 + d.getMonth(), endA = cancelled ? ym(R.bitul_dt) : new Date();
+      const span = i => { const a = ym(own[i].baalut_dt), b = i < own.length - 1 ? ym(own[i + 1].baalut_dt) : inLog ? endA : null; return a && b ? Math.max(0, monA(b) - monA(a)) : null; };
+      const held = i => span(i) == null || span(i) > 3, road = ym(R.moed_aliya_lakvish), a0 = ym(own[0].baalut_dt);
+      const newAtFirst = !!road && !!a0 && Math.abs(monA(a0) - monA(road)) <= 1;
+      const pl = past.some((t, i) => /החכר|ליסינג/.test(t) && held(i));
       check(c, "owners.insight_lease", pl === ins.includes("היה רכב ליסינג"), ins.join(" | ").slice(0, 120), pl ? "היה רכב ליסינג" : "(none)", pl ? "a past log record is " + past.filter(t => /החכר|ליסינג/.test(t)).join(",") : "");
-      const coNow = own.length > 1 && FLEET.includes(curK), dealerNow = curK === "dealer", wasDealer = !dealerNow && past.some(t => DEALER.test(t));
+      const coNow = own.length > 1 && FLEET.includes(curK), dealerNow = curK === "dealer", wasDealer = !dealerNow && past.some((t, i) => DEALER.test(t) && !(i === 0 && !held(0) && newAtFirst));
       check(c, "owners.insight_company_now", coNow === ins.includes("הרכב רשום כעת על חברה"), ins.join(" | ").slice(0, 120), coNow ? "הרכב רשום כעת על חברה" : "(none)", `current owner ${curK} (register "${R.baalut || ""}")`);
       check(c, "owners.insight_dealer_now", dealerNow === ins.includes("הרכב רשום כעת על סוחר"), ins.join(" | ").slice(0, 120), dealerNow ? "הרכב רשום כעת על סוחר" : "(none)", `current owner ${curK} (register "${R.baalut || ""}")`);
       check(c, "owners.insight_was_dealer", wasDealer === ins.includes("היה אצל סוחר"), ins.join(" | ").slice(0, 120), wasDealer ? "היה אצל סוחר" : "(none)", "");
