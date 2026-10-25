@@ -1,0 +1,20 @@
+{
+ "at": "2026-10-25T21:41:17.015Z",
+ "modes": {
+  "A": "on",
+  "B": "observe",
+  "C": "off",
+  "D": "off",
+  "E": "off",
+  "SEO": "on"
+ },
+ "rows": [
+  {
+   "d": "2026-10-25",
+   "z": "SEO",
+   "m": "on",
+   "x": "… static pages: Google Play line shown on iPhone/iPad -> hidden there (p.gp hidden on iOS via lib/cfb.js, main …a…)",
+   "r": "kept"
+  }
+ ]
+}
