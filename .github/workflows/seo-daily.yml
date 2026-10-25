@@ -61,6 +61,8 @@ jobs:
     if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      contents: write   # only for the alert router's state on the branch alert-state; this job never writes main
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v7
@@ -96,6 +98,8 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}   # the alert router (alert.mjs): its state lives on the branch alert-state
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: New mentions of luchit.app (Google Alerts)
         # Silent Telegram message only when Google Alerts found a new mention; a broken feed never fails the digest. Already done when the digest was,
         # and not part of a manual weekly_only run.
@@ -106,6 +110,8 @@ jobs:
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Keep the sent mark for a re-run
         if: ${{ !cancelled() && hashFiles('digest-sent.txt') != '' }}
         continue-on-error: true

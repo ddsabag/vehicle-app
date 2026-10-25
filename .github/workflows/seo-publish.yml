@@ -35,6 +35,8 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}   # the alert router (alert.mjs): its state lives on the branch alert-state
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DRY: ${{ inputs.dry_run && '1' || '0' }}
           CHECK: "1"
         run: node .github/scripts/seo-publish.mjs
@@ -58,5 +60,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}   # the alert router (alert.mjs): its state lives on the branch alert-state
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DRY: ${{ inputs.dry_run && '1' || '0' }}
         run: node .github/scripts/seo-publish.mjs
