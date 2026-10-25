@@ -142,6 +142,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 
 /* identity */
 .id-card{gap:14px}
+.id-cmp{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:44px;border:1px solid var(--line);border-radius:12px;background:transparent;color:var(--accent);font-weight:800;font-size:1rem}   /* one visible way to compare (Dudu 25.10: a fifth of 1.37 checkers opened compare) */
 .plate-strip{position:fixed;inset-inline:0;top:env(safe-area-inset-top,0px);z-index:30;display:flex;align-items:center;gap:10px;padding:7px 16px;background:var(--card);border-bottom:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.08);transform:translateY(-110%);transition:transform .18s;pointer-events:none}
 .plate-strip.on{transform:none}
 .plate-strip b{font-weight:800;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.plate-strip span:last-child:not(.mini-plate){color:var(--muted);font-variant-numeric:tabular-nums}
@@ -644,7 +645,7 @@ body.land .band{display:none}
 .cmp-v{font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:normal!important;font-size:.95rem}
 .cmp-v.na{color:var(--muted);font-size:.78rem}.cmp-v.win{font-weight:700;background:var(--soft);border-radius:8px}.cmp-v.win::after{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-inline-start:5px;vertical-align:middle}
 .cmp-h.fail{border:1px dashed var(--line);background:transparent;justify-content:center;text-align:center;align-items:center}.cmp-h.fail small{white-space:normal;color:var(--muted)}.cmp-h.fail .retry{border:0;border-radius:8px;background:var(--fg);color:var(--card);font:inherit;font-weight:700;font-size:.78rem;padding:6px 10px;min-height:32px;margin-top:4px}
-.cmp-sec button{all:unset;cursor:pointer;display:flex;justify-content:space-between;align-items:center;width:100%;min-height:36px}.cmp-sec button small{font-weight:400;color:var(--muted);font-size:.78rem}.cmp-sec button svg.i{width:16px;height:16px;transition:transform .15s}.cmp-sec button[aria-expanded="false"] svg.i{transform:rotate(180deg)}
+.cmp-sec button{all:unset;cursor:pointer;display:flex;align-items:center;gap:10px;width:100%;min-height:36px}.cmp-sec button small{margin-inline-start:auto;font-weight:400;color:var(--muted);font-size:.78rem}.cmp-sec button[aria-expanded="true"] svg.i{margin-inline-start:auto}.cmp-sec button svg.i{width:16px;height:16px;transition:transform .15s}.cmp-sec button[aria-expanded="true"] svg.i{transform:rotate(180deg)}   /* down while folded, up when open (Dudu 25.10) */
 .cmp-save{border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font:inherit;font-weight:700;font-size:.78rem;padding:6px 4px;min-height:36px;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cmp-save[aria-pressed="true"]{background:var(--soft);color:var(--muted);font-weight:400}
 .cmp-v .yes{color:var(--fg);font-weight:800}.cmp-v .no{color:var(--muted);font-weight:400}
 @media (max-width:360px){.facts{grid-template-columns:1fr}}
@@ -2940,6 +2941,7 @@ function renderResult(){
       <span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span></div>
     ${!simpleOn() && facts.some(Boolean) ? `<div class="pills fstrip" aria-label="עובדות עיקריות">${facts.filter(Boolean).join("")}</div>` : ""}
     ${pills.length && !simpleOn() ? `<div class="pills">${pills.join("")}</div>` : ""}
+    <button type="button" class="id-cmp" data-act="compare" data-from="card">${ico("compare")}השוואה עם רכב אחר</button>
   </section>`);
 
   // Off the road, and a test that ended in the simple view (the full view says it in the overview cards): banners above everything else
@@ -4240,7 +4242,7 @@ async function fetchModel(r, signal){
 const isBiz = () => atLeast("biz");
 const cmpMax = () => Math.min(isPro() ? PRO_CMP : FREE_CMP, matchMedia("(max-width:419px)").matches ? 3 : 99);   // narrow screens: more columns break the sticky header and the row labels
 let cmp = [], inCompare = false, mResults = [], mCtrl = null;
-const CMP_FOLDED = new Set(["מערכות בטיחות ואבזור"]), cmpOpen = new Set();   // sections folded by default in the comparison
+const cmpOpen = new Set();   // the comparison's sections open only on a tap (Dudu 25.10: all folded by default, each opens what interests them)
 function openCompare(from){
   loadModelIndex(); loadModelStats().catch(() => null);
   $("#compareSheet").hidden = false; $("#compareMsg").textContent = "";
@@ -4762,7 +4764,7 @@ function renderCompare(){
     sec.n++; sec.html.push(`<div class="cmp-k">${esc(k)}</div>` + vals.map((x, i) => na[i] ? `<div class="cmp-v na" title="לא קיים לדגם כללי">דגם</div>` : `<div class="cmp-v${best !== null && x === best ? " win" : ""}">${cell(x, u, plain)}</div>`).join(""));
   }
   const body = secs.filter(x => x.n).map(x => {
-    const open = cmpOpen.has(x.title) || !CMP_FOLDED.has(x.title);
+    const open = cmpOpen.has(x.title);
     return `<div class="cmp-sec"><button type="button" data-sec="${esc(x.title)}" aria-expanded="${open}">${esc(x.title)}${open ? "" : `<small>${x.n} שורות</small>`}${ico("chev")}</button></div>` + (open ? x.html.join("") : "");
   }).join("") + (OK.some(D => D.plate) ? `<div class="cmp-k">ברכבים שלי</div>` + L.map((D, i) => `<div class="cmp-v">${D.plate && D.kind !== "fail" ? `<button type="button" class="cmp-save" data-cmpsave="${i}" aria-pressed="${isSaved(D.plate)}">${isSaved(D.plate) ? "נשמר ✓" : "שמירה"}</button>` : ""}</div>`).join("") : "");
   const head = (D, i) => D.kind === "fail" ? `<div class="cmp-h fail"><div class="cmp-top"><span class="mini-plate"><i></i>${esc(D.title)}</span><button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><small>${esc(D.why)}</small>${D.retry ? `<button type="button" class="retry" data-retry-cmp="${i}">נסו שוב</button>` : ""}</div>` : `<div class="cmp-h"><div class="cmp-top">${D.kind === "model" ? `<span class="tag">דגם</span>` : `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>`}<button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><b title="${esc(D.title)}"><bdi>${esc(D.title)}</bdi></b><small><bdi>${esc(D.alts && D.alts.length > 1 ? String(D.v.shnat_yitzur || "") : D.sub)}</bdi></small>${ownW(D) ? "" : `<span class="note">${esc(wFrom(D))}</span>`}${D.alts && D.alts.length > 1 ? `<select class="trim-sel" data-trim="${i}" aria-label="רמת גימור">${(mixed => D.alts.map((r, j) => `<option value="${j}"${rowKey(r) === D.key ? " selected" : ""}>${esc(altLabel(r, mixed))}</option>`).join(""))(new Set(D.alts.map(engKey)).size > 1)}</select>` : ""}</div>`;
@@ -4832,7 +4834,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.nicksave) { const i = b.parentElement.querySelector("input"); nickSave(b.dataset.nicksave, i ? i.value : ""); return; }
   if (b.dataset.rm) { cmp.splice(+b.dataset.rm, 1); renderCompare(); return; }
   if (b.dataset.retryCmp) { retryCompare(+b.dataset.retryCmp); return; }
-  if (b.dataset.sec) { const t = b.dataset.sec, y = window.scrollY; if (b.getAttribute("aria-expanded") === "true") { cmpOpen.delete(t); CMP_FOLDED.add(t); } else { cmpOpen.add(t); } renderCompare(); window.scrollTo(0, y); return; }
+  if (b.dataset.sec) { const t = b.dataset.sec, y = window.scrollY; if (b.getAttribute("aria-expanded") === "true") cmpOpen.delete(t); else cmpOpen.add(t); renderCompare(); window.scrollTo(0, y); return; }
   if (b.dataset.cmpsave) { const D = cmp[+b.dataset.cmpsave]; if (D && D.plate && D.kind !== "fail") { const on = toggleSaved(newSavedItem(D)); toast(on ? "נשמר ברכבים שלי" : "הוסר מהרכבים שלי"); const y = window.scrollY; renderCompare(); window.scrollTo(0, y); } return; }
   if (b.dataset.act === "addCompare") { openCompare(); return; }
   if (b.dataset.act === "compareHome") { cmp = []; renderCompare(); openCompare("search"); return; }
@@ -4885,7 +4887,7 @@ $("#out").addEventListener("click", ev => {
   if (act === "calendar") { track("calendar_reminder_click", {where: window.AndroidApp ? "app" : "web"}); testReminder(current); }
   if (act === "fuelUnit") { try { localStorage.setItem("fuelUnit", kmlUnit() ? "l100" : "kml"); } catch {} syncUnit(); renderResult(); }
   // from a car page the car on screen is the first one compared, so the picker adds the second (until 1.38 it started empty, and the car looked up was missing)
-  if (act === "compare") { track("compare_open"); cmp = current && current.kind !== "fail" ? [current] : []; renderCompare(); openCompare("model"); }
+  if (act === "compare") { track("compare_open", {from: b.dataset.from || "menu"}); cmp = current && current.kind !== "fail" ? [current] : []; renderCompare(); openCompare("model"); }
   if (act === "save") {
     const on = toggleSaved(newSavedItem(current));
     if (on) { startTrial(); cohSaved(); }
@@ -4990,7 +4992,7 @@ function buildReport(D, full, biz){
   else { reportBuild++; try { for (const [k, t] of tabs) { if (full) parts.push(`<h3 class="rep-sec">${t}</h3>`); parts.push(TAB_FN()[k](D)); } } finally { reportBuild--; } }
   parts.push(`<p class="rep-foot">${biz ? bizFoot(biz) : "המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il, ואינו מחליף נסח רישום רשמי. " + BRAND_FOOT}</p>`);
   el.innerHTML = parts.join("");
-  el.querySelectorAll(".buyer-card, .insp, .alert-banner button, .vsw, .simple-more, .simple .copy-btn, .ckl [data-retry]").forEach(x => x.remove());
+  el.querySelectorAll(".id-cmp, .buyer-card, .insp, .alert-banner button, .vsw, .simple-more, .simple .copy-btn, .ckl [data-retry]").forEach(x => x.remove());
   // cards that only point to a website make no sense on paper
   el.querySelectorAll(".card").forEach(c => { const t = (c.querySelector(".head h2") || {}).textContent || ""; if (/^(לפני שקונים|בדיקה באתר היבואן|ספר הרכב)/.test(t.trim())) c.remove(); });
   // the personal tracking log is not for sharing
