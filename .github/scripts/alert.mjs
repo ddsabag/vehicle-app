@@ -138,6 +138,9 @@ export const LABELS = {
   "auto:mode":           { he: "מצב האוטומציה השתנה: {ids}", sect: "fyi", ids: { observe: "הכל במצב צפייה בלבד", restore: "המצבים הקודמים חזרו" } },
   "pipe":                { he: "בדיקת צנרת האנליטיקה מצאה בעיה: {ids}", sect: "fail",   // pipe-canary.mjs (Web watch); ids = its checks
                            ids: { web: "אירועים מהאתר", app: "אירועים מהאפליקציה", errors: "קפיצה בשגיאות קוד", ga: "אין נתונים ב-GA4" } },
+  "relguard":            { he: "גרסה חדשה מחוץ לסף אחרי השחרור: {id}", sect: "fail" },   // release-guard.mjs (Release guard); id = version-dN
+  "relguard:ok":         { he: "גרסה חדשה בטווח אחרי השחרור: {id}", sect: "none" },
+  "relguard:thin":       { he: "אין מספיק נתונים לבדיקת גרסה אחרי השחרור: {id}", sect: "none" },
 };
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
 export const FAMILIES_IN_USE = [
@@ -149,6 +152,7 @@ export const FAMILIES_IN_USE = [
   "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:wait", "prod:fail",
   "stl:update", "stl:stuck", "truth", "truth:fail", "truth:inv", "live:stuck", "live:error", "pipe",
   "social:fail", "social:missed", "social:unsure", "social:held", "social:done", "social:remind", "social:check", "exp", "auto:done", "auto:revert", "auto:mode",
+  "relguard", "relguard:ok", "relguard:thin",
 ];
 
 const TODAY = ["loud", "silent", "none"];
