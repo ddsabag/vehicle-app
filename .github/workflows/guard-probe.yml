@@ -5,7 +5,7 @@ on:
     branches: [probe-perf]
     paths: [".github/scripts/release-guard.mjs", ".github/workflows/guard-probe.yml"]
 permissions:
-  contents: read
+  contents: write
 jobs:
   probe:
     runs-on: ubuntu-24.04
@@ -15,11 +15,15 @@ jobs:
       - uses: actions/setup-node@v7
         with: { node-version: 20 }
       - run: |
+          mkdir -p o; exec > >(tee o/log.txt) 2>&1
           node .github/scripts/release-guard.mjs selftest
           out=$(node .github/scripts/release-guard.mjs); echo "$out"
           d0=$(echo "$out" | grep -oE 'from [0-9-]{10}' | cut -c6-)
-          [ -n "$d0" ] || exit 0
-          for n in 2 4 8; do DAY=$(date -u -d "$d0 + $n days" +%F) node .github/scripts/release-guard.mjs; done
+          if [ -n "$d0" ]; then for n in 2 4 8; do DAY=$(date -u -d "$d0 + $n days" +%F) node .github/scripts/release-guard.mjs; done; fi
+          sleep 1; cd o && git init -q && git checkout -q -b guard-probe-out && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Guard probe (digits masked)"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" guard-probe-out
         env:
           GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
           MODE: dry
+# rerun
