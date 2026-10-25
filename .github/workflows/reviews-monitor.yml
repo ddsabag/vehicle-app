@@ -1,5 +1,6 @@
 name: Reviews monitor
 # Three times a day, by day only: new 1-3 star Google Play reviews (last 7 days) and Play vitals crash/ANR thresholds, sent to Telegram.
+# Also an encrypted snapshot of the week's reviews (branch feedback-data) for the weekly feedback digest.
 # 06:15/11:15/17:15 UTC = 09:15/14:15/20:15 Israel summer time (UTC+3), 08:15/13:15/19:15 winter time (UTC+2): never at night in either.
 on:
   schedule:
@@ -44,6 +45,12 @@ jobs:
           REVIEWS_RESPONDER: ${{ vars.REVIEWS_RESPONDER }}
           PREVIEW: ${{ inputs.preview && '1' || '0' }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
+      - name: Publish the weekly feedback snapshot on the feedback-data branch (encrypted)
+        if: ${{ hashFiles('feedback-out/reviews.enc.json') != '' }}
+        run: |
+          cd feedback-out && git init -q && git checkout -q -b feedback-data && git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "Feedback snapshot (encrypted)"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" feedback-data
       - name: Save state
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run == false }}
         uses: actions/cache/save@v6

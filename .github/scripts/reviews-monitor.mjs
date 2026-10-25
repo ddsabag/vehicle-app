@@ -85,6 +85,18 @@ else try {
       `${replied ? todo() : todo(low ? `לענות בקצרה ובנימוס ב-<a href="${base}">Play Console</a>. תשובה עניינית מרככת את הרושם אצל מי שקורא את הביקורות.` : `אפשר לענות ב-<a href="${base}">Play Console</a>, לא חובה.`)}` +
       folded(`גרסה ${c.appVersionName || "?"} (${c.appVersionCode || "?"}) · ${[dm.manufacturer, dm.productName].filter(Boolean).join(" ") || c.device || "?"} · אנדרואיד ${c.androidOsVersion ?? "?"} · מזהה ${rv.reviewId}`, "פרטי המכשיר"), c.starRating >= 3, key, undefined, low ? ["day", "review:" + rv.reviewId] : ["summary", "review3:" + rv.reviewId])) { seen[key] = Date.now(); sent++; } else failed++;
   }
+  // weekly feedback digest (ops thread task, Dudu "כולם" 25.10): every review of the week, all stars, without author names, encrypted with
+  // the seo-data public key and published by the workflow on the branch feedback-data (the repo is public; only the private key reads it)
+  if (!DRY) try {
+    const week = list.map(rv => { const c = (rv.comments || []).find(x => x.userComment)?.userComment; return c && +(c.lastModified?.seconds || 0) >= since ?
+      { stars: c.starRating, text: (c.text || "").trim().slice(0, 900), version: c.appVersionName || "", day: new Date(+c.lastModified.seconds * 1000).toISOString().slice(0, 10),
+        replied: (rv.comments || []).some(x => x.developerComment) } : null; }).filter(Boolean);
+    const k = crypto.randomBytes(32), iv = crypto.randomBytes(12), ci = crypto.createCipheriv("aes-256-gcm", k, iv);
+    const data = Buffer.concat([ci.update(JSON.stringify({ at: new Date().toISOString(), reviews: week })), ci.final()]);
+    const ek = crypto.publicEncrypt({ key: fs.readFileSync(".github/seo-data.pub.pem", "utf8"), padding: crypto.constants.RSA_PKCS1_OAEP_PADDING, oaepHash: "sha256" }, k);
+    fs.mkdirSync("feedback-out", { recursive: true });
+    fs.writeFileSync("feedback-out/reviews.enc.json", JSON.stringify({ v: 1, ek: ek.toString("base64"), iv: iv.toString("base64"), tag: ci.getAuthTag().toString("base64"), data: data.toString("base64") }));
+  } catch (e) { console.log("feedback snapshot skipped:", e.message); }
   console.log(`reviews: ${list.length} returned, ${sent} alerts sent${failed ? `, ${failed} not delivered (tried again next run)` : ""}`);
 } catch (e) { errors.push("reviews: " + e.message); console.log("reviews failed:", e.message); }
 
