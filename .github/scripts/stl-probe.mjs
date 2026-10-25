@@ -1,6 +1,6 @@
 // One-off probe for the weekly settlements review: prints the text of court notices and press stories.
 const strip = h => h.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, "").replace(/<br\s*\/?>|<\/p>|<\/li>|<\/h\d>/g, "\n").replace(/<[^>]+>/g, "").replace(/&#8211;/g, "-").replace(/&#8217;|&#8216;/g, "'").replace(/&#8220;|&#8221;|&quot;/g, '"').replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&#\d+;/g, " ").replace(/\n\s*\n+/g, "\n").trim();
-const get = async u => { const r = await fetch(u, {headers: {"user-agent": "Mozilla/5.0 luchit-settlements"}}); return r.ok ? r.text() : `HTTP ${r.status}`; };
+const get = async u => { const r = await fetch(u, {headers: {"user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36", "accept-language": "he-IL,he;q=0.9"}}); return r.ok ? r.text() : `HTTP ${r.status}`; };
 const WP = "https://www.yitzugit.co.il/wp-json/wp/v2/posts";
 for (const q of ["טסלה", "צ'מפיון", "צ׳מפיון", "מכשירי תנועה", "יפנאוטו", "גואנגול", "פיקאר", "סיקלי", "מוטורס", "רכב"]) {
   try {
@@ -10,7 +10,7 @@ for (const q of ["טסלה", "צ'מפיון", "צ׳מפיון", "מכשירי ת
   } catch (e) { console.log(`search ${q} failed`, e.message); }
 }
 const slugs = ["29129-05-21", "1504-04-24"];
-const all = JSON.parse(await get(`${WP}?per_page=100&_fields=date,link,title,content`));
+let all = []; try { all = JSON.parse(await get(`${WP}?per_page=100&_fields=date,link,title,content`)); } catch (e) { console.log("posts failed", e.message); }
 for (const p of all) {
   const t = strip(p.title.rendered);
   if (slugs.some(s => t.includes(s)) || /מכשירי תנועה|יפנאוטו|טסלה|צ.מפיון/.test(t))
@@ -24,4 +24,8 @@ for (const f of ["https://www.thecar.co.il/feed/", "https://www.thecar.co.il/cat
     const body = (it.match(/<content:encoded>([\s\S]*?)<\/content:encoded>/) || [])[1] || "";
     console.log(`\n==== TheCar ${strip(title.replace(/<!\[CDATA\[|\]\]>/g, ""))}\n${strip(body.replace(/<!\[CDATA\[|\]\]>/g, "")).slice(0, 5000)}`);
   }
+}
+for (const u of ["https://www.yitzugit.co.il/2026/10/07/%d7%94%d7%a1%d7%9b%d7%9d-%d7%a4%d7%a9%d7%a8%d7%94-29129-05-21-%d7%91%d7%99%d7%98%d7%95%d7%9f-%d7%95%d7%90%d7%97%d7%b3-%d7%a0%d7%b3-%d7%98%d7%a1%d7%9c%d7%94-%d7%9e%d7%95%d7%98%d7%95%d7%a8%d7%a1/", "https://www.yitzugit.co.il/2026/10/18/%d7%94%d7%a1%d7%9b%d7%9d-%d7%a4%d7%a9%d7%a8%d7%94-1504-04-24-%d7%95%d7%95%d7%9c%d7%91%d7%94-%d7%a0%d7%b3-%d7%a6%d7%b3%d7%9e%d7%a4%d7%99%d7%95%d7%9f-%d7%9e%d7%95%d7%98%d7%95%d7%a8%d7%a1-%d7%91%d7%a2/"]) {
+  const h = await get(u); const m = h.match(/<article[\s\S]*?<\/article>/);
+  console.log(`\n==== PAGE ${decodeURI(u)}\n${strip(m ? m[0] : h).slice(0, 9000)}`);
 }
