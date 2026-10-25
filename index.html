@@ -2738,16 +2738,29 @@ function buildInsights(D){
     else add("ok", "ק״מ סביר ביחס לשנת הייצור", base + caveat);
   }
   // the current owner is the register's type when it names one (ownNow); every other ownership record is a past owner
-  const own = D.own, cur = ownNow(D), past = (cur.inLog ? own.slice(0, -1) : own).map(r => String(r.baalut || ""));
+  const own = D.own, cur = ownNow(D), past = (cur.inLog ? own.slice(0, -1) : own).map(r => String(r.baalut || "")), spans = ownSpans(D);
+  // a past owner that held the car SHORT_HOLD months or less says nothing about how it was driven: a new car is often registered to the leasing
+  // company or the dealer for a month before delivery (25.10.2026, every car on the road from 3.2017: first leasing owners for up to 2 months
+  // drive 13,500 km a year at the median like cars private all along, 13,600; over 2 years in leasing, 21,400)
+  const held = i => spans[i] == null || spans[i] > SHORT_HOLD;
   if (own.length) {
     if (handsOf(D) >= 4) add("warn", ownersLabel(D), "הרכב עבר הרבה ידיים.");
     if (past.some(t => t.includes("השכר"))) add("warn", "היה רכב השכרה", "בעבר הרכב היה בבעלות חברת השכרה. רכבי השכרה עוברים בין נהגים רבים.");
     // the ownership log writes leasing as "החכר"
-    if (past.some(t => /ליסינג|החכר/.test(t))) add("info", "היה רכב ליסינג", "בעבר הרכב היה בליסינג. רכבי ליסינג צוברים ק״מ מהר.");
+    const lease = past.map((t, i) => /ליסינג|החכר/.test(t) && held(i) ? i : -1).filter(i => i >= 0);
+    if (lease.length) { const m = lease.reduce((a, i) => a + (spans[i] || 0), 0);
+      add("info", "היה רכב ליסינג", `בעבר הרכב היה בליסינג${m ? ` (${fmtSpan(m)})` : ""}. רכבי ליסינג צוברים בדרך כלל ק״מ מהר.`); }
+    // a short leasing record still says something: the car is "ex-leasing" on paper, which the second-hand market and the value estimate count
+    else { const i = past.findIndex((t, i) => /ליסינג|החכר/.test(t) && !held(i));
+      if (i >= 0) add("info", i === 0 ? "כנראה נמכר כיד 2, 0 ק״מ" : "נרשם לזמן קצר על חברת ליסינג",
+        `נרשם על חברת ליסינג רק ${forSpan(spans[i])}${i === 0 ? " ואז עבר לבעלים הבאים" : ", אז הק״מ כנראה כמו ברכב פרטי"}. במחירונים הוא עדיין נחשב רכב ליסינג, וזה מוריד מהמחיר.`); }
   }
   // the register names the current owner also for a car the log does not cover (the log has no cars that went on the road before 2017)
   if (cur.kind === "dealer") add("warn", "הרכב רשום כעת על סוחר", "המוכר כנראה סוחר רכבים: ייתכן שהמחיר כולל מרווח של הסוחר. בעסקה עם סוחר חלות עליו חובות גילוי לפי החוק. בקשו מסמכים בכתב ובררו מי היו הבעלים הקודמים.");
-  else if (past.some(t => /סוחר|יבואן|מסחר/.test(t))) add("info", "היה אצל סוחר", "בהיסטוריית הבעלות מופיע סוחר. זה נפוץ ברכב שנמכר בטרייד-אין או הועבר דרך מגרש, ואינו פגם בפני עצמו. שווה לשאול את המוכר מי היו הבעלים לפני ואחרי הסוחר ומה הסיבה.");
+  // a dealer as the very first owner for a short while delivered the car new (the log starts with the car's first month on the road): not a trade-in
+  else if (past.some((t, i) => /סוחר|יבואן|מסחר/.test(t) && !(i === 0 && !held(0) && newAtFirst(D)))) add("info", "היה אצל סוחר", "בהיסטוריית הבעלות מופיע סוחר. זה נפוץ ברכב שנמכר בטרייד-אין או הועבר דרך מגרש, ואינו פגם בפני עצמו. שווה לשאול את המוכר מי היו הבעלים לפני ואחרי הסוחר ומה הסיבה.");
+  else if (past.length && /סוחר|יבואן|מסחר/.test(past[0]) && !held(0) && newAtFirst(D)) add("info", "כנראה נמכר כיד 2, 0 ק״מ",
+    `נרשם על סוחר רק ${forSpan(spans[0])} ואז עבר לבעלים הבאים, ולא נמכר בטרייד-אין. במחירונים הוא עשוי להיחשב כרכב שבעלותו הראשונה סוחר.`);
   if (own.length > 1 && OWN_FLEET.includes(cur.kind)) add("info", "הרכב רשום כעת על חברה", "הבעלות הנוכחית על שם חברה, ולא אדם פרטי. אם המוכר מציג את עצמו כבעלים פרטי, בקשו הסבר והסדירו את העברת הבעלות מול החברה.");
   if (own.length) {
     const last = parseYM(own[own.length - 1].baalut_dt);
@@ -3027,6 +3040,11 @@ function ownSpans(D){
   const own = D.own, inLog = ownNow(D).inLog, end = D.isCancelled ? parseYM(D.v.bitul_dt) : new Date(), mon = d => d.getFullYear() * 12 + d.getMonth();
   return own.map((r, i) => { const a = parseYM(r.baalut_dt), b = i < own.length - 1 ? parseYM(own[i + 1].baalut_dt) : inLog ? end : null; return a && b ? Math.max(0, mon(b) - mon(a)) : null; });
 }
+/* "לכמה ימים", "לחודש", "ל-3 חודשים": how long a short owner held the car */
+const forSpan = m => m < 1 ? "לכמה ימים" : /^\d/.test(fmtSpan(m)) ? "ל-" + fmtSpan(m) : "ל" + fmtSpan(m);
+const SHORT_HOLD = 3;   // months: an owner that held the car this long or less is a registration before delivery (see insights)
+/* the ownership log starts with the car's first month on the road (it has no transfers before 2017), so its first record is the first owner */
+const newAtFirst = D => { const a = parseYM((D.own[0] || {}).baalut_dt), r = parseYM(D.v.moed_aliya_lakvish); return !!a && !!r && Math.abs(monthsBetween(r, a)) <= 1; };
 /* 0 -> "פחות מחודש", 11 -> "11 חודשים", 15 -> "שנה ו-3 חודשים", 24 -> "שנתיים" */
 function fmtSpan(m){
   if (m < 1) return "פחות מחודש";
