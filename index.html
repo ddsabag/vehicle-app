@@ -2482,11 +2482,17 @@ function buildInsights(D){
     const lease = past.map((t, i) => /ליסינג|החכר/.test(t) && held(i) ? i : -1).filter(i => i >= 0);
     if (lease.length) { const m = lease.reduce((a, i) => a + (spans[i] || 0), 0);
       add("info", "היה רכב ליסינג", `בעבר הרכב היה בליסינג${m ? ` (${fmtSpan(m)})` : ""}. רכבי ליסינג צוברים בדרך כלל ק״מ מהר.`); }
+    // a short leasing record still says something: the car is "ex-leasing" on paper, which the second-hand market and the value estimate count
+    else { const i = past.findIndex((t, i) => /ליסינג|החכר/.test(t) && !held(i));
+      if (i >= 0) add("info", i === 0 ? "בעלות ראשונה: ליסינג, לזמן קצר" : "נרשם לזמן קצר על חברת ליסינג",
+        `הרכב נרשם על חברת ליסינג למשך ${fmtSpan(spans[i])} בלבד${i === 0 ? " וכנראה נמסר חדש לנהג הבא" : ""}, ולכן אין סיבה להניח שנסע יותר מרכב פרטי. ברישום הוא עדיין מופיע כרכב ליסינג, ובשוק היד השנייה זה בדרך כלל מוריד מהמחיר. הערכת השווי כאן כוללת את זה.`); }
   }
   // the register names the current owner also for a car the log does not cover (the log has no cars that went on the road before 2017)
   if (cur.kind === "dealer") add("warn", "הרכב רשום כעת על סוחר", "המוכר כנראה סוחר רכבים: ייתכן שהמחיר כולל מרווח של הסוחר. בעסקה עם סוחר חלות עליו חובות גילוי לפי החוק. בקשו מסמכים בכתב ובררו מי היו הבעלים הקודמים.");
   // a dealer as the very first owner for a short while delivered the car new (the log starts with the car's first month on the road): not a trade-in
   else if (past.some((t, i) => /סוחר|יבואן|מסחר/.test(t) && !(i === 0 && !held(0) && newAtFirst(D)))) add("info", "היה אצל סוחר", "בהיסטוריית הבעלות מופיע סוחר. זה נפוץ ברכב שנמכר בטרייד-אין או הועבר דרך מגרש, ואינו פגם בפני עצמו. שווה לשאול את המוכר מי היו הבעלים לפני ואחרי הסוחר ומה הסיבה.");
+  else if (past.length && /סוחר|יבואן|מסחר/.test(past[0]) && !held(0) && newAtFirst(D)) add("info", "בעלות ראשונה: סוחר, לזמן קצר",
+    `כשהרכב עלה לכביש הוא נרשם על סוחר למשך ${fmtSpan(spans[0])}, ואז עבר לבעלים הבאים. זו מסירה של רכב חדש ולא טרייד-אין. במודעות ובמחירונים הוא עשוי להופיע כרכב שבעלותו הראשונה סוחר, ושווה לדעת את זה כשמשווים מחירים.`);
   if (own.length > 1 && OWN_FLEET.includes(cur.kind)) add("info", "הרכב רשום כעת על חברה", "הבעלות הנוכחית על שם חברה, ולא אדם פרטי. אם המוכר מציג את עצמו כבעלים פרטי, בקשו הסבר והסדירו את העברת הבעלות מול החברה.");
   if (own.length) {
     const last = parseYM(own[own.length - 1].baalut_dt);

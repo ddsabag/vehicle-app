@@ -609,11 +609,15 @@ function compare(c, X, P) {
       const held = i => span(i) == null || span(i) > 3, road = ym(R.moed_aliya_lakvish), a0 = ym(own[0].baalut_dt);
       const newAtFirst = !!road && !!a0 && Math.abs(monA(a0) - monA(road)) <= 1;
       const pl = past.some((t, i) => /החכר|ליסינג/.test(t) && held(i));
+      const sl = !pl && past.some((t, i) => /החכר|ליסינג/.test(t) && !held(i)), slT = /החכר|ליסינג/.test(past[0] || "") && !held(0) ? "בעלות ראשונה: ליסינג, לזמן קצר" : "נרשם לזמן קצר על חברת ליסינג";
+      check(c, "owners.insight_short_lease", sl === ins.includes(slT), ins.join(" | ").slice(0, 120), sl ? slT : "(none)", "");
       check(c, "owners.insight_lease", pl === ins.includes("היה רכב ליסינג"), ins.join(" | ").slice(0, 120), pl ? "היה רכב ליסינג" : "(none)", pl ? "a past log record is " + past.filter(t => /החכר|ליסינג/.test(t)).join(",") : "");
       const coNow = own.length > 1 && FLEET.includes(curK), dealerNow = curK === "dealer", wasDealer = !dealerNow && past.some((t, i) => DEALER.test(t) && !(i === 0 && !held(0) && newAtFirst));
       check(c, "owners.insight_company_now", coNow === ins.includes("הרכב רשום כעת על חברה"), ins.join(" | ").slice(0, 120), coNow ? "הרכב רשום כעת על חברה" : "(none)", `current owner ${curK} (register "${R.baalut || ""}")`);
       check(c, "owners.insight_dealer_now", dealerNow === ins.includes("הרכב רשום כעת על סוחר"), ins.join(" | ").slice(0, 120), dealerNow ? "הרכב רשום כעת על סוחר" : "(none)", `current owner ${curK} (register "${R.baalut || ""}")`);
       check(c, "owners.insight_was_dealer", wasDealer === ins.includes("היה אצל סוחר"), ins.join(" | ").slice(0, 120), wasDealer ? "היה אצל סוחר" : "(none)", "");
+      const newDealer = !dealerNow && !wasDealer && DEALER.test(past[0] || "") && !held(0) && newAtFirst;
+      check(c, "owners.insight_new_dealer", newDealer === ins.includes("בעלות ראשונה: סוחר, לזמן קצר"), ins.join(" | ").slice(0, 120), newDealer ? "בעלות ראשונה: סוחר, לזמן קצר" : "(none)", "");
     }
   }
   { const has = (X.sets.tag || []).length > 0, said = /לרכב יש תג חניה לנכה/.test(P.tabs.overview.text);
