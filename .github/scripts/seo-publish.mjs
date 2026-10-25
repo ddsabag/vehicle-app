@@ -13,13 +13,17 @@ const ALLOW = [/^(check|brand|model|magazine|guide)\//, /^sitemap\.xml$/, /^robo
 const sh = c => execSync(c, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 const trysh = c => { try { return sh(c); } catch { return null; } };
 
-// m = msg() fields (tg-text.mjs, HTML); 🔵 and ✅ are silent, a message that asks for something rings
-async function tg(m) {
+// m = msg() fields (tg-text.mjs, HTML); 🔵 and ✅ are silent, a message that asks for something rings.
+// key = the alert router family (alert.mjs, Dudu 25.10): a message that needs Dudu is "day", the rest "summary" (Sunday summary).
+async function tg(m, key) {
   const text = msg({ area: "seo", ...m }), silent = m.kind === "info" || m.kind === "done";
   console.log("TG:", text);
   const t = process.env.TELEGRAM_BOT_TOKEN, c = process.env.TELEGRAM_CHAT_ID;
   if (DRY || !t || !c) return;
-  await fetch(`https://api.telegram.org/bot${t}/sendMessage`, { method: "POST", body: new URLSearchParams({ chat_id: c, text, parse_mode: "HTML", disable_web_page_preview: "true", disable_notification: String(silent) }) }).catch(() => {});
+  const direct = () => fetch(`https://api.telegram.org/bot${t}/sendMessage`, { method: "POST", body: new URLSearchParams({ chat_id: c, text, parse_mode: "HTML", disable_web_page_preview: "true", disable_notification: String(silent) }) }).then(r => r.ok).catch(() => false);
+  let router = null; try { router = await import(new URL("./alert.mjs", import.meta.url)); } catch {}
+  if (router) { await router.alert(silent ? "summary" : "day", `${key}:${s7}`, text, "https://github.com/" + (process.env.GITHUB_REPOSITORY || "ddsabag/vehicle-app") + "/tree/" + BR, { today: silent ? "silent" : "loud", legacy: direct }); return; }
+  await direct();
 }
 const esc = x => String(x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 let TAGS = null;
@@ -39,7 +43,7 @@ if (!files.length) { console.log("branch has nothing new"); if (!DRY) tryOut(`gi
 
 const bad = files.filter(x => !ALLOW.some(r => r.test(x.f)) || (x.st === "R" && !ALLOW.some(r => r.test(x.old))));
 if (bad.length) {
-  if (!hasTag("seo-auto-blocked-" + s7)) { await tg({ kind: "today", title: "שינוי SEO מחכה לאישור שלך", text: `הוא נוגע בקבצים שמחוץ לדפי האתר (${esc(bad.slice(0, 3).map(x => x.f).join(", "))}), ולכן לא יעלה לבד.`, what: "לכתוב לי בשרשור SEO אם לאשר אותו." }); markTag("seo-auto-blocked-" + s7); }
+  if (!hasTag("seo-auto-blocked-" + s7)) { await tg({ kind: "today", title: "שינוי SEO מחכה לאישור שלך", text: `הוא נוגע בקבצים שמחוץ לדפי האתר (${esc(bad.slice(0, 3).map(x => x.f).join(", "))}), ולכן לא יעלה לבד.`, what: "לכתוב לי בשרשור SEO אם לאשר אותו." }, "seo-auto:blocked"); markTag("seo-auto-blocked-" + s7); }
   process.exit(0);
 }
 // 21-day rule against the ledger on main
@@ -56,7 +60,7 @@ for (const x of files) {
   }
 }
 if (recent.length) {
-  if (!hasTag("seo-auto-blocked-" + s7)) { await tg({ kind: "info", title: "שינוי SEO מחכה לסוף 21 הימים", text: `${recent.length} מהדפים שלו שונו לפני פחות מ-21 יום (${esc(recent.slice(0, 3).join(", "))}). הוא יעלה רק אחרי שהחלון ייגמר.` }); markTag("seo-auto-blocked-" + s7); }
+  if (!hasTag("seo-auto-blocked-" + s7)) { await tg({ kind: "info", title: "שינוי SEO מחכה לסוף 21 הימים", text: `${recent.length} מהדפים שלו שונו לפני פחות מ-21 יום (${esc(recent.slice(0, 3).join(", "))}). הוא יעלה רק אחרי שהחלון ייגמר.` }, "seo-auto:wait"); markTag("seo-auto-blocked-" + s7); }
   process.exit(0);
 }
 const subject = sh(`git log -1 --format=%s origin/${BR}`);
@@ -64,7 +68,7 @@ const subject = sh(`git log -1 --format=%s origin/${BR}`);
 hasTag("");
 const noteTag = TAGS.find(t => t.startsWith("seo-auto-notified-" + s7 + "-"));
 if (!noteTag) {
-  await tg({ kind: "info", title: "שינוי SEO יעלה לאתר בעוד כיום", text: `${esc(subject)}\n${files.length} קבצים (${files.filter(x => x.st === "A").length} חדשים). הוא יעלה בהרצה הקבועה הראשונה אחרי ${HOURS - 1} שעות, בצהריים או בערב. כדי לעצור אותו, לכתוב לי בשרשור SEO.` });
+  await tg({ kind: "info", title: "שינוי SEO יעלה לאתר בעוד כיום", text: `${esc(subject)}\n${files.length} קבצים (${files.filter(x => x.st === "A").length} חדשים). הוא יעלה בהרצה הקבועה הראשונה אחרי ${HOURS - 1} שעות, בצהריים או בערב. כדי לעצור אותו, לכתוב לי בשרשור SEO.` }, "seo-auto:notice");
   markTag(`seo-auto-notified-${s7}-${Math.floor(now / 6e4)}`);   // minutes since 1970
   process.exit(0);
 }
@@ -81,11 +85,11 @@ try {
   sh("node .github/scripts/seo-check.mjs");
 } catch (e) {
   tryOut("git merge --abort");
-  if (!hasTag("seo-auto-blocked-" + s7)) { await tg({ kind: "today", title: "שינוי SEO נעצר ולא עלה לאתר", text: "הבדיקות האוטומטיות של הדפים נכשלו, ולכן האתר נשאר כמו שהיה.", what: "לכתוב לי בשרשור SEO, ואבדוק מה נכשל.", raw: String(e.stderr || e.message).split("\n").filter(Boolean).slice(-4).join(" | ") }); markTag("seo-auto-blocked-" + s7); }
+  if (!hasTag("seo-auto-blocked-" + s7)) { await tg({ kind: "today", title: "שינוי SEO נעצר ולא עלה לאתר", text: "הבדיקות האוטומטיות של הדפים נכשלו, ולכן האתר נשאר כמו שהיה.", what: "לכתוב לי בשרשור SEO, ואבדוק מה נכשל.", raw: String(e.stderr || e.message).split("\n").filter(Boolean).slice(-4).join(" | ") }, "seo-auto:blocked"); markTag("seo-auto-blocked-" + s7); }
   process.exit(0);
 }
 if (DRY) { console.log("DRY: would push"); process.exit(0); }
 sh("git push -q origin seo-merge:main");
 tryOut(`git push -q origin :${BR}`);
 for (const t of TAGS.filter(t => t.startsWith("seo-auto-") && t.includes(s7))) tryOut(`git push -q origin :refs/tags/${t}`);
-await tg({ kind: "done", title: "שינוי SEO עלה לאתר", text: `${esc(subject)} (${files.length} קבצים).` });
+await tg({ kind: "done", title: "שינוי SEO עלה לאתר", text: `${esc(subject)} (${files.length} קבצים).` }, "seo-auto:done");

@@ -140,7 +140,13 @@ def main():
     H["snapshots"] = (H["snapshots"] + [{"date": end.isoformat(), "pages": cur}])[-20:]
     os.makedirs(state, exist_ok=True)
     with open(os.path.join(state, "history.enc"), "w") as f: f.write(seal(json.dumps(H, ensure_ascii=False)))
-    if not out: telegram(msg)
+    if not out:   # a standalone run (the workflow passes --out): through the alert router, "summary" like the daily digest
+        try:
+            import alert as router
+        except Exception:
+            router = None
+        if router: router.alert("summary", "seo:daily", msg, "", today="silent", legacy=lambda: telegram(msg))
+        else: telegram(msg)
 
 
 if __name__ == "__main__": main()
