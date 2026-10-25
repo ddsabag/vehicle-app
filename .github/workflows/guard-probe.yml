@@ -1,0 +1,25 @@
+name: Release guard probe (one-off, probe-perf branch)
+# Dry test run of release-guard.mjs against real GA4 before it reaches main (25.10). Digits masked in the log; no message.
+on:
+  push:
+    branches: [probe-perf]
+    paths: [".github/scripts/release-guard.mjs", ".github/workflows/guard-probe.yml"]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      - run: |
+          node .github/scripts/release-guard.mjs selftest
+          out=$(node .github/scripts/release-guard.mjs); echo "$out"
+          d0=$(echo "$out" | grep -oE 'from [0-9-]{10}' | cut -c6-)
+          [ -n "$d0" ] || exit 0
+          for n in 2 4 8; do DAY=$(date -u -d "$d0 + $n days" +%F) node .github/scripts/release-guard.mjs; done
+        env:
+          GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
+          MODE: dry
