@@ -1,0 +1,29 @@
+name: Campaign data snapshot
+# Encrypted weekly snapshot of what each campaign topic brought (app opens and site landings by network and topic, the site checks after
+# them, installs by store campaign), last 7 and 28 days, for the weekly content kit to rank topics (Dudu approved 25.10). Wednesdays 04:40 UTC,
+# the day before the kit, and on demand. Output: branch camp-data (encrypted with .github/seo-data.pub.pem; the private key stays outside the
+# repo). The job log prints states and row counts only. Owner: measurement (camp-data.mjs).
+on:
+  schedule:
+    - cron: "40 4 * * 3"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: camp-data
+jobs:
+  snapshot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      - run: node .github/scripts/camp-data.mjs selftest
+      - run: node .github/scripts/camp-data.mjs
+        env:
+          GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
+      - name: Publish on the camp-data branch
+        run: |
+          cd out && git init -q && git checkout -q -b camp-data && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Campaign snapshot"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" camp-data
