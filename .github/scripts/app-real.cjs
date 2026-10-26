@@ -11,10 +11,13 @@
 //   - the ways in from outside the page: a launcher shortcut, a tapped alert (warm, and cold without a network), a shared text, a
 //     luchit.app link to a car or a comparison
 // The registry is mocked (example plates only), every other address outside the app is cut, as in the browser runs.
-// Blocking (exit 1): the app crashing or not responding, page errors, a step on the wrong screen, sideways scroll, anything past the
-// screen edge, the bottom bar moving or growing or riding on the keyboard, a way in that does not reach its screen, the page under a system
-// bar, invisible bar icons, "לפי המכשיר" against the phone. The emulator itself stopping is not the app's fault: exit 2, with what was
-// found until then, and a file "gone" beside the findings (app-guardian.yml then runs the phone setting once more on a new emulator).
+// Blocking (exit 1): the app crashing, or not responding in both tries of a journey, page errors, a step on the wrong screen, sideways
+// scroll, anything past the screen edge, the bottom bar moving or growing or riding on the keyboard, a way in that does not reach its
+// screen, the page under a system bar, invisible bar icons, "לפי המכשיר" against the phone. A journey the phone disturbed (another app's
+// "isn't responding" dialog, the app not responding, its page closed under it) runs once more on a fresh start, and only that try counts.
+// The emulator itself stopping is not the app's fault: exit 2, with what was found until then, and a file "gone" beside the findings
+// (app-guardian.yml then runs the phone setting once more on a new emulator); so is a journey disturbed in both tries by what is not the
+// app's (no crash of the app, no ANR in its own code or without a stack).
 // Usage (inside the emulator, app-guardian.yml): node .github/scripts/app-real.cjs --apk <apk> [--out <dir>] [--scenario <id>] [--quick] [--label <api>]
 const fs = require("node:fs"), path = require("node:path"), { spawnSync } = require("node:child_process");
 const { _android: android } = require("playwright");
@@ -74,15 +77,30 @@ process.on("uncaughtException", (e) => {
 // its main thread's stack (dropbox, no root needed): the app's own code on that stack is the app's fault (blocking); a main thread that
 // was idle or waiting on the WebView's drawing is the emulator's software rendering falling behind, which a phone's GPU does not
 // (warning, with the stack kept). Google Play's vitals count the ANRs of real phones
-let crashN = 0, anrN = 0;
+let crashN = 0, anrN = 0, anrRead = 0, lastAnr = null;
+// a journey the phone disturbed, and how: "anr" (the app's, lastAnr says where its main thread was), "closed" (the app's page closed
+// under the journey), "dialog <app>" (another app's "isn't responding"). Read by the main loop: the journey runs once more
+const disturbed = new Set();
+const disturbedSay = () => [...disturbed].map((w) => (w === "anr" ? "the app stopped responding" : w === "closed" ? "the app's page closed" : `${w.slice(7)} was not responding`)).join(", ");
+// the dropbox entry is written once the system has dumped the threads' stacks, which on the emulator comes many seconds after the ANR is
+// logged (26.10, API 31: none yet 15 s after it); so it is waited for, up to 30 s, and only an entry newer than the last one read counts
 function anrDetails() {
-  const box = String(adb(["shell", "dumpsys dropbox --print data_app_anr"], { timeout: 30000 }));
-  const mine = box.split(/^={20,}$/m).filter((e) => e.includes(`Process: ${PKG}`)).pop() || "";
+  let all = [];
+  for (let i = 0; i < 12; i++) {
+    const box = String(adb(["shell", "dumpsys dropbox --print data_app_anr"], { timeout: 30000 }));
+    all = box.split(/^={20,}$/m).filter((e) => e.includes(`Process: ${PKG}`));
+    if (all.length > anrRead) break;
+    spawnSync("sleep", ["2.5"]);
+  }
+  const mine = all.length > anrRead ? all[all.length - 1] : "";
+  anrRead = Math.max(anrRead, all.length);
   const subject = ((mine.match(/^Subject: (.+)$/m) || [])[1] || "").trim();
   const at = mine.indexOf('"main" prio='), mainStack = at < 0 ? "" : mine.slice(at, mine.indexOf("\n\n", at) < 0 ? undefined : mine.indexOf("\n\n", at));
   return { mine, subject, mainStack, ours: /\bat com\.ddsabag\.pratirechev\./.test(mainStack), idle: /nativePollOnce/.test(mainStack.split("\n").slice(0, 6).join("\n")) };
 }
-function crashes(run, step) {
+// inJourney: an ANR in a journey is a warning on the first try, which runs again (see the main loop); in both tries it is blocking.
+// Elsewhere (the ways in, the phone checks, the dark launch) nothing runs again, and an ANR in the app's own code or without a stack blocks
+function crashes(run, step, inJourney = false) {
   const t = sh("logcat -b crash -d -v brief"), anr = sh("logcat -b events -d -s am_anr");
   if (t || anr) sh("logcat -b crash -b events -c");
   for (const m of t.matchAll(/\(\s*(\d+)\): Process: ([\w.]+), PID/g)) {
@@ -96,10 +114,12 @@ function crashes(run, step) {
   if (anr.includes(PKG)) {
     const d = anrDetails();
     anrN++; fs.writeFileSync(path.join(OUT, `anr-${anrN}.txt`), `${anr}\n\n${d.mine || "(no dropbox entry)"}\n`);
-    const why = d.subject ? `: ${d.subject.slice(0, 120)}` : "";
-    if (d.ours || !d.mainStack) add("block", "crash", run, step, `the app stopped responding (ANR)${why}${d.ours ? ", in the app's own code" : ""} (anr-${anrN}.txt)`);
+    const why = d.subject ? `: ${d.subject.slice(0, 120)}` : "", where = d.ours ? "in the app's own code" : !d.mainStack ? "no stack was written" : d.idle ? "its main thread was idle" : "its main thread was outside the app's code";
+    lastAnr = { ours: d.ours, stack: !!d.mainStack, file: `anr-${anrN}.txt` };
+    if (inJourney) { disturbed.add("anr"); add("warn", "anr", run, step, `the app stopped responding (ANR)${why}; ${where} (anr-${anrN}.txt). The journey runs again: an ANR in both tries is blocking`); }
+    else if (d.ours || !d.mainStack) add("block", "crash", run, step, `the app stopped responding (ANR)${why}${d.ours ? ", in the app's own code" : ""} (anr-${anrN}.txt)`);
     else add("warn", "crash", run, step, `the app stopped responding for a moment (ANR)${why}; its main thread was ${d.idle ? "idle" : "outside the app's code"}: the emulator's software rendering, not the app (anr-${anrN}.txt)`);
-    log(`ANR at ${run} ${step}${why} (${d.ours ? "the app's code" : d.idle ? "main thread idle" : "outside the app's code"})`);
+    log(`ANR at ${run} ${step}${why} (${where})`);
   }
 }
 
@@ -112,6 +132,7 @@ function clearDialogs() {
   if (!m) return false;
   const who = m[1];
   let how = "";
+  if (who !== PKG) disturbed.add(`dialog ${who}`);   // the app's own is an ANR, read from the phone's log
   if (who !== PKG && !/systemui/.test(who)) { sh(`am force-stop ${who}`); how = "that app stopped"; }
   else {
     sh("rm -f /sdcard/ui.xml"); adb(["shell", "uiautomator dump /sdcard/ui.xml >/dev/null 2>&1"], { timeout: 25000 });
@@ -288,16 +309,19 @@ const shotOnce = new Set();
 async function journey(page, sc, state, J, theme) {
   const run = `${J.name}/${state}/${sc.id}/${theme}`, tj = Date.now();
   cur.run = run; cur.step = "load";
-  try { await prepare(page, state, theme); } catch (e) { add("block", "logic", run, "load", "could not load the state: " + e.message.split("\n")[0].slice(0, 120)); return; }
+  // the app's page closed under the journey (the system stopped the app after an ANR, or the WebView went away): every later step would
+  // only meet the closed page, so the journey ends here and the main loop runs it again on a fresh start
+  const closed = (e) => page.isClosed() || /has been closed/.test(String(e && e.message));
+  try { await prepare(page, state, theme); } catch (e) { if (closed(e)) { disturbed.add("closed"); crashes(run, "load", true); return page; } add("block", "logic", run, "load", "could not load the state: " + e.message.split("\n")[0].slice(0, 120)); return; }
   const c = { dev: { id: sc.id, w: sc.dp, h: 860 }, theme, state, app: true, ctx: null, net, page, plate: state === "many" ? "7654321" : "1234567", back: realBack, reopen };
   c.fullH = await page.evaluate(() => innerHeight).catch(() => 0);
   const seen = []; let prev = null;
   for (const [name, act, expect] of J.steps) {
     cur.step = name;
     // a step that opens the app again (reopen) hands over the new page
-    if (act) { try { const r = await act(page, c); if (r && typeof r.evaluate === "function") page = c.page = r; } catch (e) { add("block", "logic", run, name, "could not act: " + e.message.split("\n")[0].slice(0, 120)); } }
+    if (act) { try { const r = await act(page, c); if (r && typeof r.evaluate === "function") page = c.page = r; } catch (e) { if (closed(e)) { disturbed.add("closed"); break; } add("block", "logic", run, name, "could not act: " + e.message.split("\n")[0].slice(0, 120)); } }
     await sleep(500);
-    let m; try { m = await UF.measure(page); } catch (e) { mustLive(); add("block", "error", run, name, "measure failed: " + e.message.slice(0, 100)); continue; }
+    let m; try { m = await UF.measure(page); } catch (e) { mustLive(); if (closed(e)) { disturbed.add("closed"); break; } add("block", "error", run, name, "measure failed: " + e.message.slice(0, 100)); continue; }
     let ok = expect ? await expect(m, c) : true;
     if (ok && ok.warn) { add("warn", "logic", run, name, ok.warn); ok = true; }
     if (ok !== true) add("block", "logic", run, name, ok);
@@ -313,8 +337,8 @@ async function journey(page, sc, state, J, theme) {
     }
   }
   UF.judgeRun(run, seen, sc.dp);
-  crashes(run, cur.step);
-  log(`${run}: ${seen.length} steps, ${((Date.now() - tj) / 1000).toFixed(0)} s`);
+  crashes(run, cur.step, true);
+  log(`${run}: ${seen.length} steps, ${((Date.now() - tj) / 1000).toFixed(0)} s${disturbed.size ? ` (disturbed: ${disturbedSay()})` : ""}`);
   return page;
 }
 // the app opened again as a person does it after closing it: Home (the app goes to the background and the page is told it is hidden),
@@ -513,9 +537,32 @@ function finish(line, code) {
     const z = await zoomOf(page).catch(() => null), ua = await page.evaluate(() => navigator.userAgent).catch(() => "");
     log(`${sc.id}: text zoom ${z}, ${ua.match(/Chrome\/[\d.]+/) || ua}`);
     for (const [name, state, theme] of sc.runs) {
-      const J = UF.JOURNEYS.find((j) => j.name === name);
-      try { page = (await journey(page, sc, state, J, theme)) || page; }
-      catch (e) { if (e instanceof Gone) throw e; add("block", "error", `${name}/${state}/${sc.id}/${theme}`, cur.step, "run crashed: " + e.message.split("\n")[0].slice(0, 160)); crashes(cur.run, cur.step); page = await launch().catch(() => page); }
+      const J = UF.JOURNEYS.find((j) => j.name === name), run = `${name}/${state}/${sc.id}/${theme}`;
+      for (let tri = 1; tri <= 2; tri++) {
+        const mark = findings.length, shots = [...shotOnce];
+        disturbed.clear(); lastAnr = null;
+        try { page = (await journey(page, sc, state, J, theme)) || page; }
+        catch (e) { if (e instanceof Gone) throw e; add("block", "error", run, cur.step, "run crashed: " + e.message.split("\n")[0].slice(0, 160)); crashes(run, cur.step, true); page = await launch().catch(() => page); }
+        if (!disturbed.size) break;
+        const why = disturbedSay();
+        if (tri === 1) {
+          // of the first try only what is the app's own in any case stays: a crash, and an ANR (a warning until it comes again)
+          const first = findings.splice(mark), kept = first.filter((f) => f.kind === "crash" || f.kind === "anr");
+          findings.push(...kept);
+          (meta.retried = meta.retried || []).push({ run, why, dropped: first.filter((f) => !kept.includes(f)).map((f) => `${f.sev} ${f.kind} ${f.step}: ${f.msg}`.slice(0, 200)) });
+          shotOnce.clear(); for (const k of shots) shotOnce.add(k);   // the screens of the first try are photographed again
+          log(`${run}: disturbed (${why}), so it runs once more on a fresh start and only that try counts (${first.length - kept.length} findings of the first try are in meta.json)`);
+          boxCache = null;   // the system may have moved its bars meanwhile: the WebView's place is read again
+          try { page = await launch(); }
+          catch (e) { if (e instanceof Gone) throw e; throw new Gone(`the app did not start again after ${run} was disturbed (${why}): ${e.message.split("\n")[0].slice(0, 120)}`); }
+          continue;
+        }
+        // disturbed in both tries: an ANR in the app's own code, or one without a stack to tell, is the app's; a page that closed or another
+        // app's dialog, without a crash of the app, is the emulator (exit 2: the workflow runs the phone setting on a new emulator); an ANR
+        // with the main thread idle or in the WebView's drawing, after which the journey still ran to its end, stays a warning
+        if (disturbed.has("anr") && lastAnr && (lastAnr.ours || !lastAnr.stack)) add("block", "anr", run, cur.step, `the app stopped responding (ANR) in both tries of this journey, the second time ${lastAnr.ours ? "in the app's own code" : "without a stack to tell where"} (${lastAnr.file})`);
+        else if ([...disturbed].some((w) => w !== "anr") && !findings.slice(mark).some((f) => f.kind === "crash" && f.sev === "block")) throw new Gone(`the phone disturbed ${run} in both tries (${why})`);
+      }
     }
     if (sc.extra) {
       try { page = await entries(page, sc); } catch (e) { if (e instanceof Gone) throw e; add("block", "error", cur.run, cur.step, "crashed: " + e.message.split("\n")[0].slice(0, 160)); page = await launch().catch(() => page); }

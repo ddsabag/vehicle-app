@@ -7,6 +7,8 @@ on:
   push:
     branches: [next]
     paths: ["index.html", "ui-contract.json", "ui-guardian-baseline.json", "ui-lint-baseline.json", ".github/scripts/ui-guardian.cjs", ".github/scripts/ui-flows.cjs", ".github/scripts/ui-lint.mjs", ".github/scripts/app-wiring.mjs", ".github/scripts/analytics-flows.cjs", "worker/api/worker.js", ".github/workflows/ui-guardian.yml"]
+  schedule:
+    - cron: "17 2 * * *"   # every night on main, what people have now: a new Chromium can move the page without a commit (the App guardian checks the app at 01:37)
   workflow_dispatch:
     inputs:
       update_baseline:

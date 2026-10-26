@@ -571,7 +571,10 @@ function judgeRun(run, seen, w) {
     for (const s of withNav.slice(1)) {
       const k = (n) => JSON.stringify([n.bar, n.inner, n.items]);
       if (k(s.nav) !== k(ref.nav)) {
-        const diff = s.nav.items.filter((x) => !ref.nav.items.includes(x)).concat(JSON.stringify(s.nav.inner) !== JSON.stringify(ref.nav.inner) ? [`frame ${ref.nav.inner} → ${s.nav.inner}`] : []);
+        // each moved item with its place on both screens (name:x,y,w,h), so the finding says where the bar was and where it went
+        const was = (x) => (ref.nav.items.find((r) => r.split(":")[0] === x.split(":")[0]) || "-:none").split(":").slice(1).join(":");
+        const diff = s.nav.items.filter((x) => !ref.nav.items.includes(x)).map((x) => `${x.split(":")[0]} ${was(x)} → ${x.split(":").slice(1).join(":")}`)
+          .concat(JSON.stringify(s.nav.bar) !== JSON.stringify(ref.nav.bar) ? [`bar ${ref.nav.bar} → ${s.nav.bar}`] : [], JSON.stringify(s.nav.inner) !== JSON.stringify(ref.nav.inner) ? [`frame ${ref.nav.inner} → ${s.nav.inner}`] : []);
         add("block", "nav-moved", run, s.step, `the navigation bar moved between ${ref.screen} (${ref.step}) and ${s.screen}: ${diff.slice(0, 3).join(" · ")}`);
       }
     }
