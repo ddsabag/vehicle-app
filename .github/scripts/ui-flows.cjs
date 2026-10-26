@@ -10,13 +10,15 @@
 // Each run: device x theme x data state (no cars / one car / many cars with long names) x journey. Registry answers are mocked
 // (no network); "offline" and "registry error" are journeys of their own.
 // Then the sweep: every control of every screen pressed one at a time; one that changes nothing is a dead control (see SWEEP below).
-// Usage: node .github/scripts/ui-flows.cjs [--quick] [--shots] [--no-sweep] [--filter <regex>] [--out <dir>]
+// --no-fonts serves no font files: a first visit to the site on a slow line draws in the phone's own font (font-display:optional),
+// which is wider than Assistant, so a label that fits in Assistant can wrap there.
+// Usage: node .github/scripts/ui-flows.cjs [--quick] [--shots] [--no-sweep] [--no-fonts] [--filter <regex>] [--out <dir>]
 const fs = require("node:fs"), http = require("node:http"), path = require("node:path");
 const { chromium } = require("playwright");
 
 const ROOT = process.cwd();
 const args = process.argv.slice(2), arg = (k) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : null; };
-const QUICK = args.includes("--quick") || !!process.env.UF_QUICK, SHOTS = args.includes("--shots"), NO_SWEEP = args.includes("--no-sweep");
+const QUICK = args.includes("--quick") || !!process.env.UF_QUICK, SHOTS = args.includes("--shots"), NO_SWEEP = args.includes("--no-sweep"), NO_FONTS = args.includes("--no-fonts");
 const FILTER = arg("--filter") ? new RegExp(arg("--filter")) : null;
 const OUT = path.resolve(arg("--out") || path.join(ROOT, "ui-flows"));
 fs.mkdirSync(path.join(OUT, "shots"), { recursive: true });
@@ -24,6 +26,7 @@ fs.mkdirSync(path.join(OUT, "shots"), { recursive: true });
 const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".css": "text/css", ".png": "image/png", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".webmanifest": "application/manifest+json" };
 const server = http.createServer((req, res) => {
   let p = decodeURIComponent(req.url.split("?")[0]); if (p.endsWith("/")) p += "index.html";
+  if (NO_FONTS && p.startsWith("/lib/fonts/")) { res.writeHead(404); res.end(); return; }
   const f = path.join(ROOT, p);
   if (!f.startsWith(ROOT) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end(); return; }
   res.writeHead(200, { "content-type": MIME[path.extname(f)] || "application/octet-stream" }); fs.createReadStream(f).pipe(res);
@@ -542,7 +545,7 @@ async function runSweep(browser, dev, stateName, S) {
   const groups = {};
   for (const f of findings) { const k = f.sev + "|" + f.kind + "|" + f.step + "|" + f.msg.replace(/\d+px|\d+\.\d+|x=\d+|w=\d+|\[[\d,]+\]|[\d,]{6,}/g, "#"); (groups[k] = groups[k] || { ...f, n: 0, runs: [] }).n++; groups[k].runs.push(f.run); }
   const list = Object.values(groups).sort((a, b) => (a.sev === b.sev ? b.n - a.n : a.sev === "block" ? -1 : 1));
-  for (const g of list) console.log(`${g.sev === "block" ? "::error::" : "::warning::"}[${g.kind}] ${g.step}: ${g.msg} (${g.n}x, e.g. ${g.runs[0]})`);
+  for (const g of list) console.log(`${g.sev === "block" ? "::error::" : "::warning::"}${NO_FONTS ? "(fallback font) " : ""}[${g.kind}] ${g.step}: ${g.msg} (${g.n}x, e.g. ${g.runs[0]})`);
   const blocks = findings.filter((f) => f.sev === "block").length;
   console.log(`ui-flows: ${nJ} journeys and ${jobs.length - nJ} swept screens (${tally.pressed} presses, ${tally.links} links) in ${Math.round((Date.now() - t0) / 1000)} s, ${blocks} blocking, ${findings.length - blocks} warnings, ${list.length} distinct`);
   process.exit(blocks ? 1 : 0);

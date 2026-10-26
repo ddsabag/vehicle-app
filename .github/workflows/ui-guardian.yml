@@ -54,11 +54,18 @@ jobs:
       - name: UI flows (every screen, every way in)
         if: ${{ !cancelled() }}
         run: node .github/scripts/ui-flows.cjs --out ui-flows
+      # the website's journeys again in the phone's own font: a first visit on a slow line draws in it (font-display:optional), and it is
+      # wider than Assistant, so a label can wrap or a row break only there. Same rules, no sweep (about 4 minutes)
+      - name: UI flows in the fallback font (website)
+        if: ${{ !cancelled() }}
+        run: node .github/scripts/ui-flows.cjs --no-sweep --no-fonts --filter '/web-' --out ui-flows-nofont
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ui-flows
-          path: ui-flows/findings.json
+          path: |
+            ui-flows/findings.json
+            ui-flows-nofont/findings.json
           retention-days: 14
       - uses: actions/upload-artifact@v7
         if: always()
