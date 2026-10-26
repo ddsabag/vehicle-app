@@ -142,4 +142,16 @@ if (process.argv[2] === "selftest") {
     if (process.env.BOTS_JSON) fs.writeFileSync(process.env.BOTS_JSON, JSON.stringify(list));   // a local copy, for testing the page
     if (process.env.DRY !== "1") console.log((await putMetric("bots", { list })) ? "bots board written" : "bots board not written");
   } catch (e) { console.log("bots board skipped:", e.message || e); }
+  // the tasks Dudu marked done on /live (KV lv:cal:done in luchit-alerts), copied to metrics.json "calDone" so the morning calendar refresh drops them
+  try {
+    const tok = process.env.CLOUDFLARE_API_TOKEN || process.env.CF_API_TOKEN, acc = process.env.CF_ACCOUNT_ID;
+    if (!tok || !acc) throw new Error("no Cloudflare token");
+    const cf = async p => { const r = await fetch("https://api.cloudflare.com/client/v4/accounts/" + acc + p, { headers: { authorization: "Bearer " + tok }, signal: AbortSignal.timeout(15e3) }); return r; };
+    const ns = await (await cf("/storage/kv/namespaces?per_page=100")).json(), id = ((ns && ns.result) || []).find(x => x.title === "luchit-alerts")?.id;
+    if (!id) throw new Error("namespace luchit-alerts not found");
+    const r = await cf("/storage/kv/namespaces/" + id + "/values/lv:cal:done"), done = r.status === 404 ? {} : await r.json();
+    const ids = Object.keys(done || {}).filter(k => /^[a-z0-9-]{1,60}$/.test(k)).sort();
+    console.log("calendar done marks:", ids.length ? ids.join(", ") : "none");
+    if (process.env.DRY !== "1") console.log((await putMetric("calDone", { at: new Date().toISOString(), ids })) ? "calendar marks written" : "calendar marks not written");
+  } catch (e) { console.log("calendar marks skipped:", e.message || e); }
 }
