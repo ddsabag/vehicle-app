@@ -59,7 +59,7 @@ for (const it of MANY) if (!RECS[+it.plate]) { const [mk, ...md] = it.title.spli
 // "slow" for the error journeys
 const govRoute = (r, gov) => {
   const u = r.request().url(), json = (body) => r.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify(body) });
-  if (gov === "500") return r.fulfill({ status: 500, body: "" });
+  if (gov === "500") return r.fulfill({ status: 500, headers: { "access-control-allow-origin": "*" }, body: "" });   // an error the page can read, as the registry sends it
   if (gov === "abort") return r.abort("internetdisconnected");
   if (gov === "slow") return new Promise((ok) => setTimeout(ok, 25000)).then(() => r.abort()).catch(() => {});
   if (/[?&]limit=0\b/.test(u)) return json({ success: true, result: { records: [], total: 120000 } });
@@ -478,11 +478,20 @@ const signature = (page) => page.evaluate(() => {
   };
 });
 
+// Safari's engine reports a load it could not finish (the network switched off, a check left half way) as a page error whose text ends
+// "due to access control checks": that is the network, not the page's code, and each journey's own rules judge what the person then
+// sees. An exception the page throws still blocks
+const pageErr = (run, at) => (e) => {
+  if (ENGINE === "webkit" && /due to access control checks\.?$/.test(e.message)) { tally.cut++; return; }
+  add("block", "error", run, at(), "page error: " + e.message.slice(0, 160));
+};
 // a browser context for one run: the network mocked (the registry answers from RECS), the data state in localStorage, the app's bridge
 // in the app; window.__fx counts what a press can do outside the page (a share, a copy, a new window, a call to the app)
 async function openCtx(browser, dev, theme, stateName, gov) {
   const app = dev.ua === "app";
-  const ctx = await browser.newContext({ viewport: { width: dev.w, height: dev.h }, deviceScaleFactor: 1, isMobile: dev.mobile ?? dev.w < 900, hasTouch: dev.touch ?? dev.w < 900, colorScheme: theme, locale: "he-IL", userAgent: UA[dev.ua] });
+  // in Safari's engine a page the service worker controls sends its requests past Playwright's routes, so from the worker's first
+  // claim the registry mock was gone and every lookup went to the real network (26.10, 3,135 findings): there the worker is left out
+  const ctx = await browser.newContext({ viewport: { width: dev.w, height: dev.h }, deviceScaleFactor: 1, isMobile: dev.mobile ?? dev.w < 900, hasTouch: dev.touch ?? dev.w < 900, colorScheme: theme, locale: "he-IL", userAgent: UA[dev.ua], ...(ENGINE === "webkit" ? { serviceWorkers: "block" } : {}) });
   await ctx.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (r) => r.abort());
   const net = { offline: false };   // a mocked answer would still arrive with the context offline, so the mock stops answering too
   await ctx.route(/data\.gov\.il/, (r) => (net.offline ? r.abort("internetdisconnected") : govRoute(r, gov)));
@@ -506,7 +515,7 @@ async function runJourney(browser, dev, theme, stateName, J) {
   const { ctx, net, app } = await openCtx(browser, dev, theme, stateName, J.gov);
   const page = await ctx.newPage();
   let step = "load";
-  page.on("pageerror", (e) => add("block", "error", run, step, "page error: " + e.message.slice(0, 160)));
+  page.on("pageerror", pageErr(run, () => step));
   await page.goto(`http://127.0.0.1:${server.address().port}/`);
   await page.waitForSelector("#homeMark", { state: "attached", timeout: 15000 }).catch(() => add("block", "logic", run, step, "home did not render"));
   await page.addStyleTag({ content: "*{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}" });
@@ -593,7 +602,7 @@ function judgeRun(run, seen, w) {
   if (w >= 768 && ws.length > 1 && Math.max(...ws.map((x) => x[1] + x[2] / 2)) - Math.min(...ws.map((x) => x[1] + x[2] / 2)) > 2) add("warn", "column", run, "-", `the content column is off the centre line on one screen: ${ws.map((x) => `${x[0]} x=${x[1]} w=${x[2]}`).join(" · ")}`);
 }
 
-const tally = { pressed: 0, links: 0 };   // for the closing line: how much the sweep pressed and checked
+const tally = { pressed: 0, links: 0, cut: 0 };   // for the closing line: how much the sweep pressed and checked, the loads Safari's engine saw cut
 async function runSweep(browser, dev, stateName, S) {
   const run = `sweep:${S.name}/${stateName}/${dev.id}`;
   let ctx = null, page = null, step = "load", base = null, asked = 0, saved = 0, opened = 0;
@@ -602,7 +611,7 @@ async function runSweep(browser, dev, stateName, S) {
     if (ctx) await ctx.close().catch(() => {});
     const o = await openCtx(browser, dev, "light", stateName, null), { net, app } = o; ctx = o.ctx;
     page = await ctx.newPage();
-    page.on("pageerror", (e) => add("block", "error", run, step, "page error: " + e.message.slice(0, 160)));
+    page.on("pageerror", pageErr(run, () => step));
     page.on("dialog", (d) => { asked++; d.dismiss().catch(() => {}); });
     page.on("download", () => { saved++; });
     page.on("popup", (p) => { opened++; p.close().catch(() => {}); });
@@ -693,6 +702,6 @@ if (require.main === module) (async () => {
   const list = Object.values(groups).sort((a, b) => (a.sev === b.sev ? b.n - a.n : a.sev === "block" ? -1 : 1));
   for (const g of list) console.log(`${g.sev === "block" ? "::error::" : "::warning::"}${NO_FONTS ? "(fallback font) " : ""}${ENGINE === "webkit" ? "(Safari's engine) " : ""}[${g.kind}] ${g.step}: ${g.msg} (${g.n}x, e.g. ${g.runs[0]})`);
   const blocks = findings.filter((f) => f.sev === "block").length;
-  console.log(`ui-flows${ENGINE === "webkit" ? " (Safari's engine)" : ""}: ${nJ} journeys and ${jobs.length - nJ} swept screens (${tally.pressed} presses, ${tally.links} links) in ${Math.round((Date.now() - t0) / 1000)} s, ${blocks} blocking, ${findings.length - blocks} warnings, ${list.length} distinct`);
+  console.log(`ui-flows${ENGINE === "webkit" ? " (Safari's engine)" : ""}: ${nJ} journeys and ${jobs.length - nJ} swept screens (${tally.pressed} presses, ${tally.links} links) in ${Math.round((Date.now() - t0) / 1000)} s, ${blocks} blocking, ${findings.length - blocks} warnings, ${list.length} distinct${ENGINE === "webkit" ? `, ${tally.cut} loads the network cut` : ""}`);
   process.exit(blocks ? 1 : 0);
 })();
