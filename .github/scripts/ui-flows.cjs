@@ -6,13 +6,14 @@
 //                      text cut off, the bottom bar covering the end of the page, the content column changing width between screens
 // Each run: device x theme x data state (no cars / one car / many cars with long names) x journey. Registry answers are mocked
 // (no network); "offline" and "registry error" are journeys of their own.
-// Usage: node .github/scripts/ui-flows.cjs [--quick] [--shots] [--filter <regex>] [--out <dir>]
+// Then the sweep: every control of every screen pressed one at a time; one that changes nothing is a dead control (see SWEEP below).
+// Usage: node .github/scripts/ui-flows.cjs [--quick] [--shots] [--no-sweep] [--filter <regex>] [--out <dir>]
 const fs = require("node:fs"), http = require("node:http"), path = require("node:path");
 const { chromium } = require("playwright");
 
 const ROOT = process.cwd();
 const args = process.argv.slice(2), arg = (k) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : null; };
-const QUICK = args.includes("--quick") || !!process.env.UF_QUICK, SHOTS = args.includes("--shots");
+const QUICK = args.includes("--quick") || !!process.env.UF_QUICK, SHOTS = args.includes("--shots"), NO_SWEEP = args.includes("--no-sweep");
 const FILTER = arg("--filter") ? new RegExp(arg("--filter")) : null;
 const OUT = path.resolve(arg("--out") || path.join(ROOT, "ui-flows"));
 fs.mkdirSync(path.join(OUT, "shots"), { recursive: true });
@@ -271,17 +272,77 @@ const JOURNEYS = [
   ] },
 ];
 
-async function runJourney(browser, dev, theme, stateName, J) {
-  const app = dev.ua === "app", run = `${J.name}/${stateName}/${dev.id}/${theme}`;
+
+// ---- the sweep: every control of a screen pressed one at a time, each in a fresh copy of the screen when the one before changed it.
+// Something must happen: another screen, a sheet or menu, a toast, a section opening, the page changing, focus moving to something
+// else, a stored setting, a share / copy / new window / call to the app, a question (confirm) or a download. A press that changes
+// nothing is a dead control (warning); a page error is blocking; the layout is measured after every press and what the press itself
+// broke is reported like a journey step. Links are not pressed: a link inside the site must lead to a file the site has.
+const tabTo = (t) => async (p) => { const b = p.locator(`.tabs [data-tab=${t}]`); if (await b.count()) await b.click(); };
+// every folded card and <details> of the screen opened, so the controls inside them are pressed too (the plain "car" keeps the screen as it opens)
+const unfold = async (p) => { await p.evaluate(() => { for (const h of document.querySelectorAll("#out .head[data-fold][aria-expanded=false]")) h.click(); for (const d of document.querySelectorAll("#out details:not([open])")) d.open = true; }); await p.waitForTimeout(200); };
+const SWEEP = [
+  { name: "home", steps: [unfold] },
+  { name: "car", steps: [check()] },
+  ...["overview", "recalls", "buy", "file", "specs"].map((t) => ({ name: `car-${t}-open`, steps: [check(), tabTo(t), unfold] })),
+  { name: "car-menu", steps: [check(), tap("#chead [data-act=cmenu]")] },
+  { name: "cars", steps: [nav("cars"), unfold] },
+  { name: "alerts", steps: [nav("alerts"), unfold] },
+  { name: "settings", steps: [tap("#openSettings")] },
+  // the frame: the plate field and its buttons (an empty field, paste, camera, voice), the bars and the footer
+  { name: "frame", steps: [], roots: ".band, #savedBar, #bnav, body > footer" },
+  { name: "frame-car", steps: [check()], roots: ".band, #bnav, body > footer" },
+];
+const SWEEP_RUNS = QUICK ? [["app-360", "one"], ["web-1280", "one"]]
+  : [["app-360", "one"], ["app-360", "owner"], ["app-360", "empty"], ["web-390", "many"], ["web-1280", "one"], ["web-1280", "many"], ["web-1280", "owner"]];
+// the controls of the screen, in the open sheet or menu when there is one; two of each kind (one car row of a list stands for all)
+const controls = (page, sel) => page.evaluate((sel) => {
+  const vis = (e) => { const b = e.getBoundingClientRect(), cs = getComputedStyle(e); return b.width > 0 && b.height > 0 && cs.visibility !== "hidden" && cs.display !== "none" && cs.opacity !== "0" && !e.closest("[hidden]") && !e.closest("details:not([open]) > :not(summary)"); };
+  const pathOf = (e) => { const parts = []; for (let n = e; n && n !== document.body; n = n.parentElement) { if (n.id) { parts.unshift("#" + CSS.escape(n.id)); break; } const i = [...n.parentElement.children].filter((x) => x.tagName === n.tagName).indexOf(n) + 1; parts.unshift(`${n.tagName.toLowerCase()}:nth-of-type(${i})`); } return parts.join(" > "); };
+  const label = (e) => (e.getAttribute("aria-label") || e.textContent || e.className || e.tagName).replace(/\s+/g, " ").trim().slice(0, 40);
+  const pop = [...document.querySelectorAll(".sheet:not([hidden]), .doc-view, #roadSheet, .ch-menu")].filter(vis).pop();
+  const roots = sel ? [...document.querySelectorAll(sel)] : pop ? [pop] : [document.getElementById("chead"), document.getElementById("out")].filter(Boolean);
+  const kinds = {}, list = [], seen = new Set();
+  for (const r of roots) for (const e of r.querySelectorAll("button, a[href], [role=tab], [role=button], summary, label:has(input[type=checkbox]), [data-act], [data-url], [data-open]")) {
+    if (seen.has(e)) continue; seen.add(e);
+    if (!vis(e) || e.disabled || e.getAttribute("aria-disabled") === "true" || e.getAttribute("aria-selected") === "true" || e.getAttribute("aria-current") || (e.getAttribute("aria-pressed") === "true" && e.closest(".seg, .vseg, [role=radiogroup]")) || e.closest(".sr-only")) continue;
+    const kind = e.tagName + "." + [...e.classList].sort().join(".") + "[" + Object.keys(e.dataset).sort().join(",") + "]" + (e.dataset.act || e.dataset.tab || "");
+    if ((kinds[kind] = (kinds[kind] || 0) + 1) > 2) continue;
+    const href = e.tagName === "A" ? e.getAttribute("href") : null;
+    list.push({ path: pathOf(e), label: label(e), href: href && !href.startsWith("#") ? href : null });
+  }
+  return list;
+}, sel || null);
+// what a press can change, in a few numbers
+const signature = (page) => page.evaluate(() => {
+  const h = (t) => { let x = 0; for (let i = 0; i < t.length; i++) x = (x * 31 + t.charCodeAt(i)) | 0; return x; };
+  const vis = (e) => e && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== "hidden";
+  const pathOf = (e) => { const parts = []; for (let n = e; n && n !== document.body; n = n.parentElement) { if (n.id) { parts.unshift("#" + CSS.escape(n.id)); break; } const i = [...n.parentElement.children].filter((x) => x.tagName === n.tagName).indexOf(n) + 1; parts.unshift(`${n.tagName.toLowerCase()}:nth-of-type(${i})`); } return parts.join(" > "); };
+  let ls = ""; try { ls = JSON.stringify(Object.entries(localStorage).sort()); } catch {}
+  const a = document.activeElement;
+  return {
+    screen: document.body.dataset.screen, url: location.href, pop: [...document.querySelectorAll(".sheet:not([hidden]), .doc-view, #roadSheet, .ch-menu, [role=dialog]:not([hidden])")].filter(vis).map((e) => e.id || e.className).join(","),
+    page: h(((document.getElementById("out") || {}).innerHTML || "") + ((document.getElementById("chead") || {}).innerHTML || "")),
+    open: document.querySelectorAll("details[open], [aria-expanded=true], [aria-pressed=true], [aria-checked=true], input:checked").length,
+    toast: [...document.querySelectorAll(".toast, #snack")].filter(vis).map((e) => e.textContent).join("|"), fx: window.__fx || 0, ls: h(ls),
+    said: h([...document.querySelectorAll("[role=status], [aria-live]")].map((e) => e.textContent).join("|")),   // a line like "אין מה להדביק" under the field
+    y: Math.round(scrollY), theme: document.documentElement.className + "/" + (document.documentElement.dataset.theme || ""), focus: a && a !== document.body ? pathOf(a) : "",
+  };
+});
+
+// a browser context for one run: the network mocked (the registry answers from RECS), the data state in localStorage, the app's bridge
+// in the app; window.__fx counts what a press can do outside the page (a share, a copy, a new window, a call to the app)
+async function openCtx(browser, dev, theme, stateName, gov) {
+  const app = dev.ua === "app";
   const ctx = await browser.newContext({ viewport: { width: dev.w, height: dev.h }, deviceScaleFactor: 1, isMobile: dev.w < 900, hasTouch: dev.w < 900, colorScheme: theme, locale: "he-IL", userAgent: UA[dev.ua] });
   await ctx.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (r) => r.abort());
   const net = { offline: false };   // a mocked answer would still arrive with the context offline, so the mock stops answering too
   await ctx.route(/data\.gov\.il/, (r) => {
     const u = r.request().url();
     if (net.offline) return r.abort("internetdisconnected");
-    if (J.gov === "500") return r.fulfill({ status: 500, body: "" });
-    if (J.gov === "abort") return r.abort("internetdisconnected");
-    if (J.gov === "slow") return new Promise((ok) => setTimeout(ok, 25000)).then(() => r.abort()).catch(() => {});
+    if (gov === "500") return r.fulfill({ status: 500, body: "" });
+    if (gov === "abort") return r.abort("internetdisconnected");
+    if (gov === "slow") return new Promise((ok) => setTimeout(ok, 25000)).then(() => r.abort()).catch(() => {});
     if (/[?&]limit=0\b/.test(u)) return r.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify({ success: true, result: { records: [], total: 120000 } }) });
     const m = decodeURIComponent(u).match(/(\d{7,8})/), rec = u.includes("053cea08") && m && RECS[+m[1]];
     const recs = rec ? [rec] : [];
@@ -289,10 +350,20 @@ async function runJourney(browser, dev, theme, stateName, J) {
   });
   await ctx.addInitScript(({ ls, app }) => {
     try { localStorage.setItem("analyticsOff", "1"); for (const [k, v] of Object.entries(ls)) localStorage.setItem(k, v); } catch {}
-    if (app) window.AndroidApp = { alertsState: () => "on", setAlerts() {}, askReview() {}, checkUpdate() {}, logEvent() {}, setAnalytics() {}, setLandscape() {}, syncSaved() {} };
+    window.__fx = 0; const fx = () => { window.__fx++; };
+    if (app) window.AndroidApp = { alertsState: () => "on", setAlerts: fx, askReview: fx, checkUpdate() {}, logEvent() {}, setAnalytics() {}, setLandscape: fx, syncSaved() {} };
+    try { window.open = () => { fx(); return null; }; window.print = fx; } catch {}
+    try { if (navigator.clipboard) navigator.clipboard.writeText = async () => { fx(); }; } catch {}
+    try { if (navigator.share) { navigator.share = async () => { fx(); }; } } catch {}
     window.__cls = { v: 0, src: [] };
     try { new PerformanceObserver((l) => { for (const e of l.getEntries()) if (!e.hadRecentInput) { window.__cls.v += e.value; window.__cls.src.push((e.sources || []).map((s) => s.node && (s.node.id || s.node.className || s.node.nodeName)).join("|").slice(0, 80)); } }).observe({ type: "layout-shift", buffered: true }); } catch {}
   }, { ls: { theme, ...STATES[stateName] }, app });
+  return { ctx, net, app };
+}
+
+async function runJourney(browser, dev, theme, stateName, J) {
+  const run = `${J.name}/${stateName}/${dev.id}/${theme}`;
+  const { ctx, net, app } = await openCtx(browser, dev, theme, stateName, J.gov);
   const page = await ctx.newPage();
   let step = "load";
   page.on("pageerror", (e) => add("block", "error", run, step, "page error: " + e.message.slice(0, 160)));
@@ -356,6 +427,68 @@ async function runJourney(browser, dev, theme, stateName, J) {
   await ctx.close();
 }
 
+const tally = { pressed: 0, links: 0 };   // for the closing line: how much the sweep pressed and checked
+async function runSweep(browser, dev, stateName, S) {
+  const run = `sweep:${S.name}/${stateName}/${dev.id}`;
+  let ctx = null, page = null, step = "load", base = null, asked = 0, saved = 0, opened = 0;
+  // a new context each time: what a press stored (a car saved, a file opened) must not change the next copy of the screen
+  const fresh = async () => {
+    if (ctx) await ctx.close().catch(() => {});
+    const o = await openCtx(browser, dev, "light", stateName, null), { net, app } = o; ctx = o.ctx;
+    page = await ctx.newPage();
+    page.on("pageerror", (e) => add("block", "error", run, step, "page error: " + e.message.slice(0, 160)));
+    page.on("dialog", (d) => { asked++; d.dismiss().catch(() => {}); });
+    page.on("download", () => { saved++; });
+    page.on("popup", (p) => { opened++; p.close().catch(() => {}); });
+    page.on("filechooser", () => { opened++; });   // "צילום לוחית", "הוספת מסמך": the phone's picker opens
+    await page.goto(`http://127.0.0.1:${server.address().port}/`);
+    await page.waitForSelector("#homeMark", { state: "attached", timeout: 15000 });
+    await page.addStyleTag({ content: "*{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}" });
+    const c = { dev, theme: "light", state: stateName, app, ctx, net, page, plate: stateName === "many" ? "7654321" : "1234567" };
+    for (const act of S.steps) await act(page, c);
+    await page.waitForTimeout(300);
+    base = await measure(page);
+  };
+  try { await fresh(); } catch (e) { add("block", "logic", run, step, "could not reach the screen: " + e.message.split("\n")[0].slice(0, 120)); if (ctx) await ctx.close(); return; }
+  const list = await controls(page, S.roots);
+  if (process.env.UF_DEBUG) console.log(`  ${run}: ${list.length} controls`);
+  let dirty = false, n = 0;
+  for (const ctl of list) {
+    step = `press "${ctl.label}"`;
+    if (ctl.href) {
+      if (!/^[a-z][a-z0-9+.-]*:/i.test(ctl.href) || ctl.href.startsWith(`http://127.0.0.1:${server.address().port}`)) {
+        const u = new URL(ctl.href, `http://127.0.0.1:${server.address().port}/`), f = path.join(ROOT, decodeURIComponent(u.pathname));
+        tally.links++;
+        if (u.pathname !== "/" && !fs.existsSync(f) && !fs.existsSync(f + ".html") && !fs.existsSync(path.join(f, "index.html"))) add("warn", "link", run, step, `a link on ${S.name} to a page the site does not have: ${ctl.href}`);
+      }
+      continue;
+    }
+    if (dirty) { try { await fresh(); } catch { continue; } dirty = false; }
+    const loc = page.locator(ctl.path).first();
+    if (!(await loc.count()) || !(await loc.isVisible().catch(() => false))) { if (process.env.UF_DEBUG) console.log(`  ${run} ${step}: not found on a fresh copy`); continue; }
+    await loc.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
+    const b = await signature(page); asked = 0; saved = 0; opened = 0;
+    try { await loc.click({ timeout: 2500 }); }
+    catch (e) { const m = /<([a-z]+)[^>]*?(?:class="([^"]*)"|id="([^"]*)")?[^>]*> intercepts pointer events/.exec(e.message); add("warn", "covered", run, step, `"${ctl.label}" on ${S.name} could not be pressed: ${m ? `under ${m[1]}${m[3] ? "#" + m[3] : m[2] ? "." + m[2].split(" ")[0] : ""}` : e.message.split("\n")[0].slice(0, 80)}`); dirty = true; continue; }
+    n++; tally.pressed++;
+    if (process.env.UF_DEBUG) console.log(`  ${run} ${step}`);
+    await page.waitForTimeout(400);
+    let a; try { a = await signature(page); } catch { dirty = true; continue; }   // the press left the page
+    const moved = Object.keys(b).filter((k) => k !== "focus" && b[k] !== a[k]);
+    if (!moved.length && !(a.focus !== b.focus && a.focus !== ctl.path) && !asked && !saved && !opened) add("warn", "dead", run, step, `pressing "${ctl.label}" on ${S.name} changes nothing`);
+    // what the press itself broke (problems that were not on the screen before it)
+    let m; try { m = await measure(page); } catch { dirty = true; continue; }
+    const fresh1 = (k) => (m[k] || []).filter((x) => !(base[k] || []).includes(x));
+    if (m.over > 0 && !(base.over > 0)) add("block", "overflow", run, step, `page scrolls sideways by ${m.over}px after pressing "${ctl.label}" on ${S.name}`);
+    if (fresh1("outside").length) add("block", "outside", run, step, `past the screen edge after pressing "${ctl.label}" on ${S.name}: ${fresh1("outside").join(" · ")}`);
+    for (const [k, word] of [["overlaps", "controls overlap"], ["wraps", "label on two lines"], ["clipped", "text cut off"], ["orphans", "a control on a line of its own"], ["bleed", "wider than the content column"]])
+      if (fresh1(k).length) add("warn", { overlaps: "overlap", wraps: "wrap", clipped: "clip", orphans: "orphan", bleed: "bleed" }[k], run, step, `${word} after pressing "${ctl.label}" on ${S.name}: ${fresh1(k).join(" · ")}`);
+    if (["screen", "url", "pop", "page", "ls", "theme"].some((k) => b[k] !== a[k]) || opened) dirty = true; else base = m;   // a problem is told once, by the press that made it
+  }
+  if (!n && list.some((x) => !x.href)) add("warn", "logic", run, "-", `no control on ${S.name} could be pressed`);
+  await ctx.close();
+}
+
 (async () => {
   await new Promise((ok) => server.listen(0, "127.0.0.1", ok));
   const browser = await chromium.launch();
@@ -367,11 +500,17 @@ async function runJourney(browser, dev, theme, stateName, J) {
     if (J.name === "owner" ? st !== "owner" : st === "owner" && J.name !== "tour") continue;
     if (th === "dark" && !/^(tour|check|saved|owner)$/.test(J.name)) continue;   // dark: the screens themselves, not every path again
     const key = `${J.name}/${st}/${dev.id}/${th}`; if (FILTER && !FILTER.test(key)) continue;
-    jobs.push([dev, th, st, J]);
+    jobs.push(() => runJourney(browser, dev, th, st, J).catch((e) => add("block", "error", key, "-", "run crashed: " + e.message.slice(0, 160))));
   }
-  console.log(`ui-flows: ${jobs.length} journeys`);
+  const nJ = jobs.length;
+  if (!NO_SWEEP) for (const [id, st] of SWEEP_RUNS) for (const S of SWEEP) {
+    const dev = DEVICES.find((d) => d.id === id), key = `sweep:${S.name}/${st}/${id}`;
+    if (!dev || (FILTER && !FILTER.test(key))) continue;
+    jobs.push(() => runSweep(browser, dev, st, S).catch((e) => add("block", "error", key, "-", "sweep crashed: " + e.message.slice(0, 160))));
+  }
+  console.log(`ui-flows: ${nJ} journeys, ${jobs.length - nJ} screens to sweep`);
   let i = 0; const t0 = Date.now();
-  const worker = async () => { while (i < jobs.length) { const j = jobs[i++]; try { await runJourney(browser, ...j); } catch (e) { add("block", "error", `${j[3].name}/${j[2]}/${j[0].id}/${j[1]}`, "-", "run crashed: " + e.message.slice(0, 160)); } } };
+  const worker = async () => { while (i < jobs.length) await jobs[i++](); };
   await Promise.all(Array.from({ length: Math.min(4, require("node:os").cpus().length) }, worker));
   await browser.close(); server.close();
   fs.writeFileSync(path.join(OUT, "findings.json"), JSON.stringify(findings, null, 1));
@@ -381,6 +520,6 @@ async function runJourney(browser, dev, theme, stateName, J) {
   const list = Object.values(groups).sort((a, b) => (a.sev === b.sev ? b.n - a.n : a.sev === "block" ? -1 : 1));
   for (const g of list) console.log(`${g.sev === "block" ? "::error::" : "::warning::"}[${g.kind}] ${g.step}: ${g.msg} (${g.n}x, e.g. ${g.runs[0]})`);
   const blocks = findings.filter((f) => f.sev === "block").length;
-  console.log(`ui-flows: ${jobs.length} journeys in ${Math.round((Date.now() - t0) / 1000)} s, ${blocks} blocking, ${findings.length - blocks} warnings, ${list.length} distinct`);
+  console.log(`ui-flows: ${nJ} journeys and ${jobs.length - nJ} swept screens (${tally.pressed} presses, ${tally.links} links) in ${Math.round((Date.now() - t0) / 1000)} s, ${blocks} blocking, ${findings.length - blocks} warnings, ${list.length} distinct`);
   process.exit(blocks ? 1 : 0);
 })();
