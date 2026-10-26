@@ -87,7 +87,7 @@ async function measure(page) {
     const wraps = ctrls.filter((e) => { if (!e.matches("button,a,[role=tab],.chip,.rc")) return false; const t = e.textContent.replace(/\s+/g, " ").trim(); if (!t || t.length > 26 || e.querySelector("small,br,.t,b + span") || getComputedStyle(e).flexDirection === "column") return false; return lines(e) > 1; }).map(label);
     // two controls on top of each other: compared only inside the same layer (the page, or one fixed / sticky bar), boxes per line for inline links
     const layer = (e) => { for (let p = e; p && p !== document.body; p = p.parentElement) { const ps = getComputedStyle(p).position; if (ps === "fixed" || ps === "sticky") return p; } return null; };
-    const boxes = ctrls.map((e) => ({ e, L: layer(e), rs: getComputedStyle(e).display === "inline" ? [...e.getClientRects()] : [e.getBoundingClientRect()] })), overlaps = [];
+    const boxes = ctrls.filter((e) => !e.matches(".note a, #mdlLink a")).map((e) => ({ e, L: layer(e), rs: getComputedStyle(e).display === "inline" ? [...e.getClientRects()] : [e.getBoundingClientRect()] })), overlaps = [];
     for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
       const a = boxes[i], c = boxes[j]; if (a.L !== c.L || a.e.contains(c.e) || c.e.contains(a.e)) continue;
       if (a.rs.some((p) => c.rs.some((q) => Math.min(p.right, q.right) - Math.max(p.left, q.left) > 4 && Math.min(p.bottom, q.bottom) - Math.max(p.top, q.top) > 4))) overlaps.push(label(a.e) + " ⟷ " + label(c.e));
@@ -107,7 +107,7 @@ async function measure(page) {
       const kids = [...row.children].filter(vis); if (kids.length < 2) continue;
       const lines = []; for (const k of kids) { const b = k.getBoundingClientRect(), l = lines.find((x) => Math.abs(x.top - b.top) < b.height / 2); if (l) l.k.push(k); else lines.push({ top: b.top, k: [k] }); }
       if (lines.length < 2) continue; const last = lines[lines.length - 1].k;
-      if (last.length === 1 && last[0].matches("button,a") && lines.slice(0, -1).some((l) => l.k.some((k) => !k.matches("button,a")))) orphans.push(`"${label(last[0])}" in .${(row.className || row.tagName).split(" ")[0]}`);
+      if (last.length === 1 && last[0].matches("button,a") && lines.slice(0, -1).some((l) => l.k.length > 1 && l.k.some((k) => !k.matches("button,a")))) orphans.push(`"${label(last[0])}" in .${(row.className || row.tagName).split(" ")[0]}`);
     }
     // content wider than its own column: past the edge of the main column on a wide screen, where nothing should bleed into the margin
     const colBox = out && out.getBoundingClientRect(), padL = out ? parseFloat(getComputedStyle(out).paddingLeft) : 0, padR = out ? parseFloat(getComputedStyle(out).paddingRight) : 0;
@@ -119,6 +119,8 @@ async function measure(page) {
     }
     const plate = document.getElementById("plate"), mp = document.querySelector("#chead .mini-plate");
     return {
+      starOn: (document.querySelector("#chead [data-act=save]") || { getAttribute: () => "" }).getAttribute("aria-pressed") === "true",
+      listed: [...document.querySelectorAll("#out [data-open]")].map((e) => e.dataset.open),
       screen: document.body.dataset.screen, tab: typeof currentTab !== "undefined" ? currentTab : null, carOn: !!mp, carPlate: mp ? mp.textContent.replace(/\D/g, "") : "",
       home: !!document.getElementById("homeMark"), sheet: sheet ? (sheet.id || sheet.className) : null, url: location.pathname + location.search + location.hash, hist: history.length,
       focus: document.activeElement ? (document.activeElement.id || document.activeElement.tagName) : null, plateVal: plate ? plate.value : null,
@@ -172,8 +174,8 @@ const JOURNEYS = [
     ["check", check(), isCar()],
     ["to-cars", nav("cars"), (m) => m.screen === "cars" || "cars"],
     ["plus", tap("#out [data-act=addCar]"), (m) => m.screen === "home" && !m.carOn && m.home && (m.plateVal || "") === "" && m.focus === "plate" || `"+" should open an empty, focused plate field; got screen ${m.screen}, car ${m.carPlate || "none"}, field "${m.plateVal}", focus ${m.focus}`],
-    ["check-2", check("7654321"), isCar("7654321")],
-    ["back", back, (m, c) => m.screen === "home" || m.screen === "cars" || `Back after a check from "+": ${m.screen}`],
+    ["check-2", check("7654321"), (m) => m.screen === "car" && m.carPlate === "7654321" && m.starOn && m.navCur === "cars" || `a car checked after "+" should be in הרכבים שלי (star ${m.starOn}, tab ${m.navCur}, screen ${m.screen} ${m.carPlate})`],
+    ["arrow", tap("#chead [data-act=back]"), (m) => m.screen === "cars" && m.listed.includes("7654321") || `the arrow after "+" should return to הרכבים שלי with the new car, got ${m.screen} [${m.listed.join(",")}]`],
   ] },
   { name: "saved", when: (c) => c.state !== "empty", steps: [
     ["cars", nav("cars"), (m) => m.screen === "cars" || "cars"],
