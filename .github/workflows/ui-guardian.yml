@@ -3,10 +3,10 @@ name: UI guardian (browser)
 # "UI guardian (lint)" and "UI guardian (browser)". The trigger paths are the union of both.
 on:
   pull_request:
-    paths: ["index.html", "ui-contract.json", "ui-guardian-baseline.json", "ui-lint-baseline.json", ".github/scripts/ui-guardian.cjs", ".github/scripts/ui-flows.cjs", ".github/scripts/ui-lint.mjs", ".github/workflows/ui-guardian.yml"]
+    paths: ["index.html", "ui-contract.json", "ui-guardian-baseline.json", "ui-lint-baseline.json", ".github/scripts/ui-guardian.cjs", ".github/scripts/ui-flows.cjs", ".github/scripts/ui-lint.mjs", ".github/scripts/app-wiring.mjs", ".github/workflows/ui-guardian.yml"]
   push:
     branches: [next]
-    paths: ["index.html", "ui-contract.json", "ui-guardian-baseline.json", "ui-lint-baseline.json", ".github/scripts/ui-guardian.cjs", ".github/scripts/ui-flows.cjs", ".github/scripts/ui-lint.mjs", ".github/workflows/ui-guardian.yml"]
+    paths: ["index.html", "ui-contract.json", "ui-guardian-baseline.json", "ui-lint-baseline.json", ".github/scripts/ui-guardian.cjs", ".github/scripts/ui-flows.cjs", ".github/scripts/ui-lint.mjs", ".github/scripts/app-wiring.mjs", ".github/workflows/ui-guardian.yml"]
   workflow_dispatch:
     inputs:
       update_baseline:
@@ -33,6 +33,9 @@ jobs:
       # parameter a report reads is a registered GA4 dimension (the same selftest alert-check runs on script and worker changes)
       - name: Analytics contract
         run: node .github/scripts/ga4-admin.mjs selftest
+      # blocking, offline: the page and the Android app agree on every wire between them (app-wiring.mjs; the App guardian runs it too)
+      - name: App wiring
+        run: node .github/scripts/app-wiring.mjs
       - name: Install test tools (not part of the app)
         run: |
           npm install --no-save --no-package-lock playwright axe-core pixelmatch@5.3.0 pngjs@7.0.0

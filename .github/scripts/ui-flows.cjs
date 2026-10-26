@@ -38,6 +38,9 @@ const day = (n) => iso(n).slice(0, 10);
 const CAR = { _id: 1, mispar_rechev: 1234567, tozeret_nm: "טויוטה יפן", kinuy_mishari: "COROLLA", degem_nm: "ZRE172", shnat_yitzur: 2021, tzeva_rechev: "לבן", sug_delek_nm: "בנזין", tokef_dt: iso(400), mivchan_acharon_dt: iso(-330), moed_aliya_lakvish: "2021-5", tozeret_cd: 1, degem_cd: 1, nefach_manoa: 1798, baalut: "פרטי" };
 const CAR2 = { ...CAR, _id: 2, mispar_rechev: 7654321, tozeret_nm: "מרצדס בנץ גרמניה", kinuy_mishari: "GLE 450 4MATIC COUPE AMG LINE PREMIUM PLUS", degem_nm: "GLE450-4MATIC-COUPE-X", tzeva_rechev: "אפור כהה מטלי פנינה", tozeret_cd: 9, shnat_yitzur: 2023 };
 const RECS = { 1234567: CAR, 7654321: CAR2 };
+// the ministry's per-car list of unfixed recalls: 1234567 has one open (16100, as the many-cars fixture keeps it), so its recalls tab is
+// walked and a tapped recall alert has a tab to open
+const OPEN_RECALLS = { 1234567: [{ _id: 1, MISPAR_RECHEV: 1234567, RECALL_ID: 16100, SUG_RECALL: "רגיל", TAARICH_PTICHA: iso(-200) }] };
 const S1 = { plate: "1234567", title: "טויוטה COROLLA", sub: "2021 · לבן", at: 1, reg: "active", tokef: day(400), mivchan: day(-330), recalls: 0, checked: 1, owners: 1, active: true, events: [], alerts: true, color: "לבן" };
 const MANY = [
   { plate: "1234567", title: "טויוטה COROLLA", sub: "2021", nick: "רכב המשפחה", at: 1, reg: "active", tokef: day(25), mivchan: day(-340), recalls: 1, recIds: "16100", checked: 1, owners: 1, active: true, events: [], alerts: true, color: "כסף מטלי" },
@@ -58,7 +61,7 @@ const govRoute = (r, gov) => {
   if (gov === "slow") return new Promise((ok) => setTimeout(ok, 25000)).then(() => r.abort()).catch(() => {});
   if (/[?&]limit=0\b/.test(u)) return json({ success: true, result: { records: [], total: 120000 } });
   const m = decodeURIComponent(u).match(/(\d{7,8})/), rec = u.includes("053cea08") && m && RECS[+m[1]];
-  const recs = rec ? [rec] : [];
+  const recs = rec ? [rec] : u.includes("36bf1404") && m && OPEN_RECALLS[+m[1]] || [];
   return json({ success: true, result: { records: recs, total: recs.length } });
 };
 const STATES = {
@@ -68,6 +71,10 @@ const STATES = {
   many: { savedVehicles: JSON.stringify(MANY), recentPlates: JSON.stringify(["7654321", "1234567", "11122233", "33344455", "55566677", "88899900"]) },
 };
 
+// the app's bridge as MainActivity defines it, so the app runs here call what the phone has (a share, the calendar, the voice search)
+// and nothing the phone lacks; the presses that reach outside the page count as an effect for the sweep, the bookkeeping ones do not
+const BRIDGE = (() => { try { const j = fs.readFileSync(path.join(ROOT, "android/app/src/main/java/com/ddsabag/pratirechev/MainActivity.java"), "utf8"); return [...j.matchAll(/@JavascriptInterface\s+public\s+[\w<>[\]]+\s+(\w+)\s*\(/g)].map((m) => m[1]); } catch { return ["alertsState", "setAlerts", "askReview", "checkUpdate", "logEvent", "setAnalytics", "setLandscape", "syncSaved"]; } })();
+const QUIET_BRIDGE = ["logEvent", "logError", "setAnalytics", "syncSaved", "checkUpdate", "setDark", "billingInit", "alertsState"];
 const UA = {
   app: "Mozilla/5.0 (Linux; Android 14; Pixel 8 Build/AP2A; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/129.0.0.0 Mobile Safari/537.36",
   phone: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1",
@@ -253,7 +260,7 @@ const JOURNEYS = [
     ["bulk-cars", nav("cars"), (m) => m.screen === "cars" || `cars from a tool: ${m.screen}`],
     ["bulk-search", nav("search"), (m) => m.screen === "home" || m.screen === "sub" || `search from cars after a tool: ${m.screen}`],
   ] },
-  { name: "owner", when: (c) => c.state === "owner", steps: [
+  { name: "owner", only: "owner", steps: [
     ["check", check(), isCar()],
     ["file", async (p) => { const b = p.locator(".tabs [data-tab=file]"); if (await b.count()) await b.click(); }, (m) => m.screen === "car" || "file tab"],
     ["docs", tapIf("#chead [data-cf=road]"), (m) => m.screen === "car" || "documents"],
@@ -302,7 +309,44 @@ const JOURNEYS = [
     ["cars", nav("cars"), (m) => m.screen === "cars" || "cars"],
     ["turn-back", async (p, c) => { await p.setViewportSize({ width: c.dev.w, height: c.dev.h }); }, (m) => m.screen === "cars" || "rotate back"],
   ] },
+  // app: the ways the app hands the page something (here the browser stands in for MainActivity; app-real.cjs sends the same through
+  // Android on an emulator): a tapped alert opens its car on the tab its kind belongs to, the launcher shortcuts, an ad shared into the
+  // app (its price, mileage and phone number are not the plate), the voice search, an update offer
+  // (in the owner's state: 1234567 is the user's own car, with its file; 7654321 is someone else's car the user follows)
+  { name: "from-app", app: true, only: "owner", steps: [
+    ["alert-recall", async (p) => { await p.evaluate(() => window.openAlert("1234567", "recall")); await settle(p); }, (m) => m.screen === "car" && m.carPlate === "1234567" && m.tab === "recalls" || `a tapped recall alert should open 1234567 on its recalls tab, got ${m.screen} ${m.carPlate} tab ${m.tab}`],
+    ["alert-test", async (p) => { await p.evaluate(() => window.openAlert("1234567", "test")); await settle(p); }, (m) => m.screen === "car" && m.carPlate === "1234567" && m.tab === "file" || `a tapped test alert should open the user's own car in its file, got ${m.screen} ${m.carPlate} tab ${m.tab}`],
+    ["alert-test-other", async (p) => { await p.evaluate(() => window.openAlert("7654321", "test")); await settle(p); }, (m) => m.screen === "car" && m.carPlate === "7654321" && m.tab === "overview" || `a tapped test alert of a car without a file should open its overview, got ${m.screen} ${m.carPlate} tab ${m.tab}`],
+    ["alert-owner", async (p) => { await p.evaluate(() => window.openAlert("1234567", "owner")); await settle(p); }, (m) => m.screen === "car" && m.carPlate === "1234567" && m.tab === "overview" || `a tapped owner alert should open 1234567 on its overview, got ${m.screen} ${m.carPlate} tab ${m.tab}`],
+    ["shortcut-saved", (p) => p.evaluate(() => window.appAction("saved")), (m) => m.screen === "cars" && !m.sheet || `the shortcut הרכבים שלי should open הרכבים שלי, got ${m.screen} ${m.sheet || ""}`],
+    ["shortcut-compare", (p) => p.evaluate(() => window.appAction("compare")), (m) => /compare/i.test(m.sheet || "") || m.screen === "sub" || `the shortcut השוואה should open the comparison, got ${m.screen} ${m.sheet || ""}`],
+    ["compare-back", back, (m) => !/compare/i.test(m.sheet || "") && m.screen !== "sub" || `Back should close the comparison the shortcut opened, got ${m.screen} ${m.sheet || ""}`],
+    ["compare-link", async (p) => { await p.evaluate(() => window.loadCompareLink("1234567,7654321")); await p.waitForTimeout(600); }, (m) => m.screen === "sub" || `a luchit.app comparison link should open the comparison of both cars, got ${m.screen} ${m.sheet || ""}`],
+    ["compare-link-back", back, (m) => m.screen !== "sub" || `Back should leave the comparison a link opened, got ${m.screen}`],
+    ["shared-ad", async (p) => { await p.evaluate(() => window.onSharedText('למכירה טויוטה קורולה 2021, 66,000 ק"מ, 89,000 ₪. טלפון 050-0000000. מספר רכב 12-345-67')); await settle(p); }, (m) => m.screen === "car" && m.carPlate === "1234567" || `an ad shared into the app should check its plate 12-345-67 (not the phone, the price or the mileage), got ${m.screen} ${m.carPlate}`],
+    ["shared-none", (p) => p.evaluate(() => window.onSharedText("נתראה מחר בשמונה")), (m) => m.screen === "home" && !m.carOn || `a shared text without a plate should lead home with a note, got ${m.screen}`],
+    ["voice", async (p) => { await p.evaluate(() => window.onVoiceResult("שבע שש חמש ארבע שלוש שתיים אחת")); await settle(p); }, (m) => m.screen === "car" && m.carPlate === "7654321" || `the voice search heard 7654321 and should check it, got ${m.screen} ${m.carPlate}`],
+    ["update", (p) => p.evaluate(() => { try { localStorage.removeItem("updAsked"); } catch {} window.onUpdateState("available"); }), (m) => /גרסה חדשה/.test(m.snack) || `an available update should be offered on the snack bar, got "${m.snack}"`],
+    ["home", nav("search"), (m) => m.screen === "home" && m.home || `home: ${m.screen}`],
+  ] },
+  // app: the keyboard (the app resizes the page above it, as adjustResize does): the plate field and its button stay in view, the
+  // bottom bar steps aside, and the car is checked from the keyboard's own key. app-real.cjs opens the phone's real keyboard
+  { name: "keyboard", app: true, once: true, steps: [
+    ["open", async (p, c) => { await p.click("#plate"); await p.setViewportSize({ width: c.dev.w, height: c.dev.h - Math.round(c.dev.h * 0.42) }); await p.evaluate(() => { const a = document.activeElement; if (a && a.scrollIntoViewIfNeeded) a.scrollIntoViewIfNeeded(false); }); }, (m, c) => kbView(c)],
+    ["type", async (p, c) => { await p.fill("#plate", c.plate); }, (m, c) => kbView(c)],
+    ["check", async (p, c) => { await p.press("#plate", "Enter"); await p.setViewportSize({ width: c.dev.w, height: c.dev.h }); await p.evaluate(() => document.activeElement && document.activeElement.blur()); await settle(p); }, isCar()],
+    ["bar-back", null, (m) => !!m.nav || "the bottom bar did not come back after the keyboard closed"],
+  ] },
 ];
+// the keyboard is open: the field has the focus and is in view with its button, and the bottom bar is out of the way
+const kbView = async (c) => {
+  const k = await c.page.evaluate(() => { const r = (id) => { const e = document.getElementById(id); if (!e) return null; const b = e.getBoundingClientRect(); return [Math.round(b.top), Math.round(b.bottom)]; }; const n = document.getElementById("bnav"), on = n && getComputedStyle(n).display !== "none"; return { h: innerHeight, plate: r("plate"), go: r("go"), nav: on ? Math.round(n.getBoundingClientRect().top) : null, focus: document.activeElement && document.activeElement.id }; });
+  if (k.focus !== "plate") return `the plate field lost the focus when the keyboard opened (focus ${k.focus})`;
+  if (!k.plate || k.plate[0] < 0 || k.plate[1] > k.h) return `the plate field is not in view above the keyboard (field ${k.plate}, visible height ${k.h})`;
+  if (!k.go || k.go[0] < 0 || k.go[1] > k.h) return `the check button is not in view above the keyboard (button ${k.go}, visible height ${k.h})`;
+  if (k.nav !== null && k.nav < k.go[1]) return `the bottom bar rides up over the plate field with the keyboard open (bar top ${k.nav}, button bottom ${k.go[1]})`;
+  return true;
+};
 
 
 // ---- the sweep: every control of a screen pressed one at a time, each in a fresh copy of the screen when the one before changed it.
@@ -370,16 +414,17 @@ async function openCtx(browser, dev, theme, stateName, gov) {
   await ctx.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (r) => r.abort());
   const net = { offline: false };   // a mocked answer would still arrive with the context offline, so the mock stops answering too
   await ctx.route(/data\.gov\.il/, (r) => (net.offline ? r.abort("internetdisconnected") : govRoute(r, gov)));
-  await ctx.addInitScript(({ ls, app }) => {
+  await ctx.addInitScript(({ ls, app, bridge, quiet }) => {
     try { localStorage.setItem("analyticsOff", "1"); for (const [k, v] of Object.entries(ls)) localStorage.setItem(k, v); } catch {}
     window.__fx = 0; const fx = () => { window.__fx++; };
-    if (app) window.AndroidApp = { alertsState: () => "on", setAlerts: fx, askReview: fx, checkUpdate() {}, logEvent() {}, setAnalytics() {}, setLandscape: fx, syncSaved() {} };
+    window.__calls = [];
+    if (app) window.AndroidApp = Object.fromEntries(bridge.map((n) => [n, (...a) => { window.__calls.push(n); if (!quiet.includes(n)) fx(); return n === "alertsState" ? "on" : n === "readClipboard" ? "" : undefined; }]));
     try { window.open = () => { fx(); return null; }; window.print = fx; } catch {}
     try { if (navigator.clipboard) navigator.clipboard.writeText = async () => { fx(); }; } catch {}
     try { if (navigator.share) { navigator.share = async () => { fx(); }; } } catch {}
     window.__cls = { v: 0, src: [] };
     try { new PerformanceObserver((l) => { for (const e of l.getEntries()) if (!e.hadRecentInput) { window.__cls.v += e.value; window.__cls.src.push((e.sources || []).map((s) => s.node && (s.node.id || s.node.className || s.node.nodeName)).join("|").slice(0, 80)); } }).observe({ type: "layout-shift", buffered: true }); } catch {}
-  }, { ls: { theme, ...STATES[stateName] }, app });
+  }, { ls: { theme, ...STATES[stateName] }, app, bridge: BRIDGE, quiet: QUIET_BRIDGE });
   return { ctx, net, app };
 }
 
@@ -540,9 +585,10 @@ if (require.main === module) (async () => {
   const jobs = [];
   for (const dev of DEVICES) for (const th of THEMES) for (const st of Object.keys(STATES)) for (const J of JOURNEYS) {
     if (J.when && !J.when({ state: st, dev })) continue;
-    if (J.once && st !== "one") continue;                // error paths once per device and theme
+    // a journey made for one state runs in it alone; error paths once per device and theme; the owner's state walks the tour
+    if (J.only ? st !== J.only : (J.once && st !== "one") || (st === "owner" && J.name !== "tour")) continue;
     if (J.web && dev.ua === "app") continue;
-    if (J.name === "owner" ? st !== "owner" : st === "owner" && J.name !== "tour") continue;
+    if (J.app && dev.ua !== "app") continue;
     if (th === "dark" && !/^(tour|check|saved|owner)$/.test(J.name)) continue;   // dark: the screens themselves, not every path again
     const key = `${J.name}/${st}/${dev.id}/${th}`; if (FILTER && !FILTER.test(key)) continue;
     jobs.push(() => runJourney(browser, dev, th, st, J).catch((e) => add("block", "error", key, "-", "run crashed: " + e.message.slice(0, 160))));

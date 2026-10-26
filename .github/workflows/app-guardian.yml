@@ -4,13 +4,14 @@ name: App guardian (real app)
 # ui-flows.cjs walks the page, with its fixtures, journeys and rules. It sees what a browser cannot: the phone's font size (100-200%) and
 # display size, the system bars, the keyboard, Back at home, a dark phone, the launcher shortcuts, a tapped alert, a shared ad and a
 # luchit.app link. Blocking findings fail the run. Findings and screenshots of the latest run: branch app-guard-out (one folder per
-# Android version). The registry is mocked with the example plates; nothing leaves the emulator but the build tools' downloads.
+# Android version and phone setting). Each phone setting runs on its own fresh emulator, in parallel: an emulator that stops (it happens
+# under software rendering) costs one setting, not the run. The registry is mocked with the example plates; nothing leaves the emulator.
 on:
   pull_request:
-    paths: ["index.html", "android/**", ".github/scripts/app-real.cjs", ".github/scripts/ui-flows.cjs", ".github/workflows/app-guardian.yml"]
+    paths: ["index.html", "android/**", ".github/scripts/app-real.cjs", ".github/scripts/ui-flows.cjs", ".github/scripts/app-wiring.mjs", ".github/workflows/app-guardian.yml"]
   push:
     branches: [next, qa-e2e]
-    paths: ["index.html", "android/**", ".github/scripts/app-real.cjs", ".github/scripts/ui-flows.cjs", ".github/workflows/app-guardian.yml"]
+    paths: ["index.html", "android/**", ".github/scripts/app-real.cjs", ".github/scripts/ui-flows.cjs", ".github/scripts/app-wiring.mjs", ".github/workflows/app-guardian.yml"]
   schedule:
     - cron: "37 1 * * *"   # every night on main: a new emulator image or WebView can move the page without a commit
   workflow_dispatch:
@@ -40,6 +41,10 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
+      # blocking, offline, under a second: the page and the app agree on every wire between them (bridge calls and their arguments, the
+      # page functions the app calls, the tab a tapped alert opens, shortcuts, shared links, the install referrer, the shrinker's keep rule)
+      - name: App wiring
+        run: node .github/scripts/app-wiring.mjs
       - name: Minify the page as the release build does
         run: |
           mkdir -p /tmp/minify && cd /tmp/minify && npm init -y >/dev/null && npm i --ignore-scripts --no-audit --no-fund terser@5.51.2 >/dev/null
@@ -63,12 +68,14 @@ jobs:
   device:
     needs: apk
     runs-on: ubuntu-24.04
-    timeout-minutes: 50
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
         # 35: Android 15, edge to edge, Back through OnBackInvokedCallback. 31: Android 12, the system draws the bars, Back as a key.
         api: [35, 31]
+        # the phone settings of app-real.cjs: width in dp and font size; 411-extra is the ways in, the keyboard, Back at home and a dark phone
+        scenario: [411-f100, 411-extra, 360-f130, 320-f130, 411-f200]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -78,26 +85,30 @@ jobs:
         with:
           node-version: "22"
       - name: Install the test tools (not part of the app)
-        run: npm install --no-save --no-package-lock playwright pngjs@7.0.0
+        run: npm install --no-save --no-package-lock playwright@1.63.0 pngjs@7.0.0
       - name: Let the emulator use the processor's virtualisation
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - name: The real app on the emulator
+        if: ${{ !inputs.quick || matrix.scenario == '411-f100' }}
         uses: reactivecircus/android-emulator-runner@v2
+        env:
+          DEBUG: pw:android   # one line each time the WebView is connected: where a dropped connection happened
         with:
           api-level: ${{ matrix.api }}
           target: google_apis
           arch: x86_64
           profile: pixel_6
+          ram-size: 4096M
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot-save
-          script: node .github/scripts/app-real.cjs --apk app-qa.apk --out app-real/api${{ matrix.api }} --label api${{ matrix.api }} ${{ inputs.quick && '--quick' || '' }}
+          script: node .github/scripts/app-real.cjs --apk app-qa.apk --scenario ${{ matrix.scenario }} --out app-real/api${{ matrix.api }}/${{ matrix.scenario }} --label api${{ matrix.api }}-${{ matrix.scenario }} ${{ inputs.quick && '--quick' || '' }}
       - uses: actions/upload-artifact@v7
-        if: always()
+        if: ${{ always() && (!inputs.quick || matrix.scenario == '411-f100') }}
         with:
-          name: app-real-api${{ matrix.api }}
+          name: app-real-api${{ matrix.api }}-${{ matrix.scenario }}
           path: app-real
           retention-days: 14
 
