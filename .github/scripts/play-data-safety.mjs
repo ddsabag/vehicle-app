@@ -164,6 +164,8 @@ export async function tell(R) {
   if (!router) try { router = await import("./alert.mjs"); } catch { /* legacy below */ }
   const r = router ? await router.alert("day", m.key, m.text, m.link, { today: m.today, fresh: IO.env.EVENT === "workflow_dispatch", legacy: () => telegram(m.text) })
     : { delivered: await telegram(m.text) };
+  // a form Play took ends every Data safety failure before it (access, the file, Play): the router tells each one "חזר לתקין"
+  if (router?.resolve && R.code === "sent") try { await router.resolve(["safety:fail:"]); } catch { /* the morning ledger still shows it */ }
   return !!r.delivered;
 }
 
@@ -262,6 +264,9 @@ async function selftest() {
     const { validKey } = await import("./alert.mjs");
     await go({ router }); await go({ router, status: 403 }); await go({ router, text: "x" });
     ok(keys.length === 3 && keys[0].startsWith("safety:done:") && keys[1] === "safety:fail:access" && keys[2] === "safety:fail:files" && keys.every(validKey), "router keys " + keys);
+    const settled = [], r2 = { alert: async () => ({ delivered: true }), resolve: async p => { settled.push(p.join("|")); return 1; } };
+    await go({ router: r2 }); await go({ router: r2, status: 403 }); await go({ router: r2, text: "x" });
+    ok(settled.join() === "safety:fail:", "router: only a form Play took closes the Data safety failures " + settled);
     W = await go();
     const all = [...W.printed, ...W.sums, ...Object.values(W.outputs), ...W.tg.map(x => x.text)].join("\n");
     ok(![TOKEN, TG, "PRIVATE KEY", SA.client_email].some(x => all.includes(x)), "secrets stay out of the output");

@@ -415,6 +415,21 @@ export async function tell(R) {
   if (router?.resolve && ["sent", "live", "full"].includes(R.code)) try { await router.resolve(["ship:done:"]); } catch { /* the summary hides it anyway */ }
   return !!r.delivered;
 }
+// a run that worked ends the failures it proves over (the router tells each announced one "חזר לתקין"): a send to Production its own
+// and the access one; a rollout check its own, and the access one only when it wrote to Play (completed or halted)
+function settles(R) {
+  if (R.mode !== "on") return [];
+  if (R.cmd === "promote") return R.code === "sent" ? ["prod:fail:promote", "prod:fail:access"] : [];
+  if (["error", "nosecret"].includes(R.code) || R.code.startsWith("dry")) return [];
+  return ["prod:fail:auto", ...(["full", "halted"].includes(R.code) ? ["prod:fail:access"] : [])];
+}
+async function settle(R) {
+  const pre = settles(R);
+  if (!pre.length) return;
+  let router = IO.router;
+  if (!router) try { router = await import("./alert.mjs"); } catch { return; }
+  if (router?.resolve) try { await router.resolve(pre); } catch { /* the morning ledger still shows them */ }
+}
 
 // ---- CLI ----
 export async function cli(argv) {
@@ -433,6 +448,7 @@ export async function cli(argv) {
   IO.summary([`### Production ${R.cmd} (${R.mode})`, "", `- result: **${R.code}**${R.why ? `: ${R.why}` : ""}`, R.tracks ? `- on Play: ${R.tracks}` : ""].filter(Boolean).join("\n"));
   if (R.code === "error") IO.out(`::${cmd === "promote" ? "error" : "warning"}::Production ${cmd} failed${R.status > 0 ? ` (${R.status})` : ""}: ${R.why}`);
   const told = await tell(R);
+  await settle(R);
   if (told && R.remember && R.mode === "on") R.remember();
   // a manual promote that failed is red for its caller; auto reports through the Telegram and stays green unless that was not delivered
   return (R.code === "error" && cmd === "promote") || !told ? 1 : 0;
@@ -745,7 +761,14 @@ async function selftest() {
     await run({ router, fail: { put: [403] } });
     await run({ router, tracks: T([A("1.34", 115)], [A("1.34", 115, "inProgress", { userFraction: 0.2 }), A("1.33", 110)]), state: { seen: { "production:115": T0 - 49 * HOUR }, live: { "production:115": T0 - 49 * HOUR }, issues: { "115:a": T0 } } }, { EVENT: "schedule" }, ["auto"]);
     ok(seen.map(s => s.key.replace(/:[0-9a-f]{12}$/, ":H")).join() === "prod:sent:115,prod:stop:H,prod:fail:access,prod:halt:115" && seen.every(s => s.lv === (s.key.startsWith("prod:halt") ? "critical" : "day") && validKey(s.key)), "router: keys " + seen.map(s => s.key));
-    ok(settled.join() === "prod:sent:115>ship:done:", "router: only a send to Production settles the Alpha upload notices " + settled);
+    ok(settled.filter(x => x.endsWith(">ship:done:")).join() === "prod:sent:115>ship:done:", "router: only a send to Production settles the Alpha upload notices " + settled);
+    ok(settled.filter(x => !x.endsWith(">ship:done:")).join() === "prod:sent:115>prod:fail:promote|prod:fail:access,prod:halt:115>prod:fail:auto|prod:fail:access",
+      "router: a send closes its failures and access, a halt the rollout check's and access " + settled);
+    const S = (cmd, code, mode = "on") => settles({ cmd, code, mode }).join();
+    ok(S("auto", "idle") === "prod:fail:auto" && S("auto", "wait") === "prod:fail:auto" && S("auto", "live") === "prod:fail:auto" && S("auto", "stuck") === "prod:fail:auto"
+      && S("auto", "full") === "prod:fail:auto,prod:fail:access" && S("auto", "error") === "" && S("auto", "nosecret") === "" && S("auto", "dry-halt") === ""
+      && S("auto", "idle", "dry") === "" && S("promote", "busy") === "" && S("promote", "sent", "dry") === "" && settles({ cmd: "promote", code: "sent", mode: "on" }).every(validKey),
+      "settles: what each result proves over");
     W = await run();
     const all = [...W.printed, ...W.sums, ...Object.values(W.outputs), ...W.tg.map(x => x.text)].join("\n");
     ok(![TOKEN, TG, "PRIVATE KEY", SA.client_email].some(x => all.includes(x)), "secrets stay out of the output");
