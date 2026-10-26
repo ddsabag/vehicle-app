@@ -4115,7 +4115,8 @@ document.addEventListener("click", ev => {
 const GARAGES = "bb68386a-a331-4bbc-b668-bba2766d517d";
 async function findInspection(city){
   const out = $("#inspRes"); if (!out) return;
-  city = city.trim(); if (!city) { out.innerHTML = ""; return; }
+  city = city.trim();
+  if (!city) { out.innerHTML = `<p class="note">כתבו שם של עיר, למשל חולון, ונמצא בה מכוני בדיקה.</p>`; const f = $("#inspCity"); if (f) f.focus(); return; }   // a search with an empty field says what it needs instead of doing nothing
   try { localStorage.setItem("inspCity", city); } catch {}
   out.innerHTML = `<p class="note">מחפשים…</p>`;
   const words = searchWords(city);
