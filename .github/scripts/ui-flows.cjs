@@ -101,6 +101,17 @@ async function measure(page) {
       const byTop = {}; for (const k of kids) { const b = k.getBoundingClientRect(); (byTop[Math.round(b.top / 4)] = byTop[Math.round(b.top / 4)] || []).push(Math.round(b.height)); }
       for (const hs of Object.values(byTop)) if (hs.length > 1 && Math.max(...hs) - Math.min(...hs) > 3) ragged.push(`${row.className.split(" ")[0]}: ${hs.join("/")}px`);
     }
+    // a control that wrapped onto a line of its own at the end of a wrapping row of facts or chips (the compare button under the pills)
+    const orphans = [];
+    for (const row of scope.filter((e) => { const cs = getComputedStyle(e); return cs.display.includes("flex") && cs.flexWrap === "wrap" && cs.flexDirection.startsWith("row") && e.children.length > 1; })) {
+      const kids = [...row.children].filter(vis); if (kids.length < 2) continue;
+      const lines = []; for (const k of kids) { const b = k.getBoundingClientRect(), l = lines.find((x) => Math.abs(x.top - b.top) < b.height / 2); if (l) l.k.push(k); else lines.push({ top: b.top, k: [k] }); }
+      if (lines.length < 2) continue; const last = lines[lines.length - 1].k;
+      if (last.length === 1 && last[0].matches("button,a") && lines.slice(0, -1).some((l) => l.k.some((k) => !k.matches("button,a")))) orphans.push(`"${label(last[0])}" in .${(row.className || row.tagName).split(" ")[0]}`);
+    }
+    // content wider than its own column: past the edge of the main column on a wide screen, where nothing should bleed into the margin
+    const colBox = out && out.getBoundingClientRect(), padL = out ? parseFloat(getComputedStyle(out).paddingLeft) : 0, padR = out ? parseFloat(getComputedStyle(out).paddingRight) : 0;
+    const bleed = W >= 700 && colBox && !sheet ? [...out.querySelectorAll("*")].filter((e) => vis(e) && !e.closest("svg")).filter((e) => { const b = e.getBoundingClientRect(); return b.width > 20 && (b.left < colBox.left + padL - 2 || b.right > colBox.right - padR + 2) && !e.closest(".cfab,.toast") && !layer(e); }).filter((e, i, a) => !a.some((x) => x !== e && x.contains(e))).map((e) => label(e) + ` (${Math.round(e.getBoundingClientRect().left - colBox.left - padL)}/${Math.round(colBox.right - padR - e.getBoundingClientRect().right)}px)`) : [];
     let covered = null; if (navBox && getComputedStyle(nav).position === "fixed" && nav.getBoundingClientRect().top > innerHeight / 2 && !sheet) {
       const y0 = scrollY; scrollTo(0, document.documentElement.scrollHeight); const top = nav.getBoundingClientRect().top;
       const last = [...document.querySelectorAll("#out *, body > footer *")].filter((e) => vis(e) && e.children.length === 0 && e.textContent.trim()).pop();
@@ -113,7 +124,7 @@ async function measure(page) {
       focus: document.activeElement ? (document.activeElement.id || document.activeElement.tagName) : null, plateVal: plate ? plate.value : null,
       navCur: (document.querySelector("#bnav [aria-current=page]") || { dataset: {} }).dataset.nav || null,
       nav: navBox, col, over: document.documentElement.scrollWidth - W, outside: [...new Set(outside)].slice(0, 8), wraps: [...new Set(wraps)].slice(0, 8), ragged: [...new Set(ragged)],
-      overlaps: [...new Set(overlaps)].slice(0, 8), clipped: [...new Set(clipped)].slice(0, 8), covered, msg: [...document.querySelectorAll("#out .msg")].filter(vis).map((m) => m.textContent).join(" | "),
+      overlaps: [...new Set(overlaps)].slice(0, 8), orphans: [...new Set(orphans)].slice(0, 4), bleed: [...new Set(bleed)].slice(0, 4), clipped: [...new Set(clipped)].slice(0, 8), covered, msg: [...document.querySelectorAll("#out .msg")].filter(vis).map((m) => m.textContent).join(" | "),
       loading: !!document.querySelector("#out .skl, #out [aria-busy=true]") || (document.getElementById("go") || {}).disabled === true,
       cls: window.__cls ? window.__cls.v : 0,
     };
@@ -277,6 +288,8 @@ async function runJourney(browser, dev, theme, stateName, J) {
     if (m.wraps.length) add("warn", "wrap", run, step, `label on two lines on ${m.screen}: ${m.wraps.join(" · ")}`);
     if (m.overlaps.length) add("warn", "overlap", run, step, `controls overlap on ${m.screen}: ${m.overlaps.join(" · ")}`);
     if (m.clipped.length) add("warn", "clip", run, step, `text cut off on ${m.screen}: ${m.clipped.join(" · ")}`);
+    if (m.orphans.length) add("warn", "orphan", run, step, `a control dropped to a line of its own on ${m.screen}: ${m.orphans.join(" · ")}`);
+    if (m.bleed.length) add("warn", "bleed", run, step, `wider than the content column on ${m.screen}: ${m.bleed.join(" · ")}`);
     if (m.ragged.length) add("warn", "ragged", run, step, `one row, different heights on ${m.screen}: ${m.ragged.join(" · ")}`);
     if (m.covered) add("warn", "covered", run, step, `the bottom bar covers "${m.covered}" at the end of ${m.screen}`);
     if (!m.sheet && m.nav && ({ home: "search", cars: "cars", alerts: "alerts" })[m.screen] && m.navCur !== ({ home: "search", cars: "cars", alerts: "alerts" })[m.screen]) add("block", "logic", run, step, `the bar highlights "${m.navCur}" on the ${m.screen} screen`);
