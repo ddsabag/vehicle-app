@@ -15,7 +15,7 @@
 //   - an event the dashboard or a report reads that nothing sends any more (the reverse of ga4-admin.mjs's contract)
 // Warnings: an event one platform sends for the same steps and the other does not (unless it belongs to one platform by nature), an
 // event the dashboard reads that no journey produced, an address outside the site and the registry that the page called.
-// Usage: node .github/scripts/analytics-flows.cjs [--out dir] [--filter regex]
+// Usage: node .github/scripts/analytics-flows.cjs [--out dir] [--filter regex]   or   --static (only the dashboard/report reads vs their senders, 1 s)
 const fs = require("node:fs"), path = require("node:path");
 const UF = require("./ui-flows.cjs");
 const { JOURNEYS, STATES, RECS, govRoute, UA, BRIDGE } = UF;
@@ -251,14 +251,20 @@ const ARRIVALS = [
 module.exports = { viaApp, personal, readers, senders };
 
 if (require.main === module) (async () => {
+  // the reverse of ga4-admin's contract: whatever the dashboard and the reports read must still be sent by something. With --static only
+  // this, in a second and without a browser: for a change to the dashboard (worker/live) or a report (analytics/), which UI guardian does
+  // not run on, so a new tile is checked before its event exists rather than at the next change to the page
+  const R = readers(), S = senders();
+  for (const e of R) if (!S.has(e)) add("block", "unsent", "static", "-", `the dashboard or a report reads ${e}, and nothing sends it any more (the page, the app's code, worker/api or GA4 itself): a tile that will show 0 for ever`);
+  if (args.includes("--static")) {
+    for (const f of findings) console.log(`::error::(analytics) [${f.kind}] ${f.msg}`);
+    console.log(`analytics-flows --static: ${R.size} events read by the dashboard and the reports, ${findings.length} of them sent by nothing`);
+    process.exit(findings.length ? 1 : 0);
+  }
   const { chromium } = require("playwright");
   fs.mkdirSync(OUT, { recursive: true });
   worker = (await import("data:text/javascript;base64," + Buffer.from(read("worker/api/worker.js")).toString("base64"))).default;
   const t0 = Date.now();
-
-  // the reverse of ga4-admin's contract: whatever the dashboard and the reports read must still be sent by something
-  const R = readers(), S = senders();
-  for (const e of R) if (!S.has(e)) add("block", "unsent", "static", "-", `the dashboard or a report reads ${e}, and nothing sends it any more (the page, the app's code, worker/api or GA4 itself): a tile that will show 0 for ever`);
 
   const DEVS = [{ id: "app-360", ua: "app", w: 360, h: 780 }, { id: "web-390", ua: "phone", w: 390, h: 760 }, { id: "web-1280", ua: "desk", w: 1280, h: 860 }];
   const jobs = [];

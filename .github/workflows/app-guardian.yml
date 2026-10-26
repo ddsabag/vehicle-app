@@ -46,6 +46,9 @@ jobs:
       # page functions the app calls, the tab a tapped alert opens, shortcuts, shared links, the install referrer, the shrinker's keep rule)
       - name: App wiring
         run: node .github/scripts/app-wiring.mjs
+      # and every event the dashboard and the reports read is still sent, also by the app's own code (analytics-flows.cjs --static, 1 s)
+      - name: Dashboard reads still sent
+        run: node .github/scripts/analytics-flows.cjs --static
       - name: Minify the page as the release build does
         run: |
           mkdir -p /tmp/minify && cd /tmp/minify && npm init -y >/dev/null && npm i --ignore-scripts --no-audit --no-fund terser@5.51.2 >/dev/null
