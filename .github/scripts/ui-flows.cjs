@@ -13,7 +13,9 @@
 // Then the sweep: every control of every screen pressed one at a time; one that changes nothing is a dead control (see SWEEP below).
 // --no-fonts serves no font files: a first visit to the site on a slow line draws in the phone's own font (font-display:optional),
 // which is wider than Assistant, so a label that fits in Assistant can wrap there.
-// Usage: node .github/scripts/ui-flows.cjs [--quick] [--shots] [--no-sweep] [--no-fonts] [--filter <regex>] [--out <dir>]
+// --engine webkit walks the journeys in Safari's engine instead of Chromium: nearly every phone that opens the website is an iPhone,
+// and every browser on an iPhone draws with WebKit.
+// Usage: node .github/scripts/ui-flows.cjs [--quick] [--shots] [--no-sweep] [--no-fonts] [--engine chromium|webkit] [--filter <regex>] [--out <dir>]
 // The real app on an Android emulator (app-real.cjs) loads this file for the same fixtures, journeys and rules: run on its own, it tests
 // in the browser; required, it only hands them over.
 const fs = require("node:fs"), http = require("node:http"), path = require("node:path");
@@ -21,7 +23,7 @@ const fs = require("node:fs"), http = require("node:http"), path = require("node
 const ROOT = process.cwd();
 const args = process.argv.slice(2), arg = (k) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : null; };
 const QUICK = args.includes("--quick") || !!process.env.UF_QUICK, SHOTS = args.includes("--shots"), NO_SWEEP = args.includes("--no-sweep"), NO_FONTS = args.includes("--no-fonts");
-const FILTER = arg("--filter") ? new RegExp(arg("--filter")) : null;
+const FILTER = arg("--filter") ? new RegExp(arg("--filter")) : null, ENGINE = arg("--engine") || "chromium";
 const OUT = path.resolve(arg("--out") || path.join(ROOT, "ui-flows"));
 
 const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".css": "text/css", ".png": "image/png", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".webmanifest": "application/manifest+json" };
@@ -656,10 +658,11 @@ async function runSweep(browser, dev, stateName, S) {
 module.exports = { findings, add, measure, judgeStep, judgeRun, govRoute, JOURNEYS, STATES, RECS, UA, BRIDGE, QUIET_BRIDGE, nav, tap, tapIf, check, settle, isCar, back };
 
 if (require.main === module) (async () => {
-  const { chromium } = require("playwright");
+  const engine = require("playwright")[ENGINE];
+  if (!engine || !["chromium", "webkit"].includes(ENGINE)) { console.error(`ui-flows: --engine is chromium or webkit, not ${ENGINE}`); process.exit(2); }
   fs.mkdirSync(path.join(OUT, "shots"), { recursive: true });
   await new Promise((ok) => server.listen(0, "127.0.0.1", ok));
-  const browser = await chromium.launch();
+  const browser = await engine.launch();
   const jobs = [];
   for (const dev of DEVICES) for (const th of THEMES) for (const st of Object.keys(STATES)) for (const J of JOURNEYS) {
     if (J.when && !J.when({ state: st, dev })) continue;
@@ -688,8 +691,8 @@ if (require.main === module) (async () => {
   const groups = {};
   for (const f of findings) { const k = f.sev + "|" + f.kind + "|" + f.step + "|" + f.msg.replace(/\d+px|\d+\.\d+|x=\d+|w=\d+|\[[\d,]+\]|[\d,]{6,}/g, "#"); (groups[k] = groups[k] || { ...f, n: 0, runs: [] }).n++; groups[k].runs.push(f.run); }
   const list = Object.values(groups).sort((a, b) => (a.sev === b.sev ? b.n - a.n : a.sev === "block" ? -1 : 1));
-  for (const g of list) console.log(`${g.sev === "block" ? "::error::" : "::warning::"}${NO_FONTS ? "(fallback font) " : ""}[${g.kind}] ${g.step}: ${g.msg} (${g.n}x, e.g. ${g.runs[0]})`);
+  for (const g of list) console.log(`${g.sev === "block" ? "::error::" : "::warning::"}${NO_FONTS ? "(fallback font) " : ""}${ENGINE === "webkit" ? "(Safari's engine) " : ""}[${g.kind}] ${g.step}: ${g.msg} (${g.n}x, e.g. ${g.runs[0]})`);
   const blocks = findings.filter((f) => f.sev === "block").length;
-  console.log(`ui-flows: ${nJ} journeys and ${jobs.length - nJ} swept screens (${tally.pressed} presses, ${tally.links} links) in ${Math.round((Date.now() - t0) / 1000)} s, ${blocks} blocking, ${findings.length - blocks} warnings, ${list.length} distinct`);
+  console.log(`ui-flows${ENGINE === "webkit" ? " (Safari's engine)" : ""}: ${nJ} journeys and ${jobs.length - nJ} swept screens (${tally.pressed} presses, ${tally.links} links) in ${Math.round((Date.now() - t0) / 1000)} s, ${blocks} blocking, ${findings.length - blocks} warnings, ${list.length} distinct`);
   process.exit(blocks ? 1 : 0);
 })();
