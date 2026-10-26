@@ -2947,6 +2947,11 @@ let parked = null;   // {v: the tab it was opened from, D, t: its tab, y: scroll
    While anything but the home page is on screen, one history entry ({lu: 1}) stands in front of it; Back spends it, appBack takes one step,
    and the entry is put back while there are more steps. The app has its own Back (MainActivity.handleBack -> appBack) */
 const WEB_HIST = !window.AndroidApp && !!(window.history && history.pushState);
+/* web: the browser tab names the screen it shows (a car by its model, never its plate; a tool by its name in toolHead); home keeps the page's
+   own title. "הרכבים שלי" and "התראות" have their own address (#cars, #alerts), so a reload or a bookmark opens them again */
+const BASE_TITLE = document.title;
+function syncTitle(){ if (window.AndroidApp) return; const s = document.body.dataset.screen; document.title = s === "cars" ? "הרכבים שלי · לוחית" : s === "alerts" ? "התראות · לוחית" : s === "car" && current && current.title ? `${current.title} · לוחית` : BASE_TITLE; }
+const screenUrl = h => { if (!WEB_HIST || location.hash === "#" + h) return; try { history.replaceState(history.state, "", location.pathname + "#" + h); } catch {} };
 let skipPop = false;
 function syncHist(){
   if (!WEB_HIST) return;
@@ -6188,7 +6193,7 @@ for (const nm of ["renderResult", "renderCompare", "renderHome"]) {
    drawn (home, car, cars, alerts, sub for the tools), and the search band shows only on home and the tools */
 let view = "search", carsFilter = "all", carsSel = null, carsY = 0;
 let openTab = null;   // {p: plate, t: tab}: the tab that car opens on next (an open recall from "התראות" lands on the recalls tab); another car ignores it
-function setScreen(s){ document.body.dataset.screen = s; syncNav(); syncHist(); }
+function setScreen(s){ document.body.dataset.screen = s; syncNav(); syncHist(); syncTitle(); }
 function syncNav(){
   document.querySelectorAll("#bnav [data-nav]").forEach(b => { if (b.dataset.nav === view) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
   const n = alertItems().length, bd = $("#bnBadge"); if (bd) { bd.hidden = !n; bd.textContent = n > 9 ? "9+" : String(n); }
@@ -6213,7 +6218,7 @@ function navTo(v, opts = {}){
   if (v === "cars") { carsSel = null; if (opts.filter) carsFilter = opts.filter; view = v; renderCars(); }
   else if (v === "alerts") { view = v; renderAlerts(); }
   else { view = "search"; goHome(); return; }
-  try { history.replaceState(history.state, "", location.pathname); } catch {}
+  if (!WEB_HIST) try { history.replaceState(history.state, "", location.pathname); } catch {}   // the website's screens set their own address
   window.scrollTo({top: 0});
 }
 /* the screen the user is on, drawn again with fresh data (a check that finished, a bell, a nickname); a car page or a tool stays as it is */
@@ -6239,7 +6244,7 @@ document.addEventListener("focusin", ev => { if (touchKb() && ev.target.matches 
 document.addEventListener("focusout", () => setTimeout(() => { const a = document.activeElement; if (!(a && a.matches && a.matches("input:not([type=checkbox]):not([type=radio]):not([type=file]),textarea,select"))) document.body.classList.remove("kb"); }, 60));
 
 /* a tool's header (compare, market, bulk check, plans): back to the tab it was opened from, and its name */
-const toolHead = t => `<header class="chead" id="chead"><button type="button" class="ch-b back" data-act="toolBack" aria-label="חזרה">${ico("back")}</button><div class="ch-t"><b>${esc(t)}</b></div></header>`;
+const toolHead = t => { if (!window.AndroidApp) document.title = `${t} · לוחית`; return `<header class="chead" id="chead"><button type="button" class="ch-b back" data-act="toolBack" aria-label="חזרה">${ico("back")}</button><div class="ch-t"><b>${esc(t)}</b></div></header>`; };
 function leaveTool(){ if (inCompare) { closeCompare(); return; } current = null; if (view === "cars") renderCars(); else if (view === "alerts") renderAlerts(); else renderHome(); window.scrollTo({top: 0}); }
 
 /* ---------- the car page's header ---------- */
@@ -6320,7 +6325,7 @@ function carsTable(list){
 }
 function renderCars(){
   if (land) setLand(false, false);
-  current = null; inCompare = false; view = "cars"; setScreen("cars");
+  current = null; inCompare = false; view = "cars"; setScreen("cars"); screenUrl("cars");
   const all = store.get("savedVehicles"), attn = all.filter(carAttn), buy = all.filter(s => s.ask);
   if (carsFilter === "attn" && !attn.length || carsFilter === "buy" && !buy.length) carsFilter = "all";
   if (carsSel) carsSel = carsSel.filter(p => all.some(s => s.plate === p));
@@ -6390,7 +6395,7 @@ const calSentGet = () => { try { return JSON.parse(localStorage.getItem("calSent
 const savedCalD = s => ({plate: s.plate, title: s.title, kind: "car", v: {tokef_dt: s.tokef, mivchan_acharon_dt: s.mivchan}, primary: s.reg ? {key: s.reg} : null});
 function renderAlerts(){
   if (land) setLand(false, false);
-  current = null; inCompare = false; view = "alerts"; setScreen("alerts");
+  current = null; inCompare = false; view = "alerts"; setScreen("alerts"); screenUrl("alerts");
   const all = store.get("savedVehicles"), items = alertItems(), html = [];
   html.push(`<header class="vhead"><h2 class="vh-t" id="alertsHead" tabindex="-1">התראות</h2><p class="vh-s">${!all.length ? "ריקולים וטסט של הרכבים ששמרתם" : alertsSupported() ? "מה דורש פעולה, ועל מה תקבלו התראה לטלפון" : "מה דורש פעולה ברכבים ששמרתם"}</p></header>`);
   if (!all.length) html.push(emptyCard("אין עדיין רכבים לעקוב אחריהם", "bell", "blue", `<p style="margin:0 0 10px">שומרים רכב בכוכב שבראש הדוח, ומכאן רואים ריקול פתוח וטסט שמתקרב${alertsSupported() ? ", ומקבלים התראה לטלפון" : ""}.</p><button type="button" class="link-btn" data-act="addCar">${ico("search")}בדיקת רכב</button>`));
@@ -7326,7 +7331,9 @@ window.openAlert = (plate, kind) => { const p = digits(plate), t = alertTab(kind
 { const t = window.AndroidApp && start ? alertTab(new URLSearchParams(location.search).get("nk")) : null; if (t) openTab = {p: start, t}; }
 /* a link can name the tab its car opens on (?plate=…&t=buy from the value pages); a tab that car does not have falls back to the overview */
 { const t = start && !openTab ? new URLSearchParams(location.search).get("t") : null; if (TABS.some(([k]) => k === t)) openTab = {p: start, t}; }
-if (cmpParam) loadCompareLink(cmpParam).then(ok => { if (!ok) renderHome(); }); else if (start) { lookupAgain = NAV_AGAIN; run(start); } else renderHome();
+if (cmpParam) loadCompareLink(cmpParam).then(ok => { if (!ok) renderHome(); }); else if (start) { lookupAgain = NAV_AGAIN; run(start); }
+else if (WEB_HIST && /^#(cars|alerts)$/.test(location.hash)) { if (location.hash === "#cars") renderCars(); else renderAlerts(); }   // a reload or a bookmark of "הרכבים שלי" / "התראות"
+else renderHome();
 requestAnimationFrame(() => document.body.classList.add("rdy"));
 /* the plates with a document on this phone; the car on screen is drawn again only if that changes whose it is */
 if (window.indexedDB) (window.requestIdleCallback || (f => setTimeout(f, 1500)))(() => DocDB.plates().then(set => {
