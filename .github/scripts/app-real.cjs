@@ -14,8 +14,8 @@
 // Blocking (exit 1): the app crashing, or not responding in both tries of a journey, page errors, a step on the wrong screen, sideways
 // scroll, anything past the screen edge, the bottom bar moving or growing or riding on the keyboard, a way in that does not reach its
 // screen, the page under a system bar, invisible bar icons, "לפי המכשיר" against the phone. A journey the phone disturbed (another app's
-// "isn't responding" dialog, the app not responding, its page closed under it) runs once more on a fresh start, and only that try counts;
-// so does the first start of each phone setting.
+// "isn't responding" dialog, the app not responding, its page closed under it, the system's bars restarting, the window changing height
+// with no keyboard) runs once more on a fresh start, and only that try counts; so does the first start of each phone setting.
 // The emulator itself stopping is not the app's fault: exit 2, with what was found until then, and a file "gone" beside the findings
 // (app-guardian.yml then runs the phone setting once more on a new emulator); so is a journey disturbed in both tries by what is not the
 // app's (no crash of the app, no ANR in its own code or without a stack).
@@ -80,9 +80,12 @@ process.on("uncaughtException", (e) => {
 // (warning, with the stack kept). Google Play's vitals count the ANRs of real phones
 let crashN = 0, anrN = 0, anrRead = 0, lastAnr = null;
 // a journey the phone disturbed, and how: "anr" (the app's, lastAnr says where its main thread was), "closed" (the app's page closed
-// under the journey), "dialog <app>" (another app's "isn't responding"). Read by the main loop: the journey runs once more
+// under the journey), "dialog <app>" (another app's "isn't responding"), "systemui" (the process that draws the system's bars started
+// again under the journey), "resized" (the window grew or shrank with no keyboard and no turn: the bars went away or came back). Read by
+// the main loop: the journey runs once more
 const disturbed = new Set();
-const disturbedSay = () => [...disturbed].map((w) => (w === "anr" ? "the app stopped responding" : w === "closed" ? "the app's page closed" : `${w.slice(7)} was not responding`)).join(", ");
+const SAY = { anr: "the app stopped responding", closed: "the app's page closed", systemui: "the system's bars started again", resized: "the window changed height with no keyboard" };
+const disturbedSay = () => [...disturbed].map((w) => SAY[w] || `${w.slice(7)} was not responding`).join(", ");
 // the dropbox entry is written once the system has dumped the threads' stacks, which on the emulator comes many seconds after the ANR is
 // logged (26.10, API 31: none yet 15 s after it); so it is waited for, up to 30 s, and only an entry newer than the last one read counts
 function anrDetails() {
@@ -150,6 +153,7 @@ function clearDialogs() {
 const net = { gov: null, offline: false };
 const routed = new WeakSet(), hooked = new WeakSet();
 const pidOf = () => sh(`pidof ${PKG}`).split(/\s+/)[0] || "";
+const sysUiPid = () => sh("pidof com.android.systemui").split(/\s+/)[0] || "";
 const front = () => !!sh(`dumpsys activity activities | grep -E "(mResumedActivity|topResumedActivity).*${PKG}"`);
 // the page the phone shows: after the activity was finished and started again in the same process, the old page can still be listed
 async function visiblePage(ctx) {
@@ -315,14 +319,17 @@ async function journey(page, sc, state, J, theme) {
   const closed = (e) => page.isClosed() || /has been closed/.test(String(e && e.message));
   try { await prepare(page, state, theme); } catch (e) { if (closed(e)) { disturbed.add("closed"); crashes(run, "load", true); return page; } add("block", "logic", run, "load", "could not load the state: " + e.message.split("\n")[0].slice(0, 120)); return; }
   const c = { dev: { id: sc.id, w: sc.dp, h: 860 }, theme, state, app: true, ctx: null, net, page, plate: state === "many" ? "7654321" : "1234567", back: realBack, reopen };
-  c.fullH = await page.evaluate(() => innerHeight).catch(() => 0);
-  const seen = []; let prev = null;
+  [c.fullW, c.fullH] = await page.evaluate(() => [innerWidth, innerHeight]).catch(() => [0, 0]);
+  const ui0 = sysUiPid(), seen = []; let prev = null;
   for (const [name, act, expect] of J.steps) {
     cur.step = name;
     // a step that opens the app again (reopen) hands over the new page
     if (act) { try { const r = await act(page, c); if (r && typeof r.evaluate === "function") page = c.page = r; } catch (e) { if (closed(e)) { disturbed.add("closed"); break; } add("block", "logic", run, name, "could not act: " + e.message.split("\n")[0].slice(0, 120)); } }
     await sleep(500);
     let m; try { m = await UF.measure(page); } catch (e) { mustLive(); if (closed(e)) { disturbed.add("closed"); break; } add("block", "error", run, name, "measure failed: " + e.message.slice(0, 100)); continue; }
+    // the window grew or shrank under the journey with no keyboard and no turn: the system's bars went away or came back (26.10, API 31,
+    // a minute after boot: home drawn with no bars at all, then the status bar without its icons and three buttons at the bottom)
+    if (c.fullH && m.vw === c.fullW && Math.abs(m.vh - c.fullH) >= 16 && m.vh > c.fullH - 120) disturbed.add("resized");
     let ok = expect ? await expect(m, c) : true;
     if (ok && ok.warn) { add("warn", "logic", run, name, ok.warn); ok = true; }
     if (ok !== true) add("block", "logic", run, name, ok);
@@ -339,6 +346,7 @@ async function journey(page, sc, state, J, theme) {
   }
   UF.judgeRun(run, seen, sc.dp);
   crashes(run, cur.step, true);
+  if (sysUiPid() !== ui0) disturbed.add("systemui");
   log(`${run}: ${seen.length} steps, ${((Date.now() - tj) / 1000).toFixed(0)} s${disturbed.size ? ` (disturbed: ${disturbedSay()})` : ""}`);
   return page;
 }
@@ -572,11 +580,12 @@ function finish(line, code) {
           catch (e) { if (e instanceof Gone) throw e; throw new Gone(`the app did not start again after ${run} was disturbed (${why}): ${e.message.split("\n")[0].slice(0, 120)}`); }
           continue;
         }
-        // disturbed in both tries: an ANR in the app's own code, or one without a stack to tell, is the app's; a page that closed or another
-        // app's dialog, without a crash of the app, is the emulator (exit 2: the workflow runs the phone setting on a new emulator); an ANR
-        // with the main thread idle or in the WebView's drawing, after which the journey still ran to its end, stays a warning
+        // disturbed in both tries: an ANR in the app's own code, or one without a stack to tell, is the app's; a page that closed, another
+        // app's dialog or the system's bars starting again, without a crash of the app, is the emulator (exit 2: the workflow runs the phone
+        // setting on a new emulator); an ANR with the main thread idle or in the WebView's drawing, after which the journey still ran to its
+        // end, stays a warning; a window that changed height again while the system's bars held is the app's, and what that try found stands
         if (disturbed.has("anr") && lastAnr && (lastAnr.ours || !lastAnr.stack)) add("block", "anr", run, cur.step, `the app stopped responding (ANR) in both tries of this journey, the second time ${lastAnr.ours ? "in the app's own code" : "without a stack to tell where"} (${lastAnr.file})`);
-        else if ([...disturbed].some((w) => w !== "anr") && !findings.slice(mark).some((f) => f.kind === "crash" && f.sev === "block")) throw new Gone(`the phone disturbed ${run} in both tries (${why})`);
+        else if ([...disturbed].some((w) => w !== "anr" && w !== "resized") && !findings.slice(mark).some((f) => f.kind === "crash" && f.sev === "block")) throw new Gone(`the phone disturbed ${run} in both tries (${why})`);
       }
     }
     if (sc.extra) {
