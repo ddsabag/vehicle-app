@@ -3,10 +3,10 @@
     <color name="band">#14213D</color>
     <color name="brand">#FFC400</color>
     <color name="plate">#F6C500</color>
-    <!-- the page's own background (--bg in index.html), light and dark: the splash and the window show it until the page has drawn -->
+    <!-- the page's own background (its bg token in index.html), light and dark: the splash and the window show it until the page has drawn -->
     <color name="page_light">#F2F4F8</color>
     <color name="page_dark">#0E121A</color>
-    <!-- the page's --accent, light and dark: Android's own pickers that the page opens (a date, a <select>) mark the choice and their
+    <!-- the page's accent token, light and dark: Android's own pickers that the page opens (a date, a <select>) mark the choice and their
          buttons in it, as the page does; the plate's yellow under white text, or as text on white, cannot be read -->
     <color name="accent_light">#2457C5</color>
     <color name="accent_dark">#7EA3F2</color>
