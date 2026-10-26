@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-44";   // shown in /live/data so the running version is visible
+const BUILD = "live-45";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -498,6 +498,20 @@ async function getAuto() {
   try { const r = await fetch("https://raw.githubusercontent.com/ddsabag/vehicle-app/autopilot/log.json", { cf: { cacheTtl: 120 }, signal: AbortSignal.timeout(8e3) }); if (r.ok) auto = await r.json(); } catch {}
   autoAt = Date.now(); return auto;
 }
+// what is planned ahead (Dudu 26.10: "יומן בדשבורד לייב עם דברים מתוכננים קדימה"): branch "calendar", calendar.json, written every morning by
+// the measurement thread from the scheduled tasks and the thread capsules (no numbers in it): dated items, open items with no date, and the
+// recurring ones; "me" marks what needs Dudu. The page hides dated items that already passed, so a late refresh never shows the past as ahead
+let cal = null, calAt = 0;
+async function getCal() {
+  if (cal && Date.now() - calAt < 300e3) return cal;
+  try { const r = await fetch("https://raw.githubusercontent.com/ddsabag/vehicle-app/calendar/calendar.json", { cf: { cacheTtl: 120 }, signal: AbortSignal.timeout(8e3) }); if (r.ok) cal = await r.json(); } catch {}
+  calAt = Date.now(); return cal;
+}
+const cut = (x, k) => String(x || "").slice(0, k);
+const slimCal = c => c && typeof c === "object" ? { at: c.at,
+  open: (Array.isArray(c.open) ? c.open : []).slice(0, 20).map(o => ({ what: cut(o.what, 200), owner: cut(o.owner, 40), me: o.me ? 1 : 0, ask: cut(o.ask, 200) })),
+  items: (Array.isArray(c.items) ? c.items : []).filter(o => /^\d{4}-\d\d-\d\d$/.test(o.d || "")).slice(0, 80).map(o => ({ d: o.d, t: /^\d\d:\d\d$/.test(o.t || "") ? o.t : "", what: cut(o.what, 200), owner: cut(o.owner, 40), me: o.me ? 1 : 0, ask: cut(o.ask, 200) })),
+  weekly: (Array.isArray(c.weekly) ? c.weekly : []).slice(0, 12).map(o => ({ when: cut(o.when, 60), what: cut(o.what, 200), owner: cut(o.owner, 40) })) } : null;
 const slimAuto = a => a && typeof a === "object" ? { at: a.at, modes: a.modes || {}, rows: (Array.isArray(a.rows) ? a.rows : []).slice(0, 20).map(r => ({ d: r.d, z: r.z, m: r.m, x: String(r.x || "").slice(0, 240), r: r.r })) } : null;
 
 // today's car checks and new installs as seen in realtime, minute by minute: realtime covers only the last 30 minutes, so each request keeps
@@ -589,6 +603,18 @@ main{max-width:1280px;margin:0 auto;padding:20px 24px 32px}h1,h2,h3,p{margin:0}a
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0}
 h2{font-size:.95rem;font-weight:700;margin-bottom:10px}
 .s-ok{--s:var(--ok);--sb:var(--ok-bg)}.s-warn{--s:var(--warn);--sb:var(--warn-bg)}.s-bad{--s:var(--bad);--sb:var(--bad-bg)}.s-early,.s-nodata,.s-cal,.s-wait{--s:var(--nt);--sb:var(--nt-bg)}
+.cal{margin-top:14px}.calh{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.calh h2{margin:0;font-size:1.05rem}
+.cal h4{font-size:.84rem;margin:14px 0 6px;color:var(--muted);font-weight:600}
+.cal ul{list-style:none;margin:0;padding:0;display:grid;gap:0}
+.cal li{display:grid;grid-template-columns:8.6rem 1fr auto;gap:4px 12px;align-items:baseline;padding:8px 0;border-top:1px solid var(--line);font-size:.88rem}
+.cal li:first-child{border-top:0}
+.cal .cd{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.cal .cw{min-width:0}.cal .co{display:block;font-size:.76rem;color:var(--muted)}
+.cal .ca{display:block;font-size:.8rem;margin-top:2px}
+.cal .cx{white-space:nowrap;font-size:.8rem}
+.cal li.me .cw b{font-weight:600}
+.cal .rec li{display:block;border:0;padding:3px 0;font-size:.82rem;color:var(--muted)}
+body.calme .cal li:not(.me){display:none}
 .chip{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;font-size:.76rem;font-weight:600;color:var(--s);background:var(--sb);border-radius:999px;padding:2px 10px 2px 9px}.chip i{font-style:normal;font-weight:700}
 .r1{display:grid;grid-template-columns:2fr 1fr;gap:14px}
 .verdict{border-inline-start:5px solid var(--s)}.verdict .vh{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}.verdict .vh span.lbl{font-size:.8rem;color:var(--muted)}
@@ -641,7 +667,7 @@ details.dr{scroll-margin-top:14px}details.dr.hit>summary b{color:var(--accent)}.
 .fs{font-size:.76rem;color:var(--muted);margin-inline-start:9rem;display:flex;gap:6px;align-items:center}.fs i{font-style:normal}
 tr[data-ev]{cursor:pointer}tr.skr td{padding:2px 6px 8px;border-top:0}.skr rect.t-app{fill:var(--app)}.skr rect.t-site{fill:var(--site)}tr.skr small{display:block;color:var(--muted);font-size:.74rem;margin-top:2px}
 @media(max-width:1023px){.r1,.g2,.fn2{grid-template-columns:1fr}.kpis,.hl{grid-template-columns:repeat(2,minmax(0,1fr))}.kpi:nth-child(3),.hc:nth-child(odd){border-inline-start:0}.kpi:nth-child(n+3),.hc:nth-child(n+3){border-top:1px solid var(--line)}.hc:nth-child(5){grid-column:1/-1}.drs{grid-template-columns:1fr}}
-@media(max-width:560px){main{padding:14px 12px 24px}.t td.n,.t th.n{width:3.4rem}.kpi,.hc{padding:12px}.kpi .big{font-size:1.8rem}.hc .big{font-size:1.6rem}.kpi .kh{flex-direction:column;gap:4px}.hc h3{flex-direction:column;gap:4px}.kpi .sp,.kpi p.m,.kpi .foot,.hc p{display:none}.kpi.open .sp,.kpi.open p.m,.kpi.open .foot,.hc.open p{display:block}.kpi.open,.hc.open{grid-column:1/-1}.kpi,.hc{cursor:pointer}.kpi .more,.hc .more{display:block;font-size:.72rem;color:var(--accent);margin-top:2px}.kpi.open .more,.hc.open .more{display:none}.verdict .vs{font-size:1.12rem}.dn{grid-template-columns:1fr;justify-items:center}.dn table{justify-self:stretch}.cmr{grid-template-columns:6rem 1fr 3.6rem}.fr{grid-template-columns:6.8rem 1fr 3.4rem}.fs{margin-inline-start:6.8rem}body.hp .kpi .help,body.hp .hc .help{display:none}body.hp .kpi.open .help,body.hp .hc.open .help{display:block}}
+@media(max-width:560px){.cal li{grid-template-columns:1fr auto}.cal .cd{grid-column:1/-1}main{padding:14px 12px 24px}.t td.n,.t th.n{width:3.4rem}.kpi,.hc{padding:12px}.kpi .big{font-size:1.8rem}.hc .big{font-size:1.6rem}.kpi .kh{flex-direction:column;gap:4px}.hc h3{flex-direction:column;gap:4px}.kpi .sp,.kpi p.m,.kpi .foot,.hc p{display:none}.kpi.open .sp,.kpi.open p.m,.kpi.open .foot,.hc.open p{display:block}.kpi.open,.hc.open{grid-column:1/-1}.kpi,.hc{cursor:pointer}.kpi .more,.hc .more{display:block;font-size:.72rem;color:var(--accent);margin-top:2px}.kpi.open .more,.hc.open .more{display:none}.verdict .vs{font-size:1.12rem}.dn{grid-template-columns:1fr;justify-items:center}.dn table{justify-self:stretch}.cmr{grid-template-columns:6rem 1fr 3.6rem}.fr{grid-template-columns:6.8rem 1fr 3.4rem}.fs{margin-inline-start:6.8rem}body.hp .kpi .help,body.hp .hc .help{display:none}body.hp .kpi.open .help,body.hp .hc.open .help{display:block}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 @media print{details.dr{display:none}body{background:#fff}}
 </style></head><body><main>
@@ -654,6 +680,8 @@ tr[data-ev]{cursor:pointer}tr.skr td{padding:2px 6px 8px;border-top:0}.skr rect.
 </section>
 
 <section class="card kpis" id="tiles" aria-label="ארבעת המדדים הראשיים"></section>
+
+<section class="card cal" id="cal" aria-label="יומן"><div class="calh"><h2>יומן: מה מתוכנן קדימה</h2><button class="hb" id="calme" type="button" aria-pressed="false">רק מה שדורש אותי</button></div><div id="calb"><p class="note">טוען</p></div><p class="help">כל מה שהבוטים והשרשורים קבעו לעצמם, לפי תאריך, בשעון ישראל. שורה עם «דורש אותך» מחכה לפעולה או להחלטה שלך, ו«ליומן» מוסיף אותה ליומן Google שלך. היומן מתעדכן לבד כל בוקר.</p></section>
 
 <h2 class="sec">צמיחה</h2>
 <section class="g2">
@@ -1171,6 +1199,22 @@ box.innerHTML="<h4>כניסות מגוגל לפי יום, 28 ימים</h4>"+'<sv
 $("fl").innerHTML=(d.flashes||[]).slice(0,12).map(f=>'<li><span class="ft">'+dm(new Date(f.t).toLocaleDateString("en-CA",{timeZone:"Asia/Jerusalem"}))+" "+tm(f.t)+'</span><span><span class="lv '+(f.l==="alert"||f.l==="wait"?"alert":"")+'">'+(f.l==="alert"||f.l==="wait"?"●":"○")+"</span> <b>"+esc(FK[f.k]||f.k)+":</b> "+esc(String(f.x||"").replace(/\\s*פירוט:[\\s\\S]*$/,""))+(f.u&&/^https:\\/\\//.test(f.u)?' <a href="'+esc(f.u)+'" target="_blank" rel="noopener">קישור</a>':"")+"</span></li>").join("")||'<li><span class="note">אין מבזקים עדיין.</span></li>'}
 
 // drawer: what changed by itself (autopilot): each zone's mode, then the latest changes and would-be changes
+// calendar (Dudu 26.10): open items that need Dudu first, then what is dated from today on, then the recurring rhythm
+{const C=d.cal,box=$("calb");if(!C){box.innerHTML='<p class="note">היומן עוד לא זמין.</p>'}else{
+const today=new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Jerusalem"}),DN=["א׳","ב׳","ג׳","ד׳","ה׳","ו׳","ש׳"];
+const dd=s=>{const x=new Date(s+"T12:00:00Z");return "יום "+DN[x.getUTCDay()]+" "+x.getUTCDate()+"."+(x.getUTCMonth()+1)+(s.slice(0,4)!==today.slice(0,4)?"."+s.slice(2,4):"")};
+const days=s=>Math.round((Date.parse(s+"T12:00:00Z")-Date.parse(today+"T12:00:00Z"))/864e5);
+const gcal=o=>{const st=o.d.replace(/-/g,"")+(o.t?"T"+o.t.replace(":","")+"00":""),en=o.t?(()=>{const m=+o.t.slice(0,2)*60+ +o.t.slice(3)+30;return o.d.replace(/-/g,"")+"T"+String(Math.floor(m/60)%24).padStart(2,"0")+String(m%60).padStart(2,"0")+"00"})():(()=>{const x=new Date(o.d+"T12:00:00Z");x.setUTCDate(x.getUTCDate()+1);return x.toISOString().slice(0,10).replace(/-/g,"")})();
+return "https://calendar.google.com/calendar/render?action=TEMPLATE&text="+encodeURIComponent("לוחית: "+o.what)+"&dates="+st+"/"+en+"&ctz=Asia/Jerusalem&details="+encodeURIComponent((o.ask?o.ask+"\\n":"")+"הבעלים: "+o.owner+"\\nhttps://luchit.app/live")};
+const row=(o,dated)=>'<li class="'+(o.me?"me":"")+'"><span class="cd">'+(dated?dd(o.d)+(o.t?" · <bdi>"+o.t+"</bdi>":""):"עכשיו")+'</span><span class="cw">'+(o.me?"<b>"+esc(o.what)+"</b>":esc(o.what))+(o.ask?'<span class="ca">'+esc(o.ask)+"</span>":"")+'<span class="co">'+esc(o.owner)+'</span></span><span class="cx">'+(o.me?chip("warn","דורש אותך")+(dated?' <a href="'+gcal(o)+'" target="_blank" rel="noopener">ליומן</a>':""):"")+"</span></li>";
+const items=(C.items||[]).filter(o=>o.d>=today).sort((a,b)=>(a.d+a.t).localeCompare(b.d+b.t)),wk=items.filter(o=>days(o.d)<=7),later=items.filter(o=>days(o.d)>7),open=C.open||[];
+const nme=open.filter(o=>o.me).length+items.filter(o=>o.me&&days(o.d)<=7).length;
+box.innerHTML=(nme?'<p class="cs">'+(nme===1?"דבר אחד דורש אותך":nme+" דברים דורשים אותך")+" עכשיו או בשבוע הקרוב.</p>":'<p class="cs">שום דבר לא דורש אותך בשבוע הקרוב.</p>')
++(open.length?"<h4>פתוח עכשיו</h4><ul>"+open.map(o=>row(o,false)).join("")+"</ul>":"")
++"<h4>בשבוע הקרוב</h4>"+(wk.length?"<ul>"+wk.map(o=>row(o,true)).join("")+"</ul>":'<p class="note">אין משהו מתוכנן.</p>')
++(later.length?'<details class="dr"><summary>בהמשך ('+later.length+')</summary><ul>'+later.map(o=>row(o,true)).join("")+"</ul></details>":"")
++((C.weekly||[]).length?'<details class="dr"><summary>קבוע ('+C.weekly.length+')</summary><ul class="rec">'+C.weekly.map(o=>"<li>"+esc(o.when)+": "+esc(o.what)+" ("+esc(o.owner)+")</li>").join("")+"</ul></details>":"")
++(C.at?'<p class="note">היומן עודכן '+new Date(C.at).toLocaleString("he-IL",{timeZone:"Asia/Jerusalem",day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit"})+".</p>":"")}}
 {const A=d.auto,ZN={A:"לוח החלטות (בדיקות בזמנים קבועים)",B:"שיווק ותוכן",C:"ניסויי ניסוח",D:"הודעות באפליקציה",E:"סידור המסך",SEO:"SEO"},MD={on:["ok","פועל"],observe:["wait","בתצפית, לא משנה"],off:["cal","כבוי"]},RS={kept:"נשאר",reverted:"הוחזר",pending:"בבדיקה"};
 $("auto").innerHTML=!A?'<p class="note" style="margin:0">אין עדיין יומן שינויים.</p>':"<h4>מצב כל אזור</h4>"+'<ul class="kv">'+Object.keys(ZN).map(z=>{const m=MD[(A.modes||{})[z]]||MD.off;return "<li><span>"+ZN[z]+"</span><b>"+chip(m[0],z==="E"&&(A.modes||{})[z]!=="on"?"לא אושר עדיין":m[1])+"</b></li>"}).join("")+"</ul>"
 +"<h4>שינויים אחרונים</h4>"+((A.rows||[]).length?'<ul class="kv fl">'+A.rows.slice(0,12).map(r=>'<li><span class="ft">'+(r.d?dm(r.d):"")+"</span><span><b>"+esc(ZN[r.z]||r.z||"")+":</b> "+(r.m==="observe"?"היה משנה: ":r.m==="on"?"שינה: ":"")+esc(r.x||"")+(RS[r.r]?' <span class="note">('+RS[r.r]+")</span>":"")+"</span></li>").join("")+"</ul>":'<p class="note" style="margin:0">עוד לא היו שינויים.</p>')
@@ -1199,6 +1243,7 @@ const tr=e.target.closest("tr[data-ev]");if(tr&&!e.target.closest("a")){const nx
 // phones: a tile or a health cell shows its chart and lines on a tap
 const k=e.target.closest(".kpi,.hc");if(k&&!e.target.closest("a")&&matchMedia("(max-width:560px)").matches)k.classList.toggle("open")});
 go();setInterval(()=>{if(!document.hidden)go()},60000);
+{const cb=$("calme"),CK="lv-calme",cs=on=>{document.body.classList.toggle("calme",on);cb.setAttribute("aria-pressed",on?"true":"false");cb.textContent=on?"הכול":"רק מה שדורש אותי"};let on=false;try{on=localStorage.getItem(CK)==="1"}catch(e){}cs(on);cb.addEventListener("click",()=>{on=!on;cs(on);try{localStorage.setItem(CK,on?"1":"0")}catch(e){}})}
 {const hb=$("hb"),HK="lv-help",set=on=>{document.body.classList.toggle("hp",on);hb.setAttribute("aria-pressed",on?"true":"false");hb.textContent=on?"בלי הסברים":"הסבר"};
 hb.addEventListener("click",()=>{const on=!document.body.classList.contains("hp");set(on);try{localStorage.setItem(HK,on?"1":"0")}catch(e){}});let on=true;try{on=localStorage.getItem(HK)!=="0"}catch(e){}set(on)}
 </script></body></html>`;
@@ -1210,7 +1255,7 @@ const DEADLINE = 25e3, LAST = "https://luchit.app/live/_last";
 let lastGood = null;
 async function liveData(env, ctx) {
   let timer, failed = false;
-  const work = (async () => ({ ...(await collect(env)), flashes: (await getFlashes()).slice(0, 15), metrics: slimMetrics(await getMetrics()), auto: slimAuto(await getAuto()) }))();
+  const work = (async () => ({ ...(await collect(env)), flashes: (await getFlashes()).slice(0, 15), metrics: slimMetrics(await getMetrics()), auto: slimAuto(await getAuto()), cal: slimCal(await getCal()) }))();
   const late = new Promise(r => { timer = setTimeout(() => r(null), DEADLINE); });
   const d = await Promise.race([work.catch(() => { failed = true; return null; }), late]);
   clearTimeout(timer);
