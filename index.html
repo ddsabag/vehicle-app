@@ -683,7 +683,7 @@ button:not(:disabled):active,.link-btn:active,.act:active,.tabs button:active,a.
 .bnav button[aria-current=page]{color:var(--accent);font-weight:800}
 .bnav button[aria-current=page] .bn-i{background:color-mix(in srgb,var(--accent) 13%,transparent)}
 .bnav button[aria-current=page] .bn-i svg.i{stroke-width:2.1}
-.bn-badge{position:absolute;top:-3px;inset-inline-end:10px;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:var(--bad);color:var(--card);font:800 .78rem/18px var(--f-body);font-style:normal;text-align:center;box-shadow:0 0 0 2px var(--card)}
+.bn-badge{position:absolute;unicode-bidi:plaintext;top:-3px;inset-inline-end:10px;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:var(--bad);color:var(--card);font:800 .78rem/18px var(--f-body);font-style:normal;text-align:center;box-shadow:0 0 0 2px var(--card)}
 main{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
 footer{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
 body:has(> footer:not([hidden])) main{padding-bottom:24px}
@@ -700,7 +700,8 @@ body:not(:has(.sharebar)):not(.kb) .snack{bottom:calc(76px + env(safe-area-inset
   html.web .bnav button:hover{color:var(--fg)}
   html.web .bnav .bn-i,html.web .bnav button[aria-current=page] .bn-i{width:auto;height:auto;background:none}
   html.web .bnav button[aria-current=page]{border-bottom-color:var(--accent)}
-  html.web .bn-badge{top:-8px;inset-inline-end:-12px}
+  /* on the wide bar the label follows the bell, so the count sits on the bell's outer corner, never on the word */
+  html.web .bn-badge{top:-8px;inset-inline-end:auto;inset-inline-start:-10px}
   /* one bar on every screen: the brand, then the tabs, always 1080px wide, so no tab moves when the screen changes (Dudu 26.10).
      On home the band below keeps the plate search and the gear; its own logo line stays for screen readers only */
   html.web body[data-screen=home] .band .brand h1{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
