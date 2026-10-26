@@ -413,7 +413,7 @@ button.cf-tile{cursor:pointer}
 .cf-tl li.own:before{background:var(--accent);border-color:var(--accent)}
 .cf-tl li.warn:before{border-color:var(--warn);background:var(--warn-bg)}
 .cf-tl time{font-size:.78rem;color:var(--muted);font-weight:700;grid-column:1}
-.cf-tl b{font-size:.95rem;grid-column:1;min-width:0}.cf-tl span{color:var(--muted);font-size:.85rem;grid-column:1;min-width:0}
+.cf-tl b{font-size:.95rem;grid-column:1;min-width:0}.cf-tl span{color:var(--muted);font-size:.85rem;grid-column:1;min-width:0;overflow-wrap:anywhere}
 .cf-tl .x{grid-column:2;grid-row:1/span 3;align-self:center;border:0;background:transparent;color:var(--muted);min-width:44px;min-height:44px;border-radius:8px;display:grid;place-items:center}.cf-tl .x .i{width:18px;height:18px}
 .cf-more{justify-content:center}
 .cf-sum{color:var(--muted);font-size:.85rem;font-weight:500;margin-inline-start:auto;white-space:nowrap}
@@ -511,12 +511,13 @@ section[style*="--n:3"] .cmp-k{font-size:.78rem}
 .inp{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--soft);color:var(--fg);font:inherit}
 textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .svc-form{display:grid;gap:10px;margin-top:10px}.svc-form label{display:grid;gap:4px;font-size:.85rem;color:var(--muted)}.svc-form .link-btn{justify-content:center}
-.svc-list{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:8px}.svc-list li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--soft)}.svc-list li div{display:grid;gap:2px}.svc-list li span{font-size:.85rem;color:var(--muted)}.svc-list li small{color:var(--muted)}.svc-list .x,.doc-acts .x{flex:0 0 auto;width:40px;height:40px;border:0;background:transparent;color:var(--muted);border-radius:10px;display:grid;place-items:center;padding:0}.svc-list .x:active,.doc-acts .x:active{background:var(--line)}.svc-list .x .i,.doc-acts .x .i{width:20px;height:20px}.svc-list li small{overflow-wrap:anywhere}
+.svc-list{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:8px}.svc-list li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--soft)}.svc-list li div{display:grid;gap:2px}.svc-list li span{font-size:.85rem;color:var(--muted)}.svc-list li small{color:var(--muted)}.svc-list .x,.doc-acts .x{flex:0 0 auto;width:40px;height:40px;border:0;background:transparent;color:var(--muted);border-radius:10px;display:grid;place-items:center;padding:0}.svc-list .x:active,.doc-acts .x:active{background:var(--line)}.svc-list .x .i,.doc-acts .x .i{width:20px;height:20px}.svc-list li small{overflow-wrap:anywhere}.svc-list li>div{min-width:0}.svc-list li span{overflow-wrap:anywhere}
+.svc-list li.doc{flex-wrap:wrap}.svc-list li.doc>div{flex:1 1 0}.doc-exp{flex:1 1 100%;display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:0;font-size:.9rem;color:var(--muted)}.doc-exp label{display:flex;align-items:center;gap:8px;flex:0 0 auto;white-space:nowrap}.doc-exp .inp{flex:0 1 10rem;width:auto;min-width:0}.doc-exp .link-btn{width:auto;margin:0;padding:8px 12px;min-height:44px}.doc-exp small{flex-basis:100%;font-size:.8rem}.doc-exp.need .inp{border-color:var(--accent)}
 .askrow{display:flex;gap:8px;align-items:stretch}.askrow .inp{flex:1;min-width:0;font-family:var(--f-num)}.askrow .link-btn{width:auto;white-space:nowrap}
 .bflags,.bq{margin:0 0 10px;padding-inline-start:20px}.bflags li{font-weight:600}.bflags li.bad::marker{color:var(--bad)}.bflags li.warn::marker{color:var(--warn)}.bq li{margin:2px 0}
 .vd.ok{color:var(--ok);font-weight:700}.vd.bad{color:var(--bad);font-weight:700}.ft .g,.sum3 .g{color:var(--ok)}.ft .w,.sum3 .w{color:var(--warn)}.ft .r,.sum3 .r{color:var(--bad)}.ft td.g,.ft td.w,.ft td.r{font-weight:700}
 .sum3{display:flex;gap:6px;margin:10px 0}.sum3 div{flex:1;background:var(--soft);border-radius:10px;padding:6px;text-align:center;font-size:.85rem;color:var(--muted)}.sum3 b{display:block;font-size:1.3rem}
-.kinds{display:flex;flex-direction:column;gap:2px}.kinds label{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;font-size:.9rem;cursor:pointer}.kinds input[type=checkbox]{order:2;appearance:none;-webkit-appearance:none;flex:none;margin:0;width:44px;height:26px;border-radius:999px;background:#8a93a3;position:relative;transition:background .15s}.kinds input[type=checkbox]::after{content:"";position:absolute;top:3px;inset-inline-start:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}.kinds input[type=checkbox]:checked{background:var(--accent)}.kinds input[type=checkbox]:checked::after{transform:translateX(-18px)}.kinds input[type=checkbox]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}@media (prefers-reduced-motion:reduce){.kinds input[type=checkbox],.kinds input[type=checkbox]::after{transition:none}}.doc-add .exp{flex:1 1 100%;display:flex;align-items:center;gap:8px;font-size:.9rem;color:var(--muted)}.doc-add{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.doc-add .inp{flex:1 1 160px;min-width:0}
+.kinds{display:flex;flex-direction:column;gap:2px}.kinds label{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;font-size:.9rem;cursor:pointer}.kinds input[type=checkbox]{order:2;appearance:none;-webkit-appearance:none;flex:none;margin:0;width:44px;height:26px;border-radius:999px;background:#8a93a3;position:relative;transition:background .15s}.kinds input[type=checkbox]::after{content:"";position:absolute;top:3px;inset-inline-start:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}.kinds input[type=checkbox]:checked{background:var(--accent)}.kinds input[type=checkbox]:checked::after{transform:translateX(-18px)}.kinds input[type=checkbox]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}@media (prefers-reduced-motion:reduce){.kinds input[type=checkbox],.kinds input[type=checkbox]::after{transition:none}}.doc-add{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.doc-add .inp{flex:1 1 160px;min-width:0}
 .doc-acts{display:flex;gap:2px;flex:0 0 auto}
 .doc-view{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.92);display:grid;place-items:center;padding:12px}
 .doc-view img{max-width:100%;max-height:100%;object-fit:contain}
@@ -1004,7 +1005,7 @@ body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)
 <script>
 "use strict";
 /*! © 2026 Dudu Sabag. All rights reserved. */
-const APP_VERSION = "1.38";
+const APP_VERSION = "1.38.1";
 /* a phone whose page storage is still empty here is a new install (an app update keeps the storage): read before anything is stored */
 const FRESH = (() => { try { return localStorage.length === 0; } catch { return false; } })();
 const SITE = "https://luchit.app/";
@@ -1114,7 +1115,9 @@ const jsErr = (where, line) => { if (jsErrN++ < 5) { try { const b = window.Andr
 // Facebook, Instagram and TikTok open links in their own in-app browser, which runs scripts of its own that land on these listeners too:
 // those count apart (kind "iab"), so the pipe canary watches our code only (22-23.10: all 10 web errors came from such visits, none on our pages)
 const IAB = /FBAN|FBAV|FB_IAB|Instagram|BytedanceWebview|musical_ly/i.test(navigator.userAgent || "");
-window.addEventListener("error", ev => jsErr(IAB ? "iab" : "err", ev && ev.lineno));
+// a library's own worker (the OCR, the PDF reader) that could not download its file reaches here too: its caller handles that (the plate
+// reader's message, doc_scan kind fail), and it is the connection, not our code
+window.addEventListener("error", ev => { if (/^blob:/.test(ev && ev.filename || "")) return; jsErr(IAB ? "iab" : "err", ev && ev.lineno); });
 window.addEventListener("unhandledrejection", () => jsErr(IAB ? "iab" : "rej", 0));
 /* the Android app tells the page when a screenshot of it was taken (Android 14+): counted with the screen it happened on, never the picture */
 window.onScreenshot = () => { try { track("user_screenshot", {tab: typeof inCompare !== "undefined" && inCompare ? "compare" : typeof current !== "undefined" && current ? (currentTab || "overview") : ({cars: "cars", alerts: "alerts", sub: "tool"})[document.body.dataset.screen] || "home"}); } catch {} };
@@ -2795,6 +2798,28 @@ function buildInsights(D){
 
 /* ---------- result screen ---------- */
 let ctrl = null, current = null, currentTab = "overview";
+/* a car page left for another tab (from the bottom bar): coming back to that tab opens it again where it was; a second tap on the tab clears it */
+let parked = null;   // {v: the tab it was opened from, D, t: its tab, y: scroll}
+/* web: the browser's Back steps back inside לוחית (a car to the tab it came from, a tab to home) instead of leaving the site.
+   While anything but the home page is on screen, one history entry ({lu: 1}) stands in front of it; Back spends it, appBack takes one step,
+   and the entry is put back while there are more steps. The app has its own Back (MainActivity.handleBack -> appBack) */
+const WEB_HIST = !window.AndroidApp && !!(window.history && history.pushState);
+let skipPop = false;
+function syncHist(){
+  if (!WEB_HIST) return;
+  const go = document.getElementById("go"), root =   // a check on its way (the search button is off) is not the home page yet
+    document.body.dataset.screen === "home" && !current && !(go && go.disabled), ours = !!(history.state && history.state.lu);
+  try {
+    if (!root && !ours) history.pushState({lu: 1}, "", location.href);
+    else if (root && ours) { skipPop = true; history.back(); }
+  } catch {}
+}
+addEventListener("popstate", () => {
+  if (!WEB_HIST) return;
+  if (skipPop) { skipPop = false; return; }
+  window.appBack();
+  syncHist();
+});
 // the recalls tab is there only when there is something to act on (recTab); otherwise the "checked" line above the tabs says so (checkLine)
 // a car marked as the owner's ("הרכב שלי", isMine) shows "תיק הרכב" where any other car shows "קנייה"
 const TABS = [["overview","סקירה"],["recalls","ריקולים"],["buy","קנייה"],["file","תיק הרכב"],["specs","מפרט"]];
@@ -2808,6 +2833,7 @@ const recTabOf = D => D.kind === "model" || D.recalls.length ? "ריקולים" 
 let lookupAgain = false;
 async function lookup(raw){
   const again = lookupAgain; lookupAgain = false;
+  parked = null;
   const ot = openTab; openTab = null;
   const plate = digits(raw).replace(/^0+(?=\d{5})/, "");
   const out = $("#out");
@@ -2818,7 +2844,7 @@ async function lookup(raw){
   $("#plate").value = fmtPlate(plate); $("#plate").blur();
   $("#go").disabled = true;
   if (document.body.dataset.screen === "car") setScreen("home");   // a new plate from a car page (shared text, a launcher shortcut): the band shows what is being looked up
-  try { const u = new URL(location.href); u.searchParams.delete("nk"); history.replaceState(null, "", u.pathname + u.search + "#" + plate); } catch {}
+  try { const u = new URL(location.href); u.searchParams.delete("nk"); history.replaceState(history.state, "", u.pathname + u.search + "#" + plate); } catch {}
   out.innerHTML = loadingHtml(plate);
   // a slow ministry server: say so after 5 s instead of leaving a silent bar. Since 1.36 about 1 check in 10 passes 3.5 s and 1 in 25 passes 5 s
   // (GA4, 22-23.10), so 5 s is the line where a check is really slower than usual; it is also the dur bucket edge every version reports
@@ -3285,6 +3311,7 @@ const DocDB = {
   open(){ return this.db || (this.db = new Promise((ok, no) => { const r = indexedDB.open("luchitDocs", 1); r.onupgradeneeded = () => r.result.createObjectStore("docs", {keyPath: "id", autoIncrement: true}).createIndex("plate", "plate"); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); })); },
   async tx(mode, fn){ const db = await this.open(); return new Promise((ok, no) => { const t = db.transaction("docs", mode), st = t.objectStore("docs"), rq = fn(st); t.oncomplete = () => ok(rq && rq.result); t.onerror = () => no(t.error); t.onabort = () => no(t.error); }); },
   put(rec){ return this.tx("readwrite", st => st.add(rec)); },
+  upd(rec){ return this.tx("readwrite", st => st.put(rec)); },
   del(id){ return this.tx("readwrite", st => st.delete(id)); },
   get(id){ return this.tx("readonly", st => st.get(id)); },
   all(){ return this.tx("readonly", st => st.getAll()); },
@@ -3306,27 +3333,33 @@ async function docPrepare(file){
   } catch { return null; } finally { URL.revokeObjectURL(url); }
 }
 const DOC_EXP_CATS = ["רישיון רכב", "רישיון נהיגה", "ביטוח", "טסט"];
-async function docsAdd(files, plate, cat, exp){ track("doc_add", {cat, exp: exp ? 1 : 0}); try { await docsAdd0(files, plate, cat, exp); } catch { toast("לא הצלחנו לשמור את המסמך בטלפון"); } }
-async function docsAdd0(files, plate, cat, exp){
-  let n = (await DocDB.byPlate(plate)).length, added = 0, skipped = 0, locked = false;
+// a long file name keeps its start and its ending (the type): "H2609654190747…_TIF (1).pdf"
+const shortName = (n, max = 32) => { const a = [...String(n || "")]; return a.length <= max ? a.join("") : a.slice(0, max - 13).join("") + "…" + a.slice(-12).join(""); };
+// the line under a document's expiry: a reminder is a promise only the app keeps (the site has no notifications)
+const expHint = on => on ? (alertsSupported() ? "נשמר. נתריע חודש לפני." : "נשמר. התאריך מופיע ב\"מה הבא\".") : (alertsSupported() ? "לא חובה. עם תאריך נתריע חודש לפני." : "לא חובה. עם תאריך הוא יופיע ב\"מה הבא\".");
+async function docsAdd(files, plate, cat){ track("doc_add", {cat}); try { await docsAdd0(files, plate, cat); } catch { toast("לא הצלחנו לשמור את המסמך בטלפון"); } }
+async function docsAdd0(files, plate, cat){
+  let n = (await DocDB.byPlate(plate)).length, added = 0, skipped = 0, locked = false; const ids = [];
   for (const f of files) {
     if (!docsOk(n)) { locked = true; break; }
     const d = await docPrepare(f).catch(() => null);
     if (!d) { skipped++; continue; }
-    const id = await DocDB.put({plate, cat, name: d.name, type: d.type, size: d.blob.size, at: Date.now(), exp: exp || "", blob: d.blob}); n++; added++; docPlates.add(plate);
-    if (exp) docExpSave([...docExpAll(), {id, plate, cat, exp}]);
+    ids.push(await DocDB.put({plate, cat, name: d.name, type: d.type, size: d.blob.size, at: Date.now(), exp: "", blob: d.blob})); n++; added++; docPlates.add(plate);
   }
-  toast(locked ? `בחינם אפשר לשמור עד ${FREE_DOCS} מסמכים לרכב. ${added ? "נשמרו " + added + "." : ""}` : added ? (added === 1 ? "המסמך נשמר בתיק הרכב" : `נשמרו ${added} מסמכים בתיק הרכב`) + (skipped ? `, ${skipped} לא נתמכו או גדולים מדי` : "") : "לא הצלחנו לשמור. אפשר תמונות ו-PDF עד 12MB.");
-  fillDocs(); fillFile();
-  if (added && exp && !trackedOk(plate)) setTimeout(() => toast("כדי לקבל התראה על התוקף, שמרו את הרכב ב\"הרכבים שלי\""), 2600);
+  // its date is read at once, unless the phone asks to save data (the readers download a few MB the first time): then on the row's button
+  const dated = added && DOC_EXP_CATS.includes(cat), scan = dated && !(navigator.connection && navigator.connection.saveData);
+  toast(locked ? `בחינם אפשר לשמור עד ${FREE_DOCS} מסמכים לרכב. ${added ? "נשמרו " + added + "." : ""}` : added ? (added === 1 ? (scan ? "המסמך נשמר. מחפשים בו את תאריך התוקף" : dated ? "המסמך נשמר. אפשר להוסיף לו תאריך תוקף" : "המסמך נשמר בתיק הרכב") : `נשמרו ${added} מסמכים בתיק הרכב`) + (skipped ? `, ${skipped} לא נתמכו או גדולים מדי` : "") : "לא הצלחנו לשמור. אפשר תמונות ו-PDF עד 12MB.");
+  await fillDocs(); fillFile();
+  // the new document's row, with its empty date, comes into view
+  const row = dated && document.querySelector("#docList li.doc .doc-exp.need"); if (row) row.closest("li").scrollIntoView({block: "nearest", behavior: "smooth"});
+  if (scan) (async () => { for (const id of ids) await docScanRun(id); })();
 }
 function docsCard(D){
   const mh = manualHit(D);
   return card("מסמכים", "doc", "teal", `<p style="margin:0">חשבוניות תיקון, רישיון הרכב, רישיון נהיגה, ביטוח ועוד, במקום אחד.</p>
     <div id="docList"></div>
     <div class="doc-add"><select class="inp" id="docCat" aria-label="סוג המסמך">${DOC_CATS.map(c => `<option>${c}</option>`).join("")}</select>
-    <button type="button" class="link-btn" data-doc="add">${ico("plus")}הוספת מסמך או צילום</button>
-    <label class="exp" id="docExpRow" hidden>תוקף עד <input class="inp" id="docExp" type="date" aria-label="תאריך תוקף"> <small>לא חובה. נתריע חודש לפני.</small></label></div>
+    <button type="button" class="link-btn" data-doc="add">${ico("plus")}הוספת מסמך או צילום</button></div>
     <input type="file" id="docFile" accept="image/*,application/pdf" multiple hidden>
     <p class="note">המסמכים נשמרים רק בטלפון הזה, לא נשלחים לשום מקום ולא נכללים בדוחות ששיתפתם. אם תמחקו את האפליקציה או תחליפו מכשיר הם יימחקו, ולכן כדאי לשמור גם עותק במקום אחר.${PRO_LOCK && !isPro() ? ` בחינם עד ${FREE_DOCS} מסמכים לרכב.` : ""}</p>
     ${mh ? `<div class="doc-manual"><p style="margin:0"><b>ספר הרכב</b> להורדה נמצא באתר היבואן של ${esc(mh.name)}.</p><button type="button" class="link-btn" data-url="${mh.url}">לדף ההורדה באתר היבואן</button></div>` : ""}`, PT(`PRO · בלי הגבלה`));
@@ -3337,7 +3370,9 @@ async function fillDocs(){
   try { list = (await DocDB.byPlate(D.plate)).sort((a, b) => b.at - a.at); } catch { el.innerHTML = `<p class="note">שמירת מסמכים לא זמינה במכשיר הזה.</p>`; return; }
   if (current !== D || !el.isConnected) return;
   const kb = b => b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB";
-  el.innerHTML = list.length ? `<ul class="svc-list">${list.map(x => `<li><div><b>${esc(x.cat)}</b><span>${esc(x.name)} · ${esc(dmy(x.at))} · ${kb(x.size)}${x.exp ? " · תוקף עד " + esc(fmtDate(x.exp)) : ""}</span></div><span class="doc-acts"><button type="button" class="x" data-doc="open" data-id="${x.id}" aria-label="פתיחה">${ico(x.type === "application/pdf" ? "doc" : "image")}</button><button type="button" class="x" data-doc="share" data-id="${x.id}" aria-label="שיתוף">${ico("share")}</button><button type="button" class="x" data-doc="del" data-id="${x.id}" aria-label="מחיקה">${ico("trash")}</button></span></li>`).join("")}</ul>` : "";
+  const exp = x => { if (!DOC_EXP_CATS.includes(x.cat)) return ""; const s = !x.exp && docScan.get(x.id) || {}, v = x.exp || (s.st === "found" ? s.d : "");
+    return `<p class="doc-exp${x.exp ? "" : " need"}"><label>תוקף עד <input class="inp" type="date" data-docexp="${x.id}" value="${esc(v)}" min="2000-01-01" max="2099-12-31" aria-label="תוקף ${esc(x.cat)} עד"></label>${x.exp ? "" : scanBtn(x.id, s)}<small aria-live="polite">${x.exp ? expHint(true) : scanHint(s)}</small></p>`; };
+  el.innerHTML = list.length ? `<ul class="svc-list">${list.map(x => `<li class="doc" data-cat="${esc(x.cat)}"><div><b>${esc(x.cat)}</b><span title="${esc(x.name)}"><bdi>${esc(shortName(x.name))}</bdi></span><span>${esc(dmy(x.at))} · <bdi>${kb(x.size)}</bdi></span></div><span class="doc-acts"><button type="button" class="x" data-doc="open" data-id="${x.id}" aria-label="פתיחה">${ico(x.type === "application/pdf" ? "doc" : "image")}</button><button type="button" class="x" data-doc="share" data-id="${x.id}" aria-label="שיתוף">${ico("share")}</button><button type="button" class="x" data-doc="del" data-id="${x.id}" aria-label="מחיקה">${ico("trash")}</button></span>${exp(x)}</li>`).join("")}</ul>` : "";
 }
 function docViewer(blob, name){
   const url = URL.createObjectURL(blob), el = document.createElement("div"); el.className = "doc-view";
@@ -3357,8 +3392,107 @@ document.addEventListener("click", async ev => {
 document.addEventListener("click", ev => { const b = ev.target.closest("[data-retry]"); if (b) run(b.dataset.retry); });
 // Footer links to our social pages: counted in /live as link_out {kind: "social", via: network}.
 document.addEventListener("click", ev => { const a = ev.target.closest("a[data-soc]"); if (a) track("link_out", {kind: "social", via: a.dataset.soc}); });
-document.addEventListener("change", ev => { const f = ev.target.closest("#docFile"); if (!f || !current) return; const files = [...f.files]; f.value = ""; if (files.length) { const ex = $("#docExp"); docsAdd(files, current.plate, ($("#docCat") || {}).value || "אחר", ex && DOC_EXP_CATS.includes(($("#docCat") || {}).value) ? ex.value : ""); if (ex) ex.value = ""; } });
-document.addEventListener("change", ev => { const c = ev.target.closest("#docCat"); const r = $("#docExpRow"); if (c && r) r.hidden = !DOC_EXP_CATS.includes(c.value); });
+document.addEventListener("change", ev => { const f = ev.target.closest("#docFile"); if (!f || !current) return; const files = [...f.files]; f.value = ""; if (files.length) docsAdd(files, current.plate, ($("#docCat") || {}).value || "אחר"); });
+// a saved document's expiry, kept the moment it is chosen (the phone's picker has its own "set"); a year typed digit by digit on a computer
+// passes through 0002, 0020... and is skipped. The row is not drawn again, so typing goes on; the history, tiles and "מה הבא" are.
+document.addEventListener("change", async ev => {
+  const i = ev.target.closest && ev.target.closest("[data-docexp]"); if (!i || !current) return;
+  const v = i.value, y = +v.slice(0, 4);
+  if (v && !(y >= 2000 && y <= 2099)) return;
+  const rec = await DocDB.get(+i.dataset.docexp).catch(() => null); if (!rec || (rec.exp || "") === v) return;
+  rec.exp = v;
+  try { await DocDB.upd(rec); } catch { toast("לא הצלחנו לשמור את התאריך בטלפון"); return; }
+  docExpSave([...docExpAll().filter(d => d.id !== rec.id), ...(v ? [{id: rec.id, plate: rec.plate, cat: rec.cat, exp: v}] : [])]);
+  track("doc_exp", {cat: rec.cat, on: v ? 1 : 0, from: v && (docScan.get(rec.id) || {}).d === v ? "scan" : "hand"});
+  docScan.delete(rec.id);
+  const l = i.closest(".doc-exp"); if (l) { l.classList.toggle("need", !v); const b = l.querySelector("[data-docscan],[data-docsave]"); if (b) b.remove(); if (!v) l.querySelector("label").insertAdjacentHTML("afterend", scanBtn(rec.id, {})); const sm = l.querySelector("small"); if (sm) sm.textContent = v ? expHint(true) : scanHint({}); }
+  toast(v ? `נשמר: ${rec.cat} בתוקף עד ${fmtDate(v)}` : "תאריך התוקף הוסר");
+  fillFile();
+  if (v && alertsSupported() && !trackedOk(rec.plate)) setTimeout(() => toast("כדי לקבל התראה על התוקף, שמרו את הרכב ב\"הרכבים שלי\""), 2600);
+});
+/* ---------- the expiry read from the document itself, on this device: the document is never sent anywhere, only the readers load (from the
+   CDN, like the plate reader). A PDF's own text first; a scanned PDF's first page or a photo through the plate reader's OCR, digits only.
+   The latest likely date is offered on the row and kept only when the owner taps "שמירה" or picks a date. ---------- */
+// dates as Israeli documents write them, day first (31/10/2026, 31.10.26, 31 / 10 / 2026), and 2026-10-31
+function docDates(text){
+  const out = new Set(), t = String(text || "");
+  const add = (y, m, d) => { y = +y < 100 ? 2000 + +y : +y; const dt = new Date(y, +m - 1, +d); if (dt.getFullYear() === y && dt.getMonth() === +m - 1 && dt.getDate() === +d) out.add(ymdOf(dt)); };
+  for (const x of t.matchAll(/(?<!\d)(\d{1,2}) ?[./-] ?(\d{1,2}) ?[./-] ?(\d{4}|\d{2})(?!\d)/g)) add(x[3], x[2], x[1]);
+  for (const x of t.matchAll(/(?<!\d)(\d{4})[./-](\d{1,2})[./-](\d{1,2})(?!\d)/g)) add(x[1], x[2], x[3]);
+  return [...out];
+}
+// the expiry among them: the latest date from today up to 11 years ahead (a driving licence runs 10 years)
+const expGuess = dates => { const t = today0(), a = ymdOf(t), b = ymdOf(new Date(t.getFullYear() + 11, t.getMonth(), t.getDate())); return dates.filter(s => s >= a && s <= b).sort().pop() || ""; };
+async function ocrDigits(canvas){
+  await loadScript(LIBS.ocr);
+  const w = await window.Tesseract.createWorker("eng", 1, OCR_PATHS);
+  try { await w.setParameters({tessedit_char_whitelist: "0123456789/.-", tessedit_pageseg_mode: "11"}); return (await w.recognize(canvas)).data.text || ""; }
+  finally { w.terminate().catch(() => {}); }
+}
+// the text of a document: a photo through the OCR; a PDF by its own text (two pages), else its first page drawn and read
+async function docText(rec){
+  if (rec.type !== "application/pdf") {
+    const img = await loadImage(rec.blob), k = Math.min(1, 1800 / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement("canvas");
+    c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    return {kind: "photo", text: await ocrDigits(c)};
+  }
+  await loadScript(LIBS.pdfjs);
+  const lib = window.pdfjsLib, port = pdfPort();
+  lib.GlobalWorkerOptions.workerPort = port.w;
+  const task = lib.getDocument({data: new Uint8Array(await rec.blob.arrayBuffer()), isEvalSupported: false});
+  const pdf = await Promise.race([task.promise, port.dead]).catch(e => { task.destroy().catch(() => {}); throw e; });
+  try {
+    let text = "";
+    for (let n = 1; n <= Math.min(2, pdf.numPages); n++) text += " " + (await (await pdf.getPage(n)).getTextContent()).items.map(x => x.str).join(" ");
+    if (docDates(text).length) return {kind: "pdf_text", text};
+    const page = await pdf.getPage(1), v1 = page.getViewport({scale: 1}), v = page.getViewport({scale: Math.min(3, 1800 / Math.max(v1.width, v1.height))}), c = document.createElement("canvas");
+    c.width = Math.round(v.width); c.height = Math.round(v.height);
+    await page.render({canvasContext: c.getContext("2d"), viewport: v}).promise;
+    return {kind: "pdf_ocr", text: await ocrDigits(c)};
+  } finally { pdf.destroy().catch(() => {}); }
+}
+// the PDF reader's worker, started once from a same-origin blob (a worker cannot start from another origin). When its file cannot load,
+// pdf.js would wait for it forever: the reading ends at once instead, and the next one starts a new worker.
+let pdfW = null;
+function pdfPort(){
+  if (pdfW) return pdfW;
+  const w = new Worker(URL.createObjectURL(new Blob([`importScripts("${PDFJS_WORKER}");`], {type: "text/javascript"})));
+  const me = pdfW = {w, dead: new Promise((_, no) => w.addEventListener("error", e => { e.preventDefault(); if (pdfW === me) pdfW = null; w.terminate(); no(new Error("pdf worker")); }, {once: true}))};
+  me.dead.catch(() => {});
+  return me;
+}
+const docScan = new Map();   // id -> {st: "read" | "found" | "none", d}: reading a document's date, until a date is kept
+const scanHint = s => s.st === "read" ? "קוראים את התאריך מהמסמך…" : s.st === "found" ? `נמצא במסמך: ${fmtDate(s.d)}. לשמור?` : s.st === "none" ? "לא מצאנו תאריך במסמך. אפשר לבחור אותו כאן." : expHint(false);
+const scanBtn = (id, s) => s.st === "found" ? `<button type="button" class="link-btn" data-docsave="${id}">${ico("check")}שמירה</button>` : s.st ? "" : `<button type="button" class="link-btn" data-docscan="${id}">${ico("search")}זיהוי מהמסמך</button>`;
+// the row as the reading goes: drawn in place, so a date being picked is not lost; a finding fills only an empty date
+function paintScan(id){
+  const i = document.querySelector(`[data-docexp="${id}"]`), p = i && i.closest(".doc-exp"); if (!p || !p.classList.contains("need")) return;
+  let s = docScan.get(id) || {};
+  if (s.st === "found" && i.value !== s.d) { if (!i.value && document.activeElement !== i) i.value = s.d; else s = {}; }
+  const b = p.querySelector("[data-docscan],[data-docsave]"); if (b) b.remove();
+  p.querySelector("label").insertAdjacentHTML("afterend", scanBtn(id, s));
+  const sm = p.querySelector("small"); if (sm) sm.textContent = scanHint(s);
+}
+async function docScanRun(id, asked){
+  if ((docScan.get(id) || {}).st === "read") return;
+  const rec = await DocDB.get(id).catch(() => null); if (!rec || rec.exp || !DOC_EXP_CATS.includes(rec.cat)) return;
+  docScan.set(id, {st: "read"}); paintScan(id);
+  // a reading that has not ended in two minutes (a stalled download) gives the button back; the date can be picked by hand all along
+  let r = null;
+  try { r = await Promise.race([docText(rec), new Promise(ok => setTimeout(ok, 120000, {kind: "slow"}))]); } catch {}
+  const fail = !r || r.kind === "slow", kind = r ? r.kind : navigator.onLine === false ? "offline" : "fail";
+  const all = fail ? [] : docDates(r.text), d = expGuess(all);
+  track("doc_scan", {cat: rec.cat, kind, n: all.length, on: d ? 1 : 0});
+  if (!docScan.has(id)) return;   // the owner kept a date while it was being read
+  if (d) docScan.set(id, {st: "found", d}); else if (fail) docScan.delete(id); else docScan.set(id, {st: "none"});
+  paintScan(id);
+  if (asked && fail) toast(kind === "offline" ? "קריאת המסמך דורשת חיבור לאינטרנט" : "לא הצלחנו לקרוא את המסמך. אפשר לבחור תאריך ידנית.");
+}
+document.addEventListener("click", ev => {
+  const b = ev.target.closest && ev.target.closest("[data-docscan],[data-docsave]"); if (!b || !current) return;
+  if (b.dataset.docscan) { docScanRun(+b.dataset.docscan, true); return; }
+  const i = document.querySelector(`[data-docexp="${b.dataset.docsave}"]`); if (i) i.dispatchEvent(new Event("change", {bubbles: true}));
+});
 
 /* ---------- "תיק הרכב": the owner's tab, for a car marked as theirs; any other car gets the buyer's tabs (סקירה, קנייה, מפרט) ---------- */
 // the mark, {plate: 1 | 0} on this phone: a car with a service log or a document is the owner's until they say it is not (0)
@@ -3418,7 +3552,7 @@ function fileTiles(D, n, est){
   else { const l = svcLast(D.plate), ld = l && toDate(l.d); svc = ld ? tile("", "טיפול", dShort(ld), "האחרון שנרשם") : tile("", "טיפול", "לא נרשם", "רישום טיפול", `data-cf="svc"`); }
   const ins = docExpAll().filter(x => x.plate === D.plate && x.cat === "ביטוח" && toDate(x.exp)).sort((a, b) => a.exp < b.exp ? 1 : -1)[0];
   const insD = ins ? dayDiff(t0, toDate(ins.exp)) : 0;
-  const insT = !ins ? tile("", "ביטוח", "לא נשמר", "הוספת פוליסה", `data-cf="ins"`)
+  const insT = !ins ? (cfFor === D.plate && cfDocs.some(x => x.cat === "ביטוח") ? tile("", "ביטוח", "בלי תאריך", "הוספת תאריך תוקף", `data-cf="ins"`) : tile("", "ביטוח", "לא נשמר", "הוספת פוליסה", `data-cf="ins"`))
     : insD < 0 ? tile("bad", "ביטוח", "פג", dShort(toDate(ins.exp))) : tile(insD <= 30 ? "warn" : "ok", "ביטוח", insD <= 30 ? daysWord(insD) : "בתוקף", dShort(toDate(ins.exp)));
   const pr = D.isCancelled || D.recallUnknown ? [] : pendingRecalls(D);
   const rec = D.recallUnknown ? tile("", "ריקולים", "לא זמין", "נסו שוב בהמשך")
@@ -3466,7 +3600,7 @@ function fileEvents(D, docs, forPdf){
     ev.push({t, when: fmtDate(x.d), k: "svc", cls: "own", title: km ? `קריאת ק״מ: ${fmtN(x.km)}` : `${x.type}${x.cost && !forPdf ? ` · ${fmtN(x.cost)} ₪` : ""}`,
       sub: [!km && x.km ? `${fmtN(x.km)} ק״מ` : "", forPdf ? "" : x.note || ""].filter(Boolean).join(" · "), del: x.id});
   }
-  for (const x of docs) ev.push({t: new Date(x.at), when: fmtDate(ymdOf(new Date(x.at))), k: "doc", cls: "own", title: x.cat, sub: [x.name, x.exp ? `תוקף עד ${fmtDate(x.exp)}` : ""].filter(Boolean).join(" · "), open: x.id, pdf: x.type === "application/pdf"});
+  for (const x of docs) ev.push({t: new Date(x.at), when: fmtDate(ymdOf(new Date(x.at))), k: "doc", cls: "own", title: x.cat, sub: [shortName(x.name), x.exp ? `תוקף עד ${fmtDate(x.exp)}` : ""].filter(Boolean).join(" · "), open: x.id, pdf: x.type === "application/pdf"});
   const tt = toDate(D.v.mivchan_acharon_dt);
   if (tt) ev.push({t: tt, when: fmtDate(D.v.mivchan_acharon_dt), k: "gov", title: "טסט", sub: [D.km ? `${fmtN(D.km)} ק״מ` : "", gov].filter(Boolean).join(" · ")});
   D.own.forEach((r, i) => { const t = parseYM(r.baalut_dt); if (t) ev.push({t, when: ym(t), k: "gov", title: i === 0 && !D.ownersFloor ? "בעלות ראשונה" : isDealerRec(r) ? "עבר לסוחר" : "העברת בעלות", sub: [String(r.baalut || "").trim(), gov].filter(Boolean).join(" · ")}); });
@@ -3504,8 +3638,10 @@ async function roadDocs(D){
 function openDocsFold(cat){
   const h = document.querySelector('#tabpanel [data-fold="מסמכים"]'); if (!h) return;
   if (h.getAttribute("aria-expanded") === "false") h.click();
-  const sel = $("#docCat"); if (sel && cat) { sel.value = cat; sel.dispatchEvent(new Event("change", {bubbles: true})); }
-  h.scrollIntoView({block: "start", behavior: "smooth"});
+  const sel = $("#docCat"); if (sel && cat) sel.value = cat;
+  // a saved document of that kind without its date: to its date, else to the card
+  const need = cat && [...document.querySelectorAll("#docList li.doc")].find(li => li.dataset.cat === cat && li.querySelector(".doc-exp.need"));
+  (need || h).scrollIntoView({block: need ? "center" : "start", behavior: "smooth"});
 }
 /* the file as a PDF for a buyer: the services and km readings without what they cost or the owner's notes, and the ministry's records */
 async function historyPdf(D, btn){
@@ -3558,10 +3694,18 @@ async function fillFile(){
   const D = current; let list = [];
   try { list = (await DocDB.byPlate(D.plate)).sort((a, b) => b.at - a.at); } catch { return; }
   if (current !== D || cfFor !== D.plate) return;
-  const key = l => l.map(x => x.id).join(",");
+  const key = l => l.map(x => x.id + ":" + (x.exp || "")).join(",");
   if (key(list) === key(cfDocs)) return;
   cfDocs = list.map(({blob, ...x}) => x);   // the history needs the names and dates, never the files
   const el = $("#cfHist"); if (el) el.innerHTML = fileHist(D, cfDocs);
+  fileTop(D);
+}
+/* the tiles and "מה הבא" read the documents and their dates: drawn again in place when they change, the rest of the tab stays */
+function fileTop(D){
+  const t = document.querySelector("#tabpanel .cf-tiles"), h = document.querySelector('#tabpanel [data-fold="מה הבא"]'); if (!t && !h) return;
+  const info = serviceInfo(D), n = maintOk() ? svcNext(svcOf(D.plate)) : null, est = n ? null : svcEst(D, info);
+  if (t) t.outerHTML = fileTiles(D, n, est);
+  if (h) h.closest(".card").outerHTML = fileNext(D, info, n, est);
 }
 document.addEventListener("click", ev => {
   const b = ev.target.closest && ev.target.closest("[data-cfh]"); if (!b || !current) return;
@@ -4991,14 +5135,16 @@ const LIBS = {
   img: "https://cdn.jsdelivr.net/npm/html-to-image@1.11.13/dist/html-to-image.js",
   pdf: "lib/jspdf.umd.min.js",   // shipped with the app (same file as jspdf@2.5.2 on jsDelivr), so a PDF needs no download
   ocr: "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js",
+  pdfjs: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js",
 };
+const PDFJS_WORKER = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
 const OCR_PATHS = {
   workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js",
   corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1",
   langPath: "https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int",
 };
 const LIB_FALLBACK = {pdf: "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"};
-const LIB_SRI = {"img": "sha384-Tha/42qsYmpYmQ07pX+nJzkKumO0BzKJxK/uzVc7xyBQxVCUgQBhQIG8L7vXK+9C", "pdf": "sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/", "ocr": "sha384-GJqSu7vueQ9qN0E9yLPb3Wtpd7OrgK8KmYzC8T1IysG1bcvxvIO4qtYR/D3A991F"};
+const LIB_SRI = {"img": "sha384-Tha/42qsYmpYmQ07pX+nJzkKumO0BzKJxK/uzVc7xyBQxVCUgQBhQIG8L7vXK+9C", "pdf": "sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/", "ocr": "sha384-GJqSu7vueQ9qN0E9yLPb3Wtpd7OrgK8KmYzC8T1IysG1bcvxvIO4qtYR/D3A991F", "pdfjs": "sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e"};
 const scriptCache = {};
 function loadScript(src){
   const k0 = Object.keys(LIBS).find(x => LIBS[x] === src), fb = k0 && LIB_FALLBACK[k0];
@@ -5889,7 +6035,7 @@ for (const nm of ["renderResult", "renderCompare", "renderHome"]) {
    drawn (home, car, cars, alerts, sub for the tools), and the search band shows only on home and the tools */
 let view = "search", carsFilter = "all", carsSel = null, carsY = 0;
 let openTab = null;   // {p: plate, t: tab}: the tab that car opens on next (an open recall from "התראות" lands on the recalls tab); another car ignores it
-function setScreen(s){ document.body.dataset.screen = s; syncNav(); }
+function setScreen(s){ document.body.dataset.screen = s; syncNav(); syncHist(); }
 function syncNav(){
   document.querySelectorAll("#bnav [data-nav]").forEach(b => { if (b.dataset.nav === view) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
   const n = alertItems().length, bd = $("#bnBadge"); if (bd) { bd.hidden = !n; bd.textContent = n > 9 ? "9+" : String(n); }
@@ -5904,10 +6050,17 @@ function navTo(v, opts = {}){
   if (ctrl) { ctrl.abort(); ctrl = null; $("#go").disabled = false; }
   if (v !== "search") fileIntent = false;
   track("nav", {to: v, via: opts.via || "bar"});
+  if (v === view) parked = null;
+  else if (current && document.body.dataset.screen === "car") parked = {v: view, D: current, t: currentTab, y: window.scrollY};
+  if (parked && parked.v === v && v !== view) {
+    const p = parked; parked = null; view = v; current = p.D; currentTab = p.t; renderResult();
+    if (p.D.plate && p.D.kind !== "model") try { history.replaceState(history.state, "", location.pathname + "#" + p.D.plate); } catch {}
+    window.scrollTo({top: p.y}); return;
+  }
   if (v === "cars") { carsSel = null; if (opts.filter) carsFilter = opts.filter; view = v; renderCars(); }
   else if (v === "alerts") { view = v; renderAlerts(); }
   else { view = "search"; goHome(); return; }
-  try { history.replaceState(null, "", location.pathname); } catch {}
+  try { history.replaceState(history.state, "", location.pathname); } catch {}
   window.scrollTo({top: 0});
 }
 /* the screen the user is on, drawn again with fresh data (a check that finished, a bell, a nickname); a car page or a tool stays as it is */
@@ -5918,8 +6071,8 @@ function refreshView(){
 }
 /* back from a car page: to the tab it was opened from */
 function leaveCar(){
-  current = null; currentTab = "overview"; fileIntent = false;
-  try { history.replaceState(null, "", location.pathname); } catch {}
+  current = null; currentTab = "overview"; fileIntent = false; parked = null;
+  try { history.replaceState(history.state, "", location.pathname); } catch {}
   if (view === "cars") { renderCars(); window.scrollTo({top: carsY}); }
   else if (view === "alerts") { renderAlerts(); window.scrollTo({top: 0}); }
   else goHome();
@@ -6843,12 +6996,12 @@ $("#bizLogoClear").addEventListener("click", () => { const b = bizProfile(); del
 syncBiz();
 /* Android back button: close settings, then return from a result to the home screen */
 const focusResult = () => { const h = $("#resHead"); if (h) try { h.focus({preventScroll: true}); } catch {} };
-function goHome(){ if (land) setLand(false, false); inCompare = false; renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} window.scrollTo({top: 0}); }
+function goHome(){ if (land) setLand(false, false); inCompare = false; renderHome(); $("#plate").value = ""; try { history.replaceState(history.state, "", location.pathname); } catch {} window.scrollTo({top: 0}); }
 $(".brand h1").addEventListener("click", ev => { ev.preventDefault(); goHome(); });
 $("#homeBtn").addEventListener("click", goHome);
 // the checked line above the tabs: opened, calm or amber (checkLine)
 document.addEventListener("toggle", ev => { const d = ev.target; if (d.classList && d.classList.contains("ckl") && d.open) track("check_open", {kind: d.dataset.line}); }, true);
-window.appBack = () => { const dv = document.querySelector(".doc-view"); if (dv) { dv.click(); return true; } { const rs = $("#roadSheet"); if (rs) { rs.remove(); return true; } } if (document.querySelector(".ch-menu")) { closeCarMenu(); return true; } if (!sheet.hidden) { sheet.hidden = true; return true; } if (!$("#compareSheet").hidden) { if (mGroup) stepBack(); else hideCmpSheet(); return true; } if (!$("#shareSheet").hidden) { $("#shareSheet").hidden = true; return true; } if (inCompare) { closeCompare(); return true; } if (document.body.dataset.screen === "sub") { leaveTool(); return true; } if (document.body.dataset.screen === "cars" && carsSel) { carsSel = null; renderCars(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { leaveCar(); return true; } if (!$("#homeMark")) { goHome(); return true; } return false; };
+window.appBack = () => { const dv = document.querySelector(".doc-view"); if (dv) { dv.click(); return true; } { const rs = $("#roadSheet"); if (rs) { rs.remove(); return true; } } if (document.querySelector(".ch-menu")) { closeCarMenu(); return true; } if (!sheet.hidden) { sheet.hidden = true; return true; } if (!$("#compareSheet").hidden) { if (mGroup) stepBack(); else hideCmpSheet(); return true; } if (!$("#shareSheet").hidden) { $("#shareSheet").hidden = true; return true; } if (inCompare) { closeCompare(); return true; } if (document.body.dataset.screen === "sub") { leaveTool(); return true; } if (document.body.dataset.screen === "cars" && carsSel) { carsSel = null; renderCars(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { leaveCar(); return true; } if (parked && parked.v !== view) { navTo(parked.v, {via: "back"}); return true; } if (!$("#homeMark")) { goHome(); return true; } return false; };
 
 /* Text shared from another app (an ad, a message): find a plate number in it.
    Phone numbers, prices and mileage are skipped; a number next to the words רכב/רישוי/לוחית wins. */

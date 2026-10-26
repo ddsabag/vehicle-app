@@ -46,6 +46,8 @@ Every new version goes out in two words: "שחרר" (Alpha, above) and then, whe
 
 When the owner asks for all users at once (no 20% step), the run takes `full=true`: the build goes to all users in one edit (status completed), with no staged rollout and so no automatic halt (the watch still tells a crash new in the build, and the fix is a new version). An older rollout that is still running is replaced by it, and the same build running at a fraction goes to 100% at once. Every other refusal above still holds.
 
+When the owner asks to publish a newer version without waiting for the running rollout to reach 100%, the run takes `replace=true`: the newer build starts at 20% in place of the running one, with the same automatic halt and 48 hours. Those who already have the older version keep it until the new one reaches them, and the completed release still serves everyone else. Every other refusal above still holds.
+
 What follows is in Release watch (three times a day, by day), `play-production.mjs auto`:
 - while Google reviews the rollout (Play's release lifecycle state) nothing happens;
 - the first look at it published sends one Telegram and starts the 48 hours;

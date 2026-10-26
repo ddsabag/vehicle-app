@@ -9,6 +9,8 @@ name: Production
 # checks the permission and Play's own checks). Kill switch: the SHIP_TAIL variable, as in Ship tail. Owner setup: .github/SHIP-TAIL.md
 # full=true (the owner asked for all users at once): the build goes to all users, no staged rollout and so no automatic halt (the watch
 # still tells a new crash); an older rollout still running is replaced by it, and the same build running at a fraction goes to 100% now.
+# replace=true (the owner asked not to wait for the running rollout to reach 100%): the newer build starts at 20% in its place, with the
+# same automatic halt and 48 h; who already has the older version keeps it until the new one reaches them.
 on:
   workflow_dispatch:
     inputs:
@@ -23,6 +25,10 @@ on:
         required: false
       full:
         description: "all users at once instead of 20% (no automatic halt); replaces an older rollout that is still running"
+        type: boolean
+        default: false
+      replace:
+        description: "20% now in place of an older rollout that is still running, without waiting for it to reach 100%"
         type: boolean
         default: false
 permissions:
@@ -66,6 +72,7 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           VERSION: ${{ inputs.version }}
           FULL: ${{ inputs.full && '1' || '0' }}
+          REPLACE: ${{ inputs.replace && '1' || '0' }}
           PLAY_DEVELOPER_ID: ${{ vars.PLAY_DEVELOPER_ID }}
           PLAY_APP_ID: ${{ vars.PLAY_APP_ID }}
           ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
