@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-43";   // shown in /live/data so the running version is visible
+const BUILD = "live-44";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -276,21 +276,27 @@ async function playStatus() {
 // Where the production release stands, straight from Play Console (Play Developer API, a read-only list that needs no edit): in review,
 // approved, rejected, published. Needs the Google Play Android Developer API enabled in the service account's Cloud project and the account
 // invited in Play Console; until then { ok: false, why } and the screen keeps the store page check alone. Never throws.
+// a side source that fails after it once answered keeps its last good answer (marked stale) and is asked again in 5 minutes. On a cold
+// refresh about 45 Google calls start together and a Worker opens 6 connections at a time, so a call can wait its turn longer than its own
+// timeout: a timeout says nothing about the source itself (26.10: GA time zone and Play reports showed "aborted due to timeout")
+const keepGood = (prev, why) => prev && prev.ok ? { ...prev, stale: why } : { ok: false, why };
+const sideFresh = (o, at, ttl) => o && Date.now() - at < (o.ok && !o.stale ? ttl : o.ok ? 300e3 : 900e3);
+const SIDE_MS = 15e3;
 let rel = null, relAt = 0;
 async function playRelease(env) {
-  if (rel && Date.now() - relAt < 900e3) return rel;
+  if (sideFresh(rel, relAt, 900e3)) return rel;
   relAt = Date.now();
   try {
     const r = await fetch("https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.ddsabag.pratirechev/tracks/production/releases",
-      { headers: { authorization: "Bearer " + await googleToken(env) }, signal: AbortSignal.timeout(8e3) });
-    if (!r.ok) { const t = await r.text(); let m = t; try { m = JSON.parse(t).error.message || t; } catch {} rel = { ok: false, why: r.status + " " + String(m).replace(/\s+/g, " ").slice(0, 160) }; }
+      { headers: { authorization: "Bearer " + await googleToken(env) }, signal: AbortSignal.timeout(SIDE_MS) });
+    if (!r.ok) { const t = await r.text(); let m = t; try { m = JSON.parse(t).error.message || t; } catch {} rel = keepGood(rel, r.status + " " + String(m).replace(/\s+/g, " ").slice(0, 160)); }
     else {
       const list = ((await r.json()).releases || []).map(x => ({ name: String(x.releaseName || "").slice(0, 40), state: String(x.releaseLifecycleState || "").replace("RELEASE_LIFECYCLE_STATE_", "").toLowerCase(),
         code: Math.max(0, ...(x.activeArtifacts || []).map(a => Number(a.versionCode) || 0)) }));
       list.sort((a, b) => b.code - a.code);   // newest build first
       rel = { ok: true, at: new Date().toISOString(), list: list.slice(0, 3) };
     }
-  } catch (e) { rel = { ok: false, why: String(e.message || e).slice(0, 160) }; }
+  } catch (e) { rel = keepGood(rel, String(e.message || e).slice(0, 160)); }
   return rel;
 }
 
@@ -316,14 +322,14 @@ let pst = null, pstAt = 0;
 async function playStats(env, today) {
   const bucket = String(env.PLAY_REPORTS_BUCKET || "").trim().replace(/^gs:\/\//, "").split("/")[0];
   if (!bucket) return { ok: false, why: "no bucket" };
-  if (pst && Date.now() - pstAt < (pst.ok ? 3 * 3600e3 : 900e3)) return pst;
+  if (sideFresh(pst, pstAt, 3 * 3600e3)) return pst;
   pstAt = Date.now();
   try {
     const tok = await googleToken(env);
     const month = k => { const d = new Date(Date.parse(today.slice(0, 7) + "-15T12:00:00Z")); d.setUTCMonth(d.getUTCMonth() + k); return d.toISOString().slice(0, 7).replace("-", ""); };
     const get = async (kind, m) => {
       const r = await fetch(`https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(bucket)}/o/${encodeURIComponent(`stats/${kind}/${kind}_${PKG}_${m}_country.csv`)}?alt=media`,
-        { headers: { authorization: "Bearer " + tok }, signal: AbortSignal.timeout(8e3) });
+        { headers: { authorization: "Bearer " + tok }, signal: AbortSignal.timeout(SIDE_MS) });
       if (r.status === 404) return null;   // this month's file does not exist yet
       if (!r.ok) { const t = await r.text(); let msg = t; try { msg = JSON.parse(t).error.message || t; } catch {} throw new Error(r.status + " " + String(msg).replace(/\s+/g, " ").slice(0, 140)); }
       return csvRows(csvText(await r.arrayBuffer()));
@@ -347,7 +353,7 @@ async function playStats(env, today) {
       return { users: o[0], abroad: o[1], uninstalls: o[2], events: o[3], visitors: o[4], acquisitions: o[5] }; };
     const W = [addDays(last, -6), last], P = [addDays(last, -13), addDays(last, -7)];
     pst = { ok: true, at: new Date().toISOString(), last, W, P, cur: sum(W), prev: sum(P), total: total || null, store: !!(s0 || s1), active: lastIL ? act[lastIL] : null, activeDay: lastIL || null };
-  } catch (e) { pst = { ok: false, why: String(e.message || e).slice(0, 160) }; }
+  } catch (e) { pst = keepGood(pst, String(e.message || e).slice(0, 160)); }
   return pst;
 }
 
@@ -371,14 +377,14 @@ let prt = null, prtAt = 0;
 async function playRatings(env, today) {
   const bucket = String(env.PLAY_REPORTS_BUCKET || "").trim().replace(/^gs:\/\//, "").split("/")[0];
   if (!bucket) return { ok: false, why: "no bucket" };
-  if (prt && Date.now() - prtAt < (prt.ok ? 6 * 3600e3 : 900e3)) return prt;
+  if (sideFresh(prt, prtAt, 6 * 3600e3)) return prt;
   prtAt = Date.now();
   try {
     const tok = await googleToken(env);
     const month = k => { const d = new Date(Date.parse(today.slice(0, 7) + "-15T12:00:00Z")); d.setUTCMonth(d.getUTCMonth() + k); return d.toISOString().slice(0, 7).replace("-", ""); };
     const get = async path => {
       const r = await fetch(`https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(bucket)}/o/${encodeURIComponent(path)}?alt=media`,
-        { headers: { authorization: "Bearer " + tok }, signal: AbortSignal.timeout(8e3) });
+        { headers: { authorization: "Bearer " + tok }, signal: AbortSignal.timeout(SIDE_MS) });
       if (r.status === 404) return null;
       if (!r.ok) throw new Error(r.status + " " + path);
       return csvAll(csvText(await r.arrayBuffer()));
@@ -403,20 +409,20 @@ async function playRatings(env, today) {
     if (!r0 && !r1 && !n) throw new Error("404 no ratings or reviews report in the bucket yet");
     prt = { ok: true, at: new Date().toISOString(), avg: avg ?? (n ? Math.round(sum / n * 100) / 100 : null), avgDay: avgDay || null, own: avg == null,
       n, txt: all.reduce((t, o) => t + o.txt, 0), last: all.reduce((t, o) => (o.last > t ? o.last : t), "") || null };
-  } catch (e) { prt = { ok: false, why: String(e.message || e).slice(0, 160) }; }
+  } catch (e) { prt = keepGood(prt, String(e.message || e).slice(0, 160)); }
   return prt;
 }
 
 // GA4 counts days in the property's time zone; the screen assumes Israel, so the technical drawer shows it (Admin API, read-only, daily). Never throws.
 let gaTz = null, gaTzAt = 0;
 async function gaTimeZone(env) {
-  if (Date.now() - gaTzAt < (gaTz && gaTz.ok ? 864e5 : 3600e3)) return gaTz;
+  if (sideFresh(gaTz, gaTzAt, 864e5)) return gaTz;
   gaTzAt = Date.now();
   try {
-    const r = await fetch(`https://analyticsadmin.googleapis.com/v1beta/properties/${env.GA_PROPERTY_ID}`, { headers: { authorization: "Bearer " + await googleToken(env) }, signal: AbortSignal.timeout(8e3) });
-    if (!r.ok) { const t = await r.text(); let m = t; try { m = JSON.parse(t).error.message || t; } catch {} gaTz = { ok: false, why: r.status + " " + String(m).replace(/\s+/g, " ").slice(0, 140) }; }
-    else gaTz = { ok: true, tz: (await r.json()).timeZone || "" };
-  } catch (e) { gaTz = { ok: false, why: String(e.message || e).slice(0, 140) }; }
+    const r = await fetch(`https://analyticsadmin.googleapis.com/v1beta/properties/${env.GA_PROPERTY_ID}`, { headers: { authorization: "Bearer " + await googleToken(env) }, signal: AbortSignal.timeout(SIDE_MS) });
+    if (!r.ok) { const t = await r.text(); let m = t; try { m = JSON.parse(t).error.message || t; } catch {} gaTz = keepGood(gaTz, r.status + " " + String(m).replace(/\s+/g, " ").slice(0, 140)); }
+    else gaTz = { ok: true, at: new Date().toISOString(), tz: (await r.json()).timeZone || "" };
+  } catch (e) { gaTz = keepGood(gaTz, String(e.message || e).slice(0, 140)); }
   return gaTz;
 }
 
@@ -547,11 +553,14 @@ async function collect(env) {
   // a Worker request may make only 50 outside calls: get the token once, before the parallel calls, or each of them fetches its own
   await googleToken(env).catch(() => {});
   // realtime: events, and active users by platform (the app's devices in Israel, and the site, where every opening of the page is its own "user")
-  const [events, plats, vToday, vYday, dly, sc, wk, ps, rl, pls, tz, rt, rty, rat] = await Promise.all([
+  const [events, plats, vToday, vYday, dly, sc, wk, ps, rt, rty] = await Promise.all([
     safe(realtime(env, { dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: REAL, limit: 40 }), "events"),
     safe(realtime(env, { dimensions: [{ name: "platform" }], metrics: [{ name: "activeUsers" }], dimensionFilter: REAL }), "platforms"),
     safe(cfVisits(env, today), "visitsToday"), safe(cfVisits(env, yday), "visitsYesterday"), safe(collectDaily(env), "daily"), safe(collectSeo(env, today), "seo"),
-    safe(collectWeekly(env, today), "weekly"), playStatus(), playRelease(env), playStats(env, today), gaTimeZone(env), safe(rtToday(env, today), "today"), safe(rtKept(env, yday), "yesterday tally"), playRatings(env, today)]);
+    safe(collectWeekly(env, today), "weekly"), playStatus(), safe(rtToday(env, today), "today"), safe(rtKept(env, yday), "yesterday tally")]);
+  // the side Google sources (cached for hours, so usually no call at all) go after the GA4 batch: started with it, they waited for one of the
+  // 6 connections a Worker opens at a time and ran out of time without the source being slow (26.10)
+  const [rl, pls, tz, rat] = await Promise.all([playRelease(env), playStats(env, today), gaTimeZone(env), playRatings(env, today)]);
   // a quota error counts only when this request's own calls met it, not one a collector remembers from an earlier request
   const own = { ...errors, ...(dly && !dly.cached ? dly.errors : {}), ...(sc && !sc.cached ? sc.errors : {}), ...(wk && !wk.cached ? wk.errors : {}) };
   Object.assign(errors, dly?.errors || {}, sc?.errors || {}, wk?.errors || {});
@@ -717,6 +726,9 @@ const ST={ok:["תקין","✓"],warn:["דורש תשומת לב","!"],bad:["מת
 const $=i=>document.getElementById(i);
 const n=x=>x==null||!isFinite(x)?"-":Math.round(x).toLocaleString("en-US");
 const n1=x=>x==null||!isFinite(x)?"-":(Math.round(x*10)/10).toLocaleString("en-US");
+// a source that did not answer in time is told in Hebrew; one that answered before keeps that answer and says so (26.10)
+const TOUT=/abort|timed? ?out/i,whyT=w=>TOUT.test(w||"")?"לא ענה בזמן. ייבדק שוב בעוד כמה דקות":(w||"");
+const stl=o=>o&&o.stale?"<b>הבדיקה האחרונה לא ענתה בזמן.</b> מוצג המידע הקודם"+(o.at?" מתאריך <bdi>"+new Date(o.at).toLocaleDateString("he-IL",{timeZone:"Asia/Jerusalem",day:"numeric",month:"numeric"})+"</bdi> בשעה <bdi>"+new Date(o.at).toLocaleTimeString("he-IL",{timeZone:"Asia/Jerusalem",hour:"2-digit",minute:"2-digit"})+"</bdi>":"")+". ":"";
 const esc=t=>String(t==null?"":t).replace(/[<>&"]/g,"");
 // a page of the site by its Hebrew name, with its address under it
 const PGN=[[/^\\/$/,"דף הבית: בדיקת רכב"],[/^\\/magazine\\//,"מגזין"],[/^\\/model\\/$/,"כל הדגמים"],[/^\\/model\\//,"דף דגם"],[/^\\/check\\/$/,"כל הבדיקות"],[/^\\/check\\/recall\\//,"בדיקת ריקול"],[/^\\/check\\/settlements\\//,"הסדרי פשרה"],[/^\\/check\\/license-fee\\//,"אגרת רישוי"],[/^\\/check\\/owners\\//,"כמה ידיים היו לרכב"],[/^\\/check\\/test\\//,"מתי הטסט"],[/^\\/check\\/off-road\\//,"רכב שירד מהכביש"],[/^\\/check\\/value\\//,"שווי רכב"],[/^\\/business\\//,"לעסקים"],[/^\\/guide\\//,"מדריך"],[/^\\/go(\\/|$)/,"קישור מרשת חברתית"]];
@@ -949,10 +961,11 @@ box.innerHTML=M3.map(m=>{const o=SR[m[0]]||{},v=D.map(x=>m[2]&&x<m[2]?null:o[x]|
 if(!ev){box.innerHTML='<p class="note">גוגל אנליטיקס לא ענה.</p>';$("fns").textContent=""}else{const site=wsum("site_lookup",end),siteP=wsum("site_lookup",addD(end,-7)),A=W.app,SV=W.savers||{},SP=W.saversP||{};
 const S=[["כניסות לאתר",or(pw("web_visit",0),ge(E0,"web_visit")),or(pw("web_visit",1),ge(E1,"web_visit"))],["בדיקות רכב באתר",or(pw("car_lookup",0),site),or(pw("car_lookup",1),siteP)],["לחיצות «להתקנה»",or(pw("web_install_click",0),ge(E0,"web_install_click")),or(pw("web_install_click",1),ge(E1,"web_install_click"))]];
 const AP=[["פתחו את האפליקציה",A?A[0].totalUsers||null:null,A?A[1].totalUsers||null:null],["בדקו רכב",SV.car_lookup||null,SP.car_lookup||null],["שמרו רכב",SV.car_save||0,SP.car_save||0]];
-const pc=(a,b)=>a==null||!b?"-":Math.round(a/b*100)+"%";
-const fun=(t,R)=>{const mx=Math.max(1,R[0][1]||0,R[0][2]||0);return '<div class="fn"><h4>'+t+"</h4>"+R.map((r,i)=>(i?'<div class="fs"><i>↓</i> '+pc(r[1],R[i-1][1])+" מהשלב הקודם"+(R[i-1][2]&&r[2]!=null?' <span class="flat">(שבוע קודם '+pc(r[2],R[i-1][2])+")</span>":"")+"</div>":"")+'<div class="fr"><span>'+r[0]+'</span><div class="fb"><i class="c" style="width:'+(r[1]?Math.max(1,r[1]/mx*100):0)+'%" title="השבוע: '+n(r[1])+'"></i><i class="p" style="width:'+(r[2]?Math.max(1,r[2]/mx*100):0)+'%" title="שבוע קודם: '+n(r[2])+'"></i></div><span class="pc">'+n(r[1])+'</span><span class="nn">שבוע קודם '+n(r[2])+"</span></div>").join("")+"</div>"};
+const pc=(a,b)=>a==null||!b?"-":a>b?"פי "+n1(a/b):Math.round(a/b*100)+"%";
+// every bar is scaled on the largest number of its block (26.10: a step larger than the first, more checks than visits, ran over its number)
+const fun=(t,R)=>{const mx=Math.max(1,...R.map(r=>Math.max(r[1]||0,r[2]||0)));return '<div class="fn"><h4>'+t+"</h4>"+R.map((r,i)=>(i?'<div class="fs"><i>↓</i> '+pc(r[1],R[i-1][1])+" מהשלב הקודם"+(r[1]>R[i-1][1]&&R[i-1][1]?" (אפשר לבדוק כמה רכבים בכניסה אחת)":"")+(R[i-1][2]&&r[2]!=null?' <span class="flat">(שבוע קודם '+pc(r[2],R[i-1][2])+")</span>":"")+"</div>":"")+'<div class="fr"><span>'+r[0]+'</span><div class="fb"><i class="c" style="width:'+(r[1]?Math.max(1,r[1]/mx*100):0)+'%" title="השבוע: '+n(r[1])+'"></i><i class="p" style="width:'+(r[2]?Math.max(1,r[2]/mx*100):0)+'%" title="שבוע קודם: '+n(r[2])+'"></i></div><span class="pc">'+n(r[1])+'</span><span class="nn">'+(r[2]===0&&!i&&r[1]>0?"שבוע קודם: עוד לא נמדד":"שבוע קודם "+n(r[2]))+"</span></div>").join("")+"</div>"};
 box.innerHTML=fun("באתר ("+rng(W.W)+")",S)+fun("באפליקציה, מכשירים ("+rng(W.W)+")",AP);
-$("fns").innerHTML="באתר: <b>"+pc(S[1][1],S[0][1])+"</b> מהנכנסים בדקו רכב, ו-<b>"+pc(S[2][1],S[1][1])+"</b> מהבדיקות הביאו ללחיצה על «להתקנה». באפליקציה: <b>"+pc(AP[1][1],AP[0][1])+"</b> מהמכשירים שנפתחו בדקו רכב, ו-<b>"+pc(AP[2][1],AP[1][1])+"</b> מהבודקים שמרו. "+'<a href="#dr-use" data-open="dr-use">לפירוט</a>'}}
+$("fns").innerHTML="באתר: "+(S[0][1]&&S[1][1]>S[0][1]?"<b>"+n1(S[1][1]/S[0][1])+"</b> בדיקות רכב לכל כניסה (יש מי שבודק כמה רכבים)":"<b>"+pc(S[1][1],S[0][1])+"</b> מהנכנסים בדקו רכב")+", ו-<b>"+pc(S[2][1],S[1][1])+"</b> מהבדיקות הביאו ללחיצה על «להתקנה». באפליקציה: <b>"+pc(AP[1][1],AP[0][1])+"</b> מהמכשירים שנפתחו בדקו רכב, ו-<b>"+pc(AP[2][1],AP[1][1])+"</b> מהבודקים שמרו. "+'<a href="#dr-use" data-open="dr-use">לפירוט</a>'}}
 
 // health: the service, speed, crashes and the bots, side by side
 {const box=$("hl"),cr=ev?ge(E0,"app_exception"):null,crp=ev?ge(E1,"app_exception"):null,sl=SL5&&SL5.c,slS=!sl?"nodata":sl.k<50?"early":sl.p>10?"warn":"ok";
@@ -1169,10 +1182,10 @@ const li=(l,v)=>"<li><span>"+l+"</span><b>"+v+"</b></li>";
 $("tec").innerHTML="<h4>בדיקות שלא החזירו תוצאה, לפי סיבה ("+rng(W&&W.W)+")</h4>"+(fk?'<ul class="kv">'+(Object.entries(fk).sort((a,b)=>b[1]-a[1]).map(e=>li(KIND[e[0]]||esc(e[0]),n(e[1]))).join("")||li("אין","0"))+"</ul>":'<p class="note" style="margin:0">אין נתון</p>')
 +'<p class="note">'+(H.att!=null?"מתוך "+n(H.att)+" ניסיונות בדיקה. בתקינות השירות נספרות רק שתי סיבות: משרד התחבורה לא ענה, ולא התקבלה תשובה. מספר שהוקלד לא נכון אינו תקלה.":"")+"</p>"
 +"<h4>עוד סימנים טכניים השבוע</h4>"+'<ul class="kv">'+(()=>{const c=SL5&&SL5.c,p=SL5&&SL5.p,hi=c&&c.k>=50&&c.p>10;return "<li><span>בדיקות איטיות (יותר מ-5 שניות)<small>"+(c?"מתוך "+n(c.k)+" בדיקות. יותר מ-10 שניות: <bdi>"+n1(c.p10)+"%</bdi> מהבדיקות."+(p?" בשבוע הקודם: <bdi>"+n1(p.p)+"%</bdi> יותר מ-5 שניות.":"")+" דורש תשומת לב מעל 10%.":"אין נתון על משך הבדיקות")+"</small></span><b>"+(hi?chip("warn","מעל 10%")+" ":"")+(c?n1(c.p)+"%":"-")+"</b></li>"})()+[["בדיקות שבוטלו באמצע","lookup_abort"],["קריסות של האפליקציה","app_exception"],["חיפושי דגם בלי תוצאה","search_no_result"]].map(x=>li(x[0],ev?n(ge(E0,x[1])):"-")).join("")+"</ul>"
-+"<h4>אזור הזמן של גוגל אנליטיקס</h4>"+'<p class="note" style="margin:0">'+(!d.gaTz?"לא נבדק":d.gaTz.ok?(d.gaTz.tz==="Asia/Jerusalem"?"שעון ישראל, כמו שהמסך מניח ✓":"<b>"+esc(d.gaTz.tz||"לא ידוע")+"</b>: לא שעון ישראל, ולכן ימים ושבועות במסך נחתכים בשעה אחרת. אפשר לשנות ב-Analytics, בהגדרות הנכס."):"לא נבדק: "+(/not been used|disabled/i.test(d.gaTz.why||"")?"צריך להפעיל את Google Analytics Admin API בפרויקט של חשבון השירות. ":"")+'<bdi dir="ltr">('+esc(d.gaTz.why||"")+")</bdi>")+"</p>"
-+"<h4>דוחות Google Play (התקנות)</h4>"+'<p class="note" style="margin:0">'+(PS?"מחובר. היום האחרון שגוגל מסרה: "+dm(PS.last)+".":!d.stats?"לא נבדק":d.stats.why==="no bucket"?"לא מחובר עדיין: חסר שם הדלי של הדוחות. עד אז מספר המכשירים מחושב מגוגל אנליטיקס בלבד.":"לא מחובר עדיין"+(/^40[13]/.test(d.stats.why||"")?": לחשבון השירות אין עדיין הרשאה להוריד דוחות. צריך הרשאה ברמת החשבון ב-Play Console, והיא יכולה להיכנס לתוקף רק אחרי עד 48 שעות.":/^404/.test(d.stats.why||"")?": לא נמצאו דוחות התקנות. כדאי לבדוק את שם הדלי.":".")+' <bdi dir="ltr">('+esc(d.stats.why||"")+")</bdi>")+"</p>"
-+"<h4>Play Console</h4>"+'<p class="note" style="margin:0">'+(d.release?d.release.ok?"מחובר. מצב הגרסאות בחנות נקרא משם.":"לא מחובר עדיין"+(/not been used|disabled/i.test(d.release.why||"")?": צריך להפעיל את Google Play Android Developer API בפרויקט של חשבון השירות ב-Google Cloud.":/permission|^40[13]/i.test(d.release.why||"")?": לחשבון השירות אין עדיין הרשאת צפייה באפליקציה ב-Play Console.":".")+' <bdi dir="ltr">('+esc(d.release.why||"")+")</bdi>":"לא נבדק")+"</p>"
-+"<h4>מקורות נתונים</h4>"+'<ul class="kv">'+(Object.entries(d.errors||{}).map(e=>li(esc(e[0]),'<span style="font-weight:400">'+esc(e[1])+"</span>")).join("")||li("כל המקורות ענו","✓"))+"</ul>"}
++"<h4>אזור הזמן של גוגל אנליטיקס</h4>"+'<p class="note" style="margin:0">'+(!d.gaTz?"לא נבדק":d.gaTz.ok?stl(d.gaTz)+(d.gaTz.tz==="Asia/Jerusalem"?"שעון ישראל, כמו שהמסך מניח ✓":"<b>"+esc(d.gaTz.tz||"לא ידוע")+"</b>: לא שעון ישראל, ולכן ימים ושבועות במסך נחתכים בשעה אחרת. אפשר לשנות ב-Analytics, בהגדרות הנכס."):"לא נבדק: "+(/not been used|disabled/i.test(d.gaTz.why||"")?"צריך להפעיל את Google Analytics Admin API בפרויקט של חשבון השירות. ":"")+'<bdi dir="ltr">('+esc(whyT(d.gaTz.why))+")</bdi>")+"</p>"
++"<h4>דוחות Google Play (התקנות)</h4>"+'<p class="note" style="margin:0">'+(PS?stl(d.stats)+"מחובר. היום האחרון שגוגל מסרה: "+dm(PS.last)+".":!d.stats?"לא נבדק":d.stats.why==="no bucket"?"לא מחובר עדיין: חסר שם הדלי של הדוחות. עד אז מספר המכשירים מחושב מגוגל אנליטיקס בלבד.":"לא מחובר עדיין"+(/^40[13]/.test(d.stats.why||"")?": לחשבון השירות אין עדיין הרשאה להוריד דוחות. צריך הרשאה ברמת החשבון ב-Play Console, והיא יכולה להיכנס לתוקף רק אחרי עד 48 שעות.":/^404/.test(d.stats.why||"")?": לא נמצאו דוחות התקנות. כדאי לבדוק את שם הדלי.":".")+' <bdi dir="ltr">('+esc(whyT(d.stats.why))+")</bdi>")+"</p>"
++"<h4>Play Console</h4>"+'<p class="note" style="margin:0">'+(d.release?d.release.ok?stl(d.release)+"מחובר. מצב הגרסאות בחנות נקרא משם.":"לא מחובר עדיין"+(/not been used|disabled/i.test(d.release.why||"")?": צריך להפעיל את Google Play Android Developer API בפרויקט של חשבון השירות ב-Google Cloud.":/permission|^40[13]/i.test(d.release.why||"")?": לחשבון השירות אין עדיין הרשאת צפייה באפליקציה ב-Play Console.":".")+' <bdi dir="ltr">('+esc(whyT(d.release.why))+")</bdi>":"לא נבדק")+"</p>"
++"<h4>מקורות נתונים</h4>"+'<ul class="kv">'+(Object.entries(d.errors||{}).map(e=>li(esc(e[0]),'<span style="font-weight:400">'+esc(whyT(e[1]))+"</span>")).join("")||li("כל המקורות ענו","✓"))+"</ul>"}
 
 $("build").textContent="גרסה "+(d.build||"");
 }

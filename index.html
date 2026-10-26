@@ -323,6 +323,8 @@ body:has(.sharebar) .toast{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
   html.web body:has(#out > .side) .band-in,html.web main#out:has(> .side),html.web footer,html.web body:has(#out .cmp-wide) .band-in,html.web main#out:has(.cmp-wide){max-width:1080px}
   html.web main#out:has(> .side){display:grid;grid-template-columns:minmax(0,1fr) 340px;column-gap:16px;row-gap:12px;align-items:start}
   html.web main#out > .plate-strip{grid-column:1/-1}
+  html.web body[data-screen=cars] .band-in,html.web body[data-screen=cars] main#out{max-width:1080px}
+  html.web body[data-screen=cars] .ccards{grid-template-columns:1fr 1fr}
   html.web main#out > .side{grid-column:2;grid-row:2/4;display:flex;flex-direction:column;gap:12px;position:sticky;top:116px}
   html.web main#out > .mainc{grid-column:1;grid-row:2;display:flex;flex-direction:column;gap:12px;min-width:0}
   html.web main#out > .src-foot{grid-column:1;grid-row:3}
@@ -689,17 +691,17 @@ body:not(:has(.sharebar)):not(.kb) .snack{bottom:calc(76px + env(safe-area-inset
   html.web .bn-badge{top:-8px;inset-inline-end:-12px}
   html.web body:is([data-screen=car],[data-screen=sub],[data-screen=cars],[data-screen=alerts]) .bn-brand{display:flex;align-items:center;gap:8px;margin-inline-end:14px;color:var(--fg);text-decoration:none;font-weight:800;font-size:1.15rem}
   html.web .bn-brand .logo{width:34px;height:34px}
-  html.web body:is([data-screen=car],[data-screen=sub],[data-screen=cars],[data-screen=alerts]) .bn-f{display:flex;flex-direction:row-reverse;align-items:stretch;margin-inline-start:auto;height:40px;border:2px solid var(--plate-ink);border-radius:9px;background:var(--plate);overflow:hidden}
-  /* one plate: the blue IL strip at one end, the search at the other, in the plate's own ink */
-  html.web .bn-pl{display:flex;align-items:stretch;direction:ltr}
+  html.web body:is([data-screen=car],[data-screen=sub],[data-screen=cars],[data-screen=alerts]) .bn-f{display:flex;align-items:center;gap:8px;margin-inline-start:auto}
+  /* the plate and its search button stand side by side, one height and one corner, like the home page's */
+  html.web .bn-pl{display:flex;align-items:stretch;direction:ltr;height:40px;border:2px solid var(--plate-ink);border-radius:9px;background:var(--plate);overflow:hidden}
   html.web .bn-il{display:grid;place-items:center;padding:0 6px;background:var(--il);color:#fff;font:800 .7rem var(--f-body)}
   html.web .bn-pl input{width:150px;border:0;background:none;color:var(--plate-ink);font:600 1.05rem var(--f-num);text-align:center;letter-spacing:.04em;padding:0 8px}
   /* an empty field reads as a field (a request), not as a plate already filled in */
   html.web .bn-pl input::placeholder{color:color-mix(in srgb,var(--plate-ink) 55%,transparent);font:600 .9rem var(--f-body);letter-spacing:0;direction:rtl}
-  html.web .bn-f:focus-within{outline:3px solid var(--accent);outline-offset:2px}
-  html.web .bn-go{width:42px;border:0;border-radius:0;background:var(--plate-ink);color:var(--plate);display:grid;place-items:center;cursor:pointer;transition:background .15s}
-  html.web .bn-go:hover{background:color-mix(in srgb,var(--plate-ink) 82%,var(--plate))}
-  html.web .bn-go svg.i{width:19px;height:19px;stroke-width:2.6}
+  html.web .bn-pl:focus-within{outline:3px solid var(--accent);outline-offset:2px}
+  html.web .bnav .bn-go{width:44px;height:40px;padding:0;border:0;border-radius:9px;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;cursor:pointer;transition:filter .15s}
+  html.web .bnav .bn-go:hover{filter:brightness(1.1)}
+  html.web .bnav .bn-go svg.i{width:21px;height:21px;stroke-width:2.6}
   html.web body:not(.land):not(:has(.sharebar)){padding-top:60px}
   html.web main,html.web footer{padding-bottom:24px}
   html.web .chead{top:60px}
@@ -749,6 +751,10 @@ html.web main#out > .chead{grid-column:1/-1}
 .vseg{display:grid;grid-template-columns:1fr 1fr;padding:4px;border-radius:14px;background:color-mix(in srgb,var(--accent) 10%,transparent)}
 .vseg button{border:0;background:none;height:40px;border-radius:11px;font-weight:800;color:var(--accent)}
 .vseg button[aria-selected=true]{background:var(--accent);color:var(--accent-fg);box-shadow:0 6px 16px -8px var(--accent)}
+/* site: the view switch is a quiet setting, so the filter chip under it is the one strong choice on the screen */
+html.web .vseg{background:var(--soft);border:1px solid var(--line);padding:3px;border-radius:12px;max-width:260px}
+html.web .vseg button{height:36px;border-radius:9px;color:var(--muted);font-weight:700}
+html.web .vseg button[aria-selected=true]{background:var(--card);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.12)}
 .fchips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding-inline:16px}.fchips::-webkit-scrollbar{display:none}
 .fchips button{flex:0 0 auto;height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted);font-weight:700;font-size:.9rem}
 .fchips button[aria-pressed=true]{background:var(--fg);border-color:var(--fg);color:var(--bg)}
@@ -6152,7 +6158,7 @@ function carCard(s){
   const strip = s.active === false ? `<span class="cc-strip bad">${ico("alert")}הרכב ירד מהכביש</span>` : s.recalls > 0 ? `<span class="cc-strip bad">${ico("alert")}${recallsWord(s.recalls)}. התיקון בדרך כלל ללא עלות אצל היבואן</span>` : "";
   const meter = s.ask && s.fair ? priceMeter(s) : L && s.active !== false ? testMeter(L) : "";
   return `<button type="button" class="ccard${on ? " on" : ""}" ${sel ? `data-pick="${s.plate}" aria-pressed="${!!on}"` : `data-open="${s.plate}"`}>
-    <span class="cc-top"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span>${s.color ? `<span class="cc-col">${hex ? `<i class="pdot" style="background:${hex}"></i>` : ""}${esc(s.color)}</span>` : ""}${sel ? `<span class="cc-chk">${ico("check")}</span>` : `<span class="cc-go">${ico("chev")}</span>`}</span>
+    <span class="cc-top"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span>${s.color && !String(s.sub || "").includes(s.color) ? `<span class="cc-col">${hex ? `<i class="pdot" style="background:${hex}"></i>` : ""}${esc(s.color)}</span>` : ""}${sel ? `<span class="cc-chk">${ico("check")}</span>` : `<span class="cc-go">${ico("chev")}</span>`}</span>
     <b class="cc-t"><bdi>${esc(s.nick || s.title)}</bdi></b><small class="cc-s">${s.nick ? `<bdi>${esc(s.title)}</bdi> · ` : ""}${esc(s.sub || "")}</small>
     ${strip || meter ? `<span class="cc-m">${strip}${meter}</span>` : ""}</button>`;
 }
