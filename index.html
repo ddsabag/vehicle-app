@@ -153,7 +153,9 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 #out .id-card .mini-plate{display:none}   /* the plate is already in the search field above; the shared report keeps it */
 .id-top{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}.id-top>div{min-width:0}
 .id-title:focus{outline:none}.id-title{margin:0;font-size:1.6rem;font-weight:800;line-height:1.2;text-wrap:balance}
+.id-title.long{font-size:1.3rem}   /* a long trim name (מרצדס-בנץ GLE 450 COUPE AMG LINE...) in three lines, not six, beside compare */
 .id-sub{margin:2px 0 0;color:var(--muted)}
+.id-nick{margin:0 0 2px;color:var(--accent);font-weight:800;font-size:.95rem;line-height:1.3;overflow-wrap:anywhere}
 .mini-plate{flex:0 0 auto;direction:ltr;background:var(--plate);color:#111;border:2px solid #0b0b0b;border-radius:6px;font:600 .95rem var(--f-num);padding:2px 8px 2px 4px;display:flex;align-items:center;gap:6px}
 .mini-plate i{background:var(--il);width:8px;align-self:stretch;border-radius:2px}
 .pills{display:flex;flex-wrap:wrap;gap:6px}.pills.fstrip{gap:4px}.pills.fstrip .pill{font-size:.78rem;padding:3px 7px;white-space:nowrap;gap:3px}.pills.fstrip .pill svg.i{display:none}.pills.fstrip+.pills{margin-top:-4px}
@@ -3154,8 +3156,11 @@ function renderResult(){
   if (D.fromCache) html.push(`<div class="msg" role="status"><b>אין חיבור למשרד התחבורה, ולכן מוצגים נתונים שנשמרו ב-${esc(fmtDate(new Date(D.fromCache).toISOString()))}.</b> ייתכן שהם לא מעודכנים. <button type="button" class="link-btn" data-retry="${esc(D.plate)}">נסו שוב</button></div>`);
   // compare sits beside the car's name, where a card keeps its action: a fixed place that never wraps under the facts
   const cmpBtn = `<button type="button" class="id-cmp" data-act="compare" data-from="card" aria-label="השוואה">${ico("compare")}<span>השוואה</span></button>`;
+  // the name the owner gave a saved car, as "הרכבים שלי" shows it, above the model: the car opened from the list is recognised by it. It is
+  // the owner's own word, so a shared report or PDF leaves it out (data-priv)
+  const nick = D.kind !== "model" && D.plate && (savedItem(D.plate) || {}).nick;
   html.push(`<section class="card id-card">
-    <div class="id-top"><div><h2 class="id-title" id="resHead" tabindex="-1">${esc(D.title)}</h2><p class="id-sub">${esc(!empty(v.shnat_yitzur) && !simpleOn() ? D.sub.split(" · ").slice(1).join(" · ") : D.sub)}</p></div>
+    <div class="id-top"><div>${nick ? `<p class="id-nick" data-priv><bdi>${esc(nick)}</bdi></p>` : ""}<h2 class="id-title${D.title.length > 26 ? " long" : ""}" id="resHead" tabindex="-1">${esc(D.title)}</h2><p class="id-sub">${esc(!empty(v.shnat_yitzur) && !simpleOn() ? D.sub.split(" · ").slice(1).join(" · ") : D.sub)}</p></div>
       <span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>${cmpBtn}</div>
     ${!simpleOn() && facts.some(Boolean) ? `<div class="pills fstrip" aria-label="עובדות עיקריות">${facts.filter(Boolean).join("")}</div>` : ""}
     ${pills.length && !simpleOn() ? `<div class="pills">${pills.join("")}</div>` : ""}
@@ -3725,8 +3730,8 @@ function fileTiles(D, n, est){
     : tile(L.k === "bad" ? "bad" : "warn", "טסט", L.k === "bad" ? "פג" : "לא ברור", dShort(L.ex));
   let svc;
   if (!maintOk()) svc = tile("", "טיפול", "PRO", "", `data-act="proInfo"`);
-  else if (n && n.due) { const d = dayDiff(t0, n.due); svc = d < 0 ? tile("bad", "טיפול", "באיחור", dShort(n.due)) : tile(d <= 30 ? "warn" : "ok", "טיפול", aheadWord(d), n.dueKm ? `${fmtN(n.dueKm)} ק״מ` : dShort(n.due)); }
-  else if (est) svc = tile("", "טיפול", fmtN(est), "ק״מ, הערכה");
+  else if (n && n.due) { const d = dayDiff(t0, n.due); svc = d < 0 ? tile("bad", "טיפול", "באיחור", dShort(n.due)) : tile(d <= 30 ? "warn" : "ok", "טיפול הבא", aheadWord(d), n.dueKm ? `${fmtN(n.dueKm)} ק״מ` : dShort(n.due)); }
+  else if (est) svc = tile("", "טיפול הבא", fmtN(est), "ק״מ, הערכה");
   else { const l = svcLast(D.plate), ld = l && toDate(l.d); svc = ld ? tile("", "טיפול", dShort(ld), "האחרון שנרשם") : tile("", "טיפול", "לא נרשם", "רישום טיפול", `data-cf="svc"`); }
   const ins = docExpAll().filter(x => x.plate === D.plate && x.cat === "ביטוח" && toDate(x.exp)).sort((a, b) => a.exp < b.exp ? 1 : -1)[0];
   const insD = ins ? dayDiff(t0, toDate(ins.exp)) : 0;
@@ -3836,7 +3841,7 @@ async function historyPdf(D, btn){
     el.innerHTML = brandHead() + `<div class="rep-head"><b>היסטוריית הרכב</b><span>${fmtPlate(D.plate)} · ${today}</span></div>${idc ? idc.outerHTML : ""}
       ${sec("ממשרד התחבורה", "rotate", gov)}${sec("רשומות שהזין הבעלים", "wrench", own, "לפי מה שהבעלים רשמו באפליקציה, ללא אימות.")}
       <p class="rep-foot">טיפולים וקריאות ק״מ: לפי מה שהבעלים רשמו באפליקציה, ללא אימות. טסט, בעלויות, עלייה לכביש וריקולים: מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il. ${BRAND_FOOT}</p>`;
-    el.querySelectorAll(".id-card .actions, button").forEach(x => x.remove());
+    el.querySelectorAll(".id-card .actions, button, [data-priv]").forEach(x => x.remove());
     inlineIcons(el);
     const {canvas, breaks} = await captureEl(el, ".card, .facts > div, .rep-foot");
     const blob = await pdfFromCanvas(canvas, breaks, `לוחית · היסטוריית הרכב`, fmtPlate(D.plate), {link: shareLink(D.plate, "pdf")});
@@ -6261,7 +6266,8 @@ $("#bnF").addEventListener("submit", ev => { ev.preventDefault(); const v = $("#
 // the keyboard covers the bottom of the screen: the bar steps aside while a field has focus on a touch screen, and on any screen that the
 // keyboard shrinks (below: a phone whose main pointer reads as fine, as some Android 12 WebViews do, a stylus or a mouse plugged in)
 const touchKb = () => { try { return matchMedia("(pointer: coarse)").matches; } catch { return true; } };
-const KB_FIELD = "input:not([type=checkbox]):not([type=radio]):not([type=file]),textarea,select";
+// a field that opens the keyboard: a list (select) or a date opens the phone's picker instead, and the bar stays where it is
+const KB_FIELD = "input:not([type]),input[type=text],input[type=search],input[type=tel],input[type=number],input[type=email],input[type=url],input[type=password],textarea";
 const typing = () => { const a = document.activeElement; return !!(a && a.matches && a.matches(KB_FIELD)); };
 document.addEventListener("focusin", ev => { if (touchKb() && ev.target.matches && ev.target.matches(KB_FIELD)) document.body.classList.add("kb"); });
 document.addEventListener("focusout", () => setTimeout(() => { if (!typing()) document.body.classList.remove("kb"); }, 60));

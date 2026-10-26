@@ -5,6 +5,8 @@
 //   - the system bars: the page sits between them and the bars match it, light and dark, with their icons visible
 //   - the keyboard: the plate field and its button stay in view above it, the bottom bar steps aside, and returns when Back closes it
 //   - Back (key or gesture) through the screens, and at home the app goes to the background instead of closing
+//   - what is filled in stays: the "keeps" journey sends the app to the background, stops it as a swipe in the recent apps does, starts
+//     it again and finds the nickname, the file, the policy's expiry, the settings and the alerts where they were put
 //   - a dark phone: no white flash while the app opens, and "לפי המכשיר" follows the phone, also when it turns dark with the app open
 //   - the ways in from outside the page: a launcher shortcut, a tapped alert (warm, and cold without a network), a shared text, a
 //     luchit.app link to a car or a comparison
@@ -99,6 +101,27 @@ function crashes(run, step) {
     else add("warn", "crash", run, step, `the app stopped responding for a moment (ANR)${why}; its main thread was ${d.idle ? "idle" : "outside the app's code"}: the emulator's software rendering, not the app (anr-${anrN}.txt)`);
     log(`ANR at ${run} ${step}${why} (${d.ours ? "the app's code" : d.idle ? "main thread idle" : "outside the app's code"})`);
   }
+}
+
+// ---- another app's "isn't responding" or "has stopped" dialog: under software rendering the emulator's own launcher can fall behind,
+// and Android puts its dialog over the app (seen on API 35: "Pixel Launcher isn't responding"), where it takes every Back and covers the
+// screenshots. It is not the app's: that app is stopped (the dialog goes with it) and the run goes on. A dialog of System UI or of the app
+// itself is answered "Wait"; the app's own ANRs and crashes are still read from the phone's log (crashes()), never closed away unseen
+function clearDialogs() {
+  const m = sh("dumpsys window | grep -m1 mCurrentFocus").match(/Application (?:Not Responding|Error): ([\w.]+)/);
+  if (!m) return false;
+  const who = m[1];
+  let how = "";
+  if (who !== PKG && !/systemui/.test(who)) { sh(`am force-stop ${who}`); how = "that app stopped"; }
+  else {
+    sh("rm -f /sdcard/ui.xml"); adb(["shell", "uiautomator dump /sdcard/ui.xml >/dev/null 2>&1"], { timeout: 25000 });
+    const b = sh("cat /sdcard/ui.xml 2>/dev/null").match(/resource-id="android:id\/aerr_wait"[^>]*?bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/);
+    if (b) { sh(`input tap ${(+b[1] + +b[3]) >> 1} ${(+b[2] + +b[4]) >> 1}`); how = "Wait"; } else how = "nothing (no Wait button found)";
+  }
+  (meta.dialogs = meta.dialogs || []).push(`${who} during ${cur.run} ${cur.step}`);
+  log(`a system dialog covered the screen (${m[0]}): ${how}`);
+  spawnSync("sleep", ["0.8"]);
+  return true;
 }
 
 // ---- the app: start it, find its page, mock the network there
@@ -231,6 +254,7 @@ function judgeBars(run, step, png, box, dark, first = false) {
 }
 // a screenshot judged and kept: a first look that finds something off is taken again 1.5 s later, and only that one counts
 async function look(run, step, dark, name) {
+  clearDialogs();
   let png = screencap();
   if (judgeBars(run, step, png, webViewBox(), dark, true) === "again") { await sleep(1500); png = screencap(); judgeBars(run, step, png, webViewBox(), dark); }
   saveShot(png, name);
@@ -239,6 +263,7 @@ async function look(run, step, dark, name) {
 // ---- Back as a finger gives it: when the keyboard is open the first press only closes it (every Android app), then the screen goes back
 const kbOpen = async (p, c) => { const h = await p.evaluate(() => innerHeight).catch(() => 0); return !!(c && c.fullH && h && h < c.fullH - 120); };
 const realBack = async (p, c) => {
+  clearDialogs();
   if (await kbOpen(p, c)) { sh("input keyevent 4"); await sleep(600); }
   sh("input keyevent 4"); await sleep(700);
 };
@@ -249,12 +274,13 @@ async function journey(page, sc, state, J, theme) {
   const run = `${J.name}/${state}/${sc.id}/${theme}`, tj = Date.now();
   cur.run = run; cur.step = "load";
   try { await prepare(page, state, theme); } catch (e) { add("block", "logic", run, "load", "could not load the state: " + e.message.split("\n")[0].slice(0, 120)); return; }
-  const c = { dev: { id: sc.id, w: sc.dp, h: 860 }, theme, state, app: true, ctx: null, net, page, plate: state === "many" ? "7654321" : "1234567", back: realBack };
+  const c = { dev: { id: sc.id, w: sc.dp, h: 860 }, theme, state, app: true, ctx: null, net, page, plate: state === "many" ? "7654321" : "1234567", back: realBack, reopen };
   c.fullH = await page.evaluate(() => innerHeight).catch(() => 0);
   const seen = []; let prev = null;
   for (const [name, act, expect] of J.steps) {
     cur.step = name;
-    if (act) { try { await act(page, c); } catch (e) { add("block", "logic", run, name, "could not act: " + e.message.split("\n")[0].slice(0, 120)); } }
+    // a step that opens the app again (reopen) hands over the new page
+    if (act) { try { const r = await act(page, c); if (r && typeof r.evaluate === "function") page = c.page = r; } catch (e) { add("block", "logic", run, name, "could not act: " + e.message.split("\n")[0].slice(0, 120)); } }
     await sleep(500);
     let m; try { m = await UF.measure(page); } catch (e) { mustLive(); add("block", "error", run, name, "measure failed: " + e.message.slice(0, 100)); continue; }
     let ok = expect ? await expect(m, c) : true;
@@ -274,6 +300,15 @@ async function journey(page, sc, state, J, theme) {
   UF.judgeRun(run, seen, sc.dp);
   crashes(run, cur.step);
   log(`${run}: ${seen.length} steps, ${((Date.now() - tj) / 1000).toFixed(0)} s`);
+  return page;
+}
+// the app opened again as a person does it after closing it: Home (the app goes to the background and the page is told it is hidden),
+// then the app is stopped as a swipe in the recent apps stops it, and started again; nothing it had in memory survives, only what it stored
+async function reopen() {
+  sh("input keyevent 3"); await sleep(1500);
+  const page = await launch();
+  await page.addStyleTag({ content: "*{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}" });
+  return page;
 }
 
 // ---- the text zoom the phone's font size gives the page (a 16px line measured)
@@ -337,6 +372,7 @@ async function phoneChecks(page, sc) {
   cur.step = "keyboard";
   sh("settings put secure show_ime_with_hard_keyboard 1");
   const box = webViewBox(), r = await page.evaluate(() => { const e = document.getElementById("plate").getBoundingClientRect(); return { x: e.left + e.width / 2, y: e.top + e.height / 2, h: innerHeight, dpr: devicePixelRatio }; });
+  clearDialogs();
   if (box) { sh(`input tap ${Math.round(box.l + r.x * r.dpr)} ${Math.round(box.t + r.y * r.dpr)}`); await sleep(1500); }
   const kb = () => page.evaluate(() => { const v = (id) => { const e = document.getElementById(id); if (!e) return null; const b = e.getBoundingClientRect(); return { top: Math.round(b.top), bottom: Math.round(b.bottom) }; }; const nav = document.getElementById("bnav"), on = nav && getComputedStyle(nav).display !== "none", mq = (q) => matchMedia(q).matches; return { h: innerHeight, plate: v("plate"), go: v("go"), focus: document.activeElement && document.activeElement.id, nav: on ? Math.round(nav.getBoundingClientRect().top) : null, kbClass: document.body.classList.contains("kb"), pointer: { coarse: mq("(pointer: coarse)"), anyCoarse: mq("(any-pointer: coarse)"), hoverNone: mq("(hover: none)"), touchPoints: navigator.maxTouchPoints } }; });
   const k = await kb();
@@ -350,7 +386,7 @@ async function phoneChecks(page, sc) {
   saveShot(screencap(), `${sc.id}__keyboard`);
   meta.keyboard = { before: r.h, after: k.h, kbClass: k.kbClass, pointer: k.pointer };
   // Back closes only the keyboard; the field may keep its caret, but the bottom bar must come back with the full screen
-  sh("input keyevent 4"); await sleep(900);
+  clearDialogs(); sh("input keyevent 4"); await sleep(900);
   const k2 = await kb();
   if (kbUp && k2.h >= r.h - 20 && k2.nav === null) add("warn", "keyboard", run, "keyboard-back", "after Back closed the keyboard the bottom bar stays hidden until the plate field loses its focus");
   // Back at home: the app goes to the background (as Android 12 and later do with every app), it is not finished
@@ -358,7 +394,7 @@ async function phoneChecks(page, sc) {
   await page.click('#bnav [data-nav="search"]').catch(() => {});
   await page.evaluate(() => document.activeElement && document.activeElement.blur && document.activeElement.blur()).catch(() => {});
   await page.evaluate(() => { window.__warm = 1; });
-  sh("input keyevent 4"); await sleep(1500);
+  clearDialogs(); sh("input keyevent 4"); await sleep(1500);
   meta.backAtHome = sh(`dumpsys activity activities | grep -E "ActivityRecord.*${PKG}"`) ? "kept" : "finished";
   if (meta.backAtHome === "finished") add("warn", "back", run, "back-home", "Back on the home screen closes the app: the next open starts from scratch (Android 12 and later leave an app in the background)");
   sh(`am start -n ${ACT}`); await sleep(1500);
@@ -420,7 +456,7 @@ async function darkChecks(sc) {
 
 // ---- the phone settings: each one is its own run on a fresh emulator in app-guardian.yml (--scenario), all of them without it
 const SCENARIOS = [
-  { id: "411-f100", dp: 411, font: 1, runs: [["tour", "empty", "light"], ["tour", "many", "light"], ["check", "one", "light"], ["plus", "one", "light"], ["plus-undo", "one", "light"], ["file-door", "one", "light"], ["saved", "many", "light"], ["compare", "one", "light"], ["tools", "one", "light"], ["owner", "owner", "light"], ["check", "many", "dark"]] },
+  { id: "411-f100", dp: 411, font: 1, runs: [["tour", "empty", "light"], ["tour", "many", "light"], ["check", "one", "light"], ["plus", "one", "light"], ["plus-undo", "one", "light"], ["file-door", "one", "light"], ["saved", "many", "light"], ["compare", "one", "light"], ["tools", "one", "light"], ["owner", "owner", "light"], ["check", "many", "dark"], ["keeps", "one", "light"]] },
   { id: "411-extra", dp: 411, font: 1, runs: [], extra: true },
   { id: "360-f130", dp: 360, font: 1.3, runs: [["tour", "many", "light"], ["check", "many", "light"], ["saved", "many", "light"], ["compare", "one", "light"]] },
   { id: "320-f130", dp: 320, font: 1.3, runs: [["tour", "one", "dark"], ["check", "one", "dark"], ["saved", "many", "dark"]] },
@@ -446,6 +482,7 @@ function finish(line, code) {
   if (APK) { const r = spawnSync("adb", ["install", "-r", "-g", APK], { encoding: "utf8" }); log("install:", (r.stdout || r.stderr || "").trim().split("\n").pop()); }
   sh("logcat -b crash -b events -c");
   sh("settings put global hide_error_dialogs 1");   // an ANR dialog would cover every later step (the ANR itself is still logged)
+  sh("settings put system font_scale 1.05");   // Android reads that setting again only when the configuration changes: the font size set next does it
   await connect();
   meta.model = device.model();
   meta.webview = sh("dumpsys webviewupdate | grep -m1 'Current WebView package'");
@@ -462,7 +499,7 @@ function finish(line, code) {
     log(`${sc.id}: text zoom ${z}, ${ua.match(/Chrome\/[\d.]+/) || ua}`);
     for (const [name, state, theme] of sc.runs) {
       const J = UF.JOURNEYS.find((j) => j.name === name);
-      try { await journey(page, sc, state, J, theme); }
+      try { page = (await journey(page, sc, state, J, theme)) || page; }
       catch (e) { if (e instanceof Gone) throw e; add("block", "error", `${name}/${state}/${sc.id}/${theme}`, cur.step, "run crashed: " + e.message.split("\n")[0].slice(0, 160)); crashes(cur.run, cur.step); page = await launch().catch(() => page); }
     }
     if (sc.extra) {

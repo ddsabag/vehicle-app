@@ -101,6 +101,7 @@ const OWN_HOSTS = /^(luchit\.app|appassets\.androidplatform\.net|data\.gov\.il)$
 const KNOWN_HOSTS = {
   "raw.githubusercontent.com": "the repository's data branches: ownership history and cars back on the road by the plate's last 3 digits only, the model catalogue, the data status",
   "static.cloudflareinsights.com": "Cloudflare Web Analytics on the website, loaded only with analytics on (no cookies)",
+  "cdn.jsdelivr.net": "the readers that run on the phone: the plate photo, a document's expiry date (tesseract.js, pdf.js) and the shared image; only the library files come down, nothing of the user's goes up (privacy.html: צילום לוחית, תיק הרכב, מידע נוסף שנטען)",
 };
 
 // ---- one journey with analytics on (or off): per step, every event that left the page and what reached Firebase or GA4
@@ -125,7 +126,8 @@ async function walk(browser, dev, st, J, o = {}) {
   });
   await ctx.addInitScript(({ ls, app, bridge, off }) => {
     try { Object.defineProperty(Navigator.prototype, "webdriver", { get: () => false, configurable: true }); } catch {}   // a test browser is never counted; here it is a person
-    try { for (const [k, v] of Object.entries(ls)) localStorage.setItem(k, v); if (off) localStorage.setItem("analyticsOff", "1"); } catch {}
+    // laid down on the first page only (a cookie marks it), so a reload keeps what the journey stored
+    try { if (!/(?:^|; )af_seeded=1/.test(document.cookie)) { for (const [k, v] of Object.entries(ls)) localStorage.setItem(k, v); if (off) localStorage.setItem("analyticsOff", "1"); document.cookie = "af_seeded=1; path=/"; } } catch {}
     window.__ev = []; window.__calls = [];
     if (app) window.AndroidApp = Object.fromEntries(bridge.map((n) => [n, (...a) => { window.__calls.push(n); if (n === "logEvent") window.__ev.push(a); return n === "alertsState" ? "on" : n === "readClipboard" ? "" : n === "systemDark" ? false : undefined; }]));
     try { window.open = () => null; } catch {}
@@ -197,7 +199,8 @@ function judge(R) {
 
 // ---- events that belong to one platform by nature, so the other does not send them for the same steps
 const ONLY_WEB = { web_visit: "a visit to the website (the app counts first_open and app_return)", link_landing: "a visit that came by a link (the app: link_open from MainActivity)", home_open: "the website opened from the home screen", web_hint_click: "the website's hint to install the app", web_install_prompt: "the website's install prompt", web_install_click: "the website's install button" };
-const ONLY_APP = { app_return: "the app opened again after a day", first_save: "the install cohort's first saved car", update_prompt: "the in-app update", update_start: "the in-app update", update_done: "the in-app update" };
+const ONLY_APP = { app_return: "the app opened again after a day", first_save: "the install cohort's first saved car", update_prompt: "the in-app update", update_start: "the in-app update", update_done: "the in-app update",
+  alert_kind: "a kind of phone alert switched on or off (phone alerts are the app's)", alerts_toggle: "a car's phone alerts switched on or off (phone alerts are the app's)" };
 ONLY_WEB.home_sheet = "on an iPhone, once after a car is saved: how to put the website on the home screen (no app for iPhone)";
 // and impressions that depend on the platform's state or on what fits on the screen, so either side may send them at another step
 const SOMETIMES = { calendar_reminder_shown: "the calendar button: always on the website, in the app only when the phone's own alert will not cover the test",

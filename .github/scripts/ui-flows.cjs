@@ -8,7 +8,8 @@
 //                      text cut off, the bottom bar covering the end of the page, the content column changing width between screens,
 //                      a control dropped to a line of its own, content wider than its column, the same car offered twice on one screen
 // Each run: device x theme x data state (no cars / one car / many cars with long names) x journey. Registry answers are mocked
-// (no network); "offline" and "registry error" are journeys of their own.
+// (no network); "offline" and "registry error" are journeys of their own. "keeps" fills in what a person keeps (a nickname, the file's
+// service, km, a policy and its expiry, the look, the fuel price, the alerts), opens the page again and finds each in its place.
 // Then the sweep: every control of every screen pressed one at a time; one that changes nothing is a dead control (see SWEEP below).
 // --no-fonts serves no font files: a first visit to the site on a slow line draws in the phone's own font (font-display:optional),
 // which is wider than Assistant, so a label that fits in Assistant can wrap there.
@@ -196,6 +197,18 @@ const back = async (p, c) => { if (c.back) await c.back(p, c); else if (c.app) a
 const tap = (sel) => async (p) => p.locator(sel).filter({ visible: true }).first().click({ timeout: 4000 });
 const tapIf = (sel) => async (p) => { const l = p.locator(sel).filter({ visible: true }).first(); if (await l.count()) await l.click({ timeout: 4000 }); };
 const isCar = (plate) => (m, c) => m.screen === "car" && m.carPlate === (plate || c.plate) || `expected the car ${plate || c.plate}, got screen ${m.screen} ${m.carPlate} ${m.msg.slice(0, 50)}`;
+// the "keeps" journey: what is filled in, a page that tells what it did (the toast), and the page opened again
+const KEEP = { nick: "הרכב של אמא", svcKm: 70500, cost: 940, note: "רפידות קדמיות", km: 71200, ins: day(380), fuel: "7.45" };
+const KEEPS_ON = ["app-360", "web-390", "web-1280"];
+const PNG1 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";   // a photo of the policy (one pixel)
+const told = (p) => p.evaluate(() => (document.getElementById("toast") || {}).textContent || "");
+// opened again as a person opens it after closing it: the address without the screen (a car, a tab) it was on, so home
+const reopen = async (p, c) => {
+  if (c.reopen) return c.reopen(p, c);
+  const u = new URL(p.url()); await p.goto(u.origin + u.pathname);
+  await p.waitForSelector("#homeMark, #chead .mini-plate, #carsHead, #alertsHead", { state: "attached", timeout: 15000 });
+  await p.addStyleTag({ content: "*{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}" });
+};
 const JOURNEYS = [
   { name: "tour", steps: [
     ["home", null, (m, c) => m.screen === "home" && m.home && (c.state !== "empty" || m.intro) || (m.home ? "a first visit (no cars, no checks) should open with the example plate and how it works" : "home did not draw")],
@@ -270,6 +283,47 @@ const JOURNEYS = [
     ["file", async (p) => { const b = p.locator(".tabs [data-tab=file]"); if (await b.count()) await b.click(); }, (m) => m.screen === "car" || "file tab"],
     ["docs", tapIf("#chead [data-cf=road]"), (m) => m.screen === "car" || "documents"],
     ["docs-back", back, (m) => m.screen === "car" && !m.sheet || `Back should close the documents sheet first, got ${m.screen} ${m.sheet || ""}`],
+  ] },
+  // what a person fills in stays where they put it: a nickname, the car marked as theirs, a service, a km reading, an insurance policy
+  // with its expiry, the look and the fuel settings, and in the app an alert kind and the car's alerts switched off. Then the page opens
+  // again (reloaded here; on the emulator, c.reopen: the app goes to the background and is stopped, as a swipe in the recent apps does,
+  // then started) and each of them must be back in its place, with nothing left loading
+  { name: "keeps", only: "one", when: (c) => KEEPS_ON.includes(c.dev.id), steps: [
+    ["check", check(), isCar()],
+    ["nick", async (p) => { await p.click("#chead [data-act=cmenu]"); await p.click(".ch-menu [data-act=nickCar]"); await p.fill("#nickBar input", KEEP.nick); await p.press("#nickBar input", "Enter"); },
+      async (m, c) => { const t = await told(c.page); return /הכינוי נשמר/.test(t) && m.screen === "car" || `a nickname typed and Enter should say it was saved, got "${t}" on ${m.screen}`; }],
+    ["mine", async (p) => { await p.click("#chead [data-act=cmenu]"); await p.click(".ch-menu [data-act=mineMenu]"); }, (m) => m.screen === "car" && m.tab === "file" || `"זה הרכב שלי" should open the car's file, got tab ${m.tab} on ${m.screen}`],
+    ["service", async (p) => { await p.click(".cf-quick [data-cf=svc]"); await p.selectOption("#svcType", "בלמים"); await p.fill("#svcKm", String(KEEP.svcKm)); await p.fill("#svcCost", String(KEEP.cost)); await p.fill("#svcNote", KEEP.note); await p.click("[data-svc=save]"); },
+      async (m, c) => { const t = await told(c.page); return /הטיפול נשמר/.test(t) || `saving a service should say so, got "${t}"`; }],
+    ["km", async (p) => { await p.click(".cf-quick [data-cf=km]"); await p.fill("#kmVal", String(KEEP.km)); await p.click("[data-svc=km]"); },
+      async (m, c) => { const t = await told(c.page); return /הק״מ נשמר/.test(t) || `saving a km reading should say so, got "${t}"`; }],
+    ["policy", async (p) => { await p.click(".cf-quick [data-cf=doc]"); await p.selectOption("#docCat", "ביטוח"); await p.setInputFiles("#docFile", { name: "policy.png", mimeType: "image/png", buffer: Buffer.from(PNG1, "base64") }); await p.waitForSelector("#docList [data-docexp]", { state: "attached", timeout: 8000 }); },
+      async (m, c) => { const t = await told(c.page); return /המסמך נשמר/.test(t) || `adding a policy should say it was saved, got "${t}"`; }],
+    ["policy-date", async (p) => { await p.locator("#docList [data-docexp]").first().fill(KEEP.ins); await p.waitForTimeout(300); },
+      async (m, c) => { const t = await told(c.page); return /בתוקף עד/.test(t) || `a policy's expiry should say it was saved, got "${t}"`; }],
+    ["look", async (p) => { await p.click("#bnav [data-nav=search]"); await tap("#openSettings, #bnSet")(p); await p.click('[data-theme-choice="dark"]'); await p.click('[data-unit="kml"]'); await p.fill("#fuelPrice", KEEP.fuel); await p.locator("#fuelPrice").blur(); await p.click("#closeSettings"); },
+      (m) => !m.sheet || `settings should close, got ${m.sheet}`],
+    ["alerts", async (p, c) => { await nav("alerts")(p); if (!c.app) return; await p.click("#out details.akinds > summary"); await p.locator('#out [data-kind="service"]').uncheck(); await p.click('#out [data-bell="1234567"]'); },
+      (m) => m.screen === "alerts" || `alerts: ${m.screen}`],
+    ["reopen", reopen, (m) => !m.loading || `the page opened again is still loading on ${m.screen}`],
+    ["cars-kept", nav("cars"), async (m, c) => { const t = await c.page.evaluate(() => [...document.querySelectorAll('#out [data-open="1234567"]')].map((e) => e.textContent).join(" ")); return m.screen === "cars" && t.includes(KEEP.nick) || `after opening again, הרכבים שלי should call the car "${KEEP.nick}", got "${t.replace(/\s+/g, " ").trim().slice(0, 80)}"`; }],
+    ["car-kept", tap('#out [data-open="1234567"]'), async (m, c) => {
+      const k = await c.page.evaluate(() => ({ nick: (document.querySelector("#out .id-nick") || {}).textContent || "", file: !!document.querySelector(".tabs [data-tab=file]"), dark: document.documentElement.dataset.theme }));
+      const miss = [k.nick.includes(KEEP.nick) ? "" : `the nickname on the car page ("${k.nick}")`, k.file ? "" : "the file tab (the car is the user's)", k.dark === "dark" ? "" : `the dark look (${k.dark})`].filter(Boolean);
+      return m.screen === "car" && !m.loading && !miss.length || `after opening again the car page lost ${miss.join(", ") || `its place (${m.screen}, loading ${m.loading})`}`; }],
+    ["file-kept", async (p) => { await p.click(".tabs [data-tab=file]"); await p.waitForSelector("#docList [data-docexp]", { state: "attached", timeout: 8000 }).catch(() => {}); await p.waitForTimeout(400); }, async (m, c) => {
+      const k = await c.page.evaluate(() => ({ hist: (document.getElementById("cfHist") || {}).textContent || "", exp: (document.querySelector("#docList [data-docexp]") || {}).value || "", reading: /קוראים את התאריך/.test((document.getElementById("docList") || {}).textContent || "") }));
+      const miss = [/בלמים/.test(k.hist) ? "" : "the service", k.hist.includes(KEEP.cost.toLocaleString("he-IL")) ? "" : "its cost", k.hist.includes(KEEP.km.toLocaleString("he-IL")) ? "" : "the km reading", k.exp === KEEP.ins ? "" : `the policy's expiry (${k.exp || "none"})`, k.reading ? "a date still being read" : ""].filter(Boolean);
+      return !miss.length || `after opening again the file lost ${miss.join(", ")}`; }],
+    ["settings-kept", async (p) => { await nav("search")(p); await tap("#openSettings, #bnSet")(p); }, async (m, c) => {
+      const k = await c.page.evaluate(() => ({ dark: (document.querySelector('[data-theme-choice="dark"]') || { getAttribute: () => "" }).getAttribute("aria-pressed"), kml: (document.querySelector('[data-unit="kml"]') || { getAttribute: () => "" }).getAttribute("aria-pressed"), fuel: (document.getElementById("fuelPrice") || {}).value }));
+      const miss = [k.dark === "true" ? "" : "the dark look", k.kml === "true" ? "" : "km per litre", k.fuel === KEEP.fuel ? "" : `the petrol price (${k.fuel || "empty"})`].filter(Boolean);
+      return m.sheet === "settings" && !miss.length || `after opening again settings lost ${miss.join(", ") || "its sheet"}`; }],
+    ["alerts-kept", async (p) => { await p.click("#closeSettings"); await nav("alerts")(p); }, async (m, c) => {
+      if (!c.app) return m.screen === "alerts" || `alerts: ${m.screen}`;
+      const k = await c.page.evaluate(() => ({ kind: (document.querySelector('#out [data-kind="service"]') || {}).checked, bell: (document.querySelector('#out [data-bell="1234567"]') || { getAttribute: () => "" }).getAttribute("aria-checked") }));
+      const miss = [k.kind === false ? "" : "the service reminders switched off", k.bell === "false" ? "" : "the car's alerts switched off"].filter(Boolean);
+      return m.screen === "alerts" && !miss.length || `after opening again התראות lost ${miss.join(", ") || "its screen"}`; }],
   ] },
   { name: "offline", once: true, steps: [
     ["go-offline", async (p, c) => { c.net.offline = true; await c.ctx.setOffline(true); }, null],
@@ -431,7 +485,8 @@ async function openCtx(browser, dev, theme, stateName, gov) {
   const net = { offline: false };   // a mocked answer would still arrive with the context offline, so the mock stops answering too
   await ctx.route(/data\.gov\.il/, (r) => (net.offline ? r.abort("internetdisconnected") : govRoute(r, gov)));
   await ctx.addInitScript(({ ls, app, bridge, quiet }) => {
-    try { localStorage.setItem("analyticsOff", "1"); for (const [k, v] of Object.entries(ls)) localStorage.setItem(k, v); } catch {}
+    // the data state is laid down on the context's first page only (a cookie marks it), so a reload keeps what a journey stored
+    try { if (!/(?:^|; )uf_seeded=1/.test(document.cookie)) { localStorage.setItem("analyticsOff", "1"); for (const [k, v] of Object.entries(ls)) localStorage.setItem(k, v); document.cookie = "uf_seeded=1; path=/"; } } catch {}
     window.__fx = 0; const fx = () => { window.__fx++; };
     window.__calls = [];
     if (app) window.AndroidApp = Object.fromEntries(bridge.map((n) => [n, (...a) => { window.__calls.push(n); if (!quiet.includes(n)) fx(); return n === "alertsState" ? "on" : n === "readClipboard" ? "" : n === "systemDark" ? matchMedia("(prefers-color-scheme: dark)").matches : undefined; }]));
