@@ -10,6 +10,10 @@
 //     unsave    car_unsave over car_save above 45% (from 20 saves)
 //     silent    an event the base sent at a rate that predicts at least 5 now, at 0 in the new version (update_*: the newest version has
 //               nothing to update to, so those stop by design)
+// Zone A daily (same run, for the 08:22 morning triage, ops asked 26.10): yesterday's failed checks (technical kinds: source_down, offline,
+// net_err, js_err, over car_lookup + lookup_failed, as /live's health tile) and slow checks (dur 5to10 + gt10 over all dur buckets), all
+// platforms, app rows from Israel only. Failed over 10% (from 50 checks) or slow over 10% goes to the router at level day (key zonea:<kind>:<date>,
+// owner measurement), which the triage reads in alert-state; a clean day is only a log line: "zone A <date>: ok|thin|breach fail,slow".
 // Crashes stay with Release watch. Only reads GA4; findings go to the router (level day, a silent message, the morning triage routes them
 // to product), a clean day is logged silently. The repo is public: the log prints states and counts of findings only, never a number.
 // Node 20, node: builtins only. Commands:
@@ -20,6 +24,35 @@ import fs from "node:fs";
 import { msg } from "./tg-text.mjs";
 
 export const MIN_USERS = 10, MIN_CHECKS = 100, DAYS = [1, 3, 7], BASE_DAYS = 14, COMPARE_FROM = "1.38";
+export const ZA = { minChecks: 50, failPct: 10, slowPct: 10 };
+const REAL = { orGroup: { expressions: [{ filter: { fieldName: "platform", stringFilter: { value: "web" } } }, { filter: { fieldName: "countryId", stringFilter: { value: "IL" } } }] } };
+const realOnly = name => ({ andGroup: { expressions: [{ filter: { fieldName: "eventName", stringFilter: { value: name } } }, REAL] } });
+export function zoneAQueries(day) {
+  const dateRanges = [{ startDate: day, endDate: day }];
+  return {
+    za_ev: { dateRanges, dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: { andGroup: { expressions: [{ filter: { fieldName: "eventName", inListFilter: { values: ["car_lookup", "lookup_failed"] } } }, REAL] } }, limit: 10 },
+    za_fail: { dateRanges, dimensions: [{ name: "customEvent:kind" }], metrics: [{ name: "eventCount" }], dimensionFilter: realOnly("lookup_failed"), limit: 20 },
+    za_dur: { dateRanges, dimensions: [{ name: "customEvent:dur" }], metrics: [{ name: "eventCount" }], dimensionFilter: realOnly("car_lookup"), limit: 20 },
+  };
+}
+// Z = { za_ev: [[name, n]], za_fail: [[kind, n]], za_dur: [[bucket, n]] }
+export function zoneA(Z) {
+  const g = (rows, k) => rows.filter(r => r[0] === k).reduce((a, r) => a + r[1], 0);
+  const checks = g(Z.za_ev, "car_lookup") + g(Z.za_ev, "lookup_failed");
+  const tech = ["source_down", "offline", "net_err", "js_err"].reduce((a, k) => a + g(Z.za_fail, k), 0);
+  const durAll = ["lt2", "2to5", "5to10", "gt10"].reduce((a, k) => a + g(Z.za_dur, k), 0), slow = g(Z.za_dur, "5to10") + g(Z.za_dur, "gt10");
+  const R = { checks, failPct: checks ? r1(tech / checks * 100) : 0, slowPct: durAll ? r1(slow / durAll * 100) : 0, breach: [] };
+  if (checks < ZA.minChecks) return { ...R, state: "thin" };
+  if (R.failPct > ZA.failPct) R.breach.push("fail");
+  if (durAll >= ZA.minChecks && R.slowPct > ZA.slowPct) R.breach.push("slow");
+  return { ...R, state: R.breach.length ? "breach" : "ok" };
+}
+export function zoneAText(R, day) {
+  const d = day.split("-").reverse().slice(0, 2).map(Number).join(".");
+  return msg({ kind: "today", area: "measure", title: `בדיקות רכב אתמול (${d}): ${R.breach.map(b => b === "fail" ? "יותר מדי כשלים" : "יותר מדי בדיקות איטיות").join(" ו")}`,
+    text: [R.breach.includes("fail") ? `• בדיקות שנכשלו מסיבה טכנית: ${R.failPct}% (הסף: ${ZA.failPct}%)` : "", R.breach.includes("slow") ? `• בדיקות שלקחו יותר מ-5 שניות: ${R.slowPct}% (הסף: ${ZA.slowPct}%)` : ""].filter(Boolean).join("\n") + `\nלפי ${R.checks} בדיקות רכב, באתר ובאפליקציה.`,
+    what: "שרשור «דשבורד LIVE» בודק את זה. אצלך לא צריך לעשות כלום.", raw: `zone A ${day}: ${R.breach.join(",")}` });
+}
 export const T = { compare: 3, saveDrop: 0.30, unsave: 0.45, unsaveMin: 20, silentMin: 5 };
 const J = s => { try { return JSON.parse(s); } catch { return null; } };
 const PROPERTY = (() => { try { return String(J(fs.readFileSync(new URL("../../analytics/ga4-admin.json", import.meta.url), "utf8")).property || ""); } catch { return ""; } })();
@@ -117,6 +150,23 @@ async function main() {
     if (!r.ok || !j) { IO.out(`release guard: GA4 ${k} ${r.status}`); return 1; }
     S[k] = rowsOf(j);
   }
+  const yd = addDays(today, -1), ZQ = zoneAQueries(yd), Z = {};
+  for (const [k, body] of Object.entries(ZQ)) {
+    const r = await IO.fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${PROPERTY}:runReport`, { method: "POST",
+      headers: { authorization: "Bearer " + tok, "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(60000) });
+    const j = J(await r.text());
+    Z[k] = r.ok && j ? rowsOf(j) : null;
+  }
+  if (Object.values(Z).some(v => v == null)) IO.out(`zone A ${yd}: GA4 read failed`);
+  else {
+    const A = zoneA(Z);
+    IO.out(`zone A ${yd}: ${A.state}${A.breach.length ? " " + A.breach.join(",") : ""}`);
+    if (A.state === "breach") {
+      const t = zoneAText(A, yd), key = `zonea:${A.breach.join("+")}:${yd}`;
+      if (dry) IO.out("dry, would send " + key + ":\n" + t.replace(/\d/g, "#"));
+      else { const router = IO.router || await import("./alert.mjs"); await router.alert("day", key, t, E.RUN_URL || "", { today: "silent" }); }
+    }
+  }
   const R = judge(S, today);
   IO.out(`release guard ${today}: ${R.state}${R.vn ? ` ${R.vn} from ${R.d0}, day ${R.day} vs ${R.prev || "-"}` : ""}${R.findings?.length ? `, findings: ${R.findings.map(f => f.id).join(", ")}` : ""}`);
   if (!["find", "ok", "thin"].includes(R.state)) return 0;
@@ -171,6 +221,15 @@ function selftest() {
   ok(t.startsWith("<b>🟠 לטיפול היום · מדידה</b>") && t.includes("רישום טיפול") && t.includes("1.37") && !t.includes("svc_add\n") && t.includes("מוצר ושחרורים"), "message " + t);
   ok(text(judge(mk(), "2026-10-30")).startsWith("<b>✅ בוצע · מדידה</b>"), "clean message");
   ok(text(judge(thin, "2026-10-30")).includes("אין מספיק נתונים"), "thin message");
+  const za = (ev, fl, du) => zoneA({ za_ev: Object.entries(ev), za_fail: Object.entries(fl), za_dur: Object.entries(du) });
+  let A = za({ car_lookup: 190, lookup_failed: 10 }, { source_down: 5, not_found: 5 }, { lt2: 150, "2to5": 30, "5to10": 8, gt10: 2 });
+  ok(A.state === "ok" && A.checks === 200 && A.failPct === 2.5 && A.slowPct === 5.3, "zone A clean day " + JSON.stringify(A));
+  A = za({ car_lookup: 170, lookup_failed: 30 }, { source_down: 22, not_found: 8 }, { lt2: 100, "2to5": 40, "5to10": 20, gt10: 10 });
+  ok(A.state === "breach" && A.breach.join() === "fail,slow" && A.failPct === 11, "zone A: typos (not_found) are not failures, 22 technical of 200 is 11% " + JSON.stringify(A));
+  ok(za({ car_lookup: 30, lookup_failed: 15 }, { offline: 15 }, { gt10: 30 }).state === "thin", "zone A under 50 checks: not judged");
+  ok(zoneAText(A, "2026-10-25").includes("25.10") && zoneAText(A, "2026-10-25").includes("יותר מדי כשלים ויותר מדי בדיקות איטיות"), "zone A message " + zoneAText(A, "2026-10-25"));
+  const ZQ = zoneAQueries("2026-10-25");
+  ok(ZQ.za_ev.dateRanges[0].startDate === "2026-10-25" && ZQ.za_dur.dimensionFilter.andGroup.expressions.length === 2, "zone A queries");
   const Q = queries("2026-09-15", "2026-10-29");
   ok(Q.events.dimensions.length === 3 && Q.compare.dimensionFilter.andGroup.expressions.length === 2, "queries");
   ok(/^\d+$/.test(PROPERTY), "property from analytics/ga4-admin.json");
