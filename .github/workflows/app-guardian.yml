@@ -5,8 +5,8 @@ name: App guardian (real app)
 # display size, the system bars, the keyboard, Back at home, a dark phone, the launcher shortcuts, a tapped alert, a shared ad and a
 # luchit.app link. Blocking findings fail the run. Findings and screenshots of the latest run: branch app-guard-out (one folder per
 # Android version and phone setting). Each phone setting runs on its own fresh emulator, in parallel: an emulator that stops (it happens
-# under software rendering) gets one more try on a new emulator, and costs one setting, not the run, if it stops again. The registry is
-# mocked with the example plates; nothing leaves the emulator.
+# under software rendering) gets one more try on a new emulator; if it stops again, that setting is a warning on that Android version,
+# and the run fails only when no version checked it. The registry is mocked with the example plates; nothing leaves the emulator.
 on:
   pull_request:
     paths: ["index.html", "android/**", ".github/scripts/app-real.cjs", ".github/scripts/ui-flows.cjs", ".github/scripts/app-wiring.mjs", ".github/workflows/app-guardian.yml"]
@@ -144,7 +144,7 @@ jobs:
           case "$CODE" in
             0) echo "API ${{ matrix.api }}, ${{ matrix.scenario }}: clean${{ steps.gone.outcome == 'success' && ' (on a second emulator: the first one stopped)' || '' }}" ;;
             1) echo "::error::(real app, API ${{ matrix.api }}) ${{ matrix.scenario }}: blocking findings, listed above and in $D/findings.json"; exit 1 ;;
-            2) if [ -f "$D/gone" ]; then echo "::error::(real app, API ${{ matrix.api }}) ${{ matrix.scenario }}: the emulator stopped on both tries, so this phone setting was not checked (not a finding about the app)"; else echo "::error::(real app, API ${{ matrix.api }}) ${{ matrix.scenario }}: the run crashed before its end (see the log above)"; fi; exit 1 ;;
+            2) if [ -f "$D/gone" ]; then echo "::warning::(real app, API ${{ matrix.api }}) ${{ matrix.scenario }}: the emulator stopped on both tries, so this phone setting was not checked on this Android version (not a finding about the app). The other version still checks it; the run fails only when every version lost it"; else echo "::error::(real app, API ${{ matrix.api }}) ${{ matrix.scenario }}: the run crashed before its end (see the log above)"; exit 1; fi ;;
             *) echo "::error::(real app, API ${{ matrix.api }}) ${{ matrix.scenario }}: no result (the emulator did not start, or the run was cut)"; exit 1 ;;
           esac
       - uses: actions/upload-artifact@v7
@@ -156,7 +156,7 @@ jobs:
 
   publish:
     needs: device
-    if: ${{ always() && github.event_name != 'pull_request' }}
+    if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -165,7 +165,23 @@ jobs:
           pattern: app-real-api*
           merge-multiple: true
           path: app-real
+      # a phone setting the emulator lost on both tries on one Android version is still checked on the other (a warning there, so a night
+      # of emulator trouble does not read as a broken app); lost on every version it was not checked at all, and the run fails
+      - name: Every phone setting checked on at least one Android version
+        run: |
+          cd app-real 2>/dev/null || exit 0
+          bad=0
+          for s in $(ls -d api*/* 2>/dev/null | sed 's#^api[0-9]*/##' | grep -v -- '-first-try$' | sort -u); do
+            ran=0; lost=""
+            for d in api*/"$s"; do
+              [ -d "$d" ] || continue
+              if [ -f "$d/gone" ]; then lost="$lost ${d%%/*}"; else ran=1; fi
+            done
+            if [ "$ran" = 0 ]; then echo "::error::(real app) $s: the emulator stopped on every Android version ($lost ), so this phone setting was not checked at all (not a finding about the app)"; bad=1; fi
+          done
+          exit $bad
       - name: Findings and screenshots to branch app-guard-out
+        if: ${{ github.event_name != 'pull_request' }}
         run: |
           ls -R app-real | head -50
           cd app-real

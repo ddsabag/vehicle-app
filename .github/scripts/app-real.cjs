@@ -180,6 +180,7 @@ async function launch({ clear = false, extra = "" } = {}) {
   sh(`am start -W -n ${ACT} ${extra}`);
   const page = await attach();
   await page.waitForSelector(READY, { state: "attached", timeout: 20000 });
+  if (!boxCache) await settleBox();   // the first start of a phone setting: the journeys begin once the WebView holds still
   log(`launched${clear ? " (fresh install state)" : ""}, pid ${pidOf()}, ${((Date.now() - t0) / 1000).toFixed(1)} s`);
   return page;
 }
@@ -210,14 +211,28 @@ function webViewBoxFromTree() {
   }
   return null;
 }
-function webViewBox() {
-  if (boxCache) return boxCache;
+function freshBox() {
   const tree = webViewBoxFromTree();
-  if (tree) return (boxCache = tree);
+  if (tree) return tree;
   let x = "";
   for (let i = 0; i < 3 && !/WebView/.test(x); i++) { sh("rm -f /sdcard/ui.xml; uiautomator dump /sdcard/ui.xml >/dev/null 2>&1"); x = sh("cat /sdcard/ui.xml 2>/dev/null"); }
   const m = x.match(/class="android\.webkit\.WebView"[^>]*?bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/) || x.match(/bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"[^>]*?class="android\.webkit\.WebView"/);
-  return (boxCache = m ? { l: +m[1], t: +m[2], r: +m[3], b: +m[4] } : null);
+  return m ? { l: +m[1], t: +m[2], r: +m[3], b: +m[4] } : null;
+}
+function webViewBox() { return boxCache || (boxCache = freshBox()); }
+// the WebView's place once it holds still. Right after boot, or a display or font size change, the system can still be laying out its
+// bars: an app started then is laid out under the status bar first and moved down a moment later (on the emulator, API 31 at 200%: every
+// look then read "under the status bar" and the navigation bar "moved"). Two reads a second apart that agree, with room for the status bar,
+// are its place; after 8 s the last read stands, and a page that really starts under the bar is reported by the bars check
+async function settleBox() {
+  let last = null;
+  for (let i = 0; i < 8; i++) {
+    const b = freshBox();
+    if (b && last && b.t === last.t && b.b === last.b && b.t >= 40) break;
+    last = b; await sleep(1000);
+  }
+  if (last) boxCache = last;
+  return last;
 }
 const px = (png, x, y) => { const i = (png.width * y + x) << 2; return [png.data[i], png.data[i + 1], png.data[i + 2]]; };
 const lum = ([r, g, b]) => (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
@@ -256,7 +271,7 @@ function judgeBars(run, step, png, box, dark, first = false) {
 async function look(run, step, dark, name) {
   clearDialogs();
   let png = screencap();
-  if (judgeBars(run, step, png, webViewBox(), dark, true) === "again") { await sleep(1500); png = screencap(); judgeBars(run, step, png, webViewBox(), dark); }
+  if (judgeBars(run, step, png, webViewBox(), dark, true) === "again") { await sleep(1500); png = screencap(); judgeBars(run, step, png, freshBox() || webViewBox(), dark); }   // the second look reads the WebView's place again, not the kept one
   saveShot(png, name);
 }
 
