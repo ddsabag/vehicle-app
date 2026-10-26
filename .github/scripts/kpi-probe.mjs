@@ -29,7 +29,11 @@ function screenGoals(src) {
   const code = [/const CAL_END="[^"]+";/, /const SITE_FROM="[^"]+";/, /const GOALS=\{[\s\S]*?\}\};/, /const addD=\(d,k\)=>[^\n]*;/, /const between=\(a,b\)=>[^\n]*;/,
     /const pois=\(a,lam\)=>\{[^\n]*?return s\};/, /const mEnd=m=>[^\n]*;/, /const MONTHS=GOALS[^\n]*;/, /function goal\(key,day,r\)\{[\s\S]*?return v\.map\(x=>x\*\(r\|\|1\)\)\}/,
     /function band\(a,g,lower,small\)\{[^\n]*\}/].map(pick).join("\n");
-  return new Function(code + "\nreturn { CAL_END, SITE_FROM, GOALS, goal, band, addD };")();
+  // calib(): the page's rule since the base-week calibration (Dudu 26.10: checks and installs, up to 20x). A page from before that release
+  // has GOALS.calib {key, model} and scales weekly car checks alone; the same rule is written here for it, so the probe reads both
+  const C = /function calib\(key,actual\)\{[^\n]*\}/.exec(src);
+  const calib = C ? C[0] : "function calib(key,actual){const C=GOALS.calib;return key!==C.key?1:actual==null?null:Math.min(C.hi,Math.max(C.lo,actual/C.model))}";
+  return new Function(code + "\n" + calib + "\nreturn { CAL_END, SITE_FROM, GOALS, goal, band, addD, calib };")();
 }
 
 async function runWorker() {
@@ -64,8 +68,8 @@ async function runWorker() {
 const FIELDS = {
   week: "השבוע המדווח, ראשון עד שבת; prev_week: השבוע שלפניו. בכל מדד: week מול prev.",
   status: "ok עומד ביעד, warn קרוב ליעד, bad רחוק מהיעד, cal שבוע כיול (אין שיפוט), early מעט מדי נתונים לשפוט, nodata אין נתון. כמו בלוח /live.",
-  weekly_checks: "בדיקות רכב בשבוע (car_lookup): האפליקציה בישראל והאתר; app ו-web הם הפיצול. plan: יעד התוכנית לפני הכיול. target: היעד אחרי הכיול (base והטווח), מהשבוע שאחרי שבוע הבסיס. calib_ratio: יחס הכיול.",
-  installs: "התקנות חדשות בישראל לפי גוגל אנליטיקס (משתמשי אנדרואיד חדשים, פתיחה ראשונה). plan: יעד התוכנית. play: המספרים של Google Play עצמו, באיחור של כמה ימים ובחלון שלו (window).",
+  weekly_checks: "בדיקות רכב בשבוע (car_lookup): האפליקציה בישראל והאתר; app ו-web הם הפיצול. plan: יעד התוכנית לפני הכיול. target: היעד אחרי הכיול (base והטווח), מהשבוע שאחרי שבוע הבסיס. base_week: שבוע הבסיס, actual בפועל מול plan של התוכנית ביומו האחרון; calib_ratio = actual / plan, בין 0.5 ל-20 (החלטת דודו 26.10), ו-target = plan כפול calib_ratio.",
+  installs: "התקנות חדשות בישראל לפי גוגל אנליטיקס (משתמשי אנדרואיד חדשים, פתיחה ראשונה). plan: יעד התוכנית לפני הכיול. target, base_week ו-calib_ratio: הכיול לפי שבוע הבסיס, כמו בבדיקות. play: המספרים של Google Play עצמו, באיחור של כמה ימים ובחלון שלו (window).",
   return_7d: "מתוך ההתקנות של שבוע, כמה חזרו לאפליקציה תוך 7 ימים (app_return). week הוא שבוע ההתקנות שלפני השבוע המדווח, כדי שיעברו 7 ימים. savers: מי ששמר רכב ביום ההתקנה; non_savers: מי שלא.",
   new_savers: "התקנות חדשות ששמרו רכב ביום ההתקנה (first_save), לפי יום ההתקנה. devices_saved_a_car: מכשירים ששמרו רכב כלשהו בשבוע.",
   share: "שיתופים (share: דוח רכב או השוואה) ופתיחות חלון השיתוף (share_open). per_100_checks: שיתופים ל-100 בדיקות; target_per_100: היעד. arrived_from_share: כניסות מקישור ששותף; installs_from_share: התקנות מקישור ששותף.",
@@ -84,7 +88,11 @@ function kpis(d, S) {
   const week = e => { if (!days) return null; let s = 0; for (let i = 0; i < 7; i++) s += days[S.addD(e, -i)] || 0; return s; };
   const wsum = (k, e) => { const o = W && W.series && W.series[k]; if (!o) return null; let s = 0; for (let i = 0; i < 7; i++) s += o[S.addD(e, -i)] || 0; return s; };
   const dm = x => +x.slice(8, 10) + "." + +x.slice(5, 7), r1 = x => x == null || !isFinite(x) ? null : Math.round(x * 10) / 10, rg = g => g ? { base: r1(g[1]), range: [r1(g[0]), r1(g[2])] } : null;
-  const CB = S.GOALS.calib, cw = days && end >= CB.end ? week(CB.end) : null, RC = cw ? Math.min(CB.hi, Math.max(CB.lo, cw / CB.model)) : 1;
+  // the calibration as the page does it (calib()): once the base week is over, its checks from the day by day counts and its installs from the
+  // first opens series; base_week shows what the ratio came from
+  const CB = S.GOALS.calib, base = !!end && end >= CB.end, cw = days && base ? week(CB.end) : null, ci = base ? wsum("first_open", CB.end) : null;
+  const RC = cw != null ? S.calib("weekly_checks", cw) : 1, RI = base ? S.calib("installs_week", ci) : 1, calI = (CB.keys || [CB.key]).includes("installs_week");
+  const model = k => S.goal(k, CB.end)[1], bw = (k, v) => base && v != null ? { from: S.addD(CB.end, -6), to: CB.end, actual: v, plan: r1(model(k)) } : null;
   const out = {};
   if (!ev) notes.ga4 = "גוגל אנליטיקס לא ענה על השבוע: " + Object.keys(W && W.errors || d.errors || {}).join(", ");
 
@@ -92,24 +100,29 @@ function kpis(d, S) {
   { const L = ev ? ge(E0, "car_lookup") : null, Lp = ev ? ge(E1, "car_lookup") : null, site = wsum("site_lookup", end), sitep = wsum("site_lookup", prevEnd);
     const G = end && !cal ? S.goal("weekly_checks", end, RC) : null;
     let s = !ev ? "nodata" : cal ? "cal" : S.band(L, G, false, true); if (s === "ok" && Lp >= 30 && L < .8 * Lp) s = "warn";
-    const P = end ? S.goal("weekly_checks", end, 1) : null, pace = L != null && CB.model ? L / CB.model : null;
+    const P = end ? S.goal("weekly_checks", end, 1) : null, pace = L != null ? L / model("weekly_checks") : null;
     out.weekly_checks = { week: L, prev: Lp, plan: rg(P), app: site != null && L != null ? Math.max(0, week(end) - site) : null, web: site, app_prev: sitep != null && Lp != null ? Math.max(0, week(prevEnd) - sitep) : null, web_prev: sitep,
-      target: rg(G), pct_of_target: G && L != null ? Math.round(L / G[1] * 100) : null, calib_ratio: cw ? r1(RC * 100) / 100 : null, status: s };
-    if (!G) notes.weekly_checks_target = "שבוע הבסיס הוא " + dm(S.addD(CB.end, -6)) + "–" + dm(CB.end) + ": לפיו נקבע היעד (התוכנית צפתה " + CB.model + "), ומהשבוע שאחריו יש יעד לכל שבוע. plan הוא יעד התוכנית לפני הכיול.";
-    if (pace != null && end < CB.end && pace > CB.hi) notes.weekly_checks_calibration = "השבוע היה פי " + r1(pace) + " מצפי התוכנית לשבוע הבסיס (" + CB.model + "), והכיול מוגבל עד פי " + CB.hi + ": אם שבוע הבסיס ייצא כך, היעד מ-" + dm(S.addD(CB.end, 1)) + " יהיה נמוך בהרבה מהקצב בפועל.";
+      target: rg(G), pct_of_target: G && L != null ? Math.round(L / G[1] * 100) : null, base_week: bw("weekly_checks", cw), calib_ratio: cw != null && RC != null ? Math.round(RC * 100) / 100 : null, status: s };
+    if (!G) notes.weekly_checks_target = "שבוע הבסיס הוא " + dm(S.addD(CB.end, -6)) + "–" + dm(CB.end) + ": לפיו נקבע היעד (התוכנית צפתה " + Math.round(model("weekly_checks")) + "), ומהשבוע שאחריו יש יעד לכל שבוע. plan הוא יעד התוכנית לפני הכיול.";
+    if (pace != null && end < CB.end && pace > CB.hi) notes.weekly_checks_calibration = "השבוע היה פי " + r1(pace) + " מצפי התוכנית לשבוע הבסיס (" + Math.round(model("weekly_checks")) + "), והכיול מוגבל עד פי " + CB.hi + ": אם שבוע הבסיס ייצא כך, היעד מ-" + dm(S.addD(CB.end, 1)) + " יהיה נמוך מהקצב בפועל.";
+    if (cw != null && RC >= CB.hi) notes.weekly_checks_calibration = "שבוע הבסיס היה פי " + r1(cw / model("weekly_checks")) + " מצפי התוכנית, והכיול נעצר בתקרה (פי " + CB.hi + "): היעדים נמוכים מהקצב בפועל.";
     if (prevEnd && S.addD(prevEnd, -6) < S.SITE_FROM) notes.weekly_checks_web = "באתר הבדיקות נספרות מ-15.10, לכן שבוע שמתחיל לפני כן חלקי באתר."; }
 
   // 2. new installs: first opens in Israel (GA4 new Android users in IL), the target once the app is live and the base week is over; Google
   // Play's own count (a few days late, its own window) beside it
-  { const A = W && W.app, a = A ? A[0].newUsers : null, ap = A ? A[1].newUsers : null, live = d.play === "live", GI = end ? S.goal("installs_week", end) : null, tg = live && !cal ? GI : null;
-    const PS = d.stats && d.stats.ok && d.stats.cur ? d.stats : null;
-    out.installs = { week: a, prev: ap, plan: rg(GI), target: rg(tg), status: a == null ? "nodata" : !live ? "early" : cal ? "cal" : S.band(a, GI, false, true),
+  { const A = W && W.app, a = A ? A[0].newUsers : null, ap = A ? A[1].newUsers : null, live = d.play === "live", tg = live && !cal && end && RI != null ? S.goal("installs_week", end, RI) : null;
+    const PS = d.stats && d.stats.ok && d.stats.cur ? d.stats : null, P = end ? S.goal("installs_week", end, 1) : null;
+    out.installs = { week: a, prev: ap, plan: rg(P), target: rg(tg), pct_of_target: tg && a != null ? Math.round(a / tg[1] * 100) : null,
+      base_week: calI ? bw("installs_week", ci) : null, calib_ratio: calI && ci != null && RI != null ? Math.round(RI * 100) / 100 : null,
+      status: a == null ? "nodata" : !live ? "early" : cal ? "cal" : S.band(a, tg, false, true),
       play: PS ? { window: PS.W, users: PS.cur.users, prev_window: PS.P, prev: PS.prev.users, uninstalls: PS.cur.uninstalls,
       store_visitors: PS.store && (PS.cur.visitors || PS.prev.visitors) ? PS.cur.visitors : null, store_acquisitions: PS.store && (PS.cur.acquisitions || PS.prev.acquisitions) ? PS.cur.acquisitions : null, installed_now: PS.active, installed_day: PS.activeDay } : null };
     if (!PS) notes.installs_play = "דוחות Google Play לא נקראו: " + String(d.stats && d.stats.why || d.stats && d.stats.error || "אין נתון").slice(0, 120);
     else { notes.installs_play = "Google Play מוסר באיחור של כמה ימים ובחלון שלו (window), ולכן הוא לא אותו שבוע כמו week.";
       if (out.installs.play.store_visitors == null) notes.installs_store = "ביקורים בדף החנות: הדוח של Google Play לא נמצא או ריק, כמו בלוח."; }
-    if (!tg) notes.installs_target = !live ? "האפליקציה עוד לא בחנות: אין יעד." : "יעד ההתקנות נשפט מהשבוע שאחרי שבוע הבסיס; plan הוא יעד התוכנית (לא מכויל לפי הבדיקות)."; }
+    if (!tg) notes.installs_target = !live ? "האפליקציה עוד לא בחנות: אין יעד." : cal ? "יעד ההתקנות נשפט מהשבוע שאחרי שבוע הבסיס " + dm(S.addD(CB.end, -6)) + "–" + dm(CB.end) + ", ולפיו הוא נקבע (התוכנית צפתה " + Math.round(model("installs_week")) + "); plan הוא יעד התוכנית לפני הכיול."
+      : "אין יעד: ההתקנות של שבוע הבסיס לא נקראו מגוגל אנליטיקס.";
+    else if (calI && RI >= CB.hi) notes.installs_calibration = "שבוע הבסיס היה פי " + r1(ci / model("installs_week")) + " מצפי התוכנית בהתקנות, והכיול נעצר בתקרה (פי " + CB.hi + ")."; }
 
   // 3. 7-day return of new installs (from 1.36, 21.10): the install week whose 7 days are over, and the week before it; saver vs non-saver as Q2
   { const C = W && W.coh, QF = "2026-10-21";
