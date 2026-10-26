@@ -1721,6 +1721,20 @@ function toggleSaved(item){
   if (list.length >= savedCap()) { toast(`הרשימה מלאה (${savedCap()} רכבים). הסירו רכב כדי להוסיף.`); return false; }
   store.set("savedVehicles", [item, ...list]); updateSavedBar(); if (current && current.plate === item.plate) snapPut(current); return true;
 }
+/* a car checked after "+": saved like the star saves it (from "add"), and the bar's "הרכבים שלי" tab is the one it belongs to now */
+function addFromPlus(D){
+  addIntent = false; view = "cars"; syncNav();
+  if (isSaved(D.plate)) return "had";
+  if (!toggleSaved(newSavedItem(D))) return null;   // the list is full: toggleSaved said so
+  startTrial(); cohSaved();
+  const L = store.get("savedVehicles").length; track("car_save", {n: String(Math.min(L, 4)) + (L > 3 ? "+" : ""), from: "add"});
+  if (alertsSupported()) { let asked = false; try { asked = !!localStorage.getItem("alertsAsked"); localStorage.setItem("alertsAsked", "1"); } catch {} if (!asked) try { window.AndroidApp.setAlerts(true); } catch {} }
+  return "new";
+}
+function undoAdd(D){
+  if (isSaved(D.plate)) { toggleSaved({plate: D.plate}); const L = store.get("savedVehicles").length; track("car_unsave", {n: String(Math.min(L, 4)) + (L > 3 ? "+" : ""), from: "add"}); }
+  if (current === D) { const y = window.scrollY; renderResult(); window.scrollTo(0, y); } else refreshView();
+}
 /* the model's name under each recent plate on home, for cars that were not saved too (this phone only, the same 6 plates) */
 const recentNames = () => { try { return JSON.parse(localStorage.getItem("recentNames") || "{}") || {}; } catch { return {}; } };
 function remember(p, name){
@@ -2918,8 +2932,10 @@ async function lookup(raw){
   if (D.offline) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-globe"/></svg></div>${navigator.onLine === false ? "אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב." : "מאגרי משרד התחבורה לא עונים כרגע (תקלה או עומס אצל המשרד, לא אצלכם). נסו שוב בעוד כמה דקות."}</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; return; }
   if (D.notFound) { out.innerHTML = `<div class="msg edge"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-search"/></svg></div>לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.<p class="note" style="margin:8px 0 0">בדקנו את כל מאגרי משרד התחבורה, כולל רכבים שירדו מהכביש, דו-גלגלי ויבוא אישי. רכב שעלה לכביש בימים האחרונים יופיע אחרי העדכון הבא של המאגר.</p></div>`; return; }
   current = D; currentTab = ot && ot.p === D.plate ? ot.t : "overview";
+  const added = addIntent && D.plate && D.kind !== "model" ? addFromPlus(D) : null;
   snapPut(D); savedSync(D);
   renderResult(); focusResult();
+  if (added) snack(added === "new" ? "נוסף לרכבים שלי" : "הרכב כבר ברכבים שלי", added === "new" ? "ביטול" : "לרשימה", added === "new" ? () => undoAdd(D) : () => navTo("cars", {via: "add"}), 6000);
   // exactly 8 params: the app bridge keeps the first 8 (MainActivity.logEvent) and the web Worker 10 with src+camp; a 9th silently drops the last
   track(again ? "lookup_repeat" : "car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: D.errs && D.errs.length ? 1 : 0, role: roleOf(D), ...lookupFacts(D)});
   remember(plate, D.kind === "model" ? "" : D.title);
@@ -3571,6 +3587,8 @@ function setMine(D, on, from){
 const fileOk = D => !!D && D.kind !== "model" && !!D.plate && !D.isCancelled && !reportBuild && !sharedHere(D) && !isMine(D);
 /* the home line "יש לכם כבר רכב?" leads to the plate field; the next car opened from there counts its file as from home */
 let fileIntent = false;
+/* "+" in "הרכבים שלי": the next car checked is added to the list (the snack bar can undo it), and its back arrow returns to the list */
+let addIntent = false;
 const anyMine = () => { const m = mineAll(); return Object.values(m).some(v => v === 1) || store.get("savedVehicles").some(s => m[s.plate] !== 0 && hasFile(s.plate)); };
 /* "shown" for the file row: once per car per visit, when most of it is on screen */
 const ctaSeen = new Set();
@@ -6103,7 +6121,7 @@ function navTo(v, opts = {}){
     window.scrollTo({top: 0, behavior: "smooth"}); return;
   }
   if (ctrl) { ctrl.abort(); ctrl = null; $("#go").disabled = false; }
-  if (v !== "search") fileIntent = false;
+  if (v !== "search") { fileIntent = false; addIntent = false; }
   track("nav", {to: v, via: opts.via || "bar"});
   if (v === view) parked = null;
   else if (current && document.body.dataset.screen === "car") parked = {v: view, D: current, t: currentTab, y: window.scrollY};
@@ -6126,7 +6144,7 @@ function refreshView(){
 }
 /* back from a car page: to the tab it was opened from */
 function leaveCar(){
-  current = null; currentTab = "overview"; fileIntent = false; parked = null;
+  current = null; currentTab = "overview"; fileIntent = false; addIntent = false; parked = null;
   try { history.replaceState(history.state, "", location.pathname); } catch {}
   if (view === "cars") { renderCars(); window.scrollTo({top: carsY}); }
   else if (view === "alerts") { renderAlerts(); window.scrollTo({top: 0}); }
@@ -6347,7 +6365,7 @@ $("#out").addEventListener("click", ev => {
   if (a === "fileHome") { ev.stopImmediatePropagation(); fileIntent = true; window.scrollTo({top: 0, behavior: "smooth"}); $("#plate").focus(); toast("הקלידו את מספר הרכב שלכם, ובדף הרכב לחצו \"פתיחת תיק\""); return; }
   // "+" (and "בדיקת רכב" on an empty list) is a new car: an empty plate field with the cursor in it, never the car left on the search tab.
   // The focus is set in the tap itself, so phones open the keyboard
-  if (a === "addCar") { ev.stopImmediatePropagation(); parked = null; navTo("search", {via: "add"}); $("#plate").value = ""; $("#plate").focus(); toast("מקלידים מספר רישוי. בדף הרכב, הכוכב שומר אותו ברכבים שלי"); return; }
+  if (a === "addCar") { ev.stopImmediatePropagation(); parked = null; navTo("search", {via: "add"}); addIntent = true; $("#plate").value = ""; $("#plate").focus(); toast("מקלידים מספר רישוי, והרכב יתווסף לרכבים שלי"); return; }
   if (a === "carsCancel") { ev.stopImmediatePropagation(); carsSel = null; renderCars(); return; }
   if (a === "carsFab") { ev.stopImmediatePropagation();
     if (!carsSel) { carsSel = []; renderCars(); return; }
@@ -6947,12 +6965,13 @@ $("#clearSaved").addEventListener("click", () => { const was = store.get("savedV
 $("#ver").textContent = APP_VERSION;
 /* in-app update (Google Play installs only): one quiet offer per version, plus a manual check in settings */
 let updManual = false;
-function snack(text, label, act){
+function snack(text, label, act, ms){
   const old = $("#snack"); if (old) old.remove();
   const d = document.createElement("div"); d.id = "snack"; d.className = "snack"; d.setAttribute("role", "status");
   d.innerHTML = `<span>${esc(text)}</span><button type="button" data-s="go">${esc(label)}</button><button type="button" class="q" data-s="x" aria-label="סגירה">${ico("x")}</button>`;
   d.addEventListener("click", ev => { const b = ev.target.closest("[data-s]"); if (!b) return; d.remove(); if (b.dataset.s === "go") act(); });
   document.body.appendChild(d);
+  if (ms) setTimeout(() => d.remove(), ms);   // an offer to undo goes away by itself, like a phone's snack bar
 }
 window.onUpdateState = st => {
   const b = window.AndroidApp, man = updManual; updManual = false;
