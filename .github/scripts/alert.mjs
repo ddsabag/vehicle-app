@@ -155,7 +155,10 @@ export const LABELS = {
   "relguard":            { he: "גרסה חדשה מחוץ לסף אחרי השחרור: {id}", sect: "fail" },   // release-guard.mjs (Release guard); id = version-dN
   "relguard:ok":         { he: "גרסה חדשה בטווח אחרי השחרור: {id}", sect: "none" },
   "relguard:thin":       { he: "אין מספיק נתונים לבדיקת גרסה אחרי השחרור: {id}", sect: "none" },
-  "zonea":               { he: "בדיקות הרכב של אתמול מחוץ לסף (כשלים או איטיות): {id}", sect: "fail" },   // release-guard.mjs zone A daily; id = fail|slow|fail+slow:date
+  "zonea":               { he: "בדיקות רכב מחוץ לסף (כשלים או איטיות)", sect: "fail" },   // release-guard.mjs zone A daily, key zonea:<kind>:<date>; the
+  "zonea:fail":          { he: "יותר מדי בדיקות רכב נכשלו", sect: "fail" },              // headline also names the end ("חזר לתקין: ..."), so it carries
+  "zonea:slow":          { he: "יותר מדי בדיקות רכב היו איטיות", sect: "fail" },         // no "yesterday" and no raw date
+  "zonea:fail+slow":     { he: "יותר מדי בדיקות רכב נכשלו או היו איטיות", sect: "fail" },
 };
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
 export const FAMILIES_IN_USE = [
@@ -992,6 +995,8 @@ async function selftest() {
     }
     ok(label("smoke:home+lookup").he === "בדיקת האתר החי מצאה בעיה: דף הבית, בדיקת רכב" && label("wf:Data guard").he === 'הבוט "שומר הנתונים" נכשל' && label("wf:Magazine (data)").he === 'הבוט "המגזין (נתונים)" נכשל'
       && label("seo:daily").sect === "none" && label("nope:x").he === "התראה: nope:x" && label("mag:fail:2026-10").sect === "wait", "label rendering");
+    ok(label("zonea:fail:2026-10-25").he === "יותר מדי בדיקות רכב נכשלו" && label("zonea:fail+slow:2026-10-25").he === "יותר מדי בדיקות רכב נכשלו או היו איטיות"
+      && label("zonea:slow:2026-10-25").sect === "fail" && !/\d/.test(label("zonea:x:2026-10-25").he), "zone A labels: by kind, no raw date");
     const used = scanKeys(ROOT), missing = used.filter(k => !FAMILIES_IN_USE.some(f => f === k || f.startsWith(k + ":") || k.startsWith(f + ":")));
     ok(missing.length === 0, "call-site keys missing from FAMILIES_IN_USE: " + missing.join(", "));
     // every workflow that runs on main by itself is watched by failure-alert, each watched name has a deliberate level, and the parser sees the events

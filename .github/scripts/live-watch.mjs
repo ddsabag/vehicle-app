@@ -5,7 +5,9 @@
 // call kept every load on "loading" for two hours). Two such steps, or 3 requests that ended in a Worker error: one Telegram (alert router,
 // live:stuck or live:error, at most once in 6 hours) and a redeploy of the Worker from main (Workers deploy, mode on, workers live: fresh
 // isolates; at most once in 6 hours, so a redeploy that did not help is said, not repeated).
-// Quiet when all is well, and when nobody opened the screen (no requests, nothing to judge).
+// Quiet when all is well, and when nobody opened the screen (no requests, nothing to judge). A clean window (requests, no slow step, no
+// error) closes an open live: alert in the router, which tells its end once, quietly ("חזר לתקין"); an empty window proves nothing, so the
+// close waits for one with requests.
 // Reads Cloudflare with CF_API_TOKEN (analytics); writes only the dispatch and the router's state. Prints the Worker's request counts and
 // times, never a number from the dashboard. Never fails the run on a read problem (one notice line, green), so it cannot page every 30 minutes.
 //   node live-watch.mjs            the watch (DRY=1: print what it would do, send and dispatch nothing; LIVE_WATCH=dry: the same)
@@ -40,6 +42,8 @@ export function judge(rows) {
   const slowSteps = all.filter(o => o.n && (o.slow * 2 >= o.n || (o.cut >= 2 && o.cut >= o.ok && o.cutMax >= SLOW_MS))).length;
   return { requests: all.reduce((a, o) => a + o.n, 0), steps: all.length, slowSteps, errors, errBy, stuck: slowSteps >= SLOW_STEPS, failing: errors >= ERR_N };
 }
+// the window shows /live answering: someone opened it, no step was slow and no request ended in a Worker error
+export const healthy = v => v.requests > 0 && !v.slowSteps && !v.errors;
 
 const clean = raw => { raw = String(raw || ""); const m = raw.match(/Bearer\s+([A-Za-z0-9_\-]{20,})/i); return (m ? m[1] : raw).trim().replace(/^["']|["']$/g, "").replace(/[^\x21-\x7e]/g, ""); };
 const hhmm = t => new Date(t).toLocaleTimeString("he-IL", { timeZone: "Asia/Jerusalem", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
@@ -73,11 +77,15 @@ async function watch() {
   for (const x of rows) say(` ${x.dimensions.datetimeFiveMinutes} ${x.dimensions.status} requests ${x.sum.requests} wall p50/p99 ms ${Math.round(us(x.quantiles.wallTimeP50))}/${Math.round(us(x.quantiles.wallTimeP99))}`);
   const v = judge(rows);
   say(`last ${WINDOW_MIN} min: ${v.requests} requests in ${v.steps} steps, slow steps ${v.slowSteps}, errors ${v.errors}`, v.errors ? JSON.stringify(v.errBy) : "");
-  if (!v.stuck && !v.failing) { say("ok"); return 0; }
-
-  // at most one redeploy and one message in 6 hours
   let router = null;
   try { router = await import("./alert.mjs"); } catch { /* the direct send below */ }
+  if (!v.stuck && !v.failing) {
+    say("ok");
+    if (healthy(v) && !dry && router?.resolve && await router.resolve(["live:"])) say("the open /live alert is closed");
+    return 0;
+  }
+
+  // at most one redeploy and one message in 6 hours
   const key = v.stuck ? "live:stuck" : "live:error", state = router && E.GITHUB_TOKEN ? await router.readState() : null;
   const told = state?.items?.[key]?.last ? Date.parse(state.items[key].last) : 0;
   let redeployedAt = null;
@@ -160,6 +168,12 @@ function selftest() {
     "a tab closed mid-load in two steps, the rest on time: not stuck");
   ok(judge([row(T(0), "scriptThrewException", 2, 50e3), row(T(1), "exceededResources", 1, 50e3)]).failing, "3 Worker errors: failing");
   ok(!judge([row(T(0), "scriptThrewException", 2, 50e3)]).failing, "2 Worker errors: not yet");
+  // what closes an open live: alert: a window with requests, none slow, no error (the quiet runs above with one slow step or one error do not)
+  ok(!healthy(at("14:12")) && !healthy(at("16:12")), "20.10, 14:12 to 16:12: stuck, nothing closes");
+  ok(healthy(at("16:42")), "20.10, the 16:42 run, the first after live-27 was deployed at 16:16: the alert from 14:12 closes " + JSON.stringify(at("16:42")));
+  ok(!healthy(judge([])), "no requests: nothing proves /live answers, nothing closes");
+  ok(!healthy(judge([row(T(0), "success", 5, 1500), row(T(1), "scriptThrewException", 1, 50e3)])), "one Worker error: not yet clean");
+  ok(!healthy(judge([row(T(0), "success", 5, 25.1e6), row(T(1), "success", 5, 1500)])), "one late step: not yet clean");
   console.log(bad ? `selftest: ${bad} of ${n} checks FAILED` : `selftest ok (${n} checks)`);
   return bad ? 1 : 0;
 }
