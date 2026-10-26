@@ -413,7 +413,7 @@ button.cf-tile{cursor:pointer}
 .cf-tl li.own:before{background:var(--accent);border-color:var(--accent)}
 .cf-tl li.warn:before{border-color:var(--warn);background:var(--warn-bg)}
 .cf-tl time{font-size:.78rem;color:var(--muted);font-weight:700;grid-column:1}
-.cf-tl b{font-size:.95rem;grid-column:1;min-width:0}.cf-tl span{color:var(--muted);font-size:.85rem;grid-column:1;min-width:0}
+.cf-tl b{font-size:.95rem;grid-column:1;min-width:0}.cf-tl span{color:var(--muted);font-size:.85rem;grid-column:1;min-width:0;overflow-wrap:anywhere}
 .cf-tl .x{grid-column:2;grid-row:1/span 3;align-self:center;border:0;background:transparent;color:var(--muted);min-width:44px;min-height:44px;border-radius:8px;display:grid;place-items:center}.cf-tl .x .i{width:18px;height:18px}
 .cf-more{justify-content:center}
 .cf-sum{color:var(--muted);font-size:.85rem;font-weight:500;margin-inline-start:auto;white-space:nowrap}
@@ -511,12 +511,13 @@ section[style*="--n:3"] .cmp-k{font-size:.78rem}
 .inp{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--soft);color:var(--fg);font:inherit}
 textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .svc-form{display:grid;gap:10px;margin-top:10px}.svc-form label{display:grid;gap:4px;font-size:.85rem;color:var(--muted)}.svc-form .link-btn{justify-content:center}
-.svc-list{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:8px}.svc-list li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--soft)}.svc-list li div{display:grid;gap:2px}.svc-list li span{font-size:.85rem;color:var(--muted)}.svc-list li small{color:var(--muted)}.svc-list .x,.doc-acts .x{flex:0 0 auto;width:40px;height:40px;border:0;background:transparent;color:var(--muted);border-radius:10px;display:grid;place-items:center;padding:0}.svc-list .x:active,.doc-acts .x:active{background:var(--line)}.svc-list .x .i,.doc-acts .x .i{width:20px;height:20px}.svc-list li small{overflow-wrap:anywhere}
+.svc-list{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:8px}.svc-list li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--soft)}.svc-list li div{display:grid;gap:2px}.svc-list li span{font-size:.85rem;color:var(--muted)}.svc-list li small{color:var(--muted)}.svc-list .x,.doc-acts .x{flex:0 0 auto;width:40px;height:40px;border:0;background:transparent;color:var(--muted);border-radius:10px;display:grid;place-items:center;padding:0}.svc-list .x:active,.doc-acts .x:active{background:var(--line)}.svc-list .x .i,.doc-acts .x .i{width:20px;height:20px}.svc-list li small{overflow-wrap:anywhere}.svc-list li>div{min-width:0}.svc-list li span{overflow-wrap:anywhere}
+.svc-list li.doc{flex-wrap:wrap}.svc-list li.doc>div{flex:1 1 0}.doc-exp{flex:1 1 100%;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:.9rem;color:var(--muted)}.doc-exp .inp{flex:0 1 11rem;width:auto;min-width:0}.doc-exp small{flex-basis:100%;font-size:.8rem}.doc-exp.need .inp{border-color:var(--accent)}
 .askrow{display:flex;gap:8px;align-items:stretch}.askrow .inp{flex:1;min-width:0;font-family:var(--f-num)}.askrow .link-btn{width:auto;white-space:nowrap}
 .bflags,.bq{margin:0 0 10px;padding-inline-start:20px}.bflags li{font-weight:600}.bflags li.bad::marker{color:var(--bad)}.bflags li.warn::marker{color:var(--warn)}.bq li{margin:2px 0}
 .vd.ok{color:var(--ok);font-weight:700}.vd.bad{color:var(--bad);font-weight:700}.ft .g,.sum3 .g{color:var(--ok)}.ft .w,.sum3 .w{color:var(--warn)}.ft .r,.sum3 .r{color:var(--bad)}.ft td.g,.ft td.w,.ft td.r{font-weight:700}
 .sum3{display:flex;gap:6px;margin:10px 0}.sum3 div{flex:1;background:var(--soft);border-radius:10px;padding:6px;text-align:center;font-size:.85rem;color:var(--muted)}.sum3 b{display:block;font-size:1.3rem}
-.kinds{display:flex;flex-direction:column;gap:2px}.kinds label{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;font-size:.9rem;cursor:pointer}.kinds input[type=checkbox]{order:2;appearance:none;-webkit-appearance:none;flex:none;margin:0;width:44px;height:26px;border-radius:999px;background:#8a93a3;position:relative;transition:background .15s}.kinds input[type=checkbox]::after{content:"";position:absolute;top:3px;inset-inline-start:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}.kinds input[type=checkbox]:checked{background:var(--accent)}.kinds input[type=checkbox]:checked::after{transform:translateX(-18px)}.kinds input[type=checkbox]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}@media (prefers-reduced-motion:reduce){.kinds input[type=checkbox],.kinds input[type=checkbox]::after{transition:none}}.doc-add .exp{flex:1 1 100%;display:flex;align-items:center;gap:8px;font-size:.9rem;color:var(--muted)}.doc-add{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.doc-add .inp{flex:1 1 160px;min-width:0}
+.kinds{display:flex;flex-direction:column;gap:2px}.kinds label{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;font-size:.9rem;cursor:pointer}.kinds input[type=checkbox]{order:2;appearance:none;-webkit-appearance:none;flex:none;margin:0;width:44px;height:26px;border-radius:999px;background:#8a93a3;position:relative;transition:background .15s}.kinds input[type=checkbox]::after{content:"";position:absolute;top:3px;inset-inline-start:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}.kinds input[type=checkbox]:checked{background:var(--accent)}.kinds input[type=checkbox]:checked::after{transform:translateX(-18px)}.kinds input[type=checkbox]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}@media (prefers-reduced-motion:reduce){.kinds input[type=checkbox],.kinds input[type=checkbox]::after{transition:none}}.doc-add{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.doc-add .inp{flex:1 1 160px;min-width:0}
 .doc-acts{display:flex;gap:2px;flex:0 0 auto}
 .doc-view{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.92);display:grid;place-items:center;padding:12px}
 .doc-view img{max-width:100%;max-height:100%;object-fit:contain}
@@ -1004,7 +1005,7 @@ body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)
 <script>
 "use strict";
 /*! © 2026 Dudu Sabag. All rights reserved. */
-const APP_VERSION = "1.38";
+const APP_VERSION = "1.38.1";
 /* a phone whose page storage is still empty here is a new install (an app update keeps the storage): read before anything is stored */
 const FRESH = (() => { try { return localStorage.length === 0; } catch { return false; } })();
 const SITE = "https://luchit.app/";
@@ -3285,6 +3286,7 @@ const DocDB = {
   open(){ return this.db || (this.db = new Promise((ok, no) => { const r = indexedDB.open("luchitDocs", 1); r.onupgradeneeded = () => r.result.createObjectStore("docs", {keyPath: "id", autoIncrement: true}).createIndex("plate", "plate"); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); })); },
   async tx(mode, fn){ const db = await this.open(); return new Promise((ok, no) => { const t = db.transaction("docs", mode), st = t.objectStore("docs"), rq = fn(st); t.oncomplete = () => ok(rq && rq.result); t.onerror = () => no(t.error); t.onabort = () => no(t.error); }); },
   put(rec){ return this.tx("readwrite", st => st.add(rec)); },
+  upd(rec){ return this.tx("readwrite", st => st.put(rec)); },
   del(id){ return this.tx("readwrite", st => st.delete(id)); },
   get(id){ return this.tx("readonly", st => st.get(id)); },
   all(){ return this.tx("readonly", st => st.getAll()); },
@@ -3306,27 +3308,31 @@ async function docPrepare(file){
   } catch { return null; } finally { URL.revokeObjectURL(url); }
 }
 const DOC_EXP_CATS = ["רישיון רכב", "רישיון נהיגה", "ביטוח", "טסט"];
-async function docsAdd(files, plate, cat, exp){ track("doc_add", {cat, exp: exp ? 1 : 0}); try { await docsAdd0(files, plate, cat, exp); } catch { toast("לא הצלחנו לשמור את המסמך בטלפון"); } }
-async function docsAdd0(files, plate, cat, exp){
+// a long file name keeps its start and its ending (the type): "H2609654190747…_TIF (1).pdf"
+const shortName = (n, max = 32) => { const a = [...String(n || "")]; return a.length <= max ? a.join("") : a.slice(0, max - 13).join("") + "…" + a.slice(-12).join(""); };
+// the line under a document's expiry: a reminder is a promise only the app keeps (the site has no notifications)
+const expHint = on => on ? (alertsSupported() ? "נשמר. נתריע חודש לפני." : "נשמר. התאריך מופיע ב\"מה הבא\".") : (alertsSupported() ? "לא חובה. עם תאריך נתריע חודש לפני." : "לא חובה. עם תאריך הוא יופיע ב\"מה הבא\".");
+async function docsAdd(files, plate, cat){ track("doc_add", {cat}); try { await docsAdd0(files, plate, cat); } catch { toast("לא הצלחנו לשמור את המסמך בטלפון"); } }
+async function docsAdd0(files, plate, cat){
   let n = (await DocDB.byPlate(plate)).length, added = 0, skipped = 0, locked = false;
   for (const f of files) {
     if (!docsOk(n)) { locked = true; break; }
     const d = await docPrepare(f).catch(() => null);
     if (!d) { skipped++; continue; }
-    const id = await DocDB.put({plate, cat, name: d.name, type: d.type, size: d.blob.size, at: Date.now(), exp: exp || "", blob: d.blob}); n++; added++; docPlates.add(plate);
-    if (exp) docExpSave([...docExpAll(), {id, plate, cat, exp}]);
+    await DocDB.put({plate, cat, name: d.name, type: d.type, size: d.blob.size, at: Date.now(), exp: "", blob: d.blob}); n++; added++; docPlates.add(plate);
   }
-  toast(locked ? `בחינם אפשר לשמור עד ${FREE_DOCS} מסמכים לרכב. ${added ? "נשמרו " + added + "." : ""}` : added ? (added === 1 ? "המסמך נשמר בתיק הרכב" : `נשמרו ${added} מסמכים בתיק הרכב`) + (skipped ? `, ${skipped} לא נתמכו או גדולים מדי` : "") : "לא הצלחנו לשמור. אפשר תמונות ו-PDF עד 12MB.");
-  fillDocs(); fillFile();
-  if (added && exp && !trackedOk(plate)) setTimeout(() => toast("כדי לקבל התראה על התוקף, שמרו את הרכב ב\"הרכבים שלי\""), 2600);
+  const dated = added && DOC_EXP_CATS.includes(cat);
+  toast(locked ? `בחינם אפשר לשמור עד ${FREE_DOCS} מסמכים לרכב. ${added ? "נשמרו " + added + "." : ""}` : added ? (added === 1 ? (dated ? "המסמך נשמר. אפשר להוסיף לו תאריך תוקף" : "המסמך נשמר בתיק הרכב") : `נשמרו ${added} מסמכים בתיק הרכב`) + (skipped ? `, ${skipped} לא נתמכו או גדולים מדי` : "") : "לא הצלחנו לשמור. אפשר תמונות ו-PDF עד 12MB.");
+  await fillDocs(); fillFile();
+  // the new document's row, with its empty date, comes into view
+  const row = dated && document.querySelector("#docList li.doc .doc-exp.need"); if (row) row.closest("li").scrollIntoView({block: "nearest", behavior: "smooth"});
 }
 function docsCard(D){
   const mh = manualHit(D);
   return card("מסמכים", "doc", "teal", `<p style="margin:0">חשבוניות תיקון, רישיון הרכב, רישיון נהיגה, ביטוח ועוד, במקום אחד.</p>
     <div id="docList"></div>
     <div class="doc-add"><select class="inp" id="docCat" aria-label="סוג המסמך">${DOC_CATS.map(c => `<option>${c}</option>`).join("")}</select>
-    <button type="button" class="link-btn" data-doc="add">${ico("plus")}הוספת מסמך או צילום</button>
-    <label class="exp" id="docExpRow" hidden>תוקף עד <input class="inp" id="docExp" type="date" aria-label="תאריך תוקף"> <small>לא חובה. נתריע חודש לפני.</small></label></div>
+    <button type="button" class="link-btn" data-doc="add">${ico("plus")}הוספת מסמך או צילום</button></div>
     <input type="file" id="docFile" accept="image/*,application/pdf" multiple hidden>
     <p class="note">המסמכים נשמרים רק בטלפון הזה, לא נשלחים לשום מקום ולא נכללים בדוחות ששיתפתם. אם תמחקו את האפליקציה או תחליפו מכשיר הם יימחקו, ולכן כדאי לשמור גם עותק במקום אחר.${PRO_LOCK && !isPro() ? ` בחינם עד ${FREE_DOCS} מסמכים לרכב.` : ""}</p>
     ${mh ? `<div class="doc-manual"><p style="margin:0"><b>ספר הרכב</b> להורדה נמצא באתר היבואן של ${esc(mh.name)}.</p><button type="button" class="link-btn" data-url="${mh.url}">לדף ההורדה באתר היבואן</button></div>` : ""}`, PT(`PRO · בלי הגבלה`));
@@ -3337,7 +3343,8 @@ async function fillDocs(){
   try { list = (await DocDB.byPlate(D.plate)).sort((a, b) => b.at - a.at); } catch { el.innerHTML = `<p class="note">שמירת מסמכים לא זמינה במכשיר הזה.</p>`; return; }
   if (current !== D || !el.isConnected) return;
   const kb = b => b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB";
-  el.innerHTML = list.length ? `<ul class="svc-list">${list.map(x => `<li><div><b>${esc(x.cat)}</b><span>${esc(x.name)} · ${esc(dmy(x.at))} · ${kb(x.size)}${x.exp ? " · תוקף עד " + esc(fmtDate(x.exp)) : ""}</span></div><span class="doc-acts"><button type="button" class="x" data-doc="open" data-id="${x.id}" aria-label="פתיחה">${ico(x.type === "application/pdf" ? "doc" : "image")}</button><button type="button" class="x" data-doc="share" data-id="${x.id}" aria-label="שיתוף">${ico("share")}</button><button type="button" class="x" data-doc="del" data-id="${x.id}" aria-label="מחיקה">${ico("trash")}</button></span></li>`).join("")}</ul>` : "";
+  const exp = x => DOC_EXP_CATS.includes(x.cat) ? `<label class="doc-exp${x.exp ? "" : " need"}">תוקף עד <input class="inp" type="date" data-docexp="${x.id}" value="${esc(x.exp || "")}" min="2000-01-01" max="2099-12-31" aria-label="תוקף ${esc(x.cat)} עד"><small>${expHint(!!x.exp)}</small></label>` : "";
+  el.innerHTML = list.length ? `<ul class="svc-list">${list.map(x => `<li class="doc" data-cat="${esc(x.cat)}"><div><b>${esc(x.cat)}</b><span title="${esc(x.name)}"><bdi>${esc(shortName(x.name))}</bdi> · ${esc(dmy(x.at))} · ${kb(x.size)}</span></div><span class="doc-acts"><button type="button" class="x" data-doc="open" data-id="${x.id}" aria-label="פתיחה">${ico(x.type === "application/pdf" ? "doc" : "image")}</button><button type="button" class="x" data-doc="share" data-id="${x.id}" aria-label="שיתוף">${ico("share")}</button><button type="button" class="x" data-doc="del" data-id="${x.id}" aria-label="מחיקה">${ico("trash")}</button></span>${exp(x)}</li>`).join("")}</ul>` : "";
 }
 function docViewer(blob, name){
   const url = URL.createObjectURL(blob), el = document.createElement("div"); el.className = "doc-view";
@@ -3357,8 +3364,23 @@ document.addEventListener("click", async ev => {
 document.addEventListener("click", ev => { const b = ev.target.closest("[data-retry]"); if (b) run(b.dataset.retry); });
 // Footer links to our social pages: counted in /live as link_out {kind: "social", via: network}.
 document.addEventListener("click", ev => { const a = ev.target.closest("a[data-soc]"); if (a) track("link_out", {kind: "social", via: a.dataset.soc}); });
-document.addEventListener("change", ev => { const f = ev.target.closest("#docFile"); if (!f || !current) return; const files = [...f.files]; f.value = ""; if (files.length) { const ex = $("#docExp"); docsAdd(files, current.plate, ($("#docCat") || {}).value || "אחר", ex && DOC_EXP_CATS.includes(($("#docCat") || {}).value) ? ex.value : ""); if (ex) ex.value = ""; } });
-document.addEventListener("change", ev => { const c = ev.target.closest("#docCat"); const r = $("#docExpRow"); if (c && r) r.hidden = !DOC_EXP_CATS.includes(c.value); });
+document.addEventListener("change", ev => { const f = ev.target.closest("#docFile"); if (!f || !current) return; const files = [...f.files]; f.value = ""; if (files.length) docsAdd(files, current.plate, ($("#docCat") || {}).value || "אחר"); });
+// a saved document's expiry, kept the moment it is chosen (the phone's picker has its own "set"); a year typed digit by digit on a computer
+// passes through 0002, 0020... and is skipped. The row is not drawn again, so typing goes on; the history, tiles and "מה הבא" are.
+document.addEventListener("change", async ev => {
+  const i = ev.target.closest && ev.target.closest("[data-docexp]"); if (!i || !current) return;
+  const v = i.value, y = +v.slice(0, 4);
+  if (v && !(y >= 2000 && y <= 2099)) return;
+  const rec = await DocDB.get(+i.dataset.docexp).catch(() => null); if (!rec || (rec.exp || "") === v) return;
+  rec.exp = v;
+  try { await DocDB.upd(rec); } catch { toast("לא הצלחנו לשמור את התאריך בטלפון"); return; }
+  docExpSave([...docExpAll().filter(d => d.id !== rec.id), ...(v ? [{id: rec.id, plate: rec.plate, cat: rec.cat, exp: v}] : [])]);
+  track("doc_exp", {cat: rec.cat, on: v ? 1 : 0});
+  const l = i.closest(".doc-exp"); if (l) { l.classList.toggle("need", !v); const sm = l.querySelector("small"); if (sm) sm.textContent = expHint(!!v); }
+  toast(v ? `נשמר: ${rec.cat} בתוקף עד ${fmtDate(v)}` : "תאריך התוקף הוסר");
+  fillFile();
+  if (v && alertsSupported() && !trackedOk(rec.plate)) setTimeout(() => toast("כדי לקבל התראה על התוקף, שמרו את הרכב ב\"הרכבים שלי\""), 2600);
+});
 
 /* ---------- "תיק הרכב": the owner's tab, for a car marked as theirs; any other car gets the buyer's tabs (סקירה, קנייה, מפרט) ---------- */
 // the mark, {plate: 1 | 0} on this phone: a car with a service log or a document is the owner's until they say it is not (0)
@@ -3418,7 +3440,7 @@ function fileTiles(D, n, est){
   else { const l = svcLast(D.plate), ld = l && toDate(l.d); svc = ld ? tile("", "טיפול", dShort(ld), "האחרון שנרשם") : tile("", "טיפול", "לא נרשם", "רישום טיפול", `data-cf="svc"`); }
   const ins = docExpAll().filter(x => x.plate === D.plate && x.cat === "ביטוח" && toDate(x.exp)).sort((a, b) => a.exp < b.exp ? 1 : -1)[0];
   const insD = ins ? dayDiff(t0, toDate(ins.exp)) : 0;
-  const insT = !ins ? tile("", "ביטוח", "לא נשמר", "הוספת פוליסה", `data-cf="ins"`)
+  const insT = !ins ? (cfFor === D.plate && cfDocs.some(x => x.cat === "ביטוח") ? tile("", "ביטוח", "בלי תאריך", "הוספת תאריך תוקף", `data-cf="ins"`) : tile("", "ביטוח", "לא נשמר", "הוספת פוליסה", `data-cf="ins"`))
     : insD < 0 ? tile("bad", "ביטוח", "פג", dShort(toDate(ins.exp))) : tile(insD <= 30 ? "warn" : "ok", "ביטוח", insD <= 30 ? daysWord(insD) : "בתוקף", dShort(toDate(ins.exp)));
   const pr = D.isCancelled || D.recallUnknown ? [] : pendingRecalls(D);
   const rec = D.recallUnknown ? tile("", "ריקולים", "לא זמין", "נסו שוב בהמשך")
@@ -3466,7 +3488,7 @@ function fileEvents(D, docs, forPdf){
     ev.push({t, when: fmtDate(x.d), k: "svc", cls: "own", title: km ? `קריאת ק״מ: ${fmtN(x.km)}` : `${x.type}${x.cost && !forPdf ? ` · ${fmtN(x.cost)} ₪` : ""}`,
       sub: [!km && x.km ? `${fmtN(x.km)} ק״מ` : "", forPdf ? "" : x.note || ""].filter(Boolean).join(" · "), del: x.id});
   }
-  for (const x of docs) ev.push({t: new Date(x.at), when: fmtDate(ymdOf(new Date(x.at))), k: "doc", cls: "own", title: x.cat, sub: [x.name, x.exp ? `תוקף עד ${fmtDate(x.exp)}` : ""].filter(Boolean).join(" · "), open: x.id, pdf: x.type === "application/pdf"});
+  for (const x of docs) ev.push({t: new Date(x.at), when: fmtDate(ymdOf(new Date(x.at))), k: "doc", cls: "own", title: x.cat, sub: [shortName(x.name), x.exp ? `תוקף עד ${fmtDate(x.exp)}` : ""].filter(Boolean).join(" · "), open: x.id, pdf: x.type === "application/pdf"});
   const tt = toDate(D.v.mivchan_acharon_dt);
   if (tt) ev.push({t: tt, when: fmtDate(D.v.mivchan_acharon_dt), k: "gov", title: "טסט", sub: [D.km ? `${fmtN(D.km)} ק״מ` : "", gov].filter(Boolean).join(" · ")});
   D.own.forEach((r, i) => { const t = parseYM(r.baalut_dt); if (t) ev.push({t, when: ym(t), k: "gov", title: i === 0 && !D.ownersFloor ? "בעלות ראשונה" : isDealerRec(r) ? "עבר לסוחר" : "העברת בעלות", sub: [String(r.baalut || "").trim(), gov].filter(Boolean).join(" · ")}); });
@@ -3504,8 +3526,10 @@ async function roadDocs(D){
 function openDocsFold(cat){
   const h = document.querySelector('#tabpanel [data-fold="מסמכים"]'); if (!h) return;
   if (h.getAttribute("aria-expanded") === "false") h.click();
-  const sel = $("#docCat"); if (sel && cat) { sel.value = cat; sel.dispatchEvent(new Event("change", {bubbles: true})); }
-  h.scrollIntoView({block: "start", behavior: "smooth"});
+  const sel = $("#docCat"); if (sel && cat) sel.value = cat;
+  // a saved document of that kind without its date: to its date, else to the card
+  const need = cat && [...document.querySelectorAll("#docList li.doc")].find(li => li.dataset.cat === cat && li.querySelector(".doc-exp.need"));
+  (need || h).scrollIntoView({block: need ? "center" : "start", behavior: "smooth"});
 }
 /* the file as a PDF for a buyer: the services and km readings without what they cost or the owner's notes, and the ministry's records */
 async function historyPdf(D, btn){
@@ -3558,10 +3582,18 @@ async function fillFile(){
   const D = current; let list = [];
   try { list = (await DocDB.byPlate(D.plate)).sort((a, b) => b.at - a.at); } catch { return; }
   if (current !== D || cfFor !== D.plate) return;
-  const key = l => l.map(x => x.id).join(",");
+  const key = l => l.map(x => x.id + ":" + (x.exp || "")).join(",");
   if (key(list) === key(cfDocs)) return;
   cfDocs = list.map(({blob, ...x}) => x);   // the history needs the names and dates, never the files
   const el = $("#cfHist"); if (el) el.innerHTML = fileHist(D, cfDocs);
+  fileTop(D);
+}
+/* the tiles and "מה הבא" read the documents and their dates: drawn again in place when they change, the rest of the tab stays */
+function fileTop(D){
+  const t = document.querySelector("#tabpanel .cf-tiles"), h = document.querySelector('#tabpanel [data-fold="מה הבא"]'); if (!t && !h) return;
+  const info = serviceInfo(D), n = maintOk() ? svcNext(svcOf(D.plate)) : null, est = n ? null : svcEst(D, info);
+  if (t) t.outerHTML = fileTiles(D, n, est);
+  if (h) h.closest(".card").outerHTML = fileNext(D, info, n, est);
 }
 document.addEventListener("click", ev => {
   const b = ev.target.closest && ev.target.closest("[data-cfh]"); if (!b || !current) return;
