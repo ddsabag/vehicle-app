@@ -1682,8 +1682,12 @@ function toggleSaved(item){
   if (list.length >= savedCap()) { toast(`הרשימה מלאה (${savedCap()} רכבים). הסירו רכב כדי להוסיף.`); return false; }
   store.set("savedVehicles", [item, ...list]); updateSavedBar(); if (current && current.plate === item.plate) snapPut(current); return true;
 }
-function remember(p){
-  store.set("recentPlates", [p, ...store.get("recentPlates").filter(x => x !== p)].slice(0, 6));
+/* the model's name under each recent plate on home, for cars that were not saved too (this phone only, the same 6 plates) */
+const recentNames = () => { try { return JSON.parse(localStorage.getItem("recentNames") || "{}") || {}; } catch { return {}; } };
+function remember(p, name){
+  const list = [p, ...store.get("recentPlates").filter(x => x !== p)].slice(0, 6);
+  store.set("recentPlates", list);
+  try { const m = recentNames(), keep = {}; if (name) m[p] = name; list.forEach(x => { if (m[x]) keep[x] = m[x]; }); localStorage.setItem("recentNames", JSON.stringify(keep)); } catch {}
   // after the third car the app found, Google's rating card is offered once (Google decides if it shows)
   try {
     const n = Number(localStorage.getItem("lookups") || 0) + 1; localStorage.setItem("lookups", String(n));
@@ -2879,7 +2883,7 @@ async function lookup(raw){
   renderResult(); focusResult();
   // exactly 8 params: the app bridge keeps the first 8 (MainActivity.logEvent) and the web Worker 10 with src+camp; a 9th silently drops the last
   track(again ? "lookup_repeat" : "car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: D.errs && D.errs.length ? 1 : 0, role: roleOf(D), ...lookupFacts(D)});
-  remember(plate);
+  remember(plate, D.kind === "model" ? "" : D.title);
   window.scrollTo({top: 0});
   // a first visit on a slow line can render before the settlements list arrives: once it does, show its answer (a match, or "not found"
   // in place of "not loaded") for every car the list is checked for (settlementsFor)
@@ -6793,7 +6797,7 @@ function renderHome(){
   const attn = saved.filter(carAttn);
   if (attn.length) html.push(`<button type="button" class="attn${attn.some(s => carLevel(s) === "bad") ? "" : " warn"}" data-nav="alerts" data-via="attn"><span class="ai">${ico("alert")}</span><span class="t"><b>${attn.length === 1 ? "רכב אחד מהרכבים שלכם צריך תשומת לב" : `${attn.length} מהרכבים שלכם צריכים תשומת לב`}</b><small>${alertItems().slice(0, 2).map(x => `${esc(x.k || x.t)}: <bdi>${esc(x.s.nick || x.s.title)}</bdi>`).join(" · ")}</small></span>${ico("chev")}</button>`);
   if ((saved.length || recent.length) && !anyMine()) html.push(`<div class="tlist hfile"><button type="button" class="trow" data-act="fileHome"><i class="tb blue">${ico("car")}</i><span class="t"><b>יש לכם כבר רכב? פתחו לו תיק</b><small>טסט, טיפולים ומסמכים לנסיעה, במקום אחד</small></span>${ico("chev")}</button></div>`);
-  if (recent.length) html.push(`<section class="recents" aria-label="בדיקות אחרונות"><div class="qhead">בדיקות אחרונות</div><div class="rc-row">${recent.map(p => { const s = saved.find(x => x.plate === p); return `<button type="button" class="rc" data-open="${p}"><span class="mini-plate"><i></i>${fmtPlate(p)}</span>${s ? `<small><bdi>${esc(s.nick || s.title)}</bdi></small>` : ""}</button>`; }).join("")}</div></section>`);
+  if (recent.length) html.push(`<section class="recents" aria-label="בדיקות אחרונות"><div class="qhead">בדיקות אחרונות</div><div class="rc-row">${recent.map(p => { const s = saved.find(x => x.plate === p), nm = s ? s.nick || s.title : recentNames()[p]; return `<button type="button" class="rc" data-open="${p}"><span class="mini-plate"><i></i>${fmtPlate(p)}</span>${nm ? `<small><bdi>${esc(nm)}</bdi></small>` : ""}</button>`; }).join("")}</div></section>`);
   const tool = (act, icon, title, text, tag, col) => `<button type="button" class="trow" data-act="${act}"><i class="tb ${col}">${ico(icon)}</i><span class="t"><b>${title}${tag ? PT(tag) : ""}</b><small>${text}</small></span>${ico("chev")}</button>`;
   html.push(`<div class="qhead">כלים</div><div class="tlist">${[
     tool("compareHome", "compare", "חיפוש דגמים", "דגם, או סוג ותקציב. אפשר גם להשוות עד " + cmpMax(), "", "violet"),
@@ -6926,7 +6930,7 @@ document.querySelectorAll("[data-alerts]").forEach(b => b.addEventListener("clic
 $("#closeSettings").addEventListener("click", () => { sheet.hidden = true; $("#openSettings").focus(); });
 sheet.addEventListener("click", ev => { if (ev.target === sheet) sheet.hidden = true; });
 document.addEventListener("keydown", ev => { if (ev.key === "Escape") { const dv = document.querySelector(".doc-view"); if (dv) dv.click(); sheet.hidden = true; $("#compareSheet").hidden = true; $("#shareSheet").hidden = true; $("#homeSheet").hidden = true; } });
-$("#clearRecent").addEventListener("click", () => { store.set("recentPlates", []); toast("היסטוריית החיפושים נמחקה"); refreshView(); });
+$("#clearRecent").addEventListener("click", () => { store.set("recentPlates", []); try { localStorage.removeItem("recentNames"); } catch {} toast("היסטוריית החיפושים נמחקה"); refreshView(); });
 $("#clearSaved").addEventListener("click", () => { store.set("savedVehicles", []); toast("הרכבים שלי נמחקו"); refreshView(); });
 $("#ver").textContent = APP_VERSION;
 /* in-app update (Google Play installs only): one quiet offer per version, plus a manual check in settings */
