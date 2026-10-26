@@ -22,6 +22,9 @@ jobs:
       # titles, descriptions, h1, canonical, alt, OG, JSON-LD, internal links, orphans, sitemap, robots
       - name: SEO lint
         run: node .github/scripts/seo-check.mjs
+      # the home FAQ: the static section crawlers read and the FAQPage JSON-LD must say the same
+      - name: FAQ parity
+        run: node .github/scripts/faq-parity.mjs
       # the ministry's recall lists per maker (catalog-data branch, catalog.yml) for the model pages' recall section (model-recalls.mjs);
       # without them pages.mjs builds the pages without that section and prints a warning
       - name: Recall lists for the model pages
