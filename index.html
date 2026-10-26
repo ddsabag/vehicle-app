@@ -446,7 +446,7 @@ button.cf-tile{cursor:pointer}
 .pick{border:1px solid var(--line);background:var(--soft);border-radius:10px;padding:8px 14px;font-weight:700;font-size:.9rem;cursor:pointer;color:var(--fg)}.link-btn.danger{color:var(--bad)}
 .fuel-set{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .fuel-set input.wide{width:170px;text-align:start;font-family:var(--f-body)}
-.fuel-set input{width:110px;border:1px solid var(--line);background:var(--soft);color:var(--fg);border-radius:9px;padding:8px 10px;font:500 1rem var(--f-num);text-align:center}
+.fuel-set input{width:110px;border:1px solid var(--line);background:var(--soft);color:var(--fg);border-radius:9px;padding:8px 10px;font:400 1rem var(--f-body);font-variant-numeric:tabular-nums;text-align:center}
 /* comparison */
 .cmp{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:6px;align-items:stretch;position:sticky;top:0;z-index:3;background:var(--card);padding-block:8px;margin-block:-8px}
 .cmp>.ph{display:none}
@@ -666,7 +666,8 @@ body.land .band{display:none}
 .cmp-v .yes{color:var(--fg);font-weight:800}.cmp-v .no{color:var(--muted);font-weight:400}
 @media (max-width:360px){.facts{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
-.msg.edge{text-align:center}.edge-i{font-size:2.6rem;line-height:1;margin-bottom:10px}.msg.edge+.link-btn{align-self:center}
+.msg.edge{text-align:center}/* edge states draw from the same line icons as the rest of the app (an emoji looks different on every phone) */
+.edge-i{display:grid;place-items:center;width:52px;height:52px;margin:0 auto 10px;border-radius:50%;background:var(--soft);background:color-mix(in srgb,currentColor 12%,transparent)}.edge-i svg.i{width:26px;height:26px}.msg.edge+.link-btn{align-self:center}
 button:not(:disabled):active,.link-btn:active,.act:active,.tabs button:active,a.row:active,[data-url]:active,[data-tab]:active,.head[data-fold]:active{box-shadow:none}
 @media (prefers-reduced-motion:no-preference){button:not(:disabled),.link-btn,.act,a.row,[data-url],[data-tab],.head[data-fold]{transition:transform .08s ease-out,box-shadow .12s}button:not(:disabled):active,.link-btn:active,.act:active,a.row:active,[data-url]:active,[data-tab]:active,.head[data-fold]:active{transform:scale(.98)}}
 @media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{background:#fff}.brand-r,#f,.in-alt,.in-msg,.tabs,.actions,.link-btn,.apphint,.appbox,.webcta,.savedbar,.toast,.plate-strip,#settings,.chev,.copy-btn,[data-url],[data-copy]{display:none!important}.band{background:#fff;border-bottom:3px solid var(--plate)}.card,.alert-banner,.msg{box-shadow:none!important;border:1px solid #dde2ea;break-inside:avoid}.card.folded .fold-body{display:flex!important}}
@@ -736,7 +737,7 @@ body[data-screen=car] main,body[data-screen=sub] main,body[data-screen=cars] mai
 .ch-t .mini-plate{font-size:.85rem;padding:1px 6px 1px 3px;gap:4px;white-space:nowrap}
 .ch-t b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:800;font-size:1rem}
 .ch-b.star[aria-pressed=true] svg.i{fill:currentColor}
-.ch-doc{flex:0 0 auto;height:36px;margin-inline:4px;padding:0 12px 0 10px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--accent);font-weight:800;font-size:.9rem;display:inline-flex;align-items:center;gap:6px}.ch-doc svg.i{width:18px;height:18px}
+.ch-doc{flex:0 0 auto;height:40px;margin-inline:4px;padding:0 12px 0 10px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--accent);font-weight:800;font-size:.9rem;display:inline-flex;align-items:center;gap:6px}.ch-doc svg.i{width:18px;height:18px}
 @media (max-width:359px){.ch-doc{padding:0 11px}.ch-doc .ch-dt{display:none}}   /* 320px: the plate keeps its room next to back, star and more */
 .ch-m{position:relative;flex:0 0 auto}
 .ch-menu{position:absolute;inset-inline-end:0;top:46px;min-width:220px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 14px 34px -12px rgba(20,30,50,.35);padding:6px 0;z-index:13}
@@ -759,12 +760,9 @@ html.web main#out > .chead{grid-column:1/-1}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;box-shadow:0 0 0 4px color-mix(in srgb,currentColor 15%,transparent);flex:0 0 auto}
 .dot.ok{color:var(--t-green);background:var(--t-green)}.dot.warn{color:var(--t-amber);background:var(--t-amber)}.dot.bad{color:var(--t-red);background:var(--t-red)}
 /* list or table: one switch, the same cars */
-.vseg{display:grid;grid-template-columns:1fr 1fr;padding:4px;border-radius:14px;background:color-mix(in srgb,var(--accent) 10%,transparent)}
-.vseg button{border:0;background:none;height:40px;border-radius:11px;font-weight:800;color:var(--accent)}
-.vseg button[aria-selected=true]{background:var(--accent);color:var(--accent-fg);box-shadow:0 6px 16px -8px var(--accent)}
-/* the view switch is a quiet setting, so the filter chip under it is the one strong choice on the screen */
-.vseg{background:var(--soft);border:1px solid var(--line);padding:3px;border-radius:12px;max-width:260px}
-.vseg button{height:36px;border-radius:9px;color:var(--muted);font-weight:700}
+/* the view switch is a quiet setting, so the filter chip under it is the one strong choice on the screen; its buttons keep the 40px tap height */
+.vseg{display:grid;grid-template-columns:1fr 1fr;padding:3px;border-radius:12px;max-width:260px;background:var(--soft);border:1px solid var(--line)}
+.vseg button{border:0;background:none;height:40px;border-radius:9px;color:var(--muted);font-weight:700}
 .vseg button[aria-selected=true]{background:var(--card);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.12)}
 .fchips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding-inline:16px}.fchips::-webkit-scrollbar{display:none}
 .fchips button{flex:0 0 auto;height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted);font-weight:700;font-size:.9rem}
@@ -789,13 +787,13 @@ html.web main#out > .chead{grid-column:1/-1}
 .cc-strip.bad{background:var(--bad-bg);color:var(--bad)}.cc-strip.warn{background:var(--warn-bg);color:var(--warn)}
 .cc-strip svg.i{width:18px;height:18px}
 .tm-r{display:flex;align-items:baseline;justify-content:space-between;gap:12px;font-size:.9rem}.tm-r span{color:var(--muted);font-variant-numeric:tabular-nums}
-.tmeter b{color:color-mix(in srgb,var(--fg) 82%,transparent)}.tmeter.warn b{color:var(--warn)}.tmeter.bad b{color:var(--bad)}
+.tmeter b{color:var(--fg);color:color-mix(in srgb,var(--fg) 82%,transparent)}.tmeter.warn b{color:var(--warn)}.tmeter.bad b{color:var(--bad)}
 .tm-bar{display:block;height:6px;margin-top:7px;border-radius:999px;background:var(--line);overflow:hidden}
-.tm-bar i{display:block;height:100%;border-radius:999px;background:color-mix(in srgb,var(--fg) 25%,transparent)}
+.tm-bar i{display:block;height:100%;border-radius:999px;background:var(--muted);background:color-mix(in srgb,var(--fg) 25%,transparent)}
 .tmeter.warn .tm-bar i{background:var(--t-amber)}.tmeter.bad .tm-bar i{background:var(--t-red)}
-.pmeter b{color:color-mix(in srgb,var(--fg) 82%,transparent)}
+.pmeter b{color:var(--fg);color:color-mix(in srgb,var(--fg) 82%,transparent)}
 .pm-bar{position:relative;display:block;height:6px;margin-top:9px;border-radius:999px;background:var(--line)}
-.pm-band{position:absolute;top:0;bottom:0;border-radius:999px;background:color-mix(in srgb,var(--accent) 32%,transparent)}
+.pm-band{position:absolute;top:0;bottom:0;border-radius:999px;background:var(--t-blue-bg);background:color-mix(in srgb,var(--accent) 32%,transparent)}
 .pm-dot{position:absolute;top:50%;width:14px;height:14px;margin-top:-7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--card)}
 .pm-lbl{position:relative;display:block;height:16px;margin-top:4px;font-size:.78rem;color:var(--muted);font-variant-numeric:tabular-nums}.pm-lbl span{position:absolute}
 .pmeter small{display:block;font-size:.78rem;color:var(--muted)}
@@ -930,7 +928,7 @@ body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)
   <button type="button" data-nav="alerts"><span class="bn-i"><svg class="i"><use href="#i-bell"/></svg><i class="bn-badge" id="bnBadge" hidden></i></span><span>התראות</span></button>
   <form class="bn-f" id="bnF" autocomplete="off" role="search"><label class="bn-pl"><span class="bn-il" aria-hidden="true">IL</span><input id="bnPlate" inputmode="numeric" placeholder="בדיקת רכב נוסף" maxlength="10" aria-label="מספר רישוי לבדיקה"></label><button type="submit" class="bn-go" aria-label="בדיקה"><svg class="i" aria-hidden="true"><use href="#i-search"/></svg></button></form>
 </div></nav>
-<footer>המידע מגיע מהמאגרים הפתוחים של משרד התחבורה ב-<a href="https://data.gov.il/" target="_blank" rel="noopener">data.gov.il</a>, ואינו מחליף נסח רישום רשמי. האפליקציה אינה קשורה למשרד התחבורה או לגוף ממשלתי.<span id="mdlLink"> <a href="check/">מה אפשר לבדוק לפי מספר רישוי</a> · <a href="model/">דגמים נפוצים בישראל</a> · <a href="business/">לעסקים</a> · <a href="magazine/">מגזין</a> · <a href="guide/buy-used-car/">מדריך לקונה</a> · <a href="privacy.html">מדיניות פרטיות</a></span><span id="soc" class="soc">עקבו אחרינו: <a href="https://www.tiktok.com/@luchit.app" target="_blank" rel="noopener me" data-soc="tiktok" aria-label="לוחית בטיקטוק" title="לוחית בטיקטוק"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg></a><a href="https://www.instagram.com/luchit.app/" target="_blank" rel="noopener me" data-soc="instagram" aria-label="לוחית באינסטגרם" title="לוחית באינסטגרם"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.3" cy="6.7" r="1.3" fill="currentColor"/></svg></a><a href="https://www.facebook.com/profile.php?id=61595507021640" target="_blank" rel="noopener me" data-soc="facebook" aria-label="לוחית בפייסבוק" title="לוחית בפייסבוק"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg></a></span></footer>
+<footer>המידע מגיע מהמאגרים הפתוחים של משרד התחבורה ב-<a href="https://data.gov.il/" target="_blank" rel="noopener">data.gov.il</a>, ואינו מחליף נסח רישום רשמי. לוחית אינה קשורה למשרד התחבורה או לגוף ממשלתי.<span id="mdlLink"> <a href="check/">מה אפשר לבדוק לפי מספר רישוי</a> · <a href="model/">דגמים נפוצים בישראל</a> · <a href="business/">לעסקים</a> · <a href="magazine/">מגזין</a> · <a href="guide/buy-used-car/">מדריך לקונה</a> · <a href="privacy.html">מדיניות פרטיות</a></span><span id="soc" class="soc">עקבו אחרינו: <a href="https://www.tiktok.com/@luchit.app" target="_blank" rel="noopener me" data-soc="tiktok" aria-label="לוחית בטיקטוק" title="לוחית בטיקטוק"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg></a><a href="https://www.instagram.com/luchit.app/" target="_blank" rel="noopener me" data-soc="instagram" aria-label="לוחית באינסטגרם" title="לוחית באינסטגרם"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.3" cy="6.7" r="1.3" fill="currentColor"/></svg></a><a href="https://www.facebook.com/profile.php?id=61595507021640" target="_blank" rel="noopener me" data-soc="facebook" aria-label="לוחית בפייסבוק" title="לוחית בפייסבוק"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg></a></span></footer>
 <script>(function(){if(!window.AndroidApp)document.documentElement.classList.add("web");if(window.AndroidApp){["mdlLink","soc"].forEach(function(i){var x=document.getElementById(i);if(x)x.remove()})}})()</script>
 
 <div class="sheet" id="settings" hidden role="dialog" aria-modal="true" aria-labelledby="setTitle">
@@ -939,7 +937,7 @@ body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)
     <section class="set-sec" aria-labelledby="ssView"><h3 id="ssView">תצוגה</h3>
       <div class="set-grp">
         <div class="set-row"><span>רקע</span>
-          <div class="seg" role="group" aria-label="רקע"><button type="button" data-theme-choice="light">בהיר</button><button type="button" data-theme-choice="dark">כהה</button><button type="button" data-theme-choice="auto">לפי הטלפון</button></div>
+          <div class="seg" role="group" aria-label="רקע"><button type="button" data-theme-choice="light">בהיר</button><button type="button" data-theme-choice="dark">כהה</button><button type="button" data-theme-choice="auto">לפי המכשיר</button></div>
         </div>
         <div class="set-row"><span>צריכת דלק</span>
           <div class="seg two" role="group" aria-label="יחידת צריכת דלק" id="unitSeg"><button type="button" data-unit="l100">ליטר ל-100 ק״מ</button><button type="button" data-unit="kml">ק״מ לליטר</button></div>
@@ -959,7 +957,7 @@ body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)
         <div class="fuel-set"><label for="fuelPrice">בנזין (₪ לליטר)</label><input id="fuelPrice" inputmode="decimal" placeholder="8.27"></div>
         <div class="fuel-set"><label for="dieselPrice">סולר (₪ לליטר)</label><input id="dieselPrice" inputmode="decimal" placeholder="לא הוגדר"></div>
         <div class="fuel-set"><label for="elecPrice">חשמל (₪ לקוט״ש)</label><input id="elecPrice" inputmode="decimal" placeholder="0.64"></div>
-        <p class="note" id="fuelNote">לחישוב עלות חודשית ולהשוואת רכבים. כשהשדה ריק, האפליקציה משתמשת במחיר המפוקח העדכני, שמתעדכן אוטומטית בכל חודש.</p>
+        <p class="note" id="fuelNote">לחישוב עלות חודשית ולהשוואת רכבים. כשהשדה ריק, לוחית משתמשת במחיר המפוקח העדכני, שמתעדכן אוטומטית בכל חודש.</p>
       </div>
     </section>
     <div class="set-grp set-row" id="planRow"><span>החבילה שלי</span><p class="note" id="planNote"></p><button class="link-btn" type="button" id="planBtn">פרטי החבילות</button></div>
@@ -1740,7 +1738,7 @@ function fuelDefault(kind){
 function showFuelDefaults(){
   const f = $("#fuelPrice"), d = $("#dieselPrice"); if (!f) return;
   f.placeholder = String(fuelDefault("petrol")); d.placeholder = fuelDefault("diesel") ? String(fuelDefault("diesel")) : "לא הוגדר";
-  if (fuelLive && fuelLive.month) $("#fuelNote").textContent = `כשהשדה ריק, האפליקציה משתמשת במחיר העדכני (${monthHe(fuelLive.month)}), שמתעדכן אוטומטית בכל חודש.`;
+  if (fuelLive && fuelLive.month) $("#fuelNote").textContent = `כשהשדה ריק, לוחית משתמשת במחיר העדכני (${monthHe(fuelLive.month)}), שמתעדכן אוטומטית בכל חודש.`;
 }
 async function loadFuel(){
   try {
@@ -2882,7 +2880,7 @@ async function lookup(raw){
   const ot = openTab; openTab = null;
   const plate = digits(raw).replace(/^0+(?=\d{5})/, "");
   const out = $("#out");
-  if (plate.length < 5 || plate.length > 8) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true">🔢</div>מספר רישוי צריך להכיל 5 עד 8 ספרות.</div>`; return; }
+  if (plate.length < 5 || plate.length > 8) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-id"/></svg></div>מספר רישוי צריך להכיל 5 עד 8 ספרות.</div>`; return; }
   if (ctrl) ctrl.abort();
   ctrl = new AbortController(); const signal = ctrl.signal;
   let timedOut = false; const deadT = setTimeout(() => { timedOut = true; ctrl.abort(); }, 30000);   // a server that never answers must end in a clear message, not a bar that runs for a minute
@@ -2905,10 +2903,10 @@ async function lookup(raw){
   await side;
   if (signal.aborted && !timedOut) return;
   if (D.offline || (D.notFound && isSaved(plate))) { const sn = snapGet(plate); if (sn) { track("lookup_from_cache"); current = sn; currentTab = ot && ot.p === plate ? ot.t : "overview"; renderResult(); focusResult(); window.scrollTo({top: 0}); return; } }
-  if (D.sourceDown) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true">🛠️</div>מאגר הרכבים של משרד התחבורה לא מחזיר נתונים כרגע, בלי קשר למספר שהקלדתם. זו תקלה אצל המשרד. נסו שוב מאוחר יותר.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; track("lookup_failed", {kind: "source_down", dur: durB}); return; }
+  if (D.sourceDown) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-wrench"/></svg></div>מאגר הרכבים של משרד התחבורה לא מחזיר נתונים כרגע, בלי קשר למספר שהקלדתם. זו תקלה אצל המשרד. נסו שוב מאוחר יותר.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; track("lookup_failed", {kind: "source_down", dur: durB}); return; }
   if (D.offline || D.notFound) track("lookup_failed", {kind: D.sourceDown ? "source_down" : D.offline ? "offline" : "not_found", dur: durB});
-  if (D.offline) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true">📡</div>${navigator.onLine === false ? "אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב." : "מאגרי משרד התחבורה לא עונים כרגע (תקלה או עומס אצל המשרד, לא אצלכם). נסו שוב בעוד כמה דקות."}</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; return; }
-  if (D.notFound) { out.innerHTML = `<div class="msg edge"><div class="edge-i" aria-hidden="true">🔍</div>לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.<p class="note" style="margin:8px 0 0">בדקנו את כל מאגרי משרד התחבורה, כולל רכבים שירדו מהכביש, דו-גלגלי ויבוא אישי. רכב שעלה לכביש בימים האחרונים יופיע אחרי העדכון הבא של המאגר.</p></div>`; return; }
+  if (D.offline) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-globe"/></svg></div>${navigator.onLine === false ? "אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב." : "מאגרי משרד התחבורה לא עונים כרגע (תקלה או עומס אצל המשרד, לא אצלכם). נסו שוב בעוד כמה דקות."}</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; return; }
+  if (D.notFound) { out.innerHTML = `<div class="msg edge"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-search"/></svg></div>לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.<p class="note" style="margin:8px 0 0">בדקנו את כל מאגרי משרד התחבורה, כולל רכבים שירדו מהכביש, דו-גלגלי ויבוא אישי. רכב שעלה לכביש בימים האחרונים יופיע אחרי העדכון הבא של המאגר.</p></div>`; return; }
   current = D; currentTab = ot && ot.p === D.plate ? ot.t : "overview";
   snapPut(D); savedSync(D);
   renderResult(); focusResult();
@@ -2930,7 +2928,7 @@ function fixRows(r, d) {
   return rows.length ? `<div class="fix">${rows.map(([k, x]) => `<div><span>${k}</span>${esc(x)}</div>`).join("")}</div>` : "";
 }
 const D_pick = (...a) => a.find(x => !empty(x));
-const loadingHtml = plate => `<div class="msg" aria-busy="true"><p class="note" style="margin-bottom:10px">מחפש את <span class="mono">${fmtPlate(plate)}</span> במאגרי משרד התחבורה…</p></div><div id="skl" class="skl" aria-hidden="true"><div class="card"><i class="s w60 h24"></i><i class="s w40"></i><div class="sr"><i class="s pill-s"></i><i class="s pill-s"></i><i class="s pill-s"></i></div><div class="sr g4"><i class="s blk"></i><i class="s blk"></i><i class="s blk"></i><i class="s blk"></i></div></div><div class="card"><i class="s w50 h18"></i><i class="s w90"></i><i class="s w70"></i></div><div class="card"><i class="s w40 h18"></i><i class="s w90"></i><i class="s w90"></i><i class="s w60"></i></div></div>`;
+const loadingHtml = plate => `<div class="msg" aria-busy="true"><p class="note" style="margin-bottom:10px">בודקים את <span class="mono">${fmtPlate(plate)}</span> במאגרי משרד התחבורה…</p></div><div id="skl" class="skl" aria-hidden="true"><div class="card"><i class="s w60 h24"></i><i class="s w40"></i><div class="sr"><i class="s pill-s"></i><i class="s pill-s"></i><i class="s pill-s"></i></div><div class="sr g4"><i class="s blk"></i><i class="s blk"></i><i class="s blk"></i><i class="s blk"></i></div></div><div class="card"><i class="s w50 h18"></i><i class="s w90"></i><i class="s w70"></i></div><div class="card"><i class="s w40 h18"></i><i class="s w90"></i><i class="s w90"></i><i class="s w60"></i></div></div>`;
 
 /* Plain view: the same data as dry rows, no insights, tabs or explanations */
 let simpleMore = false;
@@ -2969,7 +2967,7 @@ function srcFoot(){
   // the ownership register is empty at the ministry for now and our own copy fills in; only warn when this car really lacks the data
   const hasOwn = current && current.own && current.own.length;
   const down = st ? Object.keys(st.sets).filter(k => !st.sets[k].ok && !(k === "owners" && hasOwn)).map(k => names[k]) : [];
-  return `<p class="src-foot" id="srcFoot">המידע נשלף מנתוני משרד התחבורה ב-data.gov.il${a && a.modified ? `, המאגר הראשי עודכן ב-${fmtDay(a.modified)}` : ""}.${down.length ? `<br>מאגרי המשרד האלה אינם מגיבים כרגע, ולכן ייתכן שחסר מידע: ${down.join(", ")}.` : ""}${STALE_AT ? `<br><b>המשרד לא ענה, והמידע נלקח מעותק שמור מ-${fmtDay(STALE_AT)}.</b>` : ""}<br>האפליקציה אינה קשורה למשרד התחבורה, והמידע אינו מחליף נסח רישום רשמי או בדיקה במכון מורשה.</p>`;
+  return `<p class="src-foot" id="srcFoot">המידע נשלף מנתוני משרד התחבורה ב-data.gov.il${a && a.modified ? `, המאגר הראשי עודכן ב-${fmtDay(a.modified)}` : ""}.${down.length ? `<br>מאגרי המשרד האלה אינם מגיבים כרגע, ולכן ייתכן שחסר מידע: ${down.join(", ")}.` : ""}${STALE_AT ? `<br><b>המשרד לא ענה, והמידע נלקח מעותק שמור מ-${fmtDay(STALE_AT)}.</b>` : ""}<br>לוחית אינה קשורה למשרד התחבורה, והמידע אינו מחליף נסח רישום רשמי או בדיקה במכון מורשה.</p>`;
 }
 async function loadStatus(){
   if (DATA_STATUS) return;
@@ -2979,9 +2977,11 @@ async function loadStatus(){
     const el = $("#srcFoot"); if (el) el.outerHTML = srcFoot();
   } catch {}
 }
-const appBox = D => `<section class="appbox"><h3>באתר רואים את הרכב. באפליקציה הוא עובד בשבילכם</h3><p>אותה בדיקה, ועוד:</p><ul><li>התראה כשהטסט מתקרב או שנפתח ריקול</li><li>הודעה אם הרכב עבר בעלות או ירד מהכביש</li><li>הסדרי פשרה: בדיקה אם ייתכן שהרכב שלכם נכלל בהטבה מהיבואן</li><li>תיק רכב: מה הבא, טיפולים ומסמכים, על הטלפון</li><li>צילום לוחית ואמירת מספר, במקום להקליד</li></ul><button type="button" class="btn" data-url="${playWeb("result_box")}" data-hint="side">להורדה ב-Google Play</button></section>`;
+const appBox = D => `<section class="appbox"><h3>באתר רואים את הרכב. באפליקציה הוא עובד בשבילכם</h3><p>אותה בדיקה, ועוד:</p><ul><li>התראה כשהטסט מתקרב או שנפתח ריקול</li><li>הודעה אם הרכב עבר בעלות או ירד מהכביש</li><li>הסדרי פשרה: בדיקה אם ייתכן שהרכב שלכם נכלל בהטבה מהיבואן</li><li>תיק הרכב: מה הבא, טיפולים ומסמכים, בטלפון</li><li>צילום לוחית ואמירת מספר, במקום להקליד</li></ul><button type="button" class="btn" data-url="${playWeb("result_box")}" data-hint="side">להורדה ב-Google Play</button></section>`;
 /* web visitors who arrive from a shared report (s= in the link): a bar that opens the app on this very car (Android), or a calendar reminder (everyone else) */
 const IS_ANDROID = /Android/i.test(navigator.userAgent);
+/* where the owner's notes are kept: the app keeps them on the phone, the site in this browser only (a desktop has no phone, Safari and the home-screen icon keep separate copies) */
+const HERE = window.AndroidApp ? "בטלפון הזה" : "בדפדפן הזה";
 /* iPhone and iPad: there is no app for them, so nothing points them at Google Play */
 const IS_IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
 /* Facebook, Instagram, TikTok, Telegram... open links in their own browser, where intent:// links and App Links do not work and files cannot be downloaded */
@@ -3575,7 +3575,7 @@ function watchCta(p){
 function fileCta(D){
   if (!fileOk(D)) return "";
   setTimeout(() => { if (current === D) watchCta(D.plate); }, 0);
-  return `<div class="cf-cta"><span><b>זה הרכב שלכם?</b> פתחו לו תיק: מה הבא, טיפולים ומסמכים, במקום אחד ורק בטלפון שלכם.</span><button type="button" class="link-btn" data-cf="mine" data-from="overview">${ico("car")}פתיחת תיק</button></div>`;
+  return `<div class="cf-cta"><span><b>זה הרכב שלכם?</b> פתחו לו תיק: מה הבא, טיפולים ומסמכים, במקום אחד ורק ${HERE}.</span><button type="button" class="link-btn" data-cf="mine" data-from="overview">${ico("car")}פתיחת תיק</button></div>`;
 }
 const RENEW_URL = "https://www.gov.il/he/service/car_licence_renewal";
 const ROAD_CATS = ["רישיון רכב", "ביטוח", "רישיון נהיגה"];
@@ -3621,7 +3621,7 @@ function fileNext(D, info, n, est){
   if (maintOk() && n && n.due) {
     const d = dayDiff(t0, n.due), o = info && info.opts && info.opts.length === 1 ? info.opts[0] : (svcOf(D.plate).meta || {});
     li(`${String(n.due.getMonth() + 1).padStart(2, "0")}/${String(n.due.getFullYear()).slice(2)}`, "בערך", d < 0 ? "bad" : d <= 30 ? "warn" : "", d < 0 ? "הטיפול התקופתי באיחור" : n.dueKm ? `טיפול ${fmtN(n.dueKm)} ק״מ` : "טיפול תקופתי",
-      o.months ? `${svMonths(o.months)} אחרי הטיפול שרשמתם${n.dueKm ? `, או ב-${fmtN(n.dueKm)} ק״מ אם תגיעו קודם` : ""}.` : "לפי קצב הנסיעה שלכם.", `<button type="button" class="link-btn" data-svc="cal">${ico("clock")}ליומן</button>`, n.due.getTime());
+      o.months ? `${svMonths(o.months)} אחרי הטיפול שרשמתם${n.dueKm ? `, או ב-${fmtN(n.dueKm)} ק״מ אם תגיעו קודם` : ""}.` : "לפי קצב הנסיעה שלכם.", `<button type="button" class="link-btn" data-svc="cal">${ico("clock")}תזכורת ביומן</button>`, n.due.getTime());
   } else if (maintOk() && est) li(fmtN(Math.round(est / 1000)), "אלף ק״מ", "", `טיפול סביב ${fmtN(est)} ק״מ (הערכה)`, "לפי הק״מ בטסט האחרון ומרווח הטיפולים של הדגם. רשמו את הטיפול האחרון, ונחשב תאריך ונזכיר לכם.", `<button type="button" class="link-btn" data-cf="svc">${ico("wrench")}רישום טיפול</button>`, Infinity);
   // a document's expiry, the newest of each kind; the licence's own date is the row above
   const last = {};
@@ -3662,7 +3662,7 @@ function fileHist(D, docs){
   const row = e => `<li class="${e.cls || ""}"><time>${esc(e.when)}</time><b>${esc(e.title)}</b>${e.sub ? `<span>${esc(e.sub)}</span>` : ""}${e.del ? `<button type="button" class="x" data-svc="del" data-id="${e.del}" aria-label="מחיקה מהתיק">${ico("trash")}</button>` : e.open ? `<button type="button" class="x" data-doc="open" data-id="${e.open}" aria-label="פתיחת המסמך">${ico(e.pdf ? "doc" : "image")}</button>` : ""}</li>`;
   const none = cfFilter === "svc" ? "עוד לא רשמתם טיפול. הכפתור \"טיפול\" למעלה רושם אחד בכמה שניות." : cfFilter === "doc" ? "עוד לא שמרתם מסמכים לרכב." : "אין רשומות.";
   return chips + (list.length ? `<ul class="cf-tl">${shown.map(row).join("")}</ul>${list.length > shown.length ? `<button type="button" class="link-btn cf-more" data-cfh="more">${ico("chev")}עוד ${list.length - shown.length} רשומות</button>` : ""}` : `<p class="note">${none}</p>`)
-    + `<p class="note">נקודה מלאה: מה שרשמתם בתיק, שנשמר רק בטלפון הזה. נקודה ריקה: מהמאגרים של משרד התחבורה.</p>`;
+    + `<p class="note">נקודה מלאה: מה שרשמתם בתיק, שנשמר רק ${HERE}. נקודה ריקה: מהמאגרים של משרד התחבורה.</p>`;
 }
 /* the documents for a stop on the road (vehicle licence, insurance, driving licence), offline: one opens at once, several in a list */
 const openDoc = rec => rec.type === "application/pdf" ? shareFile(rec.blob, rec.name, rec.cat) : docViewer(rec.blob, rec.name);
@@ -3719,7 +3719,7 @@ function tabFile(D){
   if (maintOk()) svcRemember(D, info);
   const n = maintOk() ? svcNext(svcOf(D.plate)) : null, est = n ? null : svcEst(D, info);
   const html = [];
-  html.push(`<div class="cf-top"><p>הכול נשמר רק בטלפון הזה</p></div>`);   // the road documents open from the header's "מסמכים"
+  html.push(`<div class="cf-top"><p>הכול נשמר רק ${HERE}</p></div>`);   // the road documents open from the header's "מסמכים"
   html.push(fileTiles(D, n, est));
   html.push(fileNext(D, info, n, est));
   html.push(`<div class="cf-quick"><button type="button" ${maintOk() ? `data-cf="svc" aria-expanded="false"` : `data-act="proInfo"`}>${ico("wrench")}טיפול</button><button type="button" data-cf="doc">${ico("camera")}קבלה או מסמך</button><button type="button" ${maintOk() ? `data-cf="km" aria-expanded="false"` : `data-act="proInfo"`}>${ico("chart")}עדכון ק״מ</button></div>${maintOk() ? svcForm() : ""}`);
@@ -3731,7 +3731,7 @@ function tabFile(D){
   if (cost) html.push(card("הוצאות שרשמתם", "tag", "green", cost.html, cost.year ? `<span class="cf-sum">${fmtN(Math.round(cost.year))} ₪ השנה</span>` : ""));
   const interval = !maintOk() ? (info && !info.none ? `<p style="margin:0 0 6px"><span class="blur" aria-hidden="true">כל ••,••• ק״מ או •••</span></p><p class="note" style="margin:0 0 8px">יש לדגם הזה מרווח טיפולים מוכר. ב-PRO תראו אותו ומתי הטיפול הבא, עם תזכורת.</p>` : "") : intervalInner(D, info);
   html.push(card("נתוני הדגם", "car", "teal", `${interval ? `<h3 class="cf-sub">מרווח טיפולים <span class="src-tag db">מאגר לוחית</span></h3>${interval}` : ""}<h3 class="cf-sub">ק״מ לאורך זמן</h3>${kmInner(D)}${seasonInner()}`, `<span class="cf-sum">מרווח טיפולים וק״מ</span>`));
-  html.push(`<button type="button" class="link-btn" data-cf="pdf">${ico("share")}דו״ח היסטוריה למכירת הרכב (PDF)</button>`);
+  html.push(`<button type="button" class="link-btn" data-cf="pdf">${ico("share")}דוח היסטוריה למכירת הרכב (PDF)</button>`);
   html.push(`<button type="button" class="cf-not" data-cf="unmine">זה לא הרכב שלי</button>`);
   return html.join("");
 }
@@ -3930,7 +3930,7 @@ function checkLine(D, fr){
   // one calm row for older model recalls the ministry published no car list for: not a warning (most years, a third or more of recalls have none)
   if (noList.length) row("info", noList.length === 1 ? "לריקול אחד לדגם אין רשימת רכבים" : `ל-${noList.length} ריקולים לדגם אין רשימת רכבים`, `ריקול${noList.length === 1 ? "" : "ים"} משנים קודמות שעשוי${noList.length === 1 ? "" : "ים"} לחול על שנת הייצור. משרד התחבורה לא פרסם אילו רכבים נכללו, ולכן אי אפשר לדעת מהמאגר אם הרכב הזה נכלל או תוקן. היבואן יכול לבדוק.`);
   if (D.modelRecallsUnknown) row("info", "רשימת הריקולים לדגם לא נטענה כרגע", "ולכן לא נבדק אם נפתח לדגם ריקול חדש שעוד אין לו פירוט לפי רכב");
-  const title = pw ? pw.title : saved ? `בבדיקה מ-${saved}: לא היה ריקול פתוח` : D.modelRecallsUnknown ? "אין ריקול פתוח ברשימה לפי מספר רכב" : `נבדק: אין ריקול פתוח${stlOn ? " ואין הסדר פשרה" : ""}`;
+  const title = pw ? pw.title : saved ? `בבדיקה מ-${saved}: לא היה ריקול פתוח` : D.modelRecallsUnknown ? "אין ריקול פתוח ברשימה לפי מספר רישוי" : `נבדק: אין ריקול פתוח${stlOn ? " ואין הסדר פשרה" : ""}`;
   const retry = state === "cached" || state === "partial" ? `<div><button type="button" class="link-btn" data-retry="${esc(D.plate)}">נסו שוב</button></div>` : "";
   return `<details class="ckl${pw ? " warn" : state === "ok" ? "" : " plain"}" data-line="${state}"><summary>${ico(pw ? "alert" : state === "ok" ? "check" : "info")}<b>${title}</b><svg class="i chev" aria-hidden="true"><use href="#i-chev"/></svg></summary><div class="ckl-body">${pw ? `<p>${pw.body}</p><ul class="rlist">${fr.map(r => recRow(D, r, pendPill(r))).join("")}</ul>` : ""}<ul class="ckl-rows">${rows.join("")}</ul>${pw || noList.length ? `<div>${importerBtn(D)}</div>` : ""}${retry}</div></details>`;
 }
@@ -4082,7 +4082,7 @@ async function findInspection(city){
   const out = $("#inspRes"); if (!out) return;
   city = city.trim(); if (!city) { out.innerHTML = ""; return; }
   try { localStorage.setItem("inspCity", city); } catch {}
-  out.innerHTML = `<p class="note">מחפש…</p>`;
+  out.innerHTML = `<p class="note">מחפשים…</p>`;
   const words = searchWords(city);
   let rows = await dsSearch(GARAGES, words, {miktzoa: "בדיקות-רכב )קניה ומכירה)"}, 50).catch(() => []);
   if (!rows.length) rows = (await dsSearch(GARAGES, words.concat("בדיקות"), null, 100).catch(() => [])).filter(r => /בדיק/.test(r.miktzoa || "") && /קני|מכיר/.test(r.miktzoa || ""));
@@ -4404,7 +4404,7 @@ async function dsSearch(id, words, filters, limit, signal){
   let answered = false;   // a registry that never answered is not "no such model"
   for (const t of tries) {
     const ctl = new AbortController(), onAb = () => ctl.abort(); if (signal) signal.addEventListener("abort", onAb);
-    const tm = setTimeout(() => ctl.abort(), 15000);   // a hung server ends in a clear message, not "מחפש…" forever
+    const tm = setTimeout(() => ctl.abort(), 15000);   // a hung server ends in a clear message, not "מחפשים…" forever
     try {
       const r = await fetch(`${API}?${new URLSearchParams({...base, ...t})}`, {signal: ctl.signal, headers: {Accept: "application/json"}});
       const j = await r.json();
@@ -4487,7 +4487,7 @@ function renderQuick(){
   const box = $("#mquick"), q = $("#mq").value.trim();
   if (q.length >= 2 || mGroup) { box.innerHTML = ""; return; }
   const inCmp = p => cmp.some(x => x.plate === p);
-  const parts = [`<p class="note" style="margin:0 0 6px">מספיק לכתוב את הדגם, גם בלי יצרן ובעברית או באנגלית ("קורולה", "tucson"); טעות כתיב קטנה לא מפריעה. אפשר גם סוג ותקציב: "SUV חשמלי עד 250 אלף".</p>`];
+  const parts = [`<p class="note" style="margin:0 0 6px">מספיק לכתוב את הדגם, גם בלי יצרן ובעברית או באנגלית (<bdi dir="rtl">"קורולה"</bdi>, <bdi dir="rtl">"tucson"</bdi>); טעות כתיב קטנה לא מפריעה. אפשר גם סוג ותקציב: <bdi dir="rtl">"SUV חשמלי עד 250 אלף"</bdi>.</p>`];
   const mine = [];
   if (current && !inCmp(current.plate)) mine.push(`<button type="button" class="qrow cur" data-qcur="1"><span class="mini-plate"><i></i>${fmtPlate(current.plate)}</span><span class="t"><b>${esc(current.title)}</b><small>הרכב שחיפשתם</small></span><span class="qadd">${ico("plus")}הוספה</span></button>`);
   for (const s of store.get("savedVehicles").filter(s => !inCmp(s.plate) && !(current && s.plate === current.plate)).slice(0, 3))
@@ -4608,7 +4608,7 @@ async function runModelSearch(){
     return;
   }
   if (mCtrl) mCtrl.abort(); mCtrl = new AbortController(); const signal = mCtrl.signal;
-  msg.textContent = "מחפש…"; renderQuick();
+  msg.textContent = "מחפשים…"; renderQuick();
   let sq = null;
   try {
     await Promise.race([loadModelIndex(), new Promise(r => setTimeout(r, 2500))]);
@@ -4620,7 +4620,7 @@ async function runModelSearch(){
     mNote = "";
     // instant: the local catalogue already knows which models the words mean, so they are listed at once and refined when the registry answers
     sq = MODELIDX ? smartQueries(q) : null;
-    if (sq && sq.length) { searchFuzzy = false; mGroups = sq.map(o => ({make: o.mk, model: o.words.join(" "), base: o.words.join(" "), fromFilter: true, instant: true})); mShowAll = true; showGroups(); msg.textContent = "מחפש…"; }
+    if (sq && sq.length) { searchFuzzy = false; mGroups = sq.map(o => ({make: o.mk, model: o.words.join(" "), base: o.words.join(" "), fromFilter: true, instant: true})); mShowAll = true; showGroups(); msg.textContent = "מחפשים…"; }
     let rows = await searchModelRows(q, searchWords(q), null, 1000, signal);
     if (signal.aborted) return;
     if (!rows.length && sq && sq.length) { if (mPending) { mPending = null; msg.textContent = "הטעינה נכשלה. נסו שוב."; } else msg.textContent = ""; return; }   // the registry adds nothing (or is down): the local catalogue's list stands, and the pick reads the static catalogue
@@ -4832,7 +4832,7 @@ function showModelByEngine(y){
 function stepBack(){ mGroup = null; mYear = null; showGroups(); }
 async function pickModel(i, j = 0, at = -1){
   const l = mResults[i]; if (!l) return;
-  const msg = $("#compareMsg"); msg.textContent = `טוען את ${rowLabel(l[j])} ${l[j].shnat_yitzur || ""}…`;
+  const msg = $("#compareMsg"); msg.textContent = `טוענים את ${rowLabel(l[j])} ${l[j].shnat_yitzur || ""}…`;
   try { const D = await fetchModel(l[j]); D.alts = mMode === "trim" ? mResults.map(x => x[0]) : l; addToCompare(D); }
   catch (err) { msg.textContent = "הטעינה נכשלה. נסו שוב."; }
 }
@@ -4898,7 +4898,7 @@ async function runCompare(raw){
   const msg = $("#compareMsg");
   if (plate.length < 5 || plate.length > 8) { msg.textContent = "מספר רישוי צריך להכיל 5 עד 8 ספרות."; return; }
   if (cmp.some(x => x.plate === plate && x.kind !== "fail")) { msg.textContent = "הרכב הזה כבר בהשוואה."; toast("הרכב הזה כבר בהשוואה"); return; }
-  msg.textContent = "מחפש…";
+  msg.textContent = "מחפשים…";
   try {
     const D = await fetchVehicle(plate, AbortSignal.timeout(30000));
     if (D.offline) { msg.textContent = navigator.onLine === false ? "אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב." : "מאגרי משרד התחבורה לא עונים כרגע. נסו שוב בעוד כמה דקות."; return; }
@@ -5745,7 +5745,7 @@ const pushCoversTest = D => { try { return !!D.primary && D.primary.key === "act
 const calSeen = new Set();
 function calendarBtn(D){
   if (!reportBuild && !calSeen.has(D.plate)) { calSeen.add(D.plate); track("calendar_reminder_shown", {where: window.AndroidApp ? "app" : "web"}); }
-  return `<button type="button" class="link-btn" data-act="calendar">${ico("clock")}הוספת תזכורת ליומן</button>`;
+  return `<button type="button" class="link-btn" data-act="calendar">${ico("clock")}תזכורת ביומן</button>`;
 }
 // the reminder's text: the action is renewing the licence (a new car renews by paying the fee, with no test; fee and test are possible from 60 days before)
 const testCalDesc = D => `תוקף הטסט של הרכב מסתיים ב-${fmtDate(D.v.tokef_dt)}. כדאי לחדש את הרישיון מראש: טסט כשנדרש, ותשלום האגרה. אפשר לחדש החל מ-60 יום לפני תום התוקף.`;
@@ -6270,7 +6270,7 @@ function alertItems(){
     if (L) {
       if (L.k === "bad") out.push({lv: "bad", s, t: "הטסט פג", b: `${name}. התוקף הסתיים ב-${L.date}.`, go: "open", g: "פרטים"});
       else if (L.k !== "ok") out.push({lv: "warn", s, t: "לא ברור אם הטסט חודש", b: name, go: "open", g: "פרטים"});
-      else if (L.days <= 30) out.push({lv: "warn", s, t: testWords(L), b: `${name}, בתוקף עד ${L.date}`, ...(L.days > 0 ? {go: "cal", g: "ליומן"} : {go: "open", g: "פרטים"}), d: L.days});
+      else if (L.days <= 30) out.push({lv: "warn", s, t: testWords(L), b: `${name}, בתוקף עד ${L.date}`, ...(L.days > 0 ? {go: "cal", g: "תזכורת ביומן"} : {go: "open", g: "פרטים"}), d: L.days});
     }
   }
   return out.sort((a, b) => (a.lv === "bad" ? 0 : 1) - (b.lv === "bad" ? 0 : 1) || (a.d || 0) - (b.d || 0));
@@ -6306,7 +6306,7 @@ function renderAlerts(){
       const near = new Set(items.filter(x => x.go === "cal").map(x => x.s.plate)), sent = calSentGet();
       const cal = all.filter(s => { const L = licSaved(s); return L && L.k === "ok" && L.days > 0 && !near.has(s.plate); });
       if (cal.length) html.push(`<div class="qhead">תזכורות ביומן</div><div class="arows">${cal.map(s => { const L = licSaved(s), w = sent[s.plate] && sent[s.plate].d === s.tokef ? sent[s.plate].t : 0;
-        return `<div class="arow"><div class="t"><b>${esc(s.nick || s.title)}</b><small>הטסט בתוקף עד ${esc(L.date)}${w ? ` · נפתח ביומן ב-${esc(dmy(w))}` : ""}</small></div><button type="button" class="link-btn acal" data-calsaved="${s.plate}">${ico("clock")}ליומן</button></div>`; }).join("")}</div>`);
+        return `<div class="arow"><div class="t"><b>${esc(s.nick || s.title)}</b><small>הטסט בתוקף עד ${esc(L.date)}${w ? ` · נפתח ביומן ב-${esc(dmy(w))}` : ""}</small></div><button type="button" class="link-btn acal" data-calsaved="${s.plate}">${ico("clock")}תזכורת ביומן</button></div>`; }).join("")}</div>`);
       html.push(IS_IOS ? `<p class="note">לוחית בודקת את הרכבים כשפותחים אותה. היומן של הטלפון מזכיר את הטסט גם כשלוחית סגורה.</p>`
         : `<p class="note">התראות לטלפון על ריקול חדש ועל טסט שמתקרב זמינות באפליקציית לוחית באנדרואיד. <button type="button" class="lnk" data-url="${playWeb("alerts_hint")}" data-hint="alerts">להתקנה</button></p>`);
     }
@@ -6967,7 +6967,7 @@ sheet.addEventListener("click", ev => { if (ev.target === sheet) sheet.hidden = 
 document.addEventListener("keydown", ev => { if (ev.key === "Escape") { const dv = document.querySelector(".doc-view"); if (dv) dv.click(); sheet.hidden = true; $("#compareSheet").hidden = true; $("#shareSheet").hidden = true; $("#homeSheet").hidden = true; } });
 /* both deletes can be undone from the snack bar for a moment: the buttons sit in a list and one stray tap used to wipe the cars */
 $("#clearRecent").addEventListener("click", () => { const was = store.get("recentPlates"), names = localStorage.getItem("recentNames"); store.set("recentPlates", []); try { localStorage.removeItem("recentNames"); } catch {} refreshView(); snack("היסטוריית החיפושים נמחקה", "ביטול", () => { store.set("recentPlates", was); try { if (names) localStorage.setItem("recentNames", names); } catch {} refreshView(); }); });
-$("#clearSaved").addEventListener("click", () => { const was = store.get("savedVehicles"); if (!was.length) { toast("אין רכבים שמורים"); return; } store.set("savedVehicles", []); refreshView(); snack("הרכבים שלי נמחקו", "ביטול", () => { store.set("savedVehicles", was); refreshView(); }); });
+$("#clearSaved").addEventListener("click", () => { const was = store.get("savedVehicles"); if (!was.length) { toast("אין רכבים ברשימת הרכבים שלי"); return; } store.set("savedVehicles", []); refreshView(); snack("הרכבים שלי נמחקו", "ביטול", () => { store.set("savedVehicles", was); refreshView(); }); });
 $("#ver").textContent = APP_VERSION;
 /* in-app update (Google Play installs only): one quiet offer per version, plus a manual check in settings */
 let updManual = false;
@@ -7180,7 +7180,7 @@ function buyPlan(sku){
 }
 function restorePurchases(){
   const b = bridge();
-  if (b && b.billingInit) { try { b.billingInit(); toast("בודק רכישות קודמות…"); return; } catch {} }
+  if (b && b.billingInit) { try { b.billingInit(); toast("בודקים רכישות קודמות…"); return; } catch {} }
   toast("שחזור רכישות זמין באפליקציה מחנות Google Play");
 }
 $("#planBtn").addEventListener("click", () => { sheet.hidden = true; if (UPGRADE_UI) { renderUpgrade(); } });

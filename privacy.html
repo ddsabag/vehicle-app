@@ -9,8 +9,14 @@
 <meta property="og:type" content="website"><meta property="og:site_name" content="לוחית"><meta property="og:url" content="https://luchit.app/privacy.html"><meta property="og:title" content="לוחית · מדיניות פרטיות"><meta property="og:description" content="מדיניות הפרטיות של לוחית: אילו נתונים נאספים, מה נשמר בטלפון בלבד ואיך אפשר לפנות אלינו בנושא פרטיות."><meta property="og:image" content="https://luchit.app/og.png"><meta name="twitter:card" content="summary_large_image">
 <meta name="robots" content="index,follow">
 <style>
-:root{--bg:#eef0f4;--card:#fff;--fg:#151a24;--muted:#5d6676;color-scheme:light}
-@media (prefers-color-scheme:dark){:root{--bg:#0d1118;--card:#161c27;--fg:#e9edf3;--muted:#97a1b3;color-scheme:dark}}
+@font-face{font-family:"Assistant";font-style:normal;font-weight:400;font-display:optional;src:url(/lib/fonts/assistant-hebrew-400-normal.woff2) format("woff2");unicode-range:U+0307-0308,U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F}
+@font-face{font-family:"Assistant";font-style:normal;font-weight:400;font-display:optional;src:url(/lib/fonts/assistant-latin-400-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Assistant";font-style:normal;font-weight:700;font-display:optional;src:url(/lib/fonts/assistant-hebrew-700-normal.woff2) format("woff2");unicode-range:U+0307-0308,U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F}
+@font-face{font-family:"Assistant";font-style:normal;font-weight:700;font-display:optional;src:url(/lib/fonts/assistant-latin-700-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+/* the app's own font and colours, so the page looks like the rest of luchit.app */
+
+:root{--bg:#f2f4f8;--card:#fff;--fg:#151a24;--muted:#4a5465;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#0e121a;--card:#1c2330;--fg:#e9edf3;--muted:#aab3c3;color-scheme:dark}}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 "Assistant",system-ui,Arial,sans-serif}
 main{max-width:680px;margin:0 auto;padding:32px 16px;display:flex;flex-direction:column;gap:12px}
 h1{margin:0;font-size:1.5rem}p{margin:0}.muted{color:var(--muted);font-size:.9rem}
