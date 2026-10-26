@@ -299,6 +299,7 @@ a.row{color:var(--fg);text-decoration:none}a.row .t small{text-decoration:none}a
 .seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--soft);border-radius:11px;padding:4px;gap:4px}
 .seg button{border:0;background:transparent;border-radius:8px;padding:8px 6px;font-weight:700;color:var(--muted)}
 .seg button[aria-pressed="true"]{background:var(--card);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+@media (max-width:359px){.seg:not(.two) button{padding-inline:2px;font-size:.875rem}}   /* "לפי המכשיר" stays on one line on a 320px phone */
 .link-btn{border:1px solid var(--line);background:transparent;border-radius:10px;padding:10px 12px;font-weight:700;text-align:start}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:16px;font-weight:700;z-index:30;box-shadow:0 4px 14px rgba(0,0,0,.2);width:max-content;max-width:calc(100vw - 32px);text-align:center}   /* left:50% alone would cap a long toast at half the screen */
 footer a{display:inline;padding:0;text-decoration:underline}
@@ -331,7 +332,9 @@ body:has(.sharebar) .toast{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
 .apphint b{white-space:nowrap}.apphint .gox{margin-inline-start:auto;color:var(--accent,#2556c8);font-weight:700;white-space:nowrap}
 .src-foot{order:100}
 @media (min-width:1000px){
-  html.web body:has(#out > .side) .band-in,html.web main#out:has(> .side),html.web footer,html.web body:has(#out .cmp-wide) .band-in,html.web main#out:has(.cmp-wide){max-width:1080px}
+  html.web body:has(#out > .side) .band-in,html.web main#out:has(> .side),html.web body:has(#out .cmp-wide) .band-in,html.web main#out:has(.cmp-wide){max-width:1080px}
+  /* the footer lines up with the column above it: 1080px under a wide page, the 680px column's width under the others */
+  html.web body:is(:has(#out > .side),:has(#out > .hrail),:has(#out .cmp-wide),[data-screen=cars]) > footer{max-width:1080px}
   html.web main#out:has(> .side){display:grid;grid-template-columns:minmax(0,1fr) 340px;column-gap:16px;row-gap:12px;align-items:start}
   html.web main#out > .plate-strip{grid-column:1/-1}
   html.web body[data-screen=cars] .band-in,html.web body[data-screen=cars] main#out{max-width:1080px}
@@ -345,6 +348,7 @@ body:has(.sharebar) .toast{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
   html.web body:has(#out > .hrail) .band-in > *{width:100%;max-width:708px}
   html.web main#out > .hmain{display:flex;flex-direction:column;gap:12px;min-width:0}
   html.web main#out > .hrail{display:block;position:sticky;top:76px}
+  html.web main#out > .hmain .rc.inrail,html.web main#out > .hmain .recents:not(:has(.rc:not(.inrail))){display:none}
 }
 .hmain{display:contents}.hrail{display:none}
 .hr-p{background:var(--card);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
@@ -757,6 +761,7 @@ html.web main#out > .chead{grid-column:1/-1}
 .vhead{display:grid;gap:4px;padding-top:10px}
 .vh-r{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .vh-t{margin:0;font-size:2rem;font-weight:800;line-height:1.1;letter-spacing:-.01em}.vh-t:focus{outline:none}
+.vhead > .vh-t{min-height:42px;display:flex;align-items:center}   /* a title with no "+" beside it keeps the same line as one with it, so it does not move between the tabs */
 .vh-s{margin:0;color:var(--muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:28px}
 .vh-s.sel{justify-content:space-between;color:var(--fg);font-weight:600}
 .vh-s .lnk{border:0;background:none;color:var(--accent);font-weight:800;padding:4px}
@@ -6823,7 +6828,9 @@ function renderHome(){
   const attn = saved.filter(carAttn);
   if (attn.length) html.push(`<button type="button" class="attn${attn.some(s => carLevel(s) === "bad") ? "" : " warn"}" data-nav="alerts" data-via="attn"><span class="ai">${ico("alert")}</span><span class="t"><b>${attn.length === 1 ? "רכב אחד מהרכבים שלכם צריך תשומת לב" : `${attn.length} מהרכבים שלכם צריכים תשומת לב`}</b><small>${alertItems().slice(0, 2).map(x => `${esc(x.k || x.t)}: <bdi>${esc(x.s.nick || x.s.title)}</bdi>`).join(" · ")}</small></span>${ico("chev")}</button>`);
   if ((saved.length || recent.length) && !anyMine()) html.push(`<div class="tlist hfile"><button type="button" class="trow" data-act="fileHome"><i class="tb blue">${ico("car")}</i><span class="t"><b>יש לכם כבר רכב? פתחו לו תיק</b><small>טסט, טיפולים ומסמכים לנסיעה, במקום אחד</small></span>${ico("chev")}</button></div>`);
-  if (recent.length) html.push(`<section class="recents" aria-label="בדיקות אחרונות"><div class="qhead">בדיקות אחרונות</div><div class="rc-row">${recent.map(p => { const s = saved.find(x => x.plate === p), nm = s && s.nick || shortModel(s ? s.title : recentNames()[p]); return `<button type="button" class="rc" data-open="${p}"><span class="mini-plate"><i></i>${fmtPlate(p)}</span>${nm ? `<small><bdi>${esc(nm)}</bdi></small>` : ""}</button>`; }).join("")}</div></section>`);
+  // on a wide screen the saved-cars rail beside the page already lists a saved car: its recent chip is hidden there (.inrail), not shown twice
+  const inRail = new Set(window.AndroidApp ? [] : railCars(saved).map(s => s.plate));
+  if (recent.length) html.push(`<section class="recents" aria-label="בדיקות אחרונות"><div class="qhead">בדיקות אחרונות</div><div class="rc-row">${recent.map(p => { const s = saved.find(x => x.plate === p), nm = s && s.nick || shortModel(s ? s.title : recentNames()[p]); return `<button type="button" class="rc${inRail.has(p) ? " inrail" : ""}" data-open="${p}"><span class="mini-plate"><i></i>${fmtPlate(p)}</span>${nm ? `<small><bdi>${esc(nm)}</bdi></small>` : ""}</button>`; }).join("")}</div></section>`);
   const tool = (act, icon, title, text, tag, col) => `<button type="button" class="trow" data-act="${act}"><i class="tb ${col}">${ico(icon)}</i><span class="t"><b>${title}${tag ? PT(tag) : ""}</b><small>${text}</small></span>${ico("chev")}</button>`;
   html.push(`<div class="qhead">כלים</div><div class="tlist">${[
     tool("compareHome", "compare", "חיפוש דגמים", "דגם, או סוג ותקציב. אפשר גם להשוות עד " + cmpMax(), "", "violet"),
@@ -6839,14 +6846,16 @@ function renderHome(){
   if (saved.length) checkSaved();
   if (!window.AndroidApp) loadMagazine();
 }
+/* the saved cars the rail shows: the ones that need attention first, six at most */
+const railCars = saved => { const rank = {bad: 0, warn: 1, ok: 2}; return saved.slice().sort((a, b) => rank[carLevel(a)] - rank[carLevel(b)]).slice(0, 6); };
 /* web, wide screens: the saved cars beside the home page, the ones that need attention first, each with the one line that matters now */
 function homeRail(saved){
-  const rank = {bad: 0, warn: 1, ok: 2}, line = s => { const L = licSaved(s);
+  const line = s => { const L = licSaved(s);
     if (s.active === false) return ["bad", "הרכב ירד מהכביש"];
     if (s.recalls > 0) return ["bad", `${recallsWord(s.recalls)}. התיקון בדרך כלל ללא עלות`];
     if (L && (L.k !== "ok" || L.days <= 30)) return [L.k === "ok" ? "warn" : "bad", testWords(L)];
     return ["ok", L ? `טסט בתוקף עד ${L.date}` : esc(s.sub || "")]; };
-  const list = saved.slice().sort((a, b) => rank[carLevel(a)] - rank[carLevel(b)]).slice(0, 6);
+  const list = railCars(saved);
   return `<aside class="hrail" aria-labelledby="hrailHead"><section class="hr-p"><div class="hr-h"><h2 id="hrailHead">הרכבים שלי</h2><button type="button" class="lnk" data-nav="cars" data-via="rail">${saved.length > list.length ? `לכל ${saved.length} הרכבים` : "לכל הרכבים"}</button></div>
     ${list.map(s => { const [lv, t] = line(s); return `<button type="button" class="hr-row" data-open="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b><bdi>${esc(s.nick || s.title)}</bdi></b><small class="${lv}">${lv === "ok" ? "" : `<i class="dot ${lv}" aria-hidden="true"></i>`}${t}</small></span></button>`; }).join("")}
     <p class="hr-f">נשמרים בדפדפן הזה בלבד</p></section></aside>`;

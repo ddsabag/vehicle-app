@@ -39,6 +39,8 @@ const MANY = [
     .map(([plate, title, color], i) => ({ plate, title, sub: String(2016 + i), at: 3 + i, reg: "active", tokef: day(60 + 40 * i), mivchan: day(-300 + 20 * i), recalls: 0, checked: 1, owners: 1 + (i % 3), active: true, events: [], alerts: true, color })),
 ];
 const OWNER = { mine: '{"1234567":1}', svc: JSON.stringify({ 1234567: { log: [{ id: 1, d: day(-140), km: 63900, type: "טיפול תקופתי", cost: 1250, note: "" }, { id: 2, d: day(-20), km: 66100, type: "קריאת ק״מ", cost: 0, note: "" }], meta: null } }) };
+// every saved car of the fixtures answers from the registry mock too (its maker and model from the saved title)
+for (const it of MANY) if (!RECS[+it.plate]) { const [mk, ...md] = it.title.split(" "); RECS[+it.plate] = { ...CAR, _id: +it.plate, mispar_rechev: +it.plate, tozeret_nm: mk, kinuy_mishari: md.join(" "), shnat_yitzur: +it.sub, tzeva_rechev: it.color }; }
 const STATES = {
   empty: {},
   owner: { savedVehicles: JSON.stringify([S1]), recentPlates: '["1234567"]', ...OWNER },
@@ -74,7 +76,7 @@ async function measure(page) {
     const label = (e) => (e.getAttribute("aria-label") || e.textContent || e.className || e.tagName).replace(/\s+/g, " ").trim().slice(0, 40);
     const W = innerWidth, sheet = [...document.querySelectorAll(".sheet:not([hidden]), .doc-view, #roadSheet")].filter(vis).pop();
     const nav = document.getElementById("bnav"), navIn = nav && nav.querySelector(".bnav-in");
-    const navBox = nav && vis(nav) ? { bar: R(nav), inner: navIn ? R(navIn) : null, items: [...nav.querySelectorAll("[data-nav], .bn-brand, .bn-f")].filter(vis).map((e) => (e.dataset.nav || e.className) + ":" + R(e).join(",")) } : null;
+    const navBox = nav && vis(nav) ? { bar: R(nav), inner: navIn ? R(navIn) : null, items: [...nav.querySelectorAll("[data-nav], .bn-brand")].filter(vis).map((e) => (e.dataset.nav || e.className) + ":" + R(e).join(",")) } : null;
     const out = document.getElementById("out"), col = out && vis(out) ? R(out) : null;
     const scope = [...document.querySelectorAll("body *")].filter((e) => !e.closest("#sprite,svg,script,style,noscript,.sr-only") && (!sheet || sheet.contains(e)) && vis(e));
     const scroller = (e) => { for (let p = e.parentElement; p && p !== document.body; p = p.parentElement) { const o = getComputedStyle(p).overflowX; if (o === "auto" || o === "scroll" || o === "hidden" || o === "clip") return true; } return false; };
@@ -111,12 +113,19 @@ async function measure(page) {
     }
     // content wider than its own column: past the edge of the main column on a wide screen, where nothing should bleed into the margin
     const colBox = out && out.getBoundingClientRect(), padL = out ? parseFloat(getComputedStyle(out).paddingLeft) : 0, padR = out ? parseFloat(getComputedStyle(out).paddingRight) : 0;
-    const bleed = W >= 700 && colBox && !sheet ? [...out.querySelectorAll("*")].filter((e) => vis(e) && !e.closest("svg")).filter((e) => { const b = e.getBoundingClientRect(); return b.width > 20 && (b.left < colBox.left + padL - 2 || b.right > colBox.right - padR + 2) && !e.closest(".cfab,.toast") && !layer(e); }).filter((e, i, a) => !a.some((x) => x !== e && x.contains(e))).map((e) => label(e) + ` (${Math.round(e.getBoundingClientRect().left - colBox.left - padL)}/${Math.round(colBox.right - padR - e.getBoundingClientRect().right)}px)`) : [];
+    const bleed = W >= 700 && colBox && !sheet ? [...out.querySelectorAll("*")].filter((e) => vis(e) && !e.closest("svg")).filter((e) => { const cs = getComputedStyle(e); return e.children.length === 0 || cs.backgroundColor !== "rgba(0, 0, 0, 0)" || parseFloat(cs.borderTopWidth) > 0 || cs.boxShadow !== "none"; }).filter((e) => { const b = e.getBoundingClientRect(); return b.width > 20 && (b.left < colBox.left + padL - 2 || b.right > colBox.right - padR + 2) && !e.closest(".cfab,.toast") && !layer(e); }).filter((e, i, a) => !a.some((x) => x !== e && x.contains(e))).map((e) => label(e) + ` (${Math.round(e.getBoundingClientRect().left - colBox.left - padL)}/${Math.round(colBox.right - padR - e.getBoundingClientRect().right)}px)`) : [];
+    // the same car offered twice on one screen (a rail and a row of recent checks listing the same plates)
+    const opens = {}; for (const e of document.querySelectorAll("#out [data-open]")) if (vis(e) && (!sheet || sheet.contains(e))) opens[e.dataset.open] = (opens[e.dataset.open] || 0) + 1;
+    const twice = Object.entries(opens).filter(([, n]) => n > 1).map(([p]) => p);
     let covered = null; if (navBox && getComputedStyle(nav).position === "fixed" && nav.getBoundingClientRect().top > innerHeight / 2 && !sheet) {
       const y0 = scrollY; scrollTo(0, document.documentElement.scrollHeight); const top = nav.getBoundingClientRect().top;
       const last = [...document.querySelectorAll("#out *, body > footer *")].filter((e) => vis(e) && e.children.length === 0 && e.textContent.trim()).pop();
       if (last && last.getBoundingClientRect().bottom > top + 1) covered = label(last); scrollTo(0, y0);
     }
+    const h = document.querySelector("#out .vh-t, #out > .vhead h2, #chead .ch-t b");
+    // where the words themselves sit (a range over the text), not the heading's box
+    const tr = h && (() => { const r = document.createRange(); r.selectNodeContents(h); const b = r.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)]; })();
+    const title = h && vis(h) && !sheet ? { kind: h.matches("#chead *") ? "chead" : "vhead", r: tr, fs: getComputedStyle(h).fontSize } : null;
     const plate = document.getElementById("plate"), mp = document.querySelector("#chead .mini-plate");
     return {
       starOn: (document.querySelector("#chead [data-act=save]") || { getAttribute: () => "" }).getAttribute("aria-pressed") === "true",
@@ -126,9 +135,9 @@ async function measure(page) {
       focus: document.activeElement ? (document.activeElement.id || document.activeElement.tagName) : null, plateVal: plate ? plate.value : null,
       navCur: (document.querySelector("#bnav [aria-current=page]") || { dataset: {} }).dataset.nav || null,
       nav: navBox, col, over: document.documentElement.scrollWidth - W, outside: [...new Set(outside)].slice(0, 8), wraps: [...new Set(wraps)].slice(0, 8), ragged: [...new Set(ragged)],
-      overlaps: [...new Set(overlaps)].slice(0, 8), orphans: [...new Set(orphans)].slice(0, 4), bleed: [...new Set(bleed)].slice(0, 4), clipped: [...new Set(clipped)].slice(0, 8), covered, msg: [...document.querySelectorAll("#out .msg")].filter(vis).map((m) => m.textContent).join(" | "),
+      overlaps: [...new Set(overlaps)].slice(0, 8), orphans: [...new Set(orphans)].slice(0, 4), twice, bleed: [...new Set(bleed)].slice(0, 4), clipped: [...new Set(clipped)].slice(0, 8), covered, msg: [...document.querySelectorAll("#out .msg")].filter(vis).map((m) => m.textContent).join(" | "),
       loading: !!document.querySelector("#out .skl, #out [aria-busy=true]") || (document.getElementById("go") || {}).disabled === true,
-      cls: window.__cls ? window.__cls.v : 0,
+      cls: window.__cls ? window.__cls.v : 0, y: Math.round(scrollY), title,
     };
   });
 }
@@ -179,8 +188,9 @@ const JOURNEYS = [
   ] },
   { name: "saved", when: (c) => c.state !== "empty", steps: [
     ["cars", nav("cars"), (m) => m.screen === "cars" || "cars"],
-    ["open", tap("#out [data-open]"), (m) => m.screen === "car" || `opening a saved car: ${m.screen} ${m.msg.slice(0, 40)}`],
-    ["arrow-back", tap("#chead [data-act=back]"), (m) => m.screen === "cars" || `the arrow from a car opened in "הרכבים שלי" should return there, got ${m.screen}`],
+    ["scroll", async (p) => { await p.evaluate(() => scrollTo(0, document.documentElement.scrollHeight)); await p.waitForTimeout(200); await p.evaluate(() => { window.__y = Math.round(scrollY); }); }, null],
+    ["open", async (p) => { const l = p.locator("#out [data-open]").filter({ visible: true }); await l.nth((await l.count()) - 1).click({ timeout: 4000 }); }, (m) => m.screen === "car" || `opening a saved car: ${m.screen} ${m.msg.slice(0, 40)}`],
+    ["arrow-back", tap("#chead [data-act=back]"), async (m, c) => { const y0 = await c.page.evaluate(() => window.__y); return m.screen === "cars" && Math.abs(m.y - y0) < 30 || `the arrow from a car opened in "הרכבים שלי" should return to the list where it was (y ${y0}), got ${m.screen} y ${m.y}`; }],
     ["alerts", nav("alerts"), (m) => m.screen === "alerts" || "alerts"],
     ["alerts-open", tapIf("#out [data-open]"), (m) => m.screen === "car" || m.screen === "alerts" || `a car in התראות: ${m.screen}`],
     ["home", nav("search"), (m) => m.screen === "home" || "home"],
@@ -272,16 +282,18 @@ async function runJourney(browser, dev, theme, stateName, J) {
   await page.goto(`http://127.0.0.1:${server.address().port}/`);
   await page.waitForSelector("#homeMark", { state: "attached", timeout: 15000 }).catch(() => add("block", "logic", run, step, "home did not render"));
   await page.addStyleTag({ content: "*{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}" });
-  const c = { dev, theme, state: stateName, app, ctx, net, plate: stateName === "many" ? "7654321" : "1234567" };
+  const c = { dev, theme, state: stateName, app, ctx, net, page, plate: stateName === "many" ? "7654321" : "1234567" };
   const seen = [];   // per step: {step, screen, nav, col, vw}
   let prev = null;
   for (const [name, act, expect] of J.steps) {
     step = name;
     await page.evaluate(() => { window.__cls.v = 0; window.__cls.src = []; });
     if (act) { try { await act(page, c); } catch (e) { add("block", "logic", run, step, "could not act: " + e.message.split("\n")[0].slice(0, 120)); } }
+    // layout shift is counted from two frames after the step's own redraw: a new screen in place of the old one is not a shift, what moves after it is
+    await page.evaluate(() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(() => { window.__cls.v = 0; window.__cls.src = []; ok(); })))).catch(() => {});
     await page.waitForTimeout(450);
     let m; try { m = await measure(page); } catch (e) { add("block", "error", run, step, "measure failed: " + e.message.slice(0, 100)); continue; }
-    let ok = expect ? expect(m, c) : true;
+    let ok = expect ? await expect(m, c) : true;
     if (ok && ok.warn) { add("warn", "logic", run, step, ok.warn); ok = true; }
     if (ok !== true) add("block", "logic", run, step, ok);
     if (m.over > 0) add("block", "overflow", run, step, `page scrolls sideways by ${m.over}px on ${m.screen}`);
@@ -290,6 +302,7 @@ async function runJourney(browser, dev, theme, stateName, J) {
     if (m.wraps.length) add("warn", "wrap", run, step, `label on two lines on ${m.screen}: ${m.wraps.join(" · ")}`);
     if (m.overlaps.length) add("warn", "overlap", run, step, `controls overlap on ${m.screen}: ${m.overlaps.join(" · ")}`);
     if (m.clipped.length) add("warn", "clip", run, step, `text cut off on ${m.screen}: ${m.clipped.join(" · ")}`);
+    if (m.twice.length) add("warn", "twice", run, step, `the same car is offered twice on ${m.screen}: ${m.twice.length} plates`);
     if (m.orphans.length) add("warn", "orphan", run, step, `a control dropped to a line of its own on ${m.screen}: ${m.orphans.join(" · ")}`);
     if (m.bleed.length) add("warn", "bleed", run, step, `wider than the content column on ${m.screen}: ${m.bleed.join(" · ")}`);
     if (m.ragged.length) add("warn", "ragged", run, step, `one row, different heights on ${m.screen}: ${m.ragged.join(" · ")}`);
@@ -297,7 +310,7 @@ async function runJourney(browser, dev, theme, stateName, J) {
     if (!m.sheet && m.nav && ({ home: "search", cars: "cars", alerts: "alerts" })[m.screen] && m.navCur !== ({ home: "search", cars: "cars", alerts: "alerts" })[m.screen]) add("block", "logic", run, step, `the bar highlights "${m.navCur}" on the ${m.screen} screen`);
     if (ok === true && act === back && prev && ["screen", "sheet", "url", "carPlate", "msg", "tab"].every((k) => prev[k] === m[k]) && !(m.screen === "home" && m.home)) add("block", "logic", run, step, `Back did nothing on ${m.screen} (a dead press)`);
     prev = m;
-    seen.push({ step: name, screen: m.screen, sheet: m.sheet, nav: m.nav, col: m.col, vw: await page.evaluate(() => innerWidth) });
+    seen.push({ step: name, screen: m.screen, sheet: m.sheet, nav: m.nav, col: m.col, title: m.title, y: m.y, vw: await page.evaluate(() => innerWidth) });
     if (SHOTS) await page.screenshot({ path: path.join(OUT, "shots", `${run.replace(/\//g, "__")}__${name}.png`) }).catch(() => {});
   }
   // the navigation bar is the frame of every screen: same place, same size, same items, whatever screen is drawn
@@ -312,6 +325,12 @@ async function runJourney(browser, dev, theme, stateName, J) {
         add("block", "nav-moved", run, s.step, `the navigation bar moved between ${ref.screen} (${ref.step}) and ${s.screen}: ${diff.slice(0, 3).join(" · ")}`);
       }
     }
+  }
+  // the screen titles of the tabs ("הרכבים שלי", "התראות"): same place and size on both, like the bar
+  for (const vw of new Set(seen.map((s) => s.vw))) {
+    const ts = seen.filter((s) => s.vw === vw && s.title && s.title.kind === "vhead" && !s.sheet), ref = ts[0];
+    for (const s of ts.slice(1)) if (s.screen !== ref.screen && (Math.abs(s.title.r[1] - ref.title.r[1]) > 2 || s.title.fs !== ref.title.fs || (dev.w < 700 && Math.abs((s.title.r[0] + s.title.r[2]) - (ref.title.r[0] + ref.title.r[2])) > 2)))
+      add("warn", "title-moved", run, s.step, `the screen title moves between ${ref.screen} and ${s.screen}: ${JSON.stringify(ref.title.r)} ${ref.title.fs} → ${JSON.stringify(s.title.r)} ${s.title.fs}`);
   }
   // the content column: a screen that is narrower or wider than the others reads as a jump (warning; the nav check above is the hard one)
   const cols = {}; for (const s of seen) if (s.col && !s.sheet && s.vw === dev.w) cols[s.screen] = cols[s.screen] || s.col;
