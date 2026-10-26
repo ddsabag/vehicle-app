@@ -2895,7 +2895,7 @@ function buildInsights(D){
   // a cancelled car gets the red banner above the tabs, not a card here
   if (!D.isCancelled && D.primary && /^inactive/.test(D.primary.key)) add("warn", "הרכב לא פעיל", "הרכב רשום כלא פעיל במאגר משרד התחבורה.");
   // no main register has the plate, only the side ones (26.10: a new car registered 3 weeks earlier, its active row missing for a while)
-  if (!D.primary) add("warn", "הרכב עוד לא מופיע במאגר הרכבים", `הרכב לא נמצא כרגע במאגר הרכבים של משרד התחבורה, ולכן חלק מהפרטים (כמו תוקף הטסט) חסרים${toDate(v.rishum_rishon_dt) ? `. הוא נרשם לראשונה ב-${fmtDate(v.rishum_rishon_dt)}` : ""}. בדרך כלל זה מתעדכן תוך כמה ימים, כדאי לבדוק שוב בהמשך.`);
+  if (!D.primary) add("warn", "הרכב לא מופיע כרגע במאגר הרכבים", `הרכב לא נמצא כרגע במאגר הרכבים של משרד התחבורה, ולכן חלק מהפרטים (כמו תוקף הטסט) חסרים${toDate(v.rishum_rishon_dt) ? `. הוא נרשם לראשונה ב-${fmtDate(v.rishum_rishon_dt)}` : ""}. רכב חדש נכנס למאגר לפעמים באיחור של כמה שבועות, כדאי לבדוק שוב בהמשך.`);
   // a deposited licence or a removal from the road in the public register: the ministry's own words and date
   if (D.hold) add("warn", D.hold.status, `במאגר הרכב הציבורי של משרד התחבורה רשום "${D.hold.nm || D.hold.status}"${empty(D.hold.dt) ? "" : " מ-" + fmtDate(D.hold.dt)}.${D.hold.temp ? " זה מצב זמני, ולא ביטול של הרכב." : ""}`);
   // open recalls are not repeated here: the red banner above the tabs already says it
@@ -3117,6 +3117,10 @@ const appBox = D => `<section class="appbox"><h3>באתר רואים את הרכ
 const IS_ANDROID = /Android/i.test(navigator.userAgent);
 /* where the owner's notes are kept: the app keeps them on the phone, the site in this browser only (a desktop has no phone, Safari and the home-screen icon keep separate copies) */
 const HERE = window.AndroidApp ? "בטלפון הזה" : "בדפדפן הזה";
+/* the file's own notes (services, km, the nickname) said truthfully: in the app they are on the phone and in the person's own Android backup
+   (their Google account, encrypted, never ours; privacy.html), so "only on this phone" would be untrue there. Documents are not backed up:
+   their note keeps HERE */
+const KEPT = window.AndroidApp ? "אצלכם, לא אצלנו" : "רק בדפדפן הזה";
 /* iPhone and iPad: there is no app for them, so nothing points them at Google Play */
 const IS_IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
 /* Facebook, Instagram, TikTok, Telegram... open links in their own browser, where intent:// links and App Links do not work and files cannot be downloaded */
@@ -3547,7 +3551,7 @@ function docsCard(D){
     <div class="doc-add"><select class="inp" id="docCat" aria-label="סוג המסמך">${DOC_CATS.map(c => `<option>${c}</option>`).join("")}</select>
     <button type="button" class="link-btn" data-doc="add">${ico("plus")}הוספת מסמך או צילום</button></div>
     <input type="file" id="docFile" accept="image/*,application/pdf" multiple hidden>
-    <p class="note">המסמכים נשמרים רק ${HERE}, לא נשלחים לשום מקום ולא נכללים בדוחות ששיתפתם. אם תמחקו את האפליקציה או תחליפו מכשיר הם יימחקו, ולכן כדאי לשמור גם עותק במקום אחר.${PRO_LOCK && !isPro() ? ` בחינם עד ${FREE_DOCS} מסמכים לרכב.` : ""}</p>
+    <p class="note">המסמכים נשמרים רק ${HERE}, לא נשלחים לשום מקום ולא נכללים בדוחות ששיתפתם. ${window.AndroidApp ? "הם גם לא נכללים בגיבוי של הטלפון: אחרי מחיקת האפליקציה או מעבר לטלפון חדש הם לא יהיו שם" : "ניקוי נתוני הגלישה מוחק אותם, ובדפדפן או במכשיר אחר הם לא יופיעו"}, ולכן כדאי לשמור גם עותק במקום אחר.${PRO_LOCK && !isPro() ? ` בחינם עד ${FREE_DOCS} מסמכים לרכב.` : ""}</p>
     ${mh ? `<div class="doc-manual"><p style="margin:0"><b>ספר הרכב</b> להורדה נמצא באתר היבואן של ${esc(mh.name)}.</p><button type="button" class="link-btn" data-url="${mh.url}">לדף ההורדה באתר היבואן</button></div>` : ""}`, PT(`PRO · בלי הגבלה`));
 }
 async function fillDocs(){
@@ -3716,7 +3720,7 @@ function watchCta(p){
 function fileCta(D){
   if (!fileOk(D)) return "";
   setTimeout(() => { if (current === D) watchCta(D.plate); }, 0);
-  return `<div class="cf-cta"><span><b>זה הרכב שלכם?</b> פתחו לו תיק: מה הבא, טיפולים ומסמכים, במקום אחד ורק ${HERE}.</span><button type="button" class="link-btn" data-cf="mine" data-from="overview">${ico("car")}פתיחת תיק</button></div>`;
+  return `<div class="cf-cta"><span><b>זה הרכב שלכם?</b> פתחו לו תיק: מה הבא, טיפולים ומסמכים, במקום אחד שנשמר ${KEPT}.</span><button type="button" class="link-btn" data-cf="mine" data-from="overview">${ico("car")}פתיחת תיק</button></div>`;
 }
 const RENEW_URL = "https://www.gov.il/he/service/car_licence_renewal";
 const ROAD_CATS = ["רישיון רכב", "ביטוח", "רישיון נהיגה"];
@@ -3803,7 +3807,7 @@ function fileHist(D, docs){
   const row = e => `<li class="${e.cls || ""}"><time>${esc(e.when)}</time><b>${esc(e.title)}</b>${e.sub ? `<span>${esc(e.sub)}</span>` : ""}${e.del ? `<button type="button" class="x" data-svc="del" data-id="${e.del}" aria-label="מחיקה מהתיק">${ico("trash")}</button>` : e.open ? `<button type="button" class="x" data-doc="open" data-id="${e.open}" aria-label="פתיחת המסמך">${ico(e.pdf ? "doc" : "image")}</button>` : ""}</li>`;
   const none = cfFilter === "svc" ? "עוד לא רשמתם טיפול. הכפתור \"טיפול\" למעלה רושם אחד בכמה שניות." : cfFilter === "doc" ? "עוד לא שמרתם מסמכים לרכב." : "אין רשומות.";
   return chips + (list.length ? `<ul class="cf-tl">${shown.map(row).join("")}</ul>${list.length > shown.length ? `<button type="button" class="link-btn cf-more" data-cfh="more">${ico("chev")}עוד ${list.length - shown.length} רשומות</button>` : ""}` : `<p class="note">${none}</p>`)
-    + `<p class="note">נקודה מלאה: מה שרשמתם בתיק, שנשמר רק ${HERE}. נקודה ריקה: מהמאגרים של משרד התחבורה.</p>`;
+    + `<p class="note">נקודה מלאה: מה שרשמתם בתיק. נקודה ריקה: מהמאגרים של משרד התחבורה.</p>`;
 }
 /* the documents for a stop on the road (vehicle licence, insurance, driving licence), offline: one opens at once, several in a list */
 const openDoc = rec => rec.type === "application/pdf" ? shareFile(rec.blob, rec.name, rec.cat) : docViewer(rec.blob, rec.name);
@@ -3860,7 +3864,7 @@ function tabFile(D){
   if (maintOk()) svcRemember(D, info);
   const n = maintOk() ? svcNext(svcOf(D.plate)) : null, est = n ? null : svcEst(D, info);
   const html = [];
-  html.push(`<div class="cf-top"><p>הכול נשמר רק ${HERE}</p></div>`);   // the road documents open from the header's "מסמכים"
+  html.push(`<div class="cf-top"><p>הכול נשמר ${KEPT}</p></div>`);   // the road documents open from the header's "מסמכים"
   html.push(fileTiles(D, n, est));
   html.push(fileNext(D, info, n, est));
   html.push(`<div class="cf-quick"><button type="button" ${maintOk() ? `data-cf="svc" aria-expanded="false"` : `data-act="proInfo"`}>${ico("wrench")}טיפול</button><button type="button" data-cf="doc">${ico("camera")}<span class="cfq-l">קבלה או מסמך</span><span class="cfq-s">מסמך</span></button><button type="button" ${maintOk() ? `data-cf="km" aria-expanded="false"` : `data-act="proInfo"`}>${ico("chart")}עדכון ק״מ</button></div>${maintOk() ? svcForm() : ""}`);
@@ -3912,7 +3916,7 @@ function openFile(D, from){
   }
   currentTab = "file"; renderResult(); focusResult();
   const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"});
-  toast("נפתח תיק לרכב. מה שתרשמו נשמר רק " + HERE);
+  toast("נפתח תיק לרכב. מה שתרשמו נשמר " + KEPT);
 }
 $("#out").addEventListener("click", ev => {
   const b = ev.target.closest("[data-cf]"); if (!b || !current) return;
