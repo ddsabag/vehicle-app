@@ -5179,7 +5179,8 @@ function setLand(on, redraw = true){
 function closeCompare(){ if (land) setLand(false, false); inCompare = false; if (current) renderResult(); else if (view === "cars") renderCars(); else renderHome(); window.scrollTo({top: 0}); }
 // closing the picker on an empty comparison goes back to where the user came from
 // a picker closed with nothing chosen goes back to where it was opened, not to an empty comparison
-function hideCmpSheet(){ $("#compareSheet").hidden = true; if (inCompare && !cmp.length) closeCompare(); }
+/* closing the picker before a second car was added: back to where the comparison started (the car page), not a comparison of one */
+function hideCmpSheet(){ $("#compareSheet").hidden = true; if (inCompare && (!cmp.length || cmp.length === 1 && cmp[0] === current)) closeCompare(); }
 $("#closeCompareSheet").addEventListener("click", hideCmpSheet);
 $("#compareSheet").addEventListener("click", ev => { if (ev.target.id === "compareSheet") hideCmpSheet(); });
 
@@ -6344,7 +6345,9 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.open && (document.body.dataset.screen === "cars")) carsY = window.scrollY;
   if (!a) return;
   if (a === "fileHome") { ev.stopImmediatePropagation(); fileIntent = true; window.scrollTo({top: 0, behavior: "smooth"}); $("#plate").focus(); toast("הקלידו את מספר הרכב שלכם, ובדף הרכב לחצו \"פתיחת תיק\""); return; }
-  if (a === "addCar") { ev.stopImmediatePropagation(); navTo("search", {via: "add"}); setTimeout(() => $("#plate").focus(), 50); return; }
+  // "+" (and "בדיקת רכב" on an empty list) is a new car: an empty plate field with the cursor in it, never the car left on the search tab.
+  // The focus is set in the tap itself, so phones open the keyboard
+  if (a === "addCar") { ev.stopImmediatePropagation(); parked = null; navTo("search", {via: "add"}); $("#plate").value = ""; $("#plate").focus(); toast("מקלידים מספר רישוי. בדף הרכב, הכוכב שומר אותו ברכבים שלי"); return; }
   if (a === "carsCancel") { ev.stopImmediatePropagation(); carsSel = null; renderCars(); return; }
   if (a === "carsFab") { ev.stopImmediatePropagation();
     if (!carsSel) { carsSel = []; renderCars(); return; }
