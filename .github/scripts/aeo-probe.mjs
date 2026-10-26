@@ -17,7 +17,8 @@ for (const path of ["/", "/check/value/", "/model/", "/llms.txt"]) {
       const x = await fetch("https://luchit.app" + path, { headers: { "user-agent": ua, accept: "text/html,*/*" }, redirect: "manual" });
       const t = await x.text();
       const chal = /cf-chl|challenge-platform|Just a moment|Attention Required/i.test(t);
-      console.log(path, n, x.status, x.headers.get("server") || "", "bytes", t.length, chal ? "CHALLENGE" : "", x.headers.get("cf-mitigated") || "");
+      const faq = path === "/" ? ` faqSrc=${/id="faqSrc"/.test(t)} details=${(t.match(/<details class="faq">/g) || []).length} FAQPage=${/"FAQPage"/.test(t)}` : "";
+      console.log(path, n, x.status, faq, x.headers.get("server") || "", "bytes", t.length, chal ? "CHALLENGE" : "", x.headers.get("cf-mitigated") || "");
     } catch (e) { console.log(path, n, "error", e.message); }
   }
 }
