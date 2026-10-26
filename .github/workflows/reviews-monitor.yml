@@ -42,7 +42,8 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           PLAY_DEVELOPER_ID: ${{ vars.PLAY_DEVELOPER_ID }}
           PLAY_APP_ID: ${{ vars.PLAY_APP_ID }}
-          REVIEWS_RESPONDER: ${{ vars.REVIEWS_RESPONDER }}
+          REVIEWS_RESPONDER: ${{ vars.REVIEWS_RESPONDER }}   # off = review alerts always sent here
+          ALERT_UPTIME_URL: ${{ vars.ALERT_UPTIME_URL }}       # luchit-reviews' /health is on the same workers.dev subdomain
           PREVIEW: ${{ inputs.preview && '1' || '0' }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
       - name: Publish the weekly feedback snapshot on the feedback-data branch (encrypted)
