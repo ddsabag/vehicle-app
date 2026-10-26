@@ -4128,7 +4128,7 @@ function tabSpecs(D){
   ]) + (consumption(D) ? `<p class="note">${D.cost.kind === "ev" ? "הערכה לפי נתוני הדגם." : "הערכה לפי נתון הפליטה הרשמי של הדגם (WLTP)."} נסיעה אמיתית צורכת בדרך כלל יותר.</p>` : D.cost && D.cost.plugIn ? `<p class="note">${PLUGIN_FUEL}</p>` : "")));
   html.push(card("משקלים וצמיגים", "scale", "slate", facts([
     ["משקל כולל מותר", unitPos(specWeight(D), "ק״ג")], ["משקל עצמי", unitPos(v.mishkal_azmi, "ק״ג")],
-    ["כושר העמסה", unitPos(v.mishkal_mitan_harama, "ק״ג")], ["סרנים", e(v.sranim)],
+    ["כושר העמסה", unitPos(v.mishkal_mitan_harama, "ק״ג")], ["סרנים", posN(v.sranim) ? e(v.sranim) : ""],
     ["צמיג קדמי", mono(D.pick(v.zmig_kidmi, v.mida_zmig_kidmi))], ["צמיג אחורי", mono(D.pick(v.zmig_ahori, v.mida_zmig_ahori))],
   ])));
   // the systems are listed from the row the level comes from; a row that marks none as fitted (old rows write 0 for "not recorded") lists none
