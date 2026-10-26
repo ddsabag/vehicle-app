@@ -4,8 +4,17 @@
 // main. Business numbers never reach the log or a branch in clear: the JSON is encrypted with .github/seo-data.pub.pem, the log says only
 // which part answered. KPI_END=YYYY-MM-DD picks another week (its Saturday); KPI_TEST_DATA=<file> maps a saved /live data JSON instead of
 // running the worker (local test of the mapping; prints in clear, never set in Actions).
+//   node kpi-probe.mjs encrypt <in.json> <out.enc.json>   only encrypts a file (the weekly report's JSON in the same run)
 import crypto from "node:crypto";
 import fs from "node:fs";
+function encryptTo(data, file) {
+  const key = crypto.randomBytes(32), iv = crypto.randomBytes(12), c = crypto.createCipheriv("aes-256-gcm", key, iv);
+  const enc = Buffer.concat([c.update(data), c.final()]);
+  const ek = crypto.publicEncrypt({ key: fs.readFileSync(".github/seo-data.pub.pem", "utf8"), padding: crypto.constants.RSA_PKCS1_OAEP_PADDING, oaepHash: "sha256" }, key);
+  fs.mkdirSync(file.replace(/[^/]*$/, "") || ".", { recursive: true });
+  fs.writeFileSync(file, JSON.stringify({ v: 1, ek: ek.toString("base64"), iv: iv.toString("base64"), tag: c.getAuthTag().toString("base64"), data: enc.toString("base64") }));
+}
+if (process.argv[2] === "encrypt") { encryptTo(fs.readFileSync(process.argv[3]), process.argv[4]); console.log("encrypted"); process.exit(0); }
 const E = process.env, log = (part, ok, why = "") => console.log(part, ok ? "ok" : "failed " + String(why).replace(/\d/g, "#").slice(0, 160));
 const WJS = fs.readFileSync(E.W_JS || "worker/live/worker.js", "utf8");
 const addD = (d, k) => new Date(Date.parse(d + "T12:00:00Z") + k * 864e5).toISOString().slice(0, 10);
@@ -57,7 +66,7 @@ function kpis(d, S) {
   const end = W ? W.end : null, prevEnd = end ? S.addD(end, -7) : null, cal = !end || end < S.CAL_END, days = W && W.days, notes = {};
   const week = e => { if (!days) return null; let s = 0; for (let i = 0; i < 7; i++) s += days[S.addD(e, -i)] || 0; return s; };
   const wsum = (k, e) => { const o = W && W.series && W.series[k]; if (!o) return null; let s = 0; for (let i = 0; i < 7; i++) s += o[S.addD(e, -i)] || 0; return s; };
-  const r1 = x => x == null || !isFinite(x) ? null : Math.round(x * 10) / 10, rg = g => g ? { base: r1(g[1]), range: [r1(g[0]), r1(g[2])] } : null;
+  const dm = x => +x.slice(8, 10) + "." + +x.slice(5, 7), r1 = x => x == null || !isFinite(x) ? null : Math.round(x * 10) / 10, rg = g => g ? { base: r1(g[1]), range: [r1(g[0]), r1(g[2])] } : null;
   const CB = S.GOALS.calib, cw = days && end >= CB.end ? week(CB.end) : null, RC = cw ? Math.min(CB.hi, Math.max(CB.lo, cw / CB.model)) : 1;
   const out = {};
   if (!ev) notes.ga4 = "גוגל אנליטיקס לא ענה על השבוע: " + Object.keys(W && W.errors || d.errors || {}).join(", ");
@@ -66,18 +75,24 @@ function kpis(d, S) {
   { const L = ev ? ge(E0, "car_lookup") : null, Lp = ev ? ge(E1, "car_lookup") : null, site = wsum("site_lookup", end), sitep = wsum("site_lookup", prevEnd);
     const G = end && !cal ? S.goal("weekly_checks", end, RC) : null;
     let s = !ev ? "nodata" : cal ? "cal" : S.band(L, G, false, true); if (s === "ok" && Lp >= 30 && L < .8 * Lp) s = "warn";
-    out.weekly_checks = { week: L, prev: Lp, app: site != null && L != null ? Math.max(0, week(end) - site) : null, web: site, app_prev: sitep != null && Lp != null ? Math.max(0, week(prevEnd) - sitep) : null, web_prev: sitep,
+    const P = end ? S.goal("weekly_checks", end, 1) : null, pace = L != null && CB.model ? L / CB.model : null;
+    out.weekly_checks = { week: L, prev: Lp, plan: rg(P), app: site != null && L != null ? Math.max(0, week(end) - site) : null, web: site, app_prev: sitep != null && Lp != null ? Math.max(0, week(prevEnd) - sitep) : null, web_prev: sitep,
       target: rg(G), pct_of_target: G && L != null ? Math.round(L / G[1] * 100) : null, calib_ratio: cw ? r1(RC * 100) / 100 : null, status: s };
-    if (!G) notes.weekly_checks_target = "שבוע הבסיס הוא 26.10–1.11: לפיו נקבע היעד (מול 174 בתוכנית), ומ-2.11 יש יעד לכל שבוע.";
+    if (!G) notes.weekly_checks_target = "שבוע הבסיס הוא " + dm(S.addD(CB.end, -6)) + "–" + dm(CB.end) + ": לפיו נקבע היעד (התוכנית צפתה " + CB.model + "), ומהשבוע שאחריו יש יעד לכל שבוע. plan הוא יעד התוכנית לפני הכיול.";
+    if (pace != null && end < CB.end && pace > CB.hi) notes.weekly_checks_calibration = "השבוע היה פי " + r1(pace) + " מצפי התוכנית לשבוע הבסיס (" + CB.model + "), והכיול מוגבל עד פי " + CB.hi + ": אם שבוע הבסיס ייצא כך, היעד מ-" + dm(S.addD(CB.end, 1)) + " יהיה נמוך בהרבה מהקצב בפועל.";
     if (prevEnd && S.addD(prevEnd, -6) < S.SITE_FROM) notes.weekly_checks_web = "באתר הבדיקות נספרות מ-15.10, לכן שבוע שמתחיל לפני כן חלקי באתר."; }
 
   // 2. new installs: first opens in Israel (GA4 new Android users in IL), the target once the app is live and the base week is over; Google
   // Play's own count (a few days late, its own window) beside it
   { const A = W && W.app, a = A ? A[0].newUsers : null, ap = A ? A[1].newUsers : null, live = d.play === "live", GI = end ? S.goal("installs_week", end) : null, tg = live && !cal ? GI : null;
     const PS = d.stats && d.stats.ok && d.stats.cur ? d.stats : null;
-    out.installs = { week: a, prev: ap, target: rg(tg), status: a == null ? "nodata" : !live ? "early" : cal ? "cal" : S.band(a, GI, false, true),
-      play: PS ? { window: PS.W, users: PS.cur.users, prev_window: PS.P, prev: PS.prev.users, uninstalls: PS.cur.uninstalls, store_visitors: PS.cur.visitors, store_acquisitions: PS.cur.acquisitions, installed_now: PS.active, installed_day: PS.activeDay } : null };
-    if (!PS) notes.installs_play = "דוחות Google Play לא נקראו: " + String(d.stats && d.stats.why || d.stats && d.stats.error || "אין נתון").slice(0, 120); }
+    out.installs = { week: a, prev: ap, plan: rg(GI), target: rg(tg), status: a == null ? "nodata" : !live ? "early" : cal ? "cal" : S.band(a, GI, false, true),
+      play: PS ? { window: PS.W, users: PS.cur.users, prev_window: PS.P, prev: PS.prev.users, uninstalls: PS.cur.uninstalls,
+      store_visitors: PS.store && (PS.cur.visitors || PS.prev.visitors) ? PS.cur.visitors : null, store_acquisitions: PS.store && (PS.cur.acquisitions || PS.prev.acquisitions) ? PS.cur.acquisitions : null, installed_now: PS.active, installed_day: PS.activeDay } : null };
+    if (!PS) notes.installs_play = "דוחות Google Play לא נקראו: " + String(d.stats && d.stats.why || d.stats && d.stats.error || "אין נתון").slice(0, 120);
+    else { notes.installs_play = "Google Play מוסר באיחור של כמה ימים ובחלון שלו (window), ולכן הוא לא אותו שבוע כמו week.";
+      if (out.installs.play.store_visitors == null) notes.installs_store = "ביקורים בדף החנות: הדוח של Google Play לא נמצא או ריק, כמו בלוח."; }
+    if (!tg) notes.installs_target = !live ? "האפליקציה עוד לא בחנות: אין יעד." : "יעד ההתקנות נשפט מהשבוע שאחרי שבוע הבסיס; plan הוא יעד התוכנית (לא מכויל לפי הבדיקות)."; }
 
   // 3. 7-day return of new installs (from 1.36, 21.10): the install week whose 7 days are over, and the week before it; saver vs non-saver as Q2
   { const C = W && W.coh, QF = "2026-10-21";
@@ -120,7 +135,7 @@ function kpis(d, S) {
     const o0 = B ? sc(B[0], ORG) : null, m0 = B ? sc(B[0], known(B[0])) : null, o1 = B && seen[1] ? sc(B[1], ORG) : null, m1 = B && seen[1] ? sc(B[1], known(B[1])) : null;
     out.organic_q1 = { week_pct: m0 ? r1(o0 / m0 * 100) : null, prev_pct: m1 ? r1(o1 / m1 * 100) : null, organic_site_checks: o0, known_source_site_checks: m0, organic_site_checks_prev: o1,
       growth_pct: o1 ? r1((o0 - o1) / o1 * 100) : null, thresholds: "חלק 25% ומעלה, וצמיחה של 20% בשבוע", app_not_included: true };
-    if (!seen[1]) notes.organic_q1_prev = "המקור נמדד באתר מ-20.10: לשבוע הקודם אין מקור ידוע."; }
+    if (!m1) notes.organic_q1_prev = "המקור נמדד באתר מ-20.10: לשבוע הקודם אין מקור ידוע, ולכן גם אין צמיחה."; }
 
   // 8. business leads (the business page's form, b2b_lead_submit) and magazine sign-ups
   { const M = W && W.money;
@@ -142,12 +157,13 @@ function kpis(d, S) {
 
 // error texts go into the file without anything that looks like a key (a long run of letters, digits, - and _)
 const scrub = v => String(v).replace(/[A-Za-z0-9_-]{20,}/g, "***").slice(0, 300), scrubAll = o => Object.fromEntries(Object.entries(o || {}).map(([k, v]) => [k, scrub(v)]));
+let raw = null;
 const result = { generated: new Date().toISOString(), week: { from: addD(END, -6), to: END }, prev_week: { from: addD(END, -13), to: addD(END, -7) } };
 try {
   const S = screenGoals(WJS); log("goals", true);
   let d;
   if (E.KPI_TEST_DATA) d = JSON.parse(fs.readFileSync(E.KPI_TEST_DATA, "utf8"));
-  else { d = await runWorker(); log("worker", true); }
+  else { d = raw = await runWorker(); log("worker", true); }
   const k = kpis(d, S);
   if (k.end && k.end !== END && !E.KPI_TEST_DATA) throw new Error("the worker's week is not the week asked for");
   Object.assign(result, { source: { worker_build: d.build || null, main_sha: E.MAIN_SHA || null, how: "קוד לוח /live עצמו, על השבוע ראשון–שבת שהסתיים ב-" + END },
@@ -156,10 +172,7 @@ try {
 } catch (e) { result.error = scrub(e.message || e); log("kpis", false, scrub(e.message || e)); }
 
 if (E.KPI_TEST_DATA) { console.log(JSON.stringify(result, null, 1)); process.exit(0); }
-const data = Buffer.from(JSON.stringify(result, null, 1));
-const key = crypto.randomBytes(32), iv = crypto.randomBytes(12), c = crypto.createCipheriv("aes-256-gcm", key, iv);
-const enc = Buffer.concat([c.update(data), c.final()]);
-const ek = crypto.publicEncrypt({ key: fs.readFileSync(".github/seo-data.pub.pem", "utf8"), padding: crypto.constants.RSA_PKCS1_OAEP_PADDING, oaepHash: "sha256" }, key);
-fs.mkdirSync("out", { recursive: true });
-fs.writeFileSync("out/kpi.enc.json", JSON.stringify({ v: 1, ek: ek.toString("base64"), iv: iv.toString("base64"), tag: c.getAuthTag().toString("base64"), data: enc.toString("base64") }));
+encryptTo(Buffer.from(JSON.stringify(result, null, 1)), "out/kpi.enc.json");
+// the part of /live's data the numbers came from (encrypted), to check the mapping offline (KPI_TEST_DATA)
+if (raw) encryptTo(Buffer.from(JSON.stringify({ build: raw.build, play: raw.play, stats: raw.stats, rating: raw.rating, weekly: raw.weekly, errors: scrubAll(raw.errors) })), "out/live.enc.json");
 console.log("written, encrypted", result.error ? "(with an error)" : "");

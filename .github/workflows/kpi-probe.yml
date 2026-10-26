@@ -1,18 +1,23 @@
-name: KPI probe (CEO weekly file, probe-perf branch)
+name: KPI probe (CEO weekly file and the weekly report's numbers, probe-perf branch)
 # The weekly numbers for the CEO thread's private file ceo/kpis.json (26.10): /live's own code as it is on main, run on the last whole week
-# Sunday to Saturday. Output encrypted only, on branch probe-kpi-out; the log says only which part answered. Not for main.
-# A run: a new last line in .github/kpi-run.txt ("end=YYYY-MM-DD" on that line picks another week's Saturday).
+# Sunday to Saturday; beside it the weekly report's own JSON (analytics/ from main, nothing sent) for the Sunday anomaly review, which has
+# no other way to read it (the report keeps no artifact: a public repository's artifacts are downloadable). Both encrypted with
+# .github/seo-data.pub.pem, on branch probe-kpi-out; the logs say only which part answered. Not for main.
+# A run: a new last line in .github/kpi-run.txt ("end=YYYY-MM-DD" on that line picks another week's Saturday for the KPI file).
 on:
   push:
     branches: [probe-perf]
     paths: [".github/scripts/kpi-probe.mjs", ".github/workflows/kpi-probe.yml", ".github/kpi-run.txt"]
 permissions:
-  contents: write
+  contents: read
 concurrency: { group: kpi-probe, cancel-in-progress: false }
 jobs:
-  probe:
+  kpi:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    outputs:
+      kpi: ${{ steps.run.outputs.kpi }}
+      live: ${{ steps.run.outputs.live }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v7
@@ -25,7 +30,11 @@ jobs:
           echo "MAIN_SHA=$(git rev-parse --short FETCH_HEAD)" >> "$GITHUB_ENV"
           end=$(tail -n 1 .github/kpi-run.txt 2>/dev/null | grep -oE 'end=[0-9]{4}-[0-9]{2}-[0-9]{2}' | cut -c5- || true)
           if [ -n "$end" ]; then echo "KPI_END=$end" >> "$GITHUB_ENV"; fi
-      - run: node .github/scripts/kpi-probe.mjs
+      - id: run
+        run: |
+          node .github/scripts/kpi-probe.mjs
+          echo "kpi=$(cat out/kpi.enc.json)" >> "$GITHUB_OUTPUT"
+          if [ -f out/live.enc.json ]; then echo "live=$(cat out/live.enc.json)" >> "$GITHUB_OUTPUT"; fi
         env:
           W_JS: ${{ runner.temp }}/w.js
           W_TOML: ${{ runner.temp }}/w.toml
@@ -34,8 +43,62 @@ jobs:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      - name: Publish on probe-kpi-out (encrypted only)
+  weekly:
+    # pip packages run here, so this job only reads (as the report's own job does); the encrypted file goes to "publish" as an output
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    outputs:
+      weekly: ${{ steps.run.outputs.weekly }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: analytics/ as it is on main
         run: |
-          cd out && git init -q && git checkout -q -b probe-kpi-out && git add -A
+          git fetch -q --depth=1 origin main
+          rm -rf analytics && git checkout -q FETCH_HEAD -- analytics models.json
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: actions/setup-node@v7
+        with: { node-version: 22 }
+      - run: pip install -q -r analytics/requirements.txt
+      - id: run
+        run: |
+          python analytics/run.py --out "$RUNNER_TEMP/wk"
+          f=$(ls "$RUNNER_TEMP"/wk/luchit-weekly-*.json | head -1)
+          node .github/scripts/kpi-probe.mjs encrypt "$f" out/weekly.enc.json
+          echo "weekly=$(cat out/weekly.enc.json)" >> "$GITHUB_OUTPUT"
+        env:
+          GA_PROPERTY_ID: ${{ secrets.GA_PROPERTY_ID }}
+          GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
+          PSI_API_KEY: ${{ secrets.PSI_API_KEY }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY || secrets.BREVO_KEY }}
+          BREVO_LIST_ID: ${{ vars.BREVO_LIST_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  publish:
+    # no third-party code here: writes the encrypted files the other two jobs passed on, whichever answered
+    needs: [kpi, weekly]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    permissions:
+      contents: write
+    steps:
+      - name: Publish on probe-kpi-out (encrypted only)
+        env:
+          KPI: ${{ needs.kpi.outputs.kpi }}
+          LIVE: ${{ needs.kpi.outputs.live }}
+          WEEKLY: ${{ needs.weekly.outputs.weekly }}
+        run: |
+          mkdir out && cd out
+          if [ -n "$KPI" ]; then printf '%s' "$KPI" > kpi.enc.json; fi
+          if [ -n "$LIVE" ]; then printf '%s' "$LIVE" > live.enc.json; fi
+          if [ -n "$WEEKLY" ]; then printf '%s' "$WEEKLY" > weekly.enc.json; fi
+          echo "kpi ${{ needs.kpi.result }}, weekly ${{ needs.weekly.result }}, run ${{ github.run_id }}" > run.txt
+          git init -q && git checkout -q -b probe-kpi-out && git add -A
           git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "KPI probe (encrypted)"
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" probe-kpi-out
