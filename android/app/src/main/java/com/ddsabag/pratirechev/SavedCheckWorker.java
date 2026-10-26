@@ -40,7 +40,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Once a day, checks the saved cars: a new open recall, a test that expires soon (60 days ahead when the renewal needs time: an open
  * recall or a brake check; then 30 and 7 days ahead), a service or a document that is due, becomes a notification. Alerts go out in the
- * daytime only and not on Shabbat (see quiet), at most 2 a day and 4 a week (see budget). The saved list is handed over by the page (localStorage is not readable here).
+ * daytime only and not on Shabbat (see quiet), at most 2 a day and 4 a week (see budget), 20 cars a day in turn. The saved list is handed over by the page (localStorage is not readable here).
  * Only the public Ministry of Transport API is called with a plate. The settlements list (luchit.app/settlements.json) is read
  * as a whole and matched on the phone, so no car detail leaves the phone for it.
  */
@@ -109,9 +109,12 @@ public class SavedCheckWorker extends Worker {
         p.edit().putString("last_run", today).apply();
         try {
             JSONArray saved = new JSONArray(p.getString("saved", "[]"));
-            int checked = 0;
-            for (int i = 0; i < saved.length() && checked < 20; i++) {
-                JSONObject car = saved.getJSONObject(i);
+            // 20 cars a run, in turn: the next run starts where this one stopped. The list is newest first, so a fixed first 20 left the
+            // oldest cars out for good; now with more than 20 cars with alerts each one is still checked, once every few days (the page's
+            // alerts screen says so). With 20 or fewer every car is checked every day, in the same order as before.
+            int n = saved.length(), start = n > 0 ? Math.max(0, p.getInt("next_car", 0)) % n : 0, checked = 0, i = 0;
+            for (; i < n && checked < 20; i++) {
+                JSONObject car = saved.getJSONObject((start + i) % n);
                 String plate = car.optString("plate");
                 if (plate.isEmpty() || !car.optBoolean("alerts", true)) continue;
                 checked++;
@@ -169,6 +172,7 @@ public class SavedCheckWorker extends Worker {
                     }
                 }
             }
+            p.edit().putInt("next_car", n > 0 ? (start + i) % n : 0).apply();
         } catch (Exception e) {
             return Result.retry();
         }
@@ -332,7 +336,7 @@ public class SavedCheckWorker extends Worker {
         int age = ageAt(r, end);
         boolean feeOnly = !fleet && "P".equalsIgnoreCase(r.optString("sug_degem", "").trim()) && age >= 0 && age < 36;
         StringBuilder t = new StringBuilder();
-        if (recall) t.append("לפי משרד התחבורה יש ברכב ריקול פתוח, ובלי תיקון אי אפשר לחדש את הרישיון. אם כבר תוקן, כדאי לוודא שהיבואן דיווח למשרד. ");
+        if (recall) t.append("לפי משרד התחבורה יש ברכב ריקול פתוח, וריקול שלא תוקן עלול לעכב את חידוש הרישיון. אם כבר תוקן, כדאי לוודא שהיבואן דיווח למשרד. ");
         if (fleet) t.append("ברכב ליסינג או השכרה החידוש בדרך כלל באחריות החברה, כדאי לוודא מולה. ");
         else if (feeOnly) t.append("השנה לא נדרש טסט, רק תשלום האגרה. ");
         else if (old) t.append("לרכב בן 15 ומעלה נדרשת לפני הטסט בדיקת בלמים במוסך מורשה. ");
@@ -414,7 +418,7 @@ public class SavedCheckWorker extends Worker {
             if (stage == -1) title = cat + " לרכב " + fmtPlate(plate) + " פג";
             else if (stage == 0) title = cat + " לרכב " + fmtPlate(plate) + " פג היום";
             else title = cat + " לרכב " + fmtPlate(plate) + " פג בעוד " + days + " ימים";
-            String text = prefix + "התוקף ב-תיק הרכב: " + when + (stage == -1 ? ". כדאי לחדש בהקדם." : ". כדאי לחדש מראש.");
+            String text = prefix + "התוקף שרשמתם בתיק הרכב: " + when + (stage == -1 ? ". כדאי לחדש בהקדם." : ". כדאי לחדש מראש.");
             notify(c, plate, "doc", ("doc" + plate + cat).hashCode(), title, text);
             sent.add(mark);
             dirty = true;
