@@ -2842,10 +2842,13 @@ async function fetchVehicle(plate, signal, onProgress){
   // a plate can have several tag rows (12,786 plates, 20.10.2026): the newest issue date is the one shown
   const tagDate = r => Number(digits(r["TAARICH HAFAKAT TAG"]).slice(0, 8)) || 0, tag = res.tag.rows.reduce((a, r) => !a || tagDate(r) > tagDate(a) ? r : a, null), dpf = res.dpf.rows[0] || null;
   const tSrc = towRow || (hasTow(v) ? v : null);
+  // a car found only in the side registers (cont, tech: a new car before its active row arrives) has the maker code but no name: the model row names it
+  if (empty(v.tozeret_nm) && !empty(v.tozeret_cd) && sameNum(v, w, "tozeret_cd")) fill(w, new Set(["tozeret_nm", "tozeret_eretz_nm"]));
+  if (empty(v.tozeret_nm) && !empty(w.tozar) && sameNum(v, w, "tozeret_cd")) v.tozeret_nm = w.tozar;
   const make = makeName(v), model = pick(v.kinuy_mishari, w.kinuy_mishari, v.degem_nm) || "";
 
   const {km, kmYears, kmPerYear} = kmAtTest(v);
-  const onRoad = parseYM(v.moed_aliya_lakvish) || (isNum(v.shnat_yitzur) ? new Date(num(v.shnat_yitzur), 0, 1) : null);
+  const onRoad = parseYM(v.moed_aliya_lakvish) || toDate(v.rishum_rishon_dt) || (isNum(v.shnat_yitzur) ? new Date(num(v.shnat_yitzur), 0, 1) : null);
   const ownersFloor = !onRoad || onRoad < new Date(2017, 0, 1); // the ownership log starts in January 2017
   // the public register's own state, when its row is the car's or lends it its licence date: a permanent cancellation reads like the cancel
   // registers, a temporary one (a deposit, the police) is a warning beside the car. Beside an active row of the same vehicle only a temporary
@@ -2891,6 +2894,8 @@ function buildInsights(D){
   const now = new Date();
   // a cancelled car gets the red banner above the tabs, not a card here
   if (!D.isCancelled && D.primary && /^inactive/.test(D.primary.key)) add("warn", "הרכב לא פעיל", "הרכב רשום כלא פעיל במאגר משרד התחבורה.");
+  // no main register has the plate, only the side ones (26.10: a new car registered 3 weeks earlier, its active row missing for a while)
+  if (!D.primary) add("warn", "הרכב עוד לא מופיע במאגר הרכבים", `הרכב לא נמצא כרגע במאגר הרכבים של משרד התחבורה, ולכן חלק מהפרטים (כמו תוקף הטסט) חסרים${toDate(v.rishum_rishon_dt) ? `. הוא נרשם לראשונה ב-${fmtDate(v.rishum_rishon_dt)}` : ""}. בדרך כלל זה מתעדכן תוך כמה ימים, כדאי לבדוק שוב בהמשך.`);
   // a deposited licence or a removal from the road in the public register: the ministry's own words and date
   if (D.hold) add("warn", D.hold.status, `במאגר הרכב הציבורי של משרד התחבורה רשום "${D.hold.nm || D.hold.status}"${empty(D.hold.dt) ? "" : " מ-" + fmtDate(D.hold.dt)}.${D.hold.temp ? " זה מצב זמני, ולא ביטול של הרכב." : ""}`);
   // open recalls are not repeated here: the red banner above the tabs already says it
