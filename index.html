@@ -2798,6 +2798,28 @@ function buildInsights(D){
 
 /* ---------- result screen ---------- */
 let ctrl = null, current = null, currentTab = "overview";
+/* a car page left for another tab (from the bottom bar): coming back to that tab opens it again where it was; a second tap on the tab clears it */
+let parked = null;   // {v: the tab it was opened from, D, t: its tab, y: scroll}
+/* web: the browser's Back steps back inside לוחית (a car to the tab it came from, a tab to home) instead of leaving the site.
+   While anything but the home page is on screen, one history entry ({lu: 1}) stands in front of it; Back spends it, appBack takes one step,
+   and the entry is put back while there are more steps. The app has its own Back (MainActivity.handleBack -> appBack) */
+const WEB_HIST = !window.AndroidApp && !!(window.history && history.pushState);
+let skipPop = false;
+function syncHist(){
+  if (!WEB_HIST) return;
+  const go = document.getElementById("go"), root =   // a check on its way (the search button is off) is not the home page yet
+    document.body.dataset.screen === "home" && !current && !(go && go.disabled), ours = !!(history.state && history.state.lu);
+  try {
+    if (!root && !ours) history.pushState({lu: 1}, "", location.href);
+    else if (root && ours) { skipPop = true; history.back(); }
+  } catch {}
+}
+addEventListener("popstate", () => {
+  if (!WEB_HIST) return;
+  if (skipPop) { skipPop = false; return; }
+  window.appBack();
+  syncHist();
+});
 // the recalls tab is there only when there is something to act on (recTab); otherwise the "checked" line above the tabs says so (checkLine)
 // a car marked as the owner's ("הרכב שלי", isMine) shows "תיק הרכב" where any other car shows "קנייה"
 const TABS = [["overview","סקירה"],["recalls","ריקולים"],["buy","קנייה"],["file","תיק הרכב"],["specs","מפרט"]];
@@ -2811,6 +2833,7 @@ const recTabOf = D => D.kind === "model" || D.recalls.length ? "ריקולים" 
 let lookupAgain = false;
 async function lookup(raw){
   const again = lookupAgain; lookupAgain = false;
+  parked = null;
   const ot = openTab; openTab = null;
   const plate = digits(raw).replace(/^0+(?=\d{5})/, "");
   const out = $("#out");
@@ -2821,7 +2844,7 @@ async function lookup(raw){
   $("#plate").value = fmtPlate(plate); $("#plate").blur();
   $("#go").disabled = true;
   if (document.body.dataset.screen === "car") setScreen("home");   // a new plate from a car page (shared text, a launcher shortcut): the band shows what is being looked up
-  try { const u = new URL(location.href); u.searchParams.delete("nk"); history.replaceState(null, "", u.pathname + u.search + "#" + plate); } catch {}
+  try { const u = new URL(location.href); u.searchParams.delete("nk"); history.replaceState(history.state, "", u.pathname + u.search + "#" + plate); } catch {}
   out.innerHTML = loadingHtml(plate);
   // a slow ministry server: say so after 5 s instead of leaving a silent bar. Since 1.36 about 1 check in 10 passes 3.5 s and 1 in 25 passes 5 s
   // (GA4, 22-23.10), so 5 s is the line where a check is really slower than usual; it is also the dur bucket edge every version reports
@@ -6012,7 +6035,7 @@ for (const nm of ["renderResult", "renderCompare", "renderHome"]) {
    drawn (home, car, cars, alerts, sub for the tools), and the search band shows only on home and the tools */
 let view = "search", carsFilter = "all", carsSel = null, carsY = 0;
 let openTab = null;   // {p: plate, t: tab}: the tab that car opens on next (an open recall from "התראות" lands on the recalls tab); another car ignores it
-function setScreen(s){ document.body.dataset.screen = s; syncNav(); }
+function setScreen(s){ document.body.dataset.screen = s; syncNav(); syncHist(); }
 function syncNav(){
   document.querySelectorAll("#bnav [data-nav]").forEach(b => { if (b.dataset.nav === view) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
   const n = alertItems().length, bd = $("#bnBadge"); if (bd) { bd.hidden = !n; bd.textContent = n > 9 ? "9+" : String(n); }
@@ -6027,10 +6050,17 @@ function navTo(v, opts = {}){
   if (ctrl) { ctrl.abort(); ctrl = null; $("#go").disabled = false; }
   if (v !== "search") fileIntent = false;
   track("nav", {to: v, via: opts.via || "bar"});
+  if (v === view) parked = null;
+  else if (current && document.body.dataset.screen === "car") parked = {v: view, D: current, t: currentTab, y: window.scrollY};
+  if (parked && parked.v === v && v !== view) {
+    const p = parked; parked = null; view = v; current = p.D; currentTab = p.t; renderResult();
+    if (p.D.plate && p.D.kind !== "model") try { history.replaceState(history.state, "", location.pathname + "#" + p.D.plate); } catch {}
+    window.scrollTo({top: p.y}); return;
+  }
   if (v === "cars") { carsSel = null; if (opts.filter) carsFilter = opts.filter; view = v; renderCars(); }
   else if (v === "alerts") { view = v; renderAlerts(); }
   else { view = "search"; goHome(); return; }
-  try { history.replaceState(null, "", location.pathname); } catch {}
+  try { history.replaceState(history.state, "", location.pathname); } catch {}
   window.scrollTo({top: 0});
 }
 /* the screen the user is on, drawn again with fresh data (a check that finished, a bell, a nickname); a car page or a tool stays as it is */
@@ -6041,8 +6071,8 @@ function refreshView(){
 }
 /* back from a car page: to the tab it was opened from */
 function leaveCar(){
-  current = null; currentTab = "overview"; fileIntent = false;
-  try { history.replaceState(null, "", location.pathname); } catch {}
+  current = null; currentTab = "overview"; fileIntent = false; parked = null;
+  try { history.replaceState(history.state, "", location.pathname); } catch {}
   if (view === "cars") { renderCars(); window.scrollTo({top: carsY}); }
   else if (view === "alerts") { renderAlerts(); window.scrollTo({top: 0}); }
   else goHome();
@@ -6966,12 +6996,12 @@ $("#bizLogoClear").addEventListener("click", () => { const b = bizProfile(); del
 syncBiz();
 /* Android back button: close settings, then return from a result to the home screen */
 const focusResult = () => { const h = $("#resHead"); if (h) try { h.focus({preventScroll: true}); } catch {} };
-function goHome(){ if (land) setLand(false, false); inCompare = false; renderHome(); $("#plate").value = ""; try { history.replaceState(null, "", location.pathname); } catch {} window.scrollTo({top: 0}); }
+function goHome(){ if (land) setLand(false, false); inCompare = false; renderHome(); $("#plate").value = ""; try { history.replaceState(history.state, "", location.pathname); } catch {} window.scrollTo({top: 0}); }
 $(".brand h1").addEventListener("click", ev => { ev.preventDefault(); goHome(); });
 $("#homeBtn").addEventListener("click", goHome);
 // the checked line above the tabs: opened, calm or amber (checkLine)
 document.addEventListener("toggle", ev => { const d = ev.target; if (d.classList && d.classList.contains("ckl") && d.open) track("check_open", {kind: d.dataset.line}); }, true);
-window.appBack = () => { const dv = document.querySelector(".doc-view"); if (dv) { dv.click(); return true; } { const rs = $("#roadSheet"); if (rs) { rs.remove(); return true; } } if (document.querySelector(".ch-menu")) { closeCarMenu(); return true; } if (!sheet.hidden) { sheet.hidden = true; return true; } if (!$("#compareSheet").hidden) { if (mGroup) stepBack(); else hideCmpSheet(); return true; } if (!$("#shareSheet").hidden) { $("#shareSheet").hidden = true; return true; } if (inCompare) { closeCompare(); return true; } if (document.body.dataset.screen === "sub") { leaveTool(); return true; } if (document.body.dataset.screen === "cars" && carsSel) { carsSel = null; renderCars(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { leaveCar(); return true; } if (!$("#homeMark")) { goHome(); return true; } return false; };
+window.appBack = () => { const dv = document.querySelector(".doc-view"); if (dv) { dv.click(); return true; } { const rs = $("#roadSheet"); if (rs) { rs.remove(); return true; } } if (document.querySelector(".ch-menu")) { closeCarMenu(); return true; } if (!sheet.hidden) { sheet.hidden = true; return true; } if (!$("#compareSheet").hidden) { if (mGroup) stepBack(); else hideCmpSheet(); return true; } if (!$("#shareSheet").hidden) { $("#shareSheet").hidden = true; return true; } if (inCompare) { closeCompare(); return true; } if (document.body.dataset.screen === "sub") { leaveTool(); return true; } if (document.body.dataset.screen === "cars" && carsSel) { carsSel = null; renderCars(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { leaveCar(); return true; } if (parked && parked.v !== view) { navTo(parked.v, {via: "back"}); return true; } if (!$("#homeMark")) { goHome(); return true; } return false; };
 
 /* Text shared from another app (an ad, a message): find a plate number in it.
    Phone numbers, prices and mileage are skipped; a number next to the words רכב/רישוי/לוחית wins. */
