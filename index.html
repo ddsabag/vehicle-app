@@ -828,6 +828,7 @@ body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)
 .arow{display:flex;align-items:center;gap:12px;padding:12px 14px;min-height:60px}.arow + .arow{border-top:1px solid var(--line)}
 .arow .acal{width:auto;margin:0;flex:0 0 auto;padding:8px 12px}
 .arow .t{flex:1;min-width:0;display:grid;justify-items:start;gap:3px}.arow .t small{color:var(--muted);font-size:.85rem}.arow .mini-plate{font-size:.9rem;padding:2px 7px 2px 3px}
+.aoff .sw{opacity:.45}.anote{background:var(--warn-bg)}.anote b{color:var(--warn)}.anote .t{flex:1;min-width:0}.anote .link-btn{width:auto;flex:0 0 auto;background:var(--card);color:var(--accent)}
 .sw{position:relative;width:48px;height:28px;flex:0 0 auto;border:0;border-radius:999px;background:var(--line);padding:0;transition:background .15s}
 .sw::after{content:"";position:absolute;top:3px;inset-inline-start:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
 .sw[aria-checked=true]{background:var(--accent)}.sw[aria-checked=true]::after{transform:translateX(-20px)}
@@ -6263,8 +6264,9 @@ function renderAlerts(){
     if (alertsSupported()) {
       let st = "off"; try { st = window.AndroidApp.alertsState(); } catch {}
       const set = alertSet(), pr = alertPrefs();
-      html.push(`<div class="qhead">להתריע על</div><div class="arows">
-        <div class="arow"><div class="t"><b>התראות בטלפון</b><small>${st === "blocked" ? "כבויות: הטלפון חוסם התראות מלוחית. כדי לקבל אותן, אפשרו התראות ללוחית בהגדרות האפליקציה בטלפון." : "ריקול חדש לרכב שמור, ותזכורות לפני שהטסט פג."}</small></div><button type="button" class="sw" role="switch" aria-checked="${st === "on"}" data-alerts="${st === "on" ? "off" : "on"}" aria-label="התראות בטלפון"></button></div>
+      // the phone-wide switch lives in "עוד"; here it shows only when it stops the cars' switches from working (off, or blocked by the phone)
+      html.push(`<div class="qhead">להתריע על</div><div class="arows${st === "on" ? "" : " aoff"}">
+        ${st === "on" ? "" : `<div class="arow anote"><div class="t"><b>${st === "blocked" ? "הטלפון חוסם התראות מלוחית" : "ההתראות בטלפון כבויות"}</b><small>${st === "blocked" ? "כדי לקבל אותן, אפשרו התראות ללוחית בהגדרות האפליקציה בטלפון." : "המתגים של הרכבים לא יפעלו עד שמפעילים אותן."}</small></div><button type="button" class="link-btn" data-alerts="on">להפעלה</button></div>`}
         ${all.map(s => { const on = s.alerts !== false && (!PRO_LOCK || set.includes(s.plate)); return `<div class="arow"><div class="t"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><small>${esc(s.nick || s.title)}</small></div><button type="button" class="sw" role="switch" aria-checked="${on}" data-bell="${s.plate}" aria-label="התראות על ${esc(s.nick || s.title)}"></button></div>`; }).join("")}
       </div>
       <details class="akinds"><summary>סוגי ההתראות</summary><div class="kinds">${ALERT_KINDS.map(([k, t, pro]) => `<label><input type="checkbox" data-kind="${k}"${pr[k] === false ? "" : " checked"}>${esc(t)}${pro && PRO_LOCK ? " (PRO)" : ""}</label>`).join("")}</div>
