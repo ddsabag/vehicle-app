@@ -20,6 +20,22 @@
    "id": "18070329965780798",
    "link": "https://www.instagram.com/p/De6INn6nHOT/",
    "at": "2026-10-25T07:04:21.634Z"
+  },
+  "2026-10-22/carousel/facebook": {
+   "tries": 1,
+   "last": "2026-10-26T18:45:44.652Z",
+   "status": "done",
+   "id": "1424085817452110_122105358957516900",
+   "link": "https://www.facebook.com/1424085817452110_122105358957516900",
+   "at": "2026-10-26T18:45:52.723Z"
+  },
+  "2026-10-22/carousel/instagram": {
+   "tries": 1,
+   "last": "2026-10-26T18:45:53.021Z",
+   "status": "done",
+   "id": "17951991828318306",
+   "link": "https://www.instagram.com/p/De99WBRiV_w/",
+   "at": "2026-10-26T18:46:36.825Z"
   }
  },
  "ig": {
