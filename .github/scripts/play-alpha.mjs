@@ -525,6 +525,8 @@ export async function summary() {
   const fresh = env.EVENT === "workflow_dispatch" && P.code !== "dry";   // a manual re-run always reports, even inside the 24 h dedupe
   const r = router ? await router.alert(m.level, m.key, m.text, m.link, { today: m.today || "loud", fresh, legacy: () => telegram(m.text) })
     : { delivered: await telegram(m.text) };
+  // an upload that went through ends every Ship tail failure before it (access, GitHub, an upload): the router tells each one "חזר לתקין"
+  if (router?.resolve && P.code === "uploaded") try { await router.resolve(["ship:fail:"]); } catch { /* the morning ledger still shows it */ }
   return r.delivered ? 0 : 1;
 }
 
@@ -1001,6 +1003,12 @@ async function selftest() {
     IO.router = { alert: async (lv, key, text, link, o) => { seen.push({ lv, key, o }); return { delivered: true }; } };
     W = await run({ headRuns }, { PLAY_RESULT: PR, TELEGRAM_BOT_TOKEN: TG, TELEGRAM_CHAT_ID: "42", EVENT: "workflow_dispatch" }, ["summary"]);
     ok(seen.length === 1 && seen[0].lv === "day" && seen[0].key === "ship:done:1.33" && !seen[0].o.plain && seen[0].o.today === "silent" && seen[0].o.fresh && W.tg.length === 0, "summary: through the router, fresh on a manual run");
+    // an upload closes the Ship tail failures before it; a failed one leaves them open
+    const settled = [];
+    IO.router = { alert: async () => ({ delivered: true }), resolve: async p => { settled.push(p.join("|")); return 1; } };
+    W = await run({ headRuns }, { PLAY_RESULT: PR, TELEGRAM_BOT_TOKEN: TG, TELEGRAM_CHAT_ID: "42" }, ["summary"]);
+    W = await run({}, { PLAY_RESULT: pack({ release: true, tell: true, code: "error", stage: "upload", vn: "1.33", vc: 110, sha: SHA, why: "w", next: "n" }), TELEGRAM_BOT_TOKEN: TG, TELEGRAM_CHAT_ID: "42" }, ["summary"]);
+    ok(settled.join() === "ship:fail:", "summary: only an upload closes the Ship tail failures " + settled);
     IO.router = null;
     W = await run({}, { PLAY_RESULT: PR, TELEGRAM_BOT_TOKEN: "", TELEGRAM_CHAT_ID: "" }, ["summary"]);
     ok(W.code === 0 && W.tg.length === 0 && W.printed.filter(l => l.startsWith("::notice::")).length === 1, "summary: no Telegram secrets -> one notice");

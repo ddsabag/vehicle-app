@@ -329,6 +329,8 @@ export async function tell(R) {
   if (!router) try { router = await import("./alert.mjs"); } catch { /* legacy below */ }
   const r = router ? await router.alert("day", m.key, m.text, m.link, { today: m.today, fresh: manual, legacy: () => telegram(m.text) })
     : { delivered: await telegram(m.text) };
+  // a change Play took ends every listing failure before it (access, files, Play): the router tells each one "חזר לתקין"
+  if (router?.resolve && R.code === "done") try { await router.resolve(["listing:fail:"]); } catch { /* the morning ledger still shows it */ }
   return !!r.delivered;
 }
 function report(R) {
@@ -578,6 +580,13 @@ async function selftest() {
     W = await run({ router, repo: { text: { title: "חדש" } } }, { MODE: "dry" });
     ok(seen.map(s => s.key.split(":").slice(0, 3).join(":").replace(/:[0-9a-f]{12}$/, "")).join() === "listing:done,listing:fail:access,listing:fail:files,listing:dry", "router: keys " + seen.map(s => s.key));
     ok(seen.every(s => s.lv === "day" && validKey(s.key) && !s.o.plain) && seen[1].o.fresh && !seen[0].o.fresh, "router: day, valid keys, fresh when manual");
+    // a change Play took closes the listing failures; a failure, a dry run or nothing to change leaves them open
+    const settled = [], r2 = { alert: async () => ({ delivered: true }), resolve: async p => { settled.push(p.join("|")); return 1; } };
+    W = await run({ router: r2, repo: { text: { title: "חדש" } } });
+    W = await run({ router: r2, repo: { text: { title: "חדש" } }, fail: { patch: [403] } });
+    W = await run({ router: r2, repo: { text: { title: "חדש" } } }, { MODE: "dry" });
+    W = await run({ router: r2 });
+    ok(settled.join() === "listing:fail:", "router: only a change Play took closes the listing failures " + settled);
   });
 
   await group("secrets", async () => {
