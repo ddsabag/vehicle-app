@@ -1,0 +1,122 @@
+name: App guardian (real app)
+# The real Android app on an emulator (.github/scripts/app-real.cjs): this commit built like the Play build (the same shrinking and the
+# same minified page), but debuggable and debug-signed (build type qa), then opened the way people open it and walked the way
+# ui-flows.cjs walks the page, with its fixtures, journeys and rules. It sees what a browser cannot: the phone's font size (100-200%) and
+# display size, the system bars, the keyboard, Back at home, a dark phone, the launcher shortcuts, a tapped alert, a shared ad and a
+# luchit.app link. Blocking findings fail the run. Findings and screenshots of the latest run: branch app-guard-out (one folder per
+# Android version). The registry is mocked with the example plates; nothing leaves the emulator but the build tools' downloads.
+on:
+  pull_request:
+    paths: ["index.html", "android/**", ".github/scripts/app-real.cjs", ".github/scripts/ui-flows.cjs", ".github/workflows/app-guardian.yml"]
+  push:
+    branches: [next, qa-e2e]
+    paths: ["index.html", "android/**", ".github/scripts/app-real.cjs", ".github/scripts/ui-flows.cjs", ".github/workflows/app-guardian.yml"]
+  schedule:
+    - cron: "37 1 * * *"   # every night on main: a new emulator image or WebView can move the page without a commit
+  workflow_dispatch:
+    inputs:
+      quick:
+        description: "Only the first phone setting and two journeys (about 5 minutes on the emulator)"
+        type: boolean
+        default: false
+permissions:
+  contents: write   # only the publish job writes, to branch app-guard-out, and never for a pull request
+concurrency:
+  group: app-guardian-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v5
+        with:
+          gradle-version: "8.13"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Minify the page as the release build does
+        run: |
+          mkdir -p /tmp/minify && cd /tmp/minify && npm init -y >/dev/null && npm i --ignore-scripts --no-audit --no-fund terser@5.51.2 >/dev/null
+          cd "$GITHUB_WORKSPACE"
+          ln -sfn /tmp/minify/node_modules .github/scripts/node_modules
+          node .github/scripts/obfuscate.mjs
+          rm .github/scripts/node_modules
+      - name: Build (release shrinking, debuggable, debug-signed)
+        working-directory: android
+        run: |
+          VN=$(grep -oP 'APP_VERSION = "\K[^"]+' ../index.html)
+          gradle --no-daemon assembleQa -PversionCode=1 -PversionName=$VN
+          cp app/build/outputs/apk/qa/app-qa.apk ../app-qa.apk
+          ls -la ../app-qa.apk
+      - uses: actions/upload-artifact@v7
+        with:
+          name: app-qa
+          path: app-qa.apk
+          retention-days: 3
+
+  device:
+    needs: apk
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        # 35: Android 15, edge to edge, Back through OnBackInvokedCallback. 31: Android 12, the system draws the bars, Back as a key.
+        api: [35, 31]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: app-qa
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Install the test tools (not part of the app)
+        run: npm install --no-save --no-package-lock playwright pngjs@7.0.0
+      - name: Let the emulator use the processor's virtualisation
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: The real app on the emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot-save
+          script: node .github/scripts/app-real.cjs --apk app-qa.apk --out app-real/api${{ matrix.api }} --label api${{ matrix.api }} ${{ inputs.quick && '--quick' || '' }}
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: app-real-api${{ matrix.api }}
+          path: app-real
+          retention-days: 14
+
+  publish:
+    needs: device
+    if: ${{ always() && github.event_name != 'pull_request' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: app-real-api*
+          merge-multiple: true
+          path: app-real
+      - name: Findings and screenshots to branch app-guard-out
+        run: |
+          ls -R app-real | head -50
+          cd app-real
+          printf '{"commit":"%s","ref":"%s","run":"%s/%s/actions/runs/%s","at":"%s"}\n' "$GITHUB_SHA" "$GITHUB_REF_NAME" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$(date -u +%FT%TZ)" > run.json
+          git init -q -b app-guard-out && git add .
+          git -c user.name="app-guardian" -c user.email="app-guardian@users.noreply.github.com" commit -q -m "App guardian: the real app on ${GITHUB_SHA::7} (${GITHUB_REF_NAME})"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" app-guard-out

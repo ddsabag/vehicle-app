@@ -13,15 +13,15 @@
 // --no-fonts serves no font files: a first visit to the site on a slow line draws in the phone's own font (font-display:optional),
 // which is wider than Assistant, so a label that fits in Assistant can wrap there.
 // Usage: node .github/scripts/ui-flows.cjs [--quick] [--shots] [--no-sweep] [--no-fonts] [--filter <regex>] [--out <dir>]
+// The real app on an Android emulator (app-real.cjs) loads this file for the same fixtures, journeys and rules: run on its own, it tests
+// in the browser; required, it only hands them over.
 const fs = require("node:fs"), http = require("node:http"), path = require("node:path");
-const { chromium } = require("playwright");
 
 const ROOT = process.cwd();
 const args = process.argv.slice(2), arg = (k) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : null; };
 const QUICK = args.includes("--quick") || !!process.env.UF_QUICK, SHOTS = args.includes("--shots"), NO_SWEEP = args.includes("--no-sweep"), NO_FONTS = args.includes("--no-fonts");
 const FILTER = arg("--filter") ? new RegExp(arg("--filter")) : null;
 const OUT = path.resolve(arg("--out") || path.join(ROOT, "ui-flows"));
-fs.mkdirSync(path.join(OUT, "shots"), { recursive: true });
 
 const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".css": "text/css", ".png": "image/png", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".webmanifest": "application/manifest+json" };
 const server = http.createServer((req, res) => {
@@ -49,6 +49,18 @@ const MANY = [
 const OWNER = { mine: '{"1234567":1}', svc: JSON.stringify({ 1234567: { log: [{ id: 1, d: day(-140), km: 63900, type: "טיפול תקופתי", cost: 1250, note: "" }, { id: 2, d: day(-20), km: 66100, type: "קריאת ק״מ", cost: 0, note: "" }], meta: null } }) };
 // every saved car of the fixtures answers from the registry mock too (its maker and model from the saved title)
 for (const it of MANY) if (!RECS[+it.plate]) { const [mk, ...md] = it.title.split(" "); RECS[+it.plate] = { ...CAR, _id: +it.plate, mispar_rechev: +it.plate, tozeret_nm: mk, kinuy_mishari: md.join(" "), shnat_yitzur: +it.sub, tzeva_rechev: it.color }; }
+// the registry (data.gov.il) as the journeys see it: the fixture cars, an empty answer for everything else; gov = "500", "abort" or
+// "slow" for the error journeys
+const govRoute = (r, gov) => {
+  const u = r.request().url(), json = (body) => r.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify(body) });
+  if (gov === "500") return r.fulfill({ status: 500, body: "" });
+  if (gov === "abort") return r.abort("internetdisconnected");
+  if (gov === "slow") return new Promise((ok) => setTimeout(ok, 25000)).then(() => r.abort()).catch(() => {});
+  if (/[?&]limit=0\b/.test(u)) return json({ success: true, result: { records: [], total: 120000 } });
+  const m = decodeURIComponent(u).match(/(\d{7,8})/), rec = u.includes("053cea08") && m && RECS[+m[1]];
+  const recs = rec ? [rec] : [];
+  return json({ success: true, result: { records: recs, total: recs.length } });
+};
 const STATES = {
   empty: {},
   owner: { savedVehicles: JSON.stringify([S1]), recentPlates: '["1234567"]', ...OWNER },
@@ -167,7 +179,8 @@ const check = (which) => async (p, c) => {
   else { if (!(await p.locator("#plate").isVisible())) await p.click('#bnav [data-nav="search"]'); if (!(await p.locator("#plate").isVisible())) await p.click('#bnav [data-nav="search"]'); await p.fill("#plate", plate); await p.press("#plate", "Enter"); }
   await settle(p);
 };
-const back = async (p, c) => { if (c.app) await p.evaluate(() => window.appBack()); else await p.goBack({ waitUntil: "commit" }).catch(() => {}); };
+// Back: the app's own handler in the browser, the browser's Back on the web, the phone's Back key on the emulator (c.back)
+const back = async (p, c) => { if (c.back) await c.back(p, c); else if (c.app) await p.evaluate(() => window.appBack()); else await p.goBack({ waitUntil: "commit" }).catch(() => {}); };
 const tap = (sel) => async (p) => p.locator(sel).filter({ visible: true }).first().click({ timeout: 4000 });
 const tapIf = (sel) => async (p) => { const l = p.locator(sel).filter({ visible: true }).first(); if (await l.count()) await l.click({ timeout: 4000 }); };
 const isCar = (plate) => (m, c) => m.screen === "car" && m.carPlate === (plate || c.plate) || `expected the car ${plate || c.plate}, got screen ${m.screen} ${m.carPlate} ${m.msg.slice(0, 50)}`;
@@ -356,17 +369,7 @@ async function openCtx(browser, dev, theme, stateName, gov) {
   const ctx = await browser.newContext({ viewport: { width: dev.w, height: dev.h }, deviceScaleFactor: 1, isMobile: dev.w < 900, hasTouch: dev.w < 900, colorScheme: theme, locale: "he-IL", userAgent: UA[dev.ua] });
   await ctx.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (r) => r.abort());
   const net = { offline: false };   // a mocked answer would still arrive with the context offline, so the mock stops answering too
-  await ctx.route(/data\.gov\.il/, (r) => {
-    const u = r.request().url();
-    if (net.offline) return r.abort("internetdisconnected");
-    if (gov === "500") return r.fulfill({ status: 500, body: "" });
-    if (gov === "abort") return r.abort("internetdisconnected");
-    if (gov === "slow") return new Promise((ok) => setTimeout(ok, 25000)).then(() => r.abort()).catch(() => {});
-    if (/[?&]limit=0\b/.test(u)) return r.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify({ success: true, result: { records: [], total: 120000 } }) });
-    const m = decodeURIComponent(u).match(/(\d{7,8})/), rec = u.includes("053cea08") && m && RECS[+m[1]];
-    const recs = rec ? [rec] : [];
-    r.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify({ success: true, result: { records: recs, total: recs.length } }) });
-  });
+  await ctx.route(/data\.gov\.il/, (r) => (net.offline ? r.abort("internetdisconnected") : govRoute(r, gov)));
   await ctx.addInitScript(({ ls, app }) => {
     try { localStorage.setItem("analyticsOff", "1"); for (const [k, v] of Object.entries(ls)) localStorage.setItem(k, v); } catch {}
     window.__fx = 0; const fx = () => { window.__fx++; };
@@ -403,31 +406,43 @@ async function runJourney(browser, dev, theme, stateName, J) {
     let ok = expect ? await expect(m, c) : true;
     if (ok && ok.warn) { add("warn", "logic", run, step, ok.warn); ok = true; }
     if (ok !== true) add("block", "logic", run, step, ok);
-    if (m.over > 0) add("block", "overflow", run, step, `page scrolls sideways by ${m.over}px on ${m.screen}`);
-    if (m.outside.length) add("block", "outside", run, step, `past the screen edge on ${m.screen}: ${m.outside.join(" · ")}`);
     if (m.cls > 0.1) add("warn", "cls", run, step, `layout shift ${m.cls.toFixed(2)} on ${m.screen}: ${(await page.evaluate(() => window.__cls.src.slice(0, 4).join(" ; ")))}`);
-    if (m.wraps.length) add("warn", "wrap", run, step, `label on two lines on ${m.screen}: ${m.wraps.join(" · ")}`);
-    if (m.overlaps.length) add("warn", "overlap", run, step, `controls overlap on ${m.screen}: ${m.overlaps.join(" · ")}`);
-    if (m.clipped.length) add("warn", "clip", run, step, `text cut off on ${m.screen}: ${m.clipped.join(" · ")}`);
-    if (m.twice.length) add("warn", "twice", run, step, `the same car is offered twice on ${m.screen}: ${m.twice.length} plates`);
-    if (m.orphans.length) add("warn", "orphan", run, step, `a control dropped to a line of its own on ${m.screen}: ${m.orphans.join(" · ")}`);
-    if (m.bleed.length) add("warn", "bleed", run, step, `wider than the content column on ${m.screen}: ${m.bleed.join(" · ")}`);
-    if (m.ragged.length) add("warn", "ragged", run, step, `one row, different heights on ${m.screen}: ${m.ragged.join(" · ")}`);
-    if (m.covered) add("warn", "covered", run, step, `the bottom bar covers "${m.covered}" at the end of ${m.screen}`);
-    if (!m.sheet && m.nav && ({ home: "search", cars: "cars", alerts: "alerts" })[m.screen] && m.navCur !== ({ home: "search", cars: "cars", alerts: "alerts" })[m.screen]) add("block", "logic", run, step, `the bar highlights "${m.navCur}" on the ${m.screen} screen`);
-    // the website's frame (blocking): a footer under every screen; on a wide screen no button floats over the list (compare sits in the
-    // title row) and share and save carry their words
-    const vw = m.vw, innerH = m.vh;   // the viewport now, not the device's first one: "rotate" turns a 1024 tablet to 768 wide
-    if (!app && !m.sheet && !m.loading && ["home", "car", "cars", "alerts", "sub"].includes(m.screen) && !m.footer) add("block", "frame", run, step, `the website's footer is missing on ${m.screen}`);
-    if (!app && vw >= 1000 && m.screen === "cars" && m.fab) add("block", "frame", run, step, "a floating compare button over the list on a wide screen (it belongs in the title row)");
-    // a phone's bottom bar is one row of three tabs: anything more (the wide bar's gear, its search) makes it grow over the page
-    if (vw < 1000 && m.nav && m.nav.bar[1] > innerH / 2 && m.nav.bar[3] > 80) add("block", "frame", run, step, `the bottom bar grew to ${m.nav.bar[3]}px on ${m.screen} (one row of three tabs is about 66px)`);
-    if (!app && vw >= 1000 && m.screen === "car" && m.carOn && !m.sheet && !m.chLabels) add("block", "frame", run, step, "the wide car header shows share and save as bare icons");
+    judgeStep(run, step, m, { app });
     if (ok === true && act === back && prev && ["screen", "sheet", "url", "carPlate", "msg", "tab"].every((k) => prev[k] === m[k]) && !(m.screen === "home" && m.home)) add("block", "logic", run, step, `Back did nothing on ${m.screen} (a dead press)`);
     prev = m;
-    seen.push({ step: name, screen: m.screen, sheet: m.sheet, nav: m.nav, col: m.col, title: m.title, y: m.y, vw: await page.evaluate(() => innerWidth) });
+    seen.push({ step: name, screen: m.screen, sheet: m.sheet, nav: m.nav, col: m.col, title: m.title, y: m.y, vw: m.vw });
     if (SHOTS) await page.screenshot({ path: path.join(OUT, "shots", `${run.replace(/\//g, "__")}__${name}.png`) }).catch(() => {});
   }
+  judgeRun(run, seen, dev.w);
+  await ctx.close();
+}
+
+// what one measured step must hold, wherever it ran (o.app: the Android app, which has no website frame)
+function judgeStep(run, step, m, o) {
+  const app = o.app;
+  if (m.over > 0) add("block", "overflow", run, step, `page scrolls sideways by ${m.over}px on ${m.screen}`);
+  if (m.outside.length) add("block", "outside", run, step, `past the screen edge on ${m.screen}: ${m.outside.join(" · ")}`);
+  if (m.wraps.length) add(o.wrapSev || "warn", "wrap", run, step, `label on two lines on ${m.screen}: ${m.wraps.join(" · ")}`);
+  if (m.overlaps.length) add("warn", "overlap", run, step, `controls overlap on ${m.screen}: ${m.overlaps.join(" · ")}`);
+  if (m.clipped.length) add("warn", "clip", run, step, `text cut off on ${m.screen}: ${m.clipped.join(" · ")}`);
+  if (m.twice.length) add("warn", "twice", run, step, `the same car is offered twice on ${m.screen}: ${m.twice.length} plates`);
+  if (m.orphans.length) add("warn", "orphan", run, step, `a control dropped to a line of its own on ${m.screen}: ${m.orphans.join(" · ")}`);
+  if (m.bleed.length) add("warn", "bleed", run, step, `wider than the content column on ${m.screen}: ${m.bleed.join(" · ")}`);
+  if (m.ragged.length) add("warn", "ragged", run, step, `one row, different heights on ${m.screen}: ${m.ragged.join(" · ")}`);
+  if (m.covered) add("warn", "covered", run, step, `the bottom bar covers "${m.covered}" at the end of ${m.screen}`);
+  if (!m.sheet && m.nav && ({ home: "search", cars: "cars", alerts: "alerts" })[m.screen] && m.navCur !== ({ home: "search", cars: "cars", alerts: "alerts" })[m.screen]) add("block", "logic", run, step, `the bar highlights "${m.navCur}" on the ${m.screen} screen`);
+  // the website's frame (blocking): a footer under every screen; on a wide screen no button floats over the list (compare sits in the
+  // title row) and share and save carry their words
+  const vw = m.vw, innerH = m.vh;   // the viewport now, not the device's first one: "rotate" turns a 1024 tablet to 768 wide
+  if (!app && !m.sheet && !m.loading && ["home", "car", "cars", "alerts", "sub"].includes(m.screen) && !m.footer) add("block", "frame", run, step, `the website's footer is missing on ${m.screen}`);
+  if (!app && vw >= 1000 && m.screen === "cars" && m.fab) add("block", "frame", run, step, "a floating compare button over the list on a wide screen (it belongs in the title row)");
+  // a phone's bottom bar is one row of three tabs: anything more (the wide bar's gear, its search) makes it grow over the page
+  if (vw < 1000 && m.nav && m.nav.bar[1] > innerH / 2 && m.nav.bar[3] > (o.barMax || 80)) add("block", "frame", run, step, `the bottom bar grew to ${m.nav.bar[3]}px on ${m.screen} (one row of three tabs is about 66px)`);
+  if (!app && vw >= 1000 && m.screen === "car" && m.carOn && !m.sheet && !m.chLabels) add("block", "frame", run, step, "the wide car header shows share and save as bare icons");
+}
+
+// what a whole journey must hold: seen = one entry per step {step, screen, sheet, nav, col, title, y, vw}; w = the device's own width
+function judgeRun(run, seen, w) {
   // the navigation bar is the frame of every screen: same place, same size, same items, whatever screen is drawn
   for (const vw of new Set(seen.map((s) => s.vw))) {
     const withNav = seen.filter((s) => s.nav && !s.sheet && s.vw === vw);
@@ -444,14 +459,13 @@ async function runJourney(browser, dev, theme, stateName, J) {
   // the screen titles of the tabs ("הרכבים שלי", "התראות"): same place and size on both, like the bar
   for (const vw of new Set(seen.map((s) => s.vw))) {
     const ts = seen.filter((s) => s.vw === vw && s.title && s.title.kind === "vhead" && !s.sheet), ref = ts[0];
-    for (const s of ts.slice(1)) if (s.screen !== ref.screen && (Math.abs(s.title.r[1] - ref.title.r[1]) > 2 || s.title.fs !== ref.title.fs || (dev.w < 700 && Math.abs((s.title.r[0] + s.title.r[2]) - (ref.title.r[0] + ref.title.r[2])) > 2)))
+    for (const s of ts.slice(1)) if (s.screen !== ref.screen && (Math.abs(s.title.r[1] - ref.title.r[1]) > 2 || s.title.fs !== ref.title.fs || (w < 700 && Math.abs((s.title.r[0] + s.title.r[2]) - (ref.title.r[0] + ref.title.r[2])) > 2)))
       add("warn", "title-moved", run, s.step, `the screen title moves between ${ref.screen} and ${s.screen}: ${JSON.stringify(ref.title.r)} ${ref.title.fs} → ${JSON.stringify(s.title.r)} ${s.title.fs}`);
   }
   // the content column: 680px for one column and 1080px beside a list or a rail are the design, but every screen keeps one centre line
-  const cols = {}; for (const s of seen) if (s.col && !s.sheet && s.vw === dev.w) cols[s.screen] = cols[s.screen] || s.col;
+  const cols = {}; for (const s of seen) if (s.col && !s.sheet && s.vw === w) cols[s.screen] = cols[s.screen] || s.col;
   const ws = Object.entries(cols).map(([k, v]) => [k, v[0], v[2]]);
-  if (dev.w >= 768 && ws.length > 1 && Math.max(...ws.map((x) => x[1] + x[2] / 2)) - Math.min(...ws.map((x) => x[1] + x[2] / 2)) > 2) add("warn", "column", run, "-", `the content column is off the centre line on one screen: ${ws.map((x) => `${x[0]} x=${x[1]} w=${x[2]}`).join(" · ")}`);
-  await ctx.close();
+  if (w >= 768 && ws.length > 1 && Math.max(...ws.map((x) => x[1] + x[2] / 2)) - Math.min(...ws.map((x) => x[1] + x[2] / 2)) > 2) add("warn", "column", run, "-", `the content column is off the centre line on one screen: ${ws.map((x) => `${x[0]} x=${x[1]} w=${x[2]}`).join(" · ")}`);
 }
 
 const tally = { pressed: 0, links: 0 };   // for the closing line: how much the sweep pressed and checked
@@ -516,7 +530,11 @@ async function runSweep(browser, dev, stateName, S) {
   await ctx.close();
 }
 
-(async () => {
+module.exports = { findings, add, measure, judgeStep, judgeRun, govRoute, JOURNEYS, STATES, RECS, nav, tap, tapIf, check, settle, isCar, back };
+
+if (require.main === module) (async () => {
+  const { chromium } = require("playwright");
+  fs.mkdirSync(path.join(OUT, "shots"), { recursive: true });
   await new Promise((ok) => server.listen(0, "127.0.0.1", ok));
   const browser = await chromium.launch();
   const jobs = [];
