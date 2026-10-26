@@ -2,3 +2,4 @@
 # "end=YYYY-MM-DD" on it picks that week's Saturday, otherwise the last whole week Sunday to Saturday. No numbers here, ever.
 run 2026-10-26 first read for the CEO thread
 run 2026-10-26 with the weekly report's JSON
+run 2026-10-26 outputs in base64

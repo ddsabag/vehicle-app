@@ -33,8 +33,9 @@ jobs:
       - id: run
         run: |
           node .github/scripts/kpi-probe.mjs
-          echo "kpi=$(cat out/kpi.enc.json)" >> "$GITHUB_OUTPUT"
-          if [ -f out/live.enc.json ]; then echo "live=$(cat out/live.enc.json)" >> "$GITHUB_OUTPUT"; fi
+          # outputs in base64: a JSON secret's lines ("{", "}") are masks, and an output that contains a mask is dropped
+          echo "kpi=$(base64 -w0 out/kpi.enc.json)" >> "$GITHUB_OUTPUT"
+          if [ -f out/live.enc.json ]; then echo "live=$(base64 -w0 out/live.enc.json)" >> "$GITHUB_OUTPUT"; fi
         env:
           W_JS: ${{ runner.temp }}/w.js
           W_TOML: ${{ runner.temp }}/w.toml
@@ -69,7 +70,7 @@ jobs:
           python analytics/run.py --out "$RUNNER_TEMP/wk"
           f=$(ls "$RUNNER_TEMP"/wk/luchit-weekly-*.json | head -1)
           node .github/scripts/kpi-probe.mjs encrypt "$f" out/weekly.enc.json
-          echo "weekly=$(cat out/weekly.enc.json)" >> "$GITHUB_OUTPUT"
+          echo "weekly=$(base64 -w0 out/weekly.enc.json)" >> "$GITHUB_OUTPUT"
         env:
           GA_PROPERTY_ID: ${{ secrets.GA_PROPERTY_ID }}
           GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
@@ -95,10 +96,14 @@ jobs:
           WEEKLY: ${{ needs.weekly.outputs.weekly }}
         run: |
           mkdir out && cd out
-          if [ -n "$KPI" ]; then printf '%s' "$KPI" > kpi.enc.json; fi
-          if [ -n "$LIVE" ]; then printf '%s' "$LIVE" > live.enc.json; fi
-          if [ -n "$WEEKLY" ]; then printf '%s' "$WEEKLY" > weekly.enc.json; fi
+          if [ -n "$KPI" ]; then printf '%s' "$KPI" | base64 -d > kpi.enc.json; fi
+          if [ -n "$LIVE" ]; then printf '%s' "$LIVE" | base64 -d > live.enc.json; fi
+          if [ -n "$WEEKLY" ]; then printf '%s' "$WEEKLY" | base64 -d > weekly.enc.json; fi
           echo "kpi ${{ needs.kpi.result }}, weekly ${{ needs.weekly.result }}, run ${{ github.run_id }}" > run.txt
+          ls *.enc.json > files.txt 2>/dev/null || true
           git init -q && git checkout -q -b probe-kpi-out && git add -A
           git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "KPI probe (encrypted)"
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" probe-kpi-out
+          # a job that answered but whose file did not arrive turns this run red (probe-perf runs never page anyone)
+          if [ "${{ needs.kpi.result }}" = success ] && [ ! -s kpi.enc.json ]; then echo "::error::the KPI file did not arrive"; exit 1; fi
+          if [ "${{ needs.weekly.result }}" = success ] && [ ! -s weekly.enc.json ]; then echo "::error::the weekly report's file did not arrive"; exit 1; fi
