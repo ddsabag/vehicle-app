@@ -35,7 +35,8 @@ const S1 = { plate: "1234567", title: "טויוטה COROLLA", sub: "2021 · לב
 const MANY = [
   { plate: "1234567", title: "טויוטה COROLLA", sub: "2021", nick: "רכב המשפחה", at: 1, reg: "active", tokef: day(25), mivchan: day(-340), recalls: 1, recIds: "16100", checked: 1, owners: 1, active: true, events: [], alerts: true, color: "כסף מטלי" },
   { plate: "7654321", title: "מרצדס בנץ GLE 450 4MATIC COUPE AMG LINE PREMIUM", sub: "2023", nick: "הרכב של העבודה עם שם ארוך מאוד שלא נגמר", at: 2, reg: "active", tokef: day(-12), mivchan: day(-377), recalls: 2, checked: 1, owners: 3, active: true, events: [], alerts: true, color: "אפור כהה מטלי פנינה" },
-  ...[["1112223", "מאזדה CX-5", "אדום"], ["3334445", "סקודה OCTAVIA", "שחור"], ["5556667", "יונדאי IONIQ 5", "לבן"], ["8889990", "קיה SPORTAGE", "כחול"], ["2223334", "פולקסווגן GOLF", "אפור"], ["4445556", "הונדה CIVIC", "כסף"]]
+  // made-up plates in the pattern the still-screen guardian uses (ui-guardian.cjs), never a real car's
+  ...[["11122233", "מאזדה CX-5", "אדום"], ["33344455", "סקודה OCTAVIA", "שחור"], ["55566677", "יונדאי IONIQ 5", "לבן"], ["88899900", "קיה SPORTAGE", "כחול"], ["22233344", "פולקסווגן GOLF", "אפור"], ["44455566", "הונדה CIVIC", "כסף"]]
     .map(([plate, title, color], i) => ({ plate, title, sub: String(2016 + i), at: 3 + i, reg: "active", tokef: day(60 + 40 * i), mivchan: day(-300 + 20 * i), recalls: 0, checked: 1, owners: 1 + (i % 3), active: true, events: [], alerts: true, color })),
 ];
 const OWNER = { mine: '{"1234567":1}', svc: JSON.stringify({ 1234567: { log: [{ id: 1, d: day(-140), km: 63900, type: "טיפול תקופתי", cost: 1250, note: "" }, { id: 2, d: day(-20), km: 66100, type: "קריאת ק״מ", cost: 0, note: "" }], meta: null } }) };
@@ -45,7 +46,7 @@ const STATES = {
   empty: {},
   owner: { savedVehicles: JSON.stringify([S1]), recentPlates: '["1234567"]', ...OWNER },
   one: { savedVehicles: JSON.stringify([S1]), recentPlates: '["1234567"]' },
-  many: { savedVehicles: JSON.stringify(MANY), recentPlates: JSON.stringify(["7654321", "1234567", "1112223", "3334445", "5556667", "8889990"]) },
+  many: { savedVehicles: JSON.stringify(MANY), recentPlates: JSON.stringify(["7654321", "1234567", "11122233", "33344455", "55566677", "88899900"]) },
 };
 
 const UA = {
@@ -113,7 +114,9 @@ async function measure(page) {
     }
     // content wider than its own column: past the edge of the main column on a wide screen, where nothing should bleed into the margin
     const colBox = out && out.getBoundingClientRect(), padL = out ? parseFloat(getComputedStyle(out).paddingLeft) : 0, padR = out ? parseFloat(getComputedStyle(out).paddingRight) : 0;
-    const bleed = W >= 700 && colBox && !sheet ? [...out.querySelectorAll("*")].filter((e) => vis(e) && !e.closest("svg")).filter((e) => { const cs = getComputedStyle(e); return e.children.length === 0 || cs.backgroundColor !== "rgba(0, 0, 0, 0)" || parseFloat(cs.borderTopWidth) > 0 || cs.boxShadow !== "none"; }).filter((e) => { const b = e.getBoundingClientRect(); return b.width > 20 && (b.left < colBox.left + padL - 2 || b.right > colBox.right - padR + 2) && !e.closest(".cfab,.toast") && !layer(e); }).filter((e, i, a) => !a.some((x) => x !== e && x.contains(e))).map((e) => label(e) + ` (${Math.round(e.getBoundingClientRect().left - colBox.left - padL)}/${Math.round(colBox.right - padR - e.getBoundingClientRect().right)}px)`) : [];
+    // the part of a box that is drawn: cut by every parent that clips (a name ending in "…" inside its card is not past the column)
+    const drawn = (e) => { const b = e.getBoundingClientRect(); let l = b.left, r = b.right; for (let p = e.parentElement; p && p !== document.body; p = p.parentElement) if (getComputedStyle(p).overflowX !== "visible") { const q = p.getBoundingClientRect(); l = Math.max(l, q.left); r = Math.min(r, q.right); } return { left: l, right: r, width: r - l }; };
+    const bleed = W >= 700 && colBox && !sheet ? [...out.querySelectorAll("*")].filter((e) => vis(e) && !e.closest("svg")).filter((e) => { const cs = getComputedStyle(e); return e.children.length === 0 || cs.backgroundColor !== "rgba(0, 0, 0, 0)" || parseFloat(cs.borderTopWidth) > 0 || cs.boxShadow !== "none"; }).filter((e) => { const b = drawn(e); return b.width > 20 && (b.left < colBox.left + padL - 2 || b.right > colBox.right - padR + 2) && !e.closest(".cfab,.toast") && !layer(e); }).filter((e, i, a) => !a.some((x) => x !== e && x.contains(e))).map((e) => label(e) + ` (${Math.round(drawn(e).left - colBox.left - padL)}/${Math.round(colBox.right - padR - drawn(e).right)}px)`) : [];
     // the same car offered twice on one screen (a rail and a row of recent checks listing the same plates)
     const opens = {}; for (const e of document.querySelectorAll("#out [data-open]")) if (vis(e) && (!sheet || sheet.contains(e))) opens[e.dataset.open] = (opens[e.dataset.open] || 0) + 1;
     const twice = Object.entries(opens).filter(([, n]) => n > 1).map(([p]) => p);
@@ -131,7 +134,7 @@ async function measure(page) {
       starOn: (document.querySelector("#chead [data-act=save]") || { getAttribute: () => "" }).getAttribute("aria-pressed") === "true",
       listed: [...document.querySelectorAll("#out [data-open]")].map((e) => e.dataset.open),
       screen: document.body.dataset.screen, tab: typeof currentTab !== "undefined" ? currentTab : null, carOn: !!mp, carPlate: mp ? mp.textContent.replace(/\D/g, "") : "",
-      home: !!document.getElementById("homeMark"), sheet: sheet ? (sheet.id || sheet.className) : null, url: location.pathname + location.search + location.hash, hist: history.length,
+      home: !!document.getElementById("homeMark"), fileDoor: !!document.querySelector("#out [data-act=fileHome]"), snack: (document.querySelector("#snack span") || {}).textContent || "", sheet: sheet ? (sheet.id || sheet.className) : null, url: location.pathname + location.search + location.hash, hist: history.length,
       focus: document.activeElement ? (document.activeElement.id || document.activeElement.tagName) : null, plateVal: plate ? plate.value : null,
       navCur: (document.querySelector("#bnav [aria-current=page]") || { dataset: {} }).dataset.nav || null,
       nav: navBox, col, over: document.documentElement.scrollWidth - W, outside: [...new Set(outside)].slice(0, 8), wraps: [...new Set(wraps)].slice(0, 8), ragged: [...new Set(ragged)],
@@ -185,6 +188,20 @@ const JOURNEYS = [
     ["plus", tap("#out [data-act=addCar]"), (m) => m.screen === "home" && !m.carOn && m.home && (m.plateVal || "") === "" && m.focus === "plate" || `"+" should open an empty, focused plate field; got screen ${m.screen}, car ${m.carPlate || "none"}, field "${m.plateVal}", focus ${m.focus}`],
     ["check-2", check("7654321"), (m) => m.screen === "car" && m.carPlate === "7654321" && m.starOn && m.navCur === "cars" || `a car checked after "+" should be in הרכבים שלי (star ${m.starOn}, tab ${m.navCur}, screen ${m.screen} ${m.carPlate})`],
     ["arrow", tap("#chead [data-act=back]"), (m) => m.screen === "cars" && m.listed.includes("7654321") || `the arrow after "+" should return to הרכבים שלי with the new car, got ${m.screen} [${m.listed.join(",")}]`],
+  ] },
+  // "ביטול" on the snack bar after "+": the car is not kept, and the list stays as it was
+  { name: "plus-undo", once: true, steps: [
+    ["to-cars", nav("cars"), (m) => m.screen === "cars" || "cars"],
+    ["plus", tap("#out [data-act=addCar]"), (m) => m.screen === "home" && m.focus === "plate" || `"+": ${m.screen}, focus ${m.focus}`],
+    ["check", check("7654321"), (m) => m.screen === "car" && m.starOn && /נוסף/.test(m.snack) || `after "+" the car is saved and the snack bar offers ביטול (star ${m.starOn}, snack "${m.snack}")`],
+    ["undo", tap("#snack [data-s=go]"), (m) => m.screen === "car" && m.carPlate === "7654321" && !m.starOn && !m.snack || `ביטול should leave the car page with the car not saved (star ${m.starOn}, snack "${m.snack}", ${m.screen})`],
+    ["arrow", tap("#chead [data-act=back]"), (m) => m.screen === "cars" && !m.listed.includes("7654321") || `after ביטול the list should not have the car: ${m.screen} [${m.listed.join(",")}]`],
+  ] },
+  // "יש לכם כבר רכב? פתחו לו תיק" on home: the car checked next opens straight in its file, saved, and the line is gone
+  { name: "file-door", when: (c) => c.state === "one", steps: [
+    ["door", tap("#out [data-act=fileHome]"), (m) => m.screen === "home" && m.focus === "plate" || `the home file line should lead to the plate field, got ${m.screen}, focus ${m.focus}`],
+    ["check", check("7654321"), (m) => m.screen === "car" && m.carPlate === "7654321" && m.tab === "file" && m.starOn || `a car checked from "פתחו לו תיק" should open in its file, saved (tab ${m.tab}, star ${m.starOn}, ${m.screen} ${m.carPlate})`],
+    ["home", nav("search"), (m) => m.screen === "home" && !m.fileDoor || `home after opening a file: ${m.screen}, the file line ${m.fileDoor ? "still there" : "gone"}`],
   ] },
   { name: "saved", when: (c) => c.state !== "empty", steps: [
     ["cars", nav("cars"), (m) => m.screen === "cars" || "cars"],
@@ -332,10 +349,10 @@ async function runJourney(browser, dev, theme, stateName, J) {
     for (const s of ts.slice(1)) if (s.screen !== ref.screen && (Math.abs(s.title.r[1] - ref.title.r[1]) > 2 || s.title.fs !== ref.title.fs || (dev.w < 700 && Math.abs((s.title.r[0] + s.title.r[2]) - (ref.title.r[0] + ref.title.r[2])) > 2)))
       add("warn", "title-moved", run, s.step, `the screen title moves between ${ref.screen} and ${s.screen}: ${JSON.stringify(ref.title.r)} ${ref.title.fs} → ${JSON.stringify(s.title.r)} ${s.title.fs}`);
   }
-  // the content column: a screen that is narrower or wider than the others reads as a jump (warning; the nav check above is the hard one)
+  // the content column: 680px for one column and 1080px beside a list or a rail are the design, but every screen keeps one centre line
   const cols = {}; for (const s of seen) if (s.col && !s.sheet && s.vw === dev.w) cols[s.screen] = cols[s.screen] || s.col;
   const ws = Object.entries(cols).map(([k, v]) => [k, v[0], v[2]]);
-  if (dev.w >= 768 && ws.length > 1 && new Set(ws.map((x) => x[1] + "," + x[2])).size > 1) add("warn", "column", run, "-", `content column differs by screen: ${ws.map((x) => `${x[0]} x=${x[1]} w=${x[2]}`).join(" · ")}`);
+  if (dev.w >= 768 && ws.length > 1 && Math.max(...ws.map((x) => x[1] + x[2] / 2)) - Math.min(...ws.map((x) => x[1] + x[2] / 2)) > 2) add("warn", "column", run, "-", `the content column is off the centre line on one screen: ${ws.map((x) => `${x[0]} x=${x[1]} w=${x[2]}`).join(" · ")}`);
   await ctx.close();
 }
 
