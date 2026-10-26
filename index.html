@@ -113,13 +113,6 @@ form{display:flex;gap:10px}
 .go{flex:0 0 auto;width:64px;height:64px;border-radius:9px;border:0;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center}
 .go svg.i{width:26px;height:26px;stroke-width:2.4}
 .go[disabled]{opacity:.6;cursor:progress}
-/* site: the search is the plate's own end, opposite the IL strip, in the IL strip's blue (one object, one focus ring), like the top bar's */
-html.web #f{flex-direction:row-reverse;gap:0;height:64px;border:3px solid var(--plate-ink);border-radius:9px;overflow:hidden;background:var(--plate)}
-html.web #f .plate{border:0;border-radius:0;height:auto}
-html.web #f .plate:focus-within{box-shadow:none}
-html.web #f:focus-within{box-shadow:0 0 0 3px var(--band),0 0 0 5px var(--accent)}
-html.web #f .go{width:60px;height:auto;border-radius:0;background:var(--il);color:white;transition:background .15s}
-html.web #f .go:hover{background:color-mix(in srgb,var(--il) 85%,var(--plate-ink))}
 
 /* page */
 main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;display:flex;flex-direction:column;gap:12px;padding-bottom:calc(40px + env(safe-area-inset-bottom,0px))}
@@ -698,17 +691,17 @@ body:not(:has(.sharebar)):not(.kb) .snack{bottom:calc(76px + env(safe-area-inset
   html.web .bn-badge{top:-8px;inset-inline-end:-12px}
   html.web body:is([data-screen=car],[data-screen=sub],[data-screen=cars],[data-screen=alerts]) .bn-brand{display:flex;align-items:center;gap:8px;margin-inline-end:14px;color:var(--fg);text-decoration:none;font-weight:800;font-size:1.15rem}
   html.web .bn-brand .logo{width:34px;height:34px}
-  html.web body:is([data-screen=car],[data-screen=sub],[data-screen=cars],[data-screen=alerts]) .bn-f{display:flex;flex-direction:row-reverse;align-items:stretch;margin-inline-start:auto;height:40px;border:2px solid var(--plate-ink);border-radius:9px;background:var(--plate);overflow:hidden}
-  /* one plate: the blue IL strip at one end, the blue search at the other */
-  html.web .bn-pl{display:flex;align-items:stretch;direction:ltr}
+  html.web body:is([data-screen=car],[data-screen=sub],[data-screen=cars],[data-screen=alerts]) .bn-f{display:flex;align-items:center;gap:8px;margin-inline-start:auto}
+  /* the plate and its search button stand side by side, one height and one corner, like the home page's */
+  html.web .bn-pl{display:flex;align-items:stretch;direction:ltr;height:40px;border:2px solid var(--plate-ink);border-radius:9px;background:var(--plate);overflow:hidden}
   html.web .bn-il{display:grid;place-items:center;padding:0 6px;background:var(--il);color:#fff;font:800 .7rem var(--f-body)}
   html.web .bn-pl input{width:150px;border:0;background:none;color:var(--plate-ink);font:600 1.05rem var(--f-num);text-align:center;letter-spacing:.04em;padding:0 8px}
   /* an empty field reads as a field (a request), not as a plate already filled in */
   html.web .bn-pl input::placeholder{color:color-mix(in srgb,var(--plate-ink) 55%,transparent);font:600 .9rem var(--f-body);letter-spacing:0;direction:rtl}
-  html.web .bn-f:focus-within{outline:3px solid var(--accent);outline-offset:2px}
-  html.web .bn-go{width:42px;border:0;border-radius:0;background:var(--il);color:white;display:grid;place-items:center;cursor:pointer;transition:background .15s}
-  html.web .bn-go:hover{background:color-mix(in srgb,var(--il) 85%,var(--plate-ink))}
-  html.web .bn-go svg.i{width:19px;height:19px;stroke-width:2.6}
+  html.web .bn-pl:focus-within{outline:3px solid var(--accent);outline-offset:2px}
+  html.web .bnav .bn-go{width:44px;height:40px;padding:0;border:0;border-radius:9px;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;cursor:pointer;transition:filter .15s}
+  html.web .bnav .bn-go:hover{filter:brightness(1.1)}
+  html.web .bnav .bn-go svg.i{width:21px;height:21px;stroke-width:2.6}
   html.web body:not(.land):not(:has(.sharebar)){padding-top:60px}
   html.web main,html.web footer{padding-bottom:24px}
   html.web .chead{top:60px}
