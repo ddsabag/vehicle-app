@@ -1,0 +1,41 @@
+name: KPI probe (CEO weekly file, probe-perf branch)
+# The weekly numbers for the CEO thread's private file ceo/kpis.json (26.10): /live's own code as it is on main, run on the last whole week
+# Sunday to Saturday. Output encrypted only, on branch probe-kpi-out; the log says only which part answered. Not for main.
+# A run: a new last line in .github/kpi-run.txt ("end=YYYY-MM-DD" on that line picks another week's Saturday).
+on:
+  push:
+    branches: [probe-perf]
+    paths: [".github/scripts/kpi-probe.mjs", ".github/workflows/kpi-probe.yml", ".github/kpi-run.txt"]
+permissions:
+  contents: write
+concurrency: { group: kpi-probe, cancel-in-progress: false }
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with: { node-version: 22 }
+      - name: /live's code as it is on main
+        run: |
+          git fetch -q --depth=1 origin main
+          git show FETCH_HEAD:worker/live/worker.js > "$RUNNER_TEMP/w.js"
+          git show FETCH_HEAD:worker/live/wrangler.toml > "$RUNNER_TEMP/w.toml"
+          echo "MAIN_SHA=$(git rev-parse --short FETCH_HEAD)" >> "$GITHUB_ENV"
+          end=$(tail -n 1 .github/kpi-run.txt 2>/dev/null | grep -oE 'end=[0-9]{4}-[0-9]{2}-[0-9]{2}' | cut -c5- || true)
+          if [ -n "$end" ]; then echo "KPI_END=$end" >> "$GITHUB_ENV"; fi
+      - run: node .github/scripts/kpi-probe.mjs
+        env:
+          W_JS: ${{ runner.temp }}/w.js
+          W_TOML: ${{ runner.temp }}/w.toml
+          W_TMP: ${{ runner.temp }}/kpi-worker.mjs
+          GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      - name: Publish on probe-kpi-out (encrypted only)
+        run: |
+          cd out && git init -q && git checkout -q -b probe-kpi-out && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "KPI probe (encrypted)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" probe-kpi-out

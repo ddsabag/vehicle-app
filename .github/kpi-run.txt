@@ -1,0 +1,3 @@
+# KPI probe runs (.github/workflows/kpi-probe.yml): each push that adds a line here runs it. Only the last line counts:
+# "end=YYYY-MM-DD" on it picks that week's Saturday, otherwise the last whole week Sunday to Saturday. No numbers here, ever.
+run 2026-10-26 first read for the CEO thread
