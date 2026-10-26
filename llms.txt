@@ -11,3 +11,13 @@
 - [מגזין: שוק הרכב החדש בישראל](https://luchit.app/magazine/)
 - [מדריך לקנייה בטוחה של רכב יד שנייה](https://luchit.app/guide/buy-used-car/)
 - [מדיניות פרטיות](https://luchit.app/privacy.html)
+
+## בדיקות לפי מספר רישוי
+- [כל הבדיקות](https://luchit.app/check/)
+- [בדיקת ריקול לפי מספר רכב](https://luchit.app/check/recall/)
+- [מתי הטסט ועד מתי הרישיון בתוקף](https://luchit.app/check/test/)
+- [כמה ידיים היו לרכב: היסטוריית בעלויות](https://luchit.app/check/owners/)
+- [אגרת רישוי לפי מספר רכב: טבלת 2026](https://luchit.app/check/license-fee/)
+- [שווי רכב לפי מספר רישוי (הערכה)](https://luchit.app/check/value/)
+- [הסדרי פשרה לרכב: רשימה מעודכנת](https://luchit.app/check/settlements/)
+- [רכב שירד מהכביש: בדיקה לפי מספר רישוי](https://luchit.app/check/off-road/)
