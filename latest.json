@@ -1,7 +1,7 @@
 {
  "v": 1,
- "d": "2026-10-25",
- "seed": "20261025",
+ "d": "2026-10-26",
+ "seed": "20261026",
  "cars": 40,
  "sampled": 40,
  "mism": 1,
@@ -9,83 +9,83 @@
  "refused": 0,
  "fields": {
   "counts.model_year_active": [
-   10,
+   9,
    0
   ],
   "fee.licence": [
-   39,
+   40,
    0
   ],
   "identity.colour": [
-   39,
+   40,
    0
   ],
   "identity.drive_pill": [
-   39,
+   40,
    0
   ],
   "identity.engine_cc": [
-   39,
+   40,
    0
   ],
   "identity.fuel": [
-   39,
+   40,
    0
   ],
   "identity.make": [
-   39,
+   40,
    0
   ],
   "identity.model": [
-   39,
+   40,
    0
   ],
   "identity.trim": [
-   39,
+   40,
    0
   ],
   "identity.vin": [
-   39,
+   40,
    0
   ],
   "identity.year": [
-   39,
+   40,
    0
   ],
   "insight.safety_low": [
-   39,
+   40,
    0
   ],
   "km.last_test": [
-   39,
+   40,
    0
   ],
   "km.per_year": [
-   39,
+   40,
    0
   ],
   "message.partial_data": [
-   39,
-   0
+   40,
+   1
   ],
   "mods.gapam_ind": [
-   39,
+   40,
    0
   ],
   "mods.shinui_mivne_ind": [
-   39,
+   40,
    0
   ],
   "mods.shinui_zmig_ind": [
-   39,
+   40,
    0
   ],
   "mods.shnui_zeva_ind": [
-   39,
+   40,
    0
   ],
   "owners.current_no_log": [
-   27,
+   26,
    0
   ],
   "owners.durations": [
@@ -93,15 +93,15 @@
    0
   ],
   "owners.first_owner": [
-   39,
+   40,
    0
   ],
   "owners.hands": [
-   39,
+   40,
    0
   ],
   "owners.hands_pill": [
-   39,
+   40,
    0
   ],
   "owners.insight_company_now": [
@@ -109,14 +109,22 @@
    0
   ],
   "owners.insight_dealer_now": [
-   39,
+   40,
    0
   ],
   "owners.insight_lease": [
    9,
    0
   ],
+  "owners.insight_new_dealer": [
+   9,
+   0
+  ],
   "owners.insight_rental": [
+   9,
+   0
+  ],
+  "owners.insight_short_lease": [
    9,
    0
   ],
@@ -129,71 +137,71 @@
    0
   ],
   "owners.timeline": [
-   39,
+   40,
    0
   ],
-  "page.result": [
-   1,
-   1
-  ],
   "price.borrowed_note": [
-   33,
+   31,
    0
   ],
   "price.list": [
-   39,
+   40,
    0
   ],
   "recalls.check_line": [
-   39,
+   40,
    0
   ],
   "recalls.line_honest": [
-   34,
+   32,
    0
   ],
   "recalls.model_count": [
-   35,
+   32,
    0
   ],
   "recalls.model_extra": [
-   35,
+   32,
    0
   ],
   "recalls.model_fits": [
-   19,
+   17,
    0
   ],
   "recalls.model_missing": [
-   35,
+   31,
    0
   ],
   "recalls.open": [
-   39,
+   40,
    0
   ],
   "recalls.open_banner": [
-   39,
+   40,
+   0
+  ],
+  "recalls.open_date": [
+   1,
    0
   ],
   "recalls.pending_banner": [
-   35,
+   32,
    0
   ],
   "recalls.tab_shown": [
-   39,
+   40,
    0
   ],
   "road.first_date": [
-   39,
+   40,
    0
   ],
   "road.first_registration": [
-   39,
+   40,
    0
   ],
   "settlements.consistent": [
-   39,
+   40,
    0
   ],
   "settlements.import_line": [
@@ -205,91 +213,91 @@
    0
   ],
   "specs.axles": [
-   39,
+   40,
    0
   ],
   "specs.borrowed_note": [
-   39,
+   40,
    0
   ],
   "specs.co2": [
-   39,
+   40,
    0
   ],
   "specs.dpf": [
-   39,
+   40,
    0
   ],
   "specs.drive": [
-   39,
+   40,
    0
   ],
   "specs.engine_model": [
-   39,
+   40,
    0
   ],
   "specs.gearbox": [
-   39,
+   40,
    0
   ],
   "specs.importer": [
-   39,
+   40,
    0
   ],
   "specs.load": [
-   39,
+   40,
    0
   ],
   "specs.merkav": [
-   39,
+   40,
    0
   ],
   "specs.mispar_dlatot": [
-   39,
+   40,
    0
   ],
   "specs.mispar_kariot_avir": [
-   39,
+   40,
    0
   ],
   "specs.pollution_group": [
-   39,
+   40,
    0
   ],
   "specs.power": [
-   39,
+   40,
    0
   ],
   "specs.safety_level": [
-   39,
+   40,
    0
   ],
   "specs.seats": [
-   39,
+   40,
    0
   ],
   "specs.tyre_front": [
-   39,
+   40,
    0
   ],
   "specs.tyre_rear": [
-   39,
+   40,
    0
   ],
   "specs.vehicle_type": [
-   39,
+   40,
    0
   ],
   "specs.weight_own": [
-   39,
+   40,
    0
   ],
   "specs.weight_total": [
-   39,
+   40,
    0
   ],
   "status.buy_checklist": [
-   39,
+   40,
    0
   ],
   "status.cancel_date": [
@@ -297,7 +305,7 @@
    0
   ],
   "status.cancel_pill": [
-   39,
+   40,
    0
   ],
   "status.cancel_reason": [
@@ -309,15 +317,15 @@
    0
   ],
   "status.hold_insight": [
-   39,
+   40,
    0
   ],
   "status.hold_pill": [
-   39,
+   40,
    0
   ],
   "status.import_pill": [
-   39,
+   40,
    0
   ],
   "status.import_type": [
@@ -325,67 +333,67 @@
    0
   ],
   "status.inactive_pill": [
-   39,
+   40,
    0
   ],
   "tag.insight": [
-   16,
+   18,
    0
   ],
   "test.insight": [
-   39,
+   40,
    0
   ],
   "test.last": [
-   39,
+   40,
    0
   ],
   "test.no_dates_note": [
-   39,
+   40,
    0
   ],
   "test.no_tokef_note": [
-   39,
+   40,
    0
   ],
   "test.pill": [
-   39,
+   40,
    0
   ],
   "test.valid_until": [
-   39,
+   40,
    0
   ],
   "tow.hook": [
-   24,
+   25,
    0
   ],
   "tow.limits": [
-   39,
+   40,
    0
   ],
   "tow.year_note": [
-   39,
+   40,
    0
   ],
   "value.fallback": [
-   6,
+   9,
    0
   ],
   "value.labelled_estimate": [
-   33,
+   31,
    0
   ]
  },
  "list": [
   {
-   "id": "c037",
-   "field": "page.result",
-   "shown": "📡מאגרי משרד התחבורה לא עונים כרגע (תקלה או עומס אצל המשרד, ",
-   "expected": "the car (found in moto)",
-   "evidence": "after 1s, 18 app requests, 18 failed in the browser",
-   "car": "",
-   "from": "moto"
+   "id": "c028",
+   "field": "message.partial_data",
+   "shown": "partial-data message shown",
+   "expected": "(none: every dataset answered my reads)",
+   "evidence": "app errs=tag",
+   "car": "מיצובישי יפן LANCER 2010",
+   "from": "active"
   }
  ],
  "auditExit": 0
