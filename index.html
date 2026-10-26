@@ -689,9 +689,9 @@ body:not(:has(.sharebar)):not(.kb) .snack{bottom:calc(76px + env(safe-area-inset
   html.web .bn-badge{top:-8px;inset-inline-end:-12px}
   html.web body:is([data-screen=car],[data-screen=sub],[data-screen=cars],[data-screen=alerts]) .bn-brand{display:flex;align-items:center;gap:8px;margin-inline-end:14px;color:var(--fg);text-decoration:none;font-weight:800;font-size:1.15rem}
   html.web .bn-brand .logo{width:34px;height:34px}
-  html.web body:is([data-screen=car],[data-screen=sub],[data-screen=cars],[data-screen=alerts]) .bn-f{display:flex;align-items:stretch;margin-right:auto;direction:ltr;height:40px;border:2px solid var(--plate-ink);border-radius:9px;background:var(--plate);overflow:hidden}
+  html.web body:is([data-screen=car],[data-screen=sub],[data-screen=cars],[data-screen=alerts]) .bn-f{display:flex;flex-direction:row-reverse;align-items:stretch;margin-inline-start:auto;height:40px;border:2px solid var(--plate-ink);border-radius:9px;background:var(--plate);overflow:hidden}
   /* one plate: the blue IL strip at one end, the search at the other, in the plate's own ink */
-  html.web .bn-pl{display:flex;align-items:stretch}
+  html.web .bn-pl{display:flex;align-items:stretch;direction:ltr}
   html.web .bn-il{display:grid;place-items:center;padding:0 6px;background:var(--il);color:#fff;font:800 .7rem var(--f-body)}
   html.web .bn-pl input{width:150px;border:0;background:none;color:var(--plate-ink);font:600 1.05rem var(--f-num);text-align:center;letter-spacing:.04em;padding:0 8px}
   /* an empty field reads as a field (a request), not as a plate already filled in */
