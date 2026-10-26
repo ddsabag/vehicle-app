@@ -126,12 +126,14 @@ async function walk(browser, dev, st, J, o = {}) {
   });
   await ctx.addInitScript(({ ls, app, bridge, off }) => {
     try { Object.defineProperty(Navigator.prototype, "webdriver", { get: () => false, configurable: true }); } catch {}   // a test browser is never counted; here it is a person
-    // laid down on the first page only (a cookie marks it), so a reload keeps what the journey stored
-    try { if (!/(?:^|; )af_seeded=1/.test(document.cookie)) { for (const [k, v] of Object.entries(ls)) localStorage.setItem(k, v); if (off) localStorage.setItem("analyticsOff", "1"); document.cookie = "af_seeded=1; path=/"; } } catch {}
+    // laid down on the first page only (a cookie marks it), so a reload keeps what the journey stored. The iPhone's "לוחית במסך הבית"
+    // (0.9 s after a first save on an iPhone, over the whole page) counts as seen, as in ui-flows: it took file-door off its path on
+    // web-390 (26.10); the home-sheet journey clears the mark (null) and opens it on purpose
+    try { if (!/(?:^|; )af_seeded=1/.test(document.cookie)) { for (const [k, v] of Object.entries(ls)) v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); if (off) localStorage.setItem("analyticsOff", "1"); document.cookie = "af_seeded=1; path=/"; } } catch {}
     window.__ev = []; window.__calls = [];
     if (app) window.AndroidApp = Object.fromEntries(bridge.map((n) => [n, (...a) => { window.__calls.push(n); if (n === "logEvent") window.__ev.push(a); return n === "alertsState" ? "on" : n === "readClipboard" ? "" : n === "systemDark" ? false : undefined; }]));
     try { window.open = () => null; } catch {}
-  }, { ls: STATES[st] || {}, app, bridge: BRIDGE, off: !!o.off });
+  }, { ls: { homeSheet: "1", ...(STATES[st] || {}), ...(J.ls || {}) }, app, bridge: BRIDGE, off: !!o.off });
   const page = await ctx.newPage();
   page.on("pageerror", (e) => add("block", "error", run, cur.step, "page error: " + e.message.slice(0, 160)));
   const flush = async () => {
