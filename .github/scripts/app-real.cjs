@@ -14,7 +14,8 @@
 // Blocking (exit 1): the app crashing, or not responding in both tries of a journey, page errors, a step on the wrong screen, sideways
 // scroll, anything past the screen edge, the bottom bar moving or growing or riding on the keyboard, a way in that does not reach its
 // screen, the page under a system bar, invisible bar icons, "לפי המכשיר" against the phone. A journey the phone disturbed (another app's
-// "isn't responding" dialog, the app not responding, its page closed under it) runs once more on a fresh start, and only that try counts.
+// "isn't responding" dialog, the app not responding, its page closed under it) runs once more on a fresh start, and only that try counts;
+// so does the first start of each phone setting.
 // The emulator itself stopping is not the app's fault: exit 2, with what was found until then, and a file "gone" beside the findings
 // (app-guardian.yml then runs the phone setting once more on a new emulator); so is a journey disturbed in both tries by what is not the
 // app's (no crash of the app, no ANR in its own code or without a stack).
@@ -531,9 +532,23 @@ function finish(line, code) {
     const ts = Date.now();
     log(`--- ${sc.id}: ${sc.dp} dp wide, font ${Math.round(sc.font * 100)}%`);
     setPhone({ dp: sc.dp, font: sc.font });
+    // the first start of a phone setting gets a second try: a newly booted emulator can starve the app's first frame (26.10, API 35: the
+    // system at 100% CPU a minute after boot, an ANR outside the app's code, its page closed). A crash of the app or an ANR in its own code
+    // still blocks; two failed starts without either are the emulator (Gone: the workflow runs the phone setting on a new emulator)
     let page;
-    try { page = await launch({ clear: true }); }
-    catch (e) { if (e instanceof Gone) throw e; add("block", "launch", `launch/-/${sc.id}/-`, "launch", e.message.slice(0, 200)); crashes(`launch/-/${sc.id}/-`, "launch"); continue; }
+    for (let tri = 1; !page; tri++) {
+      try { page = await launch({ clear: true }); }
+      catch (e) {
+        if (e instanceof Gone) throw e;
+        const mark = findings.length, why = e.message.split("\n")[0].slice(0, 160);
+        crashes(`launch/-/${sc.id}/-`, "launch");
+        if (findings.slice(mark).some((f) => f.sev === "block")) { add("block", "launch", `launch/-/${sc.id}/-`, "launch", why); break; }
+        if (tri === 2) throw new Gone(`the app's page did not open on two fresh starts of ${sc.id}, with no crash and no ANR in the app's code (${why})`);
+        log(`${sc.id}: the first start failed (${why}), so the app starts once more`);
+        await sleep(5000);
+      }
+    }
+    if (!page) continue;
     const z = await zoomOf(page).catch(() => null), ua = await page.evaluate(() => navigator.userAgent).catch(() => "");
     log(`${sc.id}: text zoom ${z}, ${ua.match(/Chrome\/[\d.]+/) || ua}`);
     for (const [name, state, theme] of sc.runs) {
