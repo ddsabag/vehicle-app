@@ -74,7 +74,8 @@ const STATES = {
 // the app's bridge as MainActivity defines it, so the app runs here call what the phone has (a share, the calendar, the voice search)
 // and nothing the phone lacks; the presses that reach outside the page count as an effect for the sweep, the bookkeeping ones do not
 const BRIDGE = (() => { try { const j = fs.readFileSync(path.join(ROOT, "android/app/src/main/java/com/ddsabag/pratirechev/MainActivity.java"), "utf8"); return [...j.matchAll(/@JavascriptInterface\s+public\s+[\w<>[\]]+\s+(\w+)\s*\(/g)].map((m) => m[1]); } catch { return ["alertsState", "setAlerts", "askReview", "checkUpdate", "logEvent", "setAnalytics", "setLandscape", "syncSaved"]; } })();
-const QUIET_BRIDGE = ["logEvent", "logError", "setAnalytics", "syncSaved", "checkUpdate", "setDark", "billingInit", "alertsState"];
+// the bookkeeping calls: the page reports, or asks the phone, without a press doing anything (setBars follows every change of screen)
+const QUIET_BRIDGE = ["logEvent", "logError", "setAnalytics", "syncSaved", "checkUpdate", "setTheme", "setBars", "systemDark", "billingInit", "alertsState"];
 const UA = {
   app: "Mozilla/5.0 (Linux; Android 14; Pixel 8 Build/AP2A; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/129.0.0.0 Mobile Safari/537.36",
   phone: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1",
@@ -334,6 +335,10 @@ const JOURNEYS = [
   { name: "keyboard", app: true, once: true, steps: [
     ["open", async (p, c) => { await p.click("#plate"); await p.setViewportSize({ width: c.dev.w, height: c.dev.h - Math.round(c.dev.h * 0.42) }); await p.evaluate(() => { const a = document.activeElement; if (a && a.scrollIntoViewIfNeeded) a.scrollIntoViewIfNeeded(false); }); }, (m, c) => kbView(c)],
     ["type", async (p, c) => { await p.fill("#plate", c.plate); }, (m, c) => kbView(c)],
+    // Back closes only the keyboard and the field keeps its focus: the bottom bar comes back with the full screen, and steps aside again
+    // when the field is tapped and the keyboard opens once more
+    ["kb-back", async (p, c) => { await p.setViewportSize({ width: c.dev.w, height: c.dev.h }); await p.waitForTimeout(150); }, (m) => !!m.nav && m.focus === "plate" || `after Back closed the keyboard (the field still focused: ${m.focus}) the bottom bar should be back, ${m.nav ? "it is" : "it is not"}`],
+    ["kb-again", async (p, c) => { await p.click("#plate"); await p.setViewportSize({ width: c.dev.w, height: c.dev.h - Math.round(c.dev.h * 0.42) }); await p.waitForTimeout(150); }, (m, c) => kbView(c)],
     ["check", async (p, c) => { await p.press("#plate", "Enter"); await p.setViewportSize({ width: c.dev.w, height: c.dev.h }); await p.evaluate(() => document.activeElement && document.activeElement.blur()); await settle(p); }, isCar()],
     ["bar-back", null, (m) => !!m.nav || "the bottom bar did not come back after the keyboard closed"],
   ] },
@@ -418,7 +423,7 @@ async function openCtx(browser, dev, theme, stateName, gov) {
     try { localStorage.setItem("analyticsOff", "1"); for (const [k, v] of Object.entries(ls)) localStorage.setItem(k, v); } catch {}
     window.__fx = 0; const fx = () => { window.__fx++; };
     window.__calls = [];
-    if (app) window.AndroidApp = Object.fromEntries(bridge.map((n) => [n, (...a) => { window.__calls.push(n); if (!quiet.includes(n)) fx(); return n === "alertsState" ? "on" : n === "readClipboard" ? "" : undefined; }]));
+    if (app) window.AndroidApp = Object.fromEntries(bridge.map((n) => [n, (...a) => { window.__calls.push(n); if (!quiet.includes(n)) fx(); return n === "alertsState" ? "on" : n === "readClipboard" ? "" : n === "systemDark" ? matchMedia("(prefers-color-scheme: dark)").matches : undefined; }]));
     try { window.open = () => { fx(); return null; }; window.print = fx; } catch {}
     try { if (navigator.clipboard) navigator.clipboard.writeText = async () => { fx(); }; } catch {}
     try { if (navigator.share) { navigator.share = async () => { fx(); }; } } catch {}
@@ -465,15 +470,19 @@ async function runJourney(browser, dev, theme, stateName, J) {
 // what one measured step must hold, wherever it ran (o.app: the Android app, which has no website frame)
 function judgeStep(run, step, m, o) {
   const app = o.app;
+  // o.large: the phone's largest font sizes (app-real.cjs, 175% and up), where a label on two lines, a control on a row of its own and a
+  // row of uneven heights are the layout making room for the text (WCAG 1.4.4), not faults; text cut off, overlaps and anything past
+  // the screen edge still are
+  const reflowOk = !!o.large;
   if (m.over > 0) add("block", "overflow", run, step, `page scrolls sideways by ${m.over}px on ${m.screen}`);
   if (m.outside.length) add("block", "outside", run, step, `past the screen edge on ${m.screen}: ${m.outside.join(" · ")}`);
-  if (m.wraps.length) add(o.wrapSev || "warn", "wrap", run, step, `label on two lines on ${m.screen}: ${m.wraps.join(" · ")}`);
+  if (m.wraps.length && !reflowOk) add(o.wrapSev || "warn", "wrap", run, step, `label on two lines on ${m.screen}: ${m.wraps.join(" · ")}`);
   if (m.overlaps.length) add("warn", "overlap", run, step, `controls overlap on ${m.screen}: ${m.overlaps.join(" · ")}`);
   if (m.clipped.length) add("warn", "clip", run, step, `text cut off on ${m.screen}: ${m.clipped.join(" · ")}`);
   if (m.twice.length) add("warn", "twice", run, step, `the same car is offered twice on ${m.screen}: ${m.twice.length} plates`);
-  if (m.orphans.length) add("warn", "orphan", run, step, `a control dropped to a line of its own on ${m.screen}: ${m.orphans.join(" · ")}`);
+  if (m.orphans.length && !reflowOk) add("warn", "orphan", run, step, `a control dropped to a line of its own on ${m.screen}: ${m.orphans.join(" · ")}`);
   if (m.bleed.length) add("warn", "bleed", run, step, `wider than the content column on ${m.screen}: ${m.bleed.join(" · ")}`);
-  if (m.ragged.length) add("warn", "ragged", run, step, `one row, different heights on ${m.screen}: ${m.ragged.join(" · ")}`);
+  if (m.ragged.length && !reflowOk) add("warn", "ragged", run, step, `one row, different heights on ${m.screen}: ${m.ragged.join(" · ")}`);
   if (m.covered) add("warn", "covered", run, step, `the bottom bar covers "${m.covered}" at the end of ${m.screen}`);
   if (!m.sheet && m.nav && ({ home: "search", cars: "cars", alerts: "alerts" })[m.screen] && m.navCur !== ({ home: "search", cars: "cars", alerts: "alerts" })[m.screen]) add("block", "logic", run, step, `the bar highlights "${m.navCur}" on the ${m.screen} screen`);
   // the website's frame (blocking): a footer under every screen; on a wide screen no button floats over the list (compare sits in the

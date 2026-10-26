@@ -31,6 +31,8 @@
 /* Background choice: light (default), dark, or follow the phone. Kept in this browser only. */
 (function(){
   var c = "light"; try { c = localStorage.getItem("theme") || "light"; } catch (e) {}
+  /* in the app, "follow the phone" is the phone's mode now, as the app reads it (its WebView keeps the mode it was opened with) */
+  if (c === "auto" && window.AndroidApp && AndroidApp.systemDark) c = AndroidApp.systemDark() ? "dark" : "light";
   if (c === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", c);
 })();
 </script>
@@ -129,7 +131,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .card.folded .chev{transform:rotate(90deg)}
 /* card icons are one neutral tone: red, amber and green are reserved for findings (pills, banners, insight rows) */
 .head .badge{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:var(--t-slate);background:var(--t-slate-bg)}
-.head .count{margin-inline-start:auto;font-size:.85rem;font-weight:700;color:var(--tc);color:color-mix(in srgb,var(--tc) 72%,var(--fg));background:var(--tb);padding:2px 9px;border-radius:999px}
+.head .count{margin-inline-start:auto;font-size:.85rem;font-weight:700;color:var(--tc);background:var(--tb);padding:2px 9px;border-radius:999px}@supports (color:color-mix(in srgb,red,blue)){.head .count{color:color-mix(in srgb,var(--tc) 72%,var(--fg))}}
 .blue{--tc:var(--t-blue);--tb:var(--t-blue-bg)} .violet{--tc:var(--t-violet);--tb:var(--t-violet-bg)} .teal{--tc:var(--t-teal);--tb:var(--t-teal-bg)}
 .amber{--tc:var(--t-amber);--tb:var(--t-amber-bg)} .red{--tc:var(--t-red);--tb:var(--t-red-bg)} .slate{--tc:var(--t-slate);--tb:var(--t-slate-bg)}
 .green{--tc:var(--t-green);--tb:var(--t-green-bg)} .leaf{--tc:var(--t-leaf);--tb:var(--t-leaf-bg)} .pink{--tc:var(--t-pink);--tb:var(--t-pink-bg)}
@@ -207,7 +209,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 @media(max-width:340px){.tow-grid .v{font-size:1.3rem}.tow-grid>div,.tow-grid>.unit-flip{padding:10px}}
 .unit-flip{border:0;text-align:start;font:inherit;color:inherit;width:100%}
 .unit-flip .flip{font-weight:800;opacity:.75;margin-inline-start:4px}
-.tow-grid .k{font-size:.9rem;color:var(--tc);color:color-mix(in srgb,var(--tc) 55%,var(--fg));font-weight:700}
+.tow-grid .k{font-size:.9rem;color:var(--tc);font-weight:700}@supports (color:color-mix(in srgb,red,blue)){.tow-grid .k{color:color-mix(in srgb,var(--tc) 55%,var(--fg))}}
 .tow-grid .v{font:600 clamp(1.5rem,7vw,2rem)/1.15 var(--f-num);font-variant-numeric:tabular-nums;margin-top:2px}
 .u{font-size:.85rem;color:var(--muted);margin-inline-start:4px;font-family:var(--f-body);font-weight:600}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}.stat.wide{grid-column:1/-1}
@@ -296,8 +298,10 @@ a.row{color:var(--fg);text-decoration:none}a.row .t small{text-decoration:none}a
 .set-fold>summary{display:flex;align-items:center;justify-content:space-between;cursor:pointer;list-style:none}.set-fold>summary::-webkit-details-marker{display:none}.set-fold>summary .go-chev{width:18px;height:18px;color:var(--muted)}.set-fold[open]>summary .go-chev{transform:rotate(180deg)}.set-fold{display:block}.set-fold>summary>span{font-weight:700}
 .set-grp.set-row{padding:14px;gap:8px}.set-grp.set-row>*{padding-block:0;border-top:0}
 #helpSheet{z-index:21}.fuel-set input::placeholder{font-family:var(--f-body)}
-.seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--soft);border-radius:11px;padding:4px;gap:4px}
-.seg button{border:0;background:transparent;border-radius:8px;padding:8px 6px;font-weight:700;color:var(--muted)}
+/* a segmented choice: equal widths while the labels fit, a label wider than its share takes what it needs, and when they cannot share
+   one row (the phone's font size goes up to 200%) the row wraps instead of breaking a label onto two lines */
+.seg{display:flex;flex-wrap:wrap;background:var(--soft);border-radius:11px;padding:4px;gap:4px}
+.seg button{flex:1 1 0;min-width:max-content;border:0;background:transparent;border-radius:8px;padding:8px 6px;font-weight:700;color:var(--muted)}
 .seg button[aria-pressed="true"]{background:var(--card);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.15)}
 @media (max-width:379px){.seg button{padding-inline:2px}}@media (max-width:359px){.seg button{font-size:.85rem}}   /* "לפי המכשיר" and "ליטר ל-100 ק״מ" stay on one line on a small phone, also in the fallback font before Assistant has loaded (font-display:optional) */
 .link-btn{border:1px solid var(--line);background:transparent;border-radius:10px;padding:10px 12px;font-weight:700;text-align:start}
@@ -326,7 +330,6 @@ footer{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:4px 24px;
 .sb-btn{border:0;border-radius:12px;background:var(--fg);color:var(--card);font:inherit;font-weight:700;font-size:.9rem;padding:11px 14px;min-height:44px;white-space:nowrap;cursor:pointer}.sb-btn.alt{background:var(--soft);color:var(--fg)}
 .sb-col{flex-direction:column;align-items:stretch;gap:8px}.sb-btns{display:flex;flex-wrap:wrap;gap:8px}.sb-btns .sb-btn{flex:1;white-space:normal}
 .sb-pad{height:calc(140px + env(safe-area-inset-bottom,0px))}
-body:has(.sharebar) .toast{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
 @media (max-height:500px){.sharebar{position:static;box-shadow:none;border-top:0}.sb-pad{display:none}}
 @media print{.sharebar,.sb-pad,.shared-top{display:none}}
 .apphint b{white-space:nowrap}.apphint .gox{margin-inline-start:auto;color:var(--accent,#2556c8);font-weight:700;white-space:nowrap}
@@ -349,7 +352,7 @@ body:has(.sharebar) .toast{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
   html.web main#out > .hmain{display:flex;flex-direction:column;gap:12px;min-width:0}
   html.web main#out > .hrail{display:flex;flex-direction:column;gap:12px}
   html.web main#out > .hmain > .webcta{display:none}   /* the rail's app card says it on a wide screen */
-  html.web main#out > .hmain .rc.inrail,html.web main#out > .hmain .recents:not(:has(.rc:not(.inrail))){display:none}
+  html.web main#out > .hmain .rc.inrail{display:none}html.web main#out > .hmain .recents:not(:has(.rc:not(.inrail))){display:none}
 }
 .hmain{display:contents}.hrail{display:none}
 .hr-p{background:var(--card);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
@@ -489,13 +492,12 @@ section[style*="--n:3"] .cmp-k{font-size:.78rem}
 .cmp-h .x svg.i{width:16px;height:16px}
 .cmp-h .tag{font-size:.78rem;font-weight:700;color:var(--t-violet);background:var(--t-violet-bg);border-radius:999px;padding:0 8px}
 .cmp-sec{grid-column:1/-1;font-weight:800;font-size:.85rem;color:var(--tc);padding-top:14px!important}
-.in-alt{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.in-alt{display:flex;flex-wrap:wrap;gap:8px}.in-alt .in-btn{flex:1 1 0;min-width:max-content}   /* side by side, or one under the other when a large font size needs it */
 .in-btn{display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--band-line);background:transparent;border-radius:10px;padding:9px 8px;font-weight:700;color:var(--band-fg)}
 .in-btn[aria-busy="true"]{opacity:.6}
 @media (max-width:359px){.in-btn{gap:6px;padding-inline:4px;font-size:.95rem}}   /* "אמירת המספר" on one line at 320px, also in the fallback font */
 .in-btn[aria-pressed="true"]{background:var(--bad);color:#fff;border-color:var(--bad)}
 .in-msg{margin:0;font-size:.9rem;color:var(--band-muted)}.in-msg:empty,.toast:empty{position:absolute;width:1px;height:1px;padding:0;margin:0;border:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;box-shadow:none;background:none}
-.seg.two{grid-template-columns:1fr 1fr}
 @media (max-width:760px){.card.many{overflow-x:auto}}.many .cmp,.many .cmp-table{min-width:calc(var(--n)*116px)}
 .ph-svg{width:100%;height:auto;display:block}.opt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:start;border:1.5px solid var(--line);border-radius:14px;padding:12px;background:var(--card);margin-top:8px;position:relative;color:var(--fg)}.opt b{font-size:1rem}.opt .pr{font-weight:800}.opt small{color:var(--muted)}.opt.best{border-color:#ffc400;box-shadow:0 0 0 2px #ffc40055}.opt em{position:absolute;inset-block-start:-9px;inset-inline-end:12px;background:#ffc400;color:#111;font-style:normal;font-weight:800;font-size:.78rem;border-radius:6px;padding:1px 8px}.cmpp td,.cmpp th{font-size:.85rem;padding:6px 2px}
 .src-tag{display:inline-flex;align-items:center;font-size:.78rem;font-weight:700;border-radius:6px;padding:0 6px;margin-inline-start:6px;white-space:nowrap;background:var(--soft);color:var(--muted);border:1px solid var(--line)}
@@ -688,13 +690,13 @@ button:not(:disabled):active,.link-btn:active,.act:active,.tabs button:active,a.
 @media (prefers-reduced-motion:no-preference){#out.rise .card{animation:rise .18s ease-out both}}
 
 /* ---------- screens: bottom navigation, the car page's header, "הרכבים שלי" and "התראות" ---------- */
-.bnav{position:fixed;inset-inline:0;bottom:0;z-index:14;background:var(--card);background:color-mix(in srgb,var(--card) 90%,transparent);-webkit-backdrop-filter:saturate(1.6) blur(18px);backdrop-filter:saturate(1.6) blur(18px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+.bnav{position:fixed;inset-inline:0;bottom:0;z-index:14;background:var(--card);-webkit-backdrop-filter:saturate(1.6) blur(18px);backdrop-filter:saturate(1.6) blur(18px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}@supports (color:color-mix(in srgb,red,blue)){.bnav{background:color-mix(in srgb,var(--card) 90%,transparent)}}
 .bnav-in{max-width:680px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr)}
 .bnav button{background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px 7px;color:var(--muted);font-size:.78rem;font-weight:600;min-height:58px}
 .bnav .bn-i{position:relative;display:grid;place-items:center;width:60px;height:30px;border-radius:999px}
 .bnav .bn-i svg.i{width:22px;height:22px;stroke-width:1.8}
 .bnav button[aria-current=page]{color:var(--accent);font-weight:800}
-.bnav button[aria-current=page] .bn-i{background:color-mix(in srgb,var(--accent) 13%,transparent)}
+.bnav button[aria-current=page] .bn-i{background:var(--t-blue-bg)}@supports (color:color-mix(in srgb,red,blue)){.bnav button[aria-current=page] .bn-i{background:color-mix(in srgb,var(--accent) 13%,transparent)}}
 .bnav button[aria-current=page] .bn-i svg.i{stroke-width:2.1}
 .bn-badge{position:absolute;unicode-bidi:plaintext;top:-3px;inset-inline-end:10px;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:var(--bad);color:var(--card);font:800 .78rem/18px var(--f-body);font-style:normal;text-align:center;box-shadow:0 0 0 2px var(--card)}
 main{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
@@ -718,9 +720,13 @@ html.web .sf-l{display:none}   /* the car page's legal line: the footer under it
   html.web footer .soc{grid-area:1/2}
   html.web footer .ft-l{grid-area:2/1/3/3}
 }
-body:has(.sharebar) .bnav,body.kb .bnav,body.land .bnav{display:none}
-body:not(:has(.sharebar)):not(.kb) .toast{bottom:calc(84px + env(safe-area-inset-bottom,0px))}
-body:not(:has(.sharebar)):not(.kb) .snack{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+/* :has() always in a rule of its own: an engine without it (WebView before 105, Safari before 15.4) drops the whole rule it sits in */
+body.kb .bnav,body.land .bnav{display:none}
+body:has(.sharebar) .bnav{display:none}
+body:not(.kb) .toast{bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+body:not(.kb) .snack{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+body:has(.sharebar) .toast{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+body:has(.sharebar) .snack{bottom:calc(12px + env(safe-area-inset-bottom,0px))}
 /* the website on a wide screen: the navigation is a bar at the top, as on any site, with the brand and a plate search on the screens that have
    no search band; phones and the app keep the bottom bar */
 .bn-brand,.bn-f,.bhero,.bnav .bn-set,.bnav .bn-pro{display:none}   /* .bnav button would otherwise draw the gear as a fourth tab on a phone */
@@ -761,21 +767,23 @@ body:not(:has(.sharebar)):not(.kb) .snack{bottom:calc(76px + env(safe-area-inset
   html.web .bn-il{display:grid;place-items:center;padding:0 6px;background:var(--il);color:#fff;font:800 .7rem var(--f-body)}
   html.web .bn-pl input{width:150px;border:0;background:none;color:var(--plate-ink);font:600 1.05rem var(--f-num);text-align:center;letter-spacing:.04em;padding:0 8px}
   /* an empty field reads as a field (a request), not as a plate already filled in */
-  html.web .bn-pl input::placeholder{color:color-mix(in srgb,var(--plate-ink) 55%,transparent);font:600 .9rem var(--f-body);letter-spacing:0;direction:rtl}
+  html.web .bn-pl input::placeholder{color:var(--muted);font:600 .9rem var(--f-body);letter-spacing:0;direction:rtl}@supports (color:color-mix(in srgb,red,blue)){html.web .bn-pl input::placeholder{color:color-mix(in srgb,var(--plate-ink) 55%,transparent)}}
   html.web .bn-pl:focus-within{outline:3px solid var(--accent);outline-offset:2px}
   html.web .bnav .bn-go{width:44px;height:40px;padding:0;border:0;border-radius:9px;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;cursor:pointer;transition:filter .15s}
   html.web .bnav .bn-go:hover{filter:brightness(1.1)}
   html.web .bnav .bn-go svg.i{width:21px;height:21px;stroke-width:2.6}
   html.web body:not(.land):not(:has(.sharebar)){padding-top:60px}
-  html.web main,html.web footer,html.web body:has(.cfab) > footer{padding-bottom:24px}
+  html.web main,html.web footer{padding-bottom:24px}html.web body:has(.cfab) > footer{padding-bottom:24px}
   html.web .chead{top:60px}
   html.web .chead .ch-b:has(.ch-l){width:auto;height:40px;margin-inline:4px;padding:0 14px 0 12px;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--card);font-weight:800;font-size:.9rem}
   html.web .chead .ch-b:has(.ch-l) svg.i{width:19px;height:19px}
   html.web .chead .ch-l{display:inline}
   html.web body[data-screen=car] .tabs{top:113px;scroll-margin-top:113px}
   html.web body[data-screen=car] [data-fold],html.web body[data-screen=car] #tabpanel > *{scroll-margin-top:184px}
-  html.web body:not(:has(.sharebar)):not(.kb) .toast{bottom:24px}
-  html.web body:not(:has(.sharebar)):not(.kb) .snack{bottom:16px}
+  html.web body:not(.kb) .toast{bottom:24px}
+  html.web body:not(.kb) .snack{bottom:16px}
+  html.web body:has(.sharebar) .toast{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+  html.web body:has(.sharebar) .snack{bottom:calc(12px + env(safe-area-inset-bottom,0px))}
   /* "הרכבים שלי" on a wide page: "הוספת רכב" and "השוואה" are named buttons in the title row (no floating button over the list), and the
      filter and the view switch share one toolbar line */
   html.web .vh-add{width:auto;height:42px;padding:0 16px 0 14px;display:inline-flex;align-items:center;gap:7px;background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:800;font-size:.95rem}
@@ -794,7 +802,7 @@ body[data-screen=car] .band,body[data-screen=sub] .band,body[data-screen=cars] .
 body[data-screen=car] main,body[data-screen=sub] main,body[data-screen=cars] main,body[data-screen=alerts] main{padding-top:calc(4px + env(safe-area-inset-top,0px))}
 #savedBar,#homeBtn{display:none}
 /* car page header: back, plate and model, share, save, more */
-.chead{position:sticky;top:0;z-index:12;display:flex;align-items:center;gap:0;margin-inline:-16px;margin-top:calc(-4px - env(safe-area-inset-top,0px));padding:calc(4px + env(safe-area-inset-top,0px)) 6px 4px;background:var(--bg);background:color-mix(in srgb,var(--bg) 94%,transparent);-webkit-backdrop-filter:saturate(1.6) blur(18px);backdrop-filter:saturate(1.6) blur(18px);border-bottom:1px solid transparent;transition:border-color .15s}
+.chead{position:sticky;top:0;z-index:12;display:flex;align-items:center;gap:0;margin-inline:-16px;margin-top:calc(-4px - env(safe-area-inset-top,0px));padding:calc(4px + env(safe-area-inset-top,0px)) 6px 4px;background:var(--bg);-webkit-backdrop-filter:saturate(1.6) blur(18px);backdrop-filter:saturate(1.6) blur(18px);border-bottom:1px solid transparent;transition:border-color .15s}@supports (color:color-mix(in srgb,red,blue)){.chead{background:color-mix(in srgb,var(--bg) 94%,transparent)}}
 .chead.sc{border-bottom-color:var(--line)}
 .ch-b{width:44px;height:44px;flex:0 0 auto;border:0;background:none;border-radius:999px;display:grid;place-items:center;color:var(--accent);padding:0}
 .ch-b svg.i{width:23px;height:23px}
@@ -843,7 +851,7 @@ html.web main#out > .chead{grid-column:1/-1}
 .cc-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .cc-top .mini-plate{font-size:1.05rem;padding:3px 9px 3px 4px}
 .cc-col{margin-inline-start:auto;display:inline-flex;align-items:center;gap:6px;font-size:.78rem;color:var(--muted)}
-.pdot{display:inline-block;width:10px;height:10px;border-radius:50%;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fg) 22%,transparent)}
+.pdot{display:inline-block;width:10px;height:10px;border-radius:50%;box-shadow:inset 0 0 0 1px var(--line)}@supports (color:color-mix(in srgb,red,blue)){.pdot{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fg) 22%,transparent)}}
 .cc-go{color:var(--muted);opacity:.6;display:grid}.cc-go svg.i{transform:rotate(90deg)}
 .cc-col + .cc-go,.cc-col + .cc-chk{margin-inline-start:0}
 .cc-top > .cc-go:nth-child(2),.cc-top > .cc-chk:nth-child(2){margin-inline-start:auto}
@@ -856,20 +864,20 @@ html.web main#out > .chead{grid-column:1/-1}
 .cc-strip.bad{background:var(--bad-bg);color:var(--bad)}.cc-strip.warn{background:var(--warn-bg);color:var(--warn)}
 .cc-strip svg.i{width:18px;height:18px}
 .tm-r{display:flex;align-items:baseline;justify-content:space-between;gap:12px;font-size:.9rem}.tm-r span{color:var(--muted);font-variant-numeric:tabular-nums}
-.tmeter b{color:var(--fg);color:color-mix(in srgb,var(--fg) 82%,transparent)}.tmeter.warn b{color:var(--warn)}.tmeter.bad b{color:var(--bad)}
+.tmeter b{color:var(--fg)}@supports (color:color-mix(in srgb,red,blue)){.tmeter b{color:color-mix(in srgb,var(--fg) 82%,transparent)}}.tmeter.warn b{color:var(--warn)}.tmeter.bad b{color:var(--bad)}
 .tm-bar{display:block;height:6px;margin-top:7px;border-radius:999px;background:var(--line);overflow:hidden}
-.tm-bar i{display:block;height:100%;border-radius:999px;background:var(--muted);background:color-mix(in srgb,var(--fg) 25%,transparent)}
+.tm-bar i{display:block;height:100%;border-radius:999px;background:var(--muted)}@supports (color:color-mix(in srgb,red,blue)){.tm-bar i{background:color-mix(in srgb,var(--fg) 25%,transparent)}}
 .tmeter.warn .tm-bar i{background:var(--t-amber)}.tmeter.bad .tm-bar i{background:var(--t-red)}
-.pmeter b{color:var(--fg);color:color-mix(in srgb,var(--fg) 82%,transparent)}
+.pmeter b{color:var(--fg)}@supports (color:color-mix(in srgb,red,blue)){.pmeter b{color:color-mix(in srgb,var(--fg) 82%,transparent)}}
 .pm-bar{position:relative;display:block;height:6px;margin-top:9px;border-radius:999px;background:var(--line)}
-.pm-band{position:absolute;top:0;bottom:0;border-radius:999px;background:var(--t-blue-bg);background:color-mix(in srgb,var(--accent) 32%,transparent)}
+.pm-band{position:absolute;top:0;bottom:0;border-radius:999px;background:var(--t-blue-bg)}@supports (color:color-mix(in srgb,red,blue)){.pm-band{background:color-mix(in srgb,var(--accent) 32%,transparent)}}
 .pm-dot{position:absolute;top:50%;width:14px;height:14px;margin-top:-7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--card)}
 .pm-lbl{position:relative;display:block;height:16px;margin-top:4px;font-size:.78rem;color:var(--muted);font-variant-numeric:tabular-nums}.pm-lbl span{position:absolute}
 .pmeter small{display:block;font-size:.78rem;color:var(--muted)}
 .ctab-sum{display:flex;align-items:center;gap:16px;font-size:.85rem;font-weight:600;color:var(--muted);flex-wrap:wrap}.ctab-sum span{display:inline-flex;align-items:center;gap:6px}
 .ctable .ft td{vertical-align:middle}.ctable .ft .cr{display:flex;align-items:center;gap:8px}
-.ctable tr.on{background:color-mix(in srgb,var(--accent) 8%,transparent)}
-.cfab{position:fixed;z-index:13;bottom:calc(74px + env(safe-area-inset-bottom,0px));inset-inline-end:16px;height:48px;padding:0 20px 0 16px;border-radius:999px;display:flex;align-items:center;gap:8px;font-weight:800;font-size:1rem;border:1px solid var(--line);background:var(--card);background:color-mix(in srgb,var(--card) 82%,transparent);-webkit-backdrop-filter:saturate(1.6) blur(18px);backdrop-filter:saturate(1.6) blur(18px);color:var(--accent);box-shadow:0 14px 34px -12px rgba(20,30,50,.35)}
+.ctable tr.on{background:var(--soft)}@supports (color:color-mix(in srgb,red,blue)){.ctable tr.on{background:color-mix(in srgb,var(--accent) 8%,transparent)}}
+.cfab{position:fixed;z-index:13;bottom:calc(74px + env(safe-area-inset-bottom,0px));inset-inline-end:16px;height:48px;padding:0 20px 0 16px;border-radius:999px;display:flex;align-items:center;gap:8px;font-weight:800;font-size:1rem;border:1px solid var(--line);background:var(--card);-webkit-backdrop-filter:saturate(1.6) blur(18px);backdrop-filter:saturate(1.6) blur(18px);color:var(--accent);box-shadow:0 14px 34px -12px rgba(20,30,50,.35)}@supports (color:color-mix(in srgb,red,blue)){.cfab{background:color-mix(in srgb,var(--card) 82%,transparent)}}
 .cfab.on{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
 body.kb .cfab{display:none}
 body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px))}   /* the last card and the note scroll clear of the compare button */
@@ -918,8 +926,8 @@ body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)
 /* the website answers the mouse: what opens something lightens or takes a ring under the pointer (touch screens have no hover) */
 @media (hover:hover) and (pointer:fine){
   html.web :is(.trow,.qrow,.attn,.set-go):hover{background:var(--soft)}
-  html.web :is(a.row,button.row,.makers button,button.chip,.link-btn,.pick,.mback,.cf-quick button,.cf-chips button,.fchips button:not([aria-pressed=true]),.vseg button:not([aria-selected=true])):hover{background:color-mix(in srgb,var(--accent) 9%,var(--soft))}
-  html.web :is(.ccard:not(.on),.rc):hover{box-shadow:0 0 0 1.5px color-mix(in srgb,var(--accent) 45%,transparent),var(--shadow)}
+  html.web :is(a.row,button.row,.makers button,button.chip,.link-btn,.pick,.mback,.cf-quick button,.cf-chips button,.fchips button:not([aria-pressed=true]),.vseg button:not([aria-selected=true])):hover{background:var(--soft)}@supports (color:color-mix(in srgb,red,blue)){html.web :is(a.row,button.row,.makers button,button.chip,.link-btn,.pick,.mback,.cf-quick button,.cf-chips button,.fchips button:not([aria-pressed=true]),.vseg button:not([aria-selected=true])):hover{background:color-mix(in srgb,var(--accent) 9%,var(--soft))}}
+  html.web :is(.ccard:not(.on),.rc):hover{box-shadow:0 0 0 1.5px var(--accent),var(--shadow)}@supports (color:color-mix(in srgb,red,blue)){html.web :is(.ccard:not(.on),.rc):hover{box-shadow:0 0 0 1.5px color-mix(in srgb,var(--accent) 45%,transparent),var(--shadow)}}
   html.web .tabs button:not([aria-selected=true]):hover{background:var(--soft);color:var(--fg)}
   html.web .head[data-fold]:hover{background:var(--soft)}
   html.web :is(.ch-b,.ch-doc,.icon-btn,.vh-cmp:not(.on)):hover{background:var(--soft)}
@@ -1133,6 +1141,8 @@ const APP_VERSION = "1.38.2";
 /* a phone whose page storage is still empty here is a new install (an app update keeps the storage): read before anything is stored */
 const FRESH = (() => { try { return localStorage.length === 0; } catch { return false; } })();
 const SITE = "https://luchit.app/";
+/* a signal that aborts a request after ms: AbortSignal.timeout where the engine has it (Chrome 103, Safari 16), a timer elsewhere */
+const timeoutSignal = ms => { if (AbortSignal.timeout) return AbortSignal.timeout(ms); const c = new AbortController(); setTimeout(() => c.abort(), ms); return c.signal; };
 /* PRO: while PRO_LOCK is false (beta) every feature is open to everyone. Later it is tied to a Google Play subscription. */
 const PRO_LOCK = false;
 /* anonymous usage events (Firebase Analytics in the app, /api/e -> GA4 on the web): what people do, never a plate number or anything personal. The user can switch it off in settings.
@@ -1473,7 +1483,7 @@ const OWN_BASE = "https://raw.githubusercontent.com/ddsabag/vehicle-app/own-data
 let ownMeta = null;
 async function ownMirror(plate, signal){
   try {
-    const sig = signal || AbortSignal.timeout(10000);
+    const sig = signal || timeoutSignal(10000);
     if (!ownMeta) { const r = await fetch(OWN_BASE + "meta.json", {signal: sig}); if (!r.ok) return []; ownMeta = await r.json(); }
     const p = String(Number(plate)), r = await fetch(`${OWN_BASE}o/${p.slice(-3).padStart(3, "0")}.txt`, {signal: sig});
     if (!r.ok) return [];
@@ -2652,7 +2662,7 @@ async function fetchModelData(v, signal, useCat){
 /* An empty ministry dataset answers "no rows" for every plate; tell that apart from a plate that does not exist */
 async function sourceTotal(signal, id = PLATE_SETS[0].id){
   try {
-    const r = await fetch(`${API}?resource_id=${id}&limit=0`, {signal: signal || AbortSignal.timeout(10000)});
+    const r = await fetch(`${API}?resource_id=${id}&limit=0`, {signal: signal || timeoutSignal(10000)});
     if (!r.ok) return null;
     const j = await r.json();
     const n = j && j.success ? Number(j.result && j.result.total) : NaN;
@@ -5014,7 +5024,7 @@ async function runCompare(raw){
   if (cmp.some(x => x.plate === plate && x.kind !== "fail")) { msg.textContent = "הרכב הזה כבר בהשוואה."; toast("הרכב הזה כבר בהשוואה"); return; }
   msg.textContent = "מחפשים…";
   try {
-    const D = await fetchVehicle(plate, AbortSignal.timeout(30000));
+    const D = await fetchVehicle(plate, timeoutSignal(30000));
     if (D.offline) { msg.textContent = navigator.onLine === false ? "אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב." : "מאגרי משרד התחבורה לא עונים כרגע. נסו שוב בעוד כמה דקות."; return; }
     if (D.notFound) { msg.textContent = "לא נמצא רכב עם המספר הזה."; return; }
     addToCompare(D);
@@ -6242,8 +6252,28 @@ document.querySelector("#bnav .bn-brand").addEventListener("click", ev => { ev.p
 $("#bnF").addEventListener("submit", ev => { ev.preventDefault(); const v = $("#bnPlate").value; if (!v.replace(/\D/g, "")) { $("#bnPlate").focus(); return; } $("#bnPlate").value = ""; $("#bnPlate").blur(); run(v); });
 // the keyboard covers the bottom of the screen: the bar steps aside while a field has focus
 const touchKb = () => { try { return matchMedia("(pointer: coarse)").matches; } catch { return true; } };
-document.addEventListener("focusin", ev => { if (touchKb() && ev.target.matches && ev.target.matches("input:not([type=checkbox]):not([type=radio]):not([type=file]),textarea,select")) document.body.classList.add("kb"); });
-document.addEventListener("focusout", () => setTimeout(() => { const a = document.activeElement; if (!(a && a.matches && a.matches("input:not([type=checkbox]):not([type=radio]):not([type=file]),textarea,select"))) document.body.classList.remove("kb"); }, 60));
+const KB_FIELD = "input:not([type=checkbox]):not([type=radio]):not([type=file]),textarea,select";
+const typing = () => { const a = document.activeElement; return !!(a && a.matches && a.matches(KB_FIELD)); };
+document.addEventListener("focusin", ev => { if (touchKb() && ev.target.matches && ev.target.matches(KB_FIELD)) document.body.classList.add("kb"); });
+document.addEventListener("focusout", () => setTimeout(() => { if (!typing()) document.body.classList.remove("kb"); }, 60));
+// Back closes the keyboard and leaves the field focused: when the screen is back to its full height the bar returns, and it steps aside
+// again when the keyboard does (the field tapped again). Full height is per width, so a turn of the phone starts over
+{
+  let w = 0, full = 0, prev = 0;
+  const vh = () => window.visualViewport && visualViewport.scale < 1.05 ? visualViewport.height : innerHeight;
+  const onSize = () => {
+    if (!touchKb()) return;
+    const h = vh();
+    if (innerWidth !== w) { w = innerWidth; full = h; prev = h; }
+    if (h > full) full = h;
+    if (h > prev && h >= full - 60) document.body.classList.remove("kb");
+    else if (h < prev && typing() && h < full - 150) document.body.classList.add("kb");
+    prev = h;
+  };
+  addEventListener("resize", onSize);
+  if (window.visualViewport) visualViewport.addEventListener("resize", onSize);
+  onSize();
+}
 
 /* a tool's header (compare, market, bulk check, plans): back to the tab it was opened from, and its name */
 const toolHead = t => { if (!window.AndroidApp) document.title = `${t} · לוחית`; return `<header class="chead" id="chead"><button type="button" class="ch-b back" data-act="toolBack" aria-label="חזרה">${ico("back")}</button><div class="ch-t"><b>${esc(t)}</b></div></header>`; };
@@ -6674,7 +6704,7 @@ async function loadCompareSet(items, {replace = true, at = null} = {}){
   for (const it of items) { const id = cmpItemId(it); if (seen.has(id)) { if (!replace) toast("הרכב הזה כבר בהשוואה"); continue; } seen.add(id); todo.push(it); }
   const room = cmpMax() - (replace ? 0 : cmp.length) + (at !== null ? 1 : 0);
   const list = todo.slice(0, Math.max(0, room));
-  const settled = await Promise.all([Promise.allSettled(list.map(it => it.plate ? fetchVehicle(it.plate, AbortSignal.timeout(30000)) : fetchModel(it.model, AbortSignal.timeout(30000)))), loadModelStats().catch(() => null)]).then(r => r[0]);
+  const settled = await Promise.all([Promise.allSettled(list.map(it => it.plate ? fetchVehicle(it.plate, timeoutSignal(30000)) : fetchModel(it.model, timeoutSignal(30000)))), loadModelStats().catch(() => null)]).then(r => r[0]);
   const entries = settled.map((r, i) => {
     const it = list[i], D = r.status === "fulfilled" ? r.value : null;
     if (D && !D.notFound && !D.offline) return D;
@@ -7002,17 +7032,89 @@ $("#clrPlate").addEventListener("click", ev => { ev.preventDefault(); $("#plate"
 function themeChoice(){ try { return localStorage.getItem("theme") || "light"; } catch { return "light"; } }
 function applyTheme(c){
   const root = document.documentElement;
-  if (c === "auto") root.removeAttribute("data-theme"); else root.setAttribute("data-theme", c);
-  const dark = c === "dark" || (c === "auto" && matchMedia("(prefers-color-scheme: dark)").matches);
+  const app = bridge();
+  // "follow the phone": in the app the phone's mode as the app reads it now (its WebView keeps the mode it was opened with), on the web
+  // the browser's prefers-color-scheme, which the stylesheet follows by itself
+  const appSys = app && app.systemDark ? (() => { try { return !!app.systemDark(); } catch { return null; } })() : null;
+  const dark = c === "dark" || (c === "auto" && (appSys !== null ? appSys : matchMedia("(prefers-color-scheme: dark)").matches));
+  if (c === "auto" && appSys === null) root.removeAttribute("data-theme"); else root.setAttribute("data-theme", c === "auto" ? (dark ? "dark" : "light") : c);
   document.querySelector('meta[name="theme-color"]').setAttribute("content", dark ? "#121722" : "#ffffff");
-  try { bridge() && bridge().setDark(dark); } catch {}
+  try { app && app.setTheme && app.setTheme(c); } catch {}
   document.querySelectorAll("[data-theme-choice]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.themeChoice === c)));
+  barsSoon();
 }
 document.querySelectorAll("[data-theme-choice]").forEach(b => b.addEventListener("click", () => {
   try { localStorage.setItem("theme", b.dataset.themeChoice); } catch {}
   applyTheme(b.dataset.themeChoice);
 }));
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => applyTheme(themeChoice()));
+window.onSystemDark = () => applyTheme(themeChoice());   // the app: the phone turned dark or light while the app is open
+
+/* The phone's bars in the app (MainActivity.setBars): the status bar in the colour of the page's top edge, the navigation bar in that of
+   its bottom edge, so the page reads as reaching the screen's edges. The colour is the page's frame, not what scrolls past: the boxes of
+   the page's flow that start at its top edge (the band on home), over the body, and on top of them whatever stays fixed over that edge
+   (a screen's sticky header, the bottom bar, a sheet's shade). Sent again when a screen, a sheet or the theme changes, never per scroll */
+const barsSoon = (() => {
+  const app = bridge();
+  if (!app || !app.setBars) return () => {};
+  const num = s => s.split(/[\s,/]+/).filter(Boolean).map(Number);
+  const rgba = s => {
+    let m = /^rgba?\(([^)]*)\)/.exec(s || "");
+    if (m) { const v = num(m[1]); return [v[0], v[1], v[2], v.length > 3 ? v[3] : 1]; }
+    m = /^color\(srgb ([^)]*)\)/.exec(s || "");
+    if (m) { const v = num(m[1]); return [v[0] * 255, v[1] * 255, v[2] * 255, v.length > 3 ? v[3] : 1]; }
+    return [0, 0, 0, 0];
+  };
+  const over = (f, b) => { const a = f[3] + b[3] * (1 - f[3]); return a <= 0 ? [0, 0, 0, 0] : [0, 1, 2].map(i => (f[i] * f[3] + b[i] * b[3] * (1 - f[3])) / a).concat(a); };
+  // an element's own paint: its background colour, under the first colour of a gradient on it (a vertical one starts with it at the top)
+  const paint = (el, under) => {
+    const cs = getComputedStyle(el), op = +cs.opacity;
+    let c = over(rgba(cs.backgroundColor), under);
+    const g = cs.backgroundImage !== "none" && /(rgba?\([^)]*\)|color\(srgb [^)]*\))/.exec(cs.backgroundImage);
+    if (g) c = over(rgba(g[1]), c);
+    return op < 1 ? [0, 1, 2].map(i => under[i] + (c[i] - under[i]) * op).concat(under[3]) : c;
+  };
+  const pos = el => getComputedStyle(el).position;
+  const inFlow = el => el.getClientRects().length > 0 && !/^(fixed|absolute|sticky)$/.test(pos(el)) && getComputedStyle(el).visibility !== "hidden";
+  const ground = () => paint(document.body, paint(document.documentElement, [255, 255, 255, 1]));
+  // the page's own top edge: down the flow's boxes that start where it starts and span the screen
+  const flowTop = () => {
+    let c = ground(), el = [...document.body.children].find(e => !/^(SCRIPT|STYLE|TEMPLATE|NOSCRIPT)$/.test(e.tagName) && inFlow(e));
+    while (el) {
+      c = paint(el, c);
+      const t = el.getBoundingClientRect().top;
+      el = [...el.children].find(k => inFlow(k) && Math.abs(k.getBoundingClientRect().top - t) < 2 && k.getBoundingClientRect().width >= innerWidth * .9);
+    }
+    return c;
+  };
+  // what stays put over a point of the screen's edge, front first: the elements inside a fixed or sticky box
+  const fixedAt = y => {
+    const out = [];
+    for (const el of document.elementsFromPoint(innerWidth / 2, y)) {
+      let e = el, held = false;
+      for (; e && e !== document.body; e = e.parentElement) if (/^(fixed|sticky)$/.test(pos(e))) { held = true; break; }
+      if (!held) break;
+      out.push(el);
+    }
+    return out;
+  };
+  const edge = (y, base) => fixedAt(y).reverse().reduce((c, el) => paint(el, c), base);
+  const hex = c => "#" + c.slice(0, 3).map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("");
+  let last = "", raf = 0;
+  const send = () => {
+    raf = 0;
+    try {
+      const top = hex(edge(0, flowTop())), bottom = hex(edge(innerHeight - 1, ground()));
+      if (top + bottom !== last) { last = top + bottom; app.setBars(top, bottom); }
+    } catch {}
+  };
+  const soon = () => { if (!raf) raf = requestAnimationFrame(send); };
+  new MutationObserver(soon).observe(document.body, {subtree: true, childList: true, attributes: true, attributeFilter: ["class", "hidden", "data-screen", "open"]});
+  addEventListener("resize", soon);
+  document.addEventListener("transitionend", soon, true);   // a sheet or a header that eases in: its colours once it has arrived
+  document.addEventListener("animationend", soon, true);
+  return soon;
+})();
 const sheet = $("#settings");
 /* Tabs: arrow keys move between tabs (RTL: left = next); Enter or Space activates. */
 $("#out").addEventListener("keydown", ev => {

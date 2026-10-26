@@ -74,8 +74,22 @@ public class MainActivity extends Activity {
     private ValueCallback<Uri[]> fileCallback;
     private Uri cameraUri;
 
+    // the page's colours (index.html's tokens; app-wiring.mjs keeps them equal): --bg, --band-tint at the top of home, and the bottom bar
+    // (--card at 90% over --bg). The window shows them from the first frame, until the page sends the colours of its own edges (setBars)
+    static final int PAGE_LIGHT = 0xFFF2F4F8, TOP_LIGHT = 0xFFE2ECFD, BOTTOM_LIGHT = 0xFFFEFEFE;
+    static final int PAGE_DARK = 0xFF0E121A, TOP_DARK = 0xFF182338, BOTTOM_DARK = 0xFF1B212E;
+    private final BarsDrawable bars = new BarsDrawable();
+    private volatile boolean systemNight;   // the phone's dark mode, which the page's "לפי המכשיר" follows
+    private boolean dark;                   // the page is dark: its choice, or the phone's under "לפי המכשיר"
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // the look the page chose, before the window is made: the window, the WebView's prefers-color-scheme and the first frame follow it
+        systemNight = night(getResources().getConfiguration());
+        String mode = themeMode();
+        if ("dark".equals(mode)) setTheme(R.style.AppTheme_Dark);
+        else if ("auto".equals(mode)) setTheme(R.style.AppTheme_DayNight);
+        dark = isDark(mode);
         super.onCreate(savedInstanceState);
         initAnalytics();
         // shared pictures and PDFs are temporary: drop the ones older than a day
@@ -84,19 +98,22 @@ public class MainActivity extends Activity {
             if (old != null) for (File f : old) if (System.currentTimeMillis() - f.lastModified() > 24L * 3600 * 1000) f.delete();
         } catch (Exception ignored) {}
 
+        // the root paints nothing: the window's background (BarsDrawable) shows through the bars and, on Android 15, through its padding
         root = new FrameLayout(this);
-        root.setBackgroundColor(Color.WHITE);
         // the app guardian drives the page of a debuggable build (build type qa, made only in CI) through the WebView's DevTools;
         // a build for Google Play is never debuggable, so its page cannot be inspected
         if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) WebView.setWebContentsDebuggingEnabled(true);
         webView = new WebView(this);
+        webView.setBackgroundColor(dark ? PAGE_DARK : PAGE_LIGHT);   // until the page has drawn: its own colour, never a white flash
         root.addView(webView, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         setContentView(root);
-        setDark(false);
+        getWindow().setBackgroundDrawable(bars);
+        paintBars(dark ? TOP_DARK : TOP_LIGHT, dark ? BOTTOM_DARK : BOTTOM_LIGHT);
 
         // Keep the page clear of the status and navigation bars (edge-to-edge is enforced on new Android versions)
         root.setOnApplyWindowInsetsListener((View v, WindowInsets insets) -> {
+            bars.invalidateSelf();   // the bars' strips follow their size (a turn, a cutout)
             if (android.os.Build.VERSION.SDK_INT >= 30) {
                 int types = WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout() | WindowInsets.Type.ime();
                 android.graphics.Insets i = insets.getInsets(types);
@@ -114,11 +131,26 @@ public class MainActivity extends Activity {
         s.setAllowContentAccess(true); // lets the page read the plate photo picked from the camera or gallery
 
         // Serve the bundled page from an https origin so API calls to data.gov.il pass CORS
-        // Lets the page tell us its light/dark choice so the system bars match it
         webView.addJavascriptInterface(new Object() {
+            /** The look the user chose in the page: light, dark, or auto (the phone's). Kept for the next launch, whose splash follows it */
             @JavascriptInterface
-            public void setDark(boolean dark) {
-                runOnUiThread(() -> MainActivity.this.setDark(dark));
+            public void setTheme(String mode) {
+                if (!"light".equals(mode) && !"dark".equals(mode) && !"auto".equals(mode)) return;
+                runOnUiThread(() -> themeChosen(mode));
+            }
+
+            /** The phone's dark mode now: the page's "לפי המכשיר" (the WebView's prefers-color-scheme keeps the mode it opened with) */
+            @JavascriptInterface
+            public boolean systemDark() {
+                return systemNight;
+            }
+
+            /** The colours of the page's top and bottom edges (#rrggbb): the status bar and the navigation bar take them */
+            @JavascriptInterface
+            public void setBars(String top, String bottom) {
+                Integer t = rgb(top), b = rgb(bottom);
+                if (t == null || b == null) return;
+                runOnUiThread(() -> paintBars(t, b));
             }
 
             /** A silent failure in the page (tag only), recorded as a non-fatal in Crashlytics */
@@ -811,10 +843,17 @@ public class MainActivity extends Activity {
     }
 
     private void handleBack() {
-        if (webView == null) { finish(); return; }
+        if (webView == null) { leave(); return; }
         webView.evaluateJavascript("(window.appBack && window.appBack()) ? 'y' : 'n'", result -> {
-            if (result == null || !result.contains("y")) finish();
+            if (result == null || !result.contains("y")) leave();
         });
+    }
+
+    // Back with nothing left to close in the page: the app goes to the background, as Android 12 and later do with every app, and opens
+    // again where it was. Opened inside another app (an ad shared from it) it closes, so Back returns to that app
+    private void leave() {
+        if (isTaskRoot()) moveTaskToBack(true);
+        else finish();
     }
 
     @Override
@@ -826,25 +865,156 @@ public class MainActivity extends Activity {
         return super.onKeyDown(keyCode, event);
     }
 
-    private void setDark(boolean dark) {
-        root.setBackgroundColor(dark ? Color.parseColor("#0A0F1A") : Color.WHITE);
-        int light = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+    // ---- the look: the theme the page chose, the bars in the colours of the page's edges, their icons readable on them
+
+    private android.content.SharedPreferences ui() {
+        return getSharedPreferences("ui", MODE_PRIVATE);
+    }
+
+    private String themeMode() {
+        String m = ui().getString("theme", "light");
+        return "dark".equals(m) || "auto".equals(m) ? m : "light";
+    }
+
+    private static boolean night(android.content.res.Configuration c) {
+        return (c.uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+    }
+
+    private boolean isDark(String mode) {
+        return "dark".equals(mode) || ("auto".equals(mode) && systemNight);
+    }
+
+    /** The page applied a theme (on every load, and when the user picks one in its settings) */
+    private void themeChosen(String mode) {
+        android.content.SharedPreferences p = ui();
+        if (!mode.equals(p.getString("theme", "light"))) p.edit().putString("theme", mode).apply();
+        // the splash of the next launch: Android 13 and later keep it per app (earlier versions draw the manifest's light theme)
+        if (android.os.Build.VERSION.SDK_INT >= 33 && !mode.equals(p.getString("splash", "light"))) {
+            try {
+                getSplashScreen().setSplashScreenTheme("dark".equals(mode) ? R.style.AppTheme_Dark : "auto".equals(mode) ? R.style.AppTheme_DayNight : android.content.res.Resources.ID_NULL);
+                p.edit().putString("splash", mode).apply();
+            } catch (Throwable ignored) {
+            }
+        }
+        lookChanged(isDark(mode));
+    }
+
+    // light turned dark or back: the window and the WebView's ground in the new colours at once (the page sends its own edges right after)
+    private void lookChanged(boolean d) {
+        if (d == dark) return;
+        dark = d;
+        if (webView != null) webView.setBackgroundColor(dark ? PAGE_DARK : PAGE_LIGHT);
+        paintBars(dark ? TOP_DARK : TOP_LIGHT, dark ? BOTTOM_DARK : BOTTOM_LIGHT);
+    }
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration c) {
+        super.onConfigurationChanged(c);
+        boolean n = night(c);
+        if (n == systemNight) return;
+        systemNight = n;
+        // the phone turned dark or light with the app open: "לפי המכשיר" follows it now, not at the next launch
+        if ("auto".equals(themeMode())) {
+            lookChanged(n);
+            pageJs("window.onSystemDark && window.onSystemDark(" + n + ")");
+        }
+    }
+
+    /** The status bar takes the colour of the page's top edge and the navigation bar that of its bottom edge; each one's icons are dark or
+     *  light, whichever reads better on it */
+    private void paintBars(int top, int bottom) {
+        bars.set(dark ? PAGE_DARK : PAGE_LIGHT, top, bottom);
+        boolean lightTop = lightBar(top), lightBottom = lightBar(bottom);
         if (android.os.Build.VERSION.SDK_INT >= 30) {
             WindowInsetsController c = getWindow().getInsetsController();
-            if (c != null) c.setSystemBarsAppearance(dark ? 0 : light, light);
+            int both = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+            if (c != null) c.setSystemBarsAppearance((lightTop ? WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS : 0)
+                    | (lightBottom ? WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS : 0), both);
         } else {
-            int flags = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
             View d = getWindow().getDecorView();
-            int cur = d.getSystemUiVisibility();
-            d.setSystemUiVisibility(dark ? (cur & ~flags) : (cur | flags));
+            int f = d.getSystemUiVisibility() & ~(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+            d.setSystemUiVisibility(f | (lightTop ? View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR : 0) | (lightBottom ? View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR : 0));
         }
-        // the bars are transparent (theme): the window background shows through them, so no deprecated bar-colour calls are needed
-        getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(dark ? Color.parseColor("#0A0F1A") : Color.WHITE));
+    }
+
+    // dark icons where they contrast more than light ones: relative luminance above 0.179, where black and white contrast equally (WCAG)
+    private static boolean lightBar(int c) {
+        return 0.2126 * lin(Color.red(c)) + 0.7152 * lin(Color.green(c)) + 0.0722 * lin(Color.blue(c)) > 0.179;
+    }
+
+    private static double lin(int v) {
+        double s = v / 255.0;
+        return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+    }
+
+    private static Integer rgb(String s) {
+        if (s == null || !s.matches("#[0-9a-fA-F]{6}")) return null;
+        return 0xFF000000 | Integer.parseInt(s.substring(1), 16);
+    }
+
+    /** The window's background, which the transparent bars show: the status bar's strip in the colour of the page's top edge, the
+     *  navigation bar's in that of its bottom edge, the rest (the sides of a phone on its side) in the page's own colour */
+    private final class BarsDrawable extends android.graphics.drawable.Drawable {
+        private final android.graphics.Paint paint = new android.graphics.Paint();
+        private int page = PAGE_LIGHT, top = TOP_LIGHT, bottom = BOTTOM_LIGHT;
+
+        void set(int page, int top, int bottom) {
+            if (page == this.page && top == this.top && bottom == this.bottom) return;
+            this.page = page;
+            this.top = top;
+            this.bottom = bottom;
+            invalidateSelf();
+        }
+
+        @Override
+        public void draw(android.graphics.Canvas c) {
+            android.graphics.Rect r = getBounds();
+            int t = 0, b = 0;
+            WindowInsets wi = getWindow().getDecorView().getRootWindowInsets();
+            if (wi != null) {
+                if (android.os.Build.VERSION.SDK_INT >= 30) {
+                    t = wi.getInsets(WindowInsets.Type.statusBars() | WindowInsets.Type.displayCutout()).top;
+                    b = wi.getInsets(WindowInsets.Type.navigationBars()).bottom;
+                } else {
+                    t = wi.getStableInsetTop();
+                    b = wi.getStableInsetBottom();
+                }
+            }
+            paint.setColor(page);
+            c.drawRect(r, paint);
+            if (t > 0) { paint.setColor(top); c.drawRect(r.left, r.top, r.right, r.top + t, paint); }
+            if (b > 0) { paint.setColor(bottom); c.drawRect(r.left, r.bottom - b, r.right, r.bottom, paint); }
+        }
+
+        @Override
+        public void setAlpha(int alpha) {
+        }
+
+        @Override
+        public void setColorFilter(android.graphics.ColorFilter filter) {
+        }
+
+        @Override
+        public int getOpacity() {
+            return android.graphics.PixelFormat.OPAQUE;
+        }
     }
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         if (webView != null) webView.saveState(outState);
+    }
+
+    @Override
+    protected void onDestroy() {
+        // the WebView holds a renderer and the whole page: released with the screen (a rebuilt screen makes a new one)
+        if (updateManager != null && updateListener != null) updateManager.unregisterListener(updateListener);
+        if (webView != null) {
+            root.removeView(webView);
+            webView.destroy();
+            webView = null;
+        }
+        super.onDestroy();
     }
 }

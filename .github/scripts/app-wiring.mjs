@@ -10,6 +10,11 @@
 //   6. a Play link without what the app's first launch reads from the install referrer (plate=, utm_source=share, utm_medium=)
 //   7. the shrinker free to rename the bridge (proguard-rules.pro must keep @JavascriptInterface methods)
 //   8. the page's openExternal letting through a scheme the app's openUrl refuses
+//   9. one look: the colours the app draws before the page has (its window, its bars, its splash: MainActivity's PAGE/TOP/BOTTOM and
+//      styles.xml's page_light/page_dark) differ from the page's tokens (--bg, --band-tint, the bottom bar), or the accent of Android's
+//      own pickers (styles.xml accent_light/accent_dark) from the page's --accent
+//  10. the WebViews and browsers people still have: :has() in a selector list with other selectors, color-mix() with a token outside
+//      @supports, and JavaScript an older engine lacks (each one breaks the page there without an error)
 // Warning: an AndroidApp method the page never calls.
 // Usage: node .github/scripts/app-wiring.mjs [repo root]
 import fs from "node:fs";
@@ -125,6 +130,77 @@ if (!/-keepclassmembers class \* \{\s*@android\.webkit\.JavascriptInterface <met
 const ox = html.match(/function openExternal\(url\)\{\s*if \(!\/\^\(([^)]+)\)\/i/);
 const allowed = (main.match(/"https"\.equals\(sch\) \|\| "http"\.equals\(sch\)[^;]*/) || [""])[0];
 if (ox) for (const s of ox[1].split("|").map((x) => x.replace(/[^a-z]/g, "")).flatMap((x) => (x === "https" ? ["http", "https"] : [x]))) if (!allowed.includes(`"${s}"`)) block(`openExternal lets ${s}: links through, which the app's openUrl refuses (the button would do nothing)`);
+
+// ---- one look: the colours the app draws before the page has (its window, its bars, its splash) are the page's own tokens
+const block_ = (sel) => { const i = html.indexOf(sel + "{"); return i < 0 ? "" : html.slice(i, html.indexOf("}", i)); };
+const tok = (blk, name) => ((blk.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})\\b`)) || [])[1] || "").toUpperCase();
+const LIGHT = block_(":root"), DARK = block_(':root[data-theme="dark"]');
+const mixHex = (a, b, p) => "#" + [1, 3, 5].map((i) => Math.round(parseInt(a.slice(i, i + 2), 16) * p + parseInt(b.slice(i, i + 2), 16) * (1 - p)).toString(16).padStart(2, "0")).join("").toUpperCase();
+const barMix = +((html.match(/\.bnav\{[^}]*background:color-mix\(in srgb,var\(--card\) (\d+)%,transparent\)/) || [])[1] || 100) / 100;   // the bottom bar: --card at this share over the page
+const javaHex = (n) => ((main.match(new RegExp(`\\b${n} = 0xFF([0-9A-Fa-f]{6})\\b`)) || [])[1] || "").toUpperCase();
+for (const [side, blk] of [["LIGHT", LIGHT], ["DARK", DARK]]) {
+  const bg = tok(blk, "bg"), tint = tok(blk, "band-tint"), card = tok(blk, "card");
+  if (!bg || !tint || !card) { block(`index.html: --bg, --band-tint or --card not found in the ${side.toLowerCase()} tokens`); continue; }
+  const want = { PAGE: bg, TOP: tint, BOTTOM: mixHex(card, bg, barMix) };
+  for (const [k, v] of Object.entries(want)) {
+    const got = javaHex(`${k}_${side}`);
+    if (got && "#" + got !== v) block(`MainActivity ${k}_${side} is #${got}; the page's ${k === "PAGE" ? "--bg" : k === "TOP" ? "--band-tint (the top of home)" : "bottom bar (--card over --bg)"} is ${v}: the first frame and the bars would differ from the page`);
+    else if (!got) block(`MainActivity: ${k}_${side} (the ${side.toLowerCase()} launch colour) not found`);
+  }
+  const res = read("android/app/src/main/res/values/styles.xml"), color = (n) => ((res.match(new RegExp(`name="${n}">(#[0-9A-Fa-f]{6})<`)) || [])[1] || "").toUpperCase();
+  const xml = color(`page_${side.toLowerCase()}`);
+  if (xml !== bg) block(`styles.xml page_${side.toLowerCase()} is ${xml || "missing"}; the page's --bg is ${bg}: the splash and the window would show another colour first`);
+  // Android's own pickers that the page opens (a date, a <select>) mark the choice and their buttons in the theme's colorAccent
+  const accent = tok(blk, "accent"), acc = color(`accent_${side.toLowerCase()}`);
+  if (accent && acc !== accent) block(`styles.xml accent_${side.toLowerCase()} is ${acc || "missing"}; the page's --accent is ${accent}: Android's date picker and lists the page opens would mark the choice in another colour`);
+}
+
+// ---- the WebViews and browsers people still have: a WebView updates through Google Play, but not on every phone (and the website
+//      meets old iPhones). What an older engine drops whole is blocking here, since the page would break there without an error:
+//   - :has() in a selector list with other selectors: the engine drops the whole rule (WebView before 105, Safari before 15.4)
+//   - color-mix() with a var() inside, outside @supports (color:color-mix(...)): the declaration fails when computed and the property
+//     falls to its initial value (transparent), not to the plain colour declared before it (WebView before 111, Safari before 16.2)
+//   - a JavaScript call an older engine does not have, unguarded (AbortSignal.timeout: WebView before 103, Safari before 16)
+const MIX_MSG = (d, l) => `index.html:${l}: "${d.slice(0, 80)}" mixes a token with color-mix() outside @supports (color:color-mix(in srgb,red,blue)); without color-mix() the property falls to transparent, not to the colour before it`;
+const unguardedMix = (d, stack) => /color-mix\([^;]*var\(/.test(d) && !stack.some((s) => /^@supports[^{]*color-mix/.test(s));
+for (const sm of html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)) {
+  const css = sm[1], stack = [];
+  let pre = "", line = lineOf(sm.index + sm[0].indexOf(css));
+  for (let i = 0; i < css.length; i++) {
+    const ch = css[i];
+    if (ch === "/" && css[i + 1] === "*") { const e = css.indexOf("*/", i + 2); line += (css.slice(i, e).match(/\n/g) || []).length; i = e + 1; continue; }
+    if (ch === "\n") line++;
+    if (ch === "{") {
+      const sel = pre.trim();
+      if (!sel.startsWith("@") && sel.includes(":has(")) {
+        const parts = []; let d = 0, cur = "";
+        for (const c of sel) { if (c === "(") d++; else if (c === ")") d--; if (c === "," && d === 0) { parts.push(cur); cur = ""; } else cur += c; }
+        parts.push(cur);
+        if (parts.length > 1 && parts.some((x) => !x.includes(":has("))) block(`index.html:${line}: "${sel.slice(0, 90)}" puts :has() in a list with other selectors; an engine without :has() drops the whole rule (give :has() a rule of its own)`);
+      }
+      stack.push(sel); pre = ""; continue;
+    }
+    if (ch === "}") { if (unguardedMix(pre, stack)) block(MIX_MSG(pre.trim(), line)); stack.pop(); pre = ""; continue; }
+    if (ch === ";") { if (unguardedMix(pre, stack)) block(MIX_MSG(pre.trim(), line)); pre = ""; continue; }
+    pre += ch;
+  }
+}
+const js = [...html.matchAll(/<script(?![^>]*application\/ld\+json)[^>]*>([\s\S]*?)<\/script>/g)].map((m) => m[1]).join("\n");
+const NEW_JS = [
+  [/AbortSignal\.timeout\(/g, "AbortSignal.timeout() (WebView 103, Safari 16): use timeoutSignal()", (l) => /^const timeoutSignal = /.test(l.trim())],
+  [/AbortSignal\.any\(/g, "AbortSignal.any() (WebView 116, Safari 17.4)"],
+  [/\bstructuredClone\(/g, "structuredClone() (WebView 98, Safari 15.4)"],
+  [/\bObject\.hasOwn\(/g, "Object.hasOwn() (WebView 93, Safari 15.4)"],
+  [/\.(?:findLast|findLastIndex)\(/g, "findLast() (WebView 97, Safari 15.4)"],
+  [/\.(?:toSorted|toReversed|toSpliced)\(/g, "toSorted()/toReversed()/toSpliced() (WebView 110, Safari 16)"],
+  [/\b(?:Object|Map)\.groupBy\(/g, "groupBy() (WebView 117, Safari 17.4)"],
+  [/\bPromise\.withResolvers\(/g, "Promise.withResolvers() (WebView 119, Safari 17.4)"],
+  [/[\w\])]\.at\(-?\d/g, "Array.at() (WebView 92, Safari 15.4)"],
+];
+for (const [re, what, ok] of NEW_JS) for (const m of js.matchAll(re)) {
+  const l = js.slice(js.lastIndexOf("\n", m.index) + 1, js.indexOf("\n", m.index));
+  if (!ok || !ok(l)) block(`index.html: ${what} is missing in older engines and throws there: "${l.trim().slice(0, 90)}"`);
+}
 
 for (const m of out.block) console.log(`::error::[app wiring] ${m}`);
 for (const m of out.warn) console.log(`::warning::[app wiring] ${m}`);

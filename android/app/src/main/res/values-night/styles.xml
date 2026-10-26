@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- "לפי המכשיר" on a dark phone (values/styles.xml) -->
+    <style name="AppTheme.DayNight" parent="Base.Dark" />
+</resources>

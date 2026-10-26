@@ -66,8 +66,19 @@ process.on("uncaughtException", (e) => {
   finish(`::error::(real app) the run crashed: ${(e && e.stack) || e}`, 2);
 });
 
-// ---- crashes: the app's own (a Java exception) and not responding (ANR), from the phone's log; the stack goes to crash-N.txt
-let crashN = 0;
+// ---- crashes: the app's own (a Java exception) and not responding (ANR), from the phone's log; the stack goes to crash-N.txt / anr-N.txt.
+// The system's "isn't responding" dialog is switched off (hide_error_dialogs): it would cover every later step. An ANR keeps its reason and
+// its main thread's stack (dropbox, no root needed): the app's own code on that stack is the app's fault (blocking); a main thread that
+// was idle or waiting on the WebView's drawing is the emulator's software rendering falling behind, which a phone's GPU does not
+// (warning, with the stack kept). Google Play's vitals count the ANRs of real phones
+let crashN = 0, anrN = 0;
+function anrDetails() {
+  const box = String(adb(["shell", "dumpsys dropbox --print data_app_anr"], { timeout: 30000 }));
+  const mine = box.split(/^={20,}$/m).filter((e) => e.includes(`Process: ${PKG}`)).pop() || "";
+  const subject = ((mine.match(/^Subject: (.+)$/m) || [])[1] || "").trim();
+  const at = mine.indexOf('"main" prio='), mainStack = at < 0 ? "" : mine.slice(at, mine.indexOf("\n\n", at) < 0 ? undefined : mine.indexOf("\n\n", at));
+  return { mine, subject, mainStack, ours: /\bat com\.ddsabag\.pratirechev\./.test(mainStack), idle: /nativePollOnce/.test(mainStack.split("\n").slice(0, 6).join("\n")) };
+}
 function crashes(run, step) {
   const t = sh("logcat -b crash -d -v brief"), anr = sh("logcat -b events -d -s am_anr");
   if (t || anr) sh("logcat -b crash -b events -c");
@@ -79,7 +90,14 @@ function crashes(run, step) {
     add("block", "crash", run, step, `the app crashed: ${why.trim().slice(0, 160)} (crash-${crashN}.txt)`);
     log(`CRASH at ${run} ${step}: ${why.trim().slice(0, 200)}`);
   }
-  if (anr.includes(PKG)) { add("block", "crash", run, step, "the app stopped responding (ANR)"); log(`ANR at ${run} ${step}`); }
+  if (anr.includes(PKG)) {
+    const d = anrDetails();
+    anrN++; fs.writeFileSync(path.join(OUT, `anr-${anrN}.txt`), `${anr}\n\n${d.mine || "(no dropbox entry)"}\n`);
+    const why = d.subject ? `: ${d.subject.slice(0, 120)}` : "";
+    if (d.ours || !d.mainStack) add("block", "crash", run, step, `the app stopped responding (ANR)${why}${d.ours ? ", in the app's own code" : ""} (anr-${anrN}.txt)`);
+    else add("warn", "crash", run, step, `the app stopped responding for a moment (ANR)${why}; its main thread was ${d.idle ? "idle" : "outside the app's code"}: the emulator's software rendering, not the app (anr-${anrN}.txt)`);
+    log(`ANR at ${run} ${step}${why} (${d.ours ? "the app's code" : d.idle ? "main thread idle" : "outside the app's code"})`);
+  }
 }
 
 // ---- the app: start it, find its page, mock the network there
@@ -151,8 +169,27 @@ async function prepare(page, state, theme) {
 
 // ---- what the screen shows: a screenshot, the WebView's place on it, the colours of the bars
 function screencap() { const buf = adb(["exec-out", "screencap", "-p"], { raw: true }); try { return PNG.sync.read(buf); } catch { return null; } }
+// the view tree of the activity on top (dumpsys activity top): each view's left,top-right,bottom is relative to its parent
+function webViewBoxFromTree() {
+  const t = sh("dumpsys activity top"), i = t.lastIndexOf("View Hierarchy:");
+  if (i < 0) return null;
+  const stack = [];
+  for (const l of t.slice(i).split("\n").slice(1)) {
+    const m = l.match(/^(\s*)([\w.$]+)\{[^}]*?\s(-?\d+),(-?\d+)-(-?\d+),(-?\d+)/);
+    if (!m) { if (/^\S/.test(l) || /^\s*Looper/.test(l)) break; continue; }
+    const ind = m[1].length;
+    while (stack.length && stack[stack.length - 1][0] >= ind) stack.pop();
+    const [px, py] = stack.length ? stack[stack.length - 1].slice(1) : [0, 0];
+    const box = { l: px + +m[3], t: py + +m[4], r: px + +m[5], b: py + +m[6] };
+    if (/\.WebView$/.test(m[2])) return box.r > box.l && box.b > box.t ? box : null;
+    stack.push([ind, box.l, box.t]);
+  }
+  return null;
+}
 function webViewBox() {
   if (boxCache) return boxCache;
+  const tree = webViewBoxFromTree();
+  if (tree) return (boxCache = tree);
   let x = "";
   for (let i = 0; i < 3 && !/WebView/.test(x); i++) { sh("rm -f /sdcard/ui.xml; uiautomator dump /sdcard/ui.xml >/dev/null 2>&1"); x = sh("cat /sdcard/ui.xml 2>/dev/null"); }
   const m = x.match(/class="android\.webkit\.WebView"[^>]*?bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/) || x.match(/bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"[^>]*?class="android\.webkit\.WebView"/);
@@ -177,10 +214,12 @@ function saveShot(png, name) {
   fs.writeFileSync(path.join(OUT, "shots", name.replace(/[^\w.-]+/g, "_") + ".png"), PNG.sync.write(o));
 }
 // the page between the bars, the bars painted like the page next to them, and their icons visible
-function judgeBars(run, step, png, box, dark) {
+// first = true: a status bar without icons is not judged yet, the caller looks again (the system redraws its bar after a font size change)
+function judgeBars(run, step, png, box, dark, first = false) {
   if (!png || !box) { add("warn", "bars", run, step, "could not read the screen or the WebView's place on it"); return; }
   const top = band(png, 0, box.t), bottom = band(png, box.b, png.height);
   const pageTop = band(png, box.t + 1, box.t + 6), pageBottom = band(png, box.b - 6, box.b - 1);
+  if (first && top && top.marks < 0.002) return "again";
   if (box.t < 40) add("block", "bars", run, step, `the page starts ${box.t}px from the top of the screen, under the status bar`);
   if (top && top.marks < 0.002) add("block", "bars", run, step, `the status bar's icons cannot be seen (bar ${top.bg.join(",")})`);
   if (top && pageTop && dist(top.bg, pageTop.bg) > 24) add("warn", "bars", run, step, `the status bar (${top.bg.join(",")}) does not match the top of the page (${pageTop.bg.join(",")})${dark ? " in dark" : ""}`);
@@ -211,7 +250,7 @@ async function journey(page, sc, state, J, theme) {
     let ok = expect ? await expect(m, c) : true;
     if (ok && ok.warn) { add("warn", "logic", run, name, ok.warn); ok = true; }
     if (ok !== true) add("block", "logic", run, name, ok);
-    UF.judgeStep(run, name, m, { app: true, barMax: Math.round(80 * Math.max(1, sc.font)) });
+    UF.judgeStep(run, name, m, { app: true, barMax: Math.round(80 * Math.max(1, sc.font)), large: sc.font >= 1.75 });
     if (ok === true && act === UF.back && prev && ["screen", "sheet", "url", "carPlate", "msg", "tab"].every((k) => prev[k] === m[k]) && !(m.screen === "home" && m.home)) add("block", "logic", run, name, `Back did nothing on ${m.screen} (a dead press)`);
     prev = m;
     seen.push({ step: name, screen: m.screen, sheet: m.sheet, nav: m.nav, col: m.col, title: m.title, y: m.y, vw: m.vw });
@@ -219,8 +258,8 @@ async function journey(page, sc, state, J, theme) {
     const key = `${sc.id}/${theme}/${m.screen}/${m.sheet || ""}`;
     if (!shotOnce.has(key) && !(await kbOpen(page, c))) {
       shotOnce.add(key);
-      const png = screencap(), box = webViewBox();
-      judgeBars(run, name, png, box, theme === "dark");
+      let png = screencap(); const box = webViewBox();
+      if (judgeBars(run, name, png, box, theme === "dark", true) === "again") { await sleep(1500); png = screencap(); judgeBars(run, name, png, box, theme === "dark"); }
       saveShot(png, `${sc.id}__${theme}__${m.screen}${m.sheet ? "-" + m.sheet : ""}__${J.name}-${name}`);
     }
   }
@@ -347,7 +386,7 @@ async function darkChecks(sc) {
       cur.step = "auto-live";
       sh("cmd uimode night yes"); await sleep(2500);
       const l = await themeOf(page).catch(() => null);
-      if (!l || !l.mq || !isDarkBg(l.bg)) add("warn", "theme", run, "auto-live", `with "לפי המכשיר", the page stays light when the phone turns dark while the app is open (prefers-color-scheme: ${l && l.mq ? "dark" : "light"})`);
+      if (!l || !isDarkBg(l.bg)) add("warn", "theme", run, "auto-live", `with "לפי המכשיר", the page stays light when the phone turns dark while the app is open (background ${l && l.bg})`);
       else { const png2 = screencap(); judgeBars(run, "auto-live", png2, webViewBox(), true); saveShot(png2, `${sc.id}__auto-live-dark`); }
       sh("cmd uimode night no"); await sleep(1500);
     }
@@ -362,7 +401,8 @@ async function darkChecks(sc) {
   const frames = [];
   for (let i = 0; i < 6; i++) { const png = screencap(); if (png) { const b = band(png, png.height * 0.3 | 0, png.height * 0.7 | 0); frames.push(b ? Math.round(lum(b.bg) * 100) / 100 : null); if (i === 1) saveShot(png, `${sc.id}__launch-dark-early`); } }
   meta.launchDark = frames;
-  if (frames.some((l) => l !== null && l > 0.8)) add("warn", "flash", run, "launch-dark", `a dark phone sees a white screen while the app opens (brightness of the frames: ${frames.join(", ")})`);
+  const firstDark = frames.findIndex((l) => l !== null && l <= 0.8), own = +meta.sdk >= 33 ? frames : frames.slice(firstDark < 0 ? -1 : firstDark);
+  if (own.some((l) => l !== null && l > 0.8)) add("warn", "flash", run, "launch-dark", `a dark phone sees a white screen while the app opens (brightness of the frames: ${frames.join(", ")}${+meta.sdk >= 33 ? "" : "; before Android 13 the system's splash is light whatever the app chose, so only the frames after it count"})`);
   setPhone({ dp: sc.dp, font: 1, night: false });
   crashes(run, "dark");
 }
@@ -391,6 +431,7 @@ function finish(line, code) {
   meta.sdk = sh("getprop ro.build.version.sdk");
   if (APK) { const r = spawnSync("adb", ["install", "-r", "-g", APK], { encoding: "utf8" }); log("install:", (r.stdout || r.stderr || "").trim().split("\n").pop()); }
   sh("logcat -b crash -b events -c");
+  sh("settings put global hide_error_dialogs 1");   // an ANR dialog would cover every later step (the ANR itself is still logged)
   await connect();
   meta.model = device.model();
   meta.webview = sh("dumpsys webviewupdate | grep -m1 'Current WebView package'");
