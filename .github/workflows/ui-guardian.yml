@@ -3,10 +3,10 @@ name: UI guardian (browser)
 # "UI guardian (lint)" and "UI guardian (browser)". The trigger paths are the union of both.
 on:
   pull_request:
-    paths: ["index.html", "ui-contract.json", "ui-guardian-baseline.json", "ui-lint-baseline.json", ".github/scripts/ui-guardian.cjs", ".github/scripts/ui-lint.mjs", ".github/workflows/ui-guardian.yml"]
+    paths: ["index.html", "ui-contract.json", "ui-guardian-baseline.json", "ui-lint-baseline.json", ".github/scripts/ui-guardian.cjs", ".github/scripts/ui-flows.cjs", ".github/scripts/ui-lint.mjs", ".github/workflows/ui-guardian.yml"]
   push:
     branches: [next]
-    paths: ["index.html", "ui-contract.json", "ui-guardian-baseline.json", "ui-lint-baseline.json", ".github/scripts/ui-guardian.cjs", ".github/scripts/ui-lint.mjs", ".github/workflows/ui-guardian.yml"]
+    paths: ["index.html", "ui-contract.json", "ui-guardian-baseline.json", "ui-lint-baseline.json", ".github/scripts/ui-guardian.cjs", ".github/scripts/ui-flows.cjs", ".github/scripts/ui-lint.mjs", ".github/workflows/ui-guardian.yml"]
   workflow_dispatch:
     inputs:
       update_baseline:
@@ -18,7 +18,7 @@ permissions:
 jobs:
   browser:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v7
@@ -45,6 +45,20 @@ jobs:
       # blocking: script errors, overflow, card order and registration. Warnings: tap size, text size, axe, screenshot diff.
       - name: UI browser checks
         run: node .github/scripts/ui-guardian.cjs --shots
+      # blocking: the journeys a person takes through the app and the site (home, a check and its tabs, "+", my cars, alerts, settings,
+      # compare, tools, documents, offline, a registry error, a slow check left half way, Back), on app and web devices 320-1440px,
+      # light and dark, with no cars / one / many with long names / an owner's car. After every step: the expected screen, the nav bar
+      # holding still, no sideways scroll, nothing past the edge or the column, no control dropped to its own line, no car twice.
+      # Layout shift, overlaps and cut text are warnings. Findings: ui-flows/findings.json in the ui-flows artifact.
+      - name: UI flows (every screen, every way in)
+        if: ${{ !cancelled() }}
+        run: node .github/scripts/ui-flows.cjs --out ui-flows
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ui-flows
+          path: ui-flows/findings.json
+          retention-days: 14
       - uses: actions/upload-artifact@v7
         if: always()
         with:
