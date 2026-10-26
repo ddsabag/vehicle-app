@@ -6959,7 +6959,7 @@ $("#out").addEventListener("keydown", ev => {
 $("#openSettings").addEventListener("click", () => { fillAnalytics(); syncPlanUi(); { const el = $("#toAlertsSt"); let st = ""; try { st = alertsSupported() ? window.AndroidApp.alertsState() : ""; } catch {} el.textContent = st === "on" ? "ההתראות בטלפון פועלות" : st === "blocked" ? "הטלפון חוסם התראות מלוחית" : st ? "ההתראות בטלפון כבויות" : ""; el.hidden = !st; } $("#faqBox").innerHTML = FAQ.map(([q, a]) => `<details class="faq"><summary>${q}</summary><p>${a}</p></details>`).join(""); sheet.hidden = false; $("#closeSettings").focus(); });
 $("#toAlerts").addEventListener("click", () => { sheet.hidden = true; navTo("alerts", {via: "settings"}); });
 const helpSheet = $("#helpSheet");
-$("#openHelp").addEventListener("click", () => { helpSheet.hidden = false; track("faq_open", {via: "settings"}); $("#closeHelp").focus(); });
+$("#openHelp").addEventListener("click", () => { helpSheet.hidden = false; $("#closeHelp").focus(); });
 $("#closeHelp").addEventListener("click", () => { helpSheet.hidden = true; $("#openHelp").focus(); });
 document.querySelectorAll("[data-alerts]").forEach(b => b.addEventListener("click", () => { try { window.AndroidApp.setAlerts(b.dataset.alerts === "on"); localStorage.setItem("alertsAsked", "1"); } catch {} syncAlertsSeg(); }));
 $("#closeSettings").addEventListener("click", () => { sheet.hidden = true; $("#openSettings").focus(); });
