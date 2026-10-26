@@ -535,9 +535,15 @@ async function openCtx(browser, dev, theme, stateName, J) {
 }
 // why a step could not act: what lay over the control (Playwright names it), an open sheet or menu, the bottom bar stepped aside for the keyboard
 const underOf = (msg) => { const l = (String(msg).match(/<[^\n]*?> intercepts pointer events/) || [])[0]; if (!l) return ""; const t = (l.match(/^<([a-z0-9-]+)/i) || [])[1] || "", id = (l.match(/\sid="([^"]+)"/) || [])[1], cl = (l.match(/\sclass="([^"]+)"/) || [])[1]; return t + (id ? "#" + id : cl ? "." + cl.split(" ")[0] : ""); };
+// Playwright's own last word on the control, from its call log: never on screen, not visible, not stable, outside the viewport
+const lastWord = (msg) => {
+  const lines = String(msg).replace(/\x1b\[[0-9;]*m/g, "").split("\n").map((s) => s.trim().replace(/^-\s*/, "").replace(/^\d+ × /, ""));
+  if (!lines.some((s) => s.startsWith("locator resolved to")) && lines.some((s) => s.startsWith("waiting for locator"))) return "no such control on the screen";
+  return [...lines].reverse().find((s) => /^element is /.test(s)) || "";
+};
 const whyNot = async (page, e) => {
-  const under = underOf(e.message), s = await page.evaluate(() => ({ open: [...document.querySelectorAll(".sheet:not([hidden]), .doc-view, .ch-menu")].filter((x) => x.getClientRects().length).map((x) => x.id ? "#" + x.id : "." + x.className.split(" ")[0]), kb: document.body.classList.contains("kb") })).catch(() => ({ open: [], kb: false }));
-  return [under && `under ${under}`, s.open.length && `open: ${s.open.join(", ")}`, s.kb && "the bottom bar stepped aside for the keyboard"].filter(Boolean).join("; ");
+  const under = underOf(e.message), said = !under && lastWord(e.message), s = await page.evaluate(() => ({ open: [...document.querySelectorAll(".sheet:not([hidden]), .doc-view, .ch-menu")].filter((x) => x.getClientRects().length).map((x) => x.id ? "#" + x.id : "." + x.className.split(" ")[0]), kb: document.body.classList.contains("kb") })).catch(() => ({ open: [], kb: false }));
+  return [under && `under ${under}`, said, s.open.length && `open: ${s.open.join(", ")}`, s.kb && "the bottom bar stepped aside for the keyboard"].filter(Boolean).join("; ");
 };
 
 async function runJourney(browser, dev, theme, stateName, J) {

@@ -1,8 +1,8 @@
 name: UI guardian (browser)
 # PROBE BRANCH ONLY (qa-webkit-probe, 26.10): the Safari-engine findings of run 40363962519 (b3e37d7b), explained and checked.
-# A: the b3e37d7b suite with only diagnostics added (what lay over a control, the open sheet, every toast) on the two failing journeys.
+# A: the b3e37d7b suite with only diagnostics added (Playwright's call log, the open sheet, the file row's box), file-door four times.
 # B: one file stored in the page's database, in a test context that keeps nothing and in a profile on disk.
-# C: this branch's suite in Safari's engine, as the guardian runs it. Every step reports and none fails the run.
+# C: this branch's suite in Safari's engine: the journeys that save four times, then as the guardian runs it. No step fails the run.
 on:
   workflow_dispatch:
 permissions:
@@ -20,7 +20,7 @@ jobs:
         run: |
           npm install --no-save --no-package-lock playwright axe-core pixelmatch@5.3.0 pngjs@7.0.0
           npx playwright install --with-deps chromium webkit
-      - name: "A: the b3e37d7b suite with diagnostics, Safari's engine"
+      - name: "A: the b3e37d7b suite with diagnostics, Safari's engine, file-door four times"
         continue-on-error: true
         run: |
           git show b3e37d7b:.github/scripts/ui-flows.cjs > .github/scripts/ui-flows-old.cjs
@@ -35,11 +35,13 @@ jobs:
           sub(`await page.evaluate(() => { window.__cls.v = 0; window.__cls.src = []; });`,
               `await page.evaluate(() => { window.__cls.v = 0; window.__cls.src = []; window.__toasts = []; });`);
           sub(`add("block", "logic", run, step, "could not act: " + e.message.split("\\n")[0].slice(0, 120));`,
-              `const st = await page.evaluate(() => ({ open: [...document.querySelectorAll(".sheet:not([hidden]), .doc-view, .ch-menu")].filter((x) => x.getClientRects().length).map((x) => x.id || x.className), kb: document.body.classList.contains("kb") })).catch(() => ({})); add("block", "logic", run, step, "could not act: " + e.message.split("\\n")[0].slice(0, 120) + " [" + ((String(e.message).match(/<[^\\n]*?> intercepts pointer events/) || [""])[0].slice(0, 90)) + "] open " + JSON.stringify(st));`);
+              `const st = await page.evaluate(() => ({ open: [...document.querySelectorAll(".sheet:not([hidden]), .doc-view, .ch-menu")].filter((x) => x.getClientRects().length).map((x) => x.id || x.className), kb: document.body.classList.contains("kb"), y: scrollY, row: (() => { const r = document.querySelector("#out [data-act=fileHome]"); if (!r) return "none"; const b = r.getBoundingClientRect(); return [Math.round(b.top), Math.round(b.height), innerHeight, getComputedStyle(r).visibility].join(","); })() })).catch(() => ({})); add("block", "logic", run, step, "could not act: " + String(e.message).replace(/\\x1b\\[[0-9;]*m/g, "").split("\\n").slice(-7).join(" ⏎ ").slice(0, 700) + " :: " + JSON.stringify(st));`);
           fs.writeFileSync(f, s); console.log("patched");
           EOF
-          node .github/scripts/ui-flows-old.cjs --engine webkit --no-sweep --filter '^(file-door|keeps)/one/web-390/light$' --out uf-old || true
-          node -e 'for (const x of require("./uf-old/findings.json")) console.log(x.sev, x.run, x.step, "::", x.msg)' || true
+          for i in 1 2 3 4; do
+            node .github/scripts/ui-flows-old.cjs --engine webkit --no-sweep --filter '^file-door/one/web-390/light$' --out uf-old-$i > /dev/null 2>&1 || true
+            echo "== old suite, try $i"; node -e 'for (const x of require("./uf-old-'$i'/findings.json")) console.log(x.sev, x.step, "::", x.msg)' || true
+          done
       - name: "B: a file in the page's database, two kinds of context"
         continue-on-error: true
         run: |
@@ -65,5 +67,9 @@ jobs:
       - name: "C: this branch's suite in Safari's engine, as the guardian runs it"
         continue-on-error: true
         run: |
+          for i in 1 2 3 4; do
+            node .github/scripts/ui-flows.cjs --engine webkit --no-sweep --filter '^(file-door|keeps|home-sheet|plus|saved)/one/web-(390|768)/' --out uf-new-$i | tail -1 || true
+            node -e 'for (const x of require("./uf-new-'$i'/findings.json")) console.log(x.sev, x.run, x.step, "::", x.msg)' || true
+          done
           node .github/scripts/ui-flows.cjs --engine webkit --no-sweep --filter '/web-390/|/web-768/light' --out ui-flows-webkit || true
           node -e 'for (const x of require("./ui-flows-webkit/findings.json")) console.log(x.sev, x.run, x.step, "::", x.msg)' || true
