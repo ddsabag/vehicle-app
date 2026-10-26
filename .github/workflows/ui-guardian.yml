@@ -1,110 +1,69 @@
 name: UI guardian (browser)
-# Static lint (ui-lint.mjs, warning mode, ~12 s) and the browser checks (ui-guardian.cjs) in one run; this used to be two workflows,
-# "UI guardian (lint)" and "UI guardian (browser)". The trigger paths are the union of both.
+# PROBE BRANCH ONLY (qa-webkit-probe, 26.10): the Safari-engine findings of run 40363962519 (b3e37d7b), explained and checked.
+# A: the b3e37d7b suite with only diagnostics added (what lay over a control, the open sheet, every toast) on the two failing journeys.
+# B: one file stored in the page's database, in a test context that keeps nothing and in a profile on disk.
+# C: this branch's suite in Safari's engine, as the guardian runs it. Every step reports and none fails the run.
 on:
-  pull_request:
-    paths: ["index.html", "ui-contract.json", "ui-guardian-baseline.json", "ui-lint-baseline.json", ".github/scripts/ui-guardian.cjs", ".github/scripts/ui-flows.cjs", ".github/scripts/ui-lint.mjs", ".github/scripts/app-wiring.mjs", ".github/scripts/analytics-flows.cjs", "worker/api/worker.js", ".github/workflows/ui-guardian.yml"]
-  push:
-    branches: [next]
-    paths: ["index.html", "ui-contract.json", "ui-guardian-baseline.json", "ui-lint-baseline.json", ".github/scripts/ui-guardian.cjs", ".github/scripts/ui-flows.cjs", ".github/scripts/ui-lint.mjs", ".github/scripts/app-wiring.mjs", ".github/scripts/analytics-flows.cjs", "worker/api/worker.js", ".github/workflows/ui-guardian.yml"]
-  schedule:
-    - cron: "17 2 * * *"   # every night on main, what people have now: a new Chromium can move the page without a commit (the App guardian checks the app at 01:37)
   workflow_dispatch:
-    inputs:
-      update_baseline:
-        description: "Replace the screenshot baseline (branch ui-baseline) with this run's screenshots"
-        type: boolean
-        default: false
 permissions:
-  contents: write   # only used to publish the screenshot baseline branch on a manual run
+  contents: read
 jobs:
   browser:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - uses: actions/setup-node@v7
         with: { node-version: 20 }
-      # warning mode: annotates the run, never fails it on findings (phase B makes it blocking). A crash of the lint must not skip the
-      # browser checks, so the step goes on; the last step below still turns the job red when it crashed.
-      - name: UI lint
-        id: lint
-        continue-on-error: true
-        run: node .github/scripts/ui-lint.mjs
-      # blocking, offline: every event index.html sends passes worker/api's WEB_EVENTS, parameter names fit its filter, and every
-      # parameter a report reads is a registered GA4 dimension (the same selftest alert-check runs on script and worker changes)
-      - name: Analytics contract
-        run: node .github/scripts/ga4-admin.mjs selftest
-      # blocking, offline: the page and the Android app agree on every wire between them (app-wiring.mjs; the App guardian runs it too)
-      - name: App wiring
-        run: node .github/scripts/app-wiring.mjs
       - name: Install test tools (not part of the app)
         run: |
           npm install --no-save --no-package-lock playwright axe-core pixelmatch@5.3.0 pngjs@7.0.0
           npx playwright install --with-deps chromium webkit
-      - name: Fetch screenshot baseline (if one exists)
+      - name: "A: the b3e37d7b suite with diagnostics, Safari's engine"
         continue-on-error: true
         run: |
-          git fetch origin ui-baseline --depth=1
-          git worktree add ui-baseline FETCH_HEAD
-      # blocking: script errors, overflow, card order and registration. Warnings: tap size, text size, axe, screenshot diff.
-      - name: UI browser checks
-        run: node .github/scripts/ui-guardian.cjs --shots
-      # blocking: the journeys a person takes through the app and the site (home, a check and its tabs, "+", my cars, alerts, settings,
-      # compare, tools, documents, offline, a registry error, a slow check left half way, Back), on app and web devices 320-1440px,
-      # light and dark, with no cars / one / many with long names / an owner's car. After every step: the expected screen, the nav bar
-      # holding still, no sideways scroll, nothing past the screen edge, the website's footer under every screen (no floating button
-      # and worded share/save on a wide screen). Layout shift, overlaps, cut text, a control dropped to its own line, content past the
-      # column and a car offered twice are warnings. Findings: ui-flows/findings.json in the ui-flows artifact.
-      - name: UI flows (every screen, every way in)
-        if: ${{ !cancelled() }}
-        run: node .github/scripts/ui-flows.cjs --out ui-flows
-      # the website's journeys again in the phone's own font: a first visit on a slow line draws in it (font-display:optional), and it is
-      # wider than Assistant, so a label can wrap or a row break only there. Same rules, no sweep (about 4 minutes)
-      - name: UI flows in the fallback font (website)
-        if: ${{ !cancelled() }}
-        run: node .github/scripts/ui-flows.cjs --no-sweep --no-fonts --filter '/web-' --out ui-flows-nofont
-      # the website's journeys again in Safari's engine (WebKit): nearly every phone that opens the website is an iPhone, and every
-      # browser on an iPhone draws with WebKit. The common iPhone width in both looks and the tablet, no sweep (about 6 minutes).
-      # Warning mode until it has run clean for a while: it reports, it does not fail the run
-      - name: UI flows in Safari's engine (website, iPhone and iPad)
-        if: ${{ !cancelled() }}
+          git show b3e37d7b:.github/scripts/ui-flows.cjs > .github/scripts/ui-flows-old.cjs
+          node --input-type=module - <<'EOF'
+          import fs from "node:fs";
+          const f = ".github/scripts/ui-flows-old.cjs"; let s = fs.readFileSync(f, "utf8");
+          const sub = (a, b) => { if (!s.includes(a)) throw new Error("anchor missing: " + a.slice(0, 60)); s = s.replace(a, b); };
+          sub(`const told = (p) => p.evaluate(() => (document.getElementById("toast") || {}).textContent || "");`,
+              `const told = (p) => p.evaluate(() => [...(window.__toasts || []), (document.getElementById("toast") || {}).textContent || ""].filter(Boolean).join(" | "));`);
+          sub(`window.__fx = 0; const fx = () => { window.__fx++; };`,
+              `window.__toasts = []; document.addEventListener("DOMContentLoaded", () => { const t = document.getElementById("toast"); if (t) new MutationObserver(() => { const x = t.textContent.trim(); if (x) window.__toasts.push(x); }).observe(t, { childList: true, characterData: true, subtree: true }); }); window.__fx = 0; const fx = () => { window.__fx++; };`);
+          sub(`await page.evaluate(() => { window.__cls.v = 0; window.__cls.src = []; });`,
+              `await page.evaluate(() => { window.__cls.v = 0; window.__cls.src = []; window.__toasts = []; });`);
+          sub(`add("block", "logic", run, step, "could not act: " + e.message.split("\\n")[0].slice(0, 120));`,
+              `const st = await page.evaluate(() => ({ open: [...document.querySelectorAll(".sheet:not([hidden]), .doc-view, .ch-menu")].filter((x) => x.getClientRects().length).map((x) => x.id || x.className), kb: document.body.classList.contains("kb") })).catch(() => ({})); add("block", "logic", run, step, "could not act: " + e.message.split("\\n")[0].slice(0, 120) + " [" + ((String(e.message).match(/<[^\\n]*?> intercepts pointer events/) || [""])[0].slice(0, 90)) + "] open " + JSON.stringify(st));`);
+          fs.writeFileSync(f, s); console.log("patched");
+          EOF
+          node .github/scripts/ui-flows-old.cjs --engine webkit --no-sweep --filter '^(file-door|keeps)/one/web-390/light$' --out uf-old || true
+          node -e 'for (const x of require("./uf-old/findings.json")) console.log(x.sev, x.run, x.step, "::", x.msg)' || true
+      - name: "B: a file in the page's database, two kinds of context"
         continue-on-error: true
-        run: node .github/scripts/ui-flows.cjs --engine webkit --no-sweep --filter '/web-390/|/web-768/light' --out ui-flows-webkit
-      # blocking: analytics in motion (analytics-flows.cjs). The journeys again with analytics on, in the app and on the website, each event
-      # followed to Firebase's rules and through worker/api's own code to GA4: nothing personal in any event, no event or parameter lost on
-      # the way, one event per action, nothing at all with analytics off or after the switch in settings, the same events in the app and on
-      # the website, arrivals by a link counted by how they came, and every event the dashboard reads still sent (about 3 minutes)
-      - name: Analytics in motion
-        if: ${{ !cancelled() }}
-        run: node .github/scripts/analytics-flows.cjs --out analytics-flows
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: ui-flows
-          path: |
-            ui-flows/findings.json
-            ui-flows-nofont/findings.json
-            ui-flows-webkit/findings.json
-            analytics-flows/findings.json
-            analytics-flows/events.json
-          retention-days: 14
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: ui-shots
-          path: ui-shots
-          retention-days: 14
-      - name: Publish new screenshot baseline
-        if: github.event_name == 'workflow_dispatch' && inputs.update_baseline
         run: |
-          rm -rf /tmp/uibase && mkdir /tmp/uibase && cp ui-shots/*.png /tmp/uibase/
-          cd /tmp/uibase && git init -q -b ui-baseline && git add . 
-          git -c user.name="ui-guardian" -c user.email="ui-guardian@users.noreply.github.com" commit -q -m "UI screenshot baseline from ${GITHUB_SHA::7}"
-          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" ui-baseline
-      # after the browser checks and the screenshot upload, so a lint crash is visible without hiding them
-      - name: UI lint crashed
-        if: ${{ !cancelled() && steps.lint.outcome == 'failure' }}
+          node - <<'EOF' || true
+          const { webkit } = require("playwright"); const fs = require("node:fs"), os = require("node:os"), path = require("node:path"), http = require("node:http");
+          const srv = http.createServer((q, r) => { r.writeHead(200, { "content-type": "text/html" }); r.end("<!doctype html><title>t</title>"); });
+          const probe = (page) => page.evaluate(() => new Promise((ok) => {
+            const r = indexedDB.open("probe", 1);
+            r.onupgradeneeded = () => r.result.createObjectStore("docs", { keyPath: "id", autoIncrement: true });
+            r.onerror = () => ok("open failed: " + (r.error && r.error.message));
+            r.onsuccess = () => { try { const t = r.result.transaction("docs", "readwrite"); t.objectStore("docs").add({ blob: new Blob(["x"], { type: "image/jpeg" }) });
+              t.oncomplete = () => ok("stored"); t.onerror = () => ok("refused: " + (t.error && t.error.name + " " + t.error.message)); t.onabort = () => ok("aborted: " + (t.error && t.error.name + " " + t.error.message)); }
+              catch (e) { ok("threw: " + e.name + " " + e.message); } };
+          }));
+          (async () => {
+            await new Promise((ok) => srv.listen(0, "127.0.0.1", ok)); const url = `http://127.0.0.1:${srv.address().port}/`;
+            const b = await webkit.launch(); const c1 = await b.newContext(); const p1 = await c1.newPage(); await p1.goto(url);
+            console.log("WebKit, a context that keeps nothing:", await probe(p1)); await b.close();
+            const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wk-")); const c2 = await webkit.launchPersistentContext(dir); const p2 = await c2.newPage(); await p2.goto(url);
+            console.log("WebKit, a profile on disk:", await probe(p2)); await c2.close(); srv.close();
+          })();
+          EOF
+      - name: "C: this branch's suite in Safari's engine, as the guardian runs it"
+        continue-on-error: true
         run: |
-          echo "::error::UI lint (ui-lint.mjs) crashed; see the UI lint step. The browser checks above ran anyway."
-          exit 1
+          node .github/scripts/ui-flows.cjs --engine webkit --no-sweep --filter '/web-390/|/web-768/light' --out ui-flows-webkit || true
+          node -e 'for (const x of require("./ui-flows-webkit/findings.json")) console.log(x.sev, x.run, x.step, "::", x.msg)' || true
