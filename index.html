@@ -143,6 +143,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 /* identity */
 .id-card{gap:14px}
 .id-cmp{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:44px;border:1px solid var(--line);border-radius:12px;background:transparent;color:var(--accent);font-weight:800;font-size:1rem}   /* one visible way to compare (Dudu 25.10: a fifth of 1.37 checkers opened compare) */
+.pills.fstrip{align-items:center}.fstrip .id-cmp{width:auto;min-height:40px;padding:0 14px;margin-inline-start:auto;border-radius:999px;font-size:.9rem;gap:6px}
 .plate-strip{position:fixed;inset-inline:0;top:env(safe-area-inset-top,0px);z-index:30;display:flex;align-items:center;gap:10px;padding:7px 16px;background:var(--card);border-bottom:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.08);transform:translateY(-110%);transition:transform .18s;pointer-events:none}
 .plate-strip.on{transform:none}
 .plate-strip b{font-weight:800;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.plate-strip span:last-child:not(.mini-plate){color:var(--muted);font-variant-numeric:tabular-nums}
@@ -285,6 +286,16 @@ a.row{color:var(--fg);text-decoration:none}a.row .t small{text-decoration:none}a
 .hs-ok{border:0;border-radius:12px;background:var(--accent);color:var(--accent-fg);font-weight:800;min-height:48px}
 .set-row{display:flex;flex-direction:column;gap:8px}
 .set-row>span{font-weight:700}
+.set-sec{display:grid;gap:8px}.set-sec>h3{margin:0;padding-inline:4px;font-size:.85rem;font-weight:700;color:var(--muted)}
+.set-grp{background:var(--soft);border-radius:14px;padding:2px 14px;display:flex;flex-direction:column}
+.set-grp>*{padding-block:12px}.set-grp>*+*:not([hidden]){border-top:1px solid var(--line)}.set-grp>[hidden]+*{border-top:0}
+.set-grp .seg{background:var(--card)}.set-grp .fuel-set input{background:var(--card)}.set-grp .kinds label{min-height:28px}
+.set-go{display:flex;align-items:center;gap:12px;width:100%;border:0;background:none;color:var(--fg);text-align:start;font:inherit;text-decoration:none;cursor:pointer;min-height:48px;padding-inline:0}
+.set-go>svg.i{flex:none;width:20px;height:20px;color:var(--muted)}.set-go .t{flex:1;min-width:0;display:grid;gap:2px}.set-go b{font-weight:600}.set-go small{color:var(--muted);font-size:.85rem}
+.set-go .go-chev{transform:rotate(90deg);width:18px;height:18px}.set-go.danger,.set-go.danger>svg.i{color:var(--bad)}
+.set-fold>summary{display:flex;align-items:center;justify-content:space-between;cursor:pointer;list-style:none}.set-fold>summary::-webkit-details-marker{display:none}.set-fold>summary .go-chev{width:18px;height:18px;color:var(--muted)}.set-fold[open]>summary .go-chev{transform:rotate(180deg)}.set-fold{display:block}.set-fold>summary>span{font-weight:700}
+.set-grp.set-row{padding:14px;gap:8px}.set-grp.set-row>*{padding-block:0;border-top:0}
+#helpSheet{z-index:21}.fuel-set input::placeholder{font-family:var(--f-body)}
 .seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--soft);border-radius:11px;padding:4px;gap:4px}
 .seg button{border:0;background:transparent;border-radius:8px;padding:8px 6px;font-weight:700;color:var(--muted)}
 .seg button[aria-pressed="true"]{background:var(--card);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.15)}
@@ -751,10 +762,10 @@ html.web main#out > .chead{grid-column:1/-1}
 .vseg{display:grid;grid-template-columns:1fr 1fr;padding:4px;border-radius:14px;background:color-mix(in srgb,var(--accent) 10%,transparent)}
 .vseg button{border:0;background:none;height:40px;border-radius:11px;font-weight:800;color:var(--accent)}
 .vseg button[aria-selected=true]{background:var(--accent);color:var(--accent-fg);box-shadow:0 6px 16px -8px var(--accent)}
-/* site: the view switch is a quiet setting, so the filter chip under it is the one strong choice on the screen */
-html.web .vseg{background:var(--soft);border:1px solid var(--line);padding:3px;border-radius:12px;max-width:260px}
-html.web .vseg button{height:36px;border-radius:9px;color:var(--muted);font-weight:700}
-html.web .vseg button[aria-selected=true]{background:var(--card);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+/* the view switch is a quiet setting, so the filter chip under it is the one strong choice on the screen */
+.vseg{background:var(--soft);border:1px solid var(--line);padding:3px;border-radius:12px;max-width:260px}
+.vseg button{height:36px;border-radius:9px;color:var(--muted);font-weight:700}
+.vseg button[aria-selected=true]{background:var(--card);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.12)}
 .fchips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding-inline:16px}.fchips::-webkit-scrollbar{display:none}
 .fchips button{flex:0 0 auto;height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted);font-weight:700;font-size:.9rem}
 .fchips button[aria-pressed=true]{background:var(--fg);border-color:var(--fg);color:var(--bg)}
@@ -827,6 +838,7 @@ body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)
 .arow{display:flex;align-items:center;gap:12px;padding:12px 14px;min-height:60px}.arow + .arow{border-top:1px solid var(--line)}
 .arow .acal{width:auto;margin:0;flex:0 0 auto;padding:8px 12px}
 .arow .t{flex:1;min-width:0;display:grid;justify-items:start;gap:3px}.arow .t small{color:var(--muted);font-size:.85rem}.arow .mini-plate{font-size:.9rem;padding:2px 7px 2px 3px}
+.aoff .sw{opacity:.45}.anote{background:var(--warn-bg)}.anote b{color:var(--warn)}.anote .t{flex:1;min-width:0}.anote .link-btn{width:auto;flex:0 0 auto;background:var(--card);color:var(--accent)}
 .sw{position:relative;width:48px;height:28px;flex:0 0 auto;border:0;border-radius:999px;background:var(--line);padding:0;transition:background .15s}
 .sw::after{content:"";position:absolute;top:3px;inset-inline-start:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
 .sw[aria-checked=true]{background:var(--accent)}.sw[aria-checked=true]::after{transform:translateX(-20px)}
@@ -890,7 +902,7 @@ body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)
   <div class="band-in">
     <div class="brand">
       <h1><a href="./" class="brand-link" aria-label="לוחית, מסך הבית"><svg class="logo" viewBox="0 0 108 108" aria-hidden="true"><rect width="108" height="108" rx="24" fill="#FFC400"/><g transform="translate(54,54) scale(1.28) translate(-56,-54)"><g transform="translate(54,68) scale(0.8) translate(-54,-67)"><path fill="#111111" d="M24,70l6,-15c1.6,-4 4.4,-6 9,-6h30c4.6,0 7.4,2 9,6l6,15v12a3,3 0 0 1 -3,3h-7a3,3 0 0 1 -3,-3v-3h-36v3a3,3 0 0 1 -3,3h-7a3,3 0 0 1 -3,-3z"/><path fill="#FFC400" d="M33,65l4.5,-10.5c0.8,-2 2,-3 4,-3h25c2,0 3.2,1 4,3l4.5,10.5z"/><path fill="#FFFFFF" d="M29,72a4.5,4.5 0 1 0 9,0a4.5,4.5 0 1 0 -9,0z M70,72a4.5,4.5 0 1 0 9,0a4.5,4.5 0 1 0 -9,0z"/><path fill="#FFFFFF" d="M42.5,68h23a1.5,1.5 0 0 1 1.5,1.5v6a1.5,1.5 0 0 1 -1.5,1.5h-23a1.5,1.5 0 0 1 -1.5,-1.5v-6a1.5,1.5 0 0 1 1.5,-1.5z"/><path fill="#1D4EA8" d="M42.5,68h3.5v9h-3.5a1.5,1.5 0 0 1 -1.5,-1.5v-6a1.5,1.5 0 0 1 1.5,-1.5z"/></g><path stroke="#111111" stroke-width="7" stroke-linecap="round" fill="none" d="M75.5,48.5L83,56"/><path fill="#FFFFFF" stroke="#111111" stroke-width="5" d="M53,39a14,14 0 1 0 28,0a14,14 0 1 0 -28,0z"/><path fill="#E53935" d="M60.7,32.6h13a1.7,1.7 0 0 1 0,3.4h-13a1.7,1.7 0 0 1 0,-3.4z"/><path fill="#22A355" d="M60.7,37.3h9a1.7,1.7 0 0 1 0,3.4h-9a1.7,1.7 0 0 1 0,-3.4z"/><path fill="#2457C5" d="M60.7,42h11a1.7,1.7 0 0 1 0,3.4h-11a1.7,1.7 0 0 1 0,-3.4z"/></g></svg><span class="name">לוחית<small>בדיקת רכב לפי מספר רישוי</small></span></a></h1>
-      <div class="brand-r"><button class="home-btn" id="homeBtn" type="button" hidden><svg class="i"><use href="#i-home"/></svg>בית</button><button class="icon-btn" id="openSettings" type="button" aria-label="הגדרות ושאלות נפוצות"><svg class="i"><use href="#i-gear"/></svg></button></div>
+      <div class="brand-r"><button class="home-btn" id="homeBtn" type="button" hidden><svg class="i"><use href="#i-home"/></svg>בית</button><button class="icon-btn" id="openSettings" type="button" aria-label="הגדרות ועזרה"><svg class="i"><use href="#i-gear"/></svg></button></div>
     </div>
     <form id="f" autocomplete="off">
       <label class="plate" for="plate">
@@ -924,26 +936,34 @@ body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)
 <div class="sheet" id="settings" hidden role="dialog" aria-modal="true" aria-labelledby="setTitle">
   <div class="sheet-in">
     <div class="sheet-head"><h2 id="setTitle">הגדרות</h2><button class="icon-btn" type="button" id="closeSettings" aria-label="סגירה"><svg class="i"><use href="#i-x"/></svg></button></div>
-    <div class="set-row"><span>רקע</span>
-      <div class="seg" role="group" aria-label="רקע"><button type="button" data-theme-choice="light">בהיר</button><button type="button" data-theme-choice="dark">כהה</button><button type="button" data-theme-choice="auto">לפי הטלפון</button></div>
-    </div>
-    <div class="set-row"><span>תצוגה</span>
-      <div class="kinds"><label><input type="checkbox" id="simpleChk">תצוגה פשוטה: נתונים יבשים בלבד</label></div>
-      <p class="note">בדוח הרכב תוצג טבלה אחת, בלי תובנות והסברים. אפשר להחליף בכל דוח.</p>
-    </div>
-    <div class="set-row"><span>התראות</span>
-      <p class="note">על אילו רכבים ועל מה להתריע: בלשונית "התראות" בתחתית המסך.</p>
-      <button class="link-btn" type="button" id="toAlerts"><svg class="i"><use href="#i-bell"/></svg>ללשונית התראות</button>
-    </div>
-    <div class="set-row"><span>מחירי דלק וחשמל להשוואת רכבים</span>
-      <div class="seg two" role="group" aria-label="יחידת צריכת דלק" id="unitSeg" style="margin-bottom:8px"><button type="button" data-unit="l100">ליטר ל-100 ק״מ</button><button type="button" data-unit="kml">ק״מ לליטר</button></div>
-      <div class="fuel-set"><label for="fuelPrice">בנזין (₪ לליטר)</label><input id="fuelPrice" inputmode="decimal" placeholder="8.27"></div>
-      <div class="fuel-set"><label for="dieselPrice">סולר (₪ לליטר)</label><input id="dieselPrice" inputmode="decimal" placeholder="לא הוגדר"></div>
-      <div class="fuel-set"><label for="elecPrice">חשמל (₪ לקוט״ש)</label><input id="elecPrice" inputmode="decimal" placeholder="0.64"></div>
-      <p class="note" id="fuelNote">כשהשדה ריק, האפליקציה משתמשת במחיר המפוקח העדכני, שמתעדכן אוטומטית בכל חודש.</p>
-    </div>
-    <div class="set-row" id="planRow"><span>החבילה שלי</span><p class="note" id="planNote"></p><button class="link-btn" type="button" id="planBtn">פרטי החבילות</button></div>
-    <div class="set-row" id="bizRow"><span>פרטי העסק (PRO עסקי)</span>
+    <section class="set-sec" aria-labelledby="ssView"><h3 id="ssView">תצוגה</h3>
+      <div class="set-grp">
+        <div class="set-row"><span>רקע</span>
+          <div class="seg" role="group" aria-label="רקע"><button type="button" data-theme-choice="light">בהיר</button><button type="button" data-theme-choice="dark">כהה</button><button type="button" data-theme-choice="auto">לפי הטלפון</button></div>
+        </div>
+        <div class="set-row"><span>צריכת דלק</span>
+          <div class="seg two" role="group" aria-label="יחידת צריכת דלק" id="unitSeg"><button type="button" data-unit="l100">ליטר ל-100 ק״מ</button><button type="button" data-unit="kml">ק״מ לליטר</button></div>
+        </div>
+        <div class="set-row"><div class="kinds"><label><input type="checkbox" id="simpleChk">תצוגה פשוטה</label></div>
+          <p class="note">בדוח הרכב תוצג טבלה אחת, בלי תובנות והסברים. אפשר להחליף בכל דוח.</p>
+        </div>
+      </div>
+    </section>
+    <section class="set-sec" aria-labelledby="ssAlerts"><h3 id="ssAlerts">התראות</h3>
+      <div class="set-grp">
+        <button class="set-go" type="button" id="toAlerts"><svg class="i"><use href="#i-bell"/></svg><span class="t"><b>על אילו רכבים ועל מה להתריע</b><small id="toAlertsSt" hidden></small></span><svg class="i go-chev" aria-hidden="true"><use href="#i-chev"/></svg></button>
+      </div>
+    </section>
+    <section class="set-sec" aria-labelledby="ssFuel"><h3 id="ssFuel">מחירי דלק וחשמל</h3>
+      <div class="set-grp">
+        <div class="fuel-set"><label for="fuelPrice">בנזין (₪ לליטר)</label><input id="fuelPrice" inputmode="decimal" placeholder="8.27"></div>
+        <div class="fuel-set"><label for="dieselPrice">סולר (₪ לליטר)</label><input id="dieselPrice" inputmode="decimal" placeholder="לא הוגדר"></div>
+        <div class="fuel-set"><label for="elecPrice">חשמל (₪ לקוט״ש)</label><input id="elecPrice" inputmode="decimal" placeholder="0.64"></div>
+        <p class="note" id="fuelNote">לחישוב עלות חודשית ולהשוואת רכבים. כשהשדה ריק, האפליקציה משתמשת במחיר המפוקח העדכני, שמתעדכן אוטומטית בכל חודש.</p>
+      </div>
+    </section>
+    <div class="set-grp set-row" id="planRow"><span>החבילה שלי</span><p class="note" id="planNote"></p><button class="link-btn" type="button" id="planBtn">פרטי החבילות</button></div>
+    <details class="set-grp set-fold" id="bizRow"><summary><span>פרטי העסק לדוחות (PRO עסקי)</span><svg class="i go-chev" aria-hidden="true"><use href="#i-chev"/></svg></summary>
       <div class="fuel-set"><label for="bizName">שם העסק</label><input id="bizName" class="wide"></div>
       <div class="fuel-set"><label for="bizPhone">טלפון</label><input id="bizPhone" class="wide" inputmode="tel"></div>
       <div class="fuel-set"><label for="bizAddr">כתובת</label><input id="bizAddr" class="wide"></div>
@@ -952,24 +972,36 @@ body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)
       <div class="kinds"><label><input id="bizCosts" type="checkbox">להוסיף לדוח: שווי שימוש</label><label><input id="bizValue" type="checkbox">להוסיף לדוח: שווי משוער</label></div>
       <button class="link-btn danger" type="button" id="bizLogoClear" hidden>הסרת הלוגו</button>
       <p class="note">הפרטים מופיעים בדוחות ה-PDF הממותגים: בלי לוגו של לוחית ובלי קישור לחנות.</p>
+    </details>
+    <section class="set-sec" aria-labelledby="ssData"><h3 id="ssData">פרטיות ונתונים</h3>
+      <div class="set-grp">
+        <p class="note">החיפושים והרכבים שלי נשמרים רק במכשיר הזה.</p>
+        <div class="set-row" id="anaRow" hidden><div class="kinds"><label><input type="checkbox" id="anaChk">שיתוף נתוני שימוש אנונימיים</label></div>
+          <p class="note">עוזר לשפר את האפליקציה. לא נשלחים מספרי רישוי או פרטים אישיים.</p>
+        </div>
+        <a class="set-go" href="https://luchit.app/privacy.html" target="_blank" rel="noopener"><svg class="i"><use href="#i-lock"/></svg><span class="t"><b>מדיניות פרטיות</b></span><svg class="i go-chev" aria-hidden="true"><use href="#i-chev"/></svg></a>
+        <button class="set-go danger" type="button" id="clearRecent"><svg class="i"><use href="#i-trash"/></svg><span class="t"><b>מחיקת היסטוריית החיפושים</b></span></button>
+        <button class="set-go danger" type="button" id="clearSaved"><svg class="i"><use href="#i-trash"/></svg><span class="t"><b>מחיקת כל הרכבים שלי</b></span></button>
+      </div>
+    </section>
+    <section class="set-sec" aria-labelledby="ssHelp"><h3 id="ssHelp">עזרה ויצירת קשר</h3>
+      <div class="set-grp">
+        <button class="set-go" type="button" id="openHelp"><svg class="i"><use href="#i-info"/></svg><span class="t"><b>שאלות נפוצות</b><small>מאיפה הנתונים, מה נשמר, למה רכב לא נמצא</small></span><svg class="i go-chev" aria-hidden="true"><use href="#i-chev"/></svg></button>
+        <a class="set-go" href="mailto:support@luchit.app?subject=%D7%A4%D7%A0%D7%99%D7%99%D7%94%20%D7%90%D7%95%20%D7%93%D7%99%D7%95%D7%95%D7%97%20%D7%A2%D7%9C%20%D7%98%D7%A2%D7%95%D7%AA%20%D7%91%D7%A0%D7%AA%D7%95%D7%A0%D7%99%D7%9D"><svg class="i"><use href="#i-doc"/></svg><span class="t"><b>פנייה או דיווח על טעות בנתונים</b></span><svg class="i go-chev" aria-hidden="true"><use href="#i-chev"/></svg></a>
+        <a class="set-go" href="https://luchit.app/business/" target="_blank" rel="noopener"><svg class="i"><use href="#i-users"/></svg><span class="t"><b>לוחית לעסקים</b></span><svg class="i go-chev" aria-hidden="true"><use href="#i-chev"/></svg></a>
+      </div>
+    </section>
+    <div class="set-grp" id="updRow" hidden>
+      <button class="set-go" type="button" id="chkUpd"><svg class="i"><use href="#i-rotate"/></svg><span class="t"><b>בדיקת עדכון</b><small>גרסה מותקנת: <span id="ver2"></span></small></span><svg class="i go-chev" aria-hidden="true"><use href="#i-chev"/></svg></button>
     </div>
-    <div class="set-row" id="anaRow" hidden><span>סטטיסטיקה אנונימית</span>
-      <div class="kinds"><label><input type="checkbox" id="anaChk">שיתוף נתוני שימוש אנונימיים</label></div>
-      <p class="note">עוזר לשפר את האפליקציה. לא נשלחים מספרי רישוי או פרטים אישיים.</p>
-    </div>
-    <div class="set-row" id="updRow" hidden><span>עדכון האפליקציה</span>
-      <button class="link-btn" type="button" id="chkUpd">בדיקת עדכון</button>
-      <p class="note">גרסה מותקנת: <span id="ver2"></span>.</p>
-    </div>
-    <div class="set-row"><span>נתונים במכשיר</span>
-      <button class="link-btn danger" type="button" id="clearRecent">מחיקת היסטוריית החיפושים</button>
-      <button class="link-btn danger" type="button" id="clearSaved">מחיקת כל הרכבים שלי</button>
-    </div>
-    <div class="set-row" id="faqRow"><span>שאלות נפוצות</span><div id="faqBox"></div></div>
-    <p class="note">החיפושים והרכבים שלי נשמרים רק במכשיר הזה. גרסה <span id="ver"></span>.</p>
-    <p class="note"><a href="mailto:support@luchit.app?subject=%D7%A4%D7%A0%D7%99%D7%99%D7%94%20%D7%90%D7%95%20%D7%93%D7%99%D7%95%D7%95%D7%97%20%D7%A2%D7%9C%20%D7%98%D7%A2%D7%95%D7%AA%20%D7%91%D7%A0%D7%AA%D7%95%D7%A0%D7%99%D7%9D">פנייה או דיווח על טעות בנתונים</a></p>
-    <p class="note"><a href="https://luchit.app/privacy.html" target="_blank" rel="noopener">מדיניות פרטיות</a> · <a href="https://luchit.app/business/" target="_blank" rel="noopener">לוחית לעסקים</a></p>
-    <p class="credit">לוחית · פותחה על ידי דודו סבאג<br>© 2026 כל הזכויות שמורות</p>
+    <p class="credit">לוחית <span id="verLine">· גרסה <span id="ver"></span></span><br>פותחה על ידי דודו סבאג · © 2026 כל הזכויות שמורות</p>
+  </div>
+</div>
+<div class="sheet full" id="helpSheet" hidden role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+  <div class="sheet-in">
+    <div class="sheet-head"><h2 id="helpTitle">שאלות נפוצות</h2><button class="icon-btn" type="button" id="closeHelp" aria-label="חזרה להגדרות"><svg class="i"><use href="#i-x"/></svg></button></div>
+    <div id="faqBox"></div>
+    <div class="set-grp"><a class="set-go" href="mailto:support@luchit.app?subject=%D7%A4%D7%A0%D7%99%D7%99%D7%94%20%D7%90%D7%95%20%D7%93%D7%99%D7%95%D7%95%D7%97%20%D7%A2%D7%9C%20%D7%98%D7%A2%D7%95%D7%AA%20%D7%91%D7%A0%D7%AA%D7%95%D7%A0%D7%99%D7%9D"><svg class="i"><use href="#i-doc"/></svg><span class="t"><b>לא מצאתם תשובה? כתבו לנו</b></span><svg class="i go-chev" aria-hidden="true"><use href="#i-chev"/></svg></a></div>
   </div>
 </div>
 <div class="sheet full" id="compareSheet" hidden role="dialog" aria-modal="true" aria-labelledby="cmpTitle">
@@ -1681,8 +1713,12 @@ function toggleSaved(item){
   if (list.length >= savedCap()) { toast(`הרשימה מלאה (${savedCap()} רכבים). הסירו רכב כדי להוסיף.`); return false; }
   store.set("savedVehicles", [item, ...list]); updateSavedBar(); if (current && current.plate === item.plate) snapPut(current); return true;
 }
-function remember(p){
-  store.set("recentPlates", [p, ...store.get("recentPlates").filter(x => x !== p)].slice(0, 6));
+/* the model's name under each recent plate on home, for cars that were not saved too (this phone only, the same 6 plates) */
+const recentNames = () => { try { return JSON.parse(localStorage.getItem("recentNames") || "{}") || {}; } catch { return {}; } };
+function remember(p, name){
+  const list = [p, ...store.get("recentPlates").filter(x => x !== p)].slice(0, 6);
+  store.set("recentPlates", list);
+  try { const m = recentNames(), keep = {}; if (name) m[p] = name; list.forEach(x => { if (m[x]) keep[x] = m[x]; }); localStorage.setItem("recentNames", JSON.stringify(keep)); } catch {}
   // after the third car the app found, Google's rating card is offered once (Google decides if it shows)
   try {
     const n = Number(localStorage.getItem("lookups") || 0) + 1; localStorage.setItem("lookups", String(n));
@@ -2878,7 +2914,7 @@ async function lookup(raw){
   renderResult(); focusResult();
   // exactly 8 params: the app bridge keeps the first 8 (MainActivity.logEvent) and the web Worker 10 with src+camp; a 9th silently drops the last
   track(again ? "lookup_repeat" : "car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: D.errs && D.errs.length ? 1 : 0, role: roleOf(D), ...lookupFacts(D)});
-  remember(plate);
+  remember(plate, D.kind === "model" ? "" : D.title);
   window.scrollTo({top: 0});
   // a first visit on a slow line can render before the settlements list arrives: once it does, show its answer (a match, or "not found"
   // in place of "not loaded") for every car the list is checked for (settlementsFor)
@@ -2988,12 +3024,14 @@ function renderResult(){
   html.push(`<div class="side">`);
   if (sharedHere(D)) html.push(`<div class="shared-top"><span aria-hidden="true">📩</span><span><b>דוח רכב שנשלח אליך</b> · נבדק עכשיו מול משרד התחבורה, מעודכן יותר מכל קובץ</span></div>`);
   if (D.fromCache) html.push(`<div class="msg" role="status"><b>אין חיבור למשרד התחבורה, ולכן מוצגים נתונים שנשמרו ב-${esc(fmtDate(new Date(D.fromCache).toISOString()))}.</b> ייתכן שהם לא מעודכנים. <button type="button" class="link-btn" data-retry="${esc(D.plate)}">נסו שוב</button></div>`);
+  // compare sits at the end of the facts row (one row less above the tabs); alone, it keeps its own row
+  const cmpBtn = `<button type="button" class="id-cmp" data-act="compare" data-from="card">${ico("compare")}השוואה</button>`;
   html.push(`<section class="card id-card">
     <div class="id-top"><div><h2 class="id-title" id="resHead" tabindex="-1">${esc(D.title)}</h2><p class="id-sub">${esc(!empty(v.shnat_yitzur) && !simpleOn() ? D.sub.split(" · ").slice(1).join(" · ") : D.sub)}</p></div>
       <span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span></div>
-    ${!simpleOn() && facts.some(Boolean) ? `<div class="pills fstrip" aria-label="עובדות עיקריות">${facts.filter(Boolean).join("")}</div>` : ""}
+    ${!simpleOn() && facts.some(Boolean) ? `<div class="pills fstrip" aria-label="עובדות עיקריות">${facts.filter(Boolean).join("")}${cmpBtn}</div>` : ""}
     ${pills.length && !simpleOn() ? `<div class="pills">${pills.join("")}</div>` : ""}
-    <button type="button" class="id-cmp" data-act="compare" data-from="card">${ico("compare")}השוואה עם רכב אחר</button>
+    ${!simpleOn() && facts.some(Boolean) ? "" : cmpBtn}
   </section>`);
 
   // Off the road, and a test that ended in the simple view (the full view says it in the overview cards): banners above everything else
@@ -6256,8 +6294,9 @@ function renderAlerts(){
     if (alertsSupported()) {
       let st = "off"; try { st = window.AndroidApp.alertsState(); } catch {}
       const set = alertSet(), pr = alertPrefs();
-      html.push(`<div class="qhead">להתריע על</div><div class="arows">
-        <div class="arow"><div class="t"><b>התראות בטלפון</b><small>${st === "blocked" ? "כבויות: הטלפון חוסם התראות מלוחית. כדי לקבל אותן, אפשרו התראות ללוחית בהגדרות האפליקציה בטלפון." : "ריקול חדש לרכב שמור, ותזכורות לפני שהטסט פג."}</small></div><button type="button" class="sw" role="switch" aria-checked="${st === "on"}" data-alerts="${st === "on" ? "off" : "on"}" aria-label="התראות בטלפון"></button></div>
+      // the phone-wide switch lives in "עוד"; here it shows only when it stops the cars' switches from working (off, or blocked by the phone)
+      html.push(`<div class="qhead">להתריע על</div><div class="arows${st === "on" ? "" : " aoff"}">
+        ${st === "on" ? "" : `<div class="arow anote"><div class="t"><b>${st === "blocked" ? "הטלפון חוסם התראות מלוחית" : "ההתראות בטלפון כבויות"}</b><small>${st === "blocked" ? "כדי לקבל אותן, אפשרו התראות ללוחית בהגדרות האפליקציה בטלפון." : "המתגים של הרכבים לא יפעלו עד שמפעילים אותן."}</small></div><button type="button" class="link-btn" data-alerts="on">להפעלה</button></div>`}
         ${all.map(s => { const on = s.alerts !== false && (!PRO_LOCK || set.includes(s.plate)); return `<div class="arow"><div class="t"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><small>${esc(s.nick || s.title)}</small></div><button type="button" class="sw" role="switch" aria-checked="${on}" data-bell="${s.plate}" aria-label="התראות על ${esc(s.nick || s.title)}"></button></div>`; }).join("")}
       </div>
       <details class="akinds"><summary>סוגי ההתראות</summary><div class="kinds">${ALERT_KINDS.map(([k, t, pro]) => `<label><input type="checkbox" data-kind="${k}"${pr[k] === false ? "" : " checked"}>${esc(t)}${pro && PRO_LOCK ? " (PRO)" : ""}</label>`).join("")}</div>
@@ -6790,7 +6829,7 @@ function renderHome(){
   const attn = saved.filter(carAttn);
   if (attn.length) html.push(`<button type="button" class="attn${attn.some(s => carLevel(s) === "bad") ? "" : " warn"}" data-nav="alerts" data-via="attn"><span class="ai">${ico("alert")}</span><span class="t"><b>${attn.length === 1 ? "רכב אחד מהרכבים שלכם צריך תשומת לב" : `${attn.length} מהרכבים שלכם צריכים תשומת לב`}</b><small>${alertItems().slice(0, 2).map(x => `${esc(x.k || x.t)}: <bdi>${esc(x.s.nick || x.s.title)}</bdi>`).join(" · ")}</small></span>${ico("chev")}</button>`);
   if ((saved.length || recent.length) && !anyMine()) html.push(`<div class="tlist hfile"><button type="button" class="trow" data-act="fileHome"><i class="tb blue">${ico("car")}</i><span class="t"><b>יש לכם כבר רכב? פתחו לו תיק</b><small>טסט, טיפולים ומסמכים לנסיעה, במקום אחד</small></span>${ico("chev")}</button></div>`);
-  if (recent.length) html.push(`<section class="recents" aria-label="בדיקות אחרונות"><div class="qhead">בדיקות אחרונות</div><div class="rc-row">${recent.map(p => { const s = saved.find(x => x.plate === p); return `<button type="button" class="rc" data-open="${p}"><span class="mini-plate"><i></i>${fmtPlate(p)}</span>${s ? `<small><bdi>${esc(s.nick || s.title)}</bdi></small>` : ""}</button>`; }).join("")}</div></section>`);
+  if (recent.length) html.push(`<section class="recents" aria-label="בדיקות אחרונות"><div class="qhead">בדיקות אחרונות</div><div class="rc-row">${recent.map(p => { const s = saved.find(x => x.plate === p), nm = s ? s.nick || s.title : recentNames()[p]; return `<button type="button" class="rc" data-open="${p}"><span class="mini-plate"><i></i>${fmtPlate(p)}</span>${nm ? `<small><bdi>${esc(nm)}</bdi></small>` : ""}</button>`; }).join("")}</div></section>`);
   const tool = (act, icon, title, text, tag, col) => `<button type="button" class="trow" data-act="${act}"><i class="tb ${col}">${ico(icon)}</i><span class="t"><b>${title}${tag ? PT(tag) : ""}</b><small>${text}</small></span>${ico("chev")}</button>`;
   html.push(`<div class="qhead">כלים</div><div class="tlist">${[
     tool("compareHome", "compare", "חיפוש דגמים", "דגם, או סוג ותקציב. אפשר גם להשוות עד " + cmpMax(), "", "violet"),
@@ -6917,14 +6956,18 @@ $("#out").addEventListener("keydown", ev => {
   });
 })();
 
-$("#openSettings").addEventListener("click", () => { fillAnalytics(); syncPlanUi(); $("#faqBox").innerHTML = FAQ.map(([q, a]) => `<details class="faq"><summary>${q}</summary><p>${a}</p></details>`).join(""); sheet.hidden = false; $("#closeSettings").focus(); });
+$("#openSettings").addEventListener("click", () => { fillAnalytics(); syncPlanUi(); { const el = $("#toAlertsSt"); let st = ""; try { st = alertsSupported() ? window.AndroidApp.alertsState() : ""; } catch {} el.textContent = st === "on" ? "ההתראות בטלפון פועלות" : st === "blocked" ? "הטלפון חוסם התראות מלוחית" : st ? "ההתראות בטלפון כבויות" : ""; el.hidden = !st; } $("#faqBox").innerHTML = FAQ.map(([q, a]) => `<details class="faq"><summary>${q}</summary><p>${a}</p></details>`).join(""); sheet.hidden = false; $("#closeSettings").focus(); });
 $("#toAlerts").addEventListener("click", () => { sheet.hidden = true; navTo("alerts", {via: "settings"}); });
+const helpSheet = $("#helpSheet");
+$("#openHelp").addEventListener("click", () => { helpSheet.hidden = false; $("#closeHelp").focus(); });
+$("#closeHelp").addEventListener("click", () => { helpSheet.hidden = true; $("#openHelp").focus(); });
 document.querySelectorAll("[data-alerts]").forEach(b => b.addEventListener("click", () => { try { window.AndroidApp.setAlerts(b.dataset.alerts === "on"); localStorage.setItem("alertsAsked", "1"); } catch {} syncAlertsSeg(); }));
 $("#closeSettings").addEventListener("click", () => { sheet.hidden = true; $("#openSettings").focus(); });
 sheet.addEventListener("click", ev => { if (ev.target === sheet) sheet.hidden = true; });
 document.addEventListener("keydown", ev => { if (ev.key === "Escape") { const dv = document.querySelector(".doc-view"); if (dv) dv.click(); sheet.hidden = true; $("#compareSheet").hidden = true; $("#shareSheet").hidden = true; $("#homeSheet").hidden = true; } });
-$("#clearRecent").addEventListener("click", () => { store.set("recentPlates", []); toast("היסטוריית החיפושים נמחקה"); refreshView(); });
-$("#clearSaved").addEventListener("click", () => { store.set("savedVehicles", []); toast("הרכבים שלי נמחקו"); refreshView(); });
+/* both deletes can be undone from the snack bar for a moment: the buttons sit in a list and one stray tap used to wipe the cars */
+$("#clearRecent").addEventListener("click", () => { const was = store.get("recentPlates"), names = localStorage.getItem("recentNames"); store.set("recentPlates", []); try { localStorage.removeItem("recentNames"); } catch {} refreshView(); snack("היסטוריית החיפושים נמחקה", "ביטול", () => { store.set("recentPlates", was); try { if (names) localStorage.setItem("recentNames", names); } catch {} refreshView(); }); });
+$("#clearSaved").addEventListener("click", () => { const was = store.get("savedVehicles"); if (!was.length) { toast("אין רכבים שמורים"); return; } store.set("savedVehicles", []); refreshView(); snack("הרכבים שלי נמחקו", "ביטול", () => { store.set("savedVehicles", was); refreshView(); }); });
 $("#ver").textContent = APP_VERSION;
 /* in-app update (Google Play installs only): one quiet offer per version, plus a manual check in settings */
 let updManual = false;
@@ -6958,7 +7001,7 @@ if (!window.AndroidApp && /Android/i.test(navigator.userAgent)) {
   }, 12000);
 }
 if (window.AndroidApp && window.AndroidApp.checkUpdate) {
-  const cu = $("#chkUpd"); if (cu) { $("#updRow").hidden = false; $("#ver2").textContent = APP_VERSION; cu.addEventListener("click", () => { updManual = true; try { window.AndroidApp.checkUpdate(); } catch {} }); }
+  const cu = $("#chkUpd"); if (cu) { $("#updRow").hidden = false; $("#ver2").textContent = APP_VERSION; $("#verLine").hidden = true; cu.addEventListener("click", () => { updManual = true; try { window.AndroidApp.checkUpdate(); } catch {} }); }
   setTimeout(() => { try { window.AndroidApp.checkUpdate(); } catch {} }, 3500);
 }
 showFuelDefaults(); loadFuel();
@@ -7010,7 +7053,7 @@ $(".brand h1").addEventListener("click", ev => { ev.preventDefault(); goHome(); 
 $("#homeBtn").addEventListener("click", goHome);
 // the checked line above the tabs: opened, calm or amber (checkLine)
 document.addEventListener("toggle", ev => { const d = ev.target; if (d.classList && d.classList.contains("ckl") && d.open) track("check_open", {kind: d.dataset.line}); }, true);
-window.appBack = () => { const dv = document.querySelector(".doc-view"); if (dv) { dv.click(); return true; } { const rs = $("#roadSheet"); if (rs) { rs.remove(); return true; } } if (document.querySelector(".ch-menu")) { closeCarMenu(); return true; } if (!sheet.hidden) { sheet.hidden = true; return true; } if (!$("#compareSheet").hidden) { if (mGroup) stepBack(); else hideCmpSheet(); return true; } if (!$("#shareSheet").hidden) { $("#shareSheet").hidden = true; return true; } if (inCompare) { closeCompare(); return true; } if (document.body.dataset.screen === "sub") { leaveTool(); return true; } if (document.body.dataset.screen === "cars" && carsSel) { carsSel = null; renderCars(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { leaveCar(); return true; } if (parked && parked.v !== view) { navTo(parked.v, {via: "back"}); return true; } if (!$("#homeMark")) { goHome(); return true; } return false; };
+window.appBack = () => { const dv = document.querySelector(".doc-view"); if (dv) { dv.click(); return true; } { const rs = $("#roadSheet"); if (rs) { rs.remove(); return true; } } if (document.querySelector(".ch-menu")) { closeCarMenu(); return true; } if (!helpSheet.hidden) { helpSheet.hidden = true; return true; } if (!sheet.hidden) { sheet.hidden = true; return true; } if (!$("#compareSheet").hidden) { if (mGroup) stepBack(); else hideCmpSheet(); return true; } if (!$("#shareSheet").hidden) { $("#shareSheet").hidden = true; return true; } if (inCompare) { closeCompare(); return true; } if (document.body.dataset.screen === "sub") { leaveTool(); return true; } if (document.body.dataset.screen === "cars" && carsSel) { carsSel = null; renderCars(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { leaveCar(); return true; } if (parked && parked.v !== view) { navTo(parked.v, {via: "back"}); return true; } if (!$("#homeMark")) { goHome(); return true; } return false; };
 
 /* Text shared from another app (an ad, a message): find a plate number in it.
    Phone numbers, prices and mileage are skipped; a number next to the words רכב/רישוי/לוחית wins. */
