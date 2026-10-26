@@ -53,6 +53,8 @@ export const WF_LEVELS = {
   "Ship tail": "day", "Store listing": "day", "Release watch": "day", "Production": "day",
   "Settlements": "day", "Data truth": "day", "Social publish": "day",
   "App guardian (real app)": "day", "UI guardian (browser)": "day",   // red = blocking findings on the real app / site (owner: product); at night: quiet, then the morning ring
+  "Alert router check": "summary", "ASO check": "summary",   // checks of a push to main: whoever released it fixes it; quiet, then the ledger and the morning triage
+  "Live watch": "summary",   // the /live dashboard's own watch (owner: measurement); its findings alert by themselves (live:*)
 };
 // a run name "Magazine (data)" takes its workflow's level
 export const wfLevel = name => WF_LEVELS[name] ?? WF_LEVELS[String(name).replace(/ \([^)]*\)$/, "")] ?? "day";
@@ -990,6 +992,26 @@ async function selftest() {
       && label("seo:daily").sect === "none" && label("nope:x").he === "התראה: nope:x" && label("mag:fail:2026-10").sect === "wait", "label rendering");
     const used = scanKeys(ROOT), missing = used.filter(k => !FAMILIES_IN_USE.some(f => f === k || f.startsWith(k + ":") || k.startsWith(f + ":")));
     ok(missing.length === 0, "call-site keys missing from FAMILIES_IN_USE: " + missing.join(", "));
+    // every workflow that runs on main by itself is watched by failure-alert, each watched name has a deliberate level, and the parser sees the events
+    const silentWf = unwatched(ROOT), noLevel = watchList(ROOT).filter(n => !(n in WF_LEVELS));
+    ok(silentWf.length === 0, "workflows that run on main but failure-alert does not watch: " + silentWf.join(", "));
+    ok(noLevel.length === 0 && watchList(ROOT).length >= 30, "failure-alert names without a WF_LEVELS level: " + noLevel.join(", "));
+    {
+      const tmp = fs.mkdtempSync(path.join((await import("node:os")).tmpdir(), "wf-")), w = `${tmp}/.github/workflows`;
+      fs.mkdirSync(w, { recursive: true });
+      const put = (f, t) => fs.writeFileSync(`${w}/${f}`, t);
+      put("failure-alert.yml", 'name: Failure alert\non:\n  workflow_run:\n    branches: [main]\n    workflows:\n      - "Watched"\n    types: [completed]\n');
+      put("a.yml", "name: Watched\non:\n  schedule:\n    - cron: \"1 1 * * *\"\njobs: {}\n");
+      put("b.yml", "name: Nightly\non:\n  schedule:\n    - cron: \"1 1 * * *\"\n  workflow_dispatch:\njobs: {}\n");
+      put("c.yml", "name: Next only\non:\n  push:\n    branches: [next]\n  pull_request:\njobs: {}\n");
+      put("d.yml", "name: Main push\non:\n  push:\n    branches:\n      - next\n      - main\n    paths: [\"x\"]\njobs: {}\n");
+      put("e.yml", "name: Any push\non:\n  push:\n    paths: [\"x\"]\njobs: {}\n");
+      put("f.yml", "name: Manual\non:\n  workflow_dispatch:\njobs: {}\n");
+      put("g.yml", "name: Maintenance\non:\n  push:\n    branches: [maintenance]\njobs: {}\n");
+      const u = unwatched(tmp).map(x => x.replace(/ \(.*$/, "")).sort().join();
+      fs.rmSync(tmp, { recursive: true, force: true });
+      ok(u === "Any push,Main push,Nightly", "unwatched: schedules and pushes that reach main, nothing else: " + u);
+    }
     out.length = 0;
 
     // CLI: marker contract, wf lookup, --repeat, shadow record budget
@@ -1200,6 +1222,29 @@ function scanKeys(root) {
     }
   }
   return [...found];
+}
+
+// failure-alert.yml's watch list, and the workflows that run on main by themselves (a schedule, a push to main, a workflow_run on main) that
+// are not in it. With GitHub's own failure emails switched off (QA 26.10), such a workflow would fail silently. Failure alert cannot watch
+// itself (the morning triage reads its runs).
+function watchList(root) {
+  const fa = fs.readFileSync(`${root}/.github/workflows/failure-alert.yml`, "utf8"), list = fa.slice(fa.indexOf("workflows:"), fa.indexOf("types:"));
+  return [...list.matchAll(/^\s+- "([^"]+)"/gm)].map(m => m[1]);
+}
+function unwatched(root) {
+  const dir = `${root}/.github/workflows`, watched = new Set(watchList(root)), out = [];
+  for (const f of fs.readdirSync(dir).filter(f => /\.ya?ml$/.test(f))) {
+    const src = fs.readFileSync(`${dir}/${f}`, "utf8"), name = ((/^name:[ \t]*(.+?)[ \t]*$/m.exec(src) || [])[1] || "").replace(/^["']|["']$/g, "");
+    const on = (/^on:[ \t]*\n([\s\S]*?)^\S/m.exec(src) || [])[1] || "";
+    const block = key => (new RegExp(`^  ${key}:[^\\n]*\\n((?:(?:    [^\\n]*)?\\n)*)`, "m").exec(on) || [])[1];
+    const onMain = key => {   // the event is listed and has no branch filter, or its filter names main
+      if (!new RegExp(`^  ${key}:`, "m").test(on)) return false;
+      const b = block(key) || "", br = /branches:[ \t]*\[([^\]]*)\]/.exec(b) || /branches:[ \t]*\n((?:[ \t]+- .*\n)+)/.exec(b);
+      return !br || /(^|[\s,"'\[-])main([\s,"'\]]|$)/m.test(br[1]);
+    };
+    if (name && name !== "Failure alert" && (onMain("schedule") || onMain("push") || onMain("workflow_run")) && !watched.has(name)) out.push(`${name} (${f})`);
+  }
+  return out;
 }
 
 if (process.argv[1] && process.argv[1].endsWith("alert.mjs")) process.exit(await cli(process.argv.slice(2)));
