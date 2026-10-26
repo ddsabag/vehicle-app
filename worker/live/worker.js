@@ -455,13 +455,17 @@ async function collectSeo(env, today) {
 
 // agent news for the flashes card: what .github/scripts/flash.mjs writes (branch "flashes", public-safe text), and every alert the router
 // recorded as sent to Telegram (branch "alert-state": the key's fixed Hebrew headline he and section sc, never the message text). Most
-// alerts go only through the router, so without it the card stopped at 16.10. A router alert of the same kind within 10 minutes of a
-// flash.mjs item is the same news and is left out. l: alert = a failure, wait = asks for the owner's decision, info = news only.
+// alerts go only through the router, so without it the card stopped at 16.10. A router alert of the same kind and the same weight (news, or
+// a failure / a decision) within 10 minutes of a flash.mjs item is the same news and is left out. l: alert = a failure, wait = asks for the
+// owner's decision, info = news only. How a problem ended is news, never an alert: "fixed" (closed by a check that passed, and told) is
+// "✅ טופל", a self-repair (the "quiet" entry that closed its own item, outcome self) is "✅ תוקן לבד". q 1: a failure that needs no one's
+// attention now (sent quietly, or closed since), so the attention list does not count it.
 const RKIND = k => { const f = String(k).split(":")[0];
   return /^(review|review3|vitals|reviews)$/.test(f) ? "reviews" : /^(ship|listing|watch|safety|prod)$/.test(f) ? "release"
     : /^(guard|ministry|checker|truth|catalog|stl)$/.test(f) ? "data" : /^(seo|seo-auto|mention|mag)$/.test(f) ? "content" : "infra"; };
-// shadow entries (sh 1): the caller sent as td says; routed ones: the router sent it, or handed it back to the caller's own send
-const RSENT = e => e.sh === 1 ? e.td !== "none" : ["loud", "night", "remind", "remind-night"].includes(e.a) || (["legacy", "failed"].includes(e.a) && e.td !== "none");
+// shadow entries (sh 1): the caller sent as td says; routed ones: the router sent it (loud, at night, a reminder, quietly, or how it ended),
+// or handed it back to the caller's own send
+const RSENT = e => e.sh === 1 ? e.td !== "none" : ["loud", "night", "remind", "remind-night", "quiet", "fixed"].includes(e.a) || (["legacy", "failed"].includes(e.a) && e.td !== "none");
 let flashes = null, flashesAt = 0, flRaw = [], stRaw = null;
 async function getFlashes() {
   if (flashes && Date.now() - flashesAt < 300e3) return flashes;
@@ -471,9 +475,12 @@ async function getFlashes() {
   if (st && Array.isArray(st.log)) stRaw = st;
   const own = flRaw.filter(f => f && f.t && f.x), at = f => Date.parse(f.t);
   const routed = stRaw ? stRaw.log.filter(e => e && e.he && e.t && RSENT(e)).map(e => {
-    const u = ((stRaw.items || {})[e.k] || {}).u, link = Array.isArray(u) && typeof u[0] === "string" && u[0].startsWith("https://") ? u[0] : "";
-    return { t: e.t, k: RKIND(e.k), l: e.sc === "fail" ? "alert" : e.sc === "wait" ? "wait" : "info", x: e.he, ...(link ? { u: link } : {}) };
-  }).filter(r => !own.some(f => f.k === r.k && Math.abs(at(f) - at(r)) < 600e3)) : [];
+    const it = (stRaw.items || {})[e.k] || {}, u = it.u, link = Array.isArray(u) && typeof u[0] === "string" && u[0].startsWith("https://") ? u[0] : "";
+    const done = e.a === "fixed" ? "✅ טופל: " : e.a === "quiet" && it.out === "self" && it.outAt === e.t ? "✅ תוקן לבד: " : "";
+    const l = done ? "info" : e.sc === "fail" ? "alert" : e.sc === "wait" ? "wait" : "info";
+    const q = l === "alert" && (e.a === "quiet" || (it.open === false && Date.parse(it.outAt) >= Date.parse(e.t)));
+    return { t: e.t, k: RKIND(e.k), l, x: done + e.he, ...(q ? { q: 1 } : {}), ...(link ? { u: link } : {}) };
+  }).filter(r => !own.some(f => f.k === r.k && (f.l === "info") === (r.l === "info") && Math.abs(at(f) - at(r)) < 600e3)) : [];
   flashes = [...own, ...routed].sort((a, b) => at(b) - at(a)).slice(0, 30);
   flashesAt = Date.now(); return flashes;
 }
@@ -930,7 +937,7 @@ $("vt").innerHTML=ck==null&&instToday==null&&d.visitsToday==null?"":"<span>הי�
 $("vn").textContent=cal?"שבוע הבסיס הוא "+rng([addD(CB.end,-6),CB.end])+": לפיו ייקבע היעד לבדיקות רכב, ומ-"+dm(CAL_END)+" כל מספר יקבל צבע מול היעד שלו. עד אז יש צבע רק לתקינות השירות, לדפים בגוגל ולחנות. בדיקות מהאתר נספרות מ-15.10.":"";
 
 // attention list
-const alerts=(d.flashes||[]).filter(f=>f.l==="alert"&&Date.now()-Date.parse(f.t)<864e5).length;
+const alerts=(d.flashes||[]).filter(f=>f.l==="alert"&&!f.q&&Date.now()-Date.parse(f.t)<864e5).length;
 $("att").innerHTML=(att.length?att.slice(0,4).map(x=>"<li>"+chip(x.s,x.w||(x.s==="warn"?"מעט מתחת ליעד":""))+"<span>"+esc(x.text)+(DR[x.key]?' <a href="#'+DR[x.key]+'" data-open="'+DR[x.key]+'">לפירוט</a>':"")+"</span></li>").join(""):'<li class="none">אין כרגע דבר שדורש תשומת לב.</li>')+(alerts?'<li><span class="chip s-warn"><i aria-hidden="true">!</i>מבזקים</span><span>'+(alerts===1?"התראה אחת על תקלה":n(alerts)+" התראות על תקלות")+' ב-24 השעות האחרונות. <a href="#dr-fl" data-open="dr-fl">לפירוט</a></span></li>':"");
 
 // tiles

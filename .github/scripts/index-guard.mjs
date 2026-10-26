@@ -9,6 +9,9 @@
 // size when the next complete run sees about the same size (a different size is marked again): pages that left the sitemap are never a drop,
 // so that run is compared and becomes the baseline.
 // "Crawled, not indexed" and "unknown to Google" swap places from day to day for the same URLs in the API, so they are not compared.
+// An alert opens an episode (open on the stored metric: the ids it named and how many pages it counted). It ends when those pages are back:
+// no key page among them still out, and fewer of the others than DROP of the pages it counted (a page that left the sitemap counts as back).
+// Then fixed is true and seo-data.mjs closes the router item (seo:index), which tells Dudu once, quietly, that it is over.
 // metrics.json is public: key pages are stored as paths, every other indexed page only as a short hash of its path.
 //   node index-guard.mjs selftest      offline
 import { createHash } from "node:crypto";
@@ -27,8 +30,9 @@ export function compare(prev, now, at = "") {
   const done = [...byUrl.values()].filter(i => !i.error);
   const passIds = [...new Set(done.filter(i => i.verdict === "PASS").map(i => idOf(pathOf(i.url))))].sort();
   const base = prev && prev.base && Array.isArray(prev.base.pass) && prev.base.n > 0 ? prev.base : null;
-  const out = (skipped, alerts = [], clean = false, shrunk = 0) => ({ indexed: passIds.length, inspected: done.length, total: sm.length, alerts, skipped,
-    clean, ...(shrunk ? { shrunk } : {}), base: clean ? { at, n: sm.length, pass: passIds } : base });
+  const was = prev && prev.open && Array.isArray(prev.open.ids) && prev.open.ids.length ? prev.open : null;
+  const out = (skipped, alerts = [], clean = false, shrunk = 0, open = was, fixed = false) => ({ indexed: passIds.length, inspected: done.length,
+    total: sm.length, alerts, skipped, clean, ...(shrunk ? { shrunk } : {}), base: clean ? { at, n: sm.length, pass: passIds } : base, open, fixed });
   if (!sm.length) return out("no sitemap URLs (the sitemap could not be read)");
   if (done.length !== sm.length || (now.errors || []).length > MAX_ERRORS) return out("this run is incomplete");
   const near = n => Math.abs(n - sm.length) <= Math.max(2, Math.round(sm.length * 0.02));
@@ -40,7 +44,16 @@ export function compare(prev, now, at = "") {
   if (still >= MIN_BASE && lost.length >= still * DROP) alerts.push({ kind: "drop", lost: lost.length, of: still, indexed: passIds.length });
   const key = lost.filter(id => id.startsWith("/")).map(p => ({ path: p, coverage: nowById.get(p).coverage || "" }));
   if (key.length) alerts.push({ kind: "key", lost: key });
-  return out(null, alerts, true);
+  // the open episode: closed when its pages are back; a run with a new alert adds to it instead of closing it
+  const gone = id => nowById.has(id) && nowById.get(id).verdict !== "PASS";
+  const fixed = !!was && !alerts.length && !was.ids.some(id => id.startsWith("/") && gone(id)) && was.ids.filter(gone).length < Math.max(1, DROP * (was.of || 0));
+  let open = was && !fixed ? was : null;
+  if (alerts.length) {
+    const drop = alerts.some(a => a.kind === "drop"), ids = new Set(open ? open.ids : []);
+    for (const id of drop ? lost : key.map(k => k.path)) ids.add(id);
+    open = { at: open ? open.at : at, ids: [...ids].sort(), of: Math.max(open ? open.of || 0 : 0, drop ? still : 0) };
+  }
+  return out(null, alerts, true, 0, open, fixed);
 }
 
 const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -124,6 +137,36 @@ if (process.argv[1] && process.argv[1].endsWith("index-guard.mjs") && process.ar
   ok(run({ indexed: 33, inspected: 33, total: 33, pass: ["/"] }, lose(4)).skipped === "no clean baseline yet", "an old metric without base starts a baseline");
   ok(/[a-f]/.test(alertId([{ kind: "drop", lost: 1, of: 2 }])), "alert id holds a letter");
   ok(KEY("/") && KEY("/check/") && KEY("/magazine/recalls-2026-10/") && !KEY("/model/x/") && !KEY("/brand/x/"), "key pages");
+  // how an alert ends: the open episode closes once its pages are back
+  r = run(prev, lose(4));
+  ok(r.open && r.open.ids.length === 4 && r.open.of === 33 && r.open.at === "2026-10-19" && !r.fixed, "a drop alert opens an episode with the lost ids");
+  const after = { ...prev, base: r.base, open: r.open };
+  let r2 = run(after, lose(4));
+  ok(!r2.alerts.length && !r2.fixed && r2.open === r.open, "still out the next day: no new alert, the episode stays open");
+  r2 = run(after, lose(1));
+  ok(!r2.alerts.length && r2.fixed && r2.open === null, "back under the threshold: fixed, nothing open");
+  r2 = run(after, base);
+  ok(r2.fixed && r2.open === null, "all back: fixed");
+  const magOut = base.map(i => (i.url.endsWith("/magazine/x/") ? { ...i, verdict: "NEUTRAL" } : i)), em = run(prev, magOut);
+  r2 = run({ ...prev, base: em.base, open: em.open }, base.filter(i => !i.url.endsWith("/magazine/x/")), { sitemap: sitemap.filter(u => !u.endsWith("/magazine/x/")) });
+  ok(em.open.ids.join() === "/magazine/x/" && r2.fixed, "a page that left the sitemap counts as back");
+  r2 = run(after, base.slice(0, 20));
+  ok(r2.skipped && !r2.fixed && r2.open === r.open, "an incomplete run keeps the episode open");
+  r = run(prev, key);
+  ok(r.open && r.open.ids.join() === "/check/recall/" && r.open.of === 0, "a key page alert opens an episode with that page only");
+  r2 = run({ ...prev, base: r.base, open: r.open }, key);
+  ok(!r2.fixed && r2.open === r.open, "the key page still out: open");
+  r2 = run({ ...prev, base: r.base, open: r.open }, base);
+  ok(r2.fixed && r2.open === null, "the key page back: fixed");
+  const keyAndOne = base.map((i, k) => (i.url.endsWith("/check/recall/") || k === 0 ? { ...i, verdict: "NEUTRAL" } : i));
+  r2 = run({ ...prev, base: r.base, open: r.open }, keyAndOne);
+  ok(!r2.fixed, "a key page in the episode must be back, whatever the others");
+  r = run(prev, lose(4));
+  r2 = run({ ...prev, base: run(prev, base).base, open: r.open }, key);
+  ok(r2.alerts.length === 1 && !r2.fixed && r2.open.at === "2026-10-19" && r2.open.ids.includes("/check/recall/") && r2.open.ids.length === 5 && r2.open.of === 33,
+    "a new alert while one is open adds to it, never closes it");
+  ok(!run(prev, base).open && !run(prev, base).fixed, "no episode: nothing open, nothing fixed");
+  ok(run({ ...prev, open: { at: "x", ids: [] } }, base).open === null, "an empty stored episode is no episode");
   console.log(bad ? `${bad} failed` : "selftest ok");
   process.exit(bad ? 1 : 0);
 }

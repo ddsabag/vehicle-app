@@ -57,6 +57,9 @@ on:
       - "Data truth"
       - "App guardian (real app)"   # owner: product (QA); nightly on main, red = blocking findings, so never re-run by this job
       - "UI guardian (browser)"
+      - "Alert router check"   # the checks of a push to main: red = something released broken (alert.mjs selftest: no workflow on main goes unwatched)
+      - "ASO check"
+      - "Live watch"
     types: [completed]
 permissions:
   contents: write   # flash.mjs writes the flashes branch the /live dashboard reads

@@ -31,6 +31,12 @@ async function telegram(text, silent = false, route = null) {
   }
   return direct(text, silent);
 }
+// the report ran: an open "did not run" alert (seo:error) is closed and told once, quietly, by the router ("✅ בוצע · חזר לתקין")
+async function reportRan() {
+  if (DRY) return;
+  let router = null; try { router = await import("./alert.mjs"); } catch {}
+  if (router) console.log("error alert closed:", await router.resolve(["seo:error"]));
+}
 async function direct(text, silent) {
   const tok = process.env.TELEGRAM_BOT_TOKEN, chat = process.env.TELEGRAM_CHAT_ID;
   const r = await fetch(`https://api.telegram.org/bot${tok}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },
@@ -104,6 +110,7 @@ try {
   const end = addDays(iso(new Date()), -1), start = addDays(end, -20);
   const days = (await q({ startDate: start, endDate: end, dimensions: ["date"] })).map(r => ({ d: r.keys[0], c: r.clicks, i: r.impressions, p: r.position })).sort((a, b) => a.d.localeCompare(b.d));
   if (!days.length) {
+    await reportRan();
     const ok = await sendDigest(msg({ kind: "info", area: "seo", title: "📈 לוחית בגוגל: עדיין אין נתוני חיפוש", text: "גוגל מתחיל להציג חשיפות אחרי כמה ימים מהגשת מפת האתר, והנתונים מתעכבים בכ-2 עד 3 ימים. אעדכן כשיופיעו." }), true, "seo:nodata");
     process.exit(WEEKLY && !ok ? 1 : 0);   // a weekly report that was not delivered fails the run (and its state is not saved), as SEO tracker did
   }
@@ -152,6 +159,7 @@ try {
     lines.push("", "<i>הופעה = האתר הוצג למישהו בתוצאות. כניסה = הוא לחץ עליו. עמוד ראשון בגוגל = מקומות 1 עד 10.</i>");
   }
   lines.push("", todo());
+  await reportRan();
   const ok = await sendDigest(lines.join("\n"), true);
   process.exit(ok ? 0 : 1);
 } catch (e) {
