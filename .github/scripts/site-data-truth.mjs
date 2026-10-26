@@ -113,6 +113,21 @@ async function send(v, links) {
   return !!(r && r.delivered);
 }
 
+// a clean run closes the truth items still open from an earlier run and says so once, silently (Dudu 25.10: a bot reports what it fixed);
+// the weekly invariants keep their own items
+export const openTruth = s => Object.entries((s && s.items) || {}).filter(([k, it]) => it && it.open && /^truth:(?!inv|done)/.test(k)).map(([k]) => k);
+async function closeOpen(r, day, links) {
+  if (IO.env.DRY_RUN === "1") return;
+  let router = null; try { router = await import("./alert.mjs"); } catch { return; }
+  const keys = openTruth(await router.readState());
+  if (!keys.length || !(await router.resolve(keys))) return;
+  const was = keys.map(k => router.label(k).he.replace(/^[^:]*: /, "")).join(", ");
+  const text = msg({ kind: "done", area: "data", title: "הפער בבדיקת הנתונים כבר לא חוזר",
+    text: `בבדיקה של ${day} נבדקו ${r.cars} רכבים, והכול תאם את משרד התחבורה. הפער שדווח קודם (${was}) נסגר.` });
+  IO.out(`closed ${keys.join(", ")}`);
+  await router.alert("summary", "truth:done", text, links, { today: "silent", legacy: () => telegram(text, true) });
+}
+
 function runAudit(queries, file) {
   return new Promise(res => {
     const fd = fs.openSync(file, "w");
@@ -141,8 +156,8 @@ async function main() {
   const hard = Object.entries(r.fields).filter(([f, [, bad]]) => bad > 0 && !SOFT.has(f)).reduce((s, [, [, bad]]) => s + bad, 0);
   fs.writeFileSync("out/history.json", JSON.stringify(addDay(hist, { d: day, seed, cars: r.cars, sampled: r.sampled, mism: r.mism, hard, f: Object.fromEntries(Object.entries(r.fields).filter(([, [, bad]]) => bad)) })));
   const v = verdict(r, day);
-  if (!v) { IO.out("every field that has to match did"); return 0; }
   const links = [IO.env.RUN_URL, LATEST_URL].filter(Boolean);
+  if (!v) { IO.out("every field that has to match did"); await closeOpen(r, day, links); return 0; }
   return (await send(v, links)) ? 0 : 1;
 }
 
@@ -173,6 +188,8 @@ async function selftest() {
     ok(/תג נכה/.test(label(v.key).he) && !/^התראה:/.test(label("truth:fail").he), "the router has labels for them: " + label(v.key).he); }
   catch (e) { ok(false, "alert.mjs import: " + e.message); }
   ok(verdict(parse(fake.replace("12 cars audited", "3 cars audited")), "x").key === "truth:fail", "too few cars -> truth:fail");
+  ok(openTruth({ items: { "truth:specs": { open: true }, "truth:fail": { open: true }, "truth:inv:fresh": { open: true }, "truth:done": { open: true }, "truth:page": { open: false }, "smoke:x": { open: true } } }).join() === "truth:specs,truth:fail",
+    "a clean run closes the open daily items only");
   ok(verdict(parse(fake.replace(/mismatched=1/g, "mismatched=0")), "x") === null, "nothing to say when every field matched");
   const h = addDay({ v: 1, days: Array.from({ length: 130 }, (_, i) => ({ d: `2026-0${1 + Math.floor(i / 28)}-${String(1 + i % 28).padStart(2, "0")}` })) }, { d: "2026-10-21" });
   ok(h.days.length === KEEP_DAYS && h.days.at(-1).d === "2026-10-21", "history keeps the last 120 days");
