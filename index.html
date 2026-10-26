@@ -696,6 +696,8 @@ body:not(:has(.sharebar)):not(.kb) .snack{bottom:calc(76px + env(safe-area-inset
 @media (min-width:1000px){
   html.web .bnav{top:0;bottom:auto;border-top:0;border-bottom:1px solid var(--line);padding-bottom:0}
   html.web .bnav-in{max-width:1080px;padding-inline:16px;display:flex;align-items:stretch;gap:4px;height:60px}
+  /* the home page without saved cars is one 680px column: the tabs sit over it, not 200px past its edge */
+  html.web body[data-screen=home]:not(:has(#out > .hrail)) .bnav-in{max-width:680px}
   html.web .bnav button{flex-direction:row;gap:7px;min-height:0;padding:0 14px;font-size:.95rem;border-bottom:3px solid transparent;border-radius:0;cursor:pointer}
   html.web .bnav button:hover{color:var(--fg)}
   html.web .bnav .bn-i,html.web .bnav button[aria-current=page] .bn-i{width:auto;height:auto;background:none}
