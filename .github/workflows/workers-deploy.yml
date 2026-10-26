@@ -112,7 +112,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BREVO_API_KEY: ${{ secrets.BREVO_API_KEY || secrets.BREVO_KEY }}   # the router's email path for a loud alert
-          # REVIEWS_SA_JSON joins here when luchit-reviews is switched to deploy: main (until then nothing needs it)
+          REVIEWS_SA_JSON: ${{ secrets.REVIEWS_SA_JSON }}   # copied once into luchit-reviews (Play "Reply to reviews" only)
           ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           RESULT_FILE: ${{ runner.temp }}/workers-deploy.json
