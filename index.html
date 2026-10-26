@@ -427,7 +427,8 @@ button.cf-tile{cursor:pointer}
 .cf-quick button{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:14px;padding:12px 4px;min-height:64px;display:grid;justify-items:center;align-content:center;gap:6px;font:inherit;font-size:.85rem;font-weight:700;cursor:pointer}
 .cf-quick button[aria-expanded="true"]{border-color:var(--accent)}
 .cf-quick .i{width:22px;height:22px;color:var(--accent)}
-@media (max-width:359px){.cf-quick button{font-size:.78rem;padding-inline:2px}}   /* "קבלה או מסמך" stays on one line on a 320px phone, also before the font has loaded */
+.cf-quick .cfq-s{display:none}
+@media (max-width:359px){.cf-quick button{font-size:.78rem;padding-inline:2px}.cf-quick .cfq-l{display:none}.cf-quick .cfq-s{display:inline}}   /* one line on a 320px phone in any font: "קבלה או מסמך" says "מסמך" there */
 .cf-form{background:var(--card);border-radius:14px;padding:12px 14px 14px;margin-top:0;box-shadow:var(--shadow)}
 .cf-chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 0 6px;padding-bottom:2px}
 .cf-chips button{flex:0 0 auto;border:1px solid var(--line);background:none;color:var(--muted);border-radius:999px;padding:6px 10px;min-height:40px;font:inherit;font-size:.85rem;font-weight:700;cursor:pointer}
@@ -773,6 +774,7 @@ body:has(.sharebar) .snack{bottom:calc(12px + env(safe-area-inset-bottom,0px))}
   html.web .bnav .bn-go:hover{filter:brightness(1.1)}
   html.web .bnav .bn-go svg.i{width:21px;height:21px;stroke-width:2.6}
   html.web body:not(.land):not(:has(.sharebar)){padding-top:60px}
+  html.web body.kb:not(.land):not(:has(.sharebar)) .bnav{display:block}   /* a bar at the top is in no keyboard's way, and on a car it holds the plate field being typed in (an iPad on its side) */
   html.web main,html.web footer{padding-bottom:24px}html.web body:has(.cfab) > footer{padding-bottom:24px}
   html.web .chead{top:60px}
   html.web .chead .ch-b:has(.ch-l){width:auto;height:40px;margin-inline:4px;padding:0 14px 0 12px;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--card);font-weight:800;font-size:.9rem}
@@ -1181,9 +1183,13 @@ function lookupFacts(D) {
 /* app: Firebase. web: the same events go to our own /api/e (luchit-api Worker -> GA4 web stream), no cookies, no stored id; the Worker drops anything that looks like a plate.
    The app sends every value as text: a number reached Firebase as a long, and GA4's text dimensions showed it empty (own, on, n, km...). */
 const appParams = p => { const o = {}; for (const [k, v] of Object.entries(p || {})) o[k] = typeof v === "boolean" ? (v ? "1" : "0") : typeof v === "number" ? String(v) : v; return o; };
+// the website offline: an event waits for the network instead of a sendBeacon that is lost on the way (the app's Firebase keeps its own queue)
+const trackQ = [];
 const track = (name, params) => { try { if (!analyticsOn()) return; const b = window.AndroidApp; if (b) { if (b.logEvent) b.logEvent(name, JSON.stringify(appParams(params))); return; }
   if (document.prerendering) { document.addEventListener("prerenderingchange", () => track(name, params), {once: true}); return; }   // a page Chrome loaded ahead counts only once it is opened
+  if (navigator.onLine === false) { if (trackQ.length < 30) trackQ.push([name, params]); return; }
   if (location.protocol === "https:" && navigator.sendBeacon) navigator.sendBeacon("/api/e", new Blob([JSON.stringify({n: name, p: {src: LAND, ...landCamp(), ...(params || {})}, cid: WEB_CID})], {type: "text/plain"})); } catch {} };
+addEventListener("online", () => { for (const [n, p] of trackQ.splice(0)) track(n, p); });
 // the topic of the tagged link this visit came by (luchit.app/go/fb?c=market → camp "market"), kept with the campaign for the visit (FT), so the
 // live dashboard counts visits and car checks per post; nothing for a visit that came another way
 function landCamp() { try { return FT && FT.c && srcName(FT.s) === LAND ? {camp: FT.c} : {}; } catch { return {}; } }
@@ -3158,19 +3164,21 @@ function renderResult(){
   // Off the road, and a test that ended in the simple view (the full view says it in the overview cards): banners above everything else
   if (D.isCancelled) html.push(`<div class="alert-banner" role="alert">${ico("alert")}<span><b>הרכב ירד מהכביש</b>הרכב בוטל סופית${empty(v.bitul_dt) ? "" : " ב-" + esc(fmtDate(v.bitul_dt))} ואינו יכול לנסוע.</span></div>`);
   else if (simpleOn()) { const ln = licNote(L); if (ln) html.push(`<div class="alert-banner${ln.level === "bad" ? "" : " warn"}" role="${ln.level === "bad" ? "alert" : "status"}">${ico("alert")}<span><b>${esc(ln.title)}</b>${esc(ln.text)}</span></div>`); }
+  // a banner that leads to the recalls tab is a button on the other tabs; on the recalls tab it only says it (a press would change nothing)
+  const toRecalls = (cls, inner) => currentTab === "recalls" ? `<div class="${cls}">${inner}</div>` : `<button type="button" class="${cls}" data-tab="recalls">${inner}</button>`;
   // An open recall is the one thing that must never be missed: banner above the tabs
   if (D.recalls.length) {
-    html.push(`<button type="button" class="alert-banner" data-tab="recalls">${ico("alert")}<span><b>${D.recalls.length === 1 ? "לרכב יש ריקול פתוח" : `לרכב ${D.recalls.length} ריקולים פתוחים`}</b>לפי משרד התחבורה. ריקול שלא מתוקן עלול למנוע בהמשך חידוש רישיון. התיקון ניתן בדרך כלל ללא עלות אצל היבואן של הרכב.</span></button>`);
+    html.push(toRecalls("alert-banner", `${ico("alert")}<span><b>${D.recalls.length === 1 ? "לרכב יש ריקול פתוח" : `לרכב ${D.recalls.length} ריקולים פתוחים`}</b>לפי משרד התחבורה. ריקול שלא מתוקן עלול למנוע בהמשך חידוש רישיון. התיקון ניתן בדרך כלל ללא עלות אצל היבואן של הרכב.</span>`));
   }
   // a model recall that may include this car while the ministry's per-car list cannot say whether it does (pendingRecalls): a banner to the
   // recalls tab when the car has one, else the checked line turns amber and opens in place; a car off the road has the red banner above
   // and keeps these in its recalls tab, without a second banner
   const fr = D.isCancelled ? [] : pendingRecalls(D), recTab = recTabOf(D);
-  if (fr.length && recTab) { const pw = pendingWords(fr); html.push(`<button type="button" class="alert-banner warn" data-tab="recalls">${ico("alert")}<span><b>${pw.title}</b>${pw.body}</span></button>`); }
+  if (fr.length && recTab) { const pw = pendingWords(fr); html.push(toRecalls("alert-banner warn", `${ico("alert")}<span><b>${pw.title}</b>${pw.body}</span>`)); }
 
   if (D.kind !== "model" && !D.isCancelled) {
     const stl = settlementsFor(D);
-    if (stl.length) html.push(`<button type="button" class="alert-banner warn" data-tab="recalls">${ico("scale")}<span><b>${stl.length === 1 ? "ייתכן שמגיעה הטבה מהסדר פשרה" : `ייתכן שמגיעות ${stl.length} הטבות מהסדרי פשרה`}</b>ההטבה תלויה בהתאמה לרכב שלכם. הפרטים בלשונית ${recTab}.</span></button>`);
+    if (stl.length) html.push(toRecalls("alert-banner warn", `${ico("scale")}<span><b>${stl.length === 1 ? "ייתכן שמגיעה הטבה מהסדר פשרה" : `ייתכן שמגיעות ${stl.length} הטבות מהסדרי פשרה`}</b>ההטבה תלויה בהתאמה לרכב שלכם. הפרטים ${currentTab === "recalls" ? "בהמשך" : `בלשונית ${recTab}`}.</span>`));
   }
   if (D.recallUnknown) html.push(`<div class="msg err"><b>מידע על ריקולים לא זמין כרגע.</b> ${D.recallEmpty ? "רשימת הריקולים של משרד התחבורה מתעדכנת כרגע" : "מאגר הריקולים של משרד התחבורה לא ענה"}, ולכן אי אפשר לדעת אם יש ריקול פתוח לרכב. אל תסיקו מכך שאין. נסו שוב ${D.recallEmpty ? "מאוחר יותר" : "בעוד דקה"}, או בדקו באתר היבואן.${D.kind !== "model" && !recTab ? `<div style="margin-top:10px">${importerBtn(D)}</div>` : ""}</div>`);
   // the simple view has its own "open recalls" row, so it gets the line only when the line asks for something
@@ -3845,7 +3853,7 @@ function tabFile(D){
   html.push(`<div class="cf-top"><p>הכול נשמר רק ${HERE}</p></div>`);   // the road documents open from the header's "מסמכים"
   html.push(fileTiles(D, n, est));
   html.push(fileNext(D, info, n, est));
-  html.push(`<div class="cf-quick"><button type="button" ${maintOk() ? `data-cf="svc" aria-expanded="false"` : `data-act="proInfo"`}>${ico("wrench")}טיפול</button><button type="button" data-cf="doc">${ico("camera")}קבלה או מסמך</button><button type="button" ${maintOk() ? `data-cf="km" aria-expanded="false"` : `data-act="proInfo"`}>${ico("chart")}עדכון ק״מ</button></div>${maintOk() ? svcForm() : ""}`);
+  html.push(`<div class="cf-quick"><button type="button" ${maintOk() ? `data-cf="svc" aria-expanded="false"` : `data-act="proInfo"`}>${ico("wrench")}טיפול</button><button type="button" data-cf="doc">${ico("camera")}<span class="cfq-l">קבלה או מסמך</span><span class="cfq-s">מסמך</span></button><button type="button" ${maintOk() ? `data-cf="km" aria-expanded="false"` : `data-act="proInfo"`}>${ico("chart")}עדכון ק״מ</button></div>${maintOk() ? svcForm() : ""}`);
   // the owner has no buy tab: today's value estimate, one line
   if (D.cost && D.cost.valueLow && D.cost.valueHigh) html.push(`<div class="cf-val"><span>שווי היום (הערכה)</span><b><span dir="ltr" style="unicode-bidi:isolate;white-space:nowrap">${Math.round(D.cost.valueLow / 1000)}–${Math.round(D.cost.valueHigh / 1000)}</span> אלף ₪</b><small>לפי מחיר מחירון, שנה וק״מ, בלי מצב הרכב ותאונות.</small></div>`);
   html.push(card("היסטוריה", "rotate", "violet", `<div id="cfHist">${fileHist(D, cfDocs)}</div>`));
@@ -5221,7 +5229,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "diffOnly") { diffOnly = !diffOnly; try { localStorage.setItem("cmpDiffOnly", diffOnly ? "1" : ""); } catch {} renderCompare(); return; }
   if (b.dataset.act === "land") { setLand(!land); return; }
   if (!current) return;
-  if (b.dataset.tab) { currentTab = b.dataset.tab; track("tab_view", {tab: b.dataset.tab, own: current && current.plate && isSaved(current.plate) ? 1 : 0, role: roleOf(current)}); renderResult(); focusResult(); $("#out").classList.add("rise"); setTimeout(() => $("#out").classList.remove("rise"), 300); const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"}); return; }
+  if (b.dataset.tab) { const again = currentTab === b.dataset.tab; currentTab = b.dataset.tab; if (!again) track("tab_view", {tab: b.dataset.tab, own: current && current.plate && isSaved(current.plate) ? 1 : 0, role: roleOf(current)}); renderResult(); focusResult(); $("#out").classList.add("rise"); setTimeout(() => $("#out").classList.remove("rise"), 300); const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"}); return; }
   const act = b.dataset.act;
   if (act === "share") { track("share_open");   // the sheet opening; track("share") counts only a choice in it
     $("#shareMsg").textContent = ""; $("[data-share=bizpdf]").hidden = !(PRO_LOCK && isBiz()); $("#shareSheet").hidden = false; shareWarm = {}; warmShare(); }
@@ -6250,7 +6258,8 @@ function leaveCar(){
 document.getElementById("bnav").addEventListener("click", ev => { const b = ev.target.closest("[data-nav]"); if (b) navTo(b.dataset.nav); });
 document.querySelector("#bnav .bn-brand").addEventListener("click", ev => { ev.preventDefault(); goHome(); });
 $("#bnF").addEventListener("submit", ev => { ev.preventDefault(); const v = $("#bnPlate").value; if (!v.replace(/\D/g, "")) { $("#bnPlate").focus(); return; } $("#bnPlate").value = ""; $("#bnPlate").blur(); run(v); });
-// the keyboard covers the bottom of the screen: the bar steps aside while a field has focus
+// the keyboard covers the bottom of the screen: the bar steps aside while a field has focus on a touch screen, and on any screen that the
+// keyboard shrinks (below: a phone whose main pointer reads as fine, as some Android 12 WebViews do, a stylus or a mouse plugged in)
 const touchKb = () => { try { return matchMedia("(pointer: coarse)").matches; } catch { return true; } };
 const KB_FIELD = "input:not([type=checkbox]):not([type=radio]):not([type=file]),textarea,select";
 const typing = () => { const a = document.activeElement; return !!(a && a.matches && a.matches(KB_FIELD)); };
@@ -6261,8 +6270,9 @@ document.addEventListener("focusout", () => setTimeout(() => { if (!typing()) do
 {
   let w = 0, full = 0, prev = 0;
   const vh = () => window.visualViewport && visualViewport.scale < 1.05 ? visualViewport.height : innerHeight;
+  // a screen that loses more than 150px of height while a field has focus is a keyboard on any device (a desktop window does not shrink
+  // when a field is clicked), so this needs no touch screen
   const onSize = () => {
-    if (!touchKb()) return;
     const h = vh();
     if (innerWidth !== w) { w = innerWidth; full = h; prev = h; }
     if (h > full) full = h;

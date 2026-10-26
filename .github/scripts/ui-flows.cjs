@@ -83,11 +83,15 @@ const UA = {
   tablet: "Mozilla/5.0 (iPad; CPU OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1",
   desk: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
 };
+// two devices for one journey each: a phone whose main pointer reads as fine (some Android 12 WebViews, a stylus, a mouse plugged in), whose
+// keyboard must still move the bottom bar aside, and an iPad on its side (the website's bar at the top, a touch screen)
+const PEN = { id: "app-360-pen", ua: "app", w: 360, h: 780, touch: false, only: ["keyboard"] };
 const DEVICES = QUICK
-  ? [{ id: "app-360", ua: "app", w: 360, h: 780 }, { id: "web-390", ua: "phone", w: 390, h: 760 }, { id: "web-1280", ua: "desk", w: 1280, h: 860 }]
+  ? [{ id: "app-360", ua: "app", w: 360, h: 780 }, { id: "web-390", ua: "phone", w: 390, h: 760 }, { id: "web-1280", ua: "desk", w: 1280, h: 860 }, PEN]
   : [{ id: "app-320", ua: "app", w: 320, h: 640 }, { id: "app-360", ua: "app", w: 360, h: 780 }, { id: "app-412", ua: "app", w: 412, h: 860 },
      { id: "web-320", ua: "phone", w: 320, h: 568 }, { id: "web-390", ua: "phone", w: 390, h: 760 }, { id: "android-360", ua: "android", w: 360, h: 760 },
-     { id: "web-768", ua: "tablet", w: 768, h: 1024 }, { id: "web-1024", ua: "desk", w: 1024, h: 768 }, { id: "web-1280", ua: "desk", w: 1280, h: 860 }, { id: "web-1440", ua: "desk", w: 1440, h: 900 }];
+     { id: "web-768", ua: "tablet", w: 768, h: 1024 }, { id: "web-1024", ua: "desk", w: 1024, h: 768 }, { id: "web-1280", ua: "desk", w: 1280, h: 860 }, { id: "web-1440", ua: "desk", w: 1440, h: 900 },
+     PEN, { id: "web-1180-touch", ua: "tablet", w: 1180, h: 820, mobile: false, touch: true, only: ["bar-field"] }];
 const THEMES = QUICK ? ["light"] : ["light", "dark"];
 
 // ---- findings
@@ -342,6 +346,13 @@ const JOURNEYS = [
     ["check", async (p, c) => { await p.press("#plate", "Enter"); await p.setViewportSize({ width: c.dev.w, height: c.dev.h }); await p.evaluate(() => document.activeElement && document.activeElement.blur()); await settle(p); }, isCar()],
     ["bar-back", null, (m) => !!m.nav || "the bottom bar did not come back after the keyboard closed"],
   ] },
+  // the website on an iPad on its side: the bar is at the top and holds a plate field on a car; typing in it keeps the bar (and the field)
+  // on screen, a touch screen or not
+  { name: "bar-field", web: true, once: true, devOnly: true, steps: [
+    ["check", check(), isCar()],
+    ["bar-field", async (p) => { await p.click("#bnPlate"); await p.waitForTimeout(150); }, (m) => !!m.nav && m.focus === "bnPlate" || `typing in the top bar's plate field hides the bar with the field in it (bar ${m.nav ? "shown" : "hidden"}, focus ${m.focus})`],
+    ["bar-check", async (p) => { await p.fill("#bnPlate", "7654321"); await p.press("#bnPlate", "Enter"); await settle(p); }, isCar("7654321")],
+  ] },
 ];
 // the keyboard is open: the field has the focus and is in view with its button, and the bottom bar is out of the way
 const kbView = async (c) => {
@@ -349,7 +360,7 @@ const kbView = async (c) => {
   if (k.focus !== "plate") return `the plate field lost the focus when the keyboard opened (focus ${k.focus})`;
   if (!k.plate || k.plate[0] < 0 || k.plate[1] > k.h) return `the plate field is not in view above the keyboard (field ${k.plate}, visible height ${k.h})`;
   if (!k.go || k.go[0] < 0 || k.go[1] > k.h) return `the check button is not in view above the keyboard (button ${k.go}, visible height ${k.h})`;
-  if (k.nav !== null && k.nav < k.go[1]) return `the bottom bar rides up over the plate field with the keyboard open (bar top ${k.nav}, button bottom ${k.go[1]})`;
+  if (k.nav !== null) return k.nav < k.go[1] ? `the bottom bar rides up over the plate field with the keyboard open (bar top ${k.nav}, button bottom ${k.go[1]})` : `the bottom bar rides on top of the keyboard instead of stepping aside while typing (bar top ${k.nav}, visible height ${k.h})`;
   return true;
 };
 
@@ -415,7 +426,7 @@ const signature = (page) => page.evaluate(() => {
 // in the app; window.__fx counts what a press can do outside the page (a share, a copy, a new window, a call to the app)
 async function openCtx(browser, dev, theme, stateName, gov) {
   const app = dev.ua === "app";
-  const ctx = await browser.newContext({ viewport: { width: dev.w, height: dev.h }, deviceScaleFactor: 1, isMobile: dev.w < 900, hasTouch: dev.w < 900, colorScheme: theme, locale: "he-IL", userAgent: UA[dev.ua] });
+  const ctx = await browser.newContext({ viewport: { width: dev.w, height: dev.h }, deviceScaleFactor: 1, isMobile: dev.mobile ?? dev.w < 900, hasTouch: dev.touch ?? dev.w < 900, colorScheme: theme, locale: "he-IL", userAgent: UA[dev.ua] });
   await ctx.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (r) => r.abort());
   const net = { offline: false };   // a mocked answer would still arrive with the context offline, so the mock stops answering too
   await ctx.route(/data\.gov\.il/, (r) => (net.offline ? r.abort("internetdisconnected") : govRoute(r, gov)));
@@ -584,7 +595,7 @@ async function runSweep(browser, dev, stateName, S) {
   await ctx.close();
 }
 
-module.exports = { findings, add, measure, judgeStep, judgeRun, govRoute, JOURNEYS, STATES, RECS, nav, tap, tapIf, check, settle, isCar, back };
+module.exports = { findings, add, measure, judgeStep, judgeRun, govRoute, JOURNEYS, STATES, RECS, UA, BRIDGE, QUIET_BRIDGE, nav, tap, tapIf, check, settle, isCar, back };
 
 if (require.main === module) (async () => {
   const { chromium } = require("playwright");
@@ -598,6 +609,7 @@ if (require.main === module) (async () => {
     if (J.only ? st !== J.only : (J.once && st !== "one") || (st === "owner" && J.name !== "tour")) continue;
     if (J.web && dev.ua === "app") continue;
     if (J.app && dev.ua !== "app") continue;
+    if (dev.only ? !dev.only.includes(J.name) : J.devOnly) continue;   // a device for one journey, a journey for its own device
     if (th === "dark" && !/^(tour|check|saved|owner)$/.test(J.name)) continue;   // dark: the screens themselves, not every path again
     const key = `${J.name}/${st}/${dev.id}/${th}`; if (FILTER && !FILTER.test(key)) continue;
     jobs.push(() => runJourney(browser, dev, th, st, J).catch((e) => add("block", "error", key, "-", "run crashed: " + e.message.slice(0, 160))));

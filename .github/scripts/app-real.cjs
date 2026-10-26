@@ -3,15 +3,16 @@
 // the page, with ui-flows' fixtures, journeys and rules. What only the phone shows:
 //   - the phone's font size (the WebView's text zoom follows it, 100% to 200%) and display size (411, 360, 320 dp wide), turned on its side
 //   - the system bars: the page sits between them and the bars match it, light and dark, with their icons visible
-//   - the keyboard: the plate field and its button stay in view above it, and the bottom bar returns when Back closes it
+//   - the keyboard: the plate field and its button stay in view above it, the bottom bar steps aside, and returns when Back closes it
 //   - Back (key or gesture) through the screens, and at home the app goes to the background instead of closing
 //   - a dark phone: no white flash while the app opens, and "לפי המכשיר" follows the phone, also when it turns dark with the app open
 //   - the ways in from outside the page: a launcher shortcut, a tapped alert (warm, and cold without a network), a shared text, a
 //     luchit.app link to a car or a comparison
 // The registry is mocked (example plates only), every other address outside the app is cut, as in the browser runs.
 // Blocking (exit 1): the app crashing or not responding, page errors, a step on the wrong screen, sideways scroll, anything past the
-// screen edge, the bottom bar moving or growing, a way in that does not reach its screen, the page under a system bar, invisible bar
-// icons, "לפי המכשיר" against the phone. The emulator itself stopping is not the app's fault: exit 2, with what was found until then.
+// screen edge, the bottom bar moving or growing or riding on the keyboard, a way in that does not reach its screen, the page under a system
+// bar, invisible bar icons, "לפי המכשיר" against the phone. The emulator itself stopping is not the app's fault: exit 2, with what was
+// found until then, and a file "gone" beside the findings (app-guardian.yml then runs the phone setting once more on a new emulator).
 // Usage (inside the emulator, app-guardian.yml): node .github/scripts/app-real.cjs --apk <apk> [--out <dir>] [--scenario <id>] [--quick] [--label <api>]
 const fs = require("node:fs"), path = require("node:path"), { spawnSync } = require("node:child_process");
 const { _android: android } = require("playwright");
@@ -214,16 +215,25 @@ function saveShot(png, name) {
   fs.writeFileSync(path.join(OUT, "shots", name.replace(/[^\w.-]+/g, "_") + ".png"), PNG.sync.write(o));
 }
 // the page between the bars, the bars painted like the page next to them, and their icons visible
-// first = true: a status bar without icons is not judged yet, the caller looks again (the system redraws its bar after a font size change)
+// first = true: nothing is reported yet when something is off, the caller looks again ("again"). Under the emulator's software rendering
+// the screen can still show the WebView's previous frame while the bars already have the colours of the new one (a sheet opening), and
+// the system redraws its bar after a font size change
 function judgeBars(run, step, png, box, dark, first = false) {
-  if (!png || !box) { add("warn", "bars", run, step, "could not read the screen or the WebView's place on it"); return; }
+  if (!png || !box) { if (first) return "again"; add("warn", "bars", run, step, "could not read the screen or the WebView's place on it"); return; }
   const top = band(png, 0, box.t), bottom = band(png, box.b, png.height);
-  const pageTop = band(png, box.t + 1, box.t + 6), pageBottom = band(png, box.b - 6, box.b - 1);
-  if (first && top && top.marks < 0.002) return "again";
-  if (box.t < 40) add("block", "bars", run, step, `the page starts ${box.t}px from the top of the screen, under the status bar`);
-  if (top && top.marks < 0.002) add("block", "bars", run, step, `the status bar's icons cannot be seen (bar ${top.bg.join(",")})`);
-  if (top && pageTop && dist(top.bg, pageTop.bg) > 24) add("warn", "bars", run, step, `the status bar (${top.bg.join(",")}) does not match the top of the page (${pageTop.bg.join(",")})${dark ? " in dark" : ""}`);
-  if (bottom && png.height - box.b > 8 && pageBottom && dist(bottom.bg, pageBottom.bg) > 24) add("warn", "bars", run, step, `the navigation bar (${bottom.bg.join(",")}) does not match the bottom of the page (${pageBottom.bg.join(",")})${dark ? " in dark" : ""}`);
+  const pageTop = band(png, box.t + 1, box.t + 6), pageBottom = band(png, box.b - 6, box.b - 1), off = [];
+  if (box.t < 40) off.push(["block", `the page starts ${box.t}px from the top of the screen, under the status bar`]);
+  if (top && top.marks < 0.002) off.push(["block", `the status bar's icons cannot be seen (bar ${top.bg.join(",")})`]);
+  if (top && pageTop && dist(top.bg, pageTop.bg) > 24) off.push(["warn", `the status bar (${top.bg.join(",")}) does not match the top of the page (${pageTop.bg.join(",")})${dark ? " in dark" : ""}`]);
+  if (bottom && png.height - box.b > 8 && pageBottom && dist(bottom.bg, pageBottom.bg) > 24) off.push(["warn", `the navigation bar (${bottom.bg.join(",")}) does not match the bottom of the page (${pageBottom.bg.join(",")})${dark ? " in dark" : ""}`]);
+  if (first && off.length) return "again";
+  for (const [sev, msg] of off) add(sev, "bars", run, step, msg);
+}
+// a screenshot judged and kept: a first look that finds something off is taken again 1.5 s later, and only that one counts
+async function look(run, step, dark, name) {
+  let png = screencap();
+  if (judgeBars(run, step, png, webViewBox(), dark, true) === "again") { await sleep(1500); png = screencap(); judgeBars(run, step, png, webViewBox(), dark); }
+  saveShot(png, name);
 }
 
 // ---- Back as a finger gives it: when the keyboard is open the first press only closes it (every Android app), then the screen goes back
@@ -258,9 +268,7 @@ async function journey(page, sc, state, J, theme) {
     const key = `${sc.id}/${theme}/${m.screen}/${m.sheet || ""}`;
     if (!shotOnce.has(key) && !(await kbOpen(page, c))) {
       shotOnce.add(key);
-      let png = screencap(); const box = webViewBox();
-      if (judgeBars(run, name, png, box, theme === "dark", true) === "again") { await sleep(1500); png = screencap(); judgeBars(run, name, png, box, theme === "dark"); }
-      saveShot(png, `${sc.id}__${theme}__${m.screen}${m.sheet ? "-" + m.sheet : ""}__${J.name}-${name}`);
+      await look(run, name, theme === "dark", `${sc.id}__${theme}__${m.screen}${m.sheet ? "-" + m.sheet : ""}__${J.name}-${name}`);
     }
   }
   UF.judgeRun(run, seen, sc.dp);
@@ -330,17 +338,17 @@ async function phoneChecks(page, sc) {
   sh("settings put secure show_ime_with_hard_keyboard 1");
   const box = webViewBox(), r = await page.evaluate(() => { const e = document.getElementById("plate").getBoundingClientRect(); return { x: e.left + e.width / 2, y: e.top + e.height / 2, h: innerHeight, dpr: devicePixelRatio }; });
   if (box) { sh(`input tap ${Math.round(box.l + r.x * r.dpr)} ${Math.round(box.t + r.y * r.dpr)}`); await sleep(1500); }
-  const kb = () => page.evaluate(() => { const v = (id) => { const e = document.getElementById(id); if (!e) return null; const b = e.getBoundingClientRect(); return { top: Math.round(b.top), bottom: Math.round(b.bottom) }; }; const nav = document.getElementById("bnav"), on = nav && getComputedStyle(nav).display !== "none"; return { h: innerHeight, plate: v("plate"), go: v("go"), focus: document.activeElement && document.activeElement.id, nav: on ? Math.round(nav.getBoundingClientRect().top) : null }; });
+  const kb = () => page.evaluate(() => { const v = (id) => { const e = document.getElementById(id); if (!e) return null; const b = e.getBoundingClientRect(); return { top: Math.round(b.top), bottom: Math.round(b.bottom) }; }; const nav = document.getElementById("bnav"), on = nav && getComputedStyle(nav).display !== "none", mq = (q) => matchMedia(q).matches; return { h: innerHeight, plate: v("plate"), go: v("go"), focus: document.activeElement && document.activeElement.id, nav: on ? Math.round(nav.getBoundingClientRect().top) : null, kbClass: document.body.classList.contains("kb"), pointer: { coarse: mq("(pointer: coarse)"), anyCoarse: mq("(any-pointer: coarse)"), hoverNone: mq("(hover: none)"), touchPoints: navigator.maxTouchPoints } }; });
   const k = await kb();
   const kbUp = k.h < r.h - 100;
   if (!kbUp) add("warn", "keyboard", run, "keyboard", `the keyboard did not open over the plate field (page height ${r.h} → ${k.h}, focus ${k.focus})`);
   else {
     if (!k.plate || k.plate.bottom > k.h) add("block", "keyboard", run, "keyboard", `the plate field is under the keyboard (field bottom ${k.plate && k.plate.bottom}, visible height ${k.h})`);
     if (!k.go || k.go.bottom > k.h) add("block", "keyboard", run, "keyboard", `the check button is under the keyboard (button bottom ${k.go && k.go.bottom}, visible height ${k.h})`);
-    if (k.nav !== null && k.go && k.nav < k.go.bottom) add("block", "keyboard", run, "keyboard", `the bottom bar rides up over the plate field with the keyboard open (bar top ${k.nav}, button bottom ${k.go.bottom})`);
+    if (k.nav !== null) add("block", "keyboard", run, "keyboard", k.go && k.nav < k.go.bottom ? `the bottom bar rides up over the plate field with the keyboard open (bar top ${k.nav}, button bottom ${k.go.bottom})` : `the bottom bar rides on top of the keyboard instead of stepping aside while typing (bar top ${k.nav}, visible height ${k.h})`);
   }
   saveShot(screencap(), `${sc.id}__keyboard`);
-  meta.keyboard = { before: r.h, after: k.h };
+  meta.keyboard = { before: r.h, after: k.h, kbClass: k.kbClass, pointer: k.pointer };
   // Back closes only the keyboard; the field may keep its caret, but the bottom bar must come back with the full screen
   sh("input keyevent 4"); await sleep(900);
   const k2 = await kb();
@@ -379,15 +387,18 @@ async function darkChecks(sc) {
     const page = await launch();
     await prepare(page, "one", "auto");
     const d = await themeOf(page);
-    if (d.mq !== night || isDarkBg(d.bg) !== night) add("block", "theme", run, cur.step, `with "לפי המכשיר" and the phone ${night ? "dark" : "light"}, the page is ${isDarkBg(d.bg) ? "dark" : "light"} (prefers-color-scheme: ${d.mq ? "dark" : "light"})`);
-    const png = screencap(); judgeBars(run, cur.step, png, webViewBox(), night); saveShot(png, `${sc.id}__auto-${night ? "dark" : "light"}`);
+    // what counts is the page's own look: an older WebView keeps prefers-color-scheme light on a dark phone (WebView 91 on Android 12),
+    // and the app tells the page itself (AndroidApp.systemDark); the media query is only recorded
+    (meta.autoTheme = meta.autoTheme || []).push({ phone: night ? "dark" : "light", page: isDarkBg(d.bg) ? "dark" : "light", mq: d.mq ? "dark" : "light" });
+    if (isDarkBg(d.bg) !== night) add("block", "theme", run, cur.step, `with "לפי המכשיר" and the phone ${night ? "dark" : "light"}, the page is ${isDarkBg(d.bg) ? "dark" : "light"} (prefers-color-scheme: ${d.mq ? "dark" : "light"})`);
+    await look(run, cur.step, night, `${sc.id}__auto-${night ? "dark" : "light"}`);
     // the phone turns dark with the app open: the page follows without a restart
     if (!night) {
       cur.step = "auto-live";
       sh("cmd uimode night yes"); await sleep(2500);
       const l = await themeOf(page).catch(() => null);
       if (!l || !isDarkBg(l.bg)) add("warn", "theme", run, "auto-live", `with "לפי המכשיר", the page stays light when the phone turns dark while the app is open (background ${l && l.bg})`);
-      else { const png2 = screencap(); judgeBars(run, "auto-live", png2, webViewBox(), true); saveShot(png2, `${sc.id}__auto-live-dark`); }
+      else await look(run, "auto-live", true, `${sc.id}__auto-live-dark`);
       sh("cmd uimode night no"); await sleep(1500);
     }
   }
@@ -422,6 +433,9 @@ function finish(line, code) {
   try { if (alive()) crashes(cur.run, cur.step); } catch {}
   fs.writeFileSync(path.join(OUT, "findings.json"), JSON.stringify(findings, null, 1));
   fs.writeFileSync(path.join(OUT, "meta.json"), JSON.stringify(meta, null, 1));
+  // for the workflow: exit (0 clean, 1 blocking findings, 2 not run to the end), and gone when the emulator stopped (it tries once more)
+  fs.writeFileSync(path.join(OUT, "exit"), String(code));
+  if (meta.gone) fs.writeFileSync(path.join(OUT, "gone"), meta.gone + "\n");
   process.exit(code);
 }
 

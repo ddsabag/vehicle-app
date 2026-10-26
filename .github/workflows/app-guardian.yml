@@ -5,7 +5,8 @@ name: App guardian (real app)
 # display size, the system bars, the keyboard, Back at home, a dark phone, the launcher shortcuts, a tapped alert, a shared ad and a
 # luchit.app link. Blocking findings fail the run. Findings and screenshots of the latest run: branch app-guard-out (one folder per
 # Android version and phone setting). Each phone setting runs on its own fresh emulator, in parallel: an emulator that stops (it happens
-# under software rendering) costs one setting, not the run. The registry is mocked with the example plates; nothing leaves the emulator.
+# under software rendering) gets one more try on a new emulator, and costs one setting, not the run, if it stops again. The registry is
+# mocked with the example plates; nothing leaves the emulator.
 on:
   pull_request:
     paths: ["index.html", "android/**", ".github/scripts/app-real.cjs", ".github/scripts/ui-flows.cjs", ".github/scripts/app-wiring.mjs", ".github/workflows/app-guardian.yml"]
@@ -91,8 +92,12 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      # the verdict is the last step's: a run that ends with the emulator stopped (app-real.cjs leaves a file "gone") is not the app's fault,
+      # it happens under software rendering, so the phone setting runs once more on a new emulator and only that run counts
       - name: The real app on the emulator
+        id: first
         if: ${{ !inputs.quick || matrix.scenario == '411-f100' }}
+        continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         env:
           DEBUG: pw:android   # one line each time the WebView is connected: where a dropped connection happened
@@ -105,6 +110,43 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot-save
           script: node .github/scripts/app-real.cjs --apk app-qa.apk --scenario ${{ matrix.scenario }} --out app-real/api${{ matrix.api }}/${{ matrix.scenario }} --label api${{ matrix.api }}-${{ matrix.scenario }} ${{ inputs.quick && '--quick' || '' }}
+      - name: Why the emulator stopped (the first run is kept beside the second)
+        id: gone
+        if: ${{ steps.first.outcome == 'failure' && hashFiles(format('app-real/api{0}/{1}/gone', matrix.api, matrix.scenario)) != '' }}
+        run: |
+          D="app-real/api${{ matrix.api }}/${{ matrix.scenario }}"
+          echo "::warning::(real app, API ${{ matrix.api }}) $(cat "$D/gone"): this phone setting runs again on a new emulator"
+          free -m
+          sudo dmesg 2>/dev/null | grep -iE "out of memory|killed process|oom|segfault|general protection|qemu|emulator" | tail -20 || true
+          mv "$D" "$D-first-try"
+          adb kill-server || true
+      - name: The real app on a new emulator
+        id: second
+        if: ${{ steps.gone.outcome == 'success' }}
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          DEBUG: pw:android
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 4096M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot-save
+          script: node .github/scripts/app-real.cjs --apk app-qa.apk --scenario ${{ matrix.scenario }} --out app-real/api${{ matrix.api }}/${{ matrix.scenario }} --label api${{ matrix.api }}-${{ matrix.scenario }} ${{ inputs.quick && '--quick' || '' }}
+      - name: Verdict
+        if: ${{ always() && (!inputs.quick || matrix.scenario == '411-f100') }}
+        run: |
+          D="app-real/api${{ matrix.api }}/${{ matrix.scenario }}"
+          CODE=$(cat "$D/exit" 2>/dev/null || echo none)
+          case "$CODE" in
+            0) echo "API ${{ matrix.api }}, ${{ matrix.scenario }}: clean${{ steps.gone.outcome == 'success' && ' (on a second emulator: the first one stopped)' || '' }}" ;;
+            1) echo "::error::(real app, API ${{ matrix.api }}) ${{ matrix.scenario }}: blocking findings, listed above and in $D/findings.json"; exit 1 ;;
+            2) if [ -f "$D/gone" ]; then echo "::error::(real app, API ${{ matrix.api }}) ${{ matrix.scenario }}: the emulator stopped on both tries, so this phone setting was not checked (not a finding about the app)"; else echo "::error::(real app, API ${{ matrix.api }}) ${{ matrix.scenario }}: the run crashed before its end (see the log above)"; fi; exit 1 ;;
+            *) echo "::error::(real app, API ${{ matrix.api }}) ${{ matrix.scenario }}: no result (the emulator did not start, or the run was cut)"; exit 1 ;;
+          esac
       - uses: actions/upload-artifact@v7
         if: ${{ always() && (!inputs.quick || matrix.scenario == '411-f100') }}
         with:

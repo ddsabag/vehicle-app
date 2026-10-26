@@ -15,6 +15,8 @@
 //      own pickers (styles.xml accent_light/accent_dark) from the page's --accent
 //  10. the WebViews and browsers people still have: :has() in a selector list with other selectors, color-mix() with a token outside
 //      @supports, and JavaScript an older engine lacks (each one breaks the page there without an error)
+//  11. the rules MainActivity.logEvent applies to the page's events (8 parameters, names, numbers under 10000, no 5 digits or @ in a
+//      text, 60 characters) are the ones analytics-flows.cjs walks the journeys with (its viaApp): a change in one is made in both
 // Warning: an AndroidApp method the page never calls.
 // Usage: node .github/scripts/app-wiring.mjs [repo root]
 import fs from "node:fs";
@@ -130,6 +132,15 @@ if (!/-keepclassmembers class \* \{\s*@android\.webkit\.JavascriptInterface <met
 const ox = html.match(/function openExternal\(url\)\{\s*if \(!\/\^\(([^)]+)\)\/i/);
 const allowed = (main.match(/"https"\.equals\(sch\) \|\| "http"\.equals\(sch\)[^;]*/) || [""])[0];
 if (ox) for (const s of ox[1].split("|").map((x) => x.replace(/[^a-z]/g, "")).flatMap((x) => (x === "https" ? ["http", "https"] : [x]))) if (!allowed.includes(`"${s}"`)) block(`openExternal lets ${s}: links through, which the app's openUrl refuses (the button would do nothing)`);
+
+// ---- the app's rules for an event, as analytics-flows.cjs reads them (viaApp): a new rule there or here moves both
+{
+  const le = (main.match(/public void logEvent\(String name, String json\) \{[\s\S]*?\n {12}\}/) || [""])[0];
+  const RULES = [[/name\.matches\("\[a-z\]\[a-z0-9_\]\{0,39\}"\)/, "an event name [a-z][a-z0-9_]{0,39}"], [/n\+\+ < 8\b/, "8 parameters"], [/k\.matches\("\[a-z\]\[a-z0-9_\]\{0,39\}"\)/, "a parameter name [a-z][a-z0-9_]{0,39}"],
+    [/Math\.abs\(lv\) < 10000/, "numbers under 10000"], [/replaceAll\("\[\^0-9\]", ""\)\.length\(\) >= 5 \|\| sv\.contains\("@"\)/, "no 5 digits or @ in a text"], [/Math\.min\(sv\.length\(\), 60\)/, "60 characters"]];
+  if (!le) block("MainActivity.logEvent was not found: analytics-flows.cjs checks the page's events against its rules");
+  else for (const [re, what] of RULES) if (!re.test(le)) block(`MainActivity.logEvent no longer reads as "${what}": change viaApp in analytics-flows.cjs to the new rule, and this check with it`);
+}
 
 // ---- one look: the colours the app draws before the page has (its window, its bars, its splash) are the page's own tokens
 const block_ = (sel) => { const i = html.indexOf(sel + "{"); return i < 0 ? "" : html.slice(i, html.indexOf("}", i)); };
