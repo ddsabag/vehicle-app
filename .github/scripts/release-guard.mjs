@@ -4,7 +4,8 @@
 //   base      the version most users had in the 14 days before D0, over those 14 days
 //   checks    car_lookup of that version, D0 to yesterday; under MIN_CHECKS (either side) nothing is judged ("אין מספיק נתונים")
 //   guardrails (rules file, "Day 1 / 3 / 7 after each app release"):
-//     compare   compare_open from the card or the menu under 3 per 100 checks
+//     compare   compare_open from the card or the menu under 3 per 100 checks (versions from 1.38 only: that entry arrived in 1.38, so an
+//               older version judged in its window, like 1.37 on 26.10, can only fail it)
 //     save      car_save per 100 checks down more than 30% against the base
 //     unsave    car_unsave over car_save above 45% (from 20 saves)
 //     silent    an event the base sent at a rate that predicts at least 5 now, at 0 in the new version (update_*: the newest version has
@@ -18,7 +19,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import { msg } from "./tg-text.mjs";
 
-export const MIN_USERS = 10, MIN_CHECKS = 100, DAYS = [1, 3, 7], BASE_DAYS = 14;
+export const MIN_USERS = 10, MIN_CHECKS = 100, DAYS = [1, 3, 7], BASE_DAYS = 14, COMPARE_FROM = "1.38";
 export const T = { compare: 3, saveDrop: 0.30, unsave: 0.45, unsaveMin: 20, silentMin: 5 };
 const J = s => { try { return JSON.parse(s); } catch { return null; } };
 const PROPERTY = (() => { try { return String(J(fs.readFileSync(new URL("../../analytics/ga4-admin.json", import.meta.url), "utf8")).property || ""); } catch { return ""; } })();
@@ -30,6 +31,7 @@ const gaDate = s => `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;   // G
 export const newer = (a, b) => { const x = String(a).split(".").map(Number), y = String(b).split(".").map(Number);
   for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d > 0; } return false; };
 const real = v => v && v !== "(not set)" && /^\d+(\.\d+)*$/.test(v);
+const atLeast = (v, m) => v === m || newer(v, m);
 const r1 = x => Math.round(x * 10) / 10;
 
 // the Hebrew names of events, from the dashboard's own list (worker/live/worker.js, const N), so a message never shows a bare event name
@@ -70,7 +72,7 @@ export function judge(S, today) {
     unsave: N.car_save ? Math.round((N.car_unsave || 0) / N.car_save * 100) : 0 };
   if (nc < MIN_CHECKS || bc < MIN_CHECKS) return { ...R, state: "thin" };
   const st = R.stats;
-  if (cmp / nc * 100 < T.compare) R.findings.push({ id: "compare", he: `השוואת רכבים מהכרטיס ומהתפריט: ${st.compare} לכל 100 בדיקות (הסף: 3)` });
+  if (atLeast(vn, COMPARE_FROM) && cmp / nc * 100 < T.compare) R.findings.push({ id: "compare", he: `השוואת רכבים מהכרטיס ומהתפריט: ${st.compare} לכל 100 בדיקות (הסף: 3)` });
   const sN = (N.car_save || 0) / nc, sB = (B.car_save || 0) / bc;
   if (sB > 0 && sN < sB * (1 - T.saveDrop)) R.findings.push({ id: "save", he: `שמירת רכב: ${st.save} לכל 100 בדיקות, לעומת ${st.baseSave} בגרסה ${prev} (ירידה של ${Math.round((1 - sN / sB) * 100)}%, הסף: 30%)` });
   if ((N.car_save || 0) >= T.unsaveMin && (N.car_unsave || 0) / N.car_save > T.unsave) R.findings.push({ id: "unsave", he: `הסרות רכב מול שמירות: ${st.unsave}% (הסף: 45%)` });
@@ -131,15 +133,15 @@ function selftest() {
   const fails = [], ok = (c, m) => { if (!c) fails.push(m); };
   const g = s => s.replace(/-/g, ""), days = (a, n) => Array.from({ length: n }, (_, i) => addDays(a, i));
   // 1.37 for weeks, 1.38 from 2026-10-28 (a tester on 10-24 with 1 user does not start it)
-  const mk = ({ save38 = 10, unsave38 = 2, cmp38 = 5, drop = [] } = {}) => {
+  const mk = ({ save38 = 10, unsave38 = 2, cmp38 = 5, drop = [], v = "1.38", b = "1.37" } = {}) => {
     const users = [], events = [], compare = [];
     for (const d of days("2026-10-01", 40)) {
-      if (d < "2026-11-06") users.push([g(d), "1.37", 60]), events.push([g(d), "1.37", "car_lookup", 100], [g(d), "1.37", "car_save", 10], [g(d), "1.37", "car_unsave", 2], [g(d), "1.37", "svc_add", 3], [g(d), "1.37", "update_prompt", 9]);
-      if (d === "2026-10-24") users.push([g(d), "1.38", 1]), events.push([g(d), "1.38", "car_lookup", 40]);
+      if (d < "2026-11-06") users.push([g(d), b, 60]), events.push([g(d), b, "car_lookup", 100], [g(d), b, "car_save", 10], [g(d), b, "car_unsave", 2], [g(d), b, "svc_add", 3], [g(d), b, "update_prompt", 9]);
+      if (d === "2026-10-24") users.push([g(d), v, 1]), events.push([g(d), v, "car_lookup", 40]);
       if (d >= "2026-10-28") {
-        users.push([g(d), "1.38", 30]); events.push([g(d), "1.38", "car_lookup", 60], [g(d), "1.38", "car_save", save38 * 0.6], [g(d), "1.38", "car_unsave", unsave38 * 0.6]);
-        if (!drop.includes("svc_add")) events.push([g(d), "1.38", "svc_add", 2]);
-        compare.push([g(d), "1.38", "card", cmp38 * 0.6 * 0.5], [g(d), "1.38", "menu", cmp38 * 0.6 * 0.5], [g(d), "1.38", "cars", 50]);
+        users.push([g(d), v, 30]); events.push([g(d), v, "car_lookup", 60], [g(d), v, "car_save", save38 * 0.6], [g(d), v, "car_unsave", unsave38 * 0.6]);
+        if (!drop.includes("svc_add")) events.push([g(d), v, "svc_add", 2]);
+        compare.push([g(d), v, "card", cmp38 * 0.6 * 0.5], [g(d), v, "menu", cmp38 * 0.6 * 0.5], [g(d), v, "cars", 50]);
       }
       users.push([g(d), "(not set)", 99]);
     }
@@ -151,6 +153,10 @@ function selftest() {
   R = judge(mk({ save38: 6, unsave38: 4, cmp38: 2, drop: ["svc_add"] }), "2026-11-05");
   ok(R.state === "find" && R.findings.map(f => f.id).join() === "compare,save,unsave,silent" && R.findings[3].events.join() === "svc_add", "all four guardrails " + JSON.stringify(R.findings));
   ok(judge(mk({ save38: 8 }), "2026-11-05").state === "ok", "a 20% drop in saves is inside the 30%");
+  ok(judge(mk({ cmp38: 0 }), "2026-10-30").findings.map(f => f.id).join() === "compare", "no compare at all in 1.38 is a finding");
+  R = judge(mk({ v: "1.37", b: "1.36", cmp38: 0 }), "2026-10-30");
+  ok(R.state === "ok" && R.vn === "1.37" && R.prev === "1.36", "1.37 has no compare entry on the card or in the menu, so the compare rule does not judge it " + JSON.stringify(R.findings));
+  ok(atLeast("1.38", "1.38") && atLeast("1.38.1", "1.38") && atLeast("1.40", "1.38") && !atLeast("1.37", "1.38") && !atLeast("1.37.9", "1.38"), "compare rule from 1.38");
   ok(judge(mk({ unsave38: 5 }), "2026-10-30").state === "ok", "unsave under 20 saves is not judged");
   const thin = mk(); thin.events = thin.events.filter(r => !(r[1] === "1.38" && r[2] === "car_lookup")).concat([[g("2026-10-28"), "1.38", "car_lookup", 50]]);
   ok(judge(thin, "2026-10-30").state === "thin", "under 100 checks: not judged");
