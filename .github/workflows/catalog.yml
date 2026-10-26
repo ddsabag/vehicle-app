@@ -51,6 +51,11 @@ jobs:
         run: node .github/scripts/recall-health.mjs
         env:
           OUT: cat-out
+          # a check with nothing for a person closes the open recall alert through the router (it tells the outcome once)
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
       - name: Telegram line when the recall check found a change
         if: ${{ hashFiles('cat-out/recall-alert.txt') != '' }}
         env:
@@ -62,8 +67,12 @@ jobs:
         run: |
           [ -n "$TELEGRAM_BOT_TOKEN" ] || { echo "no Telegram credentials"; exit 0; }
           # through the alert router: a 🔵/✅ line waits for the Sunday summary (silent now), the rest rings today; a direct send when the router does not take it
-          if grep -q '^<b>🔵\|^<b>✅' cat-out/recall-alert.txt; then lv=summary; td=silent; else lv=day; td=loud; fi
-          r=$(node .github/scripts/alert.mjs send "$lv" recalls --file cat-out/recall-alert.txt --today "$td" --link "$RUN_URL" || true); echo "$r"
+          # an information line (🔵) is not a problem: its own key, so it is not listed as an open problem in the morning ledger
+          if grep -q '^<b>🔵\|^<b>✅' cat-out/recall-alert.txt; then
+          r=$(node .github/scripts/alert.mjs send summary recalls:info --file cat-out/recall-alert.txt --today silent --link "$RUN_URL" || true)
+          else
+          r=$(node .github/scripts/alert.mjs send day recalls --file cat-out/recall-alert.txt --today loud --link "$RUN_URL" || true)
+          fi; echo "$r"
           if ! echo "$r" | grep -q '^ALERT_DONE'; then
           curl -s -o /dev/null -w "telegram %{http_code}\n" "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text@cat-out/recall-alert.txt" --data-urlencode "parse_mode=HTML" --data-urlencode "disable_notification=$(grep -q '^<b>🔵\|^<b>✅' cat-out/recall-alert.txt && echo true || echo false)" --data-urlencode "disable_web_page_preview=true"
           fi
