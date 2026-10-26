@@ -14,7 +14,10 @@
 // --no-fonts serves no font files: a first visit to the site on a slow line draws in the phone's own font (font-display:optional),
 // which is wider than Assistant, so a label that fits in Assistant can wrap there.
 // --engine webkit walks the journeys in Safari's engine instead of Chromium: nearly every phone that opens the website is an iPhone,
-// and every browser on an iPhone draws with WebKit.
+// and every browser on an iPhone draws with WebKit. Each run there gets a browser profile on disk, as Safari has: a test context that
+// keeps nothing (like a private window) refuses to store a file in the page's database, so a saved document would fail only here.
+// Every run starts as a person who has seen the iPhone sheet "לוחית במסך הבית" (shown once, after the first car saved on an iPhone):
+// it covers the page 0.9 s after that save, so it would block whatever the journey does next. "home-sheet" checks the sheet itself.
 // Usage: node .github/scripts/ui-flows.cjs [--quick] [--shots] [--no-sweep] [--no-fonts] [--engine chromium|webkit] [--filter <regex>] [--out <dir>]
 // The real app on an Android emulator (app-real.cjs) loads this file for the same fixtures, journeys and rules: run on its own, it tests
 // in the browser; required, it only hands them over.
@@ -203,7 +206,8 @@ const isCar = (plate) => (m, c) => m.screen === "car" && m.carPlate === (plate |
 const KEEP = { nick: "הרכב של אמא", svcKm: 70500, cost: 940, note: "רפידות קדמיות", km: 71200, ins: day(380), fuel: "7.45" };
 const KEEPS_ON = ["app-360", "web-390", "web-1280"];
 const PNG1 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";   // a photo of the policy (one pixel)
-const told = (p) => p.evaluate(() => (document.getElementById("toast") || {}).textContent || "");
+// what the page told during the step: the toasts it showed (it clears one after 2.2 s, sooner than a slow step ends) and the one on screen
+const told = (p) => p.evaluate(() => [...(window.__toasts || []), (document.getElementById("toast") || {}).textContent || ""].filter((t, i, a) => t && a.indexOf(t) === i).join(" | "));
 // opened again as a person opens it after closing it: the address without the screen (a car, a tab) it was on, so home
 const reopen = async (p, c) => {
   if (c.reopen) return c.reopen(p, c);
@@ -248,6 +252,17 @@ const JOURNEYS = [
     ["check", check("7654321"), (m) => m.screen === "car" && m.starOn && /נוסף/.test(m.snack) || `after "+" the car is saved and the snack bar offers ביטול (star ${m.starOn}, snack "${m.snack}")`],
     ["undo", tap("#snack [data-s=go]"), (m) => m.screen === "car" && m.carPlate === "7654321" && !m.starOn && !m.snack || `ביטול should leave the car page with the car not saved (star ${m.starOn}, snack "${m.snack}", ${m.screen})`],
     ["arrow", tap("#chead [data-act=back]"), (m) => m.screen === "cars" && !m.listed.includes("7654321") || `after ביטול the list should not have the car: ${m.screen} [${m.listed.join(",")}]`],
+  ] },
+  // the iPhone's website, the first car saved: the sheet on putting לוחית on the home screen opens once, a tap beside it closes it, and
+  // the page goes on (the other journeys start as a person who has seen it)
+  { name: "home-sheet", only: "one", web: true, when: (c) => c.dev.ua === "phone", ls: { homeSheet: null }, steps: [
+    ["check", check("7654321"), isCar("7654321")],
+    ["save", async (p) => { await tap("#chead [data-act=save]")(p); await p.waitForSelector("#homeSheet", { state: "visible", timeout: 3000 }).catch(() => {}); },
+      (m) => m.sheet === "homeSheet" && m.starOn || `the first car saved on an iPhone should open "לוחית במסך הבית" (sheet ${m.sheet}, star ${m.starOn})`],
+    ["beside", async (p) => p.locator("#homeSheet").click({ position: { x: 20, y: 20 }, timeout: 4000 }), (m) => !m.sheet && m.screen === "car" || `a tap beside the sheet should close it, got ${m.sheet || "no sheet"} on ${m.screen}`],
+    ["cars", nav("cars"), (m) => m.screen === "cars" && m.listed.includes("7654321") || `after the sheet הרכבים שלי should list the saved car, got ${m.screen} [${m.listed.join(",")}]`],
+    ["once", async (p) => { await tap('#out [data-open="7654321"]')(p); await settle(p); await tap("#chead [data-act=save]")(p); await tap("#chead [data-act=save]")(p); await p.waitForTimeout(1500); },
+      (m) => !m.sheet && m.starOn && m.carPlate === "7654321" || `the sheet opens once: the car saved again got ${m.sheet || "no sheet"} (star ${m.starOn}, ${m.screen} ${m.carPlate})`],
   ] },
   // "יש לכם כבר רכב? פתחו לו תיק" on home: the car checked next opens straight in its file, saved, and the line is gone
   { name: "file-door", when: (c) => c.state === "one", steps: [
@@ -487,17 +502,26 @@ const pageErr = (run, at) => (e) => {
 };
 // a browser context for one run: the network mocked (the registry answers from RECS), the data state in localStorage, the app's bridge
 // in the app; window.__fx counts what a press can do outside the page (a share, a copy, a new window, a call to the app)
-async function openCtx(browser, dev, theme, stateName, gov) {
+async function openCtx(browser, dev, theme, stateName, J) {
   const app = dev.ua === "app";
   // in Safari's engine a page the service worker controls sends its requests past Playwright's routes, so from the worker's first
   // claim the registry mock was gone and every lookup went to the real network (26.10, 3,135 findings): there the worker is left out
-  const ctx = await browser.newContext({ viewport: { width: dev.w, height: dev.h }, deviceScaleFactor: 1, isMobile: dev.mobile ?? dev.w < 900, hasTouch: dev.touch ?? dev.w < 900, colorScheme: theme, locale: "he-IL", userAgent: UA[dev.ua], ...(ENGINE === "webkit" ? { serviceWorkers: "block" } : {}) });
+  const opts = { viewport: { width: dev.w, height: dev.h }, deviceScaleFactor: 1, isMobile: dev.mobile ?? dev.w < 900, hasTouch: dev.touch ?? dev.w < 900, colorScheme: theme, locale: "he-IL", userAgent: UA[dev.ua], ...(ENGINE === "webkit" ? { serviceWorkers: "block" } : {}) };
+  let ctx;
+  if (ENGINE === "webkit") {   // a profile on disk, as Safari has (see the top of this file), removed when the run closes it
+    const dir = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "uf-webkit-"));
+    ctx = await require("playwright").webkit.launchPersistentContext(dir, opts);
+    const close = ctx.close.bind(ctx); ctx.close = async () => { await close(); fs.rmSync(dir, { recursive: true, force: true }); };
+  } else ctx = await browser.newContext(opts);
   await ctx.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (r) => r.abort());
   const net = { offline: false };   // a mocked answer would still arrive with the context offline, so the mock stops answering too
-  await ctx.route(/data\.gov\.il/, (r) => (net.offline ? r.abort("internetdisconnected") : govRoute(r, gov)));
+  await ctx.route(/data\.gov\.il/, (r) => (net.offline ? r.abort("internetdisconnected") : govRoute(r, J && J.gov)));
   await ctx.addInitScript(({ ls, app, bridge, quiet }) => {
-    // the data state is laid down on the context's first page only (a cookie marks it), so a reload keeps what a journey stored
-    try { if (!/(?:^|; )uf_seeded=1/.test(document.cookie)) { localStorage.setItem("analyticsOff", "1"); for (const [k, v] of Object.entries(ls)) localStorage.setItem(k, v); document.cookie = "uf_seeded=1; path=/"; } } catch {}
+    // the data state is laid down on the context's first page only (a cookie marks it), so a reload keeps what a journey stored; null takes a key out
+    try { if (!/(?:^|; )uf_seeded=1/.test(document.cookie)) { localStorage.setItem("analyticsOff", "1"); for (const [k, v] of Object.entries(ls)) v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); document.cookie = "uf_seeded=1; path=/"; } } catch {}
+    // every toast the page shows, for told(): the page clears each one after 2.2 s
+    window.__toasts = [];
+    document.addEventListener("DOMContentLoaded", () => { const t = document.getElementById("toast"); if (t) new MutationObserver(() => { const s = t.textContent.trim(); if (s && window.__toasts[window.__toasts.length - 1] !== s) window.__toasts.push(s); }).observe(t, { childList: true, characterData: true, subtree: true }); });
     window.__fx = 0; const fx = () => { window.__fx++; };
     window.__calls = [];
     if (app) window.AndroidApp = Object.fromEntries(bridge.map((n) => [n, (...a) => { window.__calls.push(n); if (!quiet.includes(n)) fx(); return n === "alertsState" ? "on" : n === "readClipboard" ? "" : n === "systemDark" ? matchMedia("(prefers-color-scheme: dark)").matches : undefined; }]));
@@ -506,16 +530,24 @@ async function openCtx(browser, dev, theme, stateName, gov) {
     try { if (navigator.share) { navigator.share = async () => { fx(); }; } } catch {}
     window.__cls = { v: 0, src: [] };
     try { new PerformanceObserver((l) => { for (const e of l.getEntries()) if (!e.hadRecentInput) { window.__cls.v += e.value; window.__cls.src.push((e.sources || []).map((s) => s.node && (s.node.id || s.node.className || s.node.nodeName)).join("|").slice(0, 80)); } }).observe({ type: "layout-shift", buffered: true }); } catch {}
-  }, { ls: { theme, ...STATES[stateName] }, app, bridge: BRIDGE, quiet: QUIET_BRIDGE });
+  }, { ls: { theme, homeSheet: "1", ...STATES[stateName], ...((J && J.ls) || {}) }, app, bridge: BRIDGE, quiet: QUIET_BRIDGE });
   return { ctx, net, app };
 }
+// why a step could not act: what lay over the control (Playwright names it), an open sheet or menu, the bottom bar stepped aside for the keyboard
+const underOf = (msg) => { const l = (String(msg).match(/<[^\n]*?> intercepts pointer events/) || [])[0]; if (!l) return ""; const t = (l.match(/^<([a-z0-9-]+)/i) || [])[1] || "", id = (l.match(/\sid="([^"]+)"/) || [])[1], cl = (l.match(/\sclass="([^"]+)"/) || [])[1]; return t + (id ? "#" + id : cl ? "." + cl.split(" ")[0] : ""); };
+const whyNot = async (page, e) => {
+  const under = underOf(e.message), s = await page.evaluate(() => ({ open: [...document.querySelectorAll(".sheet:not([hidden]), .doc-view, .ch-menu")].filter((x) => x.getClientRects().length).map((x) => x.id ? "#" + x.id : "." + x.className.split(" ")[0]), kb: document.body.classList.contains("kb") })).catch(() => ({ open: [], kb: false }));
+  return [under && `under ${under}`, s.open.length && `open: ${s.open.join(", ")}`, s.kb && "the bottom bar stepped aside for the keyboard"].filter(Boolean).join("; ");
+};
 
 async function runJourney(browser, dev, theme, stateName, J) {
   const run = `${J.name}/${stateName}/${dev.id}/${theme}`;
-  const { ctx, net, app } = await openCtx(browser, dev, theme, stateName, J.gov);
+  const { ctx, net, app } = await openCtx(browser, dev, theme, stateName, J);
   const page = await ctx.newPage();
   let step = "load";
   page.on("pageerror", pageErr(run, () => step));
+  // the page's console errors, told with a step that failed (a load the test network refused is not one)
+  const said = []; page.on("console", (msg) => { if (msg.type() === "error" && !/Failed to load resource/.test(msg.text())) said.push(msg.text().replace(/\s+/g, " ").slice(0, 120)); });
   await page.goto(`http://127.0.0.1:${server.address().port}/`);
   await page.waitForSelector("#homeMark", { state: "attached", timeout: 15000 }).catch(() => add("block", "logic", run, step, "home did not render"));
   await page.addStyleTag({ content: "*{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}" });
@@ -524,15 +556,16 @@ async function runJourney(browser, dev, theme, stateName, J) {
   let prev = null;
   for (const [name, act, expect] of J.steps) {
     step = name;
-    await page.evaluate(() => { window.__cls.v = 0; window.__cls.src = []; });
-    if (act) { try { await act(page, c); } catch (e) { add("block", "logic", run, step, "could not act: " + e.message.split("\n")[0].slice(0, 120)); } }
+    await page.evaluate(() => { window.__cls.v = 0; window.__cls.src = []; window.__toasts = []; });
+    const said0 = said.length, also = () => (said.length > said0 ? ` (console: ${said.slice(said0, said0 + 2).join(" · ")})` : "");
+    if (act) { try { await act(page, c); } catch (e) { const why = await whyNot(page, e); add("block", "logic", run, step, "could not act: " + e.message.split("\n")[0].slice(0, 120) + (why ? ` [${why}]` : "") + also()); } }
     // layout shift is counted from two frames after the step's own redraw: a new screen in place of the old one is not a shift, what moves after it is
     await page.evaluate(() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(() => { window.__cls.v = 0; window.__cls.src = []; ok(); })))).catch(() => {});
     await page.waitForTimeout(450);
     let m; try { m = await measure(page); } catch (e) { add("block", "error", run, step, "measure failed: " + e.message.slice(0, 100)); continue; }
     let ok = expect ? await expect(m, c) : true;
     if (ok && ok.warn) { add("warn", "logic", run, step, ok.warn); ok = true; }
-    if (ok !== true) add("block", "logic", run, step, ok);
+    if (ok !== true) add("block", "logic", run, step, ok + also());
     if (m.cls > 0.1) add("warn", "cls", run, step, `layout shift ${m.cls.toFixed(2)} on ${m.screen}: ${(await page.evaluate(() => window.__cls.src.slice(0, 4).join(" ; ")))}`);
     judgeStep(run, step, m, { app });
     if (ok === true && act === back && prev && ["screen", "sheet", "url", "carPlate", "msg", "tab"].every((k) => prev[k] === m[k]) && !(m.screen === "home" && m.home)) add("block", "logic", run, step, `Back did nothing on ${m.screen} (a dead press)`);
@@ -609,7 +642,7 @@ async function runSweep(browser, dev, stateName, S) {
   // a new context each time: what a press stored (a car saved, a file opened) must not change the next copy of the screen
   const fresh = async () => {
     if (ctx) await ctx.close().catch(() => {});
-    const o = await openCtx(browser, dev, "light", stateName, null), { net, app } = o; ctx = o.ctx;
+    const o = await openCtx(browser, dev, "light", stateName, S), { net, app } = o; ctx = o.ctx;
     page = await ctx.newPage();
     page.on("pageerror", pageErr(run, () => step));
     page.on("dialog", (d) => { asked++; d.dismiss().catch(() => {}); });
