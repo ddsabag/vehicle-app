@@ -33,7 +33,10 @@ async function runWorker() {
   const toml = fs.existsSync(E.W_TOML || "") ? fs.readFileSync(E.W_TOML, "utf8") : "";
   const tv = (k, dflt) => (new RegExp("^" + k + '\\s*=\\s*"([^"]+)"', "m").exec(toml) || [0, dflt])[1];
   // Workers KV read through Cloudflare's API (the tallies and closed months /live keeps); nothing is written from here
-  const kvTok = E.CLOUDFLARE_API_TOKEN || E.CF_API_TOKEN, acc = String(E.CF_ACCOUNT_ID || "").trim();
+  // the secret may hold Cloudflare's whole test command (curl ... -H "Authorization: Bearer <token>"): the token is taken from it, as
+  // workers-deploy.mjs cleanToken does, or fetch cannot send the header and its error would carry the secret
+  const rawTok = String(E.CLOUDFLARE_API_TOKEN || E.CF_API_TOKEN || ""), bt = /\bBearer\s+([A-Za-z0-9_-]{20,})(?![A-Za-z0-9_-])/.exec(rawTok);
+  const kvTok = bt ? bt[1] : rawTok.replace(/[^A-Za-z0-9_-]/g, ""), acc = String(E.CF_ACCOUNT_ID || "").trim();
   const cf = p => fetch("https://api.cloudflare.com/client/v4/accounts/" + acc + p, { headers: { authorization: "Bearer " + kvTok }, signal: AbortSignal.timeout(15e3) });
   let ns = null;
   const nsId = async () => ns ??= ((await (await cf("/storage/kv/namespaces?per_page=100")).json()).result || []).find(x => x.title === "luchit-alerts")?.id || "";
@@ -137,6 +140,8 @@ function kpis(d, S) {
   return { out, notes, end };
 }
 
+// error texts go into the file without anything that looks like a key (a long run of letters, digits, - and _)
+const scrub = v => String(v).replace(/[A-Za-z0-9_-]{20,}/g, "***").slice(0, 300), scrubAll = o => Object.fromEntries(Object.entries(o || {}).map(([k, v]) => [k, scrub(v)]));
 const result = { generated: new Date().toISOString(), week: { from: addD(END, -6), to: END }, prev_week: { from: addD(END, -13), to: addD(END, -7) } };
 try {
   const S = screenGoals(WJS); log("goals", true);
@@ -146,9 +151,9 @@ try {
   const k = kpis(d, S);
   if (k.end && k.end !== END && !E.KPI_TEST_DATA) throw new Error("the worker's week is not the week asked for");
   Object.assign(result, { source: { worker_build: d.build || null, main_sha: E.MAIN_SHA || null, how: "קוד לוח /live עצמו, על השבוע ראשון–שבת שהסתיים ב-" + END },
-    kpis: k.out, notes: k.notes, errors: { ...(d.errors || {}) }, play_status: d.play || null });
+    kpis: k.out, notes: scrubAll(k.notes), errors: scrubAll(d.errors), play_status: d.play || null });
   for (const [kk, v] of Object.entries(k.out)) console.log("kpi." + kk, v == null ? "empty" : "ok");
-} catch (e) { result.error = String(e.message || e).slice(0, 400); log("kpis", false, e.message || e); }
+} catch (e) { result.error = scrub(e.message || e); log("kpis", false, scrub(e.message || e)); }
 
 if (E.KPI_TEST_DATA) { console.log(JSON.stringify(result, null, 1)); process.exit(0); }
 const data = Buffer.from(JSON.stringify(result, null, 1));
