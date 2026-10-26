@@ -2937,14 +2937,17 @@ async function lookup(raw){
   if (D.offline) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-globe"/></svg></div>${navigator.onLine === false ? "אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב." : "מאגרי משרד התחבורה לא עונים כרגע (תקלה או עומס אצל המשרד, לא אצלכם). נסו שוב בעוד כמה דקות."}</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; return; }
   if (D.notFound) { out.innerHTML = `<div class="msg edge"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-search"/></svg></div>לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.<p class="note" style="margin:8px 0 0">בדקנו את כל מאגרי משרד התחבורה, כולל רכבים שירדו מהכביש, דו-גלגלי ויבוא אישי. רכב שעלה לכביש בימים האחרונים יופיע אחרי העדכון הבא של המאגר.</p></div>`; return; }
   current = D; currentTab = ot && ot.p === D.plate ? ot.t : "overview";
+  const role = roleOf(D);   // who checked it, before "+" below (or the home file line) saves the car
   const added = addIntent && D.plate && D.kind !== "model" ? addFromPlus(D) : null;
   snapPut(D); savedSync(D);
   renderResult(); focusResult();
   if (added) snack(added === "new" ? "נוסף לרכבים שלי" : "הרכב כבר ברכבים שלי", added === "new" ? "ביטול" : "לרשימה", added === "new" ? () => undoAdd(D) : () => navTo("cars", {via: "add"}), 6000);
   // exactly 8 params: the app bridge keeps the first 8 (MainActivity.logEvent) and the web Worker 10 with src+camp; a 9th silently drops the last
-  track(again ? "lookup_repeat" : "car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: D.errs && D.errs.length ? 1 : 0, role: roleOf(D), ...lookupFacts(D)});
+  track(again ? "lookup_repeat" : "car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: D.errs && D.errs.length ? 1 : 0, role, ...lookupFacts(D)});
   remember(plate, D.kind === "model" ? "" : D.title);
   window.scrollTo({top: 0});
+  // "יש לכם כבר רכב? פתחו לו תיק" on home: the car checked next opens straight in its file (one step, like "+"), not on a page with one more button
+  if (fileIntent && D.plate && D.kind !== "model") { fileIntent = false; if (fileOk(D)) openFile(D, "home"); else if (isMine(D)) { currentTab = "file"; renderResult(); } }
   // a first visit on a slow line can render before the settlements list arrives: once it does, show its answer (a match, or "not found"
   // in place of "not loaded") for every car the list is checked for (settlementsFor)
   if (!SETTLEMENTS.length) loadSettlements().then(l => { if (l && current === D && !inCompare && D.kind !== "model" && !D.isCancelled && !D.importKind) { const y = window.scrollY; renderResult(); window.scrollTo({top: y}); } });
@@ -3590,7 +3593,7 @@ function setMine(D, on, from){
 }
 /* a file can be opened for this car: never on a shared report, a model or a car off the road, nor when it is already the owner's */
 const fileOk = D => !!D && D.kind !== "model" && !!D.plate && !D.isCancelled && !reportBuild && !sharedHere(D) && !isMine(D);
-/* the home line "יש לכם כבר רכב?" leads to the plate field; the next car opened from there counts its file as from home */
+/* the home line "יש לכם כבר רכב?" leads to the plate field; the next car checked from there opens in its file, counted as from home */
 let fileIntent = false;
 /* "+" in "הרכבים שלי": the next car checked is added to the list (the snack bar can undo it), and its back arrow returns to the list */
 let addIntent = false;
@@ -6367,7 +6370,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.alerts && document.body.dataset.screen === "alerts") { ev.stopImmediatePropagation(); try { window.AndroidApp.setAlerts(b.dataset.alerts === "on"); localStorage.setItem("alertsAsked", "1"); } catch {} setTimeout(refreshView, 300); return; }
   if (b.dataset.open && (document.body.dataset.screen === "cars")) carsY = window.scrollY;
   if (!a) return;
-  if (a === "fileHome") { ev.stopImmediatePropagation(); fileIntent = true; window.scrollTo({top: 0, behavior: "smooth"}); $("#plate").focus(); toast("הקלידו את מספר הרכב שלכם, ובדף הרכב לחצו \"פתיחת תיק\""); return; }
+  if (a === "fileHome") { ev.stopImmediatePropagation(); fileIntent = true; window.scrollTo({top: 0, behavior: "smooth"}); $("#plate").focus(); toast("הקלידו את מספר הרכב שלכם, והתיק שלו ייפתח מיד אחרי הבדיקה"); return; }
   // "+" (and "בדיקת רכב" on an empty list) is a new car: an empty plate field with the cursor in it, never the car left on the search tab.
   // The focus is set in the tap itself, so phones open the keyboard
   if (a === "addCar") { ev.stopImmediatePropagation(); parked = null; navTo("search", {via: "add"}); addIntent = true; $("#plate").value = ""; $("#plate").focus(); toast("מקלידים מספר רישוי, והרכב יתווסף לרכבים שלי"); return; }
