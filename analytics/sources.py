@@ -118,12 +118,21 @@ def psi(per, cfg, runs=3):
 def play_vitals(per, cfg):
     pkg = os.environ.get("PLAY_PACKAGE") or cfg["sources"]["play_package"]
     s = _google_session(["https://www.googleapis.com/auth/playdeveloperreporting"])
+    base = f"https://playdeveloperreporting.googleapis.com/v1beta1/apps/{pkg}"
     def day(d): return {"year": d.year, "month": d.month, "day": d.day}
-    end = per["end"] - timedelta(days=2)    # vitals arrive a couple of days late
     def metric(kind, names):
-        body = {"timelineSpec": {"aggregationPeriod": "DAILY", "startTime": {**day(end - timedelta(days=6)), "timeZone": {"id": "America/Los_Angeles"}},
-                                 "endTime": {**day(end + timedelta(days=1)), "timeZone": {"id": "America/Los_Angeles"}}}, "metrics": names + ["distinctUsers"]}
-        r = s.post(f"https://playdeveloperreporting.googleapis.com/v1beta1/apps/{pkg}/{kind}:query", json=body, timeout=60); r.raise_for_status()
+        # vitals arrive days late, and the newest day Google has computed moves: ask the set itself (a fixed "two days ago" answered 400
+        # whenever it was ahead of the data, as on 25.10); the 7 days end there, at the latest the day before the report's last day
+        end = per["end"] - timedelta(days=1)    # exclusive
+        try:
+            f = s.get(f"{base}/{kind}", timeout=30)
+            le = next((x.get("latestEndTime") for x in (f.json().get("freshnessInfo") or {}).get("freshnesses") or [] if x.get("aggregationPeriod") == "DAILY"), None) if f.ok else None
+            if le and le.get("year"): end = min(end, date(le["year"], le["month"], le["day"]))
+        except Exception: pass
+        body = {"timelineSpec": {"aggregationPeriod": "DAILY", "startTime": {**day(end - timedelta(days=7)), "timeZone": {"id": "America/Los_Angeles"}},
+                                 "endTime": {**day(end), "timeZone": {"id": "America/Los_Angeles"}}}, "metrics": names + ["distinctUsers"]}
+        r = s.post(f"{base}/{kind}:query", json=body, timeout=60)
+        if not r.ok: raise RuntimeError(f"{kind} {r.status_code} {' '.join(r.text.split())[:150]}")    # Google's reason, no numbers
         w = u = 0.0
         for row in r.json().get("rows", []):
             m = {x["metric"]: float(x["decimalValue"]["value"]) for x in row.get("metrics", []) if "decimalValue" in x}
