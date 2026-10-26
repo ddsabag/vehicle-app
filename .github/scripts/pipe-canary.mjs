@@ -111,7 +111,11 @@ export async function main() {
   const [rows, visits] = await Promise.all([readGa(), readCf(day)]);
   const { state, alarms } = judge(rows, visits, day);
   IO.out(`pipe canary ${day}: ga4 ${rows ? "read" : "unavailable"}, cloudflare ${visits === null ? "unavailable" : "read"}; ` + Object.entries(state).map(([k, v]) => `${k} ${v}`).join(", "));
-  if (!alarms.length) return 0;
+  if (!alarms.length) {
+    // every check ok again: an open pipe item is closed, and the router says so once, quietly (Dudu 26.10: every problem, and how it ended)
+    if (IO.env.DRY_RUN !== "1" && Object.values(state).every(v => v === "ok")) try { await (await IO.router())?.resolve(["pipe:"]); } catch { /* the morning ledger still lists it */ }
+    return 0;
+  }
   const text = msg({ kind: "today", area: "measure", title: `בדיקת המדידה של ${day.slice(8)}.${day.slice(5, 7)} מצאה בעיה`,
     text: alarms.map(a => "• " + a.text).join("\n") + "\nזה משפיע על המספרים בדשבורד, לא על המשתמשים.",
     what: 'לכתוב לי בשרשור "תפעול, בוטים ומייל" ואבדוק אם זו תקלה אמיתית או רעש.' });
@@ -166,10 +170,12 @@ async function selftest() {
   const saved = { ...IO }, printed = [], sent = [];
   const SA = { client_email: "canary@x.iam.gserviceaccount.com", private_key: crypto.generateKeyPairSync("rsa", { modulusLength: 1024 }).privateKey.export({ type: "pkcs8", format: "pem" }) };
   const gaRows = rows => ({ rows: rows.map(r => ({ dimensionValues: [r.day.replace(/-/g, ""), r.platform === "android" ? "Android" : "web", r.ev, r.kind].map(value => ({ value })), metricValues: [{ value: String(r.n) }] })) });
+  const resolved = [];
   const runWith = async (rows, visits, env = {}) => {
-    printed.length = 0; sent.length = 0;
+    printed.length = 0; sent.length = 0; resolved.length = 0;
     Object.assign(IO, { out: s => printed.push(s), now: () => Date.parse("2026-10-22T07:30:00Z"),
-      env: { GA_SERVICE_ACCOUNT_JSON: JSON.stringify(SA), CF_API_TOKEN: "cf", CF_ACCOUNT_ID: "acc", TELEGRAM_BOT_TOKEN: "t", TELEGRAM_CHAT_ID: "c", ...env }, router: async () => null,
+      env: { GA_SERVICE_ACCOUNT_JSON: JSON.stringify(SA), CF_API_TOKEN: "cf", CF_ACCOUNT_ID: "acc", TELEGRAM_BOT_TOKEN: "t", TELEGRAM_CHAT_ID: "c", ...env },
+      router: async () => (env.ROUTER ? { resolve: async p => { resolved.push(...p); return 1; } } : null),
       fetch: async (u, o) => {
         const res = (status, body) => ({ ok: status < 300, status, text: async () => typeof body === "string" ? body : JSON.stringify(body), json: async () => body, headers: { get: () => null } });
         if (u.startsWith("https://oauth2")) return res(200, { access_token: "tok" });
@@ -192,6 +198,12 @@ async function selftest() {
     ok(code === 0 && !sent.length && printed.some(l => /ga4 unavailable/.test(l)), "run: GA4 refused, nothing sent");
     code = await runWith(rowsOf({ ...normal, 0: [] }), 917, { DRY_RUN: "1" });
     ok(code === 0 && !sent.length && printed.some(l => l.includes("dry run") && l.includes("pipe:ga")), "run: dry run sends nothing");
+    code = await runWith(rowsOf(normal), 917, { ROUTER: "1" });
+    ok(code === 0 && resolved.join() === "pipe:", "run: every check ok closes the open pipe item");
+    code = await runWith(null, 917, { ROUTER: "1" });
+    ok(code === 0 && !resolved.length, "run: an unknown check closes nothing");
+    code = await runWith(rowsOf(normal), 917, { ROUTER: "1", DRY_RUN: "1" });
+    ok(code === 0 && !resolved.length, "run: a dry run closes nothing");
   } catch (e) { Object.assign(IO, saved); fails.push("crashed: " + (e?.stack || e)); }
   for (const f of fails) IO.out("FAIL " + f);
   IO.out(fails.length ? `selftest: ${fails.length} failed` : "selftest: all passed");
