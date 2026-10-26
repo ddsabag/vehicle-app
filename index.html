@@ -813,6 +813,7 @@ body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)
 .rc-row{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding:2px 16px 4px}.rc-row::-webkit-scrollbar{display:none}
 .rc{flex:0 0 auto;display:grid;gap:6px;justify-items:start;border:1px solid var(--line);background:var(--card);border-radius:16px;padding:10px 12px;color:var(--fg)}
 .rc small{font-size:.78rem;color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (min-width:700px){.rc-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));overflow:visible;margin-inline:0;padding:2px 0 4px}.rc small{max-width:100%}}
 .tlist{display:grid;background:var(--card);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
 .trow{display:flex;align-items:center;gap:12px;width:100%;text-align:start;border:0;background:none;padding:12px 14px;color:var(--fg)}
 .trow + .trow{border-top:1px solid var(--line)}
@@ -6783,6 +6784,12 @@ const FAQ = [
 function faqCard(){
   return card("שאלות נפוצות", "info", "slate", FAQ.map(([q, a]) => `<details class="faq"><summary>${q}</summary><p>${a}</p></details>`).join(""));
 }
+/* "מרצדס בנץ GLC 300E 4MATIC COUPE" -> "מרצדס בנץ GLC": the maker's Hebrew words and the model's first word fit a small chip whole */
+function shortModel(t){
+  const w = String(t || "").trim().split(/\s+/).filter(Boolean), he = x => /[\u0590-\u05FF]/.test(x);
+  let i = 0; while (i < w.length && he(w[i])) i++;
+  return w.slice(0, i < w.length ? i + 1 : i).join(" ");
+}
 function renderHome(){
   if (land) setLand(false, false);
   current = null; inCompare = false; view = "search"; setScreen("home");
@@ -6797,7 +6804,7 @@ function renderHome(){
   const attn = saved.filter(carAttn);
   if (attn.length) html.push(`<button type="button" class="attn${attn.some(s => carLevel(s) === "bad") ? "" : " warn"}" data-nav="alerts" data-via="attn"><span class="ai">${ico("alert")}</span><span class="t"><b>${attn.length === 1 ? "רכב אחד מהרכבים שלכם צריך תשומת לב" : `${attn.length} מהרכבים שלכם צריכים תשומת לב`}</b><small>${alertItems().slice(0, 2).map(x => `${esc(x.k || x.t)}: <bdi>${esc(x.s.nick || x.s.title)}</bdi>`).join(" · ")}</small></span>${ico("chev")}</button>`);
   if ((saved.length || recent.length) && !anyMine()) html.push(`<div class="tlist hfile"><button type="button" class="trow" data-act="fileHome"><i class="tb blue">${ico("car")}</i><span class="t"><b>יש לכם כבר רכב? פתחו לו תיק</b><small>טסט, טיפולים ומסמכים לנסיעה, במקום אחד</small></span>${ico("chev")}</button></div>`);
-  if (recent.length) html.push(`<section class="recents" aria-label="בדיקות אחרונות"><div class="qhead">בדיקות אחרונות</div><div class="rc-row">${recent.map(p => { const s = saved.find(x => x.plate === p), nm = s ? s.nick || s.title : recentNames()[p]; return `<button type="button" class="rc" data-open="${p}"><span class="mini-plate"><i></i>${fmtPlate(p)}</span>${nm ? `<small><bdi>${esc(nm)}</bdi></small>` : ""}</button>`; }).join("")}</div></section>`);
+  if (recent.length) html.push(`<section class="recents" aria-label="בדיקות אחרונות"><div class="qhead">בדיקות אחרונות</div><div class="rc-row">${recent.map(p => { const s = saved.find(x => x.plate === p), nm = s && s.nick || shortModel(s ? s.title : recentNames()[p]); return `<button type="button" class="rc" data-open="${p}"><span class="mini-plate"><i></i>${fmtPlate(p)}</span>${nm ? `<small><bdi>${esc(nm)}</bdi></small>` : ""}</button>`; }).join("")}</div></section>`);
   const tool = (act, icon, title, text, tag, col) => `<button type="button" class="trow" data-act="${act}"><i class="tb ${col}">${ico(icon)}</i><span class="t"><b>${title}${tag ? PT(tag) : ""}</b><small>${text}</small></span>${ico("chev")}</button>`;
   html.push(`<div class="qhead">כלים</div><div class="tlist">${[
     tool("compareHome", "compare", "חיפוש דגמים", "דגם, או סוג ותקציב. אפשר גם להשוות עד " + cmpMax(), "", "violet"),
