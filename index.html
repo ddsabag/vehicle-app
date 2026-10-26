@@ -299,7 +299,7 @@ a.row{color:var(--fg);text-decoration:none}a.row .t small{text-decoration:none}a
 .seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--soft);border-radius:11px;padding:4px;gap:4px}
 .seg button{border:0;background:transparent;border-radius:8px;padding:8px 6px;font-weight:700;color:var(--muted)}
 .seg button[aria-pressed="true"]{background:var(--card);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.15)}
-@media (max-width:359px){.seg:not(.two) button{padding-inline:2px;font-size:.875rem}}   /* "לפי המכשיר" stays on one line on a 320px phone */
+@media (max-width:359px){.seg:not(.two) button{padding-inline:2px;font-size:.85rem}}   /* "לפי המכשיר" stays on one line on a 320px phone */
 .link-btn{border:1px solid var(--line);background:transparent;border-radius:10px;padding:10px 12px;font-weight:700;text-align:start}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:16px;font-weight:700;z-index:30;box-shadow:0 4px 14px rgba(0,0,0,.2);width:max-content;max-width:calc(100vw - 32px);text-align:center}   /* left:50% alone would cap a long toast at half the screen */
 footer a{display:inline;padding:0;text-decoration:underline}
