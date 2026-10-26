@@ -1,9 +1,12 @@
 // UI flows: walks the real page like a person does (home, a check, every tab, "הרכבים שלי", "התראות", settings, compare, the "+",
 // Back, the top-bar search) and measures the layout after EVERY step, not only on a still screen. Phase C of the UI guardian.
 //   blocking (exit 1): script errors, a step that lands on the wrong screen or state (journey rules below), the navigation bar moving or
-//                      changing size between screens, horizontal overflow, an element pushed past the screen edge
+//                      changing size between screens, horizontal overflow, an element pushed past the screen edge, the website's frame
+//                      (a footer under every screen; on a wide screen no floating button, share and save with their words), a phone's
+//                      bottom bar growing past one row
 //   warning:           layout shift (CLS) inside a step above 0.1, a short label that wraps onto a second line, two controls overlapping,
-//                      text cut off, the bottom bar covering the end of the page, the content column changing width between screens
+//                      text cut off, the bottom bar covering the end of the page, the content column changing width between screens,
+//                      a control dropped to a line of its own, content wider than its column, the same car offered twice on one screen
 // Each run: device x theme x data state (no cars / one car / many cars with long names) x journey. Registry answers are mocked
 // (no network); "offline" and "registry error" are journeys of their own.
 // Then the sweep: every control of every screen pressed one at a time; one that changes nothing is a dead control (see SWEEP below).
@@ -118,8 +121,9 @@ async function measure(page) {
     // the part of a box that is drawn: cut by every parent that clips (a name ending in "…" inside its card is not past the column)
     const drawn = (e) => { const b = e.getBoundingClientRect(); let l = b.left, r = b.right; for (let p = e.parentElement; p && p !== document.body; p = p.parentElement) if (getComputedStyle(p).overflowX !== "visible") { const q = p.getBoundingClientRect(); l = Math.max(l, q.left); r = Math.min(r, q.right); } return { left: l, right: r, width: r - l }; };
     const bleed = W >= 700 && colBox && !sheet ? [...out.querySelectorAll("*")].filter((e) => vis(e) && !e.closest("svg")).filter((e) => { const cs = getComputedStyle(e); return e.children.length === 0 || cs.backgroundColor !== "rgba(0, 0, 0, 0)" || parseFloat(cs.borderTopWidth) > 0 || cs.boxShadow !== "none"; }).filter((e) => { const b = drawn(e); return b.width > 20 && (b.left < colBox.left + padL - 2 || b.right > colBox.right - padR + 2) && !e.closest(".cfab,.toast") && !layer(e); }).filter((e, i, a) => !a.some((x) => x !== e && x.contains(e))).map((e) => label(e) + ` (${Math.round(drawn(e).left - colBox.left - padL)}/${Math.round(colBox.right - padR - drawn(e).right)}px)`) : [];
-    // the same car offered twice on one screen (a rail and a row of recent checks listing the same plates)
-    const opens = {}; for (const e of document.querySelectorAll("#out [data-open]")) if (vis(e) && (!sheet || sheet.contains(e))) opens[e.dataset.open] = (opens[e.dataset.open] || 0) + 1;
+    // the same car offered twice on one screen (a rail and a row of recent checks listing the same plates). Not on התראות: that list has
+    // one item per issue, so a car with a recall and a test due rightly shows up in both
+    const opens = {}; if (document.body.dataset.screen !== "alerts") for (const e of document.querySelectorAll("#out [data-open]")) if (vis(e) && (!sheet || sheet.contains(e))) opens[e.dataset.open] = (opens[e.dataset.open] || 0) + 1;
     const twice = Object.entries(opens).filter(([, n]) => n > 1).map(([p]) => p);
     let covered = null; if (navBox && getComputedStyle(nav).position === "fixed" && nav.getBoundingClientRect().top > innerHeight / 2 && !sheet) {
       const y0 = scrollY; scrollTo(0, document.documentElement.scrollHeight); const top = nav.getBoundingClientRect().top;
@@ -131,7 +135,11 @@ async function measure(page) {
     const tr = h && (() => { const r = document.createRange(); r.selectNodeContents(h); const b = r.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)]; })();
     const title = h && vis(h) && !sheet ? { kind: h.matches("#chead *") ? "chead" : "vhead", r: tr, fs: getComputedStyle(h).fontSize } : null;
     const plate = document.getElementById("plate"), mp = document.querySelector("#chead .mini-plate");
+    const one = (s) => [...document.querySelectorAll(s)].some(vis);
     return {
+      // the website's frame: the footer on every screen, the first visit's example, compare as a floating button or in the title row,
+      // the words beside share and save on the wide car header, the tab's own title
+      vw: W, vh: innerHeight, footer: one("body > footer"), intro: one("#out .hero .try"), fab: one(".cfab"), tbCmp: one("#out .vh-cmp"), chLabels: [...document.querySelectorAll("#chead .ch-l")].filter(vis).length, docTitle: document.title,
       starOn: (document.querySelector("#chead [data-act=save]") || { getAttribute: () => "" }).getAttribute("aria-pressed") === "true",
       listed: [...document.querySelectorAll("#out [data-open]")].map((e) => e.dataset.open),
       screen: document.body.dataset.screen, tab: typeof currentTab !== "undefined" ? currentTab : null, carOn: !!mp, carPlate: mp ? mp.textContent.replace(/\D/g, "") : "",
@@ -162,13 +170,13 @@ const tapIf = (sel) => async (p) => { const l = p.locator(sel).filter({ visible:
 const isCar = (plate) => (m, c) => m.screen === "car" && m.carPlate === (plate || c.plate) || `expected the car ${plate || c.plate}, got screen ${m.screen} ${m.carPlate} ${m.msg.slice(0, 50)}`;
 const JOURNEYS = [
   { name: "tour", steps: [
-    ["home", null, (m) => m.screen === "home" && m.home || "home did not draw"],
+    ["home", null, (m, c) => m.screen === "home" && m.home && (c.state !== "empty" || m.intro) || (m.home ? "a first visit (no cars, no checks) should open with the example plate and how it works" : "home did not draw")],
     ["cars", nav("cars"), (m) => m.screen === "cars" || `cars tab: screen ${m.screen}`],
     ["alerts", nav("alerts"), (m) => m.screen === "alerts" || `alerts tab: screen ${m.screen}`],
     ["search", nav("search"), (m) => m.screen === "home" && m.home || `search tab: screen ${m.screen}`],
-    ["settings", tap("#openSettings"), (m) => m.sheet === "settings" || "settings did not open"],
+    ["settings", tap("#openSettings, #bnSet"), (m) => m.sheet === "settings" || "settings did not open"],
     ["settings-alerts", tap("#toAlerts"), (m) => m.screen === "alerts" && !m.sheet || `"על אילו רכבים" should open התראות, got ${m.screen} ${m.sheet}`],
-    ["settings-2", async (p) => { await p.click('#bnav [data-nav="search"]'); await p.click("#openSettings"); }, (m) => m.sheet === "settings" || "settings"],
+    ["settings-2", async (p) => { await p.click('#bnav [data-nav="search"]'); await tap("#openSettings, #bnSet")(p); }, (m) => m.sheet === "settings" || "settings"],
     ["dark", tap('[data-theme-choice="dark"]'), (m) => m.sheet === "settings" || "theme"],
     ["settings-close", tap("#closeSettings"), (m) => !m.sheet && m.screen === "home" || "settings did not close back to home"],
     ["cars-dark", nav("cars"), (m) => m.screen === "cars" || "cars"],
@@ -263,6 +271,14 @@ const JOURNEYS = [
     ["back-2", back, (m) => m.screen === "car" || m.screen === "home" || `Back from specs: ${m.screen}`],
     ["back-3", back, (m) => m.screen === "home" || m.screen === "car" || `Back: ${m.screen}`],
   ] },
+  // web: "הרכבים שלי" and "התראות" have their own address and tab title, so a reload or a bookmark opens them again; Back still leads home
+  { name: "reload", web: true, steps: [
+    ["cars", nav("cars"), (m) => m.screen === "cars" && /#cars$/.test(m.url) && m.docTitle.startsWith("הרכבים שלי") || `הרכבים שלי should have its own address and title, got ${m.url} "${m.docTitle}"`],
+    ["reload-cars", async (p) => { await p.reload(); await p.waitForSelector("#carsHead", { timeout: 8000 }); }, (m) => m.screen === "cars" || `a reload of הרכבים שלי should keep it, got ${m.screen}`],
+    ["alerts", nav("alerts"), (m) => m.screen === "alerts" && /#alerts$/.test(m.url) && m.docTitle.startsWith("התראות") || `התראות should have its own address and title, got ${m.url} "${m.docTitle}"`],
+    ["reload-alerts", async (p) => { await p.reload(); await p.waitForSelector("#alertsHead", { timeout: 8000 }); }, (m) => m.screen === "alerts" || `a reload of התראות should keep it, got ${m.screen}`],
+    ["back", back, (m) => m.screen === "home" && m.home || `Back after a reload of התראות should lead home, got ${m.screen}`],
+  ] },
   // a tablet turned on its side (and back) while on a car page
   { name: "rotate", when: (c) => c.dev.w >= 600 && c.dev.w < 1100, steps: [
     ["check", check(), isCar()],
@@ -288,7 +304,7 @@ const SWEEP = [
   { name: "car-menu", steps: [check(), tap("#chead [data-act=cmenu]")] },
   { name: "cars", steps: [nav("cars"), unfold] },
   { name: "alerts", steps: [nav("alerts"), unfold] },
-  { name: "settings", steps: [tap("#openSettings")] },
+  { name: "settings", steps: [tap("#openSettings, #bnSet")] },
   // the frame: the plate field and its buttons (an empty field, paste, camera, voice), the bars and the footer
   { name: "frame", steps: [], roots: ".band, #savedBar, #bnav, body > footer" },
   { name: "frame-car", steps: [check()], roots: ".band, #bnav, body > footer" },
@@ -396,6 +412,14 @@ async function runJourney(browser, dev, theme, stateName, J) {
     if (m.ragged.length) add("warn", "ragged", run, step, `one row, different heights on ${m.screen}: ${m.ragged.join(" · ")}`);
     if (m.covered) add("warn", "covered", run, step, `the bottom bar covers "${m.covered}" at the end of ${m.screen}`);
     if (!m.sheet && m.nav && ({ home: "search", cars: "cars", alerts: "alerts" })[m.screen] && m.navCur !== ({ home: "search", cars: "cars", alerts: "alerts" })[m.screen]) add("block", "logic", run, step, `the bar highlights "${m.navCur}" on the ${m.screen} screen`);
+    // the website's frame (blocking): a footer under every screen; on a wide screen no button floats over the list (compare sits in the
+    // title row) and share and save carry their words
+    const vw = m.vw, innerH = m.vh;   // the viewport now, not the device's first one: "rotate" turns a 1024 tablet to 768 wide
+    if (!app && !m.sheet && !m.loading && ["home", "car", "cars", "alerts", "sub"].includes(m.screen) && !m.footer) add("block", "frame", run, step, `the website's footer is missing on ${m.screen}`);
+    if (!app && vw >= 1000 && m.screen === "cars" && m.fab) add("block", "frame", run, step, "a floating compare button over the list on a wide screen (it belongs in the title row)");
+    // a phone's bottom bar is one row of three tabs: anything more (the wide bar's gear, its search) makes it grow over the page
+    if (vw < 1000 && m.nav && m.nav.bar[1] > innerH / 2 && m.nav.bar[3] > 80) add("block", "frame", run, step, `the bottom bar grew to ${m.nav.bar[3]}px on ${m.screen} (one row of three tabs is about 66px)`);
+    if (!app && vw >= 1000 && m.screen === "car" && m.carOn && !m.sheet && !m.chLabels) add("block", "frame", run, step, "the wide car header shows share and save as bare icons");
     if (ok === true && act === back && prev && ["screen", "sheet", "url", "carPlate", "msg", "tab"].every((k) => prev[k] === m[k]) && !(m.screen === "home" && m.home)) add("block", "logic", run, step, `Back did nothing on ${m.screen} (a dead press)`);
     prev = m;
     seen.push({ step: name, screen: m.screen, sheet: m.sheet, nav: m.nav, col: m.col, title: m.title, y: m.y, vw: await page.evaluate(() => innerWidth) });

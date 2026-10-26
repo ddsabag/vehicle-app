@@ -48,8 +48,9 @@ jobs:
       # blocking: the journeys a person takes through the app and the site (home, a check and its tabs, "+", my cars, alerts, settings,
       # compare, tools, documents, offline, a registry error, a slow check left half way, Back), on app and web devices 320-1440px,
       # light and dark, with no cars / one / many with long names / an owner's car. After every step: the expected screen, the nav bar
-      # holding still, no sideways scroll, nothing past the edge or the column, no control dropped to its own line, no car twice.
-      # Layout shift, overlaps and cut text are warnings. Findings: ui-flows/findings.json in the ui-flows artifact.
+      # holding still, no sideways scroll, nothing past the screen edge, the website's footer under every screen (no floating button
+      # and worded share/save on a wide screen). Layout shift, overlaps, cut text, a control dropped to its own line, content past the
+      # column and a car offered twice are warnings. Findings: ui-flows/findings.json in the ui-flows artifact.
       - name: UI flows (every screen, every way in)
         if: ${{ !cancelled() }}
         run: node .github/scripts/ui-flows.cjs --out ui-flows
