@@ -28,12 +28,8 @@ function screenGoals(src) {
   const pick = re => { const m = re.exec(src); if (!m) throw new Error("not found: " + re.source.slice(0, 40)); return m[0]; };
   const code = [/const CAL_END="[^"]+";/, /const SITE_FROM="[^"]+";/, /const GOALS=\{[\s\S]*?\}\};/, /const addD=\(d,k\)=>[^\n]*;/, /const between=\(a,b\)=>[^\n]*;/,
     /const pois=\(a,lam\)=>\{[^\n]*?return s\};/, /const mEnd=m=>[^\n]*;/, /const MONTHS=GOALS[^\n]*;/, /function goal\(key,day,r\)\{[\s\S]*?return v\.map\(x=>x\*\(r\|\|1\)\)\}/,
-    /function band\(a,g,lower,small\)\{[^\n]*\}/].map(pick).join("\n");
-  // calib(): the page's rule since the base-week calibration (Dudu 26.10: checks and installs, up to 20x). A page from before that release
-  // has GOALS.calib {key, model} and scales weekly car checks alone; the same rule is written here for it, so the probe reads both
-  const C = /function calib\(key,actual\)\{[^\n]*\}/.exec(src);
-  const calib = C ? C[0] : "function calib(key,actual){const C=GOALS.calib;return key!==C.key?1:actual==null?null:Math.min(C.hi,Math.max(C.lo,actual/C.model))}";
-  return new Function(code + "\n" + calib + "\nreturn { CAL_END, SITE_FROM, GOALS, goal, band, addD, calib };")();
+    /function band\(a,g,lower,small\)\{[^\n]*\}/, /function calib\(key,actual\)\{[^\n]*\}/].map(pick).join("\n");   // calib(): the base-week calibration (Dudu 26.10)
+  return new Function(code + "\nreturn { CAL_END, SITE_FROM, GOALS, goal, band, addD, calib };")();
 }
 
 async function runWorker() {
@@ -91,7 +87,7 @@ function kpis(d, S) {
   // the calibration as the page does it (calib()): once the base week is over, its checks from the day by day counts and its installs from the
   // first opens series; base_week shows what the ratio came from
   const CB = S.GOALS.calib, base = !!end && end >= CB.end, cw = days && base ? week(CB.end) : null, ci = base ? wsum("first_open", CB.end) : null;
-  const RC = cw != null ? S.calib("weekly_checks", cw) : 1, RI = base ? S.calib("installs_week", ci) : 1, calI = (CB.keys || [CB.key]).includes("installs_week");
+  const RC = cw != null ? S.calib("weekly_checks", cw) : 1, RI = base ? S.calib("installs_week", ci) : 1, calI = CB.keys.includes("installs_week");
   const model = k => S.goal(k, CB.end)[1], bw = (k, v) => base && v != null ? { from: S.addD(CB.end, -6), to: CB.end, actual: v, plan: r1(model(k)) } : null;
   const out = {};
   if (!ev) notes.ga4 = "גוגל אנליטיקס לא ענה על השבוע: " + Object.keys(W && W.errors || d.errors || {}).join(", ");
