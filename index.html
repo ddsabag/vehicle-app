@@ -1112,7 +1112,10 @@ function cohCheck() {
   coh.r = 1; cohKeep();
   if (k <= 7) track("app_return", {kind: coh.d.slice(5), n: coh.s ? "1" : "0"});
 }
-function cohSaved() { if (!coh || coh.d === "old" || coh.s || coh.r || cohDay() !== coh.d) return; coh.s = 1; cohKeep(); track("first_save", {kind: coh.d.slice(5)}); }
+/* after a save, the browser is asked once not to clear this site's storage when the device runs low (saved cars, the car file); no prompt, ignored if refused */
+let persistAsked = false;
+function keepStorage() { if (persistAsked) return; persistAsked = true; try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch {} }
+function cohSaved() { keepStorage(); if (!coh || coh.d === "old" || coh.s || coh.r || cohDay() !== coh.d) return; coh.s = 1; cohKeep(); track("first_save", {kind: coh.d.slice(5)}); }
 setTimeout(cohCheck, 1500);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") cohCheck(); });
 /* web: where this visit came from, sent with every web event (src) so the live dashboard can count visits and car checks by source. GA4 gets
@@ -3384,7 +3387,7 @@ const DOC_EXP_CATS = ["רישיון רכב", "רישיון נהיגה", "ביט�
 const shortName = (n, max = 32) => { const a = [...String(n || "")]; return a.length <= max ? a.join("") : a.slice(0, max - 13).join("") + "…" + a.slice(-12).join(""); };
 // the line under a document's expiry: a reminder is a promise only the app keeps (the site has no notifications)
 const expHint = on => on ? (alertsSupported() ? "נשמר. נתריע חודש לפני." : "נשמר. התאריך מופיע ב\"מה הבא\".") : (alertsSupported() ? "לא חובה. עם תאריך נתריע חודש לפני." : "לא חובה. עם תאריך הוא יופיע ב\"מה הבא\".");
-async function docsAdd(files, plate, cat){ track("doc_add", {cat}); try { await docsAdd0(files, plate, cat); } catch { toast("לא הצלחנו לשמור את המסמך בטלפון"); } }
+async function docsAdd(files, plate, cat){ track("doc_add", {cat}); try { await docsAdd0(files, plate, cat); } catch { toast("לא הצלחנו לשמור את המסמך " + HERE.replace(" הזה", "")); } }
 async function docsAdd0(files, plate, cat){
   let n = (await DocDB.byPlate(plate)).length, added = 0, skipped = 0, locked = false; const ids = [];
   for (const f of files) {
@@ -3408,7 +3411,7 @@ function docsCard(D){
     <div class="doc-add"><select class="inp" id="docCat" aria-label="סוג המסמך">${DOC_CATS.map(c => `<option>${c}</option>`).join("")}</select>
     <button type="button" class="link-btn" data-doc="add">${ico("plus")}הוספת מסמך או צילום</button></div>
     <input type="file" id="docFile" accept="image/*,application/pdf" multiple hidden>
-    <p class="note">המסמכים נשמרים רק בטלפון הזה, לא נשלחים לשום מקום ולא נכללים בדוחות ששיתפתם. אם תמחקו את האפליקציה או תחליפו מכשיר הם יימחקו, ולכן כדאי לשמור גם עותק במקום אחר.${PRO_LOCK && !isPro() ? ` בחינם עד ${FREE_DOCS} מסמכים לרכב.` : ""}</p>
+    <p class="note">המסמכים נשמרים רק ${HERE}, לא נשלחים לשום מקום ולא נכללים בדוחות ששיתפתם. אם תמחקו את האפליקציה או תחליפו מכשיר הם יימחקו, ולכן כדאי לשמור גם עותק במקום אחר.${PRO_LOCK && !isPro() ? ` בחינם עד ${FREE_DOCS} מסמכים לרכב.` : ""}</p>
     ${mh ? `<div class="doc-manual"><p style="margin:0"><b>ספר הרכב</b> להורדה נמצא באתר היבואן של ${esc(mh.name)}.</p><button type="button" class="link-btn" data-url="${mh.url}">לדף ההורדה באתר היבואן</button></div>` : ""}`, PT(`PRO · בלי הגבלה`));
 }
 async function fillDocs(){
@@ -3448,7 +3451,7 @@ document.addEventListener("change", async ev => {
   if (v && !(y >= 2000 && y <= 2099)) return;
   const rec = await DocDB.get(+i.dataset.docexp).catch(() => null); if (!rec || (rec.exp || "") === v) return;
   rec.exp = v;
-  try { await DocDB.upd(rec); } catch { toast("לא הצלחנו לשמור את התאריך בטלפון"); return; }
+  try { await DocDB.upd(rec); } catch { toast("לא הצלחנו לשמור את התאריך " + HERE.replace(" הזה", "")); return; }
   docExpSave([...docExpAll().filter(d => d.id !== rec.id), ...(v ? [{id: rec.id, plate: rec.plate, cat: rec.cat, exp: v}] : [])]);
   track("doc_exp", {cat: rec.cat, on: v ? 1 : 0, from: v && (docScan.get(rec.id) || {}).d === v ? "scan" : "hand"});
   docScan.delete(rec.id);
@@ -3771,14 +3774,14 @@ function openFile(D, from){
   }
   currentTab = "file"; renderResult(); focusResult();
   const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"});
-  toast("נפתח תיק לרכב. מה שתרשמו נשמר רק בטלפון הזה");
+  toast("נפתח תיק לרכב. מה שתרשמו נשמר רק " + HERE);
 }
 $("#out").addEventListener("click", ev => {
   const b = ev.target.closest("[data-cf]"); if (!b || !current) return;
   const D = current, a = b.dataset.cf;
   if (a === "mine") { openFile(D, fileIntent ? "home" : b.dataset.from || "overview"); return; }
   if (a === "unmine") {
-    if (!confirm("להסתיר את תיק הרכב? הטיפולים והמסמכים שרשמתם נשארים בטלפון, ויחזרו אם תפתחו את התיק שוב.")) return;
+    if (!confirm("להסתיר את תיק הרכב? הטיפולים והמסמכים שרשמתם נשארים " + HERE.replace(" הזה", "") + ", ויחזרו אם תפתחו את התיק שוב.")) return;
     setMine(D, false); currentTab = "overview"; renderResult(); focusResult(); toast("התיק הוסתר");
     return;
   }
@@ -5070,8 +5073,6 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "addCompare") { openCompare(); return; }
   if (b.dataset.act === "compareHome") { cmp = []; renderCompare(); openCompare("search"); return; }
   if (b.dataset.act === "market") { openMarket(); return; }
-  if (b.dataset.act === "fleet") { renderFleet(); return; }
-  if (b.dataset.act === "cands") { renderCandidates(); return; }
   if (b.dataset.act === "bulk") { BULK = []; BULK_D = {}; BULK_TEXT = ""; renderBulk(); return; }
   if (b.dataset.act === "bulkRun") { runBulk(b); return; }
   if (b.dataset.act === "bulkClear") { BULK = []; BULK_D = {}; BULK_TEXT = ""; renderBulk(); return; }
@@ -6594,21 +6595,6 @@ async function retryCompare(i){
   try { await loadCompareSet([D.item], {replace: false, at: i}); } catch {}
   renderCompare();
 }
-function renderFleet(){
-  if (land) setLand(false, false);
-  current = null; inCompare = false; setScreen("sub");
-  const list = store.get("savedVehicles").slice(0, fleetMax());
-  const n = list.filter(s => licCell(licSaved(s))[0] || s.recalls > 0).length;
-  // three columns that fit a narrow phone with a large font: dates with a two-digit year, the plate on one line, and an open recall
-  // written under the car (a column of its own was mostly dashes and pushed the table past the screen)
-  const yy = t => String(t).replace(/(\d{2}\/\d{2}\/)\d{2}(\d{2})/, "$1$2");
-  const rows = list.map(s => { const [col, tx] = licCell(licSaved(s)), sv = svcLast(s.plate);
-    return `<tr><td><button type="button" class="lnk" data-open="${s.plate}"><b>${fmtPlate(s.plate)}</b><small style="color:var(--muted)">${esc(s.nick || s.title)}</small></button>${s.recalls > 0 ? `<small class="w rc">${s.recalls === 1 ? "ריקול פתוח" : `${s.recalls} ריקולים פתוחים`}</small>` : ""}</td><td class="${col}">${yy(tx)}</td><td class="svl">${sv ? `${esc(yy(fmtDate(sv.d)))}${sv.km ? `<small>${fmtN(sv.km)} ק״מ</small>` : ""}` : "—"}</td></tr>`; }).join("");
-  const html = [];
-  if (PRO_LOCK && !atLeast("pro")) html.push(proLockCard("הצי שלי", "כל הרכבים שלכם בטבלה אחת, עם טסט, טיפול אחרון, ריקולים וסימון מה דורש תשומת לב."));
-  else html.push(card("הצי שלי", "car", "blue", list.length ? `<p style="margin:0 0 6px"><b>${n ? (n === 1 ? "רכב אחד דורש תשומת לב" : `${n} רכבים דורשים תשומת לב`) : "הכול בסדר"}</b>${n ? `<br><small style="color:var(--muted)">טסט שעבר או קרוב, או ריקול פתוח</small>` : ""}</p><table class="ft"><tr><th>רכב</th><th>טסט</th><th>טיפול אחרון</th></tr>${rows}</table>${store.get("savedVehicles").length > fleetMax() ? `<p class="note">מוצגים ${fleetMax()} הרכבים הראשונים.</p>` : ""}` : `<p style="margin:0">שמרו רכבים כדי לראות אותם כאן בטבלה אחת.</p>`, `${PT("PRO")}`));
-  $("#out").innerHTML = toolHead("הצי שלי") + html.join(""); updateSavedBar(); window.scrollTo({top: 0});
-}
 /* ---------- buying companion (PRO / buyer pack) ---------- */
 const savedItem = p => store.get("savedVehicles").find(x => x.plate === p);
 /* a nickname of the owner's choice ("הרכב של אמא"): shown instead of the model name in "הרכבים שלי", the fleet tables and the phone's alerts */
@@ -6661,24 +6647,6 @@ function buyerCard(D){
     <div class="askrow"><input class="inp" id="askIn" inputmode="numeric" placeholder="₪" value="${ask || ""}" aria-label="המחיר המבוקש"><button type="button" class="link-btn" data-act="candSave">${ico("star")}${it ? "עדכון" : "שמירה כמועמד"}</button></div>
     ${vd ? `<p class="vd ${vd.k}" style="margin:6px 0 0">${esc(vd.t)}</p>` : ""}`;
   return `<div class="buyer-card">${card("ליווי קנייה", "bulb", "amber", body, `${PT("חבילת קנייה")}`)}</div>`
-}
-function renderCandidates(){
-  if (land) setLand(false, false);
-  current = null; inCompare = false; setScreen("sub");
-  const html = [];
-  if (PRO_LOCK && !isPro()) html.push(proLockCard("רשימת מועמדים", "משווים רכבים שמורים לפי המחיר המבוקש והטווח המשוער."));
-  else {
-    const rows = store.get("savedVehicles").filter(s => s.ask || s.fair).map(s => {
-      const vd = askVerdict(s.ask, s.fair), mid = s.fair ? (s.fair[0] + s.fair[1]) / 2 : null;
-      return {s, vd};
-    });
-    const tbl = rows.map(({s, vd}) => `<tr><td><button type="button" class="lnk" data-open="${s.plate}"><b>${fmtPlate(s.plate)}</b><small style="color:var(--muted)">${esc(s.nick || s.title)}</small></button></td><td>${s.ask ? fmtN(s.ask) : "—"}${vd ? `<small class="vd ${vd.k}" style="display:block">${vd.s}</small>` : ""}</td><td>${s.fair ? `<span dir="ltr">${Math.round(s.fair[0] / 1000)}–${Math.round(s.fair[1] / 1000)}K</span>` : "—"}</td></tr>`).join("");
-    html.push(card("רשימת מועמדים", "star", "amber", rows.length ? `<table class="ft"><tr><th>רכב</th><th>מבוקש</th><th>טווח משוער</th></tr>${tbl}</table>
-      <p class="note">טווח משוער הוא הערכת שווי הרכב לפי מחירון, שנתון, בעלויות וק״מ. מתחת למחיר המבוקש כתוב אם הוא גבוה מהטווח, בתוכו או נמוך ממנו. הערכה בלבד.</p>
-`
-      : `<p style="margin:0">כדי להוסיף מועמד, פתחו רכב ובכרטיס "ליווי קנייה" הזינו את המחיר שהמוכר מבקש ולחצו על "שמירה כמועמד".</p>`, `${PT("PRO")}`));
-  }
-  $("#out").innerHTML = toolHead("רשימת מועמדים") + html.join(""); updateSavedBar(); window.scrollTo({top: 0});
 }
 
 /* ---------- business: profile, bulk check, branded PDF ---------- */
@@ -7232,6 +7200,8 @@ if (!window.AndroidApp && !NAV_AGAIN && !REF_OWN && SHARE_VIA !== "bar" && SHARE
 const alertTab = k => /^(recall|stl)$/.test(k || "") ? "recalls" : /^(test|svc|doc)$/.test(k || "") ? "file" : null;
 window.openAlert = (plate, kind) => { const p = digits(plate), t = alertTab(kind); openTab = t ? {p, t} : null; run(p); };
 { const t = window.AndroidApp && start ? alertTab(new URLSearchParams(location.search).get("nk")) : null; if (t) openTab = {p: start, t}; }
+/* a link can name the tab its car opens on (?plate=…&t=buy from the value pages); a tab that car does not have falls back to the overview */
+{ const t = start && !openTab ? new URLSearchParams(location.search).get("t") : null; if (TABS.some(([k]) => k === t)) openTab = {p: start, t}; }
 if (cmpParam) loadCompareLink(cmpParam).then(ok => { if (!ok) renderHome(); }); else if (start) { lookupAgain = NAV_AGAIN; run(start); } else renderHome();
 requestAnimationFrame(() => document.body.classList.add("rdy"));
 /* the plates with a document on this phone; the car on screen is drawn again only if that changes whose it is */
