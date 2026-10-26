@@ -143,6 +143,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 /* identity */
 .id-card{gap:14px}
 .id-cmp{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:44px;border:1px solid var(--line);border-radius:12px;background:transparent;color:var(--accent);font-weight:800;font-size:1rem}   /* one visible way to compare (Dudu 25.10: a fifth of 1.37 checkers opened compare) */
+.pills.fstrip{align-items:center}.fstrip .id-cmp{width:auto;min-height:40px;padding:0 14px;margin-inline-start:auto;border-radius:999px;font-size:.9rem;gap:6px}
 .plate-strip{position:fixed;inset-inline:0;top:env(safe-area-inset-top,0px);z-index:30;display:flex;align-items:center;gap:10px;padding:7px 16px;background:var(--card);border-bottom:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.08);transform:translateY(-110%);transition:transform .18s;pointer-events:none}
 .plate-strip.on{transform:none}
 .plate-strip b{font-weight:800;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.plate-strip span:last-child:not(.mini-plate){color:var(--muted);font-variant-numeric:tabular-nums}
@@ -751,10 +752,10 @@ html.web main#out > .chead{grid-column:1/-1}
 .vseg{display:grid;grid-template-columns:1fr 1fr;padding:4px;border-radius:14px;background:color-mix(in srgb,var(--accent) 10%,transparent)}
 .vseg button{border:0;background:none;height:40px;border-radius:11px;font-weight:800;color:var(--accent)}
 .vseg button[aria-selected=true]{background:var(--accent);color:var(--accent-fg);box-shadow:0 6px 16px -8px var(--accent)}
-/* site: the view switch is a quiet setting, so the filter chip under it is the one strong choice on the screen */
-html.web .vseg{background:var(--soft);border:1px solid var(--line);padding:3px;border-radius:12px;max-width:260px}
-html.web .vseg button{height:36px;border-radius:9px;color:var(--muted);font-weight:700}
-html.web .vseg button[aria-selected=true]{background:var(--card);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+/* the view switch is a quiet setting, so the filter chip under it is the one strong choice on the screen */
+.vseg{background:var(--soft);border:1px solid var(--line);padding:3px;border-radius:12px;max-width:260px}
+.vseg button{height:36px;border-radius:9px;color:var(--muted);font-weight:700}
+.vseg button[aria-selected=true]{background:var(--card);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.12)}
 .fchips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding-inline:16px}.fchips::-webkit-scrollbar{display:none}
 .fchips button{flex:0 0 auto;height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted);font-weight:700;font-size:.9rem}
 .fchips button[aria-pressed=true]{background:var(--fg);border-color:var(--fg);color:var(--bg)}
@@ -2988,12 +2989,14 @@ function renderResult(){
   html.push(`<div class="side">`);
   if (sharedHere(D)) html.push(`<div class="shared-top"><span aria-hidden="true">📩</span><span><b>דוח רכב שנשלח אליך</b> · נבדק עכשיו מול משרד התחבורה, מעודכן יותר מכל קובץ</span></div>`);
   if (D.fromCache) html.push(`<div class="msg" role="status"><b>אין חיבור למשרד התחבורה, ולכן מוצגים נתונים שנשמרו ב-${esc(fmtDate(new Date(D.fromCache).toISOString()))}.</b> ייתכן שהם לא מעודכנים. <button type="button" class="link-btn" data-retry="${esc(D.plate)}">נסו שוב</button></div>`);
+  // compare sits at the end of the facts row (one row less above the tabs); alone, it keeps its own row
+  const cmpBtn = `<button type="button" class="id-cmp" data-act="compare" data-from="card">${ico("compare")}השוואה</button>`;
   html.push(`<section class="card id-card">
     <div class="id-top"><div><h2 class="id-title" id="resHead" tabindex="-1">${esc(D.title)}</h2><p class="id-sub">${esc(!empty(v.shnat_yitzur) && !simpleOn() ? D.sub.split(" · ").slice(1).join(" · ") : D.sub)}</p></div>
       <span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span></div>
-    ${!simpleOn() && facts.some(Boolean) ? `<div class="pills fstrip" aria-label="עובדות עיקריות">${facts.filter(Boolean).join("")}</div>` : ""}
+    ${!simpleOn() && facts.some(Boolean) ? `<div class="pills fstrip" aria-label="עובדות עיקריות">${facts.filter(Boolean).join("")}${cmpBtn}</div>` : ""}
     ${pills.length && !simpleOn() ? `<div class="pills">${pills.join("")}</div>` : ""}
-    <button type="button" class="id-cmp" data-act="compare" data-from="card">${ico("compare")}השוואה עם רכב אחר</button>
+    ${!simpleOn() && facts.some(Boolean) ? "" : cmpBtn}
   </section>`);
 
   // Off the road, and a test that ended in the simple view (the full view says it in the overview cards): banners above everything else
