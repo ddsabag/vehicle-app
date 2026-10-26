@@ -60,6 +60,23 @@ async function runWorker() {
   return collect(env);
 }
 
+// what each field means, in the file itself (the reader is the CEO thread, not this code)
+const FIELDS = {
+  week: "השבוע המדווח, ראשון עד שבת; prev_week: השבוע שלפניו. בכל מדד: week מול prev.",
+  status: "ok עומד ביעד, warn קרוב ליעד, bad רחוק מהיעד, cal שבוע כיול (אין שיפוט), early מעט מדי נתונים לשפוט, nodata אין נתון. כמו בלוח /live.",
+  weekly_checks: "בדיקות רכב בשבוע (car_lookup): האפליקציה בישראל והאתר; app ו-web הם הפיצול. plan: יעד התוכנית לפני הכיול. target: היעד אחרי הכיול (base והטווח), מהשבוע שאחרי שבוע הבסיס. calib_ratio: יחס הכיול.",
+  installs: "התקנות חדשות בישראל לפי גוגל אנליטיקס (משתמשי אנדרואיד חדשים, פתיחה ראשונה). plan: יעד התוכנית. play: המספרים של Google Play עצמו, באיחור של כמה ימים ובחלון שלו (window).",
+  return_7d: "מתוך ההתקנות של שבוע, כמה חזרו לאפליקציה תוך 7 ימים (app_return). week הוא שבוע ההתקנות שלפני השבוע המדווח, כדי שיעברו 7 ימים. savers: מי ששמר רכב ביום ההתקנה; non_savers: מי שלא.",
+  new_savers: "התקנות חדשות ששמרו רכב ביום ההתקנה (first_save), לפי יום ההתקנה. devices_saved_a_car: מכשירים ששמרו רכב כלשהו בשבוע.",
+  share: "שיתופים (share: דוח רכב או השוואה) ופתיחות חלון השיתוף (share_open). per_100_checks: שיתופים ל-100 בדיקות; target_per_100: היעד. arrived_from_share: כניסות מקישור ששותף; installs_from_share: התקנות מקישור ששותף.",
+  play_rating: "הדירוג הממוצע ב-Google Play (לכל הזמנים, נכון ל-as_of), מספר הדירוגים (count) ומספר הביקורות עם טקסט (with_text).",
+  organic_q1: "שאלה 1 של החודש: אחוז הבדיקות באתר שהגיעו ממקורות שאינם קישורי קמפיין (גוגל, ישיר, שיתוף ועוד), מתוך בדיקות באתר שהמקור שלהן ידוע. האפליקציה לא נכללת.",
+  b2b_leads: "פניות עסקיות מהטופס בדף העסקים (b2b_lead_submit) בשבוע ומאז 1.10; newsletter: אישורי הרשמה למגזין.",
+  failure_pct: "אחוז הבדיקות שנכשלו מצד המערכת (משרד התחבורה לא ענה, אין רשת, תקלה אצלנו) מתוך כל הניסיונות. target_max: הרף העליון.",
+  slow_pct: "אחוז הבדיקות שלקחו יותר מ-5 שניות, מתוך בדיקות שהזמן שלהן ידוע. מעל 10% דורש תשומת לב.",
+  notes: "הסבר לכל מדד ריק או חלקי. errors: מקור שלא ענה בהרצה.",
+};
+
 // the numbers, as the screen reads them (render() in the page script: tiles 1-4, health, slow, the month's questions, milestones)
 function kpis(d, S) {
   const W = d.weekly || null, ev = W && W.ev, E0 = ev ? ev[0] : null, E1 = ev ? ev[1] : null, ge = (o, k, i) => o && o[k] ? o[k][i || 0] : 0;
@@ -167,7 +184,7 @@ try {
   const k = kpis(d, S);
   if (k.end && k.end !== END && !E.KPI_TEST_DATA) throw new Error("the worker's week is not the week asked for");
   Object.assign(result, { source: { worker_build: d.build || null, main_sha: E.MAIN_SHA || null, how: "קוד לוח /live עצמו, על השבוע ראשון–שבת שהסתיים ב-" + END },
-    kpis: k.out, notes: scrubAll(k.notes), errors: scrubAll(d.errors), play_status: d.play || null });
+    kpis: k.out, notes: scrubAll(k.notes), fields: FIELDS, errors: scrubAll(d.errors), play_status: d.play || null });
   for (const [kk, v] of Object.entries(k.out)) console.log("kpi." + kk, v == null ? "empty" : "ok");
 } catch (e) { result.error = scrub(e.message || e); log("kpis", false, scrub(e.message || e)); }
 
