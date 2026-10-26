@@ -120,7 +120,7 @@ function kpis(d, S) {
     if (!PS) notes.installs_play = "דוחות Google Play לא נקראו: " + String(d.stats && d.stats.why || d.stats && d.stats.error || "אין נתון").slice(0, 120);
     else { notes.installs_play = "Google Play מוסר באיחור של כמה ימים ובחלון שלו (window), ולכן הוא לא אותו שבוע כמו week.";
       if (out.installs.play.store_visitors == null) notes.installs_store = "ביקורים בדף החנות: הדוח של Google Play לא נמצא או ריק, כמו בלוח."; }
-    if (!tg) notes.installs_target = !live ? "האפליקציה עוד לא בחנות: אין יעד." : cal ? "יעד ההתקנות נשפט מהשבוע שאחרי שבוע הבסיס " + dm(S.addD(CB.end, -6)) + "–" + dm(CB.end) + ", ולפיו הוא נקבע (התוכנית צפתה " + Math.round(model("installs_week")) + "); plan הוא יעד התוכנית לפני הכיול."
+    if (!tg) notes.installs_target = !live ? "האפליקציה עוד לא בחנות: אין יעד." : cal ? "יעד ההתקנות נשפט מהשבוע שאחרי שבוע הבסיס " + dm(S.addD(CB.end, -6)) + "–" + dm(CB.end) + (calI ? ", ולפיו הוא נקבע (התוכנית צפתה " + Math.round(model("installs_week")) + "); plan הוא יעד התוכנית לפני הכיול." : "; plan הוא יעד התוכנית (לא מכויל לפי הבדיקות).")
       : "אין יעד: ההתקנות של שבוע הבסיס לא נקראו מגוגל אנליטיקס.";
     else if (calI && RI >= CB.hi) notes.installs_calibration = "שבוע הבסיס היה פי " + r1(ci / model("installs_week")) + " מצפי התוכנית בהתקנות, והכיול נעצר בתקרה (פי " + CB.hi + ")."; }
 
