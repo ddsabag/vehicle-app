@@ -3,3 +3,4 @@
 run 2026-10-26 first read for the CEO thread
 run 2026-10-26 with the weekly report's JSON
 run 2026-10-26 outputs in base64
+run 2026-10-26 files as artifacts
