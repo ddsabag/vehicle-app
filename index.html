@@ -113,6 +113,13 @@ form{display:flex;gap:10px}
 .go{flex:0 0 auto;width:64px;height:64px;border-radius:9px;border:0;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center}
 .go svg.i{width:26px;height:26px;stroke-width:2.4}
 .go[disabled]{opacity:.6;cursor:progress}
+/* site: the search is the plate's own end, opposite the IL strip, in the plate's ink (one object, one focus ring), like the top bar's */
+html.web #f{flex-direction:row-reverse;gap:0;height:64px;border:3px solid var(--plate-ink);border-radius:9px;overflow:hidden;background:var(--plate)}
+html.web #f .plate{border:0;border-radius:0;height:auto}
+html.web #f .plate:focus-within{box-shadow:none}
+html.web #f:focus-within{box-shadow:0 0 0 3px var(--band),0 0 0 5px var(--accent)}
+html.web #f .go{width:60px;height:auto;border-radius:0;background:var(--plate-ink);color:var(--plate);transition:background .15s}
+html.web #f .go:hover{background:color-mix(in srgb,var(--plate-ink) 82%,var(--plate))}
 
 /* page */
 main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;display:flex;flex-direction:column;gap:12px;padding-bottom:calc(40px + env(safe-area-inset-bottom,0px))}
@@ -323,6 +330,8 @@ body:has(.sharebar) .toast{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
   html.web body:has(#out > .side) .band-in,html.web main#out:has(> .side),html.web footer,html.web body:has(#out .cmp-wide) .band-in,html.web main#out:has(.cmp-wide){max-width:1080px}
   html.web main#out:has(> .side){display:grid;grid-template-columns:minmax(0,1fr) 340px;column-gap:16px;row-gap:12px;align-items:start}
   html.web main#out > .plate-strip{grid-column:1/-1}
+  html.web body[data-screen=cars] .band-in,html.web body[data-screen=cars] main#out{max-width:1080px}
+  html.web body[data-screen=cars] .ccards{grid-template-columns:1fr 1fr}
   html.web main#out > .side{grid-column:2;grid-row:2/4;display:flex;flex-direction:column;gap:12px;position:sticky;top:116px}
   html.web main#out > .mainc{grid-column:1;grid-row:2;display:flex;flex-direction:column;gap:12px;min-width:0}
   html.web main#out > .src-foot{grid-column:1;grid-row:3}
@@ -749,6 +758,10 @@ html.web main#out > .chead{grid-column:1/-1}
 .vseg{display:grid;grid-template-columns:1fr 1fr;padding:4px;border-radius:14px;background:color-mix(in srgb,var(--accent) 10%,transparent)}
 .vseg button{border:0;background:none;height:40px;border-radius:11px;font-weight:800;color:var(--accent)}
 .vseg button[aria-selected=true]{background:var(--accent);color:var(--accent-fg);box-shadow:0 6px 16px -8px var(--accent)}
+/* site: the view switch is a quiet setting, so the filter chip under it is the one strong choice on the screen */
+html.web .vseg{background:var(--soft);border:1px solid var(--line);padding:3px;border-radius:12px;max-width:260px}
+html.web .vseg button{height:36px;border-radius:9px;color:var(--muted);font-weight:700}
+html.web .vseg button[aria-selected=true]{background:var(--card);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.12)}
 .fchips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding-inline:16px}.fchips::-webkit-scrollbar{display:none}
 .fchips button{flex:0 0 auto;height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted);font-weight:700;font-size:.9rem}
 .fchips button[aria-pressed=true]{background:var(--fg);border-color:var(--fg);color:var(--bg)}
@@ -6152,7 +6165,7 @@ function carCard(s){
   const strip = s.active === false ? `<span class="cc-strip bad">${ico("alert")}הרכב ירד מהכביש</span>` : s.recalls > 0 ? `<span class="cc-strip bad">${ico("alert")}${recallsWord(s.recalls)}. התיקון בדרך כלל ללא עלות אצל היבואן</span>` : "";
   const meter = s.ask && s.fair ? priceMeter(s) : L && s.active !== false ? testMeter(L) : "";
   return `<button type="button" class="ccard${on ? " on" : ""}" ${sel ? `data-pick="${s.plate}" aria-pressed="${!!on}"` : `data-open="${s.plate}"`}>
-    <span class="cc-top"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span>${s.color ? `<span class="cc-col">${hex ? `<i class="pdot" style="background:${hex}"></i>` : ""}${esc(s.color)}</span>` : ""}${sel ? `<span class="cc-chk">${ico("check")}</span>` : `<span class="cc-go">${ico("chev")}</span>`}</span>
+    <span class="cc-top"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span>${s.color && !String(s.sub || "").includes(s.color) ? `<span class="cc-col">${hex ? `<i class="pdot" style="background:${hex}"></i>` : ""}${esc(s.color)}</span>` : ""}${sel ? `<span class="cc-chk">${ico("check")}</span>` : `<span class="cc-go">${ico("chev")}</span>`}</span>
     <b class="cc-t"><bdi>${esc(s.nick || s.title)}</bdi></b><small class="cc-s">${s.nick ? `<bdi>${esc(s.title)}</bdi> · ` : ""}${esc(s.sub || "")}</small>
     ${strip || meter ? `<span class="cc-m">${strip}${meter}</span>` : ""}</button>`;
 }
