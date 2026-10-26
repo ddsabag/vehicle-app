@@ -696,14 +696,16 @@ body:not(:has(.sharebar)):not(.kb) .snack{bottom:calc(76px + env(safe-area-inset
 @media (min-width:1000px){
   html.web .bnav{top:0;bottom:auto;border-top:0;border-bottom:1px solid var(--line);padding-bottom:0}
   html.web .bnav-in{max-width:1080px;padding-inline:16px;display:flex;align-items:stretch;gap:4px;height:60px}
-  /* the home page without saved cars is one 680px column: the tabs sit over it, not 200px past its edge */
-  html.web body[data-screen=home]:not(:has(#out > .hrail)) .bnav-in{max-width:680px}
   html.web .bnav button{flex-direction:row;gap:7px;min-height:0;padding:0 14px;font-size:.95rem;border-bottom:3px solid transparent;border-radius:0;cursor:pointer}
   html.web .bnav button:hover{color:var(--fg)}
   html.web .bnav .bn-i,html.web .bnav button[aria-current=page] .bn-i{width:auto;height:auto;background:none}
   html.web .bnav button[aria-current=page]{border-bottom-color:var(--accent)}
   html.web .bn-badge{top:-8px;inset-inline-end:-12px}
-  html.web body:is([data-screen=car],[data-screen=sub],[data-screen=cars],[data-screen=alerts]) .bn-brand{display:flex;align-items:center;gap:8px;margin-inline-end:14px;color:var(--fg);text-decoration:none;font-weight:800;font-size:1.15rem}
+  /* one bar on every screen: the brand, then the tabs, always 1080px wide, so no tab moves when the screen changes (Dudu 26.10).
+     On home the band below keeps the plate search and the gear; its own logo line stays for screen readers only */
+  html.web body[data-screen=home] .band .brand h1{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  html.web body[data-screen=home] .band .brand{justify-content:flex-end}
+  html.web .bn-brand{display:flex;align-items:center;gap:8px;margin-inline-end:14px;color:var(--fg);text-decoration:none;font-weight:800;font-size:1.15rem}
   html.web .bn-brand .logo{width:34px;height:34px}
   html.web body:is([data-screen=car],[data-screen=sub],[data-screen=cars],[data-screen=alerts]) .bn-f{display:flex;align-items:center;gap:8px;margin-inline-start:auto}
   /* the plate and its search button stand side by side, one height and one corner, like the home page's */
