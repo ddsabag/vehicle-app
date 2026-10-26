@@ -9,8 +9,14 @@
 <meta property="og:type" content="website"><meta property="og:site_name" content="לוחית"><meta property="og:url" content="https://luchit.app/business/"><meta property="og:title" content="לוחית לעסקים ושותפויות"><meta property="og:description" content="רשימת המתנה לגורמים בענף הרכב: נתוני רכב מרוכזים, דוחות שוק ושותפויות שירות."><meta property="og:image" content="https://luchit.app/og.png"><meta name="twitter:card" content="summary_large_image">
 <meta name="robots" content="index,follow">
 <style>
-:root{--bg:#eef0f4;--card:#fff;--fg:#151a24;--muted:#5d6676;--line:#dfe4ec;--ac:#2a56c6;--tile:#f5f7fa;color-scheme:light}
-@media (prefers-color-scheme:dark){:root{--bg:#0d1118;--card:#161c27;--fg:#e9edf3;--muted:#97a1b3;--line:#2a3342;--ac:#7aa2ff;--tile:#1d2532;color-scheme:dark}}
+@font-face{font-family:"Assistant";font-style:normal;font-weight:400;font-display:optional;src:url(/lib/fonts/assistant-hebrew-400-normal.woff2) format("woff2");unicode-range:U+0307-0308,U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F}
+@font-face{font-family:"Assistant";font-style:normal;font-weight:400;font-display:optional;src:url(/lib/fonts/assistant-latin-400-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Assistant";font-style:normal;font-weight:700;font-display:optional;src:url(/lib/fonts/assistant-hebrew-700-normal.woff2) format("woff2");unicode-range:U+0307-0308,U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F}
+@font-face{font-family:"Assistant";font-style:normal;font-weight:700;font-display:optional;src:url(/lib/fonts/assistant-latin-700-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+/* the app's own font and colours, so the page looks like the rest of luchit.app */
+
+:root{--bg:#f2f4f8;--card:#fff;--fg:#151a24;--muted:#4a5465;--line:#e3e7ee;--ac:#2457c5;--tile:#f5f7fa;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#0e121a;--card:#1c2330;--fg:#e9edf3;--muted:#aab3c3;--line:#2b3444;--ac:#7ea3f2;--tile:#262f3e;color-scheme:dark}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 "Assistant",system-ui,Arial,sans-serif}
 main{max-width:640px;margin:0 auto;padding:28px 16px 40px;display:flex;flex-direction:column;gap:14px}
@@ -30,7 +36,7 @@ textarea{min-height:92px;resize:vertical}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media (max-width:520px){.two{grid-template-columns:1fr}}
 .chk{flex-direction:row;align-items:flex-start;gap:8px;font-weight:400;font-size:.88rem;color:var(--muted)}.chk input{width:auto;margin-top:5px}
 button{font:inherit;font-weight:700;color:#fff;background:var(--ac);border:0;border-radius:10px;padding:13px 20px;cursor:pointer}
-@media (prefers-color-scheme:dark){button{color:#0d1118}}
+@media (prefers-color-scheme:dark){button{color:#0e121a}}
 button:disabled{opacity:.6;cursor:default}
 .hp{position:absolute;inset-inline-start:-9999px;width:1px;height:1px;overflow:hidden}
 .st{min-height:1.4em;font-size:.92rem}.st.er{color:#c0392b}.st.ok{color:#1e8449;font-weight:600}
