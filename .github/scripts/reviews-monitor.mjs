@@ -101,6 +101,7 @@ else try {
 } catch (e) { errors.push("reviews: " + e.message); console.log("reviews failed:", e.message); }
 
 // ---- Play vitals (crash / ANR rate), Google's "bad behavior" thresholds: 1.09% crashes, 0.47% ANR (user-perceived) ----
+const fine = [];   // router keys of the checks that came back under the threshold, closed below
 try {
   const t = await token("https://www.googleapis.com/auth/playdeveloperreporting");
   const day = x => ({ year: x.getUTCFullYear(), month: x.getUTCMonth() + 1, day: x.getUTCDate() });
@@ -121,6 +122,7 @@ try {
     const m = Object.fromEntries((row.metrics || []).map(x => [x.metric, +(x.decimalValue?.value ?? NaN)]));
     const pct = m[metric] * 100, users = m.distinctUsers, k = `vitals:${kind}:${JSON.stringify(row.startTime)}`;
     console.log(`${kind}: ${pct.toFixed(2)}%${users >= 20 ? "" : " (too few users to alert)"}`);   // the user count is a business number: never in the public log
+    if (pct < limit) fine.push("vitals:" + (kind.startsWith("crash") ? "crash" : "anr"));
     if (pct >= limit && users >= 20 && !seen[k]) {
       const head = `${tag("urgent", "app")}\n<b>שיעור ${label} גבוה בגוגל פליי</b>\n${pct.toFixed(2)}% מהמשתמשים חוו את זה ביום ${d.toISOString().slice(0, 10)}, מעל הסף של גוגל (${limit}%). מעל הסף גוגל מציגה את האפליקציה פחות בחנות.\n`;
       const what = todo("לכתוב בשרשור \"מוצר ושחרורים\" כדי לבדוק איזו גרסה ואיזה מכשיר. הפירוט ב-Play Console ← Android vitals.");
@@ -137,6 +139,8 @@ const now = Date.now(), DAY = 20 * 36e5;   // 20 h: scheduled runs start late by
 if (errors.length) { seen.errOn ||= now; seen.errAt = now; } else if (now - (seen.errAt || 0) > DAY) { delete seen.errOn; delete seen.errAt; }
 const ek = "err:" + errors.join("|").slice(0, 80), lasting = errors.length && now - seen.errOn > DAY;
 if (errors.length && (!seen[ek] || now - seen[ek] > DAY) && await telegram(errText(errors, lasting && seen.errOn), !lasting, ek, undefined, [lasting ? "day" : "summary", "reviews:error"])) seen[ek] = Date.now();
+// what is fine again closes its open alert in the router, which says so once, quietly (Dudu 26.10: every problem, and how it ended)
+if (!DRY) { const done = [...fine, ...(errors.length ? [] : ["reviews:error"])]; if (done.length) try { await (await import("./alert.mjs")).resolve(done); } catch { /* the morning ledger still lists it */ } }
 save();
 // finish green: an alert already told you, and a failed send is logged above and tried again next run (no "workflow failed" mail on top)
 process.exit(0);

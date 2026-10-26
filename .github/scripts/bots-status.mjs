@@ -10,6 +10,15 @@ import { putMetric } from "./flash.mjs";
 
 const DIR = ".github/workflows", EXTRA = ["workers-deploy.yml", "ship-tail.yml"];   // run on a push, not a clock: shown, never "late"
 const NAMES = ".github/scripts/bot-names.json", WORKER = "worker/live/worker.js";
+// a Cloudflare token from a secret that may hold Cloudflare's whole test command (curl ... -H "Authorization: Bearer <token>"): the token is
+// taken from it, the rule of cleanToken in workers-deploy.mjs (not imported: Live watch checks out only the files it runs); null when what
+// is left has a character a header cannot carry, since fetch's error would then quote the secret
+function cfToken(t) {
+  const raw = String(t || ""), b = /\bBearer\s+([A-Za-z0-9_-]{20,})(?![A-Za-z0-9_-])/.exec(raw);
+  if (b && raw.match(/\bBearer\s/g).length === 1) return b[1];
+  const v = raw.replace(/[\s\p{Cf}]/gu, "");
+  return /^[A-Za-z0-9_-]+$/.test(v) ? v : null;
+}
 
 // the longest wait between two runs, in minutes, from all of a workflow's cron lines (GitHub runs them in UTC), over 62 days from 1.1.2026 so
 // monthly lines count too; null when it has none. A workflow with two lines for summer and winter time waits the shorter gap of the pair.
@@ -122,6 +131,11 @@ if (process.argv[2] === "selftest") {
   eq(schedule(["7 8 6 * *", "30 5 * * 4"], win), "ב-6 בכל חודש ב-10:07, ביום חמישי ב-07:30", "monthly and weekly");
   eq(schedule(["40 4 * * 3"], win), "ביום רביעי ב-06:40", "weekly");
   eq(schedule([]), "", "no schedule");
+  const T = "a".repeat(40);
+  eq(cfToken('curl "https://api.cloudflare.com/client/v4/user/tokens/verify" \\\n     -H "Authorization: Bearer ' + T + '"\n'), T, "token from a pasted test command");
+  eq(cfToken(" " + T + "\n"), T, "token with a space and a line break");
+  eq(cfToken("\u200f" + T), T, "token with a direction mark");
+  eq(cfToken(T + "é"), null, "token with a character a header cannot carry");
   // every bot on the board has a Hebrew name for Telegram (bot-names.json, by workflow name) and a line on the board (worker.js BN, by
   // file: name and group), and the two names agree; checked where the files are (the alert router check checks out the whole repository)
   if (fs.existsSync(NAMES) && fs.existsSync(WORKER) && fs.existsSync(DIR)) {
@@ -144,8 +158,9 @@ if (process.argv[2] === "selftest") {
   } catch (e) { console.log("bots board skipped:", e.message || e); }
   // the tasks Dudu marked done on /live (KV lv:cal:done in luchit-alerts), copied to metrics.json "calDone" so the morning calendar refresh drops them
   try {
-    const tok = process.env.CLOUDFLARE_API_TOKEN || process.env.CF_API_TOKEN, acc = process.env.CF_ACCOUNT_ID;
-    if (!tok || !acc) throw new Error("no Cloudflare token");
+    const raw = process.env.CLOUDFLARE_API_TOKEN || process.env.CF_API_TOKEN, tok = cfToken(raw), acc = String(process.env.CF_ACCOUNT_ID || "").trim();
+    if (!raw || !acc) throw new Error("no Cloudflare token");
+    if (!tok) throw new Error("the Cloudflare token has characters that cannot be sent");
     const cf = async p => { const r = await fetch("https://api.cloudflare.com/client/v4/accounts/" + acc + p, { headers: { authorization: "Bearer " + tok }, signal: AbortSignal.timeout(15e3) }); return r; };
     const ns = await (await cf("/storage/kv/namespaces?per_page=100")).json(), id = ((ns && ns.result) || []).find(x => x.title === "luchit-alerts")?.id;
     if (!id) throw new Error("namespace luchit-alerts not found");
@@ -153,5 +168,5 @@ if (process.argv[2] === "selftest") {
     const ids = Object.keys(done || {}).filter(k => /^[a-z0-9-]{1,60}$/.test(k)).sort();
     console.log("calendar done marks:", ids.length ? ids.join(", ") : "none");
     if (process.env.DRY !== "1") console.log((await putMetric("calDone", { at: new Date().toISOString(), ids })) ? "calendar marks written" : "calendar marks not written");
-  } catch (e) { console.log("calendar marks skipped:", e.message || e); }
+  } catch (e) { console.log("calendar marks skipped:", String(e.message || e).replace(/[A-Za-z0-9_-]{20,}/g, "***").slice(0, 200)); }
 }

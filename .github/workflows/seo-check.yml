@@ -4,7 +4,7 @@ name: SEO check
 on:
   push:
     branches: [main, next, seo-auto]
-    paths: ["**.html", "sitemap.xml", "robots.txt", "manifest.json", "model/**", "magazine/**", "guide/**", ".github/scripts/seo-check.mjs", ".github/scripts/pages.mjs", ".github/scripts/landing.mjs", ".github/scripts/brands.mjs", ".github/scripts/model-recalls.mjs", ".github/workflows/seo-check.yml"]
+    paths: ["**.html", "sitemap.xml", "robots.txt", "manifest.json", "model/**", "magazine/**", "guide/**", ".github/scripts/seo-check.mjs", ".github/scripts/pages.mjs", ".github/scripts/landing.mjs", ".github/scripts/brands.mjs", ".github/scripts/model-recalls.mjs", ".github/scripts/index-guard.mjs", ".github/workflows/seo-check.yml"]
   pull_request:
   schedule:
     - cron: "30 5 * * 1"   # Mondays: also probe the live site
@@ -25,6 +25,9 @@ jobs:
       # the home FAQ: the static section crawlers read and the FAQPage JSON-LD must say the same
       - name: FAQ parity
         run: node .github/scripts/faq-parity.mjs
+      # the index guard (seo-data.mjs): when Google dropped pages, and when the alert's pages are back so the router can close it
+      - name: Index guard self-test
+        run: node .github/scripts/index-guard.mjs selftest
       # the ministry's recall lists per maker (catalog-data branch, catalog.yml) for the model pages' recall section (model-recalls.mjs);
       # without them pages.mjs builds the pages without that section and prints a warning
       - name: Recall lists for the model pages

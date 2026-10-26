@@ -136,15 +136,15 @@ function groups(s, sect, from) {
   }
   const log = Array.isArray(s.log) ? s.log : [];
   return [...g.values()].map(x => {
-    const c = log.filter(e => x.keys.has(e.k) && e.a !== "ring" && Date.parse(e.t) >= from).length;
+    const c = log.filter(e => x.keys.has(e.k) && e.a !== "ring" && e.a !== "fixed" && Date.parse(e.t) >= from).length;   // occurrences, not the outcome
     const u = [...new Set(x.its.sort((a, b) => Date.parse(b.last) - Date.parse(a.last)).flatMap(it => (Array.isArray(it.u) ? it.u : [])))].slice(0, 2);
-    return { he: x.he, keys: x.keys, n: c || x.n, last: x.last, u };
+    return { he: x.he, keys: x.keys, n: c || x.n, last: x.last, u, done: x.its.every(it => it.out === "fixed" || it.out === "self") };
   });
 }
 const withLinks = (t, u) => u.reduce((s, l) => (s.length + 3 + l.length <= CAP.line ? s + " · " + l : s), t);
 const itemLine = x => withLinks(`• ${x.he}${x.n > 1 ? ` ×${x.n} · אחרון ${dm(x.last)}` : ` · ${dm(x.last)}`}`, x.u);
 // 🔔: actual vs would-be messages from the log (td = what the site did, a = the router's action or, in shadow, its would-action)
-const KIND = { loud: "loud", remind: "loud", ring: "loud", night: "night", "remind-night": "night", deduped: "none", queued: "none", logged: "none" };
+const KIND = { loud: "loud", remind: "loud", ring: "loud", night: "night", "remind-night": "night", quiet: "silent", fixed: "silent", deduped: "none", queued: "none", logged: "none" };
 const kind = (a, td) => KIND[a] || (td === "loud" || td === "silent" ? td : "none");   // legacy/failed: today's send ran
 function bell(s, from, shadow) {
   const log = (Array.isArray(s.log) ? s.log : []).filter(e => Date.parse(e.t) >= from);
@@ -210,7 +210,7 @@ export function build(src, now, env = process.env) {
   const pr = src.pulls && prLine(src.pulls, env, mag);
   if (pr) wait.push(pr);
   const wbad = [...(s ? [] : ["רשימת ההתראות: לא מחובר"]), ...(src.pulls ? [] : ["בקשות מיזוג פתוחות: לא מחובר"])];
-  const fail = s ? groups(s, "fail", from).sort((a, b) => b.n - a.n || b.last - a.last).map(itemLine) : [];
+  const fail = s ? groups(s, "fail", from).sort((a, b) => b.n - a.n || b.last - a.last).map(x => itemLine(x.done ? { ...x, he: x.he + " · ✅ טופל" } : x)) : [];   // closed with an outcome
   const fyi = s ? groups(s, "fyi", from).sort((a, b) => b.last - a.last).map(itemLine) : [];
   const dead = deadman(src, now);
   const tail = s ? bell(s, from, shadow) : "🔔 התראות השבוע: לא מחובר";
@@ -352,6 +352,14 @@ async function selftest() {
     ok(!x.text.includes("במצב ניסיון") && !x.text.includes("השאר נשלח כרגיל") && x.text.endsWith("🔔 התראות השבוע: 2 צלצלו · 1 נשלחה בשקט בלילה · 6 נרשמו בלי הודעה"), "routed: no preview, counts line\n" + x.text.split("\n").at(-1));
     x = await run({ state: stateRes({ ...STATE, log: [lg("a:b", 1, "loud", "loud", 0), lg("a:b", 2, "legacy", "silent", 0), lg("a:b", 3, "queued", "loud", 0)] }) }, { ...ENV, ALERT_ROUTE: "all" });
     ok(x.text.endsWith("🔔 התראות השבוע: 1 צלצלה · 0 נשלחו בשקט בלילה · 1 נשלחה בשקט · 1 נרשמה בלי הודעה"), "routed counts, singular\n" + x.text.split("\n").at(-1));
+    // the outcome (alert.mjs, 26.10): a failure closed with an outcome says so; its outcome entry is not one more occurrence; quiet sends count as quiet
+    {
+      const items = { ...STATE.items, "wf:Reviews monitor": it(48, { n: 1, open: false, out: "fixed", outAt: ago(40) }) };
+      const log = [...STATE.log.map(e => ({ ...e, sh: 0 })), lg("wf:Reviews monitor", 40, "fixed", "none", 0), lg("smoke:home", 4, "quiet", "loud", 0)];
+      x = await run({ state: stateRes({ ...STATE, items, log }) }, { ...ENV, ALERT_ROUTE: "all" });
+      ok(x.text.includes('• הבוט "שומר הביקורות" נכשל · ✅ טופל ×3 · אחרון 16.10') && x.text.endsWith("🔔 התראות השבוע: 2 צלצלו · 1 נשלחה בשקט בלילה · 2 נשלחו בשקט · 6 נרשמו בלי הודעה"),
+        "fixed failure marked, quiet counted\n" + x.text);
+    }
     // empty case: nothing waiting, nothing stale
     x = await run({ state: stateRes({ v: 1, items: {}, hb: STATE.hb, log: [] }), pulls: [], list: { workflows: [] } });
     ok(x.text === "🧾 לוחית · סיכום שבועי 11.10–17.10\n(הנתב במצב ניסיון: ההודעות עדיין נשלחות כרגיל, והשורה האחרונה מראה מה היה משתנה איתו)\n\n⏳ מחכה לך: אין כלום השבוע ✓\n\n🔔 השבוע בפועל: 0 הודעות (0 מצלצלות). עם הנתב: 0 הודעות (0 מצלצלות, 0 בלילה).", "empty case\n" + x.text);

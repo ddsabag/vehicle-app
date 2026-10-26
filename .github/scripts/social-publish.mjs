@@ -468,6 +468,13 @@ async function tell(level, key, text, link = "", today = "loud") {
   if (router) await router.alert(level, key, text, link, { today, legacy: () => telegram(text, today === "silent") });
   else await telegram(text, today === "silent");
 }
+// a problem that is over closes its router item, and the router says so once ("✅ בוצע"); told = this run's own message already says it
+async function closeAlerts(keys, { told = false } = {}) {
+  if (IO.env.SOCIAL_SELFTEST) { IO.log(`[closed ${keys.join(" ")}${told ? " (told)" : ""}]`); return; }
+  if (IO.env.DRY_RUN || !IO.env.GITHUB_TOKEN) return;
+  try { await (await import("./alert.mjs")).resolve(keys, { tell: !told }); } catch { /* the morning ledger still lists it */ }
+}
+const tokenKeys = ts => ts.flatMap(t => [`social:fail:token-${t}`, `social:fail:notoken-${t}`]);
 
 // ---- run ----
 export async function run(qdir) {
@@ -501,6 +508,8 @@ export async function run(qdir) {
   if (!due.length) return { published: 0, summary };
   if (!secret("META_PUBLISH_TOKEN") && !igT) { IO.log("neither META_PUBLISH_TOKEN nor IG_PUBLISH_TOKEN is set: nothing published"); return { published: 0, summary, noToken: true }; }
   const A = await connect({ igToken: igT });
+  const up = ["facebook", "instagram"].filter(t => (t === "facebook" ? A.page : A.ig) && !A.errs[t]);
+  if (up.length && !dry) await closeAlerts(tokenKeys(up));   // a network that answers again: its token alert is over
   for (const [t, e] of Object.entries(A.errs)) {   // that network's items wait for the next run; the other network still publishes
     const n = due.filter(d => d.t === t).length;
     IO.log(`${t} not connected: ${e.message}`);
@@ -573,13 +582,18 @@ export async function run(qdir) {
       continue;
     }
     const prev = st.tries > 0 ? await alreadyPosted(A, t, it.caption) : null;
-    if (prev) { Object.assign(st, { status: "done", id: prev.id, link: prev.link, at: new Date(IO.now()).toISOString(), note: "found on the account" }); Q.save(); summary.push(`done ${key} (found)`); continue; }
+    if (prev) {
+      Object.assign(st, { status: "done", id: prev.id, link: prev.link, at: new Date(IO.now()).toISOString(), note: "found on the account" }); Q.save(); summary.push(`done ${key} (found)`);
+      await closeAlerts([`social:fail:link-${k.name}-${it.id}`, `social:fail:${k.name}-${it.id}`]);
+      continue;
+    }
     st.tries++; st.last = new Date(IO.now()).toISOString(); Q.save();
     try {
       const r = t === "facebook" ? await publishFacebook(A, it, k.dir) : await publishInstagram(A, it, k.dir);
       Object.assign(st, { status: "done", id: r.id, link: r.link, at: new Date(IO.now()).toISOString() }); delete st.err; Q.save();
       published++; summary.push(`done ${key} ${r.link}`); posted.push({ k, it, t, link: r.link });
       IO.log(`published ${key}: ${r.link}`);
+      await closeAlerts([`social:fail:link-${k.name}-${it.id}`, `social:fail:${k.name}-${it.id}`], { told: true });   // the "עלה" message below says it
     } catch (e) {
       st.err = String(e.message).slice(0, 300); Q.save();
       IO.log(`failed ${key}: ${e.message}`);
@@ -627,6 +641,8 @@ export async function check() {
     state.ig?.refreshed ? `הטוקן של אינסטגרם חודש ב-${state.ig.refreshed.slice(0, 10)}` : ""].filter(Boolean);
   const ok = !Object.keys(A.errs).length && !!(A.page || A.ig) && !(dbg && dbg.expires_at !== 0);
   IO.log(lines.join("\n"));
+  const up = ["facebook", "instagram"].filter(t => (t === "facebook" ? A.page : A.ig) && !A.errs[t]);
+  if (up.length) await closeAlerts(tokenKeys(up));
   await tell("summary", "social:check", say(ok ? "info" : "today", ok ? "החיבור לפייסבוק ולאינסטגרם עובד" : "יש בעיה בחיבור לפייסבוק או לאינסטגרם",
     esc(lines.join("\n")), ok ? "" : "לכתוב לי בשרשור \"תפעול, בוטים ומייל\"."), "", "silent");
   return { ok, A };
@@ -691,6 +707,10 @@ async function selftest() {
   ck(!st()["2026-10-22/carousel/facebook"], "the carousel is not due yet");
   ck(!logs.join("\n").includes("SECRET-TOKEN") && !calls.join(" ").includes("SECRET"), "the token never appears in logs or paths");
   ck(calls.includes("GET /ph2") || calls.some(c => /^GET \/ph\d+$/.test(c)), "Instagram image went through a Page photo address");
+  // Dudu 26.10, every problem and how it ended: a network that answers closes its token alerts (told by the router); a post that went up closes
+  // its own failure alerts, which its "עלה" line already tells
+  ck(logs.some(l => l === "[closed social:fail:token-facebook social:fail:notoken-facebook social:fail:token-instagram social:fail:notoken-instagram]"), "connected networks close their token alerts");
+  ck(logs.filter(l => l === "[closed social:fail:link-2026-10-22-dealer social:fail:2026-10-22-dealer (told)]").length === 2, "a published post closes its own alerts, told by its done line");
   logs.length = 0; calls.length = 0; r = await run(tmp);
   ck(r.published === 0 && !calls.some(c => c.startsWith("POST")), "a second run posts nothing again");
   ck(!logs.some(l => l.includes("social:remind")), "the reminder is not sent twice");

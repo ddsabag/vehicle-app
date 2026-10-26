@@ -13,6 +13,11 @@ name: Failure alert
 # Self-repair (Dudu 25.10: fix by itself, tell only "done"): a workflow in tg-text.mjs RETRY (reads, checks and data rebuilds, safe to run twice) that
 # failed for the first time, or was pushed out of the queue, is re-run once by this job, which waits for it: passed = one silent ✅, failed again = the loud
 # message. The re-run's own completion (attempt 2+) is left to the job that started it. Other workflows (publishing, mail, Play, Worker deploys) are not re-run.
+# Every message goes through the alert router first (alert.mjs wf, Dudu 26.10: every problem, and how it ended): the workflow's level in WF_LEVELS
+# decides the ring (a day-level failure at night is quiet, then the morning ring), a repeat is one episode (no new message inside 22.5 h, then a
+# reminder), a self-repair is recorded as already over, and each one is in the morning ledger. When the router does not take it, the direct send below.
+# Job "recovered": a green run on main closes that run name's open failure and says so once, quietly ("✅ בוצע"); in the four workflows whose jobs
+# are skipped by the kind of run, only when every job that failed in the latest failed run ran and passed here.
 # Names must match each workflow's name: exactly (no error when one does not).
 on:
   workflow_run:
@@ -50,6 +55,11 @@ on:
       - "Release watch"
       - "Settlements"
       - "Data truth"
+      - "App guardian (real app)"   # owner: product (QA); nightly on main, red = blocking findings, so never re-run by this job
+      - "UI guardian (browser)"
+      - "Alert router check"   # the checks of a push to main: red = something released broken (alert.mjs selftest: no workflow on main goes unwatched)
+      - "ASO check"
+      - "Live watch"
     types: [completed]
 permissions:
   contents: write   # flash.mjs writes the flashes branch the /live dashboard reads
@@ -85,14 +95,20 @@ jobs:
           RUN_CREATED: ${{ github.event.workflow_run.created_at }}
           TITLE: ${{ github.event.workflow_run.display_title }}
           ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}   # the alert router (alert.mjs): its state lives on the branch alert-state
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY || secrets.BREVO_KEY }}   # the router's email path for a critical failure
         run: |
           [ -n "$TELEGRAM_BOT_TOKEN" ] || { echo "no Telegram credentials"; exit 0; }
           # one Hebrew message per case (tg-text.mjs wfFailure: classification line, what happened, what to do, the log link); level from alert.mjs WF_LEVELS
           send() {
-            local out silent text
+            local out silent text r extra=""
             out=$(node .github/scripts/tg-text.mjs wf "$1" "$NAME" "$WF" "$URL" 2>/dev/null) || out=""
             if [ -n "$out" ]; then silent=${out%%$'\n'*}; text=${out#*$'\n'}; else silent=0; text=$(printf 'לוחית: הבוט "%s" נכשל\n%s' "$NAME" "$URL"); fi
             [ "$1" = repeat ] && silent=1
+            # the router first: ALERT_DONE = it sent (or deduped) the message and recorded it; anything else = the direct send, as before
+            case "$1" in repeat) extra="--repeat";; fixed) extra="--outcome self";; esac
+            r=$(timeout 45 node .github/scripts/alert.mjs wf "$NAME" --of "$WF" --html --today "$([ "$silent" = 1 ] && echo silent || echo loud)" --text "$text" --link "$URL" $extra 2>/dev/null) || r=""
+            case "$r" in *ALERT_DONE*) echo "router: ${r##*$'\n'}"; return 0;; esac
             curl -s -o /dev/null -w "telegram %{http_code}\n" "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$text" \
               --data-urlencode "parse_mode=HTML" --data-urlencode "disable_web_page_preview=true" --data-urlencode "disable_notification=$([ "$silent" = 1 ] && echo true || echo false)"
           }
@@ -188,3 +204,47 @@ jobs:
           repair failed && exit 0
           send failed
           node .github/scripts/flash.mjs infra alert "בוט נכשל: $HE" "$URL"
+  # a green run closes this run name's open failure in the router and says so once, quietly; nothing open = nothing sent
+  recovered:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event != 'pull_request' && github.event.workflow_run.head_repository.full_name == github.repository }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          sparse-checkout: |
+            .github/scripts/alert.mjs
+            .github/scripts/bot-names.json
+          sparse-checkout-cone-mode: false
+      - name: Close a failure this run fixed
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NAME: ${{ github.event.workflow_run.name }}
+          WF: ${{ github.event.workflow.name || github.event.workflow_run.name }}
+          URL: ${{ github.event.workflow_run.html_url }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+          WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
+          TITLE: ${{ github.event.workflow_run.display_title }}
+        run: |
+          # Site smoke test, SEO daily digest, Magazine and Data truth skip jobs by the kind of run (event, schedule line or part), so a green run
+          # proves only the jobs it ran: every job that failed in the newest earlier failed run (of this part) must have run and passed here
+          case "$WF" in
+            "Site smoke test"|"SEO daily digest"|"Magazine"|"Data truth")
+              part=""; case "$TITLE" in "$WF ("*")") part=$TITLE;; esac
+              prev=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$WORKFLOW_ID/runs?branch=main&status=completed&per_page=30" \
+                --jq '.workflow_runs[] | "\(.run_number)\t\(.conclusion)\t\(.id)\t\(.display_title)"' 2>/dev/null \
+                | awk -F'\t' -v part="$part" '$1 + 0 < ENVIRON["RUN_NUMBER"] + 0 && (part == "" || $4 == part) && ($2 == "failure" || $2 == "timed_out" || $2 == "cancelled") { print $3; exit }') || prev=""
+              [ -n "$prev" ] || { echo "no earlier failed run found: nothing to close"; exit 0; }
+              failed=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$prev/jobs?per_page=100" \
+                --jq '.jobs[] | select((.steps | length) > 0 and (.conclusion == "failure" or .conclusion == "timed_out" or .conclusion == "cancelled")) | .name' 2>/dev/null) || exit 0
+              passed=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" --jq '.jobs[] | select(.conclusion == "success") | .name' 2>/dev/null) || exit 0
+              while IFS= read -r j; do
+                if [ -n "$j" ] && ! grep -qxF -- "$j" <<<"$passed"; then echo "the job that failed did not run here: the failure stays open"; exit 0; fi
+              done <<<"$failed";;
+          esac
+          timeout 60 node .github/scripts/alert.mjs recovered "$NAME" --link "$URL" || true

@@ -3,12 +3,18 @@
 // The repo variable ALERT_ROUTE (comma list of levels, or "all") switches levels on; unset = shadow (legacy sends, the router only records).
 // State lives on the public branch "alert-state" (state.json + heartbeat.json) and holds no message text: keys, levels, times, counts, links,
 // and on each log entry the key's fixed headline from LABELS (he, sc), which the /live dashboard lists as its flashes.
+// Every problem reaches Telegram, and so does how it ended (Dudu 26.10: "לקבל התראה על כל בעיה גם אם היא טופלה, כדי לוודא שאכן טופלה"):
+// a key whose label is a problem (sect fail) at level silent/summary is sent quietly once per episode instead of only being logged or queued;
+// resolve() and `recovered` close items with an outcome and tell the problems among them in one quiet message; a self-repair is recorded
+// as a problem that is already over (outcome "self"); the daily job sends the morning ledger, every problem of the last 24 h and what
+// happened to it. Loud stays for what needs a person: the level decides that, as before.
 // Node 20, no imports except node: builtins (failure-alert and alert-daily check out only this file).
 //   Node:   let router = null; try { router = await import("./alert.mjs"); } catch {}   then  router.alert(level, key, text, link, { today, legacy })
 //   shell:  out=$(timeout 45 node .github/scripts/alert.mjs send <level> <key> --today loud --text "$t" 2>/dev/null || true)
 //           case "$out" in *ALERT_DONE*) echo "${out##*$'\n'}" ;; *) <the original send line> ;; esac
 //   node alert.mjs send <level> <key> --today loud|silent|none (--text "<t>" | --file <path>) [--plain] [--link URL]... [--fresh]
-//   node alert.mjs wf "<workflow name>" --today loud|silent --text "<t>" --link URL [--repeat]
+//   node alert.mjs wf "<run name>" [--of "<workflow name>"] [--html] --today loud|silent --text "<t>" --link URL [--repeat] [--outcome self]
+//   node alert.mjs recovered "<run name>" --link URL   failure-alert.yml on a green run: closes an open wf:<run name>, tells it quietly
 //   node alert.mjs --stdin          JSON {level,key,text,link,today,plain,fresh} (analytics/alert.py)
 //   node alert.mjs daily            alert-daily.yml: claim, Telegram self-test, morning ring, uptime and Monday checks, heartbeat, prune
 //   node alert.mjs mark-summary     weekly "mark" job: hb.summaryAt = now
@@ -46,7 +52,12 @@ export const WF_LEVELS = {
   "Back-on-road detector": "silent",
   "Ship tail": "day", "Store listing": "day", "Release watch": "day", "Production": "day",
   "Settlements": "day", "Data truth": "day", "Social publish": "day",
+  "App guardian (real app)": "day", "UI guardian (browser)": "day",   // red = blocking findings on the real app / site (owner: product); at night: quiet, then the morning ring
+  "Alert router check": "summary", "ASO check": "summary",   // checks of a push to main: whoever released it fixes it; quiet, then the ledger and the morning triage
+  "Live watch": "summary",   // the /live dashboard's own watch (owner: measurement); its findings alert by themselves (live:*)
 };
+// a run name "Magazine (data)" takes its workflow's level
+export const wfLevel = name => WF_LEVELS[name] ?? WF_LEVELS[String(name).replace(/ \([^)]*\)$/, "")] ?? "day";
 
 // fixed Hebrew text for the morning ring and the Sunday block. Lookup: first two key segments, then the first one.
 // {id} = the rest of the key after the family; {ids} = that rest split on "+" and mapped through ids. sect: wait|fail|fyi|none
@@ -158,8 +169,17 @@ export const FAMILIES_IN_USE = [
 ];
 
 const TODAY = ["loud", "silent", "none"];
-const ACTIONS = ["loud", "night", "remind", "remind-night", "deduped", "queued", "logged", "legacy", "failed", "ring"];
+const ACTIONS = ["loud", "night", "remind", "remind-night", "quiet", "deduped", "queued", "logged", "legacy", "failed", "ring", "fixed"];
 const NIGHT = "\n\n🌙 נשלח בשקט כי עכשיו לילה. צלצול תזכורת יגיע בבוקר.";
+const QUIET_NOTE = "\n\n🔕 נשלח בשקט כי לא צריך אותך כרגע. בבוקר יגיע סיכום של כל תקלות היממה ומה קרה עם כל אחת.";
+const TELL_MS = 72 * 36e5, LEDGER_MS = 864e5, LEDGER_CAP = 12;   // an outcome is told for a problem seen in the last 72 h; the ledger covers 24 h
+// the tag line's area of a key (tg-text.mjs AREAS), by its first segment
+const AREA = { wf: "בוטים", meta: "בוטים", auto: "בוטים", smoke: "אתר", infra: "אתר", expiry: "אתר", workers: "אתר", webwatch: "אתר",
+  guard: "נתונים", ministry: "נתונים", checker: "נתונים", truth: "נתונים", stl: "נתונים", catalog: "נתונים", recalls: "נתונים",
+  seo: "SEO", "seo-auto": "SEO", mag: "SEO", mention: "שיווק", social: "שיווק", review: "ביקורות", review3: "ביקורות", reviews: "ביקורות",
+  vitals: "אפליקציה", watch: "אפליקציה", ship: "חנות Google Play", listing: "חנות Google Play", safety: "חנות Google Play", prod: "חנות Google Play",
+  live: "מדידה", pipe: "מדידה", relguard: "מדידה", zonea: "מדידה", weekly: "מדידה", exp: "מדידה" };
+const areaOf = key => AREA[String(key).split(":")[0]] || "בוטים";
 const EMPTY = '{"v":1,"items":{},"hb":{},"log":[]}';
 
 // injectable I/O: the selftest swaps these (mocked fetch, fixed clock, scaled timers, captured stdout)
@@ -324,10 +344,14 @@ export async function readState(dl) {
 
 // ---- pure decision and state change ----
 const newEpisode = (it, lv, fresh, now) => !it || !it.open || !!fresh || !(now - t0(it.last) <= IDLE_MS) || rank(lv) > rank(it.lv);
-// would-action against a state: logged|queued|deduped|loud|remind|night|remind-night, or legacy when a backstop gate is not met
+// would-action against a state: logged|queued|quiet|deduped|loud|remind|night|remind-night, or legacy when a backstop gate is not met
 export function decide(s, lv, key, fresh, now, day) {
   const it = s.items[key], hb = s.hb || {}, ep = newEpisode(it, lv, fresh, now);
-  if (lv === "silent" || lv === "summary") return { a: !(now - t0(hb.summaryAt) <= GATE_SUMMARY_MS) ? "legacy" : lv === "silent" ? "logged" : "queued", ep };
+  if (lv === "silent" || lv === "summary") {
+    // a problem is never only logged or queued: one quiet message per episode, no reminders (the morning ledger shows how it ended)
+    if (label(key).sect === "fail") return { a: ep || !it.sent ? "quiet" : "deduped", ep };
+    return { a: !(now - t0(hb.summaryAt) <= GATE_SUMMARY_MS) ? "legacy" : lv === "silent" ? "logged" : "queued", ep };
+  }
   let remind = false;
   if (!ep && it.sent) { if (now - t0(it.sent) >= REMIND_MS) remind = true; else return { a: "deduped", ep }; }
   if (lv === "critical" && !remind) return { a: "loud", ep, email: true };
@@ -335,7 +359,7 @@ export function decide(s, lv, key, fresh, now, day) {
   if (!(now - t0(hb.dailyAt) <= GATE_NIGHT_MS)) return { a: "legacy", ep };
   return { a: remind ? "remind-night" : "night", ep, remind, night: true };
 }
-// o: {key, level, now, fresh, links, src, today}; count = this occurrence (n++, last); set = {sent, pend}; a/sh = log entry
+// o: {key, level, now, fresh, links, src, today, outcome}; count = this occurrence (n++, last); set = {sent, pend}; a/sh = log entry
 function apply(s, o, { count = true, a = null, sh = 0, set = null } = {}) {
   const now = iso(o.now);
   if (count) {
@@ -345,6 +369,7 @@ function apply(s, o, { count = true, a = null, sh = 0, set = null } = {}) {
     if (rank(o.level) > rank(it.lv)) it.lv = o.level;
     if (o.src) it.src = o.src;
     if (o.links.length) it.u = o.links;
+    if (o.outcome) Object.assign(it, { open: false, out: o.outcome, outAt: now });   // a problem that is already over (a self-repair)
     s.items[o.key] = it;
   }
   if (set && s.items[o.key]) Object.assign(s.items[o.key], set);
@@ -358,7 +383,7 @@ async function record(o, a, delivered, sh, counted = false) {
   let would = a || "";
   try {
     await cas(STATE.file, s => {
-      would = a || decide(s, o.level, o.key, o.fresh, o.now, isDaytime(new Date(o.now))).a;
+      would = a || (o.outcome ? "quiet" : decide(s, o.level, o.key, o.fresh, o.now, isDaytime(new Date(o.now))).a);
       return apply(s, o, { count: !counted, a: would, sh, set: delivered && o.today !== "none" ? { sent: iso(o.now) } : null });
     }, { tries: 1, dl: c.signal });
   } finally { clearTimeout(timer); }
@@ -370,7 +395,7 @@ async function route(o, text, opts, dl, st) {
   if (!IO.env.GITHUB_TOKEN) return { legacy: true, action: "legacy" };
   const g = await readState(dl);
   if (!g) return { legacy: true, action: "legacy" };
-  const d = decide(g, o.level, o.key, o.fresh, o.now, isDaytime(new Date(o.now)));
+  const d = o.outcome ? { a: "quiet", ep: true } : decide(g, o.level, o.key, o.fresh, o.now, isDaytime(new Date(o.now)));
   if (d.a === "legacy") return { legacy: true, action: "legacy", after: r => record(o, "legacy", r, 0) };
   if (d.a === "logged" || d.a === "queued" || d.a === "deduped") {   // the write is the action: a failed write -> legacy
     const w = await cas(STATE.file, s => apply(s, o, { a: d.a }), { dl });
@@ -382,8 +407,9 @@ async function route(o, text, opts, dl, st) {
     counted = true;
   }
   const it = g.items[o.key];
-  const body = (d.remind ? `🔁 תזכורת: זה עדיין קורה (מאז ${ilTime(new Date(t0(it.first) || o.now))}, ${(it.n || 0) + 1} פעמים)\n\n` : "") + text + (d.night ? NIGHT : "");
-  const sent = tg(body, { silent: !!d.night, plain: o.plain }, dl).then(ok => { if (ok && !st.ok) { st.ok = true; st.action = d.a; opts.onSent?.(d.a); } return ok; });
+  const body = (d.remind ? `🔁 תזכורת: זה עדיין קורה (מאז ${ilTime(new Date(t0(it.first) || o.now))}, ${(it.n || 0) + 1} פעמים)\n\n` : "") + text +
+    (d.night ? NIGHT : d.a === "quiet" && !o.outcome ? QUIET_NOTE : "");
+  const sent = tg(body, { silent: !!d.night || d.a === "quiet", plain: o.plain }, dl).then(ok => { if (ok && !st.ok) { st.ok = true; st.action = d.a; opts.onSent?.(d.a); } return ok; });
   st.inflight = sent;
   const subject = "🔴 לוחית: " + label(o.key).he;
   const [ok, mailed] = await Promise.all([sent, d.email ? mail(subject, text, o.links, dl) : false]);
@@ -396,7 +422,8 @@ async function route(o, text, opts, dl, st) {
   return { legacy: true, delivered: em, action: "failed", after: r => record(o, "failed", r, 0, counted) };
 }
 
-// alert(level, key, text, link, {today, legacy, plain, fresh, levels}) -> {delivered, action}. Never throws on its own (legacy's exceptions propagate).
+// alert(level, key, text, link, {today, legacy, plain, fresh, levels, outcome}) -> {delivered, action}. Never throws on its own (legacy's exceptions
+// propagate). outcome "self": the problem is already over (failure-alert's self-repair): one quiet message, recorded closed.
 // Logs exactly one line "alert <key> <level> -> <action>": never text, links or numbers.
 export async function alert(level, key, text, link = "", opts = {}) {
   const env = IO.env, legacy = opts.legacy, all = Array.isArray(opts.levels) && opts.levels.length ? opts.levels : [level];
@@ -408,7 +435,8 @@ export async function alert(level, key, text, link = "", opts = {}) {
     say("legacy");
     return { delivered: await runLegacy(), action: "legacy" };
   }
-  const o = { level, key, now: IO.now(), fresh: !!opts.fresh, links: cleanLinks(link), src: srcName(env), today: TODAY.includes(opts.today) ? opts.today : "loud", plain: !!opts.plain };
+  const o = { level, key, now: IO.now(), fresh: !!opts.fresh, links: cleanLinks(link), src: srcName(env), today: TODAY.includes(opts.today) ? opts.today : "loud", plain: !!opts.plain,
+    outcome: opts.outcome === "self" ? "self" : null };
   if (!all.every(l => routed(l, env))) {   // SHADOW: today's send, plus a record of what the router would have done
     // the CLI records before the caller's send and never learns its result, so it leaves `sent` unset (worst case one duplicate at switch-on)
     if (opts.cli) { const w = await record(o, null, false, 1); say("shadow:" + (w || "unrecorded")); return { delivered: await runLegacy(), action: "legacy" }; }
@@ -437,22 +465,65 @@ export async function alert(level, key, text, link = "", opts = {}) {
   return { delivered: res.delivered || r, action: res.action };
 }
 
-// close every open item under the prefixes (no message); one read, at most one write, 8 s, never throws
-export async function resolve(prefixes) {
-  const env = IO.env, pre = (Array.isArray(prefixes) ? prefixes : [prefixes]).filter(p => typeof p === "string" && p);
-  if (isDry(env) || !env.GITHUB_TOKEN || !pre.length) return 0;
-  const c = new AbortController(), timer = setTimeout(() => c.abort(), ms(8000));
-  let n = 0;
+// how a closed problem ended, in one quiet plain message: wf = the run name when a green run of that workflow closed it (`recovered`)
+function outcomeText(rows, wf, link) {
+  const at = it => ilTime(new Date(t0(it.sent) || t0(it.first))), head = `✅ בוצע · ${areaOf(rows[0][0])}`, none = "👌 לא צריך לעשות כלום.";
+  if (wf) return [head, `הבוט "${botHe(wf)}" רץ שוב בהצלחה`, `ההתראה עליו נשלחה ב-${at(rows[0][1])}, וההרצה הזו עברה.`, none,
+    ...cleanLinks(link).slice(0, 1).map(u => "🔗 " + u)].join("\n");
+  if (rows.length === 1) return [head, `חזר לתקין: ${label(rows[0][0]).he}`, `הבדיקה הבאה עברה. ההתראה על זה נשלחה ב-${at(rows[0][1])}.`, none].join("\n");
+  return [head, `חזרו לתקינות (${rows.length}):`, ...rows.map(([k, it]) => `• ${label(k).he} (התראה מ-${at(it)})`), none].join("\n");
+}
+// close the open items that match, outcome "fixed": one read, at most one write, 8 s, never throws. The problems among them (sect fail) seen
+// in the last 72 h that were announced (any of them when a green run closed its own failure) are told in ONE quiet message after the write,
+// unless the caller tells it its own way (tell false: the items are still closed with their outcome, for the morning ledger).
+async function closeItems(match, { wf = "", link = "", tell = true } = {}) {
+  const env = IO.env;
+  if (isDry(env) || !env.GITHUB_TOKEN) return 0;
+  const c = new AbortController(), timer = setTimeout(() => c.abort(), ms(8000)), now = IO.now();
+  const told = (k, it) => tell && label(k).sect === "fail" && (it.sent || wf) && now - t0(it.last) <= TELL_MS;
+  let closed = [];
   try {
     const s = await readState(c.signal);
-    if (!s || !Object.entries(s.items).some(([k, it]) => it.open && pre.some(p => k.startsWith(p)))) return 0;
+    if (!s || !Object.entries(s.items).some(([k, it]) => it.open && match(k))) return 0;
     const w = await cas(STATE.file, x => {
-      n = 0;
-      for (const [k, it] of Object.entries(x.items)) if (it.open && pre.some(p => k.startsWith(p))) { it.open = false; n++; }
-      return n ? x : null;
+      closed = [];
+      for (const [k, it] of Object.entries(x.items)) if (it.open && match(k)) { Object.assign(it, { open: false, out: "fixed", outAt: iso(now) }); closed.push([k, { ...it }]); }
+      x.log = [...x.log, ...closed.filter(([k, it]) => told(k, it)).map(([k, it]) => logEntry(iso(now), k, it.lv, "fixed", "none", 0))].slice(-600);
+      return closed.length ? x : null;
     }, { dl: c.signal });
-    return w?.wrote ? n : 0;
+    if (!w?.wrote) return 0;
   } catch { return 0; } finally { clearTimeout(timer); }
+  const rows = closed.filter(([k, it]) => told(k, it));
+  if (rows.length && env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {   // its own 15 s: a send in flight is never cut
+    const c2 = new AbortController(), t2 = setTimeout(() => c2.abort(), ms(15000));
+    try { await tg(outcomeText(rows, wf, link), { silent: true, plain: true }, c2.signal); } catch { /* the ledger still shows it */ } finally { clearTimeout(t2); }
+  }
+  return closed.length;
+}
+// close every open item under the prefixes; the announced problems among them are told once ("חזר לתקין"), unless opts.tell is false
+// (a caller that sends its own "done" message for the same event)
+export async function resolve(prefixes, opts = {}) {
+  const pre = (Array.isArray(prefixes) ? prefixes : [prefixes]).filter(p => typeof p === "string" && p);
+  return pre.length ? closeItems(k => pre.some(p => k.startsWith(p)), { tell: opts.tell !== false }) : 0;
+}
+// failure-alert.yml on a green run of a watched workflow: its open failure, exactly "wf:<run name>", is closed and told
+export async function recovered(name, link = "") {
+  const key = "wf:" + name;
+  return validKey(key) ? closeItems(k => k === key, { wf: name, link }) : 0;
+}
+// the morning ledger: every problem (sect fail) seen or closed in the last 24 h and what happened to it; "" when there was none
+export function ledgerText(s, now) {
+  const at = v => ilTime(new Date(t0(v)));
+  const rows = Object.entries(s.items || {}).filter(([k, it]) => label(k).sect === "fail" && (now - t0(it.last) <= LEDGER_MS || now - t0(it.outAt) <= LEDGER_MS));
+  if (!rows.length) return "";
+  const open = rows.filter(([, it]) => !it.out).sort((a, b) => t0(b[1].last) - t0(a[1].last));
+  const done = rows.filter(([, it]) => it.out).sort((a, b) => t0(b[1].outAt) - t0(a[1].outAt));
+  const line = ([k, it]) => (it.out ? `✅ ${label(k).he} · ${it.out === "self" ? "תוקן לבד בהרצה חוזרת" : "נבדק שוב ועבר"} · ${at(it.outAt)}`
+    : `🟠 ${label(k).he} · עוד לא אושר שטופל · ${it.n > 1 ? `${it.n} פעמים, ` : ""}אחרון ${at(it.last)}`);
+  const all = [...open, ...done];
+  return ["🔵 לידיעה · בוטים", `📋 תקלות ב-24 השעות האחרונות ומה קרה איתן (${all.length})`, ...all.slice(0, LEDGER_CAP).map(line),
+    ...(all.length > LEDGER_CAP ? [`ועוד ${all.length - LEDGER_CAP}`] : []),
+    open.length ? "👉 מה לעשות: כלום כרגע. מה שעוד לא אושר עובר לשרשור האחראי בבדיקת הבוקר, ואם יצטרכו אותך תגיע הודעה נפרדת." : "👌 לא צריך לעשות כלום."].join("\n");
 }
 
 // ---- daily job (alert-daily.yml) ----
@@ -523,6 +594,7 @@ async function daily() {
     try { const r = await req(up + "/health", {}, 10000); if (r.ok) tick = t0(J(r.text)?.tick); } catch { /* stale */ }
     upSeen = now - tick <= 30 * 6e4;
     IO.out("uptime worker: " + (upSeen ? "ok" : "stale"));
+    if (upSeen && !dry && await resolve(["meta:uptime"])) IO.out("uptime alert closed");
     if (!upSeen && s.hb.uptimeSeenAt) {
       const text = `🟠 לטיפול היום · בוטים\nשומר הזמינות של האתר לא דיווח מאז ${ilTime(new Date(tick > 0 ? tick : t0(s.hb.uptimeSeenAt)))}\nבינתיים אף אחד לא יתריע אם האתר ייפול. הבדיקות היומיות ב-GitHub ממשיכות כרגיל.\n👉 מה לעשות: לכתוב בשרשור "תפעול, בוטים ומייל".`;
       if (dry) IO.out("would alert meta:uptime"); else await alert("day", "meta:uptime", text, "", { today: "loud", plain: true, legacy: direct(text) });
@@ -537,6 +609,10 @@ async function daily() {
       if (dry) IO.out("would alert weekly:missing"); else await alert("day", "weekly:missing", text, link, { today: "loud", plain: true, legacy: direct(text) });
     }
   }
+  // 5b the morning ledger, quiet and only when there was a problem: every problem of the last 24 h and how it ended, read again after step 4 closed one
+  const led = ledgerText(dry ? s : (await readState()) || s, now);
+  if (dry) IO.out(led ? "would send the ledger" : "no problems for the ledger");
+  else if (led) IO.out(await tg(led, { silent: true, plain: true }) ? "ledger sent" : "ledger not sent");
   if (dry) { IO.out("dry run: nothing sent or written"); return 0; }
   // 6 heartbeat (read by luchit-uptime), then the self-test marks and the prune
   const hb = await cas(STATE.heartbeat, () => ({ t: iso(now) }));
@@ -553,6 +629,7 @@ async function markSummary() {
   if (isDry(IO.env)) { IO.out("dry run: summary not marked"); return 0; }
   const now = IO.now(), w = await cas(STATE.file, x => { x.hb.summaryAt = iso(now); return x; });
   IO.out(w ? "summary marked" : "summary not marked");
+  if (w && await resolve(["weekly:missing"])) IO.out("missing-summary alert closed");   // the Monday alert, when the summary went out late
   return w ? 0 : 1;
 }
 
@@ -569,10 +646,10 @@ function flags(args, spec) {
   return f;
 }
 // one alert from the command line; legacy = print ALERT_LEGACY (the shell then runs its own original send)
-async function cliAlert(level, key, text, link, { today, plain, fresh }) {
+async function cliAlert(level, key, text, link, { today, plain, fresh, outcome }) {
   if (!LEVELS.includes(level) || !TODAY.includes(today) || typeof key !== "string" || typeof text !== "string") throw new Usage("bad arguments");
   let legacy = false, done = false;
-  const r = await alert(level, key, text, link, { today, plain, fresh, cli: true, legacy: async () => { legacy = true; return false; },
+  const r = await alert(level, key, text, link, { today, plain, fresh, outcome, cli: true, legacy: async () => { legacy = true; return false; },
     onDone: a => { done = true; IO.out(`ALERT_DONE ${a} 1`); } });   // printed as soon as the message is out, before the state write
   if (!done) IO.out(legacy ? "ALERT_LEGACY" : `ALERT_DONE ${r.action} ${r.delivered ? 1 : 0}`);
   return 0;
@@ -588,9 +665,15 @@ export async function cli(argv, stdin = () => fs.readFileSync(0, "utf8")) {
       return await cliAlert(level, key, text, f.link, { today: f.today, plain: !!f.plain, fresh: !!f.fresh });
     }
     if (cmd === "wf") {
-      const [name, ...more] = rest, f = flags(more, { today: "v", text: "v", link: "v", repeat: "bool" });
-      if (typeof name !== "string" || !name || !["loud", "silent"].includes(f.today) || typeof f.text !== "string") throw new Usage("bad arguments");
-      return await cliAlert(WF_LEVELS[name] ?? "day", "wf:" + name, f.text, f.link, { today: f.today, plain: true, fresh: !f.repeat });
+      const [name, ...more] = rest, f = flags(more, { today: "v", text: "v", link: "v", repeat: "bool", of: "v", html: "bool", outcome: "v" });
+      if (typeof name !== "string" || !name || !["loud", "silent"].includes(f.today) || typeof f.text !== "string" || ("outcome" in f && f.outcome !== "self")) throw new Usage("bad arguments");
+      return await cliAlert(wfLevel(f.of || name), "wf:" + name, f.text, f.link, { today: f.today, plain: !f.html, fresh: !f.repeat, outcome: f.outcome });
+    }
+    if (cmd === "recovered") {
+      const [name, ...more] = rest, f = flags(more, { link: "v" });
+      if (typeof name !== "string" || !name) throw new Usage("bad arguments");
+      IO.out(await recovered(name, f.link) ? "recovered: closed and told" : "recovered: nothing open");
+      return 0;
     }
     if (cmd === "--stdin") {
       const j = J(stdin());
@@ -603,7 +686,7 @@ export async function cli(argv, stdin = () => fs.readFileSync(0, "utf8")) {
     throw new Usage("unknown command");
   } catch (e) {
     if (!(e instanceof Usage)) throw e;
-    IO.err("usage: alert.mjs send|wf|--stdin|daily|mark-summary|selftest (" + e.message + ")");
+    IO.err("usage: alert.mjs send|wf|recovered|--stdin|daily|mark-summary|selftest (" + e.message + ")");
     return 2;
   }
 }
@@ -793,16 +876,57 @@ async function selftest() {
       ok(thrown && thrown.message === "legacy boom", "legacy that throws propagates: " + name);
     }
 
-    // resolve
+    // every problem is seen (Dudu 26.10): a problem key (sect fail) at silent/summary is sent quietly once per episode, by day and by night,
+    // whatever the gates; a notice or a decision at those levels keeps its old path
+    for (const lv of ["silent", "summary"]) for (const now of [DAY, NIGHT_T]) for (const gS of [true, false]) {
+      const tag = `quiet ${lv}/${now === DAY ? "day" : "night"}/S${+gS}`, k = "smoke:home";
+      const x = await run({ level: lv, key: k, now, state: { v: 1, items: {}, hb: gates(now, true, gS), log: [] } });
+      ok(x.r.action === "quiet" && x.legacy === 0, `${tag}: action ${x.r.action}`);
+      ok(x.m.tg.length === 1 && x.m.tg[0].disable_notification === true && x.m.tg[0].text.endsWith(QUIET_NOTE), `${tag}: one silent message with the note`);
+      ok(x.st.items[k].sent === iso(now) && !x.st.items[k].pend && x.st.log.at(-1).a === "quiet" && schema(x.st) === "", `${tag}: state`);
+      const y = await run({ level: lv, key: k, now: now + 23.5 * H, m: x.m });
+      ok(y.r.action === "deduped" && x.m.tg.length === 1, `${tag}: the same episode a day later is not sent again`);
+    }
+    {
+      const x = await run({ level: "summary", key: "mention:" + h12("x"), state: base() }), y = await run({ level: "silent", key: "guard:core:a1b2c3d4", state: base() });
+      ok(x.r.action === "queued" && x.m.tg.length === 0 && y.r.action === "logged" && y.m.tg.length === 0, "a notice at summary is still queued, a decision at silent still logged");
+      const z = await run({ level: "summary", key: "smoke:home", state: base(), tg: [{ status: 500 }, { status: 500 }], ret: false });
+      ok(z.r.action === "failed" && z.legacy === 1 && z.st.items["smoke:home"].sent === null, "a quiet send that failed, and its legacy too: sent unset");
+      const z2 = await run({ level: "summary", key: "smoke:home", now: DAY + H, m: z.m });
+      ok(z2.r.action === "quiet" && z.m.tg.length === 3, "so the next occurrence is sent quietly");
+    }
+
+    // resolve: closes the open prefix items with their outcome; the announced problems among them are told in one quiet plain message
     {
       const st = base();
       st.items["smoke:home"] = { lv: "critical", first: iso(DAY), last: iso(DAY), n: 1, sent: iso(DAY), pend: null, open: true, u: [] };
       st.items["smoke-x:y"] = { ...st.items["smoke:home"] }; st.items["expiry:cert"] = { ...st.items["smoke:home"], open: false };
-      const m = net({ state: st }); IO.fetch = m.fetch; IO.env = { ...ENV };
+      const m = net({ state: st }); IO.fetch = m.fetch; IO.env = { ...ENV }; IO.now = () => DAY + H;
       ok(await resolve(["smoke:", "expiry:"]) === 1 && m.state().items["smoke:home"].open === false && m.state().items["smoke-x:y"].open === true, "resolve closes the open prefix items");
-      const p = m.puts; ok(await resolve("smoke:") === 0 && m.puts === p, "resolve with nothing open writes nothing");
+      ok(m.state().items["smoke:home"].out === "fixed" && m.state().items["smoke:home"].outAt === iso(DAY + H), "resolve records the outcome");
+      ok(m.tg.length === 1 && m.tg[0].disable_notification === true && !("parse_mode" in m.tg[0]) && m.tg[0].text === "✅ בוצע · אתר\nחזר לתקין: בדיקת האתר החי מצאה בעיה: דף הבית\n" +
+        `הבדיקה הבאה עברה. ההתראה על זה נשלחה ב-${ilTime(new Date(DAY))}.\n👌 לא צריך לעשות כלום.`, "resolve tells the announced problem quietly: " + m.tg[0]?.text);
+      ok(m.state().log.at(-1).a === "fixed" && m.state().log.at(-1).k === "smoke:home" && schema(m.state()) === "", "resolve logs the outcome; schema");
+      const p = m.puts; ok(await resolve("smoke:") === 0 && m.puts === p && m.tg.length === 1, "resolve with nothing open writes and tells nothing");
       IO.env = { ...ENV, DRY: "1" }; ok(await resolve("smoke-x:") === 0 && m.puts === p, "resolve is a no-op in DRY");
       IO.env = { ...ENV, GITHUB_TOKEN: "" }; ok(await resolve("smoke-x:") === 0, "resolve without a token");
+    }
+    {
+      const st = base(), at = t => ({ lv: "day", first: iso(t), last: iso(t), n: 1, sent: iso(t), pend: null, open: true, u: [] });
+      st.items["smoke:home"] = at(DAY - 2 * H); st.items["smoke:lookup"] = at(DAY - H);
+      st.items["expiry:cert"] = at(DAY - H);   // a renewal (sect wait): closed, never told
+      st.items["infra:site"] = { ...at(DAY - H), sent: null };   // never announced: closed, not told
+      st.items["infra:api"] = at(DAY - 96 * H);   // older than 72 h: closed, not told
+      const m = net({ state: st }); IO.fetch = m.fetch; IO.env = { ...ENV }; IO.now = () => DAY;
+      ok(await resolve(["smoke:", "expiry:", "infra:"]) === 5, "resolve closes all five");
+      const s1 = m.state();
+      ok(Object.values(s1.items).every(it => !it.open && it.out === "fixed"), "every closed item carries its outcome");
+      ok(m.tg.length === 1 && m.tg[0].text.startsWith(`✅ בוצע · אתר\nחזרו לתקינות (2):\n• בדיקת האתר החי מצאה בעיה: דף הבית (התראה מ-${ilTime(new Date(DAY - 2 * H))})\n• `)
+        && !/SSL|שירותי האתר/.test(m.tg[0].text), "two announced problems, one message: " + m.tg[0]?.text);
+      ok(s1.log.filter(e => e.a === "fixed").length === 2 && schema(s1) === "", "one outcome entry per told problem");
+      const m2 = net({ state: st }); IO.fetch = m2.fetch;
+      ok(await resolve(["smoke:"], { tell: false }) === 2 && m2.tg.length === 0 && m2.state().items["smoke:home"].out === "fixed" && !m2.state().log.length,
+        "tell false: closed with the outcome, nothing sent or logged");
     }
 
     // privacy: 500 random calls; state = whitelist schema, no @, no 5+ digit runs, no 12+ character piece of any text; stdout = log lines only
@@ -868,6 +992,26 @@ async function selftest() {
       && label("seo:daily").sect === "none" && label("nope:x").he === "התראה: nope:x" && label("mag:fail:2026-10").sect === "wait", "label rendering");
     const used = scanKeys(ROOT), missing = used.filter(k => !FAMILIES_IN_USE.some(f => f === k || f.startsWith(k + ":") || k.startsWith(f + ":")));
     ok(missing.length === 0, "call-site keys missing from FAMILIES_IN_USE: " + missing.join(", "));
+    // every workflow that runs on main by itself is watched by failure-alert, each watched name has a deliberate level, and the parser sees the events
+    const silentWf = unwatched(ROOT), noLevel = watchList(ROOT).filter(n => !(n in WF_LEVELS));
+    ok(silentWf.length === 0, "workflows that run on main but failure-alert does not watch: " + silentWf.join(", "));
+    ok(noLevel.length === 0 && watchList(ROOT).length >= 30, "failure-alert names without a WF_LEVELS level: " + noLevel.join(", "));
+    {
+      const tmp = fs.mkdtempSync(path.join((await import("node:os")).tmpdir(), "wf-")), w = `${tmp}/.github/workflows`;
+      fs.mkdirSync(w, { recursive: true });
+      const put = (f, t) => fs.writeFileSync(`${w}/${f}`, t);
+      put("failure-alert.yml", 'name: Failure alert\non:\n  workflow_run:\n    branches: [main]\n    workflows:\n      - "Watched"\n    types: [completed]\n');
+      put("a.yml", "name: Watched\non:\n  schedule:\n    - cron: \"1 1 * * *\"\njobs: {}\n");
+      put("b.yml", "name: Nightly\non:\n  schedule:\n    - cron: \"1 1 * * *\"\n  workflow_dispatch:\njobs: {}\n");
+      put("c.yml", "name: Next only\non:\n  push:\n    branches: [next]\n  pull_request:\njobs: {}\n");
+      put("d.yml", "name: Main push\non:\n  push:\n    branches:\n      - next\n      - main\n    paths: [\"x\"]\njobs: {}\n");
+      put("e.yml", "name: Any push\non:\n  push:\n    paths: [\"x\"]\njobs: {}\n");
+      put("f.yml", "name: Manual\non:\n  workflow_dispatch:\njobs: {}\n");
+      put("g.yml", "name: Maintenance\non:\n  push:\n    branches: [maintenance]\njobs: {}\n");
+      const u = unwatched(tmp).map(x => x.replace(/ \(.*$/, "")).sort().join();
+      fs.rmSync(tmp, { recursive: true, force: true });
+      ok(u === "Any push,Main push,Nightly", "unwatched: schedules and pushes that reach main, nothing else: " + u);
+    }
     out.length = 0;
 
     // CLI: marker contract, wf lookup, --repeat, shadow record budget
@@ -896,7 +1040,7 @@ async function selftest() {
     c = await runCli(["--stdin"], { stdin: JSON.stringify({ level: "day", key: "webwatch:rollback", text: "x", link: "", today: "loud", plain: true, fresh: false }) });
     ok(c.last === "ALERT_DONE loud 1" && c.m.tg[0].parse_mode === undefined, "cli --stdin, plain");
     c = await runCli(["wf", "Ownership data mirror", "--today", "loud", "--text", "x", "--link", "https://github.com/o/r/actions/runs/1"]);
-    ok(c.out[0] === "alert wf:Ownership data mirror silent -> logged", "wf: Ownership data mirror -> silent " + c.out[0]);
+    ok(c.out[0] === "alert wf:Ownership data mirror silent -> quiet" && c.last === "ALERT_DONE quiet 1" && c.m.tg[0].disable_notification === true, "wf: Ownership data mirror -> silent, sent quietly " + c.out[0]);
     c = await runCli(["wf", "Ministry watch", "--today", "loud", "--text", "x"]);
     ok(c.out[0] === "alert wf:Ministry watch day -> loud", "wf: Ministry watch -> day " + c.out[0]);
     c = await runCli(["wf", "Web deploy (build)", "--today", "loud", "--text", "x"]);
@@ -912,6 +1056,83 @@ async function selftest() {
       ok(c.last === "ALERT_DONE remind 1" && m.tg.length === 2 && m.tg[1].text.startsWith("🔁"), "wf --repeat after 22.5 h -> reminder");
       c = await runCli(["wf", "Data guard", "--today", "loud", "--text", "x"], { m, now: DAY + 24 * H });
       ok(c.last === "ALERT_DONE loud 1" && m.tg.length === 3, "wf without --repeat -> a fresh episode, loud");
+    }
+    {   // recovered: a green run closes exactly its own open failure and tells it once
+      const st = base(), f = t => ({ lv: "day", first: iso(t), last: iso(t), n: 2, sent: iso(t), pend: null, open: true, u: ["https://github.com/o/r/actions/runs/1"] });
+      st.items["wf:Site smoke test"] = f(DAY - 3 * H); st.items["wf:Site smoke test (after deploy)"] = f(DAY - 3 * H);
+      const m = net({ state: st });
+      c = await runCli(["recovered", "Site smoke test", "--link", "https://github.com/o/r/actions/runs/2"], { m });
+      const s1 = m.state();
+      ok(c.code === 0 && c.last === "recovered: closed and told" && !s1.items["wf:Site smoke test"].open && s1.items["wf:Site smoke test"].out === "fixed"
+        && s1.items["wf:Site smoke test (after deploy)"].open, "recovered closes exactly its run name");
+      ok(m.tg.length === 1 && m.tg[0].disable_notification === true && m.tg[0].text.startsWith(`✅ בוצע · בוטים\nהבוט "${botHe("Site smoke test")}" רץ שוב בהצלחה\nההתראה עליו נשלחה ב-`)
+        && m.tg[0].text.endsWith("\n🔗 https://github.com/o/r/actions/runs/2"), "recovered tells it quietly: " + m.tg[0]?.text);
+      const p = m.puts;
+      c = await runCli(["recovered", "Site smoke test", "--link", "https://github.com/o/r/actions/runs/3"], { m });
+      ok(c.last === "recovered: nothing open" && m.puts === p && m.tg.length === 1, "recovered again: nothing open, nothing sent");
+      c = await runCli(["recovered", "Site smoke test (after deploy)"], { m, env: { DRY: "1" } });
+      ok(c.last === "recovered: nothing open" && m.puts === p, "recovered in DRY does nothing");
+      c = await runCli(["recovered"], { m });
+      ok(c.code === 2 && !c.out.length, "recovered without a name: usage error");
+    }
+    {   // self-repair: a problem that is already over, one quiet message, recorded closed; a later failure is a new, loud episode
+      const m = net({ state: base() });
+      c = await runCli(["wf", "Data guard", "--html", "--today", "silent", "--text", "<b>✅ בוצע · בוטים</b>\nx", "--link", "https://github.com/o/r/actions/runs/1", "--outcome", "self"], { m });
+      const it = m.state().items["wf:Data guard"];
+      ok(c.last === "ALERT_DONE quiet 1" && m.tg.length === 1 && m.tg[0].disable_notification === true && m.tg[0].parse_mode === "HTML" && !m.tg[0].text.includes("🔕"),
+        "outcome self: one quiet HTML message, without the quiet note");
+      ok(it.open === false && it.out === "self" && it.n === 1 && !!it.sent && schema(m.state()) === "", "outcome self: recorded as closed");
+      c = await runCli(["wf", "Data guard", "--html", "--today", "loud", "--text", "x"], { m, now: DAY + H });
+      ok(c.last === "ALERT_DONE loud 1" && m.tg.length === 2 && m.tg[1].disable_notification === false && m.state().items["wf:Data guard"].open
+        && !("out" in m.state().items["wf:Data guard"]), "a failure after a self-repair is a new, loud episode");
+      c = await runCli(["wf", "Magazine (data)", "--of", "Magazine", "--today", "loud", "--text", "x"]);
+      ok(c.out[0] === "alert wf:Magazine (data) day -> loud", "wf --of: the workflow's level " + c.out[0]);
+      c = await runCli(["wf", "SEO check (x)", "--today", "loud", "--text", "x"]);
+      ok(c.out[0] === "alert wf:SEO check (x) summary -> quiet" && c.last === "ALERT_DONE quiet 1", "a run name without --of falls back to its workflow's level " + c.out[0]);
+      c = await runCli(["wf", "UI guardian (browser)", "--today", "loud", "--text", "x"]);
+      ok(c.out[0] === "alert wf:UI guardian (browser) day -> loud", "UI guardian: day");
+      c = await runCli(["wf", "Data guard", "--today", "loud", "--text", "x", "--outcome", "fixed"]);
+      ok(c.code === 2 && !c.out.some(l => l.startsWith("ALERT_")), "wf --outcome other than self: usage error");
+    }
+    {   // the morning ledger: every problem of the last 24 h and what happened to it
+      const now = Date.parse("2026-10-20T05:20:00Z"), st = base();
+      const it = (last, o = {}) => ({ lv: "day", first: iso(last), last: iso(last), n: 1, sent: iso(last), pend: null, open: true, u: [], ...o });
+      st.items["wf:Data guard"] = it(now - 6 * H, { open: false, out: "self", outAt: iso(now - 6 * H) });
+      st.items["truth:specs"] = it(now - 20 * H, { open: false, out: "fixed", outAt: iso(now - 2 * H) });
+      st.items["smoke:home"] = it(now - H, { n: 3 });
+      st.items["smoke:lookup"] = it(now - 30 * H);   // older than 24 h: not listed
+      st.items["ship:done:1.38"] = it(now - H);   // a decision, not a problem
+      const t = ledgerText(st, now);
+      ok(t === ["🔵 לידיעה · בוטים", "📋 תקלות ב-24 השעות האחרונות ומה קרה איתן (3)",
+        `🟠 בדיקת האתר החי מצאה בעיה: דף הבית · עוד לא אושר שטופל · 3 פעמים, אחרון ${ilTime(new Date(now - H))}`,
+        `✅ בדיקת הנתונים היומית מצאה פער מול משרד התחבורה: מפרט · נבדק שוב ועבר · ${ilTime(new Date(now - 2 * H))}`,
+        `✅ הבוט "${botHe("Data guard")}" נכשל · תוקן לבד בהרצה חוזרת · ${ilTime(new Date(now - 6 * H))}`,
+        "👉 מה לעשות: כלום כרגע. מה שעוד לא אושר עובר לשרשור האחראי בבדיקת הבוקר, ואם יצטרכו אותך תגיע הודעה נפרדת."].join("\n"), "ledger text:\n" + t);
+      ok(ledgerText(base(), now) === "" && ledgerText({ ...base(), items: { "smoke:lookup": st.items["smoke:lookup"] } }, now) === "", "ledger: nothing in 24 h, no message");
+      ok(ledgerText({ ...base(), items: { "truth:specs": st.items["truth:specs"] } }, now).endsWith("\n👌 לא צריך לעשות כלום."), "ledger: everything closed, nothing to do");
+      const many = base(); for (let i = 0; i < 14; i++) many.items["wf:Bot " + i] = it(now - (i + 1) * 6e4);
+      const tm = ledgerText(many, now).split("\n");
+      ok(tm.length === 16 && tm[14] === "ועוד 2" && tm[2].includes('"Bot 0"'), "ledger: at most 12 lines, newest first, then the rest counted");
+      st.hb = { daily: "2026-10-19", dailyAt: iso(now - 24 * H) };
+      const m = net({ state: st });
+      let d = await runCli(["daily"], { m, env: { GITHUB_EVENT_NAME: "schedule" }, now });
+      ok(d.code === 0 && d.out.includes("ledger sent") && m.tg.length === 1 && m.tg[0].disable_notification === true && m.tg[0].text === t, "daily sends the ledger quietly " + d.out);
+      const m3 = net({ state: st });
+      d = await runCli(["daily"], { m: m3, env: { DRY: "1" }, now });
+      ok(d.out.includes("would send the ledger") && m3.tg.length === 0 && m3.puts === 0, "daily dry: would send the ledger");
+      // the uptime Worker reports again: its open alert is closed and told, and the ledger read after it shows it closed
+      const s2 = base(); s2.hb = { daily: "2026-10-19", dailyAt: iso(now - 24 * H), uptimeSeenAt: iso(now - 30 * H) };
+      s2.items["meta:uptime"] = it(now - 20 * H);
+      const m4 = net({ state: s2, health: { tick: iso(now - 5 * 6e4) } });
+      d = await runCli(["daily"], { m: m4, env: { GITHUB_EVENT_NAME: "schedule", ALERT_UPTIME_URL: "https://luchit-uptime.test/" }, now });
+      ok(d.out.includes("uptime alert closed") && m4.state().items["meta:uptime"].out === "fixed" && m4.tg.length === 2
+        && m4.tg[0].text.startsWith("✅ בוצע · בוטים\nחזר לתקין: בדיקת הזמינות ב-Cloudflare לא מדווחת") && m4.tg[1].text.includes("✅ בדיקת הזמינות ב-Cloudflare לא מדווחת · נבדק שוב ועבר"),
+        "daily: the uptime Worker is back, its alert is closed, told and in the ledger " + d.out);
+      // the Sunday summary went out late: mark-summary closes Monday's alert
+      const s3 = base(); s3.items["weekly:missing"] = it(DAY - 2 * H);
+      const m5 = net({ state: s3 });
+      d = await runCli(["mark-summary"], { m: m5 });
+      ok(d.out.includes("missing-summary alert closed") && m5.state().items["weekly:missing"].out === "fixed" && m5.tg.length === 1, "mark-summary closes the missing-summary alert " + d.out);
     }
     {
       const t1 = Date.now();
@@ -970,7 +1191,8 @@ function schema(s) {
   const isoRe = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/, isoN = v => v === null || (typeof v === "string" && isoRe.test(v));
   if (!s || JSON.stringify(Object.keys(s).sort()) !== '["hb","items","log","v"]' || s.v !== 1) return "top level";
   const IT = { lv: v => LEVELS.includes(v), src: v => typeof v === "string" && v.length <= 80, u: v => Array.isArray(v) && v.length <= 3 && cleanLinks(v).length === v.length,
-    first: isoN, last: isoN, n: v => Number.isInteger(v) && v > 0, sent: isoN, pend: isoN, open: v => typeof v === "boolean" };
+    first: isoN, last: isoN, n: v => Number.isInteger(v) && v > 0, sent: isoN, pend: isoN, open: v => typeof v === "boolean",
+    out: v => v === "fixed" || v === "self", outAt: isoN };
   for (const [k, it] of Object.entries(s.items)) {
     if (!validKey(k)) return "item key";
     for (const [f, v] of Object.entries(it)) if (!IT[f] || !IT[f](v)) return "item field " + f;
@@ -1000,6 +1222,29 @@ function scanKeys(root) {
     }
   }
   return [...found];
+}
+
+// failure-alert.yml's watch list, and the workflows that run on main by themselves (a schedule, a push to main, a workflow_run on main) that
+// are not in it. With GitHub's own failure emails switched off (QA 26.10), such a workflow would fail silently. Failure alert cannot watch
+// itself (the morning triage reads its runs).
+function watchList(root) {
+  const fa = fs.readFileSync(`${root}/.github/workflows/failure-alert.yml`, "utf8"), list = fa.slice(fa.indexOf("workflows:"), fa.indexOf("types:"));
+  return [...list.matchAll(/^\s+- "([^"]+)"/gm)].map(m => m[1]);
+}
+function unwatched(root) {
+  const dir = `${root}/.github/workflows`, watched = new Set(watchList(root)), out = [];
+  for (const f of fs.readdirSync(dir).filter(f => /\.ya?ml$/.test(f))) {
+    const src = fs.readFileSync(`${dir}/${f}`, "utf8"), name = ((/^name:[ \t]*(.+?)[ \t]*$/m.exec(src) || [])[1] || "").replace(/^["']|["']$/g, "");
+    const on = (/^on:[ \t]*\n([\s\S]*?)^\S/m.exec(src) || [])[1] || "";
+    const block = key => (new RegExp(`^  ${key}:[^\\n]*\\n((?:(?:    [^\\n]*)?\\n)*)`, "m").exec(on) || [])[1];
+    const onMain = key => {   // the event is listed and has no branch filter, or its filter names main
+      if (!new RegExp(`^  ${key}:`, "m").test(on)) return false;
+      const b = block(key) || "", br = /branches:[ \t]*\[([^\]]*)\]/.exec(b) || /branches:[ \t]*\n((?:[ \t]+- .*\n)+)/.exec(b);
+      return !br || /(^|[\s,"'\[-])main([\s,"'\]]|$)/m.test(br[1]);
+    };
+    if (name && name !== "Failure alert" && (onMain("schedule") || onMain("push") || onMain("workflow_run")) && !watched.has(name)) out.push(`${name} (${f})`);
+  }
+  return out;
 }
 
 if (process.argv[1] && process.argv[1].endsWith("alert.mjs")) process.exit(await cli(process.argv.slice(2)));

@@ -3,7 +3,9 @@ name: Alert daily
 # the luchit-uptime check (only when the repo variable ALERT_UPTIME_URL is set), the Monday "Sunday summary went out" check, then the heartbeat and the prune.
 # State lives on branch alert-state (keys, levels and times only, never message text).
 # Two lines a day so exactly one lands at 08:xx in Jerusalem in summer and winter, however late cron starts; the engine's gate makes the other one a no-op.
-# A red run means Telegram failed its self-test or the morning ring did not go out (an email is sent when a Brevo key exists); GitHub's own email follows.
+# A red run means Telegram failed its self-test or the morning ring did not go out (an email is sent when a Brevo key exists); failure-alert reports
+# the red run too (with its own Brevo email when Telegram is down), and GitHub's own email while that is switched on.
+# The morning ledger (quiet, only when there was a problem): every problem of the last 24 h and what happened to it.
 # Manual runs skip the hour check and are dry by default (nothing sent, nothing written).
 on:
   schedule:

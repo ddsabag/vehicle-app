@@ -78,7 +78,8 @@ let prev;
 try { prev = await getMetric("index", true); }
 catch (e) { console.log(`::warning::index guard: the stored baseline could not be read (${e.message || e}), so nothing was compared or published`); process.exit(0); }
 const g = compare(prev, { sitemap: urls, inspection: out.inspection, errors }, iso(new Date()));
-console.log("index guard:", g.skipped || (g.alerts.length ? g.alerts.map(a => a.kind).join("+") : "no change worth an alert"));
+console.log("index guard:", g.skipped || (g.alerts.length ? g.alerts.map(a => a.kind).join("+") : g.fixed ? "the pages are back in the index" : "no change worth an alert"));
+let router = null; try { router = await import("./alert.mjs"); } catch {}
 if (g.alerts.length) {
   const link = "https://search.google.com/search-console/index?resource_id=" + encodeURIComponent(SITE), text = message(g.alerts, link);
   const legacy = async () => {
@@ -89,13 +90,14 @@ if (g.alerts.length) {
     if (!r?.ok) console.log("telegram failed", r?.status);
     return !!r?.ok;
   };
-  let router = null; try { router = await import("./alert.mjs"); } catch {}
   if (router) await router.alert("day", `seo:index:${alertId(g.alerts)}`, text, link, { today: "loud", legacy }); else await legacy();
 }
+// the pages of the open alert are back in the index (index-guard.mjs): the router closes it and tells it once, quietly ("✅ בוצע · חזר לתקין")
+if (g.fixed && router) console.log("index alert closed:", await router.resolve(["seo:index"]));
 // base: the last clean run (key pages as paths, every other indexed page as a short hash), which the next run compares with. Only a clean run
 // is published: a cut-short one would show the live dashboard fewer pages in Google than there are (it keeps the last numbers, and says
 // "no data" once they are 48 hours old). A much smaller sitemap only leaves its mark for the next run (index-guard.mjs).
 if (g.clean) await putMetric("index", { indexed: g.indexed, crawledNotIndexed: cnt(i => /^נסרק|^Crawled/.test(i.coverage || "")), unknown: cnt(i => /לא ידועה|unknown to Google/i.test(i.coverage || "")),
-  inspected: g.inspected, total: g.total, base: g.base, source: "URL Inspection API" });
+  inspected: g.inspected, total: g.total, base: g.base, ...(g.open ? { open: g.open } : {}), source: "URL Inspection API" });
 else if (g.shrunk) await patchMetric("index", { shrunk: g.shrunk });
 else console.log("index metric not published:", g.skipped);
