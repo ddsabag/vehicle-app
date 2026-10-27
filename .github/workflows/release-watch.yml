@@ -4,6 +4,8 @@ name: Release watch
 # The watch only reads Play (a throwaway edit for the tracks, never committed, and the Reporting API). A staged rollout on Production (the
 # owner's "פרסם", production.yml) is watched for as long as it runs, and the step after the watch acts on it (play-production.mjs auto):
 # nothing while Google reviews it; once published, one Telegram, then a NEW crash or ANR halts it and 48 hours with none take it to 100%.
+# A release to all users at once (full=true, or the first one) gets the same one Telegram when it is published, and is watched for 72
+# hours from then; it has no automatic halt.
 # Those two are the only writes, to that rollout only. By day only, like Reviews monitor:
 # 06:40/11:40/17:40 UTC = 09:40/14:40/20:40 Israel summer time, 08:40/13:40/19:40 winter time. Kill switch: SHIP_TAIL, as in Ship tail.
 on:

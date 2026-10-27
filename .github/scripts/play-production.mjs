@@ -11,7 +11,8 @@
 //   auto (release-watch.yml, after the watch): nothing while Google still reviews the rollout (Play's release lifecycle state). Once it is
 //     published: a crash or ANR that is NEW in its build (found by the watch after the rollout was sent) halts it at once; 48 hours after
 //     it was first seen published with no such issue, it goes to 100%. The first look at it published sends one Telegram and starts the 48 h
-//     (state.live in the watch's watch.json).
+//     (state.live in the watch's watch.json). A release sent to all users at once (FULL, or the first one) is followed through the review
+//     the same way, and the first look at it published sends one Telegram; it has no halt and nothing to complete.
 // Every write is checked against these rules before the request leaves the machine (track, build, status, fraction), and read back after
 // the commit. When Play does not answer clearly, nothing is committed (fail closed). Each step sends one Telegram (alert.mjs).
 // Node 20, node: builtins only. Commands:
@@ -178,21 +179,35 @@ export function planPromote(tracks, life = {}, want = "", full = false, replace 
   if (full) return { vn, vc: top(alpha), full: true, release, replaces: running ? vname(running) : halted ? vname(halted) : "", wasRunning: !!running };
   return { vn, vc: top(alpha), release: { ...release, status: "inProgress", userFraction: FRACTION }, replaces: running ? vname(running) : halted ? vname(halted) : "", wasRunning: !!running };
 }
-// auto: the staged rollout on production (if any) and its review state, against what the watch found (state.issues: "<vc>:<issue>" -> first
-// found), when the watch first saw the rollout (state.seen["production:<vc>"], i.e. sent) and when this first saw it published (state.live)
+// auto: the release it follows (followed()) and its review state, against what the watch found (state.issues: "<vc>:<issue>" -> first
+// found), when the watch first saw the release (state.seen["production:<vc>"], i.e. sent) and when this first saw it published (state.live)
 // Review states that need the owner (told once each), and a review that takes longer than SLOW_D days (told once)
 const NOTICE = ["NOT_APPROVED", "APPROVED_NOT_PUBLISHED", "NOT_SENT_FOR_REVIEW", "DRAFT"];
 export const SLOW_D = 7;
+// the staged rollout; else a release to all users not yet seen published here: the newest on the track (nothing newer halted or in draft),
+// first seen by the watch in the last KEEP_D days and not by a run that had lost the watch's state (state.reset: everything on Play looks
+// new then, also a release published long ago)
+export function followed(tracks, state, now) {
+  const prod = releasesOf(tracks, PROD), running = prod.find(r => r.status === "inProgress");
+  if (running) return running;
+  const done = prod.filter(r => r.status === "completed").sort((a, b) => top(b) - top(a))[0];
+  if (!done || prod.some(r => top(r) > top(done))) return null;
+  const key = `${PROD}:${top(done)}`, seen = state?.seen?.[key];
+  return !state?.live?.[key] && seen > (state?.reset ?? -Infinity) && now - seen <= KEEP_D * DAY ? done : null;
+}
 export function planAuto(tracks, state, now, life) {
-  const r = releasesOf(tracks, PROD).find(x => x.status === "inProgress");
+  const r = followed(tracks, state, now);
   if (!r) return { act: "idle" };
-  const vc = top(r), vn = vname(r), key = `${PROD}:${vc}`, st = lifeOf(life, r), seen = state?.seen?.[key];
+  const vc = top(r), vn = vname(r), key = `${PROD}:${vc}`, st = lifeOf(life, r), seen = state?.seen?.[key], all = r.status === "completed";
   if (!st) throw new Fail(`Google Play לא החזיר את מצב הסקירה של ${vn} ב-Production`, "לבדוק את הלוג של Release watch");
-  const base = { vc, vn, key, fraction: r.userFraction || 0 };
+  const base = { vc, vn, key, fraction: all ? 1 : r.userFraction || 0, all };
   if (st !== "PUBLISHED") {
     const say = NOTICE.includes(st) ? st : st === "IN_REVIEW" && seen && now - seen > SLOW_D * DAY ? "SLOW" : "";
     return { act: "wait", ...base, why: WAITING[st] || st, ...(say && !state?.said?.[`${key}:${say}`] ? { say } : {}) };
   }
+  // all users: the first look at it published is told once (state.live), and that is all (no halt, nothing to complete); after a halt here
+  // the owner took it to all users in Play Console
+  if (all) return { act: "live", ...base, out: now, fresh: true, resumed: !!state?.halted?.[key] };
   // the 48 h start at the first look at it published (again after the owner resumed a halted rollout)
   const halted = state?.halted?.[key], out = state?.live?.[key] ?? now, fresh = !state?.live?.[key];
   Object.assign(base, { out, fresh, resumed: !!halted });
@@ -302,10 +317,9 @@ export async function auto() {
     const ctx = await setup(IO.env);
     if (!ctx) return { ...R, code: "nosecret" };
     return await again(async () => {
-      const file = IO.env.STATE || "watch.json", tracks = await readTracks(ctx), state = J(IO.read(file)) || {};
-      const running = releasesOf(tracks, PROD).some(r => r.status === "inProgress");
-      const P = planAuto(tracks, state, IO.now(), running ? await lifecycle(ctx, PROD) : []);
-      Object.assign(R, { vn: P.vn || "", vc: P.vc || 0, n: P.n || 0, fraction: P.fraction || 0, resumed: !!P.resumed });
+      const file = IO.env.STATE || "watch.json", tracks = await readTracks(ctx), state = J(IO.read(file)) || {}, now = IO.now();
+      const P = planAuto(tracks, state, now, followed(tracks, state, now) ? await lifecycle(ctx, PROD) : []);
+      Object.assign(R, { vn: P.vn || "", vc: P.vc || 0, n: P.n || 0, fraction: P.fraction || 0, resumed: !!P.resumed, all: !!P.all });
       // the watch's watch.json carries this too (live, halted, said); the workflow saves the file after this step
       const save = change => {
         const next = { ...state };
@@ -321,9 +335,9 @@ export async function auto() {
         // remembered only once the Telegram went out (cli), so an undelivered notice is tried again next run
         return { ...R, code: "stuck", life: P.say, remember: () => { const st = J(IO.read(file)) || {}; IO.write(file, JSON.stringify({ ...st, said: { ...(st.said || {}), [`${P.key}:${P.say}`]: IO.now() } })); } };
       }
-      if (ctx.dry) { IO.out(`dry run: would ${{ live: "record the start of", halt: "halt", full: "complete" }[P.act]} ${P.vn} (${P.vc})`); return { ...R, code: "dry-" + P.act }; }
+      if (ctx.dry) { IO.out(`dry run: would ${{ live: P.all ? "record as published to all users" : "record the start of", halt: "halt", full: "complete" }[P.act]} ${P.vn} (${P.vc})`); return { ...R, code: "dry-" + P.act }; }
       if (P.fresh) save([["live", P.key, P.out]]);
-      if (P.act === "live") { IO.out(`published: ${P.vn} (${P.vc}) at ${Math.round(P.fraction * 100)}%, ${P.why}`); return { ...R, code: "live" }; }
+      if (P.act === "live") { IO.out(`published: ${P.vn} (${P.vc}) ${P.all ? "to all users" : `at ${Math.round(P.fraction * 100)}%, ${P.why}`}`); return { ...R, code: "live" }; }
       // after a halt the owner may resume it in Play Console: then the 48 h start again, and only issues found after the halt count (also
       // when Play could not confirm the halt: it may well have landed)
       const halted = () => save([["halted", P.key, IO.now()], ["live", P.key, null]]);
@@ -352,16 +366,19 @@ export function compose(R, env = {}) {
   const out = (key, link, kind, title, text, what = "") => ({ key, link, kind, level: kind === "urgent" ? "critical" : "day", today: kind === "done" || kind === "info" ? "silent" : "loud",
     text: msg({ kind, area: "app", title, text, what, raw: tech.filter(Boolean).join(" · ") }) });
   const watch = `אם תופיע קריסה חדשה שלא הייתה בגרסאות הקודמות, ההפצה תיעצר לבד. אם לא, היא תגיע ל-100% כ-${FULL_AFTER_H} שעות אחרי שהמעקב יראה אותה.`;
+  const noHalt = "בהפצה לכולם אין עצירה אוטומטית: אם תופיע קריסה חדשה, תגיע הודעה מהמעקב, והתיקון הוא גרסה חדשה.";
   if (R.code === "sent" && R.first) return out(`prod:sent:${vc}`, pc, "done", `${v} נשלחה ל-Production לכל המשתמשים`,
     `זו ההפצה הראשונה, ו-Google לא מאפשרת בה הפצה הדרגתית. היא תתחיל אחרי אישור Google (בהפצה ראשונה זה יכול לקחת כמה ימים). מהגרסה הבאה, "פרסם" מתחיל ב-${FRACTION * 100}%.`, `לחכות לאישור. ${A(pc, "Play Console")}`);
   if (R.code === "sent" && R.completes) return out(`prod:full:${vc}`, pc, "done", `${v} הועברה ל-100% מהמשתמשים ב-Production`, `לפי הבקשה, בלי לחכות ${FULL_AFTER_H} שעות.`);
   if (R.code === "sent" && R.full) return out(`prod:sent:${vc}`, pc, "done", `${v} נשלחה ל-Production לכל המשתמשים בבת אחת, לפי הבקשה` +
     `${R.replaces ? `, במקום ${escH(R.replaces)}${R.wasRunning ? " שהייתה בהפצה הדרגתית" : " שההפצה שלה עצורה"}` : ""}`,
-    "היא תתחיל אחרי אישור Google. בהפצה לכולם אין עצירה אוטומטית: אם תופיע קריסה חדשה, תגיע הודעה מהמעקב, והתיקון הוא גרסה חדשה.");
+    `היא תתחיל אחרי אישור Google. ${noHalt}`);
   if (R.code === "sent") return out(`prod:sent:${vc}`, pc, "done", `${v} נשלחה ל-Production בהפצה הדרגתית ל-${FRACTION * 100}% מהמשתמשים`,
     `היא תתחיל אחרי אישור Google.${R.replaces ? R.wasRunning ? ` היא מחליפה את ${escH(R.replaces)}, שהייתה בהפצה הדרגתית: מי שכבר קיבל אותה נשאר איתה עד שהחדשה תגיע אליו.`
       : ` היא מחליפה את ${escH(R.replaces)}, שההפצה שלה עצורה.` : ""} ${watch}`);
   const pct = `${Math.round((R.fraction || FRACTION) * 100)}%`;
+  if (R.code === "live" && R.all) return out(`prod:live:${vc}`, pc, "done", R.resumed ? `ההפצה של ${v} ב-Production חודשה, והיא עלתה לכל המשתמשים`
+    : `Google אישרה את ${v}, והיא עלתה לכל המשתמשים ב-Production`, noHalt);
   if (R.code === "live" && R.resumed) return out(`prod:live:${vc}`, pc, "done", `ההפצה של ${v} ב-Production חודשה (${pct} מהמשתמשים)`,
     `אם לא תופיע קריסה חדשה מאז העצירה, היא תגיע ל-100% לבד בעוד ${FULL_AFTER_H} שעות.`);
   if (R.code === "live") return out(`prod:live:${vc}`, pc, "done", `Google אישרה את ${v}, והיא עלתה ל-${pct} מהמשתמשים ב-Production`,
@@ -752,6 +769,44 @@ async function selftest() {
     ok(W.outputs.code === "error" && !W.puts.length && W.tg.length === 1 && !W.tg[0].text.includes(PERM_PROD), "auto: review state 403 = error with the read permission " + W.tg.map(x => x.text));
   });
 
+  await group("auto, a release to all users", async () => {
+    // FULL or the first release: completed on the track while Google reviews it; followed the same way, its publication told once, nothing written to Play
+    const ALL = T([A("1.34", 115)], [A("1.34", 115)]), AUTO = { EVENT: "schedule" }, seen = h => ({ seen: { "production:115": T0 - h * HOUR } });
+    W = await run({ tracks: ALL, life: { 115: "IN_REVIEW" }, state: seen(5) }, AUTO, ["auto"]);
+    ok(W.outputs.code === "wait" && !W.puts.length && W.tg.length === 0 && W.files["watch.json"] === JSON.stringify(seen(5)) && W.printed.some(l => l.includes("in review")), "all: in review = wait, quiet " + W.printed.join(" | "));
+    W = await run({ tracks: ALL, life: { 115: "APPROVED_NOT_PUBLISHED" }, state: seen(5) }, AUTO, ["auto"]);
+    ok(W.outputs.code === "stuck" && !W.puts.length && W.tg[0]?.text.includes("Publish") && W.state.said["production:115:APPROVED_NOT_PUBLISHED"] === T0, "all: a state that needs the owner, told " + W.tg.map(x => x.text));
+    W = await run({ tracks: ALL, life: { 115: "APPROVED_NOT_PUBLISHED" }, state: W.state }, AUTO, ["auto"]);
+    ok(W.outputs.code === "wait" && W.tg.length === 0, "all: not told twice");
+    W = await run({ tracks: ALL, life: { 115: "IN_REVIEW" }, state: seen(8 * 24) }, AUTO, ["auto"]);
+    ok(W.outputs.code === "stuck" && W.tg[0]?.text.includes("יותר מ-7 ימים"), "all: a review of more than 7 days told");
+    W = await run({ tracks: ALL, state: seen(30) }, AUTO, ["auto"]);
+    ok(W.outputs.code === "live" && !W.puts.length && !committed(W) && W.tg.length === 1 && W.tg[0].text.includes("Google אישרה את לוחית 1.34, והיא עלתה לכל המשתמשים ב-Production")
+      && W.tg[0].text.includes("אין עצירה אוטומטית") && !W.tg[0].text.includes("%") && W.state.live["production:115"] === T0 && W.state.seen["production:115"] === T0 - 30 * HOUR
+      && W.printed.includes("published: 1.34 (115) to all users"), "all: published = told once, nothing sent " + W.tg.map(x => x.text) + W.printed.join(" | "));
+    W = await run({ tracks: ALL, state: W.state }, AUTO, ["auto"]);
+    ok(W.outputs.code === "idle" && W.tg.length === 0 && !W.calls.some(c => c.url.includes("/releases")), "all: told once, then idle");
+    // a new crash found by the watch halts nothing here (the watch tells it)
+    W = await run({ tracks: ALL, state: { ...seen(30), issues: { "115:apps/x/i1": T0 - HOUR } } }, AUTO, ["auto"]);
+    ok(W.outputs.code === "live" && !W.puts.length && !committed(W) && W.tg.length === 1 && W.tg[0].text.includes("אישרה"), "all: a new issue halts nothing " + W.outputs.code + W.tg.map(x => x.text));
+    // the owner took a rollout halted here to all users in Play Console
+    W = await run({ tracks: ALL, state: { ...seen(30), halted: { "production:115": T0 - 5 * HOUR } } }, AUTO, ["auto"]);
+    ok(W.outputs.code === "live" && W.tg[0]?.text.includes("חודשה, והיא עלתה לכל המשתמשים") && !W.tg[0].text.includes("אישרה"), "all: after a halt here = resumed " + W.tg.map(x => x.text));
+    // not followed: first seen more than 30 days ago (published long ago), seen first by a run that had lost the watch's state, never seen,
+    // or under a newer release that is halted
+    for (const [name, o] of [["old", { tracks: ALL, state: seen(31 * 24) }], ["after a lost state", { tracks: ALL, state: { seen: { "production:115": T0 }, reset: T0 } }],
+      ["never seen", { tracks: ALL, state: {} }], ["under a halted one", { tracks: T([A("1.35", 120)], [A("1.35", 120, "halted", { userFraction: 0.2 }), A("1.34", 115)]), state: seen(5) }]]) {
+      W = await run(o, AUTO, ["auto"]);
+      ok(W.outputs.code === "idle" && W.tg.length === 0 && !W.calls.some(c => c.url.includes("/releases")), `all, ${name}: idle ` + W.outputs.code);
+    }
+    W = await run({ tracks: ALL, state: { seen: { "production:115": T0 - HOUR }, reset: T0 - DAY } }, AUTO, ["auto"]);
+    ok(W.outputs.code === "live", "all: seen after an older loss of state = followed");
+    W = await run({ tracks: ALL, state: seen(30) }, { ...AUTO, MODE: "dry" }, ["auto"]);
+    ok(W.outputs.code === "dry-live" && W.tg.length === 0 && W.files["watch.json"] === JSON.stringify(seen(30)) && W.printed.some(l => l.includes("would record as published to all users 1.34 (115)")), "all, dry: state untouched " + W.printed.join(" | "));
+    W = await run({ tracks: ALL, state: seen(30), life: { none: true } }, AUTO, ["auto"]);
+    ok(W.outputs.code === "error" && !W.puts.length && W.tg[0]?.text.includes("מצב הסקירה"), "all: no review state = error " + W.tg.map(x => x.text));
+  });
+
   await group("router and secrets", async () => {
     const seen = [], settled = [], router = { alert: async (lv, key, text, link, o) => { seen.push({ lv, key, o }); return { delivered: true }; },
       resolve: async p => { settled.push(`${seen.at(-1)?.key}>${p.join("|")}`); return 1; } };
@@ -769,6 +824,10 @@ async function selftest() {
       && S("auto", "full") === "prod:fail:auto,prod:fail:access" && S("auto", "error") === "" && S("auto", "nosecret") === "" && S("auto", "dry-halt") === ""
       && S("auto", "idle", "dry") === "" && S("promote", "busy") === "" && S("promote", "sent", "dry") === "" && settles({ cmd: "promote", code: "sent", mode: "on" }).every(validKey),
       "settles: what each result proves over");
+    const told = [], settled2 = [], quiet = { alert: async (lv, key, text, link, o) => { told.push({ lv, key, o }); return { delivered: true }; }, resolve: async p => { settled2.push(p.join("|")); return 1; } };
+    await run({ router: quiet, tracks: T([A("1.34", 115)], [A("1.34", 115)]), state: { seen: { "production:115": T0 - HOUR } } }, { EVENT: "schedule" }, ["auto"]);
+    ok(told.length === 1 && told[0].key === "prod:live:115" && told[0].lv === "day" && told[0].o.today === "silent" && validKey(told[0].key) && settled2.join() === "ship:done:,prod:fail:auto",
+      "router: a release to all users published = prod:live, quiet, settles the Alpha notices " + JSON.stringify(told) + settled2);
     W = await run();
     const all = [...W.printed, ...W.sums, ...Object.values(W.outputs), ...W.tg.map(x => x.text)].join("\n");
     ok(![TOKEN, TG, "PRIVATE KEY", SA.client_email].some(x => all.includes(x)), "secrets stay out of the output");
