@@ -742,6 +742,7 @@ tr[data-ev]{cursor:pointer}tr.skr td{padding:2px 6px 8px;border-top:0}.skr rect.
 <script>
 /* Business dashboard. Spec: Claude Doc "לוחית: אפיון דשבורד מנהלים", sections 3 (targets) and 4 (traffic light). */
 const CAL_END="2026-11-02";        // until the base week 26.10-1.11 is over, only health, Google pages and the store get a colour
+const COLS=new Date(Date.parse(CAL_END+"T12:00:00Z")+864e5).toISOString().slice(0,10);   // the first day the colors show: the window that ends on CAL_END is there after noon the next day
 const SITE_FROM="2026-10-15";      // car checks on the site are counted from this day (the app's from the start)
 // Yearly goals from the CMO plan (reports/marketing-goals-2026-10.json): per month [cons, base, opt], the weekly figure or level expected in the
 // month's last week, Nov 2026 to Oct 2027. Colour vs base: at or above base ok, between cons and base warn, below cons bad (failures: lower is better).
@@ -766,7 +767,7 @@ const HT={t1:"המדד הראשי: כמה בדיקות רכב נעשו בשבו�
  h3:"כמה פעמים האפליקציה קרסה השבוע, לפי גוגל אנליטיקס. אחרי שחרור גרסה שומר הקריסות משווה ל-7 הימים שלפניו ומתריע על בעיה חדשה.",
  h4:"הדירוג הממוצע בחנות ומספר הדירוגים, מדוחות Google Play (באיחור של כמה ימים). אבן הדרך M3: דירוג 4.5 ומעלה עם 21 דירוגים.",
  h5:"כל המשימות האוטומטיות: כמה רצו כמו שצריך מתוך כולן. נקודה אדומה: בוט שנכשל. סימן קריאה: באיחור, או כבוי. בוט שנכשל מטופל אוטומטית; הרשימה המלאה, עם מה כל בוט עושה, במגירה «בוטים»."};
-const ST={ok:["תקין","✓"],warn:["דורש תשומת לב","!"],bad:["מתחת ליעד","✕"],early:["מוקדם לשפוט","◷"],nodata:["אין נתון","?"],cal:["יעד מ-"+Number(CAL_END.slice(8))+"."+Number(CAL_END.slice(5,7)),"·"],wait:["ממתין","◷"]};
+const ST={ok:["תקין","✓"],warn:["דורש תשומת לב","!"],bad:["מתחת ליעד","✕"],early:["מוקדם לשפוט","◷"],nodata:["אין נתון","?"],cal:["יעד מ-"+Number(COLS.slice(8))+"."+Number(COLS.slice(5,7)),"·"],wait:["ממתין","◷"]};
 
 const $=i=>document.getElementById(i);
 const n=x=>x==null||!isFinite(x)?"-":Math.round(x).toLocaleString("en-US");
@@ -940,7 +941,7 @@ const tail=H.s==="ok"?"השירות תקין.":H.s==="warn"?n1(H.r)+"% מהבד�
 $("vd").className="card verdict s-"+vs;$("vh").innerHTML=chip(vs,att[0]&&att[0].s===vs?att[0].w:"")+'<span class="lbl">השורה התחתונה</span>';$("vs").textContent=[head,mid,tail].filter(Boolean).join(" ");
 {const Ed=d.daily&&d.daily.events,T=Ed&&Ed.today||{},rt=d.events||[],g=k=>(rt.find(e=>e[0]===k)||[0,0])[1],tc=T.car_lookup?T.car_lookup[0]:null,rc=d.rtToday&&d.rtToday.car_lookup!=null?d.rtToday.car_lookup:g("car_lookup"),ck=Ed?Math.max(tc||0,rc):d.rtToday?rc:null;
 $("vt").innerHTML=ck==null&&instToday==null&&d.visitsToday==null?"":"<span>היום עד עכשיו:</span>"+(ck!=null?"<span><b>"+n(ck)+"</b> בדיקות רכב</span>":"")+(instToday!=null?"<span><b>"+n(instToday)+"</b> התקנות חדשות</span>":"")+(d.visitsToday!=null?"<span><b>"+n(d.visitsToday)+"</b> ביקורים באתר</span>":"")+'<a href="#dr-now" data-open="dr-now">לפירוט</a>'}
-$("vn").textContent=cal?"שבוע הבסיס הוא "+rng([addD(CB.end,-6),CB.end])+": לפיו ייקבעו היעדים לבדיקות רכב ולהתקנות, ומ-"+dm(CAL_END)+" כל מספר יקבל צבע מול היעד שלו. עד אז יש צבע רק לתקינות השירות, לדפים בגוגל ולחנות. בדיקות מהאתר נספרות מ-15.10.":"";
+$("vn").textContent=cal?"שבוע הבסיס הוא "+rng([addD(CB.end,-6),CB.end])+": לפיו ייקבעו היעדים לבדיקות רכב ולהתקנות, ומ-"+dm(COLS)+" בצהריים כל מספר יקבל צבע מול היעד שלו. עד אז יש צבע רק לתקינות השירות, לדפים בגוגל ולחנות. בדיקות מהאתר נספרות מ-15.10.":"";
 
 // attention list
 const alerts=(d.flashes||[]).filter(f=>f.l==="alert"&&!f.q&&Date.now()-Date.parse(f.t)<864e5).length;
