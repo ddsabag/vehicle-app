@@ -2,6 +2,8 @@
 // a note shown after 3.5 s) should be redefined. GA4 only: lookups, slow notes, cancels, time-outs and failures by day, platform and app
 // version, and the duration buckets car_lookup carries (dur: lt2 / 2to5 / 5to10 / gt10). Business numbers never reach the log or the branch
 // in clear: the JSON is encrypted with .github/seo-data.pub.pem and the log says only which part answered.
+// Re-run 27.10: zone A (release-guard.mjs) found slow checks over 10% on 26.10; ga.durV and ga.hourDurV split car_lookup durations by
+// version, partial and hour for 24.10 on, to tell a slow source (all versions at the same hours) from a version that times differently.
 import crypto from "node:crypto";
 import fs from "node:fs";
 const E = process.env, PROP = "557990379";
@@ -38,6 +40,9 @@ await part("ga.dur", () => ga({ dateRanges: R, dimensions: dims("date", "platfor
 await part("ga.durKind", () => ga({ dateRanges: R, dimensions: dims("platform", "eventName", "customEvent:kind", "customEvent:partial", "customEvent:dur"), metrics: [{ name: "eventCount" }], dimensionFilter: and(REAL, inList("eventName", ["car_lookup", "lookup_failed"])) }));
 await part("ga.hour", () => ga({ dateRanges: [{ startDate: "2026-10-21", endDate: "today" }], dimensions: dims("dateHour", "platform", "eventName"), metrics: [{ name: "eventCount" }], dimensionFilter: and(REAL, inList("eventName", ["car_lookup", "lookup_slow"])) }));
 await part("ga.hourDur", () => ga({ dateRanges: [{ startDate: "2026-10-21", endDate: "today" }], dimensions: dims("dateHour", "platform", "customEvent:dur"), metrics: [{ name: "eventCount" }], dimensionFilter: and(REAL, eq("eventName", "car_lookup")) }));
+await part("ga.durV", () => ga({ dateRanges: [{ startDate: "2026-10-19", endDate: "today" }], dimensions: dims("date", "platform", "appVersion", "customEvent:partial", "customEvent:dur"), metrics: [{ name: "eventCount" }], dimensionFilter: and(REAL, eq("eventName", "car_lookup")) }));
+await part("ga.hourDurV", () => ga({ dateRanges: [{ startDate: "2026-10-24", endDate: "today" }], dimensions: dims("dateHour", "platform", "appVersion", "customEvent:dur"), metrics: [{ name: "eventCount" }], dimensionFilter: and(REAL, eq("eventName", "car_lookup")) }));
+await part("ga.failKind", () => ga({ dateRanges: [{ startDate: "2026-10-19", endDate: "today" }], dimensions: dims("date", "platform", "appVersion", "customEvent:kind", "customEvent:dur"), metrics: [{ name: "eventCount" }], dimensionFilter: and(REAL, eq("eventName", "lookup_failed")) }));
 await part("ga.users", () => ga({ dateRanges: [{ startDate: "2026-10-22", endDate: "today" }], dimensions: dims("platform", "eventName"), metrics: [{ name: "eventCount" }, { name: "totalUsers" }], dimensionFilter: and(REAL, inList("eventName", ["car_lookup", "lookup_slow", "lookup_abort"])) }));
 
 const data = Buffer.from(JSON.stringify(out));
