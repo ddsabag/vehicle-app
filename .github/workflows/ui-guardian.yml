@@ -40,13 +40,16 @@ jobs:
         run: node .github/scripts/app-wiring.mjs
       # The browsers' system libraries come from the runner's Ubuntu mirror, which can crawl (26.10 20:00: 15 minutes for 32 of 189
       # packages, 40 s on a normal day) until the job's timeout turns the run red. After 8 minutes the install stops and runs once more
-      # from Ubuntu's own archive, so a slow mirror costs minutes instead of a failed run
+      # from Ubuntu's own archive, so a slow mirror costs minutes instead of a failed run. The first try's apt-get runs as root under sudo,
+      # so the timeout stops npx but not it, and its lock failed the second try (27.10, run 40448534263): it is stopped first (while it
+      # downloads, the packages it has stay in apt's cache for the second try), and a dpkg already unpacking is left to finish
       - name: Install test tools (not part of the app)
         run: |
           npm install --no-save --no-package-lock playwright axe-core pixelmatch@5.3.0 pngjs@7.0.0
           if ! timeout 480 npx playwright install --with-deps chromium webkit; then
             echo "::warning::installing the browsers took over 8 minutes or failed (a slow Ubuntu mirror?): once more from archive.ubuntu.com"
-            for i in $(seq 30); do pgrep -x 'apt-get|dpkg' >/dev/null || break; sleep 2; done
+            sudo pkill -x apt-get || true
+            for i in $(seq 90); do pgrep -x 'apt-get|dpkg' >/dev/null || break; sleep 2; done
             sudo sed -i 's#azure\.archive\.ubuntu\.com#archive.ubuntu.com#g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null || true
             sudo dpkg --configure -a || true
             timeout 900 npx playwright install --with-deps chromium webkit
