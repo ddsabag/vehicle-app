@@ -45,6 +45,10 @@ jobs:
         run: node .github/scripts/alert.mjs selftest
       - name: Ship tail self-tests (alpha-only guard, data-rebuild skip, release notes, GA4 create-only, analytics contract)
         run: node .github/scripts/play-alpha.mjs selftest && node .github/scripts/ga4-admin.mjs selftest
+      # the contract's other side: every event the dashboard (worker/live) and the reports (analytics/) read is still sent by the page, the
+      # app's code, worker/api or GA4 itself, so a new tile is red here before its event exists, not at the next change to the page (1 s)
+      - name: Dashboard reads still sent
+        run: node .github/scripts/analytics-flows.cjs --static
       - name: Store listing self-test and files (iw-IL only, Play's limits, nothing committed when Play keeps something else)
         run: node .github/scripts/play-listing.mjs selftest && node .github/scripts/play-listing.mjs check
       - name: Data safety self-test and file (Play's export format, sent only when it changed)

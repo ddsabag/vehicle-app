@@ -3,10 +3,12 @@ name: UI guardian (browser)
 # "UI guardian (lint)" and "UI guardian (browser)". The trigger paths are the union of both.
 on:
   pull_request:
-    paths: ["index.html", "ui-contract.json", "ui-guardian-baseline.json", "ui-lint-baseline.json", ".github/scripts/ui-guardian.cjs", ".github/scripts/ui-lint.mjs", ".github/workflows/ui-guardian.yml"]
+    paths: ["index.html", "ui-contract.json", "ui-guardian-baseline.json", "ui-lint-baseline.json", ".github/scripts/ui-guardian.cjs", ".github/scripts/ui-flows.cjs", ".github/scripts/ui-lint.mjs", ".github/scripts/app-wiring.mjs", ".github/scripts/analytics-flows.cjs", "worker/api/worker.js", ".github/workflows/ui-guardian.yml"]
   push:
     branches: [next]
-    paths: ["index.html", "ui-contract.json", "ui-guardian-baseline.json", "ui-lint-baseline.json", ".github/scripts/ui-guardian.cjs", ".github/scripts/ui-lint.mjs", ".github/workflows/ui-guardian.yml"]
+    paths: ["index.html", "ui-contract.json", "ui-guardian-baseline.json", "ui-lint-baseline.json", ".github/scripts/ui-guardian.cjs", ".github/scripts/ui-flows.cjs", ".github/scripts/ui-lint.mjs", ".github/scripts/app-wiring.mjs", ".github/scripts/analytics-flows.cjs", "worker/api/worker.js", ".github/workflows/ui-guardian.yml"]
+  schedule:
+    - cron: "17 2 * * *"   # every night on main, what people have now: a new Chromium can move the page without a commit (the App guardian checks the app at 01:37)
   workflow_dispatch:
     inputs:
       update_baseline:
@@ -18,7 +20,7 @@ permissions:
 jobs:
   browser:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v7
@@ -33,10 +35,13 @@ jobs:
       # parameter a report reads is a registered GA4 dimension (the same selftest alert-check runs on script and worker changes)
       - name: Analytics contract
         run: node .github/scripts/ga4-admin.mjs selftest
+      # blocking, offline: the page and the Android app agree on every wire between them (app-wiring.mjs; the App guardian runs it too)
+      - name: App wiring
+        run: node .github/scripts/app-wiring.mjs
       - name: Install test tools (not part of the app)
         run: |
           npm install --no-save --no-package-lock playwright axe-core pixelmatch@5.3.0 pngjs@7.0.0
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps chromium webkit
       - name: Fetch screenshot baseline (if one exists)
         continue-on-error: true
         run: |
@@ -45,6 +50,45 @@ jobs:
       # blocking: script errors, overflow, card order and registration. Warnings: tap size, text size, axe, screenshot diff.
       - name: UI browser checks
         run: node .github/scripts/ui-guardian.cjs --shots
+      # blocking: the journeys a person takes through the app and the site (home, a check and its tabs, "+", my cars, alerts, settings,
+      # compare, tools, documents, offline, a registry error, a slow check left half way, Back), on app and web devices 320-1440px,
+      # light and dark, with no cars / one / many with long names / an owner's car. After every step: the expected screen, the nav bar
+      # holding still, no sideways scroll, nothing past the screen edge, the website's footer under every screen (no floating button
+      # and worded share/save on a wide screen). Layout shift, overlaps, cut text, a control dropped to its own line, content past the
+      # column and a car offered twice are warnings. Findings: ui-flows/findings.json in the ui-flows artifact.
+      - name: UI flows (every screen, every way in)
+        if: ${{ !cancelled() }}
+        run: node .github/scripts/ui-flows.cjs --out ui-flows
+      # the website's journeys again in the phone's own font: a first visit on a slow line draws in it (font-display:optional), and it is
+      # wider than Assistant, so a label can wrap or a row break only there. Same rules, no sweep (about 4 minutes)
+      - name: UI flows in the fallback font (website)
+        if: ${{ !cancelled() }}
+        run: node .github/scripts/ui-flows.cjs --no-sweep --no-fonts --filter '/web-' --out ui-flows-nofont
+      # the website's journeys again in Safari's engine (WebKit): nearly every phone that opens the website is an iPhone, and every
+      # browser on an iPhone draws with WebKit. The common iPhone width in both looks and the tablet, no sweep (about 6 minutes).
+      # Warning mode until it has run clean for a while: it reports, it does not fail the run
+      - name: UI flows in Safari's engine (website, iPhone and iPad)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: node .github/scripts/ui-flows.cjs --engine webkit --no-sweep --filter '/web-390/|/web-768/light' --out ui-flows-webkit
+      # blocking: analytics in motion (analytics-flows.cjs). The journeys again with analytics on, in the app and on the website, each event
+      # followed to Firebase's rules and through worker/api's own code to GA4: nothing personal in any event, no event or parameter lost on
+      # the way, one event per action, nothing at all with analytics off or after the switch in settings, the same events in the app and on
+      # the website, arrivals by a link counted by how they came, and every event the dashboard reads still sent (about 3 minutes)
+      - name: Analytics in motion
+        if: ${{ !cancelled() }}
+        run: node .github/scripts/analytics-flows.cjs --out analytics-flows
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ui-flows
+          path: |
+            ui-flows/findings.json
+            ui-flows-nofont/findings.json
+            ui-flows-webkit/findings.json
+            analytics-flows/findings.json
+            analytics-flows/events.json
+          retention-days: 14
       - uses: actions/upload-artifact@v7
         if: always()
         with:

@@ -27,6 +27,14 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
+        // The release build as the app guardian runs it on an emulator (app-guardian.yml): the same shrinking and the same minified page,
+        // but debuggable, so its WebView can be driven, and signed with the debug key so it installs. Never uploaded anywhere.
+        create("qa") {
+            initWith(getByName("release"))
+            isDebuggable = true
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+        }
     }
 
     compileOptions {

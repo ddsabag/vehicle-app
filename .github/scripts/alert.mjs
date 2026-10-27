@@ -91,6 +91,7 @@ export const LABELS = {
   "seo-auto":            { he: "שינוי SEO ({id})", sect: "none" },
   "catalog":             { he: "שמות דגמים חדשים בקטלוג לבדיקה", sect: "wait" },
   "recalls":             { he: "בדיקת הריקולים היומית מצאה משהו לבדוק", sect: "fail" },   // recall-health.mjs (Model catalogue)
+  "recalls:info":        { he: "עדכון ברשימת הריקולים של משרד התחבורה", sect: "fyi" },   // its information lines (🔵): not a problem, so not in the ledger
   "mag:fail":            { he: "כתבת מגזין לא פורסמה, הבדיקות נכשלו: {id}", sect: "wait" },
   "mag":                 { he: "כתבת מגזין פורסמה: {id}", sect: "none" },
   "webwatch:rollback":   { he: "האתר הוחזר לגרסה הקודמת בגלל מהירות, צריך להחליט מתי להחזיר", sect: "wait" },
@@ -127,6 +128,7 @@ export const LABELS = {
                                   recalls: "ריקולים", settlements: "הסדרי פשרה", tow: "גרירה", specs: "מפרט", mods: "שינויים ברכב", fee: "אגרת רישוי",
                                   price: "מחיר מחירון", value: "שווי", tag: "תג נכה", insight: "תובנות", counts: "ספירת רכבים", message: "הודעות" } },
   "truth:fail":          { he: "בדיקת הנתונים היומית לא הצליחה לקרוא מספיק רכבים", sect: "fail" },
+  "truth:inv-fail":      { he: "הבדיקה השבועית של מאגרי משרד התחבורה לא הצליחה לקרוא אותם", sect: "fail" },   // data-invariants.mjs: its own key, so a clean daily run does not close it
   "truth:done":          { he: "✅ בוצע · פער בבדיקת הנתונים היומית כבר לא חוזר", sect: "fyi" },   // site-data-truth.mjs: a clean run closes the open truth items
   "truth:inv":           { he: "הבדיקה השבועית של מאגרי משרד התחבורה מצאה חריגה: {ids}", sect: "fail",   // data-invariants.mjs (Data truth, weekly); ids = its CHECKS
                            ids: { fresh: "תאריכי הטסט לא מתעדכנים", tests: "מעט טסטים חדשים", renewal: "טסטים בלי חידוש רישיון", dates: "תאריכי רישיון לא תקינים",
@@ -162,11 +164,11 @@ export const LABELS = {
 export const FAMILIES_IN_USE = [
   "wf", "smoke", "expiry", "infra", "infra-branches", "guard:core", "guard:break", "guard:warn", "ministry", "checker:data-health",
   "review", "review3", "vitals", "reviews:error", "seo:daily", "seo:nodata", "seo:error", "seo:index", "mention",
-  "seo-auto:blocked", "seo-auto:wait", "seo-auto:notice", "seo-auto:done", "catalog", "recalls", "mag:pub", "mag:fail",
+  "seo-auto:blocked", "seo-auto:wait", "seo-auto:notice", "seo-auto:done", "catalog", "recalls", "recalls:info", "mag:pub", "mag:fail",
   "webwatch:rollback", "webwatch:rollback-failed", "meta:uptime", "weekly:missing", "workers:refused", "workers:rollback", "workers:failed", "workers:forced",
   "ship:done", "ship:notes", "ship:fail", "ship:dry", "listing:done", "listing:dry", "listing:fail",
   "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:wait", "prod:fail",
-  "stl:update", "stl:stuck", "truth", "truth:fail", "truth:done", "truth:inv", "live:stuck", "live:error", "pipe",
+  "stl:update", "stl:stuck", "truth", "truth:fail", "truth:done", "truth:inv", "truth:inv-fail", "live:stuck", "live:error", "pipe",
   "social:fail", "social:missed", "social:unsure", "social:held", "social:done", "social:remind", "social:check", "exp", "auto:done", "auto:revert", "auto:mode",
   "relguard", "relguard:ok", "relguard:thin", "zonea",
 ];

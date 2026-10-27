@@ -126,7 +126,7 @@ async function runPage(browser, fx, theme, width) {
       if (!(t in tabOf)) { fail(`[${L}] card "${t}" is not registered in ui-contract.json`); continue; }
       if (tabOf[t] !== tab) { fail(`[${L}] card "${t}" is registered under "${tabOf[t]}" but renders in "${tab}"`); continue; }
       const i = order.indexOf(t);
-      if (i < last) fail(`[${L}] card "${t}" renders before "${order[last]}", but the contract order is the reverse`);
+      if (i < last) fail(`[${L}] card "${t}" renders after "${order[last]}", but ui-contract.json puts it before`);
       last = Math.max(last, i);
     }
     totals.tapSmall += r.small.length; totals.fontSmall += r.fonts.length;

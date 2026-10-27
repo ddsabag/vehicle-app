@@ -34,6 +34,16 @@ async function route(level, key, text, silent) {
   if (!router) return telegram(text, silent);
   return !!(await router.alert(level, key, text, RUN_URL, { today: silent ? "silent" : "loud", legacy: () => telegram(text, silent) })).delivered;
 }
+// a check that passed closes what it had raised (the router tells each announced problem "חזר לתקין" once): every page and the car lookup
+// passed -> smoke:*; renewals (expiry:*) only once the certificate and the domain were both read and neither is due
+async function closeOpen(pages, renewals) {
+  if (!router) try { router = await import("./alert.mjs"); } catch { router = false; }
+  if (!router?.resolve) return;
+  try {
+    if (pages) await router.resolve(["smoke:"]);
+    if (renewals) await router.resolve(["expiry:"]);
+  } catch { /* the morning ledger still shows them open */ }
+}
 const RUN_URL = process.env.GITHUB_SERVER_URL && process.env.GITHUB_RUN_ID ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}` : "";
 const RENEW = ["cert", "domain", "certcheck"];
 async function send(items, infra, quiet = false) {
@@ -133,15 +143,17 @@ async function lookupCheck() {
 
 // ---- 3. certificate + domain registration expiry
 const certDays = () => new Promise((res, rej) => { const s = tls.connect({ host: HOST, port: 443, servername: HOST }, () => { const c = s.getPeerCertificate(); s.end(); res({ days: Math.floor((new Date(c.valid_to) - Date.now()) / 864e5), to: new Date(c.valid_to) }); }); s.on("error", rej); s.setTimeout(15000, () => { s.destroy(); rej(new Error("timeout")); }); });
+const expiryRead = { cert: false, domain: false };   // read this run (a renewal closes only on a reading)
 async function expiryCheck() {
   const out = [], d = x => new Intl.DateTimeFormat("he-IL", { timeZone: "Asia/Jerusalem", day: "2-digit", month: "2-digit", year: "numeric" }).format(x);
-  try { const c = await certDays(); console.log("cert days left:", c.days); if (c.days < 14) out.push({ id: "cert", urgent: c.days < 7, title: `אישור האבטחה (SSL) פוקע בעוד ${c.days} ימים`, detail: `תאריך: ${d(c.to)}. בדרך כלל Cloudflare מחדש אותו לבד, ולכן זו חריגה.`, impact: "הדפדפן יציג אזהרת אבטחה ומשתמשים לא ייכנסו לאתר." }); }
+  try { const c = await certDays(); console.log("cert days left:", c.days); expiryRead.cert = true; if (c.days < 14) out.push({ id: "cert", urgent: c.days < 7, title: `אישור האבטחה (SSL) פוקע בעוד ${c.days} ימים`, detail: `תאריך: ${d(c.to)}. בדרך כלל Cloudflare מחדש אותו לבד, ולכן זו חריגה.`, impact: "הדפדפן יציג אזהרת אבטחה ומשתמשים לא ייכנסו לאתר." }); }
   catch (e) { out.push({ id: "certcheck", title: "אי אפשר היה לבדוק את אישור האבטחה", detail: `${he(e.message)}.`, impact: "לא ידוע אם האישור תקין.", raw: `TLS: ${String(e.message).slice(0, 100)}` }); }
   try {
     const { r, t } = await get("https://rdap.org/domain/" + HOST, { headers: { accept: "application/rdap+json", "user-agent": "luchit-smoke/1.0" } });
     if (!r.ok) throw new Error("RDAP HTTP " + r.status);
     const ev = (JSON.parse(t).events || []).find(e => e.eventAction === "expiration"); if (!ev) throw new Error("אין תאריך פקיעה בתשובה");
     const exp = new Date(ev.eventDate), days = Math.floor((exp - Date.now()) / 864e5); console.log("domain days left:", days);
+    if (Number.isFinite(days)) expiryRead.domain = true;
     if (days < 30) out.push({ id: "domain", urgent: days < 7, title: `הדומיין ${HOST} פוקע בעוד ${days} ימים`, detail: `תאריך פקיעה: ${d(exp)}.`, impact: "אם לא יחודש, האתר והקישורים באפליקציה יפסיקו לעבוד.", renew: true });
   } catch (e) { console.log("domain expiry not checked:", e.message); }
   return out;
@@ -155,7 +167,9 @@ for (let attempt = 1; attempt <= 2; attempt++) {
   if (!problems.length) break;
   if (attempt < 2) { console.log("attempt 1 found", problems.length, "problem(s):", JSON.stringify(problems.map(p => p.title)), "- retrying in 60s"); await sleep(60000); }
 }
-problems.push(...(await expiryCheck()));
+const pagesOk = !problems.length, renewals = await expiryCheck();
+problems.push(...renewals);
+await closeOpen(pagesOk, !renewals.length && expiryRead.cert && expiryRead.domain);
 // a car lookup or car-link preview that failed while Ministry watch found the active register down this morning: the same outage it already
 // rang for. Each such finding says so, and when they are all there is, the daily run sends silently (after a deploy it still rings: the new
 // page may be the cause)
