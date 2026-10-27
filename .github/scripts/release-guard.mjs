@@ -12,7 +12,8 @@
 //               each path it never sent on its own (1.38.3's "+": car_save and its undo car_unsave from "add"), so new undos alone
 //               cannot flag everyone
 //     silentpath a save path the base sent at a rate that predicts at least 5 saves now, at 0 in the new version: the star sends its
-//               tab's name, so a star that breaks on one tab shows even while "+" covers for it (GONE_PATHS: tabs the new UI removed)
+//               tab's name, so a star that breaks on one tab shows even while "+" covers for it (GONE_PATHS: tabs a newer UI removed or
+//               made rare stop by design against a base from before it)
 //               (strategy 27.10, rules file "Day 1 / 3 / 7"; without path rows every path counts as one and silentpath is not judged)
 //     silent    an event the base sent at a rate that predicts at least 5 now, at 0 in the new version (update_*: the newest version has
 //               nothing to update to, so those stop by design)
@@ -108,8 +109,10 @@ export function queries(start, end) {
 const PATHS = { add: 'ה-"+" ברשימת הרכבים', file: "תיק הרכב", buy_ask: "המחיר המבוקש בלשונית הקנייה", menu: "תפריט הרכב", home: "כפתור השמירה" };
 const TAB_HE = { overview: "סקירה", recalls: "ריקולים", buy: "קנייה", specs: "מפרט", maint: "טיפולים" };
 const pathHe = f => PATHS[f] || (TAB_HE[f] ? `כפתור השמירה בלשונית "${TAB_HE[f]}"` : `"${f}"`);
-// tabs the new UI removed, whose saves stop by design (1.38: "maint" became the car file)
-export const GONE_PATHS = ["maint"];
+// tabs a newer UI removed or made rare, by the version that did it: against a base from before that version their saves stop by design
+// (1.37, 0252ffb: the recalls tab shows only for a car with recalls or a settlement; 1.38: "maint" became the car file)
+export const GONE_PATHS = { recalls: "1.37", maint: "1.38" };
+const goneBy = (f, base, vn) => !!GONE_PATHS[f] && !atLeast(base, GONE_PATHS[f]) && atLeast(vn, GONE_PATHS[f]);
 const rowsOf = j => (j?.rows || []).map(r => [...r.dimensionValues.map(x => x.value), ...r.metricValues.map(x => Number(x.value) || 0)]);
 
 // S = { users: [[date, ver, n]], events: [[date, ver, name, n]], compare: [[date, ver, from, n]], saves: [[date, ver, name, from, n]] } (GA4 dates),
@@ -146,7 +149,7 @@ export function judge(S, today) {
   if (ov >= T.unsaveMin && ou / ov > T.unsave) R.findings.push({ id: "unsave", he: `הסרות רכב מול שמירות${old}: ${st.unsave}% (הסף: 45%)` });
   for (const f of fresh) { const s = PN[f].car_save, u = PN[f].car_unsave;
     if (s >= T.unsaveMin && u / s > T.unsave) R.findings.push({ id: "unsave:" + f, he: `הסרות מול שמירות דרך ${pathHe(f)} (חדש בגרסה הזו): ${Math.round(u / s * 100)}% (הסף: 45%)` }); }
-  const quiet = paths ? known.filter(f => !GONE_PATHS.includes(f) && PB[f].car_save / bc * nc >= T.silentMin && !PN[f]?.car_save).sort() : [];
+  const quiet = paths ? known.filter(f => !goneBy(f, prev, vn) && PB[f].car_save / bc * nc >= T.silentMin && !PN[f]?.car_save).sort() : [];
   if (quiet.length) R.findings.push({ id: "silentpath", paths: quiet, he: `דרכי שמירה שבגרסה הקודמת היו בהן שמירות ועכשיו אין בהן אף אחת: ${quiet.length}` });
   const gone = Object.keys(B).filter(e => e !== "car_lookup" && !/^update_/.test(e) && !N[e] && B[e] / bc * nc >= T.silentMin).sort();
   if (gone.length) R.findings.push({ id: "silent", events: gone, he: `אירועים שהגרסה הקודמת שלחה ועכשיו לא הגיעו בכלל: ${gone.length}` });
@@ -268,11 +271,11 @@ function selftest() {
   ok(text(judge(thin, "2026-10-30")).includes("אין מספיק נתונים"), "thin message");
   // saves by path (strategy 27.10): 1.38.3's "+" (car_save from add, its undo car_unsave from add) is a path the base never sent; the numbers
   // are per 100 checks a day on each side, and a path at 0 sends no row, as in GA4
-  const mkp = ({ base = { overview: 7, file: 3 }, now = { overview: 5, file: 2, add: 3 }, baseUn = { menu: 2 }, nowUn = { menu: 2, add: 0.5 } } = {}) => {
-    const all = o => Object.values(o).reduce((a, b) => a + b, 0), S = mk({ save38: all(now), unsave38: all(nowUn) }), saves = [];
+  const mkp = ({ base = { overview: 7, file: 3 }, now = { overview: 5, file: 2, add: 3 }, baseUn = { menu: 2 }, nowUn = { menu: 2, add: 0.5 }, nv = "1.38", bv = "1.37" } = {}) => {
+    const all = o => Object.values(o).reduce((x, y) => x + y, 0), S = mk({ save38: all(now), unsave38: all(nowUn), v: nv, b: bv }), saves = [];
     for (const d of days("2026-10-01", 40)) {
-      if (d < "2026-11-06") for (const [o, e] of [[base, "car_save"], [baseUn, "car_unsave"]]) for (const [f, n] of Object.entries(o)) saves.push([g(d), "1.37", e, f, n]);
-      if (d >= "2026-10-28") for (const [o, e] of [[now, "car_save"], [nowUn, "car_unsave"]]) for (const [f, n] of Object.entries(o)) if (n) saves.push([g(d), "1.38", e, f, n * 0.6]);
+      if (d < "2026-11-06") for (const [o, e] of [[base, "car_save"], [baseUn, "car_unsave"]]) for (const [f, n] of Object.entries(o)) saves.push([g(d), bv, e, f, n]);
+      if (d >= "2026-10-28") for (const [o, e] of [[now, "car_save"], [nowUn, "car_unsave"]]) for (const [f, n] of Object.entries(o)) if (n) saves.push([g(d), nv, e, f, n * 0.6]);
     }
     return { ...S, saves };
   };
@@ -287,7 +290,10 @@ function selftest() {
   const t3 = text(R, N);
   ok(t3.includes('כפתור השמירה בלשונית "סקירה"') && t3.includes('דרכי שמירה חדשות בגרסה הזו: ה-"+" ברשימת הרכבים'), "silent path message " + t3);
   R = judge(mkp({ base: { overview: 7, maint: 3 }, now: { overview: 7, file: 3 }, nowUn: { menu: 2 } }), "2026-11-05");
-  ok(R.state === "ok" && R.stats.fresh.join() === "file", "maint, the tab the new UI removed, stops by design " + JSON.stringify(R.findings));
+  ok(R.state === "ok" && R.stats.fresh.join() === "file", "maint, the tab 1.38 removed, stops by design " + JSON.stringify(R.findings));
+  const rec = bv => judge(mkp({ bv, base: { overview: 7, recalls: 3 }, now: { overview: 10 }, nowUn: { menu: 2 } }), "2026-11-05").findings.map(f => f.id).join();
+  ok(rec("1.36") === "" && rec("1.37") === "silentpath", "recalls: by design against a base before 1.37 (the tab became rare there), a finding against a base that already had it");
+  ok(goneBy("maint", "1.37", "1.38.3") && goneBy("recalls", "1.33", "1.38.3") && !goneBy("recalls", "1.37", "1.38.3") && !goneBy("maint", "1.36", "1.37") && !goneBy("overview", "1.33", "1.38.3"), "gone by version");
   ok(judge(mkp({ base: { overview: 9.5, specs: 0.5 }, now: { overview: 10 }, nowUn: { menu: 2 } }), "2026-11-05").state === "ok", "a path that predicts under 5 saves may stop");
   const undo = mkp({ now: { overview: 7, file: 3, add: 6 }, nowUn: { menu: 2, add: 5.5 } });
   R = judge(undo, "2026-11-05");
