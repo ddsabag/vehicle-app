@@ -1826,7 +1826,8 @@ function addFromPlus(D){
   startTrial(); cohSaved();
   const L = store.get("savedVehicles").length; track("car_save", {n: String(Math.min(L, 4)) + (L > 3 ? "+" : ""), from: "add"});
   if (alertsSupported()) { let asked = false; try { asked = !!localStorage.getItem("alertsAsked"); localStorage.setItem("alertsAsked", "1"); } catch {} if (!asked) try { window.AndroidApp.setAlerts(true); } catch {} }
-  homeSheetMaybe();
+  // the iPhone home-screen sheet waits for the snack with ביטול (6 s, over the sheet's place) to go, and stays away when the car was taken back
+  setTimeout(() => { if (isSaved(D.plate)) homeSheetMaybe(); }, 6000);
   return "new";
 }
 function undoAdd(D){
