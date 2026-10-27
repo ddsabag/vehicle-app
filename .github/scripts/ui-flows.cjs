@@ -253,6 +253,15 @@ const JOURNEYS = [
     ["undo", tap("#snack [data-s=go]"), (m) => m.screen === "car" && m.carPlate === "7654321" && !m.starOn && !m.snack || `ביטול should leave the car page with the car not saved (star ${m.starOn}, snack "${m.snack}", ${m.screen})`],
     ["arrow", tap("#chead [data-act=back]"), (m) => m.screen === "cars" && !m.listed.includes("7654321") || `after ביטול the list should not have the car: ${m.screen} [${m.listed.join(",")}]`],
   ] },
+  // "ביטול" after "+" when the car's file was opened in those seconds: the file goes too (a file belongs to a saved car)
+  { name: "plus-undo-file", once: true, web: true, steps: [
+    ["to-cars", nav("cars"), (m) => m.screen === "cars" || "cars"],
+    ["plus", tap("#out [data-act=addCar]"), (m) => m.screen === "home" && m.focus === "plate" || `"+": ${m.screen}, focus ${m.focus}`],
+    ["check", check("7654321"), (m) => m.screen === "car" && m.starOn && /נוסף/.test(m.snack) || `after "+" the car is saved and the snack bar offers ביטול (star ${m.starOn}, snack "${m.snack}")`],
+    ["file", tap("#out [data-cf=mine]"), (m) => m.screen === "car" && m.tab === "file" && /נוסף/.test(m.snack) || `the file opened while the snack bar is up (tab ${m.tab}, snack "${m.snack}")`],
+    ["undo", tap("#snack [data-s=go]"), async (m, c) => { const mark = await c.page.evaluate(() => { try { return (JSON.parse(localStorage.getItem("mine") || "{}") || {})["7654321"]; } catch { return "?"; } });
+      return m.screen === "car" && !m.starOn && m.tab === "overview" && mark === undefined || `ביטול should take back the file opened since "+" too (star ${m.starOn}, tab ${m.tab}, mark ${mark})`; }],
+  ] },
   // the iPhone's website, the first car saved: the sheet on putting לוחית on the home screen opens once, a tap beside it closes it, and
   // the page goes on (the other journeys start as a person who has seen it)
   { name: "home-sheet", only: "one", web: true, when: (c) => c.dev.ua === "phone", ls: { homeSheet: null }, steps: [
@@ -285,6 +294,12 @@ const JOURNEYS = [
     ["check", check(), isCar()],
     ["compare", tap("#out [data-act=compare]"), (m) => m.screen === "sub" || /compare/i.test(m.sheet || "") || `compare: ${m.screen} ${m.sheet}`],
     ["compare-back", back, (m, c) => m.screen === "car" && !m.sheet || `Back from compare should return to the car, got ${m.screen} ${m.sheet || ""}`],
+  ] },
+  // web: Escape on the compare picker does what its X does (back to the car, never a comparison of one car)
+  { name: "compare-esc", web: true, steps: [
+    ["check", check(), isCar()],
+    ["compare", tap("#out [data-act=compare]"), (m) => /compare/i.test(m.sheet || "") || `compare: ${m.screen} ${m.sheet}`],
+    ["escape", async (p) => p.keyboard.press("Escape"), (m, c) => m.screen === "car" && !m.sheet && m.carPlate === c.plate || `Escape on the compare picker should return to the car, got ${m.screen} ${m.sheet || ""}`],
   ] },
   { name: "tools", steps: [
     ["models", tap("#out [data-act=compareHome]"), (m) => /compare/i.test(m.sheet || "") || m.screen === "sub" || `חיפוש דגמים: ${m.screen} ${m.sheet}`],

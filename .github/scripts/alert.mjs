@@ -115,7 +115,7 @@ export const LABELS = {
   "safety:done":         { he: "ה-Data safety ב-Google Play עודכן", sect: "fyi" },   // play-data-safety.mjs (Store listing)
   "safety:fail":         { he: "עדכון ה-Data safety ב-Google Play נכשל: {ids}", sect: "fail", ids: { access: "אין הרשאה", files: "הקובץ לא תקין", play: "Google Play לא קיבל אותו" } },
   "prod:sent":           { he: "גרסה נשלחה ל-Production", sect: "fyi" },   // play-production.mjs (Production, Release watch)
-  "prod:live":           { he: "Google אישרה את הגרסה, והיא עלתה להפצה הדרגתית ב-Production", sect: "fyi" },
+  "prod:live":           { he: "Google אישרה את הגרסה, והיא עלתה ב-Production", sect: "fyi" },
   "prod:full":           { he: "הגרסה הגיעה ל-100% מהמשתמשים ב-Production", sect: "fyi" },
   "prod:halt":           { he: "ההפצה ב-Production נעצרה בגלל קריסה חדשה", sect: "fail" },
   "prod:stop":           { he: "הפרסום ל-Production לא נשלח", sect: "fyi" },
