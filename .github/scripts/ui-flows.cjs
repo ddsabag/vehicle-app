@@ -15,7 +15,8 @@
 // which is wider than Assistant, so a label that fits in Assistant can wrap there.
 // --engine webkit walks the journeys in Safari's engine instead of Chromium: nearly every phone that opens the website is an iPhone,
 // and every browser on an iPhone draws with WebKit. Each run there gets a browser profile on disk, as Safari has: a test context that
-// keeps nothing (like a private window) refuses to store a file in the page's database, so a saved document would fail only here.
+// keeps nothing (like a private window) refuses to store a file in the page's database. The car file keeps a document's bytes there
+// since 27.10, and docs-private.cjs checks that case on its own.
 // Every run starts as a person who has seen the iPhone sheet "לוחית במסך הבית" (shown once, after the first car saved on an iPhone):
 // it covers the page 0.9 s after that save, so it would block whatever the journey does next. "home-sheet" checks the sheet itself.
 // Usage: node .github/scripts/ui-flows.cjs [--quick] [--shots] [--no-sweep] [--no-fonts] [--engine chromium|webkit] [--filter <regex>] [--out <dir>]

@@ -345,6 +345,8 @@ footer{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:4px 24px;
   html.web body[data-screen=cars] .band-in,html.web body[data-screen=cars] main#out{max-width:1080px}
   html.web body[data-screen=cars] .ccards{grid-template-columns:1fr 1fr}
   html.web main#out > .side{grid-column:2;grid-row:2/4;display:flex;flex-direction:column;gap:12px;position:sticky;top:116px}
+  /* a long name takes the side column's whole width, compare under it: beside compare it had 197px of 340 (four lines in the fallback font) */
+  html.web main#out > .side .id-top:has(.id-title.long)>div{flex-basis:100%}html.web main#out > .side .id-top:has(.id-title.long) .id-cmp{margin-inline-start:auto}
   html.web main#out > .mainc{grid-column:1;grid-row:2;display:flex;flex-direction:column;gap:12px;min-width:0}
   html.web main#out > .src-foot{grid-column:1;grid-row:3}
   html.web .appbox{order:0}
@@ -459,6 +461,7 @@ button.cf-tile{cursor:pointer}
 .rhead time{font:500 .85rem var(--f-num);color:var(--muted)}
 .link-btn{display:flex;align-items:center;gap:8px;color:var(--fg);width:100%}
 .link-btn svg.i{color:var(--accent)}
+@media (max-width:359px){.bsteps .lk-x{display:none}}   /* one line on a 320px phone in any font: "בדיקת שעבוד", "השוואת ביטוח חובה" (the PDF keeps the whole words) */
 .pick{border:1px solid var(--line);background:var(--soft);border-radius:10px;padding:8px 14px;font-weight:700;font-size:.9rem;cursor:pointer;color:var(--fg)}.link-btn.danger{color:var(--bad)}
 .fuel-set{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .fuel-set input.wide{width:170px;text-align:start;font-family:var(--f-body)}
@@ -1206,6 +1209,8 @@ const WEB_CID = Math.floor(Math.random() * 2e9) + "." + Math.floor(Date.now() / 
    a phone that had the app before is "old" and sends nothing. first_save goes once, at the first save on the install day; app_return once, at
    the first opening on days 1 to 7 after it, with whether the install day saved a car (n). Both carry the install day (kind) as MM-DD: the
    app's event bridge drops any value with 5 digits or more, so a full date never arrived. The live dashboard follows each day's installs for a week.
+   From the version after 1.38.3 both also carry the way of that first save (from, as its car_save names it: "add" for "+", "file", "buy_ask", or
+   the tab of the star), kept in coh.f; app_return only when that day saved a car (n "1"). Since 1.38.3 "+" saves cars too.
    The day is built from its parts: toLocaleDateString("en-CA") gave "10/22/2026" in Android WebView, so until 1.38 kind was 5 digits and
    dropped; a day stored that way is rewritten as YYYY-MM-DD on the next start. */
 const cohYmd = t => `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
@@ -1219,12 +1224,12 @@ function cohCheck() {
   const k = Math.round((Date.parse(cohDay()) - Date.parse(coh.d)) / 864e5);
   if (!(k >= 1)) return;
   coh.r = 1; cohKeep();
-  if (k <= 7) track("app_return", {kind: coh.d.slice(5), n: coh.s ? "1" : "0"});
+  if (k <= 7) track("app_return", {kind: coh.d.slice(5), n: coh.s ? "1" : "0", ...(coh.s && coh.f ? {from: coh.f} : {})});
 }
 /* after a save, the browser is asked once not to clear this site's storage when the device runs low (saved cars, the car file); no prompt, ignored if refused */
 let persistAsked = false;
 function keepStorage() { if (persistAsked) return; persistAsked = true; try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch {} }
-function cohSaved() { keepStorage(); if (!coh || coh.d === "old" || coh.s || coh.r || cohDay() !== coh.d) return; coh.s = 1; cohKeep(); track("first_save", {kind: coh.d.slice(5)}); }
+function cohSaved(from) { keepStorage(); if (!coh || coh.d === "old" || coh.s || coh.r || cohDay() !== coh.d) return; coh.s = 1; coh.f = from; cohKeep(); track("first_save", {kind: coh.d.slice(5), from}); }
 setTimeout(cohCheck, 1500);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") cohCheck(); });
 /* web: where this visit came from, sent with every web event (src) so the live dashboard can count visits and car checks by source. GA4 gets
@@ -1768,9 +1773,10 @@ function openExternal(url){
 }
 
 /* ---------- saved & recent (this device only) ---------- */
+let navReady = false;   // from the first syncNav (the page drawn), every change to the saved cars brings the bell's number up to date
 const store = {
   get(k){ try { return JSON.parse(localStorage.getItem(k) || "[]"); } catch { return []; } },
-  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} if (k === "savedVehicles") syncSaved(v); },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} if (k === "savedVehicles") { syncSaved(v); if (navReady) syncNav(); } },
 };
 /* the app checks saved cars once a day for a new recall or a test about to expire */
 function syncSaved(list){
@@ -1829,7 +1835,7 @@ function addFromPlus(D){
   addIntent = false; view = "cars"; syncNav();
   if (isSaved(D.plate)) return "had";
   if (!toggleSaved(newSavedItem(D))) return null;   // the list is full: toggleSaved said so
-  startTrial(); cohSaved();
+  startTrial(); cohSaved("add");
   const L = store.get("savedVehicles").length; track("car_save", {n: String(Math.min(L, 4)) + (L > 3 ? "+" : ""), from: "add"});
   if (alertsSupported()) { let asked = false; try { asked = !!localStorage.getItem("alertsAsked"); localStorage.setItem("alertsAsked", "1"); } catch {} if (!asked) try { window.AndroidApp.setAlerts(true); } catch {} }
   // the iPhone home-screen sheet waits for the snack with ביטול (6 s, over the sheet's place) to go, and stays away when the car was taken back
@@ -3518,15 +3524,17 @@ const DocDB = {
   db: null,
   open(){ return this.db || (this.db = new Promise((ok, no) => { const r = indexedDB.open("luchitDocs", 1); r.onupgradeneeded = () => r.result.createObjectStore("docs", {keyPath: "id", autoIncrement: true}).createIndex("plate", "plate"); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); })); },
   async tx(mode, fn){ const db = await this.open(); return new Promise((ok, no) => { const t = db.transaction("docs", mode), st = t.objectStore("docs"), rq = fn(st); t.oncomplete = () => ok(rq && rq.result); t.onerror = () => no(t.error); t.onabort = () => no(t.error); }); },
-  put(rec){ return this.tx("readwrite", st => st.add(rec)); },
-  upd(rec){ return this.tx("readwrite", st => st.put(rec)); },
+  // Safari's private browsing keeps no file (Blob) in IndexedDB: there a document is kept as its bytes (buf), and docIn reads it back as a file
+  async put(rec){ try { return await this.tx("readwrite", st => st.add(rec)); } catch (e) { if (!(rec.blob instanceof Blob)) throw e; const {blob, ...r} = rec, buf = await blob.arrayBuffer(); return this.tx("readwrite", st => st.add({...r, buf})); } },
+  upd(rec){ const {blob, ...r} = rec; return this.tx("readwrite", st => st.put(rec.buf ? r : rec)); },
   del(id){ return this.tx("readwrite", st => st.delete(id)); },
-  get(id){ return this.tx("readonly", st => st.get(id)); },
-  all(){ return this.tx("readonly", st => st.getAll()); },
-  byPlate(p){ return this.tx("readonly", st => st.index("plate").getAll(p)); },
+  async get(id){ return docIn(await this.tx("readonly", st => st.get(id))); },
+  async all(){ return (await this.tx("readonly", st => st.getAll())).map(docIn); },
+  async byPlate(p){ return (await this.tx("readonly", st => st.index("plate").getAll(p))).map(docIn); },
   // the plates that have a document, without reading the files
   async plates(){ const db = await this.open(); return new Promise((ok, no) => { const out = new Set(), rq = db.transaction("docs").objectStore("docs").index("plate").openKeyCursor(null, "nextunique"); rq.onsuccess = () => { const c = rq.result; if (c) { out.add(c.key); c.continue(); } else ok(out); }; rq.onerror = () => no(rq.error); }); },
 };
+const docIn = r => r && r.buf && !r.blob ? Object.assign(r, {blob: new Blob([r.buf], {type: r.type})}) : r;
 async function docPrepare(file){
   if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) return file.size > DOC_MAX_BYTES ? null : {blob: file, type: "application/pdf", name: file.name};
   if (!/^image\//.test(file.type)) return null;
@@ -3932,7 +3940,7 @@ function openFile(D, from){
   setMine(D, true, from);
   if (!isSaved(D.plate)) {
     const on = toggleSaved(newSavedItem(D));
-    if (on) { startTrial(); cohSaved(); track("car_save", {n: String(Math.min(store.get("savedVehicles").length, 4)) + (store.get("savedVehicles").length > 3 ? "+" : ""), from: "file"}); }
+    if (on) { startTrial(); cohSaved("file"); track("car_save", {n: String(Math.min(store.get("savedVehicles").length, 4)) + (store.get("savedVehicles").length > 3 ? "+" : ""), from: "file"}); }
     if (on && alertsSupported()) { let asked = false; try { asked = !!localStorage.getItem("alertsAsked"); localStorage.setItem("alertsAsked", "1"); } catch {} if (!asked) try { window.AndroidApp.setAlerts(true); } catch {} }
     if (on) homeSheetMaybe();
   }
@@ -4218,7 +4226,7 @@ function tabBuy(D){
   const step = (n, title, body) => { const done = ckDone.includes(n); return `<li class="st"><span class="n${done ? " done" : ""}">${done ? ico("check") : n}</span><details class="bstep"${n === next ? " open" : ""}><summary><b>${title}</b></summary><div class="bs-body">${body}<button type="button" class="ck" data-ck="${n}" aria-pressed="${done}">${done ? "בוצע" : "סימון כבוצע"}</button></div></details></li>`; };
   html.push(card("לפני שקונים", "check", "green",
     `<p class="bprog" id="bprog">${ckDone.length ? `בוצעו ${ckDone.length} מתוך 6 שלבים` : "סמנו שלבים תוך כדי, והסימון נשמר לרכב הזה"}</p><ol class="bsteps">
-     ${step(1, "בבית, לפני שנפגשים", `${lk("https://www.gov.il/he/service/pawn_perusal", "search", "בדיקת שעבוד ברשם המשכונות", true)}
+     ${step(1, "בבית, לפני שנפגשים", `${lk("https://www.gov.il/he/service/pawn_perusal", "search", `בדיקת שעבוד<span class="lk-x"> ברשם המשכונות</span>`, true)}
        ${lk("https://infocar.co.il/", "search", "בדיקת עבר ביטוחי (מרכז הסליקה של חברות הביטוח)", true)}
        ${lk("https://www.gov.il/apps/police/stolencar/", "search", "בדיקה במאגר הרכבים הגנובים (משטרה)", true)}`)}
      ${step(2, "המוכר והמסמכים", `<ul class="bq"><li>ודאו שמי שמציג את הרכב הוא הבעלים החוקי: שמו ומספר תעודת הזהות שלו מופיעים ברישיון הרכב העדכני. אם הוא מיופה כוח, כדאי לדבר גם עם הבעלים.</li><li>במכירה פרטית, מומלץ להיפגש בבית המוכר ובאור יום.</li><li>בעסקה עם סוחר, בקשו בכתב מסמכי רכישה ואחריות.</li></ul>`)}
@@ -4230,7 +4238,7 @@ function tabBuy(D){
      ${step(6, "לפני התשלום", `<p class="note">ייתכן שלא ניתן יהיה להעביר בעלות, ולכן הסדירו מראש:</p><ul class="bq"><li>טסט בתוקף.</li><li>ריקול פתוח שטופל.</li><li>הסרת שעבוד או עיקול מול הגורם המשעבד.</li><li>הסרת תג חניה לנכה, כשרשום, במשרד הרישוי.</li><li>רישום היורשים, אם הבעלים נפטר.</li></ul>
        <p class="note"><b>אל תעבירו תשלום לפני שפעלתם לפי השלבים, ושלמו רק במעמד העברת הבעלות.</b></p>`)}
      <li class="bsteps-end"><span class="n">${ico("check")}</span><div><b>אחרי העסקה</b><p class="note">בצעו העברת בעלות ועדכנו את הביטוח מיד, ורק אז התחילו לנהוג ברכב.</p>
-       ${lk("https://car.cma.gov.il/", "doc", "השוואת מחירי ביטוח חובה")}</div></li>
+       ${lk("https://car.cma.gov.il/", "doc", `השוואת<span class="lk-x"> מחירי</span> ביטוח חובה`)}</div></li>
      </ol>
      <button type="button" class="link-btn" data-act="checklistPdf">${ico("doc")}הורדה או הדפסה של רשימת הבדיקות (PDF)</button>`));
   html.push(`<div id="mstat">${msCard(D)}</div>`);
@@ -5279,7 +5287,7 @@ $("#out").addEventListener("click", ev => {
   if (act === "candSave") {
     const raw = digits(($("#askIn") || {}).value), ask = raw ? Number(raw) : null;
     if (!isSaved(current.plate) && toggleSaved(newSavedItem(current))) {   // a new save counts like the star's
-      startTrial(); cohSaved(); const L = store.get("savedVehicles").length; track("car_save", {n: String(Math.min(L, 4)) + (L > 3 ? "+" : ""), from: "buy_ask"});
+      startTrial(); cohSaved("buy_ask"); const L = store.get("savedVehicles").length; track("car_save", {n: String(Math.min(L, 4)) + (L > 3 ? "+" : ""), from: "buy_ask"});
     }
     const list = store.get("savedVehicles"), it = list.find(x => x.plate === current.plate);
     Object.assign(it, {ask, ...candFields(current)}); store.set("savedVehicles", list);
@@ -5294,7 +5302,7 @@ $("#out").addEventListener("click", ev => {
   if (act === "compare") { track("compare_open", {from: b.dataset.from || "menu"}); cmp = current && current.kind !== "fail" ? [current] : []; renderCompare(); openCompare("model"); }
   if (act === "save") {
     const on = toggleSaved(newSavedItem(current));
-    if (on) { startTrial(); cohSaved(); }
+    if (on) { startTrial(); cohSaved(currentTab || "home"); }
     track(on ? "car_save" : "car_unsave", {n: String(Math.min(store.get("savedVehicles").length, 4)) + (store.get("savedVehicles").length > 3 ? "+" : ""), from: currentTab || "home"});
     b.setAttribute("aria-pressed", String(on)); { const sp = b.querySelector("span"); if (sp) sp.textContent = on ? "נשמר" : "שמירה"; }
     toast(on ? "נשמר ברכבים שלי" : "הוסר מהרכבים שלי");
@@ -6258,9 +6266,10 @@ let view = "search", carsFilter = "all", carsSel = null, carsY = 0;
 let openTab = null;   // {p: plate, t: tab}: the tab that car opens on next (an open recall from "התראות" lands on the recalls tab); another car ignores it
 function setScreen(s){ document.body.dataset.screen = s; syncNav(); syncHist(); syncTitle(); }
 function syncNav(){
+  navReady = true;
   document.querySelectorAll("#bnav [data-nav]").forEach(b => { if (b.dataset.nav === view) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
   const n = alertItems().length, bd = $("#bnBadge"); if (bd) { bd.hidden = !n; bd.textContent = n > 9 ? "9+" : String(n); }
-  const al = document.querySelector('#bnav [data-nav="alerts"]'); if (al) al.setAttribute("aria-label", n ? `התראות, ${pl(n, "פריט אחד", "פריטים")} דורשים פעולה` : "התראות");
+  const al = document.querySelector('#bnav [data-nav="alerts"]'); if (al) al.setAttribute("aria-label", n ? `התראות, ${n === 1 ? "פריט אחד דורש" : n + " פריטים דורשים"} פעולה` : "התראות");
 }
 function navTo(v, opts = {}){
   // the tab the user is on, drawn and settled (not a car loading or an error in its place): a tap scrolls up
@@ -6412,7 +6421,9 @@ function carsTable(list){
     const third = buy ? `<td>${s.ask ? fmtN(Math.round(s.ask / 1000)) + " אלף" : "—"}${vd ? `<small class="vd" style="display:block;font-weight:600;color:var(--muted)">${esc(vd.s)}</small>` : ""}</td>` : `<td class="${s.recalls > 0 ? "r" : ""}">${s.active === false ? "ירד מהכביש" : s.recalls > 0 ? (s.recalls === 1 ? "פתוח" : `${s.recalls} פתוחים`) : "אין"}</td>`;
     return `<tr${on ? ` class="on"` : ""}><td><span class="cr"><span class="dot ${carLevel(s)}" aria-hidden="true"></span><button type="button" class="lnk" ${carsSel ? `data-pick="${s.plate}" aria-pressed="${!!on}"` : `data-open="${s.plate}"`}><b>${fmtPlate(s.plate)}</b><small style="color:var(--muted)">${esc(s.nick || s.title)}</small></button></span></td><td class="${col}">${yy(tx)}</td>${third}<td class="svl">${sv ? `${esc(yy(fmtDate(sv.d)))}${sv.km ? `<small>${fmtN(sv.km)} ק״מ</small>` : ""}` : "—"}</td></tr>`;
   }).join("");
-  return `<div class="ctab-sum"><span><i class="dot ok"></i>${lv.ok} תקינים</span><span><i class="dot warn"></i>${lv.warn} טסט קרוב</span><span><i class="dot bad"></i>${lv.bad} ריקול או טסט שפג</span></div>
+  // the legend names only the levels some car is at: no "0 טסט קרוב"
+  const sum = [["ok", lv.ok === 1 ? "תקין" : "תקינים"], ["warn", "טסט קרוב"], ["bad", "ריקול או טסט שפג"]].filter(([k]) => lv[k]).map(([k, t]) => `<span><i class="dot ${k}"></i>${lv[k]} ${t}</span>`).join("");
+  return `${sum ? `<div class="ctab-sum">${sum}</div>` : ""}
     <section class="card ctable"><table class="ft"><tr><th>רכב</th><th>טסט</th><th>${buy ? "מבוקש" : "ריקול"}</th><th>טיפול אחרון</th></tr>${rows}</table>${list.length > fleetMax() ? `<p class="note">מוצגים ${fleetMax()} הרכבים הראשונים.</p>` : ""}</section>`;
 }
 function renderCars(){
@@ -7008,9 +7019,9 @@ function renderHome(){
     <div class="try"><span>רוצים לראות איך זה נראה?</span><button type="button" class="chip" data-open="${EXAMPLE_PLATE}">נסו לדוגמה <bdi dir="ltr">${fmtPlate(EXAMPLE_PLATE)}</bdi></button></div>
     <ol class="how"><li><b>מקלידים מספר רישוי</b> או מצלמים את הלוחית.</li><li><b>מקבלים תמונה מלאה</b> מנתוני משרד התחבורה: ריקולים והסדרי פשרה, טסט, בעלויות ומחיר משוער.</li><li><b>שומרים ומשתפים</b>, ${IS_IOS && !window.AndroidApp ? "ומוסיפים ליומן תזכורת לפני שהטסט פג." : "ומקבלים התראה על ריקול חדש או טסט שעומד לפוג."}</li></ol></section>`);
   const pn = planNotice(); if (pn) html.push(pn);
-  // what needs attention on a saved car opens "התראות"; the cars themselves live in "הרכבים שלי"
-  const attn = saved.filter(carAttn);
-  if (attn.length) html.push(`<button type="button" class="attn${attn.some(s => carLevel(s) === "bad") ? "" : " warn"}" data-nav="alerts" data-via="attn"><span class="ai">${ico("alert")}</span><span class="t"><b>${attn.length === 1 ? "רכב אחד מהרכבים שלכם צריך תשומת לב" : `${attn.length} מהרכבים שלכם צריכים תשומת לב`}</b><small>${alertItems().slice(0, 2).map(x => `${esc(x.k || x.t)}: <bdi>${esc(x.s.nick || x.s.title)}</bdi>`).join(" · ")}</small></span>${ico("chev")}</button>`);
+  // what needs attention on a saved car opens "התראות", and counts what the bell on "התראות" counts (one item per issue); the cars themselves live in "הרכבים שלי"
+  const items = alertItems(), mine = saved.length === 1 ? "ברכב שלכם" : "ברכבים שלכם";
+  if (items.length) html.push(`<button type="button" class="attn${items.some(x => x.lv === "bad") ? "" : " warn"}" data-nav="alerts" data-via="attn"><span class="ai">${ico("alert")}</span><span class="t"><b>${items.length === 1 ? `התראה אחת ${mine}` : `${items.length} התראות ${mine}`}</b><small>${items.slice(0, 2).map(x => `${esc(x.k || x.t)}: <bdi>${esc(x.s.nick || x.s.title)}</bdi>`).join(" · ")}</small></span>${ico("chev")}</button>`);
   if ((saved.length || recent.length) && !anyMine()) html.push(`<div class="tlist hfile"><button type="button" class="trow" data-act="fileHome"><i class="tb blue">${ico("car")}</i><span class="t"><b>יש לכם כבר רכב? פתחו לו תיק</b><small>טסט, טיפולים ומסמכים לנסיעה, במקום אחד</small></span>${ico("chev")}</button></div>`);
   // on a wide screen the saved-cars rail beside the page already lists a saved car: its recent chip is hidden there (.inrail), not shown twice
   const inRail = new Set(window.AndroidApp ? [] : railCars(saved).map(s => s.plate));

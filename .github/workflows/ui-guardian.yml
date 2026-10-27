@@ -3,10 +3,10 @@ name: UI guardian (browser)
 # "UI guardian (lint)" and "UI guardian (browser)". The trigger paths are the union of both.
 on:
   pull_request:
-    paths: ["index.html", "ui-contract.json", "ui-guardian-baseline.json", "ui-lint-baseline.json", ".github/scripts/ui-guardian.cjs", ".github/scripts/ui-flows.cjs", ".github/scripts/ui-lint.mjs", ".github/scripts/app-wiring.mjs", ".github/scripts/analytics-flows.cjs", "worker/api/worker.js", ".github/workflows/ui-guardian.yml"]
+    paths: ["index.html", "ui-contract.json", "ui-guardian-baseline.json", "ui-lint-baseline.json", ".github/scripts/ui-guardian.cjs", ".github/scripts/ui-flows.cjs", ".github/scripts/ui-lint.mjs", ".github/scripts/app-wiring.mjs", ".github/scripts/analytics-flows.cjs", ".github/scripts/docs-private.cjs", "worker/api/worker.js", ".github/workflows/ui-guardian.yml"]
   push:
     branches: [next]
-    paths: ["index.html", "ui-contract.json", "ui-guardian-baseline.json", "ui-lint-baseline.json", ".github/scripts/ui-guardian.cjs", ".github/scripts/ui-flows.cjs", ".github/scripts/ui-lint.mjs", ".github/scripts/app-wiring.mjs", ".github/scripts/analytics-flows.cjs", "worker/api/worker.js", ".github/workflows/ui-guardian.yml"]
+    paths: ["index.html", "ui-contract.json", "ui-guardian-baseline.json", "ui-lint-baseline.json", ".github/scripts/ui-guardian.cjs", ".github/scripts/ui-flows.cjs", ".github/scripts/ui-lint.mjs", ".github/scripts/app-wiring.mjs", ".github/scripts/analytics-flows.cjs", ".github/scripts/docs-private.cjs", "worker/api/worker.js", ".github/workflows/ui-guardian.yml"]
   schedule:
     - cron: "17 2 * * *"   # every night on main, what people have now: a new Chromium can move the page without a commit (the App guardian checks the app at 01:37)
   workflow_dispatch:
@@ -80,6 +80,13 @@ jobs:
         if: ${{ !cancelled() }}
         continue-on-error: true
         run: node .github/scripts/ui-flows.cjs --engine webkit --no-sweep --filter '/web-390/|/web-768/light' --out ui-flows-webkit
+      # documents on the website in Safari's private browsing: a private window in WebKit keeps no file in the page's database, so the car
+      # file keeps a document's bytes there (DocDB, 27.10). A PDF and a photo saved, read back whole, dated, opened and deleted in a WebKit
+      # context that keeps nothing on disk (docs-private.cjs, under a minute). Warning mode, as the Safari pass above
+      - name: Documents in Safari's private browsing (website)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: node .github/scripts/docs-private.cjs
       # blocking: analytics in motion (analytics-flows.cjs). The journeys again with analytics on, in the app and on the website, each event
       # followed to Firebase's rules and through worker/api's own code to GA4: nothing personal in any event, no event or parameter lost on
       # the way, one event per action, nothing at all with analytics off or after the switch in settings, the same events in the app and on
