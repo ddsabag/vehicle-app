@@ -1,9 +1,10 @@
 // Shows where the "model recall history" card of a plate comes from: the car's register row, its importer, its own open recalls,
 // the maker's recall file in the catalogue, which rows the app's matcher keeps, and for each one the ministry's full recall row
 // and how many cars in Israel still have it open. Runs on GitHub (data.gov.il is not reachable from the development container).
-// PLATES may be "b64:<base64 of a comma-separated list>" so the plate is not written into the public run log; the report masks it.
+// PLATES takes the example plates only (datasets.mjs probePlates): the run's inputs, log and output are public.
 import fs from "node:fs";
 import {appMatcher} from "./app-matcher.mjs";
+import {probePlates} from "./datasets.mjs";
 const html = fs.readFileSync("index.html", "utf8");
 const block = html.slice(html.indexOf("const PLATE_SETS"), html.indexOf("const MODEL_SETS"));
 const SETS = [...block.matchAll(/\{key:"([^"]+)",\s*id:"([0-9a-f-]{36})"[^}]*?(?:field:"([^"]+)")?[^}]*\}/g)].map(m => ({key: m[1], id: m[2], field: m[3] || "mispar_rechev"}));
@@ -20,8 +21,7 @@ const get = async (act, params) => {
   }
 };
 const search = (id, filters, limit = 50) => get("datastore_search", {resource_id: id, filters: JSON.stringify(filters), limit: String(limit)});
-const raw = process.env.PLATES || "";
-const plates = (raw.startsWith("b64:") ? Buffer.from(raw.slice(4), "base64").toString("utf8") : raw).split(",").map(s => s.replace(/\D/g, "")).filter(Boolean);
+const plates = probePlates(process.env.PLATES, "");
 const mask = p => p.length > 4 ? p.slice(0, 2) + "x".repeat(p.length - 4) + p.slice(-2) : "xx";
 const show = (o, keys) => keys.filter(k => o[k] !== undefined && o[k] !== null && String(o[k]).trim() !== "").map(k => `${k}=${String(o[k]).trim()}`).join(" | ");
 

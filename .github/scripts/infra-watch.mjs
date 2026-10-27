@@ -7,13 +7,15 @@ import { msg, heError } from "./tg-text.mjs";
 // Optional: CF_API_TOKEN + CF_ACCOUNT_ID (Workers usage), BREVO_API_KEY (daily send count), GITHUB_TOKEN + GITHUB_REPOSITORY (branches).
 // STALE_BRANCHES=yes|no picks the stale-branch list by the cron line that fired; unset = on the 1st by the clock (and always with DRY_RUN=1).
 // INFRA_HANDOFF=1: check only, and write the messages as the step output "report" (JSON {alert, notice}) for site-smoke.mjs to send in its
-// one morning message. INFRA_REPORT=<that JSON>: send those messages as this script would have (the fallback when site-smoke.mjs did not);
+// one morning message. Either way, a run that read everything and found nothing closes the open infra alerts (alert.mjs resolve).
+// INFRA_REPORT=<that JSON>: send those messages as this script would have (the fallback when site-smoke.mjs did not);
 // with INFRA_FLASHED=1 site-smoke.mjs already wrote the /live line, so only Telegram is tried again.
 const DRY = process.env.DRY_RUN === "1", E = process.env;
 const SITE = "https://luchit.app";
 const CF_DAILY_LIMIT = 100000, BREVO_DAILY_LIMIT = 300, WARN = 0.8;
 // problems: {he, raw, urgent}; notes: Hebrew lines; raws: the technical side of the notes (secret names, API errors), folded in the message
 const problems = [], notes = [], raws = [];
+const read = new Set();   // the checks that got a reading this run (api, quota-cf, quota-brevo): open infra items close only when all three did
 let stale = [];
 const he = raw => heError(raw).split("\n<blockquote")[0].replace(/\.$/, "");
 const day = d => d.toISOString().slice(0, 10);
@@ -27,6 +29,7 @@ async function liveness() {
     ["שירות ההרשמה למגזין", "/api/confirm", async () => { const r = await get(SITE + "/api/confirm?e=x&x=1&t=x", { redirect: "manual" }); return r.status === 302 && /subscribed=expired/.test(r.headers.get("location") || ""); }],
   ];
   for (const [name, raw, fn] of checks) { let ok = false; try { ok = await retry(fn); } catch { /* counted as down */ } if (!ok) problems.push({ id: "api", he: `${name} לא מגיב כצפוי, ולכן הרשמות חדשות לא מאושרות`, raw: `Worker ${raw}`, urgent: true }); }
+  read.add("api");
 }
 
 async function cloudflareQuota() {
@@ -38,6 +41,7 @@ async function cloudflareQuota() {
   if (r.errors) { raws.push("Cloudflare GraphQL: " + String(r.errors[0]?.message).slice(0, 80)); return notes.push("מכסת הבקשות היומית לא נבדקה: למפתח אין הרשאת קריאה לנתוני השימוש"); }
   const n = (r.data.viewer.accounts[0]?.workersInvocationsAdaptive || []).reduce((s, x) => s + x.sum.requests, 0);
   console.log("cloudflare workers requests (24h):", n);
+  read.add("quota-cf");
   if (n >= CF_DAILY_LIMIT * WARN) problems.push({ id: "quota-cf", he: `מכסת הבקשות היומית של שרתי האתר: ${n.toLocaleString("en")} ב-24 שעות מתוך ${CF_DAILY_LIMIT.toLocaleString("en")}`, raw: "Cloudflare Workers requests" });
 }
 
@@ -51,6 +55,7 @@ async function brevoQuota() {
     peak = Math.max(peak, (await r.json()).requests || 0);
   }
   console.log("brevo peak sends/day (3d, transactional):", peak);
+  read.add("quota-brevo");
   if (peak >= BREVO_DAILY_LIMIT * WARN) problems.push({ id: "quota-brevo", he: `מכסת המיילים היומית: ${peak} שליחות ביום מתוך ${BREVO_DAILY_LIMIT} (המכסה החינמית)`, raw: "Brevo transactional" });
 }
 
@@ -115,6 +120,12 @@ if (E.INFRA_REPORT) {   // fallback in Site smoke test: the report the infra job
   console.log([...notes, ...raws].join("\n") || "no notes");
   const report = problems.length ? { alert: alertText(), key: "infra:" + [...new Set(problems.map(p => p.id))].sort().join("+"), level: problems.some(p => p.urgent) ? "critical" : "day" }
     : stale.length ? { notice: noticeText(), key: "infra-branches", level: "summary" } : {};
+  // the services and both quotas were read and are fine: the open infra items close (the router tells each announced one "חזר לתקין");
+  // a quota that could not be read leaves them open, since this run cannot say it ended
+  if (!problems.length && read.size === 3) {
+    let router = null; try { router = await import("./alert.mjs"); } catch { /* nothing to close without it */ }
+    if (router?.resolve) try { await router.resolve(["infra:"]); } catch { /* the morning ledger still shows them open */ }
+  } else if (!problems.length) console.log(`open infra alerts stay open: not read this run: ${["api", "quota-cf", "quota-brevo"].filter(x => !read.has(x)).join(", ")}`);
   if (E.INFRA_HANDOFF === "1") {
     console.log(report.alert || report.notice || "all clear: nothing to hand over");
     const line = report.alert || report.notice ? `report=${JSON.stringify(report)}\n` : "";   // one line: JSON escapes the newlines

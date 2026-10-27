@@ -35,7 +35,8 @@ if (PREV && fs.existsSync(PREV)) prev = JSON.parse(fs.readFileSync(PREV, "utf8")
 else if (!PREV) prev = await prevCat("recall-state.json").catch(() => null);
 const first = !prev, seen = new Set(prev ? prev.seen : []);
 // a failure here never blocks the catalogue: yesterday's state is kept and the alert says the check did not run
-try { await check(); } catch (e) {
+let checked = false, acts = 0;
+try { acts = await check(); checked = true; } catch (e) {
   console.log("recall check FAILED: " + (e && e.stack || e));
   try {
     if (prev) fs.writeFileSync(`${OUT}/recall-state.json`, JSON.stringify(prev));
@@ -43,6 +44,9 @@ try { await check(); } catch (e) {
       what: "כלום. אם זה חוזר, זה עובר לבד לטיפול בשרשור \"נתונים ואמינות\".", raw: String(e && e.stack || e)}));
   } catch (w) { console.log("could not write the alert: " + w.message); }
 }
+// a check with nothing for a person closes the open recall alert; the router tells it once ("✅ בוצע · חזר לתקין") and the morning ledger lists it
+if (checked && !acts && process.env.GITHUB_TOKEN && process.env.DRY_RUN !== "1")
+  try { const n = await (await import("./alert.mjs")).resolve(["recalls"]); if (n) console.log(`closed ${n} recall alert(s)`); } catch { /* the morning ledger still lists it */ }
 
 async function check(){
 const meta = JSON.parse(fs.readFileSync(`${OUT}/meta.json`, "utf8"));
@@ -146,4 +150,5 @@ if (lines.length) {
   fs.writeFileSync(`${OUT}/recall-alert.txt`, text);
   console.log("\n" + text);
 }
+return act.length;
 }

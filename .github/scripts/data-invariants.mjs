@@ -19,7 +19,7 @@
 //   lend     a plate in two registers where one lends the other its dates (moto + import, heavy + public) with another maker,
 //            or (import) another model year: at most 50 (0 of 1,808 and 0 of 36,422)  (dates come from the same vehicle)
 // Totals only, never a plate. out/invariants.json = this week's values, limits and verdicts; out/inv-history.json = the last 60 weeks
-// (read back from the data-truth branch). One Telegram line through the alert router when a limit breaks (key truth:inv:<ids>).
+// (read back from the data-truth branch). One Telegram line through the alert router when a limit breaks (key truth:inv:<ids>, truth:inv-fail when the registers cannot be read); a run that reads them closes the open read failure, and one with every limit kept closes the breaks.
 //   node data-invariants.mjs              read everything (about 40 min on a GitHub runner), write, alert
 //   node data-invariants.mjs --selftest   offline: every check on small made-up registers
 import fs from "node:fs";
@@ -177,6 +177,11 @@ async function telegram(text) {
   try { const r = await IO.fetch(`https://api.telegram.org/bot${IO.env.TELEGRAM_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: IO.env.TELEGRAM_CHAT_ID, text, parse_mode: "HTML", disable_web_page_preview: true }), signal: AbortSignal.timeout(20000) }); IO.out(`telegram ${r.status}`); return r.ok; }
   catch (e) { IO.out(`telegram failed: ${e.message}`); return false; }
 }
+// a read that worked closes the open read failure; a week with every limit kept closes the open breaks too (the router tells it once)
+async function closeOpen(prefixes) {
+  if (IO.env.DRY_RUN === "1") return;
+  try { const n = await (await import("./alert.mjs")).resolve(prefixes); if (n) IO.out(`closed ${n} alert(s)`); } catch { /* the morning ledger still lists it */ }
+}
 async function send(m, links) {
   if (IO.env.DRY_RUN === "1" || !IO.env.TELEGRAM_BOT_TOKEN || !IO.env.TELEGRAM_CHAT_ID) { IO.out(`(no message sent: ${IO.env.DRY_RUN === "1" ? "dry run" : "no Telegram secrets"})\n${m.key}\n${m.text}`); return true; }
   let router = null; try { router = await import("./alert.mjs"); } catch { /* legacy below */ }
@@ -189,7 +194,7 @@ async function main() {
   log(`data invariants ${day}: reading the registers in full`);
   let got;
   try { got = await measure(scanLive, today); }
-  catch (e) { log("read failed: " + e.message); return (await send({ key: "truth:fail", text: msg({ kind: "today", area: "data", title: "הבדיקה השבועית של מאגרי משרד התחבורה לא הצליחה לקרוא את המאגרים",
+  catch (e) { log("read failed: " + e.message); return (await send({ key: "truth:inv-fail", text: msg({ kind: "today", area: "data", title: "הבדיקה השבועית של מאגרי משרד התחבורה לא הצליחה לקרוא את המאגרים",
     text: `${heError(e.message).split("\n<blockquote")[0]} הבדיקה של ${day} לא רצה, והאפליקציה עצמה לא נפגעה.`, what: "כלום. אם זה חוזר, זה עובר לבד לטיפול בשרשור \"נתונים ואמינות\".", raw: e.message }) }, [IO.env.RUN_URL].filter(Boolean))) ? 0 : 1; }
   const res = judge(got.v);
   for (const r of res) IO.out(`${r.ok ? "ok  " : "FAIL"} ${r.id.padEnd(8)} ${JSON.stringify(r.value)} (limit ${r.limit})`);
@@ -199,6 +204,7 @@ async function main() {
   let hist = null; try { const h = await IO.fetch(IO.env.HISTORY_URL || HISTORY_URL, { signal: AbortSignal.timeout(20000) }); if (h.ok) hist = await h.json(); } catch {}
   fs.writeFileSync("out/inv-history.json", JSON.stringify(addWeek(hist, { d: day, v: got.v, info: got.info })));
   const m = message(res, day);
+  await closeOpen(m ? ["truth:inv-fail"] : ["truth:inv"]);
   if (!m) { log("every invariant holds"); return 0; }
   return (await send(m, [IO.env.RUN_URL, LATEST_URL].filter(Boolean))) ? 0 : 1;
 }

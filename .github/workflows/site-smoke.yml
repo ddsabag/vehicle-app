@@ -50,6 +50,9 @@ jobs:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           BREVO_API_KEY: ${{ secrets.BREVO_API_KEY || secrets.BREVO_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # all clear closes the open infra alerts (alert.mjs resolve), and the router tells each announced one "חזר לתקין" quietly
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
   smoke:
     needs: infra
     # with WEB_DEPLOY on, a push deploy is checked by Site smoke test (after deploy) once the deploy is done.

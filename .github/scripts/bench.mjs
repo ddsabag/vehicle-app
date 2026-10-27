@@ -1,11 +1,11 @@
 // Times the ministry API the way the app uses it (runs on GitHub; data.gov.il is not reachable from the dev container).
 import fs from "node:fs";
+import {probePlates} from "./datasets.mjs";
 const html = fs.readFileSync("index.html", "utf8");
 const block = html.slice(html.indexOf("const PLATE_SETS"), html.indexOf("const MODEL_SETS"));
 const sets = [...block.matchAll(/\{key:"([^"]+)",\s*id:"([0-9a-f-]{36})"([^}]*)\}/g)].map(m => ({key: m[1], id: m[2], field: (m[3].match(/field:"([^"]+)"/) || [])[1] || "mispar_rechev", pad: /pad:true/.test(m[3])}));
 const API = "https://data.gov.il/api/3/action/datastore_search";
-const PLATES_RAW = process.env.PLATES || "38548003";   // the app's public example plate (EXAMPLE_PLATE); others come as "b64:<base64 of a comma-separated list>"
-const plates = (PLATES_RAW.startsWith("b64:") ? Buffer.from(PLATES_RAW.slice(4), "base64").toString("utf8") : PLATES_RAW).split(",").map(s => s.replace(/\D/g, "")).filter(Boolean);
+const plates = probePlates(process.env.PLATES);   // the app's public example plate (EXAMPLE_PLATE) unless another example plate is given
 const ms = () => Number(process.hrtime.bigint() / 1000000n);
 async function q(id, filters, limit = 100, extra = {}) {
   const t = ms();

@@ -496,6 +496,8 @@ function compare(c, X, P) {
   check(c, "identity.year", sp(spec("שנת ייצור")) === sp(R.shnat_yitzur || ""), spec("שנת ייצור"), R.shnat_yitzur || "", "");
   const mk = spec("יצרן"); MAKEPAIRS.set(`${sp(R.tozeret_nm)} -> ${mk}`, (MAKEPAIRS.get(`${sp(R.tozeret_nm)} -> ${mk}`) || 0) + 1);
   check(c, "identity.make", !E(mk) || E(R.tozeret_nm), mk, R.tozeret_nm, "");
+  // the car's name at the top carries the maker whenever the register names one (26.10: a card titled "EX5" alone)
+  check(c, "identity.title_make", E(R.tozeret_nm) || !E(mk) && sp(P.head.title).toUpperCase().includes(sp(mk).toUpperCase()), P.head.title, `${mk || "(maker missing)"} in the title`, `tozeret_nm=${R.tozeret_nm || ""}`);
   oneOf("identity.model", spec("דגם"), Ws.map(w => pickE(R.kinuy_mishari, w.kinuy_mishari, R.degem_nm)), sp, `kinuy=${R.kinuy_mishari || ""} degem_nm=${R.degem_nm || ""}`);
   check(c, "identity.trim", sp(spec("רמת גימור")) === sp(R.ramat_gimur || ""), spec("רמת גימור"), R.ramat_gimur || "(not shown: the register has none)", "");   // the register's own trim only
   check(c, "identity.colour", sp(spec("צבע")) === sp(R.tzeva_rechev || ""), spec("צבע"), R.tzeva_rechev || "", "");

@@ -212,6 +212,12 @@ async function send(key, text, link) {
   const r = router ? await router.alert("day", key, text, link, { today: "loud", legacy: () => telegram(text) }) : { delivered: await telegram(text) };
   return !!r.delivered;
 }
+// a run that read Play again ends the open "could not read" alert: the router tells it "חזר לתקין" once
+async function settle() {
+  let router = IO.router;
+  if (!router) try { router = await import("./alert.mjs"); } catch { return; }
+  if (router?.resolve) try { await router.resolve(["watch:error"]); } catch { /* the morning ledger still shows it */ }
+}
 
 // ---- CLI ----
 export async function cli(argv) {
@@ -234,6 +240,7 @@ export async function cli(argv) {
     // a broken check is told once a day at most (alert.mjs dedupe on the fixed key)
     if (!dry && !(await send("watch:error", composeError(R, IO.env), IO.env.RUN_URL || ""))) failed = true;
   }
+  if (!dry && (R.code === "new" || R.code === "quiet")) await settle();
   for (const t of R.tells.slice(0, MAX_TELLS)) {
     const m = compose(t, IO.env);
     if (dry) { IO.out(`dry run: would send ${m.key}`); continue; }
@@ -372,6 +379,13 @@ async function selftest() {
     W = await run({ router, state: { seen: { "alpha:110": T0 - HOUR } }, mine: { 110: [ISSUE("r1", "CRASH", 110)] } });
     W = await run({ router, repFail: { status: 500 } });
     ok(seen.length === 2 && seen.every(s => s.lv === "day" && validKey(s.key) && !s.o.plain) && seen[0].key.startsWith("watch:new:110:") && seen[1].key === "watch:error" && seen[0].link.startsWith("https://play.google.com/"), "router: day, valid keys " + seen.map(s => s.key));
+    // Play read again (quiet or a new issue) closes watch:error; a failed read or a dry run leaves it open
+    const settled = [], r2 = { alert: async () => ({ delivered: true }), resolve: async p => { settled.push(p.join("|")); return 1; } };
+    W = await run({ router: r2 });
+    W = await run({ router: r2, state: { seen: { "alpha:110": T0 - HOUR } }, mine: { 110: [ISSUE("r2", "CRASH", 110)] } });
+    W = await run({ router: r2, repFail: { status: 500 } });
+    W = await run({ router: r2 }, { MODE: "dry" });
+    ok(settled.join() === "watch:error,watch:error", "router: a run that read Play closes watch:error " + settled);
     W = await run({ state: { seen: { "alpha:110": T0 - HOUR } }, mine: { 110: [ISSUE("s1", "CRASH", 110)] } });
     const all = [...W.printed, ...W.sums, ...Object.values(W.outputs), ...W.tg.map(x => x.text)].join("\n");
     ok(![TOKEN, TG, "PRIVATE KEY", SA.client_email].some(x => all.includes(x)), "secrets stay out of the output");

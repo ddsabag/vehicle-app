@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       plates:
-        description: "Plates: b64:<base64 of a comma-separated list> (the run log and inspect-output are public); empty = the app's example plate"
+        description: "Example plates only (38548003, 1234567, 7654321); empty = the app's example plate. Never a real car's plate in any form (clear, base64, hash): this step prints its env, PLATES included, at the top of the PUBLIC run log"
         default: ""
       script:
         description: "Script in .github/scripts"

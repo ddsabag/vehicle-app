@@ -4,8 +4,11 @@ import { flash } from "./flash.mjs";
 import { tag, todo, folded, heErrors } from "./tg-text.mjs";
 // Env: PLAY_SERVICE_ACCOUNT_JSON (falls back to GA_SERVICE_ACCOUNT_JSON), TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
 //      optional PLAY_PACKAGE, PLAY_DEVELOPER_ID + PLAY_APP_ID (for a deep link into Play Console), MAX_STARS (default 3), DRY_RUN=1.
-//      REVIEWS_RESPONDER=on (repo variable): the Cloudflare Worker luchit-reviews announces every review with a reply draft, so the
-//      review alerts here are skipped (no double announcement); vitals and the error alerts of the vitals check are unchanged.
+//      ALERT_UPTIME_URL (repo variable): luchit-reviews lives on the same workers.dev subdomain as luchit-uptime. When its /health shows
+//      Telegram, the key and a working Play list (a tick within 12 h), the Worker announces every review with a reply draft, so the review
+//      alerts here are skipped (no double announcement). Anything else (no variable, no answer, a failing list) and they go out as before,
+//      so no review is silent. REVIEWS_RESPONDER=off (repo variable) always sends them here. The list, the weekly snapshot, vitals and the
+//      error alerts never depend on it.
 // State: seen.json (restored/saved by the workflow cache) so the same review is never sent twice, plus the error streak (errOn).
 import fs from "node:fs";
 import crypto from "node:crypto";
@@ -64,8 +67,21 @@ const save = () => fs.writeFileSync(STATE, JSON.stringify(seen));
 const errors = [];
 
 // ---- reviews ----
-if (process.env.REVIEWS_RESPONDER === "on") console.log("reviews: skipped, luchit-reviews announces them (REVIEWS_RESPONDER=on)");
-else try {
+// "" when the responder (Cloudflare Worker luchit-reviews) announces the reviews itself, else why not (written to the log)
+async function responder() {
+  if (process.env.REVIEWS_RESPONDER === "off") return "REVIEWS_RESPONDER=off";
+  let u;
+  try { u = new URL(String(process.env.ALERT_UPTIME_URL || "").replace(/\/+$/, "") + "/health"); } catch { return "no ALERT_UPTIME_URL"; }
+  if (!/^luchit-uptime\./.test(u.hostname)) return "ALERT_UPTIME_URL is not luchit-uptime's address";
+  u.hostname = u.hostname.replace(/^luchit-uptime\./, "luchit-reviews."); u.pathname = "/health"; u.search = "";
+  try {
+    const r = await fetch(u, { headers: { "user-agent": "luchit-reviews-monitor/1" }, signal: AbortSignal.timeout(10000) });
+    if (!r.ok) return `health answered ${r.status}`;
+    const j = await r.json(), age = Date.now() - Date.parse(j?.lastTick);
+    return j?.tg === true && j?.sa === true && j?.list === true && age > -5 * 6e4 && age <= 12 * 36e5 ? "" : `not ready (tg ${j?.tg}, sa ${j?.sa}, list ${j?.list}, tick ${j?.lastTick || "none"})`;
+  } catch (e) { return "health did not answer (" + (e?.name || "error") + ")"; }
+}
+try {
   const t = await token("https://www.googleapis.com/auth/androidpublisher");
   const r = await rf(`https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${PKG}/reviews?maxResults=100`, { headers: { authorization: "Bearer " + t } });
   if (!r.ok) throw new Error(`reviews API ${r.status}: ${(await r.text()).slice(0, 200)}`);
@@ -73,11 +89,14 @@ else try {
   const since = Date.now() / 1000 - 7 * 24 * 3600;   // the reviews API itself only returns the last week
   const dev = process.env.PLAY_DEVELOPER_ID, app = process.env.PLAY_APP_ID;
   const base = dev && app ? `https://play.google.com/console/developers/${dev}/app/${app}/user-feedback/reviews` : "https://play.google.com/console";
-  let sent = 0, failed = 0;
+  const by = await responder();
+  console.log(by ? `reviews: alerts sent here (luchit-reviews: ${by})` : "reviews: luchit-reviews announces them with a reply draft, no alert here");
+  let sent = 0, failed = 0, left = 0;
   for (const rv of list) {
     const c = (rv.comments || []).find(x => x.userComment)?.userComment; if (!c) continue;
     const ts = +(c.lastModified?.seconds || 0), key = `${rv.reviewId}:${ts}`;
     if (ts < since || c.starRating > MAX_STARS || seen[key]) continue;
+    if (!by) { seen[key] = Date.now(); left++; continue; }   // the responder has it: never announced here later, even if it stops
     const dm = c.deviceMetadata || {}, replied = (rv.comments || []).some(x => x.developerComment);
     const low = c.starRating <= 2;
     if (await telegram(`${tag(low ? "today" : "info", "reviews")}\n${"⭐".repeat(c.starRating)}${"☆".repeat(5 - c.starRating)} <b>ביקורת חדשה בגוגל פליי, ${c.starRating} מתוך 5</b>${replied ? " (כבר נענתה)" : ""}\n` +
@@ -97,7 +116,7 @@ else try {
     fs.mkdirSync("feedback-out", { recursive: true });
     fs.writeFileSync("feedback-out/reviews.enc.json", JSON.stringify({ v: 1, ek: ek.toString("base64"), iv: iv.toString("base64"), tag: ci.getAuthTag().toString("base64"), data: data.toString("base64") }));
   } catch (e) { console.log("feedback snapshot skipped:", e.message); }
-  console.log(`reviews: ${list.length} returned, ${sent} alerts sent${failed ? `, ${failed} not delivered (tried again next run)` : ""}`);
+  console.log(`reviews: ${list.length} returned, ${sent} alerts sent${left ? `, ${left} left to luchit-reviews` : ""}${failed ? `, ${failed} not delivered (tried again next run)` : ""}`);
 } catch (e) { errors.push("reviews: " + e.message); console.log("reviews failed:", e.message); }
 
 // ---- Play vitals (crash / ANR rate), Google's "bad behavior" thresholds: 1.09% crashes, 0.47% ANR (user-perceived) ----

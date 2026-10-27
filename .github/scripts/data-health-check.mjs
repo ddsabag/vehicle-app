@@ -93,6 +93,23 @@ async function direct(text) {
   return r.ok;
 }
 
+// the check ran, so its own crash alert is over; a ministry item closes once every register it names answers again (the router tells it once,
+// "✅ בוצע · חזר לתקין"). An item whose registers still fail stays open, and resolve() matches by prefix, so a key that is the start of a
+// still-open one is left too
+export function healthyKeys(open, badIds) {
+  const ministry = open.filter(k => k.startsWith("ministry:")), fine = ministry.filter(k => k.slice(9).split("+").every(id => !badIds.includes(id)));
+  return [...fine.filter(k => !ministry.some(o => !fine.includes(o) && o.startsWith(k))), "checker:data-health"];
+}
+async function closeHealthy(bad) {
+  if (DRY) return;
+  let router = null; try { router = await import("./alert.mjs"); } catch { return; }
+  try {
+    const s = await router.readState(), open = Object.entries((s && s.items) || {}).filter(([, it]) => it && it.open).map(([k]) => k);
+    const n = await router.resolve(healthyKeys(open, bad.map(r => r.key)));
+    if (n) console.log(`closed ${n} alert(s)`);
+  } catch { /* the morning ledger still lists it */ }
+}
+
 const failText = (bad, total) => {
   const lines = bad.map(r => `❌ <b>${esc(r.title)}</b>\n${r.problems.map(p => "• " + esc(p)).join("\n")}${r.impact ? "\nמה זה אומר למשתמשים: " + esc(r.impact) + "." : ""}`);
   return msg({ kind: "today", area: "data", title: "מאגר של משרד התחבורה לא תקין",
@@ -121,6 +138,7 @@ if (crash) { const e = crash; await telegram(msg({ kind: "today", area: "data", 
   what: "כלום. אם זה חוזר, זה עובר לבד לטיפול בשרשור \"נתונים ואמינות\".", raw: e.stack || e.message }), "checker:data-health"); process.exit(1); }
 
 for (const r of results) console.log(`${r.problems.length ? "FAIL" : "ok  "} ${r.key.padEnd(13)} ${String(r.ms).padStart(5)}ms ${[...r.problems, ...r.notes].join(" | ")}`);
+await closeHealthy(bad);
 if (bad.length) {
   // the alert reached Telegram: finish green, so GitHub does not also send its own "workflow failed" mail; a failed send keeps the red run as a fallback
   process.exit((await telegram(failText(bad, results.length), "ministry:" + bad.map(r => r.key).join("+").slice(0, 80))) ? 0 : 1);

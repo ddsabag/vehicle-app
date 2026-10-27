@@ -1,6 +1,7 @@
 // Prints what the open datasets hold for given plates and which datasets exist for a topic.
 // Runs on GitHub (data.gov.il is not reachable from the development container).
 import fs from "node:fs";
+import {probePlates} from "./datasets.mjs";
 const html = fs.readFileSync("index.html", "utf8");
 const block = html.slice(html.indexOf("const PLATE_SETS"), html.indexOf("const MODEL_SETS"));
 const sets = [...block.matchAll(/\{key:"([^"]+)",\s*id:"([0-9a-f-]{36})"[^}]*?(?:field:"([^"]+)")?[^}]*\}/g)].map(m => ({key: m[1], id: m[2], field: m[3] || "mispar_rechev"}));
@@ -10,8 +11,7 @@ const get = async (act, params) => {
   if (!r.ok) throw new Error(act + " HTTP " + r.status);
   return (await r.json()).result;
 };
-const PLATES_RAW = process.env.PLATES || "38548003";   // the app's public example plate (EXAMPLE_PLATE); others come as "b64:<base64 of a comma-separated list>"
-const plates = (PLATES_RAW.startsWith("b64:") ? Buffer.from(PLATES_RAW.slice(4), "base64").toString("utf8") : PLATES_RAW).split(",").map(s => s.replace(/\D/g, "")).filter(Boolean);
+const plates = probePlates(process.env.PLATES);   // the app's public example plate (EXAMPLE_PLATE) unless another example plate is given
 for (const [pi, plate] of plates.entries()) {
   console.log(`\n===== plate #${pi + 1} =====`);   // the number itself never goes to the log
   for (const s of sets) {
