@@ -2976,7 +2976,7 @@ const WEB_HIST = !window.AndroidApp && !!(window.history && history.pushState);
 /* web: the browser tab names the screen it shows (a car by its model, never its plate; a tool by its name in toolHead); home keeps the page's
    own title. "הרכבים שלי" and "התראות" have their own address (#cars, #alerts), so a reload or a bookmark opens them again */
 const BASE_TITLE = document.title;
-function syncTitle(){ if (window.AndroidApp) return; const s = document.body.dataset.screen; document.title = s === "cars" ? "הרכבים שלי · לוחית" : s === "alerts" ? "התראות · לוחית" : s === "car" && current ? `${current.make || current.model ? current.title : "רכב"} · לוחית` : BASE_TITLE; }
+function syncTitle(){ if (window.AndroidApp) return; const s = document.body.dataset.screen; document.title = s === "cars" ? "הרכבים שלי · לוחית" : s === "alerts" ? "התראות · לוחית" : s === "car" && current ? `${current.title && current.title !== "רכב " + fmtPlate(current.plate) ? current.title : "רכב"} · לוחית` : BASE_TITLE; }
 const screenUrl = h => { if (!WEB_HIST || location.hash === "#" + h) return; try { history.replaceState(history.state, "", location.pathname + "#" + h); } catch {} };
 let skipPop = false;
 function syncHist(){
@@ -3006,6 +3006,7 @@ const recTabOf = D => D.kind === "model" || D.recalls.length ? "ריקולים" 
 /* a reload or Back that re-opens the car already on screen is not a new check: it is counted as lookup_repeat, so car_lookup stays one per check */
 let lookupAgain = false;
 async function lookup(raw){
+  if (Date.now() - intentAt > INTENT_MS) dropIntents();
   const again = lookupAgain; lookupAgain = false;
   parked = null;
   const ot = openTab; openTab = null;
@@ -3040,7 +3041,6 @@ async function lookup(raw){
   if (D.notFound) { out.innerHTML = `<div class="msg edge"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-search"/></svg></div>לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.<p class="note" style="margin:8px 0 0">בדקנו את כל מאגרי משרד התחבורה, כולל רכבים שירדו מהכביש, דו-גלגלי ויבוא אישי. רכב שעלה לכביש בימים האחרונים יופיע אחרי העדכון הבא של המאגר.</p></div>`; return; }
   current = D; currentTab = ot && ot.p === D.plate ? ot.t : "overview";
   const role = roleOf(D);   // who checked it, before "+" below (or the home file line) saves the car
-  if (Date.now() - intentAt > INTENT_MS) dropIntents();
   const added = addIntent && D.plate && D.kind !== "model" ? addFromPlus(D) : null;
   snapPut(D); savedSync(D);
   renderResult(); focusResult();
