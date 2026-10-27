@@ -370,7 +370,7 @@ function apply(s, o, { count = true, a = null, sh = 0, set = null } = {}) {
   const now = iso(o.now);
   if (count) {
     const old = s.items[o.key], ep = newEpisode(old, o.level, o.fresh, o.now);
-    const it = ep ? { lv: o.level, u: [], first: now, last: now, n: 0, sent: null, pend: old?.pend || null, open: true } : { ...old };
+    const it = ep ? { lv: o.level, u: [], first: now, last: now, n: 0, sent: null, pend: (old?.open !== false && old?.pend) || null, open: true } : { ...old };   // a closed one's night pointer is over
     it.n = (it.n || 0) + 1; it.last = now; it.open = true;
     if (rank(o.level) > rank(it.lv)) it.lv = o.level;
     if (o.src) it.src = o.src;
@@ -497,7 +497,7 @@ async function closeItems(match, { wf = "", link = "", tell = true } = {}) {
     if (!s || !Object.entries(s.items).some(([k, it]) => it.open && match(k))) return 0;
     const w = await cas(STATE.file, x => {
       closed = [];
-      for (const [k, it] of Object.entries(x.items)) if (it.open && match(k)) { Object.assign(it, { open: false, out: "fixed", outAt: iso(now) }); closed.push([k, { ...it }]); }
+      for (const [k, it] of Object.entries(x.items)) if (it.open && match(k)) { Object.assign(it, { open: false, out: "fixed", outAt: iso(now), pend: null }); closed.push([k, { ...it }]); }
       x.log = [...x.log, ...closed.filter(([k, it]) => told(k, it)).map(([k, it]) => logEntry(iso(now), k, it.lv, "fixed", "none", 0))].slice(-600);
       return closed.length ? x : null;
     }, { dl: c.signal });
@@ -577,8 +577,9 @@ async function daily() {
   const runUrl = env.GITHUB_RUN_ID ? `https://github.com/${repo()}/actions/runs/${env.GITHUB_RUN_ID}` : "";
   if (!tgOk && !dry) await mail("🚨 לוחית: מערך ההתראות בטלגרם לא עובד",
     "בדיקת הטלגרם היומית נכשלה (getMe/getChat). עד שזה יתוקן, התראות קריטיות מגיעות במייל, וריצות שנכשלות שולחות את המייל של GitHub.", [runUrl]);
-  // 3 morning ring
-  const pend = Object.entries(s.items).filter(([, it]) => it.pend).sort((a, b) => t0(a[1].pend) - t0(b[1].pend));
+  // 3 morning ring: what was sent quietly in the night and is still open (an item closed since, fixed or a self-repair, is in the ledger;
+  // 27.10 the ring listed 1.38.3 "waiting for פרסם" two minutes after it went to Production)
+  const pend = Object.entries(s.items).filter(([, it]) => it.pend && it.open !== false).sort((a, b) => t0(a[1].pend) - t0(b[1].pend));
   let ringOk = true;
   if (dry) IO.out(`would ring ${pend.length}`);
   else if (pend.length) {
@@ -941,17 +942,24 @@ async function selftest() {
     // a to-do whose label marks its end as news (catalog: its alert promised Dudu an update) is told in its own words; other to-dos are not
     {
       const st = base(), at = t => ({ lv: "day", first: iso(t), last: iso(t), n: 1, sent: iso(t), pend: null, open: true, u: [] });
-      st.items["catalog"] = at(DAY - 20 * H); st.items["ship:done:1.40"] = at(DAY - H);
+      st.items["catalog"] = { ...at(DAY - 20 * H), pend: iso(DAY - 20 * H) }; st.items["ship:done:1.40"] = at(DAY - H);
       const m = net({ state: st }); IO.fetch = m.fetch; IO.env = { ...ENV }; IO.now = () => DAY;
       ok(await resolve(["catalog", "ship:done:"]) === 2 && m.tg.length === 1 && m.tg[0].disable_notification === true && m.tg[0].text === "✅ בוצע · נתונים\nטופל: שמות דגמים חדשים בקטלוג לבדיקה\n" +
         `הבדיקה הבאה אישרה שזה טופל. ההתראה על זה נשלחה ב-${ilTime(new Date(DAY - 20 * H))}.\n👌 לא צריך לעשות כלום.`, "the catalogue's to-do is told quietly as handled, the version is not: " + m.tg[0]?.text);
-      ok(m.state().log.filter(e => e.a === "fixed").map(e => e.k).join() === "catalog" && Object.values(m.state().items).every(it => it.out === "fixed") && schema(m.state()) === "",
-        "both closed with the outcome, one outcome entry (the told to-do); schema");
+      ok(m.state().log.filter(e => e.a === "fixed").map(e => e.k).join() === "catalog" && Object.values(m.state().items).every(it => it.out === "fixed" && it.pend === null) && schema(m.state()) === "",
+        "both closed with the outcome and without a night pointer, one outcome entry (the told to-do); schema");
       st.items["smoke:home"] = at(DAY - H); st.items["catalog"] = at(DAY - 2 * H); delete st.items["ship:done:1.40"];
       const m2 = net({ state: st }); IO.fetch = m2.fetch;
       ok(await resolve(["smoke:", "catalog"]) === 2 && m2.tg.length === 1 && m2.tg[0].text.startsWith("✅ בוצע · ") && m2.tg[0].text.includes("\nטופלו (2):\n• ")
         && m2.tg[0].text.includes("• שמות דגמים חדשים בקטלוג לבדיקה (התראה מ-"), "a problem and a to-do together: one message, \"טופלו\": " + m2.tg[0]?.text);
       ok(label("catalog").done === true && label("expiry:cert").done === undefined && label("smoke:home").done === undefined, "only a label marked done carries it");
+    }
+    // a closed item's night pointer is not carried into its next episode (else a daytime queued line would be rung the next morning)
+    {
+      const st = base(); st.items["mention:x"] = { lv: "summary", first: iso(DAY - 9 * H), last: iso(DAY - 9 * H), n: 1, sent: iso(DAY - 9 * H), pend: iso(DAY - 9 * H),
+        open: false, out: "self", outAt: iso(DAY - 9 * H), u: [] };
+      const x = await run({ level: "summary", key: "mention:x", state: st, now: DAY });
+      ok(x.r.action === "queued" && x.st.items["mention:x"].open === true && x.st.items["mention:x"].pend === null && schema(x.st) === "", "new episode after a closed item: no night pointer " + x.r.action);
     }
 
     // privacy: 500 random calls; state = whitelist schema, no @, no 5+ digit runs, no 12+ character piece of any text; stdout = log lines only
@@ -1188,10 +1196,14 @@ async function selftest() {
       const st = base(); st.hb = { daily: "2026-10-19", dailyAt: iso(DAY - 24 * H) };
       st.items["mag:fail:2026-10"] = { lv: "day", first: iso(DAY - 8 * H), last: iso(DAY - 8 * H), n: 1, sent: iso(DAY - 8 * H), pend: iso(DAY - 8 * H), open: true, u: [] };
       st.items["old:x"] = { lv: "day", first: iso(DAY - 30 * 864e5), last: iso(DAY - 22 * 864e5), n: 1, sent: null, pend: null, open: false, u: [] };
+      // sent in the night, closed two minutes later (as 1.38.3 on 27.10): not rung
+      st.items["ship:done:1.40"] = { lv: "day", first: iso(DAY - 7 * H), last: iso(DAY - 7 * H), n: 1, sent: iso(DAY - 7 * H), pend: iso(DAY - 7 * H), open: false, out: "fixed",
+        outAt: iso(DAY - 7 * H + 12e4), u: [] };
       const m = net({ state: st });
       let d = await runCli(["daily"], { m, env: { GITHUB_EVENT_NAME: "schedule" }, now: Date.parse("2026-10-20T05:20:00Z") });
       const s1 = m.state();
-      ok(d.code === 0 && m.tg.length === 1 && m.tg[0].disable_notification === false && m.tg[0].text.includes("כתבת מגזין לא פורסמה, הבדיקות נכשלו: 2026-10 (04:00)"), "daily: one loud morning ring " + d.out);
+      ok(d.code === 0 && m.tg.length === 1 && m.tg[0].disable_notification === false && m.tg[0].text.includes("כתבת מגזין לא פורסמה, הבדיקות נכשלו: 2026-10 (04:00)")
+        && m.tg[0].text.includes("מה קרה בלילה (1)") && !m.tg[0].text.includes("1.40"), "daily: one loud morning ring, without what closed in the night " + d.out);
       ok(s1.items["mag:fail:2026-10"].pend === null && s1.log.some(e => e.a === "ring") && !s1.items["old:x"] && s1.hb.daily === "2026-10-20" && s1.hb.tgOkAt, "daily: pend cleared, pruned, claimed");
       ok(!!m.files["heartbeat.json"] && J(m.files["heartbeat.json"].text).t, "daily: heartbeat written");
       d = await runCli(["daily"], { m, env: { GITHUB_EVENT_NAME: "schedule" }, now: Date.parse("2026-10-20T06:20:00Z") });
