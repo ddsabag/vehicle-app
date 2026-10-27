@@ -888,8 +888,9 @@ public class MainActivity extends Activity {
     private void themeChosen(String mode) {
         android.content.SharedPreferences p = ui();
         if (!mode.equals(p.getString("theme", "light"))) p.edit().putString("theme", mode).apply();
-        // the splash of the next launch: Android 13 and later keep it per app (earlier versions draw the manifest's light theme)
-        if (android.os.Build.VERSION.SDK_INT >= 33 && !mode.equals(p.getString("splash", "light"))) {
+        // the splash of the next launch: Android 12 and later keep it per app (SplashScreen.setSplashScreenTheme, API 31; earlier versions
+        // draw the manifest's light theme)
+        if (android.os.Build.VERSION.SDK_INT >= 31 && !mode.equals(p.getString("splash", "light"))) {
             try {
                 getSplashScreen().setSplashScreenTheme("dark".equals(mode) ? R.style.AppTheme_Dark : "auto".equals(mode) ? R.style.AppTheme_DayNight : android.content.res.Resources.ID_NULL);
                 p.edit().putString("splash", mode).apply();
