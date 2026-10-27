@@ -61,8 +61,8 @@ val copyWebApp by tasks.registering(Copy::class) {
 tasks.named("preBuild") { dependsOn(copyWebApp) }
 
 dependencies {
-    implementation("androidx.webkit:webkit:1.12.1")
-    implementation("androidx.core:core:1.17.0")
+    implementation("androidx.webkit:webkit:1.18.0")
+    implementation("androidx.core:core:1.19.1")
     implementation("androidx.work:work-runtime:2.12.0")
     implementation("com.google.android.play:review:2.0.2")
     implementation("com.google.android.play:app-update:2.1.0")
