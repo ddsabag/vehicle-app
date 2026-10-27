@@ -730,6 +730,12 @@ body:not(.kb) .toast{bottom:calc(84px + env(safe-area-inset-bottom,0px))}
 body:not(.kb) .snack{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
 body:has(.sharebar) .toast{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
 body:has(.sharebar) .snack{bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+/* the website on a phone: the keyboard covers the bottom of the visible screen, not of the page, so these rise above it by --kbh (set in the
+   script, 0 in the app, where the page itself gets shorter) */
+.toast,.snack{translate:0 calc(-1 * var(--kbh,0px))}
+/* a snack bar over an open sheet: at the bottom (the bar under the sheet is covered anyway), and the sheet scrolls clear of it */
+body:has(> .sheet:not([hidden])) .snack{bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+body:has(> .snack) .sheet-in{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
 /* the website on a wide screen: the navigation is a bar at the top, as on any site, with the brand and a plate search on the screens that have
    no search band; phones and the app keep the bottom bar */
 .bn-brand,.bn-f,.bhero,.bnav .bn-set,.bnav .bn-pro{display:none}   /* .bnav button would otherwise draw the gear as a fourth tab on a phone */
@@ -1830,8 +1836,15 @@ function addFromPlus(D){
   setTimeout(() => { if (isSaved(D.plate)) homeSheetMaybe(); }, 6000);
   return "new";
 }
-function undoAdd(D){
+function undoAdd(D, mineWas){
   if (isSaved(D.plate)) { toggleSaved({plate: D.plate}); const L = store.get("savedVehicles").length; track("car_unsave", {n: String(Math.min(L, 4)) + (L > 3 ? "+" : ""), from: "add"}); }
+  // a file opened in the seconds after "+" goes with it (a file belongs to a saved car); a mark the car had before "+" stays as it was
+  const m = mineAll();
+  if (m[D.plate] === 1 && mineWas !== 1) {
+    if (mineWas === undefined) delete m[D.plate]; else m[D.plate] = mineWas;
+    try { localStorage.setItem("mine", JSON.stringify(m)); } catch {}
+    if (current === D && currentTab === "file") currentTab = "overview";
+  }
   if (current === D) { const y = window.scrollY; renderResult(); window.scrollTo(0, y); } else refreshView();
 }
 /* the model's name under each recent plate on home, for cars that were not saved too (this phone only, the same 6 plates) */
@@ -2979,7 +2992,8 @@ const WEB_HIST = !window.AndroidApp && !!(window.history && history.pushState);
    own title. "הרכבים שלי" and "התראות" have their own address (#cars, #alerts), so a reload or a bookmark opens them again */
 const BASE_TITLE = document.title;
 function syncTitle(){ if (window.AndroidApp) return; const s = document.body.dataset.screen; document.title = s === "cars" ? "הרכבים שלי · לוחית" : s === "alerts" ? "התראות · לוחית" : s === "car" && current ? `${current.title && current.title !== "רכב " + fmtPlate(current.plate) ? current.title : "רכב"} · לוחית` : BASE_TITLE; }
-const screenUrl = h => { if (!WEB_HIST || location.hash === "#" + h) return; try { history.replaceState(history.state, "", location.pathname + "#" + h); } catch {} };
+// the screen's address alone: a ?plate= left from a link would open that car on a reload instead of the screen
+const screenUrl = h => { if (!WEB_HIST || location.hash === "#" + h && !location.search) return; try { history.replaceState(history.state, "", location.pathname + "#" + h); } catch {} };
 let skipPop = false;
 function syncHist(){
   if (!WEB_HIST) return;
@@ -3043,10 +3057,10 @@ async function lookup(raw){
   if (D.notFound) { out.innerHTML = `<div class="msg edge"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-search"/></svg></div>לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.<p class="note" style="margin:8px 0 0">בדקנו את כל מאגרי משרד התחבורה, כולל רכבים שירדו מהכביש, דו-גלגלי ויבוא אישי. רכב שעלה לכביש בימים האחרונים יופיע אחרי העדכון הבא של המאגר.</p></div>`; return; }
   current = D; currentTab = ot && ot.p === D.plate ? ot.t : "overview";
   const role = roleOf(D);   // who checked it, before "+" below (or the home file line) saves the car
-  const added = addIntent && D.plate && D.kind !== "model" ? addFromPlus(D) : null;
+  const mineWas = addIntent ? mineAll()[D.plate] : undefined, added = addIntent && D.plate && D.kind !== "model" ? addFromPlus(D) : null;
   snapPut(D); savedSync(D);
   renderResult(); focusResult();
-  if (added) snack(added === "new" ? "נוסף לרכבים שלי" : "הרכב כבר ברכבים שלי", added === "new" ? "ביטול" : "לרשימה", added === "new" ? () => undoAdd(D) : () => navTo("cars", {via: "add"}), 6000);
+  if (added) snack(added === "new" ? "נוסף לרכבים שלי" : "הרכב כבר ברכבים שלי", added === "new" ? "ביטול" : "לרשימה", added === "new" ? () => undoAdd(D, mineWas) : () => navTo("cars", {via: "add"}), 6000);
   // exactly 8 params: the app bridge keeps the first 8 (MainActivity.logEvent) and the web Worker 10 with src+camp; a 9th silently drops the last
   track(again ? "lookup_repeat" : "car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: D.errs && D.errs.length ? 1 : 0, role, ...lookupFacts(D)});
   remember(plate, D.kind === "model" ? "" : D.title);
@@ -6314,6 +6328,12 @@ document.addEventListener("focusout", () => setTimeout(() => { if (!typing()) do
   if (window.visualViewport) visualViewport.addEventListener("resize", onSize);
   onSize();
 }
+// --kbh: how much of the page's bottom the keyboard covers on the website (an iPhone, Chrome on Android: only the visible part shrinks), so
+// a toast or a snack bar is not hidden under it; never while zoomed in, and never the few pixels of a browser bar
+if (!window.AndroidApp && window.visualViewport) {
+  const kbh = () => { const v = visualViewport, d = innerHeight - v.height - v.offsetTop; document.documentElement.style.setProperty("--kbh", v.scale < 1.05 && d > 100 ? Math.round(d) + "px" : "0px"); };
+  visualViewport.addEventListener("resize", kbh); visualViewport.addEventListener("scroll", kbh); kbh();
+}
 
 /* a tool's header (compare, market, bulk check, plans): back to the tab it was opened from, and its name */
 const toolHead = t => { if (!window.AndroidApp) document.title = `${t} · לוחית`; return `<header class="chead" id="chead"><button type="button" class="ch-b back" data-act="toolBack" aria-label="חזרה">${ico("back")}</button><div class="ch-t"><b>${esc(t)}</b></div></header>`; };
@@ -6412,7 +6432,7 @@ function renderCars(){
   const n = carsSel ? carsSel.length : 0, ready = carsSel && n >= 2, cmpTxt = !carsSel ? "השוואה" : ready ? `השוו ${n} רכבים` : n ? "בחרו עוד רכב" : "בחרו 2 רכבים";
   html.push(`<header class="vhead"><div class="vh-r"><h2 class="vh-t" id="carsHead" tabindex="-1">הרכבים שלי</h2><span class="vh-acts">${all.length >= 2 ? `<button type="button" class="vh-cmp${ready ? " on" : ""}" data-act="carsFab">${ico("compare")}${cmpTxt}</button>` : ""}<button type="button" class="vh-add" data-act="addCar" aria-label="הוספת רכב">${ico("plus")}<span class="vh-al">הוספת רכב</span></button></span></div>${sub}${!window.AndroidApp && all.length && !carsSel ? checkedLine(all) : ""}</header>`);
   if (!all.length) {
-    html.push(emptyCard("עוד לא שמרתם רכב", "star", "amber", `<p style="margin:0 0 10px">בודקים רכב ולוחצים על הכוכב בראש הדוח. ${alertsSupported() ? "מכאן נתריע על ריקול חדש ועל טסט שמתקרב" : "מכאן רואים ריקול פתוח וטסט שמתקרב"}, ואפשר להשוות בין הרכבים.</p><button type="button" class="link-btn" data-act="addCar">${ico("search")}בדיקת רכב</button>`));
+    html.push(emptyCard("עוד לא שמרתם רכב", "star", "amber", `<p style="margin:0 0 10px">מוסיפים רכב לפי מספר הרישוי שלו, או בכוכב שבראש הדוח של רכב שבודקים. ${alertsSupported() ? "מכאן נתריע על ריקול חדש ועל טסט שמתקרב" : "מכאן רואים ריקול פתוח וטסט שמתקרב"}, ואפשר להשוות בין הרכבים.</p><button type="button" class="link-btn" data-act="addCar">${ico("plus")}הוספת רכב</button>`));
   } else {
     // the view switch and the filter: two lines on a phone, one toolbar on the website's wide page (filter first, the view at the end)
     const chip = (k, t) => `<button type="button" data-cfilter="${k}" aria-pressed="${carsFilter === k}">${t}</button>`;
@@ -6470,7 +6490,7 @@ function renderAlerts(){
   current = null; inCompare = false; view = "alerts"; setScreen("alerts"); screenUrl("alerts");
   const all = store.get("savedVehicles"), items = alertItems(), html = [];
   html.push(`<header class="vhead"><h2 class="vh-t" id="alertsHead" tabindex="-1">התראות</h2><p class="vh-s">${!all.length ? "ריקולים וטסט של הרכבים ששמרתם" : alertsSupported() ? "מה דורש פעולה, ועל מה תקבלו התראה לטלפון" : "מה דורש פעולה ברכבים ששמרתם"}</p></header>`);
-  if (!all.length) html.push(emptyCard("אין עדיין רכבים לעקוב אחריהם", "bell", "blue", `<p style="margin:0 0 10px">שומרים רכב בכוכב שבראש הדוח, ומכאן רואים ריקול פתוח וטסט שמתקרב${alertsSupported() ? ", ומקבלים התראה לטלפון" : ""}.</p><button type="button" class="link-btn" data-act="addCar">${ico("search")}בדיקת רכב</button>`));
+  if (!all.length) html.push(emptyCard("אין עדיין רכבים לעקוב אחריהם", "bell", "blue", `<p style="margin:0 0 10px">מוסיפים רכב לפי מספר הרישוי שלו, או בכוכב שבראש הדוח של רכב שבודקים, ומכאן רואים ריקול פתוח וטסט שמתקרב${alertsSupported() ? ", ומקבלים התראה לטלפון" : ""}.</p><button type="button" class="link-btn" data-act="addCar">${ico("plus")}הוספת רכב</button>`));
   else if (!items.length) html.push(`<div class="allok"><span class="ai">${ico("check")}</span><div><b>הכול תקין</b><br><small style="color:var(--muted)">אין ריקול פתוח ואין טסט בחודש הקרוב.${alertsOn() ? " נתריע כשמשהו ישתנה." : ""}</small></div></div>`);
   else html.push(`<div class="aitems">${items.map((x, i) => `<div class="aitem ${x.lv}"><span class="ai">${ico(x.go === "cal" ? "clock" : "alert")}</span><div class="t"><b>${esc(x.t)}</b><small>${esc(x.b)}</small>
       <div class="acts"><button type="button" class="ap" data-open="${x.s.plate}" aria-label="פתיחת הרכב ${fmtPlate(x.s.plate)}"><span class="mini-plate"><i></i>${fmtPlate(x.s.plate)}</span></button><button type="button" class="ago" data-aitem="${i}">${x.g || "פרטים"}</button></div></div></div>`).join("")}</div>`);
@@ -7210,7 +7230,8 @@ document.querySelectorAll("[data-alerts]").forEach(b => b.addEventListener("clic
 $("#bnSet").addEventListener("click", () => $("#openSettings").click());
 $("#closeSettings").addEventListener("click", () => { sheet.hidden = true; const g = $("#bnSet"); (g && g.getClientRects().length ? g : $("#openSettings")).focus(); });
 sheet.addEventListener("click", ev => { if (ev.target === sheet) sheet.hidden = true; });
-document.addEventListener("keydown", ev => { if (ev.key === "Escape") { const dv = document.querySelector(".doc-view"); if (dv) dv.click(); sheet.hidden = true; $("#compareSheet").hidden = true; $("#shareSheet").hidden = true; $("#homeSheet").hidden = true; } });
+// Escape: the questions sheet first (it sits over settings); the compare picker closes as its X does (no comparison of one car left behind)
+document.addEventListener("keydown", ev => { if (ev.key === "Escape") { if (!helpSheet.hidden) { helpSheet.hidden = true; $("#openHelp").focus(); return; } const dv = document.querySelector(".doc-view"); if (dv) dv.click(); sheet.hidden = true; if (!$("#compareSheet").hidden) hideCmpSheet(); $("#shareSheet").hidden = true; $("#homeSheet").hidden = true; } });
 /* both deletes can be undone from the snack bar for a moment: the buttons sit in a list and one stray tap used to wipe the cars */
 $("#clearRecent").addEventListener("click", () => { const was = store.get("recentPlates"), names = localStorage.getItem("recentNames"); store.set("recentPlates", []); try { localStorage.removeItem("recentNames"); } catch {} refreshView(); snack("היסטוריית החיפושים נמחקה", "ביטול", () => { store.set("recentPlates", was); try { if (names) localStorage.setItem("recentNames", names); } catch {} refreshView(); }); });
 $("#clearSaved").addEventListener("click", () => { const was = store.get("savedVehicles"); if (!was.length) { toast("אין רכבים ברשימת הרכבים שלי"); return; } store.set("savedVehicles", []); refreshView(); snack("הרכבים שלי נמחקו", "ביטול", () => { store.set("savedVehicles", was); refreshView(); }); });
