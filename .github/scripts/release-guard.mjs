@@ -19,14 +19,14 @@
 //               nothing to update to, so those stop by design)
 // Zone A daily (same run, for the 08:22 morning triage, ops asked 26.10): yesterday's failed checks (technical kinds: source_down, offline,
 // net_err, js_err, over car_lookup + lookup_failed, as /live's health tile) and slow checks (dur 5to10 + gt10 over all dur buckets), all
-// platforms, app rows from Israel only. Failed over 10% (from 50 checks) or slow over 10% goes to the router at level day (key zonea:<kind>:<date>,
+// platforms, app rows from Israel only. Failed over 10% (from 50 checks) or slow over 10% goes to the router at LEVEL.zoneA (key zonea:<kind>:<date>,
 // owner measurement), which the triage reads in alert-state; a clean day is only a log line: "zone A <date>: ok|thin|breach fail,slow".
 // What is back in range closes in the router (resolve, told once, quietly: "חזר לתקין"), on a run that judges the real yesterday (not a DAY
 // re-run of the past): a day with both kinds judged and within the thresholds closes every zonea: item, a day with one kind fine closes that
 // kind's own items (a fail+slow item stays while either breaches); a version on day 3 or 7 with every guardrail in range closes its own open
 // findings (relguard:<version>-d<day>).
-// Crashes stay with Release watch. Only reads GA4; findings go to the router (level day, a silent message, the morning triage routes them
-// to product), a clean day is logged silently. The repo is public: the log prints states and counts of findings only, never a number.
+// Crashes stay with Release watch. Only reads GA4; findings go to the router (LEVEL.find, the morning triage routes them to product), a clean
+// day is logged silently. The repo is public: the log prints states and counts of findings only, never a number.
 // Node 20, node: builtins only. Commands:
 //   node release-guard.mjs            GA_SERVICE_ACCOUNT_JSON, RUN_URL, MODE (on|dry), DAY (optional: judge as if today were this Israel date)
 //   node release-guard.mjs selftest   offline
@@ -36,6 +36,10 @@ import { msg } from "./tg-text.mjs";
 
 export const MIN_USERS = 10, MIN_CHECKS = 100, DAYS = [1, 3, 7], BASE_DAYS = 14, COMPARE_FROM = "1.38";
 export const ZA = { minChecks: 50, failPct: 10, slowPct: 10 };
+// Dudu is not needed for a breach or a finding (autopilot rules: route to the owner, Dudu only if needed; the one loud message of the autopilot
+// is auto:revert), and both messages say so. Level summary with a problem label is the router's quiet message, sent once per episode, with
+// the morning ledger telling how it ended; level day would ring in daytime (27.10: the first zone A breach would have rung for nothing to do).
+export const LEVEL = { zoneA: "summary", find: "summary", ok: "silent" };
 const REAL = { orGroup: { expressions: [{ filter: { fieldName: "platform", stringFilter: { value: "web" } } }, { filter: { fieldName: "countryId", stringFilter: { value: "IL" } } }] } };
 const realOnly = name => ({ andGroup: { expressions: [{ filter: { fieldName: "eventName", stringFilter: { value: name } } }, REAL] } });
 export function zoneAQueries(day) {
@@ -208,7 +212,7 @@ async function main() {
     if (A.state === "breach") {
       const t = zoneAText(A, yd), key = `zonea:${A.breach.join("+")}:${yd}`;
       if (dry) IO.out("dry, would send " + key + ":\n" + t.replace(/\d/g, "#"));
-      else { const router = IO.router || await import("./alert.mjs"); await router.alert("day", key, t, E.RUN_URL || "", { today: "silent" }); }
+      else { const router = IO.router || await import("./alert.mjs"); await router.alert(LEVEL.zoneA, key, t, E.RUN_URL || "", { today: "silent" }); }
     }
     const shut = live ? zoneACloses(A) : [];
     if (shut.length && dry) IO.out("dry, would close " + shut.join(" "));
@@ -222,12 +226,12 @@ async function main() {
   const t = text(R, N), id = `${R.vn}-d${R.day}`, key = R.state === "find" ? "relguard:" + id : `relguard:${R.state}:${id}`;
   if (dry) { IO.out("dry, would send " + key + ":\n" + t.replace(/\d/g, "#") + (live && relguardCloses(R).length ? "\ndry, would close " + relguardCloses(R).join(" ") : "")); return 0; }   // the log is public: digits masked
   const router = IO.router || await import("./alert.mjs"), shut = live ? relguardCloses(R) : [];
-  await router.alert(R.state === "find" ? "day" : "silent", key, t, E.RUN_URL || "", { today: R.state === "find" ? "silent" : "none" });
+  await router.alert(R.state === "find" ? LEVEL.find : LEVEL.ok, key, t, E.RUN_URL || "", { today: R.state === "find" ? "silent" : "none" });
   if (shut.length && await router.resolve(shut)) IO.out(`release guard: open finding closed (${shut.join(" ")})`);
   return 0;
 }
 
-function selftest() {
+async function selftest() {
   const fails = [], ok = (c, m) => { if (!c) fails.push(m); };
   const g = s => s.replace(/-/g, ""), days = (a, n) => Array.from({ length: n }, (_, i) => addDays(a, i));
   // 1.37 for weeks, 1.38 from 2026-10-28 (a tester on 10-24 with 1 user does not start it)
@@ -325,8 +329,12 @@ function selftest() {
   ok(Q.events.dimensions.length === 3 && Q.compare.dimensionFilter.andGroup.expressions.length === 2 && Q.saves.dimensions.map(d => d.name).join() === "date,appVersion,eventName,customEvent:from"
     && Q.saves.dimensionFilter.andGroup.expressions[1].filter.inListFilter.values.join() === "car_save,car_unsave", "queries");
   ok(/^\d+$/.test(PROPERTY), "property from analytics/ga4-admin.json");
+  // how the router sends them, by day and by night: a problem told once, quietly (never a ring, never a morning-ring pointer)
+  const AL = await import("./alert.mjs"), st = { v: 1, items: {}, hb: {}, log: [] }, at = Date.parse("2026-10-27T06:30:00Z");
+  for (const [lv, key] of [[LEVEL.zoneA, "zonea:slow:2026-10-26"], [LEVEL.zoneA, "zonea:fail+slow:2026-10-26"], [LEVEL.find, "relguard:1.38.3-d1"]])
+    for (const day of [true, false]) { const d = AL.decide(st, lv, key, false, at, day); ok(d.a === "quiet" && !d.night && AL.label(key).sect === "fail", `${key} by ${day ? "day" : "night"}: quiet once, got ${d.a}`); }
   IO.out(fails.length ? fails.map(f => "FAIL " + f).join("\n") + `\nselftest: ${fails.length} failed` : "selftest: all passed");
   return fails.length ? 1 : 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) process.exitCode = process.argv[2] === "selftest" ? selftest() : await main();
+if (import.meta.url === `file://${process.argv[1]}`) process.exitCode = process.argv[2] === "selftest" ? await selftest() : await main();
