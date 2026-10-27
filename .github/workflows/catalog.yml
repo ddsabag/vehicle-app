@@ -30,6 +30,11 @@ jobs:
         run: node .github/scripts/catalog-rules.mjs
         env:
           OUT: cat-out
+          # when every name cut that an alert flagged is handled, the open catalogue alert is closed through the router
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
       - name: Telegram line when a rule needs a human (new models, unknown name cuts)
         if: ${{ hashFiles('cat-out/rules-alert.txt') != '' }}
         env:
