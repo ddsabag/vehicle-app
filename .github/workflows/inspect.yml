@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       plates:
-        description: "Example plates only (38548003, 1234567, 7654321); empty = the app's example plate. Never a real car's plate in any form (clear, base64, hash): this step prints its env, PLATES included, at the top of the PUBLIC run log"
+        description: "Example plates only (38548003, 1234567, 7654321); empty = the app's example plate. Never a real car's plate in any form (clear, base64, hash): the run log and inspect-output are PUBLIC. Anything else stops the run before any step prints it"
         default: ""
       script:
         description: "Script in .github/scripts"
@@ -22,6 +22,16 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 20
+      # GitHub prints each step's env at the top of the public log, so the plates input is checked here first, read from the event file and
+      # never from env or the script text: anything but the example plates stops the run without printing it (the step below has it in env)
+      - name: Example plates only
+        run: |
+          node --input-type=module -e '
+            import fs from "node:fs";
+            const { probePlates } = await import(process.cwd() + "/.github/scripts/datasets.mjs");
+            const raw = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, "utf8")).inputs?.plates || "";
+            try { probePlates(raw); console.log("plates input: example plates only"); }
+            catch { console.log("::error::PLATES takes the example plates only (38548003, 1234567, 7654321). The value is not printed; run again without it."); process.exit(1); }'
       - name: Install a browser (site-* scripts open the live site)
         if: ${{ startsWith(inputs.script, 'site-') }}
         run: |

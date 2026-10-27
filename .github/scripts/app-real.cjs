@@ -301,12 +301,22 @@ async function look(run, step, dark, name) {
   saveShot(png, name);
 }
 
-// ---- Back as a finger gives it: when the keyboard is open the first press only closes it (every Android app), then the screen goes back
+// ---- Back as a finger gives it: when the keyboard is open the first press only closes it (every Android app), then the screen goes back.
+// The system says whether the keyboard is open: the page shrinks only once the keyboard is drawn, which the emulator can do a second late
+// (27.10, API 35, 360-f130: the compare sheet's search field had called it up, the page had not shrunk yet, and the one press closed only
+// the keyboard). So a text field with the focus gets two seconds to call it up, and the screen is given time to answer the press
 const kbOpen = async (p, c) => { const h = await p.evaluate(() => innerHeight).catch(() => 0); return !!(c && c.fullH && h && h < c.fullH - 120); };
+const imeShown = () => (/mInputShown=(\w+)/.exec(sh("dumpsys input_method")) || [])[1] === "true";
+const typing = (p) => p.evaluate(() => { const e = document.activeElement; return !!e && (e.tagName === "TEXTAREA" || e.tagName === "INPUT" && !/^(button|checkbox|radio|submit|reset|range|color|file|image|hidden)$/.test(e.type)); }).catch(() => false);
 const realBack = async (p, c) => {
   clearDialogs();
-  if (await kbOpen(p, c)) { sh("input keyevent 4"); await sleep(600); }
-  sh("input keyevent 4"); await sleep(700);
+  let kb = await kbOpen(p, c);
+  const field = !kb && await typing(p);
+  for (let t = 0; field && !kb && t < 8; t++) { kb = imeShown() || await kbOpen(p, c); if (!kb) await sleep(250); }
+  if (kb) { sh("input keyevent 4"); for (let t = 0; t < 8 && imeShown(); t++) await sleep(250); await sleep(400); }
+  const before = JSON.stringify(await screenOf(p).catch(() => null));
+  sh("input keyevent 4");
+  for (let t = 0; t < 10; t++) { await sleep(t ? 250 : 700); if (JSON.stringify(await screenOf(p).catch(() => null)) !== before) break; }
 };
 
 // ---- one journey of ui-flows on the phone

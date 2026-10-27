@@ -38,10 +38,19 @@ jobs:
       # blocking, offline: the page and the Android app agree on every wire between them (app-wiring.mjs; the App guardian runs it too)
       - name: App wiring
         run: node .github/scripts/app-wiring.mjs
+      # The browsers' system libraries come from the runner's Ubuntu mirror, which can crawl (26.10 20:00: 15 minutes for 32 of 189
+      # packages, 40 s on a normal day) until the job's timeout turns the run red. After 8 minutes the install stops and runs once more
+      # from Ubuntu's own archive, so a slow mirror costs minutes instead of a failed run
       - name: Install test tools (not part of the app)
         run: |
           npm install --no-save --no-package-lock playwright axe-core pixelmatch@5.3.0 pngjs@7.0.0
-          npx playwright install --with-deps chromium webkit
+          if ! timeout 480 npx playwright install --with-deps chromium webkit; then
+            echo "::warning::installing the browsers took over 8 minutes or failed (a slow Ubuntu mirror?): once more from archive.ubuntu.com"
+            for i in $(seq 30); do pgrep -x 'apt-get|dpkg' >/dev/null || break; sleep 2; done
+            sudo sed -i 's#azure\.archive\.ubuntu\.com#archive.ubuntu.com#g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null || true
+            sudo dpkg --configure -a || true
+            timeout 900 npx playwright install --with-deps chromium webkit
+          fi
       - name: Fetch screenshot baseline (if one exists)
         continue-on-error: true
         run: |
