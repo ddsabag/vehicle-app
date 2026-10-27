@@ -2,10 +2,11 @@ name: Release guard
 # Zone A of the autopilot rules (Dudu approved 25.10): day 1, 3 and 7 after an app version reaches people, compares it per 100 car checks
 # with the version before it (compare from card and menu, saves, unsaves over saves, events that stopped) and tells the product thread
 # through the alert router (release-guard.mjs). Crashes stay with Release watch. Only reads GA4; the log prints states only.
-# Daily 06:10 UTC = 08:10 Israel winter time, before the morning triage. Owner: measurement.
+# Daily 04:23 UTC = 06:23 Israel in winter, 07:23 in summer: the 08:22 morning triage reads what this run opens, and GitHub starts scheduled
+# runs late (the first one, 26.10 at 06:10 UTC, started 42 minutes late; 27.10 had not started by 06:27). Owner: measurement.
 on:
   schedule:
-    - cron: "10 6 * * *"
+    - cron: "23 4 * * *"
   workflow_dispatch:
     inputs:
       mode:
