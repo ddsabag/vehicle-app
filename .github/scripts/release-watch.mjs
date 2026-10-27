@@ -5,6 +5,8 @@
 // Crashlytics has no public API for its issues, so this reads Play's own vitals (users who share usage data with Google).
 // State (watch.json, kept in the Actions cache like Reviews monitor's): when each track:versionCode was first seen, when each new issue was
 // first found, which were told, and up to when Play's data was read for each versionCode. A staged rollout on Production is watched for as long as it runs (play-production.mjs reads the same file).
+// A release to all users is also watched for 72 hours after play-production.mjs first saw it published (its state.live in the same file):
+// Google's review can take most of the 72 hours from the first look.
 // Node 20, node: builtins only. Commands:
 //   node release-watch.mjs gate      SHIP_TAIL, EVENT, REF, INPUT_MODE -> output mode (on|dry|off)
 //   node release-watch.mjs           SHIP_SA_JSON, MODE (on|dry), STATE (path, default watch.json) -> Telegram (alert.mjs) for new issues or a broken check
@@ -136,14 +138,17 @@ export async function watch() {
   // no state restored (the first run, or the cache lost it): everything this run finds looks first-found now, so play-production.mjs halts on
   // none of it (it was found by the watch before, or never told: the Telegram still goes out)
   if (!Object.keys(st).length) S.reset = now;
+  let builds = null;
   try {
     const sa = J(raw);
     if (!sa?.client_email || !sa?.private_key) throw new Fail(`הסוד ${SECRET} אינו מפתח JSON של חשבון שירות`, `להדביק בסוד ${SECRET} את כל קובץ ה-JSON של המפתח`);
     const ctx = { pkg: env.PLAY_PACKAGE || PKG, token: await accessToken(sa) };
-    const builds = liveBuilds(await tracksNow(ctx));
+    builds = liveBuilds(await tracksNow(ctx));
     for (const k of Object.keys(builds)) S.seen[k] ??= now;
-    // a staged rollout is watched for as long as it runs (Google's review can take longer than the window; play-production.mjs acts on it)
-    const due = Object.entries(builds).filter(([k, b]) => b.staged || now - S.seen[k] < WATCH_H * HOUR).map(([k, b]) => ({ key: k, ...b, since: S.seen[k] }));
+    // a staged rollout is watched for as long as it runs (Google's review can take longer than the window; play-production.mjs acts on it),
+    // and a release to all users for 72 h after it was first seen published too
+    const due = Object.entries(builds).filter(([k, b]) => b.staged || now - S.seen[k] < WATCH_H * HOUR || now - (S.live?.[k] ?? -Infinity) < WATCH_H * HOUR)
+      .map(([k, b]) => ({ key: k, ...b, since: S.seen[k] }));
     R.watched = due.map(b => `${b.track} ${b.vn || "?"} (${b.vc}), ${Math.floor((now - b.since) / HOUR)} h`);
     if (due.length) {
       const { end, real } = await dataEnd(ctx);
@@ -172,8 +177,9 @@ export async function watch() {
     const f = e instanceof Fail ? e : new Fail("תקלה בסקריפט: " + String(e?.message || e).slice(0, 120), "לבדוק את הלוג של Release watch");
     Object.assign(R, { code: "error", why: f.why, next: f.next, status: f.status });
   }
-  // prune: builds and issues older than the history window
-  for (const o of [S.seen, S.told, S.issues, S.checked]) for (const k of Object.keys(o)) if (now - o[k] > HISTORY_D * DAY) delete o[k];
+  // prune: builds and issues older than the history window; a build still on Play keeps its first look (else it looks new again, is watched
+  // again and its issues told again), also when this run could not read the tracks
+  for (const o of [S.seen, S.told, S.issues, S.checked]) for (const k of Object.keys(o)) if (now - o[k] > HISTORY_D * DAY && !(o === S.seen && (!builds || k in builds))) delete o[k];
   R.state = S;
   return R;
 }
@@ -355,6 +361,19 @@ async function selftest() {
     ok(W.calls.some(c => c.url.includes("errorIssues")) && W.tg.length === 0 && W.state.issues[`110:apps/${PKG}/i6`] === T0 - 8 * DAY && W.state.live["production:110"] === T0 - HOUR, "windows: a staged rollout is watched past 72 h, other state kept " + JSON.stringify(W.state));
     W = await run({ state: { seen: { "alpha:110": T0 - 10 * DAY, "x:1": T0 - 40 * DAY }, told: { "100:a": T0 - 31 * DAY }, issues: { "100:a": T0 - 31 * DAY, "110:b": T0 - DAY } } });
     ok(!("x:1" in W.state.seen) && !("100:a" in W.state.told) && Object.keys(W.state.issues).join() === "110:b", "windows: old state pruned");
+    // a release to all users whose review took most of the 72 h: watched for 72 h after play-production.mjs first saw it published, not after
+    const FULL_110 = [{ track: "production", releases: [{ name: "1.33", versionCodes: ["110"], status: "completed" }] }, ALPHA_110[1]], i7 = { 110: [ISSUE("i7", "CRASH", 110)] };
+    W = await run({ state: { seen: { "alpha:110": T0 - 9 * DAY, "production:110": T0 - 5 * DAY }, live: { "production:110": T0 - 10 * HOUR } }, tracks: FULL_110, mine: i7, history: [] });
+    ok(W.outputs.code === "new" && W.tg.length === 1 && W.tg[0].text.includes("Production") && W.state.live["production:110"] === T0 - 10 * HOUR, "windows: all users, watched for 72 h after published " + W.printed.join(" | "));
+    W = await run({ state: { seen: { "alpha:110": T0 - 9 * DAY, "production:110": T0 - 9 * DAY }, live: { "production:110": T0 - 80 * HOUR } }, tracks: FULL_110, mine: i7, history: [] });
+    ok(W.outputs.code === "quiet" && !W.calls.some(c => c.url.includes("errorIssues")), "windows: all users, not after");
+    // a build still on Play keeps its first look past the history window (not watched again, its issues not told again); one gone from Play is
+    // pruned; nothing seen is pruned when the tracks could not be read
+    W = await run({ state: { seen: { "alpha:110": T0 - 31 * DAY, "production:108": T0 - 40 * DAY, "alpha:100": T0 - 31 * DAY } }, mine: { 110: [ISSUE("i8", "CRASH", 110)] }, history: [] });
+    ok(W.outputs.code === "quiet" && W.state.seen["alpha:110"] === T0 - 31 * DAY && W.state.seen["production:108"] === T0 - 40 * DAY && !("alpha:100" in W.state.seen)
+      && !W.calls.some(c => c.url.includes("errorIssues")) && W.tg.length === 0, "windows: a build still on Play keeps its first look " + JSON.stringify(W.state));
+    W = await run({ state: { seen: { "alpha:110": T0 - 31 * DAY, "alpha:100": T0 - 31 * DAY } }, playFail: 403 });
+    ok(W.outputs.code === "error" && W.state.seen["alpha:110"] === T0 - 31 * DAY && W.state.seen["alpha:100"] === T0 - 31 * DAY, "windows: tracks not read = nothing seen pruned " + JSON.stringify(W.state));
   });
 
   await group("errors and modes", async () => {
