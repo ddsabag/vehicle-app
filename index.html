@@ -2976,7 +2976,7 @@ const WEB_HIST = !window.AndroidApp && !!(window.history && history.pushState);
 /* web: the browser tab names the screen it shows (a car by its model, never its plate; a tool by its name in toolHead); home keeps the page's
    own title. "הרכבים שלי" and "התראות" have their own address (#cars, #alerts), so a reload or a bookmark opens them again */
 const BASE_TITLE = document.title;
-function syncTitle(){ if (window.AndroidApp) return; const s = document.body.dataset.screen; document.title = s === "cars" ? "הרכבים שלי · לוחית" : s === "alerts" ? "התראות · לוחית" : s === "car" && current && current.title ? `${current.title} · לוחית` : BASE_TITLE; }
+function syncTitle(){ if (window.AndroidApp) return; const s = document.body.dataset.screen; document.title = s === "cars" ? "הרכבים שלי · לוחית" : s === "alerts" ? "התראות · לוחית" : s === "car" && current ? `${current.make || current.model ? current.title : "רכב"} · לוחית` : BASE_TITLE; }
 const screenUrl = h => { if (!WEB_HIST || location.hash === "#" + h) return; try { history.replaceState(history.state, "", location.pathname + "#" + h); } catch {} };
 let skipPop = false;
 function syncHist(){
@@ -3040,6 +3040,7 @@ async function lookup(raw){
   if (D.notFound) { out.innerHTML = `<div class="msg edge"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-search"/></svg></div>לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.<p class="note" style="margin:8px 0 0">בדקנו את כל מאגרי משרד התחבורה, כולל רכבים שירדו מהכביש, דו-גלגלי ויבוא אישי. רכב שעלה לכביש בימים האחרונים יופיע אחרי העדכון הבא של המאגר.</p></div>`; return; }
   current = D; currentTab = ot && ot.p === D.plate ? ot.t : "overview";
   const role = roleOf(D);   // who checked it, before "+" below (or the home file line) saves the car
+  if (Date.now() - intentAt > INTENT_MS) dropIntents();
   const added = addIntent && D.plate && D.kind !== "model" ? addFromPlus(D) : null;
   snapPut(D); savedSync(D);
   renderResult(); focusResult();
@@ -3708,6 +3709,10 @@ const fileOk = D => !!D && D.kind !== "model" && !!D.plate && !D.isCancelled && 
 let fileIntent = false;
 /* "+" in "הרכבים שלי": the next car checked is added to the list (the snack bar can undo it), and its back arrow returns to the list */
 let addIntent = false;
+/* when "+" or the home file line was armed: an intent older than ten minutes (the app left in the background, a notification hours later)
+   no longer applies, and a car arriving from outside (a shared text, a tapped alert) is never the one meant */
+let intentAt = 0; const INTENT_MS = 10 * 60 * 1000;
+const dropIntents = () => { fileIntent = false; addIntent = false; };
 const anyMine = () => { const m = mineAll(); return Object.values(m).some(v => v === 1) || store.get("savedVehicles").some(s => m[s.plate] !== 0 && hasFile(s.plate)); };
 /* "shown" for the file row: once per car per visit, when most of it is on screen */
 const ctaSeen = new Set();
@@ -5321,7 +5326,7 @@ function setLand(on, redraw = true){
   }
   if (redraw) renderCompare();
 }
-function closeCompare(){ if (land) setLand(false, false); inCompare = false; if (current) renderResult(); else if (view === "cars") renderCars(); else renderHome(); window.scrollTo({top: 0}); }
+function closeCompare(){ if (land) setLand(false, false); inCompare = false; dropIntents(); if (current) renderResult(); else if (view === "cars") renderCars(); else renderHome(); window.scrollTo({top: 0}); }
 // closing the picker on an empty comparison goes back to where the user came from
 // a picker closed with nothing chosen goes back to where it was opened, not to an empty comparison
 /* closing the picker before a second car was added: back to where the comparison started (the car page), not a comparison of one */
@@ -6310,7 +6315,7 @@ document.addEventListener("focusout", () => setTimeout(() => { if (!typing()) do
 
 /* a tool's header (compare, market, bulk check, plans): back to the tab it was opened from, and its name */
 const toolHead = t => { if (!window.AndroidApp) document.title = `${t} · לוחית`; return `<header class="chead" id="chead"><button type="button" class="ch-b back" data-act="toolBack" aria-label="חזרה">${ico("back")}</button><div class="ch-t"><b>${esc(t)}</b></div></header>`; };
-function leaveTool(){ if (inCompare) { closeCompare(); return; } current = null; if (view === "cars") renderCars(); else if (view === "alerts") renderAlerts(); else renderHome(); window.scrollTo({top: 0}); }
+function leaveTool(){ if (inCompare) { closeCompare(); return; } dropIntents(); current = null; if (view === "cars") renderCars(); else if (view === "alerts") renderAlerts(); else renderHome(); window.scrollTo({top: 0}); }
 
 /* ---------- the car page's header ---------- */
 function carHead(D){
@@ -6516,10 +6521,10 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.alerts && document.body.dataset.screen === "alerts") { ev.stopImmediatePropagation(); try { window.AndroidApp.setAlerts(b.dataset.alerts === "on"); localStorage.setItem("alertsAsked", "1"); } catch {} setTimeout(refreshView, 300); return; }
   if (b.dataset.open && (document.body.dataset.screen === "cars")) carsY = window.scrollY;
   if (!a) return;
-  if (a === "fileHome") { ev.stopImmediatePropagation(); fileIntent = true; window.scrollTo({top: 0, behavior: "smooth"}); $("#plate").focus(); toast("הקלידו את מספר הרכב שלכם, והתיק שלו ייפתח מיד אחרי הבדיקה"); return; }
+  if (a === "fileHome") { ev.stopImmediatePropagation(); fileIntent = true; intentAt = Date.now(); window.scrollTo({top: 0, behavior: "smooth"}); $("#plate").focus(); toast("הקלידו את מספר הרכב שלכם, והתיק שלו ייפתח מיד אחרי הבדיקה"); return; }
   // "+" (and "בדיקת רכב" on an empty list) is a new car: an empty plate field with the cursor in it, never the car left on the search tab.
   // The focus is set in the tap itself, so phones open the keyboard
-  if (a === "addCar") { ev.stopImmediatePropagation(); parked = null; navTo("search", {via: "add"}); addIntent = true; $("#plate").value = ""; $("#plate").focus(); toast("מקלידים מספר רישוי, והרכב יתווסף לרכבים שלי"); return; }
+  if (a === "addCar") { ev.stopImmediatePropagation(); parked = null; navTo("search", {via: "add"}); addIntent = true; intentAt = Date.now(); $("#plate").value = ""; $("#plate").focus(); toast("מקלידים מספר רישוי, והרכב יתווסף לרכבים שלי"); return; }
   if (a === "carsCancel") { ev.stopImmediatePropagation(); carsSel = null; renderCars(); return; }
   if (a === "carsFab") { ev.stopImmediatePropagation();
     if (!carsSel) { carsSel = []; renderCars(); return; }
@@ -7308,6 +7313,7 @@ function plateInText(text){
   return (found.find(x => x.near) || found[0] || {}).d || null;
 }
 window.onSharedText = text => {
+  dropIntents();
   const p = plateInText(text);
   if (p) { run(p); return; }
   renderHome(); toast("לא מצאנו מספר רישוי במה ששיתפתם. אפשר לשתף צילום של הלוחית או להקליד את המספר.");
@@ -7472,7 +7478,7 @@ if (!window.AndroidApp && !NAV_AGAIN && !REF_OWN && SHARE_VIA !== "bar" && SHARE
 /* a tapped phone alert opens its car on the tab the alert is about: a recall on the recalls tab, a test, service or document in the car file
    (a car that has no such tab opens on the overview). The app passes the kind as ?nk= on a cold start, or calls openAlert */
 const alertTab = k => /^(recall|stl)$/.test(k || "") ? "recalls" : /^(test|svc|doc)$/.test(k || "") ? "file" : null;
-window.openAlert = (plate, kind) => { const p = digits(plate), t = alertTab(kind); openTab = t ? {p, t} : null; run(p); };
+window.openAlert = (plate, kind) => { dropIntents(); const p = digits(plate), t = alertTab(kind); openTab = t ? {p, t} : null; run(p); };
 { const t = window.AndroidApp && start ? alertTab(new URLSearchParams(location.search).get("nk")) : null; if (t) openTab = {p: start, t}; }
 /* a link can name the tab its car opens on (?plate=…&t=buy from the value pages); a tab that car does not have falls back to the overview */
 { const t = start && !openTab ? new URLSearchParams(location.search).get("t") : null; if (TABS.some(([k]) => k === t)) openTab = {p: start, t}; }
