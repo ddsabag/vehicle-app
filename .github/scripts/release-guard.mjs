@@ -6,8 +6,15 @@
 //   guardrails (rules file, "Day 1 / 3 / 7 after each app release"):
 //     compare   compare_open from the card or the menu under 3 per 100 checks (versions from 1.38 only: that entry arrived in 1.38, so an
 //               older version judged in its window, like 1.37 on 26.10, can only fail it)
-//     save      car_save per 100 checks down more than 30% against the base
-//     unsave    car_unsave over car_save above 45% (from 20 saves)
+//     save      car_save per 100 checks down more than 30% against the base, every path counted (a star traded for "+" or for the
+//               car file is not a regression); the paths the base also sent are shown beside it
+//     unsave    car_unsave over car_save above 45% (from 20 saves), by path group (customEvent:from): the paths the base sent together,
+//               each path it never sent on its own (1.38.3's "+": car_save and its undo car_unsave from "add"), so new undos alone
+//               cannot flag everyone
+//     silentpath a save path the base sent at a rate that predicts at least 5 saves now, at 0 in the new version: the star sends its
+//               tab's name, so a star that breaks on one tab shows even while "+" covers for it (GONE_PATHS: tabs a newer UI removed or
+//               made rare stop by design against a base from before it)
+//               (strategy 27.10, rules file "Day 1 / 3 / 7"; without path rows every path counts as one and silentpath is not judged)
 //     silent    an event the base sent at a rate that predicts at least 5 now, at 0 in the new version (update_*: the newest version has
 //               nothing to update to, so those stop by design)
 // Zone A daily (same run, for the 08:22 morning triage, ops asked 26.10): yesterday's failed checks (technical kinds: source_down, offline,
@@ -94,11 +101,22 @@ export function queries(start, end) {
     events: { dateRanges, dimensions: [{ name: "date" }, { name: "appVersion" }, { name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: android, limit: 50000 },
     compare: { dateRanges, dimensions: [{ name: "date" }, { name: "appVersion" }, { name: "customEvent:from" }], metrics: [{ name: "eventCount" }],
       dimensionFilter: { andGroup: { expressions: [android, { filter: { fieldName: "eventName", stringFilter: { value: "compare_open" } } }] } }, limit: 10000 },
+    saves: { dateRanges, dimensions: [{ name: "date" }, { name: "appVersion" }, { name: "eventName" }, { name: "customEvent:from" }], metrics: [{ name: "eventCount" }],
+      dimensionFilter: { andGroup: { expressions: [android, { filter: { fieldName: "eventName", inListFilter: { values: ["car_save", "car_unsave"] } } }] } }, limit: 50000 },
   };
 }
+// the save paths in plain words (customEvent:from of car_save and car_unsave; the save button on a car sends its tab's name)
+const PATHS = { add: 'ה-"+" ברשימת הרכבים', file: "תיק הרכב", buy_ask: "המחיר המבוקש בלשונית הקנייה", menu: "תפריט הרכב", home: "כפתור השמירה" };
+const TAB_HE = { overview: "סקירה", recalls: "ריקולים", buy: "קנייה", specs: "מפרט", maint: "טיפולים" };
+const pathHe = f => PATHS[f] || (TAB_HE[f] ? `כפתור השמירה בלשונית "${TAB_HE[f]}"` : `"${f}"`);
+// tabs a newer UI removed or made rare, by the version that did it: against a base from before that version their saves stop by design
+// (1.37, 0252ffb: the recalls tab shows only for a car with recalls or a settlement; 1.38: "maint" became the car file)
+export const GONE_PATHS = { recalls: "1.37", maint: "1.38" };
+const goneBy = (f, base, vn) => !!GONE_PATHS[f] && !atLeast(base, GONE_PATHS[f]) && atLeast(vn, GONE_PATHS[f]);
 const rowsOf = j => (j?.rows || []).map(r => [...r.dimensionValues.map(x => x.value), ...r.metricValues.map(x => Number(x.value) || 0)]);
 
-// S = { users: [[date, ver, n]], events: [[date, ver, name, n]], compare: [[date, ver, from, n]] } (GA4 dates), today = Israel date of the run
+// S = { users: [[date, ver, n]], events: [[date, ver, name, n]], compare: [[date, ver, from, n]], saves: [[date, ver, name, from, n]] } (GA4 dates),
+// today = Israel date of the run
 export function judge(S, today) {
   const y = addDays(today, -1), users = S.users.filter(r => real(r[1])).map(r => [gaDate(r[0]), r[1], r[2]]);
   const vers = [...new Set(users.map(r => r[1]))].sort((a, b) => (newer(a, b) ? -1 : newer(b, a) ? 1 : 0));
@@ -114,14 +132,25 @@ export function judge(S, today) {
   const cnt = (v, a, b) => { const o = {}; for (const [d, ver, e, n] of S.events) { const dd = gaDate(d); if (ver === v && dd >= a && dd <= b) o[e] = (o[e] || 0) + n; } return o; };
   const N = cnt(vn, d0, y), B = cnt(prev, b0, b1), nc = N.car_lookup || 0, bc = B.car_lookup || 0;
   const cmp = S.compare.filter(r => r[1] === vn && gaDate(r[0]) >= d0 && gaDate(r[0]) <= y && (r[2] === "card" || r[2] === "menu")).reduce((s, r) => s + r[3], 0);
-  R.stats = { checks: nc, baseChecks: bc, compare: nc ? r1(cmp / nc * 100) : 0, save: nc ? r1((N.car_save || 0) / nc * 100) : 0, baseSave: bc ? r1((B.car_save || 0) / bc * 100) : 0,
-    unsave: N.car_save ? Math.round((N.car_unsave || 0) / N.car_save * 100) : 0 };
+  // saves by path (customEvent:from): saves count on every path, unsaves by path group, and a save path the base sent may not go silent
+  const byPath = (v, a, b) => { const o = {}; for (const [d, ver, e, f, n] of S.saves || []) { const dd = gaDate(d); if (ver === v && dd >= a && dd <= b) (o[f] ||= { car_save: 0, car_unsave: 0 })[e] += n; } return o; };
+  const PN = byPath(vn, d0, y), PB = byPath(prev, b0, b1), known = Object.keys(PB), paths = known.length > 0;   // no path rows: every path counts as one
+  const sum = (P, e, keys = Object.keys(P)) => keys.reduce((s, f) => s + (P[f]?.[e] || 0), 0), fresh = paths ? Object.keys(PN).filter(f => !known.includes(f)).sort() : [];
+  const sv = paths ? sum(PN, "car_save") : N.car_save || 0, bs = paths ? sum(PB, "car_save") : B.car_save || 0;   // every path
+  const ov = paths ? sum(PN, "car_save", known) : sv, ou = paths ? sum(PN, "car_unsave", known) : N.car_unsave || 0;   // the paths the base sent, together
+  R.stats = { checks: nc, baseChecks: bc, compare: nc ? r1(cmp / nc * 100) : 0, save: nc ? r1(sv / nc * 100) : 0, baseSave: bc ? r1(bs / bc * 100) : 0,
+    saveOld: nc ? r1(ov / nc * 100) : 0, unsave: ov ? Math.round(ou / ov * 100) : 0, fresh };
   if (nc < MIN_CHECKS || bc < MIN_CHECKS) return { ...R, state: "thin" };
   const st = R.stats;
   if (atLeast(vn, COMPARE_FROM) && cmp / nc * 100 < T.compare) R.findings.push({ id: "compare", he: `השוואת רכבים מהכרטיס ומהתפריט: ${st.compare} לכל 100 בדיקות (הסף: 3)` });
-  const sN = (N.car_save || 0) / nc, sB = (B.car_save || 0) / bc;
-  if (sB > 0 && sN < sB * (1 - T.saveDrop)) R.findings.push({ id: "save", he: `שמירת רכב: ${st.save} לכל 100 בדיקות, לעומת ${st.baseSave} בגרסה ${prev} (ירידה של ${Math.round((1 - sN / sB) * 100)}%, הסף: 30%)` });
-  if ((N.car_save || 0) >= T.unsaveMin && (N.car_unsave || 0) / N.car_save > T.unsave) R.findings.push({ id: "unsave", he: `הסרות רכב מול שמירות: ${st.unsave}% (הסף: 45%)` });
+  const sN = sv / nc, sB = bs / bc, old = fresh.length ? ` בדרכים שהיו גם בגרסה ${prev}` : "";
+  if (sB > 0 && sN < sB * (1 - T.saveDrop)) R.findings.push({ id: "save", he: `שמירת רכב: ${st.save} לכל 100 בדיקות, לעומת ${st.baseSave} בגרסה ${prev} (ירידה של ${Math.round((1 - sN / sB) * 100)}%, הסף: 30%)`
+    + (fresh.length ? `.${old}: ${st.saveOld} לכל 100 בדיקות` : "") });
+  if (ov >= T.unsaveMin && ou / ov > T.unsave) R.findings.push({ id: "unsave", he: `הסרות רכב מול שמירות${old}: ${st.unsave}% (הסף: 45%)` });
+  for (const f of fresh) { const s = PN[f].car_save, u = PN[f].car_unsave;
+    if (s >= T.unsaveMin && u / s > T.unsave) R.findings.push({ id: "unsave:" + f, he: `הסרות מול שמירות דרך ${pathHe(f)} (חדש בגרסה הזו): ${Math.round(u / s * 100)}% (הסף: 45%)` }); }
+  const quiet = paths ? known.filter(f => !goneBy(f, prev, vn) && PB[f].car_save / bc * nc >= T.silentMin && !PN[f]?.car_save).sort() : [];
+  if (quiet.length) R.findings.push({ id: "silentpath", paths: quiet, he: `דרכי שמירה שבגרסה הקודמת היו בהן שמירות ועכשיו אין בהן אף אחת: ${quiet.length}` });
   const gone = Object.keys(B).filter(e => e !== "car_lookup" && !/^update_/.test(e) && !N[e] && B[e] / bc * nc >= T.silentMin).sort();
   if (gone.length) R.findings.push({ id: "silent", events: gone, he: `אירועים שהגרסה הקודמת שלחה ועכשיו לא הגיעו בכלל: ${gone.length}` });
   return { ...R, state: R.findings.length ? "find" : "ok" };
@@ -130,8 +159,9 @@ export function judge(S, today) {
 export function text(R, N = {}) {
   const dayHe = R.day === 1 ? "יום אחרי" : `${R.day} ימים אחרי`;
   if (R.state === "find") return msg({ kind: "today", area: "measure", title: `גרסה ${R.vn}, ${dayHe} שהגיעה למשתמשים: ${R.findings.length === 1 ? "מדד אחד" : R.findings.length + " מדדים"} מחוץ לסף`,
-    text: R.findings.map(f => "• " + f.he + (f.events ? "\n  " + f.events.map(e => N[e] || e).join(", ") : "")).join("\n")
-      + `\nלפי ${R.stats.checks} בדיקות רכב בגרסה החדשה, מול ${R.stats.baseChecks} בגרסה ${R.prev} בשבועיים שלפניה.`,
+    text: R.findings.map(f => "• " + f.he + (f.events ? "\n  " + f.events.map(e => N[e] || e).join(", ") : "") + (f.paths ? "\n  " + f.paths.map(p => pathHe(p)).join(", ") : "")).join("\n")
+      + `\nלפי ${R.stats.checks} בדיקות רכב בגרסה החדשה, מול ${R.stats.baseChecks} בגרסה ${R.prev} בשבועיים שלפניה.`
+      + (R.stats.fresh?.length && R.findings.some(f => /^(save|unsave|silentpath)/.test(f.id)) ? `\nדרכי שמירה חדשות בגרסה הזו: ${R.stats.fresh.map(f => pathHe(f)).join(", ")}. השמירות נספרו בכל הדרכים, וההסרות בכל דרך חדשה לחוד.` : ""),
     what: "שרשור «מוצר ושחרורים» בודק את זה. אצלך לא צריך לעשות כלום.", raw: `release guard ${R.vn} d${R.day} vs ${R.prev}: ${R.findings.map(f => f.id).join(", ")}` });
   if (R.state === "ok") return msg({ kind: "done", area: "measure", title: `גרסה ${R.vn}, ${dayHe} שהגיעה למשתמשים: הכול בטווח`,
     text: `השוואה, שמירה, הסרות ואירועים בטווח, לפי ${R.stats.checks} בדיקות רכב.` });
@@ -185,7 +215,7 @@ async function main() {
     else if (shut.length) { const router = IO.router || await import("./alert.mjs"); if (await router.resolve(shut)) IO.out(`zone A ${yd}: open alert closed (${shut.join(" ")})`); }
   }
   const R = judge(S, today);
-  IO.out(`release guard ${today}: ${R.state}${R.vn ? ` ${R.vn} from ${R.d0}, day ${R.day} vs ${R.prev || "-"}` : ""}${R.findings?.length ? `, findings: ${R.findings.map(f => f.id).join(", ")}` : ""}`);
+  IO.out(`release guard ${today}: ${R.state}${R.vn ? ` ${R.vn} from ${R.d0}, day ${R.day} vs ${R.prev || "-"}` : ""}${R.stats?.fresh?.length ? `, new save paths: ${R.stats.fresh.join(" ")}` : ""}${R.findings?.length ? `, findings: ${R.findings.map(f => f.id).join(", ")}` : ""}`);
   if (!["find", "ok", "thin"].includes(R.state)) return 0;
   let N = {};
   try { N = names(fs.readFileSync(new URL("../../worker/live/worker.js", import.meta.url), "utf8")); } catch {}
@@ -239,6 +269,39 @@ function selftest() {
   ok(t.startsWith("<b>🟠 לטיפול היום · מדידה</b>") && t.includes("רישום טיפול") && t.includes("1.37") && !t.includes("svc_add\n") && t.includes("מוצר ושחרורים"), "message " + t);
   ok(text(judge(mk(), "2026-10-30")).startsWith("<b>✅ בוצע · מדידה</b>"), "clean message");
   ok(text(judge(thin, "2026-10-30")).includes("אין מספיק נתונים"), "thin message");
+  // saves by path (strategy 27.10): 1.38.3's "+" (car_save from add, its undo car_unsave from add) is a path the base never sent; the numbers
+  // are per 100 checks a day on each side, and a path at 0 sends no row, as in GA4
+  const mkp = ({ base = { overview: 7, file: 3 }, now = { overview: 5, file: 2, add: 3 }, baseUn = { menu: 2 }, nowUn = { menu: 2, add: 0.5 }, nv = "1.38", bv = "1.37" } = {}) => {
+    const all = o => Object.values(o).reduce((x, y) => x + y, 0), S = mk({ save38: all(now), unsave38: all(nowUn), v: nv, b: bv }), saves = [];
+    for (const d of days("2026-10-01", 40)) {
+      if (d < "2026-11-06") for (const [o, e] of [[base, "car_save"], [baseUn, "car_unsave"]]) for (const [f, n] of Object.entries(o)) saves.push([g(d), bv, e, f, n]);
+      if (d >= "2026-10-28") for (const [o, e] of [[now, "car_save"], [nowUn, "car_unsave"]]) for (const [f, n] of Object.entries(o)) if (n) saves.push([g(d), nv, e, f, n * 0.6]);
+    }
+    return { ...S, saves };
+  };
+  ok(judge(mkp(), "2026-10-30").state === "ok" && judge(mkp(), "2026-11-05").state === "ok", "+ saves next to the old paths, all in range");
+  R = judge(mkp({ now: { overview: 2, file: 2, add: 6 } }), "2026-11-05");
+  ok(R.state === "ok" && R.stats.save === 10 && R.stats.saveOld === 4 && R.stats.fresh.join() === "add", "a pure move: the old paths down 60%, + up, every path flat: ok " + JSON.stringify(R));
+  R = judge(mkp({ now: { overview: 4, file: 1, add: 1 } }), "2026-11-05");
+  ok(R.findings.map(f => f.id).join() === "save" && !!R.findings[0]?.he.endsWith("בדרכים שהיו גם בגרסה 1.37: 5 לכל 100 בדיקות"), "every path down 40%: a finding, the old paths beside it " + R.findings[0]?.he);
+  R = judge(mkp({ now: { file: 3, add: 7 } }), "2026-11-05");
+  ok(R.findings.map(f => f.id).join() === "silentpath" && R.findings[0].paths.join() === "overview" && judge(mkp({ now: { file: 3, add: 7 } }), "2026-10-30").findings.map(f => f.id).join() === "silentpath",
+    "the save button silent on its tab while + covers for it, every path flat: a finding, from day 1 " + JSON.stringify(R.findings));
+  const t3 = text(R, N);
+  ok(t3.includes('כפתור השמירה בלשונית "סקירה"') && t3.includes('דרכי שמירה חדשות בגרסה הזו: ה-"+" ברשימת הרכבים'), "silent path message " + t3);
+  R = judge(mkp({ base: { overview: 7, maint: 3 }, now: { overview: 7, file: 3 }, nowUn: { menu: 2 } }), "2026-11-05");
+  ok(R.state === "ok" && R.stats.fresh.join() === "file", "maint, the tab 1.38 removed, stops by design " + JSON.stringify(R.findings));
+  const rec = bv => judge(mkp({ bv, base: { overview: 7, recalls: 3 }, now: { overview: 10 }, nowUn: { menu: 2 } }), "2026-11-05").findings.map(f => f.id).join();
+  ok(rec("1.36") === "" && rec("1.37") === "silentpath", "recalls: by design against a base before 1.37 (the tab became rare there), a finding against a base that already had it");
+  ok(goneBy("maint", "1.37", "1.38.3") && goneBy("recalls", "1.33", "1.38.3") && !goneBy("recalls", "1.37", "1.38.3") && !goneBy("maint", "1.36", "1.37") && !goneBy("overview", "1.33", "1.38.3"), "gone by version");
+  ok(judge(mkp({ base: { overview: 9.5, specs: 0.5 }, now: { overview: 10 }, nowUn: { menu: 2 } }), "2026-11-05").state === "ok", "a path that predicts under 5 saves may stop");
+  const undo = mkp({ now: { overview: 7, file: 3, add: 6 }, nowUn: { menu: 2, add: 5.5 } });
+  R = judge(undo, "2026-11-05");
+  ok(R.findings.map(f => f.id).join() === "unsave:add" && R.stats.unsave === 20, "+ undone 92% of the time: a line of its own, the old paths' 20% stays in range " + JSON.stringify(R.findings));
+  const t2 = text(R, N);
+  ok(t2.includes('דרך ה-"+" ברשימת הרכבים (חדש בגרסה הזו): 92%') && t2.includes("השמירות נספרו בכל הדרכים, וההסרות בכל דרך חדשה לחוד"), "path message " + t2);
+  ok(judge({ ...undo, saves: [] }, "2026-11-05").findings.map(f => f.id).join() === "unsave", "every path together: + undos alone crossed 45% (what the path groups fix)");
+  ok(judge(undo, "2026-10-30").state === "ok", "a new path under 20 saves is not judged");
   const za = (ev, fl, du) => zoneA({ za_ev: Object.entries(ev), za_fail: Object.entries(fl), za_dur: Object.entries(du) });
   let A = za({ car_lookup: 190, lookup_failed: 10 }, { source_down: 5, not_found: 5 }, { lt2: 150, "2to5": 30, "5to10": 8, gt10: 2 });
   ok(A.state === "ok" && A.checks === 200 && A.failPct === 2.5 && A.slowPct === 5.3, "zone A clean day " + JSON.stringify(A));
@@ -259,7 +322,8 @@ function selftest() {
   const ZQ = zoneAQueries("2026-10-25");
   ok(ZQ.za_ev.dateRanges[0].startDate === "2026-10-25" && ZQ.za_dur.dimensionFilter.andGroup.expressions.length === 2, "zone A queries");
   const Q = queries("2026-09-15", "2026-10-29");
-  ok(Q.events.dimensions.length === 3 && Q.compare.dimensionFilter.andGroup.expressions.length === 2, "queries");
+  ok(Q.events.dimensions.length === 3 && Q.compare.dimensionFilter.andGroup.expressions.length === 2 && Q.saves.dimensions.map(d => d.name).join() === "date,appVersion,eventName,customEvent:from"
+    && Q.saves.dimensionFilter.andGroup.expressions[1].filter.inListFilter.values.join() === "car_save,car_unsave", "queries");
   ok(/^\d+$/.test(PROPERTY), "property from analytics/ga4-admin.json");
   IO.out(fails.length ? fails.map(f => "FAIL " + f).join("\n") + `\nselftest: ${fails.length} failed` : "selftest: all passed");
   return fails.length ? 1 : 0;
