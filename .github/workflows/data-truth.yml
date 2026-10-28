@@ -7,7 +7,8 @@ name: Data truth
 #  invariants (weekly): data-invariants.mjs reads the registers in full and checks the facts the app's rules rest on (fresh test dates,
 #                       licence renewals reaching the data, plates shared between registers, the register's current owner against the
 #                       ownership log, the towing hook against the model data, the price list, odd dates, public vehicles cancelled for good
-#                       against the cancel registers, the registers that lend each other dates) against fixed limits
+#                       against the cancel registers, the registers that lend each other dates) against fixed limits, and counts which
+#                       registers hold the per-car recall list's plates
 #                       (invariants.json, inv-history.json). A broken limit sends one line (key truth:inv:<ids>).
 on:
   schedule:
@@ -28,7 +29,7 @@ on:
         type: boolean
         default: false
       publish:
-        description: "Publish latest.json and the day in history.json (off for the check after a web deploy, so the morning's sample stays the day's record)"
+        description: "Publish latest.json and the day in history.json, or for invariants the week (off for the check after a web deploy, so the morning's sample stays the day's record, and for a one-off read)"
         type: boolean
         default: true
 permissions:
@@ -84,7 +85,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       - name: Publish on the data-truth branch
-        if: ${{ always() && hashFiles('out/invariants.json') != '' }}
+        if: ${{ always() && hashFiles('out/invariants.json') != '' && (github.event_name != 'workflow_dispatch' || inputs.publish) }}
         run: .github/scripts/data-truth-publish.sh "invariants" out/invariants.json out/inv-history.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

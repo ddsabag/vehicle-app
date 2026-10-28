@@ -18,6 +18,8 @@
 //            (a cancel register outranks the public register, so such a vehicle reads as off the road)
 //   lend     a plate in two registers where one lends the other its dates (moto + import, heavy + public) with another maker,
 //            or (import) another model year: at most 50 (0 of 1,808 and 0 of 36,422)  (dates come from the same vehicle)
+// Not a check: info.perCarPlates counts the per-car recall list's plates by the register that holds them (the app reads the list for every
+// vehicle type, so whether it holds heavy, two-wheeler or personal-import plates decides what a page may say about their open recalls).
 // Totals only, never a plate. out/invariants.json = this week's values, limits and verdicts; out/inv-history.json = the last 60 weeks
 // (read back from the data-truth branch). One Telegram line through the alert router when a limit breaks (key truth:inv:<ids>, truth:inv-fail when the registers cannot be read); a run that reads them closes the open read failure, and one with every limit kept closes the breaks.
 //   node data-invariants.mjs              read everything (about 40 min on a GitHub runner), write, alert
@@ -30,7 +32,8 @@ const ID = { active: "053cea08-09bc-40ec-8f7a-156f0677aff3", cancel: "851ecab1-0
   cancel2000: "ec8cbc34-72e1-4b69-9c48-22821ba0bd6c", cont: "0866573c-40cd-4ca8-91d2-9dd2d7a492e5", tech: "56063a99-8a3e-4ff4-912e-5966c0279bad",
   owners: "bb2355dc-9ec7-4f06-9c3f-3344672171da", recall: "36bf1404-0be4-49d2-82dc-2f1ead4a8b93", wltp: "142afde2-6228-49f9-8a29-9b6c3a0cbe40",
   price: "39f455bf-6db0-4926-859d-017f34eacbcb", moto: "bf9df4e2-d90d-4c0a-a400-19e15af8e95f", heavy: "cd3acc5c-03c3-4c89-9c54-d40f93c0d790",
-  public: "cf29862d-ca25-4691-84f6-1be60dcb4a1e", import: "03adc637-b6fe-402b-9937-7c3d3afc9140" };
+  public: "cf29862d-ca25-4691-84f6-1be60dcb4a1e", import: "03adc637-b6fe-402b-9937-7c3d3afc9140",
+  inactive: "f6efe89a-fb3d-43a4-bb61-9bf12a9b9099", inactive2: "6f6acd03-f351-4a8f-8ecf-df792f4f573a" };
 const HISTORY_URL = "https://raw.githubusercontent.com/ddsabag/vehicle-app/data-truth/inv-history.json";
 const LATEST_URL = "https://github.com/ddsabag/vehicle-app/blob/data-truth/invariants.json";
 export const TOW_BAN_FROM = 2008;   // index.html: a 0/0 model row bans towing from this model year on
@@ -108,9 +111,11 @@ export async function measure(scan, today) {
   await scan(ID.price, "tozeret_cd,degem_cd,sug_degem,shnat_yitzur,mehir", rows => { for (const r of rows) { if (!(N(r.mehir) > 0)) continue; const k = `${N(r.tozeret_cd)}|${N(r.degem_cd)}|${String(r.sug_degem || "").trim().toUpperCase()}|${N(r.shnat_yitzur)}`; (prices.get(k) || prices.set(k, new Set()).get(k)).add(N(r.mehir)); } });
   v.price = [...prices.values()].filter(s => s.size > 1).length;
   // per-car recall list: duplicate pairs
-  const pairs = new Set(); let dup = 0;
-  await scan(ID.recall, "MISPAR_RECHEV,RECALL_ID", rows => { for (const r of rows) { const k = `${plateOf(r.MISPAR_RECHEV)}|${N(r.RECALL_ID)}`; if (pairs.has(k)) dup++; else pairs.add(k); } });
+  const pairs = new Set(), pc = new Set(); let dup = 0;
+  await scan(ID.recall, "MISPAR_RECHEV,RECALL_ID", rows => { for (const r of rows) { const p = plateOf(r.MISPAR_RECHEV), k = `${p}|${N(r.RECALL_ID)}`; if (p) pc.add(p); if (pairs.has(k)) dup++; else pairs.add(k); } });
   v.recalls = dup; pairs.clear();
+  // which registers hold the per-car list's plates (the app reads the list for every vehicle type; does it hold heavy and two-wheeler plates at all?)
+  const pcIn = {}, pcSeen = new Set(), pcHit = (k, x) => { const p = plateOf(x); if (!p || !pc.has(p)) return; (pcIn[k] = pcIn[k] || new Set()).add(p); pcSeen.add(p); };
   // towing hook per plate (cont), then the active register
   const hooked = new Set();
   await scan(ID.cont, "mispar_rechev,grira_nm", rows => { for (const r of rows) if (hookOf(r.grira_nm)) { const p = plateOf(r.mispar_rechev); if (p) hooked.add(p); } });
@@ -119,6 +124,7 @@ export async function measure(scan, today) {
   await scan(ID.active, "mispar_rechev,tokef_dt,mivchan_acharon_dt,baalut,tozeret_cd,degem_cd,sug_degem,shnat_yitzur", rows => { for (const r of rows) {
     cars++; const p = plateOf(r.mispar_rechev), e = dayOf(r.tokef_dt), t = dayOf(r.mivchan_acharon_dt);
     if (e === null) dates++;
+    pcHit("active", r.mispar_rechev);
     if (t !== null) { if (t <= today) fresh = Math.max(fresh, t); if (t >= today - 63) perDay.set(t, (perDay.get(t) || 0) + 1); if (e !== null && t > e) renewal++; }
     if (p) { own.set(p, kindOf(r.baalut)); if (hooked.has(p) && N(r.shnat_yitzur) >= TOW_BAN_FROM && tow.get(`${N(r.tozeret_cd)}|${N(r.degem_cd)}|${String(r.sug_degem || "").trim().toUpperCase()}|${N(r.shnat_yitzur)}`) === 0) hook++; }
   } });
@@ -130,19 +136,23 @@ export async function measure(scan, today) {
   v.renewal = renewal; v.dates = dates; v.hook = hook; info.activeCars = cars; info.testsPerDayLastWeek = Math.round(week); info.testsPerDayUsual = Math.round(usual);
   // the public and import registers: who lends dates to whom, and which public vehicles were cancelled for good
   const pub = new Map(), imp = new Map();   // plate -> maker (public, 0 when cancelled for good) / maker|year (import)
-  await scan(ID.public, "mispar_rechev,bitul_cd,bitul_nm,tozeret_cd", rows => { for (const r of rows) { const p = plateOf(r.mispar_rechev); if (p) pub.set(p, PUB_FOR_GOOD(r) ? 0 : N(r.tozeret_cd)); } });
-  await scan(ID.import, "mispar_rechev,tozeret_cd,shnat_yitzur", rows => { for (const r of rows) { const p = plateOf(r.mispar_rechev); if (p) imp.set(p, `${N(r.tozeret_cd)}|${N(r.shnat_yitzur)}`); } });
+  await scan(ID.public, "mispar_rechev,bitul_cd,bitul_nm,tozeret_cd", rows => { for (const r of rows) { const p = plateOf(r.mispar_rechev); pcHit("public", p); if (p) pub.set(p, PUB_FOR_GOOD(r) ? 0 : N(r.tozeret_cd)); } });
+  await scan(ID.import, "mispar_rechev,tozeret_cd,shnat_yitzur", rows => { for (const r of rows) { const p = plateOf(r.mispar_rechev); pcHit("import", p); if (p) imp.set(p, `${N(r.tozeret_cd)}|${N(r.shnat_yitzur)}`); } });
   // plates in active and in a cancel register (the number reused, or a register that did not drop a car); public vehicles cancelled for good that a cancel register lists
   let reuse = 0; const listed = new Set();
-  for (const k of ["cancel", "cancel2010", "cancel2000"]) await scan(ID[k], "mispar_rechev", rows => { for (const r of rows) { const p = plateOf(r.mispar_rechev); if (own.has(p)) reuse++; if (pub.get(p) === 0) listed.add(p); } });
+  for (const k of ["cancel", "cancel2010", "cancel2000"]) await scan(ID[k], "mispar_rechev", rows => { for (const r of rows) { const p = plateOf(r.mispar_rechev); pcHit(k, p); if (own.has(p)) reuse++; if (pub.get(p) === 0) listed.add(p); } });
   v.reuse = reuse;
   let forGood = 0; for (const m of pub.values()) if (m === 0) forGood++;
   v.pubcancel = forGood - listed.size; info.publicCancelledForGood = forGood; listed.clear();
   // the registers that lend dates: moto takes them from import, heavy from public (index.html), so both rows must be the same vehicle
   let lend = 0, motoImport = 0, heavyPublic = 0;
-  await scan(ID.moto, "mispar_rechev,tozeret_cd,shnat_yitzur", rows => { for (const r of rows) { const x = imp.get(plateOf(r.mispar_rechev)); if (x === undefined) continue; motoImport++; if (x !== `${N(r.tozeret_cd)}|${N(r.shnat_yitzur)}`) lend++; } });
-  await scan(ID.heavy, "mispar_rechev,tozeret_cd", rows => { for (const r of rows) { const x = pub.get(plateOf(r.mispar_rechev)); if (!x) continue; heavyPublic++; if (x !== N(r.tozeret_cd)) lend++; } });
+  await scan(ID.moto, "mispar_rechev,tozeret_cd,shnat_yitzur", rows => { for (const r of rows) { pcHit("moto", r.mispar_rechev); const x = imp.get(plateOf(r.mispar_rechev)); if (x === undefined) continue; motoImport++; if (x !== `${N(r.tozeret_cd)}|${N(r.shnat_yitzur)}`) lend++; } });
+  await scan(ID.heavy, "mispar_rechev,tozeret_cd", rows => { for (const r of rows) { pcHit("heavy", r.mispar_rechev); const x = pub.get(plateOf(r.mispar_rechev)); if (!x) continue; heavyPublic++; if (x !== N(r.tozeret_cd)) lend++; } });
   v.lend = lend; info.motoInImport = motoImport; info.heavyInPublic = heavyPublic; pub.clear(); imp.clear();
+  for (const k of ["inactive", "inactive2"]) await scan(ID[k], "mispar_rechev", rows => { for (const r of rows) pcHit(k, r.mispar_rechev); });
+  // plates per register (a plate can be in more than one), and in none of them
+  info.perCarPlates = { all: pc.size, ...Object.fromEntries(Object.entries(pcIn).map(([k, x]) => [k, x.size])), none: pc.size - pcSeen.size };
+  pc.clear(); pcSeen.clear();
   // the ownership log's latest month per active plate: which owner kinds it holds
   const last = new Map();   // plate -> month * 16 + kinds
   await scan(ID.owners, "mispar_rechev,baalut_dt,baalut", rows => { for (const r of rows) {
@@ -222,7 +232,10 @@ async function selftest() {
   O.push({ mispar_rechev: A[10].mispar_rechev, baalut_dt: 202501, baalut: "סוחר" }, { mispar_rechev: A[10].mispar_rechev, baalut_dt: 202501, baalut: "פרטי" }, { mispar_rechev: A[10].mispar_rechev, baalut_dt: 202402, baalut: "פרטי" });
   A[11].baalut = "ליסינג"; O.push({ mispar_rechev: A[11].mispar_rechev, baalut_dt: 202301, baalut: "החכר" }, { mispar_rechev: A[11].mispar_rechev, baalut_dt: 202406, baalut: "פרטי" });
   for (let i = 0; i < 10; i++) T.push({ kilometer_test_aharon: i < 7 ? 1000 : 0 });
-  const D = { [ID.active]: A, [ID.owners]: O, [ID.cont]: C, [ID.tech]: T, [ID.recall]: [{ MISPAR_RECHEV: 5, RECALL_ID: 9 }, { MISPAR_RECHEV: "5", RECALL_ID: 9 }],
+  const D = { [ID.active]: A, [ID.owners]: O, [ID.cont]: C, [ID.tech]: T, [ID.recall]: [{ MISPAR_RECHEV: 5, RECALL_ID: 9 }, { MISPAR_RECHEV: "5", RECALL_ID: 9 },
+      // per-car plates: two active (one also in cancel), a bus in public and heavy, a motorcycle in moto and import, one inactive; 5 is in none
+      { MISPAR_RECHEV: 100, RECALL_ID: 9 }, { MISPAR_RECHEV: 300, RECALL_ID: 9 }, { MISPAR_RECHEV: 9004, RECALL_ID: 9 }, { MISPAR_RECHEV: 9101, RECALL_ID: 9 }, { MISPAR_RECHEV: 7001, RECALL_ID: 9 }],
+    [ID.inactive]: [{ mispar_rechev: 7001 }], [ID.inactive2]: [],
     [ID.wltp]: [{ tozeret_cd: 1, degem_cd: 1, sug_degem: "P", shnat_yitzur: 2015, kosher_grira_im_blamim: 0, kosher_grira_bli_blamim: 0 }, { tozeret_cd: 1, degem_cd: 1, sug_degem: "P", shnat_yitzur: 2019, kosher_grira_im_blamim: 1500, kosher_grira_bli_blamim: 750 }],
     // two prices for one maker, code and year (counts); a private and a commercial model under one code, each with its price (fine)
     [ID.price]: [{ tozeret_cd: 1, degem_cd: 1, shnat_yitzur: 2019, mehir: 100000 }, { tozeret_cd: 1, degem_cd: 1, shnat_yitzur: 2019, mehir: 120000 },
@@ -248,6 +261,9 @@ async function selftest() {
   ok(v.price === 1 && v.wltp === 2 && v.recalls === 1, "price groups (a private and a commercial model under one code are two), largest code group, duplicate recall pairs (" + v.price + ")");
   ok(v.pubcancel === 1 && info.publicCancelledForGood === 2, "pubcancel: a total loss no cancel register lists; a deposit is temporary (" + v.pubcancel + ")");
   ok(v.lend === 2 && info.motoInImport === 2 && info.heavyInPublic === 1, "lend: another model year (moto+import), another maker (heavy+public) (" + v.lend + ")");
+  const pcp = info.perCarPlates || {};
+  ok(pcp.all === 6 && pcp.active === 2 && pcp.cancel === 1 && pcp.public === 1 && pcp.heavy === 1 && pcp.moto === 1 && pcp.import === 1 && pcp.inactive === 1 && !pcp.inactive2 && pcp.none === 1,
+    "per-car plates by register: a plate counts in each register that holds it, and once in none (" + JSON.stringify(pcp) + ")");
   const res = judge({ ...v, owners: 0.5, renewal: 9000, km: { rows: 2.5e6, share: 0.7 } }), m = message(res, "2026-10-25");
   ok(m && m.key === "truth:inv:renewal+owners", "the key names the broken checks: " + (m && m.key));
   ok(m && /50\.00%/.test(m.text) && /9,000/.test(m.text) && /הגבול: עד 5,000/.test(m.text) && m.text.startsWith("<b>🟠 לטיפול היום · נתונים</b>") && m.text.includes("👉 מה לעשות"), "wording");
