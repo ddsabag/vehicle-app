@@ -25,9 +25,11 @@ import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
 import crypto from "node:crypto";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import * as claude from "./claude.mjs";
 
-export const V = 2;   // the prompt and the schemas: a new V judges every shot again (2: the non-defects the first real run, 28.10, reported)
+export const V = 3;   // the prompt and the schemas: a new V judges every shot again (3: the non-defects of the first real runs, 28.10, and text)
 export const MODELS = { first: "claude-haiku-5-5", second: "claude-sonnet-5-5" };
 export const CAPS = { runFirst: 300, runSecond: 40, monthFirst: 4000, monthSecond: 400 };
 // a point goes on to the second look from severity x confidence 3 up (each high 3, medium 2, low 1): medium/medium, low but sure, high but
@@ -41,6 +43,7 @@ const LEVELS = ["high", "medium", "low"];
 const PRICE = { [MODELS.first]: [0.10, 0.50], [MODELS.second]: [2, 10] };
 
 const IO = { env: process.env, out: s => process.stdout.write(s + "\n"), now: () => Date.now(), claude, router: () => import("./alert.mjs"),
+  lexicon: () => lexicon(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")),
   pub: () => fs.readFileSync(new URL("../seo-data.pub.pem", import.meta.url), "utf8"), wait: { minutes: 90, every: 30 } };   // a Batch: most end in minutes; at 90 the rest is cancelled and waits
 const J = s => { try { return JSON.parse(s); } catch { return null; } };
 const read = f => { try { return fs.readFileSync(f); } catch { return null; } };
@@ -173,11 +176,11 @@ You receive screenshots that automated test runs took of the real app and websit
 
 Report only real, visible defects of these kinds:
 - cut_text: text clipped by its box, a button, a card or the screen edge, so letters or words are partly hidden. A one-line label that ends in an ellipsis (…) on purpose is not a defect.
-- overlap: two things drawn over each other that should not be: text over text, a badge or a button covering words, an icon on top of a label.
+- overlap: two things drawn over each other that should not be: text over text, an icon or a label on top of other words, a button covering words that cannot scroll out from under it.
 - rtl: a right-to-left mistake: Hebrew text aligned to the left where the text around it aligns right; an arrow or chevron pointing the wrong way for what it does (right to left, "next" or "open" points left and "back" points right); a number, date, plate or phone number shown reversed or with its parts in the wrong order; punctuation at the wrong end of a Hebrew sentence.
 - typo: a Hebrew spelling or grammar mistake, a wrong or missing word, a gender or number mismatch, English or code left inside Hebrew text, a placeholder such as {name}, undefined or NaN, broken characters (boxes, question marks).
 - contrast: text or an icon that is hard to read against what is behind it, for example grey text on a dark card in dark mode or white text on a light colour. Readable secondary grey text is fine.
-- layout: a broken layout: a single control dropped alone onto its own line, misaligned rows or columns, a card or button wider than the screen, spacing so uneven it looks like a bug, a large empty area where content should be, something cut off by the screen edge.
+- layout: a broken layout: a single control dropped alone onto its own line, misaligned rows or columns, a card or button wider than the screen, spacing so uneven it looks like a bug, a large empty area where content should be, something cut off by a side of the screen in a part that does not scroll sideways.
 - other: anything else a person would call visibly broken, such as a missing icon, an image that did not load, or two copies of one element.
 
 These are not defects, do not report them:
@@ -187,19 +190,19 @@ These are not defects, do not report them:
 - Scrolling: content that goes on below the bottom of a phone screen, below the end of a part of a long page, or under the app's bottom navigation bar, even in the middle of a sentence; a floating button (such as השוואה) or a bar fixed to the screen, drawn over content that scrolls under it; a row of cards that scrolls sideways, with its last card cut at the screen edge.
 - Text shortened on purpose with an ellipsis (…), and a loading message that ends in one.
 - A notification badge (a small red circle, often with a number) on the corner of its icon, even where it covers part of the icon.
-- Placeholder text, an example such as 12-345-67 in an empty input: it is dimmer than typed text on purpose, in grey or in a darker shade of the field's colour. It is a defect only when it is itself cut.
+- Empty inputs: placeholder text, an example such as 12-345-67, is dimmer than typed text on purpose, in grey or in a darker shade of the field's colour, and it is a defect only when it is itself cut; an empty input under its own label may show only its unit (₪) or nothing.
 - Arrows and chevrons that point left to open something or to go forward: in right to left that is the right way.
 - Design choices: colours, fonts, sizes, icons and wording that are consistent and readable, even where you would design them differently.
 
 Be strict about evidence: report a defect only when you can point to it in the screenshot, and say exactly where to look. Quote on-screen text exactly as it appears. Hebrew letters that look alike (ח and ת, ד and ר, ו and י and ן) are easy to misread, all the more in small or very large text: report a typo only where the word is clearly legible, and when the word you read is one letter away from a common word, give it confidence "low". When you are unsure, report it with confidence "low" rather than not at all. Write in English, except for quoted on-screen text. An empty list is the right answer for a screen that looks fine, and most screens are fine.
 
-For each defect give: kind; part (the number of the image it is in, 1 when there is one image); where (the part of the screen, such as "the car card's header", "the bottom navigation bar", "the second card in the list"); what (what is wrong, quoting the text); severity (high: a person cannot read or use something; medium: clearly visible but usable; low: a small blemish); and confidence (high, medium or low).`;
+For each defect give: kind; part (the number of the image it is in, 1 when there is one image); where (the part of the screen, such as "the car card's header", "the bottom navigation bar", "the second card in the list"); text (the on-screen text the defect is about, copied exactly as you read it on the screen, or an empty string when there is none); what (what is wrong, quoting the text); severity (high: a person cannot read or use something; medium: clearly visible but usable; low: a small blemish); and confidence (high, medium or low).`;
 
-const ISSUE = { kind: { type: "string", enum: KINDS }, part: { type: "integer" }, where: { type: "string" }, what: { type: "string" }, severity: { type: "string", enum: LEVELS } };
+const ISSUE = { kind: { type: "string", enum: KINDS }, part: { type: "integer" }, where: { type: "string" }, text: { type: "string" }, what: { type: "string" }, severity: { type: "string", enum: LEVELS } };
 export const FIRST = { type: "object", additionalProperties: false, required: ["issues"], properties: { issues: { type: "array", items: { type: "object", additionalProperties: false,
-  required: ["kind", "part", "where", "what", "severity", "confidence"], properties: { ...ISSUE, confidence: { type: "string", enum: LEVELS } } } } } };
+  required: ["kind", "part", "where", "text", "what", "severity", "confidence"], properties: { ...ISSUE, confidence: { type: "string", enum: LEVELS } } } } } };
 export const SECOND = { type: "object", additionalProperties: false, required: ["checked"], properties: { checked: { type: "array", items: { type: "object", additionalProperties: false,
-  required: ["claim", "real", "kind", "part", "where", "what", "severity", "why"], properties: { claim: { type: "integer" }, real: { type: "boolean" }, ...ISSUE, why: { type: "string" } } } } } };
+  required: ["claim", "real", "kind", "part", "where", "text", "what", "severity", "why"], properties: { claim: { type: "integer" }, real: { type: "boolean" }, ...ISSUE, why: { type: "string" } } } } } };
 
 const image = png => ({ type: "image", source: { type: "base64", media_type: "image/png", data: png.toString("base64") } });
 const claimsText = issues => issues.map((i, n) => `${n + 1}. ${i.kind}, part ${i.part}, ${i.where}: ${i.what} (severity ${i.severity}, confidence ${i.confidence})`).join("\n");
@@ -216,7 +219,22 @@ export function params(look, s) {
 }
 
 const clip = (t, n = 300) => String(t || "").replace(/\s+/g, " ").trim().slice(0, n);
-const issue = (i, n) => (i && KINDS.includes(i.kind) && LEVELS.includes(i.severity) ? { kind: i.kind, part: Math.min(Math.max(1, Math.round(+i.part) || 1), n), where: clip(i.where, 120), what: clip(i.what),
+// the Hebrew words of a text (two letters or more, without vowel marks)
+export const hebrew = t => String(t || "").replace(/[\u0591-\u05C7]/g, "").match(/[\u05D0-\u05EA]{2,}/g) || [];
+// every Hebrew word in the repository's own text: the page, its scripts and data, the guardians' fixtures, the Android app. A typo must quote
+// a word that is there; one that is not is a misreading of the screenshot (28.10: the footer's "מדריך לקונה" read as "מדריך לקנה"). Empty
+// outside a checkout, and then no typo is dropped.
+export function lexicon(root) {
+  const set = new Set();
+  try {
+    const files = execFileSync("git", ["ls-files", "-z"], { cwd: root, maxBuffer: 64e6, stdio: ["ignore", "pipe", "ignore"] }).toString().split("\0");
+    const self = path.relative(root, fileURLToPath(import.meta.url)).split(path.sep).join("/");   // this file quotes misreadings in its notes and tests
+    for (const f of files.filter(f => f !== self && /\.(html|m?js|cjs|json|xml|java|kt|txt)$/.test(f))) { const b = read(path.join(root, f)); if (b && b.length < 8e6) for (const w of hebrew(b.toString("utf8"))) set.add(w); }
+  } catch { /* not a checkout */ }
+  return set;
+}
+const issue = (i, n) => (i && KINDS.includes(i.kind) && LEVELS.includes(i.severity) ? { kind: i.kind, part: Math.min(Math.max(1, Math.round(+i.part) || 1), n), where: clip(i.where, 120),
+  text: clip(i.text, 200), what: clip(i.what),
   severity: i.severity, ...(LEVELS.includes(i.confidence) ? { confidence: i.confidence } : {}) } : null);
 const lv = x => { const k = LEVELS.indexOf(x); return k < 0 ? 1 : 3 - k; };   // high 3, medium 2, low (or none) 1
 const weight = i => lv(i.severity) * lv(i.confidence);
@@ -295,6 +313,9 @@ export async function run(o) {
   const count = (model, msg, half) => { const u = IO.claude.usage(msg), t = tally.tokens[model] ||= { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
     for (const k in t) t[k] += u[k]; tally.usd += cost(model, u, half); };
   const errors = [], half = o.mode === "batch";
+  let lex = null;   // read once, when the first typo comes
+  const misread = i => { if (i.kind !== "typo") return false; const ws = hebrew(i.text); if (!ws.length) return false; lex ||= IO.lexicon(); return lex.size > 0 && ws.some(w => !lex.has(w)); };
+  const sift = list => { const out = list.filter(Boolean), mis = out.filter(misread).length; return { issues: out.filter(i => !misread(i)), ...(mis ? { misread: mis } : {}) }; };
   let ok = 0, keyFail = false;
   const failed = (s, why) => { errors.push(why); const f = st.fails[s.key] = { code, n: (st.fails[s.key]?.code === code ? st.fails[s.key].n : 0) + 1, why, at };
     if (f.n >= TRIES) { st.shots[s.key] = { code, at, first: { failed: why }, second: null }; fs.mkdirSync(path.dirname(judged(s.key)), { recursive: true }); fs.copyFileSync(s.file, judged(s.key)); } };
@@ -310,7 +331,7 @@ export async function run(o) {
       const a = IO.claude.answer(res.msg), js = !a.why && J(a.text);
       if (/^refusal/.test(a.why)) { st.shots[s.key] = { code, at, first: { refused: a.why }, second: null }; }
       else if (!js || !Array.isArray(js.issues)) { failed(s, a.why || "the answer was not the JSON asked for"); continue; }
-      else st.shots[s.key] = { code, at, first: { issues: js.issues.map(i => issue(i, s.n || 99)).filter(Boolean) }, second: null };
+      else st.shots[s.key] = { code, at, first: sift(js.issues.map(i => issue(i, s.n || 99))), second: null };
       delete st.fails[s.key]; fs.mkdirSync(path.dirname(judged(s.key)), { recursive: true }); fs.copyFileSync(s.file, judged(s.key));
     }
   }
@@ -331,9 +352,9 @@ export async function run(o) {
       if (/^refusal/.test(a.why)) { e.second = { refused: a.why, at }; continue; }
       if (!js || !Array.isArray(js.checked)) { flop(a.why || "the answer was not the JSON asked for"); continue; }
       const n = worth(e).length, seen = before[s.key] || [];
-      const real = js.checked.filter(c => c && c.real === true).map(c => issue(c, s.n || 99)).filter(Boolean)
-        .map(i => ({ ...i, since: seen.find(x => x.kind === i.kind)?.since || day }));
-      e.second = { issues: real, rejected: js.checked.filter(c => c && c.real === false && c.claim >= 1 && c.claim <= n).length, at };
+      const kept = sift(js.checked.filter(c => c && c.real === true).map(c => issue(c, s.n || 99)));
+      e.second = { ...kept, issues: kept.issues.map(i => ({ ...i, since: seen.find(x => x.kind === i.kind)?.since || day })),
+        rejected: js.checked.filter(c => c && c.real === false && c.claim >= 1 && c.claim <= n).length, at };
       delete e.tries2;
     }
   }
@@ -347,8 +368,9 @@ export async function run(o) {
   const pending = list.filter(s => st.shots[s.key] && score(st.shots[s.key]) >= BAR && !st.shots[s.key].second).map(s => ({ shot: s.key, issues: st.shots[s.key].first.issues }));
   const unsure = list.filter(s => st.shots[s.key]?.first?.issues?.length && score(st.shots[s.key]) < BAR).length;
   const rejected = list.reduce((n, s) => n + (st.shots[s.key]?.second?.rejected || 0), 0);
+  const misreads = list.reduce((n, s) => n + (st.shots[s.key]?.first?.misread || 0) + (st.shots[s.key]?.second?.misread || 0), 0);
   const counts = { shots: list.length, kept: list.filter(s => s.same).length, first: first.length, second: second.length, waitingFirst: fresh.length - first.length,
-    waitingSecond: pending.length, unsure, errors: errors.length, findings: findings.length, new: findings.filter(f => f.new).length, rejected };
+    waitingSecond: pending.length, unsure, errors: errors.length, findings: findings.length, new: findings.filter(f => f.new).length, rejected, misreads };
   const report = { v: V, at, source: o.source, run: o.run || "", code, mode: o.mode, counts, month: { first: st.used.first, second: st.used.second, caps: CAPS }, findings, pending,
     errors: [...new Set(errors)].slice(0, 10) };
   fs.mkdirSync(path.join(o.state, "usage"), { recursive: true });
@@ -396,6 +418,7 @@ export function reportMd(r) {
     `${r.at.slice(0, 16).replace("T", " ")} UTC${r.run ? `, screenshots of ${r.run}` : ""}. Report only: nothing here fails a run.`, "",
     `Shots: ${c.shots}; kept their verdict (unchanged): ${c.kept}; first look now: ${c.first}; second look now: ${c.second}; waiting for a first look: ${c.waitingFirst}; `
     + `waiting for a second look: ${c.waitingSecond}; with first-look points under the bar only (not sent on): ${c.unsure}; points the second look rejected: ${c.rejected}; `
+    + `typos dropped as misreadings (a word the app's text does not have): ${c.misreads}; `
     + `requests without an answer: ${c.errors}.`,
     `This month: ${r.month.first} of ${r.month.caps.monthFirst} first looks and ${r.month.second} of ${r.month.caps.monthSecond} second looks.`, "",
     ...(r.findings.length ? ["| kind | severity | shot | what |", "|---|---|---|---|", ...[...r.findings].sort(order).slice(0, 60).map(row), ""] : ["No confirmed finding.", ""]),
@@ -475,7 +498,8 @@ async function selftest() {
     if (fake.refuse && fake.refuse.test(name)) return { msg: { stop_reason: "refusal", stop_details: { category: "general_harms" }, content: [] } };
     if (fake.garble && fake.garble.test(name)) return { msg: { stop_reason: "end_turn", content: [{ type: "text", text: "not json" }], usage: {} } };
     const cut = { kind: "cut_text", part: 1, where: "the plate field", what: "the last digit is cut", severity: "medium", confidence: "high" }, badge = { kind: "overlap", part: 1, where: "the bell", what: "the badge covers the bell", severity: "low", confidence: "medium" };
-    if (p.model === MODELS.first) return { msg: reply({ issues: /check-check|open-recall/.test(name) ? [badge, cut] : /tour-home/.test(name) ? [badge] : [] }) };
+    const misread = { kind: "typo", part: 1, where: "the footer", text: "מדריך לקנה", what: "a letter is missing", severity: "medium", confidence: "high" };
+    if (p.model === MODELS.first) return { msg: reply({ issues: /check-check|open-recall/.test(name) ? [badge, cut] : /tour-home/.test(name) ? [badge] : /tour-cars/.test(name) ? [misread] : [] }) };
     return { msg: reply({ checked: [{ claim: 1, real: !/open-recall/.test(name), kind: "cut_text", part: 1, where: "the plate field", what: "the last digit \"7\" is cut", severity: "medium", why: "visible" }] }) };
   } };
   const api = { fake: true };
@@ -485,7 +509,7 @@ async function selftest() {
       return fake.batchFail ? { error: { why: "401 key", key: true } } : { id: "msgbatch_x", ended: true, results }; } };
   const told = [];
   IO.router = async () => ({ alert: async (lv, key) => { told.push(`${lv} ${key}`); return { delivered: true }; }, resolve: async p => { told.push("resolve " + p.join("+")); return 1; } });
-  IO.pub = () => pub;
+  IO.pub = () => pub; IO.lexicon = () => new Set(["מדריך", "לקונה"]);
   const logs = []; IO.out = s => logs.push(s);
   let clock = Date.parse("2026-10-29T02:40:00Z"); IO.now = () => clock;
   const shots = path.join(tmp, "shots-app"), state = path.join(tmp, "state-app"), base = pic(54, 120, (x, y) => [250, 250, (x * 3 + y) & 255]);
@@ -501,6 +525,10 @@ async function selftest() {
   ok(rep().counts.findings === 1 && rep().findings[0].new && rep().findings[0].shot === "api35/411-f100__light__car__check-check", "the confirmed point is a new finding");
   { const asked = fake.calls.find(p => p.model === MODELS.second).messages[0].content.at(-1).text;
     ok(rep().counts.unsure === 1 && /1\. cut_text/.test(asked) && !/badge/.test(asked), "a point under the bar (low, fairly sure) is not sent on, and the second look is asked about the points over it only"); }
+  ok(rep().counts.misreads === 1 && st().shots["api35/320-f130__dark__cars__tour-cars"].first.issues.length === 0, "a typo quoting a word the app's text does not have is a misreading: dropped, counted, not sent on");
+  { const real = lexicon(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../.."));
+    if (real.size) ok(real.has("לקונה") && real.has("התראות") && !real.has("לקנה") && !real.has("החראות"), "the repository's words: the footer's and the alerts' are there, the two misreadings of 28.10 are not");
+    else print("skip the repository's words: not a git checkout"); }
   ok(fs.existsSync(path.join(state, "reviewed", "api35/411-f100__light__car__check-check.png")), "each shot is kept as judged");
   { const pub1 = ["state.json", "report.json", "report.md"].map(f => fs.readFileSync(path.join(state, f), "utf8")).join("\n");
     ok(!/usd|\$|input_tokens|cacheRead|"output"/i.test(pub1), "public files: no dollars and no tokens");
