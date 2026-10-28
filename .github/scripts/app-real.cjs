@@ -278,6 +278,25 @@ function saveShot(png, name) {
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = (png.width * (y << 1) + (x << 1)) << 2, j = (w * y + x) << 2; o.data[j] = png.data[i]; o.data[j + 1] = png.data[i + 1]; o.data[j + 2] = png.data[i + 2]; o.data[j + 3] = 255; }
   fs.writeFileSync(path.join(OUT, "shots", name.replace(/[^\w.-]+/g, "_") + ".png"), PNG.sync.write(o));
 }
+// the screen once it holds still. The emulator can show the WebView's previous frame a moment after the page changed (a link opened, the
+// phone turned; Android 15's most of all, 28.10: a comparison link's shot showed the home screen, a turned phone half its old page), which a
+// person, or Claude's look at the shots (visual-review.mjs), would read as the app's fault. Two frames 600 ms apart that agree (under 0.5%
+// of the sampled pixels below the status bar differ) are the screen; after 4 more frames the last one stands (a loading shimmer never holds still)
+async function still(tries = 4) {
+  let a = screencap();
+  for (let i = 0; i < tries; i++) {
+    await sleep(600);
+    const b = screencap();
+    if (a && b && a.width === b.width && a.height === b.height && moved(a, b) < 0.005) return b;
+    a = b;
+  }
+  return a;
+}
+function moved(a, b) {
+  let n = 0, d = 0;
+  for (let y = 140; y < a.height; y += 6) for (let x = 0; x < a.width; x += 6) { n++; if (dist(px(a, x, y), px(b, x, y)) > 24) d++; }
+  return n ? d / n : 1;
+}
 // the page between the bars, the bars painted like the page next to them, and their icons visible
 // first = true: nothing is reported yet when something is off, the caller looks again ("again"). Under the emulator's software rendering
 // the screen can still show the WebView's previous frame while the bars already have the colours of the new one (a sheet opening), and
@@ -387,7 +406,7 @@ async function entries(page, sc) {
     const s = await waitFor(page, ok);
     if (!s || !ok(s)) add("block", "entry", run, name, `${want}; got ${said(s)}`);
     if (!s) log(`entry ${name}: no page (app pid ${pidOf() || "none"}, in front ${front()}, emulator ${alive() ? "there" : "gone"})`);
-    saveShot(screencap(), `${sc.id}__entry__${name}`);
+    saveShot(await still(), `${sc.id}__entry__${name}`);
     await home();
   };
   const flags = "-f 0x24000000";   // CLEAR_TOP | SINGLE_TOP, as the alert's own intent
@@ -416,7 +435,7 @@ async function entries(page, sc) {
     const loaded = await p2.evaluate(() => (performance.getEntriesByType("navigation")[0] || {}).name || "").catch(() => "");
     if (!/[?&]nk=recall\b/.test(loaded) || !/#1234567$/.test(loaded)) add("block", "entry", run, "alert-cold", `a recall alert tapped with the app closed should load index.html?nk=recall#1234567; the app loaded ${loaded.replace(/^https:\/\/[^/]+/, "") || "nothing"}`);
     if (!s || s.screen !== "car" || s.tab !== "recalls") add("block", "entry", run, "alert-cold", `a recall alert tapped with the app closed and no network should open the saved copy of the car on its recalls tab; got ${said(s)}`);
-    saveShot(screencap(), `${sc.id}__entry__alert-cold-offline`);
+    saveShot(await still(), `${sc.id}__entry__alert-cold-offline`);
     page = p2;
   } finally { network(true); }
   crashes(run, "entries");
@@ -442,7 +461,7 @@ async function phoneChecks(page, sc) {
     if (!k.go || k.go.bottom > k.h) add("block", "keyboard", run, "keyboard", `the check button is under the keyboard (button bottom ${k.go && k.go.bottom}, visible height ${k.h})`);
     if (k.nav !== null) add("block", "keyboard", run, "keyboard", k.go && k.nav < k.go.bottom ? `the bottom bar rides up over the plate field with the keyboard open (bar top ${k.nav}, button bottom ${k.go.bottom})` : `the bottom bar rides on top of the keyboard instead of stepping aside while typing (bar top ${k.nav}, visible height ${k.h})`);
   }
-  saveShot(screencap(), `${sc.id}__keyboard`);
+  saveShot(await still(), `${sc.id}__keyboard`);
   meta.keyboard = { before: r.h, after: k.h, kbClass: k.kbClass, pointer: k.pointer };
   // Back closes only the keyboard; the field may keep its caret, but the bottom bar must come back with the full screen
   clearDialogs(); sh("input keyevent 4"); await sleep(900);
@@ -465,7 +484,7 @@ async function phoneChecks(page, sc) {
   p2 = await attach().catch(() => p2);
   await p2.waitForSelector(READY, { state: "attached", timeout: 15000 }).catch(() => {});
   try { const m = await UF.measure(p2); UF.judgeStep(run, "landscape", m, { app: true, barMax: 80 }); } catch (e) { add("warn", "logic", run, "landscape", "could not measure on its side: " + e.message.slice(0, 80)); }
-  saveShot(screencap(), `${sc.id}__landscape`);
+  saveShot(await still(), `${sc.id}__landscape`);
   setPhone({ dp: sc.dp, font: sc.font, night: false, land: false }); await sleep(1500);
   crashes(run, "phone");
   return attach().catch(() => p2);
