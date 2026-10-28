@@ -39,7 +39,20 @@ export function deepClean(own) {
     return t.replace(/\b\d{2}x{2,5}\d{2}\b/g, "<plate>").replace(/\b\d{2,3}-\d{2,3}-\d{2,3}\b/g, "<plate>").replace(/(?<![\d,.])\d{7,8}(?![\d,.])/g, "<n>").replace(/\b[A-HJ-NPR-Z0-9]{17}\b/g, "<vin>"); };
 }
 // a last look before anything leaves the runner: no plate-like or VIN-like run in a prompt
-export const plateFree = s => !/\b\d{2,3}-\d{2,3}-\d{2,3}\b|(?<![\d,.])\d{7,8}(?![\d,.])|\b[A-HJ-NPR-Z0-9]{17}\b|\b\d{2}x{2,5}\d{2}\b/.test(s);
+const PLATE_LIKE = /\b\d{2,3}-\d{2,3}-\d{2,3}\b|(?<![\d,.])\d{7,8}(?![\d,.])|\b[A-HJ-NPR-Z0-9]{17}\b|\b\d{2}x{2,5}\d{2}\b/;
+export const plateFree = s => !PLATE_LIKE.test(s);
+// where such a run sits, by the prompt's section and the row's field name only, never the text: "" when there is none
+export function leakWhere(p) {
+  let sec = "";
+  for (const l of String(p).split("\n")) {
+    const h = /^(\[header\]|\[tab [\w-]+\]|== [^=]+ ==|[a-z][\w ]*(?: \([^)]*\))?:)/.exec(l);
+    if (h) sec = h[1].replace(/:$/, "").replace(/ \(\d+ rows\)$/, "");
+    if (!PLATE_LIKE.test(l)) continue;
+    const f = l.startsWith("- ") ? l.slice(2).split("; ").find(x => PLATE_LIKE.test(x)) : null;
+    return [sec || "?", f ? f.split("=")[0] : ""].filter(Boolean).join(" ").slice(0, 80);
+  }
+  return "";
+}
 
 const SYSTEM = `You audit what לוחית shows for one car. לוחית is an Israeli app that checks a car by its licence plate in the Ministry of Transport's open data: a buyer types the plate and reads the car's page. For one car you get:
 1. The page as the buyer saw it: the header and the text of every tab.
@@ -170,8 +183,8 @@ export async function run({ env = process.env, api, router, readCars, log = cons
   const q = queries(env.QUERIES), out = env.OUT || "out", d = now.toISOString().slice(0, 7);
   if (router === undefined) router = await import("./alert.mjs").catch(() => null);
   const { tag, todo, folded } = await import("./tg-text.mjs");
-  const rep = { cars: 0, sent: 0, answered: 0, kept: 0, missed: 0, why: "" };
-  const done = () => { log(`deep audit ${d}: ${rep.cars} cars read, ${rep.sent} sent, ${rep.answered} answered, ${rep.kept} findings kept, ${rep.missed} the rules missed${rep.why ? " · " + rep.why : ""}`); return rep; };
+  const rep = { cars: 0, dropped: 0, sent: 0, answered: 0, kept: 0, missed: 0, why: "" };
+  const done = () => { log(`deep audit ${d}: ${rep.cars} cars read${rep.dropped ? `, ${rep.dropped} dropped` : ""}, ${rep.sent} sent, ${rep.answered} answered, ${rep.kept} findings kept, ${rep.missed} the rules missed${rep.why ? " · " + rep.why : ""}`); return rep; };
   const c = api ? { api } : q.dry ? { api: null, why: "dry run" } : await client(env);
   if (!c.api && !q.dry) {   // no key: switched off on purpose, quietly; no SDK: the router hears it
     rep.why = c.why;
@@ -183,15 +196,20 @@ export async function run({ env = process.env, api, router, readCars, log = cons
   const got = readCars ? await readCars(q, tmp) : await audit(q, tmp);
   const cars = fs.existsSync(got.dir) ? fs.readdirSync(got.dir).filter(f => /^c\d+\.json$/.test(f)).sort().slice(0, q.max).map(f => JSON.parse(fs.readFileSync(path.join(got.dir, f), "utf8"))) : [];
   rep.cars = cars.length;
-  if (cars.length < MIN_CARS) {
-    rep.why = `only ${cars.length} cars read (audit exit ${got.code})`;
-    await tell(router, env, { level: "summary", key: "truth:deep-fail", text: [tag("info", "data"), `הביקורת החודשית העמוקה קראה רק ${cars.length} רכבים, מעט מכדי לשלוח ל-Claude. בדרך כלל זה אומר שמאגרי משרד התחבורה לא ענו. הבדיקה היומית ממשיכה כרגיל, ו${again(now)}.`, todo()].join("\n") });
+  // a prompt that still holds a plate-like run is never sent: that car is dropped, and the log says where (section and field name only)
+  const reqs = [], dropped = [];
+  for (const s of cars) { const p = params(s, q.effort), w = leakWhere(p.messages[0].content); if (w) dropped.push({ id: s.id, where: w }); else reqs.push({ custom_id: s.id, params: p }); }
+  rep.dropped = dropped.length;
+  if (dropped.length) log(`plate-like text left in ${dropped.length} car(s), not sent: ${dropped.map(x => `${x.id} (${x.where})`).join(", ")}`);
+  if (reqs.length < MIN_CARS) {
+    const scrub = cars.length >= MIN_CARS;   // enough cars were read, too many were dropped
+    rep.why = scrub ? `${dropped.length} of ${cars.length} cars held plate-like text` : `only ${cars.length} cars read (audit exit ${got.code})`;
+    await tell(router, env, { level: "summary", key: "truth:deep-fail", text: [tag("info", "data"), scrub
+      ? `הביקורת החודשית העמוקה לא נשלחה ל-Claude: ב-${dropped.length} מתוך ${cars.length} הרכבים נשאר טקסט שנראה כמו מספר רישוי, ולכן הם לא נשלחו, ומה שנשאר מעט מדי. הניקוי מתוקן בשרשור "נתונים ואמינות". הבדיקה היומית ממשיכה כרגיל, ו${again(now)}.`
+      : `הביקורת החודשית העמוקה קראה רק ${cars.length} רכבים, מעט מכדי לשלוח ל-Claude. בדרך כלל זה אומר שמאגרי משרד התחבורה לא ענו. הבדיקה היומית ממשיכה כרגיל, ו${again(now)}.`, todo()].join("\n") });
     fs.rmSync(tmp, { recursive: true, force: true }); return done();
   }
   await settle(router, () => router.resolve(["truth:deep-fail"]));
-  const reqs = cars.map(s => ({ custom_id: s.id, params: params(s, q.effort) }));
-  const leak = reqs.find(r => !plateFree(r.params.messages[0].content));
-  if (leak) { rep.why = `a prompt held a plate-like number (${leak.custom_id}): nothing sent`; fs.rmSync(tmp, { recursive: true, force: true }); return done(); }   // the scrub failed: never send
   if (q.dry) { log(`dry run: ${reqs.length} cars, nothing sent`); fs.rmSync(tmp, { recursive: true, force: true }); return done(); }
   const r = await batch(c.api, reqs, { minutes: q.wait, every: 60, cancel: true });   // a batch still running at the deadline is cancelled: what finished is kept
   fs.rmSync(tmp, { recursive: true, force: true });
@@ -203,7 +221,7 @@ export async function run({ env = process.env, api, router, readCars, log = cons
     return done();
   }
   rep.sent = reqs.length;
-  const res = { v: 1, d, prompt: PROMPT_V, cars: cars.length, answered: 0, findings: [], unfounded: [], failed: [], tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } };   // tokens: in the encrypted file only
+  const res = { v: 1, d, prompt: PROMPT_V, cars: cars.length, dropped, answered: 0, findings: [], unfounded: [], failed: [], tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } };   // tokens: in the encrypted file only
   const results = r.results || new Map();
   for (const s of cars) {
     const x = results.get(s.id), car = `${s.car.maker} ${s.car.model} ${s.car.year}`.trim();
@@ -226,7 +244,7 @@ export async function run({ env = process.env, api, router, readCars, log = cons
   const miss = res.findings.filter(f => !f.byRules && f.severity !== "low"), areas = [...new Set(miss.map(f => f.area))].sort();
   rep.missed = miss.length;
   const count = a => Object.fromEntries(Object.keys(AREAS).map(k => [k, a.filter(f => f.area === k).length]).filter(([, n]) => n));
-  const summary = { v: 1, d, prompt: PROMPT_V, cars: res.cars, answered: res.answered, kept: res.findings.length, high: res.findings.filter(f => f.severity === "high").length,
+  const summary = { v: 1, d, prompt: PROMPT_V, cars: res.cars, dropped: dropped.length, answered: res.answered, kept: res.findings.length, high: res.findings.filter(f => f.severity === "high").length,
     medium: res.findings.filter(f => f.severity === "medium").length, low: res.findings.filter(f => f.severity === "low").length, missedByRules: miss.length, unfounded: res.unfounded.length,
     failed: res.failed.length, byArea: count(res.findings), missedByArea: count(miss) };
   res.review = review(res);
@@ -327,9 +345,16 @@ if (process.argv[1] && process.argv[1].endsWith("deep-audit.mjs") && process.arg
   r = await run({ env: { OUT: path.join(tmp, "o5") }, router, readCars: cars(12), log: quiet, pem: publicKey });
   ok(r.why === "no ANTHROPIC_API_KEY" && !calls.length && r.cars === 0, "no key: the cars are not even read, quietly");
   const leaky = async (q, dir) => { const g = await cars(12)(q, dir); const f = path.join(g.dir, "c005.json"), x = JSON.parse(fs.readFileSync(f, "utf8")); x.page.tabs.overview += " 7654321"; fs.writeFileSync(f, JSON.stringify(x)); return g; };
-  fake.reqs = null;
-  r = await run({ env: { OUT: path.join(tmp, "o6"), QUERIES: "wait=0" }, api: fake(), router, readCars: leaky, log: quiet, pem: publicKey });
-  ok(r.sent === 0 && fake.reqs === null && /plate-like/.test(r.why), "a plate that got past the scrub: nothing is sent");
+  const logs = [];
+  r = await run({ env: { OUT: path.join(tmp, "o6"), QUERIES: "wait=0" }, api: fake(), router, readCars: leaky, log: m => logs.push(m), pem: publicKey });
+  ok(r.sent === 11 && r.dropped === 1 && !fake.reqs.some(x => x.custom_id === "c005") && logs.some(m => m.includes("c005 ([tab overview])")) && !logs.join(" ").includes("7654321"),
+    "a plate that got past the scrub: that car is not sent, the log says where and not what, the others go");
+  calls.length = 0; fake.reqs = null;
+  const leakier = async (q, dir) => { const g = await cars(12)(q, dir); for (const n of ["c003", "c005", "c007"]) { const f = path.join(g.dir, n + ".json"), x = JSON.parse(fs.readFileSync(f, "utf8")); x.rows.modelRecalls = [{ TEUR_TAKALA: "ABCDEFGH123456789" }]; fs.writeFileSync(f, JSON.stringify(x)); } return g; };
+  r = await run({ env: { OUT: path.join(tmp, "o9"), QUERIES: "wait=0" }, api: fake(), router, readCars: leakier, log: quiet, pem: publicKey });
+  ok(r.sent === 0 && fake.reqs === null && calls.some(c => c[2] === "truth:deep-fail" && c[3].includes("נראה כמו מספר רישוי")) && /3 of 12/.test(r.why), "too many cars dropped: nothing is sent, truth:deep-fail says why");
+  ok(leakWhere("== The ministry's rows ==\nmodel recall rows that name this model:\n- RECALL_ID=15777; TEUR_TAKALA=x 12345678 y") === "model recall rows that name this model TEUR_TAKALA"
+    && leakWhere("[tab specs] a\nb 1234567") === "[tab specs]" && leakWhere(p0) === "", "where a plate-like run sits: the section and the field, never the text");
   r = await run({ env: { OUT: path.join(tmp, "o7"), QUERIES: "dry=1" }, router, readCars: cars(12), log: quiet, pem: publicKey });
   ok(r.cars === 12 && r.sent === 0, "dry: the cars are read, nothing sent");
   // a month where Claude found nothing the rules missed closes the earlier months' lines

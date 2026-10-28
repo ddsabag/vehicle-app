@@ -139,7 +139,7 @@ export const LABELS = {
                            ids: { identity: "פרטי הרכב", status: "סטטוס הרכב", test: "טסט", road: "עלייה לכביש", owners: "בעלויות", km: "ק״מ", recalls: "ריקולים",
                                   settlements: "הסדרי פשרה", tow: "גרירה", specs: "מפרט", mods: "שינויים ברכב", fee: "אגרת רישוי", price: "מחיר מחירון", value: "שווי",
                                   insight: "תובנות", message: "הודעות", other: "אחר" } },
-  "truth:deep-fail":     { he: "הביקורת החודשית העמוקה לא הצליחה לקרוא מספיק רכבים", sect: "fail" },
+  "truth:deep-fail":     { he: "הביקורת החודשית העמוקה לא רצה: מעט מדי רכבים", sect: "fail" },   // too few read, or too many dropped for plate-like text
   "truth:inv":           { he: "הבדיקה השבועית של מאגרי משרד התחבורה מצאה חריגה: {ids}", sect: "fail",   // data-invariants.mjs (Data truth, weekly); ids = its CHECKS
                            ids: { fresh: "תאריכי הטסט לא מתעדכנים", tests: "מעט טסטים חדשים", renewal: "טסטים בלי חידוש רישיון", dates: "תאריכי רישיון לא תקינים",
                                   reuse: "מספרים במאגר הפעיל ובמאגר שירד מהכביש", owners: "סוג הבעלות הנוכחי", km: "ק״מ בטסט", hook: "וו גרירה מול נתוני הדגם",

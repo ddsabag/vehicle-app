@@ -853,7 +853,8 @@ function deepSnap(c, X, P, mis) {
     rows: {sets: Object.fromEntries(Object.entries(X.sets).filter(([, a]) => a && a.length).map(([k, a]) => [k, rows(a, 12)])), merged: row(R), wltp: rows(X.wltp, 2), price: rows(X.price, 6),
       activeOfModelYear: X.cohort ?? null, modelRecalls: DEEP_RECALLS.get(c.id) || [], unanswered: Object.keys(X.errs)},
     rules: mis.map(l => clean(l.replace(/^MISMATCH \S+ \S+ \| /, ""))).slice(0, 30)};
-  fs.writeFileSync(path.join(DEEP_OUT, c.id + ".json"), JSON.stringify(snap));
+  // one last pass over every string, the recall rows included (their descriptions can hold part numbers and serial ranges)
+  fs.writeFileSync(path.join(DEEP_OUT, c.id + ".json"), JSON.stringify(snap, (k, v) => (typeof v === "string" ? clean(v) : v)));
 }
 
 /* ---------- run ---------- */
