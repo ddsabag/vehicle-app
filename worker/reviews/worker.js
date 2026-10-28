@@ -37,7 +37,7 @@ const LABEL = { crash: "תקלה או קריסה", data: "מידע חסר או �
 // crash = words only an app failure uses; bug = generic fault words (also a car's fault, a data error), tried after dealer and data.
 const HE = s => `(?<![א-ת])(?:${s})(?![א-ת])`;
 const RX = {
-  crash: new RegExp(`קורס|קריסה|קרסה|נקרס|נתקע|תקוע|לא נפתח|לא נטענ?|מסך (?:לבן|שחור)|לא עובד|לא מגיב|\\bcrash|\\bfreez|\\bstuck\\b|won'?t (?:open|load|start)|does(?:n'?t| not) (?:open|load|work)|not (?:working|loading|opening)|force clos`, "i"),
+  crash: new RegExp(`קורס|קריסה|קרסה|נקרס|נתקע|תקוע|לא נפתח|לא נטענ?|מסך (?:לבן|שחור)|לא עובד|לא מגיב|(?:אפליקציה|היא)\\s+נסגר|נסגר(?:ת|ה)?\\s+(?:לי|לבד|מעצמה|מעצמו|כל\\s+(?:הזמן|פעם)|באמצע)|\\bcrash|\\bfreez|\\bstuck\\b|won'?t (?:open|load|start)|does(?:n'?t| not) (?:open|load|work)|not (?:working|loading|opening)|force clos`, "i"),
   dealer: new RegExp(`סוחר|מגרש|${HE("ה?מוכר(?:ת|ים)?")}|מוכר הרכב|טרייד|יבואן|סוכנות|\\bdealer|\\bseller|salesm[ae]n|\\bimporter|trade-?in`, "i"),
   bug: new RegExp(`תקלה|תקלות|באג|שגיאה|שגיאות|\\bbugs?\\b|\\berrors?\\b|glitch`, "i"),
   data: new RegExp(`${HE("חסר(?:ים|ה|ות)?")} (?:מידע|נתונ|פרט)|(?:שגיאה|שגיאות|טעות|באג) ב(?:נתונ|מידע|פרט|שנת|תאריך|קילומטר|ק"מ|בעלות|ידיים|טסט|דגם|רכב)|\\bdata (?:error|bug)|\\b(?:error|bug|mistake)s? (?:in|with) (?:the )?(?:data|info|year|date|mileage|owner|test)|אין (?:מידע|נתונים|פרטים)|לא (?:מעודכנ?|עדכני|נכונ?|מדויק|תואם|מופיע|נמצא|מצא|מוצא)|מידע ישן|נתונים ישנים|שגוי|טעות ב|\\bmissing\\b|outdated|out of date|\\bwrong\\b|incorrect|inaccurate|not found|no (?:data|info)|(?:can'?t|couldn'?t|cannot) find`, "i"),
@@ -114,11 +114,12 @@ function aiCheck(raw, cls) {   // { text, why }: why is "" when the draft may be
   return { text: t, why };
 }
 // { text, why }: text = the personal draft, or "" and why: "key" when the key or the money is the cause (401, 402, 403, or a 400 that says
-// the credit balance is too low: no point trying again this tick, and the card says so), else a short reason for the log
+// the credit balance is too low: no point trying again this tick, and the card says so), "template" when Claude kept the template word for
+// word, else another short reason (also the log line)
 async function aiDraft(env, uc, cls) {
   const stars = Math.max(1, Math.min(5, +uc.starRating || 0));
   const review = String(uc.text || "").replace(/\t/g, "\n").trim().slice(0, 1500).replace(/</g, "‹").replace(/>/g, "›");   // cannot close <review>
-  const no = why => { console.log("ai draft: " + why); return { text: "", why }; };
+  const no = (why, more = "") => { console.log("ai draft: " + why + more); return { text: "", why }; };
   try {
     const r = await fetch(AI.url, { method: "POST", signal: AbortSignal.timeout(AI.ms),
       headers: { "content-type": "application/json", "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": AI.version },
@@ -128,14 +129,13 @@ async function aiDraft(env, uc, cls) {
     if (!r.ok) {
       const body = r.status === 400 ? await r.text().catch(() => "") : "";   // read for the credit test only, never logged
       const key = [401, 402, 403].includes(r.status) || /credit balance/i.test(body);
-      no(`HTTP ${r.status}${key ? " key" : ""}`);
-      return { text: "", why: key ? "key" : "http" };
+      return no(key ? "key" : "http", " " + r.status);
     }
     const j = await r.json();
-    if (j.stop_reason !== "end_turn") return no("stop " + String(j.stop_reason).slice(0, 20));
+    if (j.stop_reason !== "end_turn") return no("stop", " " + String(j.stop_reason).slice(0, 20));
     const { text, why } = aiCheck(JSON.parse((j.content || []).filter(b => b.type === "text").map(b => b.text).join("")).reply, cls);
-    return why ? no("not used, " + why) : { text, why: "" };
-  } catch (e) { return no("failed, " + String(e?.name || "error").slice(0, 40)); }
+    return why ? no(why, " (not used)") : { text, why: "" };
+  } catch (e) { return no("failed", " " + String(e?.name || "error").slice(0, 40)); }
 }
 
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -197,9 +197,10 @@ const same = (a, b) => { a = String(a); b = String(b); let d = a.length ^ b.leng
 const botId = env => String(env.TELEGRAM_BOT_TOKEN).split(":")[0];
 const keyboard = rows => ({ inline_keyboard: rows.map(r => r.map(([text, callback_data]) => ({ text, callback_data }))) });
 const block = (d, extra = "") => `${M_START}\n${esc(d)}\n${M_END}\n${chars(d)}/${MAX} תווים${extra}`;
-// src: "ai" = Claude's personal draft, "tpl" = the template although Claude was on, "key" = the template because the key or the credit
-// failed, "" = Claude off (the card as before)
-const NOTE = { ai: "✍️ טיוטה אישית לפי התבנית המאושרת. כדאי לקרוא לפני ששולחים.\n", tpl: "📋 התבנית המאושרת (הפעם לא נכתבה טיוטה אישית).\n",
+// src: "ai" = Claude's personal draft, "same" = Claude kept the template word for word, "tpl" = the template although Claude was on,
+// "key" = the template because the key or the credit failed, "" = Claude off (the card as before)
+const NOTE = { ai: "✍️ טיוטה אישית לפי התבנית המאושרת. כדאי לקרוא לפני ששולחים.\n", same: "📋 התבנית המאושרת (הטיוטה האישית יצאה זהה לה).\n",
+  tpl: "📋 התבנית המאושרת (הפעם לא נכתבה טיוטה אישית).\n",
   key: "📋 התבנית המאושרת. טיוטה אישית לא נכתבה: מפתח ה-Claude API לא עובד או שהקרדיט החודשי נגמר.\n" };
 function card(uc, cls, draft, h, updated, src = "") {
   const s = Math.max(1, Math.min(5, +uc.starRating || 0));
@@ -236,7 +237,8 @@ async function tick(env) {
       if (sent) await new Promise(r => setTimeout(r, PACE.ms));
       const stars = +x.uc.starRating || 0, cls = classify(x.uc.text, stars), ai = !aiKey && aiLeft-- > 0 ? await aiDraft(env, x.uc, cls) : { text: "" };
       if (ai.why === "key") aiKey = true;
-      const own = ai.text, draft = own || TEMPLATES[cls], src = own ? "ai" : aiKey ? "key" : aiOn(env) ? "tpl" : "", d = await dkey(draft);
+      const own = ai.text, draft = own || TEMPLATES[cls], src = own ? "ai" : aiKey ? "key" : ai.why === "template" ? "same" : aiOn(env) ? "tpl" : "";
+      const d = await dkey(draft);
       const rows = [[["✅ שלח", `s|${h}|${d}`], ["✏️ ערוך", `e|${h}|${d}`], ["⏭ דלג", `k|${h}`]], ...(own ? [[["📋 התבנית המאושרת", `t|${h}`]]] : [])];
       const m = await tg(env, "sendMessage", { chat_id: env.TELEGRAM_CHAT_ID, text: card(x.uc, cls, draft, h, !!st, src), parse_mode: "HTML", disable_web_page_preview: true,
         disable_notification: stars > 2, reply_markup: keyboard(rows) });

@@ -110,6 +110,9 @@ const CASES = [
   ["dealer", 1, "המוכר הסתיר תקלה במנוע, האפליקציה לא הראתה כלום"], ["dealer", 2, "הסוחר אמר שהרכב תקין, בדיעבד הייתה תקלה בגיר"],
   ["data", 2, "יש שגיאה בשנת הייצור של הרכב שלי"], ["data", 1, "Data error: the test date is wrong"], ["data", 2, "הקילומטראז' לא נכון, באג בנתונים"],
   ["crash", 2, "האפליקציה קורסת כשאני בודק רכב של סוחר"], ["crash", 1, "יש באג, אי אפשר לחפש"], ["crash", 1, "תקלה באפליקציה אחרי העדכון"], ["crash", 2, "Error every time I search"],
+  // an app that closes by itself (the real-API probe of 28.10); a deal that closed is not a crash
+  ["crash", 1, "האפליקציה נסגרת לי כל פעם שאני מקליד מספר רכב ולוחץ חפש"], ["crash", 2, "נסגרת באמצע החיפוש"], ["crash", 2, "היא נסגרת מעצמה"],
+  ["praise", 5, "העסקה נסגרה בזכות האפליקציה, מעולה"], ["dealer", 2, "העסקה נסגרה והסוחר שיקר לי"],
 ];
 for (const [want, s, t] of CASES) ok(W.classify(t, s) === want, `classify ${JSON.stringify(t)} (${s}*) = ${W.classify(t, s)}, want ${want}`);
 ok(W.classify("עובד מצוין, מוכר מצוין", 5) === "praise", "happy review naming a seller is praise");
@@ -398,7 +401,10 @@ for (const [what, setup] of [["HTTP 401", () => { claude.status = 401; claude.er
   const cs = await run(setup);
   ok(tplOk(cs, KEYN) && claude.bodies.length === 1, `${what}: the template, the card says the key or the credit failed, and no second call this tick (${claude.bodies.length} calls)`);
 }
-let cs = await run(() => {}, AENV({ REVIEWS_AI: "off" }));
+let cs = await run(() => { claude.reply = b => W.TEMPLATES[/^Category: (\w+)/.exec(b.messages[0].content)[1]]; });
+ok(cs.length === 2 && cs.every(m => m.text.includes("📋 התבנית המאושרת (הטיוטה האישית יצאה זהה לה)") && m.body.reply_markup.inline_keyboard.length === 1) && claude.bodies.length === 2,
+  "Claude kept the template word for word: the template, and the card says so");
+cs = await run(() => {}, AENV({ REVIEWS_AI: "off" }));
 ok(claude.bodies.length === 0 && cs.length === 2 && cs.every(m => !m.text.includes("📋") && !m.text.includes("✍️") && m.body.reply_markup.inline_keyboard.length === 1), "REVIEWS_AI=off: no call, the card as before");
 cs = await run(() => {}, ENV());
 ok(claude.bodies.length === 0 && cs.every(m => !m.text.includes("📋") && !m.text.includes("✍️")), "no key: no call, the card as before");
