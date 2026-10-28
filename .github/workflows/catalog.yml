@@ -30,6 +30,11 @@ jobs:
         run: node .github/scripts/catalog-rules.mjs
         env:
           OUT: cat-out
+          # when every name cut that an alert flagged is handled, the open catalogue alert is closed through the router
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
       - name: Telegram line when a rule needs a human (new models, unknown name cuts)
         if: ${{ hashFiles('cat-out/rules-alert.txt') != '' }}
         env:
@@ -40,9 +45,13 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           [ -n "$TELEGRAM_BOT_TOKEN" ] || { echo "no Telegram credentials"; exit 0; }
-          # through the alert router: a 🔵/✅ line waits for the Sunday summary (silent now), the rest rings today; a direct send when the router does not take it
-          if grep -q '^<b>🔵\|^<b>✅' cat-out/rules-alert.txt; then lv=summary; td=silent; else lv=day; td=loud; fi
-          r=$(node .github/scripts/alert.mjs send "$lv" catalog --file cat-out/rules-alert.txt --today "$td" --link "$RUN_URL" || true); echo "$r"
+          # through the alert router: a 🔵/✅ line (new models the picker already shows) is news under catalog:info and waits for the Sunday
+          # summary (silent now); the rest is the to-do "catalog" and rings today; a direct send when the router does not take it
+          if grep -q '^<b>🔵\|^<b>✅' cat-out/rules-alert.txt; then
+          r=$(node .github/scripts/alert.mjs send summary catalog:info --file cat-out/rules-alert.txt --today silent --link "$RUN_URL" || true)
+          else
+          r=$(node .github/scripts/alert.mjs send day catalog --file cat-out/rules-alert.txt --today loud --link "$RUN_URL" || true)
+          fi; echo "$r"
           if ! echo "$r" | grep -q '^ALERT_DONE'; then
           curl -s -o /dev/null -w "telegram %{http_code}\n" "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text@cat-out/rules-alert.txt" --data-urlencode "parse_mode=HTML" --data-urlencode "disable_notification=$(grep -q '^<b>🔵\|^<b>✅' cat-out/rules-alert.txt && echo true || echo false)" --data-urlencode "disable_web_page_preview=true"
           fi

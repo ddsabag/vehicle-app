@@ -5,7 +5,8 @@
 // and on each log entry the key's fixed headline from LABELS (he, sc), which the /live dashboard lists as its flashes.
 // Every problem reaches Telegram, and so does how it ended (Dudu 26.10: "לקבל התראה על כל בעיה גם אם היא טופלה, כדי לוודא שאכן טופלה"):
 // a key whose label is a problem (sect fail) at level silent/summary is sent quietly once per episode instead of only being logged or queued;
-// resolve() and `recovered` close items with an outcome and tell the problems among them in one quiet message; a self-repair is recorded
+// resolve() and `recovered` close items with an outcome and tell the problems among them in one quiet message (and a to-do whose label
+// marks its end as news, like the catalogue's, as "טופל"); a self-repair is recorded
 // as a problem that is already over (outcome "self"); the daily job sends the morning ledger, every problem of the last 24 h and what
 // happened to it. Loud stays for what needs a person: the level decides that, as before.
 // Node 20, no imports except node: builtins (failure-alert and alert-daily check out only this file).
@@ -89,7 +90,8 @@ export const LABELS = {
   "seo-auto:blocked":    { he: "שינוי SEO מחכה לאישור שלך ({id})", sect: "wait" },
   "seo-auto:notice":     { he: "שינוי SEO יעלה לאתר בעוד 24 שעות ({id})", sect: "none" },
   "seo-auto":            { he: "שינוי SEO ({id})", sect: "none" },
-  "catalog":             { he: "שמות דגמים חדשים בקטלוג לבדיקה", sect: "wait" },
+  "catalog":             { he: "שמות דגמים חדשים בקטלוג לבדיקה", sect: "wait", done: true },   // catalog-rules.mjs closes it once what it flagged is handled: told
+  "catalog:info":        { he: "דגמים חדשים במאגר, הבוחר כבר מציג אותם", sect: "fyi" },   // catalog.yml's 🔵 line: news, not a to-do (Sunday "לידיעה")
   "recalls":             { he: "בדיקת הריקולים היומית מצאה משהו לבדוק", sect: "fail" },   // recall-health.mjs (Model catalogue)
   "recalls:info":        { he: "עדכון ברשימת הריקולים של משרד התחבורה", sect: "fyi" },   // its information lines (🔵): not a problem, so not in the ledger
   "mag:fail":            { he: "כתבת מגזין לא פורסמה, הבדיקות נכשלו: {id}", sect: "wait" },
@@ -159,18 +161,25 @@ export const LABELS = {
   "zonea:fail":          { he: "יותר מדי בדיקות רכב נכשלו", sect: "fail" },              // headline also names the end ("חזר לתקין: ..."), so it carries
   "zonea:slow":          { he: "יותר מדי בדיקות רכב היו איטיות", sect: "fail" },         // no "yesterday" and no raw date
   "zonea:fail+slow":     { he: "יותר מדי בדיקות רכב נכשלו או היו איטיות", sect: "fail" },
+  // bots that use the Claude API (Dudu 28.10, monthly API credit): key ai:<bot>, level summary, when a bot could not reach the API and went on
+  // without it; that bot's next good call closes its own key (resolve(["ai:<bot>"]), never the bare "ai", which would close the others').
+  // ai:key, level day: the key or the credit is the cause (401, 403, credit balance too low), so Dudu has to act; any bot's good call closes it
+  "ai":                  { he: "בוט שנעזר ב-Claude לא הצליח לפנות אליו והמשיך בלעדיו: {ids}", sect: "fail",
+                           ids: { themes: "תיוג הנושאים בביקורות", advisor: "מבחן היועץ הטכני", recalls: "הסברי הריקולים", shots: "עין שנייה על צילומי המסך",
+                                  names: "התאמת שמות הדגמים", mag: "כתבות המגזין" } },
+  "ai:key":              { he: "מפתח ה-Claude API לא עובד או שהקרדיט נגמר, והבוטים ממשיכים בלעדיו", sect: "fail" },
 };
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
 export const FAMILIES_IN_USE = [
   "wf", "smoke", "expiry", "infra", "infra-branches", "guard:core", "guard:break", "guard:warn", "ministry", "checker:data-health",
   "review", "review3", "vitals", "reviews:error", "seo:daily", "seo:nodata", "seo:error", "seo:index", "mention",
-  "seo-auto:blocked", "seo-auto:wait", "seo-auto:notice", "seo-auto:done", "catalog", "recalls", "recalls:info", "mag:pub", "mag:fail",
+  "seo-auto:blocked", "seo-auto:wait", "seo-auto:notice", "seo-auto:done", "catalog", "catalog:info", "recalls", "recalls:info", "mag:pub", "mag:fail",
   "webwatch:rollback", "webwatch:rollback-failed", "meta:uptime", "weekly:missing", "workers:refused", "workers:rollback", "workers:failed", "workers:forced",
   "ship:done", "ship:notes", "ship:fail", "ship:dry", "listing:done", "listing:dry", "listing:fail",
   "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:wait", "prod:fail",
   "stl:update", "stl:stuck", "truth", "truth:fail", "truth:done", "truth:inv", "truth:inv-fail", "live:stuck", "live:error", "pipe",
   "social:fail", "social:missed", "social:unsure", "social:held", "social:done", "social:remind", "social:check", "exp", "auto:done", "auto:revert", "auto:mode",
-  "relguard", "relguard:ok", "relguard:thin", "zonea",
+  "relguard", "relguard:ok", "relguard:thin", "zonea", "ai", "ai:key",
 ];
 
 const TODAY = ["loud", "silent", "none"];
@@ -238,7 +247,7 @@ export function label(key) {
   if (!f && /^magazine-/.test(key)) return { he: "ניוזלטר המגזין נשלח או מחכה ב-Brevo", sect: "fyi" };   // newsletter.mjs keys its campaign name
   if (!f) return { he: "התראה: " + key, sect: "fyi" };
   const L = LABELS[f], id0 = String(key).split(":").slice(f.split(":").length).join(":"), id = f === "wf" ? botHe(id0) : id0;
-  return { he: L.he.replace("{ids}", id.split("+").map(x => (L.ids && L.ids[x]) || x).join(", ")).replace("{id}", id), sect: L.sect };
+  return { he: L.he.replace("{ids}", id.split("+").map(x => (L.ids && L.ids[x]) || x).join(", ")).replace("{id}", id), sect: L.sect, ...(L.done ? { done: true } : {}) };
 }
 // one log entry; he/sc = the key's fixed headline and section (never the caller's text), so /live can list what reached Telegram
 const logEntry = (t, k, lv, a, td, sh) => { const L = label(k); return { t, k, lv, a, td, sh, he: L.he, sc: L.sect }; };
@@ -369,7 +378,7 @@ function apply(s, o, { count = true, a = null, sh = 0, set = null } = {}) {
   const now = iso(o.now);
   if (count) {
     const old = s.items[o.key], ep = newEpisode(old, o.level, o.fresh, o.now);
-    const it = ep ? { lv: o.level, u: [], first: now, last: now, n: 0, sent: null, pend: old?.pend || null, open: true } : { ...old };
+    const it = ep ? { lv: o.level, u: [], first: now, last: now, n: 0, sent: null, pend: (old?.open !== false && old?.pend) || null, open: true } : { ...old };   // a closed one's night pointer is over
     it.n = (it.n || 0) + 1; it.last = now; it.open = true;
     if (rank(o.level) > rank(it.lv)) it.lv = o.level;
     if (o.src) it.src = o.src;
@@ -475,24 +484,28 @@ function outcomeText(rows, wf, link) {
   const at = it => ilTime(new Date(t0(it.sent) || t0(it.first))), head = `✅ בוצע · ${areaOf(rows[0][0])}`, none = "👌 לא צריך לעשות כלום.";
   if (wf) return [head, `הבוט "${botHe(wf)}" רץ שוב בהצלחה`, `ההתראה עליו נשלחה ב-${at(rows[0][1])}, וההרצה הזו עברה.`, none,
     ...cleanLinks(link).slice(0, 1).map(u => "🔗 " + u)].join("\n");
-  if (rows.length === 1) return [head, `חזר לתקין: ${label(rows[0][0]).he}`, `הבדיקה הבאה עברה. ההתראה על זה נשלחה ב-${at(rows[0][1])}.`, none].join("\n");
-  return [head, `חזרו לתקינות (${rows.length}):`, ...rows.map(([k, it]) => `• ${label(k).he} (התראה מ-${at(it)})`), none].join("\n");
+  const todo = ([k]) => label(k).sect !== "fail";   // a to-do whose end is news (label done) was handled, not repaired
+  if (rows.length === 1) return [head, ...(todo(rows[0]) ? [`טופל: ${label(rows[0][0]).he}`, `הבדיקה הבאה אישרה שזה טופל. ההתראה על זה נשלחה ב-${at(rows[0][1])}.`]
+    : [`חזר לתקין: ${label(rows[0][0]).he}`, `הבדיקה הבאה עברה. ההתראה על זה נשלחה ב-${at(rows[0][1])}.`]), none].join("\n");
+  return [head, rows.some(todo) ? `טופלו (${rows.length}):` : `חזרו לתקינות (${rows.length}):`, ...rows.map(([k, it]) => `• ${label(k).he} (התראה מ-${at(it)})`), none].join("\n");
 }
 // close the open items that match, outcome "fixed": one read, at most one write, 8 s, never throws. The problems among them (sect fail) seen
 // in the last 72 h that were announced (any of them when a green run closed its own failure) are told in ONE quiet message after the write,
-// unless the caller tells it its own way (tell false: the items are still closed with their outcome, for the morning ledger).
+// and so is a to-do whose label says its end is news (done: its alert promised Dudu an update), unless the caller tells it its own way
+// (tell false: the items are still closed with their outcome, for the morning ledger). Other to-dos (a version waiting for "פרסם", a
+// renewal) close untold: whoever acts on them already knows.
 async function closeItems(match, { wf = "", link = "", tell = true } = {}) {
   const env = IO.env;
   if (isDry(env) || !env.GITHUB_TOKEN) return 0;
   const c = new AbortController(), timer = setTimeout(() => c.abort(), ms(8000)), now = IO.now();
-  const told = (k, it) => tell && label(k).sect === "fail" && (it.sent || wf) && now - t0(it.last) <= TELL_MS;
+  const told = (k, it) => tell && (label(k).sect === "fail" || label(k).done === true) && (it.sent || wf) && now - t0(it.last) <= TELL_MS;
   let closed = [];
   try {
     const s = await readState(c.signal);
     if (!s || !Object.entries(s.items).some(([k, it]) => it.open && match(k))) return 0;
     const w = await cas(STATE.file, x => {
       closed = [];
-      for (const [k, it] of Object.entries(x.items)) if (it.open && match(k)) { Object.assign(it, { open: false, out: "fixed", outAt: iso(now) }); closed.push([k, { ...it }]); }
+      for (const [k, it] of Object.entries(x.items)) if (it.open && match(k)) { Object.assign(it, { open: false, out: "fixed", outAt: iso(now), pend: null }); closed.push([k, { ...it }]); }
       x.log = [...x.log, ...closed.filter(([k, it]) => told(k, it)).map(([k, it]) => logEntry(iso(now), k, it.lv, "fixed", "none", 0))].slice(-600);
       return closed.length ? x : null;
     }, { dl: c.signal });
@@ -505,7 +518,7 @@ async function closeItems(match, { wf = "", link = "", tell = true } = {}) {
   }
   return closed.length;
 }
-// close every open item under the prefixes; the announced problems among them are told once ("חזר לתקין"), unless opts.tell is false
+// close every open item under the prefixes; the announced problems among them are told once ("חזר לתקין", a to-do marked done "טופל"), unless opts.tell is false
 // (a caller that sends its own "done" message for the same event)
 export async function resolve(prefixes, opts = {}) {
   const pre = (Array.isArray(prefixes) ? prefixes : [prefixes]).filter(p => typeof p === "string" && p);
@@ -572,8 +585,9 @@ async function daily() {
   const runUrl = env.GITHUB_RUN_ID ? `https://github.com/${repo()}/actions/runs/${env.GITHUB_RUN_ID}` : "";
   if (!tgOk && !dry) await mail("🚨 לוחית: מערך ההתראות בטלגרם לא עובד",
     "בדיקת הטלגרם היומית נכשלה (getMe/getChat). עד שזה יתוקן, התראות קריטיות מגיעות במייל, וריצות שנכשלות שולחות את המייל של GitHub.", [runUrl]);
-  // 3 morning ring
-  const pend = Object.entries(s.items).filter(([, it]) => it.pend).sort((a, b) => t0(a[1].pend) - t0(b[1].pend));
+  // 3 morning ring: what was sent quietly in the night and is still open (an item closed since, fixed or a self-repair, is in the ledger;
+  // 27.10 the ring listed 1.38.3 "waiting for פרסם" two minutes after it went to Production)
+  const pend = Object.entries(s.items).filter(([, it]) => it.pend && it.open !== false).sort((a, b) => t0(a[1].pend) - t0(b[1].pend));
   let ringOk = true;
   if (dry) IO.out(`would ring ${pend.length}`);
   else if (pend.length) {
@@ -933,6 +947,28 @@ async function selftest() {
       ok(await resolve(["smoke:"], { tell: false }) === 2 && m2.tg.length === 0 && m2.state().items["smoke:home"].out === "fixed" && !m2.state().log.length,
         "tell false: closed with the outcome, nothing sent or logged");
     }
+    // a to-do whose label marks its end as news (catalog: its alert promised Dudu an update) is told in its own words; other to-dos are not
+    {
+      const st = base(), at = t => ({ lv: "day", first: iso(t), last: iso(t), n: 1, sent: iso(t), pend: null, open: true, u: [] });
+      st.items["catalog"] = { ...at(DAY - 20 * H), pend: iso(DAY - 20 * H) }; st.items["ship:done:1.40"] = at(DAY - H);
+      const m = net({ state: st }); IO.fetch = m.fetch; IO.env = { ...ENV }; IO.now = () => DAY;
+      ok(await resolve(["catalog", "ship:done:"]) === 2 && m.tg.length === 1 && m.tg[0].disable_notification === true && m.tg[0].text === "✅ בוצע · נתונים\nטופל: שמות דגמים חדשים בקטלוג לבדיקה\n" +
+        `הבדיקה הבאה אישרה שזה טופל. ההתראה על זה נשלחה ב-${ilTime(new Date(DAY - 20 * H))}.\n👌 לא צריך לעשות כלום.`, "the catalogue's to-do is told quietly as handled, the version is not: " + m.tg[0]?.text);
+      ok(m.state().log.filter(e => e.a === "fixed").map(e => e.k).join() === "catalog" && Object.values(m.state().items).every(it => it.out === "fixed" && it.pend === null) && schema(m.state()) === "",
+        "both closed with the outcome and without a night pointer, one outcome entry (the told to-do); schema");
+      st.items["smoke:home"] = at(DAY - H); st.items["catalog"] = at(DAY - 2 * H); delete st.items["ship:done:1.40"];
+      const m2 = net({ state: st }); IO.fetch = m2.fetch;
+      ok(await resolve(["smoke:", "catalog"]) === 2 && m2.tg.length === 1 && m2.tg[0].text.startsWith("✅ בוצע · ") && m2.tg[0].text.includes("\nטופלו (2):\n• ")
+        && m2.tg[0].text.includes("• שמות דגמים חדשים בקטלוג לבדיקה (התראה מ-"), "a problem and a to-do together: one message, \"טופלו\": " + m2.tg[0]?.text);
+      ok(label("catalog").done === true && label("expiry:cert").done === undefined && label("smoke:home").done === undefined, "only a label marked done carries it");
+    }
+    // a closed item's night pointer is not carried into its next episode (else a daytime queued line would be rung the next morning)
+    {
+      const st = base(); st.items["mention:x"] = { lv: "summary", first: iso(DAY - 9 * H), last: iso(DAY - 9 * H), n: 1, sent: iso(DAY - 9 * H), pend: iso(DAY - 9 * H),
+        open: false, out: "self", outAt: iso(DAY - 9 * H), u: [] };
+      const x = await run({ level: "summary", key: "mention:x", state: st, now: DAY });
+      ok(x.r.action === "queued" && x.st.items["mention:x"].open === true && x.st.items["mention:x"].pend === null && schema(x.st) === "", "new episode after a closed item: no night pointer " + x.r.action);
+    }
 
     // privacy: 500 random calls; state = whitelist schema, no @, no 5+ digit runs, no 12+ character piece of any text; stdout = log lines only
     {
@@ -989,14 +1025,20 @@ async function selftest() {
     for (const [f, ids] of [["smoke", "home lookup magazine applinks privacy model sitemap cert domain certcheck"], ["expiry", "cert domain certcheck"],
       ["infra", "site api sitemap quota-cf quota-brevo"], ["vitals", "crash anr"], ["listing:fail", "access files play"], ["prod:fail", "access promote auto"], ["safety:fail", "access files play"],
       ["truth", "page identity status test road owners km recalls settlements tow specs mods fee price value tag insight counts message"],
-      ["truth:inv", "fresh tests renewal dates reuse owners km hook price wltp recalls pubcancel lend"], ["pipe", "web app errors ga"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
+      ["truth:inv", "fresh tests renewal dates reuse owners km hook price wltp recalls pubcancel lend"], ["pipe", "web app errors ga"],
+      ["ai", "themes advisor recalls shots names mag"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
       const he = label(f + ":" + ids.split(" ").join("+")).he.split(/[\s,:]+/);
       ok(!ids.split(" ").some(i => he.includes(i)), `label ${f}: no raw id left`);
     }
     ok(label("smoke:home+lookup").he === "בדיקת האתר החי מצאה בעיה: דף הבית, בדיקת רכב" && label("wf:Data guard").he === 'הבוט "שומר הנתונים" נכשל' && label("wf:Magazine (data)").he === 'הבוט "המגזין (נתונים)" נכשל'
       && label("seo:daily").sect === "none" && label("nope:x").he === "התראה: nope:x" && label("mag:fail:2026-10").sect === "wait", "label rendering");
+    ok(label("catalog").sect === "wait" && label("catalog:info").sect === "fyi" && label("catalog:info").done === undefined && areaOf("catalog:info") === "נתונים",
+      "the catalogue's news line is not a to-do");
     ok(label("zonea:fail:2026-10-25").he === "יותר מדי בדיקות רכב נכשלו" && label("zonea:fail+slow:2026-10-25").he === "יותר מדי בדיקות רכב נכשלו או היו איטיות"
       && label("zonea:slow:2026-10-25").sect === "fail" && !/\d/.test(label("zonea:x:2026-10-25").he), "zone A labels: by kind, no raw date");
+    ok(label("ai:themes").he === "בוט שנעזר ב-Claude לא הצליח לפנות אליו והמשיך בלעדיו: תיוג הנושאים בביקורות" && label("ai:themes").sect === "fail"
+      && label("ai:key").he.startsWith("מפתח ה-Claude API") && label("ai:key").sect === "fail" && validKey("ai:key") && validKey("ai:recalls"),
+      "Claude API labels: one per bot, the key's own");
     const used = scanKeys(ROOT), missing = used.filter(k => !FAMILIES_IN_USE.some(f => f === k || f.startsWith(k + ":") || k.startsWith(f + ":")));
     ok(missing.length === 0, "call-site keys missing from FAMILIES_IN_USE: " + missing.join(", "));
     // every workflow that runs on main by itself is watched by failure-alert, each watched name has a deliberate level, and the parser sees the events
@@ -1168,10 +1210,14 @@ async function selftest() {
       const st = base(); st.hb = { daily: "2026-10-19", dailyAt: iso(DAY - 24 * H) };
       st.items["mag:fail:2026-10"] = { lv: "day", first: iso(DAY - 8 * H), last: iso(DAY - 8 * H), n: 1, sent: iso(DAY - 8 * H), pend: iso(DAY - 8 * H), open: true, u: [] };
       st.items["old:x"] = { lv: "day", first: iso(DAY - 30 * 864e5), last: iso(DAY - 22 * 864e5), n: 1, sent: null, pend: null, open: false, u: [] };
+      // sent in the night, closed two minutes later (as 1.38.3 on 27.10): not rung
+      st.items["ship:done:1.40"] = { lv: "day", first: iso(DAY - 7 * H), last: iso(DAY - 7 * H), n: 1, sent: iso(DAY - 7 * H), pend: iso(DAY - 7 * H), open: false, out: "fixed",
+        outAt: iso(DAY - 7 * H + 12e4), u: [] };
       const m = net({ state: st });
       let d = await runCli(["daily"], { m, env: { GITHUB_EVENT_NAME: "schedule" }, now: Date.parse("2026-10-20T05:20:00Z") });
       const s1 = m.state();
-      ok(d.code === 0 && m.tg.length === 1 && m.tg[0].disable_notification === false && m.tg[0].text.includes("כתבת מגזין לא פורסמה, הבדיקות נכשלו: 2026-10 (04:00)"), "daily: one loud morning ring " + d.out);
+      ok(d.code === 0 && m.tg.length === 1 && m.tg[0].disable_notification === false && m.tg[0].text.includes("כתבת מגזין לא פורסמה, הבדיקות נכשלו: 2026-10 (04:00)")
+        && m.tg[0].text.includes("מה קרה בלילה (1)") && !m.tg[0].text.includes("1.40"), "daily: one loud morning ring, without what closed in the night " + d.out);
       ok(s1.items["mag:fail:2026-10"].pend === null && s1.log.some(e => e.a === "ring") && !s1.items["old:x"] && s1.hb.daily === "2026-10-20" && s1.hb.tgOkAt, "daily: pend cleared, pruned, claimed");
       ok(!!m.files["heartbeat.json"] && J(m.files["heartbeat.json"].text).t, "daily: heartbeat written");
       d = await runCli(["daily"], { m, env: { GITHUB_EVENT_NAME: "schedule" }, now: Date.parse("2026-10-20T06:20:00Z") });

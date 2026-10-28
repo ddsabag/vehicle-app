@@ -107,10 +107,11 @@ svg.i{width:20px;height:20px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-
 .brand-r{display:flex;align-items:center;gap:8px}.home-btn{white-space:nowrap;display:flex;align-items:center;gap:6px;height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--band-line);background:transparent;font-weight:700;color:var(--band-fg)}.home-btn[hidden]{display:none}
 .icon-btn{width:44px;height:44px;border-radius:10px;border:1px solid var(--band-line);background:transparent;display:grid;place-items:center}
 form{display:flex;gap:10px}
-.plate{flex:1;min-width:0;display:flex;direction:ltr;background:var(--plate);border:3px solid #0b0b0b;border-radius:9px;overflow:hidden;height:64px}
-.plate .il{background:var(--il);color:#fff;width:40px;flex:0 0 40px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:7px;font:700 11px/1.15 var(--f-body)}
-.plate input{flex:1;min-width:0;border:0;background:transparent;color:var(--plate-ink);font:600 clamp(1.7rem,8vw,2.3rem)/1 var(--f-num);letter-spacing:.05em;text-align:center;padding:0 4px;outline:none;text-overflow:clip}
-.plate input::placeholder{color:rgba(0,0,0,.3)}.plate input:placeholder-shown{font-size:clamp(1.2rem,6.2vw,2.1rem)}
+.plate{flex:1;min-width:0;display:flex;direction:ltr;background:var(--plate);border:3px solid #0b0b0b;border-radius:9px;overflow:hidden;height:64px;position:relative}
+.plate .il{background:var(--il);color:#fff;min-width:40px;flex:0 0 auto;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:0 3px 7px;font:700 11px/1.15 var(--f-body)}
+.plate input{flex:1;min-width:0;border:0;background:transparent;color:var(--plate-ink);font:600 calc(clamp(1.7rem,8vw,2.3rem)*var(--pf,1))/1 var(--f-num);letter-spacing:.05em;text-align:center;padding:0 4px;outline:none;text-overflow:clip}
+.plate input::placeholder{color:rgba(0,0,0,.3)}.plate input:placeholder-shown{font-size:calc(clamp(1.2rem,6.2vw,2.1rem)*var(--pf,1))}
+.plate .pp{position:absolute;top:0;left:0;visibility:hidden;pointer-events:none;white-space:pre;font:600 clamp(1.7rem,8vw,2.3rem)/1 var(--f-num);letter-spacing:.05em}.plate .pp.ex{font-size:clamp(1.2rem,6.2vw,2.1rem)}
 .plate:focus-within{box-shadow:0 0 0 3px var(--band),0 0 0 5px var(--accent)}
 .go{flex:0 0 auto;width:64px;height:64px;border-radius:9px;border:0;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center}
 .go svg.i{width:26px;height:26px;stroke-width:2.4}
@@ -7088,12 +7089,27 @@ const syncClr = () => {
   const el = $("#plate"), c = $("#clrPlate");
   if (el.value === lastPlateVal && c.hidden === !el.value) return;
   lastPlateVal = el.value; c.hidden = !el.value; $("#pastePlate").hidden = !!el.value;
-  // shrink the digits until they fit next to the clear button, so nothing is cut off
-  el.style.fontSize = "";
-  let fs = parseFloat(getComputedStyle(el).fontSize);
-  while (el.value && el.scrollWidth > el.clientWidth + 1 && fs > 15) { fs -= 1; el.style.fontSize = fs + "px"; }
+  fitPlate(el);
 };
+// the digits, or the example 12-345-67 while the field is empty, shrink until they fit next to the button, so nothing is cut off. The phone's
+// font size (the app's WebView follows it, up to 200%) or a browser's larger text grows them while the field keeps its width, and an input
+// cannot measure its placeholder. A hidden copy in the same style (.pp) is measured and --pf scales the text by the ratio, so nothing depends
+// on how the enlarged size is reported (a size read back in px and set again would be enlarged twice)
+function fitPlate(el){
+  let pp = el.parentElement.querySelector(".pp");
+  if (!pp) { pp = document.createElement("span"); pp.className = "pp"; pp.setAttribute("aria-hidden", "true"); el.parentElement.appendChild(pp); }
+  pp.textContent = el.value || el.placeholder; pp.classList.toggle("ex", !el.value);
+  const cs = getComputedStyle(el), room = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), w = pp.getBoundingClientRect().width;
+  el.style.setProperty("--pf", room > 0 && w > room ? Math.max(.25, (room - 1) / w).toFixed(3) : "1");
+}
+const refitPlate = () => { lastPlateVal = null; syncClr(); };
+// the field changes width with the screen and the strip, and a field hidden at the start (the app opened on a car or the alerts) has none
+// until it appears: each change fits it again
+addEventListener("resize", refitPlate);
+if (window.ResizeObserver) new ResizeObserver(refitPlate).observe($("#plate"));
+if (document.fonts) document.fonts.ready.then(refitPlate);
 $("#plate").addEventListener("input", syncClr);
+syncClr();
 setInterval(syncClr, 500); // value set from code (search, photo, voice) fires no input event
 // the keyboard's own paste chip is not reachable from a numeric field, so the app reads the clipboard itself
 $("#pastePlate").addEventListener("click", async ev => {

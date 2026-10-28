@@ -619,7 +619,9 @@ function compare(c, X, P) {
       check(c, "owners.insight_dealer_now", dealerNow === ins.includes("הרכב רשום כעת על סוחר"), ins.join(" | ").slice(0, 120), dealerNow ? "הרכב רשום כעת על סוחר" : "(none)", `current owner ${curK} (register "${R.baalut || ""}")`);
       check(c, "owners.insight_was_dealer", wasDealer === ins.includes("היה אצל סוחר"), ins.join(" | ").slice(0, 120), wasDealer ? "היה אצל סוחר" : "(none)", "");
       const newDealer = !dealerNow && !wasDealer && DEALER.test(past[0] || "") && !held(0) && newAtFirst;
-      check(c, "owners.insight_new_dealer", newDealer === ins.includes("כנראה נמכר כיד 2, 0 ק״מ"), ins.join(" | ").slice(0, 120), newDealer ? "כנראה נמכר כיד 2, 0 ק״מ" : "(none)", "");
+      // a short first leasing record shows the same title (owners.insight_short_lease checks that one): when it is shown, one such title is the lease's
+      const zk = "כנראה נמכר כיד 2, 0 ק״מ", leaseZk = sl && slT === zk && ins.includes(zk), nZk = ins.filter(t => t === zk).length - (leaseZk ? 1 : 0);
+      check(c, "owners.insight_new_dealer", nZk === (newDealer ? 1 : 0), ins.join(" | ").slice(0, 120), newDealer ? zk : "(none)", leaseZk ? "one such title is the short first lease's" : "");
     }
   }
   { const has = (X.sets.tag || []).length > 0, said = /לרכב יש תג חניה לנכה/.test(P.tabs.overview.text);

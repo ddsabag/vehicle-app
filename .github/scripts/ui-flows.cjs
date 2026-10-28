@@ -134,6 +134,15 @@ async function measure(page) {
       if (a.rs.some((p) => c.rs.some((q) => Math.min(p.right, q.right) - Math.max(p.left, q.left) > 4 && Math.min(p.bottom, q.bottom) - Math.max(p.top, q.top) > 4))) overlaps.push(label(a.e) + " ⟷ " + label(c.e));
     }
     const clipped = scope.filter((e) => { const cs = getComputedStyle(e); return e.children.length === 0 && e.textContent.trim().length > 2 && (cs.overflow.includes("hidden") || cs.overflowX === "clip") && cs.textOverflow !== "ellipsis" && e.scrollWidth > e.clientWidth + 2; }).map(label);
+    // the plate field is no leaf the rule above sees: the number in it, the example while it is empty (an input cannot measure its
+    // placeholder: its hidden copy .pp at full size times --pf is what is drawn, index.html fitPlate) and the words of the blue strip
+    const pl = document.getElementById("plate");
+    if (pl && vis(pl) && (!sheet || sheet.contains(pl))) {
+      const cs = getComputedStyle(pl), room = pl.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), pp = pl.parentElement.querySelector(".pp"), il = pl.parentElement.querySelector(".il");
+      if (pl.value && pl.scrollWidth > pl.clientWidth + 2) clipped.push(`the plate field: ${pl.value}`);
+      if (!pl.value && pp && pp.getBoundingClientRect().width * parseFloat(pl.style.getPropertyValue("--pf") || "1") > room + 2) clipped.push(`the plate field: ${pl.placeholder}`);
+      if (il) for (const w of il.children) if (w.getBoundingClientRect().width > il.getBoundingClientRect().width + 1) clipped.push(`the plate strip: ${w.textContent}`);
+    }
     // siblings of one row of chips / tabs / buttons at different heights (one of them wrapped or squeezed)
     const ragged = [];
     for (const row of document.querySelectorAll(".rc-row, .tabs, .in-alt, .vseg, .cmp-bar, .seg, .hr-p, .chips, .try")) {
