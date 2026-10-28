@@ -216,7 +216,12 @@ async function prepare(page, state, theme) {
   await page.evaluate(() => location.replace(location.pathname));
   await page.waitForSelector("#homeMark", { state: "attached", timeout: 20000 });
   await page.addStyleTag({ content: "*{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}" });
+  await hearToasts(page);
 }
+// every toast the page shows, for ui-flows' told(), kept as ui-flows' init script keeps them in the browser: the page clears a toast
+// after 2.2 s, and on a slow emulator a step's check can read the screen later than that (28.10, API 35: a service saved and its toast
+// shown, then "saving a service should say so, got """)
+const hearToasts = (page) => page.evaluate(() => { window.__toasts = []; const t = document.getElementById("toast"); if (t) new MutationObserver(() => { const s = t.textContent.trim(); if (s && window.__toasts[window.__toasts.length - 1] !== s) window.__toasts.push(s); }).observe(t, { childList: true, characterData: true, subtree: true }); });
 
 // ---- what the screen shows: a screenshot, the WebView's place on it, the colours of the bars
 function screencap() { const buf = adb(["exec-out", "screencap", "-p"], { raw: true }); try { return PNG.sync.read(buf); } catch { return null; } }
@@ -352,6 +357,7 @@ async function journey(page, sc, state, J, theme) {
   const ui0 = sysUiPid(), seen = []; let prev = null;
   for (const [name, act, expect] of J.steps) {
     cur.step = name;
+    await page.evaluate(() => { if (window.__toasts) window.__toasts = []; }).catch(() => {});
     // a step that opens the app again (reopen) hands over the new page
     if (act) { try { const r = await act(page, c); if (r && typeof r.evaluate === "function") page = c.page = r; } catch (e) { if (closed(e)) { disturbed.add("closed"); break; } add("block", "logic", run, name, "could not act: " + e.message.split("\n")[0].slice(0, 120)); } }
     await sleep(500);
@@ -385,6 +391,7 @@ async function reopen() {
   sh("input keyevent 3"); await sleep(1500);
   const page = await launch();
   await page.addStyleTag({ content: "*{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}" });
+  await hearToasts(page);
   return page;
 }
 
