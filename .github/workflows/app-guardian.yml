@@ -83,7 +83,7 @@ jobs:
         scenario: [411-f100, 411-extra, 360-f130, 320-f130, 411-f200]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: app-qa
       - uses: actions/setup-node@v7
@@ -177,7 +177,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: app-real-api*
           merge-multiple: true
