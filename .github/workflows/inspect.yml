@@ -37,6 +37,9 @@ jobs:
         run: |
           npm install --no-save playwright@1.49.1
           npx playwright install --with-deps chromium
+      - name: Install the Claude SDK (claude-* scripts; branch ops-claude-key-probe only)
+        if: ${{ startsWith(inputs.script, 'claude-') }}
+        run: npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund @anthropic-ai/sdk@0.133.0
       - run: |
           mkdir -p out
           case "$SCRIPT" in *[!a-z0-9-]*.mjs|"") echo "bad script name"; exit 1;; esac
@@ -46,6 +49,7 @@ jobs:
           SCRIPT: ${{ inputs.script }}
           PLATES: ${{ inputs.plates }}
           QUERIES: ${{ inputs.queries }}
+          ANTHROPIC_API_KEY: ${{ startsWith(inputs.script, 'claude-') && secrets.ANTHROPIC_API_KEY || '' }}
           NODE_OPTIONS: --max-old-space-size=6144
       - name: Publish the report on the inspect-output branch
         run: |
