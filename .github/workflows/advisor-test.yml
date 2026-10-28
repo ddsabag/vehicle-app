@@ -1,0 +1,37 @@
+name: Advisor quality test (one-off, strategy/advisor-test branch)
+# 28.10: the AI technical advisor's offline test, its build gate (30 Hebrew questions on model data, never a plate; three models answer,
+# Opus 5.5 grades; bar 27 of 30 correct and none dangerous). Paid from the monthly API credit (Console workspace luchit-bots).
+# Runs on a push to the strategy/advisor-test branch only. The log shows request counts only; answers, grades and usage are
+# encrypted with .github/seo-data.pub.pem and published on the strategy/advisor-test-out branch.
+on:
+  push:
+    branches: [strategy/advisor-test]
+    paths: [".github/advisor-test/**", ".github/scripts/advisor-test.mjs", ".github/workflows/advisor-test.yml"]
+permissions:
+  contents: write
+concurrency:
+  group: advisor-test
+  cancel-in-progress: false
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Self-test (offline; the cases, no plate-like number, the requests, the grading and the bar; and the Claude helper)
+        run: node .github/scripts/advisor-test.mjs --selftest && node .github/scripts/claude.mjs --selftest
+      - name: Install the SDK (for this test only; the app never loads it)
+        run: npm install --no-save --no-audit --no-fund "$(node -e 'import("./.github/scripts/claude.mjs").then(m => console.log(m.SDK))')"
+      - name: Run (skipped without the key)
+        run: node .github/scripts/advisor-test.mjs
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      - name: Publish on strategy/advisor-test-out (encrypted only)
+        if: hashFiles('out/advisor-test.enc.json') != ''
+        run: |
+          cd out && git init -q && git checkout -q -b strategy/advisor-test-out && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Advisor quality test (encrypted)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" strategy/advisor-test-out
