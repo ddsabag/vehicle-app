@@ -1,6 +1,6 @@
 name: Advisor quality test (one-off, strategy/advisor-test branch)
-# 28.10: the AI technical advisor's offline test, its build gate (30 Hebrew questions on model data, never a plate; three models answer,
-# Opus 5.5 grades; bar 27 of 30 correct and none dangerous). Paid from the monthly API credit (Console workspace luchit-bots).
+# 28.10: the AI technical advisor's offline test, its build gate (Hebrew questions on model data, never a plate; Opus and Sonnet 5.5
+# answer, Opus 5.5 grades; bar 90% correct on each set of cases and none dangerous). Paid from the monthly API credit (Console workspace luchit-bots).
 # Runs on a push to the strategy/advisor-test branch only. The log shows request counts only; answers, grades and usage are
 # encrypted with .github/seo-data.pub.pem and published on the strategy/advisor-test-out branch.
 on:
@@ -15,7 +15,7 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-24.04
-    timeout-minutes: 300
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v7
