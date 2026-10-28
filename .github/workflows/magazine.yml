@@ -49,7 +49,7 @@ jobs:
     env:
       KIND: ${{ (github.event.schedule == '30 5 * * 4' || inputs.part == 'data') && 'data' || 'monthly' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: main
       - uses: actions/setup-node@v7
@@ -152,7 +152,7 @@ jobs:
     permissions:
       contents: write   # only for the alert router's state on the alert-state branch; the newsletter never writes main
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with: { node-version: 20 }
       - run: node .github/scripts/newsletter.mjs

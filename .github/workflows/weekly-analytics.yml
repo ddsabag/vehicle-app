@@ -35,7 +35,7 @@ jobs:
     outputs:
       sent: ${{ steps.build.outputs.sent }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -91,7 +91,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         continue-on-error: true
         with:
           sparse-checkout: .github/scripts/alert.mjs

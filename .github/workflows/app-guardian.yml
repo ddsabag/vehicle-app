@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -82,7 +82,7 @@ jobs:
         # the phone settings of app-real.cjs: width in dp and font size; 411-extra is the ways in, the keyboard, Back at home and a dark phone
         scenario: [411-f100, 411-extra, 360-f130, 320-f130, 411-f200]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v4
         with:
           name: app-qa
