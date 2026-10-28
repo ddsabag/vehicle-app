@@ -1,0 +1,71 @@
+{
+ "label": "35-swangle_indirect-age-on-1",
+ "scenarios": [
+  {
+   "id": "411-extra",
+   "zoom": 1,
+   "webview": "Chrome/124.0.6367.219",
+   "seconds": 191
+  }
+ ],
+ "sdk": "35",
+ "model": "sdk_gphone64_x86_64",
+ "webview": "Current WebView package (name, version): (com.google.android.webview, 124.0.6367.219)",
+ "keyboard": {
+  "before": 842,
+  "after": 842,
+  "kbClass": true,
+  "pointer": {
+   "coarse": true,
+   "anyCoarse": true,
+   "hoverNone": true,
+   "touchPoints": 5
+  }
+ },
+ "backAtHome": "kept",
+ "turn": {
+  "ac": 0,
+  "ad": 0,
+  "ae": 0.0588,
+  "ag": 0.0588,
+  "dg": 0.0588,
+  "box": {
+   "l": 128,
+   "t": 63,
+   "r": 2400,
+   "b": 1017
+  },
+  "vp": {
+   "w": 866,
+   "h": 364,
+   "dpr": 2.625,
+   "sy": 0,
+   "vv": [
+    866.2857055664062,
+    364.19049072265625,
+    0
+   ],
+   "kb": false
+  }
+ },
+ "autoTheme": [
+  {
+   "phone": "light",
+   "page": "light",
+   "mq": "light"
+  },
+  {
+   "phone": "dark",
+   "page": "dark",
+   "mq": "light"
+  }
+ ],
+ "launchDark": [
+  0.14,
+  0.07,
+  0.07,
+  0.07,
+  0.14,
+  0.14
+ ]
+}
