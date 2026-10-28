@@ -1,10 +1,10 @@
 {
  "v": 1,
- "d": "2026-10-27",
- "seed": "20261027",
+ "d": "2026-10-28",
+ "seed": "20261028",
  "cars": 40,
  "sampled": 40,
- "mism": 0,
+ "mism": 1,
  "skipped": 0,
  "refused": 0,
  "fields": {
@@ -89,7 +89,7 @@
    0
   ],
   "owners.durations": [
-   10,
+   9,
    0
   ],
   "owners.first_owner": [
@@ -105,7 +105,7 @@
    0
   ],
   "owners.insight_company_now": [
-   10,
+   9,
    0
   ],
   "owners.insight_dealer_now": [
@@ -113,27 +113,27 @@
    0
   ],
   "owners.insight_lease": [
-   10,
+   9,
    0
   ],
   "owners.insight_new_dealer": [
-   10,
-   0
+   9,
+   1
   ],
   "owners.insight_rental": [
-   10,
+   9,
    0
   ],
   "owners.insight_short_lease": [
-   10,
+   9,
    0
   ],
   "owners.insight_was_dealer": [
-   10,
+   9,
    0
   ],
   "owners.now_line": [
-   10,
+   9,
    0
   ],
   "owners.timeline": [
@@ -153,19 +153,19 @@
    0
   ],
   "recalls.line_honest": [
-   32,
+   35,
    0
   ],
   "recalls.model_count": [
-   32,
+   33,
    0
   ],
   "recalls.model_extra": [
-   32,
+   33,
    0
   ],
   "recalls.model_fits": [
-   16,
+   10,
    0
   ],
   "recalls.model_missing": [
@@ -180,8 +180,12 @@
    40,
    0
   ],
+  "recalls.open_date": [
+   1,
+   0
+  ],
   "recalls.pending_banner": [
-   32,
+   33,
    0
   ],
   "recalls.tab_shown": [
@@ -205,7 +209,7 @@
    0
   ],
   "settlements.scope": [
-   6,
+   5,
    0
   ],
   "specs.axles": [
@@ -297,7 +301,7 @@
    0
   ],
   "status.cancel_date": [
-   4,
+   3,
    0
   ],
   "status.cancel_pill": [
@@ -305,7 +309,7 @@
    0
   ],
   "status.cancel_reason": [
-   4,
+   3,
    0
   ],
   "status.heavy_note": [
@@ -381,6 +385,16 @@
    0
   ]
  },
- "list": [],
+ "list": [
+  {
+   "id": "c021",
+   "field": "owners.insight_new_dealer",
+   "shown": "כנראה נמכר כיד 2, 0 ק״מ | היה אצל סוחר | אבזור בטיחות מתקדם",
+   "expected": "(none)",
+   "evidence": "",
+   "car": "ג'אקו סין JAECOO7 2025",
+   "from": "active"
+  }
+ ],
  "auditExit": 0
 }
