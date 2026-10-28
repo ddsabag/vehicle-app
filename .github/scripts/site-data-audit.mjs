@@ -312,6 +312,7 @@ function collect() {
     hook: T(c.querySelector(".hook-box")), ban: T(c.querySelector(".tow-ban")), firstOwn: T(c.querySelector(".first-own b")),
     items: [...c.querySelectorAll(".insights > li")].map(li => T(li.querySelector("b"))),
     stl: [...c.querySelectorAll(".stl-h b")].map(T),
+    steps: [...c.querySelectorAll(".bsteps > li.st")].map(li => ({t: T(li.querySelector("summary b")), body: T(li.querySelector(".bs-body"))})),   // the buy plan's steps
     notes: [...c.querySelectorAll("p.note")].map(T),
   })) : [];
   const stats = panel ? [...panel.querySelectorAll(".stats .stat")].map(s => ({k: T(s.querySelector(".k")), v: T(s.querySelector(".v"))})) : [];
@@ -440,6 +441,8 @@ const topRows = (rows, v) => { if (!rows.length) return []; const s = rows.map(r
 const trimK = x => String(x ?? "").trim().toUpperCase().replace(/\s+/g, " ");
 const trimOkR = (r, v) => E(v.ramat_gimur) || trimK(r.ramat_gimur) === trimK(v.ramat_gimur);
 const ownRowR = (r, v) => !!r && !E(r.shnat_yitzur) && N(r.shnat_yitzur) === N(v.shnat_yitzur) && trimOkR(r, v) && (!sdR(v) || !sdR(r) || sdR(r) === sdR(v));
+// whose a borrowed row is, as a note names it (index.html rowAt)
+const rowAtR = r => [!E(r.ramat_gimur) && "גרסה " + String(r.ramat_gimur).trim(), !E(r.shnat_yitzur) && "שנת " + String(r.shnat_yitzur).trim()].filter(Boolean).join(", ") || "דגם אחר";
 const hasTowR = r => !!r && (posV(r.kosher_grira_im_blamim) || posV(r.kosher_grira_bli_blamim));
 const towZeroR = r => isN(r.kosher_grira_im_blamim) && isN(r.kosher_grira_bli_blamim) && N(r.kosher_grira_im_blamim) === 0 && N(r.kosher_grira_bli_blamim) === 0;
 function towOfR(ranked, v) {
@@ -533,6 +536,23 @@ function compare(c, X, P) {
   { const ck = cardOf(P, "buy", /^מה נבדק/), first = ck ? ck.items[0] || "" : "";
     const want = cancelled ? "הרכב ירד מהכביש" : inactive ? "הרכב רשום כלא פעיל" : hold ? hold.status : "הרכב פעיל ולא בוטל";
     check(c, "status.buy_checklist", first === want, first || "(no checks card)", want, regs); }
+  // the buy plan follows what the vehicle is (index.html tabBuy, 28.10): an electric one is checked for its battery, charging port and range
+  // instead of its engine and exhaust, a plug-in for both, a two-wheeler has no air conditioner; a car off the road gets one line and no plan
+  { const bc = cardOf(P, "buy", /^לפני שקונים$/), st = bc ? bc.steps : [], svc = (P.tabs.buy || {cards: []}).cards.some(x => /^מרווח/.test(x.title));
+    if (cancelled) check(c, "status.cancelled_buy", !!bc && !st.length && /^הרכב ירד מהכביש ואינו יכול לנסוע/.test(sp(bc.text)) && !svc,
+      !bc ? "(no card)" : (st.length ? `${st.length} steps` : sp(bc.text).slice(0, 50)) + (svc ? " + the service card" : ""), "one line that the car cannot be driven, no steps, no service card", regs);
+    else {
+      check(c, "status.buy_plan", st.length === 6, bc ? `${st.length} steps` : "(no card)", "6 steps", regs);
+      const s3 = (st.find(s => s.t === "בפגישה עם הרכב") || {}).body || "", s4 = (st.find(s => s.t === "בדיקה במכון") || {}).body || "";
+      const port = s3.includes("שקע הטעינה"), exh = s3.includes("אגזוז");
+      const shown = `${!s3 ? "(no step 3)" : exh ? (port ? "plug-in" : "engine") : port && s3.includes("הטווח") ? "electric" : "?"}${s3.includes("מזגן") ? "" : ", no air conditioner"}${s4.includes("בסוללה, במנוע") ? ", battery at the inspection" : s4.includes("במנוע, בגיר") ? "" : ", step 4 ?"}`;
+      // the app's fuelKind and driveType, on each row it can read as the car's model row
+      const exps = [...new Set(Ws.map(w => { const f = String(pickE(R.sug_delek_nm, w.delek_nm) || ""), ev = f.includes("חשמל") && !f.includes("בנזין") && !f.includes("דיזל");
+        const tech = String(w.technologiat_hanaa_nm || R.technologiat_hanaa_nm || "").toUpperCase(), plug = !ev && !tech.includes("חשמלי") && (/PLUG|פלאג|נטען/.test(tech) || /חשמל\//.test(String(R.sug_delek_nm || "")));
+        return `${ev ? "electric" : plug ? "plug-in" : "engine"}${X.primary === "moto" ? ", no air conditioner" : ""}${ev ? ", battery at the inspection" : ""}`; }))];
+      if (st.length) check(c, "identity.buy_steps", exps.includes(shown), shown, exps.join(" or "), `fuel=${R.sug_delek_nm || ""} model fuel=${vals(Ws, "delek_nm").join("|")} tech=${vals(Ws, "technologiat_hanaa_nm").join("|") || R.technologiat_hanaa_nm || ""} ${regs}`); }
+    const age = ins.filter(t => /^רכב בן \d+$/.test(t));
+    if (cancelled) check(c, "insight.age_cancelled", !age.length, age.join(" | ") || "(none)", "(none: the car is off the road)", ""); }
   if (X.primary === "heavy") check(c, "status.heavy_note", ins.includes("רכב כבד: מידע חלקי"), ins.join(" | ").slice(0, 120), "רכב כבד: מידע חלקי", "");
   if (cancelled) { const sh = factOf(P, "overview", /^רישוי וטסט$/, "ירד מהכביש"), ex = E(R.bitul_dt) ? "" : fd(R.bitul_dt);
     check(c, "status.cancel_date", sp(sh) === sp(ex), sh, ex, "");
@@ -745,6 +765,16 @@ function compare(c, X, P) {
     check(c, "recalls.check_line", !!ln === wantLine, ln ? ln.title.slice(0, 50) : "(no line)", wantLine ? "the checked line" : "(no line)", "");
     // "checked" is a claim that every check ran on a live answer: never with a part that did not load
     if (ln) check(c, "recalls.line_honest", !(/^נבדק/.test(ln.title) && /לא נטענה/.test(ln.text)), ln.title.slice(0, 50), "(not \"נבדק\" while a list did not load)", ln.state || "");
+    // where the per-car list is the only recall check, the line and the checks say what that list showed, never "נבדק" (index.html recallThin,
+    // 28.10): a vehicle with no model code (its model's recalls are never read) and a personal import (not always in the importer's recall)
+    if (!X.errs.import && !P.head.errs.includes("import")) { const noModel = E(R.tozeret_cd) || E(R.degem_cd), thin = noModel || imp, why = [noModel && "no model code", imp && "personal import"].filter(Boolean).join(", ") || "model code, official import";
+      const TH = "אין ריקול פתוח ברשימה לפי מספר רישוי", say = (a, b) => [a && "model recalls not checked", b && "an import not always listed"].filter(Boolean).join(", ") || "(neither row)";
+      if (ln && ln.state !== "cached") {
+        if (ln.state !== "warn") check(c, "recalls.thin_line", thin ? ln.title === TH && /^(thin|partial)$/.test(ln.state) : ln.state !== "thin", `${ln.title.slice(0, 50)} [${ln.state}]`, thin ? TH : "(not the per-car list's line)", why);
+        const sh = say(ln.text.includes("ריקולים לדגם לא נבדקו"), ln.text.includes("ריקול ביבוא אישי לא תמיד מופיע ברשימה")), ex = say(noModel, imp);
+        check(c, "recalls.thin_rows", sh === ex, sh, ex, why); }
+      const row = ((cardOf(P, "buy", /^מה נבדק/) || {items: []}).items.find(t => /^לא נמצא ריקול פתוח/.test(t)));
+      if (row) check(c, "recalls.thin_check", thin ? row === "לא נמצא ריקול פתוח ברשימה לפי מספר רישוי" : !/ברשימה לפי מספר רישוי/.test(row), row, thin ? "לא נמצא ריקול פתוח ברשימה לפי מספר רישוי" : "לא נמצא ריקול פתוח (שנפתח עד ...)", why); }
     if (imp || cancelled) check(c, "settlements.scope", !list.length && !bn, `${list.length} shown`, imp ? "(none: a personal import)" : "(none: off the road)", regs);
     if (imp && !cancelled) { const said = ((P.tabs.recalls || {}).text || "").includes("הרכב יובא ביבוא אישי, ולכן לא נבדק מול הסדרי הפשרה") || !!(P.head.line && P.head.line.text.includes("לא נבדק מול הסדרי פשרה"));
       check(c, "settlements.import_line", said, said ? "line shown" : "(none)", "הרכב יובא ביבוא אישי, ולכן לא נבדק מול הסדרי הפשרה", ""); }
@@ -795,6 +825,9 @@ function compare(c, X, P) {
     oneOf("specs.mispar_kariot_avir", spec("כריות אוויר"), Ws.map(w => firstPosE(w.mispar_kariot_avir)), numS);
     { const ev = t => t.includes("חשמל") && !t.includes("בנזין") && !t.includes("דיזל");
       oneOf("specs.co2", (spec("פליטת CO₂").match(/[\d.,]+/) || [""])[0], Ws.map(w => firstPosE(w.CO2_WLTP, w.kamut_CO2) ?? (ev(String(pickE(R.sug_delek_nm, w.delek_nm) || "")) && isN(w.CO2_WLTP) ? "0" : "")), numS); }
+    // the consumption note names WLTP only for a WLTP figure (index.html costs c.wltp, 28.10): an older model's kamut_CO2 was measured before it
+    { const n = (P.tabs.specs || {cards: []}).cards.flatMap(x => x.notes).find(t => /^הערכה לפי נתון הפליטה הרשמי של הדגם/.test(t)), exps = [...new Set(Ws.map(w => posV(w.CO2_WLTP)))];
+      if (n) check(c, "specs.wltp_note", exps.includes(n.includes("(WLTP)")), n.slice(0, 60), exps.map(b => b ? "(WLTP)" : "(no WLTP: a figure measured before it)").join(" or "), `CO2_WLTP=${vals(Ws, "CO2_WLTP").join("|")} kamut_CO2=${vals(Ws, "kamut_CO2").join("|")}`); }
     { const d = spec("מסנן חלקיקים"), r = (X.sets.dpf || [])[0], ex = r ? "הותקן" + (E(r.taarich_hatkana) ? "" : " ב-" + fd(r.taarich_hatkana)) : "";
       if (X.sets.dpf && !X.errs.dpf) check(c, "specs.dpf", sp(d) === ex, d, ex || "(not shown)", ""); }
     oneOf("specs.importer", spec("יבואן"), imp ? [""] : importerMine(ofTypeR(X.price || [], R), R), sp, imp ? "personal import: none" : `price rows=${(X.price || []).length}`); }
@@ -802,6 +835,13 @@ function compare(c, X, P) {
   { const mods = cardOf(P, "overview", /^שינויים ברכב$/), f = l => { const x = mods && mods.facts.find(([k]) => k === l); return x ? x[1] : ""; };
     for (const [l, k] of [["שינוי מבנה", "shinui_mivne_ind"], ["התקנת גפ״מ (גז)", "gapam_ind"], ["שינוי צבע", "shnui_zeva_ind"], ["שינוי מידת צמיגים", "shinui_zmig_ind"]]) {
       const ex = E(R[k]) ? "" : String(R[k]).trim() === "1" ? "כן" : "לא"; check(c, "mods." + k, sp(f(l)) === ex, f(l), ex, ""); }
+    // "מה נבדק" has a changes line only when the register has the flags: a vehicle without them (no technical row) was not checked for changes,
+    // so the line is left out rather than ticked "none" (index.html modsOf, 28.10)
+    { const ck = cardOf(P, "buy", /^מה נבדק/), MK = ["shinui_mivne_ind", "gapam_ind", "shnui_zeva_ind", "shinui_zmig_ind"];
+      const ex = !MK.some(k => !E(R[k])) ? "" : MK.some(k => String(R[k]).trim() === "1") ? "נרשמו שינויים ברכב" : "לא נרשמו שינויי מבנה, גפ״מ או צבע";
+      const sh = ck ? ck.items.filter(t => t === "נרשמו שינויים ברכב" || t === "לא נרשמו שינויי מבנה, גפ״מ או צבע").join(" | ") : "";
+      if (ck && !X.errs.tech && !P.head.errs.includes("tech"))   // a technical register that did not answer one side says nothing about the page
+        check(c, "mods.checks_line", sh === ex, sh || "(no line)", ex || "(no line: the register has no change flags here)", MK.map(k => `${k}=${R[k] ?? ""}`).join(" ")); }
     check(c, "specs.engine_model", sp(spec("דגם מנוע")) === sp(R.degem_manoa || ""), spec("דגם מנוע"), R.degem_manoa || "", "");
     check(c, "specs.vehicle_type", sp(spec("סוג רכב")) === sp(R.sug_rechev_nm || ""), spec("סוג רכב"), R.sug_rechev_nm || "", "");
     oneOf("specs.drive", spec("הנעה"), Ws.map(w => pickE(R.hanaa_nm, w.hanaa_nm)));
@@ -812,7 +852,12 @@ function compare(c, X, P) {
     const col = y >= 2024 ? 0 : y >= 2021 ? 1 : y >= 2017 ? 2 : 3;
     const exp = priv && groups.length && !isNaN(y) && !cancelled ? [...new Set(groups.map(gr => String(FEE[gr][col] + 135)))] : [];
     const shown = fee ? String(fee) : "";
-    check(c, "fee.licence", exp.length ? exp.includes(shown) : !fee, shown || "(no fee)", exp.join(" or ") || "(no fee)", `kvuzat_agra_cd of the model row=${W0.map(w => w.kvuzat_agra_cd ?? "").join(",")} sug_degem=${R.sug_degem || ""} year=${y}`); }
+    check(c, "fee.licence", exp.length ? exp.includes(shown) : !fee, shown || "(no fee)", exp.join(" or ") || "(no fee)", `kvuzat_agra_cd of the model row=${W0.map(w => w.kvuzat_agra_cd ?? "").join(",")} sug_degem=${R.sug_degem || ""} year=${y}`);
+    // a fee from a borrowed model row says whose row it is (index.html tabOverview, 28.10)
+    const n = sp(((cardOf(P, "overview", /^רישוי וטסט$/) || {notes: []}).notes.find(t => /^האגרה לפי התעריף הרשמי/.test(t))) || ""), B = "היא מחושבת לפי נתוני הדגם של";
+    const exps = [...new Set(Ws.map(w => !Object.keys(w).length || ownRowR(w, R) ? "" : sp(`${B} ${rowAtR(w)}`)))];
+    if (n) check(c, "fee.borrowed_note", exps.some(e => e ? n.includes(e + ",") : !n.includes(B)), n.includes(B) ? n.slice(n.indexOf(B), n.indexOf(B) + 70) : "(the fee's own model row)", exps.map(e => e || "(the fee's own model row)").join(" or "),
+      `car ${R.sug_degem || ""}/${R.shnat_yitzur || ""}/${sp(R.ramat_gimur)}; first model row ${W0.map(w => `${w.sug_degem || ""}/${w.shnat_yitzur || ""}/${sp(w.ramat_gimur)}`).join(" | ")}`); }
   // list price and the value estimate: none for a personal import or a car off the road
   { const card = cardOf(P, "buy", /^שווי משוער$/) || {grid: [], notes: [], text: ""}, g = card.grid, sh = N(dig((g.find(x => x.k === "מחיר מחירון כחדש") || {}).v));
     const cand = imp || cancelled || isNaN(N(R.shnat_yitzur)) ? [] : priceMine(ofTypeR(X.price || [], R), R), ex = [...new Set(cand.map(x => N(x.r.mehir)))];
