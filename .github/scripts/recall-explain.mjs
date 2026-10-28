@@ -16,6 +16,8 @@
 // playing a risk down; no number or Latin word the wording does not have; a service campaign says it is one, and never that it is not a
 // safety matter (Israeli service campaigns include airbags and brakes). A text that breaks a rule goes back with the rule it broke (3 tries).
 // PROMPT_V is in every item: after a change of the prompt, the wordings explained by an older one are sent again (kept until replaced).
+// The rules apply again to every stored text on every run: one that breaks today's rules leaves explain.json and is sent again with what it
+// broke, and a wording held for a rule that its last draft no longer breaks is sent again.
 // Weekly: only wordings that are new since the last run, or explained by an older prompt, are sent (redo=1 sends all again). A batch that has
 // not ended by the deadline is collected by the next run. With no key, no SDK or an API error the run keeps what it had, says why in one
 // line, and stays green: ai:recalls goes to the router (ai:key when the key or the credit is the cause, which needs Dudu), and the next
@@ -86,11 +88,13 @@ const INSTR = /יש ל|חובה|מבקש|להימנע|הנחה|הנחיה|אין
 
 const LATIN_OK = new Set(["ABS", "ESP", "ESC", "EBD", "ECU", "EGR", "DPF", "LED", "USB", "ADAS", "AEB", "TPMS", "SRS", "GPS", "EV"]);
 // "not a safety recall": an Israeli service campaign can be an airbag or a brake booster, so no text says a record is not about safety
+// "מכלול" (an assembly, "במכלול המשאבה") is מ before כלול: a part, never "included"
+const ASSEMBLY = new RegExp(`(?<![${HE}])[והבלשכ]{0,2}מכלול(?:ים|י|ה|ות|ו|ת)?(?![${HE}])`, "g");
 const notSafety = /ולא ריקול|ולא קריאת בטיחות|(?:לא|אינו|אינה|אינם|אין זה|אין זו) (?:מדובר ב)?(?:ריקול|תקלה|קריאת|קריאה|בעיה) ?(?:בטיחותי|בטיחותית|בטיחות)|(?:לא|אינו|אינה|אינם) (?:בטיחותי|בטיחותית|בטיחותיים|קשור(?:ה|ים)? לבטיחות|נוגע(?:ת|ים)? לבטיחות)/;
 // [id, broken(text, wording), what the model is told when its text broke it]
 export const RULES = [
   ["entitled", t => /זכא/.test(t), "Never say entitled (זכאי, זכאות) or anything like it."],
-  ["included", t => words(["כלול", "כלולה", "כלולים", "כלולות", "נכלל", "נכללת", "נכללים", "נכללות", "נכללו", "נכללה"]).test(t),
+  ["included", t => words(["כלול", "כלולה", "כלולים", "כלולות", "נכלל", "נכללת", "נכללים", "נכללות", "נכללו", "נכללה"]).test(t.replace(ASSEMBLY, " ")),
     "Do not say whether a car is included in the recall."],
   ["cost", t => exact(["חינם", "בחינם", "עלות", "העלות", "ללא עלות", "בלי עלות", "תשלום", "בתשלום", "התשלום", "ללא תשלום", "לשלם", "מחיר", "המחיר", "כסף", "על חשבון"]).test(t),
     "Nothing about cost or payment."],
@@ -312,12 +316,21 @@ export async function run({ env = process.env, api, router, log = console.log, n
   const out = env.OUT || "out", day = now.toISOString().slice(0, 10), cat = readCatalogue(env.CAT || "cat"), { items, state: st } = readPrev(env.PREV || "prev");
   if (router === undefined) router = await import("./alert.mjs").catch(() => null);
   for (const [k, e] of cat) if (items[k]) items[k].ids = [...e.ids].sort((a, b) => a - b);   // a new recall whose wording is already explained
-  const rep = { wordings: cat.size, sent: 0, kept: 0, held: 0, pending: false, why: "" };
-  const done = () => { write(out, items, st, day); log(`recall explanations: ${rep.wordings} wordings, ${Object.keys(items).length} explained, sent ${rep.sent}, kept ${rep.kept}, held ${rep.held}${rep.pending ? ", a batch still running (the next run collects it)" : ""}${rep.why ? " · " + rep.why : ""}`); return rep; };
+  const rep = { wordings: cat.size, sent: 0, kept: 0, held: 0, broke: 0, pending: false, why: "" };
+  const done = () => { write(out, items, st, day); log(`recall explanations: ${rep.wordings} wordings, ${Object.keys(items).length} explained, sent ${rep.sent}, kept ${rep.kept}, held ${rep.held}${rep.broke ? `, ${rep.broke} broke a newer rule` : ""}${rep.pending ? ", a batch still running (the next run collects it)" : ""}${rep.why ? " · " + rep.why : ""}`); return rep; };
+  // a stored text that breaks today's rules leaves explain.json and goes back with what it broke; a wording held for a rule that its last
+  // draft no longer breaks is due again (the rules changed since)
+  const broke = {};
+  for (const [k, it] of Object.entries(items)) {
+    const b = check(it, it);
+    if (b.length) { broke[k] = { text: it.text + (it.notice ? ` / notice: "${it.notice}"` : ""), say: b.map(x => x.say).join(" ") }; delete items[k]; rep.broke++; }
+  }
+  const draft = t => { const i = t.indexOf(' / notice: "'); return { text: i < 0 ? t : t.slice(0, i), notice: i < 0 ? "" : t.slice(i + 12, -1), unclear: false }; };
+  const loose = k => /^rule /.test(st.held[k].why) && !check(draft(st.held[k].text || ""), cat.get(k).w).length;
   // retries first (with what they broke), then wordings with no text of this prompt that did not use up their tries with it (redo: all again)
   const retry = Object.entries(st.retry).filter(([k]) => cat.has(k)).map(([k, r]) => ({ k, n: r.n, fb: r.fb })), now_ = x => x && x.v >= PROMPT_V;
-  const due = [...cat.keys()].filter(k => !retry.some(e => e.k === k) && (q.redo || (!now_(items[k]) && !now_(st.held[k])))).sort();
-  let queue = [...retry, ...(q.sample ? pickSample(due, cat, q.sample) : due.slice(0, q.max)).map(k => ({ k, n: 1, fb: null }))];
+  const due = [...cat.keys()].filter(k => !retry.some(e => e.k === k) && (q.redo || (!now_(items[k]) && (!now_(st.held[k]) || loose(k))))).sort();
+  let queue = [...retry, ...(q.sample ? pickSample(due, cat, q.sample) : due.slice(0, q.max)).map(k => ({ k, n: 1, fb: broke[k] || null }))];
   if (q.dry) { log(`dry run: ${queue.length} to send, nothing sent`); if (queue[0]) log(prompt(cat.get(queue[0].k).w, queue[0].fb)); return done(); }
   if (!queue.length && !st.pending) return done();
   const c = api ? { api } : await client(env);
@@ -393,6 +406,9 @@ if (process.argv[1] && process.argv[1].endsWith("recall-explain.mjs") && process
   const base = good[0][0], fault = (t, id, w = base) => ok(textCheck(t, w).some(b => b.id === id), `rule ${id}: ${t.slice(0, 40)}`);
   fault("כרית האוויר עלולה להיפתח מאוחר מדי. בעלי הרכב זכאים לתיקון של כרית האוויר בכל מקרה שהוא.", "entitled");
   fault("ייתכן שהרכב כלול בקריאה, וכרית האוויר עלולה להיפתח מאוחר מדי בעת תאונה ולגרום לפציעה.", "included");
+  fault("ייתכן שמכלול המשאבה כלול בקריאה, ודלק עלול לדלוף ממנו בזמן הנסיעה ולגרום לשריפה ברכב.", "included");
+  ok(textCheck("משאבת הדלק מעבירה דלק מהמיכל אל המנוע. במכלול המשאבה עלולה להיות דליפת דלק. בתיקון מחליפים את מכלול משאבת הדלק.", W("אפשרות לדליפת דלק ממכלול משאבת הדלק", "מערכת הדלק")).length === 0,
+    "an assembly (מכלול, במכלול) is a part, not included");
   fault("כרית האוויר עלולה להיפתח מאוחר מדי בעת תאונה. התיקון ניתן בחינם ומחליף את המנפח בחלק חדש.", "cost");
   fault("כרית האוויר עלולה להיפתח מאוחר מדי בעת תאונה. כדאי לתאם תור במוסך מורשה ולהחליף את המנפח.", "steps");
   fault("כרית האוויר עלולה להיפתח מאוחר מדי בעת תאונה. אפשר לבדוק אם הרכב ברשימה לפי מספר השלדה.", "steps");
@@ -468,6 +484,7 @@ if (process.argv[1] && process.argv[1].endsWith("recall-explain.mjs") && process
     const okText = "ייתכן שהחלק הזה ייכשל, וכשל כזה עלול לפגוע בפעולה התקינה של המערכת. בתיקון מחליפים את החלק בחלק חדש.";
     if (u.includes("REFUSE")) return { type: "succeeded", message: { stop_reason: "refusal", stop_details: { category: "general_harms" }, content: [] } };
     if (u.includes("ALWAYSBAD")) return msg({ text: "התיקון ניתן בחינם, וכשל כזה עלול לפגוע בפעולה התקינה של המערכת ברכב.", sys: "other", urgency: "routine" });
+    if (u.includes("Say the repair without")) return msg({ text: "ייתכן שהחלק הזה ייכשל, וכשל כזה עלול לפגוע בפעולה התקינה של המערכת. בתיקון מחליפים את החלק.", sys: "other", urgency: "routine" });
     if (u.includes("FAILONCE") && !u.includes("A previous draft")) return msg({ text: "בעלי הרכב זכאים לתיקון, וכשל כזה עלול לפגוע בפעולה התקינה של כרית האוויר.", sys: "airbags", urgency: "soon" });
     if (u.includes("מערכת חשמל")) return msg({ text: "", sys: "electrical", urgency: "routine", unclear: true });
     if (u.includes(CAMPAIGN)) return msg({ text: "זו קריאת שירות. מערכת המולטימדיה מקבלת עדכון תוכנה שמשפר את פעולתה ברכב.", sys: "software", urgency: "routine" });
@@ -512,6 +529,23 @@ if (process.argv[1] && process.argv[1].endsWith("recall-explain.mjs") && process
     const r2 = await run({ env: { CAT: catDir, PREV: old, OUT: path.join(tmp, "oldout"), QUERIES: "wait=0 rounds=1" }, api: fake(), router, log: quiet });
     const ex3 = JSON.parse(fs.readFileSync(path.join(tmp, "oldout", "explain.json"), "utf8"));
     ok(r2.sent === 3 && sentPrompts.some(u => u.includes("משענת")) && ex3.items[k1].v === PROMPT_V && Object.keys(ex3.items).length === 6, "after a change of the prompt: its older text and the wordings held under the older one are sent again");
+  }
+  {   // after a change of the rules: a stored text that a newer rule breaks leaves explain.json and goes back with that rule; a wording held
+      // for a rule that its last draft no longer breaks is sent again, and one held for a refusal is not
+    const from = run => ({ CAT: catDir, PREV: path.join(tmp, "run2"), OUT: path.join(tmp, run), QUERIES: "wait=0" }), read = (run, f) => JSON.parse(fs.readFileSync(path.join(tmp, run, f), "utf8"));
+    const at = RULES.push(["newer", t => t.includes("בחלק חדש"), "Say the repair without בחלק חדש."]) - 1;
+    sentPrompts.length = 0;
+    let ra; try { ra = await run({ env: from("rulesA"), api: fake(), router, log: quiet }); } finally { RULES.splice(at, 1); }
+    const exA = Object.values(read("rulesA", "explain.json").items);
+    ok(ra.broke === 4 && ra.sent === 4 && ra.kept === 4 && sentPrompts.every(u => u.includes("A previous draft was rejected") && u.includes("Say the repair without"))
+      && exA.length === 6 && !exA.some(x => x.text.includes("בחלק חדש")), "a newer rule: the 4 texts it breaks are sent again with it, and explain.json never holds one");
+    const ci = RULES.findIndex(x => x[0] === "cost"), cost = RULES[ci];
+    RULES[ci] = ["cost", () => false, cost[2]];
+    sentPrompts.length = 0;
+    let rb; try { rb = await run({ env: from("rulesB"), api: fake(), router, log: quiet }); } finally { RULES[ci] = cost; }
+    const heldB = Object.values(read("rulesB", "state.json").held);
+    ok(rb.broke === 0 && rb.sent === 1 && sentPrompts[0].includes("ALWAYSBAD") && Object.values(read("rulesB", "explain.json").items).some(x => x.d.includes("ALWAYSBAD"))
+      && heldB.length === 1 && heldB[0].w.d.includes("REFUSE"), "a rule that no longer breaks a held draft: that wording is sent again and kept; a refusal stays held");
   }
   // a new wording in the catalogue, and a batch that has not ended by the deadline: the next run collects it
   fs.writeFileSync(path.join(catDir, "r", "2.json"), JSON.stringify({ u: "2026-10-28", rows: [row(9, "חשש לדליפת דלק מצינור ההזנה", "מערכת הדלק")] }));
