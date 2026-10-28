@@ -103,13 +103,15 @@ if (!first) {
 
 // 2. new recall rows that match no model-year of any maker that reads them
 const rowKey = r => `${r.RECALL_ID}|${String(r.TOZAR_TEUR || "").trim()}|${String(r.DEGEM || "").trim()}`;
-const fresh = new Map();   // row key -> {row, makers: [cd], hit, variant, near}
-for (const [cd, j] of files) for (const r of all(j)) { const k = rowKey(r); if (seen.has(k)) continue; const e = fresh.get(k) || {row: r, makers: [], hit: false}; e.makers.push(cd); if (j.l && j.l[r.RECALL_ID]) e.hit = true; fresh.set(k, e); }
+// every row is matched (the list of all rows that match no model, recall-orphans.json, is what name-match.mjs asks about); the line is about the new ones
+const every = new Map();   // row key -> {row, makers: [cd], hit, variant, near}
+for (const [cd, j] of files) for (const r of all(j)) { const k = rowKey(r); const e = every.get(k) || {row: r, makers: [], hit: false}; e.makers.push(cd); if (j.l && j.l[r.RECALL_ID]) e.hit = true; every.set(k, e); }
+const fresh = new Map([...every].filter(([k]) => !seen.has(k)));
 // a word of a model name; the drive words say nothing about which model it is
 const DRIVE = /^(BEV|PHEV|MHEV|HEV|HYBRID|PLUG|ELECTRIC|DIESEL|PETROL|GASOLINE|TURBO|AWD|4WD|2WD|4X4|4X2)$/;
 const words = s => String(s || "").toUpperCase().split(/[^A-Z0-9א-ת]+/).filter(t => t.length >= 3 && !DRIVE.test(t));
-if (!first && fresh.size) {
-  const byMaker = new Map(); for (const e of fresh.values()) if (!e.hit) for (const cd of e.makers) { if (!byMaker.has(cd)) byMaker.set(cd, new Set()); byMaker.get(cd).add(Number(e.row.RECALL_ID)); }
+if (every.size) {
+  const byMaker = new Map(); for (const e of every.values()) if (!e.hit) for (const cd of e.makers) { if (!byMaker.has(cd)) byMaker.set(cd, new Set()); byMaker.get(cd).add(Number(e.row.RECALL_ID)); }
   for (const [cd, want] of byMaker) {
     const idx = JSON.parse(fs.readFileSync(`${OUT}/c/${cd}.json`, "utf8")), C = Object.fromEntries(idx.cols.map((c, i) => [c, i])), rows = all(files.get(cd)), vs = new Map();
     for (const [, [f]] of Object.entries(idx.models)) for (const a of JSON.parse(fs.readFileSync(`${OUT}/c/${cd}/${f}.json`, "utf8")).rows) {
@@ -117,12 +119,12 @@ if (!first && fresh.size) {
       if (!vs.has(k)) vs.set(k, {v: {kinuy_mishari: a[C.kinuy_mishari], degem_nm: a[C.degem_nm], shnat_yitzur: a[C.shnat_yitzur], sug_degem: a[C.sug_degem], tozeret_nm: idx.n, tozeret_cd: cd},
         w: {technologiat_hanaa_nm: a[C.technologiat_hanaa_nm], delek_nm: a[C.delek_nm], merkav: a[C.merkav]}});
     }
-    const mark = (w, f) => { for (const {v, w: vw} of vs.values()) for (const h of matchModelRecalls(rows, v, brandModels(meta, v), w || vw)) if (want.has(Number(h.RECALL_ID))) { const e = fresh.get(rowKey(h)); if (e) f(e); } };
+    const mark = (w, f) => { for (const {v, w: vw} of vs.values()) for (const h of matchModelRecalls(rows, v, brandModels(meta, v), w || vw)) if (want.has(Number(h.RECALL_ID))) { const e = every.get(rowKey(h)); if (e) f(e); } };
     mark(null, e => { e.hit = true; });
     const left = e => !e.hit && !e.variant && e.makers.includes(cd);
-    if ([...fresh.values()].some(left)) mark({}, e => { if (!e.hit) e.variant = true; });   // the same model-years with the drive left out
+    if ([...every.values()].some(left)) mark({}, e => { if (!e.hit) e.variant = true; });   // the same model-years with the drive left out
     const names = Object.keys(idx.models).map(n => [n, words(n)]);
-    for (const e of fresh.values()) if (left(e)) { const ws = words(e.row.DEGEM); for (const [n, nw] of names) if (nw.some(t => ws.includes(t))) (e.near = e.near || new Set()).add(n); }
+    for (const e of every.values()) if (left(e)) { const ws = words(e.row.DEGEM); for (const [n, nw] of names) if (nw.some(t => ws.includes(t))) (e.near = e.near || new Set()).add(n); }
   }
 }
 // 3. makers that lost their recall file: kept from the day before (0), or gone when there was none to keep
@@ -143,6 +145,10 @@ if (gaps.length) { need(`${gaps.length === 1 ? "ריקול חדש שלא נמצ�
   raw.push(few(gaps, e => `${e.row.RECALL_ID} ${String(e.row.TOZAR_TEUR || "").trim()} "${String(e.row.DEGEM || "").trim()}" ~ ${[...e.near].slice(0, 2).join(", ")}`)); }
 
 fs.writeFileSync(`${OUT}/recall-state.json`, JSON.stringify({u: meta.u, status, known, id: hz ? hz.id : (prev && prev.id) || null, rec: meta.rec || [], carry, seen: [...new Set([...seen, ...fresh.keys()])]}));
+// every row that matches no model, new or old: what name-match.mjs asks Claude about (a vehicle the catalogue does not hold by design is marked, not left out)
+fs.writeFileSync(`${OUT}/recall-orphans.json`, JSON.stringify({u: meta.u, rows: [...every.values()].filter(e => !e.hit).map(e => ({id: Number(e.row.RECALL_ID), makers: e.makers,
+  maker: String(e.row.TOZAR_TEUR || "").trim(), degem: String(e.row.DEGEM || "").trim(), b: e.row.BUILD_BEGIN_A || "", e: e.row.BUILD_END_A || "", variant: !!e.variant,
+  near: e.near ? [...e.near] : [], notCar: NOT_CARS.test(String(e.row.DEGEM || "").toUpperCase())}))}));
 if (lines.length) {
   // the Telegram standard (tg-text.mjs, HTML): to do today when a line needs a person, else for information (sent without a ring)
   const text = msg({kind: act.length ? "today" : "info", area: "data", title: act.length ? "בדיקת הריקולים מצאה משהו שצריך לבדוק" : "עדכון ברשימת הריקולים של משרד התחבורה",
