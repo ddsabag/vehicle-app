@@ -17,6 +17,10 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      # androidx.core 1.19 needs compileSdk 37 and Android Gradle plugin 9.1 (the app: 36 and 8.13.2), so its minor bump stopped the build
+      # (#16, App guardian run 40552732633, 27.10). It comes by hand with that upgrade after the freeze (22.11); webkit and the rest still come weekly
+      - dependency-name: "androidx.core:core"
+        versions: [">= 1.19.0"]
     groups:
       android-deps:
         patterns: ["*"]
