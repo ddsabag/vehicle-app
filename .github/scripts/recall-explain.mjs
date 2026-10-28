@@ -14,7 +14,8 @@
 // garage in the text (the app shows the steps and the cost line next to it, and they depend on the car: a personal import is not the
 // importer's; fixed lines in LINES); never names or blames the importer, the maker or a dealer; no "you"; calm, without alarm and without
 // playing a risk down; no number or Latin word the wording does not have; a service campaign says it is one, and never that it is not a
-// safety matter (Israeli service campaigns include airbags and brakes). A text that breaks a rule goes back with the rule it broke (3 tries).
+// safety matter (Israeli service campaigns include airbags and brakes); every word spelled as a Hebrew dictionary does (hunspell he_IL,
+// beside the words of the ministry's own records). A text that breaks a rule goes back with the rule it broke (3 tries).
 // PROMPT_V is in every item: after a change of the prompt, the wordings explained by an older one are sent again (kept until replaced).
 // The rules apply again to every stored text on every run: one that breaks today's rules leaves explain.json and is sent again with what it
 // broke, and a wording held for a rule that its last draft no longer breaks is sent again.
@@ -29,6 +30,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { client, batch, collect, answer } from "./claude.mjs";
 
 export const MODEL = "claude-sonnet-5-5", PROMPT_V = 4, TRIES = 3;
@@ -88,9 +90,34 @@ const INSTR = /יש ל|חובה|מבקש|להימנע|הנחה|הנחיה|אין
 
 const LATIN_OK = new Set(["ABS", "ESP", "ESC", "EBD", "ECU", "EGR", "DPF", "LED", "USB", "ADAS", "AEB", "TPMS", "SRS", "GPS", "EV"]);
 const bare = s => s.toUpperCase().replace(/[\s-]/g, "");   // "eCall" is the description's "E-CALL"
-// "not a safety recall": an Israeli service campaign can be an airbag or a brake booster, so no text says a record is not about safety
 // "מכלול" (an assembly, "במכלול המשאבה") is מ before כלול: a part, never "included"
 const ASSEMBLY = new RegExp(`(?<![${HE}])[והבלשכ]{0,2}מכלול(?:ים|י|ה|ות|ו|ת)?(?![${HE}])`, "g");
+// Hebrew spelling: hunspell with its he_IL dictionary (the workflow installs it) names the words it does not know, and such a word is a
+// misspelling ("להידלף", "הדושקה", "כשקורית") unless a ministry record of the catalogue uses it, with up to three one-letter prefixes off
+// ("כשהסעפת" is סעפת), or it is a term of the trade the dictionary lacks (TERMS, from the 2,346 texts of 28.10). The words of a round are
+// asked in one call (prime); without hunspell the rule is not checked, and the run's line says so.
+const TERMS = new Set(["תקול", "תקולים", "בורגים", "גומית", "ריקול", "דשבורד", "פולי", "יכשל", "ייבלה", "מתחנים", "איזור", "אמיתית", "איטיות", "מטף",
+  "תופסנים", "תפסנים", "אדפטיביים", "טלטל", "למבדה", "נקז", "סבבה", "ראדאר", "יווצר", "יחרך", "יפול", "ידחוס", "יחלש", "ינזלו", "יסדק", "יפרדו", "כבות",
+  "סעפת", "נייטרל", "קרוואן", "ממיס"]);
+const heWords = t => String(t || "").replace(/[\u0591-\u05BD\u05BF\u05C1\u05C2\u05C4\u05C5\u05C7]/g, "").match(/[א-ת]+/g) || [];   // niqqud off ("הוּדק" is הודק); a maqaf (־) splits
+const prefixOff = x => [x, ...[1, 2, 3].filter(i => x.length - i >= 2 && /^[והבלמשכ]+$/.test(x.slice(0, i))).map(i => x.slice(i))];
+function hunspell(list) {   // the words the dictionary does not know, or null with no hunspell or no he_IL
+  const r = spawnSync("hunspell", ["-d", "he_IL", "-i", "utf-8", "-l"], { input: list.join("\n") + "\n", encoding: "utf8", timeout: 120000 });
+  return !r.error && r.status === 0 ? new Set(r.stdout.split("\n").filter(Boolean)) : null;
+}
+export const speller = { ask: hunspell, on: null, seen: new Set(), unknown: new Set(), vocab: new Set() };
+export function prime(texts) {
+  if (speller.on === false) return;
+  const fresh = [...new Set(texts.flatMap(heWords))].filter(x => !speller.seen.has(x));
+  if (!fresh.length) return;
+  const unknown = speller.ask(fresh);
+  if (!unknown) { speller.on = false; return; }
+  speller.on = true;
+  for (const x of fresh) speller.seen.add(x);
+  for (const x of unknown) speller.unknown.add(x);
+}
+const misspelt = t => (speller.on ? [...new Set(heWords(t))].filter(x => speller.unknown.has(x) && !prefixOff(x).some(f => speller.vocab.has(f) || TERMS.has(f))) : []).join(", ");
+// "not a safety recall": an Israeli service campaign can be an airbag or a brake booster, so no text says a record is not about safety
 const notSafety = /ולא ריקול|ולא קריאת בטיחות|(?:לא|אינו|אינה|אינם|אין זה|אין זו) (?:מדובר ב)?(?:ריקול|תקלה|קריאת|קריאה|בעיה) ?(?:בטיחותי|בטיחותית|בטיחות)|(?:לא|אינו|אינה|אינם) (?:בטיחותי|בטיחותית|בטיחותיים|קשור(?:ה|ים)? לבטיחות|נוגע(?:ת|ים)? לבטיחות)/;
 // [id, broken(text, wording), what the model is told when its text broke it]
 export const RULES = [
@@ -111,7 +138,7 @@ export const RULES = [
   ["downplay", t => /אין (כל |שום )?(סכנה|סיכון|חשש|מה לדאוג|צורך לדאוג)|לא מסוכנ|בטוח לנסוע|להמשיך לנסוע|אין צורך (בתיקון|לתקן)/.test(t) || notSafety.test(t),
     "Do not play a risk down (אין סכנה, אפשר להמשיך לנסוע), and never say that a recall or a service campaign is not a safety matter."],
   ["campaign", (t, w) => w.t === CAMPAIGN && !/קריאת (שירות|שרות)|קמפיין/.test(t), "This is a service campaign (קמפיין שרות טכני): say in the text that it is a service campaign (קריאת שירות)."],
-  ["record", t => /אופן התיקון|(?<![א-ת])לפי (?:ה)?(?:רשום|נתונים|הודעה|מאגר)(?![א-ת])/.test(t) || words(["תיאור", "רישום", "ניסוח"]).test(t)   // not מאגר alone: a fluid reservoir is a part
+  ["record", t => /אופן התיקון|(?<![א-ת])לפי (?:ה)?(?:רשום|נתונים|הודעה|מאגר|דיווח|דווח)(?![א-ת])/.test(t) || words(["תיאור", "רישום", "ניסוח"]).test(t)   // not מאגר alone: a fluid reservoir is a part
     || /(?:לא|אינו|אינה|אין) (?:מפורט|מפורטת|מפרט|מפרטת|צוין|צוינה|מצוין|מצוינת|מציין|מציינת|מוסבר|מוסברת|נאמר)/.test(t),
     "Write about the recall, never about the record or what it leaves out (no \"לפי התיאור\", \"הרישום מציין\", \"אופן התיקון\", \"לא מפורט\"). When the description names only a part, say what the part does and that it may have a fault. The repair is one plain sentence that names the part: \"בתיקון בודקים את וו הגרירה.\""],
   ["number", (t, w) => (t.match(/\d+/g) || []).some(n => !w.d.includes(n)), "No numbers that the description does not have."],
@@ -119,21 +146,24 @@ export const RULES = [
     "No Latin-letter words the description does not have (no model names, no English)."],
   ["length", t => t.length < 50 || t.length > 320, "Two or three short sentences, 50 to 320 characters."],
   ["hebrew", t => (t.match(/[א-ת]/g) || []).length < 0.7 * (t.match(/[A-Za-zא-ת]/g) || []).length, "Write in Hebrew."],
+  ["spelling", misspelt, "Spell every word as a Hebrew dictionary does, with standard verb forms (לדלוף and not להידלף, להתניע and not להתנע, יישחק and not ישתחק, הדוושה)."],
 ];
 // a notice may hold the instruction's own steps and words like "מיד", so it gets the rest of the rules, calm without those
-const NOTICE_RULES = new Set(["entitled", "included", "cost", "blame", "you", "downplay", "number", "latin", "hebrew"]);
+const NOTICE_RULES = new Set(["entitled", "included", "cost", "blame", "you", "downplay", "number", "latin", "hebrew", "spelling"]);
+// a rule may name what broke it (the misspelt words): the model is told those too
+const told = (say, r) => (typeof r === "string" ? `${say} The words: ${r}.` : say);
 const calm = t => /!/.test(t) || words(["מוות", "קטלני", "קטלנית", "קטלניים", "אסון", "סכנת חיים"]).test(t);
 export function check(o, w) {
   const out = [];
   if (!o.unclear) {
     if (!o.text) out.push({ id: "empty", say: "The text is empty while unclear is false." });
-    else for (const [id, bad, say] of RULES) if (bad(o.text, w)) out.push({ id, say });
+    else for (const [id, bad, say] of RULES) { const r = bad(o.text, w); if (r) out.push({ id, say: told(say, r) }); }
   }
   if (o.notice) {
     if (!INSTR.test(w.d)) out.push({ id: "notice", say: 'The description gives no instruction for the time until the repair, so notice is "".' });
     else {
       if (!o.notice.startsWith("לפי הודעת הריקול")) out.push({ id: "notice-start", say: 'notice starts with "לפי הודעת הריקול".' });
-      for (const [id, bad, say] of RULES) if (NOTICE_RULES.has(id) && bad(o.notice, w)) out.push({ id: "notice-" + id, say: "In notice: " + say });
+      for (const [id, bad, say] of RULES) { const r = NOTICE_RULES.has(id) && bad(o.notice, w); if (r) out.push({ id: "notice-" + id, say: "In notice: " + told(say, r) }); }
       if (calm(o.notice)) out.push({ id: "notice-alarm", say: "In notice: calm wording, no alarm words and no exclamation mark." });
       if (o.notice.length > 220) out.push({ id: "notice-length", say: "notice is one short sentence." });
     }
@@ -318,9 +348,11 @@ export async function run({ env = process.env, api, router, log = console.log, n
   if (router === undefined) router = await import("./alert.mjs").catch(() => null);
   for (const [k, e] of cat) if (items[k]) items[k].ids = [...e.ids].sort((a, b) => a - b);   // a new recall whose wording is already explained
   const rep = { wordings: cat.size, sent: 0, kept: 0, held: 0, broke: 0, pending: false, why: "" };
-  const done = () => { write(out, items, st, day); log(`recall explanations: ${rep.wordings} wordings, ${Object.keys(items).length} explained, sent ${rep.sent}, kept ${rep.kept}, held ${rep.held}${rep.broke ? `, ${rep.broke} broke a newer rule` : ""}${rep.pending ? ", a batch still running (the next run collects it)" : ""}${rep.why ? " · " + rep.why : ""}`); return rep; };
+  const done = () => { write(out, items, st, day); log(`recall explanations: ${rep.wordings} wordings, ${Object.keys(items).length} explained, sent ${rep.sent}, kept ${rep.kept}, held ${rep.held}${rep.broke ? `, ${rep.broke} broke a newer rule` : ""}${rep.pending ? ", a batch still running (the next run collects it)" : ""}${rep.why ? " · " + rep.why : ""}${speller.on === false ? " · spelling not checked (no hunspell he_IL)" : ""}`); return rep; };
   // a stored text that breaks today's rules leaves explain.json and goes back with what it broke; a wording held for a rule that its last
   // draft no longer breaks is due again (the rules changed since)
+  speller.vocab = new Set([...cat.values()].flatMap(e => heWords([e.w.d, e.w.f, e.w.s].join(" "))));
+  prime([...Object.values(items).flatMap(it => [it.text, it.notice]), ...Object.values(st.held).map(h => h.text)]);
   const broke = {};
   for (const [k, it] of Object.entries(items)) {
     const b = check(it, it);
@@ -339,6 +371,7 @@ export async function run({ env = process.env, api, router, log = console.log, n
 
   const hold = (k, n, why, text) => { st.held[k] = { n, why, text: text || "", at: day, v: PROMPT_V, w: cat.get(k).w }; rep.held++; };
   const handle = (results, reqs) => {
+    prime([...results.values()].filter(x => x && x.ok).flatMap(x => { const o = parse(x.msg).o; return o ? [o.text, o.notice] : []; }));
     const next = [];
     const again = (k, n, why, fb) => (n >= TRIES ? hold(k, n, why, fb && fb.text) : next.push({ k, n: n + 1, fb }));
     for (const [cid, { k, n }] of Object.entries(reqs)) {
@@ -398,6 +431,8 @@ if (process.argv[1] && process.argv[1].endsWith("recall-explain.mjs") && !proces
 if (process.argv[1] && process.argv[1].endsWith("recall-explain.mjs") && process.argv.includes("--selftest")) {
   let bad = 0; const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); if (!c) bad++; };
   const W = (d, s = "בלמים", f = "החלפה", t = "תקלה סידרתית בטיחותית") => ({ t, s, d, f });
+  const dictionary = lacks => { speller.ask = list => (lacks === null ? null : new Set(list.filter(x => lacks.includes(x)))); speller.on = null; speller.seen.clear(); speller.unknown.clear(); };
+  dictionary([]);   // a dictionary that knows every word, unless a test says otherwise (the self-test never needs hunspell)
   // the rules: each one catches its own fault, and none catches the examples of the prompt
   const good = [[W("חשש לכשל במנפח כרית האוויר של הנהג בעת פתיחתה", "כריות אוויר"), "המנפח הוא החלק שממלא את כרית האוויר בגז ברגע של תאונה. ייתכן שהוא ייכשל כשהכרית נפתחת, ואז הכרית עלולה לא להגן כראוי ואף לגרום לפציעה. בתיקון מחליפים את המנפח בחלק חדש."],
     [W("עדכון תוכנת מערכת המולטימדיה", "חשמל אליקטרוניקה ומיזוג", "עדכון תוכנה", CAMPAIGN), "זו קריאת שירות. מערכת המולטימדיה, שמפעילה את המסך והרדיו, מקבלת עדכון תוכנה."],
@@ -426,6 +461,16 @@ if (process.argv[1] && process.argv[1].endsWith("recall-explain.mjs") && process
   fault("כרית האוויר בדגם Corolla עלולה להיפתח מאוחר מדי בעת תאונה. בתיקון מחליפים את המנפח בחלק חדש.", "latin");
   ok(textCheck("מערכת שיחת החירום (eCall) נועדה להפעיל קריאה לעזרה לאחר תאונה. ייתכן שיש ליקוי ביחידת הבקרה שלה. בתיקון בודקים את יחידת הבקרה.", W("ליקוי ביחידת בקרת מערכת שיחות חירום ) E-CALL(", "חשמל אליקטרוניקה ומיזוג")).length === 0,
     "the description's own Latin word, written without its hyphen (eCall for E-CALL), passes");
+  dictionary(["להידלף", "הדושקה", "כשהסעפת", "התקול", "הליתיוםיון"]); speller.vocab = new Set(["סעפת"]);
+  const leak = "ייתכן שדלק עלול להידלף מהצינור כשלוחצים על הדושקה, ונזילה כזו עלולה לגרום לשריפה. בתיקון מחליפים את הצינור.";
+  const parts = "ייתכן שהסעפת תתחמם. כשהסעפת חמה, שמן שנוזל עליה עלול לעשן. בתיקון מחליפים את סוללת הליתיום־יון ואת החלק התקוּל.";
+  prime([leak, parts]);
+  ok(textCheck(leak, base).some(b => b.id === "spelling" && b.say.endsWith("The words: להידלף, הדושקה.")), "spelling: the words the dictionary does not know are named to the model");
+  ok(!textCheck(parts, base).some(b => b.id === "spelling"), "a word of the ministry's records with its prefixes (כשהסעפת), a term of the trade (התקוּל, niqqud and all) and two words joined by a maqaf are no misspelling");
+  ok(textCheck("לפי הדיווח, חוט חשמל ברכב עלול להישבר בגלל רעידות. בתיקון מחליפים את החוט בחוט חדש ומקבעים אותו.", base).some(b => b.id === "record"), "rule record: לפי הדיווח");
+  dictionary(null); prime([leak]);
+  ok(speller.on === false && !textCheck(leak, base).some(b => b.id === "spelling"), "no hunspell: the spelling rule is not checked");
+  dictionary([]);
   fault("לפי התיאור, ייתכן שהרכב לא עומד בתקן פליטת המזהמים, כלומר פולט יותר מזהמים מהמותר. בתיקון מעדכנים את התוכנה.", "record");
   fault("וו הגרירה משמש לחיבור הרכב לגרירה. ייתכן שהתבריג שלו אינו עומד בדרישות, והוו עלול להשתחרר בזמן גרירה. אופן התיקון הוא בדיקה.", "record");
   fault("המתג בדלת הנהג משמש לנעילת הדלתות והחלונות. התיאור מציין רק את המתג עצמו ואינו מפרט מהי התקלה. בתיקון בודקים את המתג.", "record");
@@ -487,7 +532,7 @@ if (process.argv[1] && process.argv[1].endsWith("recall-explain.mjs") && process
     const okText = "ייתכן שהחלק הזה ייכשל, וכשל כזה עלול לפגוע בפעולה התקינה של המערכת. בתיקון מחליפים את החלק בחלק חדש.";
     if (u.includes("REFUSE")) return { type: "succeeded", message: { stop_reason: "refusal", stop_details: { category: "general_harms" }, content: [] } };
     if (u.includes("ALWAYSBAD")) return msg({ text: "התיקון ניתן בחינם, וכשל כזה עלול לפגוע בפעולה התקינה של המערכת ברכב.", sys: "other", urgency: "routine" });
-    if (u.includes("Say the repair without")) return msg({ text: "ייתכן שהחלק הזה ייכשל, וכשל כזה עלול לפגוע בפעולה התקינה של המערכת. בתיקון מחליפים את החלק.", sys: "other", urgency: "routine" });
+    if (u.includes("Say the repair without") || u.includes("The words: בחלק")) return msg({ text: "ייתכן שהחלק הזה ייכשל, וכשל כזה עלול לפגוע בפעולה התקינה של המערכת. בתיקון מחליפים את החלק.", sys: "other", urgency: "routine" });
     if (u.includes("FAILONCE") && !u.includes("A previous draft")) return msg({ text: "בעלי הרכב זכאים לתיקון, וכשל כזה עלול לפגוע בפעולה התקינה של כרית האוויר.", sys: "airbags", urgency: "soon" });
     if (u.includes("מערכת חשמל")) return msg({ text: "", sys: "electrical", urgency: "routine", unclear: true });
     if (u.includes(CAMPAIGN)) return msg({ text: "זו קריאת שירות. מערכת המולטימדיה מקבלת עדכון תוכנה שמשפר את פעולתה ברכב.", sys: "software", urgency: "routine" });
@@ -549,6 +594,14 @@ if (process.argv[1] && process.argv[1].endsWith("recall-explain.mjs") && process
     const heldB = Object.values(read("rulesB", "state.json").held);
     ok(rb.broke === 0 && rb.sent === 1 && sentPrompts[0].includes("ALWAYSBAD") && Object.values(read("rulesB", "explain.json").items).some(x => x.d.includes("ALWAYSBAD"))
       && heldB.length === 1 && heldB[0].w.d.includes("REFUSE"), "a rule that no longer breaks a held draft: that wording is sent again and kept; a refusal stays held");
+    dictionary(["בחלק"]);   // as if "בחלק" were a misspelling
+    sentPrompts.length = 0;
+    let rc; try { rc = await run({ env: from("rulesC"), api: fake(), router, log: quiet }); } finally { dictionary([]); }
+    ok(rc.broke === 4 && rc.sent === 4 && rc.kept === 4 && sentPrompts.every(u => u.includes("The words: בחלק.")), "a stored text with a misspelt word: sent again with the word named, and replaced");
+    dictionary(null);
+    const lines = []; await run({ env: { ...from("rulesD"), QUERIES: "dry=1" }, api: fake(), router, log: l => lines.push(l) });
+    dictionary([]);
+    ok(lines.some(l => /^recall explanations: .* · spelling not checked \(no hunspell he_IL\)$/.test(l)), "a run without hunspell says that the spelling was not checked");
   }
   // a new wording in the catalogue, and a batch that has not ended by the deadline: the next run collects it
   fs.writeFileSync(path.join(catDir, "r", "2.json"), JSON.stringify({ u: "2026-10-28", rows: [row(9, "חשש לדליפת דלק מצינור ההזנה", "מערכת הדלק")] }));

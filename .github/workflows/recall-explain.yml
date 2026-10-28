@@ -35,6 +35,9 @@ jobs:
       - name: The Claude SDK (the version pinned in claude.mjs; the app never loads it)
         continue-on-error: true   # without it the bot says why, keeps what it had and tells the router
         run: npm install --no-save --no-audit --no-fund --loglevel=error "$(sed -n 's/^export const SDK = "\(.*\)";$/\1/p' .github/scripts/claude.mjs)"
+      - name: A Hebrew dictionary for the spelling rule (hunspell he_IL)
+        continue-on-error: true   # without it the rule is not checked, and the run's line says so
+        run: sudo apt-get install -y -qq --no-install-recommends hunspell hunspell-he >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends hunspell hunspell-he >/dev/null; }
       - name: The catalogue's recall lists and the last run's files
         run: |
           git fetch -q --depth 1 origin catalog-data && mkdir -p cat && git archive FETCH_HEAD r | tar -x -C cat
