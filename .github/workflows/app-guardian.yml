@@ -7,6 +7,9 @@ name: App guardian (real app)
 # Android 15 is not and stays so after 4 s and after a repaint (swangle and swiftshader alike), so the screen keeps an old part of a frame.
 # Round 2: HWUI told not to trust the emulator's buffer age (setprop debug.hwui.use_buffer_age false) on Android 15 twice and on
 # Android 12 once, against Android 15 as main runs it; and e, the screen after the page is scrolled by a pixel and back.
+# Round 2 (run 40735306491): neither changed the band (a = c = d = e on Android 15), and Android 12 with buffer age off lost its
+# ways in (no page). Round 3: d the page drawn from nothing (body hidden two frames), e the app to the background and back, g turned
+# upright and on its side again.
 # Pictures and meta.json to branch guardian-turn-out. Never red.
 on:
   workflow_dispatch:
@@ -65,10 +68,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { api: 35, gfx: swangle_indirect, age: off, copy: 1 }
-          - { api: 35, gfx: swangle_indirect, age: off, copy: 2 }
           - { api: 35, gfx: swangle_indirect, age: on, copy: 1 }
-          - { api: 31, gfx: swiftshader_indirect, age: off, copy: 1 }
+          - { api: 35, gfx: swangle_indirect, age: on, copy: 2 }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4

@@ -500,17 +500,24 @@ async function phoneChecks(page, sc) {
     const b = await p2.screenshot().catch((e) => { log("TURN the page's own picture failed: " + e.message.split("\n")[0]); return null; });
     await sleep(4000);
     const c = screencap();
-    await p2.evaluate(() => new Promise((ok) => { const s = document.documentElement.style; s.opacity = "0.99"; requestAnimationFrame(() => requestAnimationFrame(() => { s.opacity = ""; requestAnimationFrame(() => requestAnimationFrame(ok)); })); })).catch((e) => log("TURN the repaint failed: " + e.message.split("\n")[0]));
+    // d (round 3): the page laid out and drawn from nothing (body hidden for two frames), so every tile is drawn again, not only composed again
+    await p2.evaluate(() => new Promise((ok) => { const s = document.body.style; s.display = "none"; requestAnimationFrame(() => requestAnimationFrame(() => { s.display = ""; requestAnimationFrame(() => requestAnimationFrame(ok)); })); })).catch((e) => log("TURN the redraw failed: " + e.message.split("\n")[0]));
     const d = await still();
-    // e: the page scrolled by one pixel and back, which makes its whole picture new
-    await p2.evaluate(() => new Promise((ok) => { scrollTo(0, 1); requestAnimationFrame(() => requestAnimationFrame(() => { scrollTo(0, 0); requestAnimationFrame(() => requestAnimationFrame(ok)); })); })).catch((e) => log("TURN the scroll nudge failed: " + e.message.split("\n")[0]));
+    // e (round 3): the app to the background (Home) and back, so its window gets new surfaces
+    sh("input keyevent 3"); await sleep(1500); sh(`am start -n ${ACT}`); await sleep(2500);
+    p2 = await attach().catch(() => p2);
     const e = await still();
+    // g (round 3): turned back upright and on its side again: does a second turn leave the band too?
+    setPhone({ dp: sc.dp, font: sc.font, night: false, land: false }); await sleep(2000);
+    setPhone({ dp: sc.dp, font: sc.font, night: false, land: true }); await sleep(2000);
+    p2 = await attach().catch(() => p2);
+    const g = await still();
     const f = (x, y) => (x && y && x.width === y.width && x.height === y.height ? +moved(x, y).toFixed(4) : null);
     const box = freshBox();
     const vp = await p2.evaluate(() => ({ w: innerWidth, h: innerHeight, dpr: devicePixelRatio, sy: scrollY, vv: visualViewport ? [visualViewport.width, visualViewport.height, visualViewport.offsetTop] : null, kb: document.body.classList.contains("kb") })).catch(() => null);
-    meta.turn = { ac: f(a, c), ad: f(a, d), ae: f(a, e), de: f(d, e), box, vp };
+    meta.turn = { ac: f(a, c), ad: f(a, d), ae: f(a, e), ag: f(a, g), dg: f(d, g), box, vp };
     log(`TURN ${JSON.stringify(meta.turn)}`);
-    saveShot(a, "turn-a-still"); saveShot(c, "turn-c-later"); saveShot(d, "turn-d-repaint"); saveShot(e, "turn-e-scrolled");
+    saveShot(a, "turn-a-still"); saveShot(c, "turn-c-later"); saveShot(d, "turn-d-repaint"); saveShot(e, "turn-e-background"); saveShot(g, "turn-g-turned-again");
     if (b) fs.writeFileSync(path.join(OUT, "shots", "turn-b-page.png"), b);
   }
   setPhone({ dp: sc.dp, font: sc.font, night: false, land: false }); await sleep(1500);
@@ -594,7 +601,7 @@ function finish(line, code) {
   meta.webview = sh("dumpsys webviewupdate | grep -m1 'Current WebView package'");
   log(`${meta.model}, API ${meta.sdk}, ${meta.webview}`);
   sh("settings put global window_animation_scale 0"); sh("settings put global transition_animation_scale 0"); sh("settings put global animator_duration_scale 0");
-  // PROBE round 2: HWUI redraws only what changed, trusting the age the emulator's EGL gives each buffer; --no-buffer-age makes it redraw
+  // PROBE round 2 (no effect, run 40735306491): HWUI redraws only what changed, trusting the age the emulator's EGL gives each buffer; --no-buffer-age makes it redraw
   // the whole window each frame (read when the app's process starts, so before the first start)
   if (args.includes("--no-buffer-age")) { sh("setprop debug.hwui.use_buffer_age false"); log(`debug.hwui.use_buffer_age = ${sh("getprop debug.hwui.use_buffer_age")}`); }
   for (const sc of SCENARIOS) {
