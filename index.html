@@ -904,6 +904,11 @@ body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)
 .rc-row{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding:2px 16px 4px}.rc-row::-webkit-scrollbar{display:none}
 .rc{flex:0 0 auto;display:grid;gap:6px;justify-items:start;border:1px solid var(--line);background:var(--card);border-radius:16px;padding:10px 12px;color:var(--fg)}
 .rc small{font-size:.78rem;color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* a one-line name cut at its logical end, whichever direction its words run (cutHtml): each run is its own box, the last one gives way first
+   (.t b.cut: over the two-line clamp of .t b). Where the line's height can be read (1lh), a run left less than 2em of room goes down to a
+   second line out of sight, instead of showing a sliver of its first letter and of its "…" */
+.cut,.t b.cut{display:flex;min-width:0;column-gap:.25em;overflow:hidden}.cut>span{flex:none;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cut>.cut{flex:0 1 auto;min-width:0}
+@supports (max-height:1lh){.cut,.t b.cut{flex-wrap:wrap;max-height:1lh}.cut>.cut{flex:1 1 2em;max-width:max-content}}
 @media (min-width:700px){.rc-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));overflow:visible;margin-inline:0;padding:2px 0 4px}.rc small{max-width:100%}}
 .tlist{display:grid;background:var(--card);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
 .trow{display:flex;align-items:center;gap:12px;width:100%;text-align:start;border:0;background:none;padding:12px 14px;color:var(--fg)}
@@ -3251,7 +3256,7 @@ function renderResult(){
   $("#out").innerHTML = html.join("");
   loadStatus();
   // the sticky header (carHead) keeps the plate and model on screen, so any screenshot of this car says which car it is
-  { const h = $("#chead"); if (h) { h.classList.toggle("sc", window.scrollY > 8); const t = h.querySelector(".mini-plate + b"); if (t && t.scrollWidth > t.clientWidth + 1) t.hidden = true; } }   // a narrow phone shows the plate alone; the name is right below it
+  { const h = $("#chead"); if (h) { h.classList.toggle("sc", window.scrollY > 8); const t = h.querySelector(".mini-plate + b"); if (t && [t, ...t.querySelectorAll("span")].some(e => e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1)) t.hidden = true; } }   // a narrow phone shows the plate alone, never part of the name (each of its runs is cut, or goes out of sight, on its own: cutHtml); the name is right below it
 }
 let stripObs = null;
 function watchStrip(){
@@ -5214,7 +5219,7 @@ function renderCompare(){
     const open = cmpOpen.has(x.title);
     return `<div class="cmp-sec"><button type="button" data-sec="${esc(x.title)}" aria-expanded="${open}">${esc(x.title)}${open ? "" : `<small>${x.n} שורות</small>`}${ico("chev")}</button></div>` + (open ? x.html.join("") : "");
   }).join("") + (OK.some(D => D.plate) ? `<div class="cmp-k">ברכבים שלי</div>` + L.map((D, i) => `<div class="cmp-v">${D.plate && D.kind !== "fail" ? `<button type="button" class="cmp-save" data-cmpsave="${i}" aria-pressed="${isSaved(D.plate)}">${isSaved(D.plate) ? "נשמר ✓" : "שמירה"}</button>` : ""}</div>`).join("") : "");
-  const head = (D, i) => D.kind === "fail" ? `<div class="cmp-h fail"><div class="cmp-top"><span class="mini-plate"><i></i>${esc(D.title)}</span><button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><small>${esc(D.why)}</small>${D.retry ? `<button type="button" class="retry" data-retry-cmp="${i}">נסו שוב</button>` : ""}</div>` : `<div class="cmp-h"><div class="cmp-top">${D.kind === "model" ? `<span class="tag">דגם</span>` : `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>`}<button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><b title="${esc(D.title)}"><bdi>${esc(D.title)}</bdi></b><small><bdi>${esc(D.alts && D.alts.length > 1 ? String(D.v.shnat_yitzur || "") : D.sub)}</bdi></small>${ownW(D) ? "" : `<span class="note">${esc(wFrom(D))}</span>`}${D.alts && D.alts.length > 1 ? `<select class="trim-sel" data-trim="${i}" aria-label="רמת גימור">${(mixed => D.alts.map((r, j) => `<option value="${j}"${rowKey(r) === D.key ? " selected" : ""}>${esc(altLabel(r, mixed))}</option>`).join(""))(new Set(D.alts.map(engKey)).size > 1)}</select>` : ""}</div>`;
+  const head = (D, i) => D.kind === "fail" ? `<div class="cmp-h fail"><div class="cmp-top"><span class="mini-plate"><i></i>${esc(D.title)}</span><button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><small>${esc(D.why)}</small>${D.retry ? `<button type="button" class="retry" data-retry-cmp="${i}">נסו שוב</button>` : ""}</div>` : `<div class="cmp-h"><div class="cmp-top">${D.kind === "model" ? `<span class="tag">דגם</span>` : `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>`}<button type="button" class="x" data-rm="${i}" aria-label="הסרה מההשוואה">${ico("x")}</button></div><b title="${esc(D.title)}"><bdi>${esc(D.title)}</bdi></b><small class="cut">${cutHtml(D.alts && D.alts.length > 1 ? String(D.v.shnat_yitzur || "") : D.sub)}</small>${ownW(D) ? "" : `<span class="note">${esc(wFrom(D))}</span>`}${D.alts && D.alts.length > 1 ? `<select class="trim-sel" data-trim="${i}" aria-label="רמת גימור">${(mixed => D.alts.map((r, j) => `<option value="${j}"${rowKey(r) === D.key ? " selected" : ""}>${esc(altLabel(r, mixed))}</option>`).join(""))(new Set(D.alts.map(engKey)).size > 1)}</select>` : ""}</div>`;
   const base = OK.length && n < cmpMax() ? OK[OK.length - 1] : null;
   if (base) loadSimilar(base);
   const simHtml = base && simFor === (base.key || base.plate) && simList.length ? `<div class="sim-box"><div class="qsec">דגמים דומים, להוספה בלחיצה</div><div class="list">${simList.map((g, i) => {
@@ -6386,7 +6391,7 @@ function carHead(D){
   const car = D.plate && D.kind !== "model", saved = car && isSaved(D.plate), mine = car && isMine(D);
   // the owner's own car: the road documents take the share button's place (sharing moves to the menu)
   return `<header class="chead" id="chead"><button type="button" class="ch-b back" data-act="back" aria-label="חזרה">${ico("back")}</button>
-    <div class="ch-t">${car ? `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>` : ""}<b>${esc(D.title)}</b></div>
+    <div class="ch-t">${car ? `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>` : ""}<b class="cut">${cutHtml(D.title)}</b></div>
     ${mine ? `<button type="button" class="ch-doc" data-cf="road" aria-label="מסמכים לנסיעה">${ico("id")}<span class="ch-dt">מסמכים</span></button>` : `<button type="button" class="ch-b" data-act="share" aria-label="שיתוף הדוח">${ico("share")}<span class="ch-l">שיתוף</span></button>`}
     ${car ? `<button type="button" class="ch-b star" data-act="save" aria-pressed="${saved}" aria-label="שמירה ברכבים שלי">${ico("star")}<span class="ch-l">${saved ? "נשמר" : "שמירה"}</span></button>` : ""}
     <span class="ch-m"><button type="button" class="ch-b" data-act="cmenu" aria-label="עוד פעולות" aria-haspopup="menu" aria-expanded="false">${ico("more")}</button></span></header>`;
@@ -6442,7 +6447,7 @@ function carCard(s){
   const meter = s.ask && s.fair ? priceMeter(s) : L && s.active !== false ? testMeter(L) : "";
   return `<button type="button" class="ccard${on ? " on" : ""}" ${sel ? `data-pick="${s.plate}" aria-pressed="${!!on}"` : `data-open="${s.plate}"`}>
     <span class="cc-top"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span>${s.color && !String(s.sub || "").includes(s.color) ? `<span class="cc-col">${hex ? `<i class="pdot" style="background:${hex}"></i>` : ""}${esc(s.color)}</span>` : ""}${sel ? `<span class="cc-chk">${ico("check")}</span>` : `<span class="cc-go">${ico("chev")}</span>`}</span>
-    <b class="cc-t"><bdi>${esc(s.nick || s.title)}</bdi></b><small class="cc-s">${s.nick ? `<bdi>${esc(s.title)}</bdi> · ` : ""}${esc(s.sub || "")}</small>
+    <b class="cc-t cut">${cutHtml(s.nick || s.title)}</b><small class="cc-s cut">${cutHtml([s.nick && s.title, s.sub])}</small>
     ${strip || meter ? `<span class="cc-m">${strip}${meter}</span>` : ""}</button>`;
 }
 const carsModeOf = n => { let m = null; try { m = localStorage.getItem("carsMode"); } catch {} return m === "list" || m === "table" ? m : n >= 6 && (!PRO_LOCK || atLeast("pro")) ? "table" : "list"; };
@@ -7036,6 +7041,27 @@ const FAQ = [...document.querySelectorAll("#faqSrc details")].map(d => [d.queryS
 function faqCard(){
   return card("שאלות נפוצות", "info", "slate", FAQ.map(([q, a]) => `<details class="faq"><summary>${q}</summary><p>${a}</p></details>`).join(""));
 }
+/* One line of names that may not fit, cut at its LOGICAL end. A nowrap ellipsis clips a right-to-left line at its left edge, which is where
+   an English run STARTS: "טויוטה COROLLA" read "טויוטה LLA…" (QA thread 28.10). So the words go in runs by direction, resolved as the
+   browser's own bidi would (Hebrew or Arabic words right to left, other words with letters left to right, digits after an English word
+   with it as in IONIQ 5, marks between two English words with them as in GLE 450 4MATIC, anything else right to left), and each run is
+   its own box in its own direction, nested so that the last run gives way first and each one cuts at its own end (.cut on the element
+   that holds the line). Several parts (an array) are each read on their own, as <bdi> did, and joined by " · ": a year after an English
+   name stays with its own part. The spaces between the boxes are not drawn (the gap is): they keep the words apart in the page's text
+   and for a screen reader */
+function cutHtml(parts){
+  const runs = [], add = (k, w) => { const r = runs[runs.length - 1]; if (r && r.k === k) r.t += " " + w; else runs.push({k, t: w}); };
+  [].concat(parts).map(p => String(p ?? "").trim()).filter(Boolean).forEach((p, j) => {
+    if (j) add("rtl", "·");
+    const words = p.split(/\s+/), dir = [];
+    let strong = "R";
+    for (const w of words) { const c = /[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/.test(w) ? "R" : /\p{L}/u.test(w) ? "L" : /\d/.test(w) ? "D" : "N";
+      if (c === "R" || c === "L") strong = c; dir.push(c === "D" ? (strong === "L" ? "L" : "R") : c); }
+    for (let i = 0; i < dir.length; i++) if (dir[i] === "N") { const b = dir.slice(0, i).reverse().find(d => d !== "N"), a = dir.slice(i + 1).find(d => d !== "N"); dir[i] = b === "L" && a === "L" ? "L" : "R"; }
+    words.forEach((w, i) => add(dir[i] === "L" ? "ltr" : "rtl", w));
+  });
+  return runs.reduceRight((rest, r) => `<span dir="${r.k}">${esc(r.t)}</span>${rest && ` <span class="cut">${rest}</span>`}`, "");
+}
 /* "מרצדס בנץ GLC 300E 4MATIC COUPE" -> "מרצדס בנץ GLC": the maker's Hebrew words and the model's first word fit a small chip whole */
 function shortModel(t){
   const w = String(t || "").trim().split(/\s+/).filter(Boolean), he = x => /[\u0590-\u05FF]/.test(x);
@@ -7054,11 +7080,11 @@ function renderHome(){
   const pn = planNotice(); if (pn) html.push(pn);
   // what needs attention on a saved car opens "התראות", and counts what the bell on "התראות" counts (one item per issue); the cars themselves live in "הרכבים שלי"
   const items = alertItems(), mine = saved.length === 1 ? "ברכב שלכם" : "ברכבים שלכם";
-  if (items.length) html.push(`<button type="button" class="attn${items.some(x => x.lv === "bad") ? "" : " warn"}" data-nav="alerts" data-via="attn"><span class="ai">${ico("alert")}</span><span class="t"><b>${items.length === 1 ? `התראה אחת ${mine}` : `${items.length} התראות ${mine}`}</b><small>${items.slice(0, 2).map(x => `${esc(x.k || x.t)}: <bdi>${esc(x.s.nick || x.s.title)}</bdi>`).join(" · ")}</small></span>${ico("chev")}</button>`);
+  if (items.length) html.push(`<button type="button" class="attn${items.some(x => x.lv === "bad") ? "" : " warn"}" data-nav="alerts" data-via="attn"><span class="ai">${ico("alert")}</span><span class="t"><b>${items.length === 1 ? `התראה אחת ${mine}` : `${items.length} התראות ${mine}`}</b><small class="cut">${cutHtml(items.slice(0, 2).map(x => `${x.k || x.t}: ${x.s.nick || x.s.title}`))}</small></span>${ico("chev")}</button>`);
   if ((saved.length || recent.length) && !anyMine()) html.push(`<div class="tlist hfile"><button type="button" class="trow" data-act="fileHome"><i class="tb blue">${ico("car")}</i><span class="t"><b>יש לכם כבר רכב? פתחו לו תיק</b><small>טסט, טיפולים ומסמכים לנסיעה, במקום אחד</small></span>${ico("chev")}</button></div>`);
   // on a wide screen the saved-cars rail beside the page already lists a saved car: its recent chip is hidden there (.inrail), not shown twice
   const inRail = new Set(window.AndroidApp ? [] : railCars(saved).map(s => s.plate));
-  if (recent.length) html.push(`<section class="recents" aria-label="בדיקות אחרונות"><div class="qhead">בדיקות אחרונות</div><div class="rc-row">${recent.map(p => { const s = saved.find(x => x.plate === p), nm = s && s.nick || shortModel(s ? s.title : recentNames()[p]); return `<button type="button" class="rc${inRail.has(p) ? " inrail" : ""}" data-open="${p}"><span class="mini-plate"><i></i>${fmtPlate(p)}</span>${nm ? `<small><bdi>${esc(nm)}</bdi></small>` : ""}</button>`; }).join("")}</div></section>`);
+  if (recent.length) html.push(`<section class="recents" aria-label="בדיקות אחרונות"><div class="qhead">בדיקות אחרונות</div><div class="rc-row">${recent.map(p => { const s = saved.find(x => x.plate === p), nm = s && s.nick || shortModel(s ? s.title : recentNames()[p]); return `<button type="button" class="rc${inRail.has(p) ? " inrail" : ""}" data-open="${p}"><span class="mini-plate"><i></i>${fmtPlate(p)}</span>${nm ? `<small class="cut">${cutHtml(nm)}</small>` : ""}</button>`; }).join("")}</div></section>`);
   const tool = (act, icon, title, text, tag, col) => `<button type="button" class="trow" data-act="${act}"><i class="tb ${col}">${ico(icon)}</i><span class="t"><b>${title}${tag ? PT(tag) : ""}</b><small>${text}</small></span>${ico("chev")}</button>`;
   html.push(`<div class="qhead">כלים</div><div class="tlist">${[
     tool("compareHome", "compare", "חיפוש דגמים", "דגם, או סוג ותקציב. אפשר גם להשוות עד " + cmpMax(), "", "violet"),
@@ -7090,7 +7116,7 @@ function homeRail(saved){
   // tools is hidden there); an iPhone or iPad has no Android app to offer
   const app = IS_IOS ? "" : `<section class="appbox hr-app"><h3>לוחית באנדרואיד</h3><p>אותה בדיקה, ועוד בטלפון:</p><ul><li>התראה כשהטסט מתקרב או שנפתח ריקול</li><li>הודעה אם רכב עבר בעלות או ירד מהכביש</li><li>תיק הרכב: טיפולים ומסמכים</li></ul><button type="button" class="btn" data-url="${playWeb("home_rail")}" data-hint="home-rail">להורדה ב-Google Play</button></section>`;
   return `<aside class="hrail" aria-labelledby="hrailHead"><section class="hr-p"><div class="hr-h"><h2 id="hrailHead">הרכבים שלי</h2>${list.length ? `<button type="button" class="lnk" data-nav="cars" data-via="rail">${saved.length > list.length ? `לכל ${saved.length} הרכבים` : "לכל הרכבים"}</button>` : ""}</div>
-    ${list.length ? list.map(s => { const [lv, t] = line(s); return `<button type="button" class="hr-row" data-open="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b><bdi>${esc(s.nick || s.title)}</bdi></b><small class="${lv}">${lv === "ok" ? "" : `<i class="dot ${lv}" aria-hidden="true"></i>`}${t}</small></span></button>`; }).join("")
+    ${list.length ? list.map(s => { const [lv, t] = line(s); return `<button type="button" class="hr-row" data-open="${s.plate}"><span class="mini-plate"><i></i>${fmtPlate(s.plate)}</span><span class="t"><b class="cut">${cutHtml(s.nick || s.title)}</b><small class="${lv}">${lv === "ok" ? "" : `<i class="dot ${lv}" aria-hidden="true"></i>`}${t}</small></span></button>`; }).join("")
       : `<p class="hr-e">בודקים רכב ולוחצים על ${ico("star")}<b>שמירה</b> בראש הדוח. כאן יופיעו הטסט והריקולים של הרכבים ששמרתם.</p>`}
     <p class="hr-f">נשמרים בדפדפן הזה בלבד</p></section>${app}</aside>`;
 }
