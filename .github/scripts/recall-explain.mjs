@@ -87,6 +87,7 @@ const STOP = /(לעצור|להפסיק|הפסקת) (את )?(ה)?שימוש|אי�
 const INSTR = /יש ל|חובה|מבקש|להימנע|הנחה|הנחיה|אין ל|לא ל(נסוע|השתמש|שטוף|חנות|החנות|טעון|הטעין|הושיב|שבת)|לעצור|להפסיק (את )?(ה)?שימוש|\b(do not|avoid|park)\b/i;
 
 const LATIN_OK = new Set(["ABS", "ESP", "ESC", "EBD", "ECU", "EGR", "DPF", "LED", "USB", "ADAS", "AEB", "TPMS", "SRS", "GPS", "EV"]);
+const bare = s => s.toUpperCase().replace(/[\s-]/g, "");   // "eCall" is the description's "E-CALL"
 // "not a safety recall": an Israeli service campaign can be an airbag or a brake booster, so no text says a record is not about safety
 // "מכלול" (an assembly, "במכלול המשאבה") is מ before כלול: a part, never "included"
 const ASSEMBLY = new RegExp(`(?<![${HE}])[והבלשכ]{0,2}מכלול(?:ים|י|ה|ות|ו|ת)?(?![${HE}])`, "g");
@@ -114,7 +115,7 @@ export const RULES = [
     || /(?:לא|אינו|אינה|אין) (?:מפורט|מפורטת|מפרט|מפרטת|צוין|צוינה|מצוין|מצוינת|מציין|מציינת|מוסבר|מוסברת|נאמר)/.test(t),
     "Write about the recall, never about the record or what it leaves out (no \"לפי התיאור\", \"הרישום מציין\", \"אופן התיקון\", \"לא מפורט\"). When the description names only a part, say what the part does and that it may have a fault. The repair is one plain sentence that names the part: \"בתיקון בודקים את וו הגרירה.\""],
   ["number", (t, w) => (t.match(/\d+/g) || []).some(n => !w.d.includes(n)), "No numbers that the description does not have."],
-  ["latin", (t, w) => (t.match(/[A-Za-z][A-Za-z0-9-]*/g) || []).some(x => !w.d.toUpperCase().includes(x.toUpperCase()) && !LATIN_OK.has(x.toUpperCase())),
+  ["latin", (t, w) => (t.match(/[A-Za-z][A-Za-z0-9-]*/g) || []).some(x => !bare(w.d).includes(bare(x)) && !LATIN_OK.has(bare(x))),
     "No Latin-letter words the description does not have (no model names, no English)."],
   ["length", t => t.length < 50 || t.length > 320, "Two or three short sentences, 50 to 320 characters."],
   ["hebrew", t => (t.match(/[א-ת]/g) || []).length < 0.7 * (t.match(/[A-Za-zא-ת]/g) || []).length, "Write in Hebrew."],
@@ -423,6 +424,8 @@ if (process.argv[1] && process.argv[1].endsWith("recall-explain.mjs") && process
     "a label that is not readable (לא קריאה) is no downplay");
   fault("כרית האוויר עלולה להיפתח באיחור של 30 אלפיות שנייה בעת תאונה. בתיקון מחליפים את המנפח.", "number");
   fault("כרית האוויר בדגם Corolla עלולה להיפתח מאוחר מדי בעת תאונה. בתיקון מחליפים את המנפח בחלק חדש.", "latin");
+  ok(textCheck("מערכת שיחת החירום (eCall) נועדה להפעיל קריאה לעזרה לאחר תאונה. ייתכן שיש ליקוי ביחידת הבקרה שלה. בתיקון בודקים את יחידת הבקרה.", W("ליקוי ביחידת בקרת מערכת שיחות חירום ) E-CALL(", "חשמל אליקטרוניקה ומיזוג")).length === 0,
+    "the description's own Latin word, written without its hyphen (eCall for E-CALL), passes");
   fault("לפי התיאור, ייתכן שהרכב לא עומד בתקן פליטת המזהמים, כלומר פולט יותר מזהמים מהמותר. בתיקון מעדכנים את התוכנה.", "record");
   fault("וו הגרירה משמש לחיבור הרכב לגרירה. ייתכן שהתבריג שלו אינו עומד בדרישות, והוו עלול להשתחרר בזמן גרירה. אופן התיקון הוא בדיקה.", "record");
   fault("המתג בדלת הנהג משמש לנעילת הדלתות והחלונות. התיאור מציין רק את המתג עצמו ואינו מפרט מהי התקלה. בתיקון בודקים את המתג.", "record");
