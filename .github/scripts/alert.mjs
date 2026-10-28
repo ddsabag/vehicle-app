@@ -54,6 +54,7 @@ export const WF_LEVELS = {
   "Ship tail": "day", "Store listing": "day", "Release watch": "day", "Production": "day",
   "Settlements": "day", "Data truth": "day", "Social publish": "day",
   "App guardian (real app)": "day", "UI guardian (browser)": "day",   // red = blocking findings on the real app / site (owner: product); at night: quiet, then the morning ring
+  "Visual review": "summary",   // Claude's look at the guardians' screenshots (owner: product): report only, so red is its own crash, never a finding
   "Alert router check": "summary", "ASO check": "summary",   // checks of a push to main: whoever released it fixes it; quiet, then the ledger and the morning triage
   "Live watch": "summary",   // the /live dashboard's own watch (owner: measurement); its findings alert by themselves (live:*)
 };
