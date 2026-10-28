@@ -1,0 +1,59 @@
+{
+ "v": 5,
+ "at": "2026-10-28T17:38:03.330Z",
+ "source": "app",
+ "run": "https://github.com/ddsabag/vehicle-app/actions/runs/40736245610",
+ "code": "00f4e864a6ef.36c4fbc04ff1",
+ "mode": "batch",
+ "counts": {
+  "shots": 79,
+  "kept": 0,
+  "first": 79,
+  "second": 1,
+  "waitingFirst": 0,
+  "waitingSecond": 0,
+  "unsure": 25,
+  "errors": 0,
+  "findings": 2,
+  "new": 2,
+  "rejected": 0,
+  "misreads": 3
+ },
+ "month": {
+  "first": 500,
+  "second": 62,
+  "caps": {
+   "runFirst": 300,
+   "runSecond": 40,
+   "monthFirst": 4000,
+   "monthSecond": 400
+  }
+ },
+ "findings": [
+  {
+   "shot": "api35/411-extra__landscape",
+   "kind": "other",
+   "part": 1,
+   "where": "middle of the screen, just below the two action buttons (צילום לוחית / אמירת המספר) and above the notification card",
+   "text": "12-345-67",
+   "what": "A second copy of the search row (blue search button, IL ישראל plate input with 12-345-67) is visible below the action buttons, duplicating the real one at the top of the screen.",
+   "severity": "high",
+   "since": "2026-10-28",
+   "new": true
+  },
+  {
+   "shot": "api35/411-extra__landscape",
+   "kind": "overlap",
+   "part": 1,
+   "where": "lower middle, where the notification card התראה אחת ברכב שלכם sits over the duplicated search row",
+   "text": "התראה אחת ברכב שלכם",
+   "what": "The notification card covers the lower part of the duplicated plate input and search button, so the duplicate is chopped off.",
+   "severity": "medium",
+   "since": "2026-10-28",
+   "new": true
+  }
+ ],
+ "pending": [],
+ "dropped": [],
+ "errors": []
+}
