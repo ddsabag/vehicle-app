@@ -38,7 +38,7 @@ export function request(reviews) {   // the Messages API body; reviews that have
 export async function tagThemes(reviews, { api = null, env = process.env, ms = 120000 } = {}) {   // ms: the whole call (the SDK waits 10 min)
   const base = reviews.map(r => (String(r.text || "").trim() ? null : []));
   if (!base.includes(null)) return { tags: base, why: "", called: false };   // nothing to tag (or no review this week): no call
-  const c = api ? { api, why: "" } : await client(env);
+  const c = api ? { api, why: "" } : await client(env, { timeout: 50000 });   // a hung request is retried in time, two tries fit in ms
   if (!c.api) return { tags: null, why: c.why, key: false, none: /no ANTHROPIC_API_KEY/.test(c.why) };
   let timer;
   const r = await Promise.race([ask(c.api, request(reviews)), new Promise(res => { timer = setTimeout(() => res({ error: { why: "timeout", key: false } }), ms); })])
@@ -96,6 +96,8 @@ if (process.argv[1] && process.argv[1].endsWith("review-themes.mjs") && process.
   ok(r.tags === null && r.key === true, "credit balance too low: the key (ai:key)");
   r = await tagThemes(week, { api: boom(529) });
   ok(r.tags === null && r.key === false && r.why === "529 server", "529: the bot's own key (ai:themes)");
+  r = await tagThemes(week, { api: boom(402, "billing") });
+  ok(r.tags === null && r.key === true && r.why === "402 billing: billing", "402 billing: the key or the money (ai:key)");
   r = await tagThemes(week, { api: { messages: { create: () => new Promise(() => {}) } }, ms: 50 });
   ok(r.tags === null && r.why === "timeout" && r.key === false, "a call that hangs ends at the deadline (ai:themes)");
   console.log(bad ? `${bad} failed` : "selftest ok"); process.exit(bad ? 1 : 0);
