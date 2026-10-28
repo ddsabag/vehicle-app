@@ -155,6 +155,20 @@ async function measure(page) {
     // the part of a box that is drawn: cut by every parent that clips (a name ending in "…" inside its card is not past the column)
     const drawn = (e) => { const b = e.getBoundingClientRect(); let l = b.left, r = b.right; for (let p = e.parentElement; p && p !== document.body; p = p.parentElement) if (getComputedStyle(p).overflowX !== "visible") { const q = p.getBoundingClientRect(); l = Math.max(l, q.left); r = Math.min(r, q.right); } return { left: l, right: r, width: r - l }; };
     const bleed = W >= 700 && colBox && !sheet ? [...out.querySelectorAll("*")].filter((e) => vis(e) && !e.closest("svg")).filter((e) => { const cs = getComputedStyle(e); return e.children.length === 0 || cs.backgroundColor !== "rgba(0, 0, 0, 0)" || parseFloat(cs.borderTopWidth) > 0 || cs.boxShadow !== "none"; }).filter((e) => { const b = drawn(e); return b.width > 20 && (b.left < colBox.left + padL - 2 || b.right > colBox.right - padR + 2) && !e.closest(".cfab,.toast") && !layer(e); }).filter((e, i, a) => !a.some((x) => x !== e && x.contains(e))).map((e) => label(e) + ` (${Math.round(drawn(e).left - colBox.left - padL)}/${Math.round(colBox.right - padR - drawn(e).right)}px)`) : [];
+    // an English name cut at its START: a nowrap ellipsis cuts a right-to-left line at its left edge, which is where an English run begins
+    // ("טויוטה LLA…" for COROLLA, QA thread 28.10; index.html cutHtml). A run of Latin letters whose first letter is not drawn while a later one is
+    for (const e of scope) {
+      if (getComputedStyle(e).textOverflow !== "ellipsis" || e.scrollWidth <= e.clientWidth + 1) continue;
+      const tw = document.createTreeWalker(e, NodeFilter.SHOW_TEXT);
+      for (let n; (n = tw.nextNode());) {
+        if (!vis(n.parentElement)) continue;
+        const d = drawn(n.parentElement), seen = (i) => { const r = document.createRange(); r.setStart(n, i); r.setEnd(n, i + 1); const b = r.getBoundingClientRect(); return b.width > 0 && b.left + b.width / 2 > d.left && b.left + b.width / 2 < d.right; };
+        for (const m of n.textContent.matchAll(/[A-Za-z][\w.\-/]*(?:\s+[\w.\-/]+)*/g)) {
+          const last = m.index + m[0].length - 1;
+          if (!seen(m.index) && [...Array(last - m.index)].some((_, k) => /\S/.test(m[0][k + 1]) && seen(m.index + k + 1))) clipped.push(`${label(e)} (English cut at its start: ${m[0].slice(0, 20)})`);
+        }
+      }
+    }
     // the same car offered twice on one screen (a rail and a row of recent checks listing the same plates). Not on התראות: that list has
     // one item per issue, so a car with a recall and a test due rightly shows up in both
     const opens = {}; if (document.body.dataset.screen !== "alerts") for (const e of document.querySelectorAll("#out [data-open]")) if (vis(e) && (!sheet || sheet.contains(e))) opens[e.dataset.open] = (opens[e.dataset.open] || 0) + 1;
