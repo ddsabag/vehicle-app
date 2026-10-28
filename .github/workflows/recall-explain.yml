@@ -14,10 +14,6 @@ on:
         description: "sample=20 (a spread sample), max=N, wait=minutes, redo=1 (every wording again), dry=1 (no call)"
         type: string
         default: ""
-  # TEMPORARY, one run from the branch for the advisor's review fixes (a manual run needs the file on main): removed right after
-  push:
-    branches: [data/claude-bots]
-    paths: [".github/recall-explain.run"]
 permissions:
   contents: write
 concurrency:
