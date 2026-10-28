@@ -43,7 +43,7 @@ jobs:
       play: ${{ steps.g.outputs.play }}
       ga4: ${{ steps.g.outputs.ga4 }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/scripts/play-alpha.mjs
@@ -82,7 +82,7 @@ jobs:
       result: ${{ steps.p.outputs.result }}
       tell: ${{ steps.p.outputs.tell }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/scripts/play-alpha.mjs
@@ -111,7 +111,7 @@ jobs:
     outputs:
       result: ${{ steps.g.outputs.result }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/scripts/ga4-admin.mjs
@@ -142,7 +142,7 @@ jobs:
       contents: write   # alert.mjs keeps its dedupe state on the alert-state branch
       actions: read     # Workers deploy and Site smoke test (after deploy) runs of the same commit
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/scripts/play-alpha.mjs

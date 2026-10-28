@@ -26,7 +26,7 @@ jobs:
           d=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" --jq '[.jobs[] | select(.name == "deploy")][0].conclusion // "none"') || d=unknown
           echo "deploy job: $d"
           case "$d" in success|unknown) echo "go=true" >> "$GITHUB_OUTPUT";; *) echo "nothing new was deployed: no check";; esac
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: ${{ steps.gate.outputs.go == 'true' }}
       - uses: actions/setup-node@v7
         if: ${{ steps.gate.outputs.go == 'true' }}
