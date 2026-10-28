@@ -27,9 +27,13 @@ import zlib from "node:zlib";
 import crypto from "node:crypto";
 import * as claude from "./claude.mjs";
 
-export const V = 1;   // the prompt and the schemas: a new V judges every shot again
+export const V = 2;   // the prompt and the schemas: a new V judges every shot again (2: the non-defects the first real run, 28.10, reported)
 export const MODELS = { first: "claude-haiku-5-5", second: "claude-sonnet-5-5" };
-export const CAPS = { runFirst: 300, runSecond: 20, monthFirst: 1500, monthSecond: 120 };
+export const CAPS = { runFirst: 300, runSecond: 40, monthFirst: 4000, monthSecond: 400 };
+// a point goes on to the second look from severity x confidence 3 up (each high 3, medium 2, low 1): medium/medium, low but sure, high but
+// unsure. In the first real run (28.10, 66 app shots) every true defect came at 4 or more and every point below 3 the second look kept was
+// a false one, so points under the bar stay first-look notes, counted in the report, at no cost
+export const BAR = 3;
 export const SAME = 0.002, PART = 800, SCALE = 2, SHORT = 200, CHUNK = 40, POOL = 4, TRIES = 2;
 export const KINDS = ["cut_text", "overlap", "rtl", "typo", "contrast", "layout", "other"];
 const LEVELS = ["high", "medium", "low"];
@@ -177,14 +181,17 @@ Report only real, visible defects of these kinds:
 - other: anything else a person would call visibly broken, such as a missing icon, an image that did not load, or two copies of one element.
 
 These are not defects, do not report them:
-- The test data itself: plates such as 12-345-67, 1234567, 7654321, 385-48-003 or 111-22-233, and the car names, prices, dates and counts, are invented for the test.
+- The test data itself: plates such as 12-345-67, 1234567, 7654321, 385-48-003 or 111-22-233, and the car names, prices, dates and counts, are invented for the test. Car makes and models may be in English inside Hebrew text (טויוטה COROLLA).
 - Android's own parts: the status bar at the top (time, battery, notification icons), the navigation bar at the bottom or at the side, and the on-screen keyboard.
 - Large font settings (130% and 200%): text that is bigger, wraps onto more lines or makes a card taller is correct there; only clipping, overlap or a broken layout is a defect.
-- Content that goes on below the bottom of a phone screen or below the end of a part of a long page: it scrolls.
-- Grey placeholder text in an empty input, unless it is itself cut.
+- Scrolling: content that goes on below the bottom of a phone screen, below the end of a part of a long page, or under the app's bottom navigation bar, even in the middle of a sentence; a floating button (such as השוואה) or a bar fixed to the screen, drawn over content that scrolls under it; a row of cards that scrolls sideways, with its last card cut at the screen edge.
+- Text shortened on purpose with an ellipsis (…), and a loading message that ends in one.
+- A notification badge (a small red circle, often with a number) on the corner of its icon, even where it covers part of the icon.
+- Placeholder text, an example such as 12-345-67 in an empty input: it is dimmer than typed text on purpose, in grey or in a darker shade of the field's colour. It is a defect only when it is itself cut.
+- Arrows and chevrons that point left to open something or to go forward: in right to left that is the right way.
 - Design choices: colours, fonts, sizes, icons and wording that are consistent and readable, even where you would design them differently.
 
-Be strict about evidence: report a defect only when you can point to it in the screenshot, and say exactly where to look. Quote on-screen text exactly as it appears. When you are unsure, report it with confidence "low" rather than not at all. Write in English, except for quoted on-screen text. An empty list is the right answer for a screen that looks fine, and most screens are fine.
+Be strict about evidence: report a defect only when you can point to it in the screenshot, and say exactly where to look. Quote on-screen text exactly as it appears. Hebrew letters that look alike (ח and ת, ד and ר, ו and י and ן) are easy to misread, all the more in small or very large text: report a typo only where the word is clearly legible, and when the word you read is one letter away from a common word, give it confidence "low". When you are unsure, report it with confidence "low" rather than not at all. Write in English, except for quoted on-screen text. An empty list is the right answer for a screen that looks fine, and most screens are fine.
 
 For each defect give: kind; part (the number of the image it is in, 1 when there is one image); where (the part of the screen, such as "the car card's header", "the bottom navigation bar", "the second card in the list"); what (what is wrong, quoting the text); severity (high: a person cannot read or use something; medium: clearly visible but usable; low: a small blemish); and confidence (high, medium or low).`;
 
@@ -202,7 +209,7 @@ export function params(look, s) {
   if (!shots.length) return null;
   s.n = shots.length;
   const ask = look === "first" ? "Find the visible defects on this screen."
-    : `A quicker first look at this screen reported these possible defects:\n${claimsText(s.entry.first.issues)}\nCheck each one against the screenshot: real is true only when you can see that defect clearly, and why says what you saw. Keep its number as claim. Then add any other clear defect it missed, with claim 0.`;
+    : `A quicker first look at this screen reported these possible defects:\n${claimsText(worth(s.entry))}\nCheck each one against the screenshot: real is true only when you can see that defect clearly, and why says what you saw. Keep its number as claim. Then add any other clear defect it missed, with claim 0.`;
   return { model: MODELS[look], max_tokens: look === "first" ? 4000 : 8000, system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
     output_config: { effort: "low", format: { type: "json_schema", schema: look === "first" ? FIRST : SECOND } },
     messages: [{ role: "user", content: [...shots.map(image), { type: "text", text: `${describe(s, shots.length)}\n${ask}` }] }] };
@@ -211,7 +218,10 @@ export function params(look, s) {
 const clip = (t, n = 300) => String(t || "").replace(/\s+/g, " ").trim().slice(0, n);
 const issue = (i, n) => (i && KINDS.includes(i.kind) && LEVELS.includes(i.severity) ? { kind: i.kind, part: Math.min(Math.max(1, Math.round(+i.part) || 1), n), where: clip(i.where, 120), what: clip(i.what),
   severity: i.severity, ...(LEVELS.includes(i.confidence) ? { confidence: i.confidence } : {}) } : null);
-const score = e => Math.max(0, ...(e.first?.issues || []).map(i => (3 - LEVELS.indexOf(i.severity)) * (3 - LEVELS.indexOf(i.confidence))));
+const lv = x => { const k = LEVELS.indexOf(x); return k < 0 ? 1 : 3 - k; };   // high 3, medium 2, low (or none) 1
+const weight = i => lv(i.severity) * lv(i.confidence);
+const worth = e => (e.first?.issues || []).filter(i => weight(i) >= BAR);   // the first look's points the second look checks
+const score = e => Math.max(0, ...(e.first?.issues || []).map(weight));
 
 // ---- the state on branch visual-review-out
 export function loadState(dir) {
@@ -306,7 +316,7 @@ export async function run(o) {
   }
   // 3. the second look, on the shots the first look found something on (this run's or an earlier one's), most serious first
   const byKey = Object.fromEntries(list.map(s => [s.key, s]));
-  const waiting = Object.entries(st.shots).filter(([k, e]) => byKey[k] && e.first?.issues?.length && !e.second).sort(([, a], [, b]) => score(b) - score(a) || a.at.localeCompare(b.at));
+  const waiting = Object.entries(st.shots).filter(([k, e]) => byKey[k] && score(e) >= BAR && !e.second).sort(([, a], [, b]) => score(b) - score(a) || a.at.localeCompare(b.at));
   const secondN = keyFail ? 0 : Math.max(0, Math.min(CAPS.runSecond, CAPS.monthSecond - st.used.second)), second = waiting.slice(0, secondN).map(([k, e]) => Object.assign(byKey[k], { entry: e, judged: judged(k) }));
   if (second.length) {
     const jobs = second.map((s, i) => ({ id: "s" + i, s, make: () => params("second", s) }));
@@ -320,7 +330,7 @@ export async function run(o) {
       const a = IO.claude.answer(res.msg), js = !a.why && J(a.text);
       if (/^refusal/.test(a.why)) { e.second = { refused: a.why, at }; continue; }
       if (!js || !Array.isArray(js.checked)) { flop(a.why || "the answer was not the JSON asked for"); continue; }
-      const n = e.first.issues.length, seen = before[s.key] || [];
+      const n = worth(e).length, seen = before[s.key] || [];
       const real = js.checked.filter(c => c && c.real === true).map(c => issue(c, s.n || 99)).filter(Boolean)
         .map(i => ({ ...i, since: seen.find(x => x.kind === i.kind)?.since || day }));
       e.second = { issues: real, rejected: js.checked.filter(c => c && c.real === false && c.claim >= 1 && c.claim <= n).length, at };
@@ -334,10 +344,11 @@ export async function run(o) {
   for (const k of Object.keys(st.fails)) if (!byKey[k]) delete st.fails[k];
   const sent = first.length + second.length, failedShare = sent ? errors.length / sent : 0;
   const findings = list.flatMap(s => (st.shots[s.key]?.second?.issues || []).map(i => ({ shot: s.key, ...i, new: i.since === day })));
-  const pending = list.filter(s => st.shots[s.key]?.first?.issues?.length && !st.shots[s.key]?.second).map(s => ({ shot: s.key, issues: st.shots[s.key].first.issues }));
+  const pending = list.filter(s => st.shots[s.key] && score(st.shots[s.key]) >= BAR && !st.shots[s.key].second).map(s => ({ shot: s.key, issues: st.shots[s.key].first.issues }));
+  const unsure = list.filter(s => st.shots[s.key]?.first?.issues?.length && score(st.shots[s.key]) < BAR).length;
   const rejected = list.reduce((n, s) => n + (st.shots[s.key]?.second?.rejected || 0), 0);
   const counts = { shots: list.length, kept: list.filter(s => s.same).length, first: first.length, second: second.length, waitingFirst: fresh.length - first.length,
-    waitingSecond: pending.length, errors: errors.length, findings: findings.length, new: findings.filter(f => f.new).length, rejected };
+    waitingSecond: pending.length, unsure, errors: errors.length, findings: findings.length, new: findings.filter(f => f.new).length, rejected };
   const report = { v: V, at, source: o.source, run: o.run || "", code, mode: o.mode, counts, month: { first: st.used.first, second: st.used.second, caps: CAPS }, findings, pending,
     errors: [...new Set(errors)].slice(0, 10) };
   fs.mkdirSync(path.join(o.state, "usage"), { recursive: true });
@@ -384,7 +395,8 @@ export function reportMd(r) {
   return [`### Visual review (${r.source}): ${c.findings} findings, ${c.new} new`, "",
     `${r.at.slice(0, 16).replace("T", " ")} UTC${r.run ? `, screenshots of ${r.run}` : ""}. Report only: nothing here fails a run.`, "",
     `Shots: ${c.shots}; kept their verdict (unchanged): ${c.kept}; first look now: ${c.first}; second look now: ${c.second}; waiting for a first look: ${c.waitingFirst}; `
-    + `waiting for a second look: ${c.waitingSecond}; points the second look rejected: ${c.rejected}; requests without an answer: ${c.errors}.`,
+    + `waiting for a second look: ${c.waitingSecond}; with first-look points under the bar only (not sent on): ${c.unsure}; points the second look rejected: ${c.rejected}; `
+    + `requests without an answer: ${c.errors}.`,
     `This month: ${r.month.first} of ${r.month.caps.monthFirst} first looks and ${r.month.second} of ${r.month.caps.monthSecond} second looks.`, "",
     ...(r.findings.length ? ["| kind | severity | shot | what |", "|---|---|---|---|", ...[...r.findings].sort(order).slice(0, 60).map(row), ""] : ["No confirmed finding.", ""]),
     ...(r.pending.length ? [`First look only, waiting for the second look: ${r.pending.length} shots (${r.pending.slice(0, 8).map(p => "`" + p.shot + "`").join(", ")}${r.pending.length > 8 ? ", ..." : ""}).`, ""] : []),
@@ -462,7 +474,8 @@ async function selftest() {
     if (fake.fail && fake.fail.test(name)) return { error: { why: fake.why || "529 server", key: !!fake.key } };
     if (fake.refuse && fake.refuse.test(name)) return { msg: { stop_reason: "refusal", stop_details: { category: "general_harms" }, content: [] } };
     if (fake.garble && fake.garble.test(name)) return { msg: { stop_reason: "end_turn", content: [{ type: "text", text: "not json" }], usage: {} } };
-    if (p.model === MODELS.first) return { msg: reply({ issues: /check-check|open-recall/.test(name) ? [{ kind: "cut_text", part: 1, where: "the plate field", what: "the last digit is cut", severity: "medium", confidence: "high" }] : [] }) };
+    const cut = { kind: "cut_text", part: 1, where: "the plate field", what: "the last digit is cut", severity: "medium", confidence: "high" }, badge = { kind: "overlap", part: 1, where: "the bell", what: "the badge covers the bell", severity: "low", confidence: "medium" };
+    if (p.model === MODELS.first) return { msg: reply({ issues: /check-check|open-recall/.test(name) ? [badge, cut] : /tour-home/.test(name) ? [badge] : [] }) };
     return { msg: reply({ checked: [{ claim: 1, real: !/open-recall/.test(name), kind: "cut_text", part: 1, where: "the plate field", what: "the last digit \"7\" is cut", severity: "medium", why: "visible" }] }) };
   } };
   const api = { fake: true };
@@ -486,6 +499,8 @@ async function selftest() {
   ok(fake.calls.every(p => p.output_config.effort === "low" && p.output_config.format.type === "json_schema" && p.system[0].cache_control && !("temperature" in p) && !("thinking" in p)), "requests: effort low, a JSON schema, a cached instruction, no sampling, thinking left to the model");
   ok(fake.calls.filter(p => p.model === MODELS.first).length === 3 && fake.calls.filter(p => p.model === MODELS.second).length === 1, "Haiku for every shot, Sonnet for the suspect one");
   ok(rep().counts.findings === 1 && rep().findings[0].new && rep().findings[0].shot === "api35/411-f100__light__car__check-check", "the confirmed point is a new finding");
+  { const asked = fake.calls.find(p => p.model === MODELS.second).messages[0].content.at(-1).text;
+    ok(rep().counts.unsure === 1 && /1\. cut_text/.test(asked) && !/badge/.test(asked), "a point under the bar (low, fairly sure) is not sent on, and the second look is asked about the points over it only"); }
   ok(fs.existsSync(path.join(state, "reviewed", "api35/411-f100__light__car__check-check.png")), "each shot is kept as judged");
   { const pub1 = ["state.json", "report.json", "report.md"].map(f => fs.readFileSync(path.join(state, f), "utf8")).join("\n");
     ok(!/usd|\$|input_tokens|cacheRead|"output"/i.test(pub1), "public files: no dollars and no tokens");
