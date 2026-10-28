@@ -492,6 +492,24 @@ async function phoneChecks(page, sc) {
   await p2.waitForSelector(READY, { state: "attached", timeout: 15000 }).catch(() => {});
   try { const m = await UF.measure(p2); UF.judgeStep(run, "landscape", m, { app: true, barMax: 80 }); } catch (e) { add("warn", "logic", run, "landscape", "could not measure on its side: " + e.message.slice(0, 80)); }
   saveShot(await still(), `${sc.id}__landscape`);
+  // PROBE (branch guardian-turn only, never for main): on Android 15 the turned phone's frame shows a second plate row under the buttons
+  // and a white band at the right (28.10, three runs out of three; Android 12 is clean). The page, or the emulator's drawing? a: the screen
+  // as main takes it; b: the page's own picture (DevTools); c: the screen 4 s later; d: the screen after the whole page is drawn again
+  {
+    const a = screencap();
+    const b = await p2.screenshot().catch((e) => { log("TURN the page's own picture failed: " + e.message.split("\n")[0]); return null; });
+    await sleep(4000);
+    const c = screencap();
+    await p2.evaluate(() => new Promise((ok) => { const s = document.documentElement.style; s.opacity = "0.99"; requestAnimationFrame(() => requestAnimationFrame(() => { s.opacity = ""; requestAnimationFrame(() => requestAnimationFrame(ok)); })); })).catch((e) => log("TURN the repaint failed: " + e.message.split("\n")[0]));
+    const d = await still();
+    const f = (x, y) => (x && y && x.width === y.width && x.height === y.height ? +moved(x, y).toFixed(4) : null);
+    const box = freshBox();
+    const vp = await p2.evaluate(() => ({ w: innerWidth, h: innerHeight, dpr: devicePixelRatio, sy: scrollY, vv: visualViewport ? [visualViewport.width, visualViewport.height, visualViewport.offsetTop] : null, kb: document.body.classList.contains("kb") })).catch(() => null);
+    meta.turn = { ac: f(a, c), ad: f(a, d), cd: f(c, d), box, vp };
+    log(`TURN ${JSON.stringify(meta.turn)}`);
+    saveShot(a, "turn-a-still"); saveShot(c, "turn-c-later"); saveShot(d, "turn-d-repaint");
+    if (b) fs.writeFileSync(path.join(OUT, "shots", "turn-b-page.png"), b);
+  }
   setPhone({ dp: sc.dp, font: sc.font, night: false, land: false }); await sleep(1500);
   crashes(run, "phone");
   return attach().catch(() => p2);

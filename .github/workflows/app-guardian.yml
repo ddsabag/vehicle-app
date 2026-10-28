@@ -1,29 +1,19 @@
 name: App guardian (real app)
-# The real Android app on an emulator (.github/scripts/app-real.cjs): this commit built like the Play build (the same shrinking and the
-# same minified page), but debuggable and debug-signed (build type qa), then opened the way people open it and walked the way
-# ui-flows.cjs walks the page, with its fixtures, journeys and rules. It sees what a browser cannot: the phone's font size (100-200%) and
-# display size, the system bars, the keyboard, Back at home, a dark phone, the launcher shortcuts, a tapped alert, a shared ad and a
-# luchit.app link. Blocking findings fail the run. Findings and screenshots of the latest run: branch app-guard-out (one folder per
-# Android version and phone setting). Each phone setting runs on its own fresh emulator, in parallel: an emulator that stops (it happens
-# under software rendering) or never starts (a broken download of the emulator, a boot that times out) gets one more try on a new
-# emulator; if it is lost again, that setting is a warning on that Android version, and the run fails only when no version checked it.
-# The registry is mocked with the example plates; nothing leaves the emulator.
+# PROBE on branch guardian-turn only, never merged (main keeps the real App guardian): on Android 15 the turned phone's screenshot shows
+# a second plate row under the buttons and a white band at the right, three runs out of three on 28.10 (40728941690, the next run of
+# b85d87bc and the run before); Android 12 is clean. Is it the page or the emulator's drawing? Each try keeps four pictures of the turned
+# phone (shots/turn-*.png): a the screen as main takes it, b the page's own picture through DevTools, c the screen 4 s later, d the screen
+# after the whole page is drawn again. Android 15 on swangle_indirect (main) twice, on swiftshader_indirect (before 7eadbb4a) twice,
+# Android 12 once. Pictures and meta.json to branch guardian-turn-out. Never red.
 on:
-  pull_request:
-    paths: ["index.html", "android/**", ".github/scripts/app-real.cjs", ".github/scripts/ui-flows.cjs", ".github/scripts/app-wiring.mjs", ".github/workflows/app-guardian.yml"]
-  push:
-    branches: [next, qa-e2e]
-    paths: ["index.html", "android/**", ".github/scripts/app-real.cjs", ".github/scripts/ui-flows.cjs", ".github/scripts/app-wiring.mjs", ".github/workflows/app-guardian.yml"]
-  schedule:
-    - cron: "37 1 * * *"   # every night on main: a new emulator image or WebView can move the page without a commit
   workflow_dispatch:
     inputs:
       quick:
-        description: "Only the first phone setting and two journeys (about 5 minutes on the emulator)"
+        description: "Unused in the probe"
         type: boolean
         default: false
 permissions:
-  contents: write   # only the publish job writes, to branch app-guard-out, and never for a pull request
+  contents: write   # only the publish job writes, to branch guardian-turn-out
 concurrency:
   group: app-guardian-${{ github.ref }}
   cancel-in-progress: true
@@ -43,13 +33,6 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
-      # blocking, offline, under a second: the page and the app agree on every wire between them (bridge calls and their arguments, the
-      # page functions the app calls, the tab a tapped alert opens, shortcuts, shared links, the install referrer, the shrinker's keep rule)
-      - name: App wiring
-        run: node .github/scripts/app-wiring.mjs
-      # and every event the dashboard and the reports read is still sent, also by the app's own code (analytics-flows.cjs --static, 1 s)
-      - name: Dashboard reads still sent
-        run: node .github/scripts/analytics-flows.cjs --static
       - name: Minify the page as the release build does
         run: |
           mkdir -p /tmp/minify && cd /tmp/minify && npm init -y >/dev/null && npm i --ignore-scripts --no-audit --no-fund terser@5.51.2 >/dev/null
@@ -73,14 +56,17 @@ jobs:
   device:
     needs: apk
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 25
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
-        # 35: Android 15, edge to edge, Back through OnBackInvokedCallback. 31: Android 12, the system draws the bars, Back as a key.
-        api: [35, 31]
-        # the phone settings of app-real.cjs: width in dp and font size; 411-extra is the ways in, the keyboard, Back at home and a dark phone
-        scenario: [411-f100, 411-extra, 360-f130, 320-f130, 411-f200]
+        include:
+          - { api: 35, gfx: swangle_indirect, copy: 1 }
+          - { api: 35, gfx: swangle_indirect, copy: 2 }
+          - { api: 35, gfx: swiftshader_indirect, copy: 1 }
+          - { api: 35, gfx: swiftshader_indirect, copy: 2 }
+          - { api: 31, gfx: swiftshader_indirect, copy: 1 }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -96,48 +82,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      # the verdict is the last step's: a run that ends with the emulator stopped (app-real.cjs leaves a file "gone") is not the app's fault,
-      # it happens under software rendering, so the phone setting runs once more on a new emulator and only that run counts. The step's
-      # script line makes the phone setting's folder first, so a try that ends without that folder never had an emulator to run on.
-      # Android 15 draws through SwiftShader under ANGLE (swangle_indirect): with swiftshader_indirect its emulator stopped, silently (no
-      # crash report, no kernel line), in 33 of 85 first tries of the full runs 26-28.10 and in 12 of 24 tries of 411-extra, with
-      # swangle_indirect in none of 12 (probe 28.10, branch guardian-a15). Android 12 keeps swiftshader_indirect: its emulator never stopped
-      - name: The real app on the emulator
-        id: first
-        if: ${{ !inputs.quick || matrix.scenario == '411-f100' }}
-        continue-on-error: true
-        uses: reactivecircus/android-emulator-runner@v2
-        env:
-          DEBUG: pw:android   # one line each time the WebView is connected: where a dropped connection happened
-        with:
-          api-level: ${{ matrix.api }}
-          target: google_apis
-          arch: x86_64
-          profile: pixel_6
-          ram-size: 4096M
-          disable-animations: true
-          emulator-options: -no-window -gpu ${{ matrix.api == 35 && 'swangle_indirect' || 'swiftshader_indirect' }} -noaudio -no-boot-anim -camera-back none -no-snapshot-save
-          script: mkdir -p app-real/api${{ matrix.api }}/${{ matrix.scenario }} && node .github/scripts/app-real.cjs --apk app-qa.apk --scenario ${{ matrix.scenario }} --out app-real/api${{ matrix.api }}/${{ matrix.scenario }} --label api${{ matrix.api }}-${{ matrix.scenario }} ${{ inputs.quick && '--quick' || '' }}
-      # no folder: the emulator never started (its download broke, or it did not boot in time), which is not the app's fault either, so it
-      # counts as an emulator that stopped: a "gone" file and exit 2, as app-real.cjs leaves them
-      - name: Did the emulator start
-        if: ${{ steps.first.outcome == 'failure' }}
-        run: |
-          D="app-real/api${{ matrix.api }}/${{ matrix.scenario }}"
-          [ -d "$D" ] || { mkdir -p "$D"; echo "the emulator did not start" > "$D/gone"; echo 2 > "$D/exit"; }
-      - name: Why the emulator stopped (the first run is kept beside the second)
-        id: gone
-        if: ${{ steps.first.outcome == 'failure' && hashFiles(format('app-real/api{0}/{1}/gone', matrix.api, matrix.scenario)) != '' }}
-        run: |
-          D="app-real/api${{ matrix.api }}/${{ matrix.scenario }}"
-          echo "::warning::(real app, API ${{ matrix.api }}) $(cat "$D/gone"): this phone setting runs again on a new emulator"
-          free -m
-          sudo dmesg 2>/dev/null | grep -iE "out of memory|killed process|oom|segfault|general protection|qemu|emulator" | tail -20 || true
-          mv "$D" "$D-first-try"
-          adb kill-server || true
-      - name: The real app on a new emulator
-        id: second
-        if: ${{ steps.gone.outcome == 'success' }}
+      - name: The real app on the emulator (ways in, then turned on its side)
         continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         env:
@@ -149,30 +94,22 @@ jobs:
           profile: pixel_6
           ram-size: 4096M
           disable-animations: true
-          emulator-options: -no-window -gpu ${{ matrix.api == 35 && 'swangle_indirect' || 'swiftshader_indirect' }} -noaudio -no-boot-anim -camera-back none -no-snapshot-save
-          script: mkdir -p app-real/api${{ matrix.api }}/${{ matrix.scenario }} && node .github/scripts/app-real.cjs --apk app-qa.apk --scenario ${{ matrix.scenario }} --out app-real/api${{ matrix.api }}/${{ matrix.scenario }} --label api${{ matrix.api }}-${{ matrix.scenario }} ${{ inputs.quick && '--quick' || '' }}
-      - name: Did the new emulator start
-        if: ${{ steps.second.outcome == 'failure' }}
+          emulator-options: -no-window -gpu ${{ matrix.gfx }} -noaudio -no-boot-anim -camera-back none -no-snapshot-save
+          script: mkdir -p app-real/${{ matrix.api }}-${{ matrix.gfx }}-${{ matrix.copy }} && node .github/scripts/app-real.cjs --apk app-qa.apk --scenario 411-extra --out app-real/${{ matrix.api }}-${{ matrix.gfx }}-${{ matrix.copy }} --label ${{ matrix.api }}-${{ matrix.gfx }}-${{ matrix.copy }}
+      - name: How it ended
+        if: ${{ always() }}
         run: |
-          D="app-real/api${{ matrix.api }}/${{ matrix.scenario }}"
-          [ -d "$D" ] || { mkdir -p "$D"; echo "the emulator did not start" > "$D/gone"; echo 2 > "$D/exit"; }
-      - name: Verdict
-        if: ${{ always() && (!inputs.quick || matrix.scenario == '411-f100') }}
-        run: |
-          D="app-real/api${{ matrix.api }}/${{ matrix.scenario }}"
-          CODE=$(cat "$D/exit" 2>/dev/null || echo none)
-          case "$CODE" in
-            0) echo "API ${{ matrix.api }}, ${{ matrix.scenario }}: clean${{ steps.gone.outcome == 'success' && ' (on a second emulator: the first one stopped or did not start)' || '' }}" ;;
-            1) echo "::error::(real app, API ${{ matrix.api }}) ${{ matrix.scenario }}: blocking findings, listed above and in $D/findings.json"; exit 1 ;;
-            2) if [ -f "$D/gone" ]; then echo "::warning::(real app, API ${{ matrix.api }}) ${{ matrix.scenario }}: the emulator stopped or did not start on both tries, so this phone setting was not checked on this Android version (not a finding about the app). The other version still checks it; the run fails only when every version lost it"; else echo "::error::(real app, API ${{ matrix.api }}) ${{ matrix.scenario }}: the run crashed before its end (see the log above)"; exit 1; fi ;;
-            *) echo "::error::(real app, API ${{ matrix.api }}) ${{ matrix.scenario }}: no result (app-real.cjs stopped before writing one, see the log above)"; exit 1 ;;
-          esac
+          D="app-real/${{ matrix.api }}-${{ matrix.gfx }}-${{ matrix.copy }}"
+          mkdir -p "$D"
+          T=$(node -e 'try { console.log(JSON.stringify(require(process.argv[1]).turn || "no turn")) } catch { console.log("no meta.json") }' "$PWD/$D/meta.json")
+          echo "::notice::probe API ${{ matrix.api }} ${{ matrix.gfx }} copy ${{ matrix.copy }}: exit $(cat "$D/exit" 2>/dev/null || echo none)$( [ -f "$D/gone" ] && echo ", gone: $(head -1 "$D/gone")" ); turn $T"
+          ls -la "$D/shots" 2>/dev/null | grep -E "landscape|turn-" || true
       - uses: actions/upload-artifact@v7
-        if: ${{ always() && (!inputs.quick || matrix.scenario == '411-f100') }}
+        if: ${{ always() }}
         with:
-          name: app-real-api${{ matrix.api }}-${{ matrix.scenario }}
+          name: turn-${{ matrix.api }}-${{ matrix.gfx }}-${{ matrix.copy }}
           path: app-real
-          retention-days: 14
+          retention-days: 3
 
   publish:
     needs: device
@@ -182,30 +119,16 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: app-real-api*
+          pattern: turn-*
           merge-multiple: true
           path: app-real
-      # a phone setting the emulator lost on both tries on one Android version is still checked on the other (a warning there, so a night
-      # of emulator trouble does not read as a broken app); lost on every version it was not checked at all, and the run fails
-      - name: Every phone setting checked on at least one Android version
+      - name: The turned phone's pictures to branch guardian-turn-out
         run: |
-          cd app-real 2>/dev/null || exit 0
-          bad=0
-          for s in $(ls -d api*/* 2>/dev/null | sed 's#^api[0-9]*/##' | grep -v -- '-first-try$' | sort -u); do
-            ran=0; lost=""
-            for d in api*/"$s"; do
-              [ -d "$d" ] || continue
-              if [ -f "$d/gone" ]; then lost="$lost ${d%%/*}"; else ran=1; fi
-            done
-            if [ "$ran" = 0 ]; then echo "::error::(real app) $s: the emulator stopped or did not start on every Android version ($lost ), so this phone setting was not checked at all (not a finding about the app)"; bad=1; fi
-          done
-          exit $bad
-      - name: Findings and screenshots to branch app-guard-out
-        if: ${{ github.event_name != 'pull_request' }}
-        run: |
-          ls -R app-real | head -50
           cd app-real
-          printf '{"commit":"%s","ref":"%s","run":"%s/%s/actions/runs/%s","at":"%s"}\n' "$GITHUB_SHA" "$GITHUB_REF_NAME" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$(date -u +%FT%TZ)" > run.json
-          git init -q -b app-guard-out && git add .
-          git -c user.name="app-guardian" -c user.email="app-guardian@users.noreply.github.com" commit -q -m "App guardian: the real app on ${GITHUB_SHA::7} (${GITHUB_REF_NAME})"
-          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" app-guard-out
+          # only the landscape pictures and each try's meta.json: the rest of the shots are the real guardian's
+          find . -path '*/shots/*' -type f ! -name '*landscape*' ! -name 'turn-*' -delete
+          printf '{"commit":"%s","run":"%s/%s/actions/runs/%s","at":"%s"}\n' "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$(date -u +%FT%TZ)" > run.json
+          ls -R . | head -60
+          git init -q -b guardian-turn-out && git add .
+          git -c user.name="app-guardian" -c user.email="app-guardian@users.noreply.github.com" commit -q -m "Turn probe: the real app on ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" guardian-turn-out
