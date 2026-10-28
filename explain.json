@@ -19588,9 +19588,9 @@
    "text": "מדחס מזגן האוויר דוחס ומזרים את גז הקירור, ובכך מאפשר למזגן לקרר. החישול של טבור העוגן שבמדחס אינו חזק מספיק, ולכן הטבור עלול להישבר. בתיקון מחליפים את טבור העוגן.",
    "notice": "",
    "sys": "electrical",
-   "urgency": "routine",
-   "urgencyBy": "",
-   "crit": false,
+   "urgency": "soon",
+   "urgencyBy": "model",
+   "crit": true,
    "unclear": false,
    "checked": {
     "by": "rules",
