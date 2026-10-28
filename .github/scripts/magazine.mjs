@@ -6,7 +6,7 @@
 //   side by side, and no site file. Its output holds token counts, so the workflow seals it before it leaves the run.
 import fs from "node:fs";
 import {brandLabel} from "./brands.mjs";
-import {prose, FORBIDDEN_WORDS} from "./magazine-ai.mjs";
+import {prose, FORBIDDEN_WORDS, misplaced} from "./magazine-ai.mjs";
 import {build as marketIntel, loadNormModel} from "./market-intel.mjs";
 import {byNewest} from "./posts-order.mjs";
 const SITE = "https://luchit.app/";
@@ -71,7 +71,7 @@ const template = () => ({
   ]
 });
 
-// every number in the prose must exist in the facts, and no causal or forecast wording
+// every number in the prose must exist in the facts, each delivery count stands by its own name, and no causal or forecast wording
 export function check(a) {
   for (const f of ["title", "lead", "bodies_p", "ytd_p"]) if (typeof a[f] !== "string" || (!a[f] && f !== "ytd_p")) return "missing " + f;
   if (!Array.isArray(a.tldr) || a.tldr.length !== 3 || a.tldr.some(x => typeof x !== "string" || !x.trim() || x.length > 220)) return "bad tldr";
@@ -79,6 +79,7 @@ export function check(a) {
   const text = [a.title, a.lead, a.bodies_p, a.ytd_p, ...a.tldr, ...a.faq.flatMap(x => [x.q, x.a])].join(" ");
   const fw = text.match(FORBIDDEN); if (fw) return "forbidden wording " + fw[0];
   for (const m of text.matchAll(/\d[\d,.]*\d|\d/g)) { const n = m[0].replace(/,/g, ""); if (!allowed.has(n)) return "unknown number " + m[0]; }
+  for (const t of [a.lead, a.bodies_p, a.ytd_p, ...a.tldr, ...a.faq.flatMap(x => [x.q, x.a])]) { const w = misplaced(facts, t); if (w) return "count " + w; }
   if (a.title.length > 120) return "title too long";
   return null;
 }
