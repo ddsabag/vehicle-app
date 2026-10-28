@@ -3,8 +3,11 @@ name: App guardian (real app)
 # a second plate row under the buttons and a white band at the right, three runs out of three on 28.10 (40728941690, the next run of
 # b85d87bc and the run before); Android 12 is clean. Is it the page or the emulator's drawing? Each try keeps four pictures of the turned
 # phone (shots/turn-*.png): a the screen as main takes it, b the page's own picture through DevTools, c the screen 4 s later, d the screen
-# after the whole page is drawn again. Android 15 on swangle_indirect (main) twice, on swiftshader_indirect (before 7eadbb4a) twice,
-# Android 12 once. Pictures and meta.json to branch guardian-turn-out. Never red.
+# after the whole page is drawn again. Round 1 (run 40733651869): the page's own picture is right on all five tries, the screen on
+# Android 15 is not and stays so after 4 s and after a repaint (swangle and swiftshader alike), so the screen keeps an old part of a frame.
+# Round 2: HWUI told not to trust the emulator's buffer age (setprop debug.hwui.use_buffer_age false) on Android 15 twice and on
+# Android 12 once, against Android 15 as main runs it; and e, the screen after the page is scrolled by a pixel and back.
+# Pictures and meta.json to branch guardian-turn-out. Never red.
 on:
   workflow_dispatch:
     inputs:
@@ -62,11 +65,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { api: 35, gfx: swangle_indirect, copy: 1 }
-          - { api: 35, gfx: swangle_indirect, copy: 2 }
-          - { api: 35, gfx: swiftshader_indirect, copy: 1 }
-          - { api: 35, gfx: swiftshader_indirect, copy: 2 }
-          - { api: 31, gfx: swiftshader_indirect, copy: 1 }
+          - { api: 35, gfx: swangle_indirect, age: off, copy: 1 }
+          - { api: 35, gfx: swangle_indirect, age: off, copy: 2 }
+          - { api: 35, gfx: swangle_indirect, age: on, copy: 1 }
+          - { api: 31, gfx: swiftshader_indirect, age: off, copy: 1 }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -95,19 +97,19 @@ jobs:
           ram-size: 4096M
           disable-animations: true
           emulator-options: -no-window -gpu ${{ matrix.gfx }} -noaudio -no-boot-anim -camera-back none -no-snapshot-save
-          script: mkdir -p app-real/${{ matrix.api }}-${{ matrix.gfx }}-${{ matrix.copy }} && node .github/scripts/app-real.cjs --apk app-qa.apk --scenario 411-extra --out app-real/${{ matrix.api }}-${{ matrix.gfx }}-${{ matrix.copy }} --label ${{ matrix.api }}-${{ matrix.gfx }}-${{ matrix.copy }}
+          script: mkdir -p app-real/${{ matrix.api }}-${{ matrix.gfx }}-age-${{ matrix.age }}-${{ matrix.copy }} && node .github/scripts/app-real.cjs --apk app-qa.apk --scenario 411-extra --out app-real/${{ matrix.api }}-${{ matrix.gfx }}-age-${{ matrix.age }}-${{ matrix.copy }} --label ${{ matrix.api }}-${{ matrix.gfx }}-age-${{ matrix.age }}-${{ matrix.copy }} ${{ matrix.age == 'off' && '--no-buffer-age' || '' }}
       - name: How it ended
         if: ${{ always() }}
         run: |
-          D="app-real/${{ matrix.api }}-${{ matrix.gfx }}-${{ matrix.copy }}"
+          D="app-real/${{ matrix.api }}-${{ matrix.gfx }}-age-${{ matrix.age }}-${{ matrix.copy }}"
           mkdir -p "$D"
           T=$(node -e 'try { console.log(JSON.stringify(require(process.argv[1]).turn || "no turn")) } catch { console.log("no meta.json") }' "$PWD/$D/meta.json")
-          echo "::notice::probe API ${{ matrix.api }} ${{ matrix.gfx }} copy ${{ matrix.copy }}: exit $(cat "$D/exit" 2>/dev/null || echo none)$( [ -f "$D/gone" ] && echo ", gone: $(head -1 "$D/gone")" ); turn $T"
+          echo "::notice::probe API ${{ matrix.api }} ${{ matrix.gfx }} buffer age ${{ matrix.age }} copy ${{ matrix.copy }}: exit $(cat "$D/exit" 2>/dev/null || echo none)$( [ -f "$D/gone" ] && echo ", gone: $(head -1 "$D/gone")" ); turn $T"
           ls -la "$D/shots" 2>/dev/null | grep -E "landscape|turn-" || true
       - uses: actions/upload-artifact@v7
         if: ${{ always() }}
         with:
-          name: turn-${{ matrix.api }}-${{ matrix.gfx }}-${{ matrix.copy }}
+          name: turn-${{ matrix.api }}-${{ matrix.gfx }}-age-${{ matrix.age }}-${{ matrix.copy }}
           path: app-real
           retention-days: 3
 

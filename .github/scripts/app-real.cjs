@@ -502,12 +502,15 @@ async function phoneChecks(page, sc) {
     const c = screencap();
     await p2.evaluate(() => new Promise((ok) => { const s = document.documentElement.style; s.opacity = "0.99"; requestAnimationFrame(() => requestAnimationFrame(() => { s.opacity = ""; requestAnimationFrame(() => requestAnimationFrame(ok)); })); })).catch((e) => log("TURN the repaint failed: " + e.message.split("\n")[0]));
     const d = await still();
+    // e: the page scrolled by one pixel and back, which makes its whole picture new
+    await p2.evaluate(() => new Promise((ok) => { scrollTo(0, 1); requestAnimationFrame(() => requestAnimationFrame(() => { scrollTo(0, 0); requestAnimationFrame(() => requestAnimationFrame(ok)); })); })).catch((e) => log("TURN the scroll nudge failed: " + e.message.split("\n")[0]));
+    const e = await still();
     const f = (x, y) => (x && y && x.width === y.width && x.height === y.height ? +moved(x, y).toFixed(4) : null);
     const box = freshBox();
     const vp = await p2.evaluate(() => ({ w: innerWidth, h: innerHeight, dpr: devicePixelRatio, sy: scrollY, vv: visualViewport ? [visualViewport.width, visualViewport.height, visualViewport.offsetTop] : null, kb: document.body.classList.contains("kb") })).catch(() => null);
-    meta.turn = { ac: f(a, c), ad: f(a, d), cd: f(c, d), box, vp };
+    meta.turn = { ac: f(a, c), ad: f(a, d), ae: f(a, e), de: f(d, e), box, vp };
     log(`TURN ${JSON.stringify(meta.turn)}`);
-    saveShot(a, "turn-a-still"); saveShot(c, "turn-c-later"); saveShot(d, "turn-d-repaint");
+    saveShot(a, "turn-a-still"); saveShot(c, "turn-c-later"); saveShot(d, "turn-d-repaint"); saveShot(e, "turn-e-scrolled");
     if (b) fs.writeFileSync(path.join(OUT, "shots", "turn-b-page.png"), b);
   }
   setPhone({ dp: sc.dp, font: sc.font, night: false, land: false }); await sleep(1500);
@@ -591,6 +594,9 @@ function finish(line, code) {
   meta.webview = sh("dumpsys webviewupdate | grep -m1 'Current WebView package'");
   log(`${meta.model}, API ${meta.sdk}, ${meta.webview}`);
   sh("settings put global window_animation_scale 0"); sh("settings put global transition_animation_scale 0"); sh("settings put global animator_duration_scale 0");
+  // PROBE round 2: HWUI redraws only what changed, trusting the age the emulator's EGL gives each buffer; --no-buffer-age makes it redraw
+  // the whole window each frame (read when the app's process starts, so before the first start)
+  if (args.includes("--no-buffer-age")) { sh("setprop debug.hwui.use_buffer_age false"); log(`debug.hwui.use_buffer_age = ${sh("getprop debug.hwui.use_buffer_age")}`); }
   for (const sc of SCENARIOS) {
     const ts = Date.now();
     log(`--- ${sc.id}: ${sc.dp} dp wide, font ${Math.round(sc.font * 100)}%`);
