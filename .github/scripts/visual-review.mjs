@@ -29,7 +29,8 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import * as claude from "./claude.mjs";
 
-export const V = 3;   // the prompt and the schemas: a new V judges every shot again (3: the non-defects of the first real runs, 28.10, and text)
+export const V = 4;   // the prompt and the schemas: a new V judges every shot again (3: the non-defects of the first real runs, 28.10, and text;
+// 4: the second look judges the defect itself, more carefully, and says why it rejects a point)
 export const MODELS = { first: "claude-haiku-5-5", second: "claude-sonnet-5-5" };
 export const CAPS = { runFirst: 300, runSecond: 40, monthFirst: 4000, monthSecond: 400 };
 // a point goes on to the second look from severity x confidence 3 up (each high 3, medium 2, low 1): medium/medium, low but sure, high but
@@ -212,9 +213,10 @@ export function params(look, s) {
   if (!shots.length) return null;
   s.n = shots.length;
   const ask = look === "first" ? "Find the visible defects on this screen."
-    : `A quicker first look at this screen reported these possible defects:\n${claimsText(worth(s.entry))}\nCheck each one against the screenshot: real is true only when you can see that defect clearly, and why says what you saw. Keep its number as claim. Then add any other clear defect it missed, with claim 0.`;
+    : `A quicker first look at this screen reported these possible defects:\n${claimsText(worth(s.entry))}\nCheck each one against the screenshot. The first look can get details wrong (the cause, the exact place, typed text or a placeholder): judge the defect itself. For cut text, read the text at the edge one letter or digit at a time and compare it with the whole word or number it should be (the example plate is 12-345-67): a letter or digit drawn only in part, or missing at the edge of its box, is a cut. real is true only when you can see that defect, and why says what you saw. Keep its number as claim. Then add any other clear defect it missed, with claim 0.`;
+  // the second look at effort medium: at low it rejected 4 of the 9 true points of 28.10 (the same cut plate example it confirmed on other shots)
   return { model: MODELS[look], max_tokens: look === "first" ? 4000 : 8000, system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
-    output_config: { effort: "low", format: { type: "json_schema", schema: look === "first" ? FIRST : SECOND } },
+    output_config: { effort: look === "first" ? "low" : "medium", format: { type: "json_schema", schema: look === "first" ? FIRST : SECOND } },
     messages: [{ role: "user", content: [...shots.map(image), { type: "text", text: `${describe(s, shots.length)}\n${ask}` }] }] };
 }
 
@@ -240,11 +242,20 @@ const lv = x => { const k = LEVELS.indexOf(x); return k < 0 ? 1 : 3 - k; };   //
 const weight = i => lv(i.severity) * lv(i.confidence);
 const worth = e => (e.first?.issues || []).filter(i => weight(i) >= BAR);   // the first look's points the second look checks
 const score = e => Math.max(0, ...(e.first?.issues || []).map(weight));
+// one defect, as two looks quote it: the same kind, and the same text or, from 4 characters, one inside the other ("12-345-6" and
+// "12-345-67"), spaces aside; a short text such as a badge's "1" only as itself
+const flat = t => String(t || "").replace(/\s+/g, "");
+const alike = (a, b) => { const x = flat(a.text), y = flat(b.text);
+  return a.kind === b.kind && !!x && !!y && (x === y || (Math.min(x.length, y.length) >= 4 && (x.includes(y) || y.includes(x)))); };
 
 // ---- the state on branch visual-review-out
+// known: every confirmed defect (kind, text, first and last night), so the same one on another shot, or after a new V judged every shot
+// again, is not new
 export function loadState(dir) {
   const j = J(read(path.join(dir, "state.json"))) || {};
-  return { v: V, month: j.month || "", used: { first: j.used?.first || 0, second: j.used?.second || 0 }, shots: j.v === V && j.shots ? j.shots : {}, fails: j.v === V && j.fails ? j.fails : {} };
+  const prior = Object.values(j.shots || {}).flatMap(e => (e?.second?.issues || []).map(i => ({ kind: i.kind, text: i.text, since: i.since, seen: e.seen || i.since })));
+  const known = [...(Array.isArray(j.known) ? j.known : []), ...prior].filter(k => k && KINDS.includes(k.kind) && flat(k.text) && /^\d{4}-\d{2}-\d{2}$/.test(k.since || ""));
+  return { v: V, month: j.month || "", used: { first: j.used?.first || 0, second: j.used?.second || 0 }, shots: j.v === V && j.shots ? j.shots : {}, fails: j.v === V && j.fails ? j.fails : {}, known };
 }
 
 // requests to the API, in a Batch (half price; several at once, CHUNK shots each, so no request body grows past the Batch limit) or one by one
@@ -351,10 +362,13 @@ export async function run(o) {
       const a = IO.claude.answer(res.msg), js = !a.why && J(a.text);
       if (/^refusal/.test(a.why)) { e.second = { refused: a.why, at }; continue; }
       if (!js || !Array.isArray(js.checked)) { flop(a.why || "the answer was not the JSON asked for"); continue; }
-      const n = worth(e).length, seen = before[s.key] || [];
+      const asked = worth(e), n = asked.length, seen = before[s.key] || [];
       const kept = sift(js.checked.filter(c => c && c.real === true).map(c => issue(c, s.n || 99)));
-      e.second = { ...kept, issues: kept.issues.map(i => ({ ...i, since: seen.find(x => x.kind === i.kind)?.since || day })),
-        rejected: js.checked.filter(c => c && c.real === false && c.claim >= 1 && c.claim <= n).length, at };
+      const no = js.checked.filter(c => c && c.real === false && c.claim >= 1 && c.claim <= n);
+      // a point keeps the night it was first confirmed: on this shot, or on another shot or under an earlier V (the same kind and text)
+      const since = i => [seen.find(x => x.kind === i.kind)?.since, st.known.find(k => alike(k, i))?.since, day].filter(Boolean).sort()[0];
+      e.second = { ...kept, issues: kept.issues.map(i => ({ ...i, since: since(i) })),
+        rejected: no.length, ...(no.length ? { notes: no.map(c => ({ claim: clip(asked[c.claim - 1].what, 160), why: clip(c.why, 200) })) } : {}), at };
       delete e.tries2;
     }
   }
@@ -365,6 +379,16 @@ export async function run(o) {
   for (const k of Object.keys(st.fails)) if (!byKey[k]) delete st.fails[k];
   const sent = first.length + second.length, failedShare = sent ? errors.length / sent : 0;
   const findings = list.flatMap(s => (st.shots[s.key]?.second?.issues || []).map(i => ({ shot: s.key, ...i, new: i.since === day })));
+  for (const f of findings.filter(x => flat(x.text))) {
+    const k = st.known.find(x => alike(x, f));
+    if (k) Object.assign(k, { since: k.since < f.since ? k.since : f.since, seen: day }); else st.known.push({ kind: f.kind, text: f.text, since: f.since, seen: day });
+  }
+  const merged = [];   // one entry per defect, with its first and last night; one not seen for 14 days goes
+  for (const k of st.known) { const m = merged.find(x => alike(x, k));
+    if (!m) merged.push({ ...k }); else Object.assign(m, { since: m.since < k.since ? m.since : k.since, seen: (m.seen || "") > (k.seen || "") ? m.seen : k.seen }); }
+  st.known = merged.filter(k => (k.seen || k.since) >= gone).slice(-300);
+  // the points the second look rejected, with its reason: kept in the report while the review is report only, to measure what it misses
+  const dropped = list.flatMap(s => (st.shots[s.key]?.second?.notes || []).map(x => ({ shot: s.key, ...x })));
   const pending = list.filter(s => st.shots[s.key] && score(st.shots[s.key]) >= BAR && !st.shots[s.key].second).map(s => ({ shot: s.key, issues: st.shots[s.key].first.issues }));
   const unsure = list.filter(s => st.shots[s.key]?.first?.issues?.length && score(st.shots[s.key]) < BAR).length;
   const rejected = list.reduce((n, s) => n + (st.shots[s.key]?.second?.rejected || 0), 0);
@@ -372,9 +396,9 @@ export async function run(o) {
   const counts = { shots: list.length, kept: list.filter(s => s.same).length, first: first.length, second: second.length, waitingFirst: fresh.length - first.length,
     waitingSecond: pending.length, unsure, errors: errors.length, findings: findings.length, new: findings.filter(f => f.new).length, rejected, misreads };
   const report = { v: V, at, source: o.source, run: o.run || "", code, mode: o.mode, counts, month: { first: st.used.first, second: st.used.second, caps: CAPS }, findings, pending,
-    errors: [...new Set(errors)].slice(0, 10) };
+    dropped, errors: [...new Set(errors)].slice(0, 10) };
   fs.mkdirSync(path.join(o.state, "usage"), { recursive: true });
-  fs.writeFileSync(path.join(o.state, "state.json"), JSON.stringify({ v: V, month: st.month, used: st.used, shots: st.shots, fails: st.fails }, null, 1) + "\n");
+  fs.writeFileSync(path.join(o.state, "state.json"), JSON.stringify({ v: V, month: st.month, used: st.used, shots: st.shots, fails: st.fails, known: st.known }, null, 1) + "\n");
   fs.writeFileSync(path.join(o.state, "report.json"), JSON.stringify(report, null, 1) + "\n");
   const md = reportMd(report);
   fs.writeFileSync(path.join(o.state, "report.md"), md);
@@ -423,6 +447,9 @@ export function reportMd(r) {
     `This month: ${r.month.first} of ${r.month.caps.monthFirst} first looks and ${r.month.second} of ${r.month.caps.monthSecond} second looks.`, "",
     ...(r.findings.length ? ["| kind | severity | shot | what |", "|---|---|---|---|", ...[...r.findings].sort(order).slice(0, 60).map(row), ""] : ["No confirmed finding.", ""]),
     ...(r.pending.length ? [`First look only, waiting for the second look: ${r.pending.length} shots (${r.pending.slice(0, 8).map(p => "`" + p.shot + "`").join(", ")}${r.pending.length > 8 ? ", ..." : ""}).`, ""] : []),
+    ...(r.dropped?.length ? ["Points the second look rejected (listed while the review is report only, to measure what it misses):", "",
+      "| shot | the first look's point | why it was rejected |", "|---|---|---|",
+      ...r.dropped.slice(0, 30).map(d => `| \`${d.shot}\` | ${clip(d.claim, 160).replace(/\|/g, "/")} | ${clip(d.why, 200).replace(/\|/g, "/")} |`), ""] : []),
   ].join("\n");
 }
 
@@ -500,7 +527,9 @@ async function selftest() {
     const cut = { kind: "cut_text", part: 1, where: "the plate field", what: "the last digit is cut", severity: "medium", confidence: "high" }, badge = { kind: "overlap", part: 1, where: "the bell", what: "the badge covers the bell", severity: "low", confidence: "medium" };
     const misread = { kind: "typo", part: 1, where: "the footer", text: "מדריך לקנה", what: "a letter is missing", severity: "medium", confidence: "high" };
     if (p.model === MODELS.first) return { msg: reply({ issues: /check-check|open-recall/.test(name) ? [badge, cut] : /tour-home/.test(name) ? [badge] : /tour-cars/.test(name) ? [misread] : [] }) };
-    return { msg: reply({ checked: [{ claim: 1, real: !/open-recall/.test(name), kind: "cut_text", part: 1, where: "the plate field", what: "the last digit \"7\" is cut", severity: "medium", why: "visible" }] }) };
+    const real = !/open-recall/.test(name);
+    return { msg: reply({ checked: [{ claim: 1, real, kind: "cut_text", part: 1, where: "the plate field", text: /f200/.test(name) ? "12-345-" : "12-345-6", what: "the last digit \"7\" is cut", severity: "medium",
+      why: real ? "visible" : "the digit is whole" }] }) };
   } };
   const api = { fake: true };
   IO.claude = { ...claude, client: async env => (env.ANTHROPIC_API_KEY ? { api, why: "" } : { api: null, why: "no ANTHROPIC_API_KEY" }),
@@ -520,7 +549,8 @@ async function selftest() {
   const st = () => J(fs.readFileSync(path.join(state, "state.json"), "utf8")), rep = () => J(fs.readFileSync(path.join(state, "report.json"), "utf8"));
 
   ok(await go() === 0 && fake.calls.length === 4, "night 1: three first looks, one second look (only the shot with a point)");
-  ok(fake.calls.every(p => p.output_config.effort === "low" && p.output_config.format.type === "json_schema" && p.system[0].cache_control && !("temperature" in p) && !("thinking" in p)), "requests: effort low, a JSON schema, a cached instruction, no sampling, thinking left to the model");
+  ok(fake.calls.every(p => p.output_config.effort === (p.model === MODELS.first ? "low" : "medium") && p.output_config.format.type === "json_schema" && p.system[0].cache_control && !("temperature" in p) && !("thinking" in p)),
+    "requests: effort low for the first look and medium for the second, a JSON schema, a cached instruction, no sampling, thinking left to the model");
   ok(fake.calls.filter(p => p.model === MODELS.first).length === 3 && fake.calls.filter(p => p.model === MODELS.second).length === 1, "Haiku for every shot, Sonnet for the suspect one");
   ok(rep().counts.findings === 1 && rep().findings[0].new && rep().findings[0].shot === "api35/411-f100__light__car__check-check", "the confirmed point is a new finding");
   { const asked = fake.calls.find(p => p.model === MODELS.second).messages[0].content.at(-1).text;
@@ -563,6 +593,21 @@ async function selftest() {
     ok(fake.calls.filter(p => p.model === MODELS.first).length >= 1 && st().month === "2026-11", "a new month: the counts start again");
     Object.assign(CAPS, c); }
 
+  // the same defect on another shot, or after a new V judged every shot again, is not new: it keeps the night it was first confirmed
+  { const sh = path.join(tmp, "shots-known"), ks = path.join(tmp, "state-known"), kst = () => J(fs.readFileSync(path.join(ks, "state.json"), "utf8"));
+    const krep = () => J(fs.readFileSync(path.join(ks, "report.json"), "utf8")), kgo = () => run({ source: "app", shots: sh, state: ks, code: "k1", mode: "sync" });
+    clock = Date.parse("2026-11-03T02:40:00Z"); tree(sh, { "api35/411-f100/shots/411-f100__light__car__check-check.png": base }); await kgo();
+    ok(krep().findings.length === 1 && krep().findings[0].new && kst().known.length === 1 && kst().known[0].text === "12-345-6", "a confirmed defect is remembered by its kind and text");
+    clock += 864e5; tree(sh, { "api31/411-f200/shots/411-f200__light__car__check-check.png": pic(54, 120, () => [5, 5, 5]) }); fake.calls = []; await kgo();
+    const other = krep().findings.find(f => f.shot === "api31/411-f200__light__car__check-check");
+    ok(fake.calls.length === 2 && other && other.text === "12-345-" && other.since === "2026-11-03" && !other.new && krep().counts.new === 0, "the same defect on another shot is not new: it keeps its first night");
+    const s0 = kst(); s0.v = V - 1; fs.writeFileSync(path.join(ks, "state.json"), JSON.stringify(s0)); clock += 864e5; fake.calls = []; await kgo();
+    ok(fake.calls.length === 4 && krep().findings.length === 2 && krep().findings.every(f => f.since === "2026-11-03" && !f.new), "a new V judges every shot again, and its findings keep their first night");
+    ok(kst().known.length === 1 && kst().known[0].seen === "2026-11-05", "one entry per defect, seen tonight");
+    ok(!alike({ kind: "overlap", text: "1" }, { kind: "overlap", text: "12-345-67" }) && alike({ kind: "overlap", text: "1" }, { kind: "overlap", text: " 1 " })
+      && !alike({ kind: "cut_text", text: "ישראל" }, { kind: "overlap", text: "ישראל" }) && alike({ kind: "cut_text", text: "IL ישראל" }, { kind: "cut_text", text: "ישראל" }),
+      "one defect: the same kind and text, a short text only as itself"); }
+
   // no key, switched off, no shots: skipped, the state untouched
   { const before = fs.readFileSync(path.join(state, "state.json"), "utf8"); fake.calls = [];
     IO.env = {}; ok(await go({ code: "c9" }) === 0 && logs.at(-1).includes("skipped: no ANTHROPIC_API_KEY"), "no key: skipped, quietly");
@@ -604,6 +649,8 @@ async function selftest() {
     await run({ source: "ui", shots: ui, state: us, code: "u1", mode: "batch" });
     const r = J(fs.readFileSync(path.join(us, "report.json"), "utf8"));
     ok(fake.batches === 2 && r.counts.first === 2 && r.counts.second === 1 && r.counts.findings === 0 && r.counts.rejected === 1, "Batch: two first looks, one second look that rejected the point");
+    ok(r.dropped.length === 1 && r.dropped[0].why === "the digit is whole" && r.dropped[0].claim === "the last digit is cut" && /second look rejected[\s\S]*the digit is whole/.test(fs.readFileSync(path.join(us, "report.md"), "utf8")),
+      "a rejected point is kept with the second look's reason, in the report too");
     const p = fake.calls.find(x => /open-recall/.test(x.messages[0].content.at(-1).text));
     ok(p.messages[0].content.filter(b => b.type === "image").length === 1 && readPng(Buffer.from(p.messages[0].content[0].source.data, "base64")).w === 78, "a page goes as its parts, at twice the size");
     fs.writeFileSync(path.join(ui, "screen-bulk-320-dark.png"), Buffer.concat([SIG, Buffer.from("broken")])); fake.calls = [];
