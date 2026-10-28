@@ -22,7 +22,7 @@ import { fileURLToPath } from "node:url";
 import { client, batch, answer, usage } from "./claude.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-export const MODEL = "claude-opus-5-5", PROMPT_V = 2, MIN_CARS = 10;
+export const MODEL = "claude-opus-5-5", PROMPT_V = 3, MIN_CARS = 10;
 const PAGE_MAX = 36000, ROWS_MAX = 24000;   // characters of one car's page and rows in its prompt: a car's cost has a ceiling
 // the page's areas, the ids of the daily audit's GROUPS (site-data-truth.mjs) and of the router's truth labels
 export const AREAS = { identity: "פרטי הרכב", status: "סטטוס הרכב", test: "טסט", road: "עלייה לכביש", owners: "בעלויות", km: "ק״מ", recalls: "ריקולים",
@@ -58,7 +58,7 @@ const SYSTEM = `You audit what לוחית shows for one car. לוחית is an Is
 1. The page as the buyer saw it: the header and the text of every tab. An icon is written as a mark before its words: ✓ a check (present, passed), ✗ crossed out (absent), ⚠ a warning, ℹ a note.
 2. The ministry's rows the page is built from: the registers' rows for this car, the model's data, the price list, the model's recall rows that name this model, and the car's own open recall rows. Plates, VINs and engine numbers are replaced by <id>, <plate>, <vin> or <n>.
    The model's recall rows are at most 30: those whose production years include this car first (years), then the newest. carList says whether the ministry's per-car list of open recalls covers the recall. For a covered recall the car's own open recall rows decide: one that is not among them is closed or not this car's, and the page rightly does not show it as open. For one it does not cover (too new, missing), the data cannot tell whether it is open on this car.
-3. What the app's fixed checks already found wrong on this page (may be none).
+3. What the app's fixed checks already found wrong on this page (may be none). In their lines "my reads" and "my query" are the fixed checks' own reads of the registers, not the app's.
 
 Read it as a senior auditor of Israeli vehicle data and as a buyer about to pay for this car, and find what is wrong or could mislead:
 - wrong: the page states something the rows contradict (a date, a count, a type, a status, a value, a recall).
@@ -69,7 +69,7 @@ Read it as a senior auditor of Israeli vehicle data and as a buyer about to pay 
 How to report:
 - Only what the material shows. page: the exact words of the page, one excerpt copied character for character (at most 120 characters), or two excerpts separated by " | " for a contradiction; "" only for missing. rows: field=value pairs copied exactly as they appear in the rows below, separated by "; "; "" only for a contradiction or misleading wording. A finding without such quotes is not a finding.
 - The app's own rules are not given. Judge by what a careful reader of the rows would expect, and say in why what you expected.
-- A part cut for length ("[… cut here for length]") or a list that stops at its limit proves nothing: never report something as missing or wrong because it is not there.
+- A part cut for length ("[… cut here for length]"), a list that stops at its limit or a register the fixed checks could not read proves nothing: never report something as missing or wrong because it is not there.
 - The registers are rebuilt nightly and lend each other dates; a difference of a few days, or a value the rows themselves disagree on, is not a finding unless the page states it as certain.
 - Do not repeat what the fixed checks already found, and do not report design, layout or wording preferences that do not change what a buyer understands.
 - severity: high when a buyer could decide wrongly (pay more, miss a safety recall, buy a car with a hidden status); medium when a fact is wrong but unlikely to change a decision; low for a minor slip.
@@ -98,7 +98,7 @@ export function rowsText(s) {
   if ((r.price || []).length) out.push("price list rows:", ...r.price.map(o => "- " + pairs(o).join("; ")));
   if (r.activeOfModelYear != null) out.push(`active cars of this model name and year: activeOfModelYear=${r.activeOfModelYear}`);
   if ((r.modelRecalls || []).length) out.push("model recall rows that name this model:", ...r.modelRecalls.map(o => "- " + pairs(o).join("; ")));
-  if ((r.unanswered || []).length) out.push(`registers that did not answer the audit's own reads: ${r.unanswered.join(", ")}`);
+  if ((r.unanswered || []).length) out.push(`registers the fixed checks could not read this time (the app reads them on its own, so this says nothing about the page): ${r.unanswered.join(", ")}`);
   return out.join("\n");
 }
 const cut = (t, n) => (t.length > n ? t.slice(0, n) + "\n[… cut here for length]" : t);
@@ -186,7 +186,7 @@ export async function run({ env = process.env, api, router, readCars, log = cons
   if (router === undefined) router = await import("./alert.mjs").catch(() => null);
   const { tag, todo, folded } = await import("./tg-text.mjs");
   const rep = { cars: 0, dropped: 0, sent: 0, answered: 0, kept: 0, missed: 0, why: "" };
-  const done = () => { log(`deep audit ${d}: ${rep.cars} cars read${rep.dropped ? `, ${rep.dropped} dropped` : ""}, ${rep.sent} sent, ${rep.answered} answered, ${rep.kept} findings kept, ${rep.missed} the rules missed${rep.why ? " · " + rep.why : ""}`); return rep; };
+  const done = () => { log(`deep audit ${d}: ${rep.cars} cars read${rep.dropped ? `, ${rep.dropped} dropped` : ""}, ${rep.sent} sent, ${rep.answered} answered, ${rep.kept} findings kept, ${rep.missed} medium or high the rules missed${rep.why ? " · " + rep.why : ""}`); return rep; };
   const c = api ? { api } : q.dry ? { api: null, why: "dry run" } : await client(env);
   if (!c.api && !q.dry) {   // no key: switched off on purpose, quietly; no SDK: the router hears it
     rep.why = c.why;
