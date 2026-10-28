@@ -98,7 +98,10 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       # the verdict is the last step's: a run that ends with the emulator stopped (app-real.cjs leaves a file "gone") is not the app's fault,
       # it happens under software rendering, so the phone setting runs once more on a new emulator and only that run counts. The step's
-      # script line makes the phone setting's folder first, so a try that ends without that folder never had an emulator to run on
+      # script line makes the phone setting's folder first, so a try that ends without that folder never had an emulator to run on.
+      # Android 15 draws through SwiftShader under ANGLE (swangle_indirect): with swiftshader_indirect its emulator stopped, silently (no
+      # crash report, no kernel line), in 33 of 85 first tries of the full runs 26-28.10 and in 12 of 24 tries of 411-extra, with
+      # swangle_indirect in none of 12 (probe 28.10, branch guardian-a15). Android 12 keeps swiftshader_indirect: its emulator never stopped
       - name: The real app on the emulator
         id: first
         if: ${{ !inputs.quick || matrix.scenario == '411-f100' }}
@@ -113,7 +116,7 @@ jobs:
           profile: pixel_6
           ram-size: 4096M
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot-save
+          emulator-options: -no-window -gpu ${{ matrix.api == 35 && 'swangle_indirect' || 'swiftshader_indirect' }} -noaudio -no-boot-anim -camera-back none -no-snapshot-save
           script: mkdir -p app-real/api${{ matrix.api }}/${{ matrix.scenario }} && node .github/scripts/app-real.cjs --apk app-qa.apk --scenario ${{ matrix.scenario }} --out app-real/api${{ matrix.api }}/${{ matrix.scenario }} --label api${{ matrix.api }}-${{ matrix.scenario }} ${{ inputs.quick && '--quick' || '' }}
       # no folder: the emulator never started (its download broke, or it did not boot in time), which is not the app's fault either, so it
       # counts as an emulator that stopped: a "gone" file and exit 2, as app-real.cjs leaves them
@@ -146,7 +149,7 @@ jobs:
           profile: pixel_6
           ram-size: 4096M
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot-save
+          emulator-options: -no-window -gpu ${{ matrix.api == 35 && 'swangle_indirect' || 'swiftshader_indirect' }} -noaudio -no-boot-anim -camera-back none -no-snapshot-save
           script: mkdir -p app-real/api${{ matrix.api }}/${{ matrix.scenario }} && node .github/scripts/app-real.cjs --apk app-qa.apk --scenario ${{ matrix.scenario }} --out app-real/api${{ matrix.api }}/${{ matrix.scenario }} --label api${{ matrix.api }}-${{ matrix.scenario }} ${{ inputs.quick && '--quick' || '' }}
       - name: Did the new emulator start
         if: ${{ steps.second.outcome == 'failure' }}

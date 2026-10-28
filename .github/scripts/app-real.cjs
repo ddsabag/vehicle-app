@@ -386,6 +386,7 @@ async function entries(page, sc) {
     sh(`am start -n ${ACT} ${extra}`);
     const s = await waitFor(page, ok);
     if (!s || !ok(s)) add("block", "entry", run, name, `${want}; got ${said(s)}`);
+    if (!s) log(`entry ${name}: no page (app pid ${pidOf() || "none"}, in front ${front()}, emulator ${alive() ? "there" : "gone"})`);
     saveShot(screencap(), `${sc.id}__entry__${name}`);
     await home();
   };
@@ -616,6 +617,10 @@ function finish(line, code) {
   log(`real app on API ${meta.sdk}: ${SCENARIOS.reduce((n, s) => n + s.runs.length, 0)} journeys in ${Math.round((Date.now() - t0) / 1000)} s, ${blocks} blocking, ${findings.length - blocks} warnings, ${list.length} distinct`);
   finish("", blocks ? 1 : 0);
 })().catch((e) => {
-  if (e instanceof Gone) { meta.gone = e.message; finish(`::error::(real app, API ${meta.sdk}) ${e.message}: the rest of this phone setting did not run (not a finding about the app; ${findings.length} findings until then are in findings.json)`, 2); }
+  if (e instanceof Gone) {
+    meta.gone = e.message;
+    for (const f of findings) log(`before the emulator stopped: ${f.sev} [${f.kind}] ${f.step}: ${f.msg.slice(0, 160)}`);
+    finish(`::error::(real app, API ${meta.sdk}) ${e.message}: the rest of this phone setting did not run (not a finding about the app; ${findings.length} findings until then are in findings.json)`, 2);
+  }
   finish(`::error::(real app) the run crashed: ${e.message}`, 2);
 });
