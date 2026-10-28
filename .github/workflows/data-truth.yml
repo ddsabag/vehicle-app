@@ -19,9 +19,6 @@ on:
     - cron: "47 4 * * *"   # 04:47 UTC = 07:47 Israel summer time, 06:47 winter: after the ministry's nightly rebuild and Ministry watch (04:07)
     - cron: "17 1 * * 0"   # Sunday 01:17 UTC: the weekly full read (about 40 min), done long before the morning
     - cron: "17 5 1-3 * *"   # the 1st of the month 05:17 UTC (after the daily audit has its cars), the 2nd and the 3rd only when the 1st could not finish
-  push:   # TEMPORARY (data thread, removed before the release ask): a test run of the deep job from its branch, QUERIES in the run file
-    branches: [data/claude-bots]
-    paths: [".github/deep-audit.run"]
   workflow_dispatch:
     inputs:
       job:
@@ -101,7 +98,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   deep:
-    if: ${{ github.event.schedule == '17 5 1-3 * *' || (github.event_name == 'workflow_dispatch' && inputs.job == 'deep') || github.event_name == 'push' }}
+    if: ${{ github.event.schedule == '17 5 1-3 * *' || (github.event_name == 'workflow_dispatch' && inputs.job == 'deep') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 350   # the audit's own budget (minutes=140) and the batch's wait (wait=180: a test batch of 12 took an hour), with room
     concurrency:
@@ -130,13 +127,12 @@ jobs:
       - name: Read the cars like a user, then ask Claude about each (Claude API use #7)
         if: ${{ steps.due.outputs.skip != '1' }}
         run: |
-          [ "${{ github.event_name }}" != "push" ] || export QUERIES="$(cat .github/deep-audit.run)"
           node .github/scripts/deep-audit.mjs
         env:
           OUT: out
           QUERIES: ${{ inputs.queries }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          DRY_RUN: ${{ (github.event_name == 'push' || inputs.dry_run) && '1' || '0' }}   # a test run from the branch tells the router nothing
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

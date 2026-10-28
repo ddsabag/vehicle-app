@@ -14,10 +14,6 @@ on:
         description: "sample=20 (a spread sample), max=N, wait=minutes, redo=1 (every wording again), dry=1 (no call)"
         type: string
         default: ""
-  # TEMPORARY, for the first runs from the branch (a manual run needs the file on main): removed before the release ask
-  push:
-    branches: [data/claude-bots]
-    paths: [".github/recall-explain.run"]
 permissions:
   contents: write
 concurrency:
@@ -49,7 +45,6 @@ jobs:
           PREV: prev
           OUT: out
           QUERIES: ${{ inputs.queries }}
-          RUN_FILE: ${{ github.event_name == 'push' && '.github/recall-explain.run' || '' }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           # the router (alert.mjs): its state lives on the branch alert-state
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

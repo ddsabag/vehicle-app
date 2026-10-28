@@ -24,7 +24,7 @@
 // line, and stays green: ai:recalls goes to the router (ai:key when the key or the credit is the cause, which needs Dudu), and the next
 // good call closes both. Nothing here logs a plate, a cost or a token count.
 //   env   CAT=<dir> (catalog-data: r/<maker>.json)   PREV=<dir> (the last run's files, branch recall-explain)   OUT=<dir>
-//         QUERIES="sample=20 max=3000 wait=50 rounds=3 effort=low redo=1 dry=1" (the workflow's input), or RUN_FILE (a file holding them)
+//         QUERIES="sample=20 max=3000 wait=50 rounds=3 effort=low redo=1 dry=1" (the workflow's input)
 //   node recall-explain.mjs --selftest   offline: the rules, the critical systems, the sample spread, whole runs through a fake API
 import fs from "node:fs";
 import os from "node:os";
@@ -343,7 +343,7 @@ async function settle(router) {
 }
 
 export async function run({ env = process.env, api, router, log = console.log, now = new Date() } = {}) {
-  const q = queries(env.QUERIES || (env.RUN_FILE && fs.existsSync(env.RUN_FILE) ? fs.readFileSync(env.RUN_FILE, "utf8") : ""));
+  const q = queries(env.QUERIES || "");
   const out = env.OUT || "out", day = now.toISOString().slice(0, 10), cat = readCatalogue(env.CAT || "cat"), { items, state: st } = readPrev(env.PREV || "prev");
   if (router === undefined) router = await import("./alert.mjs").catch(() => null);
   for (const [k, e] of cat) if (items[k]) items[k].ids = [...e.ids].sort((a, b) => a - b);   // a new recall whose wording is already explained
