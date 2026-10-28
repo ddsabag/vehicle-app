@@ -19,6 +19,8 @@
 // PROMPT_V is in every item: after a change of the prompt, the wordings explained by an older one are sent again (kept until replaced).
 // The rules apply again to every stored text on every run: one that breaks today's rules leaves explain.json and is sent again with what it
 // broke, and a wording held for a rule that its last draft no longer breaks is sent again.
+// A text written in review (FIXES, by its exact wording) takes the place of the model's: that wording is never sent again (redo=1 included),
+// the text meets the same rules (one that breaks a rule leaves explain.json and waits for a person), and checked.by says "review".
 // Weekly: only wordings that are new since the last run, or explained by an older prompt, are sent (redo=1 sends all again). A batch that has
 // not ended by the deadline is collected by the next run. With no key, no SDK or an API error the run keeps what it had, says why in one
 // line, and stays green: ai:recalls goes to the router (ai:key when the key or the credit is the cause, which needs Dudu), and the next
@@ -141,6 +143,10 @@ export const RULES = [
   ["record", t => /אופן התיקון|(?<![א-ת])לפי (?:ה)?(?:רשום|נתונים|הודעה|מאגר|דיווח|דווח)(?![א-ת])/.test(t) || words(["תיאור", "רישום", "ניסוח"]).test(t)   // not מאגר alone: a fluid reservoir is a part
     || /(?:לא|אינו|אינה|אין) (?:מפורט|מפורטת|מפרט|מפרטת|צוין|צוינה|מצוין|מצוינת|מציין|מציינת|מוסבר|מוסברת|נאמר)/.test(t),
     "Write about the recall, never about the record or what it leaves out (no \"לפי התיאור\", \"הרישום מציין\", \"אופן התיקון\", \"לא מפורט\"). When the description names only a part, say what the part does and that it may have a fault. The repair is one plain sentence that names the part: \"בתיקון בודקים את וו הגרירה.\""],
+  // the air conditioner's refrigerant is a gas: "נוזל הקירור" is the engine's coolant (six texts of 28.10 had it, the advisor's review);
+  // not when the ministry's own description says נוזל קירור (an air conditioning hose that leaks it)
+  ["refrigerant", (t, w) => /נוזל (?:ה)?קירור/.test(t) && /מזגן|מיזוג/.test(t + " " + w.d) && !/נוזל (?:ה)?(?:קירור|קרור)/.test(w.d),
+    "The air conditioner compresses and circulates גז הקירור; נוזל הקירור is the liquid that cools the engine. Do not write נוזל הקירור in a text about the air conditioner (for the cooling of a battery or an engine, write מערכת הקירור)."],
   ["number", (t, w) => (t.match(/\d+/g) || []).some(n => !w.d.includes(n)), "No numbers that the description does not have."],
   ["latin", (t, w) => (t.match(/[A-Za-z][A-Za-z0-9-]*/g) || []).some(x => !bare(w.d).includes(bare(x)) && !LATIN_OK.has(bare(x))),
     "No Latin-letter words the description does not have (no model names, no English)."],
@@ -171,6 +177,16 @@ export function check(o, w) {
   return out;
 }
 export const textCheck = (t, w) => check({ text: t, notice: "", unclear: false }, w);
+// texts written in review for a wording whose model text was wrong (the advisor thread's review of 28.10): w is the wording exactly as the
+// catalogue has it (its key is the key of explain.json), so a description the ministry changes gets a model text again
+export const FIXES = [
+  { w: { t: "תקלה סידרתית בטיחותית", s: "היגוי ומתלים", d: "סיכוי לברגים שבורים בתושבת המיסב של המתלה קדמי שמאלי וימני", f: "בדיקה" }, sys: "suspension", urgency: "soon", at: "2026-10-28",
+    // the model took the part for the wheel bearing; it is most likely the strut's top mount, so the text says no more than the record
+    text: "ייתכן שברגים בתושבת המיסב של המתלה הקדמי, משני הצדדים, שבורים, וזה עלול לפגוע ביציבות המתלה ובשליטה ברכב. בתיקון בודקים את הברגים." },
+  { w: { t: "תקלה סידרתית בטיחותית", s: "חשמל אליקטרוניקה ומיזוג", d: "כלי רכב מסוימים עשויים לחוות כשל טעינה במתח גבוה/נמוך עקב כשל ב- ICC", f: "עדכון תוכנה" }, sys: "high_voltage", urgency: "soon", at: "2026-10-28",
+    // the electric Genesis's ICC is the ICCU of the same recall on the IONIQ (15820), whose text says what it is
+    text: "ICC היא יחידה ברכב חשמלי שמטפלת בטעינת הסוללה ובהעברת החשמל בין המערכות. ייתכן שכשל בה יגרום לתקלה בטעינה במתח גבוה או נמוך. בתיקון מעדכנים את התוכנה של היחידה." },
+];
 
 const SYSTEM = `You write the short explanation that appears under a recall in לוחית, an Israeli app that checks a car by its licence plate in the Ministry of Transport's open data. The app shows the ministry's record of the recall: its type, the affected system, the ministry's description of the defect and the repair method. Your text appears under it as "מה זה אומר?" and tells an ordinary car owner, in plain Hebrew, what the defect is, what may happen because of it, and what the repair does.
 
@@ -306,7 +322,7 @@ function review(items, st, day) {
     airbags: "כריות אוויר", seatbelts: "חגורות בטיחות", seats: "מושבים ומשענות", fuel: "מערכת הדלק", high_voltage: "מתח גבוה", fire: "סכנת שריפה", stability: "מערכת יציבות",
     lights: "תאורה", engine: "מנוע", exhaust: "פליטה", transmission: "העברת כוח", electrical: "חשמל", software: "תוכנה", body: "מרכב", other: "אחר" };
   const head = w => `**${w.d}**${w.d.length >= CUT ? "…" : ""} · ${w.s} · ${w.f}${w.t === CAMPAIGN ? " · קמפיין שירות" : ""}`;
-  const mark = { stop: " · ⛔ להפסיק שימוש", soon: " · 🟠 בהקדם", routine: "" };
+  const mark = { stop: " · ⛔ להפסיק שימוש", soon: " · 🟠 בהקדם", routine: "" }, byReview = x => (x.checked && x.checked.by === "review" ? " · ✍️ נוסח אחרי בדיקה" : "");
   const out = [`# הסברי ריקולים לבדיקה`, "", `עודכן ${day} · ${all.length} ניסוחים עם הסבר · ${held.length} מחכים לאדם · גרסת ההנחיה ${PROMPT_V}`, "",
     `ההסברים לא מוצגים באפליקציה. מתחת להסבר תופיע שורה קבועה לפי הדחיפות: ⛔ "${LINES.stop}" · 🟠 "${LINES.soon}"`, ""];
   if (held.length) out.push(`## מחכים לאדם (${held.length})`, "", ...held.map(([k, h]) => `- ${h.w ? head(h.w) : k} · ${h.why}${h.text ? ` · טיוטה אחרונה: "${h.text}"` : ""}`), "");
@@ -314,7 +330,7 @@ function review(items, st, day) {
     const list = all.filter(x => x.sys === s).sort((a, b) => (a.s + a.d).localeCompare(b.s + b.d, "he"));
     if (!list.length) continue;
     out.push(`## ${he[s]} (${list.length})`, "");
-    for (const x of list) out.push(`- ${head(x)}${mark[x.urgency] || ""}`, x.unclear ? "  > (הניסוח לא מספיק להסבר)" : `  > ${x.text}`, ...(x.notice ? [`  > **${x.notice}**`] : []));
+    for (const x of list) out.push(`- ${head(x)}${mark[x.urgency] || ""}${byReview(x)}`, x.unclear ? "  > (הניסוח לא מספיק להסבר)" : `  > ${x.text}`, ...(x.notice ? [`  > **${x.notice}**`] : []));
     out.push("");
   }
   return out.join("\n");
@@ -342,27 +358,39 @@ async function settle(router) {
   try { await router.resolve(["ai:recalls"]); await router.resolve(["ai:key"]); } catch { /* the morning ledger still shows it */ }
 }
 
-export async function run({ env = process.env, api, router, log = console.log, now = new Date() } = {}) {
+export async function run({ env = process.env, api, router, log = console.log, now = new Date(), fixes = FIXES } = {}) {
   const q = queries(env.QUERIES || "");
   const out = env.OUT || "out", day = now.toISOString().slice(0, 10), cat = readCatalogue(env.CAT || "cat"), { items, state: st } = readPrev(env.PREV || "prev");
   if (router === undefined) router = await import("./alert.mjs").catch(() => null);
   for (const [k, e] of cat) if (items[k]) items[k].ids = [...e.ids].sort((a, b) => a - b);   // a new recall whose wording is already explained
-  const rep = { wordings: cat.size, sent: 0, kept: 0, held: 0, broke: 0, pending: false, why: "" };
-  const done = () => { write(out, items, st, day); log(`recall explanations: ${rep.wordings} wordings, ${Object.keys(items).length} explained, sent ${rep.sent}, kept ${rep.kept}, held ${rep.held}${rep.broke ? `, ${rep.broke} broke a newer rule` : ""}${rep.pending ? ", a batch still running (the next run collects it)" : ""}${rep.why ? " · " + rep.why : ""}${speller.on === false ? " · spelling not checked (no hunspell he_IL)" : ""}`); return rep; };
+  const rep = { wordings: cat.size, sent: 0, kept: 0, held: 0, broke: 0, fixed: 0, pending: false, why: "" };
+  const done = () => { write(out, items, st, day); log(`recall explanations: ${rep.wordings} wordings, ${Object.keys(items).length} explained, sent ${rep.sent}, kept ${rep.kept}, held ${rep.held}${rep.broke ? `, ${rep.broke} broke a newer rule` : ""}${rep.fixed ? `, ${rep.fixed} written in review` : ""}${rep.pending ? ", a batch still running (the next run collects it)" : ""}${rep.why ? " · " + rep.why : ""}${speller.on === false ? " · spelling not checked (no hunspell he_IL)" : ""}`); return rep; };
   // a stored text that breaks today's rules leaves explain.json and goes back with what it broke; a wording held for a rule that its last
   // draft no longer breaks is due again (the rules changed since)
   speller.vocab = new Set([...cat.values()].flatMap(e => heWords([e.w.d, e.w.f, e.w.s].join(" "))));
-  prime([...Object.values(items).flatMap(it => [it.text, it.notice]), ...Object.values(st.held).map(h => h.text)]);
+  prime([...Object.values(items).flatMap(it => [it.text, it.notice]), ...Object.values(st.held).map(h => h.text), ...fixes.map(x => x.text)]);
   const broke = {};
   for (const [k, it] of Object.entries(items)) {
     const b = check(it, it);
     if (b.length) { broke[k] = { text: it.text + (it.notice ? ` / notice: "${it.notice}"` : ""), say: b.map(x => x.say).join(" ") }; delete items[k]; rep.broke++; }
   }
+  // the texts written in review take the model's place; a wording that has one is never sent, and one that breaks a rule waits for a person
+  const reviewed = new Set();
+  for (const x of fixes) {
+    const k = keyOf(x.w);
+    if (!cat.has(k)) continue;   // that wording is gone (a description the ministry changed is a new wording, for the model)
+    reviewed.add(k); delete st.retry[k]; delete broke[k];
+    const b = textCheck(x.text, x.w), u = urgencyOf(x.w, x);
+    if (b.length) { delete items[k]; st.held[k] = { n: 0, why: "reviewed text: rule " + b.map(y => y.id).join("+"), text: x.text, at: day, v: PROMPT_V, w: x.w }; rep.held++; continue; }
+    items[k] = { ...x.w, text: x.text, notice: "", sys: x.sys, ...u, crit: u.urgency !== "routine", unclear: false, checked: { by: "review", at: x.at }, v: PROMPT_V,
+      ids: [...cat.get(k).ids].sort((a, b) => a - b) };
+    delete st.held[k]; rep.fixed++;
+  }
   const draft = t => { const i = t.indexOf(' / notice: "'); return { text: i < 0 ? t : t.slice(0, i), notice: i < 0 ? "" : t.slice(i + 12, -1), unclear: false }; };
   const loose = k => /^rule /.test(st.held[k].why) && !check(draft(st.held[k].text || ""), cat.get(k).w).length;
   // retries first (with what they broke), then wordings with no text of this prompt that did not use up their tries with it (redo: all again)
   const retry = Object.entries(st.retry).filter(([k]) => cat.has(k)).map(([k, r]) => ({ k, n: r.n, fb: r.fb })), now_ = x => x && x.v >= PROMPT_V;
-  const due = [...cat.keys()].filter(k => !retry.some(e => e.k === k) && (q.redo || (!now_(items[k]) && (!now_(st.held[k]) || loose(k))))).sort();
+  const due = [...cat.keys()].filter(k => !reviewed.has(k) && !retry.some(e => e.k === k) && (q.redo || (!now_(items[k]) && (!now_(st.held[k]) || loose(k))))).sort();
   let queue = [...retry, ...(q.sample ? pickSample(due, cat, q.sample) : due.slice(0, q.max)).map(k => ({ k, n: 1, fb: broke[k] || null }))];
   if (q.dry) { log(`dry run: ${queue.length} to send, nothing sent`); if (queue[0]) log(prompt(cat.get(queue[0].k).w, queue[0].fb)); return done(); }
   if (!queue.length && !st.pending) return done();
@@ -375,7 +403,7 @@ export async function run({ env = process.env, api, router, log = console.log, n
     const next = [];
     const again = (k, n, why, fb) => (n >= TRIES ? hold(k, n, why, fb && fb.text) : next.push({ k, n: n + 1, fb }));
     for (const [cid, { k, n }] of Object.entries(reqs)) {
-      if (!cat.has(k)) continue;   // the wording left the catalogue meanwhile
+      if (!cat.has(k) || reviewed.has(k)) continue;   // the wording left the catalogue meanwhile, or has a text written in review
       const w = cat.get(k).w, res = results.get(cid);
       if (!res || !res.ok) { again(k, n, (res && res.why) || "no result", null); continue; }
       const p = parse(res.msg);
@@ -480,6 +508,20 @@ if (process.argv[1] && process.argv[1].endsWith("recall-explain.mjs") && process
   ok(textCheck("ייתכן שברגים בתושבת של המתלה הקדמי יישברו, ודבר כזה עלול לפגוע בתפקוד המתלה. בתיקון בודקים את הברגים ומחליפים אותם לפי הצורך.", W("ברגים שבורים בתושבת", "היגוי ומתלים", "בדיקה")).length === 0
     && textCheck("הקריאה נוגעת לצמת החוטים בתא המטען, שהיא אגד חוטים שמעביר חשמל בין רכיבים ברכב. ייתכן שיש בה תקלה. בתיקון בודקים את צמת החוטים.", W("בדיקת צמת חוטים בתא מטען", "חשמל אליקטרוניקה ומיזוג", "בדיקה")).length === 0,
     "the repair said plainly (לפי הצורך) and a recall that is about a part are no talk about the record");
+  // the air conditioner's gas is not the engine's coolant (six texts of 28.10); an engine's coolant, and the ministry's own word, pass
+  const ac = W("סיכוי לתקלה במדחס המזגן", "חשמל אליקטרוניקה ומיזוג", "עדכון תוכנה");
+  fault("מדחס המזגן הוא החלק שדוחס את נוזל הקירור ומאפשר למזגן לקרר. ייתכן שיש בו תקלה, ובתיקון מעדכנים את התוכנה.", "refrigerant", ac);
+  fault("ייתכן שהותקנה ברכב תוכנה שאינה תואמת, ולכן המדחס, שדוחס את נוזל הקירור, עלול לא לפעול כראוי. בתיקון מעדכנים את התוכנה.", "refrigerant",
+    W("מדחס המזגן לא יפעל כראוי וקירור תא הנוסעים יהיה לא תקין", "חשמל אליקטרוניקה ומיזוג", "עדכון תוכנה"));
+  ok(textCheck("מדחס המזגן הוא החלק שדוחס את גז הקירור ומאפשר למזגן לקרר. ייתכן שיש בו תקלה, ובתיקון מעדכנים את התוכנה.", ac).length === 0
+    && textCheck("משאבת המים מזרימה נוזל קירור במנוע ומסייעת לשמור עליו מפני התחממות יתר. ייתכן שתיכשל, ואז המנוע עלול להתחמם. בתיקון מחליפים את משאבת המים.", W("חשש לכשל במשאבת המים", "מנוע ומערכותיו")).length === 0
+    && textCheck("צינור מיזוג לחץ נמוך מוליך את נוזל הקירור במערכת המיזוג. ייתכן שהצינור יתיישן מוקדם מהצפוי ויגרום לדליפה של נוזל הקירור. בתיקון בודקים את הצינור.",
+      W("חשש לאפשרות של התיישנות מוקדמת של צינור מיזוג לחץ נמוך ודליפת נוזל קירור.", "חשמל אליקטרוניקה ומיזוג", "בדיקה")).length === 0,
+    "refrigerant: גז הקירור in an air conditioner, an engine's coolant, and the ministry's own נוזל קירור pass");
+  // the texts written in review: each on the key its wording has in explain.json, each within every rule
+  ok(keyOf(FIXES[0].w) === "04e272c7eb6219d5" && keyOf(FIXES[1].w) === "03dda127b3e815e3"
+    && FIXES.every(x => !textCheck(x.text, x.w).length && SYS.includes(x.sys) && x.urgency in RANK && /^\d{4}-\d\d-\d\d$/.test(x.at) && urgencyOf(x.w, x).urgency === x.urgency),
+    "the texts written in review: on their wordings' keys, within every rule, their urgency the rules' too");
   fault("כרית האוויר עלולה להיכשל.", "length");
   fault("The airbag inflator may rupture when the airbag opens, and parts of it may injure people in the car.", "hebrew", W("airbag inflator may rupture", "כריות אוויר"));
   ok(textCheck("זו קריאת שירות. ייתכן שהבורג רופף, ובורג כזה עלול להשתחרר בנסיעה. בתיקון מהדקים את הבורג ובודקים את החיבור.", W("בורג רופף", "אחר", "הידוק", CAMPAIGN)).length === 0
@@ -602,6 +644,19 @@ if (process.argv[1] && process.argv[1].endsWith("recall-explain.mjs") && process
     const lines = []; await run({ env: { ...from("rulesD"), QUERIES: "dry=1" }, api: fake(), router, log: l => lines.push(l) });
     dictionary([]);
     ok(lines.some(l => /^recall explanations: .* · spelling not checked \(no hunspell he_IL\)$/.test(l)), "a run without hunspell says that the spelling was not checked");
+  }
+  {   // a text written in review takes the model's place and its wording is never sent (redo=1 too); one that breaks a rule waits for a person
+    const hose = wording(row(1, "צינור הבלם הקדמי עלול להשתפשף")), rest = wording(row(3, "משענת הראש עלולה להשתחרר", "אחר", "בדיקה")), kh = keyOf(hose), kr = keyOf(rest);
+    const fixes = [{ w: hose, sys: "brakes", urgency: "routine", at: "2026-10-01", text: "צינור הבלם מוביל את נוזל הבלמים אל הגלגל. ייתכן שהצינור הקדמי ישתפשף, וצינור שחוק עלול לדלוף ולפגוע בבלימה. בתיקון מחליפים את הצינור." },
+      { w: rest, sys: "seats", urgency: "soon", at: "2026-10-01", text: "משענת הראש עלולה להשתחרר בתאונה. התיקון ניתן בחינם, ובו בודקים את המשענת ומחזקים אותה." }];
+    sentPrompts.length = 0;
+    const rf = await run({ env: { CAT: catDir, PREV: path.join(tmp, "run2"), OUT: path.join(tmp, "fixA"), QUERIES: "wait=0 redo=1" }, api: fake(), router, log: quiet, fixes });
+    const exF = JSON.parse(fs.readFileSync(path.join(tmp, "fixA", "explain.json"), "utf8")).items, heldF = JSON.parse(fs.readFileSync(path.join(tmp, "fixA", "state.json"), "utf8")).held;
+    ok(rf.fixed === 1 && exF[kh].text === fixes[0].text && exF[kh].checked.by === "review" && exF[kh].checked.at === "2026-10-01" && exF[kh].ids.join() === "1,8"
+      && exF[kh].urgency === "soon" && exF[kh].crit && sentPrompts.length > 0 && !sentPrompts.some(u => u.includes("צינור הבלם")),
+      "a text written in review is kept as written, with its recalls and the rules' urgency, and its wording is not sent even with redo=1");
+    ok(!exF[kr] && heldF[kr] && heldF[kr].why === "reviewed text: rule cost" && !sentPrompts.some(u => u.includes("משענת")), "one that breaks a rule leaves explain.json and waits for a person, unsent");
+    ok(fs.readFileSync(path.join(tmp, "fixA", "review.md"), "utf8").includes("✍️ נוסח אחרי בדיקה"), "review.md marks a text written in review");
   }
   // a new wording in the catalogue, and a batch that has not ended by the deadline: the next run collects it
   fs.writeFileSync(path.join(catDir, "r", "2.json"), JSON.stringify({ u: "2026-10-28", rows: [row(9, "חשש לדליפת דלק מצינור ההזנה", "מערכת הדלק")] }));
