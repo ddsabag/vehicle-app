@@ -35,9 +35,10 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { client, batch, collect, answer } from "./claude.mjs";
+import { LINT_CAMPAIGN as CAMPAIGN, LINT_RULES, lintWords as words, lintExact as exact } from "../../worker/lib/answer-lint.mjs";
 
 export const MODEL = "claude-sonnet-5-5", PROMPT_V = 4, TRIES = 3;
-const CAMPAIGN = "קמפיין שרות טכני", CUT = 118;   // TEUR_TAKALA is cut at 120 characters in the ministry's dataset
+const CUT = 118;   // TEUR_TAKALA is cut at 120 characters in the ministry's dataset
 export const SYS = ["brakes", "steering", "suspension", "wheels", "airbags", "seatbelts", "seats", "fuel", "high_voltage", "fire", "stability",
   "lights", "engine", "exhaust", "transmission", "electrical", "software", "body", "other"];
 // fixed text for product and the advisor (the model never writes steps): by urgency, and the cost line the app already shows (not for a
@@ -46,10 +47,6 @@ export const LINES = { stop: "הודעת הריקול מורה להפסיק את
   cost: "התיקון ניתן בדרך כלל ללא עלות אצל היבואן של הרכב." };
 const RANK = { routine: 0, soon: 1, stop: 2 };
 
-const HE = "א-ת";   // the Hebrew letters, final forms included
-// a whole Hebrew word of the list after up to two one-letter prefixes (ו ה ב ל מ ש כ); exact(): the word only as listed
-const words = list => new RegExp(`(?<![${HE}])[והבלמשכ]{0,2}(?:${list.join("|")})(?![${HE}])`);
-const exact = list => new RegExp(`(?<![${HE}])(?:${list.join("|")})(?![${HE}])`);
 
 // a critical system by the ministry's own field or by a word of its description, beside the model's own judgement (either is enough):
 // whole words, so "משענת הראש" is not fire (אש), "גלגלת" is not a wheel and "הדלקת" is not fuel
@@ -91,10 +88,6 @@ const STOP = /(לעצור|להפסיק|הפסקת) (את )?(ה)?שימוש|אי�
 // the description gives some instruction for the time until the repair (park outside, do not charge near buildings): only then a notice
 const INSTR = /יש ל|חובה|מבקש|להימנע|הנחה|הנחיה|אין ל|לא ל(נסוע|השתמש|שטוף|חנות|החנות|טעון|הטעין|הושיב|שבת)|לעצור|להפסיק (את )?(ה)?שימוש|\b(do not|avoid|park)\b/i;
 
-const LATIN_OK = new Set(["ABS", "ESP", "ESC", "EBD", "ECU", "EGR", "DPF", "LED", "USB", "ADAS", "AEB", "TPMS", "SRS", "GPS", "EV"]);
-const bare = s => s.toUpperCase().replace(/[\s-]/g, "");   // "eCall" is the description's "E-CALL"
-// "מכלול" (an assembly, "במכלול המשאבה") is מ before כלול: a part, never "included"
-const ASSEMBLY = new RegExp(`(?<![${HE}])[והבלשכ]{0,2}מכלול(?:ים|י|ה|ות|ו|ת)?(?![${HE}])`, "g");
 // Hebrew spelling: hunspell with its he_IL dictionary (the workflow installs it) names the words it does not know, and such a word is a
 // misspelling ("להידלף", "הדושקה", "כשקורית") unless a ministry record of the catalogue uses it, with up to three one-letter prefixes off
 // ("כשהסעפת" is סעפת), or it is a term of the trade the dictionary lacks (TERMS, from the 2,346 texts of 28.10). The words of a round are
@@ -120,39 +113,11 @@ export function prime(texts) {
   for (const x of unknown) speller.unknown.add(x);
 }
 const misspelt = t => (speller.on ? [...new Set(heWords(t))].filter(x => speller.unknown.has(x) && !prefixOff(x).some(f => speller.vocab.has(f) || TERMS.has(f))) : []).join(", ");
-// "not a safety recall": an Israeli service campaign can be an airbag or a brake booster, so no text says a record is not about safety
-const notSafety = /ולא ריקול|ולא קריאת בטיחות|(?:לא|אינו|אינה|אינם|אין זה|אין זו) (?:מדובר ב)?(?:ריקול|תקלה|קריאת|קריאה|בעיה) ?(?:בטיחותי|בטיחותית|בטיחות)|(?:לא|אינו|אינה|אינם) (?:בטיחותי|בטיחותית|בטיחותיים|קשור(?:ה|ים)? לבטיחות|נוגע(?:ת|ים)? לבטיחות)/;
-// [id, broken(text, wording), what the model is told when its text broke it]
-export const RULES = [
-  ["entitled", t => /זכא/.test(t), "Never say entitled (זכאי, זכאות) or anything like it."],
-  ["included", t => words(["כלול", "כלולה", "כלולים", "כלולות", "נכלל", "נכללת", "נכללים", "נכללות", "נכללו", "נכללה"]).test(t.replace(ASSEMBLY, " ")),
-    "Do not say whether a car is included in the recall."],
-  ["cost", t => exact(["חינם", "בחינם", "עלות", "העלות", "ללא עלות", "בלי עלות", "תשלום", "בתשלום", "התשלום", "ללא תשלום", "לשלם", "מחיר", "המחיר", "כסף", "על חשבון"]).test(t),
-    "Nothing about cost or payment."],
-  ["steps", t => words(["מוסך", "מוסכים", "התקשרו", "להתקשר", "לתאם", "תאמו", "בדקו"]).test(t)
-    || /צרו קשר|ליצור קשר|יצירת קשר|מספר (ה)?שלדה|מספר (ה)?רישוי|אתר (ה)?אינטרנט|באתר|לבדוק (אם|האם)/.test(t),
-    "No steps: nothing about contacting anyone, scheduling, checking whether a car is included, a garage, a website or a VIN (the app shows those)."],
-  ["blame", t => words(["יבואן", "יבואנים", "יבואנית", "יצרן", "יצרנים", "יצרנית", "סוחר", "סוחרים", "רשלנות", "אשמה", "הזנחה"]).test(t),
-    "Never name or blame the importer, the maker or a dealer (יבואן, יצרן, סוחר)."],
-  ["you", t => exact(["אתה", "אתם", "שלך", "שלכם", "ושלך", "ושלכם", "לך", "לכם", "ולך", "ולכם", "עליך", "עליכם", "בשבילך", "בשבילכם", "עבורך", "עבורכם",
-    "אותך", "אתכם", "ממך", "תוכל", "תוכלו", "תצטרך", "תצטרכו", "שימו", "זכרו", "דעו"]).test(t), "No \"you\" in any form: write about הרכב or רכבים."],
-  ["alarm", t => /!/.test(t) || words(["מוות", "קטלני", "קטלנית", "קטלניים", "אסון", "סכנת חיים", "מיד", "מייד", "בדחיפות", "דחוף"]).test(t) || exact(["למות"]).test(t),
-    "Calm wording: no alarm words (מוות, סכנת חיים, מיד, דחוף) and no exclamation mark."],
-  ["downplay", t => /אין (כל |שום )?(סכנה|סיכון|חשש|מה לדאוג|צורך לדאוג)|לא מסוכנ|בטוח לנסוע|להמשיך לנסוע|אין צורך (בתיקון|לתקן)/.test(t) || notSafety.test(t),
-    "Do not play a risk down (אין סכנה, אפשר להמשיך לנסוע), and never say that a recall or a service campaign is not a safety matter."],
-  ["campaign", (t, w) => w.t === CAMPAIGN && !/קריאת (שירות|שרות)|קמפיין/.test(t), "This is a service campaign (קמפיין שרות טכני): say in the text that it is a service campaign (קריאת שירות)."],
-  ["record", t => /אופן התיקון|(?<![א-ת])לפי (?:ה)?(?:רשום|נתונים|הודעה|מאגר|דיווח|דווח)(?![א-ת])/.test(t) || words(["תיאור", "רישום", "ניסוח"]).test(t)   // not מאגר alone: a fluid reservoir is a part
-    || /(?:לא|אינו|אינה|אין) (?:מפורט|מפורטת|מפרט|מפרטת|צוין|צוינה|מצוין|מצוינת|מציין|מציינת|מוסבר|מוסברת|נאמר)/.test(t),
-    "Write about the recall, never about the record or what it leaves out (no \"לפי התיאור\", \"הרישום מציין\", \"אופן התיקון\", \"לא מפורט\"). When the description names only a part, say what the part does and that it may have a fault. The repair is one plain sentence that names the part: \"בתיקון בודקים את וו הגרירה.\""],
-  // the air conditioner's refrigerant is a gas: "נוזל הקירור" is the engine's coolant (six texts of 28.10 had it, the advisor's review);
-  // not when the ministry's own description says נוזל קירור (an air conditioning hose that leaks it)
-  ["refrigerant", (t, w) => /נוזל (?:ה)?קירור/.test(t) && /מזגן|מיזוג/.test(t + " " + w.d) && !/נוזל (?:ה)?(?:קירור|קרור)/.test(w.d),
-    "The air conditioner compresses and circulates גז הקירור; נוזל הקירור is the liquid that cools the engine. Do not write נוזל הקירור in a text about the air conditioner (for the cooling of a battery or an engine, write מערכת הקירור)."],
-  ["number", (t, w) => (t.match(/\d+/g) || []).some(n => !w.d.includes(n)), "No numbers that the description does not have."],
-  ["latin", (t, w) => (t.match(/[A-Za-z][A-Za-z0-9-]*/g) || []).some(x => !bare(w.d).includes(bare(x)) && !LATIN_OK.has(bare(x))),
-    "No Latin-letter words the description does not have (no model names, no English)."],
-  ["length", t => t.length < 50 || t.length > 320, "Two or three short sentences, 50 to 320 characters."],
-  ["hebrew", t => (t.match(/[א-ת]/g) || []).length < 0.7 * (t.match(/[A-Za-zא-ת]/g) || []).length, "Write in Hebrew."],
+// the explanations' rules: the shared text rules they take (worker/lib/answer-lint.mjs: words, exact and the service campaign come from
+// there too, and the advisor's answers take some of the same rules), then Hebrew spelling, which needs hunspell and stays here
+const EXPLAIN_RULES = new Set(["entitled", "included", "cost", "steps", "blame", "you", "alarm", "downplay", "campaign", "record", "refrigerant", "number",
+  "latin", "length", "hebrew"]);
+export const RULES = [...LINT_RULES.filter(([id]) => EXPLAIN_RULES.has(id)),
   ["spelling", misspelt, "Spell every word as a Hebrew dictionary does, with standard verb forms (לדלוף and not להידלף, להתניע and not להתנע, יישחק and not ישתחק, הדוושה)."],
 ];
 // a notice may hold the instruction's own steps and words like "מיד", so it gets the rest of the rules, calm without those
@@ -510,6 +475,16 @@ if (process.argv[1] && process.argv[1].endsWith("recall-explain.mjs") && process
   ok(textCheck("ייתכן שברגים בתושבת של המתלה הקדמי יישברו, ודבר כזה עלול לפגוע בתפקוד המתלה. בתיקון בודקים את הברגים ומחליפים אותם לפי הצורך.", W("ברגים שבורים בתושבת", "היגוי ומתלים", "בדיקה")).length === 0
     && textCheck("הקריאה נוגעת לצמת החוטים בתא המטען, שהיא אגד חוטים שמעביר חשמל בין רכיבים ברכב. ייתכן שיש בה תקלה. בתיקון בודקים את צמת החוטים.", W("בדיקת צמת חוטים בתא מטען", "חשמל אליקטרוניקה ומיזוג", "בדיקה")).length === 0,
     "the repair said plainly (לפי הצורך) and a recall that is about a part are no talk about the record");
+  {   // the shared rules (worker/lib/answer-lint.mjs): only the caller's ids, a context without a recall's fields (the advisor's car data),
+      // every rule when no ids are given; the explanations take theirs from that list
+    const { lint, LINT_RULES } = await import("../../worker/lib/answer-lint.mjs");
+    const car = { recalls: [] }, ans = ["entitled", "hebrew", "refrigerant"], fine = "כדאי לתאם תור במוסך של היבואן, והתיקון בדרך כלל ללא עלות.";
+    ok(JSON.stringify(lint("ייתכן שבעלי הרכב זכאים לתיקון. המדחס דוחס את נוזל הקירור של המזגן.", car, ans).map(x => x.id)) === JSON.stringify(["entitled", "refrigerant"])
+      && lint("The importer will fix it at the dealer, usually free of charge.", car, ans).map(x => x.id).join() === "hebrew"
+      && lint(fine, car, ans).length === 0 && ["cost", "steps", "blame"].every(id => lint(fine, car).some(x => x.id === id)) && lint("", null, ["entitled"]).length === 0
+      && RULES.length === 16 && RULES.slice(0, -1).every(r => LINT_RULES.includes(r)) && RULES[15][0] === "spelling",
+      "lint: only the caller's rules, a car-data context, every rule without ids; the explanations' 15 shared rules and their own spelling");
+  }
   // the air conditioner's gas is not the engine's coolant (six texts of 28.10); an engine's coolant, and the ministry's own word, pass
   const ac = W("סיכוי לתקלה במדחס המזגן", "חשמל אליקטרוניקה ומיזוג", "עדכון תוכנה");
   fault("מדחס המזגן הוא החלק שדוחס את נוזל הקירור ומאפשר למזגן לקרר. ייתכן שיש בו תקלה, ובתיקון מעדכנים את התוכנה.", "refrigerant", ac);

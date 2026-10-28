@@ -123,5 +123,15 @@ jobs:
             if (!b) { console.log(`skip ${f}: ${s ? "no alert-lib v1 block yet" : "not in the repo yet"}`); continue; }
             check(b === ref, f + " block is byte-identical to worker/lib/alert-lib.js");
           }
+          // worker/lib/answer-lint.mjs (the text rules the recall explanations share with the advisor's answers): each Worker that holds
+          // the answer-lint v1 block holds it byte-identical
+          const LS = "// >>> answer-lint v1", LE = "// <<< answer-lint v1";
+          const lblock = s => { const a = s.indexOf(LS), b = s.indexOf(LE); return a < 0 && b < 0 ? null : a < 0 || b < a ? "broken" : s.slice(a, b + LE.length); };
+          const lref = lblock(read("worker/lib/answer-lint.mjs") || "");
+          check(lref && lref !== "broken", "worker/lib/answer-lint.mjs holds the answer-lint v1 block");
+          for (const f of ["worker/worker.js", ...fs.readdirSync("worker", { withFileTypes: true }).filter(d => d.isDirectory()).map(d => `worker/${d.name}/worker.js`)]) {
+            const s = read(f), b = s && lblock(s);
+            if (b) check(b === lref, f + " answer-lint block is byte-identical to worker/lib/answer-lint.mjs");
+          }
           process.exit(bad ? 1 : 0);
           EOF
