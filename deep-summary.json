@@ -1,0 +1,35 @@
+{
+ "v": 1,
+ "d": "2026-10",
+ "prompt": 1,
+ "cars": 12,
+ "dropped": 0,
+ "answered": 11,
+ "kept": 29,
+ "high": 4,
+ "medium": 15,
+ "low": 10,
+ "missedByRules": 19,
+ "unfounded": 2,
+ "failed": 1,
+ "byArea": {
+  "identity": 1,
+  "status": 1,
+  "test": 1,
+  "owners": 1,
+  "recalls": 7,
+  "specs": 14,
+  "mods": 2,
+  "insight": 1,
+  "other": 1
+ },
+ "missedByArea": {
+  "identity": 1,
+  "status": 1,
+  "owners": 1,
+  "recalls": 6,
+  "specs": 8,
+  "mods": 1,
+  "insight": 1
+ }
+}
