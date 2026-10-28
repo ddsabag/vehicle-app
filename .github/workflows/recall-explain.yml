@@ -1,0 +1,62 @@
+name: Recall explanations
+# Use #2 of the monthly Claude API credit (Dudu "לבצע" 28.10.2026): for every recall wording of the model catalogue, one short Hebrew text on
+# what it means, with its urgency, written by Claude in a Message Batch and kept only when it passes fixed rules (recall-explain.mjs).
+# Data for review on the branch recall-explain (explain.json, state.json, review.md); the app shows none of it yet (product's, after 22.11
+# and a Production release). Weekly, only wordings that are new since the last run are sent. With no key, no SDK or an API error the run
+# keeps what it had and stays green: ai:recalls (ai:key when the key or the credit is the cause) goes to the router, and the next good call
+# closes it. Not in failure-alert's re-run list: a run sends paid requests, so a crash is told and never re-run by itself.
+on:
+  schedule:
+    - cron: "35 10 * * 1"   # Monday 10:35 UTC (13:35 Israel summer time, 12:35 winter), after the morning catalogue build
+  workflow_dispatch:
+    inputs:
+      queries:
+        description: "sample=20 (a spread sample), max=N, wait=minutes, redo=1 (every wording again), dry=1 (no call)"
+        type: string
+        default: ""
+  # TEMPORARY, for the first runs from the branch (a manual run needs the file on main): removed before the release ask
+  push:
+    branches: [data/claude-bots]
+    paths: [".github/recall-explain.run"]
+permissions:
+  contents: write
+concurrency:
+  group: recall-explain
+  cancel-in-progress: false
+jobs:
+  explain:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 220   # up to three rounds of a batch, 50 minutes each, after collecting a batch the last run left running
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: The Claude SDK (the version pinned in claude.mjs; the app never loads it)
+        continue-on-error: true   # without it the bot says why, keeps what it had and tells the router
+        run: npm install --no-save --no-audit --no-fund --loglevel=error "$(sed -n 's/^export const SDK = "\(.*\)";$/\1/p' .github/scripts/claude.mjs)"
+      - name: The catalogue's recall lists and the last run's files
+        run: |
+          git fetch -q --depth 1 origin catalog-data && mkdir -p cat && git archive FETCH_HEAD r | tar -x -C cat
+          mkdir -p prev && { git fetch -q --depth 1 origin recall-explain 2>/dev/null && git archive FETCH_HEAD | tar -x -C prev || echo "no earlier run"; }
+      - name: Explain the wordings that have no text yet
+        run: node .github/scripts/recall-explain.mjs
+        env:
+          CAT: cat
+          PREV: prev
+          OUT: out
+          QUERIES: ${{ inputs.queries }}
+          RUN_FILE: ${{ github.event_name == 'push' && '.github/recall-explain.run' || '' }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # the router (alert.mjs): its state lives on the branch alert-state
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      - name: Publish to the branch recall-explain
+        if: ${{ hashFiles('out/explain.json') != '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISH_BRANCH: recall-explain
+        run: bash .github/scripts/data-truth-publish.sh "Recall explanations" out/explain.json out/state.json out/review.md

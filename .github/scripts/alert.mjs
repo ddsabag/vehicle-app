@@ -53,6 +53,7 @@ export const WF_LEVELS = {
   "Back-on-road detector": "silent",
   "Ship tail": "day", "Store listing": "day", "Release watch": "day", "Production": "day",
   "Settlements": "day", "Data truth": "day", "Social publish": "day",
+  "Recall explanations": "summary",   // Claude API use #2 (data): a crash is told quietly; its own API failures go to ai:recalls / ai:key
   "App guardian (real app)": "day", "UI guardian (browser)": "day",   // red = blocking findings on the real app / site (owner: product); at night: quiet, then the morning ring
   "Alert router check": "summary", "ASO check": "summary",   // checks of a push to main: whoever released it fixes it; quiet, then the ledger and the morning triage
   "Live watch": "summary",   // the /live dashboard's own watch (owner: measurement); its findings alert by themselves (live:*)
