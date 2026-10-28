@@ -38,10 +38,10 @@ export const SCHEMA = {
 // Hebrew usage on the site, given to the writer and to the copy editor (the trial drafts of 28.10 slipped on exactly these)
 const HEBREW = `Hebrew usage on this site:
 - Call the vehicles רכבים throughout (רכבים פרטיים חדשים, 970 רכבי יונדאי KONA HYBRID), as the rest of the site does, not כלי רכב or מכוניות.
-- A maker is feminine, as a company: טויוטה הובילה, ואחריה צ'רי, ואחריה באה טויוטה; in a question, איזו יצרנית.
-- A model agrees most simply through the word דגם: הדגם JAECOO 5 HEV הוביל, or JAECOO 5 HEV היה הדגם הנמסר ביותר; never a bare "נמכר ביותר".
+- A maker is feminine, as a company: טויוטה הובילה, ואחריה צ'רי, ואחריה באה טויוטה; in a question, איזו יצרנית. The importers deliver the cars, not the makers, so a maker leads in deliveries (איזו יצרנית הובילה במסירות) and never "delivers" (not "איזו יצרנית מסרה").
+- A model agrees most simply through the word דגם, said once: הדגם JAECOO 5 HEV הוביל, or JAECOO 5 HEV היה הדגם הנמסר ביותר, never both in one clause (not "הדגם JAECOO 5 HEV היה הדגם הנמסר ביותר"); never a bare "נמכר ביותר".
 - A body type is named as רכבי פנאי-שטח, רכבי הצ'בק, רכבי סדאן (or במרכב פנאי-שטח); never "מרכב פנאי-שטח נמסרו", and never ההצ'בק.
-- A runner-up follows directly: ואחריו MG S9 עם 971 מסירות, not "אחריו נמצא".`;
+- A runner-up follows directly: ואחריו MG S9 עם 971 מסירות, not "אחריו נמצא". A list after one ואחריהם goes on with ו alone: ואחריהם רכבי הצ'בק עם 4,450 רכבים ורכבי סדאן עם 2,926, without a second ואחריהם.`;
 
 export const SYSTEM = `You write the text of the monthly market article in the magazine of לוחית (luchit.app), an Israeli site that checks cars by licence plate. The article reports one month of new private-car deliveries in Israel, from the facts in the user message, which come from the Ministry of Transport's open data. Its readers follow the Israeli car market: buyers, owners, and people in the trade (importers, dealers, leasing and fleet companies).
 
