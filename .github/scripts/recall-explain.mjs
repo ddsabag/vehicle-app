@@ -29,7 +29,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { client, batch, collect, answer } from "./claude.mjs";
 
-export const MODEL = "claude-sonnet-5-5", PROMPT_V = 2, TRIES = 3;
+export const MODEL = "claude-sonnet-5-5", PROMPT_V = 3, TRIES = 3;
 const CAMPAIGN = "קמפיין שרות טכני", CUT = 118;   // TEUR_TAKALA is cut at 120 characters in the ministry's dataset
 export const SYS = ["brakes", "steering", "suspension", "wheels", "airbags", "seatbelts", "seats", "fuel", "high_voltage", "fire", "stability",
   "lights", "engine", "exhaust", "transmission", "electrical", "software", "body", "other"];
@@ -106,6 +106,8 @@ export const RULES = [
   ["downplay", t => /אין (כל |שום )?(סכנה|סיכון|חשש|מה לדאוג|צורך לדאוג)|לא מסוכנ|בטוח לנסוע|להמשיך לנסוע|אין צורך (בתיקון|לתקן)/.test(t) || notSafety.test(t),
     "Do not play a risk down (אין סכנה, אפשר להמשיך לנסוע), and never say that a recall or a service campaign is not a safety matter."],
   ["campaign", (t, w) => w.t === CAMPAIGN && !/קריאת (שירות|שרות)|קמפיין/.test(t), "This is a service campaign (קמפיין שרות טכני): say in the text that it is a service campaign (קריאת שירות)."],
+  ["record", t => /אופן התיקון|תיאור התיקון|(?<![א-ת])לפי (?:ה)?(?:תיאור|רישום|רשום|ניסוח|מאגר|נתונים|הודעה)(?![א-ת])/.test(t),
+    "Write about the recall, never about the record (no \"לפי התיאור\", \"לפי הרישום\", \"אופן התיקון\"). The repair is one plain sentence that names the part: \"בתיקון בודקים את וו הגרירה.\""],
   ["number", (t, w) => (t.match(/\d+/g) || []).some(n => !w.d.includes(n)), "No numbers that the description does not have."],
   ["latin", (t, w) => (t.match(/[A-Za-z][A-Za-z0-9-]*/g) || []).some(x => !w.d.toUpperCase().includes(x.toUpperCase()) && !LATIN_OK.has(x.toUpperCase())),
     "No Latin-letter words the description does not have (no model names, no English)."],
@@ -149,7 +151,8 @@ How to write it:
 - Impersonal: no "you" in any form (אתה, אתם, שלך, שלכם, לכם). Write about "הרכב" or "רכבים".
 - No steps: nothing about contacting anyone, scheduling, checking, a garage (מוסך), a phone, a website or a VIN, and nothing about cost or payment. The app shows those next to your text.
 - Never name or blame the importer, the maker or a dealer (יבואן, יצרן, סוחר). A recall is the usual way a defect found after sale is repaired.
-- What the repair does follows the repair method and names the part the description names ("בתיקון מחליפים את המתג"), never just "a part of the car".
+- What the repair does follows the repair method and names the part the description names ("בתיקון מחליפים את המתג"; for an inspection, "בתיקון בודקים את וו הגרירה"), never just "a part of the car".
+- Write about the recall itself, never about the record: no "לפי התיאור", "לפי הרישום" or "אופן התיקון".
 - A "קמפיין שרות טכני" is the type the record is filed under: say in the text that it is a service campaign (קריאת שירות), and never say whether it is or is not a safety matter (some service campaigns are about airbags or brakes). Explain the defect and what may happen as for any other record.
 
 The fields:
@@ -403,6 +406,10 @@ if (process.argv[1] && process.argv[1].endsWith("recall-explain.mjs") && process
     "a label that is not readable (לא קריאה) is no downplay");
   fault("כרית האוויר עלולה להיפתח באיחור של 30 אלפיות שנייה בעת תאונה. בתיקון מחליפים את המנפח.", "number");
   fault("כרית האוויר בדגם Corolla עלולה להיפתח מאוחר מדי בעת תאונה. בתיקון מחליפים את המנפח בחלק חדש.", "latin");
+  fault("לפי התיאור, ייתכן שהרכב לא עומד בתקן פליטת המזהמים, כלומר פולט יותר מזהמים מהמותר. בתיקון מעדכנים את התוכנה.", "record");
+  fault("וו הגרירה משמש לחיבור הרכב לגרירה. ייתכן שהתבריג שלו אינו עומד בדרישות, והוו עלול להשתחרר בזמן גרירה. אופן התיקון הוא בדיקה.", "record");
+  ok(textCheck("ייתכן שברגים בתושבת של המתלה הקדמי יישברו, ודבר כזה עלול לפגוע בתפקוד המתלה. בתיקון בודקים את הברגים ומחליפים אותם לפי הצורך.", W("ברגים שבורים בתושבת", "היגוי ומתלים", "בדיקה")).length === 0,
+    "the repair said plainly (לפי הצורך) is no talk about the record");
   fault("כרית האוויר עלולה להיכשל.", "length");
   fault("The airbag inflator may rupture when the airbag opens, and parts of it may injure people in the car.", "hebrew", W("airbag inflator may rupture", "כריות אוויר"));
   ok(textCheck("זו קריאת שירות. ייתכן שהבורג רופף, ובורג כזה עלול להשתחרר בנסיעה. בתיקון מהדקים את הבורג ובודקים את החיבור.", W("בורג רופף", "אחר", "הידוק", CAMPAIGN)).length === 0
