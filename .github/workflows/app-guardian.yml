@@ -1,4 +1,6 @@
 name: App guardian (real app)
+# VALIDATION on branch guardian-angle only, never merged: the commit below this one is what goes to main. Here no job fails the run
+# (a red run mails Dudu) and nothing is published to app-guard-out; each Verdict step still shows how main would end.
 # The real Android app on an emulator (.github/scripts/app-real.cjs): this commit built like the Play build (the same shrinking and the
 # same minified page), but debuggable and debug-signed (build type qa), then opened the way people open it and walked the way
 # ui-flows.cjs walks the page, with its fixtures, journeys and rules. It sees what a browser cannot: the phone's font size (100-200%) and
@@ -31,6 +33,7 @@ jobs:
   apk:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v6
@@ -74,6 +77,7 @@ jobs:
     needs: apk
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -174,38 +178,3 @@ jobs:
           path: app-real
           retention-days: 14
 
-  publish:
-    needs: device
-    if: ${{ always() }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: app-real-api*
-          merge-multiple: true
-          path: app-real
-      # a phone setting the emulator lost on both tries on one Android version is still checked on the other (a warning there, so a night
-      # of emulator trouble does not read as a broken app); lost on every version it was not checked at all, and the run fails
-      - name: Every phone setting checked on at least one Android version
-        run: |
-          cd app-real 2>/dev/null || exit 0
-          bad=0
-          for s in $(ls -d api*/* 2>/dev/null | sed 's#^api[0-9]*/##' | grep -v -- '-first-try$' | sort -u); do
-            ran=0; lost=""
-            for d in api*/"$s"; do
-              [ -d "$d" ] || continue
-              if [ -f "$d/gone" ]; then lost="$lost ${d%%/*}"; else ran=1; fi
-            done
-            if [ "$ran" = 0 ]; then echo "::error::(real app) $s: the emulator stopped or did not start on every Android version ($lost ), so this phone setting was not checked at all (not a finding about the app)"; bad=1; fi
-          done
-          exit $bad
-      - name: Findings and screenshots to branch app-guard-out
-        if: ${{ github.event_name != 'pull_request' }}
-        run: |
-          ls -R app-real | head -50
-          cd app-real
-          printf '{"commit":"%s","ref":"%s","run":"%s/%s/actions/runs/%s","at":"%s"}\n' "$GITHUB_SHA" "$GITHUB_REF_NAME" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$(date -u +%FT%TZ)" > run.json
-          git init -q -b app-guard-out && git add .
-          git -c user.name="app-guardian" -c user.email="app-guardian@users.noreply.github.com" commit -q -m "App guardian: the real app on ${GITHUB_SHA::7} (${GITHUB_REF_NAME})"
-          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" app-guard-out
