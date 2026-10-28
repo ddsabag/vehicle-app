@@ -121,6 +121,15 @@ await part("kv.tally", async () => {
   await part("sh.webSrc", () => ga({ dateRanges: [{ startDate: "2026-10-20", endDate: "today" }], dimensions: [{ name: "eventName" }, { name: "customEvent:src" }], metrics: [{ name: "eventCount" }],
     dimensionFilter: and(eq("platform", "web"), inList("eventName", ["web_visit", "car_lookup", "share", "web_hint_click", "link_landing"])) }));
   await part("sh.sharers", () => ga({ dateRanges: [{ startDate: "2026-10-19", endDate: "today" }], dimensions: [{ name: "platform" }], metrics: [{ name: "totalUsers" }, { name: "eventCount" }], dimensionFilter: and(REAL, ev("share")) }));
+  // 28.10: the share sheet opening (share_open: the website and app 1.36+ since 21.10), so a week shows opened-and-left vs never opened. Full
+  // days 21.10 to yesterday by app version (an app before 1.36 sends share but no share_open), share by kind (cmp and cmp_pdf come from the
+  // comparison, not the sheet), with report views and checks as the base
+  const R2 = [{ startDate: "2026-10-21", endDate: "yesterday" }];
+  await part("sh.open", () => by("share_open", ["date", "platform"], ["eventCount", "totalUsers"]));
+  await part("sh.funnel", () => ga({ dateRanges: R2, dimensions: ["platform", "appVersion", "eventName"].map(name => ({ name })), metrics: [{ name: "eventCount" }, { name: "totalUsers" }],
+    dimensionFilter: and(REAL, inList("eventName", ["share_open", "share", "exp_expose", "car_lookup"])) }));
+  await part("sh.funnelKind", () => ga({ dateRanges: R2, dimensions: ["platform", "appVersion", "customEvent:kind"].map(name => ({ name })), metrics: [{ name: "eventCount" }, { name: "totalUsers" }],
+    dimensionFilter: and(REAL, ev("share")) }));
 }
 
 // 21.10 09:35: the whole funnel since the public launch (19.10): web events by source, app events, new vs returning, first-open sources,
