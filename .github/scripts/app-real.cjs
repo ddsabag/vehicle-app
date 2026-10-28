@@ -19,15 +19,15 @@
 // The emulator itself stopping is not the app's fault: exit 2, with what was found until then, and a file "gone" beside the findings
 // (app-guardian.yml then runs the phone setting once more on a new emulator); so is a journey disturbed in both tries by what is not the
 // app's (no crash of the app, no ANR in its own code or without a stack).
-// Usage (inside the emulator, app-guardian.yml): node .github/scripts/app-real.cjs --apk <apk> [--out <dir>] [--scenario <id>] [--quick] [--label <api>]
-const fs = require("node:fs"), path = require("node:path"), { spawnSync } = require("node:child_process");
+// Usage (inside the emulator, app-guardian.yml): node .github/scripts/app-real.cjs --apk <apk> [--out <dir>] [--scenario <id>] [--quick] [--label <api>] [--cut wifi|proxy]
+const fs = require("node:fs"), path = require("node:path"), { spawnSync, spawn } = require("node:child_process");
 const { _android: android } = require("playwright");
 const { PNG } = require("pngjs");
 const UF = require("./ui-flows.cjs");
 const { add, findings } = UF;
 
 const args = process.argv.slice(2), arg = (k) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : null; };
-const OUT = path.resolve(arg("--out") || "app-real"), APK = arg("--apk"), QUICK = args.includes("--quick"), LABEL = arg("--label") || "a", ONLY = arg("--scenario");
+const OUT = path.resolve(arg("--out") || "app-real"), APK = arg("--apk"), QUICK = args.includes("--quick"), LABEL = arg("--label") || "a", ONLY = arg("--scenario"), CUT = arg("--cut");
 fs.mkdirSync(path.join(OUT, "shots"), { recursive: true });
 const PKG = "com.ddsabag.pratirechev", ACT = `${PKG}/.MainActivity`;
 const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
@@ -53,8 +53,12 @@ function setPhone({ dp = 411, font = 1, night = false, land = false }) {
   sh(`settings put system user_rotation ${land ? 1 : 0}`);
   boxCache = null;
 }
-// the network off: nothing leaves the emulator while a page starts before its requests can be mocked (a cold start)
-const network = (on) => { sh(`svc wifi ${on ? "enable" : "disable"}`); sh(`svc data ${on ? "enable" : "disable"}`); };
+// the network off: nothing leaves the emulator while a page starts before its requests can be mocked (a cold start). WiFi and mobile
+// data go off; with --cut proxy every request goes to a proxy that is not there instead (it fails at once and the radio stays on)
+const network = (on) => {
+  if (CUT === "proxy") { sh(`settings put global http_proxy ${on ? ":0" : "127.0.0.1:9"}`); return; }
+  sh(`svc wifi ${on ? "enable" : "disable"}`); sh(`svc data ${on ? "enable" : "disable"}`);
+};
 
 // ---- the connection to the phone
 // Playwright's Android connection gives its sockets no error handler: a write that meets a closed WebView (the app stopped or crashed
@@ -383,10 +387,14 @@ async function entries(page, sc) {
   const home = async () => { await page.evaluate(() => { for (let i = 0; i < 6 && window.appBack && window.appBack(); i++); }).catch(() => {}); await page.click('#bnav [data-nav="search"]').catch(() => {}); await sleep(400); };
   const warm = async (name, extra, ok, want) => {
     cur.step = name;
+    log(`entry ${name}`);
     sh(`am start -n ${ACT} ${extra}`);
     const s = await waitFor(page, ok);
     if (!s || !ok(s)) add("block", "entry", run, name, `${want}; got ${said(s)}`);
-    saveShot(screencap(), `${sc.id}__entry__${name}`);
+    if (!s) log(`entry ${name}: no page (app pid ${pidOf() || "none"}, in front ${front()}, emulator ${alive() ? "there" : "gone"})`);
+    const png = screencap();
+    if (!png) log(`entry ${name}: no screenshot (adb answered nothing)`);
+    saveShot(png, `${sc.id}__entry__${name}`);
     await home();
   };
   const flags = "-f 0x24000000";   // CLEAR_TOP | SINGLE_TOP, as the alert's own intent
@@ -405,12 +413,16 @@ async function entries(page, sc) {
   if (await page.evaluate(() => document.querySelectorAll("#out .msg.err").length).catch(() => 0)) add("block", "entry", run, "campaign-link", "a campaign link left an error message on the screen");
   // cold, with the network off: the app must load index.html?nk=recall#1234567 (its part), and the page must open the saved copy of
   // the car on its recalls tab (its part). The page starts before its requests can be mocked, so nothing may leave the emulator
+  crashes(run, "entries");
   cur.step = "alert-cold";
+  log(`entry alert-cold: app stopped, network off (${CUT || "wifi"})`);
   sh(`am force-stop ${PKG}`);
   network(false);
   try {
+    log(`entry alert-cold: start (emulator ${alive() ? "there" : "gone"})`);
     sh(`am start -W -n ${ACT} ${flags} -d luchit://plate/1234567 --es plate 1234567 --es nkind recall`);
     const p2 = await attach();
+    log("entry alert-cold: page found");
     const s = await waitFor(p2, (s) => s.screen === "car" && s.car === "1234567", 15000);
     const loaded = await p2.evaluate(() => (performance.getEntriesByType("navigation")[0] || {}).name || "").catch(() => "");
     if (!/[?&]nk=recall\b/.test(loaded) || !/#1234567$/.test(loaded)) add("block", "entry", run, "alert-cold", `a recall alert tapped with the app closed should load index.html?nk=recall#1234567; the app loaded ${loaded.replace(/^https:\/\/[^/]+/, "") || "nothing"}`);
@@ -539,6 +551,8 @@ function finish(line, code) {
   meta.sdk = sh("getprop ro.build.version.sdk");
   if (APK) { const r = spawnSync("adb", ["install", "-r", "-g", APK], { encoding: "utf8" }); log("install:", (r.stdout || r.stderr || "").trim().split("\n").pop()); }
   sh("logcat -b crash -b events -c");
+  // the phone's own log, written on the runner as it comes: when the emulator stops, its last lines are what tells why
+  spawn("adb", ["logcat", "-v", "threadtime", "-b", "main", "-b", "system", "-b", "crash", "-b", "events"], { stdio: ["ignore", fs.openSync(path.join(OUT, "logcat.txt"), "w"), "ignore"], detached: true }).unref();
   sh("settings put global hide_error_dialogs 1");   // an ANR dialog would cover every later step (the ANR itself is still logged)
   sh("settings put system font_scale 1.05");   // Android reads that setting again only when the configuration changes: the font size set next does it
   await connect();
@@ -616,6 +630,10 @@ function finish(line, code) {
   log(`real app on API ${meta.sdk}: ${SCENARIOS.reduce((n, s) => n + s.runs.length, 0)} journeys in ${Math.round((Date.now() - t0) / 1000)} s, ${blocks} blocking, ${findings.length - blocks} warnings, ${list.length} distinct`);
   finish("", blocks ? 1 : 0);
 })().catch((e) => {
-  if (e instanceof Gone) { meta.gone = e.message; finish(`::error::(real app, API ${meta.sdk}) ${e.message}: the rest of this phone setting did not run (not a finding about the app; ${findings.length} findings until then are in findings.json)`, 2); }
+  if (e instanceof Gone) {
+    meta.gone = e.message;
+    for (const f of findings) log(`before the emulator stopped: ${f.sev} [${f.kind}] ${f.step}: ${f.msg.slice(0, 160)}`);
+    try { const t = fs.readFileSync(path.join(OUT, "logcat.txt"), "utf8").trimEnd().split("\n"); console.log(`::group::the phone's last ${Math.min(80, t.length)} log lines`); console.log(t.slice(-80).join("\n")); console.log("::endgroup::"); } catch {}
+    finish(`::error::(real app, API ${meta.sdk}) ${e.message}: the rest of this phone setting did not run (not a finding about the app; ${findings.length} findings until then are in findings.json)`, 2); }
   finish(`::error::(real app) the run crashed: ${e.message}`, 2);
 });
