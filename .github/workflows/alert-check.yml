@@ -71,6 +71,8 @@ jobs:
         run: node .github/scripts/recall-explain.mjs --selftest
       - name: Name match self-test (a suggestion holds only with the maker's models, the recall's years and the app's matcher; the second look; ai:names / ai:key)
         run: node .github/scripts/name-match.mjs --selftest
+      - name: Deep audit self-test (the plate scrub, quotes that must be on the page and in the rows, the encryption, truth:deep / ai:audit / ai:key)
+        run: node .github/scripts/deep-audit.mjs --selftest
       - name: Release guard self-test (day 1, 3 and 7 only, four guardrails, thin data not judged)
         run: node .github/scripts/release-guard.mjs selftest
       - name: Bots board self-test (cron words, Hebrew names of every scheduled bot in bot-names.json and worker.js)

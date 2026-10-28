@@ -133,6 +133,13 @@ export const LABELS = {
   "truth:fail":          { he: "בדיקת הנתונים היומית לא הצליחה לקרוא מספיק רכבים", sect: "fail" },
   "truth:inv-fail":      { he: "הבדיקה השבועית של מאגרי משרד התחבורה לא הצליחה לקרוא אותם", sect: "fail" },   // data-invariants.mjs: its own key, so a clean daily run does not close it
   "truth:done":          { he: "✅ בוצע · פער בבדיקת הנתונים היומית כבר לא חוזר", sect: "fyi" },   // site-data-truth.mjs: a clean run closes the open truth items
+  // deep-audit.mjs (Data truth, monthly); ids = its AREAS. News for the data thread, which turns each real finding into a daily rule: Dudu
+  // does nothing, and a month with nothing the rules missed closes it (told, done). Its own family, so a clean daily run does not close it
+  "truth:deep":          { he: "הביקורת החודשית העמוקה מצאה ממצאים שהבדיקה היומית לא תפסה: {ids}", sect: "fyi", done: true,
+                           ids: { identity: "פרטי הרכב", status: "סטטוס הרכב", test: "טסט", road: "עלייה לכביש", owners: "בעלויות", km: "ק״מ", recalls: "ריקולים",
+                                  settlements: "הסדרי פשרה", tow: "גרירה", specs: "מפרט", mods: "שינויים ברכב", fee: "אגרת רישוי", price: "מחיר מחירון", value: "שווי",
+                                  insight: "תובנות", message: "הודעות", other: "אחר" } },
+  "truth:deep-fail":     { he: "הביקורת החודשית העמוקה לא הצליחה לקרוא מספיק רכבים", sect: "fail" },
   "truth:inv":           { he: "הבדיקה השבועית של מאגרי משרד התחבורה מצאה חריגה: {ids}", sect: "fail",   // data-invariants.mjs (Data truth, weekly); ids = its CHECKS
                            ids: { fresh: "תאריכי הטסט לא מתעדכנים", tests: "מעט טסטים חדשים", renewal: "טסטים בלי חידוש רישיון", dates: "תאריכי רישיון לא תקינים",
                                   reuse: "מספרים במאגר הפעיל ובמאגר שירד מהכביש", owners: "סוג הבעלות הנוכחי", km: "ק״מ בטסט", hook: "וו גרירה מול נתוני הדגם",
@@ -167,7 +174,7 @@ export const LABELS = {
   // ai:key, level day: the key or the credit is the cause (401, 403, credit balance too low), so Dudu has to act; any bot's good call closes it
   "ai":                  { he: "בוט שנעזר ב-Claude לא הצליח לפנות אליו והמשיך בלעדיו: {ids}", sect: "fail",
                            ids: { themes: "תיוג הנושאים בביקורות", advisor: "מבחן היועץ הטכני", recalls: "הסברי הריקולים", shots: "עין שנייה על צילומי המסך",
-                                  names: "התאמת שמות הדגמים", mag: "כתבות המגזין" } },
+                                  names: "התאמת שמות הדגמים", mag: "כתבות המגזין", audit: "הביקורת החודשית העמוקה" } },
   "ai:key":              { he: "מפתח ה-Claude API לא עובד או שהקרדיט נגמר, והבוטים ממשיכים בלעדיו", sect: "fail" },
 };
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
@@ -178,7 +185,7 @@ export const FAMILIES_IN_USE = [
   "webwatch:rollback", "webwatch:rollback-failed", "meta:uptime", "weekly:missing", "workers:refused", "workers:rollback", "workers:failed", "workers:forced",
   "ship:done", "ship:notes", "ship:fail", "ship:dry", "listing:done", "listing:dry", "listing:fail",
   "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:wait", "prod:fail",
-  "stl:update", "stl:stuck", "truth", "truth:fail", "truth:done", "truth:inv", "truth:inv-fail", "live:stuck", "live:error", "pipe",
+  "stl:update", "stl:stuck", "truth", "truth:fail", "truth:done", "truth:inv", "truth:inv-fail", "truth:deep", "truth:deep-fail", "live:stuck", "live:error", "pipe",
   "social:fail", "social:missed", "social:unsure", "social:held", "social:done", "social:remind", "social:check", "exp", "auto:done", "auto:revert", "auto:mode",
   "relguard", "relguard:ok", "relguard:thin", "zonea", "ai", "ai:key",
 ];
@@ -1027,7 +1034,8 @@ async function selftest() {
       ["infra", "site api sitemap quota-cf quota-brevo"], ["vitals", "crash anr"], ["listing:fail", "access files play"], ["prod:fail", "access promote auto"], ["safety:fail", "access files play"],
       ["truth", "page identity status test road owners km recalls settlements tow specs mods fee price value tag insight counts message"],
       ["truth:inv", "fresh tests renewal dates reuse owners km hook price wltp recalls pubcancel lend"], ["pipe", "web app errors ga"],
-      ["ai", "themes advisor recalls shots names mag"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
+      ["truth:deep", "identity status test road owners km recalls settlements tow specs mods fee price value insight message other"],
+      ["ai", "themes advisor recalls shots names mag audit"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
       const he = label(f + ":" + ids.split(" ").join("+")).he.split(/[\s,:]+/);
       ok(!ids.split(" ").some(i => he.includes(i)), `label ${f}: no raw id left`);
     }
@@ -1040,6 +1048,9 @@ async function selftest() {
     ok(label("ai:themes").he === "בוט שנעזר ב-Claude לא הצליח לפנות אליו והמשיך בלעדיו: תיוג הנושאים בביקורות" && label("ai:themes").sect === "fail"
       && label("ai:key").he.startsWith("מפתח ה-Claude API") && label("ai:key").sect === "fail" && validKey("ai:key") && validKey("ai:recalls"),
       "Claude API labels: one per bot, the key's own");
+    ok(label("truth:deep:owners+km").he === "הביקורת החודשית העמוקה מצאה ממצאים שהבדיקה היומית לא תפסה: בעלויות, ק״מ" && label("truth:deep:km").sect === "fyi"
+      && label("truth:deep:km").done === true && label("truth:deep-fail").sect === "fail" && label("ai:audit").he.endsWith("הביקורת החודשית העמוקה"),
+      "the monthly deep audit: news by area, told when a clean month closes it; too few cars is a failure");
     const used = scanKeys(ROOT), missing = used.filter(k => !FAMILIES_IN_USE.some(f => f === k || f.startsWith(k + ":") || k.startsWith(f + ":")));
     ok(missing.length === 0, "call-site keys missing from FAMILIES_IN_USE: " + missing.join(", "));
     // every workflow that runs on main by itself is watched by failure-alert, each watched name has a deliberate level, and the parser sees the events

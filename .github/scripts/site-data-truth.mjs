@@ -114,8 +114,8 @@ async function send(v, links) {
 }
 
 // a clean run closes the truth items still open from an earlier run (Dudu 25.10: a bot reports what it fixed); the router tells the outcome
-// once ("✅ בוצע · חזר לתקין") and the morning ledger lists it. The weekly invariants close their own items
-export const openTruth = s => Object.entries((s && s.items) || {}).filter(([k, it]) => it && it.open && /^truth:(?!inv|done)/.test(k)).map(([k]) => k);
+// once ("✅ בוצע · חזר לתקין") and the morning ledger lists it. The weekly invariants and the monthly deep audit close their own items
+export const openTruth = s => Object.entries((s && s.items) || {}).filter(([k, it]) => it && it.open && /^truth:(?!inv|done|deep)/.test(k)).map(([k]) => k);
 async function closeOpen() {
   if (IO.env.DRY_RUN === "1") return;
   let router = null; try { router = await import("./alert.mjs"); } catch { return; }
@@ -183,7 +183,7 @@ async function selftest() {
     ok(/תג נכה/.test(label(v.key).he) && !/^התראה:/.test(label("truth:fail").he), "the router has labels for them: " + label(v.key).he); }
   catch (e) { ok(false, "alert.mjs import: " + e.message); }
   ok(verdict(parse(fake.replace("12 cars audited", "3 cars audited")), "x").key === "truth:fail", "too few cars -> truth:fail");
-  ok(openTruth({ items: { "truth:specs": { open: true }, "truth:fail": { open: true }, "truth:inv:fresh": { open: true }, "truth:inv-fail": { open: true }, "truth:done": { open: true }, "truth:page": { open: false }, "smoke:x": { open: true } } }).join() === "truth:specs,truth:fail",
+  ok(openTruth({ items: { "truth:specs": { open: true }, "truth:fail": { open: true }, "truth:inv:fresh": { open: true }, "truth:inv-fail": { open: true }, "truth:done": { open: true }, "truth:page": { open: false }, "smoke:x": { open: true }, "truth:deep:owners": { open: true }, "truth:deep-fail": { open: true } } }).join() === "truth:specs,truth:fail",
     "a clean run closes the open daily items only");
   ok(verdict(parse(fake.replace(/mismatched=1/g, "mismatched=0")), "x") === null, "nothing to say when every field matched");
   const h = addDay({ v: 1, days: Array.from({ length: 130 }, (_, i) => ({ d: `2026-0${1 + Math.floor(i / 28)}-${String(1 + i % 28).padStart(2, "0")}` })) }, { d: "2026-10-21" });

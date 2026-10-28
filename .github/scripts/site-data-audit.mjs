@@ -296,7 +296,7 @@ async function startBrowser() {
   if (LOCAL_MOCK) await ctx.route(/data\.gov\.il/, route => route.fulfill({status: 200, contentType: "application/json", headers: {"access-control-allow-origin": "*"}, body: JSON.stringify(LOCAL_MOCK.answer(route.request().url()))}));   // local harness test only
   if (LOCAL_MOCK && LOCAL_MOCK.rawFile) await ctx.route(/raw\.githubusercontent\.com/, route => { const f = LOCAL_MOCK.rawFile(route.request().url()); return f ? route.fulfill({status: 200, contentType: f.type, headers: {"access-control-allow-origin": "*"}, body: f.body}) : route.fulfill({status: 404, body: ""}); });
 }
-function collect() {
+function collect(deep) {
   const T = el => (el ? el.textContent : "").replace(/\s+/g, " ").trim();
   const panel = document.querySelector("#tabpanel");
   const cards = panel ? [...panel.querySelectorAll("section.card")].map(c => ({
@@ -313,7 +313,14 @@ function collect() {
     notes: [...c.querySelectorAll("p.note")].map(T),
   })) : [];
   const stats = panel ? [...panel.querySelectorAll(".stats .stat")].map(s => ({k: T(s.querySelector(".k")), v: T(s.querySelector(".v"))})) : [];
-  return {cards, stats, text: T(panel)};
+  // the deep audit's reader gets the panel as lines (a line per block, ": " after a label, a space after any other element); the rules use text
+  const read = !deep || !panel ? "" : (() => { const c = panel.cloneNode(true);
+    c.querySelectorAll("script,style,svg").forEach(e => e.remove());
+    c.querySelectorAll("*").forEach(e => { const t = e.tagName, block = /^(DIV|P|LI|H[1-6]|DL|UL|OL|SECTION|ARTICLE|HEADER|FOOTER|TABLE|TR|BR|SUMMARY|DETAILS|FIELDSET|LABEL)$/.test(t);
+      if (t !== "DD") e.before(document.createTextNode(block || t === "DT" ? "\n" : " "));
+      e.after(document.createTextNode(t === "DT" ? ": " : block || t === "DD" ? "\n" : " ")); });
+    return c.textContent.split("\n").map(x => x.replace(/\s+/g, " ").trim()).filter(Boolean).join("\n"); })();
+  return {cards, stats, text: T(panel), ...(deep ? {read} : {})};
 }
 async function readPage(plate) {
   if (coolUntil > Date.now()) await sleep(coolUntil - Date.now());
@@ -347,7 +354,7 @@ async function readPage(plate) {
       await page.click(`.tabs [data-tab="${k}"]`);
       await page.waitForFunction(k => { const b = document.querySelector(`#tab-${k}`); return b && b.getAttribute("aria-selected") === "true"; }, k, {timeout: 5000}).catch(() => null);
       await page.waitForTimeout(k === "buy" ? 900 : 250);
-      tabs[k] = await page.evaluate(collect);
+      tabs[k] = await page.evaluate(collect, !!DEEP_OUT);
     }
     return {head, tabs, perr, net};
   } catch (e) { return {edge: "harness: " + e.message.slice(0, 120), perr, net}; }
@@ -683,6 +690,7 @@ function compare(c, X, P) {
       const pool2 = shown.map(s => ({s, used: false}));
       const rows = RECALL_LIST.filter(r => !openIds.includes(String(r.RECALL_ID).trim()) && !openKeys.has(recKey(r))).map(r => ({r, k: cls(r), brand: !!(br && br.test(String(r.TOZAR_TEUR || "")))}));
       const cands = rows.filter(x => x.k !== "no" || (links && links[x.r.RECALL_ID] && links[x.r.RECALL_ID][lk]));
+      if (DEEP_OUT) DEEP_RECALLS.set(c.id, cands.slice(0, 30).map(x => ({cls: x.k, brand: x.brand, ...Object.fromEntries(REC_F.map(k => [k, String(x.r[k] ?? "").trim()]))})));
       // rows of this brand first, so a shared description is credited to the right maker
       for (const x of cands.sort((p, q) => (q.brand - p.brand) || (p.k === "strict" ? -1 : 1))) {
         const hit = pool2.find(p => !p.used && fits1(p.s, x.r));
@@ -824,6 +832,30 @@ function compare(c, X, P) {
     check(c, "message.partial_data", said === (myErr.length > 0), said ? "partial-data message shown" : "(none)", myErr.length ? "message (my reads failed: " + myErr.map(k => k + " " + X.errs[k]).join(", ") + ")" : "(none: every dataset answered my reads)", `app errs=${P.head.errs.join(",")}`); }
 }
 
+/* ---------- the monthly deep audit's snapshot (DEEP_OUT=<dir>, deep-audit.mjs) ----------
+   One file per car for a second reader: what the page showed (the header and every tab's text), the rows it was read against and the
+   mismatches the rules above found. Plate-free before it is written: the car's own plate, VIN and engine number are replaced in every
+   string, the private fields are left out, and any plate-, VIN- or long-number-like run is masked. The folder is the runner's temp;
+   nothing here is printed. */
+const DEEP_OUT = process.env.DEEP_OUT || "";
+const DEEP_RECALLS = new Map();   // case id -> the model recall rows that name this model, as compare() classes them
+const REC_F = ["RECALL_ID", "TOZAR_TEUR", "DEGEM", "SHNAT_RECALL", "BUILD_BEGIN_A", "BUILD_END_A", "SUG_RECALL", "SUG_TAKALA", "TEUR_TAKALA", "OFEN_TIKUN"];
+// the scrub is deep-audit.mjs's (one definition, tested there), loaded only for the deep audit, so the daily audit never depends on that file
+const deepClean = DEEP_OUT ? (await import("./deep-audit.mjs")).deepClean : null;
+function deepSnap(c, X, P, mis) {
+  const R = X.R || {}, clean = deepClean([c.plate, R.misgeret, R.mispar_shilda, R.shilda, R.mispar_manoa]);
+  const row = o => Object.fromEntries(Object.entries(o || {}).filter(([k, v]) => !PRIV.test(k) && !E(v)).map(([k, v]) => [k, clean(String(v).trim().slice(0, 120))]));
+  const rows = (a, n) => (a || []).slice(0, n).map(row), cut = (t, n) => { t = clean(t); return t.length > n ? t.slice(0, n) + "…" : t; };
+  const H = P.head, head = {title: H.title, sub: H.sub, pills: H.pills, banners: H.banners, msgs: H.msgs, line: H.line && {state: H.line.state, title: H.line.title, text: H.line.text}, tabs: H.tabs};
+  const snap = {id: c.id, from: c.from, primary: X.primary, mains: X.mains, cancelled: !!X.cancelled, publicGone: !!X.gone, noTest: !!X.noTest, datesFrom: X.datesFrom || null,
+    car: {maker: clean(sp(R.tozeret_nm)), model: clean(sp(R.kinuy_mishari || R.degem_nm)), year: clean(R.shnat_yitzur || "")},
+    page: {head: JSON.parse(JSON.stringify(head, (k, v) => typeof v === "string" ? clean(v) : v)), tabs: Object.fromEntries(Object.entries(P.tabs).map(([k, t]) => [k, cut(t.read || t.text, 6000)]))},
+    rows: {sets: Object.fromEntries(Object.entries(X.sets).filter(([, a]) => a && a.length).map(([k, a]) => [k, rows(a, 12)])), merged: row(R), wltp: rows(X.wltp, 2), price: rows(X.price, 6),
+      activeOfModelYear: X.cohort ?? null, modelRecalls: DEEP_RECALLS.get(c.id) || [], unanswered: Object.keys(X.errs)},
+    rules: mis.map(l => clean(l.replace(/^MISMATCH \S+ \S+ \| /, ""))).slice(0, 30)};
+  fs.writeFileSync(path.join(DEEP_OUT, c.id + ".json"), JSON.stringify(snap));
+}
+
 /* ---------- run ---------- */
 console.log(`site-data-audit seed=${SEED} n=${NACT} rare=${NRARE} index.html ${Math.round(html.length / 1024)} KB, datasets ${SETS.length}`);
 let cases = await sample();
@@ -855,6 +887,7 @@ for (const c of order) {
   if (!E(R.tozeret_nm)) CASE_MAKERS.add(String(R.tozeret_nm).trim());
   const before = MIS.length;
   try { compare(c, X, P); } catch (e) { console.log(`CASE ${c.id} compare error: ${e.stack.split("\n").slice(0, 3).join(" / ")}`); }
+  if (DEEP_OUT) try { deepSnap(c, X, P, MIS.slice(before)); } catch (e) { console.log(`CASE ${c.id} deep snapshot failed: ${String(e.message).slice(0, 80)}`); }
   audited++;
   console.log(`CASE ${c.id} ${mask(c.plate)} ${X.primary} ${Math.round(P.net.ms / 1000)}s/${P.net.n}req${P.net.failed ? "/" + P.net.failed + "failed" : ""} | ${sp(R.tozeret_nm)} ${sp(R.kinuy_mishari)} ${R.shnat_yitzur || ""} | fuel=${R.sug_delek_nm || ""} own=${R.baalut || ""} | owners=${(X.sets.owners || []).length} recalls=${(X.sets.recall || []).length} wltp=${(X.wltp || []).length} price=${(X.price || []).length} | errs=${Object.keys(X.errs).join(",") || "-"} app-errs=${P.head.errs.join(",") || "-"} | mismatches=${MIS.length - before}${P.perr.length ? " | page errors: " + P.perr.join(" ; ") : ""} | t=${Math.round((Date.now() - T0) / 1000)}s`);
 }
