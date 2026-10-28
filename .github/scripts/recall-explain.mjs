@@ -5,15 +5,18 @@
 // 22.11 and a Production release). A wording is the ministry's four fields SUG_RECALL | SUG_TAKALA | TEUR_TAKALA | OFEN_TIKUN, so one
 // text serves every car and model the recall reaches; the maker, the model, the importer and every plate stay out of the prompt.
 // Each text has an urgency (the advisor's contract, strategy 28.10): "stop" when the ministry's description says to stop using the car,
-// "soon" for a critical system (brakes, steering, suspension and wheels, airbags and belts, fuel or fire, high voltage, stability), else
-// "routine"; the rules (STOP, critByRules) and the model's own judgement each can raise it, and the model alone never says "stop". When
+// "soon" when the defect may touch the control of the car or the protection of the people in it (brakes, steering, suspension and wheels,
+// the drive stopping or speed not asked for, a parked car that moves, airbags, belts and seats, fuel, fire, a short or overheating, high
+// voltage, stability, what the driver sees, the bonnet, the emergency call), else "routine" (emissions, multimedia, comfort, a manual);
+// the rules (STOP, critByRules) and the model's own judgement each can raise it, and the model alone never says "stop". When
 // the description itself gives an instruction for the time until the repair (stop using it, park it outside), notice restates it.
 // The rules (RULES): Hebrew, 2-3 short sentences; "עלול"/"ייתכן", never "זכאי" and never whether a car is included; no cost, steps or
 // garage in the text (the app shows the steps and the cost line next to it, and they depend on the car: a personal import is not the
 // importer's; fixed lines in LINES); never names or blames the importer, the maker or a dealer; no "you"; calm, without alarm and without
-// playing a risk down; no number or Latin word the wording does not have; a service campaign says it is one. A text that breaks a rule
-// goes back with the rule it broke (3 tries).
-// Weekly: only wordings that are new since the last run are sent (redo=1 sends all again, after a change of the prompt). A batch that has
+// playing a risk down; no number or Latin word the wording does not have; a service campaign says it is one, and never that it is not a
+// safety matter (Israeli service campaigns include airbags and brakes). A text that breaks a rule goes back with the rule it broke (3 tries).
+// PROMPT_V is in every item: after a change of the prompt, the wordings explained by an older one are sent again (kept until replaced).
+// Weekly: only wordings that are new since the last run, or explained by an older prompt, are sent (redo=1 sends all again). A batch that has
 // not ended by the deadline is collected by the next run. With no key, no SDK or an API error the run keeps what it had, says why in one
 // line, and stays green: ai:recalls goes to the router (ai:key when the key or the credit is the cause, which needs Dudu), and the next
 // good call closes both. Nothing here logs a plate, a cost or a token count.
@@ -26,13 +29,13 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { client, batch, collect, answer } from "./claude.mjs";
 
-export const MODEL = "claude-sonnet-5-5", PROMPT_V = 1, TRIES = 3;
+export const MODEL = "claude-sonnet-5-5", PROMPT_V = 2, TRIES = 3;
 const CAMPAIGN = "קמפיין שרות טכני", CUT = 118;   // TEUR_TAKALA is cut at 120 characters in the ministry's dataset
 export const SYS = ["brakes", "steering", "suspension", "wheels", "airbags", "seatbelts", "seats", "fuel", "high_voltage", "fire", "stability",
   "lights", "engine", "exhaust", "transmission", "electrical", "software", "body", "other"];
 // fixed text for product and the advisor (the model never writes steps): by urgency, and the cost line the app already shows (not for a
 // personal import, whose repair is not the importer's: the app decides)
-export const LINES = { stop: "הודעת הריקול מורה להפסיק את השימוש ברכב עד לתיקון.", soon: "זו מערכת בטיחות: אם הרכב כלול בקריאה, כדאי לתקן אותו בהקדם במוסך מורשה.",
+export const LINES = { stop: "הודעת הריקול מורה להפסיק את השימוש ברכב עד לתיקון.", soon: "התקלה עלולה להשפיע על הבטיחות. אם הרכב כלול בקריאה, כדאי לתקן אותו בהקדם במוסך מורשה.",
   cost: "התיקון ניתן בדרך כלל ללא עלות אצל היבואן של הרכב." };
 const RANK = { routine: 0, soon: 1, stop: 2 };
 
@@ -46,8 +49,28 @@ const exact = list => new RegExp(`(?<![${HE}])(?:${list.join("|")})(?![${HE}])`)
 const CRIT_SYS = new Set(["בלמים", "היגוי ומתלים", "כריות אוויר", "חגורות בטיחות", "מערכת הדלק", "מערכת יציבות"]);
 const CRIT_WORDS = words(["בלם", "בלמים", "בלמי", "בלימה", "בלימת", "הגה", "היגוי", "מתלה", "מתלים", "מתלי", "זרוע", "זרועות", "זרועת", "גלגל", "גלגלים",
   "גלגלי", "צמיג", "צמיגים", "צמיגי", "כרית", "כריות", "חגורה", "חגורת", "חגורות", "דלק", "סולר", "בנזין", "שריפה", "שרפה", "דליקה", "התלקחות", "בעירה",
-  "אש", "מתח גבוה", "סוללת המתח", "סוללת ההנעה", "סוללת הנעה", "סוללת ליתיום"]);
-export const critByRules = w => CRIT_SYS.has(w.s) || CRIT_WORDS.test(w.d) || /\b(ABS|ESP|ESC|EBD)\b/.test(w.d);
+  "אש", "מתח גבוה", "סוללת המתח", "סוללת ההנעה", "סוללת הנעה", "סוללת ליתיום",
+  // the drive stopping, speed the driver did not ask for, a parked car that moves (measured on the 2,346 wordings of 28.10: 301 more, by hand)
+  "כוח הנעה", "כוח ההנעה", "כח הנעה", "כח ההנעה", "כוח המנוע", "כוח מנוע", "מצב בטוח", "בקרת שיוט", "בקרת השיוט", "שיוט", "דוושת הגז", "דוושת ההאצה",
+  "דוושת התאוצה", "האצה", "תאוצה", "מצערת", "מצב חנייה", "מצב החנייה", "מצב חניה", "מצב החניה", "נעילת חניה", "נעילת חנייה", "מצב P", "ידית ההילוכים",
+  "ידית הילוכים", "בורר ההילוכים", "בורר הילוכים", "להתגלגל", "התגלגלות", "מפתח ההתנעה",
+  // what the driver sees and how the car is seen
+  "מגב", "מגבים", "מגבי", "פנסים ראשיים", "הפנסים הראשיים", "פנס ראשי", "פנסי ראש", "התאורה הראשית", "אורות ראשיים", "פנסים אחוריים", "הפנסים האחוריים",
+  "פנס אחורי", "איתות", "האיתות", "צופר", "מצלמה אחורית", "המצלמה האחורית", "מצלמת רוורס", "מצלמת הרוורס", "הראות לאחור", "הפשרת אדים",
+  // the bonnet, a short circuit, overheating, smoke
+  "מכסה המנוע", "מכסה מנוע", "מכסה תא המנוע", "קצר חשמלי", "התחממות", "התחממות יתר", "להתחמם", "מתחמם", "יתחמם", "תתחמם", "עשן", "ניצוץ", "ניצוצות",
+  // the people in it: seats and head restraints, a crash, the emergency call
+  "משענת הראש", "משענות הראש", "משענת ראש", "משענות ראש", "מסילת מושב", "מסילת המושב", "בורגי מושב", "בורגי המושב", "ברגי המושב", "גב המושב", "משענת הגב",
+  "משענת המושב", "מושב בטיחות", "מושבי בטיחות", "איזופיקס", "תאונה", "תאונות", "התנגשות", "פציעה", "פציעות", "להיפצע", "פגיעה צדדית", "פגיעה חזיתית",
+  "שליטה ברכב", "אובדן שליטה", "איבוד שליטה", "שיחת חירום", "שיחות חירום", "קריאת חירום", "מוקד החירום", "מוקד החרום", "הודעת החירום", "הודעת החרום"]);
+const CRIT_RE = [
+  // the engine or the drive stopping: "מנוע הרכב עלול לכבות", "לכיבוי המנוע"; not "נורות ה-DRL אמורות לכבות" or "לאחר כיבוי הרכב" (a car switched off)
+  /(?:מנוע|המנוע|הרכב|ההיברידית|ההנעה)(?: \S+){0,2} (?:לכבות|להיכבות|להכבות|לדמום|לדומם|ייכבה|יכבה|תיכבה|ידמום|ידומם|יכבו|ייכבו)(?![א-ת])/,
+  /(?<!(?:לאחר|אחרי|בעת|עם|לפני) )(?<![א-ת])[לו]?(?:כיבוי|כבייה|הדממת|דמימת|הדממה)(?: של)? ה?(?:מנוע|רכב)/,
+  /(?<!(?:טווח|זמן) )(?<![א-ת])[ולב]?קצר(?![א-ת])/,   // a short circuit, not "לטווח קצר" or "לזמן קצר"
+  /\b(?:ABS|ESP|ESC|EBD|PCS|AEB|ISOFIX)\b|e-?call/i,
+];
+export const critByRules = w => CRIT_SYS.has(w.s) || CRIT_WORDS.test(w.d) || CRIT_RE.some(r => r.test(w.d));
 // the higher of the rules' urgency and the model's; the model's "stop" counts only where the description gives an instruction at all
 export function urgencyOf(w, o) {
   const rules = STOP.test(w.d) ? "stop" : critByRules(w) ? "soon" : "routine";
@@ -62,6 +85,8 @@ const STOP = /(לעצור|להפסיק|הפסקת) (את )?(ה)?שימוש|אי�
 const INSTR = /יש ל|חובה|מבקש|להימנע|הנחה|הנחיה|אין ל|לא ל(נסוע|השתמש|שטוף|חנות|החנות|טעון|הטעין|הושיב|שבת)|לעצור|להפסיק (את )?(ה)?שימוש|\b(do not|avoid|park)\b/i;
 
 const LATIN_OK = new Set(["ABS", "ESP", "ESC", "EBD", "ECU", "EGR", "DPF", "LED", "USB", "ADAS", "AEB", "TPMS", "SRS", "GPS", "EV"]);
+// "not a safety recall": an Israeli service campaign can be an airbag or a brake booster, so no text says a record is not about safety
+const notSafety = /ולא ריקול|ולא קריאת בטיחות|(?:לא|אינו|אינה|אינם|אין זה|אין זו) (?:מדובר ב)?(?:ריקול|תקלה|קריאת|קריאה|בעיה) ?(?:בטיחותי|בטיחותית|בטיחות)|(?:לא|אינו|אינה|אינם) (?:בטיחותי|בטיחותית|בטיחותיים|קשור(?:ה|ים)? לבטיחות|נוגע(?:ת|ים)? לבטיחות)/;
 // [id, broken(text, wording), what the model is told when its text broke it]
 export const RULES = [
   ["entitled", t => /זכא/.test(t), "Never say entitled (זכאי, זכאות) or anything like it."],
@@ -78,8 +103,8 @@ export const RULES = [
     "אותך", "אתכם", "ממך", "תוכל", "תוכלו", "תצטרך", "תצטרכו", "שימו", "זכרו", "דעו"]).test(t), "No \"you\" in any form: write about הרכב or רכבים."],
   ["alarm", t => /!/.test(t) || words(["מוות", "קטלני", "קטלנית", "קטלניים", "אסון", "סכנת חיים", "מיד", "מייד", "בדחיפות", "דחוף"]).test(t) || exact(["למות"]).test(t),
     "Calm wording: no alarm words (מוות, סכנת חיים, מיד, דחוף) and no exclamation mark."],
-  ["downplay", t => /אין (כל |שום )?(סכנה|סיכון|חשש|מה לדאוג|צורך לדאוג)|לא מסוכנ|בטוח לנסוע|להמשיך לנסוע|אין צורך (בתיקון|לתקן)/.test(t),
-    "Do not play a risk down (אין סכנה, אפשר להמשיך לנסוע)."],
+  ["downplay", t => /אין (כל |שום )?(סכנה|סיכון|חשש|מה לדאוג|צורך לדאוג)|לא מסוכנ|בטוח לנסוע|להמשיך לנסוע|אין צורך (בתיקון|לתקן)/.test(t) || notSafety.test(t),
+    "Do not play a risk down (אין סכנה, אפשר להמשיך לנסוע), and never say that a recall or a service campaign is not a safety matter."],
   ["campaign", (t, w) => w.t === CAMPAIGN && !/קריאת (שירות|שרות)|קמפיין/.test(t), "This is a service campaign (קמפיין שרות טכני): say in the text that it is a service campaign (קריאת שירות)."],
   ["number", (t, w) => (t.match(/\d+/g) || []).some(n => !w.d.includes(n)), "No numbers that the description does not have."],
   ["latin", (t, w) => (t.match(/[A-Za-z][A-Za-z0-9-]*/g) || []).some(x => !w.d.toUpperCase().includes(x.toUpperCase()) && !LATIN_OK.has(x.toUpperCase())),
@@ -114,25 +139,27 @@ const SYSTEM = `You write the short explanation that appears under a recall in �
 The same text is shown for every car and model the recall reaches, and the app cannot know whether a particular car is included or was already repaired. So the text explains the recall, never a car.
 
 How to write it:
-- Hebrew, 2 or 3 short sentences, about 80 to 280 characters. Plain words a driver knows; when the description names a technical part, say in a few words what that part does.
-- Say only what the description says, plus general knowledge about the part it names. No numbers, dates, model names, quantities or causes that the description does not give.
+- Hebrew, 2 or 3 short sentences, about 80 to 280 characters. Fluent, natural Hebrew in plain words a driver knows, not a word-for-word rendering of the description; when the description names a technical part, say in a few words what that part does.
+- Say only what the description says, plus general knowledge about the part it names that is certain (when unsure what a part does or is used for, say less). No numbers, dates, model names, quantities or causes that the description does not give.
+- When the description names more than one defect, explain each of them.
 - The ministry's database cuts the description at 120 characters. When the message says it was cut, explain what is there and do not guess how it goes on.
 - A description in English: explain it in Hebrew. A Latin abbreviation the description uses (ABS, ECU) may stay.
 - What may happen is "עלול" or "ייתכן", never certain. Never "זכאי" or "זכאות", and never whether a car is included in the recall.
 - Calm and factual: no alarm words (מוות, סכנת חיים, קטלני, מיד, דחוף) and no exclamation marks, and no reassurance that plays a risk down (אין סכנה, אפשר להמשיך לנסוע). Say what may happen as the description says it, for example "עלול לפגוע בבלימה" or "עלול לגרום לפציעה בתאונה".
 - Impersonal: no "you" in any form (אתה, אתם, שלך, שלכם, לכם). Write about "הרכב" or "רכבים".
 - No steps: nothing about contacting anyone, scheduling, checking, a garage (מוסך), a phone, a website or a VIN, and nothing about cost or payment. The app shows those next to your text.
-- Never name or blame the importer, the maker or a dealer (יבואן, יצרן, סוחר). A recall is the routine way a defect found after sale is repaired.
-- A "קמפיין שרות טכני" is a service campaign rather than a safety recall: say in the text that it is a service campaign (קריאת שירות). If its description itself names a risk, explain the risk as written.
+- Never name or blame the importer, the maker or a dealer (יבואן, יצרן, סוחר). A recall is the usual way a defect found after sale is repaired.
+- What the repair does follows the repair method and names the part the description names ("בתיקון מחליפים את המתג"), never just "a part of the car".
+- A "קמפיין שרות טכני" is the type the record is filed under: say in the text that it is a service campaign (קריאת שירות), and never say whether it is or is not a safety matter (some service campaigns are about airbags or brakes). Explain the defect and what may happen as for any other record.
 
 The fields:
 - text: the explanation, or "" when unclear is true.
 - notice: only when the description itself gives an instruction for the time until the repair (stop using the car, park it outside, avoid charging near buildings, do not seat a passenger in a seat): that instruction in plain impersonal Hebrew, one sentence that starts with "לפי הודעת הריקול". Only what the description says; when there is no such instruction, or it is cut before it is clear, "". This is the one place for steps, and only the description's own.
 - sys: the system the defect is in.
-- urgency: "stop" when the description says to stop using the car until the repair; "soon" when the defect may affect braking, steering, the suspension or the wheels and tyres, the airbags or the seatbelts, a fuel leak or a fire, a high-voltage battery or its charging, or stability control; otherwise "routine" (for example emissions, displays, comfort).
+- urgency: "stop" when the description says to stop using the car until the repair. "soon" when the defect may affect the control of the car or the protection of the people in it and around it: braking, steering, the suspension, the wheels and tyres; the engine or the drive stopping or losing power while driving; acceleration or speed the driver did not ask for (the accelerator, cruise control); a parked car that may move (the parking brake, the P position, the gear lever); the airbags, the seatbelts, the seats and head restraints, child seat anchorages; a fuel leak, a fire, a short circuit, overheating or smoke; a high-voltage battery or its charging; stability control and collision warning or emergency braking; what the driver sees and how others see the car (the headlights, the indicators, the wipers, the demister, the rear camera); the bonnet, a door or the boot opening while driving; the emergency call system (eCall). "routine" only for what touches none of these, for example emissions, the multimedia system, comfort, a warning light or message with no effect on driving, a label or the owner's manual. When it is not clear which, "soon".
 - unclear: true only when the description says too little to explain anything beyond repeating it (for example a bare "מערכת חשמל" with the repair "בדיקה").
 
-Four examples of the tone (do not copy their wording):
+Five examples of the tone (do not copy their wording):
 
 סוג הקריאה: תקלה סידרתית בטיחותית
 מערכת: כריות אוויר
@@ -144,13 +171,19 @@ text: "המנפח הוא החלק שממלא את כרית האוויר בגז �
 מערכת: חשמל אליקטרוניקה ומיזוג
 תיאור התקלה: עדכון תוכנת מערכת המולטימדיה
 אופן התיקון: עדכון תוכנה
-text: "זו קריאת שירות ולא ריקול בטיחותי. מערכת המולטימדיה, שמפעילה את המסך והרדיו, מקבלת עדכון תוכנה." (notice "", sys software, urgency routine)
+text: "זו קריאת שירות. מערכת המולטימדיה, שמפעילה את המסך והרדיו, מקבלת עדכון תוכנה." (notice "", sys software, urgency routine)
 
 סוג הקריאה: תקלה סידרתית בטיחותית
 מערכת: היגוי ומתלים
 תיאור התקלה (נקטע במאגר אחרי 120 תווים): בחלק מהרכבים ייתכן שהבורג המחבר את זרוע המתלה הקדמית לשלדה לא הודק כנדרש בייצור, ולכן עלול להשתחרר במהלך הנסיעה ולגרום ל
 אופן התיקון: הידוק
 text: "זרוע המתלה מחברת את הגלגל הקדמי לשלדה ומחזיקה אותו במקומו. ייתכן שבורג שלה לא הודק כנדרש, ובורג כזה עלול להשתחרר בנסיעה. בתיקון מהדקים את הבורג." (notice "", sys suspension, urgency soon)
+
+סוג הקריאה: תקלה סידרתית בטיחותית
+מערכת: מנוע ומערכותיו
+תיאור התקלה: תקלה בתוכנת מחשב המנוע עלולה לגרום לכיבוי המנוע בזמן נסיעה
+אופן התיקון: עדכון תוכנה
+text: "מחשב המנוע מנהל את פעולת המנוע. ייתכן שתקלה בתוכנה שלו תגרום למנוע לכבות בזמן נסיעה, ואז הרכב עלול לאבד את כוח ההנעה. בתיקון מעדכנים את התוכנה." (notice "", sys engine, urgency soon)
 
 סוג הקריאה: תקלה סידרתית בטיחותית
 מערכת: חשמל אליקטרוניקה ומיזוג
@@ -277,16 +310,16 @@ export async function run({ env = process.env, api, router, log = console.log, n
   for (const [k, e] of cat) if (items[k]) items[k].ids = [...e.ids].sort((a, b) => a - b);   // a new recall whose wording is already explained
   const rep = { wordings: cat.size, sent: 0, kept: 0, held: 0, pending: false, why: "" };
   const done = () => { write(out, items, st, day); log(`recall explanations: ${rep.wordings} wordings, ${Object.keys(items).length} explained, sent ${rep.sent}, kept ${rep.kept}, held ${rep.held}${rep.pending ? ", a batch still running (the next run collects it)" : ""}${rep.why ? " · " + rep.why : ""}`); return rep; };
-  // retries first (with what they broke), then wordings that have no text yet and did not use up their tries (redo: all of them again)
-  const retry = Object.entries(st.retry).filter(([k]) => cat.has(k)).map(([k, r]) => ({ k, n: r.n, fb: r.fb }));
-  const due = [...cat.keys()].filter(k => !retry.some(e => e.k === k) && (q.redo || (!items[k] && !st.held[k]))).sort();
+  // retries first (with what they broke), then wordings with no text of this prompt that did not use up their tries with it (redo: all again)
+  const retry = Object.entries(st.retry).filter(([k]) => cat.has(k)).map(([k, r]) => ({ k, n: r.n, fb: r.fb })), now_ = x => x && x.v >= PROMPT_V;
+  const due = [...cat.keys()].filter(k => !retry.some(e => e.k === k) && (q.redo || (!now_(items[k]) && !now_(st.held[k])))).sort();
   let queue = [...retry, ...(q.sample ? pickSample(due, cat, q.sample) : due.slice(0, q.max)).map(k => ({ k, n: 1, fb: null }))];
   if (q.dry) { log(`dry run: ${queue.length} to send, nothing sent`); if (queue[0]) log(prompt(cat.get(queue[0].k).w, queue[0].fb)); return done(); }
   if (!queue.length && !st.pending) return done();
   const c = api ? { api } : await client(env);
   if (!c.api) { rep.why = c.why; if (!/ANTHROPIC_API_KEY/.test(c.why)) await tell(router, { why: c.why, key: false }, env); return done(); }   // no key: switched off on purpose
 
-  const hold = (k, n, why, text) => { st.held[k] = { n, why, text: text || "", at: day, w: cat.get(k).w }; rep.held++; };
+  const hold = (k, n, why, text) => { st.held[k] = { n, why, text: text || "", at: day, v: PROMPT_V, w: cat.get(k).w }; rep.held++; };
   const handle = (results, reqs) => {
     const next = [];
     const again = (k, n, why, fb) => (n >= TRIES ? hold(k, n, why, fb && fb.text) : next.push({ k, n: n + 1, fb }));
@@ -349,7 +382,7 @@ if (process.argv[1] && process.argv[1].endsWith("recall-explain.mjs") && process
   const W = (d, s = "בלמים", f = "החלפה", t = "תקלה סידרתית בטיחותית") => ({ t, s, d, f });
   // the rules: each one catches its own fault, and none catches the examples of the prompt
   const good = [[W("חשש לכשל במנפח כרית האוויר של הנהג בעת פתיחתה", "כריות אוויר"), "המנפח הוא החלק שממלא את כרית האוויר בגז ברגע של תאונה. ייתכן שהוא ייכשל כשהכרית נפתחת, ואז הכרית עלולה לא להגן כראוי ואף לגרום לפציעה. בתיקון מחליפים את המנפח בחלק חדש."],
-    [W("עדכון תוכנת מערכת המולטימדיה", "חשמל אליקטרוניקה ומיזוג", "עדכון תוכנה", CAMPAIGN), "זו קריאת שירות ולא ריקול בטיחותי. מערכת המולטימדיה, שמפעילה את המסך והרדיו, מקבלת עדכון תוכנה."],
+    [W("עדכון תוכנת מערכת המולטימדיה", "חשמל אליקטרוניקה ומיזוג", "עדכון תוכנה", CAMPAIGN), "זו קריאת שירות. מערכת המולטימדיה, שמפעילה את המסך והרדיו, מקבלת עדכון תוכנה."],
     [W("כשל אפשרי בתוכנת מחשב ניהול הבלמים ABS", "בלמים", "עדכון תוכנה"), "מחשב הבלמים מנהל את מערכת ה-ABS, שמונעת מהגלגלים להינעל בבלימה חזקה. ייתכן כשל בתוכנה שלו, שעלול לפגוע בבלימה. בתיקון מעדכנים את התוכנה."],
     [W("לחות עלולה לחדור למחבר החשמלי של המאוורר ולגרום להתחממות. עד לתיקון יש להחנות את הרכב מחוץ למבנים", "חשמל אליקטרוניקה ומיזוג"), "לחות עלולה לחדור למחבר החשמלי של המאוורר ולגרום להתחממות שלו. בתיקון מחליפים את המחבר בחלק חדש."]];
   for (const [w, t] of good) ok(textCheck(t, w).length === 0, "a good text passes: " + t.slice(0, 30));
@@ -364,6 +397,10 @@ if (process.argv[1] && process.argv[1].endsWith("recall-explain.mjs") && process
   fault("סכנת חיים! כרית האוויר עלולה להיפתח מאוחר מדי בעת תאונה. התיקון מחליף את המנפח בחלק חדש.", "alarm");
   fault("כרית האוויר עלולה להיפתח מאוחר מדי, אבל אין סכנה ואפשר להמשיך לנסוע כרגיל עד התיקון שלה.", "downplay");
   fault("מערכת המולטימדיה, שמפעילה את המסך והרדיו, מקבלת עדכון תוכנה שמשפר את הפעולה שלה ברכב.", "campaign", good[1][0]);
+  fault("זו קריאת שירות ולא ריקול בטיחותי. מערכת המולטימדיה, שמפעילה את המסך והרדיו, מקבלת עדכון תוכנה.", "downplay", good[1][0]);
+  fault("זו קריאת שירות, והתקלה אינה בטיחותית. מערכת המולטימדיה, שמפעילה את המסך והרדיו, מקבלת עדכון תוכנה.", "downplay", good[1][0]);
+  ok(textCheck("תווית לחץ האוויר בצמיגים עלולה להיות לא קריאה, ולכן קשה לדעת מהו הלחץ הנכון. בתיקון מחליפים את התווית.", W("תווית לחץ אוויר לא קריאה", "אחר")).length === 0,
+    "a label that is not readable (לא קריאה) is no downplay");
   fault("כרית האוויר עלולה להיפתח באיחור של 30 אלפיות שנייה בעת תאונה. בתיקון מחליפים את המנפח.", "number");
   fault("כרית האוויר בדגם Corolla עלולה להיפתח מאוחר מדי בעת תאונה. בתיקון מחליפים את המנפח בחלק חדש.", "latin");
   fault("כרית האוויר עלולה להיכשל.", "length");
@@ -390,8 +427,16 @@ if (process.argv[1] && process.argv[1].endsWith("recall-explain.mjs") && process
   // critical systems by rules: whole words only
   ok(critByRules(W("צינור הבלם עלול להשתפשף", "אחר")) && critByRules(W("דליפת דלק מהמשאבה", "מנוע ומערכותיו")) && critByRules(W("x", "בלמים"))
     && critByRules(W("תקלה ביחידת ABS", "אחר")) && critByRules(W("חשש לשריפה בתא המנוע", "אחר")), "critical: brake hose, fuel leak, the brakes system, ABS, fire");
-  ok(!critByRules(W("משענת הראש עלולה להשתחרר", "אחר")) && !critByRules(W("רעש מגלגלת המתח של הרצועה", "מנוע ומערכותיו")) && !critByRules(W("כשל בהדלקת נורית האזהרה", "חשמל אליקטרוניקה ומיזוג")),
-    "not critical: a head restraint (ראש), a pulley (גלגלת), turning a light on (הדלקת)");
+  ok(!critByRules(W("אטם ראש המנוע עלול לדלוף", "אחר")) && !critByRules(W("רעש מגלגלת המתח של הרצועה", "מנוע ומערכותיו")) && !critByRules(W("כשל בהדלקת נורית האזהרה", "חשמל אליקטרוניקה ומיזוג")),
+    "not critical: an engine head (ראש), a pulley (גלגלת), turning a light on (הדלקת)");
+  // the wider set of 28.10 (prompt 2), from the real wordings: what the first sample left routine, and what it must not catch
+  ok(["חשש של המשך פעולת בקרת שיוט לאחר כיבוייה", "מנוע הרכב עלול לכבות באופן לא מתוכנן והרכב עלול לאבד את כוח ההנעה", "קיים חשש לכיבוי מנוע.",
+    "קיים חשש שידית ההילוכים לא תשתחרר ממצב P", "ייתכן כי מגבי הרכב יפסיקו לפעול.", "חשש לקצר בחיווט סך שמש", "חשש לאפשרות כשל במערכת E-CALL",
+    "משענת הראש עלולה להשתחרר", "אפשרות לשבירת בורגי מושב נהג שעלול לגרום למושב להישען אחורה בפתאומיות בזמן נהיגה"].every(d => critByRules(W(d, "אחר"))),
+    "critical: cruise control, a stall, the P position, wipers, a short circuit, eCall, a head restraint, seat bolts");
+  ok(!["קיימת אפשרות של המשך פעולת מאווררי המנוע לאחר כיבוי הרכב שעלול לפרוק את המצבר", "תיתכן תקלה אלקטרונית בחיישן הזיהוי הקדמי לטווח קצר.",
+    "תאורת DRL לא עומדת בתקן הקובע כי בעת הפעלת נוריות ערפל, נורות ה-DRL אמורות לכבות", "אפשרות לפליטת NOX", "ייתכן שפנס הנסיעה לאחור מותקן מעל דרישות גובה"].some(d => critByRules(W(d, "אחר"))),
+    "not critical: fans after the car is switched off, a short-range sensor (קצר), DRL lights that should switch off, emissions, a reversing lamp's height");
   ok(keyOf(wording({ SUG_RECALL: "א", SUG_TAKALA: "ב", TEUR_TAKALA: "  ג  ד ", OFEN_TIKUN: "ה" })) === keyOf({ t: "א", s: "ב", d: "ג ד", f: "ה" }) && /^[0-9a-f]{16}$/.test(keyOf(base)), "the key of a wording ignores spacing");
   ok(JSON.stringify(queries("sample=20 wait=500 redo=1 effort=xhigh bogus=1")) === JSON.stringify({ sample: 20, max: 3000, wait: 120, rounds: 3, redo: true, dry: false, effort: "low" }), "queries: clamped, unknown dropped");
   ok(JSON.stringify(params(base, null).output_config.format.schema.required) === JSON.stringify(["text", "notice", "sys", "urgency", "unclear"]) && params(base, null).system[0].cache_control
@@ -412,7 +457,7 @@ if (process.argv[1] && process.argv[1].endsWith("recall-explain.mjs") && process
     if (u.includes("ALWAYSBAD")) return msg({ text: "התיקון ניתן בחינם, וכשל כזה עלול לפגוע בפעולה התקינה של המערכת ברכב.", sys: "other", urgency: "routine" });
     if (u.includes("FAILONCE") && !u.includes("A previous draft")) return msg({ text: "בעלי הרכב זכאים לתיקון, וכשל כזה עלול לפגוע בפעולה התקינה של כרית האוויר.", sys: "airbags", urgency: "soon" });
     if (u.includes("מערכת חשמל")) return msg({ text: "", sys: "electrical", urgency: "routine", unclear: true });
-    if (u.includes(CAMPAIGN)) return msg({ text: "זו קריאת שירות ולא ריקול בטיחותי. מערכת המולטימדיה מקבלת עדכון תוכנה שמשפר את פעולתה.", sys: "software", urgency: "routine" });
+    if (u.includes(CAMPAIGN)) return msg({ text: "זו קריאת שירות. מערכת המולטימדיה מקבלת עדכון תוכנה שמשפר את פעולתה ברכב.", sys: "software", urgency: "routine" });
     if (u.includes("חובה לעצור")) return msg({ text: okText, notice: "לפי הודעת הריקול, יש להפסיק מיד את השימוש ברכב ולתאם הגעה למרכז שירות.", sys: "airbags", urgency: "stop" });
     return msg({ text: okText, sys: u.includes("משענת") ? "seats" : "brakes", urgency: "routine" });
   };
@@ -435,7 +480,8 @@ if (process.argv[1] && process.argv[1].endsWith("recall-explain.mjs") && process
   ok(by("צינור הבלם").urgency === "soon" && by("צינור הבלם").urgencyBy === "both" && by("צינור הבלם").crit && by("צינור הבלם").ids.join() === "1,8",
     "a brake hose is soon by rules and by its system (the model said routine); both recalls of the wording are on it");
   ok(by("חובה לעצור").urgency === "stop" && by("חובה לעצור").notice.startsWith("לפי הודעת הריקול") && by("חובה לעצור").checked.by === "rules", "a stop wording: stop, with its notice, checked by the rules");
-  ok(by("משענת").urgency === "routine" && !by("משענת").crit && by("משענת").text && !by("מערכת חשמל").text && by("מערכת חשמל").unclear, "a head restraint is routine; a bare 'מערכת חשמל' is unclear, with no text");
+  ok(by("משענת").urgency === "soon" && by("משענת").urgencyBy === "rules" && by("משענת").text && by("המולטימדיה").urgency === "routine" && !by("המולטימדיה").crit
+    && !by("מערכת חשמל").text && by("מערכת חשמל").unclear, "a head restraint is soon by rules (the model said routine); multimedia is routine; a bare 'מערכת חשמל' is unclear, with no text");
   ok(by("FAILONCE") && by("FAILONCE").urgency === "soon" && sentPrompts.some(u => u.includes("FAILONCE") && u.includes("A previous draft was rejected") && u.includes("entitled")), "a text that broke a rule went back with the rule it broke, and the next one was kept");
   ok(st.held[Object.keys(st.held).find(k => st.held[k].w.d.includes("REFUSE"))].n === 1 && st.held[Object.keys(st.held).find(k => st.held[k].w.d.includes("ALWAYSBAD"))].n === 3, "a refusal is held at once; a text that keeps breaking a rule is held after 3 tries");
   ok(!sentPrompts.some(u => /TESTMAKER|TESTMODEL|TESTIMPORTER|1234/.test(u)), "no maker, model, importer or phone in any prompt");
@@ -445,6 +491,15 @@ if (process.argv[1] && process.argv[1].endsWith("recall-explain.mjs") && process
   sentPrompts.length = 0; calls.length = 0;
   r = await run({ env: env(2), api: fake(), router, log: quiet });
   ok(r.sent === 0 && sentPrompts.length === 0 && Object.keys(readOut(2).items).length === 6, "the next run sends nothing: every wording has a text or used up its tries");
+  {   // a text of an older prompt, and a wording held under one, are due again; the old text stays until the new one is kept
+    const old = path.join(tmp, "old"), ex2 = readOut(2), st2 = stateOut(2), k1 = Object.keys(ex2.items).find(k => ex2.items[k].d.includes("משענת"));
+    fs.mkdirSync(old); ex2.items[k1].v = PROMPT_V - 1; for (const h of Object.values(st2.held)) delete h.v;
+    fs.writeFileSync(path.join(old, "explain.json"), JSON.stringify(ex2)); fs.writeFileSync(path.join(old, "state.json"), JSON.stringify(st2));
+    sentPrompts.length = 0;
+    const r2 = await run({ env: { CAT: catDir, PREV: old, OUT: path.join(tmp, "oldout"), QUERIES: "wait=0 rounds=1" }, api: fake(), router, log: quiet });
+    const ex3 = JSON.parse(fs.readFileSync(path.join(tmp, "oldout", "explain.json"), "utf8"));
+    ok(r2.sent === 3 && sentPrompts.some(u => u.includes("משענת")) && ex3.items[k1].v === PROMPT_V && Object.keys(ex3.items).length === 6, "after a change of the prompt: its older text and the wordings held under the older one are sent again");
+  }
   // a new wording in the catalogue, and a batch that has not ended by the deadline: the next run collects it
   fs.writeFileSync(path.join(catDir, "r", "2.json"), JSON.stringify({ u: "2026-10-28", rows: [row(9, "חשש לדליפת דלק מצינור ההזנה", "מערכת הדלק")] }));
   const slow = fake({ slow: true });
