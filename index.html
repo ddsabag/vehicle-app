@@ -4256,7 +4256,7 @@ function tabBuy(D){
       "חפשו עשן לבן או אפור מהאגזוז, ונזילות מים או שמן תחת המנוע.", ...(plugIn ? [port] : [])];
   const step = (n, title, body) => { const done = ckDone.includes(n); return `<li class="st"><span class="n${done ? " done" : ""}">${done ? ico("check") : n}</span><details class="bstep"${n === next ? " open" : ""}><summary><b>${title}</b></summary><div class="bs-body">${body}<button type="button" class="ck" data-ck="${n}" aria-pressed="${done}">${done ? "בוצע" : "סימון כבוצע"}</button></div></details></li>`; };
   // a car off the road for good cannot be driven: no plan for buying it to drive, which ends with "start driving" (data thread's audit, 28.10)
-  if (D.isCancelled) html.push(card("לפני שקונים", "check", "green", `<p style="margin:0">הרכב ירד מהכביש ואינו יכול לנסוע, ולכן אין כאן שלבים לקניית רכב לנסיעה. אם מציעים לכם אותו כרכב לנסיעה, בררו במשרד הרישוי לפני שמשלמים.</p>`));
+  if (D.isCancelled) html.push(card("לפני שקונים", "alert", "amber", `<p style="margin:0">הרכב ירד מהכביש ואינו יכול לנסוע, ולכן אין כאן שלבים לקניית רכב לנסיעה. אם מציעים לכם אותו כרכב לנסיעה, בררו במשרד הרישוי לפני שמשלמים.</p>`));
   else html.push(card("לפני שקונים", "check", "green",
     `<p class="bprog" id="bprog">${ckDone.length ? `בוצעו ${ckDone.length} מתוך 6 שלבים` : "סמנו שלבים תוך כדי, והסימון נשמר לרכב הזה"}</p><ol class="bsteps">
      ${step(1, "בבית, לפני שנפגשים", `${lk("https://www.gov.il/he/service/pawn_perusal", "search", `בדיקת שעבוד<span class="lk-x"> ברשם המשכונות</span>`, true)}
