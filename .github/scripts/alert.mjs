@@ -161,6 +161,13 @@ export const LABELS = {
   "zonea:fail":          { he: "יותר מדי בדיקות רכב נכשלו", sect: "fail" },              // headline also names the end ("חזר לתקין: ..."), so it carries
   "zonea:slow":          { he: "יותר מדי בדיקות רכב היו איטיות", sect: "fail" },         // no "yesterday" and no raw date
   "zonea:fail+slow":     { he: "יותר מדי בדיקות רכב נכשלו או היו איטיות", sect: "fail" },
+  // bots that use the Claude API (Dudu 28.10, monthly API credit): key ai:<bot>, level summary, when a bot could not reach the API and went on
+  // without it; that bot's next good call closes its own key (resolve(["ai:<bot>"]), never the bare "ai", which would close the others').
+  // ai:key, level day: the key or the credit is the cause (401, 403, credit balance too low), so Dudu has to act; any bot's good call closes it
+  "ai":                  { he: "בוט שנעזר ב-Claude לא הצליח לפנות אליו והמשיך בלעדיו: {ids}", sect: "fail",
+                           ids: { themes: "תיוג הנושאים בביקורות", advisor: "מבחן היועץ הטכני", recalls: "הסברי הריקולים", shots: "עין שנייה על צילומי המסך",
+                                  names: "התאמת שמות הדגמים", mag: "כתבות המגזין" } },
+  "ai:key":              { he: "מפתח ה-Claude API לא עובד או שהקרדיט נגמר, והבוטים ממשיכים בלעדיו", sect: "fail" },
 };
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
 export const FAMILIES_IN_USE = [
@@ -172,7 +179,7 @@ export const FAMILIES_IN_USE = [
   "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:wait", "prod:fail",
   "stl:update", "stl:stuck", "truth", "truth:fail", "truth:done", "truth:inv", "truth:inv-fail", "live:stuck", "live:error", "pipe",
   "social:fail", "social:missed", "social:unsure", "social:held", "social:done", "social:remind", "social:check", "exp", "auto:done", "auto:revert", "auto:mode",
-  "relguard", "relguard:ok", "relguard:thin", "zonea",
+  "relguard", "relguard:ok", "relguard:thin", "zonea", "ai", "ai:key",
 ];
 
 const TODAY = ["loud", "silent", "none"];
@@ -1018,7 +1025,8 @@ async function selftest() {
     for (const [f, ids] of [["smoke", "home lookup magazine applinks privacy model sitemap cert domain certcheck"], ["expiry", "cert domain certcheck"],
       ["infra", "site api sitemap quota-cf quota-brevo"], ["vitals", "crash anr"], ["listing:fail", "access files play"], ["prod:fail", "access promote auto"], ["safety:fail", "access files play"],
       ["truth", "page identity status test road owners km recalls settlements tow specs mods fee price value tag insight counts message"],
-      ["truth:inv", "fresh tests renewal dates reuse owners km hook price wltp recalls pubcancel lend"], ["pipe", "web app errors ga"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
+      ["truth:inv", "fresh tests renewal dates reuse owners km hook price wltp recalls pubcancel lend"], ["pipe", "web app errors ga"],
+      ["ai", "themes advisor recalls shots names mag"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
       const he = label(f + ":" + ids.split(" ").join("+")).he.split(/[\s,:]+/);
       ok(!ids.split(" ").some(i => he.includes(i)), `label ${f}: no raw id left`);
     }
@@ -1028,6 +1036,9 @@ async function selftest() {
       "the catalogue's news line is not a to-do");
     ok(label("zonea:fail:2026-10-25").he === "יותר מדי בדיקות רכב נכשלו" && label("zonea:fail+slow:2026-10-25").he === "יותר מדי בדיקות רכב נכשלו או היו איטיות"
       && label("zonea:slow:2026-10-25").sect === "fail" && !/\d/.test(label("zonea:x:2026-10-25").he), "zone A labels: by kind, no raw date");
+    ok(label("ai:themes").he === "בוט שנעזר ב-Claude לא הצליח לפנות אליו והמשיך בלעדיו: תיוג הנושאים בביקורות" && label("ai:themes").sect === "fail"
+      && label("ai:key").he.startsWith("מפתח ה-Claude API") && label("ai:key").sect === "fail" && validKey("ai:key") && validKey("ai:recalls"),
+      "Claude API labels: one per bot, the key's own");
     const used = scanKeys(ROOT), missing = used.filter(k => !FAMILIES_IN_USE.some(f => f === k || f.startsWith(k + ":") || k.startsWith(f + ":")));
     ok(missing.length === 0, "call-site keys missing from FAMILIES_IN_USE: " + missing.join(", "));
     // every workflow that runs on main by itself is watched by failure-alert, each watched name has a deliberate level, and the parser sees the events
