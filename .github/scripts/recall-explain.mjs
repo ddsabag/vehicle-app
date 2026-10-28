@@ -18,7 +18,8 @@
 // beside the words of the ministry's own records). A text that breaks a rule goes back with the rule it broke (3 tries).
 // PROMPT_V is in every item: after a change of the prompt, the wordings explained by an older one are sent again (kept until replaced).
 // The rules apply again to every stored text on every run: one that breaks today's rules leaves explain.json and is sent again with what it
-// broke, and a wording held for a rule that its last draft no longer breaks is sent again.
+// broke, and a wording held for a rule that its last draft no longer breaks is sent again. A text sent again for a newer rule keeps at least
+// the urgency it had (the rule is about the words; two judgements of the model that differ are unclear, and unclear is "soon").
 // A text written in review (FIXES, by its exact wording) takes the place of the model's: that wording is never sent again (redo=1 included),
 // the text meets the same rules (one that breaks a rule leaves explain.json and waits for a person), and checked.by says "review".
 // Weekly: only wordings that are new since the last run, or explained by an older prompt, are sent (redo=1 sends all again). A batch that has
@@ -369,10 +370,11 @@ export async function run({ env = process.env, api, router, log = console.log, n
   // draft no longer breaks is due again (the rules changed since)
   speller.vocab = new Set([...cat.values()].flatMap(e => heWords([e.w.d, e.w.f, e.w.s].join(" "))));
   prime([...Object.values(items).flatMap(it => [it.text, it.notice]), ...Object.values(st.held).map(h => h.text), ...fixes.map(x => x.text)]);
-  const broke = {};
+  const broke = {}, before = {};
   for (const [k, it] of Object.entries(items)) {
     const b = check(it, it);
     if (b.length) { broke[k] = { text: it.text + (it.notice ? ` / notice: "${it.notice}"` : ""), say: b.map(x => x.say).join(" ") }; delete items[k]; rep.broke++; }
+    if (b.length && it.v >= PROMPT_V && it.urgency in RANK) before[k] = it.urgency;   // after a change of the prompt the new judgement stands
   }
   // the texts written in review take the model's place; a wording that has one is never sent, and one that breaks a rule waits for a person
   const reviewed = new Set();
@@ -389,9 +391,9 @@ export async function run({ env = process.env, api, router, log = console.log, n
   const draft = t => { const i = t.indexOf(' / notice: "'); return { text: i < 0 ? t : t.slice(0, i), notice: i < 0 ? "" : t.slice(i + 12, -1), unclear: false }; };
   const loose = k => /^rule /.test(st.held[k].why) && !check(draft(st.held[k].text || ""), cat.get(k).w).length;
   // retries first (with what they broke), then wordings with no text of this prompt that did not use up their tries with it (redo: all again)
-  const retry = Object.entries(st.retry).filter(([k]) => cat.has(k)).map(([k, r]) => ({ k, n: r.n, fb: r.fb })), now_ = x => x && x.v >= PROMPT_V;
+  const retry = Object.entries(st.retry).filter(([k]) => cat.has(k)).map(([k, r]) => ({ k, n: r.n, fb: r.fb, was: r.was })), now_ = x => x && x.v >= PROMPT_V;
   const due = [...cat.keys()].filter(k => !reviewed.has(k) && !retry.some(e => e.k === k) && (q.redo || (!now_(items[k]) && (!now_(st.held[k]) || loose(k))))).sort();
-  let queue = [...retry, ...(q.sample ? pickSample(due, cat, q.sample) : due.slice(0, q.max)).map(k => ({ k, n: 1, fb: broke[k] || null }))];
+  let queue = [...retry, ...(q.sample ? pickSample(due, cat, q.sample) : due.slice(0, q.max)).map(k => ({ k, n: 1, fb: broke[k] || null, was: before[k] }))];
   if (q.dry) { log(`dry run: ${queue.length} to send, nothing sent`); if (queue[0]) log(prompt(cat.get(queue[0].k).w, queue[0].fb)); return done(); }
   if (!queue.length && !st.pending) return done();
   const c = api ? { api } : await client(env);
@@ -401,16 +403,16 @@ export async function run({ env = process.env, api, router, log = console.log, n
   const handle = (results, reqs) => {
     prime([...results.values()].filter(x => x && x.ok).flatMap(x => { const o = parse(x.msg).o; return o ? [o.text, o.notice] : []; }));
     const next = [];
-    const again = (k, n, why, fb) => (n >= TRIES ? hold(k, n, why, fb && fb.text) : next.push({ k, n: n + 1, fb }));
-    for (const [cid, { k, n }] of Object.entries(reqs)) {
+    const again = (k, n, why, fb, was) => (n >= TRIES ? hold(k, n, why, fb && fb.text) : next.push({ k, n: n + 1, fb, was }));
+    for (const [cid, { k, n, was }] of Object.entries(reqs)) {
       if (!cat.has(k) || reviewed.has(k)) continue;   // the wording left the catalogue meanwhile, or has a text written in review
       const w = cat.get(k).w, res = results.get(cid);
-      if (!res || !res.ok) { again(k, n, (res && res.why) || "no result", null); continue; }
+      if (!res || !res.ok) { again(k, n, (res && res.why) || "no result", null, was); continue; }
       const p = parse(res.msg);
-      if (p.why) { if (/^refusal/.test(p.why)) hold(k, n, p.why, ""); else again(k, n, p.why, null); continue; }
+      if (p.why) { if (/^refusal/.test(p.why)) hold(k, n, p.why, ""); else again(k, n, p.why, null, was); continue; }
       const o = p.o, broken = check(o, w);
-      if (broken.length) { again(k, n, "rule " + broken.map(b => b.id).join("+"), { text: o.text + (o.notice ? ` / notice: "${o.notice}"` : ""), say: broken.map(b => b.say).join(" ") }); continue; }
-      const u = urgencyOf(w, o);
+      if (broken.length) { again(k, n, "rule " + broken.map(b => b.id).join("+"), { text: o.text + (o.notice ? ` / notice: "${o.notice}"` : ""), say: broken.map(b => b.say).join(" ") }, was); continue; }
+      const u0 = urgencyOf(w, o), u = was in RANK && RANK[was] > RANK[u0.urgency] ? { urgency: was, urgencyBy: "model" } : u0;
       items[k] = { ...w, text: o.unclear ? "" : o.text, notice: o.notice, sys: o.sys, ...u, crit: u.urgency !== "routine", unclear: o.unclear,
         checked: { by: "rules", at: day }, v: PROMPT_V, ids: [...cat.get(k).ids].sort((a, b) => a - b) };
       delete st.held[k]; rep.kept++;
@@ -434,7 +436,7 @@ export async function run({ env = process.env, api, router, log = console.log, n
       if (seen.has(e.k)) continue;
       seen.add(e.k);
       const cid = `r${e.k}_${e.n}`;
-      reqs[cid] = { k: e.k, n: e.n };
+      reqs[cid] = { k: e.k, n: e.n, ...(e.was ? { was: e.was } : {}) };
       requests.push({ custom_id: cid, params: params(cat.get(e.k).w, e.fb, q.effort) });
     }
     const r = await batch(c.api, requests, { minutes: q.wait, every: 30 });
@@ -447,7 +449,7 @@ export async function run({ env = process.env, api, router, log = console.log, n
     queue = handle(r.results, reqs);
   }
   // retries the rounds did not reach go first next run, with what they broke
-  st.retry = Object.fromEntries(queue.filter(e => e.n > 1).map(e => [e.k, { n: e.n, fb: e.fb }]));
+  st.retry = Object.fromEntries(queue.filter(e => e.n > 1).map(e => [e.k, { n: e.n, fb: e.fb, ...(e.was ? { was: e.was } : {}) }]));
   if (failed) { rep.why = failed.why; await tell(router, failed, env); } else if (good) await settle(router);
   return done();
 }
@@ -657,6 +659,24 @@ if (process.argv[1] && process.argv[1].endsWith("recall-explain.mjs") && process
       "a text written in review is kept as written, with its recalls and the rules' urgency, and its wording is not sent even with redo=1");
     ok(!exF[kr] && heldF[kr] && heldF[kr].why === "reviewed text: rule cost" && !sentPrompts.some(u => u.includes("משענת")), "one that breaks a rule leaves explain.json and waits for a person, unsent");
     ok(fs.readFileSync(path.join(tmp, "fixA", "review.md"), "utf8").includes("✍️ נוסח אחרי בדיקה"), "review.md marks a text written in review");
+  }
+  {   // a text sent again for a newer rule keeps at least the urgency it had (the new reply says routine); after a change of the prompt the
+      // new judgement stands (an air conditioner's compressor hub of 28.10 went from soon to routine when only its words were at fault)
+    const fan = W("רעש ממאוורר המזגן", "חשמל אליקטרוניקה ומיזוג"), kf = keyOf(fan), fl = path.join(tmp, "floor");
+    fs.mkdirSync(path.join(fl, "cat", "r"), { recursive: true });
+    fs.writeFileSync(path.join(fl, "cat", "r", "1.json"), JSON.stringify({ rows: [row(20, fan.d, fan.s)] }));
+    const prev = v => { const d = path.join(fl, "prev" + v); fs.mkdirSync(d, { recursive: true });
+      fs.writeFileSync(path.join(d, "explain.json"), JSON.stringify({ items: { [kf]: { ...fan, text: "מאוורר המזגן מקרר את המדחס. ייתכן שיהיה בו רעש, ובתיקון מחליפים את המאוורר.", notice: "",
+        sys: "electrical", urgency: "soon", urgencyBy: "model", crit: true, unclear: false, checked: { by: "rules", at: "2026-10-01" }, v, ids: [20] } } }));
+      return d; };
+    const at = RULES.push(["fan", t => t.includes("מאוורר"), "Say the repair without מאוורר."]) - 1;
+    let a, b; try {
+      a = await run({ env: { CAT: path.join(fl, "cat"), PREV: prev(PROMPT_V), OUT: path.join(fl, "a"), QUERIES: "wait=0" }, api: fake(), router, log: quiet, fixes: [] });
+      b = await run({ env: { CAT: path.join(fl, "cat"), PREV: prev(PROMPT_V - 1), OUT: path.join(fl, "b"), QUERIES: "wait=0" }, api: fake(), router, log: quiet, fixes: [] });
+    } finally { RULES.splice(at, 1); }
+    const itA = JSON.parse(fs.readFileSync(path.join(fl, "a", "explain.json"), "utf8")).items[kf], itB = JSON.parse(fs.readFileSync(path.join(fl, "b", "explain.json"), "utf8")).items[kf];
+    ok(a.broke === 1 && a.kept === 1 && !itA.text.includes("מאוורר") && itA.urgency === "soon" && itA.urgencyBy === "model" && itA.crit, "a text sent again for a newer rule keeps its urgency");
+    ok(b.kept === 1 && itB.urgency === "routine" && !itB.crit, "a text sent again for a newer prompt takes the new judgement");
   }
   // a new wording in the catalogue, and a batch that has not ended by the deadline: the next run collects it
   fs.writeFileSync(path.join(catDir, "r", "2.json"), JSON.stringify({ u: "2026-10-28", rows: [row(9, "חשש לדליפת דלק מצינור ההזנה", "מערכת הדלק")] }));
