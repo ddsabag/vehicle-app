@@ -1,8 +1,9 @@
 name: App guardian (real app)
 # PROBE on branch guardian-a15 only, never merged (main keeps the real App guardian): why the Android 15 emulator stops in the ways-in
-# phone setting (411-extra) in most tries. Eight emulators at once on that one setting: four cut the network as main does (WiFi and
-# mobile data off), four through a proxy that is not there (the radio stays on). Each prints one notice line with how it ended, the
-# phone's last log lines when the emulator stopped, and the emulator's crash reports. Never red: nothing here is about the app.
+# phone setting (411-extra) in most tries. Round 1 (run 40627914203): the network cut is not it (proxy 2 of 4 stopped, WiFi off 2 of 4),
+# and the phone's log ends each time just as the on-screen keyboard hides. Round 2: four emulators as main, four with the on-screen
+# keyboard off until the keyboard check. Each prints one notice line with how it ended and the phone's last log lines when the
+# emulator stopped. Never red: nothing here is about the app.
 on:
   workflow_dispatch:
     inputs:
@@ -60,7 +61,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cut: [wifi, proxy]
+        ime: ["on", "off"]
         copy: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
@@ -90,7 +91,7 @@ jobs:
           ram-size: 4096M
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot-save
-          script: mkdir -p app-real/out && node .github/scripts/app-real.cjs --apk app-qa.apk --scenario 411-extra --out app-real/out --label ${{ matrix.cut }}-${{ matrix.copy }} --cut ${{ matrix.cut }}
+          script: mkdir -p app-real/out && node .github/scripts/app-real.cjs --apk app-qa.apk --scenario 411-extra --out app-real/out --label ime-${{ matrix.ime }}-${{ matrix.copy }} --ime ${{ matrix.ime }}
       - name: How it ended
         if: ${{ always() }}
         run: |
@@ -98,7 +99,7 @@ jobs:
           CODE=$(cat "$D/exit" 2>/dev/null || echo none)
           GONE=$(head -1 "$D/gone" 2>/dev/null || true)
           F=$(node -e 'try { const f = require(process.argv[1]); console.log(f.length + " findings" + (f.length ? ": " + f.map((x) => x.sev + " " + x.step).join(", ") : "")) } catch { console.log("no findings file") }' "$PWD/$D/findings.json")
-          echo "::notice::probe cut=${{ matrix.cut }} copy=${{ matrix.copy }}: exit $CODE${GONE:+, $GONE}; $F"
+          echo "::notice::probe ime=${{ matrix.ime }} copy=${{ matrix.copy }}: exit $CODE${GONE:+, $GONE}; $F"
           echo "--- the emulator's crash reports"
           ls -laR /tmp/android-runner 2>/dev/null | head -40 || true
           for f in $(find /tmp/android-runner -name '*.dmp' 2>/dev/null); do

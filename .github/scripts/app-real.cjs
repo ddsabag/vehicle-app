@@ -19,7 +19,7 @@
 // The emulator itself stopping is not the app's fault: exit 2, with what was found until then, and a file "gone" beside the findings
 // (app-guardian.yml then runs the phone setting once more on a new emulator); so is a journey disturbed in both tries by what is not the
 // app's (no crash of the app, no ANR in its own code or without a stack).
-// Usage (inside the emulator, app-guardian.yml): node .github/scripts/app-real.cjs --apk <apk> [--out <dir>] [--scenario <id>] [--quick] [--label <api>] [--cut wifi|proxy]
+// Usage (inside the emulator, app-guardian.yml): node .github/scripts/app-real.cjs --apk <apk> [--out <dir>] [--scenario <id>] [--quick] [--label <api>] [--cut wifi|proxy] [--ime off]
 const fs = require("node:fs"), path = require("node:path"), { spawnSync, spawn } = require("node:child_process");
 const { _android: android } = require("playwright");
 const { PNG } = require("pngjs");
@@ -27,7 +27,7 @@ const UF = require("./ui-flows.cjs");
 const { add, findings } = UF;
 
 const args = process.argv.slice(2), arg = (k) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : null; };
-const OUT = path.resolve(arg("--out") || "app-real"), APK = arg("--apk"), QUICK = args.includes("--quick"), LABEL = arg("--label") || "a", ONLY = arg("--scenario"), CUT = arg("--cut");
+const OUT = path.resolve(arg("--out") || "app-real"), APK = arg("--apk"), QUICK = args.includes("--quick"), LABEL = arg("--label") || "a", ONLY = arg("--scenario"), CUT = arg("--cut"), IME = arg("--ime");
 fs.mkdirSync(path.join(OUT, "shots"), { recursive: true });
 const PKG = "com.ddsabag.pratirechev", ACT = `${PKG}/.MainActivity`;
 const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
@@ -395,6 +395,7 @@ async function entries(page, sc) {
     const png = screencap();
     if (!png) log(`entry ${name}: no screenshot (adb answered nothing)`);
     saveShot(png, `${sc.id}__entry__${name}`);
+    log(`entry ${name}: keyboard ${imeShown() ? "up" : "down"}`);
     await home();
   };
   const flags = "-f 0x24000000";   // CLEAR_TOP | SINGLE_TOP, as the alert's own intent
@@ -440,6 +441,7 @@ async function phoneChecks(page, sc) {
   await prepare(page, "one", "light");
   // the keyboard: tap the plate field like a finger; the field and its button must stay above the keyboard, the bottom bar out of the way
   cur.step = "keyboard";
+  if (IME === "off" && meta.ime) { sh(`ime enable ${meta.ime}`); sh(`ime set ${meta.ime}`); log(`on-screen keyboard on again for the keyboard check (${sh("settings get secure default_input_method")})`); }
   sh("settings put secure show_ime_with_hard_keyboard 1");
   const box = webViewBox(), r = await page.evaluate(() => { const e = document.getElementById("plate").getBoundingClientRect(); return { x: e.left + e.width / 2, y: e.top + e.height / 2, h: innerHeight, dpr: devicePixelRatio }; });
   clearDialogs();
@@ -557,6 +559,9 @@ function finish(line, code) {
   sh("settings put system font_scale 1.05");   // Android reads that setting again only when the configuration changes: the font size set next does it
   await connect();
   meta.model = device.model();
+  // --ime off: no on-screen keyboard outside the keyboard check (probe: the Android 15 emulator stops while the keyboard hides)
+  meta.ime = sh("settings get secure default_input_method");
+  if (IME === "off" && meta.ime) { sh(`ime disable ${meta.ime}`); log(`on-screen keyboard off (${meta.ime}); the keyboard now: ${sh("settings get secure default_input_method") || "none"}`); }
   meta.webview = sh("dumpsys webviewupdate | grep -m1 'Current WebView package'");
   log(`${meta.model}, API ${meta.sdk}, ${meta.webview}`);
   sh("settings put global window_animation_scale 0"); sh("settings put global transition_animation_scale 0"); sh("settings put global animator_duration_scale 0");
