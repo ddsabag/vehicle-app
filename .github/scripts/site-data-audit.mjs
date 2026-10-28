@@ -315,6 +315,9 @@ function collect(deep) {
   const stats = panel ? [...panel.querySelectorAll(".stats .stat")].map(s => ({k: T(s.querySelector(".k")), v: T(s.querySelector(".v"))})) : [];
   // the deep audit's reader gets the panel as lines (a line per block, ": " after a label, a space after any other element); the rules use text
   const read = !deep || !panel ? "" : (() => { const c = panel.cloneNode(true);
+    // an icon that carries a yes or a no becomes a mark (a safety system the model lacks is listed crossed out, not left out)
+    c.querySelectorAll("svg.i").forEach(e => { const u = e.querySelector("use"), m = {check: "✓", x: "✗", alert: "⚠", info: "ℹ"}[((u && u.getAttribute("href")) || "").replace(/^#i-/, "")];
+      if (m) e.replaceWith(document.createTextNode(m + " ")); });
     c.querySelectorAll("script,style,svg").forEach(e => e.remove());
     c.querySelectorAll("*").forEach(e => { const t = e.tagName, block = /^(DIV|P|LI|H[1-6]|DL|UL|OL|SECTION|ARTICLE|HEADER|FOOTER|TABLE|TR|BR|SUMMARY|DETAILS|FIELDSET|LABEL)$/.test(t);
       if (t !== "DD") e.before(document.createTextNode(block || t === "DT" ? "\n" : " "));
@@ -690,7 +693,13 @@ function compare(c, X, P) {
       const pool2 = shown.map(s => ({s, used: false}));
       const rows = RECALL_LIST.filter(r => !openIds.includes(String(r.RECALL_ID).trim()) && !openKeys.has(recKey(r))).map(r => ({r, k: cls(r), brand: !!(br && br.test(String(r.TOZAR_TEUR || "")))}));
       const cands = rows.filter(x => x.k !== "no" || (links && links[x.r.RECALL_ID] && links[x.r.RECALL_ID][lk]));
-      if (DEEP_OUT) DEEP_RECALLS.set(c.id, cands.slice(0, 30).map(x => ({cls: x.k, brand: x.brand, ...Object.fromEntries(REC_F.map(k => [k, String(x.r[k] ?? "").trim()]))})));
+      // the deep audit's reader: the 30 that matter most (this production year first, then a near one, then the rest; the newest first in each),
+      // each with whether the ministry's per-car list covers it, which decides whether a recall missing from the car's open rows is closed
+      if (DEEP_OUT) { const rank = x => { const f = fitsOf(x.r); return f.fits === true ? 0 : f.near || f.fits === null ? 1 : 2; };
+        DEEP_RECALLS.set(c.id, cands.slice().sort((p, q) => rank(p) - rank(q) || N(q.r.RECALL_ID) - N(p.r.RECALL_ID)).slice(0, 30).map(x => { const f = fitsOf(x.r);
+          return {cls: x.k, brand: x.brand, years: f.fits === true ? "this car's" : f.near ? "near" : f.fits === false ? "other" : "unknown",
+            carList: {listed: "covers", fresh: "too new", absent: "missing, recent", nolist: "missing, old", "?": "unknown"}[reach(x.r)],
+            ...Object.fromEntries(REC_F.map(k => [k, String(x.r[k] ?? "").trim()]))}; })); }
       // rows of this brand first, so a shared description is credited to the right maker
       for (const x of cands.sort((p, q) => (q.brand - p.brand) || (p.k === "strict" ? -1 : 1))) {
         const hit = pool2.find(p => !p.used && fits1(p.s, x.r));

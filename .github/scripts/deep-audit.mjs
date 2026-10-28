@@ -11,7 +11,7 @@
 // truth:deep:<areas> (news, for the data thread to turn into rules; Dudu does nothing) when confirmed findings the rules missed exist,
 // truth:deep-fail when too few cars could be read, ai:audit when the API failed (ai:key when the key or the credit is the cause); a good
 // month closes what is its own. Nothing here logs a plate, a cost or a token count.
-//   env   QUERIES="n=80 rare=20 minutes=140 wait=90 effort=medium max=120 dry=1"   OUT=<dir> (default out)
+//   env   QUERIES="n=80 rare=20 minutes=140 wait=180 effort=medium max=120 dry=1"   OUT=<dir> (default out)
 //   node deep-audit.mjs --selftest   offline: the scrub, the quote checks, the encryption, whole runs through a fake audit and a fake API
 import fs from "node:fs";
 import os from "node:os";
@@ -22,7 +22,7 @@ import { fileURLToPath } from "node:url";
 import { client, batch, answer, usage } from "./claude.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-export const MODEL = "claude-opus-5-5", PROMPT_V = 1, MIN_CARS = 10;
+export const MODEL = "claude-opus-5-5", PROMPT_V = 2, MIN_CARS = 10;
 const PAGE_MAX = 36000, ROWS_MAX = 24000;   // characters of one car's page and rows in its prompt: a car's cost has a ceiling
 // the page's areas, the ids of the daily audit's GROUPS (site-data-truth.mjs) and of the router's truth labels
 export const AREAS = { identity: "פרטי הרכב", status: "סטטוס הרכב", test: "טסט", road: "עלייה לכביש", owners: "בעלויות", km: "ק״מ", recalls: "ריקולים",
@@ -55,8 +55,9 @@ export function leakWhere(p) {
 }
 
 const SYSTEM = `You audit what לוחית shows for one car. לוחית is an Israeli app that checks a car by its licence plate in the Ministry of Transport's open data: a buyer types the plate and reads the car's page. For one car you get:
-1. The page as the buyer saw it: the header and the text of every tab.
+1. The page as the buyer saw it: the header and the text of every tab. An icon is written as a mark before its words: ✓ a check (present, passed), ✗ crossed out (absent), ⚠ a warning, ℹ a note.
 2. The ministry's rows the page is built from: the registers' rows for this car, the model's data, the price list, the model's recall rows that name this model, and the car's own open recall rows. Plates, VINs and engine numbers are replaced by <id>, <plate>, <vin> or <n>.
+   The model's recall rows are at most 30: those whose production years include this car first (years), then the newest. carList says whether the ministry's per-car list of open recalls covers the recall. For a covered recall the car's own open recall rows decide: one that is not among them is closed or not this car's, and the page rightly does not show it as open. For one it does not cover (too new, missing), the data cannot tell whether it is open on this car.
 3. What the app's fixed checks already found wrong on this page (may be none).
 
 Read it as a senior auditor of Israeli vehicle data and as a buyer about to pay for this car, and find what is wrong or could mislead:
@@ -68,6 +69,7 @@ Read it as a senior auditor of Israeli vehicle data and as a buyer about to pay 
 How to report:
 - Only what the material shows. page: the exact words of the page, one excerpt copied character for character (at most 120 characters), or two excerpts separated by " | " for a contradiction; "" only for missing. rows: field=value pairs copied exactly as they appear in the rows below, separated by "; "; "" only for a contradiction or misleading wording. A finding without such quotes is not a finding.
 - The app's own rules are not given. Judge by what a careful reader of the rows would expect, and say in why what you expected.
+- A part cut for length ("[… cut here for length]") or a list that stops at its limit proves nothing: never report something as missing or wrong because it is not there.
 - The registers are rebuilt nightly and lend each other dates; a difference of a few days, or a value the rows themselves disagree on, is not a finding unless the page states it as certain.
 - Do not repeat what the fixed checks already found, and do not report design, layout or wording preferences that do not change what a buyer understands.
 - severity: high when a buyer could decide wrongly (pay more, miss a safety recall, buy a car with a hidden status); medium when a fact is wrong but unlikely to change a decision; low for a minor slip.
@@ -122,7 +124,7 @@ export function quoteCheck(f, s) {
 }
 
 export function queries(s) {
-  const q = { n: 80, rare: 20, minutes: 140, wait: 90, effort: "medium", max: 120, dry: false }, n = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(+v) || 0));
+  const q = { n: 80, rare: 20, minutes: 140, wait: 180, effort: "medium", max: 120, dry: false }, n = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(+v) || 0));
   for (const [, k, v] of String(s || "").matchAll(/(\w+)=([\w.-]+)/g)) {
     if (k === "n") q.n = n(v, 0, 150); else if (k === "rare") q.rare = n(v, 0, 50); else if (k === "minutes") q.minutes = n(v, 5, 170);
     else if (k === "wait") q.wait = n(v, 0, 180); else if (k === "max") q.max = n(v, 1, 200);
@@ -300,7 +302,7 @@ if (process.argv[1] && process.argv[1].endsWith("deep-audit.mjs") && process.arg
   const e = encrypt({ a: "טויוטה" }, publicKey), k = crypto.privateDecrypt({ key: privateKey, padding: crypto.constants.RSA_PKCS1_OAEP_PADDING, oaepHash: "sha256" }, Buffer.from(e.ek, "base64"));
   const dc = crypto.createDecipheriv("aes-256-gcm", k, Buffer.from(e.iv, "base64")); dc.setAuthTag(Buffer.from(e.tag, "base64"));
   ok(JSON.parse(Buffer.concat([dc.update(Buffer.from(e.data, "base64")), dc.final()]).toString("utf8")).a === "טויוטה" && !e.data.includes("טויוטה"), "encrypted with the public key (the shape seo-key/decrypt.mjs reads)");
-  ok(JSON.stringify(queries("n=500 minutes=3 effort=max dry=1 bogus=2")) === JSON.stringify({ n: 150, rare: 20, minutes: 5, wait: 90, effort: "medium", max: 120, dry: true }), "queries: clamped, unknown dropped");
+  ok(JSON.stringify(queries("n=500 minutes=3 effort=max dry=1 bogus=2")) === JSON.stringify({ n: 150, rare: 20, minutes: 5, wait: 180, effort: "medium", max: 120, dry: true }), "queries: clamped, unknown dropped");
   // whole runs: a fake audit writes the cars, a fake API answers by car
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "da-")), cars = n => async (q, dir) => { const d = path.join(dir, "cars"); fs.mkdirSync(d, { recursive: true });
     for (let i = 1; i <= n; i++) fs.writeFileSync(path.join(d, `c${String(i).padStart(3, "0")}.json`), JSON.stringify(car(`c${String(i).padStart(3, "0")}`, i === 2 ? { rules: ["owners.count | shown=\"יד 2\" | expected=\"יד 3\""] } : {})));

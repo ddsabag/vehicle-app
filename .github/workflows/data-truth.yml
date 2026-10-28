@@ -103,7 +103,7 @@ jobs:
   deep:
     if: ${{ github.event.schedule == '17 5 1-3 * *' || (github.event_name == 'workflow_dispatch' && inputs.job == 'deep') || github.event_name == 'push' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 260   # the audit's own budget (minutes=140) and the batch's wait (wait=90), with room
+    timeout-minutes: 350   # the audit's own budget (minutes=140) and the batch's wait (wait=180: a test batch of 12 took an hour), with room
     concurrency:
       group: data-truth-deep   # its own: it publishes once, at the end, and data-truth-publish.sh starts again from the other jobs' commit
       cancel-in-progress: false
