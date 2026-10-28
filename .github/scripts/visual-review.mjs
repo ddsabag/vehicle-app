@@ -29,8 +29,9 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import * as claude from "./claude.mjs";
 
-export const V = 4;   // the prompt and the schemas: a new V judges every shot again (3: the non-defects of the first real runs, 28.10, and text;
-// 4: the second look judges the defect itself, more carefully, and says why it rejects a point)
+export const V = 5;   // the prompt and the schemas: a new V judges every shot again (3: the non-defects of the first real runs, 28.10, and text;
+// 4: the second look judges the defect itself, more carefully, and says why it rejects a point; 5: a cut placeholder and a cut at a large
+// font are defects, which the second look had read as allowed)
 export const MODELS = { first: "claude-haiku-5-5", second: "claude-sonnet-5-5" };
 export const CAPS = { runFirst: 300, runSecond: 40, monthFirst: 4000, monthSecond: 400 };
 // a point goes on to the second look from severity x confidence 3 up (each high 3, medium 2, low 1): medium/medium, low but sure, high but
@@ -176,7 +177,7 @@ export const SYSTEM = `You are a meticulous visual QA reviewer for לוחית (L
 You receive screenshots that automated test runs took of the real app and website, filled with made-up test data. Code checks already measure overflow, tap target sizes, font sizes and accessibility rules. Your job is the second look a careful human tester gives a screen: find what a person would see is broken and code cannot judge.
 
 Report only real, visible defects of these kinds:
-- cut_text: text clipped by its box, a button, a card or the screen edge, so letters or words are partly hidden. A one-line label that ends in an ellipsis (…) on purpose is not a defect.
+- cut_text: text clipped by its box, a button, a card or the screen edge, so letters, digits or words are partly or wholly hidden: also the example text (placeholder) of an empty input, and also at the large font sizes. A one-line label that ends in an ellipsis (…) on purpose is not a defect.
 - overlap: two things drawn over each other that should not be: text over text, an icon or a label on top of other words, a button covering words that cannot scroll out from under it.
 - rtl: a right-to-left mistake: Hebrew text aligned to the left where the text around it aligns right; an arrow or chevron pointing the wrong way for what it does (right to left, "next" or "open" points left and "back" points right); a number, date, plate or phone number shown reversed or with its parts in the wrong order; punctuation at the wrong end of a Hebrew sentence.
 - typo: a Hebrew spelling or grammar mistake, a wrong or missing word, a gender or number mismatch, English or code left inside Hebrew text, a placeholder such as {name}, undefined or NaN, broken characters (boxes, question marks).
@@ -187,11 +188,11 @@ Report only real, visible defects of these kinds:
 These are not defects, do not report them:
 - The test data itself: plates such as 12-345-67, 1234567, 7654321, 385-48-003 or 111-22-233, and the car names, prices, dates and counts, are invented for the test. Car makes and models may be in English inside Hebrew text (טויוטה COROLLA).
 - Android's own parts: the status bar at the top (time, battery, notification icons), the navigation bar at the bottom or at the side, and the on-screen keyboard.
-- Large font settings (130% and 200%): text that is bigger, wraps onto more lines or makes a card taller is correct there; only clipping, overlap or a broken layout is a defect.
+- Large font settings (130% and 200%): text that is bigger, wraps onto more lines or makes a card taller is correct there. Clipping, overlap or a broken layout there is a defect as at any size: the app must work at the font size a person chose.
 - Scrolling: content that goes on below the bottom of a phone screen, below the end of a part of a long page, or under the app's bottom navigation bar, even in the middle of a sentence; a floating button (such as השוואה) or a bar fixed to the screen, drawn over content that scrolls under it; a row of cards that scrolls sideways, with its last card cut at the screen edge.
 - Text shortened on purpose with an ellipsis (…), and a loading message that ends in one.
 - A notification badge (a small red circle, often with a number) on the corner of its icon, even where it covers part of the icon.
-- Empty inputs: placeholder text, an example such as 12-345-67, is dimmer than typed text on purpose, in grey or in a darker shade of the field's colour, and it is a defect only when it is itself cut; an empty input under its own label may show only its unit (₪) or nothing.
+- Empty inputs: the example text (placeholder), such as 12-345-67, is dimmer than typed text on purpose, in grey or in a darker shade of the field's colour; that dimness is not a defect, but a placeholder cut at the edge of its box is cut_text. An empty input under its own label may show only its unit (₪) or nothing.
 - Arrows and chevrons that point left to open something or to go forward: in right to left that is the right way.
 - Design choices: colours, fonts, sizes, icons and wording that are consistent and readable, even where you would design them differently.
 
@@ -213,7 +214,7 @@ export function params(look, s) {
   if (!shots.length) return null;
   s.n = shots.length;
   const ask = look === "first" ? "Find the visible defects on this screen."
-    : `A quicker first look at this screen reported these possible defects:\n${claimsText(worth(s.entry))}\nCheck each one against the screenshot. The first look can get details wrong (the cause, the exact place, typed text or a placeholder): judge the defect itself. For cut text, read the text at the edge one letter or digit at a time and compare it with the whole word or number it should be (the example plate is 12-345-67): a letter or digit drawn only in part, or missing at the edge of its box, is a cut. real is true only when you can see that defect, and why says what you saw. Keep its number as claim. Then add any other clear defect it missed, with claim 0.`;
+    : `A quicker first look at this screen reported these possible defects:\n${claimsText(worth(s.entry))}\nCheck each one against the screenshot. The first look can get details wrong (the cause, the exact place, typed text or a placeholder): judge the defect itself. For cut text, read the text at the edge one letter or digit at a time and compare it with the whole word or number it should be (the example plate is 12-345-67): a letter or digit drawn only in part, or missing at the edge of its box (12-345- where 12-345-67 should be), is a cut. real is true only when you can see that defect, and why says what you saw. Keep its number as claim. Then add any other clear defect it missed, with claim 0.`;
   // the second look at effort medium: at low it rejected 4 of the 9 true points of 28.10 (the same cut plate example it confirmed on other shots)
   return { model: MODELS[look], max_tokens: look === "first" ? 4000 : 8000, system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
     output_config: { effort: look === "first" ? "low" : "medium", format: { type: "json_schema", schema: look === "first" ? FIRST : SECOND } },
