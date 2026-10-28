@@ -19,7 +19,7 @@
 // The emulator itself stopping is not the app's fault: exit 2, with what was found until then, and a file "gone" beside the findings
 // (app-guardian.yml then runs the phone setting once more on a new emulator); so is a journey disturbed in both tries by what is not the
 // app's (no crash of the app, no ANR in its own code or without a stack).
-// Usage (inside the emulator, app-guardian.yml): node .github/scripts/app-real.cjs --apk <apk> [--out <dir>] [--scenario <id>] [--quick] [--label <api>] [--cut wifi|proxy] [--ime off]
+// Usage (inside the emulator, app-guardian.yml): node .github/scripts/app-real.cjs --apk <apk> [--out <dir>] [--scenario <id>] [--quick] [--label <api>] [--cut wifi|proxy] [--ime off] [--home calm]
 const fs = require("node:fs"), path = require("node:path"), { spawnSync, spawn } = require("node:child_process");
 const { _android: android } = require("playwright");
 const { PNG } = require("pngjs");
@@ -27,7 +27,7 @@ const UF = require("./ui-flows.cjs");
 const { add, findings } = UF;
 
 const args = process.argv.slice(2), arg = (k) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : null; };
-const OUT = path.resolve(arg("--out") || "app-real"), APK = arg("--apk"), QUICK = args.includes("--quick"), LABEL = arg("--label") || "a", ONLY = arg("--scenario"), CUT = arg("--cut"), IME = arg("--ime");
+const OUT = path.resolve(arg("--out") || "app-real"), APK = arg("--apk"), QUICK = args.includes("--quick"), LABEL = arg("--label") || "a", ONLY = arg("--scenario"), CUT = arg("--cut"), IME = arg("--ime"), HOME = arg("--home");
 fs.mkdirSync(path.join(OUT, "shots"), { recursive: true });
 const PKG = "com.ddsabag.pratirechev", ACT = `${PKG}/.MainActivity`;
 const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
@@ -384,7 +384,12 @@ const said = (s) => (s ? `${s.screen}${s.sheet ? " " + s.sheet : ""}, car ${s.ca
 async function entries(page, sc) {
   const run = `entries/owner/${sc.id}/light`; cur.run = run;
   await prepare(page, "owner", "light");
-  const home = async () => { await page.evaluate(() => { for (let i = 0; i < 6 && window.appBack && window.appBack(); i++); }).catch(() => {}); await page.click('#bnav [data-nav="search"]').catch(() => {}); await sleep(400); };
+  // --home calm (probe): back to the search screen between the ways in without the keyboard. A tap on the search tab while it is on
+  // focuses the plate field, so each next way in closed the keyboard as it opened; and under a sheet the hidden tab made the tap wait
+  // Playwright's 30 s
+  const home = HOME === "calm"
+    ? async () => { await page.evaluate(() => { for (let i = 0; i < 6 && window.appBack && window.appBack(); i++); const b = document.querySelector('#bnav [data-nav="search"]'); if (b && b.getClientRects().length && view !== "search") b.click(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); }).catch(() => {}); await sleep(400); }
+    : async () => { await page.evaluate(() => { for (let i = 0; i < 6 && window.appBack && window.appBack(); i++); }).catch(() => {}); await page.click('#bnav [data-nav="search"]').catch(() => {}); await sleep(400); };
   const warm = async (name, extra, ok, want) => {
     cur.step = name;
     log(`entry ${name}`);

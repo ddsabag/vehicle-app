@@ -2,8 +2,9 @@ name: App guardian (real app)
 # PROBE on branch guardian-a15 only, never merged (main keeps the real App guardian): why the Android 15 emulator stops in the ways-in
 # phone setting (411-extra) in most tries. Round 1 (run 40627914203): the network cut is not it (proxy 2 of 4 stopped, WiFi off 2 of 4),
 # and the phone's log ends each time just as the on-screen keyboard hides. Round 2 (run 40628788850): 5 of 8 stopped; turning the
-# keyboard off did not hold (Android brought Gboard back), so it tested nothing. 9 of 16 stopped as main runs it. Round 3: the
-# emulator's graphics, four with host Vulkan off (-feature -Vulkan), four with SwiftShader through ANGLE (-gpu swangle_indirect).
+# keyboard off did not hold (Android brought Gboard back), so it tested nothing. 9 of 16 stopped as main runs it. Round 3 (run
+# 40629452697): host Vulkan off 2 of 4 stopped, SwiftShader through ANGLE (-gpu swangle_indirect) 0 of 4. Round 4: eight more with
+# swangle_indirect, and four with main's graphics but no keyboard between the ways in (--home calm).
 # Each prints one notice line with how it ended and the phone's last log lines when the emulator stopped. Never red.
 on:
   workflow_dispatch:
@@ -62,8 +63,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        gfx: [novulkan, swangle]
-        copy: [1, 2, 3, 4]
+        include:
+          - { gfx: swangle, home: main, copy: 1 }
+          - { gfx: swangle, home: main, copy: 2 }
+          - { gfx: swangle, home: main, copy: 3 }
+          - { gfx: swangle, home: main, copy: 4 }
+          - { gfx: swangle, home: main, copy: 5 }
+          - { gfx: swangle, home: main, copy: 6 }
+          - { gfx: swangle, home: main, copy: 7 }
+          - { gfx: swangle, home: main, copy: 8 }
+          - { gfx: swiftshader, home: calm, copy: 1 }
+          - { gfx: swiftshader, home: calm, copy: 2 }
+          - { gfx: swiftshader, home: calm, copy: 3 }
+          - { gfx: swiftshader, home: calm, copy: 4 }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -91,8 +103,8 @@ jobs:
           profile: pixel_6
           ram-size: 4096M
           disable-animations: true
-          emulator-options: -no-window -gpu ${{ matrix.gfx == 'swangle' && 'swangle_indirect' || 'swiftshader_indirect -feature -Vulkan' }} -noaudio -no-boot-anim -camera-back none -no-snapshot-save
-          script: mkdir -p app-real/out && node .github/scripts/app-real.cjs --apk app-qa.apk --scenario 411-extra --out app-real/out --label ${{ matrix.gfx }}-${{ matrix.copy }}
+          emulator-options: -no-window -gpu ${{ matrix.gfx == 'swangle' && 'swangle_indirect' || 'swiftshader_indirect' }} -noaudio -no-boot-anim -camera-back none -no-snapshot-save
+          script: mkdir -p app-real/out && node .github/scripts/app-real.cjs --apk app-qa.apk --scenario 411-extra --out app-real/out --label ${{ matrix.gfx }}-${{ matrix.home }}-${{ matrix.copy }} --home ${{ matrix.home }}
       - name: How it ended
         if: ${{ always() }}
         run: |
@@ -100,7 +112,7 @@ jobs:
           CODE=$(cat "$D/exit" 2>/dev/null || echo none)
           GONE=$(head -1 "$D/gone" 2>/dev/null || true)
           F=$(node -e 'try { const f = require(process.argv[1]); console.log(f.length + " findings" + (f.length ? ": " + f.map((x) => x.sev + " " + x.step).join(", ") : "")) } catch { console.log("no findings file") }' "$PWD/$D/findings.json")
-          echo "::notice::probe gfx=${{ matrix.gfx }} copy=${{ matrix.copy }}: exit $CODE${GONE:+, $GONE}; $F"
+          echo "::notice::probe gfx=${{ matrix.gfx }} home=${{ matrix.home }} copy=${{ matrix.copy }}: exit $CODE${GONE:+, $GONE}; $F"
           echo "--- the emulator's crash reports"
           ls -laR /tmp/android-runner 2>/dev/null | head -40 || true
           for f in $(find /tmp/android-runner -name '*.dmp' 2>/dev/null); do
