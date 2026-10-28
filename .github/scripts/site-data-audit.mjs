@@ -222,6 +222,8 @@ const ID_F = new Set(["tozeret_cd", "tozeret_nm", "tozeret_eretz_nm", "tozar", "
   "tozar_manoa", "mispar_manoa", "nefach_manoa", "hespek", "hanaa_nm", "mispar_mekomot", "mishkal_kolel", "mishkal_azmi", "mishkal_mitan_harama",
   "sranim", "zmig_kidmi", "zmig_ahori", "mida_zmig_kidmi", "mida_zmig_ahori"]);
 const LEND = {import: new Set(["tokef_dt", "mivchan_acharon_dt", "moed_aliya_lakvish"]), public: new Set(["tokef_dt"])};
+// the lending row also names the type and colour the moto and heavy registers lack (index.html LENT_ID, 28.10)
+const LENT_I = new Set(["sug_rechev_cd", "sug_rechev_nm", "tzeva_cd", "tzeva_rechev"]);
 function pubSt(r) {
   const cd = String(r.bitul_cd ?? "").trim().toUpperCase(), nm = String(r.bitul_nm || "").trim();
   if (cd === "0" || /לא מבוטל/.test(nm) || !cd && !nm) return null;
@@ -256,7 +258,7 @@ async function raw(c) {
     const r = out.sets[k][0];
     if (sameCarR(top, r)) fill(r, ID_F);
     if (NODATES.has(p0) && LEND[k] && !(k === "public" && (pubSt(r) || {}).gone) && sameN(top, r, "tozeret_cd") && sameN(top, r, "shnat_yitzur")) {
-      lent.add(k); if (fill(r, LEND[k]).some(f => f !== "moed_aliya_lakvish")) datesFrom = datesFrom || k; }
+      lent.add(k); if (fill(r, LEND[k]).some(f => f !== "moed_aliya_lakvish")) datesFrom = datesFrom || k; fill(r, LENT_I); }
     if (/^cancel/.test(p0) && k === "public" && (pubSt(r) || {}).gone && sameDay(top.bitul_dt, r.bitul_dt)) fill(r, new Set(["bitul_nm"]));
   }
   if ((out.sets.import || [])[0] && E(R.sug_yevu)) R.sug_yevu = out.sets.import[0].sug_yevu;
@@ -538,7 +540,9 @@ function compare(c, X, P) {
   // test: the dates as the register writes them (none from a register that publishes none), the licence state from them
   { const top = X.primary && X.sets[X.primary][0];
     if (X.noTest && top && (toD(top.tokef_dt) || toD(top.mivchan_acharon_dt))) check(c, "test.no_dates_register", false, "(dates hidden)", `the ${X.primary} register has dates for this car`, `tokef_dt=${top.tokef_dt || ""} mivchan=${top.mivchan_acharon_dt || ""}`);
-    const lc = cardOf(P, "overview", /^רישוי וטסט$/) || {notes: []}, sh = factOf(P, "overview", /^רישוי וטסט$/, "טסט בתוקף עד"), sl = factOf(P, "overview", /^רישוי וטסט$/, "טסט אחרון");
+    // the licence date's label reads "הטסט פג" once the date has passed (index.html licKey, 28.10)
+    const LK = licMine(R.tokef_dt, R.mivchan_acharon_dt, td), lkey = LK && LK.days < 0 ? "הטסט פג" : "טסט בתוקף עד";
+    const lc = cardOf(P, "overview", /^רישוי וטסט$/) || {notes: []}, sh = factOf(P, "overview", /^רישוי וטסט$/, lkey), sl = factOf(P, "overview", /^רישוי וטסט$/, "טסט אחרון");
     const expV = X.noTest || !toD(R.tokef_dt) ? "" : fd(R.tokef_dt), expL = X.noTest || !toD(R.mivchan_acharon_dt) ? "" : fd(R.mivchan_acharon_dt);
     check(c, "test.valid_until", sh === expV, sh, expV || "(not shown)", `tokef_dt=${R.tokef_dt || ""}${X.datesFrom ? " (from " + X.datesFrom + ")" : ""}`);
     check(c, "test.last", sl === expL, sl, expL || "(not shown)", `mivchan_acharon_dt=${R.mivchan_acharon_dt || ""}`);
@@ -569,10 +573,12 @@ function compare(c, X, P) {
     const card = cardOf(P, "overview", /^היסטוריית בעלויות$/), mirror = P.head.ownMirror;
     const road = ym(R.moed_aliya_lakvish) || (isN(R.shnat_yitzur) ? new Date(N(R.shnat_yitzur), 0, 1) : null), floor = !road || road < new Date(2017, 0, 1);
     const hands = own.filter(r => !DEALER.test(r.baalut)), n = hands.length, fo = String(R.mkoriut_nm || "").replace(/"/g, "").trim();
+    // a used personal import's hands are its hands in Israel (index.html ownersLabel, 28.10)
+    const inIL = /משומש/.test(String(R.mkoriut_nm || "") + String(R.sug_yevu || "")) ? " בישראל" : "";
     let exp = "";
     if (!n) exp = own.length && curK === "dealer" ? "אצל סוחר" : "";
-    else if (n === 1) exp = !floor && (!fo || kindOf(fo) === kindOf(hands[0].baalut)) ? "יד ראשונה" : "יד אחת במאגר";
-    else exp = `${floor ? "לפחות " : ""}יד ${ORD[n] || n}`;
+    else if (n === 1) exp = !floor && (!fo || kindOf(fo) === kindOf(hands[0].baalut)) ? "יד ראשונה" + inIL : "יד אחת במאגר";
+    else exp = `${floor ? "לפחות " : ""}יד ${ORD[n] || n}${inIL}`;
     const ev = `log=${own.map(r => `${r.baalut}@${r.baalut_dt}`).join(">")} road=${R.moed_aliya_lakvish || ""} mkoriut=${fo}`;
     if (mirror) NOTES.push(`${c.id}: ownership from the app's mirror (API returned no rows to the app); my API rows=${own.length}`);
     else {
@@ -580,7 +586,7 @@ function compare(c, X, P) {
       check(c, "owners.hands", shown === exp, shown, exp, ev);
       const pill = P.head.pills.find(p => /יד |אצל סוחר/.test(p)) || "";
       check(c, "owners.hands_pill", pill === exp, pill, exp, "");
-      const expTl = own.slice().reverse().map((r, i) => `${fd(r.baalut_dt)} ${sp(r.baalut)}${i === 0 && inLog ? "נוכחי" : ""}`).join(" / ");
+      const expTl = own.slice().reverse().map((r, i) => `${fd(r.baalut_dt)} ${sp(r.baalut)}${i === 0 && inLog ? (cancelled ? "אחרון" : "נוכחי") : ""}`).join(" / ");
       const shTl = card ? card.timeline.map(t => `${t.time} ${t.text}`).join(" / ") : "";
       check(c, "owners.timeline", sp(shTl) === sp(expTl), shTl, expTl, "");
       // months held: to the next transfer's month, the current owner to this month (or to the month the car left the road)
@@ -589,8 +595,10 @@ function compare(c, X, P) {
         return a && b ? spanText(Math.max(0, mon(b) - mon(a))) + (i < own.length - 1 ? "" : cancelled ? ", עד שהרכב ירד מהכביש" : ", עד היום") : ""; }).reverse().join(" / ");
       const shDur = card ? card.timeline.map(t => t.dur).join(" / ") : "";
       if (own.length) check(c, "owners.durations", sp(shDur) === sp(expDur), shDur, expDur, own.map(r => r.baalut_dt).join(">"));
-      if (own.length) check(c, "owners.now_line", (card ? card.ownNow : "") === (inLog ? "" : `בעלות נוכחית: ${sp(R.baalut)}`), card ? card.ownNow : "", inLog ? "(none)" : `בעלות נוכחית: ${sp(R.baalut)}`, `register "${R.baalut || ""}" log last "${last ? last.baalut : ""}"`);
-      if (!own.length && !E(R.baalut)) { const cur = factOf(P, "overview", /^בעלות$/, "בעלות נוכחית"); check(c, "owners.current_no_log", sp(cur) === sp(R.baalut), cur, R.baalut, ""); }
+      // a car off the road names its last owner, not a current one (index.html ownNowKey, 28.10)
+      const nowKey = cancelled ? "בעלות אחרונה" : "בעלות נוכחית";
+      if (own.length) check(c, "owners.now_line", (card ? card.ownNow : "") === (inLog ? "" : `${nowKey}: ${sp(R.baalut)}`), card ? card.ownNow : "", inLog ? "(none)" : `${nowKey}: ${sp(R.baalut)}`, `register "${R.baalut || ""}" log last "${last ? last.baalut : ""}"`);
+      if (!own.length && !E(R.baalut)) { const cur = factOf(P, "overview", /^בעלות$/, nowKey); check(c, "owners.current_no_log", sp(cur) === sp(R.baalut), cur, R.baalut, ""); }
     }
     { const sh = ((cardOf(P, "overview", /^(היסטוריית בעלויות|בעלות)$/) || {}).firstOwn || "").replace(/^בעלות ראשונה: /, ""), ex = /^ביס לנהיגה/.test(fo) ? "בית ספר לנהיגה" : fo;
       check(c, "owners.first_owner", sp(sh) === sp(ex), sh, ex, ""); }

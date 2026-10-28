@@ -1412,6 +1412,8 @@ function licState(tokef, test){
 const licOf = D => !D || !D.v || D.isCancelled || D.kind === "model" || noTestFor(D) ? null : licState(D.v.tokef_dt, D.v.mivchan_acharon_dt);
 // one line for lists (share text, checks, share card, compare): a past date always reads as ended, the lag states as unknown
 const licLine = L => L.k === "ok" ? `טסט בתוקף עד ${L.date}` : L.k === "bad" ? `הטסט פג ב-${L.date}` : L.k === "lag" ? `הטסט פג ב-${L.date} לפי המאגר, ייתכן שכבר חודש` : `נמצא טסט מ-${L.test}, אבל במאגר התוקף לא חודש (פג ב-${L.date})`;
+// the label of the licence date in the facts: once the date has passed it reads as ended, as licLine does (data thread's audit, 28.10)
+const licKey = v => (L => L && L.days < 0 ? "הטסט פג" : "טסט בתוקף עד")(licState(v.tokef_dt, v.mivchan_acharon_dt));
 // the insight and the simple-view banner for a licence that ended; null while it is valid
 const licNote = L => !L || L.k === "ok" ? null : L.k === "bad" ? {level: "bad", title: "הטסט לא בתוקף", text: `לפי מאגר משרד התחבורה, תוקף הטסט פג ב-${L.date}.` + (L.test ? ` במאגר רשום טסט מ-${L.test}, אבל הרישיון לא חודש בו.` : "")}
   : {level: "warn", title: "לא ברור אם הטסט חודש", text: L.k === "lag" ? `לפי מאגר משרד התחבורה, תוקף הטסט פג ב-${L.date}. חידוש שנעשה בימים האחרונים מגיע למאגר באיחור של יום או יומיים.`
@@ -1933,6 +1935,7 @@ function costs(D){
   if (D.importKind) D = {...D, price: null};   // a personal import: IMPORT_NO_PRICE
   const kind = fuelKind(D), plugIn = (driveType(D) || {}).k === "phev";
   const co2 = isNum(D.w.CO2_WLTP) && num(D.w.CO2_WLTP) > 0 ? num(D.w.CO2_WLTP) : isNum(D.w.kamut_CO2) && num(D.w.kamut_CO2) > 0 ? num(D.w.kamut_CO2) : null;
+  c.wltp = !!co2 && isNum(D.w.CO2_WLTP) && num(D.w.CO2_WLTP) > 0;   // else the older kamut_CO2, measured before WLTP: the note does not name WLTP
   const kmYear = D.kmPerYear && D.kmPerYear > 2000 ? D.kmPerYear : AVG_KM_YEAR;
   c.kmYear = kmYear; c.kmFromCar = !!(D.kmPerYear && D.kmPerYear > 2000); c.kind = kind; c.plugIn = plugIn;
   // a plug-in's official CO2 weighs in the distance it drives on electricity (most plug-in rows are under 60 g/km), so litres read from it
@@ -2617,7 +2620,12 @@ function pendingWords(pr){
 }
 /* "no open recall" names how far the per-car list reaches while it lags the recall list (in 10/2026: recalls opened up to 14.4.2026) */
 const perCarTo = () => { const hz = recallHz(catMetaV); return hz.max > hz.id && hz.d ? fmtDate(hz.d) : ""; };
-const noOpenRecall = () => { const d = perCarTo(); return d ? `לא נמצא ריקול פתוח שנפתח עד ${d}` : "לא נמצא ריקול פתוח"; };
+/* where the per-car list is the only recall check: a vehicle with no model code in its register (two-wheelers, heavy vehicles, a car known
+   only from the import register) never had its model's recalls read, and a personal import is not always in an official importer's recall
+   (the insights say both). There the lines say what the list showed, never "נבדק" (data thread's audit, 28.10) */
+const noModelRecalls = D => !!D.v && (empty(D.v.tozeret_cd) || empty(D.v.degem_cd));
+const recallThin = D => noModelRecalls(D) || !!D.importKind;
+const noOpenRecall = thin => { const d = perCarTo(); return thin ? "לא נמצא ריקול פתוח ברשימה לפי מספר רישוי" : d ? `לא נמצא ריקול פתוח שנפתח עד ${d}` : "לא נמצא ריקול פתוח"; };
 /* The list price: the car's own year and trim first, then its trim in the nearest year, then any trim of its year, then the nearest row; the live
    price list and the catalogue read it alike. A price of 0 or none is missing. The row's year and trim go with it (own: the car's own row), so a
    borrowed price says whose it is; the importer is the chosen row's, else the nearest row's. */
@@ -2766,6 +2774,10 @@ const sameCar = (a, b) => sameNum(a, b, "tozeret_cd") && sameNum(a, b, "degem_cd
    1,808 plates in 10/2026, every one the same maker and year) or in the public register (a bus or truck: 36,422) has them and lends them:
    same maker and production year, and a public row only while it is not permanently cancelled. Public has the licence date alone. */
 const LEND_DATES = {import: new Set(["tokef_dt", "mivchan_acharon_dt", "moed_aliya_lakvish"]), public: new Set(["tokef_dt"])};
+/* the same row names what the moto and heavy registers leave out, the vehicle's type and colour: a heavy row has no model code and a public row
+   no chassis number, so sameCar never holds there (a public minibus showed neither, data thread's audit 28.10). Not the trade name: settlements,
+   model counts and service intervals match on it, and a heavy vehicle would borrow a car's */
+const LENT_ID = new Set(["sug_rechev_cd", "sug_rechev_nm", "tzeva_cd", "tzeva_rechev"]);
 const lendsDates = (p, s, a, b) => !!(p.nodates && LEND_DATES[s.key]) && !(s.key === "public" && (pubState(b) || {}).gone) && sameNum(a, b, "tozeret_cd") && sameNum(a, b, "shnat_yitzur");
 /* a cancel row has no reason: the public row of the same cancellation (permanent, same date: all 3,298 public plates in a cancel register) gives it */
 const sameDay = (x, y) => { const a = toDate(x), b = toDate(y); return !!a && !!b && +a === +b; };
@@ -2844,7 +2856,7 @@ async function fetchVehicle(plate, signal, onProgress){
     const r = res[s.key].rows[0];
     if (sameCar(top, r)) fill(r, ID_FIELDS);
     // datesFrom: the register whose row gave the test or licence date (not only the on-road month)
-    if (lendsDates(mains[0], s, top, r)) { lent.add(s.key); if (fill(r, LEND_DATES[s.key]).some(k => k !== "moed_aliya_lakvish")) datesFrom = datesFrom || s.key; }
+    if (lendsDates(mains[0], s, top, r)) { lent.add(s.key); if (fill(r, LEND_DATES[s.key]).some(k => k !== "moed_aliya_lakvish")) datesFrom = datesFrom || s.key; fill(r, LENT_ID); }
     if (lendsReason(mains[0], s, top, r)) fill(r, new Set(["bitul_nm"]));
   }
   if (res.import.rows[0] && empty(v.sug_yevu)) v.sug_yevu = res.import.rows[0].sug_yevu;   // the import kind is the plate's, like the pill (importKind)
@@ -2982,7 +2994,7 @@ function buildInsights(D){
   const lvl = safetyLevel(D);
   if (lvl >= 6) add("ok", "אבזור בטיחות מתקדם", `רמת אבזור בטיחותי ${lvl} מתוך 8, לפי הרשימה העדכנית של משרד התחבורה.`);
   const age = isNum(v.shnat_yitzur) ? now.getFullYear() - num(v.shnat_yitzur) : null;
-  if (age !== null && age >= 15) add("info", `רכב בן ${age}`, "ברכבים ותיקים כדאי לבדוק במיוחד בלמים, מתלים וחלודה.");
+  if (age !== null && age >= 15 && !D.isCancelled) add("info", `רכב בן ${age}`, "ברכבים ותיקים כדאי לבדוק במיוחד בלמים, מתלים וחלודה.");
   const order = {bad:0, warn:1, info:2, ok:3};
   return out.sort((a, b) => order[a.level] - order[b.level]);
 }
@@ -3101,8 +3113,8 @@ function simpleCard(D){
     ["יצרן", D.make], ["דגם", D.model], ["שנת ייצור", v.shnat_yitzur], ["רמת גימור", v.ramat_gimur], ["נתוני הדגם לפי", ownW(D) ? "" : wAt(D)], ["צבע", v.tzeva_rechev],
     ["סוג דלק", pick(v.sug_delek_nm, w.delek_nm)], ["נפח מנוע", cc ? fmtN(cc) + " סמ״ק" : ""], ["כוח", hp && hp.u ? fmtN(hp.v) + " " + hp.u : ""],
     ["הנעה", specDrive(D)], ["תיבת הילוכים", gear], ["מרכב", w.merkav], ["מושבים", specSeats(D)], ["דלתות", posN(w.mispar_dlatot) ? w.mispar_dlatot : ""],
-    ["עלה לכביש", empty(v.moed_aliya_lakvish) ? "" : fmtDate(v.moed_aliya_lakvish)], ["סוג יבוא", D.importKind], ["יבואן", importerOf(D)], ["בעלות נוכחית", v.baalut], ["בעלות ראשונה", firstOwner(v)], ["מספר בעלים", own],
-    ["טסט אחרון", !noTestFor(D) && toDate(v.mivchan_acharon_dt) ? fmtDate(v.mivchan_acharon_dt) : ""], ["טסט בתוקף עד", !noTestFor(D) && toDate(v.tokef_dt) ? fmtDate(v.tokef_dt) : ""], ["ק״מ בטסט האחרון", D.km ? fmtN(D.km) : ""],
+    ["עלה לכביש", empty(v.moed_aliya_lakvish) ? "" : fmtDate(v.moed_aliya_lakvish)], ["סוג יבוא", D.importKind], ["יבואן", importerOf(D)], [ownNowKey(D), v.baalut], ["בעלות ראשונה", firstOwner(v)], ["מספר בעלים", own],
+    ["טסט אחרון", !noTestFor(D) && toDate(v.mivchan_acharon_dt) ? fmtDate(v.mivchan_acharon_dt) : ""], [licKey(v), !noTestFor(D) && toDate(v.tokef_dt) ? fmtDate(v.tokef_dt) : ""], ["ק״מ בטסט האחרון", D.km ? fmtN(D.km) : ""],
     ["ריקולים פתוחים", D.recallUnknown ? "לא זמין כרגע" : D.recalls.length ? String(D.recalls.length) : (d => d ? `לא נמצאו (הרשימה כוללת ריקולים עד ${d})` : "לא נמצאו")(perCarTo())], ["תג נכה", D.tag ? "יש" : "", "", true], ["מספר שלדה", vin, vin],
   ];
   const safety = safetyLevel(D), zihum = firstPos(v.kvutzat_zihum, w.kvutzat_zihum);
@@ -3300,15 +3312,22 @@ function fmtSpan(m){
 }
 /* the "hand": a dealer holding the car for resale is not a hand, so only the other records are counted */
 const handsOf = D => D.own.filter(r => !isDealerRec(r)).length;
+// the register's owner of a car off the road is its last owner, not a current one (data thread's audit, 28.10)
+const ownNowKey = D => D.isCancelled ? "בעלות אחרונה" : "בעלות נוכחית";
 const HAND_ORD = ["", "ראשונה", "שנייה", "שלישית", "רביעית", "חמישית", "שישית", "שביעית", "שמינית", "תשיעית", "עשירית"];
 const isFirstHand = D => { const h = D.own.filter(r => !isDealerRec(r)); return h.length === 1 && !D.ownersFloor && (!firstOwner(D.v) || ownerKind(firstOwner(D.v)).k === ownerKind(h[0].baalut).k); };
 const ownersLabel = D => {
   const n = handsOf(D), dealer = D.own.some(isDealerRec);
   if (!n) return dealer && ownNow(D).kind === "dealer" ? "אצל סוחר" : "";   // not when the register says a dealer no longer holds it
   if (n === 1 && !isFirstHand(D)) return "יד אחת במאגר";   // the log may start after the first owner, or the first owner's type differs
-  return `${D.ownersFloor ? "לפחות " : ""}יד ${HAND_ORD[n] || n}`;
+  // a used personal import had owners abroad before it came: the hands counted here are its hands in Israel (data thread's audit, 28.10)
+  return `${D.ownersFloor ? "לפחות " : ""}יד ${HAND_ORD[n] || n}${usedImport(D.v) ? " בישראל" : ""}`;
 };
 
+/* the technical register's change flags. A vehicle with no row there (two-wheelers and heavy vehicles, for example) was not checked for them,
+   so the lists of checks leave the line out rather than tick "none" (data thread's audit, 28.10) */
+const MOD_KEYS = ["shinui_mivne_ind", "gapam_ind", "shnui_zeva_ind", "shinui_zmig_ind"];
+const modsOf = v => MOD_KEYS.some(k => !empty(v[k])) ? MOD_KEYS.filter(k => yes(v[k])) : null;
 /* What changed since the car left the factory: structure, LPG, colour, tyre size */
 function modsCard(v){
   const items = [["שינוי מבנה", v.shinui_mivne_ind], ["התקנת גפ״מ (גז)", v.gapam_ind], ["שינוי צבע", v.shnui_zeva_ind], ["שינוי מידת צמיגים", v.shinui_zmig_ind]]
@@ -4038,14 +4057,14 @@ function tabOverview(D){
   const noTest = noTestFor(D);
   html.push(card("רישוי וטסט", "doc", "blue", facts([
     !noTest && ["טסט אחרון", e(toDate(v.mivchan_acharon_dt) && fmtDate(v.mivchan_acharon_dt))],
-    !noTest && ["טסט בתוקף עד", e(toDate(v.tokef_dt) && fmtDate(v.tokef_dt))],
+    !noTest && [licKey(v), e(toDate(v.tokef_dt) && fmtDate(v.tokef_dt))],
     ["עלה לכביש", e(v.moed_aliya_lakvish && fmtDate(v.moed_aliya_lakvish))],
     ["רישום ראשון", e(v.rishum_rishon_dt && fmtDate(v.rishum_rishon_dt))],
     D.isCancelled && ["ירד מהכביש", e(v.bitul_dt && fmtDate(v.bitul_dt))],
     D.isCancelled && ["סיבה", e(v.bitul_nm)],
     ["סוג יבוא", e(v.sug_yevu)],
     !D.isCancelled && D.cost && D.cost.fee && ["אגרת רישוי שנתית (הערכה)", unit(D.cost.fee, "₪")],
-  ]) + (!D.isCancelled && D.cost && D.cost.fee ? `<p class="note">האגרה לפי התעריף הרשמי לשנת 2026${new Date() >= new Date(2027, 3, 1) ? ", וייתכן שכבר עודכן מאז" : ""}, בלי הנחות.</p>` : "") + (noTest ? `<p class="note">משרד התחבורה לא מפרסם במאגרים הפתוחים תאריכי טסט ${noTest}.</p>` : D.kind !== "model" && !D.isCancelled && !licOf(D) ? `<p class="note">המאגר של משרד התחבורה לא מראה תאריך תוקף לטסט של הרכב הזה.</p>` : "")
+  ]) + (!D.isCancelled && D.cost && D.cost.fee ? `<p class="note">האגרה לפי התעריף הרשמי לשנת 2026${new Date() >= new Date(2027, 3, 1) ? ", וייתכן שכבר עודכן מאז" : ""}, בלי הנחות.${ownW(D) ? "" : ` היא מחושבת לפי נתוני הדגם של ${esc(rowAt(D.w))}${notOwnWhy(D.w, vOwn(D), "שורה במאגר")}, ולכן ייתכן שלרכב עצמו היא שונה.`}</p>` : "") + (noTest ? `<p class="note">משרד התחבורה לא מפרסם במאגרים הפתוחים תאריכי טסט ${noTest}.</p>` : D.kind !== "model" && !D.isCancelled && !licOf(D) ? `<p class="note">המאגר של משרד התחבורה לא מראה תאריך תוקף לטסט של הרכב הזה.</p>` : "")
     + (calDate(D) && !pushCoversTest(D) ? calendarBtn(D) : "")));
 
   html.push(fileCta(D));
@@ -4055,15 +4074,15 @@ function tabOverview(D){
     // newest first, with how long each owner held the car; "נוכחי" only on the record the register agrees is the current owner
     const cur = ownNow(D), spans = ownSpans(D), n = D.own.length;
     const li = (r, i) => { const isNow = i === n - 1 && cur.inLog, m = spans[i];
-      return `<li${isNow ? ' class="cur"' : ""}><span class="dot"></span><time>${esc(fmtDate(r.baalut_dt))}</time><span>${esc(r.baalut || "")}${isNow ? `<span class="now">נוכחי</span>` : ""}</span>${m === null ? "" : `<small class="dur">${esc(fmtSpan(m) + (i < n - 1 ? "" : D.isCancelled ? ", עד שהרכב ירד מהכביש" : ", עד היום"))}</small>`}</li>`; };
-    const nowLine = cur.inLog ? "" : `<div class="own-now"><b>בעלות נוכחית: ${esc(v.baalut)}</b><span>לפי מאגר הרכבים. ההעברה הזו לא מופיעה בהיסטוריית הבעלויות שלמטה.</span></div>`;
+      return `<li${isNow ? ' class="cur"' : ""}><span class="dot"></span><time>${esc(fmtDate(r.baalut_dt))}</time><span>${esc(r.baalut || "")}${isNow ? `<span class="now">${D.isCancelled ? "אחרון" : "נוכחי"}</span>` : ""}</span>${m === null ? "" : `<small class="dur">${esc(fmtSpan(m) + (i < n - 1 ? "" : D.isCancelled ? ", עד שהרכב ירד מהכביש" : ", עד היום"))}</small>`}</li>`; };
+    const nowLine = cur.inLog ? "" : `<div class="own-now"><b>${ownNowKey(D)}: ${esc(v.baalut)}</b><span>לפי מאגר הרכבים. ההעברה הזו לא מופיעה בהיסטוריית הבעלויות שלמטה.</span></div>`;
     html.push(card("היסטוריית בעלויות", "users", "violet",
       `${foLine}${nowLine}<ol class="timeline">${D.own.map(li).reverse().join("")}</ol>
        <p class="note">${D.own.some(isDealerRec) ? "סוחר שמחזיק את הרכב למכירה לא נספר כיד. " : ""}משך הבעלות מחושב לפי חודש ההעברה בלבד, ולכן הוא מדויק עד כדי חודש. ${D.ownMirror ? "המאגר של המשרד לא החזיר בעלויות כרגע, והרשימה כאן מעותק יומי שלנו, ולכן ייתכן שבעלות שנרשמה היום חסרה. " : ""}${D.ownersFloor ? "יומן הבעלויות מתחיל בינואר 2017, ולכן ברכבים ותיקים יותר ייתכן שהיו בעלים נוספים לפני כן." : ""}</p>`,
       `<span class="count">${ownersLabel(D)}</span>`));
   } else if (!empty(v.baalut)) {
     const ownErr = D.errs && D.errs.some(x => x.key === "owners");
-    html.push(card("בעלות", "users", "violet", foLine + facts([["בעלות נוכחית", e(v.baalut)]]) + (ownErr ? `<p class="note">היסטוריית הבעלויות לא נטענה כרגע ממאגר משרד התחבורה. בדקו שוב בעוד רגע.</p>` : ""), `<span class="count">${e(v.baalut)}</span>`));   // folded: the current owner on the header, as the history card shows its count
+    html.push(card("בעלות", "users", "violet", foLine + facts([[ownNowKey(D), e(v.baalut)]]) + (ownErr ? `<p class="note">היסטוריית הבעלויות לא נטענה כרגע ממאגר משרד התחבורה. בדקו שוב בעוד רגע.</p>` : ""), `<span class="count">${e(v.baalut)}</span>`));   // folded: the current owner on the header, as the history card shows its count
   }
   html.push(card("שינויים ברכב", "wrench", "teal", modsCard(v)));
   html.push(...towHtml);
@@ -4095,18 +4114,20 @@ function checkLine(D, fr){
   if (D.kind === "model" || D.isCancelled || D.recallUnknown) return "";
   const stlOn = !D.importKind && SETTLEMENTS.length, pw = fr.length ? pendingWords(fr) : null, hz = perCarTo();
   const saved = D.fromCache ? fmtDate(new Date(D.fromCache).toISOString()) : "";
-  const state = pw ? "warn" : saved ? "cached" : D.modelRecallsUnknown ? "partial" : "ok";
+  const thin = recallThin(D), state = pw ? "warn" : saved ? "cached" : D.modelRecallsUnknown ? "partial" : thin ? "thin" : "ok";
   const noList = D.modelRecallsUnknown ? [] : modelRecallList(D).filter(r => r.fits !== false && !recallPending(r) && r.reach === "nolist");
   const rows = [], row = (k, t, sub) => rows.push(`<li class="${k}">${ico(k === "ok" ? "check" : "info")}<b>${esc(t)}</b><span>${esc(sub)}</span></li>`);
   if (saved) row("info", `בבדיקה מ-${saved} לא היה ריקול פתוח לרכב הזה`, "משרד התחבורה לא ענה עכשיו, ולכן אי אפשר לדעת אם נפתח ריקול מאז");
   else row("ok", "אין ריקול פתוח לרכב הזה", hz ? `לפי רשימת משרד התחבורה, שכוללת ריקולים שנפתחו עד ${hz}` : "לפי רשימת משרד התחבורה");
+  if (!saved && noModelRecalls(D)) row("info", "ריקולים לדגם לא נבדקו", "במאגר של הרכב הזה אין נתוני דגם, ולכן לא נבדק אם נפתח לדגם ריקול חדש שעוד אין לו פירוט לפי רכב");
+  if (!saved && D.importKind) row("info", "ריקול ביבוא אישי לא תמיד מופיע ברשימה", "רכב ביבוא אישי לא תמיד נכלל בריקולים של היבואן הרשמי. היבואן הרשמי של הדגם או היצרן יכולים לבדוק לפי מספר השלדה");
   if (D.importKind) row("info", "לא נבדק מול הסדרי פשרה", "הרכב יובא ביבוא אישי, וההסדרים חלים על רכבים שיובאו דרך היבואן הרשמי");
   else if (stlOn) row("ok", "לא נמצא הסדר פשרה מוכר לדגם ולשנתון", `נבדק מול ${stlActive()} הסדרים פעילים, לפי הודעות היבואנים והעיתונות (עודכן ב-${stlAsOf()}). הרשימה אינה מקיפה`);
   else row("info", "רשימת הסדרי הפשרה לא נטענה כרגע", "");
   // one calm row for older model recalls the ministry published no car list for: not a warning (most years, a third or more of recalls have none)
   if (noList.length) row("info", noList.length === 1 ? "לריקול אחד לדגם אין רשימת רכבים" : `ל-${noList.length} ריקולים לדגם אין רשימת רכבים`, `ריקול${noList.length === 1 ? "" : "ים"} משנים קודמות שעשוי${noList.length === 1 ? "" : "ים"} לחול על שנת הייצור. משרד התחבורה לא פרסם אילו רכבים נכללו, ולכן אי אפשר לדעת מהמאגר אם הרכב הזה נכלל או תוקן. היבואן יכול לבדוק.`);
   if (D.modelRecallsUnknown) row("info", "רשימת הריקולים לדגם לא נטענה כרגע", "ולכן לא נבדק אם נפתח לדגם ריקול חדש שעוד אין לו פירוט לפי רכב");
-  const title = pw ? pw.title : saved ? `בבדיקה מ-${saved}: לא היה ריקול פתוח` : D.modelRecallsUnknown ? "אין ריקול פתוח ברשימה לפי מספר רישוי" : `נבדק: אין ריקול פתוח${stlOn ? " ואין הסדר פשרה" : ""}`;
+  const title = pw ? pw.title : saved ? `בבדיקה מ-${saved}: לא היה ריקול פתוח` : D.modelRecallsUnknown || thin ? "אין ריקול פתוח ברשימה לפי מספר רישוי" : `נבדק: אין ריקול פתוח${stlOn ? " ואין הסדר פשרה" : ""}`;
   const retry = state === "cached" || state === "partial" ? `<div><button type="button" class="link-btn" data-retry="${esc(D.plate)}">נסו שוב</button></div>` : "";
   return `<details class="ckl${pw ? " warn" : state === "ok" ? "" : " plain"}" data-line="${state}"><summary>${ico(pw ? "alert" : state === "ok" ? "check" : "info")}<b>${title}</b><svg class="i chev" aria-hidden="true"><use href="#i-chev"/></svg></summary><div class="ckl-body">${pw ? `<p>${pw.body}</p><ul class="rlist">${fr.map(r => recRow(D, r, pendPill(r))).join("")}</ul>` : ""}<ul class="ckl-rows">${rows.join("")}</ul>${pw || noList.length ? `<div>${importerBtn(D)}</div>` : ""}${retry}</div></details>`;
 }
@@ -4175,7 +4196,8 @@ function tabRecalls(D){
   return html.join("");
 }
 
-/* the model's estimated consumption, in the unit picked in settings: litres from the official CO2 (WLTP), kWh for an electric car; none for a
+/* the model's estimated consumption, in the unit picked in settings: litres from the official CO2 (WLTP, or for older models the figure
+   measured before it), kWh for an electric car; none for a
    plug-in, whose official figure weighs in its electric driving (PLUGIN_FUEL) */
 const consumption = D => { const c = D.cost || {}; return c.kind === "ev" && c.kwh100 ? `${c.kwh100} קוט״ש ל-100 ק״מ` : c.l100 ? (kmlUnit() ? `${(100 / c.l100).toFixed(1)} ק״מ לליטר` : `${c.l100.toFixed(1)} ל׳ ל-100 ק״מ`) : ""; };
 /* company-car taxable benefit (שווי שימוש): an official formula, so it is shown as is, without "(הערכה)" */
@@ -4198,11 +4220,11 @@ function checksCard(D){
   const off = D.primary && /^inactive/.test(D.primary.key);   // found only in the inactive registers: not "active", as the insights already say
   row(!D.isCancelled && !off && !D.hold, D.isCancelled ? "הרכב ירד מהכביש" : off ? "הרכב רשום כלא פעיל" : D.hold ? D.hold.status : "הרכב פעיל ולא בוטל");
   if (L) row(L.k === "ok", licLine(L));
-  if (D.recallUnknown) row(false, "ריקולים: מידע לא זמין כרגע"); else row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")}` : noOpenRecall());
+  if (D.recallUnknown) row(false, "ריקולים: מידע לא זמין כרגע"); else row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")}` : noOpenRecall(recallThin(D)));
   const pr = pendingRecalls(D); if (pr.length) row(false, pendingWords(pr).line);
   if (D.own.length) row(true, "נבדקה היסטוריית הבעלות");
-  const mods = ["shinui_mivne_ind", "gapam_ind", "shnui_zeva_ind", "shinui_zmig_ind"].filter(k => yes(v[k]));
-  row(!mods.length, mods.length ? "נרשמו שינויים ברכב" : "לא נרשמו שינויי מבנה, גפ״מ או צבע");
+  const mods = modsOf(v);
+  if (mods) row(!mods.length, mods.length ? "נרשמו שינויים ברכב" : "לא נרשמו שינויי מבנה, גפ״מ או צבע");
   // settlements only for a car on the road from the official importer (settlementsFor), and unknown while the list is not in
   if (D.kind !== "model" && !D.isCancelled && !D.importKind) { const stl = settlementsFor(D).length; row(!stl && !!SETTLEMENTS.length, !SETTLEMENTS.length ? "הסדרי פשרה: מידע לא זמין כרגע" : stl ? "ייתכן שהרכב נכלל בהסדר פשרה מול היבואן" : "לא נמצא הסדר פשרה מוכר לדגם ולשנתון"); }
   return card(`מה נבדק (${rows.length} בדיקות)`, "check", "green", `<ul class="insights plain">${rows.join("")}</ul>
@@ -4224,15 +4246,25 @@ function tabBuy(D){
   /* one row per step: its title always shows and its body opens on tap, so the six steps read as a plan on one screen; the next step to do
      opens by itself, and a done step shows a tick instead of its number */
   const next = [1, 2, 3, 4, 5, 6].find(n => !ckDone.includes(n));
+  // step 3 for what the vehicle is: an electric one has no engine to warm up and no exhaust, but a battery and a charging port, a plug-in has
+  // both, and a two-wheeler has no air conditioner (data thread's audit, 28.10)
+  const ev = fuelKind(D) === "ev", moto = !!D.primary && D.primary.key === "moto", plugIn = !ev && (driveType(D) || {}).k === "phev";
+  const port = "בדקו את שקע הטעינה ואת כבל הטעינה שמגיע עם הרכב, ואם אפשר, חברו לטעינה ובדקו שהיא מתחילה.";
+  const meet = ev ? [`הפעילו את הרכב${moto ? "" : " ואת המזגן"}, ובדקו שאין נורות אזהרה בלוח המחוונים, בעיקר של הסוללה ושל מערכת ההנעה.`, port,
+      "השוו את הטווח שמוצג בסוללה מלאה לטווח של הדגם כשהיה חדש, ושאלו אם נבדק מצב הסוללה במרכז שירות."]
+    : [`הניעו את הרכב${moto ? "" : ", הפעילו מזגן"} ותנו לו לעבוד כמה דקות בזמן שאתם בודקים אותו מבחוץ.`, "בדקו בלוח המחוונים שהמנוע מתחמם ושומר על טמפרטורה תקינה.",
+      "חפשו עשן לבן או אפור מהאגזוז, ונזילות מים או שמן תחת המנוע.", ...(plugIn ? [port] : [])];
   const step = (n, title, body) => { const done = ckDone.includes(n); return `<li class="st"><span class="n${done ? " done" : ""}">${done ? ico("check") : n}</span><details class="bstep"${n === next ? " open" : ""}><summary><b>${title}</b></summary><div class="bs-body">${body}<button type="button" class="ck" data-ck="${n}" aria-pressed="${done}">${done ? "בוצע" : "סימון כבוצע"}</button></div></details></li>`; };
-  html.push(card("לפני שקונים", "check", "green",
+  // a car off the road for good cannot be driven: no plan for buying it to drive, which ends with "start driving" (data thread's audit, 28.10)
+  if (D.isCancelled) html.push(card("לפני שקונים", "check", "green", `<p style="margin:0">הרכב ירד מהכביש ואינו יכול לנסוע, ולכן אין כאן שלבים לקניית רכב לנסיעה. אם מציעים לכם אותו כרכב לנסיעה, בררו במשרד הרישוי לפני שמשלמים.</p>`));
+  else html.push(card("לפני שקונים", "check", "green",
     `<p class="bprog" id="bprog">${ckDone.length ? `בוצעו ${ckDone.length} מתוך 6 שלבים` : "סמנו שלבים תוך כדי, והסימון נשמר לרכב הזה"}</p><ol class="bsteps">
      ${step(1, "בבית, לפני שנפגשים", `${lk("https://www.gov.il/he/service/pawn_perusal", "search", `בדיקת שעבוד<span class="lk-x"> ברשם המשכונות</span>`, true)}
        ${lk("https://infocar.co.il/", "search", "בדיקת עבר ביטוחי (מרכז הסליקה של חברות הביטוח)", true)}
        ${lk("https://www.gov.il/apps/police/stolencar/", "search", "בדיקה במאגר הרכבים הגנובים (משטרה)", true)}`)}
      ${step(2, "המוכר והמסמכים", `<ul class="bq"><li>ודאו שמי שמציג את הרכב הוא הבעלים החוקי: שמו ומספר תעודת הזהות שלו מופיעים ברישיון הרכב העדכני. אם הוא מיופה כוח, כדאי לדבר גם עם הבעלים.</li><li>במכירה פרטית, מומלץ להיפגש בבית המוכר ובאור יום.</li><li>בעסקה עם סוחר, בקשו בכתב מסמכי רכישה ואחריות.</li></ul>`)}
-     ${step(3, "בפגישה עם הרכב", `<ul class="bq"><li>הניעו את הרכב, הפעילו מזגן ותנו לו לעבוד כמה דקות בזמן שאתם בודקים אותו מבחוץ.</li><li>בדקו בלוח המחוונים שהמנוע מתחמם ושומר על טמפרטורה תקינה.</li><li>חפשו עשן לבן או אפור מהאגזוז, ונזילות מים או שמן תחת המנוע.</li></ul>`)}
-     ${step(4, "בדיקה במכון", `<div class="insp"><p class="note" style="margin:0 0 6px">מומלץ לבדוק במכון מורשה אחרי שהסכמתם על מחיר עם המוכר, וליידע מראש שתיקונים שיתגלו יקוזזו מהמחיר. סכמו מראש מי משלם על הבדיקה אם יתגלו תקלות קריטיות במנוע, בגיר או בשלדה. מכונים מתוך רשימת המוסכים המורשים של משרד התחבורה:</p>
+     ${step(3, "בפגישה עם הרכב", `<ul class="bq">${meet.map(t => `<li>${t}</li>`).join("")}</ul>`)}
+     ${step(4, "בדיקה במכון", `<div class="insp"><p class="note" style="margin:0 0 6px">מומלץ לבדוק במכון מורשה אחרי שהסכמתם על מחיר עם המוכר, וליידע מראש שתיקונים שיתגלו יקוזזו מהמחיר. סכמו מראש מי משלם על הבדיקה אם יתגלו תקלות קריטיות ${ev ? "בסוללה, במנוע" : "במנוע, בגיר"} או בשלדה. מכונים מתוך רשימת המוסכים המורשים של משרד התחבורה:</p>
        <form class="msearch" data-insp><input id="inspCity" placeholder="עיר, למשל חולון" value="${esc(setting("inspCity", ""))}" aria-label="עיר"><button type="submit" class="go sm" aria-label="חיפוש">${ico("search")}</button></form>
        <div id="inspRes" style="margin-top:10px"></div></div>`)}
      ${step(5, "מה לשקלל במחיר", `<ul class="bq"><li><b>מצבר:</b> לרוב מחליפים אחרי 30 עד 36 חודשים. בדקו את גילו ואם הוא עדיין באחריות.</li><li><b>צמיגים:</b> בדקו מצב וגיל (התאריך מוטבע על הצמיג). בשימוש רגיל הם מחזיקים כ-40 עד 50 אלף ק״מ.</li><li><b>טסט קרוב:</b> חשבו אגרה, עלות טסט, הכנה ויום חופש.</li><li><b>טיפולים:</b> בקשו פירוט מהמוסך ובדקו שהתאריכים והק״מ הגיוניים מול המד. בררו מתי הטיפול הבא ומה עלותו.</li></ul>`)}
@@ -4243,7 +4275,7 @@ function tabBuy(D){
      </ol>
      <button type="button" class="link-btn" data-act="checklistPdf">${ico("doc")}הורדה או הדפסה של רשימת הבדיקות (PDF)</button>`));
   html.push(`<div id="mstat">${msCard(D)}</div>`);
-  html.push(buyService(D));
+  if (!D.isCancelled) html.push(buyService(D));
   if (!entitled) html.push(paid);
   return html.join("");
 }
@@ -4309,7 +4341,7 @@ function tabSpecs(D){
     ["כוח", !pw ? "" : pw.u ? unit(pw.v, pw.u) : e(pw.v)], ["תיבת הילוכים", e(gearbox)],
     ["הנעה", e(specDrive(D))], ["דגם מנוע", mono(v.degem_manoa)],
     ["צריכה (הערכה)", consumption(D)],
-  ]) + (consumption(D) ? `<p class="note">${D.cost.kind === "ev" ? "הערכה לפי נתוני הדגם." : "הערכה לפי נתון הפליטה הרשמי של הדגם (WLTP)."} נסיעה אמיתית צורכת בדרך כלל יותר.</p>` : D.cost && D.cost.plugIn ? `<p class="note">${PLUGIN_FUEL}</p>` : "")));
+  ]) + (consumption(D) ? `<p class="note">${D.cost.kind === "ev" ? "הערכה לפי נתוני הדגם." : `הערכה לפי נתון הפליטה הרשמי של הדגם${D.cost.wltp ? " (WLTP)" : ""}.`} נסיעה אמיתית צורכת בדרך כלל יותר.</p>` : D.cost && D.cost.plugIn ? `<p class="note">${PLUGIN_FUEL}</p>` : "")));
   html.push(card("משקלים וצמיגים", "scale", "slate", facts([
     ["משקל כולל מותר", unitPos(specWeight(D), "ק״ג")], ["משקל עצמי", unitPos(v.mishkal_azmi, "ק״ג")],
     ["כושר העמסה", unitPos(v.mishkal_mitan_harama, "ק״ג")], ["סרנים", posN(v.sranim) ? e(v.sranim) : ""],
@@ -5828,11 +5860,11 @@ async function drawShareCard(D, opt = {}){
   if (D.isCancelled) add("bad", "הרכב ירד מהכביש");
   else {
     if (L) add(L.k === "ok" ? "ok" : L.k === "bad" ? "bad" : "warn", licLine(L));
-    if (D.recallUnknown) add("warn", "מידע על ריקולים לא זמין כרגע, אין להסיק שאין ריקול"); else add(D.recalls.length ? "bad" : "ok", D.recalls.length ? (D.recalls.length === 1 ? "ריקול פתוח אחד" : `${D.recalls.length} ריקולים פתוחים`) : noOpenRecall());
+    if (D.recallUnknown) add("warn", "מידע על ריקולים לא זמין כרגע, אין להסיק שאין ריקול"); else add(D.recalls.length ? "bad" : "ok", D.recalls.length ? (D.recalls.length === 1 ? "ריקול פתוח אחד" : `${D.recalls.length} ריקולים פתוחים`) : noOpenRecall(recallThin(D)));
     const pr = pendingRecalls(D); if (pr.length) add("warn", pendingWords(pr).line);
     if (D.own.length) add("info", ownersLabel(D));
-    const mods = ["shinui_mivne_ind", "gapam_ind", "shnui_zeva_ind", "shinui_zmig_ind"].filter(k => yes(v[k]));
-    add(mods.length ? "warn" : "ok", mods.length ? "נרשמו שינויים ברכב" : "לא נרשמו שינויי מבנה, צבע או גפ״מ");
+    const mods = modsOf(v);
+    if (mods) add(mods.length ? "warn" : "ok", mods.length ? "נרשמו שינויים ברכב" : "לא נרשמו שינויי מבנה, צבע או גפ״מ");
     // as in the buy tab's checks: no line for a model or a personal import (never checked), unknown while the list is not in
     if (D.kind !== "model" && !D.importKind) { const stl = settlementsFor(D).length; add(stl || !SETTLEMENTS.length ? "warn" : "ok", !SETTLEMENTS.length ? "מידע על הסדרי פשרה לא זמין כרגע" : stl ? `ייתכן שהרכב נכלל ב${pl(stl, "הסדר פשרה", "הסדרי פשרה")}` : "לא נמצא הסדר פשרה לדגם ולשנתון"); }
   }
