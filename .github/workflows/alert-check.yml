@@ -67,6 +67,8 @@ jobs:
         run: node .github/scripts/catalog-rules.mjs --selftest
       - name: Claude API helper self-test (no key, no SDK or an API error leaves a bot as it was; a reason never carries the key)
         run: node .github/scripts/claude.mjs --selftest
+      - name: Review themes self-test (tags from a fixed list, inside the encrypted snapshot only; any failure leaves the snapshot untagged)
+        run: node .github/scripts/review-themes.mjs --selftest
       - name: Release guard self-test (day 1, 3 and 7 only, four guardrails, thin data not judged)
         run: node .github/scripts/release-guard.mjs selftest
       - name: Bots board self-test (cron words, Hebrew names of every scheduled bot in bot-names.json and worker.js)
