@@ -1,7 +1,7 @@
 {
  "v": 1,
- "d": "2026-10-28",
- "seed": "20261028",
+ "d": "2026-10-29",
+ "seed": "20261029",
  "cars": 40,
  "sampled": 40,
  "mism": 1,
@@ -66,7 +66,7 @@
   ],
   "message.partial_data": [
    40,
-   0
+   1
   ],
   "mods.gapam_ind": [
    40,
@@ -85,11 +85,11 @@
    0
   ],
   "owners.current_no_log": [
-   27,
+   25,
    0
   ],
   "owners.durations": [
-   9,
+   11,
    0
   ],
   "owners.first_owner": [
@@ -105,7 +105,7 @@
    0
   ],
   "owners.insight_company_now": [
-   9,
+   11,
    0
   ],
   "owners.insight_dealer_now": [
@@ -113,27 +113,27 @@
    0
   ],
   "owners.insight_lease": [
-   9,
+   11,
    0
   ],
   "owners.insight_new_dealer": [
-   9,
-   1
+   11,
+   0
   ],
   "owners.insight_rental": [
-   9,
+   11,
    0
   ],
   "owners.insight_short_lease": [
-   9,
+   11,
    0
   ],
   "owners.insight_was_dealer": [
-   9,
+   11,
    0
   ],
   "owners.now_line": [
-   9,
+   11,
    0
   ],
   "owners.timeline": [
@@ -141,7 +141,7 @@
    0
   ],
   "price.borrowed_note": [
-   30,
+   31,
    0
   ],
   "price.list": [
@@ -153,23 +153,23 @@
    0
   ],
   "recalls.line_honest": [
-   35,
+   34,
    0
   ],
   "recalls.model_count": [
-   33,
+   32,
    0
   ],
   "recalls.model_extra": [
-   33,
+   32,
    0
   ],
   "recalls.model_fits": [
-   10,
+   14,
    0
   ],
   "recalls.model_missing": [
-   32,
+   30,
    0
   ],
   "recalls.open": [
@@ -180,12 +180,8 @@
    40,
    0
   ],
-  "recalls.open_date": [
-   1,
-   0
-  ],
   "recalls.pending_banner": [
-   33,
+   32,
    0
   ],
   "recalls.tab_shown": [
@@ -205,11 +201,11 @@
    0
   ],
   "settlements.import_line": [
-   2,
+   1,
    0
   ],
   "settlements.scope": [
-   5,
+   4,
    0
   ],
   "specs.axles": [
@@ -329,7 +325,7 @@
    0
   ],
   "status.import_type": [
-   2,
+   1,
    0
   ],
   "status.inactive_pill": [
@@ -377,22 +373,22 @@
    0
   ],
   "value.fallback": [
-   10,
+   9,
    0
   ],
   "value.labelled_estimate": [
-   30,
+   31,
    0
   ]
  },
  "list": [
   {
-   "id": "c021",
-   "field": "owners.insight_new_dealer",
-   "shown": "כנראה נמכר כיד 2, 0 ק״מ | היה אצל סוחר | אבזור בטיחות מתקדם",
-   "expected": "(none)",
-   "evidence": "",
-   "car": "ג'אקו סין JAECOO7 2025",
+   "id": "c018",
+   "field": "message.partial_data",
+   "shown": "partial-data message shown",
+   "expected": "(none: every dataset answered my reads)",
+   "evidence": "app errs=import,tag",
+   "car": "איווייס סין U5 2022",
    "from": "active"
   }
  ],
