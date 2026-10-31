@@ -1,0 +1,14 @@
+{
+ "label": "api31-320-f130",
+ "scenarios": [
+  {
+   "id": "320-f130",
+   "zoom": 1.3,
+   "webview": "Chrome/91.0.4472.114",
+   "seconds": 46
+  }
+ ],
+ "sdk": "31",
+ "model": "sdk_gphone64_x86_64",
+ "webview": "Current WebView package (name, version): (com.google.android.webview, 91.0.4472.114)"
+}

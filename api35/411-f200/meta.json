@@ -1,0 +1,14 @@
+{
+ "label": "api35-411-f200",
+ "scenarios": [
+  {
+   "id": "411-f200",
+   "zoom": 2,
+   "webview": "Chrome/124.0.6367.219",
+   "seconds": 43
+  }
+ ],
+ "sdk": "35",
+ "model": "sdk_gphone64_x86_64",
+ "webview": "Current WebView package (name, version): (com.google.android.webview, 124.0.6367.219)"
+}

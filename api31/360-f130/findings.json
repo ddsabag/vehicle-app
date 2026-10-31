@@ -1,0 +1,16 @@
+[
+ {
+  "sev": "warn",
+  "kind": "wrap",
+  "run": "check/many/360-f130/light",
+  "step": "tab-buy",
+  "msg": "label on two lines on car: בדיקת שעבוד ברשם המשכונות"
+ },
+ {
+  "sev": "warn",
+  "kind": "wrap",
+  "run": "check/many/360-f130/light",
+  "step": "tab-file",
+  "msg": "label on two lines on car: בדיקת שעבוד ברשם המשכונות"
+ }
+]

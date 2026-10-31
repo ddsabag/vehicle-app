@@ -1,0 +1,24 @@
+{
+ "label": "api35-320-f130",
+ "scenarios": [
+  {
+   "id": "320-f130",
+   "zoom": 1.3,
+   "webview": "Chrome/124.0.6367.219",
+   "seconds": 95
+  }
+ ],
+ "sdk": "35",
+ "model": "sdk_gphone64_x86_64",
+ "webview": "Current WebView package (name, version): (com.google.android.webview, 124.0.6367.219)",
+ "dialogs": [
+  "com.google.android.apps.nexuslauncher during tour/one/320-f130/dark home"
+ ],
+ "retried": [
+  {
+   "run": "tour/one/320-f130/dark",
+   "why": "com.google.android.apps.nexuslauncher was not responding",
+   "dropped": []
+  }
+ ]
+}

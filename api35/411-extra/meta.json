@@ -1,0 +1,46 @@
+{
+ "label": "api35-411-extra",
+ "scenarios": [
+  {
+   "id": "411-extra",
+   "zoom": 1,
+   "webview": "Chrome/124.0.6367.219",
+   "seconds": 115
+  }
+ ],
+ "sdk": "35",
+ "model": "sdk_gphone64_x86_64",
+ "webview": "Current WebView package (name, version): (com.google.android.webview, 124.0.6367.219)",
+ "keyboard": {
+  "before": 842,
+  "after": 574,
+  "kbClass": true,
+  "pointer": {
+   "coarse": true,
+   "anyCoarse": true,
+   "hoverNone": true,
+   "touchPoints": 5
+  }
+ },
+ "backAtHome": "kept",
+ "autoTheme": [
+  {
+   "phone": "light",
+   "page": "light",
+   "mq": "light"
+  },
+  {
+   "phone": "dark",
+   "page": "dark",
+   "mq": "light"
+  }
+ ],
+ "launchDark": [
+  0.14,
+  0.07,
+  0.07,
+  0.07,
+  0.14,
+  0.14
+ ]
+}
