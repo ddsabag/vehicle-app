@@ -1,0 +1,113 @@
+name: Visual review
+# Claude's second look at the look guardians' screenshots (.github/scripts/visual-review.mjs; owner: product, QA thread; Dudu "לבצע" 28.10,
+# use #3 of the monthly API credit). After each nightly run of App guardian (real app) and UI guardian (browser) on main, the shots that are
+# new or changed since their last verdict go to claude-haiku-5-5, and only what it found goes on to claude-sonnet-5-5, in Message Batches
+# (half price). Report only: a finding never fails a run. The report and the state: branch visual-review-out (app/ and ui/, report.md in
+# each). Red only when the script itself crashes (Failure alert, summary). Off: repo variable VISUAL_REVIEW=off. No secret
+# ANTHROPIC_API_KEY, or no screenshots (a guardian run that stopped early, or artifacts past their 14 days): it skips.
+# A manual run reviews one run of the two guardians (run_id), in a Batch too unless mode is sync; off main the alert router is dry.
+on:
+  workflow_run:
+    workflows: ["App guardian (real app)", "UI guardian (browser)"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "The run of App guardian (real app) or UI guardian (browser) to review (the number in its link)"
+        required: true
+        type: string
+      mode:
+        description: "batch: a Message Batch at half price (minutes, at most 90 per look); sync: four requests at a time, at full price"
+        type: choice
+        options: [batch, sync]
+        default: batch
+permissions:
+  contents: write   # branch visual-review-out, and the alert router's state (branch alert-state)
+  actions: read     # the guardian's run and its screenshots
+concurrency:
+  group: visual-review   # one at a time: the reviews of both guardians write branch visual-review-out
+  cancel-in-progress: false
+jobs:
+  review:
+    # the nightly runs only (not a push to next, a pull request or a manual run of a guardian), from this repository, not cancelled
+    if: ${{ vars.VISUAL_REVIEW != 'off' && (github.event_name == 'workflow_dispatch' || (github.event.workflow_run.event == 'schedule' && github.event.workflow_run.conclusion != 'cancelled' && github.event.workflow_run.head_repository.full_name == github.repository)) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      # which guardian, and the app code it ran (index.html, and android/ for the app): new code judges every shot again, since a changed
+      # word moves too few pixels to count as a changed shot
+      - name: The guardian run
+        id: run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ID: ${{ github.event_name == 'workflow_dispatch' && inputs.run_id || github.event.workflow_run.id }}
+        run: |
+          case "$ID" in ""|*[!0-9]*) echo "::error::run_id is the number of a run"; exit 1 ;; esac
+          for i in 1 2 3 4; do gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ID" > run.json && break; [ $i = 4 ] && exit 1; sleep $((i * 5)); done
+          P=$(jq -r .path run.json); SHA=$(jq -r .head_sha run.json); FROM=$(jq -r .head_repository.full_name run.json); URL=$(jq -r .html_url run.json)
+          case "$P" in
+            .github/workflows/app-guardian.yml*) SRC=app ;;
+            .github/workflows/ui-guardian.yml*) SRC=ui ;;
+            *) echo "::error::run $ID is not a run of App guardian (real app) or UI guardian (browser)"; exit 1 ;;
+          esac
+          [ "$FROM" = "$GITHUB_REPOSITORY" ] || { echo "::error::run $ID is from another repository"; exit 1; }
+          for i in 1 2 3 4; do git fetch -q --depth=1 origin "$SHA" && break; [ $i = 4 ] && exit 1; sleep $((i * 5)); done
+          CODE=$(git rev-parse "$SHA:index.html" | cut -c1-12)
+          [ "$SRC" = ui ] || CODE="$CODE.$(git rev-parse "$SHA:android" | cut -c1-12)"
+          { echo "id=$ID"; echo "source=$SRC"; echo "code=$CODE"; echo "url=$URL"; } >> "$GITHUB_OUTPUT"
+          echo "$SRC screenshots of $URL (${SHA::7}), app code $CODE"
+      - name: Its screenshots
+        uses: actions/download-artifact@v4
+        continue-on-error: true   # none (the guardian stopped before them, or they are past their 14 days): the review skips
+        with:
+          run-id: ${{ steps.run.outputs.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          pattern: ${{ steps.run.outputs.source == 'app' && 'app-real-api*' || 'ui-shots' }}
+          merge-multiple: true
+          path: shots
+      - name: The Claude API SDK (this run only; the app never loads it)
+        continue-on-error: true   # not installed: the review skips, and the router hears ai:shots
+        run: npm install --no-save --no-audit --no-fund "$(node --input-type=module -e 'console.log((await import("./.github/scripts/claude.mjs")).SDK)')"
+      # the state of the last runs; none yet on the very first run. A failed read stops the run here, so a lost connection never starts the
+      # state again from nothing (every shot judged again, and the first night of each finding lost)
+      - name: The last state (branch visual-review-out)
+        run: |
+          mkdir -p vr-out
+          for i in 1 2 3 4; do
+            c=0; git ls-remote --exit-code origin refs/heads/visual-review-out > /dev/null || c=$?
+            [ $c = 0 ] || [ $c = 2 ] && break; [ $i = 4 ] && exit 1; sleep $((i * 5))
+          done
+          if [ $c = 2 ]; then echo "no branch visual-review-out yet: the first run"; exit 0; fi
+          for i in 1 2 3 4; do git fetch -q --depth=1 origin visual-review-out && break; [ $i = 4 ] && exit 1; sleep $((i * 5)); done
+          git archive FETCH_HEAD | tar -x -C vr-out
+      - name: Visual review
+        id: review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          VISUAL_REVIEW: ${{ vars.VISUAL_REVIEW }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY || secrets.BREVO_KEY }}   # the router's email path
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          DRY_RUN: ${{ github.ref_name != 'main' && '1' || '0' }}   # off main the router sends nothing
+          SRC: ${{ steps.run.outputs.source }}
+          CODE: ${{ steps.run.outputs.code }}
+          RUN_URL: ${{ steps.run.outputs.url }}
+          MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'batch' }}
+        run: node .github/scripts/visual-review.mjs --source "$SRC" --shots shots --state "vr-out/$SRC" --code "$CODE" --mode "$MODE" --run "$RUN_URL"
+      - name: Report and state to branch visual-review-out
+        if: ${{ !cancelled() && steps.review.outputs.wrote == '1' }}
+        env:
+          SRC: ${{ steps.run.outputs.source }}
+          RUN_URL: ${{ steps.run.outputs.url }}
+        run: |
+          cd vr-out
+          git init -q -b visual-review-out && git add .
+          git -c user.name="visual-review" -c user.email="visual-review@users.noreply.github.com" commit -q -m "Visual review ($SRC): $RUN_URL"
+          for i in 1 2 3 4; do git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" visual-review-out && exit 0; sleep $((2 ** i)); done
+          exit 1
