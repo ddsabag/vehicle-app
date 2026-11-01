@@ -15,7 +15,7 @@ import path from "node:path";
 import { client, ask, answer, reason, keyTrouble } from "./claude.mjs";
 
 export const MODEL = "claude-sonnet-5-5";
-export const MAX_SEARCHES = 12;
+export const MAX_SEARCHES = 16;   // the first real run (1.11.2026) used up 12 before the last two names
 export const AREAS = ["price", "alerts", "recalls", "ownership", "free_check", "platform", "new_app", "gov", "other"];
 // what was known on the last change of this list (24.10.2026 review, strategy.md); the model reports only what differs from it
 export const KNOWN = [
@@ -36,7 +36,7 @@ export function prompt(since) {
     `You check, once a month, what changed since ${since} in the Israeli apps and services that drivers use to check a car by its licence plate or to get reminders about their car.`,
     `For context, the app this report is for: ${OURS}`,
     "What was known last time:", ...KNOWN.map(k => "- " + k),
-    "Search the web (Hebrew and English queries; Google Play and the App Store count) for: a new Android or iOS version of any of them, new or removed alerts or reminders, recall or ownership-change alerts, a free tier or a price change, a NEW Israeli plate-check or car-reminder app, and anything the Ministry of Transport launched (an app, recall notifications).",
+    "Search in this order, most important first: Ototo, the Ministry of Transport, a NEW Israeli plate-check or car-reminder app, then the rest. Search the web (Hebrew and English queries; Google Play and the App Store count) for: a new Android or iOS version of any of them, new or removed alerts or reminders, recall or ownership-change alerts, a free tier or a price change, a NEW Israeli plate-check or car-reminder app, and anything the Ministry of Transport launched (an app, recall notifications).",
     "Report only real changes after " + since + " that you found on a page you searched. Nothing found means no change: never guess, never repeat what is already known above.",
     "Describe each competitor neutrally, as an alternative people choose between.",
     "Answer with JSON only, no other text:",
@@ -57,6 +57,8 @@ export function seenUrls(contents) {
   }
   return seen;
 }
+// searches used in this conversation: at the cap, the note says what was left unchecked
+export const searches = contents => contents.flat().filter(b => b && b.type === "server_tool_use" && b.name === "web_search").length;
 export function parse(text) {
   const t = String(text || ""), i = t.indexOf("{"), j = t.lastIndexOf("}");
   if (i < 0 || j <= i) return null;
@@ -91,7 +93,7 @@ export async function run({ env = process.env, api, router, log = console.log, n
   const out = env.OUT || "out";
   let prev = null; try { prev = JSON.parse(fs.readFileSync(env.PREV || "", "utf8")); } catch {}
   const since = (prev && prev.ok && prev.when ? new Date(prev.when) : new Date(now - 31 * 864e5)).toISOString().slice(0, 10);
-  const rep = { v: 1, when: now.toISOString(), since, model: MODEL, ok: false, why: "", changed: false, material: false, changes: [], dropped: 0, checked: [], note: "" };
+  const rep = { v: 1, when: now.toISOString(), since, model: MODEL, ok: false, why: "", changed: false, material: false, changes: [], dropped: 0, capped: false, checked: [], note: "" };
   const done = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(path.join(out, "competitors.json"), JSON.stringify(rep, null, 1) + "\n");
     log(rep.ok ? `competitor check ok: ${rep.changes.length} change(s), ${rep.dropped} without a found source dropped` : `competitor check skipped: ${rep.why}`); return rep; };
   if (env.DRY === "1") { rep.why = "dry run"; return done(); }
@@ -110,7 +112,7 @@ export async function run({ env = process.env, api, router, log = console.log, n
   const a = answer(msg), o = msg && msg.stop_reason !== "pause_turn" ? parse(a.text) : null;
   if (!o) { rep.why = a.why || (msg && msg.stop_reason === "pause_turn" ? "still searching after 4 turns" : "no valid JSON"); await tell(router, { why: rep.why, key: false }, env); return done(); }
   const c = check(o, seenUrls(contents));
-  Object.assign(rep, { ok: true, changes: c.changes, dropped: c.dropped.length, checked: c.checked, note: c.note, changed: c.changes.length > 0, material: c.changes.some(x => x.material) });
+  Object.assign(rep, { ok: true, changes: c.changes, dropped: c.dropped.length, checked: c.checked, note: c.note, capped: searches(contents) >= MAX_SEARCHES, changed: c.changes.length > 0, material: c.changes.some(x => x.material) });
   await settle(router);
   return done();
 }
@@ -169,6 +171,10 @@ if (process.argv[1] && process.argv[1].endsWith("competitor-check.mjs")) {
     ok(!r.ok && r.why === "dry run", "dry run: no call");
 
     const lines = []; await run({ env: env(9), api: fake([{ stop_reason: "end_turn", content: [found, json(two)] }]), router, log: l => lines.push(l), now });
+    const many = Array.from({ length: MAX_SEARCHES }, (_, i) => ({ type: "server_tool_use", id: "s" + i, name: "web_search", input: { query: "q" } }));
+    r = await run({ env: env(10), api: fake([{ stop_reason: "end_turn", content: [...many, found, json(two)] }]), router, log: quiet, now });
+    ok(r.ok && r.capped && !(await run({ env: env(11), api: fake([{ stop_reason: "end_turn", content: [found, json(two)] }]), router, log: quiet, now })).capped, "capped: true only when every search was used");
+    ok(/Ototo, the Ministry of Transport/.test(prompt("x")), "the most important names are searched first");
     ok(lines.length === 1 && !/\$|token|usd/i.test(lines[0]), "one log line, no cost or token count");
     ok(prompt("2026-11-01").includes("never guess") && /neutrally/.test(prompt("x")), "the prompt asks for found changes only, described neutrally");
     console.log(bad ? `${bad} failed` : "selftest ok"); process.exit(bad ? 1 : 0);

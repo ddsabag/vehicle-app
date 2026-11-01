@@ -6,9 +6,6 @@ name: Competitor check
 # ai:comp (ai:key when the key or the credit is the cause) goes to the router, and the thread checks by hand as before.
 # Not in failure-alert's re-run list: a run sends a paid request, so a crash is told and never re-run by itself.
 on:
-  push:   # TEMPORARY: one real run from the branch before release; removed before main
-    branches: [strategy/competitor-bot]
-    paths: [".github/workflows/competitor-check.yml"]
   schedule:
     - cron: "23 4 1 * *"   # the 1st, 04:23 UTC (07:23 Israel summer time, 06:23 winter), before the strategy thread reads it
   workflow_dispatch:
