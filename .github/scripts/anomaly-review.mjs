@@ -18,7 +18,7 @@ import { client, ask, answer } from "./claude.mjs";
 // Opus 5.5 with adaptive thinking at effort high (credit package B, Dudu 1.11 21:16 UTC): the one weekly judgement that feeds the CEO file and
 // Dudu; about $0.50 a month. Thinking can't be turned off on Opus 5.5 and its default effort is medium, so effort is set here.
 export const MODEL = "claude-opus-5-5";
-export const PROMPT_V = 2;
+export const PROMPT_V = 3;
 const MAX_TOKENS = 16000;
 export const EFFORT = "high";
 // the parts of the report's analysis the review needs (the long tables of makes, models, tabs and "extra" stay out: cost, and nothing to judge)
@@ -37,9 +37,10 @@ export function system(context) {
   return [
     "You review the weekly analytics report of a small Israeli car-check app (licence plate lookups, website and Android app).",
     "Fixed rules already raised the anomalies in the input. For EACH anomaly decide:",
-    "- \"explained\": a known non-behaviour shift below fully accounts for it (name which in cause);",
+    "- \"explained\": a known non-behaviour shift below accounts for most of it (name which in cause); use it even when a small remainder",
+    "  might exist - a reader acts only on \"real\" and \"check\", so those must be few and specific;",
     "- \"real\": a real change in behaviour or reliability that its owner thread must handle;",
-    "- \"check\": the data cannot tell; say what to check.",
+    "- \"check\": no known shift fits and the data cannot tell; say the one thing to check.",
     "Then look at the KPIs for any move of 30% or more week over week, or a value that contradicts another KPI, that no anomaly covers; add each",
     "as an extra item with level \"yellow\" and verdict \"check\" or \"real\". Never invent numbers: quote only numbers present in the input.",
     "Write title, cause and numbers in plain Hebrew, neutral forms. Keep each field short (one sentence).",
