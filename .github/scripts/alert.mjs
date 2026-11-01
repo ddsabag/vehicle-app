@@ -55,8 +55,10 @@ export const WF_LEVELS = {
   "Settlements": "day", "Data truth": "day", "Social publish": "day",
   "Recall explanations": "summary",   // Claude API use #2 (data): a crash is told quietly; its own API failures go to ai:recalls / ai:key
   "App guardian (real app)": "day", "UI guardian (browser)": "day",   // red = blocking findings on the real app / site (owner: product); at night: quiet, then the morning ring
+  "Visual review": "summary",   // Claude's look at the guardians' screenshots (owner: product): report only, so red is its own crash, never a finding
   "Alert router check": "summary", "ASO check": "summary",   // checks of a push to main: whoever released it fixes it; quiet, then the ledger and the morning triage
-  "Live watch": "summary",   // the /live dashboard's own watch (owner: measurement); its findings alert by themselves (live:*)
+  "Live watch": "summary",
+  "Competitor check": "summary",   // monthly, paid call: a crash is told quietly; the strategy thread checks by hand that month   // the /live dashboard's own watch (owner: measurement); its findings alert by themselves (live:*)
 };
 // a run name "Magazine (data)" takes its workflow's level
 export const wfLevel = name => WF_LEVELS[name] ?? WF_LEVELS[String(name).replace(/ \([^)]*\)$/, "")] ?? "day";
@@ -173,8 +175,10 @@ export const LABELS = {
   // without it; that bot's next good call closes its own key (resolve(["ai:<bot>"]), never the bare "ai", which would close the others').
   // ai:key, level day: the key or the credit is the cause (401, 403, credit balance too low), so Dudu has to act; any bot's good call closes it
   "ai":                  { he: "בוט שנעזר ב-Claude לא הצליח לפנות אליו והמשיך בלעדיו: {ids}", sect: "fail",
-                           ids: { themes: "תיוג הנושאים בביקורות", advisor: "מבחן היועץ הטכני", recalls: "הסברי הריקולים", shots: "עין שנייה על צילומי המסך",
-                                  names: "התאמת שמות הדגמים", mag: "כתבות המגזין", audit: "הביקורת החודשית העמוקה" } },
+                           ids: { themes: "הסיכום השבועי של הביקורות", triage: "ההכנה לבדיקת הבוקר", advisor: "מבחן היועץ הטכני", recalls: "הסברי הריקולים", shots: "עין שנייה על צילומי המסך",
+                                  names: "התאמת שמות הדגמים", mag: "כתבות המגזין", comp: "בדיקת המתחרים החודשית",
+                                  anomalies: "סקירת החריגות בדוח השבועי", stl: "קריאת החדשות על הסדרי הפשרה",
+                                  audit: "הביקורת החודשית העמוקה" } },
   "ai:key":              { he: "מפתח ה-Claude API לא עובד או שהקרדיט נגמר, והבוטים ממשיכים בלעדיו", sect: "fail" },
 };
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
@@ -1035,7 +1039,7 @@ async function selftest() {
       ["truth", "page identity status test road owners km recalls settlements tow specs mods fee price value tag insight counts message"],
       ["truth:inv", "fresh tests renewal dates reuse owners km hook price wltp recalls pubcancel lend"], ["pipe", "web app errors ga"],
       ["truth:deep", "identity status test road owners km recalls settlements tow specs mods fee price value insight message other"],
-      ["ai", "themes advisor recalls shots names mag audit"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
+      ["ai", "themes triage advisor recalls shots names mag comp anomalies stl audit"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
       const he = label(f + ":" + ids.split(" ").join("+")).he.split(/[\s,:]+/);
       ok(!ids.split(" ").some(i => he.includes(i)), `label ${f}: no raw id left`);
     }
@@ -1045,7 +1049,7 @@ async function selftest() {
       "the catalogue's news line is not a to-do");
     ok(label("zonea:fail:2026-10-25").he === "יותר מדי בדיקות רכב נכשלו" && label("zonea:fail+slow:2026-10-25").he === "יותר מדי בדיקות רכב נכשלו או היו איטיות"
       && label("zonea:slow:2026-10-25").sect === "fail" && !/\d/.test(label("zonea:x:2026-10-25").he), "zone A labels: by kind, no raw date");
-    ok(label("ai:themes").he === "בוט שנעזר ב-Claude לא הצליח לפנות אליו והמשיך בלעדיו: תיוג הנושאים בביקורות" && label("ai:themes").sect === "fail"
+    ok(label("ai:themes").he === "בוט שנעזר ב-Claude לא הצליח לפנות אליו והמשיך בלעדיו: הסיכום השבועי של הביקורות" && label("ai:themes").sect === "fail"
       && label("ai:key").he.startsWith("מפתח ה-Claude API") && label("ai:key").sect === "fail" && validKey("ai:key") && validKey("ai:recalls"),
       "Claude API labels: one per bot, the key's own");
     ok(label("truth:deep:owners+km").he === "הביקורת החודשית העמוקה מצאה ממצאים שהבדיקה היומית לא תפסה: בעלויות, ק״מ" && label("truth:deep:km").sect === "fyi"
