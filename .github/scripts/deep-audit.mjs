@@ -123,14 +123,32 @@ export function quoteCheck(f, s) {
   return "";
 }
 
-// the run's period: the 1st's run is the month ("2026-11"); the extra run on the 13th, before the credit renews on the 17th (Dudu 1.11.2026
-// "תשחרר את כל ה5"), is "2026-11-mid", so the workflow's "done already?" check and the summary keep the two apart
-// In 11.2026 only (Dudu 1.11.2026 21:16 UTC: "את הבדיקה של ה800 רכבים נעשה רק במחזור הזה") the 13th and the 14th run twice a day, about 200
-// cars each: four periods of their own ("2026-11-mid-13a" ... "-14b", before 11:00 UTC a, after it b), so none is taken as already done.
-export const BIG = "2026-11";
+// the run's period: the 1st's run is the month ("2026-11"); the extra run on the 18th, before the credit cycle ends on the 20th (Dudu 1.11.2026
+// "תשחרר את כל ה5"; the Console shows the credit expiring on 20.11.2026, Dudu 1.11.2026 22:50 UTC), is "2026-11-mid", so the workflow's
+// "done already?" check and the summary keep the two apart
+// In 11.2026 only (Dudu 1.11.2026 21:16 UTC: "את הבדיקה של ה800 רכבים נעשה רק במחזור הזה") the 18th and the 19th run twice a day, at most 200
+// cars each and as many as the credit left allows (plan()): four periods of their own ("2026-11-mid-18a" ... "-19b", before 11:00 UTC a,
+// after it b), so none is taken as already done.
+export const BIG = "2026-11", BIG_DAYS = [18, 19];
 export const period = now => { const s = now.toISOString(), day = +s.slice(8, 10);
-  if (s.slice(0, 7) === BIG && (day === 13 || day === 14)) return `${BIG}-mid-${day}${+s.slice(11, 13) < 11 ? "a" : "b"}`;
+  if (s.slice(0, 7) === BIG && BIG_DAYS.includes(day)) return `${BIG}-mid-${day}${+s.slice(11, 13) < 11 ? "a" : "b"}`;
   return s.slice(0, 7) + (day >= 10 ? "-mid" : ""); };
+
+// the size of each of the four 11.2026 runs, from the credit really left: remaining() in ai-usage.mjs (ops; the grant Dudu read in the
+// Console on 1.11.2026 22:50 UTC, $71.84 left, expiring 20.11.2026 00:00 UTC, minus what the bots counted since). RESERVE stays for the
+// other bots; the rest is shared by the runs still to come at PER_CAR (about $0.04 a car at medium, measured), 200 a run at most (800 in
+// all). High only when the money clearly covers 200 a run at PER_CAR_HIGH. No readable counter: 100 a run (400 in all). Returns the
+// QUERIES of the run, or "" when nothing is left to spend. It never prints money: the repo is public; the log shows only cars and effort.
+export const RESERVE = 8, PER_CAR = 0.04, PER_CAR_HIGH = 0.08;
+export function plan(d, left) {
+  const m = /^2026-11-mid-(\d\d)([ab])$/.exec(d); if (!m) return null;
+  const runsLeft = (BIG_DAYS[1] - +m[1]) * 2 + (m[2] === "a" ? 2 : 1);
+  const q = cars => cars < MIN_CARS ? "" : `n=${Math.round(cars * 0.75)} rare=${cars - Math.round(cars * 0.75)} max=${cars} minutes=150`;
+  if (typeof left !== "number" || Number.isNaN(left)) return q(100) + " effort=medium";
+  const free = left - RESERVE; if (free <= 0) return "";
+  if (free >= runsLeft * 200 * PER_CAR_HIGH) return q(200) + " effort=high";
+  return (q(Math.min(200, Math.floor(free / PER_CAR / runsLeft))) + " effort=medium").replace(/^ effort=medium$/, "");
+}
 
 export function queries(s) {
   const q = { n: 80, rare: 20, minutes: 140, wait: 180, effort: "medium", max: 120, dry: false }, n = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(+v) || 0));
@@ -275,7 +293,11 @@ export async function run({ env = process.env, api, router, readCars, log = cons
   return done();
 }
 
-if (process.argv[1] && process.argv[1].endsWith("deep-audit.mjs") && !process.argv.includes("--selftest")) {
+if (process.argv[1] && process.argv[1].endsWith("deep-audit.mjs") && process.argv.includes("--plan")) {
+  // the workflow's sizing step for the four 11.2026 runs: prints the QUERIES only (cars and effort), or "skip"
+  const r = await (await import("./ai-usage.mjs")).remaining(), p = plan(period(new Date()), r && typeof r.left === "number" ? r.left : NaN);
+  console.log(p === null ? "" : p || "skip");
+} else if (process.argv[1] && process.argv[1].endsWith("deep-audit.mjs") && !process.argv.includes("--selftest")) {
   try { await run(); } catch (e) { console.log("deep audit skipped: crash: " + String((e && e.message) || e).slice(0, 160)); }   // never red over this bot
 }
 
@@ -312,8 +334,16 @@ if (process.argv[1] && process.argv[1].endsWith("deep-audit.mjs") && process.arg
   const dc = crypto.createDecipheriv("aes-256-gcm", k, Buffer.from(e.iv, "base64")); dc.setAuthTag(Buffer.from(e.tag, "base64"));
   ok(JSON.parse(Buffer.concat([dc.update(Buffer.from(e.data, "base64")), dc.final()]).toString("utf8")).a === "טויוטה" && !e.data.includes("טויוטה"), "encrypted with the public key (the shape seo-key/decrypt.mjs reads)");
   ok(period(new Date("2026-11-01T05:17:00Z")) === "2026-11" && period(new Date("2026-11-03T05:17:00Z")) === "2026-11" && period(new Date("2026-12-13T05:17:00Z")) === "2026-12-mid" && period(new Date("2026-12-14T23:00:00Z")) === "2026-12-mid", "period: the 1st-3rd are the month, the 13th-14th the extra run");
-  ok(period(new Date("2026-11-13T05:17:00Z")) === "2026-11-mid-13a" && period(new Date("2026-11-13T11:17:00Z")) === "2026-11-mid-13b" && period(new Date("2026-11-14T05:17:00Z")) === "2026-11-mid-14a"
-    && period(new Date("2026-11-14T16:00:00Z")) === "2026-11-mid-14b" && period(new Date("2026-12-13T11:17:00Z")) === "2026-12-mid" && period(new Date("2026-11-15T05:17:00Z")) === "2026-11-mid", "period: 11.2026 only, four runs of their own on the 13th and the 14th");
+  ok(period(new Date("2026-11-18T05:17:00Z")) === "2026-11-mid-18a" && period(new Date("2026-11-18T11:17:00Z")) === "2026-11-mid-18b" && period(new Date("2026-11-19T05:17:00Z")) === "2026-11-mid-19a"
+    && period(new Date("2026-11-19T16:00:00Z")) === "2026-11-mid-19b" && period(new Date("2026-12-18T11:17:00Z")) === "2026-12-mid" && period(new Date("2026-11-13T05:17:00Z")) === "2026-11-mid", "period: 11.2026 only, four runs of their own on the 18th and the 19th");
+  ok(plan("2026-12-mid", 0) === null && plan("2026-11", 0) === null, "plan: only the four 11.2026 runs are sized");
+  ok(plan("2026-11-mid-18a", NaN) === "n=75 rare=25 max=100 minutes=150 effort=medium", "plan: no readable counter = 100 a run (400 in all)");
+  ok(plan("2026-11-mid-18a", 71.84) === "n=150 rare=50 max=200 minutes=150 effort=medium" && plan("2026-11-mid-18b", 61.84) === "n=150 rare=50 max=200 minutes=150 effort=high", "plan: 200 a run at medium; high only when the money clearly covers it");
+  ok(plan("2026-11-mid-18a", 31.84) === "n=112 rare=37 max=149 minutes=150 effort=medium", "plan: less money, fewer cars at medium, shared by the 4 runs left");
+  ok(plan("2026-11-mid-19b", 21.84) === "n=150 rare=50 max=200 minutes=150 effort=medium" && plan("2026-11-mid-19b", 11.84) === "n=72 rare=24 max=96 minutes=150 effort=medium", "plan: the last run takes what is left, 200 at most");
+  ok(plan("2026-11-mid-19a", 8.34) === "" && plan("2026-11-mid-19a", 1.84) === "", "plan: nothing left above the reserve = no run");
+  ok(plan("2026-11-mid-18a", -3) === "", "plan: an overspent counter = no run, never the 100-car fallback");
+  ok(plan("2026-11-mid-18b", 71.84).includes("max=200") && !/\$|usd/i.test(plan("2026-11-mid-18a", 41.84)), "plan: never more than 200 a run, never money");
   ok(JSON.stringify(queries("n=500 minutes=3 effort=max dry=1 bogus=2")) === JSON.stringify({ n: 150, rare: 20, minutes: 5, wait: 180, effort: "medium", max: 120, dry: true }), "queries: clamped, unknown dropped");
   // whole runs: a fake audit writes the cars, a fake API answers by car
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "da-")), cars = n => async (q, dir) => { const d = path.join(dir, "cars"); fs.mkdirSync(d, { recursive: true });
