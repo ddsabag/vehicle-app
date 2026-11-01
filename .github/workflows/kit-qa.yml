@@ -5,9 +5,6 @@ name: Kit visual QA
 # The kit run starts it by hand right after it queues a kit (input kit); the schedule is the fallback for a kit no run has looked at.
 # Off: repo variable KIT_QA=off. No secret ANTHROPIC_API_KEY or no kit: it skips. Red only when the script itself crashes.
 on:
-  push:   # TEMPORARY: the branch test run; removed before the release
-    branches: [marketing/kit-bots]
-    paths: [.github/scripts/kit-qa.mjs, .github/workflows/kit-qa.yml]
   schedule:
     - cron: "40 13 * * 4"   # Thursday afternoon, after the kit run queued the week's kit
   workflow_dispatch:
