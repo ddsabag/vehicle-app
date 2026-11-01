@@ -58,6 +58,7 @@ export const WF_LEVELS = {
   "Visual review": "summary",   // Claude's look at the guardians' screenshots (owner: product): report only, so red is its own crash, never a finding
   "Alert router check": "summary", "ASO check": "summary",   // checks of a push to main: whoever released it fixes it; quiet, then the ledger and the morning triage
   "Live watch": "summary",
+  "Kit draft": "summary", "Kit visual QA": "summary",   // Claude API packages A5 and B (owner: marketing): drafts and reports only, so red is their own crash
   "Competitor check": "summary",   // monthly, paid call: a crash is told quietly; the strategy thread checks by hand that month   // the /live dashboard's own watch (owner: measurement); its findings alert by themselves (live:*)
 };
 // a run name "Magazine (data)" takes its workflow's level
@@ -90,7 +91,8 @@ export const LABELS = {
   "seo:index":           { he: "גוגל הוציא דפים מהאינדקס", sect: "fail" },   // index-guard.mjs via seo-data.mjs (SEO data snapshot)
   "seo":                 { he: "דוח SEO יומי", sect: "none" },
   "mention":             { he: "אזכור חדש של לוחית ברשת", sect: "fyi" },
-  "comp":                { he: "בדיקת המתחרים החודשית מצאה שינוי אצל אפליקציה או שירות דומים", sect: "fyi" },   // competitor-check.mjs, key comp:<YYYY-MM>
+  "comp":                { he: "בדיקת המתחרים החודשית מצאה שינוי אצל אפליקציה או שירות דומים", sect: "fyi" },
+  "comp:needs":          { he: "מה משתמשים מבקשים מאפליקציות דומות החודש", sect: "fyi" },   // competitor-check.mjs, key comp:needs:<YYYY-MM>   // competitor-check.mjs, key comp:<YYYY-MM>
   "seo-auto:blocked":    { he: "שינוי SEO מחכה לאישור שלך ({id})", sect: "wait" },
   "seo-auto:notice":     { he: "שינוי SEO יעלה לאתר בעוד 24 שעות ({id})", sect: "none" },
   "seo-auto":            { he: "שינוי SEO ({id})", sect: "none" },
@@ -180,7 +182,8 @@ export const LABELS = {
                                   names: "התאמת שמות הדגמים", mag: "כתבות המגזין", comp: "בדיקת המתחרים החודשית",
                                   anomalies: "סקירת החריגות בדוח השבועי", stl: "קריאת החדשות על הסדרי הפשרה",
                                   audit: "הביקורת החודשית העמוקה", cause: "שורת הסיבה בהתראת כשל", mail: "טיוטות התשובה למיילים",
-                                  noise: "הסקירה השבועית של ההתראות", "ceo-read": "הקריאה השנייה של המדדים השבועיים" } },
+                                  noise: "הסקירה השבועית של ההתראות", "ceo-read": "הקריאה השנייה של המדדים השבועיים",
+                                  kitdraft: "טיוטת ערכת התוכן השבועית", kitqa: "הבדיקה הוויזואלית של ערכת התוכן" } },
   "ai:key":              { he: "מפתח ה-Claude API לא עובד או שהקרדיט נגמר, והבוטים ממשיכים בלעדיו", sect: "fail" },
   // ai-usage.mjs (ops 1.11): the bots' spend crossed 80% of the monthly cap in this credit cycle (renews on the 17th); news, not a fault
   "ai:spend":            { he: "הבוטים השתמשו ב-80% מקרדיט ה-Claude API של החודש", sect: "fyi" },
@@ -188,7 +191,7 @@ export const LABELS = {
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
 export const FAMILIES_IN_USE = [
   "wf", "smoke", "expiry", "infra", "infra-branches", "guard:core", "guard:break", "guard:warn", "ministry", "checker:data-health",
-  "review", "review3", "vitals", "reviews:error", "seo:daily", "seo:nodata", "seo:error", "seo:index", "mention", "comp",
+  "review", "review3", "vitals", "reviews:error", "seo:daily", "seo:nodata", "seo:error", "seo:index", "mention", "comp", "comp:needs",
   "seo-auto:blocked", "seo-auto:wait", "seo-auto:notice", "seo-auto:done", "catalog", "catalog:info", "recalls", "recalls:info", "mag:pub", "mag:fail",
   "webwatch:rollback", "webwatch:rollback-failed", "meta:uptime", "weekly:missing", "workers:refused", "workers:rollback", "workers:failed", "workers:forced",
   "ship:done", "ship:notes", "ship:fail", "ship:dry", "listing:done", "listing:dry", "listing:fail",
@@ -1043,7 +1046,7 @@ async function selftest() {
       ["truth", "page identity status test road owners km recalls settlements tow specs mods fee price value tag insight counts message"],
       ["truth:inv", "fresh tests renewal dates reuse owners km hook price wltp recalls pubcancel lend"], ["pipe", "web app errors ga"],
       ["truth:deep", "identity status test road owners km recalls settlements tow specs mods fee price value insight message other"],
-      ["ai", "themes triage advisor recalls shots names mag comp anomalies stl audit cause mail noise ceo-read"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
+      ["ai", "themes triage advisor recalls shots names mag comp anomalies stl audit cause mail noise ceo-read kitdraft kitqa"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
       const he = label(f + ":" + ids.split(" ").join("+")).he.split(/[\s,:]+/);
       ok(!ids.split(" ").some(i => he.includes(i)), `label ${f}: no raw id left`);
     }

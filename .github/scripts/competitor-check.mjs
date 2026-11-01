@@ -17,7 +17,7 @@ import path from "node:path";
 import { client, ask, answer, reason, keyTrouble } from "./claude.mjs";
 
 export const MODEL = "claude-sonnet-5-5";
-export const MAX_SEARCHES = 16;   // the first real run (1.11.2026) used up 12 before the last two names
+export const MAX_SEARCHES = 24;   // runs of 1.11.2026 used up 12, then 16, before Ototo and the ministry were done
 export const AREAS = ["price", "alerts", "recalls", "ownership", "free_check", "platform", "new_app", "gov", "other"];
 // what was known on the last change of this list (24.10.2026 review, strategy.md); the model reports only what differs from it
 export const KNOWN = [
@@ -38,7 +38,7 @@ export function prompt(since) {
     `You check, once a month, what changed since ${since} in the Israeli apps and services that drivers use to check a car by its licence plate or to get reminders about their car.`,
     `For context, the app this report is for: ${OURS}`,
     "What was known last time:", ...KNOWN.map(k => "- " + k),
-    "Search in this order, most important first: Ototo, the Ministry of Transport, a NEW Israeli plate-check or car-reminder app, then the rest. Search the web (Hebrew and English queries; Google Play and the App Store count) for: a new Android or iOS version of any of them, new or removed alerts or reminders, recall or ownership-change alerts, a free tier or a price change, a NEW Israeli plate-check or car-reminder app, and anything the Ministry of Transport launched (an app, recall notifications).",
+    "Search in this order and finish each before the next: Ototo (two searches at most), the Ministry of Transport (two at most), a NEW Israeli plate-check or car-reminder app (three at most), then the rest. Search the web (Hebrew and English queries; Google Play and the App Store count) for: a new Android or iOS version of any of them, new or removed alerts or reminders, recall or ownership-change alerts, a free tier or a price change, a NEW Israeli plate-check or car-reminder app, and anything the Ministry of Transport launched (an app, recall notifications).",
     "Report only real changes after " + since + " that you found on a page you searched. Nothing found means no change: never guess, never repeat what is already known above.",
     "Describe each competitor neutrally, as an alternative people choose between.",
     "Answer with JSON only, no other text:",
@@ -61,10 +61,10 @@ export function seenUrls(contents) {
 }
 // searches used in this conversation: at the cap, the note says what was left unchecked
 export const searches = contents => contents.flat().filter(b => b && b.type === "server_tool_use" && b.name === "web_search").length;
-export function parse(text) {
+export function parse(text, any) {
   const t = String(text || ""), i = t.indexOf("{"), j = t.lastIndexOf("}");
   if (i < 0 || j <= i) return null;
-  try { const o = JSON.parse(t.slice(i, j + 1)); return o && Array.isArray(o.changes) ? o : null; } catch { return null; }
+  try { const o = JSON.parse(t.slice(i, j + 1)); return o && (any || Array.isArray(o.changes)) ? o : null; } catch { return null; }
 }
 export function check(o, seen) {
   const keep = [], dropped = [];
@@ -103,32 +103,75 @@ async function announce(router, rep, env) {
   try { await router.alert(rep.material ? "day" : "summary", "comp:" + rep.when.slice(0, 7), changeText(rep), rep.changes.map(c => c.url).slice(0, 3), { today: rep.material ? "loud" : "silent", legacy: () => false }); } catch { /* the branch file still has it */ }
 }
 
-export async function run({ env = process.env, api, router, log = console.log, now = new Date() } = {}) {
-  const out = env.OUT || "out";
-  let prev = null; try { prev = JSON.parse(fs.readFileSync(env.PREV || "", "utf8")); } catch {}
-  const since = (prev && prev.ok && prev.when ? new Date(prev.when) : new Date(now - 31 * 864e5)).toISOString().slice(0, 10);
-  const rep = { v: 1, when: now.toISOString(), since, model: MODEL, ok: false, why: "", changed: false, material: false, changes: [], dropped: 0, capped: false, checked: [], note: "" };
-  const done = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(path.join(out, "competitors.json"), JSON.stringify(rep, null, 1) + "\n");
-    log(rep.ok ? `competitor check ok: ${rep.changes.length} change(s), ${rep.dropped} without a found source dropped` : `competitor check skipped: ${rep.why}`); return rep; };
-  if (env.DRY === "1") { rep.why = "dry run"; return done(); }
-  if (router === undefined) router = await import("./alert.mjs").catch(() => null);
-  if (api === undefined) { const c = await client(env, { timeout: 8 * 60000 }); api = c.api; if (!api) { rep.why = c.why; if (!/ANTHROPIC_API_KEY/.test(c.why)) await tell(router, { why: c.why, key: false }, env); return done(); } }
-  const params = { model: MODEL, max_tokens: 6000, tools: [{ type: "web_search_20260209", name: "web_search", max_uses: MAX_SEARCHES }], messages: [{ role: "user", content: prompt(since) }] };
-  const contents = [];
-  let msg = null;
-  for (let turn = 0; turn < 4; turn++) {   // a long server-tool turn stops at pause_turn: send it back as it is and the server goes on
+// one conversation with the server web search: a paused turn goes back as it is (no extra user message), up to 4 turns
+async function converse(api, content, maxUses = MAX_SEARCHES) {
+  const params = { model: MODEL, max_tokens: 6000, tools: [{ type: "web_search_20260209", name: "web_search", max_uses: maxUses }], messages: [{ role: "user", content }] };
+  const contents = []; let msg = null;
+  for (let turn = 0; turn < 4; turn++) {
     const r = await ask(api, params);
-    if (r.error) { rep.why = r.error.why; await tell(router, r.error, env); return done(); }
+    if (r.error) return { error: r.error };
     msg = r.msg; contents.push(msg.content);
     if (msg.stop_reason !== "pause_turn") break;
     params.messages = [...params.messages, { role: "assistant", content: msg.content }];
   }
-  const a = answer(msg), o = msg && msg.stop_reason !== "pause_turn" ? parse(a.text) : null;
-  if (!o) { rep.why = a.why || (msg && msg.stop_reason === "pause_turn" ? "still searching after 4 turns" : "no valid JSON"); await tell(router, { why: rep.why, key: false }, env); return done(); }
-  const c = check(o, seenUrls(contents));
-  Object.assign(rep, { ok: true, changes: c.changes, dropped: c.dropped.length, checked: c.checked, note: c.note, capped: searches(contents) >= MAX_SEARCHES, changed: c.changes.length > 0, material: c.changes.some(x => x.material) });
+  if (msg.stop_reason === "pause_turn") return { contents, json: null, why: "still searching after 4 turns" };
+  const a = answer(msg);
+  return { contents, json: parse(a.text, "any"), why: a.why };
+}
+
+export const NEEDS_SEARCHES = 12;
+export function needsPrompt(since) {
+  return [
+    "You collect, once a month, what Israeli drivers say they miss or like in the apps and services they use to check a car by its licence plate or to get reminders about their car: " + KNOWN.map(k => k.split(":")[0].split(" (")[0]).join(", ") + ", and similar.",
+    `Look for user reviews (Google Play, the App Store), forum threads and comments (in Hebrew or English), preferably from after ${since}, older if there is nothing newer.`,
+    `For context, the app this is for: ${OURS}`,
+    "Report up to 8 NEEDS, each one a thing users want that is missing, broken or hard (or a thing they clearly value), written as the need, not as a complaint about a company. Describe every app neutrally: they are alternatives people choose between. No names of reviewers, no quotes longer than a few words.",
+    "Each need must come from a page you searched; give that page. Nothing found means an empty list: never guess.",
+    'Answer with JSON only, no other text: {"needs":[{"need":"one Hebrew sentence","about":"the app or service","url":"https://the page","how_many":"one|few|many","we_have":true}],"note":"one Hebrew sentence"}',
+    "we_have = לוחית already covers this need.",
+  ].join("\n");
+}
+export function checkNeeds(o, seen) {
+  const needs = [], dropped = [];
+  for (const n of o.needs.slice(0, 12)) {
+    const x = { need: clean(n.need, 240), about: clean(n.about, 60), url: String(n.url || ""), how_many: ["one", "few", "many"].includes(n.how_many) ? n.how_many : "one", we_have: n.we_have === true };
+    if (!x.need || !/^https:\/\//.test(x.url) || !seen.has(norm(x.url))) dropped.push(x.about || "?"); else needs.push(x);
+  }
+  return { needs: needs.slice(0, 8), dropped: dropped.length };
+}
+export function needsText(rep) {
+  const lines = rep.needs.map(n => `• ${esc(n.need)} (${esc(n.about)}${n.how_many === "many" ? ", הרבה משתמשים" : n.how_many === "few" ? ", כמה משתמשים" : ""}${n.we_have ? ", כבר קיים בלוחית" : ""})\n${esc(n.url)}`);
+  return ["<b>🔎 לידיעה · שיווק</b>", "מה משתמשים מבקשים מאפליקציות דומות החודש (מתוך ביקורות ופורומים):", ...lines, "👌 לא צריך לעשות כלום. זה חומר לבחירת מה בונים אחרי ההקפאה."].join("\n");
+}
+async function announceNeeds(router, rep) {
+  if (!router || !rep.needs_ok || !rep.needs.length) return;
+  try { await router.alert("summary", "comp:needs:" + rep.when.slice(0, 7), needsText(rep), rep.needs.map(n => n.url).slice(0, 3), { today: "silent", legacy: () => false }); } catch { /* the branch file still has it */ }
+}
+
+export async function run({ env = process.env, api, router, log = console.log, now = new Date() } = {}) {
+  const out = env.OUT || "out";
+  let prev = null; try { prev = JSON.parse(fs.readFileSync(env.PREV || "", "utf8")); } catch {}
+  const since = (prev && prev.ok && prev.when ? new Date(prev.when) : new Date(now - 31 * 864e5)).toISOString().slice(0, 10);
+  const rep = { v: 1, when: now.toISOString(), since, model: MODEL, ok: false, why: "", changed: false, material: false, changes: [], dropped: 0, capped: false, checked: [], note: "", needs_ok: false, needs_why: "", needs: [], needs_dropped: 0 };
+  const done = () => { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(path.join(out, "competitors.json"), JSON.stringify(rep, null, 1) + "\n");
+    log(rep.ok ? `competitor check ok: ${rep.changes.length} change(s), ${rep.dropped} without a found source dropped; needs ${rep.needs_ok ? rep.needs.length + " kept, " + rep.needs_dropped + " dropped" : "skipped: " + rep.needs_why}` : `competitor check skipped: ${rep.why}`); return rep; };
+  if (env.DRY === "1") { rep.why = "dry run"; return done(); }
+  if (router === undefined) router = await import("./alert.mjs").catch(() => null);
+  if (api === undefined) { const c = await client(env, { timeout: 8 * 60000 }); api = c.api; if (!api) { rep.why = c.why; if (!/ANTHROPIC_API_KEY/.test(c.why)) await tell(router, { why: c.why, key: false }, env); return done(); } }
+  const first = await converse(api, prompt(since));
+  if (first.error) { rep.why = first.error.why; await tell(router, first.error, env); return done(); }
+  const o = first.json;
+  if (!o || !Array.isArray(o.changes)) { rep.why = first.why || "no valid JSON"; await tell(router, { why: rep.why, key: false }, env); return done(); }
+  const c = check(o, seenUrls(first.contents));
+  Object.assign(rep, { ok: true, changes: c.changes, dropped: c.dropped.length, checked: c.checked, note: c.note, capped: searches(first.contents) >= MAX_SEARCHES, changed: c.changes.length > 0, material: c.changes.some(x => x.material) });
+  // package B (Dudu 1.11 21:16): what people say they miss in the alternatives, from reviews and forums, each need with its source
+  const second = await converse(api, needsPrompt(since), NEEDS_SEARCHES);
+  if (second.error) { rep.needs_why = second.error.why; if (second.error.key) await tell(router, second.error, env); }
+  else if (!second.json || !Array.isArray(second.json.needs)) rep.needs_why = second.why || "no valid JSON";
+  else { const n = checkNeeds(second.json, seenUrls(second.contents)); Object.assign(rep, { needs_ok: true, needs: n.needs, needs_dropped: n.dropped }); }
   await settle(router);
   await announce(router, rep, env);
+  await announceNeeds(router, rep);
   return done();
 }
 
@@ -144,7 +187,8 @@ if (process.argv[1] && process.argv[1].endsWith("competitor-check.mjs")) {
     const two = { changes: [
       { who: "Ototo", what: "יצאה גרסה לאנדרואיד עם תזכורות טסט", url: "https://play.google.com/store/apps/details?id=x.ototo", area: "platform", material: true },
       { who: "Other", what: "something not on a searched page", url: "https://example.com/made-up", area: "price", material: true }], checked: ["Ototo", "Autoboom"], note: "בדיקה" };
-    const fake = (replies, sent = []) => ({ messages: { create: async p => { sent.push(JSON.parse(JSON.stringify(p))); const r = replies.shift(); if (r instanceof Error) throw r; return r; } } });
+    const NONE = { stop_reason: "end_turn", content: [{ type: "text", text: '{"needs":[]}' }] };   // the needs call, when a test gives no reply for it
+    const fake = (replies, sent = []) => ({ messages: { create: async p => { sent.push(JSON.parse(JSON.stringify(p))); const r = replies.length ? replies.shift() : NONE; if (r instanceof Error) throw r; return r; } } });
     const calls = [], router = { alert: async (lv, key) => { calls.push(["alert", lv, key]); return { delivered: true }; }, resolve: async p => { calls.push(["resolve", p[0]]); return 0; } };
     const env = n => ({ OUT: path.join(tmp, String(n)) });
 
@@ -162,7 +206,7 @@ if (process.argv[1] && process.argv[1].endsWith("competitor-check.mjs")) {
     sent = []; calls.length = 0;
     r = await run({ env: { ...env(2), PREV: path.join(tmp, "prev.json") }, api: fake([{ stop_reason: "pause_turn", content: [found] }, { stop_reason: "end_turn", content: [json({ changes: [], checked: ["Ototo"], note: "אין שינוי" })] }], sent), router, log: quiet, now });
     ok(!calls.some(c => c[0] === "alert"), "no change: no message");
-    ok(r.ok && !r.changed && !r.material && sent.length === 2 && sent[1].messages.at(-1).role === "assistant" && sent[1].messages.length === 2, "pause_turn: the paused turn goes back as it is, no extra user message; no change = changed false");
+    ok(r.ok && !r.changed && !r.material && sent.length === 3 && sent[1].messages.at(-1).role === "assistant" && sent[1].messages.length === 2, "pause_turn: the paused turn goes back as it is, no extra user message; no change = changed false");
     ok(/2026-11-01/.test(sent[0].messages[0].content), "since the last good run");
 
     const citeOnly = { stop_reason: "end_turn", content: [{ type: "text", text: "", citations: [{ url: "https://www.gov.il/he/departments/news/recalls-app/" }] }, json({ changes: [{ who: "משרד התחבורה", what: "<b>אפליקציה</b> חדשה להתראות ריקול", url: "https://gov.il/he/departments/news/recalls-app", area: "nope", material: true }] })] };
@@ -192,11 +236,27 @@ if (process.argv[1] && process.argv[1].endsWith("competitor-check.mjs")) {
     r = await run({ env: { ...env(8), DRY: "1" }, router, log: quiet, now });
     ok(!r.ok && r.why === "dry run", "dry run: no call");
 
+    // package B: needs from reviews, each with a page the search returned
+    { const page = { type: "web_search_tool_result", tool_use_id: "s9", content: [{ type: "web_search_result", url: "https://apps.apple.com/il/app/x/id1", title: "x" }] };
+      const needs = { needs: [{ need: "תזכורת לטסט גם לרכב שני", about: "Ototo", url: "https://apps.apple.com/il/app/x/id1", how_many: "few", we_have: true },
+        { need: "something without a page", about: "Y", url: "https://example.com/z", how_many: "many" }], note: "" };
+      const sent2 = []; calls.length = 0;
+      r = await run({ env: env(20), api: fake([{ stop_reason: "end_turn", content: [found, json({ changes: [] })] }, { stop_reason: "end_turn", content: [page, json(needs)] }], sent2), router, log: quiet, now });
+      ok(r.ok && r.needs_ok && r.needs.length === 1 && r.needs_dropped === 1 && r.needs[0].we_have, "needs: kept only with a page the search returned");
+      ok(sent2.length === 2 && sent2[1].tools[0].max_uses === NEEDS_SEARCHES && /neutrally/.test(sent2[1].messages[0].content) && /No names of reviewers/.test(sent2[1].messages[0].content), "a second call for the needs: its own search cap, neutral, no reviewer names");
+      ok(calls.some(c => c[0] === "alert" && c[1] === "summary" && c[2] === "comp:needs:2026-12") && !calls.some(c => c[0] === "alert" && c[2] === "comp:2026-12"), "needs found: one quiet summary message; no change: no change message");
+      ok(/תזכורת לטסט/.test(needsText(r)) && /כבר קיים בלוחית/.test(needsText(r)) && !/example\.com/.test(needsText(r)), "the needs message lists each kept need with its page");
+      calls.length = 0;
+      r = await run({ env: env(21), api: fake([{ stop_reason: "end_turn", content: [found, json({ changes: [] })] }, Object.assign(new Error("x"), { status: 529 })]), router, log: quiet, now });
+      ok(r.ok && !r.needs_ok && r.needs_why === "529 server" && !calls.some(c => c[0] === "alert"), "a failed needs call leaves the competitor result as it is, and raises nothing (ai:key only for the key)");
+      calls.length = 0;
+      r = await run({ env: env(22), api: fake([{ stop_reason: "end_turn", content: [found, json({ changes: [] })] }]), router, log: quiet, now });
+      ok(r.needs_ok && r.needs.length === 0 && !calls.some(c => c[0] === "alert"), "no needs found: no message"); }
     const lines = []; await run({ env: env(9), api: fake([{ stop_reason: "end_turn", content: [found, json(two)] }]), router, log: l => lines.push(l), now });
     const many = Array.from({ length: MAX_SEARCHES }, (_, i) => ({ type: "server_tool_use", id: "s" + i, name: "web_search", input: { query: "q" } }));
     r = await run({ env: env(10), api: fake([{ stop_reason: "end_turn", content: [...many, found, json(two)] }]), router, log: quiet, now });
     ok(r.ok && r.capped && !(await run({ env: env(11), api: fake([{ stop_reason: "end_turn", content: [found, json(two)] }]), router, log: quiet, now })).capped, "capped: true only when every search was used");
-    ok(/Ototo, the Ministry of Transport/.test(prompt("x")), "the most important names are searched first");
+    ok(/Ototo \(two searches at most\), the Ministry of Transport/.test(prompt("x")), "the most important names are searched first, each with a budget");
     ok(lines.length === 1 && !/\$|token|usd/i.test(lines[0]), "one log line, no cost or token count");
     ok(prompt("2026-11-01").includes("never guess") && /neutrally/.test(prompt("x")), "the prompt asks for found changes only, described neutrally");
     console.log(bad ? `${bad} failed` : "selftest ok"); process.exit(bad ? 1 : 0);
