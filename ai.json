@@ -1,0 +1,159 @@
+{
+ "v": 1,
+ "ran": "2026-11-01",
+ "checked": "2026-10-20",
+ "model": "claude-sonnet-5-5",
+ "ok": true,
+ "why": "",
+ "review": "full",
+ "verdicts": [
+  {
+   "k": "האםהאוטושלכםמרגלאחריכםהבקשהלתביעהייצוגיתנגדחברתהרכבהפופולארי",
+   "d": "2026-11-01",
+   "t": "האם האוטו שלכם מרגל אחריכם? הבקשה לתביעה ייצוגית נגד חברת הרכב הפופולארית בישראל",
+   "u": "https://news.google.com/rss/articles/CBMiS0FVX3lxTFBpX01FTnY4Q3gxVXd6RlhlbXZvV3R5YmJ6S2tmUFlvNUs3WTVXOEN2SjEweDN2VV9SYVpEMUxaYll2UDBCTGwyc1hyNA?oc=5",
+   "read": true,
+   "kind": "skip",
+   "why": "old",
+   "id": "",
+   "case": "",
+   "what": "",
+   "sources": [],
+   "dropped": 0,
+   "note": "published 2026-05-03"
+  },
+  {
+   "k": "פרשתדיזלגייטאושרהבקשהלייצוגיתנגדפולקסווגןוצמפיוןמוטורוס",
+   "d": "2026-11-01",
+   "t": "פרשת דיזלגייט: אושרה בקשה לייצוגית נגד פולקסווגן וצ'מפיון מוטורוס",
+   "u": "https://news.google.com/rss/articles/CBMingFBVV95cUxPQm9hOG1QT3lUNTZXdF9ObWJTLXFzM3FVQUZMd3lUQlJTWUxsRUU3RjV5a1F2VmZKR28wMUItOUU1eFJjdHI0cFhzS2cxdWlLTUM0WU5PNTk1Qi11Q3RVWHNBVmxUcmlsQ3lzX1JWWm9lakJFbXdNQm04NGtlaXQ3QTdTTGhtT1dkX1ZFNWdnVk9SSFRMYXZ0emplMWkxZw?oc=5",
+   "read": true,
+   "kind": "skip",
+   "why": "old",
+   "id": "",
+   "case": "",
+   "what": "",
+   "sources": [],
+   "dropped": 0,
+   "note": "published 2022-09-29"
+  },
+  {
+   "k": "תביעהייצוגיתנגדצמפיוןמוטורסדגמייוקרהשלרכביאאודינמכריםעםתקלהב",
+   "d": "2026-11-01",
+   "t": "תביעה ייצוגית נגד צ'מפיון מוטורס: דגמי יוקרה של רכבי אאודי נמכרים עם תקלה בגג הנפתח",
+   "u": "https://news.google.com/rss/articles/CBMiXEFVX3lxTE1wVUNUNFlsSGEtRTRTalB2Zk1ySHJWam1SRWtkdXU2RzBwd2tFTHVlTlNBTk5SVVlkWjBrMmg0amVJdU1DelZySG5yV1B2SXdpMVQ0Q3FWUFZyR0k5?oc=5",
+   "read": true,
+   "kind": "skip",
+   "why": "old",
+   "id": "",
+   "case": "",
+   "what": "",
+   "sources": [],
+   "dropped": 0,
+   "note": "published 2021-05-04"
+  },
+  {
+   "k": "אושרהייצוגיתנגדאלברהטעתהבנוגעלמחירהשכרתרכב",
+   "d": "2026-11-01",
+   "t": "אושרה ייצוגית נגד אלבר: \"הטעתה בנוגע למחיר השכרת רכב\"",
+   "u": "https://news.google.com/rss/articles/CBMiXEFVX3lxTFBqQ3d2RHNXdkx5aXpucklZY1EwblM0UUtaYkpMWWo0bi1hVTBMU2VSV0dsN0JpWXNHUlpEM0o4VXBya0xiU1Znd2paUHhDSFBfLUM1TUxJVF95TXlj?oc=5",
+   "read": true,
+   "kind": "skip",
+   "why": "old",
+   "id": "",
+   "case": "",
+   "what": "",
+   "sources": [],
+   "dropped": 0,
+   "note": "published 2021-09-26"
+  },
+  {
+   "k": "תביעהייצוגיתנגדלקסוסבישראלזההסכוםשדורשיםהנהגים",
+   "d": "2026-11-01",
+   "t": "תביעה ייצוגית נגד לקסוס בישראל: זה הסכום שדורשים הנהגים",
+   "u": "https://news.google.com/rss/articles/CBMiWkFVX3lxTE94aEFSRWM5bVpkSDJmTlk4NXhCcTA3TC1VNUUtSHV6VFZyLXpucnBoYmRVZFNZWUNocW9GVC1GR3VueXdxN1ZsdHJ2MFpNNFVLN3E1bU96YWZvdw?oc=5",
+   "read": true,
+   "kind": "skip",
+   "why": "old",
+   "id": "",
+   "case": "",
+   "what": "",
+   "sources": [],
+   "dropped": 0,
+   "note": "published 2022-09-01"
+  },
+  {
+   "k": "ייצוגיתנגדטסלההאםישכשלסדרתיבסוללותשלמודלY",
+   "d": "2026-10-25",
+   "t": "ייצוגית נגד טסלה: האם יש כשל סדרתי בסוללות של מודל Y?",
+   "u": "https://thecar.co.il/%d7%99%d7%99%d7%a6%d7%95%d7%92%d7%99%d7%aa-%d7%a0%d7%92%d7%93-%d7%98%d7%a1%d7%9c%d7%94-y-%d7%98%d7%a2%d7%a0%d7%94-%d7%9c%d7%9b%d7%a9%d7%9c-%d7%a1%d7%93%d7%a8%d7%aa%d7%99-%d7%91%d7%a1%d7%95%d7%9c%d7%9c/",
+   "read": true,
+   "kind": "skip",
+   "why": "filing",
+   "id": "",
+   "case": "",
+   "what": "נכתב על בקשה לאישור תובענה ייצוגית נגד טסלה מוטורס ישראל בטענה לכשל סדרתי בסוללות מתוצרת BYD ברכבי מודל Y משנות 2023-2024. הבקשה הוגשה לבית המשפט המחוזי מרכז, ועדיין אין בה הסדר, פשרה או החלטה.",
+   "sources": [
+    "https://thecar.co.il/%d7%99%d7%99%d7%a6%d7%95%d7%92%d7%99%d7%aa-%d7%a0%d7%92%d7%93-%d7%98%d7%a1%d7%9c%d7%94-y-%d7%98%d7%a2%d7%a0%d7%94-%d7%9c%d7%9b%d7%a9%d7%9c-%d7%a1%d7%93%d7%a8%d7%aa%d7%99-%d7%91%d7%a1%d7%95%d7%9c%d7%9c/"
+   ],
+   "dropped": 0,
+   "note": ""
+  },
+  {
+   "k": "הסכםפשרה15040424וולבהנצמפיוןמוטורסבעמ",
+   "d": "2026-10-25",
+   "t": "הסכם פשרה |1504-04-24| וולבה נ׳ צ׳מפיון מוטורס בע״מ",
+   "u": "https://yitzugit.co.il/2026/10/18/%d7%94%d7%a1%d7%9b%d7%9d-%d7%a4%d7%a9%d7%a8%d7%94-1504-04-24-%d7%95%d7%95%d7%9c%d7%91%d7%94-%d7%a0%d7%b3-%d7%a6%d7%b3%d7%9e%d7%a4%d7%99%d7%95%d7%9f-%d7%9e%d7%95%d7%98%d7%95%d7%a8%d7%a1-%d7%91%d7%a2/",
+   "read": true,
+   "kind": "unclear",
+   "why": "",
+   "id": "",
+   "case": "1504-04-24",
+   "what": "מודעה בדבר הגשת בקשה לאישור הסדר פשרה בת\"צ 1504-04-24 וולבה נ' צ'מפיון מוטורס בבית המשפט המחוזי מרכז-לוד.",
+   "sources": [
+    "https://yitzugit.co.il/2026/10/18/%d7%94%d7%a1%d7%9b%d7%9d-%d7%a4%d7%a9%d7%a8%d7%94-1504-04-24-%d7%95%d7%95%d7%9c%d7%91%d7%94-%d7%a0%d7%b3-%d7%a6%d7%b3%d7%9e%d7%a4%d7%99%d7%95%d7%9f-%d7%9e%d7%95%d7%98%d7%95%d7%a8%d7%a1-%d7%91%d7%a2/"
+   ],
+   "dropped": 0,
+   "note": ""
+  },
+  {
+   "k": "הסכםפשרה291290521ביטוןואחנטסלהמוטורסישראלבעמ",
+   "d": "2026-10-25",
+   "t": "הסכם פשרה |29129-05-21| ביטון ואח׳ נ׳ טסלה מוטורס ישראל בע״מ",
+   "u": "https://yitzugit.co.il/2026/10/07/%d7%94%d7%a1%d7%9b%d7%9d-%d7%a4%d7%a9%d7%a8%d7%94-29129-05-21-%d7%91%d7%99%d7%98%d7%95%d7%9f-%d7%95%d7%90%d7%97%d7%b3-%d7%a0%d7%b3-%d7%98%d7%a1%d7%9c%d7%94-%d7%9e%d7%95%d7%98%d7%95%d7%a8%d7%a1/",
+   "read": true,
+   "kind": "skip",
+   "why": "certified",
+   "id": "",
+   "case": "29129-05-21",
+   "what": "ביום 30.6.2026 אישר בית המשפט המחוזי מרכז-לוד בקשה לאישור תובענה ייצוגית נגד טסלה מוטורס ישראל. לפי וואלה, התביעה עוסקת במודל 3 שנמכר ב-2021 עם 6 כריות אוויר במקום 8 שפורסמו. עדיין אין הסדר פשרה או הטבה לבעלי הרכב.",
+   "sources": [
+    "https://yitzugit.co.il/2026/10/07/%d7%94%d7%a1%d7%9b%d7%9d-%d7%a4%d7%a9%d7%a8%d7%94-29129-05-21-%d7%91%d7%99%d7%98%d7%95%d7%9f-%d7%95%d7%90%d7%97%d7%b3-%d7%a0%d7%b3-%d7%98%d7%a1%d7%9c%d7%94-%d7%9e%d7%95%d7%98%d7%95%d7%a8%d7%a1/",
+    "https://cars.walla.co.il/item/3849981"
+   ],
+   "dropped": 0,
+   "note": ""
+  },
+  {
+   "k": "הסכםפשרה385030823זהרכהןנסמלתמוטורסבעמ",
+   "d": "2026-11-01",
+   "t": "הסכם פשרה |38503-08-23| זהר כהן נ׳ סמלת מוטורס בע״מ",
+   "u": "https://yitzugit.co.il/2026/10/28/%d7%94%d7%a1%d7%9b%d7%9d-%d7%a4%d7%a9%d7%a8%d7%94-38503-08-23-%d7%96%d7%94%d7%a8-%d7%9b%d7%94%d7%9f-%d7%a0%d7%b3-%d7%a1%d7%9e%d7%9c%d7%aa-%d7%9e%d7%95%d7%98%d7%95%d7%a8%d7%a1-%d7%91%d7%a2%d7%b4/",
+   "read": true,
+   "kind": "skip",
+   "why": "listed",
+   "id": "fiat-500e",
+   "case": "38503-08-23",
+   "what": "ביום 29.8.2026 ניתן פסק דין המאשר הסדר פשרה בת\"צ 38503-08-23 זהר כהן נ' סמלת מוטורס, בעניין טווח הנסיעה של פיאט 500 חשמלית. ההסדר נותן הארכת אחריות של 13 חודשים לרכבים שנמכרו בין 4.7.2021 ל-28.2.2023. הרשומה הקיימת כבר בסטטוס ok על פיאט 500 בשנים 2021-2023, ולא ראיתי שינוי.",
+   "sources": [
+    "https://yitzugit.co.il/2026/10/28/%d7%94%d7%a1%d7%9b%d7%9d-%d7%a4%d7%a9%d7%a8%d7%94-38503-08-23-%d7%96%d7%94%d7%a8-%d7%9b%d7%94%d7%9f-%d7%a0%d7%b3-%d7%a1%d7%9e%d7%9c%d7%aa-%d7%9e%d7%95%d7%98%d7%95%d7%a8%d7%a1-%d7%91%d7%a2%d7%b4/",
+    "https://samelet.com/wp-content/uploads/2026/01/%D7%94%D7%A1%D7%93%D7%A8-%D7%A4%D7%A9%D7%A8%D7%94-%D7%9C%D7%9C%D7%90-%D7%A0%D7%A1%D7%A4%D7%97%D7%99%D7%9D.pdf"
+   ],
+   "dropped": 0,
+   "note": ""
+  }
+ ],
+ "issues": [],
+ "searches": 14,
+ "fetches": 11
+}
