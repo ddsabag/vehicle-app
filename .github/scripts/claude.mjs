@@ -2,7 +2,8 @@
 // One helper for every bot that uses it, so each gets the same fallback: no key, no SDK or an API error leaves the caller with no client or
 // an {error} it reads (no call here throws), and the bot keeps doing what it did before (never a red run over it). Nothing here prints the
 // key, a cost or a token count: the logs are public, and the Console's Cost page has the spend.
-//   client()                     {api, why}: api is null when the key or the SDK is missing, and why says which
+//   client(env, {timeout})       {api, why}: api is null when the key or the SDK is missing, and why says which; timeout: ms per request
+//                                (the SDK's own is 10 minutes: a bot inside a short job sets less)
 //   ask(api, params)             one messages.create: {msg} | {error}
 //   batch(api, requests, opt)    submits a Message Batch and waits for it up to opt.minutes: {id, ended, results} (results once ended) | {error}
 //   collect(api, id, opt)        the same wait for a batch an earlier run submitted: {ended, results} | {error}
@@ -12,7 +13,7 @@
 //   answer(msg)                  {text, why}: the reply's text, or why there is none (a refusal and its category, max_tokens, no text)
 //   usage(msg)                   {input, output, cacheRead, cacheWrite} tokens of one reply, for a bot that keeps its own cap (never log it)
 //   error: {why, key}            why: a short reason safe in a public log ("401 key", "429 rate", "network"); key: the key or the money is
-//                                the cause (401, 403, or a 400 that says the credit balance is too low), so the caller raises ai:key, which
+//                                the cause (401, 403, 402 billing, or a 400 that says the credit balance is too low), so the caller raises ai:key, which
 //                                needs Dudu (paste the key again, or decide about the cap); any other failure is the bot's own ai:<bot>
 //                                (router families agreed with ops 28.10); reason(e) and keyTrouble(e) give the same for a caught error
 // The workflow installs the SDK (npm install --no-save, the version in SDK); the app never loads it.
@@ -20,11 +21,11 @@
 export const SDK = "@anthropic-ai/sdk@0.133.0";
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-export async function client(env = process.env) {
+export async function client(env = process.env, { timeout } = {}) {
   if (!env.ANTHROPIC_API_KEY) return { api: null, why: "no ANTHROPIC_API_KEY" };
   let Anthropic;
   try { Anthropic = (await import("@anthropic-ai/sdk")).default; } catch { return { api: null, why: `the SDK is not installed (${SDK})` }; }
-  return { api: new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 3 }), why: "" };
+  return { api: new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 3, ...(timeout > 0 ? { timeout } : {}) }), why: "" };
 }
 
 // an API message can carry a number (a token count, or a request's own text if it ever echoed one): long digit runs leave the log as "#"
@@ -33,6 +34,7 @@ const scrub = t => String(t).replace(/\d[\d,.\-]{3,}\d/g, "#");
 export function reason(e) {
   const s = e && e.status, body = e && e.error && e.error.error, text = body && body.message ? ": " + scrub(body.message).slice(0, 120) : "";
   if (s === 401 || s === 403) return `${s} key${text}`;   // a wrong or revoked key, or a workspace without access
+  if (s === 402) return `402 billing${text}`;   // the API's billing_error: the money, like a spent credit
   if (s === 429) return "429 rate";
   if (s >= 500) return `${s} server`;
   if (s) return `${s} ${(body && body.type) || "request"}${text}`;   // 400 also when the month's credit has run out
@@ -41,7 +43,7 @@ export function reason(e) {
 
 export function keyTrouble(e) {
   const s = e && e.status, m = String((e && e.error && e.error.error && e.error.error.message) || (e && e.message) || "");
-  return s === 401 || s === 403 || (s === 400 && /credit balance/i.test(m));
+  return s === 401 || s === 402 || s === 403 || (s === 400 && /credit balance/i.test(m));
 }
 
 export function answer(msg) {
@@ -95,11 +97,13 @@ if (process.argv[1] && process.argv[1].endsWith("claude.mjs") && process.argv.in
   let bad = 0; const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); if (!c) bad++; };
   ok((await client({})).api === null && (await client({})).why === "no ANTHROPIC_API_KEY", "no key: no client, and why says so");
   { const c = await client({ ANTHROPIC_API_KEY: "test" }); ok(c.api ? c.why === "" : /SDK is not installed/.test(c.why), "a key without the SDK installed: no client either (the bot keeps today's behaviour)"); }
+  { const c = await client({ ANTHROPIC_API_KEY: "test" }, { timeout: 120000 }); ok(c.api ? c.api.timeout === 120000 : /SDK is not installed/.test(c.why), "a bot's own timeout per request"); }
   ok(reason({ status: 401 }) === "401 key" && reason({ status: 429 }) === "429 rate" && reason({ status: 529 }) === "529 server", "error reasons by status");
   ok(reason({ status: 400, error: { error: { type: "invalid_request_error", message: "Your credit balance is too low to access the API" } } }) === "400 invalid_request_error: Your credit balance is too low to access the API", "a 400 keeps its type and message (the month's credit ran out)");
   ok(reason({ status: 400, error: { error: { type: "invalid_request_error", message: "prompt is too long: 250,000 tokens; ref 12-345-67" } } }) === "400 invalid_request_error: prompt is too long: # tokens; ref #", "long numbers never reach the log");
   ok(reason({ name: "APIConnectionTimeoutError", message: "Request timed out." }) === "timeout" && reason(new Error("fetch failed")) === "network", "no status: timeout or network");
-  ok(keyTrouble({ status: 401 }) && keyTrouble({ status: 403 }) && keyTrouble({ status: 400, error: { error: { type: "invalid_request_error", message: "Your credit balance is too low to access the API" } } }), "the key or the money: ai:key");
+  ok(keyTrouble({ status: 401 }) && keyTrouble({ status: 402 }) && keyTrouble({ status: 403 }) && keyTrouble({ status: 400, error: { error: { type: "invalid_request_error", message: "Your credit balance is too low to access the API" } } })
+    && reason({ status: 402, error: { error: { type: "billing_error", message: "x" } } }) === "402 billing: x", "the key or the money (402 billing too): ai:key");
   ok(!keyTrouble({ status: 400, error: { error: { type: "invalid_request_error", message: "max_tokens: too large" } } }) && !keyTrouble({ status: 429 }) && !keyTrouble({ status: 500 }) && !keyTrouble(new Error("fetch failed")), "anything else: the bot's own key");
   ok(answer({ stop_reason: "refusal", stop_details: { category: "general_harms" }, content: [] }).why === "refusal general_harms", "a refusal is no answer, with its category");
   ok(answer({ stop_reason: "max_tokens", content: [{ type: "text", text: "{\"a\":" }] }).why === "max_tokens", "a reply cut at max_tokens is no answer");
