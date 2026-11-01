@@ -1,0 +1,46 @@
+{
+ "title": "מי עוקב אחרי הטסט?",
+ "pillar": "B2B utility",
+ "lines": [
+  {
+   "vo": "מגרש מלא רכבים. ומי זוכר עד מתי הטסט של כל אחד?",
+   "screen": "מי זוכר את הטסט\nשל כל רכב?",
+   "visual": "Opening hook: top-down motion-graphics lot of identical car silhouettes. A yellow question-mark tag pops on each roof in sequence. Hard cut on the last tag."
+  },
+  {
+   "vo": "טסט שפג מתגלה בדרך כלל ברגע הכי פחות נוח: כשהקונה כבר מחכה.",
+   "screen": "טסט שפג = הפתעה",
+   "visual": "One car silhouette is highlighted and a calendar card flips to a red 'פג' stamp (no date digits). A small buyer icon with a waiting clock appears beside it. Neutral, no person blamed."
+  },
+  {
+   "vo": "וריקול חדש יכול להיפתח גם על רכב שכבר עומד במגרש.",
+   "screen": "ריקול חדש?\nגם אחרי שהרכב נכנס למלאי",
+   "visual": "A second car gets an orange 'ריקול פתוח' badge sliding in from the side, then a soft pulse."
+  },
+  {
+   "vo": "לפי מאגרי משרד התחבורה, בסיטרואן BERLINGO: 60 מכל 1,000 רכבים פעילים עם ריקול פתוח.",
+   "screen": "סיטרואן BERLINGO\n60 מכל 1,000 רכבים פעילים\nעם ריקול פתוח",
+   "visual": "Kinetic stat card on the brand's dark background. The big stat counts up, the label types in word by word, and a small source line reads 'מאגרי משרד התחבורה'. No photo of the model, no warning colours."
+  },
+  {
+   "vo": "ריקול פתוח? היבואן מתקן. צריך רק לדעת שהוא שם.",
+   "screen": "ריקול פתוח?\nמתאמים תיקון אצל היבואן",
+   "visual": "A wrench icon over the badge turns it from orange to green 'תוקן'. Calm transition."
+  },
+  {
+   "vo": "בבדיקה מרוכזת של לוחית, PRO עסקי, כל הרכבים בטבלה אחת: טסט, ריקול פתוח והטיפול האחרון.",
+   "screen": "בדיקה מרוכזת · PRO עסקי\nטסט · ריקול פתוח · טיפול אחרון",
+   "visual": "Either a fresh screen recording of the fleet table from the production build (see notes; mocked data) or a motion-graphics table. Rows use the demo plates only (see notes) and word cells only (בתוקף / פג בקרוב / יש · לתאם). The service date and km cells are blurred. 'PRO עסקי' badge in the corner, small 'נתונים לדוגמה' label."
+  },
+  {
+   "vo": "ורכב שנשאר אצלכם? פותחים לו תיק, עם התראות על טסט וריקול באפליקציה.",
+   "screen": "\"פתחו לו תיק\"",
+   "visual": "Home screen of the production build, recorded fresh: the demo plate is typed, then a tap on 'פתחו לו תיק' and the car file opens with the test and recall rows visible."
+  },
+  {
+   "vo": "מקלידים מספר רישוי בלוחית.",
+   "screen": "מקלידים מספר רישוי\nluchit.app",
+   "visual": "End card: logo, luchit.app pill, under it 'זמינה להורדה' over the unchanged Google Play badge (size, clearance and hold time in notes)."
+  }
+ ]
+}

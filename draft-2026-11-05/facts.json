@@ -1,0 +1,44 @@
+{
+ "kit": 4,
+ "repo_commit": "d487bb1f128a14143861a8d2cc29f6ec98400609",
+ "facts": [
+  {
+   "text": "MG3: 118 מכל 1,000 רכבים פעילים עם ריקול פתוח (117.7 לפני עיגול)",
+   "value": 118,
+   "round": 0,
+   "source_path": "model/stats.json",
+   "json_pointer": "/models/[slug=mg3-443]/rcPer",
+   "fetched_at": "2026-11-01T21:30:13Z",
+   "data_as_of": "2026-10-06",
+   "repo_commit": "d487bb1f128a14143861a8d2cc29f6ec98400609"
+  },
+  {
+   "text": "MG3: 6,323 רכבים פעילים",
+   "value": 6323,
+   "source_path": "model/stats.json",
+   "json_pointer": "/models/[slug=mg3-443]/act",
+   "fetched_at": "2026-11-01T21:30:13Z",
+   "data_as_of": "2026-10-06",
+   "repo_commit": "d487bb1f128a14143861a8d2cc29f6ec98400609"
+  },
+  {
+   "text": "סיטרואן BERLINGO: 60 מכל 1,000 רכבים פעילים עם ריקול פתוח (60.1 לפני עיגול)",
+   "value": 60,
+   "round": 0,
+   "source_path": "model/stats.json",
+   "json_pointer": "/models/[slug=berlingo-496]/rcPer",
+   "fetched_at": "2026-11-01T21:30:13Z",
+   "data_as_of": "2026-10-06",
+   "repo_commit": "d487bb1f128a14143861a8d2cc29f6ec98400609"
+  },
+  {
+   "text": "סיטרואן BERLINGO: 38,182 רכבים פעילים",
+   "value": 38182,
+   "source_path": "model/stats.json",
+   "json_pointer": "/models/[slug=berlingo-496]/act",
+   "fetched_at": "2026-11-01T21:30:13Z",
+   "data_as_of": "2026-10-06",
+   "repo_commit": "d487bb1f128a14143861a8d2cc29f6ec98400609"
+  }
+ ]
+}
