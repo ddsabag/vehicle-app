@@ -193,8 +193,8 @@ export const LABELS = {
                                   guard: "העין השנייה על שומר הגרסאות", kitdraft: "טיוטת ערכת התוכן השבועית", kitqa: "הבדיקה הוויזואלית של ערכת התוכן",
                                   diff: "בדיקת הקוד לפני שחרור", walk: "הסיור השבועי באפליקציה" } },
   "ai:key":              { he: "מפתח ה-Claude API לא עובד או שהקרדיט נגמר, והבוטים ממשיכים בלעדיו", sect: "fail" },
-  // ai-usage.mjs (ops 1.11): the bots' spend crossed 80% of the monthly cap in this credit cycle (renews on the 17th); news, not a fault
-  "ai:spend":            { he: "הבוטים השתמשו ב-80% מקרדיט ה-Claude API של החודש", sect: "fyi" },
+  // ai-usage.mjs (ops 1.11): the bots' spend crossed 80% of this credit cycle (the grant to 20.11.2026, then monthly from the 20th; ai-usage.mjs GRANTS); news, not a fault
+  "ai:spend":            { he: "הבוטים השתמשו ב-80% מקרדיט ה-Claude API של המחזור", sect: "fyi" },
   // diff review (Dudu 1.11, credit package A): a review of a branch found a high point; product reads the report and decides, nothing waits on it
   "code":                { he: "בדיקת הקוד לפני שחרור מצאה נקודות לבדוק: {id}", sect: "fyi" },
   // exploratory walk (Dudu 1.11, credit package B): the week's walk on next noted something high; the QA thread checks it before anything changes

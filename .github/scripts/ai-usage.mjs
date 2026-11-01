@@ -1,5 +1,5 @@
-// What the bots spend on the Claude API this credit cycle (ops; Dudu 1.11.2026 21:16 UTC: the $100 a month credit, renewed on the 17th, and
-// a router alert at 80%). claude.mjs calls record() after every reply it gets (ask, and each finished batch request at half price), so every
+// What the bots spend on the Claude API this credit cycle (ops; Dudu 1.11.2026 21:16 UTC: a router alert at 80% of the credit; 22:50 UTC:
+// the Console shows a promotional credit, $71.84 of $100 left, expiring 20.11.2026, so the cycle follows the grant, see GRANTS). claude.mjs calls record() after every reply it gets (ask, and each finished batch request at half price), so every
 // bot on the shared helper is counted without code of its own. The total lives on branch ai-usage in usage.enc.json:
 //   s: the running total, AES-GCM with a key derived from ANTHROPIC_API_KEY (only a bot that holds the key reads it back to add to it);
 //   p: the same, sealed with the seo-data public key, for the threads (decrypt.mjs in the project folder).
@@ -8,8 +8,11 @@
 // never the bot broken: record() never throws. Workers (luchit-reviews) are not counted here: well under $1 a month, inside the 20% margin.
 // Prices per million tokens (platform docs, 1.11.2026): cache writes 1.25x input, cache reads as listed, a batch request half price.
 //   price(model, usage, {batch})   USD of one reply
-//   cycle(now)                     the start of the credit cycle ("YYYY-MM-17")
-//   record(model, usage, opt)      add one reply to the total; at 80% of AI_CAP_USD (default 100) the router gets ai:spend once a cycle
+//   cycle(now)                     the credit cycle's id: a grant's id while it runs, else "YYYY-MM-20" (monthly from the 20th)
+//   budget(now, env)               {cycle, cap, until}: a grant's dollars left when it was entered, else AI_CAP_USD (default 100)
+//   record(model, usage, opt)      add one reply to the total; at 80% of the cycle's cap the router gets ai:spend once a cycle
+//   remaining(opt)                 {cycle, used, cap, left, until} read back with the key (for a bot sizing a big run, e.g. data's last deep
+//                                  audit on 18.11), or null; never print it in a public log
 //   node ai-usage.mjs --selftest   offline
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -23,10 +26,21 @@ export function price(model, u = {}, { batch = false } = {}) {
   const usd = ((u.input_tokens || 0) * i + (u.cache_creation_input_tokens || 0) * i * 1.25 + (u.cache_read_input_tokens || 0) * r + (u.output_tokens || 0) * o) / 1e6;
   return batch ? usd / 2 : usd;
 }
+// A known credit grant: from = when its balance was read (left = what the Console showed then, so spend before it is already inside),
+// until = when it expires. Dudu 1.11.2026 22:50 UTC: "$71.84 of $100.00 ... Expires on 11/20/2026". A new grant: add a line here.
+export const GRANTS = [{ id: "g-2026-11-01", from: "2026-11-01T22:50:00Z", until: "2026-11-20T00:00:00Z", left: 71.84 }];
+const grantAt = now => GRANTS.find(g => now >= new Date(g.from) && now < new Date(g.until));
 export function cycle(now = new Date()) {
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 17));
-  if (now.getUTCDate() < 17) d.setUTCMonth(d.getUTCMonth() - 1);
+  const g = grantAt(now); if (g) return g.id;
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 20));
+  if (now.getUTCDate() < 20) d.setUTCMonth(d.getUTCMonth() - 1);
   return d.toISOString().slice(0, 10);
+}
+export function budget(now = new Date(), env = process.env) {
+  const g = grantAt(now);
+  if (g) return { cycle: g.id, cap: g.left, until: g.until };
+  const c = cycle(now), u = new Date(c + "T00:00:00Z"); u.setUTCMonth(u.getUTCMonth() + 1);
+  return { cycle: c, cap: +(env.AI_CAP_USD || 100), until: u.toISOString() };
 }
 const keyOf = k => crypto.createHmac("sha256", String(k)).update("luchit-ai-usage").digest();
 export function lock(obj, k) {
@@ -44,8 +58,9 @@ function seal(obj, pem) {
 }
 
 // the new total from the old one (pure, for the selftest): a new cycle starts from zero; crossed = 80 when this reply crossed 80% of the cap
-export function add(old, { usd, bot, now = new Date(), cap = 100 }) {
+export function add(old, { usd, bot, now = new Date(), cap = 100, until = "" }) {
   const c = cycle(now), t = old && old.cycle === c ? old : { cycle: c, usd: 0, calls: 0, by: {}, told: [] };
+  t.cap = cap; t.until = until;
   const before = t.usd;
   t.usd = Math.round((t.usd + usd) * 1e6) / 1e6; t.calls++; t.by[bot] = Math.round(((t.by[bot] || 0) + usd) * 1e6) / 1e6; t.at = now.toISOString();
   const crossed = before < 0.8 * cap && t.usd >= 0.8 * cap && !t.told.includes(80) ? 80 : 0;
@@ -54,12 +69,25 @@ export function add(old, { usd, bot, now = new Date(), cap = 100 }) {
 }
 
 const BRANCH = "ai-usage", FILE = "usage.enc.json";
+const ilDay = iso => { const d = new Date(new Date(iso) - 1); return `${d.getUTCDate()}.${d.getUTCMonth() + 1}`; };   // the last day the credit still works
+export async function remaining({ env = process.env, fetcher = fetch, now = new Date() } = {}) {
+  try {
+    const tok = env.GITHUB_TOKEN, repo = env.GITHUB_REPOSITORY, key = env.ANTHROPIC_API_KEY; if (!tok || !repo || !key) return null;
+    const g = await fetcher(`https://api.github.com/repos/${repo}/contents/${FILE}?ref=${BRANCH}`, { headers: { authorization: "Bearer " + tok, accept: "application/vnd.github+json" } });
+    const b = budget(now, env);
+    if (g.status === 404) return { cycle: b.cycle, used: 0, cap: b.cap, left: b.cap, until: b.until };
+    if (!g.ok) return null;
+    const t = unlock(JSON.parse(Buffer.from((await g.json()).content, "base64").toString("utf8")).s, key);
+    const used = t && t.cycle === b.cycle ? t.usd : 0;
+    return { cycle: b.cycle, used, cap: b.cap, left: Math.round((b.cap - used) * 100) / 100, until: b.until };
+  } catch { return null; }
+}
 export async function record(model, u, { batch = false, env = process.env, fetcher = fetch, now = new Date() } = {}) {
   try {
     const usd = price(model, u, { batch }), tok = env.GITHUB_TOKEN, repo = env.GITHUB_REPOSITORY, key = env.ANTHROPIC_API_KEY;
     if (!usd || !tok || !repo || !key) return { ok: false, why: "not counted here" };
     const api = `https://api.github.com/repos/${repo}`, H = { authorization: "Bearer " + tok, accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28" };
-    const cap = +(env.AI_CAP_USD || 100), bot = String(env.GITHUB_WORKFLOW || "local").slice(0, 60);
+    const { cap, until } = budget(now, env), bot = String(env.GITHUB_WORKFLOW || "local").slice(0, 60);
     let pem = ""; try { pem = fs.readFileSync(new URL("../seo-data.pub.pem", import.meta.url), "utf8"); } catch {}
     for (let i = 0; i < 5; i++) {
       const g = await fetcher(`${api}/contents/${FILE}?ref=${BRANCH}`, { headers: H });
@@ -72,13 +100,13 @@ export async function record(model, u, { batch = false, env = process.env, fetch
           await fetcher(`${api}/git/refs`, { method: "POST", headers: H, body: JSON.stringify({ ref: "refs/heads/" + BRANCH, sha: main.object.sha }) });
         }
       } else return { ok: false, why: "read " + g.status };
-      const { t, crossed } = add(old, { usd, bot, now, cap });
+      const { t, crossed } = add(old, { usd, bot, now, cap, until });
       const body = JSON.stringify({ v: 1, s: lock(t, key), ...(pem ? { p: seal(t, pem) } : {}) });
       const p = await fetcher(`${api}/contents/${FILE}`, { method: "PUT", headers: H,
         body: JSON.stringify({ message: "AI usage", branch: BRANCH, content: Buffer.from(body).toString("base64"), ...(sha ? { sha } : {}) }) });
       if (p.ok) {
         if (crossed) try { const r = await import("./alert.mjs");
-          await r.alert("day", "ai:spend", `💳 <b>קרדיט ה-Claude API: הבוטים השתמשו ב-80% מהתקרה החודשית</b>\nהמחזור מתחדש ב-17 לחודש. כשנגמר הקרדיט הבוטים ממשיכים בלי Claude, כמו לפני.`, "", { today: "loud" });
+          await r.alert("day", "ai:spend", `💳 <b>קרדיט ה-Claude API: הבוטים השתמשו ב-80% מהקרדיט של המחזור</b>\nהמחזור נגמר ב-${ilDay(until)}. כשנגמר הקרדיט הבוטים ממשיכים בלי Claude, כמו לפני.`, "", { today: "loud" });
         } catch { /* the threads still read the total */ }
         return { ok: true, crossed };
       }
@@ -94,14 +122,20 @@ if (process.argv[1] && process.argv[1].endsWith("ai-usage.mjs") && process.argv.
   ok(Math.abs(price("claude-haiku-5-5", { input_tokens: 1e6, output_tokens: 1e6 }) - 0.6) < 1e-9 && Math.abs(price("claude-opus-5-5", { input_tokens: 1e6 }, { batch: true }) - 2) < 1e-9
     && Math.abs(price("claude-sonnet-5-5", { cache_creation_input_tokens: 1e6, cache_read_input_tokens: 1e6 }) - 2.7) < 1e-9, "prices: input, output, cache write and read, batch at half");
   ok(price("claude-new-x", { input_tokens: 1e6 }) === 4 && price("claude-opus-5-5[1m]", { output_tokens: 1e6 }) === 20, "an unknown model counts at the top price");
-  ok(cycle(new Date("2026-11-16T23:00Z")) === "2026-10-17" && cycle(new Date("2026-11-17T00:00Z")) === "2026-11-17" && cycle(new Date("2027-01-03T00:00Z")) === "2026-12-17", "the cycle starts on the 17th");
+  ok(cycle(new Date("2026-11-01T22:00Z")) === "2026-10-20" && cycle(new Date("2026-11-01T22:50Z")) === "g-2026-11-01" && cycle(new Date("2026-11-19T23:59Z")) === "g-2026-11-01"
+    && cycle(new Date("2026-11-20T00:00Z")) === "2026-11-20" && cycle(new Date("2027-01-03T00:00Z")) === "2026-12-20", "the grant to 20.11, then monthly from the 20th");
+  let b = budget(new Date("2026-11-05T00:00Z"), {}); ok(b.cap === 71.84 && b.until === "2026-11-20T00:00:00.000Z".replace(".000", "") , "the grant's cap is what was left on 1.11 " + JSON.stringify(b));
+  b = budget(new Date("2026-12-01T00:00Z"), { AI_CAP_USD: "80" }); ok(b.cap === 80 && b.cycle === "2026-11-20" && b.until.startsWith("2026-12-20"), "after the grant: AI_CAP_USD, until the next 20th");
+  ok(ilDay("2026-11-20T00:00:00Z") === "19.11", "the alert names the last day the credit works");
   ok(unlock(lock({ a: 1 }, "k1"), "k1").a === 1 && unlock(lock({ a: 1 }, "k1"), "k2") === null && unlock("junk", "k") === null, "the total opens only with the same key");
-  let r = add(null, { usd: 79, bot: "A", now: new Date("2026-11-02T00:00Z") });
+  let r = add(null, { usd: 57, bot: "A", now: new Date("2026-11-02T00:00Z"), cap: 71.84 });
+  ok(r.crossed === 0 && add(r.t, { usd: 0.5, bot: "A", now: new Date("2026-11-02T01:00Z"), cap: 71.84 }).crossed === 80, "80% of the grant's $71.84 is about $57.5");
+  r = add(null, { usd: 79, bot: "A", now: new Date("2026-12-02T00:00Z") });
   ok(r.t.usd === 79 && r.crossed === 0 && r.t.by.A === 79, "first reply of a cycle");
-  r = add(r.t, { usd: 2, bot: "B", now: new Date("2026-11-03T00:00Z") });
+  r = add(r.t, { usd: 2, bot: "B", now: new Date("2026-12-03T00:00Z") });
   ok(r.crossed === 80 && r.t.usd === 81 && r.t.by.B === 2 && r.t.calls === 2, "crossing 80% tells once");
-  r = add(r.t, { usd: 5, bot: "B", now: new Date("2026-11-04T00:00Z") }); ok(r.crossed === 0 && r.t.usd === 86, "not again in the same cycle");
-  r = add(r.t, { usd: 1, bot: "A", now: new Date("2026-11-17T01:00Z") }); ok(r.t.cycle === "2026-11-17" && r.t.usd === 1 && r.t.told.length === 0, "a new cycle starts from zero");
+  r = add(r.t, { usd: 5, bot: "B", now: new Date("2026-12-04T00:00Z") }); ok(r.crossed === 0 && r.t.usd === 86, "not again in the same cycle");
+  r = add(r.t, { usd: 1, bot: "A", now: new Date("2026-12-20T01:00Z") }); ok(r.t.cycle === "2026-12-20" && r.t.usd === 1 && r.t.told.length === 0, "a new cycle starts from zero");
   // record against a fake GitHub: a lost race, then the write
   const files = {}, calls = []; let race = 1;
   const fake = async (url, o = {}) => { calls.push((o.method || "GET") + " " + url.replace(/.*\/repos\/[^/]+\/[^/]+/, ""));
@@ -112,11 +146,15 @@ if (process.argv[1] && process.argv[1].endsWith("ai-usage.mjs") && process.argv.
     if (o.method === "PUT") { if (race-- > 0) return { ok: false, status: 409 }; files.f = Buffer.from(JSON.parse(o.body).content, "base64").toString("utf8"); return { ok: true }; }
     return { ok: false, status: 500 }; };
   const env = { GITHUB_TOKEN: "t", GITHUB_REPOSITORY: "o/r", ANTHROPIC_API_KEY: "sk-test", GITHUB_WORKFLOW: "Reviews monitor" };
-  let x = await record("claude-sonnet-5-5", { input_tokens: 1000, output_tokens: 500 }, { env, fetcher: fake });
+  const NOW = new Date("2026-11-05T00:00Z");
+  let x = await record("claude-sonnet-5-5", { input_tokens: 1000, output_tokens: 500 }, { env, fetcher: fake, now: NOW });
   ok(x.ok && calls.includes("POST /git/refs") && calls.filter(c => c.startsWith("PUT")).length === 2, "first count: the branch is made, a lost race is read again");
   const t = unlock(JSON.parse(files.f).s, "sk-test");
   ok(t && Math.abs(t.usd - 0.007) < 1e-9 && t.by["Reviews monitor"] > 0 && JSON.parse(files.f).p && !/0\.007|Reviews/.test(files.f), "the total is stored locked, with a sealed copy for the threads, nothing readable");
-  x = await record("claude-haiku-5-5", { input_tokens: 1000 }, { env, fetcher: fake }); ok(x.ok && unlock(JSON.parse(files.f).s, "sk-test").calls === 2, "the next reply adds to it");
+  x = await record("claude-haiku-5-5", { input_tokens: 1000 }, { env, fetcher: fake, now: NOW }); ok(x.ok && unlock(JSON.parse(files.f).s, "sk-test").calls === 2, "the next reply adds to it");
+  const left = await remaining({ env, fetcher: fake, now: NOW });
+  ok(left && left.cycle === "g-2026-11-01" && left.cap === 71.84 && left.left === Math.round((71.84 - left.used) * 100) / 100 && left.used > 0, "remaining reads the cycle back " + JSON.stringify(left));
+  ok(await remaining({ env: {}, fetcher: fake }) === null && (await remaining({ env, fetcher: fake, now: new Date("2026-11-25T00:00Z") })).used === 0, "no key: null; a new cycle: nothing used yet");
   ok((await record("claude-haiku-5-5", { input_tokens: 1 }, { env: {}, fetcher: fake })).ok === false, "no token or key: not counted, no throw");
   ok((await record("claude-haiku-5-5", { input_tokens: 1 }, { env, fetcher: async () => { throw new Error("down"); } })).ok === false, "GitHub down: no throw");
   console.log(bad ? `${bad} failed` : "selftest ok"); process.exit(bad ? 1 : 0);
