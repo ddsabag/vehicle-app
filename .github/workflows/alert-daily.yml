@@ -67,7 +67,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}   # Console workspace luchit-bots, capped; a clean morning makes no call
           DRY: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
-      - name: Publish triage.json on branch triage-out (public: names, links and router keys only)
+      - name: Publish triage.json on branch triage-out (public, names, links and router keys only)
         if: ${{ hashFiles('triage-out/triage.json') != '' }}
         run: |
           cd triage-out && git init -q && git checkout -q -b triage-out && git add -A

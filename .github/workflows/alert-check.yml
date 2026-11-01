@@ -71,7 +71,7 @@ jobs:
         run: node .github/scripts/review-themes.mjs --selftest
       - name: Review digest self-test (Sonnet once a week; counts and versions from the tags, a line with a plate, phone or link left out)
         run: node .github/scripts/review-digest.mjs --selftest
-      - name: Triage prep self-test (the facts of the morning triage; Haiku only when something is not clean)
+      - name: Triage prep self-test (the facts of the morning triage, Haiku only when something is not clean)
         run: node .github/scripts/triage-prep.mjs --selftest
       - name: Release guard self-test (day 1, 3 and 7 only, four guardrails, thin data not judged)
         run: node .github/scripts/release-guard.mjs selftest
