@@ -1,19 +1,22 @@
 // The catalogue watchdog: after every catalogue build it looks at what is NEW in the register (models, years, trims) and runs the
 // picker's own rules on it (12-character cuts completed by TRIM_FIX in index.html, typo twins one slip apart, same-importer names
 // with an identical registered spec and price, official importer by cars on the road). What the rules handle is listed for the record;
-// what they cannot (a cut word that TRIM_FIX does not know, a name that looks like a code) is flagged, and a Telegram line is written
-// so the rule table can be extended. State (what was already seen, and the flagged cuts not handled yet) lives next to the catalogue on
+// a cut word whose completion is clear is added to trim-fix.json, which the app reads from the site (since 1.11, no release);
+// what they cannot (an unclear cut, a name that looks like a code) is flagged, and a Telegram line is written so the rule table can be extended. State (what was already seen, and the flagged cuts not handled yet) lives next to the catalogue on
 // the catalog-data branch; a run that finds every flagged cut handled closes the open "catalog" alert through the router.
 //   OUT   catalogue directory written by catalog-build.mjs (default out)
 //   PREV  previous rules-state.json (default: fetched from the catalog-data branch; missing = first run, no alert)
 //   node catalog-rules.mjs --selftest   offline check of the cut rule and of what keeps a flagged cut open
 import fs from "node:fs";
 import { msg as tgMsg } from "./tg-text.mjs";
+import * as TF from "./trim-fix.mjs";
 const OUT = process.env.OUT || "out", PREV = process.env.PREV || "";
 const RAW = "https://raw.githubusercontent.com/ddsabag/vehicle-app/catalog-data/rules-state.json";
-const page = fs.readFileSync("index.html", "utf8");
-const fixSrc = page.match(/const TRIM_FIX = (\{[\s\S]*?\});/); if (!fixSrc) throw new Error("TRIM_FIX not found in index.html");
-const TRIM_FIX = new Function("return " + fixSrc[1])();
+// what the app applies: TRIM_FIX in index.html plus trim-fix.json at the site root (trim-fix.mjs). A confident completion of a new cut is
+// added to trim-fix.json here and committed to main by catalog.yml, so the app shows it with no release (Dudu 1.11: "אי אפשר שיהיה אוטומטי?").
+const FIX_FILE = process.env.FIX_FILE || TF.FILE;
+const APP_FIX = TF.appFix("index.html"), fixFile = TF.readFile(FIX_FILE), fixWas = JSON.stringify(fixFile.fix);
+const TRIM_FIX = TF.effective(APP_FIX, fixFile);
 const norm = t => String(t || "").toUpperCase().replace(/[^A-Z0-9א-ת]/g, "");
 function lev(a, b, max){   // edit distance with a swap of two neighbouring letters counting as one slip; stops early above max
   if (Math.abs(a.length - b.length) > max) return max + 1;
@@ -81,7 +84,7 @@ if (prev && !Array.isArray(prev.open)) {   // a state written before 27.10 keeps
 }
 
 const meta = JSON.parse(fs.readFileSync(`${OUT}/meta.json`, "utf8"));
-const state = {u: meta.u, seen: [], open: []}, found = {newModels: [], newVariants: 0, cutsKnown: [], cutsUnknown: [], cutsUnsure: [], typoTwins: [], specTwins: [], codeYears: [], parallelOnly: []};
+const state = {u: meta.u, seen: [], open: [], added: {}}, found = {newModels: [], newVariants: 0, cutsKnown: [], cutsAuto: [], cutsUnknown: [], cutsUnsure: [], typoTwins: [], specTwins: [], codeYears: [], parallelOnly: []};
 // the words of every name under 12 characters (once per maker and name), every maker model year|name, the new 12-character names
 const whole = new Map(), wholeSeen = new Set(), names = new Set(), twelve = [], allTwelve = [];
 for (const cd of Object.keys(meta.makers)) {
@@ -122,12 +125,24 @@ for (const cd of Object.keys(meta.makers)) {
   }
 }
 for (const v of Object.values(TRIM_FIX)) for (const x of v.split(" ")) whole.set(x, Math.max(whole.get(x) || 0, 2));   // what TRIM_FIX completes to is whole
+// a completion added on an earlier run that main does not have yet (its commit failed) is added again; one main has is no longer carried
+for (const [k, v] of Object.entries(prev && prev.added || {})) if (!TRIM_FIX[k] && TF.valid(k, v)) { TRIM_FIX[k] = v; fixFile.fix[k] = v; state.added[k] = v; }
+// a cut the rule sees, new now or flagged before: completed in trim-fix.json when the completion is confident (trim-fix.mjs), else left for a person
+const autoFix = (label, t) => {
+  const c = cutKind(t, TRIM_FIX, whole); if (c.kind !== "cut") return false;
+  const to = TF.confident(c.last, whole, TRIM_FIX); if (!to) return false;
+  TRIM_FIX[c.last] = to; fixFile.fix[c.last] = to; state.added[c.last] = to;
+  found.cutsAuto.push(`${label}: ${t} → ${to}`); return true;
+};
 for (const {label, t} of twelve) {
+  if (autoFix(label, t)) continue;
   const c = cutKind(t, TRIM_FIX, whole);
   if (c.kind === "known") found.cutsKnown.push(`${label}: ${t} → ${c.to}`);
   else if (c.kind === "cut") { found.cutsUnknown.push(`${label}: "${t}" (המילה האחרונה "${c.last}", כנראה ${c.to})`); state.open.push({label, t}); }
   else if (c.kind === "unsure") found.cutsUnsure.push(`${label}: "${t}"`);
 }
+for (const o of prevOpen) if (names.has(o.label + "|" + o.t)) autoFix(o.label, o.t);
+if (JSON.stringify(fixFile.fix) !== fixWas) TF.write(FIX_FILE, fixFile.fix, meta.u);   // catalog.yml commits it to main
 // every 12-character name, old or new, whose last word the cut rule cannot judge, once per maker and word, with the register's whole words:
 // what name-match.mjs asks Claude about (trim-unsure.json; nothing here changes what the rules decide or flag)
 const unsure = new Map();
@@ -150,6 +165,7 @@ const lines = [`# דוח כללי הקטלוג ${meta.u}`, first ? "ריצה ר�
 const sec = (t, a, max = 40) => { if (a.length) lines.push("", `## ${t} (${a.length})`, ...a.slice(0, max).map(x => "- " + x), ...(a.length > max ? [`- … ועוד ${a.length - max}`] : [])); };
 sec("דגמים חדשים", found.newModels);
 sec("קיצוצים ל-12 תווים שהטבלה לא מכירה (להוסיף ל-TRIM_FIX)", found.cutsUnknown);
+sec("קיצוצים שהבוט השלים בעצמו (נוספו ל-trim-fix.json, האפליקציה מציגה אותם בלי גרסה)", found.cutsAuto);
 sec("קיצוצים שסומנו קודם ועדיין מחכים ל-TRIM_FIX", waiting.map(o => `${o.label}: "${o.t}"`));
 sec("קיצוצים שהושלמו אוטומטית", found.cutsKnown);
 sec("שמות באורך 12 בלי ראיה לקיצוץ (המילה האחרונה לא מופיעה בשמות קצרים; בלי התראה)", found.cutsUnsure);
@@ -160,12 +176,14 @@ sec("שנים חדשות בלי יבואן רשמי מזוהה (הכול יבו�
 fs.writeFileSync(`${OUT}/rules-report.md`, lines.join("\n") + "\n");
 console.log(lines.join("\n"));
 // a Telegram line only for what needs a human: unknown cuts (rule table) and new model names to eyeball
-if (!first && (found.cutsUnknown.length || found.newModels.length)) {
+if (!first && (found.cutsUnknown.length || found.newModels.length || found.cutsAuto.length)) {
   // the Telegram standard (tg-text.mjs, HTML): the counts in words, the English model names folded
-  const n = found.newModels.length, c = found.cutsUnknown.length, known = found.cutsKnown.length + found.typoTwins.length + found.specTwins.length;
-  const msg = tgMsg({ kind: c ? "today" : "info", area: "data", title: c ? `נמצאו ${c} שמות דגם קצוצים שהכללים לא מכירים` : `נמצאו ${n} דגמים חדשים במאגר`,
-    text: [n && c ? `בנוסף נמצאו ${n} דגמים חדשים במאגר.` : "", c ? "הבוחר יציג אותם בשם קצוץ עד שיתווסף להם כלל." : "הבוחר כבר מציג אותם.", `הכללים הקיימים טיפלו ב-${known} מקרים נוספים (${meta.u}).`].filter(Boolean).join(" "),
+  // a run whose only news is cuts the bot completed itself is a quiet ✅ line (the workflow sends it with the Sunday summary)
+  const n = found.newModels.length, c = found.cutsUnknown.length, a = found.cutsAuto.length, known = found.cutsKnown.length + found.typoTwins.length + found.specTwins.length;
+  const autoLine = a ? `${a === 1 ? "שם גימור קצוץ אחד הושלם" : `${a} שמות גימור קצוצים הושלמו`} אוטומטית, והאפליקציה מציגה ${a === 1 ? "אותו מלא" : "אותם מלאים"} בלי גרסה חדשה.` : "";
+  const msg = tgMsg({ kind: c ? "today" : n ? "info" : "done", area: "data", title: c ? `נמצאו ${c} שמות דגם קצוצים שהכללים לא מכירים` : n ? `נמצאו ${n} דגמים חדשים במאגר` : "שמות גימור קצוצים הושלמו אוטומטית",
+    text: [n && c ? `בנוסף נמצאו ${n} דגמים חדשים במאגר.` : "", c ? "הבוחר יציג אותם בשם קצוץ עד שיתווסף להם כלל." : n ? "הבוחר כבר מציג אותם." : "", autoLine, `הכללים הקיימים טיפלו ב-${known} מקרים נוספים (${meta.u}).`].filter(Boolean).join(" "),
     what: c ? "כלום. זה עובר לבד לטיפול בשרשור \"נתונים ואמינות\", ועדכון יגיע כשזה מטופל." : "",
-    raw: [n ? `new models: ${found.newModels.slice(0, 8).join(", ")}${n > 8 ? "…" : ""}` : "", c ? `unknown cuts: ${found.cutsUnknown.slice(0, 6).join(" | ")}` : ""].filter(Boolean).join("; ") }) + "\n🔗 https://github.com/ddsabag/vehicle-app/blob/catalog-data/rules-report.md";
+    raw: [a ? `auto: ${found.cutsAuto.slice(0, 6).join(" | ")}` : "", n ? `new models: ${found.newModels.slice(0, 8).join(", ")}${n > 8 ? "…" : ""}` : "", c ? `unknown cuts: ${found.cutsUnknown.slice(0, 6).join(" | ")}` : ""].filter(Boolean).join("; ") }) + "\n🔗 https://github.com/ddsabag/vehicle-app/blob/catalog-data/rules-report.md";
   fs.writeFileSync(`${OUT}/rules-alert.txt`, msg);
 }

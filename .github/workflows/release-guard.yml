@@ -23,12 +23,17 @@ concurrency: release-guard
 jobs:
   guard:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0   # the second look reads the release notes' history and the app commits since the base version
           sparse-checkout: |
             .github/scripts/release-guard.mjs
+            .github/scripts/guard-explain.mjs
+            .github/scripts/claude.mjs
+            analytics/review-context.md
+            android/release-notes.txt
             .github/scripts/tg-text.mjs
             .github/scripts/alert.mjs
             .github/scripts/bot-names.json
@@ -38,8 +43,12 @@ jobs:
       - uses: actions/setup-node@v7
         with: { node-version: 20 }
       - run: node .github/scripts/release-guard.mjs selftest
+      - name: The Claude SDK for the second look (the version pinned in claude.mjs; without it the guard runs as before)
+        continue-on-error: true
+        run: npm install --no-save --no-audit --no-fund --loglevel=error "$(sed -n 's/^export const SDK = "\(.*\)";$/\1/p' .github/scripts/claude.mjs)"
       - run: node .github/scripts/release-guard.mjs
         env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
           MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'on' }}
           DAY: ${{ inputs.day }}

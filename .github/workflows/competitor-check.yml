@@ -1,7 +1,8 @@
 name: Competitor check
 # Monthly competitor check (strategy thread; Dudu 24.10.2026, moved to the monthly API credit 1.11.2026): on the 1st, one Claude call
 # (Sonnet 5.5 + the server web search, searches capped) looks for changes since the last run and writes competitors.json on the branch
-# competitor-check. A change is kept only with a source the search returned (competitor-check.mjs), and the bot
+# competitor-check, then a second call collects what users say they miss in the alternatives (reviews, forums; package B, Dudu 1.11 21:16).
+# A change or a need is kept only with a source the search returned (competitor-check.mjs), and the bot
 # tells a change itself through the router (comp:<YYYY-MM>; Dudu 1.11 "אם אין בהם צורך אז כן": no thread is woken). With no key, no SDK or an API error the run stays green:
 # ai:comp (ai:key when the key or the credit is the cause) goes to the router, and the morning triage routes it to the strategy thread.
 # Not in failure-alert's re-run list: a run sends a paid request, so a crash is told and never re-run by itself.
@@ -22,7 +23,7 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v7

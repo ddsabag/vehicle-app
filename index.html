@@ -4696,7 +4696,7 @@ const cmpMax = () => Math.min(isPro() ? PRO_CMP : FREE_CMP, matchMedia("(max-wid
 let cmp = [], inCompare = false, mResults = [], mCtrl = null;
 const cmpOpen = new Set();   // the comparison's sections open only on a tap (Dudu 25.10: all folded by default, each opens what interests them)
 function openCompare(from){
-  loadModelIndex(); loadModelStats().catch(() => null);
+  loadModelIndex(); loadModelStats().catch(() => null); loadTrimFix();
   $("#compareSheet").hidden = false; $("#compareMsg").textContent = "";
   $("#mq").value = ""; $("#mres").innerHTML = ""; mResults = []; mGroup = null; mYear = null; mShowAll = false;
   $("#cmpTitle").textContent = cmp.length ? `הוספת רכב ${cmp.length + 1} להשוואה` : from === "search" ? "חיפוש דגמים" : "בחירת רכב להשוואה";   // the home tool keeps its own name
@@ -4943,7 +4943,9 @@ async function pickGroup(i){
   const years = [...new Set(mGroup.all.map(r => num(r.shnat_yitzur)).filter(y => !isNaN(y)))].sort((a, b) => b - a);
   mGroup.years = years;
   if (!mGroup.all.length) { $("#compareMsg").textContent = "לא נמצאו גרסאות לדגם הזה. נסו שם אחר."; return; }
-  mGroup.imp = await brandImporter(g0); if (mGroup !== g0) return;
+  // the trim completions from the site, if they come within 0.8 s (cached after the first time); otherwise the in-app list alone
+  const [imp] = await Promise.all([brandImporter(g0), Promise.race([loadTrimFix(), new Promise(r => setTimeout(r, 800))])]); if (mGroup !== g0) return;
+  mGroup.imp = imp;
   showModel(String(years[0] || ""));
   // one year and one version: nothing left to choose
   if (years.length === 1 && mResults.length === 1 && (mMode === "trim" || mResults[0].length === 1)) pickModel(0);
@@ -4956,6 +4958,17 @@ const TRIM_FIX = {HYBR: "HYBRID", HYBRI: "HYBRID", PREMIU: "PREMIUM", PREMI: "PR
   PANORAMI: "PANORAMIC", PANORAM: "PANORAMIC", SUPREM: "SUPREME", HIGHLIN: "HIGHLINE", HIGHLI: "HIGHLINE", TRENDLIN: "TRENDLINE", COMFORTLIN: "COMFORTLINE", COMFORTLI: "COMFORTLINE", ELECTRI: "ELECTRIC", ELECTR: "ELECTRIC",
   ESSENTIA: "ESSENTIAL", ESSENTI: "ESSENTIAL", ESSENC: "ESSENCE", EVOLUTIO: "EVOLUTION", EVOLUTI: "EVOLUTION", ADVENTUR: "ADVENTURE", ADVENT: "ADVENTURE", FREESTYL: "FREESTYLE", CROSSOVE: "CROSSOVER", CROSSOV: "CROSSOVER",
   SPECIA: "SPECIAL", CLASSI: "CLASSIC", EDI: "EDITION", EDIT: "EDITION", NAVIGATIO: "NAVIGATION", LONGRANG: "LONG RANGE", STYL: "STYLE", PERFO: "PERFORMANCE", INTELLIGEN: "INTELLIGENT", INTELLIG: "INTELLIGENT", PLU: "PLUS", AUTOBIOGRAPH: "AUTOBIOGRAPHY", UTOBIOGRAPHY: "AUTOBIOGRAPHY"};
+// trim-fix.json on the site: completions the catalogue bot added since this release (catalog-rules.mjs); TRIM_FIX above is the fallback and wins.
+// The same check as valid() in .github/scripts/trim-fix.mjs (its self-test compares the two), so a bad entry is dropped on its own.
+const trimFixOk = (k, v) => /^[A-Z]{2,11}$/.test(k) && typeof v === "string" && /^[A-Z][A-Z ]{1,28}[A-Z]$/.test(v) && !/  /.test(v)
+  && v.replace(/ /g, "").length > k.length && v.replace(/ /g, "").startsWith(k);
+let TRIM_FIX_MORE = {}, trimFixP = null;
+function trimFixUse(j){
+  if (!j || !j.fix || typeof j.fix !== "object") return false;
+  TRIM_FIX_MORE = Object.fromEntries(Object.entries(j.fix).filter(([k, v]) => trimFixOk(k, v) && !TRIM_FIX[k]));
+  return true;
+}
+function loadTrimFix(){ return trimFixP || (trimFixP = cachedJson([SITE + "trim-fix.json", "trim-fix.json"], trimFixUse).then(trimFixUse).catch(() => { trimFixP = null; })); }
 const trimNorm = r => String(r.ramat_gimur || "").toUpperCase().replace(/[^A-Z0-9\u05d0-\u05ea]/g, "");
 // everything the comparison shows of a version: two versions merge only when none of it differs
 const SPEC_KEYS = ["nefah_manoa", "koah_sus", "technologiat_hanaa_nm", "delek_nm", "automatic_ind", "hanaa_nm", "merkav", "mispar_dlatot", "mispar_moshavim", "mishkal_kolel", "mispar_kariot_avir", "ramat_eivzur_betihuty", "mehir",
@@ -4964,7 +4977,7 @@ const specKey = r => SPEC_KEYS.map(k => String(r[k] ?? "")).join("|");
 function trimLabel(r){
   if (r._alias) return r._alias;
   let t = String(r.ramat_gimur || "").trim().toUpperCase().replace(/\s+/g, " "); if (!t) return "";
-  if (t.length === 12) { const w = t.split(" "), last = w[w.length - 1]; if (TRIM_FIX[last]) { w[w.length - 1] = TRIM_FIX[last]; t = w.join(" "); } }   // the register cuts trims at 12 characters
+  if (t.length === 12) { const w = t.split(" "), last = w[w.length - 1]; const fx = TRIM_FIX[last] || TRIM_FIX_MORE[last]; if (fx) { w[w.length - 1] = fx; t = w.join(" "); } }   // the register cuts trims at 12 characters
   t = t.replace(/^(.+) ED\.?$/, "$1 EDITION").replace(/\s*\.$/, "");   // "LIMITED ED." / "BUSINESS ED"; a trailing dot would flip to the other side of a Latin word in Hebrew text
   return t.split(" ").map(x => /^[A-Z]{4,}$/.test(x) ? x[0] + x.slice(1).toLowerCase() : x).join(" ");
 }
