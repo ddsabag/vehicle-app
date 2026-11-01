@@ -167,7 +167,7 @@ export const LABELS = {
   // without it; that bot's next good call closes its own key (resolve(["ai:<bot>"]), never the bare "ai", which would close the others').
   // ai:key, level day: the key or the credit is the cause (401, 403, credit balance too low), so Dudu has to act; any bot's good call closes it
   "ai":                  { he: "בוט שנעזר ב-Claude לא הצליח לפנות אליו והמשיך בלעדיו: {ids}", sect: "fail",
-                           ids: { themes: "תיוג הנושאים בביקורות", advisor: "מבחן היועץ הטכני", recalls: "הסברי הריקולים", shots: "עין שנייה על צילומי המסך",
+                           ids: { themes: "הסיכום השבועי של הביקורות", triage: "ההכנה לבדיקת הבוקר", advisor: "מבחן היועץ הטכני", recalls: "הסברי הריקולים", shots: "עין שנייה על צילומי המסך",
                                   names: "התאמת שמות הדגמים", mag: "כתבות המגזין", comp: "בדיקת המתחרים החודשית",
                                   anomalies: "סקירת החריגות בדוח השבועי" } },
   "ai:key":              { he: "מפתח ה-Claude API לא עובד או שהקרדיט נגמר, והבוטים ממשיכים בלעדיו", sect: "fail" },
@@ -1029,7 +1029,7 @@ async function selftest() {
       ["infra", "site api sitemap quota-cf quota-brevo"], ["vitals", "crash anr"], ["listing:fail", "access files play"], ["prod:fail", "access promote auto"], ["safety:fail", "access files play"],
       ["truth", "page identity status test road owners km recalls settlements tow specs mods fee price value tag insight counts message"],
       ["truth:inv", "fresh tests renewal dates reuse owners km hook price wltp recalls pubcancel lend"], ["pipe", "web app errors ga"],
-      ["ai", "themes advisor recalls shots names mag"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
+      ["ai", "themes triage advisor recalls shots names mag comp anomalies"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
       const he = label(f + ":" + ids.split(" ").join("+")).he.split(/[\s,:]+/);
       ok(!ids.split(" ").some(i => he.includes(i)), `label ${f}: no raw id left`);
     }
@@ -1039,7 +1039,7 @@ async function selftest() {
       "the catalogue's news line is not a to-do");
     ok(label("zonea:fail:2026-10-25").he === "יותר מדי בדיקות רכב נכשלו" && label("zonea:fail+slow:2026-10-25").he === "יותר מדי בדיקות רכב נכשלו או היו איטיות"
       && label("zonea:slow:2026-10-25").sect === "fail" && !/\d/.test(label("zonea:x:2026-10-25").he), "zone A labels: by kind, no raw date");
-    ok(label("ai:themes").he === "בוט שנעזר ב-Claude לא הצליח לפנות אליו והמשיך בלעדיו: תיוג הנושאים בביקורות" && label("ai:themes").sect === "fail"
+    ok(label("ai:themes").he === "בוט שנעזר ב-Claude לא הצליח לפנות אליו והמשיך בלעדיו: הסיכום השבועי של הביקורות" && label("ai:themes").sect === "fail"
       && label("ai:key").he.startsWith("מפתח ה-Claude API") && label("ai:key").sect === "fail" && validKey("ai:key") && validKey("ai:recalls"),
       "Claude API labels: one per bot, the key's own");
     const used = scanKeys(ROOT), missing = used.filter(k => !FAMILIES_IN_USE.some(f => f === k || f.startsWith(k + ":") || k.startsWith(f + ":")));
