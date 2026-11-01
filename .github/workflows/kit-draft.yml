@@ -1,0 +1,59 @@
+name: Kit draft
+# Claude drafts the weekly content kit's texts the night before the Thursday kit (.github/scripts/kit-draft.mjs; owner: marketing thread;
+# Dudu approved 1.11.2026, monthly API credit package A5). claude-opus-5-5 at medium effort, from the factory snapshot on branch kit-factory
+# (pushed by the kit run itself) and public data only; the factory's lint checks the copy and its violations go back to the model, at most 3
+# rounds. Output: branch kit-draft-out, folder draft-<Thursday>/ (a draft only: the Thursday run reviews every line, renders and lints again).
+# Off: repo variable KIT_DRAFT=off. No secret ANTHROPIC_API_KEY or no snapshot: it skips. Red only when the script itself crashes.
+on:
+  schedule:
+    - cron: "40 20 * * 3"   # Wednesday 22:40 Israel in winter (23:40 in summer), the night before the kit run (Thursday 10:22 Israel)
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "The Thursday the draft is for (YYYY-MM-DD); empty: the next Thursday"
+        required: false
+        type: string
+permissions:
+  contents: write   # branch kit-draft-out, and the alert router's state (branch alert-state)
+concurrency:
+  group: kit-draft-out   # Kit draft and Kit visual QA both write branch kit-draft-out
+  cancel-in-progress: false
+jobs:
+  draft:
+    if: ${{ vars.KIT_DRAFT != 'off' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 200 }   # ideas.mjs and the lint read facts' past values with git show (RUNBOOK step 1)
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      - name: The factory snapshot (branch kit-factory) and the recall catalogue (branch catalog-data)
+        run: |
+          mkdir -p factory catalog
+          for i in 1 2 3 4; do git fetch -q --depth=1 origin kit-factory && break; [ $i = 4 ] && { echo "::notice::no branch kit-factory: the draft skips"; exit 0; }; sleep $((i * 5)); done
+          git archive FETCH_HEAD | tar -x -C factory
+          for i in 1 2 3 4; do git fetch -q --depth=1 origin catalog-data && break; [ $i = 4 ] && exit 1; sleep $((i * 5)); done
+          git archive FETCH_HEAD | tar -x -C catalog
+      - name: The Claude API SDK (this run only; the app never loads it)
+        continue-on-error: true   # not installed: the draft skips
+        run: npm install --no-save --no-audit --no-fund "$(node --input-type=module -e 'console.log((await import("./.github/scripts/claude.mjs")).SDK)')"
+      - name: Kit draft
+        id: draft
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          KIT_DRAFT: ${{ vars.KIT_DRAFT }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY || secrets.BREVO_KEY }}   # the router's email path
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          DRY_RUN: ${{ github.ref_name != 'main' && '1' || '0' }}   # off main the router sends nothing
+          DATE: ${{ inputs.date }}
+        run: node .github/scripts/kit-draft.mjs --factory factory --repo . --catalog catalog --out kd-out ${DATE:+--date "$DATE"}
+      - name: The draft to branch kit-draft-out
+        if: ${{ !cancelled() && steps.draft.outputs.wrote == '1' }}
+        env:
+          DIR: ${{ steps.draft.outputs.dir }}
+        run: |
+          bash .github/scripts/kit-out-push.sh "kd-out/$DIR" "$DIR" "Kit draft: $DIR" "${{ secrets.GITHUB_TOKEN }}"
