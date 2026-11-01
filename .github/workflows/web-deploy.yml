@@ -23,7 +23,7 @@ on:
   push:
     branches: [main]
   workflow_run:
-    workflows: ["Fuel price", "Market data", "Model statistics", "Model names", "Magazine", "SEO auto-publish", "Experimenter"]
+    workflows: ["Fuel price", "Market data", "Model statistics", "Model names", "Magazine", "SEO auto-publish", "Experimenter", "Model catalogue"]
     types: [completed]
     branches: [main]
   # safety net for any main commit no trigger above published: 03:17 UTC (before the morning smoke test and the 04:40-08:10 data window)
