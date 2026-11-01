@@ -83,7 +83,7 @@ jobs:
           HEAD_SHA: ${{ steps.range.outputs.head }}
           KIND: ${{ steps.range.outputs.kind }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: node .github/scripts/diff-review.mjs --base "$BASE" --head "$HEAD_SHA" --branch "$GITHUB_REF_NAME" --kind "$KIND" --out dr-out --run "$RUN_URL"
+        run: node .github/scripts/diff-review.mjs --base "$BASE" --head "$HEAD_SHA" --branch "$GITHUB_REF_NAME" --kind "$KIND" --main origin/main --out dr-out --run "$RUN_URL"
       - name: Report and state to branch diff-review-out
         if: ${{ !cancelled() && steps.review.outputs.wrote == '1' }}
         run: |

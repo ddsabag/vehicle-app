@@ -13,7 +13,8 @@
 // review was skipped, ai:key (day) when the key or the credit is why; a good review closes ai:diff and ai:key. No key, DIFF_REVIEW=off,
 // the month's cap or nothing to read: it skips quietly. Only a crash of this script is red (Failure alert, summary).
 // Node 20, node: builtins, git and ./claude.mjs (its SDK installed by the workflow). Commands:
-//   node diff-review.mjs --base SHA --head SHA --branch NAME --kind push|release --out DIR [--run URL]
+//   node diff-review.mjs --base SHA --head SHA --branch NAME --kind push|release --out DIR [--main REF] [--run URL]
+//   (--main: on a push, main's commits merged in are not read again)
 //   node diff-review.mjs selftest     offline: a made-up repository and a fake API
 import fs from "node:fs";
 import path from "node:path";
@@ -96,12 +97,13 @@ export function touched(diff) {
 }
 export const near = (set, line) => { for (let d = 0; d <= NEAR; d++) if (set.has(line - d) || set.has(line + d)) return true; return false; };
 
-export function gather(base, head, cwd = IO.cwd) {
-  const names = IO.git(["diff", "--name-only", "--no-renames", base, head], cwd).split("\n").filter(Boolean);
+// from: what the diff starts from (a commit, or the tree of "before" with main merged in, see own()); base..head still names the commits
+export function gather(base, head, cwd = IO.cwd, from = base) {
+  const names = IO.git(["diff", "--name-only", "--no-renames", from, head], cwd).split("\n").filter(Boolean);
   const { read, skipped } = pick(names), files = [], notRead = skipped.map(f => ({ file: f, why: "not code" }));
   let total = 0;
   for (const f of read) {
-    const d = IO.git(["diff", "--no-color", "--no-renames", "-U25", base, head, "--", f], cwd);
+    const d = IO.git(["diff", "--no-color", "--no-renames", "-U25", from, head, "--", f], cwd);
     if (!d.trim()) continue;
     if (/^Binary files /m.test(d)) { notRead.push({ file: f, why: "binary" }); continue; }
     if (d.length > FILE_MAX) { notRead.push({ file: f, why: "too big to read" }); continue; }
@@ -117,6 +119,18 @@ export function request(g, o) {
     ...g.files.map(f => f.diff), "", g.notRead.length ? `Not shown: ${g.notRead.map(x => x.file).join(", ")}` : ""].join("\n");
   return { model: MODEL, max_tokens: 16000, system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
     output_config: { effort: "medium", format: { type: "json_schema", schema: SCHEMA } }, messages: [{ role: "user", content: [{ type: "text", text }] }] };
+}
+
+// a push to next that merges main in (product after every release, other threads too) carries main's commits, which were reviewed or
+// released already: only next's own commits of the push are read. None of its own: nothing to read. Some: the diff starts from "before"
+// with the main it took merged in (git merge-tree), so main's lines are not read again; a conflict there leaves the plain range.
+export function own(base, head, main, cwd = IO.cwd) {
+  const isMain = c => { try { IO.git(["merge-base", "--is-ancestor", c, main], cwd); return true; } catch { return false; } };
+  const all = IO.git(["rev-list", "--no-merges", `${base}..${head}`], cwd).split("\n").filter(Boolean), mine = all.filter(c => !isMain(c));
+  if (!mine.length) return { skip: all.length ? "only main's commits (a merge of main into the branch)" : "", from: base };
+  if (mine.length === all.length) return { skip: "", from: base };
+  try { const tip = IO.git(["merge-base", main, head], cwd).trim(), t = IO.git(["merge-tree", "--write-tree", base, tip], cwd).split("\n")[0].trim();
+    return { skip: "", from: /^[0-9a-f]{40}$/.test(t) ? t : base, mine: mine.length, all: all.length }; } catch { return { skip: "", from: base }; }
 }
 
 // the answer's points that hold: a file in the diff, a line the change touched, a known rule
@@ -182,7 +196,9 @@ export async function run(o) {
   if (st.done[o.head]) return stop(`${o.head.slice(0, 7)} was reviewed already`);
   if (st.reviews >= CAP) return stop(`this month's ${CAP} reviews are used`);
   if (!env.ANTHROPIC_API_KEY) return stop("no ANTHROPIC_API_KEY");
-  const g = gather(o.base, o.head);
+  const mine = o.kind === "push" && o.main ? own(o.base, o.head, o.main) : { skip: "", from: o.base };
+  if (mine.skip) return stop(mine.skip);
+  const g = gather(o.base, o.head, IO.cwd, mine.from);
   if (!g.files.length) return stop("no code to read in this change");
   const { api, why } = await IO.claude.client(env, { timeout: 15 * 60000 });
   if (!api) { await tell("api", o, { why }); return stop(why); }
@@ -215,7 +231,7 @@ export async function run(o) {
 
 function args(argv) {
   const o = { kind: "push" };
-  for (let i = 0; i < argv.length; i++) { const k = argv[i].replace(/^--/, ""); if (["base", "head", "branch", "kind", "out", "run"].includes(k)) o[k] = argv[++i]; }
+  for (let i = 0; i < argv.length; i++) { const k = argv[i].replace(/^--/, ""); if (["base", "head", "branch", "kind", "out", "run", "main"].includes(k)) o[k] = argv[++i]; }
   return o;
 }
 
@@ -298,6 +314,19 @@ async function selftest() {
   // a big file is listed, not sent
   put("worker/big.js", "x".repeat(FILE_MAX + 10) + "\n"); g("add", "-A"); g("commit", "-q", "-m", "big"); const h4 = g("rev-parse", "HEAD");
   ok(gather(h3, h4, repo).notRead.some(x => x.file === "worker/big.js" && x.why === "too big to read"), "a file over FILE_MAX is listed as not read");
+  // a push that merges main in: main's commits are not read again
+  { g("checkout", "-q", "-b", "next"); const nb = g("rev-parse", "HEAD"); g("checkout", "-q", "main");
+    put("worker/main-only.js", "export const fromMain = 1;\n"); g("add", "-A"); g("commit", "-q", "-m", "on main"); g("checkout", "-q", "next");
+    g("merge", "-q", "--no-edit", "main"); const m1 = g("rev-parse", "HEAD");
+    ok(own(nb, m1, "main", repo).skip === "only main's commits (a merge of main into the branch)", "a merge of main alone: nothing to read");
+    IO.env = { ANTHROPIC_API_KEY: "test" }; fake.calls.length = 0; logs.length = 0; IO.now = () => Date.parse("2026-12-02T10:00:00Z");
+    ok(await go({ base: nb, head: m1, main: "main" }) === 0 && !fake.calls.length && /only main's commits/.test(logs.at(-1)), "the run skips it, no request");
+    put("index.html", fs.readFileSync(path.join(repo, "index.html"), "utf8").replace("line 5<", "line five<")); g("commit", "-q", "-am", "own"); const m2 = g("rev-parse", "HEAD");
+    g("checkout", "-q", "main"); put("worker/main-two.js", "export const two = 2;\n"); g("add", "-A"); g("commit", "-q", "-m", "main again"); g("checkout", "-q", "next");
+    g("merge", "-q", "--no-edit", "main"); const m3 = g("rev-parse", "HEAD"), o3 = own(m1, m3, "main", repo), g3 = gather(m1, m3, repo, o3.from);
+    ok(!o3.skip && o3.mine === 1 && o3.all === 2 && g3.files.map(f => f.file).join() === "index.html" && g3.files[0].lines.has(5), "own commits and main's: only the own lines are read");
+    ok(own(m1, m2, "main", repo).from === m1, "own commits only: the plain range");
+    ok(own(base, head, "main", repo, ).skip !== "" && own(m2, m2, "main", repo).skip === "", "commits already on main: skipped; an empty range: nothing to skip for"); }
   fs.rmSync(tmp, { recursive: true, force: true });
   print(bad ? `selftest: ${bad} failed` : "selftest: all passed");
   return bad ? 1 : 0;
