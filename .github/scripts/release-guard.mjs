@@ -119,7 +119,7 @@ export const GONE_PATHS = { recalls: "1.37", maint: "1.38" };
 const goneBy = (f, base, vn) => !!GONE_PATHS[f] && !atLeast(base, GONE_PATHS[f]) && atLeast(vn, GONE_PATHS[f]);
 // events a newer UI stopped sending, by the version that did it: 1.38 moved share into the car header, so the share_label experiment's
 // button (and its exp_expose) is gone; 1.38.3 against 1.37 flagged it silent on day 1 and 3 (29.10, 31.10)
-export const GONE_EVENTS = { exp_expose: "1.38" };
+export const GONE_EVENTS = {};   // TEST BRANCH ONLY: brings back the 31.10 finding for the second look
 const evGone = (e, base, vn) => !!GONE_EVENTS[e] && !atLeast(base, GONE_EVENTS[e]) && atLeast(vn, GONE_EVENTS[e]);
 const rowsOf = j => (j?.rows || []).map(r => [...r.dimensionValues.map(x => x.value), ...r.metricValues.map(x => Number(x.value) || 0)]);
 
