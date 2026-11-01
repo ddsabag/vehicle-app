@@ -70,7 +70,7 @@ export function request({ runbook, rot, ideas, last, date }) {
   const s = slots(rot);
   const ctx = { thursday: date, kit_number: s.kit, slots: s, ideas: { generated: ideas.generated, recall_max_id: ideas.recall_max_id, ideas: ideas.ideas, warnings: ideas.warnings },
     last_kit_example: last };
-  return { model: MODEL, max_tokens: 16000, output_config: { effort: "medium" },
+  return { model: MODEL, max_tokens: 48000, output_config: { effort: "medium" },
     system: [{ type: "text", text: `${PREFACE}\n\n=== RUNBOOK.md ===\n${runbook}`, cache_control: { type: "ephemeral" } }],
     messages: [{ role: "user", content: [{ type: "text", text: `Context (JSON):\n${JSON.stringify(ctx)}\n\nDraft kit ${s.kit} for Thursday ${date}. Do not repeat the pains of the last kits unless the data is new.\n\n${CONTRACT}` }] }] };
 }

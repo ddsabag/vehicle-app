@@ -7,6 +7,7 @@ name: Kit draft
 on:
   push:   # TEMPORARY: the branch test run; removed before the release
     branches: [marketing/kit-bots]
+    paths: [.github/scripts/kit-draft.mjs, .github/workflows/kit-draft.yml]
   schedule:
     - cron: "40 20 * * 3"   # Wednesday 22:40 Israel in winter (23:40 in summer), the night before the kit run (Thursday 10:22 Israel)
   workflow_dispatch:

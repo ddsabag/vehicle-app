@@ -7,6 +7,7 @@ name: Kit visual QA
 on:
   push:   # TEMPORARY: the branch test run; removed before the release
     branches: [marketing/kit-bots]
+    paths: [.github/scripts/kit-qa.mjs, .github/workflows/kit-qa.yml]
   schedule:
     - cron: "40 13 * * 4"   # Thursday afternoon, after the kit run queued the week's kit
   workflow_dispatch:
