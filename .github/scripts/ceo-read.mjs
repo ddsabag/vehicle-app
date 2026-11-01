@@ -34,6 +34,15 @@ export function prompt(kpi, context) {
   ].join("\n");
 }
 
+// a field of the file named in the text (return_7d, organic_q1) is not a number of the model's own: it goes through fill() as a value of its own
+const FIELD = /\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/g, NAMES = "__field_names";
+let names = [];
+function fields(it) {
+  const vals = { ...((it && it.vals && typeof it.vals === "object") ? it.vals : {}) };
+  const text = String((it && it.text) || "").replace(FIELD, f => { if (!/\d/.test(f)) return f; names.push(f); const k = "zzfield" + (names.length - 1); vals[k] = { path: `${NAMES}[${names.length - 1}]` }; return `{${k}}`; });
+  return { text, vals };
+}
+
 export async function read({ kpi, context, api, env = process.env, now = new Date() }) {
   const r0 = { v: 1, generated: now.toISOString(), model: MODEL, effort: EFFORT, ok: false, why: "", key: false, items: [], dropped: [] };
   if (!kpi || typeof kpi !== "object" || kpi.error) { r0.why = "no KPI data"; return r0; }
@@ -43,9 +52,10 @@ export async function read({ kpi, context, api, env = process.env, now = new Dat
   const a = answer(r.msg); if (!a.text) { r0.why = a.why; return r0; }
   let o; try { const t = a.text, i = t.indexOf("{"), j = t.lastIndexOf("}"); o = JSON.parse(t.slice(i, j + 1)); } catch { r0.why = "no valid JSON"; return r0; }
   if (!o || !Array.isArray(o.items)) { r0.why = "no items"; return r0; }
+  names = [];
   for (const it of o.items.slice(0, 12)) {
     const kind = it && it.kind === "mismatch" ? "mismatch" : "blind_spot", title = String((it && it.title) || "").slice(0, 80);
-    const f = /\d/.test(title) ? { why: "a number of the model's own" } : fill(kpi, { text: it && it.text, vals: it && it.vals });
+    const f = /\d/.test(title.replace(FIELD, "")) ? { why: "a number of the model's own" } : fill({ ...kpi, [NAMES]: names }, fields(it));
     if (f.text && r0.items.length < MAX_ITEMS) r0.items.push({ kind, title, text: f.text, sources: f.sources });
     else if (!f.text) r0.dropped.push({ kind, title: title.replace(/\d/g, "#"), text: String((it && it.text) || "").slice(0, 300), why: f.why, vals: JSON.stringify((it && it.vals) || {}).slice(0, 600) });
   }
@@ -89,6 +99,8 @@ if (process.argv.includes("--selftest")) {
   const good = { kind: "mismatch", title: "App and web miss checks", text: "App {a} and web {w} add up to {s}, not the {t} total.", vals: { a: { path: "kpis.weekly_checks.app" }, w: { path: "kpis.weekly_checks.web" }, s: { sum: ["a", "w"] }, t: { path: "kpis.weekly_checks.week" } } };
   let r = await read({ kpi, context: "", api: fake(JSON.stringify({ items: [good, { kind: "blind_spot", title: "Made up", text: "Installs were 77", vals: {} }] })) });
   ok(r.ok && r.items.length === 1 && r.items[0].text === "App 500 and web 300 add up to 800, not the 900 total." && r.dropped.length === 1 && r.dropped[0].why === "a number of the model's own", "numbers filled by code; a number of the model's own drops the item: " + (r.items[0] || {}).text);
+  r = await read({ kpi, context: "", api: fake(JSON.stringify({ items: [{ kind: "blind_spot", title: "return_7d is thin", text: "return_7d and organic_q1 rest on {i} installs.", vals: { i: { path: "kpis.installs.week" } } }] })) });
+  ok(r.ok && r.items[0].text === "return_7d and organic_q1 rest on 40 installs." && !r.items[0].sources.zzfield0 === false, "a field name with a digit is not a number of the model's own: " + (r.items[0] || {}).text);
   r = await read({ kpi, context: "", api: fake(JSON.stringify({ items: [{ ...good, title: "Week 44 gap" }] })) }); ok(!r.ok && r.dropped.length === 1, "a digit in the title drops it too");
   r = await read({ kpi, context: "", api: fake(JSON.stringify({ items: Array.from({ length: 8 }, () => good) })) }); ok(r.ok && r.items.length === MAX_ITEMS, "at most five items");
   r = await read({ kpi, context: "", api: fake('{"items":[]}') }); ok(r.ok && !r.items.length, "nothing wrong is a good answer");

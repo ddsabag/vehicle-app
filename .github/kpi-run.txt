@@ -7,3 +7,4 @@ run 2026-10-26 files as artifacts
 run 2026-10-26 with the field glossary
 run 2026-11-01 sunday review
 run 2026-11-01 ceo-read test (measurement, A7)
+run 2026-11-01 ceo-read test 2 (measurement, A7: field names)
