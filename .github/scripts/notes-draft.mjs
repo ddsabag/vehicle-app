@@ -21,19 +21,22 @@ export const MODEL = "claude-sonnet-5-5", TRIES = 2, LOG_MAX = 14000;
 const HEB = /[֐-׿]/, PLATE = /\b\d{2,3}-\d{2,3}-\d{2,3}\b|\b\d{7,8}\b/;
 const LATIN_OK = new Set(["android", "google", "play", "pdf", "whatsapp", "iphone"]);
 // words that belong to how the app is built, never to a user's notes
+// only commits that touch what users get: the app page, the service worker, the Android app, the site pages (bots, data upkeep and tooling
+// stay out, so a bot's commit is never read as an app change: the first real test drafted "recall explanations" from the bot that writes them)
+export const USER_PATHS = ["index.html", "sw.js", "android/", "privacy.html", "404.html"];
 const INTERNAL = /שרשור|בוט|ענף|גרסת בדיקה|קומיט|סלפטסט|thread|branch|commit|guardian|worker|selftest|lint|\.mjs|\.yml|\.json|\.html|ga4|router|next|main|claude|probe/i;
 
 export const version = html => (/const APP_VERSION = "([^"]+)"/.exec(html) || [])[1] || "";
 export function commits(root, base) {
   let raw = "";
-  try { raw = execFileSync("git", ["-C", root, "log", "--no-merges", "--format=%s%n%b%x00", `${base}..HEAD`], { encoding: "utf8", maxBuffer: 1 << 24 }); } catch { return ""; }
+  try { raw = execFileSync("git", ["-C", root, "log", "--no-merges", "--format=%s%n%b%x00", `${base}..HEAD`, "--", ...USER_PATHS], { encoding: "utf8", maxBuffer: 1 << 24 }); } catch { return ""; }
   return raw.split("\0").map(c => c.split("\n").filter(l => !/^(Co-Authored-By|Claude-Session|Signed-off-by):/i.test(l.trim())).join("\n").trim()).filter(Boolean)
     .join("\n---\n").replace(/\b\d{2,3}-\d{2,3}-\d{2,3}\b/g, "#").slice(0, LOG_MAX);
 }
 
 export const SYSTEM = [
   "You write the Google Play release notes, in Hebrew, for לוחית: a free Israeli app that checks a car by its licence plate from the Ministry of Transport's open data and alerts after purchase.",
-  "You get the developers' commit messages since the last release (English, technical). Turn what a user will notice into short Hebrew bullets.",
+  "You get the developers' commit messages since the last release that touched the app (English, technical). Turn what a user will notice into short Hebrew bullets. Describe only what the commits say changed on the screen; never add a feature they do not name.",
   "Rules:",
   `- At most ${NOTES_MAX} characters in all, 4 to 9 bullets, each under 90 characters, most noticeable first. Merge small fixes into one bullet such as 'תיקונים ושיפורים קטנים'.`,
   "- The user's language: what they see or can now do. Never internal names: no threads, bots, branches, files, tests, tools, analytics, servers, code words.",
@@ -130,8 +133,10 @@ if (process.argv[1] && process.argv[1].endsWith("notes-draft.mjs")) {
     g("branch", "base");
     fs.writeFileSync(path.join(root, "index.html"), 'const APP_VERSION = "1.39";\n');
     g("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "Car page: the recall card folds its explanation (plate 12-345-67 in a test)\n\nCo-Authored-By: x\nClaude-Session: y");
+    fs.mkdirSync(path.join(root, ".github"), { recursive: true }); fs.writeFileSync(path.join(root, ".github/bot.mjs"), "x");
+    g("add", "-A"); g("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "Recall explanations bot: prompt v5");
     const l = commits(root, "base");
-    ok(/recall card folds/.test(l) && !/Co-Authored|Claude-Session|12-345-67/.test(l), "the commits since main, without attribution lines or a plate");
+    ok(/recall card folds/.test(l) && !/Co-Authored|Claude-Session|12-345-67|prompt v5/.test(l), "the app's commits since main, without a bot-only commit, attribution lines or a plate");
     ok(version('x\nconst APP_VERSION = "1.39";') === "1.39", "APP_VERSION read from index.html");
     const good = { bullets: ["הסבר קצר לכל ריקול, בלחיצה על \"מה זה אומר?\"", "תיקונים ושיפורים קטנים"], store_lines: ["הסבר פשוט לכל ריקול", "uses Claude"], left_out: ["bots"] };
     ok(!build(good, "1.39").errs.length && build(good, "1.39").file === "# 1.39\n• הסבר קצר לכל ריקול, בלחיצה על \"מה זה אומר?\"\n• תיקונים ושיפורים קטנים\n" && build(good, "1.39").store.length === 1, "a good draft: the exact file, the store line in English dropped");
