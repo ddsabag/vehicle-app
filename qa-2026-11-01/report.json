@@ -1,0 +1,240 @@
+{
+ "kit": "2026-11-01",
+ "model": "claude-sonnet-5-5",
+ "images": 15,
+ "failed": [],
+ "findings": [
+  {
+   "image": "reel-buyer-questions.frame-2of5.jpg",
+   "kind": "overlap",
+   "part": 1,
+   "where": "top edge of the phone mockup, just above the screen",
+   "text": "* המחשה · רכב לדוגמה",
+   "what": "The mock-scene caption \"* המחשה · רכב לדוגמה\" is half hidden behind the top edge of the phone frame, so its lower half is cut off and it is hard to read.",
+   "severity": "medium",
+   "confidence": "high"
+  },
+  {
+   "image": "story-02.png",
+   "kind": "layout",
+   "part": 1,
+   "where": "subtitle under the headline, second line",
+   "text": "בעלים.",
+   "what": "The subtitle \"לפי מאגרי משרד התחבורה, בלי שמות של בעלים.\" wraps so that the single word \"בעלים.\" sits alone on its own row, a widow that looks accidental.",
+   "severity": "low",
+   "confidence": "medium"
+  },
+  {
+   "image": "story-03.png",
+   "kind": "layout",
+   "part": 1,
+   "where": "subtitle paragraph under the headline, second line",
+   "text": "היבואן.",
+   "what": "The subtitle \"ריקול פתוח? התיקון בדרך כלל ללא עלות אצל היבואן.\" wraps so that the single word \"היבואן.\" sits alone on its own row (a widow).",
+   "severity": "low",
+   "confidence": "medium"
+  },
+  {
+   "image": "story-03.png",
+   "kind": "rtl",
+   "part": 1,
+   "where": "line under the licence plate",
+   "text": "בודקים ב-luchit.app",
+   "what": "The Hebrew prefix \"ב-\" and the URL \"luchit.app\" are in the wrong visual order. The line reads \"luchit.app-בודקים ב\", with the URL at the left and the hyphen detached from it.",
+   "severity": "low",
+   "confidence": "medium"
+  },
+  {
+   "image": "reel-buyer-questions.frame-1of5.jpg",
+   "kind": "layout",
+   "part": 1,
+   "where": "Headline, first two lines: \"כל שאלה בלי\" then \"תשובה\" alone on the second row",
+   "text": "תשובה",
+   "what": "The word \"תשובה\" sits alone on its own row, leaving a short orphan line under \"כל שאלה בלי\". The line break splits the phrase awkwardly.",
+   "severity": "low",
+   "confidence": "medium"
+  },
+  {
+   "image": "reel-buyer-questions.frame-3of5.jpg",
+   "kind": "cut_text",
+   "part": 1,
+   "where": "top, partly hidden behind the green header bar, above the report card on the right",
+   "text": "עד מתי הטסט?",
+   "what": "The earlier chat bubble \"עד מתי הטסט?\" is cut off by the green header bar, so the top half of the letters is hidden.",
+   "severity": "low",
+   "confidence": "medium"
+  }
+ ],
+ "notes": [
+  {
+   "image": "carousel-04.png",
+   "kind": "typo",
+   "part": 1,
+   "where": "yellow pill above the title",
+   "text": "צעד 2",
+   "what": "The pill reads 'צעד 2', which is fine on its own. However, the slide shows no other defect in the pill, so this is only a low-confidence check of the wording ('צעד' rather than 'טיפ').",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "carousel-01.png",
+   "kind": "layout",
+   "part": 1,
+   "where": "Title block, third line",
+   "text": "תשובות.",
+   "what": "The headline wraps so that the single word \"תשובות.\" sits alone on its own row after \"מגיעים עם\", leaving a short orphan line.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "carousel-01.png",
+   "kind": "layout",
+   "part": 1,
+   "where": "Source footnote, second line",
+   "text": "פעילים. נתוני אוקטובר 2026",
+   "what": "The footnote wraps awkwardly: the word \"פעילים.\" is left alone at the start of the second line, and the sentence reads broken across lines.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "carousel-02.png",
+   "kind": "rtl",
+   "part": 1,
+   "where": "bottom left, the swipe prompt next to 'החליקו'",
+   "text": "← החליקו",
+   "what": "The arrow points left, which is the correct 'next' direction in RTL, so this is not an error. The only possible concern is the word-and-arrow order, and it looks consistent.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "carousel-03.png",
+   "kind": "rtl",
+   "part": 1,
+   "where": "Title second line, yellow text next to the period",
+   "text": "כמו קונה.",
+   "what": "The period sits at the left end of the Hebrew title line, which is the correct end for RTL, so this is fine. The title as a whole has no defect.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "carousel-05.png",
+   "kind": "typo",
+   "part": 1,
+   "where": "Yellow box, second line under 'luchit.app-ב'",
+   "text": "אנדרואיד ודפדפן",
+   "what": "Possibly the box line 'חינם · בלי הרשמה · אנדרואיד ודפדפן' reads fine; no clear defect, but the sentence is a list of unrelated items. Low-confidence note only.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "story-01.png",
+   "kind": "layout",
+   "part": 1,
+   "where": "bottom area: Google Play badge and \"זמינה להורדה\" caption, around y=1480-1590",
+   "text": "זמינה להורדה",
+   "what": "The badge and its caption sit inside the bottom 340px (y>1580) reserved for the network's UI. The badge is allowed in that zone, but its bottom edge at about y=1590 is right at the limit, so this is only a minor concern.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "dealer-post.png",
+   "kind": "typo",
+   "part": 1,
+   "where": "top right, header line beside the logo",
+   "text": "למגרשים ולטריי-אין",
+   "what": "The header reads \"למגרשים ולטריי-אין\", and the English \"trade-in\" is transliterated in an odd way as \"טריי-אין\". It is probably intended, so this is a minor wording point.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "dealer-post.png",
+   "kind": "layout",
+   "part": 1,
+   "where": "bottom left, \"זמינה להורדה\" caption above the Google Play badge",
+   "text": "זמינה להורדה",
+   "what": "The caption is not aligned with the badge's left edge. It is indented relative to the badge, and the pair sits apart from the right-aligned \"שיתוף הדוה\" link row.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "dealer-post.png",
+   "kind": "rtl",
+   "part": 1,
+   "where": "bottom right, link row",
+   "text": "שיתוף הדוח ← luchit.app",
+   "what": "The arrow \"←\" points left, toward the Hebrew text, and the sequence reads right to left as the Hebrew first and the URL second. This is probably fine, so I am flagging it only at low confidence.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "reel-cover.jpg",
+   "kind": "badge",
+   "part": 1,
+   "where": "whole cover frame; no Google Play badge anywhere, including the bottom area",
+   "text": "",
+   "what": "The 'GET IT ON Google Play' badge is not visible on this cover image. Note that the rule covers a reel's last frame, so this is only a possible defect on a cover.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "reel-cover.jpg",
+   "kind": "layout",
+   "part": 1,
+   "where": "top-left of chat area, the '* המחשה' tag next to the first message bubble",
+   "text": "* המחשה",
+   "what": "The mock-scene tag sits at the very top-left, crammed right against the header edge and the message bubble row, and the asterisk is placed to the left of the Hebrew word. The tag is inside the top 250px unsafe zone, but it is a small footer-type label so this is a small blemish.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "reel-cover.jpg",
+   "kind": "layout",
+   "part": 1,
+   "where": "large empty area between the message bubble and the title pill 'מוכרים רכב?', and the empty bottom area",
+   "text": "מוכרים רכב?",
+   "what": "The cover has a very large empty beige gap in the middle of the frame, with only one short message bubble and a title pill floating far below it. The composition looks unfinished.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "reel-buyer-questions.frame-1of5.jpg",
+   "kind": "rtl",
+   "part": 1,
+   "where": "Yellow headline line, at the left end",
+   "text": "מוסיפה ספק.",
+   "what": "The period sits at the left end of the Hebrew sentence, which is the correct end for RTL. No defect here.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "reel-buyer-questions.frame-1of5.jpg",
+   "kind": "other",
+   "part": 1,
+   "where": "The \"* המחשה\" tag at the top left of the chat",
+   "text": "* המחשה",
+   "what": "The mock-scene tag is very faint and low-contrast against the dimmed background. It is intentional, but hard to read.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "reel-buyer-questions.frame-2of5.jpg",
+   "kind": "layout",
+   "part": 1,
+   "where": "bottom of the frame: no Google Play badge, and the phone runs down to about y=1820",
+   "text": "",
+   "what": "The frame has no visible Google Play badge. The phone also reaches into the bottom 340px reserved for the network UI. This is probably acceptable for a middle frame, so it is a low-confidence note.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "reel-buyer-questions.frame-3of5.jpg",
+   "kind": "layout",
+   "part": 1,
+   "where": "green header at the top, contact name \"קונה מהמודעה\" and \"מקליד/ה...\"",
+   "text": "קונה מהמודעה",
+   "what": "The header text sits inside the top 250 px, which the network interface covers. It is part of the mocked chat scene, so the risk is small.",
+   "severity": "low",
+   "confidence": "low"
+  }
+ ]
+}
