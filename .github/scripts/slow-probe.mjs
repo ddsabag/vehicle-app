@@ -52,3 +52,4 @@ const ek = crypto.publicEncrypt({ key: fs.readFileSync(".github/seo-data.pub.pem
 fs.mkdirSync("out", { recursive: true });
 fs.writeFileSync("out/slow.enc.json", JSON.stringify({ v: 1, ek: ek.toString("base64"), iv: iv.toString("base64"), tag: c.getAuthTag().toString("base64"), data: enc.toString("base64") }));
 console.log("written, encrypted");
+// run 2026-11-01: zone A slow breach of 31.10
