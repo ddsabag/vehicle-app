@@ -60,6 +60,8 @@ on:
       - "UI guardian (browser)"
       - "Visual review"   # owner: product (QA); Claude's look at the guardians' screenshots, report only: red = its own crash, never a finding
       - "Competitor check"   # owner: strategy; monthly, paid: never re-run by this job
+      - "Copy audit"   # owner: product; weekly, paid: never re-run by this job
+      - "Release notes draft"   # owner: product; on a release-* push, paid: never re-run by this job
       - "Alert router check"   # the checks of a push to main: red = something released broken (alert.mjs selftest: no workflow on main goes unwatched)
       - "ASO check"
       - "Live watch"
