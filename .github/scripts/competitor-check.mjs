@@ -17,7 +17,7 @@ import path from "node:path";
 import { client, ask, answer, reason, keyTrouble } from "./claude.mjs";
 
 export const MODEL = "claude-sonnet-5-5";
-export const MAX_SEARCHES = 16;   // the first real run (1.11.2026) used up 12 before the last two names
+export const MAX_SEARCHES = 24;   // runs of 1.11.2026 used up 12, then 16, before Ototo and the ministry were done
 export const AREAS = ["price", "alerts", "recalls", "ownership", "free_check", "platform", "new_app", "gov", "other"];
 // what was known on the last change of this list (24.10.2026 review, strategy.md); the model reports only what differs from it
 export const KNOWN = [
@@ -38,7 +38,7 @@ export function prompt(since) {
     `You check, once a month, what changed since ${since} in the Israeli apps and services that drivers use to check a car by its licence plate or to get reminders about their car.`,
     `For context, the app this report is for: ${OURS}`,
     "What was known last time:", ...KNOWN.map(k => "- " + k),
-    "Search in this order, most important first: Ototo, the Ministry of Transport, a NEW Israeli plate-check or car-reminder app, then the rest. Search the web (Hebrew and English queries; Google Play and the App Store count) for: a new Android or iOS version of any of them, new or removed alerts or reminders, recall or ownership-change alerts, a free tier or a price change, a NEW Israeli plate-check or car-reminder app, and anything the Ministry of Transport launched (an app, recall notifications).",
+    "Search in this order and finish each before the next: Ototo (two searches at most), the Ministry of Transport (two at most), a NEW Israeli plate-check or car-reminder app (three at most), then the rest. Search the web (Hebrew and English queries; Google Play and the App Store count) for: a new Android or iOS version of any of them, new or removed alerts or reminders, recall or ownership-change alerts, a free tier or a price change, a NEW Israeli plate-check or car-reminder app, and anything the Ministry of Transport launched (an app, recall notifications).",
     "Report only real changes after " + since + " that you found on a page you searched. Nothing found means no change: never guess, never repeat what is already known above.",
     "Describe each competitor neutrally, as an alternative people choose between.",
     "Answer with JSON only, no other text:",
@@ -256,7 +256,7 @@ if (process.argv[1] && process.argv[1].endsWith("competitor-check.mjs")) {
     const many = Array.from({ length: MAX_SEARCHES }, (_, i) => ({ type: "server_tool_use", id: "s" + i, name: "web_search", input: { query: "q" } }));
     r = await run({ env: env(10), api: fake([{ stop_reason: "end_turn", content: [...many, found, json(two)] }]), router, log: quiet, now });
     ok(r.ok && r.capped && !(await run({ env: env(11), api: fake([{ stop_reason: "end_turn", content: [found, json(two)] }]), router, log: quiet, now })).capped, "capped: true only when every search was used");
-    ok(/Ototo, the Ministry of Transport/.test(prompt("x")), "the most important names are searched first");
+    ok(/Ototo \(two searches at most\), the Ministry of Transport/.test(prompt("x")), "the most important names are searched first, each with a budget");
     ok(lines.length === 1 && !/\$|token|usd/i.test(lines[0]), "one log line, no cost or token count");
     ok(prompt("2026-11-01").includes("never guess") && /neutrally/.test(prompt("x")), "the prompt asks for found changes only, described neutrally");
     console.log(bad ? `${bad} failed` : "selftest ok"); process.exit(bad ? 1 : 0);
