@@ -20,6 +20,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { client, ask, answer } from "./claude.mjs";
+import * as TF from "./trim-fix.mjs";
 
 export const SMALL = "claude-haiku-5-5", LARGE = "claude-sonnet-5-5";
 const RAW = "https://raw.githubusercontent.com/ddsabag/vehicle-app/catalog-data/name-match.json", WORKERS = 6;
@@ -160,8 +161,8 @@ export function queries(s) {
 }
 const readJson = f => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return null; } };
 async function fetchJson(url) { try { const r = await fetch(url, { signal: AbortSignal.timeout(30000) }); return r.ok ? await r.json() : null; } catch { return null; } }
-function trimFix(page) {   // what TRIM_FIX in index.html completes to is whole (catalog-rules.mjs reads it the same way)
-  try { const src = fs.readFileSync(page, "utf8").match(/const TRIM_FIX = (\{[\s\S]*?\});/); return new Set(Object.values(new Function("return " + src[1])()).flatMap(v => v.split(" "))); } catch { return new Set(); }
+function trimFix(page) {   // what the app completes cut words to is whole: TRIM_FIX in index.html plus trim-fix.json next to it (trim-fix.mjs, as catalog-rules.mjs)
+  try { const fix = TF.effective(TF.appFix(page), TF.readFile(path.join(path.dirname(page), TF.FILE))); return new Set(Object.values(fix).flatMap(v => v.split(" "))); } catch { return new Set(); }
 }
 
 function review(st, day) {
