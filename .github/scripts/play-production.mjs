@@ -362,8 +362,9 @@ export function compose(R, env = {}) {
   const pc = dev && app ? `https://play.google.com/console/developers/${dev}/app/${app}/tracks/production` : "https://play.google.com/console";
   const v = `לוחית ${escH(R.vn)}`, vc = R.vc || "x", A = (u, t) => `<a href="${escH(u)}">${t}</a>`;
   const tech = [R.vc ? `versionCode ${R.vc}` : ""];
-  // kind: done/info are quiet, today rings by day, urgent (a halt) rings at once
-  const out = (key, link, kind, title, text, what = "") => ({ key, link, kind, level: kind === "urgent" ? "critical" : "day", today: kind === "done" || kind === "info" ? "silent" : "loud",
+  // kind: done/info are quiet, today rings by day, urgent (a halt) rings at once; prod:sent is level summary (bot review 1.11.2026, product
+  // agreed: it confirms the owner's own "פרסם", so at night it never joins the morning ring); prod:live stays day
+  const out = (key, link, kind, title, text, what = "") => ({ key, link, kind, level: kind === "urgent" ? "critical" : key.startsWith("prod:sent:") ? "summary" : "day", today: kind === "done" || kind === "info" ? "silent" : "loud",
     text: msg({ kind, area: "app", title, text, what, raw: tech.filter(Boolean).join(" · ") }) });
   const watch = `אם תופיע קריסה חדשה שלא הייתה בגרסאות הקודמות, ההפצה תיעצר לבד. אם לא, היא תגיע ל-100% כ-${FULL_AFTER_H} שעות אחרי שהמעקב יראה אותה.`;
   const noHalt = "בהפצה לכולם אין עצירה אוטומטית: אם תופיע קריסה חדשה, תגיע הודעה מהמעקב, והתיקון הוא גרסה חדשה.";
@@ -815,7 +816,7 @@ async function selftest() {
     await run({ router, tracks: T([A("1.33", 110)], [A("1.33", 110)]) });
     await run({ router, fail: { put: [403] } });
     await run({ router, tracks: T([A("1.34", 115)], [A("1.34", 115, "inProgress", { userFraction: 0.2 }), A("1.33", 110)]), state: { seen: { "production:115": T0 - 49 * HOUR }, live: { "production:115": T0 - 49 * HOUR }, issues: { "115:a": T0 } } }, { EVENT: "schedule" }, ["auto"]);
-    ok(seen.map(s => s.key.replace(/:[0-9a-f]{12}$/, ":H")).join() === "prod:sent:115,prod:stop:H,prod:fail:access,prod:halt:115" && seen.every(s => s.lv === (s.key.startsWith("prod:halt") ? "critical" : "day") && validKey(s.key)), "router: keys " + seen.map(s => s.key));
+    ok(seen.map(s => s.key.replace(/:[0-9a-f]{12}$/, ":H")).join() === "prod:sent:115,prod:stop:H,prod:fail:access,prod:halt:115" && seen.every(s => s.lv === (s.key.startsWith("prod:halt") ? "critical" : s.key.startsWith("prod:sent") ? "summary" : "day") && validKey(s.key)), "router: keys " + seen.map(s => s.key));
     ok(settled.filter(x => x.endsWith(">ship:done:")).join() === "prod:sent:115>ship:done:", "router: only a send to Production settles the Alpha upload notices " + settled);
     ok(settled.filter(x => !x.endsWith(">ship:done:")).join() === "prod:sent:115>prod:fail:promote|prod:fail:access,prod:halt:115>prod:fail:auto|prod:fail:access",
       "router: a send closes its failures and access, a halt the rollout check's and access " + settled);
