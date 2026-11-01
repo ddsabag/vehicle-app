@@ -6,3 +6,4 @@ run 2026-10-26 outputs in base64
 run 2026-10-26 files as artifacts
 run 2026-10-26 with the field glossary
 run 2026-11-01 sunday review
+run 2026-11-01 ceo-read test (measurement, A7)

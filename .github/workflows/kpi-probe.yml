@@ -5,7 +5,8 @@ name: KPI probe (CEO weekly file and the weekly report's numbers, probe-perf bra
 # .github/seo-data.pub.pem, on branch probe-kpi-out; the logs say only which part answered. Not for main. The jobs hand the encrypted
 # files on as one-day artifacts, never as job outputs: GitHub drops an output that matches a secret's mask, and a JSON secret's short
 # lines and their base64 forms match almost any long text.
-# A run: a new last line in .github/kpi-run.txt ("end=YYYY-MM-DD" on that line picks another week's Saturday for the KPI file).
+# A run: a new last line in .github/kpi-run.txt ("end=YYYY-MM-DD" on that line picks another week's Saturday for the KPI file; "ceo-read" on
+# that line adds the CEO thread's second reader, ceo-read.mjs: Opus 5.5 reads the KPI JSON from the runner's temp folder, out/ceo-read.enc.json).
 on:
   push:
     branches: [probe-perf]
@@ -29,8 +30,17 @@ jobs:
           echo "MAIN_SHA=$(git rev-parse --short FETCH_HEAD)" >> "$GITHUB_ENV"
           end=$(tail -n 1 .github/kpi-run.txt 2>/dev/null | grep -oE 'end=[0-9]{4}-[0-9]{2}-[0-9]{2}' | cut -c5- || true)
           if [ -n "$end" ]; then echo "KPI_END=$end" >> "$GITHUB_ENV"; fi
+          if tail -n 1 .github/kpi-run.txt | grep -qw ceo-read; then
+            echo "CEO_READ=1" >> "$GITHUB_ENV"
+            git show FETCH_HEAD:analytics/review-context.md > "$RUNNER_TEMP/context.md" || true
+          fi
+      - name: The Claude SDK (the version pinned in claude.mjs)
+        if: ${{ env.CEO_READ == '1' }}
+        continue-on-error: true   # without it the read says why and the KPI file is published as before
+        run: npm install --no-save --no-audit --no-fund --loglevel=error "$(sed -n 's/^export const SDK = "\(.*\)";$/\1/p' .github/scripts/claude.mjs)"
       - run: node .github/scripts/kpi-probe.mjs
         env:
+          RAW_OUT: ${{ env.CEO_READ == '1' && format('{0}/raw.json', runner.temp) || '' }}
           W_JS: ${{ runner.temp }}/w.js
           W_TOML: ${{ runner.temp }}/w.toml
           W_TMP: ${{ runner.temp }}/kpi-worker.mjs
@@ -38,6 +48,14 @@ jobs:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      - name: The CEO thread's second reader (every number filled from the KPI JSON by code)
+        if: ${{ env.CEO_READ == '1' }}
+        continue-on-error: true
+        run: |
+          node .github/scripts/ceo-read.mjs "$RUNNER_TEMP/raw.json" "$RUNNER_TEMP/context.md" out
+          rm -f "$RUNNER_TEMP/raw.json"
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       - uses: actions/upload-artifact@v7
         with: { name: kpi-enc, path: out/, retention-days: 1 }
   weekly:
@@ -99,3 +117,25 @@ jobs:
           # a job that answered but whose file did not arrive turns this run red (probe-perf runs never page anyone)
           if [ "${{ needs.kpi.result }}" = success ] && [ ! -s kpi.enc.json ]; then echo "::error::the KPI file did not arrive"; exit 1; fi
           if [ "${{ needs.weekly.result }}" = success ] && [ ! -s weekly.enc.json ]; then echo "::error::the weekly report's file did not arrive"; exit 1; fi
+      - uses: actions/checkout@v4
+        if: ${{ hashFiles('out/ceo-read.status.json') != '' }}
+        continue-on-error: true
+        with:
+          path: src
+          sparse-checkout: |
+            .github/scripts/ceo-read.mjs
+            .github/scripts/decision-brief.mjs
+            .github/scripts/claude.mjs
+          sparse-checkout-cone-mode: false
+      - name: Tell the router how the CEO read went (the router as it is on main)
+        if: ${{ hashFiles('out/ceo-read.status.json') != '' }}
+        continue-on-error: true
+        run: |
+          cd src && git fetch -q --depth=1 origin main && git show FETCH_HEAD:.github/scripts/alert.mjs > .github/scripts/alert.mjs
+          node .github/scripts/ceo-read.mjs --route ../out/ceo-read.status.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
