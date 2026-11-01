@@ -35,6 +35,18 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+      - name: Publish the trim completions the rules added (trim-fix.json on main; the app reads it from the site, no release)
+        # catalog-rules.mjs adds a confident completion of a new 12-character cut to trim-fix.json (trim-fix.mjs). Web deploy publishes the
+        # commit (workflow_run on this workflow). A failed push loses nothing: the next run adds what main still lacks (rules-state "added").
+        if: ${{ github.ref == 'refs/heads/main' }}
+        continue-on-error: true   # never holds back the catalogue; what main lacks is added again on the next run
+        run: |
+          if [ -z "$(git status --porcelain trim-fix.json)" ]; then echo "trim-fix.json unchanged"; exit 0; fi
+          node .github/scripts/trim-fix.mjs --selftest
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add trim-fix.json && git commit -qm "Trim completions $(date -u +%F)"
+          for i in 1 2 3; do git push -q origin HEAD:main && exit 0; sleep $((i * 5)); git pull -q --rebase origin main || exit 1; done; exit 1
       - name: Telegram line when a rule needs a human (new models, unknown name cuts)
         if: ${{ hashFiles('cat-out/rules-alert.txt') != '' }}
         env:
