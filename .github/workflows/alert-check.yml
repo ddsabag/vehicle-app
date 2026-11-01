@@ -73,6 +73,8 @@ jobs:
         run: node .github/scripts/release-guard.mjs selftest
       - name: Bots board self-test (cron words, Hebrew names of every scheduled bot in bot-names.json and worker.js)
         run: node .github/scripts/bots-status.mjs selftest
+      - name: Claude API helper and competitor check self-tests (fallbacks, a change kept only with a found source, no cost in the log)
+        run: node .github/scripts/claude.mjs --selftest && node .github/scripts/competitor-check.mjs --selftest
       - name: Python wrapper self-test
         run: python3 -I analytics/alert.py --selftest
       - name: Sunday block self-test

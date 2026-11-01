@@ -16,7 +16,7 @@
 //               made rare stop by design against a base from before it)
 //               (strategy 27.10, rules file "Day 1 / 3 / 7"; without path rows every path counts as one and silentpath is not judged)
 //     silent    an event the base sent at a rate that predicts at least 5 now, at 0 in the new version (update_*: the newest version has
-//               nothing to update to, so those stop by design)
+//               nothing to update to, so those stop by design; GONE_EVENTS: events a newer UI stopped sending, against a base from before it)
 // Zone A daily (same run, for the 08:22 morning triage, ops asked 26.10): yesterday's failed checks (technical kinds: source_down, offline,
 // net_err, js_err, over car_lookup + lookup_failed, as /live's health tile) and slow checks (dur 5to10 + gt10 over all dur buckets), all
 // platforms, app rows from Israel only. Failed over 10% (from 50 checks) or slow over 10% goes to the router at LEVEL.zoneA (key zonea:<kind>:<date>,
@@ -117,6 +117,10 @@ const pathHe = f => PATHS[f] || (TAB_HE[f] ? `כפתור השמירה בלשונ
 // (1.37, 0252ffb: the recalls tab shows only for a car with recalls or a settlement; 1.38: "maint" became the car file)
 export const GONE_PATHS = { recalls: "1.37", maint: "1.38" };
 const goneBy = (f, base, vn) => !!GONE_PATHS[f] && !atLeast(base, GONE_PATHS[f]) && atLeast(vn, GONE_PATHS[f]);
+// events a newer UI stopped sending, by the version that did it: 1.38 moved share into the car header, so the share_label experiment's
+// button (and its exp_expose) is gone; 1.38.3 against 1.37 flagged it silent on day 1 and 3 (29.10, 31.10)
+export const GONE_EVENTS = { exp_expose: "1.38" };
+const evGone = (e, base, vn) => !!GONE_EVENTS[e] && !atLeast(base, GONE_EVENTS[e]) && atLeast(vn, GONE_EVENTS[e]);
 const rowsOf = j => (j?.rows || []).map(r => [...r.dimensionValues.map(x => x.value), ...r.metricValues.map(x => Number(x.value) || 0)]);
 
 // S = { users: [[date, ver, n]], events: [[date, ver, name, n]], compare: [[date, ver, from, n]], saves: [[date, ver, name, from, n]] } (GA4 dates),
@@ -155,7 +159,7 @@ export function judge(S, today) {
     if (s >= T.unsaveMin && u / s > T.unsave) R.findings.push({ id: "unsave:" + f, he: `הסרות מול שמירות דרך ${pathHe(f)} (חדש בגרסה הזו): ${Math.round(u / s * 100)}% (הסף: 45%)` }); }
   const quiet = paths ? known.filter(f => !goneBy(f, prev, vn) && PB[f].car_save / bc * nc >= T.silentMin && !PN[f]?.car_save).sort() : [];
   if (quiet.length) R.findings.push({ id: "silentpath", paths: quiet, he: `דרכי שמירה שבגרסה הקודמת היו בהן שמירות ועכשיו אין בהן אף אחת: ${quiet.length}` });
-  const gone = Object.keys(B).filter(e => e !== "car_lookup" && !/^update_/.test(e) && !N[e] && B[e] / bc * nc >= T.silentMin).sort();
+  const gone = Object.keys(B).filter(e => e !== "car_lookup" && !/^update_/.test(e) && !evGone(e, prev, vn) && !N[e] && B[e] / bc * nc >= T.silentMin).sort();
   if (gone.length) R.findings.push({ id: "silent", events: gone, he: `אירועים שהגרסה הקודמת שלחה ועכשיו לא הגיעו בכלל: ${gone.length}` });
   return { ...R, state: R.findings.length ? "find" : "ok" };
 }
@@ -297,6 +301,7 @@ async function selftest() {
   ok(R.state === "ok" && R.stats.fresh.join() === "file", "maint, the tab 1.38 removed, stops by design " + JSON.stringify(R.findings));
   const rec = bv => judge(mkp({ bv, base: { overview: 7, recalls: 3 }, now: { overview: 10 }, nowUn: { menu: 2 } }), "2026-11-05").findings.map(f => f.id).join();
   ok(rec("1.36") === "" && rec("1.37") === "silentpath", "recalls: by design against a base before 1.37 (the tab became rare there), a finding against a base that already had it");
+  ok(evGone("exp_expose", "1.37", "1.38.3") && !evGone("exp_expose", "1.38", "1.38.3") && !evGone("compare_open", "1.37", "1.38.3"), "events gone by version");
   ok(goneBy("maint", "1.37", "1.38.3") && goneBy("recalls", "1.33", "1.38.3") && !goneBy("recalls", "1.37", "1.38.3") && !goneBy("maint", "1.36", "1.37") && !goneBy("overview", "1.33", "1.38.3"), "gone by version");
   ok(judge(mkp({ base: { overview: 9.5, specs: 0.5 }, now: { overview: 10 }, nowUn: { menu: 2 } }), "2026-11-05").state === "ok", "a path that predicts under 5 saves may stop");
   const undo = mkp({ now: { overview: 7, file: 3, add: 6 }, nowUn: { menu: 2, add: 5.5 } });
