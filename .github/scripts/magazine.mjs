@@ -1,8 +1,12 @@
 // Builds the monthly market article (magazine/<YYYY-MM>/index.html), magazine/index.html, magazine/posts.json and sitemap entries
-// from market.json. The prose comes from Gemini when GEMINI_API_KEY is set and passes the number check, otherwise from a fixed template.
+// from market.json. The prose comes from Claude (magazine-ai.mjs) when ANTHROPIC_API_KEY is set and the draft passes check(), otherwise from a
+// fixed template; the title always comes from the data.
 // run: node .github/scripts/magazine.mjs [YYYYMM]   (default: latest closed month in market.json)
+//   MAGAZINE_DRY=1: the comparison run (magazine.yml, part ai-test): writes out/magazine-ai/<slug>.json with the template and Claude's draft
+//   side by side, and no site file. Its output holds token counts, so the workflow seals it before it leaves the run.
 import fs from "node:fs";
 import {brandLabel} from "./brands.mjs";
+import {prose, FORBIDDEN_WORDS, misplaced} from "./magazine-ai.mjs";
 import {build as marketIntel, loadNormModel} from "./market-intel.mjs";
 import {byNewest} from "./posts-order.mjs";
 const SITE = "https://luchit.app/";
@@ -47,7 +51,7 @@ const facts = {
 const allowed = new Set([...JSON.stringify(facts).matchAll(/\d[\d.]*\d|\d/g)].map(m => m[0]));
 for (let i = 0; i <= 12; i++) allowed.add(String(i));
 for (let y = 2020; y <= 2030; y++) allowed.add(String(y));
-const FORBIDDEN = /בגלל|הסיבה|כתוצאה|עקב|צפוי|תחזית|צפויה|נראה כי|ככל הנראה/;
+const FORBIDDEN = new RegExp(FORBIDDEN_WORDS.join("|"));   // בגלל, הסיבה, כתוצאה, עקב, צפוי, תחזית, צפויה, נראה כי, ככל הנראה
 
 const template = () => ({
   title: `מה נמכר ב${label}: ${models[0].name} בפסגה`,
@@ -67,38 +71,15 @@ const template = () => ({
   ]
 });
 
-async function gemini() {
-  // off by default: the 2026-09 drafts had a repeated typo and clumsy wording, the data template reads better. Set MAGAZINE_AI=1 to try again.
-  const key = process.env.GEMINI_API_KEY; if (!key || process.env.MAGAZINE_AI !== "1") return null;
-  const prompt = `כתוב כתבה קצרה בעברית בסגנון עיתונאי עניייני על מסירות רכבים חדשים בישראל, על בסיס העובדות שב-JSON בלבד.
-כללים: אל תוסיף שום עובדה, מספר, אחוז, סיבה, תחזית או השוואה שלא מופיעים ב-JSON. אל תנחש למה משהו קרה. כתוב מספרים בדיוק כפי שהם. אל תזכיר מקורות או אתרים. בדוק איות ודקדוק לפני שאתה מחזיר. הטבלאות והגרפים מוצגים בנפרד, אז אל תפרט כל מספר, אבל כל מספר שתכתוב חייב להופיע ב-JSON.
-החזר JSON בלבד עם השדות: title (כותרת עד 90 תווים), lead (פסקת פתיחה של 2 עד 3 משפטים), bodies_p, ytd_p (כל אחד 1 עד 2 משפטים; הדגמים והיצרנים מוצגים ברשימות ממוספרות נפרדות, ולכן אל תחזור עליהם בפירוט), tldr (מערך של בדיוק 3 משפטים קצרים שמסכמים את הכתבה), faq (מערך של 3 עד 4 אובייקטים {"q": שאלה, "a": תשובה של משפט אחד עד שניים}). שאלות ה-FAQ הן שאלות שקורא היה שואל על הנתונים, והתשובות רק מתוך העובדות.
-העובדות:\n${JSON.stringify(facts)}`;
-  for (const model of (process.env.GEMINI_MODEL ? [process.env.GEMINI_MODEL] : ["gemini-flash-lite-latest", "gemini-flash-latest"])) {
-    for (let t = 0; t < 2; t++) {
-      try {
-        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-          method: "POST", headers: {"content-type": "application/json", "x-goog-api-key": key}, signal: AbortSignal.timeout(60000),
-          body: JSON.stringify({contents: [{parts: [{text: prompt}]}], generationConfig: {responseMimeType: "application/json", temperature: 0.4}})
-        });
-        if (!r.ok) { console.error("gemini", model, r.status); continue; }
-        const j = await r.json(), txt = j.candidates?.[0]?.content?.parts?.map(p => p.text).join("") || "";
-        const a = JSON.parse(txt), bad = check(a);
-        if (!bad) return a;
-        console.error("gemini draft rejected:", bad);
-      } catch (e) { console.error("gemini error", e.message); }
-    }
-  }
-  return null;
-}
-// every number in the prose must exist in the facts, and no causal or forecast wording
+// every number in the prose must exist in the facts, each delivery count stands by its own name, and no causal or forecast wording
 export function check(a) {
   for (const f of ["title", "lead", "bodies_p", "ytd_p"]) if (typeof a[f] !== "string" || (!a[f] && f !== "ytd_p")) return "missing " + f;
   if (!Array.isArray(a.tldr) || a.tldr.length !== 3 || a.tldr.some(x => typeof x !== "string" || !x.trim() || x.length > 220)) return "bad tldr";
   if (!Array.isArray(a.faq) || a.faq.length < 3 || a.faq.length > 4 || a.faq.some(x => !x || typeof x.q !== "string" || typeof x.a !== "string" || !x.q.trim() || !x.a.trim() || x.q.length > 160 || x.a.length > 400)) return "bad faq";
   const text = [a.title, a.lead, a.bodies_p, a.ytd_p, ...a.tldr, ...a.faq.flatMap(x => [x.q, x.a])].join(" ");
-  if (FORBIDDEN.test(text)) return "forbidden wording";
+  const fw = text.match(FORBIDDEN); if (fw) return "forbidden wording " + fw[0];
   for (const m of text.matchAll(/\d[\d,.]*\d|\d/g)) { const n = m[0].replace(/,/g, ""); if (!allowed.has(n)) return "unknown number " + m[0]; }
+  for (const t of [a.lead, a.bodies_p, a.ytd_p, ...a.tldr, ...a.faq.flatMap(x => [x.q, x.a])]) { const w = misplaced(facts, t); if (w) return "count " + w; }
   if (a.title.length > 120) return "title too long";
   return null;
 }
@@ -160,14 +141,26 @@ const swingsHtml = (() => {
   if (!groups.length) return "";
   return `<h2>תנודות בהיצע של דגמים</h2><p>השוואה של המסירות ב-${swings.window.length} החודשים האחרונים לאותם חודשים אשתקד, מול השוק כולו.</p>` + groups.map(([h, l]) => `<div class="card"><b>${esc(h)}</b>${l.map(t => `<p>${pr(dispName(t.m))}: ${plain(t.x)}</p>`).join("")}</div>`).join("");
 })();
-// Gemini writes the body only: the title always comes from the data (it names the leader), and numbers get thousands separators (never years)
-const ai = await gemini(), art = ai || template(), usedAi = !!ai;
-if (ai) {
+// Claude writes the body only: the title always comes from the data (it names the leader), and numbers get thousands separators (never years)
+const DRY = process.env.MAGAZINE_DRY === "1";
+const ai = await prose({facts, title: template().title, check, keep: DRY}), art = ai.draft ? {...ai.draft} : template(), usedAi = !!ai.draft;
+if (usedAi) {
   art.title = template().title;
   const thou = t => t.replace(/(?<![\d,.])\d{4,}(?![\d,.])/g, m => +m === year || +m === year - 1 ? m : fmt(+m));
   for (const f of ["lead", "bodies_p", "ytd_p"]) art[f] = thou(art[f]);
   art.tldr = art.tldr.map(thou); art.faq = art.faq.map(x => ({q: thou(x.q), a: thou(x.a)}));
 }
+const writer = usedAi ? "claude" : "template";
+if (DRY) {
+  const t = template(), fields = a => ({lead: a.lead, bodies_p: a.bodies_p, ytd_p: a.ytd_p, tldr: a.tldr, faq: a.faq});
+  fs.mkdirSync("out/magazine-ai", {recursive: true});
+  fs.writeFileSync(`out/magazine-ai/${slug}.json`, JSON.stringify({slug, month: label, title: t.title, facts, template: fields(t), claude: usedAi ? fields(art) : null,
+    why: ai.why, attempts: ai.attempts, usage: ai.usage}, null, 1));
+  console.log(`magazine ${slug} (comparison only, no site file): ${writer}${ai.why ? ` (${ai.why})` : ""}, ${ai.attempts.length} answer(s)`);
+  process.exit(0);
+}
+// for the workflow's notices: who wrote the text, and what the Claude call means for the router (ai:key, ai:mag, or close both)
+if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `writer=${writer}\nai=${ai.alert}\n`);
 fs.mkdirSync(`magazine/${slug}`, {recursive: true});
 const url = `${SITE}magazine/${slug}/`, desc = (art.lead.length <= 200 ? art.lead : art.lead.slice(0, 200).replace(/[^.]*$/, "") || art.lead.slice(0, 200)), published = now.toISOString().slice(0, 10);
 const ld = {"@context": "https://schema.org", "@type": "Article", headline: art.title, datePublished: published, dateModified: published, inLanguage: "he", author: {"@type": "Organization", name: "מערכת לוחית", url: SITE}, publisher: {"@type": "Organization", name: "לוחית", url: SITE, logo: {"@type": "ImageObject", url: SITE + "icon-512.png"}}, mainEntityOfPage: url};
@@ -204,4 +197,4 @@ fs.writeFileSync("magazine/index.html", `${head("מגזין לוחית: שוק �
 let sm = fs.readFileSync("sitemap.xml", "utf8");
 for (const u of [idxUrl, url]) { sm = sm.replace(new RegExp(`\\s*<url><loc>${u.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}</loc>(<lastmod>[^<]*</lastmod>)?</url>`), ""); sm = sm.replace("</urlset>", `  <url><loc>${u}</loc><lastmod>${published}</lastmod></url>\n</urlset>`); }
 fs.writeFileSync("sitemap.xml", sm);
-console.log(`magazine ${slug}: ${usedAi ? "gemini" : "template"}, ${posts.length} posts`);
+console.log(`magazine ${slug}: ${writer}${ai.why ? ` (${ai.why})` : ""}, ${posts.length} posts`);

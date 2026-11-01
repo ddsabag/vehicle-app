@@ -1,6 +1,9 @@
 name: Magazine
 # Everything the magazine publishes, in one workflow (formerly Magazine, Magazine data articles and Newsletter):
-# - monthly article, the 6th at 08:07 UTC (magazine.mjs, one run a month): the market summary of the latest closed month.
+# - monthly article, the 6th at 08:07 UTC (magazine.mjs, one run a month): the market summary of the latest closed month. Its prose comes
+#   from Claude (magazine-ai.mjs through the shared helper claude.mjs, repo secret ANTHROPIC_API_KEY; plan of 28.10): no key, an API error,
+#   a refusal or a draft that fails the number check leaves the fixed template, and the repository variable MAGAZINE_AI=0 switches Claude off.
+#   The title always comes from the data. A key or credit failure raises ai:key (Dudu acts), an unreachable API ai:mag (quiet).
 # - weekly data article, Thursday 05:30 UTC (magazine-data.mjs): at most ONE data article not yet out for the current modelstats refresh,
 #   new models of a closed quarter first, then recalls, then off-road. Text comes only from model/stats.json (no AI prose). Model pages are
 #   not rebuilt for it (21-day rule): the "mentioned in the magazine" links appear on them with the next pages.mjs run.
@@ -9,6 +12,8 @@ name: Magazine
 # - newsletter (newsletter.mjs): after the monthly article PR is merged (a push that changes magazine/posts.json on main) it prepares the Brevo
 #   campaign for it. By default it only saves a DRAFT in Brevo for you to review and send (a Telegram line says it is waiting); the repository
 #   variable NEWSLETTER_AUTOSEND=true sends it automatically (and Telegram says it went out). Run it by hand (part = newsletter) for a preview. It is not a main writer, so it keeps its own queue.
+# - ai-test, by hand only: the comparison of the monthly prose, the template and Claude's draft side by side for the last 5 closed months,
+#   sealed on the branch magazine-ai-test. Writes no site file and never main, so it keeps its own queue too.
 # The run name carries the part ("Magazine (data)"): Failure alert counts only a newer run of the same part as taking a cancelled run's place,
 # and Web deploy skips the newsletter runs (they never change main; the push that started one already triggers Web deploy itself).
 run-name: Magazine (${{ github.event.schedule == '30 5 * * 4' && 'data' || github.event_name == 'push' && 'newsletter' || inputs.part || 'monthly' }})
@@ -22,9 +27,9 @@ on:
   workflow_dispatch:
     inputs:
       part:
-        description: "monthly = the monthly article | data = one data article | newsletter = the newsletter (see mode)"
+        description: "monthly = the monthly article | data = one data article | newsletter = the newsletter (see mode) | ai-test = template vs Claude, last 5 months (no site file)"
         type: choice
-        options: [monthly, data, newsletter]
+        options: [monthly, data, newsletter, ai-test]
         default: monthly
       mode:
         description: "Newsletter only: preview = render only | draft = save in Brevo | send = send now"
@@ -36,14 +41,14 @@ permissions:
   pull-requests: write
   pages: write
 concurrency:
-  # the articles commit to main and share its queue; the newsletter only reads, as before
-  group: ${{ (github.event_name == 'push' || inputs.part == 'newsletter') && 'newsletter' || 'main-writer' }}
+  # the articles commit to main and share its queue; the newsletter only reads, as before, and the comparison writes only its own branch
+  group: ${{ (github.event_name == 'push' || inputs.part == 'newsletter') && 'newsletter' || inputs.part == 'ai-test' && 'magazine-ai-test' || 'main-writer' }}
   cancel-in-progress: false
 jobs:
   article:
     # the part is picked by the cron line that fired (github.event.schedule), not by the clock, since GitHub starts scheduled runs late
     name: ${{ (github.event.schedule == '30 5 * * 4' || inputs.part == 'data') && 'data-article' || 'article' }}
-    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.part != 'newsletter') }}
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.part != 'newsletter' && inputs.part != 'ai-test') }}
     runs-on: ubuntu-24.04
     timeout-minutes: ${{ (github.event.schedule == '30 5 * * 4' || inputs.part == 'data') && 10 || 40 }}
     env:
@@ -61,10 +66,22 @@ jobs:
         run: |
           git fetch -q --depth 1 origin catalog-data && mkdir -p cat-data && git archive FETCH_HEAD r meta.json | tar -x -C cat-data \
             || echo "::warning::catalog-data could not be read: the model pages are built without their recall section"
+      # the monthly prose comes from Claude (magazine-ai.mjs): the SDK only when the key is there and MAGAZINE_AI is not 0; a failed install
+      # leaves the template, the same as no key
+      - name: Claude SDK for the monthly prose
+        if: env.KIND == 'monthly' && vars.MAGAZINE_AI != '0'
+        env:
+          HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+        run: |
+          if [ "$HAS_KEY" != true ]; then echo "no ANTHROPIC_API_KEY: the template writes the article"; exit 0; fi
+          sdk=$(node --input-type=module -e 'console.log((await import(process.cwd() + "/.github/scripts/claude.mjs")).SDK)')
+          npm install --prefix .github/scripts --no-save --no-package-lock --ignore-scripts --no-audit --no-fund "$sdk" >/dev/null \
+            || echo "::warning::the Claude SDK did not install: the template writes the article"
       - name: Write the article
         id: gen
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ env.KIND == 'monthly' && secrets.ANTHROPIC_API_KEY || '' }}
+          MAGAZINE_AI: ${{ vars.MAGAZINE_AI }}
         run: |
           if [ "$KIND" = data ]; then
             done=""
@@ -97,6 +114,8 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
           DATA_SLUG: ${{ steps.gen.outputs.slug }}
+          WRITER: ${{ steps.gen.outputs.writer }}
+          AI: ${{ steps.gen.outputs.ai }}
         run: |
           # Dudu 2026-10-15: publish on its own after the automatic checks; a failed check sends an alert (monthly: and opens a PR instead).
           # tg <text> [silent] [level] [router key]: through the alert router (alert.mjs, Dudu 25.10) when a key is given; it hands back = the direct send
@@ -108,6 +127,21 @@ jobs:
             [ -n "$TELEGRAM_BOT_TOKEN" ] && curl -s -o /dev/null "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$1" --data-urlencode "disable_notification=${2:-false}" || true
           }
           cls() { node .github/scripts/tg-text.mjs tag "$1" seo; }   # the Telegram standard's first line (plain text), e.g. "✅ בוצע · SEO"
+          # the monthly prose (magazine-ai.mjs): ai:key when the key or the credit failed (Dudu acts), ai:mag when the API could not be reached
+          # (quiet); an answered call closes both. The article goes on either way, and its notice says who wrote the text (wline).
+          wline=""
+          if [ "$KIND" = monthly ]; then
+            case "$AI" in
+              ok) timeout 30 node --input-type=module -e 'const r = await import(process.cwd() + "/.github/scripts/alert.mjs"); await r.resolve(["ai:mag", "ai:key"]);' >/dev/null 2>&1 || true ;;
+              key) tg "$(node .github/scripts/tg-text.mjs tag today bots)"$'\n'"המפתח של Claude לא עובד, או שהקרדיט החודשי נגמר"$'\n'"כתבת המגזין החודשית נכתבה בינתיים מהתבנית הקבועה, בלי Claude."$'\n'"👉 מה לעשות: לבדוק ב-Console של Anthropic, ב-workspace luchit-bots, שהמפתח פעיל ושנשאר קרדיט. אם צריך מפתח חדש, להדביק אותו ב-GitHub בסוד ANTHROPIC_API_KEY." false day "ai:key" ;;
+              mag) tg "$(cls info)"$'\n'"Claude לא היה זמין לכתבת המגזין החודשית"$'\n'"הכתבה נכתבה מהתבנית הקבועה, כמו לפני Claude, ובחודש הבא זה ינוסה שוב."$'\n'"👌 לא צריך לעשות כלום." true summary "ai:mag" ;;
+            esac
+            case "$WRITER:$AI" in
+              claude:*) wline="הטקסט נכתב עם Claude ועבר את הבדיקות האוטומטיות."$'\n' ;;
+              template:ok) wline="הטקסט נכתב מהתבנית הקבועה, כי הטיוטה של Claude לא עברה את הבדיקות האוטומטיות."$'\n' ;;
+              template:key|template:mag) wline="הטקסט נכתב מהתבנית הקבועה, כי Claude לא היה זמין."$'\n' ;;
+            esac
+          fi
           if [ "$KIND" = monthly ]; then
             node .github/scripts/pages.mjs
             paths=(magazine sitemap.xml model)
@@ -128,7 +162,7 @@ jobs:
             git commit -m "$msg"
             git push origin HEAD:main || { git pull --rebase -q origin main && git push origin HEAD:main; }
             gh api -X POST "repos/$GITHUB_REPOSITORY/pages/builds" >/dev/null 2>&1 || true
-            tg "$(cls done)"$'\n'"כתבה חדשה במגזין עלתה לאתר"$'\n'"$title"$'\n'"https://luchit.app/magazine/$slug/"$'\n'"👌 לא צריך לעשות כלום." true summary "mag:pub:$slug"
+            tg "$(cls done)"$'\n'"כתבה חדשה במגזין עלתה לאתר"$'\n'"$title"$'\n'"https://luchit.app/magazine/$slug/"$'\n'"$wline""👌 לא צריך לעשות כלום." true summary "mag:pub:$slug"
             node .github/scripts/flash.mjs content info "המגזין פורסם: $title" "https://luchit.app/magazine/$slug/"
           elif [ "$KIND" = monthly ]; then
             branch="magazine/$slug"
@@ -145,6 +179,44 @@ jobs:
             node .github/scripts/flash.mjs content alert "כתבת המגזין $slug לא פורסמה: בדיקות ה-SEO האוטומטיות נכשלו"
             exit 1
           fi
+  ai-test:
+    # by hand only (part = ai-test): the comparison before Claude writes the monthly prose (plan of 28.10). For the last 5 closed months of
+    # market.json, magazine.mjs with MAGAZINE_DRY=1 writes the fixed template and Claude's draft side by side, and no site file. The output
+    # holds token counts, so it leaves the run sealed with the SEO data key (.github/seo-data.pub.pem), on the branch magazine-ai-test.
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.part == 'ai-test' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      - name: Self-tests (the Claude helper and the magazine prose, offline)
+        run: node .github/scripts/claude.mjs --selftest && node .github/scripts/magazine-ai.mjs --selftest
+      - name: Claude SDK
+        run: |
+          sdk=$(node --input-type=module -e 'console.log((await import(process.cwd() + "/.github/scripts/claude.mjs")).SDK)')
+          npm install --prefix .github/scripts --no-save --no-package-lock --ignore-scripts --no-audit --no-fund "$sdk" >/dev/null
+      - name: The last 5 closed months, the template and Claude side by side
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MAGAZINE_DRY: "1"
+        run: |
+          months=$(node -e 'const n = new Date(), cur = n.getUTCFullYear() * 100 + n.getUTCMonth() + 1; console.log(Object.keys(require("./market.json").months).filter(k => +k < cur).sort().slice(-5).join(" "))')
+          for ym in $months; do node .github/scripts/magazine.mjs "$ym" || echo "$ym: exit $?"; done
+      - name: Seal it and put it on the branch magazine-ai-test
+        run: |
+          node --input-type=module -e '
+            import fs from "node:fs"; import crypto from "node:crypto";
+            const dir = "out/magazine-ai", all = fs.readdirSync(dir).filter(f => f.endsWith(".json")).sort().map(f => JSON.parse(fs.readFileSync(dir + "/" + f, "utf8")));
+            const key = crypto.randomBytes(32), iv = crypto.randomBytes(12), c = crypto.createCipheriv("aes-256-gcm", key, iv);
+            const data = Buffer.concat([c.update(JSON.stringify(all)), c.final()]);
+            const ek = crypto.publicEncrypt({ key: fs.readFileSync(".github/seo-data.pub.pem", "utf8"), padding: crypto.constants.RSA_PKCS1_OAEP_PADDING, oaepHash: "sha256" }, key);
+            fs.mkdirSync("sealed", { recursive: true });
+            fs.writeFileSync("sealed/magazine-ai.enc.json", JSON.stringify({ v: 1, ek: ek.toString("base64"), iv: iv.toString("base64"), tag: c.getAuthTag().toString("base64"), data: data.toString("base64") }));
+            console.log("sealed:", all.map(x => x.slug + " " + (x.claude ? "claude" : "template")).join(", "));'
+          cd sealed && git init -q && git checkout -q -b magazine-ai-test && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Magazine prose comparison (sealed)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" magazine-ai-test
   newsletter:
     if: ${{ github.event_name == 'push' || inputs.part == 'newsletter' }}
     runs-on: ubuntu-24.04
