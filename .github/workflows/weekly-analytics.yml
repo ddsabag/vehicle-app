@@ -22,6 +22,10 @@ on:
         description: "Send the brief now, ignoring the Sunday 08:00 check"
         type: boolean
         default: false
+      review:
+        description: "Run the Claude anomaly review without sending the brief (a test of the review)"
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -73,6 +77,30 @@ jobs:
           else
             python analytics/run.py
           fi
+      # Claude reads the week's anomalies (anomaly-review.mjs, Dudu 1.11.2026, the monthly API credit): only on a real report, never on a
+      # sample. The key is in that one step's env; the reply leaves the job encrypted. Nothing here can turn the report red.
+      - uses: actions/setup-node@v7
+        if: ${{ github.event_name == 'schedule' || inputs.send == true || inputs.review == true }}
+        continue-on-error: true
+        with:
+          node-version: 22
+      - name: The Claude SDK (the version pinned in claude.mjs)
+        if: ${{ github.event_name == 'schedule' || inputs.send == true || inputs.review == true }}
+        continue-on-error: true
+        run: npm install --no-save --no-audit --no-fund --loglevel=error "$(sed -n 's/^export const SDK = "\(.*\)";$/\1/p' .github/scripts/claude.mjs)"
+      - name: Claude reviews the anomalies (encrypted)
+        if: ${{ github.event_name == 'schedule' || inputs.send == true || inputs.review == true }}
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node .github/scripts/anomaly-review.mjs analytics/out out-review
+      - uses: actions/upload-artifact@v7
+        if: ${{ hashFiles('out-review/status.json') != '' }}
+        continue-on-error: true
+        with:   # encrypted review and a status with no numbers; one day, for the publish job only
+          name: anomaly-review
+          path: out-review/
+          retention-days: 1
       - uses: actions/upload-artifact@v7
         if: ${{ inputs.sample == true }}   # layout tests only: the real dashboard holds business numbers and a public repo's artifacts are downloadable
         with:
@@ -101,3 +129,45 @@ jobs:
         run: node .github/scripts/alert.mjs mark-summary
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  review-out:
+    # no third-party code here: pushes the encrypted review to the branch weekly-review (the measurement thread's Sunday task reads it) and
+    # tells the router how the review went. Never turns the run red.
+    needs: report
+    if: ${{ always() && (github.event_name == 'schedule' || inputs.send == true || inputs.review == true) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    continue-on-error: true
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts/alert.mjs
+            .github/scripts/anomaly-review.mjs
+            .github/scripts/claude.mjs
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: anomaly-review
+          path: out-review
+      - name: Publish on weekly-review (encrypted only)
+        if: ${{ hashFiles('out-review/status.json') != '' }}
+        run: |
+          set -e
+          d="$(mktemp -d)"; cp out-review/* "$d/"
+          cd "$(mktemp -d)" && git init -q && git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git checkout -q --orphan weekly-review && cp "$d"/* . && echo "run ${GITHUB_RUN_ID}" > run.txt && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Anomaly review (encrypted)"
+          git push -q -f origin weekly-review && echo "published"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Tell the router
+        run: node .github/scripts/anomaly-review.mjs --route out-review/status.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
