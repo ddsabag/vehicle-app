@@ -9,8 +9,10 @@
 //           word: whole as it is (QUADRIFOGLIO, AMGLINE), a misspelling of a register word (EDTION), or cut (CARBONEDITIO). Kept only when a
 //           misspelling's word and a completion's words are whole words of the register, and a completion starts with the cut letters.
 // The small model answers first; when it is not sure, or its answer fails the checks, the larger one answers again with that reason. What
-// fails both waits for a person as a doubt. Nothing is applied: name-match.md lists the suggestions for a person, who adds the rule
-// (RECALL_TYPOS or TRIM_FIX in index.html, through a release). With no key, no SDK or an API error the run keeps what it had and the
+// fails both waits for a person as a doubt. name-match.md lists the suggestions for a person, who adds the rule (RECALL_TYPOS in index.html,
+// through a release). Since 11.2026 (Dudu 1.11 21:16 UTC) a cut trim word is applied on its own: when every kept answer for that word, over
+// all makers, is the same sure completion that passed the checks, it goes into trim-fix.json (trim-fix.mjs), which catalog.yml commits to
+// main and the app reads from the site; the app's own TRIM_FIX and earlier entries win, and an unsure or split answer stays for a person. With no key, no SDK or an API error the run keeps what it had and the
 // catalogue is published as always: ai:names goes to the router (ai:key when the key or the credit is the cause), and a good call closes
 // both. Nothing here logs a plate, a cost or a token count.
 //   env   OUT=<dir> (the catalogue just built)   PREV=<file> (the last name-match.json; default: the catalog-data branch)
@@ -194,16 +196,36 @@ async function tell(router, err, env) {
   try { await router.alert(err.key ? "day" : "summary", err.key ? "ai:key" : "ai:names", text, env.RUN_URL || "", { today: err.key ? "loud" : "silent", legacy: () => false }); } catch { /* the log line says it */ }
 }
 
+// the completions of cut trim words the answers settle: every kept answer for the word (any maker) is a sure "cut" to one same completion
+export function settled(trims, have) {
+  const by = new Map();
+  for (const x of Object.values(trims || {})) if (x && x.ans && x.ok) (by.get(x.last) || by.set(x.last, []).get(x.last)).push(x);
+  const add = {};
+  for (const [last, xs] of by) {
+    const full = [...new Set(xs.map(x => up(x.ans.full)))];
+    if (have[last] || xs.some(x => x.unsure || x.ans.kind !== "cut") || full.length !== 1 || !TF.valid(last, full[0])) continue;
+    add[last] = full[0];
+  }
+  return add;
+}
+
 export async function run({ env = process.env, api, router, verify, log = console.log, now = new Date() } = {}) {
   const q = queries(env.QUERIES), out = env.OUT || "out", day = now.toISOString().slice(0, 10);
   const meta = readJson(`${out}/meta.json`), orphans = (readJson(`${out}/recall-orphans.json`) || {}).rows || [], tu = readJson(`${out}/trim-unsure.json`) || { words: {}, unsure: [] };
   const prev = env.PREV !== undefined ? readJson(env.PREV) : await fetchJson(RAW), st = { u: day, recalls: (prev && prev.recalls) || {}, trims: (prev && prev.trims) || {} };
   if (router === undefined) router = await import("./alert.mjs").catch(() => null);
   const rep = { asked: 0, kept: 0, doubt: 0, why: "" };
+  const fixFile = env.FIX_FILE || path.join(path.dirname(env.PAGE || "index.html"), TF.FILE);
   const done = () => {
+    let added = 0;
+    try {   // the settled completions into trim-fix.json (catalog.yml commits it); the page's TRIM_FIX and the file's entries win
+      const file = TF.readFile(fixFile), add = settled(st.trims, TF.effective(TF.appFix(env.PAGE || "index.html"), file));
+      added = Object.keys(add).length; if (added) TF.write(fixFile, { ...file.fix, ...add }, day);
+    } catch { added = 0; }
+    rep.applied = added;
     fs.writeFileSync(`${out}/name-match.json`, JSON.stringify(st));
     fs.writeFileSync(`${out}/name-match.md`, review(st, day) + "\n");
-    log(`name match: ${Object.keys(st.recalls).length} recall rows and ${Object.keys(st.trims).length} trim words answered; asked ${rep.asked}, kept ${rep.kept}, doubt ${rep.doubt}${rep.why ? " · " + rep.why : ""}`);
+    log(`name match: ${Object.keys(st.recalls).length} recall rows and ${Object.keys(st.trims).length} trim words answered; asked ${rep.asked}, kept ${rep.kept}, doubt ${rep.doubt}, trim completions applied ${added}${rep.why ? " · " + rep.why : ""}`);
     return rep;
   };
   if (!meta) { rep.why = "no meta.json"; return done(); }
@@ -281,7 +303,7 @@ if (process.argv[1] && process.argv[1].endsWith("name-match.mjs") && process.arg
   };
   const fake = (fail = 0) => ({ messages: { create: async p => { if (fail) { const e = new Error("x"); e.status = fail; throw e; } return reply(p.model, p.messages[0].content); } } });
   const calls = [], router = { alert: async (lv, key) => { calls.push(["alert", lv, key]); }, resolve: async p => { calls.push(["resolve", p[0]]); return 0; } }, quiet = () => {};
-  let r = await run({ env: { OUT: out, PREV: path.join(tmp, "none.json"), PAGE: path.join(tmp, "none.html") }, api: fake(), router, verify: hitsOf, log: quiet });
+  let r = await run({ env: { OUT: out, FIX_FILE: path.join(tmp, "tf.json"), PREV: path.join(tmp, "none.json"), PAGE: path.join(tmp, "none.html") }, api: fake(), router, verify: hitsOf, log: quiet });
   const st = JSON.parse(fs.readFileSync(path.join(out, "name-match.json"), "utf8")), rec = id => Object.values(st.recalls).find(x => x.id === id), tr = w => st.trims["1|" + w];
   ok(rec(7) && rec(7).by === "rules" && rec(7).ans.none && !asked.some(([, u]) => u.includes('"HUMMER H2"')), "a maker with no catalogue model: none by the rules, no call");
   ok(r.asked === 9 && Object.keys(st.recalls).length === 5 && !Object.values(st.recalls).some(x => x.id === 5 || x.id === 6), "8 asked: 4 recall rows (not the truck flagged by the rules, not the drive variant) and 4 trim words");
@@ -293,18 +315,28 @@ if (process.argv[1] && process.argv[1].endsWith("name-match.mjs") && process.arg
   const md = fs.readFileSync(path.join(out, "name-match.md"), "utf8");
   ok(md.includes("→ ENCLAVE") && md.includes("לא בקטלוג") && md.includes("נקטע, כנראה CARBON EDITION") && md.includes("צריך עין (1)"), "name-match.md: the suggestions by kind, the doubt apart");
   asked.length = 0; calls.length = 0;
-  r = await run({ env: { OUT: out, PREV: path.join(out, "name-match.json") }, api: fake(), router, verify: hitsOf, log: quiet });
+  r = await run({ env: { OUT: out, FIX_FILE: path.join(tmp, "tf.json"), PREV: path.join(out, "name-match.json") }, api: fake(), router, verify: hitsOf, log: quiet });
   ok(r.asked === 0 && !asked.length, "the next run asks nothing: each item once");
-  r = await run({ env: { OUT: out, PREV: path.join(tmp, "none.json") }, router, log: quiet });
+  r = await run({ env: { OUT: out, FIX_FILE: path.join(tmp, "tf.json"), PREV: path.join(tmp, "none.json") }, router, log: quiet });
   ok(r.why === "no ANTHROPIC_API_KEY" && !calls.length, "no key: nothing asked, nothing raised");
-  r = await run({ env: { OUT: out, PREV: path.join(tmp, "none.json") }, api: fake(529), router, verify: hitsOf, log: quiet });
+  r = await run({ env: { OUT: out, FIX_FILE: path.join(tmp, "tf.json"), PREV: path.join(tmp, "none.json") }, api: fake(529), router, verify: hitsOf, log: quiet });
   ok(r.why === "529 server" && calls.some(c => c[0] === "alert" && c[1] === "summary" && c[2] === "ai:names") && !calls.some(c => c[0] === "resolve"), "an API error: ai:names (summary), nothing closed");
   calls.length = 0;
-  r = await run({ env: { OUT: out, PREV: path.join(tmp, "none.json") }, api: fake(401), router, verify: hitsOf, log: quiet });
+  r = await run({ env: { OUT: out, FIX_FILE: path.join(tmp, "tf.json"), PREV: path.join(tmp, "none.json") }, api: fake(401), router, verify: hitsOf, log: quiet });
   ok(r.why === "401 key" && calls.some(c => c[1] === "day" && c[2] === "ai:key"), "a refused key: ai:key (day)");
   const logs = [];
-  r = await run({ env: { OUT: out, PREV: path.join(tmp, "none.json"), QUERIES: "dry=1" }, api: fake(500), router, log: l => logs.push(l) });
+  r = await run({ env: { OUT: out, FIX_FILE: path.join(tmp, "tf.json"), PREV: path.join(tmp, "none.json"), QUERIES: "dry=1" }, api: fake(500), router, log: l => logs.push(l) });
   ok(logs.some(l => /^dry run: 9 to ask/.test(l)), "dry: counts only");
+  // the settled completions: one sure "cut" answer per word over all makers; the page's own entries win; anything split or unsure waits
+  const T = (cd, last, kind, full, extra = {}) => [`${cd}|${last}`, { cd, mk: "x", last, n: 1, names: [{ model: "M", y: 2026, t: "T" }], ok: true, ans: { kind, full, why: "" }, ...extra }];
+  const S = settled(Object.fromEntries([T(1, "SUPERI", "cut", "superior"), T(2, "SUPERI", "cut", "SUPERIOR"), T(1, "SPOR", "cut", "SPORT"), T(2, "SPOR", "cut", "SPORTLINE"),
+    T(1, "LUXU", "cut", "LUXURY", { unsure: true }), T(1, "DYNAMI", "cut", "DYNAMIC"), T(1, "TECHNO", "whole", "TECHNO"), T(2, "TECHNO", "cut", "TECHNOLOGY"), T(1, "AMBIEN", "cut", "AMBIENTE", { ok: false }),
+    T(1, "ABCDEFGHIJKL", "cut", "ABCDEFGHIJKLM"), T(1, "COMF", "cut", "COMFORT LINE")]), { DYNAMI: "DYNAMIC" });
+  ok(JSON.stringify(S) === JSON.stringify({ SUPERI: "SUPERIOR", "COMF": "COMFORT LINE" }), "settled: one sure completion per word over all makers; split, unsure, whole elsewhere, a doubt, a known word or a 12-letter word wait: " + JSON.stringify(S));
+  fs.writeFileSync(path.join(tmp, "page.html"), "<script>const TRIM_FIX = {HYBR: \"HYBRID\"};</script>");
+  fs.writeFileSync(path.join(tmp, "prev2.json"), JSON.stringify({ recalls: {}, trims: Object.fromEntries([T(1, "SUPERI", "cut", "SUPERIOR"), T(1, "HYBR", "cut", "HYBRIDX")]) }));
+  r = await run({ env: { OUT: out, FIX_FILE: path.join(tmp, "tf2.json"), PREV: path.join(tmp, "prev2.json"), PAGE: path.join(tmp, "page.html"), QUERIES: "dry=1" }, router, log: quiet });
+  ok(r.applied === 1 && JSON.stringify(JSON.parse(fs.readFileSync(path.join(tmp, "tf2.json"), "utf8")).fix) === JSON.stringify({ SUPERI: "SUPERIOR" }), "a run writes the settled completions to trim-fix.json, never over the page's own");
   fs.rmSync(tmp, { recursive: true, force: true });
   console.log(bad ? `${bad} failed` : "selftest ok"); process.exit(bad ? 1 : 0);
 }
