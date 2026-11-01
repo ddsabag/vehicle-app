@@ -4,7 +4,7 @@ name: SEO check
 on:
   push:
     branches: [main, next, seo-auto]
-    paths: ["**.html", "sitemap.xml", "robots.txt", "manifest.json", "model/**", "magazine/**", "guide/**", ".github/scripts/seo-check.mjs", ".github/scripts/pages.mjs", ".github/scripts/landing.mjs", ".github/scripts/brands.mjs", ".github/scripts/model-recalls.mjs", ".github/scripts/index-guard.mjs", ".github/scripts/magazine-ai.mjs", ".github/scripts/seo-weekly.mjs", ".github/scripts/claude.mjs", ".github/workflows/seo-check.yml"]
+    paths: ["**.html", "sitemap.xml", "robots.txt", "manifest.json", "model/**", "magazine/**", "guide/**", ".github/scripts/seo-check.mjs", ".github/scripts/pages.mjs", ".github/scripts/landing.mjs", ".github/scripts/brands.mjs", ".github/scripts/model-recalls.mjs", ".github/scripts/index-guard.mjs", ".github/scripts/magazine-ai.mjs", ".github/scripts/model-answers.mjs", "model-answers.json", ".github/scripts/seo-weekly.mjs", ".github/scripts/claude.mjs", ".github/workflows/seo-check.yml"]
   pull_request:
   schedule:
     - cron: "30 5 * * 1"   # Mondays: also probe the live site
@@ -32,6 +32,8 @@ jobs:
       # rejected one is asked once more, and no key, an API error or a refusal leaves the template; ai:key only for the key or the credit
       - name: Magazine prose self-test
         run: node .github/scripts/magazine-ai.mjs --selftest
+      - name: Model page summaries self-test
+        run: node .github/scripts/model-answers.mjs --selftest
       - name: Weekly SEO analysis self-test
         run: node .github/scripts/seo-weekly.mjs --selftest
       # the ministry's recall lists per maker (catalog-data branch, catalog.yml) for the model pages' recall section (model-recalls.mjs);
