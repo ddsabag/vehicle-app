@@ -211,6 +211,7 @@ await part("kv.tally", async () => {
 }
 
 const data = Buffer.from(JSON.stringify(out));
+if (E.RAW_OUT) fs.writeFileSync(E.RAW_OUT, data);   // the decision brief (decision-brief.mjs, strategy): the runner's temp folder only, never a branch or the log
 const key = crypto.randomBytes(32), iv = crypto.randomBytes(12), c = crypto.createCipheriv("aes-256-gcm", key, iv);
 const enc = Buffer.concat([c.update(data), c.final()]);
 const ek = crypto.publicEncrypt({ key: fs.readFileSync(".github/seo-data.pub.pem", "utf8"), padding: crypto.constants.RSA_PKCS1_OAEP_PADDING, oaepHash: "sha256" }, key);

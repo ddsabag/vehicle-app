@@ -201,4 +201,6 @@ if (E.KPI_TEST_DATA) { console.log(JSON.stringify(result, null, 1)); process.exi
 encryptTo(Buffer.from(JSON.stringify(result, null, 1)), "out/kpi.enc.json");
 // the part of /live's data the numbers came from (encrypted), to check the mapping offline (KPI_TEST_DATA)
 if (raw) encryptTo(Buffer.from(JSON.stringify({ build: raw.build, play: raw.play, stats: raw.stats, rating: raw.rating, weekly: raw.weekly, errors: scrubAll(raw.errors) })), "out/live.enc.json");
+// the decision brief (decision-brief.mjs, strategy): the same data in clear, only to the runner's temp folder, never a branch or the log
+if (E.RAW_OUT) fs.writeFileSync(E.RAW_OUT, JSON.stringify({ kpi: result, live: raw ? { build: raw.build, play: raw.play, stats: raw.stats, rating: raw.rating, weekly: raw.weekly } : null }));
 console.log("written, encrypted", result.error ? "(with an error)" : "");
