@@ -7,6 +7,8 @@
 // neutrally, never as villains.
 // Fallback (claude.mjs): no key, no SDK, an API error or no valid answer leaves ok:false and why; the scheduled task then checks by hand as
 // before, and the run stays green. A failed call raises ai:comp (summary), the key or the credit ai:key (day, Dudu acts); a good call closes both.
+// A change found is told by the bot itself (Dudu 1.11.2026 14:36, "אם אין בהם צורך אז כן": no thread is woken for it): key comp:<YYYY-MM>,
+// level day when it touches our differentiation (alerts after purchase, free full check, recall/ownership alerts, price), else summary.
 // The log is public: no cost, no token count, no business number.
 //   node competitor-check.mjs              env: OUT (dir, default "out"), PREV (last competitors.json, optional), DRY=1 (no call)
 //   node competitor-check.mjs --selftest   offline, through a fake API
@@ -89,6 +91,18 @@ async function settle(router) {
   try { await router.resolve(["ai:comp"]); await router.resolve(["ai:key"]); } catch { /* the morning ledger still shows it */ }
 }
 
+const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+// one router message for the month's changes (each with its source); no change = no message
+export function changeText(rep) {
+  const lines = rep.changes.map(c => `• <b>${esc(c.who)}</b>: ${esc(c.what)}${c.material ? " (נוגע במה שמייחד את לוחית)" : ""}\n${esc(c.url)}`);
+  return [rep.material ? "<b>🔎 היום · שיווק</b>" : "<b>🔎 לידיעה · שיווק</b>", `בדיקת המתחרים החודשית מצאה ${rep.changes.length === 1 ? "שינוי אחד" : rep.changes.length + " שינויים"} מאז ${rep.since}:`, ...lines,
+    rep.material ? "👉 מה לעשות: להחליט אם זה משנה משהו אצלנו. שרשור האסטרטגיה יעדכן את טבלאות המתחרים כשיתבקש." : "👌 לא צריך לעשות כלום."].join("\n");
+}
+async function announce(router, rep, env) {
+  if (!router || !rep.changed) return;
+  try { await router.alert(rep.material ? "day" : "summary", "comp:" + rep.when.slice(0, 7), changeText(rep), rep.changes.map(c => c.url).slice(0, 3), { today: rep.material ? "loud" : "silent", legacy: () => false }); } catch { /* the branch file still has it */ }
+}
+
 export async function run({ env = process.env, api, router, log = console.log, now = new Date() } = {}) {
   const out = env.OUT || "out";
   let prev = null; try { prev = JSON.parse(fs.readFileSync(env.PREV || "", "utf8")); } catch {}
@@ -114,6 +128,7 @@ export async function run({ env = process.env, api, router, log = console.log, n
   const c = check(o, seenUrls(contents));
   Object.assign(rep, { ok: true, changes: c.changes, dropped: c.dropped.length, checked: c.checked, note: c.note, capped: searches(contents) >= MAX_SEARCHES, changed: c.changes.length > 0, material: c.changes.some(x => x.material) });
   await settle(router);
+  await announce(router, rep, env);
   return done();
 }
 
@@ -138,17 +153,24 @@ if (process.argv[1] && process.argv[1].endsWith("competitor-check.mjs")) {
     ok(r.ok && r.changes.length === 1 && r.changes[0].who === "Ototo" && r.dropped === 1 && r.changed && r.material, "a change is kept only with a source the search returned; the other is dropped and counted");
     ok(sent[0].model === MODEL && sent[0].tools[0].type === "web_search_20260209" && sent[0].tools[0].max_uses === MAX_SEARCHES, "Sonnet 5.5, the server web search, searches capped");
     ok(/since 2026-10-31|after 2026-10-31/.test(sent[0].messages[0].content), "no earlier run: the last 31 days");
-    ok(calls.some(c => c[1] === "ai:comp") && calls.some(c => c[1] === "ai:key") && !calls.some(c => c[0] === "alert"), "a good run closes ai:comp and ai:key and raises nothing");
+    ok(calls.some(c => c[1] === "ai:comp") && calls.some(c => c[1] === "ai:key") && !calls.some(c => c[0] === "alert" && /^ai/.test(c[2])), "a good run closes ai:comp and ai:key and raises no ai item");
+    ok(calls.some(c => c[0] === "alert" && c[1] === "day" && c[2] === "comp:2026-12"), "a material change is told by the bot itself: comp:<month>, level day");
+    { const t = changeText(r); ok(/Ototo/.test(t) && /play\.google\.com/.test(t) && !/example\.com/.test(t) && !/<script/.test(changeText({ ...r, changes: [{ who: "<script>", what: "x", url: "https://a.b", material: false }] })), "the message lists each kept change with its source, escaped"); }
     ok(JSON.parse(fs.readFileSync(path.join(tmp, "1", "competitors.json"), "utf8")).changes.length === 1, "competitors.json written");
 
     fs.writeFileSync(path.join(tmp, "prev.json"), JSON.stringify({ ok: true, when: "2026-11-01T04:23:00Z" }));
-    sent = [];
+    sent = []; calls.length = 0;
     r = await run({ env: { ...env(2), PREV: path.join(tmp, "prev.json") }, api: fake([{ stop_reason: "pause_turn", content: [found] }, { stop_reason: "end_turn", content: [json({ changes: [], checked: ["Ototo"], note: "אין שינוי" })] }], sent), router, log: quiet, now });
+    ok(!calls.some(c => c[0] === "alert"), "no change: no message");
     ok(r.ok && !r.changed && !r.material && sent.length === 2 && sent[1].messages.at(-1).role === "assistant" && sent[1].messages.length === 2, "pause_turn: the paused turn goes back as it is, no extra user message; no change = changed false");
     ok(/2026-11-01/.test(sent[0].messages[0].content), "since the last good run");
 
     const citeOnly = { stop_reason: "end_turn", content: [{ type: "text", text: "", citations: [{ url: "https://www.gov.il/he/departments/news/recalls-app/" }] }, json({ changes: [{ who: "משרד התחבורה", what: "<b>אפליקציה</b> חדשה להתראות ריקול", url: "https://gov.il/he/departments/news/recalls-app", area: "nope", material: true }] })] };
     r = await run({ env: env(3), api: fake([citeOnly]), router, log: quiet, now });
+    ok(calls.some(c => c[0] === "alert" && c[1] === "day"), "a material change from a cited page is told too");
+    calls.length = 0;
+    await run({ env: env(31), api: fake([{ stop_reason: "end_turn", content: [found, json({ changes: [{ ...two.changes[0], material: false }] })] }]), router, log: quiet, now });
+    ok(calls.some(c => c[0] === "alert" && c[1] === "summary" && c[2] === "comp:2026-12"), "a change that does not touch our differentiation: summary level, quiet");
     ok(r.ok && r.changes.length === 1 && r.changes[0].area === "other" && r.changes[0].what === "אפליקציה חדשה להתראות ריקול", "a cited page counts as found (www and a trailing slash ignored); an unknown area is other; no HTML");
 
     calls.length = 0;
