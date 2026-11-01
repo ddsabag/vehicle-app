@@ -45,6 +45,12 @@ export function check(facts, text) {
   if (/https?:|www\.|לוחית/.test(t)) return "a link or the site's name";
   if (/(גבוה|נמוך)\S*\s+(ב-?|של\s+)?\d[\d.,]*%\s+(יותר|פחות)/.test(t)) return "a doubled comparison";
   if ((t.match(/בשנתונים המקבילים|מאותם שנתונים/g) || []).length > 2) return "the same-years phrase repeated";
+  const most = t.match(/(רוב|מרבית|חלק הארי)[^.]{0,60}?(\d{4})\s*(?:עד|-|–)\s*(\d{4})/);   // "most are from A to B" must hold in by_year
+  if (most) {
+    const n = v => +String(v).replace(/,/g, ""), rows = facts.by_year || [], all = rows.reduce((a, r) => a + n(r.active), 0);
+    const part = rows.filter(r => +r.year >= +most[2] && +r.year <= +most[3]).reduce((a, r) => a + n(r.active), 0);
+    if (!all || part * 2 <= all) return `a wrong majority ${most[2]}-${most[3]}`;
+  }
   return "";
 }
 const hint = why => /^length /.test(why) ? `the paragraph had ${why.slice(7)} characters; it must have 250 to 600`
@@ -76,7 +82,7 @@ export async function write({facts, slugs, answers = {}, env = process.env, api 
     const r = b.results && b.results.get(s);
     let got = r && r.ok ? read(facts[s], r.msg) : {why: r ? r.why : "no result"};
     if (!got.text) {   // one more try, on its own, told what the check found
-      const again = await ask(api, request(facts[s], /^(length|forbidden|owners|does not|unknown|a link|not JSON|a doubled|the same-years)/.test(got.why) ? got.why : ""));
+      const again = await ask(api, request(facts[s], /^(length|forbidden|owners|does not|unknown|a link|not JSON|a doubled|the same-years|a wrong majority)/.test(got.why) ? got.why : ""));
       got = again.error ? {why: again.error.why} : read(facts[s], again.msg);
     }
     if (got.text) { out.answers[s] = {text: got.text, h: factsHash(facts[s]), at}; out.wrote.push(s); } else out.failed[s] = got.why;
@@ -104,6 +110,10 @@ if (process.argv.includes("--selftest")) {
   ok(check(f, good) === "", "a paragraph whose every number is in the facts passes");
   ok(check(f, good.replace("17,728", "17,700")) === "unknown number 17700", "a changed number is caught");
   ok(check(f, good.replace("הוא 38% פחות", "נמוך ב-38% פחות")) === "a doubled comparison", "a doubled comparison is caught");
+  f.by_year.push({year: "1997", active: "3"});
+  ok(check(f, good + " רוב הרכבים משנתונים 2021 עד 2026.") === "", "a true majority claim passes");
+  ok(check(f, good + " רוב הרכבים משנתונים 1997 עד 1997.") === "a wrong majority 1997-1997", "a wrong majority claim is caught");
+  f.by_year.pop();
   ok(check(f, good + " הקילומטראז' 38% פחות מהממוצע של רכבים מאותם שנתונים, והבעלויות 38% פחות מהממוצע בשנתונים המקבילים.") === "the same-years phrase repeated", "the same-years phrase three times is caught");
   ok(check(f, good.replace("38% פחות", "כ-40% פחות")) === "unknown number 40", "a rounded number is caught");
   ok(check(f, good + " הדגם נחשב אמין.").startsWith("forbidden wording אמין"), "a verdict is caught");
