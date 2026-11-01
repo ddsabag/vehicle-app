@@ -29,7 +29,8 @@ export function prompt(kpi, context) {
     "Write plain English. YOU MUST NOT WRITE ANY DIGIT and never spell a number in words (no \"twice\", \"half\", \"percent\", \"seven\" except in \"seven-day\"). Every number goes in a {placeholder} defined in \"vals\" as one of:",
     '- {"path": "kpis.installs.week"}: one number or short string in the KPI JSON, the path starting at its top level (never "$." or "DATA.")',
     '- {"ratio": ["a","b"]}, {"pct": ["a","b"]} (100*a/b, prints its % sign), {"diff": ["a","b"]}, {"sum": ["a","b","c"]}: computed from placeholders defined EARLIER in the same item',
-    'Answer with JSON only: {"items":[{"kind":"blind_spot|mismatch","title":"a few words, no number","text":"one or two sentences: what, where in the file, why it matters, what to check","vals":{...}}]}',
+    'Answer with JSON only: {"items":[{"kind":"blind_spot|mismatch","title":"a few words, no number","text":"one or two sentences, at most three hundred and fifty characters: what, where in the file, why it matters, what to check","vals":{...}}]}',
+    "Naming a field of the file as it is spelled (return_7d, per_100_checks) is fine: its digits are not numbers. Say \"the rate per hundred checks\" only through the field name (per_100_checks), and give the sample size next to every rate through a placeholder.",
     "", "KNOWN SHIFTS (not behaviour):", String(context || "").slice(0, 6000), "", "KPI JSON:", JSON.stringify(kpi).slice(0, 200000),
   ].join("\n");
 }
@@ -37,9 +38,10 @@ export function prompt(kpi, context) {
 // a field of the file named in the text (return_7d, organic_q1) is not a number of the model's own: it goes through fill() as a value of its own
 const FIELD = /\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/g, NAMES = "__field_names";
 let names = [];
+const letters = i => (i >= 26 ? letters(Math.floor(i / 26) - 1) : "") + String.fromCharCode(97 + (i % 26));   // a placeholder name with no digit, even when cut
 function fields(it) {
   const vals = { ...((it && it.vals && typeof it.vals === "object") ? it.vals : {}) };
-  const text = String((it && it.text) || "").replace(FIELD, f => { if (!/\d/.test(f)) return f; names.push(f); const k = "zzfield" + (names.length - 1); vals[k] = { path: `${NAMES}[${names.length - 1}]` }; return `{${k}}`; });
+  const text = String((it && it.text) || "").replace(FIELD, f => { if (!/\d/.test(f)) return f; names.push(f); const k = "zzf" + letters(names.length - 1); vals[k] = { path: `${NAMES}[${names.length - 1}]` }; return `{${k}}`; });
   return { text, vals };
 }
 
@@ -53,12 +55,23 @@ export async function read({ kpi, context, api, env = process.env, now = new Dat
   let o; try { const t = a.text, i = t.indexOf("{"), j = t.lastIndexOf("}"); o = JSON.parse(t.slice(i, j + 1)); } catch { r0.why = "no valid JSON"; return r0; }
   if (!o || !Array.isArray(o.items)) { r0.why = "no items"; return r0; }
   names = [];
-  for (const it of o.items.slice(0, 12)) {
+  const take = list => { const out = []; for (const it of list.slice(0, 12)) {
     const kind = it && it.kind === "mismatch" ? "mismatch" : "blind_spot", title = String((it && it.title) || "").slice(0, 80);
     const f = /\d/.test(title.replace(FIELD, "")) ? { why: "a number of the model's own" } : fill({ ...kpi, [NAMES]: names }, fields(it));
-    if (f.text && r0.items.length < MAX_ITEMS) r0.items.push({ kind, title, text: f.text, sources: f.sources });
-    else if (!f.text) r0.dropped.push({ kind, title: title.replace(/\d/g, "#"), text: String((it && it.text) || "").slice(0, 300), why: f.why, vals: JSON.stringify((it && it.vals) || {}).slice(0, 600) });
+    out.push(f.text ? { ok: true, item: { kind, title, text: f.text, sources: f.sources } }
+      : { ok: false, it, drop: { kind, title: title.replace(/\d/g, "#"), text: String((it && it.text) || "").slice(0, 600), why: f.why, vals: JSON.stringify((it && it.vals) || {}).slice(0, 600) } });
+  } return out; };
+  let got = take(o.items);
+  // one second ask for the items that wrote a number of their own: the same items back, rewritten without it (the read keeps the reasoning)
+  const fix = got.filter(g => !g.ok && g.drop.why === "a number of the model's own");
+  if (fix.length) {
+    const again = await ask(api, { model: MODEL, max_tokens: 16000, thinking: { type: "adaptive" }, output_config: { effort: EFFORT }, messages: [
+      { role: "user", content: prompt(kpi, context) }, { role: "assistant", content: a.text },
+      { role: "user", content: "These items were dropped because their text or title holds a digit or a number written in words outside a {placeholder} (\"hundred\", \"two\", \"four weeks\" count too; a field name like return_7d is fine). Rewrite exactly these items so that every number, count and period comes from a placeholder or is left out, and keep each text under three hundred and fifty characters. Answer with JSON only, {\"items\":[...]} in the same order.\n" + JSON.stringify(fix.map(g => g.it)) } ] });
+    let o2 = null; if (!again.error) { const t = answer(again.msg).text || ""; try { o2 = JSON.parse(t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1)); } catch {} }
+    if (o2 && Array.isArray(o2.items)) { const redo = take(o2.items.slice(0, fix.length)); got = got.filter(g => g.ok || !fix.includes(g)).concat(redo); r0.retried = fix.length; }
   }
+  for (const g of got) if (g.ok && r0.items.length < MAX_ITEMS) r0.items.push(g.item); else if (!g.ok) r0.dropped.push(g.drop);
   r0.ok = r0.dropped.length <= r0.items.length;   // more dropped than kept: the CEO thread reads the file on its own, as before
   if (!r0.ok) r0.why = "more items dropped than kept";
   return r0;
@@ -97,13 +110,16 @@ if (process.argv.includes("--selftest")) {
   const kpi = { week: { from: "2026-10-25", to: "2026-10-31" }, kpis: { weekly_checks: { week: 900, app: 500, web: 300, status: "on track" }, installs: { week: 40, play: { users: 55 } } } };
   const fake = text => ({ messages: { create: async () => ({ stop_reason: "end_turn", content: [{ type: "text", text }] }) } });
   const good = { kind: "mismatch", title: "App and web miss checks", text: "App {a} and web {w} add up to {s}, not the {t} total.", vals: { a: { path: "kpis.weekly_checks.app" }, w: { path: "kpis.weekly_checks.web" }, s: { sum: ["a", "w"] }, t: { path: "kpis.weekly_checks.week" } } };
-  let r = await read({ kpi, context: "", api: fake(JSON.stringify({ items: [good, { kind: "blind_spot", title: "Made up", text: "Installs were 77", vals: {} }] })) });
+  let r = await read({ kpi, context: "", api: fake(JSON.stringify({ items: [{ kind: "blind_spot", title: "Made up", text: "Installs were 77", vals: {} }, good] })) });
   ok(r.ok && r.items.length === 1 && r.items[0].text === "App 500 and web 300 add up to 800, not the 900 total." && r.dropped.length === 1 && r.dropped[0].why === "a number of the model's own", "numbers filled by code; a number of the model's own drops the item: " + (r.items[0] || {}).text);
   r = await read({ kpi, context: "", api: fake(JSON.stringify({ items: [{ kind: "blind_spot", title: "return_7d is thin", text: "return_7d and organic_q1 rest on {i} installs.", vals: { i: { path: "kpis.installs.week" } } }] })) });
-  ok(r.ok && r.items[0].text === "return_7d and organic_q1 rest on 40 installs." && !r.items[0].sources.zzfield0 === false, "a field name with a digit is not a number of the model's own: " + (r.items[0] || {}).text);
+  ok(r.ok && r.items[0].text === "return_7d and organic_q1 rest on 40 installs." && !/\d/.test(Object.keys(r.items[0].sources).join("")), "a field name with a digit is not a number of the model's own: " + (r.items[0] || {}).text);
   r = await read({ kpi, context: "", api: fake(JSON.stringify({ items: [{ ...good, title: "Week 44 gap" }] })) }); ok(!r.ok && r.dropped.length === 1, "a digit in the title drops it too");
   r = await read({ kpi, context: "", api: fake(JSON.stringify({ items: Array.from({ length: 8 }, () => good) })) }); ok(r.ok && r.items.length === MAX_ITEMS, "at most five items");
   r = await read({ kpi, context: "", api: fake('{"items":[]}') }); ok(r.ok && !r.items.length, "nothing wrong is a good answer");
+  { const seq = [JSON.stringify({ items: [good, { kind: "blind_spot", title: "Thin", text: "Only two weeks back", vals: {} }] }), JSON.stringify({ items: [{ kind: "blind_spot", title: "Thin", text: "Only {i} installs", vals: { i: { path: "kpis.installs.week" } } }] })], sent = [];
+    r = await read({ kpi, context: "", api: { messages: { create: async p => { sent.push(p); return { stop_reason: "end_turn", content: [{ type: "text", text: seq[sent.length - 1] }] }; } } } });
+    ok(r.ok && r.items.length === 2 && r.items[1].text === "Only 40 installs" && !r.dropped.length && r.retried === 1 && sent.length === 2 && sent[1].messages.length === 3, "a number in words: one second ask rewrites that item"); }
   r = await read({ kpi, context: "", api: fake("sorry") }); ok(!r.ok && r.why === "no valid JSON", "no JSON: fallback");
   r = await read({ kpi, context: "", api: { messages: { create: async () => { const e = new Error("x"); e.status = 401; throw e; } } } }); ok(!r.ok && r.key && r.why === "401 key", "a refused key: key=true");
   r = await read({ kpi, context: "", env: {} }); ok(!r.ok && /ANTHROPIC_API_KEY/.test(r.why), "no key: fallback");
