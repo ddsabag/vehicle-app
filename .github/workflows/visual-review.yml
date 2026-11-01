@@ -5,12 +5,14 @@ name: Visual review
 # (half price). Report only: a finding never fails a run. The report and the state: branch visual-review-out (app/ and ui/, report.md in
 # each). Red only when the script itself crashes (Failure alert, summary). Off: repo variable VISUAL_REVIEW=off. No secret
 # ANTHROPIC_API_KEY, or no screenshots (a guardian run that stopped early, or artifacts past their 14 days): it skips.
+# Also after a guardian run from a push to next (Dudu 1.11 21:16 UTC, credit package B): what is on its way to main is judged before
+# "שחרר"; its state and report live apart from main's (next-app/, next-ui/ on the same branch), so main's first night of a finding stays new.
 # A manual run reviews one run of the two guardians (run_id), in a Batch too unless mode is sync; off main the alert router is dry.
 on:
   workflow_run:
     workflows: ["App guardian (real app)", "UI guardian (browser)"]
     types: [completed]
-    branches: [main]
+    branches: [main, next]
   workflow_dispatch:
     inputs:
       run_id:
@@ -30,8 +32,8 @@ concurrency:
   cancel-in-progress: false
 jobs:
   review:
-    # the nightly runs only (not a push to next, a pull request or a manual run of a guardian), from this repository, not cancelled
-    if: ${{ vars.VISUAL_REVIEW != 'off' && (github.event_name == 'workflow_dispatch' || (github.event.workflow_run.event == 'schedule' && github.event.workflow_run.conclusion != 'cancelled' && github.event.workflow_run.head_repository.full_name == github.repository)) }}
+    # the nightly runs on main and the runs of a push to next (not a pull request or a manual run of a guardian), from this repository, not cancelled
+    if: ${{ vars.VISUAL_REVIEW != 'off' && (github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion != 'cancelled' && github.event.workflow_run.head_repository.full_name == github.repository && ((github.event.workflow_run.event == 'schedule' && github.event.workflow_run.head_branch == 'main') || (github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'next')))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 240
     steps:
@@ -48,7 +50,7 @@ jobs:
         run: |
           case "$ID" in ""|*[!0-9]*) echo "::error::run_id is the number of a run"; exit 1 ;; esac
           for i in 1 2 3 4; do gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ID" > run.json && break; [ $i = 4 ] && exit 1; sleep $((i * 5)); done
-          P=$(jq -r .path run.json); SHA=$(jq -r .head_sha run.json); FROM=$(jq -r .head_repository.full_name run.json); URL=$(jq -r .html_url run.json)
+          P=$(jq -r .path run.json); SHA=$(jq -r .head_sha run.json); BR=$(jq -r .head_branch run.json); EV=$(jq -r .event run.json); FROM=$(jq -r .head_repository.full_name run.json); URL=$(jq -r .html_url run.json)
           case "$P" in
             .github/workflows/app-guardian.yml*) SRC=app ;;
             .github/workflows/ui-guardian.yml*) SRC=ui ;;
@@ -58,7 +60,9 @@ jobs:
           for i in 1 2 3 4; do git fetch -q --depth=1 origin "$SHA" && break; [ $i = 4 ] && exit 1; sleep $((i * 5)); done
           CODE=$(git rev-parse "$SHA:index.html" | cut -c1-12)
           [ "$SRC" = ui ] || CODE="$CODE.$(git rev-parse "$SHA:android" | cut -c1-12)"
-          { echo "id=$ID"; echo "source=$SRC"; echo "code=$CODE"; echo "url=$URL"; } >> "$GITHUB_OUTPUT"
+          # a run of a push to next keeps its own state and report (next-app, next-ui); main's nightly and a manual run of a main run keep app, ui
+          DIR=$SRC; if [ "$BR" = next ] && [ "$EV" = push ]; then DIR="next-$SRC"; fi
+          { echo "id=$ID"; echo "source=$SRC"; echo "dir=$DIR"; echo "code=$CODE"; echo "url=$URL"; } >> "$GITHUB_OUTPUT"
           echo "$SRC screenshots of $URL (${SHA::7}), app code $CODE"
       - name: Its screenshots
         uses: actions/download-artifact@v4
@@ -96,14 +100,15 @@ jobs:
           ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
           DRY_RUN: ${{ github.ref_name != 'main' && '1' || '0' }}   # off main the router sends nothing
           SRC: ${{ steps.run.outputs.source }}
+          DIR: ${{ steps.run.outputs.dir }}
           CODE: ${{ steps.run.outputs.code }}
           RUN_URL: ${{ steps.run.outputs.url }}
           MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'batch' }}
-        run: node .github/scripts/visual-review.mjs --source "$SRC" --shots shots --state "vr-out/$SRC" --code "$CODE" --mode "$MODE" --run "$RUN_URL"
+        run: node .github/scripts/visual-review.mjs --source "$SRC" --shots shots --state "vr-out/$DIR" --code "$CODE" --mode "$MODE" --run "$RUN_URL"
       - name: Report and state to branch visual-review-out
         if: ${{ !cancelled() && steps.review.outputs.wrote == '1' }}
         env:
-          SRC: ${{ steps.run.outputs.source }}
+          SRC: ${{ steps.run.outputs.dir }}
           RUN_URL: ${{ steps.run.outputs.url }}
         run: |
           cd vr-out
