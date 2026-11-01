@@ -83,7 +83,7 @@ if (prev && !Array.isArray(prev.open)) {   // a state written before 27.10 keeps
 const meta = JSON.parse(fs.readFileSync(`${OUT}/meta.json`, "utf8"));
 const state = {u: meta.u, seen: [], open: []}, found = {newModels: [], newVariants: 0, cutsKnown: [], cutsUnknown: [], cutsUnsure: [], typoTwins: [], specTwins: [], codeYears: [], parallelOnly: []};
 // the words of every name under 12 characters (once per maker and name), every maker model year|name, the new 12-character names
-const whole = new Map(), wholeSeen = new Set(), names = new Set(), twelve = [];
+const whole = new Map(), wholeSeen = new Set(), names = new Set(), twelve = [], allTwelve = [];
 for (const cd of Object.keys(meta.makers)) {
   const idx = JSON.parse(fs.readFileSync(`${OUT}/c/${cd}.json`, "utf8")), cols = idx.cols, mk = idx.n;
   for (const [model, [f]] of Object.entries(idx.models)) {
@@ -99,6 +99,7 @@ for (const cd of Object.keys(meta.makers)) {
       for (const [t] of trims) {
         const k = `${mkey}|${y}|${t}`; state.seen.push(k); if (!seen.has(k)) fresh.push(t);
         names.add(label + "|" + t);
+        if (t.length === 12) allTwelve.push({cd, mk, model, y, t});
         if (t.length < 12 && !wholeSeen.has(cd + "|" + t)) { wholeSeen.add(cd + "|" + t); for (const x of t.split(" ")) if (/^[A-Z]{3,}$/.test(x)) whole.set(x, (whole.get(x) || 0) + 1); }
       }
       if (!fresh.length || first) continue;
@@ -127,6 +128,16 @@ for (const {label, t} of twelve) {
   else if (c.kind === "cut") { found.cutsUnknown.push(`${label}: "${t}" (המילה האחרונה "${c.last}", כנראה ${c.to})`); state.open.push({label, t}); }
   else if (c.kind === "unsure") found.cutsUnsure.push(`${label}: "${t}"`);
 }
+// every 12-character name, old or new, whose last word the cut rule cannot judge, once per maker and word, with the register's whole words:
+// what name-match.mjs asks Claude about (trim-unsure.json; nothing here changes what the rules decide or flag)
+const unsure = new Map();
+for (const n of allTwelve) {
+  const c = cutKind(n.t, TRIM_FIX, whole), k = n.cd + "|" + c.last;
+  if (c.kind !== "unsure") continue;
+  const g = unsure.get(k) || unsure.set(k, {cd: n.cd, mk: n.mk, last: c.last, n: 0, names: []}).get(k);
+  g.n++; if (g.names.length < 6) g.names.push({model: n.model, y: Number(n.y), t: n.t});
+}
+fs.writeFileSync(`${OUT}/trim-unsure.json`, JSON.stringify({u: meta.u, words: Object.fromEntries(whole), unsure: [...unsure.values()]}));
 const waiting = prevOpen.filter(o => stillCut(o, names, TRIM_FIX, whole) && !state.open.some(x => x.label === o.label && x.t === o.t));
 state.open.unshift(...waiting);
 if (prevOpen.length && !state.open.length) {   // every cut the last alert flagged is handled: the alert closes (a "wait" item, so quietly)

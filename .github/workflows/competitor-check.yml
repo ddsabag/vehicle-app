@@ -1,13 +1,13 @@
 name: Competitor check
 # Monthly competitor check (strategy thread; Dudu 24.10.2026, moved to the monthly API credit 1.11.2026): on the 1st, one Claude call
 # (Sonnet 5.5 + the server web search, searches capped) looks for changes since the last run and writes competitors.json on the branch
-# competitor-check. A change is kept only with a source the search returned (competitor-check.mjs). The strategy thread's scheduled task
-# reads the file later the same morning and wakes the thread only on a change. With no key, no SDK or an API error the run stays green:
-# ai:comp (ai:key when the key or the credit is the cause) goes to the router, and the thread checks by hand as before.
+# competitor-check. A change is kept only with a source the search returned (competitor-check.mjs), and the bot
+# tells a change itself through the router (comp:<YYYY-MM>; Dudu 1.11 "אם אין בהם צורך אז כן": no thread is woken). With no key, no SDK or an API error the run stays green:
+# ai:comp (ai:key when the key or the credit is the cause) goes to the router, and the morning triage routes it to the strategy thread.
 # Not in failure-alert's re-run list: a run sends a paid request, so a crash is told and never re-run by itself.
 on:
   schedule:
-    - cron: "23 4 1 * *"   # the 1st, 04:23 UTC (07:23 Israel summer time, 06:23 winter), before the strategy thread reads it
+    - cron: "23 4 1 * *"   # the 1st, 04:23 UTC (07:23 Israel summer time, 06:23 winter): a change found reaches the morning ring
   workflow_dispatch:
     inputs:
       dry:

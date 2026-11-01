@@ -67,6 +67,12 @@ jobs:
         run: node .github/scripts/catalog-rules.mjs --selftest
       - name: Claude API helper self-test (no key, no SDK or an API error leaves a bot as it was; a reason never carries the key)
         run: node .github/scripts/claude.mjs --selftest
+      - name: Recall explanations self-test (the wording rules, urgency, retries with the broken rule, a batch left running, no key, ai:recalls / ai:key)
+        run: node .github/scripts/recall-explain.mjs --selftest
+      - name: Name match self-test (a suggestion holds only with the maker's models, the recall's years and the app's matcher; the second look; ai:names / ai:key)
+        run: node .github/scripts/name-match.mjs --selftest
+      - name: Deep audit self-test (the plate scrub, quotes that must be on the page and in the rows, the encryption, truth:deep / ai:audit / ai:key)
+        run: node .github/scripts/deep-audit.mjs --selftest
       - name: Visual review self-test (only the guardians' shots, an unchanged shot not sent again, the caps, no key or an API error skips, the usage sealed)
         run: node .github/scripts/visual-review.mjs selftest
       - name: Review themes self-test (tags from a fixed list, inside the encrypted snapshot only; any failure leaves the snapshot untagged)
@@ -130,6 +136,16 @@ jobs:
             const s = read(f), b = s && block(s);
             if (!b) { console.log(`skip ${f}: ${s ? "no alert-lib v1 block yet" : "not in the repo yet"}`); continue; }
             check(b === ref, f + " block is byte-identical to worker/lib/alert-lib.js");
+          }
+          // worker/lib/answer-lint.mjs (the text rules the recall explanations share with the advisor's answers): each Worker that holds
+          // the answer-lint v1 block holds it byte-identical
+          const LS = "// >>> answer-lint v1", LE = "// <<< answer-lint v1";
+          const lblock = s => { const a = s.indexOf(LS), b = s.indexOf(LE); return a < 0 && b < 0 ? null : a < 0 || b < a ? "broken" : s.slice(a, b + LE.length); };
+          const lref = lblock(read("worker/lib/answer-lint.mjs") || "");
+          check(lref && lref !== "broken", "worker/lib/answer-lint.mjs holds the answer-lint v1 block");
+          for (const f of ["worker/worker.js", ...fs.readdirSync("worker", { withFileTypes: true }).filter(d => d.isDirectory()).map(d => `worker/${d.name}/worker.js`)]) {
+            const s = read(f), b = s && lblock(s);
+            if (b) check(b === lref, f + " answer-lint block is byte-identical to worker/lib/answer-lint.mjs");
           }
           process.exit(bad ? 1 : 0);
           EOF

@@ -53,6 +53,7 @@ export const WF_LEVELS = {
   "Back-on-road detector": "silent",
   "Ship tail": "day", "Store listing": "day", "Release watch": "day", "Production": "day",
   "Settlements": "day", "Data truth": "day", "Social publish": "day",
+  "Recall explanations": "summary",   // Claude API use #2 (data): a crash is told quietly; its own API failures go to ai:recalls / ai:key
   "App guardian (real app)": "day", "UI guardian (browser)": "day",   // red = blocking findings on the real app / site (owner: product); at night: quiet, then the morning ring
   "Visual review": "summary",   // Claude's look at the guardians' screenshots (owner: product): report only, so red is its own crash, never a finding
   "Alert router check": "summary", "ASO check": "summary",   // checks of a push to main: whoever released it fixes it; quiet, then the ledger and the morning triage
@@ -89,6 +90,7 @@ export const LABELS = {
   "seo:index":           { he: "גוגל הוציא דפים מהאינדקס", sect: "fail" },   // index-guard.mjs via seo-data.mjs (SEO data snapshot)
   "seo":                 { he: "דוח SEO יומי", sect: "none" },
   "mention":             { he: "אזכור חדש של לוחית ברשת", sect: "fyi" },
+  "comp":                { he: "בדיקת המתחרים החודשית מצאה שינוי אצל אפליקציה או שירות דומים", sect: "fyi" },   // competitor-check.mjs, key comp:<YYYY-MM>
   "seo-auto:blocked":    { he: "שינוי SEO מחכה לאישור שלך ({id})", sect: "wait" },
   "seo-auto:notice":     { he: "שינוי SEO יעלה לאתר בעוד 24 שעות ({id})", sect: "none" },
   "seo-auto":            { he: "שינוי SEO ({id})", sect: "none" },
@@ -134,6 +136,13 @@ export const LABELS = {
   "truth:fail":          { he: "בדיקת הנתונים היומית לא הצליחה לקרוא מספיק רכבים", sect: "fail" },
   "truth:inv-fail":      { he: "הבדיקה השבועית של מאגרי משרד התחבורה לא הצליחה לקרוא אותם", sect: "fail" },   // data-invariants.mjs: its own key, so a clean daily run does not close it
   "truth:done":          { he: "✅ בוצע · פער בבדיקת הנתונים היומית כבר לא חוזר", sect: "fyi" },   // site-data-truth.mjs: a clean run closes the open truth items
+  // deep-audit.mjs (Data truth, monthly); ids = its AREAS. News for the data thread, which turns each real finding into a daily rule: Dudu
+  // does nothing, and a month with nothing the rules missed closes it (told, done). Its own family, so a clean daily run does not close it
+  "truth:deep":          { he: "הביקורת החודשית העמוקה מצאה ממצאים שהבדיקה היומית לא תפסה: {ids}", sect: "fyi", done: true,
+                           ids: { identity: "פרטי הרכב", status: "סטטוס הרכב", test: "טסט", road: "עלייה לכביש", owners: "בעלויות", km: "ק״מ", recalls: "ריקולים",
+                                  settlements: "הסדרי פשרה", tow: "גרירה", specs: "מפרט", mods: "שינויים ברכב", fee: "אגרת רישוי", price: "מחיר מחירון", value: "שווי",
+                                  insight: "תובנות", message: "הודעות", other: "אחר" } },
+  "truth:deep-fail":     { he: "הביקורת החודשית העמוקה לא רצה: מעט מדי רכבים", sect: "fail" },   // too few read, or too many dropped for plate-like text
   "truth:inv":           { he: "הבדיקה השבועית של מאגרי משרד התחבורה מצאה חריגה: {ids}", sect: "fail",   // data-invariants.mjs (Data truth, weekly); ids = its CHECKS
                            ids: { fresh: "תאריכי הטסט לא מתעדכנים", tests: "מעט טסטים חדשים", renewal: "טסטים בלי חידוש רישיון", dates: "תאריכי רישיון לא תקינים",
                                   reuse: "מספרים במאגר הפעיל ובמאגר שירד מהכביש", owners: "סוג הבעלות הנוכחי", km: "ק״מ בטסט", hook: "וו גרירה מול נתוני הדגם",
@@ -169,18 +178,19 @@ export const LABELS = {
   "ai":                  { he: "בוט שנעזר ב-Claude לא הצליח לפנות אליו והמשיך בלעדיו: {ids}", sect: "fail",
                            ids: { themes: "הסיכום השבועי של הביקורות", triage: "ההכנה לבדיקת הבוקר", advisor: "מבחן היועץ הטכני", recalls: "הסברי הריקולים", shots: "עין שנייה על צילומי המסך",
                                   names: "התאמת שמות הדגמים", mag: "כתבות המגזין", comp: "בדיקת המתחרים החודשית",
-                                  anomalies: "סקירת החריגות בדוח השבועי", stl: "קריאת החדשות על הסדרי הפשרה" } },
+                                  anomalies: "סקירת החריגות בדוח השבועי", stl: "קריאת החדשות על הסדרי הפשרה",
+                                  audit: "הביקורת החודשית העמוקה" } },
   "ai:key":              { he: "מפתח ה-Claude API לא עובד או שהקרדיט נגמר, והבוטים ממשיכים בלעדיו", sect: "fail" },
 };
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
 export const FAMILIES_IN_USE = [
   "wf", "smoke", "expiry", "infra", "infra-branches", "guard:core", "guard:break", "guard:warn", "ministry", "checker:data-health",
-  "review", "review3", "vitals", "reviews:error", "seo:daily", "seo:nodata", "seo:error", "seo:index", "mention",
+  "review", "review3", "vitals", "reviews:error", "seo:daily", "seo:nodata", "seo:error", "seo:index", "mention", "comp",
   "seo-auto:blocked", "seo-auto:wait", "seo-auto:notice", "seo-auto:done", "catalog", "catalog:info", "recalls", "recalls:info", "mag:pub", "mag:fail",
   "webwatch:rollback", "webwatch:rollback-failed", "meta:uptime", "weekly:missing", "workers:refused", "workers:rollback", "workers:failed", "workers:forced",
   "ship:done", "ship:notes", "ship:fail", "ship:dry", "listing:done", "listing:dry", "listing:fail",
   "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:wait", "prod:fail",
-  "stl:update", "stl:stuck", "truth", "truth:fail", "truth:done", "truth:inv", "truth:inv-fail", "live:stuck", "live:error", "pipe",
+  "stl:update", "stl:stuck", "truth", "truth:fail", "truth:done", "truth:inv", "truth:inv-fail", "truth:deep", "truth:deep-fail", "live:stuck", "live:error", "pipe",
   "social:fail", "social:missed", "social:unsure", "social:held", "social:done", "social:remind", "social:check", "exp", "auto:done", "auto:revert", "auto:mode",
   "relguard", "relguard:ok", "relguard:thin", "zonea", "ai", "ai:key",
 ];
@@ -193,7 +203,7 @@ const TELL_MS = 72 * 36e5, LEDGER_MS = 864e5, LEDGER_CAP = 12;   // an outcome i
 // the tag line's area of a key (tg-text.mjs AREAS), by its first segment
 const AREA = { wf: "בוטים", meta: "בוטים", auto: "בוטים", smoke: "אתר", infra: "אתר", expiry: "אתר", workers: "אתר", webwatch: "אתר",
   guard: "נתונים", ministry: "נתונים", checker: "נתונים", truth: "נתונים", stl: "נתונים", catalog: "נתונים", recalls: "נתונים",
-  seo: "SEO", "seo-auto": "SEO", mag: "SEO", mention: "שיווק", social: "שיווק", review: "ביקורות", review3: "ביקורות", reviews: "ביקורות",
+  seo: "SEO", "seo-auto": "SEO", mag: "SEO", mention: "שיווק", comp: "שיווק", social: "שיווק", review: "ביקורות", review3: "ביקורות", reviews: "ביקורות",
   vitals: "אפליקציה", watch: "אפליקציה", ship: "חנות Google Play", listing: "חנות Google Play", safety: "חנות Google Play", prod: "חנות Google Play",
   live: "מדידה", pipe: "מדידה", relguard: "מדידה", zonea: "מדידה", weekly: "מדידה", exp: "מדידה" };
 const areaOf = key => AREA[String(key).split(":")[0]] || "בוטים";
@@ -1029,7 +1039,8 @@ async function selftest() {
       ["infra", "site api sitemap quota-cf quota-brevo"], ["vitals", "crash anr"], ["listing:fail", "access files play"], ["prod:fail", "access promote auto"], ["safety:fail", "access files play"],
       ["truth", "page identity status test road owners km recalls settlements tow specs mods fee price value tag insight counts message"],
       ["truth:inv", "fresh tests renewal dates reuse owners km hook price wltp recalls pubcancel lend"], ["pipe", "web app errors ga"],
-      ["ai", "themes triage advisor recalls shots names mag comp anomalies"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
+      ["truth:deep", "identity status test road owners km recalls settlements tow specs mods fee price value insight message other"],
+      ["ai", "themes triage advisor recalls shots names mag comp anomalies stl audit"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
       const he = label(f + ":" + ids.split(" ").join("+")).he.split(/[\s,:]+/);
       ok(!ids.split(" ").some(i => he.includes(i)), `label ${f}: no raw id left`);
     }
@@ -1042,6 +1053,9 @@ async function selftest() {
     ok(label("ai:themes").he === "בוט שנעזר ב-Claude לא הצליח לפנות אליו והמשיך בלעדיו: הסיכום השבועי של הביקורות" && label("ai:themes").sect === "fail"
       && label("ai:key").he.startsWith("מפתח ה-Claude API") && label("ai:key").sect === "fail" && validKey("ai:key") && validKey("ai:recalls"),
       "Claude API labels: one per bot, the key's own");
+    ok(label("truth:deep:owners+km").he === "הביקורת החודשית העמוקה מצאה ממצאים שהבדיקה היומית לא תפסה: בעלויות, ק״מ" && label("truth:deep:km").sect === "fyi"
+      && label("truth:deep:km").done === true && label("truth:deep-fail").sect === "fail" && label("ai:audit").he.endsWith("הביקורת החודשית העמוקה"),
+      "the monthly deep audit: news by area, told when a clean month closes it; too few cars is a failure");
     const used = scanKeys(ROOT), missing = used.filter(k => !FAMILIES_IN_USE.some(f => f === k || f.startsWith(k + ":") || k.startsWith(f + ":")));
     ok(missing.length === 0, "call-site keys missing from FAMILIES_IN_USE: " + missing.join(", "));
     // every workflow that runs on main by itself is watched by failure-alert, each watched name has a deliberate level, and the parser sees the events
