@@ -125,7 +125,12 @@ export function quoteCheck(f, s) {
 
 // the run's period: the 1st's run is the month ("2026-11"); the extra run on the 13th, before the credit renews on the 17th (Dudu 1.11.2026
 // "תשחרר את כל ה5"), is "2026-11-mid", so the workflow's "done already?" check and the summary keep the two apart
-export const period = now => { const s = now.toISOString(); return s.slice(0, 7) + (+s.slice(8, 10) >= 10 ? "-mid" : ""); };
+// In 11.2026 only (Dudu 1.11.2026 21:16 UTC: "את הבדיקה של ה800 רכבים נעשה רק במחזור הזה") the 13th and the 14th run twice a day, about 200
+// cars each: four periods of their own ("2026-11-mid-13a" ... "-14b", before 11:00 UTC a, after it b), so none is taken as already done.
+export const BIG = "2026-11";
+export const period = now => { const s = now.toISOString(), day = +s.slice(8, 10);
+  if (s.slice(0, 7) === BIG && (day === 13 || day === 14)) return `${BIG}-mid-${day}${+s.slice(11, 13) < 11 ? "a" : "b"}`;
+  return s.slice(0, 7) + (day >= 10 ? "-mid" : ""); };
 
 export function queries(s) {
   const q = { n: 80, rare: 20, minutes: 140, wait: 180, effort: "medium", max: 120, dry: false }, n = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(+v) || 0));
@@ -306,7 +311,9 @@ if (process.argv[1] && process.argv[1].endsWith("deep-audit.mjs") && process.arg
   const e = encrypt({ a: "טויוטה" }, publicKey), k = crypto.privateDecrypt({ key: privateKey, padding: crypto.constants.RSA_PKCS1_OAEP_PADDING, oaepHash: "sha256" }, Buffer.from(e.ek, "base64"));
   const dc = crypto.createDecipheriv("aes-256-gcm", k, Buffer.from(e.iv, "base64")); dc.setAuthTag(Buffer.from(e.tag, "base64"));
   ok(JSON.parse(Buffer.concat([dc.update(Buffer.from(e.data, "base64")), dc.final()]).toString("utf8")).a === "טויוטה" && !e.data.includes("טויוטה"), "encrypted with the public key (the shape seo-key/decrypt.mjs reads)");
-  ok(period(new Date("2026-11-01T05:17:00Z")) === "2026-11" && period(new Date("2026-11-03T05:17:00Z")) === "2026-11" && period(new Date("2026-11-13T05:17:00Z")) === "2026-11-mid" && period(new Date("2026-11-14T23:00:00Z")) === "2026-11-mid", "period: the 1st-3rd are the month, the 13th-14th the extra run");
+  ok(period(new Date("2026-11-01T05:17:00Z")) === "2026-11" && period(new Date("2026-11-03T05:17:00Z")) === "2026-11" && period(new Date("2026-12-13T05:17:00Z")) === "2026-12-mid" && period(new Date("2026-12-14T23:00:00Z")) === "2026-12-mid", "period: the 1st-3rd are the month, the 13th-14th the extra run");
+  ok(period(new Date("2026-11-13T05:17:00Z")) === "2026-11-mid-13a" && period(new Date("2026-11-13T11:17:00Z")) === "2026-11-mid-13b" && period(new Date("2026-11-14T05:17:00Z")) === "2026-11-mid-14a"
+    && period(new Date("2026-11-14T16:00:00Z")) === "2026-11-mid-14b" && period(new Date("2026-12-13T11:17:00Z")) === "2026-12-mid" && period(new Date("2026-11-15T05:17:00Z")) === "2026-11-mid", "period: 11.2026 only, four runs of their own on the 13th and the 14th");
   ok(JSON.stringify(queries("n=500 minutes=3 effort=max dry=1 bogus=2")) === JSON.stringify({ n: 150, rare: 20, minutes: 5, wait: 180, effort: "medium", max: 120, dry: true }), "queries: clamped, unknown dropped");
   // whole runs: a fake audit writes the cars, a fake API answers by car
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "da-")), cars = n => async (q, dir) => { const d = path.join(dir, "cars"); fs.mkdirSync(d, { recursive: true });
