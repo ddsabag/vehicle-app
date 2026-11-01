@@ -35,7 +35,7 @@
     {
       "key": "reviews", "dir": "worker/reviews", "name": "luchit-reviews", "deploy": "main", "create": true,
       "probe": { "kind": "health", "path": "/health", "readOnly": false },
-      "secretsFromGitHub": ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "REVIEWS_SA_JSON"]
+      "secretsFromGitHub": ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "REVIEWS_SA_JSON", "ANTHROPIC_API_KEY"]
     },
     {
       "key": "live", "dir": "worker/live", "name": "luchit-live", "deploy": "main", "create": false,
