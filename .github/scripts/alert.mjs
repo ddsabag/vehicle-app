@@ -179,8 +179,11 @@ export const LABELS = {
                            ids: { themes: "הסיכום השבועי של הביקורות", triage: "ההכנה לבדיקת הבוקר", advisor: "מבחן היועץ הטכני", recalls: "הסברי הריקולים", shots: "עין שנייה על צילומי המסך",
                                   names: "התאמת שמות הדגמים", mag: "כתבות המגזין", comp: "בדיקת המתחרים החודשית",
                                   anomalies: "סקירת החריגות בדוח השבועי", stl: "קריאת החדשות על הסדרי הפשרה",
-                                  audit: "הביקורת החודשית העמוקה" } },
+                                  audit: "הביקורת החודשית העמוקה", cause: "שורת הסיבה בהתראת כשל", mail: "טיוטות התשובה למיילים",
+                                  noise: "הסקירה השבועית של ההתראות", "ceo-read": "הקריאה השנייה של המדדים השבועיים" } },
   "ai:key":              { he: "מפתח ה-Claude API לא עובד או שהקרדיט נגמר, והבוטים ממשיכים בלעדיו", sect: "fail" },
+  // ai-usage.mjs (ops 1.11): the bots' spend crossed 80% of the monthly cap in this credit cycle (renews on the 17th); news, not a fault
+  "ai:spend":            { he: "הבוטים השתמשו ב-80% מקרדיט ה-Claude API של החודש", sect: "fyi" },
 };
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
 export const FAMILIES_IN_USE = [
@@ -192,7 +195,7 @@ export const FAMILIES_IN_USE = [
   "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:wait", "prod:fail",
   "stl:update", "stl:stuck", "truth", "truth:fail", "truth:done", "truth:inv", "truth:inv-fail", "truth:deep", "truth:deep-fail", "live:stuck", "live:error", "pipe",
   "social:fail", "social:missed", "social:unsure", "social:held", "social:done", "social:remind", "social:check", "exp", "auto:done", "auto:revert", "auto:mode",
-  "relguard", "relguard:ok", "relguard:thin", "zonea", "ai", "ai:key",
+  "relguard", "relguard:ok", "relguard:thin", "zonea", "ai", "ai:key", "ai:spend",
 ];
 
 const TODAY = ["loud", "silent", "none"];
@@ -1040,7 +1043,7 @@ async function selftest() {
       ["truth", "page identity status test road owners km recalls settlements tow specs mods fee price value tag insight counts message"],
       ["truth:inv", "fresh tests renewal dates reuse owners km hook price wltp recalls pubcancel lend"], ["pipe", "web app errors ga"],
       ["truth:deep", "identity status test road owners km recalls settlements tow specs mods fee price value insight message other"],
-      ["ai", "themes triage advisor recalls shots names mag comp anomalies stl audit"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
+      ["ai", "themes triage advisor recalls shots names mag comp anomalies stl audit cause mail noise ceo-read"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
       const he = label(f + ":" + ids.split(" ").join("+")).he.split(/[\s,:]+/);
       ok(!ids.split(" ").some(i => he.includes(i)), `label ${f}: no raw id left`);
     }

@@ -81,7 +81,15 @@ jobs:
             .github/scripts/tg-text.mjs
             .github/scripts/bot-names.json
             .github/scripts/alert.mjs
+            .github/scripts/claude.mjs
+            .github/scripts/ai-usage.mjs
+            .github/scripts/triage-prep.mjs
+            .github/scripts/failure-cause.mjs
+            .github/seo-data.pub.pem
           sparse-checkout-cone-mode: false
+      - name: Install the Claude SDK (the guessed-cause line only; a failed install leaves it out)
+        continue-on-error: true
+        run: npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund @anthropic-ai/sdk@0.133.0   # = SDK in claude.mjs
       - name: Send the alert
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -100,6 +108,7 @@ jobs:
           ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
           ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}   # the alert router (alert.mjs): its state lives on the branch alert-state
           BREVO_API_KEY: ${{ secrets.BREVO_API_KEY || secrets.BREVO_KEY }}   # the router's email path for a critical failure
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}   # failure-cause.mjs: one Haiku line on the message, marked as a guess (credit package A8, Dudu 1.11)
         run: |
           [ -n "$TELEGRAM_BOT_TOKEN" ] || { echo "no Telegram credentials"; exit 0; }
           # one Hebrew message per case (tg-text.mjs wfFailure: classification line, what happened, what to do, the log link); level from alert.mjs WF_LEVELS
@@ -108,6 +117,8 @@ jobs:
             out=$(node .github/scripts/tg-text.mjs wf "$1" "$NAME" "$WF" "$URL" 2>/dev/null) || out=""
             if [ -n "$out" ]; then silent=${out%%$'\n'*}; text=${out#*$'\n'}; else silent=0; text=$(printf 'לוחית: הבוט "%s" נכשל\n%s' "$NAME" "$URL"); fi
             [ "$1" = repeat ] && silent=1
+            # the guessed cause (failure-cause.mjs, Haiku, read once per run): a line on a failure message, never on a "fixed" one
+            if [ "$1" != fixed ] && [ -n "$CAUSE" ]; then text=$(printf '%s\n🔎 <i>סיבה משוערת (Claude, ניחוש%s): %s</i>' "$text" "$CAUSE_KIND" "$CAUSE"); fi
             # the router first: ALERT_DONE = it sent (or deduped) the message and recorded it; anything else = the direct send, as before
             case "$1" in repeat) extra="--repeat";; fixed) extra="--outcome self";; esac
             r=$(timeout 45 node .github/scripts/alert.mjs wf "$NAME" --of "$WF" --html --today "$([ "$silent" = 1 ] && echo silent || echo loud)" --text "$text" --link "$URL" $extra 2>/dev/null) || r=""
@@ -116,6 +127,15 @@ jobs:
               --data-urlencode "parse_mode=HTML" --data-urlencode "disable_web_page_preview=true" --data-urlencode "disable_notification=$([ "$silent" = 1 ] && echo true || echo false)"
           }
           HE=$(node .github/scripts/tg-text.mjs bot "$NAME" 2>/dev/null) || HE=$NAME
+          CAUSE=""; CAUSE_KIND=""
+          if [ "$CONCLUSION" != cancelled ] && [ "${ATTEMPT:-1}" = 1 ]; then
+            c=$(timeout 70 node .github/scripts/failure-cause.mjs "$RUN_ID" "$NAME") || c=""
+            if [ -n "$c" ]; then
+              case "${c%%$'\t'*}" in flake) CAUSE_KIND=", כנראה תקלה רגעית";; code) CAUSE_KIND=", כנראה בקוד";; data) CAUSE_KIND=", כנראה במקור הנתונים";; config) CAUSE_KIND=", כנראה בהגדרה או בהרשאה";; esac
+              CAUSE=$(printf '%s' "${c#*$'\t'}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
+              echo "guessed cause: ${c%%$'\t'*}"   # the kind only; the line goes to Telegram
+            fi
+          fi
           retry=$(node .github/scripts/tg-text.mjs retry "$WF" 2>/dev/null) || retry=0
           if [ "$retry" = 1 ] && [ "${ATTEMPT:-1}" -gt 1 ] 2>/dev/null; then echo "attempt $ATTEMPT of a self-repairing workflow: the run that re-ran it reports"; exit 0; fi
           # the one automatic re-run (whole run when it never started, else the failed jobs), then wait for it: 0 passed, 1 failed or still running after 45 min, 2 not started

@@ -16,8 +16,10 @@
 //                                the cause (401, 403, 402 billing, or a 400 that says the credit balance is too low), so the caller raises ai:key, which
 //                                needs Dudu (paste the key again, or decide about the cap); any other failure is the bot's own ai:<bot>
 //                                (router families agreed with ops 28.10); reason(e) and keyTrouble(e) give the same for a caught error
+// Every reply is counted toward the credit cycle's spend (ai-usage.mjs, branch ai-usage; ops 1.11): never blocking, never a throw.
 // The workflow installs the SDK (npm install --no-save, the version in SDK); the app never loads it.
 //   node claude.mjs --selftest   offline: the fallbacks, the error reasons, reading a reply, and a batch through a fake API
+import { record } from "./ai-usage.mjs";
 export const SDK = "@anthropic-ai/sdk@0.133.0";
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -58,7 +60,10 @@ export const usage = msg => { const u = (msg && msg.usage) || {}; return { input
 const fail = e => ({ error: { why: reason(e), key: keyTrouble(e) } });
 
 export async function ask(api, params) {
-  try { return { msg: await api.messages.create(params) }; } catch (e) { return fail(e); }
+  let msg;
+  try { msg = await api.messages.create(params); } catch (e) { return fail(e); }
+  await record(params && params.model, msg && msg.usage);   // the spend of the cycle (never throws)
+  return { msg };
 }
 
 async function ended(api, id, minutes, every) {
@@ -75,6 +80,9 @@ async function results(api, id) {
     const res = r.result || {}, err = res.error && (res.error.error || res.error);
     out.set(r.custom_id, res.type === "succeeded" ? { ok: true, msg: res.message } : { ok: false, why: res.type === "errored" ? `errored ${(err && err.type) || ""}`.trim() : String(res.type) });
   }
+  const sum = {}; let model = "";   // the batch's spend, at half price, in one count
+  for (const v of out.values()) if (v.ok && v.msg && v.msg.usage) { model ||= v.msg.model; for (const [k, n] of Object.entries(v.msg.usage)) if (typeof n === "number") sum[k] = (sum[k] || 0) + n; }
+  if (model) await record(model, sum, { batch: true });
   return out;
 }
 async function finish(api, id, { minutes = 0, every = 30, cancel = false }) {

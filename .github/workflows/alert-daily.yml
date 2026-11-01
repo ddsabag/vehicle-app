@@ -57,6 +57,9 @@ jobs:
             .github/scripts/bot-names.json
             .github/scripts/claude.mjs
             .github/scripts/triage-prep.mjs
+            .github/scripts/ai-usage.mjs
+            .github/scripts/alert-noise.mjs
+            .github/seo-data.pub.pem
           sparse-checkout-cone-mode: false
       - name: Install the Claude SDK (the cause lines only; a failed install leaves them out)
         continue-on-error: true
@@ -67,6 +70,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}   # Console workspace luchit-bots, capped; a clean morning makes no call
           DRY: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
+      - name: Weekly alert-noise review (Sundays, Sonnet, suggestions only; credit package B)
+        if: ${{ github.event_name == 'schedule' }}
+        run: |
+          # once a week: the last noise.json is carried forward, and a Sunday that already has one does not ask again
+          mkdir -p triage-out
+          if git fetch -q --depth=1 origin triage-out 2>/dev/null && git show FETCH_HEAD:noise.json > triage-out/noise.json 2>/dev/null; then
+            grep -q "\"at\": \"$(date -u +%F)" triage-out/noise.json && { echo "noise review: already done today"; exit 0; }
+          else rm -f triage-out/noise.json; fi
+          node .github/scripts/alert-noise.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       - name: Publish triage.json on branch triage-out (public, names, links and router keys only)
         if: ${{ hashFiles('triage-out/triage.json') != '' }}
         run: |

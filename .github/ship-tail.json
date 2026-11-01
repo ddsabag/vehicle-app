@@ -30,7 +30,7 @@
     {
       "key": "mail", "dir": "worker/mail", "name": "luchit-mail", "deploy": "main", "create": false,
       "probe": { "kind": "version" },
-      "secretsFromGitHub": []
+      "secretsFromGitHub": ["ANTHROPIC_API_KEY"]
     },
     {
       "key": "reviews", "dir": "worker/reviews", "name": "luchit-reviews", "deploy": "main", "create": true,
