@@ -1,6 +1,7 @@
 name: Reviews monitor
 # Three times a day, by day only: new 1-3 star Google Play reviews (last 7 days) and Play vitals crash/ANR thresholds, sent to Telegram.
-# Also an encrypted snapshot of the week's reviews (branch feedback-data) for the weekly feedback digest.
+# Also an encrypted snapshot of the week's reviews (branch feedback-data) for the weekly feedback digest, each review tagged with its themes
+# by Claude (review-themes.mjs, the monthly API credit); without the key or the SDK the snapshot goes out untagged, as before.
 # 06:15/11:15/17:15 UTC = 09:15/14:15/20:15 Israel summer time (UTC+3), 08:15/13:15/19:15 winter time (UTC+2): never at night in either.
 on:
   schedule:
@@ -32,6 +33,9 @@ jobs:
           path: seen.json
           key: reviews-seen-none
           restore-keys: reviews-seen-
+      - name: Install the Claude SDK (themes for the weekly digest; a failed install only leaves them out)
+        continue-on-error: true
+        run: npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund @anthropic-ai/sdk@0.133.0   # = SDK in claude.mjs
       - name: Check reviews and vitals
         run: node .github/scripts/reviews-monitor.mjs
         env:
@@ -43,6 +47,7 @@ jobs:
           PLAY_DEVELOPER_ID: ${{ vars.PLAY_DEVELOPER_ID }}
           PLAY_APP_ID: ${{ vars.PLAY_APP_ID }}
           REVIEWS_RESPONDER: ${{ vars.REVIEWS_RESPONDER }}   # off = review alerts always sent here
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}   # themes only (Console workspace luchit-bots, capped); a dry run never calls
           ALERT_UPTIME_URL: ${{ vars.ALERT_UPTIME_URL }}       # luchit-reviews' /health is on the same workers.dev subdomain
           PREVIEW: ${{ inputs.preview && '1' || '0' }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}

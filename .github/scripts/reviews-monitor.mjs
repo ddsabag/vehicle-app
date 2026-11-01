@@ -1,7 +1,7 @@
 // Alerts (Telegram) on new 1-3 star Google Play reviews from the last 7 days, and when Play vitals cross Google's "bad behavior" thresholds.
 import { ilTime } from "./notify.mjs";
 import { flash } from "./flash.mjs";
-import { tag, todo, folded, heErrors } from "./tg-text.mjs";
+import { tag, todo, folded, heErrors, msg } from "./tg-text.mjs";
 // Env: PLAY_SERVICE_ACCOUNT_JSON (falls back to GA_SERVICE_ACCOUNT_JSON), TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
 //      optional PLAY_PACKAGE, PLAY_DEVELOPER_ID + PLAY_APP_ID (for a deep link into Play Console), MAX_STARS (default 3), DRY_RUN=1.
 //      ALERT_UPTIME_URL (repo variable): luchit-reviews lives on the same workers.dev subdomain as luchit-uptime. When its /health shows
@@ -67,6 +67,7 @@ const save = () => fs.writeFileSync(STATE, JSON.stringify(seen));
 const errors = [];
 
 // ---- reviews ----
+let themed = null;   // the themes call of this run (review-themes.mjs), told and closed at the end
 // "" when the responder (Cloudflare Worker luchit-reviews) announces the reviews itself, else why not (written to the log)
 async function responder() {
   if (process.env.REVIEWS_RESPONDER === "off") return "REVIEWS_RESPONDER=off";
@@ -105,13 +106,20 @@ try {
       folded(`גרסה ${c.appVersionName || "?"} (${c.appVersionCode || "?"}) · ${[dm.manufacturer, dm.productName].filter(Boolean).join(" ") || c.device || "?"} · אנדרואיד ${c.androidOsVersion ?? "?"} · מזהה ${rv.reviewId}`, "פרטי המכשיר"), c.starRating >= 3, key, undefined, low ? ["day", "review:" + rv.reviewId] : ["summary", "review3:" + rv.reviewId])) { seen[key] = Date.now(); sent++; } else failed++;
   }
   // weekly feedback digest (ops thread task, Dudu "כולם" 25.10): every review of the week, all stars, without author names, encrypted with
-  // the seo-data public key and published by the workflow on the branch feedback-data (the repo is public; only the private key reads it)
+  // the seo-data public key and published by the workflow on the branch feedback-data (the repo is public; only the private key reads it).
+  // Themes (Dudu 28.10, the monthly API credit): review-themes.mjs tags each review for the digest, inside the snapshot only; without them
+  // (no key, an API error) the snapshot goes out as before and `themes` says why.
   if (!DRY) try {
     const week = list.map(rv => { const c = (rv.comments || []).find(x => x.userComment)?.userComment; return c && +(c.lastModified?.seconds || 0) >= since ?
       { stars: c.starRating, text: (c.text || "").trim().slice(0, 900), version: c.appVersionName || "", day: new Date(+c.lastModified.seconds * 1000).toISOString().slice(0, 10),
         replied: (rv.comments || []).some(x => x.developerComment) } : null; }).filter(Boolean);
+    let T = null;
+    try { T = await import("./review-themes.mjs"); themed = await T.tagThemes(week); } catch (e) { themed = { tags: null, why: "themes: " + String(e?.message || e).slice(0, 80), key: false }; }
+    if (themed.tags) week.forEach((r, i) => { r.themes = themed.tags[i]; });
+    console.log(themed.called ? "themes: tagged" : themed.tags ? "themes: nothing to tag" : `themes: none (${themed.why})`);   // never a tag or a count
     const k = crypto.randomBytes(32), iv = crypto.randomBytes(12), ci = crypto.createCipheriv("aes-256-gcm", k, iv);
-    const data = Buffer.concat([ci.update(JSON.stringify({ at: new Date().toISOString(), reviews: week })), ci.final()]);
+    const themes = themed.tags ? { by: T.MODEL, names: T.THEMES } : { why: themed.why };
+    const data = Buffer.concat([ci.update(JSON.stringify({ at: new Date().toISOString(), reviews: week, themes })), ci.final()]);
     const ek = crypto.publicEncrypt({ key: fs.readFileSync(".github/seo-data.pub.pem", "utf8"), padding: crypto.constants.RSA_PKCS1_OAEP_PADDING, oaepHash: "sha256" }, k);
     fs.mkdirSync("feedback-out", { recursive: true });
     fs.writeFileSync("feedback-out/reviews.enc.json", JSON.stringify({ v: 1, ek: ek.toString("base64"), iv: iv.toString("base64"), tag: ci.getAuthTag().toString("base64"), data: data.toString("base64") }));
@@ -158,8 +166,17 @@ const now = Date.now(), DAY = 20 * 36e5;   // 20 h: scheduled runs start late by
 if (errors.length) { seen.errOn ||= now; seen.errAt = now; } else if (now - (seen.errAt || 0) > DAY) { delete seen.errOn; delete seen.errAt; }
 const ek = "err:" + errors.join("|").slice(0, 80), lasting = errors.length && now - seen.errOn > DAY;
 if (errors.length && (!seen[ek] || now - seen[ek] > DAY) && await telegram(errText(errors, lasting && seen.errOn), !lasting, ek, undefined, [lasting ? "day" : "summary", "reviews:error"])) seen[ek] = Date.now();
+// the Claude call behind the themes (router families agreed 28.10): the key or the credit is ai:key (day: Dudu has to act), anything else
+// this bot's own ai:themes (summary: the digest still reads the texts); a good call closes both. No key at all: nothing to tell.
+if (themed && !themed.tags && !themed.none) {
+  const k = themed.key ? "ai:key" : "ai:themes";
+  await telegram(msg({ kind: themed.key ? "today" : "info", area: "bots", title: themed.key ? "מפתח ה-Claude API לא עובד או שהקרדיט החודשי נגמר" : "תיוג הנושאים בביקורות לא רץ הפעם",
+    text: themed.key ? "הבוטים שנעזרים ב-Claude ממשיכים בלעדיו: טיוטות התשובה לביקורות חוזרות לתבנית, והסיכום השבועי קורא את הביקורות בלי תיוג." : "הסיכום השבועי יקרא את הביקורות בלי התיוג, כמו קודם. בהרצה הבאה זה ינסה שוב.",
+    what: themed.key ? "לבדוק ב-Console של Claude (סביבת העבודה luchit-bots) אם המפתח בוטל או שהתקרה החודשית נוצלה. מפתח חדש מדביקים פעמיים: כסוד ANTHROPIC_API_KEY ב-GitHub, ובאותו שם ב-Worker luchit-reviews ב-Cloudflare." : "", raw: themed.why }),
+    !themed.key, k, undefined, [themed.key ? "day" : "summary", k]);
+}
 // what is fine again closes its open alert in the router, which says so once, quietly (Dudu 26.10: every problem, and how it ended)
-if (!DRY) { const done = [...fine, ...(errors.length ? [] : ["reviews:error"])]; if (done.length) try { await (await import("./alert.mjs")).resolve(done); } catch { /* the morning ledger still lists it */ } }
+if (!DRY) { const done = [...fine, ...(errors.length ? [] : ["reviews:error"]), ...(themed?.called ? ["ai:themes", "ai:key"] : [])]; if (done.length) try { await (await import("./alert.mjs")).resolve(done); } catch { /* the morning ledger still lists it */ } }
 save();
 // finish green: an alert already told you, and a failed send is logged above and tried again next run (no "workflow failed" mail on top)
 process.exit(0);
