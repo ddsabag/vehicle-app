@@ -1,6 +1,6 @@
 {
- "_": "Model page summaries (model-answers.mjs). pilot: pages that get a summary; control: comparable pages left as they are, to measure indexing against (both crawled but not indexed in Search Console on 31.10.2026, the 40 largest, alternating). The rest only after the pilot shows an indexing gain over 21 days.",
- "since": "2026-11-01",
+ "_": "Model page summaries (model-answers.mjs). pilot: pages that get a summary; control: comparable pages left as they are, to measure indexing against (both crawled but not indexed in Search Console on 31.10.2026, the 40 largest, alternating). The summaries first go live with the monthly run of 6.11.2026; the rest only after the pilot shows an indexing gain over 21 days from then.",
+ "since": "2026-11-06",
  "pilot": [
   "octavia-676",
   "i20-845",
