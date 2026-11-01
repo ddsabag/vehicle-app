@@ -11,7 +11,7 @@ name: Social publish
 # call with the Ship tail key; this job installs no packages, node builtins only).
 on:
   schedule:
-    - cron: "4,19,34,49 * * * *"   # off the full hour; GitHub drifts these by up to ~40 min, the script accepts up to 6 h late
+    - cron: "4,19,34,49 4-19 * * *"   # 04:04-19:49 UTC (06:04-21:49 Israel winter, 07:04-22:49 summer): every slot so far was 06:00-19:00 Israel; off the full hour; GitHub drifts these by up to ~40 min, the script accepts up to 6 h late, so a night slot posts in the morning (ops bot review 1.11.2026)
   workflow_dispatch:
     inputs:
       mode:
