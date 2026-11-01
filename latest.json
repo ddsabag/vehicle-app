@@ -1,7 +1,7 @@
 {
  "v": 1,
- "d": "2026-10-31",
- "seed": "20261031",
+ "d": "2026-11-01",
+ "seed": "20261101",
  "cars": 40,
  "sampled": 40,
  "mism": 0,
@@ -85,7 +85,7 @@
    0
   ],
   "owners.current_no_log": [
-   27,
+   28,
    0
   ],
   "owners.durations": [
@@ -153,7 +153,7 @@
    0
   ],
   "recalls.line_honest": [
-   33,
+   32,
    0
   ],
   "recalls.model_count": [
@@ -165,7 +165,7 @@
    0
   ],
   "recalls.model_fits": [
-   19,
+   28,
    0
   ],
   "recalls.model_missing": [
@@ -178,6 +178,10 @@
   ],
   "recalls.open_banner": [
    40,
+   0
+  ],
+  "recalls.open_date": [
+   2,
    0
   ],
   "recalls.pending_banner": [
@@ -361,7 +365,7 @@
    0
   ],
   "tow.hook": [
-   27,
+   23,
    0
   ],
   "tow.limits": [
