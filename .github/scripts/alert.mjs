@@ -168,7 +168,8 @@ export const LABELS = {
   // ai:key, level day: the key or the credit is the cause (401, 403, credit balance too low), so Dudu has to act; any bot's good call closes it
   "ai":                  { he: "בוט שנעזר ב-Claude לא הצליח לפנות אליו והמשיך בלעדיו: {ids}", sect: "fail",
                            ids: { themes: "תיוג הנושאים בביקורות", advisor: "מבחן היועץ הטכני", recalls: "הסברי הריקולים", shots: "עין שנייה על צילומי המסך",
-                                  names: "התאמת שמות הדגמים", mag: "כתבות המגזין", comp: "בדיקת המתחרים החודשית" } },
+                                  names: "התאמת שמות הדגמים", mag: "כתבות המגזין", comp: "בדיקת המתחרים החודשית",
+                                  anomalies: "סקירת החריגות בדוח השבועי" } },
   "ai:key":              { he: "מפתח ה-Claude API לא עובד או שהקרדיט נגמר, והבוטים ממשיכים בלעדיו", sect: "fail" },
 };
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
