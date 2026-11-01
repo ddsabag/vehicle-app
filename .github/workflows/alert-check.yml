@@ -79,6 +79,10 @@ jobs:
         run: node .github/scripts/name-match.mjs --selftest
       - name: Deep audit self-test (the plate scrub, quotes that must be on the page and in the rows, the encryption, truth:deep / ai:audit / ai:key)
         run: node .github/scripts/deep-audit.mjs --selftest
+      - name: Diff review self-test (only lines the change touched, the month's cap, no key or an API error skips, the usage sealed)
+        run: node .github/scripts/diff-review.mjs selftest
+      - name: Exploratory walk self-test (the tools on a fake page, the step and month caps, no key or an API error skips, the usage sealed)
+        run: node .github/scripts/explore.cjs selftest
       - name: Visual review self-test (only the guardians' shots, an unchanged shot not sent again, the caps, no key or an API error skips, the usage sealed)
         run: node .github/scripts/visual-review.mjs selftest
       - name: Kit draft self-test (the week's slots, facts only from ideas.json by reference, lint violations back to the model, no key or an API error skips)

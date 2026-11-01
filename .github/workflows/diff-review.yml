@@ -1,0 +1,94 @@
+name: Diff review
+# Claude Opus reads a change before it reaches people (.github/scripts/diff-review.mjs; owner: product, built by the QA thread; Dudu
+# 1.11.2026 21:16 UTC, monthly API credit, package A). A push to next that touches the app is read as its own commits; a manual run on a
+# branch that waits for "שחרר" reads everything the branch adds to the base (main by default). Points tied to the lines the change touched,
+# against product's rules (right to left, text zoom, data accuracy, wording, plates, events, the app bridge, a release bump, release sync,
+# bugs). Suggestions only: a point never fails a run and never blocks a release. Report: branch diff-review-out (a folder per branch,
+# latest.md). A high point tells the router (code:<branch>, summary). Red only when the script itself crashes (Failure alert, summary).
+# Off: repo variable DIFF_REVIEW=off. No secret ANTHROPIC_API_KEY: it skips.
+on:
+  push:
+    branches: [next]
+    paths: ["index.html", "sw.js", "android/**", "worker/**"]
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "The branch this one goes into (everything this branch adds to it is read)"
+        type: string
+        default: main
+permissions:
+  contents: write   # branch diff-review-out, and the alert router's state (branch alert-state)
+concurrency:
+  group: diff-review   # one at a time: every review writes branch diff-review-out
+  cancel-in-progress: false
+jobs:
+  review:
+    if: ${{ vars.DIFF_REVIEW != 'off' && github.repository == 'ddsabag/vehicle-app' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      # push: the push's own commits (a new branch or a forced push: what it adds to main); manual: what the branch adds to the base
+      - name: What to read
+        id: range
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          BASE_BRANCH: ${{ inputs.base }}
+        run: |
+          HEAD=$(git rev-parse HEAD)
+          if [ "$EVENT" = push ]; then
+            KIND=push; BASE="$BEFORE"
+            if ! echo "$BASE" | grep -qE '^[0-9a-f]{40}$' || [ "$BASE" = 0000000000000000000000000000000000000000 ] || ! git merge-base --is-ancestor "$BASE" "$HEAD" 2>/dev/null; then
+              BASE=$(git merge-base origin/main "$HEAD")
+            fi
+          else
+            KIND=release
+            case "$BASE_BRANCH" in ""|*[!A-Za-z0-9._/-]*) echo "::error::base is a branch name"; exit 1 ;; esac
+            for i in 1 2 3 4; do git fetch -q origin "$BASE_BRANCH" && break; [ $i = 4 ] && exit 1; sleep $((i * 5)); done
+            BASE=$(git merge-base FETCH_HEAD "$HEAD")
+          fi
+          { echo "base=$BASE"; echo "head=$HEAD"; echo "kind=$KIND"; } >> "$GITHUB_OUTPUT"
+          echo "$KIND review of ${GITHUB_REF_NAME}: ${BASE::7}..${HEAD::7}"
+      - name: The Claude API SDK (this run only; the app never loads it)
+        continue-on-error: true   # not installed: the review skips, and the router hears ai:diff
+        run: npm install --no-save --no-audit --no-fund "$(node --input-type=module -e 'console.log((await import("./.github/scripts/claude.mjs")).SDK)')"
+      # the state (reviews this month, commits done); none yet on the very first run. A failed read stops the run, so a lost connection
+      # never starts the month's count again from nothing
+      - name: The last state (branch diff-review-out)
+        run: |
+          mkdir -p dr-out
+          for i in 1 2 3 4; do
+            c=0; git ls-remote --exit-code origin refs/heads/diff-review-out > /dev/null || c=$?
+            [ $c = 0 ] || [ $c = 2 ] && break; [ $i = 4 ] && exit 1; sleep $((i * 5))
+          done
+          if [ $c = 2 ]; then echo "no branch diff-review-out yet: the first run"; exit 0; fi
+          for i in 1 2 3 4; do git fetch -q --depth=1 origin diff-review-out && break; [ $i = 4 ] && exit 1; sleep $((i * 5)); done
+          git archive FETCH_HEAD | tar -x -C dr-out
+      - name: Diff review
+        id: review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DIFF_REVIEW: ${{ vars.DIFF_REVIEW }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY || secrets.BREVO_KEY }}   # the router's email path
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          DRY_RUN: ${{ startsWith(github.ref_name, 'diff-review') && '1' || '0' }}   # the bot's own branches (its tests) tell nobody
+          BASE: ${{ steps.range.outputs.base }}
+          HEAD_SHA: ${{ steps.range.outputs.head }}
+          KIND: ${{ steps.range.outputs.kind }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node .github/scripts/diff-review.mjs --base "$BASE" --head "$HEAD_SHA" --branch "$GITHUB_REF_NAME" --kind "$KIND" --main origin/main --out dr-out --run "$RUN_URL"
+      - name: Report and state to branch diff-review-out
+        if: ${{ !cancelled() && steps.review.outputs.wrote == '1' }}
+        run: |
+          cd dr-out
+          git init -q -b diff-review-out && git add .
+          git -c user.name="diff-review" -c user.email="diff-review@users.noreply.github.com" commit -q -m "Diff review: ${GITHUB_REF_NAME} ${GITHUB_SHA::7}"
+          for i in 1 2 3 4; do git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" diff-review-out && exit 0; sleep $((2 ** i)); done
+          exit 1
