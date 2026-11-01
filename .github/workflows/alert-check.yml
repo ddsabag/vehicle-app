@@ -103,6 +103,8 @@ jobs:
         run: node .github/scripts/bots-status.mjs selftest
       - name: Claude API helper and competitor check self-tests (fallbacks, a change kept only with a found source, no cost in the log)
         run: node .github/scripts/claude.mjs --selftest && node .github/scripts/competitor-check.mjs --selftest
+      - name: Copy audit and release-notes drafter self-tests (a point tied to its line, the Play notes rules, fallbacks, no cost in the log)
+        run: node .github/scripts/copy-audit.mjs --selftest && node .github/scripts/notes-draft.mjs --selftest
       - name: Anomaly review self-test (a hidden red still flags, encrypted reply, no numbers in the status, router keys)
         run: node .github/scripts/anomaly-review.mjs --selftest && node .github/scripts/guard-explain.mjs --selftest
       - name: Python wrapper self-test
