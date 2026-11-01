@@ -188,6 +188,34 @@ async function gaToken(sa) {
   return r.ok && j?.access_token ? j.access_token : null;
 }
 
+// Claude's second look (guard-explain.mjs, credit package A6, Dudu 1.11.2026): a line added to the message, nothing else. Any failure here
+// (no key, no SDK, an API error, a GA4 read) leaves the guard's message exactly as it was; the router hears about it as ai:guard or ai:key.
+async function secondLook(kind, a) {
+  if (IO.explain === false) return null;
+  let X; try { X = IO.explain || await import("./guard-explain.mjs"); } catch { return null; }
+  const api = await X.getClient(IO.env).catch(() => null);
+  if (!api) return null;
+  let res;
+  try {
+    if (kind === "cause") {
+      const Q = {};
+      for (const [k, body] of Object.entries(X.causeQueries(a.yd))) {
+        const r = await IO.fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${PROPERTY}:runReport`, { method: "POST",
+          headers: { authorization: "Bearer " + a.tok, "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(60000) });
+        const j = J(await r.text()); if (!r.ok || !j) return null;
+        Q[k] = rowsOf(j);
+      }
+      res = await X.zoneACause(api, Q);
+    } else {
+      const { execFile } = await import("node:child_process"), run = (cmd, args) => new Promise((ok, no) => execFile(cmd, args, { maxBuffer: 1 << 24 }, (e, out) => e ? no(e) : ok(out)));
+      let context = ""; try { context = fs.readFileSync(new URL("../../analytics/review-context.md", import.meta.url), "utf8"); } catch {}
+      res = await X.findingsLook(api, a.R, { ...await X.history(a.R.prev, a.R.vn, run), context, names: a.N });
+    }
+  } catch (e) { res = { why: "error " + String(e?.message || e).replace(/\d/g, "#").slice(0, 80) }; }
+  if (IO.env.MODE !== "dry") { const router = IO.router || await import("./alert.mjs").catch(() => null); await X.tell(router, res, IO.env); }
+  else if (res?.why) IO.out(`second look ${kind}: none (${String(res.why).replace(/\d/g, "#")})`);
+  return res;
+}
 async function main() {
   const E = IO.env, dry = E.MODE === "dry", sa = J(E.GA_SERVICE_ACCOUNT_JSON || "");
   if (!sa?.client_email || !sa?.private_key || !PROPERTY) { IO.out("release guard: no service account or property"); return 1; }
@@ -214,7 +242,9 @@ async function main() {
     const A = zoneA(Z);
     IO.out(`zone A ${yd}: ${A.state}${A.breach.length ? " " + A.breach.join(",") : ""}`);
     if (A.state === "breach") {
-      const t = zoneAText(A, yd), key = `zonea:${A.breach.join("+")}:${yd}`;
+      let t = zoneAText(A, yd); const key = `zonea:${A.breach.join("+")}:${yd}`;
+      const c = await secondLook("cause", { tok, yd });   // labels only (credit package A6): one more line, never a different decision
+      if (c?.line) { t += "\n" + c.line; IO.out(`zone A ${yd}: cause ${c.verdict}`); }
       if (dry) IO.out("dry, would send " + key + ":\n" + t.replace(/\d/g, "#"));
       else { const router = IO.router || await import("./alert.mjs"); await router.alert(LEVEL.zoneA, key, t, E.RUN_URL || "", { today: "silent" }); }
     }
@@ -227,7 +257,11 @@ async function main() {
   if (!["find", "ok", "thin"].includes(R.state)) return 0;
   let N = {};
   try { N = names(fs.readFileSync(new URL("../../worker/live/worker.js", import.meta.url), "utf8")); } catch {}
-  const t = text(R, N), id = `${R.vn}-d${R.day}`, key = R.state === "find" ? "relguard:" + id : `relguard:${R.state}:${id}`;
+  let t = text(R, N); const id = `${R.vn}-d${R.day}`, key = R.state === "find" ? "relguard:" + id : `relguard:${R.state}:${id}`;
+  if (R.state === "find") {
+    const L = await secondLook("findings", { R, N });   // labels only: the finding stays open and is closed only by the guard's own rule
+    if (L?.lines) { t += "\n" + L.lines.map(x => x.text).join("\n"); IO.out("second look: " + L.lines.map(x => `${x.id} ${x.label}`).join(", ")); }
+  }
   if (dry) { IO.out("dry, would send " + key + ":\n" + t.replace(/\d/g, "#") + (live && relguardCloses(R).length ? "\ndry, would close " + relguardCloses(R).join(" ") : "")); return 0; }   // the log is public: digits masked
   const router = IO.router || await import("./alert.mjs"), shut = live ? relguardCloses(R) : [];
   await router.alert(R.state === "find" ? LEVEL.find : LEVEL.ok, key, t, E.RUN_URL || "", { today: R.state === "find" ? "silent" : "none" });
@@ -338,6 +372,22 @@ async function selftest() {
   const AL = await import("./alert.mjs"), st = { v: 1, items: {}, hb: {}, log: [] }, at = Date.parse("2026-10-27T06:30:00Z");
   for (const [lv, key] of [[LEVEL.zoneA, "zonea:slow:2026-10-26"], [LEVEL.zoneA, "zonea:fail+slow:2026-10-26"], [LEVEL.find, "relguard:1.38.3-d1"]])
     for (const day of [true, false]) { const d = AL.decide(st, lv, key, false, at, day); ok(d.a === "quiet" && !d.night && AL.label(key).sect === "fail", `${key} by ${day ? "day" : "night"}: quiet once, got ${d.a}`); }
+  // Claude's second look: a line from guard-explain, and nothing at all when it has no client or fails (the guard's message as before)
+  { const saved = { ...IO }, told = [], quiet = [];
+    const fake = (res) => ({ getClient: async () => ({}), causeQueries: () => ({ hourDur: {}, hourFail: {} }), zoneACause: async (api, Q) => (Q.hourDur.length === 1 ? res : { why: "rows" }),
+      findingsLook: async (api, R, ctx) => (ctx.context !== undefined && Array.isArray(ctx.notes) ? res : { why: "ctx" }), history: async () => ({ notes: [], commits: [] }), tell: async (r, x) => { told.push(x); } });
+    Object.assign(IO, { env: { MODE: "on" }, out: s => quiet.push(s), router: {}, fetch: async () => ({ ok: true, text: async () => JSON.stringify({ rows: [{ dimensionValues: [{ value: "09" }], metricValues: [{ value: "1" }] }] }) }) });
+    IO.explain = fake({ line: "L", verdict: "source" });
+    ok((await secondLook("cause", { tok: "t", yd: "2026-10-31" }))?.line === "L" && told.length === 1, "second look: the cause line, and the router told");
+    IO.explain = fake({ lines: [{ id: "silent", label: "by_design", text: "T" }] });
+    ok((await secondLook("findings", { R: { vn: "1.38.3", prev: "1.37", findings: [] }, N: {} }))?.lines?.[0].text === "T", "second look: a finding's line");
+    IO.explain = { ...fake({}), getClient: async () => null }; told.length = 0;
+    ok(await secondLook("cause", { tok: "t", yd: "x" }) === null && !told.length, "second look: no client (no key or SDK): nothing, nothing told");
+    IO.explain = fake({ line: "L" }); IO.fetch = async () => ({ ok: false, text: async () => "" });
+    ok(await secondLook("cause", { tok: "t", yd: "x" }) === null, "second look: a failed GA4 read: no line");
+    IO.explain = { ...fake({}), zoneACause: async () => { throw new Error("boom 12345"); } }; IO.fetch = saved.fetch === IO.fetch ? IO.fetch : async () => ({ ok: true, text: async () => "{\"rows\":[]}" }); told.length = 0;
+    ok((await secondLook("cause", { tok: "t", yd: "x" }))?.why === "error boom #####" && told.length === 1, "second look: a throw becomes a reason (digits masked) for the router");
+    Object.assign(IO, saved); delete IO.explain; }
   IO.out(fails.length ? fails.map(f => "FAIL " + f).join("\n") + `\nselftest: ${fails.length} failed` : "selftest: all passed");
   return fails.length ? 1 : 0;
 }
