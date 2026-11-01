@@ -55,6 +55,8 @@ const SEVERITIES = ["high", "medium", "low"];
 
 export const SYSTEM = `You review a code change to לוחית (luchit.app), an Israeli car-check app: a single-page Hebrew (right-to-left) web app in index.html that also ships inside an Android WebView app (android/), with a service worker (sw.js), Cloudflare Workers (worker/) and GitHub Actions bots (.github/). People type a licence plate and see the Ministry of Transport's open data about the car.
 
+Facts about the page that a diff does not show: index.html has a global [hidden]{display:none!important}, so setting .hidden always hides an element whatever its display rule; one-line names go through cutHtml() on a .cut element on purpose.
+
 You get the change as a unified diff with context. Report only real problems the change brings, each tied to one line of the NEW version of a file in the diff (a line the change added or touched, or the line where something was removed). Judge by these rules:
 
 ${RULES.map((r, i) => `${i + 1}. [${r[0]}] ${r[1]}`).join("\n")}
@@ -125,7 +127,7 @@ export function check(reply, g) {
       : !RULE_IDS.includes(p.rule) || !SEVERITIES.includes(p.severity) ? "an unknown rule or severity" : "";
     (why ? dropped : kept).push(why ? { ...p, why } : p);
   }
-  kept.sort((a, b) => SEVERITIES.indexOf(a.severity) - SEVERITIES.indexOf(b.severity) || (a.confidence === "sure" ? -1 : 1) || a.file.localeCompare(b.file) || a.line - b.line);
+  kept.sort((a, b) => SEVERITIES.indexOf(a.severity) - SEVERITIES.indexOf(b.severity) || ((a.confidence === "sure" ? 0 : 1) - (b.confidence === "sure" ? 0 : 1)) || a.file.localeCompare(b.file) || a.line - b.line);
   return { kept, dropped, note: clip(reply && reply.note, 300) };
 }
 

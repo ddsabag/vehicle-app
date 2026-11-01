@@ -1,0 +1,91 @@
+name: Exploratory walk
+# Once a week Claude Sonnet uses the page on next like a curious person, off the guardians' scripted paths (.github/scripts/explore.cjs;
+# owner: product, built by the QA thread; Dudu 1.11.2026 21:16 UTC, monthly API credit, package B): a buyer on an iPhone, an owner with
+# many cars in the app in dark mode, a first visitor on a desktop. The page is served from the checkout, every request off the machine is
+# aborted (the registry answers from ui-flows.cjs's mock with the example plates), so nothing it types or presses can send anything.
+# Report only: a note never fails a run. Report and the notes' screenshots: branch explore-out (latest.md). A high note tells the router
+# (walk:<date>, summary). Red only when the script itself crashes (Failure alert, summary). Off: repo variable EXPLORE=off.
+on:
+  schedule:
+    - cron: "7 3 * * 1"   # Monday 03:07 UTC, after the nightly guardians, on what next holds
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "The branch to walk"
+        type: string
+        default: next
+      walks:
+        description: "Which walks (buyer, owner, visitor; comma-separated)"
+        type: string
+        default: "buyer,owner,visitor"
+permissions:
+  contents: write   # branch explore-out, and the alert router's state (branch alert-state)
+concurrency:
+  group: explore
+  cancel-in-progress: false
+jobs:
+  walk:
+    if: ${{ vars.EXPLORE != 'off' && github.repository == 'ddsabag/vehicle-app' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      # the page walked is next's (or the branch asked for); the scripts that walk it are this workflow's own, so a next that lags behind
+      # main still walks with the current bot
+      - uses: actions/checkout@v4
+        with: { ref: "${{ inputs.ref || 'next' }}", path: page }
+      - uses: actions/checkout@v4
+        with: { path: bot }
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      # a slow Ubuntu mirror: as the UI guardian (stop after 8 minutes, then once more from archive.ubuntu.com)
+      - name: Install the test tools and the Claude API SDK (not part of the app)
+        working-directory: bot
+        run: |
+          npm install --no-save --no-package-lock playwright "$(node --input-type=module -e 'console.log((await import("./.github/scripts/claude.mjs")).SDK)')"
+          if ! timeout 480 npx playwright install --with-deps chromium; then
+            echo "::warning::installing the browser took over 8 minutes or failed (a slow Ubuntu mirror?): once more from archive.ubuntu.com"
+            sudo pkill -x apt-get || true
+            for i in $(seq 90); do pgrep -x 'apt-get|dpkg' >/dev/null || break; sleep 2; done
+            sudo sed -i 's#azure\.archive\.ubuntu\.com#archive.ubuntu.com#g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null || true
+            sudo dpkg --configure -a || true
+            timeout 900 npx playwright install --with-deps chromium
+          fi
+      - name: The last state (branch explore-out)
+        run: |
+          mkdir -p ex-out
+          for i in 1 2 3 4; do
+            c=0; git -C bot ls-remote --exit-code origin refs/heads/explore-out > /dev/null || c=$?
+            [ $c = 0 ] || [ $c = 2 ] && break; [ $i = 4 ] && exit 1; sleep $((i * 5))
+          done
+          if [ $c = 2 ]; then echo "no branch explore-out yet: the first run"; exit 0; fi
+          for i in 1 2 3 4; do git -C bot fetch -q --depth=1 origin explore-out && break; [ $i = 4 ] && exit 1; sleep $((i * 5)); done
+          git -C bot archive FETCH_HEAD | tar -x -C ex-out
+      # run from the page's checkout (served from there), with the bot's scripts; ui-flows.cjs is the page's own (its mock and states)
+      - name: Exploratory walk
+        id: walk
+        working-directory: page
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          EXPLORE: ${{ vars.EXPLORE }}
+          NODE_PATH: ${{ github.workspace }}/bot/node_modules
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY || secrets.BREVO_KEY }}   # the router's email path
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          DRY_RUN: ${{ github.ref_name != 'main' && '1' || '0' }}   # off main the router sends nothing
+          WALKS: ${{ inputs.walks || 'buyer,owner,visitor' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          cp ../bot/.github/scripts/explore.cjs ../bot/.github/scripts/claude.mjs ../bot/.github/scripts/alert.mjs ../bot/.github/scripts/tg-text.mjs ../bot/.github/scripts/bot-names.json .github/scripts/
+          cp ../bot/.github/seo-data.pub.pem .github/
+          ln -sfn ../bot/node_modules node_modules
+          node .github/scripts/explore.cjs --out ../ex-out --walks "$WALKS" --run "$RUN_URL"
+      - name: Report to branch explore-out
+        if: ${{ !cancelled() && steps.walk.outputs.wrote == '1' }}
+        run: |
+          cd ex-out
+          git init -q -b explore-out && git add .
+          git -c user.name="explore" -c user.email="explore@users.noreply.github.com" commit -q -m "Exploratory walk: $(date -u +%F)"
+          for i in 1 2 3 4; do git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" explore-out && exit 0; sleep $((2 ** i)); done
+          exit 1
