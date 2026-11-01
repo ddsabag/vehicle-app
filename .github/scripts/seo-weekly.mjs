@@ -100,7 +100,7 @@ export function check(f, draft) {
 }
 
 export async function write(f, { env = process.env, api } = {}) {
-  if (!api) { if (!env.ANTHROPIC_API_KEY) return { draft: null, check: "no key" }; api = await client(env, { timeout: 600000 }); }
+  if (!api) { if (!env.ANTHROPIC_API_KEY) return { draft: null, check: "no key" }; const c = await client(env, { timeout: 600000 }); if (!c.api) return { draft: null, check: c.why }; api = c.api; }
   let hint = "", last = "";
   for (let i = 0; i < 2; i++) {
     const r = await ask(api, request(f, hint));
