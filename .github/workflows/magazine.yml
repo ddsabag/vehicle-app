@@ -27,9 +27,9 @@ on:
   workflow_dispatch:
     inputs:
       part:
-        description: "monthly = the monthly article | data = one data article | newsletter = the newsletter (see mode) | ai-test = template vs Claude, last 5 months (no site file)"
+        description: "monthly = the monthly article | data = one data article | newsletter = the newsletter (see mode) | ai-test = template vs Claude, last 5 months (no site file) | answers-test = model page summaries for the pilot pages (no site file)"
         type: choice
-        options: [monthly, data, newsletter, ai-test]
+        options: [monthly, data, newsletter, ai-test, answers-test]
         default: monthly
       mode:
         description: "Newsletter only: preview = render only | draft = save in Brevo | send = send now"
@@ -42,13 +42,13 @@ permissions:
   pages: write
 concurrency:
   # the articles commit to main and share its queue; the newsletter only reads, as before, and the comparison writes only its own branch
-  group: ${{ (github.event_name == 'push' || inputs.part == 'newsletter') && 'newsletter' || inputs.part == 'ai-test' && 'magazine-ai-test' || 'main-writer' }}
+  group: ${{ (github.event_name == 'push' || inputs.part == 'newsletter') && 'newsletter' || inputs.part == 'ai-test' && 'magazine-ai-test' || inputs.part == 'answers-test' && 'model-answers-test' || 'main-writer' }}
   cancel-in-progress: false
 jobs:
   article:
     # the part is picked by the cron line that fired (github.event.schedule), not by the clock, since GitHub starts scheduled runs late
     name: ${{ (github.event.schedule == '30 5 * * 4' || inputs.part == 'data') && 'data-article' || 'article' }}
-    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.part != 'newsletter' && inputs.part != 'ai-test') }}
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.part != 'newsletter' && inputs.part != 'ai-test' && inputs.part != 'answers-test') }}
     runs-on: ubuntu-24.04
     timeout-minutes: ${{ (github.event.schedule == '30 5 * * 4' || inputs.part == 'data') && 10 || 40 }}
     env:
@@ -116,6 +116,8 @@ jobs:
           DATA_SLUG: ${{ steps.gen.outputs.slug }}
           WRITER: ${{ steps.gen.outputs.writer }}
           AI: ${{ steps.gen.outputs.ai }}
+          ANTHROPIC_API_KEY: ${{ env.KIND == 'monthly' && secrets.ANTHROPIC_API_KEY || '' }}
+          MODEL_ANSWERS: ${{ vars.MODEL_ANSWERS }}
         run: |
           # Dudu 2026-10-15: publish on its own after the automatic checks; a failed check sends an alert (monthly: and opens a PR instead).
           # tg <text> [silent] [level] [router key]: through the alert router (alert.mjs, Dudu 25.10) when a key is given; it hands back = the direct send
@@ -143,8 +145,16 @@ jobs:
             esac
           fi
           if [ "$KIND" = monthly ]; then
+            # model page summaries (model-answers.mjs, the pilot pages in .github/model-answers.json): written again for the pages whose facts
+            # changed this month, before the pages are built; any failure leaves those pages with today's text (MODEL_ANSWERS=0 turns it off)
+            if [ "$MODEL_ANSWERS" != 0 ] && [ -n "$ANTHROPIC_API_KEY" ]; then
+              MODEL_FACTS=/tmp/model-facts.json node .github/scripts/pages.mjs >/dev/null \
+                && MODEL_ANSWERS_MINUTES=15 timeout 25m node .github/scripts/model-answers.mjs /tmp/model-facts.json .github/model-answers.json model-answers.json \
+                || echo "::warning::model page summaries were not written this month: the pages keep the text they had"
+            fi
             node .github/scripts/pages.mjs
             paths=(magazine sitemap.xml model)
+            [ -e model-answers.json ] && paths+=(model-answers.json)
             if [ -z "$(git status --porcelain "${paths[@]}")" ]; then echo "nothing new"; exit 0; fi
             # the newest monthly article (slug YYYY-MM): on a day a data article also came out, that one can share the date and sort first
             slug=$(node -e 'console.log(require("./magazine/posts.json").find(p=>/^\d{4}-\d{2}$/.test(p.slug)).slug)')
@@ -217,6 +227,35 @@ jobs:
           cd sealed && git init -q && git checkout -q -b magazine-ai-test && git add -A
           git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Magazine prose comparison (sealed)"
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" magazine-ai-test
+  answers-test:
+    # by hand only (part = answers-test): the model page summaries for the pilot pages in .github/model-answers.json, written and checked
+    # exactly as the monthly run does, and pushed with the facts they came from to the branch model-answers-test. No site file, never main.
+    # The summaries and facts are what the pages would show anyway; the run prints no token counts.
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.part == 'answers-test' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      - name: Self-tests (the Claude helper and the summaries, offline)
+        run: node .github/scripts/claude.mjs --selftest && node .github/scripts/model-answers.mjs --selftest
+      - name: Claude SDK
+        run: |
+          sdk=$(node --input-type=module -e 'console.log((await import(process.cwd() + "/.github/scripts/claude.mjs")).SDK)')
+          npm install --prefix .github/scripts --no-save --no-package-lock --ignore-scripts --no-audit --no-fund "$sdk" >/dev/null
+      - name: The pilot pages' summaries
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MODEL_ANSWERS_MINUTES: "30"
+        run: |
+          mkdir -p out && MODEL_FACTS=out/model-facts.json node .github/scripts/pages.mjs >/dev/null
+          node .github/scripts/model-answers.mjs out/model-facts.json .github/model-answers.json out/model-answers.json
+      - name: Put them on the branch model-answers-test
+        run: |
+          mkdir -p t && cp out/model-facts.json out/model-answers.json t/ && cd t && git init -q && git checkout -q -b model-answers-test && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Model page summaries, pilot (test)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" model-answers-test
   newsletter:
     if: ${{ github.event_name == 'push' || inputs.part == 'newsletter' }}
     runs-on: ubuntu-24.04
