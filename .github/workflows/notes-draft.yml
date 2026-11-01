@@ -62,8 +62,9 @@ jobs:
           git push -q origin release-drafts
       - name: TEMPORARY test output
         if: ${{ github.event_name == 'push' && github.ref_name == 'product/credit-bots' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-out
-          path: out/
-          retention-days: 1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp -r out "$RUNNER_TEMP/o" && cd "$(mktemp -d)" && git init -q && git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git checkout -q --orphan t && mkdir notes-draft && cp "$RUNNER_TEMP"/o/* notes-draft/ && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "test output notes-draft" && git push -q -f origin t:credit-bots-test-notes-draft
