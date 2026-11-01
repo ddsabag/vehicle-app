@@ -63,7 +63,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
           fetch-depth: 0   # the review merges main into next
       - uses: actions/setup-node@v7
         with:
@@ -75,7 +74,11 @@ jobs:
           git show origin/settlements-watch:review.json > "$RUNNER_TEMP/prev-review.json" 2>/dev/null || echo "no earlier review"
           git fetch -q --depth=1 origin next 2>/dev/null && git show origin/next:settlements.json > "$RUNNER_TEMP/next.json" 2>/dev/null || true
       - name: Coverage and news into the inbox
-        run: node .github/scripts/settlements.mjs watch
+        run: |
+          node .github/scripts/settlements.mjs watch
+          # TEST ONLY: open the stories of the last two weeks again, so the reading and the review have something to verify
+          node -e 'const fs=require("fs"),f="watch-out/state.json",s=JSON.parse(fs.readFileSync(f,"utf8"));s.checked="2026-10-20";fs.writeFileSync(f,JSON.stringify(s))'
+          rm -f "$RUNNER_TEMP/prev-ai.json" "$RUNNER_TEMP/prev-review.json"
         env:
           OUT: watch-out
           PREV_STATE: ${{ runner.temp }}/prev.json
@@ -124,6 +127,12 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       # settlement data publishes without a release (Dudu 19.10.2026). Web deploy publishes the commit (workflow_run on this workflow), and the
       # Telegram line says what changed (settlements.mjs tell), as a push by hand did
+      - name: TEST ONLY the reviewed list and the gates
+        if: ${{ !cancelled() }}
+        run: |
+          git diff -- settlements.json | head -80
+          node .github/scripts/settlements.mjs check && node .github/scripts/stl-parity.mjs | tail -3
+          cp settlements.json watch-out/settlements.reviewed.json
       - name: Publish the reviewed list on main, and merge main into next
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' && hashFiles('watch-out/review.json') != '' }}
         env:
@@ -153,4 +162,4 @@ jobs:
         run: |
           cd watch-out && git init -q && git checkout -q -b settlements-watch && git add -A
           git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Settlements watch $(date -u +%F)"
-          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" settlements-watch
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" settlements-watch:settlements-watch-test
