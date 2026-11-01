@@ -75,6 +75,10 @@ jobs:
         run: node .github/scripts/deep-audit.mjs --selftest
       - name: Visual review self-test (only the guardians' shots, an unchanged shot not sent again, the caps, no key or an API error skips, the usage sealed)
         run: node .github/scripts/visual-review.mjs selftest
+      - name: Kit draft self-test (the week's slots, facts only from ideas.json by reference, lint violations back to the model, no key or an API error skips)
+        run: node .github/scripts/kit-draft.mjs --selftest
+      - name: Kit visual QA self-test (the posts and reel frames, low confidence apart, no key or an API error skips)
+        run: node .github/scripts/kit-qa.mjs --selftest
       - name: Review themes self-test (tags from a fixed list, inside the encrypted snapshot only; any failure leaves the snapshot untagged)
         run: node .github/scripts/review-themes.mjs --selftest
       - name: Review digest self-test (Sonnet once a week; counts and versions from the tags, a line with a plate, phone or link left out)

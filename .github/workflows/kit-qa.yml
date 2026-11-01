@@ -1,0 +1,72 @@
+name: Kit visual QA
+# Claude looks at every image of the queued weekly kit before the autopost bot publishes it (.github/scripts/kit-qa.mjs; owner: marketing
+# thread; Dudu approved 1.11.2026, monthly API credit package B): the PNG posts, the reel cover and five frames of each reel, one
+# claude-sonnet-5-5 look each. Report only: branch kit-draft-out, qa-<kit date>/report.md; a finding never fails a run or stops a post.
+# The kit run starts it by hand right after it queues a kit (input kit); the schedule is the fallback for a kit no run has looked at.
+# Off: repo variable KIT_QA=off. No secret ANTHROPIC_API_KEY or no kit: it skips. Red only when the script itself crashes.
+on:
+  push:   # TEMPORARY: the branch test run; removed before the release
+    branches: [marketing/kit-bots]
+  schedule:
+    - cron: "40 13 * * 4"   # Thursday afternoon, after the kit run queued the week's kit
+  workflow_dispatch:
+    inputs:
+      kit:
+        description: "The kit folder on branch social-queue (kits/<this>), such as 2026-11-05; empty: the newest kit without a report"
+        required: false
+        type: string
+permissions:
+  contents: write   # branch kit-draft-out, and the alert router's state (branch alert-state)
+concurrency:
+  group: kit-draft-out
+  cancel-in-progress: false
+jobs:
+  qa:
+    if: ${{ vars.KIT_QA != 'off' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      - name: The kit (branch social-queue)
+        id: kit
+        env:
+          KIT: ${{ inputs.kit }}
+        run: |
+          case "$KIT" in ""|[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;; *) echo "::error::kit is a date such as 2026-11-05"; exit 1 ;; esac
+          for i in 1 2 3 4; do git fetch -q --depth=1 origin social-queue && break; [ $i = 4 ] && exit 1; sleep $((i * 5)); done
+          Q=$(git rev-parse FETCH_HEAD)
+          DONE=""; if git fetch -q --depth=1 origin kit-draft-out 2>/dev/null; then DONE=$(git ls-tree --name-only FETCH_HEAD | sed -n 's/^qa-//p'); fi
+          if [ -z "$KIT" ]; then
+            KIT=$(git ls-tree --name-only "$Q" kits/ | sed 's|kits/||' | sort -r | while read k; do echo "$DONE" | grep -qx "$k" || { echo "$k"; break; }; done)
+            [ -n "$KIT" ] || { echo "::notice::every queued kit has a report: nothing to look at"; exit 0; }
+          fi
+          git ls-tree --name-only "$Q" "kits/$KIT/" | grep -q . || { echo "::notice::no kits/$KIT on social-queue: skips"; exit 0; }
+          mkdir -p kit && git archive "$Q" "kits/$KIT" | tar -x -C kit
+          echo "dir=kit/kits/$KIT" >> "$GITHUB_OUTPUT"; echo "kit=$KIT" >> "$GITHUB_OUTPUT"
+      - name: ffmpeg (for the reel frames; without it the frames are skipped)
+        if: ${{ steps.kit.outputs.kit }}
+        continue-on-error: true
+        run: command -v ffmpeg > /dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg > /dev/null; }
+      - name: The Claude API SDK (this run only; the app never loads it)
+        if: ${{ steps.kit.outputs.kit }}
+        continue-on-error: true
+        run: npm install --no-save --no-audit --no-fund "$(node --input-type=module -e 'console.log((await import("./.github/scripts/claude.mjs")).SDK)')"
+      - name: Kit visual QA
+        id: qa
+        if: ${{ steps.kit.outputs.kit }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          KIT_QA: ${{ vars.KIT_QA }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY || secrets.BREVO_KEY }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          DRY_RUN: ${{ github.ref_name != 'main' && '1' || '0' }}
+        run: node .github/scripts/kit-qa.mjs --kit "${{ steps.kit.outputs.dir }}" --out qa-out
+      - name: The report to branch kit-draft-out
+        if: ${{ !cancelled() && steps.qa.outputs.wrote == '1' }}
+        run: |
+          bash .github/scripts/kit-out-push.sh qa-out "qa-${{ steps.kit.outputs.kit }}" "Kit visual QA: ${{ steps.kit.outputs.kit }}" "${{ secrets.GITHUB_TOKEN }}"
