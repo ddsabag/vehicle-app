@@ -19,6 +19,7 @@ on:
     - cron: "47 4 * * *"   # 04:47 UTC = 07:47 Israel summer time, 06:47 winter: after the ministry's nightly rebuild and Ministry watch (04:07)
     - cron: "17 1 * * 0"   # Sunday 01:17 UTC: the weekly full read (about 40 min), done long before the morning
     - cron: "17 5 1-3 * *"   # the 1st of the month 05:17 UTC (after the daily audit has its cars), the 2nd and the 3rd only when the 1st could not finish
+    - cron: "17 5 13-14 * *"   # the extra deep audit, about 200 cars, before the API credit renews on the 17th (Dudu 1.11.2026); the 14th only when the 13th could not finish
   workflow_dispatch:
     inputs:
       job:
@@ -98,7 +99,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   deep:
-    if: ${{ github.event.schedule == '17 5 1-3 * *' || (github.event_name == 'workflow_dispatch' && inputs.job == 'deep') }}
+    if: ${{ github.event.schedule == '17 5 1-3 * *' || github.event.schedule == '17 5 13-14 * *' || (github.event_name == 'workflow_dispatch' && inputs.job == 'deep') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 350   # the audit's own budget (minutes=140) and the batch's wait (wait=180: a test batch of 12 took an hour), with room
     concurrency:
@@ -110,7 +111,7 @@ jobs:
         id: due
         run: |
           if [ "${{ github.event_name }}" = "schedule" ] && git fetch -q --depth 1 origin data-truth 2>/dev/null && git show FETCH_HEAD:deep-summary.json > "$RUNNER_TEMP/prev.json" 2>/dev/null \
-            && node -e 'const s = require(process.argv[1]); process.exit(s.d === new Date().toISOString().slice(0, 7) && s.answered >= 10 ? 0 : 1)' "$RUNNER_TEMP/prev.json"; then
+            && node --input-type=module -e 'import fs from "node:fs"; import { period } from "./.github/scripts/deep-audit.mjs"; const s = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); process.exit(s.d === period(new Date()) && s.answered >= 10 ? 0 : 1)' "$RUNNER_TEMP/prev.json"; then
             echo "this month's deep audit is done"; echo "skip=1" >> "$GITHUB_OUTPUT"
           fi
       - uses: actions/setup-node@v7
@@ -130,7 +131,8 @@ jobs:
           node .github/scripts/deep-audit.mjs
         env:
           OUT: out
-          QUERIES: ${{ inputs.queries }}
+          # the extra run on the 13th: about 200 cars (the most the reading allows), about $8 (Dudu 1.11.2026: the credit renews on the 17th)
+          QUERIES: ${{ inputs.queries || (github.event.schedule == '17 5 13-14 * *' && 'n=150 rare=50 max=200 minutes=150') || '' }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
