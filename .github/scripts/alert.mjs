@@ -55,6 +55,7 @@ export const WF_LEVELS = {
   "Settlements": "day", "Data truth": "day", "Social publish": "day",
   "Recall explanations": "summary",   // Claude API use #2 (data): a crash is told quietly; its own API failures go to ai:recalls / ai:key
   "App guardian (real app)": "day", "UI guardian (browser)": "day",   // red = blocking findings on the real app / site (owner: product); at night: quiet, then the morning ring
+  "Diff review": "summary",   // Claude Opus reads a change before release (owner: product, QA built it): suggestions only, so red is its own crash
   "Visual review": "summary",   // Claude's look at the guardians' screenshots (owner: product): report only, so red is its own crash, never a finding
   "Alert router check": "summary", "ASO check": "summary",   // checks of a push to main: whoever released it fixes it; quiet, then the ledger and the morning triage
   "Live watch": "summary",
@@ -179,8 +180,10 @@ export const LABELS = {
                            ids: { themes: "הסיכום השבועי של הביקורות", triage: "ההכנה לבדיקת הבוקר", advisor: "מבחן היועץ הטכני", recalls: "הסברי הריקולים", shots: "עין שנייה על צילומי המסך",
                                   names: "התאמת שמות הדגמים", mag: "כתבות המגזין", comp: "בדיקת המתחרים החודשית",
                                   anomalies: "סקירת החריגות בדוח השבועי", stl: "קריאת החדשות על הסדרי הפשרה",
-                                  audit: "הביקורת החודשית העמוקה" } },
+                                  audit: "הביקורת החודשית העמוקה", diff: "בדיקת הקוד לפני שחרור" } },
   "ai:key":              { he: "מפתח ה-Claude API לא עובד או שהקרדיט נגמר, והבוטים ממשיכים בלעדיו", sect: "fail" },
+  // diff review (Dudu 1.11, credit package A): a review of a branch found a high point; product reads the report and decides, nothing waits on it
+  "code":                { he: "בדיקת הקוד לפני שחרור מצאה נקודות לבדוק: {id}", sect: "fyi" },
 };
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
 export const FAMILIES_IN_USE = [
@@ -192,7 +195,7 @@ export const FAMILIES_IN_USE = [
   "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:wait", "prod:fail",
   "stl:update", "stl:stuck", "truth", "truth:fail", "truth:done", "truth:inv", "truth:inv-fail", "truth:deep", "truth:deep-fail", "live:stuck", "live:error", "pipe",
   "social:fail", "social:missed", "social:unsure", "social:held", "social:done", "social:remind", "social:check", "exp", "auto:done", "auto:revert", "auto:mode",
-  "relguard", "relguard:ok", "relguard:thin", "zonea", "ai", "ai:key",
+  "relguard", "relguard:ok", "relguard:thin", "zonea", "ai", "ai:key", "code",
 ];
 
 const TODAY = ["loud", "silent", "none"];
@@ -1040,7 +1043,7 @@ async function selftest() {
       ["truth", "page identity status test road owners km recalls settlements tow specs mods fee price value tag insight counts message"],
       ["truth:inv", "fresh tests renewal dates reuse owners km hook price wltp recalls pubcancel lend"], ["pipe", "web app errors ga"],
       ["truth:deep", "identity status test road owners km recalls settlements tow specs mods fee price value insight message other"],
-      ["ai", "themes triage advisor recalls shots names mag comp anomalies stl audit"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
+      ["ai", "themes triage advisor recalls shots names mag comp anomalies stl audit diff"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
       const he = label(f + ":" + ids.split(" ").join("+")).he.split(/[\s,:]+/);
       ok(!ids.split(" ").some(i => he.includes(i)), `label ${f}: no raw id left`);
     }
