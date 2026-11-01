@@ -73,6 +73,8 @@ jobs:
         run: node .github/scripts/name-match.mjs --selftest
       - name: Deep audit self-test (the plate scrub, quotes that must be on the page and in the rows, the encryption, truth:deep / ai:audit / ai:key)
         run: node .github/scripts/deep-audit.mjs --selftest
+      - name: Diff review self-test (only lines the change touched, the month's cap, no key or an API error skips, the usage sealed)
+        run: node .github/scripts/diff-review.mjs selftest
       - name: Visual review self-test (only the guardians' shots, an unchanged shot not sent again, the caps, no key or an API error skips, the usage sealed)
         run: node .github/scripts/visual-review.mjs selftest
       - name: Review themes self-test (tags from a fixed list, inside the encrypted snapshot only; any failure leaves the snapshot untagged)
