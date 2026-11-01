@@ -183,7 +183,7 @@ export const LABELS = {
                                   anomalies: "סקירת החריגות בדוח השבועי", stl: "קריאת החדשות על הסדרי הפשרה",
                                   audit: "הביקורת החודשית העמוקה", cause: "שורת הסיבה בהתראת כשל", mail: "טיוטות התשובה למיילים",
                                   noise: "הסקירה השבועית של ההתראות", "ceo-read": "הקריאה השנייה של המדדים השבועיים",
-                                  kitdraft: "טיוטת ערכת התוכן השבועית", kitqa: "הבדיקה הוויזואלית של ערכת התוכן" } },
+                                  guard: "העין השנייה על שומר הגרסאות", kitdraft: "טיוטת ערכת התוכן השבועית", kitqa: "הבדיקה הוויזואלית של ערכת התוכן" } },
   "ai:key":              { he: "מפתח ה-Claude API לא עובד או שהקרדיט נגמר, והבוטים ממשיכים בלעדיו", sect: "fail" },
   // ai-usage.mjs (ops 1.11): the bots' spend crossed 80% of the monthly cap in this credit cycle (renews on the 17th); news, not a fault
   "ai:spend":            { he: "הבוטים השתמשו ב-80% מקרדיט ה-Claude API של החודש", sect: "fyi" },
@@ -1046,7 +1046,7 @@ async function selftest() {
       ["truth", "page identity status test road owners km recalls settlements tow specs mods fee price value tag insight counts message"],
       ["truth:inv", "fresh tests renewal dates reuse owners km hook price wltp recalls pubcancel lend"], ["pipe", "web app errors ga"],
       ["truth:deep", "identity status test road owners km recalls settlements tow specs mods fee price value insight message other"],
-      ["ai", "themes triage advisor recalls shots names mag comp anomalies stl audit cause mail noise ceo-read kitdraft kitqa"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
+      ["ai", "themes triage advisor recalls shots names mag comp anomalies stl audit cause mail noise ceo-read guard kitdraft kitqa"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
       const he = label(f + ":" + ids.split(" ").join("+")).he.split(/[\s,:]+/);
       ok(!ids.split(" ").some(i => he.includes(i)), `label ${f}: no raw id left`);
     }

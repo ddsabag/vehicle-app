@@ -1,5 +1,5 @@
 // Sunday anomaly review by Claude (use of the monthly API credit, Dudu "תשחרר את כל ה5" 1.11.2026, API-credits thread). Runs inside the
-// weekly report's own job, right after the report is built, on the report's JSON (analytics/out/luchit-weekly-<end>.json). claude-sonnet-5-5
+// weekly report's own job, right after the report is built, on the report's JSON (analytics/out/luchit-weekly-<end>.json). claude-opus-5-5 (adaptive thinking, effort high, since package B)
 // reads the week's anomalies and KPIs beside the known non-behaviour shifts (analytics/review-context.md) and says, per anomaly, whether it is
 // real, explained by a known shift, or needs a check, and adds any big KPI move the fixed rules did not raise. The measurement thread's Sunday
 // task reads the result first and only works what is flagged (or a failure), instead of reading the whole week by hand.
@@ -15,9 +15,12 @@ import fs from "node:fs";
 import crypto from "node:crypto";
 import { client, ask, answer } from "./claude.mjs";
 
-export const MODEL = "claude-sonnet-5-5";
-export const PROMPT_V = 1;
-const MAX_TOKENS = 4000;
+// Opus 5.5 with adaptive thinking at effort high (credit package B, Dudu 1.11 21:16 UTC): the one weekly judgement that feeds the CEO file and
+// Dudu; about $0.50 a month. Thinking can't be turned off on Opus 5.5 and its default effort is medium, so effort is set here.
+export const MODEL = "claude-opus-5-5";
+export const PROMPT_V = 3;
+const MAX_TOKENS = 16000;
+export const EFFORT = "high";
 // the parts of the report's analysis the review needs (the long tables of makes, models, tabs and "extra" stay out: cost, and nothing to judge)
 const PARTS = ["status", "anomalies", "kpis", "metrics", "dur", "versions", "takeaways"];
 const VERDICTS = ["real", "explained", "check"];
@@ -34,9 +37,10 @@ export function system(context) {
   return [
     "You review the weekly analytics report of a small Israeli car-check app (licence plate lookups, website and Android app).",
     "Fixed rules already raised the anomalies in the input. For EACH anomaly decide:",
-    "- \"explained\": a known non-behaviour shift below fully accounts for it (name which in cause);",
+    "- \"explained\": a known non-behaviour shift below accounts for most of it (name which in cause); use it even when a small remainder",
+    "  might exist - a reader acts only on \"real\" and \"check\", so those must be few and specific;",
     "- \"real\": a real change in behaviour or reliability that its owner thread must handle;",
-    "- \"check\": the data cannot tell; say what to check.",
+    "- \"check\": no known shift fits and the data cannot tell; say the one thing to check.",
     "Then look at the KPIs for any move of 30% or more week over week, or a value that contradicts another KPI, that no anomaly covers; add each",
     "as an extra item with level \"yellow\" and verdict \"check\" or \"real\". Never invent numbers: quote only numbers present in the input.",
     "Write title, cause and numbers in plain Hebrew, neutral forms. Keep each field short (one sentence).",
@@ -78,9 +82,9 @@ export async function run({ dir, out, env = process.env, api, now = new Date(), 
   const rep = pickReport(dir);
   if (!rep.input) { status.why = rep.why; return done(); }
   status.week = rep.week;
-  if (api === undefined) { const c = await client(env, { timeout: 120000 }); api = c.api; if (!api) { status.why = c.why; return done(); } }
+  if (api === undefined) { const c = await client(env, { timeout: 600000 }); api = c.api; if (!api) { status.why = c.why; return done(); } }
   const ctx = context ?? fs.readFileSync("analytics/review-context.md", "utf8");
-  const r = await ask(api, { model: MODEL, max_tokens: MAX_TOKENS, system: system(ctx),
+  const r = await ask(api, { model: MODEL, max_tokens: MAX_TOKENS, thinking: { type: "adaptive" }, output_config: { effort: EFFORT }, system: system(ctx),
     messages: [{ role: "user", content: "The week ending " + rep.week + ":\n" + JSON.stringify(rep.input) }] });
   if (r.error) { status.why = r.error.why; status.key = r.error.key; return done(); }
   const a = answer(r.msg);
@@ -132,7 +136,7 @@ if (process.argv[1] && process.argv[1].endsWith("anomaly-review.mjs")) {
     const d = crypto.createDecipheriv("aes-256-gcm", key, Buffer.from(e.iv, "base64")); d.setAuthTag(Buffer.from(e.tag, "base64"));
     const plain = JSON.parse(Buffer.concat([d.update(Buffer.from(e.data, "base64")), d.final()]).toString());
     ok(s.ok && s.flagged && plain.items.length === 2 && plain.week === "2026-10-31", "a good reply: encrypted review, status ok and flagged");
-    ok(reply.last.model === MODEL && !JSON.stringify(reply.last.messages).includes("makes"), "the call: the model, and the long tables left out");
+    ok(reply.last.model === "claude-opus-5-5" && reply.last.thinking.type === "adaptive" && reply.last.output_config.effort === "high" && !JSON.stringify(reply.last.messages).includes("makes"), "the call: the model, and the long tables left out");
     const st = fs.readFileSync(`${out}/status.json`, "utf8");
     ok(!/\d{3,}/.test(st.replace(/"generated":"[^"]*"/, "").replace(/"week":"[^"]*"/, "").replace(/"model":"[^"]*"/, "")), "the public status has no numbers");
     fs.rmSync(`${out}/review.enc.json`);
