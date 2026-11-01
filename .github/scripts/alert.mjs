@@ -131,6 +131,7 @@ export const LABELS = {
   "prod:fail":           { he: "הפרסום ל-Production נכשל: {ids}", sect: "fail", ids: { access: "אין הרשאה ל-Production", promote: "השליחה לא הצליחה", auto: "הבדיקה של ההפצה לא הצליחה" } },
   "stl:update":          { he: "הסדרי הפשרה באפליקציה עודכנו", sect: "none" },   // settlements.mjs (Settlements)
   "stl:stuck":           { he: "הבדיקה השבועית של הסדרי הפשרה לא מטפלת ברשימה", sect: "wait" },
+  "stl:review":          { he: "הסקירה השבועית של הסדרי הפשרה השאירה פריטים לבדיקה", sect: "wait" },   // settlements-review.mjs (Settlements)
   "truth":               { he: "בדיקת הנתונים היומית מצאה פער מול משרד התחבורה: {ids}", sect: "fail",   // site-data-truth.mjs (Data truth); ids = its GROUPS
                            ids: { page: "איתור הרכב", identity: "פרטי הרכב", status: "סטטוס הרכב", test: "טסט", road: "עלייה לכביש", owners: "בעלויות", km: "ק״מ",
                                   recalls: "ריקולים", settlements: "הסדרי פשרה", tow: "גרירה", specs: "מפרט", mods: "שינויים ברכב", fee: "אגרת רישוי",
@@ -180,7 +181,7 @@ export const LABELS = {
   "ai":                  { he: "בוט שנעזר ב-Claude לא הצליח לפנות אליו והמשיך בלעדיו: {ids}", sect: "fail",
                            ids: { themes: "הסיכום השבועי של הביקורות", triage: "ההכנה לבדיקת הבוקר", advisor: "מבחן היועץ הטכני", recalls: "הסברי הריקולים", shots: "עין שנייה על צילומי המסך",
                                   names: "התאמת שמות הדגמים", mag: "כתבות המגזין", comp: "בדיקת המתחרים החודשית",
-                                  anomalies: "סקירת החריגות בדוח השבועי", stl: "קריאת החדשות על הסדרי הפשרה",
+                                  anomalies: "סקירת החריגות בדוח השבועי", stl: "קריאת החדשות על הסדרי הפשרה", stlrev: "הסקירה השבועית של הסדרי הפשרה",
                                   audit: "הביקורת החודשית העמוקה", kitdraft: "טיוטת ערכת התוכן השבועית", kitqa: "הבדיקה הוויזואלית של ערכת התוכן" } },
   "ai:key":              { he: "מפתח ה-Claude API לא עובד או שהקרדיט נגמר, והבוטים ממשיכים בלעדיו", sect: "fail" },
 };
@@ -192,7 +193,7 @@ export const FAMILIES_IN_USE = [
   "webwatch:rollback", "webwatch:rollback-failed", "meta:uptime", "weekly:missing", "workers:refused", "workers:rollback", "workers:failed", "workers:forced",
   "ship:done", "ship:notes", "ship:fail", "ship:dry", "listing:done", "listing:dry", "listing:fail",
   "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:wait", "prod:fail",
-  "stl:update", "stl:stuck", "truth", "truth:fail", "truth:done", "truth:inv", "truth:inv-fail", "truth:deep", "truth:deep-fail", "live:stuck", "live:error", "pipe",
+  "stl:update", "stl:stuck", "stl:review", "truth", "truth:fail", "truth:done", "truth:inv", "truth:inv-fail", "truth:deep", "truth:deep-fail", "live:stuck", "live:error", "pipe",
   "social:fail", "social:missed", "social:unsure", "social:held", "social:done", "social:remind", "social:check", "exp", "auto:done", "auto:revert", "auto:mode",
   "relguard", "relguard:ok", "relguard:thin", "zonea", "ai", "ai:key",
 ];
@@ -1042,7 +1043,7 @@ async function selftest() {
       ["truth", "page identity status test road owners km recalls settlements tow specs mods fee price value tag insight counts message"],
       ["truth:inv", "fresh tests renewal dates reuse owners km hook price wltp recalls pubcancel lend"], ["pipe", "web app errors ga"],
       ["truth:deep", "identity status test road owners km recalls settlements tow specs mods fee price value insight message other"],
-      ["ai", "themes triage advisor recalls shots names mag comp anomalies stl audit kitdraft kitqa"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
+      ["ai", "themes triage advisor recalls shots names mag comp anomalies stl stlrev audit kitdraft kitqa"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
       const he = label(f + ":" + ids.split(" ").join("+")).he.split(/[\s,:]+/);
       ok(!ids.split(" ").some(i => he.includes(i)), `label ${f}: no raw id left`);
     }
