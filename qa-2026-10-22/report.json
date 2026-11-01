@@ -1,0 +1,130 @@
+{
+ "kit": "2026-10-22",
+ "model": "claude-sonnet-5-5",
+ "images": 14,
+ "failed": [],
+ "findings": [
+  {
+   "image": "story-02.png",
+   "kind": "rtl",
+   "part": 1,
+   "where": "Footer source line at the bottom, 'מקור: מאגרי משרד התחבורה, רכבים פעילים לפי דגם. אוקטובר 2026.'",
+   "text": "אוקטובר 2026.",
+   "what": "The closing period of the Hebrew sentence sits at the left end, before '2026' in the visual order. The text reads '.2026 אוקטובר', so the punctuation is at the wrong end of the sentence.",
+   "severity": "low",
+   "confidence": "medium"
+  },
+  {
+   "image": "reel-one-line.frame-2of5.jpg",
+   "kind": "overlap",
+   "part": 1,
+   "where": "Phone mock, bottom card just above the bottom nav bar, the caption \"איור · רכב לדוגמה\" sits over a grey placeholder bar",
+   "text": "איור · רכב לדוגמה",
+   "what": "The caption text is drawn over a grey skeleton bar, so the text and the bar overlap and the word \"איור\" is partly struck through by the bar.",
+   "severity": "low",
+   "confidence": "medium"
+  }
+ ],
+ "notes": [
+  {
+   "image": "carousel-04.png",
+   "kind": "layout",
+   "part": 1,
+   "where": "Bottom right, next to the swipe hint, the 'luchit.app' footer",
+   "text": "luchit.app",
+   "what": "The footer 'luchit.app' is low-contrast gray text on the dark background; it is small but readable. This is a minor contrast blemish.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "carousel-02.png",
+   "kind": "typo",
+   "part": 1,
+   "where": "swipe hint at bottom left, next to the arrow",
+   "text": "החליקו",
+   "what": "The swipe hint \"החליקו\" has an arrow \"←\" before it, on its left, which points toward the next slide in right-to-left reading. This is correct, so it is not a defect. Low-confidence note only.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "carousel-03.png",
+   "kind": "rtl",
+   "part": 1,
+   "where": "bottom left, the swipe cue next to the word \"החליקו\"",
+   "text": "← החליקו",
+   "what": "The swipe arrow \"←\" points left, which is the correct direction for swiping to the next slide in right-to-left Hebrew, but it sits to the left of the word, so it looks fine. This is only a possible concern and probably not a defect.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "carousel-01.png",
+   "kind": "rtl",
+   "part": 1,
+   "where": "bottom left, next to the word swipe prompt \"החליקו\"",
+   "text": "← החליקו",
+   "what": "The arrow \"←\" sits to the left of \"החליקו\". In an RTL carousel the next slide is reached by swiping left, so the arrow direction may be fine. The slide is only a weak candidate for an RTL arrow error.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "story-01.png",
+   "kind": "layout",
+   "part": 1,
+   "where": "Bottom of the story: the Google Play badge, the line \"זמינה להורדה\" above it and the counter \"1/3\" below it",
+   "text": "1/3",
+   "what": "The Google Play badge and the \"1/3\" counter sit at about y=1520-1660, inside the bottom 340px (y>1580) that the network's interface covers. The badge is exempt from this rule, but the counter \"1/3\" is not and may be covered, though it is small footer text. The badge itself is fully visible and readable.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "story-02.png",
+   "kind": "layout",
+   "part": 1,
+   "where": "Footer and badge area, y≈1470-1700, in the bottom 340px of the story",
+   "text": "2/3",
+   "what": "The page counter '2/3' and the source line sit within the bottom 340px reserved for the network's UI. The source line is small footer text, which is allowed, and the badge is exempt, so this is only a minor concern.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "reel-one-line.frame-3of5.jpg",
+   "kind": "rtl",
+   "part": 1,
+   "where": "Headline, second line in yellow",
+   "text": "באתר היבואן.",
+   "what": "The period sits at the left end of the Hebrew line. In right-to-left text that is the end of the sentence, so this is correct and not a defect. No real issue here.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "reel-one-line.frame-1of5.jpg",
+   "kind": "rtl",
+   "part": 1,
+   "where": "Title, second line, yellow text",
+   "text": "מספר רישוי.",
+   "what": "The period is at the left end of the line, which is the end of a Hebrew sentence in right-to-left reading, so it is correctly placed. No defect.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "reel-one-line.frame-2of5.jpg",
+   "kind": "layout",
+   "part": 1,
+   "where": "Headline: the period sits at the left end of the yellow word \"אחת.\"",
+   "text": "אחת.",
+   "what": "The period is on the left end of the Hebrew word, which is correct for right to left. This is not a defect.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "reel-one-line.frame-5of5.jpg",
+   "kind": "layout",
+   "part": 1,
+   "where": "small Hebrew line under the luchit.app pill, 'וחוסכים נסיעה'",
+   "text": "וחוסכים נסיעה",
+   "what": "The line 'וחוסכים נסיעה' sits below the URL pill and reads as a continuation of 'בודקים לפני שנפגשים.' It is separated from the headline by the URL pill, so the sentence flow is broken and the text order looks odd. This is a design choice, so only a minor concern.",
+   "severity": "low",
+   "confidence": "low"
+  }
+ ]
+}
