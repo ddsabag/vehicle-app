@@ -7,6 +7,9 @@ name: Alert daily
 # the red run too (with its own Brevo email when Telegram is down), and GitHub's own email while that is switched on.
 # The morning ledger (quiet, only when there was a problem): every problem of the last 24 h and what happened to it.
 # Manual runs skip the hour check and are dry by default (nothing sent, nothing written).
+# Job "prep" (Dudu 1.11, the monthly API credit): the facts of the morning triage (triage-prep.mjs) on branch triage-out, so the Claude Code
+# triage that follows reads one file and stops early on a clean morning; Haiku only writes a cause line when something is not clean.
+# It never turns the run red (a failed prep leaves the triage to its full steps).
 on:
   schedule:
     - cron: "5 5 * * *"
@@ -18,7 +21,8 @@ on:
         type: boolean
         default: true
 permissions:
-  contents: write   # branch alert-state
+  contents: write   # branches alert-state and triage-out
+  actions: read     # prep: the runs on main and the failed jobs' logs
 jobs:
   daily:
     runs-on: ubuntu-24.04
@@ -40,3 +44,32 @@ jobs:
           ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
           ALERT_UPTIME_URL: ${{ vars.ALERT_UPTIME_URL }}
           DRY: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
+  prep:
+    needs: daily
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts/alert.mjs
+            .github/scripts/bot-names.json
+            .github/scripts/claude.mjs
+            .github/scripts/triage-prep.mjs
+          sparse-checkout-cone-mode: false
+      - name: Install the Claude SDK (the cause lines only; a failed install leaves them out)
+        continue-on-error: true
+        run: npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund @anthropic-ai/sdk@0.133.0   # = SDK in claude.mjs
+      - name: Gather the morning triage's facts
+        run: node .github/scripts/triage-prep.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}   # Console workspace luchit-bots, capped; a clean morning makes no call
+          DRY: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
+      - name: Publish triage.json on branch triage-out (public: names, links and router keys only)
+        if: ${{ hashFiles('triage-out/triage.json') != '' }}
+        run: |
+          cd triage-out && git init -q && git checkout -q -b triage-out && git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "Triage facts"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" triage-out

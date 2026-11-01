@@ -1,4 +1,6 @@
 // Themes of the week's Google Play reviews for the weekly feedback digest (ops thread; Dudu 28.10, use 5 of the monthly API credit).
+// Since 1.11 reviews-monitor.mjs no longer calls tagThemes on every run: the weekly digest (review-digest.mjs, Sonnet) tags the reviews in
+// its own call, with THEMES and ABOUT from here, so the counts stay comparable with the weeks before. tagThemes stays for a one-off re-tag.
 // One claude-haiku-5-5 call a run tags each review with one to three themes from THEMES (the most important first); reviews-monitor.mjs
 // keeps the tags inside the encrypted snapshot only (branch feedback-data), so the digest can count them week by week. Through claude.mjs:
 // no key, no SDK or an API error gives no tags and the snapshot goes out as before (the digest reads the texts), never a failed run.
@@ -14,7 +16,7 @@ export const MODEL = "claude-haiku-5-5";
 export const THEMES = { crash: "קריסה או תקלה באפליקציה", slow: "איטיות או טעינה", search: "חיפוש רכב או מספר", data_missing: "מידע חסר",
   data_wrong: "מידע שגוי או לא מעודכן", ui: "עיצוב ונוחות", price: "מחיר, תשלום או PRO", feature: "בקשה לתכונה", ios: "בקשה לאייפון",
   dealer: "מוכר, סוחר או עסקה", praise: "שבח", other: "אחר" };
-const ABOUT = { crash: "the app crashes, freezes, shows an error or does not open", slow: "the app is slow or loading takes long",
+export const ABOUT = { crash: "the app crashes, freezes, shows an error or does not open", slow: "the app is slow or loading takes long",
   search: "trouble typing or finding a plate, or a car the app does not find", data_missing: "information the reviewer wanted is not shown",
   data_wrong: "information shown is wrong or out of date", ui: "design, layout, text size, or how easy the app is to use",
   price: "price, payment, subscription or PRO", feature: "a request for something new (an iPhone version is ios)", ios: "asks for an iPhone or iOS version",
