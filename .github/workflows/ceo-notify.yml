@@ -1,0 +1,60 @@
+name: CEO notify
+# One Telegram line when the CEO thread's page has something new for Dudu (Dudu 1.11.2026 22:38 UTC, asked through the CEO thread): the
+# monthly report (kind report) or the weekly review (kind weekly). The CEO thread has no GitHub access, so it asks the ops thread, which
+# dispatches this run with the kind and the page link. The text is fixed here per kind (nothing typed by a bot reaches Telegram but the
+# link, and only a claude.ai artifact link passes). Alert router, level day: loud by day; at night quiet with the morning ring.
+# Key ceo:<kind>:<Israel date>, so a second dispatch the same day is deduped.
+on:
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: "report (monthly) or weekly"
+        type: choice
+        options: [report, weekly]
+      link:
+        description: "The CEO page link (https://claude.ai/artifact/...)"
+        type: string
+        required: true
+      dry_run:
+        description: "Dry run: print the message, send nothing"
+        type: boolean
+        default: false
+permissions:
+  contents: write   # the router's state lives on branch alert-state
+jobs:
+  notify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts/alert.mjs
+            .github/scripts/tg-text.mjs
+            .github/scripts/bot-names.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v7
+        with: { node-version: 22 }
+      - name: Send
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY || secrets.BREVO_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          KIND: ${{ inputs.kind }}
+          LINK: ${{ inputs.link }}
+          DRY: ${{ inputs.dry_run && '1' || '0' }}
+        run: |
+          printf '%s' "$LINK" | grep -Eq '^https://claude\.ai/(code/)?artifact/[A-Za-z0-9_-]{6,64}$' || { echo "not a claude.ai artifact link: nothing sent"; exit 1; }
+          day=$(TZ=Asia/Jerusalem date +%Y-%m-%d)
+          text=$(node --input-type=module -e '
+            import { msg } from "./.github/scripts/tg-text.mjs";
+            const report = process.env.KIND === "report";
+            console.log(msg({ kind: "today", area: "ceo",
+              title: report ? "הדוח החודשי של המנכ\"ל מוכן" : "הסקירה השבועית של המנכ\"ל מוכנה",
+              text: report ? "החודש מול התוכנית, מה עבד ומה לא, ההימורים לחודש הבא וההחלטות שמחכות לך." : "המדדים של השבוע, מה דורש החלטה, והעדיפויות של כל שרשור.",
+              what: "לקרוא בעמוד המנכ\"ל ולענות בשרשור המנכ\"ל על ההחלטות." }));')
+          printf '%s\n%s\n' "$text" "$LINK"
+          [ "$DRY" = 1 ] && { echo "dry run: nothing sent"; exit 0; }
+          node .github/scripts/alert.mjs send day "ceo:$KIND:$day" --today loud --text "$text" --link "$LINK"
