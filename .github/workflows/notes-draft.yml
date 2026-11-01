@@ -7,7 +7,7 @@ name: Release notes draft
 # Not in failure-alert's re-run list: a run sends a paid request, so a crash is told and never re-run by itself.
 on:
   push:
-    branches: ["release-*"]
+    branches: ["release-*", "product/credit-bots"]   # TEMPORARY: one real test run on the branch
   workflow_dispatch:
     inputs:
       dry:
@@ -41,17 +41,17 @@ jobs:
         run: node .github/scripts/notes-draft.mjs
         env:
           OUT: out
-          BASE: origin/main
+          BASE: ${{ github.ref_name == 'product/credit-bots' && 'origin/main~30' || 'origin/main' }}
           DRY: ${{ inputs.dry && '1' || '0' }}
-          FORCE: ${{ inputs.force && '1' || '0' }}
+          FORCE: ${{ (inputs.force || github.ref_name == 'product/credit-bots') && '1' || '0' }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          ALERT_ROUTE: ${{ github.ref_name != 'product/credit-bots' && vars.ALERT_ROUTE || '' }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       - name: Publish to the branch release-drafts
-        if: ${{ hashFiles('out/notes-*.txt') != '' && !inputs.dry }}
+        if: ${{ hashFiles('out/notes-*.txt') != '' && !inputs.dry && github.ref_name != 'product/credit-bots' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
