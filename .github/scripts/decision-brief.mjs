@@ -17,10 +17,11 @@ export const MODEL = "claude-opus-5-5";
 const OPS = ["ratio", "pct", "diff", "sum"];
 
 // ---- reading the raw JSON ----
-export function at(obj, path) {   // parts["ga.life"].rows[3][2]  or  a.b.c
-  const toks = []; const re = /\["([^"]+)"\]|\[(\d+)\]|\.?([A-Za-z_$][\w$]*)/gy; let m, i = 0;
+export function at(obj, path) {   // parts["ga.life"].rows[3][2]  or  a.b.c  (a leading "$." or "DATA." is ignored; ['x'] works too)
+  path = String(path).trim().replace(/^\$\.?|^DATA\.?/i, "");
+  const toks = []; const re = /\["([^"]+)"\]|\['([^']+)'\]|\[(\d+)\]|\.?([A-Za-z_$][\w$-]*)/gy; let m, i = 0;
   re.lastIndex = 0;
-  while (i < path.length) { re.lastIndex = i; m = re.exec(path); if (!m || m.index !== i) return undefined; toks.push(m[1] ?? (m[2] !== undefined ? +m[2] : m[3])); i = re.lastIndex; }
+  while (i < path.length) { re.lastIndex = i; m = re.exec(path); if (!m || m.index !== i) return undefined; toks.push(m[1] ?? m[2] ?? (m[3] !== undefined ? +m[3] : m[4])); i = re.lastIndex; }
   return toks.reduce((o, k) => (o == null ? undefined : o[k]), obj);
 }
 // a GA4 table in the probes' flat form {dims, mets, rows}: the sum of one metric over the rows whose dimensions equal `where`
@@ -79,7 +80,7 @@ export function prompt(questions, raw) {
   return [
     "You prepare a short decision brief from analytics data for the strategy thread of the לוחית app (Israeli car-check app). The data is below as JSON: each GA4 table shows its dimensions (dims), metrics (mets), row count, the values each dimension takes, and only a SAMPLE of its rows; sums over a table are computed by code over ALL its rows.",
     "Answer the questions with lines of plain English text. YOU MUST NOT WRITE ANY DIGIT in the text. Every number goes in a {placeholder} whose value you define in \"vals\", from one of:",
-    '- {"path": "parts[\\"name\\"].x.y[0]"}: one number or short string in the JSON (a date, a version)',
+    '- {"path": "a.b.c"} or {"path": "parts[\\"ga.life\\"].x[0]"}: one number or short string in the JSON (a date, a version). Paths start at the top level of DATA: if DATA is {"kpi":{"week":...}}, the path is "kpi.week", never "DATA.kpi.week" or "$.kpi.week"',
     '- {"table": "parts[\\"ga.life\\"]", "metric": "eventCount", "where": {"eventName": "first_open", "date": ["20261101","20261102"]}, "zeroOk": false}: the sum of that metric over every row whose dimensions equal the given values (a list = any of them; zeroOk true only when no matching row truly means zero)',
     '- {"ratio": ["a","b"]}, {"pct": ["a","b"]} (100*a/b), {"diff": ["a","b"]}, {"sum": ["a","b","c"]}: computed from placeholders defined EARLIER in the same line',
     "Q1, Q2 and Q3 may appear as names. Say plainly when the data cannot answer something (put it in \"missing\"), give the sample size next to every rate, and never invent a field. Each line must stand on its own.",
@@ -104,7 +105,7 @@ export async function brief({ raw, questions, api, env = process.env, now = new 
   const a = answer(r.msg); if (!a.text) { b.why = a.why; return b; }
   let o; try { const t = a.text, i = t.indexOf("{"), j = t.lastIndexOf("}"); o = JSON.parse(t.slice(i, j + 1)); } catch { b.why = "no valid JSON"; return b; }
   if (!o || !Array.isArray(o.lines)) { b.why = "no lines"; return b; }
-  for (const l of o.lines.slice(0, 80)) { const f = fill(raw, l); if (f.text) b.lines.push(f); else b.dropped.push({ section: String((l && l.section) || "").slice(0, 60), text: String((l && l.text) || "").slice(0, 200), why: f.why }); }
+  for (const l of o.lines.slice(0, 80)) { const f = fill(raw, l); if (f.text) b.lines.push(f); else b.dropped.push({ section: String((l && l.section) || "").slice(0, 60), text: String((l && l.text) || "").slice(0, 200), why: f.why, vals: JSON.stringify((l && l.vals) || {}).slice(0, 600) }); }
   b.missing = (Array.isArray(o.missing) ? o.missing : []).map(x => String(x).replace(/\d/g, "#").slice(0, 200)).slice(0, 20);   // a model's number can hide here too
   b.ok = b.lines.length > 0 && b.dropped.length <= b.lines.length;   // more dropped than kept: read the raw
   if (!b.ok) b.why = b.lines.length ? "more lines dropped than kept" : "no line passed";
