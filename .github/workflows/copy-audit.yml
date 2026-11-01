@@ -65,3 +65,10 @@ jobs:
           cp "$RUNNER_TEMP/copy-audit.json" . && git add -A
           git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Copy audit $(date -u +%F)" || { echo "nothing new"; exit 0; }
           git push -q origin copy-audit
+      - name: TEMPORARY test output
+        if: ${{ github.event_name == 'push' && github.ref_name == 'product/credit-bots' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-out
+          path: out/
+          retention-days: 1

@@ -60,3 +60,10 @@ jobs:
           cp "$RUNNER_TEMP"/notes-*.txt . && git add -A
           git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Release notes draft from ${GITHUB_REF_NAME}" || { echo "nothing new"; exit 0; }
           git push -q origin release-drafts
+      - name: TEMPORARY test output
+        if: ${{ github.event_name == 'push' && github.ref_name == 'product/credit-bots' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-out
+          path: out/
+          retention-days: 1
