@@ -67,6 +67,8 @@ jobs:
         run: node .github/scripts/catalog-rules.mjs --selftest
       - name: Claude API helper self-test (no key, no SDK or an API error leaves a bot as it was; a reason never carries the key)
         run: node .github/scripts/claude.mjs --selftest
+      - name: Visual review self-test (only the guardians' shots, an unchanged shot not sent again, the caps, no key or an API error skips, the usage sealed)
+        run: node .github/scripts/visual-review.mjs selftest
       - name: Review themes self-test (tags from a fixed list, inside the encrypted snapshot only; any failure leaves the snapshot untagged)
         run: node .github/scripts/review-themes.mjs --selftest
       - name: Review digest self-test (Sonnet once a week; counts and versions from the tags, a line with a plate, phone or link left out)
@@ -79,6 +81,8 @@ jobs:
         run: node .github/scripts/bots-status.mjs selftest
       - name: Claude API helper and competitor check self-tests (fallbacks, a change kept only with a found source, no cost in the log)
         run: node .github/scripts/claude.mjs --selftest && node .github/scripts/competitor-check.mjs --selftest
+      - name: Anomaly review self-test (a hidden red still flags, encrypted reply, no numbers in the status, router keys)
+        run: node .github/scripts/anomaly-review.mjs --selftest
       - name: Python wrapper self-test
         run: python3 -I analytics/alert.py --selftest
       - name: Sunday block self-test

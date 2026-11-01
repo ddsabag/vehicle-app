@@ -54,6 +54,7 @@ export const WF_LEVELS = {
   "Ship tail": "day", "Store listing": "day", "Release watch": "day", "Production": "day",
   "Settlements": "day", "Data truth": "day", "Social publish": "day",
   "App guardian (real app)": "day", "UI guardian (browser)": "day",   // red = blocking findings on the real app / site (owner: product); at night: quiet, then the morning ring
+  "Visual review": "summary",   // Claude's look at the guardians' screenshots (owner: product): report only, so red is its own crash, never a finding
   "Alert router check": "summary", "ASO check": "summary",   // checks of a push to main: whoever released it fixes it; quiet, then the ledger and the morning triage
   "Live watch": "summary",
   "Competitor check": "summary",   // monthly, paid call: a crash is told quietly; the strategy thread checks by hand that month   // the /live dashboard's own watch (owner: measurement); its findings alert by themselves (live:*)
@@ -167,7 +168,8 @@ export const LABELS = {
   // ai:key, level day: the key or the credit is the cause (401, 403, credit balance too low), so Dudu has to act; any bot's good call closes it
   "ai":                  { he: "בוט שנעזר ב-Claude לא הצליח לפנות אליו והמשיך בלעדיו: {ids}", sect: "fail",
                            ids: { themes: "הסיכום השבועי של הביקורות", triage: "ההכנה לבדיקת הבוקר", advisor: "מבחן היועץ הטכני", recalls: "הסברי הריקולים", shots: "עין שנייה על צילומי המסך",
-                                  names: "התאמת שמות הדגמים", mag: "כתבות המגזין", comp: "בדיקת המתחרים החודשית" } },
+                                  names: "התאמת שמות הדגמים", mag: "כתבות המגזין", comp: "בדיקת המתחרים החודשית",
+                                  anomalies: "סקירת החריגות בדוח השבועי" } },
   "ai:key":              { he: "מפתח ה-Claude API לא עובד או שהקרדיט נגמר, והבוטים ממשיכים בלעדיו", sect: "fail" },
 };
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
@@ -1027,7 +1029,7 @@ async function selftest() {
       ["infra", "site api sitemap quota-cf quota-brevo"], ["vitals", "crash anr"], ["listing:fail", "access files play"], ["prod:fail", "access promote auto"], ["safety:fail", "access files play"],
       ["truth", "page identity status test road owners km recalls settlements tow specs mods fee price value tag insight counts message"],
       ["truth:inv", "fresh tests renewal dates reuse owners km hook price wltp recalls pubcancel lend"], ["pipe", "web app errors ga"],
-      ["ai", "themes triage advisor recalls shots names mag"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
+      ["ai", "themes triage advisor recalls shots names mag comp anomalies"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
       const he = label(f + ":" + ids.split(" ").join("+")).he.split(/[\s,:]+/);
       ok(!ids.split(" ").some(i => he.includes(i)), `label ${f}: no raw id left`);
     }
