@@ -40,6 +40,8 @@ const onSite = (u, list) => { const h = host(u); return !!h && list.some(d => h 
 // a quote is compared on letters and digits only, so spacing, punctuation and gershayim differences do not matter
 export const squash = t => String(t || "").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 const clean = (s, n) => String(s ?? "").replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim().slice(0, n);
+// the list as the repository keeps it: one entry a line, so a week's diff shows only the entries that changed
+export const fmt = j => { const { items, ...rest } = j; return JSON.stringify(rest).slice(0, -1) + ',"items":[\n' + items.map(e => JSON.stringify(e)).join(",\n") + "\n]}\n"; };
 export const quarterly = today => [1, 4, 7, 10].includes(+today.slice(5, 7)) && +today.slice(8, 10) <= 7;
 
 // what the conversation fetched: url -> squashed page text ("" for a PDF), and every passage the API cited
@@ -112,7 +114,7 @@ export function apply(decisions, ctx) {
     if (!r && d.ref !== "deep") { dropped.push(d.ref); continue; }
     const act = ["add", "update", "remove", "none", "person"].includes(d.action) ? d.action : "person";
     if (act === "none") { done.push({ ref: d.ref, action: "none", why: clean(d.why, 200) }); continue; }
-    if (act === "person") { hold(d, clean(d.why, 200) || "a person must decide"); continue; }
+    if (act === "person") { hold(d, clean(d.why, 400) || "a person must decide"); continue; }
     const cov = r && r.kind === "issue";
     if (cov && act !== "update") { hold(d, "a coverage issue is fixed by update only"); continue; }
     const q = cov ? { ok: true, primary: true } : quoted(d.quotes, seen);
@@ -165,7 +167,7 @@ export async function run({ env = process.env, api, router, log = console.log, t
   const gone = list.items.filter(e => e.until < today).map(e => e.id);
   const base = { ...list, checked: today, items: list.items.filter(e => !(e.until < today)) };
   if (gone.length) base.updated = today;
-  fs.writeFileSync(path.join(out, "settlements.base.json"), JSON.stringify(base, null, 1) + "\n");
+  fs.writeFileSync(path.join(out, "settlements.base.json"), fmt(base));
   // 2. what needs verifying: the reading's non-skips, last week's held items, the coverage issues to judge
   const refs = new Map(), stories = [], issues = [];
   const lead = v => [v.kind, v.what, v.id, v.case, v.fields && JSON.stringify(v.fields), v.entry && JSON.stringify(v.entry), v.note, ...(v.sources || [])].filter(Boolean).join(" · ").slice(0, 700);
@@ -184,7 +186,7 @@ export async function run({ env = process.env, api, router, log = console.log, t
     rep.held = [...rep.held, ...extraHeld];
     const changed = JSON.stringify(items) !== JSON.stringify(base.items);
     const full = { ...base, items, ...(changed ? { updated: today } : {}) };
-    fs.writeFileSync(listFile, JSON.stringify(full, null, 1) + "\n");
+    fs.writeFileSync(listFile, fmt(full));
     fs.writeFileSync(path.join(out, "review.json"), JSON.stringify(rep, null, 1) + "\n");
     const he = { add: "נוסף", update: "עודכן", remove: "הוסר", none: "אין שינוי" };
     try { fs.appendFileSync(path.join(out, "inbox.md"), ["", `## הסקירה האוטומטית (${rep.ok ? MODEL : "בלי Claude: " + rep.why})`, ...gone.map(id => `- הוסר כי הסתיים: ${id}`),
@@ -285,6 +287,9 @@ if (process.argv[1] && process.argv[1].endsWith("settlements-review.mjs")) {
     ok(!get("maz-cx5") && r.done.some(d => d.ref === "s5" && d.action === "remove"), "a quote from a PDF passes on the API's own citation");
     ok(r.held.some(h => h.ref === "s4" && h.kind === "story") && !r.done.some(d => d.ref === "x9") && !/ידיעה c/.test(sent[0].messages[0].content), "person is held; an unknown ref is dropped; a skipped story is not sent");
     ok(calls.some(c => c[2] === "stl:review" && c[1] === "day") && calls.some(c => c[1] === "ai:stlrev") && calls.some(c => c[1] === "ai:key"), "held items raise stl:review; a good call closes ai:stlrev and ai:key");
+    const raw = fs.readFileSync(path.join(tmp, "1", "list.json"), "utf8");
+    ok(raw.startsWith('{"updated":"2026-11-08","checked":"2026-11-08","items":[\n{"id":"fiat-500e"') && raw.endsWith("}\n]}\n") && raw.split("\n").length === L.items.length + 3, "the list keeps the repository's layout: one entry a line");
+    ok(fmt(JSON.parse(fs.readFileSync(path.join(ROOT, "settlements.json"), "utf8"))) === fs.readFileSync(path.join(ROOT, "settlements.json"), "utf8"), "the layout is the repository's own (settlements.json round-trips)");
     ok(JSON.parse(fs.readFileSync(path.join(tmp, "1", "settlements.base.json"), "utf8")).items.length === 2 && /## הסקירה האוטומטית/.test(fs.readFileSync(path.join(tmp, "1", "inbox.md"), "utf8")), "the base list (rule only) and the inbox lines are written");
     const prev = path.join(tmp, "prev.json"); fs.copyFileSync(path.join(tmp, "1", "review.json"), prev);
 
