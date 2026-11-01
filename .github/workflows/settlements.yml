@@ -7,6 +7,9 @@ name: Settlements
 #    names) and the free news sources (TheCar, Google News, court notices on yitzugit.co.il), into an inbox on the settlements-watch branch
 #    (state.json + inbox.md, one commit, force-pushed). Claude's weekly review (a scheduled task, Sunday late morning Israel time) reads it, verifies
 #    each candidate against the importer or the court, and edits settlements.json. Telegram only when an item waits there more than two weeks.
+#    Since 1.11.2026 Claude first reads the open stories (settlements-ai.mjs, monthly API credit) into ai.json: review "light" when nothing
+#    needs a person's judgement, "full" otherwise or when the reading failed. The reading never fails the run; when failure-alert re-runs a
+#    run that failed elsewhere (it is on its re-run list), the stories are read once more (a few cents).
 on:
   push:
     branches: [main, next]
@@ -14,6 +17,11 @@ on:
   schedule:
     - cron: "43 4 * * 0"   # Sunday 04:43 UTC (07:43 Israel summer time, 06:43 winter), off the full hour, hours before the weekly review
   workflow_dispatch:
+    inputs:
+      dry:
+        description: "No call to Claude (the reading says dry run)"
+        type: boolean
+        default: false
 permissions:
   contents: write   # the settlements-watch branch; alert.mjs keeps its dedupe state on the alert-state branch
 concurrency:
@@ -59,6 +67,7 @@ jobs:
       - name: Last week's state and the list on next (its review date counts too)
         run: |
           git fetch -q --depth=1 origin settlements-watch 2>/dev/null && git show origin/settlements-watch:state.json > "$RUNNER_TEMP/prev.json" || echo "first run: no earlier state"
+          git show origin/settlements-watch:ai.json > "$RUNNER_TEMP/prev-ai.json" 2>/dev/null || echo "no earlier reading by Claude"
           git fetch -q --depth=1 origin next 2>/dev/null && git show origin/next:settlements.json > "$RUNNER_TEMP/next.json" 2>/dev/null || true
       - name: Coverage and news into the inbox
         run: node .github/scripts/settlements.mjs watch
@@ -66,6 +75,26 @@ jobs:
           OUT: watch-out
           PREV_STATE: ${{ runner.temp }}/prev.json
           NEXT_FILE: ${{ runner.temp }}/next.json
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      - name: The Claude SDK (the version pinned in claude.mjs; the app never loads it)
+        if: ${{ !cancelled() && hashFiles('watch-out/state.json') != '' }}
+        continue-on-error: true   # without it the reading says why, the review reads the stories itself, and the router is told
+        run: npm install --no-save --no-audit --no-fund --loglevel=error "$(sed -n 's/^export const SDK = "\(.*\)";$/\1/p' .github/scripts/claude.mjs)"
+      # Claude (Sonnet 5.5, web search and fetch on fixed court, press and importer sites) reads the week's open stories into ai.json and
+      # inbox.md; it never edits the list. Any failure leaves review "full" (the review reads the stories itself) and the run green.
+      - name: Claude reads the open stories (settlements-ai.mjs)
+        if: ${{ !cancelled() && hashFiles('watch-out/state.json') != '' }}
+        continue-on-error: true
+        run: node .github/scripts/settlements-ai.mjs
+        env:
+          OUT: watch-out
+          PREV_AI: ${{ runner.temp }}/prev-ai.json
+          DRY: ${{ inputs.dry && '1' || '' }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
