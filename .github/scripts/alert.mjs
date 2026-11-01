@@ -55,7 +55,8 @@ export const WF_LEVELS = {
   "Settlements": "day", "Data truth": "day", "Social publish": "day",
   "App guardian (real app)": "day", "UI guardian (browser)": "day",   // red = blocking findings on the real app / site (owner: product); at night: quiet, then the morning ring
   "Alert router check": "summary", "ASO check": "summary",   // checks of a push to main: whoever released it fixes it; quiet, then the ledger and the morning triage
-  "Live watch": "summary",   // the /live dashboard's own watch (owner: measurement); its findings alert by themselves (live:*)
+  "Live watch": "summary",
+  "Competitor check": "summary",   // monthly, paid call: a crash is told quietly; the strategy thread checks by hand that month   // the /live dashboard's own watch (owner: measurement); its findings alert by themselves (live:*)
 };
 // a run name "Magazine (data)" takes its workflow's level
 export const wfLevel = name => WF_LEVELS[name] ?? WF_LEVELS[String(name).replace(/ \([^)]*\)$/, "")] ?? "day";
@@ -166,7 +167,7 @@ export const LABELS = {
   // ai:key, level day: the key or the credit is the cause (401, 403, credit balance too low), so Dudu has to act; any bot's good call closes it
   "ai":                  { he: "בוט שנעזר ב-Claude לא הצליח לפנות אליו והמשיך בלעדיו: {ids}", sect: "fail",
                            ids: { themes: "תיוג הנושאים בביקורות", advisor: "מבחן היועץ הטכני", recalls: "הסברי הריקולים", shots: "עין שנייה על צילומי המסך",
-                                  names: "התאמת שמות הדגמים", mag: "כתבות המגזין" } },
+                                  names: "התאמת שמות הדגמים", mag: "כתבות המגזין", comp: "בדיקת המתחרים החודשית" } },
   "ai:key":              { he: "מפתח ה-Claude API לא עובד או שהקרדיט נגמר, והבוטים ממשיכים בלעדיו", sect: "fail" },
 };
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
