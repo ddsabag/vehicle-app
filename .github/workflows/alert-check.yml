@@ -99,6 +99,8 @@ jobs:
         run: node .github/scripts/settlements-ai.mjs --selftest
       - name: Settlements weekly review self-test (the quote rule, low for press-only, coverage fixes, held items carried, stl:review / ai:stlrev / ai:key)
         run: node .github/scripts/settlements-review.mjs --selftest
+      - name: Importer specs self-test (the quote rule, press never a source, the page's year only, the budget)
+        run: node .github/scripts/specs-extra.mjs --selftest
       - name: Release guard self-test (day 1, 3 and 7 only, four guardrails, thin data not judged)
         run: node .github/scripts/release-guard.mjs selftest
       - name: Bots board self-test (cron words, Hebrew names of every scheduled bot in bot-names.json and worker.js)
