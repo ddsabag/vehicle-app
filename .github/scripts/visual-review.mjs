@@ -129,6 +129,10 @@ export function changed(a, b) {
 }
 
 // ---- the shots: only the names the guardians give them
+// and not a picture that is the emulator's, not the app's: on Android 15 (SwiftShader under ANGLE) the turned phone keeps a band of an
+// older frame on screen, a second plate row under the buttons, in every try on 28.10 (11 of 11; branch guardian-turn), while the page's
+// own picture is right and Android 12 shows the same screen clean. A repaint, a scroll or buffer age off did not clear it
+const UNTRUSTED = /^api35\/411-extra__landscape$/;
 export function collect(source, dir) {
   const files = [], walk = d => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const f = path.join(d, e.name); if (e.isDirectory()) walk(f); else if (e.name.endsWith(".png")) files.push(f); } };
   if (dir && fs.existsSync(dir)) walk(dir);
@@ -136,7 +140,7 @@ export function collect(source, dir) {
     const rel = path.relative(dir, file).split(path.sep).join("/");
     if (source === "app") {
       const m = /^api(\d{2})\/((?:\d{3}-f\d{3}|\d{3}-extra))\/shots\/(\2__[A-Za-z0-9_-]+)\.png$/.exec(rel);   // a setting's "-first-try" folder: the try the emulator lost
-      return m ? { key: `api${m[1]}/${m[3]}`, file, api: +m[1], setting: m[2], name: m[3] } : null;
+      return m && !UNTRUSTED.test(`api${m[1]}/${m[3]}`) ? { key: `api${m[1]}/${m[3]}`, file, api: +m[1], setting: m[2], name: m[3] } : null;
     }
     const m = /^([a-z0-9-]+-(?:320|390)-(?:light|dark))\.png$/.exec(rel);   // ui-shots/diff/ holds the guardian's diff pictures, not screens
     return source === "ui" && m ? { key: m[1], file, name: m[1] } : null;
@@ -509,6 +513,8 @@ async function selftest() {
     ok(a.map(s => s.key).join() === "api31/411-extra__keyboard,api35/360-f130__light__sub-compareSheet__compare-compare,api35/411-f100__light__car__check-check", "app shots: the guardian's names only, not the lost first try");
     ok(u.map(s => s.key).join() === "open-recall-recalls-320-dark,screen-home-390-light", "ui shots: the pages only, not the diff pictures");
     ok(collect("app", path.join(tmp, "nothing")).length === 0 && collect("other", path.join(tmp, "ui")).length === 0, "no folder or another source: nothing");
+    tree(path.join(tmp, "app-turn"), { "api35/411-extra/shots/411-extra__landscape.png": W, "api31/411-extra/shots/411-extra__landscape.png": W, "api35/411-extra/shots/411-extra__keyboard.png": W });
+    ok(collect("app", path.join(tmp, "app-turn")).map(s => s.key).join() === "api31/411-extra__landscape,api35/411-extra__keyboard", "app: Android 15's turned phone is the emulator's picture, left out");
     ok(/Android 15, a phone 411 dp wide with the font size at 100%/.test(describe(a[2])) && /keyboard is open on purpose/.test(describe(a[0])) && /360 dp wide with the font size at 130%/.test(describe(a[1])), "app: the phone setting and what is on purpose");
     ok(/320 px wide, dark theme: a car's page: a car with an open recall, on the recalls tab/.test(describe(u[0], 3)) && /in 3 parts/.test(describe(u[0], 3)), "ui: the page, its theme and its parts"); }
 
