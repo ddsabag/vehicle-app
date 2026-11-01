@@ -19,8 +19,8 @@ on:
     - cron: "47 4 * * *"   # 04:47 UTC = 07:47 Israel summer time, 06:47 winter: after the ministry's nightly rebuild and Ministry watch (04:07)
     - cron: "17 1 * * 0"   # Sunday 01:17 UTC: the weekly full read (about 40 min), done long before the morning
     - cron: "17 5 1-3 * *"   # the 1st of the month 05:17 UTC (after the daily audit has its cars), the 2nd and the 3rd only when the 1st could not finish
-    - cron: "17 5 13-14 * *"   # the extra deep audit, about 200 cars, before the API credit renews on the 17th (Dudu 1.11.2026); the 14th only when the 13th could not finish
-    - cron: "17 11 13-14 * *"  # in 11.2026 only a second run of about 200 cars on each of the two days, 800 in all (Dudu 1.11.2026 21:16 UTC; period() in deep-audit.mjs); in other months a same-day retry that ends at once after a good run
+    - cron: "17 5 18-19 * *"   # the extra deep audit, about 200 cars, before the API credit cycle ends on the 20th (Dudu 1.11.2026 22:50 UTC); the 19th only when the 18th could not finish
+    - cron: "17 11 18-19 * *"  # in 11.2026 only a second run on each of the two days, up to 800 in all as the credit left allows (Dudu 1.11.2026; period() and plan() in deep-audit.mjs); in other months a same-day retry that ends at once after a good run
   workflow_dispatch:
     inputs:
       job:
@@ -100,7 +100,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   deep:
-    if: ${{ github.event.schedule == '17 5 1-3 * *' || github.event.schedule == '17 5 13-14 * *' || github.event.schedule == '17 11 13-14 * *' || (github.event_name == 'workflow_dispatch' && inputs.job == 'deep') }}
+    if: ${{ github.event.schedule == '17 5 1-3 * *' || github.event.schedule == '17 5 18-19 * *' || github.event.schedule == '17 11 18-19 * *' || (github.event_name == 'workflow_dispatch' && inputs.job == 'deep') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 350   # the audit's own budget (minutes=140) and the batch's wait (wait=180: a test batch of 12 took an hour), with room
     concurrency:
@@ -129,13 +129,16 @@ jobs:
       - name: Read the cars like a user, then ask Claude about each (Claude API use #7)
         if: ${{ steps.due.outputs.skip != '1' }}
         run: |
-          # in 11.2026 the four extra runs read with effort high (Dudu 1.11.2026 21:16 UTC: 800 cars this cycle only); later months as before
-          if [ -z "${{ inputs.queries }}" ] && [ -n "$QUERIES" ] && [ "$(date -u +%Y-%m)" = "2026-11" ]; then QUERIES="$QUERIES effort=high"; fi
+          # in 11.2026 the four extra runs are sized by the credit really left (plan() in deep-audit.mjs; Dudu 1.11.2026 22:50 UTC): the log
+          # shows only cars and effort, never money; later months as before
+          if [ -z "${{ inputs.queries }}" ] && [ -n "$QUERIES" ]; then P=$(node .github/scripts/deep-audit.mjs --plan); if [ "$P" = "skip" ]; then echo "the credit left is kept for the other bots: no run"; exit 0; fi; [ -n "$P" ] && QUERIES="$P"; fi
+          echo "deep audit: $QUERIES"
           QUERIES="$QUERIES" node .github/scripts/deep-audit.mjs
         env:
           OUT: out
-          # the extra run on the 13th: about 200 cars (the most the reading allows), about $8 (Dudu 1.11.2026: the credit renews on the 17th)
-          QUERIES: ${{ inputs.queries || ((github.event.schedule == '17 5 13-14 * *' || github.event.schedule == '17 11 13-14 * *') && 'n=150 rare=50 max=200 minutes=150') || '' }}
+          # the extra run on the 18th: about 200 cars (the most the reading allows), before the credit cycle ends on the 20th
+          QUERIES: ${{ inputs.queries || ((github.event.schedule == '17 5 18-19 * *' || github.event.schedule == '17 11 18-19 * *') && 'n=150 rare=50 max=200 minutes=150') || '' }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
