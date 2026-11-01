@@ -85,7 +85,7 @@ async function gh(path, { raw = false } = {}) {
   return raw ? r.text() : r.json();
 }
 const file = async (branch, name) => { try { return JSON.parse(await gh(`/repos/${process.env.GITHUB_REPOSITORY}/contents/${name}?ref=${branch}`, { raw: true })); } catch { return null; } };
-async function tail(runId) {   // the end of each failed job's log, public already
+export async function tail(runId) {   // the end of each failed job's log, public already (failure-cause.mjs too)
   let out = "";
   try {
     const { jobs = [] } = await gh(`/repos/${process.env.GITHUB_REPOSITORY}/actions/runs/${runId}/jobs?per_page=30`);

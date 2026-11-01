@@ -97,12 +97,16 @@ jobs:
         run: node .github/scripts/triage-prep.mjs --selftest
       - name: Settlements news reading self-test (a verdict stands only on a found source, light or full review, Opus once on a bad answer, ai:stl / ai:key)
         run: node .github/scripts/settlements-ai.mjs --selftest
+      - name: Settlements weekly review self-test (the quote rule, low for press-only, coverage fixes, held items carried, stl:review / ai:stlrev / ai:key)
+        run: node .github/scripts/settlements-review.mjs --selftest
       - name: Release guard self-test (day 1, 3 and 7 only, four guardrails, thin data not judged)
         run: node .github/scripts/release-guard.mjs selftest
       - name: Bots board self-test (cron words, Hebrew names of every scheduled bot in bot-names.json and worker.js)
         run: node .github/scripts/bots-status.mjs selftest
       - name: Claude API helper and competitor check self-tests (fallbacks, a change kept only with a found source, no cost in the log)
         run: node .github/scripts/claude.mjs --selftest && node .github/scripts/competitor-check.mjs --selftest
+      - name: Copy audit and release-notes drafter self-tests (a point tied to its line, the Play notes rules, fallbacks, no cost in the log)
+        run: node .github/scripts/copy-audit.mjs --selftest && node .github/scripts/notes-draft.mjs --selftest
       - name: Anomaly review self-test (a hidden red still flags, encrypted reply, no numbers in the status, router keys)
         run: node .github/scripts/anomaly-review.mjs --selftest && node .github/scripts/guard-explain.mjs --selftest
       - name: Python wrapper self-test

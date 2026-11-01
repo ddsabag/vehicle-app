@@ -36,6 +36,13 @@ out.byPage = await sa_q(["page"]);
 out.byQueryPage = await sa_q(["query", "page"]);
 out.byDevice = await sa_q(["device"]);
 out.sitemaps = (await call(API + "/sitemaps"))?.sitemap || [];
+// the weekly analysis (Mondays, SEO_WEEKLY_PLAIN, seo-weekly.mjs): the last 7 days with data against the 7 before, by query and by page
+if (process.env.SEO_WEEKLY_PLAIN) {
+  const last = out.byDate.map(r => r.keys[0]).sort().pop() || end, day = (s, n) => iso(new Date(Date.parse(s) + n * 864e5));
+  const cur = [day(last, -6), last], prev = [day(last, -13), day(last, -7)];
+  const q = async (dims, [s, e]) => (await call(API + "/searchAnalytics/query", { startDate: s, endDate: e, dimensions: dims, rowLimit: 5000, dataState: "all" }))?.rows || [];
+  out.week = { cur, prev, byDate: out.byDate, byQuery: await q(["query"], cur), byQueryPrev: await q(["query"], prev), byPage: await q(["page"], cur), byPagePrev: await q(["page"], prev) };
+}
 // URL Inspection: every sitemap URL (quota 2,000/day, 600/min per property)
 let urls = [];
 try {
@@ -68,6 +75,8 @@ const pub = fs.readFileSync(".github/seo-data.pub.pem", "utf8");
 const ek = crypto.publicEncrypt({ key: pub, padding: crypto.constants.RSA_PKCS1_OAEP_PADDING, oaepHash: "sha256" }, key);
 fs.mkdirSync("out", { recursive: true });
 fs.writeFileSync("out/seo-data.enc.json", JSON.stringify({ v: 1, ek: ek.toString("base64"), iv: iv.toString("base64"), tag: c.getAuthTag().toString("base64"), data: data.toString("base64") }));
+// plain copy for the weekly analysis, on the runner only (never committed: the publish step pushes out/ alone)
+if (process.env.SEO_WEEKLY_PLAIN) fs.writeFileSync(process.env.SEO_WEEKLY_PLAIN, JSON.stringify(out));
 // public-safe aggregate for the live dashboard targets: how many sitemap URLs Google reports as indexed (verdict PASS), out of those inspected
 // definition: "indexed" = URLs whose URL Inspection API verdict is PASS (Google's index state as of the last crawl). The Search Console
 // Pages report counts the same thing but is refreshed only every few days, so it can show a lower number for a while.

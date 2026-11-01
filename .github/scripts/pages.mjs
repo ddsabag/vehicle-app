@@ -4,6 +4,7 @@ import fs from "node:fs";
 import {brandLabel, BRAND_ALT} from "./brands.mjs";
 import {buildLanding, brandPage} from "./landing.mjs";
 import {recallBuilder} from "./model-recalls.mjs";
+import {factsHash} from "./model-answers.mjs";
 const N = Number(process.argv[2]) || 200, SITE = "https://luchit.app/";
 const ms = JSON.parse(fs.readFileSync("modelstats.json", "utf8")), cat = JSON.parse(fs.readFileSync("models.json", "utf8"));
 const COUNTRY = /\s+(יפן|בריטניה|אנגליה|צרפת|גרמניה|קוריאה|ד\. קוריאה|ספרד|צ'כיה|צכיה|טורקיה|סין|ארה"ב|ארהב|איטליה|תאילנד|הודו|מקסיקו|הונגריה|סלובקיה|פולין|רומניה|בלגיה|שבדיה|אוסטריה|פורטוגל|דרום אפריקה|ברזיל|קנדה|הולנד|סלובניה|רוסיה|מרוקו|אינדונזיה|מלזיה|טייוואן|ישראל|אפרי)\.?$/;
@@ -94,6 +95,10 @@ const RB = await recallBuilder({brandOf: n => brandLabel(cleanMake(String(n).rep
 console.log(RB.build ? "recall sections: matcher from " + RB.kind : `::warning::pages: the model pages are built without their recall section (${RB.why})`);
 let recallPages = 0;
 let magPosts = []; try { magPosts = JSON.parse(fs.readFileSync("magazine/posts.json", "utf8")); } catch {}
+// a short summary per model page, written by Claude from that page's own facts (model-answers.mjs); shown only while the facts it was
+// written from are still the page's facts (hash), so a figure in it never drifts from the table. MODEL_FACTS=<file> writes the facts out.
+let ANSWERS = {}; try { ANSWERS = JSON.parse(fs.readFileSync("model-answers.json", "utf8")); } catch {}
+const factsOut = {}; let answerPages = 0;
 for (const m of models) {
   const years = Object.keys(m.y).sort();
   const rows = years.map(yr => { const t = m.y[yr]; return {yr, act: t.act, off: t.off, km: t.kmn ? t.kmw / t.kmn : null, ow: t.own ? t.ow / t.own : null}; });
@@ -124,6 +129,15 @@ for (const m of models) {
     d12 >= 50 ? `מכירות רכב חדש: ${fmt(d12)} רכבים ב-12 החודשים שעד ${MKLAST.slice(4)}/${MKLAST.slice(0, 4)}${p12 >= 50 ? `, ${Math.abs(Math.round((d12 / p12 - 1) * 100)) < 3 ? "בלי שינוי משמעותי" : (d12 > p12 ? "עלייה" : "ירידה") + " של " + Math.abs(Math.round((d12 / p12 - 1) * 100)) + "%"} לעומת 12 החודשים שלפניהם` : ""}.` : "",
     prs.length && Number(hi) >= 2023 ? `מחירון משרד התחבורה לגרסאות עדכניות בקטלוג: ${Math.min(...prs) === Math.max(...prs) ? fmt(prs[0] * 1000) : fmt(Math.min(...prs) * 1000) + " עד " + fmt(Math.max(...prs) * 1000)} ₪ (${cr.length === 1 ? "גרסה אחת" : cr.length + " גרסאות"} בקטלוג בסך הכול).` : ""
   ].filter(Boolean);
+  const af = {name, years: yrs, active: fmt(act), off_road: fmt(off), off_road_share: offPct.toFixed(1) + "%", peak_year: peakRow.yr, peak_year_active: fmt(peakRow.act),
+    body_types: bodies, by_year: rows.slice().reverse().map(r => ({year: r.yr, active: fmt(r.act), off_road: fmt(r.off), ...(r.km ? {typical_km: fmt(r.km)} : {})})),
+    ...(offRel === null ? {} : {off_road_rate_vs_same_years: relText(offRel, "בשנתונים המקבילים")}), ...(kmRel === null ? {} : {km_vs_same_years: relText(kmRel, "של רכבים מאותם שנתונים")}),
+    ...(owRel === null ? {} : {ownership_records_vs_same_years: relText(owRel, "בשנתונים המקבילים")}), ...(rcPer > 0 ? {recalls_per_1000_active: rcPer.toFixed(0)} : {}),
+    ...(d12 >= 50 ? {new_sales_12_months: fmt(d12), new_sales_until: `${MKLAST.slice(4)}/${MKLAST.slice(0, 4)}`, ...(p12 >= 50 ? {new_sales_change: Math.abs(Math.round((d12 / p12 - 1) * 100)) < 3 ? "בלי שינוי משמעותי" : (d12 > p12 ? "עלייה" : "ירידה") + " של " + Math.abs(Math.round((d12 / p12 - 1) * 100)) + "%"} : {})} : {}),
+    ...(prs.length && Number(hi) >= 2023 ? {list_price_shekel: Math.min(...prs) === Math.max(...prs) ? fmt(prs[0] * 1000) : fmt(Math.min(...prs) * 1000) + " עד " + fmt(Math.max(...prs) * 1000)} : {})};
+  factsOut[slugOf(m)] = af;
+  const ans = ANSWERS[slugOf(m)], answerHtml = ans && ans.text && ans.h === factsHash(af) ? `<p>${esc(ans.text)}</p><p class="muted">הסיכום נכתב בעזרת מודל שפה מהנתונים שבעמוד, ונבדק אוטומטית מולם.</p>` : "";
+  if (answerHtml) answerPages++;
   const sibs = models.filter(o => o.make === m.make && o !== m).slice(0, 6);
   const bd = bodyOf(m), actM = actOf(m);
   const like = bd ? models.filter(o => o !== m && o.make !== m.make && bodyOf(o) === bd).sort((a, b) => Math.abs(Math.log(actOf(a) / actM)) - Math.abs(Math.log(actOf(b) / actM))).slice(0, 6) : [];
@@ -144,7 +158,7 @@ for (const m of models) {
   const peak = rows.reduce((a, b) => b.act > a.act ? b : a);
   const body = `${head(title, desc, url)}<p class="muted"><a href="${SITE}">לוחית</a> › <a href="${SITE}model/">כל הדגמים</a> › ${brandPath(m.label) ? `<a href="${SITE}${brandPath(m.label)}">${esc(m.label)}</a>` : esc(m.label)}</p><h1>${esc(name)}</h1>
 <p>לפי מאגרי משרד התחבורה יש בישראל כ-${fmt(act)} רכבים פעילים מדגם ${esc(name)}${esc(alt)} ${yrs}.${bodies.length ? ` סוגי מרכב בקטלוג: ${bodies.map(esc).join(", ")}.` : ""} השנתון הנפוץ ביותר הוא ${peak.yr} (${fmt(peak.act)} רכבים).</p>
-<div class="card"><b>בדקו רכב מסוים</b><p class="muted" style="margin:6px 0 12px">הקלידו מספר רישוי וקבלו ריקולים, טסט, היסטוריית בעלויות ומחיר משוער, בחינם.</p><a class="cta" href="${SITE}">לבדיקה לפי מספר רישוי</a></div>
+${answerHtml}<div class="card"><b>בדקו רכב מסוים</b><p class="muted" style="margin:6px 0 12px">הקלידו מספר רישוי וקבלו ריקולים, טסט, היסטוריית בעלויות ומחיר משוער, בחינם.</p><a class="cta" href="${SITE}">לבדיקה לפי מספר רישוי</a></div>
 <h2>רכבים פעילים וקילומטראז׳ לפי שנתון</h2><div class="wrap"><table><thead><tr><th>שנתון</th><th class="n">פעילים</th><th class="n">ירדו מהכביש</th><th class="n">ק״מ טיפוסי</th><th class="n">רשומות בעלות לרכב</th></tr></thead><tbody>
 ${rows.slice().reverse().map(r => `<tr><td>${r.yr}</td><td class="n">${fmt(r.act)}</td><td class="n">${fmt(r.off)}</td><td class="n">${r.km ? fmt(r.km) : "–"}</td><td class="n">${r.ow ? r.ow.toFixed(1) : "–"}</td></tr>`).join("\n")}
 </tbody></table></div><p class="muted">הק״מ הטיפוסי הוא הממוצע בטסט האחרון של רכבים מהשנתון, ומוצג רק כשיש מספיק נתונים. רשומות בעלות כוללות גם מעברים בין חברות ליסינג וסוחרים, ולכן אינן בהכרח מספר בעלים פרטיים. סה״כ ירדו מהכביש ${fmt(off)} רכבים מהדגם בשנתונים האלה.</p>
@@ -222,4 +236,5 @@ buildLanding({SITE, head, foot, esc, fmt, models, g, NAT, SETTLEMENTS, urls, las
 // the monthly magazine (magazine.mjs) keeps its own pages; keep them in the sitemap
 try { const posts = JSON.parse(fs.readFileSync("magazine/posts.json", "utf8")); urls.push(SITE + "magazine/", ...posts.map(p => `${SITE}magazine/${p.slug}/`)); for (const p of posts) if (p.date) lastmod[`${SITE}magazine/${p.slug}/`] = p.date; if (posts[0] && posts[0].date) lastmod[SITE + "magazine/"] = posts[0].date; } catch {}
 fs.writeFileSync("sitemap.xml", `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(u => `  <url><loc>${u}</loc>${lastmod[u] ? `<lastmod>${lastmod[u]}</lastmod>` : ""}</url>`).join("\n")}\n</urlset>\n`);
-console.log("pages", models.length, "sitemap urls", urls.length, "with a recall section", recallPages);
+if (process.env.MODEL_FACTS) fs.writeFileSync(process.env.MODEL_FACTS, JSON.stringify(factsOut));
+console.log("pages", models.length, "sitemap urls", urls.length, "with a recall section", recallPages, "with a summary", answerPages);

@@ -5,8 +5,11 @@ name: Settlements
 #    line naming what was added, changed or removed (alert router, day; nothing when only the `checked` date moved).
 #  - Sunday: the weekly watch. Coverage against the model catalogue (a rule that matches no model, takes a longer model code, or took on new model
 #    names) and the free news sources (TheCar, Google News, court notices on yitzugit.co.il), into an inbox on the settlements-watch branch
-#    (state.json + inbox.md, one commit, force-pushed). Claude's weekly review (a scheduled task, Sunday late morning Israel time) reads it, verifies
-#    each candidate against the importer or the court, and edits settlements.json. Telegram only when an item waits there more than two weeks.
+#    (state.json + inbox.md, one commit, force-pushed). Telegram only when an item waits there more than two weeks.
+#    Since 11.2026 the weekly review runs here too (settlements-review.mjs, Opus 5.5 on the monthly API credit; before, a scheduled Claude Code
+#    task on the plan): it removes ended entries, verifies each candidate at the court or the importer with quotes the machine checks, edits
+#    settlements.json, and this job publishes it on main and merges main into next when settlements.mjs check and stl-parity.mjs pass (else the
+#    list with only the ended entries removed). What it could not verify is held for the data thread (stl:review).
 #    Since 1.11.2026 Claude first reads the open stories (settlements-ai.mjs, monthly API credit) into ai.json: review "light" when nothing
 #    needs a person's judgement, "full" otherwise or when the reading failed. The reading never fails the run; when failure-alert re-runs a
 #    run that failed elsewhere (it is on its re-run list), the stories are read once more (a few cents).
@@ -61,6 +64,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
+          fetch-depth: 0   # the review merges main into next
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -68,6 +72,7 @@ jobs:
         run: |
           git fetch -q --depth=1 origin settlements-watch 2>/dev/null && git show origin/settlements-watch:state.json > "$RUNNER_TEMP/prev.json" || echo "first run: no earlier state"
           git show origin/settlements-watch:ai.json > "$RUNNER_TEMP/prev-ai.json" 2>/dev/null || echo "no earlier reading by Claude"
+          git show origin/settlements-watch:review.json > "$RUNNER_TEMP/prev-review.json" 2>/dev/null || echo "no earlier review"
           git fetch -q --depth=1 origin next 2>/dev/null && git show origin/next:settlements.json > "$RUNNER_TEMP/next.json" 2>/dev/null || true
       - name: Coverage and news into the inbox
         run: node .github/scripts/settlements.mjs watch
@@ -100,6 +105,49 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      # Opus 5.5 verifies what the reading did not skip, the items held from earlier weeks and the coverage issues, and edits settlements.json
+      # (settlements-review.mjs); quotes from fetched pages are checked by machine. A failure leaves only the ended entries removed.
+      - name: The weekly review (settlements-review.mjs)
+        id: review
+        if: ${{ !cancelled() && hashFiles('watch-out/state.json') != '' }}
+        continue-on-error: true
+        run: node .github/scripts/settlements-review.mjs
+        env:
+          OUT: watch-out
+          PREV_REVIEW: ${{ runner.temp }}/prev-review.json
+          DRY: ${{ inputs.dry && '1' || '' }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      # settlement data publishes without a release (Dudu 19.10.2026). Web deploy publishes the commit (workflow_run on this workflow), and the
+      # Telegram line says what changed (settlements.mjs tell), as a push by hand did
+      - name: Publish the reviewed list on main, and merge main into next
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && hashFiles('watch-out/review.json') != '' }}
+        env:
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if git diff --quiet -- settlements.json; then echo "settlements.json unchanged"; exit 0; fi
+          gate() { node .github/scripts/settlements.mjs selftest > /dev/null && node .github/scripts/settlements.mjs check && node .github/scripts/stl-parity.mjs; }
+          if ! gate; then
+            echo "::warning::the reviewed list fails the checks: publishing the list with only the ended entries removed"
+            cp watch-out/settlements.base.json settlements.json
+            gate || { echo "::error::the list fails the checks even so: nothing published"; git checkout -- settlements.json; exit 1; }
+          fi
+          git show HEAD:settlements.json > "$RUNNER_TEMP/old.json"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add settlements.json && git commit -qm "Settlements: weekly review $(date -u +%F)"
+          for i in 1 2 3; do git push -q origin HEAD:main && break; [ "$i" = 3 ] && exit 1; sleep $((i * 5)); git pull -q --rebase origin main; done
+          node .github/scripts/settlements.mjs tell "$RUNNER_TEMP/old.json" settlements.json
+          git fetch -q origin main next
+          git checkout -q -B next origin/next
+          if git merge -q --no-edit origin/main; then git push -q origin next; else git merge --abort; echo "::error::main does not merge into next cleanly: the list is on main, next waits for a person"; exit 1; fi
       - name: Publish on the settlements-watch branch
         if: ${{ !cancelled() && hashFiles('watch-out/state.json') != '' }}
         run: |

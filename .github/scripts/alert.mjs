@@ -62,6 +62,8 @@ export const WF_LEVELS = {
   "Live watch": "summary",
   "Kit draft": "summary", "Kit visual QA": "summary",   // Claude API packages A5 and B (owner: marketing): drafts and reports only, so red is their own crash
   "Competitor check": "summary",   // monthly, paid call: a crash is told quietly; the strategy thread checks by hand that month   // the /live dashboard's own watch (owner: measurement); its findings alert by themselves (live:*)
+  "Copy audit": "summary",   // weekly, paid call (product): a crash is told quietly; the product thread checks the wording by hand that week
+  "Release notes draft": "summary",   // on a release-* push, paid call (product): a crash is told quietly; the notes are written by hand as before
 };
 // a run name "Magazine (data)" takes its workflow's level
 export const wfLevel = name => WF_LEVELS[name] ?? WF_LEVELS[String(name).replace(/ \([^)]*\)$/, "")] ?? "day";
@@ -95,6 +97,8 @@ export const LABELS = {
   "mention":             { he: "אזכור חדש של לוחית ברשת", sect: "fyi" },
   "comp":                { he: "בדיקת המתחרים החודשית מצאה שינוי אצל אפליקציה או שירות דומים", sect: "fyi" },
   "comp:needs":          { he: "מה משתמשים מבקשים מאפליקציות דומות החודש", sect: "fyi" },   // competitor-check.mjs, key comp:needs:<YYYY-MM>   // competitor-check.mjs, key comp:<YYYY-MM>
+  "copy":                { he: "בדיקת הנוסח השבועית מצאה נקודות בנוסח של האפליקציה והאתר", sect: "fyi" },   // copy-audit.mjs, key copy:<YYYY-MM-DD> (owner: product)
+  "notes":               { he: "טיוטה להערות השחרור של {id} מחכה לשרשור המוצר", sect: "fyi" },   // notes-draft.mjs, key notes:<version> (owner: product)
   "seo-auto:blocked":    { he: "שינוי SEO מחכה לאישור שלך ({id})", sect: "wait" },
   "seo-auto:notice":     { he: "שינוי SEO יעלה לאתר בעוד 24 שעות ({id})", sect: "none" },
   "seo-auto":            { he: "שינוי SEO ({id})", sect: "none" },
@@ -133,6 +137,7 @@ export const LABELS = {
   "prod:fail":           { he: "הפרסום ל-Production נכשל: {ids}", sect: "fail", ids: { access: "אין הרשאה ל-Production", promote: "השליחה לא הצליחה", auto: "הבדיקה של ההפצה לא הצליחה" } },
   "stl:update":          { he: "הסדרי הפשרה באפליקציה עודכנו", sect: "none" },   // settlements.mjs (Settlements)
   "stl:stuck":           { he: "הבדיקה השבועית של הסדרי הפשרה לא מטפלת ברשימה", sect: "wait" },
+  "stl:review":          { he: "הסקירה השבועית של הסדרי הפשרה השאירה פריטים לבדיקה", sect: "wait" },   // settlements-review.mjs (Settlements)
   "truth":               { he: "בדיקת הנתונים היומית מצאה פער מול משרד התחבורה: {ids}", sect: "fail",   // site-data-truth.mjs (Data truth); ids = its GROUPS
                            ids: { page: "איתור הרכב", identity: "פרטי הרכב", status: "סטטוס הרכב", test: "טסט", road: "עלייה לכביש", owners: "בעלויות", km: "ק״מ",
                                   recalls: "ריקולים", settlements: "הסדרי פשרה", tow: "גרירה", specs: "מפרט", mods: "שינויים ברכב", fee: "אגרת רישוי",
@@ -181,10 +186,15 @@ export const LABELS = {
   // ai:key, level day: the key or the credit is the cause (401, 403, credit balance too low), so Dudu has to act; any bot's good call closes it
   "ai":                  { he: "בוט שנעזר ב-Claude לא הצליח לפנות אליו והמשיך בלעדיו: {ids}", sect: "fail",
                            ids: { themes: "הסיכום השבועי של הביקורות", triage: "ההכנה לבדיקת הבוקר", advisor: "מבחן היועץ הטכני", recalls: "הסברי הריקולים", shots: "עין שנייה על צילומי המסך",
-                                  names: "התאמת שמות הדגמים", mag: "כתבות המגזין", comp: "בדיקת המתחרים החודשית",
-                                  anomalies: "סקירת החריגות בדוח השבועי", stl: "קריאת החדשות על הסדרי הפשרה",
-                                   audit: "הביקורת החודשית העמוקה", guard: "העין השנייה על שומר הגרסאות", kitdraft: "טיוטת ערכת התוכן השבועית", kitqa: "הבדיקה הוויזואלית של ערכת התוכן", diff: "בדיקת הקוד לפני שחרור", walk: "הסיור השבועי באפליקציה" } },
+                                  names: "התאמת שמות הדגמים", mag: "כתבות המגזין", comp: "בדיקת המתחרים החודשית", copy: "בדיקת הנוסח השבועית", notes: "טיוטת הערות השחרור",
+                                  anomalies: "סקירת החריגות בדוח השבועי", stl: "קריאת החדשות על הסדרי הפשרה", stlrev: "הסקירה השבועית של הסדרי הפשרה",
+                                  audit: "הביקורת החודשית העמוקה", cause: "שורת הסיבה בהתראת כשל", mail: "טיוטות התשובה למיילים",
+                                  noise: "הסקירה השבועית של ההתראות", "ceo-read": "הקריאה השנייה של המדדים השבועיים",
+                                  guard: "העין השנייה על שומר הגרסאות", kitdraft: "טיוטת ערכת התוכן השבועית", kitqa: "הבדיקה הוויזואלית של ערכת התוכן",
+                                  diff: "בדיקת הקוד לפני שחרור", walk: "הסיור השבועי באפליקציה" } },
   "ai:key":              { he: "מפתח ה-Claude API לא עובד או שהקרדיט נגמר, והבוטים ממשיכים בלעדיו", sect: "fail" },
+  // ai-usage.mjs (ops 1.11): the bots' spend crossed 80% of the monthly cap in this credit cycle (renews on the 17th); news, not a fault
+  "ai:spend":            { he: "הבוטים השתמשו ב-80% מקרדיט ה-Claude API של החודש", sect: "fyi" },
   // diff review (Dudu 1.11, credit package A): a review of a branch found a high point; product reads the report and decides, nothing waits on it
   "code":                { he: "בדיקת הקוד לפני שחרור מצאה נקודות לבדוק: {id}", sect: "fyi" },
   // exploratory walk (Dudu 1.11, credit package B): the week's walk on next noted something high; the QA thread checks it before anything changes
@@ -193,14 +203,14 @@ export const LABELS = {
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
 export const FAMILIES_IN_USE = [
   "wf", "smoke", "expiry", "infra", "infra-branches", "guard:core", "guard:break", "guard:warn", "ministry", "checker:data-health",
-  "review", "review3", "vitals", "reviews:error", "seo:daily", "seo:nodata", "seo:error", "seo:index", "mention", "comp", "comp:needs",
+  "review", "review3", "vitals", "reviews:error", "seo:daily", "seo:nodata", "seo:error", "seo:index", "mention", "comp", "comp:needs", "copy", "notes",
   "seo-auto:blocked", "seo-auto:wait", "seo-auto:notice", "seo-auto:done", "catalog", "catalog:info", "recalls", "recalls:info", "mag:pub", "mag:fail",
   "webwatch:rollback", "webwatch:rollback-failed", "meta:uptime", "weekly:missing", "workers:refused", "workers:rollback", "workers:failed", "workers:forced",
   "ship:done", "ship:notes", "ship:fail", "ship:dry", "listing:done", "listing:dry", "listing:fail",
   "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:wait", "prod:fail",
-  "stl:update", "stl:stuck", "truth", "truth:fail", "truth:done", "truth:inv", "truth:inv-fail", "truth:deep", "truth:deep-fail", "live:stuck", "live:error", "pipe",
+  "stl:update", "stl:stuck", "stl:review", "truth", "truth:fail", "truth:done", "truth:inv", "truth:inv-fail", "truth:deep", "truth:deep-fail", "live:stuck", "live:error", "pipe",
   "social:fail", "social:missed", "social:unsure", "social:held", "social:done", "social:remind", "social:check", "exp", "auto:done", "auto:revert", "auto:mode",
-  "relguard", "relguard:ok", "relguard:thin", "zonea", "ai", "ai:key", "code", "walk",
+  "relguard", "relguard:ok", "relguard:thin", "zonea", "ai", "ai:key", "ai:spend", "code", "walk",
 ];
 
 const TODAY = ["loud", "silent", "none"];
@@ -211,7 +221,7 @@ const TELL_MS = 72 * 36e5, LEDGER_MS = 864e5, LEDGER_CAP = 12;   // an outcome i
 // the tag line's area of a key (tg-text.mjs AREAS), by its first segment
 const AREA = { wf: "בוטים", meta: "בוטים", auto: "בוטים", smoke: "אתר", infra: "אתר", expiry: "אתר", workers: "אתר", webwatch: "אתר",
   guard: "נתונים", ministry: "נתונים", checker: "נתונים", truth: "נתונים", stl: "נתונים", catalog: "נתונים", recalls: "נתונים",
-  seo: "SEO", "seo-auto": "SEO", mag: "SEO", mention: "שיווק", comp: "שיווק", social: "שיווק", review: "ביקורות", review3: "ביקורות", reviews: "ביקורות",
+  seo: "SEO", "seo-auto": "SEO", mag: "SEO", mention: "שיווק", comp: "שיווק", copy: "אפליקציה", notes: "חנות Google Play", social: "שיווק", review: "ביקורות", review3: "ביקורות", reviews: "ביקורות",
   vitals: "אפליקציה", watch: "אפליקציה", ship: "חנות Google Play", listing: "חנות Google Play", safety: "חנות Google Play", prod: "חנות Google Play",
   live: "מדידה", pipe: "מדידה", relguard: "מדידה", zonea: "מדידה", weekly: "מדידה", exp: "מדידה" };
 const areaOf = key => AREA[String(key).split(":")[0]] || "בוטים";
@@ -1048,7 +1058,7 @@ async function selftest() {
       ["truth", "page identity status test road owners km recalls settlements tow specs mods fee price value tag insight counts message"],
       ["truth:inv", "fresh tests renewal dates reuse owners km hook price wltp recalls pubcancel lend"], ["pipe", "web app errors ga"],
       ["truth:deep", "identity status test road owners km recalls settlements tow specs mods fee price value insight message other"],
-      ["ai", "themes triage advisor recalls shots names mag comp anomalies stl audit kitdraft kitqa diff walk"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
+      ["ai", "themes triage advisor recalls shots names mag comp anomalies stl stlrev audit cause mail noise ceo-read guard kitdraft kitqa diff walk"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
       const he = label(f + ":" + ids.split(" ").join("+")).he.split(/[\s,:]+/);
       ok(!ids.split(" ").some(i => he.includes(i)), `label ${f}: no raw id left`);
     }
