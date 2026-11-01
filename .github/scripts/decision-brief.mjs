@@ -15,6 +15,8 @@ import { client, ask, answer } from "./claude.mjs";
 
 export const MODEL = "claude-opus-5-5";
 const OPS = ["ratio", "pct", "diff", "sum"];
+// a number spelled out is still the model's own number ("seven-day", the name of the Q2 window, and "one"/"first"/"second" as plain words are allowed)
+const NUM_WORDS = /\b(zero|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|twelfth|twentieth|thirtieth|twice|double|triple|half|halved|tripled|doubled|dozen|percent)\b/i;
 
 // ---- reading the raw JSON ----
 export function at(obj, path) {   // parts["ga.life"].rows[3][2]  or  a.b.c  (a leading "$." or "DATA." is ignored; ['x'] works too)
@@ -53,7 +55,8 @@ const fmt = (v, kind) => (typeof v === "string" ? v : kind === "pct" ? (Math.rou
 export function fill(raw, line) {
   if (!line || typeof line.text !== "string" || !line.text.trim()) return { why: "no text" };
   const text = line.text.slice(0, 400), specs = line.vals && typeof line.vals === "object" ? line.vals : {};
-  if (/\d/.test(text.replace(/\{[A-Za-z_]\w*\}/g, "").replace(/\bQ[1-3]\b/g, ""))) return { why: "a number of the model's own" };
+  const bare = text.replace(/\{[A-Za-z_]\w*\}/g, "").replace(/\bQ[1-3]\b/g, "");
+  if (/\d/.test(bare) || NUM_WORDS.test(bare.replace(/\bseven-day\b/gi, ""))) return { why: "a number of the model's own" };
   const vals = {}, kinds = {};
   for (const [k, s] of Object.entries(specs)) { vals[k] = value(raw, s, vals); kinds[k] = OPS.find(o => s && Array.isArray(s[o])) || "value"; }   // in order: a computed value may use earlier ones
   const names = [...text.matchAll(/\{([A-Za-z_]\w*)\}/g)].map(m => m[1]);
@@ -83,7 +86,7 @@ export function prompt(questions, raw) {
     '- {"path": "a.b.c"} or {"path": "parts[\\"ga.life\\"].x[0]"}: one number or short string in the JSON (a date, a version). Paths start at the top level of DATA: if DATA is {"kpi":{"week":...}}, the path is "kpi.week", never "DATA.kpi.week" or "$.kpi.week"',
     '- {"table": "parts[\\"ga.life\\"]", "metric": "eventCount", "where": {"eventName": "first_open", "date": ["20261101","20261102"]}, "zeroOk": false}: the sum of that metric over every row whose dimensions equal the given values (a list = any of them; zeroOk true only when no matching row truly means zero)',
     '- {"ratio": ["a","b"]}, {"pct": ["a","b"]} (100*a/b), {"diff": ["a","b"]}, {"sum": ["a","b","c"]}: computed from placeholders defined EARLIER in the same line',
-    "Q1, Q2 and Q3 may appear as names. Say plainly when the data cannot answer something (put it in \"missing\"), give the sample size next to every rate, and never invent a field. Each line must stand on its own.",
+    "Never spell a number in words either (no \"twenty-sixth\", \"twice\", \"half\", \"percent\"): a pct placeholder already prints its % sign, a date comes from a path. Q1, Q2 and Q3 may appear as names. Say plainly when the data cannot answer something (put it in \"missing\"), give the sample size next to every rate, and never invent a field. Each line must stand on its own.",
     'Answer with JSON only: {"lines":[{"section":"short heading","text":"Savers returned within seven days: {r} of {s} ({p})","vals":{"r":{...},"s":{...},"p":{"pct":["r","s"]}}}],"missing":["what the data lacks"]}',
     "", "QUESTIONS:", String(questions).slice(0, 8000), "", "DATA:", JSON.stringify(digest(raw)).slice(0, 400000),
   ].join("\n");
@@ -141,6 +144,8 @@ if (process.argv.includes("--selftest")) {
   ok(/no value for p/.test(fill(raw, { text: "Rate {p}", vals: { p: { pct: ["r", "s"] } } }).why), "a computed value from undefined parts: dropped");
   ok(fill(raw, { text: "Ratio {x}", vals: { a: { path: "parts.meta.n[0]" }, b: { path: "parts.meta.n[1]" }, x: { ratio: ["a", "b"] } } }).text === "Ratio 0.71", "ratio");
   ok(fill(raw, { text: "{d}", vals: { a: { path: "parts.meta.n[0]" }, z: { path: "parts.nothing" }, d: { pct: ["a", "z"] } } }).why === "no value for d", "a division by a missing value: dropped");
+  ok(fill(raw, { text: "The base week runs from the twenty-sixth of October", vals: {} }).why === "a number of the model's own" && fill(raw, { text: "Checks fell by {s} percent", vals: { s: good.vals.s } }).why === "a number of the model's own"
+    && fill(raw, { text: "The seven-day return of {s} savers", vals: { s: good.vals.s } }).text === "The seven-day return of 42 savers", "a number in words drops the line too; the seven-day window may be named");
   ok(/Q2/.test(fill(raw, { text: "Q2 sample: {s}", vals: { s: good.vals.s } }).text), "Q1 to Q3 may be named");
   const big = { parts: { t: { dims: ["d"], mets: ["m"], rows: Array.from({ length: 500 }, (_, i) => ["v" + (i % 3), i]) } } };
   const d = digest(big); ok(d.parts.t.rowCount === 500 && d.parts.t.sampleRows.length === 60 && d.parts.t.dimValues.d.length === 3, "the model sees a sample; the code sums all rows");

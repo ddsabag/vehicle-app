@@ -5,4 +5,4 @@ Test of the decision brief (1.11.2026), the questions of the 8.11 gate re-base t
 3. Installs: last week vs the week before.
 4. Play rating and the number of ratings.
 5. Which KPI fields are empty (null) and what the notes say about why (say it in words, no numbers).
-(run 2: paths from the top of DATA)
+(run 3: no number in words)
