@@ -27,7 +27,7 @@ Rules (an automatic check rejects the paragraph if it breaks the first three):
 1. Every number must appear in the facts exactly as written there (with its thousands comma). Do not add, subtract, round or compute new numbers, and write no number that is not in the facts; use words instead of a new figure ("רוב הרכבים", "כמחצית" is not allowed either, as it is a computed claim: describe what the by-year figures show without a new number).
 2. No causes, forecasts or verdicts: never explain why a figure is what it is, never say what will happen, and never judge the model or advise the reader (no "אמין", "מומלץ", "כדאי", "חסכוני", "בעיות"). Never use: ${FORBIDDEN_WORDS.join(", ")}, also not inside a longer word (בעקבות, מעקב, צפויים).
 3. Start with the model's name exactly as the facts write it in "name".
-4. A comparison is with cars of the same model years, as the facts word it; keep that wording ("38% פחות מהממוצע בשנתונים המקבילים"). Ownership records include transfers between leasing companies and dealers, so never call them owners (בעלים).
+4. The comparisons are with cars of the same model years. Say that once ("בהשוואה לרכבים מאותם שנתונים"), then give each comparison briefly as "X% יותר מהממוצע", "X% פחות מהממוצע" or "בקירוב כמו הממוצע", without repeating "בשנתונים המקבילים" or "מאותם שנתונים" after every figure. Never double a comparison ("גבוה ב-6% יותר", "נמוכים ב-10% פחות" are wrong; write "6% יותר מהממוצע"). Ownership records include transfers between leasing companies and dealers, so never call them owners (בעלים). Call the annual roadworthiness test "טסט" ("בטסט האחרון"), as the page does.
 5. Even-handed, plain news-register Hebrew with neutral forms; call the vehicles רכבים; a model agrees through the word דגם. Importers, dealers and leasing companies are never blamed for anything.
 6. No sources, sites, links or mention of לוחית or of the reader checking a car.
 
@@ -43,11 +43,15 @@ export function check(facts, text) {
   const allowed = new Set(nums(JSON.stringify(facts)));
   const bad = nums(t).find(n => !allowed.has(n)); if (bad) return "unknown number " + bad;
   if (/https?:|www\.|לוחית/.test(t)) return "a link or the site's name";
+  if (/(גבוה|נמוך)\S*\s+(ב-?|של\s+)?\d[\d.,]*%\s+(יותר|פחות)/.test(t)) return "a doubled comparison";
+  if ((t.match(/בשנתונים המקבילים|מאותם שנתונים/g) || []).length > 2) return "the same-years phrase repeated";
   return "";
 }
 const hint = why => /^length /.test(why) ? `the paragraph had ${why.slice(7)} characters; it must have 250 to 600`
   : /^unknown number /.test(why) ? `the number ${why.slice(15)} is not in the facts; use only numbers written in the facts, or words`
-  : why === "owners" ? "ownership records are not owners; never write בעלים" : why;
+  : why === "owners" ? "ownership records are not owners; never write בעלים"
+  : why === "a doubled comparison" ? "a comparison was doubled (like גבוה ב-6% יותר); write 6% יותר מהממוצע"
+  : why === "the same-years phrase repeated" ? "say once that the comparisons are with cars of the same model years, not after every figure" : why;
 export function request(facts, prev = "") {
   return {model: MODEL, max_tokens: 8000, thinking: {type: "adaptive"}, output_config: {effort: EFFORT, format: {type: "json_schema", schema: SCHEMA}},
     system: SYSTEM, messages: [{role: "user", content: `The facts of the page:\n<facts>\n${JSON.stringify(facts, null, 1)}\n</facts>`
@@ -72,7 +76,7 @@ export async function write({facts, slugs, answers = {}, env = process.env, api 
     const r = b.results && b.results.get(s);
     let got = r && r.ok ? read(facts[s], r.msg) : {why: r ? r.why : "no result"};
     if (!got.text) {   // one more try, on its own, told what the check found
-      const again = await ask(api, request(facts[s], /^(length|forbidden|owners|does not|unknown|a link|not JSON)/.test(got.why) ? got.why : ""));
+      const again = await ask(api, request(facts[s], /^(length|forbidden|owners|does not|unknown|a link|not JSON|a doubled|the same-years)/.test(got.why) ? got.why : ""));
       got = again.error ? {why: again.error.why} : read(facts[s], again.msg);
     }
     if (got.text) { out.answers[s] = {text: got.text, h: factsHash(facts[s]), at}; out.wrote.push(s); } else out.failed[s] = got.why;
@@ -99,6 +103,8 @@ if (process.argv.includes("--selftest")) {
   const good = "טויוטה קורולה היא מהדגמים הנפוצים בישראל, עם כ-191,431 רכבים פעילים בשנתונים 1997 עד 2026, והשנתון הנפוץ ביותר הוא 2021 עם 17,728 רכבים. שיעור הירידה מהכביש של הדגם הוא 38% פחות מהממוצע בשנתונים המקבילים, ו-38,284 רכבים ממנו ירדו מהכביש, שהם 16.7% מכל מה שנרשם.";
   ok(check(f, good) === "", "a paragraph whose every number is in the facts passes");
   ok(check(f, good.replace("17,728", "17,700")) === "unknown number 17700", "a changed number is caught");
+  ok(check(f, good.replace("הוא 38% פחות", "נמוך ב-38% פחות")) === "a doubled comparison", "a doubled comparison is caught");
+  ok(check(f, good + " הקילומטראז' 38% פחות מהממוצע של רכבים מאותם שנתונים, והבעלויות 38% פחות מהממוצע בשנתונים המקבילים.") === "the same-years phrase repeated", "the same-years phrase three times is caught");
   ok(check(f, good.replace("38% פחות", "כ-40% פחות")) === "unknown number 40", "a rounded number is caught");
   ok(check(f, good + " הדגם נחשב אמין.").startsWith("forbidden wording אמין"), "a verdict is caught");
   ok(check(f, good.replace("שהם", "בגלל שהם")).startsWith("forbidden wording"), "a cause is caught");
