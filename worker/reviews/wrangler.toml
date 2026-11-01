@@ -13,4 +13,6 @@ binding = "ALERTS"
 id = "KV_NAMESPACE_ID"   # the id of luchit-alerts (the namespace luchit-uptime uses; this Worker writes only "rv:" keys); not a secret
 # Secrets (Dudu pastes them): TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID (same bot and chat as the other alerts), REVIEWS_SA_JSON
 # (the JSON key of luchit-reviews-reply, a service account with the Play Console app permission "Reply to reviews" only).
+# Optional: ANTHROPIC_API_KEY (personal reply drafts by Claude; the Workers deploy copies it from the GitHub secret, nobody pastes it here).
+# Variable REVIEWS_AI=off (dashboard) = every draft is the template again, without touching the key.
 # After the secrets: open /health once; it installs the Telegram webhook (<this Worker>/tg).
