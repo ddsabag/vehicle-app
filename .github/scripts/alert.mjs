@@ -91,7 +91,8 @@ export const LABELS = {
   "seo:index":           { he: "גוגל הוציא דפים מהאינדקס", sect: "fail" },   // index-guard.mjs via seo-data.mjs (SEO data snapshot)
   "seo":                 { he: "דוח SEO יומי", sect: "none" },
   "mention":             { he: "אזכור חדש של לוחית ברשת", sect: "fyi" },
-  "comp":                { he: "בדיקת המתחרים החודשית מצאה שינוי אצל אפליקציה או שירות דומים", sect: "fyi" },   // competitor-check.mjs, key comp:<YYYY-MM>
+  "comp":                { he: "בדיקת המתחרים החודשית מצאה שינוי אצל אפליקציה או שירות דומים", sect: "fyi" },
+  "comp:needs":          { he: "מה משתמשים מבקשים מאפליקציות דומות החודש", sect: "fyi" },   // competitor-check.mjs, key comp:needs:<YYYY-MM>   // competitor-check.mjs, key comp:<YYYY-MM>
   "seo-auto:blocked":    { he: "שינוי SEO מחכה לאישור שלך ({id})", sect: "wait" },
   "seo-auto:notice":     { he: "שינוי SEO יעלה לאתר בעוד 24 שעות ({id})", sect: "none" },
   "seo-auto":            { he: "שינוי SEO ({id})", sect: "none" },
@@ -186,7 +187,7 @@ export const LABELS = {
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
 export const FAMILIES_IN_USE = [
   "wf", "smoke", "expiry", "infra", "infra-branches", "guard:core", "guard:break", "guard:warn", "ministry", "checker:data-health",
-  "review", "review3", "vitals", "reviews:error", "seo:daily", "seo:nodata", "seo:error", "seo:index", "mention", "comp",
+  "review", "review3", "vitals", "reviews:error", "seo:daily", "seo:nodata", "seo:error", "seo:index", "mention", "comp", "comp:needs",
   "seo-auto:blocked", "seo-auto:wait", "seo-auto:notice", "seo-auto:done", "catalog", "catalog:info", "recalls", "recalls:info", "mag:pub", "mag:fail",
   "webwatch:rollback", "webwatch:rollback-failed", "meta:uptime", "weekly:missing", "workers:refused", "workers:rollback", "workers:failed", "workers:forced",
   "ship:done", "ship:notes", "ship:fail", "ship:dry", "listing:done", "listing:dry", "listing:fail",
