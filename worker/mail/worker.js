@@ -74,6 +74,8 @@ function isBulk(h) {
   const auto = (h.get("auto-submitted") || "").trim();
   return h.has("list-unsubscribe") || h.has("list-id") || /^\s*(bulk|list|junk)\b/i.test(h.get("precedence") || "") || (!!auto && !/^no\b/i.test(auto));
 }
+// the envelope sender is one of our own addresses (luchit.app or a subdomain)
+export const isOwn = from => /@(?:[a-z0-9-]+\.)*luchit\.app>?\s*$/i.test(String(from || "").trim());
 // router level per mail; key = "mail:<class>" (luchit-uptime's morning ring reads the class from it, never the mail)
 const LEVEL = { privacy: "day", crash: "day", data: "summary", biz: "summary", other: "summary", promo: "silent" };
 
@@ -262,7 +264,9 @@ export default {
       // the shared message shape of .github/scripts/tg-text.mjs: classification line, the mail itself, what to do
       const [tag, todo] = MAIL_TODO[cls.key] || MAIL_TODO.other;
       body = `<b>${tag} · מייל</b>\n<b>פנייה חדשה ללוחית: ${cls.label}</b>\nמאת: ${esc(message.from)}\nנושא: ${esc(subject)}\n\n${esc(text) || "(אין טקסט רגיל בהודעה)"}\n\n${todo}`;
-      const bulk = isBulk(message.headers);
+      // our own mail: an address of luchit.app copied in (Dudu's CC to dudu@luchit.app on 2.11.2026 came back as "a new request" with a
+      // Claude draft answering himself); Gmail keeps it, Telegram gets nothing, as bulk
+      const bulk = isBulk(message.headers) || isOwn(message.from);
       if (!bulk && DRAFT_FOR.has(cls.key) && text && aiOn(env)) {
         const d = await mailDraft(env, cls.key, subject, text);
         if (d) body += `\n\n✍️ טיוטת תשובה (Claude, לבדוק לפני ששולחים מהג'ימייל):\n<pre>${esc(d)}</pre>`;

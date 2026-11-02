@@ -144,6 +144,15 @@ for (const h of [{}, { "Auto-Submitted": "no" }, { Precedence: "first-class" }, 
   ok(tg.length === 1 && tg[0].disable_notification === false && m.forwards.length === 1, "not bulk: " + JSON.stringify(h));
 }
 { const m = msg("שאלה", "שלום"); m.from = "no-reply@shop.example"; await run(m, ALL); ok(tg.length === 1 && tg[0].disable_notification === true, "a no-reply sender alone is not bulk"); }
+// our own mail (2.11.2026: Dudu's CC to dudu@luchit.app came back as a request with a draft answering himself): Gmail only, no Claude call
+for (const f of ["dudu@luchit.app", "Dudu@Luchit.App", "alerts@mail.luchit.app"]) {
+  const m = msg("Re: חומרים לאייטם", "מצרף את החומרים, תודה רבה"); m.from = f; await run(m, ALL);
+  ok(tg.length === 0 && m.forwards.length === 1, "own sender " + f + ": Gmail only");
+}
+for (const f of ["dudu@luchit.app.evil.example", "x@notluchit.app", "x@luchit-app.example"]) {
+  const m = msg("תמחקו את הפרטים שלי", "תמחקו את הפרטים שלי"); m.from = f; await run(m, ALL);
+  ok(tg.length === 1 && m.forwards.length === 1, "not our own: " + f);
+}
 
 // 4. failures (spec 13.4, 15.1 item 7): forward exactly once, a message still goes out where today it would
 for (const route of [undefined, "all"]) for (const at of [DAY, NIGHT]) for (const cl of ["privacy", "data", "bulk"]) {
