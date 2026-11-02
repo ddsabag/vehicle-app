@@ -1,18 +1,25 @@
 name: Importer specs
-# Battery and equipment from the importers' spec pages (specs-extra.mjs; Dudu 1.11.2026: pilot of electric and plug-in models, $15).
-# Reads the catalogue from the catalog-data branch, asks Claude to read each model's Israeli importer page, keeps only quoted facts,
+# Battery and equipment from the importers' spec pages (specs-extra.mjs; Dudu 1.11.2026 pilot $15; v2 2.11.2026: a $2 test on 5 models).
+# Reads the catalogue from the catalog-data branch, opens each model's Israeli importer pages and spec PDFs in the runner's own browser,
+# asks Claude to read only that text, keeps only quoted facts,
 # and publishes specs-extra.json + specs-review.md on the specs-data branch. The app does not read it yet (product, after 22.11).
 # The log shows counts only. Never red over Claude: an API problem ends the run with what it has.
 on:
   workflow_dispatch:
     inputs:
       budget:
-        description: "USD for this run (the pilot was 15)"
-        default: "15"
+        description: "USD for this run"
+        default: "2"
+      only:
+        description: "model names to read, cd|NAME comma separated (empty = all)"
+        default: "1014|SEALION 5,1604|JAECOO7 PHEV,1547|G6,443|MG4,1327|MODEL Y"
+      ask:
+        description: "1 = ask Claude, 0 = fetch and log the documents only (free)"
+        default: "1"
       kinds:
         description: "ev,phev (later hybrid,ice for equipment)"
         default: "ev,phev"
-  push:   # TEMPORARY: the pilot run from this branch; removed before the branch is released
+  push:   # TEMPORARY: a free fetch-only run (SPEC_ASK=0) from this branch; removed before the branch is released
     branches: [data/specs-extra]
     paths: [.github/workflows/specs.yml, .github/scripts/specs-extra.mjs]
 permissions:
@@ -36,6 +43,11 @@ jobs:
           if git fetch -q --depth 1 origin specs-data 2>/dev/null; then git show FETCH_HEAD:specs-extra.json > out/specs-extra.json 2>/dev/null || rm -f out/specs-extra.json; fi
       - name: Claude SDK (the version pinned in claude.mjs)
         run: npm install --no-save --no-audit --no-fund --loglevel=error "$(sed -n 's/^export const SDK = "\(.*\)";$/\1/p' .github/scripts/claude.mjs)" || true
+      - name: Browser and PDF reader
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error playwright@1.49.1
+          npx playwright install --with-deps chromium >/dev/null
+          command -v pdftotext >/dev/null || sudo apt-get install -y -qq poppler-utils >/dev/null
       - name: Read the importers' pages
         run: |
           KINDS="${{ inputs.kinds || 'ev,phev' }}" node --input-type=module -e '
@@ -43,12 +55,14 @@ jobs:
             await run({ groups: targets("cat", { kinds: process.env.KINDS.split(","), from: 2024, min: 20 }) });'
         env:
           OUT: out
-          SPEC_BUDGET: ${{ inputs.budget || '15' }}
+          SPEC_BUDGET: ${{ inputs.budget || '2' }}
+          SPEC_ONLY: ${{ github.event_name == 'push' && '1014|SEALION 5,1604|JAECOO7 PHEV,1547|G6,443|MG4,1327|MODEL Y' || inputs.only }}
+          SPEC_ASK: ${{ github.event_name == 'push' && '0' || inputs.ask }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
       - name: Publish on the specs-data branch
-        if: ${{ always() && hashFiles('out/specs-extra.json') != '' }}
+        if: ${{ always() && github.event_name != 'push' && inputs.ask != '0' && hashFiles('out/specs-review.md') != '' }}
         run: |
           cd out && git init -q && git checkout -q -b specs-data
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" add specs-extra.json specs-review.md

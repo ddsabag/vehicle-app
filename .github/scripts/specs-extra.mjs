@@ -1,21 +1,22 @@
-// Battery and equipment from the importers' own spec pages (Dudu 1.11.2026 23:07 UTC "אני רוצה את זה"; pilot budget $15 chosen on the card
-// 23:10 UTC): the ministry's model data has no battery size, electric range or comfort equipment, so a bot reads the Israeli importer's
-// spec sheet or price list for each model name and keeps, per ministry model code and year, only what a quote from a page it fetched shows.
+// Battery and equipment from the importers' own spec pages (Dudu 1.11.2026 23:07 UTC "אני רוצה את זה"): the ministry's model data has no
+// battery size, electric range or comfort equipment, so a bot reads the Israeli importer's pages and spec PDFs for each model name and keeps,
+// per ministry model code and year, only what a quote from a document it fetched shows.
 //   targets(catDir, opt)   the model names to read from the catalog-data branch: electric and plug-in (opt.kinds), years >= opt.from,
 //                          trims with at least opt.min active cars, most cars first; each {cd, maker, importer, name, n, trims: [{dg, trim, years, cc, fuel, n}]}
-//   prompt(g)              the request for one model name
+//   crawl(g, {browser})    v2: the runner's own browser opens the maker's Israeli site (SITES), the model's pages and their spec PDFs
+//   prompt(g, docs)        the request for one model name, with the text we fetched (Claude has no web tools)
 //   check(o, g, seen)      the reply against the rules: a trim must be one of the group's codes; every number and every fitted item needs a quote
-//                          from a page fetched in this conversation that holds it; press and listing sites never count. Returns {rows, held}
-//   run({env, api, ...})   reads groups until SPEC_BUDGET (USD, default 15) is spent; writes OUT/specs-extra.json and OUT/specs-review.md
-// specs-extra.json: {v, u, fields, eq, codes: {"<tozeret_cd>-<degem_cd>|<year>": {kwh, kwhNet, rangeKm, dcKw, acKw, dcMin, eq: [ids], src: [urls]}}}
-// Public data (the importers' published specs); the log shows counts only, never money. Never red: an API problem ends the run with what it has.
+//                          that is in a fetched document. Returns {rows, held}
+//   run({env, api, ...})   reads groups until SPEC_BUDGET (USD, default 2) is spent; writes OUT/specs-extra.json and OUT/specs-review.md
+// specs-extra.json: {v, u, fields, eq, codes: {"<tozeret_cd>-<degem_cd>|<year>": {kwh, kwhNet, rangeKm, dcKw, acKw, dcMin, screenIn, wheelIn, eq: [ids], no: [ids], src: [urls], cur}}}
+// Public data (the importers' published specs); the log shows counts and URLs only, never money. Never red: an API problem ends the run with what it has.
 //   node specs-extra.mjs --selftest   offline
 import fs from "node:fs";
 import path from "node:path";
 import { client, ask, answer } from "./claude.mjs";
 import { price } from "./ai-usage.mjs";
 
-export const MODEL = "claude-sonnet-5-5", SEARCH_CAP = 6, FETCH_CAP = 8;
+export const MODEL = "claude-sonnet-5-5";
 // the equipment list: id -> the Hebrew row name the app shows (product, compare "מערכות בטיחות ואבזור" and the car card's "אבזור")
 export const EQ = {
   wireless: "טעינה אלחוטית לטלפון", heatFront: "מושבים קדמיים מחוממים", heatRear: "מושבים אחוריים מחוממים", vent: "מושבים מאווררים",
@@ -38,7 +39,7 @@ const norm = u => { try { const x = new URL(u); return (x.host.replace(/^www\./,
 export const squash = t => String(t || "").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 // a source counts when it is Israeli (.il) or a maker's Israeli section (/il/ or /he/ in the path), and not press or a listing
 export const isSource = u => { const h = host(u); if (!h || NOT_SOURCES.some(d => h === d || h.endsWith("." + d))) return false;
-  try { const p = new URL(u).pathname.toLowerCase(); return /\.il$/.test(h) || /(^|\/)(il|he|he-il|iw)(\/|$)/.test(p); } catch { return false; } };
+  try { const p = new URL(u).pathname.toLowerCase(); return /\.il$/.test(h) || /(^|\/)(il|he|he-il|he_il|iw)(\/|$)/.test(p); } catch { return false; } };
 
 export function targets(catDir, { kinds = ["ev", "phev"], from = 2024, min = 20 } = {}) {
   const meta = JSON.parse(fs.readFileSync(path.join(catDir, "meta.json"), "utf8")).makers, groups = new Map();
@@ -64,23 +65,104 @@ export function targets(catDir, { kinds = ["ev", "phev"], from = 2024, min = 20 
   return [...groups.values()].map(g => ({ ...g, trims: g.trims.map(t => ({ ...t, years: t.years.sort() })).sort((a, b) => b.n - a.n) })).sort((a, b) => b.n - a.n);
 }
 
-export function prompt(g) {
+// v2 (Dudu 2.11.2026 04:01 UTC, card "כן, עד 2$ לניסיון"): the pilot's web tools could not open most importer sites, so the runner reads
+// them itself in a real browser, starting from each maker's Israeli site below, and Claude only reads the text we fetched (no web tools).
+// A seed site counts only when its home page names the importer or the brand (a parked or wrong domain is skipped).
+export const SITES = {
+  1014: ["https://www.byd.co.il/", "https://bydauto.co.il/"], 1604: ["https://www.jaecoo.co.il/"], 1605: ["https://omoda.co.il/"],
+  1547: ["https://heyxpeng.co.il/"], 1450: ["https://cheryisrael.co.il/"], 443: ["https://mg-israel.co.il/"],
+  1327: ["https://www.tesla.com/he_il/"], 1417: ["https://www.tesla.com/he_il/"], 1634: ["https://www.changan.co.il/"],
+  1556: ["https://www.zeekrlife.com/he-il/"], 1465: ["https://dongfeng.co.il/"], 1436: ["https://leapmotor.co.il/"],
+};
+const BRAND = { 1014: "byd", 1604: "jaecoo", 1605: "omoda", 1547: "xpeng", 1450: "chery", 443: "mg", 1327: "tesla", 1417: "tesla", 1634: "deepal", 1556: "zeekr", 1465: "dongfeng", 1436: "leapmotor" };
+export const PAGE_CAP = 8, PDF_CAP = 4, DOC_CHARS = 30000, ALL_CHARS = 80000;
+const SPEC_WORDS = /spec|brochure|technical|catalog|pricelist|price-list|מפרט|מחירון|קטלוג|ברושור/i;
+// the model name as it appears in a link: "SEALION 5" -> "sealion5", "JAECOO7 PHEV" -> "jaecoo7", "MODEL Y" -> "modely"
+export const token = name => squash(String(name).replace(/\b(PHEV|EV|DM-?I|EM-?I|BYD|PLUG-?IN|HEV)\b/gi, ""));
+export const linkFits = (g, href, text) => { const k = token(g.name); if (k.length < 2) return false; let h = String(href || ""); try { h = decodeURI(h); } catch {}
+  return squash(h).includes(k) || squash(text).includes(k); };
+
+// the pages for one model: seeds -> links and the sitemap -> pages whose link names the model -> PDFs on those pages
+export async function crawl(g, { browser, log = () => {}, pdfText }) {
+  const seeds = SITES[g.cd] || [], docs = [], seenUrl = new Set(), ctx = await browser.newContext({ locale: "he-IL",
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" });
+  const brandWords = [BRAND[g.cd], squash(String(g.importer || "").split(/\s+/)[0])].filter(w => w && w.length > 1);
+  const open = async url => { const page = await ctx.newPage();
+    try { await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 }); await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+      // text of every element, hidden tabs and accordions too, one line per block
+      const r = await page.evaluate(() => { const out = []; const skip = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "SVG", "TEMPLATE"]);
+        const walk = n => { for (const c of n.childNodes) { if (c.nodeType === 3) { const t = c.textContent.replace(/\s+/g, " ").trim(); if (t) out.push(t); }
+          else if (c.nodeType === 1 && !skip.has(c.tagName)) { walk(c); if (/^(DIV|P|LI|TR|TD|TH|H\d|SECTION|ARTICLE|DT|DD|BR|TABLE)$/.test(c.tagName)) out.push("\n"); } } };
+        walk(document.body || document.documentElement);
+        return { text: out.join(" ").replace(/ *\n[\n ]*/g, "\n"), links: [...document.querySelectorAll("a[href]")].map(a => [a.href, (a.textContent || "").trim().slice(0, 80)]) }; });
+      return { url: page.url(), ...r };
+    } catch (e) { log(`specs: ${new URL(url).host}: ${String(e.message || e).split("\n")[0].slice(0, 80)}`); return null; } finally { await page.close().catch(() => {}); } };
+  const sitemap = async base => { const out = [];
+    for (const p of ["sitemap.xml", "sitemap_index.xml", "wp-sitemap.xml", "page-sitemap.xml"]) {
+      try { const r = await ctx.request.get(new URL(p, base).href, { timeout: 20000 }); if (!r.ok()) continue; const x = await r.text();
+        for (const m of x.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)) out.push(m[1]); } catch {} }
+    return out; };
+  try {
+    for (const seed of seeds) {
+      const home = await open(seed); if (!home) continue;
+      const host0 = host(home.url), sq = squash(home.text);
+      if (!brandWords.some(w => sq.includes(w))) { log(`specs: ${host0}: the home page names neither the brand nor the importer, skipped`); continue; }
+      let cand = home.links.filter(([h]) => host(h) === host0 || host(h).endsWith("." + host0.split(".").slice(-3).join(".")));
+      for (const loc of await sitemap(home.url)) if (/sitemap/i.test(loc) && /\.xml/i.test(loc)) {
+        try { const r = await ctx.request.get(loc, { timeout: 20000 }); if (r.ok()) for (const m of (await r.text()).matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)) cand.push([m[1], ""]); } catch {}
+      } else cand.push([loc, ""]);
+      if (linkFits(g, home.url, "")) cand.unshift([home.url, ""]);
+      const pages = [...new Map(cand.filter(([h, t]) => /^https?:/.test(h) && !/\.(jpe?g|png|webp|svg|mp4)(\?|$)/i.test(h) && linkFits(g, h, t)).map(([h]) => [h.split("#")[0], 1])).keys()];
+      pages.sort((a, b) => (SPEC_WORDS.test(b) ? 1 : 0) - (SPEC_WORDS.test(a) ? 1 : 0) || a.length - b.length);
+      const pdfs = new Set(pages.filter(h => /\.pdf(\?|$)/i.test(h)));
+      for (const url of pages.filter(h => !/\.pdf(\?|$)/i.test(h))) {
+        if (docs.filter(d => d.kind === "page").length >= PAGE_CAP) break; if (seenUrl.has(norm(url))) continue; seenUrl.add(norm(url));
+        const p = await open(url); if (!p) continue;
+        docs.push({ url: p.url, kind: "page", text: p.text });
+        for (const [h, t] of p.links) if (/\.pdf(\?|$)/i.test(h) && (linkFits(g, h, t) || SPEC_WORDS.test(h + " " + t))) pdfs.add(h.split("#")[0]);
+      }
+      for (const url of [...pdfs].slice(0, PDF_CAP)) {
+        if (seenUrl.has(norm(url))) continue; seenUrl.add(norm(url));
+        try { const r = await ctx.request.get(url, { timeout: 60000 }); if (!r.ok()) continue; const text = await pdfText(await r.body()); if (text) docs.push({ url, kind: "pdf", text }); }
+        catch (e) { log(`specs: pdf: ${String(e.message || e).slice(0, 80)}`); }
+      }
+    }
+  } finally { await ctx.close().catch(() => {}); }
+  return trimDocs(docs);
+}
+// a site repeats its menus on every page: keep each line once, the model pages first, each document and the whole within the caps
+export function trimDocs(docs) {
+  const lines = new Set(), out = []; let all = 0;
+  for (const d of docs) {
+    const keep = []; let n = 0;
+    for (const l of String(d.text).split("\n").map(x => x.replace(/\s+/g, " ").trim()).filter(Boolean)) {
+      const k = squash(l); if (!k || lines.has(k)) continue; lines.add(k); if (n + l.length > DOC_CHARS || all + n + l.length > ALL_CHARS) break; keep.push(l); n += l.length + 1;
+    }
+    if (keep.length) { out.push({ ...d, text: keep.join("\n") }); all += n; }
+    if (all >= ALL_CHARS) break;
+  }
+  return out;
+}
+
+export function prompt(g, docs = []) {
   return [
-    `Find the official Israeli specifications of the ${g.maker} ${g.name} (${g.kind === "ev" ? "electric" : "plug-in hybrid"}), imported by ${g.importer || "its Israeli importer"}.`,
-    "Search for the importer's model page, spec sheet (מפרט טכני) or price list (מחירון) and fetch it. Use only the importer's own site or the maker's Israeli site.",
-    "Never use press, reviews, listings or dealers' ads, and never a foreign market's spec: equipment differs by market.",
+    `Below is text we copied from the Israeli importer's site (${g.importer || "the importer"}) for the ${g.maker} ${g.name} (${g.kind === "ev" ? "electric" : "plug-in hybrid"}).`,
+    "Use only this text. Equipment differs by market and by trim; never add what you know from elsewhere.",
     "",
-    "The Ministry of Transport lists these trims (code: trim name, model years, engine cc). Match each trim on the page to ONE code:",
+    "The Ministry of Transport lists these trims (code: trim name, model years, engine cc). Match each trim in the text to ONE code:",
     ...g.trims.map(t => `- ${t.dg}: ${t.trim || "(no trim name)"}, ${t.years.join("/")}, ${t.cc || 0} cc`),
     "",
-    "For each code you can match with confidence, report what the page says:",
+    "For each code you can match with confidence, report what the text says:",
     `- numbers: ${Object.entries(NUM).map(([k, [he, u]]) => `${k} (${he}, ${u})`).join("; ")}`,
-    `- equipment fitted as standard (true) or stated as not fitted (false); leave out what the page does not state: ${Object.entries(EQ).map(([k, he]) => `${k} (${he})`).join("; ")}`,
-    "Every number and every true/false needs a quote: a short passage copied exactly from a page you fetched in this conversation, with its URL.",
-    "A quote must contain the number itself, or the equipment's name as the page writes it. Do not guess, do not convert units, do not use optional packages.",
-    "When the page does not let you tell which code a trim is, or the page is for another model year than every listed year, put the code in unsure with the reason.",
+    `- equipment fitted as standard (true) or stated as not fitted (false); leave out what the text does not state: ${Object.entries(EQ).map(([k, he]) => `${k} (${he})`).join("; ")}`,
+    "Every number and every true/false needs a quote: a short passage copied exactly from the text below, with the URL of its document.",
+    "A quote must contain the number itself, or the equipment's name as the text writes it. Do not guess, do not convert units, do not use optional packages.",
+    "year: the model year the document states for that trim, or null when it states none.",
+    "When the text does not let you tell which code a trim is, put the code in unsure with the reason.",
     "",
-    'Answer with JSON only: {"trims":[{"dg":<code>,"year":<model year the page is for>,"num":{"kwh":<n>,...},"eq":{"wireless":true,...},"quotes":[{"f":"kwh","url":"...","text":"..."}]}],"unsure":[{"dg":<code>,"why":"..."}]}',
+    'Answer with JSON only: {"trims":[{"dg":<code>,"year":<year or null>,"num":{"kwh":<n>,...},"eq":{"wireless":true,...},"quotes":[{"f":"kwh","url":"...","text":"..."}]}],"unsure":[{"dg":<code>,"why":"..."}]}',
+    "",
+    ...docs.map((d, i) => `=== DOCUMENT ${i + 1} (${d.kind}): ${d.url} ===\n${d.text}`),
   ].join("\n");
 }
 
@@ -89,7 +171,9 @@ export function parse(text) {
   try { const o = JSON.parse(m[0]); return o && Array.isArray(o.trims) ? o : null; } catch { return null; }
 }
 
-// what the conversation fetched: url -> squashed page text, and every passage the API cited (a PDF arrives as cited passages)
+// the documents we fetched ourselves: url -> squashed text. own: the URL must be one of them (they came from the maker's Israeli site)
+export const own = docs => ({ own: true, pages: new Map(docs.map(d => [norm(d.url), squash(d.text)])), cited: [] });
+// the pilot's web-fetch results (v1 data in specs-extra.json was checked this way)
 export function fetched(contents) {
   const pages = new Map(), cited = [];
   for (const content of contents) for (const b of content || []) {
@@ -107,14 +191,18 @@ const onPage = (q, seen) => { const t = squash(q.text), u = norm(q.url), page = 
 // a number is shown by a quote that holds it (12.9 also as 12,9)
 const holds = (q, v) => { const s = String(q.text || ""); return [String(v), String(v).replace(".", ",")].some(x => new RegExp(`(^|[^0-9.,])${x.replace(/\./g, "\\.")}([^0-9]|$)`).test(s)); };
 
-export function check(o, g, seen) {
-  const rows = {}, held = [], codes = new Map(g.trims.map(t => [t.dg, t]));
+// year: the document's year when it is one of the code's years; with no year stated, the code's latest year when that is this year or last
+// year (the importer's current page is the current model), marked cur
+export function check(o, g, seen, { now = new Date() } = {}) {
+  const rows = {}, held = [], codes = new Map(g.trims.map(t => [t.dg, t])), thisYear = now.getUTCFullYear();
   for (const u of (o.unsure || []).slice(0, 40)) if (u && codes.has(+u.dg)) held.push({ dg: +u.dg, why: String(u.why || "unsure").slice(0, 160) });
   for (const t of (o.trims || []).slice(0, 40)) {
     const dg = +(t && t.dg), tr = codes.get(dg); if (!tr) { held.push({ dg: t && t.dg, why: "not one of the model's codes" }); continue; }
-    const year = +t.year, years = tr.years.includes(year) ? [year] : [];
-    if (!years.length) { held.push({ dg, why: `the page is for ${t.year || "an unknown year"}, the codes are ${tr.years.join("/")}` }); continue; }
-    const quotes = (Array.isArray(t.quotes) ? t.quotes : []).filter(q => q && typeof q.url === "string" && typeof q.text === "string" && isSource(q.url) && onPage(q, seen));
+    const latest = Math.max(...tr.years), stated = t.year !== null && t.year !== undefined && t.year !== "";
+    const years = stated ? (tr.years.includes(+t.year) ? [+t.year] : []) : (latest >= thisYear - 1 ? [latest] : []);
+    if (!years.length) { held.push({ dg, why: stated ? `the page is for ${t.year}, the codes are ${tr.years.join("/")}` : `no year on the page, and the code's latest year is ${latest}` }); continue; }
+    const srcOk = q => seen.own ? seen.pages.has(norm(q.url)) : isSource(q.url);
+    const quotes = (Array.isArray(t.quotes) ? t.quotes : []).filter(q => q && typeof q.url === "string" && typeof q.text === "string" && srcOk(q) && onPage(q, seen));
     const by = f => quotes.filter(q => q.f === f), row = { eq: [], no: [], src: [] }, drop = [];
     for (const [f, [, , lo, hi]] of Object.entries(NUM)) {
       const v = t.num && t.num[f]; if (v === undefined || v === null) continue;
@@ -125,51 +213,59 @@ export function check(o, g, seen) {
       if (!(f in EQ) || typeof v !== "boolean") continue;
       const q = by(f)[0]; if (q) { (v ? row.eq : row.no).push(f); row.src.push(q.url); } else drop.push(f);
     }
-    row.src = [...new Set(row.src)];
-    if (drop.length) held.push({ dg, why: "no quote on a fetched importer page for " + drop.join(", ") });
+    row.src = [...new Set(row.src)]; if (!stated) row.cur = true;
+    if (drop.length) held.push({ dg, why: "no quote in the fetched text for " + drop.join(", ") });
     if (row.src.length) for (const y of years) rows[`${g.cd}-${dg}|${y}`] = Object.fromEntries(Object.entries(row).filter(([k, v]) => !Array.isArray(v) || v.length || k === "eq"));
   }
   return { rows, held };
 }
 
-const turnCost = (m, msg) => price(m, msg.usage || {}) + ((msg.usage && msg.usage.server_tool_use && msg.usage.server_tool_use.web_search_requests) || 0) * 0.01;
+// pdftotext from poppler (the workflow installs it); "" when it is missing or the file is not a PDF
+export async function pdfText(buf) {
+  const { execFileSync } = await import("node:child_process"), os = await import("node:os");
+  const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "pdf-")), "a.pdf"); fs.writeFileSync(f, buf);
+  try { return execFileSync("pdftotext", ["-layout", "-enc", "UTF-8", f, "-"], { maxBuffer: 64 << 20 }).toString(); } catch { return ""; }
+}
 
-export async function run({ env = process.env, api, groups, log = console.log } = {}) {
-  const out = env.OUT || "out", budget = +(env.SPEC_BUDGET || 15), limit = +(env.SPEC_MAX || 400);
+// SPEC_ONLY: "cd|NAME,cd|NAME" limits the run to those model names. SPEC_ASK=0 fetches and logs the documents only (no Claude, no cost)
+export async function run({ env = process.env, api, groups, log = console.log, fetchDocs } = {}) {
+  const out = env.OUT || "out", budget = +(env.SPEC_BUDGET || 2), limit = +(env.SPEC_MAX || 400), askOn = env.SPEC_ASK !== "0";
   fs.mkdirSync(out, { recursive: true });
   const prevFile = path.join(out, "specs-extra.json"); let prev = null; try { prev = JSON.parse(fs.readFileSync(prevFile, "utf8")); } catch {}
-  const file = { v: 1, u: new Date().toISOString().slice(0, 10), fields: Object.fromEntries(Object.entries(NUM).map(([k, [he, u]]) => [k, { he, u }])), eq: EQ, codes: { ...((prev && prev.codes) || {}) }, done: { ...((prev && prev.done) || {}) } };
+  const file = { v: 2, u: new Date().toISOString().slice(0, 10), fields: Object.fromEntries(Object.entries(NUM).map(([k, [he, u]]) => [k, { he, u }])), eq: EQ,
+    codes: { ...((prev && prev.codes) || {}) }, done: { ...((prev && prev.v >= 2 && prev.done) || {}) } };
   groups ??= targets(env.CAT || "cat");
-  if (api === undefined) { const c = await client(env, { timeout: 8 * 60000 }); api = c.api; if (!api) { log("specs: no Claude (" + c.why + ")"); return { read: 0 }; } }
+  const only = String(env.SPEC_ONLY || "").split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
+  if (only.length) groups = groups.filter(g => only.includes(`${g.cd}|${g.name}`));
+  if (askOn && api === undefined) { const c = await client(env, { timeout: 8 * 60000 }); api = c.api; if (!api) { log("specs: no Claude (" + c.why + ")"); return { read: 0 }; } }
+  let browser = null;
+  if (!fetchDocs) { const { chromium } = await import("playwright"); browser = await chromium.launch(); fetchDocs = g => crawl(g, { browser, log, pdfText }); }
   let spent = 0, read = 0, kept = 0; const review = [];
-  const todo = groups.filter(g => !file.done[g.cd + "|" + g.name]).slice(0, limit);
-  for (const g of todo) {
-    if (spent >= budget) break;
-    const tools = [{ type: "web_search_20250305", name: "web_search", max_uses: SEARCH_CAP },
-      { type: "web_fetch_20250910", name: "web_fetch", max_uses: FETCH_CAP, citations: { enabled: true }, max_content_tokens: 16000, blocked_domains: NOT_SOURCES }];
-    const params = { model: MODEL, max_tokens: 8000, tools, messages: [{ role: "user", content: prompt(g) }] }, contents = [];
-    let msg = null, err = null;
-    for (let turn = 0; turn < 4; turn++) {
-      const r = await ask(api, params); if (r.error) { err = r.error; break; }
-      msg = r.msg; contents.push(msg.content); spent += turnCost(MODEL, msg);
-      if (msg.stop_reason !== "pause_turn") break;
-      params.messages = [...params.messages, { role: "assistant", content: msg.content }];
+  try {
+    for (const g of groups.filter(g => !file.done[g.cd + "|" + g.name]).slice(0, limit)) {
+      if (spent >= budget) break;
+      const docs = await fetchDocs(g);
+      log(`specs: ${g.cd}|${g.name}: ${docs.length} documents, ${docs.reduce((s, d) => s + d.text.length, 0)} chars` + docs.map(d => `\n  ${d.kind} ${d.text.length} ${d.url}`).join(""));
+      if (!askOn) continue;
+      if (!docs.length) { review.push({ g, docs, covered: new Set(), held: [{ dg: "-", why: "no page of the model found on the importer's site" }] }); continue; }
+      const r = await ask(api, { model: MODEL, max_tokens: 8000, messages: [{ role: "user", content: prompt(g, docs) }] });
+      if (r.error) { log(`specs: stopped (${r.error.why})`); if (r.error.key) break; continue; }
+      spent += price(MODEL, r.msg.usage || {}); read++;
+      const o = parse(answer(r.msg).text);
+      const res = o ? check(o, g, own(docs)) : { rows: {}, held: g.trims.map(t => ({ dg: t.dg, why: "no valid answer" })) };
+      Object.assign(file.codes, res.rows); kept += Object.keys(res.rows).length;
+      file.done[g.cd + "|" + g.name] = file.u;
+      review.push({ g, docs, covered: new Set(Object.keys(res.rows).map(k => +k.split("|")[0].split("-")[1])), held: res.held, rows: res.rows });
     }
-    if (err) { log(`specs: stopped (${err.why})`); if (err.key) break; continue; }
-    read++;
-    const o = msg && msg.stop_reason !== "pause_turn" ? parse(answer(msg).text) : null;
-    const res = o ? check(o, g, fetched(contents)) : { rows: {}, held: g.trims.map(t => ({ dg: t.dg, why: "no valid answer" })) };
-    Object.assign(file.codes, res.rows); kept += Object.keys(res.rows).length;
-    file.done[g.cd + "|" + g.name] = file.u;
-    const covered = new Set(Object.keys(res.rows).map(k => +k.split("|")[0].split("-")[1]));
-    review.push({ g, covered, held: res.held });
-  }
+  } finally { if (browser) await browser.close().catch(() => {}); }
+  if (!askOn) return { read: 0, spent: 0 };
   fs.writeFileSync(prevFile, JSON.stringify(file) + "\n");
   const pct = (a, b) => b ? Math.round(100 * a / b) : 0;
   const trimsAll = review.reduce((s, r) => s + r.g.trims.length, 0), trimsOk = review.reduce((s, r) => s + r.covered.size, 0);
   const md = ["# מפרטי יבואנים: סוללה ואבזור", "", `נקראו ${read} דגמים, ${trimsOk} מתוך ${trimsAll} רמות גימור (${pct(trimsOk, trimsAll)}%) קיבלו נתונים עם ציטוט.`, "",
-    "| יצרן | דגם | רמות גימור עם נתונים | ממתין לבדיקה |", "|---|---|---|---|",
-    ...review.map(r => `| ${r.g.maker} | ${r.g.name} | ${r.covered.size}/${r.g.trims.length} | ${r.held.map(h => `${h.dg}: ${h.why}`).join("; ").replace(/\|/g, "/").slice(0, 300)} |`), ""];
+    "| יצרן | דגם | מסמכים | רמות גימור עם נתונים | ממתין לבדיקה |", "|---|---|---|---|---|",
+    ...review.map(r => `| ${r.g.maker} | ${r.g.name} | ${r.docs.length} | ${r.covered.size}/${r.g.trims.length} | ${r.held.map(h => `${h.dg}: ${h.why}`).join("; ").replace(/\|/g, "/").slice(0, 300)} |`), "",
+    "## מה נמצא", "", ...review.flatMap(r => Object.entries(r.rows || {}).map(([k, v]) => `- ${r.g.name} ${k}: ${Object.keys(NUM).filter(f => v[f] !== undefined).map(f => `${NUM[f][0]} ${v[f]}`).join(", ")}${v.eq && v.eq.length ? "; " + v.eq.map(e => EQ[e]).join(", ") : ""}${v.no && v.no.length ? "; בלי: " + v.no.map(e => EQ[e]).join(", ") : ""}${v.cur ? " (השנה לפי הדף העדכני)" : ""}`)), ""];
   fs.writeFileSync(path.join(out, "specs-review.md"), md.join("\n"));
   log(`specs: ${read} model names read, ${kept} code-years kept, ${trimsOk}/${trimsAll} trims covered`);   // counts only: the repo is public
   return { read, kept, trimsOk, trimsAll, spent };
@@ -210,14 +306,26 @@ if (process.argv[1] && process.argv[1].endsWith("specs-extra.mjs") && process.ar
     ["P", 5, 2026, "COMFORT", 0, "חשמל", "", "ATTO 3", "x", 10], ["M", 48, 2026, "DESIGN", 1498, "חשמל/בנזין", "", "SEALION 5", "x", 99], ["P", 47, 2023, "COMFORT", 1498, "חשמל/בנזין", "", "SEALION 5", "x", 500]] }));
   const t = targets(tmp);
   ok(t.length === 1 && t[0].name === "SEALION 5" && t[0].kind === "phev" && t[0].trims.length === 2 && t[0].n === 5288 && t[0].trims[0].dg === 47, "targets: private, recent, enough cars, grouped by model name");
-  // a run through a fake API: the budget stops it, the file and the review are written
-  const fakeMsg = { stop_reason: "end_turn", usage: { input_tokens: 2e6, output_tokens: 0 }, content: [{ type: "web_fetch_tool_result", content: { type: "web_fetch_result", url: U, content: { source: { type: "text", data: page } } } },
-    { type: "text", text: JSON.stringify({ trims: [o.trims[0]] }) }] };
-  const api = { messages: { create: async () => fakeMsg } }, out = path.join(tmp, "out");
-  const res = await run({ env: { OUT: out, SPEC_BUDGET: "3" }, api, groups: [g, { ...g, name: "OTHER" }], log: () => {} });
+  // v2: our own documents, the year rule, the line dedupe, the link match
+  ok(token("JAECOO7 PHEV") === "jaecoo7" && token("SEALION 5") === "sealion5" && token("MODEL Y") === "modely" && linkFits(g, "https://x.co.il/models/sealion-5/", "")
+    && !linkFits(g, "https://x.co.il/models/seal-u/", "דגמים") && linkFits(g, "https://x.co.il/p/12", "BYD Sealion 5 DM-i"), "the model's name in a link");
+  const docs = trimDocs([{ url: U, kind: "page", text: "תפריט\n" + page }, { url: "https://www.byd.co.il/x.pdf", kind: "pdf", text: "תפריט\nDESIGN 2025: מסך מולטימדיה 15.6 אינץ'" }]);
+  ok(docs.length === 2 && !/תפריט/.test(docs[1].text) && /15.6/.test(prompt(g, docs)), "a line repeated across documents is kept once; the documents go in the prompt");
+  const s2 = own(docs), NOW = new Date("2026-11-02T00:00:00Z");
+  const r2 = check({ trims: [{ dg: 48, year: null, num: { screenIn: 15.6 }, quotes: [{ f: "screenIn", url: "https://www.byd.co.il/x.pdf", text: "מסך מולטימדיה 15.6" }] },
+    { dg: 47, year: 2025, num: { kwh: 12.96 }, quotes: [{ f: "kwh", url: "https://other.co.il/a", text: "קיבולת סוללה 12.96" }] }] }, g, s2, { now: NOW });
+  ok(r2.rows["1014-48|2026"] && r2.rows["1014-48|2026"].screenIn === 15.6 && r2.rows["1014-48|2026"].cur && !r2.rows["1014-47|2025"], "no year on the page: the code's latest year, marked; a URL we did not fetch never counts");
+  ok(check({ trims: [{ dg: 47, year: null, num: { kwh: 12.96 }, quotes: [{ f: "kwh", url: U, text: "קיבולת סוללה 12.96" }] }] }, { ...g, trims: [{ ...g.trims[0], years: [2023] }] }, s2, { now: NOW }).held[0].why.includes("2023"),
+    "no year on the page and an old code: held");
+  // a run through a fake API and fake documents: the budget stops it, the file and the review are written
+  const fakeMsg = { stop_reason: "end_turn", usage: { input_tokens: 2e6, output_tokens: 0 }, content: [{ type: "text", text: JSON.stringify({ trims: [o.trims[0]] }) }] };
+  const api = { messages: { create: async () => fakeMsg } }, out = path.join(tmp, "out"), fetchDocs = async () => [{ url: U, kind: "page", text: page }];
+  const res = await run({ env: { OUT: out, SPEC_BUDGET: "3" }, api, fetchDocs, groups: [g, { ...g, name: "OTHER" }], log: () => {} });
   const f = JSON.parse(fs.readFileSync(path.join(out, "specs-extra.json"), "utf8"));
   ok(res.read === 1 && f.codes["1014-47|2026"].kwh === 12.96 && f.done["1014|SEALION 5"] && !f.done["1014|OTHER"] && /1\/2/.test(fs.readFileSync(path.join(out, "specs-review.md"), "utf8")), "run: stops at the budget, keeps the file and the review");
-  const res2 = await run({ env: { OUT: out, SPEC_BUDGET: "3" }, api, groups: [g], log: () => {} });
+  const res2 = await run({ env: { OUT: out, SPEC_BUDGET: "3" }, api, fetchDocs, groups: [g], log: () => {} });
   ok(res2.read === 0, "run: a model name already read is not read again");
+  const res3 = await run({ env: { OUT: out, SPEC_ONLY: "1014|OTHER", SPEC_ASK: "0" }, api: null, fetchDocs, groups: [g, { ...g, name: "OTHER" }], log: () => {} });
+  ok(res3.read === 0 && !JSON.parse(fs.readFileSync(path.join(out, "specs-extra.json"), "utf8")).done["1014|OTHER"], "SPEC_ASK=0 fetches only and writes nothing");
   console.log(bad ? `${bad} failed` : "selftest ok"); process.exit(bad ? 1 : 0);
 }
