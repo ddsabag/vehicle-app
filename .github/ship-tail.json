@@ -6,7 +6,7 @@
     {
       "key": "uptime", "dir": "worker/uptime", "name": "luchit-uptime", "deploy": "main", "create": true,
       "probe": { "kind": "health", "path": "/health", "version": true },
-      "secretsFromGitHub": ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
+      "secretsFromGitHub": ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "GH_DISPATCH_TOKEN"]
     },
     {
       "key": "og", "dir": "worker/og", "name": "luchit-og", "deploy": "main", "create": false,

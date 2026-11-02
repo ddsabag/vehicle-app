@@ -20,6 +20,7 @@ const T = s => RealDate.parse(s), M = 6e4, H = 36e5;
 const enc = s => (typeof s === "string" ? new TextEncoder().encode(s) : s);
 const HB = "https://raw.githubusercontent.com/ddsabag/vehicle-app/alert-state/heartbeat.json";
 const OKPAGE = ["<!doctype html><html><head>", '<input id="pl', 'ate" type="text">', "</body></html>"];   // the marker split across chunks
+let gh = { runs: {}, calls: [], sent: [], status: 0 };
 let site, tg, chk, mails, brevo, hb, hbReads, tgDown, tgCode, chkCodes, homeHits, pulled, cancels, logs;
 const reset = () => { site = { home: { status: 200, chunks: OKPAGE }, api: { status: 302, loc: "https://luchit.app/magazine/?subscribed=expired" } }; hb = undefined; tgDown = false; tgCode = 0; chkCodes = []; };
 globalThis.fetch = async (u, o = {}) => {
@@ -27,6 +28,15 @@ globalThis.fetch = async (u, o = {}) => {
   if (u.startsWith("https://api.telegram.org/")) {
     if (u.includes("/getChat?")) { chk++; ok(u.endsWith("?chat_id=SECRET"), "getChat names the chat"); return new Response("{}", { status: chkCodes.shift() || (tgDown ? 401 : 200) }); }
     tg.push(JSON.parse(o.body)); return new Response("{}", { status: tgCode || (tgDown ? 500 : 200) });
+  }
+  if (u.startsWith("https://api.github.com/")) {   // the backup clock: runs list and dispatch
+    ok(o.headers?.authorization === "Bearer GHTOKEN" && /luchit-uptime/.test(o.headers?.["user-agent"] || ""), "clock calls carry the token and a user-agent");
+    const m = u.match(/workflows\/([a-z-]+\.yml)\/(runs|dispatches)/);
+    gh.calls.push(m ? m[1] + " " + m[2] : u);
+    if (gh.status) return new Response("{}", { status: gh.status });
+    if (m && m[2] === "dispatches") { gh.sent.push([m[1], JSON.parse(o.body)]); return new Response(null, { status: 204 }); }
+    const t = m && gh.runs[m[1]];
+    return new Response(JSON.stringify({ workflow_runs: t ? [{ created_at: t }] : [] }));
   }
   if (u.startsWith("https://api.brevo.com/")) { brevo.push(JSON.parse(o.body)); return new Response("{}", { status: 201 }); }
   if (u === HB) { hbReads++; return hb === undefined ? new Response("404: Not Found", { status: 404 }) : new Response(JSON.stringify({ t: hb })); }
@@ -82,7 +92,7 @@ x = await tick(env, DAY);
 ok(x.tg.length === 1 && x.tg[0].disable_notification === true && /בדיקת הזמינות פועלת/.test(x.tg[0].text) && x.puts === 1, "first tick: one silent hello, one KV write " + JSON.stringify(x.tg));
 let h = await health(env);
 ok(h.status === 200 && h.j.mode === "page" && h.j.armed.home && h.j.armed.api && h.j.tg === true && h.j.email === true && h.j.tick === new RealDate(DAY).toISOString(), "/health after a good tick " + JSON.stringify(h.j));
-ok(JSON.stringify(Object.keys(h.j)) === '["v","mode","tick","armed","tg","email"]' && JSON.stringify(Object.keys(h.j.armed)) === '["home","api"]' && h.j.v === "uptime-1", "/health field whitelist");
+ok(JSON.stringify(Object.keys(h.j)) === '["v","mode","tick","armed","tg","email","clock"]' && h.j.clock.on === false && JSON.stringify(Object.keys(h.j.armed)) === '["home","api"]' && h.j.v === "uptime-1", "/health field whitelist");
 ok((await health(env, "/")).status === 404 && (await health(env, "/health", "POST")).status === 404 && (await health(env, "/u")).status === 404, "anything else -> 404");
 x = await tick(env, DAY + 10 * M);
 ok(x.tg.length === 0 && x.puts === 1, "healthy tick: no message");
@@ -310,6 +320,53 @@ x = await tick(env, DAY);
 ok(x.tg.length === 0, "no KV binding: nothing sent");
 h = await health(env);
 ok(h.status === 200 && h.j.tick === null && h.j.armed.home === false, "/health without KV");
+
+// 11. the backup clock (2.11.2026): off without a token; once an hour; starts what is late inside its hours, with its inputs; the morning
+// only while today's heartbeat is missing; a refused token = one day alert per 22.5 h and no further calls; one quiet line per day
+{
+  const { clockDue } = await import("data:text/javascript," + encodeURIComponent(src));
+  const names = (t, hbT) => clockDue(T(t), hbT ? T(hbT) : null).map(c => c.wf).join();
+  ok(names("2026-11-02T03:00:00Z") === "live-watch.yml", "03:00 UTC: only the dashboard watch " + names("2026-11-02T03:00:00Z"));
+  ok(names("2026-11-02T06:50:00Z", "2026-11-01T06:52:00Z") === "social-publish.yml,live-watch.yml,alert-daily.yml", "08:50 local, heartbeat from yesterday: the morning is due; reviews not before 07 UTC " + names("2026-11-02T06:50:00Z", "2026-11-01T06:52:00Z"));
+  ok(names("2026-11-02T06:40:00Z", "2026-11-01T06:52:00Z").includes("alert-daily") === false, "08:40 local: the morning is not due yet");
+  ok(names("2026-11-02T06:50:00Z", "2026-11-02T06:10:00Z").includes("alert-daily") === false, "today's heartbeat: the morning is done");
+  ok(names("2026-11-02T20:30:00Z", "2026-11-01T06:52:00Z") === "live-watch.yml", "22:30 local: no morning at night, no posts after 20 UTC");
+  ok(names("2026-11-02T12:00:00Z", "2026-11-02T06:10:00Z") === "social-publish.yml,live-watch.yml,reviews-monitor.yml,release-watch.yml", "midday after the morning: four by the hours");
+}
+reset(); gh = { runs: {}, calls: [], sent: [], status: 0 };
+env = PAGE(); env.ALERT_ROUTE = "all"; hb = "2026-11-02T06:10:00Z";   // today's morning went out
+const NOON = T("2026-11-02T12:00:00Z");
+x = await tick(env, NOON);
+ok(gh.calls.length === 0 && U(env).clock.at === null, "no token: the clock is off");
+env.GH_DISPATCH_TOKEN = "GHTOKEN"; env.CLOCK = "off";
+x = await tick(env, NOON + 10 * M);
+ok(gh.calls.length === 0, "CLOCK=off: the clock is off");
+delete env.CLOCK;
+gh.runs = { "social-publish.yml": "2026-11-02T11:49:00Z", "live-watch.yml": "2026-11-02T09:42:00Z", "reviews-monitor.yml": "2026-11-02T11:15:00Z", "release-watch.yml": "2026-11-01T17:40:00Z" };
+x = await tick(env, NOON + 20 * M);
+ok(JSON.stringify(gh.sent) === JSON.stringify([["live-watch.yml", { ref: "main", inputs: { dry_run: "false" } }], ["release-watch.yml", { ref: "main", inputs: { mode: "on" } }]]), "starts only what is late, on main, with its inputs " + JSON.stringify(gh.sent));
+ok(x.tg.length === 1 && x.tg[0].disable_notification === true && /שעון הגיבוי הפעיל אותם: מעקב הדשבורד, מעקב הגרסה בחנות/.test(x.tg[0].text), "one quiet line names them " + JSON.stringify(x.tg.map(m => m.text)));
+ok(U(env).clock.n === 2 && U(env).clock.told === "2026-11-02", "counted for /health");
+gh.calls = []; gh.sent = [];
+x = await tick(env, NOON + 30 * M);
+ok(gh.calls.length === 0, "once an hour: the next ticks do not call");
+gh.runs["social-publish.yml"] = "2026-11-02T11:49:00Z";
+x = await tick(env, NOON + 80 * M);
+ok(gh.sent.map(a => a[0]).join() === "social-publish.yml,live-watch.yml,release-watch.yml" && x.tg.length === 0, "an hour later: late ones again, no second line that day " + JSON.stringify(gh.sent));
+h = await health(env);
+ok(h.j.clock.on === true && h.j.clock.today === 5 && h.j.clock.ok === true, "/health shows the clock " + JSON.stringify(h.j.clock));
+gh.calls = []; gh.sent = []; gh.status = 401;
+x = await tick(env, NOON + 150 * M);
+ok(gh.calls.length === 1 && gh.sent.length === 0 && x.tg.length === 1 && /שעון הגיבוי של הבוטים לא עובד/.test(x.tg[0].text) && x.tg[0].disable_notification === false, "refused token: one loud day alert by day, no more calls " + JSON.stringify(x.tg.map(m => m.text)));
+x = await tick(env, NOON + 210 * M);
+ok(x.tg.length === 0 && U(env).clock.err === "refused 401", "refused again within 22.5 h: no second alert");
+h = await health(env);
+ok(h.j.clock.ok === false, "/health: clock not ok");
+gh.status = 0; gh.runs = {}; gh.calls = []; gh.sent = [];
+hb = "2026-11-02T06:10:00Z";
+x = await tick(env, T("2026-11-03T06:50:00Z"));   // 08:50 local on 3.11, heartbeat from 2.11
+ok(gh.sent.map(a => a[0]).includes("alert-daily.yml") && JSON.stringify(gh.sent.find(a => a[0] === "alert-daily.yml")[1]) === '{"ref":"main","inputs":{"dry_run":"false"}}' && U(env).clock.err === null, "the morning: Alert daily started for real when today's heartbeat is missing " + JSON.stringify(gh.sent));
+ok(U(env).clock.n === gh.sent.length, "a new day restarts the count");
 
 log(bad ? `uptime test: ${bad} of ${n} checks FAILED` : `uptime test ok (${n} checks)`);
 process.exit(bad ? 1 : 0);
