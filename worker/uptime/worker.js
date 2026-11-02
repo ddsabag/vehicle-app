@@ -5,12 +5,14 @@
 //   2 failed ticks in a row (each with one retry) = one critical alert: Telegram loud + email in parallel; one reminder per 22.5 h by day;
 //   a silent line on recovery (retried on later OK ticks until it is out). A probe pages only after its first success (armed).
 //   Other duties: the morning ring for luchit-mail's night pointers (KV "p:<ms>", listed on every daytime tick), a daily Telegram
-//   getChat, and a watch on the GitHub heartbeat (alert-state/heartbeat.json) 4 times a day.
+//   getChat, a watch on the GitHub heartbeat (alert-state/heartbeat.json) 4 times a day, and the backup clock (CLOCK below, once an hour):
+//   GitHub started scheduled runs hours late or not at all from 1.11.2026, so the bots that matter most are started from here when late.
 //   GET /health = public status without keys, numbers or mail data.
 // Observe mode (default): the dashboard variable ALERT_ROUTE does not list "critical", so a would-be page is a SILENT "🧪 (מצב ניסיון)"
 // message with no email. ALERT_ROUTE=critical turns paging on; deleting the variable turns it off again.
 // Bindings: KV ALERTS (luchit-alerts, required; without it the Worker only logs). Optional: Send Email MAIL. Secrets: TELEGRAM_BOT_TOKEN,
-// TELEGRAM_CHAT_ID (without them it records and sends nothing), optional BREVO_KEY. KV "u" is written once per tick (144/day).
+// TELEGRAM_CHAT_ID (without them it records and sends nothing), optional BREVO_KEY, optional GH_DISPATCH_TOKEN (the backup clock; without
+// it the clock is off; dashboard variable CLOCK=off stops it too). KV "u" is written once per tick (144/day).
 // The block between the alert-lib v1 markers is a byte-identical copy of worker/lib/alert-lib.js (CI compares them).
 const SITE = "https://luchit.app", UA = "luchit-uptime/1", REPO = "ddsabag/vehicle-app";
 const HEARTBEAT = `https://raw.githubusercontent.com/${REPO}/alert-state/heartbeat.json`;
@@ -139,8 +141,9 @@ const PROBES = {
   api: { name: "שירות ההרשמה (/api)", url: () => `${SITE}/api/confirm?e=x&x=1&t=x`, manual: true,
     check: async r => (r.status !== 302 ? String(r.status) : /subscribed=expired/.test(r.headers.get("location") || "") ? "" : "redirect") },
 };
+const C0 = () => ({ at: null, day: null, n: 0, told: null, err: null, errAt: null });   // n = runs the clock started on "day" (Israel date)
 const P0 = () => ({ fails: 0, armed: false, since: null, pagedAt: null, remAt: null, last: null, back: null });   // back = ms down, recovery line not yet out
-const U0 = () => ({ v: 1, tick: null, mode: "observe", probes: { home: P0(), api: P0() }, gh: { seenAt: null, t: null, at: null, staleAt: null }, morning: null, hello: false, tg: false });
+const U0 = () => ({ v: 1, tick: null, mode: "observe", probes: { home: P0(), api: P0() }, gh: { seenAt: null, t: null, at: null, staleAt: null }, clock: C0(), morning: null, hello: false, tg: false });
 const iso = t => new Date(t).toISOString();
 const ms = s => (typeof s === "string" ? Date.parse(s) : NaN);
 const ilDate = d => new Intl.DateTimeFormat("en-CA", { timeZone: QUIET.tz }).format(d);   // YYYY-MM-DD in Israel
@@ -209,6 +212,69 @@ async function tgCheck(env) {
   return false;
 }
 
+// The backup clock (Dudu 2.11.2026 "כן, לבנות"; ops bots review): from 1.11.2026 GitHub started scheduled runs hours late or not at all
+// (2.11: daily bots about 1 h late, later 8-10 h; frequent ones mostly never). Once an hour, for each entry inside its hours (UTC), it reads
+// the newest run of the workflow on main; one created more than "gap" minutes ago is started by hand (workflow_dispatch on main, with the
+// inputs that make it act as its schedule). "morning" (Alert daily) goes by Israel time instead: from 08:45 to 22:00 while today's heartbeat
+// is missing. A scheduled run GitHub still starts late after that does no harm: each of these bots keeps its own state (posted items in
+// social-queue, the daily claim in alert-state, the watch states) and runs in its own concurrency group. GitHub answers 401/403/404 to the
+// token = one day alert at most once per 22.5 h (an expired or revoked token); any other failure is a log line and the next hour retries.
+const CLOCK = [
+  { wf: "social-publish.yml", he: "פרסום ברשתות", utc: [5, 20], gap: 40, inputs: { mode: "run" } },              // slots every 15 min 04:04-19:49
+  { wf: "live-watch.yml", he: "מעקב הדשבורד", utc: [0, 24], gap: 75, inputs: { dry_run: "false" } },             // :12 and :42
+  { wf: "reviews-monitor.yml", he: "ביקורות בחנות", utc: [7, 20], gap: 330, inputs: { dry_run: "false" } },       // 06:15, 11:15, 17:15
+  { wf: "release-watch.yml", he: "מעקב הגרסה בחנות", utc: [8, 20], gap: 330, inputs: { mode: "on" } },            // 06:40, 11:40, 17:40
+  { wf: "alert-daily.yml", he: "סיכום הבוקר", morning: [845, 2200], gap: 60, inputs: { dry_run: "false" } },      // 05:05 / 06:05 (08:05 local)
+];
+const GH_API = `https://api.github.com/repos/${REPO}/actions/workflows/`;
+const ilHM = d => +new Intl.DateTimeFormat("en-GB", { timeZone: QUIET.tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d).replace(":", "");
+async function gh(env, path, body) {
+  const r = await fetch(GH_API + path, { method: body ? "POST" : "GET", body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(10000),
+    headers: { authorization: "Bearer " + env.GH_DISPATCH_TOKEN, accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28", "user-agent": UA, ...(body ? { "content-type": "application/json" } : {}) } });
+  const j = r.status === 204 ? null : await r.json().catch(() => null);
+  return { status: r.status, j };
+}
+// the entries due now (pure, for the test): utc hours or the morning window
+export function clockDue(now, hbT) {
+  const d = new Date(now), h = d.getUTCHours(), hm = ilHM(d), today = ilDate(d);
+  return CLOCK.filter(c => c.morning ? hm >= c.morning[0] && hm < c.morning[1] && !(hbT > 0 && ilDate(new Date(hbT)) === today) : h >= c.utc[0] && h < c.utc[1]);
+}
+async function backupClock(env, u, now, fire) {
+  const c = u.clock;
+  if (!env.GH_DISPATCH_TOKEN || String(env.CLOCK || "").toLowerCase() === "off") return;
+  if (now - ms(c.at) < 55 * 6e4) return;
+  c.at = iso(now);
+  const today = ilDate(new Date(now));
+  if (c.day !== today) Object.assign(c, { day: today, n: 0 });
+  const morningOpen = CLOCK.some(x => x.morning && ilHM(new Date(now)) >= x.morning[0] && ilHM(new Date(now)) < x.morning[1]);
+  const due = clockDue(now, morningOpen ? await heartbeat() : null), started = [];
+  let refused = 0;
+  for (const x of due) {
+    try {
+      const r = await gh(env, `${x.wf}/runs?branch=main&per_page=1`);
+      if ([401, 403, 404].includes(r.status)) { refused = r.status; break; }
+      if (r.status !== 200) { console.log(`clock ${x.wf}: runs read ${r.status}`); continue; }
+      const last = ms(r.j?.workflow_runs?.[0]?.created_at);
+      if (now - last < x.gap * 6e4) continue;
+      const d = await gh(env, `${x.wf}/dispatches`, { ref: "main", inputs: x.inputs });
+      if ([401, 403, 404].includes(d.status)) { refused = d.status; break; }
+      console.log(`clock ${x.wf}: last run ${last > 0 ? Math.round((now - last) / 6e4) + " min ago" : "none"}, started: ${d.status}`);
+      if (d.status === 204) { started.push(x.he); c.n++; }
+    } catch (e) { console.log(`clock ${x.wf}: ${String(e?.name || e).slice(0, 60)}`); }
+  }
+  if (refused) {
+    c.err = "refused " + refused;
+    console.log("clock: GitHub refused the token, " + refused);
+    if (!(now - ms(c.errAt) < UP.remind) && await fire("day", "up:clock-token", `${TAG.gh}\n<b>שעון הגיבוי של הבוטים לא עובד</b>\nGitHub דחה את הטוקן שלו (GH_DISPATCH_TOKEN), כנראה כי פג תוקפו או שבוטל. בינתיים בוטים ש-GitHub מאחר להפעיל לא יופעלו מכאן.\n👉 מה לעשות: ליצור טוקן חדש באותן הגדרות (Actions: Read and write, רק vehicle-app) ולהדביק אותו בסוד GH_DISPATCH_TOKEN, ואז לכתוב בשרשור "תפעול, בוטים ומייל".`))
+      c.errAt = iso(now);
+    return;
+  }
+  c.err = null;
+  // one quiet line per Israel day, on the first start: what GitHub was late with (later starts that day are counted in /health)
+  if (started.length && c.told !== today && await fire("summary", "up:clock", `${TAG.gh}\n🕐 GitHub איחר בהפעלת בוטים, ושעון הגיבוי הפעיל אותם: ${started.join(", ")}.\n👌 לא צריך לעשות כלום.`))
+    c.told = today;
+}
+
 async function tick(env) {
   if (!env.ALERTS) return console.log("no KV binding ALERTS: nothing checked");
   let u;
@@ -216,6 +282,7 @@ async function tick(env) {
   u = { ...U0(), ...(u || {}) };
   u.probes = Object.fromEntries(Object.keys(PROBES).map(id => [id, { ...P0(), ...(u.probes || {})[id] }]));
   u.gh = { ...U0().gh, ...u.gh };
+  u.clock = { ...C0(), ...u.clock };
   const now = Date.now(), day = isDaytime(new Date(now)), page = routed(env, "critical"), keys = !!(env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID);
   u.mode = page ? "page" : "observe";
   if (!keys) u.tg = false;
@@ -283,6 +350,8 @@ async function tick(env) {
     }
   }
 
+  try { await backupClock(env, u, now, fire); } catch (e) { console.log("clock failed:", String(e).slice(0, 120)); }
+
   u.tick = iso(now);
   try { await within(env.ALERTS.put("u", JSON.stringify(u))); } catch (e) { console.log("KV write failed:", String(e).slice(0, 120)); }   // the only write of the tick
 }
@@ -298,7 +367,8 @@ export default {
     try { u = env.ALERTS ? await readU(env) : null; } catch { ok = false; }
     const a = id => !!u?.probes?.[id]?.armed;
     return new Response(JSON.stringify({ v: "uptime-1", mode: routed(env, "critical") ? "page" : "observe", tick: u?.tick || null,
-      armed: { home: a("home"), api: a("api") }, tg: u?.tg === true, email: !!(env.MAIL || env.BREVO_KEY) }),
+      armed: { home: a("home"), api: a("api") }, tg: u?.tg === true, email: !!(env.MAIL || env.BREVO_KEY),
+      clock: { on: !!env.GH_DISPATCH_TOKEN && String(env.CLOCK || "").toLowerCase() !== "off", at: u?.clock?.at || null, today: u?.clock?.day === ilDate(new Date()) ? u.clock.n : 0, ok: !u?.clock?.err } }),
       { status: ok ? 200 : 503, headers: { "content-type": "application/json", "cache-control": "no-store", ...version(env) } });
   },
 };

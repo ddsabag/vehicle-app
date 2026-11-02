@@ -2,7 +2,8 @@ name: Alert daily
 # The alert router's daily job (router spec 8.1): claim the day, Telegram self-test (getMe + getChat, sends nothing), the morning ring of night items,
 # the luchit-uptime check (only when the repo variable ALERT_UPTIME_URL is set), the Monday "Sunday summary went out" check, then the heartbeat and the prune.
 # State lives on branch alert-state (keys, levels and times only, never message text).
-# Two lines a day so exactly one lands at 08:xx in Jerusalem in summer and winter, however late cron starts; the engine's gate makes the other one a no-op.
+# Two lines a day so exactly one lands at 08:xx in Jerusalem in summer and winter; the engine's gate makes the other one a no-op. A run GitHub starts
+# hours late still acts until 22:00 local when the day is not done (2.11.2026: the morning ran at 17:34 and, with a 14:00 cap, never went out).
 # A red run means Telegram failed its self-test or the morning ring did not go out (an email is sent when a Brevo key exists); failure-alert reports
 # the red run too (with its own Brevo email when Telegram is down), and GitHub's own email while that is switched on.
 # The morning ledger (quiet, only when there was a problem): every problem of the last 24 h and what happened to it.

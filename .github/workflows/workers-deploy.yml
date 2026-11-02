@@ -114,6 +114,7 @@ jobs:
           BREVO_API_KEY: ${{ secrets.BREVO_API_KEY || secrets.BREVO_KEY }}   # the router's email path for a loud alert
           REVIEWS_SA_JSON: ${{ secrets.REVIEWS_SA_JSON }}   # copied once into luchit-reviews (Play "Reply to reviews" only)
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}   # copied once into luchit-reviews and luchit-mail (reply drafts; Console workspace luchit-bots, capped)
+          GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}   # copied once into luchit-uptime: the backup clock (fine-grained, vehicle-app only, Actions read/write; Dudu 2.11.2026)
           ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           RESULT_FILE: ${{ runner.temp }}/workers-deploy.json
