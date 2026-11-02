@@ -580,10 +580,14 @@ export function ledgerText(s, now) {
 
 // ---- daily job (alert-daily.yml) ----
 // scheduled runs act only at local 08:00-13:59 and once per local day; manual runs skip the hour check
+// A scheduled run acts from 08:00 local until 22:00 if the day is not done yet. Until 2.11.2026 it stopped at 14:00, but GitHub started
+// the 06:05 run at 17:34 local that day, so no morning ring, ledger or heartbeat went out at all; a late ring beats none. After 22:00 it
+// waits for tomorrow (no ring at night).
 export function dailyGate(now, hb, scheduled) {
   const d = new Date(now), h = +parts(d).hour;
-  if (scheduled && (h < 8 || h >= 14)) return "early";
-  return hb && hb.daily === ilDate(d) ? "done" : "act";
+  if (scheduled && h < 8) return "early";
+  if (hb && hb.daily === ilDate(d)) return "done";
+  return scheduled && h >= 22 ? "late" : "act";
 }
 export function prune(s, now) {
   for (const [k, it] of Object.entries(s.items)) if (!(now - t0(it.last) <= 21 * 864e5)) delete s.items[k];
@@ -598,7 +602,8 @@ async function daily() {
   const s0 = await readState();
   if (!s0) { IO.out("daily: state not readable"); return 1; }
   const gate = dailyGate(now, s0.hb, env.GITHUB_EVENT_NAME === "schedule");
-  if (gate === "early") { IO.out("daily: outside 08:00-14:00 local, nothing to do"); return 0; }
+  if (gate === "early") { IO.out("daily: before 08:00 local, nothing to do"); return 0; }
+  if (gate === "late") { IO.out("daily: after 22:00 local and not done today: GitHub started this run too late, the next one is tomorrow"); return 0; }
   if (gate === "done" && !dry) { IO.out("daily: already done today"); return 0; }
   let s = s0;
   if (!dry) {   // 1 claim
@@ -832,6 +837,11 @@ async function selftest() {
       ok(acts === 1, `daily gate ${day} +${d1}/+${d2}: ${acts} acting runs`);
     }
     ok(dailyGate(Date.parse("2026-10-24T04:00Z"), {}, false) === "act", "manual run skips the hour check");
+    // 2.11.2026: the 06:05 cron started at 15:34 UTC (17:34 local) and the morning never went out; now it acts until 22:00 local, once
+    ok(dailyGate(Date.parse("2026-11-02T15:34Z"), { daily: "2026-11-01" }, true) === "act", "a run GitHub started late in the afternoon still acts");
+    ok(dailyGate(Date.parse("2026-11-02T15:34Z"), { daily: "2026-11-02" }, true) === "done", "a late run after a done day does nothing");
+    ok(dailyGate(Date.parse("2026-11-02T20:30Z"), { daily: "2026-11-01" }, true) === "late", "after 22:00 local: no ring at night");
+    ok(dailyGate(Date.parse("2026-11-02T05:56Z"), { daily: "2026-11-01" }, true) === "early", "07:56 local is still early");
 
     // decision table: level x day/night x episode x gates; reminders are never loud at night
     const SC = { none: null, same: { sent: -1, last: -1 }, remind: { sent: -23, last: -1 }, idle: { sent: -27, last: -27 },
@@ -1261,7 +1271,7 @@ async function selftest() {
       d = await runCli(["daily"], { m, env: { GITHUB_EVENT_NAME: "schedule" }, now: Date.parse("2026-10-20T06:20:00Z") });
       ok(d.code === 0 && m.tg.length === 1 && d.last === "daily: already done today", "daily: second run the same day does nothing");
       d = await runCli(["daily"], { m, env: { GITHUB_EVENT_NAME: "schedule" }, now: Date.parse("2026-10-21T04:20:00Z") });
-      ok(d.code === 0 && /outside/.test(d.last), "daily: early scheduled line skips");
+      ok(d.code === 0 && /before 08:00/.test(d.last), "daily: early scheduled line skips");
       const m2 = net({ state: { ...base(), hb: { summaryAt: iso(Date.parse("2026-10-11T05:30:00Z")), uptimeSeenAt: iso(DAY - 24 * H) } }, tgSelf: 401 });
       d = await runCli(["daily"], { m: m2, env: { BREVO_API_KEY: "b", ALERT_UPTIME_URL: "https://luchit-uptime.test/" }, now: Date.parse("2026-10-19T06:30:00Z") });
       ok(d.code === 1 && m2.mails.some(x => x.subject.includes("טלגרם")) && d.out.includes("email path: on"), "daily: Telegram self-test failure -> email + red");
