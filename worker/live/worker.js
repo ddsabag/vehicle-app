@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-46";   // shown in /live/data so the running version is visible
+const BUILD = "live-47";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -588,9 +588,11 @@ async function collect(env) {
   // a Worker request may make only 50 outside calls: get the token once, before the parallel calls, or each of them fetches its own
   await googleToken(env).catch(() => {});
   // realtime: events, and active users by platform (the app's devices in Israel, and the site, where every opening of the page is its own "user")
-  const [events, plats, vToday, vYday, dly, sc, wk, ps, rt, rty] = await Promise.all([
+  const [events, plats, online, vToday, vYday, dly, sc, wk, ps, rt, rty] = await Promise.all([
     safe(realtime(env, { dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: REAL, limit: 40 }), "events"),
     safe(realtime(env, { dimensions: [{ name: "platform" }], metrics: [{ name: "activeUsers" }], dimensionFilter: REAL }), "platforms"),
+    // who is on right now: the last 5 minutes (Dudu 2.11), the top line of the page
+    safe(realtime(env, { dimensions: [{ name: "platform" }], metrics: [{ name: "activeUsers" }], dimensionFilter: REAL, minuteRanges: [{ startMinutesAgo: 4, endMinutesAgo: 0 }] }), "online"),
     safe(cfVisits(env, today), "visitsToday"), safe(cfVisits(env, yday), "visitsYesterday"), safe(collectDaily(env), "daily"), safe(collectSeo(env, today), "seo"),
     safe(collectWeekly(env, today), "weekly"), playStatus(), safe(rtToday(env, today), "today"), safe(rtKept(env, yday), "yesterday tally")]);
   // the side Google sources (cached for hours, so usually no call at all) go after the GA4 batch: started with it, they waited for one of the
@@ -606,6 +608,8 @@ async function collect(env) {
   const strip = o => { if (!o) return null; const { errors: _e, cached: _c, ...rest } = o; return rest; };
   cache = { build: BUILD, errors: quota ? { ga4: "מכסת Google מלאה, מוצגים נתונים אחרונים ויתעדכנו בעוד כמה דקות", ...errors } : errors, stale: quota, at: quota && prev.at ? prev.at : new Date().toISOString(),
     activeUsers: plat("Android"),
+    online: online ? { app: online.filter(r => r.dimensionValues[0].value === "Android").reduce((t, r) => t + Number(r.metricValues[0].value || 0), 0),
+      web: online.filter(r => r.dimensionValues[0].value === "web").reduce((t, r) => t + Number(r.metricValues[0].value || 0), 0) } : (quota ? prev.online ?? null : null),
     events: events ? events.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]).sort((a, b) => b[1] - a[1]) : (quota ? prev.events ?? null : null),
     rtToday: rt ?? (quota ? prev.rtToday ?? null : null), rtYday: rty ?? prev.rtYday ?? null, visitsToday: vToday?.visits ?? null, visitsYesterday: vYday?.visits ?? null,
     // a collector that failed as a whole (no token) falls back to the last numbers it had; each carries its own dates
@@ -620,6 +624,7 @@ const PAGE = `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-
 *{box-sizing:border-box}html{direction:rtl}body{margin:0;background:var(--bg);color:var(--fg);font-family:Arial,"Arial Hebrew","Liberation Sans",Helvetica,sans-serif;font-variant-numeric:tabular-nums;line-height:1.5;text-align:right}
 main{max-width:1280px;margin:0 auto;padding:20px 24px 32px}h1,h2,h3,p{margin:0}a{color:var(--accent)}
 .top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}.brand{display:flex;align-items:center;gap:10px}.brand img{width:36px;height:36px;border-radius:9px;display:block}.brand h1{font-size:1.15rem}
+.onl{display:flex;align-items:center;gap:6px 14px;flex-wrap:wrap;font-size:.86rem;color:var(--muted);margin:-8px 0 14px}.onl b{color:var(--fg);font-size:1rem}.onl .pd{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok)}
 .meta{font-size:.82rem;color:var(--muted)}.meta .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--nt);margin-inline-end:6px;vertical-align:middle}.meta.stale{color:var(--warn)}.meta.stale .dot{background:var(--warn)}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0}
 h2{font-size:.95rem;font-weight:700;margin-bottom:10px}
@@ -689,6 +694,7 @@ tr[data-ev]{cursor:pointer}tr.skr td{padding:2px 6px 8px;border-top:0}.skr rect.
 @media print{details.dr{display:none}body{background:#fff}}
 </style></head><body><main>
 <header class="top"><div class="brand"><img src="https://luchit.app/icon-192.png" alt="" width="36" height="36"><h1>לוחית · מצב העסק</h1></div><div class="hdr"><button class="hb" id="hb" type="button" aria-pressed="false">הסבר</button><p class="meta" id="meta"><span class="dot"></span>טוען</p></div></header>
+<p class="onl" id="onl" hidden></p>
 <p class="help" id="leg"><b>מצב הסבר.</b> לכל כרטיס מצורף הסבר קצר: מה המספר אומר, מאיפה הוא מגיע ומה עושים איתו. הסימונים: <span class="chip s-ok"><i>✓</i>תקין</span> ביעד או מעליו · <span class="chip s-warn"><i>!</i>דורש תשומת לב</span> קצת מתחת ליעד · <span class="chip s-bad"><i>✕</i>מתחת ליעד</span> · <span class="chip s-early"><i>◷</i>מוקדם לשפוט</span> · <span class="chip s-nodata"><i>?</i>אין נתון</span>. «לפירוט» ליד מספר פותח את המגירה שלו בתחתית הדף, ובה המספרים שמאחוריו. הכפתור «הסבר» למעלה מכבה את ההסברים, והבחירה נשמרת.</p>
 
 <section class="r1">
@@ -940,6 +946,7 @@ const first=att.find(x=>x.short);const mid=first?first.short+".":H.s==="ok"?"א�
 const tail=H.s==="ok"?"השירות תקין.":H.s==="warn"?n1(H.r)+"% מהבדיקות נכשלו, מעט מעל הרגיל.":H.s==="bad"?n1(H.r)+"% מהבדיקות נכשלו.":H.s==="early"?"מעט מדי בדיקות כדי לשפוט את תקינות השירות.":"אין נתון על תקינות השירות.";
 $("vd").className="card verdict s-"+vs;$("vh").innerHTML=chip(vs,att[0]&&att[0].s===vs?att[0].w:"")+'<span class="lbl">השורה התחתונה</span>';$("vs").textContent=[head,mid,tail].filter(Boolean).join(" ");
 {const Ed=d.daily&&d.daily.events,T=Ed&&Ed.today||{},rt=d.events||[],g=k=>(rt.find(e=>e[0]===k)||[0,0])[1],tc=T.car_lookup?T.car_lookup[0]:null,rc=d.rtToday&&d.rtToday.car_lookup!=null?d.rtToday.car_lookup:g("car_lookup"),ck=Ed?Math.max(tc||0,rc):d.rtToday?rc:null;
+{const o=d.online,e=$("onl");e.hidden=!o;if(o)e.innerHTML='<span><i class="pd"></i> מחוברים עכשיו:</span><span><b>'+n(o.app)+"</b> באפליקציה</span><span><b>"+n(o.web)+'</b> באתר</span><small>5 הדקות האחרונות'+(d.stale?", נתון אחרון שנשמר":"")+"</small>"}
 $("vt").innerHTML=ck==null&&instToday==null&&d.visitsToday==null?"":"<span>היום עד עכשיו:</span>"+(ck!=null?"<span><b>"+n(ck)+"</b> בדיקות רכב</span>":"")+(instToday!=null?"<span><b>"+n(instToday)+"</b> התקנות חדשות</span>":"")+(d.visitsToday!=null?"<span><b>"+n(d.visitsToday)+"</b> ביקורים באתר</span>":"")+'<a href="#dr-now" data-open="dr-now">לפירוט</a>'}
 $("vn").textContent=cal?"שבוע הבסיס הוא "+rng([addD(CB.end,-6),CB.end])+": לפיו ייקבעו היעדים לבדיקות רכב ולהתקנות, ומ-"+dm(COLS)+" בצהריים כל מספר יקבל צבע מול היעד שלו. עד אז יש צבע רק לתקינות השירות, לדפים בגוגל ולחנות. בדיקות מהאתר נספרות מ-15.10.":"";
 
