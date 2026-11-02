@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-47";   // shown in /live/data so the running version is visible
+const BUILD = "live-48";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -579,6 +579,15 @@ async function rtKept(env, day) {
 }
 
 let cache = null, cacheAt = 0, backoffUntil = 0;
+// who is on right now: the last 5 minutes (Dudu 2.11), the top line of the page. The page asks /live/now every 30 seconds on its own (the
+// rest of the page every minute), so this keeps its answer only 20 seconds, and after a Google quota error answers with the last one.
+let onl = null, onlAt = 0;
+async function onlineNow(env) {
+  if (onl && (Date.now() - onlAt < 20e3 || Date.now() < backoffUntil)) return onl;
+  const rows = await realtime(env, { dimensions: [{ name: "platform" }], metrics: [{ name: "activeUsers" }], dimensionFilter: REAL, minuteRanges: [{ startMinutesAgo: 4, endMinutesAgo: 0 }] });
+  const sum = k => rows.filter(r => r.dimensionValues[0].value === k).reduce((t, r) => t + Number(r.metricValues[0].value || 0), 0);
+  onl = { app: sum("Android"), web: sum("web") }; onlAt = Date.now(); return onl;
+}
 async function collect(env) {
   // GA4 realtime has an hourly token quota: answer from cache for a minute, and after a 429 stop asking for 5 minutes (serve the last good numbers)
   if (cache && (Date.now() - cacheAt < 60e3 || Date.now() < backoffUntil)) return cache;
@@ -591,8 +600,7 @@ async function collect(env) {
   const [events, plats, online, vToday, vYday, dly, sc, wk, ps, rt, rty] = await Promise.all([
     safe(realtime(env, { dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: REAL, limit: 40 }), "events"),
     safe(realtime(env, { dimensions: [{ name: "platform" }], metrics: [{ name: "activeUsers" }], dimensionFilter: REAL }), "platforms"),
-    // who is on right now: the last 5 minutes (Dudu 2.11), the top line of the page
-    safe(realtime(env, { dimensions: [{ name: "platform" }], metrics: [{ name: "activeUsers" }], dimensionFilter: REAL, minuteRanges: [{ startMinutesAgo: 4, endMinutesAgo: 0 }] }), "online"),
+    safe(onlineNow(env), "online"),
     safe(cfVisits(env, today), "visitsToday"), safe(cfVisits(env, yday), "visitsYesterday"), safe(collectDaily(env), "daily"), safe(collectSeo(env, today), "seo"),
     safe(collectWeekly(env, today), "weekly"), playStatus(), safe(rtToday(env, today), "today"), safe(rtKept(env, yday), "yesterday tally")]);
   // the side Google sources (cached for hours, so usually no call at all) go after the GA4 batch: started with it, they waited for one of the
@@ -608,8 +616,7 @@ async function collect(env) {
   const strip = o => { if (!o) return null; const { errors: _e, cached: _c, ...rest } = o; return rest; };
   cache = { build: BUILD, errors: quota ? { ga4: "מכסת Google מלאה, מוצגים נתונים אחרונים ויתעדכנו בעוד כמה דקות", ...errors } : errors, stale: quota, at: quota && prev.at ? prev.at : new Date().toISOString(),
     activeUsers: plat("Android"),
-    online: online ? { app: online.filter(r => r.dimensionValues[0].value === "Android").reduce((t, r) => t + Number(r.metricValues[0].value || 0), 0),
-      web: online.filter(r => r.dimensionValues[0].value === "web").reduce((t, r) => t + Number(r.metricValues[0].value || 0), 0) } : (quota ? prev.online ?? null : null),
+    online: online ?? (quota ? prev.online ?? null : null),
     events: events ? events.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]).sort((a, b) => b[1] - a[1]) : (quota ? prev.events ?? null : null),
     rtToday: rt ?? (quota ? prev.rtToday ?? null : null), rtYday: rty ?? prev.rtYday ?? null, visitsToday: vToday?.visits ?? null, visitsYesterday: vYday?.visits ?? null,
     // a collector that failed as a whole (no token) falls back to the last numbers it had; each carries its own dates
@@ -946,7 +953,7 @@ const first=att.find(x=>x.short);const mid=first?first.short+".":H.s==="ok"?"א�
 const tail=H.s==="ok"?"השירות תקין.":H.s==="warn"?n1(H.r)+"% מהבדיקות נכשלו, מעט מעל הרגיל.":H.s==="bad"?n1(H.r)+"% מהבדיקות נכשלו.":H.s==="early"?"מעט מדי בדיקות כדי לשפוט את תקינות השירות.":"אין נתון על תקינות השירות.";
 $("vd").className="card verdict s-"+vs;$("vh").innerHTML=chip(vs,att[0]&&att[0].s===vs?att[0].w:"")+'<span class="lbl">השורה התחתונה</span>';$("vs").textContent=[head,mid,tail].filter(Boolean).join(" ");
 {const Ed=d.daily&&d.daily.events,T=Ed&&Ed.today||{},rt=d.events||[],g=k=>(rt.find(e=>e[0]===k)||[0,0])[1],tc=T.car_lookup?T.car_lookup[0]:null,rc=d.rtToday&&d.rtToday.car_lookup!=null?d.rtToday.car_lookup:g("car_lookup"),ck=Ed?Math.max(tc||0,rc):d.rtToday?rc:null;
-{const o=d.online,e=$("onl");e.hidden=!o;if(o)e.innerHTML='<span><i class="pd"></i> מחוברים עכשיו:</span><span><b>'+n(o.app)+"</b> באפליקציה</span><span><b>"+n(o.web)+'</b> באתר</span><small>5 הדקות האחרונות'+(d.stale?", נתון אחרון שנשמר":"")+"</small>"}
+onl(d.online,d.stale,d.at);
 $("vt").innerHTML=ck==null&&instToday==null&&d.visitsToday==null?"":"<span>היום עד עכשיו:</span>"+(ck!=null?"<span><b>"+n(ck)+"</b> בדיקות רכב</span>":"")+(instToday!=null?"<span><b>"+n(instToday)+"</b> התקנות חדשות</span>":"")+(d.visitsToday!=null?"<span><b>"+n(d.visitsToday)+"</b> ביקורים באתר</span>":"")+'<a href="#dr-now" data-open="dr-now">לפירוט</a>'}
 $("vn").textContent=cal?"שבוע הבסיס הוא "+rng([addD(CB.end,-6),CB.end])+": לפיו ייקבעו היעדים לבדיקות רכב ולהתקנות, ומ-"+dm(COLS)+" בצהריים כל מספר יקבל צבע מול היעד שלו. עד אז יש צבע רק לתקינות השירות, לדפים בגוגל ולחנות. בדיקות מהאתר נספרות מ-15.10.":"";
 
@@ -1258,7 +1265,11 @@ document.addEventListener("click",e=>{const a=e.target.closest("[data-open]");if
 const tr=e.target.closest("tr[data-ev]");if(tr&&!e.target.closest("a")){const nx=tr.nextElementSibling;if(nx&&nx.classList.contains("skr")){nx.remove();return}const D=window.lastD,Wk=D&&D.weekly,o=Wk&&Wk.e28&&Wk.e28[tr.dataset.ev];if(!o)return;const r=document.createElement("tr");r.className="skr";r.innerHTML='<td colspan="3">'+spark28(o,Wk.M)+"</td>";tr.after(r);return}
 // phones: a tile or a health cell shows its chart and lines on a tap
 const k=e.target.closest(".kpi,.hc");if(k&&!e.target.closest("a")&&matchMedia("(max-width:560px)").matches)k.classList.toggle("open")});
-go();setInterval(()=>{if(!document.hidden)go()},60000);
+// the top line on its own every 30 seconds; when the screen comes back (phone unlocked, tab reopened) everything at once, not at the next tick
+function onl(o,stale,at){const e=$("onl");if(!o){if(!window.lastOnl)e.hidden=true;return}window.lastOnl=o;e.hidden=false;const tm=at?new Date(at).toLocaleTimeString("he-IL",{timeZone:"Asia/Jerusalem",hour:"2-digit",minute:"2-digit"}):"";e.innerHTML='<span><i class="pd"></i> מחוברים עכשיו:</span><span><b>'+o.app.toLocaleString("he-IL")+"</b> באפליקציה</span><span><b>"+o.web.toLocaleString("he-IL")+'</b> באתר</span><small>5 הדקות האחרונות'+(stale?", נתון אחרון שנשמר":"")+(tm?" · "+tm:"")+"</small>"}
+async function now(){try{const r=await fetch("/live/now",{cache:"no-store",signal:AbortSignal.timeout?AbortSignal.timeout(15e3):undefined});if(!r.ok)return;const j=await r.json();onl(j.online,j.stale,j.at)}catch(e){}}
+let lastGo=Date.now();const tick=()=>{if(document.hidden)return;if(Date.now()-lastGo>=59e3){lastGo=Date.now();go()}else now()};
+go();setInterval(tick,30000);document.addEventListener("visibilitychange",()=>{if(!document.hidden){lastGo=Date.now();go()}});
 // the tasks and the calendar (Dudu 26.10): what needs Dudu first, a "בוצע" button that also reaches Claude, the bots' own plans folded
 const calLocal={};
 function renderCal(){const d=window.LVD||{},C=d.cal,box=$("calb");if(!box)return;if(!C){box.innerHTML='<p class="note">היומן עוד לא זמין.</p>';$("cals").textContent="";return}
@@ -1321,6 +1332,10 @@ export default {
     if (!(await verifyAccess(req, env).catch(() => false))) return new Response("forbidden", { status: 403, headers: HEAD });
     if (url.pathname === "/live/cal" && req.method === "POST") return calMark(req, env);
     if (url.pathname === "/live/data") return liveData(env, ctx);
+    if (url.pathname === "/live/now") {
+      try { return json({ online: await onlineNow(env), at: new Date(onlAt).toISOString() }); }
+      catch (e) { if (/ 429/.test(String(e.message))) backoffUntil = Date.now() + 300e3; return onl ? json({ online: onl, at: new Date(onlAt).toISOString(), stale: true }) : json({ error: "unavailable" }, 502); }
+    }
     if (url.pathname === "/live" || url.pathname === "/live/") return new Response(PAGE, { headers: { ...HEAD, "content-type": "text/html; charset=utf-8" } });
     return new Response("not found", { status: 404, headers: HEAD });
   }
