@@ -167,9 +167,11 @@ ${extra}${extra2}${stl.length ? `<h2>הסדרי פשרה שעשויים לחול
   fs.mkdirSync(`model/${slugOf(m)}`, {recursive: true}); fs.writeFileSync(`model/${slugOf(m)}/index.html`, body);
   urls.push(url); if (MOD) lastmod[url] = MOD; m.slug = slugOf(m); m.act = act; slugMap[m.make + "|" + m.model] = m.slug;
 }
-const by = new Map(); for (const m of models) (by.get(m.label) || by.set(m.label, []).get(m.label)).push(m);
+// the list says "by active vehicles": order by m.act (active), not by m.total (active + off the road), within a maker and between makers
+const by = new Map(); for (const m of [...models].sort((a, b) => b.act - a.act)) (by.get(m.label) || by.set(m.label, []).get(m.label)).push(m);
+const byAct = a => a.reduce((t, m) => t + m.act, 0);
 const idx = `${head("דגמי רכב בישראל לפי נתוני משרד התחבורה | לוחית", "רשימת הדגמים הנפוצים בישראל עם מספר הרכבים הפעילים, ק״מ ושנתונים, לפי מאגרי משרד התחבורה.", SITE + "model/").replace("</head>", `<script type="application/ld+json">${JSON.stringify({"@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: [{"@type": "ListItem", position: 1, name: "לוחית", item: SITE}, {"@type": "ListItem", position: 2, name: "כל הדגמים"}]})}</script></head>`)}<p class="muted"><a href="${SITE}">לוחית</a> › כל הדגמים</p><h1>הדגמים הנפוצים בישראל</h1><p class="muted">לפי מספר הרכבים הפעילים במאגרי משרד התחבורה.</p>
-${[...by.entries()].map(([mk, a]) => `<h2>${brandPath(mk) ? `<a href="${SITE}${brandPath(mk)}">${esc(mk)}</a>` : esc(mk)}</h2><ul class="l">${a.map(m => `<li><a href="${SITE}model/${m.slug}/">${esc(m.disp)}</a> <span class="muted">${fmt(m.act)}</span></li>`).join("")}</ul>`).join("\n")}${foot}`;
+${[...by.entries()].sort((x, y) => byAct(y[1]) - byAct(x[1])).map(([mk, a]) => `<h2>${brandPath(mk) ? `<a href="${SITE}${brandPath(mk)}">${esc(mk)}</a>` : esc(mk)}</h2><ul class="l">${a.map(m => `<li><a href="${SITE}model/${m.slug}/">${esc(m.disp)}</a> <span class="muted">${fmt(m.act)}</span></li>`).join("")}</ul>`).join("\n")}${foot}`;
 fs.writeFileSync("model/index.html", idx);
 fs.writeFileSync("model/slugs.json", JSON.stringify(slugMap));
 
