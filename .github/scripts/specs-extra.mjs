@@ -180,7 +180,9 @@ export function prompt(g, docs = []) {
     "Every number and every true/false needs a quote: a short passage copied exactly from the text below, with the URL of its document.",
     "A quote must contain the number itself, or the equipment's name as the text writes it. Do not guess, do not convert units, do not use optional packages.",
     "year: the model year the document states for that trim, or null when it states none.",
-    "When the text does not let you tell which code a trim is, put the code in unsure with the reason.",
+    `The importer's pages describe the cars on sale now. When a document states no year, match the trim by its name to the code whose years include the latest year (${new Date().getUTCFullYear() - 1} or ${new Date().getUTCFullYear()}) and set year to null; leave out older codes.`,
+    "When the text gives one column for several codes (for example \"69/68\"), report the same values for each of those codes.",
+    "When the text does not let you tell which code a trim is, put the code in unsure with the reason. Keep each quote short (under 120 characters).",
     "",
     'Answer with JSON only: {"trims":[{"dg":<code>,"year":<year or null>,"num":{"kwh":<n>,...},"eq":{"wireless":true,...},"quotes":[{"f":"kwh","url":"...","text":"..."}]}],"unsure":[{"dg":<code>,"why":"..."}]}',
     "",
@@ -264,16 +266,17 @@ export async function run({ env = process.env, api, groups, log = console.log, f
   if (!fetchDocs) { const { chromium } = await import("playwright"); browser = await chromium.launch(); fetchDocs = g => crawl(g, { browser, log, pdfText }); }
   let spent = 0, read = 0, kept = 0; const review = [];
   try {
-    for (const g of groups.filter(g => !file.done[g.cd + "|" + g.name]).slice(0, limit)) {
+    for (const g of groups.filter(g => only.length || !file.done[g.cd + "|" + g.name]).slice(0, limit)) {   // named model names are read again
       if (spent >= budget) break;
       const docs = await fetchDocs(g);
       log(`specs: ${g.cd}|${g.name}: ${docs.length} documents, ${docs.reduce((s, d) => s + d.text.length, 0)} chars` + docs.map(d => `\n  ${d.kind} ${d.text.length} ${d.url}`).join(""));
       if (!askOn) continue;
       if (!docs.length) { review.push({ g, docs, covered: new Set(), held: [{ dg: "-", why: "no page of the model found on the importer's site" }] }); continue; }
-      const r = await ask(api, { model: MODEL, max_tokens: 8000, messages: [{ role: "user", content: prompt(g, docs) }] });
+      const r = await ask(api, { model: MODEL, max_tokens: 16000, messages: [{ role: "user", content: prompt(g, docs) }] });
       if (r.error) { log(`specs: stopped (${r.error.why})`); if (r.error.key) break; continue; }
       spent += price(MODEL, r.msg.usage || {}); read++;
-      const o = parse(answer(r.msg).text);
+      const a = answer(r.msg), o = parse(a.text);
+      if (!o) log(`specs: ${g.cd}|${g.name}: no valid answer (${a.why || r.msg.stop_reason || "not JSON"})`);
       const res = o ? check(o, g, own(docs)) : { rows: {}, held: g.trims.map(t => ({ dg: t.dg, why: "no valid answer" })) };
       Object.assign(file.codes, res.rows); kept += Object.keys(res.rows).length;
       file.done[g.cd + "|" + g.name] = file.u;
