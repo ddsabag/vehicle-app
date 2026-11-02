@@ -69,7 +69,7 @@ export function targets(catDir, { kinds = ["ev", "phev"], from = 2024, min = 20 
 // them itself in a real browser, starting from each maker's Israeli site below, and Claude only reads the text we fetched (no web tools).
 // A seed site counts only when its home page names the importer or the brand (a parked or wrong domain is skipped).
 export const SITES = {
-  1014: ["https://www.byd.co.il/", "https://bydauto.co.il/"], 1604: ["https://www.jaecoo.co.il/"], 1605: ["https://omoda.co.il/"],
+  1014: ["https://www.byd.co.il/", "https://bydauto.co.il/"], 1604: ["https://jaecoo.co.il/", "https://www.jaecoo-israel.co.il/", "https://www.colmobil.co.il/"], 1605: ["https://omoda.co.il/"],
   1547: ["https://heyxpeng.co.il/"], 1450: ["https://cheryisrael.co.il/"], 443: ["https://mg-israel.co.il/"],
   1327: ["https://www.tesla.com/he_il/"], 1417: ["https://www.tesla.com/he_il/"], 1634: ["https://www.changan.co.il/"],
   1556: ["https://www.zeekrlife.com/he-il/"], 1465: ["https://dongfeng.co.il/"], 1436: ["https://leapmotor.co.il/"],
@@ -83,7 +83,8 @@ const BRAND = { 1014: "byd", 1604: "jaecoo", 1605: "omoda", 1547: "xpeng", 1450:
 export const PAGE_CAP = 8, PDF_CAP = 4, DOC_CHARS = 30000, ALL_CHARS = 80000;
 const SPEC_WORDS = /spec|brochure|technical|catalog|pricelist|price-list|מפרט|מחירון|קטלוג|ברושור/i;
 // the model name as it appears in a link: "SEALION 5" -> "sealion5", "JAECOO7 PHEV" -> "jaecoo7", "MODEL Y" -> "modely"
-export const token = name => squash(String(name).replace(/\b(PHEV|EV|DM-?I|EM-?I|BYD|PLUG-?IN|HEV)\b/gi, ""));
+// (a name that is too short without them keeps them: "FX EV" -> "fxev", so the FX HEV pages are not the FX EV's)
+export const token = name => { const k = squash(String(name).replace(/\b(PHEV|EV|DM-?I|EM-?I|BYD|PLUG-?IN|HEV)\b/gi, "")); return k.length >= 3 || /\d/.test(k) ? k : squash(name); };
 export const linkFits = (g, href, text) => { const k = token(g.name); if (k.length < 2) return false; let h = String(href || ""); try { h = decodeURI(h); } catch {}
   return squash(h).includes(k) || squash(text).includes(k); };
 
@@ -328,7 +329,7 @@ if (process.argv[1] && process.argv[1].endsWith("specs-extra.mjs") && process.ar
   const t = targets(tmp);
   ok(t.length === 1 && t[0].name === "SEALION 5" && t[0].kind === "phev" && t[0].trims.length === 2 && t[0].n === 5288 && t[0].trims[0].dg === 47, "targets: private, recent, enough cars, grouped by model name");
   // v2: our own documents, the year rule, the line dedupe, the link match
-  ok(token("JAECOO7 PHEV") === "jaecoo7" && token("SEALION 5") === "sealion5" && token("MODEL Y") === "modely" && linkFits(g, "https://x.co.il/models/sealion-5/", "")
+  ok(token("JAECOO7 PHEV") === "jaecoo7" && token("SEALION 5") === "sealion5" && token("MODEL Y") === "modely" && token("FX EV") === "fxev" && token("G6") === "g6" && linkFits(g, "https://x.co.il/models/sealion-5/", "")
     && !linkFits(g, "https://x.co.il/models/seal-u/", "דגמים") && linkFits(g, "https://x.co.il/p/12", "BYD Sealion 5 DM-i"), "the model's name in a link");
   const docs = trimDocs([{ url: U, kind: "page", text: "תפריט\n" + page }, { url: "https://www.byd.co.il/x.pdf", kind: "pdf", text: "תפריט\nDESIGN 2025: מסך מולטימדיה 15.6 אינץ'" }]);
   ok(docs.length === 2 && !/תפריט/.test(docs[1].text) && /15.6/.test(prompt(g, docs)), "a line repeated across documents is kept once; the documents go in the prompt");
