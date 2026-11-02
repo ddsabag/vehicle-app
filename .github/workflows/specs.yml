@@ -42,10 +42,10 @@ jobs:
           mkdir -p out
           if git fetch -q --depth 1 origin specs-data 2>/dev/null; then git show FETCH_HEAD:specs-extra.json > out/specs-extra.json 2>/dev/null || rm -f out/specs-extra.json; fi
       - name: Claude SDK (the version pinned in claude.mjs)
-        run: npm install --no-save --no-audit --no-fund --loglevel=error "$(sed -n 's/^export const SDK = "\(.*\)";$/\1/p' .github/scripts/claude.mjs)" || true
+        # one npm install for both: a second --no-save install removes the first one's packages
+        run: npm install --no-save --no-audit --no-fund --loglevel=error "$(sed -n 's/^export const SDK = "\(.*\)";$/\1/p' .github/scripts/claude.mjs)" playwright@1.49.1 || true
       - name: Browser and PDF reader
         run: |
-          npm install --no-save --no-audit --no-fund --loglevel=error playwright@1.49.1
           npx playwright install --with-deps chromium >/dev/null
           command -v pdftotext >/dev/null || sudo apt-get install -y -qq poppler-utils >/dev/null
       - name: Read the importers' pages
