@@ -95,11 +95,15 @@ export async function crawl(g, { browser, log = () => {}, pdfText }) {
   const open = async url => { const page = await ctx.newPage();
     try { await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 }); await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
       // text of every element, hidden tabs and accordions too, one line per block
-      const r = await page.evaluate(() => { const out = []; const skip = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "SVG", "TEMPLATE"]);
+      const grab = () => { const out = []; const skip = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "SVG", "TEMPLATE"]);
         const walk = n => { for (const c of n.childNodes) { if (c.nodeType === 3) { const t = c.textContent.replace(/\s+/g, " ").trim(); if (t) out.push(t); }
           else if (c.nodeType === 1 && !skip.has(c.tagName)) { walk(c); if (/^(DIV|P|LI|TR|TD|TH|H\d|SECTION|ARTICLE|DT|DD|BR|TABLE)$/.test(c.tagName)) out.push("\n"); } } };
         walk(document.body || document.documentElement);
-        return { text: out.join(" ").replace(/ *\n[\n ]*/g, "\n"), links: [...document.querySelectorAll("a[href]")].map(a => [a.href, (a.textContent || "").trim().slice(0, 80)]) }; });
+        return { text: out.join(" ").replace(/ *\n[\n ]*/g, "\n"), links: [...document.querySelectorAll("a[href]")].map(a => [a.href, (a.textContent || "").trim().slice(0, 80)])
+          .concat([...document.querySelectorAll("iframe[src],embed[src],object[data]")].map(e => [e.src || e.data, "embed"])) }; };
+      // a price list or spec table is often inside an iframe: its text counts as the page's
+      const r = { text: "", links: [] };
+      for (const f of page.frames()) { const x = await f.evaluate(grab).catch(() => null); if (x) { r.text += (r.text ? "\n" : "") + x.text; r.links.push(...x.links); } }
       return { url: page.url(), ...r };
     } catch (e) { log(`specs: ${new URL(url).host}: ${String(e.message || e).split("\n")[0].slice(0, 80)}`); return null; } finally { await page.close().catch(() => {}); } };
   const sitemap = async base => { const out = [];
@@ -120,7 +124,7 @@ export async function crawl(g, { browser, log = () => {}, pdfText }) {
     for (const seed of seeds) {
       const home = await open(seed); if (!home) continue;
       const host0 = host(home.url), sq = squash(home.text);
-      if (!brandWords.some(w => sq.includes(w))) { log(`specs: ${host0}: the home page names neither the brand nor the importer, skipped`); continue; }
+      if (!brandWords.some(w => sq.includes(w))) { log(`specs: ${host0}: the home page names neither the brand nor the importer, skipped (${home.text.length} chars: ${home.text.replace(/\s+/g, " ").slice(0, 100)})`); continue; }
       let cand = home.links.filter(([h]) => host(h) === host0 || host(h).endsWith("." + host0.split(".").slice(-3).join(".")));
       for (const loc of await sitemap(home.url)) if (/sitemap/i.test(loc) && /\.xml/i.test(loc)) {
         try { const r = await ctx.request.get(loc, { timeout: 20000 }); if (r.ok()) for (const m of (await r.text()).matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)) cand.push([m[1], ""]); } catch {}
@@ -128,7 +132,9 @@ export async function crawl(g, { browser, log = () => {}, pdfText }) {
       if (linkFits(g, home.url, "")) cand.unshift([home.url, ""]);
       const pages = [...new Map(cand.filter(([h, t]) => /^https?:/.test(h) && !/\.(jpe?g|png|webp|svg|mp4)(\?|$)/i.test(h) && linkFits(g, h, t)).map(([h]) => [h.split("#")[0], 1])).keys()];
       log(`specs: ${host0}: home ${home.text.length} chars, ${cand.length} links, ${pages.length} name the model`);
-      pages.sort((a, b) => (SPEC_WORDS.test(b) ? 1 : 0) - (SPEC_WORDS.test(a) ? 1 : 0) || a.length - b.length);
+      // the model's name in the address first, then spec words, then the shortest address
+      const rank = h => (squash(h).includes(token(g.name)) ? 2 : 0) + (SPEC_WORDS.test(h) ? 1 : 0);
+      pages.sort((a, b) => rank(b) - rank(a) || a.length - b.length);
       const pdfs = new Set(pages.filter(h => /\.pdf(\?|$)/i.test(h)));
       for (const url of pages.filter(h => !/\.pdf(\?|$)/i.test(h))) {
         if (docs.filter(d => d.kind === "page").length >= PAGE_CAP) break; if (seenUrl.has(norm(url))) continue; seenUrl.add(norm(url));

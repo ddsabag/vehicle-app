@@ -12,7 +12,7 @@ on:
         default: "2"
       only:
         description: "model names to read, cd|NAME comma separated (empty = all)"
-        default: "1014|SEALION 5,1604|JAECOO7 PHEV,1547|G6,443|MG4,1327|MODEL Y"
+        default: "1014|SEALION 5,1604|JAECOO7 PHEV,1547|G6,443|MG4,1450|FX EV"
       ask:
         description: "1 = ask Claude, 0 = fetch and log the documents only (free)"
         default: "1"
@@ -56,7 +56,7 @@ jobs:
         env:
           OUT: out
           SPEC_BUDGET: ${{ inputs.budget || '2' }}
-          SPEC_ONLY: ${{ github.event_name == 'push' && '1014|SEALION 5,1604|JAECOO7 PHEV,1547|G6,443|MG4,1327|MODEL Y' || inputs.only }}
+          SPEC_ONLY: ${{ github.event_name == 'push' && '1014|SEALION 5,1604|JAECOO7 PHEV,1547|G6,443|MG4,1450|FX EV' || inputs.only }}
           SPEC_ASK: ${{ github.event_name == 'push' && '0' || inputs.ask }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
