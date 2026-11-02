@@ -69,14 +69,17 @@ export function targets(catDir, { kinds = ["ev", "phev"], from = 2024, min = 20 
 // them itself in a real browser, starting from each maker's Israeli site below, and Claude only reads the text we fetched (no web tools).
 // A seed site counts only when its home page names the importer or the brand (a parked or wrong domain is skipped).
 export const SITES = {
-  1014: ["https://www.byd.co.il/", "https://bydauto.co.il/"], 1604: ["https://jaecoo.co.il/", "https://www.jaecoo-israel.co.il/", "https://www.colmobil.co.il/"], 1605: ["https://omoda.co.il/"],
+  1014: ["https://www.byd.co.il/", "https://bydauto.co.il/"], 1604: ["https://jaecoo.co.il/"], 1605: ["https://omoda.co.il/"],
   1547: ["https://heyxpeng.co.il/"], 1450: ["https://cheryisrael.co.il/"], 443: ["https://mg-israel.co.il/"],
   1327: ["https://www.tesla.com/he_il/"], 1417: ["https://www.tesla.com/he_il/"], 1634: ["https://www.changan.co.il/"],
   1556: ["https://www.zeekrlife.com/he-il/"], 1465: ["https://dongfeng.co.il/"], 1436: ["https://leapmotor.co.il/"],
 };
 // a model's own page when the maker's site has none or hides it (the importer group's new-car catalogue, or the maker's model page)
 export const MODEL_URLS = {
-  "1014|SEALION 5": ["https://www.shlomo.co.il/new/catalog/Sealion-5/8/"],
+  "1014|SEALION 5": ["https://www.shlomo.co.il/new/catalog/Sealion-5/8/", "https://www.shlomo.co.il/leasing/catalog/sealion-5-dm/SA2H0C", "https://www.shlomo.co.il/leasing/catalog/SEALION-5/SA2H0D"],
+  "1604|JAECOO7 PHEV": ["https://jaecoo.co.il/models/jaecoo7/", "https://jaecoo.co.il/purchase/jaecoo7/", "https://jaecoo.co.il/prices-list/"],
+  "1604|JAECOO 7 PHEV": ["https://jaecoo.co.il/models/jaecoo7/", "https://jaecoo.co.il/purchase/jaecoo7/", "https://jaecoo.co.il/prices-list/"],
+  "1605|OMODA 7 PHEV": ["https://omoda.co.il/models/omoda7/", "https://omoda.co.il/purchase/omoda7/"],
   "1327|MODEL Y": ["https://www.tesla.com/he_il/modely"], "1417|MODEL Y": ["https://www.tesla.com/he_il/modely"],
 };
 const BRAND = { 1014: "byd", 1604: "jaecoo", 1605: "omoda", 1547: "xpeng", 1450: "chery", 443: "mg", 1327: "tesla", 1417: "tesla", 1634: "deepal", 1556: "zeekr", 1465: "dongfeng", 1436: "leapmotor" };
