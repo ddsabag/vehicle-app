@@ -120,6 +120,22 @@
    "id": "18637385977048701",
    "link": "https://www.instagram.com/p/DfPDP8OFeoW/",
    "at": "2026-11-02T10:05:11.564Z"
+  },
+  "2026-11-01/carousel/facebook": {
+   "tries": 1,
+   "last": "2026-11-02T19:21:14.249Z",
+   "status": "done",
+   "id": "1424085817452110_122108303655516900",
+   "link": "https://www.facebook.com/1424085817452110_122108303655516900",
+   "at": "2026-11-02T19:21:25.986Z"
+  },
+  "2026-11-01/carousel/instagram": {
+   "tries": 1,
+   "last": "2026-11-02T19:21:26.241Z",
+   "status": "done",
+   "id": "18080576777397079",
+   "link": "https://www.instagram.com/p/DfQC_1_j-zP/",
+   "at": "2026-11-02T19:22:14.944Z"
   }
  },
  "ig": {
