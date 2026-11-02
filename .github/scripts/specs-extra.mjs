@@ -178,13 +178,14 @@ export function prompt(g, docs = []) {
     `- numbers: ${Object.entries(NUM).map(([k, [he, u]]) => `${k} (${he}, ${u})`).join("; ")}`,
     `- equipment fitted as standard (true) or stated as not fitted (false); leave out what the text does not state: ${Object.entries(EQ).map(([k, he]) => `${k} (${he})`).join("; ")}`,
     "Every number and every true/false needs a quote: a short passage copied exactly from the text below, with the URL of its document.",
+    "Write each quote once, in the top-level quotes list, with every code it is for in dg (a list); do not repeat it inside the trims.",
     "A quote must contain the number itself, or the equipment's name as the text writes it. Do not guess, do not convert units, do not use optional packages.",
     "year: the model year the document states for that trim, or null when it states none.",
     `The importer's pages describe the cars on sale now. When a document states no year, match the trim by its name to the code whose years include the latest year (${new Date().getUTCFullYear() - 1} or ${new Date().getUTCFullYear()}) and set year to null; leave out older codes.`,
     "When the text gives one column for several codes (for example \"69/68\"), report the same values for each of those codes.",
     "When the text does not let you tell which code a trim is, put the code in unsure with the reason. Keep each quote short (under 120 characters).",
     "",
-    'Answer with JSON only: {"trims":[{"dg":<code>,"year":<year or null>,"num":{"kwh":<n>,...},"eq":{"wireless":true,...},"quotes":[{"f":"kwh","url":"...","text":"..."}]}],"unsure":[{"dg":<code>,"why":"..."}]}',
+    'Answer with JSON only: {"trims":[{"dg":<code>,"year":<year or null>,"num":{"kwh":<n>,...},"eq":{"wireless":true,...}}],"quotes":[{"f":"kwh","dg":[<code>,...],"url":"...","text":"..."}],"unsure":[{"dg":<code>,"why":"..."}]}',
     "",
     ...docs.map((d, i) => `=== DOCUMENT ${i + 1} (${d.kind}): ${d.url} ===\n${d.text}`),
   ].join("\n");
@@ -226,7 +227,8 @@ export function check(o, g, seen, { now = new Date() } = {}) {
     const years = stated ? (tr.years.includes(+t.year) ? [+t.year] : []) : (latest >= thisYear - 1 ? [latest] : []);
     if (!years.length) { held.push({ dg, why: stated ? `the page is for ${t.year}, the codes are ${tr.years.join("/")}` : `no year on the page, and the code's latest year is ${latest}` }); continue; }
     const srcOk = q => seen.own ? seen.pages.has(norm(q.url)) : isSource(q.url);
-    const quotes = (Array.isArray(t.quotes) ? t.quotes : []).filter(q => q && typeof q.url === "string" && typeof q.text === "string" && srcOk(q) && onPage(q, seen));
+    const shared = (Array.isArray(o.quotes) ? o.quotes : []).filter(q => q && Array.isArray(q.dg) && q.dg.map(Number).includes(dg));   // a quote written once for several codes
+    const quotes = (Array.isArray(t.quotes) ? t.quotes : []).concat(shared).filter(q => q && typeof q.url === "string" && typeof q.text === "string" && srcOk(q) && onPage(q, seen));
     const by = f => quotes.filter(q => q.f === f), row = { eq: [], no: [], src: [] }, drop = [];
     for (const [f, [, , lo, hi]] of Object.entries(NUM)) {
       const v = t.num && t.num[f]; if (v === undefined || v === null) continue;
@@ -340,6 +342,8 @@ if (process.argv[1] && process.argv[1].endsWith("specs-extra.mjs") && process.ar
   const r2 = check({ trims: [{ dg: 48, year: null, num: { screenIn: 15.6 }, quotes: [{ f: "screenIn", url: "https://www.byd.co.il/x.pdf", text: "מסך מולטימדיה 15.6" }] },
     { dg: 47, year: 2025, num: { kwh: 12.96 }, quotes: [{ f: "kwh", url: "https://other.co.il/a", text: "קיבולת סוללה 12.96" }] }] }, g, s2, { now: NOW });
   ok(r2.rows["1014-48|2026"] && r2.rows["1014-48|2026"].screenIn === 15.6 && r2.rows["1014-48|2026"].cur && !r2.rows["1014-47|2025"], "no year on the page: the code's latest year, marked; a URL we did not fetch never counts");
+  const r3 = check({ trims: [{ dg: 47, year: null, num: { kwh: 12.96 } }, { dg: 48, year: null, num: { kwh: 12.96 } }], quotes: [{ f: "kwh", dg: [47, 48], url: U, text: "קיבולת סוללה 12.96" }] }, g, s2, { now: NOW });
+  ok(r3.rows["1014-47|2026"].kwh === 12.96 && r3.rows["1014-48|2026"].kwh === 12.96, "a quote written once for several codes counts for each");
   ok(check({ trims: [{ dg: 47, year: null, num: { kwh: 12.96 }, quotes: [{ f: "kwh", url: U, text: "קיבולת סוללה 12.96" }] }] }, { ...g, trims: [{ ...g.trims[0], years: [2023] }] }, s2, { now: NOW }).held[0].why.includes("2023"),
     "no year on the page and an old code: held");
   // a run through a fake API and fake documents: the budget stops it, the file and the review are written
