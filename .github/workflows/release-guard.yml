@@ -32,6 +32,8 @@ jobs:
             .github/scripts/release-guard.mjs
             .github/scripts/guard-explain.mjs
             .github/scripts/claude.mjs
+            .github/scripts/ai-usage.mjs
+            .github/seo-data.pub.pem
             analytics/review-context.md
             android/release-notes.txt
             .github/scripts/tg-text.mjs
