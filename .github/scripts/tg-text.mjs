@@ -18,7 +18,7 @@ export const KINDS = {
 };
 // router level -> kind (alert.mjs): critical pages, day is today, summary/silent are for information
 export const LEVEL_KIND = { critical: "urgent", day: "today", summary: "info", silent: "info" };
-export const AREAS = { site: "אתר", app: "אפליקציה", data: "נתונים", store: "חנות Google Play", marketing: "שיווק", mail: "מייל", bots: "בוטים", seo: "SEO", reviews: "ביקורות", measure: "מדידה" };
+export const AREAS = { site: "אתר", app: "אפליקציה", data: "נתונים", store: "חנות Google Play", marketing: "שיווק", mail: "מייל", bots: "בוטים", seo: "SEO", reviews: "ביקורות", measure: "מדידה", ceo: "מנכ\"ל" };
 
 export const tag = (kind, area) => `<b>${KINDS[kind] || KINDS.info}${AREAS[area] ? " · " + AREAS[area] : ""}</b>`;
 export const tagPlain = (kind, area) => `${KINDS[kind] || KINDS.info}${AREAS[area] ? " · " + AREAS[area] : ""}`;

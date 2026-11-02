@@ -53,7 +53,10 @@ jobs:
         env:
           SERVICE_JSON_B64: ${{ secrets.SERVICE_JSON_B64 }}
         run: |
-          if [ -n "$SERVICE_JSON_B64" ]; then echo "$SERVICE_JSON_B64" | base64 -d > service.json; node .github/scripts/seal-service.mjs; else echo "no service data secret; building without it"; fi
+          # the secret holds the table as plain JSON or, since 1.11.2026 (the licence-code map made it bigger than a secret allows), gzipped
+          if [ -n "$SERVICE_JSON_B64" ]; then echo "$SERVICE_JSON_B64" | base64 -d > service.raw
+            if gzip -t service.raw 2>/dev/null; then gunzip -c service.raw > service.json; else mv service.raw service.json; fi; rm -f service.raw
+            node .github/scripts/seal-service.mjs; else echo "no service data secret; building without it"; fi
 
       - name: Firebase config for anonymous usage statistics (optional)
         env:
