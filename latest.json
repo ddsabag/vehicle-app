@@ -1,15 +1,23 @@
 {
  "v": 1,
- "d": "2026-11-01",
- "seed": "20261101",
+ "d": "2026-11-02",
+ "seed": "20261102",
  "cars": 40,
  "sampled": 40,
- "mism": 0,
+ "mism": 2,
  "skipped": 0,
  "refused": 0,
  "fields": {
+  "fee.borrowed_note": [
+   28,
+   0
+  ],
   "fee.licence": [
    40,
+   0
+  ],
+  "identity.buy_steps": [
+   36,
    0
   ],
   "identity.colour": [
@@ -52,6 +60,10 @@
    40,
    0
   ],
+  "insight.age_cancelled": [
+   4,
+   0
+  ],
   "insight.safety_low": [
    40,
    0
@@ -65,6 +77,10 @@
    0
   ],
   "message.partial_data": [
+   40,
+   1
+  ],
+  "mods.checks_line": [
    40,
    0
   ],
@@ -85,11 +101,11 @@
    0
   ],
   "owners.current_no_log": [
-   28,
+   26,
    0
   ],
   "owners.durations": [
-   9,
+   11,
    0
   ],
   "owners.first_owner": [
@@ -105,7 +121,7 @@
    0
   ],
   "owners.insight_company_now": [
-   9,
+   11,
    0
   ],
   "owners.insight_dealer_now": [
@@ -113,27 +129,27 @@
    0
   ],
   "owners.insight_lease": [
-   9,
+   11,
    0
   ],
   "owners.insight_new_dealer": [
-   9,
+   11,
    0
   ],
   "owners.insight_rental": [
-   9,
+   11,
    0
   ],
   "owners.insight_short_lease": [
-   9,
+   11,
    0
   ],
   "owners.insight_was_dealer": [
-   9,
+   11,
    0
   ],
   "owners.now_line": [
-   9,
+   11,
    0
   ],
   "owners.timeline": [
@@ -153,7 +169,7 @@
    0
   ],
   "recalls.line_honest": [
-   32,
+   34,
    0
   ],
   "recalls.model_count": [
@@ -165,11 +181,11 @@
    0
   ],
   "recalls.model_fits": [
-   28,
+   29,
    0
   ],
   "recalls.model_missing": [
-   33,
+   32,
    0
   ],
   "recalls.open": [
@@ -180,16 +196,24 @@
    40,
    0
   ],
-  "recalls.open_date": [
-   2,
-   0
-  ],
   "recalls.pending_banner": [
    34,
    0
   ],
   "recalls.tab_shown": [
    40,
+   0
+  ],
+  "recalls.thin_check": [
+   40,
+   0
+  ],
+  "recalls.thin_line": [
+   24,
+   0
+  ],
+  "recalls.thin_rows": [
+   34,
    0
   ],
   "road.first_date": [
@@ -296,8 +320,16 @@
    40,
    0
   ],
+  "specs.wltp_note": [
+   20,
+   0
+  ],
   "status.buy_checklist": [
    40,
+   0
+  ],
+  "status.buy_plan": [
+   36,
    0
   ],
   "status.cancel_date": [
@@ -309,6 +341,10 @@
    0
   ],
   "status.cancel_reason": [
+   4,
+   0
+  ],
+  "status.cancelled_buy": [
    4,
    0
   ],
@@ -365,8 +401,8 @@
    0
   ],
   "tow.hook": [
-   23,
-   0
+   25,
+   1
   ],
   "tow.limits": [
    40,
@@ -385,6 +421,25 @@
    0
   ]
  },
- "list": [],
+ "list": [
+  {
+   "id": "c011",
+   "field": "tow.hook",
+   "shown": "",
+   "expected": "לא מותקן וו גרירה",
+   "evidence": "grira_nm=אין וו גרירה",
+   "car": "סובארו יפן XV 2015",
+   "from": "active"
+  },
+  {
+   "id": "c011",
+   "field": "message.partial_data",
+   "shown": "partial-data message shown",
+   "expected": "(none: every dataset answered my reads)",
+   "evidence": "app errs=cont",
+   "car": "סובארו יפן XV 2015",
+   "from": "active"
+  }
+ ],
  "auditExit": 0
 }
