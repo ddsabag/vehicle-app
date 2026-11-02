@@ -192,9 +192,10 @@ async function gaToken(sa) {
 // (no key, no SDK, an API error, a GA4 read) leaves the guard's message exactly as it was; the router hears about it as ai:guard or ai:key.
 async function secondLook(kind, a) {
   if (IO.explain === false) return null;
-  let X; try { X = IO.explain || await import("./guard-explain.mjs"); } catch { return null; }
-  const api = await X.getClient(IO.env).catch(() => null);
-  if (!api) return null;
+  const none = why => { IO.out(`second look ${kind}: none (${String(why).replace(/\d/g, "#").slice(0, 120)})`); return null; };   // a silent skip hid why on 2.11
+  let X; try { X = IO.explain || await import("./guard-explain.mjs"); } catch (e) { return none("module " + (e?.message || e)); }
+  const api = await X.getClient(IO.env).catch(e => (none("client " + (e?.message || e)), null));
+  if (!api) return IO.explain ? null : none("no client (key or SDK)");
   let res;
   try {
     if (kind === "cause") {
@@ -202,7 +203,7 @@ async function secondLook(kind, a) {
       for (const [k, body] of Object.entries(X.causeQueries(a.yd))) {
         const r = await IO.fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${PROPERTY}:runReport`, { method: "POST",
           headers: { authorization: "Bearer " + a.tok, "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(60000) });
-        const j = J(await r.text()); if (!r.ok || !j) return null;
+        const tx = await r.text(), j = J(tx); if (!r.ok || !j) return none(`GA4 ${k} ${r.status} ${tx.slice(0, 160)}`);
         Q[k] = rowsOf(j);
       }
       res = await X.zoneACause(api, Q);
