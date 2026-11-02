@@ -100,6 +100,26 @@
    "id": "17879125749565845",
    "link": "https://www.instagram.com/reel/DfNcpctEiCd/",
    "at": "2026-11-01T19:08:59.979Z"
+  },
+  "2026-11-01/tiktok/telegram": {
+   "status": "done",
+   "at": "2026-11-02T10:04:47.054Z"
+  },
+  "2026-11-01/dealer/facebook": {
+   "tries": 1,
+   "last": "2026-11-02T10:04:50.476Z",
+   "status": "done",
+   "id": "1424085817452110_122108152275516900",
+   "link": "https://www.facebook.com/1424085817452110_122108152275516900",
+   "at": "2026-11-02T10:04:54.083Z"
+  },
+  "2026-11-01/dealer/instagram": {
+   "tries": 1,
+   "last": "2026-11-02T10:04:54.351Z",
+   "status": "done",
+   "id": "18637385977048701",
+   "link": "https://www.instagram.com/p/DfPDP8OFeoW/",
+   "at": "2026-11-02T10:05:11.564Z"
   }
  },
  "ig": {
