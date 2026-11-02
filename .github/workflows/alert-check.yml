@@ -103,6 +103,8 @@ jobs:
         run: node .github/scripts/release-guard.mjs selftest
       - name: Bots board self-test (cron words, Hebrew names of every scheduled bot in bot-names.json and worker.js)
         run: node .github/scripts/bots-status.mjs selftest
+      - name: Sparse checkouts list every file their scripts load (2.11 break; a load inside try is optional by design)
+        run: node .github/scripts/sparse-check.mjs selftest && node .github/scripts/sparse-check.mjs
       - name: Claude API helper and competitor check self-tests (fallbacks, a change kept only with a found source, no cost in the log)
         run: node .github/scripts/claude.mjs --selftest && node .github/scripts/competitor-check.mjs --selftest
       - name: Copy audit and release-notes drafter self-tests (a point tied to its line, the Play notes rules, fallbacks, no cost in the log)
