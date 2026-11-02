@@ -74,6 +74,11 @@ export const SITES = {
   1327: ["https://www.tesla.com/he_il/"], 1417: ["https://www.tesla.com/he_il/"], 1634: ["https://www.changan.co.il/"],
   1556: ["https://www.zeekrlife.com/he-il/"], 1465: ["https://dongfeng.co.il/"], 1436: ["https://leapmotor.co.il/"],
 };
+// a model's own page when the maker's site has none or hides it (the importer group's new-car catalogue, or the maker's model page)
+export const MODEL_URLS = {
+  "1014|SEALION 5": ["https://www.shlomo.co.il/new/catalog/Sealion-5/8/"],
+  "1327|MODEL Y": ["https://www.tesla.com/he_il/modely"], "1417|MODEL Y": ["https://www.tesla.com/he_il/modely"],
+};
 const BRAND = { 1014: "byd", 1604: "jaecoo", 1605: "omoda", 1547: "xpeng", 1450: "chery", 443: "mg", 1327: "tesla", 1417: "tesla", 1634: "deepal", 1556: "zeekr", 1465: "dongfeng", 1436: "leapmotor" };
 export const PAGE_CAP = 8, PDF_CAP = 4, DOC_CHARS = 30000, ALL_CHARS = 80000;
 const SPEC_WORDS = /spec|brochure|technical|catalog|pricelist|price-list|מפרט|מחירון|קטלוג|ברושור/i;
@@ -86,7 +91,7 @@ export const linkFits = (g, href, text) => { const k = token(g.name); if (k.leng
 export async function crawl(g, { browser, log = () => {}, pdfText }) {
   const seeds = SITES[g.cd] || [], docs = [], seenUrl = new Set(), ctx = await browser.newContext({ locale: "he-IL",
     userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" });
-  const brandWords = [BRAND[g.cd], squash(String(g.importer || "").split(/\s+/)[0])].filter(w => w && w.length > 1);
+  const brandWords = [BRAND[g.cd], squash(String(g.importer || "").split(/\s+/)[0]), squash(String(g.maker || "").split(/\s+/)[0])].filter(w => w && w.length > 1);
   const open = async url => { const page = await ctx.newPage();
     try { await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 }); await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
       // text of every element, hidden tabs and accordions too, one line per block
@@ -103,6 +108,15 @@ export async function crawl(g, { browser, log = () => {}, pdfText }) {
         for (const m of x.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)) out.push(m[1]); } catch {} }
     return out; };
   try {
+    for (const url of MODEL_URLS[g.cd + "|" + g.name] || []) {
+      const p = await open(url); if (!p) continue;
+      if (!brandWords.some(w => squash(p.text).includes(w))) { log(`specs: ${host(p.url)}: the model page names neither the brand nor the importer, skipped`); continue; }
+      seenUrl.add(norm(url)); seenUrl.add(norm(p.url)); docs.push({ url: p.url, kind: "page", text: p.text });
+      for (const [h, t] of p.links) if (/\.pdf(\?|$)/i.test(h) && (linkFits(g, h, t) || SPEC_WORDS.test(h + " " + t))) {
+        const u = h.split("#")[0]; if (seenUrl.has(norm(u))) continue; seenUrl.add(norm(u));
+        try { const r = await ctx.request.get(u, { timeout: 60000 }); if (r.ok()) { const text = await pdfText(await r.body()); if (text) docs.push({ url: u, kind: "pdf", text }); } } catch {}
+      }
+    }
     for (const seed of seeds) {
       const home = await open(seed); if (!home) continue;
       const host0 = host(home.url), sq = squash(home.text);
@@ -113,6 +127,7 @@ export async function crawl(g, { browser, log = () => {}, pdfText }) {
       } else cand.push([loc, ""]);
       if (linkFits(g, home.url, "")) cand.unshift([home.url, ""]);
       const pages = [...new Map(cand.filter(([h, t]) => /^https?:/.test(h) && !/\.(jpe?g|png|webp|svg|mp4)(\?|$)/i.test(h) && linkFits(g, h, t)).map(([h]) => [h.split("#")[0], 1])).keys()];
+      log(`specs: ${host0}: home ${home.text.length} chars, ${cand.length} links, ${pages.length} name the model`);
       pages.sort((a, b) => (SPEC_WORDS.test(b) ? 1 : 0) - (SPEC_WORDS.test(a) ? 1 : 0) || a.length - b.length);
       const pdfs = new Set(pages.filter(h => /\.pdf(\?|$)/i.test(h)));
       for (const url of pages.filter(h => !/\.pdf(\?|$)/i.test(h))) {
