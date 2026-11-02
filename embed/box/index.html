@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>בדיקת רכב לפי מספר רישוי · לוחית</title>
+<!-- Plate box for partner sites, shown inside their <iframe>. The form lives here, so a partner's editor or
+     security plugin cannot strip it. ?src=<partner> (letters and _ only) becomes utm_source; the report opens in a new tab.
+     Not in sitemap.xml and skipped by seo-check.mjs: it is a widget, not a page. -->
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;background:#fff;font-family:Heebo,Arial,sans-serif;color:#222}
+.box{border:2px solid #c8102e;border-radius:14px;overflow:hidden;background:#fff}
+.hd{background:#c8102e;color:#fff;font-weight:700;font-size:18px;padding:10px 14px}
+.bd{padding:12px 14px}
+p{margin:0 0 10px;font-size:14px;line-height:1.4}
+.row{display:flex;gap:8px}
+input{flex:1;min-width:0;background:#f6c500;border:2px solid #222;border-radius:8px;font:700 20px/1 inherit;text-align:center;padding:8px 6px;color:#111;direction:ltr}
+input::placeholder{color:#5c4a00}
+button{background:#c8102e;color:#fff;border:0;border-radius:8px;padding:0 16px;font:700 16px inherit;cursor:pointer}
+.ft{margin:10px 0 0;font-size:12px;color:#666}
+.ft a{color:#c8102e;font-weight:700}
+</style>
+</head>
+<body>
+<form class="box" action="https://luchit.app/" method="get" target="_blank">
+  <div class="hd">בדיקת רכב לפי מספר רישוי</div>
+  <div class="bd">
+    <p>מקלידים מספר רישוי ורואים בעלויות, ריקולים פתוחים, טסט וק״מ. בחינם.</p>
+    <div class="row">
+      <input name="plate" inputmode="numeric" autocomplete="off" placeholder="12-345-67" required pattern="[0-9\- ]{7,10}" title="מספר רישוי בן 7 או 8 ספרות" aria-label="מספר רישוי">
+      <button type="submit">בדיקה</button>
+    </div>
+    <input type="hidden" name="utm_source" value="embed"><input type="hidden" name="utm_medium" value="referral"><input type="hidden" name="utm_campaign" value="box">
+    <p class="ft">הנתונים ממאגרי משרד התחבורה · באמצעות <a href="https://luchit.app/" target="_blank" rel="noopener">לוחית</a></p>
+  </div>
+</form>
+<script>
+(function(){var s=(new URLSearchParams(location.search).get("src")||"").toLowerCase();if(/^[a-z_]{1,24}$/.test(s))document.querySelector('[name=utm_source]').value=s;
+var f=document.querySelector("form");f.addEventListener("submit",function(){var i=f.plate;i.value=i.value.replace(/\D/g,"");});})();
+</script>
+</body>
+</html>
