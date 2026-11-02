@@ -38,6 +38,8 @@ You use the page through tools, like a person: look (a screenshot and a numbered
 
 Write a note (the note tool) for each thing a person would see as wrong: something broken (a control that does nothing, a crash, an endless spinner, a wrong screen), text cut off or overlapping, right-to-left mistakes (an English car name cut at its start, digits in the wrong order), a Hebrew typo or a confusing sentence, unreadable contrast (dark mode most of all), a layout that breaks, data shown in a way that says more than it knows, or a step that is hard to understand. Do not note: the test data itself, a plate that is "not found" when it should be, the cookie of the mock, things you are not fairly sure of. One note per problem, at the screen where you see it, right after you see it. Then go on.
 
+Facts about this page, so you do not note them as problems: a switch that is OFF has a grey track with its knob at the start (the right, in Hebrew), and ON is a blue track; the page keeps space under its content so a floating button never hides the last row once you scroll to the end (mid-scroll it may cover a row); searching by a maker's name alone (for example "טויוטה") needs the registry, which this test does not answer, so "not found" there is the mock; a saved car's recall count clears only after two checks an hour apart, by design.
+
 Be efficient: look when you need to see, not after every tap (a tap answers with what changed). Use at most ${STEPS} tool calls, then call finish with a two-sentence summary.`;
 
 const TOOLS = [
@@ -53,6 +55,14 @@ const TOOLS = [
     required: ["severity", "kind", "where", "what"], additionalProperties: false } },
   { name: "finish", description: "End the walk.", input_schema: { type: "object", properties: { summary: { type: "string" } }, required: ["summary"], additionalProperties: false } },
 ];
+
+// ui-flows' many-cars state gives 7654321 two saved recalls that its registry mock does not have (made for the layout, not the data);
+// a walk opens the car's file and reads that as a contradiction (2.11), so the walk's saved cars carry the mock's own counts
+function consistent(ls) {
+  const cars = J(ls && ls.savedVehicles);
+  if (!Array.isArray(cars)) return ls;
+  return { ...ls, savedVehicles: JSON.stringify(cars.map((c) => (c.plate === "1234567" ? c : { ...c, recalls: 0, recIds: undefined }))) };
+}
 
 // ---- the real page (Playwright), with ui-flows.cjs's mock and fake bridge
 async function openPage(def) {
@@ -85,7 +95,7 @@ async function openPage(def) {
     try { window.open = () => null; window.print = () => {}; } catch {}
     try { if (navigator.clipboard) navigator.clipboard.writeText = async () => {}; } catch {}
     try { if (navigator.share) navigator.share = async () => {}; } catch {}
-  }, { ls: { theme: def.theme, homeSheet: "1", ...uf.STATES[def.state] }, app: d.ua === "app", bridge: uf.BRIDGE });
+  }, { ls: { theme: def.theme, homeSheet: "1", ...consistent(uf.STATES[def.state]) }, app: d.ua === "app", bridge: uf.BRIDGE });
   const page = await ctx.newPage(), errors = [];
   page.on("pageerror", (e) => errors.push("page error: " + clip(e.message, 160)));
   page.on("console", (m) => { if (m.type() === "error" && !/net::ERR_FAILED|Failed to load resource/.test(m.text())) errors.push("console: " + clip(m.text(), 160)); });
@@ -117,7 +127,15 @@ async function openPage(def) {
     },
     async tap(ref) { await el(ref).click({ timeout: 4000 }); await settle(); return state(); },
     async type(ref, text, enter) { const e = el(ref); await e.fill("", { timeout: 4000 }); await e.type(String(text).slice(0, 60), { delay: 20 }); if (enter) await e.press("Enter"); await settle(); return state(); },
-    async key(k) { if (k === "Back") await page.goBack({ timeout: 4000 }).catch(() => page.evaluate(() => history.back())); else await page.keyboard.press(k); await settle(); return state(); },
+    // Back past the page's first screen leaves the site (about:blank in a test browser): the walk is told so and comes back, so a blank
+    // screen is never read as the app's (2.11)
+    async key(k) {
+      if (k !== "Back") { await page.keyboard.press(k); await settle(); return state(); }
+      await page.goBack({ timeout: 4000 }).catch(() => page.evaluate(() => history.back()));
+      await settle();
+      if (!/^http:\/\/127\.0\.0\.1/.test(page.url())) { await page.goForward({ timeout: 4000 }).catch(() => {}); await settle(); return "Back here would leave the site (this was the first screen of the visit), so you are back where you were: " + await state(); }
+      return state();
+    },
     // the wheel turns where the pointer is: in the middle of the screen, so an open sheet or dialog scrolls, not the page behind it
     // (from the corner, the walk of 2.11 read two sheets as "can't scroll")
     async scroll(dy) { await page.mouse.move(Math.round(d.w / 2), Math.round(d.h / 2)); await page.mouse.wheel(0, Math.max(-3000, Math.min(3000, dy))); await settle(); return state(); },
@@ -129,7 +147,7 @@ async function openPage(def) {
 // ---- one walk: the tool loop. Every request carries the whole walk so far; the newest turn is marked for the cache, so each request
 // pays full price only for what is new since the last one
 async function walk(name, def, api, cl, tally) {
-  const page = await (IO.browser || openPage)(def), notes = [], msgs = [{ role: "user", content: [{ type: "text", text: `You are: ${def.who}\nThe screen is ${def.dev.w}x${def.dev.h}, ${def.theme} theme. Start with look.` }] }];
+  const page = await (IO.browser || openPage)(def), notes = [], log = [], msgs = [{ role: "user", content: [{ type: "text", text: `You are: ${def.who}\nThe screen is ${def.dev.w}x${def.dev.h}, ${def.theme} theme. Start with look.` }] }];
   let steps = 0, summary = "", why = "", key = false;
   try {
     for (let turn = 0; turn < STEPS + 5 && !summary; turn++) {
@@ -146,7 +164,8 @@ async function walk(name, def, api, cl, tally) {
       const results = [];
       for (const t of uses) {
         steps++;
-        const res = (content, err) => results.push({ type: "tool_result", tool_use_id: t.id, content, ...(err ? { is_error: true } : {}) });
+        const res = (content, err) => { results.push({ type: "tool_result", tool_use_id: t.id, content, ...(err ? { is_error: true } : {}) });
+          log.push(`${steps} ${t.name} ${t.name === "note" ? "" : clip(JSON.stringify(t.input || {}), 80)} -> ${err ? "ERROR " : ""}${clip(typeof content === "string" ? content : (content.find((b) => b.type === "text") || {}).text, 160)}`); };
         if (steps > STEPS && t.name !== "finish" && t.name !== "note") { res("No more steps: call finish now.", true); continue; }
         const a = t.input || {};
         try {
@@ -163,7 +182,7 @@ async function walk(name, def, api, cl, tally) {
       msgs.push({ role: "user", content: results });
     }
   } finally { await page.close(); }
-  return { name, notes, steps, summary, why, key };
+  return { name, notes, steps, summary, why, key, log };
 }
 
 function seal(obj) {
@@ -269,6 +288,10 @@ async function selftest() {
   ok(calls[1].messages[1].content[0].type === "thinking", "the assistant's turns go back whole (thinking included)");
   const md = fs.readFileSync(path.join(out, "2026-11-02", "report.md"), "utf8"), latest = fs.readFileSync(path.join(out, "latest.md"), "utf8");
   ok(/1 notes, 1 high/.test(md) && /\(buyer-1\.png\)/.test(md) && /\(2026-11-02\/buyer-1\.png\)/.test(latest) && fs.existsSync(path.join(out, "2026-11-02", "buyer-1.png")), "the report, its screenshot, latest.md pointing into the day");
+  { const rj = J(fs.readFileSync(path.join(out, "2026-11-02", "report.json"), "utf8"));
+    ok(rj[0].log.length === 6 && /^1 look/.test(rj[0].log[0]) && /tap .*ERROR/.test(rj[0].log[3]), "report.json keeps the step log, errors marked"); }
+  { const c = consistent({ savedVehicles: JSON.stringify([{ plate: "1234567", recalls: 1, recIds: "16100" }, { plate: "7654321", recalls: 2 }]) }), v = J(c.savedVehicles);
+    ok(v[0].recalls === 1 && v[1].recalls === 0 && consistent({}).savedVehicles === undefined, "the saved cars' recall counts follow the registry mock"); }
   ok(told.join() === "summary walk:2026-11-02,resolve ai:walk+ai:key", "a high note tells the router; a good walk closes ai:walk and ai:key");
   ok(!/usd|\$|input_tokens|cacheRead/i.test(md + fs.readFileSync(path.join(out, "state.json"), "utf8")), "public files: no dollars and no tokens");
   { const u = fs.readdirSync(path.join(out, "usage")); const s = open(path.join(out, "usage", u[0])); ok(s.requests === 5 && s.tokens.cacheRead === 15000 && s.usd > 0, "the usage is sealed"); }
