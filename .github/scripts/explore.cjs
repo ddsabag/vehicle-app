@@ -68,6 +68,14 @@ async function openPage(def) {
   const browser = await chromium.launch(), d = def.dev, mobile = d.w < 900;
   const ctx = await browser.newContext({ viewport: { width: d.w, height: d.h }, deviceScaleFactor: 1, isMobile: mobile, hasTouch: mobile, colorScheme: def.theme, locale: "he-IL", userAgent: uf.UA[d.ua] });
   await ctx.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (r) => r.abort());   // nothing leaves the machine
+  // the site's own absolute links (a page's logo is https://luchit.app/icon-192.png) answer from this checkout, as the live site would:
+  // aborted, the walk of 2.11 read them as broken images
+  await ctx.route(/^https:\/\/(www\.)?luchit\.app\//, (r) => {
+    let p = decodeURIComponent(new URL(r.request().url()).pathname); if (p.endsWith("/")) p += "index.html";
+    const f = path.join(ROOT, p);
+    if (!f.startsWith(ROOT + path.sep) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) return r.fulfill({ status: 404, body: "" });
+    return r.fulfill({ status: 200, contentType: MIME[path.extname(f)] || "application/octet-stream", body: fs.readFileSync(f) });
+  });
   await ctx.route(/data\.gov\.il/, (r) => uf.govRoute(r));
   await ctx.addInitScript(({ ls, app, bridge }) => {
     try { if (!/(?:^|; )ex_seeded=1/.test(document.cookie)) { localStorage.setItem("analyticsOff", "1"); for (const [k, v] of Object.entries(ls)) localStorage.setItem(k, v); document.cookie = "ex_seeded=1; path=/"; } } catch {}
@@ -110,7 +118,9 @@ async function openPage(def) {
     async tap(ref) { await el(ref).click({ timeout: 4000 }); await settle(); return state(); },
     async type(ref, text, enter) { const e = el(ref); await e.fill("", { timeout: 4000 }); await e.type(String(text).slice(0, 60), { delay: 20 }); if (enter) await e.press("Enter"); await settle(); return state(); },
     async key(k) { if (k === "Back") await page.goBack({ timeout: 4000 }).catch(() => page.evaluate(() => history.back())); else await page.keyboard.press(k); await settle(); return state(); },
-    async scroll(dy) { await page.mouse.wheel(0, Math.max(-3000, Math.min(3000, dy))); await settle(); return state(); },
+    // the wheel turns where the pointer is: in the middle of the screen, so an open sheet or dialog scrolls, not the page behind it
+    // (from the corner, the walk of 2.11 read two sheets as "can't scroll")
+    async scroll(dy) { await page.mouse.move(Math.round(d.w / 2), Math.round(d.h / 2)); await page.mouse.wheel(0, Math.max(-3000, Math.min(3000, dy))); await settle(); return state(); },
     async shot() { return page.screenshot({ type: "png" }); },
     async close() { await browser.close().catch(() => {}); server.close(); },
   };
