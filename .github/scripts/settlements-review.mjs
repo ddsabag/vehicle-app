@@ -204,9 +204,12 @@ export async function run({ env = process.env, api, router, log = console.log, t
         what: "כלום. זה עובר לבד לטיפול בשרשור \"נתונים ואמינות\", ועדכון יגיע כשזה מטופל.", raw: rep.held.map(h => `${h.t || h.issue}: ${h.why}`).join(" | ").slice(0, 500) }), env.RUN_URL);
     } else await closeKeys(router, ["stl:review"]);
   };
+  // only the run on main tells the router: a test run from a branch publishes nothing, so its held items are not real (2.11.2026: a test run
+  // from data/stl-review-test opened stl:review)
+  if (router === undefined) router = env.GITHUB_REF && env.GITHUB_REF !== "refs/heads/main" ? null : await import("./alert.mjs").catch(() => null);
+  // (before the quiet-week return too: a week with nothing to verify closes an open stl:review)
   if (!refs.size && !deep) { rep.ok = true; rep.why = "nothing to verify"; finish(base.items); await held(); return rep; }
   if (env.DRY === "1") { rep.why = "dry run"; return finish(base.items, holdAll("dry run")); }
-  if (router === undefined) router = await import("./alert.mjs").catch(() => null);
   const fail = async (why, key) => {
     rep.why = why; finish(base.items, holdAll("not verified: " + why));
     if (/ANTHROPIC_API_KEY/.test(why)) return rep;
