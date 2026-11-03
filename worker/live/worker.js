@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-50";   // shown in /live/data so the running version is visible
+const BUILD = "live-51";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -1339,8 +1339,8 @@ async function liveData(env, ctx) {
 }
 
 // the new screen (3.11.2026, spec in the measurement thread): one registry of metrics with their definitions, sources and owners, one status engine,
-// three lenses (CEO, division, department) and a drill-down panel, reading the same /live/data. Served at /live/v2 and /live?v=... beside the old
-// page until Dudu's "שחרר" switches /live to it. String.raw keeps the page's backslashes as written; the page holds no backtick and no "${".
+// three lenses (CEO, division, department) and a drill-down panel, reading the same /live/data. Served at /live (and /live/v2) since Dudu's second "שחרר" of 3.11.2026; the old
+// page stays at /live/v1 for a while. String.raw keeps the page's backslashes as written; the page holds no backtick and no "${".
 const PAGE2 = String.raw`<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="color-scheme" content="light dark"><title>לוחית · מצב העסק</title><link rel="icon" href="https://luchit.app/icon-192.png">
 <style>
 :root{--bg:#F3F4F2;--card:#FFFFFF;--line:#E2E5E3;--fg:#1A1D21;--muted:#5B6470;--muted2:#69727D;--soft:#F7F8F7;--soft2:#EEF0F2;--plate:#F6C945;--app:#2A78D6;--site:#EB6834;--aqua:#1BAF7A;--prev:#C9CDCB;--ok:#1B7F3B;--ok-bg:#E6F4EA;--warn:#8A5B00;--warn-bg:#FFF3D6;--bad:#A8271F;--bad-bg:#FBE9E7;--nt:#5B6470;--nt-bg:#EEF0F2;--link:#1A4F8A;--decide:#FFF8E1;--ink-on-plate:#1A1D21;--shade:rgba(26,29,33,.28)}
@@ -1743,7 +1743,7 @@ REG.alerts24={name:"התראות ב-24 שעות",dept:"ops",def:"כמה התרא
  calc(C){const fl=(C.d.flashes||[]),al=fl.filter(f=>f.l==="alert"&&!f.q&&Date.now()-Date.parse(f.t)<864e5);
   return {s:C.d.flashes?(al.length?"warn":"ok"):"nodata",w:al.length?n(al.length)+" התראות":"שקט",v:al.length,big:n(al.length),unit:al.length===1?"התראה":"התראות",lines:[al.length?esc(String(al[0].x||"").replace(/\s*פירוט:[\s\S]*$/,"")).slice(0,120):"אין התראות על תקלות ב-24 השעות האחרונות"],win:"24 שעות",foot:"מבזקי הבוטים",
    drill:[{h:"המבזקים האחרונים",html:flashList(fl,null,15)}]}}};
-function flashList(fl,dept,k){const L=(fl||[]).filter(f=>!dept||FDEPT[f.k]===dept).slice(0,k||12);if(!L.length)return note("אין מבזקים.");
+function flashList(fl,dept,k){const L=(fl||[]).filter(f=>!dept||(FDEPT[f.k]||"ops")===dept).slice(0,k||12);if(!L.length)return note("אין מבזקים.");
  return '<ul class="kv">'+L.map(f=>"<li><span>"+(f.l==="alert"||f.l==="wait"?'<span class="lv alert">●</span> ':'<span class="lv">○</span> ')+"<b>"+esc(FK[f.k]||f.k)+":</b> "+esc(String(f.x||"").replace(/\s*פירוט:[\s\S]*$/,""))+(f.u&&/^https:\/\//.test(f.u)?' <a href="'+esc(f.u)+'" target="_blank" rel="noopener">קישור</a>':"")+'<small>'+hm(f.t)+"</small></span></li>").join("")+"</ul>"}
 REG.auto={name:"מה השתנה לבד",dept:"ops",def:"האזורים שבהם הבוטים רשאים לשנות דברים לבד (אוטופיילוט), ומה הם שינו לאחרונה.",how:"יומן האוטופיילוט: מצב כל אזור (פועל, בתצפית, כבוי) והשינויים האחרונים. כל שינוי נבדק אחרי שבוע ומוחזר לבד אם המדד שלו ירד.",src:"יומן האוטופיילוט",owner:"תפעול",
  calc(C){const A=C.d.auto,ZN={A:"לוח החלטות (בדיקות בזמנים קבועים)",B:"שיווק ותוכן",C:"ניסויי ניסוח",D:"הודעות באפליקציה",E:"סידור המסך",SEO:"SEO"},MD={on:["ok","פועל"],observe:["wait","בתצפית, לא משנה"],off:["cal","כבוי"]},RSx={kept:"נשאר",reverted:"הוחזר",pending:"בבדיקה"},on=A?Object.values(A.modes||{}).filter(x=>x==="on").length:null;
@@ -1839,7 +1839,7 @@ function renderDept(C,dept){const P=DEPTS[dept],D=DIVS[P.div],T=todo(C,dept),w=S
  let h=crumb([["מנכ״ל",href({v:"ceo",m:null}),"ceo"],[D.name,href({v:P.div,m:null}),P.div],[P.name]])+deptTabs(P.div,dept);
  h+='<section class="card"><div class="ch"><h2>'+P.name+'</h2><small class="win">'+(w==="week"?rng(C.W&&C.W.W):WIN[w])+"</small></div>"+tiles(C,P.metrics,w)+"</section>";
  h+='<section class="card"><div class="ch"><h2>מה מחכה במחלקה</h2><small>'+esc(T.sum)+"</small></div>"+T.html+"</section>";
- const X={marketing:["campChecks","visits"],seo:["google","pages"],release:["saves","return7","shareOpen"],data:["health","siteChecks"],ops:["auto","alerts24"],strategy:["active28","installs"]}[dept]||[];
+ const X={marketing:["campChecks","visits"],seo:["google","pages"],release:["saves","return7","shareOpen"],data:["health","siteChecks"],ops:["auto"],strategy:["active28","installs"]}[dept]||[];
  const secs=[];X.forEach(id=>{const r=M(C,id);(r.drill||[]).filter(Boolean).forEach(x=>secs.push('<section class="card"><div class="ch"><h2>'+x.h+'</h2><small class="win">'+esc(r.name)+"</small></div>"+x.html+"</section>"))});
  if(dept==="release")secs.unshift('<section class="card"><div class="ch"><h2>פעולות באפליקציה ובאתר</h2><small class="win">'+rng(C.W&&C.W.W)+"</small></div>"+usageTable(C)+"</section>");
  if(secs.length)h+='<h2 class="sec">פירוט</h2><div class="g2">'+secs.join("")+"</div>";
@@ -1868,7 +1868,7 @@ function renderNav(){const dv=DEPTS[S.v]?DEPTS[S.v].div:S.v;
  $("wins").innerHTML=Object.keys(WIN).map(k=>'<button type="button" data-w="'+k+'"'+(S.w===k?' class="on" aria-pressed="true"':' aria-pressed="false"')+">"+WIN[k]+"</button>").join("")}
 function render(){const d=window.LVD;if(!d)return;const C=ctx(d);window.LVC=C;renderNav();
  let h;try{h=S.v==="ceo"?renderCeo(C):DIVS[S.v]?renderDiv(C,S.v):renderDept(C,S.v)}catch(e){h='<section class="card"><p>המסך לא הצליח להיבנות: '+esc(e&&e.message||e)+"</p></section>"}
- $("main").innerHTML=h+'<footer class="foot"><span>גרסה '+esc(d.build||"")+'</span><span>'+(d.at?"הנתונים מ-"+hm(d.at):"")+'</span><span>כל השעות בשעון ישראל. השבוע: 7 ימים עד אתמול. יעדים: תוכנית השיווק כפול שבוע הבסיס.</span><a href="/live" rel="nofollow">המסך הקודם</a></footer>';
+ $("main").innerHTML=h+'<footer class="foot"><span>גרסה '+esc(d.build||"")+'</span><span>'+(d.at?"הנתונים מ-"+hm(d.at):"")+'</span><span>כל השעות בשעון ישראל. השבוע: 7 ימים עד אתמול. יעדים: תוכנית השיווק כפול שבוע הבסיס.</span><a href="/live/v1" rel="nofollow">המסך הקודם</a></footer>';
  if(S.m)openDrill(C,S.m)}
 async function go(){const meta=$("meta");try{const r=await fetch("/live/data",{cache:"no-store",signal:AbortSignal.timeout?AbortSignal.timeout(35e3):undefined});if(!r.ok)throw r.status;const d=await r.json();window.LVD=d;render();
  const tm=new Date(d.at).toLocaleTimeString("he-IL",{timeZone:"Asia/Jerusalem",hour:"2-digit",minute:"2-digit"});onl(d.online,d.stale,d.at);
@@ -1913,8 +1913,8 @@ export default {
       try { return json({ online: await onlineNow(env), at: new Date(onlAt).toISOString() }); }
       catch (e) { if (/ 429/.test(String(e.message))) backoffUntil = Date.now() + 300e3; return onl ? json({ online: onl, at: new Date(onlAt).toISOString(), stale: true }) : json({ error: "unavailable" }, 502); }
     }
-    if (url.pathname === "/live/v2" || url.pathname === "/live/v2/" || ((url.pathname === "/live" || url.pathname === "/live/") && url.searchParams.has("v"))) return new Response(PAGE2, { headers: { ...HEAD, "content-type": "text/html; charset=utf-8" } });
-    if (url.pathname === "/live" || url.pathname === "/live/") return new Response(PAGE, { headers: { ...HEAD, "content-type": "text/html; charset=utf-8" } });
+    if (url.pathname === "/live/v1" || url.pathname === "/live/v1/") return new Response(PAGE, { headers: { ...HEAD, "content-type": "text/html; charset=utf-8" } });   // the screen before 3.11.2026, kept for a while
+    if (url.pathname === "/live" || url.pathname === "/live/" || url.pathname === "/live/v2" || url.pathname === "/live/v2/") return new Response(PAGE2, { headers: { ...HEAD, "content-type": "text/html; charset=utf-8" } });
     return new Response("not found", { status: 404, headers: HEAD });
   }
 };
