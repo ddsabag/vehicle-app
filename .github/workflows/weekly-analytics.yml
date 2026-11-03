@@ -1,4 +1,5 @@
 name: Weekly analytics report
+run-name: Weekly analytics report${{ (github.event.schedule || inputs.schedule) && format(' ({0})', github.event.schedule || inputs.schedule) || '' }}
 # Every Sunday at 08:00 Jerusalem time: pulls the last 7 days from GA4, builds the dashboard, flags anomalies and sends a short brief.
 # Two cron lines because GitHub cron is UTC and Israel switches between UTC+2 and UTC+3: the script checks which line is 08:xx in Jerusalem,
 # by the line's own time (SCHEDULE below), not by the start time, since GitHub starts scheduled runs late. So exactly one line sends.
@@ -8,6 +9,9 @@ name: Weekly analytics report
 # Alert router: the brief opens with the "מחכה לך" block (.github/scripts/waiting.mjs reads the router state, open PRs and scheduled runs,
 # so the report job gets read scopes only). When the brief went out, the separate "mark" job (no pip, no third-party code) records it
 # on the alert-state branch; it can never turn the run red.
+# Since 1.11.2026 GitHub starts scheduled runs hours late or not at all: the backup clock in luchit-uptime starts this workflow by hand with
+# the input "schedule" = the cron line, and the run acts as that line. The first step (slot-done.mjs) finds an earlier run of the same line
+# (the clock's or GitHub's late one) and then this run does nothing, so the brief and the Claude review never go out twice.
 on:
   schedule:
     - cron: "20 5 * * 0"
@@ -26,6 +30,10 @@ on:
         description: "Run the Claude anomaly review without sending the brief (a test of the review)"
         type: boolean
         default: false
+      schedule:
+        description: "The backup clock only: the cron line this run stands for (empty = an ordinary run by hand)"
+        type: string
+        default: ""
 permissions:
   contents: read
 jobs:
@@ -38,16 +46,26 @@ jobs:
       pull-requests: read
     outputs:
       sent: ${{ steps.build.outputs.sent }}
+      done: ${{ steps.slot.outputs.done }}
     steps:
       - uses: actions/checkout@v4
+      - name: Was this slot already run (the backup clock or GitHub's late run)
+        id: slot
+        run: node .github/scripts/slot-done.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SLOT: ${{ github.event.schedule || inputs.schedule }}
       - uses: actions/setup-python@v5
+        if: steps.slot.outputs.done != '1'
         with:
           python-version: "3.12"
       - run: pip install -r analytics/requirements.txt
+        if: steps.slot.outputs.done != '1'
       - name: Build the report
         id: build
+        if: steps.slot.outputs.done != '1'
         env:
-          SCHEDULE: ${{ github.event.schedule }}
+          SCHEDULE: ${{ github.event.schedule || inputs.schedule }}
           GA_PROPERTY_ID: ${{ secrets.GA_PROPERTY_ID }}
           PSI_API_KEY: ${{ secrets.PSI_API_KEY }}
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
@@ -68,7 +86,7 @@ jobs:
           ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
           ALERT_UPTIME_URL: ${{ vars.ALERT_UPTIME_URL }}
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ]; then
+          if [ "${{ github.event_name }}" = "schedule" ] || [ -n "${{ inputs.schedule }}" ]; then
             python analytics/run.py --gate --send
           elif [ "${{ inputs.sample }}" = "true" ]; then
             python analytics/run.py --sample incident
@@ -80,16 +98,16 @@ jobs:
       # Claude reads the week's anomalies (anomaly-review.mjs, Dudu 1.11.2026, the monthly API credit): only on a real report, never on a
       # sample. The key is in that one step's env; the reply leaves the job encrypted. Nothing here can turn the report red.
       - uses: actions/setup-node@v7
-        if: ${{ github.event_name == 'schedule' || inputs.send == true || inputs.review == true }}
+        if: ${{ steps.slot.outputs.done != '1' && (github.event_name == 'schedule' || inputs.schedule != '' || inputs.send == true || inputs.review == true) }}
         continue-on-error: true
         with:
           node-version: 22
       - name: The Claude SDK (the version pinned in claude.mjs)
-        if: ${{ github.event_name == 'schedule' || inputs.send == true || inputs.review == true }}
+        if: ${{ steps.slot.outputs.done != '1' && (github.event_name == 'schedule' || inputs.schedule != '' || inputs.send == true || inputs.review == true) }}
         continue-on-error: true
         run: npm install --no-save --no-audit --no-fund --loglevel=error "$(sed -n 's/^export const SDK = "\(.*\)";$/\1/p' .github/scripts/claude.mjs)"
       - name: Claude reviews the anomalies (encrypted)
-        if: ${{ github.event_name == 'schedule' || inputs.send == true || inputs.review == true }}
+        if: ${{ steps.slot.outputs.done != '1' && (github.event_name == 'schedule' || inputs.schedule != '' || inputs.send == true || inputs.review == true) }}
         continue-on-error: true
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -133,7 +151,7 @@ jobs:
     # no third-party code here: pushes the encrypted review to the branch weekly-review (the measurement thread's Sunday task reads it) and
     # tells the router how the review went. Never turns the run red.
     needs: report
-    if: ${{ always() && (github.event_name == 'schedule' || inputs.send == true || inputs.review == true) }}
+    if: ${{ always() && needs.report.outputs.done != '1' && (github.event_name == 'schedule' || inputs.schedule != '' || inputs.send == true || inputs.review == true) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     continue-on-error: true

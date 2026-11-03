@@ -6,6 +6,9 @@ name: Competitor check
 # tells a change itself through the router (comp:<YYYY-MM>; Dudu 1.11 "אם אין בהם צורך אז כן": no thread is woken). With no key, no SDK or an API error the run stays green:
 # ai:comp (ai:key when the key or the credit is the cause) goes to the router, and the morning triage routes it to the strategy thread.
 # Not in failure-alert's re-run list: a run sends a paid request, so a crash is told and never re-run by itself.
+# Slot check (ops 3.11.2026): GitHub's scheduler runs late or not at all, so luchit-uptime's backup clock dispatches {schedule: the cron
+# line}; slot-done.mjs makes the later of the two runs of one slot do nothing, so the month's paid call is made once.
+run-name: Competitor check${{ (github.event.schedule || inputs.schedule) && format(' ({0})', github.event.schedule || inputs.schedule) || '' }}
 on:
   schedule:
     - cron: "23 4 1 * *"   # the 1st, 04:23 UTC (07:23 Israel summer time, 06:23 winter): a change found reaches the morning ring
@@ -15,8 +18,13 @@ on:
         description: "No call to Claude (checks the plumbing only)"
         type: boolean
         default: false
+      schedule:
+        description: "Set by the backup clock only (the cron line it stands in for); leave empty"
+        type: string
+        default: ""
 permissions:
   contents: write
+  actions: read
 concurrency:
   group: competitor-check
   cancel-in-progress: false
@@ -26,15 +34,28 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - name: Was this month's slot already run? (GitHub's late run vs the backup clock)
+        id: slot
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SLOT: ${{ github.event.schedule || inputs.schedule }}
+        # until slot-done.mjs is on main the step says "not checked" and the bot runs as before
+        run: |
+          if [ -f .github/scripts/slot-done.mjs ]; then node .github/scripts/slot-done.mjs
+          else echo "slot check not on this branch yet, so it runs"; echo "done=0" >> "$GITHUB_OUTPUT"; fi
       - uses: actions/setup-node@v7
+        if: steps.slot.outputs.done != '1'
         with:
           node-version: 22
       - name: The Claude SDK (the version pinned in claude.mjs; the app never loads it)
+        if: steps.slot.outputs.done != '1'
         continue-on-error: true   # without it the bot says why and the thread checks by hand
         run: npm install --no-save --no-audit --no-fund --loglevel=error "$(sed -n 's/^export const SDK = "\(.*\)";$/\1/p' .github/scripts/claude.mjs)"
       - name: The last run's file
+        if: steps.slot.outputs.done != '1'
         run: mkdir -p prev && { git fetch -q --depth 1 origin competitor-check 2>/dev/null && git show FETCH_HEAD:competitors.json > prev/competitors.json || echo "no earlier run"; }
       - name: Look for changes since the last run
+        if: steps.slot.outputs.done != '1'
         run: node .github/scripts/competitor-check.mjs
         env:
           OUT: out
@@ -48,7 +69,7 @@ jobs:
           ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       - name: Publish to the branch competitor-check (one commit per run, the history is the branch's log)
-        if: ${{ hashFiles('out/competitors.json') != '' && !inputs.dry }}
+        if: ${{ steps.slot.outputs.done != '1' && hashFiles('out/competitors.json') != '' && !inputs.dry }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

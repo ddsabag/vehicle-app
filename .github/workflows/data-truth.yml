@@ -1,4 +1,5 @@
 name: Data truth
+run-name: Data truth${{ (github.event.schedule || inputs.schedule) && format(' ({0})', github.event.schedule || inputs.schedule) || '' }}
 # Does what the app shows still match the Ministry of Transport's registers? Two jobs, one branch (data-truth) for their files:
 #  audit (daily):       site-data-truth.mjs opens a fresh sample of about 40 cars in this checkout's index.html (main = what is live), reads every
 #                       tab like a user and compares it with the ministry's raw rows (site-data-audit.mjs). Only totals, case ids and plate-free
@@ -39,6 +40,10 @@ on:
         description: "Publish latest.json and the day in history.json (off for the check after a web deploy, so the morning's sample stays the day's record)"
         type: boolean
         default: true
+      schedule:
+        description: "Set by the backup clock (luchit-uptime): the cron line this run stands in for. Empty for a run by hand"
+        type: string
+        default: ""
 permissions:
   contents: write   # the data-truth branch
 jobs:
@@ -106,12 +111,24 @@ jobs:
     concurrency:
       group: data-truth-deep   # its own: it publishes once, at the end, and data-truth-publish.sh starts again from the other jobs' commit
       cancel-in-progress: false
+    permissions:
+      contents: write   # the data-truth branch
+      actions: read     # slot-done.mjs reads this workflow's runs
     steps:
       - uses: actions/checkout@v4
+      # GitHub's scheduler runs late or not at all since 1.11.2026, and the backup clock then starts this run by hand: the later of the two
+      # finds the earlier here and ends (slot-done.mjs, ops; never fails: done=0)
+      - name: This slot run already?
+        id: slot
+        run: node .github/scripts/slot-done.mjs || echo "done=0" >> "$GITHUB_OUTPUT"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SLOT: ${{ github.event.schedule || inputs.schedule }}
       - name: Done this month already? (a scheduled retry after a good run ends here)
         id: due
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ] && git fetch -q --depth 1 origin data-truth 2>/dev/null && git show FETCH_HEAD:deep-summary.json > "$RUNNER_TEMP/prev.json" 2>/dev/null \
+          if [ "${{ steps.slot.outputs.done }}" = "1" ]; then echo "this slot already ran"; echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ -n "${{ github.event.schedule || inputs.schedule }}" ] && git fetch -q --depth 1 origin data-truth 2>/dev/null && git show FETCH_HEAD:deep-summary.json > "$RUNNER_TEMP/prev.json" 2>/dev/null \
             && node --input-type=module -e 'import fs from "node:fs"; import { period } from "./.github/scripts/deep-audit.mjs"; const s = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); process.exit(s.d === period(new Date()) && s.answered >= 10 ? 0 : 1)' "$RUNNER_TEMP/prev.json"; then
             echo "this month's deep audit is done"; echo "skip=1" >> "$GITHUB_OUTPUT"
           fi
@@ -137,7 +154,7 @@ jobs:
         env:
           OUT: out
           # the extra run on the 18th: about 200 cars (the most the reading allows), before the credit cycle ends on the 20th
-          QUERIES: ${{ inputs.queries || ((github.event.schedule == '17 5 18-19 * *' || github.event.schedule == '17 11 18-19 * *') && 'n=150 rare=50 max=200 minutes=150') || '' }}
+          QUERIES: ${{ inputs.queries || (((github.event.schedule || inputs.schedule) == '17 5 18-19 * *' || (github.event.schedule || inputs.schedule) == '17 11 18-19 * *') && 'n=150 rare=50 max=200 minutes=150') || '' }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
