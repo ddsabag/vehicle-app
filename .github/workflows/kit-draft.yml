@@ -1,4 +1,5 @@
 name: Kit draft
+run-name: Kit draft${{ (github.event.schedule || inputs.schedule) && format(' ({0})', github.event.schedule || inputs.schedule) || '' }}
 # Claude drafts the weekly content kit's texts the night before the Thursday kit (.github/scripts/kit-draft.mjs; owner: marketing thread;
 # Dudu approved 1.11.2026, monthly API credit package A5). claude-opus-5-5 at medium effort, from the factory snapshot on branch kit-factory
 # (pushed by the kit run itself) and public data only; the factory's lint checks the copy and its violations go back to the model, at most 3
@@ -13,8 +14,14 @@ on:
         description: "The Thursday the draft is for (YYYY-MM-DD); empty: the next Thursday"
         required: false
         type: string
+      schedule:
+        description: "The backup clock's cron line (it starts a late slot by hand); empty by hand"
+        required: false
+        type: string
+        default: ""
 permissions:
   contents: write   # branch kit-draft-out, and the alert router's state (branch alert-state)
+  actions: read     # slot-done.mjs lists this workflow's runs
 concurrency:
   group: kit-draft-out   # Kit draft and Kit visual QA both write branch kit-draft-out
   cancel-in-progress: false
@@ -26,9 +33,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 200 }   # ideas.mjs and the lint read facts' past values with git show (RUNBOOK step 1)
+      - name: Was this slot already run? (the backup clock and GitHub's late run must not both call Claude)
+        id: slot
+        run: node .github/scripts/slot-done.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SLOT: ${{ github.event.schedule || inputs.schedule }}
       - uses: actions/setup-node@v7
+        if: ${{ steps.slot.outputs.done != '1' }}
         with: { node-version: 20 }
       - name: The factory snapshot (branch kit-factory) and the recall catalogue (branch catalog-data)
+        if: ${{ steps.slot.outputs.done != '1' }}
         run: |
           mkdir -p factory catalog
           for i in 1 2 3 4; do git fetch -q --depth=1 origin kit-factory && break; [ $i = 4 ] && { echo "::notice::no branch kit-factory: the draft skips"; exit 0; }; sleep $((i * 5)); done
@@ -36,9 +51,11 @@ jobs:
           for i in 1 2 3 4; do git fetch -q --depth=1 origin catalog-data && break; [ $i = 4 ] && exit 1; sleep $((i * 5)); done
           git archive FETCH_HEAD | tar -x -C catalog
       - name: The Claude API SDK (this run only; the app never loads it)
+        if: ${{ steps.slot.outputs.done != '1' }}
         continue-on-error: true   # not installed: the draft skips
         run: npm install --no-save --no-audit --no-fund "$(node --input-type=module -e 'console.log((await import("./.github/scripts/claude.mjs")).SDK)')"
       - name: Kit draft
+        if: ${{ steps.slot.outputs.done != '1' }}
         id: draft
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -52,7 +69,7 @@ jobs:
           DATE: ${{ inputs.date }}
         run: node .github/scripts/kit-draft.mjs --factory factory --repo . --catalog catalog --out kd-out ${DATE:+--date "$DATE"}
       - name: The draft to branch kit-draft-out
-        if: ${{ !cancelled() && steps.draft.outputs.wrote == '1' }}
+        if: ${{ steps.slot.outputs.done != '1' && (!cancelled() && steps.draft.outputs.wrote == '1') }}
         env:
           DIR: ${{ steps.draft.outputs.dir }}
         run: |
