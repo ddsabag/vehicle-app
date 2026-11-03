@@ -1,0 +1,25 @@
+{
+ "v": 1,
+ "at": "2026-11-02T19:51:23.136Z",
+ "branch": "next",
+ "kind": "push",
+ "base": "c45a7e11aaa6387ea056ba743e1f89fb2efcbb2c",
+ "head": "240aae5b093339f772d18590f44a5932ecaf31a2",
+ "run": "https://github.com/ddsabag/vehicle-app/actions/runs/41513764786",
+ "files": 1,
+ "notRead": [],
+ "note": "The new live-47 'online now' line (a GA4 realtime query for the last 5 minutes split into app and web, with a quota fallback) looks correct; the only concern is the size of its caption text.",
+ "points": [],
+ "dropped": [
+  {
+   "file": "worker/live/worker.js",
+   "line": 927,
+   "rule": "zoom",
+   "severity": "low",
+   "confidence": "likely",
+   "what": "The new '5 הדקות האחרונות' caption is a bare <small> inside .onl (font-size .86rem). The browser's default 'smaller' makes it about 11.5px, which is new text under 12px.",
+   "fix": "Add a rule such as .onl small{font-size:.76rem} (or larger) so the caption stays at 12px or more.",
+   "why": "a line the change did not touch"
+  }
+ ]
+}

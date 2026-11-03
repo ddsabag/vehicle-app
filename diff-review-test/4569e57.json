@@ -1,0 +1,42 @@
+{
+ "v": 1,
+ "at": "2026-11-01T21:24:10.211Z",
+ "branch": "diff-review-test",
+ "kind": "release",
+ "base": "42be57fcfa8818d41a9f76b2d5cc2ac8b0adcd83",
+ "head": "4569e57426219c78e214fb62e59dc38621124208",
+ "run": "https://github.com/ddsabag/vehicle-app/actions/runs/41351799624",
+ "files": 9,
+ "notRead": [],
+ "note": "The cutHtml change is a sound fix for RTL names, but the chead hide logic likely no longer works, and inspect.yml becomes a second copy of the diff-review workflow that would replace the dataset tool on main; the review script also has a minor sort bug.",
+ "points": [
+  {
+   "file": ".github/workflows/inspect.yml",
+   "line": 1,
+   "rule": "bug",
+   "severity": "medium",
+   "confidence": "sure",
+   "what": "inspect.yml is replaced with a full copy of diff-review.yml, including the `push: branches: [next]` trigger. If this branch reaches main, the 'Inspect datasets' tool disappears (bot-names.json still names it), and every push to next runs two review workflows.",
+   "fix": "Restore the original inspect.yml before release, or limit the probe to a workflow_dispatch on diff-review-test only."
+  },
+  {
+   "file": "index.html",
+   "line": 3262,
+   "rule": "bug",
+   "severity": "medium",
+   "confidence": "likely",
+   "what": "The header name is now `<b class=\"cut\">`, and `.cut,.t b.cut{display:flex}` overrides the UA `[hidden]{display:none}`. Unless a global `[hidden]{display:none!important}` exists, setting `t.hidden = true` no longer hides the name on a narrow phone.",
+   "fix": "Hide it with `t.style.display = \"none\"`, or add `.cut[hidden]{display:none}` to the CSS."
+  },
+  {
+   "file": ".github/scripts/diff-review.mjs",
+   "line": 129,
+   "rule": "bug",
+   "severity": "low",
+   "confidence": "sure",
+   "what": "The comparator term `(a.confidence === \"sure\" ? -1 : 1)` is never 0, so the file and line ordering after it is never reached. The comparator is also inconsistent: it returns -1 for any two 'sure' points in both orders.",
+   "fix": "Use `(a.confidence === \"sure\" ? 0 : 1) - (b.confidence === \"sure\" ? 0 : 1)` so equal confidences fall through to the file and line order."
+  }
+ ],
+ "dropped": []
+}

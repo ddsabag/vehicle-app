@@ -1,0 +1,24 @@
+{
+ "v": 1,
+ "at": "2026-11-02T20:15:42.511Z",
+ "branch": "next",
+ "kind": "push",
+ "base": "240aae5b093339f772d18590f44a5932ecaf31a2",
+ "head": "ee77d8df8c9cb6638d788bc4b11c8da4048addcd",
+ "run": "https://github.com/ddsabag/vehicle-app/actions/runs/41517551535",
+ "files": 1,
+ "notRead": [],
+ "note": "The online line now refreshes every 30 seconds through a new /live/now endpoint, and the page reloads at once when the screen comes back; the wiring looks sound, with one small staleness gap.",
+ "points": [
+  {
+   "file": "worker/live/worker.js",
+   "line": 1336,
+   "rule": "bug",
+   "severity": "low",
+   "confidence": "likely",
+   "what": "During the 5-minute quota backoff, onlineNow() returns the old cached answer without throwing. /live/now then sends it without stale:true, so the top line drops the 'נתון אחרון שנשמר' label even though the number may be minutes old.",
+   "fix": "In the /live/now handler, add stale: Date.now() - onlAt >= 20e3 (or Date.now() < backoffUntil) to the successful response."
+  }
+ ],
+ "dropped": []
+}
