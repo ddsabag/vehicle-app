@@ -218,8 +218,8 @@ async function tgCheck(env) {
 // counts()), it starts one by hand (workflow_dispatch on main, with the inputs that make it act as its schedule). "morning" (Alert daily) goes
 // by Israel time: from 08:45 to 22:00 while today's heartbeat is missing. A scheduled run GitHub still starts late after that does no harm:
 // each of these bots keeps its own state (posted items in social-queue, the daily claim in alert-state, the watch states) or writes the same
-// thing again, and runs in its own concurrency group. A bot where a second run would cost or send twice is not here until it can tell
-// (weekly report, kit draft and visual QA, the magazine, the walk, competitors, settlements). GitHub answers 401/403/404 to the token =
+// thing again, and runs in its own concurrency group. A bot where a second run would cost or send twice is here only with the slot check
+// (slot-done.mjs, below); kit draft, kit visual QA and the magazine wait for theirs. GitHub answers 401/403/404 to the token =
 // one day alert at most once per 22.5 h (an expired or revoked token); any other failure is a log line and the next hour retries.
 const CLOCK = [
   { wf: "social-publish.yml", he: "פרסום ברשתות", utc: [5, 20], gap: 40, inputs: { mode: "run" } },              // slots every 15 min 04:04-19:49
@@ -253,7 +253,19 @@ const CLOCK = [
   { wf: "models.yml", he: "שמות הדגמים", cron: "10 7 5 * *", inputs: { skip_gate: "false" } },                           // the 5th
   { wf: "modelstats.yml", he: "סטטיסטיקת הדגמים", cron: "20 5 6 * *", inputs: { skip_gate: "false" } },                  // the 6th
   { wf: "zombie.yml", he: "גלאי רכבים שחזרו לכביש", cron: "7 7 3 * *", inputs: {} },                                     // the 3rd
+  // the slot-checked bots (3.11.2026, with their owner threads): each takes the input "schedule" = the cron line and holds it in its run name,
+  // so only a run of that line counts (title), and slot-done.mjs makes the later run of one slot do nothing: GitHub's late run after the
+  // clock's start sends no second brief, Claude call or commit. "il": only the line whose slot is that hour in Israel (the other is gated out)
+  { wf: "weekly-analytics.yml", he: "הדוח השבועי", cron: "20 5 * * 0", il: 8, title: "(20 5 * * 0)", inputs: { schedule: "20 5 * * 0" } },   // Sunday, summer time
+  { wf: "weekly-analytics.yml", he: "הדוח השבועי", cron: "20 6 * * 0", il: 8, title: "(20 6 * * 0)", inputs: { schedule: "20 6 * * 0" } },   // Sunday, winter time
+  { wf: "settlements.yml", he: "הסדרי פשרה", cron: "43 4 * * 0", title: "(43 4 * * 0)", inputs: { schedule: "43 4 * * 0", dry: "false" } },    // Sunday
+  { wf: "explore.yml", he: "הסיור השבועי באפליקציה", cron: "7 3 * * 1", title: "(7 3 * * 1)", inputs: { schedule: "7 3 * * 1" } },              // Monday (walks next)
+  { wf: "data-truth.yml", he: "בדיקת העומק החודשית", cron: "17 5 1 * *", title: "(17 5 1-3 * *)", inputs: { job: "deep", schedule: "17 5 1-3 * *" } },   // the 1st (2nd, 3rd: GitHub's retries)
+  { wf: "data-truth.yml", he: "בדיקת העומק הנוספת", cron: "17 5 18-19 * *", title: "(17 5 18-19 * *)", inputs: { job: "deep", schedule: "17 5 18-19 * *" } },
+  { wf: "data-truth.yml", he: "בדיקת העומק הנוספת", cron: "17 11 18-19 * *", title: "(17 11 18-19 * *)", inputs: { job: "deep", schedule: "17 11 18-19 * *" } },
+  { wf: "competitor-check.yml", he: "בדיקת המתחרים החודשית", cron: "23 4 1 * *", title: "(23 4 1 * *)", inputs: { schedule: "23 4 1 * *", dry: "false" } },     // the 1st
 ];
+const clockKey = x => x.wf + (x.job ? ":" + x.job : "") + (x.title ? " " + x.title : "");
 const CLOCK_MAX = 10;     // starts per hourly pass
 const CLOCK_READS = 20;   // runs lists per pass (a bot seen done is not read again until its next cut-off), plus 3 job lists at most:
                           // with the starts and the rest of the tick it stays inside a Worker's 50 subrequests
@@ -274,10 +286,11 @@ export function clockSlot(cron, now) {
 }
 // an entry's cut-off: a run created since it counts as this round's
 const clockSince = (x, now) => x.cron ? clockSlot(x.cron, now) : now - x.gap * 6e4;
-// the entries due now (pure, for the test): utc hours, the morning window, or from an hour after a cron slot for 14 hours
+// the entries due now (pure, for the test): utc hours, the morning window, or from an hour after a cron slot for 14 hours ("il": a slot
+// at that hour in Israel only)
 export function clockDue(now, hbT) {
   const d = new Date(now), h = d.getUTCHours(), hm = ilHM(d), today = ilDate(d);
-  return CLOCK.filter(c => c.cron ? (s => s > 0 && now - s >= 36e5 && now - s < 14 * 36e5)(clockSlot(c.cron, now))
+  return CLOCK.filter(c => c.cron ? (s => s > 0 && now - s >= 36e5 && now - s < 14 * 36e5 && (!c.il || Math.floor(ilHM(new Date(s)) / 100) === c.il))(clockSlot(c.cron, now))
     : c.morning ? hm >= c.morning[0] && hm < c.morning[1] && !(hbT > 0 && ilDate(new Date(hbT)) === today) : h >= c.utc[0] && h < c.utc[1]);
 }
 // a run of the entry's own: started by GitHub's schedule or by hand (site smoke and the two guardians also run on pushes and pull requests,
@@ -296,7 +309,7 @@ async function backupClock(env, u, now, fire) {
   c.at = iso(now);
   const today = ilDate(new Date(now));
   if (c.day !== today) Object.assign(c, { day: today, n: 0 });
-  const keys = new Set(CLOCK.map(x => x.wf + (x.job ? ":" + x.job : "")));
+  const keys = new Set(CLOCK.map(clockKey));
   c.seen = Object.fromEntries(Object.entries(c.seen || {}).filter(([k]) => keys.has(k)));   // entry -> its newest own run seen (created_at)
   const morningOpen = CLOCK.some(x => x.morning && ilHM(new Date(now)) >= x.morning[0] && ilHM(new Date(now)) < x.morning[1]);
   // read order: the frequent ones and the morning, then the weekly and monthly (one slot, so not left behind on a heavy pass), then the daily
@@ -305,7 +318,7 @@ async function backupClock(env, u, now, fire) {
   let refused = 0, reads = 0, jobReads = 0;
   for (const x of due) {
     if (started.length >= CLOCK_MAX || reads >= CLOCK_READS) break;
-    const key = x.wf + (x.job ? ":" + x.job : ""), since = clockSince(x, now);
+    const key = clockKey(x), since = clockSince(x, now);
     if (!(since > 0) || ms(c.seen[key]) >= since) continue;   // seen done since the cut-off: no read
     try {
       reads++;
@@ -330,7 +343,7 @@ async function backupClock(env, u, now, fire) {
       const d = await gh(env, `workflows/${x.wf}/dispatches`, { ref: "main", inputs: x.inputs });
       if ([401, 403, 404].includes(d.status)) { refused = d.status; break; }
       console.log(`clock ${key}: no run of its own since ${iso(since)}, started: ${d.status}`);
-      if (d.status === 204) { started.push(x.he); c.n++; }
+      if (d.status === 204) { if (!started.includes(x.he)) started.push(x.he); c.n++; }
     } catch (e) { console.log(`clock ${x.wf}: ${String(e?.name || e).slice(0, 60)}`); }
   }
   if (refused) {
