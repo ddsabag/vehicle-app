@@ -291,8 +291,11 @@ const JOURNEYS = [
   ] },
   { name: "saved", when: (c) => c.state !== "empty", steps: [
     ["cars", nav("cars"), (m) => m.screen === "cars" || "cars"],
-    ["scroll", async (p) => { await p.evaluate(() => scrollTo(0, document.documentElement.scrollHeight)); await p.waitForTimeout(200); await p.evaluate(() => { window.__y = Math.round(scrollY); }); }, null],
-    ["open", async (p) => { const l = p.locator("#out [data-open]").filter({ visible: true }); await l.nth((await l.count()) - 1).click({ timeout: 4000 }); }, (m) => m.screen === "car" || `opening a saved car: ${m.screen} ${m.msg.slice(0, 40)}`],
+    ["scroll", async (p) => { await p.evaluate(() => scrollTo(0, document.documentElement.scrollHeight)); await p.waitForTimeout(200); }, null],
+    // the place to come back to is the list's position at the tap: Playwright's click first scrolls a card that is partly off screen
+    // into view, so a position read before the click was off by the page's last screen (3.11: 37 px at 320 px once the footer grew a line)
+    ["open", async (p) => { await p.evaluate(() => document.addEventListener("click", () => { window.__y = Math.round(scrollY); }, { capture: true, once: true }));
+      const l = p.locator("#out [data-open]").filter({ visible: true }); await l.nth((await l.count()) - 1).click({ timeout: 4000 }); }, (m) => m.screen === "car" || `opening a saved car: ${m.screen} ${m.msg.slice(0, 40)}`],
     ["arrow-back", tap("#chead [data-act=back]"), async (m, c) => { const y0 = await c.page.evaluate(() => window.__y); return m.screen === "cars" && Math.abs(m.y - y0) < 30 || `the arrow from a car opened in "הרכבים שלי" should return to the list where it was (y ${y0}), got ${m.screen} y ${m.y}`; }],
     ["alerts", nav("alerts"), (m) => m.screen === "alerts" || "alerts"],
     ["alerts-open", tapIf("#out [data-open]"), (m) => m.screen === "car" || m.screen === "alerts" || `a car in התראות: ${m.screen}`],
