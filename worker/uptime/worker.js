@@ -225,7 +225,22 @@ const CLOCK = [
   { wf: "reviews-monitor.yml", he: "ביקורות בחנות", utc: [7, 20], gap: 330, inputs: { dry_run: "false" } },       // 06:15, 11:15, 17:15
   { wf: "release-watch.yml", he: "מעקב הגרסה בחנות", utc: [8, 20], gap: 330, inputs: { mode: "on" } },            // 06:40, 11:40, 17:40
   { wf: "alert-daily.yml", he: "סיכום הבוקר", morning: [845, 2200], gap: 60, inputs: { dry_run: "false" } },      // 05:05 / 06:05 (08:05 local)
+  // the daily bots (3.11.2026: GitHub started none of the morning's data checks): due from about an hour after the slot, when the newest run
+  // is older than 20 h (a run today, late or by hand, counts)
+  { wf: "app-guardian.yml", he: "שומר האפליקציה", utc: [3, 20], gap: 1200, inputs: {} },                              // 01:37
+  { wf: "ui-guardian.yml", he: "שומר האתר", utc: [4, 20], gap: 1200, inputs: {} },                                     // 02:17
+  { wf: "seo-data.yml", he: "נתוני החיפוש", utc: [5, 20], gap: 1200, inputs: {} },                                     // 03:30
+  { wf: "own-data.yml", he: "הנתונים שלנו", utc: [5, 20], gap: 1200, inputs: {} },                                     // 03:40
+  { wf: "ministry-watch.yml", he: "מעקב משרד התחבורה", utc: [5, 20], gap: 1200, inputs: { dry_run: "false" } },        // 04:07
+  { wf: "data-guard.yml", he: "שומר הנתונים", utc: [5, 20], gap: 1200, inputs: { dry_run: "false" } },                 // 04:15
+  { wf: "release-guard.yml", he: "שומר הגרסה", utc: [5, 20], gap: 1200, inputs: { mode: "on" } },                       // 04:23
+  { wf: "data-truth.yml", he: "אמת הנתונים", utc: [6, 20], gap: 1200, inputs: { job: "audit" } },                       // 04:47 (the daily audit only)
+  { wf: "fuel.yml", he: "מחירי הדלק", utc: [6, 20], gap: 1200, inputs: {} },                                           // 05:17
+  { wf: "site-smoke.yml", he: "בדיקת האתר", utc: [7, 20], gap: 1200, inputs: { dry_run: "false", infra: "true" } },     // 05:30
+  { wf: "web-watch.yml", he: "מעקב האתר", utc: [9, 20], gap: 1200, inputs: { dry_run: "false" } },                     // 07:25
+  { wf: "catalog.yml", he: "מאגר הדגמים", utc: [11, 20], gap: 1200, inputs: {} },                                      // 09:20
 ];
+const CLOCK_MAX = 10;   // starts per hourly pass: with one read per entry it stays well inside a Worker's 50 subrequests
 const GH_API = `https://api.github.com/repos/${REPO}/actions/workflows/`;
 const ilHM = d => +new Intl.DateTimeFormat("en-GB", { timeZone: QUIET.tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d).replace(":", "");
 async function gh(env, path, body) {
@@ -250,6 +265,7 @@ async function backupClock(env, u, now, fire) {
   const due = clockDue(now, morningOpen ? await heartbeat() : null), started = [];
   let refused = 0;
   for (const x of due) {
+    if (started.length >= CLOCK_MAX) break;
     try {
       const r = await gh(env, `${x.wf}/runs?branch=main&per_page=1`);
       if ([401, 403, 404].includes(r.status)) { refused = r.status; break; }

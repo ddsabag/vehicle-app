@@ -326,12 +326,13 @@ ok(h.status === 200 && h.j.tick === null && h.j.armed.home === false, "/health w
 {
   const { clockDue } = await import("data:text/javascript," + encodeURIComponent(src));
   const names = (t, hbT) => clockDue(T(t), hbT ? T(hbT) : null).map(c => c.wf).join();
-  ok(names("2026-11-02T03:00:00Z") === "live-watch.yml", "03:00 UTC: only the dashboard watch " + names("2026-11-02T03:00:00Z"));
-  ok(names("2026-11-02T06:50:00Z", "2026-11-01T06:52:00Z") === "social-publish.yml,live-watch.yml,alert-daily.yml", "08:50 local, heartbeat from yesterday: the morning is due; reviews not before 07 UTC " + names("2026-11-02T06:50:00Z", "2026-11-01T06:52:00Z"));
+  ok(names("2026-11-02T03:00:00Z") === "live-watch.yml,app-guardian.yml", "03:00 UTC: the dashboard watch and the app guardian " + names("2026-11-02T03:00:00Z"));
+  ok(names("2026-11-02T06:50:00Z", "2026-11-01T06:52:00Z").startsWith("social-publish.yml,live-watch.yml,alert-daily.yml,"), "08:50 local, heartbeat from yesterday: the morning is due; reviews not before 07 UTC " + names("2026-11-02T06:50:00Z", "2026-11-01T06:52:00Z"));
   ok(names("2026-11-02T06:40:00Z", "2026-11-01T06:52:00Z").includes("alert-daily") === false, "08:40 local: the morning is not due yet");
   ok(names("2026-11-02T06:50:00Z", "2026-11-02T06:10:00Z").includes("alert-daily") === false, "today's heartbeat: the morning is done");
-  ok(names("2026-11-02T20:30:00Z", "2026-11-01T06:52:00Z") === "live-watch.yml", "22:30 local: no morning at night, no posts after 20 UTC");
-  ok(names("2026-11-02T12:00:00Z", "2026-11-02T06:10:00Z") === "social-publish.yml,live-watch.yml,reviews-monitor.yml,release-watch.yml", "midday after the morning: four by the hours");
+  ok(names("2026-11-02T20:30:00Z", "2026-11-01T06:52:00Z") === "live-watch.yml", "22:30 local: no morning at night, no posts or daily bots after 20 UTC");
+  ok(names("2026-11-02T12:00:00Z", "2026-11-02T06:10:00Z").split(",").length === 4 + 12, "midday after the morning: four frequent and twelve daily by the hours " + names("2026-11-02T12:00:00Z", "2026-11-02T06:10:00Z"));
+  ok(!names("2026-11-02T08:30:00Z", "2026-11-02T06:10:00Z").includes("web-watch") && names("2026-11-02T09:30:00Z", "2026-11-02T06:10:00Z").includes("web-watch"), "a daily bot waits about an hour after its slot");
 }
 reset(); gh = { runs: {}, calls: [], sent: [], status: 0 };
 env = PAGE(); env.ALERT_ROUTE = "all"; hb = "2026-11-02T06:10:00Z";   // today's morning went out
@@ -342,7 +343,9 @@ env.GH_DISPATCH_TOKEN = "GHTOKEN"; env.CLOCK = "off";
 x = await tick(env, NOON + 10 * M);
 ok(gh.calls.length === 0, "CLOCK=off: the clock is off");
 delete env.CLOCK;
-gh.runs = { "social-publish.yml": "2026-11-02T11:49:00Z", "live-watch.yml": "2026-11-02T09:42:00Z", "reviews-monitor.yml": "2026-11-02T11:15:00Z", "release-watch.yml": "2026-11-01T17:40:00Z" };
+const DAILY = ["app-guardian", "ui-guardian", "seo-data", "own-data", "ministry-watch", "data-guard", "release-guard", "data-truth", "fuel", "site-smoke", "web-watch", "catalog"].map(w => w + ".yml");
+const ranToday = () => Object.fromEntries(DAILY.map(w => [w, "2026-11-02T05:00:00Z"]));
+gh.runs = { ...ranToday(), "social-publish.yml": "2026-11-02T11:49:00Z", "live-watch.yml": "2026-11-02T09:42:00Z", "reviews-monitor.yml": "2026-11-02T11:15:00Z", "release-watch.yml": "2026-11-01T17:40:00Z" };
 x = await tick(env, NOON + 20 * M);
 ok(JSON.stringify(gh.sent) === JSON.stringify([["live-watch.yml", { ref: "main", inputs: { dry_run: "false" } }], ["release-watch.yml", { ref: "main", inputs: { mode: "on" } }]]), "starts only what is late, on main, with its inputs " + JSON.stringify(gh.sent));
 ok(x.tg.length === 1 && x.tg[0].disable_notification === true && /שעון הגיבוי הפעיל אותם: מעקב הדשבורד, מעקב הגרסה בחנות/.test(x.tg[0].text), "one quiet line names them " + JSON.stringify(x.tg.map(m => m.text)));
@@ -362,11 +365,22 @@ x = await tick(env, NOON + 210 * M);
 ok(x.tg.length === 0 && U(env).clock.err === "refused 401", "refused again within 22.5 h: no second alert");
 h = await health(env);
 ok(h.j.clock.ok === false, "/health: clock not ok");
-gh.status = 0; gh.runs = {}; gh.calls = []; gh.sent = [];
+gh.status = 0; gh.runs = { ...ranToday() }; gh.calls = []; gh.sent = [];
 hb = "2026-11-02T06:10:00Z";
 x = await tick(env, T("2026-11-03T06:50:00Z"));   // 08:50 local on 3.11, heartbeat from 2.11
 ok(gh.sent.map(a => a[0]).includes("alert-daily.yml") && JSON.stringify(gh.sent.find(a => a[0] === "alert-daily.yml")[1]) === '{"ref":"main","inputs":{"dry_run":"false"}}' && U(env).clock.err === null, "the morning: Alert daily started for real when today's heartbeat is missing " + JSON.stringify(gh.sent));
 ok(U(env).clock.n === gh.sent.length, "a new day restarts the count");
+// 3.11.2026: GitHub started no daily bot at all; the pass starts the late ones with their inputs, at most CLOCK_MAX
+gh.runs = {}; gh.calls = []; gh.sent = []; hb = "2026-11-03T06:10:00Z";
+x = await tick(env, T("2026-11-03T12:30:00Z"));
+ok(gh.sent.length === 10 && gh.sent.every(a => a[1].ref === "main"), "a dead GitHub day: ten starts in one pass " + gh.sent.map(a => a[0]).join());
+const first = gh.sent.slice();
+gh.calls = []; gh.sent = [];
+for (const [w] of first) gh.runs[w] = "2026-11-03T12:30:00Z";   // what the first pass started is running now
+x = await tick(env, T("2026-11-03T13:30:00Z"));
+const all = [...first, ...gh.sent];
+ok(gh.sent.some(a => a[0] === "catalog.yml") && DAILY.every(w => all.filter(a => a[0] === w).length === 1), "the next pass starts the rest, no daily bot twice " + gh.sent.map(a => a[0]).join());
+ok(JSON.stringify(all.find(a => a[0] === "data-truth.yml")[1].inputs) === '{"job":"audit"}' && JSON.stringify(all.find(a => a[0] === "release-guard.yml")[1].inputs) === '{"mode":"on"}', "daily bots get the inputs that act as their schedule");
 
 log(bad ? `uptime test: ${bad} of ${n} checks FAILED` : `uptime test ok (${n} checks)`);
 process.exit(bad ? 1 : 0);
