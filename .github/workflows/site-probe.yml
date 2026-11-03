@@ -1,0 +1,25 @@
+name: Site probe
+# Strategy thread: a passive, encrypted snapshot of a public page and its same-origin files (GET only). Runs on a push to this branch.
+on:
+  push:
+    branches: [strategy/site-probe]
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: node .github/scripts/site-probe.mjs "https://car-check-il.netlify.app/tool/" "$RUNNER_TEMP/site.enc.json"
+      - name: Publish to the branch probe-site-out
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd "$(mktemp -d)" && git init -q && git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git checkout -q --orphan probe-site-out && cp "$RUNNER_TEMP/site.enc.json" . && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "site snapshot $(date -u +%F)"
+          git push -q -f origin probe-site-out
