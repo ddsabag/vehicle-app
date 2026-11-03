@@ -14,7 +14,10 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - run: node .github/scripts/site-probe.mjs "https://car-check-il.netlify.app/tool/" "$RUNNER_TEMP/site.enc.json"
+      - env:
+          SEEDS: /_astro/PwaInstallHint.B2PQNIgA.js /_astro/CarCheckApp.DhoPlSwA.js /_astro/DisabledParkingTagChecker.BaR3ZteK.js /_astro/EstimatedPlateTool.astro_astro_type_script_index_0_lang.BClZ98wq.js /_astro/GarageFinder.CKzxhI-t.js /_astro/NewCarPricesFinder.CphkEUzM.js /_astro/PropertyInsuranceChecker.CcES8xaG.js /_astro/LeviYitzhakPriceChecker.BGZO2FI5.js /guides/insurance-claims-history-israel/ /guides/private-vehicle-history-mileage-ownership-2017/ /sw.js /service-worker.js /manifest.webmanifest
+          DENY: /(stats|insights)/|/tool/estimated-plate/$
+        run: node .github/scripts/site-probe.mjs "https://car-check-il.netlify.app/tool/" "$RUNNER_TEMP/site.enc.json"
       - name: Publish to the branch probe-site-out
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

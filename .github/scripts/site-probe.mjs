@@ -5,9 +5,10 @@ import crypto from "node:crypto"; import fs from "node:fs"; import zlib from "no
 
 const [start, outFile] = process.argv.slice(2);
 const origin = new URL(start).origin, MAX = 120, MAXB = 25e6;
-const seen = new Map(), queue = [start, origin + "/", origin + "/robots.txt", origin + "/sitemap.xml", origin + "/manifest.json", origin + "/_redirects", origin + "/netlify.toml"];
+const seen = new Map(), queue = [start, ...(process.env.SEEDS || "").split(/\s+/).filter(Boolean).map(s => new URL(s, origin).href)];
+const DENY = process.env.DENY ? new RegExp(process.env.DENY) : null;
 let bytes = 0;
-const skip = u => /\/\.netlify\/functions\/|\/api\//.test(u);   // their server endpoints are named from the code, never called
+const skip = u => /\/\.netlify\/functions\/|\/api\//.test(u) || (DENY && DENY.test(u));   // their server endpoints are named from the code, never called
 function refs(body, base, type) {
   const out = new Set(), add = s => { try { const u = new URL(s, base); u.hash = ""; if (u.origin === origin) out.add(u.href); } catch {} };
   if (/html/.test(type)) for (const m of body.matchAll(/(?:src|href)\s*=\s*["']([^"']+)["']/gi)) add(m[1]);
