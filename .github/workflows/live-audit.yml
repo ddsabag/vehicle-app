@@ -1,0 +1,37 @@
+name: Live data audit (one-off, probe-perf branch)
+# 3.11.2026, measurement thread: the whole /live/data answer as the Worker on main builds it, encrypted on branch live-audit-out, so that every
+# item on the dashboard can be checked for data. Read-only everywhere; nothing for main.
+on:
+  push:
+    branches: [probe-perf]
+    paths: [".github/scripts/live-audit.mjs", ".github/workflows/live-audit.yml"]
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with: { node-version: 22 }
+      - name: /live's code as it is on main
+        run: |
+          git fetch -q --depth=1 origin main
+          git show FETCH_HEAD:worker/live/worker.js > "$RUNNER_TEMP/w.js"
+          git show FETCH_HEAD:worker/live/wrangler.toml > "$RUNNER_TEMP/w.toml"
+          echo "main $(git rev-parse --short FETCH_HEAD)"
+      - run: node .github/scripts/live-audit.mjs
+        env:
+          W_JS: ${{ runner.temp }}/w.js
+          W_TOML: ${{ runner.temp }}/w.toml
+          W_TMP: ${{ runner.temp }}/live-audit-worker.mjs
+          GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      - name: Publish on live-audit-out (encrypted only)
+        run: |
+          cd out && git init -q && git checkout -q -b live-audit-out && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Live data audit (encrypted)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" live-audit-out
