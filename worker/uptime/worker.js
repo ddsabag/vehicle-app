@@ -141,7 +141,7 @@ const PROBES = {
   api: { name: "שירות ההרשמה (/api)", url: () => `${SITE}/api/confirm?e=x&x=1&t=x`, manual: true,
     check: async r => (r.status !== 302 ? String(r.status) : /subscribed=expired/.test(r.headers.get("location") || "") ? "" : "redirect") },
 };
-const C0 = () => ({ at: null, day: null, n: 0, told: null, err: null, errAt: null });   // n = runs the clock started on "day" (Israel date)
+const C0 = () => ({ at: null, day: null, n: 0, told: null, err: null, errAt: null, seen: {} });   // n = runs the clock started on "day" (Israel date)
 const P0 = () => ({ fails: 0, armed: false, since: null, pagedAt: null, remAt: null, last: null, back: null });   // back = ms down, recovery line not yet out
 const U0 = () => ({ v: 1, tick: null, mode: "observe", probes: { home: P0(), api: P0() }, gh: { seenAt: null, t: null, at: null, staleAt: null }, clock: C0(), morning: null, hello: false, tg: false });
 const iso = t => new Date(t).toISOString();
@@ -213,12 +213,14 @@ async function tgCheck(env) {
 }
 
 // The backup clock (Dudu 2.11.2026 "כן, לבנות"; ops bots review): from 1.11.2026 GitHub started scheduled runs hours late or not at all
-// (2.11: daily bots about 1 h late, later 8-10 h; frequent ones mostly never). Once an hour, for each entry inside its hours (UTC), it reads
-// the newest run of the workflow on main; one created more than "gap" minutes ago is started by hand (workflow_dispatch on main, with the
-// inputs that make it act as its schedule). "morning" (Alert daily) goes by Israel time instead: from 08:45 to 22:00 while today's heartbeat
-// is missing. A scheduled run GitHub still starts late after that does no harm: each of these bots keeps its own state (posted items in
-// social-queue, the daily claim in alert-state, the watch states) and runs in its own concurrency group. GitHub answers 401/403/404 to the
-// token = one day alert at most once per 22.5 h (an expired or revoked token); any other failure is a log line and the next hour retries.
+// (2.11: daily bots about 1 h late, later 8-10 h; frequent ones mostly never). Once an hour, for each entry due now, it reads the runs of the
+// workflow on main since the entry's cut-off: "gap" minutes ago, or the last slot of its "cron" line. With no run of its own there (see
+// counts()), it starts one by hand (workflow_dispatch on main, with the inputs that make it act as its schedule). "morning" (Alert daily) goes
+// by Israel time: from 08:45 to 22:00 while today's heartbeat is missing. A scheduled run GitHub still starts late after that does no harm:
+// each of these bots keeps its own state (posted items in social-queue, the daily claim in alert-state, the watch states) or writes the same
+// thing again, and runs in its own concurrency group. A bot where a second run would cost or send twice is not here until it can tell
+// (weekly report, kit draft and visual QA, the magazine, the walk, competitors, settlements). GitHub answers 401/403/404 to the token =
+// one day alert at most once per 22.5 h (an expired or revoked token); any other failure is a log line and the next hour retries.
 const CLOCK = [
   { wf: "social-publish.yml", he: "פרסום ברשתות", utc: [5, 20], gap: 40, inputs: { mode: "run" } },              // slots every 15 min 04:04-19:49
   { wf: "live-watch.yml", he: "מעקב הדשבורד", utc: [0, 24], gap: 75, inputs: { dry_run: "false" } },             // :12 and :42
@@ -234,25 +236,58 @@ const CLOCK = [
   { wf: "ministry-watch.yml", he: "מעקב משרד התחבורה", utc: [5, 20], gap: 1200, inputs: { dry_run: "false" } },        // 04:07
   { wf: "data-guard.yml", he: "שומר הנתונים", utc: [5, 20], gap: 1200, inputs: { dry_run: "false" } },                 // 04:15
   { wf: "release-guard.yml", he: "שומר הגרסה", utc: [5, 20], gap: 1200, inputs: { mode: "on" } },                       // 04:23
-  { wf: "data-truth.yml", he: "אמת הנתונים", utc: [6, 20], gap: 1200, inputs: { job: "audit" } },                       // 04:47 (the daily audit only)
+  { wf: "data-truth.yml", he: "אמת הנתונים", utc: [6, 20], gap: 1200, job: "audit", inputs: { job: "audit" } },         // 04:47 (the daily audit only)
   { wf: "fuel.yml", he: "מחירי הדלק", utc: [6, 20], gap: 1200, inputs: {} },                                           // 05:17
   { wf: "site-smoke.yml", he: "בדיקת האתר", utc: [7, 20], gap: 1200, inputs: { dry_run: "false", infra: "true" } },     // 05:30
   { wf: "web-watch.yml", he: "מעקב האתר", utc: [9, 20], gap: 1200, inputs: { dry_run: "false" } },                     // 07:25
   { wf: "catalog.yml", he: "מאגר הדגמים", utc: [11, 20], gap: 1200, inputs: {} },                                      // 09:20
+  // the weekly and monthly bots (3.11.2026): "cron" is the workflow's own line (UTC); due from an hour after its last slot, for 14 hours,
+  // while no run of its own started since that slot. Only bots for which a start by hand is their schedule and a late GitHub run after
+  // it changes nothing: the same snapshot or data again (no diff, no commit), the same text (no call), a check. Not the magazine: a second
+  // data run the same week publishes the next article in line.
+  { wf: "camp-data.yml", he: "צילום נתוני הקמפיינים", cron: "40 4 * * 3", inputs: {} },                                  // Wednesday
+  { wf: "copy-audit.yml", he: "בדיקת הנוסח השבועית", cron: "41 5 * * 1", inputs: { dry: "false", force: "false" } },   // Monday; the same text = no call
+  { wf: "seo-check.yml", he: "בדיקת SEO", cron: "30 5 * * 1", inputs: {} },                                              // Monday: the live site too
+  { wf: "data-truth.yml", he: "הבדיקה השבועית מול משרד התחבורה", cron: "17 1 * * 0", job: "invariants", inputs: { job: "invariants" } },   // Sunday
+  { wf: "market.yml", he: "נתוני השוק", cron: "40 4 5 * *", inputs: { skip_gate: "false" } },                            // the 5th
+  { wf: "models.yml", he: "שמות הדגמים", cron: "10 7 5 * *", inputs: { skip_gate: "false" } },                           // the 5th
+  { wf: "modelstats.yml", he: "סטטיסטיקת הדגמים", cron: "20 5 6 * *", inputs: { skip_gate: "false" } },                  // the 6th
+  { wf: "zombie.yml", he: "גלאי רכבים שחזרו לכביש", cron: "7 7 3 * *", inputs: {} },                                     // the 3rd
 ];
-const CLOCK_MAX = 10;   // starts per hourly pass: with one read per entry it stays well inside a Worker's 50 subrequests
-const GH_API = `https://api.github.com/repos/${REPO}/actions/workflows/`;
+const CLOCK_MAX = 10;     // starts per hourly pass
+const CLOCK_READS = 20;   // runs lists per pass (a bot seen done is not read again until its next cut-off), plus 3 job lists at most:
+                          // with the starts and the rest of the tick it stays inside a Worker's 50 subrequests
+const GH_API = `https://api.github.com/repos/${REPO}/actions/`;
 const ilHM = d => +new Intl.DateTimeFormat("en-GB", { timeZone: QUIET.tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d).replace(":", "");
+// the last time a cron line (UTC: minute hour day-of-month month weekday; numbers, lists, ranges and *) fired at or before now; 0 = none in 40 days
+export function clockSlot(cron, now) {
+  const f = String(cron).trim().split(/\s+/);
+  const set = (s, wd) => { if (s === "*") return null; const o = new Set(); for (const p of String(s).split(",")) { const [a, b = a] = p.split("-").map(Number); for (let i = a; i <= b; i++) o.add(wd && i === 7 ? 0 : i); } return o; };
+  const [mi, ho, dm, mo, dw] = f.length === 5 ? f.map((v, i) => set(v, i === 4)) : [new Set(), null, null, null, null];
+  const has = (S, v) => !S || S.has(v), mins = [...(mi || Array.from({ length: 60 }, (_, i) => i))].sort((a, b) => b - a);
+  for (let t = Math.floor(now / 36e5) * 36e5, end = now - 40 * 864e5; t > end; t -= 36e5) {
+    const d = new Date(t), day = dm && dw ? dm.has(d.getUTCDate()) || dw.has(d.getUTCDay()) : has(dm, d.getUTCDate()) && has(dw, d.getUTCDay());
+    if (!day || !has(mo, d.getUTCMonth() + 1) || !has(ho, d.getUTCHours())) continue;
+    for (const m of mins) if (t + m * 6e4 <= now) return t + m * 6e4;
+  }
+  return 0;
+}
+// an entry's cut-off: a run created since it counts as this round's
+const clockSince = (x, now) => x.cron ? clockSlot(x.cron, now) : now - x.gap * 6e4;
+// the entries due now (pure, for the test): utc hours, the morning window, or from an hour after a cron slot for 14 hours
+export function clockDue(now, hbT) {
+  const d = new Date(now), h = d.getUTCHours(), hm = ilHM(d), today = ilDate(d);
+  return CLOCK.filter(c => c.cron ? (s => s > 0 && now - s >= 36e5 && now - s < 14 * 36e5)(clockSlot(c.cron, now))
+    : c.morning ? hm >= c.morning[0] && hm < c.morning[1] && !(hbT > 0 && ilDate(new Date(hbT)) === today) : h >= c.utc[0] && h < c.utc[1]);
+}
+// a run of the entry's own: started by GitHub's schedule or by hand (site smoke and the two guardians also run on pushes and pull requests,
+// which are other checks; 3.11.2026), not skipped, and with the entry's title when it has one (for a workflow with parts by run name)
+export const counts = (x, r) => ["schedule", "workflow_dispatch"].includes(r?.event) && r.conclusion !== "skipped" && (!x.title || String(r.display_title || "").includes(x.title));
 async function gh(env, path, body) {
   const r = await fetch(GH_API + path, { method: body ? "POST" : "GET", body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(10000),
     headers: { authorization: "Bearer " + env.GH_DISPATCH_TOKEN, accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28", "user-agent": UA, ...(body ? { "content-type": "application/json" } : {}) } });
   const j = r.status === 204 ? null : await r.json().catch(() => null);
   return { status: r.status, j };
-}
-// the entries due now (pure, for the test): utc hours or the morning window
-export function clockDue(now, hbT) {
-  const d = new Date(now), h = d.getUTCHours(), hm = ilHM(d), today = ilDate(d);
-  return CLOCK.filter(c => c.morning ? hm >= c.morning[0] && hm < c.morning[1] && !(hbT > 0 && ilDate(new Date(hbT)) === today) : h >= c.utc[0] && h < c.utc[1]);
 }
 async function backupClock(env, u, now, fire) {
   const c = u.clock;
@@ -261,20 +296,40 @@ async function backupClock(env, u, now, fire) {
   c.at = iso(now);
   const today = ilDate(new Date(now));
   if (c.day !== today) Object.assign(c, { day: today, n: 0 });
+  const keys = new Set(CLOCK.map(x => x.wf + (x.job ? ":" + x.job : "")));
+  c.seen = Object.fromEntries(Object.entries(c.seen || {}).filter(([k]) => keys.has(k)));   // entry -> its newest own run seen (created_at)
   const morningOpen = CLOCK.some(x => x.morning && ilHM(new Date(now)) >= x.morning[0] && ilHM(new Date(now)) < x.morning[1]);
-  const due = clockDue(now, morningOpen ? await heartbeat() : null), started = [];
-  let refused = 0;
+  // read order: the frequent ones and the morning, then the weekly and monthly (one slot, so not left behind on a heavy pass), then the daily
+  const rank = x => x.cron ? 1 : x.gap >= 1200 ? 2 : 0;
+  const due = clockDue(now, morningOpen ? await heartbeat() : null).sort((a, b) => rank(a) - rank(b)), started = [];
+  let refused = 0, reads = 0, jobReads = 0;
   for (const x of due) {
-    if (started.length >= CLOCK_MAX) break;
+    if (started.length >= CLOCK_MAX || reads >= CLOCK_READS) break;
+    const key = x.wf + (x.job ? ":" + x.job : ""), since = clockSince(x, now);
+    if (!(since > 0) || ms(c.seen[key]) >= since) continue;   // seen done since the cut-off: no read
     try {
-      const r = await gh(env, `${x.wf}/runs?branch=main&per_page=1`);
+      reads++;
+      const r = await gh(env, `workflows/${x.wf}/runs?branch=main&per_page=30&created=${encodeURIComponent(">=" + iso(since))}`);
       if ([401, 403, 404].includes(r.status)) { refused = r.status; break; }
       if (r.status !== 200) { console.log(`clock ${x.wf}: runs read ${r.status}`); continue; }
-      const last = ms(r.j?.workflow_runs?.[0]?.created_at);
-      if (now - last < x.gap * 6e4) continue;
-      const d = await gh(env, `${x.wf}/dispatches`, { ref: "main", inputs: x.inputs });
+      let own = null, sure = true;   // sure = remember it, so the next passes need no read until the next cut-off
+      for (const run of (r.j?.workflow_runs || []).filter(run => counts(x, run) && ms(run.created_at) >= since)) {
+        if (!x.job) { own = run; break; }
+        // data truth: one workflow, three jobs by the cron line or the "job" input; the run counts when the entry's job is not skipped.
+        // Out of job reads this pass, or a list that cannot be read: nothing started and nothing remembered, the next hour reads again
+        if (jobReads >= 3) { own = run; sure = false; break; }
+        jobReads++;
+        const j = await gh(env, `runs/${run.id}/jobs?per_page=20`);
+        if ([401, 403, 404].includes(j.status)) { refused = j.status; break; }
+        const job = (j.j?.jobs || []).find(o => o.name === x.job);
+        if (j.status !== 200 || !job) { own = run; sure = false; break; }
+        if (job.conclusion !== "skipped") { own = run; sure = run.status === "completed"; break; }   // ran, or running (remembered once it ends)
+      }
+      if (refused) break;
+      if (own) { if (sure) c.seen[key] = own.created_at; continue; }
+      const d = await gh(env, `workflows/${x.wf}/dispatches`, { ref: "main", inputs: x.inputs });
       if ([401, 403, 404].includes(d.status)) { refused = d.status; break; }
-      console.log(`clock ${x.wf}: last run ${last > 0 ? Math.round((now - last) / 6e4) + " min ago" : "none"}, started: ${d.status}`);
+      console.log(`clock ${key}: no run of its own since ${iso(since)}, started: ${d.status}`);
       if (d.status === 204) { started.push(x.he); c.n++; }
     } catch (e) { console.log(`clock ${x.wf}: ${String(e?.name || e).slice(0, 60)}`); }
   }
