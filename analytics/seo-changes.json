@@ -46,5 +46,12 @@
       "urls": "https://luchit.app/model/*",
       "what": "133 model pages: new body section 'ריקולים שפורסמו ל<model>' (the ministry's recall list matched by the app's matcher, text only, no links), inserted after the facts list; titles, descriptions and internal links unchanged. pages.mjs builds it from the catalog-data branch (model-recalls.mjs). Measure: crawled-not-indexed model pages (141 on 2026-10-19) and model-page impressions over 3-4 weeks."
     }
+  ],
+  "_legal": [
+    {
+      "date": "2026-11-04",
+      "urls": "every page (footers of pages.mjs, magazine.mjs, magazine-data.mjs; index.html, privacy.html, business/)",
+      "what": "footer link to the new accessibility statement /accessibility/ (Israeli accessibility regulations, Dudu 3.11.2026 22:09 UTC), and a skip link to <main id=\"main\">; a legal fix, exempt from the 21-day rule, so no URL's window starts again. Titles and descriptions unchanged."
+    }
   ]
 }
