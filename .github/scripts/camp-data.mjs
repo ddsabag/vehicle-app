@@ -62,9 +62,15 @@ export function fold(rows, names) {
   return [...m.values()].map(o => ({ ...o, d7: o.d7 || o.d28.map(() => 0), d28: o.d28 || o.d7.map(() => 0) }));
 }
 
+// one tag per Facebook group from 4.11.2026 (fbg_ and letters, CEO + marketing): the topics and the kit's rows count them all as fb_groups, so
+// that series goes on; each group's own numbers are in "tags" of that topic (and the raw rows keep the tag as it came)
+export const family = camp => /^fbg_[a-z]{1,20}$/.test(low(camp)) ? "fb_groups" : low(camp);
+
 // per topic: app opens + site landings, site checks, installs, over 7 and 28 days, and the networks that carried it; best (7-day opens, then 28) first
 export function topics(S) {
-  const T = new Map(), t = camp => { const k = low(camp); if (!T.has(k)) T.set(k, { camp: k, opens: [0, 0], appOpens: [0, 0], landings: [0, 0], checks: [0, 0], installs: [0, 0], via: {} }); return T.get(k); };
+  const T = new Map(), t = camp => { const k = family(camp); if (!T.has(k)) T.set(k, { camp: k, opens: [0, 0], appOpens: [0, 0], landings: [0, 0], checks: [0, 0], installs: [0, 0], via: {} }); return T.get(k); };
+  // a group's own line inside its family: { tag: { opens, landings, checks, installs: [7 days, 28 days] } }
+  const g = (camp, f, a, b) => { const k = low(camp), x = t(camp); if (k === x.camp) return; const o = ((x.tags ||= {})[k] ||= { opens: [0, 0], landings: [0, 0], checks: [0, 0], installs: [0, 0] }); o[f][0] += a; o[f][1] += b; };
   for (const o of S.opens) {
     if (!tagged(o.camp)) continue;
     if (o.eventName === "link_open" && o.kind !== "campaign") continue;   // a shared report or comparison, not a campaign topic
@@ -72,16 +78,17 @@ export function topics(S) {
     x.opens[0] += o.d7[0]; x.opens[1] += o.d28[0];
     (o.eventName === "link_open" ? x.appOpens : x.landings)[0] += o.d7[0]; (o.eventName === "link_open" ? x.appOpens : x.landings)[1] += o.d28[0];
     x.via[net] = (x.via[net] || 0) + o.d28[0];
+    g(o.camp, "opens", o.d7[0], o.d28[0]); if (o.eventName !== "link_open") g(o.camp, "landings", o.d7[0], o.d28[0]);
   }
-  for (const c of S.checks) if (tagged(c.camp)) { const x = t(c.camp); x.checks[0] += c.d7[0]; x.checks[1] += c.d28[0]; }
-  for (const i of S.installs) if (tagged(i.firstUserCampaignName) && low(i.firstUserSource) !== "google-play") { const x = t(i.firstUserCampaignName); x.installs[0] += i.d7[0]; x.installs[1] += i.d28[0]; }
+  for (const c of S.checks) if (tagged(c.camp)) { const x = t(c.camp); x.checks[0] += c.d7[0]; x.checks[1] += c.d28[0]; g(c.camp, "checks", c.d7[0], c.d28[0]); }
+  for (const i of S.installs) if (tagged(i.firstUserCampaignName) && low(i.firstUserSource) !== "google-play") { const x = t(i.firstUserCampaignName); x.installs[0] += i.d7[0]; x.installs[1] += i.d28[0]; g(i.firstUserCampaignName, "installs", i.d7[0], i.d28[0]); }
   return [...T.values()].sort((a, b) => b.opens[0] - a.opens[0] || b.opens[1] - a.opens[1] || b.installs[1] - a.installs[1] || (a.camp < b.camp ? -1 : 1));
 }
 
 // the kit's own shape (content-factory/ideas.mjs --camp, 25.10): one row per topic and network for the last 7 days. opens = app opens by a
 // campaign link (link_open kind campaign), landings = site landings with that topic, checks = site car checks of visits with that topic
 export function kitRows(S) {
-  const M = new Map(), r = (camp, via) => { const k = low(camp) + "\u0001" + via; if (!M.has(k)) M.set(k, { camp: low(camp), via, opens: 0, landings: 0, checks: 0 }); return M.get(k); };
+  const M = new Map(), r = (camp, via) => { const k = family(camp) + "\u0001" + via; if (!M.has(k)) M.set(k, { camp: family(camp), via, opens: 0, landings: 0, checks: 0 }); return M.get(k); };
   for (const o of S.opens) {
     if (!tagged(o.camp) || !o.d7[0]) continue;
     if (o.eventName === "link_open") { if (o.kind === "campaign") r(o.camp, low(tagged(o.via) ? o.via : o.src) || "?").opens += o.d7[0]; }
@@ -146,6 +153,14 @@ function selftest() {
   const kp = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 }), pubPem = kp.publicKey.export({ type: "spki", format: "pem" });
   const e = encrypt({ topics: T }, pubPem), key = crypto.privateDecrypt({ key: kp.privateKey, padding: crypto.constants.RSA_PKCS1_OAEP_PADDING, oaepHash: "sha256" }, Buffer.from(e.ek, "base64"));
   const d = crypto.createDecipheriv("aes-256-gcm", key, Buffer.from(e.iv, "base64")); d.setAuthTag(Buffer.from(e.tag, "base64"));
+  {const o2 = fold([row(["web", "link_landing", "campaign", "", "facebook", "fbg_a"], [4, 4], "d7"), row(["web", "link_landing", "campaign", "", "facebook", "fbg_a"], [4, 4], "d28"),
+    row(["web", "link_landing", "campaign", "", "facebook", "fb_groups"], [10, 9], "d28"), row(["web", "link_landing", "campaign", "", "facebook", "fbg_bb"], [1, 1], "d7"), row(["web", "link_landing", "campaign", "", "facebook", "fbg_bb"], [1, 1], "d28")],
+    ["platform", "eventName", "kind", "via", "src", "camp"]), c2 = fold([row(["facebook", "fbg_a"], [3], "d7"), row(["facebook", "fbg_a"], [3], "d28")], ["src", "camp"]);
+   const S2 = { opens: o2, checks: c2, installs: [{ firstUserSource: "facebook", firstUserCampaignName: "fbg_bb", d7: [2], d28: [2] }] }, T2 = topics(S2), K2 = kitRows(S2);
+   ok(T2.length === 1 && T2[0].camp === "fb_groups" && T2[0].landings.join() === "5,15" && T2[0].checks.join() === "3,3" && T2[0].installs.join() === "2,2", "fbg_* tags count as fb_groups " + JSON.stringify(T2[0]));
+   ok(T2[0].tags.fbg_a.landings.join() === "4,4" && T2[0].tags.fbg_a.checks.join() === "3,3" && T2[0].tags.fbg_bb.installs.join() === "2,2" && !T2[0].tags.fb_groups, "each group's own line in tags");
+   ok(K2.length === 1 && K2[0].camp === "fb_groups" && K2[0].landings === 5 && K2[0].checks === 3, "kit rows: one fb_groups row");
+   ok(family("FBG_AA") === "fb_groups" && family("fbg_") === "fbg_" && family("fbgx") === "fbgx" && family("market") === "market", "family");}
   ok(JSON.parse(Buffer.concat([d.update(Buffer.from(e.data, "base64")), d.final()])).topics[0].camp === "market", "encryption round trip");
   ok(!JSON.stringify(e).includes("market"), "the file holds no clear text");
   ok(fs.existsSync(new URL("../seo-data.pub.pem", import.meta.url)), "the public key is in the repo");
