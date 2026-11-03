@@ -1,0 +1,24 @@
+name: Screenshot probe (one-off, probe-perf branch)
+# 3.11, CEO thread (Dudu): do screenshots count as shares? user_screenshot vs car_lookup, share, share_open in the app. Read-only GA4; output encrypted on branch scr-probe-out.
+on:
+  push:
+    branches: [probe-perf]
+    paths: [".github/scripts/scr-probe.mjs", ".github/workflows/scr-probe.yml"]
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      - run: node .github/scripts/scr-probe.mjs
+        env:
+          GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
+      - name: Publish on scr-probe-out (encrypted only)
+        run: |
+          cd out && git init -q && git checkout -q -b scr-probe-out && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Screenshot probe (encrypted)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" scr-probe-out
