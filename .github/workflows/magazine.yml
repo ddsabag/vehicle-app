@@ -16,7 +16,7 @@ name: Magazine
 #   sealed on the branch magazine-ai-test. Writes no site file and never main, so it keeps its own queue too.
 # The run name carries the part ("Magazine (data)"): Failure alert counts only a newer run of the same part as taking a cancelled run's place,
 # and Web deploy skips the newsletter runs (they never change main; the push that started one already triggers Web deploy itself).
-run-name: Magazine (${{ github.event.schedule == '30 5 * * 4' && 'data' || github.event_name == 'push' && 'newsletter' || inputs.part || 'monthly' }})
+run-name: Magazine (${{ (github.event.schedule || inputs.schedule) == '30 5 * * 4' && 'data' || github.event_name == 'push' && 'newsletter' || inputs.part || 'monthly' }})${{ (github.event.schedule || inputs.schedule) && format(' ({0})', (github.event.schedule || inputs.schedule)) || '' }}
 on:
   schedule:
     - cron: "7 8 6 * *"    # monthly article: the 6th (off the full hour, when GitHub delays or drops the most scheduled runs), after market.yml and models.yml (5th) and after modelstats.yml has finished (starts 05:20, up to 2 hours)
@@ -36,23 +36,30 @@ on:
         type: choice
         options: [preview, draft, send]
         default: preview
+      schedule:
+        description: "Only for the backup clock (luchit-uptime): the cron line this run stands in for, e.g. 30 5 * * 4. Leave empty by hand."
+        type: string
+        default: ""
 permissions:
   contents: write
   pull-requests: write
   pages: write
+  actions: read   # slot-done.mjs reads this workflow's runs
 concurrency:
   # the articles commit to main and share its queue; the newsletter only reads, as before, and the comparison writes only its own branch
   group: ${{ (github.event_name == 'push' || inputs.part == 'newsletter') && 'newsletter' || inputs.part == 'ai-test' && 'magazine-ai-test' || inputs.part == 'answers-test' && 'model-answers-test' || 'main-writer' }}
   cancel-in-progress: false
 jobs:
   article:
-    # the part is picked by the cron line that fired (github.event.schedule), not by the clock, since GitHub starts scheduled runs late
-    name: ${{ (github.event.schedule == '30 5 * * 4' || inputs.part == 'data') && 'data-article' || 'article' }}
+    # the part is picked by the cron line that fired (github.event.schedule), not by the clock, since GitHub starts scheduled runs late;
+    # the backup clock in luchit-uptime starts a late slot by hand with that line in inputs.schedule, and the run acts as the scheduled one
+    name: ${{ ((github.event.schedule || inputs.schedule) == '30 5 * * 4' || inputs.part == 'data') && 'data-article' || 'article' }}
     if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.part != 'newsletter' && inputs.part != 'ai-test' && inputs.part != 'answers-test') }}
     runs-on: ubuntu-24.04
-    timeout-minutes: ${{ (github.event.schedule == '30 5 * * 4' || inputs.part == 'data') && 10 || 40 }}
+    timeout-minutes: ${{ ((github.event.schedule || inputs.schedule) == '30 5 * * 4' || inputs.part == 'data') && 10 || 40 }}
     env:
-      KIND: ${{ (github.event.schedule == '30 5 * * 4' || inputs.part == 'data') && 'data' || 'monthly' }}
+      SLOT: ${{ (github.event.schedule || inputs.schedule) }}
+      KIND: ${{ ((github.event.schedule || inputs.schedule) == '30 5 * * 4' || inputs.part == 'data') && 'data' || 'monthly' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -60,16 +67,25 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 20
+      # this cron slot already ran (GitHub's late run and the backup clock's can both come): the rest is skipped, so an article is never
+      # written twice and the next data article in line is not published early. Never fails: on any error the run goes on as before.
+      - name: Slot already run?
+        id: slot
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          if [ -e .github/scripts/slot-done.mjs ]; then node .github/scripts/slot-done.mjs; else echo "no slot check on main yet, so it runs"; fi
       # the ministry's recall lists per maker (catalog-data branch, catalog.yml) for the model pages' recall section (model-recalls.mjs);
       # without them pages.mjs builds the pages without that section and prints a warning
       - name: Recall lists for the model pages
+        if: steps.slot.outputs.done != '1'
         run: |
           git fetch -q --depth 1 origin catalog-data && mkdir -p cat-data && git archive FETCH_HEAD r meta.json | tar -x -C cat-data \
             || echo "::warning::catalog-data could not be read: the model pages are built without their recall section"
       # the monthly prose comes from Claude (magazine-ai.mjs): the SDK only when the key is there and MAGAZINE_AI is not 0; a failed install
       # leaves the template, the same as no key
       - name: Claude SDK for the monthly prose
-        if: env.KIND == 'monthly' && vars.MAGAZINE_AI != '0'
+        if: steps.slot.outputs.done != '1' && env.KIND == 'monthly' && vars.MAGAZINE_AI != '0'
         env:
           HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
         run: |
@@ -78,6 +94,7 @@ jobs:
           npm install --prefix .github/scripts --no-save --no-package-lock --ignore-scripts --no-audit --no-fund "$sdk" >/dev/null \
             || echo "::warning::the Claude SDK did not install: the template writes the article"
       - name: Write the article
+        if: steps.slot.outputs.done != '1'
         id: gen
         env:
           ANTHROPIC_API_KEY: ${{ env.KIND == 'monthly' && secrets.ANTHROPIC_API_KEY || '' }}
@@ -93,9 +110,9 @@ jobs:
             echo "slug=$slug" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # a scheduled run only writes a new month: when market.json was not refreshed on the 5th (its sanity check failed, or the ministry
+          # a slot run only writes a new month: when market.json was not refreshed on the 5th (its sanity check failed, or the ministry
           # had not closed the month yet), its latest month is the one already out, and that article must not be rewritten
-          if [ "$GITHUB_EVENT_NAME" = schedule ]; then
+          if [ -n "$SLOT" ]; then   # a scheduled run, or the backup clock standing in for one
             slug=$(node -e 'const k=Object.keys(require("./market.json").months).sort().pop();console.log(k.slice(0,4)+"-"+k.slice(4))')
             if [ -e "magazine/$slug/index.html" ]; then echo "magazine/$slug is already out: market.json has no newer month"; echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0; fi
           fi
@@ -106,7 +123,7 @@ jobs:
           if [ $code -eq 2 ]; then echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0; fi
           exit $code
       - name: Check and publish
-        if: steps.gen.outputs.skip != '1'
+        if: steps.slot.outputs.done != '1' && steps.gen.outputs.skip != '1'
         env:
           GH_TOKEN: ${{ github.token }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
