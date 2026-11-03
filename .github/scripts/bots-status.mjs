@@ -168,5 +168,10 @@ if (process.argv[2] === "selftest") {
     const ids = Object.keys(done || {}).filter(k => /^[a-z0-9-]{1,60}$/.test(k)).sort();
     console.log("calendar done marks:", ids.length ? ids.join(", ") : "none");
     if (process.env.DRY !== "1") console.log((await putMetric("calDone", { at: new Date().toISOString(), ids })) ? "calendar marks written" : "calendar marks not written");
+    // the decisions Dudu answered on /live (KV lv:act), copied to metrics.json "acts" so the done-marks task can relay each answer to the thread that owns the item
+    const ra = await cf("/storage/kv/namespaces/" + id + "/values/lv:act"), acts = ra.status === 404 ? {} : await ra.json();
+    const items = Object.fromEntries(Object.entries(acts || {}).filter(([k, v]) => /^[a-z0-9-]{1,60}$/.test(k) && v && typeof v === "object").map(([k, v]) => [k, { c: String(v.c || "").slice(0, 40), at: String(v.at || "").slice(0, 24) }]));
+    console.log("decisions answered:", Object.keys(items).length ? Object.keys(items).join(", ") : "none");
+    if (process.env.DRY !== "1") console.log((await putMetric("acts", { at: new Date().toISOString(), items })) ? "decisions written" : "decisions not written");
   } catch (e) { console.log("calendar marks skipped:", String(e.message || e).replace(/[A-Za-z0-9_-]{20,}/g, "***").slice(0, 200)); }
 }
