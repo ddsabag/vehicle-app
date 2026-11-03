@@ -1,7 +1,7 @@
 // Probe (data thread, 3.11.2026, Dudu: "אפשר לבדוק את זה קצת יותר לעומק?"): do cars that left the road have a km reading or a test date
 // in any register? Prints field names and counts only, never a plate (the log is public).
 const API = "https://data.gov.il/api/3/action/";
-const SETS = { cancel: "851ecab1-0622-4dbe-a6c7-f950cf82abf9", cancel2010: "4e6b9724-4c1e-43f0-909a-154d4cc4e046", cancel2000: "ec8cbc34-72e1-4b69-9c48-22821ba0bd6c",
+const SETS = { active: "053cea08-09bc-40ec-8f7a-156f0677aff3", cancel: "851ecab1-0622-4dbe-a6c7-f950cf82abf9", cancel2010: "4e6b9724-4c1e-43f0-909a-154d4cc4e046", cancel2000: "ec8cbc34-72e1-4b69-9c48-22821ba0bd6c",
   inactive: "f6efe89a-fb3d-43a4-bb61-9bf12a9b9099", inactive2: "6f6acd03-f351-4a8f-8ecf-df792f4f573a" };
 const TECH = "56063a99-8a3e-4ff4-912e-5966c0279bad", ACTIVE = "053cea08-09bc-40ec-8f7a-156f0677aff3";
 const get = async (a, q) => { for (let i = 0; i < 4; i++) { try { const r = await fetch(API + a + "?" + new URLSearchParams(q), { headers: { "User-Agent": "luchit-probe" } }); if (r.ok) { const j = await r.json(); if (j.success) return j.result; } } catch {} await new Promise(r => setTimeout(r, 3000 * (i + 1))); } return null; };
