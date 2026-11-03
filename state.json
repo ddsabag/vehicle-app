@@ -136,6 +136,54 @@
    "id": "18080576777397079",
    "link": "https://www.instagram.com/p/DfQC_1_j-zP/",
    "at": "2026-11-02T19:22:14.944Z"
+  },
+  "2026-11-01/story-1/facebook": {
+   "tries": 1,
+   "last": "2026-11-03T06:21:12.822Z",
+   "status": "done",
+   "id": "1537353494866148",
+   "link": "https://www.facebook.com/1424085817452110",
+   "at": "2026-11-03T06:21:18.632Z"
+  },
+  "2026-11-01/story-1/instagram": {
+   "tries": 1,
+   "last": "2026-11-03T06:21:18.897Z",
+   "status": "done",
+   "id": "18116260454331808",
+   "link": "https://www.instagram.com/stories/luchit.app/4022059523296572698",
+   "at": "2026-11-03T06:21:26.678Z"
+  },
+  "2026-11-01/story-2/facebook": {
+   "tries": 1,
+   "last": "2026-11-03T06:21:26.928Z",
+   "status": "done",
+   "id": "2416022302502799",
+   "link": "https://www.facebook.com/1424085817452110",
+   "at": "2026-11-03T06:21:33.013Z"
+  },
+  "2026-11-01/story-2/instagram": {
+   "tries": 1,
+   "last": "2026-11-03T06:21:33.266Z",
+   "status": "done",
+   "id": "18083802800365993",
+   "link": "https://www.instagram.com/stories/luchit.app/4022059643798941583",
+   "at": "2026-11-03T06:21:50.947Z"
+  },
+  "2026-11-01/story-3/facebook": {
+   "tries": 1,
+   "last": "2026-11-03T06:21:51.189Z",
+   "status": "done",
+   "id": "2067842527317570",
+   "link": "https://www.facebook.com/1424085817452110",
+   "at": "2026-11-03T06:21:56.821Z"
+  },
+  "2026-11-01/story-3/instagram": {
+   "tries": 1,
+   "last": "2026-11-03T06:21:57.093Z",
+   "status": "done",
+   "id": "18095613521254504",
+   "link": "https://www.instagram.com/stories/luchit.app/4022059842088808700",
+   "at": "2026-11-03T06:22:13.605Z"
   }
  },
  "ig": {
