@@ -219,7 +219,7 @@ async function tgCheck(env) {
 // by Israel time: from 08:45 to 22:00 while today's heartbeat is missing. A scheduled run GitHub still starts late after that does no harm:
 // each of these bots keeps its own state (posted items in social-queue, the daily claim in alert-state, the watch states) or writes the same
 // thing again, and runs in its own concurrency group. A bot where a second run would cost or send twice is here only with the slot check
-// (slot-done.mjs, below); kit draft, kit visual QA and the magazine wait for theirs. GitHub answers 401/403/404 to the token =
+// (slot-done.mjs, below). GitHub answers 401/403/404 to the token =
 // one day alert at most once per 22.5 h (an expired or revoked token); any other failure is a log line and the next hour retries.
 const CLOCK = [
   { wf: "social-publish.yml", he: "פרסום ברשתות", utc: [5, 20], gap: 40, inputs: { mode: "run" } },              // slots every 15 min 04:04-19:49
@@ -264,6 +264,10 @@ const CLOCK = [
   { wf: "data-truth.yml", he: "בדיקת העומק הנוספת", cron: "17 5 18-19 * *", title: "(17 5 18-19 * *)", inputs: { job: "deep", schedule: "17 5 18-19 * *" } },
   { wf: "data-truth.yml", he: "בדיקת העומק הנוספת", cron: "17 11 18-19 * *", title: "(17 11 18-19 * *)", inputs: { job: "deep", schedule: "17 11 18-19 * *" } },
   { wf: "competitor-check.yml", he: "בדיקת המתחרים החודשית", cron: "23 4 1 * *", title: "(23 4 1 * *)", inputs: { schedule: "23 4 1 * *", dry: "false" } },     // the 1st
+  { wf: "kit-draft.yml", he: "טיוטת ערכת התוכן השבועית", cron: "40 20 * * 3", title: "(40 20 * * 3)", inputs: { schedule: "40 20 * * 3" } },     // Wednesday night
+  { wf: "kit-qa.yml", he: "הבדיקה הוויזואלית של ערכת התוכן", cron: "40 13 * * 4", title: "(40 13 * * 4)", inputs: { schedule: "40 13 * * 4" } },   // Thursday
+  { wf: "magazine.yml", he: "כתבת הנתונים במגזין", cron: "30 5 * * 4", title: "(30 5 * * 4)", inputs: { part: "data", schedule: "30 5 * * 4" } },   // Thursday
+  { wf: "magazine.yml", he: "הכתבה החודשית במגזין", cron: "7 8 6 * *", title: "(7 8 6 * *)", inputs: { part: "monthly", schedule: "7 8 6 * *" } },  // the 6th
 ];
 const clockKey = x => x.wf + (x.job ? ":" + x.job : "") + (x.title ? " " + x.title : "");
 const CLOCK_MAX = 10;     // starts per hourly pass

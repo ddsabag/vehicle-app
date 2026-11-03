@@ -117,6 +117,9 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}   # failure-cause.mjs: one Haiku line on the message, marked as a guess (credit package A8, Dudu 1.11)
         run: |
           [ -n "$TELEGRAM_BOT_TOKEN" ] || { echo "no Telegram credentials"; exit 0; }
+          # a slot run's name ends with its cron line ("Weekly analytics report (20 6 * * 0)": the backup clock's slot check, 3.11.2026). The
+          # alert, its key and the part checks use the name without it, so a run of either line and a run by hand are the same bot and part
+          NAME=$(printf '%s' "$NAME" | sed -E 's/ \(([0-9*,\/-]+ ){4}[0-9*,\/-]+\)$//'); TITLE=$(printf '%s' "$TITLE" | sed -E 's/ \(([0-9*,\/-]+ ){4}[0-9*,\/-]+\)$//')
           # one Hebrew message per case (tg-text.mjs wfFailure: classification line, what happened, what to do, the log link); level from alert.mjs WF_LEVELS
           send() {
             local out silent text r extra=""
@@ -176,7 +179,7 @@ jobs:
             case "$TITLE" in
               "$WF ("*")")
                 newer=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$WORKFLOW_ID/runs?branch=main&per_page=30" --jq '.workflow_runs[] | "\(.run_number)\t\(.display_title)"' 2>/dev/null \
-                  | awk -F'\t' '$1 + 0 > ENVIRON["RUN_NUMBER"] + 0 && $2 == ENVIRON["TITLE"] { print $1; exit }') || newer="";;
+                  | awk -F'\t' '{ sub(/ \([0-9*,\/-]+ [0-9*,\/-]+ [0-9*,\/-]+ [0-9*,\/-]+ [0-9*,\/-]+\)$/, "", $2) } $1 + 0 > ENVIRON["RUN_NUMBER"] + 0 && $2 == ENVIRON["TITLE"] { print $1; exit }') || newer="";;
               *) for r in $runs; do [ "${r%%:*}" -gt "$RUN_NUMBER" ] 2>/dev/null && { newer=${r%%:*}; break; }; done;;
             esac
             if [ -n "$newer" ]; then echo "cancelled before any job started, superseded by run #$newer: no alert"; exit 0; fi
@@ -260,6 +263,8 @@ jobs:
           WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
           TITLE: ${{ github.event.workflow_run.display_title }}
         run: |
+          # without a slot run's cron line, as in the alert step (3.11.2026)
+          NAME=$(printf '%s' "$NAME" | sed -E 's/ \(([0-9*,\/-]+ ){4}[0-9*,\/-]+\)$//'); TITLE=$(printf '%s' "$TITLE" | sed -E 's/ \(([0-9*,\/-]+ ){4}[0-9*,\/-]+\)$//')
           # Site smoke test, SEO daily digest, Magazine and Data truth skip jobs by the kind of run (event, schedule line or part), so a green run
           # proves only the jobs it ran: every job that failed in the newest earlier failed run (of this part) must have run and passed here
           case "$WF" in
@@ -267,7 +272,7 @@ jobs:
               part=""; case "$TITLE" in "$WF ("*")") part=$TITLE;; esac
               prev=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$WORKFLOW_ID/runs?branch=main&status=completed&per_page=30" \
                 --jq '.workflow_runs[] | "\(.run_number)\t\(.conclusion)\t\(.id)\t\(.display_title)"' 2>/dev/null \
-                | awk -F'\t' -v part="$part" '$1 + 0 < ENVIRON["RUN_NUMBER"] + 0 && (part == "" || $4 == part) && ($2 == "failure" || $2 == "timed_out" || $2 == "cancelled") { print $3; exit }') || prev=""
+                | awk -F'\t' -v part="$part" '{ sub(/ \([0-9*,\/-]+ [0-9*,\/-]+ [0-9*,\/-]+ [0-9*,\/-]+ [0-9*,\/-]+\)$/, "", $4) } $1 + 0 < ENVIRON["RUN_NUMBER"] + 0 && (part == "" || $4 == part) && ($2 == "failure" || $2 == "timed_out" || $2 == "cancelled") { print $3; exit }') || prev=""
               [ -n "$prev" ] || { echo "no earlier failed run found: nothing to close"; exit 0; }
               failed=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$prev/jobs?per_page=100" \
                 --jq '.jobs[] | select((.steps | length) > 0 and (.conclusion == "failure" or .conclusion == "timed_out" or .conclusion == "cancelled")) | .name' 2>/dev/null) || exit 0

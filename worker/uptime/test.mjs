@@ -402,12 +402,13 @@ ok(JSON.stringify(all.find(a => a[0] === "data-truth.yml")[1].inputs) === '{"job
   const due = t => clockDue(T(t), T("2026-11-02T06:10:00Z")).filter(c => c.cron).map(c => c.wf + (c.job ? ":" + c.job : "")).join();
   ok(due("2026-11-02T06:40:00Z") === "seo-check.yml,explore.yml" && due("2026-11-02T06:41:00Z") === "copy-audit.yml,seo-check.yml,explore.yml", "Monday: each from an hour after its slot " + due("2026-11-02T06:41:00Z"));
   ok(due("2026-11-02T19:35:00Z") === "copy-audit.yml" && due("2026-11-02T19:41:00Z") === "", "for 14 hours");
-  ok(due("2026-11-01T02:20:00Z") === "data-truth.yml:invariants" && due("2026-11-05T08:00:00Z") === "market.yml" && due("2026-11-05T08:10:00Z") === "market.yml,models.yml", "Sunday's full read, the 5th " + due("2026-11-05T08:10:00Z"));
+  ok(due("2026-11-01T02:20:00Z") === "data-truth.yml:invariants" && due("2026-11-05T08:00:00Z") === "market.yml,kit-draft.yml,magazine.yml" && due("2026-11-05T08:10:00Z") === "market.yml,models.yml,kit-draft.yml,magazine.yml", "Sunday's full read; Thursday the 5th: market data, models, the kit draft (until 10:40), the data article " + due("2026-11-05T08:10:00Z"));
+  ok(due("2026-11-04T21:45:00Z") === "kit-draft.yml" && due("2026-11-05T15:00:00Z").includes("kit-qa.yml") && due("2026-11-06T09:10:00Z") === "modelstats.yml,magazine.yml", "the kit draft on Wednesday night, the kit QA on Thursday, the monthly article on the 6th " + due("2026-11-06T09:10:00Z"));
   ok(due("2026-11-06T06:20:00Z") === "modelstats.yml" && due("2026-11-03T08:07:00Z") === "zombie.yml" && due("2026-11-04T05:40:00Z") === "camp-data.yml", "the 6th, the 3rd, Wednesday");
   const wk = t => clockDue(T(t), T("2026-11-02T06:10:00Z")).filter(c => c.wf === "weekly-analytics.yml").map(c => c.inputs.schedule).join();
   ok(wk("2026-11-08T07:25:00Z") === "20 6 * * 0" && wk("2026-06-07T06:25:00Z") === "20 5 * * 0", "the weekly report: only the line that is 08:xx in Israel, winter and summer");
   ok(due("2026-11-01T06:20:00Z") === "data-truth.yml:invariants,settlements.yml,data-truth.yml,competitor-check.yml" && due("2026-11-02T06:20:00Z").includes("data-truth.yml,") === false, "the 1st: the deep audit and the competitors; not on the 2nd (GitHub's own retry) " + due("2026-11-01T06:20:00Z"));
-  ok(due("2026-11-19T12:20:00Z") === "data-truth.yml,data-truth.yml", "the 19th: both deep lines");
+  ok(due("2026-11-19T12:20:00Z") === "data-truth.yml,data-truth.yml,magazine.yml", "the 19th (a Thursday): both deep lines and the data article");
   const D = { wf: "x.yml" }, M = { wf: "magazine.yml", title: "(data)" }, W = { wf: "weekly-analytics.yml", title: "(20 6 * * 0)" };
   ok(counts(W, { event: "workflow_dispatch", display_title: "Weekly analytics report (20 6 * * 0)" }) && !counts(W, { event: "workflow_dispatch", display_title: "Weekly analytics report" }) && !counts(W, { event: "schedule", display_title: "Weekly analytics report (20 5 * * 0)" }), "a slot-checked bot: only a run of its line counts");
   ok(counts(D, { event: "schedule", conclusion: null }) && counts(D, { event: "workflow_dispatch", conclusion: "failure" }), "a scheduled or started run counts, running or failed");
@@ -452,8 +453,8 @@ ok(!gh.sent.some(a => a[0] === "camp-data.yml") && gh.calls.includes("camp-data.
 // the 5th: the market data ran late by itself, the model names never came; nothing for the magazine (a second run publishes the next article)
 gh.calls = []; gh.sent = []; gh.runs = { ...ranAll("2026-11-05T08:20:00Z"), "market.yml": "2026-11-05T06:30:00Z" };
 x = await tick(env, T("2026-11-05T08:30:00Z"));
-ok(JSON.stringify(gh.sent) === JSON.stringify([["models.yml", { ref: "main", inputs: { skip_gate: "false" } }]]) && !gh.calls.some(c => c.startsWith("magazine")), "the 5th: the model names, with their input " + JSON.stringify(gh.sent));
-ok(x.tg.length === 1 && /שעון הגיבוי הפעיל אותם: שמות הדגמים\./.test(x.tg[0].text), "named in the day's quiet line");
+ok(JSON.stringify(gh.sent) === JSON.stringify([["models.yml", { ref: "main", inputs: { skip_gate: "false" } }], ["kit-draft.yml", { ref: "main", inputs: { schedule: "40 20 * * 3" } }], ["magazine.yml", { ref: "main", inputs: { part: "data", schedule: "30 5 * * 4" } }]]), "Thursday the 5th: the model names, the kit draft and the data article, with their inputs " + JSON.stringify(gh.sent));
+ok(x.tg.length === 1 && /שעון הגיבוי הפעיל אותם: שמות הדגמים, טיוטת ערכת התוכן השבועית, כתבת הנתונים במגזין\./.test(x.tg[0].text), "named in the day's quiet line");
 
 // Sunday 8.11, 07:30 UTC (winter): GitHub ran only the gated-out 05:20 line of the weekly report, and settlements only on a push
 gh.calls = []; gh.sent = []; gh.runs = { ...ranAll("2026-11-08T07:20:00Z"), "weekly-analytics.yml": [{ created_at: "2026-11-08T05:25:00Z", display_title: "Weekly analytics report (20 5 * * 0)" }],

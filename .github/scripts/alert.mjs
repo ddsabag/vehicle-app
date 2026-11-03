@@ -65,8 +65,10 @@ export const WF_LEVELS = {
   "Copy audit": "summary",   // weekly, paid call (product): a crash is told quietly; the product thread checks the wording by hand that week
   "Release notes draft": "summary",   // on a release-* push, paid call (product): a crash is told quietly; the notes are written by hand as before
 };
+// a slot run's name ends with its cron line ("Weekly analytics report (20 6 * * 0)", the backup clock's slot check, 3.11.2026): without it
+export const noSlot = name => String(name ?? "").replace(/ \((?:[\d*,\/-]+ ){4}[\d*,\/-]+\)$/, "");
 // a run name "Magazine (data)" takes its workflow's level
-export const wfLevel = name => WF_LEVELS[name] ?? WF_LEVELS[String(name).replace(/ \([^)]*\)$/, "")] ?? "day";
+export const wfLevel = name => (n => WF_LEVELS[n] ?? WF_LEVELS[n.replace(/ \([^)]*\)$/, "")] ?? "day")(noSlot(name));
 
 // fixed Hebrew text for the morning ring and the Sunday block. Lookup: first two key segments, then the first one.
 // {id} = the rest of the key after the family; {ids} = that rest split on "+" and mapped through ids. sect: wait|fail|fyi|none
@@ -560,6 +562,7 @@ export async function resolve(prefixes, opts = {}) {
 }
 // failure-alert.yml on a green run of a watched workflow: its open failure, exactly "wf:<run name>", is closed and told
 export async function recovered(name, link = "") {
+  name = noSlot(name);
   const key = "wf:" + name;
   return validKey(key) ? closeItems(k => k === key, { wf: name, link }) : 0;
 }
@@ -725,7 +728,7 @@ export async function cli(argv, stdin = () => fs.readFileSync(0, "utf8")) {
     if (cmd === "wf") {
       const [name, ...more] = rest, f = flags(more, { today: "v", text: "v", link: "v", repeat: "bool", of: "v", html: "bool", outcome: "v" });
       if (typeof name !== "string" || !name || !["loud", "silent"].includes(f.today) || typeof f.text !== "string" || ("outcome" in f && f.outcome !== "self")) throw new Usage("bad arguments");
-      return await cliAlert(wfLevel(f.of || name), "wf:" + name, f.text, f.link, { today: f.today, plain: !f.html, fresh: !f.repeat, outcome: f.outcome });
+      return await cliAlert(wfLevel(f.of || name), "wf:" + noSlot(name), f.text, f.link, { today: f.today, plain: !f.html, fresh: !f.repeat, outcome: f.outcome });
     }
     if (cmd === "recovered") {
       const [name, ...more] = rest, f = flags(more, { link: "v" });
@@ -1144,6 +1147,9 @@ async function selftest() {
     ok(c.out[0] === "alert wf:Web deploy (build) critical -> loud", "wf: Web deploy -> critical");
     c = await runCli(["wf", "Something New", "--today", "loud", "--text", "x"]);
     ok(c.out[0] === "alert wf:Something New day -> loud" && c.last === "ALERT_DONE loud 1", "wf: unknown name -> day");
+    c = await runCli(["wf", "Competitor check (23 4 1 * *)", "--today", "loud", "--text", "x"]);
+    ok(c.out[0] === "alert wf:Competitor check summary -> quiet", "wf: a slot run's cron line is left out of the key and the level " + c.out[0]);
+    ok(wfLevel("Magazine (data) (30 5 * * 4)") === "day" && wfLevel("Exploratory walk (7 3 * * 1)") === "summary" && noSlot("Fix (#23)") === "Fix (#23)", "wfLevel without the cron line");
     {
       const m = net({ state: base() });
       await runCli(["wf", "Data guard", "--today", "loud", "--text", "x"], { m });

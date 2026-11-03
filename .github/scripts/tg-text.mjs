@@ -60,7 +60,7 @@ export const BOTS = JSON.parse(readFileSync(new URL("./bot-names.json", import.m
 const PARTS = { data: "נתונים", monthly: "חודשי", newsletter: "ניוזלטר", weekly: "שבועי", daily: "יומי" };
 // "Magazine (data)" (a run name) -> the workflow's Hebrew name plus the part
 export function botName(name) {
-  const s = String(name || "").trim();
+  const s = String(name || "").trim().replace(/ \((?:[\d*,\/-]+ ){4}[\d*,\/-]+\)$/, "");   // a slot run's cron line (3.11.2026) is not shown
   if (BOTS[s]) return BOTS[s];
   const m = s.match(/^(.*) \(([^)]+)\)$/);
   return m && BOTS[m[1]] ? `${BOTS[m[1]]} (${PARTS[m[2]] || m[2]})` : s;
@@ -107,6 +107,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     let n = 0; const ok = (c, m) => { n++; if (!c) { console.error("FAIL " + m); process.exit(1); } };
     ok(botName("Data guard") === "שומר הנתונים", "bot");
     ok(botName("Magazine (data)") === "המגזין (נתונים)", "bot part");
+    ok(botName("Magazine (data) (30 5 * * 4)") === "המגזין (נתונים)" && botName("Weekly analytics report (20 6 * * 0)") === botName("Weekly analytics report"), "a slot run's cron line is not shown");
     ok(botName("Unknown X") === "Unknown X", "bot unknown");
     ok(heError("vitals crashRateMetricSet 503 {\"error\":{}}").startsWith("השירות של הצד השני"), "503");
     ok(heError("auth 401").startsWith("המפתח"), "401");
