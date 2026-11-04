@@ -78,6 +78,14 @@ ok(sum("010e01a15fb88c73-864bc7b4-6cf1-42f5-a102-338896bc0dab-000000@ap-southeas
 for (const t of ["הורדתי את לוחית: בדיקת רכב ומספר רישוי ואני מאוד מרוצה", "ברכות על ההשקה של לוחית: בדיקת רכב לפי מספר", "לוחית: בדיקת‏ רכב ומספר רישוי"]) ok(cls("שאלה", t) === "other", "the store title is not a data word: " + t);
 ok(cls("טעות", "הורדתי את לוחית: בדיקת רכב ומספר רישוי ושנת הייצור לא נכונה") === "data" && cls("שלום", "מספר רישוי 12-345-67 מראה דגם אחר") === "data", "data still: a real error next to the title, a plate number");
 ok(cls("שלום", "אשמח לשיתוף פעולה בקידום האפליקציה") === "biz" && sum("dana@gmail.com", "Congrats", "Congrats on the new car!") === "other" && cls("בקשה", "Please delete my account") === "privacy", "biz, a person's congrats and a privacy request are not promo");
+// the app's settings link fills in one subject for every mail (3.11.2026: two ideas came as "טעות בנתוני רכב"): the body decides
+const APP_SUBJ = "פנייה או דיווח על טעות בנתונים";
+ok(cls(APP_SUBJ, "שלום, נהנה מהאפליקציה. 2 רעיונות לשיפור: להוסיף אופציה של הצגת מספר מנוע, והצגת הקמ מהטסט האחרון גם לרכב שירד מהכביש") === "idea", "idea: two ideas through the app's link, though they name a test");
+ok(cls(APP_SUBJ, "תודה רבה, אפליקציה מעולה") === "other" && cls(APP_SUBJ) === "other" && cls("פנייה  או דיווח על טעות בנתונים", "שאלה קטנה") === "other", "the app's subject alone is not a data error");
+ok(cls(APP_SUBJ, "שנת הייצור שמופיעה לרכב שלי לא נכונה") === "data" && cls(APP_SUBJ, "האפליקציה קורסת כשאני פותח רכב") === "crash" && cls(APP_SUBJ, "בבקשה תמחקו את הפרטים שלי") === "privacy", "a real error, crash or privacy mail through the app's link keeps its class");
+for (const t of ["אשמח אם תוסיפו את צבע הרכב", "כדאי להוסיף התראה לפני הטסט", "יש לי הצעה לשיפור", "It would be great if you showed the engine size"]) ok(cls("שלום", t) === "idea", "idea: " + t);
+for (const t of ["השנה שמופיעה שגויה", "הטסט שמופיע לא תואם למה שיש לי ברישיון", "הדגם לא נכון", "שנת הייצור לא נכונה", "הצבע לא תואמת", "שנת הייצור לא נכונה, כדאי להוסיף בדיקה", "יש טעות בטסט. רעיון: תציגו את התאריך"]) ok(cls("שלום", t) === "data", "data, not idea: " + t);
+ok(cls(APP_SUBJ, "אשמח אם תוסיפו את הצבע") === "idea", "the app subject's own \"טעות\" does not stop an idea");
 
 // 2. routing matrix (spec 13.3): class x ALERT_ROUTE x day/night x KV
 const MAILS = {
@@ -85,6 +93,8 @@ const MAILS = {
     text: "<b>🟠 לטיפול היום · מייל</b>\n<b>פנייה חדשה ללוחית: פרטיות או מחיקה</b>\nמאת: dana.cohen@example.com\nנושא: בקשה\n\nתמחקו את הפרטים שלי\n\n👉 מה לעשות: לענות מהג'ימייל תוך כמה ימים. בקשת מחיקה או פרטיות מחייבת תשובה לפי החוק." },
   crash: { m: () => msg("האפליקציה קורסת", "נפתחת ונסגרת <מיד> & זהו"), level: "day", key: "mail:crash",
     text: "<b>🟠 לטיפול היום · מייל</b>\n<b>פנייה חדשה ללוחית: תקלה באפליקציה</b>\nמאת: dana.cohen@example.com\nנושא: האפליקציה קורסת\n\nנפתחת ונסגרת &lt;מיד&gt; &amp; זהו\n\n👉 מה לעשות: לענות מהג'ימייל ולהעביר את התיאור לשרשור \"מוצר ושחרורים\"." },
+  idea: { m: () => msg("פנייה או דיווח על טעות בנתונים", "רעיון לשיפור: להציג את מספר המנוע"), level: "summary",
+    text: "<b>🔵 לידיעה · מייל</b>\n<b>פנייה חדשה ללוחית: הצעה לשיפור</b>\nמאת: dana.cohen@example.com\nנושא: פנייה או דיווח על טעות בנתונים\n\nרעיון לשיפור: להציג את מספר המנוע\n\n👉 מה לעשות: לענות מהג'ימייל אם רוצים, ולהעביר את הרעיון לשרשור \"מוצר ושחרורים\"." },
   data: { m: () => msg("טעות", "שנת הייצור לא נכונה"), level: "summary",
     text: "<b>🟠 לטיפול היום · מייל</b>\n<b>פנייה חדשה ללוחית: טעות בנתוני רכב</b>\nמאת: dana.cohen@example.com\nנושא: טעות\n\nשנת הייצור לא נכונה\n\n👉 מה לעשות: לענות מהג'ימייל ולהעביר את מספר הרכב לשרשור \"נתונים ואמינות\" לבדיקה." },
   biz: { m: () => msg("הצעה לשיתוף פעולה", ""), level: "summary",
@@ -144,6 +154,15 @@ for (const h of [{}, { "Auto-Submitted": "no" }, { Precedence: "first-class" }, 
   ok(tg.length === 1 && tg[0].disable_notification === false && m.forwards.length === 1, "not bulk: " + JSON.stringify(h));
 }
 { const m = msg("שאלה", "שלום"); m.from = "no-reply@shop.example"; await run(m, ALL); ok(tg.length === 1 && tg[0].disable_notification === true, "a no-reply sender alone is not bulk"); }
+// our own mail (2.11.2026: Dudu's CC to dudu@luchit.app came back as a request with a draft answering himself): Gmail only, no Claude call
+for (const f of ["dudu@luchit.app", "Dudu@Luchit.App", "alerts@mail.luchit.app"]) {
+  const m = msg("Re: חומרים לאייטם", "מצרף את החומרים, תודה רבה"); m.from = f; await run(m, ALL);
+  ok(tg.length === 0 && m.forwards.length === 1, "own sender " + f + ": Gmail only");
+}
+for (const f of ["dudu@luchit.app.evil.example", "x@notluchit.app", "x@luchit-app.example"]) {
+  const m = msg("תמחקו את הפרטים שלי", "תמחקו את הפרטים שלי"); m.from = f; await run(m, ALL);
+  ok(tg.length === 1 && m.forwards.length === 1, "not our own: " + f);
+}
 
 // 4. failures (spec 13.4, 15.1 item 7): forward exactly once, a message still goes out where today it would
 for (const route of [undefined, "all"]) for (const at of [DAY, NIGHT]) for (const cl of ["privacy", "data", "bulk"]) {

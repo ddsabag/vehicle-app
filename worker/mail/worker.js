@@ -15,7 +15,10 @@
 const CLASSES = [
   { key: "privacy", icon: "🔴", label: "פרטיות או מחיקה", re: /פרטיות|מחיק|למחוק|מחקו|תמחק|מחק את|להסיר את|להסיר אות|הסירו|תסירו|(אבקש|מבקש\S*|בקש[הת]) \S{0,2}הסי?ר|הסר[הת]? (של )?ה?(מידע|פרטי|נתונ|חשבון)|gdpr|privacy|delete (all )?my|remove my|erase/i },
   { key: "crash", icon: "🔴", label: "תקלה באפליקציה", re: /קורס|קריסה|נתקע|תקוע|לא עובד|לא נפתח|תקלה|שגיאה|crash|bug|error|freez|not working/i },
-  { key: "data", icon: "🟡", label: "טעות בנתוני רכב", re: /טעות|שגוי|לא נכון|לא תואם|לא מדויק|נתון|מספר רישוי|מספר יד|ידיים|ריקול|טסט|wrong|incorrect|mistake/i },
+  // an idea for the app (a feature they would like): before "data", since an idea often names a data field ("להוסיף את הקילומטראז' מהטסט")
+  { key: "idea", icon: "💡", label: "הצעה לשיפור", re: /רעיון|רעיונות|הצע(ה|ות) (ל)?שיפור|לשיפור|כדאי להוסיף|אפשר להוסיף|תוסיפו|להוסיף (אופציה|אפשרות)|אשמח אם (תוסיפו|יהיה|תהיה)|feature request|suggestion|would be (nice|great|helpful) (to|if)/i,
+    not: /טעות|שגוי|לא נכו[ןנ]|לא תוא[םמ]|לא מדויק|wrong|incorrect|mistake/i },   // an error report that also suggests something stays "data"
+  { key: "data", icon: "🟡", label: "טעות בנתוני רכב", re: /טעות|שגוי|לא נכו[ןנ]|לא תוא[םמ]|לא מדויק|נתון|מספר רישוי|מספר יד|ידיים|ריקול|טסט|wrong|incorrect|mistake/i },
   { key: "biz", icon: "🔵", label: "שיתוף פעולה או עיתונות", re: /שיתוף פעולה|פרסום|חסות|עיתונא|כתבה|כתב ב|ראיון|partnership|sponsor|press|advertis/i },
 ];
 
@@ -62,11 +65,14 @@ const PROMO = { key: "promo", icon: "⚫", label: "פרסומת", re: /claim you
 const BULK_SENDER = /@([\w-]+\.)*(amazonses\.com|sendgrid\.net|mailgun\.org|mcsv\.net|mcdlv\.net|sparkpostmail\.com|mandrillapp\.com)$|^0[0-9a-f]{15}-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-0{6}@/i;
 // the app's own store title holds "מספר רישוי" (a data word): a mail quoting it says nothing about a data error
 const OWN_TITLE = /לוחית\s*[:\-–]?\s*בדיקת רכב( ו?מספר רישוי| לפי מספר)?/g;
+// the subject the app's settings link fills in (index.html "פנייה או דיווח על טעות בנתונים") is the same for every mail sent from it: it
+// says nothing about the mail, so the body decides (3.11.2026: two ideas came as "טעות בנתוני רכב")
+const APP_SUBJECT = /פנייה או דיווח על טעות בנתונים/g;
 
 export function summarise(from, subject, rawText) {
   const text = plainText(rawText).replace(/^>.*$/gm, "").replace(/\s+/g, " ").trim();
-  const hay = (subject + " " + text).replace(/[­​-‏⁠﻿]/g, "").replace(OWN_TITLE, "לוחית");
-  const cls = (PROMO.re.test(hay) || BULK_SENDER.test(String(from || "").trim()) ? PROMO : null) || CLASSES.find(c => c.re.test(hay)) || { key: "other", icon: "⚪", label: "אחר" };
+  const hay = (String(subject).replace(/[­​-‏⁠﻿]/g, "").replace(/\s+/g, " ").replace(APP_SUBJECT, "") + " " + text).replace(/[­​-‏⁠﻿]/g, "").replace(OWN_TITLE, "לוחית");
+  const cls = (PROMO.re.test(hay) || BULK_SENDER.test(String(from || "").trim()) ? PROMO : null) || CLASSES.find(c => c.re.test(hay) && !c.not?.test(hay)) || { key: "other", icon: "⚪", label: "אחר" };
   return { cls, text: text.slice(0, 700) };
 }
 // mailing lists, newsletters and auto-replies, by headers only (a "no-reply" sender alone is not bulk)
@@ -74,8 +80,10 @@ function isBulk(h) {
   const auto = (h.get("auto-submitted") || "").trim();
   return h.has("list-unsubscribe") || h.has("list-id") || /^\s*(bulk|list|junk)\b/i.test(h.get("precedence") || "") || (!!auto && !/^no\b/i.test(auto));
 }
+// the envelope sender is one of our own addresses (luchit.app or a subdomain)
+export const isOwn = from => /@(?:[a-z0-9-]+\.)*luchit\.app>?\s*$/i.test(String(from || "").trim());
 // router level per mail; key = "mail:<class>" (luchit-uptime's morning ring reads the class from it, never the mail)
-const LEVEL = { privacy: "day", crash: "day", data: "summary", biz: "summary", other: "summary", promo: "silent" };
+const LEVEL = { privacy: "day", crash: "day", idea: "summary", data: "summary", biz: "summary", other: "summary", promo: "silent" };
 
 // >>> alert-lib v1
 const QUIET = { tz: "Asia/Jerusalem", dayStart: 8, dayEnd: 22 };   // CI: must equal alert.mjs QUIET
@@ -186,18 +194,19 @@ async function alert(env, level, key, text, link = "", { legacy } = {}) {
 const MAIL_TODO = {
   privacy: ["🟠 לטיפול היום", "👉 מה לעשות: לענות מהג'ימייל תוך כמה ימים. בקשת מחיקה או פרטיות מחייבת תשובה לפי החוק."],
   crash: ["🟠 לטיפול היום", "👉 מה לעשות: לענות מהג'ימייל ולהעביר את התיאור לשרשור \"מוצר ושחרורים\"."],
+  idea: ["🔵 לידיעה", "👉 מה לעשות: לענות מהג'ימייל אם רוצים, ולהעביר את הרעיון לשרשור \"מוצר ושחרורים\"."],
   data: ["🟠 לטיפול היום", "👉 מה לעשות: לענות מהג'ימייל ולהעביר את מספר הרכב לשרשור \"נתונים ואמינות\" לבדיקה."],
   biz: ["🔵 לידיעה", "👉 מה לעשות: לענות מהג'ימייל אם זה רלוונטי."],
   other: ["🔵 לידיעה", "👉 מה לעשות: לענות מהג'ימייל אם צריך."],
   promo: ["🔵 לידיעה", "👌 לא צריך לעשות כלום (נראה כמו דיוור או פרסום)."],
 };
-// ---- Claude: a reply draft (Dudu 1.11.2026 21:16 UTC, credit package A8). For crash, data, biz and other mail (never privacy, promo or bulk),
+// ---- Claude: a reply draft (Dudu 1.11.2026 21:16 UTC, credit package A8). For crash, idea, data, biz and other mail (never privacy, promo or bulk),
 // claude-haiku-5-5 drafts a short Hebrew reply that goes under the Telegram message. Nothing is ever sent from here: Dudu reads it and, if
 // he wants, sends it himself from Gmail. Before the call, mail addresses, phone numbers, links and any run of 5+ digits (plates, ids) are
 // replaced by placeholders, and the sender's address is never sent. Plain fetch (this file is uploaded as it is, no SDK). Any error, a
 // refusal, a cut-off or a draft that breaks a rule (draftCheck) gives no draft and the message as before.
 const AI = { url: "https://api.anthropic.com/v1/messages", model: "claude-haiku-5-5", version: "2026-10-21", ms: 20000 };
-const DRAFT_FOR = new Set(["crash", "data", "biz", "other"]);
+const DRAFT_FOR = new Set(["crash", "idea", "data", "biz", "other"]);
 const SIGN = "צוות לוחית";
 const aiOn = env => !!env.ANTHROPIC_API_KEY && String(env.MAIL_AI || "").trim().toLowerCase() !== "off";
 const AI_SYSTEM = [
@@ -262,7 +271,9 @@ export default {
       // the shared message shape of .github/scripts/tg-text.mjs: classification line, the mail itself, what to do
       const [tag, todo] = MAIL_TODO[cls.key] || MAIL_TODO.other;
       body = `<b>${tag} · מייל</b>\n<b>פנייה חדשה ללוחית: ${cls.label}</b>\nמאת: ${esc(message.from)}\nנושא: ${esc(subject)}\n\n${esc(text) || "(אין טקסט רגיל בהודעה)"}\n\n${todo}`;
-      const bulk = isBulk(message.headers);
+      // our own mail: an address of luchit.app copied in (Dudu's CC to dudu@luchit.app on 2.11.2026 came back as "a new request" with a
+      // Claude draft answering himself); Gmail keeps it, Telegram gets nothing, as bulk
+      const bulk = isBulk(message.headers) || isOwn(message.from);
       if (!bulk && DRAFT_FOR.has(cls.key) && text && aiOn(env)) {
         const d = await mailDraft(env, cls.key, subject, text);
         if (d) body += `\n\n✍️ טיוטת תשובה (Claude, לבדוק לפני ששולחים מהג'ימייל):\n<pre>${esc(d)}</pre>`;

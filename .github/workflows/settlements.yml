@@ -1,4 +1,5 @@
 name: Settlements
+run-name: Settlements${{ (github.event.schedule || inputs.schedule) && format(' ({0})', github.event.schedule || inputs.schedule) || '' }}
 # The class-action settlements list (settlements.json at the site root), which the app reads from the site, so an update needs no app release.
 #  - A push to main or next that touches the list or its checks: settlements.mjs check (a broken entry fails the run), stl-parity.mjs (the
 #    phone's Java match, which alerts on a new settlement for a saved car, agrees with the page's) and, on main, one Telegram
@@ -25,6 +26,10 @@ on:
         description: "No call to Claude (the reading says dry run)"
         type: boolean
         default: false
+      schedule:
+        description: "Set by the backup clock (luchit-uptime): the cron line this run stands in for. Empty for a run by hand"
+        type: string
+        default: ""
 permissions:
   contents: write   # the settlements-watch branch; alert.mjs keeps its dedupe state on the alert-state branch
 concurrency:
@@ -56,8 +61,29 @@ jobs:
           git fetch -q --depth=1 origin "$BEFORE" 2>/dev/null || true
           git show "$BEFORE:settlements.json" > "$RUNNER_TEMP/old.json" 2>/dev/null || echo '{"items":[]}' > "$RUNNER_TEMP/old.json"
           node .github/scripts/settlements.mjs tell "$RUNNER_TEMP/old.json" settlements.json
-  watch:
+  # GitHub's scheduler runs late or not at all since 1.11.2026, and the backup clock then starts this run by hand: the later of the two
+  # finds the earlier here and does nothing (no second review commit, no second Claude read). slot-done.mjs (ops) never fails: done=0.
+  slot:
     if: ${{ github.event_name != 'push' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      done: ${{ steps.slot.outputs.done }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts/slot-done.mjs
+      - id: slot
+        run: node .github/scripts/slot-done.mjs || echo "done=0" >> "$GITHUB_OUTPUT"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SLOT: ${{ github.event.schedule || inputs.schedule }}
+  watch:
+    needs: slot
+    if: ${{ github.event_name != 'push' && needs.slot.outputs.done != '1' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:

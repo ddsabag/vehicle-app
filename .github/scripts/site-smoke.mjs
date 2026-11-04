@@ -90,6 +90,7 @@ async function pagesCheck() {
   await need("דף המגזין", SITE + "magazine/", t => t.includes('id="nl"'), "אי אפשר להירשם למגזין.", false, "magazine");
   await need("קובץ אימות הקישורים לאפליקציה", SITE + ".well-known/assetlinks.json", t => t.includes("com.ddsabag.pratirechev"), "קישורים של luchit.app לא יפתחו את האפליקציה.", false, "applinks");
   await need("מדיניות הפרטיות", SITE + "privacy.html", t => t.includes("פרטיות"), "גוגל פליי דורש שהקישור לפרטיות יעבוד.", false, "privacy");
+  await need("הצהרת הנגישות", SITE + "accessibility/", t => t.includes("הצהרת נגישות") && t.includes("support@luchit.app"), "הקישור להצהרת הנגישות, שהתקנות מחייבות, לא יעבוד מאף עמוד באתר.", false, "access");
   try { const { t } = await get(SITE + "sitemap.xml"); const u = (t.match(/<loc>([^<]*\/model\/[^<]*)<\/loc>/) || [])[1]; if (u) await need("דף דגם", u, t2 => t2.includes("לוחית"), "דפי הדגם (מקור עיקרי לכניסות מגוגל) לא נפתחים.", false, "model"); else out.push({ id: "sitemap", title: "מפת האתר", detail: "לא נמצאו בה דפי דגם.", impact: "גוגל לא יאנדקס את דפי הדגם." }); }
   catch (e) { out.push({ id: "sitemap", title: "מפת האתר", detail: `מפת האתר לא נפתחה: ${he(e.message)}.`, impact: "גוגל לא יאנדקס את הדפים.", raw: `sitemap.xml: ${String(e.message).slice(0, 100)}` }); }
   out.push(...await shareCheck());

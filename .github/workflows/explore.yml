@@ -1,4 +1,5 @@
 name: Exploratory walk
+run-name: Exploratory walk${{ (github.event.schedule || inputs.schedule) && format(' ({0})', github.event.schedule || inputs.schedule) || '' }}
 # Once a week Claude Sonnet uses the page on next like a curious person, off the guardians' scripted paths (.github/scripts/explore.cjs;
 # owner: product, built by the QA thread; Dudu 1.11.2026 21:16 UTC, monthly API credit, package B): a buyer on an iPhone, an owner with
 # many cars in the app in dark mode, a first visitor on a desktop. The page is served from the checkout, every request off the machine is
@@ -18,8 +19,13 @@ on:
         description: "Which walks (buyer, owner, visitor; comma-separated)"
         type: string
         default: "buyer,owner,visitor"
+      schedule:
+        description: "The cron line this run stands for (the backup clock in luchit-uptime passes it when GitHub's own run is late); empty by hand"
+        type: string
+        default: ""
 permissions:
   contents: write   # branch explore-out, and the alert router's state (branch alert-state)
+  actions: read     # the slot check reads this workflow's runs
 concurrency:
   group: explore
   cancel-in-progress: false
@@ -29,16 +35,30 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
+      # GitHub's scheduler runs late since 1.11.2026 and the backup clock then starts the walk by hand: whichever run of the slot comes
+      # second does nothing, so a walk (a Claude call) never runs twice (ops's .github/scripts/slot-done.mjs, sparse: the script alone)
+      - uses: actions/checkout@v4
+        with: { path: slot, sparse-checkout: .github/scripts/slot-done.mjs, sparse-checkout-cone-mode: false }
+      - name: Slot check
+        id: slot
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SLOT: ${{ github.event.schedule || inputs.schedule }}
+        run: node slot/.github/scripts/slot-done.mjs
       # the page walked is next's (or the branch asked for); the scripts that walk it are this workflow's own, so a next that lags behind
       # main still walks with the current bot
-      - uses: actions/checkout@v4
+      - if: ${{ steps.slot.outputs.done != '1' }}
+        uses: actions/checkout@v4
         with: { ref: "${{ inputs.ref || 'next' }}", path: page }
-      - uses: actions/checkout@v4
+      - if: ${{ steps.slot.outputs.done != '1' }}
+        uses: actions/checkout@v4
         with: { path: bot }
-      - uses: actions/setup-node@v7
+      - if: ${{ steps.slot.outputs.done != '1' }}
+        uses: actions/setup-node@v7
         with: { node-version: 20 }
       # a slow Ubuntu mirror: as the UI guardian (stop after 8 minutes, then once more from archive.ubuntu.com)
       - name: Install the test tools and the Claude API SDK (not part of the app)
+        if: ${{ steps.slot.outputs.done != '1' }}
         working-directory: bot
         run: |
           npm install --no-save --no-package-lock playwright "$(node --input-type=module -e 'console.log((await import("./.github/scripts/claude.mjs")).SDK)')"
@@ -51,6 +71,7 @@ jobs:
             timeout 900 npx playwright install --with-deps chromium
           fi
       - name: The last state (branch explore-out)
+        if: ${{ steps.slot.outputs.done != '1' }}
         run: |
           mkdir -p ex-out
           for i in 1 2 3 4; do
@@ -62,6 +83,7 @@ jobs:
           git -C bot archive FETCH_HEAD | tar -x -C ex-out
       # run from the page's checkout (served from there), with the bot's scripts; ui-flows.cjs is the page's own (its mock and states)
       - name: Exploratory walk
+        if: ${{ steps.slot.outputs.done != '1' }}
         id: walk
         working-directory: page
         env:

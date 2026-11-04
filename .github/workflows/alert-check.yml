@@ -105,6 +105,8 @@ jobs:
         run: node .github/scripts/bots-status.mjs selftest
       - name: Sparse checkouts list every file their scripts load (2.11 break; a load inside try is optional by design)
         run: node .github/scripts/sparse-check.mjs selftest && node .github/scripts/sparse-check.mjs
+      - name: Slot check self-test (a late scheduled run finds the backup clock's start of the same slot; the same slots as luchit-uptime)
+        run: node .github/scripts/slot-done.mjs selftest
       - name: Claude API helper and competitor check self-tests (fallbacks, a change kept only with a found source, no cost in the log)
         run: node .github/scripts/claude.mjs --selftest && node .github/scripts/competitor-check.mjs --selftest
       - name: Copy audit and release-notes drafter self-tests (a point tied to its line, the Play notes rules, fallbacks, no cost in the log)

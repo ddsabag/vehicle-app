@@ -31,12 +31,16 @@ globalThis.fetch = async (u, o = {}) => {
   }
   if (u.startsWith("https://api.github.com/")) {   // the backup clock: runs list and dispatch
     ok(o.headers?.authorization === "Bearer GHTOKEN" && /luchit-uptime/.test(o.headers?.["user-agent"] || ""), "clock calls carry the token and a user-agent");
-    const m = u.match(/workflows\/([a-z-]+\.yml)\/(runs|dispatches)/);
-    gh.calls.push(m ? m[1] + " " + m[2] : u);
+    const m = u.match(/workflows\/([a-z-]+\.yml)\/(runs|dispatches)/), jm = u.match(/actions\/runs\/(\d+)\/jobs/);
+    gh.calls.push(m ? m[1] + " " + m[2] : jm ? "jobs " + jm[1] : u);
     if (gh.status) return new Response("{}", { status: gh.status });
+    if (jm) return new Response(JSON.stringify({ jobs: (gh.jobs || {})[jm[1]] || [] }));
     if (m && m[2] === "dispatches") { gh.sent.push([m[1], JSON.parse(o.body)]); return new Response(null, { status: 204 }); }
-    const t = m && gh.runs[m[1]];
-    return new Response(JSON.stringify({ workflow_runs: t ? [{ created_at: t }] : [] }));
+    // gh.runs[wf] = a created_at (one scheduled run) or a list of runs; the created>= filter as GitHub applies it, newest first
+    const since = Date.parse(decodeURIComponent((u.match(/[?&]created=([^&]+)/) || [])[1] || "").replace(/^>=/, "")) || 0;
+    const t = m && gh.runs[m[1]], list = (Array.isArray(t) ? t : t ? [{ created_at: t }] : []).map(r => ({ event: "schedule", conclusion: "success", ...r }));
+    ok(!m || /[?&]branch=main&/.test(u) && since > 0, "a runs read is on main, since a cut-off " + u);
+    return new Response(JSON.stringify({ workflow_runs: list.filter(r => Date.parse(r.created_at) >= since).sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)) }));
   }
   if (u.startsWith("https://api.brevo.com/")) { brevo.push(JSON.parse(o.body)); return new Response("{}", { status: 201 }); }
   if (u === HB) { hbReads++; return hb === undefined ? new Response("404: Not Found", { status: 404 }) : new Response(JSON.stringify({ t: hb })); }
@@ -326,12 +330,13 @@ ok(h.status === 200 && h.j.tick === null && h.j.armed.home === false, "/health w
 {
   const { clockDue } = await import("data:text/javascript," + encodeURIComponent(src));
   const names = (t, hbT) => clockDue(T(t), hbT ? T(hbT) : null).map(c => c.wf).join();
-  ok(names("2026-11-02T03:00:00Z") === "live-watch.yml", "03:00 UTC: only the dashboard watch " + names("2026-11-02T03:00:00Z"));
-  ok(names("2026-11-02T06:50:00Z", "2026-11-01T06:52:00Z") === "social-publish.yml,live-watch.yml,alert-daily.yml", "08:50 local, heartbeat from yesterday: the morning is due; reviews not before 07 UTC " + names("2026-11-02T06:50:00Z", "2026-11-01T06:52:00Z"));
+  ok(names("2026-11-02T03:00:00Z") === "live-watch.yml,app-guardian.yml", "03:00 UTC: the dashboard watch and the app guardian " + names("2026-11-02T03:00:00Z"));
+  ok(names("2026-11-02T06:50:00Z", "2026-11-01T06:52:00Z").startsWith("social-publish.yml,live-watch.yml,alert-daily.yml,"), "08:50 local, heartbeat from yesterday: the morning is due; reviews not before 07 UTC " + names("2026-11-02T06:50:00Z", "2026-11-01T06:52:00Z"));
   ok(names("2026-11-02T06:40:00Z", "2026-11-01T06:52:00Z").includes("alert-daily") === false, "08:40 local: the morning is not due yet");
   ok(names("2026-11-02T06:50:00Z", "2026-11-02T06:10:00Z").includes("alert-daily") === false, "today's heartbeat: the morning is done");
-  ok(names("2026-11-02T20:30:00Z", "2026-11-01T06:52:00Z") === "live-watch.yml", "22:30 local: no morning at night, no posts after 20 UTC");
-  ok(names("2026-11-02T12:00:00Z", "2026-11-02T06:10:00Z") === "social-publish.yml,live-watch.yml,reviews-monitor.yml,release-watch.yml", "midday after the morning: four by the hours");
+  ok(names("2026-11-02T20:30:00Z", "2026-11-01T06:52:00Z") === "live-watch.yml", "22:30 local: no morning at night, no posts or daily bots after 20 UTC");
+  ok(names("2026-11-02T12:00:00Z", "2026-11-02T06:10:00Z").split(",").length === 4 + 12 + 3, "Monday midday after the morning: four frequent, twelve daily by the hours and the three Monday ones " + names("2026-11-02T12:00:00Z", "2026-11-02T06:10:00Z"));
+  ok(!names("2026-11-02T08:30:00Z", "2026-11-02T06:10:00Z").includes("web-watch") && names("2026-11-02T09:30:00Z", "2026-11-02T06:10:00Z").includes("web-watch"), "a daily bot waits about an hour after its slot");
 }
 reset(); gh = { runs: {}, calls: [], sent: [], status: 0 };
 env = PAGE(); env.ALERT_ROUTE = "all"; hb = "2026-11-02T06:10:00Z";   // today's morning went out
@@ -342,7 +347,10 @@ env.GH_DISPATCH_TOKEN = "GHTOKEN"; env.CLOCK = "off";
 x = await tick(env, NOON + 10 * M);
 ok(gh.calls.length === 0, "CLOCK=off: the clock is off");
 delete env.CLOCK;
-gh.runs = { "social-publish.yml": "2026-11-02T11:49:00Z", "live-watch.yml": "2026-11-02T09:42:00Z", "reviews-monitor.yml": "2026-11-02T11:15:00Z", "release-watch.yml": "2026-11-01T17:40:00Z" };
+const DAILY = ["app-guardian", "ui-guardian", "seo-data", "own-data", "ministry-watch", "data-guard", "release-guard", "data-truth", "fuel", "site-smoke", "web-watch", "catalog"].map(w => w + ".yml");
+const ranToday = () => Object.fromEntries(DAILY.map(w => [w, "2026-11-02T05:00:00Z"]));
+gh.runs = { ...ranToday(), "social-publish.yml": "2026-11-02T11:49:00Z", "live-watch.yml": "2026-11-02T09:42:00Z", "reviews-monitor.yml": "2026-11-02T11:15:00Z", "release-watch.yml": "2026-11-01T17:40:00Z",
+  "copy-audit.yml": "2026-11-02T09:50:00Z", "seo-check.yml": "2026-11-02T06:23:00Z", "explore.yml": [{ created_at: "2026-11-02T10:52:00Z", display_title: "Exploratory walk (7 3 * * 1)" }] };   // Monday 2.11: the Monday bots ran late
 x = await tick(env, NOON + 20 * M);
 ok(JSON.stringify(gh.sent) === JSON.stringify([["live-watch.yml", { ref: "main", inputs: { dry_run: "false" } }], ["release-watch.yml", { ref: "main", inputs: { mode: "on" } }]]), "starts only what is late, on main, with its inputs " + JSON.stringify(gh.sent));
 ok(x.tg.length === 1 && x.tg[0].disable_notification === true && /שעון הגיבוי הפעיל אותם: מעקב הדשבורד, מעקב הגרסה בחנות/.test(x.tg[0].text), "one quiet line names them " + JSON.stringify(x.tg.map(m => m.text)));
@@ -362,11 +370,100 @@ x = await tick(env, NOON + 210 * M);
 ok(x.tg.length === 0 && U(env).clock.err === "refused 401", "refused again within 22.5 h: no second alert");
 h = await health(env);
 ok(h.j.clock.ok === false, "/health: clock not ok");
-gh.status = 0; gh.runs = {}; gh.calls = []; gh.sent = [];
+gh.status = 0; gh.runs = { ...ranToday() }; gh.calls = []; gh.sent = [];
 hb = "2026-11-02T06:10:00Z";
 x = await tick(env, T("2026-11-03T06:50:00Z"));   // 08:50 local on 3.11, heartbeat from 2.11
 ok(gh.sent.map(a => a[0]).includes("alert-daily.yml") && JSON.stringify(gh.sent.find(a => a[0] === "alert-daily.yml")[1]) === '{"ref":"main","inputs":{"dry_run":"false"}}' && U(env).clock.err === null, "the morning: Alert daily started for real when today's heartbeat is missing " + JSON.stringify(gh.sent));
 ok(U(env).clock.n === gh.sent.length, "a new day restarts the count");
+// 3.11.2026: GitHub started no daily bot at all; the pass starts the late ones with their inputs, at most CLOCK_MAX
+gh.runs = {}; gh.calls = []; gh.sent = []; hb = "2026-11-03T06:10:00Z";
+x = await tick(env, T("2026-11-03T12:30:00Z"));
+ok(gh.sent.length === 10 && gh.sent.every(a => a[1].ref === "main"), "a dead GitHub day: ten starts in one pass " + gh.sent.map(a => a[0]).join());
+const first = gh.sent.slice();
+gh.calls = []; gh.sent = [];
+for (const [w] of first) gh.runs[w] = "2026-11-03T12:30:00Z";   // what the first pass started is running now
+x = await tick(env, T("2026-11-03T13:30:00Z"));
+const all = [...first, ...gh.sent];
+ok(gh.sent.some(a => a[0] === "catalog.yml") && DAILY.every(w => all.filter(a => a[0] === w).length === 1), "the next pass starts the rest, no daily bot twice " + gh.sent.map(a => a[0]).join());
+ok(JSON.stringify(all.find(a => a[0] === "data-truth.yml")[1].inputs) === '{"job":"audit"}' && JSON.stringify(all.find(a => a[0] === "release-guard.yml")[1].inputs) === '{"mode":"on"}', "daily bots get the inputs that act as their schedule");
 
+
+// 11b. the weekly and monthly bots (3.11.2026): the last slot of a cron line; due from an hour after it for 14 hours; only a run of the bot's
+// own counts (not a push or pull-request run, not skipped, the magazine's data part, data truth's job); a bot seen done is not read again
+{
+  const { clockSlot, clockDue, counts } = await import("data:text/javascript," + encodeURIComponent(src));
+  const S = (c, t) => { const v = clockSlot(c, T(t)); return v ? new Date(v).toISOString().slice(0, 16) : 0; };
+  ok(S("40 4 * * 3", "2026-11-04T05:00:00Z") === "2026-11-04T04:40" && S("40 4 * * 3", "2026-11-04T04:39:00Z") === "2026-10-28T04:40", "weekly: this Wednesday's slot, or last week's before it");
+  ok(S("40 4 * * 3", "2026-11-04T04:40:00Z") === "2026-11-04T04:40", "the slot minute itself counts");
+  ok(S("7 7 3 * *", "2026-11-03T12:30:00Z") === "2026-11-03T07:07" && S("17 5 1-3 * *", "2026-11-04T00:00:00Z") === "2026-11-03T05:17", "monthly, a day range");
+  ok(S("12,42 * * * *", "2026-11-03T12:50:00Z") === "2026-11-03T12:42" && S("17 1 * * 7", "2026-11-03T12:00:00Z") === "2026-11-01T01:17", "a minute list; weekday 7 is Sunday");
+  ok(S("0 6 1 * 1", "2026-11-03T12:00:00Z") === "2026-11-02T06:00", "day of month and weekday both set: either one (cron)");
+  ok(S("*/10 * * * *", "2026-11-03T12:00:00Z") === 0 && S("40 4 * *", "2026-11-03T12:00:00Z") === 0, "an unsupported or short line is never due");
+  const due = t => clockDue(T(t), T("2026-11-02T06:10:00Z")).filter(c => c.cron).map(c => c.wf + (c.job ? ":" + c.job : "")).join();
+  ok(due("2026-11-02T06:40:00Z") === "seo-check.yml,explore.yml" && due("2026-11-02T06:41:00Z") === "copy-audit.yml,seo-check.yml,explore.yml", "Monday: each from an hour after its slot " + due("2026-11-02T06:41:00Z"));
+  ok(due("2026-11-02T19:35:00Z") === "copy-audit.yml" && due("2026-11-02T19:41:00Z") === "", "for 14 hours");
+  ok(due("2026-11-01T02:20:00Z") === "data-truth.yml:invariants" && due("2026-11-05T08:00:00Z") === "market.yml,kit-draft.yml,magazine.yml" && due("2026-11-05T08:10:00Z") === "market.yml,models.yml,kit-draft.yml,magazine.yml", "Sunday's full read; Thursday the 5th: market data, models, the kit draft (until 10:40), the data article " + due("2026-11-05T08:10:00Z"));
+  ok(due("2026-11-04T21:45:00Z") === "kit-draft.yml" && due("2026-11-05T15:00:00Z").includes("kit-qa.yml") && due("2026-11-06T09:10:00Z") === "modelstats.yml,magazine.yml", "the kit draft on Wednesday night, the kit QA on Thursday, the monthly article on the 6th " + due("2026-11-06T09:10:00Z"));
+  ok(due("2026-11-06T06:20:00Z") === "modelstats.yml" && due("2026-11-03T08:07:00Z") === "zombie.yml" && due("2026-11-04T05:40:00Z") === "camp-data.yml", "the 6th, the 3rd, Wednesday");
+  const wk = t => clockDue(T(t), T("2026-11-02T06:10:00Z")).filter(c => c.wf === "weekly-analytics.yml").map(c => c.inputs.schedule).join();
+  ok(wk("2026-11-08T07:25:00Z") === "20 6 * * 0" && wk("2026-06-07T06:25:00Z") === "20 5 * * 0", "the weekly report: only the line that is 08:xx in Israel, winter and summer");
+  ok(due("2026-11-01T06:20:00Z") === "data-truth.yml:invariants,settlements.yml,data-truth.yml,competitor-check.yml" && due("2026-11-02T06:20:00Z").includes("data-truth.yml,") === false, "the 1st: the deep audit and the competitors; not on the 2nd (GitHub's own retry) " + due("2026-11-01T06:20:00Z"));
+  ok(due("2026-11-19T12:20:00Z") === "data-truth.yml,data-truth.yml,magazine.yml", "the 19th (a Thursday): both deep lines and the data article");
+  const D = { wf: "x.yml" }, M = { wf: "magazine.yml", title: "(data)" }, W = { wf: "weekly-analytics.yml", title: "(20 6 * * 0)" };
+  ok(counts(W, { event: "workflow_dispatch", display_title: "Weekly analytics report (20 6 * * 0)" }) && !counts(W, { event: "workflow_dispatch", display_title: "Weekly analytics report" }) && !counts(W, { event: "schedule", display_title: "Weekly analytics report (20 5 * * 0)" }), "a slot-checked bot: only a run of its line counts");
+  ok(counts(D, { event: "schedule", conclusion: null }) && counts(D, { event: "workflow_dispatch", conclusion: "failure" }), "a scheduled or started run counts, running or failed");
+  ok(!counts(D, { event: "push", conclusion: "success" }) && !counts(D, { event: "pull_request", conclusion: "success" }) && !counts(D, { event: "schedule", conclusion: "skipped" }), "a push, pull-request or skipped run does not");
+  ok(counts(M, { event: "schedule", display_title: "Magazine (data)" }) && !counts(M, { event: "schedule", display_title: "Magazine (monthly)" }), "the magazine: only its data part");
+}
+reset(); gh = { runs: {}, calls: [], sent: [], status: 0, jobs: {} };
+env = PAGE(); env.ALERT_ROUTE = "all"; env.GH_DISPATCH_TOKEN = "GHTOKEN"; hb = "2026-11-03T06:10:00Z";
+const ranAll = t => Object.fromEntries(["social-publish", "live-watch", "reviews-monitor", "release-watch", "alert-daily", ...DAILY.map(w => w.slice(0, -4))].map(w => [w + ".yml", t]));
+// 3.11.2026, 12:30 UTC: everything ran; site smoke's newest run is a push run (skipped) and today's scheduled one never came
+gh.runs = { ...ranAll("2026-11-03T12:10:00Z"), "site-smoke.yml": [{ created_at: "2026-11-03T12:20:00Z", event: "push", conclusion: "skipped" }, { created_at: "2026-11-02T06:28:00Z" }],
+  "data-truth.yml": [{ id: 7, created_at: "2026-11-03T12:15:00Z" }], "zombie.yml": "2026-11-03T07:40:00Z" };
+gh.jobs = { 7: [{ name: "audit", conclusion: "skipped" }, { name: "deep", conclusion: "success" }] };   // a deep run, not the daily audit
+x = await tick(env, T("2026-11-03T12:30:00Z"));
+ok(gh.sent.map(a => a[0]).sort().join() === "data-truth.yml,site-smoke.yml" && JSON.stringify(gh.sent.find(a => a[0] === "data-truth.yml")[1].inputs) === '{"job":"audit"}', "a push run is not site smoke's daily run, a deep run is not the audit " + JSON.stringify(gh.sent));
+ok(gh.calls.includes("jobs 7") && gh.calls.includes("zombie.yml runs") && !gh.calls.includes("zombie.yml dispatches"), "data truth's jobs read; the zombie ran on the 3rd: not started");
+ok(gh.calls.filter(c => / runs$/.test(c)).length <= 20, "at most 20 runs reads a pass");
+gh.runs["data-truth.yml"] = [{ id: 9, created_at: "2026-11-03T12:31:00Z", status: "in_progress", conclusion: null }, ...gh.runs["data-truth.yml"]];
+gh.jobs[9] = [{ name: "audit", conclusion: null }, { name: "deep", conclusion: "skipped" }];   // the audit the clock started, running
+gh.calls = []; gh.sent = [];
+x = await tick(env, T("2026-11-03T13:30:00Z"));
+ok(!gh.calls.some(c => /^(app-guardian|ui-guardian|seo-data|catalog|zombie)\.yml runs/.test(c)), "a bot seen done is not read again until its next cut-off " + gh.calls.join());
+ok(!gh.sent.some(a => a[0] === "data-truth.yml") && gh.calls.includes("jobs 9"), "the running audit counts, not started twice");
+gh.runs["data-truth.yml"][0] = { ...gh.runs["data-truth.yml"][0], status: "completed", conclusion: "success" }; gh.jobs[9][0].conclusion = "success"; gh.calls = []; gh.sent = [];
+x = await tick(env, T("2026-11-03T14:30:00Z"));
+ok(gh.calls.includes("data-truth.yml runs") && gh.calls.includes("jobs 9"), "a running one is read again the next hour");
+gh.calls = [];
+x = await tick(env, T("2026-11-03T15:30:00Z"));
+ok(!gh.calls.some(c => c.startsWith("data-truth") || c.startsWith("jobs")), "once it ended it is remembered " + gh.calls.join());
+// Sunday 1.11, 02:30 UTC: the weekly full read never came (the daily audit's run does not count for it); Wednesday 4.11: the campaign snapshot
+env = PAGE(); env.ALERT_ROUTE = "all"; env.GH_DISPATCH_TOKEN = "GHTOKEN";   // a fresh KV: the clock goes back to 1.11
+gh.calls = []; gh.sent = []; gh.runs = { ...ranAll("2026-11-01T02:20:00Z"), "data-truth.yml": [{ id: 8, created_at: "2026-11-01T02:10:00Z", event: "workflow_dispatch" }] };
+gh.jobs = { 8: [{ name: "audit", conclusion: "success" }, { name: "invariants", conclusion: "skipped" }] };
+x = await tick(env, T("2026-11-01T02:30:00Z"));
+ok(JSON.stringify(gh.sent) === JSON.stringify([["data-truth.yml", { ref: "main", inputs: { job: "invariants" } }]]), "Sunday: the full read started, with its job " + JSON.stringify(gh.sent));
+gh.calls = []; gh.sent = []; gh.runs = { ...ranAll("2026-11-04T05:30:00Z"), "camp-data.yml": "2026-10-28T05:15:00Z" };
+x = await tick(env, T("2026-11-04T05:45:00Z"));
+ok(JSON.stringify(gh.sent) === JSON.stringify([["camp-data.yml", { ref: "main", inputs: {} }]]), "Wednesday: last week's snapshot does not count " + JSON.stringify(gh.sent));
+gh.calls = []; gh.sent = []; gh.runs["camp-data.yml"] = "2026-11-04T05:46:00Z";
+x = await tick(env, T("2026-11-04T06:45:00Z"));
+ok(!gh.sent.some(a => a[0] === "camp-data.yml") && gh.calls.includes("camp-data.yml runs"), "the next hour sees it ran: not started twice");
+// the 5th: the market data ran late by itself, the model names never came; nothing for the magazine (a second run publishes the next article)
+gh.calls = []; gh.sent = []; gh.runs = { ...ranAll("2026-11-05T08:20:00Z"), "market.yml": "2026-11-05T06:30:00Z" };
+x = await tick(env, T("2026-11-05T08:30:00Z"));
+ok(JSON.stringify(gh.sent) === JSON.stringify([["models.yml", { ref: "main", inputs: { skip_gate: "false" } }], ["kit-draft.yml", { ref: "main", inputs: { schedule: "40 20 * * 3" } }], ["magazine.yml", { ref: "main", inputs: { part: "data", schedule: "30 5 * * 4" } }]]), "Thursday the 5th: the model names, the kit draft and the data article, with their inputs " + JSON.stringify(gh.sent));
+ok(x.tg.length === 1 && /שעון הגיבוי הפעיל אותם: שמות הדגמים, טיוטת ערכת התוכן השבועית, כתבת הנתונים במגזין\./.test(x.tg[0].text), "named in the day's quiet line");
+
+// Sunday 8.11, 07:30 UTC (winter): GitHub ran only the gated-out 05:20 line of the weekly report, and settlements only on a push
+gh.calls = []; gh.sent = []; gh.runs = { ...ranAll("2026-11-08T07:20:00Z"), "weekly-analytics.yml": [{ created_at: "2026-11-08T05:25:00Z", display_title: "Weekly analytics report (20 5 * * 0)" }],
+  "settlements.yml": [{ created_at: "2026-11-08T06:00:00Z", event: "push", display_title: "Settlements list update" }] };
+x = await tick(env, T("2026-11-08T07:30:00Z"));
+ok(JSON.stringify(gh.sent) === JSON.stringify([["weekly-analytics.yml", { ref: "main", inputs: { schedule: "20 6 * * 0" } }], ["settlements.yml", { ref: "main", inputs: { schedule: "43 4 * * 0", dry: "false" } }]]), "Sunday: the 08:20 line of the weekly report and the settlements watch, each with its line " + JSON.stringify(gh.sent));
+ok(x.tg.length === 1 && /שעון הגיבוי הפעיל אותם: הדוח השבועי, הסדרי פשרה\./.test(x.tg[0].text), "named once each " + JSON.stringify(x.tg.map(m => m.text)));
+gh.calls = []; gh.sent = []; gh.runs["weekly-analytics.yml"].unshift({ created_at: "2026-11-08T07:31:00Z", event: "workflow_dispatch", display_title: "Weekly analytics report (20 6 * * 0)" });
+x = await tick(env, T("2026-11-08T08:30:00Z"));
+ok(!gh.sent.some(a => a[0] === "weekly-analytics.yml"), "the next hour finds the clock's run of the line: not again");
 log(bad ? `uptime test: ${bad} of ${n} checks FAILED` : `uptime test ok (${n} checks)`);
 process.exit(bad ? 1 : 0);
