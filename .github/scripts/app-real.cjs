@@ -199,6 +199,16 @@ async function attach(timeout = 30000) {
   }
 }
 const READY = "#homeMark, #chead .mini-plate, #carsHead, #alertsHead";
+// ==== TEST ONLY (branch qa/guardian-closed-test, never on main): the system stopping the app at chosen moments, to prove the retries
+const TK = {};
+async function testKill(key, page, times = 1) {
+  TK[key] = (TK[key] || 0) + 1;
+  if (TK[key] > times) return;
+  log(`TEST: the app is stopped at ${key} (${TK[key]} of ${times})`);
+  sh(`am force-stop ${PKG}`);
+  for (let i = 0; i < 40 && page && !page.isClosed(); i++) await sleep(250);
+  log(`TEST: its page closed: ${page ? page.isClosed() : "no page"}`);
+}
 async function launch({ clear = false, extra = "" } = {}) {
   const t0 = Date.now();
   mustLive();
@@ -210,6 +220,7 @@ async function launch({ clear = false, extra = "" } = {}) {
   if (!boxCache) await settleBox();   // the first start of a phone setting: the journeys begin once the WebView holds still
   // the system can stop the app while it starts (4.11, API 31: the emulator's first start of 411-extra stopped responding outside the
   // app's code, and its page had closed by the time the WebView held still): that start failed, like one that never showed its page
+  if (clear) await testKill("first-start", page);
   if (page.isClosed()) throw new Error(`the app's page has been closed as it started (app pid ${pidOf() || "none"}, ${((Date.now() - t0) / 1000).toFixed(1)} s)`);
   log(`launched${clear ? " (fresh install state)" : ""}, pid ${pidOf()}, ${((Date.now() - t0) / 1000).toFixed(1)} s`);
   return page;
@@ -370,6 +381,7 @@ async function journey(page, sc, state, J, theme) {
     // a minute after boot: home drawn with no bars at all, then the status bar without its icons and three buttons at the bottom)
     if (c.fullH && m.vw === c.fullW && Math.abs(m.vh - c.fullH) >= 16 && m.vh > c.fullH - 120) disturbed.add("resized");
     // a step's check can read the page too (a toast, a stored value): a page that closed under it is the phone's, as under the step itself
+    if (sc.id === "411-f100" && J.name === "saved" && name === "arrow-back") await testKill("saved-arrow-back", page);
     let ok; try { ok = expect ? await expect(m, c) : true; } catch (e) { if (closed(e)) { disturbed.add("closed"); break; } throw e; }
     if (ok && ok.warn) { add("warn", "logic", run, name, ok.warn); ok = true; }
     if (ok !== true) add("block", "logic", run, name, ok);
@@ -415,6 +427,7 @@ async function entries(page, sc) {
   const warm = async (name, extra, ok, want) => {
     cur.step = name;
     sh(`am start -n ${ACT} ${extra}`);
+    if (name === "alert-test") await testKill("entries-alert-test", page);
     const s = await waitFor(page, ok);
     if (!s) log(`entry ${name}: no page (app pid ${pidOf() || "none"}, in front ${front()}, emulator ${alive() ? "there" : "gone"})`);
     if (!s || !ok(s)) { stillOpen(page); add("block", "entry", run, name, `${want}; got ${said(s)}`); }
@@ -458,6 +471,7 @@ async function entries(page, sc) {
 // ---- the keyboard, Back at home, a turn on its side
 async function phoneChecks(page, sc) {
   const run = `phone/one/${sc.id}/light`; cur.run = run; cur.step = "load";
+  await testKill("phone-load", page, meta.sdk === "31" ? 2 : 1);
   await prepare(page, "one", "light");
   // the keyboard: tap the plate field like a finger; the field and its button must stay above the keyboard, the bottom bar out of the way
   cur.step = "keyboard";
@@ -513,6 +527,7 @@ async function darkChecks(sc) {
     cur.step = night ? "auto-dark" : "auto-light";
     setPhone({ dp: sc.dp, font: 1, night });
     const page = await launch();
+    if (night) await testKill("dark-auto-dark", page);
     await prepare(page, "one", "auto");
     const d = await themeOf(page);
     // what counts is the page's own look: an older WebView keeps prefers-color-scheme light on a dark phone (WebView 91 on Android 12),
