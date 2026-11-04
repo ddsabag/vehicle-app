@@ -831,6 +831,9 @@ body[data-screen=car] main,body[data-screen=sub] main,body[data-screen=cars] mai
 .ch-t b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:800;font-size:1rem}
 .ch-b.star[aria-pressed=true] svg.i{fill:currentColor}
 .ch-l{display:none}   /* the words beside share and save, on the website's wide header (a site names its buttons; a phone has the icons) */
+/* share keeps its word on phones too: with the icon alone (1.38) the share sheet opened in 0.7% of checks against 2.0% with the word (1.37); a 320px header keeps the icon so the plate has its room */
+.chead .ch-b[data-act=share]:has(.ch-l){width:auto;padding:0 10px 0 8px;gap:4px;display:inline-flex;align-items:center;font-weight:700;font-size:.85rem}.chead .ch-b[data-act=share] .ch-l{display:inline}
+@media (max-width:359px){.chead .ch-b[data-act=share]:has(.ch-l){width:44px;padding:0;justify-content:center}.chead .ch-b[data-act=share] .ch-l{display:none}}
 .ch-doc{flex:0 0 auto;height:40px;margin-inline:4px;padding:0 12px 0 10px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--accent);font-weight:800;font-size:.9rem;display:inline-flex;align-items:center;gap:6px}.ch-doc svg.i{width:18px;height:18px}
 @media (max-width:359px){.ch-doc{padding:0 11px}.ch-doc .ch-dt{display:none}}   /* 320px: the plate keeps its room next to back, star and more */
 .ch-m{position:relative;flex:0 0 auto}
