@@ -1,0 +1,16 @@
+{
+ "kit": 4,
+ "repo_commit": "d25cec2e37d421831d6803e0abcc98c6dd8a0a62",
+ "facts": [
+  {
+   "text": "MG3: 118 מכל 1,000 רכבים פעילים עם ריקול פתוח (117.7 לפני עיגול)",
+   "value": 118,
+   "round": 0,
+   "source_path": "model/stats.json",
+   "json_pointer": "/models/[slug=mg3-443]/rcPer",
+   "fetched_at": "2026-11-04T22:21:19Z",
+   "data_as_of": "2026-10-06",
+   "repo_commit": "d25cec2e37d421831d6803e0abcc98c6dd8a0a62"
+  }
+ ]
+}

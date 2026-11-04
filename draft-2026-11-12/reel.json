@@ -1,0 +1,46 @@
+{
+ "title": "ריקול חדש, כל המגרש",
+ "pillar": "B2B utility",
+ "lines": [
+  {
+   "vo": "נפתח ריקול חדש. איזה רכב במגרש ברשימה?",
+   "screen": "נפתח ריקול חדש.\nאיזה רכב שלכם ברשימה?",
+   "visual": "Top-down motion graphic of a lot with rows of generic car silhouettes. A red notification dot pulses over the whole lot. No real plates, no brand logos."
+  },
+  {
+   "vo": "לאחרונה נוספו לרשימת משרד התחבורה ריקולים לדגמים כמו לקסוס NX, שברולט TRAX וג'יפ WRANGLER.",
+   "screen": "LEXUS NX · CHEVROLET TRAX · JEEP WRANGLER",
+   "visual": "Kinetic text: the maker and model names slide in one by one like a list update, with a small caption 'לפי רשימת משרד התחבורה'."
+  },
+  {
+   "vo": "ריקול חל רק על רכבים שיוצרו בטווח מסוים, לא על כל רכב מהדגם.",
+   "screen": "לא כל רכב מהדגם.\nרק מה שברשימה.",
+   "visual": "One model silhouette multiplied into a row. Only some of them light up yellow; the rest stay grey."
+  },
+  {
+   "vo": "אז בודקים לפי מספר הרישוי.",
+   "screen": "בודקים לפי מספר הרישוי",
+   "visual": "Fresh screen recording of the app version now fully live in Play production, on synthetic data. Plate 12-345-67 is typed into the search field on home; the keyboard comes up and the bottom bar steps aside."
+  },
+  {
+   "vo": "שורה אחת אומרת אם יש ריקול פתוח, ובכרטיס הריקול יש כפתור לבדיקה באתר היבואן.",
+   "screen": "ריקול פתוח?\nבודקים באתר היבואן",
+   "visual": "Car page for 12-345-67 with mocked data, from the same fresh recording. The one-line recall row is highlighted; a tap opens the recall card, and a finger hovers over the importer-site button without tapping it."
+  },
+  {
+   "vo": "את כל המגרש בודקים בטבלה אחת, עם טסט וריקול פתוח לכל רכב.",
+   "screen": "כל המגרש בטבלה אחת\nPRO עסקי",
+   "visual": "Motion-graphic table (from the b2b/ source) with two rows, 12-345-67 and 7654321, and columns רכב / טסט / ריקול פתוח. Small label 'נתונים לדוגמה' and a PRO עסקי badge."
+  },
+  {
+   "vo": "התיקון בדרך כלל ללא עלות אצל היבואן, והרכב יוצא ללקוח בלי הפתעות.",
+   "screen": "בלי הפתעות",
+   "visual": "A car silhouette drives out of the lot gate toward the camera while a yellow check mark draws on."
+  },
+  {
+   "vo": "מקלידים מספר רישוי בלוחית.",
+   "screen": "מקלידים מספר רישוי\nluchit.app",
+   "visual": "End card: luchit logo, the luchit.app pill, and 'זמינה להורדה' over the unchanged Google Play badge. Badge size, clear space and hold time follow the RUNBOOK end-card spec (kit 2 gen.py .gp / #s6g is the reference)."
+  }
+ ]
+}
