@@ -15,10 +15,11 @@
 // scroll, anything past the screen edge, the bottom bar moving or growing or riding on the keyboard, a way in that does not reach its
 // screen, the page under a system bar, invisible bar icons, "לפי המכשיר" against the phone. A journey the phone disturbed (another app's
 // "isn't responding" dialog, the app not responding, its page closed under it, the system's bars restarting, the window changing height
-// with no keyboard) runs once more on a fresh start, and only that try counts; so does the first start of each phone setting.
+// with no keyboard) runs once more on a fresh start, and only that try counts; so does the first start of each phone setting, and so do
+// the ways in, the keyboard and Back checks and the dark phone when the app's page closed under them.
 // The emulator itself stopping is not the app's fault: exit 2, with what was found until then, and a file "gone" beside the findings
-// (app-guardian.yml then runs the phone setting once more on a new emulator); so is a journey disturbed in both tries by what is not the
-// app's (no crash of the app, no ANR in its own code or without a stack).
+// (app-guardian.yml then runs the phone setting once more on a new emulator); so is a journey, or one of those checks, disturbed in both
+// tries by what is not the app's (no crash of the app, no ANR in its own code or without a stack).
 // Usage (inside the emulator, app-guardian.yml): node .github/scripts/app-real.cjs --apk <apk> [--out <dir>] [--scenario <id>] [--quick] [--label <api>]
 const fs = require("node:fs"), path = require("node:path"), { spawnSync } = require("node:child_process");
 const { _android: android } = require("playwright");
@@ -207,6 +208,9 @@ async function launch({ clear = false, extra = "" } = {}) {
   const page = await attach();
   await page.waitForSelector(READY, { state: "attached", timeout: 20000 });
   if (!boxCache) await settleBox();   // the first start of a phone setting: the journeys begin once the WebView holds still
+  // the system can stop the app while it starts (4.11, API 31: the emulator's first start of 411-extra stopped responding outside the
+  // app's code, and its page had closed by the time the WebView held still): that start failed, like one that never showed its page
+  if (page.isClosed()) throw new Error(`the app's page has been closed as it started (app pid ${pidOf() || "none"}, ${((Date.now() - t0) / 1000).toFixed(1)} s)`);
   log(`launched${clear ? " (fresh install state)" : ""}, pid ${pidOf()}, ${((Date.now() - t0) / 1000).toFixed(1)} s`);
   return page;
 }
@@ -365,7 +369,8 @@ async function journey(page, sc, state, J, theme) {
     // the window grew or shrank under the journey with no keyboard and no turn: the system's bars went away or came back (26.10, API 31,
     // a minute after boot: home drawn with no bars at all, then the status bar without its icons and three buttons at the bottom)
     if (c.fullH && m.vw === c.fullW && Math.abs(m.vh - c.fullH) >= 16 && m.vh > c.fullH - 120) disturbed.add("resized");
-    let ok = expect ? await expect(m, c) : true;
+    // a step's check can read the page too (a toast, a stored value): a page that closed under it is the phone's, as under the step itself
+    let ok; try { ok = expect ? await expect(m, c) : true; } catch (e) { if (closed(e)) { disturbed.add("closed"); break; } throw e; }
     if (ok && ok.warn) { add("warn", "logic", run, name, ok.warn); ok = true; }
     if (ok !== true) add("block", "logic", run, name, ok);
     UF.judgeStep(run, name, m, { app: true, barMax: Math.round(80 * Math.max(1, sc.font)), large: sc.font >= 1.75 });
@@ -404,15 +409,15 @@ async function waitFor(page, ok, ms = 12000) { const t0 = Date.now(); let s; whi
 const said = (s) => (s ? `${s.screen}${s.sheet ? " " + s.sheet : ""}, car ${s.car || "-"}, tab ${s.tab}${s.msg ? `, "${s.msg}"` : ""}` : "no page");
 // in the owner's state: 1234567 is the user's own car (saved, with its file and an open recall), 7654321 a car seen in an ad
 async function entries(page, sc) {
-  const run = `entries/owner/${sc.id}/light`; cur.run = run;
+  const run = `entries/owner/${sc.id}/light`; cur.run = run; cur.step = "load";
   await prepare(page, "owner", "light");
   const home = async () => { await page.evaluate(() => { for (let i = 0; i < 6 && window.appBack && window.appBack(); i++); }).catch(() => {}); await page.click('#bnav [data-nav="search"]').catch(() => {}); await sleep(400); };
   const warm = async (name, extra, ok, want) => {
     cur.step = name;
     sh(`am start -n ${ACT} ${extra}`);
     const s = await waitFor(page, ok);
-    if (!s || !ok(s)) add("block", "entry", run, name, `${want}; got ${said(s)}`);
     if (!s) log(`entry ${name}: no page (app pid ${pidOf() || "none"}, in front ${front()}, emulator ${alive() ? "there" : "gone"})`);
+    if (!s || !ok(s)) { stillOpen(page); add("block", "entry", run, name, `${want}; got ${said(s)}`); }
     saveShot(await still(), `${sc.id}__entry__${name}`);
     await home();
   };
@@ -428,7 +433,7 @@ async function entries(page, sc) {
   // a campaign link with the app open brings it to the front where it was (the page counts the visit; nothing else should move)
   cur.step = "campaign-link";
   sh(`am start -n ${ACT} -a android.intent.action.VIEW -d 'https://luchit.app/?utm_source=facebook&utm_campaign=market'`); await sleep(1500);
-  if (!front()) add("block", "entry", run, "campaign-link", "a campaign link should bring the app to the front");
+  if (!front()) { stillOpen(page); add("block", "entry", run, "campaign-link", "a campaign link should bring the app to the front"); }
   if (await page.evaluate(() => document.querySelectorAll("#out .msg.err").length).catch(() => 0)) add("block", "entry", run, "campaign-link", "a campaign link left an error message on the screen");
   // cold, with the network off: the app must load index.html?nk=recall#1234567 (its part), and the page must open the saved copy of
   // the car on its recalls tab (its part). The page starts before its requests can be mocked, so nothing may leave the emulator
@@ -440,6 +445,7 @@ async function entries(page, sc) {
     const p2 = await attach();
     const s = await waitFor(p2, (s) => s.screen === "car" && s.car === "1234567", 15000);
     const loaded = await p2.evaluate(() => (performance.getEntriesByType("navigation")[0] || {}).name || "").catch(() => "");
+    if (!s || !loaded) stillOpen(p2);
     if (!/[?&]nk=recall\b/.test(loaded) || !/#1234567$/.test(loaded)) add("block", "entry", run, "alert-cold", `a recall alert tapped with the app closed should load index.html?nk=recall#1234567; the app loaded ${loaded.replace(/^https:\/\/[^/]+/, "") || "nothing"}`);
     if (!s || s.screen !== "car" || s.tab !== "recalls") add("block", "entry", run, "alert-cold", `a recall alert tapped with the app closed and no network should open the saved copy of the car on its recalls tab; got ${said(s)}`);
     saveShot(await still(), `${sc.id}__entry__alert-cold-offline`);
@@ -451,7 +457,7 @@ async function entries(page, sc) {
 
 // ---- the keyboard, Back at home, a turn on its side
 async function phoneChecks(page, sc) {
-  const run = `phone/one/${sc.id}/light`; cur.run = run;
+  const run = `phone/one/${sc.id}/light`; cur.run = run; cur.step = "load";
   await prepare(page, "one", "light");
   // the keyboard: tap the plate field like a finger; the field and its button must stay above the keyboard, the bottom bar out of the way
   cur.step = "keyboard";
@@ -502,6 +508,7 @@ const themeOf = (page) => page.evaluate(() => ({ mq: matchMedia("(prefers-color-
 const isDarkBg = (bg) => { const m = (bg || "").match(/\d+/g) || [255, 255, 255]; return lum(m.slice(0, 3).map(Number)) < 0.4; };
 async function darkChecks(sc) {
   const run = `dark/one/${sc.id}/auto`; cur.run = run;
+  meta.autoTheme = [];   // a second try (its page closed under the first) records only its own
   for (const night of [false, true]) {
     cur.step = night ? "auto-dark" : "auto-light";
     setPhone({ dp: sc.dp, font: 1, night });
@@ -510,7 +517,7 @@ async function darkChecks(sc) {
     const d = await themeOf(page);
     // what counts is the page's own look: an older WebView keeps prefers-color-scheme light on a dark phone (WebView 91 on Android 12),
     // and the app tells the page itself (AndroidApp.systemDark); the media query is only recorded
-    (meta.autoTheme = meta.autoTheme || []).push({ phone: night ? "dark" : "light", page: isDarkBg(d.bg) ? "dark" : "light", mq: d.mq ? "dark" : "light" });
+    meta.autoTheme.push({ phone: night ? "dark" : "light", page: isDarkBg(d.bg) ? "dark" : "light", mq: d.mq ? "dark" : "light" });
     if (isDarkBg(d.bg) !== night) add("block", "theme", run, cur.step, `with "לפי המכשיר" and the phone ${night ? "dark" : "light"}, the page is ${isDarkBg(d.bg) ? "dark" : "light"} (prefers-color-scheme: ${d.mq ? "dark" : "light"})`);
     await look(run, cur.step, night, `${sc.id}__auto-${night ? "dark" : "light"}`);
     // the phone turns dark with the app open: the page follows without a restart
@@ -537,6 +544,41 @@ async function darkChecks(sc) {
   if (own.some((l) => l !== null && l > 0.8)) add("warn", "flash", run, "launch-dark", `a dark phone sees a white screen while the app opens (brightness of the frames: ${frames.join(", ")}${+meta.sdk >= 33 ? "" : "; before Android 13 the system's splash is light whatever the app chose, so only the frames after it count"})`);
   setPhone({ dp: sc.dp, font: 1, night: false });
   crashes(run, "dark");
+}
+
+// ---- the ways in, the phone checks and the dark phone, each as a journey: the app's page can close under one as under a journey (4.11,
+// API 31, 411-extra: the emulator's first start stopped responding outside the app's code, the system stopped the app, and the ways in
+// met only its closed page: "crashed: page.evaluate: Target page, context or browser has been closed", that night's one blocking
+// finding). Then that part runs once more on a fresh start and only that try counts (of the first, what is the app's own in any case
+// stays: a crash, an ANR); closed in both tries without a crash of the app, it is the emulator (Gone: the workflow runs the phone setting
+// on a new one). An error that is not a closed page is the part's finding, as before
+const closedErr = (e) => /has been closed/.test(String(e && e.message));
+// a check that failed on a page that is no longer there tells nothing about the app: the part runs again instead
+const stillOpen = (p) => { if (!p || p.isClosed()) throw new Error(`the app's page has been closed during ${cur.run} ${cur.step} (app pid ${pidOf() || "none"})`); };
+async function part(page, fn) {
+  for (let tri = 1; ; tri++) {
+    const mark = findings.length;
+    try { return (await fn(page)) || page; }
+    catch (e) {
+      if (e instanceof Gone) throw e;
+      const run = cur.run, step = cur.step, why = e.message.split("\n")[0].slice(0, 160);
+      if (!closedErr(e)) { add("block", "error", run, step, "crashed: " + why); return launch().catch(() => page); }
+      mustLive();
+      crashes(run, step);   // what stopped the app is read where it happened: its own crash, or an ANR (in its own code: blocking)
+      if (tri === 1) {
+        const first = findings.splice(mark), kept = first.filter((f) => f.kind === "crash" || f.kind === "anr");
+        findings.push(...kept);
+        (meta.retried = meta.retried || []).push({ run, why: `${SAY.closed} at ${step}`, dropped: first.filter((f) => !kept.includes(f)).map((f) => `${f.sev} ${f.kind} ${f.step}: ${f.msg}`.slice(0, 200)) });
+        log(`${run}: disturbed (${SAY.closed} at ${step}: ${why}), so it runs once more on a fresh start and only that try counts (${first.length - kept.length} findings of the first try are in meta.json)`);
+        boxCache = null;   // the system may have moved its bars meanwhile: the WebView's place is read again
+        try { page = await launch(); }
+        catch (e2) { if (e2 instanceof Gone) throw e2; throw new Gone(`the app did not start again after ${run} was disturbed (${SAY.closed}): ${e2.message.split("\n")[0].slice(0, 120)}`); }
+        continue;
+      }
+      if (findings.slice(mark).some((f) => f.kind === "crash" && f.sev === "block")) return launch().catch(() => page);   // the app's own crash closed it: that finding stands
+      throw new Gone(`the phone disturbed ${run} in both tries (${SAY.closed} at ${step})`);
+    }
+  }
 }
 
 // ---- the phone settings: each one is its own run on a fresh emulator in app-guardian.yml (--scenario), all of them without it
@@ -626,9 +668,9 @@ function finish(line, code) {
       }
     }
     if (sc.extra) {
-      try { page = await entries(page, sc); } catch (e) { if (e instanceof Gone) throw e; add("block", "error", cur.run, cur.step, "crashed: " + e.message.split("\n")[0].slice(0, 160)); page = await launch().catch(() => page); }
-      try { page = await phoneChecks(page, sc); } catch (e) { if (e instanceof Gone) throw e; add("block", "error", cur.run, cur.step, "crashed: " + e.message.split("\n")[0].slice(0, 160)); }
-      try { await darkChecks(sc); } catch (e) { if (e instanceof Gone) throw e; add("block", "error", cur.run, cur.step, "crashed: " + e.message.split("\n")[0].slice(0, 160)); }
+      page = await part(page, (p) => entries(p, sc));
+      page = await part(page, (p) => phoneChecks(p, sc));
+      await part(page, () => darkChecks(sc));
     }
     meta.scenarios.push({ id: sc.id, zoom: z, webview: (ua.match(/Chrome\/[\d.]+/) || [""])[0], seconds: Math.round((Date.now() - ts) / 1000) });
   }
