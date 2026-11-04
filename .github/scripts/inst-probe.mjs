@@ -124,7 +124,7 @@ await part("kv.tally", async () => {
   // 28.10: the share sheet opening (share_open: the website and app 1.36+ since 21.10), so a week shows opened-and-left vs never opened. Full
   // days 21.10 to yesterday by app version (an app before 1.36 sends share but no share_open), share by kind (cmp and cmp_pdf come from the
   // comparison, not the sheet), with report views and checks as the base
-  const R2 = [{ startDate: "2026-10-21", endDate: "yesterday" }];
+  const R2 = [{ startDate: "2026-10-26", endDate: "yesterday" }];
   await part("sh.open", () => by("share_open", ["date", "platform"], ["eventCount", "totalUsers"]));
   await part("sh.funnel", () => ga({ dateRanges: R2, dimensions: ["platform", "appVersion", "eventName"].map(name => ({ name })), metrics: [{ name: "eventCount" }, { name: "totalUsers" }],
     dimensionFilter: and(REAL, inList("eventName", ["share_open", "share", "exp_expose", "car_lookup"])) }));
