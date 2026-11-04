@@ -348,7 +348,7 @@ x = await tick(env, NOON + 10 * M);
 ok(gh.calls.length === 0, "CLOCK=off: the clock is off");
 delete env.CLOCK;
 const DAILY = ["app-guardian", "ui-guardian", "seo-data", "own-data", "ministry-watch", "data-guard", "release-guard", "data-truth", "fuel", "site-smoke", "web-watch", "catalog"].map(w => w + ".yml");
-const ranToday = () => Object.fromEntries(DAILY.map(w => [w, "2026-11-02T05:00:00Z"]));
+const ranToday = () => Object.fromEntries(DAILY.map(w => [w, "2026-11-02T09:30:00Z"]));   // after every daily slot (catalog 09:20 is the last)
 gh.runs = { ...ranToday(), "social-publish.yml": "2026-11-02T11:49:00Z", "live-watch.yml": "2026-11-02T09:42:00Z", "reviews-monitor.yml": "2026-11-02T11:15:00Z", "release-watch.yml": "2026-11-01T17:40:00Z",
   "copy-audit.yml": "2026-11-02T09:50:00Z", "seo-check.yml": "2026-11-02T06:23:00Z", "explore.yml": [{ created_at: "2026-11-02T10:52:00Z", display_title: "Exploratory walk (7 3 * * 1)" }] };   // Monday 2.11: the Monday bots ran late
 x = await tick(env, NOON + 20 * M);
@@ -465,5 +465,26 @@ ok(x.tg.length === 1 && /שעון הגיבוי הפעיל אותם: הדוח ה�
 gh.calls = []; gh.sent = []; gh.runs["weekly-analytics.yml"].unshift({ created_at: "2026-11-08T07:31:00Z", event: "workflow_dispatch", display_title: "Weekly analytics report (20 6 * * 0)" });
 x = await tick(env, T("2026-11-08T08:30:00Z"));
 ok(!gh.sent.some(a => a[0] === "weekly-analytics.yml"), "the next hour finds the clock's run of the line: not again");
+// 4.11.2026: the daily cut-off is today's slot, not "no run in 20 h" (GitHub's run of 11:49 the day before held the morning's start until 07:49)
+{
+  const { clockDue } = await import("data:text/javascript," + encodeURIComponent(src));
+  const has = (t, w) => clockDue(T(t), T("2026-11-04T06:10:00Z")).some(c => c.wf === w);
+  ok(!has("2026-11-04T05:10:00Z", "release-guard.yml") && has("2026-11-04T05:30:00Z", "release-guard.yml"), "release guard (04:23) is due from 05:23, inside its hours");
+  ok(!has("2026-11-04T04:50:00Z", "ministry-watch.yml") && has("2026-11-04T05:10:00Z", "ministry-watch.yml"), "ministry watch (04:07) from 05:07");
+}
+env = PAGE(); env.ALERT_ROUTE = "all"; env.GH_DISPATCH_TOKEN = "GHTOKEN";   // a fresh KV: the clock goes back to 4.11
+gh.calls = []; gh.sent = []; gh.runs = { ...ranAll("2026-11-04T06:20:00Z"), "camp-data.yml": "2026-11-04T05:29:00Z", "ministry-watch.yml": "2026-11-03T11:49:00Z" };
+x = await tick(env, T("2026-11-04T06:30:00Z"));
+ok(JSON.stringify(gh.sent) === JSON.stringify([["ministry-watch.yml", { ref: "main", inputs: { dry_run: "false" } }]]), "yesterday's late run does not count for today: started at 06:30, not 07:49 " + JSON.stringify(gh.sent));
+gh.calls = []; gh.sent = []; gh.runs["ministry-watch.yml"] = "2026-11-04T06:31:00Z";
+x = await tick(env, T("2026-11-04T07:30:00Z"));
+ok(!gh.sent.some(a => DAILY.includes(a[0])) && gh.calls.includes("ministry-watch.yml runs"), "the next hour sees today's run: no daily bot started " + JSON.stringify(gh.sent));
+gh.calls = []; gh.sent = [];
+x = await tick(env, T("2026-11-04T08:30:00Z"));
+ok(!gh.calls.includes("ministry-watch.yml runs"), "seen done since today's slot: not read again today");
+env = PAGE(); env.ALERT_ROUTE = "all"; env.GH_DISPATCH_TOKEN = "GHTOKEN";
+gh.calls = []; gh.sent = []; gh.runs = { ...ranAll("2026-11-04T05:20:00Z"), "camp-data.yml": "2026-11-04T05:29:00Z", "data-truth.yml": "2026-11-04T04:40:00Z" };
+x = await tick(env, T("2026-11-04T06:30:00Z"));
+ok(JSON.stringify(gh.sent.filter(a => DAILY.includes(a[0]))) === JSON.stringify([["data-truth.yml", { ref: "main", inputs: { job: "audit" } }]]), "runs since each slot count; a run at 04:40, before the audit's 04:47 slot, does not " + JSON.stringify(gh.sent));
 log(bad ? `uptime test: ${bad} of ${n} checks FAILED` : `uptime test ok (${n} checks)`);
 process.exit(bad ? 1 : 0);

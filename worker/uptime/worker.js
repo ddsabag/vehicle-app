@@ -227,20 +227,22 @@ const CLOCK = [
   { wf: "reviews-monitor.yml", he: "ביקורות בחנות", utc: [7, 20], gap: 330, inputs: { dry_run: "false" } },       // 06:15, 11:15, 17:15
   { wf: "release-watch.yml", he: "מעקב הגרסה בחנות", utc: [8, 20], gap: 330, inputs: { mode: "on" } },            // 06:40, 11:40, 17:40
   { wf: "alert-daily.yml", he: "סיכום הבוקר", morning: [845, 2200], gap: 60, inputs: { dry_run: "false" } },      // 05:05 / 06:05 (08:05 local)
-  // the daily bots (3.11.2026: GitHub started none of the morning's data checks): due from about an hour after the slot, when the newest run
-  // is older than 20 h (a run today, late or by hand, counts)
-  { wf: "app-guardian.yml", he: "שומר האפליקציה", utc: [3, 20], gap: 1200, inputs: {} },                              // 01:37
-  { wf: "ui-guardian.yml", he: "שומר האתר", utc: [4, 20], gap: 1200, inputs: {} },                                     // 02:17
-  { wf: "seo-data.yml", he: "נתוני החיפוש", utc: [5, 20], gap: 1200, inputs: {} },                                     // 03:30
-  { wf: "own-data.yml", he: "הנתונים שלנו", utc: [5, 20], gap: 1200, inputs: {} },                                     // 03:40
-  { wf: "ministry-watch.yml", he: "מעקב משרד התחבורה", utc: [5, 20], gap: 1200, inputs: { dry_run: "false" } },        // 04:07
-  { wf: "data-guard.yml", he: "שומר הנתונים", utc: [5, 20], gap: 1200, inputs: { dry_run: "false" } },                 // 04:15
-  { wf: "release-guard.yml", he: "שומר הגרסה", utc: [5, 20], gap: 1200, inputs: { mode: "on" } },                       // 04:23
-  { wf: "data-truth.yml", he: "אמת הנתונים", utc: [6, 20], gap: 1200, job: "audit", inputs: { job: "audit" } },         // 04:47 (the daily audit only)
-  { wf: "fuel.yml", he: "מחירי הדלק", utc: [6, 20], gap: 1200, inputs: {} },                                           // 05:17
-  { wf: "site-smoke.yml", he: "בדיקת האתר", utc: [7, 20], gap: 1200, inputs: { dry_run: "false", infra: "true" } },     // 05:30
-  { wf: "web-watch.yml", he: "מעקב האתר", utc: [9, 20], gap: 1200, inputs: { dry_run: "false" } },                     // 07:25
-  { wf: "catalog.yml", he: "מאגר הדגמים", utc: [11, 20], gap: 1200, inputs: {} },                                      // 09:20
+  // the daily bots (3.11.2026: GitHub started none of the morning's data checks): due from an hour after today's slot ("slot", the
+  // workflow's own daily line, UTC) inside the utc hours, while no run of its own started since that slot. Until 4.11 the cut-off was
+  // "no run in 20 h", so GitHub's run of 11:49 the day before held the next morning's start until 07:49 and the start drifted later each day
+  // (ops thread 4.11.2026); a run of the day before never counts now. "gap" stays only for the read order
+  { wf: "app-guardian.yml", he: "שומר האפליקציה", utc: [3, 20], gap: 1200, slot: "37 1 * * *", inputs: {} },                              // 01:37
+  { wf: "ui-guardian.yml", he: "שומר האתר", utc: [4, 20], gap: 1200, slot: "17 2 * * *", inputs: {} },                                     // 02:17
+  { wf: "seo-data.yml", he: "נתוני החיפוש", utc: [5, 20], gap: 1200, slot: "30 3 * * *", inputs: {} },                                     // 03:30
+  { wf: "own-data.yml", he: "הנתונים שלנו", utc: [5, 20], gap: 1200, slot: "40 3 * * *", inputs: {} },                                     // 03:40
+  { wf: "ministry-watch.yml", he: "מעקב משרד התחבורה", utc: [5, 20], gap: 1200, slot: "7 4 * * *", inputs: { dry_run: "false" } },        // 04:07
+  { wf: "data-guard.yml", he: "שומר הנתונים", utc: [5, 20], gap: 1200, slot: "15 4 * * *", inputs: { dry_run: "false" } },                 // 04:15
+  { wf: "release-guard.yml", he: "שומר הגרסה", utc: [5, 20], gap: 1200, slot: "23 4 * * *", inputs: { mode: "on" } },                       // 04:23
+  { wf: "data-truth.yml", he: "אמת הנתונים", utc: [6, 20], gap: 1200, slot: "47 4 * * *", job: "audit", inputs: { job: "audit" } },         // 04:47 (the daily audit only)
+  { wf: "fuel.yml", he: "מחירי הדלק", utc: [6, 20], gap: 1200, slot: "17 5 * * *", inputs: {} },                                           // 05:17
+  { wf: "site-smoke.yml", he: "בדיקת האתר", utc: [7, 20], gap: 1200, slot: "30 5 * * *", inputs: { dry_run: "false", infra: "true" } },     // 05:30
+  { wf: "web-watch.yml", he: "מעקב האתר", utc: [9, 20], gap: 1200, slot: "25 7 * * *", inputs: { dry_run: "false" } },                     // 07:25
+  { wf: "catalog.yml", he: "מאגר הדגמים", utc: [11, 20], gap: 1200, slot: "20 9 * * *", inputs: {} },                                      // 09:20
   // the weekly and monthly bots (3.11.2026): "cron" is the workflow's own line (UTC); due from an hour after its last slot, for 14 hours,
   // while no run of its own started since that slot. Only bots for which a start by hand is their schedule and a late GitHub run after
   // it changes nothing: the same snapshot or data again (no diff, no commit), the same text (no call), a check. Not the magazine: a second
@@ -289,13 +291,14 @@ export function clockSlot(cron, now) {
   return 0;
 }
 // an entry's cut-off: a run created since it counts as this round's
-const clockSince = (x, now) => x.cron ? clockSlot(x.cron, now) : now - x.gap * 6e4;
+const clockSince = (x, now) => x.cron ? clockSlot(x.cron, now) : x.slot ? clockSlot(x.slot, now) : now - x.gap * 6e4;
 // the entries due now (pure, for the test): utc hours, the morning window, or from an hour after a cron slot for 14 hours ("il": a slot
 // at that hour in Israel only)
 export function clockDue(now, hbT) {
   const d = new Date(now), h = d.getUTCHours(), hm = ilHM(d), today = ilDate(d);
   return CLOCK.filter(c => c.cron ? (s => s > 0 && now - s >= 36e5 && now - s < 14 * 36e5 && (!c.il || Math.floor(ilHM(new Date(s)) / 100) === c.il))(clockSlot(c.cron, now))
-    : c.morning ? hm >= c.morning[0] && hm < c.morning[1] && !(hbT > 0 && ilDate(new Date(hbT)) === today) : h >= c.utc[0] && h < c.utc[1]);
+    : c.morning ? hm >= c.morning[0] && hm < c.morning[1] && !(hbT > 0 && ilDate(new Date(hbT)) === today)
+    : h >= c.utc[0] && h < c.utc[1] && (!c.slot || (s => s > 0 && now - s >= 36e5)(clockSlot(c.slot, now))));
 }
 // a run of the entry's own: started by GitHub's schedule or by hand (site smoke and the two guardians also run on pushes and pull requests,
 // which are other checks; 3.11.2026), not skipped, and with the entry's title when it has one (for a workflow with parts by run name)
