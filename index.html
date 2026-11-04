@@ -1426,7 +1426,7 @@ const licLine = L => L.k === "ok" ? `טסט בתוקף עד ${L.date}` : L.k ===
 // the label of the licence date in the facts: once the date has passed it reads as ended, as licLine does (data thread's audit, 28.10)
 const licKey = v => (L => L && L.days < 0 ? "הטסט פג" : "טסט בתוקף עד")(licState(v.tokef_dt, v.mivchan_acharon_dt));
 // the insight and the simple-view banner for a licence that ended; null while it is valid
-const licNote = L => !L || L.k === "ok" ? null : L.k === "bad" ? {level: "bad", title: "הטסט לא בתוקף", text: `לפי מאגר משרד התחבורה, תוקף הטסט פג ב-${L.date}.` + (L.test ? ` במאגר רשום טסט מ-${L.test}, אבל הרישיון לא חודש בו.` : "") + " המאגר לא מבחין בין טסט שלא חודש לבין רישיון שהופקד או רכב שהושבת."}
+const licNote = L => !L || L.k === "ok" ? null : L.k === "bad" ? {level: "bad", title: "הטסט לא בתוקף", text: `לפי מאגר משרד התחבורה, תוקף הטסט פג ב-${L.date}.` + (L.test ? ` במאגר רשום טסט מ-${L.test}, אבל הרישיון לא חודש בו.` : "")}
   : {level: "warn", title: "לא ברור אם הטסט חודש", text: L.k === "lag" ? `לפי מאגר משרד התחבורה, תוקף הטסט פג ב-${L.date}. חידוש שנעשה בימים האחרונים מגיע למאגר באיחור של יום או יומיים.`
     : `במאגר משרד התחבורה רשום טסט מ-${L.test}, אבל תוקף הרישיון לא חודש בו (מופיע עד ${L.date}). ייתכן שהעדכון עוד לא הגיע למאגר, וייתכן שהרישיון לא חודש, למשל אם האגרה לא שולמה.`};
 // the test cell of the fleet and bulk tables: [class, text]
