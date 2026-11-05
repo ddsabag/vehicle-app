@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-52";   // shown in /live/data so the running version is visible
+const BUILD = "live-53";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -546,7 +546,12 @@ const optsOf = a => Array.isArray(a) ? a.slice(0, 4).map(x => cut(x, 40)).filter
 const slimCal = c => c && typeof c === "object" ? { at: c.at,
   open: (Array.isArray(c.open) ? c.open : []).slice(0, 20).map(o => ({ id: calId(o.id), what: cut(o.what, 200), owner: cut(o.owner, 40), me: o.me ? 1 : 0, ask: cut(o.ask, 200), opts: optsOf(o.opts) })),
   items: (Array.isArray(c.items) ? c.items : []).filter(o => /^\d{4}-\d\d-\d\d$/.test(o.d || "")).slice(0, 80).map(o => ({ id: calId(o.id), d: o.d, t: /^\d\d:\d\d$/.test(o.t || "") ? o.t : "", what: cut(o.what, 200), owner: cut(o.owner, 40), me: o.me ? 1 : 0, ask: cut(o.ask, 200), opts: optsOf(o.opts) })),
-  weekly: (Array.isArray(c.weekly) ? c.weekly : []).slice(0, 12).map(o => ({ when: cut(o.when, 60), what: cut(o.what, 200), owner: cut(o.owner, 40) })) } : null;
+  weekly: (Array.isArray(c.weekly) ? c.weekly : []).slice(0, 12).map(o => ({ when: cut(o.when, 60), what: cut(o.what, 200), owner: cut(o.owner, 40) })),
+  // the publishing board, rebuilt by the calendar bot from the autopost queue, the magazine's crons and the Cowork rules (Dudu 5.11.2026)
+  pubs: (Array.isArray(c.pubs) ? c.pubs : []).filter(o => /^\d{4}-\d\d-\d\d$/.test(o.d || "") && /^\d\d:\d\d$/.test(o.t || "")).slice(0, 80).map(o => ({ d: o.d, t: o.t,
+    ch: (Array.isArray(o.ch) ? o.ch : []).filter(x => /^[a-z_]{2,20}$/.test(x)).slice(0, 4), what: cut(o.what, 120), src: /^(auto|mag|cowork)$/.test(o.src) ? o.src : "",
+    st: Object.fromEntries(Object.entries(o.st && typeof o.st === "object" ? o.st : {}).filter(([k, v]) => /^[a-z_]{2,20}$/.test(k) && /^(done|missed|failed|unsure|planned|wait)$/.test(v)).slice(0, 4)),
+    link: Object.fromEntries(Object.entries(o.link && typeof o.link === "object" ? o.link : {}).filter(([k, v]) => /^[a-z_]{2,20}$/.test(k) && /^https:\/\/(www\.)?(facebook|instagram|tiktok)\.com\/[\w\/.?=&%-]{1,200}$/.test(v)).slice(0, 4)) })) } : null;
 const slimAuto = a => a && typeof a === "object" ? { at: a.at, modes: a.modes || {}, rows: (Array.isArray(a.rows) ? a.rows : []).slice(0, 20).map(r => ({ d: r.d, z: r.z, m: r.m, x: String(r.x || "").slice(0, 240), r: r.r })) } : null;
 
 // today's car checks and new installs as seen in realtime, minute by minute: realtime covers only the last 30 minutes, so each request keeps
@@ -1780,6 +1785,29 @@ function verdict(C){["checks","health","google","pages","shares","installs","sto
  return {vs,att,text:[head,mid,tail].filter(Boolean).join(" ")}}
 const inScope=(dept,scope)=>!scope||(DIVS[scope]?DIVS[scope].depts.indexOf(dept)>=0:dept===scope);
 // what waits for Dudu: decisions (with buttons that act), his tasks (✓ בוצע), numbers that need attention, alerts of the last day
+// the publishing board (Dudu 5.11.2026 18:46): what goes out and when, from calendar.json "pubs" (the calendar bot rebuilds it from the
+// autopost queue with each post's outcome, the magazine's crons, and the Cowork rules for what runs on Dudu's PC); the next 7 days and
+// yesterday's outcomes in the card, the week after folded
+function pubBoard(C){const P=(C.d.cal&&C.d.cal.pubs)||[],td=C.td,DN=["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"];
+ const hmNow=new Date().toLocaleTimeString("en-GB",{timeZone:"Asia/Jerusalem",hour:"2-digit",minute:"2-digit",hourCycle:"h23"});
+ const days=x=>Math.round((Date.parse(x+"T12:00:00Z")-Date.parse(td+"T12:00:00Z"))/864e5);
+ const CH={facebook:"פייסבוק",instagram:"אינסטגרם",fb_groups:"קבוצות פייסבוק",tiktok:"טיקטוק",magazine:"מגזין",newsletter:"ניוזלטר"};
+ const STL={done:["פורסם","ok"],missed:["לא עלה בזמן","bad"],failed:["נכשל","bad"],unsure:["לא ברור אם עלה","warn"],wait:["ממתין שהגרסה תגיע לכולם","warn"]};
+ const past=o=>o.d<td||(o.d===td&&o.t<=hmNow);
+ const L=P.filter(o=>{const k=days(o.d);return k>=-1&&k<=14&&(o.src==="auto"||!past(o))});
+ const dl=d=>{const k=days(d),x=new Date(d+"T12:00:00Z");return k===0?"היום":k===1?"מחר":k===-1?"אתמול":"יום "+DN[x.getUTCDay()]+" "+x.getUTCDate()+"."+(x.getUTCMonth()+1)};
+ const right=o=>{if(o.src==="cowork")return '<small>רץ במחשב שלך</small>';if(o.src==="mag")return '<small>אוטומטי</small>';
+  const parts=o.ch.map(c=>{const s=(o.st||{})[c]||"planned",lab=s==="planned"?(past(o)?["ממתין לפרסום","warn"]:["מתוזמן",""]):STL[s]||["",""],nm=o.link&&o.link[c]?'<a href="'+esc(o.link[c])+'" target="_blank" rel="noopener">'+CH[c]+"</a>":(CH[c]||c);
+   return {s:lab[0],c:lab[1],nm}});
+  const same=parts.every(x=>x.s===parts[0].s),col=c=>c?' style="color:var(--'+c+')"':"";
+  return same?'<small'+col(parts[0].c)+'>'+parts[0].s+(parts.some(x=>/<a /.test(x.nm))?": "+parts.map(x=>x.nm).join(" · "):"")+"</small>":parts.map(x=>'<small'+col(x.c)+'>'+x.nm+": "+x.s+"</small>").join(" ")};
+ const row=o=>'<li><span><b>'+esc(o.t)+"</b> "+(o.src==="auto"?esc(o.ch.map(c=>CH[c]||c).join(" ו"))+" · ":"")+esc(o.what)+"</span><span>"+right(o)+"</span></li>";
+ const grp=A=>{let h="",cur="";A.forEach(o=>{if(o.d!==cur){if(cur)h+="</ul>";cur=o.d;h+='<p class="note" style="margin:10px 0 2px"><b>'+dl(o.d)+'</b></p><ul class="kv">'}h+=row(o)});return h+(cur?"</ul>":"")};
+ const near=L.filter(o=>days(o.d)<=7),far=L.filter(o=>days(o.d)>7),ahead=L.filter(o=>!past(o)&&days(o.d)<=7).length;
+ const html=!L.length?note("אין פרסומים מתוזמנים בשבועיים הקרובים."):grp(near)+(far.length?'<details><summary class="note" style="cursor:pointer">בשבוע שאחרי ('+n(far.length)+')</summary>'+grp(far)+"</details>":"")
+  +'<p class="note">פייסבוק ואינסטגרם יוצאים מתור הפרסום האוטומטי, המגזין לפי התזמון שלו, וקבוצות הפייסבוק והטיקטוק ממשימות Cowork במחשב שלך.</p>';
+ return {html,sum:ahead?n(ahead)+" ב-7 הימים הקרובים":"שום דבר ב-7 הימים הקרובים"}}
+const pubCard=C=>{const B=pubBoard(C);return '<section class="card"><div class="ch"><h2>לוח פרסומים</h2><small>'+esc(B.sum)+"</small></div>"+B.html+"</section>"};
 function todo(C,scope){const d=C.d,Cl=d.cal,td=C.td,DN=["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"],days=x=>Math.round((Date.parse(x+"T12:00:00Z")-Date.parse(td+"T12:00:00Z"))/864e5);
  const when=o=>{if(!o.d)return "אפשר כבר עכשיו";const x=new Date(o.d+"T12:00:00Z"),k=days(o.d),s=x.getUTCDate()+"."+(x.getUTCMonth()+1);return (k===0?"היום":k===1?"מחר":k<0?"מ-"+s:"יום "+DN[x.getUTCDay()]+" "+s)+(o.t?" ב-"+o.t:"")};
  const gcal=o=>{const st=o.d.replace(/-/g,"")+(o.t?"T"+o.t.replace(":","")+"00":""),en=o.t?(()=>{const m=+o.t.slice(0,2)*60+ +o.t.slice(3)+30;return o.d.replace(/-/g,"")+"T"+String(Math.floor(m/60)%24).padStart(2,"0")+String(m%60).padStart(2,"0")+"00"})():addD(o.d,1).replace(/-/g,"");
@@ -1818,6 +1846,7 @@ function renderCeo(C){const V=verdict(C),t1=C.R.checks,w=S.w,wv=winOf(t1,w),T=to
  let h='<section class="card verdict s-'+V.vs+'">'+chip(V.vs,V.att[0]&&V.att[0].s===V.vs?V.att[0].w:"")+"<p>"+esc(V.text)+"</p><small>"+(C.ck!=null||C.instToday!=null||d.visitsToday!=null?"היום עד עכשיו: "+[C.ck!=null?"<b>"+n(C.ck)+"</b> בדיקות":"",C.instToday!=null?"<b>"+n(C.instToday)+"</b> התקנות":"",d.visitsToday!=null?"<b>"+n(d.visitsToday)+"</b> ביקורים באתר":""].filter(Boolean).join(" · "):"")+"</small></section>";
  h+='<section class="card"><div class="ch"><h2>'+(w==="week"?"בדיקות רכב בשבוע":w==="m28"?"בדיקות רכב ב-28 ימים":"בדיקות רכב היום, עד עכשיו")+'</h2><small class="win">'+esc(wv.win||"")+'</small></div><div class="hero"><a class="plate" href="'+href({m:"checks"})+'" data-m="checks" title="לפירוט">'+wv.big+'</a><div class="lines">'+(w==="week"?"<span>"+chip(t1.s,t1.w)+"</span>"+(t1.dl?"<span>"+t1.dl+"</span>":"")+(t1.gl||t1.gn?"<span>"+(t1.gl||t1.gn)+"</span>":""):"")+wv.lines.map(l=>"<span>"+l+"</span>").join("")+"</div></div>"+(w==="week"&&t1.chart?t1.chart+'<div class="lg"><span><i class="sw app"></i>אפליקציה</span><span><i class="sw site"></i>אתר</span><span><i class="sw goal"></i>היעד השבועי</span></div>':"")+"</section>";
  h+='<section class="card"><div class="ch"><h2>מה מחכה לך</h2><small>'+esc(T.sum)+"</small></div>"+T.html+"</section>";
+ h+=pubCard(C);
  h+='<h2 class="sec">'+(w==="week"?"השבוע מול היעד":w==="m28"?"28 הימים האחרונים":"היום עד עכשיו")+"</h2>"+tiles(C,CEO_TILES,w);
  h+='<div class="g2"><section class="card"><div class="ch"><h2>המשפך השבועי</h2><small class="win">'+rng(C.W&&C.W.W)+"</small></div>"+funnel(C)+'</section><section class="card"><div class="ch"><h2>מאיפה הגיעו הבדיקות באתר</h2><small class="win">'+rng(C.W&&C.W.W)+"</small></div>"+srcBars(C)+'<p class="note">הפירוט לפי רשת וקישור במחלקת שיווק ותוכן.</p></section></div>';
  h+='<h2 class="sec">האגפים</h2><div class="g3">'+Object.keys(DIVS).map(k=>{const D=DIVS[k],ids=D.depts.reduce((a,p)=>a.concat(DEPTS[p].metrics),[]),st=ids.map(i=>M(C,i).s),T2=todo(C,k),worst=st.includes("bad")?"bad":st.includes("warn")?"warn":st.includes("nodata")?"nodata":"ok";
@@ -1830,7 +1859,7 @@ const CHAIN={growth:["impressions","visits","siteChecks","installs"],product:["c
 function renderDiv(C,div){const D=DIVS[div],T=todo(C,div),w=S.w;
  let h=crumb([["מנכ״ל",href({v:"ceo",m:null}),"ceo"],[D.name]])+deptTabs(div,div);
  h+='<section class="card"><div class="ch"><h2>'+D.name+'</h2><small class="note">'+D.what+"</small></div>"+tiles(C,CHAIN[div],w)+(div==="business"?note("תשלום: מנוי PRO עוד לא נמכר. מפעילים אותו רק עם 2,000 עד 3,000 משתמשים בחודש."):"")+"</section>";
- h+='<section class="card"><div class="ch"><h2>מה מחכה באגף</h2><small>'+esc(T.sum)+"</small></div>"+T.html+"</section>";
+ h+='<section class="card"><div class="ch"><h2>מה מחכה באגף</h2><small>'+esc(T.sum)+"</small></div>"+T.html+"</section>";if(div==="growth")h+=pubCard(C);
  h+='<h2 class="sec">המחלקות</h2><div class="'+(D.depts.length>=3?"g3":"g2")+'">'+D.depts.map(p=>{const P=DEPTS[p],st=P.metrics.map(i=>M(C,i).s),worst=st.includes("bad")?"bad":st.includes("warn")?"warn":st.includes("nodata")?"nodata":"ok",T2=todo(C,p);
   return '<a class="card" href="'+href({v:p,m:null})+'" data-v="'+p+'"><div class="ch"><h2>'+P.name+"</h2>"+chip(worst,worst==="ok"?"תקין":"")+'</div><span class="dots">'+st.map(dot).join("")+'</span><ul class="kv">'+P.metrics.slice(0,3).map(i=>{const r=M(C,i);return kv(r.name,r.big+(r.unit?" <small>"+r.unit+"</small>":""))}).join("")+"</ul><small>"+(T2.k?n(T2.k)+" פריטים מחכים":"שום דבר לא מחכה")+"</small></a>"}).join("")+"</div>";
  if(C.BL&&C.BL.some(o=>inScope(o.dept,div)))h+='<section class="card"><div class="ch"><h2>הבוטים של האגף</h2></div>'+botTable(C.BL.filter(o=>inScope(o.dept,div)))+"</section>";
@@ -1838,7 +1867,7 @@ function renderDiv(C,div){const D=DIVS[div],T=todo(C,div),w=S.w;
 function renderDept(C,dept){const P=DEPTS[dept],D=DIVS[P.div],T=todo(C,dept),w=S.w;
  let h=crumb([["מנכ״ל",href({v:"ceo",m:null}),"ceo"],[D.name,href({v:P.div,m:null}),P.div],[P.name]])+deptTabs(P.div,dept);
  h+='<section class="card"><div class="ch"><h2>'+P.name+'</h2><small class="win">'+(w==="week"?rng(C.W&&C.W.W):WIN[w])+"</small></div>"+tiles(C,P.metrics,w)+"</section>";
- h+='<section class="card"><div class="ch"><h2>מה מחכה במחלקה</h2><small>'+esc(T.sum)+"</small></div>"+T.html+"</section>";
+ h+='<section class="card"><div class="ch"><h2>מה מחכה במחלקה</h2><small>'+esc(T.sum)+"</small></div>"+T.html+"</section>";if(dept==="marketing")h+=pubCard(C);
  const X={marketing:["campChecks","visits"],seo:["google","pages"],release:["saves","return7","shareOpen"],data:["health","siteChecks"],ops:["auto"],strategy:["active28","installs"]}[dept]||[];
  const secs=[];X.forEach(id=>{const r=M(C,id);(r.drill||[]).filter(Boolean).forEach(x=>secs.push('<section class="card"><div class="ch"><h2>'+x.h+'</h2><small class="win">'+esc(r.name)+"</small></div>"+x.html+"</section>"))});
  if(dept==="release")secs.unshift('<section class="card"><div class="ch"><h2>פעולות באפליקציה ובאתר</h2><small class="win">'+rng(C.W&&C.W.W)+"</small></div>"+usageTable(C)+"</section>");
