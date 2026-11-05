@@ -9,8 +9,8 @@
     "what": "brand headings link to the brand pages"
   },
   "https://luchit.app/": {
-    "date": "2026-10-15",
-    "what": "web footer link to /check/"
+    "date": "2026-11-05",
+    "what": "web-only footer: 'דגמים נפוצים' line with 20 links to the top model pages by active vehicles"
   },
   "https://luchit.app/check/*": {
     "date": "2026-10-15",
@@ -53,5 +53,13 @@
       "urls": "every page (footers of pages.mjs, magazine.mjs, magazine-data.mjs; index.html, privacy.html, business/)",
       "what": "footer link to the new accessibility statement /accessibility/ (Israeli accessibility regulations, Dudu 3.11.2026 22:09 UTC), and a skip link to <main id=\"main\">; a legal fix, exempt from the 21-day rule, so no URL's window starts again. Titles and descriptions unchanged."
     }
-  ]
+  ],
+  "https://luchit.app/check/": {
+    "date": "2026-11-05",
+    "what": "title, meta and H1 retitled toward 'היסטוריית רכב לפי מספר רישוי' (the home keeps 'בדיקת רכב לפי מספר רישוי', cannibalization fix); intro links to the home with that anchor"
+  },
+  "https://luchit.app/check/value/": {
+    "date": "2026-11-05",
+    "what": "title, meta, H1 and crumb toward 'מחירון רכב לפי מספר רישוי: כמה שווה הרכב (הערכה)'; first FAQ question 'כמה שווה הרכב שלי?'"
+  }
 }
