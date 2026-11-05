@@ -26,16 +26,20 @@ async function page(timeout = 60000) {
 const jobs = () => sh(`dumpsys jobscheduler | grep -E "JOB #.*${PKG}"`);
 const jobId = () => { const m = jobs().match(/JOB #\S+\/(\d+): \S+ \S*SystemJobService/) || jobs().match(/\/(\d+):/); return m && m[1]; };
 const notes = () => sh(`dumpsys notification --noredact | grep -A40 "pkg=${PKG}" | grep -E "android.title=|android.text=" `);
-async function force(res, tag) {
+// the check's first run is set for 10:00 the next morning (UTC on this emulator) and every 8 hours after; WorkManager will not run a periodic
+// job before its time even when JobScheduler is forced, so the phone's clock is moved to the day and hour first (root on a google_apis image)
+async function force(res, tag, when) {
+  sh(`date -u ${when}`); await sleep(3000); res[tag + "_clock"] = sh("date -u");
   const id = jobId(); res[tag + "_job"] = id || "none";
-  if (!id) return;
-  sh(`cmd jobscheduler run -f ${PKG} ${id}`); await sleep(45000);
-  res[tag + "_worker_log"] = sh(`logcat -d -s WM-WorkerWrapper:I WM-Processor:I | grep -i SavedCheck | tail -3`);
+  sh("logcat -c");
+  if (id) { sh(`cmd jobscheduler run -f ${PKG} ${id}`); await sleep(60000); }
+  res[tag + "_log"] = sh(`logcat -d | grep -E "WM-|notif|SavedCheck" | tail -8`);
+  res[tag + "_prefs"] = sh(`run-as ${PKG} cat shared_prefs/saved_alerts.xml`).replace(/<string name="saved">[\s\S]*?<\/string>/, "<saved list kept>").slice(0, 800);
 }
 (async () => {
   const res = {};
   try {
-    sh("setprop persist.sys.timezone Asia/Jerusalem"); await sleep(1000);
+    try { adb(["root"]); await sleep(4000); adb(["wait-for-device"]); } catch {}
     res.phoneTime = sh("date");
     try { adb(["uninstall", PKG]); } catch {}
     adb(["install", APK]);
@@ -52,15 +56,16 @@ async function force(res, tag) {
     await sleep(15000);   // localStorage and the app's own list reach the disk
     res.jobsAfterSave = jobs() || "none";
     res.notificationsEnabled = sh(`cmd notification allowed_listeners >/dev/null; dumpsys notification | grep -c "${PKG}"`);
-    await force(res, "run1");
+    await force(res, "run1", "110610302026.00");   // Friday 6.11 10:30 UTC = 12:30 Israel, inside the sending hours
     res.notesAfterRun1 = notes() || "none";
     // a restart of the phone: WorkManager must schedule the check again on its own
     sh("cmd notification cancel_all 2>/dev/null; true");
     adb(["reboot"]); await sleep(15000); adb(["wait-for-device"], 300000);
     for (let i = 0; i < 60 && sh("getprop sys.boot_completed") !== "1"; i++) await sleep(3000);
     await sleep(20000);
+    try { adb(["root"]); await sleep(4000); adb(["wait-for-device"]); } catch {}
     res.jobsAfterReboot = jobs() || "none";
-    await force(res, "run2");
+    await force(res, "run2", "110910302026.00");   // Monday 9.11: the check must run again after the restart (last_run moves)
     res.notesAfterRun2 = notes() || "none";
     res.prefsFile = sh(`run-as ${PKG} sh -c 'cat shared_prefs/saved_alerts.xml' 2>&1 | grep -v '"saved"' | head -30`);
     res.verdict = /ביטוח/.test(res.notesAfterRun1) ? "ALERT_SHOWN" : "NO_ALERT";
