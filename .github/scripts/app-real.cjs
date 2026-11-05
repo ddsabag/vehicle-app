@@ -13,10 +13,12 @@
 // The registry is mocked (example plates only), every other address outside the app is cut, as in the browser runs.
 // Blocking (exit 1): the app crashing, or not responding in both tries of a journey, page errors, a step on the wrong screen, sideways
 // scroll, anything past the screen edge, the bottom bar moving or growing or riding on the keyboard, a way in that does not reach its
-// screen, the page under a system bar, invisible bar icons, "לפי המכשיר" against the phone. A journey the phone disturbed (another app's
-// "isn't responding" dialog, the app not responding, its page closed under it, the system's bars restarting, the window changing height
-// with no keyboard) runs once more on a fresh start, and only that try counts; so does the first start of each phone setting, and so do
-// the ways in, the keyboard and Back checks and the dark phone when the app's page closed under them.
+// screen, the page under a system bar, bar icons that cannot be seen because the app asked the system for the wrong ones, "לפי המכשיר"
+// against the phone. A step's screen gets up to 3 s to appear (15 s while the page is still loading), as the phone is slower than the
+// browser. A journey the phone disturbed (another app's "isn't responding" dialog, the app not responding, its page closed under it, the
+// system's bars restarting, the window changing height with no keyboard) runs once more on a fresh start, and only that try counts; so
+// does the first start of each phone setting, and so do the ways in, the keyboard and Back checks and the dark phone when the app's page
+// closed under them.
 // The emulator itself stopping is not the app's fault: exit 2, with what was found until then, and a file "gone" beside the findings
 // (app-guardian.yml then runs the phone setting once more on a new emulator); so is a journey, or one of those checks, disturbed in both
 // tries by what is not the app's (no crash of the app, no ANR in its own code or without a stack).
@@ -306,6 +308,26 @@ function moved(a, b) {
   for (let y = 140; y < a.height; y += 6) for (let x = 0; x < a.width; x += 6) { n++; if (dist(px(a, x, y), px(b, x, y)) > 24) d++; }
   return n ? d / n : 1;
 }
+// what the app's window asks of the system for the status bar's icons: dark ones (APPEARANCE_LIGHT_STATUS_BARS, which MainActivity.paintBars
+// sets from the colour of the page's top edge) show in its attributes in dumpsys window as "apr=LIGHT_STATUS_BARS ...". null when the
+// app's window is not found
+const APP_WINDOW = new RegExp(`Window\\{[0-9a-f]+ u\\d+ ${PKG.replace(/\./g, "\\.")}/[\\w.]*MainActivity\\}:`);
+function iconsAsked() {
+  const t = sh("dumpsys window windows"), at = t.search(APP_WINDOW);
+  if (at < 0) return null;
+  const end = t.indexOf("Window #", at + 10), m = t.slice(at, end < 0 ? undefined : end).match(/\bapr=([A-Z_ ]*)/);
+  return { dark: !!m && /\bLIGHT_STATUS_BARS\b/.test(m[1]), apr: m ? m[1].trim() : "" };
+}
+// dark icons read better on a bar whose relative luminance is above 0.179, where black and white contrast equally (MainActivity.lightBar)
+const lightBar = (rgb) => { const l = (v) => { const s = v / 255; return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; }; return 0.2126 * l(rgb[0]) + 0.7152 * l(rgb[1]) + 0.0722 * l(rgb[2]) > 0.179; };
+// status bar icons that cannot be seen are the app's fault when it asked the system for the wrong ones (light icons on a light bar, dark on
+// a dark one). Asked right, the system had not drawn them yet: a warning (5.11, API 35, the first journey after boot: white icons on the
+// app's light bar at both looks, 1.5 s apart, and dark ones on the next screen). Not known (the app's window not found): blocking
+function barIcons(bg, asked) {
+  const want = lightBar(bg) ? "dark" : "light", bar = `the status bar's icons cannot be seen (bar ${bg.join(",")})`;
+  if (asked && (asked.dark ? "dark" : "light") === want) return ["warn", `${bar}, though the app asked the system for ${want} icons on it (apr=${asked.apr || "none"}): the system had not drawn them yet`];
+  return ["block", asked ? `${bar}: the app asked the system for ${asked.dark ? "dark" : "light"} icons on it (apr=${asked.apr || "none"})` : bar];
+}
 // the page between the bars, the bars painted like the page next to them, and their icons visible
 // first = true: nothing is reported yet when something is off, the caller looks again ("again"). Under the emulator's software rendering
 // the screen can still show the WebView's previous frame while the bars already have the colours of the new one (a sheet opening), and
@@ -315,7 +337,7 @@ function judgeBars(run, step, png, box, dark, first = false) {
   const top = band(png, 0, box.t), bottom = band(png, box.b, png.height);
   const pageTop = band(png, box.t + 1, box.t + 6), pageBottom = band(png, box.b - 6, box.b - 1), off = [];
   if (box.t < 40) off.push(["block", `the page starts ${box.t}px from the top of the screen, under the status bar`]);
-  if (top && top.marks < 0.002) off.push(["block", `the status bar's icons cannot be seen (bar ${top.bg.join(",")})`]);
+  if (top && top.marks < 0.002) off.push(first ? ["block", "the status bar's icons cannot be seen"] : barIcons(top.bg, iconsAsked()));
   if (top && pageTop && dist(top.bg, pageTop.bg) > 24) off.push(["warn", `the status bar (${top.bg.join(",")}) does not match the top of the page (${pageTop.bg.join(",")})${dark ? " in dark" : ""}`]);
   if (bottom && png.height - box.b > 8 && pageBottom && dist(bottom.bg, pageBottom.bg) > 24) off.push(["warn", `the navigation bar (${bottom.bg.join(",")}) does not match the bottom of the page (${pageBottom.bg.join(",")})${dark ? " in dark" : ""}`]);
   if (first && off.length) return "again";
@@ -369,8 +391,20 @@ async function journey(page, sc, state, J, theme) {
     // the window grew or shrank under the journey with no keyboard and no turn: the system's bars went away or came back (26.10, API 31,
     // a minute after boot: home drawn with no bars at all, then the status bar without its icons and three buttons at the bottom)
     if (c.fullH && m.vw === c.fullW && Math.abs(m.vh - c.fullH) >= 16 && m.vh > c.fullH - 120) disturbed.add("resized");
-    // a step's check can read the page too (a toast, a stored value): a page that closed under it is the phone's, as under the step itself
-    let ok; try { ok = expect ? await expect(m, c) : true; } catch (e) { if (closed(e)) { disturbed.add("closed"); break; } throw e; }
+    // a step's check can read the page too (a toast, a stored value): a page that closed under it is the phone's, as under the step itself.
+    // The phone is slower than ui-flows' browser runs, which give a step 450 ms: a screen that is not there yet is looked at again every
+    // 400 ms, for up to 3 s, and for up to 15 s while the page shows it is still loading (5.11, API 35: a saved car and a recent check
+    // opened once the mocked registry's answer had come through the DevTools connection, after the one look: "opening a saved car: cars
+    // בודקים את 444-55-566…", "got home"). Only the last look counts; a screen that comes late in the page itself is still caught by
+    // the browser runs of the same journeys
+    let ok, shut = false;
+    for (const t0 = Date.now(); ; ) {
+      try { ok = expect ? await expect(m, c) : true; } catch (e) { if (closed(e)) shut = true; else throw e; break; }
+      if (ok === true || (ok && ok.warn) || Date.now() - t0 >= (m.loading ? 15000 : 3000)) { if (ok === true && Date.now() - t0 > 300) (meta.late = meta.late || []).push(`${run} ${name}: ${((Date.now() - t0) / 1000 + 0.5).toFixed(1)} s`); break; }
+      await sleep(400);
+      try { m = await UF.measure(page); } catch (e) { mustLive(); if (closed(e)) shut = true; break; }
+    }
+    if (shut) { disturbed.add("closed"); break; }
     if (ok && ok.warn) { add("warn", "logic", run, name, ok.warn); ok = true; }
     if (ok !== true) add("block", "logic", run, name, ok);
     UF.judgeStep(run, name, m, { app: true, barMax: Math.round(80 * Math.max(1, sc.font)), large: sc.font >= 1.75 });
