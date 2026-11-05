@@ -1284,13 +1284,23 @@ const LAND = (() => { try {
 /* silent failures worth knowing about (a dataset that errors, a library that does not load): sent to Crashlytics as a non-fatal, tag only, never a plate */
 /* a JavaScript error nobody sees: counted (line number only, never the message, which could hold a plate), at most 5 per session */
 let jsErrN = 0;
-const jsErr = (where, line) => { if (jsErrN++ < 5) { try { const b = window.AndroidApp; if (b && b.logError && analyticsOn()) b.logError(("js_" + where + "_" + (line || 0)).slice(0, 60)); else track("js_error", {kind: where, line: line || 0}); } catch {} } };   // the web has no Crashlytics: the count goes to GA
+const jsErr = (where, line, file) => { if (jsErrN++ < 5) { try { const b = window.AndroidApp; if (b && b.logError && analyticsOn()) b.logError(("js_" + where + "_" + (line || 0)).slice(0, 60)); else track("js_error", {kind: where, line: line || 0, efile: errFile(file), uacl: UACL}); } catch {} } };   // the web has no Crashlytics: the count goes to GA
 // Facebook, Instagram and TikTok open links in their own in-app browser, which runs scripts of its own that land on these listeners too:
 // those count apart (kind "iab"), so the pipe canary watches our code only (22-23.10: all 10 web errors came from such visits, none on our pages)
-const IAB = /FBAN|FBAV|FB_IAB|Instagram|BytedanceWebview|musical_ly/i.test(navigator.userAgent || "");
+const UA = navigator.userAgent || "", WEBVIEW = /; wv\)/.test(UA) || (/iPhone|iPad|iPod/.test(UA) && !/Safari\//.test(UA));
+// a web view opened from a Facebook link (fbclid, or a Facebook source) is Facebook's browser even when its name is not in the user agent:
+// 4.11, all 46 web errors of 28.10-4.11 came from Facebook visits (measurement), 38 of them under a user agent the list above missed
+const IAB = /FBAN|FBAV|FB_IAB|FB4A|FBLC|Messenger|Orca-Android|Instagram|BytedanceWebview|musical_ly/i.test(UA) || (WEBVIEW && (LAND === "facebook" || LAND === "instagram" || /[?&]fbclid=/.test(location.search)));
+// the kind of browser, sent with js_error only, so the next spike says where it ran (never the user agent itself)
+const UACL = /FBLC|FBLite/i.test(UA) ? "fb_lite" : /Messenger|Orca-Android/i.test(UA) ? "messenger" : /FBAN|FBAV|FB_IAB|FB4A/i.test(UA) ? "fb" : /Instagram/i.test(UA) ? "ig"
+  : /BytedanceWebview|musical_ly/i.test(UA) ? "tiktok" : WEBVIEW ? (/Android/.test(UA) ? "and_wv" : "ios_wv") : /CriOS|FxiOS|EdgiOS/.test(UA) ? "ios_app" : /iPhone|iPad|iPod/.test(UA) ? "ios_safari"
+  : /Android/.test(UA) ? "android" : "desktop";
+// where the failing script lives: this page ("own"), our other files ("site"), a library we load ("lib"), anything else ("x"), or no file
+// given ("none": a script from another site the browser hides, or one injected into the page)
+const errFile = f => { try { if (!f) return "none"; const u = new URL(f, location.href); return u.href.split(/[?#]/)[0] === location.href.split(/[?#]/)[0] ? "own" : u.origin === location.origin ? "site" : /jsdelivr|cdnjs|unpkg/.test(u.hostname) ? "lib" : "x"; } catch { return "x"; } };
 // a library's own worker (the OCR, the PDF reader) that could not download its file reaches here too: its caller handles that (the plate
 // reader's message, doc_scan kind fail), and it is the connection, not our code
-window.addEventListener("error", ev => { if (/^blob:/.test(ev && ev.filename || "")) return; jsErr(IAB ? "iab" : "err", ev && ev.lineno); });
+window.addEventListener("error", ev => { if (/^blob:/.test(ev && ev.filename || "")) return; jsErr(IAB ? "iab" : "err", ev && ev.lineno, ev && ev.filename); });
 window.addEventListener("unhandledrejection", () => jsErr(IAB ? "iab" : "rej", 0));
 /* the Android app tells the page when a screenshot of it was taken (Android 14+): counted with the screen it happened on, never the picture */
 window.onScreenshot = () => { try { track("user_screenshot", {tab: typeof inCompare !== "undefined" && inCompare ? "compare" : typeof current !== "undefined" && current ? (currentTab || "overview") : ({cars: "cars", alerts: "alerts", sub: "tool"})[document.body.dataset.screen] || "home"}); } catch {} };
