@@ -8,6 +8,7 @@
 //   - the publishing board, "pubs" (Dudu 5.11.2026 18:46 UTC: "לוח בדשבורד שמראה לי מתי מתוזמנים ... כתבה במגזין, פוסט בטיקטוק, אינסטגרם,
 //     פייסבוק, פרסומים בקבוצות"), rebuilt on every run from what actually schedules each post, never typed by hand: the autopost queue
 //     (branch social-queue, Facebook and Instagram, with each target's outcome and link), the magazine's own crons (magazine.yml on main),
+//     each autopost row also names its queue items ("q": kit/item), so /live overlays their outcome from state.json on every load;
 //     and "pubrules" in calendar.json for what runs on Dudu's PC (Cowork tasks, which no API shows; the marketing thread owns those lines).
 // Only fixed Hebrew text is written (no numbers, no ids beyond the item ids), and only when something changed: a commit on top of the branch
 // through the contents API (never a force push). New items, and items whose outcome is visible elsewhere, stay with the measurement thread.
@@ -95,10 +96,11 @@ export function buildPubs({ kits = [], state = {}, magCrons = [], rules = [], no
     const st = {}, link = {};
     for (const c of ch) { const p = posts[`${k.kit}/${it.id}/${c}`] || {}; st[c] = OK_ST.has(p.status) ? p.status : p.status === "ready" ? "wait" : "planned"; if (OK_LINK.test(p.link || "")) link[c] = p.link; }
     const g = grp.get(key);
-    if (g) { g.n++; for (const c of ch) { if (RANK_ST[st[c]] > RANK_ST[g.st[c]]) g.st[c] = st[c]; if (!g.link[c] && link[c]) g.link[c] = link[c]; } }
-    else grp.set(key, { at, label, ch, st, link, n: 1 });
+    const q = /^\d{4}-\d\d-\d\d$/.test(k.kit) && /^[\w-]{1,40}$/.test(it.id || "") ? `${k.kit}/${it.id}` : null;
+    if (g) { g.n++; if (q) g.q.push(q); for (const c of ch) { if (RANK_ST[st[c]] > RANK_ST[g.st[c]]) g.st[c] = st[c]; if (!g.link[c] && link[c]) g.link[c] = link[c]; } }
+    else grp.set(key, { at, label, ch, st, link, n: 1, q: q ? [q] : [] });
   }
-  for (const g of grp.values()) { const { d, t } = ilDT(g.at); out.push({ d, t, ch: g.ch, what: (g.n > 1 ? PLURAL[g.label] || g.label : g.label) + " מהערכה השבועית", src: "auto", st: g.st, ...(Object.keys(g.link).length ? { link: g.link } : {}) }); }
+  for (const g of grp.values()) { const { d, t } = ilDT(g.at); out.push({ d, t, ch: g.ch, what: (g.n > 1 ? PLURAL[g.label] || g.label : g.label) + " מהערכה השבועית", src: "auto", st: g.st, ...(Object.keys(g.link).length ? { link: g.link } : {}), ...(g.q.length ? { q: g.q } : {}) }); }
   for (const expr of magCrons) {
     const f = String(expr).trim().split(/\s+/), weekly = f[4] && f[4] !== "*", what = weekly ? "כתבת נתונים שבועית במגזין, כשיש נתון חדש" : "כתבת שוק הרכב החודשית במגזין";
     for (const at of cronTimes(expr, now, to)) { const { d, t } = ilDT(at); out.push({ d, t, ch: ["magazine"], what, src: "mag" }); }
@@ -218,6 +220,7 @@ if (process.argv[2] === "selftest") {
   const row = (d, t) => P.find(x => x.d === d && x.t === t);
   ok(row("2026-11-04", "20:30")?.st.facebook === "done" && row("2026-11-04", "20:30")?.st.instagram === "failed" && row("2026-11-04", "20:30")?.link.facebook && !P.some(x => x.d === "2026-10-30"), "a past post shows each target's outcome and link; older than the window is out");
   ok(row("2026-11-10", "08:15")?.what === "סטוריז מהערכה השבועית" && row("2026-11-10", "08:15")?.st.instagram === "missed" && P.filter(x => x.d === "2026-11-10" && x.t === "08:15").length === 1, "same-time stories are one row, the worst outcome wins");
+  ok(row("2026-11-10", "08:15")?.q.join() === "2026-11-05/story-1,2026-11-05/story-2" && row("2026-11-04", "20:30")?.q.join() === "2026-11-01/reel" && !row("2026-11-06", "10:07").q, "each autopost row names its queue items, so /live reads their outcome live");
   ok(row("2026-11-08", "08:30")?.st.facebook === "planned" && row("2026-11-06", "10:07")?.ch[0] === "magazine" && row("2026-11-12", "07:30")?.src === "mag", "planned autopost, the magazine's crons in Israel time");
   ok(row("2026-11-08", "19:30")?.src === "cowork" && row("2026-11-11", "19:30") && !row("2026-11-05", "19:30") && row("2026-11-12", "19:30")?.what === "חמישי" && !P.some(x => x.what === "חמישי" && x.d < "2026-11-12"), "Cowork rules: their days ahead only, from a start day");
   ok(P.every((x, i) => !i || (P[i - 1].d + P[i - 1].t) <= (x.d + x.t)) && P.every(x => !/\d/.test(x.what)), "sorted, no numbers in the text");
