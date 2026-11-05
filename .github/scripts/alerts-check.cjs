@@ -24,9 +24,9 @@ async function page(timeout = 60000) {
   }
 }
 // Android 14+ files WorkManager's jobs under a namespace ("JOB #u0a209/androidx.work.systemjobscheduler/0"), and `run` needs it (-n)
-const jobs = () => sh(`dumpsys jobscheduler | grep -E "JOB #u[0-9a-z]+/.*${PKG}"`);
-const jobsRaw = () => sh(`dumpsys jobscheduler | grep -E "JOB #|namespace" | grep -i -E "pratirechev|androidx.work" | head -20`);
-const jobId = () => { const m = jobs().match(/JOB #u[0-9a-z]+\/(?:([^\/:\s]+)\/)?(\d+):/); return m ? { ns: m[1] || "", id: m[2] } : null; };
+const jobs = () => sh(`dumpsys jobscheduler | grep -E "^ *JOB .*${PKG}"`);
+const jobsRaw = () => sh(`dumpsys jobscheduler | grep -E "JOB |namespace" | grep -i -E "pratirechev|androidx.work" | head -20`);
+const jobId = () => { const m = jobs().match(/JOB (?:#|([\w.]+):)u[0-9a-z]+\/(\d+):/); return m ? { ns: m[1] || "", id: m[2] } : null; };
 const notes = () => sh(`dumpsys notification --noredact | grep -A40 "pkg=${PKG}" | grep -E "android.title=|android.text=" `);
 // the check's first run is set for 10:00 the next morning (UTC on this emulator) and every 8 hours after; WorkManager will not run a periodic
 // job before its time even when JobScheduler is forced, so the phone's clock is moved to the day and hour first (root on a google_apis image)
