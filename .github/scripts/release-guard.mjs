@@ -121,6 +121,10 @@ const goneBy = (f, base, vn) => !!GONE_PATHS[f] && !atLeast(base, GONE_PATHS[f])
 // button (and its exp_expose) is gone; 1.38.3 against 1.37 flagged it silent on day 1 and 3 (29.10, 31.10)
 export const GONE_EVENTS = { exp_expose: "1.38" };
 const evGone = (e, base, vn) => !!GONE_EVENTS[e] && !atLeast(base, GONE_EVENTS[e]) && atLeast(vn, GONE_EVENTS[e]);
+// errors and give-ups (a check that timed out, was abandoned or failed, a slow check, a code error) are never "silent": rare and bursty, their
+// absence is good news or no news, not a lost event, and zone A and the pipe canary read them every day (4.11: 1.38.3 day 7 flagged
+// lookup_timeout silent on a few base events from two phones, while not one check of the new version ran past 30 s; the code is the same)
+export const QUIET_OK = /^(lookup_timeout|lookup_abort|lookup_failed|lookup_slow|js_error)$/;
 const rowsOf = j => (j?.rows || []).map(r => [...r.dimensionValues.map(x => x.value), ...r.metricValues.map(x => Number(x.value) || 0)]);
 
 // S = { users: [[date, ver, n]], events: [[date, ver, name, n]], compare: [[date, ver, from, n]], saves: [[date, ver, name, from, n]] } (GA4 dates),
@@ -159,7 +163,7 @@ export function judge(S, today) {
     if (s >= T.unsaveMin && u / s > T.unsave) R.findings.push({ id: "unsave:" + f, he: `הסרות מול שמירות דרך ${pathHe(f)} (חדש בגרסה הזו): ${Math.round(u / s * 100)}% (הסף: 45%)` }); }
   const quiet = paths ? known.filter(f => !goneBy(f, prev, vn) && PB[f].car_save / bc * nc >= T.silentMin && !PN[f]?.car_save).sort() : [];
   if (quiet.length) R.findings.push({ id: "silentpath", paths: quiet, he: `דרכי שמירה שבגרסה הקודמת היו בהן שמירות ועכשיו אין בהן אף אחת: ${quiet.length}` });
-  const gone = Object.keys(B).filter(e => e !== "car_lookup" && !/^update_/.test(e) && !evGone(e, prev, vn) && !N[e] && B[e] / bc * nc >= T.silentMin).sort();
+  const gone = Object.keys(B).filter(e => e !== "car_lookup" && !/^update_/.test(e) && !QUIET_OK.test(e) && !evGone(e, prev, vn) && !N[e] && B[e] / bc * nc >= T.silentMin).sort();
   if (gone.length) R.findings.push({ id: "silent", events: gone, he: `אירועים שהגרסה הקודמת שלחה ועכשיו לא הגיעו בכלל: ${gone.length}` });
   return { ...R, state: R.findings.length ? "find" : "ok" };
 }
@@ -294,6 +298,8 @@ async function selftest() {
   R = judge(mk({ save38: 6, unsave38: 4, cmp38: 2, drop: ["svc_add"] }), "2026-11-05");
   ok(R.state === "find" && R.findings.map(f => f.id).join() === "compare,save,unsave,silent" && R.findings[3].events.join() === "svc_add", "all four guardrails " + JSON.stringify(R.findings));
   ok(judge(mk({ save38: 8 }), "2026-11-05").state === "ok", "a 20% drop in saves is inside the 30%");
+  { const Q = mk(); for (const d of days("2026-10-14", 14)) Q.events.push([g(d), "1.37", "lookup_timeout", 1], [g(d), "1.37", "lookup_failed", 2], [g(d), "1.37", "js_error", 1]);
+    ok(judge(Q, "2026-11-05").state === "ok", "timeouts, failures and code errors the base sent and the new version has none of are not silent events " + JSON.stringify(judge(Q, "2026-11-05").findings)); }
   ok(judge(mk({ cmp38: 0 }), "2026-10-30").findings.map(f => f.id).join() === "compare", "no compare at all in 1.38 is a finding");
   R = judge(mk({ v: "1.37", b: "1.36", cmp38: 0 }), "2026-10-30");
   ok(R.state === "ok" && R.vn === "1.37" && R.prev === "1.36", "1.37 has no compare entry on the card or in the menu, so the compare rule does not judge it " + JSON.stringify(R.findings));
