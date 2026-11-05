@@ -77,5 +77,4 @@ jobs:
         run: node .github/scripts/calendar-refresh.mjs selftest && node .github/scripts/calendar-refresh.mjs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CAL_GUARD: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}   # a manual run also reads the release guard's line
           DRY: ${{ (vars.LIVE_WATCH == 'dry' || (github.event_name == 'workflow_dispatch' && inputs.dry_run)) && '1' || '0' }}

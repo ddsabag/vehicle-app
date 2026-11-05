@@ -3,8 +3,8 @@
 //   - the ids Dudu marked «בוצע» on /live (metrics.json "calDone", copied there by bots-status.mjs) leave "open" and "items" for good;
 //   - a past day's items leave the calendar; one that needed Dudu (me=1) and was not marked done moves to "open", so nothing of his is lost;
 //   - the release guard's days follow its own log line ("release guard <day>: <state> <version> from <D0>, day N vs <base>", the latest
-//     scheduled run on main today): days 1, 3 and 7 are judged on D0+2, D0+4 and D0+8 at 06:23 Israel; a new version replaces the old one's
-//     days still ahead.
+//     run on main that judged today, whoever started it): days 1, 3 and 7 are judged on D0+2, D0+4 and D0+8 at 06:23 Israel; a new version
+//     replaces the old one's days still ahead.
 // Only fixed Hebrew text is written (no numbers, no ids beyond the item ids), and only when something changed: a commit on top of the branch
 // through the contents API (never a force push). New items, and items whose outcome is visible elsewhere, stay with the measurement thread.
 //   node calendar-refresh.mjs            needs GITHUB_TOKEN, GITHUB_REPOSITORY; DRY=1 prints what would change
@@ -22,6 +22,8 @@ export function guardLine(log) {
   const m = /release guard (\d{4}-\d\d-\d\d): (\w+) (\d+(?:\.\d+)+) from (\d{4}-\d\d-\d\d), day (-?\d+)/.exec(String(log || ""));
   return m ? { day: m[1], state: m[2], vn: m[3], d0: m[4] } : null;
 }
+// the line only counts for the day it judged: a dry run by hand "as if today were" another day is skipped
+export const guardToday = (log, today) => { const g = guardLine(log); return g && g.day === today ? g : null; };
 
 export function refresh(cal, { today, done = [], guard = null }) {
   const c = JSON.parse(JSON.stringify(cal)), gone = new Set(done), log = [];
@@ -57,17 +59,22 @@ async function gh(path, opt = {}) {
   return fetch(API + path, { ...opt, headers: h, signal: AbortSignal.timeout(20000) });
 }
 
-// the latest scheduled Release guard run on main that finished today (UTC), and its line
+// the newest Release guard run on main that judged today (Israel), whoever started it: GitHub's schedule, or the backup clock's dispatch
+// when GitHub is late (4-5.11: the schedule ran at 12:15 UTC and the clock's 06:21 run was the only one by the morning, so a reader of
+// scheduled runs between 04 and 09 UTC alone never saw the new version and its days never reached the calendar). Newest first; stops at
+// yesterday's runs, so a quiet day costs one request.
 async function readGuard(repo, now) {
-  const r = await gh(`/repos/${repo}/actions/workflows/release-guard.yml/runs?branch=main&event=schedule&status=completed&per_page=3`);
+  const today = ilDay(now);
+  const r = await gh(`/repos/${repo}/actions/workflows/release-guard.yml/runs?branch=main&status=completed&per_page=5`);
   if (!r.ok) throw new Error("guard runs " + r.status);
-  const run = ((await r.json()).workflow_runs || []).find(x => String(x.created_at).slice(0, 10) === now.toISOString().slice(0, 10));
-  if (!run) return null;
-  const jobs = await (await gh(`/repos/${repo}/actions/runs/${run.id}/jobs`)).json();
-  for (const j of jobs.jobs || []) {
-    const l = await gh(`/repos/${repo}/actions/jobs/${j.id}/logs`);
-    const g = l.ok ? guardLine(await l.text()) : null;
-    if (g) return g;
+  for (const run of (await r.json()).workflow_runs || []) {
+    if (ilDay(new Date(run.created_at)) < today) break;
+    const jobs = await (await gh(`/repos/${repo}/actions/runs/${run.id}/jobs`)).json();
+    for (const j of jobs.jobs || []) {
+      const l = await gh(`/repos/${repo}/actions/jobs/${j.id}/logs`);
+      const g = l.ok ? guardToday(await l.text(), today) : null;
+      if (g) return g;
+    }
   }
   return null;
 }
@@ -81,7 +88,7 @@ if (process.argv[1] && process.argv[1].endsWith("calendar-refresh.mjs") && proce
     const j = await r.json(), cal = JSON.parse(Buffer.from(j.content, "base64").toString("utf8"));
     const done = ((await getMetric("calDone")) || {}).ids || [];
     let guard = null;
-    if ((now.getUTCHours() >= 4 && now.getUTCHours() < 9) || process.env.CAL_GUARD === "1") guard = await readGuard(repo, now).catch(e => { console.log("calendar: guard not read,", e.message); return null; });
+    guard = await readGuard(repo, now).catch(e => { console.log("calendar: guard not read,", e.message); return null; });   // every run: GitHub starts the guard hours late
     const R = refresh(cal, { today, done: Array.isArray(done) ? done : [], guard });
     console.log("calendar " + today + ": " + (R.changed ? R.log.join("; ") : "no change") + (guard ? `, guard ${guard.vn} from ${guard.d0}` : ""));
     if (R.changed && process.env.DRY !== "1") {
@@ -115,6 +122,7 @@ if (process.argv[2] === "selftest") {
   ok(g.every(x => x.owner === "מדידה" && x.me === 0 && !/\d/.test(x.what)), "fixed text, no numbers");
   R = refresh(cal, { today: "2026-11-02", guard: guardLine("release guard 2026-11-02: wait 1.38.3 from 2026-10-28, day 4 vs 1.37") });
   ok(R.cal.items.find(x => x.id === "relguard-1383-d7").d === "2026-11-05", "D0 moved: the date follows");
+  ok(guardToday("release guard 2026-11-05: wait 1.38.4 from 2026-11-04, day 0 vs 1.38.3", "2026-11-05")?.vn === "1.38.4" && guardToday("release guard 2026-11-03: wait 1.38.4 from 2026-11-04, day -1 vs 1.38.3", "2026-11-05") === null, "only a line that judged today counts (a dry run as if another day is skipped)");
   ok(guardLine("release guard 2026-11-02: no data") === null && guardLine("release guard 2026-11-02: find 1.38.3 from 2026-10-27, day 3 vs 1.37, findings: silent").vn === "1.38.3", "lines without a version are ignored");
   R = refresh(R.cal, { today: "2026-11-02", guard: guardLine("release guard 2026-11-02: wait 1.38.3 from 2026-10-28, day 4 vs 1.37") });
   ok(!R.changed, "a second run changes nothing (idempotent): " + R.log.join("; "));
