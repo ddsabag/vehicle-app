@@ -1,0 +1,25 @@
+name: Release guard findings close (one-off, probe-perf branch)
+# Closes the three open findings of 1.38.3 (relguard:1.38.3-d1, -d3, -d7) through the router, the way the guard's own pass path does:
+# they were the "silent event" rule judging lookup_timeout, which main eefffbb (5.11) no longer judges. Quiet Telegram line, state on alert-state.
+on:
+  push:
+    branches: [probe-perf]
+    paths: [".github/workflows/relguard-close.yml"]
+permissions:
+  contents: write
+jobs:
+  close:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      - name: Close relguard:1.38.3-d* (main's alert.mjs, copied onto this branch)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node --input-type=module -e 'const m = await import("./.github/scripts/alert.mjs"); const n = await m.resolve(["relguard:1.38.3-d"]); console.log("relguard 1.38.3 findings closed:", n);'
