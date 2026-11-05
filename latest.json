@@ -1,7 +1,7 @@
 {
  "v": 1,
- "d": "2026-11-04",
- "seed": "20261104",
+ "d": "2026-11-05",
+ "seed": "20261105",
  "cars": 40,
  "sampled": 40,
  "mism": 0,
@@ -17,7 +17,7 @@
    0
   ],
   "identity.buy_steps": [
-   36,
+   37,
    0
   ],
   "identity.colour": [
@@ -61,7 +61,7 @@
    0
   ],
   "insight.age_cancelled": [
-   4,
+   3,
    0
   ],
   "insight.safety_low": [
@@ -101,7 +101,7 @@
    0
   ],
   "owners.current_no_log": [
-   27,
+   25,
    0
   ],
   "owners.durations": [
@@ -169,23 +169,23 @@
    0
   ],
   "recalls.line_honest": [
-   36,
+   34,
    0
   ],
   "recalls.model_count": [
-   33,
+   32,
    0
   ],
   "recalls.model_extra": [
-   33,
+   32,
    0
   ],
   "recalls.model_fits": [
-   7,
+   16,
    0
   ],
   "recalls.model_missing": [
-   33,
+   30,
    0
   ],
   "recalls.open": [
@@ -197,7 +197,7 @@
    0
   ],
   "recalls.pending_banner": [
-   33,
+   32,
    0
   ],
   "recalls.tab_shown": [
@@ -209,11 +209,11 @@
    0
   ],
   "recalls.thin_line": [
-   32,
+   27,
    0
   ],
   "recalls.thin_rows": [
-   36,
+   34,
    0
   ],
   "road.first_date": [
@@ -233,7 +233,7 @@
    0
   ],
   "settlements.scope": [
-   5,
+   4,
    0
   ],
   "specs.axles": [
@@ -321,7 +321,7 @@
    0
   ],
   "specs.wltp_note": [
-   17,
+   19,
    0
   ],
   "status.buy_checklist": [
@@ -329,11 +329,11 @@
    0
   ],
   "status.buy_plan": [
-   36,
+   37,
    0
   ],
   "status.cancel_date": [
-   4,
+   3,
    0
   ],
   "status.cancel_pill": [
@@ -341,15 +341,15 @@
    0
   ],
   "status.cancel_reason": [
-   4,
+   3,
    0
   ],
   "status.cancelled_buy": [
-   4,
+   3,
    0
   ],
   "status.heavy_note": [
-   2,
+   3,
    0
   ],
   "status.hold_insight": [
@@ -401,7 +401,7 @@
    0
   ],
   "tow.hook": [
-   25,
+   23,
    0
   ],
   "tow.limits": [
