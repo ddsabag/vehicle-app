@@ -223,7 +223,9 @@ async function tgCheck(env) {
 // one day alert at most once per 22.5 h (an expired or revoked token); any other failure is a log line and the next hour retries.
 const CLOCK = [
   { wf: "social-publish.yml", he: "פרסום ברשתות", utc: [5, 20], gap: 40, inputs: { mode: "run" } },              // slots every 15 min 04:04-19:49
-  { wf: "live-watch.yml", he: "מעקב הדשבורד", utc: [0, 24], gap: 75, inputs: { dry_run: "false" } },             // :12 and :42
+  // live watch: gap under an hour, so the hourly pass starts it every hour while GitHub skips it (with 75 a start at :21 held the next pass
+  // and it ran every 2 h; /live's boards waited, measurement 5.11.2026). A run of GitHub's own in the last 50 min still counts
+  { wf: "live-watch.yml", he: "מעקב הדשבורד", utc: [0, 24], gap: 50, inputs: { dry_run: "false" } },             // :12 and :42
   { wf: "reviews-monitor.yml", he: "ביקורות בחנות", utc: [7, 20], gap: 330, inputs: { dry_run: "false" } },       // 06:15, 11:15, 17:15
   { wf: "release-watch.yml", he: "מעקב הגרסה בחנות", utc: [8, 20], gap: 330, inputs: { mode: "on" } },            // 06:40, 11:40, 17:40
   { wf: "alert-daily.yml", he: "סיכום הבוקר", morning: [845, 2200], gap: 60, inputs: { dry_run: "false" } },      // 05:05 / 06:05 (08:05 local)

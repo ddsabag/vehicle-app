@@ -486,5 +486,14 @@ env = PAGE(); env.ALERT_ROUTE = "all"; env.GH_DISPATCH_TOKEN = "GHTOKEN";
 gh.calls = []; gh.sent = []; gh.runs = { ...ranAll("2026-11-04T05:20:00Z"), "camp-data.yml": "2026-11-04T05:29:00Z", "data-truth.yml": "2026-11-04T04:40:00Z" };
 x = await tick(env, T("2026-11-04T06:30:00Z"));
 ok(JSON.stringify(gh.sent.filter(a => DAILY.includes(a[0]))) === JSON.stringify([["data-truth.yml", { ref: "main", inputs: { job: "audit" } }]]), "runs since each slot count; a run at 04:40, before the audit's 04:47 slot, does not " + JSON.stringify(gh.sent));
+// 5.11.2026: live watch is started every hour while GitHub skips it (gap 50, not 75)
+env = PAGE(); env.ALERT_ROUTE = "all"; env.GH_DISPATCH_TOKEN = "GHTOKEN";
+gh.calls = []; gh.sent = []; gh.runs = { ...ranAll("2026-11-05T12:20:00Z"), "live-watch.yml": "2026-11-05T12:21:00Z" };   // the clock's own start of the last pass
+x = await tick(env, T("2026-11-05T13:21:00Z"));
+ok(gh.sent.some(a => a[0] === "live-watch.yml"), "an hour after the clock's start: started again " + JSON.stringify(gh.sent.map(a => a[0])));
+env = PAGE(); env.ALERT_ROUTE = "all"; env.GH_DISPATCH_TOKEN = "GHTOKEN";
+gh.calls = []; gh.sent = []; gh.runs = { ...ranAll("2026-11-05T12:20:00Z"), "live-watch.yml": "2026-11-05T12:42:00Z" };   // GitHub's own :42 run
+x = await tick(env, T("2026-11-05T13:21:00Z"));
+ok(!gh.sent.some(a => a[0] === "live-watch.yml"), "GitHub's run 39 min ago counts: not started");
 log(bad ? `uptime test: ${bad} of ${n} checks FAILED` : `uptime test ok (${n} checks)`);
 process.exit(bad ? 1 : 0);
