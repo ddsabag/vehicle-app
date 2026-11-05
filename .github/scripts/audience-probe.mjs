@@ -32,7 +32,10 @@ const eq = (f, v) => ({ filter: { fieldName: f, stringFilter: { value: v } } }),
 const and = (...x) => ({ andGroup: { expressions: x } });
 const D = n => ({ name: n }), M = n => ({ name: n }), C = p => ({ name: "customEvent:" + p });
 const A = { startDate: "2026-10-26", endDate: "2026-11-04", name: "a" }, B = { startDate: "2026-10-19", endDate: "2026-10-25", name: "b" };
-const IL = and(eq("countryId", "IL"), inList("platform", ["web", "Android"]));
+// pass 2 (web): the site's events reach GA4 from worker/api (Measurement Protocol), so they carry no Israeli country and no session_start;
+// the site counts as /live counts it (platform web, any country) and a return is a new visit (web_visit, once per tab session)
+const WEBPASS = true;
+const IL = WEBPASS ? eq("platform", "web") : and(eq("countryId", "IL"), inList("platform", ["web", "Android"]));
 const ev = names => and(IL, inList("eventName", names));
 // what the events carry
 await part("shareKind", () => ga({ dateRanges: [A, B], dimensions: [D("platform"), C("kind")], metrics: [M("eventCount"), M("totalUsers")], dimensionFilter: ev(["share"]) }));
@@ -61,26 +64,26 @@ const SEG = {
 const fun = body => call(`https://analyticsdata.googleapis.com/v1alpha/properties/${PROP}:runFunnelReport`, body);
 const ff = (f, v) => ({ funnelFieldFilter: { fieldName: f, stringFilter: { value: v } } });
 const PL = { app: "Android", web: "web" };
-const step1 = (plat, evn) => ({ name: "start", filterExpression: { andGroup: { expressions: [{ funnelEventFilter: { eventName: evn } }, ff("platform", PL[plat]), ff("countryId", "IL")] } } });
-const ret = plat => [step1(plat, "car_lookup"), { name: "back", isDirectlyFollowedBy: false, withinDurationFromPriorStep: "604800s", filterExpression: { funnelEventFilter: { eventName: "session_start" } } }];
+const step1 = (plat, evn) => ({ name: "start", filterExpression: { andGroup: { expressions: [{ funnelEventFilter: { eventName: evn } }, ff("platform", PL[plat]), ...(plat === "web" ? [] : [ff("countryId", "IL")])] } } });
+const ret = plat => [step1(plat, "car_lookup"), { name: "back", isDirectlyFollowedBy: false, withinDurationFromPriorStep: "604800s", filterExpression: { funnelEventFilter: { eventName: plat === "web" ? "web_visit" : "session_start" } } }];
 const fsave = [step1("app", "first_open"), { name: "saved", isDirectlyFollowedBy: false, withinDurationFromPriorStep: "86400s", filterExpression: { funnelEventFilter: { eventName: "first_save" } } }];
 const ft = j => flat(j.funnelTable || {});
 for (const [sn, sg] of Object.entries(SEG)) {
-  for (const plat of ["app", "web"]) for (const w of [A, B])
+  for (const plat of WEBPASS ? ["web"] : ["app", "web"]) for (const w of [A, B])
     await part(`ret.${sn}.${plat}.${w.name}`, () => fun({ dateRanges: [w], funnel: { isOpenFunnel: false, steps: ret(plat) }, segments: [{ name: sn, userSegment: sg }] }).then(ft));
-  for (const plat of ["app", "web"]) for (const bd of ["firstUserSource", "firstUserCampaignName"])
+  for (const plat of WEBPASS ? ["web"] : ["app", "web"]) for (const bd of ["firstUserSource", "firstUserCampaignName", ...(WEBPASS ? ["customEvent:src", "customEvent:camp"] : [])])
     await part(`src.${sn}.${plat}.${bd}`, () => fun({ dateRanges: [A], funnel: { isOpenFunnel: false, steps: ret(plat) }, segments: [{ name: sn, userSegment: sg }], funnelBreakdown: { breakdownDimension: { name: bd }, limit: 15 } }).then(ft));
-  for (const w of [A, B])
+  if (!WEBPASS) for (const w of [A, B])
     await part(`fsave.${sn}.${w.name}`, () => fun({ dateRanges: [w], funnel: { isOpenFunnel: false, steps: fsave }, segments: [{ name: sn, userSegment: sg }] }).then(ft));
 }
 // the same funnels with no segment: the whole, to check that the four parts add up
-for (const plat of ["app", "web"]) for (const w of [A, B]) await part(`ret.all.${plat}.${w.name}`, () => fun({ dateRanges: [w], funnel: { isOpenFunnel: false, steps: ret(plat) } }).then(ft));
-for (const w of [A, B]) await part(`fsave.all.${w.name}`, () => fun({ dateRanges: [w], funnel: { isOpenFunnel: false, steps: fsave } }).then(ft));
+for (const plat of WEBPASS ? ["web"] : ["app", "web"]) for (const w of [A, B]) await part(`ret.all.${plat}.${w.name}`, () => fun({ dateRanges: [w], funnel: { isOpenFunnel: false, steps: ret(plat) } }).then(ft));
+if (!WEBPASS) for (const w of [A, B]) await part(`fsave.all.${w.name}`, () => fun({ dateRanges: [w], funnel: { isOpenFunnel: false, steps: fsave } }).then(ft));
 
 const data = Buffer.from(JSON.stringify(out));
 const key = crypto.randomBytes(32), iv = crypto.randomBytes(12), c = crypto.createCipheriv("aes-256-gcm", key, iv);
 const enc = Buffer.concat([c.update(data), c.final()]);
 const ek = crypto.publicEncrypt({ key: fs.readFileSync(".github/seo-data.pub.pem", "utf8"), padding: crypto.constants.RSA_PKCS1_OAEP_PADDING, oaepHash: "sha256" }, key);
 fs.mkdirSync("out", { recursive: true });
-fs.writeFileSync("out/audience.enc.json", JSON.stringify({ v: 1, ek: ek.toString("base64"), iv: iv.toString("base64"), tag: c.getAuthTag().toString("base64"), data: enc.toString("base64") }));
+fs.writeFileSync(WEBPASS ? "out/audience-web.enc.json" : "out/audience.enc.json", JSON.stringify({ v: 1, ek: ek.toString("base64"), iv: iv.toString("base64"), tag: c.getAuthTag().toString("base64"), data: enc.toString("base64") }));
 console.log("written, encrypted");
