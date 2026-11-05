@@ -23,17 +23,18 @@ async function page(timeout = 60000) {
     await sleep(1500);
   }
 }
-const jobs = () => sh(`dumpsys jobscheduler | grep -E "JOB #.*${PKG}"`);
-const jobsRaw = () => sh(`dumpsys jobscheduler | grep -i -B2 -A12 "${PKG}" | head -80`);
-const jobId = () => { const m = jobs().match(/JOB #\S+\/(\d+): \S+ \S*SystemJobService/) || jobs().match(/\/(\d+):/); return m && m[1]; };
+// Android 14+ files WorkManager's jobs under a namespace ("JOB #u0a209/androidx.work.systemjobscheduler/0"), and `run` needs it (-n)
+const jobs = () => sh(`dumpsys jobscheduler | grep -E "JOB #u[0-9a-z]+/.*${PKG}"`);
+const jobsRaw = () => sh(`dumpsys jobscheduler | grep -E "JOB #|namespace" | grep -i -E "pratirechev|androidx.work" | head -20`);
+const jobId = () => { const m = jobs().match(/JOB #u[0-9a-z]+\/(?:([^\/:\s]+)\/)?(\d+):/); return m ? { ns: m[1] || "", id: m[2] } : null; };
 const notes = () => sh(`dumpsys notification --noredact | grep -A40 "pkg=${PKG}" | grep -E "android.title=|android.text=" `);
 // the check's first run is set for 10:00 the next morning (UTC on this emulator) and every 8 hours after; WorkManager will not run a periodic
 // job before its time even when JobScheduler is forced, so the phone's clock is moved to the day and hour first (root on a google_apis image)
 async function force(res, tag, when) {
   sh(`date -u ${when}`); await sleep(3000); res[tag + "_clock"] = sh("date -u");
-  const id = jobId(); res[tag + "_job"] = id || "none";
+  const j = jobId(); res[tag + "_job"] = j ? (j.ns ? j.ns + "/" : "") + j.id : "none";
   sh("logcat -c");
-  if (id) { sh(`cmd jobscheduler run -f ${PKG} ${id}`); await sleep(60000); }
+  if (j) { res[tag + "_run"] = sh(`cmd jobscheduler run -f ${j.ns ? "-n " + j.ns + " " : ""}${PKG} ${j.id}`); await sleep(60000); }
   res[tag + "_log"] = sh(`logcat -d | grep -E "WM-|notif|SavedCheck" | tail -8`);
   res[tag + "_prefs"] = sh(`run-as ${PKG} cat shared_prefs/saved_alerts.xml`).replace(/<string name="saved">[\s\S]*?<\/string>/, "<saved list kept>").slice(0, 800);
 }
