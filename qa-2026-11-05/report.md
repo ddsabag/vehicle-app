@@ -1,0 +1,31 @@
+# Kit visual QA: 2026-11-05
+
+15 images looked at by claude-sonnet-5-5.
+7 findings, 16 low-confidence notes. Report only: decide each one by looking at the image.
+
+## Findings
+- **high · plate** · dealer-post.png · Table, first row, plate cell: The plate "76-543-21" is not one of the allowed demo plates (12-345-67, 1234567, 7654321), so it may read as a real-looking plate. («76-543-21»)
+- **high · plate** · dealer-post.png · Table, second row, plate cell: The plate "123-45-67" is not one of the allowed demo plates (12-345-67, 1234567, 7654321), so it may read as a real-looking plate. («123-45-67»)
+- **high · plate** · reel-lot-followup.frame-4of5.jpg · first table row, plate chip: Plate "76-543-21" is not one of the allowed demo plates (12-345-67, 1234567, 7654321), so it may look like a real plate. («76-543-21»)
+- **high · plate** · reel-lot-followup.frame-4of5.jpg · second table row, plate chip: Plate "123-45-67" is not one of the allowed demo plates (12-345-67, 1234567, 7654321), so it may look like a real plate. («123-45-67»)
+- **low · rtl** · carousel-03.png · Headline under the big number, first line: 'MG3: מכל 1,000 רכבים פעילים': The colon after the Latin word MG3 sits at the wrong end of the phrase. In the RTL rendering the line reads ':MG3 מכל 1,000...' with the colon to the left of MG3, so it looks like a misplaced punctuation mark. («MG3: מכל 1,000 רכבים פעילים»)
+- **low · overlap** · reel-lot-followup.frame-1of5.jpg · center of the grid, the red label "טסט פג" under the middle card, and the "?" circle of the bottom-middle card: The red label "טסט פג" sits on top of the "?" circle of the bottom-middle card, partly covering it, so the two elements overlap. («טסט פג»)
+- **low · rtl** · story-03.png · Headline, first line: 'ריקול · טסט' and its separator dots: A stray middle dot sits at the left end of the first line, after 'טסט'. The list reads 'ריקול · טסט · ביטוח' and the last dot ends up dangling at the line end. Possibly a deliberate separator, but it looks like a misplaced trailing dot. («ריקול · טסט ·»)
+
+## Low-confidence notes
+- rtl · carousel-04.png · title, second line in yellow: "זוכר בשבילכם.": The period sits at the left end of the line, which is the correct end for a Hebrew sentence, so this is not a defect. Nothing to report here.
+- layout · carousel-01.png · bottom row, the swipe prompt at the bottom left ("החליקו" with an arrow): In right-to-left text, swiping to the next slide goes left, so the left-pointing arrow is probably right. The arrow sits to the left of the word, which is the correct order, so this is only a minor p…
+- rtl · carousel-02.png · title, second line in yellow: The period sits at the left end of the word, which is the correct end for a Hebrew sentence. It is not a defect.
+- rtl · carousel-02.png · second paragraph, first line: The comma after "חדש" is detached and sits in a gap before "וגם", with a visible space before it. This is a minor punctuation spacing blemish.
+- layout · carousel-02.png · bottom left, the large dark "1" next to the plate: A large, very dim "1" sits left of the plate and looks like a stray element. It is low-contrast and may be an intentional step number, but it is positioned oddly and partly crowds the plate.
+- layout · carousel-02.png · bottom row, "החליקו" arrow: The swipe hint is at the bottom left with an arrow pointing left. In RTL, swiping to the next slide goes left, so this is correct and not a defect.
+- rtl · carousel-03.png · Bottom left, 'החליקו' swipe cue with an arrow: The arrow points left and sits to the left of the word. In RTL, swiping to the next slide goes left, so the direction is plausible. The arrow looks thin and small next to the bold text, but this is n…
+- layout · story-01.png · Top-left logo "לוחית" with the app icon, in the top 250px of the story: The logo sits in the top 250px that the network's interface reserves. It is also aligned left while the Hebrew text is centred. Logos are often placed there on purpose, so this is a minor blemish.
+- rtl · carousel-05.png · Body paragraph, first line: 'מקלידים מספר רישוי ← "פתחו לו תיק".': The arrow '←' sits between 'מספר רישוי' and the quoted phrase. In right-to-left text it points toward the next phrase, so the direction looks correct. The period sits after the closing quote at the l…
+- other · reel-cover.jpg · 3x3 grid of rounded tiles in the middle of the cover: All nine tiles are empty dark placeholders with no icons or content, so the grid looks like images that did not load. The cover is also bare of any logo or branding. This may be an intentional memory…
+- layout · story-02.png · bottom of the story, the page counter '2/3' at about y=1645, below the Google Play badge: The page counter '2/3' is faint grey on the dark background and sits in the bottom 340px reserved for the network's interface. It is small footer text, so this is only a minor blemish.
+- rtl · story-03.png · Headline, 4th line: 'חדש.': The full stop shows at the left of 'חדש', the end of an RTL sentence, which is correct. But the sentence is broken across the lines 'והסדר פשרה' / 'חדש.', and the word order looks odd ('ריקול · טסט ·…
+- layout · story-03.png · Footer: Google Play badge and '3/3' counter: The badge sits at about y=1520-1590 and the page counter at y=1645. Both are inside the bottom 340 px zone (y>1580), but the badge and small footer text are exempt, so this is only a minor point.
+- contrast · reel-lot-followup.frame-3of5.jpg · middle row, centre card, red pill label under the card: The label "טסט פג" is dull red-grey text on a dark maroon pill, so it is hard to read. The text looks faded and low in contrast. It may be mid-animation.
+- overlap · reel-lot-followup.frame-3of5.jpg · bottom row, middle card, the question-mark circle sitting on the card top edge: The question-mark badge on the bottom-middle card sits close to the red "טסט פג" pill of the card above, nearly touching it. The spacing looks cramped.
+- rtl · reel-lot-followup.frame-5of5.jpg · Headline, first line, after the word "הרכב": The comma after "הרכב" renders at the left end of the first line, which is correct for RTL. The period after "המכירה" also sits at the left end of the second line, which is also correct, so this is n…
