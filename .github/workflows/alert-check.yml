@@ -53,6 +53,8 @@ jobs:
       # app's code, worker/api or GA4 itself, so a new tile is red here before its event exists, not at the next change to the page (1 s)
       - name: Dashboard reads still sent
         run: node .github/scripts/analytics-flows.cjs --static
+      - name: Live goals self-test (made-up weeks; anchors, floors and caps, proposals, the kill switch, small samples)
+        run: node .github/scripts/goals-check.mjs selftest
       - name: Store listing self-test and files (iw-IL only, Play's limits, nothing committed when Play keeps something else)
         run: node .github/scripts/play-listing.mjs selftest && node .github/scripts/play-listing.mjs check
       - name: Data safety self-test and file (Play's export format, sent only when it changed)
