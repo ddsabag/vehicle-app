@@ -178,7 +178,7 @@ async function attach(timeout = 30000) {
       const ctx = (await wv.page()).context();
       if (!routed.has(ctx)) {
         routed.add(ctx);
-        try { await ctx.route(/^https?:\/\/(?!appassets\.androidplatform\.net\/)/, (r) => (/data\.gov\.il/.test(r.request().url()) && !net.offline ? UF.govRoute(r, net.gov) : r.abort("internetdisconnected"))); }
+        try { await ctx.route(/^https?:\/\/(?!appassets\.androidplatform\.net\/)/, (r) => { const go = () => (/data\.gov\.il/.test(r.request().url()) && !net.offline ? UF.govRoute(r, net.gov) : r.abort("internetdisconnected")); if (/^saved\//.test(cur.run) && ["open", "recent"].includes(cur.step) && /053cea08/.test(r.request().url())) { log(`TEST: the registry answers ${cur.run} ${cur.step} 4 s late`); return sleep(4000).then(go); } return go(); }); }
         catch (e) { add("block", "launch", cur.run, cur.step, "the registry could not be mocked in the WebView: " + e.message.split("\n")[0].slice(0, 120)); }
       }
       const page = await visiblePage(ctx);
@@ -344,9 +344,11 @@ function judgeBars(run, step, png, box, dark, first = false) {
   for (const [sev, msg] of off) add(sev, "bars", run, step, msg);
 }
 // a screenshot judged and kept: a first look that finds something off is taken again 1.5 s later, and only that one counts
+let testLooks = 0;
 async function look(run, step, dark, name) {
   clearDialogs();
   let png = screencap();
+  if (testLooks++ < 3) { const b0 = webViewBox(), t0 = png && b0 && band(png, 0, b0.t); if (t0) { const a = iconsAsked(); log(`TEST bars at ${run} ${step}: the app asked ${a ? (a.dark ? "dark" : "light") + " icons (apr=" + (a.apr || "none") + ")" : "nothing found"}; this bar (${t0.bg.join(",")}) without icons would be: ${barIcons(t0.bg, a)[0]}`); } }
   if (judgeBars(run, step, png, webViewBox(), dark, true) === "again") { await sleep(1500); png = screencap(); judgeBars(run, step, png, freshBox() || webViewBox(), dark); }   // the second look reads the WebView's place again, not the kept one
   saveShot(png, name);
 }
