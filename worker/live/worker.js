@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-55";   // shown in /live/data so the running version is visible
+const BUILD = "live-56";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -522,6 +522,33 @@ async function getCal() {
   try { const r = await fetch("https://raw.githubusercontent.com/ddsabag/vehicle-app/calendar/calendar.json", { cf: { cacheTtl: 120 }, signal: AbortSignal.timeout(8e3) }); if (r.ok) cal = await r.json(); } catch {}
   calAt = Date.now(); return cal;
 }
+// the autopost queue's own record (branch social-queue, state.json): the publishing board takes each post's outcome from here on every load,
+// so a post the bot put up reads "פורסם" within minutes, not when the calendar bot next runs (5.11.2026: GitHub skipped most of Live watch's
+// half-hourly runs and the backup clock starts it about every 2 hours; Dudu saw the 20:30 reel as not up an hour after it was). Same rules as
+// calendar-refresh.mjs buildPubs: a final status as is, "ready" = waiting for the version, anything else planned; the worst target wins.
+let queue = null, queueAt = 0, queueOk = 0;
+async function getQueue() {
+  if (queue && Date.now() - queueAt < 60e3) return queue;
+  try { const r = await fetch("https://raw.githubusercontent.com/ddsabag/vehicle-app/social-queue/state.json", { cf: { cacheTtl: 60 }, signal: AbortSignal.timeout(8e3) });
+    if (r.ok) { const j = await r.json(); if (j && j.posts && typeof j.posts === "object") { queue = j.posts; queueOk = Date.now(); } } } catch {}
+  queueAt = Date.now(); return queue;
+}
+const PUB_OK = new Set(["done", "missed", "failed", "unsure"]), PUB_RANK = { failed: 5, missed: 4, unsure: 3, planned: 2, wait: 1, done: 0 };
+const PUB_LINK = /^https:\/\/(www\.)?(facebook|instagram|tiktok)\.com\/[\w\/.?=&%-]{1,200}$/;
+function livePubs(cal, posts, okAt) {
+  if (!cal || !Array.isArray(cal.pubs) || !posts) return cal;
+  for (const o of cal.pubs) {
+    if (o.src !== "auto" || !o.q || !o.q.length) continue;
+    const st = {}, link = {};
+    for (const c of o.ch) { let w = null;
+      for (const q of o.q) { const p = posts[q + "/" + c] || {}, v = PUB_OK.has(p.status) ? p.status : p.status === "ready" ? "wait" : "planned";
+        if (w === null || PUB_RANK[v] > PUB_RANK[w]) w = v; if (!link[c] && PUB_LINK.test(p.link || "")) link[c] = p.link; }
+      st[c] = w || "planned"; }
+    o.st = st; o.link = link;
+  }
+  cal.qAt = okAt ? new Date(okAt).toISOString() : null;
+  return cal;
+}
 const cut = (x, k) => String(x || "").slice(0, k);
 const calId = x => /^[a-z0-9-]{1,60}$/.test(x || "") ? x : "";
 // ==== live goals engine (begin) ====
@@ -862,7 +889,8 @@ const slimCal = c => c && typeof c === "object" ? { at: c.at,
   pubs: (Array.isArray(c.pubs) ? c.pubs : []).filter(o => /^\d{4}-\d\d-\d\d$/.test(o.d || "") && /^\d\d:\d\d$/.test(o.t || "")).slice(0, 80).map(o => ({ d: o.d, t: o.t,
     ch: (Array.isArray(o.ch) ? o.ch : []).filter(x => /^[a-z_]{2,20}$/.test(x)).slice(0, 4), what: cut(o.what, 120), src: /^(auto|mag|cowork)$/.test(o.src) ? o.src : "",
     st: Object.fromEntries(Object.entries(o.st && typeof o.st === "object" ? o.st : {}).filter(([k, v]) => /^[a-z_]{2,20}$/.test(k) && /^(done|missed|failed|unsure|planned|wait)$/.test(v)).slice(0, 4)),
-    link: Object.fromEntries(Object.entries(o.link && typeof o.link === "object" ? o.link : {}).filter(([k, v]) => /^[a-z_]{2,20}$/.test(k) && /^https:\/\/(www\.)?(facebook|instagram|tiktok)\.com\/[\w\/.?=&%-]{1,200}$/.test(v)).slice(0, 4)) })) } : null;
+    link: Object.fromEntries(Object.entries(o.link && typeof o.link === "object" ? o.link : {}).filter(([k, v]) => /^[a-z_]{2,20}$/.test(k) && /^https:\/\/(www\.)?(facebook|instagram|tiktok)\.com\/[\w\/.?=&%-]{1,200}$/.test(v)).slice(0, 4)),
+    q: (Array.isArray(o.q) ? o.q : []).filter(x => /^\d{4}-\d\d-\d\d\/[\w-]{1,40}$/.test(x)).slice(0, 8) })) } : null;
 const slimAuto = a => a && typeof a === "object" ? { at: a.at, modes: a.modes || {}, rows: (Array.isArray(a.rows) ? a.rows : []).slice(0, 20).map(r => ({ d: r.d, z: r.z, m: r.m, x: String(r.x || "").slice(0, 240), r: r.r })) } : null;
 
 // today's car checks and new installs as seen in realtime, minute by minute: realtime covers only the last 30 minutes, so each request keeps
@@ -1646,7 +1674,7 @@ const DEADLINE = 25e3, LAST = "https://luchit.app/live/_last";
 let lastGood = null;
 async function liveData(env, ctx) {
   let timer, failed = false;
-  const work = (async () => ({ ...(await collect(env)), flashes: (await getFlashes()).slice(0, 15), metrics: slimMetrics(await getMetrics()), auto: slimAuto(await getAuto()), cal: slimCal(await getCal()), calDone: await calDone(env), acts: await actsGet(env), goals: await goalsForPage(env) }))();
+  const work = (async () => ({ ...(await collect(env)), flashes: (await getFlashes()).slice(0, 15), metrics: slimMetrics(await getMetrics()), auto: slimAuto(await getAuto()), cal: livePubs(slimCal(await getCal()), await getQueue(), queueOk), calDone: await calDone(env), acts: await actsGet(env), goals: await goalsForPage(env) }))();
   const late = new Promise(r => { timer = setTimeout(() => r(null), DEADLINE); });
   const d = await Promise.race([work.catch(() => { failed = true; return null; }), late]);
   clearTimeout(timer);
@@ -1694,7 +1722,7 @@ main{max-width:1320px;margin:0 auto;padding:16px 20px 32px;display:flex;flex-dir
 .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 14px 11px;display:flex;flex-direction:column;gap:5px;min-width:0;text-decoration:none;color:inherit;cursor:pointer;text-align:right}.tile:hover{border-color:var(--fg)}.tile .nm{font-size:13px;color:var(--muted)}.tile .bg{font-size:28px;font-weight:700;line-height:1.1}.tile .bg small{font-size:13px;font-weight:400;color:var(--muted)}.tile .dl{font-size:12px}.tile .tg{font-size:12px}.tile .fr{font-size:11px;color:var(--muted2)}
 .meter{height:6px;background:var(--soft2);border-radius:999px;overflow:hidden}.meter i{display:block;height:100%;border-radius:999px;background:var(--s)}
 .todo{display:flex;flex-direction:column;gap:9px}.todo li{display:flex;flex-direction:column;gap:5px;padding:10px 12px;background:var(--soft);border-radius:10px}.todo li.dec{background:var(--decide)}.todo .tag{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted)}.todo .tag b{background:var(--fg);color:var(--card);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:400}.todo .tag .fix{background:var(--bad-bg);color:var(--bad)}.todo .tag .fyi{background:var(--nt-bg);color:var(--nt)}.todo .what{font-weight:700}.todo .btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.todo small{color:var(--muted);font-size:12px}
-.btn{background:var(--fg);color:var(--card);border:0;border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer}.btn.sec{background:var(--card);color:var(--fg);border:1px solid var(--prev)}.btn:disabled{opacity:.6;cursor:default}.btn.done{background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-bg)}
+.btn{background:var(--fg);color:var(--card);border:0;border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer}.btn.sec{background:var(--card);color:var(--fg);border:1px solid var(--prev)}.pch{display:inline-flex;align-items:baseline;gap:10px}.pcb{padding:3px 10px;font-size:12px}.btn:disabled{opacity:.6;cursor:default}.btn.done{background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-bg)}
 .fun{display:flex;flex-direction:column;gap:7px;min-width:0}.fun h4{font-size:13px}.fr{display:flex;align-items:center;gap:10px}.fr span{width:132px;font-size:13px;flex:none}.fr .bb{flex:1;height:20px;background:var(--soft2);border-radius:4px;overflow:hidden;position:relative}.fr .bb i{display:block;height:100%;background:var(--c);opacity:.85}.fr .bb i.p{position:absolute;top:0;left:0;height:100%;background:transparent;border-left:2px solid var(--muted)}.fr b{width:60px;text-align:left;flex:none;direction:ltr}.fr .pc{width:56px;font-size:12px;color:var(--muted);flex:none}
 .rows{display:flex;flex-direction:column;gap:8px}.row{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;text-decoration:none;color:inherit}.row:hover{border-color:var(--fg)}.row .h{display:flex;justify-content:space-between;align-items:center;gap:8px}.row small{color:var(--muted);font-size:12px}
 .qs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.q{display:flex;flex-direction:column;gap:6px;padding:12px;background:var(--soft);border-radius:10px}.q small{font-size:12px;color:var(--muted)}.q .chip{align-self:flex-start}
@@ -2125,10 +2153,15 @@ function pubBoard(C){const P=(C.d.cal&&C.d.cal.pubs)||[],td=C.td,DN=["ראשון
  const row=o=>'<li><span><b>'+esc(o.t)+"</b> "+(o.src==="auto"?esc(o.ch.map(c=>CH[c]||c).join(" ו"))+" · ":"")+esc(o.what)+"</span><span>"+right(o)+"</span></li>";
  const grp=A=>{let h="",cur="";A.forEach(o=>{if(o.d!==cur){if(cur)h+="</ul>";cur=o.d;h+='<p class="note" style="margin:10px 0 2px"><b>'+dl(o.d)+'</b></p><ul class="kv">'}h+=row(o)});return h+(cur?"</ul>":"")};
  const near=L.filter(o=>days(o.d)<=7),far=L.filter(o=>days(o.d)>7),ahead=L.filter(o=>!past(o)&&days(o.d)<=7).length;
+ // collapsed (a button on the card, kept in this browser): only what went wrong or is late, and the next post
+ const bad=o=>o.src==="auto"&&past(o)&&o.ch.some(c=>((o.st||{})[c]||"planned")!=="done"),nx=L.find(o=>!past(o)),sh=L.filter(o=>bad(o)||o===nx);
+ const cd=C.d.cal||{},fr=cd.qAt?"המצב של כל פוסט נבדק מול תור הפרסום ב-"+hm(cd.qAt)+".":cd.at?"המצב של הפוסטים מהעדכון של "+dm(cd.at.slice(0,10))+" "+hm(cd.at)+".":"";
+ const short=!L.length?note("אין פרסומים מתוזמנים בשבועיים הקרובים."):grp(sh)+(L.length-sh.length===1?note("ועוד פרסום אחד בשבועיים הקרובים."):L.length>sh.length?note("ועוד "+n(L.length-sh.length)+" פרסומים בשבועיים הקרובים."):"");
  const html=!L.length?note("אין פרסומים מתוזמנים בשבועיים הקרובים."):grp(near)+(far.length?'<details><summary class="note" style="cursor:pointer">בשבוע שאחרי ('+n(far.length)+')</summary>'+grp(far)+"</details>":"")
   +'<p class="note">פייסבוק ואינסטגרם יוצאים מתור הפרסום האוטומטי, המגזין לפי התזמון שלו, וקבוצות הפייסבוק והטיקטוק ממשימות Cowork במחשב שלך.</p>';
- return {html,sum:ahead?n(ahead)+" ב-7 הימים הקרובים":"שום דבר ב-7 הימים הקרובים"}}
-const pubCard=C=>{const B=pubBoard(C);return '<section class="card"><div class="ch"><h2>לוח פרסומים</h2><small>'+esc(B.sum)+"</small></div>"+B.html+"</section>"};
+ return {html,short,fr,sum:ahead?n(ahead)+" ב-7 הימים הקרובים":"שום דבר ב-7 הימים הקרובים"}}
+let pubC=false;try{pubC=localStorage.getItem("lv-pubs-c")==="1"}catch(e){}
+const pubCard=C=>{const B=pubBoard(C);return '<section class="card" id="pubs"><div class="ch"><h2>לוח פרסומים</h2><span class="pch"><small>'+esc(B.sum)+'</small><button type="button" class="btn sec pcb" data-pubc aria-expanded="'+(pubC?"false":"true")+'">'+(pubC?"להציג הכול":"לצמצם")+"</button></span></div>"+(pubC?B.short:B.html)+(B.fr?'<p class="note">'+esc(B.fr)+"</p>":"")+"</section>"};
 // live goals (CEO spec 5.11.2026): the Worker sends d.goals (the engine's view); the plan's targets stay for the weeks before its first Sunday
 const LGK={weekly_checks:"checks",installs_week:"installs",google_clicks_week:"google",share_per_100:"share",failures_pct:"fail"},OLDK={checks:"weekly_checks",installs:"installs_week",google:"google_clicks_week",share:"share_per_100",fail:"failures_pct"};
 const LGR={checks:"checks",installs:"installs",shares:"share",google:"google",health:"fail",crashes:"crash",rating:"rating",slow:"slow",return7:"ret7x"},BANDN={cons:"הזהיר",base:"הבסיס",opt:"הגבוה"};
@@ -2280,6 +2313,7 @@ document.addEventListener("click",async e=>{const t=e.target;
  if(t.closest("[data-close]")||t===$("shade")){closeDrill();return}
  const v=t.closest("[data-v]");if(v){e.preventDefault();S.v=v.getAttribute("data-v");S.m=null;sync();render();window.scrollTo(0,0);return}
  const w=t.closest("[data-w]");if(w){S.w=w.getAttribute("data-w");sync();render();return}
+ const pc=t.closest("[data-pubc]");if(pc){pubC=!pubC;try{localStorage.setItem("lv-pubs-c",pubC?"1":"0")}catch(err){}render();const P=$("pubs");if(P)P.scrollIntoView({block:"nearest"});return}
  const b=t.closest("[data-done],[data-undo],[data-act],[data-unact]");if(!b)return;b.disabled=true;
  try{if(b.hasAttribute("data-done")||b.hasAttribute("data-undo")){const id=b.getAttribute("data-done")||b.getAttribute("data-undo"),on=b.hasAttribute("data-done");const j=await post("/live/cal",{id,done:on});calLocal[id]=on?(j.done&&j.done[id])||new Date().toISOString():0;if(window.LVD)window.LVD.calDone=j.done||window.LVD.calDone}
   else{const id=b.getAttribute("data-act")||b.getAttribute("data-unact"),on=b.hasAttribute("data-act");const j=await post("/live/act",on?{id,c:b.getAttribute("data-c")}:{id,undo:true});actLocal[id]=on?(j.acts&&j.acts[id])||{c:b.getAttribute("data-c"),at:new Date().toISOString()}:0;if(window.LVD)window.LVD.acts=j.acts||window.LVD.acts}
