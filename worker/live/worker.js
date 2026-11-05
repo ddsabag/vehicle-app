@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-54";   // shown in /live/data so the running version is visible
+const BUILD = "live-55";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -2112,10 +2112,13 @@ function pubBoard(C){const P=(C.d.cal&&C.d.cal.pubs)||[],td=C.td,DN=["ראשון
  const CH={facebook:"פייסבוק",instagram:"אינסטגרם",fb_groups:"קבוצות פייסבוק",tiktok:"טיקטוק",magazine:"מגזין",newsletter:"ניוזלטר"};
  const STL={done:["פורסם","ok"],missed:["לא עלה בזמן","bad"],failed:["נכשל","bad"],unsure:["לא ברור אם עלה","warn"],wait:["ממתין שהגרסה תגיע לכולם","warn"]};
  const past=o=>o.d<td||(o.d===td&&o.t<=hmNow);
+ // a post past its time with no outcome yet: the bot runs every quarter hour and GitHub delays it by up to about an hour, so the first 90 minutes are normal; after that it is late, and past 6.5 hours (the bot marks it missed at 6) it did not go out in time
+ const mins=x=>+x.slice(0,2)*60+ +x.slice(3),late=o=>days(o.d)*-1440+mins(hmNow)-mins(o.t);
+ const pend=o=>{const m=late(o);return m<=90?["ממתין לפרסום, עד שעה זה רגיל",""]:m<=390?["באיחור, עוד לא עלה","warn"]:["לא עלה בזמן","bad"]};
  const L=P.filter(o=>{const k=days(o.d);return k>=-1&&k<=14&&(o.src==="auto"||!past(o))});
  const dl=d=>{const k=days(d),x=new Date(d+"T12:00:00Z");return k===0?"היום":k===1?"מחר":k===-1?"אתמול":"יום "+DN[x.getUTCDay()]+" "+x.getUTCDate()+"."+(x.getUTCMonth()+1)};
  const right=o=>{if(o.src==="cowork")return '<small>רץ במחשב שלך</small>';if(o.src==="mag")return '<small>אוטומטי</small>';
-  const parts=o.ch.map(c=>{const s=(o.st||{})[c]||"planned",lab=s==="planned"?(past(o)?["ממתין לפרסום","warn"]:["מתוזמן",""]):STL[s]||["",""],nm=o.link&&o.link[c]?'<a href="'+esc(o.link[c])+'" target="_blank" rel="noopener">'+CH[c]+"</a>":(CH[c]||c);
+  const parts=o.ch.map(c=>{const s=(o.st||{})[c]||"planned",lab=s==="planned"?(past(o)?pend(o):["מתוזמן",""]):STL[s]||["",""],nm=o.link&&o.link[c]?'<a href="'+esc(o.link[c])+'" target="_blank" rel="noopener">'+CH[c]+"</a>":(CH[c]||c);
    return {s:lab[0],c:lab[1],nm}});
   const same=parts.every(x=>x.s===parts[0].s),col=c=>c?' style="color:var(--'+c+')"':"";
   return same?'<small'+col(parts[0].c)+'>'+parts[0].s+(parts.some(x=>/<a /.test(x.nm))?": "+parts.map(x=>x.nm).join(" · "):"")+"</small>":parts.map(x=>'<small'+col(x.c)+'>'+x.nm+": "+x.s+"</small>").join(" ")};
