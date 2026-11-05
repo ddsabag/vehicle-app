@@ -44,8 +44,17 @@ const readAll = (p) => p.evaluate(async () => {
       db.close();
       localStorage.setItem("docExp", JSON.stringify([{ id, plate, cat: "ביטוח", exp: "2027-03-01" }]));
     }, PLATE);
-    // the old app is closed and opened once, so the data is on disk the way a person's is, not only in a running page
+    // the first run (5.11) closed the app right after these writes and lost the localStorage part only (IndexedDB stayed): Chromium writes
+    // localStorage to disk a few seconds later. So: wait as a person would, then close and open the old app once
+    await sleep(15000);
     start(); p = await page();
+    // and measure the gap itself: a key written just before the app is stopped (as Play stops it to update)
+    await p.evaluate(() => localStorage.setItem("probeQuick", String(Date.now())));
+    await sleep(500); start(); p = await page();
+    res.quickKillKept = await p.evaluate(() => !!localStorage.getItem("probeQuick"));
+    await p.evaluate(() => localStorage.setItem("probeSlow", String(Date.now())));
+    await sleep(15000); start(); p = await page();
+    res.slowKillKept = await p.evaluate(() => !!localStorage.getItem("probeSlow"));
     res.before = await readAll(p);
     // the update: Play installs the new version over the old one while the app may be in the background
     sh(`input keyevent KEYCODE_HOME`); await sleep(1500);
