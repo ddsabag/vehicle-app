@@ -3581,6 +3581,22 @@ const DocDB = {
   async plates(){ const db = await this.open(); return new Promise((ok, no) => { const out = new Set(), rq = db.transaction("docs").objectStore("docs").index("plate").openKeyCursor(null, "nextunique"); rq.onsuccess = () => { const c = rq.result; if (c) { out.add(c.key); c.continue(); } else ok(out); }; rq.onerror = () => no(rq.error); }); },
 };
 const docIn = r => r && r.buf && !r.blob ? Object.assign(r, {blob: new Blob([r.buf], {type: r.type})}) : r;
+/* the documents' expiry dates have two copies: the document itself (IndexedDB, the truth) and docExp (localStorage, read by the tiles and
+   "מה הבא" without opening the files). A date chosen seconds before the app was stopped can miss docExp: Android's WebView writes localStorage
+   to disk a moment later (5.11 emulator check, Android 12: a key written 0.5 s before the stop was gone; the document and its date in it stayed).
+   So docExp is rebuilt from the documents once at every start, and the screen is drawn again if it changed */
+async function docExpHeal(){
+  try {
+    if (!window.indexedDB) return;
+    const rows = await DocDB.tx("readonly", st => st.getAll());
+    const want = (rows || []).filter(r => r && r.exp).map(r => ({id: r.id, plate: r.plate, cat: r.cat, exp: r.exp})).sort((a, b) => a.id - b.id);
+    const have = docExpAll().slice().sort((a, b) => a.id - b.id);
+    if (JSON.stringify(want) === JSON.stringify(have)) return;
+    docExpSave(want);
+    if (typeof current !== "undefined" && current) { const y = window.scrollY; renderResult(); window.scrollTo(0, y); } else refreshView();
+  } catch {}
+}
+setTimeout(docExpHeal, 1500);
 async function docPrepare(file){
   if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) return file.size > DOC_MAX_BYTES ? null : {blob: file, type: "application/pdf", name: file.name};
   if (!/^image\//.test(file.type)) return null;
