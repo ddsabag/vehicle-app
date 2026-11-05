@@ -34,7 +34,8 @@
     { "parameterName": "cat", "description": "doc_add: the kind of document added to the car" },
     { "parameterName": "km", "description": "svc_add: the entry carries a mileage (1) or not (0); kind km is a mileage-only entry" },
     { "parameterName": "cost", "description": "svc_add: the entry carries a cost (1) or not (0)" },
-    { "parameterName": "camp", "description": "every web event of a visit that came by a tagged link: its topic (utm_campaign, ?c= of /go/ links) (/live sources, per post)" }
+    { "parameterName": "camp", "description": "every web event of a visit that came by a tagged link: its topic (utm_campaign, ?c= of /go/ links) (/live sources, per post)" },
+    { "parameterName": "line", "description": "js_error (web): the line number where the error was thrown, a number only, never the message (measurement 5.11)" }
   ],
   "keyEvents": [
     { "eventName": "upgrade_open", "countingMethod": "ONCE_PER_EVENT" },
