@@ -59,7 +59,9 @@ async function force(res, tag, when) {
     res.jobsAfterSave = jobs() || "none";
     res.jobsRaw = jobsRaw();
     res.wmDb = sh(`run-as ${PKG} ls -la databases no_backup files 2>&1 | head -20`);
-    res.saveLog = sh(`logcat -d | grep -i -E "WM-|WorkManager|AndroidRuntime|chromium.*Uncaught|pratirechev|SavedCheck|Exception" | grep -v -E "YouTube|Bugle|gms" | tail -40`);
+    res.appLog = sh(`logcat -d --pid=$(pidof ${PKG}) | grep -v -E "chromium|cr_|Choreographer|OpenGL|EGL|gralloc|HWUI|ViewRootImpl|InputMethod|ImeTracker|InsetsController" | tail -40`);
+    res.jobCount = sh(`dumpsys jobscheduler | grep -c ${PKG}`);
+    res.jobLines = sh(`dumpsys jobscheduler | grep ${PKG} | grep -v -E "::|Package|uid" | head -12`);
     res.notificationsEnabled = sh(`cmd notification allowed_listeners >/dev/null; dumpsys notification | grep -c "${PKG}"`);
     await force(res, "run1", "110610302026.00");   // Friday 6.11 10:30 UTC = 12:30 Israel, inside the sending hours
     res.notesAfterRun1 = notes() || "none";
