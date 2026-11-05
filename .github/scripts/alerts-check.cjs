@@ -24,6 +24,7 @@ async function page(timeout = 60000) {
   }
 }
 const jobs = () => sh(`dumpsys jobscheduler | grep -E "JOB #.*${PKG}"`);
+const jobsRaw = () => sh(`dumpsys jobscheduler | grep -i -B2 -A12 "${PKG}" | head -80`);
 const jobId = () => { const m = jobs().match(/JOB #\S+\/(\d+): \S+ \S*SystemJobService/) || jobs().match(/\/(\d+):/); return m && m[1]; };
 const notes = () => sh(`dumpsys notification --noredact | grep -A40 "pkg=${PKG}" | grep -E "android.title=|android.text=" `);
 // the check's first run is set for 10:00 the next morning (UTC on this emulator) and every 8 hours after; WorkManager will not run a periodic
@@ -55,6 +56,8 @@ async function force(res, tag, when) {
     }, PLATE);
     await sleep(15000);   // localStorage and the app's own list reach the disk
     res.jobsAfterSave = jobs() || "none";
+    res.jobsRaw = jobsRaw();
+    res.wmDb = sh(`run-as ${PKG} ls databases`);
     res.notificationsEnabled = sh(`cmd notification allowed_listeners >/dev/null; dumpsys notification | grep -c "${PKG}"`);
     await force(res, "run1", "110610302026.00");   // Friday 6.11 10:30 UTC = 12:30 Israel, inside the sending hours
     res.notesAfterRun1 = notes() || "none";
