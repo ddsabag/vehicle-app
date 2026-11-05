@@ -352,7 +352,8 @@ async function playStats(env, today) {
     const sum = w => { const o = [0, 0, 0, 0, 0, 0]; for (const [d, a] of Object.entries(day)) if (d >= w[0] && d <= w[1]) a.forEach((v, i) => { o[i] += v; });
       return { users: o[0], abroad: o[1], uninstalls: o[2], events: o[3], visitors: o[4], acquisitions: o[5] }; };
     const W = [addDays(last, -6), last], P = [addDays(last, -13), addDays(last, -7)];
-    pst = { ok: true, at: new Date().toISOString(), last, W, P, cur: sum(W), prev: sum(P), total: total || null, store: !!(s0 || s1), active: lastIL ? act[lastIL] : null, activeDay: lastIL || null };
+    const wk = {}; for (let s = gSun(addDays(last, -42)); addDays(s, 6) <= last; s = addDays(s, 7)) { const o = sum([s, addDays(s, 6)]); wk[s] = [o.users, o.uninstalls]; }   // whole weeks, for the live goals
+    pst = { ok: true, at: new Date().toISOString(), last, W, P, cur: sum(W), prev: sum(P), wk, total: total || null, store: !!(s0 || s1), active: lastIL ? act[lastIL] : null, activeDay: lastIL || null };
   } catch (e) { pst = keepGood(pst, String(e.message || e).slice(0, 160)); }
   return pst;
 }
@@ -516,6 +517,307 @@ async function getCal() {
 }
 const cut = (x, k) => String(x || "").slice(0, k);
 const calId = x => /^[a-z0-9-]{1,60}$/.test(x || "") ? x : "";
+// ==== live goals engine (begin) ====
+// Live goals (CEO spec 5.11.2026, reports/live-goals/spec-2026-11-05.html in the project files; Dudu 5.11 18:42 "יעדים חיים ... יתעדכנו לבד").
+// Level from our data (the median of the last 4 whole weeks), slope from the plan, health lines from outside standards. A goal is set once a
+// month (the first Sunday) and judged every Sunday on the week Sunday to Saturday that ended the day before. It rises by itself and never
+// falls by itself: a lower goal is a proposal that waits for Dudu ("מאשר" / "להשאיר" on the page, through lv:act). Pure code, no I/O:
+// gTick(state, rows, today, acts, mode) -> the new state; the Worker keeps it in KV (lv:goals) and .github/scripts/goals-check.mjs runs this
+// same block for its selftest and backtest. No numbers leave the Worker except to the page and the private KPI file.
+const G_START = "2026-11-08", G_LAUNCH = "2026-10-18", G_OLD_UNTIL = "2026-11-22", G_GATE = "2027-03-31", G_MAR = "2027-03-31", G_OCT = "2027-10-31";
+// the plan's weekly lines (reports/marketing-goals-2026-10.json, the same numbers as GOALS in the page): [cons, base, opt] where the line
+// starts, at the end of March 2027 and at the end of October 2027. The slope of a week is the plan's average weekly growth over its part of
+// the year (start to 31.3, then 31.3 to 31.10), so the month-to-month wiggles of the plan do not make one week easy and the next one steep.
+const G_PLAN = {
+  weekly_checks: { from: ["2026-10-25", [170, 170, 170]], mar: [320, 470, 800], oct: [740, 1430, 3540] },
+  installs_week: { from: ["2026-11-30", [30, 40, 50]], mar: [60, 90, 155], oct: [105, 210, 525] },
+  google_clicks_week: { from: ["2026-11-30", [4, 5, 6]], mar: [22, 33, 57], oct: [95, 190, 475] } };
+const G_BAND = ["cons", "base", "opt"], G_BANDN = { cons: "הזהיר", base: "הבסיס", opt: "הגבוה" };
+// t: growth (a weekly count), ratio (a share of something, x of n), line (a fixed decision line), health (a fixed outside bar), track (no goal)
+// lens 1: one of the 8 judged on the CEO lens. lag 1: judged a week late, once the data is whole (day 1 and day 7 returns, Search Console)
+const G_REC = [
+  { k: "checks", t: "growth", lens: 1, plan: "weekly_checks", u: "n", owner: "שיווק", name: "בדיקות רכב בשבוע", src: "התוכנית, 5% עד 7% בשבוע הוא קצב טוב לחברה צעירה (Paul Graham, Startup = Growth)" },
+  { k: "installs", t: "growth", lens: 1, plan: "installs_week", u: "n", owner: "שיווק", name: "התקנות בשבוע (ישראל)", src: "צורת התוכנית" },
+  { k: "d1", t: "ratio", lens: 1, lag: 1, bench: 22.5, u: "pct", owner: "מוצר", name: "חזרה למחרת, משתמשים חדשים", src: "אנדרואיד: 20% עד 25% (AppsFlyer 2025, Adjust, Phiture); האמצע, 22.5%" },
+  { k: "save1", t: "ratio", lens: 1, plus: 1, u: "pct", owner: "מוצר", name: "שמירת רכב ביום ההתקנה", src: "אין רף מקובל: השיא שלנו ועוד נקודה בחודש" },
+  { k: "ret7x", t: "line", lens: 1, lag: 1, line: 3, u: "x", owner: "אסטרטגיה", name: "חזרה תוך 7 ימים: שומרים מול לא שומרים", src: "קו החלטה קבוע: פי 3 (תיק הרכב, אייפון)" },
+  { k: "share", t: "ratio", lens: 1, bench: 3, cnt: 1, u: "per100", owner: "מוצר", name: "שיתופים ל-100 בדיקות", src: "התוכנית: 3 ל-100 בדיקות" },
+  { k: "google", t: "growth", lens: 1, lag: 1, plan: "google_clicks_week", u: "n", owner: "חיפוש", name: "קליקים מגוגל בשבוע", src: "צורת תוכנית החיפוש" },
+  { k: "fail", t: "health", lens: 1, warn: 2, bad: 3, lower: 1, min: 100, u: "pct", owner: "נתונים", name: "בדיקות שנכשלו", src: "הכלל שלנו: עד 2%; התרחיש הזהיר של התוכנית: 3%" },
+  { k: "crash", t: "health", warn: 1, bad: 1.09, lower: 1, min: 50, u: "pct", owner: "מוצר", name: "קריסות באפליקציה", src: "Google Play, Android vitals: 1.09%" },
+  { k: "anr", t: "health", warn: .43, bad: .47, lower: 1, min: 50, u: "pct", owner: "מוצר", name: "האפליקציה לא מגיבה (ANR)", src: "Google Play, Android vitals: 0.47%" },
+  { k: "lcp", t: "health", warn: 2.5, bad: 4, lower: 1, u: "s", owner: "חיפוש", name: "מהירות האתר (LCP)", src: "Core Web Vitals של גוגל: עד 2.5 שניות טוב, מעל 4 גרוע" },
+  { k: "weberr", t: "health", warn: 1.5, bad: 3, lower: 1, cnt: 1, min: 100, u: "per100", owner: "מוצר", name: "שגיאות באתר ל-100 בדיקות", src: "הרמה שלנו לפני 1.38: 1.5" },
+  { k: "slow", t: "health", warn: 10, bad: null, lower: 1, min: 100, u: "pct", owner: "נתונים", name: "בדיקות איטיות (מעל 5 שניות)", src: "הכלל שלנו: תשומת לב מעל 10%. בצד המקור, בלי ידית שלנו, לכן לעולם לא אדום" },
+  { k: "rating", t: "health", warn: 4.5, bad: 4.5, lower: 0, fixed: 1, u: "stars", owner: "מוצר", name: "דירוג ב-Play", src: "השער של 31.3: לפחות 4.5" },
+  { k: "uninst", t: "track", u: "pct", owner: "מוצר", name: "הסרות מתוך התקנות", src: "מקבל יעד אחרי 4 שבועות של נתוני Play" },
+  { k: "file", t: "track", u: "pct", owner: "מוצר", name: "\"תיק חי\" מתוך ההתקנות", src: "קו בסיס מ-22.11, יעד אחרי 4 שבועות" },
+  { k: "leads", t: "track", u: "n", owner: "אסטרטגיה", name: "פניות עסקיות", src: "יעד רק כשמתחילה פנייה לסוחרים" },
+  { k: "pages", t: "track", u: "n", owner: "חיפוש", name: "עמודים באינדקס של גוגל", src: "קו התוכנית, עולה בלבד" }];
+const G_BY = Object.fromEntries(G_REC.map(r => [r.k, r]));
+const gAdd = (d, k) => new Date(Date.parse(d + "T12:00:00Z") + k * 864e5).toISOString().slice(0, 10);
+const gDays = (a, b) => Math.round((Date.parse(b + "T12:00:00Z") - Date.parse(a + "T12:00:00Z")) / 864e5);
+const gSun = d => gAdd(d, -new Date(d + "T12:00:00Z").getUTCDay());   // the Sunday that starts the week of day d
+const gFirstSun = d => Number(d.slice(8)) <= 7;                        // a Sunday in the first 7 days of its month starts a goal month
+const gMed = a => { const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length ? s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2 : null; };
+const gR = (x, k = 1) => x == null || !isFinite(x) ? null : Math.round(x * 10 ** k) / 10 ** k;
+// the plan's weekly growth on the week that ends on day e, for a band
+function gRate(plan, band, e) {
+  const P = G_PLAN[plan], b = Math.max(0, G_BAND.indexOf(band));
+  if (e <= G_MAR) return Math.pow(P.mar[b] / P.from[1][b], 7 / gDays(P.from[0], G_MAR));
+  return Math.pow(P.oct[b] / P.mar[b], 7 / gDays(G_MAR, G_OCT));
+}
+// 90% intervals: Wilson for a share, exact-ish Poisson (Wilson-Hilferty) for a count
+const GZ = 1.645;
+function gWilson(x, n) { if (!n) return [null, null]; const p = x / n, d = 1 + GZ * GZ / n, c = p + GZ * GZ / (2 * n), h = GZ * Math.sqrt(p * (1 - p) / n + GZ * GZ / (4 * n * n)); return [(c - h) / d, (c + h) / d]; }
+function gPois(x) { const lo = x <= 0 ? 0 : x * Math.pow(1 - 1 / (9 * x) - GZ / (3 * Math.sqrt(x)), 3), y = x + 1, hi = y * Math.pow(1 - 1 / (9 * y) + GZ / (3 * Math.sqrt(y)), 3); return [lo, hi]; }
+// a metric's value in a week's row: { v } for a plain number, { x, n } for a share (percent, or per 100 for counts), the ratio of two shares for a line
+function gVal(r, o) {
+  if (!o) return null;
+  if (r.t === "line") return o.ns > 0 && o.nn > 0 && o.xn > 0 ? (o.xs / o.ns) / (o.xn / o.nn) : null;
+  if (o.n != null) return o.n > 0 ? 100 * o.x / o.n : null;
+  return o.v == null || !isFinite(o.v) ? null : o.v;
+}
+// the weeks a metric can be judged on, oldest first: [week, row] with a value, up to week w
+const gHist = (st, r, w) => Object.keys(st.rows).sort().filter(x => x <= w && x >= G_LAUNCH && gVal(r, st.rows[x][r.k]) != null).map(x => [x, st.rows[x][r.k]]);
+// a share pooled over the last k weeks ending at w (each part summed)
+function gPool(st, r, w, k) { const H = gHist(st, r, w).filter(([x]) => gDays(x, w) < 7 * k); const o = {}; for (const [, v] of H) for (const f of ["x", "n", "xs", "ns", "xn", "nn"]) if (v[f] != null) o[f] = (o[f] || 0) + v[f]; return { o, weeks: H.map(([x]) => x) }; }
+// a growth goal's target for week w (its Sunday): the anchor times the plan's weekly growth for every week since the anchor's week
+function gTarget(g, r, w) {
+  if (!g || g.a == null || !g.aw || w <= g.aw) return null;
+  if (g.flat != null) return g.flat;
+  let t = g.a; for (let x = gAdd(g.aw, 7); x <= w; x = gAdd(x, 7)) t *= gRate(r.plan, g.b, gAdd(x, 6));
+  return t;
+}
+// the week a metric judges on a Sunday J: the week that ended the day before, or the one before it for a lagged metric
+const gWeekOf = (r, J) => gAdd(J, -7 - 7 * (r.lag || 0));
+function gLog(st, J, k, kind, txt) { st.log.unshift({ at: J, k, kind, txt }); st.log = st.log.slice(0, 120); }
+// judge one metric for its week, on Sunday J
+function gJudge(st, r, J) {
+  const w = gWeekOf(r, J), row = st.rows[w], g = st.g[r.k] ||= {};
+  if (w < G_LAUNCH || !row || gVal(r, row[r.k]) == null) return;
+  let v = gVal(r, row[r.k]), tgt = null, lo = null, hi = null, s = "early", pooled = 0;
+  if (r.t === "growth") {
+    tgt = gTarget(g, r, w);
+    if (tgt != null) { [lo, hi] = gPois(v); s = v >= tgt ? "ok" : v >= .9 * tgt || hi >= tgt ? "warn" : "bad"; } else s = "cal";
+  } else if (r.t === "ratio" || r.t === "line") {
+    let o = row[r.k];
+    const size = r.t === "line" ? (o.ns || 0) + (o.nn || 0) : o.n || 0;
+    if (size < 100) { o = gPool(st, r, w, 4).o; pooled = 1; v = gVal(r, o); }
+    tgt = r.t === "line" ? r.line : g.T != null && g.ps && w >= g.ps ? g.T : null;
+    const big = r.t === "line" ? (o.ns || 0) >= 10 && (o.nn || 0) >= 10 && o.xs > 0 && o.xn > 0 : (o.n || 0) >= 30;
+    if (v == null || !big) s = "early";
+    else {
+      if (r.t === "line") { const se = Math.sqrt(1 / o.xs - 1 / o.ns + 1 / o.xn - 1 / o.nn); lo = v * Math.exp(-GZ * se); hi = v * Math.exp(GZ * se); }
+      else if (r.cnt) { const [a, b] = gPois(o.x); lo = 100 * a / o.n; hi = 100 * b / o.n; }
+      else { const [a, b] = gWilson(o.x, o.n); lo = 100 * a; hi = 100 * b; }
+      s = tgt == null ? "cal" : v >= tgt ? "ok" : hi >= tgt ? "warn" : "bad";
+    }
+  } else if (r.t === "health") {
+    const o = row[r.k], warn = g.warn ?? r.warn;
+    if (o.n != null && o.n < (r.min || 0)) s = "early";
+    else {
+      if (o.n != null) { if (r.cnt) { const [a, b] = gPois(o.x); lo = 100 * a / o.n; hi = 100 * b / o.n; } else { const [a, b] = gWilson(o.x, o.n); lo = 100 * a; hi = 100 * b; } }
+      if (r.lower) s = v <= warn ? "ok" : r.bad == null || v <= r.bad ? "warn" : lo != null && lo <= r.bad ? "warn" : "bad";
+      else s = v >= warn ? "ok" : "bad";
+    }
+    tgt = warn;
+  } else return;
+  (g.j ||= {})[w] = [gR(v, 2), gR(tgt, 2), s, gR(lo, 2), gR(hi, 2), pooled];
+}
+// after judging: a growth goal that was green 3 weeks of the last 4 moves up a band at the next month; 3 red of 4 tells the owner's thread
+function gLearn(st, r, J) {
+  const g = st.g[r.k]; if (!g || !g.j) return;
+  const last = Object.keys(g.j).sort().slice(-4).map(w => g.j[w][2]), ok = last.filter(s => s === "ok").length, bad = last.filter(s => s === "bad").length;
+  if (r.t === "growth" && last.length === 4 && ok >= 3 && g.b !== "opt" && !g.nb) { g.nb = G_BAND[G_BAND.indexOf(g.b) + 1]; gLog(st, J, r.k, "band", "3 מתוך 4 השבועות האחרונים בירוק: מהחודש הבא השיפוע עולה לתרחיש " + G_BANDN[g.nb] + " של התוכנית"); }
+  const red = last.length === 4 && bad >= 3;
+  if (red && !g.red) { g.red = J; gLog(st, J, r.k, "red", "3 מתוך 4 השבועות האחרונים באדום: השרשור של " + r.owner + " מתבקש לבדוק אם הבעיה בתוכנית או ביעד"); }
+  if (!red && g.red) delete g.red;
+}
+// health lines tighten by themselves: 8 judged weeks in a row with half the bar to spare move the warning line halfway to where we are; never back
+function gTighten(st, r, J) {
+  const g = st.g[r.k]; if (!g || !g.j || r.fixed || !r.lower) return;
+  const bar = r.bad ?? r.warn, warn = g.warn ?? r.warn, ws = Object.keys(g.j).sort().filter(w => !g.tw || w > g.tw).slice(-8), vs = ws.map(w => g.j[w]).filter(x => x[2] !== "early").map(x => x[0]);
+  if (ws.length < 8 || vs.length < 8 || vs.some(v => v > bar / 2)) return;
+  const nw = gR((warn + gMed(vs)) / 2, 2); if (!(nw < warn)) return;
+  g.warn = nw; g.tw = ws[ws.length - 1];
+  gLog(st, J, r.k, "tight", "8 שבועות עם מרווח של חצי מהרף: קו האזהרה זז חצי דרך לכיוון המצב בפועל, מ-" + warn + " ל-" + nw);
+}
+// a new month (or the first live Sunday): growth anchors and ratio targets from the weeks so far
+function gMonth(st, r, J) {
+  const g = st.g[r.k] ||= {}, w = gWeekOf(r, J), first = g.ps == null;
+  if (r.t === "growth") {
+    const H = gHist(st, r, w).slice(-4); if (H.length < 2) return;
+    const vs = H.map(([, o]) => gVal(r, o)), med = gMed(vs), prev = g.a;
+    let a = med, why = "חציון של " + H.length + " השבועות האחרונים";
+    if (!first && prev != null) {
+      if (med < .9 * prev) { a = .9 * prev; why = "החציון נמוך מ-90% מהעוגן הקודם, לכן היעד לא יורד לבד: העוגן נשאר על 90%"; gPropose(st, r, J, a, med, "4 שבועות מתחת לקצב: החציון של השבועות האחרונים נמוך ביותר מ-10% מהעוגן הקודם"); }
+      else if (med > 1.5 * prev) { a = 1.5 * prev; why = "החציון גבוה מפי 1.5 מהעוגן הקודם: העוגן עולה עד פי 1.5 בחודש אחד, והשאר בחודש הבא"; }
+    }
+    if (g.nb) { g.b = g.nb; delete g.nb; } else g.b ||= "base";
+    Object.assign(g, { a, aw: w, aws: H.map(([x, o]) => [x, gR(gVal(r, o), 1)]), med: gR(med, 1), ps: J, why, flat: null });
+    gLog(st, J, r.k, first ? "set" : "month", "עוגן " + gR(a, 0) + " (" + why + "), שיפוע " + gR((gRate(r.plan, g.b, gAdd(J, 6)) - 1) * 100, 1) + "% בשבוע מהתרחיש " + G_BANDN[g.b] + " של התוכנית");
+  } else if (r.t === "ratio") {
+    const cur = gPool(st, r, w, 4); if (cur.weeks.length < 2) return;
+    const cv = gVal(r, cur.o), H = gHist(st, r, w);
+    let best = g.best ?? null;
+    for (let i = 0; i < H.length; i++) { const ws = H.slice(Math.max(0, i - 3), i + 1); if (ws.length < Math.min(4, H.length)) continue; const p = gPool(st, r, ws[ws.length - 1][0], 4).o, v = gVal(r, p); if (v != null && (best == null || v > best)) best = v; }
+    let T = r.bench != null ? (cv >= r.bench ? best : Math.max(best, cv + (r.bench - cv) / 4)) : best + (r.plus || 0), why = r.bench != null ? (cv >= r.bench ? "הגענו לרף: היעד הוא השיא שהוחזק" : "הגבוה מבין השיא שהוחזק לבין הנוכחי ועוד רבע מהפער לרף") : "השיא שהוחזק ועוד " + r.plus + " נקודה";
+    const prevT = g.T;
+    if (!first && prevT != null && T < prevT) { if (T < .95 * prevT) gPropose(st, r, J, prevT, T, "4 השבועות האחרונים נמוכים מהיעד הקודם"); T = prevT; why = "היעד לא יורד לבד: נשאר כמו בחודש הקודם"; }
+    Object.assign(g, { T, best, cur: gR(cv, 2), cws: cur.weeks, ps: J, why });
+    gLog(st, J, r.k, first ? "set" : "month", "יעד " + gR(T, 2) + " (" + why + "; הנוכחי " + gR(cv, 2) + (r.bench != null ? ", הרף " + r.bench : "") + ")");
+  }
+}
+function gPropose(st, r, J, from, to, why) {
+  const id = "goal-" + r.k + "-" + J.replace(/-/g, "");
+  if (st.props.some(p => p.id === id)) return;
+  st.props.unshift({ id, k: r.k, at: J, from: gR(from, 2), to: gR(to, 2), why, st: "open" }); st.props = st.props.slice(0, 40);
+}
+// Dudu's answers to proposals (lv:act { id: { c } }): "מאשר" lowers the goal to the proposed value, "להשאיר" keeps it; both logged
+function gAnswers(st, acts, today) {
+  for (const p of st.props) {
+    if (p.st !== "open" || !acts || !acts[p.id]) continue;
+    const c = String(acts[p.id].c || ""), r = G_BY[p.k], g = st.g[p.k] || {};
+    if (/מאשר|אשר|כן/.test(c)) { if (r.t === "growth") { g.a = p.to; g.why = "הורד באישור שלך"; } else g.T = p.to; p.st = "yes"; gLog(st, today, p.k, "approved", "אישרת להוריד את היעד ל-" + p.to); }
+    else { p.st = "no"; gLog(st, today, p.k, "kept", "בחרת להשאיר את היעד"); }
+    p.ans = today;
+  }
+}
+// a forecast to the 31.3 gate: at the pace of the last 4 weeks (a straight line on the log scale), where the weekly count gets by then
+function gForecast(st, r, J) {
+  const H = gHist(st, r, gWeekOf(r, J)).slice(-4); if (H.length < 3) return null;
+  const ys = H.map(([, o]) => Math.log(Math.max(1, gVal(r, o)))), xs = H.map((_, i) => i), mx = gMed(xs) === null ? 0 : xs.reduce((a, b) => a + b, 0) / xs.length, my = ys.reduce((a, b) => a + b, 0) / ys.length;
+  const sl = xs.reduce((a, x, i) => a + (x - mx) * (ys[i] - my), 0) / xs.reduce((a, x) => a + (x - mx) ** 2, 0), last = H[H.length - 1][0], k = Math.max(0, Math.floor(gDays(last, gSun(G_GATE)) / 7));
+  return { pace: gR((Math.exp(sl) - 1) * 100, 1), x: Math.round(Math.exp(my + sl * (xs.length - 1 - mx + k))), from: last, weeks: k };
+}
+// one step: every Sunday from the last one done to today (a Sunday counts once the caller says its week is whole). mode "fixed" freezes the
+// goals (no new anchors, no band, no tightening; growth targets stay where they are) while judging goes on
+function gTick(prev, rows, today, acts, mode) {
+  const st = prev && prev.v === 1 ? JSON.parse(JSON.stringify(prev)) : { v: 1, mode: "live", rows: {}, g: {}, props: [], log: [], last: null };
+  for (const [w, o] of Object.entries(rows || {})) st.rows[w] = { ...(st.rows[w] || {}), ...o };
+  const m = mode === "fixed" ? "fixed" : "live";
+  if (m !== st.mode) { gLog(st, today, "", "mode", m === "fixed" ? "יעדים קבועים: היעדים הוקפאו על מה שהיה בתוקף" : "היעדים חוזרים להתעדכן לבד"); if (m === "fixed") for (const r of G_REC) if (r.t === "growth" && st.g[r.k]) st.g[r.k].flat = gR(gTarget(st.g[r.k], r, gSun(today)), 1); else if (r.t === "growth" && st.g[r.k]) st.g[r.k].flat = null; st.mode = m; }
+  if (m === "live") for (const r of G_REC) if (r.t === "growth" && st.g[r.k] && st.g[r.k].flat != null) st.g[r.k].flat = null;
+  gAnswers(st, acts, today);
+  for (let J = st.last ? gAdd(st.last, 7) : G_START; J <= today; J = gAdd(J, 7)) {
+    for (const r of G_REC) gJudge(st, r, J);
+    for (const r of G_REC) gLearn(st, r, J);
+    if (st.mode === "live") for (const r of G_REC) if (r.t === "health") gTighten(st, r, J);
+    if (J === G_START || (st.mode === "live" && gFirstSun(J))) for (const r of G_REC) gMonth(st, r, J);
+    st.fc = { checks: gForecast(st, G_BY.checks, J), installs: gForecast(st, G_BY.installs, J) };
+    st.last = J;
+  }
+  // rows older than a year are dropped (the judged history stays with each goal)
+  for (const w of Object.keys(st.rows)) if (gDays(w, today) > 400) delete st.rows[w];
+  return st;
+}
+// what the page gets: per goal its latest judged week, this week's target, the recipe and the last changes; open proposals; the log
+function gView(st, today) {
+  if (!st) return null;
+  const cw = gSun(today), out = { mode: st.mode, last: st.last, start: G_START, oldUntil: G_OLD_UNTIL, gate: G_GATE, fc: st.fc || {}, props: st.props.filter(p => p.st === "open").map(p => ({ ...p, name: G_BY[p.k].name, u: G_BY[p.k].u })), log: st.log.slice(0, 40), items: [] };
+  for (const r of G_REC) {
+    const g = st.g[r.k] || {}, js = Object.keys(g.j || {}).sort(), lw = js[js.length - 1] || null, lj = lw ? g.j[lw] : null;
+    const now = r.t === "growth" ? gR(gTarget(g, r, cw), 1) : r.t === "ratio" ? gR(g.ps ? g.T : null, 2) : r.t === "line" ? r.line : r.t === "health" ? (g.warn ?? r.warn) : null;
+    out.items.push({ k: r.k, t: r.t, lens: r.lens || 0, lag: r.lag || 0, u: r.u, name: r.name, owner: r.owner, src: r.src, bad: r.bad ?? null, lower: r.lower ?? null,
+      wk: lw, v: lj ? lj[0] : null, tgt: lj ? lj[1] : null, s: lj ? lj[2] : r.t === "track" ? "ref" : "early", lo: lj ? lj[3] : null, hi: lj ? lj[4] : null, pooled: lj ? lj[5] : 0,
+      now, cw, a: g.a != null ? gR(g.a, 1) : null, aw: g.aw || null, aws: g.aws || null, med: g.med ?? null, b: g.b || null, nb: g.nb || null, rate: r.plan && g.b ? gR((gRate(r.plan, g.b, gAdd(cw, 6)) - 1) * 100, 1) : null,
+      T: g.T != null ? gR(g.T, 2) : null, best: g.best != null ? gR(g.best, 2) : null, cur: g.cur ?? null, bench: r.bench ?? null, why: g.why || "", ps: g.ps || null, red: g.red || null,
+      hist: js.slice(-8).map(w => [w, ...g.j[w].slice(0, 3)]) });
+  }
+  return out;
+}
+// ==== live goals engine (end) ====
+// ---- live goals: the weeks' numbers and the state in KV (lv:goals). The engine above is pure; this part reads GA4, Search Console and the
+// Play reports, once a week: after 09:00 Israel on Sunday (the weekly report's own hour), the week Sunday to Saturday that ended the day
+// before is whole. A run that fails keeps the last state, says why (no numbers) in lv:goals:err and tries again after 30 minutes.
+const GOALS_KEY = "lv:goals", GOALS_ERR = "lv:goals:err";
+async function goalsGet(env) { try { return (env.ALERTS && await env.ALERTS.get(GOALS_KEY, "json")) || null; } catch { return null; } }
+const goalsMode = (env, acts) => String(env.GOALS_MODE || "").trim() === "fixed" ? "fixed" : acts && acts["goals-mode"] && /קבוע/.test(acts["goals-mode"].c || "") ? "fixed" : "live";
+// { Sunday: { metric: { v } | { x, n } | { xs, ns, xn, nn } } } for the whole weeks from `from` (a Sunday) to `to` (a Sunday, its week whole)
+async function goalRows(env, from, to, need, endDay) {
+  const sat = endDay || gAdd(to, 6), rows = {}, at = w => rows[w] ||= {}, wk = d => gSun(d), dr = { startDate: from, endDate: sat };
+  const ev = vs => ({ filter: { fieldName: "eventName", inListFilter: { values: vs } } }), add = (o, k, f, c) => { (o[k] ||= {})[f] = (o[k][f] || 0) + c; };
+  const errs = [], safe = (p, k) => p.catch(e => { errs.push(k + ": " + String(e.message || e).slice(0, 120)); return null; });
+  await googleToken(env).catch(() => {});
+  const [evs, kinds, durs, inst, coh, gsc] = await Promise.all([
+    safe(report(env, { dateRanges: [dr], dimensions: [{ name: "date" }, { name: "platform" }, { name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: withReal(ev(["car_lookup", "share", "lookup_failed", "js_error", "b2b_lead_submit"])), limit: 5000 }), "events"),
+    safe(report(env, { dateRanges: [dr], dimensions: [{ name: "date" }, { name: "customEvent:kind" }], metrics: [{ name: "eventCount" }], dimensionFilter: withReal(ev(["lookup_failed"])), limit: 5000 }), "failures"),
+    safe(report(env, { dateRanges: [dr], dimensions: [{ name: "date" }, { name: "customEvent:dur" }], metrics: [{ name: "eventCount" }], dimensionFilter: withReal(ev(["car_lookup"])), limit: 5000 }), "durations"),
+    safe(report(env, { dateRanges: [dr], dimensions: [{ name: "date" }], metrics: [{ name: "newUsers" }], dimensionFilter: APP, limit: 1000 }), "installs"),
+    safe(report(env, { dateRanges: [dr], dimensions: [{ name: "date" }, { name: "eventName" }, { name: "appVersion" }, { name: "customEvent:n" }, { name: "customEvent:kind" }], metrics: [{ name: "eventCount" }],
+      dimensionFilter: { andGroup: { expressions: [APP, ev(["first_open", "first_save", "app_return"])] } }, limit: 10000 }), "installs cohort"),
+    safe((async () => { const t = await googleToken(env), r = await fetch(`https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(SC)}/searchAnalytics/query`, { method: "POST", headers: { authorization: "Bearer " + t, "content-type": "application/json" }, body: JSON.stringify({ startDate: from, endDate: sat, dimensions: ["date"], rowLimit: 500 }) });
+      if (!r.ok) throw new Error("search console " + r.status); return (await r.json()).rows || []; })(), "search console")]);
+  const day = r => iso8(r.dimensionValues[0].value), num = r => Number(r.metricValues[0].value);
+  if (evs) for (const r of evs) { const [, pf, nm] = r.dimensionValues.map(x => x.value), w = wk(day(r)), o = at(w), c = num(r);
+    if (nm === "car_lookup") { add(o, "checks", "v", c); add(o, "share", "n", c); add(o, "fail", "n", c); if (pf === "web") add(o, "weberr", "n", c); }
+    else if (nm === "share") add(o, "share", "x", c); else if (nm === "lookup_failed") add(o, "fail", "n", c); else if (nm === "js_error" && pf === "web") add(o, "weberr", "x", c); else if (nm === "b2b_lead_submit") add(o, "leads", "v", c); }
+  if (evs) for (const w of Object.keys(rows)) { const o = rows[w]; for (const k of ["share", "weberr", "fail"]) if (o[k]) o[k].x ||= 0; o.leads ||= { v: 0 }; }
+  if (kinds) for (const r of kinds) { const k = r.dimensionValues[1].value; if (["source_down", "offline", "net_err", "js_err"].includes(k)) add(at(wk(day(r))), "fail", "x", num(r)); }
+  if (durs) for (const r of durs) { const b = r.dimensionValues[1].value, o = at(wk(day(r))); if (/^(lt2|2to5|5to10|gt10)$/.test(b)) { add(o, "slow", "n", num(r)); add(o, "slow", "x", b === "5to10" || b === "gt10" ? num(r) : 0); } }
+  if (inst) for (const r of inst) add(at(wk(day(r))), "installs", "v", num(r));
+  if (gsc) for (const r of gsc) add(at(wk(r.keys[0])), "google", "v", r.clicks || 0);
+  // installs by install day (as collectWeekly's "coh"): new installs from 1.36, saved a car that day, came back on days 1-7 having saved, having not
+  if (coh) { const c = {};
+    for (const r of coh) { const [dt, nm, ver, nv, kind] = r.dimensionValues.map(x => x.value), n = num(r), md = /^\d\d-\d\d$/.test(kind || "");
+      const y = md && kind > iso8(dt).slice(5) ? String(Number(dt.slice(0, 4)) - 1) : dt.slice(0, 4), d = nm === "first_open" ? iso8(dt) : md ? y + "-" + kind : nm === "first_save" ? iso8(dt) : gAdd(iso8(dt), -1), o = c[d] ||= [0, 0, 0, 0];
+      if (nm === "first_open") { if (v136(ver)) o[0] += n; } else if (nm === "first_save") o[1] += n; else o[nv === "1" ? 2 : 3] += n; }
+    for (const [d, o] of Object.entries(c)) { if (d < from || d > sat) continue; const r = at(wk(d)); add(r, "save1", "n", o[0]); add(r, "save1", "x", o[1]);
+      add(r, "ret7x", "ns", o[1]); add(r, "ret7x", "xs", o[2]); add(r, "ret7x", "nn", Math.max(0, o[0] - o[1])); add(r, "ret7x", "xn", o[3]); } }
+  // per week (users do not add up across days): app devices and those that crashed; day-1 return from GA4's own cohorts (first session day)
+  const weeks = []; for (let w = from; w <= to; w = gAdd(w, 7)) weeks.push(w);
+  for (let i = 0; i < weeks.length; i += 4) { const part = weeks.slice(i, i + 4), drs = part.map(w => ({ startDate: w, endDate: gAdd(w, 6) }));
+    const [tot, cr] = await Promise.all([safe(report(env, { dateRanges: drs, metrics: [{ name: "totalUsers" }], dimensionFilter: APP }), "app devices"),
+      safe(report(env, { dateRanges: drs, dimensions: [{ name: "eventName" }], metrics: [{ name: "totalUsers" }], dimensionFilter: { andGroup: { expressions: [APP, ev(["app_exception"])] } } }), "crashes")]);
+    const ri = r => { const v = r.dimensionValues && r.dimensionValues.length ? r.dimensionValues[r.dimensionValues.length - 1].value : "date_range_0"; return /^date_range_\d$/.test(v) ? Number(v.slice(-1)) : 0; };
+    if (tot) { for (const w of part) at(w).crash = { x: 0, n: 0 }; for (const r of tot) at(part[ri(r)]).crash.n += num(r); if (cr) for (const r of cr) at(part[ri(r)]).crash.x += num(r); else for (const w of part) delete at(w).crash; } }
+  for (const w of weeks) { if (need && !need.includes(w)) continue;
+    const days = []; for (let k = 0; k < 7; k++) days.push(gAdd(w, k));
+    const c = await safe(report(env, { dimensions: [{ name: "cohort" }, { name: "cohortNthDay" }], metrics: [{ name: "cohortActiveUsers" }, { name: "cohortTotalUsers" }], dimensionFilter: APP,
+      cohortSpec: { cohorts: days.map(d => ({ name: d, dimension: "firstSessionDate", dateRange: { startDate: d, endDate: d } })), cohortsRange: { granularity: "DAILY", startOffset: 0, endOffset: 1 } } }), "day-1 return");
+    if (c) { const o = { x: 0, n: 0 }; for (const r of c) { const nth = r.dimensionValues[1].value; if (nth === "0000") o.n += Number(r.metricValues[1].value); else if (nth === "0001") o.x += Number(r.metricValues[0].value); } at(w).d1 = o; } }
+  return { rows, errs };
+}
+// the week's outside numbers that are a level, not a count: the store rating and Google's indexed pages, written on the week just closed;
+// Play's own uninstalls for whole weeks it has posted
+async function goalSide(env, today, rows, to) {
+  const [rat, pls, m] = await Promise.all([playRatings(env, today).catch(() => null), playStats(env, today).catch(() => null), getMetrics().catch(() => null)]);
+  const o = rows[to] ||= {};
+  if (rat && rat.ok && rat.avg != null) o.rating = { v: rat.avg, c: rat.n };
+  const ix = m && m.index; if (ix && ix.indexed != null) o.pages = { v: ix.indexed };
+  if (pls && pls.ok && pls.wk) for (const [w, a] of Object.entries(pls.wk)) if (rows[w] || w <= to) (rows[w] ||= {}).uninst = { x: a[1], n: a[0] };
+}
+let goalsBusy = false;
+// week true (the scheduled run): once a week, the rows of the last 5 whole weeks (older ones stay as they were), then the engine. Any run,
+// the page's included: a proposal answered or the switch moved is applied at once (no Google call, only KV)
+async function goalsTick(env, opts = {}) {
+  if (!env.ALERTS || goalsBusy) return null;
+  const now = Date.now(), today = ilDay(now), J = gSun(today), hour = ilHour(now);
+  const [prev, acts, err] = await Promise.all([goalsGet(env), actsGet(env), env.ALERTS.get(GOALS_ERR, "json").catch(() => null)]);
+  const mode = goalsMode(env, acts), weekDue = !!opts.week && J >= G_START && (!prev || !prev.last || prev.last < J) && (today > J || hour >= 9);
+  const answered = prev && prev.props && prev.props.some(p => p.st === "open" && acts[p.id]), switched = prev && prev.mode !== mode;
+  if (!weekDue && !answered && !switched) return prev;
+  if (weekDue && err && now - Date.parse(err.at || 0) < 1800e3) return prev;
+  goalsBusy = true;
+  try {
+    let rows = {};
+    if (weekDue) {
+      const to = gAdd(J, -7), from = [gAdd(to, -28), G_LAUNCH].sort().pop(), have = prev ? prev.rows || {} : {};
+      // day-1 cohorts only where they are not kept yet, or still settling (the last two weeks)
+      const need = []; for (let w = from; w <= to; w = gAdd(w, 7)) if (!have[w] || !have[w].d1 || gDays(w, to) < 14) need.push(w);
+      const got = await goalRows(env, prev ? from : G_LAUNCH, to, prev ? need : null);
+      if (got.errs.length) { await env.ALERTS.put(GOALS_ERR, JSON.stringify({ at: new Date(now).toISOString(), why: got.errs.join("; ").replace(/\d{3,}/g, "#").slice(0, 300) })).catch(() => {}); goalsBusy = false; return prev; }
+      rows = got.rows; await goalSide(env, today, rows, to);
+    }
+    const st = gTick(prev, rows, weekDue ? J : (prev && prev.last) || today, acts, mode);
+    if (!weekDue && prev) st.last = prev.last;   // an answer between Sundays changes no week
+    st.at = new Date(now).toISOString();
+    await env.ALERTS.put(GOALS_KEY, JSON.stringify(st));
+    if (err) await env.ALERTS.delete(GOALS_ERR).catch(() => {});
+    goalsBusy = false; return st;
+  } catch (e) { goalsBusy = false; await env.ALERTS.put(GOALS_ERR, JSON.stringify({ at: new Date(now).toISOString(), why: String(e.message || e).replace(/\d{3,}/g, "#").slice(0, 300) })).catch(() => {}); return prev; }
+}
 // "בוצע" marks Dudu sets on the page (POST /live/cal, behind the same Access check): Workers KV luchit-alerts, key lv:cal:done = { id: time }.
 // Live watch copies the ids to metrics.json (calDone) so the measurement thread's morning refresh takes them off the calendar for good
 const CAL_KEY = "lv:cal:done";
@@ -1325,11 +1627,17 @@ hb.addEventListener("click",()=>{const on=!document.body.classList.contains("hp"
 // /live/data answers within 25 s whatever an outside call does: on time = fresh data, kept as the last good answer (this isolate, and this
 // data centre's cache for a new isolate); late or failed = that last good answer marked late, which the page shows with its time, or a
 // 504 when there is none. On 20.10 one hung call kept every load of the screen on "loading" for two hours.
+// the live goals as the page shows them: the state from KV (a proposal answered or the switch moved is applied here first), and why the last
+// weekly run failed, if it did
+async function goalsForPage(env) {
+  try { const st = await goalsTick(env, { week: false }), err = await env.ALERTS.get(GOALS_ERR, "json").catch(() => null);
+    const v = st ? gView(st, ilDay(Date.now())) : null; return v ? { ...v, err: err ? err.why : null } : err ? { err: err.why } : null; } catch { return null; }
+}
 const DEADLINE = 25e3, LAST = "https://luchit.app/live/_last";
 let lastGood = null;
 async function liveData(env, ctx) {
   let timer, failed = false;
-  const work = (async () => ({ ...(await collect(env)), flashes: (await getFlashes()).slice(0, 15), metrics: slimMetrics(await getMetrics()), auto: slimAuto(await getAuto()), cal: slimCal(await getCal()), calDone: await calDone(env), acts: await actsGet(env) }))();
+  const work = (async () => ({ ...(await collect(env)), flashes: (await getFlashes()).slice(0, 15), metrics: slimMetrics(await getMetrics()), auto: slimAuto(await getAuto()), cal: slimCal(await getCal()), calDone: await calDone(env), acts: await actsGet(env), goals: await goalsForPage(env) }))();
   const late = new Promise(r => { timer = setTimeout(() => r(null), DEADLINE); });
   const d = await Promise.race([work.catch(() => { failed = true; return null; }), late]);
   clearTimeout(timer);
@@ -1931,6 +2239,7 @@ export default {
     const now = Date.now(), today = ilDay(now), before = ilDay(now - 30 * 6e4);
     await rtToday(env, today).catch(() => {});
     if (before !== today) await rtToday(env, before).catch(() => {});
+    await goalsTick(env, { week: true }).catch(() => {});   // live goals: once a week after Sunday 09:00 Israel, else nothing
   },
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
