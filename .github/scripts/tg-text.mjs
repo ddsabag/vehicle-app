@@ -18,7 +18,7 @@ export const KINDS = {
 };
 // router level -> kind (alert.mjs): critical pages, day is today, summary/silent are for information
 export const LEVEL_KIND = { critical: "urgent", day: "today", summary: "info", silent: "info" };
-export const AREAS = { site: "אתר", app: "אפליקציה", data: "נתונים", store: "חנות Google Play", marketing: "שיווק", mail: "מייל", bots: "בוטים", seo: "SEO", reviews: "ביקורות", measure: "מדידה" };
+export const AREAS = { site: "אתר", app: "אפליקציה", data: "נתונים", store: "חנות Google Play", marketing: "שיווק", mail: "מייל", bots: "בוטים", seo: "SEO", reviews: "ביקורות", measure: "מדידה", ceo: "מנכ\"ל" };
 
 export const tag = (kind, area) => `<b>${KINDS[kind] || KINDS.info}${AREAS[area] ? " · " + AREAS[area] : ""}</b>`;
 export const tagPlain = (kind, area) => `${KINDS[kind] || KINDS.info}${AREAS[area] ? " · " + AREAS[area] : ""}`;
@@ -60,7 +60,7 @@ export const BOTS = JSON.parse(readFileSync(new URL("./bot-names.json", import.m
 const PARTS = { data: "נתונים", monthly: "חודשי", newsletter: "ניוזלטר", weekly: "שבועי", daily: "יומי" };
 // "Magazine (data)" (a run name) -> the workflow's Hebrew name plus the part
 export function botName(name) {
-  const s = String(name || "").trim();
+  const s = String(name || "").trim().replace(/ \((?:[\d*,\/-]+ ){4}[\d*,\/-]+\)$/, "");   // a slot run's cron line (3.11.2026) is not shown
   if (BOTS[s]) return BOTS[s];
   const m = s.match(/^(.*) \(([^)]+)\)$/);
   return m && BOTS[m[1]] ? `${BOTS[m[1]]} (${PARTS[m[2]] || m[2]})` : s;
@@ -69,7 +69,7 @@ export function botName(name) {
 // Workflows the failure alert re-runs once by itself (Dudu 25.10: "כשהבוט מזהה בעיה יתקן אותה אוטומטית ורק יעדכן אותי שבוצע").
 // Only reads, checks and data rebuilds that are safe to run twice; never one that publishes, sends mail or a report, uploads to Play or deploys a Worker.
 export const RETRY = new Set(["Data guard", "Fuel price", "Ministry watch", "Web deploy (build)", "SEO check", "Web watch", "Market data", "Model catalogue",
-  "Model names", "Model statistics", "Ownership data mirror", "Reviews monitor", "SEO data snapshot", "Site smoke test", "Site smoke test (after deploy)",
+  "Model names", "Model statistics", "Ownership data mirror", "Reviews monitor", "SEO data snapshot", "Campaign data snapshot", "Site smoke test", "Site smoke test (after deploy)",
   "Back-on-road detector", "Release watch", "Data truth", "Settlements"]);
 
 // failure-alert.yml: a workflow that failed without its own alert. what = failed | repeat | lost | fixed | again; level from alert.mjs WF_LEVELS (passed in).
@@ -80,7 +80,8 @@ export function wfFailure(what, runName, level, url) {
   const T = {
     failed: [`הבוט "${name}" נכשל`, "הוא נעצר באמצע ולא שלח הודעה משלו, אז העבודה שלו הפעם לא הושלמה.",
       kind === "info" ? "" : "לכתוב לי בשרשור \"תפעול, בוטים ומייל\". אם זו פעם ראשונה, לרוב ההרצה הבאה מסתדרת לבד."],
-    repeat: [`הבוט "${name}" נכשל שוב`, "גם ההרצה הקודמת נכשלה, לכן ההודעה הזו שקטה.", "אם זה נמשך יותר מיום, לכתוב לי בשרשור \"תפעול, בוטים ומייל\"."],
+    // through the alert router a repeat is the same episode: not sent again within 22.5 h, then once as a reminder; the direct send is silent
+    repeat: [`הבוט "${name}" נכשל שוב`, "גם ההרצה הקודמת נכשלה, כנראה זו אותה תקלה.", "אם זה נמשך יותר מיום, לכתוב לי בשרשור \"תפעול, בוטים ומייל\"."],
     fixed: [`הבוט "${name}" נתקע ותוקן לבד`, "ההרצה נכשלה או לא התחילה, אז הפעלתי אותה שוב אוטומטית, והפעם היא עברה.", ""],
     again: [`הבוט "${name}" נכשל גם בהרצה חוזרת`, "הוא נכשל, הפעלתי אותו שוב אוטומטית, וגם ההרצה השנייה נכשלה. כנראה צריך תיקון בקוד.",
       kind === "info" ? "" : "לכתוב לי בשרשור \"תפעול, בוטים ומייל\"."],
@@ -106,6 +107,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     let n = 0; const ok = (c, m) => { n++; if (!c) { console.error("FAIL " + m); process.exit(1); } };
     ok(botName("Data guard") === "שומר הנתונים", "bot");
     ok(botName("Magazine (data)") === "המגזין (נתונים)", "bot part");
+    ok(botName("Magazine (data) (30 5 * * 4)") === "המגזין (נתונים)" && botName("Weekly analytics report (20 6 * * 0)") === botName("Weekly analytics report"), "a slot run's cron line is not shown");
     ok(botName("Unknown X") === "Unknown X", "bot unknown");
     ok(heError("vitals crashRateMetricSet 503 {\"error\":{}}").startsWith("השירות של הצד השני"), "503");
     ok(heError("auth 401").startsWith("המפתח"), "401");

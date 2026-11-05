@@ -4,12 +4,29 @@
 //   base      the version most users had in the 14 days before D0, over those 14 days
 //   checks    car_lookup of that version, D0 to yesterday; under MIN_CHECKS (either side) nothing is judged ("אין מספיק נתונים")
 //   guardrails (rules file, "Day 1 / 3 / 7 after each app release"):
-//     compare   compare_open from the card or the menu under 3 per 100 checks
-//     save      car_save per 100 checks down more than 30% against the base
-//     unsave    car_unsave over car_save above 45% (from 20 saves)
-//     silent    an event the base sent at a rate that predicts at least 5 now, at 0 in the new version
-// Crashes stay with Release watch. Only reads GA4; findings go to the router (level day, a silent message, the morning triage routes them
-// to product), a clean day is logged silently. The repo is public: the log prints states and counts of findings only, never a number.
+//     compare   compare_open from the card or the menu under 3 per 100 checks (versions from 1.38 only: that entry arrived in 1.38, so an
+//               older version judged in its window, like 1.37 on 26.10, can only fail it)
+//     save      car_save per 100 checks down more than 30% against the base, every path counted (a star traded for "+" or for the
+//               car file is not a regression); the paths the base also sent are shown beside it
+//     unsave    car_unsave over car_save above 45% (from 20 saves), by path group (customEvent:from): the paths the base sent together,
+//               each path it never sent on its own (1.38.3's "+": car_save and its undo car_unsave from "add"), so new undos alone
+//               cannot flag everyone
+//     silentpath a save path the base sent at a rate that predicts at least 5 saves now, at 0 in the new version: the star sends its
+//               tab's name, so a star that breaks on one tab shows even while "+" covers for it (GONE_PATHS: tabs a newer UI removed or
+//               made rare stop by design against a base from before it)
+//               (strategy 27.10, rules file "Day 1 / 3 / 7"; without path rows every path counts as one and silentpath is not judged)
+//     silent    an event the base sent at a rate that predicts at least 5 now, at 0 in the new version (update_*: the newest version has
+//               nothing to update to, so those stop by design; GONE_EVENTS: events a newer UI stopped sending, against a base from before it)
+// Zone A daily (same run, for the 08:22 morning triage, ops asked 26.10): yesterday's failed checks (technical kinds: source_down, offline,
+// net_err, js_err, over car_lookup + lookup_failed, as /live's health tile) and slow checks (dur 5to10 + gt10 over all dur buckets), all
+// platforms, app rows from Israel only. Failed over 10% (from 50 checks) or slow over 10% goes to the router at LEVEL.zoneA (key zonea:<kind>:<date>,
+// owner measurement), which the triage reads in alert-state; a clean day is only a log line: "zone A <date>: ok|thin|breach fail,slow".
+// What is back in range closes in the router (resolve, told once, quietly: "חזר לתקין"), on a run that judges the real yesterday (not a DAY
+// re-run of the past): a day with both kinds judged and within the thresholds closes every zonea: item, a day with one kind fine closes that
+// kind's own items (a fail+slow item stays while either breaches); a version on day 3 or 7 with every guardrail in range closes its own open
+// findings (relguard:<version>-d<day>).
+// Crashes stay with Release watch. Only reads GA4; findings go to the router (LEVEL.find, the morning triage routes them to product), a clean
+// day is logged silently. The repo is public: the log prints states and counts of findings only, never a number.
 // Node 20, node: builtins only. Commands:
 //   node release-guard.mjs            GA_SERVICE_ACCOUNT_JSON, RUN_URL, MODE (on|dry), DAY (optional: judge as if today were this Israel date)
 //   node release-guard.mjs selftest   offline
@@ -17,7 +34,49 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import { msg } from "./tg-text.mjs";
 
-export const MIN_USERS = 10, MIN_CHECKS = 100, DAYS = [1, 3, 7], BASE_DAYS = 14;
+export const MIN_USERS = 10, MIN_CHECKS = 100, DAYS = [1, 3, 7], BASE_DAYS = 14, COMPARE_FROM = "1.38";
+export const ZA = { minChecks: 50, failPct: 10, slowPct: 10 };
+// Dudu is not needed for a breach or a finding (autopilot rules: route to the owner, Dudu only if needed; the one loud message of the autopilot
+// is auto:revert), and both messages say so. Level summary with a problem label is the router's quiet message, sent once per episode, with
+// the morning ledger telling how it ended; level day would ring in daytime (27.10: the first zone A breach would have rung for nothing to do).
+export const LEVEL = { zoneA: "summary", find: "summary", ok: "silent" };
+const REAL = { orGroup: { expressions: [{ filter: { fieldName: "platform", stringFilter: { value: "web" } } }, { filter: { fieldName: "countryId", stringFilter: { value: "IL" } } }] } };
+const realOnly = name => ({ andGroup: { expressions: [{ filter: { fieldName: "eventName", stringFilter: { value: name } } }, REAL] } });
+export function zoneAQueries(day) {
+  const dateRanges = [{ startDate: day, endDate: day }];
+  return {
+    za_ev: { dateRanges, dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: { andGroup: { expressions: [{ filter: { fieldName: "eventName", inListFilter: { values: ["car_lookup", "lookup_failed"] } } }, REAL] } }, limit: 10 },
+    za_fail: { dateRanges, dimensions: [{ name: "customEvent:kind" }], metrics: [{ name: "eventCount" }], dimensionFilter: realOnly("lookup_failed"), limit: 20 },
+    za_dur: { dateRanges, dimensions: [{ name: "customEvent:dur" }], metrics: [{ name: "eventCount" }], dimensionFilter: realOnly("car_lookup"), limit: 20 },
+  };
+}
+// Z = { za_ev: [[name, n]], za_fail: [[kind, n]], za_dur: [[bucket, n]] }
+export function zoneA(Z) {
+  const g = (rows, k) => rows.filter(r => r[0] === k).reduce((a, r) => a + r[1], 0);
+  const checks = g(Z.za_ev, "car_lookup") + g(Z.za_ev, "lookup_failed");
+  const tech = ["source_down", "offline", "net_err", "js_err"].reduce((a, k) => a + g(Z.za_fail, k), 0);
+  const durAll = ["lt2", "2to5", "5to10", "gt10"].reduce((a, k) => a + g(Z.za_dur, k), 0), slow = g(Z.za_dur, "5to10") + g(Z.za_dur, "gt10");
+  const R = { checks, timed: durAll, failPct: checks ? r1(tech / checks * 100) : 0, slowPct: durAll ? r1(slow / durAll * 100) : 0, breach: [] };
+  if (checks < ZA.minChecks) return { ...R, state: "thin" };
+  if (R.failPct > ZA.failPct) R.breach.push("fail");
+  if (durAll >= ZA.minChecks && R.slowPct > ZA.slowPct) R.breach.push("slow");
+  return { ...R, state: R.breach.length ? "breach" : "ok" };
+}
+// the router prefixes a zone A day closes: the kinds it judged and found within the thresholds (fail: from ZA.minChecks checks; slow: from
+// ZA.minChecks checks with a duration)
+export function zoneACloses(A) {
+  if (A.state === "thin") return [];
+  const fine = ["fail", "slow"].filter(k => !A.breach.includes(k) && (k === "fail" || A.timed >= ZA.minChecks));
+  return fine.length === 2 ? ["zonea:"] : fine.map(k => `zonea:${k}:`);
+}
+// a version with every guardrail in range closes its own findings; "-d" keeps 1.38 from closing 1.38.2's
+export const relguardCloses = R => (R.state === "ok" && R.vn ? [`relguard:${R.vn}-d`] : []);
+export function zoneAText(R, day) {
+  const d = day.split("-").reverse().slice(0, 2).map(Number).join(".");
+  return msg({ kind: "today", area: "measure", title: `בדיקות רכב אתמול (${d}): ${R.breach.map(b => b === "fail" ? "יותר מדי כשלים" : "יותר מדי בדיקות איטיות").join(" ו")}`,
+    text: [R.breach.includes("fail") ? `• בדיקות שנכשלו מסיבה טכנית: ${R.failPct}% (הסף: ${ZA.failPct}%)` : "", R.breach.includes("slow") ? `• בדיקות שלקחו יותר מ-5 שניות: ${R.slowPct}% (הסף: ${ZA.slowPct}%)` : ""].filter(Boolean).join("\n") + `\nלפי ${R.checks} בדיקות רכב, באתר ובאפליקציה.`,
+    what: "שרשור «דשבורד LIVE» בודק את זה. אצלך לא צריך לעשות כלום.", raw: `zone A ${day}: ${R.breach.join(",")}` });
+}
 export const T = { compare: 3, saveDrop: 0.30, unsave: 0.45, unsaveMin: 20, silentMin: 5 };
 const J = s => { try { return JSON.parse(s); } catch { return null; } };
 const PROPERTY = (() => { try { return String(J(fs.readFileSync(new URL("../../analytics/ga4-admin.json", import.meta.url), "utf8")).property || ""); } catch { return ""; } })();
@@ -29,6 +88,7 @@ const gaDate = s => `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;   // G
 export const newer = (a, b) => { const x = String(a).split(".").map(Number), y = String(b).split(".").map(Number);
   for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d > 0; } return false; };
 const real = v => v && v !== "(not set)" && /^\d+(\.\d+)*$/.test(v);
+const atLeast = (v, m) => v === m || newer(v, m);
 const r1 = x => Math.round(x * 10) / 10;
 
 // the Hebrew names of events, from the dashboard's own list (worker/live/worker.js, const N), so a message never shows a bare event name
@@ -45,11 +105,26 @@ export function queries(start, end) {
     events: { dateRanges, dimensions: [{ name: "date" }, { name: "appVersion" }, { name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: android, limit: 50000 },
     compare: { dateRanges, dimensions: [{ name: "date" }, { name: "appVersion" }, { name: "customEvent:from" }], metrics: [{ name: "eventCount" }],
       dimensionFilter: { andGroup: { expressions: [android, { filter: { fieldName: "eventName", stringFilter: { value: "compare_open" } } }] } }, limit: 10000 },
+    saves: { dateRanges, dimensions: [{ name: "date" }, { name: "appVersion" }, { name: "eventName" }, { name: "customEvent:from" }], metrics: [{ name: "eventCount" }],
+      dimensionFilter: { andGroup: { expressions: [android, { filter: { fieldName: "eventName", inListFilter: { values: ["car_save", "car_unsave"] } } }] } }, limit: 50000 },
   };
 }
+// the save paths in plain words (customEvent:from of car_save and car_unsave; the save button on a car sends its tab's name)
+const PATHS = { add: 'ה-"+" ברשימת הרכבים', file: "תיק הרכב", buy_ask: "המחיר המבוקש בלשונית הקנייה", menu: "תפריט הרכב", home: "כפתור השמירה" };
+const TAB_HE = { overview: "סקירה", recalls: "ריקולים", buy: "קנייה", specs: "מפרט", maint: "טיפולים" };
+const pathHe = f => PATHS[f] || (TAB_HE[f] ? `כפתור השמירה בלשונית "${TAB_HE[f]}"` : `"${f}"`);
+// tabs a newer UI removed or made rare, by the version that did it: against a base from before that version their saves stop by design
+// (1.37, 0252ffb: the recalls tab shows only for a car with recalls or a settlement; 1.38: "maint" became the car file)
+export const GONE_PATHS = { recalls: "1.37", maint: "1.38" };
+const goneBy = (f, base, vn) => !!GONE_PATHS[f] && !atLeast(base, GONE_PATHS[f]) && atLeast(vn, GONE_PATHS[f]);
+// events a newer UI stopped sending, by the version that did it: 1.38 moved share into the car header, so the share_label experiment's
+// button (and its exp_expose) is gone; 1.38.3 against 1.37 flagged it silent on day 1 and 3 (29.10, 31.10)
+export const GONE_EVENTS = { exp_expose: "1.38" };
+const evGone = (e, base, vn) => !!GONE_EVENTS[e] && !atLeast(base, GONE_EVENTS[e]) && atLeast(vn, GONE_EVENTS[e]);
 const rowsOf = j => (j?.rows || []).map(r => [...r.dimensionValues.map(x => x.value), ...r.metricValues.map(x => Number(x.value) || 0)]);
 
-// S = { users: [[date, ver, n]], events: [[date, ver, name, n]], compare: [[date, ver, from, n]] } (GA4 dates), today = Israel date of the run
+// S = { users: [[date, ver, n]], events: [[date, ver, name, n]], compare: [[date, ver, from, n]], saves: [[date, ver, name, from, n]] } (GA4 dates),
+// today = Israel date of the run
 export function judge(S, today) {
   const y = addDays(today, -1), users = S.users.filter(r => real(r[1])).map(r => [gaDate(r[0]), r[1], r[2]]);
   const vers = [...new Set(users.map(r => r[1]))].sort((a, b) => (newer(a, b) ? -1 : newer(b, a) ? 1 : 0));
@@ -65,15 +140,26 @@ export function judge(S, today) {
   const cnt = (v, a, b) => { const o = {}; for (const [d, ver, e, n] of S.events) { const dd = gaDate(d); if (ver === v && dd >= a && dd <= b) o[e] = (o[e] || 0) + n; } return o; };
   const N = cnt(vn, d0, y), B = cnt(prev, b0, b1), nc = N.car_lookup || 0, bc = B.car_lookup || 0;
   const cmp = S.compare.filter(r => r[1] === vn && gaDate(r[0]) >= d0 && gaDate(r[0]) <= y && (r[2] === "card" || r[2] === "menu")).reduce((s, r) => s + r[3], 0);
-  R.stats = { checks: nc, baseChecks: bc, compare: nc ? r1(cmp / nc * 100) : 0, save: nc ? r1((N.car_save || 0) / nc * 100) : 0, baseSave: bc ? r1((B.car_save || 0) / bc * 100) : 0,
-    unsave: N.car_save ? Math.round((N.car_unsave || 0) / N.car_save * 100) : 0 };
+  // saves by path (customEvent:from): saves count on every path, unsaves by path group, and a save path the base sent may not go silent
+  const byPath = (v, a, b) => { const o = {}; for (const [d, ver, e, f, n] of S.saves || []) { const dd = gaDate(d); if (ver === v && dd >= a && dd <= b) (o[f] ||= { car_save: 0, car_unsave: 0 })[e] += n; } return o; };
+  const PN = byPath(vn, d0, y), PB = byPath(prev, b0, b1), known = Object.keys(PB), paths = known.length > 0;   // no path rows: every path counts as one
+  const sum = (P, e, keys = Object.keys(P)) => keys.reduce((s, f) => s + (P[f]?.[e] || 0), 0), fresh = paths ? Object.keys(PN).filter(f => !known.includes(f)).sort() : [];
+  const sv = paths ? sum(PN, "car_save") : N.car_save || 0, bs = paths ? sum(PB, "car_save") : B.car_save || 0;   // every path
+  const ov = paths ? sum(PN, "car_save", known) : sv, ou = paths ? sum(PN, "car_unsave", known) : N.car_unsave || 0;   // the paths the base sent, together
+  R.stats = { checks: nc, baseChecks: bc, compare: nc ? r1(cmp / nc * 100) : 0, save: nc ? r1(sv / nc * 100) : 0, baseSave: bc ? r1(bs / bc * 100) : 0,
+    saveOld: nc ? r1(ov / nc * 100) : 0, unsave: ov ? Math.round(ou / ov * 100) : 0, fresh };
   if (nc < MIN_CHECKS || bc < MIN_CHECKS) return { ...R, state: "thin" };
   const st = R.stats;
-  if (cmp / nc * 100 < T.compare) R.findings.push({ id: "compare", he: `השוואת רכבים מהכרטיס ומהתפריט: ${st.compare} לכל 100 בדיקות (הסף: 3)` });
-  const sN = (N.car_save || 0) / nc, sB = (B.car_save || 0) / bc;
-  if (sB > 0 && sN < sB * (1 - T.saveDrop)) R.findings.push({ id: "save", he: `שמירת רכב: ${st.save} לכל 100 בדיקות, לעומת ${st.baseSave} בגרסה ${prev} (ירידה של ${Math.round((1 - sN / sB) * 100)}%, הסף: 30%)` });
-  if ((N.car_save || 0) >= T.unsaveMin && (N.car_unsave || 0) / N.car_save > T.unsave) R.findings.push({ id: "unsave", he: `הסרות רכב מול שמירות: ${st.unsave}% (הסף: 45%)` });
-  const gone = Object.keys(B).filter(e => e !== "car_lookup" && !N[e] && B[e] / bc * nc >= T.silentMin).sort();
+  if (atLeast(vn, COMPARE_FROM) && cmp / nc * 100 < T.compare) R.findings.push({ id: "compare", he: `השוואת רכבים מהכרטיס ומהתפריט: ${st.compare} לכל 100 בדיקות (הסף: 3)` });
+  const sN = sv / nc, sB = bs / bc, old = fresh.length ? ` בדרכים שהיו גם בגרסה ${prev}` : "";
+  if (sB > 0 && sN < sB * (1 - T.saveDrop)) R.findings.push({ id: "save", he: `שמירת רכב: ${st.save} לכל 100 בדיקות, לעומת ${st.baseSave} בגרסה ${prev} (ירידה של ${Math.round((1 - sN / sB) * 100)}%, הסף: 30%)`
+    + (fresh.length ? `.${old}: ${st.saveOld} לכל 100 בדיקות` : "") });
+  if (ov >= T.unsaveMin && ou / ov > T.unsave) R.findings.push({ id: "unsave", he: `הסרות רכב מול שמירות${old}: ${st.unsave}% (הסף: 45%)` });
+  for (const f of fresh) { const s = PN[f].car_save, u = PN[f].car_unsave;
+    if (s >= T.unsaveMin && u / s > T.unsave) R.findings.push({ id: "unsave:" + f, he: `הסרות מול שמירות דרך ${pathHe(f)} (חדש בגרסה הזו): ${Math.round(u / s * 100)}% (הסף: 45%)` }); }
+  const quiet = paths ? known.filter(f => !goneBy(f, prev, vn) && PB[f].car_save / bc * nc >= T.silentMin && !PN[f]?.car_save).sort() : [];
+  if (quiet.length) R.findings.push({ id: "silentpath", paths: quiet, he: `דרכי שמירה שבגרסה הקודמת היו בהן שמירות ועכשיו אין בהן אף אחת: ${quiet.length}` });
+  const gone = Object.keys(B).filter(e => e !== "car_lookup" && !/^update_/.test(e) && !evGone(e, prev, vn) && !N[e] && B[e] / bc * nc >= T.silentMin).sort();
   if (gone.length) R.findings.push({ id: "silent", events: gone, he: `אירועים שהגרסה הקודמת שלחה ועכשיו לא הגיעו בכלל: ${gone.length}` });
   return { ...R, state: R.findings.length ? "find" : "ok" };
 }
@@ -81,8 +167,9 @@ export function judge(S, today) {
 export function text(R, N = {}) {
   const dayHe = R.day === 1 ? "יום אחרי" : `${R.day} ימים אחרי`;
   if (R.state === "find") return msg({ kind: "today", area: "measure", title: `גרסה ${R.vn}, ${dayHe} שהגיעה למשתמשים: ${R.findings.length === 1 ? "מדד אחד" : R.findings.length + " מדדים"} מחוץ לסף`,
-    text: R.findings.map(f => "• " + f.he + (f.events ? "\n  " + f.events.map(e => N[e] || e).join(", ") : "")).join("\n")
-      + `\nלפי ${R.stats.checks} בדיקות רכב בגרסה החדשה, מול ${R.stats.baseChecks} בגרסה ${R.prev} בשבועיים שלפניה.`,
+    text: R.findings.map(f => "• " + f.he + (f.events ? "\n  " + f.events.map(e => N[e] || e).join(", ") : "") + (f.paths ? "\n  " + f.paths.map(p => pathHe(p)).join(", ") : "")).join("\n")
+      + `\nלפי ${R.stats.checks} בדיקות רכב בגרסה החדשה, מול ${R.stats.baseChecks} בגרסה ${R.prev} בשבועיים שלפניה.`
+      + (R.stats.fresh?.length && R.findings.some(f => /^(save|unsave|silentpath)/.test(f.id)) ? `\nדרכי שמירה חדשות בגרסה הזו: ${R.stats.fresh.map(f => pathHe(f)).join(", ")}. השמירות נספרו בכל הדרכים, וההסרות בכל דרך חדשה לחוד.` : ""),
     what: "שרשור «מוצר ושחרורים» בודק את זה. אצלך לא צריך לעשות כלום.", raw: `release guard ${R.vn} d${R.day} vs ${R.prev}: ${R.findings.map(f => f.id).join(", ")}` });
   if (R.state === "ok") return msg({ kind: "done", area: "measure", title: `גרסה ${R.vn}, ${dayHe} שהגיעה למשתמשים: הכול בטווח`,
     text: `השוואה, שמירה, הסרות ואירועים בטווח, לפי ${R.stats.checks} בדיקות רכב.` });
@@ -101,12 +188,42 @@ async function gaToken(sa) {
   return r.ok && j?.access_token ? j.access_token : null;
 }
 
+// Claude's second look (guard-explain.mjs, credit package A6, Dudu 1.11.2026): a line added to the message, nothing else. Any failure here
+// (no key, no SDK, an API error, a GA4 read) leaves the guard's message exactly as it was; the router hears about it as ai:guard or ai:key.
+async function secondLook(kind, a) {
+  if (IO.explain === false) return null;
+  const none = why => { IO.out(`second look ${kind}: none (${String(why).replace(/\d/g, "#").slice(0, 120)})`); return null; };   // a silent skip hid why on 2.11
+  let X; try { X = IO.explain || await import("./guard-explain.mjs"); } catch (e) { return none("module " + (e?.message || e)); }
+  const api = await X.getClient(IO.env).catch(e => (none("client " + (e?.message || e)), null));
+  if (!api) return IO.explain ? null : none("no client (key or SDK)");
+  let res;
+  try {
+    if (kind === "cause") {
+      const Q = {};
+      for (const [k, body] of Object.entries(X.causeQueries(a.yd))) {
+        const r = await IO.fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${PROPERTY}:runReport`, { method: "POST",
+          headers: { authorization: "Bearer " + a.tok, "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(60000) });
+        const tx = await r.text(), j = J(tx); if (!r.ok || !j) return none(`GA4 ${k} ${r.status} ${tx.slice(0, 160)}`);
+        Q[k] = rowsOf(j);
+      }
+      res = await X.zoneACause(api, Q);
+    } else {
+      const { execFile } = await import("node:child_process"), run = (cmd, args) => new Promise((ok, no) => execFile(cmd, args, { maxBuffer: 1 << 24 }, (e, out) => e ? no(e) : ok(out)));
+      let context = ""; try { context = fs.readFileSync(new URL("../../analytics/review-context.md", import.meta.url), "utf8"); } catch {}
+      res = await X.findingsLook(api, a.R, { ...await X.history(a.R.prev, a.R.vn, run), context, names: a.N });
+    }
+  } catch (e) { res = { why: "error " + String(e?.message || e).replace(/\d/g, "#").slice(0, 80) }; }
+  if (IO.env.MODE !== "dry") { const router = IO.router || await import("./alert.mjs").catch(() => null); await X.tell(router, res, IO.env); }
+  else if (res?.why) IO.out(`second look ${kind}: none (${String(res.why).replace(/\d/g, "#")})`);
+  return res;
+}
 async function main() {
   const E = IO.env, dry = E.MODE === "dry", sa = J(E.GA_SERVICE_ACCOUNT_JSON || "");
   if (!sa?.client_email || !sa?.private_key || !PROPERTY) { IO.out("release guard: no service account or property"); return 1; }
   const tok = await gaToken(sa);
   if (!tok) { IO.out("release guard: GA4 sign-in failed"); return 1; }
   const today = /^\d{4}-\d\d-\d\d$/.test(E.DAY || "") ? E.DAY : ilDay(IO.now()), Q = queries(addDays(today, -45), addDays(today, -1)), S = {};
+  const live = today === ilDay(IO.now());   // only a run that judges the real yesterday closes anything
   for (const [k, body] of Object.entries(Q)) {
     const r = await IO.fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${PROPERTY}:runReport`, { method: "POST",
       headers: { authorization: "Bearer " + tok, "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(60000) });
@@ -114,31 +231,58 @@ async function main() {
     if (!r.ok || !j) { IO.out(`release guard: GA4 ${k} ${r.status}`); return 1; }
     S[k] = rowsOf(j);
   }
+  const yd = addDays(today, -1), ZQ = zoneAQueries(yd), Z = {};
+  for (const [k, body] of Object.entries(ZQ)) {
+    const r = await IO.fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${PROPERTY}:runReport`, { method: "POST",
+      headers: { authorization: "Bearer " + tok, "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(60000) });
+    const j = J(await r.text());
+    Z[k] = r.ok && j ? rowsOf(j) : null;
+  }
+  if (Object.values(Z).some(v => v == null)) IO.out(`zone A ${yd}: GA4 read failed`);
+  else {
+    const A = zoneA(Z);
+    IO.out(`zone A ${yd}: ${A.state}${A.breach.length ? " " + A.breach.join(",") : ""}`);
+    if (A.state === "breach") {
+      let t = zoneAText(A, yd); const key = `zonea:${A.breach.join("+")}:${yd}`;
+      const c = await secondLook("cause", { tok, yd });   // labels only (credit package A6): one more line, never a different decision
+      if (c?.line) { t += "\n" + c.line; IO.out(`zone A ${yd}: cause ${c.verdict}`); }
+      if (dry) IO.out("dry, would send " + key + ":\n" + t.replace(/\d/g, "#"));
+      else { const router = IO.router || await import("./alert.mjs"); await router.alert(LEVEL.zoneA, key, t, E.RUN_URL || "", { today: "silent" }); }
+    }
+    const shut = live ? zoneACloses(A) : [];
+    if (shut.length && dry) IO.out("dry, would close " + shut.join(" "));
+    else if (shut.length) { const router = IO.router || await import("./alert.mjs"); if (await router.resolve(shut)) IO.out(`zone A ${yd}: open alert closed (${shut.join(" ")})`); }
+  }
   const R = judge(S, today);
-  IO.out(`release guard ${today}: ${R.state}${R.vn ? ` ${R.vn} from ${R.d0}, day ${R.day} vs ${R.prev || "-"}` : ""}${R.findings?.length ? `, findings: ${R.findings.map(f => f.id).join(", ")}` : ""}`);
+  IO.out(`release guard ${today}: ${R.state}${R.vn ? ` ${R.vn} from ${R.d0}, day ${R.day} vs ${R.prev || "-"}` : ""}${R.stats?.fresh?.length ? `, new save paths: ${R.stats.fresh.join(" ")}` : ""}${R.findings?.length ? `, findings: ${R.findings.map(f => f.id).join(", ")}` : ""}`);
   if (!["find", "ok", "thin"].includes(R.state)) return 0;
   let N = {};
   try { N = names(fs.readFileSync(new URL("../../worker/live/worker.js", import.meta.url), "utf8")); } catch {}
-  const t = text(R, N), id = `${R.vn}-d${R.day}`, key = R.state === "find" ? "relguard:" + id : `relguard:${R.state}:${id}`;
-  if (dry) { IO.out("dry, would send " + key + ":\n" + t.replace(/\d/g, "#")); return 0; }   // the log is public: digits masked
-  const router = IO.router || await import("./alert.mjs");
-  await router.alert(R.state === "find" ? "day" : "silent", key, t, E.RUN_URL || "", { today: R.state === "find" ? "silent" : "none" });
+  let t = text(R, N); const id = `${R.vn}-d${R.day}`, key = R.state === "find" ? "relguard:" + id : `relguard:${R.state}:${id}`;
+  if (R.state === "find") {
+    const L = await secondLook("findings", { R, N });   // labels only: the finding stays open and is closed only by the guard's own rule
+    if (L?.lines) { t += "\n" + L.lines.map(x => x.text).join("\n"); IO.out("second look: " + L.lines.map(x => `${x.id} ${x.label}`).join(", ")); }
+  }
+  if (dry) { IO.out("dry, would send " + key + ":\n" + t.replace(/\d/g, "#") + (live && relguardCloses(R).length ? "\ndry, would close " + relguardCloses(R).join(" ") : "")); return 0; }   // the log is public: digits masked
+  const router = IO.router || await import("./alert.mjs"), shut = live ? relguardCloses(R) : [];
+  await router.alert(R.state === "find" ? LEVEL.find : LEVEL.ok, key, t, E.RUN_URL || "", { today: R.state === "find" ? "silent" : "none" });
+  if (shut.length && await router.resolve(shut)) IO.out(`release guard: open finding closed (${shut.join(" ")})`);
   return 0;
 }
 
-function selftest() {
+async function selftest() {
   const fails = [], ok = (c, m) => { if (!c) fails.push(m); };
   const g = s => s.replace(/-/g, ""), days = (a, n) => Array.from({ length: n }, (_, i) => addDays(a, i));
   // 1.37 for weeks, 1.38 from 2026-10-28 (a tester on 10-24 with 1 user does not start it)
-  const mk = ({ save38 = 10, unsave38 = 2, cmp38 = 5, drop = [] } = {}) => {
+  const mk = ({ save38 = 10, unsave38 = 2, cmp38 = 5, drop = [], v = "1.38", b = "1.37" } = {}) => {
     const users = [], events = [], compare = [];
     for (const d of days("2026-10-01", 40)) {
-      if (d < "2026-11-06") users.push([g(d), "1.37", 60]), events.push([g(d), "1.37", "car_lookup", 100], [g(d), "1.37", "car_save", 10], [g(d), "1.37", "car_unsave", 2], [g(d), "1.37", "svc_add", 3]);
-      if (d === "2026-10-24") users.push([g(d), "1.38", 1]), events.push([g(d), "1.38", "car_lookup", 40]);
+      if (d < "2026-11-06") users.push([g(d), b, 60]), events.push([g(d), b, "car_lookup", 100], [g(d), b, "car_save", 10], [g(d), b, "car_unsave", 2], [g(d), b, "svc_add", 3], [g(d), b, "update_prompt", 9]);
+      if (d === "2026-10-24") users.push([g(d), v, 1]), events.push([g(d), v, "car_lookup", 40]);
       if (d >= "2026-10-28") {
-        users.push([g(d), "1.38", 30]); events.push([g(d), "1.38", "car_lookup", 60], [g(d), "1.38", "car_save", save38 * 0.6], [g(d), "1.38", "car_unsave", unsave38 * 0.6]);
-        if (!drop.includes("svc_add")) events.push([g(d), "1.38", "svc_add", 2]);
-        compare.push([g(d), "1.38", "card", cmp38 * 0.6 * 0.5], [g(d), "1.38", "menu", cmp38 * 0.6 * 0.5], [g(d), "1.38", "cars", 50]);
+        users.push([g(d), v, 30]); events.push([g(d), v, "car_lookup", 60], [g(d), v, "car_save", save38 * 0.6], [g(d), v, "car_unsave", unsave38 * 0.6]);
+        if (!drop.includes("svc_add")) events.push([g(d), v, "svc_add", 2]);
+        compare.push([g(d), v, "card", cmp38 * 0.6 * 0.5], [g(d), v, "menu", cmp38 * 0.6 * 0.5], [g(d), v, "cars", 50]);
       }
       users.push([g(d), "(not set)", 99]);
     }
@@ -150,6 +294,10 @@ function selftest() {
   R = judge(mk({ save38: 6, unsave38: 4, cmp38: 2, drop: ["svc_add"] }), "2026-11-05");
   ok(R.state === "find" && R.findings.map(f => f.id).join() === "compare,save,unsave,silent" && R.findings[3].events.join() === "svc_add", "all four guardrails " + JSON.stringify(R.findings));
   ok(judge(mk({ save38: 8 }), "2026-11-05").state === "ok", "a 20% drop in saves is inside the 30%");
+  ok(judge(mk({ cmp38: 0 }), "2026-10-30").findings.map(f => f.id).join() === "compare", "no compare at all in 1.38 is a finding");
+  R = judge(mk({ v: "1.37", b: "1.36", cmp38: 0 }), "2026-10-30");
+  ok(R.state === "ok" && R.vn === "1.37" && R.prev === "1.36", "1.37 has no compare entry on the card or in the menu, so the compare rule does not judge it " + JSON.stringify(R.findings));
+  ok(atLeast("1.38", "1.38") && atLeast("1.38.1", "1.38") && atLeast("1.40", "1.38") && !atLeast("1.37", "1.38") && !atLeast("1.37.9", "1.38"), "compare rule from 1.38");
   ok(judge(mk({ unsave38: 5 }), "2026-10-30").state === "ok", "unsave under 20 saves is not judged");
   const thin = mk(); thin.events = thin.events.filter(r => !(r[1] === "1.38" && r[2] === "car_lookup")).concat([[g("2026-10-28"), "1.38", "car_lookup", 50]]);
   ok(judge(thin, "2026-10-30").state === "thin", "under 100 checks: not judged");
@@ -164,11 +312,85 @@ function selftest() {
   ok(t.startsWith("<b>🟠 לטיפול היום · מדידה</b>") && t.includes("רישום טיפול") && t.includes("1.37") && !t.includes("svc_add\n") && t.includes("מוצר ושחרורים"), "message " + t);
   ok(text(judge(mk(), "2026-10-30")).startsWith("<b>✅ בוצע · מדידה</b>"), "clean message");
   ok(text(judge(thin, "2026-10-30")).includes("אין מספיק נתונים"), "thin message");
+  // saves by path (strategy 27.10): 1.38.3's "+" (car_save from add, its undo car_unsave from add) is a path the base never sent; the numbers
+  // are per 100 checks a day on each side, and a path at 0 sends no row, as in GA4
+  const mkp = ({ base = { overview: 7, file: 3 }, now = { overview: 5, file: 2, add: 3 }, baseUn = { menu: 2 }, nowUn = { menu: 2, add: 0.5 }, nv = "1.38", bv = "1.37" } = {}) => {
+    const all = o => Object.values(o).reduce((x, y) => x + y, 0), S = mk({ save38: all(now), unsave38: all(nowUn), v: nv, b: bv }), saves = [];
+    for (const d of days("2026-10-01", 40)) {
+      if (d < "2026-11-06") for (const [o, e] of [[base, "car_save"], [baseUn, "car_unsave"]]) for (const [f, n] of Object.entries(o)) saves.push([g(d), bv, e, f, n]);
+      if (d >= "2026-10-28") for (const [o, e] of [[now, "car_save"], [nowUn, "car_unsave"]]) for (const [f, n] of Object.entries(o)) if (n) saves.push([g(d), nv, e, f, n * 0.6]);
+    }
+    return { ...S, saves };
+  };
+  ok(judge(mkp(), "2026-10-30").state === "ok" && judge(mkp(), "2026-11-05").state === "ok", "+ saves next to the old paths, all in range");
+  R = judge(mkp({ now: { overview: 2, file: 2, add: 6 } }), "2026-11-05");
+  ok(R.state === "ok" && R.stats.save === 10 && R.stats.saveOld === 4 && R.stats.fresh.join() === "add", "a pure move: the old paths down 60%, + up, every path flat: ok " + JSON.stringify(R));
+  R = judge(mkp({ now: { overview: 4, file: 1, add: 1 } }), "2026-11-05");
+  ok(R.findings.map(f => f.id).join() === "save" && !!R.findings[0]?.he.endsWith("בדרכים שהיו גם בגרסה 1.37: 5 לכל 100 בדיקות"), "every path down 40%: a finding, the old paths beside it " + R.findings[0]?.he);
+  R = judge(mkp({ now: { file: 3, add: 7 } }), "2026-11-05");
+  ok(R.findings.map(f => f.id).join() === "silentpath" && R.findings[0].paths.join() === "overview" && judge(mkp({ now: { file: 3, add: 7 } }), "2026-10-30").findings.map(f => f.id).join() === "silentpath",
+    "the save button silent on its tab while + covers for it, every path flat: a finding, from day 1 " + JSON.stringify(R.findings));
+  const t3 = text(R, N);
+  ok(t3.includes('כפתור השמירה בלשונית "סקירה"') && t3.includes('דרכי שמירה חדשות בגרסה הזו: ה-"+" ברשימת הרכבים'), "silent path message " + t3);
+  R = judge(mkp({ base: { overview: 7, maint: 3 }, now: { overview: 7, file: 3 }, nowUn: { menu: 2 } }), "2026-11-05");
+  ok(R.state === "ok" && R.stats.fresh.join() === "file", "maint, the tab 1.38 removed, stops by design " + JSON.stringify(R.findings));
+  const rec = bv => judge(mkp({ bv, base: { overview: 7, recalls: 3 }, now: { overview: 10 }, nowUn: { menu: 2 } }), "2026-11-05").findings.map(f => f.id).join();
+  ok(rec("1.36") === "" && rec("1.37") === "silentpath", "recalls: by design against a base before 1.37 (the tab became rare there), a finding against a base that already had it");
+  ok(evGone("exp_expose", "1.37", "1.38.3") && !evGone("exp_expose", "1.38", "1.38.3") && !evGone("compare_open", "1.37", "1.38.3"), "events gone by version");
+  ok(goneBy("maint", "1.37", "1.38.3") && goneBy("recalls", "1.33", "1.38.3") && !goneBy("recalls", "1.37", "1.38.3") && !goneBy("maint", "1.36", "1.37") && !goneBy("overview", "1.33", "1.38.3"), "gone by version");
+  ok(judge(mkp({ base: { overview: 9.5, specs: 0.5 }, now: { overview: 10 }, nowUn: { menu: 2 } }), "2026-11-05").state === "ok", "a path that predicts under 5 saves may stop");
+  const undo = mkp({ now: { overview: 7, file: 3, add: 6 }, nowUn: { menu: 2, add: 5.5 } });
+  R = judge(undo, "2026-11-05");
+  ok(R.findings.map(f => f.id).join() === "unsave:add" && R.stats.unsave === 20, "+ undone 92% of the time: a line of its own, the old paths' 20% stays in range " + JSON.stringify(R.findings));
+  const t2 = text(R, N);
+  ok(t2.includes('דרך ה-"+" ברשימת הרכבים (חדש בגרסה הזו): 92%') && t2.includes("השמירות נספרו בכל הדרכים, וההסרות בכל דרך חדשה לחוד"), "path message " + t2);
+  ok(judge({ ...undo, saves: [] }, "2026-11-05").findings.map(f => f.id).join() === "unsave", "every path together: + undos alone crossed 45% (what the path groups fix)");
+  ok(judge(undo, "2026-10-30").state === "ok", "a new path under 20 saves is not judged");
+  const za = (ev, fl, du) => zoneA({ za_ev: Object.entries(ev), za_fail: Object.entries(fl), za_dur: Object.entries(du) });
+  let A = za({ car_lookup: 190, lookup_failed: 10 }, { source_down: 5, not_found: 5 }, { lt2: 150, "2to5": 30, "5to10": 8, gt10: 2 });
+  ok(A.state === "ok" && A.checks === 200 && A.failPct === 2.5 && A.slowPct === 5.3, "zone A clean day " + JSON.stringify(A));
+  A = za({ car_lookup: 170, lookup_failed: 30 }, { source_down: 22, not_found: 8 }, { lt2: 100, "2to5": 40, "5to10": 20, gt10: 10 });
+  ok(A.state === "breach" && A.breach.join() === "fail,slow" && A.failPct === 11, "zone A: typos (not_found) are not failures, 22 technical of 200 is 11% " + JSON.stringify(A));
+  ok(za({ car_lookup: 30, lookup_failed: 15 }, { offline: 15 }, { gt10: 30 }).state === "thin", "zone A under 50 checks: not judged");
+  ok(zoneAText(A, "2026-10-25").includes("25.10") && zoneAText(A, "2026-10-25").includes("יותר מדי כשלים ויותר מדי בדיקות איטיות"), "zone A message " + zoneAText(A, "2026-10-25"));
+  // what a day back in range closes: zone A by kind, a version by its own findings
+  ok(zoneACloses(za({ car_lookup: 190, lookup_failed: 10 }, { source_down: 5 }, { lt2: 150, "2to5": 30, "5to10": 8, gt10: 2 })).join() === "zonea:", "zone A clean day closes every zonea: item");
+  ok(zoneACloses(za({ car_lookup: 190, lookup_failed: 10 }, { source_down: 5 }, { lt2: 100, "5to10": 40, gt10: 10 })).join() === "zonea:fail:", "slow over: only the fail items close");
+  ok(zoneACloses(za({ car_lookup: 170, lookup_failed: 30 }, { source_down: 25 }, { lt2: 150, "2to5": 40, gt10: 2 })).join() === "zonea:slow:", "fail over: only the slow items close");
+  ok(zoneACloses(za({ car_lookup: 190, lookup_failed: 10 }, { source_down: 5 }, { lt2: 20, gt10: 5 })).join() === "zonea:fail:", "too few timed checks: slow is not judged, only fail closes");
+  ok(zoneACloses(A).length === 0 && zoneACloses(za({ car_lookup: 30 }, {}, { lt2: 30 })).length === 0, "a breach of both, or a thin day, closes nothing");
+  ok(relguardCloses(judge(mk(), "2026-11-01")).join() === "relguard:1.38-d" && "relguard:1.38-d1".startsWith("relguard:1.38-d") && !"relguard:1.38.2-d1".startsWith("relguard:1.38-d"),
+    "a version back in range closes its own findings, never another version's");
+  ok(relguardCloses(judge(mk({ cmp38: 0 }), "2026-10-30")).length === 0 && relguardCloses(judge(thin, "2026-10-30")).length === 0 && relguardCloses(judge(mk(), "2026-10-31")).length === 0,
+    "a finding, a thin day or a day between checks closes nothing");
+  const ZQ = zoneAQueries("2026-10-25");
+  ok(ZQ.za_ev.dateRanges[0].startDate === "2026-10-25" && ZQ.za_dur.dimensionFilter.andGroup.expressions.length === 2, "zone A queries");
   const Q = queries("2026-09-15", "2026-10-29");
-  ok(Q.events.dimensions.length === 3 && Q.compare.dimensionFilter.andGroup.expressions.length === 2, "queries");
+  ok(Q.events.dimensions.length === 3 && Q.compare.dimensionFilter.andGroup.expressions.length === 2 && Q.saves.dimensions.map(d => d.name).join() === "date,appVersion,eventName,customEvent:from"
+    && Q.saves.dimensionFilter.andGroup.expressions[1].filter.inListFilter.values.join() === "car_save,car_unsave", "queries");
   ok(/^\d+$/.test(PROPERTY), "property from analytics/ga4-admin.json");
+  // how the router sends them, by day and by night: a problem told once, quietly (never a ring, never a morning-ring pointer)
+  const AL = await import("./alert.mjs"), st = { v: 1, items: {}, hb: {}, log: [] }, at = Date.parse("2026-10-27T06:30:00Z");
+  for (const [lv, key] of [[LEVEL.zoneA, "zonea:slow:2026-10-26"], [LEVEL.zoneA, "zonea:fail+slow:2026-10-26"], [LEVEL.find, "relguard:1.38.3-d1"]])
+    for (const day of [true, false]) { const d = AL.decide(st, lv, key, false, at, day); ok(d.a === "quiet" && !d.night && AL.label(key).sect === "fail", `${key} by ${day ? "day" : "night"}: quiet once, got ${d.a}`); }
+  // Claude's second look: a line from guard-explain, and nothing at all when it has no client or fails (the guard's message as before)
+  { const saved = { ...IO }, told = [], quiet = [];
+    const fake = (res) => ({ getClient: async () => ({}), causeQueries: () => ({ hourDur: {}, hourFail: {} }), zoneACause: async (api, Q) => (Q.hourDur.length === 1 ? res : { why: "rows" }),
+      findingsLook: async (api, R, ctx) => (ctx.context !== undefined && Array.isArray(ctx.notes) ? res : { why: "ctx" }), history: async () => ({ notes: [], commits: [] }), tell: async (r, x) => { told.push(x); } });
+    Object.assign(IO, { env: { MODE: "on" }, out: s => quiet.push(s), router: {}, fetch: async () => ({ ok: true, text: async () => JSON.stringify({ rows: [{ dimensionValues: [{ value: "09" }], metricValues: [{ value: "1" }] }] }) }) });
+    IO.explain = fake({ line: "L", verdict: "source" });
+    ok((await secondLook("cause", { tok: "t", yd: "2026-10-31" }))?.line === "L" && told.length === 1, "second look: the cause line, and the router told");
+    IO.explain = fake({ lines: [{ id: "silent", label: "by_design", text: "T" }] });
+    ok((await secondLook("findings", { R: { vn: "1.38.3", prev: "1.37", findings: [] }, N: {} }))?.lines?.[0].text === "T", "second look: a finding's line");
+    IO.explain = { ...fake({}), getClient: async () => null }; told.length = 0;
+    ok(await secondLook("cause", { tok: "t", yd: "x" }) === null && !told.length, "second look: no client (no key or SDK): nothing, nothing told");
+    IO.explain = fake({ line: "L" }); IO.fetch = async () => ({ ok: false, text: async () => "" });
+    ok(await secondLook("cause", { tok: "t", yd: "x" }) === null, "second look: a failed GA4 read: no line");
+    IO.explain = { ...fake({}), zoneACause: async () => { throw new Error("boom 12345"); } }; IO.fetch = saved.fetch === IO.fetch ? IO.fetch : async () => ({ ok: true, text: async () => "{\"rows\":[]}" }); told.length = 0;
+    ok((await secondLook("cause", { tok: "t", yd: "x" }))?.why === "error boom #####" && told.length === 1, "second look: a throw becomes a reason (digits masked) for the router");
+    Object.assign(IO, saved); delete IO.explain; }
   IO.out(fails.length ? fails.map(f => "FAIL " + f).join("\n") + `\nselftest: ${fails.length} failed` : "selftest: all passed");
   return fails.length ? 1 : 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) process.exitCode = process.argv[2] === "selftest" ? selftest() : await main();
+if (import.meta.url === `file://${process.argv[1]}`) process.exitCode = process.argv[2] === "selftest" ? await selftest() : await main();
