@@ -1,4 +1,4 @@
-name: Upgrade check (one-off)
+name: Upgrade and alerts check (one-off)
 # 5.11.2026: does updating the app from 1.38.3 to 1.38.4 keep saved cars and car-file documents? Runs only on pushes to this branch.
 on:
   push:
@@ -62,4 +62,4 @@ jobs:
           ram-size: 4096M
           disable-animations: true
           emulator-options: -no-window -gpu ${{ matrix.api == 35 && 'swangle_indirect' || 'swiftshader_indirect' }} -noaudio -no-boot-anim -camera-back none -no-snapshot-save
-          script: node .github/scripts/upgrade-check.cjs old.apk new.apk upgrade-${{ matrix.api }}.json
+          script: node .github/scripts/alerts-check.cjs new.apk alerts-${{ matrix.api }}.json
