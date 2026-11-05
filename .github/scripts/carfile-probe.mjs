@@ -45,7 +45,7 @@ await part("notifTot", () => ga({ dateRanges: WR, dimensions: [D("eventName")], 
 await part("notifDay", () => ga({ dateRanges: WR, dimensions: [D("date"), D("eventName")], metrics: [M("eventCount"), M("totalUsers")], dimensionFilter: ev(NOTIF) }));
 await part("notifVer", () => ga({ dateRanges: FULL, dimensions: [D("appVersion"), D("eventName")], metrics: [M("eventCount"), M("totalUsers")], dimensionFilter: and(APP, inList("eventName", NOTIF)) }));
 await part("base", () => ga({ dateRanges: WR, dimensions: [D("eventName")], metrics: [M("eventCount"), M("totalUsers")], dimensionFilter: ev(["car_lookup", "car_save", "first_save", "car_unsave", "session_start", "first_open", "app_return"]) }));
-await part("allUsers", () => ga({ dateRanges: WR, dimensions: [], metrics: [M("totalUsers"), M("activeUsers")], dimensionFilter: AV }));
+await part("notifAny", () => ga({ dateRanges: [{ startDate: "2026-10-01", endDate: "2026-11-04" }], dimensions: [D("appVersion"), D("platform"), D("eventName")], metrics: [M("eventCount"), M("totalUsers")], dimensionFilter: inList("eventName", NOTIF) }));
 await part("alerts", () => ga({ dateRanges: WR, dimensions: [D("eventName"), C("on"), C("kind")], metrics: [M("eventCount"), M("totalUsers")], dimensionFilter: ev(["alerts_toggle", "alert_kind", "alert_item"]) }));
 await part("alertsTot", () => ga({ dateRanges: WR, dimensions: [D("eventName"), C("on")], metrics: [M("eventCount"), M("totalUsers")], dimensionFilter: ev(["alerts_toggle", "alert_kind"]) }));
 const FILE = ["doc_add", "doc_exp", "doc_scan", "svc_add", "svc_cal", "road_docs", "history_pdf", "mine_set", "mine_unset", "file_cta_shown", "checklist_pdf"];
@@ -64,13 +64,14 @@ const ffv = { funnelFieldFilter: { fieldName: "appVersion", stringFilter: { matc
 const steps = first => [{ name: "start", filterExpression: { andGroup: { expressions: [{ funnelEventFilter: { eventName: first } }, ffv, ffp] } } },
   { name: "back", isDirectlyFollowedBy: false, withinDurationFromPriorStep: "604800s", filterExpression: { funnelEventFilter: { eventName: "session_start" } } }];
 const se = n => ({ segmentEventFilter: { eventName: n } });
-const seg = (name, inc, exc) => ({ name, userSegment: { userInclusionCriteria: { andConditionGroups: [{ conditionScoping: "ACROSS_ALL_SESSIONS", segmentFilterExpression: se(inc) }] },
-  ...(exc ? { exclusion: { userExclusionDuration: "USER_EXCLUSION_PERMANENT", userExclusionCriteria: { andConditionGroups: [{ conditionScoping: "ACROSS_ALL_SESSIONS",
+const seg = (name, inc, exc) => ({ name, userSegment: { userInclusionCriteria: { andConditionGroups: [{ conditionScoping: "USER_CRITERIA_ACROSS_ALL_SESSIONS", segmentFilterExpression: se(inc) }] },
+  ...(exc ? { exclusion: { userExclusionDuration: "USER_EXCLUSION_PERMANENT", userExclusionCriteria: { andConditionGroups: [{ conditionScoping: "USER_CRITERIA_ACROSS_ALL_SESSIONS",
     segmentFilterExpression: exc.length > 1 ? { orGroup: { expressions: exc.map(se) } } : se(exc[0]) }] } } } : {}) } });
 await part("retMine", () => fun({ dateRanges: WR, funnel: { isOpenFunnel: false, steps: steps("mine_set") } }));
 await part("retSave", () => fun({ dateRanges: WR, funnel: { isOpenFunnel: false, steps: steps("car_save") } }));
 await part("retLook", () => fun({ dateRanges: WR, funnel: { isOpenFunnel: false, steps: steps("car_lookup") } }));
 await part("retSegSave", () => fun({ dateRanges: WR, funnel: { isOpenFunnel: false, steps: steps("car_save") }, segments: [seg("saved_no_mine", "car_save", ["mine_set"])] }));
+await part("retSegMine", () => fun({ dateRanges: WR, funnel: { isOpenFunnel: false, steps: steps("mine_set") }, segments: [seg("mine", "mine_set")] }));
 await part("retSegLook", () => fun({ dateRanges: WR, funnel: { isOpenFunnel: false, steps: steps("car_lookup") }, segments: [seg("never_saved", "car_lookup", ["car_save", "mine_set"])] }));
 
 
