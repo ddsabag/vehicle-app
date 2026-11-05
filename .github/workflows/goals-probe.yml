@@ -1,0 +1,33 @@
+name: Live goals probe (one-off, probe-perf branch)
+# Read-only, 5.11.2026: the live goals backtest for the CEO spec (weeks since 18.10 through /live's goals code on branch meas/live-goals).
+# The output is encrypted with .github/seo-data.pub.pem, so no business number is in the log or the branch in clear. Runs on a push to the
+# probe-perf branch only; output on the probe-goals-out branch.
+on:
+  push:
+    branches: [probe-perf]
+    paths: [".github/scripts/goals-probe.mjs", ".github/workflows/goals-probe.yml"]
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: /live's goals code from its branch
+        run: |
+          git fetch -q --depth=1 origin meas/live-goals
+          git show FETCH_HEAD:worker/live/worker.js > "$RUNNER_TEMP/w.js"
+      - run: node .github/scripts/goals-probe.mjs
+        env:
+          W_JS: ${{ runner.temp }}/w.js
+          W_TMP: ${{ runner.temp }}/goals-worker.mjs
+          GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
+      - name: Publish on probe-goals-out (encrypted only)
+        run: |
+          cd out && git init -q && git checkout -q -b probe-goals-out && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Live goals probe (encrypted)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" probe-goals-out
