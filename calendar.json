@@ -1,5 +1,5 @@
 {
- "at": "2026-11-05T20:21:44Z",
+ "at": "2026-11-05T20:29:50Z",
  "open": [],
  "items": [
   {
@@ -360,7 +360,10 @@
    "link": {
     "facebook": "https://www.facebook.com/reel/2352154892226212/",
     "instagram": "https://www.instagram.com/reel/DfXxbqrHNOa/"
-   }
+   },
+   "q": [
+    "2026-11-01/reel"
+   ]
   },
   {
    "d": "2026-11-06",
@@ -392,7 +395,10 @@
    "st": {
     "facebook": "planned",
     "instagram": "planned"
-   }
+   },
+   "q": [
+    "2026-11-05/dealer"
+   ]
   },
   {
    "d": "2026-11-08",
@@ -415,7 +421,10 @@
    "st": {
     "facebook": "planned",
     "instagram": "planned"
-   }
+   },
+   "q": [
+    "2026-11-05/carousel"
+   ]
   },
   {
    "d": "2026-11-10",
@@ -429,7 +438,12 @@
    "st": {
     "facebook": "planned",
     "instagram": "planned"
-   }
+   },
+   "q": [
+    "2026-11-05/story-1",
+    "2026-11-05/story-2",
+    "2026-11-05/story-3"
+   ]
   },
   {
    "d": "2026-11-11",
@@ -461,7 +475,10 @@
    "st": {
     "facebook": "planned",
     "instagram": "planned"
-   }
+   },
+   "q": [
+    "2026-11-05/reel"
+   ]
   },
   {
    "d": "2026-11-12",
