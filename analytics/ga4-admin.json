@@ -3,6 +3,8 @@
   "property": "557990379",
   "timeZone": "Asia/Jerusalem",
   "customDimensions": [
+    { "parameterName": "efile", "description": "js_error: where the failing script lives (own, site, lib, x, none), never a URL (product 5.11)" },
+    { "parameterName": "uacl", "description": "js_error: browser class (fb, fb_lite, messenger, ig, tiktok, and_wv, ios_wv, ios_safari, ios_app, android, desktop), never the user agent (product 5.11)" },
     { "parameterName": "kind", "description": "car_lookup, lookup_failed, share, search_no_result, link_landing: what kind (weekly report, /live)" },
     { "parameterName": "dur", "description": "car_lookup, lookup_failed: duration bucket (weekly report)" },
     { "parameterName": "partial", "description": "car_lookup: 1 when a source failed (weekly report)" },
@@ -32,7 +34,8 @@
     { "parameterName": "cat", "description": "doc_add: the kind of document added to the car" },
     { "parameterName": "km", "description": "svc_add: the entry carries a mileage (1) or not (0); kind km is a mileage-only entry" },
     { "parameterName": "cost", "description": "svc_add: the entry carries a cost (1) or not (0)" },
-    { "parameterName": "camp", "description": "every web event of a visit that came by a tagged link: its topic (utm_campaign, ?c= of /go/ links) (/live sources, per post)" }
+    { "parameterName": "camp", "description": "every web event of a visit that came by a tagged link: its topic (utm_campaign, ?c= of /go/ links) (/live sources, per post)" },
+    { "parameterName": "line", "description": "js_error (web): the line number where the error was thrown, a number only, never the message (measurement 5.11)" }
   ],
   "keyEvents": [
     { "eventName": "upgrade_open", "countingMethod": "ONCE_PER_EVENT" },

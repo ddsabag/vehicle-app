@@ -383,7 +383,7 @@ async function selftest() {
     const live = read("worker/live/worker.js"), named = new Set([...(((live.match(/const N=\{([\s\S]*?)\};/) || [])[1]) || "").matchAll(/(?:^|,)([a-z_0-9]+):"/g)].map(m => m[1]));
     ok(named.size >= 40, `contract: read ${named.size} event names on /live`);
     for (const e of [...sentEv, ...nativeEv]) ok(named.has(e), `contract: ${e} is sent; give it a Hebrew name in N in worker/live/worker.js, so /live shows it by name`);
-    const NO_DIM = ["line"];   // js_error's line number: one value per line of code, read from the probe when needed
+    const NO_DIM = [];   // parameters kept out of GA4 on purpose: none since 5.11 (js_error's line is registered, so a spike names its line)
     for (const k of new Set(keys)) ok(real.dims.some(d => d.parameterName === k) || NO_DIM.includes(k), `contract: index.html sends parameter ${k}; register it in analytics/ga4-admin.json (or add it to NO_DIM here)`);
 
     // secrets never printed
