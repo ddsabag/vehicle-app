@@ -36,7 +36,7 @@ async function runWorker() {
   // the worker as a module: its default export kept aside, collect() exported; the week's last day set to END instead of "yesterday after noon"
   const ORIG = "const end = addDays(today, ilHour(Date.now()) >= 12 ? -1 : -2);";
   if (!WJS.includes(ORIG)) throw new Error("the week line of collectWeekly changed: update kpi-probe.mjs");
-  const src = WJS.replace("export default", "const _d =").replace(ORIG, "const end = " + JSON.stringify(END) + ";") + "\nexport { collect };";
+  const src = WJS.replace("export default", "const _d =").replace(ORIG, "const end = " + JSON.stringify(END) + ";") + "\nexport { collect, goalsGet, gView, GOALS_ERR };";
   const tmp = E.W_TMP || "/tmp/kpi-worker.mjs";
   fs.writeFileSync(tmp, src);
   const toml = fs.existsSync(E.W_TOML || "") ? fs.readFileSync(E.W_TOML, "utf8") : "";
@@ -56,12 +56,18 @@ async function runWorker() {
   globalThis.caches = { default: { match: async () => undefined, put: async () => {} } };
   const env = { ALERTS, GA_PROPERTY_ID: tv("GA_PROPERTY_ID", "557990379"), PLAY_REPORTS_BUCKET: tv("PLAY_REPORTS_BUCKET", "pubsite_prod_4688106336294834537"),
     GA_SERVICE_ACCOUNT_JSON: E.GA_SERVICE_ACCOUNT_JSON, CF_API_TOKEN: E.CF_API_TOKEN, CF_ACCOUNT_ID: acc };
-  const { collect } = await import(tmp);
-  return collect(env);
+  const { collect, goalsGet, gView, GOALS_ERR } = await import(tmp);
+  const d = await collect(env);
+  // the live goals as /live keeps them (KV lv:goals, from 8.11), the same view the page gets; read only
+  try { const st = goalsGet ? await goalsGet(env) : null, er = GOALS_ERR ? await ALERTS.get(GOALS_ERR, "json").catch(() => null) : null;
+    d.goalsLive = st ? { ...gView(st, ilToday), at: st.at || null, err: er ? er.why : null } : { none: true, err: er ? er.why : null }; }
+  catch (e) { d.goalsLive = { error: String(e.message || e).slice(0, 160) }; }
+  return d;
 }
 
 // what each field means, in the file itself (the reader is the CEO thread, not this code)
 const FIELDS = {
+  goals: "היעדים החיים כפי שהלוח שומר אותם (מ-8.11): last יום ראשון האחרון שנשפט, items לכל מדד (name, owner, s הסטטוס של השבוע האחרון שנשפט wk, v מול tgt, now היעד לשבוע הנוכחי, red כש-3 מתוך 4 השבועות באדום), props הצעות להוריד יעד שמחכות לדודו, log היומן, fc התחזית ל-31.3. none: עוד לא רץ. err: למה הריצה האחרונה לא הצליחה.",
   week: "השבוע המדווח, ראשון עד שבת; prev_week: השבוע שלפניו. בכל מדד: week מול prev.",
   status: "ok עומד ביעד, warn קרוב ליעד, bad רחוק מהיעד, cal שבוע כיול (אין שיפוט), early מעט מדי נתונים לשפוט, nodata אין נתון. כמו בלוח /live.",
   weekly_checks: "בדיקות רכב בשבוע (car_lookup): האפליקציה בישראל והאתר; app ו-web הם הפיצול. plan: יעד התוכנית לפני הכיול. target: היעד אחרי הכיול (base והטווח), מהשבוע שאחרי שבוע הבסיס. base_week: שבוע הבסיס, actual בפועל מול plan של התוכנית ביומו האחרון; calib_ratio = actual / plan, בין 0.5 ל-20 (החלטת דודו 26.10), ו-target = plan כפול calib_ratio.",
@@ -193,7 +199,7 @@ try {
   const k = kpis(d, S);
   if (k.end && k.end !== END && !E.KPI_TEST_DATA) throw new Error("the worker's week is not the week asked for");
   Object.assign(result, { source: { worker_build: d.build || null, main_sha: E.MAIN_SHA || null, how: "קוד לוח /live עצמו, על השבוע ראשון–שבת שהסתיים ב-" + END },
-    kpis: k.out, notes: scrubAll(k.notes), fields: FIELDS, errors: scrubAll(d.errors), play_status: d.play || null });
+    kpis: k.out, goals: d.goalsLive || null, notes: scrubAll(k.notes), fields: FIELDS, errors: scrubAll(d.errors), play_status: d.play || null });
   for (const [kk, v] of Object.entries(k.out)) console.log("kpi." + kk, v == null ? "empty" : "ok");
 } catch (e) { result.error = scrub(e.message || e); log("kpis", false, scrub(e.message || e)); }
 
