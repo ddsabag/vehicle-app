@@ -57,7 +57,8 @@ async function force(res, tag, when) {
     await sleep(15000);   // localStorage and the app's own list reach the disk
     res.jobsAfterSave = jobs() || "none";
     res.jobsRaw = jobsRaw();
-    res.wmDb = sh(`run-as ${PKG} ls databases`);
+    res.wmDb = sh(`run-as ${PKG} ls -la databases no_backup files 2>&1 | head -20`);
+    res.saveLog = sh(`logcat -d | grep -i -E "WM-|WorkManager|AndroidRuntime|chromium.*Uncaught|pratirechev|SavedCheck|Exception" | grep -v -E "YouTube|Bugle|gms" | tail -40`);
     res.notificationsEnabled = sh(`cmd notification allowed_listeners >/dev/null; dumpsys notification | grep -c "${PKG}"`);
     await force(res, "run1", "110610302026.00");   // Friday 6.11 10:30 UTC = 12:30 Israel, inside the sending hours
     res.notesAfterRun1 = notes() || "none";
