@@ -82,10 +82,11 @@ jobs:
         run: |
           git fetch -q --depth 1 origin catalog-data && mkdir -p cat-data && git archive FETCH_HEAD r meta.json | tar -x -C cat-data \
             || echo "::warning::catalog-data could not be read: the model pages are built without their recall section"
-      # the monthly prose comes from Claude (magazine-ai.mjs): the SDK only when the key is there and MAGAZINE_AI is not 0; a failed install
-      # leaves the template, the same as no key
-      - name: Claude SDK for the monthly prose
-        if: steps.slot.outputs.done != '1' && env.KIND == 'monthly' && vars.MAGAZINE_AI != '0'
+      # the monthly prose (magazine-ai.mjs) and the model page summaries (model-answers.mjs) come from Claude: the SDK whenever the key is
+      # there; each script keeps its own switch (MAGAZINE_AI=0, MODEL_ANSWERS=0), so one switch never turns the other off; a failed install
+      # leaves the template and today's summaries, the same as no key
+      - name: Claude SDK for the monthly prose and the model summaries
+        if: steps.slot.outputs.done != '1' && env.KIND == 'monthly'
         env:
           HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
         run: |
