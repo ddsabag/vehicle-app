@@ -174,6 +174,42 @@ jobs:
           path: app-real
           retention-days: 14
 
+  # the saved-car alerts end to end (alerts-check.cjs): a saved car with an insurance date 5 days ahead, the background check forced at a
+  # sending hour, the notification read from the phone, then a restart and the check must run again. Test only: no app change.
+  alerts:
+    needs: apk
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [35, 31]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: app-qa
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Install the test tools (not part of the app)
+        run: npm install --no-save --no-package-lock playwright@1.63.0
+      - name: Let the emulator use the processor's virtualisation
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: A real alert from a saved car, also after a restart
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 4096M
+          disable-animations: true
+          emulator-options: -no-window -gpu ${{ matrix.api == 35 && 'swangle_indirect' || 'swiftshader_indirect' }} -noaudio -no-boot-anim -camera-back none -no-snapshot-save
+          script: node .github/scripts/alerts-check.cjs app-qa.apk alerts-api${{ matrix.api }}.json
   publish:
     needs: device
     if: ${{ always() }}
