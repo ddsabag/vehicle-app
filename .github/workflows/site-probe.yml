@@ -15,8 +15,8 @@ jobs:
         with:
           node-version: 22
       - env:
-          LIST: https://meshumeshet.com/ https://meshumeshet.com/about https://meshumeshet.com/board https://www.check-car.co.il/ https://www.check-car.co.il/check/ https://lohit.co.il/ https://plateapp.ai/ https://plateapp.ai/check https://www.carzone.co.il/car-report https://www.carzone.co.il/pro/dealers/ https://autoboom.co.il/check-car https://carportal.co.il/ https://autodata.report/ https://clearcar.co.il/ https://caro.co.il/ https://data.gov.il/terms
-          HIST: lohit.co.il meshumeshet.com plateapp.ai clearcar.co.il caro.co.il autodata.report
+          LIST: https://www.check-car.co.il/business/ https://www.check-car.co.il/advertising/ https://lohit.co.il/developers https://lohit.co.il/terms https://lohit.co.il/contact https://lohit.co.il/sitemap.xml https://carportal.co.il/financing https://carportal.co.il/insurance https://carportal.co.il/find-car https://clearcar.co.il/about https://caro.co.il/about https://autodata.report/about https://data.gov.il/he/terms https://info.data.gov.il/datagov/terms/ https://www.gov.il/he/departments/policies/data_gov_il_terms
+          HIST: tlink.co.il
         run: node .github/scripts/page-list.mjs "$RUNNER_TEMP/site.enc.json"
       - name: Publish to the branch probe-site-out
         env:
