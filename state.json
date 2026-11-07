@@ -248,6 +248,38 @@
    "id": "18110220269225349",
    "link": "https://www.instagram.com/stories/luchit.app/4025321424273602223",
    "at": "2026-11-07T18:22:24.506Z"
+  },
+  "2026-11-07/k5-carousel/facebook": {
+   "tries": 1,
+   "last": "2026-11-07T19:21:13.212Z",
+   "status": "done",
+   "id": "1424085817452110_122110125063516900",
+   "link": "https://www.facebook.com/1424085817452110_122110125063516900",
+   "at": "2026-11-07T19:21:21.607Z"
+  },
+  "2026-11-07/k5-carousel/instagram": {
+   "tries": 1,
+   "last": "2026-11-07T19:21:21.951Z",
+   "status": "done",
+   "id": "18648513976016144",
+   "link": "https://www.instagram.com/p/Dfc68W6j7IS/",
+   "at": "2026-11-07T19:22:00.549Z"
+  },
+  "2026-11-07/k5-reel/facebook": {
+   "tries": 1,
+   "last": "2026-11-07T19:22:00.708Z",
+   "status": "done",
+   "id": "1481914210781670",
+   "link": "https://www.facebook.com/reel/1481914210781670/",
+   "at": "2026-11-07T19:22:23.208Z"
+  },
+  "2026-11-07/k5-reel/instagram": {
+   "tries": 1,
+   "last": "2026-11-07T19:22:23.497Z",
+   "status": "done",
+   "id": "18083647328353320",
+   "link": "https://www.instagram.com/reel/Dfc7BxjDnv8/",
+   "at": "2026-11-07T19:23:04.611Z"
   }
  },
  "ig": {
