@@ -1,5 +1,5 @@
 name: Site probe
-# Strategy thread: a passive, encrypted snapshot of a public page and its same-origin files (GET only). Runs on a push to this branch.
+# Strategy thread: passive, encrypted snapshots of public pages (GET only, no forms, no logins). Runs on a push to this branch.
 on:
   push:
     branches: [strategy/site-probe]
@@ -15,9 +15,9 @@ jobs:
         with:
           node-version: 22
       - env:
-          SEEDS: /_astro/PwaInstallHint.B2PQNIgA.js /_astro/CarCheckApp.DhoPlSwA.js /_astro/DisabledParkingTagChecker.BaR3ZteK.js /_astro/EstimatedPlateTool.astro_astro_type_script_index_0_lang.BClZ98wq.js /_astro/GarageFinder.CKzxhI-t.js /_astro/NewCarPricesFinder.CphkEUzM.js /_astro/PropertyInsuranceChecker.CcES8xaG.js /_astro/LeviYitzhakPriceChecker.BGZO2FI5.js /guides/insurance-claims-history-israel/ /guides/private-vehicle-history-mileage-ownership-2017/ /sw.js /service-worker.js /manifest.webmanifest
-          DENY: /(stats|insights)/|/tool/estimated-plate/$
-        run: node .github/scripts/site-probe.mjs "https://car-check-il.netlify.app/tool/" "$RUNNER_TEMP/site.enc.json"
+          LIST: https://meshumeshet.com/ https://meshumeshet.com/about https://meshumeshet.com/board https://www.check-car.co.il/ https://www.check-car.co.il/check/ https://lohit.co.il/ https://plateapp.ai/ https://plateapp.ai/check https://www.carzone.co.il/car-report https://www.carzone.co.il/pro/dealers/ https://autoboom.co.il/check-car https://carportal.co.il/ https://autodata.report/ https://clearcar.co.il/ https://caro.co.il/ https://data.gov.il/terms
+          HIST: lohit.co.il meshumeshet.com plateapp.ai clearcar.co.il caro.co.il autodata.report
+        run: node .github/scripts/page-list.mjs "$RUNNER_TEMP/site.enc.json"
       - name: Publish to the branch probe-site-out
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
