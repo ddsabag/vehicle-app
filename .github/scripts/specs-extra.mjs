@@ -273,7 +273,7 @@ export async function run({ env = process.env, api, groups, log = console.log, f
   const file = { v: 2, u: new Date().toISOString().slice(0, 10), fields: Object.fromEntries(Object.entries(NUM).map(([k, [he, u]]) => [k, { he, u }])), eq: EQ,
     codes: { ...((prev && prev.codes) || {}) }, done: { ...((prev && prev.v >= 2 && prev.done) || {}) } };
   groups ??= targets(env.CAT || "cat");
-  const only = String(env.SPEC_ONLY || "").split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
+  const only = String(env.SPEC_ONLY || "").split(",").map(s => s.trim().toUpperCase()).filter(s => s && s !== "ALL");   // "all": every model (an empty input falls back to the default list)
   if (only.length) groups = groups.filter(g => only.includes(`${g.cd}|${g.name}`));
   if (askOn && api === undefined) { const c = await client(env, { timeout: 8 * 60000 }); api = c.api; if (!api) { log("specs: no Claude (" + c.why + ")"); return { read: 0 }; } }
   let browser = null;

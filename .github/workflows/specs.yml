@@ -11,7 +11,7 @@ on:
         description: "USD for this run"
         default: "2"
       only:
-        description: "model names to read, cd|NAME comma separated (empty = all)"
+        description: "model names to read, cd|NAME comma separated, or all"
         default: "1014|SEALION 5,1604|JAECOO7 PHEV,1547|G6,443|MG4,1450|FX EV"
       ask:
         description: "1 = ask Claude, 0 = fetch and log the documents only (free)"
