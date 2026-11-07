@@ -1473,6 +1473,8 @@ const DRIVE_WORDS_HE = {HEV: "היברידי", HYBRID: "היברידי", HSD: "�
 const DRIVE_WORDS_RX = /(?<![A-Za-z0-9-])(?:PHEV|HEV|HYBRID|HSD|PLUG-IN)(?![A-Za-z0-9-])/gi;
 
 /* ---------- API ---------- */
+/* remote switches for tests (flags branch, flags.json): anything missing or unreadable counts as off */
+const loadFlags = () => fetch("https://raw.githubusercontent.com/ddsabag/vehicle-app/flags/flags.json", {cache: "no-cache"}).then(r => r.ok ? r.json() : {}).then(j => j && typeof j === "object" ? j : {}).catch(() => ({}));
 /* Optional caching proxy (worker/ in this repo). Empty = every phone talks to data.gov.il directly. When set and it fails, the phone falls back to direct. */
 const PROXY = "";
 let STALE_AT = 0;   // set when the proxy answered from its stored copy because the ministry was unreachable
@@ -4142,6 +4144,7 @@ function tabOverview(D){
   html.push(card("שינויים ברכב", "wrench", "teal", modsCard(v)));
   html.push(...towHtml);
   if (!evFirst) html.push(evCard);
+  html.push(fdBox(D, "result"));
   return html.join("");
 }
 
@@ -4320,7 +4323,7 @@ function tabBuy(D){
      ${step(2, "המוכר והמסמכים", `<ul class="bq"><li>ודאו שמי שמציג את הרכב הוא הבעלים החוקי: שמו ומספר תעודת הזהות שלו מופיעים ברישיון הרכב העדכני. אם הוא מיופה כוח, כדאי לדבר גם עם הבעלים.</li><li>במכירה פרטית, מומלץ להיפגש בבית המוכר ובאור יום.</li><li>בעסקה עם סוחר, בקשו בכתב מסמכי רכישה ואחריות.</li></ul>`)}
      ${step(3, "בפגישה עם הרכב", `<ul class="bq">${meet.map(t => `<li>${t}</li>`).join("")}</ul>`)}
      ${step(4, "בדיקה במכון", `<div class="insp"><p class="note" style="margin:0 0 6px">מומלץ לבדוק במכון מורשה אחרי שהסכמתם על מחיר עם המוכר, וליידע מראש שתיקונים שיתגלו יקוזזו מהמחיר. סכמו מראש מי משלם על הבדיקה אם יתגלו תקלות קריטיות ${ev ? "בסוללה, במנוע" : "במנוע, בגיר"} או בשלדה. מכונים מתוך רשימת המוסכים המורשים של משרד התחבורה:</p>
-       <form class="msearch" data-insp><input id="inspCity" placeholder="עיר, למשל חולון" value="${esc(setting("inspCity", ""))}" aria-label="עיר"><button type="submit" class="go sm" aria-label="חיפוש">${ico("search")}</button></form>
+       ${fdBox(D, "institutes")}<form class="msearch" data-insp><input id="inspCity" placeholder="עיר, למשל חולון" value="${esc(setting("inspCity", ""))}" aria-label="עיר"><button type="submit" class="go sm" aria-label="חיפוש">${ico("search")}</button></form>
        <div id="inspRes" style="margin-top:10px"></div></div>`)}
      ${step(5, "מה לשקלל במחיר", `<ul class="bq"><li><b>מצבר:</b> לרוב מחליפים אחרי 30 עד 36 חודשים. בדקו את גילו ואם הוא עדיין באחריות.</li><li><b>צמיגים:</b> בדקו מצב וגיל (התאריך מוטבע על הצמיג). בשימוש רגיל הם מחזיקים כ-40 עד 50 אלף ק״מ.</li><li><b>טסט קרוב:</b> חשבו אגרה, עלות טסט, הכנה ויום חופש.</li><li><b>טיפולים:</b> בקשו פירוט מהמוסך ובדקו שהתאריכים והק״מ הגיוניים מול המד. בררו מתי הטיפול הבא ומה עלותו.</li></ul>`)}
      ${step(6, "לפני התשלום", `<p class="note">ייתכן שלא ניתן יהיה להעביר בעלות, ולכן הסדירו מראש:</p><ul class="bq"><li>טסט בתוקף.</li><li>ריקול פתוח שטופל.</li><li>הסרת שעבוד או עיקול מול הגורם המשעבד.</li><li>הסרת תג חניה לנכה, כשרשום, במשרד הרישוי.</li><li>רישום היורשים, אם הבעלים נפטר.</li></ul>
@@ -4366,6 +4369,24 @@ async function findInspection(city){
     }).join("")}</div>` : `<p class="note">לא מצאנו מכון בדיקה ב${esc(city)}. נסו עיר קרובה או שם אחר לעיר (למשל "תל אביב יפו").</p>`;
 }
 document.addEventListener("submit", ev => { if (ev.target.matches("[data-insp]")) { ev.preventDefault(); findInspection($("#inspCity").value); } });
+/* fake-door test (after the freeze): would buyers book an inspection through us? A button that says "soon" and counts taps per place.
+   Off unless the remote switch (flags branch, flags.json) says on, so it can be stopped without a version; no form, nothing personal kept */
+const FLAGS = {};
+loadFlags().then(j => Object.assign(FLAGS, j));
+const fdOn = D => FLAGS.inspect_fake_door === true && !!D && !!D.plate && D.kind !== "model" && !D.isCancelled && roleOf(D) !== "owner";
+const fdSeen = new Set();
+function fdBox(D, place){
+  if (!fdOn(D)) return "";
+  setTimeout(() => { if (current !== D || !("IntersectionObserver" in window)) return; const k = D.plate + ":" + place, el = document.querySelector(`.fd[data-place="${place}"]`); if (!el || fdSeen.has(k)) return;
+    const io = new IntersectionObserver(es => { if (!es.some(x => x.isIntersecting)) return; io.disconnect(); if (fdSeen.has(k)) return; fdSeen.add(k); track("inspect_fake_door_view", {place, role: roleOf(D)}); }, {threshold: 0.6}); io.observe(el); }, 0);
+  return `<div class="cf-cta fd" data-place="${place}"><span><b>רוצים שמכון יבדוק את הרכב הזה?</b></span><button type="button" class="link-btn" data-fd="${place}">${ico("check")}לקבוע בדיקה במכון לרכב הזה</button></div>`;
+}
+document.addEventListener("click", ev => {
+  const b = ev.target.closest && ev.target.closest("[data-fd]"); if (!b || !current) return;
+  const place = b.dataset.fd, box = b.closest(".fd");
+  track("inspect_fake_door", {place, role: roleOf(current)});
+  if (box) box.innerHTML = place === "result" ? `<span role="status">בקרוב. בינתיים אפשר לבחור מכון מהרשימה בלשונית "קנייה".</span><button type="button" class="link-btn" data-tab="buy">${ico("search")}לרשימת המכונים</button>` : `<span role="status">בקרוב. בינתיים אפשר לבחור מכון מהרשימה.</span>`;
+});
 
 /* every system the model data speaks about, with a tick when it is fitted and a dash when it is not; unknown ones are left out */
 function chkList(w, map){
