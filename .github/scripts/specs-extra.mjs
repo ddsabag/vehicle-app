@@ -96,8 +96,14 @@ const SPEC_WORDS = /spec|brochure|technical|catalog|pricelist|price-list|מפר�
 // the model name as it appears in a link: "SEALION 5" -> "sealion5", "JAECOO7 PHEV" -> "jaecoo7", "MODEL Y" -> "modely"
 // (a name that is too short without them keeps them: "FX EV" -> "fxev", so the FX HEV pages are not the FX EV's)
 export const token = name => { const k = squash(String(name).replace(/\b(PHEV|EV|DM-?I|EM-?I|BYD|PLUG-?IN|HEV|HYBRID|HSD|HV|LEXUS)\b/gi, "")); return k.length >= 3 || /\d/.test(k) ? k : squash(name); };
+// the register name is often longer than the site's: "EQA250 PLUS" -> "eqa", "POLESTAR2 ELECT" -> "polestar2", "GEOMETRY C" -> "geometry"
+// (its first word, then without a trailing engine figure; never the brand alone, never under 3 letters)
+export const alts = g => { const w = squash(String(g.name).split(/\s+/)[0]), b = BRAND[g.cd] || ""; const out = [];
+  for (const x of [w, w.replace(/\d{2,}[a-z]*$/, "")]) if (x.length >= 3 && x !== b && !out.includes(x) && x !== token(g.name)) out.push(x);
+  return out; };
 export const linkFits = (g, href, text) => { const k = token(g.name); if (k.length < 2) return false; let h = String(href || ""); try { h = decodeURI(h); } catch {}
-  return squash(h).includes(k) || squash(text).includes(k); };
+  const sh = squash(h), st = squash(text);
+  return [k, ...alts(g)].some(x => sh.includes(x) || st.includes(x)); };
 
 // the pages for one model: seeds -> links and the sitemap -> pages whose link names the model -> PDFs on those pages
 export async function crawl(g, { browser, log = () => {}, pdfText }) {
@@ -349,6 +355,7 @@ if (process.argv[1] && process.argv[1].endsWith("specs-extra.mjs") && process.ar
   const t = targets(tmp);
   ok(t.length === 1 && t[0].name === "SEALION 5" && t[0].kind === "phev" && t[0].trims.length === 2 && t[0].n === 5288 && t[0].trims[0].dg === 47, "targets: private, recent, enough cars, grouped by model name");
   // v2: our own documents, the year rule, the line dedupe, the link match
+  ok(JSON.stringify(alts({ cd: 593, name: "EQA250 PLUS" })) === '["eqa250","eqa"]' && JSON.stringify(alts({ cd: 737, name: "FIAT 500" })) === "[]" && alts({ cd: 1414, name: "POLESTAR2 ELECT" })[0] === "polestar2", "alts: first word, then without the engine figure, never the brand");
   ok(token("JAECOO7 PHEV") === "jaecoo7" && token("SEALION 5") === "sealion5" && token("MODEL Y") === "modely" && token("FX EV") === "fxev" && token("G6") === "g6" && token("YARIS CROSS HSD") === "yariscross" && token("RAV4 HYBRID") === "rav4" && token("LEXUS NX350H") === "nx350h" && linkFits(g, "https://x.co.il/models/sealion-5/", "")
     && !linkFits(g, "https://x.co.il/models/seal-u/", "דגמים") && linkFits(g, "https://x.co.il/p/12", "BYD Sealion 5 DM-i"), "the model's name in a link");
   const docs = trimDocs([{ url: U, kind: "page", text: "תפריט\n" + page }, { url: "https://www.byd.co.il/x.pdf", kind: "pdf", text: "תפריט\nDESIGN 2025: מסך מולטימדיה 15.6 אינץ'" }]);
