@@ -25,17 +25,18 @@ try {
 } catch (e) { out("cf registrar error", String(e).slice(0, 120)); }
 }
 if (PART === "forms") {
-const { chromium } = await import("playwright");
+const T0 = Date.now(), step = t => console.log(`[${((Date.now() - T0) / 1000).toFixed(1)} s] ${t}`);
+step("import"); const { chromium } = await import("playwright"); step("launch");
 
-const browser = await chromium.launch(), page = await browser.newPage(); page.setDefaultTimeout(20000);
+const browser = await chromium.launch({ timeout: 60000 }); step("page"); const page = await browser.newPage(); page.setDefaultTimeout(20000); page.setDefaultNavigationTimeout(30000);
 const watch = path => new Promise(res => { const t = setTimeout(() => res("no request in 20 s"), 20000);
   page.on("response", async r => { if (r.url().includes(path)) { clearTimeout(t); let b = ""; try { b = await r.text(); } catch {} res(`${r.status()} ${b.slice(0, 60)}`); } }); });
 try {   // the business form, as a visitor fills it
-  await page.goto("https://luchit.app/business/", { waitUntil: "domcontentloaded" });
+  step("goto business"); const g = await page.goto("https://luchit.app/business/", { waitUntil: "domcontentloaded" }); step(`business ${g && g.status()} "${(await page.title()).slice(0, 60)}" form=${await page.locator("#wl").count()}`);
   const f = page.locator("#wl");
   await f.locator('[name="name"]').fill("בדיקת מערכת");
   await f.locator('[name="company"]').fill("לוחית, בדיקה פנימית");
-  await f.locator('[name="type"]').selectOption("אחר");
+  step("fill"); await f.locator('[name="type"]').selectOption({ label: "אחר" }).catch(async () => f.locator('[name="type"]').selectOption("אחר"));
   if (await f.locator('[name="interest"]').count()) await f.locator('[name="interest"]').selectOption("אחר").catch(() => {});
   await f.locator('[name="email"]').fill(TEST);
   if (await f.locator('[name="notes"]').count()) await f.locator('[name="notes"]').fill("בדיקה מקצה לקצה של הטופס (תפעול, 7.11). אפשר להתעלם.");
@@ -45,7 +46,7 @@ try {   // the business form, as a visitor fills it
   out("business /api/waitlist", await resp); await page.waitForTimeout(1500); out("business status line", (await page.locator("#st").textContent()) || "");
 } catch (e) { out("business error", String(e).slice(0, 160)); }
 try {   // the magazine form with our address (it has an "s"), as a visitor
-  await page.goto("https://luchit.app/magazine/", { waitUntil: "domcontentloaded" });
+  step("goto magazine"); const g2 = await page.goto("https://luchit.app/magazine/", { waitUntil: "domcontentloaded" }); step(`magazine ${g2 && g2.status()} forms=${await page.locator("form.sub").count()}`);
   const f = page.locator("form.sub").first();
   await f.locator('[name="email"]').fill(TEST); await f.locator('[name="consent"]').check();
   let sent = false; page.on("request", r => { if (r.url().includes("/api/subscribe")) sent = true; });
