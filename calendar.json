@@ -1,5 +1,5 @@
 {
- "at": "2026-11-07T13:48:33Z",
+ "at": "2026-11-07T14:21:40Z",
  "open": [],
  "items": [
   {
@@ -407,6 +407,59 @@
    ]
   },
   {
+   "d": "2026-11-07",
+   "t": "19:00",
+   "ch": [
+    "facebook",
+    "instagram"
+   ],
+   "what": "סטוריז מהערכה השבועית",
+   "src": "auto",
+   "st": {
+    "facebook": "planned",
+    "instagram": "planned"
+   },
+   "q": [
+    "2026-11-07/k5-story-1",
+    "2026-11-07/k5-story-2",
+    "2026-11-07/k5-story-3"
+   ]
+  },
+  {
+   "d": "2026-11-07",
+   "t": "20:30",
+   "ch": [
+    "facebook",
+    "instagram"
+   ],
+   "what": "קרוסלה מהערכה השבועית",
+   "src": "auto",
+   "st": {
+    "facebook": "planned",
+    "instagram": "planned"
+   },
+   "q": [
+    "2026-11-07/k5-carousel"
+   ]
+  },
+  {
+   "d": "2026-11-07",
+   "t": "21:15",
+   "ch": [
+    "facebook",
+    "instagram"
+   ],
+   "what": "ריל מהערכה השבועית",
+   "src": "auto",
+   "st": {
+    "facebook": "planned",
+    "instagram": "planned"
+   },
+   "q": [
+    "2026-11-07/k5-reel"
+   ]
+  },
+  {
    "d": "2026-11-08",
    "t": "08:30",
    "ch": [
@@ -430,6 +483,32 @@
     "fb_groups"
    ],
    "what": "פרסום בקבוצות פייסבוק",
+   "src": "cowork"
+  },
+  {
+   "d": "2026-11-08",
+   "t": "20:30",
+   "ch": [
+    "facebook",
+    "instagram"
+   ],
+   "what": "פוסט מהערכה השבועית",
+   "src": "auto",
+   "st": {
+    "facebook": "planned",
+    "instagram": "planned"
+   },
+   "q": [
+    "2026-11-07/k5-post"
+   ]
+  },
+  {
+   "d": "2026-11-08",
+   "t": "21:00",
+   "ch": [
+    "tiktok"
+   ],
+   "what": "ריל לקונים בטיקטוק, בהרצה ידנית של הפרומפט",
    "src": "cowork"
   },
   {
