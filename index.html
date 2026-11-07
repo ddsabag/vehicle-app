@@ -7548,7 +7548,8 @@ window.onEntitlement = s => {
 function renderUpgrade(){
   if (land) setLand(false, false);
   current = null; inCompare = false; setScreen("sub");
-  try { const b = bridge(); if (b && b.billingInit) b.billingInit(); } catch {}
+  /* Play billing only while PRO is on sale: with PRO_LOCK off there are no products, and the billing library is never started (7.11.2026) */
+  if (PRO_LOCK) { try { const b = bridge(); if (b && b.billingInit) b.billingInit(); } catch {} }
   const p = plan(), e = entGet(), html = [];
   let st = "";
   if (PRO_LOCK) {
