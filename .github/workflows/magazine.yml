@@ -61,7 +61,7 @@ jobs:
       SLOT: ${{ (github.event.schedule || inputs.schedule) }}
       KIND: ${{ ((github.event.schedule || inputs.schedule) == '30 5 * * 4' || inputs.part == 'data') && 'data' || 'monthly' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: main
       - uses: actions/setup-node@v7
@@ -217,7 +217,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with: { node-version: 20 }
       - name: Self-tests (the Claude helper and the magazine prose, offline)
@@ -255,7 +255,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with: { node-version: 20 }
       - name: Self-tests (the Claude helper and the summaries, offline)
@@ -283,7 +283,7 @@ jobs:
     permissions:
       contents: write   # only for the alert router's state on the alert-state branch; the newsletter never writes main
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with: { node-version: 20 }
       - run: node .github/scripts/newsletter.mjs
