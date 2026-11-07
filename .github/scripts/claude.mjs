@@ -81,7 +81,10 @@ async function results(api, id) {
     out.set(r.custom_id, res.type === "succeeded" ? { ok: true, msg: res.message } : { ok: false, why: res.type === "errored" ? `errored ${(err && err.type) || ""}`.trim() : String(res.type) });
   }
   const sum = {}; let model = "";   // the batch's spend, at half price, in one count
-  for (const v of out.values()) if (v.ok && v.msg && v.msg.usage) { model ||= v.msg.model; for (const [k, n] of Object.entries(v.msg.usage)) if (typeof n === "number") sum[k] = (sum[k] || 0) + n; }
+  for (const v of out.values()) if (v.ok && v.msg && v.msg.usage) {
+    model ||= v.msg.model; for (const [k, n] of Object.entries(v.msg.usage)) if (typeof n === "number") sum[k] = (sum[k] || 0) + n;
+    const w = v.msg.usage.server_tool_use && v.msg.usage.server_tool_use.web_search_requests; if (w) sum.web_search_requests = (sum.web_search_requests || 0) + w;   // ai-usage prices it
+  }
   if (model) await record(model, sum, { batch: true });
   return out;
 }
