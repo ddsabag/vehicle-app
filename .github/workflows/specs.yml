@@ -19,8 +19,6 @@ on:
       kinds:
         description: "ev,phev (later hybrid,ice for equipment)"
         default: "ev,phev"
-  push:   # TEMPORARY: a free fetch-only run (SPEC_ASK=0) from this branch; removed before the branch is released
-    branches: [data/specs-extra]
     paths: [.github/workflows/specs.yml, .github/scripts/specs-extra.mjs]
 permissions:
   contents: write
@@ -56,13 +54,13 @@ jobs:
         env:
           OUT: out
           SPEC_BUDGET: ${{ inputs.budget || '2' }}
-          SPEC_ONLY: ${{ github.event_name == 'push' && '1014|SEALION 5,1604|JAECOO7 PHEV,1547|G6,443|MG4,1450|FX EV' || inputs.only }}
-          SPEC_ASK: ${{ github.event_name == 'push' && '0' || inputs.ask }}
+          SPEC_ONLY: ${{ inputs.only }}
+          SPEC_ASK: ${{ inputs.ask }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
       - name: Publish on the specs-data branch
-        if: ${{ always() && github.event_name != 'push' && inputs.ask != '0' && hashFiles('out/specs-review.md') != '' }}
+        if: ${{ always() && inputs.ask != '0' && hashFiles('out/specs-review.md') != '' }}
         run: |
           cd out && git init -q && git checkout -q -b specs-data
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" add specs-extra.json specs-review.md
