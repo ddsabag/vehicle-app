@@ -82,4 +82,11 @@ if (PART === "confirm") {   // 7.11 second round: click the first confirm mail's
   } catch (e) { out("fresh subscribe error", String(e).slice(0, 120)); }
   }
 }
+if (PART === "after") {   // 7.11 after the rate-limit release: the routes still answer as before, from the new version
+  const H2 = { origin: "https://luchit.app", "content-type": "application/json", "user-agent": "Mozilla/5.0 (ops probe)" };
+  const show = async (k, r) => out(k, `${r.status} v=${(r.headers.get("x-luchit-version") || "-").slice(0, 8)} ${(await r.text()).slice(0, 40)}`);
+  try { await show("waitlist bad body", await get("https://luchit.app/api/waitlist", { method: "POST", headers: H2, body: "{}" })); } catch (e) { out("waitlist error", String(e).slice(0, 100)); }
+  try { await show("subscribe fresh", await get("https://luchit.app/api/subscribe", { method: "POST", headers: H2, body: JSON.stringify({ email: "luchit.app.service+e2e1107r@gmail.com", website: "", consent: true }) })); } catch (e) { out("subscribe error", String(e).slice(0, 100)); }
+  try { const r = await get("https://luchit.app/api/confirm?e=a%40b.co&x=1&t=x", { redirect: "manual" }); out("confirm expired", `${r.status} ${r.headers.get("location") || ""}`); } catch (e) { out("confirm error", String(e).slice(0, 100)); }
+}
 process.exit(0);
