@@ -44,7 +44,7 @@ export const WF_LEVELS = {
   "Web deploy (build)": "critical",
   "Workers deploy": "critical",   // a crash mid-deploy can leave the site on an unchecked Worker version
   "Android build": "day", "Data guard": "day", "Fuel price": "day", "Market data": "day",
-  "Ministry watch": "day", "Model names": "day", "Model statistics": "day", "Magazine": "day", "Site smoke test": "day",
+  "Ministry watch": "day", "Ministry pulse": "summary", "Model names": "day", "Model statistics": "day", "Magazine": "day", "Site smoke test": "day",
   "Site smoke test (after deploy)": "day", "Weekly analytics report": "day", "Alert daily": "day",
   "SEO check": "summary", "SEO auto-publish": "summary", "Web watch": "summary",
   "Model catalogue": "summary",

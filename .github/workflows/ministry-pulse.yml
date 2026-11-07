@@ -1,0 +1,31 @@
+name: Ministry pulse
+# Every 30 minutes, the three first lookups of a car check for the sample car (ministry-pulse.mjs). Two bad rounds 90 s apart open one
+# day-level item through the alert router (ministry:pulse), the first good round closes it. Writes nothing the app reads (status.json stays
+# with Ministry watch, once a day). Data thread, 7.11.2026 (freeze split, Dudu 7.11 15:49 UTC: monitoring that changes nothing users see).
+on:
+  schedule:
+    - cron: "11,41 * * * *"   # off the full and half hour, when GitHub delays scheduled runs the most
+  workflow_dispatch:
+permissions:
+  contents: write   # alert.mjs keeps its state on the alert-state branch
+concurrency: ministry-pulse
+jobs:
+  pulse:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      - run: node .github/scripts/ministry-pulse.mjs selftest
+      - run: node .github/scripts/ministry-pulse.mjs
+        env:
+          ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
