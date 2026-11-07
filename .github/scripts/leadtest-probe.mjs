@@ -1,6 +1,6 @@
 // One-off (probe-perf branch, not for main), 7.11.2026: did the 7.11 form tests (b2b_lead_submit, newsletter_confirm, sent from about
 // 14:22 UTC) already reach GA4 today, and so the lead and subscriber counts on /live? Today by hour with the form's fields, the series
-// since 1.10 by day (what /live counts), and the realtime report (last 30 minutes). Reads GA4 only.
+// since 1.10 by day (what /live counts), and the realtime report (last 30 minutes). Reads GA4 only. Re-run 7.11 21:00 UTC.
 // Business numbers never reach the log or the branch in clear: the JSON is encrypted with .github/seo-data.pub.pem.
 import crypto from "node:crypto";
 import fs from "node:fs";
