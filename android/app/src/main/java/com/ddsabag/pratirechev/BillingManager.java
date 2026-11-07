@@ -167,8 +167,13 @@ class BillingManager implements PurchasesUpdatedListener {
         }
         List<BillingFlowParams.ProductDetailsParams> l = new ArrayList<>();
         l.add(pd.build());
-        BillingResult r = client.launchBillingFlow(activity, BillingFlowParams.newBuilder().setProductDetailsParamsList(l).build());
-        if (r.getResponseCode() != BillingClient.BillingResponseCode.OK) error("לא הצלחנו לפתוח את חלון הרכישה.");
+        // Play can answer without a purchase window (a null PendingIntent inside the library): a toast, never a crash
+        try {
+            BillingResult r = client.launchBillingFlow(activity, BillingFlowParams.newBuilder().setProductDetailsParamsList(l).build());
+            if (r.getResponseCode() != BillingClient.BillingResponseCode.OK) error("לא הצלחנו לפתוח את חלון הרכישה.");
+        } catch (RuntimeException e) {
+            error("לא הצלחנו לפתוח את חלון הרכישה.");
+        }
     }
 
     @Override
