@@ -13,7 +13,7 @@ export function buildLanding(x) {
   const {SITE, head, foot, esc, fmt, models, g, NAT, SETTLEMENTS, urls, lastmod, MOD, slugOf} = x;
   const today = new Date().toISOString().slice(0, 10);
   const out = [];
-  const form = (label = "בדקו לפי מספר רישוי") => `<form class="pf" action="${SITE}" method="get" role="search"><label for="pl"><b>${esc(label)}</b></label><div class="row"><input id="pl" name="plate" inputmode="numeric" autocomplete="off" pattern="[0-9\\-\\s]{5,12}" placeholder="למשל 12-345-67" required><button class="cta" type="submit">בדיקה</button></div><p class="muted" style="margin:6px 0 0">בחינם, בלי הרשמה, ממאגרי משרד התחבורה.</p></form>`;
+  const form = (label = "בדקו לפי מספר רישוי") => `<form class="pf" action="${SITE}" method="get" role="search"><label for="pl"><b>${esc(label)}</b></label><div class="row"><input id="pl" name="plate" inputmode="numeric" autocomplete="off" pattern="[0-9\\-\\s]{5,12}" placeholder="למשל 76-543-21" required><button class="cta" type="submit">בדיקה</button></div><p class="muted" style="margin:6px 0 0">בחינם, בלי הרשמה, ממאגרי משרד התחבורה.</p></form>`;
   const css = "form.pf{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:14px 0}form.pf .row{display:flex;gap:8px;margin-top:8px}form.pf input{flex:1;min-width:0;font:inherit;font-size:1.1rem;padding:9px 12px;border:2px solid var(--plate);border-radius:10px;background:var(--card);color:var(--fg);direction:ltr;text-align:center;letter-spacing:.05em}form.pf button{border:0;cursor:pointer;font:inherit;font-weight:700}ul.g{padding-inline-start:20px;margin:8px 0}ul.g li{margin:6px 0}";
   const page = (path, title, desc, crumbs, h1, intro, sections, faq, ldExtra = []) => {
     const url = SITE + path;
