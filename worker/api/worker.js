@@ -6,6 +6,10 @@
 // A confirmed subscription also sends (optional) a cookie-less GA4 event newsletter_confirm, so /live can count subscribers.
 // Route: luchit.app/api/*   Secret: BREVO_KEY (also signs the links; CONFIRM_SECRET is used instead if you set it)   Vars: BREVO_LIST_ID, BREVO_B2B_LIST_ID, NOTIFY_TO
 // Optional for the GA4 event: GA_MEASUREMENT_ID (var, G-XXXXXXXX of a web data stream) and GA_API_SECRET (secret).
+// Limits on the two routes that send mail (ops 7.11.2026, the CEO checklist: the Origin check stops browsers only, so a script could make
+// this Worker mail any address and spend Brevo's 300 a day): per sender IP 5 mails an hour on each route, per address 3 confirmation mails
+// a day (more: answered ok, nothing sent), and 150 confirmation mails a day in all. Counters live in the edge cache (caches.default, per data
+// center, keys hashed): no new Cloudflare resource; a limit that cannot be read lets the request through, as before.
 // The visible mail is email/confirm.html in the repo; CONFIRM_HTML below is that file with the link as {{CONFIRM_URL}} (regenerate it when the design changes).
 const ORIGIN = "https://luchit.app";
 const TTL_MS = 48 * 3600 * 1000;
@@ -27,7 +31,21 @@ const BIZ_INTERESTS = ["נתוני רכב מרוכזים (API)", "דוחות מ�
 const PHONE_RE = /^[0-9+\-() ]{7,20}$/;
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-async function waitlist(req, env) {
+const LIMITS = { ipHour: 5, toDay: 3, allDay: 150 };
+const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+async function slot(kind, id, ttl) {   // a counter in the edge cache: { n } under a hashed key, kept for ttl seconds from its first use
+  const h = hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`luchit-rl|${kind}|${id}`)));
+  return { key: new Request(`https://luchit.app/__rl/${kind}/${h}`), ttl };
+}
+async function count(c) { try { const r = await caches.default.match(c.key); return r ? (await r.json()).n || 0 : 0; } catch { return 0; } }
+async function bump(c, n, ctx) {
+  const p = caches.default.put(c.key, new Response(JSON.stringify({ n: n + 1 }), { headers: { "content-type": "application/json", "cache-control": `max-age=${c.ttl}` } })).catch(() => {});
+  if (ctx && ctx.waitUntil) ctx.waitUntil(p); else await p;
+}
+const tooMany = () => json({ error: "rate" }, 429);
+const ipOf = req => req.headers.get("cf-connecting-ip") || "none";
+
+async function waitlist(req, env, ctx) {
   if (req.method !== "POST") return json({ error: "method" }, 405);
   if (req.headers.get("origin") !== ORIGIN) return json({ error: "forbidden" }, 403);
   if (!(req.headers.get("content-type") || "").includes("application/json")) return json({ error: "type" }, 415);
@@ -40,6 +58,9 @@ async function waitlist(req, env) {
   if (name.length < 2 || company.length < 2) return json({ error: "fields" }, 400);
   if (!BIZ_TYPES.includes(type) || (interest && !BIZ_INTERESTS.includes(interest))) return json({ error: "choice" }, 400);
   if (!EMAIL_RE.test(email) || (phone && !PHONE_RE.test(phone))) return json({ error: "contact" }, 400);
+  const ipc = await slot("lead-ip", ipOf(req), 3600), ipn = await count(ipc);
+  if (ipn >= LIMITS.ipHour) return tooMany();
+  await bump(ipc, ipn, ctx);
 
   // A new contact is created with the form's details. An existing one is never overwritten (the Origin check stops browsers only, so anyone
   // could otherwise rewrite a real lead's name or phone, or stamp a subscriber with business consent): it is only added to the business list,
@@ -100,7 +121,7 @@ async function webEvent(req, env) {
 }
 
 const app = {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
     const url = new URL(req.url);
 
     if (url.pathname === "/api/e") return webEvent(req, env);
@@ -121,7 +142,7 @@ const app = {
       return redirect("1");
     }
 
-    if (url.pathname === "/api/waitlist") return waitlist(req, env);
+    if (url.pathname === "/api/waitlist") return waitlist(req, env, ctx);
 
     if (url.pathname !== "/api/subscribe") return json({ error: "not found" }, 404);
     if (req.method !== "POST") return json({ error: "method" }, 405);
@@ -132,6 +153,13 @@ const app = {
     if (b.consent !== true) return json({ error: "consent" }, 400);   // the unticked checkbox must have been ticked
     const email = String(b.email || "").trim().toLowerCase();
     if (email.length > 254 || !EMAIL_RE.test(email)) return json({ error: "email" }, 400);
+    const ipc = await slot("sub-ip", ipOf(req), 3600), ipn = await count(ipc);
+    if (ipn >= LIMITS.ipHour) return tooMany();
+    const toc = await slot("sub-to", email, 86400), ton = await count(toc);
+    if (ton >= LIMITS.toDay) { await bump(ipc, ipn, ctx); return json({ ok: true }); }   // the address already has its mails today: nothing new is sent
+    const allc = await slot("sub-all", new Date().toISOString().slice(0, 10), 86400), alln = await count(allc);
+    if (alln >= LIMITS.allDay) return tooMany();
+    await Promise.all([bump(ipc, ipn, ctx), bump(toc, ton, ctx), bump(allc, alln, ctx)]);
 
     const exp = Date.now() + TTL_MS;
     const link = `${ORIGIN}/api/confirm?e=${encodeURIComponent(email)}&x=${exp}&t=${await sign(env, email, exp)}`;
@@ -146,8 +174,8 @@ const app = {
 };
 
 export default {
-  async fetch(req, env) {
-    const r = await app.fetch(req, env);
+  async fetch(req, env, ctx) {
+    const r = await app.fetch(req, env, ctx);
     // which version answered (binding CF_VERSION_METADATA in wrangler.toml): the Workers deploy check waits for the new one
     if (env.CF_VERSION_METADATA?.id) try { r.headers.set("x-luchit-version", env.CF_VERSION_METADATA.id); } catch {}
     return r;

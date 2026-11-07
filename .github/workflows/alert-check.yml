@@ -129,6 +129,8 @@ jobs:
         run: node worker/uptime/test.mjs
       - name: Mail Worker test
         run: node worker/mail/test.mjs
+      - name: API Worker test (the mail-sending routes keep their limits)
+        run: node worker/api/test.mjs
       - name: Reviews Worker test
         run: node worker/reviews/test.mjs
       - name: Workers deploy self-test
