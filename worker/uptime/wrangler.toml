@@ -14,7 +14,12 @@ crons = ["*/10 * * * *"]
 [[kv_namespaces]]
 binding = "ALERTS"
 id = "KV_NAMESPACE_ID"   # the id of luchit-alerts, filled in after Dudu creates it (prompt reports/פרומפט-לתוסף-בדיקת-זמינות.md); not a secret
-# Optional, added in the dashboard: Send Email binding MAIL, destination = the FORWARD_TO address in worker/mail/wrangler.toml (already verified).
+# Send Email binding MAIL: the second paging channel next to Telegram (a site-down page also goes by mail). Destination = FORWARD_TO in
+# worker/mail/wrangler.toml, already a verified Email Routing address. It was planned as a dashboard step and never added: /health said
+# email:false until this line (ops area checklist 7.11.2026).
+[[send_email]]
+name = "MAIL"
+destination_address = "luchit.app.service@gmail.com"
 # Secrets (Dudu pastes them): TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID; optional BREVO_KEY.
 [version_metadata]
 binding = "CF_VERSION_METADATA"   # the running version's id: answers carry it as x-luchit-version, so the Workers deploy check knows which version answered

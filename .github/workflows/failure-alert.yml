@@ -30,6 +30,7 @@ on:
       - "Data guard"
       - "Fuel price"
       - "Ministry watch"
+      - "Ministry pulse"
       - "Web deploy (build)"
       - "SEO check"
       - "SEO auto-publish"
