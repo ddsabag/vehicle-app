@@ -47,7 +47,7 @@ try {   // the magazine: the page's own check, then the Worker as the form calls
 await browser.close().catch(() => {});
 }
 if (PART === "confirm") {   // 7.11 second round: click the first confirm mail's button (Brevo's tracked link), read the contact's lists, ask a fresh test address
-  const TRACK = "https://bceehhee.r.af.d.sendibt2.com/tr/cl/1kzcsGELySoif6G4AWnPD9rCfp542EIiEG9wvLl9g2kDJy2skQ87ZCZS-AUGfLrSDkH1PdtJYyrUhmCy3o2knyYpeFQbiudnYxNRB9ERzeiG_DPZX3W_Acl2jZfT9jDzUh8ualgch1-silZa6NbEgaDsi90ljHG8sgw7PnJgqI6mrCjvD3QupHBl0KGzdoimQjd0-2YSf9AuWHgl2WppP8KPk5WSfWifNM4B2KwmuHaauc-LuIHxV6srSZqouqPzvMzuC9wyXIlgrkz_wCBDfS75vdbloEQ2KZVEYqwFlh4Z-iee4Gz4PdPq-RZvxObiejuJJm0IMp-rfwFBdSKBRto6tjfEZca7574Ogt1qkYdiJdV84lKi-PbiWQrlNL8nPo_WmI5pgTlGNO1HtqiBY9-Wb2evFUUQGSsxLyW3sRL-KWz6jikUzdBT1bQyIBxIf0y6yGnMC54pqesd4zDgMFg";
+  const TRACK = "https://bceehhee.r.bh.d.sendibt3.com/tr/cl/OKbly2jH2pvHzNNvAA94jwflKm3zwGYAVAPesqoLvQtoHOzj1YmifWjewzvLXK5o7nINswUYOtxYdSrVlWA_b-Mf0-JNhqobAhAfUauUyz5VKt5j9ySH1w2NfRKaUTzLAmK-ad_ml7s1zrlFQuh2Dd3Zw9jGvzvV3pTKRPeH9tFCDA3ynvs5NWrac1jKlCMpcn5Zhgqklh6a9nje6xVLQOLqmk4YCq-yvjC4XwnL-GnHENRVzjONQoHushPtKhu7NGgPbW0f38XgvAWjUmOpzECcvtJ-PvVH0wj3PjcrPK0-SzT_XIjAIxVG249YWfSwI_uESbwIBgXXh2qYRHnpIo0q3uu0a4q1js3uTv4uLbrbwYlnPABcbe2OJsLz6kBm9DDCJzohXXZlNM7vrFC5u8YiNoOHozfkCUZjeX0Al16ff0IpFoNhZeqBJ0YIa0yO8tdToLOAmmwm-GOSY60NS5RZuQ";   // round 3: the fresh address's mail
   const UA = { "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36" };
   const hops = []; let u = TRACK;
   try {
@@ -73,12 +73,13 @@ if (PART === "confirm") {   // 7.11 second round: click the first confirm mail's
   } catch (e) { return { error: String(e).slice(0, 80) }; } };
   await new Promise(r => setTimeout(r, 3000));
   out("lists known", { magazine: !!lists.BREVO_LIST_ID, business: !!lists.BREVO_B2B_LIST_ID });
-  out("brevo e2e1107", await look(TEST));
-  const FRESH = "luchit.app.service+e2e1107m@gmail.com";   // never in Brevo: its confirm must create the contact (201), the path that counts on /live
-  out("brevo fresh before", await look(FRESH));
+  const FRESH = "luchit.app.service+e2e1107m@gmail.com";   // was not in Brevo (404 in round 2): this confirm must create it (201), the path that counts on /live
+  out("brevo fresh after", await look(FRESH));
+  if (false) {
   try {
     const r = await get("https://luchit.app/api/subscribe", { method: "POST", headers: { ...UA, origin: "https://luchit.app", "content-type": "application/json" }, body: JSON.stringify({ email: FRESH, website: "", consent: true }) });
     out("fresh /api/subscribe", r.status + " " + (await r.text()).slice(0, 60));
   } catch (e) { out("fresh subscribe error", String(e).slice(0, 120)); }
+  }
 }
 process.exit(0);
