@@ -35,7 +35,8 @@ export function price(model, u = {}, { batch = false } = {}) {
 // A re-base on a Console balance (credits thread 7.11.2026: the count missed web search fees and the specs pilot): add a line with a new
 // id, from = when Dudu read the balance, left = that balance, the same until. The line with the latest from that has begun wins, so the
 // cycle starts again from zero there (calls between that time and the commit are left out: commit it soon after the read).
-export const GRANTS = [{ id: "g-2026-11-01", from: "2026-11-01T22:50:00Z", until: "2026-11-20T00:00:00Z", left: 71.84 }];
+export const GRANTS = [{ id: "g-2026-11-01", from: "2026-11-01T22:50:00Z", until: "2026-11-20T00:00:00Z", left: 71.84 },
+  { id: "g-2026-11-07", from: "2026-11-07T08:20:00Z", until: "2026-11-20T00:00:00Z", left: 47.2 }];   // re-base: Dudu 7.11 08:20 UTC, Console "נשאר 47.2$" (data thread)
 const grantAt = (now, list = GRANTS) => list.filter(g => now >= new Date(g.from) && now < new Date(g.until)).sort((a, b) => new Date(b.from) - new Date(a.from))[0];
 export function cycle(now = new Date(), list = GRANTS) {
   const g = grantAt(now, list); if (g) return g.id;
@@ -132,12 +133,13 @@ if (process.argv[1] && process.argv[1].endsWith("ai-usage.mjs") && process.argv.
   ok(Math.abs(price("claude-sonnet-5-5", { input_tokens: 1e6, server_tool_use: { web_search_requests: 5 } }) - 2.05) < 1e-9
     && Math.abs(price("claude-sonnet-5-5", { input_tokens: 1e6, web_search_requests: 5 }, { batch: true }) - 1.05) < 1e-9
     && Math.abs(price("claude-haiku-5-5", { server_tool_use: { web_search_requests: 1000 } }) - 10) < 1e-9, "web search: $10 per 1,000, in a reply and in a batch sum, never halved");
-  { const L = [...GRANTS, { id: "g-2026-11-07", from: "2026-11-07T10:00:00Z", until: "2026-11-20T00:00:00Z", left: 60.5 }];
+  const G1 = GRANTS[0];   // the 1.11 grant, as a fixture: later re-base lines do not change these checks
+  { const L = [G1, { id: "g-2026-11-07", from: "2026-11-07T10:00:00Z", until: "2026-11-20T00:00:00Z", left: 60.5 }];
     const a = budget(new Date("2026-11-07T09:59Z"), {}, L), z = budget(new Date("2026-11-07T10:00Z"), {}, L);
     ok(a.cycle === "g-2026-11-01" && a.cap === 71.84 && z.cycle === "g-2026-11-07" && z.cap === 60.5 && cycle(new Date("2026-11-19T23:00Z"), L) === "g-2026-11-07"
       && budget(new Date("2026-11-21T00:00Z"), {}, L).cycle === "2026-11-20", "a re-base line: the latest begun grant wins, from zero; after until the month " + JSON.stringify([a, z])); }
-  ok(cycle(new Date("2026-11-01T22:00Z")) === "2026-10-20" && cycle(new Date("2026-11-01T22:50Z")) === "g-2026-11-01" && cycle(new Date("2026-11-19T23:59Z")) === "g-2026-11-01"
-    && cycle(new Date("2026-11-20T00:00Z")) === "2026-11-20" && cycle(new Date("2027-01-03T00:00Z")) === "2026-12-20", "the grant to 20.11, then monthly from the 20th");
+  ok(cycle(new Date("2026-11-01T22:00Z"), [G1]) === "2026-10-20" && cycle(new Date("2026-11-01T22:50Z"), [G1]) === "g-2026-11-01" && cycle(new Date("2026-11-19T23:59Z"), [G1]) === "g-2026-11-01"
+    && cycle(new Date("2026-11-20T00:00Z"), [G1]) === "2026-11-20" && cycle(new Date("2027-01-03T00:00Z"), [G1]) === "2026-12-20", "the grant to 20.11, then monthly from the 20th");
   let b = budget(new Date("2026-11-05T00:00Z"), {}); ok(b.cap === 71.84 && b.until === "2026-11-20T00:00:00.000Z".replace(".000", "") , "the grant's cap is what was left on 1.11 " + JSON.stringify(b));
   b = budget(new Date("2026-12-01T00:00Z"), { AI_CAP_USD: "80" }); ok(b.cap === 80 && b.cycle === "2026-11-20" && b.until.startsWith("2026-12-20"), "after the grant: AI_CAP_USD, until the next 20th");
   ok(ilDay("2026-11-20T00:00:00Z") === "19.11", "the alert names the last day the credit works");
