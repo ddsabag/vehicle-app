@@ -31,31 +31,18 @@ step("import"); const { chromium } = await import("playwright"); step("launch");
 const browser = await chromium.launch({ timeout: 60000 }); step("page"); const page = await browser.newPage(); page.setDefaultTimeout(20000); page.setDefaultNavigationTimeout(30000);
 const watch = path => new Promise(res => { const t = setTimeout(() => res("no request in 20 s"), 20000);
   page.on("response", async r => { if (r.url().includes(path)) { clearTimeout(t); let b = ""; try { b = await r.text(); } catch {} res(`${r.status()} ${b.slice(0, 60)}`); } }); });
-try {   // the business form, as a visitor fills it
-  step("goto business"); const g = await page.goto("https://luchit.app/business/", { waitUntil: "domcontentloaded" }); step(`business ${g && g.status()} "${(await page.title()).slice(0, 60)}" form=${await page.locator("#wl").count()}`);
-  const f = page.locator("#wl");
-  await f.locator('[name="name"]').fill("בדיקת מערכת");
-  await f.locator('[name="company"]').fill("לוחית, בדיקה פנימית");
-  step("fill"); await f.locator('[name="type"]').selectOption({ label: "אחר" }).catch(async () => f.locator('[name="type"]').selectOption("אחר"));
-  if (await f.locator('[name="interest"]').count()) await f.locator('[name="interest"]').selectOption("אחר").catch(() => {});
-  await f.locator('[name="email"]').fill(TEST);
-  if (await f.locator('[name="notes"]').count()) await f.locator('[name="notes"]').fill("בדיקה מקצה לקצה של הטופס (תפעול, 7.11). אפשר להתעלם.");
-  await f.locator('[name="consent"]').check();
-  const resp = watch("/api/waitlist");
-  await f.locator("button").click();
-  out("business /api/waitlist", await resp); await page.waitForTimeout(1500); out("business status line", (await page.locator("#st").textContent()) || "");
+const call = (path, body) => page.evaluate(async ([p, b]) => { try { const x = await fetch(p, { method: "POST", signal: AbortSignal.timeout(15000), headers: { "content-type": "application/json" }, body: JSON.stringify(b) });
+  return x.status + " " + (await x.text()).slice(0, 60); } catch (e) { return "error " + String(e).slice(0, 80); } }, [path, body]);
+try {   // the business form's request, sent from the page as the form sends it (same origin)
+  step("goto business"); const g = await page.goto("https://luchit.app/business/", { waitUntil: "domcontentloaded" }); step(`business ${g && g.status()} form=${await page.locator("#wl").count()}`);
+  out("business /api/waitlist", await call("/api/waitlist", { name: "בדיקת מערכת", company: "לוחית, בדיקה פנימית", type: "אחר", interest: "אחר", email: TEST, phone: "",
+    notes: "בדיקה מקצה לקצה של הטופס (תפעול, 7.11). אפשר להתעלם.", website: "", consent: true }));
 } catch (e) { out("business error", String(e).slice(0, 160)); }
-try {   // the magazine form with our address (it has an "s"), as a visitor
+try {   // the magazine: the page's own check, then the Worker as the form calls it
   step("goto magazine"); const g2 = await page.goto("https://luchit.app/magazine/", { waitUntil: "domcontentloaded" }); step(`magazine ${g2 && g2.status()} forms=${await page.locator("form.sub").count()}`);
-  const f = page.locator("form.sub").first();
-  await f.locator('[name="email"]').fill(TEST); await f.locator('[name="consent"]').check();
-  let sent = false; page.on("request", r => { if (r.url().includes("/api/subscribe")) sent = true; });
-  await f.locator("button").click(); await page.waitForTimeout(3000);
-  out("magazine form sent request", String(sent)); out("magazine status line", (await f.locator(".st").textContent()) || "");
-  out("magazine page check", String(await page.evaluate(e => /^[^s@]+@[^s@.]+(.[^s@.]+)+$/.test(e), "moshe@gmail.com")));
-  // the Worker behind it, as the form would call it (same origin, from the page), so the confirmation mail can be checked
-  const r = await page.evaluate(async e => { const x = await fetch("/api/subscribe", { signal: AbortSignal.timeout(15000), method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: e, website: "", consent: true }) }); return x.status + " " + (await x.text()).slice(0, 60); }, TEST);
-  out("magazine /api/subscribe", r);
+  const html = await page.content(), re = /var em=f\.email\.value\.trim\(\);if\(!(\/[^\n]*?\/)\.test/.exec(html);
+  out("magazine served check", re ? re[1].slice(0, 60) : "not found");
+  out("magazine /api/subscribe", await call("/api/subscribe", { email: TEST, website: "", consent: true }));
 } catch (e) { out("magazine error", String(e).slice(0, 160)); }
 await browser.close().catch(() => {});
 }
