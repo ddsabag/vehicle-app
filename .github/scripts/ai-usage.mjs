@@ -7,6 +7,8 @@
 // a write that loses five races, or a rotated key (the old total cannot be read: the cycle starts again from zero) leaves the count low,
 // never the bot broken: record() never throws. Workers (luchit-reviews) are not counted here: well under $1 a month, inside the 20% margin.
 // Prices per million tokens (platform docs, 1.11.2026): cache writes 1.25x input, cache reads as listed, a batch request half price.
+// Server web search: $10 per 1,000 searches (usage.server_tool_use.web_search_requests; a batch's summed usage carries it flat as
+// web_search_requests), never halved, so the count is not low (credits thread 7.11.2026: competitor check, settlements, the specs pilot).
 //   price(model, usage, {batch})   USD of one reply
 //   cycle(now)                     the credit cycle's id: a grant's id while it runs, else "YYYY-MM-20" (monthly from the 20th)
 //   budget(now, env)               {cycle, cap, until}: a grant's dollars left when it was entered, else AI_CAP_USD (default 100)
@@ -20,24 +22,30 @@ import fs from "node:fs";
 export const PRICES = {   // input, output, cache read
   "claude-opus-5-5": [4, 20, 0.2], "claude-sonnet-5-5": [2, 10, 0.2], "claude-haiku-5-5": [0.1, 0.5, 0.01],
 };
+export const SEARCH_USD = 0.01;   // one server web search
 const FALLBACK = PRICES["claude-opus-5-5"];   // an unknown model counts at the highest price, so the alert never comes late
 export function price(model, u = {}, { batch = false } = {}) {
   const [i, o, r] = PRICES[String(model || "").replace(/\[.*\]$/, "")] || FALLBACK;
   const usd = ((u.input_tokens || 0) * i + (u.cache_creation_input_tokens || 0) * i * 1.25 + (u.cache_read_input_tokens || 0) * r + (u.output_tokens || 0) * o) / 1e6;
-  return batch ? usd / 2 : usd;
+  const search = ((u.server_tool_use && u.server_tool_use.web_search_requests) || u.web_search_requests || 0) * SEARCH_USD;
+  return (batch ? usd / 2 : usd) + search;
 }
 // A known credit grant: from = when its balance was read (left = what the Console showed then, so spend before it is already inside),
 // until = when it expires. Dudu 1.11.2026 22:50 UTC: "$71.84 of $100.00 ... Expires on 11/20/2026". A new grant: add a line here.
-export const GRANTS = [{ id: "g-2026-11-01", from: "2026-11-01T22:50:00Z", until: "2026-11-20T00:00:00Z", left: 71.84 }];
-const grantAt = now => GRANTS.find(g => now >= new Date(g.from) && now < new Date(g.until));
-export function cycle(now = new Date()) {
-  const g = grantAt(now); if (g) return g.id;
+// A re-base on a Console balance (credits thread 7.11.2026: the count missed web search fees and the specs pilot): add a line with a new
+// id, from = when Dudu read the balance, left = that balance, the same until. The line with the latest from that has begun wins, so the
+// cycle starts again from zero there (calls between that time and the commit are left out: commit it soon after the read).
+export const GRANTS = [{ id: "g-2026-11-01", from: "2026-11-01T22:50:00Z", until: "2026-11-20T00:00:00Z", left: 71.84 },
+  { id: "g-2026-11-07", from: "2026-11-07T08:20:00Z", until: "2026-11-20T00:00:00Z", left: 47.2 }];   // re-base: Dudu 7.11 08:20 UTC, Console "נשאר 47.2$" (data thread)
+const grantAt = (now, list = GRANTS) => list.filter(g => now >= new Date(g.from) && now < new Date(g.until)).sort((a, b) => new Date(b.from) - new Date(a.from))[0];
+export function cycle(now = new Date(), list = GRANTS) {
+  const g = grantAt(now, list); if (g) return g.id;
   const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 20));
   if (now.getUTCDate() < 20) d.setUTCMonth(d.getUTCMonth() - 1);
   return d.toISOString().slice(0, 10);
 }
-export function budget(now = new Date(), env = process.env) {
-  const g = grantAt(now);
+export function budget(now = new Date(), env = process.env, list = GRANTS) {
+  const g = grantAt(now, list);
   if (g) return { cycle: g.id, cap: g.left, until: g.until };
   const c = cycle(now), u = new Date(c + "T00:00:00Z"); u.setUTCMonth(u.getUTCMonth() + 1);
   return { cycle: c, cap: +(env.AI_CAP_USD || 100), until: u.toISOString() };
@@ -122,8 +130,16 @@ if (process.argv[1] && process.argv[1].endsWith("ai-usage.mjs") && process.argv.
   ok(Math.abs(price("claude-haiku-5-5", { input_tokens: 1e6, output_tokens: 1e6 }) - 0.6) < 1e-9 && Math.abs(price("claude-opus-5-5", { input_tokens: 1e6 }, { batch: true }) - 2) < 1e-9
     && Math.abs(price("claude-sonnet-5-5", { cache_creation_input_tokens: 1e6, cache_read_input_tokens: 1e6 }) - 2.7) < 1e-9, "prices: input, output, cache write and read, batch at half");
   ok(price("claude-new-x", { input_tokens: 1e6 }) === 4 && price("claude-opus-5-5[1m]", { output_tokens: 1e6 }) === 20, "an unknown model counts at the top price");
-  ok(cycle(new Date("2026-11-01T22:00Z")) === "2026-10-20" && cycle(new Date("2026-11-01T22:50Z")) === "g-2026-11-01" && cycle(new Date("2026-11-19T23:59Z")) === "g-2026-11-01"
-    && cycle(new Date("2026-11-20T00:00Z")) === "2026-11-20" && cycle(new Date("2027-01-03T00:00Z")) === "2026-12-20", "the grant to 20.11, then monthly from the 20th");
+  ok(Math.abs(price("claude-sonnet-5-5", { input_tokens: 1e6, server_tool_use: { web_search_requests: 5 } }) - 2.05) < 1e-9
+    && Math.abs(price("claude-sonnet-5-5", { input_tokens: 1e6, web_search_requests: 5 }, { batch: true }) - 1.05) < 1e-9
+    && Math.abs(price("claude-haiku-5-5", { server_tool_use: { web_search_requests: 1000 } }) - 10) < 1e-9, "web search: $10 per 1,000, in a reply and in a batch sum, never halved");
+  const G1 = GRANTS[0];   // the 1.11 grant, as a fixture: later re-base lines do not change these checks
+  { const L = [G1, { id: "g-2026-11-07", from: "2026-11-07T10:00:00Z", until: "2026-11-20T00:00:00Z", left: 60.5 }];
+    const a = budget(new Date("2026-11-07T09:59Z"), {}, L), z = budget(new Date("2026-11-07T10:00Z"), {}, L);
+    ok(a.cycle === "g-2026-11-01" && a.cap === 71.84 && z.cycle === "g-2026-11-07" && z.cap === 60.5 && cycle(new Date("2026-11-19T23:00Z"), L) === "g-2026-11-07"
+      && budget(new Date("2026-11-21T00:00Z"), {}, L).cycle === "2026-11-20", "a re-base line: the latest begun grant wins, from zero; after until the month " + JSON.stringify([a, z])); }
+  ok(cycle(new Date("2026-11-01T22:00Z"), [G1]) === "2026-10-20" && cycle(new Date("2026-11-01T22:50Z"), [G1]) === "g-2026-11-01" && cycle(new Date("2026-11-19T23:59Z"), [G1]) === "g-2026-11-01"
+    && cycle(new Date("2026-11-20T00:00Z"), [G1]) === "2026-11-20" && cycle(new Date("2027-01-03T00:00Z"), [G1]) === "2026-12-20", "the grant to 20.11, then monthly from the 20th");
   let b = budget(new Date("2026-11-05T00:00Z"), {}); ok(b.cap === 71.84 && b.until === "2026-11-20T00:00:00.000Z".replace(".000", "") , "the grant's cap is what was left on 1.11 " + JSON.stringify(b));
   b = budget(new Date("2026-12-01T00:00Z"), { AI_CAP_USD: "80" }); ok(b.cap === 80 && b.cycle === "2026-11-20" && b.until.startsWith("2026-12-20"), "after the grant: AI_CAP_USD, until the next 20th");
   ok(ilDay("2026-11-20T00:00:00Z") === "19.11", "the alert names the last day the credit works");
