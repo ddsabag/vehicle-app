@@ -171,7 +171,7 @@ jobs:
                 || echo "::warning::model page summaries were not written this month: the pages keep the text they had"
             fi
             node .github/scripts/pages.mjs
-            paths=(magazine sitemap.xml model)
+            paths=(magazine sitemap.xml model brand check guide 404.html)   # everything pages.mjs and landing.mjs write; brand and check pages link to model pages that come and go
             [ -e model-answers.json ] && paths+=(model-answers.json)
             if [ -z "$(git status --porcelain "${paths[@]}")" ]; then echo "nothing new"; exit 0; fi
             # the newest monthly article (slug YYYY-MM): on a day a data article also came out, that one can share the date and sort first
