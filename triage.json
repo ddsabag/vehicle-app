@@ -1,0 +1,21 @@
+{
+ "at": "2026-11-07T11:36:48.796Z",
+ "clean": true,
+ "items": [],
+ "failed": [],
+ "checks": {
+  "Alert daily": "success",
+  "Site smoke test": "success",
+  "Release guard": "success",
+  "Data truth": "success",
+  "Web watch": "success",
+  "App guardian (real app)": "success"
+ },
+ "posts": {},
+ "digest": {
+  "at": "2026-11-01T14:29:44.768Z",
+  "flag": false,
+  "forward": false
+ },
+ "row": "| 2026-11-07 | A | on | daily-triage | nothing changed | prepared by Triage prep 11:36 UTC: no open fail/wait item and no prod:halt or zonea; no failed run on main; Alert daily, Site smoke test, Release guard, Data truth, Web watch, App guardian (real app) green; autopost yesterday: none | - | 2026-11-08 | - | ok | בדיקת הבוקר: הכול ירוק |"
+}
