@@ -178,7 +178,6 @@ jobs:
   # sending hour, the notification read from the phone, then a restart and the check must run again. Test only: no app change.
   alerts:
     needs: apk
-    if: ${{ !inputs.quick }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
