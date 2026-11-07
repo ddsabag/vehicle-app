@@ -1,0 +1,26 @@
+# Kit visual QA: 2026-11-07
+
+15 images looked at by claude-sonnet-5-5.
+3 findings, 15 low-confidence notes. Report only: decide each one by looking at the image.
+
+## Findings
+- **high · plate** · carousel-02.png · licence plate graphic in the lower middle of the slide: The plate reads "76-543-21", which is not one of the allowed demo plates (12-345-67, 1234567, 7654321). It is a plate-like number, so it could be taken for a real one. («76-543-21»)
+- **high · plate** · reel-before-meeting.frame-3of5.jpg · yellow licence plate in the middle of the frame: The plate shows 76-543-21, which is not one of the allowed demo plates (12-345-67, 1234567, 7654321). It also looks like the demo plate reversed, so it could be read as a real-looking plate. («76-543-21»)
+- **medium · plate** · story-03.png · licence plate graphic in the middle of the story: The plate reads "76-543-21" in the 2-3-2 format. It is not one of the allowed demo plates (12-345-67, 1234567, 7654321). It is possibly a reversed version of 12-345-67, but the digit grouping is not the allowed one and it looks like a different plate number. («76-543-21»)
+
+## Low-confidence notes
+- contrast · carousel-03.png · Bottom left, large digit "2" behind the swipe prompt area: The large dark-olive "2" is barely visible against the navy background. It looks like a decorative watermark, so this is a minor blemish.
+- layout · carousel-04.png · Title block, third line in yellow: '.עם ריקול פתוח': The period appears at the left end of the yellow line, which is the correct end for right-to-left Hebrew, so this is not a defect. The only oddity is that the arrow '←' beside 'החליקו' points left, w…
+- other · carousel-02.png · bottom left, next to the plate, a large dark "1": A large dark-olive "1" sits beside the plate. It is nearly invisible against the dark background and looks like a stray element or a numbering leftover.
+- typo · carousel-01.png · Swipe cue at bottom left: 'החליקו' with an arrow: In right-to-left Hebrew, 'החליקו' (swipe) with a left-pointing arrow after the text is the correct swipe direction for RTL carousels, so this is not a defect. Nothing wrong found.
+- rtl · carousel-05.png · Headline, second line: yellow text at the top of the title block: The period at the end of the second headline line sits at the left end, which is correct for Hebrew RTL, so this is not a defect. It is listed only as a low-confidence note.
+- rtl · reel-cover.jpg · top-left tag under the yellow header: The asterisk sits at the left end of the Hebrew word, so it reads as "המחשה *" instead of "* המחשה". This is probably just how the mocked-scene marker renders, so it may be fine.
+- layout · reel-cover.jpg · bottom dark banner: The banner nearly touches the left and right edges, with only about 13px of margin, while the other content has about 50px. The margins look uneven. The banner is also in the bottom 340px zone that t…
+- rtl · dealer-post.png · Bottom right call to action line: 'מקלידים מספר רישוי ← luchit.app': The arrow '←' sits between the Hebrew phrase and the link and points left. In right-to-left reading the link is to the left of the phrase, so the arrow direction is correct. Not a defect.
+- layout · story-01.png · bottom of the story: the "זמינה להורדה" caption, the Google Play badge and the "1/3" counter, at y≈1480-1660: The "1/3" page counter sits just under the badge, at about y 1645 and inside the bottom 340 px reserved for the network's own buttons (y>1580). It is small and low-contrast, and could be covered by t…
+- layout · reel-before-meeting.frame-1of5.jpg · Sixth row, "למה מוכרים?", under the yellow list: The sixth row is outlined in blue with no yellow fill and no "רשום לפי המספר" pill, unlike the five rows above it. The outline is tight against the text, and the question mark touches its left edge. …
+- layout · reel-before-meeting.frame-1of5.jpg · Bottom dark banner "חלק מהתשובות כבר רשומות.": The banner runs almost edge to edge, with about 13px of margin on each side against 50px for the list rows, so the margins look uneven. The text nearly fills the banner.
+- plate · story-02.png · licence plate in the middle of the story: The plate reads "76-543-21", which is not one of the allowed demo plates (12-345-67, 1234567, 7654321). It is the demo plate 7654321 formatted in a different way, and it could be taken for a real-loo…
+- layout · story-02.png · bottom of the story, the Google Play badge and the "2/3" counter: The Google Play badge and the "2/3" counter sit at about y=1520-1660, which is inside the bottom 340px (from y=1580) reserved for the network's buttons. The badge is exempt, but the counter partly fa…
+- layout · reel-before-meeting.frame-4of5.jpg · Mock chat label at top left, below the chat header: The mock-scene label "* המחשה" is placed with the asterisk on the right of the word and sits at the far left edge, very dim against the dark background. Its asterisk position is acceptable, but the l…
+- contrast · reel-before-meeting.frame-4of5.jpg · Chat bubbles and header, dimmed background: The chat bubbles are dimmed with a dark overlay so the dark text on the dark background is hard to read. This is likely an intentional dimming behind the title, but the contrast is very low.

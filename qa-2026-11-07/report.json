@@ -1,0 +1,190 @@
+{
+ "kit": "2026-11-07",
+ "model": "claude-sonnet-5-5",
+ "images": 15,
+ "failed": [],
+ "findings": [
+  {
+   "image": "carousel-02.png",
+   "kind": "plate",
+   "part": 1,
+   "where": "licence plate graphic in the lower middle of the slide",
+   "text": "76-543-21",
+   "what": "The plate reads \"76-543-21\", which is not one of the allowed demo plates (12-345-67, 1234567, 7654321). It is a plate-like number, so it could be taken for a real one.",
+   "severity": "high",
+   "confidence": "medium"
+  },
+  {
+   "image": "reel-before-meeting.frame-3of5.jpg",
+   "kind": "plate",
+   "part": 1,
+   "where": "yellow licence plate in the middle of the frame",
+   "text": "76-543-21",
+   "what": "The plate shows 76-543-21, which is not one of the allowed demo plates (12-345-67, 1234567, 7654321). It also looks like the demo plate reversed, so it could be read as a real-looking plate.",
+   "severity": "high",
+   "confidence": "medium"
+  },
+  {
+   "image": "story-03.png",
+   "kind": "plate",
+   "part": 1,
+   "where": "licence plate graphic in the middle of the story",
+   "text": "76-543-21",
+   "what": "The plate reads \"76-543-21\" in the 2-3-2 format. It is not one of the allowed demo plates (12-345-67, 1234567, 7654321). It is possibly a reversed version of 12-345-67, but the digit grouping is not the allowed one and it looks like a different plate number.",
+   "severity": "medium",
+   "confidence": "medium"
+  }
+ ],
+ "notes": [
+  {
+   "image": "carousel-03.png",
+   "kind": "contrast",
+   "part": 1,
+   "where": "Bottom left, large digit \"2\" behind the swipe prompt area",
+   "text": "2",
+   "what": "The large dark-olive \"2\" is barely visible against the navy background. It looks like a decorative watermark, so this is a minor blemish.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "carousel-04.png",
+   "kind": "layout",
+   "part": 1,
+   "where": "Title block, third line in yellow: '.עם ריקול פתוח'",
+   "text": ".עם ריקול פתוח",
+   "what": "The period appears at the left end of the yellow line, which is the correct end for right-to-left Hebrew, so this is not a defect. The only oddity is that the arrow '←' beside 'החליקו' points left, which is correct for swiping in RTL. No real defect found.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "carousel-02.png",
+   "kind": "other",
+   "part": 1,
+   "where": "bottom left, next to the plate, a large dark \"1\"",
+   "text": "1",
+   "what": "A large dark-olive \"1\" sits beside the plate. It is nearly invisible against the dark background and looks like a stray element or a numbering leftover.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "carousel-01.png",
+   "kind": "typo",
+   "part": 1,
+   "where": "Swipe cue at bottom left: 'החליקו' with an arrow",
+   "text": "← החליקו",
+   "what": "In right-to-left Hebrew, 'החליקו' (swipe) with a left-pointing arrow after the text is the correct swipe direction for RTL carousels, so this is not a defect. Nothing wrong found.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "carousel-05.png",
+   "kind": "rtl",
+   "part": 1,
+   "where": "Headline, second line: yellow text at the top of the title block",
+   "text": "שואלים את המוכר.",
+   "what": "The period at the end of the second headline line sits at the left end, which is correct for Hebrew RTL, so this is not a defect. It is listed only as a low-confidence note.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "reel-cover.jpg",
+   "kind": "rtl",
+   "part": 1,
+   "where": "top-left tag under the yellow header",
+   "text": "* המחשה",
+   "what": "The asterisk sits at the left end of the Hebrew word, so it reads as \"המחשה *\" instead of \"* המחשה\". This is probably just how the mocked-scene marker renders, so it may be fine.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "reel-cover.jpg",
+   "kind": "layout",
+   "part": 1,
+   "where": "bottom dark banner",
+   "text": "חלק מהתשובות כבר רשומות.",
+   "what": "The banner nearly touches the left and right edges, with only about 13px of margin, while the other content has about 50px. The margins look uneven. The banner is also in the bottom 340px zone that the network's interface covers.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "dealer-post.png",
+   "kind": "rtl",
+   "part": 1,
+   "where": "Bottom right call to action line: 'מקלידים מספר רישוי ← luchit.app'",
+   "text": "מקלידים מספר רישוי ← luchit.app",
+   "what": "The arrow '←' sits between the Hebrew phrase and the link and points left. In right-to-left reading the link is to the left of the phrase, so the arrow direction is correct. Not a defect.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "story-01.png",
+   "kind": "layout",
+   "part": 1,
+   "where": "bottom of the story: the \"זמינה להורדה\" caption, the Google Play badge and the \"1/3\" counter, at y≈1480-1660",
+   "text": "1/3",
+   "what": "The \"1/3\" page counter sits just under the badge, at about y 1645 and inside the bottom 340 px reserved for the network's own buttons (y>1580). It is small and low-contrast, and could be covered by the interface.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "reel-before-meeting.frame-1of5.jpg",
+   "kind": "layout",
+   "part": 1,
+   "where": "Sixth row, \"למה מוכרים?\", under the yellow list",
+   "text": "למה מוכרים?",
+   "what": "The sixth row is outlined in blue with no yellow fill and no \"רשום לפי המספר\" pill, unlike the five rows above it. The outline is tight against the text, and the question mark touches its left edge. This could be an animation mid-highlight, so it may be intended.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "reel-before-meeting.frame-1of5.jpg",
+   "kind": "layout",
+   "part": 1,
+   "where": "Bottom dark banner \"חלק מהתשובות כבר רשומות.\"",
+   "text": "חלק מהתשובות כבר רשומות.",
+   "what": "The banner runs almost edge to edge, with about 13px of margin on each side against 50px for the list rows, so the margins look uneven. The text nearly fills the banner.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "story-02.png",
+   "kind": "plate",
+   "part": 1,
+   "where": "licence plate in the middle of the story",
+   "text": "76-543-21",
+   "what": "The plate reads \"76-543-21\", which is not one of the allowed demo plates (12-345-67, 1234567, 7654321). It is the demo plate 7654321 formatted in a different way, and it could be taken for a real-looking plate.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "story-02.png",
+   "kind": "layout",
+   "part": 1,
+   "where": "bottom of the story, the Google Play badge and the \"2/3\" counter",
+   "text": "2/3",
+   "what": "The Google Play badge and the \"2/3\" counter sit at about y=1520-1660, which is inside the bottom 340px (from y=1580) reserved for the network's buttons. The badge is exempt, but the counter partly falls in the zone. There is also a large empty gap between the plate and the badge.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "reel-before-meeting.frame-4of5.jpg",
+   "kind": "layout",
+   "part": 1,
+   "where": "Mock chat label at top left, below the chat header",
+   "text": "* המחשה",
+   "what": "The mock-scene label \"* המחשה\" is placed with the asterisk on the right of the word and sits at the far left edge, very dim against the dark background. Its asterisk position is acceptable, but the label is barely legible.",
+   "severity": "low",
+   "confidence": "low"
+  },
+  {
+   "image": "reel-before-meeting.frame-4of5.jpg",
+   "kind": "contrast",
+   "part": 1,
+   "where": "Chat bubbles and header, dimmed background",
+   "text": "ראיתי שיש לרכב ריקול פתוח. הוא כבר תוקן?",
+   "what": "The chat bubbles are dimmed with a dark overlay so the dark text on the dark background is hard to read. This is likely an intentional dimming behind the title, but the contrast is very low.",
+   "severity": "low",
+   "confidence": "low"
+  }
+ ]
+}
