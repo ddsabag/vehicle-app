@@ -278,10 +278,11 @@ export async function run({ env = process.env, api, groups, log = console.log, f
   if (askOn && api === undefined) { const c = await client(env, { timeout: 8 * 60000 }); api = c.api; if (!api) { log("specs: no Claude (" + c.why + ")"); return { read: 0 }; } }
   let browser = null;
   if (!fetchDocs) { const { chromium } = await import("playwright"); browser = await chromium.launch(); fetchDocs = g => crawl(g, { browser, log, pdfText }); }
-  let spent = 0, read = 0, kept = 0; const review = [];
+  let spent = 0, read = 0, kept = 0; const review = [], t0 = Date.now(), minutes = +(env.SPEC_MINUTES || 140);
   try {
     for (const g of groups.filter(g => only.length || !file.done[g.cd + "|" + g.name]).slice(0, limit)) {   // named model names are read again
       if (spent >= budget) break;
+      if (Date.now() - t0 > minutes * 60000) { log("specs: time limit reached, the next run goes on from here"); break; }   // the job has 170 minutes; what is read is kept
       const docs = await fetchDocs(g);
       log(`specs: ${g.cd}|${g.name}: ${docs.length} documents, ${docs.reduce((s, d) => s + d.text.length, 0)} chars` + docs.map(d => `\n  ${d.kind} ${d.text.length} ${d.url}`).join(""));
       if (!askOn) continue;
