@@ -1,9 +1,13 @@
 {
-  "hexOutsideTokens": 101,
+  "hexOutsideTokens": 100,
   "physicalDirection": 2,
   "importantCount": 15,
   "fontSizesOffScale": 6,
   "fontSizesPx": 0,
   "inlineStyleColors": 1,
-  "unregisteredCards": 0
+  "unregisteredCards": 0,
+  "rawFetchOutsideApi": 11,
+  "emptyCatches": 141,
+  "topLevelLets": 51,
+  "mixedFieldsNoBdi": 24
 }

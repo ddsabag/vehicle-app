@@ -30,6 +30,11 @@ const css = styles.sort((a, b) => b.length - a.length)[0] || "";
 const rules = css.split("\n").filter((l) => !/^\s*--[\w-]+\s*:/.test(l) && !/[{;]\s*--[\w-]+\s*:/.test(l.split("{")[0] || ""));
 const body = css.split("*{box-sizing")[1] || css;
 const bodyNoTokens = body.replace(/--[\w-]+\s*:[^;}]+[;}]?/g, "");
+// architecture ratchets (luchit-architecture skill, roadmap stage 0): counted on the app's main inline script; they may only go down
+const appJs = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]).sort((a, b) => b.length - a.length)[0] || "";
+const apiFrom = appJs.indexOf("/* ---------- API ---------- */"), apiTo = appJs.indexOf("/* ---------- small UI helpers");
+const outsideApi = apiFrom >= 0 && apiTo > apiFrom ? appJs.slice(0, apiFrom) + appJs.slice(apiTo) : appJs;
+const MIXED_FIELD = /\$\{esc\(([^)]*\b(?:title|model|make|trim|ramat_gimur|kinuy_mishari|degem_nm|RECALL_ID)\b[^)]*)\)\}/g;
 const metric = {
   hexOutsideTokens: (bodyNoTokens.match(/#[0-9a-fA-F]{3,8}\b/g) || []).length,
   physicalDirection: (body.match(/(?:margin|padding)-(?:left|right)\s*:|border-(?:left|right)(?:-\w+)?\s*:|text-align\s*:\s*(?:left|right)|float\s*:\s*(?:left|right)/g) || []).length,
@@ -38,6 +43,10 @@ const metric = {
   fontSizesPx: (body.match(/font-size\s*:\s*[\d.]+px/g) || []).length,
   inlineStyleColors: (html.match(/style="[^"]*(?:#[0-9a-fA-F]{3,8}|rgb\()/g) || []).length,
   unregisteredCards: [...titles].filter((t) => !known.has(t)).length,
+  rawFetchOutsideApi: (outsideApi.match(/(?<![\w.$])fetch\(/g) || []).length,
+  emptyCatches: (appJs.match(/catch\s*(?:\([^)]*\))?\s*\{\s*\}|\.catch\(\(\)\s*=>\s*\{\s*\}\)/g) || []).length,
+  topLevelLets: (appJs.match(/^let /gm) || []).length,
+  mixedFieldsNoBdi: [...appJs.matchAll(MIXED_FIELD)].filter((m) => !/<bdi>$/.test(appJs.slice(Math.max(0, m.index - 5), m.index)) && !/="$/.test(appJs.slice(m.index - 2, m.index))).length,
 };
 if (process.argv.includes("--update-baseline")) {
   fs.writeFileSync(baselineFile, JSON.stringify(metric, null, 2) + "\n");
@@ -54,6 +63,10 @@ const hint = {
   fontSizesPx: "a pixel font size was added (use rem from the scale)",
   inlineStyleColors: "an inline colour was added in a template (use a class and a token)",
   unregisteredCards: "a card is not in ui-contract.json",
+  rawFetchOutsideApi: "a fetch() was added outside the API section (add a named service function in /* ---------- API ---------- */ and call it)",
+  emptyCatches: "an empty catch was added (report the failure with reportErr or return a named fallback)",
+  topLevelLets: "a new top-level let was added (keep state inside its screen's object)",
+  mixedFieldsNoBdi: "a field that can mix Hebrew with English or digits is printed without <bdi> (use <bdi> or joinIsolated)",
 };
 for (const [k, v] of Object.entries(metric)) if (k in base && v > base[k]) warn(`${k}: ${v} (baseline ${base[k]}): ${hint[k]}`);
 
