@@ -1,5 +1,5 @@
 {
- "at": "2026-11-07T19:21:42Z",
+ "at": "2026-11-07T20:14:12Z",
  "open": [],
  "items": [
   {
@@ -434,8 +434,12 @@
    "what": "קרוסלה מהערכה השבועית",
    "src": "auto",
    "st": {
-    "facebook": "planned",
-    "instagram": "planned"
+    "facebook": "done",
+    "instagram": "done"
+   },
+   "link": {
+    "facebook": "https://www.facebook.com/1424085817452110_122110125063516900",
+    "instagram": "https://www.instagram.com/p/Dfc68W6j7IS/"
    },
    "q": [
     "2026-11-07/k5-carousel"
@@ -451,8 +455,12 @@
    "what": "ריל מהערכה השבועית",
    "src": "auto",
    "st": {
-    "facebook": "planned",
-    "instagram": "planned"
+    "facebook": "done",
+    "instagram": "done"
+   },
+   "link": {
+    "facebook": "https://www.facebook.com/reel/1481914210781670/",
+    "instagram": "https://www.instagram.com/reel/Dfc7BxjDnv8/"
    },
    "q": [
     "2026-11-07/k5-reel"
