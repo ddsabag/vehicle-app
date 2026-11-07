@@ -1,0 +1,54 @@
+{
+ "v": 5,
+ "at": "2026-11-05T08:59:52.928Z",
+ "source": "app",
+ "run": "https://github.com/ddsabag/vehicle-app/actions/runs/41997892694",
+ "code": "87d199ad1673.1549b478ca94",
+ "mode": "batch",
+ "counts": {
+  "shots": 78,
+  "kept": 0,
+  "first": 78,
+  "second": 2,
+  "waitingFirst": 0,
+  "waitingSecond": 0,
+  "unsure": 30,
+  "errors": 0,
+  "findings": 1,
+  "new": 1,
+  "rejected": 1,
+  "misreads": 2
+ },
+ "month": {
+  "first": 463,
+  "second": 7,
+  "caps": {
+   "runFirst": 300,
+   "runSecond": 40,
+   "monthFirst": 4000,
+   "monthSecond": 400
+  }
+ },
+ "findings": [
+  {
+   "shot": "api35/411-f200__light__car__check-check",
+   "kind": "cut_text",
+   "part": 1,
+   "where": "top app bar, plate chip at the right edge beside the back chevron",
+   "text": "12-345-67",
+   "what": "The yellow plate box ends in the middle of the plate number: it shows '12-345-6' with the 6 clipped at the box's border, and the final '7' is drawn outside the box on the page background, next to the chevron. The plate looks broken, though it is still readable.",
+   "severity": "medium",
+   "since": "2026-11-05",
+   "new": true
+  }
+ ],
+ "pending": [],
+ "dropped": [
+  {
+   "shot": "api35/411-f100__light__home-settings__tour-settings",
+   "claim": "The third price input's value box is cut off at the bottom by the sheet's bottom edge; the field and its label 'חשמל (₪ לקוט״ש)' are clipped where the bottom sh",
+   "why": "The settings sheet is scrollable and the content simply continues below the screen edge, which is normal scrolling. The visible part of the row is not clipped by its own box."
+  }
+ ],
+ "errors": []
+}

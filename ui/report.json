@@ -1,0 +1,56 @@
+{
+ "v": 5,
+ "at": "2026-11-07T09:25:28.390Z",
+ "source": "ui",
+ "run": "https://github.com/ddsabag/vehicle-app/actions/runs/42356810846",
+ "code": "568a73296943",
+ "mode": "batch",
+ "counts": {
+  "shots": 180,
+  "kept": 0,
+  "first": 180,
+  "second": 1,
+  "waitingFirst": 0,
+  "waitingSecond": 0,
+  "unsure": 93,
+  "errors": 1,
+  "findings": 1,
+  "new": 1,
+  "rejected": 1,
+  "misreads": 10
+ },
+ "month": {
+  "first": 724,
+  "second": 6,
+  "caps": {
+   "runFirst": 300,
+   "runSecond": 40,
+   "monthFirst": 4000,
+   "monthSecond": 400
+  }
+ },
+ "findings": [
+  {
+   "shot": "screen-cars-table-320-light",
+   "kind": "cut_text",
+   "part": 1,
+   "where": "note under the table, second line, at the left end",
+   "text": "להתקנה",
+   "what": "The underlined link 'להתקנה' at the end of the note looks cut at the left, where a following word such as 'קישור' seems to be hidden by the button area; the line seems to continue under the button.",
+   "severity": "low",
+   "since": "2026-11-07",
+   "new": true
+  }
+ ],
+ "pending": [],
+ "dropped": [
+  {
+   "shot": "screen-cars-table-320-light",
+   "claim": "The floating compare button covers the end of the links in the 'דגמים נפוצים' lines, hiding words such as 'קשקאי' or 'ק' behind it; the links there are partly h",
+   "why": "The button is a fixed floating element drawn over content that scrolls under it. The covered links appear in full in part 2, so this is not a defect."
+  }
+ ],
+ "errors": [
+  "canceled"
+ ]
+}
