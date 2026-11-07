@@ -89,4 +89,27 @@ if (PART === "after") {   // 7.11 after the rate-limit release: the routes still
   try { await show("subscribe fresh", await get("https://luchit.app/api/subscribe", { method: "POST", headers: H2, body: JSON.stringify({ email: "luchit.app.service+e2e1107r@gmail.com", website: "", consent: true }) })); } catch (e) { out("subscribe error", String(e).slice(0, 100)); }
   try { const r = await get("https://luchit.app/api/confirm?e=a%40b.co&x=1&t=x", { redirect: "manual" }); out("confirm expired", `${r.status} ${r.headers.get("location") || ""}`); } catch (e) { out("confirm error", String(e).slice(0, 100)); }
 }
+if (PART === "ops") {   // 7.11 the ops area checklist: token expiry, Workers logs, mail DNS, the watcher's health, Brevo's sender domain. Statuses only
+  for (const u of ["https://api.cloudflare.com/client/v4/user/tokens/verify", CF + "/tokens/verify"]) {
+    try { const j = await (await get(u, { headers: H })).json(); out("cf token " + (u.includes("/user/") ? "user" : "account"), j.success ? { status: j.result.status, expires_on: j.result.expires_on || "never" } : (j.errors || []).map(e => e.code)); } catch (e) { out("cf token error", String(e).slice(0, 80)); }
+  }
+  for (const w of ["luchit-og", "luchit-api", "luchit-mail", "luchit-uptime", "luchit-reviews", "luchit-live"]) {
+    try { const j = await (await get(CF + `/workers/scripts/${w}/script-settings`, { headers: H })).json();
+      out("logs " + w, j.success ? { observability: !!(j.result.observability && j.result.observability.enabled), logpush: !!j.result.logpush } : (j.errors || []).map(e => e.code)); } catch (e) { out("logs error " + w, String(e).slice(0, 80)); }
+  }
+  const doh = async (name, type) => { try { const j = await (await get(`https://cloudflare-dns.com/dns-query?name=${name}&type=${type}`, { headers: { accept: "application/dns-json" } })).json(); return (j.Answer || []).map(a => a.data); } catch (e) { return ["error " + String(e).slice(0, 40)]; } };
+  const txt = await doh("luchit.app", "TXT"), spf = txt.find(t => /v=spf1/.test(t)) || "none";
+  out("spf", spf.replace(/"/g, "").slice(0, 120));
+  out("dmarc", ((await doh("_dmarc.luchit.app", "TXT"))[0] || "none").replace(/"/g, "").replace(/(rua|ruf)=[^;]*/g, "$1=<set>").slice(0, 120));
+  out("mx", (await doh("luchit.app", "MX")).map(m => m.split(" ").pop()));
+  out("dkim brevo", (await doh("brevo1._domainkey.luchit.app", "CNAME")).length ? "cname set" : ((await doh("mail._domainkey.luchit.app", "TXT")).length ? "mail._domainkey txt set" : "not found at brevo1/mail"));
+  out("caa", await doh("luchit.app", "CAA"));
+  out("dnssec ds", (await doh("luchit.app", "DS")).length ? "signed" : "no DS");
+  const up = String(E.ALERT_UPTIME_URL || "").replace(/\/+$/, "");
+  if (up) { try { const r = await get(up + "/health"), t = await r.text(); out("uptime health", r.status + " " + t.slice(0, 300)); } catch (e) { out("uptime error", String(e).slice(0, 80)); } } else out("uptime health", "ALERT_UPTIME_URL not set");
+  try { const r = await get("https://api.brevo.com/v3/senders/domains", { headers: { "api-key": E.BREVO_API_KEY || "", accept: "application/json" } }), j = await r.json();
+    out("brevo domains", r.status === 200 ? (j.domains || []).map(d => ({ name: d.domain_name, authenticated: d.authenticated, verified: d.verified })) : r.status); } catch (e) { out("brevo domains error", String(e).slice(0, 80)); }
+  try { const r = await get("https://api.brevo.com/v3/account", { headers: { "api-key": E.BREVO_API_KEY || "", accept: "application/json" } }), j = await r.json();
+    out("brevo plan", r.status === 200 ? (j.plan || []).map(p => p.type) : r.status); } catch (e) { out("brevo plan error", String(e).slice(0, 80)); }
+}
 process.exit(0);
