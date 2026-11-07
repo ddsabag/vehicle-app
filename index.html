@@ -1292,7 +1292,8 @@ const UA = navigator.userAgent || "", WEBVIEW = /; wv\)/.test(UA) || (/iPhone|iP
 // 4.11, all 46 web errors of 28.10-4.11 came from Facebook visits (measurement), 38 of them under a user agent the list above missed
 const IAB = /FBAN|FBAV|FB_IAB|FB4A|FBLC|Messenger|Orca-Android|Instagram|BytedanceWebview|musical_ly/i.test(UA) || (WEBVIEW && (LAND === "facebook" || LAND === "instagram" || /[?&]fbclid=/.test(location.search)));
 // the kind of browser, sent with js_error only, so the next spike says where it ran (never the user agent itself)
-const UACL = /FBLC|FBLite/i.test(UA) ? "fb_lite" : /Messenger|Orca-Android/i.test(UA) ? "messenger" : /FBAN|FBAV|FB_IAB|FB4A/i.test(UA) ? "fb" : /Instagram/i.test(UA) ? "ig"
+/* Facebook Lite says FBLite (FBLC/FBLite) or FBAN/EMA; the iPhone Facebook app carries FBLC/<locale> too, so FBLC alone is not Lite (7.11.2026) */
+const UACL = /FBLite|FBAN\/EMA/i.test(UA) ? "fb_lite" : /Messenger|Orca-Android/i.test(UA) ? "messenger" : /FBAN|FBAV|FB_IAB|FB4A/i.test(UA) ? "fb" : /Instagram/i.test(UA) ? "ig"
   : /BytedanceWebview|musical_ly/i.test(UA) ? "tiktok" : WEBVIEW ? (/Android/.test(UA) ? "and_wv" : "ios_wv") : /CriOS|FxiOS|EdgiOS/.test(UA) ? "ios_app" : /iPhone|iPad|iPod/.test(UA) ? "ios_safari"
   : /Android/.test(UA) ? "android" : "desktop";
 // where the failing script lives: this page ("own"), our other files ("site"), a library we load ("lib"), anything else ("x"), or no file
