@@ -1,0 +1,30 @@
+{
+ "label": "api35-411-f100",
+ "scenarios": [
+  {
+   "id": "411-f100",
+   "zoom": 1,
+   "webview": "Chrome/124.0.6367.219",
+   "seconds": 222
+  }
+ ],
+ "sdk": "35",
+ "model": "sdk_gphone64_x86_64",
+ "webview": "Current WebView package (name, version): (com.google.android.webview, 124.0.6367.219)",
+ "dialogs": [
+  "com.google.android.apps.nexuslauncher during tour/empty/411-f100/light home"
+ ],
+ "retried": [
+  {
+   "run": "tour/empty/411-f100/light",
+   "why": "com.google.android.apps.nexuslauncher was not responding, the window changed height with no keyboard",
+   "dropped": [
+    "block nav-moved cars: the navigation bar moved between home (home) and cars: search 275,779,137,64 → 275,803,137,64 · cars 137,779,137,64 → 137,803,137,64 · alerts 0,779,137,64 → 0,803,137,64",
+    "block nav-moved alerts: the navigation bar moved between home (home) and alerts: search 275,779,137,64 → 275,803,137,64 · cars 137,779,137,64 → 137,803,137,64 · alerts 0,779,137,64 → 0,803,137,64"
+   ]
+  }
+ ],
+ "late": [
+  "keeps/one/411-f100/light policy-date: 0.9 s"
+ ]
+}

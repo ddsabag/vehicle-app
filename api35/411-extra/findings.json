@@ -1,0 +1,9 @@
+[
+ {
+  "sev": "warn",
+  "kind": "keyboard",
+  "run": "phone/one/411-extra/light",
+  "step": "keyboard",
+  "msg": "the keyboard did not open over the plate field (page height 842 → 842, focus plate)"
+ }
+]

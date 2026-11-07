@@ -1,0 +1,9 @@
+[
+ {
+  "sev": "warn",
+  "kind": "crash",
+  "run": "launch/-/411-extra/-",
+  "step": "launch",
+  "msg": "the app stopped responding for a moment (ANR): Input dispatching timed out (5669734 com.ddsabag.pratirechev/com.ddsabag.pratirechev.MainActivity (server) is not respon; its main thread was outside the app's code: the emulator's software rendering, not the app (anr-1.txt)"
+ }
+]
