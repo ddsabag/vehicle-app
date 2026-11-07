@@ -1,7 +1,7 @@
 {
  "v": 1,
- "d": "2026-11-06",
- "seed": "20261106",
+ "d": "2026-11-07",
+ "seed": "20261107",
  "cars": 40,
  "sampled": 40,
  "mism": 0,
@@ -9,7 +9,7 @@
  "refused": 0,
  "fields": {
   "fee.borrowed_note": [
-   29,
+   28,
    0
   ],
   "fee.licence": [
@@ -17,7 +17,7 @@
    0
   ],
   "identity.buy_steps": [
-   37,
+   36,
    0
   ],
   "identity.colour": [
@@ -61,7 +61,7 @@
    0
   ],
   "insight.age_cancelled": [
-   3,
+   4,
    0
   ],
   "insight.safety_low": [
@@ -105,7 +105,7 @@
    0
   ],
   "owners.durations": [
-   9,
+   11,
    0
   ],
   "owners.first_owner": [
@@ -121,7 +121,7 @@
    0
   ],
   "owners.insight_company_now": [
-   9,
+   11,
    0
   ],
   "owners.insight_dealer_now": [
@@ -129,27 +129,27 @@
    0
   ],
   "owners.insight_lease": [
-   9,
+   11,
    0
   ],
   "owners.insight_new_dealer": [
-   9,
+   11,
    0
   ],
   "owners.insight_rental": [
-   9,
+   11,
    0
   ],
   "owners.insight_short_lease": [
-   9,
+   11,
    0
   ],
   "owners.insight_was_dealer": [
-   9,
+   11,
    0
   ],
   "owners.now_line": [
-   9,
+   11,
    0
   ],
   "owners.timeline": [
@@ -169,7 +169,7 @@
    0
   ],
   "recalls.line_honest": [
-   35,
+   31,
    0
   ],
   "recalls.model_count": [
@@ -181,7 +181,7 @@
    0
   ],
   "recalls.model_fits": [
-   18,
+   16,
    0
   ],
   "recalls.model_missing": [
@@ -196,6 +196,10 @@
    40,
    0
   ],
+  "recalls.open_date": [
+   1,
+   0
+  ],
   "recalls.pending_banner": [
    34,
    0
@@ -205,15 +209,15 @@
    0
   ],
   "recalls.thin_check": [
-   40,
+   39,
    0
   ],
   "recalls.thin_line": [
-   26,
+   25,
    0
   ],
   "recalls.thin_rows": [
-   35,
+   31,
    0
   ],
   "road.first_date": [
@@ -233,7 +237,7 @@
    0
   ],
   "settlements.scope": [
-   4,
+   5,
    0
   ],
   "specs.axles": [
@@ -329,11 +333,11 @@
    0
   ],
   "status.buy_plan": [
-   37,
+   36,
    0
   ],
   "status.cancel_date": [
-   3,
+   4,
    0
   ],
   "status.cancel_pill": [
@@ -341,11 +345,11 @@
    0
   ],
   "status.cancel_reason": [
-   3,
+   4,
    0
   ],
   "status.cancelled_buy": [
-   3,
+   4,
    0
   ],
   "status.heavy_note": [
@@ -373,7 +377,7 @@
    0
   ],
   "tag.insight": [
-   17,
+   18,
    0
   ],
   "test.insight": [
@@ -401,7 +405,7 @@
    0
   ],
   "tow.hook": [
-   25,
+   26,
    0
   ],
   "tow.limits": [
