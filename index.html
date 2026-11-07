@@ -1024,7 +1024,7 @@ body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)
     <form id="f" autocomplete="off">
       <label class="plate" for="plate">
         <span class="il" aria-hidden="true"><span>IL</span><span>ישראל</span></span>
-        <input id="plate" name="plate" inputmode="numeric" placeholder="12-345-67" maxlength="10" aria-label="מספר רישוי" enterkeyhint="search">
+        <input id="plate" name="plate" inputmode="numeric" placeholder="76-543-21" maxlength="10" aria-label="מספר רישוי" enterkeyhint="search">
         <button type="button" class="clr" id="clrPlate" aria-label="ניקוי המספר" hidden><svg class="i"><use href="#i-x"/></svg></button>
         <button type="button" class="clr" id="pastePlate" aria-label="הדבקת מספר מהלוח"><svg class="i"><use href="#i-paste"/></svg></button>
       </label>
@@ -7022,7 +7022,7 @@ function renderBulk(){
   const html = [];
   if (PRO_LOCK && !isBiz()) html.push(proLockCard("בדיקת כמה רכבים בבת אחת", "הדביקו רשימת מספרי רישוי וקבלו טבלה אחת עם טסט, ריקולים ובעלויות לכל רכב. אפשר לייצא לאקסל ולהפיק דוח PDF עם המיתוג שלכם."));
   else html.push(card("רשימת מספרי רישוי", "doc", "blue", `<p style="margin:0 0 8px">הדביקו רשימת מספרי רישוי, אחד בכל שורה או מופרדים בפסיק (עד ${BULK_MAX}), ותקבלו טבלה אחת: טסט, ריקולים ובעלויות לכל רכב. אפשר להדביק ישר מאקסל.</p>
-    <textarea class="inp" id="bulkIn" rows="6" placeholder="12-345-67&#10;234-56-789" dir="ltr">${esc(BULK_TEXT)}</textarea>
+    <textarea class="inp" id="bulkIn" rows="6" placeholder="76-543-21&#10;44-444-44" dir="ltr">${esc(BULK_TEXT)}</textarea>
     <button type="button" class="link-btn" data-act="bulkRun" style="margin-top:8px">${ico("search")}בדיקת הרשימה</button>
     <div id="bulkOut">${BULK.length ? bulkTable(false) : ""}</div>`, `${PT("PRO עסקי")}`));
   $("#out").innerHTML = toolHead("בדיקת כמה רכבים") + html.join(""); updateSavedBar(); window.scrollTo({top: 0});
@@ -7212,7 +7212,7 @@ const syncClr = () => {
   lastPlateVal = el.value; c.hidden = !el.value; $("#pastePlate").hidden = !!el.value;
   fitPlate(el);
 };
-// the digits, or the example 12-345-67 while the field is empty, shrink until they fit next to the button, so nothing is cut off. The phone's
+// the digits, or the example 76-543-21 while the field is empty, shrink until they fit next to the button, so nothing is cut off. The phone's
 // font size (the app's WebView follows it, up to 200%) or a browser's larger text grows them while the field keeps its width, and an input
 // cannot measure its placeholder. A hidden copy in the same style (.pp) is measured and --pf scales the text by the ratio, so nothing depends
 // on how the enlarged size is reported (a size read back in px and set again would be enlarged twice)
