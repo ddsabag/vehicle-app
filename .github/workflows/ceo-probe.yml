@@ -1,0 +1,24 @@
+name: Ops probe (one-off, ops-ceo-probe branch)
+# 7.11.2026 the CEO checklist: domain renewal, luchit-api binding names, both site forms end to end with our own test address. Statuses only.
+on:
+  push:
+    branches: [ops-ceo-probe]
+    paths: [".github/workflows/ceo-probe.yml", ".github/probe/**"]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      - run: |
+          npm install --no-save playwright@1.49.1
+          npx playwright install --with-deps chromium
+      - name: Probe
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+        run: node .github/probe/ceo-probe.mjs
