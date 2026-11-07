@@ -113,3 +113,4 @@ if (PART === "ops") {   // 7.11 the ops area checklist: token expiry, Workers lo
     out("brevo plan", r.status === 200 ? (j.plan || []).map(p => p.type) : r.status); } catch (e) { out("brevo plan error", String(e).slice(0, 80)); }
 }
 process.exit(0);
+// rerun 2026-11-07T15:55:21Z
