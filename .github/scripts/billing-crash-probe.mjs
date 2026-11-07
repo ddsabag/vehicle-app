@@ -13,7 +13,9 @@ const out = {};
 const fr = await get(`${REP}/errorCountMetricSet`); out.freshness = fr.body?.freshnessInfo;
 const end = Date.now() - 2 * 36e5, start = end - 30 * 864e5;
 const q = new URLSearchParams({ ...dt("interval.startTime", Math.floor(start / 36e5) * 36e5), ...dt("interval.endTime", Math.floor(end / 36e5) * 36e5), pageSize: "200", filter: "errorIssueType = CRASH OR errorIssueType = ANR" });
-const is = await get(`${REP}/errorIssues:search?${q}`); out.issuesStatus = is.status;
+const is0 = await get(`${REP}/errorIssues:search?${new URLSearchParams({ pageSize: "200", filter: "errorIssueType = CRASH OR errorIssueType = ANR" })}`);
+out.noInterval = { status: is0.status, err: is0.body?.error?.message, n: (is0.body?.errorIssues || []).length };
+const is = (is0.body?.errorIssues || []).length ? is0 : await get(`${REP}/errorIssues:search?${q}`); out.issuesStatus = is.status;
 out.issues = (is.body?.errorIssues || []).map(i => ({ name: i.name, type: i.type, cause: i.cause, location: i.location, reports: i.errorReportCount, users: i.distinctUsers,
   first: i.firstAppVersion, last: i.lastAppVersion, firstOs: i.firstOsVersion, lastOs: i.lastOsVersion, lastAt: i.lastErrorReportTime, uri: i.issueUri }));
 for (const i of (is.body?.errorIssues || []).filter(i => /billing|getIntentSender|PendingIntent/i.test(JSON.stringify(i)))) {
