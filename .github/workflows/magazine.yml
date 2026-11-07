@@ -191,6 +191,8 @@ jobs:
             git push origin HEAD:main || { git pull --rebase -q origin main && git push origin HEAD:main; }
             gh api -X POST "repos/$GITHUB_REPOSITORY/pages/builds" >/dev/null 2>&1 || true
             tg "$(cls done)"$'\n'"כתבה חדשה במגזין עלתה לאתר"$'\n'"$title"$'\n'"https://luchit.app/magazine/$slug/"$'\n'"$wline""👌 לא צריך לעשות כלום." true summary "mag:pub:$slug"
+            # a held article that is now out (a hand run after a failed one): its mag:fail item closes quietly, the publish notice above says it
+            SLUG="$slug" timeout 30 node --input-type=module -e 'const r = await import(process.cwd() + "/.github/scripts/alert.mjs"); await r.resolve(["mag:fail:" + process.env.SLUG], { tell: false });' >/dev/null 2>&1 || true
             node .github/scripts/flash.mjs content info "המגזין פורסם: $title" "https://luchit.app/magazine/$slug/"
           elif [ "$KIND" = monthly ]; then
             branch="magazine/$slug"
