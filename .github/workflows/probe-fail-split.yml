@@ -1,0 +1,23 @@
+name: Probe check failures
+# One-off (data thread, 7.11): runs on a push to probe/fail-split only; GA4 read-only; the output is encrypted, the log prints states only
+on:
+  push:
+    branches: [probe/fail-split]
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      - run: node .github/scripts/probe-fail-split.mjs
+        env:
+          GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
+      - name: Publish the encrypted output
+        run: |
+          cd out && git init -q && git checkout -q -b probe-fail-split-output && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Encrypted output"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" probe-fail-split-output
