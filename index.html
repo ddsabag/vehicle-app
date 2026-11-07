@@ -1395,6 +1395,8 @@ const EQUIP = {
 /* ---------- helpers ---------- */
 const $ = s => document.querySelector(s);
 const esc = v => String(v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+// parts of one line that mix Hebrew with English or digits (year · trim · colour): each part is its own bidi island, so two English parts side by side keep their order
+const joinIsolated = (parts, sep = " · ") => parts.filter(x => !empty(x)).map(x => `<bdi>${esc(x)}</bdi>`).join(sep);
 const empty = v => v === null || v === undefined || String(v).trim() === "" || String(v).trim().startsWith("0000-00-00");   // the registers write a missing date as 0000-00-00, also with a time
 const digits = s => String(s || "").replace(/\D/g, "");
 const num = v => Number(String(v).replace(/,/g, ""));
@@ -3232,7 +3234,7 @@ function renderResult(){
   // the owner's own word, so a shared report or PDF leaves it out (data-priv)
   const nick = D.kind !== "model" && D.plate && (savedItem(D.plate) || {}).nick;
   html.push(`<section class="card id-card">
-    <div class="id-top"><div>${nick ? `<p class="id-nick" data-priv><bdi>${esc(nick)}</bdi></p>` : ""}<h2 class="id-title${D.title.length > 26 ? " long" : ""}" id="resHead" tabindex="-1">${esc(D.title)}</h2><p class="id-sub">${esc(!empty(v.shnat_yitzur) && !simpleOn() ? D.sub.split(" · ").slice(1).join(" · ") : D.sub)}</p></div>
+    <div class="id-top"><div>${nick ? `<p class="id-nick" data-priv><bdi>${esc(nick)}</bdi></p>` : ""}<h2 class="id-title${D.title.length > 26 ? " long" : ""}" id="resHead" tabindex="-1">${esc(D.title)}</h2><p class="id-sub">${joinIsolated(!empty(v.shnat_yitzur) && !simpleOn() ? D.sub.split(" · ").slice(1) : D.sub.split(" · "))}</p></div>
       <span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>${cmpBtn}</div>
     ${!simpleOn() && facts.some(Boolean) ? `<div class="pills fstrip" aria-label="עובדות עיקריות">${facts.filter(Boolean).join("")}</div>` : ""}
     ${pills.length && !simpleOn() ? `<div class="pills">${pills.join("")}</div>` : ""}
@@ -4199,9 +4201,9 @@ function tabRecalls(D){
   if (D.recalls.length) {
     html.push(card("ריקולים פתוחים לרכב הזה", "alert", "red", D.recalls.map(r => {
       const d = r.detail || {};
-      const contact = [d.YEVUAN_TEUR, d.TELEPHONE && `טלפון ${d.TELEPHONE}`].filter(x => !empty(x)).map(esc).join(" · ");
+      const contact = joinIsolated([d.YEVUAN_TEUR, d.TELEPHONE && `טלפון ${d.TELEPHONE}`]);
       return `<div class="recall"><b>${esc(D.pick(r.TEUR_TAKALA, d.TEUR_TAKALA, r.SUG_TAKALA) || "ריקול")}</b>
-        <span class="note">${[recType(r.SUG_RECALL), !empty(r.TAARICH_PTICHA) && "נפתח ב-" + fmtDate(r.TAARICH_PTICHA), !empty(r.RECALL_ID) && "מספר " + r.RECALL_ID].filter(Boolean).map(esc).join(" · ")}</span>
+        <span class="note">${[recType(r.SUG_RECALL), !empty(r.TAARICH_PTICHA) && "נפתח ב-" + fmtDate(r.TAARICH_PTICHA), !empty(r.RECALL_ID) && "מספר " + r.RECALL_ID].filter(Boolean).map(x => `<bdi>${esc(x)}</bdi>`).join(" · ")}</span>
         ${fixRows(r, d)}
         ${contact ? `<p class="note">${contact}</p>` : ""}</div>`;
     }).join("") + `<p class="note">התיקון ניתן בדרך כלל ללא עלות אצל היבואן של הרכב.${D.isCancelled ? "" : " ריקול שלא תוקן עלול לעכב את חידוש הרישיון. תוקן כבר ועדיין מופיע כאן? משרד התחבורה מתעדכן באיחור, ואתר היבואן עשוי להראות שאין ריקול. כדאי לבקש מהיבואן לוודא שהתיקון דווח למשרד, כי חידוש הרישיון נשען על הרשומה שם."}</p>${btn}`));
@@ -5106,8 +5108,8 @@ function showModelByEngine(y){
     + mResults.map((l, i) => {
       const r = l[0], dt = driveType(rowD(r)), green = dt && ["ev", "phev", "hybrid"].includes(dt.k);
       const gear = !empty(r.automatic_ind) && !yes(r.automatic_ind) ? "ידנית" : "";
-      const trims = [gear, l.length > 1 ? `${l.length} רמות גימור` : String(r.ramat_gimur || "").trim()].filter(Boolean).join(" · ");
-      return `<button type="button" class="row eng" data-mi="${i}">${dt ? `<span class="pill drive ${green ? "green" : ""}">${ico(green ? "bolt" : "fuel")}${dt.label}</span>` : ""}<span class="t"><b>${posN(r.koah_sus) ? `${fmtN(r.koah_sus)} כ״ס` : "גרסה"}</b><small>${esc(trims)}</small></span><span class="qadd" aria-label="הוספה">${ico("plus")}</span></button>`;
+      const trims = [gear, l.length > 1 ? `${l.length} רמות גימור` : String(r.ramat_gimur || "").trim()];
+      return `<button type="button" class="row eng" data-mi="${i}">${dt ? `<span class="pill drive ${green ? "green" : ""}">${ico(green ? "bolt" : "fuel")}${dt.label}</span>` : ""}<span class="t"><b>${posN(r.koah_sus) ? `${fmtN(r.koah_sus)} כ״ס` : "גרסה"}</b><small>${joinIsolated(trims)}</small></span><span class="qadd" aria-label="הוספה">${ico("plus")}</span></button>`;
     }).join("");
 }
 function stepBack(){ mGroup = null; mYear = null; showGroups(); }
@@ -5284,7 +5286,7 @@ function renderCompare(){
   if (base) loadSimilar(base);
   const simHtml = base && simFor === (base.key || base.plate) && simList.length ? `<div class="sim-box"><div class="qsec">דגמים דומים, להוספה בלחיצה</div><div class="list">${simList.map((g, i) => {
     const r = g.alts[0], dt = driveType(rowD(r));
-    return `<button type="button" class="qrow" data-sim="${i}"><span class="t"><b>${esc(g.make)} ${esc(g.model)}</b><small>${esc([dt && dt.label, posN(r.koah_sus) ? `${fmtN(r.koah_sus)} כ״ס` : ""].filter(Boolean).join(" · "))}</small></span><span class="qadd">${ico("plus")}הוספה</span></button>`;
+    return `<button type="button" class="qrow" data-sim="${i}"><span class="t"><b>${esc(g.make)} ${esc(g.model)}</b><small>${joinIsolated([dt && dt.label, posN(r.koah_sus) ? `${fmtN(r.koah_sus)} כ״ס` : ""])}</small></span><span class="qadd">${ico("plus")}הוספה</span></button>`;
   }).join("")}</div></div>` : "";
   const wide = cmpWide();
   $("#out").innerHTML = `${toolHead("השוואת רכבים")}<section class="card blue cmp-card${wide ? " cmp-wide" : ""}${n > 3 ? " many" : ""}" style="--n:${Math.max(n, 1)}">
@@ -7011,7 +7013,7 @@ function bulkTable(running, total){
   const n = l => BULK.filter(r => !r.nf && r.lvl === l).length, nfc = BULK.filter(r => r.nf).length;
   return `${running ? `<p class="note" role="status">נבדקו ${BULK.length} מתוך ${total}…</p>` : ""}
     <div class="sum3"><div><b class="g">${n(0)}</b>תקין</div><div><b class="w">${n(1)}</b>לתשומת לב</div><div><b class="r">${n(2)}</b>בעיה</div>${nfc ? `<div><b>${nfc}</b>לא נבדקו</div>` : ""}</div>
-    <table class="ft"><tr><th>לוחית</th><th>טסט</th><th>ריקולים</th><th>בעלויות</th></tr>${rows.map(r => `<tr><td><button type="button" class="lnk" data-open="${r.plate}"><b>${fmtPlate(r.plate)}</b><small style="color:var(--muted)">${esc(r.title)}${r.year ? " " + esc(r.year) : ""}</small>${r.nf ? "" : `<small style="color:var(--muted)">${[r.km ? `<bdi>${fmtN(r.km)} ק״מ</bdi>` : "", r.first ? "מקוריות: " + esc(r.first) : ""].filter(Boolean).join(" · ")}</small>`}</button></td><td class="${r.nf ? "" : r.cell[0] || "g"}">${r.nf || r.cell[1]}</td><td>${r.recalls ? `<b class="r">${r.recalls}</b>` : "—"}</td><td>${r.owners === "" ? "—" : r.owners}</td></tr>`).join("")}</table>
+    <table class="ft"><tr><th>לוחית</th><th>טסט</th><th>ריקולים</th><th>בעלויות</th></tr>${rows.map(r => `<tr><td><button type="button" class="lnk" data-open="${r.plate}"><b>${fmtPlate(r.plate)}</b><small style="color:var(--muted)">${joinIsolated([r.title, r.year], " ")}</small>${r.nf ? "" : `<small style="color:var(--muted)">${[r.km ? `<bdi>${fmtN(r.km)} ק״מ</bdi>` : "", r.first ? "מקוריות: " + esc(r.first) : ""].filter(Boolean).join(" · ")}</small>`}</button></td><td class="${r.nf ? "" : r.cell[0] || "g"}">${r.nf || r.cell[1]}</td><td>${r.recalls ? `<b class="r">${r.recalls}</b>` : "—"}</td><td>${r.owners === "" ? "—" : r.owners}</td></tr>`).join("")}</table>
     ${running ? "" : `<p class="note">מסודר לפי מה שדורש טיפול קודם.</p><div class="bulk-acts"><button type="button" class="link-btn" data-act="bulkSave">${ico("star")}שמירת כל הרכבים לרכבים שלי</button><button type="button" class="link-btn" data-act="bulkCsv">${ico("doc")}ייצוא לאקסל (CSV)</button><button type="button" class="link-btn" data-act="bulkPdf">${ico("share")}${bizProfile().name ? "דוח PDF עם המיתוג שלי" : "דוח PDF"}</button><button type="button" class="link-btn" data-act="bulkClear">${ico("x")}ניקוי הרשימה ובדיקה חדשה</button></div>`}`;
 }
 function renderBulk(){
