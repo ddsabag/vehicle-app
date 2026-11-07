@@ -58,7 +58,10 @@ const readAll = (p) => p.evaluate(async () => {
     res.before = await readAll(p);
     // the update: Play installs the new version over the old one while the app may be in the background
     sh(`input keyevent KEYCODE_HOME`); await sleep(1500);
+    const vc = () => (sh(`dumpsys package ${PKG} | grep versionCode`).match(/versionCode=(\d+)/) || [])[1] || "";
+    res.vcBefore = vc();
     adb(["install", "-r", NEW]); res.steps.push("new installed over it: " + sh(`dumpsys package ${PKG} | grep versionName`).trim());
+    res.vcAfter = vc();
     start(); p = await page();
     res.after = await readAll(p);
     // the heal (1.38.5): the car file's dates live in localStorage (docExp) and are lost when Play stops the app right after a write;
@@ -68,7 +71,7 @@ const readAll = (p) => p.evaluate(async () => {
     res.healed = await p.evaluate(() => (localStorage.getItem("docExp") || "").includes("2027-03-01"));
     // the car file's tiles in the new app, after its page has drawn the file (mock registry not needed: read the stored list only)
     const same = JSON.stringify({ s: res.before.savedVehicles, m: res.before.mine, e: res.before.docExp, d: res.before.docs }) === JSON.stringify({ s: res.after.savedVehicles, m: res.after.mine, e: res.after.docExp, d: res.after.docs });
-    res.verdict = res.before.docs.length && res.before.version !== res.after.version ? (!same ? "LOST_OR_CHANGED" : res.healed ? "KEPT" : "KEPT_NOT_HEALED") : "NOT_TESTED";
+    res.verdict = res.before.docs.length && (res.before.version !== res.after.version || (res.vcBefore && res.vcBefore !== res.vcAfter)) ? (!same ? "LOST_OR_CHANGED" : res.healed ? "KEPT" : "KEPT_NOT_HEALED") : "NOT_TESTED";
   } catch (e) { res.verdict = "ERROR"; res.error = String(e && e.stack || e).slice(0, 600); }
   fs.writeFileSync(OUT, JSON.stringify(res, null, 1));
   console.log(JSON.stringify(res, null, 1));
