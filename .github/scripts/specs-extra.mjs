@@ -73,6 +73,11 @@ export const SITES = {
   1547: ["https://heyxpeng.co.il/"], 1450: ["https://cheryisrael.co.il/"], 443: ["https://mg-israel.co.il/"],
   1327: ["https://www.tesla.com/he_il/"], 1417: ["https://www.tesla.com/he_il/"], 1634: ["https://www.changan.co.il/"],
   1556: ["https://www.zeekrlife.com/he-il/"], 1465: ["https://dongfeng.co.il/"], 1436: ["https://leapmotor.co.il/"],
+  // hybrids (7.11.2026; the brand check skips a seed that is not the brand's)
+  481: ["https://www.hyundai.co.il/"], 253: ["https://www.hyundai.co.il/"], 413: ["https://www.toyota.co.il/"], 672: ["https://www.toyota.co.il/"],
+  839: ["https://www.toyota.co.il/"], 488: ["https://www.toyota.co.il/"], 885: ["https://www.kia.co.il/"], 416: ["https://www.kia.co.il/"],
+  299: ["https://www.suzuki.co.il/"], 683: ["https://www.suzuki.co.il/"], 404: ["https://www.lexus.co.il/"], 637: ["https://www.nissan.co.il/"],
+  675: ["https://www.renault.co.il/"], 312: ["https://honda.co.il/"], 351: ["https://www.dacia.co.il/"],
 };
 // a model's own page when the maker's site has none or hides it (the importer group's new-car catalogue, or the maker's model page)
 export const MODEL_URLS = {
@@ -82,7 +87,7 @@ export const MODEL_URLS = {
   "1605|OMODA 7 PHEV": ["https://omoda.co.il/models/omoda7/", "https://omoda.co.il/purchase/omoda7/"],
   "1327|MODEL Y": ["https://www.tesla.com/he_il/modely"], "1417|MODEL Y": ["https://www.tesla.com/he_il/modely"],
 };
-const BRAND = { 1014: "byd", 1604: "jaecoo", 1605: "omoda", 1547: "xpeng", 1450: "chery", 443: "mg", 1327: "tesla", 1417: "tesla", 1634: "deepal", 1556: "zeekr", 1465: "dongfeng", 1436: "leapmotor" };
+const BRAND = { 1014: "byd", 1604: "jaecoo", 1605: "omoda", 1547: "xpeng", 1450: "chery", 443: "mg", 1327: "tesla", 1417: "tesla", 1634: "deepal", 1556: "zeekr", 1465: "dongfeng", 1436: "leapmotor", 481: "hyundai", 253: "hyundai", 413: "toyota", 672: "toyota", 839: "toyota", 488: "toyota", 885: "kia", 416: "kia", 299: "suzuki", 683: "suzuki", 404: "lexus", 637: "nissan", 675: "renault", 312: "honda", 351: "dacia" };
 export const PAGE_CAP = 8, PDF_CAP = 4, DOC_CHARS = 30000, ALL_CHARS = 80000;
 const SPEC_WORDS = /spec|brochure|technical|catalog|pricelist|price-list|מפרט|מחירון|קטלוג|ברושור/i;
 // the model name as it appears in a link: "SEALION 5" -> "sealion5", "JAECOO7 PHEV" -> "jaecoo7", "MODEL Y" -> "modely"
