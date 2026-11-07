@@ -5,7 +5,7 @@ const { _android: android } = require("playwright");
 const { execFileSync } = require("child_process");
 const fs = require("fs");
 const [OLD, NEW, OUT] = process.argv.slice(2);
-const PKG = "com.ddsabag.pratirechev", ACT = `${PKG}/.MainActivity`, PLATE = "1234567";
+const PKG = "com.ddsabag.pratirechev", ACT = `${PKG}/.MainActivity`, PLATE = "7654321";
 const adb = (a) => execFileSync("adb", a, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 const sh = (c) => adb(["shell", c]).trim();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -61,9 +61,14 @@ const readAll = (p) => p.evaluate(async () => {
     adb(["install", "-r", NEW]); res.steps.push("new installed over it: " + sh(`dumpsys package ${PKG} | grep versionName`).trim());
     start(); p = await page();
     res.after = await readAll(p);
+    // the heal (1.38.5): the car file's dates live in localStorage (docExp) and are lost when Play stops the app right after a write;
+    // the new app rebuilds them from the documents (IndexedDB) at every start
+    await p.evaluate(() => localStorage.removeItem("docExp"));
+    sh(`am force-stop ${PKG}`); await sleep(2000); start(); p = await page(); await sleep(4000);
+    res.healed = await p.evaluate(() => (localStorage.getItem("docExp") || "").includes("2027-03-01"));
     // the car file's tiles in the new app, after its page has drawn the file (mock registry not needed: read the stored list only)
     const same = JSON.stringify({ s: res.before.savedVehicles, m: res.before.mine, e: res.before.docExp, d: res.before.docs }) === JSON.stringify({ s: res.after.savedVehicles, m: res.after.mine, e: res.after.docExp, d: res.after.docs });
-    res.verdict = res.before.docs.length && res.before.version !== res.after.version ? (same ? "KEPT" : "LOST_OR_CHANGED") : "NOT_TESTED";
+    res.verdict = res.before.docs.length && res.before.version !== res.after.version ? (!same ? "LOST_OR_CHANGED" : res.healed ? "KEPT" : "KEPT_NOT_HEALED") : "NOT_TESTED";
   } catch (e) { res.verdict = "ERROR"; res.error = String(e && e.stack || e).slice(0, 600); }
   fs.writeFileSync(OUT, JSON.stringify(res, null, 1));
   console.log(JSON.stringify(res, null, 1));

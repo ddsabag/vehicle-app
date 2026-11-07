@@ -1,5 +1,6 @@
 name: Upgrade and alerts check (one-off)
-# 5.11.2026: does updating the app from 1.38.3 to 1.38.4 keep saved cars and car-file documents? Runs only on pushes to this branch.
+# 7.11.2026: does updating 1.38.4 to the fixes-only 1.38.5 keep saved cars and documents, and does the new app rebuild the file's dates?
+# Two candidates: fixes (main + billing guard) and strict (1.38.4 + the two fixes only). Runs only on pushes to this branch.
 on:
   push:
     branches: [qa/upgrade-check]
@@ -20,11 +21,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v5
         with:
           gradle-version: "8.13"
-      - name: Build both versions with one debug key (old = 1.38.3 release commit, new = 1.38.4 release commit)
+      - name: Build the versions with one debug key (old = 1.38.4 release commit, then the two 1.38.5 candidates)
         run: |
-          git worktree add ../old 025f3af0
-          git worktree add ../new d25cec2e
-          for v in old:155 new:163; do d=${v%%:*}; c=${v##*:}; (cd ../$d/android && VN=$(grep -oP 'APP_VERSION = "\K[^"]+' ../index.html) && gradle --no-daemon assembleQa -PversionCode=$c -PversionName=$VN && cp app/build/outputs/apk/qa/app-qa.apk $GITHUB_WORKSPACE/$d.apk); done
+          git worktree add ../old d25cec2e
+          git worktree add ../fixes origin/release-1.38.5-fixes
+          git worktree add ../strict origin/release-1.38.5-strict
+          for v in old:163 fixes:165 strict:165; do d=${v%%:*}; c=${v##*:}; (cd ../$d/android && VN=$(grep -oP 'APP_VERSION = "\K[^"]+' ../index.html) && gradle --no-daemon assembleQa -PversionCode=$c -PversionName=$VN && cp app/build/outputs/apk/qa/app-qa.apk $GITHUB_WORKSPACE/$d.apk); done
           ls -la *.apk
       - uses: actions/upload-artifact@v7
         with:
@@ -38,7 +40,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        api: [35, 34]
+        api: [35, 31]
+        cand: [fixes, strict]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -62,4 +65,4 @@ jobs:
           ram-size: 4096M
           disable-animations: true
           emulator-options: -no-window -gpu ${{ matrix.api == 35 && 'swangle_indirect' || 'swiftshader_indirect' }} -noaudio -no-boot-anim -camera-back none -no-snapshot-save
-          script: node .github/scripts/alerts-check.cjs new.apk alerts-${{ matrix.api }}.json
+          script: node .github/scripts/upgrade-check.cjs old.apk ${{ matrix.cand }}.apk up-${{ matrix.cand }}-${{ matrix.api }}.json
