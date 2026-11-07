@@ -46,4 +46,39 @@ try {   // the magazine: the page's own check, then the Worker as the form calls
 } catch (e) { out("magazine error", String(e).slice(0, 160)); }
 await browser.close().catch(() => {});
 }
+if (PART === "confirm") {   // 7.11 second round: click the first confirm mail's button (Brevo's tracked link), read the contact's lists, ask a fresh test address
+  const TRACK = "https://bceehhee.r.af.d.sendibt2.com/tr/cl/1kzcsGELySoif6G4AWnPD9rCfp542EIiEG9wvLl9g2kDJy2skQ87ZCZS-AUGfLrSDkH1PdtJYyrUhmCy3o2knyYpeFQbiudnYxNRB9ERzeiG_DPZX3W_Acl2jZfT9jDzUh8ualgch1-silZa6NbEgaDsi90ljHG8sgw7PnJgqI6mrCjvD3QupHBl0KGzdoimQjd0-2YSf9AuWHgl2WppP8KPk5WSfWifNM4B2KwmuHaauc-LuIHxV6srSZqouqPzvMzuC9wyXIlgrkz_wCBDfS75vdbloEQ2KZVEYqwFlh4Z-iee4Gz4PdPq-RZvxObiejuJJm0IMp-rfwFBdSKBRto6tjfEZca7574Ogt1qkYdiJdV84lKi-PbiWQrlNL8nPo_WmI5pgTlGNO1HtqiBY9-Wb2evFUUQGSsxLyW3sRL-KWz6jikUzdBT1bQyIBxIf0y6yGnMC54pqesd4zDgMFg";
+  const UA = { "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36" };
+  const hops = []; let u = TRACK;
+  try {
+    for (let i = 0; i < 5; i++) {
+      const here = new URL(u), r = await get(u, { redirect: "manual", headers: UA }), loc = r.headers.get("location");
+      hops.push(`${r.status} ${here.host}/${here.pathname.split("/")[1] || ""}${here.host === "luchit.app" ? here.pathname.replace(/^\/[^/]*/, "") : ""}`);
+      if (!loc) break;
+      u = new URL(loc, u).href; const n = new URL(u);
+      if (n.host === "luchit.app" && n.pathname.startsWith("/magazine")) { hops.push("-> " + n.pathname + n.search); break; }
+    }
+  } catch (e) { hops.push("error " + String(e).slice(0, 100)); }
+  out("confirm hops", hops);
+  let lists = {};
+  try {
+    const j = await (await get(CF + "/workers/scripts/luchit-api/settings", { headers: H })).json();
+    for (const b of (j.result && j.result.bindings) || []) if (/^BREVO_(B2B_)?LIST_ID$/.test(b.name)) lists[b.name] = Number(b.text);
+  } catch {}
+  const look = async email => { try {
+    const r = await get("https://api.brevo.com/v3/contacts/" + encodeURIComponent(email), { headers: { "api-key": E.BREVO_API_KEY || "", accept: "application/json" } });
+    if (r.status !== 200) return { http: r.status };
+    const c = await r.json(), ids = c.listIds || [];
+    return { http: 200, magazine_list: ids.includes(lists.BREVO_LIST_ID), business_list: ids.includes(lists.BREVO_B2B_LIST_ID), blocked: !!c.emailBlacklisted, source: (c.attributes || {}).SOURCE || "-" };
+  } catch (e) { return { error: String(e).slice(0, 80) }; } };
+  await new Promise(r => setTimeout(r, 3000));
+  out("lists known", { magazine: !!lists.BREVO_LIST_ID, business: !!lists.BREVO_B2B_LIST_ID });
+  out("brevo e2e1107", await look(TEST));
+  const FRESH = "luchit.app.service+e2e1107m@gmail.com";   // never in Brevo: its confirm must create the contact (201), the path that counts on /live
+  out("brevo fresh before", await look(FRESH));
+  try {
+    const r = await get("https://luchit.app/api/subscribe", { method: "POST", headers: { ...UA, origin: "https://luchit.app", "content-type": "application/json" }, body: JSON.stringify({ email: FRESH, website: "", consent: true }) });
+    out("fresh /api/subscribe", r.status + " " + (await r.text()).slice(0, 60));
+  } catch (e) { out("fresh subscribe error", String(e).slice(0, 120)); }
+}
 process.exit(0);
