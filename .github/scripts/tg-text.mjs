@@ -71,6 +71,21 @@ export function botName(name) {
 export const RETRY = new Set(["Data guard", "Fuel price", "Ministry watch", "Web deploy (build)", "SEO check", "Web watch", "Market data", "Model catalogue",
   "Model names", "Model statistics", "Ownership data mirror", "Reviews monitor", "SEO data snapshot", "Campaign data snapshot", "Site smoke test", "Site smoke test (after deploy)",
   "Back-on-road detector", "Release watch", "Data truth", "Settlements"]);
+// Re-run once only when every failed job failed on the emulator, never on a finding about the app (product 8.11.2026, from the weekly
+// alert-noise review: the 8.11 run failed only on "adb ETIMEDOUT"). Real verdicts (NO_ALERT, NO_RUN_AFTER_REBOOT, blocking findings,
+// no result) and a failed build always ring as before.
+export const RETRY_INFRA = new Set(["App guardian (real app)"]);
+// (a phone setting lost on every Android version fails the publish job, whose re-run would read the same results again: not listed)
+const INFRA = [/"verdict": "ERROR",?\s[^]*?"error": "[^"]*\b(adb|ETIMEDOUT)\b/, /Timeout waiting for emulator to boot/];
+const FINDING = /"verdict": "(NO_ALERT|NO_RUN_AFTER_REBOOT|ALERT_SHOWN)"|blocking findings|no result \(app-real\.cjs/;
+// log = `gh run view <id> --attempt <n> --log-failed` ("job<TAB>step<TAB>line" lines): true when it names at least one job and every job's
+// failed steps show an emulator failure and no finding
+export function infraOnly(log) {
+  const jobs = {};
+  for (const l of String(log || "").split("\n")) { const i = l.indexOf("\t"); if (i > 0) (jobs[l.slice(0, i)] ||= []).push(l.slice(i + 1)); }
+  const names = Object.keys(jobs);
+  return names.length > 0 && names.every(n => { const t = jobs[n].join("\n"); return !FINDING.test(t) && INFRA.some(r => r.test(t)); });
+}
 
 // failure-alert.yml: a workflow that failed without its own alert. what = failed | repeat | lost | fixed | again; level from alert.mjs WF_LEVELS (passed in).
 //   fixed: it failed (or was pushed out of the queue) and the automatic re-run passed: silent ✅.   again: the automatic re-run failed too.
@@ -101,7 +116,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const r = wfFailure(what, run, level, url);
     console.log((r.silent ? "1" : "0") + "\n" + r.text);
   } else if (cmd === "bot") console.log(botName(a));
-  else if (cmd === "retry") console.log(RETRY.has(a) ? "1" : "0");
+  else if (cmd === "retry") console.log(RETRY.has(a) ? "1" : RETRY_INFRA.has(a) ? "infra" : "0");
+  else if (cmd === "infra") {   // stdin: the failed log; exit 0 = emulator only (re-run once), 1 = a finding or unknown
+    let t = ""; for await (const c of process.stdin) t += c;
+    process.exit(infraOnly(t) ? 0 : 1);
+  }
   else if (cmd === "tag") console.log(tagPlain(a, b));
   else if (cmd === "selftest") {
     let n = 0; const ok = (c, m) => { n++; if (!c) { console.error("FAIL " + m); process.exit(1); } };
@@ -126,6 +145,18 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     ok(!g.silent && g.text.startsWith("<b>🟠 לטיפול היום") && g.text.includes("👉"), "wf again loud");
     ok(!RETRY.has("Android build") && !RETRY.has("Social publish") && !RETRY.has("Magazine") && RETRY.has("Data guard"), "retry list");
     for (const w of RETRY) ok(BOTS[w], "retry name known " + w);
+    for (const w of RETRY_INFRA) ok(BOTS[w] && !RETRY.has(w), "infra retry name known, not in RETRY " + w);
+    const L = (job, ...lines) => lines.map(x => `${job}\tA real alert\t2026-11-08T08:06:44.9Z ${x}`).join("\n");
+    const adbErr = L("alerts (31)", ' "verdict": "ERROR",', ' "error": "Error: spawnSync adb ETIMEDOUT\\n    at Object.spawnSync"');
+    ok(infraOnly(adbErr), "infra: ERROR with adb ETIMEDOUT (8.11)");
+    ok(infraOnly(L("alerts (35)", "Error: Timeout waiting for emulator to boot.")), "infra: the emulator did not boot");
+    ok(!infraOnly(L("publish", "::error::(real app) 411-f100: the emulator stopped or did not start on every Android version ( api31 api35 ), so this phone setting was not checked at all")), "lost on every version: a failed-jobs re-run would not help");
+    ok(infraOnly(adbErr + "\n" + L("alerts (35)", "Error: Timeout waiting for emulator to boot.")), "infra: two jobs, both on the emulator");
+    ok(!infraOnly(L("alerts (31)", ' "verdict": "NO_ALERT",')), "finding: no alert");
+    ok(!infraOnly(L("alerts (31)", ' "verdict": "NO_RUN_AFTER_REBOOT",', "adb ETIMEDOUT")), "finding: no run after a restart, even with an adb line");
+    ok(!infraOnly(L("alerts (31)", ' "verdict": "ERROR",', ' "error": "TypeError: x is undefined"')), "unknown: an ERROR without the emulator");
+    ok(!infraOnly(adbErr + "\n" + L("device (35, 411-f100)", "::error::(real app, API 35) 411-f100: blocking findings, listed above")), "one job with findings: no re-run");
+    ok(!infraOnly(L("apk", "error: cannot find symbol")) && !infraOnly("") && !infraOnly("no tabs here"), "a failed build, an empty or a strange log: no re-run");
     ok(todo() === "👌 לא צריך לעשות כלום." && todo("x") === "👉 מה לעשות: x", "todo");
     ok(msg({ kind: "today", area: "bots", title: "t", what: "" }) === "<b>🟠 לטיפול היום · בוטים</b>\n<b>t</b>\n👌 לא צריך לעשות כלום.", "msg");
     ok(tag("urgent", "site") === "<b>🔴 דחוף · אתר</b>", "tag");

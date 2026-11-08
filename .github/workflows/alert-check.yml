@@ -47,6 +47,8 @@ jobs:
         run: "! grep -rnE '^[[:space:]]*runs-on:[[:space:]]*ubuntu-latest' .github/workflows/"
       - name: Engine self-test
         run: node .github/scripts/alert.mjs selftest
+      - name: Telegram texts and self-repair lists self-test (tg-text.mjs, RETRY names, the App guardian emulator-only re-run)
+        run: node .github/scripts/tg-text.mjs selftest
       - name: Ship tail self-tests (alpha-only guard, data-rebuild skip, release notes, GA4 create-only, analytics contract)
         run: node .github/scripts/play-alpha.mjs selftest && node .github/scripts/ga4-admin.mjs selftest
       # the contract's other side: every event the dashboard (worker/live) and the reports (analytics/) read is still sent by the page, the

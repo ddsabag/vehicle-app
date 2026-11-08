@@ -59,7 +59,7 @@ on:
       - "Settlements"
       - "Data truth"
       - "Recall explanations"   # sends paid requests: never re-run by this job (not in tg-text.mjs RETRY)
-      - "App guardian (real app)"   # owner: product (QA); nightly on main, red = blocking findings, so never re-run by this job
+      - "App guardian (real app)"   # owner: product (QA); nightly on main. Re-run once only when it failed on the emulator alone (tg-text.mjs RETRY_INFRA, product 8.11.2026); a finding is never re-run
       - "UI guardian (browser)"
       - "Diff review"   # owner: product (QA); Claude Opus reads a change before release, suggestions only: red = its own crash, never a point
       - "Exploratory walk"   # owner: product (QA); Claude Sonnet walks next weekly, report only: red = its own crash, never a note
@@ -150,6 +150,10 @@ jobs:
           fi
           retry=$(node .github/scripts/tg-text.mjs retry "$WF" 2>/dev/null) || retry=0
           if [ "$retry" = 1 ] && [ "${ATTEMPT:-1}" -gt 1 ] 2>/dev/null; then echo "attempt $ATTEMPT of a self-repairing workflow: the run that re-ran it reports"; exit 0; fi
+          # retry "infra" (App guardian, product 8.11.2026): one re-run only when every failed job of attempt 1 failed on the emulator (tg-text.mjs infraOnly);
+          # its attempt 2 is then reported by the job that re-ran it. A finding, a failed build, an unreadable log or a later attempt: no re-run, as before
+          infra_only() { gh run view "$RUN_ID" -R "$GITHUB_REPOSITORY" --attempt 1 --log-failed 2>/dev/null | node .github/scripts/tg-text.mjs infra; }
+          if [ "$retry" = infra ] && [ "${ATTEMPT:-1}" = 2 ] && infra_only; then echo "attempt 2 after an emulator-only failure: the run that re-ran it reports"; exit 0; fi
           # the one automatic re-run (whole run when it never started, else the failed jobs), then wait for it: 0 passed, 1 failed or still running after 45 min, 2 not started
           rerun() {
             if [ "$1" = lost ]; then gh run rerun "$RUN_ID" -R "$GITHUB_REPOSITORY" || return 2; else gh run rerun "$RUN_ID" --failed -R "$GITHUB_REPOSITORY" || return 2; fi
@@ -234,6 +238,10 @@ jobs:
             echo "the previous run failed too: silent message, no new flash"
             send repeat
             exit 0
+          fi
+          if [ "$retry" = infra ]; then
+            retry=0
+            if [ "${ATTEMPT:-1}" = 1 ] && infra_only; then echo "every failed job failed on the emulator, none on a finding: one automatic re-run"; retry=1; fi
           fi
           repair failed && exit 0
           send failed
