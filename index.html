@@ -1699,6 +1699,7 @@ function facts(list){
   return items.length ? `<dl class="facts">${items.join("")}</dl>` : "";
 }
 function proLockCard(title, text){
+  if (!PRO_LOCK) return "";   // no paid plan exists while the lock is off: no card that leads to the plans screen (CEO audit 8.11.2026)
   return card(title, "star", "amber", `<p style="margin:0">${esc(text)}</p><button type="button" class="link-btn" data-act="proInfo">הצטרפות ל-PRO</button>`, `${PT("PRO")}`);
 }
 const foldKey = t => "fold:" + t;
@@ -5361,7 +5362,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "bulkCsv") { bulkCsv(); return; }
   if (b.dataset.act === "bulkPdf") { bulkPdf(b); return; }
   if (b.dataset.act === "checklistPdf") { track("checklist_pdf"); checklistPdf(b); return; }
-  if (b.dataset.act === "proInfo" || b.dataset.act === "upgrade") { track("upgrade_open", {from: b.dataset.src || currentTab || "home"}); if (UPGRADE_UI) renderUpgrade(); else toast("זמין בקרוב"); return; }
+  if (b.dataset.act === "proInfo" || b.dataset.act === "upgrade") { if (!PRO_LOCK) return; track("upgrade_open", {from: b.dataset.src || currentTab || "home"}); if (UPGRADE_UI) renderUpgrade(); else toast("זמין בקרוב"); return; }
   if (b.dataset.act === "mkCsv") { marketCsv(); return; }
   if (b.dataset.buy) { buyPlan(b.dataset.buy); return; }
   if (b.dataset.act === "restore") { restorePurchases(); return; }
@@ -7547,7 +7548,7 @@ function syncPlanUi(){
   $("#planNote").textContent = t;
 }
 const priceOf = sku => PRODUCTS[sku] || (Number(PRICES[sku]).toFixed(Number.isInteger(PRICES[sku]) ? 0 : 2) + " ₪");
-window.onPrices = s => { try { PRODUCTS = typeof s === "string" ? JSON.parse(s) : s; } catch {} if ($("#upg")) renderUpgrade(); };
+window.onPrices = s => { try { PRODUCTS = typeof s === "string" ? JSON.parse(s) : s; } catch {} if (PRO_LOCK && $("#upg")) renderUpgrade(); };
 window.onEntitlement = s => {
   try {
     const o = typeof s === "string" ? JSON.parse(s) : s, e = entGet();
@@ -7604,8 +7605,8 @@ function restorePurchases(){
   if (b && b.billingInit) { try { b.billingInit(); toast("בודקים רכישות קודמות…"); return; } catch {} }
   toast("שחזור רכישות זמין באפליקציה מחנות Google Play");
 }
-$("#planBtn").addEventListener("click", () => { sheet.hidden = true; if (UPGRADE_UI) { renderUpgrade(); } });
-$("#bnPro").addEventListener("click", () => { track("upgrade_open", {from: "topbar"}); if (UPGRADE_UI) renderUpgrade(); });
+$("#planBtn").addEventListener("click", () => { sheet.hidden = true; if (PRO_LOCK && UPGRADE_UI) { renderUpgrade(); } });
+$("#bnPro").addEventListener("click", () => { if (!PRO_LOCK) return; track("upgrade_open", {from: "topbar"}); if (UPGRADE_UI) renderUpgrade(); });
 initEnt(); syncPlanUi();
 if (PRO_LOCK && UPGRADE_UI) { try { const b = bridge(); if (b && b.billingInit) b.billingInit(); } catch {} }
 syncSaved(store.get("savedVehicles"));
