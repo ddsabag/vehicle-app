@@ -140,7 +140,7 @@ export function compose(R, env = {}) {
   const pc = dev && app ? `https://play.google.com/console/developers/${dev}/app/${app}/app-content/data-privacy-security` : "https://play.google.com/console";
   const tag = (R.hash || "x").replace(/^\d/, "a");
   const A = (u, t) => u ? ` <a href="${escH(u)}">${t}</a>` : "";
-  if (R.code === "sent") return { key: `safety:done:${tag}`, link: pc, today: "silent",
+  if (R.code === "sent") return { key: `safety:done:${tag}`, link: pc, today: "silent", outcome: "self",
     text: msg({ kind: "done", area: "store", title: "טופס בטיחות הנתונים של לוחית ב-Google Play עודכן",
       text: `העדכון נלקח מהקובץ ב-GitHub (${R.rows} תשובות).`, what: `אין צורך לעשות כלום.${A(pc, "Play Console")}`, raw: "Data safety" }) };
   const w = whyHe(R.why);
@@ -162,7 +162,7 @@ export async function tell(R) {
   if (!IO.env.TELEGRAM_BOT_TOKEN || !IO.env.TELEGRAM_CHAT_ID) { note("TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID are not set: the message is only in the job summary"); return true; }
   let router = IO.router;
   if (!router) try { router = await import("./alert.mjs"); } catch { /* legacy below */ }
-  const r = router ? await router.alert("day", m.key, m.text, m.link, { today: m.today, fresh: IO.env.EVENT === "workflow_dispatch", legacy: () => telegram(m.text) })
+  const r = router ? await router.alert("day", m.key, m.text, m.link, { today: m.today, fresh: IO.env.EVENT === "workflow_dispatch", ...(m.outcome ? { outcome: m.outcome } : {}), legacy: () => telegram(m.text) })
     : { delivered: await telegram(m.text) };
   // a form Play took ends every Data safety failure before it (access, the file, Play): the router tells each one "חזר לתקין"
   if (router?.resolve && R.code === "sent") try { await router.resolve(["safety:fail:"]); } catch { /* the morning ledger still shows it */ }
@@ -260,10 +260,10 @@ async function selftest() {
     ok(allowed("POST", `${PLAY}/androidpublisher/v3/applications/${PKG}/dataSafety`) && !allowed("GET", `${PLAY}/androidpublisher/v3/applications/${PKG}/dataSafety`)
       && !allowed("POST", `${PLAY}/androidpublisher/v3/applications/${PKG}/edits`) && !allowed("POST", `https://evil.example/androidpublisher/v3/applications/${PKG}/dataSafety`)
       && !allowed("POST", `${PLAY}/androidpublisher/v3/applications/${PKG}/dataSafety?x=1`), "allowed: the one call");
-    const keys = [], router = { alert: async (lv, key) => { keys.push(key); return { delivered: true }; } };
+    const keys = [], outs = [], router = { alert: async (lv, key, t, l, o) => { keys.push(key); outs.push(o && o.outcome || ""); return { delivered: true }; } };
     const { validKey } = await import("./alert.mjs");
     await go({ router }); await go({ router, status: 403 }); await go({ router, text: "x" });
-    ok(keys.length === 3 && keys[0].startsWith("safety:done:") && keys[1] === "safety:fail:access" && keys[2] === "safety:fail:files" && keys.every(validKey), "router keys " + keys);
+    ok(keys.length === 3 && keys[0].startsWith("safety:done:") && keys[1] === "safety:fail:access" && keys[2] === "safety:fail:files" && keys.every(validKey) && outs.join() === "self,,", "router keys " + keys + " outcomes " + outs);
     const settled = [], r2 = { alert: async () => ({ delivered: true }), resolve: async p => { settled.push(p.join("|")); return 1; } };
     await go({ router: r2 }); await go({ router: r2, status: 403 }); await go({ router: r2, text: "x" });
     ok(settled.join() === "safety:fail:", "router: only a form Play took closes the Data safety failures " + settled);

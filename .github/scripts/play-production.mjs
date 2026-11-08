@@ -365,6 +365,8 @@ export function compose(R, env = {}) {
   // kind: done/info are quiet, today rings by day, urgent (a halt) rings at once; prod:sent is level summary (bot review 1.11.2026, product
   // agreed: it confirms the owner's own "פרסם", so at night it never joins the morning ring); prod:live stays day
   const out = (key, link, kind, title, text, what = "") => ({ key, link, kind, level: kind === "urgent" ? "critical" : key.startsWith("prod:sent:") ? "summary" : "day", today: kind === "done" || kind === "info" ? "silent" : "loud",
+    // a notice of finished work (sent, approved, at 100%) is told once, quietly, and recorded closed (weekly noise review 8.11.2026)
+    ...(kind === "done" ? { outcome: "self" } : {}),
     text: msg({ kind, area: "app", title, text, what, raw: tech.filter(Boolean).join(" · ") }) });
   const watch = `אם תופיע קריסה חדשה שלא הייתה בגרסאות הקודמות, ההפצה תיעצר לבד. אם לא, היא תגיע ל-100% כ-${FULL_AFTER_H} שעות אחרי שהמעקב יראה אותה.`;
   const noHalt = "בהפצה לכולם אין עצירה אוטומטית: אם תופיע קריסה חדשה, תגיע הודעה מהמעקב, והתיקון הוא גרסה חדשה.";
@@ -427,7 +429,7 @@ export async function tell(R) {
   if (!IO.env.TELEGRAM_BOT_TOKEN || !IO.env.TELEGRAM_CHAT_ID) { note("TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID are not set: the message is only in the job summary"); return true; }
   let router = IO.router;
   if (!router) try { router = await import("./alert.mjs"); } catch { /* legacy below */ }
-  const r = router ? await router.alert(m.level, m.key, m.text, m.link, { today: m.today, fresh: R.cmd === "promote", legacy: () => telegram(m.text) })
+  const r = router ? await router.alert(m.level, m.key, m.text, m.link, { today: m.today, fresh: R.cmd === "promote", ...(m.outcome ? { outcome: m.outcome } : {}), legacy: () => telegram(m.text) })
     : { delivered: await telegram(m.text) };
   // a build on its way to Production settles every Alpha upload notice before it (the Sunday summary's "waiting for you" list)
   if (router?.resolve && ["sent", "live", "full"].includes(R.code)) try { await router.resolve(["ship:done:"]); } catch { /* the summary hides it anyway */ }
@@ -827,7 +829,7 @@ async function selftest() {
       "settles: what each result proves over");
     const told = [], settled2 = [], quiet = { alert: async (lv, key, text, link, o) => { told.push({ lv, key, o }); return { delivered: true }; }, resolve: async p => { settled2.push(p.join("|")); return 1; } };
     await run({ router: quiet, tracks: T([A("1.34", 115)], [A("1.34", 115)]), state: { seen: { "production:115": T0 - HOUR } } }, { EVENT: "schedule" }, ["auto"]);
-    ok(told.length === 1 && told[0].key === "prod:live:115" && told[0].lv === "day" && told[0].o.today === "silent" && validKey(told[0].key) && settled2.join() === "ship:done:,prod:fail:auto",
+    ok(told.length === 1 && told[0].key === "prod:live:115" && told[0].lv === "day" && told[0].o.today === "silent" && told[0].o.outcome === "self" && validKey(told[0].key) && settled2.join() === "ship:done:,prod:fail:auto",
       "router: a release to all users published = prod:live, quiet, settles the Alpha notices " + JSON.stringify(told) + settled2);
     W = await run();
     const all = [...W.printed, ...W.sums, ...Object.values(W.outputs), ...W.tg.map(x => x.text)].join("\n");
