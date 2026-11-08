@@ -210,7 +210,10 @@ for (const [cd, rows] of byMaker) {
     fs.writeFileSync(`${OUT}/c/${cd}/${f}.json`, txt); bytes += txt.length; files++; if (txt.length > biggest[1]) biggest = [n + " " + m, txt.length];
   }
   makers[cd] = {n, m: Object.keys(models), r: rows.length, y: Object.values(models).map(x => [x[2], x[3]])};   // y: first and last production year of each name in m (the recall matcher reads "AVENSIS,VERSO" as one model or two by them)
-  brandOf.set(cd, String(tozar || "").trim());
+  // the recall map is joined by the brand, which the register spells its own way even when its rows name one (קיי ג'י מובילי, ג'י.אם.סי: both
+  // makers kept yesterday's recall file from 22.10 to 7.11.2026): a brand that is not a key of the map is matched like a maker name. The maker
+  // index keeps the register's own spelling
+  { const t = String(tozar || "").trim(); brandOf.set(cd, !t || BRANDS[t] || BRANDS_MORE[t] ? t : brandOfName(t) || t); }
   const idx = JSON.stringify({u, cd: Number(cd), n, eretz, tozar, cols, imp, models, degems});
   fs.writeFileSync(`${OUT}/c/${cd}.json`, idx); bytes += idx.length;
 }
