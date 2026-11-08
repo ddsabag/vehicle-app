@@ -36,7 +36,7 @@ async function runWorker() {
   // the worker as a module: its default export kept aside, collect() exported; the week's last day set to END instead of "yesterday after noon"
   const ORIG = "const end = addDays(today, ilHour(Date.now()) >= 12 ? -1 : -2);";
   if (!WJS.includes(ORIG)) throw new Error("the week line of collectWeekly changed: update kpi-probe.mjs");
-  const src = WJS.replace("export default", "const _d =").replace(ORIG, "const end = " + JSON.stringify(END) + ";") + "\nexport { collect, goalsGet, gView, GOALS_ERR };";
+  const src = WJS.replace("export default", "const _d =").replace(ORIG, "const end = " + JSON.stringify(END) + ";") + "\nexport { collect, goalsGet, gView, GOALS_ERR, testsOf };";
   const tmp = E.W_TMP || "/tmp/kpi-worker.mjs";
   fs.writeFileSync(tmp, src);
   const toml = fs.existsSync(E.W_TOML || "") ? fs.readFileSync(E.W_TOML, "utf8") : "";
@@ -56,8 +56,10 @@ async function runWorker() {
   globalThis.caches = { default: { match: async () => undefined, put: async () => {} } };
   const env = { ALERTS, GA_PROPERTY_ID: tv("GA_PROPERTY_ID", "557990379"), PLAY_REPORTS_BUCKET: tv("PLAY_REPORTS_BUCKET", "pubsite_prod_4688106336294834537"),
     GA_SERVICE_ACCOUNT_JSON: E.GA_SERVICE_ACCOUNT_JSON, CF_API_TOKEN: E.CF_API_TOKEN, CF_ACCOUNT_ID: acc };
-  const { collect, goalsGet, gView, GOALS_ERR } = await import(tmp);
+  const { collect, goalsGet, gView, GOALS_ERR, testsOf } = await import(tmp);
   const d = await collect(env);
+  // known test sends (KNOWN_TESTS in worker.js, the same list /live subtracts): left out of the week counts below as well
+  d.tests = testsOf ? { leads: testsOf("b2b_lead_submit", addD(END, -6), END), leads_prev: testsOf("b2b_lead_submit", addD(END, -13), addD(END, -7)), newsletter: testsOf("newsletter_confirm", addD(END, -6), END) } : null;
   // the live goals as /live keeps them (KV lv:goals, from 8.11), the same view the page gets; read only
   try { const st = goalsGet ? await goalsGet(env) : null, er = GOALS_ERR ? await ALERTS.get(GOALS_ERR, "json").catch(() => null) : null;
     d.goalsLive = st ? { ...gView(st, ilToday), at: st.at || null, err: er ? er.why : null } : { none: true, err: er ? er.why : null }; }
@@ -171,8 +173,11 @@ function kpis(d, S) {
 
   // 8. business leads (the business page's form, b2b_lead_submit) and magazine sign-ups
   { const M = W && W.money;
-    out.b2b_leads = { week: ev ? ge(E0, "b2b_lead_submit") : null, prev: ev ? ge(E1, "b2b_lead_submit") : null, since_2026_10_01: M ? M.leads : null,
-      newsletter_week: ev ? ge(E0, "newsletter_confirm") : null, newsletter_since_2026_10_01: M ? M.subscribers : null }; }
+    const T = d.tests || {}, less = (v, t) => v == null ? null : Math.max(0, v - (t || 0));
+    out.b2b_leads = { week: ev ? less(ge(E0, "b2b_lead_submit"), T.leads) : null, prev: ev ? less(ge(E1, "b2b_lead_submit"), T.leads_prev) : null, since_2026_10_01: M ? M.leads : null,
+      newsletter_week: ev ? less(ge(E0, "newsletter_confirm"), T.newsletter) : null, newsletter_since_2026_10_01: M ? M.subscribers : null };
+    if (T.leads || T.leads_prev || T.newsletter) { out.b2b_leads.tests_excluded = { leads: T.leads || 0, leads_prev: T.leads_prev || 0, newsletter: T.newsletter || 0 };
+      notes.b2b_leads_tests = "שליחות בדיקה ידועות של הטפסים (KNOWN_TESTS בקוד /live) לא נספרות בשבוע, כמו ב-/live."; } }
 
   // 9. failures and slow checks (health): failures = ministry not answering, no answer, network error, our code, out of all attempts;
   // slow = over 5 seconds, of checks with a known duration
