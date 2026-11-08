@@ -1,4 +1,4 @@
-// One-off read (7.11.2026): the billing NPE Play Console reported on 1.38.4. Reads Play vitals issues of the last 30 days, the reports of
+// One-off read (7.11.2026, re-read 8.11): the billing NPE Play Console reported on 1.38.4. Reads Play vitals issues of the last 30 days, the reports of
 // billing-related ones (device, Android, version, time), and the app's in-app products and subscriptions. Read only; output encrypted.
 import fs from "node:fs"; import crypto from "node:crypto";
 import { jwt, PKG } from "./play-alpha.mjs";
