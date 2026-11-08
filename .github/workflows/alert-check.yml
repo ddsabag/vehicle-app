@@ -97,6 +97,8 @@ jobs:
         run: node .github/scripts/review-digest.mjs --selftest
       - name: Triage prep self-test (the facts of the morning triage, Haiku only when something is not clean)
         run: node .github/scripts/triage-prep.mjs --selftest
+      - name: Alert-noise review self-test (Sundays, Sonnet once, at most 8 suggestions, nothing without a key)
+        run: node .github/scripts/alert-noise.mjs --selftest
       - name: Settlements news reading self-test (a verdict stands only on a found source, light or full review, Opus once on a bad answer, ai:stl / ai:key)
         run: node .github/scripts/settlements-ai.mjs --selftest
       - name: Settlements weekly review self-test (the quote rule, low for press-only, coverage fixes, held items carried, stl:review / ai:stlrev / ai:key)

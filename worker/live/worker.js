@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-56";   // shown in /live/data so the running version is visible
+const BUILD = "live-57";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -251,7 +251,7 @@ async function collectWeekly(env, today) {
   for (const r of e28 || []) { const [dt, pf, name] = r.dimensionValues.map(x => x.value), i = Math.round((Date.parse(iso8(dt) + "T12:00:00Z") - Date.parse(M[0] + "T12:00:00Z")) / 864e5); if (!(i >= 0 && i <= 27)) continue; (ed[name] ||= { a: Array(28).fill(0), w: Array(28).fill(0) })[pf === "web" ? "w" : "a"][i] += Number(r.metricValues[0].value); }
   const fresh = { errors, end, W, P, M, CW, ev: evs ? ev : null, fails: fails ? fk : null, shared: links ? shared : null, social: links ? social : null,
     days: hist ? hd.car_lookup : null, series: hist ? hd : null,
-    app: app ? appU : null, savers: saveU ? Object.fromEntries(saveU.filter(r => ri(r) === 0).map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)])) : null, saversP: saveU ? Object.fromEntries(saveU.filter(r => ri(r) === 1).map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)])) : null, money: money ? { leads: m.b2b_lead_submit || 0, subscribers: m.newsletter_confirm || 0 } : null, sources: src, pages, bySource: bySrc ? bs : null, srcSeen: bySrc ? srcSeen : null, byCamp: bySrc ? bc : null, coh: ret ? coh : null, appSrc: appS ? aSrc : null, appOpen: appC ? aOpen : null, dur: durs ? dur : null, door: door ? dr8 : null, e28: e28 ? ed : null };
+    app: app ? appU : null, savers: saveU ? Object.fromEntries(saveU.filter(r => ri(r) === 0).map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)])) : null, saversP: saveU ? Object.fromEntries(saveU.filter(r => ri(r) === 1).map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)])) : null, money: money ? { leads: Math.max(0, (m.b2b_lead_submit || 0) - testsOf("b2b_lead_submit", "2026-10-01")), subscribers: Math.max(0, (m.newsletter_confirm || 0) - testsOf("newsletter_confirm", "2026-10-01")) } : null, sources: src, pages, bySource: bySrc ? bs : null, srcSeen: bySrc ? srcSeen : null, byCamp: bySrc ? bc : null, coh: ret ? coh : null, appSrc: appS ? aSrc : null, appOpen: appC ? aOpen : null, dur: durs ? dur : null, door: door ? dr8 : null, e28: e28 ? ed : null };
   // the last good numbers stand in for a part that failed, but only for the same week (a new week starts clean)
   weekly = keep(fresh, weekly && weekly.end === end ? weekly : null, ["ev", "fails", "shared", "social", "days", "series", "app", "savers", "money", "sources", "pages", "bySource", "srcSeen", "byCamp", "coh", "appSrc", "appOpen", "dur", "door", "saversP", "e28"]);
   // a Google part that failed is asked again after a minute; Cloudflare alone after five, so its failure does not re-run the Google queries every minute
@@ -769,6 +769,11 @@ function gView(st, today) {
 // Play reports, once a week: after 09:00 Israel on Sunday (the weekly report's own hour), the week Sunday to Saturday that ended the day
 // before is whole. A run that fails keeps the last state, says why (no numbers) in lv:goals:err and tries again after 30 minutes.
 const GOALS_KEY = "lv:goals", GOALS_ERR = "lv:goals:err";
+// known test sends that reached GA4 as if they were real: subtracted from the lead and subscriber counts (the since-1.10 tile and the goals
+// rows), never below zero. A count per day and event only, no address. 7.11.2026: the CEO thread's end-to-end form test through luchit-api
+// (4 business leads, type and interest "אחר", 14:22-14:53 UTC, and 1 magazine sign-up), read back in GA4 at 21:01 UTC, all at 16:00 Israel.
+const KNOWN_TESTS = [{ d: "2026-11-07", ev: "b2b_lead_submit", n: 4 }, { d: "2026-11-07", ev: "newsletter_confirm", n: 1 }];
+const testsOf = (ev, from, to) => KNOWN_TESTS.filter(t => t.ev === ev && (!from || t.d >= from) && (!to || t.d <= to)).reduce((a, t) => a + t.n, 0);
 async function goalsGet(env) { try { return (env.ALERTS && await env.ALERTS.get(GOALS_KEY, "json")) || null; } catch { return null; } }
 const goalsMode = (env, acts) => String(env.GOALS_MODE || "").trim() === "fixed" ? "fixed" : acts && acts["goals-mode"] && /קבוע/.test(acts["goals-mode"].c || "") ? "fixed" : "live";
 // { Sunday: { metric: { v } | { x, n } | { xs, ns, xn, nn } } } for the whole weeks from `from` (a Sunday) to `to` (a Sunday, its week whole)
@@ -790,7 +795,7 @@ async function goalRows(env, from, to, need, endDay) {
   if (evs) for (const r of evs) { const [, pf, nm] = r.dimensionValues.map(x => x.value), w = wk(day(r)), o = at(w), c = num(r);
     if (nm === "car_lookup") { add(o, "checks", "v", c); add(o, "share", "n", c); add(o, "fail", "n", c); if (pf === "web") add(o, "weberr", "n", c); }
     else if (nm === "share") add(o, "share", "x", c); else if (nm === "lookup_failed") add(o, "fail", "n", c); else if (nm === "js_error" && pf === "web") add(o, "weberr", "x", c); else if (nm === "b2b_lead_submit") add(o, "leads", "v", c); }
-  if (evs) for (const w of Object.keys(rows)) { const o = rows[w]; for (const k of ["share", "weberr", "fail"]) if (o[k]) o[k].x ||= 0; o.leads ||= { v: 0 }; }
+  if (evs) for (const w of Object.keys(rows)) { const o = rows[w]; for (const k of ["share", "weberr", "fail"]) if (o[k]) o[k].x ||= 0; o.leads ||= { v: 0 }; o.leads.v = Math.max(0, o.leads.v - testsOf("b2b_lead_submit", w, gAdd(w, 6))); }
   if (kinds) for (const r of kinds) { const k = r.dimensionValues[1].value; if (["source_down", "offline", "net_err", "js_err"].includes(k)) add(at(wk(day(r))), "fail", "x", num(r)); }
   if (durs) for (const r of durs) { const b = r.dimensionValues[1].value, o = at(wk(day(r))); if (/^(lt2|2to5|5to10|gt10)$/.test(b)) { add(o, "slow", "n", num(r)); add(o, "slow", "x", b === "5to10" || b === "gt10" ? num(r) : 0); } }
   if (inst) for (const r of inst) add(at(wk(day(r))), "installs", "v", num(r));
@@ -2108,9 +2113,9 @@ REG.active28={name:"משתמשים באפליקציה ב-28 ימים",dept:"stra
    drill:[A?{h:"לפי גוגל אנליטיקס",html:'<ul class="kv">'+kv("משתמשים ב-28 ימים",n(A[2].activeUsers))+kv("משתמשים השבוע",n(A[0].activeUsers)+' <small class="flat">(שבוע קודם '+n(A[1].activeUsers)+")</small>")+kv("פתחו את האפליקציה השבוע (מכשירים)",n(A[0].totalUsers))+"</ul>"}:null]}}};
 REG.subs={name:"נרשמים למגזין",dept:"strategy",def:"כמה אנשים נרשמו למגזין של לוחית מאז 1.10.",how:"גוגל אנליטיקס, אישורי הרשמה (newsletter_confirm) מ-1.10, מול יעד תוכנית השיווק להיום.",src:"גוגל אנליטיקס",owner:"אסטרטגיה",
  calc(C){const mo=C.W&&C.W.money,v=mo?mo.subscribers:null,GN=goal("subscribers_total",C.td),s=v==null?"nodata":C.cal?"cal":band(v,GN,false,true);
-  return {s,v,big:n(v),unit:v!=null?"נרשמים":"",gl:v!=null?n(v/GN[1]*100)+"% מהיעד להיום ("+n(GN[1])+")":"",gp:v!=null?v/GN[1]:0,lines:["היעד להיום: "+n(GN[1])+" (טווח "+n(GN[0])+" עד "+n(GN[2])+")"],win:"מ-1.10",foot:"גוגל אנליטיקס"}}};
+  return {s,v,big:n(v),unit:v!=null?"נרשמים":"",gl:v!=null?n(v/GN[1]*100)+"% מהיעד להיום ("+n(GN[1])+")":"",gp:v!=null?v/GN[1]:0,lines:["היעד להיום: "+n(GN[1])+" (טווח "+n(GN[0])+" עד "+n(GN[2])+")","עד 7.11 טופס המגזין דחה כל כתובת עם האות s, לכן ההרשמות לפני 7.11 נמוכות מהאמת","הרשמת הבדיקה של 7.11 לא נספרת"],win:"מ-1.10",foot:"גוגל אנליטיקס"}}};
 REG.leads={name:"פניות עסקיות",dept:"strategy",def:"כמה פניות עסקיות הגיעו מהאתר מאז 1.10. לפניות אין יעד עד שמתחילים למכור.",how:"גוגל אנליטיקס, האירוע b2b_lead_submit מ-1.10.",src:"גוגל אנליטיקס",owner:"אסטרטגיה",
- calc(C){const mo=C.W&&C.W.money,v=mo?mo.leads:null;return {s:v==null?"nodata":"ref",v,big:n(v),unit:v!=null?"פניות":"",lines:["אין יעד עד שמתחילים למכור"],win:"מ-1.10",foot:"גוגל אנליטיקס"}}};
+ calc(C){const mo=C.W&&C.W.money,v=mo?mo.leads:null;return {s:v==null?"nodata":"ref",v,big:n(v),unit:v!=null?"פניות":"",lines:["אין יעד עד שמתחילים למכור","4 פניות הבדיקה של 7.11 לא נספרות"],win:"מ-1.10",foot:"גוגל אנליטיקס"}}};
 REG.installedNow={name:"מותקנת עכשיו",dept:"strategy",def:"על כמה מכשירים בישראל האפליקציה מותקנת עכשיו (הערכה).",how:"Google Play מוסר את מספר המכשירים ביום האחרון שדוחותיו הגיעו; מאז נוספות ההתקנות החדשות פחות ההסרות לפי גוגל אנליטיקס.",src:"Google Play, גוגל אנליטיקס",owner:"אסטרטגיה",
  calc(C){const v=C.inst;return {s:v==null?"nodata":"ref",v,big:v==null?"-":(C.instMin?"לפחות ":"בערך ")+n(v),unit:v!=null?"מכשירים":"",lines:[C.instHow||"אין נתון","כולל הטלפונים שלך ושל הבודקים"],win:"עכשיו",foot:"הערכה"}}};
 // the usage table (every action GA4 counted in the two weeks), for the product department
