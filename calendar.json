@@ -1,5 +1,5 @@
 {
- "at": "2026-11-08T18:21:44Z",
+ "at": "2026-11-08T19:21:45Z",
  "open": [],
  "items": [
   {
@@ -511,21 +511,16 @@
    "what": "פוסט מהערכה השבועית",
    "src": "auto",
    "st": {
-    "facebook": "planned",
-    "instagram": "planned"
+    "facebook": "done",
+    "instagram": "done"
+   },
+   "link": {
+    "facebook": "https://www.facebook.com/1424085817452110_122110467585516900",
+    "instagram": "https://www.instagram.com/p/DfffsfWgSl7/"
    },
    "q": [
     "2026-11-07/k5-post"
    ]
-  },
-  {
-   "d": "2026-11-08",
-   "t": "21:00",
-   "ch": [
-    "tiktok"
-   ],
-   "what": "ריל לקונים בטיקטוק, בהרצה ידנית של הפרומפט",
-   "src": "cowork"
   },
   {
    "d": "2026-11-09",
