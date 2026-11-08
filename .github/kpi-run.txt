@@ -10,3 +10,4 @@ run 2026-11-01 ceo-read test (measurement, A7)
 run 2026-11-01 ceo-read test 2 (measurement, A7: field names)
 run 2026-11-01 ceo-read test 3 (measurement, A7: one rewrite pass)
 run 2026-11-05 measurement: the live goals field in the CEO file
+run 2026-11-08 sunday review ceo-read
