@@ -1,15 +1,15 @@
 {
  "v": 1,
- "d": "2026-11-07",
- "seed": "20261107",
+ "d": "2026-11-08",
+ "seed": "20261108",
  "cars": 40,
  "sampled": 40,
- "mism": 0,
+ "mism": 1,
  "skipped": 0,
  "refused": 0,
  "fields": {
   "fee.borrowed_note": [
-   28,
+   27,
    0
   ],
   "fee.licence": [
@@ -17,7 +17,7 @@
    0
   ],
   "identity.buy_steps": [
-   36,
+   37,
    0
   ],
   "identity.colour": [
@@ -61,7 +61,7 @@
    0
   ],
   "insight.age_cancelled": [
-   4,
+   3,
    0
   ],
   "insight.safety_low": [
@@ -101,11 +101,11 @@
    0
   ],
   "owners.current_no_log": [
-   27,
+   29,
    0
   ],
   "owners.durations": [
-   11,
+   8,
    0
   ],
   "owners.first_owner": [
@@ -121,7 +121,7 @@
    0
   ],
   "owners.insight_company_now": [
-   11,
+   8,
    0
   ],
   "owners.insight_dealer_now": [
@@ -129,27 +129,27 @@
    0
   ],
   "owners.insight_lease": [
-   11,
+   8,
    0
   ],
   "owners.insight_new_dealer": [
-   11,
+   8,
    0
   ],
   "owners.insight_rental": [
-   11,
+   8,
    0
   ],
   "owners.insight_short_lease": [
-   11,
+   8,
    0
   ],
   "owners.insight_was_dealer": [
-   11,
+   8,
    0
   ],
   "owners.now_line": [
-   11,
+   8,
    0
   ],
   "owners.timeline": [
@@ -157,7 +157,7 @@
    0
   ],
   "price.borrowed_note": [
-   32,
+   31,
    0
   ],
   "price.list": [
@@ -169,7 +169,7 @@
    0
   ],
   "recalls.line_honest": [
-   31,
+   32,
    0
   ],
   "recalls.model_count": [
@@ -181,12 +181,12 @@
    0
   ],
   "recalls.model_fits": [
-   16,
+   11,
    0
   ],
   "recalls.model_missing": [
-   33,
-   0
+   32,
+   1
   ],
   "recalls.open": [
    40,
@@ -194,10 +194,6 @@
   ],
   "recalls.open_banner": [
    40,
-   0
-  ],
-  "recalls.open_date": [
-   1,
    0
   ],
   "recalls.pending_banner": [
@@ -209,15 +205,15 @@
    0
   ],
   "recalls.thin_check": [
-   39,
+   40,
    0
   ],
   "recalls.thin_line": [
-   25,
+   28,
    0
   ],
   "recalls.thin_rows": [
-   31,
+   32,
    0
   ],
   "road.first_date": [
@@ -233,7 +229,7 @@
    0
   ],
   "settlements.import_line": [
-   1,
+   2,
    0
   ],
   "settlements.scope": [
@@ -333,11 +329,11 @@
    0
   ],
   "status.buy_plan": [
-   36,
+   37,
    0
   ],
   "status.cancel_date": [
-   4,
+   3,
    0
   ],
   "status.cancel_pill": [
@@ -345,15 +341,15 @@
    0
   ],
   "status.cancel_reason": [
-   4,
+   3,
    0
   ],
   "status.cancelled_buy": [
-   4,
+   3,
    0
   ],
   "status.heavy_note": [
-   1,
+   2,
    0
   ],
   "status.hold_insight": [
@@ -369,7 +365,7 @@
    0
   ],
   "status.import_type": [
-   1,
+   2,
    0
   ],
   "status.inactive_pill": [
@@ -377,7 +373,7 @@
    0
   ],
   "tag.insight": [
-   18,
+   17,
    0
   ],
   "test.insight": [
@@ -417,14 +413,24 @@
    0
   ],
   "value.fallback": [
-   8,
+   9,
    0
   ],
   "value.labelled_estimate": [
-   32,
+   31,
    0
   ]
  },
- "list": [],
+ "list": [
+  {
+   "id": "c033",
+   "field": "recalls.model_missing",
+   "shown": "0 rows shown",
+   "expected": "#16808 DEGEM=\"COROLLA,YARIS,AVENSIS,SIENNA,AURIS,RAV4,HI-LUX\" 2026 \"קיים חשש כי לחות שחדרה לתוך יחידת הניפוח\"",
+   "evidence": "car kinuy=COROLLA degem_nm=ZZE121L-DEPDKW year=2004 brand=/TOYOTA/",
+   "car": "טויוטה טורקיה COROLLA 2004",
+   "from": "inactive"
+  }
+ ],
  "auditExit": 0
 }
