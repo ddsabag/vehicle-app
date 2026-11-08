@@ -461,11 +461,13 @@ async function telegram(text, silent = false) {
     IO.log("telegram " + r.status); return r.ok;
   } catch (x) { IO.log("telegram failed " + x.message); return false; }
 }
-async function tell(level, key, text, link = "", today = "loud") {
-  if (IO.env.SOCIAL_SELFTEST) { IO.log(`[tell ${level} ${key}] ${text}`); return; }
+// outcome "self": a notice of work already done (a post that went up): the router sends it once, quietly, and records it closed,
+// so it neither rings nor stays open (8.11.2026, the weekly noise review: 13 posts rang at level day in one week, while their legacy send was silent)
+async function tell(level, key, text, link = "", today = "loud", outcome = null) {
+  if (IO.env.SOCIAL_SELFTEST) { IO.log(`[tell ${level} ${key}]${outcome ? ` (${outcome})` : ""} ${text}`); return; }
   if (!IO.env.TELEGRAM_BOT_TOKEN) { IO.log("no Telegram credentials:\n" + text); return; }
   let router = null; try { router = await import("./alert.mjs"); } catch {}
-  if (router) await router.alert(level, key, text, link, { today, legacy: () => telegram(text, today === "silent") });
+  if (router) await router.alert(level, key, text, link, { today, ...(outcome ? { outcome } : {}), legacy: () => telegram(text, today === "silent") });
   else await telegram(text, today === "silent");
 }
 // a problem that is over closes its router item, and the router says so once ("✅ בוצע"); told = this run's own message already says it
@@ -617,7 +619,7 @@ export async function run(qdir) {
   for (const id of [...new Set(posted.map(p => `${p.k.name}/${p.it.id}`))]) {
     const ps = posted.filter(p => `${p.k.name}/${p.it.id}` === id), { k, it } = ps[0];
     await tell("day", `social:done:${k.name}-${it.id}-${ps.map(p => p.t).join("+")}`,
-      msg({ kind: "done", area: "marketing", title: `${UP[it.type]} (${esc(it.id)})`, text: ps.map(p => `${NAMES[p.t]}: ${esc(p.link)}`).join("\n") }), "", "silent");
+      msg({ kind: "done", area: "marketing", title: `${UP[it.type]} (${esc(it.id)})`, text: ps.map(p => `${NAMES[p.t]}: ${esc(p.link)}`).join("\n") }), "", "silent", "self");
   }
   IO.log(`published ${published}, recorded ${done}`);
   return { published, summary };
@@ -699,7 +701,7 @@ async function selftest() {
 
   let r = await run(tmp);
   ck(r.published === 2, `first run publishes the dealer post twice (FB + IG), got ${r.published}`);
-  ck(logs.filter(l => l.includes("[tell day social:done:2026-10-22-dealer-facebook+instagram]") && l.includes("עלה פוסט (dealer)") && l.includes("פייסבוק: https://") && l.includes("אינסטגרם: https://")).length === 1, "one Telegram line for the item, with both links");
+  ck(logs.filter(l => l.includes("[tell day social:done:2026-10-22-dealer-facebook+instagram] (self)") && l.includes("עלה פוסט (dealer)") && l.includes("פייסבוק: https://") && l.includes("אינסטגרם: https://")).length === 1, "one Telegram line for the item, with both links");
   ck(logs.some(l => l.includes("[tell day social:remind:2026-10-22-tiktok]") && l.includes("פרומפט הטיקטוק")) && st()["2026-10-22/tiktok/telegram"]?.status === "done", "the TikTok reminder goes out once at its time");
   ck(calls.includes("GET /go/fb"), "the link in the Facebook caption was checked before the post");
   ck(st()["2026-10-22/dealer/facebook"].status === "done" && st()["2026-10-22/dealer/instagram"].status === "done", "dealer post marked done on both");
