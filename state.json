@@ -296,6 +296,22 @@
    "id": "18093056879507233",
    "link": "https://www.instagram.com/p/DfeNSffEQfs/",
    "at": "2026-11-08T07:21:32.388Z"
+  },
+  "2026-11-07/k5-post/facebook": {
+   "tries": 1,
+   "last": "2026-11-08T19:21:13.971Z",
+   "status": "done",
+   "id": "1424085817452110_122110467585516900",
+   "link": "https://www.facebook.com/1424085817452110_122110467585516900",
+   "at": "2026-11-08T19:21:17.382Z"
+  },
+  "2026-11-07/k5-post/instagram": {
+   "tries": 1,
+   "last": "2026-11-08T19:21:17.765Z",
+   "status": "done",
+   "id": "17956667688039715",
+   "link": "https://www.instagram.com/p/DfffsfWgSl7/",
+   "at": "2026-11-08T19:21:35.565Z"
   }
  },
  "ig": {
