@@ -74,7 +74,7 @@ const FIELDS = {
   status: "ok עומד ביעד, warn קרוב ליעד, bad רחוק מהיעד, cal שבוע כיול (אין שיפוט), early מעט מדי נתונים לשפוט, nodata אין נתון. כמו בלוח /live.",
   weekly_checks: "בדיקות רכב בשבוע (car_lookup): האפליקציה בישראל והאתר; app ו-web הם הפיצול. plan: יעד התוכנית לפני הכיול. target: היעד אחרי הכיול (base והטווח), מהשבוע שאחרי שבוע הבסיס. base_week: שבוע הבסיס, actual בפועל מול plan של התוכנית ביומו האחרון; calib_ratio = actual / plan, בין 0.5 ל-20 (החלטת דודו 26.10), ו-target = plan כפול calib_ratio.",
   installs: "התקנות חדשות בישראל לפי גוגל אנליטיקס (משתמשי אנדרואיד חדשים, פתיחה ראשונה). plan: יעד התוכנית לפני הכיול. target, base_week ו-calib_ratio: הכיול לפי שבוע הבסיס, כמו בבדיקות. play: המספרים של Google Play עצמו, באיחור של כמה ימים ובחלון שלו (window).",
-  return_7d: "מתוך ההתקנות של שבוע, כמה חזרו לאפליקציה תוך 7 ימים (app_return). week הוא שבוע ההתקנות שלפני השבוע המדווח, כדי שיעברו 7 ימים. savers: מי ששמר רכב ביום ההתקנה; non_savers: מי שלא.",
+  return_7d: "מתוך ההתקנות של שבוע, כמה חזרו לאפליקציה תוך 7 ימים (app_return). week הוא שבוע ההתקנות שלפני השבוע המדווח, כדי שיעברו 7 ימים. savers: מי ששמר רכב ביום ההתקנה; non_savers: מי שלא. pooled_4w: ארבעה שבועות התקנות מאוחדים שעבר עליהם שבוע, ratio_x = אחוז החוזרים מהשומרים חלקי אחוז החוזרים מהלא שומרים; כלל הפתיחה מחדש של תיק הרכב: פי 1.5 ומעלה.",
   new_savers: "התקנות חדשות ששמרו רכב ביום ההתקנה (first_save), לפי יום ההתקנה. devices_saved_a_car: מכשירים ששמרו רכב כלשהו בשבוע.",
   share: "שיתופים (share: דוח רכב או השוואה) ופתיחות חלון השיתוף (share_open). per_100_checks: שיתופים ל-100 בדיקות; target_per_100: היעד. arrived_from_share: כניסות מקישור ששותף; installs_from_share: התקנות מקישור ששותף.",
   play_rating: "הדירוג הממוצע ב-Google Play (לכל הזמנים, נכון ל-as_of), מספר הדירוגים (count) ומספר הביקורות עם טקסט (with_text).",
@@ -136,7 +136,10 @@ function kpis(d, S) {
       return { installs_from: a < QF ? QF : a, installs_to: b, installs: I, returned: R1 + R0, rate_pct: I ? r1((R1 + R0) / I * 100) : null,
         savers: Sv, savers_returned: R1, savers_rate_pct: Sv ? r1(R1 / Sv * 100) : null, non_savers: N0, non_savers_returned: R0, non_savers_rate_pct: N0 ? r1(R0 / N0 * 100) : null, estimated: Est }; };
     const c0 = end ? cohort(S.addD(end, -13), S.addD(end, -7)) : null, c1 = end ? cohort(S.addD(end, -20), S.addD(end, -14)) : null;
-    out.return_7d = { week: c0, prev: c1 };
+    // the car file reopen rule (Dudu 8.11 via the CEO thread): savers return in 7 days at x1.5 or more of non-savers, over the last 4 install weeks pooled
+    const p4 = end ? cohort(S.addD(end, -34), S.addD(end, -7)) : null, x = p4 && p4.savers_rate_pct != null && p4.non_savers_rate_pct ? r1(p4.savers_rate_pct / p4.non_savers_rate_pct * 100) / 100 : null;
+    out.return_7d = { week: c0, prev: c1, pooled_4w: p4 ? { ...p4, ratio_x: x, reopen_line_x: 1.5, meets_line: x == null ? null : x >= 1.5 } : null };
+    if (p4 && p4.installs_from > S.addD(end, -34)) notes.return_7d_pooled = "ארבעת השבועות המאוחדים מתחילים ב-21.10 (1.36), ולכן הם קצרים מ-4 שבועות עד 18.11.";
     if (!C) notes.return_7d = "גוגל אנליטיקס לא ענה על חזרות.";
     else { if (!c0) notes.return_7d = "עוד אין שבוע התקנות שעברו עליו 7 ימים: החזרה נמדדת מהתקנות של 21.10 ואילך (1.36), וכל יום התקנות נספר שבוע אחריו.";
       if (!c1) notes.return_7d_prev = "נמדד מ-21.10 (גרסה 1.36): לשבוע ההתקנות הזה אין נתון."; if (c0 && c0.installs_from > S.addD(end, -13)) notes.return_7d = "שבוע ההתקנות חלקי: נמדד מ-21.10.";
