@@ -1,5 +1,5 @@
 {
- "at": "2026-11-09T17:21:48Z",
+ "at": "2026-11-09T19:21:55Z",
  "open": [],
  "items": [
   {
@@ -412,48 +412,6 @@
  ],
  "pubs": [
   {
-   "d": "2026-11-07",
-   "t": "20:30",
-   "ch": [
-    "facebook",
-    "instagram"
-   ],
-   "what": "קרוסלה מהערכה השבועית",
-   "src": "auto",
-   "st": {
-    "facebook": "done",
-    "instagram": "done"
-   },
-   "link": {
-    "facebook": "https://www.facebook.com/1424085817452110_122110125063516900",
-    "instagram": "https://www.instagram.com/p/Dfc68W6j7IS/"
-   },
-   "q": [
-    "2026-11-07/k5-carousel"
-   ]
-  },
-  {
-   "d": "2026-11-07",
-   "t": "21:15",
-   "ch": [
-    "facebook",
-    "instagram"
-   ],
-   "what": "ריל מהערכה השבועית",
-   "src": "auto",
-   "st": {
-    "facebook": "done",
-    "instagram": "done"
-   },
-   "link": {
-    "facebook": "https://www.facebook.com/reel/1481914210781670/",
-    "instagram": "https://www.instagram.com/reel/Dfc7BxjDnv8/"
-   },
-   "q": [
-    "2026-11-07/k5-reel"
-   ]
-  },
-  {
    "d": "2026-11-08",
    "t": "08:30",
    "ch": [
@@ -505,21 +463,16 @@
    "what": "קרוסלה מהערכה השבועית",
    "src": "auto",
    "st": {
-    "facebook": "planned",
-    "instagram": "planned"
+    "facebook": "done",
+    "instagram": "done"
+   },
+   "link": {
+    "facebook": "https://www.facebook.com/1424085817452110_122110755219516900",
+    "instagram": "https://www.instagram.com/p/DfiCPtHI-j1/"
    },
    "q": [
     "2026-11-05/carousel"
    ]
-  },
-  {
-   "d": "2026-11-09",
-   "t": "21:00",
-   "ch": [
-    "tiktok"
-   ],
-   "what": "ריל לקונים עולה בטיקטוק (מתוזמן מראש)",
-   "src": "cowork"
   },
   {
    "d": "2026-11-10",
