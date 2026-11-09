@@ -312,6 +312,19 @@
    "id": "17956667688039715",
    "link": "https://www.instagram.com/p/DfffsfWgSl7/",
    "at": "2026-11-08T19:21:35.565Z"
+  },
+  "2026-11-05/carousel/facebook": {
+   "tries": 1,
+   "last": "2026-11-09T18:41:13.361Z",
+   "status": "done",
+   "id": "1424085817452110_122110755219516900",
+   "link": "https://www.facebook.com/1424085817452110_122110755219516900",
+   "at": "2026-11-09T18:41:21.268Z"
+  },
+  "2026-11-05/carousel/instagram": {
+   "tries": 1,
+   "last": "2026-11-09T18:41:21.544Z",
+   "err": "POST /v24.0/17841427960385167/media: Only photo or video can be accepted as media type. (code 9004/2207052)"
   }
  },
  "ig": {
