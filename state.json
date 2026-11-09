@@ -322,9 +322,12 @@
    "at": "2026-11-09T18:41:21.268Z"
   },
   "2026-11-05/carousel/instagram": {
-   "tries": 1,
-   "last": "2026-11-09T18:41:21.544Z",
-   "err": "POST /v24.0/17841427960385167/media: Only photo or video can be accepted as media type. (code 9004/2207052)"
+   "tries": 2,
+   "last": "2026-11-09T19:01:15.800Z",
+   "status": "done",
+   "id": "18034934507885588",
+   "link": "https://www.instagram.com/p/DfiCPtHI-j1/",
+   "at": "2026-11-09T19:01:52.420Z"
   }
  },
  "ig": {
