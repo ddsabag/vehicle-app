@@ -1,5 +1,5 @@
 {
- "at": "2026-11-09T19:21:55Z",
+ "at": "2026-11-10T07:21:42Z",
  "open": [],
  "items": [
   {
@@ -413,27 +413,6 @@
  "pubs": [
   {
    "d": "2026-11-08",
-   "t": "08:30",
-   "ch": [
-    "facebook",
-    "instagram"
-   ],
-   "what": "פוסט מהערכה השבועית",
-   "src": "auto",
-   "st": {
-    "facebook": "done",
-    "instagram": "done"
-   },
-   "link": {
-    "facebook": "https://www.facebook.com/1424085817452110_122110272345516900",
-    "instagram": "https://www.instagram.com/p/DfeNSffEQfs/"
-   },
-   "q": [
-    "2026-11-05/dealer"
-   ]
-  },
-  {
-   "d": "2026-11-08",
    "t": "20:30",
    "ch": [
     "facebook",
@@ -484,8 +463,12 @@
    "what": "סטוריז מהערכה השבועית",
    "src": "auto",
    "st": {
-    "facebook": "planned",
-    "instagram": "planned"
+    "facebook": "done",
+    "instagram": "done"
+   },
+   "link": {
+    "facebook": "https://www.facebook.com/1424085817452110",
+    "instagram": "https://www.instagram.com/stories/luchit.app/4027132920338932900"
    },
    "q": [
     "2026-11-05/story-1",
