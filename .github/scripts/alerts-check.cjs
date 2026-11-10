@@ -39,7 +39,7 @@ async function force(res, tag, when) {
   const j = jobId(); res[tag + "_job"] = j ? (j.ns ? j.ns + "/" : "") + j.id : "none";
   sh("logcat -c");
   if (j) { res[tag + "_run"] = sh(`cmd jobscheduler run -f ${j.ns ? "-n " + j.ns + " " : ""}${PKG} ${j.id}`); await sleep(60000); }
-  res[tag + "_log"] = sh(`logcat -d | grep -E "WM-|notif|SavedCheck" | tail -8`);
+  res[tag + "_log"] = sh(`logcat -d | grep -E "WM-|SavedCheck|pratirechev" | tail -8`);
   res[tag + "_prefs"] = sh(`run-as ${PKG} cat shared_prefs/saved_alerts.xml`).replace(/<string name="saved">[\s\S]*?<\/string>/, "<saved list kept>").slice(0, 800);
 }
 (async () => {
@@ -79,6 +79,9 @@ async function force(res, tag, when) {
     res.jobsAfterReboot = jobs() || "none";
     const before = lastRun();
     await force(res, "run2", t2.clock);   // after the restart the check must run again on its own schedule (last_run moves)
+    // one more forced run, 30 s later and with the job looked up again: on Android 12 (10.11.2026, one night in several) the forced run
+    // right after a cold boot did not reach the app while the job was there; a check that is really gone fails both tries
+    if (lastRun() === before) { await sleep(30000); res.jobsAfterReboot2 = jobs() || "none"; await force(res, "run2b", t2.clock); res.run2Retried = true; }
     res.ranAfterReboot = lastRun() !== before && lastRun() !== "";
     res.notesAfterRun2 = notes() || "none";
     res.prefsFile = sh(`run-as ${PKG} sh -c 'cat shared_prefs/saved_alerts.xml' 2>&1 | grep -v '"saved"' | head -30`);
