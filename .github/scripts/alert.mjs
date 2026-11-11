@@ -50,7 +50,7 @@ export const WF_LEVELS = {
   "Model catalogue": "summary",
   "SEO daily digest": "summary", "SEO data snapshot": "summary", "Campaign data snapshot": "summary", "Release guard": "summary", "Experimenter": "summary",
   "Reviews monitor": "silent", "Ownership data mirror": "silent",
-  "Back-on-road detector": "silent",
+  "Back-on-road detector": "silent", "Vanished cars": "silent",
   "Ship tail": "day", "Store listing": "day", "Release watch": "day", "Production": "day",
   "Settlements": "day", "Data truth": "day", "Social publish": "day",
   "Recall explanations": "summary",   // Claude API use #2 (data): a crash is told quietly; its own API failures go to ai:recalls / ai:key

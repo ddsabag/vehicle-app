@@ -1,0 +1,42 @@
+name: Vanished cars
+# Twice a week: cars that left the active register without moving to an inactive or final-cancel register, with the last details the register
+# showed (vanished.mjs). The state lives in an Actions cache (private to the repository); the vanished-data branch gets the list encrypted and
+# counts only. Nothing reaches users (freeze to 22.11).
+on:
+  schedule:
+    - cron: "37 6 * * 0,3"   # Sunday and Wednesday 06:37 UTC: off the full hour, clear of the 04:00-04:30 latency checks; the cache is read every 3-4 days, inside its 7-day life
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: write
+concurrency: vanished
+jobs:
+  vanished:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: node .github/scripts/vanished.mjs selftest
+      - name: Load the last run's state
+        uses: actions/cache/restore@v4
+        with:
+          path: vanished-state
+          key: vanished-state-${{ github.run_id }}
+          restore-keys: vanished-state-
+      - run: node --max-old-space-size=6144 .github/scripts/vanished.mjs
+        env:
+          DIR: vanished-state
+          OUT: vanished-out
+      - name: Keep the state for the next run
+        uses: actions/cache/save@v4
+        with:
+          path: vanished-state
+          key: vanished-state-${{ github.run_id }}
+      - name: Publish the encrypted list on the vanished-data branch
+        run: |
+          cd vanished-out && git init -q && git checkout -q -b vanished-data && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Vanished cars $(date -u +%F)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" vanished-data
