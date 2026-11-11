@@ -14,10 +14,9 @@ jobs:
       - uses: actions/setup-node@v7
         with: { node-version: 20 }
       - run: node .github/scripts/probe-plate-block.mjs
-        env:
-          EXTRA: "1"
 
       - name: Publish the encrypted output
+        if: false
         run: |
           cd out && git init -q && git checkout -q -b probe-plate-block-output && git add -A
           git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Encrypted output"
