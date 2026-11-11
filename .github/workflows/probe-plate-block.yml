@@ -14,6 +14,8 @@ jobs:
       - uses: actions/setup-node@v7
         with: { node-version: 20 }
       - run: node .github/scripts/probe-plate-block.mjs
+        env:
+          EXTRA: "1"
 
       - name: Publish the encrypted output
         run: |
