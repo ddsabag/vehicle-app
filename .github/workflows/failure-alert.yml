@@ -51,6 +51,7 @@ on:
       - "Site smoke test (after deploy)"
       - "Weekly analytics report"
       - "Back-on-road detector"
+      - "Vanished cars"
       - "Workers deploy"
       - "Social publish"
       - "Ship tail"
