@@ -80,6 +80,9 @@ async function force(res, tag, when) {
     // that came to nothing on two nights (the app's standby bucket was still NEVER), so the wait is for that start, as on a real phone
     for (let i = 0; i < 40 && !sh(`pidof ${PKG}`); i++) await sleep(3000);
     res.pidAfterReboot = sh(`pidof ${PKG}`) || "none"; res.bucketAfterReboot = sh(`am get-standby-bucket ${PKG}`);
+    // the emulator files an app opened from adb as never used (bucket 50, NEVER), where Android 12 may hold even a forced job; a person who
+    // saved a car opened the app by hand, so the test puts it in RARE, the lowest bucket a real user's app reaches (jobs still run daily)
+    sh(`am set-standby-bucket ${PKG} rare`); res.bucketForTest = sh(`am get-standby-bucket ${PKG}`);
     res.jobsAfterReboot = jobs() || "none";
     const before = lastRun();
     await force(res, "run2", t2.clock);   // after the restart the check must run again on its own schedule (last_run moves)
