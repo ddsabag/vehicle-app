@@ -37,7 +37,7 @@ jobs:
       contents: write   # alert.mjs keeps its dedupe state on the alert-state branch
       actions: read     # the last push run that finished, for the Data safety compare
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/scripts/play-listing.mjs
