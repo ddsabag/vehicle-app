@@ -7,9 +7,9 @@ const plates = Array.from({ length: 1000 }, (_, i) => BLOCK + String(i).padStart
 const html = fs.readFileSync("index.html", "utf8");
 const block = html.slice(html.indexOf("const PLATE_SETS"), html.indexOf("const MODEL_SETS"));
 const sets = [...block.matchAll(/\{key:"([^"]+)",\s*id:"([0-9a-f-]{36})"[^}]*?\}/g)].map(m => ({ key: m[1], id: m[2], field: (m[0].match(/field:"([^"]+)"/) || [])[1] || "mispar_rechev" }));
-const get = async (act, p) => { for (let a = 0; a < 4; a++) { try { const r = await fetch(API + act + "?" + new URLSearchParams(p), { headers: { "User-Agent": "luchit-probe/1.0" }, signal: AbortSignal.timeout(60000) }); if (r.ok) return await r.json(); } catch {} await new Promise(r => setTimeout(r, 3000 * (a + 1))); } return null; };
+const get = async (act, p) => { for (let a = 0; a < 3; a++) { await new Promise(r => setTimeout(r, 600)); try { const r = await fetch(API + act + "?" + new URLSearchParams(p), { headers: { "User-Agent": "luchit-probe/1.0" }, signal: AbortSignal.timeout(30000) }); if (r.ok) return await r.json(); console.log(`  HTTP ${r.status}`); } catch (e) { console.log(`  ${e.name}`); } await new Promise(r => setTimeout(r, 3000 * (a + 1))); } return null; };
 // every other datastore resource of the ministry that has a plate column
-const pk = await get("package_search", { q: "מספר רכב", rows: "300" });
+const pk = process.env.EXTRA === "1" ? await get("package_search", { q: "מספר רכב", rows: "300" }) : null;
 const extra = [];
 for (const p of (pk && pk.result && pk.result.results) || []) for (const r of p.resources || []) if (r.datastore_active && !sets.some(s => s.id === r.id)) extra.push({ key: "x:" + (p.title || p.name).slice(0, 60) + " / " + (r.name || "").slice(0, 40), id: r.id });
 const out = { block: BLOCK, sets: {} }, log = [];
@@ -24,6 +24,7 @@ for (const s of [...sets, ...extra]) {
     rows.push(...j.result.records);
   }
   out.sets[s.key] = { id: s.id, fields, err, rows };
+  console.log(`${s.key.startsWith("x:") ? "extra" : s.key}: ${rows.length} rows${err ? ", " + err + " failed" : ""}`);
   log.push(`${s.key.startsWith("x:") ? "extra" : s.key}: ${rows.length} rows${err ? ", " + err + " failed" : ""}`);
 }
 fs.mkdirSync("out", { recursive: true });
