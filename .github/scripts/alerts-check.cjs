@@ -48,7 +48,8 @@ async function force(res, tag, when) {
     try { adb(["root"]); await sleep(4000); adb(["wait-for-device"]); } catch {}
     res.phoneTime = sh("date");
     try { adb(["uninstall", PKG]); } catch {}
-    adb(["install", APK]);
+    // adb root restarts the phone's adb service, and "device offline" can follow for a few seconds (11.11.2026, API 35): three tries
+    for (let i = 0; ; i++) { try { adb(["wait-for-device"], 120000); adb(["install", APK]); break; } catch (e) { if (i === 2) throw e; await sleep(10000); } }
     const sdk = +sh("getprop ro.build.version.sdk"); res.sdk = sdk;
     if (sdk >= 33) sh(`pm grant ${PKG} android.permission.POST_NOTIFICATIONS`);
     sh(`am start -W -n ${ACT}`); let p = await page();
