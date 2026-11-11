@@ -79,9 +79,15 @@ async function force(res, tag, when) {
     res.jobsAfterReboot = jobs() || "none";
     const before = lastRun();
     await force(res, "run2", t2.clock);   // after the restart the check must run again on its own schedule (last_run moves)
-    // one more forced run, 30 s later and with the job looked up again: on Android 12 (10.11.2026, one night in several) the forced run
-    // right after a cold boot did not reach the app while the job was there; a check that is really gone fails both tries
-    if (lastRun() === before) { await sleep(30000); res.jobsAfterReboot2 = jobs() || "none"; await force(res, "run2b", t2.clock); res.run2Retried = true; }
+    // after a cold boot the forced run can wait in JobScheduler's queue (11.11.2026 on Android 12: "Running job [FORCED]" and no WorkManager
+    // line for 90 s, two nights running). So the check is watched for up to 4 minutes, forced again each minute, and the job's own state is
+    // kept: a run that never starts in that time is a real gap; a run that starts late is the emulator being busy after the boot
+    for (let i = 0; i < 4 && lastRun() === before; i++) {
+      res["run2_wait" + i] = sh(`dumpsys jobscheduler | grep -A30 -E "JOB .*${PKG}" | grep -i -E "Pending|Ready|Unsatisfied|Satisfied|enqueue|Required|Running|act=|Last" | head -12`);
+      await force(res, "run2_" + (i + 1), t2.clock); res.run2Retries = i + 1; res["run2_pid" + i] = sh(`pidof ${PKG}`) || "none";
+    }
+    res.jobState = sh(`dumpsys jobscheduler | grep -A40 -E "JOB .*${PKG}" | head -45`);
+    res.sysLog = sh(`logcat -d -b all | grep -i -E "pratirechev|JobServiceContext" | tail -15`);
     res.ranAfterReboot = lastRun() !== before && lastRun() !== "";
     res.notesAfterRun2 = notes() || "none";
     res.prefsFile = sh(`run-as ${PKG} sh -c 'cat shared_prefs/saved_alerts.xml' 2>&1 | grep -v '"saved"' | head -30`);
