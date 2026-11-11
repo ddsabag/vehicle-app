@@ -76,6 +76,10 @@ async function force(res, tag, when) {
     for (let i = 0; i < 60 && sh("getprop sys.boot_completed") !== "1"; i++) await sleep(3000);
     await sleep(20000);
     try { adb(["root"]); await sleep(4000); adb(["wait-for-device"]); } catch {}
+    // a phone that starts again wakes the app once (WorkManager's RescheduleReceiver on BOOT_COMPLETED); on Android 12 a run forced before
+    // that came to nothing on two nights (the app's standby bucket was still NEVER), so the wait is for that start, as on a real phone
+    for (let i = 0; i < 40 && !sh(`pidof ${PKG}`); i++) await sleep(3000);
+    res.pidAfterReboot = sh(`pidof ${PKG}`) || "none"; res.bucketAfterReboot = sh(`am get-standby-bucket ${PKG}`);
     res.jobsAfterReboot = jobs() || "none";
     const before = lastRun();
     await force(res, "run2", t2.clock);   // after the restart the check must run again on its own schedule (last_run moves)
