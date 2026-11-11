@@ -6,8 +6,6 @@ on:
   schedule:
     - cron: "37 6 * * 0,3"   # Sunday and Wednesday 06:37 UTC: off the full hour, clear of the 04:00-04:30 latency checks; the cache is read every 3-4 days, inside its 7-day life
   workflow_dispatch:
-  push:
-    branches: [data/vanished-details]   # TEMPORARY test trigger, removed before release
 permissions:
   contents: write
   actions: write
