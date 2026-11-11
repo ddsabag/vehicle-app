@@ -32,7 +32,7 @@ export function siteFooter({ base = "/", disclaimer = DISCLAIMER, app = false } 
 <div class="ft-top">
 <div class="ft-brand"><b>לוחית</b><p>בדיקת רכב לפי מספר רישוי, מהנתונים הפתוחים של משרד התחבורה.</p><div class="soc" id="soc" aria-label="לוחית ברשתות">${SOC}</div></div>
 <nav class="ft-cols" aria-label="קישורים באתר" id="mdlLink">
-<div><h2>בדיקת רכב</h2><ul>${a("check/", "מה אפשר לבדוק")}${a("guide/buy-used-car/", "מדריך לקונה")}${a("model/", "כל הדגמים")}</ul></div>
+<div><h2>בדיקת רכב</h2><ul>${a("check/", "מה אפשר לבדוק")}${a("guide/buy-used-car/", "מדריך לקונה")}${a("model/", "דגמים נפוצים בישראל")}</ul></div>
 <div><h2>לוחית</h2><ul>${a("magazine/", "מגזין")}${a("business/", "לעסקים")}<li><a href="mailto:support@luchit.app">יצירת קשר</a></li></ul></div>
 <div><h2>מידע משפטי</h2><ul>${a("terms/", "תנאי שימוש")}${a("privacy.html", "מדיניות פרטיות")}${a("accessibility/", "הצהרת נגישות")}</ul></div>
 </nav>
