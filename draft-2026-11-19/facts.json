@@ -1,0 +1,15 @@
+{
+ "kit": 6,
+ "repo_commit": "17a66ef401fb9a3c5fb9c2491ddcc5b01e8f6ef2",
+ "facts": [
+  {
+   "text": "טויוטה COROLLA: 190,807 רכבים פעילים",
+   "value": 190807,
+   "source_path": "model/stats.json",
+   "json_pointer": "/models/[slug=corolla-413]/act",
+   "fetched_at": "2026-11-11T22:21:36Z",
+   "data_as_of": "2026-11-06",
+   "repo_commit": "17a66ef401fb9a3c5fb9c2491ddcc5b01e8f6ef2"
+  }
+ ]
+}

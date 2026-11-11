@@ -1,0 +1,46 @@
+{
+ "title": "שתי מודעות, אותו דגם",
+ "pillar": "Efficiency/compare",
+ "lines": [
+  {
+   "vo": "שתי מודעות. אותו דגם, אותה שנה, כמעט אותו מחיר. אז מה ההבדל?",
+   "screen": "אותו דגם. אותה שנה.\n*מה ההבדל?*",
+   "visual": "Opening beat (hook): split screen of two generic used-car ad cards (stylised Corolla silhouettes, blurred photos, no plate visible, no real listing UI) slide in from both sides and lock side by side. A yellow question mark pulses between them."
+  },
+  {
+   "vo": "לפי מאגרי משרד התחבורה, זה אחד הדגמים הנפוצים על הכביש.",
+   "screen": "190,807\nרכבי טויוטה COROLLA פעילים על הכביש",
+   "visual": "Second beat: a kinetic counter rolls up to the fleet figure shown on screen, with its label locked under it and a small source tag 'מאגרי משרד התחבורה' at the bottom. The number appears on screen only, never in the voice-over."
+  },
+  {
+   "vo": "במודעה הם נראים דומים. הסיפור של כל אחד רשום לפי מספר הרישוי.",
+   "screen": "הסיפור רשום\n*לפי המספר.*",
+   "visual": "Third beat: the two ad cards shrink and the demo plate 76-543-21 drops onto the first card."
+  },
+  {
+   "vo": "מקלידים את המספר מהמודעה הראשונה, ורואים ידיים, סוג בעלות, עד מתי הטסט, והק״מ שנרשם בטסט האחרון.",
+   "screen": "ידיים · סוג בעלות · טסט · ק״מ בטסט האחרון",
+   "visual": "Fourth beat: a fresh screen recording of the current Play production build on mocked data. The demo plate is typed on home and the car page opens. Four rows highlight one after another: ownership hands, ownership type, test valid until, km at the last test. Mocked values only, and the card is marked 'נתונים לדוגמה'."
+  },
+  {
+   "vo": "את המודעה השנייה מוסיפים להשוואה, מהכפתור שליד שם הרכב.",
+   "screen": "השוואה",
+   "visual": "Fifth beat: a tap on 'השוואה' beside the car name (live production UI). The second car is added with its plate masked as dots; the demo plate is the only plate shown."
+  },
+  {
+   "vo": "שני הרכבים זה לצד זה. בלי דירוג. רק מה שרשום.",
+   "screen": "השוואה בלי דירוג.\n*רק מה שרשום.*",
+   "visual": "Sixth beat: the compare screen with two columns side by side, and no highlight, colour or badge on either column."
+  },
+  {
+   "vo": "ועוד דבר שכדאי לבדוק: ריקול פתוח. התיקון בדרך כלל ללא עלות אצל היבואן, ושואלים את המוכר אם בוצע.",
+   "screen": "ועוד דבר שכדאי לבדוק:\n*ריקול פתוח*",
+   "visual": "Seventh beat: the recall row on the demo car page gets a soft yellow outline and a calm wrench icon, with no warning colours."
+  },
+  {
+   "vo": "בודקים לפני שנפגשים. מקלידים מספר רישוי בלוחית.",
+   "screen": "בודקים לפני שנפגשים\nluchit.app",
+   "visual": "Closing beat: end card with the luchit.app pill and 'זמינה להורדה' over the unchanged Google Play badge, using the badge size and clear space of the kit-two reference (gen.py .gp / #s6g). The card is held for the full tail the RUNBOOK requires after the badge appears."
+  }
+ ]
+}
