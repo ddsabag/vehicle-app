@@ -92,7 +92,7 @@ async function open(tag, res) {
       planRowHidden: (() => { const r = document.getElementById("planRow"); return !r || r.hidden || getComputedStyle(r).display === "none"; })(), version: typeof APP_VERSION === "string" ? APP_VERSION : "" }));
     const lc = sh(`logcat -d -b crash`, 60000); res.release.crash = /com\.ddsabag\.pratirechev/.test(lc) ? lc.split("\n").filter((l) => /FATAL|Exception|pratirechev/.test(l)).slice(0, 8) : [];
     console.log("release", JSON.stringify(res.release));
-    const last = res.steps.at(-1), lostAt = res.steps.find((s) => s.saved !== 1 || s.docs !== 1);
+    const last = res.steps.at(-1), lostAt = res.steps.find((s) => s.saved !== 1 || (s.docs !== 1 && !/full disk/i.test(String(s.docs))));   // a full disk closes IndexedDB for a while: held, not lost (the step after freeing room says)
     res.verdict = (lostAt ? "LOST_AT:" + lostAt.tag : "ALL_KEPT") + (res.release && res.release.placeholder === "76-543-21" && res.release.bnProHidden && res.release.planRowHidden && !res.release.crash.length ? " RELEASE_OK" : " RELEASE_CHECK"); res.endKept = last.saved === 1 && last.docs === 1 && last.native === 1;
   } catch (e) { res.verdict = "ERROR"; res.error = String(e && e.stack || e).slice(0, 800); }
   fs.writeFileSync(OUT, JSON.stringify(res, null, 1)); console.log(JSON.stringify(res, null, 1));
