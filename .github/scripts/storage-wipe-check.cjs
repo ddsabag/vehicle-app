@@ -80,7 +80,7 @@ async function open(tag, res) {
     await open("disk-freed", res);
     res.filesAtEnd = files();
     const last = res.steps.at(-1), lostAt = res.steps.find((s) => s.saved !== 1 || s.docs !== 1);
-    res.verdict = lostAt ? "LOST_AT:" + lostAt.tag : "ALL_KEPT";
+    res.verdict = lostAt ? "LOST_AT:" + lostAt.tag : "ALL_KEPT"; res.endKept = last.saved === 1 && last.docs === 1 && last.native === 1;
   } catch (e) { res.verdict = "ERROR"; res.error = String(e && e.stack || e).slice(0, 800); }
   fs.writeFileSync(OUT, JSON.stringify(res, null, 1)); console.log(JSON.stringify(res, null, 1));
   if (device) await device.close().catch(() => {});
