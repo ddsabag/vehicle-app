@@ -86,8 +86,14 @@ async function open(tag, res) {
     sh("rm -f /data/local/tmp/fill.bin");
     await open("disk-freed", res);
     res.filesAtEnd = files();
+    // the rest of 1.38.5 on the same phone: the example plate in the field, no way into the plans screen, and no crash all run (billing guard)
+    p = await page();
+    res.release = await p.evaluate(() => ({ placeholder: (document.getElementById("plate") || {}).placeholder, bnProHidden: !!(document.getElementById("bnPro") || {}).hidden,
+      planRowHidden: (() => { const r = document.getElementById("planRow"); return !r || r.hidden || getComputedStyle(r).display === "none"; })(), version: typeof APP_VERSION === "string" ? APP_VERSION : "" }));
+    const lc = sh(`logcat -d -b crash`, 60000); res.release.crash = /com\.ddsabag\.pratirechev/.test(lc) ? lc.split("\n").filter((l) => /FATAL|Exception|pratirechev/.test(l)).slice(0, 8) : [];
+    console.log("release", JSON.stringify(res.release));
     const last = res.steps.at(-1), lostAt = res.steps.find((s) => s.saved !== 1 || s.docs !== 1);
-    res.verdict = lostAt ? "LOST_AT:" + lostAt.tag : "ALL_KEPT"; res.endKept = last.saved === 1 && last.docs === 1 && last.native === 1;
+    res.verdict = (lostAt ? "LOST_AT:" + lostAt.tag : "ALL_KEPT") + (res.release && res.release.placeholder === "76-543-21" && res.release.bnProHidden && res.release.planRowHidden && !res.release.crash.length ? " RELEASE_OK" : " RELEASE_CHECK"); res.endKept = last.saved === 1 && last.docs === 1 && last.native === 1;
   } catch (e) { res.verdict = "ERROR"; res.error = String(e && e.stack || e).slice(0, 800); }
   fs.writeFileSync(OUT, JSON.stringify(res, null, 1)); console.log(JSON.stringify(res, null, 1));
   if (device) await device.close().catch(() => {});
