@@ -724,6 +724,7 @@ html.web body:has(.sharebar) .sb-pad{display:none}
 html.web .sf-l{display:none}   /* the car page's legal line: the footer under it says it on the website */
 /* :has() always in a rule of its own: an engine without it (WebView before 105, Safari before 15.4) drops the whole rule it sits in */
 body.kb .bnav,body.land .bnav{display:none}
+html{scroll-padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}   /* a focused link is not left behind the bottom bar (accessibility review 12.11.2026); the wide website has the bar at the top */
 body:has(.sharebar) .bnav{display:none}
 body:not(.kb) .toast{bottom:calc(84px + env(safe-area-inset-bottom,0px))}
 body:not(.kb) .snack{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
@@ -739,6 +740,7 @@ body:has(> .snack) .sheet-in{padding-bottom:calc(84px + env(safe-area-inset-bott
    no search band; phones and the app keep the bottom bar */
 .bn-brand,.bn-f,.bhero,.bnav .bn-set,.bnav .bn-pro{display:none}   /* .bnav button would otherwise draw the gear as a fourth tab on a phone */
 @media (min-width:1000px){
+  html.web{scroll-padding-bottom:0}
   html.web .bnav{top:0;bottom:auto;border-top:0;border-bottom:1px solid var(--line);padding-bottom:0}
   html.web .bnav-in{max-width:1080px;padding-inline:16px;display:flex;align-items:stretch;gap:4px;height:60px}
   html.web .bnav button{flex-direction:row;gap:7px;min-height:0;padding:0 14px;font-size:.95rem;border-bottom:3px solid transparent;border-radius:0;cursor:pointer}
@@ -3087,6 +3089,8 @@ const recTabOf = D => D.kind === "model" || D.recalls.length ? "ריקולים" 
 
 /* a reload or Back that re-opens the car already on screen is not a new check: it is counted as lookup_repeat, so car_lookup stays one per check */
 let lookupAgain = false;
+/* a plate of the wrong length: the field says so to a screen reader (aria-invalid, pointing at the message) until it is typed in again (accessibility review 12.11.2026) */
+function plateInvalid(){ const f = $("#plate"); if (!f) return; f.setAttribute("aria-invalid", "true"); f.setAttribute("aria-describedby", "plateErr"); f.addEventListener("input", () => { f.removeAttribute("aria-invalid"); f.removeAttribute("aria-describedby"); }, {once: true}); }
 async function lookup(raw){
   if (Date.now() - intentAt > INTENT_MS) dropIntents();
   const again = lookupAgain; lookupAgain = false;
@@ -3094,7 +3098,7 @@ async function lookup(raw){
   const ot = openTab; openTab = null;
   const plate = digits(raw).replace(/^0+(?=\d{5})/, "");
   const out = $("#out");
-  if (plate.length < 5 || plate.length > 8) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-id"/></svg></div>מספר רישוי צריך להכיל 5 עד 8 ספרות.</div>`; return; }
+  if (plate.length < 5 || plate.length > 8) { plateInvalid(); out.innerHTML = `<div class="msg err edge" role="alert" id="plateErr"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-id"/></svg></div>מספר רישוי צריך להכיל 5 עד 8 ספרות.</div>`; return; }
   if (ctrl) ctrl.abort();
   ctrl = new AbortController(); const signal = ctrl.signal;
   let timedOut = false; const deadT = setTimeout(() => { timedOut = true; ctrl.abort(); }, 30000);   // a server that never answers must end in a clear message, not a bar that runs for a minute
@@ -3117,10 +3121,10 @@ async function lookup(raw){
   await side;
   if (signal.aborted && !timedOut) return;
   if (D.offline || (D.notFound && isSaved(plate))) { const sn = snapGet(plate); if (sn) { track("lookup_from_cache"); current = sn; currentTab = ot && ot.p === plate ? ot.t : "overview"; renderResult(); focusResult(); window.scrollTo({top: 0}); return; } }
-  if (D.sourceDown) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-wrench"/></svg></div>מאגר הרכבים של משרד התחבורה לא מחזיר נתונים כרגע, בלי קשר למספר שהקלדתם. זו תקלה אצל המשרד. נסו שוב מאוחר יותר.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; track("lookup_failed", {kind: "source_down", dur: durB}); return; }
+  if (D.sourceDown) { out.innerHTML = `<div class="msg err edge" role="alert"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-wrench"/></svg></div>מאגר הרכבים של משרד התחבורה לא מחזיר נתונים כרגע, בלי קשר למספר שהקלדתם. זו תקלה אצל המשרד. נסו שוב מאוחר יותר.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; track("lookup_failed", {kind: "source_down", dur: durB}); return; }
   if (D.offline || D.notFound) track("lookup_failed", {kind: D.sourceDown ? "source_down" : D.offline ? "offline" : "not_found", dur: durB});
-  if (D.offline) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-globe"/></svg></div>${navigator.onLine === false ? "אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב." : "מאגרי משרד התחבורה לא עונים כרגע (תקלה או עומס אצל המשרד, לא אצלכם). נסו שוב בעוד כמה דקות."}</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; return; }
-  if (D.notFound) { out.innerHTML = `<div class="msg edge"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-search"/></svg></div>לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.<p class="note" style="margin:8px 0 0">בדקנו את כל מאגרי משרד התחבורה, כולל רכבים שירדו מהכביש, דו-גלגלי ויבוא אישי. רכב שעלה לכביש בימים האחרונים יופיע אחרי העדכון הבא של המאגר.</p></div>`; return; }
+  if (D.offline) { out.innerHTML = `<div class="msg err edge" role="alert"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-globe"/></svg></div>${navigator.onLine === false ? "אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב." : "מאגרי משרד התחבורה לא עונים כרגע (תקלה או עומס אצל המשרד, לא אצלכם). נסו שוב בעוד כמה דקות."}</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; return; }
+  if (D.notFound) { out.innerHTML = `<div class="msg edge" role="alert"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-search"/></svg></div>לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.<p class="note" style="margin:8px 0 0">בדקנו את כל מאגרי משרד התחבורה, כולל רכבים שירדו מהכביש, דו-גלגלי ויבוא אישי. רכב שעלה לכביש בימים האחרונים יופיע אחרי העדכון הבא של המאגר.</p></div>`; return; }
   current = D; currentTab = ot && ot.p === D.plate ? ot.t : "overview";
   const role = roleOf(D);   // who checked it, before "+" below (or the home file line) saves the car
   const mineWas = addIntent ? mineAll()[D.plate] : undefined, added = addIntent && D.plate && D.kind !== "model" ? addFromPlus(D) : null;
@@ -6489,7 +6493,7 @@ function carMenu(b){
 }
 const closeCarMenu = () => { const m = document.querySelector(".ch-menu"); if (m) { const b = m.parentElement.querySelector("[data-act=cmenu]"); m.remove(); if (b) b.setAttribute("aria-expanded", "false"); } };
 document.addEventListener("click", ev => { if (!ev.target.closest(".ch-m")) closeCarMenu(); }, true);
-document.addEventListener("keydown", ev => { if (ev.key === "Escape") { closeCarMenu(); const rs = $("#roadSheet"); if (rs) rs.remove(); } });
+document.addEventListener("keydown", ev => { if (ev.key === "Escape") { const cm = document.querySelector(".ch-menu"), cb = cm && cm.parentElement.querySelector("[data-act=cmenu]"); closeCarMenu(); if (cb) cb.focus(); const rs = $("#roadSheet"); if (rs) rs.remove(); } });
 // the header gets a hairline once the page scrolls under it
 addEventListener("scroll", () => { const h = $("#chead"); if (h) h.classList.toggle("sc", window.scrollY > 8); }, {passive: true});
 function nickInline(){
@@ -7220,7 +7224,7 @@ function run(p){ lookup(p).catch(err => {
   // a lookup that throws (often while drawing the page) is otherwise missing from every count
   try { track("lookup_failed", {kind: net ? "net_err" : "js_err"}); } catch {}
   const pd = digits(p);
-  $("#out").innerHTML = `<div class="msg err">${net ? "לא הצלחנו להתחבר למאגרי משרד התחבורה. בדקו את החיבור ונסו שוב." : "משהו השתבש בבדיקה. נסו שוב."}</div>${pd.length >= 5 ? `<button type="button" class="link-btn" data-retry="${pd}">נסו שוב</button>` : ""}`;
+  $("#out").innerHTML = `<div class="msg err" role="alert">${net ? "לא הצלחנו להתחבר למאגרי משרד התחבורה. בדקו את החיבור ונסו שוב." : "משהו השתבש בבדיקה. נסו שוב."}</div>${pd.length >= 5 ? `<button type="button" class="link-btn" data-retry="${pd}">נסו שוב</button>` : ""}`;
   $("#go").disabled = false;
 }); }
 $("#f").addEventListener("submit", ev => { ev.preventDefault(); run($("#plate").value); });
