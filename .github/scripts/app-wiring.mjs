@@ -17,6 +17,9 @@
 //      @supports, and JavaScript an older engine lacks (each one breaks the page there without an error)
 //  11. the rules MainActivity.logEvent applies to the page's events (8 parameters, names, numbers under 10000, no 5 digits or @ in a
 //      text, 60 characters) are the ones analytics-flows.cjs walks the journeys with (its viaApp): a change in one is made in both
+//  12. PRO_LOCK switched on while plan() still zeroes every paid plan on the website (full review 12.11.2026, business F2): every web
+//      visitor would lose the locked features with no way to pay for them there. A web entitlement path (a WEB_ENT read in plan())
+//      has to come first.
 // Warning: an AndroidApp method the page never calls.
 // Usage: node .github/scripts/app-wiring.mjs [repo root]
 import fs from "node:fs";
@@ -212,6 +215,14 @@ for (const [re, what, ok] of NEW_JS) for (const m of js.matchAll(re)) {
   const l = js.slice(js.lastIndexOf("\n", m.index) + 1, js.indexOf("\n", m.index));
   if (!ok || !ok(l)) block(`index.html: ${what} is missing in older engines and throws there: "${l.trim().slice(0, 90)}"`);
 }
+
+// ---- 12. no lock without a way to buy on the website
+const lockOn = /\bconst PRO_LOCK = true\b/.test(html);
+const planSrc = (html.match(/\nfunction plan\(\)\{[\s\S]*?\n\}/) || [""])[0];
+if (!/\bconst PRO_LOCK = (?:true|false);/.test(html)) block("index.html: no `const PRO_LOCK = true|false;` to read (check 12)");
+else if (!planSrc) block("index.html: function plan() not found (check 12)");
+else if (lockOn && /!window\.AndroidApp\)\s*\{[^}]*=\s*0/.test(planSrc) && !/\bWEB_ENT\b/.test(planSrc))
+  block("index.html: PRO_LOCK is true while plan() zeroes every paid plan on the website and has no web entitlement path (WEB_ENT): web visitors would be locked out with no way to pay");
 
 for (const m of out.block) console.log(`::error::[app wiring] ${m}`);
 for (const m of out.warn) console.log(`::warning::[app wiring] ${m}`);

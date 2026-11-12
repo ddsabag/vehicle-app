@@ -1190,7 +1190,9 @@ const FRESH = (() => { try { return localStorage.length === 0; } catch { return 
 const SITE = "https://luchit.app/";
 /* a signal that aborts a request after ms: AbortSignal.timeout where the engine has it (Chrome 103, Safari 16), a timer elsewhere */
 const timeoutSignal = ms => { if (AbortSignal.timeout) return AbortSignal.timeout(ms); const c = new AbortController(); setTimeout(() => c.abort(), ms); return c.signal; };
-/* PRO: while PRO_LOCK is false (beta) every feature is open to everyone. Later it is tied to a Google Play subscription. */
+/* PRO: while PRO_LOCK is false (beta) every feature is open to everyone. Later it is tied to a Google Play subscription.
+   Before setting it to true: plan() zeroes every paid plan on the website, so the web needs its own entitlement path first (WEB_ENT);
+   app-wiring.mjs check 12 fails the build until then (full review 12.11.2026). */
 const PRO_LOCK = false;
 /* anonymous usage events (Firebase Analytics in the app, /api/e -> GA4 on the web): what people do, never a plate number or anything personal. The user can switch it off in settings.
    A model-search term goes out only when it looks like a model query: letters, digits, space, hyphen, at least 2 letters, under 5 digits of any script. */
