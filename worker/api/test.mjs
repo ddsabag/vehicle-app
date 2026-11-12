@@ -33,7 +33,11 @@ const lead = ip => post("/api/waitlist", { name: "בדיקה", company: "עסק"
 for (let i = 0; i < 5; i++) await lead("7.7.7.7");
 r = await lead("7.7.7.7"); ok(r.status === 429 && mails() === 5, "a sixth business lead from one IP in an hour: 429, no contact and no mail");
 r = await post("/api/subscribe", { email: "x@example.com", consent: true, website: "filled" }); ok(r.status === 200 && mails() === 5, "the honeypot still answers ok and sends nothing");
+store.clear(); sent = [];
+{ let last; for (let i = 0; i < 41; i++) last = await lead(`20.0.${Math.floor(i / 5)}.${i % 5}`);
+  ok(last.status === 429 && mails() === 40, "40 business leads a day in all (any IPs), then 429 with no contact and no mail"); }
+store.clear(); sent = []; await sub("y@example.com", "5.5.5.5"); sent = [];
 globalThis.caches = { default: { match: async () => { throw new Error("down"); }, put: async () => { throw new Error("down"); } } };
-r = await sub("c@example.com", "6.6.6.6"); ok(r.status === 200 && mails() === 6, "a cache that cannot be read lets the signup through, as before");
+r = await sub("c@example.com", "6.6.6.6"); ok(r.status === 200 && mails() === 1, "a cache that cannot be read lets the signup through, as before");
 r = await W.fetch(new Request("https://luchit.app/api/confirm?e=x&x=1&t=x"), env, {}); ok(r.status === 302 && /subscribed=expired/.test(r.headers.get("location")), "the confirm link check is unchanged");
 console.log(bad ? `api test: ${bad} of ${n} checks FAILED` : `api test ok (${n} checks)`); process.exit(bad ? 1 : 0);

@@ -135,6 +135,8 @@ jobs:
         run: node worker/mail/test.mjs
       - name: API Worker test (the mail-sending routes keep their limits)
         run: node worker/api/test.mjs
+      - name: og Worker test (security headers on every answer, the CSP only reported, the page unchanged)
+        run: node worker/og/test.mjs
       - name: Forms check self-test (each page's address check, the API refusals; Site smoke test runs it live)
         run: node .github/scripts/form-check.mjs --selftest
       - name: Reviews Worker test

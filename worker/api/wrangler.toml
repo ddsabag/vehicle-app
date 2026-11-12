@@ -2,7 +2,7 @@ name = "luchit-api"
 main = "worker.js"
 compatibility_date = "2026-10-13"   # as set live in the dashboard
 routes = [{ pattern = "luchit.app/api/*", zone_name = "luchit.app" }]
-workers_dev = true     # as live
+workers_dev = false    # CEO review 12.11.2026: the workers.dev address skipped the zone WAF rate rule; turned off in the dashboard first (the deploy refuses a mismatch)
 preview_urls = false   # as live
 keep_vars = true   # no [vars] block at all: the values live in the dashboard, so a deploy can never blank or change them
 # Dashboard variables (Settings > Variables and Secrets, type Text), read by worker.js:

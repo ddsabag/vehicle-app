@@ -91,7 +91,7 @@ export default {
     const go = (req.method === "GET" || req.method === "HEAD") && /^\/go/i.test(u.pathname) && goLink(u);
     if (go) return versioned(go, env);
     const res = await fetch(req);
-    if (req.method !== "GET" || u.pathname !== "/" || !CRAWLER.test(req.headers.get("User-Agent") || "")) return res;
+    if (req.method !== "GET" || u.pathname !== "/" || !CRAWLER.test(req.headers.get("User-Agent") || "")) return secured(res);
     const plate = (u.searchParams.get("plate") || "").replace(/\D/g, "");
     const cmp = u.searchParams.get("cmp"), compare = u.searchParams.get("compare");
     let title, desc, image;
@@ -106,7 +106,7 @@ export default {
         if (p.tone) image = `${u.origin}/og-${p.tone}.png`;
       }
     }
-    if (!title) return res;
+    if (!title) return secured(res);
     const set = (prop, val) => ({element(e) { e.setAttribute("content", val); }});
     const out = new HTMLRewriter()
       .on('meta[property="og:title"]', set("t", title))
@@ -118,9 +118,24 @@ export default {
       .on('meta[name="twitter:image"]', set("i", image || u.origin + "/og.png"))
       .on('meta[property="og:image:alt"]', set("a", image ? "דוח רכב בלוחית" : "לוחית, בדיקת רכב לפי מספר"))
       .transform(res);
-    return versioned(out, env);
+    return secured(versioned(out, env));
   },
 };
+
+// Security headers on every answer (CEO review 12.11.2026, F2): GitHub Pages cannot set them. Nothing users see changes: the CSP is
+// Report-Only (the browser only notes what it would block), and the other three are the standard safe values. Enforce the CSP after
+// 22.11 and two weeks of clean reports. A header the origin already sends is kept as it is.
+export const CSP = ["default-src 'self'", "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net static.cloudflareinsights.com",
+  "connect-src 'self' data.gov.il raw.githubusercontent.com cdn.jsdelivr.net cloudflareinsights.com", "img-src 'self' data: blob: https:",
+  "style-src 'self' 'unsafe-inline'", "font-src 'self' data:", "object-src 'none'", "base-uri 'none'", "frame-ancestors 'self'", "form-action 'self'"].join("; ");
+export const HEADERS = { "strict-transport-security": "max-age=15552000", "x-content-type-options": "nosniff", "referrer-policy": "strict-origin-when-cross-origin" };
+export function secured(r) {
+  let out;
+  try { out = new Response(r.body, r); } catch { return r; }   // an answer that cannot be copied goes out untouched
+  for (const [k, v] of Object.entries(HEADERS)) if (!out.headers.has(k)) out.headers.set(k, v);
+  if (/^text\/html/i.test(out.headers.get("content-type") || "") && !out.headers.has("content-security-policy-report-only")) out.headers.set("content-security-policy-report-only", CSP);
+  return out;
+}
 
 // which version answered (binding CF_VERSION_METADATA in wrangler.toml): the Workers deploy check waits for the new one
 function versioned(r, env) {

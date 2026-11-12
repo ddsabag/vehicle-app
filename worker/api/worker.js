@@ -31,7 +31,7 @@ const BIZ_INTERESTS = ["נתוני רכב מרוכזים (API)", "דוחות מ�
 const PHONE_RE = /^[0-9+\-() ]{7,20}$/;
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-const LIMITS = { ipHour: 5, toDay: 3, allDay: 150 };
+const LIMITS = { ipHour: 5, toDay: 3, allDay: 150, leadDay: 40 };   // leadDay: business leads a day in all (CEO review 12.11.2026: each one is a Brevo contact and a mail to the owner)
 const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
 async function slot(kind, id, ttl) {   // a counter in the edge cache: { n } under a hashed key, kept for ttl seconds from its first use
   const h = hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`luchit-rl|${kind}|${id}`)));
@@ -60,7 +60,9 @@ async function waitlist(req, env, ctx) {
   if (!EMAIL_RE.test(email) || (phone && !PHONE_RE.test(phone))) return json({ error: "contact" }, 400);
   const ipc = await slot("lead-ip", ipOf(req), 3600), ipn = await count(ipc);
   if (ipn >= LIMITS.ipHour) return tooMany();
-  await bump(ipc, ipn, ctx);
+  const allc = await slot("lead-all", new Date().toISOString().slice(0, 10), 86400), alln = await count(allc);
+  if (alln >= LIMITS.leadDay) return tooMany();   // per data centre, like the subscribe cap; the zone's WAF rate rule is the global one
+  await Promise.all([bump(ipc, ipn, ctx), bump(allc, alln, ctx)]);
 
   // A new contact is created with the form's details. An existing one is never overwritten (the Origin check stops browsers only, so anyone
   // could otherwise rewrite a real lead's name or phone, or stamp a subscriber with business consent): it is only added to the business list,
