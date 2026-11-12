@@ -3620,7 +3620,7 @@ const FREE_DOCS = 5, DOC_MAX_BYTES = 12 * 1048576;
 const docsOk = n => !PRO_LOCK || atLeast("pro") || n < FREE_DOCS;
 const DocDB = {
   db: null,
-  open(){ return this.db || (this.db = new Promise((ok, no) => { const r = indexedDB.open("luchitDocs", 1); r.onupgradeneeded = () => r.result.createObjectStore("docs", {keyPath: "id", autoIncrement: true}).createIndex("plate", "plate"); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); })); },
+  open(){ return this.db || (this.db = new Promise((ok, no) => { const r = indexedDB.open("luchitDocs", 1); r.onupgradeneeded = () => r.result.createObjectStore("docs", {keyPath: "id", autoIncrement: true}).createIndex("plate", "plate"); r.onsuccess = () => ok(r.result); r.onerror = () => { this.db = null; no(r.error); }; })); },   // a failed open is tried again next time (a full disk can be freed)
   async tx(mode, fn){ const db = await this.open(); return new Promise((ok, no) => { const t = db.transaction("docs", mode), st = t.objectStore("docs"), rq = fn(st); t.oncomplete = () => ok(rq && rq.result); t.onerror = () => no(t.error); t.onabort = () => no(t.error); }); },
   // Safari's private browsing keeps no file (Blob) in IndexedDB: there a document is kept as its bytes (buf), and docIn reads it back as a file
   async put(rec){ try { return await this.tx("readwrite", st => st.add(rec)); } catch (e) { if (!(rec.blob instanceof Blob)) throw e; const {blob, ...r} = rec, buf = await blob.arrayBuffer(); return this.tx("readwrite", st => st.add({...r, buf})); } },
@@ -3697,7 +3697,11 @@ function docsCard(D){
 async function fillDocs(){
   const el = document.getElementById("docList"); if (!el || !current) return;
   const D = current; let list = [];
-  try { list = (await DocDB.byPlate(D.plate)).sort((a, b) => b.at - a.at); } catch { el.innerHTML = `<p class="note">שמירת מסמכים לא זמינה במכשיר הזה.</p>`; return; }
+  try { list = (await DocDB.byPlate(D.plate)).sort((a, b) => b.at - a.at); } catch (e) {
+    // a nearly full disk closes IndexedDB for a while (emulator 12.11, Android 15): the documents are still there, so say so and do not say "unavailable"
+    const full = /full disk|quota|space/i.test(String(e && (e.message || e.name) || ""));
+    if (full) track("storage_lost", {n: 1, from: "docs"});
+    el.innerHTML = `<p class="note">${full ? "אין מספיק מקום פנוי בטלפון, ולכן המסמכים לא נטענו כרגע. הם לא נמחקו: פנו מקום ופתחו את התיק שוב." : "שמירת מסמכים לא זמינה במכשיר הזה."}</p>`; return; }
   if (current !== D || !el.isConnected) return;
   const kb = b => b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB";
   const exp = x => { if (!DOC_EXP_CATS.includes(x.cat)) return ""; const s = !x.exp && docScan.get(x.id) || {}, v = x.exp || (s.st === "found" ? s.d : "");
