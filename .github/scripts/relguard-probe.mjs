@@ -38,8 +38,9 @@ const WIN = [OLD, NEW], ALL = [{ startDate: "2026-10-19", endDate: "2026-11-04" 
 
 // js_error (web and app WebView) by day, platform, app version, kind (where) and page, 19.10-4.11; 'line' is not a GA4 dimension
 
-// the release guard's rows as its 4.11 run saw them (today 2026-11-04: reads today-45 .. today-1), so judge() can be replayed offline
-const Q = queries("2026-09-20", "2026-11-04");
+// the release guard's rows as its 12.11 run saw them (today 2026-11-12: reads today-45 .. today-1), so judge() can be replayed offline
+// (12.11: 1.38.4 day 7 found compare and silent; the log holds no event names, so measurement replays it to name them)
+const Q = queries("2026-09-28", "2026-11-11");
 for (const [k, body] of Object.entries(Q)) await part(k, () => ga(body));
 
 

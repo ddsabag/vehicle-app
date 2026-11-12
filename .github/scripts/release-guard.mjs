@@ -19,7 +19,7 @@
 //               nothing to update to, so those stop by design; GONE_EVENTS: events a newer UI stopped sending, against a base from before it)
 // Zone A daily (same run, for the 08:22 morning triage, ops asked 26.10): yesterday's failed checks (technical kinds: source_down, offline,
 // net_err, js_err, over car_lookup + lookup_failed, as /live's health tile) and slow checks (dur 5to10 + gt10 over all dur buckets), all
-// platforms, app rows from Israel only. Failed over 10% (from 50 checks) or slow over 10% goes to the router at LEVEL.zoneA (key zonea:<kind>:<date>,
+// platforms, app rows from Israel only. Failed over 10% (from 50 checks) or slow over 10% goes to the router at LEVEL.zoneA (key zonea:<kind>:spell, one key per continuing spell, so a slow week is one episode and one message, not one a day;
 // owner measurement), which the triage reads in alert-state; a clean day is only a log line: "zone A <date>: ok|thin|breach fail,slow".
 // What is back in range closes in the router (resolve, told once, quietly: "חזר לתקין"), on a run that judges the real yesterday (not a DAY
 // re-run of the past): a day with both kinds judged and within the thresholds closes every zonea: item, a day with one kind fine closes that
@@ -121,6 +121,10 @@ const goneBy = (f, base, vn) => !!GONE_PATHS[f] && !atLeast(base, GONE_PATHS[f])
 // button (and its exp_expose) is gone; 1.38.3 against 1.37 flagged it silent on day 1 and 3 (29.10, 31.10)
 export const GONE_EVENTS = { exp_expose: "1.38" };
 const evGone = (e, base, vn) => !!GONE_EVENTS[e] && !atLeast(base, GONE_EVENTS[e]) && atLeast(vn, GONE_EVENTS[e]);
+// errors and give-ups (a check that timed out, was abandoned or failed, a slow check, a code error) are never "silent": rare and bursty, their
+// absence is good news or no news, not a lost event, and zone A and the pipe canary read them every day (4.11: 1.38.3 day 7 flagged
+// lookup_timeout silent on a few base events from two phones, while not one check of the new version ran past 30 s; the code is the same)
+export const QUIET_OK = /^(lookup_timeout|lookup_abort|lookup_failed|lookup_slow|js_error)$/;
 const rowsOf = j => (j?.rows || []).map(r => [...r.dimensionValues.map(x => x.value), ...r.metricValues.map(x => Number(x.value) || 0)]);
 
 // S = { users: [[date, ver, n]], events: [[date, ver, name, n]], compare: [[date, ver, from, n]], saves: [[date, ver, name, from, n]] } (GA4 dates),
@@ -159,7 +163,7 @@ export function judge(S, today) {
     if (s >= T.unsaveMin && u / s > T.unsave) R.findings.push({ id: "unsave:" + f, he: `הסרות מול שמירות דרך ${pathHe(f)} (חדש בגרסה הזו): ${Math.round(u / s * 100)}% (הסף: 45%)` }); }
   const quiet = paths ? known.filter(f => !goneBy(f, prev, vn) && PB[f].car_save / bc * nc >= T.silentMin && !PN[f]?.car_save).sort() : [];
   if (quiet.length) R.findings.push({ id: "silentpath", paths: quiet, he: `דרכי שמירה שבגרסה הקודמת היו בהן שמירות ועכשיו אין בהן אף אחת: ${quiet.length}` });
-  const gone = Object.keys(B).filter(e => e !== "car_lookup" && !/^update_/.test(e) && !evGone(e, prev, vn) && !N[e] && B[e] / bc * nc >= T.silentMin).sort();
+  const gone = Object.keys(B).filter(e => e !== "car_lookup" && !/^update_/.test(e) && !QUIET_OK.test(e) && !evGone(e, prev, vn) && !N[e] && B[e] / bc * nc >= T.silentMin).sort();
   if (gone.length) R.findings.push({ id: "silent", events: gone, he: `אירועים שהגרסה הקודמת שלחה ועכשיו לא הגיעו בכלל: ${gone.length}` });
   return { ...R, state: R.findings.length ? "find" : "ok" };
 }
@@ -243,7 +247,7 @@ async function main() {
     const A = zoneA(Z);
     IO.out(`zone A ${yd}: ${A.state}${A.breach.length ? " " + A.breach.join(",") : ""}`);
     if (A.state === "breach") {
-      let t = zoneAText(A, yd); const key = `zonea:${A.breach.join("+")}:${yd}`;
+      let t = zoneAText(A, yd); const key = `zonea:${A.breach.join("+")}:spell`;   // the day is in the text; the key stays the same while the spell lasts (ops noise review 8.11)
       const c = await secondLook("cause", { tok, yd });   // labels only (credit package A6): one more line, never a different decision
       if (c?.line) { t += "\n" + c.line; IO.out(`zone A ${yd}: cause ${c.verdict}`); }
       if (dry) IO.out("dry, would send " + key + ":\n" + t.replace(/\d/g, "#"));
@@ -294,6 +298,8 @@ async function selftest() {
   R = judge(mk({ save38: 6, unsave38: 4, cmp38: 2, drop: ["svc_add"] }), "2026-11-05");
   ok(R.state === "find" && R.findings.map(f => f.id).join() === "compare,save,unsave,silent" && R.findings[3].events.join() === "svc_add", "all four guardrails " + JSON.stringify(R.findings));
   ok(judge(mk({ save38: 8 }), "2026-11-05").state === "ok", "a 20% drop in saves is inside the 30%");
+  { const Q = mk(); for (const d of days("2026-10-14", 14)) Q.events.push([g(d), "1.37", "lookup_timeout", 1], [g(d), "1.37", "lookup_failed", 2], [g(d), "1.37", "js_error", 1]);
+    ok(judge(Q, "2026-11-05").state === "ok", "timeouts, failures and code errors the base sent and the new version has none of are not silent events " + JSON.stringify(judge(Q, "2026-11-05").findings)); }
   ok(judge(mk({ cmp38: 0 }), "2026-10-30").findings.map(f => f.id).join() === "compare", "no compare at all in 1.38 is a finding");
   R = judge(mk({ v: "1.37", b: "1.36", cmp38: 0 }), "2026-10-30");
   ok(R.state === "ok" && R.vn === "1.37" && R.prev === "1.36", "1.37 has no compare entry on the card or in the menu, so the compare rule does not judge it " + JSON.stringify(R.findings));
@@ -371,7 +377,11 @@ async function selftest() {
   ok(/^\d+$/.test(PROPERTY), "property from analytics/ga4-admin.json");
   // how the router sends them, by day and by night: a problem told once, quietly (never a ring, never a morning-ring pointer)
   const AL = await import("./alert.mjs"), st = { v: 1, items: {}, hb: {}, log: [] }, at = Date.parse("2026-10-27T06:30:00Z");
-  for (const [lv, key] of [[LEVEL.zoneA, "zonea:slow:2026-10-26"], [LEVEL.zoneA, "zonea:fail+slow:2026-10-26"], [LEVEL.find, "relguard:1.38.3-d1"]])
+  { const s2 = { v: 1, items: { "zonea:slow:spell": { lv: LEVEL.zoneA, open: true, sent: "2026-10-27T06:30:00Z", first: "2026-10-27T06:30:00Z", last: "2026-10-27T06:30:00Z", n: 1 } }, hb: {}, log: [] };
+    const d2 = AL.decide(s2, LEVEL.zoneA, "zonea:slow:spell", false, at + 864e5, true);
+    ok(d2.a === "deduped" && AL.label("zonea:slow:spell").he === AL.label("zonea:slow:2026-10-26").he, `a second slow day of an open spell sends nothing new, got ${d2.a}`);
+    ok("zonea:slow:spell".startsWith("zonea:slow:") && !"zonea:fail+slow:spell".startsWith("zonea:fail:") && "zonea:fail+slow:spell".startsWith("zonea:"), "a spell key still closes by its kind prefix"); }
+  for (const [lv, key] of [[LEVEL.zoneA, "zonea:slow:spell"], [LEVEL.zoneA, "zonea:fail+slow:spell"], [LEVEL.find, "relguard:1.38.3-d1"]])
     for (const day of [true, false]) { const d = AL.decide(st, lv, key, false, at, day); ok(d.a === "quiet" && !d.night && AL.label(key).sect === "fail", `${key} by ${day ? "day" : "night"}: quiet once, got ${d.a}`); }
   // Claude's second look: a line from guard-explain, and nothing at all when it has no client or fails (the guard's message as before)
   { const saved = { ...IO }, told = [], quiet = [];
