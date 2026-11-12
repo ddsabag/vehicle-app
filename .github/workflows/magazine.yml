@@ -136,9 +136,8 @@ jobs:
           ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
           DATA_SLUG: ${{ steps.gen.outputs.slug }}
           WRITER: ${{ steps.gen.outputs.writer }}
-          AI: ${{ steps.gen.outputs.ai }}
+          AI: ${{ steps.gen.outputs.ai }}   # here AI is the article step's outcome; the switch vars.AI blanks the key below instead
           ANTHROPIC_API_KEY: ${{ env.KIND == 'monthly' && vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}
-          AI: ${{ vars.AI }}   # one switch for every Claude bot (claude.mjs gate; CEO review 12.11.2026)
           AI_CAP_USD: ${{ vars.AI_CAP_USD }}
           AI_GRANTS: ${{ vars.AI_GRANTS }}
           MODEL_ANSWERS: ${{ vars.MODEL_ANSWERS }}
