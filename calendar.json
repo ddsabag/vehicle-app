@@ -1,5 +1,5 @@
 {
- "at": "2026-11-12T08:21:44Z",
+ "at": "2026-11-12T09:21:43Z",
  "open": [],
  "items": [
   {
@@ -465,12 +465,65 @@
   },
   {
    "d": "2026-11-15",
+   "t": "08:30",
+   "ch": [
+    "facebook",
+    "instagram"
+   ],
+   "what": "פוסט מהערכה השבועית",
+   "src": "auto",
+   "st": {
+    "facebook": "planned",
+    "instagram": "planned"
+   },
+   "q": [
+    "2026-11-12/k6-post"
+   ]
+  },
+  {
+   "d": "2026-11-15",
    "t": "19:30",
    "ch": [
     "fb_groups"
    ],
    "what": "פרסום בקבוצות פייסבוק",
    "src": "cowork"
+  },
+  {
+   "d": "2026-11-16",
+   "t": "20:30",
+   "ch": [
+    "facebook",
+    "instagram"
+   ],
+   "what": "קרוסלה מהערכה השבועית",
+   "src": "auto",
+   "st": {
+    "facebook": "planned",
+    "instagram": "planned"
+   },
+   "q": [
+    "2026-11-12/k6-carousel"
+   ]
+  },
+  {
+   "d": "2026-11-17",
+   "t": "08:15",
+   "ch": [
+    "facebook",
+    "instagram"
+   ],
+   "what": "סטוריז מהערכה השבועית",
+   "src": "auto",
+   "st": {
+    "facebook": "planned",
+    "instagram": "planned"
+   },
+   "q": [
+    "2026-11-12/k6-story-1",
+    "2026-11-12/k6-story-2",
+    "2026-11-12/k6-story-3"
+   ]
   },
   {
    "d": "2026-11-18",
@@ -498,6 +551,23 @@
    ],
    "what": "פרסום בקבוצות פייסבוק",
    "src": "cowork"
+  },
+  {
+   "d": "2026-11-19",
+   "t": "20:30",
+   "ch": [
+    "facebook",
+    "instagram"
+   ],
+   "what": "ריל מהערכה השבועית",
+   "src": "auto",
+   "st": {
+    "facebook": "planned",
+    "instagram": "planned"
+   },
+   "q": [
+    "2026-11-12/k6-reel"
+   ]
   },
   {
    "d": "2026-11-19",
