@@ -299,7 +299,7 @@ export function compose(R, env = {}) {
   const tag = hash(R.what || R.why || "-", "sha1").slice(0, 12).replace(/^\d/, "a");   // a key segment: hex with a letter, never a number
   const A = (u, t) => u ? ` <a href="${escH(u)}">${t}</a>` : "";
   // done = level summary (Dudu's bot review 1.11.2026, product agreed): it confirms a step he ordered, so at night it never joins the morning ring
-  if (R.code === "done") return { key: `listing:done:${tag}`, link: pc, today: "silent", level: "summary",
+  if (R.code === "done") return { key: `listing:done:${tag}`, link: pc, today: "silent", level: "summary", outcome: "self",
     text: msg({ kind: "done", area: "store", title: "דף החנות של לוחית ב-Google Play עודכן ונשלח לסקירה",
       text: `מה השתנה: ${escH(R.what)}. אם גרסה חדשה כבר חיכתה בסקירה, היא נשלחה שוב יחד איתו.`, what: `אין צורך לעשות כלום.${A(pc, "Play Console")}` }) };
   if (R.code === "dry") return { key: `listing:dry:${tag}`, link: run, today: "silent",
@@ -328,7 +328,7 @@ export async function tell(R) {
   if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) { note("TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID are not set: the message is only in the job summary"); return true; }
   let router = IO.router;
   if (!router) try { router = await import("./alert.mjs"); } catch { /* legacy below */ }
-  const r = router ? await router.alert(m.level || "day", m.key, m.text, m.link, { today: m.today, fresh: manual, legacy: () => telegram(m.text) })
+  const r = router ? await router.alert(m.level || "day", m.key, m.text, m.link, { today: m.today, fresh: manual, ...(m.outcome ? { outcome: m.outcome } : {}), legacy: () => telegram(m.text) })
     : { delivered: await telegram(m.text) };
   // a change Play took ends every listing failure before it (access, files, Play): the router tells each one "חזר לתקין"
   if (router?.resolve && R.code === "done") try { await router.resolve(["listing:fail:"]); } catch { /* the morning ledger still shows it */ }
@@ -580,7 +580,7 @@ async function selftest() {
     W = await run({ router, repo: { text: { title: "א".repeat(31) } } });
     W = await run({ router, repo: { text: { title: "חדש" } } }, { MODE: "dry" });
     ok(seen.map(s => s.key.split(":").slice(0, 3).join(":").replace(/:[0-9a-f]{12}$/, "")).join() === "listing:done,listing:fail:access,listing:fail:files,listing:dry", "router: keys " + seen.map(s => s.key));
-    ok(seen.every(s => s.lv === (s.key.startsWith("listing:done") ? "summary" : "day") && validKey(s.key) && !s.o.plain) && seen[1].o.fresh && !seen[0].o.fresh, "router: day, valid keys, fresh when manual");
+    ok(seen.every(s => s.lv === (s.key.startsWith("listing:done") ? "summary" : "day") && validKey(s.key) && !s.o.plain) && seen[1].o.fresh && !seen[0].o.fresh && seen[0].o.outcome === "self" && !seen[1].o.outcome, "router: day, valid keys, fresh when manual");
     // a change Play took closes the listing failures; a failure, a dry run or nothing to change leaves them open
     const settled = [], r2 = { alert: async () => ({ delivered: true }), resolve: async p => { settled.push(p.join("|")); return 1; } };
     W = await run({ router: r2, repo: { text: { title: "חדש" } } });

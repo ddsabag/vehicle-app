@@ -72,7 +72,10 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}   # Console workspace luchit-bots, capped; a clean morning makes no call
           DRY: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
       - name: Weekly alert-noise review (Sundays, Sonnet, suggestions only; credit package B)
-        if: ${{ github.event_name == 'schedule' }}
+        # Every real run, not only GitHub's schedule: the backup clock starts this workflow at ~07:21 UTC with dry_run false, before the 07:37
+        # triage, while GitHub's own Sunday runs come hours late (8.11.2026: none by 07:40), so a schedule-only step wrote noise.json after the
+        # triage had read it, and the clock run's publish then dropped it again. A dry hand run skips it.
+        if: ${{ github.event_name == 'schedule' || !inputs.dry_run }}
         run: |
           # once a week: the last noise.json is carried forward, and a Sunday that already has one does not ask again
           mkdir -p triage-out
