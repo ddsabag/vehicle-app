@@ -286,8 +286,10 @@ export async function run({ env = process.env, api, router, readCars, log = cons
     return done();
   }
   await settle(router, async () => { await router.resolve(["ai:audit"]); await router.resolve(["ai:key"]); });
-  if (miss.length) await tell(router, env, { level: "summary", key: `truth:deep:${areas.join("+")}`, text: [tag("info", "data"),
-    `הביקורת החודשית העמוקה קראה ${res.answered} רכבים פעמיים, בכללים וב-Claude, ומצאה ${miss.length === 1 ? "ממצא אחד" : `${miss.length} ממצאים`} שהבדיקה היומית לא תפסה: ${areas.map(a => AREAS[a]).join(", ")}. כל ממצא אומת מול הדף ומול נתוני משרד התחבורה.`,
+  // 12.11 (full review): a month with a high finding the rules missed is a day alert, so it is triaged within a day and not read ten days later
+  const hiN = miss.filter(f => f.severity === "high").length;
+  if (miss.length) await tell(router, env, { level: hiN ? "day" : "summary", key: `truth:deep:${areas.join("+")}`, text: [tag(hiN ? "today" : "info", "data"),
+    `הביקורת החודשית העמוקה קראה ${res.answered} רכבים פעמיים, בכללים וב-Claude, ומצאה ${miss.length === 1 ? "ממצא אחד" : `${miss.length} ממצאים`} שהבדיקה היומית לא תפסה: ${areas.map(a => AREAS[a]).join(", ")}. כל ממצא אומת מול הדף ומול נתוני משרד התחבורה.${hiN ? ` ${hiN === 1 ? "ממצא אחד חמור" : `${hiN} ממצאים חמורים`}, ולכן ההתראה היום ולא בסיכום.` : ""}`,
     "הפירוט, מוצפן ובלי מספרי רכב, בענף data-truth, ועובר לשרשור \"נתונים ואמינות\" כדי להפוך כל ממצא אמיתי לבדיקה יומית.", todo()].join("\n") });
   else await settle(router, () => router.resolve(["truth:deep:"]));   // a month with nothing the rules missed closes the earlier months' lines (told: "טופל")
   return done();
@@ -372,8 +374,8 @@ if (process.argv[1] && process.argv[1].endsWith("deep-audit.mjs") && process.arg
   ok(res.findings.filter(f => f.id === "c001").length === 1 && res.unfounded.some(f => f.id === "c001" && f.area === "test"), "a finding with a real quote is kept; one whose page excerpt is wrong is unfounded");
   ok(res.findings.find(f => f.id === "c002").byRules && !res.findings.find(f => f.id === "c001").byRules, "a finding in an area the rules flagged on that car is marked as theirs");
   ok(sum.kept === 3 && sum.missedByRules === 1 && sum.low === 1 && sum.missedByArea.owners === 1 && !JSON.stringify(sum).includes("COROLLA") && !JSON.stringify(sum).includes("יד 2"), "the clear summary: counts only, no car and no quote");
-  ok(calls.some(c => c[0] === "alert" && c[1] === "summary" && c[2] === "truth:deep:owners") && calls.some(c => c[0] === "resolve" && c[1] === "ai:audit") && calls.some(c => c[0] === "resolve" && c[1] === "ai:key")
-    && !calls.some(c => c[0] === "resolve" && c[1] === "truth:deep:"), "a finding the rules missed: one quiet truth:deep line by area; the API's keys close");
+  ok(calls.some(c => c[0] === "alert" && c[1] === "day" && c[2] === "truth:deep:owners" && c[3].includes("ממצא אחד חמור")) && calls.some(c => c[0] === "resolve" && c[1] === "ai:audit") && calls.some(c => c[0] === "resolve" && c[1] === "ai:key")
+    && !calls.some(c => c[0] === "resolve" && c[1] === "truth:deep:"), "a high finding the rules missed: one truth:deep day line by area; the API's keys close");
   ok(res.tokens.input > 0 && res.tokens.output > 0 && !JSON.stringify(sum).includes("tokens") && !fs.readFileSync(path.join(tmp, "o1", "deep-summary.json"), "utf8").includes("input"), "the tokens are counted, in the encrypted file only");
   ok(res.review.includes("מה שהכללים לא תפסו") && res.review.includes("נפסלו") && sent.every(u => plateFree(u)), "the review lists what the rules missed and what was dropped; every prompt plate-free");
   calls.length = 0;
