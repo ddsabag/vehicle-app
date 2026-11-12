@@ -56,7 +56,7 @@
 /* Layout: an app screen. White header with the yellow plate search; below it a column of cards,
    each topic with its own colour so the page is easy to scan. */
 :root{
-  --hint-bg:#fff8dc; --bg:#f2f4f8; --card:#ffffff; --fg:#151a24; --muted:#4a5465; --line:#e3e7ee; --soft:#f5f7fa;
+  --hint-bg:#fff8dc; --bg:#f2f4f8; --card:#ffffff; --fg:#151a24; --muted:#4a5465; --line:#e3e7ee; --soft:#f5f7fa; --seg-on:#ffffff; --seg-ring:transparent;
   --band-tint:#e2ecfd; --band:#ffffff; --band-fg:#151a24; --band-muted:#5d6676; --band-line:#d5dae3;
   --plate:#f6c500; --plate-ink:#111; --il:#1d4ea8; --accent:#2457c5; --accent-fg:#ffffff;
   --ok:#0d5f33; --ok-bg:#e1f4e8; --warn:#7d4300; --warn-bg:#fdf0d9; --bad:#9b1c12; --bad-bg:#fde6e3; --info:#1b46a8; --info-bg:#e5edfc;
@@ -70,7 +70,7 @@
   color-scheme:light;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#0e121a; --card:#1c2330; --fg:#e9edf3; --muted:#aab3c3; --line:#2b3444; --soft:#262f3e;
+  --bg:#0e121a; --card:#1c2330; --fg:#e9edf3; --muted:#aab3c3; --line:#2b3444; --soft:#262f3e; --seg-on:#27406e; --seg-ring:#7ea3f2;
   --band-tint:#182338; --band:#121722; --band-fg:#ffffff; --band-muted:#8d98ad; --band-line:#2c3546;
   --accent:#7ea3f2; --accent-fg:#0e121a; --hint-bg:#3a3320;
   --ok:#6ad49b; --ok-bg:#12301f; --warn:#f2b55c; --warn-bg:#35270e; --bad:#f8a198; --bad-bg:#3c1916; --info:#a8c2f8; --info-bg:#1a2742;
@@ -79,7 +79,7 @@
   --t-green:#6ad49b; --t-green-bg:#12301f; --t-leaf:#a8d46a; --t-leaf-bg:#243014; --t-pink:#f08fbd; --t-pink-bg:#3a1a2a;
   --shadow:0 0 0 1px rgba(255,255,255,.05); --leaf-ink:#a8d46a; color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#0e121a; --card:#1c2330; --fg:#e9edf3; --muted:#aab3c3; --line:#2b3444; --soft:#262f3e;
+  --bg:#0e121a; --card:#1c2330; --fg:#e9edf3; --muted:#aab3c3; --line:#2b3444; --soft:#262f3e; --seg-on:#27406e; --seg-ring:#7ea3f2;
   --band-tint:#182338; --band:#121722; --band-fg:#ffffff; --band-muted:#8d98ad; --band-line:#2c3546;
   --accent:#7ea3f2; --accent-fg:#0e121a; --hint-bg:#3a3320;
   --ok:#6ad49b; --ok-bg:#12301f; --warn:#f2b55c; --warn-bg:#35270e; --bad:#f8a198; --bad-bg:#3c1916; --info:#a8c2f8; --info-bg:#1a2742;
@@ -310,7 +310,7 @@ a.row{color:var(--fg);text-decoration:none}a.row .t small{text-decoration:none}a
    one row (the phone's font size goes up to 200%) the row wraps instead of breaking a label onto two lines */
 .seg{display:flex;flex-wrap:wrap;background:var(--soft);border-radius:11px;padding:4px;gap:4px}
 .seg button{flex:1 1 0;min-width:max-content;border:0;background:transparent;border-radius:8px;padding:8px 6px;font-weight:700;color:var(--muted)}
-.seg button[aria-pressed="true"]{background:var(--card);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.seg button[aria-pressed="true"]{background:var(--seg-on);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.15),inset 0 0 0 1.5px var(--seg-ring)}   /* dark: card on soft was nearly the same colour (review 12.11), so the choice gets the accent */
 @media (max-width:379px){.seg button{padding-inline:2px}}@media (max-width:359px){.seg button{font-size:.85rem}}   /* "לפי המכשיר" and "ליטר ל-100 ק״מ" stay on one line on a small phone, also in the fallback font before Assistant has loaded (font-display:optional) */
 .link-btn{border:1px solid var(--line);background:transparent;border-radius:10px;padding:10px 12px;font-weight:700;text-align:start}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:16px;font-weight:700;z-index:30;box-shadow:0 4px 14px rgba(0,0,0,.2);width:max-content;max-width:calc(100vw - 32px);text-align:center}   /* left:50% alone would cap a long toast at half the screen */
@@ -1134,7 +1134,7 @@ body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)
     <div class="set-grp" id="updRow" hidden>
       <button class="set-go" type="button" id="chkUpd"><svg class="i"><use href="#i-rotate"/></svg><span class="t"><b>בדיקת עדכון</b><small>גרסה מותקנת: <span id="ver2"></span></small></span><svg class="i go-chev" aria-hidden="true"><use href="#i-chev"/></svg></button>
     </div>
-    <p class="credit">לוחית <span id="verLine">· גרסה <span id="ver"></span></span><br>פותחה על ידי דודו סבאג · © 2026 כל הזכויות שמורות</p>
+    <p class="credit">לוחית <span id="verLine">· גרסה <span id="ver"></span></span><br>פותחה על ידי דודו סבג · © 2026 כל הזכויות שמורות</p>
   </div>
 </div>
 <div class="sheet full" id="helpSheet" hidden role="dialog" aria-modal="true" aria-labelledby="helpTitle">
@@ -7162,7 +7162,7 @@ function renderHome(){
   if (!window.AndroidApp && !IS_IOS) html.push(`<button type="button" class="webcta" data-url="${playWeb("home_top")}" data-hint="home-top">באפליקציה: התראות על ריקול וטסט · <b><bdi>Google Play</bdi></b></button>`);
   if (!saved.length && !recent.length) html.push(`<section class="hero"><h2>לפני שקונים רכב, בודקים אותו כאן</h2><p>מספר רישוי אחד: ריקולים, בעלים, ק״מ ומחיר משוער, בשניות.</p>
     <div class="try"><span>רוצים לראות איך זה נראה?</span><button type="button" class="chip" data-open="${EXAMPLE_PLATE}">נסו לדוגמה <bdi dir="ltr">${fmtPlate(EXAMPLE_PLATE)}</bdi></button></div>
-    <ol class="how"><li><b>מקלידים מספר רישוי</b> או מצלמים את הלוחית.</li><li><b>מקבלים תמונה מלאה</b> מנתוני משרד התחבורה: ריקולים והסדרי פשרה, טסט, בעלויות ומחיר משוער.</li><li><b>שומרים ומשתפים</b>, ${IS_IOS && !window.AndroidApp ? "ומוסיפים ליומן תזכורת לפני שהטסט פג." : "ומקבלים התראה על ריקול חדש או טסט שעומד לפוג."}</li></ol></section>`);
+    <ol class="how"><li><b>מקלידים מספר רישוי</b>${window.AndroidApp ? " או מצלמים את הלוחית" : ""}.</li><li><b>מקבלים תמונה מלאה</b> מנתוני משרד התחבורה: ריקולים והסדרי פשרה, טסט, בעלויות ומחיר משוער.</li><li><b>שומרים ומשתפים</b>, ${IS_IOS && !window.AndroidApp ? "ומוסיפים ליומן תזכורת לפני שהטסט פג." : "ומקבלים התראה על ריקול חדש או טסט שעומד לפוג."}</li></ol></section>`);
   const pn = planNotice(); if (pn) html.push(pn);
   // what needs attention on a saved car opens "התראות", and counts what the bell on "התראות" counts (one item per issue); the cars themselves live in "הרכבים שלי"
   const items = alertItems(), mine = saved.length === 1 ? "ברכב שלכם" : "ברכבים שלכם";

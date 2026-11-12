@@ -44,8 +44,10 @@ footer{font-size:.85rem;color:var(--muted)}footer a,.muted a{color:inherit}
 </style>
 </head>
 <body>
+<style>header.top{background:linear-gradient(180deg,#e2ecfd,#fff);border-bottom:1px solid #e3e7ee}header.top .in{max-width:720px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}header.top .brand{display:flex;align-items:center;gap:10px;color:#151a24;text-decoration:none}header.top img{border-radius:22%}header.top .nm{display:flex;flex-direction:column;line-height:1.15}header.top b{font-size:1.45rem;font-weight:800}header.top small{font-size:.78rem;font-weight:600;color:#5d6676}header.top .chk{display:inline-flex;align-items:center;min-height:44px;box-sizing:border-box;background:#2556c8;color:#fff;border-radius:10px;padding:9px 14px;font-weight:700;font-size:.9rem;text-decoration:none;white-space:nowrap}header.top a:focus-visible{outline:3px solid #2457c5;outline-offset:2px}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) header.top{background:linear-gradient(180deg,#182338,#121722);border-color:#2b3444}:root:not([data-theme="light"]) header.top .brand{color:#fff}:root:not([data-theme="light"]) header.top small{color:#8d98ad}:root:not([data-theme="light"]) header.top a:focus-visible{outline-color:#7ea3f2}}
+:root[data-theme="dark"] header.top{background:linear-gradient(180deg,#182338,#121722);border-color:#2b3444}:root[data-theme="dark"] header.top .brand{color:#fff}:root[data-theme="dark"] header.top small{color:#8d98ad}</style><header class="top"><div class="in"><a class="brand" href="/"><img src="/icon-512.png" alt="" width="44" height="44"><span class="nm"><b>לוחית</b><small>בדיקת רכב לפי מספר רישוי</small></span></a><a class="chk" href="/">לבדיקת רכב</a></div></header>
 <main>
-  <a class="brand" href="https://luchit.app/"><img src="https://luchit.app/icon-192.png" width="44" height="44" alt="לוחית"><div><b>לוחית</b><span>בדיקת רכב לפי מספר רישוי</span></div></a>
   <h1>לוחית לעסקים ושותפויות</h1>
   <p>אנחנו בוחנים שיתופי פעולה עם גורמים בענף הרכב בישראל. הצטרפו לרשימת ההמתנה ונעדכן אתכם כשנפתח את התוכנית.</p>
   <section class="card" aria-labelledby="h2a">
