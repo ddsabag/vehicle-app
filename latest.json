@@ -4,10 +4,18 @@
  "seed": "20261112",
  "cars": 40,
  "sampled": 40,
- "mism": 1,
+ "mism": 6,
  "skipped": 0,
  "refused": 0,
  "fields": {
+  "buyer.no_red_flags": [
+   36,
+   0
+  ],
+  "buyer.no_red_flags_tag": [
+   14,
+   0
+  ],
   "fee.borrowed_note": [
    26,
    0
@@ -78,7 +86,7 @@
   ],
   "message.partial_data": [
    40,
-   1
+   0
   ],
   "mods.checks_line": [
    40,
@@ -168,6 +176,10 @@
    40,
    0
   ],
+  "recalls.checked_unlisted": [
+   28,
+   3
+  ],
   "recalls.line_honest": [
    33,
    0
@@ -196,8 +208,16 @@
    40,
    0
   ],
+  "recalls.pending_after_road": [
+   12,
+   2
+  ],
   "recalls.pending_banner": [
    35,
+   0
+  ],
+  "recalls.pending_listed": [
+   16,
    0
   ],
   "recalls.tab_shown": [
@@ -372,6 +392,10 @@
    40,
    0
   ],
+  "status.public_use": [
+   1,
+   1
+  ],
   "tag.insight": [
    18,
    0
@@ -423,12 +447,57 @@
  },
  "list": [
   {
-   "id": "c016",
-   "field": "message.partial_data",
-   "shown": "partial-data message shown",
-   "expected": "(none: every dataset answered my reads)",
-   "evidence": "app errs=public,dpf",
-   "car": "טויוטה טורקיה C-HR HYBRID 2020",
+   "id": "c003",
+   "field": "recalls.checked_unlisted",
+   "shown": "נבדק: אין ריקול פתוח ואין הסדר פשרה",
+   "expected": "the amber line: a recall of this year the per-car list cannot answer",
+   "evidence": "#12137 nolist build 2001-01-01..2013-12-31",
+   "car": "הונדה יפן CIVIC 2007",
+   "from": "active"
+  },
+  {
+   "id": "c010",
+   "field": "recalls.checked_unlisted",
+   "shown": "נבדק: אין ריקול פתוח ואין הסדר פשרה",
+   "expected": "the amber line: a recall of this year the per-car list cannot answer",
+   "evidence": "#12389 nolist build 2013-01-01..2014-12-31; #12026 nolist build 2014-01-01..2015-12-31; #11391 nolist build 2013-01-01..2014-08-01",
+   "car": "מיצובישי יפן OUTLANDER 2014",
+   "from": "active"
+  },
+  {
+   "id": "c013",
+   "field": "recalls.pending_after_road",
+   "shown": "[check with importer] #15060",
+   "expected": "(not pending: built after the car went on the road)",
+   "evidence": "build from 2017-12-17, on the road 2017-8",
+   "car": "ניסאן אנגליה LEAF 2017",
+   "from": "active"
+  },
+  {
+   "id": "c015",
+   "field": "recalls.pending_after_road",
+   "shown": "[check with importer] #14429",
+   "expected": "(not pending: built after the car went on the road)",
+   "evidence": "build from 2020-01-01, on the road 2019-4",
+   "car": "אאודי גרמניה A3 SB E-TRON 2019",
+   "from": "active"
+  },
+  {
+   "id": "c019",
+   "field": "status.public_use",
+   "shown": "אבזור בטיחות מתקדם",
+   "expected": "an insight that the car is in the public register (מונית)",
+   "evidence": "primary=active registers=active,public; public sug_rechev_nm=מונית owner=\"פרטי\"",
+   "car": "יונדאי ד. קורי SONATA HYBRID 2023",
+   "from": "active"
+  },
+  {
+   "id": "c025",
+   "field": "recalls.checked_unlisted",
+   "shown": "נבדק: אין ריקול פתוח ואין הסדר פשרה",
+   "expected": "the amber line: a recall of this year the per-car list cannot answer",
+   "evidence": "#12137 nolist build 2001-01-01..2013-12-31",
+   "car": "הונדה יפן CIVIC 2007",
    "from": "active"
   }
  ],
