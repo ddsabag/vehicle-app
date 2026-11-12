@@ -1811,8 +1811,10 @@ const store = {
   set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} if (k === "savedVehicles") { syncSaved(v); if (navReady) syncNav(); } },
 };
 /* the app checks saved cars once a day for a new recall or a test about to expire */
+/* false when the page could not keep the saved cars it restored (no room on the phone): then nothing overwrites the app's own copy */
+const SAVED_GUARD = {ok: true};
 function syncSaved(list){
-  const b = window.AndroidApp; if (!b || !b.syncSaved) return;
+  const b = window.AndroidApp; if (!b || !b.syncSaved || !SAVED_GUARD.ok) return;
   try { b.syncSaved(JSON.stringify((list || []).map((x, i) => ({plate: x.plate, title: x.nick || x.title || "", alerts: alertSet().includes(x.plate), ext: plan() !== "free", svcDue: svcDue(x.plate), stlCar: x.stlCar || null, prefs: alertPrefs(), docs: docExpAll().filter(d => d.plate === x.plate).map(d => ({cat: d.cat, exp: d.exp}))})))); } catch {}
 }
 /* what to be alerted about: every kind is on by default and the user can switch each one off in settings */
@@ -7609,6 +7611,19 @@ $("#planBtn").addEventListener("click", () => { sheet.hidden = true; if (UPGRADE
 $("#bnPro").addEventListener("click", () => { track("upgrade_open", {from: "topbar"}); if (UPGRADE_UI) renderUpgrade(); });
 initEnt(); syncPlanUi();
 if (PRO_LOCK && UPGRADE_UI) { try { const b = bridge(); if (b && b.billingInit) b.billingInit(); } catch {} }
+/* a phone whose disk is nearly full can open the page with its stored data out of reach, and the saved cars read as none; the start-up sync
+   below then wrote that empty list over the app's own copy, and the cars were gone for good (Dudu 12.11.2026; emulator, Android 15, 150 MB free).
+   Now the app's copy is the truth when the page has no saved cars: they come back from it, or, when the page cannot write them, the copy is
+   left alone and the user is told to free room */
+(function savedRestore(){
+  const b = window.AndroidApp; if (!b || !b.savedCopy || store.get("savedVehicles").length) return;
+  const copy = (() => { try { return JSON.parse(b.savedCopy() || "[]"); } catch { return []; } })();
+  const items = (Array.isArray(copy) ? copy : []).filter(x => x && /^\d{5,8}$/.test(String(x.plate))).map(x => ({plate: String(x.plate), title: String(x.title || ""), sub: "", at: Date.now(), events: [], ...(x.alerts === false ? {alerts: false} : {})}));
+  if (!items.length) return;
+  const ok = (() => { try { localStorage.setItem("savedVehicles", JSON.stringify(items)); return JSON.parse(localStorage.getItem("savedVehicles") || "[]").length === items.length; } catch { return false; } })();
+  if (!ok) { SAVED_GUARD.ok = false; track("storage_lost", {n: items.length}); setTimeout(() => toast("אין מספיק מקום פנוי בטלפון, ולכן הרכבים השמורים לא נטענו. פנו מקום ופתחו את האפליקציה שוב."), 1500); return; }
+  track("storage_restored", {n: items.length});
+})();
 syncSaved(store.get("savedVehicles"));
 try { if (window.AndroidApp && window.AndroidApp.setAnalytics) window.AndroidApp.setAnalytics(analyticsOn()); } catch {}
 /* web: Cloudflare Web Analytics (page views only, no cookies, no personal data); the token is added when the site is registered there */

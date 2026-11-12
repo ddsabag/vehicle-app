@@ -362,7 +362,7 @@ async function selftest() {
     // from WEB_EVENTS is dropped by worker/api without a word, a parameter name outside [a-z_] is dropped there too, and a report that asks GA4
     // for a parameter it has no dimension for gets a 400 for the whole query. Runs in alert-check and in ui-guardian (every index.html change).
     const api = read("worker/api/worker.js"), webEv = new Set([...((api.match(/WEB_EVENTS = new Set\(\[([^\]]+)\]/) || [])[1] || "").matchAll(/"([a-z_0-9]+)"/g)].map(m => m[1]));
-    const APP_ONLY = ["app_return", "first_save", "update_prompt", "update_start", "update_done"];   // sent only where window.AndroidApp is (install cohort, in-app update)
+    const APP_ONLY = ["app_return", "first_save", "update_prompt", "update_start", "update_done", "storage_restored", "storage_lost"];   // sent only where window.AndroidApp is (install cohort, in-app update)
     const sentEv = new Set([...html.matchAll(/\btrack\(([^,)]*)/g)].flatMap(m => [...m[1].matchAll(/"([a-z_0-9]+)"/g)].map(x => x[1])));
     ok(webEv.size >= 30 && sentEv.size >= 30, `contract: read ${webEv.size} WEB_EVENTS and ${sentEv.size} events index.html sends`);
     for (const e of sentEv) ok(webEv.has(e) || APP_ONLY.includes(e), `contract: index.html sends ${e}; add it to WEB_EVENTS in worker/api/worker.js (or to APP_ONLY here if only the app sends it)`);
