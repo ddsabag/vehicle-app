@@ -270,8 +270,8 @@ const CLOCK = [
   { wf: "data-truth.yml", he: "בדיקת העומק הנוספת", cron: "17 5 18-19 * *", title: "(17 5 18-19 * *)", inputs: { job: "deep", schedule: "17 5 18-19 * *" } },
   { wf: "data-truth.yml", he: "בדיקת העומק הנוספת", cron: "17 11 18-19 * *", title: "(17 11 18-19 * *)", inputs: { job: "deep", schedule: "17 11 18-19 * *" } },
   { wf: "competitor-check.yml", he: "בדיקת המתחרים החודשית", cron: "23 4 1 * *", title: "(23 4 1 * *)", inputs: { schedule: "23 4 1 * *", dry: "false" } },     // the 1st
-  { wf: "kit-draft.yml", he: "טיוטת ערכת התוכן השבועית", cron: "40 20 * * 3", title: "(40 20 * * 3)", inputs: { schedule: "40 20 * * 3" } },     // Wednesday night
-  { wf: "kit-qa.yml", he: "הבדיקה הוויזואלית של ערכת התוכן", cron: "40 13 * * 4", title: "(40 13 * * 4)", inputs: { schedule: "40 13 * * 4" } },   // Thursday
+  { wf: "kit-draft.yml", he: "טיוטת ערכת התוכן השבועית", cron: "40 20 * * 3", title: "(40 20 * * 3)", off: true, inputs: { schedule: "40 20 * * 3" } },     // Wednesday night
+  { wf: "kit-qa.yml", he: "הבדיקה הוויזואלית של ערכת התוכן", cron: "40 13 * * 4", title: "(40 13 * * 4)", off: true, inputs: { schedule: "40 13 * * 4" } },   // Thursday
   { wf: "magazine.yml", he: "כתבת הנתונים במגזין", cron: "30 5 * * 4", title: "(30 5 * * 4)", inputs: { part: "data", schedule: "30 5 * * 4" } },   // Thursday
   { wf: "magazine.yml", he: "הכתבה החודשית במגזין", cron: "7 8 6 * *", title: "(7 8 6 * *)", inputs: { part: "monthly", schedule: "7 8 6 * *" } },  // the 6th
 ];
@@ -306,7 +306,9 @@ export function clockDue(now, hbT) {
 }
 // a run of the entry's own: started by GitHub's schedule or by hand (site smoke and the two guardians also run on pushes and pull requests,
 // which are other checks; 3.11.2026), not skipped, and with the entry's title when it has one (for a workflow with parts by run name)
-export const counts = (x, r) => ["schedule", "workflow_dispatch"].includes(r?.event) && r.conclusion !== "skipped" && (!x.title || String(r.display_title || "").includes(x.title));
+// off: the workflow's only job is gated by a repo switch (KIT_QA, KIT_DRAFT = off): a run of its own that was skipped is the switch, not a
+// missed slot, so it counts (12.11.2026: the clock started a skipped Kit QA every hour and told Dudu GitHub was late)
+export const counts = (x, r) => ["schedule", "workflow_dispatch"].includes(r?.event) && (r.conclusion !== "skipped" || !!x.off) && (!x.title || String(r.display_title || "").includes(x.title));
 async function gh(env, path, body) {
   const r = await fetch(GH_API + path, { method: body ? "POST" : "GET", body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(10000),
     headers: { authorization: "Bearer " + env.GH_DISPATCH_TOKEN, accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28", "user-agent": UA, ...(body ? { "content-type": "application/json" } : {}) } });
