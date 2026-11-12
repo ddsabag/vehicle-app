@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-59";   // shown in /live/data so the running version is visible
+const BUILD = "live-60";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -151,10 +151,11 @@ const v136 = v => { const m = /^(\d+)\.(\d+)/.exec(v || ""); return !!m && (Numb
 // The business view: whole weeks, not "right now". GA4 needs about a day to finish counting, so the week ends yesterday after noon and the day before until then.
 const ilHour = t => Number(new Date(t).toLocaleString("en-US", { timeZone: "Asia/Jerusalem", hour: "2-digit", hourCycle: "h23" }));
 let weekly = null, weeklyAt = 0, weeklyTtl = 0;
-// the inspection fake door (product, up from 23.11 on «שחרר», switch on branch flags): read from the first day it was shown to yesterday, both places
-// together (Dudu's rule: more than 2 of 100 devices that checked a car not their own tap it -> talk to the inspection chains). Devices that tapped
-// (inspect_fake_door) over devices that checked a car not their own (car_lookup kind=car, role none or saved: the door never shows to owners).
-// Views and taps per place are context; null before the first view, so nothing is asked of GA4 until then.
+// the inspection fake door (product, up from 23.11 on «שחרר», switch inspect_fake_door on branch flags). The read was written before it went up
+// (reports/fake-door-read-2026-11.md, 12.11.2026), on unique devices from the first day it was shown to yesterday:
+// main rate = devices that tapped (inspect_fake_door) over devices that saw it (inspect_fake_door_view);
+// Dudu's rule = devices that tapped over devices that checked a car not their own (car_lookup kind=car, role none or saved: never shown to owners).
+// Both split by place and by role. Nothing is asked of GA4 before 23.11 or before the first view.
 const FD_FROM = "2026-11-23", FD_EV = ["inspect_fake_door", "inspect_fake_door_view"];
 async function fdRead(env, end) {
   const evIn = v => withReal({ filter: { fieldName: "eventName", inListFilter: { values: v } } }), num = r => r.metricValues.map(m => Number(m.value));
@@ -162,18 +163,23 @@ async function fdRead(env, end) {
   const seen = (days || []).filter(r => num(r)[0] > 0).map(r => r.dimensionValues[0].value).sort();
   if (!seen.length) return { first: null, end };
   const first = seen[0].slice(0, 4) + "-" + seen[0].slice(4, 6) + "-" + seen[0].slice(6), R = [{ startDate: first, endDate: end }];
-  const eq = (k, v) => ({ filter: { fieldName: k, stringFilter: { value: v } } });
+  const eq = (k, v) => ({ filter: { fieldName: k, stringFilter: { value: v } } }), MT = [{ name: "eventCount" }, { name: "totalUsers" }];
   const elig = { andGroup: { expressions: [eq("eventName", "car_lookup"), eq("customEvent:kind", "car"), { filter: { fieldName: "customEvent:role", inListFilter: { values: ["none", "saved"] } } }] } };
-  const [tot, byPl, base] = await Promise.all([
-    report(env, { dateRanges: R, dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }, { name: "totalUsers" }], dimensionFilter: evIn(FD_EV) }),
-    report(env, { dateRanges: R, dimensions: [{ name: "eventName" }, { name: "customEvent:place" }], metrics: [{ name: "eventCount" }, { name: "totalUsers" }], dimensionFilter: evIn(FD_EV), limit: 50 }),
-    // web and Android devices never overlap, so the per-platform device counts add up
-    report(env, { dateRanges: R, dimensions: [{ name: "platform" }], metrics: [{ name: "eventCount" }, { name: "totalUsers" }], dimensionFilter: withReal(elig) })]);
-  const T = {}, P = {}; let checks = 0, devices = 0;
-  for (const r of tot || []) T[r.dimensionValues[0].value] = num(r);
-  for (const r of byPl || []) { const [e, p] = r.dimensionValues.map(x => x.value); (P[p] ||= {})[e === "inspect_fake_door" ? "tap" : "view"] = num(r); }
-  for (const r of base || []) { const [c, u] = num(r); checks += c; devices += u; }
-  return { first, end, days: Math.round((Date.parse(end) - Date.parse(first)) / 864e5) + 1, tap: T.inspect_fake_door || [0, 0], view: T.inspect_fake_door_view || [0, 0], place: P, checks, devices };
+  const [tot, byPl, byRo, base, baseRo] = await Promise.all([
+    report(env, { dateRanges: R, dimensions: [{ name: "eventName" }], metrics: MT, dimensionFilter: evIn(FD_EV) }),
+    report(env, { dateRanges: R, dimensions: [{ name: "eventName" }, { name: "customEvent:place" }], metrics: MT, dimensionFilter: evIn(FD_EV), limit: 50 }),
+    report(env, { dateRanges: R, dimensions: [{ name: "eventName" }, { name: "customEvent:role" }], metrics: MT, dimensionFilter: evIn(FD_EV), limit: 50 }),
+    // web and Android devices never overlap, so the per-platform device counts add up (a device that checked both roles is counted once here)
+    report(env, { dateRanges: R, dimensions: [{ name: "platform" }], metrics: MT, dimensionFilter: withReal(elig) }),
+    report(env, { dateRanges: R, dimensions: [{ name: "platform" }, { name: "customEvent:role" }], metrics: MT, dimensionFilter: withReal(elig), limit: 50 })]);
+  const k = e => e === "inspect_fake_door" ? "tap" : "view", add = (a, b) => [a[0] + b[0], a[1] + b[1]], T = {}, P = {}, RO = {};
+  for (const r of tot || []) T[k(r.dimensionValues[0].value)] = num(r);
+  for (const r of byPl || []) { const [e, p] = r.dimensionValues.map(x => x.value); (P[p] ||= {})[k(e)] = num(r); }
+  for (const r of byRo || []) { const [e, ro] = r.dimensionValues.map(x => x.value); (RO[ro] ||= {})[k(e)] = num(r); }
+  let chk = [0, 0];
+  for (const r of base || []) chk = add(chk, num(r));
+  for (const r of baseRo || []) { const o = (RO[r.dimensionValues[1].value] ||= {}); o.chk = add(o.chk || [0, 0], num(r)); }
+  return { first, end, days: Math.round((Date.parse(end) - Date.parse(first)) / 864e5) + 1, tap: T.tap || [0, 0], view: T.view || [0, 0], place: P, role: RO, checks: chk[0], devices: chk[1] };
 }
 async function collectWeekly(env, today) {
   if (weekly && Date.now() - weeklyAt < weeklyTtl) return { ...weekly, cached: true };
@@ -1922,7 +1928,7 @@ const RL=C.RL=d.release&&d.release.ok?d.release:null,top=C.top=RL&&RL.list&&RL.l
 const PS=C.PS=d.stats&&d.stats.ok&&d.stats.cur?d.stats:null;
 const RU={draft:"עדכון בטיוטה",not_sent_for_review:"עדכון שעוד לא נשלח לבדיקה",in_review:"עדכון בבדיקה",approved_not_published:"עדכון שאושר ומחכה שתפרסם",not_approved:"עדכון שנדחה בבדיקה"};
 C.GP=d.play==="live"?{s:top&&top.state==="not_approved"?"bad":"ok",txt:"באוויר בחנות"+(top&&RU[top.state]?" · "+RU[top.state]:"")}:top?{s:(RS[top.state]||[0,"wait"])[1],txt:(RS[top.state]||[top.state?"מצב "+esc(top.state):"מצב לא ידוע"])[0]}:RL?{s:"wait",txt:"עוד אין גרסה בחנות"}:d.play==="review"?{s:"wait",txt:"עדיין לא פתוח לכולם"}:{s:"wait",txt:"לא הצלחתי לבדוק את דף החנות"};
-C.live=d.play==="live";
+C.live=d.play==="live";C.fdOn=!!(W&&W.fd&&(W.fd.first||W.fd.error));
 // installed now: Play's devices on the last day its reports reached, plus first opens minus removals in Analytics since (as the old page)
 {const LF=d.daily&&d.daily.life,td0=C.td,rf=(d.events||[]).find(e=>e[0]==="first_open"),rtf=d.rtToday?d.rtToday.first_open:rf?rf[1]:0,pa=PS&&PS.active!=null?PS.activeDay:"";
  let inst=null,instHow="",instMin=false;
@@ -2127,19 +2133,24 @@ REG.shareOpen={name:"איפה נשבר השיתוף?",dept:"release",def:"כמה
   else{s="ok";w="השיתוף עובד";r="אין שבר בולט בשלבי השיתוף."}
   return {s,w,v:o,big:pc(o),unit:"פתחו את חלון השיתוף",read:r,lines:[ev?"<b>"+n(Ow)+"</b> פתיחות מתוך "+n(Lw)+" דוחות, <b>"+n(Sw)+"</b> שיתופים, <b>"+n(Aw)+"</b> נכנסו מקישור":"",r],win:rng(W&&W.W),foot:"ספים: 2% פותחים, 30% משלימים",
    drill:[ev?{h:"שלבי השיתוף",html:'<ul class="kv">'+kv("דוחות שהוצגו (בדיקות רכב)",n(Lw),rng(W&&W.W)+" · אפליקציה ואתר")+kv("פתחו את חלון השיתוף",n(Ow)+' <small class="flat">('+pc(o)+")</small>","מתוך הדוחות · הסף 2%")+kv("שיתפו בפועל",n(Sw)+' <small class="flat">('+pc(c)+")</small>","מתוך הפתיחות · הסף 30%")+kv("נכנסו מקישור ששותף",n(Aw)+(a!=null?' <small class="flat">('+n1(a*10)+" לכל 10 שיתופים)</small>":""),"הסף: כניסה אחת לכל 10 שיתופים")+"</ul>"+note("פתיחת החלון נמדדת באתר מ-21.10, ובאפליקציה אצל מי שעדכן ל-1.36.")}:null]}}};
-REG.inspectDoor={name:"בדיקה במכון: יש ביקוש?",dept:"release",def:"כמה מהמכשירים שבדקו רכב שאינו שלהם לחצו על הכפתור הניסיוני «לקבוע בדיקה במכון». יותר מ-2 מכל 100: פונים לרשתות המכונים.",how:"גוגל אנליטיקס, מהיום הראשון שהכפתור הוצג ועד אתמול: מכשירים שלחצו (בסוף הסקירה ובלשונית הקנייה יחד) חלקי מכשירים שבדקו רכב שאינו שלהם (לבעלי הרכב הכפתור לא מוצג). פסק הדין ביום ה-15, מ-1,000 בדיקות, עם טווח של 90%: ביקוש אם כל הטווח מעל 2, אין ביקוש אם כל הטווח מתחת ל-2, ועל הגבול ממשיכים עד 4 שבועות.",src:"גוגל אנליטיקס",owner:"מוצר ושחרורים",
- calc(C){const W=C.W,F=W&&W.fd,td=C.td;let s,w,r,x=null,lo=null,hi=null;
-  if(F&&F.first&&F.devices){const k=F.tap[1],m=F.devices,p=k/m,z=1.645,d=1+z*z/m,c=(p+z*z/(2*m))/d,h=z*Math.sqrt(p*(1-p)/m+z*z/(4*m*m))/d;x=p*100;lo=Math.max(0,c-h)*100;hi=Math.min(1,c+h)*100}
-  if(W&&W.end?W.end<"2026-11-23"||F&&!F.error&&!F.first:!td||td<="2026-11-23"){s="wait";w="עוד לא הוצג";r="הכפתור עולה אחרי ה«שחרר» (מתוכנן ל-23.11). הקריאה מתחילה ביום שבו הוצג לראשונה, ופסק הדין ביום ה-15."}
+REG.inspectDoor={name:"בדיקה במכון: יש ביקוש?",dept:"strategy",def:"הכפתור הניסיוני «לקבוע בדיקה במכון» (בלי מחיר; לחיצה מראה «בקרוב»): כמה מהמכשירים שראו אותו לחצו, וכמה מכל 100 מכשירים שבדקו רכב שאינו שלהם לחצו. הכלל נכתב מראש, ב-12.11.",how:"גוגל אנליטיקס, מכשירים ייחודיים מהיום הראשון שהכפתור הוצג ועד אתמול. עובר: יותר מ-2 מכל 100 שבדקו רכב שאינו שלהם, וגם 3% ומעלה מהרואים לחצו, וגם לפחות 30 מכשירים לחצו. נופל: פחות מ-1 מכל 100, או פחות מ-15 מכשירים לחצו. אחרת קוראים עוד שבוע אחד, ואז ההחלטה לדודו. פסק הדין ביום ה-16 מההצגה הראשונה.",src:"גוגל אנליטיקס",owner:"אסטרטגיה ועסקים",
+ calc(C){const W=C.W,F=W&&W.fd,td=C.td,on=!!(F&&F.first),k=on?F.tap[1]:0,
+  wil=(a,m)=>{if(!m)return [null,null,null];const p=a/m,z=1.645,d=1+z*z/m,c=(p+z*z/(2*m))/d,h=z*Math.sqrt(p*(1-p)/m+z*z/(4*m*m))/d;return [p*100,Math.max(0,c-h)*100,Math.min(1,c+h)*100]},
+  A=on?wil(k,F.view[1]):[null,null,null],B=on?wil(k,F.devices):[null,null,null],x1=A[0],x2=B[0];let s,w,r;
+  if(W&&W.end?W.end<"2026-11-23"||F&&!F.error&&!F.first:!td||td<="2026-11-23"){s="wait";w="עוד לא הוצג";r="הכפתור עולה אחרי ה«שחרר» (מתוכנן ל-23.11). הקריאה מתחילה ביום שבו הוצג לראשונה, ופסק הדין ביום ה-16."}
   else if(!F||F.error){s="nodata";r="גוגל אנליטיקס לא ענה."}
-  else if(F.days<15||F.checks<1000){s="early";r="מוקדם לשפוט: יום "+n(F.days)+" מתוך 15, "+n(F.checks)+" בדיקות (צריך 1,000). פסק הדין ב-"+dm(addD(F.first,15))+(F.checks<1000?" אם יהיו מספיק בדיקות":"")+"."}
-  else if(lo>2){s="ok";w="יש ביקוש";r="יותר מ-2 מכל 100 לוחצים, גם בקצה הנמוך של הטווח: פונים לרשתות המכונים."}
-  else if(hi<2){s="warn";w="אין ביקוש";r="פחות מ-2 מכל 100 לוחצים, גם בקצה הגבוה של הטווח: לא פונים לרשתות כרגע."}
-  else if(F.days<29){s="early";w="על הגבול";r="הטווח חוצה את ה-2: ממשיכים לקרוא עד 4 שבועות ("+dm(addD(F.first,29))+")."}
-  else{s="warn";w="לא ברור";r="גם אחרי 4 שבועות הטווח חוצה את ה-2: ההחלטה לדודו."}
-  const pl=F&&F.place||{},PN={result:"בסוף הסקירה",institutes:"בלשונית הקנייה"},pv=(o,i)=>o?n(o[i]):"0";
-  return {s,w,v:x,big:x==null?"-":n1(x),unit:x!=null?"מכל 100 לחצו":"",read:r,lines:[F&&F.first?"<b>"+n(F.tap[1])+"</b> מכשירים לחצו מתוך <b>"+n(F.devices)+"</b> שבדקו רכב שאינו שלהם"+(lo!=null?" · טווח 90%: "+n1(lo)+" עד "+n1(hi):""):"","הסף: 2 מכל 100"],win:F&&F.first?"מ-"+dm(F.first)+" עד "+dm(F.end):"מ-23.11",foot:"פסק דין ביום ה-15",
-   drill:[F&&F.first?{h:"המספרים",html:'<ul class="kv">'+kv("מכשירים שבדקו רכב שאינו שלהם",n(F.devices),n(F.checks)+" בדיקות, מ-"+dm(F.first))+kv("מכשירים שלחצו",n(F.tap[1])+(x!=null?' <small class="flat">('+n1(x)+" מכל 100)</small>":""),"בשני המקומות יחד · הסף 2")+kv("טווח של 90%",lo!=null?n1(lo)+" עד "+n1(hi):"-","ביקוש רק אם כל הטווח מעל 2")+Object.keys(PN).map(k=>kv("הוצג "+PN[k],pv(pl[k]&&pl[k].view,0)+" פעמים, "+pv(pl[k]&&pl[k].tap,0)+" לחיצות",pv(pl[k]&&pl[k].view,1)+" מכשירים ראו, "+pv(pl[k]&&pl[k].tap,1)+" לחצו")).join("")+"</ul>"+note("זה כפתור ניסיוני: מי שלוחץ רואה שהשירות עוד לא פתוח. לחיצה היא סימן לביקוש, לא הזמנה.")}:null]}}};
+  else{const pass=x2!=null&&x1!=null&&x2>2&&x1>=3&&k>=30,drop=k<15||x2!=null&&x2<1,d15=dm(addD(F.first,15)),d22=dm(addD(F.first,22));
+   if(F.days<15){s="early";r="מוקדם לשפוט: יום "+n(F.days)+" מתוך 15. פסק הדין ב-"+d15+"."}
+   else if(pass){s="ok";w="יש ביקוש";r="עבר את הכלל שנכתב מראש. אפשר לפנות לרשתות המכונים: זה אישור לשיחה, לא הוכחה להכנסה. בשיחה צריך לקבל מחיר לצרכן ועמלה לבדיקה שבוצעה."}
+   else if(drop){s="warn";w="אין ביקוש";r=(k<15?"פחות מ-15 מכשירים לחצו":"פחות מ-1 מכל 100 לחצו")+": מורידים את קו המכונים מהתוכנית ומשאירים את רשימת המכונים החינמית."}
+   else if(F.days<22){s="early";w="לא ברור";r="לא עבר ולא נפל: קוראים עוד שבוע אחד, עד "+d22+"."}
+   else{s="warn";w="לא ברור";r="גם אחרי השבוע הנוסף לא עבר ולא נפל: ההחלטה לדודו."}}
+  const PN={result:"בסוף הסקירה",institutes:"בלשונית הקנייה"},RN={none:"רכב שאינו שמור",saved:"רכב שמור שאינו שלי"},g=(o,a,i)=>o&&o[a]?o[a][i]:0,rt=(a,b)=>b?n1(a/b*100):"-";
+  return {s,w,v:x1,big:x1==null?"-":n1(x1)+"%",unit:x1!=null?"לחצו":"",read:r,
+   lines:[on?"<b>"+n(k)+"</b> מכשירים לחצו מתוך <b>"+n(F.view[1])+"</b> שראו את הכפתור":"",on?"<b>"+n1(x2)+"</b> מכל 100 שבדקו רכב שאינו שלהם (הכלל: יותר מ-2)":"הכלל: יותר מ-2 מכל 100, 3% מהרואים ו-30 מכשירים"],
+   win:on?"מ-"+dm(F.first)+" עד "+dm(F.end):"מ-23.11",foot:"פסק דין ביום ה-16",
+   drill:[on?{h:"המספרים",html:'<ul class="kv">'+kv("ראו את הכפתור",n(F.view[1])+" מכשירים",n(F.view[0])+" הצגות")+kv("לחצו",n(k)+" מכשירים",n(F.tap[0])+" לחיצות · צריך לפחות 30")+kv("מהרואים לחצו",x1==null?"-":n1(x1)+"%",(A[1]!=null?"טווח 90%: "+n1(A[1])+" עד "+n1(A[2])+" · ":"")+"הסף 3%")+kv("בדקו רכב שאינו שלהם",n(F.devices)+" מכשירים",n(F.checks)+" בדיקות")+kv("לחצו מכל 100 שבדקו",n1(x2),(B[1]!=null?"טווח 90%: "+n1(B[1])+" עד "+n1(B[2])+" · ":"")+"הסף 2")+kv("לחיצות ל-100 בדיקות",F.checks?n1(F.tap[0]/F.checks*100):"-","לפי אירועים, להקשר בלבד")+"</ul>"+note("כפתור ניסיוני: מי שלוחץ רואה שהשירות עוד לא פתוח. לחיצה היא סימן לעניין, לא הזמנה.")}:null,
+    on?{h:"לפי מקום ולפי סוג הרכב",html:tbl(["","ראו","לחצו","% מהרואים"],Object.keys(PN).map(p=>[PN[p],n(g(F.place[p],"view",1)),n(g(F.place[p],"tap",1)),rt(g(F.place[p],"tap",1),g(F.place[p],"view",1))]))+tbl(["","בדקו","לחצו","מכל 100","% מהרואים"],Object.keys(RN).map(o=>{const x=F.role&&F.role[o];return [RN[o],n(g(x,"chk",1)),n(g(x,"tap",1)),rt(g(x,"tap",1),g(x,"chk",1)),rt(g(x,"tap",1),g(x,"view",1))]}))+note("מכשיר אחד יכול להופיע בשני המקומות או בשני סוגי הרכב, ולכן השורות לא מסתכמות לסך הכול.")}:null]}}};
 REG.health={name:"תקינות השירות",dept:"data",def:"אחוז הבדיקות שקיבלו תשובה. כשל הוא רק כשמשרד התחבורה לא ענה או שלא התקבלה תשובה; מספר שהוקלד לא נכון אינו כשל.",how:"גוגל אנליטיקס: בדיקות שנכשלו מסיבה טכנית (משרד התחבורה לא ענה, בלי תשובה, חיבור, קוד) חלקי כל ניסיונות הבדיקה, 7 ימים עד אתמול. היעד: עד 2% כשלים (צהוב עד 3%). נשפט מ-50 ניסיונות; פחות מ-5 כשלים אדומים נחשבים צהוב.",src:"גוגל אנליטיקס",owner:"נתונים",
  calc(C){const W=C.W,ev=C.ev,E0=C.E0,ge=C.ge,fk=W&&W.fails?W.fails[0]:null,tech=fk?(fk.source_down||0)+(fk.offline||0)+(fk.net_err||0)+(fk.js_err||0):null,att2=ev?ge(E0,"car_lookup")+ge(E0,"lookup_failed"):null,GF=tgoal(C,"failures_pct",C.end||C.td);let s,r=null;
   if(!fk||!ev)s="nodata";else if(att2<50)s="early";else{r=tech/att2*100;s=band(r,GF,true);if(s==="bad"&&tech<5)s="warn"}
@@ -2323,7 +2334,9 @@ function big3(C,win){return '<section class="card"><div class="big3">'+BIG3.map(
  const pill=(s,t)=>'<span class="chip s-'+s+'">'+t+"</span>",tag=!judged?"<small>"+(w.lines[0]||"")+"</small>":r.tg?pill(r.s,n(r.v/r.tg*100)+"% מ-"+n(r.tg)):r.tt?pill("ref",r.tt):chip(r.s,r.w);
  return '<a class="b3" href="'+href({m:id})+'" data-m="'+id+'"><span class="bg">'+w.big+'</span><span class="nm">'+esc(B3N[id])+"</span>"+tag+"</a>"}).join("")+"</div></section>"}
 // a department's state in one word, and the numbers that make it so
-function deptState(C,p){const st=DEPTS[p].metrics.map(i=>M(C,i)),bad=st.filter(r=>r.s==="bad"),warn=st.filter(r=>r.s==="warn"),nd=st.filter(r=>r.s==="nodata"),ok=st.filter(r=>r.s==="ok");
+// the business division shows the inspection fake door only once it has been shown (spec live-58 section 8)
+const dmet=(C,p)=>p==="strategy"&&C.fdOn?DEPTS[p].metrics.concat("inspectDoor"):DEPTS[p].metrics;
+function deptState(C,p){const st=dmet(C,p).map(i=>M(C,i)),bad=st.filter(r=>r.s==="bad"),warn=st.filter(r=>r.s==="warn"),nd=st.filter(r=>r.s==="nodata"),ok=st.filter(r=>r.s==="ok");
  const s=bad.length?"bad":warn.length?"warn":nd.length?"nodata":ok.length?"ok":"ref";
  return {s,word:{bad:"יש מה לתקן",warn:"לשים לב",nodata:"חסר נתון",ok:"תקין",ref:"בלי יעד"}[s],names:bad.concat(warn,nd).slice(0,3).map(r=>r.name)}}
 const deptRows=(C,div)=>'<div class="sb">'+DIVS[div].depts.map(p=>{const x=deptState(C,p);return '<a href="'+href({v:p,m:null})+'" data-v="'+p+'"><span class="l"><b>'+DEPTS[p].name+"</b>"+(x.names.length?"<small>"+esc(x.names.join(", "))+"</small>":"")+'</span><span class="r">'+chip(x.s,x.word)+"</span></a>"}).join("")+"</div>";
@@ -2354,7 +2367,7 @@ function renderDiv(C,div){const D=DIVS[div],T=todo(C,div),w=S.w;
  D.depts.forEach(p=>{h+=deptSec(C,p,w)});
  return h}
 function deptSec(C,dept,w){const P=DEPTS[dept],x=deptState(C,dept);
- let h='<section class="dsec" id="d-'+dept+'"><div class="dh"><h2>'+P.name+"</h2>"+chip(x.s,x.word)+"</div>"+tiles(C,P.metrics,w);
+ let h='<section class="dsec" id="d-'+dept+'"><div class="dh"><h2>'+P.name+"</h2>"+chip(x.s,x.word)+"</div>"+tiles(C,dmet(C,dept),w);
  if(dept==="marketing")h+=pubCard(C);
  if(dept==="strategy")h+=note("לחיצות לשותפים עוד לא נמדדות. כשיימדדו, הן יופיעו כאן.");
  const X={marketing:["campChecks","visits"],seo:["google","pages"],release:["saves","return7","shareOpen"],data:["health","siteChecks"],ops:["auto"]}[dept]||[];
