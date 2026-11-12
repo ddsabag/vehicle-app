@@ -47,12 +47,16 @@ jobs:
         run: "! grep -rnE '^[[:space:]]*runs-on:[[:space:]]*ubuntu-latest' .github/workflows/"
       - name: Engine self-test
         run: node .github/scripts/alert.mjs selftest
+      - name: Telegram texts and self-repair lists self-test (tg-text.mjs, RETRY names, the App guardian emulator-only re-run)
+        run: node .github/scripts/tg-text.mjs selftest
       - name: Ship tail self-tests (alpha-only guard, data-rebuild skip, release notes, GA4 create-only, analytics contract)
         run: node .github/scripts/play-alpha.mjs selftest && node .github/scripts/ga4-admin.mjs selftest
       # the contract's other side: every event the dashboard (worker/live) and the reports (analytics/) read is still sent by the page, the
       # app's code, worker/api or GA4 itself, so a new tile is red here before its event exists, not at the next change to the page (1 s)
       - name: Dashboard reads still sent
         run: node .github/scripts/analytics-flows.cjs --static
+      - name: Live goals self-test (made-up weeks; anchors, floors and caps, proposals, the kill switch, small samples)
+        run: node .github/scripts/goals-check.mjs selftest
       - name: Store listing self-test and files (iw-IL only, Play's limits, nothing committed when Play keeps something else)
         run: node .github/scripts/play-listing.mjs selftest && node .github/scripts/play-listing.mjs check
       - name: Data safety self-test and file (Play's export format, sent only when it changed)
@@ -95,6 +99,8 @@ jobs:
         run: node .github/scripts/review-digest.mjs --selftest
       - name: Triage prep self-test (the facts of the morning triage, Haiku only when something is not clean)
         run: node .github/scripts/triage-prep.mjs --selftest
+      - name: Alert-noise review self-test (Sundays, Sonnet once, at most 8 suggestions, nothing without a key)
+        run: node .github/scripts/alert-noise.mjs --selftest
       - name: Settlements news reading self-test (a verdict stands only on a found source, light or full review, Opus once on a bad answer, ai:stl / ai:key)
         run: node .github/scripts/settlements-ai.mjs --selftest
       - name: Settlements weekly review self-test (the quote rule, low for press-only, coverage fixes, held items carried, stl:review / ai:stlrev / ai:key)
@@ -107,8 +113,8 @@ jobs:
         run: node .github/scripts/sparse-check.mjs selftest && node .github/scripts/sparse-check.mjs
       - name: Slot check self-test (a late scheduled run finds the backup clock's start of the same slot; the same slots as luchit-uptime)
         run: node .github/scripts/slot-done.mjs selftest
-      - name: Claude API helper and competitor check self-tests (fallbacks, a change kept only with a found source, no cost in the log)
-        run: node .github/scripts/claude.mjs --selftest && node .github/scripts/competitor-check.mjs --selftest
+      - name: Claude API helper, spend counter and competitor check self-tests (fallbacks, web search fees, re-base line, a change kept only with a found source, no cost in the log)
+        run: node .github/scripts/claude.mjs --selftest && node .github/scripts/ai-usage.mjs --selftest && node .github/scripts/competitor-check.mjs --selftest
       - name: Copy audit and release-notes drafter self-tests (a point tied to its line, the Play notes rules, fallbacks, no cost in the log)
         run: node .github/scripts/copy-audit.mjs --selftest && node .github/scripts/notes-draft.mjs --selftest
       - name: Anomaly review self-test (a hidden red still flags, encrypted reply, no numbers in the status, router keys)
@@ -127,6 +133,10 @@ jobs:
         run: node worker/uptime/test.mjs
       - name: Mail Worker test
         run: node worker/mail/test.mjs
+      - name: API Worker test (the mail-sending routes keep their limits)
+        run: node worker/api/test.mjs
+      - name: Forms check self-test (each page's address check, the API refusals; Site smoke test runs it live)
+        run: node .github/scripts/form-check.mjs --selftest
       - name: Reviews Worker test
         run: node worker/reviews/test.mjs
       - name: Workers deploy self-test

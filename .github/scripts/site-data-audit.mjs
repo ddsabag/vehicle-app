@@ -543,6 +543,24 @@ function compare(c, X, P) {
     check(c, "status.hold_insight", hold ? ins.includes(hold.status) : !ins.some(t => /^הרישיון מופקד$|^הורד מהכביש/.test(t)), ins.join(" | ").slice(0, 120), hold ? hold.status : "(none)", st); }
   { const want = imp ? String(X.sets.import[0].sug_yevu || "יבוא אישי").replace(/-/g, " · ") : "", got = P.head.pills.filter(p => /יבוא/.test(p));
     check(c, "status.import_pill", imp ? got.includes(want) : !got.length, got.join(" | ") || "(none)", want || "(no import pill)", `in import dataset: ${imp}; ${regs}`); }
+  // 12.11 (full review F1, F2, F7; deep audit 2.11 c086 c099 c048 c053 c056 c060 c064 c066 c001 c025 c043): guards the daily check counts before
+  // the 22.11 fixes ship; they sit in site-data-truth.mjs SOFT until then
+  const recUnknown = P.head.msgs.some(t => /מידע על ריקולים לא זמין/.test(t));
+  // F1: an active car the public register also holds (a taxi, a bus, a driving-school car) says so on the page, beside the private owner line
+  const pubRow = (X.sets.public || [])[0], topRow = X.primary && (X.sets[X.primary] || [])[0];
+  const pubUse = X.primary === "active" && !!pubRow && sameCarR(topRow, pubRow) && !(pubSt(pubRow) || {}).gone;
+  const pubType = pubUse ? sp(pubRow.sug_rechev_nm || R.sug_rechev_nm || "רכב ציבורי") : "";
+  if (pubUse || ins.some(t => /במאגר הרכב הציבורי/.test(t)))
+    check(c, "status.public_use", pubUse === ins.some(t => /במאגר הרכב הציבורי|מונית/.test(t)), ins.join(" | ").slice(0, 120), pubUse ? `an insight that the car is in the public register (${pubType})` : "(none)", `${regs}; public sug_rechev_nm=${pubRow ? pubRow.sug_rechev_nm || "" : "-"} owner="${R.baalut || ""}"`);
+  // F2: "no red flags" is a claim about everything the page knows: never with a rental owner now, a public-register car or recall data that did not load
+  { const buyT = (P.tabs.buy || {}).text || "", none = /לא עלו דגלים אדומים/.test(buyT);
+    const why = [kindOf(R.baalut) === "rental" && "rental owner now", pubUse && `public register (${pubType})`, recUnknown && "recall data did not load"].filter(Boolean);
+    if (!cancelled && buyT) check(c, "buyer.no_red_flags", !(none && why.length), none ? "לא עלו דגלים אדומים בנתונים" : "(flags listed)", why.length ? `a flag for: ${why.join(", ")}` : "(either)", `owner="${R.baalut || ""}"`);
+    // a disabled parking tag is personal: counted quietly, never printed
+    if (!cancelled && buyT && X.sets.tag !== undefined && !X.errs.tag) check(c, "buyer.no_red_flags_tag", !(none && (X.sets.tag || []).length > 0), "", "", "", true); }
+  // F7: the model's open-recall rate is not shown as a figure when this page could not read the recall data
+  { const all = Object.values(P.tabs).map(t => (t && t.text) || "").join(" "), m = all.match(/ריקולים פתוחים לכל 1,000 רכבים\s*([\d.]+)/);
+    if (recUnknown) check(c, "stats.recall_rate_unknown", !m, m ? `rate ${m[1]}` : "(no rate)", "(no rate while the recall data did not load)", ""); }
   { const ck = cardOf(P, "buy", /^מה נבדק/), first = ck ? ck.items[0] || "" : "";
     const want = cancelled ? "הרכב ירד מהכביש" : inactive ? "הרכב רשום כלא פעיל" : hold ? hold.status : "הרכב פעיל ולא בוטל";
     check(c, "status.buy_checklist", first === want, first || "(no checks card)", want, regs); }
@@ -770,6 +788,20 @@ function compare(c, X, P) {
         check(c, "recalls.model_fits", ok, `${p.s.card === "pend" ? "[check with importer] " : ""}${p.s.pill || "(no pill)"}${p.s.dim ? " (dim)" : ""}`, [...new Set(exps.map(e => `${e.card === "pend" ? "[check with importer] " : ""}${e.pill || "(no pill)"}${e.dim ? " (dim)" : ""}`))].join(" or "),
           `#${p.x.r.RECALL_ID} build ${p.x.r.BUILD_BEGIN_A || "?"}..${p.x.r.BUILD_END_A || "?"} year=${y} fits=${e0.f.fits}${e0.f.near ? " near" : ""}${e0.f.byList ? " by-list" : ""} reach=${e0.k} knownOpen=${knownOpen}`);
       }
+      // 12.11 (full review F3; deep audit 2.11 c004 c016 c065, c031 c062, c003 c027 c063): recall lines that contradict the rows (SOFT until 22.11)
+      { const ymN = x => { const m = String(x || "").match(/((?:19|20)\d{2})-(\d{1,2})/); return m ? +m[1] * 12 + +m[2] - 1 : null; };
+        const road = ymN(R.moed_aliya_lakvish);
+        for (const p of pool2.filter(p => p.used && p.s.card === "pend")) {
+          const grp = [...new Map([p.x.r, ...cands.map(x => x.r), ...catRows].filter(r => recKey(r) === recKey(p.x.r)).map(r => [String(r.RECALL_ID), r])).values()];
+          // (a) every batch of the defect was built from a month after the car went on the road
+          if (road !== null) { const late = grp.every(r => { const b = ymN(r.BUILD_BEGIN_A); return b !== null && b > road; });
+            check(c, "recalls.pending_after_road", !late, `[check with importer] #${p.x.r.RECALL_ID}`, "(not pending: built after the car went on the road)", `build from ${p.x.r.BUILD_BEGIN_A || "?"}, on the road ${R.moed_aliya_lakvish || "?"}`); }
+          // (c) the per-car list covers every batch of the defect and does not hold this plate open: closed or not this car, not pending
+          if (hz && knownOpen) check(c, "recalls.pending_listed", !grp.every(r => reach(r) === "listed"), `[check with importer] #${p.x.r.RECALL_ID}`, "(not pending: the per-car list covers it)", grp.map(r => `#${r.RECALL_ID} ${reach(r)}`).join(" "));
+        }
+        // (b) "checked" with a tick while a recall of this model and year has no per-car list to answer for this plate
+        if (hz && knownOpen && line && !cancelled) { const open = cands.filter(x => x.brand && (x.k === "strict" || fitsOf(x.r).byList) && fitsOf(x.r).fits === true && ["nolist", "absent"].includes(reach(x.r)));
+          check(c, "recalls.checked_unlisted", !(open.length && /^נבדק/.test(line.title)), line.title.slice(0, 50), open.length ? "the amber line: a recall of this year the per-car list cannot answer" : "(either)", open.slice(0, 4).map(x => `#${x.r.RECALL_ID} ${reach(x.r)} build ${x.r.BUILD_BEGIN_A || "?"}..${x.r.BUILD_END_A || "?"}`).join("; ")); } }
     } }
   // settlements: never for a personal import or a car off the road; the banner, the card and the checklist must agree
   { const card = cardOf(P, "recalls", /הסדר פשרה/), list = card ? card.stl : [];

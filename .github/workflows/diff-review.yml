@@ -71,7 +71,10 @@ jobs:
       - name: Diff review
         id: review
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}
+          AI: ${{ vars.AI }}   # one switch for every Claude bot (claude.mjs gate; CEO review 12.11.2026)
+          AI_CAP_USD: ${{ vars.AI_CAP_USD }}
+          AI_GRANTS: ${{ vars.AI_GRANTS }}
           DIFF_REVIEW: ${{ vars.DIFF_REVIEW }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

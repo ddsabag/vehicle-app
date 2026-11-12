@@ -222,8 +222,12 @@ async function tgCheck(env) {
 // (slot-done.mjs, below). GitHub answers 401/403/404 to the token =
 // one day alert at most once per 22.5 h (an expired or revoked token); any other failure is a log line and the next hour retries.
 const CLOCK = [
-  { wf: "social-publish.yml", he: "פרסום ברשתות", utc: [5, 20], gap: 40, inputs: { mode: "run" } },              // slots every 15 min 04:04-19:49
-  { wf: "live-watch.yml", he: "מעקב הדשבורד", utc: [0, 24], gap: 75, inputs: { dry_run: "false" } },             // :12 and :42
+  // social publish: "every" = checked on each 10-minute tick, not only on the hourly pass, and started when no run of its own began in the
+  // last 14 min. Its slots are at :00, :15 and :30 Israel time, and the hourly pass at :21 put a :30 post up 51 min late (measurement 8.11.2026)
+  { wf: "social-publish.yml", he: "פרסום ברשתות", utc: [5, 20], every: 14, inputs: { mode: "run" } },            // slots every 15 min 04:04-19:49
+  // live watch: gap under an hour, so the hourly pass starts it every hour while GitHub skips it (with 75 a start at :21 held the next pass
+  // and it ran every 2 h; /live's boards waited, measurement 5.11.2026). A run of GitHub's own in the last 50 min still counts
+  { wf: "live-watch.yml", he: "מעקב הדשבורד", utc: [0, 24], gap: 50, inputs: { dry_run: "false" } },             // :12 and :42
   { wf: "reviews-monitor.yml", he: "ביקורות בחנות", utc: [7, 20], gap: 330, inputs: { dry_run: "false" } },       // 06:15, 11:15, 17:15
   { wf: "release-watch.yml", he: "מעקב הגרסה בחנות", utc: [8, 20], gap: 330, inputs: { mode: "on" } },            // 06:40, 11:40, 17:40
   { wf: "alert-daily.yml", he: "סיכום הבוקר", morning: [845, 2200], gap: 60, inputs: { dry_run: "false" } },      // 05:05 / 06:05 (08:05 local)
@@ -291,7 +295,7 @@ export function clockSlot(cron, now) {
   return 0;
 }
 // an entry's cut-off: a run created since it counts as this round's
-const clockSince = (x, now) => x.cron ? clockSlot(x.cron, now) : x.slot ? clockSlot(x.slot, now) : now - x.gap * 6e4;
+const clockSince = (x, now) => x.cron ? clockSlot(x.cron, now) : x.slot ? clockSlot(x.slot, now) : now - (x.every || x.gap) * 6e4;
 // the entries due now (pure, for the test): utc hours, the morning window, or from an hour after a cron slot for 14 hours ("il": a slot
 // at that hour in Israel only)
 export function clockDue(now, hbT) {
@@ -312,8 +316,10 @@ async function gh(env, path, body) {
 async function backupClock(env, u, now, fire) {
   const c = u.clock;
   if (!env.GH_DISPATCH_TOKEN || String(env.CLOCK || "").toLowerCase() === "off") return;
-  if (now - ms(c.at) < 55 * 6e4) return;
-  c.at = iso(now);
+  // the hourly pass reads every entry; the ticks between passes read only the "every" ones
+  const hourly = !(now - ms(c.at) < 55 * 6e4);
+  if (!hourly && !CLOCK.some(x => x.every)) return;
+  if (hourly) c.at = iso(now);
   const today = ilDate(new Date(now));
   if (c.day !== today) Object.assign(c, { day: today, n: 0 });
   const keys = new Set(CLOCK.map(clockKey));
@@ -321,7 +327,7 @@ async function backupClock(env, u, now, fire) {
   const morningOpen = CLOCK.some(x => x.morning && ilHM(new Date(now)) >= x.morning[0] && ilHM(new Date(now)) < x.morning[1]);
   // read order: the frequent ones and the morning, then the weekly and monthly (one slot, so not left behind on a heavy pass), then the daily
   const rank = x => x.cron ? 1 : x.gap >= 1200 ? 2 : 0;
-  const due = clockDue(now, morningOpen ? await heartbeat() : null).sort((a, b) => rank(a) - rank(b)), started = [];
+  const due = clockDue(now, hourly && morningOpen ? await heartbeat() : null).filter(x => hourly || x.every).sort((a, b) => rank(a) - rank(b)), started = [];
   let refused = 0, reads = 0, jobReads = 0;
   for (const x of due) {
     if (started.length >= CLOCK_MAX || reads >= CLOCK_READS) break;

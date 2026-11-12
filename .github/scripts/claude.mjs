@@ -4,6 +4,10 @@
 // key, a cost or a token count: the logs are public, and the Console's Cost page has the spend.
 //   client(env, {timeout})       {api, why}: api is null when the key or the SDK is missing, and why says which; timeout: ms per request
 //                                (the SDK's own is 10 minutes: a bot inside a short job sets less)
+//                                Also null, as quiet as no key (why starts "no ANTHROPIC_API_KEY use", which the callers already treat as
+//                                off, never an alert), when the repo variable AI is off (one switch for every bot, CEO review 12.11.2026),
+//                                or when no credit cycle is open: no grant running and no AI_CAP_USD (ai-usage.mjs open()).
+//                                The workflows also pass an empty key when AI=off, so the bots that look at the key themselves skip too.
 //   ask(api, params)             one messages.create: {msg} | {error}
 //   batch(api, requests, opt)    submits a Message Batch and waits for it up to opt.minutes: {id, ended, results} (results once ended) | {error}
 //   collect(api, id, opt)        the same wait for a batch an earlier run submitted: {ended, results} | {error}
@@ -19,12 +23,19 @@
 // Every reply is counted toward the credit cycle's spend (ai-usage.mjs, branch ai-usage; ops 1.11): never blocking, never a throw.
 // The workflow installs the SDK (npm install --no-save, the version in SDK); the app never loads it.
 //   node claude.mjs --selftest   offline: the fallbacks, the error reasons, reading a reply, and a batch through a fake API
-import { record } from "./ai-usage.mjs";
+import { record, open } from "./ai-usage.mjs";
 export const SDK = "@anthropic-ai/sdk@0.133.0";
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-export async function client(env = process.env, { timeout } = {}) {
+export const OFF = /^\s*(off|0|false|no)\s*$/i;
+export function gate(env = process.env, now = new Date()) {
+  if (OFF.test(String(env.AI || ""))) return "no ANTHROPIC_API_KEY use: AI=off";
+  if (!open(now, env)) return "no ANTHROPIC_API_KEY use: no credit cycle (no grant running and no AI_CAP_USD)";
+  return "";
+}
+export async function client(env = process.env, { timeout, now } = {}) {
   if (!env.ANTHROPIC_API_KEY) return { api: null, why: "no ANTHROPIC_API_KEY" };
+  const shut = gate(env, now); if (shut) return { api: null, why: shut };
   let Anthropic;
   try { Anthropic = (await import("@anthropic-ai/sdk")).default; } catch { return { api: null, why: `the SDK is not installed (${SDK})` }; }
   return { api: new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 3, ...(timeout > 0 ? { timeout } : {}) }), why: "" };
@@ -81,7 +92,10 @@ async function results(api, id) {
     out.set(r.custom_id, res.type === "succeeded" ? { ok: true, msg: res.message } : { ok: false, why: res.type === "errored" ? `errored ${(err && err.type) || ""}`.trim() : String(res.type) });
   }
   const sum = {}; let model = "";   // the batch's spend, at half price, in one count
-  for (const v of out.values()) if (v.ok && v.msg && v.msg.usage) { model ||= v.msg.model; for (const [k, n] of Object.entries(v.msg.usage)) if (typeof n === "number") sum[k] = (sum[k] || 0) + n; }
+  for (const v of out.values()) if (v.ok && v.msg && v.msg.usage) {
+    model ||= v.msg.model; for (const [k, n] of Object.entries(v.msg.usage)) if (typeof n === "number") sum[k] = (sum[k] || 0) + n;
+    const w = v.msg.usage.server_tool_use && v.msg.usage.server_tool_use.web_search_requests; if (w) sum.web_search_requests = (sum.web_search_requests || 0) + w;   // ai-usage prices it
+  }
   if (model) await record(model, sum, { batch: true });
   return out;
 }
@@ -104,8 +118,14 @@ export async function collect(api, id, { minutes = 0, every = 30, cancel = false
 if (process.argv[1] && process.argv[1].endsWith("claude.mjs") && process.argv.includes("--selftest")) {
   let bad = 0; const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); if (!c) bad++; };
   ok((await client({})).api === null && (await client({})).why === "no ANTHROPIC_API_KEY", "no key: no client, and why says so");
-  { const c = await client({ ANTHROPIC_API_KEY: "test" }); ok(c.api ? c.why === "" : /SDK is not installed/.test(c.why), "a key without the SDK installed: no client either (the bot keeps today's behaviour)"); }
-  { const c = await client({ ANTHROPIC_API_KEY: "test" }, { timeout: 120000 }); ok(c.api ? c.api.timeout === 120000 : /SDK is not installed/.test(c.why), "a bot's own timeout per request"); }
+  { const k = { ANTHROPIC_API_KEY: "test" }, inGrant = new Date("2026-11-10T00:00Z"), after = new Date("2026-11-21T00:00Z");
+    const off = await client({ ...k, AI: "off" }, { now: inGrant });
+    ok(off.api === null && off.why === "no ANTHROPIC_API_KEY use: AI=off" && /ANTHROPIC_API_KEY/.test(off.why) && ["OFF", " 0 ", "false"].every(v => gate({ ...k, AI: v }, inGrant)), "AI=off: no client, quiet like no key (the callers skip on /ANTHROPIC_API_KEY/)");
+    ok(gate({ ...k, AI: "on" }, inGrant) === "" && gate({ ...k }, inGrant) === "", "AI unset or on: inside the grant the bots may call");
+    ok(/no credit cycle/.test(gate(k, after)) && (await client(k, { now: after })).api === null, "after 20.11 without AI_CAP_USD: no client (no default $100)");
+    ok(gate({ ...k, AI_CAP_USD: "25" }, after) === "" && /AI=off/.test(gate({ ...k, AI_CAP_USD: "25", AI: "off" }, after)), "after 20.11 with a real cap: open, and AI=off still wins"); }
+  { const c = await client({ ANTHROPIC_API_KEY: "test" }, { now: new Date("2026-11-10T00:00Z") }); ok(c.api ? c.why === "" : /SDK is not installed/.test(c.why), "a key without the SDK installed: no client either (the bot keeps today's behaviour)"); }
+  { const c = await client({ ANTHROPIC_API_KEY: "test" }, { timeout: 120000, now: new Date("2026-11-10T00:00Z") }); ok(c.api ? c.api.timeout === 120000 : /SDK is not installed/.test(c.why), "a bot's own timeout per request"); }
   ok(reason({ status: 401 }) === "401 key" && reason({ status: 429 }) === "429 rate" && reason({ status: 529 }) === "529 server", "error reasons by status");
   ok(reason({ status: 400, error: { error: { type: "invalid_request_error", message: "Your credit balance is too low to access the API" } } }) === "400 invalid_request_error: Your credit balance is too low to access the API", "a 400 keeps its type and message (the month's credit ran out)");
   ok(reason({ status: 400, error: { error: { type: "invalid_request_error", message: "prompt is too long: 250,000 tokens; ref 12-345-67" } } }) === "400 invalid_request_error: prompt is too long: # tokens; ref #", "long numbers never reach the log");

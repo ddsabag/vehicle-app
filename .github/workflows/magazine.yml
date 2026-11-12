@@ -82,12 +82,13 @@ jobs:
         run: |
           git fetch -q --depth 1 origin catalog-data && mkdir -p cat-data && git archive FETCH_HEAD r meta.json | tar -x -C cat-data \
             || echo "::warning::catalog-data could not be read: the model pages are built without their recall section"
-      # the monthly prose comes from Claude (magazine-ai.mjs): the SDK only when the key is there and MAGAZINE_AI is not 0; a failed install
-      # leaves the template, the same as no key
-      - name: Claude SDK for the monthly prose
-        if: steps.slot.outputs.done != '1' && env.KIND == 'monthly' && vars.MAGAZINE_AI != '0'
+      # the monthly prose (magazine-ai.mjs) and the model page summaries (model-answers.mjs) come from Claude: the SDK whenever the key is
+      # there; each script keeps its own switch (MAGAZINE_AI=0, MODEL_ANSWERS=0), so one switch never turns the other off; a failed install
+      # leaves the template and today's summaries, the same as no key
+      - name: Claude SDK for the monthly prose and the model summaries
+        if: steps.slot.outputs.done != '1' && env.KIND == 'monthly'
         env:
-          HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+          HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' && vars.AI != 'off' }}
         run: |
           if [ "$HAS_KEY" != true ]; then echo "no ANTHROPIC_API_KEY: the template writes the article"; exit 0; fi
           sdk=$(node --input-type=module -e 'console.log((await import(process.cwd() + "/.github/scripts/claude.mjs")).SDK)')
@@ -97,7 +98,10 @@ jobs:
         if: steps.slot.outputs.done != '1'
         id: gen
         env:
-          ANTHROPIC_API_KEY: ${{ env.KIND == 'monthly' && secrets.ANTHROPIC_API_KEY || '' }}
+          ANTHROPIC_API_KEY: ${{ env.KIND == 'monthly' && vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}
+          AI: ${{ vars.AI }}   # one switch for every Claude bot (claude.mjs gate; CEO review 12.11.2026)
+          AI_CAP_USD: ${{ vars.AI_CAP_USD }}
+          AI_GRANTS: ${{ vars.AI_GRANTS }}
           MAGAZINE_AI: ${{ vars.MAGAZINE_AI }}
         run: |
           if [ "$KIND" = data ]; then
@@ -132,8 +136,10 @@ jobs:
           ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
           DATA_SLUG: ${{ steps.gen.outputs.slug }}
           WRITER: ${{ steps.gen.outputs.writer }}
-          AI: ${{ steps.gen.outputs.ai }}
-          ANTHROPIC_API_KEY: ${{ env.KIND == 'monthly' && secrets.ANTHROPIC_API_KEY || '' }}
+          AI: ${{ steps.gen.outputs.ai }}   # here AI is the article step's outcome; the switch vars.AI blanks the key below instead
+          ANTHROPIC_API_KEY: ${{ env.KIND == 'monthly' && vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}
+          AI_CAP_USD: ${{ vars.AI_CAP_USD }}
+          AI_GRANTS: ${{ vars.AI_GRANTS }}
           MODEL_ANSWERS: ${{ vars.MODEL_ANSWERS }}
         run: |
           # Dudu 2026-10-15: publish on its own after the automatic checks; a failed check sends an alert (monthly: and opens a PR instead).
@@ -170,7 +176,7 @@ jobs:
                 || echo "::warning::model page summaries were not written this month: the pages keep the text they had"
             fi
             node .github/scripts/pages.mjs
-            paths=(magazine sitemap.xml model)
+            paths=(magazine sitemap.xml model brand check guide 404.html)   # everything pages.mjs and landing.mjs write; brand and check pages link to model pages that come and go
             [ -e model-answers.json ] && paths+=(model-answers.json)
             if [ -z "$(git status --porcelain "${paths[@]}")" ]; then echo "nothing new"; exit 0; fi
             # the newest monthly article (slug YYYY-MM): on a day a data article also came out, that one can share the date and sort first
@@ -190,6 +196,8 @@ jobs:
             git push origin HEAD:main || { git pull --rebase -q origin main && git push origin HEAD:main; }
             gh api -X POST "repos/$GITHUB_REPOSITORY/pages/builds" >/dev/null 2>&1 || true
             tg "$(cls done)"$'\n'"כתבה חדשה במגזין עלתה לאתר"$'\n'"$title"$'\n'"https://luchit.app/magazine/$slug/"$'\n'"$wline""👌 לא צריך לעשות כלום." true summary "mag:pub:$slug"
+            # a held article that is now out (a hand run after a failed one): its mag:fail item closes quietly, the publish notice above says it
+            SLUG="$slug" timeout 30 node --input-type=module -e 'const r = await import(process.cwd() + "/.github/scripts/alert.mjs"); await r.resolve(["mag:fail:" + process.env.SLUG], { tell: false });' >/dev/null 2>&1 || true
             node .github/scripts/flash.mjs content info "המגזין פורסם: $title" "https://luchit.app/magazine/$slug/"
           elif [ "$KIND" = monthly ]; then
             branch="magazine/$slug"
@@ -225,7 +233,10 @@ jobs:
           npm install --prefix .github/scripts --no-save --no-package-lock --ignore-scripts --no-audit --no-fund "$sdk" >/dev/null
       - name: The last 5 closed months, the template and Claude side by side
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}
+          AI: ${{ vars.AI }}   # one switch for every Claude bot (claude.mjs gate; CEO review 12.11.2026)
+          AI_CAP_USD: ${{ vars.AI_CAP_USD }}
+          AI_GRANTS: ${{ vars.AI_GRANTS }}
           MAGAZINE_DRY: "1"
         run: |
           months=$(node -e 'const n = new Date(), cur = n.getUTCFullYear() * 100 + n.getUTCMonth() + 1; console.log(Object.keys(require("./market.json").months).filter(k => +k < cur).sort().slice(-5).join(" "))')
@@ -263,7 +274,10 @@ jobs:
           npm install --prefix .github/scripts --no-save --no-package-lock --ignore-scripts --no-audit --no-fund "$sdk" >/dev/null
       - name: The pilot pages' summaries
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}
+          AI: ${{ vars.AI }}   # one switch for every Claude bot (claude.mjs gate; CEO review 12.11.2026)
+          AI_CAP_USD: ${{ vars.AI_CAP_USD }}
+          AI_GRANTS: ${{ vars.AI_GRANTS }}
           MODEL_ANSWERS_MINUTES: "30"
         run: |
           mkdir -p out && MODEL_FACTS=out/model-facts.json node .github/scripts/pages.mjs >/dev/null
