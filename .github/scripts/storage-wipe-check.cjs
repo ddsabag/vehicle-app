@@ -57,7 +57,10 @@ async function open(tag, res) {
     }, PLATE);
     await sleep(15000);   // let both stores reach the disk
     res.filesAfterSeed = files();
-    await open("cold-restart", res);
+    p = await open("cold-restart", res);
+    // the page's storage reads as empty while the app's own copy is there (what the nearly full disk did on 12.11): does the start bring the cars back?
+    await p.evaluate(() => localStorage.removeItem("savedVehicles")); await sleep(3000);
+    await open("empty-read", res);
     // storage pressure: the system frees every app's cache (what a "clean up" or a low disk does)
     res.trim = sh("pm trim-caches 999G"); await open("trim-caches", res);
     // app hibernation (Android 12+): the system hibernates an app unused for months
