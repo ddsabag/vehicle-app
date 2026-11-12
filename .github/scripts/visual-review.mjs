@@ -190,7 +190,7 @@ Report only real, visible defects of these kinds:
 - other: anything else a person would call visibly broken, such as a missing icon, an image that did not load, or two copies of one element.
 
 These are not defects, do not report them:
-- The test data itself: plates such as 12-345-67, 1234567, 7654321, 385-48-003 or 111-22-233, and the car names, prices, dates and counts, are invented for the test. Car makes and models may be in English inside Hebrew text (טויוטה COROLLA).
+- The test data itself: plates such as 76-543-21, 7654321, 385-48-003 or 111-22-233, and the car names, prices, dates and counts, are invented for the test. Car makes and models may be in English inside Hebrew text (טויוטה COROLLA).
 - Android's own parts: the status bar at the top (time, battery, notification icons), the navigation bar at the bottom or at the side, and the on-screen keyboard.
 - Large font settings (130% and 200%): text that is bigger, wraps onto more lines or makes a card taller is correct there. Clipping, overlap or a broken layout there is a defect as at any size: the app must work at the font size a person chose.
 - Scrolling: content that goes on below the bottom of a phone screen, below the end of a part of a long page, or under the app's bottom navigation bar, even in the middle of a sentence; a floating button (such as השוואה) or a bar fixed to the screen, drawn over content that scrolls under it; a row of cards that scrolls sideways, with its last card cut at the screen edge.
