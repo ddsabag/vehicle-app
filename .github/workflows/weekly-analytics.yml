@@ -110,7 +110,10 @@ jobs:
         if: ${{ steps.slot.outputs.done != '1' && (github.event_name == 'schedule' || inputs.schedule != '' || inputs.send == true || inputs.review == true) }}
         continue-on-error: true
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}
+          AI: ${{ vars.AI }}   # one switch for every Claude bot (claude.mjs gate; CEO review 12.11.2026)
+          AI_CAP_USD: ${{ vars.AI_CAP_USD }}
+          AI_GRANTS: ${{ vars.AI_GRANTS }}
         run: node .github/scripts/anomaly-review.mjs analytics/out out-review
       - uses: actions/upload-artifact@v7
         if: ${{ hashFiles('out-review/status.json') != '' }}

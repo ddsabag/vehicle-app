@@ -156,7 +156,10 @@ jobs:
           # the extra run on the 18th: about 200 cars (the most the reading allows), before the credit cycle ends on the 20th
           QUERIES: ${{ inputs.queries || (((github.event.schedule || inputs.schedule) == '17 5 18-19 * *' || (github.event.schedule || inputs.schedule) == '17 11 18-19 * *') && 'n=150 rare=50 max=200 minutes=150') || '' }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}
+          AI: ${{ vars.AI }}   # one switch for every Claude bot (claude.mjs gate; CEO review 12.11.2026)
+          AI_CAP_USD: ${{ vars.AI_CAP_USD }}
+          AI_GRANTS: ${{ vars.AI_GRANTS }}
           DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}

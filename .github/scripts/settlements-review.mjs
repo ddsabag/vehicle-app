@@ -56,6 +56,8 @@ export function fetched(contents) {
   }
   return { pages, cited };
 }
+// the notice images transcribed before the review (transcribeNotices) count as their pages' text
+export const withNotices = (seen, notices) => { for (const [u, t] of notices || []) seen.pages.set(norm(u), (seen.pages.get(norm(u)) || "") + squash(t)); return seen; };
 // the quote rule: at least one quote, each from a page fetched here, its words on that page (or in a passage the API cited from it)
 export function quoted(quotes, seen) {
   const q = (Array.isArray(quotes) ? quotes : []).filter(x => x && typeof x.url === "string" && typeof x.text === "string").slice(0, 6);
@@ -69,7 +71,7 @@ export function quoted(quotes, seen) {
   return { ok: true, primary: q.some(x => onSite(x.url, PRIMARY)), urls: q.map(x => x.url) };
 }
 
-export function prompt({ today, items, stories, issues, deep, models }) {
+export function prompt({ today, items, stories, issues, deep, models, notices }) {
   const L = [
     `Today is ${today}. You keep a list of Israeli class-action settlements that give car owners something (a free repair, a refund, a longer warranty). An app shows each entry to owners of matching cars, worded as "ייתכן" (may apply).`,
     "Verify every item below at a primary source: the court notice (yitzugit.co.il posts the published notices), the importer's settlement page, or two independent press reports. Search in Hebrew. Fetch each page you rely on: only what you fetched in this conversation counts.",
@@ -88,6 +90,7 @@ export function prompt({ today, items, stories, issues, deep, models }) {
     ...stories.map(s => `${s.ref} | ${s.d} | ${s.t} | ${s.u} | ${s.lead}`));
   if (issues.length) L.push("Coverage issues (the list's rules against the model catalogue; fix with update on md, not, m or nocat only, no quotes needed; ref | issue | catalogue model names of that maker):",
     ...issues.map(i => `${i.ref} | ${i.issue} | ${(models[i.id] || []).join(", ")}`));
+  for (const [u, t] of notices || []) L.push(`The notice image on ${u} reads (a machine transcription of the picture; quote it with that url, it counts as that page's text):`, t.slice(0, 12000));
   if (deep) L.push("This week also read the importers' settlement pages below (one decision per settlement you find there that is missing from the list or differs from it, ref \"deep\"):", ...DEEP_PAGES);
   L.push("Answer with JSON only, no other text:",
     '{"decisions":[{"ref":"s1","action":"add|update|remove|none|person","id":"","entry":{},"fields":{},"quotes":[{"url":"https://","text":"exact words from that page"}],"why":"one Hebrew sentence"}]}');
@@ -149,6 +152,42 @@ export function apply(decisions, ctx) {
     done.push({ ref: d.ref, action: act, id, why: clean(d.why, 200), sources: q.urls || [] });
   }
   return { items, done, held, dropped };
+}
+
+// A court notice on yitzugit is often only a picture of the printed notice, which web_fetch cannot read (8.11.2026: Champion 13195-10-25 was held
+// for a person). The runner downloads the post's notice images and the model transcribes each in a call of its own, at low effort. The
+// transcription counts as that page's text for the quote rule, and the review reads it in its prompt
+export const IMG_CAP = 2, IMG_STORIES = 4, IMG_BYTES = 5 * 2 ** 20;
+export function noticeImages(html) {
+  const seen = new Set(), out = [];
+  for (const m of String(html || "").matchAll(/https?:\/\/(?:www\.)?yitzugit\.co\.il\/wp-content\/uploads\/[^"'\s)<>]+?\.(?:jpe?g|png|webp)/gi)) {
+    const u = m[0].replace(/-\d{2,4}x\d{2,4}(?=\.\w+$)/, "");   // the full size, not a thumbnail
+    if (/logo|icon|avatar|banner/i.test(u) || seen.has(u)) continue;
+    seen.add(u); out.push(u);
+  }
+  return out.slice(0, IMG_CAP);
+}
+export async function transcribeNotices(api, stories, get = fetch) {
+  const pages = new Map(); let calls = 0;
+  for (const s of stories.filter(s => host(s.u) === "yitzugit.co.il").slice(0, IMG_STORIES)) {
+    let html = ""; try { const r = await get(s.u); if (r.ok) html = await r.text(); } catch { /* no page, no images */ }
+    const texts = [];
+    for (const u of noticeImages(html)) {
+      try {
+        const r = await get(u); if (!r.ok) continue;
+        const buf = Buffer.from(await r.arrayBuffer()); if (!buf.length || buf.length > IMG_BYTES) continue;
+        const media = /\.png$/i.test(u) ? "image/png" : /\.webp$/i.test(u) ? "image/webp" : "image/jpeg";
+        calls++;
+        const a = await ask(api, { model: MODEL, max_tokens: 4000, output_config: { effort: "low" }, messages: [{ role: "user", content: [
+          { type: "image", source: { type: "base64", media_type: media, data: buf.toString("base64") } },
+          { type: "text", text: "Transcribe the Hebrew text of this printed notice word for word, line by line, adding nothing. If it is not a text notice, answer NONE." }] }] });
+        const t = a.error ? "" : String(answer(a.msg).text || "").trim();
+        if (t && t !== "NONE") texts.push(t);
+      } catch { /* one image less */ }
+    }
+    if (texts.length) pages.set(s.u, texts.join("\n"));
+  }
+  return { pages, calls };
 }
 
 async function tellRouter(router, level, key, text, link) { if (router) try { await router.alert(level, key, text, link || "", { today: "silent", legacy: () => false }); } catch { /* the log says it */ } }
@@ -220,10 +259,11 @@ export async function run({ env = process.env, api, router, log = console.log, t
   };
   if (api === undefined) { const c = await client(env, { timeout: 10 * 60000 }); api = c.api; if (!api) return fail(c.why, false); }
   const models = typeof ctxModels === "function" ? ctxModels(issues.map(i => i.id), base.items) : {};
+  const notices = stories.length ? (await transcribeNotices(api, stories, env.NOTICE_GET || fetch).catch(() => ({ pages: new Map() }))).pages : new Map();
   const tools = [{ type: "web_search_20250305", name: "web_search", max_uses: SEARCH_CAP, allowed_domains: DOMAINS },
     { type: "web_fetch_20250910", name: "web_fetch", max_uses: deep ? FETCH_CAP_DEEP : FETCH_CAP, allowed_domains: DOMAINS, citations: { enabled: true }, max_content_tokens: 12000 }];
   const params = { model: MODEL, max_tokens: 16000, thinking: { type: "adaptive" }, output_config: { effort: "high" }, tools,
-    messages: [{ role: "user", content: prompt({ today, items: base.items, stories, issues, deep, models }) }] }, contents = [];
+    messages: [{ role: "user", content: prompt({ today, items: base.items, stories, issues, deep, models, notices }) }] }, contents = [];
   let msg = null;
   for (let turn = 0; turn < 6; turn++) {   // a long server-tool turn stops at pause_turn: send it back as it is and the server goes on
     const r = await ask(api, params);
@@ -237,7 +277,7 @@ export async function run({ env = process.env, api, router, log = console.log, t
   rep.model = MODEL; rep.ok = true;
   rep.searches = contents.flat().filter(b => b && b.type === "server_tool_use" && b.name === "web_search").length;
   rep.fetches = contents.flat().filter(b => b && b.type === "server_tool_use" && b.name === "web_fetch").length;
-  const res = apply(o.decisions.filter(d => d && typeof d === "object").slice(0, 40), { list: base, refs, seen: fetched(contents), validate, coverage, today });
+  const res = apply(o.decisions.filter(d => d && typeof d === "object").slice(0, 40), { list: base, refs, seen: withNotices(fetched(contents), notices), validate, coverage, today });
   const answered = new Set(o.decisions.map(d => d && d.ref));
   rep.done = res.done;
   rep.held = [...res.held, ...[...refs.entries()].filter(([ref]) => !answered.has(ref)).map(([ref, r]) => ({ ref, ...r, why: "no decision" }))];
@@ -258,10 +298,11 @@ if (process.argv[1] && process.argv[1].endsWith("settlements-review.mjs")) {
       { id: "maz-cx5", mk: "מאזדה", md: "CX5", y: [2017, 2019], t: "מנוע", b: "תיקון", cond: "תנאים", st: "ok", until: "2028-01-01", url: "https://mazda.co.il/x" }];
     const validate = j => j.items.flatMap(e => [!/^[A-Z0-9|()?!]+$/.test(e.md || "") ? `${e.id}: md` : "", !/^\d{4}-\d\d-\d\d$/.test(e.until || "") ? `${e.id}: until` : "", !e.t ? `${e.id}: t` : ""].filter(Boolean));
     const coverage = its => ({ none: its.filter(e => e.md === "NOPE").map(e => e.id), longer: its.filter(e => e.md === "CX5").map(e => "maz-cx5: CX50"), fresh: {} });
+    const noNet = async () => ({ ok: false });   // the selftest never goes to the network
     const dir = (n, { verdicts = [], issues = {}, inbox = [], aiOk = true } = {}) => { const d = path.join(tmp, String(n)); fs.mkdirSync(d, { recursive: true });
       fs.writeFileSync(path.join(d, "list.json"), JSON.stringify({ updated: "2026-11-01", checked: "2026-11-01", items }));
       fs.writeFileSync(path.join(d, "state.json"), JSON.stringify({ checked: "2026-11-01", inbox, issues })); fs.writeFileSync(path.join(d, "inbox.md"), "# inbox\n");
-      fs.writeFileSync(path.join(d, "ai.json"), JSON.stringify({ ok: aiOk, verdicts })); return { OUT: d, LIST: path.join(d, "list.json") }; };
+      fs.writeFileSync(path.join(d, "ai.json"), JSON.stringify({ ok: aiOk, verdicts })); return { OUT: d, LIST: path.join(d, "list.json"), NOTICE_GET: noNet }; };
     const page = (url, data) => ({ type: "web_fetch_tool_result", tool_use_id: "f", content: { type: "web_fetch_result", url, content: { type: "document", source: { type: "text", media_type: "text/plain", data } } } });
     const pdf = url => ({ type: "web_fetch_tool_result", tool_use_id: "f", content: { type: "web_fetch_result", url, content: { type: "document", source: { type: "base64", media_type: "application/pdf", data: "JVBE" } } } });
     const json = o => ({ type: "text", text: JSON.stringify(o) });
@@ -328,6 +369,14 @@ if (process.argv[1] && process.argv[1].endsWith("settlements-review.mjs")) {
     ok(r.held.length === 1 && r.held[0].k === "z", "a reading that failed: the open stories are verified (dry run: held)");
     const lines = []; await run({ env: dir(11, { verdicts: [V("c", "skip")] }), router, log: m => lines.push(m), today, validate, coverage, api: fake([]) });
     ok(lines.length === 1 && !/\$|token|usd|cost/i.test(lines[0]), "one log line, no cost or token count");
+    { const html = '<img src="https://yitzugit.co.il/wp-content/uploads/2026/11/notice-1024x768.jpg"><img src="https://yitzugit.co.il/wp-content/uploads/logo.png"><a href="https://yitzugit.co.il/wp-content/uploads/2026/11/notice.jpg">';
+      ok(JSON.stringify(noticeImages(html)) === JSON.stringify(["https://yitzugit.co.il/wp-content/uploads/2026/11/notice.jpg"]), "a notice post's image: the full size once, no logo");
+      const sentImg = [], img = { messages: { create: async p => { sentImg.push(p); return { stop_reason: "end_turn", content: [{ type: "text", text: "הודעה בדבר הגשת בקשה לאישור הסדר פשרה" }] }; } } };
+      const get = async u => /notice\/$/.test(u) ? { ok: true, text: async () => html } : /\.jpg$/.test(u) ? { ok: true, arrayBuffer: async () => new Uint8Array([255, 216, 255]).buffer } : { ok: false };
+      const t = await transcribeNotices(img, [{ u: "https://yitzugit.co.il/2026/11/04/notice/" }, { u: "https://www.ynet.co.il/a" }], get);
+      const seen = withNotices({ pages: new Map(), cited: [] }, t.pages);
+      ok(t.calls === 1 && sentImg[0].messages[0].content[0].type === "image" && sentImg[0].messages[0].content[0].source.media_type === "image/jpeg" && quoted([{ url: "https://yitzugit.co.il/2026/11/04/notice/", text: "בקשה לאישור הסדר פשרה" }], seen).ok
+        && /machine transcription/.test(prompt({ today, items: [], stories: [], issues: [], deep: false, models: {}, notices: t.pages })), "a notice image is transcribed once, counts for the quote rule and is in the prompt"); }
     ok(PRIMARY.includes("yitzugit.co.il") && PRIMARY.includes("kia-israel.co.il") && !PRIMARY.includes("ynet.co.il"), "court and importer sites are primary, the press is not");
     console.log(bad ? `${bad} failed` : "selftest ok"); process.exit(bad ? 1 : 0);
   }

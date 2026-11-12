@@ -144,7 +144,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .msg{background:var(--card);border-radius:16px;padding:16px;box-shadow:var(--shadow)}
 .msg.err{background:var(--bad-bg);color:var(--bad)}
 .note{font-size:.85rem;color:var(--muted);margin:0}
-.note a,#mdlLink a{display:inline-block;padding:14px 4px;margin:-14px 0}
+.note a{display:inline-block;padding:14px 4px;margin:-14px 0}
 .seg button{min-height:44px}
 .mono{font-family:var(--f-num);font-weight:500;direction:ltr;unicode-bidi:isolate}
 
@@ -713,26 +713,15 @@ button:not(:disabled):active,.link-btn:active,.act:active,.tabs button:active,a.
 .bnav button[aria-current=page] .bn-i svg.i{stroke-width:2.1}
 .bn-badge{position:absolute;unicode-bidi:plaintext;top:-3px;inset-inline-end:10px;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:var(--bad);color:var(--card);font:800 .78rem/18px var(--f-body);font-style:normal;text-align:center;box-shadow:0 0 0 2px var(--card)}
 main{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
-footer{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+footer,footer.ft{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}   /* the app keeps only the legal line of the shared footer (the inline script after it) */
 body:has(> footer:not([hidden])) main{padding-bottom:24px}
 /* the website's footer, on every screen: the site's links and its social pages on one line (two on a phone), the legal line under them.
    Under a floating compare button or a shared report's bar it ends clear of them (the app shows the legal line alone, on home) */
-html.web body > footer{display:flex;flex-direction:column;gap:6px;margin-top:8px;padding-top:14px;background:linear-gradient(var(--line),var(--line)) no-repeat 50% 0/calc(100% - 32px) 1px}   /* the rule above it as wide as the column's content */
-html.web footer #mdlLink{order:1;font-size:.85rem;line-height:1.9}
-html.web footer #mdlLink a{text-decoration:none;font-weight:600}
-html.web footer #mdlLink a:hover{text-decoration:underline}
-html.web footer .soc{order:2;margin:0}
-html.web footer .ft-l{order:3}
+html.web body > footer{margin-top:8px}   /* the shared site footer (site-footer.mjs), the same on every page of the site */
 html.web body:has(.cfab) > footer{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px))}
 html.web body:has(.sharebar) > footer{padding-bottom:calc(150px + env(safe-area-inset-bottom,0px))}
 html.web body:has(.sharebar) .sb-pad{display:none}
 html.web .sf-l{display:none}   /* the car page's legal line: the footer under it says it on the website */
-@media (min-width:700px){
-  html.web body > footer{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:24px;row-gap:4px}
-  html.web footer #mdlLink{grid-area:1/1}
-  html.web footer .soc{grid-area:1/2}
-  html.web footer .ft-l{grid-area:2/1/3/3}
-}
 /* :has() always in a rule of its own: an engine without it (WebView before 105, Safari before 15.4) drops the whole rule it sits in */
 body.kb .bnav,body.land .bnav{display:none}
 body:has(.sharebar) .bnav{display:none}
@@ -1050,8 +1039,35 @@ body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)
   <button type="button" class="bn-pro" id="bnPro" hidden><svg class="i" aria-hidden="true"><use href="#i-star"/></svg><span>לוחית PRO</span></button>
   <button type="button" class="bn-set" id="bnSet" aria-label="הגדרות ועזרה" title="הגדרות ועזרה"><svg class="i" aria-hidden="true"><use href="#i-gear"/></svg></button>
 </div></nav>
-<footer><span class="ft-l">המידע מגיע מהמאגרים הפתוחים של משרד התחבורה ב-<a href="https://data.gov.il/" target="_blank" rel="noopener">data.gov.il</a>, ואינו מחליף נסח רישום רשמי או בדיקה במכון מורשה. לוחית אינה קשורה למשרד התחבורה או לגוף ממשלתי.</span><span id="mdlLink"> <a href="check/">מה אפשר לבדוק לפי מספר רישוי</a> · <a href="model/">דגמים נפוצים בישראל</a> · <a href="business/">לעסקים</a> · <a href="magazine/">מגזין</a> · <a href="guide/buy-used-car/">מדריך לקונה</a> · <a href="privacy.html">מדיניות פרטיות</a> · <a href="accessibility/">הצהרת נגישות</a><br>דגמים נפוצים: <a href="model/corolla-413/">טויוטה קורולה</a> · <a href="model/picanto-885/">קיה פיקנטו</a> · <a href="model/mazda3-588/">מזדה 3</a> · <a href="model/sportage-416/">קיה ספורטאז׳</a> · <a href="model/octavia-676/">סקודה אוקטביה</a> · <a href="model/tucson-253/">יונדאי טוסון</a> · <a href="model/outlander-590/">מיצובישי אאוטלנדר</a> · <a href="model/i10-845/">יונדאי i10</a> · <a href="model/i20-845/">יונדאי i20</a> · <a href="model/yaris-672/">טויוטה יאריס</a> · <a href="model/mazda2-139/">מזדה 2</a> · <a href="model/rav4-413/">טויוטה RAV4</a> · <a href="model/ioniq-481/">יונדאי איוניק</a> · <a href="model/ibiza-778/">סיאט איביזה</a> · <a href="model/kona-481/">יונדאי קונה</a> · <a href="model/i30-253/">יונדאי i30</a> · <a href="model/elantra-481/">יונדאי אלנטרה</a> · <a href="model/focus-730/">פורד פוקוס</a> · <a href="model/civic-155/">הונדה סיוויק</a> · <a href="model/qashqai-637/">ניסאן קשקאי</a></span><span id="soc" class="soc">עקבו אחרינו: <a href="https://www.tiktok.com/@luchit.app" target="_blank" rel="noopener me" data-soc="tiktok" aria-label="לוחית בטיקטוק" title="לוחית בטיקטוק"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg></a><a href="https://www.instagram.com/luchit.app/" target="_blank" rel="noopener me" data-soc="instagram" aria-label="לוחית באינסטגרם" title="לוחית באינסטגרם"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.3" cy="6.7" r="1.3" fill="currentColor"/></svg></a><a href="https://www.facebook.com/profile.php?id=61595507021640" target="_blank" rel="noopener me" data-soc="facebook" aria-label="לוחית בפייסבוק" title="לוחית בפייסבוק"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg></a></span></footer>
-<script>(function(){if(!window.AndroidApp)document.documentElement.classList.add("web");if(window.AndroidApp){["mdlLink","soc"].forEach(function(i){var x=document.getElementById(i);if(x)x.remove()})}})()</script>
+<style>.ft{--ft-fg:#151a24;--ft-mu:#4a5465;--ft-ln:#dfe4ec;--ft-ac:#2457c5;max-width:1080px;margin:28px auto 0;padding:18px 16px 24px;border-top:1px solid var(--ft-ln);font-size:.9rem;line-height:1.5;color:var(--ft-mu);box-sizing:border-box;text-align:start}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .ft{--ft-fg:#e9edf3;--ft-mu:#aab3c3;--ft-ln:#2b3444;--ft-ac:#7ea3f2}}
+:root[data-theme="dark"] .ft{--ft-fg:#e9edf3;--ft-mu:#aab3c3;--ft-ln:#2b3444;--ft-ac:#7ea3f2}
+.ft a{color:var(--ft-fg);text-decoration:none}.ft a:hover{color:var(--ft-ac);text-decoration:underline}.ft a:focus-visible,.ft summary:focus-visible{outline:3px solid var(--ft-ac);outline-offset:2px;border-radius:4px}
+.ft-top{display:grid;gap:14px}
+.ft-brand{display:flex;flex-wrap:wrap;align-items:center;column-gap:12px}.ft-brand b{flex:1;color:var(--ft-fg);font-size:1.15rem}.ft-brand p{order:3;flex-basis:100%;margin:0;max-width:40ch}
+.ft .soc{display:flex;gap:0;margin:0;margin-inline-end:-10px}.ft .soc a{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;color:var(--ft-mu);padding:0}.ft .soc a:hover{color:var(--ft-ac)}
+.ft-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 12px;border-top:1px solid var(--ft-ln);padding-top:12px}
+.ft h2{margin:0;font-size:.75rem;font-weight:700;color:var(--ft-mu);line-height:1.4;letter-spacing:.01em}
+.ft ul{list-style:none;margin:0;padding:0}.ft li{margin:0;padding:0}
+.ft-cols li a,.ft-mdl li a{display:flex;align-items:center;min-height:44px;font-size:.875rem;font-weight:500;line-height:1.25}
+.ft-mdl{margin-top:8px;border-top:1px solid var(--ft-ln)}
+.ft-mdl summary{display:flex;align-items:center;justify-content:space-between;min-height:48px;cursor:pointer;list-style:none;color:var(--ft-fg);font-weight:600;font-size:.875rem}.ft-mdl summary::-webkit-details-marker{display:none}
+.ft-mdl summary::after{content:"";width:8px;height:8px;border:solid var(--ft-mu);border-width:0 2px 2px 0;transform:rotate(45deg);margin:0 6px 4px}.ft-mdl[open] summary::after{transform:rotate(-135deg);margin-bottom:-4px}
+.ft-mdl ul{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px;padding-bottom:8px}.ft-mdl li a{font-weight:400;color:var(--ft-mu)}
+.ft-legal{margin:0;border-top:1px solid var(--ft-ln);padding-top:12px;font-size:.78rem;line-height:1.55}.ft-legal>span{display:block}.ft-legal>span+span{margin-top:4px}.ft-legal a{display:inline;min-height:0;color:var(--ft-ac);text-decoration:underline}
+@media (min-width:760px){.ft{padding-top:24px}.ft-top{grid-template-columns:minmax(0,1.1fr) minmax(0,3fr);gap:32px}.ft-brand{align-content:start}.ft-cols{border-top:0;padding-top:0}.ft-mdl ul{grid-template-columns:repeat(5,minmax(0,1fr))}.ft-legal{display:flex;justify-content:space-between;gap:24px}.ft-legal>span+span{margin-top:0;white-space:nowrap}}</style><footer class="ft">
+<div class="ft-top">
+<div class="ft-brand"><b>לוחית</b><p>בדיקת רכב לפי מספר רישוי, מהנתונים הפתוחים של משרד התחבורה.</p><div class="soc" id="soc" aria-label="לוחית ברשתות"><a href="https://www.tiktok.com/@luchit.app" target="_blank" rel="noopener me" data-soc="tiktok" aria-label="לוחית בטיקטוק" title="לוחית בטיקטוק"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg></a><a href="https://www.instagram.com/luchit.app/" target="_blank" rel="noopener me" data-soc="instagram" aria-label="לוחית באינסטגרם" title="לוחית באינסטגרם"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.3" cy="6.7" r="1.3" fill="currentColor"/></svg></a><a href="https://www.facebook.com/profile.php?id=61595507021640" target="_blank" rel="noopener me" data-soc="facebook" aria-label="לוחית בפייסבוק" title="לוחית בפייסבוק"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg></a></div></div>
+<nav class="ft-cols" aria-label="קישורים באתר" id="mdlLink">
+<div><h2>בדיקת רכב</h2><ul><li><a href="check/">מה אפשר לבדוק</a></li><li><a href="guide/buy-used-car/">מדריך לקונה</a></li><li><a href="model/">דגמים נפוצים בישראל</a></li></ul></div>
+<div><h2>לוחית</h2><ul><li><a href="magazine/">מגזין</a></li><li><a href="business/">לעסקים</a></li><li><a href="mailto:support@luchit.app">יצירת קשר</a></li></ul></div>
+<div><h2>מידע משפטי</h2><ul><li><a href="terms/">תנאי שימוש</a></li><li><a href="privacy.html">מדיניות פרטיות</a></li><li><a href="accessibility/">הצהרת נגישות</a></li></ul></div>
+</nav>
+</div>
+<details class="ft-mdl" id="ftModels"><summary>דגמים נפוצים</summary><ul aria-label="דגמים נפוצים"><li><a href="model/corolla-413/">טויוטה קורולה</a></li><li><a href="model/picanto-885/">קיה פיקנטו</a></li><li><a href="model/mazda3-588/">מזדה 3</a></li><li><a href="model/sportage-416/">קיה ספורטאז׳</a></li><li><a href="model/octavia-676/">סקודה אוקטביה</a></li><li><a href="model/tucson-253/">יונדאי טוסון</a></li><li><a href="model/outlander-590/">מיצובישי אאוטלנדר</a></li><li><a href="model/i10-845/">יונדאי i10</a></li><li><a href="model/i20-845/">יונדאי i20</a></li><li><a href="model/yaris-672/">טויוטה יאריס</a></li><li><a href="model/mazda2-139/">מזדה 2</a></li><li><a href="model/rav4-413/">טויוטה RAV4</a></li><li><a href="model/ioniq-481/">יונדאי איוניק</a></li><li><a href="model/ibiza-778/">סיאט איביזה</a></li><li><a href="model/kona-481/">יונדאי קונה</a></li><li><a href="model/i30-253/">יונדאי i30</a></li><li><a href="model/elantra-481/">יונדאי אלנטרה</a></li><li><a href="model/focus-730/">פורד פוקוס</a></li><li><a href="model/civic-155/">הונדה סיוויק</a></li><li><a href="model/qashqai-637/">ניסאן קשקאי</a></li></ul></details>
+<p class="ft-legal"><span class="ft-l">המידע מגיע מהמאגרים הפתוחים של משרד התחבורה ב-<a href="https://data.gov.il/" target="_blank" rel="noopener">data.gov.il</a>, ואינו מחליף נסח רישום רשמי או בדיקה במכון מורשה. לוחית אינה קשורה למשרד התחבורה או לגוף ממשלתי.</span><span>© 2026 לוחית</span></p>
+</footer>
+<script>(function(){if(!window.AndroidApp)document.documentElement.classList.add("web");if(window.AndroidApp){var f=document.querySelector("body > footer.ft"),l=f&&f.querySelector(".ft-l");if(l){f.className="";f.textContent="";f.appendChild(l)}}})()</script>
 
 <div class="sheet" id="settings" hidden role="dialog" aria-modal="true" aria-labelledby="setTitle">
   <div class="sheet-in">
@@ -1101,6 +1117,7 @@ body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)
         </div>
         <a class="set-go" href="https://luchit.app/privacy.html" target="_blank" rel="noopener"><svg class="i"><use href="#i-lock"/></svg><span class="t"><b>מדיניות פרטיות</b></span><svg class="i go-chev" aria-hidden="true"><use href="#i-chev"/></svg></a>
         <a class="set-go" href="https://luchit.app/accessibility/" target="_blank" rel="noopener"><svg class="i"><use href="#i-users"/></svg><span class="t"><b>הצהרת נגישות</b></span><svg class="i go-chev" aria-hidden="true"><use href="#i-chev"/></svg></a>
+        <a class="set-go" href="https://luchit.app/terms/" target="_blank" rel="noopener"><svg class="i"><use href="#i-doc"/></svg><span class="t"><b>תנאי שימוש</b></span><svg class="i go-chev" aria-hidden="true"><use href="#i-chev"/></svg></a>
         <button class="set-go danger" type="button" id="clearRecent"><svg class="i"><use href="#i-trash"/></svg><span class="t"><b>מחיקת היסטוריית החיפושים</b></span></button>
         <button class="set-go danger" type="button" id="clearSaved"><svg class="i"><use href="#i-trash"/></svg><span class="t"><b>מחיקת כל הרכבים שלי</b></span></button>
       </div>
@@ -1701,6 +1718,7 @@ function facts(list){
   return items.length ? `<dl class="facts">${items.join("")}</dl>` : "";
 }
 function proLockCard(title, text){
+  if (!PRO_LOCK) return "";   // no paid plan exists while the lock is off: no card that leads to the plans screen (CEO audit 8.11.2026)
   return card(title, "star", "amber", `<p style="margin:0">${esc(text)}</p><button type="button" class="link-btn" data-act="proInfo">הצטרפות ל-PRO</button>`, `${PT("PRO")}`);
 }
 const foldKey = t => "fold:" + t;
@@ -5382,7 +5400,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "bulkCsv") { bulkCsv(); return; }
   if (b.dataset.act === "bulkPdf") { bulkPdf(b); return; }
   if (b.dataset.act === "checklistPdf") { track("checklist_pdf"); checklistPdf(b); return; }
-  if (b.dataset.act === "proInfo" || b.dataset.act === "upgrade") { track("upgrade_open", {from: b.dataset.src || currentTab || "home"}); if (UPGRADE_UI) renderUpgrade(); else toast("זמין בקרוב"); return; }
+  if (b.dataset.act === "proInfo" || b.dataset.act === "upgrade") { if (!PRO_LOCK) return; track("upgrade_open", {from: b.dataset.src || currentTab || "home"}); if (UPGRADE_UI) renderUpgrade(); else toast("זמין בקרוב"); return; }
   if (b.dataset.act === "mkCsv") { marketCsv(); return; }
   if (b.dataset.buy) { buyPlan(b.dataset.buy); return; }
   if (b.dataset.act === "restore") { restorePurchases(); return; }
@@ -7568,7 +7586,7 @@ function syncPlanUi(){
   $("#planNote").textContent = t;
 }
 const priceOf = sku => PRODUCTS[sku] || (Number(PRICES[sku]).toFixed(Number.isInteger(PRICES[sku]) ? 0 : 2) + " ₪");
-window.onPrices = s => { try { PRODUCTS = typeof s === "string" ? JSON.parse(s) : s; } catch {} if ($("#upg")) renderUpgrade(); };
+window.onPrices = s => { try { PRODUCTS = typeof s === "string" ? JSON.parse(s) : s; } catch {} if (PRO_LOCK && $("#upg")) renderUpgrade(); };
 window.onEntitlement = s => {
   try {
     const o = typeof s === "string" ? JSON.parse(s) : s, e = entGet();
@@ -7625,8 +7643,8 @@ function restorePurchases(){
   if (b && b.billingInit) { try { b.billingInit(); toast("בודקים רכישות קודמות…"); return; } catch {} }
   toast("שחזור רכישות זמין באפליקציה מחנות Google Play");
 }
-$("#planBtn").addEventListener("click", () => { sheet.hidden = true; if (UPGRADE_UI) { renderUpgrade(); } });
-$("#bnPro").addEventListener("click", () => { track("upgrade_open", {from: "topbar"}); if (UPGRADE_UI) renderUpgrade(); });
+$("#planBtn").addEventListener("click", () => { sheet.hidden = true; if (PRO_LOCK && UPGRADE_UI) { renderUpgrade(); } });
+$("#bnPro").addEventListener("click", () => { if (!PRO_LOCK) return; track("upgrade_open", {from: "topbar"}); if (UPGRADE_UI) renderUpgrade(); });
 initEnt(); syncPlanUi();
 if (PRO_LOCK && UPGRADE_UI) { try { const b = bridge(); if (b && b.billingInit) b.billingInit(); } catch {} }
 syncSaved(store.get("savedVehicles"));
