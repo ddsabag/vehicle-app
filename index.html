@@ -1808,13 +1808,28 @@ function openExternal(url){
 let navReady = false;   // from the first syncNav (the page drawn), every change to the saved cars brings the bell's number up to date
 const store = {
   get(k){ try { return JSON.parse(localStorage.getItem(k) || "[]"); } catch { return []; } },
-  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} if (k === "savedVehicles") { syncSaved(v); if (navReady) syncNav(); } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} keep(k, v); if (k === "savedVehicles") { syncSaved(v); if (navReady) syncNav(); } },
 };
+/* a second copy of what the user built (saved cars and compares, the car file's marks and services, alert choices) in IndexedDB, because
+   localStorage can read as empty on a nearly full disk (12.11.2026). Written on every change; read once at start, and only fills a key
+   that reads empty while the copy has something. An empty value is not copied before that read, so a start-up with storage out of reach
+   cannot wipe the copy */
+const KEEP_KEYS = ["savedVehicles", "savedCompares", "mine", "svc", "alertPrefs"];
+const KEEP = {db: null, ready: false, thin: false};
+const keepEmpty = v => v == null || (Array.isArray(v) ? !v.length : typeof v === "object" && !Object.keys(v).length);
+const keepDb = () => KEEP.db || (KEEP.db = new Promise((ok, no) => { const r = indexedDB.open("luchitKeep", 1); r.onupgradeneeded = () => r.result.createObjectStore("kv"); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); }));
+function keep(k, v){
+  if (!window.indexedDB || !KEEP_KEYS.includes(k) || (!KEEP.ready && keepEmpty(v))) return;
+  keepDb().then(db => { const t = db.transaction("kv", "readwrite"); t.objectStore("kv").put(JSON.stringify(v), k); }).catch(() => null);   // no copy this time: the next change writes it
+}
 /* the app checks saved cars once a day for a new recall or a test about to expire */
 /* false when the page could not keep the saved cars it restored (no room on the phone): then nothing overwrites the app's own copy */
-const SAVED_GUARD = {ok: true};
+/* had: this session saw saved cars. An empty list goes to the app's copy only after that (the user removed the last car), never at a start
+   that read none, which is what a disk out of reach looks like */
+const SAVED_GUARD = {ok: true, had: false};
 function syncSaved(list){
   const b = window.AndroidApp; if (!b || !b.syncSaved || !SAVED_GUARD.ok) return;
+  if ((list || []).length) SAVED_GUARD.had = true; else if (!SAVED_GUARD.had) return;
   try { b.syncSaved(JSON.stringify((list || []).map((x, i) => ({plate: x.plate, title: x.nick || x.title || "", alerts: alertSet().includes(x.plate), ext: plan() !== "free", svcDue: svcDue(x.plate), stlCar: x.stlCar || null, prefs: alertPrefs(), docs: docExpAll().filter(d => d.plate === x.plate).map(d => ({cat: d.cat, exp: d.exp}))})))); } catch {}
 }
 /* what to be alerted about: every kind is on by default and the user can switch each one off in settings */
@@ -1838,7 +1853,7 @@ function fillAlertKinds(){
 document.addEventListener("change", ev => {
   const c = ev.target.closest && ev.target.closest("[data-kind]"); if (!c) return;
   const pr = alertPrefs(); pr[c.dataset.kind] = c.checked; track("alert_kind", {kind: c.dataset.kind, on: c.checked ? 1 : 0});
-  try { localStorage.setItem("alertPrefs", JSON.stringify(pr)); } catch {}
+  try { localStorage.setItem("alertPrefs", JSON.stringify(pr)); } catch {} keep("alertPrefs", pr);
   syncSaved(store.get("savedVehicles"));
 });
 const docExpAll = () => { try { return JSON.parse(localStorage.getItem("docExp") || "[]"); } catch { return []; } };
@@ -1882,7 +1897,7 @@ function undoAdd(D, mineWas){
   const m = mineAll();
   if (m[D.plate] === 1 && mineWas !== 1) {
     if (mineWas === undefined) delete m[D.plate]; else m[D.plate] = mineWas;
-    try { localStorage.setItem("mine", JSON.stringify(m)); } catch {}
+    try { localStorage.setItem("mine", JSON.stringify(m)); } catch {} keep("mine", m);
     if (current === D && currentTab === "file") currentTab = "overview";
   }
   if (current === D) { const y = window.scrollY; renderResult(); window.scrollTo(0, y); } else refreshView();
@@ -3485,7 +3500,7 @@ const svcAll = () => { try { return JSON.parse(localStorage.getItem("svc") || "{
 const svcOf = p => { const s = svcAll()[p]; return s && Array.isArray(s.log) ? s : {log: [], meta: null}; };
 // the newest entry of the service log (kept on the phone only), for the fleet table
 const svcLast = p => svcOf(p).log.filter(x => x.d && x.type !== SVC_KM).reduce((a, b) => !a || b.d > a.d ? b : a, null);
-function svcSave(p, s){ const all = svcAll(); all[p] = s; try { localStorage.setItem("svc", JSON.stringify(all)); } catch {} syncSaved(store.get("savedVehicles")); }
+function svcSave(p, s){ const all = svcAll(); all[p] = s; try { localStorage.setItem("svc", JSON.stringify(all)); } catch {} keep("svc", all); syncSaved(store.get("savedVehicles")); }
 const ymdOf = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + Math.round(n)); return x; };
 const dayDiff = (a, b) => Math.round((b - a) / 864e5);
@@ -3801,7 +3816,7 @@ function isMine(D){
 }
 function setMine(D, on, from){
   const m = mineAll(); m[D.plate] = on ? 1 : 0;
-  try { localStorage.setItem("mine", JSON.stringify(m)); } catch {}
+  try { localStorage.setItem("mine", JSON.stringify(m)); } catch {} keep("mine", m);
   track(on ? "mine_set" : "mine_unset", on ? {saved: isSaved(D.plate) ? 1 : 0, from: from || "overview"} : {saved: isSaved(D.plate) ? 1 : 0});
 }
 /* a file can be opened for this car: never on a shared report, a model or a car off the road, nor when it is already the owner's */
@@ -7621,10 +7636,38 @@ if (PRO_LOCK && UPGRADE_UI) { try { const b = bridge(); if (b && b.billingInit) 
   const items = (Array.isArray(copy) ? copy : []).filter(x => x && /^\d{5,8}$/.test(String(x.plate))).map(x => ({plate: String(x.plate), title: String(x.title || ""), sub: "", at: Date.now(), events: [], ...(x.alerts === false ? {alerts: false} : {})}));
   if (!items.length) return;
   const ok = (() => { try { localStorage.setItem("savedVehicles", JSON.stringify(items)); return JSON.parse(localStorage.getItem("savedVehicles") || "[]").length === items.length; } catch { return false; } })();
-  if (!ok) { SAVED_GUARD.ok = false; track("storage_lost", {n: items.length}); setTimeout(() => toast("אין מספיק מקום פנוי בטלפון, ולכן הרכבים השמורים לא נטענו. פנו מקום ופתחו את האפליקציה שוב."), 1500); return; }
-  track("storage_restored", {n: items.length});
+  if (!ok) { SAVED_GUARD.ok = false; track("storage_lost", {n: items.length, from: "app"}); setTimeout(() => toast("אין מספיק מקום פנוי בטלפון, ולכן הרכבים השמורים לא נטענו. פנו מקום ופתחו את האפליקציה שוב."), 1500); return; }
+  KEEP.thin = true; track("storage_restored", {n: items.length, from: "app"});
 })();
 syncSaved(store.get("savedVehicles"));
+/* then the IndexedDB copy: a key that reads empty is filled from it; saved cars the app's copy brought back (plate and name only) get their
+   nickname, history and order from it. Nothing is ever removed here */
+(function keepRestore(){
+  if (!window.indexedDB) { KEEP.ready = true; return; }
+  const readAll = db => new Promise((ok, no) => { const out = {}, rq = db.transaction("kv").objectStore("kv").openCursor(); rq.onsuccess = () => { const c = rq.result; if (c) { out[c.key] = c.value; c.continue(); } else ok(out); }; rq.onerror = () => no(rq.error); });
+  keepDb().then(readAll).then(kv => {
+    let n = 0, lost = 0;
+    for (const k of KEEP_KEYS) {
+      let v; try { v = JSON.parse(kv[k] || "null"); } catch { continue; }
+      if (keepEmpty(v)) continue;
+      let now; try { now = JSON.parse(localStorage.getItem(k) || "null"); } catch { now = null; }
+      if (k === "savedVehicles" && KEEP.thin && Array.isArray(v) && Array.isArray(now)) {
+        const rich = new Map(v.filter(x => x && x.plate).map(x => [String(x.plate), x]));
+        const merged = [...v.filter(x => x && now.some(y => String(y.plate) === String(x.plate))), ...now.filter(y => !rich.has(String(y.plate)))];
+        if (JSON.stringify(merged) === JSON.stringify(now)) continue; v = merged;
+      } else if (!keepEmpty(now)) continue;
+      try { localStorage.setItem(k, JSON.stringify(v)); if (localStorage.getItem(k) == null) throw 0; n++; } catch { lost++; }
+    }
+    KEEP.ready = true;
+    // the first start of a version with the copy, and any write that missed it: what reads well now is copied
+    for (const k of KEEP_KEYS) { try { const raw = localStorage.getItem(k); if (raw && raw !== kv[k] && !keepEmpty(JSON.parse(raw))) keep(k, JSON.parse(raw)); } catch { continue; } }
+    if (lost) { if (!KEEP.thin) { SAVED_GUARD.ok = false; track("storage_lost", {n: lost, from: "keep"}); setTimeout(() => toast("אין מספיק מקום פנוי בטלפון, ולכן חלק מהנתונים השמורים לא נטענו. פנו מקום ופתחו את האפליקציה שוב."), 1500); } return; }
+    if (!n) return;
+    track("storage_restored", {n, from: "keep"});
+    syncSaved(store.get("savedVehicles")); if (navReady) syncNav();
+    if (typeof current !== "undefined" && current) { const y = window.scrollY; renderResult(); window.scrollTo(0, y); } else refreshView();
+  }).catch(() => { KEEP.ready = true; });
+})();
 try { if (window.AndroidApp && window.AndroidApp.setAnalytics) window.AndroidApp.setAnalytics(analyticsOn()); } catch {}
 /* web: Cloudflare Web Analytics (page views only, no cookies, no personal data); the token is added when the site is registered there */
 const CF_BEACON_TOKEN = '9bb0e756882c478a808d95596e0deade';
