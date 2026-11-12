@@ -129,9 +129,11 @@ export function quoteCheck(f, s) {
 // In 11.2026 only (Dudu 1.11.2026 21:16 UTC: "את הבדיקה של ה800 רכבים נעשה רק במחזור הזה") the 18th and the 19th run twice a day, at most 200
 // cars each and as many as the credit left allows (plan()): four periods of their own ("2026-11-mid-18a" ... "-19b", before 11:00 UTC a,
 // after it b), so none is taken as already done.
+// Since 12.11.2026 every month does the same (Dudu 12.11 09:36 UTC: the $100 renews each cycle, "תנצל את כל ה100דולר כל חודש"): the
+// end-of-cycle runs on the 18th and the 19th take what the cycle has left above RESERVE; from 12.2026 only on a readable counter.
 export const BIG = "2026-11", BIG_DAYS = [18, 19];
 export const period = now => { const s = now.toISOString(), day = +s.slice(8, 10);
-  if (s.slice(0, 7) === BIG && BIG_DAYS.includes(day)) return `${BIG}-mid-${day}${+s.slice(11, 13) < 11 ? "a" : "b"}`;
+  if (BIG_DAYS.includes(day)) return `${s.slice(0, 7)}-mid-${day}${+s.slice(11, 13) < 11 ? "a" : "b"}`;
   return s.slice(0, 7) + (day >= 10 ? "-mid" : ""); };
 
 // the size of each of the four 11.2026 runs, from the credit really left: remaining() in ai-usage.mjs (ops; the grant Dudu read in the
@@ -141,10 +143,12 @@ export const period = now => { const s = now.toISOString(), day = +s.slice(8, 10
 // QUERIES of the run, or "" when nothing is left to spend. It never prints money: the repo is public; the log shows only cars and effort.
 export const RESERVE = 8, PER_CAR = 0.04, PER_CAR_HIGH = 0.08;
 export function plan(d, left) {
-  const m = /^2026-11-mid-(\d\d)([ab])$/.exec(d); if (!m) return null;
-  const runsLeft = (BIG_DAYS[1] - +m[1]) * 2 + (m[2] === "a" ? 2 : 1);
+  const m = /^(\d{4}-\d\d)-mid-(\d\d)([ab])$/.exec(d); if (!m) return null;
+  m.shift(); const ym = m.shift();
+  const runsLeft = (BIG_DAYS[1] - +m[0]) * 2 + (m[1] === "a" ? 2 : 1);
   const q = cars => cars < MIN_CARS ? "" : `n=${Math.round(cars * 0.75)} rare=${cars - Math.round(cars * 0.75)} max=${cars} minutes=150`;
-  if (typeof left !== "number" || Number.isNaN(left)) return q(100) + " effort=medium";
+  // no readable counter: 100 a run in 11.2026 (the grant Dudu read), and no run from 12.2026, so nothing is spent on a cycle nobody measured
+  if (typeof left !== "number" || Number.isNaN(left)) return ym === BIG ? q(100) + " effort=medium" : "";
   const free = left - RESERVE; if (free <= 0) return "";
   if (free >= runsLeft * 200 * PER_CAR_HIGH) return q(200) + " effort=high";
   return (q(Math.min(200, Math.floor(free / PER_CAR / runsLeft))) + " effort=medium").replace(/^ effort=medium$/, "");
@@ -337,8 +341,9 @@ if (process.argv[1] && process.argv[1].endsWith("deep-audit.mjs") && process.arg
   ok(JSON.parse(Buffer.concat([dc.update(Buffer.from(e.data, "base64")), dc.final()]).toString("utf8")).a === "טויוטה" && !e.data.includes("טויוטה"), "encrypted with the public key (the shape seo-key/decrypt.mjs reads)");
   ok(period(new Date("2026-11-01T05:17:00Z")) === "2026-11" && period(new Date("2026-11-03T05:17:00Z")) === "2026-11" && period(new Date("2026-12-13T05:17:00Z")) === "2026-12-mid" && period(new Date("2026-12-14T23:00:00Z")) === "2026-12-mid", "period: the 1st-3rd are the month, the 13th-14th the extra run");
   ok(period(new Date("2026-11-18T05:17:00Z")) === "2026-11-mid-18a" && period(new Date("2026-11-18T11:17:00Z")) === "2026-11-mid-18b" && period(new Date("2026-11-19T05:17:00Z")) === "2026-11-mid-19a"
-    && period(new Date("2026-11-19T16:00:00Z")) === "2026-11-mid-19b" && period(new Date("2026-12-18T11:17:00Z")) === "2026-12-mid" && period(new Date("2026-11-13T05:17:00Z")) === "2026-11-mid", "period: 11.2026 only, four runs of their own on the 18th and the 19th");
-  ok(plan("2026-12-mid", 0) === null && plan("2026-11", 0) === null, "plan: only the four 11.2026 runs are sized");
+    && period(new Date("2026-11-19T16:00:00Z")) === "2026-11-mid-19b" && period(new Date("2026-12-18T11:17:00Z")) === "2026-12-mid-18b" && period(new Date("2026-11-13T05:17:00Z")) === "2026-11-mid", "period: every month, four runs of their own on the 18th and the 19th");
+  ok(plan("2026-12-mid", 0) === null && plan("2026-11", 0) === null, "plan: only the end-of-cycle runs are sized");
+  ok(plan("2026-12-mid-18a", 71.84) === "n=150 rare=50 max=200 minutes=150 effort=medium" && plan("2026-12-mid-18a", NaN) === "" && plan("2027-01-mid-19b", 3) === "", "plan: every cycle takes what is left; from 12.2026 no run without a readable counter");
   ok(plan("2026-11-mid-18a", NaN) === "n=75 rare=25 max=100 minutes=150 effort=medium", "plan: no readable counter = 100 a run (400 in all)");
   ok(plan("2026-11-mid-18a", 71.84) === "n=150 rare=50 max=200 minutes=150 effort=medium" && plan("2026-11-mid-18b", 61.84) === "n=150 rare=50 max=200 minutes=150 effort=high", "plan: 200 a run at medium; high only when the money clearly covers it");
   ok(plan("2026-11-mid-18a", 31.84) === "n=112 rare=37 max=149 minutes=150 effort=medium", "plan: less money, fewer cars at medium, shared by the 4 runs left");
