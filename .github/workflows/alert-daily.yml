@@ -69,7 +69,10 @@ jobs:
         run: node .github/scripts/triage-prep.mjs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}   # Console workspace luchit-bots, capped; a clean morning makes no call
+          ANTHROPIC_API_KEY: ${{ vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}   # Console workspace luchit-bots, capped; a clean morning makes no call
+          AI: ${{ vars.AI }}   # one switch for every Claude bot (claude.mjs gate; CEO review 12.11.2026)
+          AI_CAP_USD: ${{ vars.AI_CAP_USD }}
+          AI_GRANTS: ${{ vars.AI_GRANTS }}
           DRY: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
       - name: Weekly alert-noise review (Sundays, Sonnet, suggestions only; credit package B)
         # Every real run, not only GitHub's schedule: the backup clock starts this workflow at ~07:21 UTC with dry_run false, before the 07:37
@@ -85,7 +88,10 @@ jobs:
           node .github/scripts/alert-noise.mjs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}
+          AI: ${{ vars.AI }}   # one switch for every Claude bot (claude.mjs gate; CEO review 12.11.2026)
+          AI_CAP_USD: ${{ vars.AI_CAP_USD }}
+          AI_GRANTS: ${{ vars.AI_GRANTS }}
       - name: Publish triage.json on branch triage-out (public, names, links and router keys only)
         if: ${{ hashFiles('triage-out/triage.json') != '' }}
         run: |

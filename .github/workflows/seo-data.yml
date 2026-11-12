@@ -47,7 +47,10 @@ jobs:
       - name: Weekly analysis draft
         if: ${{ env.SEO_WEEKLY_PLAIN != '' }}
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}
+          AI: ${{ vars.AI }}   # one switch for every Claude bot (claude.mjs gate; CEO review 12.11.2026)
+          AI_CAP_USD: ${{ vars.AI_CAP_USD }}
+          AI_GRANTS: ${{ vars.AI_GRANTS }}
         run: |
           [ -s "$SEO_WEEKLY_PLAIN" ] || { echo "::warning::weekly analysis: no snapshot to read"; exit 0; }
           node .github/scripts/seo-weekly.mjs --selftest >/dev/null || { echo "::warning::weekly analysis: self-test failed, nothing written"; exit 0; }
