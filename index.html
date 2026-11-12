@@ -1770,7 +1770,7 @@ function safetyOf(D){
   return {lvl: p !== undefined ? num(p) : null, row: !posN(v.ramat_eivzur_betihuty) || ownW(D) ? w : null};
 }
 const safetyNote = lvl => "משרד התחבורה מחשב מחדש את הרמה של כל הרכבים לפי רשימת מערכות שמתעדכנת כל שנה, ונותן ניקוד רק למערכות החדשות ביותר, כמו התרעת עייפות ובלימה אוטומטית ברוורס. לכן רכב בן כמה שנים מקבל רמה נמוכה גם אם היה מאובזר היטב בזמנו. זה לא ציון של מבחן ריסוק."
-  + (lvl === 0 ? " רמה 0 פירושה שלפי הדיווח של היבואן אין ברכב אף אחת מהמערכות שברשימה, או שיש בו פחות כריות אוויר מהנדרש." : "");
+  + (lvl === 0 ? " רמה 0 פירושה שאין ברכב אף אחת מהמערכות החדשות שהמשרד מנקד השנה, או שיש בו פחות כריות אוויר מהנדרש." : "");
 const unit = (v, u) => empty(v) ? "" : `${esc(fmtN(v))} ${u}`;
 const mono = v => empty(v) ? "" : `<span class="mono">${esc(v)}</span>`;
 const changed = v => empty(v) ? "" : yes(v) ? `<span class="flag">כן</span>` : "לא";
@@ -2198,6 +2198,20 @@ const importerOf = D => D.importKind || !D.price || empty(D.price.shem_yevuan) ?
 const IMPORT_NO_PRICE = "מחירון היבואן הרשמי לא חל על רכב ביבוא אישי";
 const norm = s => String(s || "").toUpperCase().replace(/[^A-Z0-9֐-׿]/g, "");
 function recallYear(x){ const m = String(x || "").match(/(19|20)\d{2}/); return m ? +m[0] : null; }
+/* a recall's build start as a month count (year*12+month), or a bare year {y}: the list writes 2009-01-01, 01/2009, 1/1/2009 or 2009 */
+function recallBuildFrom(x){
+  const s = String(x || "").trim(); let m;
+  if ((m = s.match(/^((?:19|20)\d{2})-(\d{1,2})/))) return {m: +m[1] * 12 + +m[2] - 1};
+  if ((m = s.match(/^(?:\d{1,2}[/.])?(\d{1,2})[/.]((?:19|20)\d{2})$/))) return {m: +m[2] * 12 + +m[1] - 1};
+  const y = recallYear(s); return y ? {y} : null;
+}
+/* A car cannot be in a recall of cars built after it was already on the road (data truth 11/2026: a 2008 Prius on the road in 11/2008 shown as
+   maybe in a recall for 2009-2010 builds). Such a recall moves to the model's other years, unless the per-car list itself ties it to the car's year. */
+function afterRoad(rows, onRoad){
+  if (!onRoad || !rows || !rows.length) return rows || [];
+  const om = onRoad.getFullYear() * 12 + onRoad.getMonth(), oy = onRoad.getFullYear();
+  return rows.map(r => { if (r.byList) return r; const b = recallBuildFrom(r.BUILD_BEGIN_A); if (!b || (b.m != null ? b.m <= om : b.y <= oy)) return r; const {near, ...o} = r; return {...o, fits: false, afterRoad: true}; });
+}
 /* every model name the catalogue lists for the car's brand, over all its register codes (אאודי גרמניה, אאודי בלגיה…), normalized, with the first and
    last production year of each name (out.years) when the catalogue has them */
 const BRAND_MODELS = new WeakMap();
@@ -2627,6 +2641,7 @@ const REC_IN = new WeakMap();
 const recInOf = meta => { if (!meta || !Array.isArray(meta.recIn)) return null; let s = REC_IN.get(meta); if (!s) REC_IN.set(meta, s = new Set(meta.recIn.map(Number))); return s; };
 function recallReach(r, meta){
   const hz = recallHz(meta), id = num(r.RECALL_ID), held = recInOf(meta);
+  if (held && held.has(id)) return "listed";   // the list holds every batch it names: a plate not in it is not open (data truth 11/2026: T5 2013, ELANTRA HEV 2022)
   if (id > hz.id || (hz.from && id >= hz.from && !(hz.ids || []).includes(id))) return "fresh";
   if (!held || held.has(id)) return "listed";
   return num(r.SHNAT_RECALL) >= new Date().getFullYear() - REC_ABSENT_YEARS ? "absent" : "nolist";
@@ -2942,13 +2957,15 @@ async function fetchVehicle(plate, signal, onProgress){
   const pub = res.public.rows[0], ps = !mains[0] || !pub ? null : mains[0].key === "public" || lent.has("public") ? pubState(pub)
     : mains[0].key === "active" && sameCar(top, pub) ? (st => st && !st.gone ? st : null)(pubState(pub)) : null, hold = ps && !ps.gone ? ps : null;
   const off = mains[0] && (/^cancel/.test(mains[0].key) || !!(ps && ps.gone));
+  // an active car that also has a live row in the public register is (or was until now) a taxi, a bus or a driving-school car (11/2026: shown as "פרטי")
+  const pubUse = mains[0] && mains[0].key === "active" && pub && sameCar(top, pub) && !(pubState(pub) || {}).gone ? String(pub.sug_rechev_nm || "").trim() || "רכב ציבורי" : null;
   const primary = ps ? {...mains[0], ...(ps.gone ? {status: "ירד מהכביש", tone: "bad"} : {status: ps.status, tone: "warn"})} : mains[0];
 
-  const D = {plate, v, w, towRow, zeroTow, tSrc, counts, price, priceRows, own, ownersFloor, recalls, modelRecalls, recallUnknown: !!res.recall.err, recallEmpty: !!res.recall.empty, ownMirror: !!res.ownMirror, modelRecallsUnknown, tag, dpf, primary, importKind: res.import.rows[0] ? String(res.import.rows[0].sug_yevu || "יבוא אישי").replace(/-/g, " · ") : null, errs, pick, make, model,
+  const D = {plate, v, w, towRow, zeroTow, tSrc, counts, price, priceRows, own, ownersFloor, recalls, modelRecalls: afterRoad(modelRecalls, onRoad), recallUnknown: !!res.recall.err, recallEmpty: !!res.recall.empty, ownMirror: !!res.ownMirror, modelRecallsUnknown, tag, dpf, primary, importKind: res.import.rows[0] ? String(res.import.rows[0].sug_yevu || "יבוא אישי").replace(/-/g, " · ") : null, errs, pick, make, model,
     title: (nm => [/^[A-Za-z]/.test(make) && nm.toUpperCase().startsWith(make.toUpperCase()) && !/^[A-Za-z]/i.test(nm.slice(make.length)) ? "" : make, nm].filter(Boolean).join(" "))(niceModel(model)) || "רכב " + fmtPlate(plate),
     sub: [v.shnat_yitzur, v.ramat_gimur, v.tzeva_rechev].filter(x => !empty(x)).join(" · "),   // the trim is the register's only: the model row may be another trim's
     vin: pick(v.misgeret, v.mispar_shilda, v.shilda), km, kmYears, kmPerYear,
-    isCancelled: off, hold, datesFrom};
+    isCancelled: off, hold, pubUse, datesFrom};
   D.zombie = D.isCancelled ? null : res.zombie;
   D.cost = costs(D);
   return D;
@@ -2983,6 +3000,7 @@ function buildInsights(D){
   // no main register has the plate, only the side ones (26.10: a new car registered 3 weeks earlier, its active row missing for a while)
   if (!D.primary) add("warn", "הרכב לא מופיע כרגע במאגר הרכבים", `הרכב לא נמצא כרגע במאגר הרכבים של משרד התחבורה, ולכן חלק מהפרטים (כמו תוקף הטסט) חסרים${toDate(v.rishum_rishon_dt) ? `. הוא נרשם לראשונה ב-${fmtDate(v.rishum_rishon_dt)}` : ""}. רכב חדש נכנס למאגר לפעמים באיחור של כמה שבועות, כדאי לבדוק שוב בהמשך.`);
   // a deposited licence or a removal from the road in the public register: the ministry's own words and date
+  if (D.pubUse && !D.isCancelled) add("warn", `הרכב רשום במאגר הרכב הציבורי (${D.pubUse})`, "הרכב מופיע גם במאגר הרכב הציבורי של משרד התחבורה, כלומר שימש או משמש כרכב ציבורי. רכב ששימש כרכב ציבורי שווה בדרך כלל פחות, וכדאי לבקש מהמוכר את היסטוריית הטיפולים.");
   if (D.hold) add("warn", D.hold.status, `במאגר הרכב הציבורי של משרד התחבורה רשום "${D.hold.nm || D.hold.status}"${empty(D.hold.dt) ? "" : " מ-" + fmtDate(D.hold.dt)}.${D.hold.temp ? " זה מצב זמני, ולא ביטול של הרכב." : ""}`);
   // open recalls are not repeated here: the red banner above the tabs already says it
   { const n = D.kind === "model" || D.isCancelled ? 0 : settlementsFor(D).length; if (n) add("info", "ייתכן שמגיעה לכם הטבה מהסדר פשרה", `${n === 1 ? "נמצא הסדר פשרה אחד שעשוי לחול על הרכב" : `נמצאו ${n} הסדרי פשרה שעשויים לחול על הרכב`}. הפרטים בלשונית ${recTabOf(D)}.`); }
@@ -4195,6 +4213,8 @@ function checkLine(D, fr){
   const saved = D.fromCache ? fmtDate(new Date(D.fromCache).toISOString()) : "";
   const thin = recallThin(D), state = pw ? "warn" : saved ? "cached" : D.modelRecallsUnknown ? "partial" : thin ? "thin" : "ok";
   const noList = D.modelRecallsUnknown ? [] : modelRecallList(D).filter(r => r.fits !== false && !recallPending(r) && r.reach === "nolist");
+  // a recall of the production year with no car list: the data cannot say "checked", only the importer can (data truth 11/2026: airbags, timing chain)
+  const unl = !pw && !saved && noList.some(r => r.fits === true);
   const rows = [], row = (k, t, sub) => rows.push(`<li class="${k}">${ico(k === "ok" ? "check" : "info")}<b>${esc(t)}</b><span>${esc(sub)}</span></li>`);
   if (saved) row("info", `בבדיקה מ-${saved} לא היה ריקול פתוח לרכב הזה`, "משרד התחבורה לא ענה עכשיו, ולכן אי אפשר לדעת אם נפתח ריקול מאז");
   else row("ok", "אין ריקול פתוח לרכב הזה", hz ? `לפי רשימת משרד התחבורה, שכוללת ריקולים שנפתחו עד ${hz}` : "לפי רשימת משרד התחבורה");
@@ -4206,9 +4226,9 @@ function checkLine(D, fr){
   // one calm row for older model recalls the ministry published no car list for: not a warning (most years, a third or more of recalls have none)
   if (noList.length) row("info", noList.length === 1 ? "לריקול אחד לדגם אין רשימת רכבים" : `ל-${noList.length} ריקולים לדגם אין רשימת רכבים`, `ריקול${noList.length === 1 ? "" : "ים"} משנים קודמות שעשוי${noList.length === 1 ? "" : "ים"} לחול על שנת הייצור. משרד התחבורה לא פרסם אילו רכבים נכללו, ולכן אי אפשר לדעת מהמאגר אם הרכב הזה נכלל או תוקן. היבואן יכול לבדוק.`);
   if (D.modelRecallsUnknown) row("info", "רשימת הריקולים לדגם לא נטענה כרגע", "ולכן לא נבדק אם נפתח לדגם ריקול חדש שעוד אין לו פירוט לפי רכב");
-  const title = pw ? pw.title : saved ? `בבדיקה מ-${saved}: לא היה ריקול פתוח` : D.modelRecallsUnknown || thin ? "אין ריקול פתוח ברשימה לפי מספר רישוי" : `נבדק: אין ריקול פתוח${stlOn ? " ואין הסדר פשרה" : ""}`;
+  const title = pw ? pw.title : unl ? "כדאי לבדוק מול היבואן" : saved ? `בבדיקה מ-${saved}: לא היה ריקול פתוח` : D.modelRecallsUnknown || thin ? "אין ריקול פתוח ברשימה לפי מספר רישוי" : `נבדק: אין ריקול פתוח${stlOn ? " ואין הסדר פשרה" : ""}`;
   const retry = state === "cached" || state === "partial" ? `<div><button type="button" class="link-btn" data-retry="${esc(D.plate)}">נסו שוב</button></div>` : "";
-  return `<details class="ckl${pw ? " warn" : state === "ok" ? "" : " plain"}" data-line="${state}"><summary>${ico(pw ? "alert" : state === "ok" ? "check" : "info")}<b>${title}</b><svg class="i chev" aria-hidden="true"><use href="#i-chev"/></svg></summary><div class="ckl-body">${pw ? `<p>${pw.body}</p><ul class="rlist">${fr.map(r => recRow(D, r, pendPill(r))).join("")}</ul>` : ""}<ul class="ckl-rows">${rows.join("")}</ul>${pw || noList.length ? `<div>${importerBtn(D)}</div>` : ""}${retry}</div></details>`;
+  return `<details class="ckl${pw || unl ? " warn" : state === "ok" ? "" : " plain"}" data-line="${unl ? "unlisted" : state}"><summary>${ico(pw || unl ? "alert" : state === "ok" ? "check" : "info")}<b>${title}</b><svg class="i chev" aria-hidden="true"><use href="#i-chev"/></svg></summary><div class="ckl-body">${pw ? `<p>${pw.body}</p><ul class="rlist">${fr.map(r => recRow(D, r, pendPill(r))).join("")}</ul>` : ""}<ul class="ckl-rows">${rows.join("")}</ul>${pw || noList.length ? `<div>${importerBtn(D)}</div>` : ""}${retry}</div></details>`;
 }
 /* the recalls tab, by what to do: an open recall (fix it), what to check with the importer (a fresh recall, or data that did not load), then the
    checks that came back clean, folded when one of those is shown. Each fact has one place: no row repeats a card above it. A car has the tab only
@@ -6764,7 +6784,10 @@ function msCard(D){
   rows.push(["רכבים שירדו מהכביש", pc(off), avg ? `בממוצע לשנתון: ${pc(avg.off)}` : "", avg ? vs(off, avg.off, Math.sqrt(avg.off * (1 - avg.off) / all)) : ""]);
   // this car's own km against the model's: in colour, but it says nothing about the model, so the verdict leaves it out
   if (c.km) rows.push(["ק״מ אופייני בטסט האחרון", fmtN(c.km), D.km ? `הרכב הזה: ${fmtN(D.km)}` : "", D.km ? (D.km <= c.km * 1.1 ? "ok" : "bad") : "", "car"]);
-  if (avg) rows.push(["ריקולים פתוחים לכל 1,000 רכבים", c.rec.toFixed(c.rec < 10 ? 1 : 0), `בממוצע לשנתון: ${avg.rec.toFixed(avg.rec < 10 ? 1 : 0)}`, vs(c.rec, avg.rec)]);
+  // the rate counts the per-car list, which runs only to its horizon: no rate when the list did not answer for this car, or for a year still built
+  // after it (data truth 11/2026: 0.0 for a 2025 model a new recall covers whole), and otherwise it says how far the list runs
+  const hz = recallHz(catMetaV), hzY = recallYear(hz.d);
+  if (avg && !D.recallUnknown && !(hzY && c.year >= hzY)) rows.push(["ריקולים פתוחים לכל 1,000 רכבים", c.rec.toFixed(c.rec < 10 ? 1 : 0), `בממוצע לשנתון: ${avg.rec.toFixed(avg.rec < 10 ? 1 : 0)}${hz.d ? `, לפי ריקולים שנפתחו עד ${fmtDate(hz.d)}` : ""}`, vs(c.rec, avg.rec)]);
   const model = rows.filter(r => !r[4]), good = model.filter(r => r[3] === "ok").length, bad = model.filter(r => r[3] === "bad").length;
   const verdict = !avg ? "" : good && bad ? "במדד אחד הדגם הזה טוב מהממוצע ובאחר פחות טוב."
     : good ? (good === model.length ? "הדגם הזה, בשנתון הזה, טוב מהממוצע בכל המדדים." : "בסך הכול הדגם הזה טוב מהממוצע.")
@@ -6986,14 +7009,18 @@ function buyerCard(D){
   if (D.recalls.length) { flags.push(["bad", D.recalls.length === 1 ? "ריקול פתוח" : `${D.recalls.length} ריקולים פתוחים`]); qs.push("האם הריקול תוקן? כדאי לבקש אישור תיקון מהיבואן."); }
   const pr = pendingRecalls(D); if (pr.length) { const pw = pendingWords(pr); flags.push(["warn", pw.line]); qs.push(pw.ask); }
   for (const i of buildInsights(D)) if (i.level === "bad" || i.level === "warn") flags.push([i.level, i.title]);
+  if (ownNow(D).kind === "rental") { flags.push(["warn", "הרכב רשום כעת על חברת השכרה"]); qs.push("כמה קילומטרים עשה הרכב בהשכרה, ויש תיעוד של כל הטיפולים?"); }
+  if (D.tag && !reportBuild) flags.push(["warn", "יש לרכב תג חניה לנכה, שצריך להסיר לפני העברת בעלות"]);   // personal: on the screen only, never in a report
+  // "no red flags" only when every register answered: a recall register that did not load hides open recalls
+  const none = !D.recallUnknown && !(D.errs || []).length ? "לא עלו דגלים אדומים בנתונים." : "לא כל הנתונים נטענו, ולכן אין סיכום דגלים.";
   const dtk = driveType(D);
   if (dtk && ["ev", "phev", "hybrid"].includes(dtk.k)) qs.unshift("עד מתי ועד כמה ק״מ יש אחריות יצרן על הסוללה?", "אפשר לעשות ביטוח לסוללה או להאריך את האחריות, ובכמה זה עולה?", ...(dtk.k === "hybrid" ? [] : ["יש דוח בדיקת בריאות סוללה?"]));
   if (PRO_LOCK && !isPro()) {
     const top = flags.slice(0, 2), more = Math.max(0, flags.length - 2);
-    return `<div class="buyer-card">${card("ליווי קנייה", "bulb", "amber", `${top.length ? `<div class="qsec">כדאי לבדוק</div><ul class="bflags">${top.map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul>` : `<p style="margin:0 0 8px">לא עלו דגלים אדומים בנתונים.</p>`}<p class="note" style="margin:6px 0 8px">${more ? (more === 1 ? "יש עוד דגל אחד, " : `יש עוד ${more} דגלים, `) : ""}ושאלות למוכר נמצאים בחבילת קנייה.</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לפרטים על חבילת קנייה</button>`, `${PT("חבילת קנייה")}`)}</div>`;
+    return `<div class="buyer-card">${card("ליווי קנייה", "bulb", "amber", `${top.length ? `<div class="qsec">כדאי לבדוק</div><ul class="bflags">${top.map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul>` : `<p style="margin:0 0 8px">${none}</p>`}<p class="note" style="margin:6px 0 8px">${more ? (more === 1 ? "יש עוד דגל אחד, " : `יש עוד ${more} דגלים, `) : ""}ושאלות למוכר נמצאים בחבילת קנייה.</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לפרטים על חבילת קנייה</button>`, `${PT("חבילת קנייה")}`)}</div>`;
   }
   const it = savedItem(D.plate), ask = it && it.ask || null, f = candFields(D), vd = askVerdict(ask, f.fair);
-  const body = `${flags.length ? `<div class="qsec">כדאי לבדוק</div><ul class="bflags">${flags.slice(0, 5).map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul>` : `<p style="margin:0 0 8px">לא עלו דגלים אדומים בנתונים.</p>`}
+  const body = `${flags.length ? `<div class="qsec">כדאי לבדוק</div><ul class="bflags">${flags.slice(0, 5).map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul>` : `<p style="margin:0 0 8px">${none}</p>`}
     ${qs.length ? `<div class="qsec">מה לשאול את המוכר על הרכב הזה</div><ul class="bq">${qs.slice(0, 6).map(q => `<li>${esc(q)}</li>`).join("")}</ul>` : ""}
     <div class="qsec" style="margin-top:10px">המחיר שהמוכר מבקש</div>
     <div class="askrow"><input class="inp" id="askIn" inputmode="numeric" placeholder="₪" value="${ask || ""}" aria-label="המחיר המבוקש"><button type="button" class="link-btn" data-act="candSave">${ico("star")}${it ? "עדכון" : "שמירה כמועמד"}</button></div>

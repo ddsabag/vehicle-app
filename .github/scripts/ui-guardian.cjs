@@ -49,6 +49,11 @@ const FIXTURES = [
   { name: "recall-unknown", rec: BASE, recallStatus: 500 },
   { name: "list-reloading", rec: BASE, listTotal: 0 },
   { name: "saved-copy", rec: BASE, savedDaysAgo: 12 },
+  // the buyer-card rules of 11/2026 (data truth review): a taxi shown as private, "no red flags" beside a flag, recall lines that contradict the ministry
+  { name: "public-use", rec: BASE, sets: { "cf29862d": [{ _id: 1, mispar_rechev: 12345678, tozeret_cd: 1, degem_cd: 1, sug_rechev_nm: "מונית", bitul_cd: "0" }] }, expect: { insight: /במאגר הרכב הציבורי \(מונית\)/, flag: /במאגר הרכב הציבורי/ } },
+  { name: "rental-now", rec: { ...BASE, baalut: "השכרה" }, expect: { flag: /חברת השכרה/ } },
+  { name: "after-road", rec: { ...BASE, moed_aliya_lakvish: "2021-3" }, model: { modelRecalls: [{ RECALL_ID: 16900, SHNAT_RECALL: 2026, TEUR_TAKALA: "החלפת כרית אוויר", SUG_RECALL: "ריקול בטיחות", BUILD_BEGIN_A: "2021-08-01", BUILD_END_A: "2022-02-28", fits: true, fresh: true }] }, expect: { line: "ok", noFlag: /ריקול/ } },
+  { name: "unlisted", rec: BASE, model: { modelRecalls: [{ RECALL_ID: 9100, SHNAT_RECALL: 2015, TEUR_TAKALA: "החלפת כרית אוויר", SUG_RECALL: "ריקול בטיחות", fits: true, reach: "nolist" }] }, expect: { line: "unlisted" } },
 ];
 const TABS = contract.tabs.map((t) => t.id);
 const WIDTHS = process.env.UG_QUICK ? [390] : [320, 390];
@@ -71,7 +76,8 @@ async function runPage(browser, fx, theme, width) {
     if (recList && fx.recallStatus) return r.fulfill({ status: fx.recallStatus, body: "" });
     // a dataset's own size (limit=0): the per-car recall list is loaded unless the fixture says it is being reloaded
     if (/[?&]limit=0\b/.test(u)) return r.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify({ success: true, result: { records: [], total: recList && fx.listTotal !== undefined ? fx.listTotal : 120000 } }) });
-    const recs = u.includes("053cea08") ? [fx.rec] : recList && fx.recall ? fx.recall : [];
+    const set = fx.sets && Object.keys(fx.sets).find((k) => u.includes(k));
+    const recs = u.includes("053cea08") ? [fx.rec] : set ? fx.sets[set] : recList && fx.recall ? fx.recall : [];
     r.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify({ success: true, result: { records: recs, total: recs.length } }) });
   });
   // model data the catalogue would give (the catalogue itself is not fetched in the run): fetchModelData is a page-level function
@@ -90,9 +96,22 @@ async function runPage(browser, fx, theme, width) {
   const live = !fx.savedDaysAgo && !fx.recallStatus && fx.listTotal !== 0 && !!fx.model;
   if (line && /^נבדק/.test(line.title) && !live) fail(`[${label}] the line says "${line.title}" although a check did not run on a live answer`);
   if ((fx.recallStatus || fx.listTotal === 0) && line) fail(`[${label}] the "checked" line shows while the per-car recall list did not answer`);
-  if (fx.model && fx.model.modelRecalls.some((r) => r.fresh) && (!line || line.state !== "warn")) fail(`[${label}] a fresh model recall did not turn the line amber`);
+  if (fx.model && !(fx.expect && fx.expect.line) && fx.model.modelRecalls.some((r) => r.fresh) && (!line || line.state !== "warn")) fail(`[${label}] a fresh model recall did not turn the line amber`);
   if (live && !fx.model.modelRecalls.length && (!line || line.state !== "ok")) fail(`[${label}] every check ran clean, but the line is "${line ? line.title : "missing"}"`);
   if (fx.savedDaysAgo && line && line.state !== "cached") fail(`[${label}] a saved copy shows the line as "${line.state}", not "cached"`);
+  // the buyer card's flags and its "no red flags" line: that line only when every register answered and nothing was flagged
+  const bc = await page.evaluate(() => { const d = document.createElement("div"); d.innerHTML = buyerCard(current); return { flags: [...d.querySelectorAll(".bflags li")].map((l) => l.textContent), none: /לא עלו דגלים אדומים/.test(d.textContent), partial: /לא כל הנתונים נטענו/.test(d.textContent), ins: buildInsights(current).map((i) => i.title) }; }).catch((e) => ({ err: e.message }));
+  if (bc.err) fail(`[${label}] the buyer card did not build: ${bc.err}`);
+  else {
+    if (bc.none && bc.flags.length) fail(`[${label}] the buyer card says "no red flags" beside ${bc.flags.length} flags`);
+    if (bc.none && (fx.recallStatus || fx.listTotal === 0)) fail(`[${label}] the buyer card says "no red flags" while the per-car recall list did not answer`);
+    if (fx.recallStatus && !bc.partial) fail(`[${label}] the recall list did not answer, and the buyer card does not say the data is partial`);
+    const ex = fx.expect || {};
+    if (ex.insight && !bc.ins.some((t) => ex.insight.test(t))) fail(`[${label}] no insight matches ${ex.insight}: ${bc.ins.join(" | ")}`);
+    if (ex.flag && !bc.flags.some((t) => ex.flag.test(t))) fail(`[${label}] no buyer-card flag matches ${ex.flag}: ${bc.flags.join(" | ") || "none"}`);
+    if (ex.noFlag && bc.flags.some((t) => ex.noFlag.test(t))) fail(`[${label}] a buyer-card flag matches ${ex.noFlag}: ${bc.flags.join(" | ")}`);
+    if (ex.line && (!line || line.state !== ex.line)) fail(`[${label}] the checked line is "${line ? line.state : "missing"}", not "${ex.line}"`);
+  }
   await page.addStyleTag({ content: "*{animation:none!important;transition:none!important}" });
 
   // a car shows only the tabs that apply to it (the recalls tab only with an open recall or a settlement), so the run walks the tabs on screen;
