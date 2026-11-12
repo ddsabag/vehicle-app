@@ -63,15 +63,19 @@ async function call(params, tries = 8) {
   throw new Error("failed " + JSON.stringify(params).slice(0, 100));
 }
 async function scan(id, fields, f) {
-  let n = 0, total = null;
+  let n = 0;
   for (let off = 0; ; off += PAGE) {
-    const r = await call({ resource_id: id, limit: String(PAGE), offset: String(off), fields });
-    if (total === null) total = r.total;
+    const r = await call({ resource_id: id, limit: String(PAGE), offset: String(off), sort: "_id", fields });
     for (const x of r.records) f(x); n += r.records.length;
-    if (r.records.length < PAGE) break;
+    // a short page is the end only when no row lies past it (one more row is asked for there); the dataset's own total is no measure: for the
+    // price list it is an estimate (130,885 on 24.10.2026, while every read ends at its 102,116 rows), and a gate on it fails good reads
+    if (r.records.length < PAGE) {
+      // a half-read register would look like thousands of cars vanishing: refuse to continue
+      const more = await call({ resource_id: id, limit: "1", offset: String(n), sort: "_id", fields: "_id" });
+      if (more.records.length) throw new Error(`${id}: the read stopped after ${n} rows, and the register goes on`);
+      break;
+    }
   }
-  // a half-read register would look like thousands of cars vanishing: refuse to continue
-  if (total && n < total * 0.995) throw new Error(`register read ${n} of ${total}`);
   return n;
 }
 
