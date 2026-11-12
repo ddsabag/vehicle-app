@@ -1,0 +1,42 @@
+android https://luchit.app/
+  scripts: https://luchit.app/app.6e51f0179b.js
+  inline scripts: 4
+  errors: []
+android https://luchit.app/?plate=7654321&s=wa
+  scripts: https://luchit.app/app.6e51f0179b.js
+  inline scripts: 4
+  errors: []
+desktop https://luchit.app/
+  scripts: https://luchit.app/app.6e51f0179b.js
+  inline scripts: 4
+  errors: []
+desktop https://luchit.app/?plate=7654321&s=wa
+  scripts: https://luchit.app/app.6e51f0179b.js
+  inline scripts: 4
+  errors: []
+  [fb] console error: Access to fetch at 'https://data.gov.il/api/3/action/datastore_search?resource_id=053cea08-09bc-40ec-8f7a-156f0677aff3&f
+  [fb] console error: Failed to load resource: net::ERR_FAILED
+  [fb] console error: Access to fetch at 'https://data.gov.il/api/3/action/datastore_search?resource_id=cf29862d-ca25-4691-84f6-1be60dcb4a1e&f
+  [fb] console error: Failed to load resource: net::ERR_FAILED
+  [fb] console error: Access to fetch at 'https://data.gov.il/api/3/action/datastore_search?resource_id=56063a99-8a3e-4ff4-912e-5966c0279bad&f
+  [fb] console error: Failed to load resource: net::ERR_FAILED
+  [fb] console error: Access to fetch at 'https://data.gov.il/api/3/action/datastore_search?resource_id=03adc637-b6fe-402b-9937-7c3d3afc9140&f
+  [fb] console error: Failed to load resource: net::ERR_FAILED
+  [fb] console error: Access to fetch at 'https://data.gov.il/api/3/action/datastore_search?resource_id=0866573c-40cd-4ca8-91d2-9dd2d7a492e5&f
+  [fb] console error: Failed to load resource: net::ERR_FAILED
+  [fb] console error: Access to fetch at 'https://data.gov.il/api/3/action/datastore_search?resource_id=bb2355dc-9ec7-4f06-9c3f-3344672171da&f
+  [fb] console error: Failed to load resource: net::ERR_FAILED
+  [fb] console error: Access to fetch at 'https://data.gov.il/api/3/action/datastore_search?resource_id=7cb2bd95-bf2e-49b6-aea1-fcb5ff6f0473&f
+  [fb] console error: Failed to load resource: net::ERR_FAILED
+  [fb] console error: Access to fetch at 'https://data.gov.il/api/3/action/datastore_search?resource_id=36bf1404-0be4-49d2-82dc-2f1ead4a8b93&f
+  [fb] console error: Failed to load resource: net::ERR_FAILED
+  [fb] console error: Access to fetch at 'https://data.gov.il/api/3/action/datastore_search?resource_id=c8b9f9c8-4612-4068-934f-d4acd2e3c06e&f
+  [fb] console error: Failed to load resource: net::ERR_FAILED
+fb https://luchit.app/
+  scripts: https://luchit.app/app.6e51f0179b.js
+  inline scripts: 4
+  errors: []
+fb https://luchit.app/?plate=7654321&s=wa
+  scripts: https://luchit.app/app.6e51f0179b.js
+  inline scripts: 4
+  errors: []
