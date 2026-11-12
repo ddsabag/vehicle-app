@@ -1101,7 +1101,9 @@ body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)
       </div>
     </section>
     <div class="set-grp set-row" id="planRow"><span>החבילה שלי</span><p class="note" id="planNote"></p><button class="link-btn" type="button" id="planBtn">פרטי החבילות</button></div>
-    <details class="set-grp set-fold" id="bizRow"><summary><span>פרטי העסק לדוחות (PRO עסקי)</span><svg class="i go-chev" aria-hidden="true"><use href="#i-chev"/></svg></summary>
+    <details class="set-grp set-fold" id="bizRow"><summary><span>פרטי העסק לדוחות</span><svg class="i go-chev" aria-hidden="true"><use href="#i-chev"/></svg></summary>
+      <div class="fuel-set"><label for="dkCode" style="white-space:nowrap">קוד עסק</label><input id="dkCode" class="wide" dir="ltr" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="link-btn" type="button" id="dkGo">הפעלה</button></div>
+      <p class="note" id="dkNote" role="status" aria-live="polite"></p>
       <div class="fuel-set"><label for="bizName">שם העסק</label><input id="bizName" class="wide"></div>
       <div class="fuel-set"><label for="bizPhone">טלפון</label><input id="bizPhone" class="wide" inputmode="tel"></div>
       <div class="fuel-set"><label for="bizAddr">כתובת</label><input id="bizAddr" class="wide"></div>
@@ -1109,7 +1111,7 @@ body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)
       <div class="fuel-set"><span>לוגו</span><label class="pick" for="bizLogo">בחירת קובץ</label><input id="bizLogo" type="file" accept="image/*" hidden></div>
       <div class="kinds"><label><input id="bizCosts" type="checkbox">להוסיף לדוח: שווי שימוש</label><label><input id="bizValue" type="checkbox">להוסיף לדוח: שווי משוער</label></div>
       <button class="link-btn danger" type="button" id="bizLogoClear" hidden>הסרת הלוגו</button>
-      <p class="note">הפרטים מופיעים בדוחות ה-PDF הממותגים: בלי לוגו של לוחית ובלי קישור לחנות.</p>
+      <p class="note">הפרטים מופיעים בדוחות ה-PDF הממותגים. בתחתית הדוח יש קוד QR קטן "נבדק בלוחית", כדי שהקונה יוכל לראות בעצמו את הנתונים המעודכנים.</p>
     </details>
     <section class="set-sec" aria-labelledby="ssData"><h3 id="ssData">פרטיות ונתונים</h3>
       <div class="set-grp">
@@ -1163,7 +1165,7 @@ body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)
       <button type="button" class="row" data-share="card"><span class="badge-s blue"><svg class="i"><use href="#i-image"/></svg></span><span class="t"><b>כרטיס סיכום</b><small>תמונה אחת עם מה שנמצא, לשליחה בוואטסאפ (מומלץ)</small></span></button>
       <button type="button" class="row" data-share="image"><span class="badge-s slate"><svg class="i"><use href="#i-image"/></svg></span><span class="t"><b>צילום הדוח המלא</b><small>כפי שהוא על המסך, כולל כל הכרטיסים</small></span></button>
       <button type="button" class="row" data-share="pdf"><span class="badge-s blue"><svg class="i"><use href="#i-doc"/></svg></span><span class="t"><b>קובץ PDF</b><small>דוח מלא: סקירה, ריקולים, עלויות ומפרט</small></span></button>
-      <button type="button" class="row" data-share="bizpdf" hidden><span class="badge-s violet"><svg class="i"><use href="#i-doc"/></svg></span><span class="t"><b>PDF ממותג (PRO עסקי)</b><small>עם פרטי העסק שלכם, בלי לוגו ובלי קישור של לוחית</small></span></button>
+      <button type="button" class="row" data-share="bizpdf" hidden><span class="badge-s violet"><svg class="i"><use href="#i-doc"/></svg></span><span class="t"><b>PDF ממותג</b><small>עם פרטי העסק שלכם, בלי לוגו ובלי קישור של לוחית</small></span></button>
       <button type="button" class="row" data-share="text"><span class="badge-s slate"><svg class="i"><use href="#i-copy"/></svg></span><span class="t"><b>טקסט</b><small>סיכום קצר בהודעה</small></span></button>
     </div>
     <p class="note">הדוח כולל את מספר הרישוי והיסטוריית סוגי הבעלות (בלי שמות). שתפו אותו רק עם מי שצריך.</p><p class="note" id="shareMsg" role="status"></p>
@@ -1194,6 +1196,7 @@ const SITE = "https://luchit.app/";
 const timeoutSignal = ms => { if (AbortSignal.timeout) return AbortSignal.timeout(ms); const c = new AbortController(); setTimeout(() => c.abort(), ms); return c.signal; };
 /* PRO: while PRO_LOCK is false (beta) every feature is open to everyone. Later it is tied to a Google Play subscription. */
 const PRO_LOCK = false;
+const BIZ_TOOLS = true;   // dealer beta (strategy/dealer-offer, phase 1): the business profile and the branded PDF are open to everyone, free
 /* anonymous usage events (Firebase Analytics in the app, /api/e -> GA4 on the web): what people do, never a plate number or anything personal. The user can switch it off in settings.
    A model-search term goes out only when it looks like a model query: letters, digits, space, hyphen, at least 2 letters, under 5 digits of any script. */
 function safeTerm(t){ t = String(t || "").trim().toLowerCase().slice(0, 40); if (/[^a-z\u05d0-\u05ea0-9 \-]/.test(t) || (t.match(/[a-z\u05d0-\u05ea]/g) || []).length < 2 || t.replace(/[^0-9]/g, "").length >= 5) return ""; return t; }
@@ -1232,7 +1235,12 @@ function lookupFacts(D) {
 const appParams = p => { const o = {}; for (const [k, v] of Object.entries(p || {})) o[k] = typeof v === "boolean" ? (v ? "1" : "0") : typeof v === "number" ? String(v) : v; return o; };
 // the website offline: an event waits for the network instead of a sendBeacon that is lost on the way (the app's Firebase keeps its own queue)
 const trackQ = [];
-const track = (name, params) => { try { if (!analyticsOn()) return; const b = window.AndroidApp; if (b) { if (b.logEvent) b.logEvent(name, JSON.stringify(appParams(params))); return; }
+/* dealer beta (phase 1): while a valid business code is on this device, its id (8 letters, pseudonymous: only the mailing list links it to an
+   address) goes with the business tools' events, so the pilot is read per business. Never a plate */
+const DEALER = {id: "", exp: 0, why: ""};
+const DK_EV = new Set(["bulk_check", "share", "car_save", "alerts_toggle"]);
+const track = (name, params) => { try { if (DEALER.id && DK_EV.has(name) && (name !== "share" || (params && params.kind === "bizpdf"))) params = {...(params || {}), dk: DEALER.id};
+  if (!analyticsOn()) return; const b = window.AndroidApp; if (b) { if (b.logEvent) b.logEvent(name, JSON.stringify(appParams(params))); return; }
   if (document.prerendering) { document.addEventListener("prerenderingchange", () => track(name, params), {once: true}); return; }   // a page Chrome loaded ahead counts only once it is opened
   if (navigator.onLine === false) { if (trackQ.length < 30) trackQ.push([name, params]); return; }
   if (location.protocol === "https:" && navigator.sendBeacon) navigator.sendBeacon("/api/e", new Blob([JSON.stringify({n: name, p: {src: LAND, ...landCamp(), ...(params || {})}, cid: WEB_CID})], {type: "text/plain"})); } catch {} };
@@ -1492,6 +1500,8 @@ const DRIVE_WORDS_HE = {HEV: "היברידי", HYBRID: "היברידי", HSD: "�
 const DRIVE_WORDS_RX = /(?<![A-Za-z0-9-])(?:PHEV|HEV|HYBRID|HSD|PLUG-IN)(?![A-Za-z0-9-])/gi;
 
 /* ---------- API ---------- */
+/* remote switches (flags branch, flags.json): anything missing or unreadable counts as off */
+const loadFlags = () => fetch("https://raw.githubusercontent.com/ddsabag/vehicle-app/flags/flags.json", {cache: "no-cache"}).then(r => r.ok ? r.json() : {}).then(j => j && typeof j === "object" ? j : {}).catch(() => ({}));
 /* Optional caching proxy (worker/ in this repo). Empty = every phone talks to data.gov.il directly. When set and it fails, the phone falls back to direct. */
 const PROXY = "";
 let STALE_AT = 0;   // set when the proxy answered from its stored copy because the ministry was unreachable
@@ -5406,7 +5416,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.tab) { const again = currentTab === b.dataset.tab; currentTab = b.dataset.tab; if (!again) track("tab_view", {tab: b.dataset.tab, own: current && current.plate && isSaved(current.plate) ? 1 : 0, role: roleOf(current)}); renderResult(); focusResult(); $("#out").classList.add("rise"); setTimeout(() => $("#out").classList.remove("rise"), 300); const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"}); return; }
   const act = b.dataset.act;
   if (act === "share") { track("share_open");   // the sheet opening; track("share") counts only a choice in it
-    $("#shareMsg").textContent = ""; $("[data-share=bizpdf]").hidden = !(PRO_LOCK && isBiz()); $("#shareSheet").hidden = false; shareWarm = {}; warmShare(); }
+    $("#shareMsg").textContent = ""; $("[data-share=bizpdf]").hidden = !(BIZ_TOOLS || (PRO_LOCK && isBiz())); $("#shareSheet").hidden = false; shareWarm = {}; warmShare(); }
   if (act === "candSave") {
     const raw = digits(($("#askIn") || {}).value), ask = raw ? Number(raw) : null;
     if (!isSaved(current.plate) && toggleSaved(newSavedItem(current))) {   // a new save counts like the star's
@@ -5486,6 +5496,8 @@ $("#compareSheet").addEventListener("click", ev => { if (ev.target.id === "compa
 const LIBS = {
   img: "https://cdn.jsdelivr.net/npm/html-to-image@1.11.13/dist/html-to-image.js",
   pdf: "lib/jspdf.umd.min.js",   // shipped with the app (same file as jspdf@2.5.2 on jsDelivr), so a PDF needs no download
+  qr: "lib/qrcode.js",           // qrcode-generator@1.4.4 (MIT), shipped with the app: the "נבדק בלוחית" code in the branded PDF, no network call
+  nacl: "lib/nacl.min.js",       // tweetnacl@1.0.3 (public domain): checks a business code where the browser has no Ed25519 of its own
   ocr: "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js",
   pdfjs: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js",
 };
@@ -5495,8 +5507,8 @@ const OCR_PATHS = {
   corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1",
   langPath: "https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int",
 };
-const LIB_FALLBACK = {pdf: "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"};
-const LIB_SRI = {"img": "sha384-Tha/42qsYmpYmQ07pX+nJzkKumO0BzKJxK/uzVc7xyBQxVCUgQBhQIG8L7vXK+9C", "pdf": "sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/", "ocr": "sha384-GJqSu7vueQ9qN0E9yLPb3Wtpd7OrgK8KmYzC8T1IysG1bcvxvIO4qtYR/D3A991F", "pdfjs": "sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e"};
+const LIB_FALLBACK = {pdf: "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js", qr: "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js", nacl: "https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl.min.js"};
+const LIB_SRI = {"qr": "sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k", "nacl": "sha384-LMUiUHpaYNGZFzWFRjsADnCSqae1Mk5llcUOHOLDhCxkyF2cdsWAueTZAzV+swW/", "img": "sha384-Tha/42qsYmpYmQ07pX+nJzkKumO0BzKJxK/uzVc7xyBQxVCUgQBhQIG8L7vXK+9C", "pdf": "sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/", "ocr": "sha384-GJqSu7vueQ9qN0E9yLPb3Wtpd7OrgK8KmYzC8T1IysG1bcvxvIO4qtYR/D3A991F", "pdfjs": "sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e"};
 const scriptCache = {};
 function loadScript(src){
   const k0 = Object.keys(LIBS).find(x => LIBS[x] === src), fb = k0 && LIB_FALLBACK[k0];
@@ -5823,7 +5835,7 @@ async function makePdf(D, biz, cap){
   const [{canvas, breaks}] = await Promise.all([cap || captureReport(D, true, biz), loadScript(LIBS.pdf)]);
   const yr = empty(D.v.shnat_yitzur) ? "" : " " + D.v.shnat_yitzur;
   let opts;
-  if (biz) opts = await bizPdfOpts(biz);
+  if (biz) opts = await bizPdfOpts(biz, D);
   else {
     // our own PDF opens with a cover page (the same summary as the share card, A4 proportions; the footer is a tappable link to the live report)
     opts = {link: shareLink(D.plate, "pdf")};
@@ -5835,7 +5847,7 @@ async function pdfFromCanvas(canvas, breaks, headText, headLeft, opts = {}){
   const logo = "logo" in opts ? opts.logo : await loadLogo();
   const pdf = new window.jspdf.jsPDF({unit: "pt", format: "a4", compress: true});
   const W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight();
-  const MX = 36, TOP = 58, BOT = 50, CW = W - 2 * MX;
+  const MX = 36, TOP = 58, BOT = opts.qr ? 98 : 50, CW = W - 2 * MX, QRH = 54;
   const scale = CW / canvas.width, pageH = Math.floor((H - TOP - BOT) / scale);
   const cover = opts.cover || null, off = cover ? 1 : 0;
   const slices = []; let y = 0;
@@ -5857,6 +5869,7 @@ async function pdfFromCanvas(canvas, breaks, headText, headLeft, opts = {}){
     pdf.addImage(part.toDataURL("image/jpeg", 0.88), "JPEG", MX, i ? TOP : 30, CW, (b - a) * scale, "page" + i);
     pdf.addImage(foot(`${i + 1 + off} / ${slices.length + off}`), "JPEG", MX, H - 34, CW, bh, "foot" + i);
     if (!opts.foot) pdf.link(MX, H - 34, CW, bh, {url: opts.link || SITE});
+    if (opts.qr) { pdf.addImage(opts.qr.toDataURL("image/png"), "PNG", MX, H - 40 - QRH, QRH * 3, QRH, "qr"); pdf.link(MX, H - 40 - QRH, QRH * 3, QRH, {url: opts.link || SITE}); }
   });
   return pdf.output("blob");
 }
@@ -7005,8 +7018,54 @@ const bizSave = o => { try { localStorage.setItem("bizProfile", JSON.stringify(o
 const bizHead = b => `<div class="rep-brand biz">${b.logo ? `<img src="${esc(b.logo)}" alt="">` : ""}<div><b>${esc(b.name)}</b><span>${esc([b.addr, b.phone].filter(Boolean).join(" · "))}</span></div></div>`;
 const bizFoot = b => `המידע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il, ואינו מחליף נסח רישום רשמי.${b.note ? " " + esc(b.note) : ""}`;
 const loadImg = src => new Promise(ok => { if (!src) return ok(null); const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null); im.src = src; });
-async function bizPdfOpts(b){
-  return {foot: [b.name, b.phone].filter(Boolean).join(" · "), logo: await loadImg(b.logo)};
+async function bizPdfOpts(b, D){
+  let qr = null; try { qr = D ? await bizQr(shareLink(D.plate, "bizpdf")) : null; } catch { reportErr("biz_qr"); }
+  return {foot: [b.name, b.phone].filter(Boolean).join(" · "), logo: await loadImg(b.logo), qr, link: D ? shareLink(D.plate, "bizpdf") : SITE};
+}
+/* the branded PDF's small "נבדק בלוחית" code: the buyer scans it and sees the live report. Drawn here, no network call */
+async function bizQr(url){
+  await loadScript(LIBS.qr);
+  const q = window.qrcode(0, "M"); q.addData(url); q.make();
+  const n = q.getModuleCount(), cell = Math.max(4, Math.floor(200 / (n + 8))), side = cell * (n + 8), W = side * 3;
+  const c = document.createElement("canvas"); c.width = W; c.height = side;
+  const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, W, side); x.fillStyle = "#151a24";
+  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) x.fillRect((k + 4) * cell, (r + 4) * cell, cell, cell);
+  x.font = `bold ${Math.round(side * .2)}px Arial, "Noto Sans Hebrew", sans-serif`; x.textBaseline = "middle"; x.direction = "rtl"; x.textAlign = "right";
+  x.fillText("נבדק בלוחית", W - 4, side * .38);
+  x.font = `${Math.round(side * .15)}px Arial, sans-serif`; x.fillStyle = "#5d6676"; x.fillText("luchit.app · לנתונים המעודכנים", W - 4, side * .64);
+  return c;
+}
+/* the business code (dealer beta): LD1.<payload>.<signature>, signed by the Worker and sent by e-mail; checked here with the public key, no
+   account and no server call. DEALER_PUB stays empty until the Worker's signing secret is set (Dudu pastes it): then every code reads as wrong */
+const DEALER_PUB = "";
+const b64d = t => Uint8Array.from(atob(t.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((t.length + 3) % 4)), c => c.charCodeAt(0));
+async function dealerCheck(code){
+  const m = /^LD1\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/.exec(String(code || "").replace(/\s+/g, "")); if (!m || !DEALER_PUB) return {ok: false, why: "bad"};
+  let p; try { p = JSON.parse(new TextDecoder().decode(b64d(m[1]))); } catch { return {ok: false, why: "bad"}; }
+  if (!p || p.plan !== "dealer" || !/^[a-z]{8}$/.test(p.id) || !Number.isFinite(p.exp)) return {ok: false, why: "bad"};
+  const msg = new TextEncoder().encode("LD1." + m[1]), pub = b64d(DEALER_PUB);
+  let sig, good = null; try { sig = b64d(m[2]); } catch { return {ok: false, why: "bad"}; }
+  try { const k = await crypto.subtle.importKey("raw", pub, {name: "Ed25519"}, false, ["verify"]); good = await crypto.subtle.verify({name: "Ed25519"}, k, sig, msg); } catch { good = null; }
+  if (good === null) { try { await loadScript(LIBS.nacl); good = window.nacl.sign.detached.verify(msg, sig, pub); } catch { return {ok: false, why: "check"}; } }
+  if (!good) return {ok: false, why: "bad"};
+  if (p.exp * 864e5 < Date.now()) return {ok: false, why: "expired", exp: p.exp};
+  if (((await loadFlags()).dealer_revoked || []).includes(p.id)) return {ok: false, why: "revoked"};
+  return {ok: true, id: p.id, exp: p.exp};
+}
+const dealerCode = () => { try { return localStorage.getItem("dealerKey") || ""; } catch { return ""; } };
+function dealerNote(){
+  const el = $("#dkNote"); if (!el) return;
+  const web = !window.AndroidApp;
+  if (DEALER.id) el.textContent = `הקוד פעיל עד ${dmy(DEALER.exp * 864e5)}. תודה שאתם בפיילוט.`;
+  else if (DEALER.why === "expired") el.textContent = "תוקף הקוד הסתיים." + (web ? " לקוד חדש: luchit.app/business" : "");
+  else if (DEALER.why === "revoked") el.textContent = "הקוד הזה כבר לא פעיל. לשאלות: support@luchit.app";
+  else el.textContent = "יש לכם קוד עסק? הדביקו אותו כאן." + (web ? " לקבלת קוד: luchit.app/business" : "");
+}
+async function dealerLoad(){
+  const code = dealerCode(); if (!code) return;
+  const r = await dealerCheck(code);
+  Object.assign(DEALER, r.ok ? {id: r.id, exp: r.exp, why: ""} : {id: "", exp: r.exp || 0, why: r.why === "check" ? "" : r.why});
+  dealerNote();
 }
 let BULK = [], BULK_TEXT = "", BULK_D = {};
 const BULK_MAX = 100;
@@ -7470,7 +7529,7 @@ function syncBiz(){
   const b = bizProfile();
   for (const [id, k] of Object.entries(BIZ_FIELDS)) $("#" + id).value = b[k] || "";
   $("#bizCosts").checked = !!b.costs; $("#bizValue").checked = !!b.value;
-  $("#bizLogoClear").hidden = !b.logo; $("#bizRow").hidden = !(PRO_LOCK && isBiz());
+  $("#bizLogoClear").hidden = !b.logo; $("#bizRow").hidden = !(BIZ_TOOLS || (PRO_LOCK && isBiz())); dealerNote();
 }
 for (const [id, k] of [["bizCosts", "costs"], ["bizValue", "value"]]) $("#" + id).addEventListener("change", () => { const b = bizProfile(); b[k] = $("#" + id).checked; bizSave(b); });
 for (const [id, k] of Object.entries(BIZ_FIELDS)) $("#" + id).addEventListener("change", () => { const b = bizProfile(); b[k] = $("#" + id).value.trim(); bizSave(b); });
@@ -7487,6 +7546,17 @@ $("#bizLogo").addEventListener("change", async ev => {
 });
 $("#bizLogoClear").addEventListener("click", () => { const b = bizProfile(); delete b.logo; bizSave(b); syncBiz(); });
 syncBiz();
+/* the business code: pasted from the e-mail, checked on this device, kept here (localStorage) */
+$("#dkGo").addEventListener("click", async () => {
+  const code = $("#dkCode").value.replace(/\s+/g, ""), note = $("#dkNote");
+  if (!code) { dealerNote(); return; }
+  note.textContent = "בודק את הקוד…";
+  const r = await dealerCheck(code);
+  if (r.ok) { try { localStorage.setItem("dealerKey", code); } catch { note.textContent = "אין מספיק מקום פנוי בטלפון כדי לשמור את הקוד."; return; } Object.assign(DEALER, {id: r.id, exp: r.exp, why: ""}); dealerNote(); return; }
+  note.textContent = r.why === "expired" ? "תוקף הקוד הסתיים." : r.why === "revoked" ? "הקוד הזה כבר לא פעיל. לשאלות: support@luchit.app" : r.why === "check" ? "לא הצלחנו לבדוק את הקוד. בדקו את החיבור ונסו שוב." : "הקוד לא תקין. העתיקו אותו שוב מהמייל.";
+});
+$("#dkCode").value = dealerCode();
+(window.requestIdleCallback || (f => setTimeout(f, 2000)))(() => dealerLoad().catch(() => null));
 /* Android back button: close settings, then return from a result to the home screen */
 const focusResult = () => { const h = $("#resHead"); if (h) try { h.focus({preventScroll: true}); } catch {} };
 function goHome(){ if (land) setLand(false, false); inCompare = false; renderHome(); $("#plate").value = ""; try { history.replaceState(history.state, "", location.pathname); } catch {} window.scrollTo({top: 0}); }

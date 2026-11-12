@@ -1,10 +1,13 @@
 // luchit-api: double opt-in for the magazine newsletter, without a database and without Brevo's double-opt-in feature.
 //   POST /api/subscribe  { email, consent:true, website:"" }  -> sends a confirmation mail (Brevo transactional API) with a signed, 48h link
 //   GET  /api/confirm?e=<email>&x=<expiry>&t=<signature>      -> verifies the signature, adds the contact to the Brevo list, redirects to /magazine/?subscribed=1
+//   POST /api/business-key { name, company, type, size, email, phone, notes, consent:true, website:"" } -> dealer beta (/business/): the
+//        contact into the business list, and a signed business code (LD1.<payload>.<sig>, Ed25519) sent to that address only, never in the answer.
+//        Off (404) unless flags.json on the flags branch says biz_signup: true; 503 until the secret DEALER_SIGN_KEY (PKCS8, base64) is set.
 //   POST /api/waitlist   { name, company, type, interest, email, phone, notes, consent:true, website:"" } -> business waitlist (/business/): contact into Brevo list BREVO_B2B_LIST_ID,
 //                        a notification mail to NOTIFY_TO, and (optional) a cookie-less GA4 event b2b_lead_submit through the Measurement Protocol
 // A confirmed subscription also sends (optional) a cookie-less GA4 event newsletter_confirm, so /live can count subscribers.
-// Route: luchit.app/api/*   Secret: BREVO_KEY (also signs the links; CONFIRM_SECRET is used instead if you set it)   Vars: BREVO_LIST_ID, BREVO_B2B_LIST_ID, NOTIFY_TO
+// Route: luchit.app/api/*   Secret: BREVO_KEY (also signs the links; CONFIRM_SECRET is used instead if you set it), DEALER_SIGN_KEY (business codes; Dudu pastes it)   Vars: BREVO_LIST_ID, BREVO_B2B_LIST_ID, NOTIFY_TO
 // Optional for the GA4 event: GA_MEASUREMENT_ID (var, G-XXXXXXXX of a web data stream) and GA_API_SECRET (secret).
 // Limits on the two routes that send mail (ops 7.11.2026, the CEO checklist: the Origin check stops browsers only, so a script could make
 // this Worker mail any address and spend Brevo's 300 a day): per sender IP 5 mails an hour on each route, per address 3 confirmation mails
@@ -44,6 +47,74 @@ async function bump(c, n, ctx) {
 }
 const tooMany = () => json({ error: "rate" }, 429);
 const ipOf = req => req.headers.get("cf-connecting-ip") || "none";
+
+/* ---- dealer beta: business code by e-mail (strategy/dealer-offer, phase 1) ---- */
+const FLEET_SIZES = ["עד 20", "20-100", "מעל 100"];
+const KEY_ABC = "abcdefghjkmnpqrstuvwxyz";   // letters only: a code id never looks like a plate
+const BETA_EXP = Math.floor(Date.UTC(2027, 2, 31) / 864e5);   // beta codes end 31.3.2027 until the payment page sets the real end (in days)
+const flagsOf = () => fetch("https://raw.githubusercontent.com/ddsabag/vehicle-app/flags/flags.json", { cf: { cacheTtl: 300 } }).then(r => r.ok ? r.json() : {}).catch(() => ({}));
+async function dealerKey(env, exp) {
+  const der = Uint8Array.from(atob(env.DEALER_SIGN_KEY), c => c.charCodeAt(0));
+  const key = await crypto.subtle.importKey("pkcs8", der, { name: "Ed25519" }, false, ["sign"]);
+  const rnd = crypto.getRandomValues(new Uint8Array(8)), id = [...rnd].map(b => KEY_ABC[b % KEY_ABC.length]).join("");
+  const payload = b64u(new TextEncoder().encode(JSON.stringify({ id, plan: "dealer", exp, v: 1 })));
+  const sig = await crypto.subtle.sign({ name: "Ed25519" }, key, new TextEncoder().encode("LD1." + payload));
+  return { id, code: `LD1.${payload}.${b64u(sig)}` };
+}
+const KEY_MAIL = (name, code, until) => `<div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.7;font-size:16px;color:#151a24">
+<p>שלום ${esc(name)},</p><p>זה קוד העסק שלכם בלוחית:</p>
+<p style="font-family:monospace;font-size:13px;direction:ltr;text-align:left;background:#f2f4f8;padding:10px;border-radius:8px;word-break:break-all">${esc(code)}</p>
+<p><b>איך מפעילים:</b></p><ol><li>מעתיקים את הקוד.</li><li>בלוחית, באתר או באפליקציה: הגדרות ← פרטי העסק לדוחות ← קוד עסק.</li><li>מדביקים ולוחצים "הפעלה".</li></ol>
+<p>בתקופת הבטא הכלים חינם, והקוד פעיל עד ${esc(until)}. נודיע במייל לפחות 14 יום לפני שנפתח תשלום, ושום דבר לא יחויב אוטומטית.</p>
+<p>לביטול או לכל שאלה: support@luchit.app</p><p>לוחית</p></div>`;
+async function businessKey(req, env, ctx) {
+  if (!(await flagsOf()).biz_signup) return json({ error: "not found" }, 404);
+  if (req.method !== "POST") return json({ error: "method" }, 405);
+  if (req.headers.get("origin") !== ORIGIN) return json({ error: "forbidden" }, 403);
+  if (!(req.headers.get("content-type") || "").includes("application/json")) return json({ error: "type" }, 415);
+  let b; try { b = await req.json(); } catch { return json({ error: "bad request" }, 400); }
+  if (b.website) return json({ ok: true });                         // honeypot
+  if (b.consent !== true) return json({ error: "consent" }, 400);
+  if (!env.DEALER_SIGN_KEY) return json({ error: "not configured" }, 503);
+  const s = (v, max) => String(v ?? "").trim().slice(0, max);
+  const name = s(b.name, 80), company = s(b.company, 100), type = s(b.type, 40), size = s(b.size, 20), phone = s(b.phone, 20), notes = s(b.notes, 600);
+  const email = s(b.email, 254).toLowerCase();
+  if (name.length < 2 || company.length < 2) return json({ error: "fields" }, 400);
+  if (!BIZ_TYPES.includes(type) || (size && !FLEET_SIZES.includes(size))) return json({ error: "choice" }, 400);
+  if (!EMAIL_RE.test(email) || (phone && !PHONE_RE.test(phone))) return json({ error: "contact" }, 400);
+  const ipc = await slot("lead-ip", ipOf(req), 3600), ipn = await count(ipc);
+  if (ipn >= LIMITS.ipHour) return tooMany();
+  await bump(ipc, ipn, ctx);
+  const toc = await slot("key-to", email, 86400), ton = await count(toc);
+  if (ton >= LIMITS.toDay) return json({ ok: true });                // a fourth code to one address in a day: answered ok, nothing sent
+  await bump(toc, ton, ctx);
+
+  // the contact, as in /api/waitlist: a new one gets the form's details; an existing one is only added to the business list
+  const list = Number(env.BREVO_B2B_LIST_ID);
+  const r = await brevo(env, "/contacts", { email, listIds: [list], updateEnabled: false,
+    attributes: { FIRSTNAME: name, COMPANY_NAME: company, BUSINESS_TYPE: type, FLEET_SIZE: size, PHONE: phone, NOTES: notes, SOURCE: "business-key", CONSENT_AT: new Date().toISOString() } });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    const added = r.status === 400 && err.code === "duplicate_parameter" && (await brevo(env, `/contacts/lists/${list}/contacts/add`, { emails: [email] })).status < 500;
+    if (!added) { console.log("brevo business-key", r.status, "upstream error"); return json({ error: "upstream" }, 502); }
+  }
+  let key; try { key = await dealerKey(env, BETA_EXP); } catch (e) { console.log("dealer key", String(e).slice(0, 120)); return json({ error: "not configured" }, 503); }
+  const until = new Date(BETA_EXP * 864e5).toLocaleDateString("he-IL", { timeZone: "Asia/Jerusalem" });
+  const m = await brevo(env, "/smtp/email", { sender: { name: "לוחית", email: "updates@luchit.app" }, to: [{ email, name }], replyTo: { email: "support@luchit.app" },
+    subject: "קוד העסק שלכם בלוחית", htmlContent: KEY_MAIL(name, key.code, until), tags: ["business-key"] });
+  if (!m.ok) { console.log("brevo key mail", m.status); return json({ error: "upstream" }, 502); }   // the page says "try again": no code is lost without a word
+  try {
+    await brevo(env, "/smtp/email", { sender: { name: "לוחית", email: "updates@luchit.app" }, to: [{ email: env.NOTIFY_TO || "luchit.app.service@gmail.com" }], replyTo: { email },
+      subject: `קוד עסק נשלח: ${type}`, htmlContent: `<div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.7"><b>קוד עסק נשלח (בטא)</b><br>שם: ${esc(name)}<br>עסק: ${esc(company)}<br>סוג: ${esc(type)}<br>רכבים בחודש: ${esc(size || "-")}<br>מזהה הקוד: ${key.id}<br>${notes ? "הערה: " + esc(notes) : ""}</div>` });
+  } catch (e) { console.log("notify failed", String(e).slice(0, 200)); }
+  if (env.GA_MEASUREMENT_ID && env.GA_API_SECRET) {
+    try {
+      await fetch(`https://www.google-analytics.com/mp/collect?measurement_id=${encodeURIComponent(env.GA_MEASUREMENT_ID)}&api_secret=${encodeURIComponent(env.GA_API_SECRET)}`, { method: "POST",
+        body: JSON.stringify({ client_id: crypto.randomUUID(), events: [{ name: "b2b_lead_submit", params: { business_type: type, interest: "key", dk: key.id } }] }) });
+    } catch (e) { console.log("ga failed", String(e).slice(0, 200)); }
+  }
+  return json({ ok: true });
+}
 
 async function waitlist(req, env, ctx) {
   if (req.method !== "POST") return json({ error: "method" }, 405);
@@ -143,6 +214,7 @@ const app = {
     }
 
     if (url.pathname === "/api/waitlist") return waitlist(req, env, ctx);
+    if (url.pathname === "/api/business-key") return businessKey(req, env, ctx);
 
     if (url.pathname !== "/api/subscribe") return json({ error: "not found" }, 404);
     if (req.method !== "POST") return json({ error: "method" }, 405);
