@@ -1,0 +1,43 @@
+selftest: all passed
+zone A 2026-11-11: ok
+dry, would close zonea:
+release guard 2026-11-12: find 1.38.4 from 2026-11-04, day 7 vs 1.38.3, new save paths: menu, findings: compare, silent
+second look findings: none (module Cannot find module '/home/runner/work/vehicle-app/vehicle-app/.github/scripts/guard-explain.mjs' imported from /h)
+dry, would send relguard:1.38.4-d7:
+<b>🟠 לטיפול היום · מדידה</b>
+<b>גרסה #.##.#, # ימים אחרי שהגיעה למשתמשים: # מדדים מחוץ לסף</b>
+• השוואת רכבים מהכרטיס ומהתפריט: #.# לכל ### בדיקות (הסף: #)
+• אירועים שהגרסה הקודמת שלחה ועכשיו לא הגיעו בכלל: #
+  החלפת תצוגה ברכבים שלי
+לפי ### בדיקות רכב בגרסה החדשה, מול #### בגרסה #.##.# בשבועיים שלפניה.
+👉 מה לעשות: שרשור «מוצר ושחרורים» בודק את זה. אצלך לא צריך לעשות כלום.
+<blockquote expandable>פרטים טכניים:
+release guard #.##.# d# vs #.##.#: compare, silent</blockquote>
+zone A 2026-11-05: ok
+release guard 2026-11-06: thin 1.38.4 from 2026-11-04, day 1 vs 1.38.3
+dry, would send relguard:thin:1.38.4-d1:
+<b>🔵 לידיעה · מדידה</b>
+<b>גרסה #.##.#, יום אחרי שהגיעה למשתמשים: אין מספיק נתונים</b>
+צריך לפחות ### בדיקות רכב בכל גרסה כדי להשוות. הבדיקה תחזור ביום #.
+👌 לא צריך לעשות כלום.
+zone A 2026-11-07: ok
+release guard 2026-11-08: thin 1.38.4 from 2026-11-04, day 3 vs 1.38.3
+dry, would send relguard:thin:1.38.4-d3:
+<b>🔵 לידיעה · מדידה</b>
+<b>גרסה #.##.#, # ימים אחרי שהגיעה למשתמשים: אין מספיק נתונים</b>
+צריך לפחות ### בדיקות רכב בכל גרסה כדי להשוות. הבדיקה תחזור ביום #.
+👌 לא צריך לעשות כלום.
+zone A 2026-11-11: ok
+dry, would close zonea:
+release guard 2026-11-12: find 1.38.4 from 2026-11-04, day 7 vs 1.38.3, new save paths: menu, findings: compare, silent
+second look findings: none (module Cannot find module '/home/runner/work/vehicle-app/vehicle-app/.github/scripts/guard-explain.mjs' imported from /h)
+dry, would send relguard:1.38.4-d7:
+<b>🟠 לטיפול היום · מדידה</b>
+<b>גרסה #.##.#, # ימים אחרי שהגיעה למשתמשים: # מדדים מחוץ לסף</b>
+• השוואת רכבים מהכרטיס ומהתפריט: #.# לכל ### בדיקות (הסף: #)
+• אירועים שהגרסה הקודמת שלחה ועכשיו לא הגיעו בכלל: #
+  החלפת תצוגה ברכבים שלי
+לפי ### בדיקות רכב בגרסה החדשה, מול #### בגרסה #.##.# בשבועיים שלפניה.
+👉 מה לעשות: שרשור «מוצר ושחרורים» בודק את זה. אצלך לא צריך לעשות כלום.
+<blockquote expandable>פרטים טכניים:
+release guard #.##.# d# vs #.##.#: compare, silent</blockquote>
