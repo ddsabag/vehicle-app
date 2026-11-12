@@ -376,6 +376,22 @@
    "id": "18105662489455224",
    "link": "https://www.instagram.com/stories/luchit.app/4027133280487058774",
    "at": "2026-11-10T06:22:03.851Z"
+  },
+  "2026-11-05/reel/facebook": {
+   "tries": 1,
+   "last": "2026-11-12T18:31:12.711Z",
+   "status": "done",
+   "id": "1014221248426896",
+   "link": "https://www.facebook.com/reel/1014221248426896/",
+   "at": "2026-11-12T18:31:40.179Z"
+  },
+  "2026-11-05/reel/instagram": {
+   "tries": 1,
+   "last": "2026-11-12T18:31:40.524Z",
+   "status": "done",
+   "id": "18140302444656665",
+   "link": "https://www.instagram.com/reel/DfptNjjjUWr/",
+   "at": "2026-11-12T18:32:31.820Z"
   }
  },
  "ig": {
