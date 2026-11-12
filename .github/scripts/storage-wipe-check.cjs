@@ -6,7 +6,7 @@ const { _android: android } = require("playwright");
 const { execFileSync } = require("child_process");
 const fs = require("fs");
 const [APK, OUT] = process.argv.slice(2);
-const PKG = "com.ddsabag.pratirechev", ACT = `${PKG}/.MainActivity`, PLATE = "38548003";
+const PKG = "com.ddsabag.pratirechev", ACT = `${PKG}/.MainActivity`, PLATE = "7654321";
 const adb = (a, t = 180000) => execFileSync("adb", a, { encoding: "utf8", timeout: t, stdio: ["ignore", "pipe", "pipe"] });
 const sh = (c, t) => { try { return adb(["shell", c], t).trim(); } catch (e) { return String(e.stdout || "") + String(e.stderr || ""); } };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -29,12 +29,14 @@ async function open(tag, res) {
   sh(`am force-stop ${PKG}`); await sleep(1500);
   sh(`am start -W -n ${ACT}`); const p = await page();
   const s = await p.evaluate(async () => {
-    let saved = -1, docs = -1, keys = -1, persisted = "?";
-    try { saved = JSON.parse(localStorage.getItem("savedVehicles") || "[]").length; keys = localStorage.length; } catch (e) { saved = "err " + e.message; }
+    let saved = -1, docs = -1, keys = -1, persisted = "?", nick = null;
+    await new Promise((r) => setTimeout(r, 2500));   // the IndexedDB copy is read after the page starts
+    try { const l = JSON.parse(localStorage.getItem("savedVehicles") || "[]"); saved = l.length; nick = l[0] && l[0].nick || null; keys = localStorage.length; } catch (e) { saved = "err " + e.message; }
+    const warned = /אין מספיק מקום פנוי/.test(document.body.innerText);
     try { docs = (await DocDB.tx("readonly", (st) => st.getAll())).length; } catch (e) { docs = "err " + e.message; }
     try { persisted = navigator.storage && navigator.storage.persisted ? await navigator.storage.persisted() : "n/a"; } catch (e) { persisted = "err"; }
     let est = null; try { est = navigator.storage && navigator.storage.estimate ? await navigator.storage.estimate() : null; } catch {}
-    return { saved, docs, keys, persisted, usage: est && est.usage, quota: est && est.quota };
+    return { saved, nick, warned, docs, keys, persisted, usage: est && est.usage, quota: est && est.quota };
   });
   res.steps.push({ tag, ...s, native: nativeSaved(), clock: sh("date -u"), free: sh("df -h /data | tail -1") });
   console.log(tag, JSON.stringify(res.steps.at(-1)));
@@ -49,8 +51,7 @@ async function open(tag, res) {
     for (let i = 0; ; i++) { try { adb(["wait-for-device"], 120000); adb(["install", APK]); break; } catch (e) { if (i === 2) throw e; await sleep(10000); } }
     sh(`am start -W -n ${ACT}`); let p = await page();
     res.seed = await p.evaluate(async (plate) => {
-      localStorage.setItem("savedVehicles", JSON.stringify([{ plate, title: "רכב לדוגמה", sub: "", at: Date.now(), reg: "active", active: true, events: [] }]));
-      try { syncSaved(JSON.parse(localStorage.getItem("savedVehicles"))); } catch {}
+      store.set("savedVehicles", [{ plate, title: "רכב לדוגמה", nick: "לדוגמה", sub: "", at: Date.now(), reg: "active", active: true, events: [] }]);
       const blob = new Blob([new Uint8Array(200000)], { type: "application/pdf" });
       const id = await DocDB.put({ plate, cat: "ביטוח", name: "insurance.pdf", type: blob.type, size: blob.size, at: Date.now(), exp: "", blob });
       return { id };
@@ -77,6 +78,9 @@ async function open(tag, res) {
     res.fill = sh(`fallocate -l ${res.fillMb}M /data/local/tmp/fill.bin 2>&1 || dd if=/dev/zero of=/data/local/tmp/fill.bin bs=1048576 count=${res.fillMb} 2>&1 | tail -1`, 600000);
     p = await open("disk-almost-full", res);
     await p.evaluate(() => { try { localStorage.setItem("probe", "x".repeat(1000)); } catch {} });
+    // the 12.11 case itself: the disk nearly full and the page's storage reads as empty
+    await p.evaluate(() => localStorage.removeItem("savedVehicles")); await sleep(3000);
+    p = await open("disk-full-empty-read", res);
     res.trim2 = sh("pm trim-caches 999G"); await sleep(5000);
     await open("disk-full-after-trim", res);
     sh("rm -f /data/local/tmp/fill.bin");

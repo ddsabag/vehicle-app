@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: product/saved-restore   # the fix: does it bring the cars back?
+          ref: release-1.38.5-fixes   # 1.38.5 as it would ship: the app's copy, the IndexedDB copy, no empty sync
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
