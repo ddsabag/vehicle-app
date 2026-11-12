@@ -16,6 +16,10 @@ for (const [name, ua] of Object.entries(UAS)) for (const url of ["https://luchit
   p.on("console", (m) => { if (m.type() === "error") console.log(`  [${name}] console error: ${m.text().slice(0, 120)}`); });
   try { await p.goto(url, { waitUntil: "networkidle", timeout: 45000 }); } catch (e) { console.log(`  [${name}] ${url}: ${e.message.slice(0, 80)}`); }
   await p.waitForTimeout(4000);
+  // walk the screens a visitor uses: every tab of the car, the share sheet, compare, settings, the cars list, back home
+  const steps = [".tabs [data-tab=buy]", ".tabs [data-tab=specs]", ".tabs [data-tab=overview]", ".chead [data-act=share]", "#closeShare", "[data-act=compare]", "#openSettings", "[data-nav=cars]", "[data-nav=search]"];
+  for (const sel of steps) { try { const el = await p.$(sel); if (el) { await el.click({ timeout: 3000 }); await p.waitForTimeout(1200); } } catch {} try { await p.keyboard.press("Escape"); } catch {} }
+  if (url.endsWith("luchit.app/")) { try { await p.fill("#plate", "7654321"); await p.press("#plate", "Enter"); await p.waitForTimeout(6000); for (const sel of steps) { try { const el = await p.$(sel); if (el) { await el.click({ timeout: 3000 }); await p.waitForTimeout(1000); } } catch {} } } catch {} }
   const errs = await p.evaluate(() => window.__errs).catch(() => []);
   const inline = await p.evaluate(() => [...document.scripts].filter((s) => !s.src).length).catch(() => -1);
   console.log(`${name} ${url}\n  scripts: ${[...scripts].join(" ") || "none"}\n  inline scripts: ${inline}\n  errors: ${JSON.stringify(errs)}`);
