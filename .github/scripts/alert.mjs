@@ -44,13 +44,13 @@ export const WF_LEVELS = {
   "Web deploy (build)": "critical",
   "Workers deploy": "critical",   // a crash mid-deploy can leave the site on an unchecked Worker version
   "Android build": "day", "Data guard": "day", "Fuel price": "day", "Market data": "day",
-  "Ministry watch": "day", "Model names": "day", "Model statistics": "day", "Magazine": "day", "Site smoke test": "day",
+  "Ministry watch": "day", "Ministry pulse": "summary", "Model names": "day", "Model statistics": "day", "Magazine": "day", "Site smoke test": "day",
   "Site smoke test (after deploy)": "day", "Weekly analytics report": "day", "Alert daily": "day",
   "SEO check": "summary", "SEO auto-publish": "summary", "Web watch": "summary",
   "Model catalogue": "summary",
   "SEO daily digest": "summary", "SEO data snapshot": "summary", "Campaign data snapshot": "summary", "Release guard": "summary", "Experimenter": "summary",
   "Reviews monitor": "silent", "Ownership data mirror": "silent",
-  "Back-on-road detector": "silent",
+  "Back-on-road detector": "silent", "Vanished cars": "silent",
   "Ship tail": "day", "Store listing": "day", "Release watch": "day", "Production": "day",
   "Settlements": "day", "Data truth": "day", "Social publish": "day",
   "Recall explanations": "summary",   // Claude API use #2 (data): a crash is told quietly; its own API failures go to ai:recalls / ai:key
@@ -77,7 +77,7 @@ export const LABELS = {
   "wf":                  { he: 'הבוט "{id}" נכשל', sect: "fail" },
   "smoke":               { he: "בדיקת האתר החי מצאה בעיה: {ids}", sect: "fail",
                            ids: { home: "דף הבית", lookup: "בדיקת רכב", magazine: "דף המגזין", applinks: "קישורי האפליקציה",
-                                  privacy: "מדיניות הפרטיות", access: "הצהרת הנגישות", model: "דף דגם", sitemap: "מפת האתר", og: "תצוגה מקדימה של קישור השוואה", go: "קישורי הקמפיין (/go/)", carlink: "תצוגה מקדימה של קישור לרכב",
+                                  privacy: "מדיניות הפרטיות", access: "הצהרת הנגישות", model: "דף דגם", sitemap: "מפת האתר", og: "תצוגה מקדימה של קישור השוואה", go: "קישורי הקמפיין (/go/)", carlink: "תצוגה מקדימה של קישור לרכב", forms: "טופסי האתר",
                                   cert: "אישור האבטחה (SSL)", domain: "הדומיין luchit.app", certcheck: "בדיקת אישור האבטחה נכשלה" } },   // mixed smoke keys carry expiry ids
   "expiry":              { he: "צריך לחדש בקרוב: {ids}", sect: "wait", ids: { cert: "אישור האבטחה (SSL)", domain: "הדומיין luchit.app", certcheck: "בדיקת אישור האבטחה נכשלה" } },
   "infra":               { he: "שירותי האתר או המכסה: {ids}", sect: "fail",
@@ -179,7 +179,7 @@ export const LABELS = {
   "relguard":            { he: "גרסה חדשה מחוץ לסף אחרי השחרור: {id}", sect: "fail" },   // release-guard.mjs (Release guard); id = version-dN
   "relguard:ok":         { he: "גרסה חדשה בטווח אחרי השחרור: {id}", sect: "none" },
   "relguard:thin":       { he: "אין מספיק נתונים לבדיקת גרסה אחרי השחרור: {id}", sect: "none" },
-  "zonea":               { he: "בדיקות רכב מחוץ לסף (כשלים או איטיות)", sect: "fail" },   // release-guard.mjs zone A daily, key zonea:<kind>:<date>; the
+  "zonea":               { he: "בדיקות רכב מחוץ לסף (כשלים או איטיות)", sect: "fail" },   // release-guard.mjs zone A daily, key zonea:<kind>:spell (one per spell); the
   "zonea:fail":          { he: "יותר מדי בדיקות רכב נכשלו", sect: "fail" },              // headline also names the end ("חזר לתקין: ..."), so it carries
   "zonea:slow":          { he: "יותר מדי בדיקות רכב היו איטיות", sect: "fail" },         // no "yesterday" and no raw date
   "zonea:fail+slow":     { he: "יותר מדי בדיקות רכב נכשלו או היו איטיות", sect: "fail" },
