@@ -88,7 +88,7 @@ jobs:
       - name: Claude SDK for the monthly prose and the model summaries
         if: steps.slot.outputs.done != '1' && env.KIND == 'monthly'
         env:
-          HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+          HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' && vars.AI != 'off' }}
         run: |
           if [ "$HAS_KEY" != true ]; then echo "no ANTHROPIC_API_KEY: the template writes the article"; exit 0; fi
           sdk=$(node --input-type=module -e 'console.log((await import(process.cwd() + "/.github/scripts/claude.mjs")).SDK)')
@@ -98,7 +98,10 @@ jobs:
         if: steps.slot.outputs.done != '1'
         id: gen
         env:
-          ANTHROPIC_API_KEY: ${{ env.KIND == 'monthly' && secrets.ANTHROPIC_API_KEY || '' }}
+          ANTHROPIC_API_KEY: ${{ env.KIND == 'monthly' && vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}
+          AI: ${{ vars.AI }}   # one switch for every Claude bot (claude.mjs gate; CEO review 12.11.2026)
+          AI_CAP_USD: ${{ vars.AI_CAP_USD }}
+          AI_GRANTS: ${{ vars.AI_GRANTS }}
           MAGAZINE_AI: ${{ vars.MAGAZINE_AI }}
         run: |
           if [ "$KIND" = data ]; then
@@ -133,8 +136,10 @@ jobs:
           ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
           DATA_SLUG: ${{ steps.gen.outputs.slug }}
           WRITER: ${{ steps.gen.outputs.writer }}
-          AI: ${{ steps.gen.outputs.ai }}
-          ANTHROPIC_API_KEY: ${{ env.KIND == 'monthly' && secrets.ANTHROPIC_API_KEY || '' }}
+          AI: ${{ steps.gen.outputs.ai }}   # here AI is the article step's outcome; the switch vars.AI blanks the key below instead
+          ANTHROPIC_API_KEY: ${{ env.KIND == 'monthly' && vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}
+          AI_CAP_USD: ${{ vars.AI_CAP_USD }}
+          AI_GRANTS: ${{ vars.AI_GRANTS }}
           MODEL_ANSWERS: ${{ vars.MODEL_ANSWERS }}
         run: |
           # Dudu 2026-10-15: publish on its own after the automatic checks; a failed check sends an alert (monthly: and opens a PR instead).
@@ -228,7 +233,10 @@ jobs:
           npm install --prefix .github/scripts --no-save --no-package-lock --ignore-scripts --no-audit --no-fund "$sdk" >/dev/null
       - name: The last 5 closed months, the template and Claude side by side
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}
+          AI: ${{ vars.AI }}   # one switch for every Claude bot (claude.mjs gate; CEO review 12.11.2026)
+          AI_CAP_USD: ${{ vars.AI_CAP_USD }}
+          AI_GRANTS: ${{ vars.AI_GRANTS }}
           MAGAZINE_DRY: "1"
         run: |
           months=$(node -e 'const n = new Date(), cur = n.getUTCFullYear() * 100 + n.getUTCMonth() + 1; console.log(Object.keys(require("./market.json").months).filter(k => +k < cur).sort().slice(-5).join(" "))')
@@ -266,7 +274,10 @@ jobs:
           npm install --prefix .github/scripts --no-save --no-package-lock --ignore-scripts --no-audit --no-fund "$sdk" >/dev/null
       - name: The pilot pages' summaries
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}
+          AI: ${{ vars.AI }}   # one switch for every Claude bot (claude.mjs gate; CEO review 12.11.2026)
+          AI_CAP_USD: ${{ vars.AI_CAP_USD }}
+          AI_GRANTS: ${{ vars.AI_GRANTS }}
           MODEL_ANSWERS_MINUTES: "30"
         run: |
           mkdir -p out && MODEL_FACTS=out/model-facts.json node .github/scripts/pages.mjs >/dev/null

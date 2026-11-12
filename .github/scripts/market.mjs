@@ -18,20 +18,24 @@ async function call(params, tries = 4) {
 }
 // pages through a resource; onRows may return false to stop early
 async function scan(id, extra, onRows) {
-  let n = 0, total = null;
+  let n = 0;
   for (let off = 0, empty = 0; ; off += PAGE) {
-    const r = await call({resource_id: id, limit: String(PAGE), offset: String(off), ...extra});
+    const r = await call({resource_id: id, limit: String(PAGE), offset: String(off), sort: "_id", ...extra});
     // the ministry reloads its tables overnight and a read can briefly return 0 rows (status.mjs): look again before calling it a failure
     if (!off && !r.records.length && empty++ < 2) { await new Promise(s => setTimeout(s, 20000)); off -= PAGE; continue; }
-    if (total === null) total = r.total;
     if (!r.records.length) break;
     n += r.records.length;
     if (onRows(r.records) === false) return n;   // stopped on purpose
-    if (r.records.length < PAGE) break;
+    // a short page is the end only when no row lies past it (one more row is asked for there); the dataset's own total is no measure: for the
+    // price list it is an estimate (130,885 on 24.10.2026, while every read ends at its 102,116 rows), and a gate on it fails good reads
+    if (r.records.length < PAGE) {
+      const more = await call({resource_id: id, limit: "1", offset: String(n), sort: "_id", ...extra});
+      if (more.records.length) throw new Error(`${id}: the read stopped after ${n} rows, and the dataset goes on`);
+      break;
+    }
   }
-  // an empty or early-ended read would publish understated counts as real ones (same tolerance as zombie-detector.mjs); none of these reads is ever empty
+  // an empty read would publish zero counts as real ones; none of these reads is ever empty
   if (!n) throw new Error(`${id}: no rows`);
-  if (total && n < total * 0.995) throw new Error(`${id}: read ${n} of ${total}`);
   return n;
 }
 const inc = (o, k, n = 1) => { o[k] = (o[k] || 0) + n; };

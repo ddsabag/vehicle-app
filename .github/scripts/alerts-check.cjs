@@ -39,7 +39,7 @@ async function force(res, tag, when) {
   const j = jobId(); res[tag + "_job"] = j ? (j.ns ? j.ns + "/" : "") + j.id : "none";
   sh("logcat -c");
   if (j) { res[tag + "_run"] = sh(`cmd jobscheduler run -f ${j.ns ? "-n " + j.ns + " " : ""}${PKG} ${j.id}`); await sleep(60000); }
-  res[tag + "_log"] = sh(`logcat -d | grep -E "WM-|notif|SavedCheck" | tail -8`);
+  res[tag + "_log"] = sh(`logcat -d | grep -E "WM-|SavedCheck|pratirechev" | tail -8`);
   res[tag + "_prefs"] = sh(`run-as ${PKG} cat shared_prefs/saved_alerts.xml`).replace(/<string name="saved">[\s\S]*?<\/string>/, "<saved list kept>").slice(0, 800);
 }
 (async () => {
@@ -48,7 +48,8 @@ async function force(res, tag, when) {
     try { adb(["root"]); await sleep(4000); adb(["wait-for-device"]); } catch {}
     res.phoneTime = sh("date");
     try { adb(["uninstall", PKG]); } catch {}
-    adb(["install", APK]);
+    // adb root restarts the phone's adb service, and "device offline" can follow for a few seconds (11.11.2026, API 35): three tries
+    for (let i = 0; ; i++) { try { adb(["wait-for-device"], 120000); adb(["install", APK]); break; } catch (e) { if (i === 2) throw e; await sleep(10000); } }
     const sdk = +sh("getprop ro.build.version.sdk"); res.sdk = sdk;
     if (sdk >= 33) sh(`pm grant ${PKG} android.permission.POST_NOTIFICATIONS`);
     sh(`am start -W -n ${ACT}`); let p = await page();
@@ -76,9 +77,25 @@ async function force(res, tag, when) {
     for (let i = 0; i < 60 && sh("getprop sys.boot_completed") !== "1"; i++) await sleep(3000);
     await sleep(20000);
     try { adb(["root"]); await sleep(4000); adb(["wait-for-device"]); } catch {}
+    // a phone that starts again wakes the app once (WorkManager's RescheduleReceiver on BOOT_COMPLETED); on Android 12 a run forced before
+    // that came to nothing on two nights (the app's standby bucket was still NEVER), so the wait is for that start, as on a real phone
+    for (let i = 0; i < 40 && !sh(`pidof ${PKG}`); i++) await sleep(3000);
+    res.pidAfterReboot = sh(`pidof ${PKG}`) || "none"; res.bucketAfterReboot = sh(`am get-standby-bucket ${PKG}`);
+    // the emulator files an app opened from adb as never used (bucket 50, NEVER), where Android 12 may hold even a forced job; a person who
+    // saved a car opened the app by hand, so the test puts it in RARE, the lowest bucket a real user's app reaches (jobs still run daily)
+    sh(`am set-standby-bucket ${PKG} rare`); res.bucketForTest = sh(`am get-standby-bucket ${PKG}`);
     res.jobsAfterReboot = jobs() || "none";
     const before = lastRun();
     await force(res, "run2", t2.clock);   // after the restart the check must run again on its own schedule (last_run moves)
+    // after a cold boot the forced run can wait in JobScheduler's queue (11.11.2026 on Android 12: "Running job [FORCED]" and no WorkManager
+    // line for 90 s, two nights running). So the check is watched for up to 4 minutes, forced again each minute, and the job's own state is
+    // kept: a run that never starts in that time is a real gap; a run that starts late is the emulator being busy after the boot
+    for (let i = 0; i < 4 && lastRun() === before; i++) {
+      res["run2_wait" + i] = sh(`dumpsys jobscheduler | grep -A30 -E "JOB .*${PKG}" | grep -i -E "Pending|Ready|Unsatisfied|Satisfied|enqueue|Required|Running|act=|Last" | head -12`);
+      await force(res, "run2_" + (i + 1), t2.clock); res.run2Retries = i + 1; res["run2_pid" + i] = sh(`pidof ${PKG}`) || "none";
+    }
+    res.jobState = sh(`dumpsys jobscheduler | grep -A40 -E "JOB .*${PKG}" | head -45`);
+    res.sysLog = sh(`logcat -d -b all | grep -i -E "pratirechev|JobServiceContext" | tail -15`);
     res.ranAfterReboot = lastRun() !== before && lastRun() !== "";
     res.notesAfterRun2 = notes() || "none";
     res.prefsFile = sh(`run-as ${PKG} sh -c 'cat shared_prefs/saved_alerts.xml' 2>&1 | grep -v '"saved"' | head -30`);

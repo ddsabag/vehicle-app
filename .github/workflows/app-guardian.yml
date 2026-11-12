@@ -37,7 +37,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c   # v5.0.2, pinned by SHA (supply chain, CEO review 12.11.2026: android.yml holds the signing key)
         with:
           gradle-version: "8.13"
       - uses: actions/setup-node@v7
@@ -106,7 +106,7 @@ jobs:
         id: first
         if: ${{ !inputs.quick || matrix.scenario == '411-f100' }}
         continue-on-error: true
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d   # v2.38.0, pinned by SHA
         env:
           DEBUG: pw:android   # one line each time the WebView is connected: where a dropped connection happened
         with:
@@ -139,7 +139,7 @@ jobs:
         id: second
         if: ${{ steps.gone.outcome == 'success' }}
         continue-on-error: true
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d   # v2.38.0, pinned by SHA
         env:
           DEBUG: pw:android
         with:
@@ -200,7 +200,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - name: A real alert from a saved car, also after a restart
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d   # v2.38.0, pinned by SHA
         with:
           api-level: ${{ matrix.api }}
           target: google_apis

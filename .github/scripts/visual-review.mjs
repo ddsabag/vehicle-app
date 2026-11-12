@@ -310,7 +310,7 @@ export async function run(o) {
   const list = collect(o.source, o.shots);
   if (!list.length) return stop("no screenshots of the guardian in " + (o.shots || "(no folder)"));
   const { api, why } = await IO.claude.client(env);
-  if (!api) { if (env.ANTHROPIC_API_KEY) await tell(false, why, false, o); return stop(why); }   // a key without the SDK is a broken install, not off
+  if (!api) { if (env.ANTHROPIC_API_KEY && !/ANTHROPIC_API_KEY/.test(why)) await tell(false, why, false, o); return stop(why); }   // a key without the SDK is a broken install, not off; AI=off or no credit cycle is off (claude.mjs gate)
   const st = loadState(o.state), at = new Date(IO.now()).toISOString(), day = at.slice(0, 10), month = at.slice(0, 7), code = o.code || "";
   if (st.month !== month) Object.assign(st, { month, used: { first: 0, second: 0 } });
   const before = Object.fromEntries(Object.entries(st.shots).map(([k, e]) => [k, e.second?.issues || []]));

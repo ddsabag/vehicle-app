@@ -12,6 +12,7 @@ import tls from "node:tls";
 import { flash } from "./flash.mjs";
 import { ministryDown } from "./datasets.mjs";
 import { msg, heError } from "./tg-text.mjs";
+import { PAGES as FORM_PAGES, judge as formJudge, apiCheck as formApi } from "./form-check.mjs";
 const SITE = (process.env.SITE || "https://luchit.app/").replace(/\/?$/, "/"), HOST = new URL(SITE).hostname;
 const DRY = process.env.DRY_RUN === "1", sleep = ms => new Promise(r => setTimeout(r, ms));
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -94,7 +95,24 @@ async function pagesCheck() {
   try { const { t } = await get(SITE + "sitemap.xml"); const u = (t.match(/<loc>([^<]*\/model\/[^<]*)<\/loc>/) || [])[1]; if (u) await need("דף דגם", u, t2 => t2.includes("לוחית"), "דפי הדגם (מקור עיקרי לכניסות מגוגל) לא נפתחים.", false, "model"); else out.push({ id: "sitemap", title: "מפת האתר", detail: "לא נמצאו בה דפי דגם.", impact: "גוגל לא יאנדקס את דפי הדגם." }); }
   catch (e) { out.push({ id: "sitemap", title: "מפת האתר", detail: `מפת האתר לא נפתחה: ${he(e.message)}.`, impact: "גוגל לא יאנדקס את הדפים.", raw: `sitemap.xml: ${String(e.message).slice(0, 100)}` }); }
   out.push(...await shareCheck());
+  out.push(...await formsCheck());
   return out;
+}
+
+// ---- 1c. the forms (form-check.mjs, 7.11.2026: the magazine page refused every address with an "s" for two weeks and only the form's presence
+// was checked): each page's own address check against real and broken addresses, and the API Worker's refusals. No mail is sent.
+async function formsCheck() {
+  const bad = [];
+  for (const p of FORM_PAGES) {
+    try { const { r, t } = await get(SITE + p.path); if (!r.ok) continue;   // a page that does not open is the page check's finding, not this one
+      for (const j of formJudge(t)) bad.push(`${p.name}: ${j.refuses.length ? `דוחה כתובת תקינה (${j.refuses.length} מתוך הדוגמאות)` : "מקבל כתובת שבורה"}`); }
+    catch { /* the page check reports a page that does not answer */ }
+  }
+  const api = await formApi(SITE);
+  if (api.length) bad.push("שירות ההרשמה לא עונה כצפוי על בקשה שגויה");
+  if (!bad.length) return [];
+  return [{ id: "forms", title: "טופסי האתר", detail: bad.join("; ") + ".", impact: "אנשים לא יכולים להירשם למגזין או להשאיר פרטים, ואף אחד לא יודע.",
+    raw: api.join(" · ").slice(0, 200) }];
 }
 
 // ---- 1b. the share path, as a messaging app sees it (the same URLs the Workers deploy checks, .github/ship-tail.json)

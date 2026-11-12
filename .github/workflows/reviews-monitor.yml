@@ -52,7 +52,10 @@ jobs:
           PLAY_DEVELOPER_ID: ${{ vars.PLAY_DEVELOPER_ID }}
           PLAY_APP_ID: ${{ vars.PLAY_APP_ID }}
           REVIEWS_RESPONDER: ${{ vars.REVIEWS_RESPONDER }}   # off = review alerts always sent here
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}   # the weekly digest only (Console workspace luchit-bots, capped); a dry run never calls
+          ANTHROPIC_API_KEY: ${{ vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}   # the weekly digest only (Console workspace luchit-bots, capped); a dry run never calls
+          AI: ${{ vars.AI }}   # one switch for every Claude bot (claude.mjs gate; CEO review 12.11.2026)
+          AI_CAP_USD: ${{ vars.AI_CAP_USD }}
+          AI_GRANTS: ${{ vars.AI_GRANTS }}
           DIGEST: ${{ github.event_name == 'workflow_dispatch' && inputs.digest && '1' || '0' }}
           ALERT_UPTIME_URL: ${{ vars.ALERT_UPTIME_URL }}       # luchit-reviews' /health is on the same workers.dev subdomain
           PREVIEW: ${{ inputs.preview && '1' || '0' }}

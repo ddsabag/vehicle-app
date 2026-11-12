@@ -222,7 +222,9 @@ async function tgCheck(env) {
 // (slot-done.mjs, below). GitHub answers 401/403/404 to the token =
 // one day alert at most once per 22.5 h (an expired or revoked token); any other failure is a log line and the next hour retries.
 const CLOCK = [
-  { wf: "social-publish.yml", he: "פרסום ברשתות", utc: [5, 20], gap: 40, inputs: { mode: "run" } },              // slots every 15 min 04:04-19:49
+  // social publish: "every" = checked on each 10-minute tick, not only on the hourly pass, and started when no run of its own began in the
+  // last 14 min. Its slots are at :00, :15 and :30 Israel time, and the hourly pass at :21 put a :30 post up 51 min late (measurement 8.11.2026)
+  { wf: "social-publish.yml", he: "פרסום ברשתות", utc: [5, 20], every: 14, inputs: { mode: "run" } },            // slots every 15 min 04:04-19:49
   // live watch: gap under an hour, so the hourly pass starts it every hour while GitHub skips it (with 75 a start at :21 held the next pass
   // and it ran every 2 h; /live's boards waited, measurement 5.11.2026). A run of GitHub's own in the last 50 min still counts
   { wf: "live-watch.yml", he: "מעקב הדשבורד", utc: [0, 24], gap: 50, inputs: { dry_run: "false" } },             // :12 and :42
@@ -268,8 +270,8 @@ const CLOCK = [
   { wf: "data-truth.yml", he: "בדיקת העומק הנוספת", cron: "17 5 18-19 * *", title: "(17 5 18-19 * *)", inputs: { job: "deep", schedule: "17 5 18-19 * *" } },
   { wf: "data-truth.yml", he: "בדיקת העומק הנוספת", cron: "17 11 18-19 * *", title: "(17 11 18-19 * *)", inputs: { job: "deep", schedule: "17 11 18-19 * *" } },
   { wf: "competitor-check.yml", he: "בדיקת המתחרים החודשית", cron: "23 4 1 * *", title: "(23 4 1 * *)", inputs: { schedule: "23 4 1 * *", dry: "false" } },     // the 1st
-  { wf: "kit-draft.yml", he: "טיוטת ערכת התוכן השבועית", cron: "40 20 * * 3", title: "(40 20 * * 3)", inputs: { schedule: "40 20 * * 3" } },     // Wednesday night
-  { wf: "kit-qa.yml", he: "הבדיקה הוויזואלית של ערכת התוכן", cron: "40 13 * * 4", title: "(40 13 * * 4)", inputs: { schedule: "40 13 * * 4" } },   // Thursday
+  { wf: "kit-draft.yml", he: "טיוטת ערכת התוכן השבועית", cron: "40 20 * * 3", title: "(40 20 * * 3)", off: true, inputs: { schedule: "40 20 * * 3" } },     // Wednesday night
+  { wf: "kit-qa.yml", he: "הבדיקה הוויזואלית של ערכת התוכן", cron: "40 13 * * 4", title: "(40 13 * * 4)", off: true, inputs: { schedule: "40 13 * * 4" } },   // Thursday
   { wf: "magazine.yml", he: "כתבת הנתונים במגזין", cron: "30 5 * * 4", title: "(30 5 * * 4)", inputs: { part: "data", schedule: "30 5 * * 4" } },   // Thursday
   { wf: "magazine.yml", he: "הכתבה החודשית במגזין", cron: "7 8 6 * *", title: "(7 8 6 * *)", inputs: { part: "monthly", schedule: "7 8 6 * *" } },  // the 6th
 ];
@@ -293,7 +295,7 @@ export function clockSlot(cron, now) {
   return 0;
 }
 // an entry's cut-off: a run created since it counts as this round's
-const clockSince = (x, now) => x.cron ? clockSlot(x.cron, now) : x.slot ? clockSlot(x.slot, now) : now - x.gap * 6e4;
+const clockSince = (x, now) => x.cron ? clockSlot(x.cron, now) : x.slot ? clockSlot(x.slot, now) : now - (x.every || x.gap) * 6e4;
 // the entries due now (pure, for the test): utc hours, the morning window, or from an hour after a cron slot for 14 hours ("il": a slot
 // at that hour in Israel only)
 export function clockDue(now, hbT) {
@@ -304,7 +306,9 @@ export function clockDue(now, hbT) {
 }
 // a run of the entry's own: started by GitHub's schedule or by hand (site smoke and the two guardians also run on pushes and pull requests,
 // which are other checks; 3.11.2026), not skipped, and with the entry's title when it has one (for a workflow with parts by run name)
-export const counts = (x, r) => ["schedule", "workflow_dispatch"].includes(r?.event) && r.conclusion !== "skipped" && (!x.title || String(r.display_title || "").includes(x.title));
+// off: the workflow's only job is gated by a repo switch (KIT_QA, KIT_DRAFT = off): a run of its own that was skipped is the switch, not a
+// missed slot, so it counts (12.11.2026: the clock started a skipped Kit QA every hour and told Dudu GitHub was late)
+export const counts = (x, r) => ["schedule", "workflow_dispatch"].includes(r?.event) && (r.conclusion !== "skipped" || !!x.off) && (!x.title || String(r.display_title || "").includes(x.title));
 async function gh(env, path, body) {
   const r = await fetch(GH_API + path, { method: body ? "POST" : "GET", body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(10000),
     headers: { authorization: "Bearer " + env.GH_DISPATCH_TOKEN, accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28", "user-agent": UA, ...(body ? { "content-type": "application/json" } : {}) } });
@@ -314,8 +318,10 @@ async function gh(env, path, body) {
 async function backupClock(env, u, now, fire) {
   const c = u.clock;
   if (!env.GH_DISPATCH_TOKEN || String(env.CLOCK || "").toLowerCase() === "off") return;
-  if (now - ms(c.at) < 55 * 6e4) return;
-  c.at = iso(now);
+  // the hourly pass reads every entry; the ticks between passes read only the "every" ones
+  const hourly = !(now - ms(c.at) < 55 * 6e4);
+  if (!hourly && !CLOCK.some(x => x.every)) return;
+  if (hourly) c.at = iso(now);
   const today = ilDate(new Date(now));
   if (c.day !== today) Object.assign(c, { day: today, n: 0 });
   const keys = new Set(CLOCK.map(clockKey));
@@ -323,7 +329,7 @@ async function backupClock(env, u, now, fire) {
   const morningOpen = CLOCK.some(x => x.morning && ilHM(new Date(now)) >= x.morning[0] && ilHM(new Date(now)) < x.morning[1]);
   // read order: the frequent ones and the morning, then the weekly and monthly (one slot, so not left behind on a heavy pass), then the daily
   const rank = x => x.cron ? 1 : x.gap >= 1200 ? 2 : 0;
-  const due = clockDue(now, morningOpen ? await heartbeat() : null).sort((a, b) => rank(a) - rank(b)), started = [];
+  const due = clockDue(now, hourly && morningOpen ? await heartbeat() : null).filter(x => hourly || x.every).sort((a, b) => rank(a) - rank(b)), started = [];
   let refused = 0, reads = 0, jobReads = 0;
   for (const x of due) {
     if (started.length >= CLOCK_MAX || reads >= CLOCK_READS) break;

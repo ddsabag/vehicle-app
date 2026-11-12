@@ -349,7 +349,7 @@ ok(gh.calls.length === 0, "CLOCK=off: the clock is off");
 delete env.CLOCK;
 const DAILY = ["app-guardian", "ui-guardian", "seo-data", "own-data", "ministry-watch", "data-guard", "release-guard", "data-truth", "fuel", "site-smoke", "web-watch", "catalog"].map(w => w + ".yml");
 const ranToday = () => Object.fromEntries(DAILY.map(w => [w, "2026-11-02T09:30:00Z"]));   // after every daily slot (catalog 09:20 is the last)
-gh.runs = { ...ranToday(), "social-publish.yml": "2026-11-02T11:49:00Z", "live-watch.yml": "2026-11-02T09:42:00Z", "reviews-monitor.yml": "2026-11-02T11:15:00Z", "release-watch.yml": "2026-11-01T17:40:00Z",
+gh.runs = { ...ranToday(), "social-publish.yml": "2026-11-02T12:18:00Z", "live-watch.yml": "2026-11-02T09:42:00Z", "reviews-monitor.yml": "2026-11-02T11:15:00Z", "release-watch.yml": "2026-11-01T17:40:00Z",
   "copy-audit.yml": "2026-11-02T09:50:00Z", "seo-check.yml": "2026-11-02T06:23:00Z", "explore.yml": [{ created_at: "2026-11-02T10:52:00Z", display_title: "Exploratory walk (7 3 * * 1)" }] };   // Monday 2.11: the Monday bots ran late
 x = await tick(env, NOON + 20 * M);
 ok(JSON.stringify(gh.sent) === JSON.stringify([["live-watch.yml", { ref: "main", inputs: { dry_run: "false" } }], ["release-watch.yml", { ref: "main", inputs: { mode: "on" } }]]), "starts only what is late, on main, with its inputs " + JSON.stringify(gh.sent));
@@ -357,7 +357,7 @@ ok(x.tg.length === 1 && x.tg[0].disable_notification === true && /שעון הג�
 ok(U(env).clock.n === 2 && U(env).clock.told === "2026-11-02", "counted for /health");
 gh.calls = []; gh.sent = [];
 x = await tick(env, NOON + 30 * M);
-ok(gh.calls.length === 0, "once an hour: the next ticks do not call");
+ok(gh.calls.length === 0, "once an hour: the next ticks do not call (social publish, read on every tick, ran 12 min ago and was seen)");
 gh.runs["social-publish.yml"] = "2026-11-02T11:49:00Z";
 x = await tick(env, NOON + 80 * M);
 ok(gh.sent.map(a => a[0]).join() === "social-publish.yml,live-watch.yml,release-watch.yml" && x.tg.length === 0, "an hour later: late ones again, no second line that day " + JSON.stringify(gh.sent));
@@ -413,6 +413,9 @@ ok(JSON.stringify(all.find(a => a[0] === "data-truth.yml")[1].inputs) === '{"job
   ok(counts(W, { event: "workflow_dispatch", display_title: "Weekly analytics report (20 6 * * 0)" }) && !counts(W, { event: "workflow_dispatch", display_title: "Weekly analytics report" }) && !counts(W, { event: "schedule", display_title: "Weekly analytics report (20 5 * * 0)" }), "a slot-checked bot: only a run of its line counts");
   ok(counts(D, { event: "schedule", conclusion: null }) && counts(D, { event: "workflow_dispatch", conclusion: "failure" }), "a scheduled or started run counts, running or failed");
   ok(!counts(D, { event: "push", conclusion: "success" }) && !counts(D, { event: "pull_request", conclusion: "success" }) && !counts(D, { event: "schedule", conclusion: "skipped" }), "a push, pull-request or skipped run does not");
+  { const K = { wf: "kit-qa.yml", title: "(40 13 * * 4)", off: true }, offs = (src.match(/wf: "[^"]+"[^\n]*off: true/g) || []).map(l => l.match(/wf: "([^"]+)"/)[1]).sort().join();
+    ok(offs === "kit-draft.yml,kit-qa.yml" && counts(K, { event: "workflow_dispatch", conclusion: "skipped", display_title: "Kit visual QA (40 13 * * 4)" }) && !counts(K, { event: "push", conclusion: "skipped", display_title: "Kit visual QA (40 13 * * 4)" })
+      && !counts({ ...K, off: false }, { event: "workflow_dispatch", conclusion: "skipped", display_title: "Kit visual QA (40 13 * * 4)" }), "a kit bot switched off: its skipped run counts, so the clock does not start it every hour"); }
   ok(counts(M, { event: "schedule", display_title: "Magazine (data)" }) && !counts(M, { event: "schedule", display_title: "Magazine (monthly)" }), "the magazine: only its data part");
 }
 reset(); gh = { runs: {}, calls: [], sent: [], status: 0, jobs: {} };
@@ -423,7 +426,7 @@ gh.runs = { ...ranAll("2026-11-03T12:10:00Z"), "site-smoke.yml": [{ created_at: 
   "data-truth.yml": [{ id: 7, created_at: "2026-11-03T12:15:00Z" }], "zombie.yml": "2026-11-03T07:40:00Z" };
 gh.jobs = { 7: [{ name: "audit", conclusion: "skipped" }, { name: "deep", conclusion: "success" }] };   // a deep run, not the daily audit
 x = await tick(env, T("2026-11-03T12:30:00Z"));
-ok(gh.sent.map(a => a[0]).sort().join() === "data-truth.yml,site-smoke.yml" && JSON.stringify(gh.sent.find(a => a[0] === "data-truth.yml")[1].inputs) === '{"job":"audit"}', "a push run is not site smoke's daily run, a deep run is not the audit " + JSON.stringify(gh.sent));
+ok(gh.sent.map(a => a[0]).filter(w => w !== "social-publish.yml").sort().join() === "data-truth.yml,site-smoke.yml" && JSON.stringify(gh.sent.find(a => a[0] === "data-truth.yml")[1].inputs) === '{"job":"audit"}', "a push run is not site smoke's daily run, a deep run is not the audit " + JSON.stringify(gh.sent));
 ok(gh.calls.includes("jobs 7") && gh.calls.includes("zombie.yml runs") && !gh.calls.includes("zombie.yml dispatches"), "data truth's jobs read; the zombie ran on the 3rd: not started");
 ok(gh.calls.filter(c => / runs$/.test(c)).length <= 20, "at most 20 runs reads a pass");
 gh.runs["data-truth.yml"] = [{ id: 9, created_at: "2026-11-03T12:31:00Z", status: "in_progress", conclusion: null }, ...gh.runs["data-truth.yml"]];
@@ -446,7 +449,7 @@ x = await tick(env, T("2026-11-01T02:30:00Z"));
 ok(JSON.stringify(gh.sent) === JSON.stringify([["data-truth.yml", { ref: "main", inputs: { job: "invariants" } }]]), "Sunday: the full read started, with its job " + JSON.stringify(gh.sent));
 gh.calls = []; gh.sent = []; gh.runs = { ...ranAll("2026-11-04T05:30:00Z"), "camp-data.yml": "2026-10-28T05:15:00Z" };
 x = await tick(env, T("2026-11-04T05:45:00Z"));
-ok(JSON.stringify(gh.sent) === JSON.stringify([["camp-data.yml", { ref: "main", inputs: {} }]]), "Wednesday: last week's snapshot does not count " + JSON.stringify(gh.sent));
+ok(JSON.stringify(gh.sent.filter(a => a[0] !== "social-publish.yml")) === JSON.stringify([["camp-data.yml", { ref: "main", inputs: {} }]]), "Wednesday: last week's snapshot does not count " + JSON.stringify(gh.sent));
 gh.calls = []; gh.sent = []; gh.runs["camp-data.yml"] = "2026-11-04T05:46:00Z";
 x = await tick(env, T("2026-11-04T06:45:00Z"));
 ok(!gh.sent.some(a => a[0] === "camp-data.yml") && gh.calls.includes("camp-data.yml runs"), "the next hour sees it ran: not started twice");
@@ -495,5 +498,19 @@ env = PAGE(); env.ALERT_ROUTE = "all"; env.GH_DISPATCH_TOKEN = "GHTOKEN";
 gh.calls = []; gh.sent = []; gh.runs = { ...ranAll("2026-11-05T12:20:00Z"), "live-watch.yml": "2026-11-05T12:42:00Z" };   // GitHub's own :42 run
 x = await tick(env, T("2026-11-05T13:21:00Z"));
 ok(!gh.sent.some(a => a[0] === "live-watch.yml"), "GitHub's run 39 min ago counts: not started");
+// 8.11.2026: social publish is read on every 10-minute tick (its slots are at :00/:15/:30 Israel; the hourly pass at :21 was 51 min late)
+env = PAGE(); env.ALERT_ROUTE = "all"; env.GH_DISPATCH_TOKEN = "GHTOKEN";
+gh.calls = []; gh.sent = []; gh.runs = { ...ranAll("2026-11-08T17:20:00Z"), "social-publish.yml": "2026-11-08T17:21:00Z" };
+x = await tick(env, T("2026-11-08T17:21:00Z"));
+ok(!gh.sent.some(a => a[0] === "social-publish.yml"), "the hourly pass: social publish ran now, not started");
+gh.calls = []; gh.sent = [];
+x = await tick(env, T("2026-11-08T17:31:00Z"));
+ok(gh.calls.length === 0, "10 min later: seen 10 min ago, no read");
+x = await tick(env, T("2026-11-08T17:41:00Z"));
+ok(JSON.stringify(gh.sent) === JSON.stringify([["social-publish.yml", { ref: "main", inputs: { mode: "run" } }]]), "20 min later, between hourly passes: only social publish is started " + JSON.stringify(gh.sent));
+ok(!gh.calls.some(c => !/social-publish/.test(c)), "and only its runs are read " + JSON.stringify(gh.calls));
+gh.calls = []; gh.sent = []; gh.runs["social-publish.yml"] = "2026-11-08T21:00:00Z";
+x = await tick(env, T("2026-11-08T21:31:00Z"));
+ok(!gh.sent.some(a => a[0] === "social-publish.yml"), "outside its hours (05-20 UTC): not started");
 log(bad ? `uptime test: ${bad} of ${n} checks FAILED` : `uptime test ok (${n} checks)`);
 process.exit(bad ? 1 : 0);
