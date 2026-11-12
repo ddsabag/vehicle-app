@@ -1,0 +1,299 @@
+{
+ "_about": "Content rotation for the weekly kits. RUNBOOK step 3 reads this, picks the slots and appends one entry per delivered kit. reel = order[cursor], carousel = order[(cursor+1) % len(order)], stories = Community unless the reel already is (then Trust & Safety). Since kit 5 every slot speaks to the private used-car BUYER only (audience_rule). The Sunday 08:30 post keeps the kit.json key \"dealer\" and the file dealer-post.png (the renderer, the lint's file pattern and the Kit draft bot on main use those names) but it is a BUYER post: angle = dealer_angles[dealer_angle_cursor], which since kit 5 hold buyer-post angles; ignore the bot's slot label \"B2B utility\". After a kit is delivered: cursor = (cursor+1) % len(order), dealer_angle_cursor = (dealer_angle_cursor+1) % len(dealer_angles).",
+ "pillars": [
+  "Trust & Safety",
+  "Efficiency/compare",
+  "Community"
+ ],
+ "order": [
+  "Trust & Safety",
+  "Efficiency/compare",
+  "Community"
+ ],
+ "cursor": 2,
+ "dealer_angles": [
+  "buyer post: מה בודקים מהבית לפני שנפגשים (המספר בלוחית + שלב 1 בלשונית הקנייה: שעבוד, עבר ביטוחי, רכב גנוב; בגלוי: מה לוחית לא רואה)",
+  "buyer post: השאלות למוכר שהמספר כבר עונה עליהן (ידיים, סוג בעלות, ק\"מ בטסט האחרון, ריקול פתוח)",
+  "buyer post: לפני שמעבירים כסף (רשימת 'לפני התשלום': טסט בתוקף, ריקול שטופל, שעבוד, תג נכה; תמיד 'ייתכן')",
+  "buyer post: המחיר המבוקש מול הטווח המשוער (הערכה), ומה לשקלל במחיר"
+ ],
+ "dealer_angle_cursor": 2,
+ "last_kit": 6,
+ "history": [
+  {
+   "kit": 1,
+   "date": "2026-10-16",
+   "folder": "/mnt/project-files/vehicle-app/marketing-kit-2026-10-16",
+   "reel": {
+    "pillar": "Trust & Safety",
+    "title": "נגמר עידן הניחושים"
+   },
+   "carousel": {
+    "pillar": "Trust & Safety",
+    "title": "איך נראית עסקת רכב חכמה ב-2026?"
+   },
+   "stories": {
+    "pillar": "Community",
+    "title": "מתי בדקתם ריקול? (סקר + חידון)"
+   },
+   "dealer": {
+    "pillar": "B2B utility",
+    "angle": "fleet/inventory bulk check (PRO עסקי)",
+    "title": "כל המלאי. טבלה אחת."
+   },
+   "note": "Recorded retroactively by the factory build (2026-10-18). Kit 1 predates lint.mjs; see RUNBOOK 'Known issues in kit 1'."
+  },
+  {
+   "kit": 2,
+   "date": "2026-10-22",
+   "folder": "/mnt/project-files/vehicle-app/marketing-kit-2026-10-22",
+   "reel": {
+    "pillar": "Efficiency/compare",
+    "title": "שורה אחת (בודקים לפני שנפגשים)",
+    "needs": "app version with one-line recall row + importer button live in Play"
+   },
+   "carousel": {
+    "pillar": "Community",
+    "title": "מה זה רכב שירד מהכביש? (magazine offroad-2026-10)"
+   },
+   "stories": {
+    "pillar": "Community",
+    "title": "איזה מהדגמים הנפוצים אתם נוהגים? (סקר)"
+   },
+   "dealer": {
+    "pillar": "B2B utility",
+    "angle": "market intel for trade-in (deliveries, supply signals)",
+    "title": "מה נמסר בספטמבר"
+   },
+   "recall_max_id": 16821
+  },
+  {
+   "kit": 3,
+   "date": "2026-11-01",
+   "folder": "/mnt/project-files/vehicle-app/marketing-kit-2026-11-01",
+   "recall_max_id": 16821,
+   "pain": "הצד של המוכר: לבוא לפגישה עם תשובות (טסט, ריקול, ידיים) ולשלוח לקונה את כרטיס הסיכום",
+   "note": "built 1.11 instead of 29.10 (usage limit stopped the 29.10 run); dealer post moved to Mon 2.11 08:30",
+   "reel": {
+    "pillar": "Community",
+    "title": "הקונה שואל"
+   },
+   "carousel": {
+    "pillar": "B2B utility",
+    "title": "מוכרים רכב? מגיעים עם תשובות"
+   },
+   "stories": {
+    "pillar": "Trust & Safety",
+    "title": "מה הקונה יראה לפי המספר?"
+   },
+   "dealer": {
+    "pillar": "B2B utility",
+    "angle": "transparency report sent to the buyer before the meeting",
+    "title": "הקונה שואל. הדוח כבר ענה."
+   }
+  },
+  {
+   "kit": 4,
+   "date": "2026-11-05",
+   "folder": "/mnt/project-files/vehicle-app/marketing-kit-2026-11-05",
+   "recall_max_id": 16830,
+   "pain": "אחרי הקנייה אף אחד לא עוקב: טסט שפג בשקט, ריקול חדש לרכב שכבר אצלכם או במלאי, ביטוח בלי תזכורת",
+   "feature": "התראות תיק הרכב",
+   "note": "Dudu's requested topic car-file-alerts (3.11) in carousel + stories",
+   "reel": {
+    "pillar": "B2B utility",
+    "title": "מי עוקב אחרי הטסט?"
+   },
+   "carousel": {
+    "pillar": "Trust & Safety",
+    "title": "תיק הרכב עובד בשבילכם"
+   },
+   "stories": {
+    "pillar": "Community",
+    "title": "התיק בודק בשבילכם"
+   },
+   "dealer": {
+    "pillar": "B2B utility",
+    "angle": "recall/test follow-up for the whole lot",
+    "title": "מה דורש טיפול במגרש? טבלה אחת."
+   }
+  },
+  {
+   "kit": 5,
+   "date": "2026-11-07",
+   "folder": "/mnt/project-files/vehicle-app/marketing-kit-2026-11-07",
+   "recall_max_id": null,
+   "pain": "לא יודעים מה לשאול את המוכר: חלק מהתשובות כבר רשומות לפי מספר הרישוי",
+   "pain_id": "seller_q",
+   "feature": "לשונית הקנייה (שאלות למוכר, מחיר מול טווח, בדיקות מהבית)",
+   "note": "bonus kit on Dudu's ask 7.11 13:25 UTC, first buyer-only kit, line 'בודקים לפני שנפגשים'; launched Saturday night; Sunday buyer post moved to Sun 8.11 20:30 (kit 4's dealer post holds 08:30); reel approved by Dudu 13:47 UTC, queued 21:15",
+   "reel": {
+    "pillar": "Trust & Safety",
+    "title": "רגע לפני שכותבים למוכר",
+    "topic": "seller_q"
+   },
+   "carousel": {
+    "pillar": "Efficiency/compare",
+    "title": "ארבע שאלות שהמספר כבר עונה עליהן",
+    "topic": "seller_q"
+   },
+   "stories": {
+    "pillar": "Community",
+    "title": "מה שואלים מוכר?"
+   },
+   "dealer": {
+    "audience": "buyer",
+    "angle": "buyer post: מה בודקים מהבית לפני שנפגשים (המספר בלוחית + שלב 1 בלשונית הקנייה: שעבוד, עבר ביטוחי, רכב גנוב; בגלוי: מה לוחית לא רואה)",
+    "topic": "home_checks",
+    "title": "מה לוחית לא רואה, ואיפה בודקים מהבית"
+   }
+  },
+  {
+   "kit": 6,
+   "date": "2026-11-12",
+   "folder": "/mnt/project-files/vehicle-app/marketing-kit-2026-11-12",
+   "recall_max_id": 16844,
+   "pain": "האם הסיפור של הרכב מתאים למודעה: בעלויות, סוג בעלות, שינויים רשומים, ריקול פתוח",
+   "pain_id": "story_data",
+   "feature": "הסדר פשרה",
+   "note": "reel = Dudu's requested settlements-explainer (buyer framing, 'ייתכן', no amounts: no new or changed settlement this week); reel VO (sarah) held from the queue until Dudu listens; post, carousel and stories queued 12.11 (social-queue 3a447055). COROLLA RUNX recall-rate jump Oct->Nov not used: its recalls are old ids, looks like a matching change, not a new recall",
+   "reel": {
+    "pillar": "Trust & Safety",
+    "title": "יש לדגם הזה הסדר פשרה?",
+    "topic": "story_data"
+   },
+   "carousel": {
+    "pillar": "Efficiency/compare",
+    "title": "הסיפור של הרכב כבר רשום",
+    "topic": "story_data"
+   },
+   "stories": {
+    "pillar": "Community",
+    "title": "רכב שהיה בליסינג: פוסל או לא?"
+   },
+   "dealer": {
+    "audience": "buyer",
+    "angle": "buyer post: השאלות למוכר שהמספר כבר עונה עליהן (ידיים, סוג בעלות, ק\"מ בטסט האחרון, ריקול פתוח)",
+    "topic": "seller_q",
+    "title": "מה כבר רשום, ומה נשאר לשאול"
+   }
+  }
+ ],
+ "requested": [
+  {
+   "id": "car-file-alerts",
+   "by": "Dudu 3.11.2026 20:26 UTC",
+   "target_kit": 4,
+   "done_kit": 4,
+   "slot": "carousel (Trust & Safety) + stories feature spotlight",
+   "feature": "התראות תיק הרכב",
+   "title": "תיק הרכב עובד בשבילך",
+   "brief": "מזינים את הרכב ואת מה שידוע עליו (מסמכים, ביטוח, טיפולים) ומקבלים התראה כשמשהו קורה: טסט מתקרב או פג, ריקול חדש נפתח או נסגר, תזכורת טיפול, תוקף ביטוח ומסמכים, בעלות חדשה, ירידה מהכביש או שינוי רשום, הסדר פשרה חדש.",
+   "verified": "1.38.3 in Play production 100%: ALERT_KINDS test, recall, service, docs, owner, status, settlement; PRO_LOCK=false (free); Android SavedCheckWorker runs them in the background",
+   "cautions": [
+    "the alerts come from the Android app's background check: say 'באפליקציה', not 'במייל' or 'באתר'",
+    "service and insurance alerts depend on dates the user enters; say so ('לפי מה שהזנתם')",
+    "settlement alert wording: 'ייתכן שהרכב נכלל בהסדר פשרה חדש', never 'זכאי'",
+    "demo plate 76-543-21 only (12-345-67 is a real car); mocked screens carry '* המחשה'"
+   ]
+  },
+  {
+   "id": "settlements-explainer",
+   "by": "Dudu 3.11.2026 20:26 UTC",
+   "target_kit": 6,
+   "slot": "reel (Trust & Safety)",
+   "feature": "הסדר פשרה",
+   "title": "מה זה הסדר פשרה ולמה זה נוגע לרכב שלכם",
+   "brief": "הסבר לאדם מהשורה: תביעה ייצוגית נגד יצרן או יבואן שהסתיימה בהסדר שבית המשפט אישר; ייתכן שבעלי דגמים ושנים מסוימים יכולים לקבל הטבה (תיקון, הארכת אחריות, החזר). לוחית מראה לפי מספר הרכב אם ייתכן שהדגם נכלל, ושולחת התראה כשמתפרסם הסדר חדש שייתכן שנוגע לרכב שבתיק.",
+   "verified": "1.38.3 production: settlement alert kind 'הסדר פשרה חדש'; list from luchit.app/settlements.json updated weekly without a release",
+   "cautions": [
+    "'ייתכן', never 'זכאי'; the court and the settlement decide, not לוחית",
+    "the importer or maker is not a villain: a settlement is a fix the industry agreed to",
+    "benefit amounts only from settlements.json facts via ideas.mjs news-settlements",
+    "no lawyer advice; point to the settlement's official notice"
+   ],
+   "audience": "buyer",
+   "buyer_angle": "Dudu 5.11.2026 20:02 UTC (CEO thread): from kit 5 ONE message to the private used-car buyer, line \"בודקים לפני שקונים\". Kit 5 = settlement as the buyer pain: before buying, check if ייתכן the model/year is in a settlement, and ask the seller whether the settlement fix/benefit was already done. One buyer pain per kit; no owner or dealer mixing in one post; \"התיק של הרכב\" only as a closing next-step line. No dealer post in any kit: the Sunday post is a buyer post too (Dudu 7.11.2026). Do not quote measurement percentages in posts.",
+   "moved": "target 5 -> 6 on 7.11.2026: kit 5 became the bonus buyer kit Dudu asked for (7.11 13:25 UTC), built from the audience research",
+   "done_kit": 6
+  }
+ ],
+ "audience_rule": {
+  "since_kit": 5,
+  "by": "Dudu 5.11.2026 20:02 UTC (CEO card) + 7.11.2026 12:58 UTC: \"שמת דברים לסוחרים בניגוד לסיכום שלנו... קח בחשבון מפעם הבאה\"",
+  "audience": "the private used-car buyer, between the ad and the meeting with the seller",
+  "line": "בודקים לפני שנפגשים",
+  "rule": "every item of every kit (Sunday post, carousel, stories, reel) speaks to the private used-car buyer only; no dealer, lot, fleet, seller-side or owner item; one lead pain per kit from buyer_pains in this order, no repeat until all are used unless the data is new; discoveries (open recall, test, settlement 'ייתכן', off-road) go inside items, never as the lead pain; the car file only as the closing line; every item's go/ topic c= is the pain id",
+  "buyer_pains": [
+   {
+    "id": "seller_q",
+    "pain": "לא יודעים מה לשאול את המוכר, ונוסעים לשווא",
+    "feature": "רשימת 'מה לשאול את המוכר על הרכב הזה' בלשונית הקנייה",
+    "say": "לפני שנוסעים לראות רכב, מקלידים את המספר מהמודעה"
+   },
+   {
+    "id": "story_data",
+    "pain": "האם הסיפור של הרכב מתאים למודעה: ידיים, ליסינג או פרטי, שינויים רשומים",
+    "feature": "היסטוריית בעלויות וסוג בעלות, שינויים רשומים, מצב הרכב",
+    "say": "מגיעים לפגישה עם אותה תמונה שיש למוכר; ליסינג זה מידע, לא פסק דין"
+   },
+   {
+    "id": "km_test",
+    "pain": "האם הק\"מ נכון",
+    "feature": "הק\"מ שנרשם בטסט האחרון",
+    "say": "המספר במד, והמספר שנרשם בטסט (never 'זיוף' or 'ק\"מ אמיתי')"
+   },
+   {
+    "id": "price_range",
+    "pain": "לשלם יותר מדי",
+    "feature": "המחיר המבוקש מול הטווח המשוער (הערכה), שלב 'מה לשקלל במחיר'",
+    "say": "לדעת אם המחיר בטווח (never 'פראייר')"
+   },
+   {
+    "id": "home_checks",
+    "pain": "עבר של תאונות, שעבוד, רכב גנוב: מה שלא רואים ברכב",
+    "feature": "שלב 1 בלשונית הקנייה: קישורים לבדיקת שעבוד, עבר ביטוחי ורכב גנוב",
+    "say": "מה לוחית לא יודעת, ואיפה בודקים את זה מהבית (honest limits build trust)"
+   },
+   {
+    "id": "ev_battery",
+    "pain": "קונים חשמלי או היברידי: הסוללה",
+    "feature": "שאלות על אחריות הסוללה ברשימת השאלות, שלב 'בדיקה במכון'",
+    "say": "הנתונים והמכון רואים דברים שונים; צריך את שניהם"
+   },
+   {
+    "id": "compare_two",
+    "pain": "מתלבטים בין שני רכבים במודעות",
+    "feature": "השוואה של שני רכבים לפי מספר, בלי דירוג",
+    "say": "שמים את המספרים זה ליד זה, אין מנצח"
+   },
+   {
+    "id": "before_pay",
+    "pain": "מה עלול לעכב העברת בעלות",
+    "feature": "רשימת 'לפני התשלום' בלשונית הקנייה",
+    "say": "ייתכן שלא ניתן יהיה להעביר בעלות; מסדירים לפני שמשלמים"
+   }
+  ],
+  "say_avoid": [
+   "היסטוריה מלאה",
+   "בדיקת תאונות",
+   "ק\"מ אמיתי",
+   "זיוף",
+   "איתור בעלים",
+   "רשמי/רשמית about לוחית itself",
+   "פראייר",
+   "רמאים",
+   "שלא יעבדו עליכם",
+   "חינם as the main hook (every competitor says it)",
+   "בודקים לפני שקונים (Carzone's title)"
+  ],
+  "page": "https://claude.ai/artifact/EUatsimgLr349SippYU3HV",
+  "line_by": "Dudu 7.11.2026 13:27 UTC, decision card (Carzone's homepage title is \"קארזון – בודקים לפני שקונים\"; ours names the moment before the meeting)",
+  "kit6_plan": "kit 6 (Thu 12.11): lead pain story_data (next in buyer_pains after seller_q); reel = Dudu's settlements-explainer (requested, target_kit 6) as the question nobody thinks to ask (was the settlement benefit already used?); carousel/stories on story_data (the car's story in the data: ownership type, test, km at last test, recall); Sunday post = dealer_angles[1] (seller questions the plate answers). Its items run Sun 15.11 to Thu 19.11 as usual."
+ },
+ "retired": {
+  "since_kit": 5,
+  "by": "Dudu 5.11.2026 20:02 UTC (CEO card: buyer only) and 7.11.2026 12:58 UTC (kit 4 still had dealer items, against the agreement)",
+  "what": "pillar 'B2B utility' and the dealer angles (fleet/inventory bulk check, market intel for trade-in, transparency report for the buyer, recall/test follow-up for the lot). Dealers come back only if Dudu decides so after 21.11, on a separate track, never inside the weekly kit."
+ }
+}

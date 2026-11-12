@@ -1,0 +1,303 @@
+{
+  "_about": "Compliance rules for every לוחית marketing kit (owner: Dudu). lint.mjs reads this file. Text is normalised before matching: niqqud, every invisible/format character (zero-width, bidi, tag characters) removed, final letters unified, Cyrillic/Greek look-alikes folded to Latin, every digit script folded to 0-9, punctuation and spaced letters inside a Hebrew word collapsed, %XX decoded, bidi-override runs also read reversed. A term is either a string (whole word; Hebrew gets optional prefixes ו/ה/ש/ב/ל/מ/כ, up to 4) or {re} (a regex on the normalised text: lower case, final letters as regular letters, {P} = the prefix group; wrapped in letter boundaries unless bounded:false) with optional unless_prev / unless_next / unless_match. Red-team: extend the lists and add a fixture to fixtures/selftest-cases.json for each new entry.",
+  "version": 2,
+  "scan": {
+    "html_ext": [".html", ".htm", ".xhtml", ".svg", ".xml"],
+    "md_ext": [".md", ".markdown"],
+    "json_ext": [".json"],
+    "code_ext": [".js", ".mjs", ".cjs", ".ts", ".py"],
+    "text_ext": [".txt", ".srt", ".vtt", ".yml", ".yaml", ".csv", ".tsv", ".ass", ".ssa", ".sbv", ".lrc", ".ini", ".toml", ".sub"],
+    "binary_ext": [".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif", ".ico", ".bmp", ".mp4", ".mov", ".webm", ".mkv", ".m4v", ".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac", ".woff", ".woff2", ".ttf", ".otf", ".pdf", ".zip", ".pyc"],
+    "skip_dirs": ["node_modules", "vendor", ".git", "__pycache__", ".hyperframes"],
+    "facts_file": "facts.json",
+    "plates_only_files": ["facts.json", "ideas.json", "package.json", "package-lock.json"],
+    "json_skip_keys": ["at", "until", "targets", "needs_live", "cover", "link", "step", "emoji", "cls", "file", "files", "src", "path", "id", "template", "type", "bg", "color", "class", "style", "font", "size", "width", "height", "utm", "url", "href", "slug", "fps", "duration", "start", "end", "x", "y", "w", "h", "z", "scale", "opacity", "ease", "delay"],
+    "_json_skip_keys_note": "values of these keys are not checked against facts.json, but every word/plate rule still runs on them. A value that does not fit json_skip_key_values (e.g. a 'step' that is not a 1-2 digit counter) is checked as copy.",
+    "json_skip_key_values": {"step": "^\\s*\\d{1,2}\\s*$"},
+    "nonum_allowed": "^\\s*(?:\\d{1,2}(?:\\s*/\\s*\\d{1,2})?)?\\s*$",
+    "_nonum_note": "HTML elements marked data-nonum (slide counters '2/5', decorative step numbers '3') are skipped by the number check only when their text fits nonum_allowed.",
+    "max_bytes": 50000000,
+    "banned_sha256": ["ebee57bdad7d03cd147b537b510ae279baca5927b49ef3a4ab9d147bd89a0cb6"],
+    "_banned_sha256_note": "marketing-video/short-1-oketz.mp4 (any copy of it in the kit fails, whatever its name)"
+  },
+  "kit_md_regex": "^ערכת-תוכן-שבועית-\\d+\\.md$",
+  "measurement_section_regex": "^(?:\\d+[.)]\\s*)?(?:מדידה|measurement)\\s*$",
+  "rules": {
+    "forbidden-word": {
+      "he": "מילה אסורה בתוכן שיווקי של לוחית",
+      "en": "Forbidden word in לוחית marketing copy",
+      "terms": [
+        {"re": "{P}רמא(?:י|ית|ים|יות|ות)\\p{L}*", "label": "רמאי/רמאות"},
+        {"re": "{P}רמיי?(?:ה|ת)", "label": "רמייה"},
+        {"re": "{P}(?:עוקצ|עקצ|עקיצ)\\p{L}*", "label": "עוקץ/עקץ"},
+        {"re": "{P}[לנית]עקו?צ\\p{L}*", "label": "לעקוץ/נעקץ"},
+        {"re": "{P}נוכל(?:ים|ת|ות|י|יי?ה|יות)\\p{L}*", "label": "נוכלים"},
+        {"re": "{P}נוכל", "label": "נוכל", "note": "allowed only as the verb 'we will be able': before an infinitive (נוכל לבדוק, נוכל גם לבדוק) or after אם/ביחד/לא/אנחנו... (אם נוכל, ביחד נוכל.)",
+         "unless_next": "(?:ל(?!א(?!\\p{L})|מדי(?!\\p{L})|גמרי(?!\\p{L})|חלוטינ(?!\\p{L})|כל(?!\\p{L}))\\p{L}{2,}|(?:גמ|ממש|כבר|אולי|רק|יחד|ביחד|תמיד|עוד|באמת|בקלות|אז)(?:[^\\p{L}]+\\p{L}+)?[^\\p{L}]+ל\\p{L}{2,})",
+         "unless_prev": "(?<!\\p{L})(?:אמ|ואמ|ביחד|יחד|ככ|ככה|אז|לא|גמ|אנחנו|אנו|איכ|מתי|כיצד|רק|כבר|אולי|עכשיו|כולנו)[^\\p{L}]*$"},
+        {"re": "{P}(?:חשיפ\\p{L}*|חושפ\\p{L}*|נחשפ\\p{L}*|חשפ\\p{L}*|[לנית]חשו?פ\\p{L}*)", "label": "חשיפה/לחשוף", "metric_ok": true, "note": "allowed only in the measurement section (impressions as a metric)"},
+        {"re": "{P}מציא(?:ה|ות|ותי|ותיו|ותינו|ותכמ|ותיהמ)", "label": "מציאה", "unless_match": "(?:ו|ש|וש|כש)?(?:ה|ב)מציאות", "note": "המציאות / במציאות (reality) are allowed"},
+        {"re": "{P}מציאות(?=[^\\p{L}]+(?:של[^\\p{L}]+)?(?:ה?שבוע|ה?חודש|ה?שנה|ממש|ב?מחיר\\p{L}*|לסוחרימ|במגרש|ה?אמיתיות))", "label": "מציאות (bargains)"},
+        {"re": "{P}(?:משתלמ\\p{L}*|[יתנ]שתלמ\\p{L}*|השתלמ(?:ה|ו)?)", "label": "משתלם", "unless_prev": "(?<!\\p{L})(?:לא|ממש לא|כלל לא|אינו|אינה|אינמ|אינני)[ \\t]+$"},
+        {"re": "{P}מומלצ\\p{L}*", "label": "מומלץ", "unless_prev": "(?<!\\p{L})(?:לא|ממש לא|כלל לא|אינו|אינה|אינמ|אינני)[ \\t]+$", "note": "negated safety advice ('לא מומלץ לנסוע עם ריקול פתוח') is allowed"},
+        {"re": "{P}(?:ממליצ\\p{L}*|המלצ\\p{L}*|[לנית]?המליצ\\p{L}*|[אנית]מליצ\\p{L}*)", "label": "ממליצים/המלצה"},
+        "הכי טוב", "הכי טובה", "הכי טובים", "הכי טובות",
+        {"re": "scam\\p{L}*", "label": "scam"}, {"re": "fraud\\p{L}*", "label": "fraud"}, {"re": "crook\\p{L}*", "label": "crook"},
+        {"re": "bargain\\p{L}*", "label": "bargain"}, {"re": "recommend\\p{L}*", "label": "recommend"}, {"re": "rip[- ]?offs?", "label": "rip-off"},
+        {"re": "swindl\\p{L}*", "label": "swindle"}, {"re": "con[- ]?(?:man|men|artists?)", "label": "con man"}, {"re": "cheat\\p{L}*", "label": "cheat"}
+      ]
+    },
+    "winner-or-recommendation": {
+      "he": "ניסוח שמכריז על רכב כמציאה/מומלץ או על מנצח בהשוואה",
+      "en": "Wording that labels a car a bargain/recommended or declares a winner",
+      "terms": [
+        {"re": "{P}ה(?:טוב|אמינ|בטוח|זול|משתלמ|כדאי|שווה|איכותי|מוצלח|חסכוני|חכמ|נכונ|יעיל|מומלצ|אהוב)\\p{L}*[^\\p{L}]+ביותר", "label": "ה... ביותר"},
+        {"re": "{P}הכי[^\\p{L}]+(?:טוב|אמינ|בטוח|זול|משתלמ|כדאי|שווה|איכותי|מוצלח|חסכוני|חכמ|נכונ|יעיל|מומלצ|אהוב)\\p{L}*", "label": "הכי ..."},
+        {"re": "{P}(?:טוב|טובה|טובימ|טובות)[^\\p{L}]+יותר|{P}יותר[^\\p{L}]+(?:טוב|טובה|טובימ|טובות)", "label": "טוב יותר"},
+        {"re": "{P}(?:אמינ|אמינה|אמינימ|בטוח|בטוחה|חסכוני|חסכונית|מוצלח|מוצלחת|איכותי|איכותית|זול|זולה|משתלמ\\p{L}*)[^\\p{L}]+יותר[^\\p{L}]+מ\\p{L}+|{P}יותר[^\\p{L}]+(?:אמינ|אמינה|בטוח|בטוחה|חסכוני|חסכונית|מוצלח|מוצלחת|איכותי|איכותית|זול|זולה)[^\\p{L}]+מ\\p{L}+", "label": "X יותר מ-Y"},
+        {"re": "{P}עדיפ(?:ה|ימ|ות)?[^\\p{L}]+(?:על|מ\\p{L}+)", "label": "עדיף על"},
+        {"re": "{P}(?:מנצח\\p{L}*|ניצח\\p{L}*|נצחונ\\p{L}*|ניצחונ\\p{L}*)", "label": "מנצח/ניצחון", "unless_prev": "(?<!\\p{L})(?:אינ|בלי|ללא)(?:[ \\t]+(?:כאנ|פה|שומ))?[ \\t]+$", "note": "'אין מנצח' / 'השוואה בלי מנצח' (no-winner framing) is allowed"},
+        {"re": "{P}(?:ה)?מקומ[^\\p{L}]+(?:ה)?(?:ראשונ|1(?!\\d))", "label": "מקום ראשון"},
+        {"re": "{P}מספר[^\\p{L}\\d]+(?:1|אחת|אחד)(?![\\d.,])[^\\p{L}]+(?:ב\\p{L}+|של)", "label": "מספר 1 ב..."},
+        {"re": "(?<![\\p{L}\\p{N}])(?:#|מס'?|no\\.?)[ \\t]?1(?![\\p{L}\\p{N}.,_])", "bounded": false, "label": "#1"},
+        {"re": "{P}(?:דיל|דילימ)", "label": "דיל"},
+        {"re": "{P}שווה[^\\p{L}]+כל[^\\p{L}]+(?:שקל|אגורה|גרוש)", "label": "שווה כל שקל"},
+        {"re": "{P}(?:הזדמנות[^\\p{L}]+(?:של[^\\p{L}]+פעמ|פז|שאסור|שאי אפשר|שלא כדאי)|אסור[^\\p{L}]+לפספס|חובה[^\\p{L}]+לקנות|לא[^\\p{L}]+תמצאו[^\\p{L}]+(?:מחיר|רכב|עסקה))", "label": "הזדמנות שאסור לפספס"},
+        {"re": "{P}(?:בחירת[^\\p{L}]+(?:ה)?(?:עורכ|מערכת)|הבחירה[^\\p{L}]+(?:שלנו|שלי|הנכונה|הטובה|החכמה))", "label": "הבחירה שלנו"},
+        "עדיף לקנות", "כדאי לקנות", "שווה לקנות", "שווה את הכסף",
+        "עסקה מצוינת", "עסקה טובה", "עסקת השנה", "רכב הזדמנות", "מחיר מציאה", "מחיר הזדמנות",
+        {"re": "best[- ]?(?:buy|deal|car|choice|value|pick)s?|top[- ]?(?:pick|rated|choice)s?|editor'?s'?[- ](?:choice|pick)|must[- ]?(?:buy|have)|great deal|deal of the (?:day|week|month)|winners?|wins|steal of|cheapest|most reliable|safest|number one|best", "label": "best/winner (English)", "unless_next": "(?:time|way|moment|day|hour|place|practice|to check|of luck)(?!\\p{L})", "unless_prev": "(?<!\\p{L})(?:no|not the)[ \\t]+$"}
+      ]
+    },
+    "golden-rule": {
+      "he": "חוק הזהב: סוחרים, טרייד-אין, יבואנים ומנהלי ציים הם לקוחות. אין חשיפת רמאות, אין זיהוי סוחרים, אין הצגה שלילית",
+      "en": "Golden rule: dealers/trade-in/importers/fleet managers are customers; no fraud-exposing, dealer-identifying or negative framing",
+      "terms": [
+        "סוחרים מסתירים", "הסוחר מסתיר", "הסוחרים מסתירים", "המוכר מסתיר", "המוכרים מסתירים", "מסתירים ממך", "מסתירים מכם", "מסתיר ממך", "מסתיר מכם",
+        "יבואנים מסתירים", "היבואן מסתיר", "היבואן לא סיפר", "היבואן לא יספר",
+        "המוכר שיקר", "הסוחר שיקר", "שיקרו לך", "משקרים לך",
+        "הסוחר לא סיפר", "המוכר לא סיפר", "הסוחר לא יספר", "המוכר לא יספר", "לא יספרו לך", "מה שהסוחר לא", "מה שהמוכר לא", "מה שהיבואן לא",
+        "עבדו עליך", "עבדו עליכם", "לעבוד עליך", "לעבוד עליכם", "יעבדו עליך", "יעבדו עליכם",
+        "לא ימכרו לך לימון",
+        "סוחר רמאי", "סוחר נוכל", "סוחרים נוכלים", "סוחר ממולח",
+        "אל תסמכו על הסוחר", "אל תסמוך על הסוחר", "אל תאמינו לסוחר", "אל תאמין לסוחר", "אל תאמינו למוכר", "אל תאמין למוכר",
+        "תפסו את הסוחר", "לתפוס את הסוחר", "תופסים את הסוחר",
+        "לזהות סוחר", "לזהות סוחרים", "מזהה סוחר", "מזהה סוחרים", "מזהה את הסוחר", "זיהוי סוחר", "זיהוי סוחרים",
+        "גלגול מונה", "גלגלו את המונה", "מונה מגולגל", "מזויף", "מזויפת",
+        {"re": "{P}לימונ(?:ימ)?", "label": "לימון", "unless_prev": "(?<!\\p{L})(?:צהוב|צהובה|צהובימ|בצבע|צבע|ירוק|ירוקה|גוונ|מיצ|טעמ|ריח|פרוסת|קליפת)[ \\t]+$", "unless_next": "(?:צהוב|ירוק|מטאלי|מטלי|metallic|yellow)"},
+        {"re": "lemons?", "label": "lemon", "unless_next": "(?:yellow|zest|juice|green)", "unless_prev": "(?<!\\p{L})(?:yellow|colou?r)[ \\t]+$"},
+        {"re": "{P}הונא(?:ה|ות|ת)", "label": "הונאה", "unless_prev": "(?<!\\p{L})ו?אינ(?:[ \\t]+(?:פה|כאנ|שומ))?[ \\t]+$", "note": "'אין פה הונאה' is allowed"},
+        {"re": "{P}(?:לרמות|מרמה|מרמות)", "label": "לרמות/מרמה", "unless_next": "(?:שיא|ה?גבוה\\p{L}*|ה?נמוכ\\p{L}*|ה?חדש\\p{L}*|ה?קודמ\\p{L}*|ה?דומ\\p{L}*|של|שלא|ה?סביר\\p{L}*|מחיר\\p{L}*|ה?ביקוש|ה?היצע|ה?מכירות|ה?מסירות|אחרת|אחרות|זו|זאת|כזו|כזאת|מקצועי\\p{L}*|ה?גבוהה|\\d)", "note": "'לרמות שיא' / 'מרמה גבוהה' (levels) are allowed"},
+        {"re": "{P}(?:מרמימ|רימו|ירמו|ירמה|תרמו)", "label": "מרמים/רימו"},
+        {"re": "{P}(?:רימה|לרמות|מרמה)[^\\p{L}]+(?:אות\\p{L}*|את[^\\p{L}]+\\p{L}+|קונימ|קונה|לקוחות|לקוח)", "label": "לרמות את..."},
+        {"re": "{P}חשוד(?:ה|ימ|ות)?", "label": "חשוד", "unless_prev": "(?<![\\p{L}])(?:ו?לא|אינו|איננו|אינה|אינמ)[ \\t]+$", "note": "only 'לא החשוד' directly negated (no punctuation, not 'שלא') is allowed"},
+        {"re": "{P}(?:חשד\\p{L}*|[לנית]?חושד\\p{L}*|לחשוד|חשדנ\\p{L}*)", "label": "חשד/חושדים"},
+        {"re": "{P}(?:הסתיר\\p{L}*|[ימנת]סתיר\\p{L}*|להסתיר|מוסתר\\p{L}*|[ימנת]?סתירו)", "label": "הסתיר/מסתיר"},
+        {"re": "{P}(?:שיקר\\p{L}*|משקר\\p{L}*|[ינת]שקר\\p{L}*|לשקר|שקרנ\\p{L}*|שקר|שקרימ)", "label": "משקר/שקר"},
+        {"re": "{P}ידע[^\\p{L}]+ו?שתק", "label": "ידע ושתק"},
+        {"re": "{P}(?:לא|ולא)[^\\p{L}]+(?:סיפר\\p{L}*|מספר(?:ימ|ת)|יספר\\p{L}*|גילו|גילה|יגלו|יגלה|מגלימ|אמרו|יאמרו|ציינו)[^\\p{L}]+(?:לכ|לכמ|לכנ|לקונה|לקונימ|ללקוח|ללקוחות|את[^\\p{L}]+(?:כל[^\\p{L}]+)?ה?אמת)", "label": "לא סיפרו לך"},
+        {"re": "{P}(?:סידרו|סידר|דפקו|דפק|הפילו|עבדו|עבד|גנבו|גנב|ניצלו|ניצל|עקצו|עקצ)[^\\p{L}]+(?:אות(?:כ|כמ|כנ|ו|נו)|עליכ|עליכמ|ממכ|מכמ)", "label": "סידרו אותך"},
+        {"re": "{P}(?:פראייר\\p{L}*|פרייאר\\p{L}*|פרייר\\p{L}*|פראיר\\p{L}*)", "label": "פראייר"},
+        {"re": "{P}(?:תחמנ\\p{L}*|נוכלות)", "label": "תחמן"},
+        {"re": "{P}הטעי(?:י)?(?:ה|ות|ת)|{P}(?:להטעות|מטעה|מטעימ|הטעו|הטעה)", "label": "הטעיה/מטעה"},
+        {"re": "{P}(?:לאתר|מאתר\\p{L}*|איתור|תאתרו|לחשוף|לזהות|מזהה|מזהימ|זיהוי|לתפוס|תופס\\p{L}*)[^\\p{L}]+(?:\\p{L}+[^\\p{L}]+)?(?:ה)?(?:סוחר|מוכר|יבואנ|מגרש)\\p{L}*", "label": "לאתר/לזהות סוחרים"},
+        {"re": "shady|dodgy|sketchy|dishonest", "label": "shady"}
+      ],
+      "pairs": [
+        {"label": "dealer + negative framing",
+         "a": "{P}(?:סוחר\\p{L}*|מוכר(?:ימ|ת|ות)?|יבואנ\\p{L}*|טרייד[^\\p{L}]?אינ|מגרש\\p{L}*|ליסינג|ציי?מ?|dealer\\p{L}*|seller\\p{L}*|importer\\p{L}*)",
+         "b": "{P}(?:בעייתי\\p{L}*|ממולח\\p{L}*|מפוקפק\\p{L}*|חשוד\\p{L}*|שתק\\p{L}*|ישתוק|ישתקו|להיפטר|נפטר\\p{L}*|יפטר\\p{L}*|מעלימ\\p{L}*|העלימ\\p{L}*|מטשטש\\p{L}*|תחמנ\\p{L}*|גנב\\p{L}*|מנצל\\p{L}*|hide\\p{L}*|hid|hidden|lie|lies|lied|lying|liar\\p{L}*|cheat\\p{L}*|trick\\p{L}*)",
+         "within_words": 6,
+         "b_unless_prev": "(?<!\\p{L})(?:ו?לא|אינו|אינמ)[ \\t]+$"}
+      ]
+    },
+    "entitled-claim": {
+      "he": "\"זכאי\" / \"מגיע לכם\" אסור בטענות על ריקולים/הסדרים; לכתוב \"ייתכן\" / \"בדרך כלל\"",
+      "en": "\"entitled\" is forbidden in recall/settlement claims; hedge with \"ייתכן\"",
+      "terms": [
+        {"re": "{P}זכא\\p{L}*", "label": "זכאי"},
+        {"re": "{P}(?:מגיע|מגיעה|מגיעימ)[^\\p{L}]+(?:לכ|לכמ|לכנ|לו|לה|להמ|לנו|לבעלי)", "label": "מגיע לכם"},
+        {"re": "{P}(?:זכות|זכויות)(?:[^\\p{L}]+(?:שלכ|שלכמ|שלכנ|שלו|שלה|שלהמ))?", "label": "הזכות שלכם"},
+        {"re": "zaka'?(?:i|it|im|iot|ut)\\p{L}*|zchaut|entitled|entitlement|eligible|eligibility|you deserve|you are owed|owed to you", "label": "entitled (latin)"}
+      ],
+      "context_terms": [
+        {"re": "{P}(?:ריקול\\p{L}*|קריא(?:ת|ות)[^\\p{L}]+שירות|הסדר(?:ימ)?|ייצוגי\\p{L}*|תביע\\p{L}*|פיצוי\\p{L}*|תיקונ\\p{L}*|יבואנ\\p{L}*|אחריות)", "label": "ריקול/פיצוי/תיקון"},
+        {"re": "(?:le)?recall\\p{L}*|(?:le)?(?:fitsui|pitsui|pitzui)\\p{L}*|settlement\\p{L}*|class action|compensat\\p{L}*|lawsuit\\p{L}*|warranty|(?:free |a )?(?:fix|fixes|fixed|repair\\p{L}*)", "label": "recall/settlement (latin)"}
+      ],
+      "window_chars": 300,
+      "_window_note": "distance in visible characters (whitespace runs and HTML padding count as one)"
+    },
+    "real-plate": {
+      "he": "מספר רישוי אמיתי (7 או 8 ספרות). מותר רק לוחיות הדמו",
+      "en": "Possible real licence plate (7 or 8 digits). Only the demo plates are allowed",
+      "allow": ["12-345-67", "1234567", "7654321"],
+      "_how": "every run of digit groups joined by one separator (any dash, space, dot, slash, underscore, middle dot, comma; invisible characters and any digit script folded first) with 7 or 8 digits in total is a plate, unless it is a date, a year range or a thousands-formatted number. Groups must all be 2+ digits, or all single digits (2 3 4 5 6 7 8).",
+      "not_plates": [
+        "^20\\d{2}(0[1-9]|1[0-2])([0-2]\\d|3[01])$",
+        "^(?:0?[1-9]|[12]\\d|3[01])[./-](?:0?[1-9]|1[0-2])[./-](?:19|20)?\\d{2}$",
+        "^(?:19|20)\\d{2}[./-](?:0[1-9]|1[0-2])[./-](?:0[1-9]|[12]\\d|3[01])$",
+        "^(?:19|20)\\d{2}\\s*[-/]\\s*(?:19|20)\\d{2}$",
+        "^\\d{1,3}(?:,\\d{3})+$",
+        "^\\d{1,3}(?:\\.\\d{3})+$"
+      ]
+    },
+    "pro-feature": {
+      "he": "פיצ'ר PRO (בדיקת כמה רכבים / PDF ממותג) חייב תווית \"PRO עסקי\" ואסור לכתוב לידו \"חינם\"",
+      "en": "PRO feature (bulk check / branded PDF) must carry the \"PRO עסקי\" label and must never be called free",
+      "label": "PRO עסקי",
+      "markers": [
+        "בדיקת כמה רכבים", "כמה רכבים בבת אחת", "עד 100 מספרי רישוי", "עד 100 לוחיות", "רשימת מספרי רישוי", "בדיקה מרובה", "PDF ממותג", "דוח PDF ממותג", "דוח PDF עם המיתוג",
+        {"re": "{P}בדיק(?:ה|ת|ות)[^\\p{L}\\d]+(?:מרוכזת|מרובה|המונית|קבוצתית|של[^\\p{L}]+(?:כל[^\\p{L}]+)?(?:ה)?מלאי|כל[^\\p{L}]+(?:ה)?מלאי|\\d+[^\\p{L}]+(?:רכבימ|לוחיות|מספרי))", "label": "בדיקה מרוכזת"},
+        {"re": "{P}(?:כמה|מספר|עשרות|מאות|\\d+)[^\\p{L}]+(?:רכבימ|לוחיות|מספרי רישוי)[^\\p{L}]+(?:בבת אחת|בפעמ אחת|במקביל|ביחד|בלחיצה)", "label": "N רכבים בבת אחת"},
+        {"re": "{P}(?:כל[^\\p{L}]+)?(?:ה)?מלאי[^\\p{L}]+(?:\\p{L}+[^\\p{L}]+){0,2}?(?:בלחיצה|בבת אחת|בפעמ אחת)", "label": "כל המלאי בלחיצה"},
+        {"re": "(?:bulk|batch)(?:[- ]?(?:checks?|lookups?|checking|reports?))?|fleet[- ]checks?", "label": "bulk check"}
+      ],
+      "free_terms": [
+        {"re": "{P}(?:חינמ(?:י|ית|יימ|יות)?)", "label": "חינם", "unless_prev": "(?<!\\p{L})(?:לא|אינ|אינו|אינה|אינמ|never|not|isn'?t|aren'?t)[ \\t\"'״]*$|(?<!\\p{L})לא[ \\t]+(?:כתבתי|כותבימ|נכתוב|לכתוב|כתבנו|אומרימ|נגיד)[ \\t\"'״:]*$"},
+        {"re": "{P}(?:ללא|בלי)[^\\p{L}]+(?:\\p{L}+[^\\p{L}]+){0,2}?(?:תשלומ|עלות|עלויות|חיוב|כספ)", "label": "ללא תשלום"},
+        {"re": "{P}(?:לא|אינו|אינה)[^\\p{L}]+(?:עולה|עולות|עולימ)[^\\p{L}]+(?:כסף|כספ|שקל|אגורה)", "label": "לא עולה כסף"},
+        {"re": "(?<![\\d.,])0[ \\t]*(?:ש\"ח|ש״ח|₪|שקל\\p{L}*)", "bounded": false, "label": "0 ש\"ח"},
+        {"re": "{P}(?:מתנה|במתנה|על חשבוננו|על חשבון הבית)", "label": "מתנה"},
+        {"re": "free(?:[- ]of[- ]charge)?|at no (?:cost|charge)|no charge|gratis|complimentary|for nothing", "label": "free", "unless_prev": "(?<!\\p{L})(?:not|never|isn'?t|aren'?t)[ \\t\"']*$"}
+      ],
+      "basic_markers": [{"re": "{P}(?:בסיסי\\p{L}*|בודדת|רגילה|רכב[^\\p{L}]+אחד|לוחית[^\\p{L}]+אחת)|basic|single", "label": "basic check"}],
+      "_free_note": "a free word is checked in the paragraph with the PRO feature, the short paragraphs right next to it, the whole <section> (HTML) or the whole top-level entry (kit.json). It is allowed only in a clause that is about the basic single check ('הבדיקה הבסיסית חינם') and does not name the PRO feature."
+    },
+    "estimate-label": {
+      "he": "הערכה/תחזית בלי התווית \"(הערכה)\"",
+      "en": "Estimate or forecast without the \"(הערכה)\" label",
+      "label": "(הערכה)",
+      "trigger_terms": [
+        "שווי", "הערכת שווי", "מחיר משוער", "ערך משוער", "ירידת ערך", "שווי מוערך", "estimated value",
+        {"re": "(?:[ושהבלכ]{0,3})(?:שווה|שווימ|שוות)[^\\p{L}\\d\\n]+(?:\\p{L}+[^\\p{L}\\d\\n]+){0,2}?(?:כ-?)?\\d+", "label": "שווה N", "note": "no מ- prefix: משווים/משווה = compare"},
+        {"re": "{P}מחירונ\\p{L}*", "label": "מחירון", "unless_next": "(?:ה)?(?:דלק|פז|סונול|דור|ten)(?!\\p{L})", "note": "a car's list price (מחירון) is a valuation; a fuel company's price list (מחירון דלק) is not"},
+        {"re": "{P}(?:צפוי|צפויה|צפויימ|צפויות|תחזית\\p{L}*|יירד|תרד|ירדו בעתיד|עשוי|עשויה|עשויימ|מוערכ\\p{L}*|משוער\\p{L}*)", "label": "מחירון/צפוי/תחזית"},
+        {"re": "{P}(?:יעלה|תעלה|יעלו)(?![^\\p{L}]+על)", "label": "יעלה (forecast)"},
+        {"re": "forecast\\p{L}*|expected|projected|worth|estimat\\p{L}*|predict\\p{L}*", "label": "forecast"}
+      ],
+      "_note": "fires when a trigger and a number are in the same sentence and the sentence has no (הערכה)"
+    },
+    "tiktok-analytics": {
+      "he": "אין שימוש בנתוני טיקטוק (TikTok Analytics)",
+      "en": "No TikTok analytics",
+      "terms": [
+        {"re": "{P}(?:tiktok|טיקטוק|טיק[ -]טוק)\\p{L}*(?:[^\\p{L}\\n]+\\p{L}+){0,4}?[^\\p{L}\\n]+{P}(?:analytics|insights|stats|statistics|data|metrics|views|אנליטיקס|נתונ\\p{L}*|תובנות|סטטיסטיק\\p{L}*|ביצועי\\p{L}*|מדדי\\p{L}*|צפיות)", "label": "TikTok + analytics"},
+        {"re": "{P}(?:analytics|insights|stats|statistics|metrics|אנליטיקס|נתונ\\p{L}*|תובנות|סטטיסטיק\\p{L}*|ביצועי\\p{L}*|מדדי\\p{L}*|צפיות)(?:[^\\p{L}\\n]+\\p{L}+){0,4}?[^\\p{L}\\n]+{P}(?:tiktok|טיקטוק|טיק[ -]טוק)\\p{L}*", "label": "analytics + TikTok"}
+      ]
+    },
+    "banned-asset": {
+      "he": "תוכן שאסור להשתמש בו (short-1-oketz)",
+      "en": "Banned asset (short-1-oketz must never be used or mentioned)",
+      "terms": [
+        {"re": "short[^a-z0-9]*0*1[^a-z0-9]*oketz", "bounded": false, "label": "short-1-oketz"},
+        {"re": "oketz", "bounded": false, "label": "oketz"}
+      ]
+    },
+    "play-badge": {
+      "he": "חסר הלוגו הרשמי של Google Play עם \"זמינה להורדה\"",
+      "en": "Official Google Play badge with \"זמינה להורדה\" missing",
+      "badge_file": "google-play-badge.svg",
+      "badge_sha256": "c875294de036d7c1f9d9fc3699f10df4dafce13783a8b007ef6321173d768041",
+      "text": "זמינה להורדה",
+      "post_html_regex": "(?:^|/)src/kit\\.html$",
+      "reel_html_regex": "(?:^|/)src/reel[^/]*/index\\.html$",
+      "post_png_regex": "^(?:carousel-\\d+|story-\\d+|dealer-post)\\.png$",
+      "reel_mp4_regex": "^reel-[^/]*\\.mp4$",
+      "_note": "Dudu 2026-10-22: every post and every reel shows the Google Play badge and says the app is available for download. Each <section> of src/kit.html (one per post) and each reel composition (src/reel*/index.html, its end card) must reference the badge file and show the text; the badge file next to it must be the unchanged official artwork (sha256 of content-factory/render/assets/google-play-badge.svg). PNG posts without src/kit.html and reel-*.mp4 without a reel source cannot be checked and fail."
+    },
+    "extension-prompt": {
+      "he": "פרומפט התוסף: בדיוק אחד; או מעלה כטיוטות ועוצר לפני הלחיצה הסופית, או (אם כתוב שהוא מתזמן עד הסוף) לוחץ רק על Schedule ואף פעם לא על Post; סקר/חידון רק מאפליקציית אינסטגרם בטלפון",
+      "en": "Extension prompt: exactly one; either uploads as drafts and STOPS before the final confirm/publish click, or (when it says it schedules to the end) clicks only Schedule and never Post / publish now; poll/quiz only from the IG phone app",
+      "section_heading_regex": "פרומפט|prompt|תוסף|extension|סוכנ|agent",
+      "code_langs": "^(?:bash|sh|shell|zsh|console|powershell|ps1|cmd|bat|json|js|javascript|mjs|ts|python|py|html|css|yaml|yml|diff)$",
+      "prompt_signals": ["{P}(?:העלה|העלו|להעלות|תעלה|upload\\p{L}*)", "{P}(?:טיוט\\p{L}*|draft\\p{L}*)", "{P}(?:תזמנ|תזמנו|לתזמנ|schedule\\p{L}*)", "{P}(?:פרסמ\\p{L}*|לפרסמ|publish\\p{L}*)", "(?:תיקייה|folder)[^\\p{L}]*:", "c:\\\\"],
+      "prompt_file_regex": "prompt|פרומפט|הוראות[-_ ]?לתוסף",
+      "stop_markers": [{"re": "{P}(?:עצור|עצרו|עצרי|תעצור|תעצרו|לעצור|stop)[^\\p{L}]+(?:\\p{L}+[^\\p{L}]+){0,2}?(?:לפני|before)|{P}(?:עצור|עצרו|stop)[^\\p{L}]+(?:ו)?(?:שאל|שאלו|ask)", "label": "עצור לפני"}],
+      "draft_markers": [{"re": "{P}(?:טיוט\\p{L}*|draft\\p{L}*)", "label": "טיוטה"}],
+      "draft_contradictions": [{"re": "{P}(?:אינ[^\\p{L}]+צורכ|לא[^\\p{L}]+צריכ|בלי|ללא|אל[^\\p{L}]+תשמור|לא[^\\p{L}]+לשמור|לא[^\\p{L}]+כ)[^\\p{L}]*(?:\\p{L}+[^\\p{L}]+){0,2}?(?:ב|כ)?טיוט\\p{L}*|no drafts?|not as (?:a )?drafts?|skip(?:ping)? (?:the )?drafts?|instead of (?:a )?drafts?|don'?t save (?:it )?as (?:a )?drafts?", "label": "אין צורך בטיוטות"}],
+      "schedule_markers": [{"re": "{P}(?:מתזמנ|לתזמנ|תזמנ|מתזמ)\\p{L}*[^\\p{L}]+(?:\\p{L}+[^\\p{L}]+){0,4}?עד[^\\p{L}]+(?:ה)?סופ|schedul\\p{L}* (?:\\p{L}+ ){0,3}?(?:all the way|to the end)", "label": "מתזמן עד הסוף"}],
+      "_schedule_note": "A prompt that says it schedules to the end (TikTok Studio: the extension sets the time and clicks Schedule) needs no drafts, may click Schedule (publish_terms_schedule_policy has no schedule words) and must say never to press Post / publish now (no_post_markers). Every other publish/confirm click stays forbidden.",
+      "no_post_markers": [{"re": "(?<!\\p{L})(?:ו?אל|ו?לא|אסור|never|don'?t|do not)[^\\n.]{0,40}?(?:(?<!\\p{L})post(?!\\p{L})|פרסמ\\p{L}*|פרסומ|לפרסמ)", "label": "לא ללחוץ Post"}],
+      "click_terms": "(?:ו)?(?:ת?לחצ(?:ו|י)?|תלחצ\\p{L}*|ללחוצ|לחיצ(?:ה|ת)|לוחצ\\p{L}*|הקש(?:ו|י)?|תקיש\\p{L}*|להקיש|הקלק\\p{L}*|press(?:es|ing)?|hit(?:ting)?|click(?:s|ing)?|tap(?:s|ping)?|push)",
+      "publish_terms": "(?:ה)?(?:פרסמ\\p{L}*|פרסומ|לפרסמ|שתפ\\p{L}*|שיתופ|publish\\p{L}*|post|share|submit|go live|schedule|תזמנ\\p{L}*|תזמונ|שלח|אישור[^\\p{L}]+סופי|confirm)",
+      "publish_terms_schedule_policy": "(?:ה)?(?:פרסמ\\p{L}*|פרסומ|לפרסמ|שתפ\\p{L}*|שיתופ|publish\\p{L}*|post|share|submit|go live|שלח|אישור[^\\p{L}]+סופי|confirm)",
+      "imperative_terms": "{P}(?:פרסמ(?:ו|י)?|תפרסמ(?:ו|י)?|שתפ(?:ו|י)?|תשתפ(?:ו|י)?)|publish (?:it|them|now|everything|all)|post (?:it|them|now)|share (?:it|them|now)|go live",
+      "negation": "(?<!\\p{L})(?:(?:ו?שאל(?:ו|י)?|ask)[^\\p{L}]+(?:(?:אותי|אותנו|me|us)[^\\p{L}]+)?(?:אמ|האמ|whether|if)|ו?אל|ו?לא|אסור|בלי|מבלי|אינ|לפני|עד|never|not|don'?t|do not|without|before|until|instead of)",
+      "poll_terms": [{"re": "{P}(?:סקר\\p{L}*|חידונ\\p{L}*|poll\\p{L}*|quiz\\p{L}*)", "label": "סקר/חידון"}],
+      "phone_markers": [{"re": "{P}(?:טלפונ|מהטלפונ|בטלפונ|אפליקציית אינסטגרמ|באפליקציה|מהאפליקציה)|phone|(?:instagram|ig) app|mobile app", "label": "phone"}],
+      "desktop_markers": [{"re": "{P}(?:מחשב|דפדפנ|תוספ)\\p{L}*|desktop|browser|computer|web|extension", "label": "desktop"}],
+      "poll_negation": "(?<!\\p{L})(?:אל|לא|אסור|בלי|ללא|don'?t|do not|never|not|no)(?!\\p{L})"
+    },
+    "facts": {
+      "he": "כל מספר בתוכן חייב להתאים לעובדה ב-facts.json (ערך, יחידה, דגם, נושא וכיוון), וכל עובדה חייבת להתאים למקור",
+      "en": "Every number in the copy must match a fact in facts.json (value, unit, model, topic and direction), and every fact must match its source",
+      "required_fields": ["text", "value", "source_path", "fetched_at"],
+      "max_fact_age_days": 10,
+      "max_data_age_days": 35,
+      "max_checkout_age_days": 3,
+      "max_rounding": 0.05,
+      "approx_threshold": 0.005,
+      "command_fence_langs": "^(?:bash|sh|shell|zsh|console|powershell|ps1|cmd|bat)$",
+      "allowed_phrases": ["לכל 1,000", "ל-1,000", "מכל 1,000", "per 1,000", "24/7", "בנזין 95", "95 אוקטן", "אוקטן 95"],
+      "context_words": 4,
+      "units": {
+        "pct": {"after": "^[ \\t]?(?:%|אחוז)", "before": "%[ \\t]?$"},
+        "ils": {"after": "^[ \\t]?(?:ש\"ח|ש״ח|₪|שקל\\p{L}*|nis|ils)", "before": "₪[ \\t]?$"}
+      },
+      "topics": {
+        "fuel": "{P}(?:בנזינ|סולר|דלק|תדלוק|ליטר|לליטר|fuel|petrol|diesel|gasoline)",
+        "deliveries": "{P}(?:מסירות|מסירה|נמסר\\p{L}*|מסירת|delivered|deliveries)",
+        "recalls": "{P}(?:ריקול\\p{L}*|recall\\p{L}*)",
+        "fleet": "{P}(?:פעילימ|פעיל|כביש|active)",
+        "search": "{P}(?:חיפוש\\p{L}*|חיפשו|מחפשימ|גוגל|google|search\\p{L}*|קליק\\p{L}*|הקלק\\p{L}*|חשיפות|הופע\\p{L}*|impressions|clicks)"
+      },
+      "search_words": "{P}(?:חיפוש\\p{L}*|חיפשו|מחפשימ|גוגל|google|search\\p{L}*|קליק\\p{L}*|חשיפות|הופע\\p{L}*|impressions|clicks|position)",
+      "approx_markers": "(?:כ-?|כ־|~|≈|בערכ|כמעט|קרוב[ \\t]+ל-?|about|approx\\.?|approximately|around|nearly|roughly)[ \\t]*$",
+      "past_markers": "(?:(?<![\\d.,])(?:0?[1-9]|[12]\\d|3[01])[./](?:0?[1-9]|1[0-2])(?![\\d%])(?![.,]\\d)(?![ \\t]*(?:ש\"ח|ש״ח|₪|%|ליטר|לליטר))|\\d{4}-\\d{2}|\\d{2}/\\d{4}|ינואר|פברואר|מרץ|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר|בחודש שעבר|בחודש הקודמ|אשתקד|לפני|קודמ|היה|הייתה|היו|עמד|עמדה|לעומת|previous|last (?:month|year)|was|were)",
+      "present_markers": "(?<!\\p{L})(?:עכשיו|כעת|היומ|כרגע|נוכחי\\p{L}*|החודש|השבוע|current\\p{L}*|now|today)(?!\\p{L})",
+      "brands": ["טויוטה", "מזדה", "מאזדה", "קיה", "יונדאי", "סקודה", "מיצובישי", "סיאט", "פורד", "הונדה", "ניסאן", "סיטרואן", "סוזוקי", "פולקסווגן", "סובארו", "שברולט", "פיג'ו", "פיגו", "טסלה", "רנו", "גילי", "איסוזו", "דייהטסו", "צ'רי", "דאצ'יה", "אופל", "פיאט", "אאודי", "קרייזלר", "מרצדס", "ב.מ.וו", "במוו", "סדרה", "מ.ג", "ג'אקו", "BMW", "MG", "BYD", "KIA", "MAZDA", "TOYOTA", "HYUNDAI", "SKODA", "TESLA", "PEUGEOT", "CITROEN", "RENAULT", "AUDI", "SERIES", "MODEL", "RAV", "JAECOO", "CX", "ID"],
+      "generic_model_words": ["MODEL", "SERIES", "סדרה", "CX", "ID", "RAV", "HEV", "PHEV", "EV", "PLUS", "PRO", "SPORT", "HYBRID", "NEW", "GT", "LX", "EX"],
+      "model_number_unless_next": "^[ \\t]*(?:%|אחוז|אלף|אלפ|ש\"ח|₪|רכב|מסיר|ריקול|דגמ|לכל|מכל|מתוכ|פעיל)",
+      "number_words": [
+        {"re": "{P}(?:(?:ו)?(?:אחד|אחת|שניימ|שתיימ|שני|שתי|שלוש|שלושה|ארבע|ארבעה|חמש|חמישה|שש|שישה|שבע|שבעה|שמונה|תשע|תשעה|עשר|עשרה|עשרימ|שלושימ|ארבעימ|חמישימ|שישימ|שבעימ|שמונימ|תשעימ|מאה|מאתיימ|מאות|אלפ|אלפיימ|אלפימ|מיליונ|מיליונימ|חצי|רבע|שליש|שני שליש|מחצית)[^\\p{L}\\d\\n]+){1,4}(?:אחוז\\p{L}*|מכל|מתוכ|פעמימ יותר|מה(?:רכבימ|נהגימ|קונימ|דגמימ|ישראלימ|לקוחות|סוחרימ|משתמשימ|בעלימ|מוכרימ|נבדקימ|מסירות|ריקולימ))", "label": "number in words"},
+        {"re": "{P}פי[^\\p{L}]+(?:שניימ|שתיימ|שלושה|ארבעה|חמישה|עשרה|מאה)", "label": "פי N (in words)"},
+        {"re": "(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|half|a third|a quarter)(?:[- ](?:one|two|three|four|five|six|seven|eight|nine))?[ \\t]+(?:percent|per cent|in (?:every )?(?:two|three|four|five|ten|\\d+)|out of|of (?:all |the )?(?:cars|drivers|buyers|models|owners|dealers))", "label": "number in words (English)"}
+      ],
+      "bindings": [
+        {"source_path": "fuel.json", "pointer": "^/petrol95$", "about": "95-octane petrol price", "fact_text": "בנזינ|95|petrol", "copy": "בנזינ|95|דלק|ליטר|petrol|fuel"},
+        {"source_path": "fuel.json", "pointer": "^/diesel$", "about": "Delek full-service diesel list price (not a national/regulated price)", "fact_text": "סולר", "copy": "שירות מלא", "copy_forbid": "מחיר\\s+(?:ה)?סולר(?!\\s+במחירונ)"},
+        {"source_path": "market.json", "pointer": "^/months/", "about": "new private-car deliveries per month", "fact_text": "מסיר|נמסר", "copy": "מסיר|נמסר|חדש"},
+        {"source_path": "market.json", "pointer": "^/models/", "about": "deliveries of one model", "fact_text": "מסיר", "copy": "מסיר|נמסר"},
+        {"source_path": "model/stats.json", "pointer": "/rcPer$", "about": "active cars of the model listed with an open recall, per 1,000", "fact_text": "ריקול", "copy": "ריקול|recall"},
+        {"source_path": "model/stats.json", "pointer": "/act$", "about": "active cars of the model", "fact_text": "פעיל|כביש", "copy": "פעיל|כביש|נוסע|active"}
+      ],
+      "ignore_patterns": [
+        {"name": "reel-spec", "re": "\\(\\d{1,3} שניות, (?:9:16|16:9|1:1|4:5)\\)"},
+        {"name": "url", "re": "(?:https?://|www\\.)\\S+"},
+        {"name": "luchit-url", "re": "luchit\\.app\\S*"},
+        {"name": "windows-path", "re": "[A-Za-z]:\\\\(?:[^\\\\\\n\"'`%]*?\\\\)*[^\\s\\\\\"'`%]*"},
+        {"name": "file-name", "re": "[\\w.\\-\\u05D0-\\u05EA]+\\.(?:png|jpe?g|webp|gif|mp4|mov|md|json|html?|py|mjs|js|txt|srt|vtt|woff2|wav|mp3|csv|pdf)\\b"},
+        {"name": "asset-id", "re": "\\b[a-z]+(?:-[a-z]+)*-\\d{1,2}\\b"},
+        {"name": "kit-folder", "re": "marketing-kit-\\d{4}-\\d{2}-\\d{2}"},
+        {"name": "hashtag", "re": "#(?=[\\p{N}_]*\\p{L})[\\p{L}\\p{N}_]+"},
+        {"name": "handle", "re": "@[\\w.]+"},
+        {"name": "iso-date", "re": "\\d{4}-\\d{2}-\\d{2}(?:T[\\d:.]+Z?)?"},
+        {"name": "full-date", "re": "(?<!\\d)(?:0?[1-9]|[12]\\d|3[01])[./](?:0?[1-9]|1[0-2])[./](?:20)?\\d{2}(?![\\d%])"},
+        {"name": "day-month", "re": "(?<=(?:ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת|יום|תאריך|עד|מ-|ב-|\\()[^\\n\\d]{0,6})(?:0?[1-9]|[12]\\d|3[01])\\.(?:0[1-9]|1[0-2])(?![\\d%])(?!\\.\\d)(?![ \\t]*(?:%|אחוז|ש\"ח|ש״ח|₪|ליטר|לליטר|ק\"מ))"},
+        {"name": "month-year", "re": "(?<!\\d)(?:0?[1-9]|1[0-2])/20\\d{2}(?!\\d)"},
+        {"name": "time", "re": "(?<!\\d)(?:[01]?\\d|2[0-3]):[0-5]\\d(?!\\d)"},
+        {"name": "aspect-ratio", "re": "(?<![\\d.])(?:9:16|16:9|4:5|5:4|1:1|4:3|3:4|1\\.91:1)(?![\\d.])(?![ \\t]*(?:רכב|דגמ|מסיר|נהג|קונ))"},
+        {"name": "dimensions", "re": "(?<![\\d,.])\\d{3,4}\\s*[x×X]\\s*\\d{3,4}(?!\\d)"},
+        {"name": "labelled-counter", "re": "(?<!\\p{L})(?:[ובלהמש]{0,2})(?:שקופית|שקופיות|סטורי|מסכ|מסך|slide|story)\\s*-?\\s*\\d{1,2}\\s*(?:/|מתוך|of)\\s*\\d{1,2}(?!\\d)"},
+        {"name": "year", "re": "(?<![\\d,.])(?<!כ-?|כ־|~|פי )(?:199\\d|20[0-2]\\d)(?!\\d|[,.]\\d)(?![ \\t]*(?:%|אחוז|ש\"ח|ש״ח|₪|רכב|דגמ|מסיר|ריקול|נהג|בעלי|לקוח|קונ|ק\"מ|קמ|אלף|ליטר|פעמ|מקר))"},
+        {"name": "enumeration", "re": "(?:^|(?<=\\|\\s{0,3})|(?<=^#{1,6}\\s{1,3}))\\s*\\d{1,2}[.)](?=\\s)"},
+        {"name": "numbered-label", "re": "(?<!\\p{L})(?:[ובלהמש]{0,2})(?:צעד|שלב|פרומפט|שקופית|סטורי|מסך|ערכת תוכן(?: שבועית)?|חלק|תוצר|גרסה|שוט|סצנה|step|slide|prompt|kit|shot|scene|version)\\s*-?\\s*\\d{1,2}(?!\\d)(?![ \\t]*(?:%|אחוז))|(?<!\\p{L})[ובלמש]{0,2}ערכה\\s*-?\\s*\\d{1,2}(?!\\d)(?![ \\t]*(?:%|אחוז|אלף|אלפ|ש\"ח|₪))|(?<!\\p{L})v\\d{1,2}(?!\\d)", "note": "'ערכה 2' (kit 2) is a label; 'הערכה 62' (estimate) is not"},
+        {"name": "timecode", "re": "(?<=^\\|\\s{0,3})\\d+(?:\\.\\d+)?\\s*[–-]\\s*\\d+(?:\\.\\d+)?(?:\\s*(?:ש'|שנ'|שניות|s|sec))?(?=\\s*(?:\\(|\\||·|$))"},
+        {"name": "ops-count", "re": "(?<![\\d,.])\\d{1,2} (?:התמונות|תמונות|הקבצים|קבצים|השקופיות|שקופיות|הסטוריז|סטוריז|המסכים|מסכים|הפוסטים|פוסטים|התוצרים|תוצרים)(?!\\p{L})"},
+        {"name": "model-code", "re": "\\b[A-Z]{1,3}-\\d{1,2}\\b"},
+        {"name": "git-sha", "re": "\\b(?=[0-9a-f]*[a-f])[0-9a-f]{7,40}\\b"},
+        {"name": "utm-like", "re": "utm_[a-z]+=\\S+"}
+      ]
+    }
+  }
+}
