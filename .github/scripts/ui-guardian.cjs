@@ -49,6 +49,8 @@ const FIXTURES = [
   { name: "recall-unknown", rec: BASE, recallStatus: 500 },
   { name: "list-reloading", rec: BASE, listTotal: 0 },
   { name: "saved-copy", rec: BASE, savedDaysAgo: 12 },
+  // a report someone sent (s= on the web): what was found on top, and a plate field as the one main action (share-loop spec 7.11)
+  { name: "shared-recv", rec: BASE, query: "&s=wa", recv: true },
 ];
 const TABS = contract.tabs.map((t) => t.id);
 const WIDTHS = process.env.UG_QUICK ? [390] : [320, 390];
@@ -80,7 +82,7 @@ async function runPage(browser, fx, theme, width) {
   const page = await ctx.newPage();
   const label = `${fx.name}/${theme}/${width}px`;
   page.on("pageerror", (e) => fail(`[${label}] page error: ${e.message}`));
-  await page.goto(`http://127.0.0.1:${server.address().port}/?plate=12345678`);
+  await page.goto(`http://127.0.0.1:${server.address().port}/?plate=12345678${fx.query || ""}`);
   try { await page.waitForSelector(".tabs [role=tab]", { timeout: 15000 }); } catch { fail(`[${label}] the vehicle screen did not render`); await ctx.close(); return; }
   // a saved car opened while the ministry does not answer: the page draws its stored copy, dated
   if (fx.savedDaysAgo) await page.evaluate((d) => { current.fromCache = Date.now() - d * 864e5; renderResult(); }, fx.savedDaysAgo);
@@ -93,6 +95,15 @@ async function runPage(browser, fx, theme, width) {
   if (fx.model && fx.model.modelRecalls.some((r) => r.fresh) && (!line || line.state !== "warn")) fail(`[${label}] a fresh model recall did not turn the line amber`);
   if (live && !fx.model.modelRecalls.length && (!line || line.state !== "ok")) fail(`[${label}] every check ran clean, but the line is "${line ? line.title : "missing"}"`);
   if (fx.savedDaysAgo && line && line.state !== "cached") fail(`[${label}] a saved copy shows the line as "${line.state}", not "cached"`);
+  // the share sheet: one main WhatsApp button, the other formats folded under it
+  if (fx.name === "petrol-clean" && theme === "light") {
+    const sh = await page.evaluate(() => { document.querySelector(".chead [data-act=share]").click(); const s = document.querySelector("#shareSheet"), r = { open: !s.hidden, wa: !!s.querySelector(".share-wa[data-share=wa]"), folded: !document.querySelector("#shareMore").open, link: !s.querySelector("[data-share=link]").hidden }; document.querySelector("#closeShare").click(); return r; }).catch((e) => ({ err: e.message }));
+    if (sh.err || !sh.open || !sh.wa || !sh.folded || !sh.link) fail(`[${label}] the share sheet: ${sh.err || JSON.stringify(sh)} (want open, a WhatsApp button, the other formats folded, copy link on the web)`);
+  }
+  if (fx.recv) {
+    const rv = await page.evaluate(() => ({ top: (document.querySelector(".shared-top b") || {}).textContent || "", line: !!document.querySelector(".shared-top .kl"), form: !!document.querySelector(".sharebar form[data-recv] input"), install: !!document.querySelector(".sharebar [data-act=openapp], .sharebar [data-act=openplay]") }));
+    if (!/קיבלתם בדיקה של/.test(rv.top) || !rv.line || !rv.form || rv.install) fail(`[${label}] the shared report: ${JSON.stringify(rv)} (want the "received" title with the found line, a plate field, no install button before the recipient's own check)`);
+  }
   await page.addStyleTag({ content: "*{animation:none!important;transition:none!important}" });
 
   // a car shows only the tabs that apply to it (the recalls tab only with an open recall or a settlement), so the run walks the tabs on screen;

@@ -333,6 +333,10 @@ footer{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:4px 24px;
 .webcta{display:block;width:100%;border:0;background:none;color:var(--muted);font:inherit;font-size:.85rem;text-align:center;padding:6px 8px;margin:0 0 6px;min-height:44px;cursor:pointer}.webcta b{color:var(--accent);font-weight:700}
 .apphint{display:flex;gap:10px;align-items:center;width:100%;border:0;text-align:start;background:var(--hint-bg);color:var(--fg);border-radius:12px;padding:10px 12px;font-size:.9rem;margin:0 0 10px;min-height:44px}
 .shared-top{display:flex;gap:9px;align-items:center;background:var(--info-bg);color:var(--info);border-radius:12px;padding:10px 12px;font-size:.9rem;margin:0 0 10px;line-height:1.4}
+.shared-top b,.shared-top .kl,.shared-top small{display:block}.shared-top .kl{color:var(--fg);font-weight:700;margin-top:2px}.shared-top .kl.bad{color:var(--bad)}.shared-top .kl.warn{color:var(--warn)}.shared-top small{font-size:.78rem;opacity:.85}
+.sb-check{display:flex;gap:8px}.sb-check .inp{flex:1;min-width:0;min-height:44px;font-size:1.05rem;font-weight:700;text-align:center}.sb-check .sb-btn{flex:0 0 auto}
+.recv-next{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin:0 0 10px}.recv-next>div{flex:1;min-width:180px}.recv-next b{display:block;font-size:.95rem}.recv-next small{color:var(--muted);font-size:.85rem}.recv-next .sb-btn{display:inline-flex;align-items:center;gap:6px}.recv-next .sb-btn .i{width:18px;height:18px}.recv-app{flex-basis:100%;font-size:.85rem;color:var(--accent);font-weight:600;min-height:44px;display:flex;align-items:center}
+@media print{.recv-next{display:none}}
 .sharebar{position:fixed;inset-inline:0;bottom:0;z-index:15;background:var(--card);border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(0,0,0,.08);padding:10px 14px calc(12px + env(safe-area-inset-bottom,0px))}
 .sb-in{display:flex;flex-wrap:wrap;align-items:center;gap:10px;max-width:760px;margin:0 auto}.sb-txt{flex:1;min-width:0}.sb-txt b{display:block;font-size:.95rem}.sb-txt small,.sb-sub{color:var(--muted);font-size:.78rem}.sb-sub{display:block;max-width:760px;margin:5px auto 0}
 .sb-btn{border:0;border-radius:12px;background:var(--fg);color:var(--card);font:inherit;font-weight:700;font-size:.9rem;padding:11px 14px;min-height:44px;white-space:nowrap;cursor:pointer}.sb-btn.alt{background:var(--soft);color:var(--fg)}
@@ -641,6 +645,9 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 #mres .row .t{flex:1;min-width:0}
 .years{gap:8px}.years .chip{font-size:1rem;padding:8px 14px}
 .share-opts .row{padding:12px}
+.share-wa{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:52px;border:0;border-radius:14px;background:var(--accent);color:var(--accent-fg);font:inherit;font-weight:800;font-size:1.05rem;cursor:pointer;margin:4px 0 0}.share-wa .i{width:20px;height:20px}.share-wa:disabled{opacity:.6}
+.share-wa-sub{text-align:center;margin:6px 0 2px}
+.share-more{margin:0 0 6px}.share-more>summary{list-style:none;display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;cursor:pointer;color:var(--accent);font-weight:700;font-size:.9rem}.share-more>summary::-webkit-details-marker{display:none}.share-more>summary .chev{width:16px;height:16px;transition:transform .2s}.share-more[open]>summary .chev{transform:rotate(180deg)}
 .share-opts small{color:var(--muted);display:block;font-size:.85rem}
 .badge-s{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;flex:0 0 auto;color:var(--tc);background:var(--tb)}
 .report{  --bg:#f2f4f8; --card:#ffffff; --fg:#151a24; --muted:#4a5465; --line:#e3e7ee; --soft:#f5f7fa;   --band:#ffffff; --band-fg:#151a24; --band-muted:#5d6676; --band-line:#d5dae3;   --plate:#f6c500; --plate-ink:#111; --il:#1d4ea8; --accent:#2457c5; --accent-fg:#ffffff;   --ok:#0d5f33; --ok-bg:#e1f4e8; --warn:#7d4300; --warn-bg:#fdf0d9; --bad:#9b1c12; --bad-bg:#fde6e3; --info:#1b46a8; --info-bg:#e5edfc;   /* topic colours */   --t-blue:#2f6fde; --t-blue-bg:#e7effd; --t-violet:#7a4fd6; --t-violet-bg:#f0eafc; --t-teal:#0f8a83; --t-teal-bg:#e0f4f2;   --t-amber:#c27400; --t-amber-bg:#fdf1dc; --t-red:#d0473b; --t-red-bg:#fdeae8; --t-slate:#52637d; --t-slate-bg:#eceff4;   --t-green:#22894a; --t-green-bg:#e3f4e9; --t-leaf:#5f8f1f; --t-leaf-bg:#eef5e2; --t-pink:#c2407e; --t-pink-bg:#fbe9f2;
@@ -1159,13 +1166,17 @@ body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)
 <div class="sheet" id="shareSheet" hidden role="dialog" aria-modal="true" aria-labelledby="shareTitle">
   <div class="sheet-in">
     <div class="sheet-head"><h2 id="shareTitle">שיתוף הדוח</h2><button class="icon-btn" type="button" id="closeShare" aria-label="סגירה"><svg class="i"><use href="#i-x"/></svg></button></div>
+    <button type="button" class="share-wa" data-share="wa"><svg class="i" aria-hidden="true"><use href="#i-share"/></svg>שליחה בוואטסאפ</button>
+    <p class="note share-wa-sub">כרטיס סיכום עם מה שנמצא, וקישור לדוח המעודכן, בהודעה אחת</p>
+    <details class="share-more" id="shareMore"><summary>פורמטים נוספים<svg class="i chev" aria-hidden="true"><use href="#i-chev"/></svg></summary>
     <div class="list share-opts">
-      <button type="button" class="row" data-share="card"><span class="badge-s blue"><svg class="i"><use href="#i-image"/></svg></span><span class="t"><b>כרטיס סיכום</b><small>תמונה אחת עם מה שנמצא, לשליחה בוואטסאפ (מומלץ)</small></span></button>
       <button type="button" class="row" data-share="image"><span class="badge-s slate"><svg class="i"><use href="#i-image"/></svg></span><span class="t"><b>צילום הדוח המלא</b><small>כפי שהוא על המסך, כולל כל הכרטיסים</small></span></button>
       <button type="button" class="row" data-share="pdf"><span class="badge-s blue"><svg class="i"><use href="#i-doc"/></svg></span><span class="t"><b>קובץ PDF</b><small>דוח מלא: סקירה, ריקולים, עלויות ומפרט</small></span></button>
       <button type="button" class="row" data-share="bizpdf" hidden><span class="badge-s violet"><svg class="i"><use href="#i-doc"/></svg></span><span class="t"><b>PDF ממותג (PRO עסקי)</b><small>עם פרטי העסק שלכם, בלי לוגו ובלי קישור של לוחית</small></span></button>
       <button type="button" class="row" data-share="text"><span class="badge-s slate"><svg class="i"><use href="#i-copy"/></svg></span><span class="t"><b>טקסט</b><small>סיכום קצר בהודעה</small></span></button>
+      <button type="button" class="row" data-share="link" hidden><span class="badge-s slate"><svg class="i"><use href="#i-copy"/></svg></span><span class="t"><b>העתקת קישור</b><small>קישור לדוח המעודכן, להדבקה בכל מקום</small></span></button>
     </div>
+    </details>
     <p class="note">הדוח כולל את מספר הרישוי והיסטוריית סוגי הבעלות (בלי שמות). שתפו אותו רק עם מי שצריך.</p><p class="note" id="shareMsg" role="status"></p>
   </div>
 </div>
@@ -3215,20 +3226,31 @@ const IS_IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (/Macintosh/.tes
 /* opened from the icon on the iPhone home screen: Safari without its bars. Its user agent has no "Safari/", so it is not an in-app browser */
 const IOS_HOME = IS_IOS && (navigator.standalone === true || matchMedia("(display-mode: standalone)").matches);
 const IN_APP_BROWSER = /FBAN|FBAV|FB_IAB|FBIOS|Instagram|Snapchat|TikTok|musical_ly|Bytedance|trill|ByteLocale|Telegram|LinkedInApp|Twitter|MicroMessenger|GSA\/|; wv\)/i.test(navigator.userAgent) || /\bLine\//.test(navigator.userAgent) || (IS_IOS && !/Safari\//.test(navigator.userAgent) && !IOS_HOME);
+/* A report someone sent (s= in the link, on the web). What the recipient needs: what was found, in a glance, and to check a car of their own
+   (share-loop spec 7.11). One main action, a plate field in the bar; the calendar reminder stays beside it, and the app is offered only after
+   the recipient's own first check (recvNext) */
 function sharedBar(D){
   const L = licOf(D), canCal = L && L.days > 0 && !IN_APP_BROWSER;   // a reminder only for an expiry still ahead
-  let main;
-  if (IS_ANDROID && IN_APP_BROWSER) {
-    // no intent:// in these browsers: straight to the store page (the car rides along in the install referrer), with a tip for the better way
-    main = `<div class="sb-txt"><b>עקבו אחרי הרכב הזה</b><small>התראה על ריקול חדש, טסט שמתקרב והעברת בעלות</small></div><div class="sb-btns"><button type="button" class="sb-btn" data-act="openplay" data-url="${esc(carLink(D.plate, "bar"))}">להורדה בחינם</button><button type="button" class="sb-btn alt" data-act="copylink">העתקת הקישור</button></div>`;
-  } else if (IS_ANDROID) {
-    const intent = `intent://luchit.app/?plate=${D.plate}&s=bar#Intent;scheme=https;package=com.ddsabag.pratirechev;S.browser_fallback_url=${encodeURIComponent(carLink(D.plate, "bar"))};end`;
-    main = `<div class="sb-txt"><b>עקבו אחרי הרכב הזה</b><small>התראה על ריקול חדש, טסט שמתקרב והעברת בעלות</small></div><button type="button" class="sb-btn" data-act="openapp" data-intent="${esc(intent)}">פתחו באפליקציה</button>`;
-  } else {
-    main = `<div class="sb-txt"><b>שומרים על הרכב הזה בעין</b><small>${canCal ? "הטסט בתוקף עד " + L.date : "בדקו רכב נוסף לפני שמחליטים"}</small></div><div class="sb-btns">` +
-      (canCal ? `<button type="button" class="sb-btn" data-act="barcal">📅 תזכורת טסט ביומן</button>` : "") + `<button type="button" class="sb-btn${canCal ? " alt" : ""}" data-act="another">בדיקת רכב נוסף</button>` + (IN_APP_BROWSER ? `<button type="button" class="sb-btn alt" data-act="copylink">העתקת הקישור</button>` : "") + `</div>`;
-  }
-  return `<div class="sharebar" role="region" aria-label="מעקב אחרי הרכב"><div class="sb-in${IS_ANDROID ? "" : " sb-col"}">${main}</div>${IS_ANDROID ? `<small class="sb-sub">${IN_APP_BROWSER ? "טיפ: ⋮ ואז \"פתח בדפדפן\" כדי שהאפליקציה תיפתח ישר על הרכב" : "חינם ב-Google Play · נפתח ישר על הרכב הזה"}</small>` : ""}</div><div class="sb-pad"></div>`;
+  const form = `<form class="sb-check" data-recv="1" role="search"><label class="sr-only" for="recvPlate">מספר רישוי של רכב אחר</label><input class="inp" id="recvPlate" inputmode="numeric" autocomplete="off" placeholder="76-543-21" dir="ltr" aria-describedby="recvHint"><button type="submit" class="sb-btn">לבדוק רכב אחר</button></form>`;
+  const alt = [canCal ? `<button type="button" class="sb-btn alt" data-act="barcal">📅 תזכורת טסט ביומן</button>` : "", IN_APP_BROWSER ? `<button type="button" class="sb-btn alt" data-act="copylink">העתקת הקישור</button>` : ""].join("");
+  return `<div class="sharebar" role="region" aria-label="בדיקת רכב נוסף"><div class="sb-in sb-col"><div class="sb-txt"><b>יש לכם רכב לבדוק?</b><small id="recvHint">מקלידים מספר רישוי ומקבלים את אותו דוח, בחינם</small></div>${form}${alt ? `<div class="sb-btns">${alt}</div>` : ""}</div></div><div class="sb-pad"></div>`;
+}
+/* the found line of a shared report: the one thing a recipient should see first, the same order as the card's rows */
+function keyLine(D){
+  if (D.isCancelled) return {k: "bad", t: "הרכב ירד מהכביש"};
+  if (D.recalls.length) return {k: "bad", t: D.recalls.length === 1 ? "יש לרכב ריקול פתוח" : `יש לרכב ${D.recalls.length} ריקולים פתוחים`};
+  const L = licOf(D); if (L && L.k === "bad") return {k: "bad", t: licLine(L)};
+  const bad = buildInsights(D).find(i => i.level === "bad" && !i.priv); if (bad) return {k: "bad", t: bad.title};
+  const pr = pendingRecalls(D); if (pr.length) return {k: "warn", t: pendingWords(pr).line};
+  const warn = buildInsights(D).find(i => i.level === "warn" && !i.priv); if (warn) return {k: "warn", t: warn.title};
+  return {k: "ok", t: D.recallUnknown ? (L ? licLine(L) : "לא עלו ממצאים חריגים") : "אין ריקול פתוח" + (L && L.k === "ok" ? " והטסט בתוקף" : "")};
+}
+/* after the recipient checked a car of their own from that bar: the next step is keeping it, and on Android the app, as a quiet second link */
+const RECV = {plate: ""};
+function recvNext(D){
+  if (window.AndroidApp || !RECV.plate || RECV.plate !== D.plate || D.kind === "model" || D.isCancelled) return "";
+  const saved = isSaved(D.plate);
+  return `<div class="recv-next" role="region" aria-label="הצעד הבא"><div><b>${saved ? "הרכב נשמר ברכבים שלי" : "רוצים לעקוב אחרי הרכב הזה?"}</b><small>${saved ? "הוא ייבדק שוב בכל פתיחה של לוחית" : "שמירה ברכבים שלי, ובכל פתיחה הוא נבדק שוב: ריקול חדש, טסט, העברת בעלות"}</small></div>${saved ? "" : `<button type="button" class="sb-btn" data-act="save" data-from="recv">${ico("star")}<span>שמירה</span></button>`}${IS_ANDROID ? `<a class="recv-app" href="${esc(carLink(D.plate, "next"))}">התראות לטלפון: האפליקציה בחינם ב-Google Play</a>` : ""}</div>`;
 }
 const sharedHere = D => !!(SHARED && D.plate === SHARED && D.kind !== "model");
 function renderResult(){
@@ -3249,7 +3271,8 @@ function renderResult(){
   if (D.tag) pills.push(`<span class="pill" data-priv>תג נכה</span>`);
   html.push(carHead(D));
   html.push(`<div class="side">`);
-  if (sharedHere(D)) html.push(`<div class="shared-top"><span aria-hidden="true">📩</span><span><b>דוח רכב שנשלח אליך</b> · נבדק עכשיו מול משרד התחבורה, מעודכן יותר מכל קובץ</span></div>`);
+  if (sharedHere(D)) { const kl = keyLine(D); html.push(`<div class="shared-top"><span aria-hidden="true">📩</span><span><b>קיבלתם בדיקה של <bdi>${esc(D.title)}</bdi> מלוחית</b><span class="kl ${kl.k}">${esc(kl.t)}</span><small>נבדק עכשיו מול משרד התחבורה, מעודכן יותר מכל קובץ</small></span></div>`); }
+  else { const rn = recvNext(D); if (rn) html.push(rn); }
   if (D.fromCache) html.push(`<div class="msg" role="status"><b>אין חיבור למשרד התחבורה, ולכן מוצגים נתונים שנשמרו ב-${esc(fmtDate(new Date(D.fromCache).toISOString()))}.</b> ייתכן שהם לא מעודכנים. <button type="button" class="link-btn" data-retry="${esc(D.plate)}">נסו שוב</button></div>`);
   // compare sits beside the car's name, where a card keeps its action: a fixed place that never wraps under the facts
   const cmpBtn = `<button type="button" class="id-cmp" data-act="compare" data-from="card" aria-label="השוואה">${ico("compare")}<span>השוואה</span></button>`;
@@ -5405,8 +5428,8 @@ $("#out").addEventListener("click", ev => {
   if (!current) return;
   if (b.dataset.tab) { const again = currentTab === b.dataset.tab; currentTab = b.dataset.tab; if (!again) track("tab_view", {tab: b.dataset.tab, own: current && current.plate && isSaved(current.plate) ? 1 : 0, role: roleOf(current)}); renderResult(); focusResult(); $("#out").classList.add("rise"); setTimeout(() => $("#out").classList.remove("rise"), 300); const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"}); return; }
   const act = b.dataset.act;
-  if (act === "share") { track("share_open");   // the sheet opening; track("share") counts only a choice in it
-    $("#shareMsg").textContent = ""; $("[data-share=bizpdf]").hidden = !(PRO_LOCK && isBiz()); $("#shareSheet").hidden = false; shareWarm = {}; warmShare(); }
+  if (act === "share") { SHARE_UI.from = b.dataset.from || "head"; track("share_open", {from: SHARE_UI.from, ...(window.AndroidApp ? {src: "app"} : {})});   // the sheet opening; track("share") counts only a choice in it. The web adds the visit's src itself
+    $("#shareMsg").textContent = ""; $("[data-share=bizpdf]").hidden = !(PRO_LOCK && isBiz()); $("[data-share=link]").hidden = !!window.AndroidApp; $("#shareMore").open = false; $("#shareSheet").hidden = false; shareWarm = {}; warmShare(); }
   if (act === "candSave") {
     const raw = digits(($("#askIn") || {}).value), ask = raw ? Number(raw) : null;
     if (!isSaved(current.plate) && toggleSaved(newSavedItem(current))) {   // a new save counts like the star's
@@ -5426,7 +5449,7 @@ $("#out").addEventListener("click", ev => {
   if (act === "save") {
     const on = toggleSaved(newSavedItem(current));
     if (on) { startTrial(); cohSaved(currentTab || "home"); }
-    track(on ? "car_save" : "car_unsave", {n: String(Math.min(store.get("savedVehicles").length, 4)) + (store.get("savedVehicles").length > 3 ? "+" : ""), from: currentTab || "home"});
+    track(on ? "car_save" : "car_unsave", {n: String(Math.min(store.get("savedVehicles").length, 4)) + (store.get("savedVehicles").length > 3 ? "+" : ""), from: b.dataset.from || currentTab || "home"});
     b.setAttribute("aria-pressed", String(on)); b.setAttribute("aria-label", on ? "נשמר ברכבים שלי" : "שמירה ברכבים שלי"); { const sp = b.querySelector("span"); if (sp) sp.textContent = on ? "נשמר" : "שמירה"; }
     toast(on ? "נשמר ברכבים שלי" : "הוסר מהרכבים שלי");
     { const y = window.scrollY; renderResult(); window.scrollTo(0, y); }
@@ -5785,6 +5808,19 @@ async function captureEl(el, breakSel, ratio = 2){
 }
 function canvasToBlob(c, type, q){ return new Promise((ok, fail) => c.toBlob(b => b ? ok(b) : fail(new Error("empty canvas")), type, q)); }
 function blobToBase64(b){ return new Promise((ok, fail) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = fail; r.readAsDataURL(b); }); }
+/* the sheet's main button: the card and its link in one WhatsApp message. The app hands both to WhatsApp (the share menu when it is not installed;
+   an app from before the bridge method gets the share menu). The web cannot pick the app: the phone's share menu with the card and the caption,
+   and where files cannot be shared (a computer, some in-app browsers) WhatsApp's own link with the caption alone */
+async function shareWa(D, blob, name, caption){
+  const br = bridge();
+  if (br && br.shareWhatsApp) { br.shareWhatsApp(name, blob.type, await blobToBase64(blob), D.title, caption); return; }
+  if (br) { await shareFile(blob, name, D.title, caption); return; }
+  const file = new File([blob], name, {type: blob.type});
+  if (navigator.canShare && navigator.canShare({files: [file]})) {
+    try { await navigator.share({files: [file], title: D.title, text: caption}); return; } catch (err) { if (err && err.name === "AbortError") return; }
+  }
+  openExternal("https://wa.me/?text=" + encodeURIComponent(caption));
+}
 async function shareFile(blob, name, title, caption){
   const br = bridge();
   if (br && br.shareFileText && caption) { br.shareFileText(name, blob.type, await blobToBase64(blob), title, caption); return; }
@@ -5991,11 +6027,13 @@ async function drawShareCard(D, opt = {}){
   f(21, 500); text("אינו מחליף נסח רישום או בדיקה במכון", R, FT + 160, "#9aa4b8");
   return {canvas: c, breaks: []};
 }
+const SHARE_UI = {from: "head"};   // where the open share sheet was opened from: the car's header, or the header of a report someone sent (recv)
 async function doShare(kind){
-  track("share", {kind, ...expTag("share_label")});
+  track("share", {kind, from: SHARE_UI.from, ...expTag("share_label")});
   const D = current; if (!D) return;
   const msg = $("#shareMsg"), name = `Luchit-${D.plate}`;
   if (kind === "text") { $("#shareSheet").hidden = true; shareText(D.title, summaryText(D), D.plate); return; }
+  if (kind === "link") { $("#shareSheet").hidden = true; copyText(shareLink(D.plate, "link"), "הקישור"); return; }
   const biz = kind === "bizpdf" ? bizProfile() : null;
   if (biz && !biz.name) { msg.textContent = "כדי לקבל דוח ממותג, הוסיפו את פרטי העסק בהגדרות."; return; }
   document.querySelectorAll("[data-share]").forEach(b => b.disabled = true);
@@ -6003,6 +6041,7 @@ async function doShare(kind){
   await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));   // let the "preparing" state paint before the heavy drawing starts
   try {
     const caption = `${D.title} · ${fmtPlate(D.plate)}\nהדוח המלא והמעודכן בלוחית:\n${shareLink(D.plate, kind === "card" ? "img" : kind === "image" ? "full" : kind)}`;
+    if (kind === "wa") { await shareWa(D, (await warmFile("card")) || await prepShare("card", D), name + ".jpg", caption); $("#shareSheet").hidden = true; return; }
     if (!biz) { try { localStorage.setItem("lastShare", kind === "pdf" ? "pdf" : kind === "image" ? "image" : "card"); } catch {} }
     if (biz) await shareFile(await makePdf(D, biz), name + ".pdf", D.title);
     else if (kind === "pdf") await shareFile((await warmFile("pdf")) || await makePdf(D), name + ".pdf", D.title, caption);
@@ -6030,6 +6069,17 @@ $("#shareSheet").addEventListener("click", ev => {
   const b = ev.target.closest("[data-share]"); if (b) doShare(b.dataset.share);
 });
 $("#closeShare").addEventListener("click", () => { $("#shareSheet").hidden = true; shareWarm = {}; });
+/* the plate field in a shared report's bar: the recipient's own first check (shared_next_check, with the share's s=) */
+document.addEventListener("submit", ev => {
+  const f = ev.target.closest && ev.target.closest("form[data-recv]"); if (!f) return;
+  ev.preventDefault();
+  const inp = f.querySelector("input"), p = digits(inp.value).replace(/^0+(?=\d{5})/, "");
+  if (p.length < 5 || p.length > 8) { inp.setAttribute("aria-invalid", "true"); toast("מספר רישוי הוא 5 עד 8 ספרות"); inp.focus(); return; }
+  inp.removeAttribute("aria-invalid");
+  track("shared_next_check", {via: SHARE_VIA});
+  RECV.plate = p; lookup(p); scrollTo(0, 0);
+});
+document.addEventListener("click", ev => { if (ev.target.closest && ev.target.closest("a.recv-app")) track("web_install_click", {via: "share"}); });
 /* iPhone in Safari: once, after a car is saved, how to put לוחית on the home screen. There is no app for iPhone; from the icon the site opens
    without the browser's bars and checks the saved cars on opening (as "הרכבים שלי" says) */
 function homeSheetMaybe(){
@@ -6478,7 +6528,7 @@ function carHead(D){
   // the owner's own car: the road documents take the share button's place (sharing moves to the menu)
   return `<header class="chead" id="chead"><button type="button" class="ch-b back" data-act="back" aria-label="חזרה">${ico("back")}</button>
     <div class="ch-t">${car ? `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>` : ""}<b class="cut">${cutHtml(D.title)}</b></div>
-    ${mine ? `<button type="button" class="ch-doc" data-cf="road" aria-label="מסמכים לנסיעה">${ico("id")}<span class="ch-dt">מסמכים</span></button>` : `<button type="button" class="ch-b" data-act="share" aria-label="שיתוף הדוח">${ico("share")}<span class="ch-l">שיתוף</span></button>`}
+    ${mine ? `<button type="button" class="ch-doc" data-cf="road" aria-label="מסמכים לנסיעה">${ico("id")}<span class="ch-dt">מסמכים</span></button>` : `<button type="button" class="ch-b" data-act="share" data-from="${sharedHere(D) ? "recv" : "head"}" aria-label="שיתוף הדוח">${ico("share")}<span class="ch-l">שיתוף</span></button>`}
     ${car ? `<button type="button" class="ch-b star" data-act="save" aria-pressed="${saved}" aria-label="${saved ? "נשמר ברכבים שלי" : "שמירה ברכבים שלי"}">${ico("star")}<span class="ch-l">${saved ? "נשמר" : "שמירה"}</span></button>` : ""}
     <span class="ch-m"><button type="button" class="ch-b" data-act="cmenu" aria-label="עוד פעולות" aria-haspopup="menu" aria-expanded="false">${ico("more")}</button></span></header>`;
 }

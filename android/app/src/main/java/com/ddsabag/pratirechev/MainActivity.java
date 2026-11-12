@@ -268,6 +268,40 @@ public class MainActivity extends Activity {
                 }
             }
 
+            /* the share sheet's main button: the card and its link straight into WhatsApp (or WhatsApp Business); with neither installed,
+               the phone's own share menu with the same content */
+            @JavascriptInterface
+            public void shareWhatsApp(String name, String mime, String base64, String title, String text) {
+                try {
+                    byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
+                    File f = new File(sharedDir(), name.replaceAll("[^A-Za-z0-9._-]", "_"));
+                    try (FileOutputStream out = new FileOutputStream(f)) {
+                        out.write(bytes);
+                    }
+                    Uri uri = FileProvider.getUriForFile(MainActivity.this, getPackageName() + ".files", f);
+                    runOnUiThread(() -> {
+                        Intent send = new Intent(Intent.ACTION_SEND);
+                        send.setType(mime);
+                        send.putExtra(Intent.EXTRA_STREAM, uri);
+                        send.putExtra(Intent.EXTRA_SUBJECT, title);
+                        if (text != null) send.putExtra(Intent.EXTRA_TEXT, text);
+                        send.setClipData(ClipData.newRawUri(title, uri));
+                        send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        for (String pkg : new String[]{"com.whatsapp", "com.whatsapp.w4b"}) {
+                            try {
+                                startActivity(new Intent(send).setPackage(pkg));
+                                return;
+                            } catch (android.content.ActivityNotFoundException ignored) {
+                                // not installed: the next one, then the share menu
+                            }
+                        }
+                        startActivity(Intent.createChooser(send, "שיתוף"));
+                    });
+                } catch (Exception e) {
+                    runOnUiThread(() -> pageJs("window.toast && toast('השיתוף נכשל')"));
+                }
+            }
+
             @JavascriptInterface
             public void voice() {
                 runOnUiThread(() -> {
