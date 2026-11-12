@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-58";   // shown in /live/data so the running version is visible
+const BUILD = "live-59";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -130,10 +130,14 @@ async function collectDaily(env) {
 // reading. Site events from before src existed (20.10.2026) are "unknown".
 const GO_SOURCES = ["tiktok", "instagram", "facebook", "linkedin", "youtube", "whatsapp", "newsletter", "press", "dealer", "qr", "share"];
 const WEB_SOURCES = ["google", "search", "direct", "site"];
+// AI assistants add utm_source to the links in their answers (chatgpt.com reaches the page as "chatgptcom"); one bucket for all of them (CEO review
+// 12.11.2026). Gemini comes from gemini.google.com and is still counted as google.
+const AI_SRC = /^(chatgpt|perplexity|copilot|gemini|claude|openai|deepseek|grok)/;
 function srcBucket(platform, src) {
   if (platform !== "web") return "app";
   const s = String(src || "").toLowerCase();
   if (GO_SOURCES.includes(s) || WEB_SOURCES.includes(s)) return s;
+  if (AI_SRC.test(s)) return "ai";
   return !s || s === "(not set)" ? "unknown" : "other";
 }
 
@@ -1449,7 +1453,7 @@ $("goal").innerHTML='<div style="overflow-x:auto"><table class="t tg"><thead><tr
 // from 20.10), and new app devices in Israel by the link they reached the store from (Google Play's install referrer). Then the plan's
 // North Star (car checks a week) split by the source of the visit the check was made in
 {const B=W&&W.bySource,box=$("src"),CH=d.daily&&d.daily.ch;
-const SL={google:"חיפוש בגוגל",search:"מנועי חיפוש אחרים",direct:"בלי מקור מזוהה (הקלדה, או קישור בלי סימון)",site:"מדף אחר באתר (דגמים, מגזין)",unknown:"לפני 20.10, כשהמקור עוד לא נמדד",app:"באפליקציה (בלי פירוט מקור)",share:"קישור לדוח רכב או להשוואה ששותפו",tiktok:"טיקטוק",instagram:"אינסטגרם",facebook:"פייסבוק",linkedin:"לינקדאין",youtube:"יוטיוב",whatsapp:"וואטסאפ",newsletter:"ניוזלטר",press:"כתבות",dealer:"סוחרים",qr:"QR ודפוס",other:"אתרים ואפליקציות אחרים",store:"חיפוש ב-Google Play",fromsite:"דרך האתר (כפתור ההורדה)",nolink:"בלי מקור מזוהה (הקלדה, או קישור בלי סימון)"};
+const SL={ai:"עוזרי AI (ChatGPT, Perplexity ודומיהם)",google:"חיפוש בגוגל",search:"מנועי חיפוש אחרים",direct:"בלי מקור מזוהה (הקלדה, או קישור בלי סימון)",site:"מדף אחר באתר (דגמים, מגזין)",unknown:"לפני 20.10, כשהמקור עוד לא נמדד",app:"באפליקציה (בלי פירוט מקור)",share:"קישור לדוח רכב או להשוואה ששותפו",tiktok:"טיקטוק",instagram:"אינסטגרם",facebook:"פייסבוק",linkedin:"לינקדאין",youtube:"יוטיוב",whatsapp:"וואטסאפ",newsletter:"ניוזלטר",press:"כתבות",dealer:"סוחרים",qr:"QR ודפוס",other:"אתרים ואפליקציות אחרים",store:"חיפוש ב-Google Play",fromsite:"דרך האתר (כפתור ההורדה)",nolink:"בלי מקור מזוהה (הקלדה, או קישור בלי סימון)"};
 let h='<p class="note">אין כרגע נתון מגוגל אנליטיקס על הרשתות.</p>';
 if(CH){const NET=["facebook","instagram","whatsapp","tiktok","youtube"],low=k=>String(k||"").toLowerCase(),own=s=>SL[s]&&s!=="unknown"&&s!=="app";
  // the site sends the plan's names; the app's install referrer is google-play (found in the store), luchit.app (the site's download
@@ -1502,7 +1506,7 @@ const row=(l,v,sub)=>"<li><span>"+l+(sub?"<small>"+sub+"</small>":"")+"</span><b
 const head=(i,t,s,w,read)=>"<h4>"+i+". "+t+"</h4>"+'<p class="note" style="margin:0 0 6px">'+chip(s,w)+" "+read+"</p>";
 let h='<p class="note" style="margin:0 0 6px">'+(left>0?"עד 22.11 לא מוסיפים פיצ'רים, והתשובות לשלוש השאלות קובעות מה בונים אחר כך. נשארו "+n(left)+" ימים.":"הגיע מועד ההחלטה (22.11): התשובות כאן הן הבסיס לה.")+"</p>";
 // 1. organic: site checks from sources that are not our campaign links (Google, other search engines, direct, other pages of the site, shared reports, other sites)
-{const ORG=["google","search","direct","site","share","other"],B=W&&W.bySource,seen=W&&W.srcSeen||[false,false],AS=W&&W.appSrc;
+{const ORG=["google","search","direct","site","share","ai","other"],B=W&&W.bySource,seen=W&&W.srcSeen||[false,false],AS=W&&W.appSrc;
 const sc=(o,ks)=>ks.reduce((a,k)=>a+((o&&o[k]||[0,0])[1]),0),known=o=>Object.keys(o||{}).filter(k=>k!=="app"&&k!=="unknown");
 const o0=B?sc(B[0],ORG):null,m0=B?sc(B[0],known(B[0])):null,o1=B&&seen[1]?sc(B[1],ORG):null,sh=m0?o0/m0*100:null,gr=o1?(o0-o1)/o1*100:null;
 let s,w,r;
@@ -1847,7 +1851,7 @@ const delta1=(a,b)=>{if(a==null||b==null)return "";return a>b+.05?'<span class="
 const pcd=(a,b)=>a==null||b==null?"-":!b?(a?"חדש":"-"):a===b?'<span class="flat">0%</span>':a>b?'<span class="up">▲ '+n((a-b)/b*100)+"%</span>":'<span class="down">▼ '+n((b-a)/b*100)+"%</span>";
 const PGN=[[/^\/$/,"דף הבית: בדיקת רכב"],[/^\/magazine\//,"מגזין"],[/^\/model\/$/,"כל הדגמים"],[/^\/model\//,"דף דגם"],[/^\/check\/$/,"כל הבדיקות"],[/^\/check\/recall\//,"בדיקת ריקול"],[/^\/check\/settlements\//,"הסדרי פשרה"],[/^\/check\/license-fee\//,"אגרת רישוי"],[/^\/check\/owners\//,"כמה ידיים היו לרכב"],[/^\/check\/test\//,"מתי הטסט"],[/^\/check\/off-road\//,"רכב שירד מהכביש"],[/^\/check\/value\//,"שווי רכב"],[/^\/business\//,"לעסקים"],[/^\/guide\//,"מדריך"],[/^\/go(\/|$)/,"קישור מרשת חברתית"]];
 const PG=u=>{const p=String(u||"/").replace(/^https?:\/\/[^/]+/,"").replace(/[?#].*$/,"")||"/",m=PGN.find(x=>x[0].test(p));return (m?m[1]:"דף אחר")+' <small><bdi dir="ltr">'+esc(p)+"</bdi></small>"};
-const SL={google:"חיפוש בגוגל",search:"מנועי חיפוש אחרים",direct:"בלי מקור מזוהה (הקלדה, או קישור בלי סימון)",site:"מדף אחר באתר (דגמים, מגזין)",unknown:"לפני 20.10, כשהמקור עוד לא נמדד",app:"באפליקציה (בלי פירוט מקור)",share:"קישור לדוח רכב או להשוואה ששותפו",tiktok:"טיקטוק",instagram:"אינסטגרם",facebook:"פייסבוק",linkedin:"לינקדאין",youtube:"יוטיוב",whatsapp:"וואטסאפ",newsletter:"ניוזלטר",press:"כתבות",dealer:"סוחרים",qr:"QR ודפוס",other:"אתרים ואפליקציות אחרים",store:"חיפוש ב-Google Play",fromsite:"דרך האתר (כפתור ההורדה)",nolink:"בלי מקור מזוהה (הקלדה, או קישור בלי סימון)"};
+const SL={ai:"עוזרי AI (ChatGPT, Perplexity ודומיהם)",google:"חיפוש בגוגל",search:"מנועי חיפוש אחרים",direct:"בלי מקור מזוהה (הקלדה, או קישור בלי סימון)",site:"מדף אחר באתר (דגמים, מגזין)",unknown:"לפני 20.10, כשהמקור עוד לא נמדד",app:"באפליקציה (בלי פירוט מקור)",share:"קישור לדוח רכב או להשוואה ששותפו",tiktok:"טיקטוק",instagram:"אינסטגרם",facebook:"פייסבוק",linkedin:"לינקדאין",youtube:"יוטיוב",whatsapp:"וואטסאפ",newsletter:"ניוזלטר",press:"כתבות",dealer:"סוחרים",qr:"QR ודפוס",other:"אתרים ואפליקציות אחרים",store:"חיפוש ב-Google Play",fromsite:"דרך האתר (כפתור ההורדה)",nolink:"בלי מקור מזוהה (הקלדה, או קישור בלי סימון)"};
 const TOP={bio:"קישור בביו",post:"פוסט",message:"הודעה",magazine:"גיליון המגזין",article:"כתבה",qr:"קוד QR",dealer:"סוחר",market:"פוסט על השוק",offroad:"פוסט על רכבים שירדו מהכביש",one_line:"פוסט בשורה אחת",fb_group:"קבוצת פייסבוק",fb_groups:"קבוצות פייסבוק",friend_post:"פוסט של חבר",personal_post:"פוסט אישי"};
 // small building blocks of markup
 const kv=(l,v,sub)=>"<li><span>"+l+(sub?"<small>"+sub+"</small>":"")+"</span><b>"+v+"</b></li>";
@@ -2000,7 +2004,7 @@ REG.visits={name:"כניסות לאתר בשבוע",dept:"marketing",def:"כמה
  calc(C){const ev=C.ev,ge=C.ge,E0=C.E0,E1=C.E1,E2=C.E2,W=C.W,v=ev?ge(E0,"web_visit"):null,p=ev?ge(E1,"web_visit"):null,S7=W&&W.sources,tot=S7?S7.reduce((a,r)=>a+r[1],0):null;
   const SRC=h=>!h?"בלי אתר מפנה (הקלדה, וואטסאפ, הודעות)":/google\./.test(h)?"גוגל":/bing\.|duckduckgo|yahoo|ecosia|yandex/.test(h)?"מנועי חיפוש אחרים":/whatsapp|^wa\.me$/.test(h)?"וואטסאפ":/facebook|^fb\.|^l\.fb\./.test(h)?"פייסבוק":/instagram/.test(h)?"אינסטגרם":/tiktok/.test(h)?"טיקטוק":/youtube|^youtu\.be$/.test(h)?"יוטיוב":/^t\.co$|twitter|^x\.com$/.test(h)?"X (טוויטר)":/linkedin|^lnkd\.in$/.test(h)?"לינקדאין":/telegram|^t\.me$/.test(h)?"טלגרם":/luchit\.app/.test(h)?"מתוך האתר":h;
   const agg=(arr,f)=>{const m={};(arr||[]).forEach(r=>{const k=f(r[0]);m[k]=(m[k]||0)+r[1]});return Object.entries(m).sort((a,b)=>b[1]-a[1])};
-  const CH=C.d.daily&&C.d.daily.ch,sb=k=>{const s=String(k||"").toLowerCase();return !s||s==="(not set)"||s==="direct"?"nolink":SL[s]&&s!=="unknown"&&s!=="app"?s:"other"},fold=(o,f)=>{const m={};for(const k in o||{}){const b=f(k);m[b]=(m[b]||0)+o[k]}return m},s7=CH&&CH.site?fold(CH.site[0],sb):null;
+  const CH=C.d.daily&&C.d.daily.ch,sb=k=>{const s=String(k||"").toLowerCase();return !s||s==="(not set)"||s==="direct"?"nolink":/^(chatgpt|perplexity|copilot|gemini|claude|openai|deepseek|grok)/.test(s)?"ai":SL[s]&&s!=="unknown"&&s!=="app"?s:"other"},fold=(o,f)=>{const m={};for(const k in o||{}){const b=f(k);m[b]=(m[b]||0)+o[k]}return m},s7=CH&&CH.site?fold(CH.site[0],sb):null;
   return {s:ev?"ref":"nodata",v,big:n(v),dl:delta(v,p),lines:[ev?"":"גוגל אנליטיקס לא ענה",tot!=null?"לפי Cloudflare, כל דפי האתר: <b>"+n(tot)+"</b> ביקורים ("+rng(W.CW)+")":"",C.d.visitsToday!=null?"היום עד עכשיו: <b>"+n(C.d.visitsToday)+"</b> ביקורים (Cloudflare)":""],win:rng(W&&W.W),foot:"גוגל אנליטיקס",
    chart:C.ENDS.length&&C.SR&&C.SR.web_visit?bars(C.ENDS.map(e=>({l:dm(e),v:addD(e,-6)<SITE_FROM?null:C.wsum("web_visit",e)}))):"",
    m28:ev?{big:n(ge(E2,"web_visit")),lines:[n1(ge(E2,"web_visit")/28)+" ביום בממוצע"],win:rng(W.M)}:null,
@@ -2018,8 +2022,8 @@ REG.campChecks={name:"בדיקות מקישורים שלנו",dept:"marketing",d
   return {s:BC?"ref":"nodata",v,big:n(v),unit:"בדיקות",dl:delta(v,p),lines:[BC?"מ-<b>"+n(vis)+"</b> כניסות מקישורים מסומנים":"אין נתון מגוגל אנליטיקס",top?"הכי הרבה: "+nm2(top)+" ("+n(cv[top][1])+")":""],win:rng(W&&W.W),foot:"קישורי go/ עם נושא",
    drill:[{h:"לפי קישור ונושא ("+rng(W&&W.W)+")",html:ks.length?tbl(["קישור","נכנסו לאתר","בדיקות רכב","התקינו"],ks.map(k=>[nm2(k),n((cv[k]||[0,0])[0]),n((cv[k]||[0,0])[1]),n(AC&&AC[k]||0)]))+note("כל קישור luchit.app/go/ נספר לפי הרשת והנושא שלו. התקינו: פתיחה ראשונה של האפליקציה אחרי הורדה דרך הקישור."):note("עוד אין השבוע כניסות מקישור עם נושא.")},
     SO?{h:"מהאתר לעמודים שלנו ברשתות",html:tbl(["עמוד","לחיצות השבוע","שבוע קודם"],[...new Set(["facebook","instagram","tiktok",...Object.keys(SO[0]),...Object.keys(SO[1])])].map(k=>[esc(SL[k]||k),n(SO[0][k]||0),n(SO[1][k]||0)]))}:null]}}};
-REG.organic={name:"צמיחה בלי דחיפה",dept:"marketing",def:"החלק של בדיקות האתר שהגיעו ממקורות שאינם קישורי קמפיין שלנו: גוגל, מנועי חיפוש, ישיר, דפים אחרים באתר, דוחות ששותפו ואתרים אחרים. שאלה 1 של החודש.",how:"גוגל אנליטיקס, בדיקות באתר לפי מקור, 7 ימים עד אתמול. הסף 25% מהבדיקות שהמקור שלהן ידוע, ועלייה של 20% בשבוע. נשפט מ-30 בדיקות עם מקור ידוע.",src:"גוגל אנליטיקס",owner:"שיווק, אסטרטגיה",
- calc(C){const W=C.W,ORG=["google","search","direct","site","share","other"],B=W&&W.bySource,seen=W&&W.srcSeen||[false,false],AS=W&&W.appSrc;
+REG.organic={name:"צמיחה בלי דחיפה",dept:"marketing",def:"החלק של בדיקות האתר שהגיעו ממקורות שאינם קישורי קמפיין שלנו: גוגל, מנועי חיפוש, ישיר, דפים אחרים באתר, דוחות ששותפו, עוזרי AI ואתרים אחרים. שאלה 1 של החודש.",how:"גוגל אנליטיקס, בדיקות באתר לפי מקור, 7 ימים עד אתמול. הסף 25% מהבדיקות שהמקור שלהן ידוע, ועלייה של 20% בשבוע. נשפט מ-30 בדיקות עם מקור ידוע.",src:"גוגל אנליטיקס",owner:"שיווק, אסטרטגיה",
+ calc(C){const W=C.W,ORG=["google","search","direct","site","share","ai","other"],B=W&&W.bySource,seen=W&&W.srcSeen||[false,false],AS=W&&W.appSrc;
   const sc=(o,ks)=>ks.reduce((a,k)=>a+((o&&o[k]||[0,0])[1]),0),known=o=>Object.keys(o||{}).filter(k=>k!=="app"&&k!=="unknown");
   const o0=B?sc(B[0],ORG):null,m0=B?sc(B[0],known(B[0])):null,o1=B&&seen[1]?sc(B[1],ORG):null,sh=m0?o0/m0*100:null,gr=o1?(o0-o1)/o1*100:null;let s,w,r;
   if(!B){s="nodata";r="גוגל אנליטיקס לא ענה על המקורות."}
@@ -2028,15 +2032,15 @@ REG.organic={name:"צמיחה בלי דחיפה",dept:"marketing",def:"החלק 
   else if(gr!=null&&gr>=20){s="ok";w="יש משיכה";r="מעל 25% ועולה ב-20% בשבוע או יותר: אפשר להתחיל להשקיע בלולאות (שיתוף, הפניות)."}
   else{s="warn";w="עוד לא צומח";r="מעל 25%, אבל עוד לא עולה ב-20% בשבוע. אם זה לא יעלה עד 22.11, החודש הבא מוקדש להפצה."}
   return {s,w,v:sh,big:pc(sh),unit:"מבדיקות האתר",read:r,dl:gr!=null?'<bdi dir="ltr">'+(gr>0?"+":"")+n(gr)+"%</bdi> בבדיקות האורגניות מול השבוע הקודם":"",lines:[B?"<b>"+n(o0)+"</b> בדיקות ממקורות שאינם קמפיין"+(o1!=null?" (שבוע קודם "+n(o1)+")":"")+", מתוך "+n(m0)+" עם מקור ידוע":"",r],win:rng(W&&W.W),foot:"הסף 25%, וצמיחה של 20% בשבוע",
-   drill:[B?{h:"המספרים",html:'<ul class="kv">'+kv("בדיקות באתר ממקורות שאינם קישורי קמפיין",n(o0)+(o1!=null?' <small class="flat">(שבוע קודם '+n(o1)+")</small>":""),"גוגל, מנועי חיפוש, ישיר, דפים אחרים באתר, דוחות ששותפו ואתרים אחרים")+kv("החלק שלהן מהבדיקות באתר",pc(sh),"מתוך "+n(m0)+" בדיקות שהמקור שלהן ידוע · הסף 25%")+(gr!=null?kv("שינוי מהשבוע הקודם",'<bdi dir="ltr">'+(gr>0?"+":"")+n(gr)+"%</bdi>","הסף לצמיחה: 20% בשבוע"):"")+(AS?kv("התקנות שמצאו את האפליקציה בחנות",n(AS[0].store)+' <small class="flat">(שבוע קודם '+n(AS[1].store)+")</small>","מתוך "+n(AS[0].all)+" התקנות חדשות בישראל השבוע"):"")+"</ul>"+note('בדיקות באפליקציה לא נכללות, כי לפתיחה של האפליקציה אין מקור. "ישיר" כולל גם קישור שנשלח בוואטסאפ בלי סימון, ולכן המספר אופטימי במעט.')}:null]}}};
+   drill:[B?{h:"המספרים",html:'<ul class="kv">'+kv("בדיקות באתר ממקורות שאינם קישורי קמפיין",n(o0)+(o1!=null?' <small class="flat">(שבוע קודם '+n(o1)+")</small>":""),"גוגל, מנועי חיפוש, ישיר, דפים אחרים באתר, דוחות ששותפו, עוזרי AI ואתרים אחרים")+kv("החלק שלהן מהבדיקות באתר",pc(sh),"מתוך "+n(m0)+" בדיקות שהמקור שלהן ידוע · הסף 25%")+(gr!=null?kv("שינוי מהשבוע הקודם",'<bdi dir="ltr">'+(gr>0?"+":"")+n(gr)+"%</bdi>","הסף לצמיחה: 20% בשבוע"):"")+(AS?kv("התקנות שמצאו את האפליקציה בחנות",n(AS[0].store)+' <small class="flat">(שבוע קודם '+n(AS[1].store)+")</small>","מתוך "+n(AS[0].all)+" התקנות חדשות בישראל השבוע"):"")+"</ul>"+note('בדיקות באפליקציה לא נכללות, כי לפתיחה של האפליקציה אין מקור. "ישיר" כולל גם קישור שנשלח בוואטסאפ בלי סימון, ולכן המספר אופטימי במעט.')}:null]}}};
 REG.siteChecks={name:"בדיקות רכב באתר",dept:"data",def:"בדיקות רכב שנעשו באתר (לא באפליקציה) בשבוע, ומאיפה הגיעו.",how:"גוגל אנליטיקס, בדיקות באתר לפי יום (site_lookup) ולפי מקור, 7 ימים עד אתמול. האתר נספר מ-15.10 ומוסר מקור מ-20.10.",src:"גוגל אנליטיקס",owner:"מדידה",
  calc(C){const W=C.W,end=C.end,v=C.wsum("site_lookup",end),p=end?C.wsum("site_lookup",addD(end,-7)):null,wk=C.week(end),B=W&&W.bySource;
-  const G=[["social","רשתות וקישורים שלנו",["facebook","instagram","tiktok","youtube","whatsapp","linkedin","newsletter","press","dealer","qr"]],["search","חיפוש בגוגל ובמנועים אחרים",["google","search"]],["direct","ישיר, בלי מקור מזוהה",["direct"]],["share","דוחות רכב ששותפו",["share"]],["site","מדפים אחרים באתר",["site"]],["other","אתרים ואפליקציות אחרים",["other"]]];
+  const G=[["social","רשתות וקישורים שלנו",["facebook","instagram","tiktok","youtube","whatsapp","linkedin","newsletter","press","dealer","qr"]],["search","חיפוש בגוגל ובמנועים אחרים",["google","search"]],["direct","ישיר, בלי מקור מזוהה",["direct"]],["share","דוחות רכב ששותפו",["share"]],["site","מדפים אחרים באתר",["site"]],["ai","עוזרי AI (ChatGPT ודומיהם)",["ai"]],["other","אתרים ואפליקציות אחרים",["other"]]];
   const c=B&&B[0],rows=c?G.map(x=>[x[1],x[2].reduce((a,k)=>a+((c[k]||[0,0])[1]),0)]):[],tot=rows.reduce((a,r)=>a+r[1],0),unk=c?(c.unknown||[0,0])[1]:0,top=rows.slice().sort((a,b)=>b[1]-a[1])[0];
   return {s:v!=null?"ref":"nodata",v,big:n(v),unit:"בדיקות",dl:delta(v,p),lines:[v!=null&&wk?n(v/wk*100)+"% מכל הבדיקות השבוע":"",top&&tot?"הכי הרבה: "+top[0]+", "+n(top[1]/tot*100)+"%":""],win:rng(W&&W.W),foot:"האתר נספר מ-15.10",
    chart:C.ENDS.length&&C.SR&&C.SR.site_lookup?bars(C.ENDS.map(e=>({l:dm(e),v:addD(e,-6)<SITE_FROM?null:C.wsum("site_lookup",e)}))):"",
    m28:C.SR?{big:n(C.wsum("site_lookup",end,28)),lines:[],win:rng(W.M)}:null,today:C.Ed?{big:n(C.sofar("car_lookup")),unit:"בדיקות באפליקציה ובאתר יחד",lines:["הפיצול לאתר ולאפליקציה נספר רק ליום שלם"]}:null,
-   drill:[tot?{h:"לפי מקור ("+rng(W.W)+")",html:rows.map(r=>'<div class="brk"><span>'+r[0]+'</span><div class="bb"><i style="width:'+(r[1]/tot*100)+'%;--c:var(--site)"></i></div><b>'+n(r[1])+"</b></div>").join("")+(unk?note("ועוד "+n(unk)+" בדיקות באתר בלי מקור: לפני 20.10, כשהמקור עוד לא נמדד."):"")}:null]}}};
+   drill:[tot?{h:"לפי מקור ("+rng(W.W)+")",html:rows.map(r=>'<div class="brk"><span>'+r[0]+'</span><div class="bb"><i style="width:'+(r[1]/tot*100)+'%;--c:var(--site)"></i></div><b>'+n(r[1])+"</b></div>").join("")+(unk?note("ועוד "+n(unk)+" בדיקות באתר בלי מקור: לפני 20.10, כשהמקור עוד לא נמדד."):"")+note("עוזרי AI: קישורים מתוך תשובות של ChatGPT, Perplexity, Copilot ודומיהם, מ-12.11. לפני כן הם נספרו באתרים אחרים. Gemini נספר בינתיים בתוך גוגל.")}:null]}}};
 REG.checksApp={name:"בדיקות רכב באפליקציה",dept:"data",def:"בדיקות רכב שנעשו באפליקציה בשבוע, וכמה מכשירים עשו אותן.",how:"גוגל אנליטיקס: כל הבדיקות (car_lookup) פחות הבדיקות באתר, ומכשירים שבדקו (savers). 7 ימים עד אתמול.",src:"גוגל אנליטיקס",owner:"מדידה",
  calc(C){const W=C.W,end=C.end,wk=C.week(end),site=C.wsum("site_lookup",end),v=wk!=null&&site!=null?Math.max(0,wk-site):null,wp=end?C.week(addD(end,-7)):null,sp=end?C.wsum("site_lookup",addD(end,-7)):null,p=wp!=null&&sp!=null?Math.max(0,wp-sp):null,SV=W&&W.savers,SP=W&&W.saversP;
   return {s:v!=null?"ref":"nodata",v,big:n(v),unit:"בדיקות",dl:delta(v,p),lines:[SV?"<b>"+n(SV.car_lookup)+"</b> מכשירים בדקו רכב"+(SP?" (שבוע קודם "+n(SP.car_lookup)+")":""):"",SV&&SV.car_lookup?n1(v/SV.car_lookup)+" בדיקות למכשיר בממוצע":""],win:rng(W&&W.W),foot:"גוגל אנליטיקס",
