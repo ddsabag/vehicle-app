@@ -14,6 +14,11 @@ const fmt = n => Math.round(n).toLocaleString("he-IL");
 // maker names in the data are cut at 14 letters and carry the production country; keep the first word(s) before any country fragment
 const CFRAG = /^(גרמנ|ד\.|קוריא|תאילנ|פורטוג|מקסי|ספרד|ארה|סלוב|צ'כ|צכ|טורק|יפן|סין|הודו|אנגל|בריט|צרפת|איטל|הונג|פולי|רומנ|בלג|שבד|אוסטר|ברזיל|קנדה|הולנד|רוסי|מרוק|אינדונ|מלזי|טייוו|ישראל|אפרי|דרום)/;
 const cleanMake = n => { const t = n.replace(/-/g, " ").split(/\s+/); return [t[0], ...t.slice(1).filter(x => !CFRAG.test(x))].join(" "); };
+// the register cuts the maker at 14 letters, so a country can end mid-word ("יונדאי ד. קורי"): the same cut the app makes (COUNTRY_CUT in index.html)
+const COUNTRY_CUT = /\s+(ארהב"|תורכיה|ד\.? ?(קור|אפ)\S*)$/;
+export const makerName = n => cleanMake(String(n).replace(COUNTRY, "").replace(COUNTRY, "").replace(COUNTRY_CUT, "").trim());
+for (const [raw, want] of [["יונדאי ד. קורי", "יונדאי"], ["קיה ד. קוריאה", "קיה"], ["סאנגיונג ד.קור", "סאנגיונג"], ["מרצדס בנץ ארהב\"", "מרצדס בנץ"], ["טויוטה יפן", "טויוטה"]])
+  if (makerName(raw) !== want) throw new Error(`makerName("${raw}") = "${makerName(raw)}", expected "${want}"`);
 // body-style and drive words split one model into several entries (COROLLA, COROLLA HSD SDN); merge them
 const NOISE = new Set(["HSD", "HEV", "HYBRID", "SDN", "SEDAN", "TS", "FL", "HB", "HATCHBACK", "SW"]);
 const normModel = m => { const t = m.replace(/^\.+/, "").replace(/\s+-\s+/g, "-").toUpperCase().replace(/\s+/g, " ").split(" ").filter(x => !NOISE.has(x)); return (t.length ? t : [m]).join(" ").replace(/([A-Z]) (\d)/g, "$1$2").replace(/([A-Z])-(\d)/g, "$1$2"); };
@@ -33,7 +38,7 @@ const stlFor = (make, model, years) => {
 const g = new Map();
 for (const [key, v] of Object.entries(ms.m)) {
   const [cd, raw] = key.split("|"), model = normModel(raw);
-  const make = cleanMake(v.name.replace(COUNTRY, "").replace(COUNTRY, "").trim());
+  const make = makerName(v.name);
   const k = make + "|" + model, e = g.get(k) || {make, model, cd, big: 0, total: 0, y: {}, cds: new Set(), raws: new Set()};
   e.cds.add(cd); e.raws.add(raw);
   if (v.total > e.big) { e.big = v.total; e.cd = cd; e.reg = v.name; e.disp = raw.toUpperCase().replace(/\s+/g, " ").split(" ").filter(x => !NOISE.has(x)).join(" ") || raw; }
@@ -92,7 +97,7 @@ const actOf = m => Object.values(m.y).reduce((t, r) => t + r.act, 0);
 const bodyMemo = new Map();
 const bodyOf = m => { if (!bodyMemo.has(m)) { const c = new Map(); for (const r of cat.rows) if (r[5] && normModel(r[1]) === m.model && r[0].split(" ")[0] === m.make.split(" ")[0]) c.set(r[5], (c.get(r[5]) || 0) + 1); bodyMemo.set(m, [...c.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || ""); } return bodyMemo.get(m); };
 // recalls published for each model (model-recalls.mjs, from the catalog-data branch the workflows put in CAT_DIR); brand model names for the matcher
-const RB = await recallBuilder({brandOf: n => brandLabel(cleanMake(String(n).replace(COUNTRY, "").replace(COUNTRY, "").trim())), fallbackMakers: cat.rows.map(r => ({n: r[0], m: [r[1]]}))});
+const RB = await recallBuilder({brandOf: n => brandLabel(makerName(n)), fallbackMakers: cat.rows.map(r => ({n: r[0], m: [r[1]]}))});
 console.log(RB.build ? "recall sections: matcher from " + RB.kind : `::warning::pages: the model pages are built without their recall section (${RB.why})`);
 let recallPages = 0;
 let magPosts = []; try { magPosts = JSON.parse(fs.readFileSync("magazine/posts.json", "utf8")); } catch {}
