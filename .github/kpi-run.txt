@@ -13,3 +13,4 @@ run 2026-11-05 measurement: the live goals field in the CEO file
 run 2026-11-08 sunday review ceo-read
 run 2026-11-08 measurement: known form tests left out of the week's lead counts
 run 2026-11-08 measurement: return_7d.pooled_4w for the car file reopen rule
+run 2026-11-12 measurement: press referral line (first press article)

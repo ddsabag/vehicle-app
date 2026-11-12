@@ -32,11 +32,32 @@ function screenGoals(src) {
   return new Function(code + "\nreturn { CAL_END, SITE_FROM, GOALS, goal, band, addD, calib };")();
 }
 
+// the first press article (מלכת הכביש, live 12.11 ~07:44 Israel; CEO 12.11): its plain link gives GA4 sessionSource queenoftheroad.co.il, the embedded
+// plate box (embed/box/?src=queenoftheroad) gives utm_source queenoftheroad; Cloudflare keeps the referring host. From its first day to END,
+// or to today in a run before END reaches it (partial). The site's own src calls such a visit "other", so GA4's session source is used here.
+const PRESS = { site: "queenoftheroad", from: "2026-11-12" };
+async function pressOf(env, report, cfQuery) {
+  const to = END >= PRESS.from ? END : ilToday, dr = [{ startDate: PRESS.from, endDate: to }];
+  const has = name => ({ filter: { fieldName: name, stringFilter: { matchType: "CONTAINS", value: PRESS.site, caseSensitive: false } } });
+  const rows = await report(env, { dateRanges: dr, dimensions: [{ name: "sessionSource" }, { name: "platform" }, { name: "eventName" }], metrics: [{ name: "eventCount" }, { name: "totalUsers" }],
+    dimensionFilter: { andGroup: { expressions: [has("sessionSource"), { filter: { fieldName: "eventName", inListFilter: { values: ["session_start", "web_visit", "car_lookup", "car_save", "share"] } } }] } }, limit: 200 });
+  const ev = {}, sources = new Set();
+  for (const r of rows) { const [src, pf, en] = r.dimensionValues.map(x => x.value), [n, u] = r.metricValues.map(x => +x.value), k = pf.toLowerCase() + "." + en;
+    sources.add(src); ev[k] = ev[k] || [0, 0]; ev[k][0] += n; ev[k][1] += u; }
+  const inst = await report(env, { dateRanges: dr, dimensions: [{ name: "firstUserSource" }], metrics: [{ name: "newUsers" }],
+    dimensionFilter: { andGroup: { expressions: [{ filter: { fieldName: "platform", stringFilter: { value: "Android" } } }, has("firstUserSource")] } } });
+  let cf = null;
+  try { const g = await cfQuery(env, PRESS.from, "refererHost", 200, to);
+    cf = g ? g.filter(x => String(x.dimensions && x.dimensions.refererHost || "").toLowerCase().includes(PRESS.site)).reduce((a, x) => a + (x.sum && x.sum.visits || 0), 0) : null; }
+  catch (e) { cf = { error: String(e.message || e).slice(0, 120) }; }
+  return { from: PRESS.from, to, partial: to === ilToday, sources: [...sources], ev, installs: inst.reduce((a, r) => a + +r.metricValues[0].value, 0), cf_visits: cf };
+}
+
 async function runWorker() {
   // the worker as a module: its default export kept aside, collect() exported; the week's last day set to END instead of "yesterday after noon"
   const ORIG = "const end = addDays(today, ilHour(Date.now()) >= 12 ? -1 : -2);";
   if (!WJS.includes(ORIG)) throw new Error("the week line of collectWeekly changed: update kpi-probe.mjs");
-  const src = WJS.replace("export default", "const _d =").replace(ORIG, "const end = " + JSON.stringify(END) + ";") + "\nexport { collect, goalsGet, gView, GOALS_ERR, testsOf };";
+  const src = WJS.replace("export default", "const _d =").replace(ORIG, "const end = " + JSON.stringify(END) + ";") + "\nexport { collect, goalsGet, gView, GOALS_ERR, testsOf, report, cfQuery };";
   const tmp = E.W_TMP || "/tmp/kpi-worker.mjs";
   fs.writeFileSync(tmp, src);
   const toml = fs.existsSync(E.W_TOML || "") ? fs.readFileSync(E.W_TOML, "utf8") : "";
@@ -56,10 +77,12 @@ async function runWorker() {
   globalThis.caches = { default: { match: async () => undefined, put: async () => {} } };
   const env = { ALERTS, GA_PROPERTY_ID: tv("GA_PROPERTY_ID", "557990379"), PLAY_REPORTS_BUCKET: tv("PLAY_REPORTS_BUCKET", "pubsite_prod_4688106336294834537"),
     GA_SERVICE_ACCOUNT_JSON: E.GA_SERVICE_ACCOUNT_JSON, CF_API_TOKEN: E.CF_API_TOKEN, CF_ACCOUNT_ID: acc };
-  const { collect, goalsGet, gView, GOALS_ERR, testsOf } = await import(tmp);
+  const { collect, goalsGet, gView, GOALS_ERR, testsOf, report, cfQuery } = await import(tmp);
   const d = await collect(env);
   // known test sends (KNOWN_TESTS in worker.js, the same list /live subtracts): left out of the week counts below as well
   d.tests = testsOf ? { leads: testsOf("b2b_lead_submit", addD(END, -6), END), leads_prev: testsOf("b2b_lead_submit", addD(END, -13), addD(END, -7)), newsletter: testsOf("newsletter_confirm", addD(END, -6), END) } : null;
+  // press links (CEO 12.11): visits from the first press article, read with the same GA4 and Cloudflare calls /live uses
+  try { d.press = report && cfQuery ? await pressOf(env, report, cfQuery) : null; } catch (e) { d.press = { error: String(e.message || e).slice(0, 160) }; }
   // the live goals as /live keeps them (KV lv:goals, from 8.11), the same view the page gets; read only
   try { const st = goalsGet ? await goalsGet(env) : null, er = GOALS_ERR ? await ALERTS.get(GOALS_ERR, "json").catch(() => null) : null;
     d.goalsLive = st ? { ...gView(st, ilToday), at: st.at || null, err: er ? er.why : null } : { none: true, err: er ? er.why : null }; }
@@ -82,6 +105,7 @@ const FIELDS = {
   b2b_leads: "פניות עסקיות מהטופס בדף העסקים (b2b_lead_submit) בשבוע ומאז 1.10; newsletter: אישורי הרשמה למגזין.",
   failure_pct: "אחוז הבדיקות שנכשלו מצד המערכת (משרד התחבורה לא ענה, אין רשת, תקלה אצלנו) מתוך כל הניסיונות. target_max: הרף העליון.",
   slow_pct: "אחוז הבדיקות שלקחו יותר מ-5 שניות, מתוך בדיקות שהזמן שלהן ידוע. מעל 10% דורש תשומת לב.",
+  press_queenoftheroad: "הפניות מהכתבה במלכת הכביש (queenoftheroad.co.il) מיום פרסומה (from) עד to: site_visits_cloudflare ביקורים באתר שהמפנה שלהם הוא האתר שלה (Cloudflare); web_visitors_ga4 מבקרים ו-web_visits_ga4 ביקורים לפי גוגל אנליטיקס, כשמקור הביקור מכיל queenoftheroad (כולל תיבת הבדיקה המוטמעת); site_checks ו-site_checkers בדיקות רכב ובודקים מהביקורים האלה; site_saves שמירות; app_installs_tagged התקנות שהמקור שלהן נשאר queenoftheroad; sources שמות המקור שנמצאו. partial: הריצה לפני שהשבוע הגיע ליום הפרסום, המספרים עד היום.",
   notes: "הסבר לכל מדד ריק או חלקי. errors: מקור שלא ענה בהרצה.",
 };
 
@@ -191,6 +215,16 @@ function kpis(d, S) {
     const DU = W && W.dur, sl = o => { if (!o) return null; const k = (o.lt2 || 0) + (o["2to5"] || 0) + (o["5to10"] || 0) + (o.gt10 || 0); return k ? { k, p: ((o["5to10"] || 0) + (o.gt10 || 0)) / k * 100 } : null; };
     const s0 = DU ? sl(DU[0]) : null, s1 = DU ? sl(DU[1]) : null;
     out.slow_pct = { week: s0 ? r1(s0.p) : null, prev: s1 ? r1(s1.p) : null, checks_with_duration: s0 ? s0.k : null, attention_above: 10, status: !s0 ? "nodata" : s0.k < 50 ? "early" : s0.p > 10 ? "warn" : "ok" }; }
+
+  // 10. press links (CEO 12.11): the first press article, מלכת הכביש
+  { const P = d.press;
+    if (P && P.error) notes.press_queenoftheroad = "הקריאה של ההפניות מהכתבה נכשלה: " + P.error;
+    else if (P) { const g = k => P.ev[k] || [0, 0];
+      out.press_queenoftheroad = { from: P.from, to: P.to, partial: P.partial, site_visits_cloudflare: typeof P.cf_visits === "number" ? P.cf_visits : null,
+        web_visitors_ga4: g("web.session_start")[1], web_visits_ga4: g("web.session_start")[0], site_checks: g("web.car_lookup")[0], site_checkers: g("web.car_lookup")[1],
+        site_saves: g("web.car_save")[0], app_installs_tagged: P.installs, sources: P.sources };
+      notes.press_queenoftheroad = "התקנות מהכתבה כמעט לא נמדדות: כפתור ההורדה באתר מסמן את המקור luchit.app, כך שקורא שהגיע לאתר ואז התקין נספר כאתר. app_installs_tagged סופר רק התקנות שהמקור שלהן נשאר queenoftheroad. מי שהגיע משיתוף של הכתבה בפייסבוק נספר כפייסבוק, לא כאן."
+        + (P.cf_visits && P.cf_visits.error ? " Cloudflare לא ענה: " + P.cf_visits.error : ""); } }
 
   return { out, notes, end };
 }
