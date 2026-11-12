@@ -1,0 +1,5 @@
+{
+  "_about": "When one model merges from two maker codes into one page (pages.mjs), its URL ends with this code instead of the bigger one's, so the address Google already indexed stays. The other address becomes a redirect page. Keys are the slug base.",
+  "tucson": "481",
+  "i30": "481"
+}

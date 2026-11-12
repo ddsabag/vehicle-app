@@ -54,6 +54,9 @@ for (const [key, v] of Object.entries(ms.m)) {
 }
 const models = [...g.values()].sort((a, b) => b.total - a.total).slice(0, N);
 for (const m of models) m.label = brandLabel(m.make);
+// a merged model keeps the URL Google already indexed (.github/model-slug-keep.json), not the bigger code's
+const KEEP = JSON.parse(fs.readFileSync(".github/model-slug-keep.json", "utf8"));
+for (const m of models) { const base = m.model.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "model", cd = KEEP[base]; if (cd && m.cds.has(cd)) m.cd = cd; }
 const brandPath = l => brandPage(l, models.filter(o => o.label === l).length);   // brand pages from landing.mjs
 const withBrand = m => String(m.disp).toUpperCase().startsWith(String(m.label).toUpperCase() + " ") ? m.disp : `${m.label} ${m.disp}`;   // no "BYD BYD ATTO 2"   // display name; m.make stays the registry spelling for matching
 // national yardsticks per vintage from every model (not only the pages built): off-road share, typical km, ownership records
@@ -89,6 +92,9 @@ p.gp{margin:0;padding:6px 16px;text-align:center;font-size:.82rem;background:var
 const PLAY = "https://play.google.com/store/apps/details?id=com.ddsabag.pratirechev&referrer=" + encodeURIComponent("utm_source=luchit.app&utm_medium=web&utm_campaign=model_page");   // tagged so Play Console shows web-to-store visits; head()'s camp swaps the campaign per page type (check_page, brand_page, guide_page, 404; magazine has its own PLAY)
 const head = (title, desc, url, type = "website", camp) => `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><meta name="description" content="${esc(desc)}"><link rel="canonical" href="${url}"><meta property="og:type" content="${type}"><meta property="og:site_name" content="לוחית"><meta property="og:url" content="${url}"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:image" content="${SITE}og.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="לוחית, בדיקת רכב לפי מספר"><meta property="og:locale" content="he_IL"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(title)}"><meta name="twitter:description" content="${esc(desc)}"><meta name="twitter:image" content="${SITE}og.png"><meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff"><meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121722"><link rel="manifest" href="${SITE}manifest.json"><link rel="apple-touch-icon" href="${SITE}apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="לוחית"><meta name="apple-mobile-web-app-status-bar-style" content="default"><link rel="icon" href="${SITE}icon-512.png"><link rel="preload" href="${SITE}lib/fonts/assistant-hebrew-700-normal.woff2" as="font" type="font/woff2" crossorigin><style>${css}</style></head><body><a class="skip" href="#main">דילוג לתוכן הראשי</a><header class="top"><div class="in"><a class="brand" href="${SITE}"><img src="${SITE}icon-512.png" alt="" width="44" height="44"><span class="nm"><b>לוחית</b><small>בדיקת רכב לפי מספר רישוי</small></span></a><a class="chk" href="${SITE}">לבדיקת רכב</a></div></header><p class="gp"><a href="${camp ? PLAY.replace("model_page", camp) : PLAY}" rel="noopener">באפליקציה: התראות על ריקול וטסט · <bdi>Google Play</bdi></a></p><main id="main" tabindex="-1">`;
 const foot = `<script src="/lib/cfb.js" defer></script></main>${siteFooter({base: SITE, disclaimer: "המידע מגיע ממאגרים פתוחים של משרד התחבורה ב-data.gov.il, ואינו מחליף נסח רישום רשמי או בדיקה במכון מורשה. האפליקציה אינה קשורה למשרד התחבורה."})}</body></html>`;
+// slugs that were live before this run: a page that merges into another (one model under two maker codes) keeps its old URL as a redirect
+let oldSlugs = []; try { oldSlugs = Object.values(JSON.parse(fs.readFileSync("model/slugs.json", "utf8"))); } catch {}
+let movedMap = {}; try { movedMap = JSON.parse(fs.readFileSync("model/moved.json", "utf8")); } catch {}   // old slug -> live slug, kept across runs
 fs.rmSync("model", {recursive: true, force: true}); fs.mkdirSync("model", {recursive: true});
 const MOD = ms.updated ? String(ms.updated).slice(0, 10) : "", lastmod = {};
 const urls = [SITE, SITE + "privacy.html", SITE + "accessibility/", SITE + "terms/", SITE + "business/", SITE + "model/"], slugMap = {};
@@ -167,7 +173,7 @@ for (const m of models) {
 ${answerHtml}<div class="card"><b>בדקו רכב מסוים</b><p class="muted" style="margin:6px 0 12px">הקלידו מספר רישוי וקבלו ריקולים, טסט, היסטוריית בעלויות ומחיר משוער, בחינם.</p><a class="cta" href="${SITE}">לבדיקה לפי מספר רישוי</a></div>
 <h2>רכבים פעילים וקילומטראז׳ לפי שנתון</h2><div class="wrap"><table><thead><tr><th>שנתון</th><th class="n">פעילים</th><th class="n">ירדו מהכביש</th><th class="n">ק״מ טיפוסי</th><th class="n">רשומות בעלות לרכב</th></tr></thead><tbody>
 ${rows.slice().reverse().map(r => `<tr><td>${r.yr}</td><td class="n">${fmt(r.act)}</td><td class="n">${fmt(r.off)}</td><td class="n">${r.km ? fmt(r.km) : "–"}</td><td class="n">${r.ow ? r.ow.toFixed(1) : "–"}</td></tr>`).join("\n")}
-</tbody></table></div><p class="muted">הק״מ הטיפוסי הוא הממוצע בטסט האחרון של רכבים מהשנתון, ומוצג רק כשיש מספיק נתונים. רשומות בעלות כוללות גם מעברים בין חברות ליסינג וסוחרים, ולכן אינן בהכרח מספר בעלים פרטיים. סה״כ ירדו מהכביש ${fmt(off)} רכבים מהדגם בשנתונים האלה.</p>
+</tbody></table></div><p class="muted">הק״מ הטיפוסי הוא הממוצע בטסט האחרון של רכבים מהשנתון, ומוצג רק כשיש מספיק נתונים. רשומות בעלות כוללות גם מעברים בין חברות ליסינג וסוחרים, ולכן אינן בהכרח מספר בעלים פרטיים. סה״כ ירדו מהכביש ${fmt(off)} רכבים מהדגם בשנתונים האלה.${MOD ? ` הנתונים עודכנו ב-${MOD.split("-").reverse().join(".")}.` : ""}</p>
 ${extra}${extra2}${stl.length ? `<h2>הסדרי פשרה שעשויים לחול על ${esc(name)}</h2><p class="muted">לפי הודעות היבואנים והעיתונות נכון ל-10/2026. הזכאות תלויה בשנתון, בגרסה ולפעמים במספר שלדה, והרשימה אינה מקיפה ואינה ייעוץ משפטי. לבדיקה לפי מספר רישוי השתמשו באפליקציה.</p>${stl.map(t => `<div class="card"><b>${esc(t.t)}</b> <span class="muted">${t.st === "ok" ? "אושר" : "ממתין לאישור בית המשפט"}</span><p style="margin:6px 0 0">${esc(t.b)}</p><p class="muted" style="margin:6px 0 0">${esc(t.cond)}</p></div>`).join("")}` : ""}<h2>לפני שקונים ${esc(name)}</h2><p>בדקו את הרכב הספציפי לפי מספר רישוי: ריקול פתוח, תוקף טסט, קילומטראז׳ לאורך השנים והיסטוריית בעלויות, והשוו למחיר ביד שנייה.</p>
 <p><a class="cta" href="${SITE}">בדיקת רכב בלוחית</a></p>${foot.replace("</body></html>", "" + `<script type="application/ld+json">${JSON.stringify(ld)}</script>` + "</body></html>")}`;
   fs.mkdirSync(`model/${slugOf(m)}`, {recursive: true}); fs.writeFileSync(`model/${slugOf(m)}/index.html`, body);
@@ -180,6 +186,21 @@ const idx = `${head("דגמי רכב בישראל לפי נתוני משרד ה�
 ${[...by.entries()].sort((x, y) => byAct(y[1]) - byAct(x[1])).map(([mk, a]) => `<h2>${brandPath(mk) ? `<a href="${SITE}${brandPath(mk)}">${esc(mk)}</a>` : esc(mk)}</h2><ul class="l">${a.map(m => `<li><a href="${SITE}model/${m.slug}/">${esc(m.disp)}</a> <span class="muted">${fmt(m.act)}</span></li>`).join("")}</ul>`).join("\n")}${foot}`;
 fs.writeFileSync("model/index.html", idx);
 fs.writeFileSync("model/slugs.json", JSON.stringify(slugMap));
+const live = new Set(models.map(slugOf)), bySlug = new Map(models.map(m => [slugOf(m), m]));
+for (const o of oldSlugs) {
+  if (live.has(o) || movedMap[o]) continue;
+  const cut = o.lastIndexOf("-"), base = o.slice(0, cut), cd = o.slice(cut + 1), to = models.find(m => slugOf(m) !== o && slugOf(m) === base + "-" + m.cd && m.cds.has(cd));
+  if (to) movedMap[o] = slugOf(to);   // a page that left the top list just goes; Google drops it on its own
+}
+for (const [o, t] of Object.entries(movedMap)) {
+  const to = bySlug.get(t);
+  if (!to || live.has(o)) { delete movedMap[o]; continue; }   // the target left the list, or the old address is a page again
+  const u = `${SITE}model/${t}/`;
+  fs.mkdirSync(`model/${o}`, {recursive: true});
+  fs.writeFileSync(`model/${o}/index.html`, `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><title>${esc(withBrand(to))} | לוחית</title><meta name="robots" content="noindex"><link rel="canonical" href="${u}"><meta http-equiv="refresh" content="0; url=${u}"></head><body><p><a href="${u}">${esc(withBrand(to))}</a></p></body></html>`);
+}
+fs.writeFileSync("model/moved.json", JSON.stringify(movedMap));
+if (Object.keys(movedMap).length) console.log(`merged pages kept as redirects: ${Object.keys(movedMap).length}`);
 
 // guide: one evergreen buying guide, built from the app's own "קנייה" tab (same steps, same wording)
 {

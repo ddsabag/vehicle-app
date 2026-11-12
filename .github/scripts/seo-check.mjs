@@ -6,7 +6,8 @@ const SITE = "https://luchit.app/";
 const errs = [], warns = [];
 const E = (p, m) => errs.push(`${p}: ${m}`), W = (p, m) => warns.push(`${p}: ${m}`);
 const walk = d => fs.readdirSync(d, {withFileTypes: true}).flatMap(e => e.isDirectory() ? (["node_modules", ".git", "android", "analytics", "worker", "lib", "email", "out", "embed"].includes(e.name) ? [] : walk(path.join(d, e.name))) : [path.join(d, e.name)]);
-const pages = walk(".").filter(f => f.endsWith(".html")).map(f => f.replace(/^\.\//, "")).filter(f => f !== "404.html");   // 404.html is noindex and served for missing paths only
+const pages = walk(".").filter(f => f.endsWith(".html")).map(f => f.replace(/^\.\//, "")).filter(f => f !== "404.html")
+  .filter(f => !/<meta http-equiv="refresh"/.test(fs.readFileSync(f, "utf8").slice(0, 2000)));   // redirect stubs of merged model pages (pages.mjs): noindex, outside the sitemap   // 404.html is noindex and served for missing paths only
 const urlOf = f => f === "index.html" ? SITE : f.endsWith("/index.html") ? SITE + f.slice(0, -10) : SITE + f;
 const norm = u => { try { const x = new URL(u, SITE); if (x.host !== "luchit.app") return null; let p = x.pathname.replace(/\/+/g, "/").replace(/\/index\.html$/, "/"); return SITE + p.slice(1); } catch { return null; } };
 const exists = u => { const p = u.slice(SITE.length); return p === "" || fs.existsSync(p) || fs.existsSync(p + "index.html") || fs.existsSync(p.replace(/\/$/, "")); };
@@ -17,7 +18,7 @@ const isStatic = f => f !== "index.html"; // index.html is the app shell: only h
 for (const f of pages) {
   const h = fs.readFileSync(f, "utf8"), u = urlOf(f), body = h.replace(/<script[\s\S]*?<\/script>/g, "").replace(/<style[\s\S]*?<\/style>/g, "");
   const title = (h.match(/<title>([^<]*)<\/title>/) || [])[1];
-  if (!title) E(f, "missing <title>"); else { if (title.length > 70) W(f, `title ${title.length} chars`); (titles.get(title) || titles.set(title, []).get(title)).push(f); }
+  if (!title) E(f, "missing <title>"); else { if (title.length > 65) W(f, `title ${title.length} chars (Google cuts near 60)`); (titles.get(title) || titles.set(title, []).get(title)).push(f); }
   const d = (h.match(/<meta name="description" content="([^"]*)"/) || [])[1];
   if (!d) E(f, "missing meta description"); else { if (d.length < 50) W(f, "short description"); if (d.length > 200) W(f, `description ${d.length} chars`); (descs.get(d) || descs.set(d, []).get(d)).push(f); }
   const can = (h.match(/<link rel="canonical" href="([^"]*)"/) || [])[1];
@@ -32,6 +33,8 @@ for (const f of pages) {
     let last = 1; for (const m of body.matchAll(/<h([1-6])[\s>]/g)) { const l = +m[1]; if (l > last + 1) W(f, `heading jump h${last}→h${l}`); last = l; }
   }
   for (const m of body.matchAll(/<img\b[^>]*>/g)) if (attr(m[0], "alt") === undefined) E(f, `img without alt: ${(attr(m[0], "src") || "").slice(0, 60)}`);
+  // plates: only the made-up sample plates may appear (12-345-67 turned out to be a real car, 7.11.2026); the app page (product) only warns
+  for (const m of body.matchAll(/(?<![\d-])(\d{2,3}-\d{2,3}-\d{2,3})(?![\d-])|[?&]plate=(\d{5,8})/g)) { const p = m[1] || m[2]; if (!["76-543-21", "7654321"].includes(p)) (isStatic(f) ? E : W)(f, `plate-like number ${p}: use the sample 76-543-21 / 7654321`); }
   // JSON-LD
   for (const m of h.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)) {
     let j; try { j = JSON.parse(m[1]); } catch (e) { E(f, "invalid JSON-LD: " + e.message); continue; }
