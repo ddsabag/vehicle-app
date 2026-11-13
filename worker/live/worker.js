@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-59.1";   // shown in /live/data so the running version is visible
+const BUILD = "live-59.2";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -53,8 +53,8 @@ async function newToken(env) {
 // a Worker request keeps 6 connections open at a time, so the hung calls also held up the last-good answer's own read, and the screen stayed
 // on "loading" past the browser's 35 s. The timer counts from the call, so a call still waiting for a connection gives up too.
 const GA_MS = 20e3;
-const realtime = async (env, body) => {
-  const r = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${env.GA_PROPERTY_ID}:runRealtimeReport`, { method: "POST", headers: { authorization: "Bearer " + await googleToken(env), "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(GA_MS) });
+const realtime = async (env, body, ms = GA_MS) => {
+  const r = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${env.GA_PROPERTY_ID}:runRealtimeReport`, { method: "POST", headers: { authorization: "Bearer " + await googleToken(env), "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(ms) });
   if (!r.ok) throw new Error("ga4 " + r.status + " " + (await r.text()).replace(/\s+/g, " ").slice(0, 120));
   return (await r.json()).rows || [];
 };
@@ -952,10 +952,14 @@ async function rtKept(env, day) {
 let cache = null, cacheAt = 0, backoffUntil = 0;
 // who is on right now: the last 5 minutes (Dudu 2.11), the top line of the page. The page asks /live/now every 30 seconds on its own (the
 // rest of the page every minute), so this keeps its answer only 20 seconds, and after a Google quota error answers with the last one.
+// The page gives /live/now 15 s, so Google gets NOW_MS: a slow answer ends here, with the last count or a 502 the page passes over, before the
+// page gives up. With GA_MS (20 s) the page cut every /live/now while Google was slow, and Live watch read the cut requests as a stuck
+// screen (13.11 19:21 Israel, a false alarm: /live/data answered within 23 s).
+const NOW_MS = 10e3;
 let onl = null, onlAt = 0;
 async function onlineNow(env) {
   if (onl && (Date.now() - onlAt < 20e3 || Date.now() < backoffUntil)) return onl;
-  const rows = await realtime(env, { dimensions: [{ name: "platform" }], metrics: [{ name: "activeUsers" }], dimensionFilter: REAL, minuteRanges: [{ startMinutesAgo: 4, endMinutesAgo: 0 }] });
+  const rows = await realtime(env, { dimensions: [{ name: "platform" }], metrics: [{ name: "activeUsers" }], dimensionFilter: REAL, minuteRanges: [{ startMinutesAgo: 4, endMinutesAgo: 0 }] }, NOW_MS);
   const sum = k => rows.filter(r => r.dimensionValues[0].value === k).reduce((t, r) => t + Number(r.metricValues[0].value || 0), 0);
   onl = { app: sum("Android"), web: sum("web") }; onlAt = Date.now(); return onl;
 }
