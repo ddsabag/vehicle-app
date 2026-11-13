@@ -4,6 +4,7 @@ name: Release guard findings close (one-off, probe-perf branch)
 # product thread has it (main 5e72747, review context). Quiet Telegram line, state on alert-state.
 # (5.11: closed the three 1.38.3 findings, the silent rule judging lookup_timeout.)
 # 13.11: again, after GitHub's late 12:51 UTC schedule run of 12.11 reopened the checked day-7 finding; also the two silent "thin" day items of 1.38.4.
+# 13.11 later: ai:guard, the second look's "reply is not JSON", fixed on main 368ea891 (PR #52; a dry run from the branch gave the cause line).
 on:
   push:
     branches: [probe-perf]
@@ -25,4 +26,4 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: node --input-type=module -e 'const m = await import("./.github/scripts/alert.mjs"); const n = await m.resolve(["relguard:1.38.4-d", "relguard:thin:1.38.4-d"]); console.log("relguard 1.38.4 findings closed:", n);'
+        run: node --input-type=module -e 'const m = await import("./.github/scripts/alert.mjs"); const n = await m.resolve(["ai:guard"]); console.log("closed:", n);'
