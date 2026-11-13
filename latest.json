@@ -1,23 +1,23 @@
 {
  "v": 1,
- "d": "2026-11-12",
- "seed": "20261112",
+ "d": "2026-11-13",
+ "seed": "20261113",
  "cars": 40,
  "sampled": 40,
- "mism": 6,
+ "mism": 8,
  "skipped": 0,
  "refused": 0,
  "fields": {
   "buyer.no_red_flags": [
-   36,
+   37,
    0
   ],
   "buyer.no_red_flags_tag": [
    14,
-   0
+   1
   ],
   "fee.borrowed_note": [
-   26,
+   27,
    0
   ],
   "fee.licence": [
@@ -25,7 +25,7 @@
    0
   ],
   "identity.buy_steps": [
-   36,
+   37,
    0
   ],
   "identity.colour": [
@@ -69,7 +69,7 @@
    0
   ],
   "insight.age_cancelled": [
-   4,
+   3,
    0
   ],
   "insight.safety_low": [
@@ -165,7 +165,7 @@
    0
   ],
   "price.borrowed_note": [
-   31,
+   32,
    0
   ],
   "price.list": [
@@ -177,23 +177,23 @@
    0
   ],
   "recalls.checked_unlisted": [
-   28,
-   3
+   31,
+   2
   ],
   "recalls.line_honest": [
-   33,
+   36,
    0
   ],
   "recalls.model_count": [
-   35,
+   34,
    0
   ],
   "recalls.model_extra": [
-   35,
+   34,
    0
   ],
   "recalls.model_fits": [
-   16,
+   17,
    0
   ],
   "recalls.model_missing": [
@@ -209,15 +209,15 @@
    0
   ],
   "recalls.pending_after_road": [
-   12,
-   2
+   16,
+   5
   ],
   "recalls.pending_banner": [
-   35,
+   34,
    0
   ],
   "recalls.pending_listed": [
-   16,
+   17,
    0
   ],
   "recalls.tab_shown": [
@@ -229,11 +229,11 @@
    0
   ],
   "recalls.thin_line": [
-   24,
+   29,
    0
   ],
   "recalls.thin_rows": [
-   33,
+   36,
    0
   ],
   "road.first_date": [
@@ -249,7 +249,7 @@
    0
   ],
   "settlements.import_line": [
-   1,
+   2,
    0
   ],
   "settlements.scope": [
@@ -341,7 +341,7 @@
    0
   ],
   "specs.wltp_note": [
-   18,
+   20,
    0
   ],
   "status.buy_checklist": [
@@ -349,11 +349,11 @@
    0
   ],
   "status.buy_plan": [
-   36,
+   37,
    0
   ],
   "status.cancel_date": [
-   4,
+   3,
    0
   ],
   "status.cancel_pill": [
@@ -361,15 +361,15 @@
    0
   ],
   "status.cancel_reason": [
-   4,
+   3,
    0
   ],
   "status.cancelled_buy": [
-   4,
+   3,
    0
   ],
   "status.heavy_note": [
-   2,
+   1,
    0
   ],
   "status.hold_insight": [
@@ -385,7 +385,7 @@
    0
   ],
   "status.import_type": [
-   1,
+   2,
    0
   ],
   "status.inactive_pill": [
@@ -397,7 +397,7 @@
    1
   ],
   "tag.insight": [
-   18,
+   17,
    0
   ],
   "test.insight": [
@@ -425,7 +425,7 @@
    0
   ],
   "tow.hook": [
-   25,
+   22,
    0
   ],
   "tow.limits": [
@@ -437,23 +437,59 @@
    0
   ],
   "value.fallback": [
-   9,
+   8,
    0
   ],
   "value.labelled_estimate": [
-   31,
+   32,
    0
   ]
  },
  "list": [
   {
-   "id": "c003",
-   "field": "recalls.checked_unlisted",
-   "shown": "נבדק: אין ריקול פתוח ואין הסדר פשרה",
-   "expected": "the amber line: a recall of this year the per-car list cannot answer",
-   "evidence": "#12137 nolist build 2001-01-01..2013-12-31",
-   "car": "הונדה יפן CIVIC 2007",
+   "id": "c004",
+   "field": "recalls.pending_after_road",
+   "shown": "[check with importer] #12111",
+   "expected": "(not pending: built after the car went on the road)",
+   "evidence": "build from 2009-01-01, on the road 2008-4",
+   "car": "טויוטה יפן PRIUS HYBRID 2008",
    "from": "active"
+  },
+  {
+   "id": "c004",
+   "field": "recalls.pending_after_road",
+   "shown": "[check with importer] #13294",
+   "expected": "(not pending: built after the car went on the road)",
+   "evidence": "build from 2009-01-01, on the road 2008-4",
+   "car": "טויוטה יפן PRIUS HYBRID 2008",
+   "from": "active"
+  },
+  {
+   "id": "c034",
+   "field": "status.public_use",
+   "shown": "",
+   "expected": "an insight that the car is in the public register (מונית)",
+   "evidence": "primary=active registers=active,public; public sug_rechev_nm=מונית owner=\"פרטי\"",
+   "car": "טויוטה טורקיה COROLLA 2021",
+   "from": "public"
+  },
+  {
+   "id": "c034",
+   "field": "recalls.pending_after_road",
+   "shown": "[check with importer] #16638",
+   "expected": "(not pending: built after the car went on the road)",
+   "evidence": "build from 2022-01-01, on the road 2021-7",
+   "car": "טויוטה טורקיה COROLLA 2021",
+   "from": "public"
+  },
+  {
+   "id": "c034",
+   "field": "recalls.pending_after_road",
+   "shown": "[check with importer] #16586",
+   "expected": "(not pending: built after the car went on the road)",
+   "evidence": "build from 2022-01-01, on the road 2021-7",
+   "car": "טויוטה טורקיה COROLLA 2021",
+   "from": "public"
   },
   {
    "id": "c010",
@@ -465,39 +501,21 @@
    "from": "active"
   },
   {
-   "id": "c013",
-   "field": "recalls.pending_after_road",
-   "shown": "[check with importer] #15060",
-   "expected": "(not pending: built after the car went on the road)",
-   "evidence": "build from 2017-12-17, on the road 2017-8",
-   "car": "ניסאן אנגליה LEAF 2017",
-   "from": "active"
-  },
-  {
    "id": "c015",
    "field": "recalls.pending_after_road",
-   "shown": "[check with importer] #14429",
+   "shown": "[check with importer] #15096",
    "expected": "(not pending: built after the car went on the road)",
-   "evidence": "build from 2020-01-01, on the road 2019-4",
-   "car": "אאודי גרמניה A3 SB E-TRON 2019",
+   "evidence": "build from 2019-11-01, on the road 2019-3",
+   "car": "ב מ וו גרמניה 530E I PER 2019",
    "from": "active"
   },
   {
-   "id": "c019",
-   "field": "status.public_use",
-   "shown": "אבזור בטיחות מתקדם",
-   "expected": "an insight that the car is in the public register (מונית)",
-   "evidence": "primary=active registers=active,public; public sug_rechev_nm=מונית owner=\"פרטי\"",
-   "car": "יונדאי ד. קורי SONATA HYBRID 2023",
-   "from": "active"
-  },
-  {
-   "id": "c025",
+   "id": "c030",
    "field": "recalls.checked_unlisted",
    "shown": "נבדק: אין ריקול פתוח ואין הסדר פשרה",
    "expected": "the amber line: a recall of this year the per-car list cannot answer",
-   "evidence": "#12137 nolist build 2001-01-01..2013-12-31",
-   "car": "הונדה יפן CIVIC 2007",
+   "evidence": "#11703 nolist build 2012-12-21..2014-10-27",
+   "car": "מזדה תאילנד MAZDA 2 2012",
    "from": "active"
   }
  ],
