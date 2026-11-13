@@ -218,7 +218,13 @@ async function launch({ clear = false, extra = "" } = {}) {
 }
 // a data state (no cars / one / many / an owner's car) and a theme, then the page loaded again with them
 async function prepare(page, state, theme) {
-  await page.evaluate(({ ls }) => { localStorage.clear(); for (const [k, v] of Object.entries(ls)) localStorage.setItem(k, v); }, { ls: { analyticsOff: "1", theme, ...UF.STATES[state] } });
+  // since 1.38.5 the page keeps a second copy of what the user built (IndexedDB luchitKeep) and the app keeps the saved cars: a state is all
+  // three, or an earlier journey's file and marks come back from the copy (13.11 nightly, 411-f100 keeps: the car was already "mine")
+  await page.evaluate(async ({ ls }) => {
+    localStorage.clear(); for (const [k, v] of Object.entries(ls)) localStorage.setItem(k, v);
+    await new Promise((ok) => { try { const r = indexedDB.deleteDatabase("luchitKeep"); r.onsuccess = r.onerror = r.onblocked = () => ok(); } catch { ok(); } });
+    try { const b = window.AndroidApp; if (b && b.syncSaved) b.syncSaved(ls.savedVehicles || "[]"); } catch {}
+  }, { ls: { analyticsOff: "1", theme, ...UF.STATES[state] } });
   await page.evaluate(() => location.replace(location.pathname));
   await page.waitForSelector("#homeMark", { state: "attached", timeout: 20000 });
   await page.addStyleTag({ content: "*{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}" });
