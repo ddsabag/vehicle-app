@@ -65,7 +65,7 @@ jobs:
           { echo "id=$ID"; echo "source=$SRC"; echo "dir=$DIR"; echo "code=$CODE"; echo "url=$URL"; } >> "$GITHUB_OUTPUT"
           echo "$SRC screenshots of $URL (${SHA::7}), app code $CODE"
       - name: Its screenshots
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         continue-on-error: true   # none (the guardian stopped before them, or they are past their 14 days): the review skips
         with:
           run-id: ${{ steps.run.outputs.id }}
