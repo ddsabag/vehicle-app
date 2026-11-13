@@ -120,8 +120,8 @@ jobs:
           BREVO_API_KEY: ${{ secrets.BREVO_API_KEY || secrets.BREVO_KEY }}   # the router's email path for a critical failure
           ANTHROPIC_API_KEY: ${{ vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}   # failure-cause.mjs: one Haiku line on the message, marked as a guess (credit package A8, Dudu 1.11)
           AI: ${{ vars.AI }}   # one switch for every Claude bot (claude.mjs gate; CEO review 12.11.2026)
-          AI_CAP_USD: ${{ vars.AI_CAP_USD }}
-          AI_GRANTS: ${{ vars.AI_GRANTS }}
+          AI_CAP_USD: ${{ secrets.AI_CAP_USD }}   # a secret, so the amount never shows in the public log (rule 11)
+          AI_GRANTS: ${{ secrets.AI_GRANTS }}
         run: |
           [ -n "$TELEGRAM_BOT_TOKEN" ] || { echo "no Telegram credentials"; exit 0; }
           # a slot run's name ends with its cron line ("Weekly analytics report (20 6 * * 0)": the backup clock's slot check, 3.11.2026). The

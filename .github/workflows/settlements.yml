@@ -127,8 +127,8 @@ jobs:
           DRY: ${{ inputs.dry && '1' || '' }}
           ANTHROPIC_API_KEY: ${{ vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}
           AI: ${{ vars.AI }}   # one switch for every Claude bot (claude.mjs gate; CEO review 12.11.2026)
-          AI_CAP_USD: ${{ vars.AI_CAP_USD }}
-          AI_GRANTS: ${{ vars.AI_GRANTS }}
+          AI_CAP_USD: ${{ secrets.AI_CAP_USD }}   # a secret, so the amount never shows in the public log (rule 11)
+          AI_GRANTS: ${{ secrets.AI_GRANTS }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -147,8 +147,8 @@ jobs:
           DRY: ${{ inputs.dry && '1' || '' }}
           ANTHROPIC_API_KEY: ${{ vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}
           AI: ${{ vars.AI }}   # one switch for every Claude bot (claude.mjs gate; CEO review 12.11.2026)
-          AI_CAP_USD: ${{ vars.AI_CAP_USD }}
-          AI_GRANTS: ${{ vars.AI_GRANTS }}
+          AI_CAP_USD: ${{ secrets.AI_CAP_USD }}   # a secret, so the amount never shows in the public log (rule 11)
+          AI_GRANTS: ${{ secrets.AI_GRANTS }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           ALERT_ROUTE: ${{ vars.ALERT_ROUTE }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

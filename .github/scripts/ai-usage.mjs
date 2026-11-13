@@ -1,7 +1,7 @@
 // What the bots spend on the Claude API this credit cycle (ops; Dudu 1.11.2026 21:16 UTC: a router alert at 80% of the credit; 22:50 UTC:
 // the Console shows a promotional credit expiring 20.11.2026, not a monthly one, so the cycle follows the grant, see GRANTS).
-// No dollar amount lives in this public repo (rule 11, CEO review 12.11.2026): a grant's balance is the repo variable AI_GRANTS, JSON
-// {"<grant id>": <dollars left when read>}, and the cap after the grants is the repo variable AI_CAP_USD. No grant running and no
+// No dollar amount lives in this public repo or its logs (rule 11, CEO review 12.11.2026): a grant's balance is the repo SECRET AI_GRANTS, JSON
+// {"<grant id>": <dollars left when read>}, and the cap after the grants is the repo SECRET AI_CAP_USD (a variable would print in the step log). No grant running and no
 // AI_CAP_USD: there is no cycle, and claude.mjs client() makes no call (no default cap: the old "$100 a month" never existed). claude.mjs calls record() after every reply it gets (ask, and each finished batch request at half price), so every
 // bot on the shared helper is counted without code of its own. The total lives on branch ai-usage in usage.enc.json:
 //   s: the running total, AES-GCM with a key derived from ANTHROPIC_API_KEY (only a bot that holds the key reads it back to add to it);

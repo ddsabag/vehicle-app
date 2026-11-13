@@ -100,8 +100,8 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ env.KIND == 'monthly' && vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}
           AI: ${{ vars.AI }}   # one switch for every Claude bot (claude.mjs gate; CEO review 12.11.2026)
-          AI_CAP_USD: ${{ vars.AI_CAP_USD }}
-          AI_GRANTS: ${{ vars.AI_GRANTS }}
+          AI_CAP_USD: ${{ secrets.AI_CAP_USD }}   # a secret, so the amount never shows in the public log (rule 11)
+          AI_GRANTS: ${{ secrets.AI_GRANTS }}
           MAGAZINE_AI: ${{ vars.MAGAZINE_AI }}
         run: |
           if [ "$KIND" = data ]; then
@@ -138,8 +138,8 @@ jobs:
           WRITER: ${{ steps.gen.outputs.writer }}
           AI: ${{ steps.gen.outputs.ai }}   # here AI is the article step's outcome; the switch vars.AI blanks the key below instead
           ANTHROPIC_API_KEY: ${{ env.KIND == 'monthly' && vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}
-          AI_CAP_USD: ${{ vars.AI_CAP_USD }}
-          AI_GRANTS: ${{ vars.AI_GRANTS }}
+          AI_CAP_USD: ${{ secrets.AI_CAP_USD }}   # a secret, so the amount never shows in the public log (rule 11)
+          AI_GRANTS: ${{ secrets.AI_GRANTS }}
           MODEL_ANSWERS: ${{ vars.MODEL_ANSWERS }}
         run: |
           # Dudu 2026-10-15: publish on its own after the automatic checks; a failed check sends an alert (monthly: and opens a PR instead).
@@ -235,8 +235,8 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}
           AI: ${{ vars.AI }}   # one switch for every Claude bot (claude.mjs gate; CEO review 12.11.2026)
-          AI_CAP_USD: ${{ vars.AI_CAP_USD }}
-          AI_GRANTS: ${{ vars.AI_GRANTS }}
+          AI_CAP_USD: ${{ secrets.AI_CAP_USD }}   # a secret, so the amount never shows in the public log (rule 11)
+          AI_GRANTS: ${{ secrets.AI_GRANTS }}
           MAGAZINE_DRY: "1"
         run: |
           months=$(node -e 'const n = new Date(), cur = n.getUTCFullYear() * 100 + n.getUTCMonth() + 1; console.log(Object.keys(require("./market.json").months).filter(k => +k < cur).sort().slice(-5).join(" "))')
@@ -276,8 +276,8 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}
           AI: ${{ vars.AI }}   # one switch for every Claude bot (claude.mjs gate; CEO review 12.11.2026)
-          AI_CAP_USD: ${{ vars.AI_CAP_USD }}
-          AI_GRANTS: ${{ vars.AI_GRANTS }}
+          AI_CAP_USD: ${{ secrets.AI_CAP_USD }}   # a secret, so the amount never shows in the public log (rule 11)
+          AI_GRANTS: ${{ secrets.AI_GRANTS }}
           MODEL_ANSWERS_MINUTES: "30"
         run: |
           mkdir -p out && MODEL_FACTS=out/model-facts.json node .github/scripts/pages.mjs >/dev/null
