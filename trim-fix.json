@@ -1,5 +1,5 @@
 {
- "u": "2026-11-03",
+ "u": "2026-11-13",
  "about": "Completions of trim names the register cut at 12 characters, added by the catalogue bot (catalog-rules.mjs). The app reads this file from the site; TRIM_FIX in index.html is the fallback and wins on a clash.",
  "fix": {
   "AUTOBI": "AUTOBIOGRAPHY",
@@ -15,6 +15,7 @@
   "PLUSAMG": "PLUS AMG LINE",
   "PROFORMAN": "PROFORMANCE",
   "SUPERI": "SUPERIOR",
+  "TECHNOLO": "TECHNOLOGY",
   "VERMIL": "VERMILION",
   "WOR": "WORKS"
  }
