@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-59";   // shown in /live/data so the running version is visible
+const BUILD = "live-59.1";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -49,13 +49,17 @@ async function newToken(env) {
   if (!r.ok) throw new Error("google auth " + r.status);
   const tok = (await r.json()).access_token; gtoks[scope] = { tok, exp: Date.now() + 2900e3 }; return tok;
 }
+// every GA4 call gives up after GA_MS. On 13.11 Google answered many reports only after about a minute, with a 502 or a 429 (too many at once):
+// a Worker request keeps 6 connections open at a time, so the hung calls also held up the last-good answer's own read, and the screen stayed
+// on "loading" past the browser's 35 s. The timer counts from the call, so a call still waiting for a connection gives up too.
+const GA_MS = 20e3;
 const realtime = async (env, body) => {
-  const r = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${env.GA_PROPERTY_ID}:runRealtimeReport`, { method: "POST", headers: { authorization: "Bearer " + await googleToken(env), "content-type": "application/json" }, body: JSON.stringify(body) });
+  const r = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${env.GA_PROPERTY_ID}:runRealtimeReport`, { method: "POST", headers: { authorization: "Bearer " + await googleToken(env), "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(GA_MS) });
   if (!r.ok) throw new Error("ga4 " + r.status + " " + (await r.text()).replace(/\s+/g, " ").slice(0, 120));
   return (await r.json()).rows || [];
 };
 const report = async (env, body) => {
-  const r = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${env.GA_PROPERTY_ID}:runReport`, { method: "POST", headers: { authorization: "Bearer " + await googleToken(env), "content-type": "application/json" }, body: JSON.stringify(body) });
+  const r = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${env.GA_PROPERTY_ID}:runReport`, { method: "POST", headers: { authorization: "Bearer " + await googleToken(env), "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(GA_MS) });
   if (!r.ok) throw new Error("ga4 report " + r.status + " " + (await r.text()).replace(/\s+/g, " ").slice(0, 120));
   return (await r.json()).rows || [];
 };
@@ -1681,8 +1685,22 @@ async function goalsForPage(env) {
 }
 const DEADLINE = 25e3, LAST = "https://luchit.app/live/_last";
 let lastGood = null;
+// a new isolate starts from the data centre's copy of the last good answer: a part Google fails to send keeps its last numbers, as it already
+// does within one isolate (keep() and the quota fallback), and a late answer has something to show. The weekly and SEO parts check their own
+// window before they use it; the rest only from a copy of the same Israel day, since the daily parts carry no date of their own. 13.11: with
+// Google failing, a new isolate showed empty cards.
+async function seedFromCopy() {
+  if (lastGood || cache) return;
+  try {
+    const r = await caches.default.match(LAST), o = r ? await r.json() : null; if (!o) return;
+    if (!weekly && o.weekly) weekly = o.weekly; if (!seo && o.seo) seo = o.seo;
+    if (!o.at || ilDay(Date.parse(o.at)) !== ilDay(Date.now())) return;
+    lastGood = o; cache = o; if (!daily && o.daily) daily = o.daily;
+  } catch {}
+}
 async function liveData(env, ctx) {
   let timer, failed = false;
+  await seedFromCopy();
   const work = (async () => ({ ...(await collect(env)), flashes: (await getFlashes()).slice(0, 15), metrics: slimMetrics(await getMetrics()), auto: slimAuto(await getAuto()), cal: livePubs(slimCal(await getCal()), await getQueue(), queueOk), calDone: await calDone(env), acts: await actsGet(env), goals: await goalsForPage(env) }))();
   const late = new Promise(r => { timer = setTimeout(() => r(null), DEADLINE); });
   const d = await Promise.race([work.catch(() => { failed = true; return null; }), late]);
@@ -1692,6 +1710,9 @@ async function liveData(env, ctx) {
     ctx?.waitUntil?.(caches.default.put(LAST, new Response(JSON.stringify(d), { headers: { "content-type": "application/json", "cache-control": "max-age=172800" } })).catch(() => {}));
     return json(d);
   }
+  // late: the work goes on after this answer and, when it ends, becomes the last good answer, so the screen's next try (a minute later) has
+  // fresh numbers. Until 13.11 a late answer was thrown away, and while Google stayed slow no load ever got past "loading".
+  ctx?.waitUntil?.(work.then(x => { if (!x) return; lastGood = x; return caches.default.put(LAST, new Response(JSON.stringify(x), { headers: { "content-type": "application/json", "cache-control": "max-age=172800" } })); }).catch(() => {}));
   let keep = lastGood;
   if (!keep) try { const r = await caches.default.match(LAST); keep = r ? await r.json() : null; } catch {}
   return keep ? json({ ...keep, late: true }) : failed ? json({ error: "unavailable" }, 502) : json({ error: "timeout" }, 504);
