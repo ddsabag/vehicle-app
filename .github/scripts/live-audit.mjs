@@ -41,3 +41,4 @@ const ek = crypto.publicEncrypt({ key: fs.readFileSync(".github/seo-data.pub.pem
 fs.mkdirSync("out", { recursive: true });
 fs.writeFileSync("out/live-data.enc.json", JSON.stringify({ v: 1, ek: ek.toString("base64"), iv: iv.toString("base64"), tag: ci.getAuthTag().toString("base64"), data: enc.toString("base64") }));
 console.log("written, encrypted; parts with errors:", Object.keys(P).filter(k => P[k] && P[k].error).join(", ") || "none");
+// run 2026-11-13: Dudu reports /live not loading; rebuild the answer to render it
