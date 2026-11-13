@@ -306,6 +306,13 @@ public class MainActivity extends Activity {
                 });
             }
 
+            /** The app's own copy of the saved cars (the daily check's list): the page restores from it when its storage reads as empty
+             *  (a nearly full disk, 12.11.2026) */
+            @JavascriptInterface
+            public String savedCopy() {
+                return SavedCheckWorker.prefs(MainActivity.this).getString("saved", "[]");
+            }
+
             /** The page hands over the saved cars so the daily check can run without it */
             @JavascriptInterface
             public void syncSaved(String json) {
