@@ -1,0 +1,9 @@
+[
+ {
+  "sev": "warn",
+  "kind": "crash",
+  "run": "entries/owner/411-extra/light",
+  "step": "shortcut-compare",
+  "msg": "the app stopped responding for a moment (ANR): Input dispatching timed out (61c14a9 com.ddsabag.pratirechev/com.ddsabag.pratirechev.MainActivity (server) is not respon; its main thread was outside the app's code: the emulator's software rendering, not the app (anr-1.txt)"
+ }
+]

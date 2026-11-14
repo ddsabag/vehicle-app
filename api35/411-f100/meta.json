@@ -1,0 +1,24 @@
+{
+ "label": "api35-411-f100",
+ "scenarios": [
+  {
+   "id": "411-f100",
+   "zoom": 1,
+   "webview": "Chrome/124.0.6367.219",
+   "seconds": 220
+  }
+ ],
+ "sdk": "35",
+ "model": "sdk_gphone64_x86_64",
+ "webview": "Current WebView package (name, version): (com.google.android.webview, 124.0.6367.219)",
+ "dialogs": [
+  "com.google.android.googlesdksetup during tour/empty/411-f100/light home"
+ ],
+ "retried": [
+  {
+   "run": "tour/empty/411-f100/light",
+   "why": "com.google.android.googlesdksetup was not responding",
+   "dropped": []
+  }
+ ]
+}
