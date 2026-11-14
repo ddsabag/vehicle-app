@@ -1,0 +1,572 @@
+# הצעות התאמת שמות לבדיקה
+
+עודכן 2026-11-14. שום דבר כאן לא מוחל: אדם מוסיף את הכלל (RECALL_TYPOS או TRIM_FIX ב-index.html) בשחרור.
+
+## ריקולים: דגם מוצע שעבר את הבדיקות (20)
+
+- AUDI "QH PHEV" 2021-2021 (16307) → Q5 SPORTBACK · האפליקציה הייתה מציגה אותו ב-6 שנות דגם · לא בטוח · QH is Audi's internal code for the Q5 plug-in hybrid (55 TFSI e), and Q5 SPORTBACK (2021-2026) is the only catalogue Q5 entry that covers 2021 and fits a PHEV, though plain Q5 could also be meant.
+- CHRYSLER "STRATUS" 1997-1997 (12542) → STERTUS · האפליקציה הייתה מציגה אותו ב-4 שנות דגם · STRATUS is a typo of the catalogue entry STERTUS, which covers 1996-2000 and includes 1997.
+- CHRYSLER "PLYMOUTH VOYAGER,GYB2R" 1996-2000 (13359) → וואג'ר, וואיג'ר · האפליקציה הייתה מציגה אותו ב-9 שנות דגם · Plymouth Voyager (GYB2R) built 1996-2000 matches the Hebrew register names וואג'ר and וואיג'ר, both 1998-2000, which are spelling variants of the same model.
+- BMW "MINI F65" 2022-2022 (15459) → MINI COOPER, MINI COOPER S, MINI COOPER SE · האפליקציה הייתה מציגה אותו ב-2 שנות דגם · לא בטוח · F65 is the 2024+ Mini Cooper five-door-era code (F66 three-door), but a 2022 build is ambiguous, so I list the Cooper models valid in 2022.
+- BMW "MINI F56" 2021-2021 (14465) → COOPER, COOPER S, COOPER SE, MINI COOPER, MINI COOPER S · האפליקציה הייתה מציגה אותו ב-37 שנות דגם · לא בטוח · F56 is the three-door Mini hatch (Cooper, Cooper S, Cooper SE electric) and several catalogue names covering 2021 could match, so the exact one is uncertain.
+- BMW "MINI F-56" 2022-2022 (15458) → COOPER, COOPER S, ONE, JCW, COOPER SE, MINI, MINI COOPER, MINI COOPER S, MINI COOPER SE, COPPER SE · האפליקציה הייתה מציגה אותו ב-58 שנות דגם · לא בטוח · F56 is the three-door Mini hatch, and the record does not say which trim, so every F56 name valid for May 2022 is listed.
+- CHEVROLET "MONTE CARLO" 1998-2003 (13544) → מונטה קרלו , אוטו' · האפליקציה הייתה מציגה אותו ב-2 שנות דגם · The Hebrew entry 'מונטה קרלו , אוטו'' is the Monte Carlo and its 1996-1998 years overlap the record's 1998 start.
+- CHEVROLET "LUMINA" 1997-1998 (13627) → לומינה SL , אוטו'_4ד, לומינה סדאן 1.3, אוט, לומינה SL פרטי 4דלת' · האפליקציה הייתה מציגה אותו ב-9 שנות דגם · LUMINA is the Chevrolet Lumina, and these three Hebrew Lumina entries all cover 1997-1998, while the 1999-only entry is outside the range.
+- CHEVROLET "LUMINA" 1997-1998 (13889) → לומינה SL , אוטו'_4ד, לומינה סדאן 1.3, אוט, לומינה SL פרטי 4דלת' · האפליקציה הייתה מציגה אותו ב-9 שנות דגם · LUMINA is the Hebrew-named לומינה entries; the three Lumina variants all cover 1997-1998, and the 1999-only entry is excluded.
+- FORD "F" 2014-2018 (12810) → F-150, F150, F 150 · האפליקציה הייתה מציגה אותו ב-8 שנות דגם · לא בטוח · 'F' most likely abbreviates the F-150 pickup (F-series), built in 2014-2018 for F-150 and F150; F 150 only starts 2019, so it is excluded.
+- FORD "F" 2014-2018 (12990) → F-150, F150, F 150 · האפליקציה הייתה מציגה אותו ב-8 שנות דגם · לא בטוח · A bare 'F' most plausibly abbreviates the F-150 pickup, whose catalogue spellings were all registered during 2014-2018, though it could also hint at other F-named models.
+- FORD "F" 2014-2018 (12991) → F-150, F150 · האפליקציה הייתה מציגה אותו ב-7 שנות דגם · לא בטוח · A bare 'F' most likely abbreviates the F-150 pickup, and only F-150 and F150 cover 2014-2018 builds, but the record could also mean a larger F-series truck.
+- FORD "F" 2020-2020 (13090) → F 150, F-150, F150 · האפליקציה הייתה מציגה אותו ב-9 שנות דגם · לא בטוח · A bare "F" most likely abbreviates the F-150 pickup, which is listed under three spellings that all cover 2020, but the record is ambiguous.
+- FORD "POLICE INTERCEPTOR" 2014-2018 (13933) → EXPLORER · האפליקציה הייתה מציגה אותו ב-19 שנות דגם · Ford Police Interceptor Utility is the Explorer-based police vehicle, and the Taurus-based sedan is listed only for 2001-2002, so Explorer is the only fit for 2014-2018.
+- VOLVO "B3,B4,T4" 2022-2024 (15081) → XC40 B3, XC40 B4 · האפליקציה הייתה מציגה אותו ב-7 שנות דגם · לא בטוח · B3 and B4 match XC40 B3 and XC40 B4 (2022-2024 overlap), while T4 has no catalogue model built in 2022-2024 except S60 T4 (2011-2022), which is uncertain.
+- MITSUBISHI "L400" 1994-2001 (4361) → 004-L מיניבוס בנזין, 004-L קומבי דיזל ידנ, מיניבוס 004L, קומבי 004L · האפליקציה הייתה מציגה אותו ב-10 שנות דגם · L400 is the Mitsubishi Delica/Space Gear van, which Israel registered as the 004L minibus and combi, and these entries overlap the 1994-2001 build years.
+- INFINITI "ROG" 2008-2009 (12964) → QASHQAI · האפליקציה הייתה מציגה אותו ב-10 שנות דגם · לא בטוח · ROG is likely the Nissan Rogue, sold in Israel as the Qashqai, and QASHQAI covers 2008-2009, though Rogue is a different US model.
+- INFINITI "ROG" 2008-2009 (12963) → X-TRAIL · האפליקציה הייתה מציגה אותו ב-11 שנות דגם · לא בטוח · ROG is the Nissan Rogue, sold as the X-Trail in Israel, and X-TRAIL (2003-2026) covers 2008-2009, but the X TRAIL spelling variant (2003-2024) could also fit.
+- RENAULT "T-NARROWW,T-HIGE" 2014-2016 (11924) → TRAFIC · האפליקציה הייתה מציגה אותו ב-40 שנות דגם · "T-NARROWW,T-HIGE" are garbled Trafic body variants (narrow and high roof), and TRAFIC (2004-2026) is the only matching catalogue name covering 2014-2016.
+- RENAULT "T,C,K" 2014-2020 (14965) → TRAFIC, CAPTUR, KANGOO · האפליקציה הייתה מציגה אותו ב-109 שנות דגם · לא בטוח · T, C and K most plausibly stand for Trafic, Captur and Kangoo, all built in 2014-2020, but single letters are only a guess.
+
+## ריקולים: לא בקטלוג (172)
+
+- BUICK "ANCLAVE" 2013-2013 (13365) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · ANCLAVE is a typo for the Buick Enclave, which is not in the catalogue for 2013.
+- BUICK "ENCLAVE" 2008-2011 (13374) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · ENCLAVE is a Buick crossover that is not in the catalogue, and Rendezvous is a different model.
+- BUICK "REGAL" 1997-2003 (13546) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The record names the Buick Regal, which is not in the catalogue, and the listed models (LeSabre, Erbas, LaCrosse, Lucerne, Rendezvous) don't match its 1997-2003 build years.
+- BUICK "ENCLAVE" 2009-2011 (13380) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The Buick Enclave is a model the catalogue does not list, and none of the listed Buick models is an Enclave.
+- BUICK "REGAL" 1994-1995 (13516) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The catalogue has no Regal model, and none of its listed models were built in 1994-1995.
+- BUICK "REGAL" 1995-1995 (13499) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The catalogue has no Buick Regal entry, and the closest years-matching names (LE SABRE, ERBAS-EL) are different models.
+- BUICK "REGAL" 1994-1995 (13572) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · No Regal appears in the catalogue, and no listed model was built in 1994-1995, so the record matches none.
+- BUICK "PARK AVENUE" 1997-1997 (13594) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Park Avenue is not in the catalogue for 1997, and the nearby LeSabre entries are a different model.
+- BUICK "RIVIERA" 1995-1995 (13590) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Buick Riviera was built in 1995, but no Riviera appears in the catalogue, and none of the listed models match it or were built in 1995.
+- BUICK "REGAL" 1997-2003 (13772) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The Buick Regal (1997-2003) is not in the catalogue, and none of the listed models matches it.
+- BUICK "RIVIERA" 1997-1997 (13603) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The record is for the Buick Riviera, which is not in the catalogue, and no listed model was built in 1997.
+- BUICK "PARK AVENUE" 2001-2003 (13775) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · PARK AVENUE is a real Buick model but it is not in the catalogue list, and no listed model matches it.
+- BUICK "PARK AVENUE" 1998-2000 (13774) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Park Avenue is a Buick model that is not in the catalogue list, and the closest entry, LE SABRE, is a different model.
+- BUICK "ENCLAVE" 2008-2013 (15001) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The Buick Enclave is a distinct model that is not in the catalogue, and none of the listed models match it or were built in 2008-2013 under that name.
+- BUICK "ENCLAVE" 2008-2008 (13641) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Buick Enclave (2008 model year crossover) is not in the catalogue, and no listed model is a plausible match for that name.
+- BUICK "REGAL" 1995-1995 (13593) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Regal is not in the catalogue, and no listed Buick model covers 1995 (the closest, the Le Sabre entry, starts in 1996), so nothing matches.
+- BUICK "REGAL" 1995-1995 (13877) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Regal is not in the catalogue, and no listed model is a Regal or was built in 1995 (the closest, the Le Sabre entry, starts in 1996).
+- GMC "SUBURBAN" 1997-1998 (13600) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The Suburban is a GMC model that does not appear in the catalogue, and none of the listed names match it.
+- GMC "SIERRA" 2024-2024 (16500) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Sierra is a GMC pickup truck, and no pickup or Sierra model appears in the catalogue.
+- GMC "SIERRA" 2024-2024 (16494) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · SIERRA is a GMC pickup truck, which is not in this passenger-car catalogue.
+- GMC "JIMMY" 1993-1993 (13509) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · JIMMY is the GMC Jimmy SUV, which has no entry in the catalogue, and no listed model covers 1993.
+- GMC "JIMMY" 1994-1996 (13502) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · JIMMY is the GMC Jimmy, and the only catalogue entry for it (ג'.מ.-גי'מי) is dated 1998, outside the 1994-1996 build window.
+- ISUZU TRUCKS "NPR 75" 2007-2007 (8738) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · NPR 75 is a Japanese-built Isuzu light truck chassis, and the catalogue holds no truck model of that name built in 2007.
+- GMC "SIERRA" 2024-2024 (15837) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Sierra is a GMC pickup truck, and no Sierra entry appears in the catalogue.
+- ISUZU TRUCKS "NPR 75,NPR 85" 2009-2010 (10130) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · NPR 75 and NPR 85 are Isuzu light trucks, and no catalogue model matches them or the 2009-2010 build years.
+- ISUZU TRUCKS "NPR 75" 2008-2008 (9015) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · NPR 75 is an Isuzu light truck, and the catalogue holds only SUVs and pick-ups with no NPR model, so nothing matches.
+- ISUZU TRUCKS "NPR 75" 2010-2010 (11109) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · NPR 75 is an Isuzu light truck, and the catalogue holds no NPR model or any model built in 2010.
+- ISUZU TRUCKS "N,F,SERIES" 2009-2013 (11330) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · N and F series are Isuzu trucks, which the pickup and SUV catalogue does not hold, and no listed model matches those series in 2009-2013.
+- ISUZU TRUCKS "NPR 75" 2001-2003 (9597) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · NPR 75 is an Isuzu N-series light truck, which is not among the catalogue's pickups, SUVs or generic entries, so no listed model matches it.
+- ISUZU TRUCKS "N" 2009-2021 (15097) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · "N" is the Isuzu N-series light truck (NPR/NQR), a commercial truck line that is not in the catalogue of pickups and SUVs.
+- ISUZU TRUCKS "N-SERIES" 2008-2011 (11140) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · N-Series is Isuzu's light/medium truck range (NPR/NQR), and no catalogue entry is an N-Series truck or covers 2008-2011 apart from the D-MAX-less PICK-UP pickup names, which are not N-Series.
+- ISUZU TRUCKS "F-SERIES" 2008-2011 (11139) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Isuzu F-Series is a medium-duty truck line (Isuzu Forward), not a vehicle in this catalogue, and no catalogue model covers 2008-2011 for it.
+- ISUZU TRUCKS "NEES" 2005-2007 (11176) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · NEES is not a model name in the list; it looks like an Isuzu light-truck code (N-series, e.g. NPR/NQR), not a pickup or SUV, so no catalogue model fits.
+- IVECO "X-WAY,S-WAY" 2020-2022 (14618) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · X-WAY and S-WAY are heavy trucks, and none of the catalogue models (vans or light trucks, built 2010-2012 or 2018 and 2026) match the record's 2020-2022 build years.
+- ISUZU TRUCKS "F" 2014-2015 (12074) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · "F" is the Isuzu F-series medium-duty truck (e.g. FTR/FVR), which is not in the catalogue of pick-ups and SUVs.
+- IVECO "ARWAY,CROSSWAY" 2007-2007 (14065) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · ARWAY and CROSSWAY are Iveco bus models, and none of the catalogue models are buses or were built in 2007.
+- IVECO "ARWAY,COSSWAY" 2007-2007 (12518) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · ARWAY and COSSWAY are Iveco bus models, and the catalogue holds no bus models and no entries for 2007.
+- CHRYSLER "RAM3500" 2013-2015 (11570) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · RAM3500 is a heavy-duty pickup truck, and the catalogue has no RAM 3500 entry; its only RAM is the 1500 from 2022, outside the record's years.
+- IVECO "S-WAY,X-WAY" 2022-2023 (15334) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Neither S-WAY nor X-WAY (heavy trucks) appears in the catalogue, and the listed models were not built in 2022-2023.
+- ISUZU TRUCKS "N" 2023-2024 (15821) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · 'N' is the Isuzu N-series light truck (NPR/NMR), which is not in the catalogue, and the only models built in 2023-2024 are D-MAX pickups.
+- CHRYSLER "RAM" 2012-2014 (11577) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · RAM is a truck brand, and the only RAM entry in the catalogue (RAM 1500) is listed for 2022, not 2012-2014.
+- CHRYSLER "CORVET" 1989-1990 (15836) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · CORVET is a Chevrolet Corvette name, and the catalogue has no Chrysler models built in 1989-1990.
+- CHRYSLER "BOLT" 2020-2022 (14668) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · BOLT is a Chevrolet model (Bolt EV), not a Chrysler, and no catalogue entry matches it.
+- MERCEDES BENZ "CITARO" 2009-2012 (11726) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Citaro is a Mercedes-Benz city bus, and no bus model appears in this passenger-car catalogue.
+- MERCEDES BENZ "FUSO CANTER" 2019-2023 (15319) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · FUSO Canter is a Mitsubishi Fuso light truck, not a Mercedes-Benz passenger car or van in this catalogue, so no model matches.
+- CHRYSLER "CORVET" 1989-1990 (15835) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · CORVET is a Chevrolet Corvette, which Chrysler never made, and no catalogue entry is built in 1989-1990 or resembles that name.
+- MAZDA "RX7" 1992-1992 (14785) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · RX7 is the Mazda RX-7 sports car, which is not in the catalogue for 1992.
+- MERCEDES BENZ "YORO 6,OC500" 2016-2017 (11902) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · OC500 is a Mercedes bus chassis (OC 500) and YORO 6 is a bus body, so neither is a vehicle in this catalogue.
+- BMW "F800GS,F650GS" 2010-2010 (10066) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · F800GS and F650GS are BMW motorcycles, which this car catalogue does not hold.
+- BMW "F800ST,F800S" 2013-2013 (11324) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · F800ST and F800S are BMW motorcycle models, which the car catalogue does not hold.
+- BMW "C650GT,C600SPORT" 2011-2015 (11624) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · C650GT and C600 Sport are BMW Motorrad scooters, which are motorcycles and not in this car catalogue.
+- BMW "G310GS,G310R" 2016-2018 (12321) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · G310GS and G310R are BMW motorcycles, which this car catalogue does not hold.
+- BMW "R,K" 2003-2011 (11515) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · R and K are BMW motorcycle series (R1200GS, K1600), and the catalogue lists only cars, so nothing matches.
+- BMW "GS650" 2012-2015 (11572) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · GS650 is a BMW G 650 GS motorcycle, which this car catalogue does not hold.
+- BMW "C650GT,C600,C650 SPORT" 2012-2018 (12615) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · C650GT, C600 and C650 Sport are BMW Motorrad scooters, which are motorcycles and not cars in this catalogue.
+- BMW "G310R,G310GS" 2017-2018 (13107) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · G310R and G310GS are BMW motorcycles, not cars, so no catalogue model applies.
+- BMW "F800GS,F700GS,ADV,C650 SPORT,C650GT,RNINET" 2015-2016 (12149) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · All listed models (F800GS, F700GS, ADV, C650 Sport, C650GT, R nineT) are BMW motorcycles or scooters, which the car catalogue does not hold.
+- BMW "G310GS,G310R" 2017-2018 (12704) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · G310GS and G310R are BMW motorcycles, which the car catalogue does not hold.
+- BMW "R1250GS,R1250GS ADV" 2020-2021 (13724) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · R1250GS and R1250GS ADV are BMW motorcycles, which this car catalogue does not hold.
+- BMW "G310GS,G310R" 2017-2018 (12768) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · G310GS and G310R are BMW motorcycles, and the catalogue lists only cars, so no model matches.
+- BMW "CE04" 2021-2021 (14601) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · CE04 is BMW's electric scooter (a motorcycle-class vehicle), which the car catalogue does not hold.
+- BMW "R1250GS,R1250GS ADV" 2018-2022 (14692) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · R1250GS and R1250GS ADV are BMW motorcycles, which this car catalogue does not hold.
+- MAN "MAN" 2010-2010 (11050) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The record names only the maker, and every catalogue model (TGE variants) was built 2019 or later, so none existed in 2010; the record must be for a MAN truck or bus not in this list.
+- MAN "R33,A22,A24" 2009-2010 (11340) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The record's codes (R33, A22, A24) are MAN bus or truck chassis codes, and no catalogue model (all TGE vans, 2019 onward) was built in 2009-2010.
+- MAN "TGA-S-X" 2010-2014 (11794) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · TGA-S-X is a MAN heavy truck designation, and none of the catalogue's light commercial TGE models were built in 2010-2014.
+- MAN "R33,RR2,RR8" 2014-2016 (11798) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The codes R33, RR2 and RR8 look like MAN bus or truck chassis codes, and no catalogue model was built in 2014-2016.
+- MAN "MAN" 2010-2010 (11051) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The record names only the maker, and every catalogue model (TGE variants) was built 2019 or later, so none existed in 2010.
+- MAN "TGA-S-X" 2013-2015 (11778) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · TGA is a MAN heavy truck series, and the catalogue only holds TGE vans built 2019 or later, so nothing matches a 2013-2015 record.
+- MAN "TG" 2003-2012 (11361) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · MAN TG (TGA/TGL/TGM/TGS/TGX) are heavy trucks built 2000s-2012, not in the catalogue, and the listed TGE vans only date from 2019 onward.
+- JEEP "AVENGER" 2023-2024 (15989) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The catalogue has no Jeep Avenger, and the only Avenger entry is a Dodge Avanger from 2007-2009, outside the 2023-2024 build years.
+- JEEP "AVENGER BEV" 2023-2023 (16020) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The Jeep Avenger BEV is not in the catalogue; the only Avenger entry is the 2007-2009 Dodge Avanger, a different brand and model.
+- MAN "22A,24A" 2010-2014 (14254) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Codes 22A and 24A are MAN truck chassis designations, and no catalogue model is a truck or was built in 2010-2014.
+- HUMMER "H2" 2004-2005 (13851) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The Hummer H2 is not in the catalogue; the H3 entries are a different model and only date from 2006 onward, so none matches 2004-2005.
+- CHEVROLET "HHR" 2006-2007 (11355) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The record means the Chevrolet HHR, built 2006-2007, but no HHR appears in the catalogue.
+- CHEVROLET "SILVERADO" 2015-2016 (11729) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Silverado is a pickup truck, and the only Silverado entry in the catalogue (SILVERADO1500) is for 2026, outside the 2015-2016 build years.
+- JEEP "AVENGER MHEV" 2023-2026 (16568) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · לא בטוח · Jeep Avenger MHEV has no entry in the catalogue; only the Dodge Avenger spelling DODGE AVANGER (2007-2009) exists, outside the record's years.
+- HUMMER "H2" 2004-2005 (13410) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The Hummer H2 is a model not in the catalogue, and the H3 entries are a different model built in other years (2006-2009).
+- CHEVROLET "SILVERADO" 2011-2013 (11610) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The only Silverado in the catalogue is SILVERADO1500, listed for 2026 only, so no catalogue model matches a 2011-2013 Silverado.
+- CHEVROLET "SILVERADO" 2015-2015 (11811) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The catalogue has no Silverado listed for 2015; its only Silverado entry, SILVERADO1500, is dated 2026 only.
+- CHEVROLET "SILVERADO" 2015-2015 (11655) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The only Silverado in the catalogue is SILVERADO1500 (2026), which was not built in 2015, so no listed model matches.
+- CHEVROLET "SILVERADO" 2015-2016 (12401) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The only Silverado in the catalogue is SILVERADO1500 (2026), which was not built in 2015-2016, so no listed model fits.
+- CHEVROLET "SILVERADO" 2015-2016 (12012) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The only Silverado in the catalogue, SILVERADO1500, is listed for 2026 only, so no catalogue model matches a 2015-2016 build.
+- CHEVROLET "SILVERADO" 2018-2019 (12626) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Silverado is a pickup whose only catalogue entry, SILVERADO1500, is listed for 2026 only, so no listed model was built in 2018-2019.
+- CHEVROLET "SILVERADO" 2018-2019 (12641) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The only Silverado in the catalogue is SILVERADO1500 (2026 only), which was not built in 2018-2019, so no listed model matches.
+- CHEVROLET "SILVERADO" 2017-2017 (13197) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The only Silverado in the catalogue is SILVERADO1500, listed for 2026 only, so no catalogue model matches a 2017 Silverado.
+- CHEVROLET "PICKUP" 1993-1994 (13506) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · A generic PICKUP label matches no catalogue model built in 1993-1994; the closest pickups listed (Colorado, Silverado 1500) are from 2021 and later, and the Sonoma entries are from 1996-1998.
+- CHEVROLET "SILVERADO" 2019-2020 (13093) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The only Silverado in the catalogue, SILVERADO1500, is listed for 2026 only, so no catalogue model matches a 2019-2020 Silverado.
+- CHEVROLET "GMC" 1988-1988 (13203) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · GMC is a separate maker from Chevrolet, and no catalogue model covers a GMC record in 1988.
+- CHEVROLET "PICKUP" 1993-1994 (13517) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · No catalogue model was built in 1993-1994; the earliest entries start in 1996, so a Chevrolet pickup from those years is not listed.
+- CHEVROLET "SILVERADO" 2015-2015 (13795) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Silverado is a pickup truck, and the only catalogue entry for it (SILVERADO1500) covers 2026 only, not 2015.
+- CHEVROLET "SILVERADO" 2020-2020 (13524) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The only Silverado in the catalogue is SILVERADO1500, listed for 2026 only, so no catalogue model matches a 2020 Silverado.
+- CHEVROLET "PICKUP" 1988-1993 (13845) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · A generic 'PICKUP' record for 1988-1993 matches no catalogue model, since every listed Chevrolet model starts in 1996 or later.
+- CHEVROLET "SILVERADO" 2007-2014 (13881) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The Silverado is not in the catalogue; the only Silverado entry, SILVERADO1500, is listed for 2026 only, outside the 2007-2014 build years.
+- CHEVROLET "SILVERADO" 2017-2019 (13883) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The only Silverado in the catalogue is SILVERADO1500 (2026 only), which was not built in 2017-2019, so no listed model fits.
+- CHEVROLET "SILVERADO" 2015-2015 (13797) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Silverado is a pickup not in the catalogue for 2015; the only Silverado entry (SILVERADO1500) is listed for 2026 only.
+- CHEVROLET "SILVERADO" 2007-2008 (13865) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Silverado is a pickup truck; the only catalogue entry, SILVERADO1500, is listed for 2026 only, so nothing matches 2007-2008 builds.
+- CHEVROLET "SILVERADO" 2015-2016 (14379) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The only Silverado in the catalogue is SILVERADO1500, listed for 2026 only, so no catalogue model was built in 2015-2016.
+- CHEVROLET "SILVERADO" 2017-2019 (14933) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The only Silverado in the catalogue is SILVERADO1500, listed for 2026 only, so no listed model was built in 2017-2019.
+- CHEVROLET "SILVERADO" 2022-2022 (15774) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Silverado is a pickup, and the only Silverado entry in the catalogue (SILVERADO1500) covers 2026 only, not 2022 builds.
+- CHEVROLET "SILVERADO" 2022-2022 (15802) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The only Silverado entry in the catalogue, SILVERADO1500, is listed for 2026 only, so no model fits a 2022 build.
+- CHEVROLET "SILVERADO" 2024-2024 (15045) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The only Silverado in the catalogue is SILVERADO1500, listed for 2026 only, so no listed model matches a 2024 build.
+- CHEVROLET "SILVERADO" 2020-2024 (15573) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The only Silverado in the catalogue (SILVERADO1500) is listed for 2026 only, so no listed model matches the 2020-2024 build years.
+- CHEVROLET "SILVERADO" 2024-2024 (15858) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · לא בטוח · The only Silverado in the catalogue is SILVERADO1500, listed for 2026 only, so no listed model matches a 2024 build.
+- CHEVROLET "CAPRICE" 1991-1996 (16491) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The catalogue has no Caprice entry, and the Caprice is a 1991-1996 model that the list does not hold.
+- CHEVROLET "SILVERADO" 2022-2022 (15865) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Silverado is a pickup whose only catalogue entry, SILVERADO1500, is listed for 2026 only, so no listed model was built in 2022.
+- CHEVROLET "SILVERADO" 2018-2018 (15703) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Silverado is a pickup truck whose only catalogue entry, SILVERADO1500, is listed for 2026, so no listed model was built in 2018.
+- DODGE "RAM" 2010-2011 (12432) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · RAM is a pickup truck line, and the only RAM entry in the catalogue (RAM 1500) is for 2022, not 2010-2011.
+- CHEVROLET "SILVERADO" 2020-2020 (16158) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The only Silverado in the catalogue is SILVERADO1500, listed for 2026 only, so no catalogue model built in 2020 matches.
+- CHEVROLET "SILVERADO" 2020-2022 (15871) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The only Silverado entry, SILVERADO1500, is listed for 2026 only, so no catalogue model named Silverado was built in 2020-2022.
+- CHEVROLET "SILVERADO" 2019-2019 (16657) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Silverado is only in the catalogue as SILVERADO1500 for 2026, so no listed model matches a 2019 build.
+- FORD "EVEREST" 2004-2015 (12923) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · EVEREST is Ford's Ranger-based SUV, which is not in the catalogue, and no listed model matches the name.
+- FORD "ECONOLINE" 1997-2003 (8692) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Econoline is Ford's E-Series full-size van, which is not in the catalogue, and none of the listed Transit or other models match it.
+- CHEVROLET "SILVERADO" 2019-2019 (16539) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Silverado is a full-size pickup; the only catalogue Silverado entry (SILVERADO1500) is 2026 only, so no listed model was built in 2019.
+- FORD "AEROSTAR" 1992-1997 (12909) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The Ford Aerostar minivan is not in the catalogue, and no listed model matches it for 1992-1997.
+- CHEVROLET "SILVERADO" 2016-2016 (16786) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The only Silverado in the catalogue is SILVERADO1500 (2026), which was not built in 2016, so no listed model fits.
+- FORD "C-MAX" 2010-2011 (14766) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The catalogue has no C-MAX entry, and S-MAX and Galaxy are different models, so the record matches nothing in the list.
+- FORD "NAUTILUS" 2022-2025 (16686) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Nautilus is a Lincoln SUV that is not in the catalogue as a model name; the generic LINCOLN entry covers only 2000-2020, so it does not match builds from 2022-2025.
+- HONDA "GOLD WING" 2001-2010 (11131) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Gold Wing is a Honda motorcycle, and the catalogue holds only cars.
+- FORD "F 250,F 550" 2016-2019 (13945) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · F 250 and F 550 are Super Duty heavy pickups/chassis-cabs that the catalogue does not hold, and F-150 is a different model.
+- HONDA "SILVER WING" 2002-2004 (4403) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Silver Wing is a Honda scooter/motorcycle, which is not in the car catalogue.
+- HONDA "CB650FA" 2014-2014 (11475) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · CB650FA is a Honda CB650F motorcycle code, and no motorcycle appears in this car catalogue.
+- HONDA "NSX,SH,NSS300" 2013-2014 (11427) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · NSX is an Acura sports car not in this list, while SH and NSS300 are Honda scooter codes, so the record is not for a catalogue car.
+- HONDA "VFR1200X,F,XD,FD" 2010-2015 (11618) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · VFR1200X is a Honda motorcycle model, and the other entries (F, XD, FD) are not car models in the catalogue, so nothing here matches.
+- HONDA "PCX 125" 2010-2010 (10134) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · PCX 125 is a Honda scooter, a motorcycle that no car model in the catalogue matches.
+- FORD "LAGACY" 2017-2020 (15384) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · LAGACY is a misspelling of Legacy, a Subaru model, and Ford has no such model in its catalogue.
+- HONDA "SH125" 2013-2014 (11728) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · SH125 is a Honda scooter (motorcycle), which this car catalogue does not hold.
+- HONDA "CBR500R,CB500" 2013-2015 (11567) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · CBR500R and CB500 are Honda motorcycle models, which this car catalogue does not hold.
+- HONDA "SH 125" 2013-2013 (11302) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · SH 125 is a Honda scooter, a motorcycle, and no car model in the catalogue matches it.
+- HONDA "ADV750" 2017-2018 (12560) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · ADV750 is the X-ADV 750 motorcycle, which the car catalogue does not hold.
+- HONDA "CBR300" 2015-2016 (11907) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · CBR300 is a Honda motorcycle model (CBR300R), not a car in this catalogue.
+- HONDA "CBR1000" 2017-2017 (12176) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · CBR1000 is a Honda motorcycle model (CBR1000RR), not a car in this catalogue.
+- HONDA "CB300R" 2018-2018 (12680) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · CB300R is a Honda motorcycle model, which the car catalogue does not hold.
+- HONDA "NSS750M,ADV750M" 2021-2021 (14040) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · NSS750M and ADV750M are Honda Forza 750 and X-ADV 750 scooter codes, so this is a motorcycle not in the car catalogue.
+- VOLVO "FH,FM 4" 2013-2014 (11474) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · FH and FM are Volvo trucks, and the catalogue holds only passenger cars.
+- HONDA "CBR 1000" 2020-2020 (13737) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · CBR 1000 is a Honda motorcycle line, not a car model in this catalogue.
+- HONDA "CRF1000,SD04,SD06" 2016-2018 (12430) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · CRF1000 and the SD04/SD06 codes are Honda Africa Twin motorcycle designations, and no motorcycle appears in the catalogue.
+- VOLVO "FH4" 2013-2016 (11699) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · FH4 is a Volvo heavy truck chassis code (FH generation), which the passenger-car catalogue does not hold.
+- VOLVO "B8R,B11R" 2016-2016 (11754) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · B8R and B11R are Volvo bus and coach chassis codes, so the record is for a vehicle the passenger-car catalogue does not hold.
+- HONDA "CB5000F/X,CBR500R" 2019-2019 (14041) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · CB500F/X and CBR500R are Honda motorcycles, not cars, so the catalogue holds no match.
+- VOLVO "B11R" 2011-2015 (11705) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · B11R is a Volvo bus chassis code, not a passenger car, and no catalogue model fits it.
+- VOLVO "FH4" 2013-2016 (11856) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · FH4 is a Volvo heavy truck chassis code, which the passenger-car catalogue does not hold.
+- VOLVO "B8R 3" 2015-2018 (12287) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · B8R is a Volvo bus chassis code, and the catalogue holds only passenger cars, so no model matches.
+- VOLVO "FH/FM4" 2013-2015 (11957) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · FH/FM4 is a Volvo heavy truck platform, not a passenger car in the catalogue, and no listed model matches the 2013-2015 years.
+- HONDA "NSS300" 2013-2013 (11697) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · NSS300 is the Honda Forza/Silver Wing-class 300cc maxi-scooter (NSS300 Forza), a motorcycle that is not in the car catalogue.
+- VOLVO "FH" 2017-2019 (13798) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · FH is Volvo's heavy truck series, which is not in this passenger car catalogue.
+- VOLVO "B11R,B8R" 2017-2017 (12020) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · B11R and B8R are Volvo bus chassis codes, not passenger car models, and the catalogue holds no matching car.
+- VOLVO "FH,FM,FE" 2018-2018 (12619) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · FH, FM and FE are Volvo truck series, and the catalogue holds only passenger cars, so nothing matches.
+- VOLVO "B8R" 2015-2016 (15786) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · B8R is a Volvo bus and coach chassis code, not a car model in this catalogue.
+- VOLVO "BRR1" 2015-2017 (11936) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · BRR1 matches no Volvo model name or chassis code I know of, so it cannot be tied to any catalogue model built in 2015-2017.
+- VOLVO "B13R" 2024-2024 (15792) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · B13R is a Volvo bus chassis code, not a passenger car, and no catalogue model matches it.
+- VOLVO "FH,FM" 2021-2022 (14437) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · FH and FM are Volvo heavy trucks, and the catalogue holds only passenger cars, so nothing in the list matches.
+- VOLVO "FL,FE" 2014-2016 (15791) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · FL and FE are Volvo truck chassis codes, and the catalogue holds only passenger cars, so no model matches.
+- VOLVO "B13R" 2023-2023 (15615) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · B13R is a Volvo bus and coach chassis code, not a passenger car model in this catalogue.
+- NISSAN "CABSTAR" 2013-2013 (11322) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · CABSTAR is a Nissan truck (Diesel Cabstar cab-chassis), not a passenger model in the catalogue, so none applies.
+- INFINITI "QX56" 2016-2016 (12541) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · QX56 was a full-size SUV renamed QX80 in 2014, and no QX56 or QX80 entry in the catalogue is valid for 2016; QX60 is a different midsize model.
+- NISSAN "NT500" 2014-2016 (11884) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · NT500 is Nissan's light-duty truck (Cabstar-based, sold as Atleon successor), a commercial truck not in the passenger catalogue.
+- CADILLAC "DTS" 2006-2010 (13389) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · DTS is a distinct Cadillac sedan (2006-2011) that is not in the catalogue, and STS is a different model.
+- SSANGYONG "ORBIT" 2009-2010 (10018) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Orbit is not an SsangYong model name or chassis code, and no catalogue model valid in 2009-2010 resembles it, so the record matches nothing in the list.
+- SSANGYONG "SANYANG LM 25.LH 30" 2009-2010 (11045) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The field reads like a Sanyang (Taiwanese scooter/motorcycle maker) model code, not a SsangYong car, and no catalogue model matches it.
+- CADILLAC "DEVILLE" 1997-1999 (13597) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · DEVILLE (DeVille) is not in the catalogue, and the similar Seville entries are for different years.
+- RENAULT "C,K,T" 2022-2022 (15019) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · C, K and T are the Renault Trucks heavy-truck ranges (C, K, T), which are not in this passenger and light-van catalogue.
+- CADILLAC "DTS" 2006-2006 (13615) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The record means the Cadillac DTS, which is not in the catalogue, and the similar STS is a different model.
+- PONTIAC "SOLSTICE" 2006-2010 (11365) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The Pontiac Solstice is not in the catalogue, which only lists Grand Prix variants from 1996-1997, so no catalogue model matches.
+- PONTIAC "SOLSTICE" 2008-2010 (11364) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The catalogue lists only Grand Prix models from 1996-1997, and the Pontiac Solstice was not built in the record's 2008-2010 years, so no catalogue model matches.
+- PONTIAC "G5,SOLSTICE" 2006-2010 (11354) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The catalogue only holds Grand Prix models from 1996-1997, and neither the G5 nor the Solstice was built in the 2006-2010 window.
+- PONTIAC "SOLSTICE" 2002-2002 (13403) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The Pontiac Solstice was built 2005-2009, not in 2002, and the catalogue only lists Grand Prix models from 1996-1997.
+- CADILLAC "DTS" 2006-2009 (13456) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The Cadillac DTS is a separate full-size sedan from the STS and is not in the catalogue, so no listed model matches.
+- CADILLAC "ENCLAVE" 2012-2012 (14999) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · Enclave is a Buick model, not a Cadillac, and no catalogue entry matches it for 2012.
+- PONTIAC "SOLSTICE" 2006-2009 (13378) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The Pontiac Solstice (2006-2009) is not in the catalogue, which lists only Grand Prix models from 1996-1997.
+- PONTIAC "VIBE" 2003-2007 (13484) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The Pontiac Vibe was built 2003-2007, but the catalogue lists only Grand Prix models from 1996-1997, so nothing matches.
+- PONTIAC "SOLSTICE" 2006-2009 (14453) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · The record means the Pontiac Solstice, which is not in the catalogue; the only listed models are Grand Prix from 1996-1997.
+- BMW "R18" 2020-2021 (16844) · לא בקטלוג (משאית, אופנוע או דגם שלא נרשם כאן) · R18 is the BMW R 18 cruiser motorcycle, not a car, and no catalogue entry corresponds to it.
+
+## ריקולים: צריך עין (2)
+
+- BMW "N52,N55" 2009-2014 (11400) →  · לא עבר: no model named and none is false · N52 and N55 are engine codes, not models; they were fitted across many BMW models in 2009-2014, so no specific catalogue models can be identified reliably.
+- BMW "N52,N55" 2009-2014 (13357) →  · לא עבר: no model named and none is false · N52 and N55 are engine codes, not models; they were fitted across many 1, 3, 5, 6, 7, X and Z series cars in 2009-2014, so no specific catalogue model can be identified.
+
+## שמות גימור: נקטעו או בשגיאת כתיב (להוסיף ל-TRIM_FIX) (99)
+
+- אאודי גרמניה "LXUXRY" (1 שמות, למשל A5 2013 "SLINE LXUXRY") · שגיאת כתיב של LUXURY
+- אאודי גרמניה "SPRT" (1 שמות, למשל A4 2018 "LIMITED SPRT") · שגיאת כתיב של SPORT
+- אאודי גרמניה "PECK" (1 שמות, למשל Q4 SBACK35ETRON 2022 "SBACK T PECK") · שגיאת כתיב של PACK
+- אאודי סלובקיה "PREMUM" (1 שמות, למשל Q8 55 TFSI 2025 "SLINE PREMUM") · שגיאת כתיב של PREMIUM
+- אאודי סלובקיה "EDTION" (1 שמות, למשל RS Q8 2024 "BLACK EDTION") · שגיאת כתיב של EDITION
+- ב מ וו גרמניה "EXPRISSIVE" (1 שמות, למשל 550E XDRIVE 2025 "M EXPRISSIVE") · שגיאת כתיב של EXPRESSIVE
+- ב מ וו גרמניה "SHDOW" (1 שמות, למשל 430I 2022 "MSPORT SHDOW") · שגיאת כתיב של SHADOW
+- ב מ וו גרמניה "EDISION" (3 שמות, למשל IX XDRIVE40 2024 "PORT EDISION") · שגיאת כתיב של EDITION
+- ב מ וו גרמניה "CARBONEDITIO" (4 שמות, למשל M3 COMPETXDRIVE 2022 "CARBONEDITIO") · נקטע, כנראה CARBON EDITION
+- ב מ וו גרמניה "COMPETTITION" (1 שמות, למשל M8 COMPETTITION 2021 "COMPETTITION") · שגיאת כתיב של COMPETITION
+- ב מ וו גרמניה "PROFORMENC" (2 שמות, למשל M340IX 2021 "M PROFORMENC") · שגיאת כתיב של PROFORMANCE · לא בטוח
+- מרצדס בנץ הונג "COUPEM" (2 שמות, למשל CLA180 2019 "SPORT COUPEM") · נקטע, כנראה COUPE MATIC · לא בטוח
+- ב מ וו גרמניה "COMPTITON" (1 שמות, למשל M4 XDRIVE 2022 "M4 COMPTITON") · שגיאת כתיב של COMPETITION
+- טויוטה תאילנד "ADVANTURE" (1 שמות, למשל HILUX 2022 "DC ADVANTURE") · שגיאת כתיב של ADVENTURE
+- מרצדס בנץ אוסט "MANUFAKT" (1 שמות, למשל AMG G63 2023 "AMG MANUFAKT") · נקטע, כנראה MANUFAKTUR
+- ג'יפ ארהב" "EDTION" (3 שמות, למשל GLADIATOR 2022 "FIRST EDTION") · שגיאת כתיב של EDITION
+- מרצדס בנץ אוסט "AMGSTRONGRTT" (1 שמות, למשל G400 D 2020 "AMGSTRONGRTT") · שגיאת כתיב של AMGSTRONGRT · לא בטוח
+- מרצדס בנץ אוסט "GELANDEW" (1 שמות, למשל G350 D 2021 "AMG GELANDEW") · נקטע, כנראה GELANDEWAGE · לא בטוח
+- ג'יפ ארהב" "RESEV" (2 שמות, למשל GRAND CHEROKEE 2024 "SUMMIT RESEV") · שגיאת כתיב של RESERVE
+- ג'יפ ארהב" "WILLYSEXTREM" (3 שמות, למשל WRANGLER 2026 "WILLYSEXTREM") · נקטע, כנראה WILLYS EXTREME
+- ג'יפ ארהב" "RESRV" (1 שמות, למשל GRAND CHEROKEE 2024 "SUMMIT RESRV") · שגיאת כתיב של RESERVE · לא בטוח
+- ג'יפ ארהב" "SUMMITRESERV" (1 שמות, למשל GRAND CHEROKEE 2024 "SUMMITRESERV") · נקטע, כנראה SUMMIT RESERVE
+- ג'יפ ארהב" "RUBICONEXTRE" (3 שמות, למשל WRANGLER UNLIM 2026 "RUBICONEXTRE") · נקטע, כנראה RUBICON EXTREME
+- אאודי ספרד "COMFRT" (7 שמות, למשל A1 SPORTBACK 2025 "STYLE COMFRT") · שגיאת כתיב של COMFORT
+- פולקסווגן פולי "DELIV" (1 שמות, למשל CADDY MAXI 2013 "RTLINE DELIV") · נקטע, כנראה DELIVERY
+- הונדה יפן "VSA" (1 שמות, למשל ACCORD 2008 "EXECUTIV VSA") · שגיאת כתיב של VISIA · לא בטוח
+- טויוטה יפן "HYBI" (1 שמות, למשל CAMRY 2024 "COMFORT HYBI") · שגיאת כתיב של HYBRID · לא בטוח
+- דאצ'יה רומניה "ESENTIAL" (2 שמות, למשל SPRING 2023 "TOP ESENTIAL") · שגיאת כתיב של ESSENTIAL
+- טויוטה יפן "EDTION" (2 שמות, למשל LAND CRUISER 2025 "FIRST EDTION") · שגיאת כתיב של EDITION
+- טויוטה יפן "OZANA" (1 שמות, למשל RAV 4 2024 "ACTIVE OZANA") · שגיאת כתיב של OSAKA · לא בטוח
+- יונדאי ד. קורי "CAL" (2 שמות, למשל SANTA FE 2025 "ULTIMATE CAL") · נקטע, כנראה CALLIGRAPHY
+- למבורגיני איטל "PROFORMAN" (1 שמות, למשל URUS 2026 "SE PROFORMAN") · נקטע, כנראה PROFORMANCE
+- מיצובישי יפן "PANORAMICPLU" (1 שמות, למשל ASX 2024 "PANORAMICPLU") · נקטע, כנראה PANORAMIC PLUS
+- מרצדס בנץ גרמנ "MANUFAKT" (3 שמות, למשל AMG SL63 4M PLU 2024 "AMG MANUFAKT") · שגיאת כתיב של MANUFAKTUR
+- מזדה יפן "ANNIVER" (2 שמות, למשל MAZDA6 2024 "20TH ANNIVER") · שגיאת כתיב של ANNIV · לא בטוח
+- מרצדס בנץ גרמנ "LUXURYF" (1 שמות, למשל C220 D 2018 "TAXI LUXURYF") · נקטע, כנראה LUXURY FULL
+- מרצדס בנץ גרמנ "SIGNTURE" (1 שמות, למשל CLA250PLUS 2026 "AMG SIGNTURE") · שגיאת כתיב של SIGNATURE
+- מרצדס בנץ גרמנ "SIGNATUREAMG" (6 שמות, למשל CLA 250 PLUS 2026 "SIGNATUREAMG") · נקטע, כנראה SIGNATURE AMG LINE
+- מרצדס בנץ גרמנ "LIMOUSNE" (1 שמות, למשל E300 E 2021 "AMG LIMOUSNE") · שגיאת כתיב של LIMOUSINE
+- מרצדס בנץ גרמנ "LNE" (5 שמות, למשל E300E 2026 "PLAT AMG LNE") · שגיאת כתיב של LINE
+- מרצדס בנץ גרמנ "EXSLUSI" (3 שמות, למשל E350D 2019 "TAXI EXSLUSI") · שגיאת כתיב של EXCLUSIV · לא בטוח
+- מרצדס בנץ גרמנ "ARTAMG" (2 שמות, למשל EQE350 2025 "ELECT ARTAMG") · נקטע, כנראה ART AMG LINE · לא בטוח
+- מרצדס בנץ גרמנ "AMGLNE" (4 שמות, למשל EQE350 PLUS 2026 "ELART AMGLNE") · שגיאת כתיב של MGLINE · לא בטוח
+- מרצדס בנץ גרמנ "PROGRESSIVEP" (2 שמות, למשל GLA250E 2021 "PROGRESSIVEP") · נקטע, כנראה PROGRESSIVE PLUS
+- מרצדס בנץ גרמנ "AMGPLU" (5 שמות, למשל GLC300 E 4MATIC 2022 "COUPE AMGPLU") · נקטע, כנראה AMG PLUS · לא בטוח
+- מרצדס בנץ גרמנ "LINEAMG" (2 שמות, למשל GLC300E 4MATIC 2025 "PLAT LINEAMG") · נקטע, כנראה LINEAMGART
+- מרצדס בנץ גרמנ "PLUSAMG" (1 שמות, למשל S580 4MATIC 2026 "SIGN PLUSAMG") · נקטע, כנראה PLUS AMG LINE
+- מרצדס בנץ גרמנ "PLATINUMPAMG" (2 שמות, למשל S580 4MATIC 2023 "PLATINUMPAMG") · נקטע, כנראה PLATINUM PAMG LINE
+- סקודה צ'כיה "ELGNC" (1 שמות, למשל RAPID 2014 "CEBACK ELGNC") · שגיאת כתיב של ELEGANC
+- ב מ וו הולנד "WOR" (3 שמות, למשל MINI JKW 2025 "N COOPER WOR") · נקטע, כנראה WORKS
+- ב מ וו ארהב" "COMPETITON" (7 שמות, למשל X3M COMPETITION 2023 "M COMPETITON") · שגיאת כתיב של COMPETITION
+- ב מ וו ארהב" "VERMIL" (4 שמות, למשל X5 XDRIVE45E 2023 "BLACK VERMIL") · נקטע, כנראה VERMILION
+- ב מ וו ארהב" "COMPEITION" (2 שמות, למשל X6 M 2023 "M COMPEITION") · שגיאת כתיב של COMPETITION
+- ב מ וו ארהב" "PERFFORMENCE" (2 שמות, למשל X6 M50I 2022 "PERFFORMENCE") · שגיאת כתיב של PERFORMANCE
+- ב מ וו ארהב" "EXPERSSIVE" (1 שמות, למשל X6 XDRIVE30D 2025 "M EXPERSSIVE") · שגיאת כתיב של EXPRESSIVE
+- ב מ וו ארהב" "EXELLEN" (1 שמות, למשל X7 XDEIVE 40I 2022 "PURE EXELLEN") · נקטע, כנראה EXELLENCE
+- פולקסווגן גרמנ "BLACKEDITI" (1 שמות, למשל GOLF 2025 "R BLACKEDITI") · נקטע, כנראה BLACK EDITION
+- פורד ארהב" "BRONC" (1 שמות, למשל BRONCO 2026 "RAPTOR BRONC") · נקטע, כנראה BRONCO
+- פולקסווגן גרמנ "INTERAC" (3 שמות, למשל PASSAT 2017 "MIUM INTERAC") · נקטע, כנראה INTERACTIVE
+- פורשה גרמניה "EDTION" (1 שמות, למשל CAYMAN 2026 "STYLE EDTION") · שגיאת כתיב של EDITION
+- סיאט ספרד "BOCANE" (1 שמות, למשל IBIZA 2010 "CUPRA BOCANE") · נקטע, כנראה BOCANEGRA
+- פורשה גרמניה "BATT" (3 שמות, למשל TAYCAN 2024 "PERFORM BATT") · נקטע, כנראה BATTERY · לא בטוח
+- מרצדס בנץ ספרד "AVNTGRD" (2 שמות, למשל V KLASSE 2026 "V300 AVNTGRD") · שגיאת כתיב של AVANTGARD
+- פיאט פולין "CONVERTIBILE" (12 שמות, למשל FIAT 500 1.2 2014 "CONVERTIBILE") · שגיאת כתיב של CONVERTIBLE
+- סיטרואן צרפת "TURR" (2 שמות, למשל C5 2015 "COMFORT TURR") · שגיאת כתיב של TOURER · לא בטוח
+- מרצדס בנץ ארהב "SMODEL" (2 שמות, למשל AMG GLE63 S 2018 "COUPE SMODEL") · שגיאת כתיב של MODEL
+- מרצדס בנץ ארהב "AMGLINEPLATI" (2 שמות, למשל EQS580 4M SUV 2024 "AMGLINEPLATI") · נקטע, כנראה AMG LINE PLATINUM
+- מרצדס בנץ ארהב "AMGPLU" (2 שמות, למשל GLE 350D 4MATIC 2021 "COUPE AMGPLU") · נקטע, כנראה AMG PLUS · לא בטוח
+- מרצדס בנץ ארהב "EXSCLU" (4 שמות, למשל GLE350D  4MATIC 2018 "COUPE EXSCLU") · שגיאת כתיב של EXCLUS
+- מרצדס בנץ ארהב "PLUSCOUP" (2 שמות, למשל GLE350DE 4MATIC 2023 "AMG PLUSCOUP") · נקטע, כנראה PLUS COUPE · לא בטוח
+- מרצדס בנץ ארהב "CUPE" (2 שמות, למשל GLE450 4MATIC 2026 "AMG 450 CUPE") · שגיאת כתיב של COUPE
+- קאדילאק ארהב" "PREMUM" (3 שמות, למשל ESCALADE 2025 "SPORT PREMUM") · שגיאת כתיב של PREMIUM
+- מרצדס בנץ ארהב "PREMIUMAMGLI" (1 שמות, למשל GLE450 4MATIC 2025 "PREMIUMAMGLI") · נקטע, כנראה PREMIUM AMG LINE · לא בטוח
+- מרצדס בנץ ארהב "ADVPL" (1 שמות, למשל GLE450D 4M COUP 2026 "AMGLNE ADVPL") · נקטע, כנראה ADV PLUS · לא בטוח
+- קאדילאק ארהב" "PLATNM" (1 שמות, למשל ESCALADE SP PLT 2021 "SPORT PLATNM") · שגיאת כתיב של PLATINUM
+- קרייזלר ארהב" "RICON" (1 שמות, למשל WRANGLER UNLIM 2022 "XTREME RICON") · שגיאת כתיב של RUBICON
+- סמארט צרפת "XCLUS" (5 שמות, למשל FORTWO 2015 "BARBUS XCLUS") · שגיאת כתיב של EXCLUS · לא בטוח
+- סמארט צרפת "FLET" (1 שמות, למשל FORTWO 2012 "FASSION FLET") · שגיאת כתיב של FLEET
+- רובר אנגליה "AUTOBIOGRAPY" (2 שמות, למשל R ROVER SPORT 2025 "AUTOBIOGRAPY") · שגיאת כתיב של AUTOBIOGRAPHY
+- רובר אנגליה "AUTOBIOGRAFY" (2 שמות, למשל R ROVER SPORT 2025 "AUTOBIOGRAFY") · שגיאת כתיב של AUTOBIOGRAPHY
+- רובר אנגליה "AUTBIOGRAPHY" (3 שמות, למשל R ROVER SPORT 2024 "AUTBIOGRAPHY") · שגיאת כתיב של AUTOBIOGRAPHY
+- רובר אנגליה "CUPE" (1 שמות, למשל R ROVER EVOQUE 2015 "RESTIGE CUPE") · שגיאת כתיב של COUPE
+- רובר אנגליה "AUTOBIOGRPHY" (2 שמות, למשל RANGE ROVER 2025 "AUTOBIOGRPHY") · שגיאת כתיב של AUTOBIOGRAPHY
+- רובר אנגליה "AUTOBIOGRATH" (1 שמות, למשל R ROVER SPORT 2023 "AUTOBIOGRATH") · שגיאת כתיב של AUTOBIOGRAPHY
+- שברולט ארהב" "STINGRAYCOUP" (1 שמות, למשל CORVETTE STINGR 2024 "STINGRAYCOUP") · נקטע, כנראה STINGRAY COUPE
+- שברולט ארהב" "STINGRAR" (1 שמות, למשל CORVETTE STINGR 2026 "LT1 STINGRAR") · שגיאת כתיב של STINGRAY
+- אאודי הונגריה "CMFORT" (2 שמות, למשל Q3 2024 "SLINE CMFORT") · שגיאת כתיב של COMFORT
+- לנדרובר אנגליה "AUTOBIOGRPHY" (4 שמות, למשל R ROVER SPORT 2026 "AUTOBIOGRPHY") · שגיאת כתיב של AUTOBIOGRAPHY
+- לנדרובר אנגליה "AUTOBIOGAPHY" (1 שמות, למשל R ROVER SPORT 2026 "AUTOBIOGAPHY") · שגיאת כתיב של AUTOBIOGRAPHY
+- לנדרובר אנגליה "BEONZE" (2 שמות, למשל R.ROVER EVOQUE 2025 "S 200 BEONZE") · שגיאת כתיב של BRONZE
+- לנדרובר אנגליה "AUTBIOGRAPHY" (1 שמות, למשל R ROVER SPORT 2026 "AUTBIOGRAPHY") · שגיאת כתיב של AUTOBIOGRAPHY
+- לנדרובר אנגליה "AUTOBIOGRAPY" (2 שמות, למשל R ROVER SPORT 2026 "AUTOBIOGRAPY") · שגיאת כתיב של AUTOBIOGRAPHY
+- לנדרובר סלובקי "DYNMAIC" (1 שמות, למשל DEFENDER 2026 "X SE DYNMAIC") · שגיאת כתיב של DYNAMIC
+- לנדרובר אנגליה "AUTOBIOGRAFY" (1 שמות, למשל RANGE ROVER 2026 "AUTOBIOGRAFY") · שגיאת כתיב של AUTOBIOGRAPHY
+- לנדרובר סלובקי "DYNMIC" (2 שמות, למשל DEFENDER 2023 "110 X DYNMIC") · שגיאת כתיב של DYNAMIC
+- ב מ וו מקסיקו "COMPETTION" (2 שמות, למשל M2 2026 "M COMPETTION") · שגיאת כתיב של COMPETITION
+- זיקר סין "PERFORMANCEY" (2 שמות, למשל ZEEKR 001 2025 "PERFORMANCEY") · שגיאת כתיב של PERFORMANCE
+- פורשה סלובקיה "COUPEELECTRI" (1 שמות, למשל CAYENNE S 2026 "COUPEELECTRI") · נקטע, כנראה COUPE ELECTRIC
+- ב מ וו ארהב" "EXCELLANCE" (1 שמות, למשל X7 XDRIVE40D 2026 "P EXCELLANCE") · שגיאת כתיב של EXCELLENCE
+
+## שמות גימור: צריך עין (118)
+
+- אאודי גרמניה "CARBONEDITON" (2 שמות, למשל RS E TRON GT 2022 "CARBONEDITON") · שגיאת כתיב של CARBON EDITION · לא עבר: not a whole word of the register: CARBON EDITION
+- אאודי גרמניה "PRMTEC" (3 שמות, למשל A3 SPORTBACK 2024 "SLINE PRMTEC") · נקטע, כנראה PREMIUM TECH · לא עבר: does not start with the cut letters PRMTEC
+- אאודי גרמניה "TPACK" (3 שמות, למשל Q4 SBACK40ETRON 2024 "S LINE TPACK") · נקטע, כנראה S LINE TPACK · לא עבר: does not start with the cut letters TPACK
+- אאודי סלובקיה "LIMITD" (4 שמות, למשל Q7 2024 "SLINE LIMITD") · נקטע, כנראה LIMITED · לא עבר: does not start with the cut letters LIMITD
+- אאודי סלובקיה "ATRAC" (4 שמות, למשל Q7 2024 "LIMITD ATRAC") · נקטע, כנראה ATRACTION · לא עבר: not whole words of the register: ATRACTION
+- אאודי סלובקיה "LUXSLI" (1 שמות, למשל Q8 2022 "50TDI LUXSLI") · נקטע, כנראה LUXS LINE · לא עבר: not whole words of the register: LUXS
+- ב מ וו גרמניה "PROW" (2 שמות, למשל 430I 2023 "M-SPORT PROW") · נקטע, כנראה PROFESSIONAL · לא עבר: does not start with the cut letters PROW
+- ב מ וו גרמניה "MSPORTSHADOW" (1 שמות, למשל 430I 2024 "MSPORTSHADOW") · נקטע, כנראה MSPORTSHADOWEDITION · לא עבר: not whole words of the register: MSPORTSHADOWEDITION
+- ב מ וו גרמניה "GCOU" (2 שמות, למשל 840I 2023 "FL MSUP GCOU") · נקטע, כנראה GCOUP · לא עבר: not whole words of the register: GCOUP
+- ב מ וו גרמניה "EXCELEN" (1 שמות, למשל 750LI 2016 "PURE EXCELEN") · נקטע, כנראה EXCELLENCE · לא עבר: does not start with the cut letters EXCELEN
+- ב מ וו גרמניה "COMPETETIO" (1 שמות, למשל M2 COMPETETION 2021 "M COMPETETIO") · נקטע, כנראה COMPETITION · לא עבר: does not start with the cut letters COMPETETIO
+- ב מ וו גרמניה "COMPCABRI" (1 שמות, למשל M4 COMPETITION 2026 "M4 COMPCABRI") · נקטע, כנראה COMPETITION CABRIO · לא עבר: does not start with the cut letters COMPCABRI
+- ב מ וו גרמניה "COMPETIOTI" (1 שמות, למשל M4 COMPETITION 2025 "M COMPETIOTI") · נקטע, כנראה COMPETITION · לא עבר: does not start with the cut letters COMPETIOTI
+- ב מ וו גרמניה "CARBONXDRIVE" (1 שמות, למשל M4 COMPETITION 2022 "CARBONXDRIVE") · נקטע, כנראה CARBON XDRIVE · לא עבר: does not start with the cut letters CARBONXDRIVE
+- מרצדס בנץ הונג "EXECTPL" (1 שמות, למשל C200D 2020 "TAXI EXECTPL") · שגיאת כתיב של EXECUTIVE · לא עבר: too far from the word for a misspelling
+- מרצדס בנץ הונג "LINEPLUS" (1 שמות, למשל CLA250 E 2022 "AMG LINEPLUS") · נקטע, כנראה LINE PLUS · לא עבר: does not start with the cut letters LINEPLUS
+- מרצדס בנץ אוסט "AMGSUPRIORNT" (1 שמות, למשל G450D 2025 "AMGSUPRIORNT") · שגיאת כתיב של AMGSUPERIORNT · לא עבר: not a whole word of the register: AMGSUPERIORNT
+- ג'יפ ארהב" "RSRV" (1 שמות, למשל GRAND CHEROKEE 2026 "L SUMIT RSRV") · נקטע, כנראה RESERVE · לא עבר: does not start with the cut letters RSRV
+- יונדאי צ'כיה "PLUSFL" (2 שמות, למשל TUCSON 2019 "PRIME PLUSFL") · נקטע, כנראה PLUS FLAIR · לא עבר: not whole words of the register: FLAIR
+- ג'יפ ארהב" "OBSIDN" (1 שמות, למשל GRAND WAGONER L 2026 "SUMIT OBSIDN") · שגיאת כתיב של OBSIDIAN · לא עבר: not a whole word of the register: OBSIDIAN
+- ג'יפ ארהב" "RICO" (2 שמות, למשל WRANGLER UNLIM 2023 "EXTREME RICO") · נקטע, כנראה EXTREME RICON · לא עבר: does not start with the cut letters RICO
+- אודי מקסיקו "TPACK" (2 שמות, למשל Q5 2018 "LUXURY TPACK") · נקטע, כנראה TPACK · לא עבר: does not start with the cut letters TPACK
+- אודי מקסיקו "BKPREMIUM" (3 שמות, למשל SQ5 SPORTBACK 2023 "SP BKPREMIUM") · נקטע, כנראה BK PREMIUM PLUS · לא עבר: not whole words of the register: BK
+- הונדה אנגליה "CHAMP" (2 שמות, למשל CIVIC 2010 "TYPE R CHAMP") · נקטע, כנראה CHAMPIONSHIP WHITE · לא עבר: not whole words of the register: CHAMPIONSHIP
+- וולבו שבדיה "COUNTR" (1 שמות, למשל V60 B5P 2020 "CROSS COUNTR") · נקטע, כנראה COUNTRY · לא עבר: not whole words of the register: COUNTRY
+- וולבו שבדיה "DRK" (1 שמות, למשל XC90 T8 2023 "ULTIMATE DRK") · נקטע, כנראה ULTIMATE DARK · לא עבר: does not start with the cut letters DRK
+- וולבו בלגיה "RECHRGE" (2 שמות, למשל C40 PUR ELECTRI 2024 "PLUS RECHRGE") · נקטע, כנראה RECHARGE · לא עבר: does not start with the cut letters RECHRGE
+- טויוטה יפן "SKYM" (1 שמות, למשל LAND CRUISER 2026 "LIMITED SKYM") · שגיאת כתיב של SKYVIEW · לא עבר: too far from the word for a misspelling
+- לקסוס יפן "FSPORTHANDLI" (1 שמות, למשל LX700H 2026 "FSPORTHANDLI") · נקטע, כנראה FSPORTHANDLING · לא עבר: not whole words of the register: FSPORTHANDLING
+- טויוטה אנגליה "SKAY" (2 שמות, למשל AURIS HYBRID 2018 "TS ED-S SKAY") · נקטע, כנראה SKYLINE · לא עבר: does not start with the cut letters SKAY
+- למבורגיני איטל "PERS" (1 שמות, למשל REVUELTO 2026 "NA63 AD PERS") · נקטע, כנראה PERSONALIZATION · לא עבר: not whole words of the register: PERSONALIZATION
+- טויוטה יפן "HYRI" (2 שמות, למשל RAV4 2026 "COMFORT HYRI") · נקטע, כנראה HYBRID · לא עבר: does not start with the cut letters HYRI
+- מזדה יפן "ANNIVE" (4 שמות, למשל MAZDA 3 2021 "100TH ANNIVE") · נקטע, כנראה ANNIV · לא עבר: does not start with the cut letters ANNIVE
+- יונדאי ד. קורי "CONVENIE" (2 שמות, למשל SANTA FE PHEV 2023 "SEL CONVENIE") · נקטע, כנראה CONVENIENCE · לא עבר: not whole words of the register: CONVENIENCE
+- יונדאי ד. קורי "BLACKEDITION" (3 שמות, למשל GENESIS  GV80 2025 "BLACKEDITION") · נקטע, כנראה BLACK EDITION · לא עבר: does not start with the cut letters BLACKEDITION
+- מרצדס בנץ גרמנ "NIGHTEDITION" (3 שמות, למשל AMG C43 2018 "NIGHTEDITION") · נקטע, כנראה NIGHT EDITION · לא עבר: does not start with the cut letters NIGHTEDITION
+- מרצדס בנץ גרמנ "PRMAMGLINEFL" (2 שמות, למשל A250 E 2024 "PRMAMGLINEFL") · נקטע, כנראה PRMAMGLINEFLEX · לא עבר: not whole words of the register: PRMAMGLINEFLEX
+- מרצדס בנץ גרמנ "EDPLUS" (2 שמות, למשל AMG GLC43 2019 "COUPE EDPLUS") · נקטע, כנראה EDPLUS EDITION · לא עבר: not whole words of the register: EDPLUS
+- מרצדס בנץ גרמנ "PREPLUS" (2 שמות, למשל C220D 2021 "TAXI PREPLUS") · נקטע, כנראה PREMIUM PLUS · לא עבר: does not start with the cut letters PREPLUS
+- מרצדס בנץ גרמנ "AVANTGARDFLT" (7 שמות, למשל C180 2019 "AVANTGARDFLT") · נקטע, כנראה AVANTGARDE FLEET · לא עבר: does not start with the cut letters AVANTGARDFLT
+- מרצדס בנץ גרמנ "GRANDEDITION" (2 שמות, למשל CL500 2014 "GRANDEDITION") · נקטע, כנראה GRAND EDITION · לא עבר: does not start with the cut letters GRANDEDITION
+- מרצדס בנץ גרמנ "PREMIUMAMGLI" (1 שמות, למשל CLE200 2025 "PREMIUMAMGLI") · נקטע, כנראה PREMIUMAMGLINE · לא עבר: not whole words of the register: PREMIUMAMGLINE
+- מרצדס בנץ גרמנ "EXSLUCI" (5 שמות, למשל E220D 2018 "TAXI EXSLUCI") · שגיאת כתיב של EXSPRESS · לא עבר: too far from the word for a misspelling
+- מרצדס בנץ גרמנ "EDITIONE" (3 שמות, למשל E300E 2021 "AMG EDITIONE") · נקטע, כנראה EDITIONE · לא עבר: does not start with the cut letters EDITIONE
+- מרצדס בנץ גרמנ "PREMPLUS" (3 שמות, למשל CLE300 4MATIC 2025 "AMG PREMPLUS") · נקטע, כנראה PREMIUM PLUS · לא עבר: does not start with the cut letters PREMPLUS
+- מרצדס בנץ גרמנ "TXS" (1 שמות, למשל EQS450 2022 "PLATINUM TXS") · נקטע, כנראה TXS · לא עבר: does not start with the cut letters TXS
+- מרצדס בנץ גרמנ "PLATINPLUAMG" (2 שמות, למשל EQS450 PLUS 2023 "PLATINPLUAMG") · שגיאת כתיב של PLATINUMAMG · לא עבר: too far from the word for a misspelling
+- מרצדס בנץ גרמנ "ELECTART" (1 שמות, למשל EQE300 2025 "AMG ELECTART") · נקטע, כנראה ELECTART AMG · לא עבר: not whole words of the register: ELECTART
+- מרצדס בנץ גרמנ "EXCLUSIVEPLU" (4 שמות, למשל GLA200 2024 "EXCLUSIVEPLU") · נקטע, כנראה EXCLUSIVEPLUS · לא עבר: not whole words of the register: EXCLUSIVEPLUS
+- מרצדס בנץ גרמנ "FLTLIN" (3 שמות, למשל GLC 250 4MATIC 2020 "COUPE FLTLIN") · נקטע, כנראה FLTLINE · לא עבר: not whole words of the register: FLTLINE
+- מרצדס בנץ גרמנ "EXSCLU" (2 שמות, למשל GLC 250 4MATIC 2018 "COUPE EXSCLU") · שגיאת כתיב של EXCLUSIVE · לא עבר: too far from the word for a misspelling
+- מרצדס בנץ גרמנ "FLTFL" (2 שמות, למשל GLC200 2020 "PREMIU FLTFL") · נקטע, כנראה FLTFLOOR · לא עבר: not whole words of the register: FLTFLOOR
+- מרצדס בנץ גרמנ "DEI" (2 שמות, למשל GLC300DE 4MATIC 2023 "PREIMIUM DEI") · נקטע, כנראה DEISEL · לא עבר: not whole words of the register: DEISEL
+- מרצדס בנץ גרמנ "PLATINUMPLUS" (5 שמות, למשל GLC300 E 4MATIC 2023 "PLATINUMPLUS") · נקטע, כנראה PLATINUM PLUS · לא עבר: does not start with the cut letters PLATINUMPLUS
+- מרצדס בנץ גרמנ "LONGPLATINUM" (2 שמות, למשל S350 D 2023 "LONGPLATINUM") · נקטע, כנראה LONG PLATINUM · לא עבר: does not start with the cut letters LONGPLATINUM
+- מרצדס בנץ גרמנ "SGNTRPLUSAMG" (1 שמות, למשל S580 4MATIC 2026 "SGNTRPLUSAMG") · נקטע, כנראה SGNTR PLUS AMG LINE · לא עבר: not whole words of the register: SGNTR
+- מרצדס בנץ גרמנ "AMGLFL" (2 שמות, למשל S500 4MATIC 2026 "SIGPL AMGLFL") · נקטע, כנראה AMGLINE FLOOR · לא עבר: does not start with the cut letters AMGLFL
+- מרצדס בנץ גרמנ "PLATIPLUSAMG" (1 שמות, למשל S580 4MATIC 2025 "PLATIPLUSAMG") · נקטע, כנראה PLATINUM PLUS AMG LINE · לא עבר: does not start with the cut letters PLATIPLUSAMG
+- מרצדס בנץ גרמנ "AMGFL" (2 שמות, למשל S580E 4MATIC 2026 "SIGNAT AMGFL") · נקטע, כנראה AMGFLEET · לא עבר: not whole words of the register: AMGFLEET
+- מרצדס בנץ גרמנ "MAYBACHULTPL" (1 שמות, למשל S580 MAYBACH 2022 "MAYBACHULTPL") · נקטע, כנראה MAYBACH ULTRA PLUS · לא עבר: does not start with the cut letters MAYBACHULTPL
+- מרצדס בנץ גרמנ "PLATPLUSAMGL" (2 שמות, למשל S580 E 2023 "PLATPLUSAMGL") · נקטע, כנראה PLATPLUSAMGLINE · לא עבר: not whole words of the register: PLATPLUSAMGLINE
+- טויוטה צרפת "SKYTSS" (3 שמות, למשל YARIS HYBRID 2019 "BLACK SKYTSS") · נקטע, כנראה SKY TSS · לא עבר: does not start with the cut letters SKYTSS
+- סקודה צ'כיה "KLEMNT" (3 שמות, למשל OCTAVIA 2002 "LORIN KLEMNT") · נקטע, כנראה LORIN KLEMENT · לא עבר: does not start with the cut letters KLEMNT
+- סקודה צ'כיה "KLEMENT" (2 שמות, למשל SUPERB 2020 "URIN KLEMENT") · נקטע, כנראה KLEMENTINE · לא עבר: not whole words of the register: KLEMENTINE
+- פולקסווגן מקסי "MOB" (2 שמות, למשל JETTA 2015 "RENDLINE MOB") · נקטע, כנראה MOBILE · לא עבר: not whole words of the register: MOBILE
+- ב מ וו ארהב" "MPERFORMANCE" (10 שמות, למשל X6 2026 "MPERFORMANCE") · נקטע, כנראה M PERFORMANCE · לא עבר: does not start with the cut letters MPERFORMANCE
+- ב מ וו ארהב" "LINESUPERIOR" (2 שמות, למשל X5 XDRIVE 40I 2021 "LINESUPERIOR") · נקטע, כנראה LINE SUPERIOR · לא עבר: does not start with the cut letters LINESUPERIOR
+- ב מ וו ארהב" "MPREFORMANCE" (1 שמות, למשל X6 M60I 2024 "MPREFORMANCE") · נקטע, כנראה M PERFORMANCE · לא עבר: does not start with the cut letters MPREFORMANCE
+- ב מ וו ארהב" "PORTSUPERIOR" (1 שמות, למשל X6 XDRIVE 40I 2024 "PORTSUPERIOR") · נקטע, כנראה M SPORT SUPERIOR · לא עבר: does not start with the cut letters PORTSUPERIOR
+- ב מ וו ארהב" "PROEXPRSVE" (1 שמות, למשל X6 M60I 2025 "M PROEXPRSVE") · שגיאת כתיב של PROGRESSIVE · לא עבר: too far from the word for a misspelling
+- ב מ וו ארהב" "XCELLENPUREM" (1 שמות, למשל X7 2023 "XCELLENPUREM") · נקטע, כנראה XCELLENCE PURE M · לא עבר: does not start with the cut letters XCELLENPUREM
+- פולקסווגן גרמנ "ROCK" (3 שמות, למשל AMAROK D.CAB 2015 "IGHLINE ROCK") · נקטע, כנראה ROCKSTAR · לא עבר: not whole words of the register: ROCKSTAR
+- פולקסווגן גרמנ "SPEICA" (1 שמות, למשל GOLF 2008 "TREND SPEICA") · נקטע, כנראה SPEICAL EDITION · לא עבר: not whole words of the register: SPEICAL
+- פולקסווגן גרמנ "NCL" (1 שמות, למשל TIGUAN 2010 "SPOR ST. NCL") · נקטע, כנראה SPORT STYLE NCL · לא עבר: does not start with the cut letters NCL
+- פולקסווגן גרמנ "INTER" (2 שמות, למשל PASSAT 2018 "REMIUM INTER") · נקטע, כנראה PREMIUM WINTER · לא עבר: does not start with the cut letters INTER
+- פולקסווגן גרמנ "PRFORMN" (2 שמות, למשל ID4 2023 "PURE PRFORMN") · נקטע, כנראה PURE PERFORMANCE · לא עבר: does not start with the cut letters PRFORMN
+- פולקסווגן גרמנ "SRE" (2 שמות, למשל TIGUAN 2009 "COMFORTL SRE") · שגיאת כתיב של SPORT · לא עבר: too far from the word for a misspelling
+- פורד ארהב" "SAS" (1 שמות, למשל BRONCO 2026 "BADLANDS SAS") · נקטע, כנראה SASQUATCH · לא עבר: not whole words of the register: SASQUATCH
+- פורשה גרמניה "CABARIO" (1 שמות, למשל CARRERA 911 2025 "92.2 CABARIO") · נקטע, כנראה CABRIOLET · לא עבר: does not start with the cut letters CABARIO
+- פורשה גרמניה "EDITIONSTYLE" (1 שמות, למשל 718 BOXTER 2024 "EDITIONSTYLE") · נקטע, כנראה EDITION STYLE · לא עבר: does not start with the cut letters EDITIONSTYLE
+- פורשה גרמניה "PERFORMNC" (1 שמות, למשל TAYCAN 2025 "OP PERFORMNC") · נקטע, כנראה PERFORMANCE · לא עבר: does not start with the cut letters PERFORMNC
+- פורשה גרמניה "PERFORMNS" (2 שמות, למשל TAYCAN 2025 "OP PERFORMNS") · נקטע, כנראה PERFORMNS · לא עבר: does not start with the cut letters PERFORMNS
+- פורשה גרמניה "HOCKENHEIMRI" (1 שמות, למשל TAYCAN GTS 2023 "HOCKENHEIMRI") · נקטע, כנראה HOCKENHEIMRING · לא עבר: not whole words of the register: HOCKENHEIMRING
+- פיאט איטליה "CORPIONISIMA" (2 שמות, למשל ABART 500E 2024 "CORPIONISIMA") · נקטע, כנראה SCORPIONISSIMA · לא עבר: does not start with the cut letters CORPIONISIMA
+- פולקסווגן ארהב "RLINETECH" (2 שמות, למשל ATLAS 2021 "SE RLINETECH") · נקטע, כנראה R LINE TECH · לא עבר: does not start with the cut letters RLINETECH
+- מרצדס בנץ ספרד "TOUERBAS" (1 שמות, למשל VITO 2017 "114 TOUERBAS") · שגיאת כתיב של TOURER · לא עבר: too far from the word for a misspelling
+- מרצדס בנץ ספרד "PRODC" (4 שמות, למשל VITO TOURER 2026 "A3 116 PRODC") · נקטע, כנראה PRODC · לא עבר: does not start with the cut letters PRODC
+- מרצדס בנץ ארהב "AMGLPLATINUM" (3 שמות, למשל EQS580 4M SUV 2025 "AMGLPLATINUM") · נקטע, כנראה AMGLINE PLATINUM · לא עבר: does not start with the cut letters AMGLPLATINUM
+- מרצדס בנץ ארהב "UTILIT" (2 שמות, למשל GLE350 2022 "SPORT UTILIT") · נקטע, כנראה UTILITY · לא עבר: not whole words of the register: UTILITY
+- מרצדס בנץ ארהב "EXCLUSIVEFLT" (8 שמות, למשל GLE 300D 4MATIC 2021 "EXCLUSIVEFLT") · נקטע, כנראה EXCLUSIVE FLEET · לא עבר: does not start with the cut letters EXCLUSIVEFLT
+- מרצדס בנץ ארהב "AMGFLT" (3 שמות, למשל GLE 350D 4MATIC 2020 "COUPE AMGFLT") · נקטע, כנראה AMGFLTRCOUPE · לא עבר: not whole words of the register: AMGFLTRCOUPE
+- קאדילאק ארהב" "SPT" (1 שמות, למשל ESCALADE 2026 "PLATINUM SPT") · נקטע, כנראה PLATINUM SPORT · לא עבר: does not start with the cut letters SPT
+- קאדילאק ארהב" "PRELUXPLTINU" (2 שמות, למשל ESCALADE 2022 "PRELUXPLTINU") · נקטע, כנראה PRELUXPLTINUM · לא עבר: not whole words of the register: PRELUXPLTINUM
+- קאדילאק ארהב" "LUXR" (2 שמות, למשל VISTIQ 2026 "PREMIUM LUXR") · נקטע, כנראה LUXURY · לא עבר: does not start with the cut letters LUXR
+- קאדילאק ארהב" "PREMSPORTEXC" (1 שמות, למשל ESCALADE IQL 2026 "PREMSPORTEXC") · נקטע, כנראה PREMSPORTEXCLUSIVE · לא עבר: not whole words of the register: PREMSPORTEXCLUSIVE
+- יונדאי טורקיה "PLUSFL" (4 שמות, למשל I10 2024 "PRIME PLUSFL") · נקטע, כנראה PLUS FLEX · לא עבר: not whole words of the register: FLEX
+- קרייזלר ארהב" "AIRS" (1 שמות, למשל GRAND CHEROKEE 2011 "LIMITED AIRS") · נקטע, כנראה AIR SUSPENSION · לא עבר: not whole words of the register: SUSPENSION
+- קרייזלר ארהב" "RESRV" (1 שמות, למשל GRAND CHEROKEE 2022 "SUMMIT RESRV") · נקטע, כנראה RESERVE · לא עבר: does not start with the cut letters RESRV
+- סמארט צרפת "ADVANS" (2 שמות, למשל EQ FORFOUR 2021 "PULSE ADVANS") · נקטע, כנראה ADVANCED · לא עבר: does not start with the cut letters ADVANS
+- ב מ וו אוסטריה "MPERFORMANCE" (3 שמות, למשל Z4 M40I 2026 "MPERFORMANCE") · נקטע, כנראה M PERFORMANCE · לא עבר: does not start with the cut letters MPERFORMANCE
+- סמארט צרפת "ORA" (2 שמות, למשל FORFOUR 2017 "LEDITION ORA") · נקטע, כנראה ORANGE · לא עבר: not whole words of the register: ORANGE
+- רובר אנגליה "SURERCHARGED" (1 שמות, למשל R.ROVER SPORT 2009 "SURERCHARGED") · שגיאת כתיב של SUPERCHARGED · לא עבר: not a whole word of the register: SUPERCHARGED
+- רובר אנגליה "PRESTIGECUPE" (5 שמות, למשל R.ROVER EVOQUE 2015 "PRESTIGECUPE") · שגיאת כתיב של PRESTIGE COUPE · לא עבר: not a whole word of the register: PRESTIGE COUPE
+- רובר אנגליה "AUTOBIOGRGAP" (1 שמות, למשל RANGE ROVER 2019 "AUTOBIOGRGAP") · נקטע, כנראה AUTOBIOGRAPHY · לא עבר: does not start with the cut letters AUTOBIOGRGAP
+- רובר אנגליה "AUTOBIOGRHAP" (2 שמות, למשל RANGE ROVER 2020 "AUTOBIOGRHAP") · נקטע, כנראה AUTOBIOGRAPHY · לא עבר: does not start with the cut letters AUTOBIOGRHAP
+- פורשה סלובקיה "OPM" (1 שמות, למשל CAYENNE 2019 "COUPE V6 OPM") · נקטע, כנראה OPMODE · לא עבר: not whole words of the register: OPMODE
+- פורשה סלובקיה "PLUGIN" (2 שמות, למשל CAYENNE 2020 "COUPE PLUGIN") · נקטע, כנראה PLUGIN HYBRID · לא עבר: not whole words of the register: PLUGIN
+- אאודי הונגריה "COMPT" (3 שמות, למשל TT COUPE 2021 "DESIGN COMPT") · נקטע, כנראה COMPETITION · לא עבר: does not start with the cut letters COMPT
+- לנדרובר אנגליה "AUTOBY" (2 שמות, למשל R ROVER SPORT 2026 "P550E AUTOBY") · שגיאת כתיב של AUTOBIOGRAPHY · לא עבר: too far from the word for a misspelling
+- אאודי הונגריה "CPMPET" (3 שמות, למשל TT COUPE 2021 "SLINE CPMPET") · נקטע, כנראה COMPETITION · לא עבר: does not start with the cut letters CPMPET
+- פורשה סלובקיה "PLIN" (2 שמות, למשל CAYENNE EHYBRID 2020 "CAYENNE PLIN") · נקטע, כנראה PLIN · לא עבר: does not start with the cut letters PLIN
+- לנדרובר אנגליה "BPSR" (1 שמות, למשל R.ROVER EVOQUE 2023 "200SERD BPSR") · נקטע, כנראה BPSR · לא עבר: does not start with the cut letters BPSR
+- לנדרובר אנגליה "UOTUBIGRAPHY" (1 שמות, למשל RANGE R VOGUE 2026 "UOTUBIGRAPHY") · שגיאת כתיב של AUTOBIOGRAPHY · לא עבר: too far from the word for a misspelling
+- לנדרובר סלובקי "SEDYNAMICHSE" (1 שמות, למשל DEFENDER 2026 "SEDYNAMICHSE") · נקטע, כנראה SEDYNAMICHSE · לא עבר: does not start with the cut letters SEDYNAMICHSE
+- לנדרובר סלובקי "GEMINIED" (1 שמות, למשל DISCOVERY 2026 "360 GEMINIED") · נקטע, כנראה GEMINIEDITION · לא עבר: not whole words of the register: GEMINIEDITION
+- לנדרובר סלובקי "DAP" (1 שמות, למשל DEFENDER 110 2026 "D250S SR DAP") · נקטע, כנראה DAPPLED GREY · לא עבר: not whole words of the register: DAPPLED, GREY
+- ב מ וו מקסיקו "XDRIVECMPERF" (1 שמות, למשל M240IXDRIVECOUP 2026 "XDRIVECMPERF") · נקטע, כנראה XDRIVE CMPERF · לא עבר: does not start with the cut letters XDRIVECMPERF
+- מרצדס בנץ ארהב "FLELAMGLP" (1 שמות, למשל GLE450D 4MATIC 2026 "CP FLELAMGLP") · נקטע, כנראה FLELAMGLINE · לא עבר: does not start with the cut letters FLELAMGLP
+
+## שמות גימור: שלמים כמו שהם (139)
+
+- אאודי גרמניה "SPORTEDITION" (4 שמות, למשל A3 2017 "SPORTEDITION") · שלם
+- אאודי גרמניה "SYCAMOREGREY" (1 שמות, למשל A8 2015 "SYCAMOREGREY") · שלם · לא בטוח
+- אאודי גרמניה "VERMONTBROWN" (2 שמות, למשל S8 PLUS 2017 "VERMONTBROWN") · שלם · לא בטוח
+- אאודי סלובקיה "SPDESIGN" (2 שמות, למשל Q7 2015 "LUX SPDESIGN") · שלם
+- אאודי סלובקיה "BLACKEDITION" (1 שמות, למשל RSQ8 2025 "BLACKEDITION") · שלם
+- אלפא רומיאו_אי "QUADRIFOGLIO" (17 שמות, למשל ALFA GIULIETTA 2014 "QUADRIFOGLIO") · שלם
+- ב מ וו אנגליה "MOSS" (2 שמות, למשל JOHN COOPER WOR 2024 "JCW PAT MOSS") · שלם
+- אלפא רומיאו_אי "FIRSTEDITION" (3 שמות, למשל STELVIO 2019 "FIRSTEDITION") · שלם
+- ב מ וו אנגליה "WORKS" (3 שמות, למשל COOPER S 2021 "DESIGN WORKS") · שלם
+- אלפא רומיאו_אי "COMPETIZIONE" (8 שמות, למשל ALFA GIULIETTA 2018 "COMPETIZIONE") · שלם
+- אלפא רומיאו_אי "CLASSICOPLUS" (3 שמות, למשל ALFA ROMEO 159 2011 "CLASSICOPLUS") · שלם
+- ב מ וו גרמניה "PROFESSION" (2 שמות, למשל I4 EDRIVE 40 2023 "M PROFESSION") · שלם · לא בטוח
+- ב מ וו גרמניה "MCOMPETITION" (7 שמות, למשל M3 COMPXDRIVE 2026 "MCOMPETITION") · שלם · לא בטוח
+- ב מ וו גרמניה "SPORTEDITION" (1 שמות, למשל IX XDRIVE 40 2023 "SPORTEDITION") · שלם · לא בטוח
+- ב מ וו גרמניה "MSPORTDESIGN" (1 שמות, למשל IX1 XDRIVE30 2023 "MSPORTDESIGN") · שלם · לא בטוח
+- ב מ וו גרמניה "LCI" (2 שמות, למשל M3 COMPETITION 2026 "COMPETIT LCI") · שלם
+- ב מ וו גרמניה "KOONS" (2 שמות, למשל M850I XDRIVE 2023 "X JEFF KOONS") · שלם
+- מרצדס בנץ הונג "PWT" (4 שמות, למשל A250 2022 "AMG LINE PWT") · שלם
+- מרצדס בנץ אוסט "GELANDEWAGEN" (34 שמות, למשל AMG G 63 2026 "GELANDEWAGEN") · שלם
+- מרצדס בנץ אוסט "PACKLINE" (2 שמות, למשל G450D 2026 "AMG PACKLINE") · שלם
+- מרצדס בנץ הונג "DST" (2 שמות, למשל CLA250 E 2021 "AMG PLUS DST") · שלם · לא בטוח
+- מרצדס בנץ אוסט "SUPERIORLINE" (3 שמות, למשל AMG G63 2025 "SUPERIORLINE") · שלם
+- ג'י.אמ.סי ארה "SPORTUTILITY" (1 שמות, למשל HUMMER EV 3X 2025 "SPORTUTILITY") · שלם · לא בטוח
+- ג'יפ ארהב" "ALTITUDEPLUS" (2 שמות, למשל GRAND CHEROKE L 2024 "ALTITUDEPLUS") · שלם · לא בטוח
+- ג'יפ ארהב" "EXTREMERECON" (1 שמות, למשל WRANGLER UNLIM 2022 "EXTREMERECON") · שלם · לא בטוח
+- פורד מקסיקו "ECOBOOST" (2 שמות, למשל LINCOLN MKZ 2016 "ITE ECOBOOST") · שלם
+- דודג' קנדה "SCATPACKWIDE" (2 שמות, למשל CHALLENGER 2022 "SCATPACKWIDE") · שלם
+- דודג' קנדה "BLACKTOP" (1 שמות, למשל CHALLENGER 2022 "SXT BLACKTOP") · שלם
+- הונדה ארהב" "BLACKEDITION" (1 שמות, למשל ODYSSEY 2026 "BLACKEDITION") · שלם
+- אאודי ספרד "EXTERIOR" (1 שמות, למשל Q3 2012 "INE EXTERIOR") · שלם
+- וולבו שבדיה "CROSSCOUNTRY" (3 שמות, למשל V60CC B5 2022 "CROSSCOUNTRY") · שלם
+- וולבו שבדיה "DIPLOMAT" (1 שמות, למשל XC60 RECHARGET8 2022 "S B DIPLOMAT") · שלם
+- לקסוס יפן "SPORTUTILITY" (1 שמות, למשל LX 570 2020 "SPORTUTILITY") · שלם · לא בטוח
+- טויוטה יפן "FIRSTEDITION" (3 שמות, למשל LAND CRUISER 2026 "FIRSTEDITION") · שלם · לא בטוח
+- טויוטה יפן "BUSINESSPLUS" (2 שמות, למשל RAV4 2025 "BUSINESSPLUS") · שלם
+- קאדילאק מקסיקו "PREMIUMSPORT" (1 שמות, למשל OPTIQ 2026 "PREMIUMSPORT") · שלם
+- טויוטה קנדה "EXCLUSIVESKY" (1 שמות, למשל RAV 4 2026 "EXCLUSIVESKY") · שלם · לא בטוח
+- טויוטה אנגליה "BSNS" (2 שמות, למשל COROLLA 2025 "COMFORT BSNS") · שלם
+- טויוטה ארהב" "PLUSPLUS" (2 שמות, למשל SIENNA 2023 "XLE PLUSPLUS") · שלם
+- יונדאי ד. קורי "TURBOSUPREME" (4 שמות, למשל VELOSTER 2015 "TURBOSUPREME") · שלם · לא בטוח
+- טויוטה מקסיקו "DOUBLECAB" (1 שמות, למשל TACOMA SR5 2022 "R5 DOUBLECAB") · שלם
+- מזדה יפן "SPORTCOMFORT" (3 שמות, למשל MAZDA 3 2012 "SPORTCOMFORT") · שלם
+- מרצדס בנץ גרמנ "RCG" (1 שמות, למשל AMG C43 4MATIC 2026 "C43AMG T RCG") · שלם · לא בטוח
+- מרצדס בנץ גרמנ "AMGLINE" (18 שמות, למשל C220D 2026 "TAXI AMGLINE") · שלם
+- מרצדס בנץ גרמנ "EXCPLUS" (6 שמות, למשל C200D 2022 "TAXI EXCPLUS") · שלם · לא בטוח
+- מרצדס בנץ גרמנ "ELITEAMGLINE" (1 שמות, למשל CLE300 4MATIC 2026 "ELITEAMGLINE") · שלם
+- מרצדס בנץ גרמנ "SPORTEDITION" (9 שמות, למשל E200 2021 "SPORTEDITION") · שלם
+- מרצדס בנץ גרמנ "AMGSPORTPLUS" (2 שמות, למשל E250 2017 "AMGSPORTPLUS") · שלם
+- מרצדס בנץ גרמנ "ELECTRICPLUS" (1 שמות, למשל EQA250 2022 "ELECTRICPLUS") · שלם · לא בטוח
+- מרצדס בנץ גרמנ "LINEAMGELITE" (1 שמות, למשל EQE350 4M 2026 "LINEAMGELITE") · שלם
+- מרצדס בנץ גרמנ "SPORTSTOURER" (2 שמות, למשל EQC 400 4 MATIC 2020 "SPORTSTOURER") · שלם
+- מרצדס בנץ גרמנ "EVP" (1 שמות, למשל EQS450 PLUS 2023 "PLATINUM EVP") · שלם · לא בטוח
+- מרצדס בנץ גרמנ "AMGFLT" (2 שמות, למשל GLC 250 4MATIC 2019 "COUPE AMGFLT") · שלם · לא בטוח
+- מרצדס בנץ גרמנ "AVN" (2 שמות, למשל GLC200 4MATIC 2024 "PLATINUM AVN") · שלם · לא בטוח
+- מרצדס בנץ גרמנ "AMGEXCLUSIVE" (1 שמות, למשל S350D 2025 "AMGEXCLUSIVE") · שלם · לא בטוח
+- מרצדס בנץ גרמנ "PLP" (1 שמות, למשל S580 4M LONG 2023 "AMG LINE PLP") · שלם · לא בטוח
+- מרצדס בנץ גרמנ "SIGPLAMG" (1 שמות, למשל S580 4MATIC 2026 "LNG SIGPLAMG") · שלם · לא בטוח
+- מרצדס בנץ גרמנ "PLATPLUS" (2 שמות, למשל S580 E 2023 "AMG PLATPLUS") · שלם · לא בטוח
+- ניסאן אנגליה "UNIQUE" (4 שמות, למשל JUKE 2019 "TEKNA UNIQUE") · שלם
+- ניסאן אנגליה "SHADE" (2 שמות, למשל QASHQAI 2026 "ACENTA SHADE") · שלם
+- סובארו יפן "EYESIGHT" (16 שמות, למשל B4 2019 "NEW EYESIGHT") · שלם
+- מרצדס בנץ גרמנ "MIGLIA" (2 שמות, למשל SL400 2016 "MILLE MIGLIA") · שלם
+- טויוטה צרפת "BITONE" (1 שמות, למשל YARIS CROSS HSD 2026 "URBAN BITONE") · שלם
+- ניסאן יפן "RESRV" (1 שמות, למשל ARMADA 2026 "PLATNM RESRV") · שלם · לא בטוח
+- רנו ד. קוריאה "PARIS" (2 שמות, למשל KOLEOS 2021 "ITIALE PARIS") · שלם
+- סקודה צ'כיה "FRANCE" (1 שמות, למשל FABIA 2006 "TO DE FRANCE") · שלם
+- ב מ וו ארהב" "XDRIVEMSPORT" (1 שמות, למשל X5 XDRIVE 25D 2023 "XDRIVEMSPORT") · שלם · לא בטוח
+- ב מ וו ארהב" "MCOMPETITION" (11 שמות, למשל X6 2023 "MCOMPETITION") · שלם
+- ב מ וו ארהב" "IPERSUPERIER" (2 שמות, למשל X5 XDRIVE 45E 2022 "IPERSUPERIER") · שלם · לא בטוח
+- פולקסווגן מקסי "MTL" (1 שמות, למשל JETTA 2008 "TRENDLIN MTL") · שלם
+- פולקסווגן גרמנ "ROK" (1 שמות, למשל AMAROK 2016 "HIGHLINE ROK") · שלם · לא בטוח
+- ב מ וו ארהב" "EXCELLA" (1 שמות, למשל X7 XDRIVE 40D 2022 "PURE EXCELLA") · שלם · לא בטוח
+- פולקסווגן גרמנ "CALIFORNIA" (1 שמות, למשל CRAFTER 2022 "G CALIFORNIA") · שלם
+- פולקסווגן גרמנ "BLACKEDITION" (1 שמות, למשל GOLF 2025 "BLACKEDITION") · שלם · לא בטוח
+- פולקסווגן גרמנ "WLD" (1 שמות, למשל AMAROK 2016 "HIGHLINE WLD") · שלם
+- פולקסווגן גרמנ "TOPSPORT" (2 שמות, למשל ID5 2023 "PRO TOPSPORT") · שלם
+- פולקסווגן גרמנ "TRENDLINESRF" (1 שמות, למשל GOLF 2005 "TRENDLINESRF") · שלם · לא בטוח
+- פולקסווגן גרמנ "SFR" (6 שמות, למשל GOLF 2009 "TRENDLIN SFR") · שלם
+- פולקסווגן גרמנ "PANAMERICANA" (1 שמות, למשל TRANSPORTER 2008 "PANAMERICANA") · שלם
+- פורד ארהב" "ECOBOOST" (1 שמות, למשל MUSTANG 2024 "PRM ECOBOOST") · שלם
+- פורד ארהב" "RAPTORSERIES" (1 שמות, למשל BRONCO 2026 "RAPTORSERIES") · שלם · לא בטוח
+- פורד ארהב" "BLACKEDITION" (2 שמות, למשל EXPLORER 2023 "BLACKEDITION") · שלם · לא בטוח
+- פורשה גרמניה "STYLEEDITION" (3 שמות, למשל 718 BOXSTER 2026 "STYLEEDITION") · שלם · לא בטוח
+- פורשה גרמניה "BATTERY" (2 שמות, למשל TAYCAN 2025 "PERF BATTERY") · שלם · לא בטוח
+- פורשה גרמניה "BLACKEDITION" (2 שמות, למשל TAYCAN 2026 "BLACKEDITION") · שלם · לא בטוח
+- סיאט ספרד "BICOLOR" (3 שמות, למשל ARONA 2019 "TYLE BICOLOR") · שלם
+- סיאט ספרד "BUCKET" (7 שמות, למשל LEON 2019 "CUPRA BUCKET") · שלם
+- שברולט ד.קוריא "PTY" (1 שמות, למשל TRAIL BLAZER 2021 "ACTIV Z- PTY") · שלם · לא בטוח
+- סיאט ספרד "PRABOCANEGRA" (2 שמות, למשל IBIZA 2012 "PRABOCANEGRA") · שלם · לא בטוח
+- פיאט פולין "COMPETIZIONE" (16 שמות, למשל 500 ABARTH 2018 "COMPETIZIONE") · שלם
+- פולקסווגן ארהב "RLINE" (7 שמות, למשל ATLAS 2023 "ECLINE RLINE") · שלם
+- פיאט פולין "FERRARI" (3 שמות, למשל FIAT 500 1.4 2012 "BUTO FERRARI") · שלם
+- מרצדס בנץ ספרד "AVGTAXI" (2 שמות, למשל V CLASS 2026 "V300 AVGTAXI") · שלם
+- פיאט פולין "MASERATI" (2 שמות, למשל FIAT 500 ABARTH 2014 "695 MASERATI") · שלם
+- מרצדס בנץ ספרד "TOURERSELECT" (4 שמות, למשל VITO 2019 "TOURERSELECT") · שלם
+- סיטרואן צרפת "ZENIT" (1 שמות, למשל C3 2011 "CMF PK ZENIT") · שלם · לא בטוח
+- סיטרואן צרפת "PKFL" (3 שמות, למשל C3 2015 "COMFORT PKFL") · שלם · לא בטוח
+- מרצדס בנץ ארהב "AMGLINE" (5 שמות, למשל GLE450 4MATIC 2026 "PREM AMGLINE") · שלם
+- מרצדס בנץ ארהב "ELITEAMGLINE" (1 שמות, למשל GLE450 4MATIC 2026 "ELITEAMGLINE") · שלם
+- טויוטה טורקיה "PLUSLED" (3 שמות, למשל C-HR HYBRIB 2021 "CHIC PLUSLED") · שלם
+- קאדילאק ארהב" "ESV" (4 שמות, למשל ESCALADE 2023 "PLATINUM ESV") · שלם
+- טויוטה טורקיה "LUXURYJBL" (2 שמות, למשל C-HR HYBRID 2020 "LE LUXURYJBL") · שלם · לא בטוח
+- קאדילאק ארהב" "EXONYX" (1 שמות, למשל ESCALADE IQ 2026 "PR SP EXONYX") · שלם
+- קאדילאק ארהב" "PREMIUMSPORT" (2 שמות, למשל ESCALADE IQ 2026 "PREMIUMSPORT") · שלם
+- קאדילאק ארהב" "ELEGANCEPLUS" (1 שמות, למשל STS 2006 "ELEGANCEPLUS") · שלם · לא בטוח
+- יונדאי טורקיה "CROSSINSPIRE" (3 שמות, למשל I20 2018 "CROSSINSPIRE") · שלם · לא בטוח
+- קרייזלר ארהב" "DIESEL" (1 שמות, למשל GLADIATOR 2022 "RLAND DIESEL") · שלם
+- יונדאי טורקיה "CROSSPREMIUM" (3 שמות, למשל I20 2018 "CROSSPREMIUM") · שלם
+- קרייזלר קנדה "PACIFICA" (4 שמות, למשל GRAND CARAVAN 2024 "SXT PACIFICA") · שלם
+- קרייזלר ארהב" "BEACHEDITION" (2 שמות, למשל JEEP WARANGLER 2023 "BEACHEDITION") · שלם · לא בטוח
+- ב מ וו אוסטריה "LCI" (1 שמות, למשל Z4 SDRIVE 20I 2023 "M DESIGN LCI") · שלם
+- קרייזלר ארהב" "EAGLE" (2 שמות, למשל WRANGLER 2019 "GOLDEN EAGLE") · שלם
+- ב מ וו אוסטריה "IMPULSE" (1 שמות, למשל Z4 M40I 2025 "PURE IMPULSE") · שלם
+- סמארט צרפת "SPORTEDITION" (2 שמות, למשל FORFOUR 2018 "SPORTEDITION") · שלם · לא בטוח
+- סמארט צרפת "ORANGE" (2 שמות, למשל FORTWO 2012 "NIGHT ORANGE") · שלם
+- רנו ספרד "PSR" (1 שמות, למשל MEGANE 2015 "PRESSION PSR") · שלם · לא בטוח
+- רובר אנגליה "FIRSTEDITION" (2 שמות, למשל R ROVER EVOQUE 2020 "FIRSTEDITION") · שלם
+- רנו צרפת "ALPINE" (1 שמות, למשל SCENIC E-TECH 2025 "SPRIT ALPINE") · שלם · לא בטוח
+- רובר אנגליה "SEATS" (2 שמות, למשל DISCOVRY SPORT 2021 "PLUS 5 SEATS") · שלם
+- רובר אנגליה "SUPERCHARGED" (1 שמות, למשל RENGE ROVER 2009 "SUPERCHARGED") · שלם
+- רובר אנגליה "RDYNAMIC" (4 שמות, למשל R ROVER SPORT 2023 "HSE RDYNAMIC") · שלם
+- שברולט ארהב" "COUNTRY" (18 שמות, למשל SUBURBAN 2026 "HIGH COUNTRY") · שלם
+- סמארט סלובניה "ADVANS" (1 שמות, למשל EQ FORFOUR 2022 "PULSE ADVANS") · שלם · לא בטוח
+- אאודי הונגריה "SPORTEDITION" (2 שמות, למשל A3 2017 "SPORTEDITION") · שלם · לא בטוח
+- פורשה סלובקיה "BLACKEDITION" (1 שמות, למשל CAYENNE E-HYBRI 2026 "BLACKEDITION") · שלם · לא בטוח
+- פורשה סלובקיה "EDT" (1 שמות, למשל CAYENNE EHYBRID 2023 "PLATINUM EDT") · שלם · לא בטוח
+- לנדרובר אנגליה "DYNHSE" (1 שמות, למשל R ROVER SPORT 2026 "P460E DYNHSE") · שלם
+- לנדרובר אנגליה "SESR" (1 שמות, למשל R.ROVER EVOQUE 2025 "160 DYN SESR") · שלם · לא בטוח
+- לנדרובר אנגליה "EBP" (1 שמות, למשל RANGE R.SPORT 2026 "D300 DSE EBP") · שלם
+- לנדרובר אנגליה "DHBP" (4 שמות, למשל RANGE R. SPORT 2025 "PHEV460 DHBP") · שלם
+- לנדרובר סלובקי "UTILITAIRE" (1 שמות, למשל DEFENDER 2026 "S UTILITAIRE") · שלם · לא בטוח
+- לנדרובר סלובקי "SRWIND" (1 שמות, למשל DEFENDER 110 2026 "D250S SRWIND") · שלם
+- לנדרובר סלובקי "METROPOLITAN" (2 שמות, למשל DISCOVERY 2026 "METROPOLITAN") · שלם
+- לנדרובר סלובקי "SRBP" (3 שמות, למשל DEFENDER 110 2026 "XDSE250 SRBP") · שלם
+- אקספנג סין "BLACKEDITION" (4 שמות, למשל G6 2026 "BLACKEDITION") · שלם
+- קופרה ספרד "MATRIX" (2 שמות, למשל CUPRA LEON 2026 ".LEON MATRIX") · שלם
+- קופרה סין "ADRENALIN" (2 שמות, למשל TAVASCAN 2025 "VZ ADRENALIN") · שלם
+- ב מ וו מקסיקו "CARBONXDRIVE" (1 שמות, למשל M2 2026 "CARBONXDRIVE") · שלם · לא בטוח
+- אוואטר סין "ROYALEDITION" (2 שמות, למשל AVATR11 2026 "ROYALEDITION") · שלם · לא בטוח
+
