@@ -1,0 +1,1237 @@
+{
+ "v": 5,
+ "month": "2026-11",
+ "used": {
+  "first": 775,
+  "second": 11
+ },
+ "shots": {
+  "api31/320-f130__dark__alerts__tour-alerts": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-14T08:05:57.762Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "overlap",
+      "part": 1,
+      "where": "bottom navigation bar, the bell icon of the התראות tab",
+      "text": "התראות",
+      "what": "The notification badge \"1\" sits on the bell icon; this is a normal badge and not a defect, so no issue here.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/320-f130__dark__car__check-check": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-14T08:05:57.762Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/320-f130__dark__cars__tour-cars": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-14T08:05:57.762Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "overlap",
+      "part": 1,
+      "where": "the bottom navigation bar, the notification badge on the bell icon of 'התראות' tab",
+      "text": "1",
+      "what": "The red notification badge covers the bell icon; per the rules a badge on an icon's corner is not a defect, so this is not reported.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/320-f130__dark__home-settings__tour-settings": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-14T08:05:57.762Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/320-f130__dark__home__tour-home": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-14T08:05:57.762Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/360-f130__light__alerts__tour-alerts": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/360-f130__light__car__check-check": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/360-f130__light__cars__tour-cars": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "cut_text",
+      "part": 1,
+      "where": "the car table's column header at the top-left of the card, beside the רכב column",
+      "text": "טיפול",
+      "what": "The header word for the last column is split over two lines as \"טיפ\" and \"אחו\" in a narrow column at the card's left edge, so the word looks broken and partly hidden.",
+      "severity": "medium",
+      "confidence": "medium"
+     }
+    ]
+   },
+   "second": {
+    "issues": [
+     {
+      "kind": "cut_text",
+      "part": 1,
+      "where": "the car table's column header at the card's left edge, last column",
+      "text": "טיפ אחו",
+      "what": "The last column header is squeezed to the card's left edge and shows \"טיפ\" over \"אחו\". The second word looks truncated (probably \"אחזקה\" or similar), so the header is clipped.",
+      "severity": "medium",
+      "since": "2026-11-09"
+     },
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the top of the white table card, above the divider line",
+      "text": "",
+      "what": "A large empty area sits at the top of the card above the divider and the column headers, where a title or content should be.",
+      "severity": "low",
+      "since": "2026-11-13"
+     }
+    ],
+    "rejected": 0,
+    "at": "2026-11-13T08:54:30.675Z"
+   },
+   "seen": "2026-11-14"
+  },
+  "api31/360-f130__light__home-settings__tour-settings": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/360-f130__light__home__tour-home": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "second card in the top list, its title",
+      "text": "יש לכם כבר רכב? פתחו לו תיק",
+      "what": "At 130% font size the title wraps so that the single word \"תיק\" sits alone on its own line, leaving an awkward gap and an unbalanced title block next to the icon.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-extra__auto-dark": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-14T08:05:57.762Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the plate input row, the field under the yellow plate, its right side",
+      "text": "",
+      "what": "The yellow plate input shows the placeholder-like value '76-543-21' in dim yellow on yellow, low contrast, but this is the typed value; the Israel flag column on the left looks fine. No clear defect beyond low contrast of the plate digits.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "other",
+      "part": 1,
+      "where": "the recent checks card below the header, the plate chip '12-345-67'",
+      "text": "12-345-67",
+      "what": "The recent-check card is narrow and sits on the right side of its row, while the section title 'בדיקות אחרונות' is right aligned above it; the card does not span the width like the cards above, leaving an odd empty area on the left, which looks like a layout inconsistency.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-extra__auto-light": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-14T08:05:57.762Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "typo",
+      "part": 1,
+      "where": "the plate input field, the Israeli plate's blue strip area and the field's clear-text icon",
+      "text": "",
+      "what": "The main plate input shows the placeholder-like value 76-543-21 in dim yellow text; this is typed-looking text in a field with an empty-looking style, low-contrast against the yellow plate background. Likely readable but dim.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "other",
+      "part": 1,
+      "where": "the 'בדיקות אחרונות' recent-checks card",
+      "text": "12-345-67",
+      "what": "The recent-check card is narrower and offset to the left of the section, not aligned with the full-width cards above it; its plate sits in a small card that leaves the right side of the section looking unbalanced.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-extra__auto-live-dark": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "rtl",
+      "part": 1,
+      "where": "the plate input's country strip on the left of the yellow plate field",
+      "text": "IL ישראל",
+      "what": "The country label sits in a blue strip at the left edge; this is fine. No defect here on closer look.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "other",
+      "part": 1,
+      "where": "the recent checks card, the plate tile 12-345-67",
+      "text": "12-345-67",
+      "what": "The recent-check card is placed at the right edge while its section header and other cards align to the right; the single card sits on its own with empty space to its left, which looks like a misaligned row.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-extra__entry__alert-cold-offline": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-14T08:05:57.762Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-extra__entry__alert-owner": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-extra__entry__alert-recall": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-extra__entry__alert-test": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-extra__entry__app-link": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-extra__entry__compare-link": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "typo",
+      "part": 1,
+      "where": "the section label above the Save and Kept buttons, near the bottom of the white card",
+      "text": "ברכבים שלי",
+      "what": "The label reads \"ברכבים שלי\" with a stray ב prefix, while the bottom navigation calls the same section \"הרכבים שלי\". It looks like a wrong word or a broken prefix, though the intended wording is not fully certain.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-extra__entry__share-text": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-extra__entry__shortcut-compare": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-extra__entry__shortcut-saved": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "rtl",
+      "part": 1,
+      "where": "the car card, the chevron to the left of the plate",
+      "text": "",
+      "what": "The chevron points left (<), which is the correct direction for opening an item in right-to-left layout, so this is not a defect; no issue reported here.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-extra__keyboard": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-extra__landscape": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-extra__launch-dark-early": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-f100__dark__car__check-check": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-f100__dark__cars__check-to-cars": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the top of the large table card, above the column headers",
+      "text": "",
+      "what": "The card has a tall empty band between its top edge and the column headers (טסט, רכב, ריקול, טיפול אחרון), with no visible content, so it looks like a missing element or header.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-f100__dark__home__check-arrow": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-f100__light__alerts__tour-alerts": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "typo",
+      "part": 1,
+      "where": "the alerts card's description paragraph",
+      "text": "מוסיפים רכב לפי מספר הרישוי שלו, או בכוכב שבראש הדוח של רכב שבודקים, ומכאן רואים ריקול פתוח וטסט שמתקרב, ומקבלים התראה לטלפון.",
+      "what": "The paragraph reads awkwardly with a likely wrong word: 'בכוכב' (with a star) is odd here, and the sentence is ungrammatical in its connection of 'ומכאן רואים... ומקבלים'; a word appears wrong, but the exact intended word is unclear, so this is only a low-confidence wording problem.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-f100__light__car__check-check": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-f100__light__cars__tour-cars": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "rtl",
+      "part": 1,
+      "where": "the empty-state card, the body paragraph below the card header",
+      "text": "מוסיפים רכב לפי מספר הרישוי שלו, או בכוכב שבראש הדוח של רכב שבודקים. מכאן נתריע על ריקול חדש ועל טסט שמתקרב, ואפשר להשוות בין הרכבים.",
+      "what": "The paragraph's last line ends with a comma after 'ואפשר להשוות בין הרכבים' and the sentence reads as a mixed line; the comma placement at the line end is mostly fine, so this is low confidence and may be a typo-like wording issue: 'בכוכב שבראש' reads oddly, likely meant 'בכוכב'. Low confidence only",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-f100__light__home-settings__tour-settings": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-f100__light__home__tour-home": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-f100__light__sub__tools-market": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the period card under the year chips, the 2022 chip on the second row",
+      "text": "2022",
+      "what": "The year chip 2022 wraps alone onto its own line below 2023, 2024, 2025 and 2026 (עד אוק׳), leaving a lone control on a row with empty space beside it, which looks like an unintended wrap.",
+      "severity": "low",
+      "confidence": "medium"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-f200__light__alerts__tour-alerts": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-f200__light__car__check-check": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the top action row, under the star and share icons",
+      "text": "שיתוף",
+      "what": "The label \"שיתוף\" sits under the star and share icons, offset to the left of them, so it looks misaligned with the icon group it labels. Low confidence.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "overlap",
+      "part": 1,
+      "where": "the tab row in the card below the red recall card, the red badge before \"ריקולים\"",
+      "text": "ריקולים",
+      "what": "The red count badge \"1\" sits very close to or touching the word \"ריקולים\", so the two look crowded together. Low confidence.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-f200__light__cars__tour-cars": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-f200__light__home-settings__tour-settings": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the settings bottom sheet, the 'תצוגה' card's 'צריכת דלק' segmented control",
+      "text": "ליטר ל-100 ק״מ",
+      "what": "The fuel consumption options are stacked as two full-width rows, but the 'ק״מ לליטר' option looks like a separate row with no clear selected state beyond the top one; the control reads as two stacked buttons with uneven padding, a minor layout oddity, not clearly broken.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "cut_text",
+      "part": 1,
+      "where": "the settings bottom sheet, the 'החראוה' heading at the bottom edge",
+      "text": "החראוה",
+      "what": "The heading at the very bottom is cut by the navigation bar area and the content below it is not visible; the word appears to be a partly visible heading ('החראוה' looks like a misspelling of 'החראה' or similar), and the sheet continues below the visible area.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/411-f200__light__home__tour-home": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/320-f130__dark__alerts__tour-alerts": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/320-f130__dark__car__check-check": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/320-f130__dark__cars__tour-cars": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/320-f130__dark__home-settings__tour-settings": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "cut_text",
+      "part": 1,
+      "where": "the background segmented control under the heading רקע, left segment",
+      "text": "לפי המכשיר",
+      "what": "The label 'לפי המכשיר' sits very close to the left edge of its segment and may be clipped at 130% font size. Looks tight rather than clearly cut, so check the edge.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/320-f130__dark__home__tour-home": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/360-f130__light__alerts__tour-alerts": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/360-f130__light__car__check-check": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/360-f130__light__cars__tour-cars": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "cut_text",
+      "part": 1,
+      "where": "the table header row of the car card, at the left edge of the card",
+      "text": "טיפ אחו",
+      "what": "The last column header, which should read \"טיפול אחרון\", is wrapped and clipped at the left edge of the card, so the word endings are cut off and it reads as \"טיפ\" and \"אחו\".",
+      "severity": "medium",
+      "confidence": "medium"
+     }
+    ]
+   },
+   "second": {
+    "issues": [
+     {
+      "kind": "cut_text",
+      "part": 1,
+      "where": "table header row of the car card, last column at the left edge",
+      "text": "טיפ אחו",
+      "what": "The column header for the last-service column wraps to two lines and shows only \"טיפ\" and \"אחו\". The endings of the words (\"טיפול אחרון\") are cut off at the card's left edge, so the header cannot be read in full.",
+      "severity": "medium",
+      "since": "2026-11-09"
+     },
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "top of the white table card, above the divider line and header row",
+      "text": "",
+      "what": "A large empty white area sits at the top of the card above the divider line, with no content, so the card looks like it is missing a title or content.",
+      "severity": "low",
+      "since": "2026-11-13"
+     }
+    ],
+    "rejected": 0,
+    "at": "2026-11-13T08:54:30.675Z"
+   },
+   "seen": "2026-11-14"
+  },
+  "api35/360-f130__light__home-settings__tour-settings": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/360-f130__light__home__tour-home": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "cut_text",
+      "part": 1,
+      "where": "the first summary card under the header, its subtitle line",
+      "text": "ריקול פתוח: רכב המשפחה · 2 ר...",
+      "what": "The subtitle of the recall card is cut at the card's text edge, so the end of the word is hidden; a shortened line ending in an ellipsis is fine, but here the text is clipped mid-word at the edge of the card.",
+      "severity": "medium",
+      "confidence": "medium"
+     },
+     {
+      "kind": "cut_text",
+      "part": 1,
+      "where": "the 'recent checks' card showing the work car, its caption",
+      "text": "הרכב של העבודה ע...",
+      "what": "The caption under the plate 76-543-21 is cut off mid-word at the card's edge rather than ending cleanly.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the second summary card, its title split across lines",
+      "text": "יש לכם כבר רכב? פתחו לו תיק",
+      "what": "The title wraps so that the single word 'תיק' sits alone on its own line, leaving an awkward ragged break in the card title.",
+      "severity": "low",
+      "confidence": "medium"
+     },
+     {
+      "kind": "overlap",
+      "part": 1,
+      "where": "the bottom navigation bar, the notification icon",
+      "text": "3",
+      "what": "The notification badge with the number 3 sits on the bell icon; this is a badge and is acceptable, so no defect.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": {
+    "issues": [],
+    "rejected": 1,
+    "notes": [
+     {
+      "claim": "The subtitle of the recall card is cut at the card's text edge, so the end of the word is hidden; a shortened line ending in an ellipsis is fine, but here the t",
+      "why": "The line ends in a clear ellipsis, which is deliberate truncation and not a defect. No letter is drawn partly at the edge."
+     }
+    ],
+    "at": "2026-11-13T08:54:30.675Z"
+   },
+   "seen": "2026-11-14"
+  },
+  "api35/360-f130__light__sub-compareSheet__compare-compare": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the description paragraph under the search field",
+      "text": "",
+      "what": "The paragraph is cramped against the search field's focus ring and the text is fine, but the sentence 'טעות כתיב קטנה לא מפריעה' and the quoted examples wrap awkwardly; the quote marks around \"tucson\" and \"SUV\" appear reversed relative to the Hebrew sentence, placing punctuation at the wrong end. Lo",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-13"
+  },
+  "api35/411-extra__entry__shortcut-compare": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the search input at the top of the compare-car screen",
+      "text": "",
+      "what": "The placeholder text 'שם דגם או מספר רישוי' is fully visible; no cut text here. Nothing defective found in the input itself.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "other",
+      "part": 1,
+      "where": "the row of suggested car makes below 'יצרנים נפוצים', the bottom row of cards partly under the keyboard",
+      "text": "",
+      "what": "The third row of make chips is cut by the keyboard area and the row below it is only partly visible; this is content scrolling under the keyboard, which is not a defect.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-extra__entry__shortcut-saved": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-14T08:05:57.762Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-f100__dark__car__check-check": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-f100__dark__cars__check-to-cars": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-14T08:05:57.762Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the top of the table card, between the card's top edge and the divider line above the column headers",
+      "text": "",
+      "what": "The table card has a large empty band at its top, about 60 px tall, with no content, before the divider line and the column headers. It looks like a missing header, chart or summary that should be there.",
+      "severity": "low",
+      "confidence": "medium"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-f100__dark__home__check-arrow": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-14T08:05:57.762Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-f100__light__alerts__tour-alerts": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": [],
+    "misread": 1
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-f100__light__car__check-check": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-f100__light__cars__tour-cars": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-f100__light__home-settings__tour-settings": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-f100__light__home__tour-home": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-f100__light__sub__tools-market": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the period chips under the 'לפי שנה' segmented control, second line",
+      "text": "2022",
+      "what": "The 2022 chip sits alone on its own line below the 2023, 2024, 2025 and 2026 chips, which share the first row. It looks like a dropped control rather than an intentional arrangement.",
+      "severity": "low",
+      "confidence": "medium"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-f200__light__alerts__tour-alerts": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-14T08:05:57.762Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-f200__light__car__check-check": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-14T08:05:57.762Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-f200__light__cars__tour-cars": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-14T08:05:57.762Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the subtitle line under the page title",
+      "text": "רכב אחד ● אחד צריך תשומת לב",
+      "what": "The subtitle line is crowded: the red dot sits between words, so 'רכב אחד' and 'אחד צריך תשומת לב' read as run together with a stray dot; the separator spacing looks broken.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "overlap",
+      "part": 1,
+      "where": "the notification bell icon in the bottom navigation bar",
+      "text": "",
+      "what": "The red notification badge sits on the bell icon's corner; this is an allowed badge, so it is not reported as overlap. Left out.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-f200__light__home-settings__tour-settings": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-14T08:05:57.762Z",
+   "first": {
+    "issues": [],
+    "misread": 1
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-f200__light__home__tour-home": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-14T08:05:57.762Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "contrast",
+      "part": 1,
+      "where": "the plate input field, the digits in the yellow Israeli plate",
+      "text": "76-543-21",
+      "what": "The typed plate digits are a muted olive-brown on the yellow plate background, which looks lower contrast than the rest of the screen's text. It may be intended styling, so it is only a possible readability issue.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api31/360-f130__light__sub-compareSheet__compare-compare": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-14T08:05:57.762Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "cut_text",
+      "part": 1,
+      "where": "the search input, placeholder text",
+      "text": "שם דגם או מספר רישוי",
+      "what": "The placeholder text is clipped at the start of the field; the input's example text appears to run to the left edge of its box with no visible padding, though it reads fully. Low concern, possibly tight but legible.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "typo",
+      "part": 1,
+      "where": "the explanatory paragraph under the search field",
+      "text": "טעות כתיב קטנה לא מפריעה. אפשר גם סוג ותקציב: \"SUV חשמלי עד 250 אלף\".",
+      "what": "The paragraph reads 'טעות כתיב קטנה לא מפריעה' with a stray space and an unclear 'סוג ותקציב' phrasing; the sentence structure is awkward but not clearly a defect. Low confidence.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-extra__auto-dark": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the plate input row, the blue search button to the left of the yellow plate field",
+      "text": "",
+      "what": "The blue search button is a light blue square with a dark magnifier icon, lower contrast than the rest of the dark UI, but readable; no clear defect here.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "rtl",
+      "part": 1,
+      "where": "the disclaimer paragraph at the bottom of the main content",
+      "text": "data.gov.il",
+      "what": "The paragraph reads right to left and the link text 'data.gov.il' sits mid-sentence; the trailing period after the link appears correctly placed, so no clear RTL defect.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-extra__auto-light": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "contrast",
+      "part": 1,
+      "where": "the plate input field in the search header",
+      "text": "76-543-21",
+      "what": "The typed plate digits are grey-olive on the yellow plate background, which is low contrast and hard to read compared with the rest of the plate, though the digits remain visible.",
+      "severity": "medium",
+      "confidence": "low"
+     },
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the bottom of the page above the bottom navigation bar",
+      "text": "",
+      "what": "The disclaimer text block ends with a line that is fine, but the page content sits close to the bottom navigation; no clear defect beyond spacing.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-extra__auto-live-dark": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "contrast",
+      "part": 1,
+      "where": "the plate input in the header, the large plate digits in the yellow field",
+      "text": "76-543-21",
+      "what": "The typed plate digits are a muted olive-gold on the yellow field, so they look dimmer and harder to read than the rest of the screen. This may be intended as a placeholder-style tone, but it reads as low contrast.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-extra__entry__alert-cold-offline": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-extra__entry__alert-owner": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-extra__entry__alert-recall": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-extra__entry__alert-test": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-extra__entry__app-link": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the car card's header, the 'השוואה' button beside the car name",
+      "text": "השוואה",
+      "what": "The 'השוואה' button sits at the top left of the car card, and the car name is pushed to the right, which is acceptable; no defect here.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-extra__entry__compare-link": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "typo",
+      "part": 1,
+      "where": "the section label above the two buttons at the bottom of the white card",
+      "text": "ברכבים שלי",
+      "what": "The label reads 'ברכבים שלי', which is an unusual phrasing next to the 'הרכבים שלי' tab in the bottom bar. It may be a missing letter or a wording slip, but the word is not fully clear at this size.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-extra__entry__share-text": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-extra__keyboard": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the plate input row at the top, the plate field's clipboard icon at its right edge",
+      "text": "",
+      "what": "The plate input shows 76-543-21 but the number is positioned oddly, with the plate's text not centred; the blue search button and input are fine. Minor: the plate sits right of the Israel strip with unequal spacing. Low-impact; included for review.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-extra__launch-dark-early": {
+   "code": "6bba56d69c39.0488b1df9f0e",
+   "at": "2026-11-13T08:54:30.675Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-14"
+  },
+  "api35/411-f100__light__sub-compareSheet__compare-compare": {
+   "code": "d701fd37530a.1549b478ca94",
+   "at": "2026-11-11T08:27:44.395Z",
+   "first": {
+    "issues": [],
+    "misread": 1
+   },
+   "second": null,
+   "seen": "2026-11-11"
+  }
+ },
+ "fails": {},
+ "known": [
+  {
+   "kind": "cut_text",
+   "text": "12-345-6",
+   "since": "2026-10-28",
+   "seen": "2026-11-11"
+  },
+  {
+   "kind": "layout",
+   "text": "ריקולים",
+   "since": "2026-11-04",
+   "seen": "2026-11-04"
+  },
+  {
+   "kind": "cut_text",
+   "text": "טיפ אחו",
+   "since": "2026-11-09",
+   "seen": "2026-11-14"
+  }
+ ]
+}

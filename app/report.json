@@ -1,0 +1,87 @@
+{
+ "v": 5,
+ "at": "2026-11-14T08:05:57.762Z",
+ "source": "app",
+ "run": "https://github.com/ddsabag/vehicle-app/actions/runs/43573582340",
+ "code": "6bba56d69c39.0488b1df9f0e",
+ "mode": "batch",
+ "counts": {
+  "shots": 78,
+  "kept": 61,
+  "first": 17,
+  "second": 0,
+  "waitingFirst": 0,
+  "waitingSecond": 0,
+  "unsure": 27,
+  "errors": 0,
+  "findings": 4,
+  "new": 0,
+  "rejected": 1,
+  "misreads": 2
+ },
+ "month": {
+  "first": 775,
+  "second": 11,
+  "caps": {
+   "runFirst": 300,
+   "runSecond": 40,
+   "monthFirst": 4000,
+   "monthSecond": 400
+  }
+ },
+ "findings": [
+  {
+   "shot": "api31/360-f130__light__cars__tour-cars",
+   "kind": "cut_text",
+   "part": 1,
+   "where": "the car table's column header at the card's left edge, last column",
+   "text": "טיפ אחו",
+   "what": "The last column header is squeezed to the card's left edge and shows \"טיפ\" over \"אחו\". The second word looks truncated (probably \"אחזקה\" or similar), so the header is clipped.",
+   "severity": "medium",
+   "since": "2026-11-09",
+   "new": false
+  },
+  {
+   "shot": "api31/360-f130__light__cars__tour-cars",
+   "kind": "layout",
+   "part": 1,
+   "where": "the top of the white table card, above the divider line",
+   "text": "",
+   "what": "A large empty area sits at the top of the card above the divider and the column headers, where a title or content should be.",
+   "severity": "low",
+   "since": "2026-11-13",
+   "new": false
+  },
+  {
+   "shot": "api35/360-f130__light__cars__tour-cars",
+   "kind": "cut_text",
+   "part": 1,
+   "where": "table header row of the car card, last column at the left edge",
+   "text": "טיפ אחו",
+   "what": "The column header for the last-service column wraps to two lines and shows only \"טיפ\" and \"אחו\". The endings of the words (\"טיפול אחרון\") are cut off at the card's left edge, so the header cannot be read in full.",
+   "severity": "medium",
+   "since": "2026-11-09",
+   "new": false
+  },
+  {
+   "shot": "api35/360-f130__light__cars__tour-cars",
+   "kind": "layout",
+   "part": 1,
+   "where": "top of the white table card, above the divider line and header row",
+   "text": "",
+   "what": "A large empty white area sits at the top of the card above the divider line, with no content, so the card looks like it is missing a title or content.",
+   "severity": "low",
+   "since": "2026-11-13",
+   "new": false
+  }
+ ],
+ "pending": [],
+ "dropped": [
+  {
+   "shot": "api35/360-f130__light__home__tour-home",
+   "claim": "The subtitle of the recall card is cut at the card's text edge, so the end of the word is hidden; a shortened line ending in an ellipsis is fine, but here the t",
+   "why": "The line ends in a clear ellipsis, which is deliberate truncation and not a defect. No letter is drawn partly at the edge."
+  }
+ ],
+ "errors": []
+}
