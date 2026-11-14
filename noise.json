@@ -1,0 +1,46 @@
+{
+ "at": "2026-11-08T11:49:33.074Z",
+ "by": "claude-sonnet-5-5",
+ "suggestions": [
+  {
+   "about": "social:done:* (story-1/2/3, carousel, reel, dealer)",
+   "change": "Lower from day to summary and send one rolled-up 'posted' line per batch (e.g. social:done:<date>-<batch>) instead of a key per asset.",
+   "why": "Each post triggered a separate loud alert (3 stories at 11-03T06:22, 5 at 11-07 within an hour), all with today=silent, so they are done-notices that need no action."
+  },
+  {
+   "about": "prod:sent / prod:live / prod:full / ship:done",
+   "change": "Lower prod:live, prod:full and ship:done to summary and merge sent/live/full for one number (163) into a single episode key.",
+   "why": "prod:sent:163, prod:live:163 and prod:full:163 are one episode on 11-04 to 11-07; live and full were loud while today=silent. ship:done:1.38.4 was loud too."
+  },
+  {
+   "about": "open ledger: done/sent items since October",
+   "change": "Auto-close finished 'done', 'sent' and 'live' keys (prod:*, listing:done:*, safety:done:*, social:done:*) after they are reported, and close old social:remind keys once the post is made.",
+   "why": "Over 50 keys are open, many since 10-18, e.g. prod:sent:114 and listing:done:a8aa9a246359, though they only report completed work and need nothing from him."
+  },
+  {
+   "about": "copy:2026-11-01 and notes:1.38.3",
+   "change": "Dedupe the repeat sends within a run: send once per key, and update the existing entry if content changes.",
+   "why": "Between 21:24 and 21:28 on 11-01 each key was queued 4 times with the same content, so the ledger is noisy."
+  },
+  {
+   "about": "zonea:slow, relguard:1.38.3-d7, ai:guard, ai:ceo-read",
+   "change": "Do not alert on these at first sight; log them and report only if still failing after the next scheduled check, or mark them as one daily recovered line.",
+   "why": "They fail and self-fix with no action from Dudu: ai:ceo-read quiet then fixed in 6 minutes, ai:guard fixed in 1 minute, zonea:slow lingered 3 days across keys 11-01, 11-02, 11-03."
+  },
+  {
+   "about": "zonea:slow:<date>",
+   "change": "Use one key for the continuing slowness (e.g. zonea:slow) rather than one per date, and make the bot say when it ends.",
+   "why": "Three daily keys (11-01, 11-02, 11-03) were one episode, and the fixes for 11-02 and 11-03 arrived together on 11-05T06:21."
+  },
+  {
+   "about": "recalls / truth:recalls / truth:tow",
+   "change": "Treat recalls, truth:recalls and truth:tow as one flaky-source episode; send the first failure at summary and escalate to day only if unrecovered after a few hours.",
+   "why": "recalls was loud 3 times (11-04, 11-07, 11-08) and each was fixed by a bot within hours; truth:tow was loud then fixed in ~25 hours; truth:recalls was loud on 11-08."
+  },
+  {
+   "about": "wf:App guardian (real app)",
+   "change": "Make a single failed run summary-level and retry first; escalate to day only after 2 consecutive failures.",
+   "why": "The guardian ran 8 times with 1 failure; on 11-04 it went loud and was fixed in 9 minutes, and on 11-08 it went loud again."
+  }
+ ]
+}

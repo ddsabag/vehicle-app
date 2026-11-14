@@ -1,0 +1,48 @@
+{
+ "at": "2026-11-14T13:23:27.187Z",
+ "clean": false,
+ "items": [
+  {
+   "key": "zonea:slow:spell",
+   "level": "summary",
+   "src": "Release guard",
+   "last": "2026-11-14T11:35:13.981Z",
+   "link": "https://github.com/ddsabag/vehicle-app/actions/runs/43590703519"
+  }
+ ],
+ "failed": [
+  {
+   "name": "Release guard",
+   "event": "schedule",
+   "at": "2026-11-13T12:18:44Z",
+   "url": "https://github.com/ddsabag/vehicle-app/actions/runs/43424085267",
+   "id": 43424085267,
+   "later_ok": true
+  }
+ ],
+ "checks": {
+  "Alert daily": "success",
+  "Site smoke test": "success",
+  "Release guard": "success",
+  "Data truth": "success",
+  "Web watch": "success",
+  "App guardian (real app)": "success"
+ },
+ "posts": {},
+ "digest": {
+  "at": "2026-11-07T19:21:17.804Z",
+  "flag": false,
+  "forward": false
+ },
+ "row": "",
+ "note": {
+  "by": "claude-haiku-5-5",
+  "lines": [
+   {
+    "about": "Open router item zonea:slow:spell (Release guard, summary level, last 2026-11-14T11:35:13Z): no failed-run log was provi",
+    "cause": "unknown",
+    "kind": "unknown"
+   }
+  ]
+ }
+}
