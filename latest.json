@@ -1,10 +1,10 @@
 {
  "v": 1,
- "d": "2026-11-13",
- "seed": "20261113",
+ "d": "2026-11-14",
+ "seed": "20261114",
  "cars": 40,
  "sampled": 40,
- "mism": 8,
+ "mism": 18,
  "skipped": 0,
  "refused": 0,
  "fields": {
@@ -13,16 +13,16 @@
    0
   ],
   "buyer.no_red_flags_tag": [
-   14,
+   15,
    1
   ],
   "fee.borrowed_note": [
-   27,
+   25,
    0
   ],
   "fee.licence": [
    40,
-   0
+   1
   ],
   "identity.buy_steps": [
    37,
@@ -86,7 +86,7 @@
   ],
   "message.partial_data": [
    40,
-   0
+   2
   ],
   "mods.checks_line": [
    40,
@@ -109,11 +109,11 @@
    0
   ],
   "owners.current_no_log": [
-   27,
+   25,
    0
   ],
   "owners.durations": [
-   9,
+   10,
    0
   ],
   "owners.first_owner": [
@@ -129,7 +129,7 @@
    0
   ],
   "owners.insight_company_now": [
-   9,
+   10,
    0
   ],
   "owners.insight_dealer_now": [
@@ -137,27 +137,27 @@
    0
   ],
   "owners.insight_lease": [
-   9,
+   10,
    0
   ],
   "owners.insight_new_dealer": [
-   9,
+   10,
    0
   ],
   "owners.insight_rental": [
-   9,
+   10,
    0
   ],
   "owners.insight_short_lease": [
-   9,
+   10,
    0
   ],
   "owners.insight_was_dealer": [
-   9,
+   10,
    0
   ],
   "owners.now_line": [
-   9,
+   10,
    0
   ],
   "owners.timeline": [
@@ -165,39 +165,39 @@
    0
   ],
   "price.borrowed_note": [
-   32,
+   29,
    0
   ],
   "price.list": [
    40,
-   0
+   1
   ],
   "recalls.check_line": [
    40,
    0
   ],
   "recalls.checked_unlisted": [
-   31,
-   2
+   25,
+   1
   ],
   "recalls.line_honest": [
-   36,
+   31,
    0
   ],
   "recalls.model_count": [
-   34,
+   33,
    0
   ],
   "recalls.model_extra": [
-   34,
+   33,
    0
   ],
   "recalls.model_fits": [
-   17,
+   13,
    0
   ],
   "recalls.model_missing": [
-   32,
+   31,
    0
   ],
   "recalls.open": [
@@ -208,16 +208,20 @@
    40,
    0
   ],
+  "recalls.open_date": [
+   1,
+   0
+  ],
   "recalls.pending_after_road": [
-   16,
-   5
+   10,
+   2
   ],
   "recalls.pending_banner": [
-   34,
+   33,
    0
   ],
   "recalls.pending_listed": [
-   17,
+   13,
    0
   ],
   "recalls.tab_shown": [
@@ -225,15 +229,15 @@
    0
   ],
   "recalls.thin_check": [
-   40,
+   39,
    0
   ],
   "recalls.thin_line": [
-   29,
+   25,
    0
   ],
   "recalls.thin_rows": [
-   36,
+   31,
    0
   ],
   "road.first_date": [
@@ -274,7 +278,7 @@
   ],
   "specs.drive": [
    40,
-   0
+   1
   ],
   "specs.engine_model": [
    40,
@@ -282,11 +286,11 @@
   ],
   "specs.gearbox": [
    40,
-   0
+   1
   ],
   "specs.importer": [
    40,
-   0
+   1
   ],
   "specs.load": [
    40,
@@ -294,15 +298,15 @@
   ],
   "specs.merkav": [
    40,
-   0
+   1
   ],
   "specs.mispar_dlatot": [
    40,
-   0
+   1
   ],
   "specs.mispar_kariot_avir": [
    40,
-   0
+   1
   ],
   "specs.pollution_group": [
    40,
@@ -310,7 +314,7 @@
   ],
   "specs.power": [
    40,
-   0
+   1
   ],
   "specs.safety_level": [
    40,
@@ -318,7 +322,7 @@
   ],
   "specs.seats": [
    40,
-   0
+   1
   ],
   "specs.tyre_front": [
    40,
@@ -338,10 +342,10 @@
   ],
   "specs.weight_total": [
    40,
-   0
+   1
   ],
   "specs.wltp_note": [
-   20,
+   18,
    0
   ],
   "status.buy_checklist": [
@@ -369,7 +373,7 @@
    0
   ],
   "status.heavy_note": [
-   1,
+   3,
    0
   ],
   "status.hold_insight": [
@@ -392,12 +396,8 @@
    40,
    0
   ],
-  "status.public_use": [
-   1,
-   1
-  ],
   "tag.insight": [
-   17,
+   18,
    0
   ],
   "test.insight": [
@@ -425,23 +425,23 @@
    0
   ],
   "tow.hook": [
-   22,
-   0
+   25,
+   1
   ],
   "tow.limits": [
    40,
-   0
+   1
   ],
   "tow.year_note": [
    40,
    0
   ],
   "value.fallback": [
-   8,
+   11,
    0
   ],
   "value.labelled_estimate": [
-   32,
+   29,
    0
   ]
  },
@@ -465,48 +465,138 @@
    "from": "active"
   },
   {
-   "id": "c034",
-   "field": "status.public_use",
-   "shown": "",
-   "expected": "an insight that the car is in the public register (מונית)",
-   "evidence": "primary=active registers=active,public; public sug_rechev_nm=מונית owner=\"פרטי\"",
-   "car": "טויוטה טורקיה COROLLA 2021",
-   "from": "public"
-  },
-  {
-   "id": "c034",
-   "field": "recalls.pending_after_road",
-   "shown": "[check with importer] #16638",
-   "expected": "(not pending: built after the car went on the road)",
-   "evidence": "build from 2022-01-01, on the road 2021-7",
-   "car": "טויוטה טורקיה COROLLA 2021",
-   "from": "public"
-  },
-  {
-   "id": "c034",
-   "field": "recalls.pending_after_road",
-   "shown": "[check with importer] #16586",
-   "expected": "(not pending: built after the car went on the road)",
-   "evidence": "build from 2022-01-01, on the road 2021-7",
-   "car": "טויוטה טורקיה COROLLA 2021",
-   "from": "public"
-  },
-  {
-   "id": "c010",
-   "field": "recalls.checked_unlisted",
-   "shown": "נבדק: אין ריקול פתוח ואין הסדר פשרה",
-   "expected": "the amber line: a recall of this year the per-car list cannot answer",
-   "evidence": "#12389 nolist build 2013-01-01..2014-12-31; #12026 nolist build 2014-01-01..2015-12-31; #11391 nolist build 2013-01-01..2014-08-01",
-   "car": "מיצובישי יפן OUTLANDER 2014",
+   "id": "c013",
+   "field": "tow.limits",
+   "shown": "none",
+   "expected": "ban",
+   "evidence": "car P ZOE 2017 INTENSE hook \"אין וו גרירה\"; model rows: P/ZOE/2017/INTENSE:0/0, P/ZOE/2016/INTENSE:0/0",
+   "car": "רנו צרפת ZOE 2017",
    "from": "active"
   },
   {
-   "id": "c015",
-   "field": "recalls.pending_after_road",
-   "shown": "[check with importer] #15096",
-   "expected": "(not pending: built after the car went on the road)",
-   "evidence": "build from 2019-11-01, on the road 2019-3",
-   "car": "ב מ וו גרמניה 530E I PER 2019",
+   "id": "c013",
+   "field": "specs.weight_total",
+   "shown": "",
+   "expected": "1913",
+   "evidence": "",
+   "car": "רנו צרפת ZOE 2017",
+   "from": "active"
+  },
+  {
+   "id": "c013",
+   "field": "specs.power",
+   "shown": "",
+   "expected": "88",
+   "evidence": "",
+   "car": "רנו צרפת ZOE 2017",
+   "from": "active"
+  },
+  {
+   "id": "c013",
+   "field": "specs.seats",
+   "shown": "",
+   "expected": "5",
+   "evidence": "",
+   "car": "רנו צרפת ZOE 2017",
+   "from": "active"
+  },
+  {
+   "id": "c013",
+   "field": "specs.gearbox",
+   "shown": "",
+   "expected": "אוטומטית",
+   "evidence": "",
+   "car": "רנו צרפת ZOE 2017",
+   "from": "active"
+  },
+  {
+   "id": "c013",
+   "field": "specs.mispar_dlatot",
+   "shown": "",
+   "expected": "5",
+   "evidence": "",
+   "car": "רנו צרפת ZOE 2017",
+   "from": "active"
+  },
+  {
+   "id": "c013",
+   "field": "specs.merkav",
+   "shown": "",
+   "expected": "הצ'בק",
+   "evidence": "",
+   "car": "רנו צרפת ZOE 2017",
+   "from": "active"
+  },
+  {
+   "id": "c013",
+   "field": "specs.mispar_kariot_avir",
+   "shown": "",
+   "expected": "4",
+   "evidence": "",
+   "car": "רנו צרפת ZOE 2017",
+   "from": "active"
+  },
+  {
+   "id": "c013",
+   "field": "specs.importer",
+   "shown": "",
+   "expected": "קרסו מוטורס בע\"מ",
+   "evidence": "price rows=2",
+   "car": "רנו צרפת ZOE 2017",
+   "from": "active"
+  },
+  {
+   "id": "c013",
+   "field": "specs.drive",
+   "shown": "",
+   "expected": "4X2",
+   "evidence": "",
+   "car": "רנו צרפת ZOE 2017",
+   "from": "active"
+  },
+  {
+   "id": "c013",
+   "field": "fee.licence",
+   "shown": "(no fee)",
+   "expected": "1622",
+   "evidence": "kvuzat_agra_cd of the model row=3 sug_degem=P year=2017",
+   "car": "רנו צרפת ZOE 2017",
+   "from": "active"
+  },
+  {
+   "id": "c013",
+   "field": "price.list",
+   "shown": "(none)",
+   "expected": "132500",
+   "evidence": "price rows for model=2, years=2016,2017",
+   "car": "רנו צרפת ZOE 2017",
+   "from": "active"
+  },
+  {
+   "id": "c037",
+   "field": "message.partial_data",
+   "shown": "partial-data message shown",
+   "expected": "(none: every dataset answered my reads)",
+   "evidence": "app errs=moto,inactive",
+   "car": "מרצדס בנץ ארהב 2012",
+   "from": "import"
+  },
+  {
+   "id": "c020",
+   "field": "tow.hook",
+   "shown": "",
+   "expected": "לא מותקן וו גרירה",
+   "evidence": "grira_nm=אין וו גרירה",
+   "car": "מרצדס בנץ גרמנ A250E 2024",
+   "from": "active"
+  },
+  {
+   "id": "c020",
+   "field": "message.partial_data",
+   "shown": "partial-data message shown",
+   "expected": "(none: every dataset answered my reads)",
+   "evidence": "app errs=cont",
+   "car": "מרצדס בנץ גרמנ A250E 2024",
    "from": "active"
   },
   {
