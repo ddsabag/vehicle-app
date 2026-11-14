@@ -4,7 +4,7 @@
  "seed": "20261114",
  "cars": 40,
  "sampled": 40,
- "mism": 18,
+ "mism": 3,
  "skipped": 0,
  "refused": 0,
  "fields": {
@@ -17,12 +17,12 @@
    1
   ],
   "fee.borrowed_note": [
-   25,
+   26,
    0
   ],
   "fee.licence": [
    40,
-   1
+   0
   ],
   "identity.buy_steps": [
    37,
@@ -86,7 +86,7 @@
   ],
   "message.partial_data": [
    40,
-   2
+   0
   ],
   "mods.checks_line": [
    40,
@@ -165,12 +165,12 @@
    0
   ],
   "price.borrowed_note": [
-   29,
+   30,
    0
   ],
   "price.list": [
    40,
-   1
+   0
   ],
   "recalls.check_line": [
    40,
@@ -278,7 +278,7 @@
   ],
   "specs.drive": [
    40,
-   1
+   0
   ],
   "specs.engine_model": [
    40,
@@ -286,11 +286,11 @@
   ],
   "specs.gearbox": [
    40,
-   1
+   0
   ],
   "specs.importer": [
    40,
-   1
+   0
   ],
   "specs.load": [
    40,
@@ -298,15 +298,15 @@
   ],
   "specs.merkav": [
    40,
-   1
+   0
   ],
   "specs.mispar_dlatot": [
    40,
-   1
+   0
   ],
   "specs.mispar_kariot_avir": [
    40,
-   1
+   0
   ],
   "specs.pollution_group": [
    40,
@@ -314,7 +314,7 @@
   ],
   "specs.power": [
    40,
-   1
+   0
   ],
   "specs.safety_level": [
    40,
@@ -322,7 +322,7 @@
   ],
   "specs.seats": [
    40,
-   1
+   0
   ],
   "specs.tyre_front": [
    40,
@@ -342,7 +342,7 @@
   ],
   "specs.weight_total": [
    40,
-   1
+   0
   ],
   "specs.wltp_note": [
    18,
@@ -425,23 +425,23 @@
    0
   ],
   "tow.hook": [
-   25,
-   1
+   24,
+   0
   ],
   "tow.limits": [
    40,
-   1
+   0
   ],
   "tow.year_note": [
    40,
    0
   ],
   "value.fallback": [
-   11,
+   10,
    0
   ],
   "value.labelled_estimate": [
-   29,
+   30,
    0
   ]
  },
@@ -462,141 +462,6 @@
    "expected": "(not pending: built after the car went on the road)",
    "evidence": "build from 2009-01-01, on the road 2008-4",
    "car": "טויוטה יפן PRIUS HYBRID 2008",
-   "from": "active"
-  },
-  {
-   "id": "c013",
-   "field": "tow.limits",
-   "shown": "none",
-   "expected": "ban",
-   "evidence": "car P ZOE 2017 INTENSE hook \"אין וו גרירה\"; model rows: P/ZOE/2017/INTENSE:0/0, P/ZOE/2016/INTENSE:0/0",
-   "car": "רנו צרפת ZOE 2017",
-   "from": "active"
-  },
-  {
-   "id": "c013",
-   "field": "specs.weight_total",
-   "shown": "",
-   "expected": "1913",
-   "evidence": "",
-   "car": "רנו צרפת ZOE 2017",
-   "from": "active"
-  },
-  {
-   "id": "c013",
-   "field": "specs.power",
-   "shown": "",
-   "expected": "88",
-   "evidence": "",
-   "car": "רנו צרפת ZOE 2017",
-   "from": "active"
-  },
-  {
-   "id": "c013",
-   "field": "specs.seats",
-   "shown": "",
-   "expected": "5",
-   "evidence": "",
-   "car": "רנו צרפת ZOE 2017",
-   "from": "active"
-  },
-  {
-   "id": "c013",
-   "field": "specs.gearbox",
-   "shown": "",
-   "expected": "אוטומטית",
-   "evidence": "",
-   "car": "רנו צרפת ZOE 2017",
-   "from": "active"
-  },
-  {
-   "id": "c013",
-   "field": "specs.mispar_dlatot",
-   "shown": "",
-   "expected": "5",
-   "evidence": "",
-   "car": "רנו צרפת ZOE 2017",
-   "from": "active"
-  },
-  {
-   "id": "c013",
-   "field": "specs.merkav",
-   "shown": "",
-   "expected": "הצ'בק",
-   "evidence": "",
-   "car": "רנו צרפת ZOE 2017",
-   "from": "active"
-  },
-  {
-   "id": "c013",
-   "field": "specs.mispar_kariot_avir",
-   "shown": "",
-   "expected": "4",
-   "evidence": "",
-   "car": "רנו צרפת ZOE 2017",
-   "from": "active"
-  },
-  {
-   "id": "c013",
-   "field": "specs.importer",
-   "shown": "",
-   "expected": "קרסו מוטורס בע\"מ",
-   "evidence": "price rows=2",
-   "car": "רנו צרפת ZOE 2017",
-   "from": "active"
-  },
-  {
-   "id": "c013",
-   "field": "specs.drive",
-   "shown": "",
-   "expected": "4X2",
-   "evidence": "",
-   "car": "רנו צרפת ZOE 2017",
-   "from": "active"
-  },
-  {
-   "id": "c013",
-   "field": "fee.licence",
-   "shown": "(no fee)",
-   "expected": "1622",
-   "evidence": "kvuzat_agra_cd of the model row=3 sug_degem=P year=2017",
-   "car": "רנו צרפת ZOE 2017",
-   "from": "active"
-  },
-  {
-   "id": "c013",
-   "field": "price.list",
-   "shown": "(none)",
-   "expected": "132500",
-   "evidence": "price rows for model=2, years=2016,2017",
-   "car": "רנו צרפת ZOE 2017",
-   "from": "active"
-  },
-  {
-   "id": "c037",
-   "field": "message.partial_data",
-   "shown": "partial-data message shown",
-   "expected": "(none: every dataset answered my reads)",
-   "evidence": "app errs=moto,inactive",
-   "car": "מרצדס בנץ ארהב 2012",
-   "from": "import"
-  },
-  {
-   "id": "c020",
-   "field": "tow.hook",
-   "shown": "",
-   "expected": "לא מותקן וו גרירה",
-   "evidence": "grira_nm=אין וו גרירה",
-   "car": "מרצדס בנץ גרמנ A250E 2024",
-   "from": "active"
-  },
-  {
-   "id": "c020",
-   "field": "message.partial_data",
-   "shown": "partial-data message shown",
-   "expected": "(none: every dataset answered my reads)",
-   "evidence": "app errs=cont",
-   "car": "מרצדס בנץ גרמנ A250E 2024",
    "from": "active"
   },
   {
