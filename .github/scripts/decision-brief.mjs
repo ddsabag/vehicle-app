@@ -19,11 +19,12 @@ const OPS = ["ratio", "pct", "diff", "sum"];
 const NUM_WORDS = /\b(zero|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|twelfth|twentieth|thirtieth|twice|double|triple|half|halved|tripled|doubled|dozen|percent)\b/i;
 
 // ---- reading the raw JSON ----
-export function at(obj, path) {   // parts["ga.life"].rows[3][2]  or  a.b.c  (a leading "$." or "DATA." is ignored; ['x'] works too)
+export function at(obj, path) {   // parts["ga.life"].rows[3][2]  or  a.b.c  or  items.4.v  (a leading "$." or "DATA." is ignored; ['x'] works too)
   path = String(path).trim().replace(/^\$\.?|^DATA\.?/i, "");
-  const toks = []; const re = /\["([^"]+)"\]|\['([^']+)'\]|\[(\d+)\]|\.?([A-Za-z_$][\w$-]*)/gy; let m, i = 0;
+  // ".4" is an array index too: on 15.11 the CEO reader wrote goals.items.8.v and three of its five items were dropped as "no value"
+  const toks = []; const re = /\["([^"]+)"\]|\['([^']+)'\]|\[(\d+)\]|\.(\d+)(?=[.[]|$)|\.?([A-Za-z_$][\w$-]*)/gy; let m, i = 0;
   re.lastIndex = 0;
-  while (i < path.length) { re.lastIndex = i; m = re.exec(path); if (!m || m.index !== i) return undefined; toks.push(m[1] ?? m[2] ?? (m[3] !== undefined ? +m[3] : m[4])); i = re.lastIndex; }
+  while (i < path.length) { re.lastIndex = i; m = re.exec(path); if (!m || m.index !== i) return undefined; toks.push(m[1] ?? m[2] ?? (m[3] !== undefined ? +m[3] : m[4] !== undefined ? +m[4] : m[5])); i = re.lastIndex; }
   return toks.reduce((o, k) => (o == null ? undefined : o[k]), obj);
 }
 // a GA4 table in the probes' flat form {dims, mets, rows}: the sum of one metric over the rows whose dimensions equal `where`
@@ -133,6 +134,7 @@ if (process.argv.includes("--selftest")) {
     "ga.coh": { dims: ["eventName", "kind"], mets: ["eventCount"], rows: [["first_save", "saver", 30], ["first_save", "saver", 12], ["app_return", "saver", 9], ["app_return", "non", 20], ["first_open", "(not set)", 400]] },
     "meta": { version: "1.38.3", n: [5, 7] } } };
   ok(at(raw, 'parts["meta"].n[1]') === 7 && at(raw, "parts.meta.version") === "1.38.3" && at(raw, "parts.x.y") === undefined && at(raw, "parts[") === undefined, "paths");
+  ok(at({ g: { items: [{ v: 0 }, { v: 3, tgt: 5 }] } }, "g.items.1.tgt") === 5 && at({ g: { items: [{ v: 0 }] } }, "g.items.0.v") === 0 && at({ a: { "1b": 2 } }, "a.1b") === undefined, "dot index paths (items.4.v)");
   ok(select(raw, { table: 'parts["ga.coh"]', metric: "eventCount", where: { eventName: "first_save" } }) === 42, "a sum over every matching row");
   ok(select(raw, { table: 'parts["ga.coh"]', metric: "eventCount", where: { eventName: ["app_return"], kind: "saver" } }) === 9, "two conditions, a list");
   ok(select(raw, { table: 'parts["ga.coh"]', metric: "eventCount", where: { eventName: "nope" } }) === undefined && select(raw, { table: 'parts["ga.coh"]', metric: "eventCount", where: { eventName: "nope" }, zeroOk: true }) === 0, "no row: no value, unless zero is a real answer");
