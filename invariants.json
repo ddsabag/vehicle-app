@@ -5,21 +5,21 @@
   {
    "id": "fresh",
    "he": "תאריכי הטסט במאגר לא מתעדכנים",
-   "value": 3,
+   "value": 2,
    "limit": "עד 3 ימים",
    "ok": true
   },
   {
    "id": "tests",
    "he": "נרשמו מעט מדי טסטים בשבוע האחרון",
-   "value": 0.75,
+   "value": 0.77,
    "limit": "לפחות מחצית מהקצב הרגיל",
    "ok": true
   },
   {
    "id": "renewal",
    "he": "רכבים רבים עברו טסט בלי חידוש רישיון במאגר",
-   "value": 1197,
+   "value": 1191,
    "limit": "עד 5,000",
    "ok": true
   },
@@ -48,7 +48,7 @@
    "id": "km",
    "he": "נתוני הק״מ בטסט חסרים",
    "value": {
-    "rows": 2508803,
+    "rows": 2508772,
     "share": 0.7
    },
    "limit": "לפחות 2 מיליון שורות, 60% עם ק״מ",
@@ -98,13 +98,13 @@
   }
  ],
  "info": {
-  "activeCars": 4201546,
-  "testsPerDayLastWeek": 6295,
+  "activeCars": 4200992,
+  "testsPerDayLastWeek": 6456,
   "testsPerDayUsual": 8361,
-  "publicCancelledForGood": 3311,
+  "publicCancelledForGood": 3294,
   "motoInImport": 1820,
-  "heavyInPublic": 36409,
-  "carsWithOwnershipLog": 2499359,
-  "ownerTypeNotInLatestMonth": 2782
+  "heavyInPublic": 36414,
+  "carsWithOwnershipLog": 2499328,
+  "ownerTypeNotInLatestMonth": 2777
  }
 }
