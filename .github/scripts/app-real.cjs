@@ -393,6 +393,10 @@ async function journey(page, sc, state, J, theme) {
     // a step that opens the app again (reopen) hands over the new page
     if (act) { try { const r = await act(page, c); if (r && typeof r.evaluate === "function") page = c.page = r; } catch (e) { if (closed(e)) { disturbed.add("closed"); break; } add("block", "logic", run, name, "could not act: " + e.message.split("\n")[0].slice(0, 120)); } }
     await sleep(500);
+    // a step that ends with no field in focus (a form saved, its fields drawn again) leaves the phone's keyboard closing: the bar is looked
+    // at once the keyboard is down, as a person sees it (15.11 nightly, API 35, keeps service: the bar caught at 510 above a closing keyboard;
+    // green on the same step 13.11). A keyboard still up after 2 s stays in the look and is judged as before
+    try { if (imeShown() && !(await page.evaluate(() => { const a = document.activeElement; return !!(a && a.matches && a.matches("input,textarea,select,[contenteditable]")); }))) for (let t = 0; t < 8 && imeShown(); t++) await sleep(250); } catch (e) { if (closed(e)) { disturbed.add("closed"); break; } }
     let m; try { m = await UF.measure(page); } catch (e) { mustLive(); if (closed(e)) { disturbed.add("closed"); break; } add("block", "error", run, name, "measure failed: " + e.message.slice(0, 100)); continue; }
     // the window grew or shrank under the journey with no keyboard and no turn: the system's bars went away or came back (26.10, API 31,
     // a minute after boot: home drawn with no bars at all, then the status bar without its icons and three buttons at the bottom)
