@@ -1,5 +1,5 @@
 {
- "at": "2026-11-15T06:03:08Z",
+ "at": "2026-11-15T07:21:41Z",
  "open": [],
  "items": [
   {
@@ -486,8 +486,12 @@
    "what": "פוסט מהערכה השבועית",
    "src": "auto",
    "st": {
-    "facebook": "planned",
-    "instagram": "planned"
+    "facebook": "done",
+    "instagram": "done"
+   },
+   "link": {
+    "facebook": "https://www.facebook.com/1424085817452110_122112405867516900",
+    "instagram": "https://www.instagram.com/p/DfwKR7-kZ6N/"
    },
    "q": [
     "2026-11-12/k6-post"
