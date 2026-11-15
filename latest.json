@@ -1,20 +1,20 @@
 {
  "v": 1,
- "d": "2026-11-14",
- "seed": "20261114",
+ "d": "2026-11-15",
+ "seed": "20261115",
  "cars": 40,
  "sampled": 40,
- "mism": 3,
+ "mism": 4,
  "skipped": 0,
  "refused": 0,
  "fields": {
   "buyer.no_red_flags": [
    37,
-   0
+   1
   ],
   "buyer.no_red_flags_tag": [
    15,
-   1
+   0
   ],
   "fee.borrowed_note": [
    26,
@@ -109,11 +109,11 @@
    0
   ],
   "owners.current_no_log": [
-   25,
+   27,
    0
   ],
   "owners.durations": [
-   10,
+   7,
    0
   ],
   "owners.first_owner": [
@@ -121,51 +121,51 @@
    0
   ],
   "owners.hands": [
-   40,
+   38,
    0
   ],
   "owners.hands_pill": [
-   40,
+   38,
    0
   ],
   "owners.insight_company_now": [
-   10,
+   7,
    0
   ],
   "owners.insight_dealer_now": [
-   40,
+   38,
    0
   ],
   "owners.insight_lease": [
-   10,
+   7,
    0
   ],
   "owners.insight_new_dealer": [
-   10,
+   7,
    0
   ],
   "owners.insight_rental": [
-   10,
+   7,
    0
   ],
   "owners.insight_short_lease": [
-   10,
+   7,
    0
   ],
   "owners.insight_was_dealer": [
-   10,
+   7,
    0
   ],
   "owners.now_line": [
-   10,
+   7,
    0
   ],
   "owners.timeline": [
-   40,
+   38,
    0
   ],
   "price.borrowed_note": [
-   30,
+   31,
    0
   ],
   "price.list": [
@@ -177,11 +177,11 @@
    0
   ],
   "recalls.checked_unlisted": [
-   25,
-   1
+   27,
+   2
   ],
   "recalls.line_honest": [
-   31,
+   33,
    0
   ],
   "recalls.model_count": [
@@ -193,11 +193,11 @@
    0
   ],
   "recalls.model_fits": [
-   13,
+   5,
    0
   ],
   "recalls.model_missing": [
-   31,
+   32,
    0
   ],
   "recalls.open": [
@@ -208,20 +208,16 @@
    40,
    0
   ],
-  "recalls.open_date": [
-   1,
-   0
-  ],
   "recalls.pending_after_road": [
-   10,
-   2
+   3,
+   0
   ],
   "recalls.pending_banner": [
    33,
    0
   ],
   "recalls.pending_listed": [
-   13,
+   5,
    0
   ],
   "recalls.tab_shown": [
@@ -229,15 +225,15 @@
    0
   ],
   "recalls.thin_check": [
-   39,
+   40,
    0
   ],
   "recalls.thin_line": [
-   25,
+   29,
    0
   ],
   "recalls.thin_rows": [
-   31,
+   33,
    0
   ],
   "road.first_date": [
@@ -345,7 +341,7 @@
    0
   ],
   "specs.wltp_note": [
-   18,
+   16,
    0
   ],
   "status.buy_checklist": [
@@ -373,7 +369,7 @@
    0
   ],
   "status.heavy_note": [
-   3,
+   2,
    0
   ],
   "status.hold_insight": [
@@ -395,6 +391,10 @@
   "status.inactive_pill": [
    40,
    0
+  ],
+  "status.public_use": [
+   1,
+   1
   ],
   "tag.insight": [
    18,
@@ -425,7 +425,7 @@
    0
   ],
   "tow.hook": [
-   24,
+   25,
    0
   ],
   "tow.limits": [
@@ -437,40 +437,49 @@
    0
   ],
   "value.fallback": [
-   10,
+   9,
    0
   ],
   "value.labelled_estimate": [
-   30,
+   31,
    0
   ]
  },
  "list": [
   {
-   "id": "c004",
-   "field": "recalls.pending_after_road",
-   "shown": "[check with importer] #12111",
-   "expected": "(not pending: built after the car went on the road)",
-   "evidence": "build from 2009-01-01, on the road 2008-4",
-   "car": "טויוטה יפן PRIUS HYBRID 2008",
-   "from": "active"
-  },
-  {
-   "id": "c004",
-   "field": "recalls.pending_after_road",
-   "shown": "[check with importer] #13294",
-   "expected": "(not pending: built after the car went on the road)",
-   "evidence": "build from 2009-01-01, on the road 2008-4",
-   "car": "טויוטה יפן PRIUS HYBRID 2008",
-   "from": "active"
-  },
-  {
-   "id": "c030",
+   "id": "c006",
    "field": "recalls.checked_unlisted",
    "shown": "נבדק: אין ריקול פתוח ואין הסדר פשרה",
    "expected": "the amber line: a recall of this year the per-car list cannot answer",
-   "evidence": "#11703 nolist build 2012-12-21..2014-10-27",
-   "car": "מזדה תאילנד MAZDA 2 2012",
+   "evidence": "#11633 nolist build 2009-01-01..2011-12-31",
+   "car": "סיאט ספרד IBIZA 2010",
+   "from": "active"
+  },
+  {
+   "id": "c017",
+   "field": "status.public_use",
+   "shown": "",
+   "expected": "an insight that the car is in the public register (מונית)",
+   "evidence": "primary=active registers=active,public; public sug_rechev_nm=מונית owner=\"פרטי\"",
+   "car": "סקודה צ'כיה SUPERB FL 2021",
+   "from": "active"
+  },
+  {
+   "id": "c017",
+   "field": "buyer.no_red_flags",
+   "shown": "לא עלו דגלים אדומים בנתונים",
+   "expected": "a flag for: public register (מונית)",
+   "evidence": "owner=\"פרטי\"",
+   "car": "סקודה צ'כיה SUPERB FL 2021",
+   "from": "active"
+  },
+  {
+   "id": "c027",
+   "field": "recalls.checked_unlisted",
+   "shown": "נבדק: אין ריקול פתוח ואין הסדר פשרה",
+   "expected": "the amber line: a recall of this year the per-car list cannot answer",
+   "evidence": "#11631 nolist build 2009-01-01..2011-12-31",
+   "car": "סקודה צ'כיה ROOMSTER 2009",
    "from": "active"
   }
  ],
