@@ -29,8 +29,9 @@ const eq = (f, v) => ({ filter: { fieldName: f, stringFilter: { value: v } } }),
 const and = (...x) => ({ andGroup: { expressions: x } });
 const APP = and(eq("platform", "Android"), eq("countryId", "IL"));
 const D = n => ({ name: n }), M = n => ({ name: n }), C = p => ({ name: "customEvent:" + p });
-const ALL = [{ startDate: "2026-10-19", endDate: "2026-11-07" }];
-const WIN = [{ startDate: "2026-10-19", endDate: "2026-10-25", name: "w137" }, { startDate: "2026-10-26", endDate: "2026-11-03", name: "w1380" }, { startDate: "2026-11-04", endDate: "2026-11-07", name: "w1384" }];
+// run 2026-11-15: the verdict read, data to 14.11 (7 full days at 100%: 8-14.11)
+const ALL = [{ startDate: "2026-10-19", endDate: "2026-11-14" }];
+const WIN = [{ startDate: "2026-10-19", endDate: "2026-10-25", name: "w137" }, { startDate: "2026-10-26", endDate: "2026-11-03", name: "w1380" }, { startDate: "2026-11-04", endDate: "2026-11-14", name: "w1384a" }, { startDate: "2026-11-08", endDate: "2026-11-14", name: "w1384b" }];
 const EVS = inList("eventName", ["car_lookup", "share_open", "share"]);
 await part("dayEv", () => ga({ dateRanges: ALL, dimensions: [D("date"), D("appVersion"), D("eventName")], metrics: [M("eventCount"), M("totalUsers")], dimensionFilter: and(APP, EVS) }));
 await part("winEv", () => ga({ dateRanges: WIN, dimensions: [D("appVersion"), D("eventName")], metrics: [M("eventCount"), M("totalUsers")], dimensionFilter: and(APP, EVS) }));
