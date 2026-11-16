@@ -1,0 +1,35 @@
+[
+ {
+  "name": "buyer",
+  "notes": [
+   {
+    "walk": "buyer",
+    "i": 1,
+    "severity": "low",
+    "kind": "data",
+    "where": "מפרט tab, בטיחות row",
+    "what": "Safety shows \"0 מתוך 8\" in a green badge. It reads as zero safety features, but it probably means the data is missing. The green colour says it is fine."
+   },
+   {
+    "walk": "buyer",
+    "i": 2,
+    "severity": "low",
+    "kind": "typo",
+    "where": "Compare screen, section \"מרכב ובטיחות\"",
+    "what": "The section count reads \"1 שורות\", plural with one. It should be \"שורה אחת\"."
+   },
+   {
+    "walk": "buyer",
+    "i": 3,
+    "severity": "low",
+    "kind": "confusing",
+    "where": "Compare screen, \"ברכבים שלי\" row vs. הרכבים שלי list",
+    "what": "In compare, the row \"ברכבים שלי\" shows \"נשמר ✓\" for the Corolla, and a \"שמירה\" button for the other car. After I opened 7654321 and compared, the list had only one car. It is unclear what \"נשמר\" refers to."
+   }
+  ],
+  "steps": 36,
+  "summary": "I checked both plates, every tab of 1234567, the compare flow, the saved-cars list, and bad inputs (letters, an 8-digit plate that doesn't exist, a price field). I found no serious breakage; I noted three low-severity problems: a green \"0 מתוך 8\" safety badge, \"1 שורות\" in compare, and an unclear \"נשמר\" status in compare. I did not test a plate with too few digits.",
+  "why": "",
+  "key": false
+ }
+]
