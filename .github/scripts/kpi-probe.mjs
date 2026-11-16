@@ -46,6 +46,11 @@ async function pressOf(env, report, cfQuery) {
     sources.add(src); ev[k] = ev[k] || [0, 0]; ev[k][0] += n; ev[k][1] += u; }
   const inst = await report(env, { dateRanges: dr, dimensions: [{ name: "firstUserSource" }], metrics: [{ name: "newUsers" }],
     dimensionFilter: { andGroup: { expressions: [{ filter: { fieldName: "platform", stringFilter: { value: "Android" } } }, has("firstUserSource")] } } });
+  // the article's fixed links (go/press?c=queenoftheroad, 15.11): the site's own campaign field, landings and the checks of those visits
+  const camp = await report(env, { dateRanges: dr, dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }, { name: "totalUsers" }],
+    dimensionFilter: { andGroup: { expressions: [{ filter: { fieldName: "platform", stringFilter: { value: "web" } } }, has("customEvent:camp"),
+      { filter: { fieldName: "eventName", inListFilter: { values: ["link_landing", "car_lookup"] } } }] } } });
+  for (const r of camp) { const k = "camp." + r.dimensionValues[0].value; ev[k] = [+r.metricValues[0].value, +r.metricValues[1].value]; }
   let cf = null;
   try { const g = await cfQuery(env, PRESS.from, "refererHost", 200, to);
     cf = g ? g.filter(x => String(x.dimensions && x.dimensions.refererHost || "").toLowerCase().includes(PRESS.site)).reduce((a, x) => a + (x.sum && x.sum.visits || 0), 0) : null; }
@@ -53,11 +58,56 @@ async function pressOf(env, report, cfQuery) {
   return { from: PRESS.from, to, partial: to === ilToday, sources: [...sources], ev, installs: inst.reduce((a, r) => a + +r.metricValues[0].value, 0), cf_visits: cf };
 }
 
+// Google Play's own acquisition split (CEO full review 12.11, Sunday step 2d): every store-performance export in the Play reports bucket
+// other than the by-country one (by traffic source, with the search term and UTM columns when Play writes them), for the months of Play's
+// window (the window /live's Play numbers use: stats.W, and stats.P before it). Rows are summed per window by their text columns; the
+// files found are listed, so a missing kind shows. Same service account and CSV reader as /live (googleToken, csvText, csvRows, isoDay).
+const PKG = "com.ddsabag.pratirechev";
+export function sumSources(rows, W, P, isoDay) {
+  if (!rows.length) return { cols: [], text: [], rows: [] };
+  const cols = Object.keys(rows[0]), skip = c => c === "date" || /package/.test(c) || /rate/.test(c);
+  const isNum = v => String(v ?? "").trim() !== "" && isFinite(Number(String(v).replace(/,/g, "")));
+  const numeric = cols.filter(c => !skip(c) && !/source|term|utm|channel|country|campaign|medium/.test(c) && rows.every(r => r[c] == null || String(r[c]).trim() === "" || isNum(r[c])));
+  const text = cols.filter(c => !skip(c) && !numeric.includes(c)), M = new Map();
+  for (const r of rows) {
+    const day = isoDay(r.date || ""), w = day >= W[0] && day <= W[1] ? "w" : day >= P[0] && day <= P[1] ? "p" : null; if (!w) continue;
+    const key = text.map(c => r[c] || "").join("\u0001");
+    const o = M.get(key) || { ...Object.fromEntries(text.map(c => [c, r[c] || ""])), w: Object.fromEntries(numeric.map(c => [c, 0])), p: Object.fromEntries(numeric.map(c => [c, 0])) };
+    for (const c of numeric) o[w][c] += Number(String(r[c] || "0").replace(/,/g, "")) || 0;
+    M.set(key, o);
+  }
+  const first = numeric[0];
+  return { cols: numeric, text, rows: [...M.values()].sort((a, b) => (first ? b.w[first] - a.w[first] || b.p[first] - a.p[first] : 0)).slice(0, 60), more: Math.max(0, M.size - 60) };
+}
+async function playSources(env, W2) {
+  const { googleToken, csvText, csvRows, isoDay, st } = W2;
+  const bucket = String(env.PLAY_REPORTS_BUCKET || "").trim().replace(/^gs:\/\//, "").split("/")[0];
+  if (!bucket) return { error: "no bucket" };
+  const W = st && st.W || [addD(END, -6), END], P = st && st.P || [addD(W[0], -7), addD(W[0], -1)];
+  const H = { authorization: "Bearer " + await googleToken(env) }, B = "https://storage.googleapis.com/storage/v1/b/" + encodeURIComponent(bucket) + "/o";
+  const get = async u => { const r = await fetch(u, { headers: H, signal: AbortSignal.timeout(30e3) }); if (!r.ok) throw new Error(r.status + " " + (await r.text()).replace(/\s+/g, " ").slice(0, 140)); return r; };
+  const names = []; let pt = "";
+  do { const j = await (await get(B + "?prefix=" + encodeURIComponent("stats/store_performance/") + "&fields=items(name),nextPageToken" + (pt ? "&pageToken=" + encodeURIComponent(pt) : ""))).json();
+    for (const it of j.items || []) names.push(it.name); pt = j.nextPageToken || ""; } while (pt);
+  const months = [...new Set([P[0], W[1]].map(d => d.slice(0, 7).replace("-", "")))];
+  const want = names.filter(n => n.includes(PKG) && months.some(m => n.includes("_" + m + "_")) && !/_country\.csv$/.test(n));
+  const kinds = {};
+  for (const n of want) {
+    const kind = n.replace(/^.*_\d{6}_/, "").replace(/\.csv$/, ""), rows = csvRows(csvText(await (await get(B + "/" + encodeURIComponent(n) + "?alt=media")).arrayBuffer()));
+    (kinds[kind] ||= []).push(...rows);
+  }
+  const out = { window: W, prev_window: P, files: names.filter(n => n.includes(PKG)).map(n => n.replace(/^.*\//, "").replace(PKG + "_", "")), kinds: {} };
+  for (const [k, rows] of Object.entries(kinds)) out.kinds[k] = sumSources(rows, W, P, isoDay);
+  return out;
+}
+
 async function runWorker() {
   // the worker as a module: its default export kept aside, collect() exported; the week's last day set to END instead of "yesterday after noon"
   const ORIG = "const end = addDays(today, ilHour(Date.now()) >= 12 ? -1 : -2);";
   if (!WJS.includes(ORIG)) throw new Error("the week line of collectWeekly changed: update kpi-probe.mjs");
-  const src = WJS.replace("export default", "const _d =").replace(ORIG, "const end = " + JSON.stringify(END) + ";") + "\nexport { collect, goalsGet, gView, GOALS_ERR, testsOf, report, cfQuery };";
+  // helpers for the Play sources read, exported only when the worker still has them (a missing name would break the whole import)
+  const extra = ["googleToken", "csvText", "csvRows", "isoDay"].filter(n => new RegExp("(?:const|let|function)\\s+" + n + "\\b").test(WJS));
+  const src = WJS.replace("export default", "const _d =").replace(ORIG, "const end = " + JSON.stringify(END) + ";") + "\nexport { collect, goalsGet, gView, GOALS_ERR, testsOf, report, cfQuery" + extra.map(n => ", " + n).join("") + " };";
   const tmp = E.W_TMP || "/tmp/kpi-worker.mjs";
   fs.writeFileSync(tmp, src);
   const toml = fs.existsSync(E.W_TOML || "") ? fs.readFileSync(E.W_TOML, "utf8") : "";
@@ -77,8 +127,12 @@ async function runWorker() {
   globalThis.caches = { default: { match: async () => undefined, put: async () => {} } };
   const env = { ALERTS, GA_PROPERTY_ID: tv("GA_PROPERTY_ID", "557990379"), PLAY_REPORTS_BUCKET: tv("PLAY_REPORTS_BUCKET", "pubsite_prod_4688106336294834537"),
     GA_SERVICE_ACCOUNT_JSON: E.GA_SERVICE_ACCOUNT_JSON, CF_API_TOKEN: E.CF_API_TOKEN, CF_ACCOUNT_ID: acc };
-  const { collect, goalsGet, gView, GOALS_ERR, testsOf, report, cfQuery } = await import(tmp);
+  const M = await import(tmp), { collect, goalsGet, gView, GOALS_ERR, testsOf, report, cfQuery } = M;
   const d = await collect(env);
+  // Google Play's acquisition split by traffic source and search term (CEO 12.11), beside /live's own Play numbers
+  try { d.playSrc = extra.length === 4 ? await playSources(env, { googleToken: M.googleToken, csvText: M.csvText, csvRows: M.csvRows, isoDay: M.isoDay, st: d.stats && d.stats.ok ? d.stats : null })
+    : { error: "worker helpers missing: " + ["googleToken", "csvText", "csvRows", "isoDay"].filter(n => !extra.includes(n)).join(", ") }; }
+  catch (e) { d.playSrc = { error: String(e.message || e).slice(0, 160) }; }
   // known test sends (KNOWN_TESTS in worker.js, the same list /live subtracts): left out of the week counts below as well
   d.tests = testsOf ? { leads: testsOf("b2b_lead_submit", addD(END, -6), END), leads_prev: testsOf("b2b_lead_submit", addD(END, -13), addD(END, -7)), newsletter: testsOf("newsletter_confirm", addD(END, -6), END) } : null;
   // press links (CEO 12.11): visits from the first press article, read with the same GA4 and Cloudflare calls /live uses
@@ -105,7 +159,8 @@ const FIELDS = {
   b2b_leads: "פניות עסקיות מהטופס בדף העסקים (b2b_lead_submit) בשבוע ומאז 1.10; newsletter: אישורי הרשמה למגזין.",
   failure_pct: "אחוז הבדיקות שנכשלו מצד המערכת (משרד התחבורה לא ענה, אין רשת, תקלה אצלנו) מתוך כל הניסיונות. target_max: הרף העליון.",
   slow_pct: "אחוז הבדיקות שלקחו יותר מ-5 שניות, מתוך בדיקות שהזמן שלהן ידוע. מעל 10% דורש תשומת לב.",
-  press_queenoftheroad: "הפניות מהכתבה במלכת הכביש (queenoftheroad.co.il) מיום פרסומה (from) עד to: site_visits_cloudflare ביקורים באתר שהמפנה שלהם הוא האתר שלה (Cloudflare); web_visitors_ga4 מבקרים ו-web_visits_ga4 ביקורים לפי גוגל אנליטיקס, כשמקור הביקור מכיל queenoftheroad (כולל תיבת הבדיקה המוטמעת); site_checks ו-site_checkers בדיקות רכב ובודקים מהביקורים האלה; site_saves שמירות; app_installs_tagged התקנות שהמקור שלהן נשאר queenoftheroad; sources שמות המקור שנמצאו. partial: הריצה לפני שהשבוע הגיע ליום הפרסום, המספרים עד היום.",
+  press_queenoftheroad: "הפניות מהכתבה במלכת הכביש (queenoftheroad.co.il) מיום פרסומה (from) עד to: site_visits_cloudflare ביקורים באתר שהמפנה שלהם הוא האתר שלה (Cloudflare); web_visitors_ga4 מבקרים ו-web_visits_ga4 ביקורים לפי גוגל אנליטיקס, כשמקור הביקור מכיל queenoftheroad (כולל תיבת הבדיקה המוטמעת); site_checks ו-site_checkers בדיקות רכב ובודקים מהביקורים האלה; site_saves שמירות; app_installs_tagged התקנות שהמקור שלהן נשאר queenoftheroad; sources שמות המקור שנמצאו; camp_landings כניסות לאתר מהקישורים המתוקנים של הכתבה (go/press עם c=queenoftheroad) ו-camp_checks בדיקות רכב מהביקורים האלה, לפי שדה הקמפיין של האתר (כמו בנתוני הקמפיינים). partial: הריצה לפני שהשבוע הגיע ליום הפרסום, המספרים עד היום.",
+  play_sources: "מקורות ההתקנות לפי Google Play עצמו (דוחות ביצועי דף החנות בדלי הדוחות, חוץ מהקובץ לפי מדינה): window החלון של Play (כמו installs.play) ו-prev_window שלפניו; files כל קובצי ביצועי החנות שנמצאו; kinds לכל סוג קובץ (למשל traffic_source): text העמודות שמתארות את המקור (מקור תנועה, מונח חיפוש, utm), cols העמודות המספריות (מבקרים ורכישות בדף החנות), rows שורה לכל צירוף מקור עם w סכום החלון ו-p סכום החלון הקודם, הגדולות קודם (עד 60; more כמה נשארו בחוץ).",
   notes: "הסבר לכל מדד ריק או חלקי. errors: מקור שלא ענה בהרצה.",
 };
 
@@ -222,9 +277,16 @@ function kpis(d, S) {
     else if (P) { const g = k => P.ev[k] || [0, 0];
       out.press_queenoftheroad = { from: P.from, to: P.to, partial: P.partial, site_visits_cloudflare: typeof P.cf_visits === "number" ? P.cf_visits : null,
         web_visitors_ga4: g("web.session_start")[1], web_visits_ga4: g("web.session_start")[0], site_checks: g("web.car_lookup")[0], site_checkers: g("web.car_lookup")[1],
-        site_saves: g("web.car_save")[0], app_installs_tagged: P.installs, sources: P.sources };
+        site_saves: g("web.car_save")[0], app_installs_tagged: P.installs, sources: P.sources,
+        camp_landings: g("camp.link_landing")[0], camp_checks: g("camp.car_lookup")[0] };
       notes.press_queenoftheroad = "התקנות מהכתבה כמעט לא נמדדות: כפתור ההורדה באתר מסמן את המקור luchit.app, כך שקורא שהגיע לאתר ואז התקין נספר כאתר. app_installs_tagged סופר רק התקנות שהמקור שלהן נשאר queenoftheroad. מי שהגיע משיתוף של הכתבה בפייסבוק נספר כפייסבוק, לא כאן."
         + (P.cf_visits && P.cf_visits.error ? " Cloudflare לא ענה: " + P.cf_visits.error : ""); } }
+
+  // 11. Google Play's own acquisition split (CEO 12.11, Sunday step 2d)
+  { const Q = d.playSrc;
+    if (Q && Q.error) notes.play_sources = "הקריאה של מקורות ההתקנות מ-Google Play נכשלה: " + Q.error;
+    else if (Q) { out.play_sources = Q;
+      if (!Object.keys(Q.kinds).length) notes.play_sources = "בדוחות של Google Play לא נמצא קובץ מקורות לחודשים של החלון (רק לפי מדינה). files: כל הקבצים שנמצאו."; } }
 
   return { out, notes, end };
 }
