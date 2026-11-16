@@ -1,23 +1,23 @@
 {
  "v": 1,
- "d": "2026-11-15",
- "seed": "20261115",
+ "d": "2026-11-16",
+ "seed": "20261116",
  "cars": 40,
  "sampled": 40,
- "mism": 4,
+ "mism": 8,
  "skipped": 0,
  "refused": 0,
  "fields": {
   "buyer.no_red_flags": [
-   37,
-   1
-  ],
-  "buyer.no_red_flags_tag": [
-   15,
+   36,
    0
   ],
+  "buyer.no_red_flags_tag": [
+   14,
+   2
+  ],
   "fee.borrowed_note": [
-   26,
+   28,
    0
   ],
   "fee.licence": [
@@ -25,7 +25,7 @@
    0
   ],
   "identity.buy_steps": [
-   37,
+   36,
    0
   ],
   "identity.colour": [
@@ -69,7 +69,7 @@
    0
   ],
   "insight.age_cancelled": [
-   3,
+   4,
    0
   ],
   "insight.safety_low": [
@@ -177,11 +177,11 @@
    0
   ],
   "recalls.checked_unlisted": [
-   27,
-   2
+   30,
+   3
   ],
   "recalls.line_honest": [
-   33,
+   35,
    0
   ],
   "recalls.model_count": [
@@ -193,7 +193,7 @@
    0
   ],
   "recalls.model_fits": [
-   5,
+   16,
    0
   ],
   "recalls.model_missing": [
@@ -209,15 +209,15 @@
    0
   ],
   "recalls.pending_after_road": [
-   3,
-   0
+   13,
+   5
   ],
   "recalls.pending_banner": [
    33,
    0
   ],
   "recalls.pending_listed": [
-   5,
+   16,
    0
   ],
   "recalls.tab_shown": [
@@ -229,11 +229,11 @@
    0
   ],
   "recalls.thin_line": [
-   29,
+   28,
    0
   ],
   "recalls.thin_rows": [
-   33,
+   35,
    0
   ],
   "road.first_date": [
@@ -249,7 +249,7 @@
    0
   ],
   "settlements.import_line": [
-   2,
+   1,
    0
   ],
   "settlements.scope": [
@@ -341,7 +341,7 @@
    0
   ],
   "specs.wltp_note": [
-   16,
+   18,
    0
   ],
   "status.buy_checklist": [
@@ -349,11 +349,11 @@
    0
   ],
   "status.buy_plan": [
-   37,
+   36,
    0
   ],
   "status.cancel_date": [
-   3,
+   4,
    0
   ],
   "status.cancel_pill": [
@@ -361,11 +361,11 @@
    0
   ],
   "status.cancel_reason": [
-   3,
+   4,
    0
   ],
   "status.cancelled_buy": [
-   3,
+   4,
    0
   ],
   "status.heavy_note": [
@@ -385,16 +385,12 @@
    0
   ],
   "status.import_type": [
-   2,
+   1,
    0
   ],
   "status.inactive_pill": [
    40,
    0
-  ],
-  "status.public_use": [
-   1,
-   1
   ],
   "tag.insight": [
    18,
@@ -425,7 +421,7 @@
    0
   ],
   "tow.hook": [
-   25,
+   26,
    0
   ],
   "tow.limits": [
@@ -447,39 +443,75 @@
  },
  "list": [
   {
-   "id": "c006",
+   "id": "c003",
    "field": "recalls.checked_unlisted",
    "shown": "נבדק: אין ריקול פתוח ואין הסדר פשרה",
    "expected": "the amber line: a recall of this year the per-car list cannot answer",
-   "evidence": "#11633 nolist build 2009-01-01..2011-12-31",
-   "car": "סיאט ספרד IBIZA 2010",
+   "evidence": "#12246 nolist build 2003-01-01..2008-12-31; #12014 nolist build 2003-01-01..2008-12-31; #11836 nolist build 2003-01-01..2008-12-31; #11688 nolist build 2003-01-01..2008-12-31",
+   "car": "מיצובישי יפן LANCER 2007",
    "from": "active"
   },
   {
-   "id": "c017",
-   "field": "status.public_use",
-   "shown": "",
-   "expected": "an insight that the car is in the public register (מונית)",
-   "evidence": "primary=active registers=active,public; public sug_rechev_nm=מונית owner=\"פרטי\"",
-   "car": "סקודה צ'כיה SUPERB FL 2021",
+   "id": "c004",
+   "field": "recalls.pending_after_road",
+   "shown": "[check with importer] #12111",
+   "expected": "(not pending: built after the car went on the road)",
+   "evidence": "build from 2009-01-01, on the road 2008-10",
+   "car": "טויוטה יפן PRIUS HYBRID 2008",
    "from": "active"
   },
   {
-   "id": "c017",
-   "field": "buyer.no_red_flags",
-   "shown": "לא עלו דגלים אדומים בנתונים",
-   "expected": "a flag for: public register (מונית)",
-   "evidence": "owner=\"פרטי\"",
-   "car": "סקודה צ'כיה SUPERB FL 2021",
+   "id": "c004",
+   "field": "recalls.pending_after_road",
+   "shown": "[check with importer] #13294",
+   "expected": "(not pending: built after the car went on the road)",
+   "evidence": "build from 2009-01-01, on the road 2008-10",
+   "car": "טויוטה יפן PRIUS HYBRID 2008",
    "from": "active"
   },
   {
-   "id": "c027",
+   "id": "c010",
    "field": "recalls.checked_unlisted",
    "shown": "נבדק: אין ריקול פתוח ואין הסדר פשרה",
    "expected": "the amber line: a recall of this year the per-car list cannot answer",
-   "evidence": "#11631 nolist build 2009-01-01..2011-12-31",
-   "car": "סקודה צ'כיה ROOMSTER 2009",
+   "evidence": "#12389 nolist build 2013-01-01..2014-12-31; #12026 nolist build 2014-01-01..2015-12-31; #11391 nolist build 2013-01-01..2014-08-01",
+   "car": "מיצובישי יפן OUTLANDER 2014",
+   "from": "active"
+  },
+  {
+   "id": "c015",
+   "field": "recalls.pending_after_road",
+   "shown": "[check with importer] #16478",
+   "expected": "(not pending: built after the car went on the road)",
+   "evidence": "build from 2020-08-01, on the road 2019-11",
+   "car": "ב מ וו גרמניה 330E 2019",
+   "from": "active"
+  },
+  {
+   "id": "c015",
+   "field": "recalls.pending_after_road",
+   "shown": "[check with importer] #16472",
+   "expected": "(not pending: built after the car went on the road)",
+   "evidence": "build from 2020-08-01, on the road 2019-11",
+   "car": "ב מ וו גרמניה 330E 2019",
+   "from": "active"
+  },
+  {
+   "id": "c015",
+   "field": "recalls.pending_after_road",
+   "shown": "[check with importer] #16378",
+   "expected": "(not pending: built after the car went on the road)",
+   "evidence": "build from 2020-02-06, on the road 2019-11",
+   "car": "ב מ וו גרמניה 330E 2019",
+   "from": "active"
+  },
+  {
+   "id": "c025",
+   "field": "recalls.checked_unlisted",
+   "shown": "נבדק: אין ריקול פתוח ואין הסדר פשרה",
+   "expected": "the amber line: a recall of this year the per-car list cannot answer",
+   "evidence": "#12246 nolist build 2003-01-01..2008-12-31; #12014 nolist build 2003-01-01..2008-12-31; #11836 nolist build 2003-01-01..2008-12-31; #11688 nolist build 2003-01-01..2008-12-31",
+   "car": "מיצובישי יפן LANCER 2007",
    "from": "active"
   }
  ],
