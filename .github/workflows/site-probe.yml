@@ -15,8 +15,8 @@ jobs:
         with:
           node-version: 22
       - env:
-          LIST: https://kalcar.co.il/ https://www.kalcar.co.il/ https://kalcar.co.il/install https://kalcar.co.il/about https://kalcar.co.il/terms https://kalcar.co.il/privacy https://kalcar.co.il/sitemap.xml https://kalcar.co.il/manifest.json https://kalcar.co.il/manifest.webmanifest
-          HIST: kalcar.co.il
+          LIST: https://kalcar.co.il/dealers https://kalcar.co.il/widget https://kalcar.co.il/extension https://kalcar.co.il/legal/terms https://kalcar.co.il/legal/privacy https://kalcar.co.il/legal/sources https://kalcar.co.il/gear https://kalcar.co.il/r/demo https://kalcar.co.il/inspect https://kalcar.co.il/inspection-centers https://kalcar.co.il/insurance https://kalcar.co.il/insurance-history https://kalcar.co.il/history https://kalcar.co.il/alerts https://kalcar.co.il/finance https://kalcar.co.il/services https://kalcar.co.il/reviews https://kalcar.co.il/stats
+          HIST: 
         run: node .github/scripts/page-list.mjs "$RUNNER_TEMP/site.enc.json"
       - name: Publish to the branch probe-site-out
         env:
