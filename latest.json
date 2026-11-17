@@ -4,7 +4,7 @@
  "seed": "20261117",
  "cars": 40,
  "sampled": 40,
- "mism": 11,
+ "mism": 12,
  "skipped": 0,
  "refused": 0,
  "fields": {
@@ -86,7 +86,7 @@
   ],
   "message.partial_data": [
    40,
-   0
+   1
   ],
   "mods.checks_line": [
    40,
@@ -446,6 +446,15 @@
   ]
  },
  "list": [
+  {
+   "id": "c002",
+   "field": "message.partial_data",
+   "shown": "partial-data message shown",
+   "expected": "(none: every dataset answered my reads)",
+   "evidence": "app errs=public",
+   "car": "פורד טורקיה TOURNEO CONNECT 2006",
+   "from": "active"
+  },
   {
    "id": "c031",
    "field": "status.public_use",
