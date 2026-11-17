@@ -15,8 +15,8 @@ jobs:
         with:
           node-version: 22
       - env:
-          LIST: https://trademarks.justice.gov.il/ https://trademarks.justice.gov.il/TradeMarksWebSiteClient/ https://www.gov.il/he/service/trademark_search
-          HIST: 
+          LIST: https://kalcar.co.il/ https://www.kalcar.co.il/ https://kalcar.co.il/install https://kalcar.co.il/about https://kalcar.co.il/terms https://kalcar.co.il/privacy https://kalcar.co.il/sitemap.xml https://kalcar.co.il/manifest.json https://kalcar.co.il/manifest.webmanifest
+          HIST: kalcar.co.il
         run: node .github/scripts/page-list.mjs "$RUNNER_TEMP/site.enc.json"
       - name: Publish to the branch probe-site-out
         env:
