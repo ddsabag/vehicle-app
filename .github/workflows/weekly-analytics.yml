@@ -179,13 +179,24 @@ jobs:
         if: ${{ hashFiles('out-review/status.json') != '' }}
         run: |
           set -e
-          d="$(mktemp -d)"; cp out-review/* "$d/"
+          d="$(mktemp -d)"; cp out-review/* "$d/"; rm -f "$d/usage.json"
           cd "$(mktemp -d)" && git init -q && git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git checkout -q --orphan weekly-review && cp "$d"/* . && echo "run ${GITHUB_RUN_ID}" > run.txt && git add -A
           git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Anomaly review (encrypted)"
           git push -q -f origin weekly-review && echo "published"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # the review's job has read scopes only, so its reply's API use comes here sealed with the key and is added to the cycle's total
+      # (ai-usage.mjs; ops 18.11.2026: until then the review's spend was never counted). No amount reaches the log.
+      - name: Count the review's API use
+        if: ${{ hashFiles('out-review/usage.json') != '' }}
+        continue-on-error: true
+        run: node .github/scripts/anomaly-review.mjs --count out-review/usage.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AI_CAP_USD: ${{ secrets.AI_CAP_USD }}
+          AI_GRANTS: ${{ secrets.AI_GRANTS }}
       - name: Tell the router
         run: node .github/scripts/anomaly-review.mjs --route out-review/status.json
         env:
