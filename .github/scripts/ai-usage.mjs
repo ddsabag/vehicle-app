@@ -74,8 +74,14 @@ function seal(obj, pem) {
 }
 
 // the new total from the old one (pure, for the selftest): a new cycle starts from zero; crossed = 80 when this reply crossed 80% of the cap
+// A cycle's start date from its id ("g-2026-11-07" or "2026-11-20"): a writer whose code is older than the stored total (a run of an old
+// commit or branch that does not know the newest grant line) adds to the stored cycle instead of starting an older one from zero. Before
+// 18.11.2026 such a run reset the total twice (9.11 04:21 and 06:21 UTC), and part of the count was lost.
+const since = id => String(id || "").replace(/^g-/, "");
 export function add(old, { usd, bot, now = new Date(), cap = 100, until = "" }) {
-  const c = cycle(now), t = old && old.cycle === c ? old : { cycle: c, usd: 0, calls: 0, by: {}, told: [] };
+  let c = cycle(now);
+  if (old && old.cycle !== c && since(old.cycle) > since(c)) c = old.cycle;   // a stale writer: keep the newer cycle
+  const t = old && old.cycle === c ? old : { cycle: c, usd: 0, calls: 0, by: {}, told: [] };
   t.cap = cap; t.until = until;
   const before = t.usd;
   t.usd = Math.round((t.usd + usd) * 1e6) / 1e6; t.calls++; t.by[bot] = Math.round(((t.by[bot] || 0) + usd) * 1e6) / 1e6; t.at = now.toISOString();
@@ -167,6 +173,10 @@ if (process.argv[1] && process.argv[1].endsWith("ai-usage.mjs") && process.argv.
   ok(r.crossed === 80 && r.t.usd === 81 && r.t.by.B === 2 && r.t.calls === 2, "crossing 80% tells once");
   r = add(r.t, { usd: 5, bot: "B", now: new Date("2026-12-04T00:00Z") }); ok(r.crossed === 0 && r.t.usd === 86, "not again in the same cycle");
   r = add(r.t, { usd: 1, bot: "A", now: new Date("2026-12-20T01:00Z") }); ok(r.t.cycle === "2026-12-20" && r.t.usd === 1 && r.t.told.length === 0, "a new cycle starts from zero");
+  { const newer = { cycle: "g-2026-11-07", usd: 8.2, calls: 9, by: { A: 8.2 }, told: [] };
+    const stale = add(JSON.parse(JSON.stringify(newer)), { usd: 0.5, bot: "B", now: new Date("2026-11-09T04:21Z") });
+    ok(cycle(new Date("2026-11-09T04:21Z"), [G1]) === "g-2026-11-01" && stale.t.cycle === "g-2026-11-07" && Math.abs(stale.t.usd - 8.7) < 1e-9 && stale.t.calls === 10,
+      "a stale writer (code without the newest grant line) adds to the newer cycle, never resets it"); }
   // record against a fake GitHub: a lost race, then the write
   const files = {}, calls = []; let race = 1;
   const fake = async (url, o = {}) => { calls.push((o.method || "GET") + " " + url.replace(/.*\/repos\/[^/]+\/[^/]+/, ""));
