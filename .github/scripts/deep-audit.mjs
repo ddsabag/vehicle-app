@@ -141,7 +141,7 @@ export const period = now => { const s = now.toISOString(), day = +s.slice(8, 10
 // other bots; the rest is shared by the runs still to come at PER_CAR (about $0.04 a car at medium, measured), 200 a run at most (800 in
 // all). High only when the money clearly covers 200 a run at PER_CAR_HIGH. No readable counter: 100 a run (400 in all). Returns the
 // QUERIES of the run, or "" when nothing is left to spend. It never prints money: the repo is public; the log shows only cars and effort.
-export const RESERVE = 8, PER_CAR = 0.04, PER_CAR_HIGH = 0.08;
+export const RESERVE = 8, PER_CAR = 0.04, PER_CAR_HIGH = 0.08, UNCOUNTED = 18.4;
 export function plan(d, left) {
   const m = /^(\d{4}-\d\d)-mid-(\d\d)([ab])$/.exec(d); if (!m) return null;
   m.shift(); const ym = m.shift();
@@ -149,6 +149,10 @@ export function plan(d, left) {
   const q = cars => cars < MIN_CARS ? "" : `n=${Math.round(cars * 0.75)} rare=${cars - Math.round(cars * 0.75)} max=${cars} minutes=150`;
   // no readable counter: 100 a run in 11.2026 (the grant Dudu read), and no run from 12.2026, so nothing is spent on a cycle nobody measured
   if (typeof left !== "number" || Number.isNaN(left)) return ym === BIG ? q(100) + " effort=medium" : "";
+  // 18.11.2026 (API-credits thread): the counter missed spend this cycle (importer specs ~$5, about $1.3 a day uncounted; it read $44.36
+  // left on 17.11 against about $26 estimated), so the November runs take UNCOUNTED off what it says until Dudu reads the Console balance;
+  // a run cut off by an empty credit loses its answers, a smaller one does not
+  if (ym === BIG) left -= UNCOUNTED;
   const free = left - RESERVE; if (free <= 0) return "";
   if (free >= runsLeft * 200 * PER_CAR_HIGH) return q(200) + " effort=high";
   return (q(Math.min(200, Math.floor(free / PER_CAR / runsLeft))) + " effort=medium").replace(/^ effort=medium$/, "");
@@ -345,12 +349,11 @@ if (process.argv[1] && process.argv[1].endsWith("deep-audit.mjs") && process.arg
   ok(plan("2026-12-mid", 0) === null && plan("2026-11", 0) === null, "plan: only the end-of-cycle runs are sized");
   ok(plan("2026-12-mid-18a", 71.84) === "n=150 rare=50 max=200 minutes=150 effort=medium" && plan("2026-12-mid-18a", NaN) === "" && plan("2027-01-mid-19b", 3) === "", "plan: every cycle takes what is left; from 12.2026 no run without a readable counter");
   ok(plan("2026-11-mid-18a", NaN) === "n=75 rare=25 max=100 minutes=150 effort=medium", "plan: no readable counter = 100 a run (400 in all)");
-  ok(plan("2026-11-mid-18a", 71.84) === "n=150 rare=50 max=200 minutes=150 effort=medium" && plan("2026-11-mid-18b", 61.84) === "n=150 rare=50 max=200 minutes=150 effort=high", "plan: 200 a run at medium; high only when the money clearly covers it");
-  ok(plan("2026-11-mid-18a", 31.84) === "n=112 rare=37 max=149 minutes=150 effort=medium", "plan: less money, fewer cars at medium, shared by the 4 runs left");
-  ok(plan("2026-11-mid-19b", 21.84) === "n=150 rare=50 max=200 minutes=150 effort=medium" && plan("2026-11-mid-19b", 11.84) === "n=72 rare=24 max=96 minutes=150 effort=medium", "plan: the last run takes what is left, 200 at most");
-  ok(plan("2026-11-mid-19a", 8.34) === "" && plan("2026-11-mid-19a", 1.84) === "", "plan: nothing left above the reserve = no run");
+  ok(plan("2026-11-mid-18a", 44.36) === "n=84 rare=28 max=112 minutes=150 effort=medium" && plan("2026-11-mid-18a", 26) === "", "plan: in 11.2026 UNCOUNTED comes off the counter: about 112 a run with 4 to go");
+  ok(plan("2026-11-mid-19b", 40.24) === "n=150 rare=50 max=200 minutes=150 effort=medium" && plan("2026-11-mid-19b", 30.24) === "n=72 rare=24 max=96 minutes=150 effort=medium", "plan: the last run takes what is left, 200 at most");
+  ok(plan("2026-11-mid-19a", 26.74) === "" && plan("2026-11-mid-19a", 1.84) === "", "plan: nothing left above the reserve = no run");
   ok(plan("2026-11-mid-18a", -3) === "", "plan: an overspent counter = no run, never the 100-car fallback");
-  ok(plan("2026-11-mid-18b", 71.84).includes("max=200") && !/\$|usd/i.test(plan("2026-11-mid-18a", 41.84)), "plan: never more than 200 a run, never money");
+  ok(plan("2026-11-mid-18b", 91.84).includes("max=200") && !/\$|usd/i.test(plan("2026-11-mid-18a", 41.84)), "plan: never more than 200 a run, never money");
   ok(JSON.stringify(queries("n=500 minutes=3 effort=max dry=1 bogus=2")) === JSON.stringify({ n: 150, rare: 20, minutes: 5, wait: 180, effort: "medium", max: 120, dry: true }), "queries: clamped, unknown dropped");
   // whole runs: a fake audit writes the cars, a fake API answers by car
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "da-")), cars = n => async (q, dir) => { const d = path.join(dir, "cars"); fs.mkdirSync(d, { recursive: true });
