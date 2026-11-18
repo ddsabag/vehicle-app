@@ -22,7 +22,7 @@ import { fileURLToPath } from "node:url";
 import { client, batch, answer, usage } from "./claude.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-export const MODEL = "claude-opus-5-5", PROMPT_V = 3, MIN_CARS = 10;
+export const MODEL = "claude-opus-5-5", PROMPT_V = 4, MIN_CARS = 10;
 const PAGE_MAX = 36000, ROWS_MAX = 24000;   // characters of one car's page and rows in its prompt: a car's cost has a ceiling
 // the page's areas, the ids of the daily audit's GROUPS (site-data-truth.mjs) and of the router's truth labels
 export const AREAS = { identity: "פרטי הרכב", status: "סטטוס הרכב", test: "טסט", road: "עלייה לכביש", owners: "בעלויות", km: "ק״מ", recalls: "ריקולים",
@@ -102,8 +102,10 @@ export function rowsText(s) {
   return out.join("\n");
 }
 const cut = (t, n) => (t.length > n ? t.slice(0, n) + "\n[… cut here for length]" : t);
-export function prompt(s) {
-  return [`Car: ${s.car.maker} ${s.car.model} ${s.car.year} (register: ${s.primary || "?"}${(s.mains || []).length > 1 ? `; also in: ${s.mains.slice(1).join(", ")}` : ""}${s.cancelled ? "; off the road" : ""})`,
+// 18.11.2026: the date the page was read. Without it the model took the recall list's date for today and called two expired tests valid (c104, c105)
+const dmy = d => d.toISOString().slice(0, 10).split("-").reverse().join("/");
+export function prompt(s, now = new Date()) {
+  return [`Today (the day the page was read): ${dmy(now)}`, `Car: ${s.car.maker} ${s.car.model} ${s.car.year} (register: ${s.primary || "?"}${(s.mains || []).length > 1 ? `; also in: ${s.mains.slice(1).join(", ")}` : ""}${s.cancelled ? "; off the road" : ""})`,
     "", "== The page ==", cut(pageText(s), PAGE_MAX), "", "== The ministry's rows ==", cut(rowsText(s), ROWS_MAX), "", "== What the fixed checks found ==", ...((s.rules || []).length ? s.rules.map(l => "- " + l) : ["(none)"])].join("\n");
 }
 export const params = (s, effort = "medium") => ({ model: MODEL, max_tokens: 16000, output_config: { effort, format: { type: "json_schema", schema: SCHEMA } },
@@ -418,6 +420,7 @@ if (process.argv[1] && process.argv[1].endsWith("deep-audit.mjs") && process.arg
   ok(r.missed === 0 && calls.some(c => c[0] === "resolve" && c[1] === "truth:deep:") && !calls.some(c => c[0] === "alert"), "a clean month: the open truth:deep lines close, nothing is sent");
   // a car's prompt has a ceiling; the router has Hebrew for every area
   const big = car("c099", { page: { ...car("c099").page, tabs: { overview: "א ".repeat(60000), owners: "ב" } } });
+  ok(prompt(big, new Date("2026-11-18T05:17:00Z")).startsWith("Today (the day the page was read): 18/11/2026\n"), "the prompt says what day it is");
   ok(prompt(big).length < PAGE_MAX + ROWS_MAX + 3000 && prompt(big).includes("[… cut here for length]"), "one car's prompt is cut at its ceiling");
   try { const { label } = await import("./alert.mjs"); ok(Object.keys(AREAS).every(a => label("truth:deep:" + a).he.endsWith(": " + AREAS[a])) && label("ai:audit").he.endsWith("הביקורת החודשית העמוקה"), "the router names every area as this file does"); }
   catch (e) { ok(false, "alert.mjs import: " + e.message); }
