@@ -4,7 +4,7 @@
  "seed": "20261119",
  "cars": 40,
  "sampled": 40,
- "mism": 4,
+ "mism": 6,
  "skipped": 0,
  "refused": 0,
  "fields": {
@@ -193,7 +193,7 @@
    0
   ],
   "recalls.model_fits": [
-   11,
+   10,
    0
   ],
   "recalls.model_missing": [
@@ -213,15 +213,15 @@
    0
   ],
   "recalls.pending_after_road": [
-   9,
-   1
+   10,
+   3
   ],
   "recalls.pending_banner": [
    34,
    0
   ],
   "recalls.pending_listed": [
-   11,
+   10,
    0
   ],
   "recalls.tab_shown": [
@@ -450,6 +450,24 @@
   ]
  },
  "list": [
+  {
+   "id": "c004",
+   "field": "recalls.pending_after_road",
+   "shown": "[check with importer] #12111",
+   "expected": "(not pending: built after the car went on the road)",
+   "evidence": "build from 2009-01-01, on the road 2008-4",
+   "car": "טויוטה יפן PRIUS HYBRID 2008",
+   "from": "active"
+  },
+  {
+   "id": "c004",
+   "field": "recalls.pending_after_road",
+   "shown": "[check with importer] #13294",
+   "expected": "(not pending: built after the car went on the road)",
+   "evidence": "build from 2009-01-01, on the road 2008-4",
+   "car": "טויוטה יפן PRIUS HYBRID 2008",
+   "from": "active"
+  },
   {
    "id": "c034",
    "field": "status.public_use",
