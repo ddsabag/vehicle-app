@@ -33,6 +33,8 @@ const part = async (name, fn) => { const t = Date.now(); try { out.parts[name] =
   catch (e) { out.parts[name] = { error: String(e.message || e).slice(0, 400) }; out.ms[name] = Date.now() - t; console.log(name, "failed", String(e.message || e).replace(/\d/g, "#").slice(0, 120)); } };
 await part("snap", () => W.__snap(env));
 await part("online", () => W.onlineNow(env));
+await part("kvgoals", () => ALERTS.get("lv:goals", "json"));   // 19.11: the goals state as the cron stored it, to check the re-anchor of live-60
+await part("kvgoalserr", () => ALERTS.get("lv:goals:err", "json"));
 const P = out.parts;
 out.data = P.snap && !P.snap.error ? P.snap : null;
 const key = crypto.randomBytes(32), iv = crypto.randomBytes(12), ci = crypto.createCipheriv("aes-256-gcm", key, iv);
