@@ -413,6 +413,9 @@ ok(JSON.stringify(all.find(a => a[0] === "data-truth.yml")[1].inputs) === '{"job
   ok(counts(W, { event: "workflow_dispatch", display_title: "Weekly analytics report (20 6 * * 0)" }) && !counts(W, { event: "workflow_dispatch", display_title: "Weekly analytics report" }) && !counts(W, { event: "schedule", display_title: "Weekly analytics report (20 5 * * 0)" }), "a slot-checked bot: only a run of its line counts");
   ok(counts(D, { event: "schedule", conclusion: null }) && counts(D, { event: "workflow_dispatch", conclusion: "failure" }), "a scheduled or started run counts, running or failed");
   ok(!counts(D, { event: "push", conclusion: "success" }) && !counts(D, { event: "pull_request", conclusion: "success" }) && !counts(D, { event: "schedule", conclusion: "skipped" }), "a push, pull-request or skipped run does not");
+  { const K = { wf: "kit-qa.yml", title: "(40 13 * * 4)", off: true }, offs = (src.match(/wf: "[^"]+"[^\n]*off: true/g) || []).map(l => l.match(/wf: "([^"]+)"/)[1]).sort().join();
+    ok(offs === "kit-draft.yml,kit-qa.yml" && counts(K, { event: "workflow_dispatch", conclusion: "skipped", display_title: "Kit visual QA (40 13 * * 4)" }) && !counts(K, { event: "push", conclusion: "skipped", display_title: "Kit visual QA (40 13 * * 4)" })
+      && !counts({ ...K, off: false }, { event: "workflow_dispatch", conclusion: "skipped", display_title: "Kit visual QA (40 13 * * 4)" }), "a kit bot switched off: its skipped run counts, so the clock does not start it every hour"); }
   ok(counts(M, { event: "schedule", display_title: "Magazine (data)" }) && !counts(M, { event: "schedule", display_title: "Magazine (monthly)" }), "the magazine: only its data part");
 }
 reset(); gh = { runs: {}, calls: [], sent: [], status: 0, jobs: {} };

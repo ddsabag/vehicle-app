@@ -724,6 +724,7 @@ html.web body:has(.sharebar) .sb-pad{display:none}
 html.web .sf-l{display:none}   /* the car page's legal line: the footer under it says it on the website */
 /* :has() always in a rule of its own: an engine without it (WebView before 105, Safari before 15.4) drops the whole rule it sits in */
 body.kb .bnav,body.land .bnav{display:none}
+html{scroll-padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}   /* a focused link is not left behind the bottom bar (accessibility review 12.11.2026); the wide website has the bar at the top */
 body:has(.sharebar) .bnav{display:none}
 body:not(.kb) .toast{bottom:calc(84px + env(safe-area-inset-bottom,0px))}
 body:not(.kb) .snack{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
@@ -739,6 +740,7 @@ body:has(> .snack) .sheet-in{padding-bottom:calc(84px + env(safe-area-inset-bott
    no search band; phones and the app keep the bottom bar */
 .bn-brand,.bn-f,.bhero,.bnav .bn-set,.bnav .bn-pro{display:none}   /* .bnav button would otherwise draw the gear as a fourth tab on a phone */
 @media (min-width:1000px){
+  html.web{scroll-padding-bottom:0}
   html.web .bnav{top:0;bottom:auto;border-top:0;border-bottom:1px solid var(--line);padding-bottom:0}
   html.web .bnav-in{max-width:1080px;padding-inline:16px;display:flex;align-items:stretch;gap:4px;height:60px}
   html.web .bnav button{flex-direction:row;gap:7px;min-height:0;padding:0 14px;font-size:.95rem;border-bottom:3px solid transparent;border-radius:0;cursor:pointer}
@@ -1013,7 +1015,7 @@ body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)
     <form id="f" autocomplete="off">
       <label class="plate" for="plate">
         <span class="il" aria-hidden="true"><span>IL</span><span>ישראל</span></span>
-        <input id="plate" name="plate" inputmode="numeric" placeholder="12-345-67" maxlength="10" aria-label="מספר רישוי" enterkeyhint="search">
+        <input id="plate" name="plate" inputmode="numeric" placeholder="76-543-21" maxlength="10" aria-label="מספר רישוי" enterkeyhint="search">
         <button type="button" class="clr" id="clrPlate" aria-label="ניקוי המספר" hidden><svg class="i"><use href="#i-x"/></svg></button>
         <button type="button" class="clr" id="pastePlate" aria-label="הדבקת מספר מהלוח"><svg class="i"><use href="#i-paste"/></svg></button>
       </label>
@@ -1184,7 +1186,7 @@ body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)
 <script>
 "use strict";
 /*! © 2026 Dudu Sabag. All rights reserved. */
-const APP_VERSION = "1.38.4";
+const APP_VERSION = "1.38.5";
 /* a phone whose page storage is still empty here is a new install (an app update keeps the storage): read before anything is stored */
 const FRESH = (() => { try { return localStorage.length === 0; } catch { return false; } })();
 const SITE = "https://luchit.app/";
@@ -1301,7 +1303,7 @@ const LAND = (() => { try {
 /* silent failures worth knowing about (a dataset that errors, a library that does not load): sent to Crashlytics as a non-fatal, tag only, never a plate */
 /* a JavaScript error nobody sees: counted (line number only, never the message, which could hold a plate), at most 5 per session */
 let jsErrN = 0;
-const jsErr = (where, line, file) => { if (jsErrN++ < 5) { try { const b = window.AndroidApp; if (b && b.logError && analyticsOn()) b.logError(("js_" + where + "_" + (line || 0)).slice(0, 60)); else track("js_error", {kind: where, line: line || 0, efile: errFile(file), uacl: UACL}); } catch {} } };   // the web has no Crashlytics: the count goes to GA
+const jsErr = (where, line, file, col) => { if (jsErrN++ < 5) { try { const b = window.AndroidApp; if (b && b.logError && analyticsOn()) b.logError(("js_" + where + "_" + (line || 0)).slice(0, 60)); else track("js_error", {kind: where, line: line || 0, col: col || 0, efile: errFile(file), uacl: UACL}); } catch {} } };   // the web has no Crashlytics: the count goes to GA
 // Facebook, Instagram and TikTok open links in their own in-app browser, which runs scripts of its own that land on these listeners too:
 // those count apart (kind "iab"), so the pipe canary watches our code only (22-23.10: all 10 web errors came from such visits, none on our pages)
 const UA = navigator.userAgent || "", WEBVIEW = /; wv\)/.test(UA) || (/iPhone|iPad|iPod/.test(UA) && !/Safari\//.test(UA));
@@ -1313,12 +1315,13 @@ const IAB = /FBAN|FBAV|FB_IAB|FB4A|FBLC|Messenger|Orca-Android|Instagram|Bytedan
 const UACL = /FBLite|FBAN\/EMA/i.test(UA) ? "fb_lite" : /Messenger|Orca-Android/i.test(UA) ? "messenger" : /FBAN|FBAV|FB_IAB|FB4A/i.test(UA) ? "fb" : /Instagram/i.test(UA) ? "ig"
   : /BytedanceWebview|musical_ly/i.test(UA) ? "tiktok" : WEBVIEW ? (/Android/.test(UA) ? "and_wv" : "ios_wv") : /CriOS|FxiOS|EdgiOS/.test(UA) ? "ios_app" : /iPhone|iPad|iPod/.test(UA) ? "ios_safari"
   : /Android/.test(UA) ? "android" : "desktop";
-// where the failing script lives: this page ("own"), our other files ("site"), a library we load ("lib"), anything else ("x"), or no file
+// where the failing script lives: this page or its built app file /app.<hash>.js ("own", 12.11: the build moved the page's code there, so
+// "site, line 2" was our own code), our other files ("site"), a library we load ("lib"), anything else ("x"), or no file
 // given ("none": a script from another site the browser hides, or one injected into the page)
-const errFile = f => { try { if (!f) return "none"; const u = new URL(f, location.href); return u.href.split(/[?#]/)[0] === location.href.split(/[?#]/)[0] ? "own" : u.origin === location.origin ? "site" : /jsdelivr|cdnjs|unpkg/.test(u.hostname) ? "lib" : "x"; } catch { return "x"; } };
+const errFile = f => { try { if (!f) return "none"; const u = new URL(f, location.href); return u.href.split(/[?#]/)[0] === location.href.split(/[?#]/)[0] || (u.origin === location.origin && /^\/app\.[0-9a-f]+\.js$/.test(u.pathname)) ? "own" : u.origin === location.origin ? "site" : /jsdelivr|cdnjs|unpkg/.test(u.hostname) ? "lib" : "x"; } catch { return "x"; } };
 // a library's own worker (the OCR, the PDF reader) that could not download its file reaches here too: its caller handles that (the plate
 // reader's message, doc_scan kind fail), and it is the connection, not our code
-window.addEventListener("error", ev => { if (/^blob:/.test(ev && ev.filename || "")) return; jsErr(IAB ? "iab" : "err", ev && ev.lineno, ev && ev.filename); });
+window.addEventListener("error", ev => { if (/^blob:/.test(ev && ev.filename || "")) return; jsErr(IAB ? "iab" : "err", ev && ev.lineno, ev && ev.filename, ev && ev.colno); });
 window.addEventListener("unhandledrejection", () => jsErr(IAB ? "iab" : "rej", 0));
 /* the Android app tells the page when a screenshot of it was taken (Android 14+): counted with the screen it happened on, never the picture */
 window.onScreenshot = () => { try { track("user_screenshot", {tab: typeof inCompare !== "undefined" && inCompare ? "compare" : typeof current !== "undefined" && current ? (currentTab || "overview") : ({cars: "cars", alerts: "alerts", sub: "tool"})[document.body.dataset.screen] || "home"}); } catch {} };
@@ -1828,11 +1831,28 @@ function openExternal(url){
 let navReady = false;   // from the first syncNav (the page drawn), every change to the saved cars brings the bell's number up to date
 const store = {
   get(k){ try { return JSON.parse(localStorage.getItem(k) || "[]"); } catch { return []; } },
-  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} if (k === "savedVehicles") { syncSaved(v); if (navReady) syncNav(); } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} keep(k, v); if (k === "savedVehicles") { syncSaved(v); if (navReady) syncNav(); } },
 };
+/* a second copy of what the user built (saved cars and compares, the car file's marks and services, alert choices) in IndexedDB, because
+   localStorage can read as empty on a nearly full disk (12.11.2026). Written on every change; read once at start, and only fills a key
+   that reads empty while the copy has something. An empty value is not copied before that read, so a start-up with storage out of reach
+   cannot wipe the copy */
+const KEEP_KEYS = ["savedVehicles", "savedCompares", "mine", "svc", "alertPrefs"];
+const KEEP = {db: null, ready: false, thin: false};
+const keepEmpty = v => v == null || (Array.isArray(v) ? !v.length : typeof v === "object" && !Object.keys(v).length);
+const keepDb = () => KEEP.db || (KEEP.db = new Promise((ok, no) => { const r = indexedDB.open("luchitKeep", 1); r.onupgradeneeded = () => r.result.createObjectStore("kv"); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); }));
+function keep(k, v){
+  if (!window.indexedDB || !KEEP_KEYS.includes(k) || (!KEEP.ready && keepEmpty(v))) return;
+  keepDb().then(db => { const t = db.transaction("kv", "readwrite"); t.objectStore("kv").put(JSON.stringify(v), k); }).catch(() => null);   // no copy this time: the next change writes it
+}
 /* the app checks saved cars once a day for a new recall or a test about to expire */
+/* false when the page could not keep the saved cars it restored (no room on the phone): then nothing overwrites the app's own copy */
+/* had: this session saw saved cars. An empty list goes to the app's copy only after that (the user removed the last car), never at a start
+   that read none, which is what a disk out of reach looks like */
+const SAVED_GUARD = {ok: true, had: false};
 function syncSaved(list){
-  const b = window.AndroidApp; if (!b || !b.syncSaved) return;
+  const b = window.AndroidApp; if (!b || !b.syncSaved || !SAVED_GUARD.ok) return;
+  if ((list || []).length) SAVED_GUARD.had = true; else if (!SAVED_GUARD.had) return;
   try { b.syncSaved(JSON.stringify((list || []).map((x, i) => ({plate: x.plate, title: x.nick || x.title || "", alerts: alertSet().includes(x.plate), ext: plan() !== "free", svcDue: svcDue(x.plate), stlCar: x.stlCar || null, prefs: alertPrefs(), docs: docExpAll().filter(d => d.plate === x.plate).map(d => ({cat: d.cat, exp: d.exp}))})))); } catch {}
 }
 /* what to be alerted about: every kind is on by default and the user can switch each one off in settings */
@@ -1856,7 +1876,7 @@ function fillAlertKinds(){
 document.addEventListener("change", ev => {
   const c = ev.target.closest && ev.target.closest("[data-kind]"); if (!c) return;
   const pr = alertPrefs(); pr[c.dataset.kind] = c.checked; track("alert_kind", {kind: c.dataset.kind, on: c.checked ? 1 : 0});
-  try { localStorage.setItem("alertPrefs", JSON.stringify(pr)); } catch {}
+  try { localStorage.setItem("alertPrefs", JSON.stringify(pr)); } catch {} keep("alertPrefs", pr);
   syncSaved(store.get("savedVehicles"));
 });
 const docExpAll = () => { try { return JSON.parse(localStorage.getItem("docExp") || "[]"); } catch { return []; } };
@@ -1900,7 +1920,7 @@ function undoAdd(D, mineWas){
   const m = mineAll();
   if (m[D.plate] === 1 && mineWas !== 1) {
     if (mineWas === undefined) delete m[D.plate]; else m[D.plate] = mineWas;
-    try { localStorage.setItem("mine", JSON.stringify(m)); } catch {}
+    try { localStorage.setItem("mine", JSON.stringify(m)); } catch {} keep("mine", m);
     if (current === D && currentTab === "file") currentTab = "overview";
   }
   if (current === D) { const y = window.scrollY; renderResult(); window.scrollTo(0, y); } else refreshView();
@@ -3089,6 +3109,8 @@ const recTabOf = D => D.kind === "model" || D.recalls.length ? "ריקולים" 
 
 /* a reload or Back that re-opens the car already on screen is not a new check: it is counted as lookup_repeat, so car_lookup stays one per check */
 let lookupAgain = false;
+/* a plate of the wrong length: the field says so to a screen reader (aria-invalid, pointing at the message) until it is typed in again (accessibility review 12.11.2026) */
+function plateInvalid(){ const f = $("#plate"); if (!f) return; f.setAttribute("aria-invalid", "true"); f.setAttribute("aria-describedby", "plateErr"); f.addEventListener("input", () => { f.removeAttribute("aria-invalid"); f.removeAttribute("aria-describedby"); }, {once: true}); }
 async function lookup(raw){
   if (Date.now() - intentAt > INTENT_MS) dropIntents();
   const again = lookupAgain; lookupAgain = false;
@@ -3096,7 +3118,7 @@ async function lookup(raw){
   const ot = openTab; openTab = null;
   const plate = digits(raw).replace(/^0+(?=\d{5})/, "");
   const out = $("#out");
-  if (plate.length < 5 || plate.length > 8) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-id"/></svg></div>מספר רישוי צריך להכיל 5 עד 8 ספרות.</div>`; return; }
+  if (plate.length < 5 || plate.length > 8) { plateInvalid(); out.innerHTML = `<div class="msg err edge" role="alert" id="plateErr"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-id"/></svg></div>מספר רישוי צריך להכיל 5 עד 8 ספרות.</div>`; return; }
   if (ctrl) ctrl.abort();
   ctrl = new AbortController(); const signal = ctrl.signal;
   let timedOut = false; const deadT = setTimeout(() => { timedOut = true; ctrl.abort(); }, 30000);   // a server that never answers must end in a clear message, not a bar that runs for a minute
@@ -3119,10 +3141,10 @@ async function lookup(raw){
   await side;
   if (signal.aborted && !timedOut) return;
   if (D.offline || (D.notFound && isSaved(plate))) { const sn = snapGet(plate); if (sn) { track("lookup_from_cache"); current = sn; currentTab = ot && ot.p === plate ? ot.t : "overview"; renderResult(); focusResult(); window.scrollTo({top: 0}); return; } }
-  if (D.sourceDown) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-wrench"/></svg></div>מאגר הרכבים של משרד התחבורה לא מחזיר נתונים כרגע, בלי קשר למספר שהקלדתם. זו תקלה אצל המשרד. נסו שוב מאוחר יותר.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; track("lookup_failed", {kind: "source_down", dur: durB}); return; }
+  if (D.sourceDown) { out.innerHTML = `<div class="msg err edge" role="alert"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-wrench"/></svg></div>מאגר הרכבים של משרד התחבורה לא מחזיר נתונים כרגע, בלי קשר למספר שהקלדתם. זו תקלה אצל המשרד. נסו שוב מאוחר יותר.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; track("lookup_failed", {kind: "source_down", dur: durB}); return; }
   if (D.offline || D.notFound) track("lookup_failed", {kind: D.sourceDown ? "source_down" : D.offline ? "offline" : "not_found", dur: durB});
-  if (D.offline) { out.innerHTML = `<div class="msg err edge"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-globe"/></svg></div>${navigator.onLine === false ? "אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב." : "מאגרי משרד התחבורה לא עונים כרגע (תקלה או עומס אצל המשרד, לא אצלכם). נסו שוב בעוד כמה דקות."}</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; return; }
-  if (D.notFound) { out.innerHTML = `<div class="msg edge"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-search"/></svg></div>לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.<p class="note" style="margin:8px 0 0">בדקנו את כל מאגרי משרד התחבורה, כולל רכבים שירדו מהכביש, דו-גלגלי ויבוא אישי. רכב שעלה לכביש בימים האחרונים יופיע אחרי העדכון הבא של המאגר.</p></div>`; return; }
+  if (D.offline) { out.innerHTML = `<div class="msg err edge" role="alert"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-globe"/></svg></div>${navigator.onLine === false ? "אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב." : "מאגרי משרד התחבורה לא עונים כרגע (תקלה או עומס אצל המשרד, לא אצלכם). נסו שוב בעוד כמה דקות."}</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; return; }
+  if (D.notFound) { out.innerHTML = `<div class="msg edge" role="alert"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-search"/></svg></div>לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.<p class="note" style="margin:8px 0 0">בדקנו את כל מאגרי משרד התחבורה, כולל רכבים שירדו מהכביש, דו-גלגלי ויבוא אישי. רכב שעלה לכביש בימים האחרונים יופיע אחרי העדכון הבא של המאגר.</p></div>`; return; }
   current = D; currentTab = ot && ot.p === D.plate ? ot.t : "overview";
   const role = roleOf(D);   // who checked it, before "+" below (or the home file line) saves the car
   const mineWas = addIntent ? mineAll()[D.plate] : undefined, added = addIntent && D.plate && D.kind !== "model" ? addFromPlus(D) : null;
@@ -3503,7 +3525,7 @@ const svcAll = () => { try { return JSON.parse(localStorage.getItem("svc") || "{
 const svcOf = p => { const s = svcAll()[p]; return s && Array.isArray(s.log) ? s : {log: [], meta: null}; };
 // the newest entry of the service log (kept on the phone only), for the fleet table
 const svcLast = p => svcOf(p).log.filter(x => x.d && x.type !== SVC_KM).reduce((a, b) => !a || b.d > a.d ? b : a, null);
-function svcSave(p, s){ const all = svcAll(); all[p] = s; try { localStorage.setItem("svc", JSON.stringify(all)); } catch {} syncSaved(store.get("savedVehicles")); }
+function svcSave(p, s){ const all = svcAll(); all[p] = s; try { localStorage.setItem("svc", JSON.stringify(all)); } catch {} keep("svc", all); syncSaved(store.get("savedVehicles")); }
 const ymdOf = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + Math.round(n)); return x; };
 const dayDiff = (a, b) => Math.round((b - a) / 864e5);
@@ -3601,7 +3623,7 @@ const FREE_DOCS = 5, DOC_MAX_BYTES = 12 * 1048576;
 const docsOk = n => !PRO_LOCK || atLeast("pro") || n < FREE_DOCS;
 const DocDB = {
   db: null,
-  open(){ return this.db || (this.db = new Promise((ok, no) => { const r = indexedDB.open("luchitDocs", 1); r.onupgradeneeded = () => r.result.createObjectStore("docs", {keyPath: "id", autoIncrement: true}).createIndex("plate", "plate"); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); })); },
+  open(){ return this.db || (this.db = new Promise((ok, no) => { const r = indexedDB.open("luchitDocs", 1); r.onupgradeneeded = () => r.result.createObjectStore("docs", {keyPath: "id", autoIncrement: true}).createIndex("plate", "plate"); r.onsuccess = () => ok(r.result); r.onerror = () => { this.db = null; no(r.error); }; })); },   // a failed open is tried again next time (a full disk can be freed)
   async tx(mode, fn){ const db = await this.open(); return new Promise((ok, no) => { const t = db.transaction("docs", mode), st = t.objectStore("docs"), rq = fn(st); t.oncomplete = () => ok(rq && rq.result); t.onerror = () => no(t.error); t.onabort = () => no(t.error); }); },
   // Safari's private browsing keeps no file (Blob) in IndexedDB: there a document is kept as its bytes (buf), and docIn reads it back as a file
   async put(rec){ try { return await this.tx("readwrite", st => st.add(rec)); } catch (e) { if (!(rec.blob instanceof Blob)) throw e; const {blob, ...r} = rec, buf = await blob.arrayBuffer(); return this.tx("readwrite", st => st.add({...r, buf})); } },
@@ -3678,7 +3700,11 @@ function docsCard(D){
 async function fillDocs(){
   const el = document.getElementById("docList"); if (!el || !current) return;
   const D = current; let list = [];
-  try { list = (await DocDB.byPlate(D.plate)).sort((a, b) => b.at - a.at); } catch { el.innerHTML = `<p class="note">שמירת מסמכים לא זמינה במכשיר הזה.</p>`; return; }
+  try { list = (await DocDB.byPlate(D.plate)).sort((a, b) => b.at - a.at); } catch (e) {
+    // a nearly full disk closes IndexedDB for a while (emulator 12.11, Android 15): the documents are still there, so say so and do not say "unavailable"
+    const full = /full disk|quota|space/i.test(String(e && (e.message || e.name) || ""));
+    if (full) track("storage_lost", {n: 1, from: "docs"});
+    el.innerHTML = `<p class="note">${full ? "אין מספיק מקום פנוי בטלפון, ולכן המסמכים לא נטענו כרגע. הם לא נמחקו: פנו מקום ופתחו את התיק שוב." : "שמירת מסמכים לא זמינה במכשיר הזה."}</p>`; return; }
   if (current !== D || !el.isConnected) return;
   const kb = b => b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB";
   const exp = x => { if (!DOC_EXP_CATS.includes(x.cat)) return ""; const s = !x.exp && docScan.get(x.id) || {}, v = x.exp || (s.st === "found" ? s.d : "");
@@ -3819,7 +3845,7 @@ function isMine(D){
 }
 function setMine(D, on, from){
   const m = mineAll(); m[D.plate] = on ? 1 : 0;
-  try { localStorage.setItem("mine", JSON.stringify(m)); } catch {}
+  try { localStorage.setItem("mine", JSON.stringify(m)); } catch {} keep("mine", m);
   track(on ? "mine_set" : "mine_unset", on ? {saved: isSaved(D.plate) ? 1 : 0, from: from || "overview"} : {saved: isSaved(D.plate) ? 1 : 0});
 }
 /* a file can be opened for this car: never on a shared report, a model or a car off the road, nor when it is already the owner's */
@@ -6510,7 +6536,7 @@ function carMenu(b){
 }
 const closeCarMenu = () => { const m = document.querySelector(".ch-menu"); if (m) { const b = m.parentElement.querySelector("[data-act=cmenu]"); m.remove(); if (b) b.setAttribute("aria-expanded", "false"); } };
 document.addEventListener("click", ev => { if (!ev.target.closest(".ch-m")) closeCarMenu(); }, true);
-document.addEventListener("keydown", ev => { if (ev.key === "Escape") { closeCarMenu(); const rs = $("#roadSheet"); if (rs) rs.remove(); } });
+document.addEventListener("keydown", ev => { if (ev.key === "Escape") { const cm = document.querySelector(".ch-menu"), cb = cm && cm.parentElement.querySelector("[data-act=cmenu]"); closeCarMenu(); if (cb) cb.focus(); const rs = $("#roadSheet"); if (rs) rs.remove(); } });
 // the header gets a hairline once the page scrolls under it
 addEventListener("scroll", () => { const h = $("#chead"); if (h) h.classList.toggle("sc", window.scrollY > 8); }, {passive: true});
 function nickInline(){
@@ -7062,7 +7088,7 @@ function renderBulk(){
   const html = [];
   if (PRO_LOCK && !isBiz()) html.push(proLockCard("בדיקת כמה רכבים בבת אחת", "הדביקו רשימת מספרי רישוי וקבלו טבלה אחת עם טסט, ריקולים ובעלויות לכל רכב. אפשר לייצא לאקסל ולהפיק דוח PDF עם המיתוג שלכם."));
   else html.push(card("רשימת מספרי רישוי", "doc", "blue", `<p style="margin:0 0 8px">הדביקו רשימת מספרי רישוי, אחד בכל שורה או מופרדים בפסיק (עד ${BULK_MAX}), ותקבלו טבלה אחת: טסט, ריקולים ובעלויות לכל רכב. אפשר להדביק ישר מאקסל.</p>
-    <textarea class="inp" id="bulkIn" rows="6" placeholder="12-345-67&#10;234-56-789" dir="ltr">${esc(BULK_TEXT)}</textarea>
+    <textarea class="inp" id="bulkIn" rows="6" placeholder="76-543-21&#10;44-444-44" dir="ltr">${esc(BULK_TEXT)}</textarea>
     <button type="button" class="link-btn" data-act="bulkRun" style="margin-top:8px">${ico("search")}בדיקת הרשימה</button>
     <div id="bulkOut">${BULK.length ? bulkTable(false) : ""}</div>`, `${PT("PRO עסקי")}`));
   $("#out").innerHTML = toolHead("בדיקת כמה רכבים") + html.join(""); updateSavedBar(); window.scrollTo({top: 0});
@@ -7241,7 +7267,7 @@ function run(p){ lookup(p).catch(err => {
   // a lookup that throws (often while drawing the page) is otherwise missing from every count
   try { track("lookup_failed", {kind: net ? "net_err" : "js_err"}); } catch {}
   const pd = digits(p);
-  $("#out").innerHTML = `<div class="msg err">${net ? "לא הצלחנו להתחבר למאגרי משרד התחבורה. בדקו את החיבור ונסו שוב." : "משהו השתבש בבדיקה. נסו שוב."}</div>${pd.length >= 5 ? `<button type="button" class="link-btn" data-retry="${pd}">נסו שוב</button>` : ""}`;
+  $("#out").innerHTML = `<div class="msg err" role="alert">${net ? "לא הצלחנו להתחבר למאגרי משרד התחבורה. בדקו את החיבור ונסו שוב." : "משהו השתבש בבדיקה. נסו שוב."}</div>${pd.length >= 5 ? `<button type="button" class="link-btn" data-retry="${pd}">נסו שוב</button>` : ""}`;
   $("#go").disabled = false;
 }); }
 $("#f").addEventListener("submit", ev => { ev.preventDefault(); run($("#plate").value); });
@@ -7252,7 +7278,7 @@ const syncClr = () => {
   lastPlateVal = el.value; c.hidden = !el.value; $("#pastePlate").hidden = !!el.value;
   fitPlate(el);
 };
-// the digits, or the example 12-345-67 while the field is empty, shrink until they fit next to the button, so nothing is cut off. The phone's
+// the digits, or the example 76-543-21 while the field is empty, shrink until they fit next to the button, so nothing is cut off. The phone's
 // font size (the app's WebView follows it, up to 200%) or a browser's larger text grows them while the field keeps its width, and an input
 // cannot measure its placeholder. A hidden copy in the same style (.pp) is measured and --pf scales the text by the ratio, so nothing depends
 // on how the enlarged size is reported (a size read back in px and set again would be enlarged twice)
@@ -7600,7 +7626,8 @@ window.onEntitlement = s => {
 function renderUpgrade(){
   if (land) setLand(false, false);
   current = null; inCompare = false; setScreen("sub");
-  try { const b = bridge(); if (b && b.billingInit) b.billingInit(); } catch {}
+  /* Play billing only while PRO is on sale: with PRO_LOCK off there are no products, and the billing library is never started (7.11.2026) */
+  if (PRO_LOCK) { try { const b = bridge(); if (b && b.billingInit) b.billingInit(); } catch {} }
   const p = plan(), e = entGet(), html = [];
   let st = "";
   if (PRO_LOCK) {
@@ -7647,7 +7674,48 @@ $("#planBtn").addEventListener("click", () => { sheet.hidden = true; if (PRO_LOC
 $("#bnPro").addEventListener("click", () => { if (!PRO_LOCK) return; track("upgrade_open", {from: "topbar"}); if (UPGRADE_UI) renderUpgrade(); });
 initEnt(); syncPlanUi();
 if (PRO_LOCK && UPGRADE_UI) { try { const b = bridge(); if (b && b.billingInit) b.billingInit(); } catch {} }
+/* a phone whose disk is nearly full can open the page with its stored data out of reach, and the saved cars read as none; the start-up sync
+   below then wrote that empty list over the app's own copy, and the cars were gone for good (Dudu 12.11.2026; emulator, Android 15, 150 MB free).
+   Now the app's copy is the truth when the page has no saved cars: they come back from it, or, when the page cannot write them, the copy is
+   left alone and the user is told to free room */
+(function savedRestore(){
+  const b = window.AndroidApp; if (!b || !b.savedCopy || store.get("savedVehicles").length) return;
+  const copy = (() => { try { return JSON.parse(b.savedCopy() || "[]"); } catch { return []; } })();
+  const items = (Array.isArray(copy) ? copy : []).filter(x => x && /^\d{5,8}$/.test(String(x.plate))).map(x => ({plate: String(x.plate), title: String(x.title || ""), sub: "", at: Date.now(), events: [], ...(x.alerts === false ? {alerts: false} : {})}));
+  if (!items.length) return;
+  const ok = (() => { try { localStorage.setItem("savedVehicles", JSON.stringify(items)); return JSON.parse(localStorage.getItem("savedVehicles") || "[]").length === items.length; } catch { return false; } })();
+  if (!ok) { SAVED_GUARD.ok = false; track("storage_lost", {n: items.length, from: "app"}); setTimeout(() => toast("אין מספיק מקום פנוי בטלפון, ולכן הרכבים השמורים לא נטענו. פנו מקום ופתחו את האפליקציה שוב."), 1500); return; }
+  KEEP.thin = true; track("storage_restored", {n: items.length, from: "app"});
+})();
 syncSaved(store.get("savedVehicles"));
+/* then the IndexedDB copy: a key that reads empty is filled from it; saved cars the app's copy brought back (plate and name only) get their
+   nickname, history and order from it. Nothing is ever removed here */
+(function keepRestore(){
+  if (!window.indexedDB) { KEEP.ready = true; return; }
+  const readAll = db => new Promise((ok, no) => { const out = {}, rq = db.transaction("kv").objectStore("kv").openCursor(); rq.onsuccess = () => { const c = rq.result; if (c) { out[c.key] = c.value; c.continue(); } else ok(out); }; rq.onerror = () => no(rq.error); });
+  keepDb().then(readAll).then(kv => {
+    let n = 0, lost = 0;
+    for (const k of KEEP_KEYS) {
+      let v; try { v = JSON.parse(kv[k] || "null"); } catch { continue; }
+      if (keepEmpty(v)) continue;
+      let now; try { now = JSON.parse(localStorage.getItem(k) || "null"); } catch { now = null; }
+      if (k === "savedVehicles" && KEEP.thin && Array.isArray(v) && Array.isArray(now)) {
+        const rich = new Map(v.filter(x => x && x.plate).map(x => [String(x.plate), x]));
+        const merged = [...v.filter(x => x && now.some(y => String(y.plate) === String(x.plate))), ...now.filter(y => !rich.has(String(y.plate)))];
+        if (JSON.stringify(merged) === JSON.stringify(now)) continue; v = merged;
+      } else if (!keepEmpty(now)) continue;
+      try { localStorage.setItem(k, JSON.stringify(v)); if (localStorage.getItem(k) == null) throw 0; n++; } catch { lost++; }
+    }
+    KEEP.ready = true;
+    // the first start of a version with the copy, and any write that missed it: what reads well now is copied
+    for (const k of KEEP_KEYS) { try { const raw = localStorage.getItem(k); if (raw && raw !== kv[k] && !keepEmpty(JSON.parse(raw))) keep(k, JSON.parse(raw)); } catch { continue; } }
+    if (lost) { if (!KEEP.thin) { SAVED_GUARD.ok = false; track("storage_lost", {n: lost, from: "keep"}); setTimeout(() => toast("אין מספיק מקום פנוי בטלפון, ולכן חלק מהנתונים השמורים לא נטענו. פנו מקום ופתחו את האפליקציה שוב."), 1500); } return; }
+    if (!n) return;
+    track("storage_restored", {n, from: "keep"});
+    syncSaved(store.get("savedVehicles")); if (navReady) syncNav();
+    if (typeof current !== "undefined" && current) { const y = window.scrollY; renderResult(); window.scrollTo(0, y); } else refreshView();
+  }).catch(() => { KEEP.ready = true; });
+})();
 try { if (window.AndroidApp && window.AndroidApp.setAnalytics) window.AndroidApp.setAnalytics(analyticsOn()); } catch {}
 /* web: Cloudflare Web Analytics (page views only, no cookies, no personal data); the token is added when the site is registered there */
 const CF_BEACON_TOKEN = '9bb0e756882c478a808d95596e0deade';

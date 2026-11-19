@@ -40,9 +40,17 @@ const CAUSE_SYS = [
   "Answer with JSON only: {\"verdict\":\"source|version|unclear\",\"platforms\":[...],\"versions\":[...],\"from\":H,\"to\":H}",
   "platforms/versions: the ones that carry the excess (as written in the tables); from/to: the hour span of the excess (0-23), or null.",
 ].join("\n");
+// The reply's JSON object. Sonnet 5.5 sometimes writes a sentence or a fence around it (13.11: "reply is not JSON" on two runs in a row),
+// so the outermost {...} is read. On a miss the why carries the reply's start, digits masked (the log is public), so the next miss says what came back.
+export function jsonOf(text) {
+  const s = String(text ?? ""), a = s.indexOf("{"), b = s.lastIndexOf("}");
+  try { if (a >= 0 && b > a) return { r: JSON.parse(s.slice(a, b + 1)) }; } catch { /* below */ }
+  return { why: "reply is not JSON: " + s.replace(/\d/g, "#").replace(/\s+/g, " ").slice(0, 60) };
+}
 const HE_P = { web: "האתר", Android: "אנדרואיד", iOS: "אייפון" };
 export function causeLine(text, tables) {
-  let r; try { r = JSON.parse(String(text).trim().replace(/^```(?:json)?\s*|\s*```$/g, "")); } catch { return { why: "reply is not JSON" }; }
+  const j = jsonOf(text); if (j.why) return { why: j.why };
+  const r = j.r;
   if (!r || !["source", "version", "unclear"].includes(r.verdict)) return { why: "no verdict" };
   const known = Object.keys(tables.byPlatformVersion), plats = new Set(known.map(k => k.split(" ")[0])), vers = new Set(known.map(k => k.split(" ").slice(1).join(" ")));
   const P = (r.platforms || []).filter(p => plats.has(p)), V = (r.versions || []).filter(v => vers.has(v) && /^\d+(\.\d+){0,3}$/.test(v));
@@ -73,7 +81,8 @@ const LOOK_SYS = [
 ].join("\n");
 const HE_L = { by_design: "נראה מכוון", real: "נראה אמיתי", unclear: "לא ברור" };
 export function lookLines(text, R) {
-  let r; try { r = JSON.parse(String(text).trim().replace(/^```(?:json)?\s*|\s*```$/g, "")); } catch { return { why: "reply is not JSON" }; }
+  const j = jsonOf(text); if (j.why) return { why: j.why };
+  const r = j.r;
   if (!r || !Array.isArray(r.items)) return { why: "no items" };
   const ids = new Set((R.findings || []).map(f => f.id)), lines = [];
   for (const x of r.items) if (x && ids.has(x.id) && HE_L[x.label]) lines.push({ id: x.id, label: x.label, text: `עין שנייה (Claude) על "${x.id}": ${HE_L[x.label]}${x.reason ? ". " + String(x.reason).replace(/\d{3,}/g, "#").replace(/\s+/g, " ").slice(0, 160) : ""}` });
@@ -131,11 +140,14 @@ if (process.argv[1] && process.argv[1].endsWith("guard-explain.mjs") && process.
   ok(c.line === "סיבה משוערת (Claude): מקור הנתונים, כי האתר ואנדרואיד הואטו יחד (בשעות 09–11).", "source: the line from the enum answer " + c.line);
   c = causeLine('{"verdict":"version","platforms":["Android"],"versions":["1.38.3","9.9"],"from":null,"to":null}', t);
   ok(c.line === "סיבה משוערת (Claude): הגרסה 1.38.3 באנדרואיד, כי העודף מרוכז שם.", "version: only versions in the data " + c.line);
-  ok(causeLine('{"verdict":"version","platforms":["x"],"versions":["7"]}', t).line.includes("לא ברור") && causeLine("nope", t).why === "reply is not JSON", "nothing known: unclear; no JSON: no line");
+  ok(causeLine('{"verdict":"version","platforms":["x"],"versions":["7"]}', t).line.includes("לא ברור") && causeLine("nope 123", t).why === "reply is not JSON: nope ###", "nothing known: unclear; no JSON: no line, the reply's start in the why");
+  c = causeLine('Looking at the tables, every platform slows at the same hours.\n\n```json\n{"verdict":"source","platforms":["web","Android"],"from":9,"to":11}\n```\nThat points to the source.', t);
+  ok(c.verdict === "source" && /09–11/.test(c.line), "a sentence and a fence around the JSON: still read " + (c.line || c.why));
   const R = { vn: "1.38.3", prev: "1.37", day: 3, findings: [{ id: "silent", events: ["exp_expose"], he: "x" }] };
   let L = lookLines('{"items":[{"id":"silent","label":"by_design","reason":"כפתור השיתוף הוסר ב-1.38, 12345 פעמים"},{"id":"nope","label":"real"}]}', R);
   ok(L.lines.length === 1 && L.lines[0].text === 'עין שנייה (Claude) על "silent": נראה מכוון. כפתור השיתוף הוסר ב-1.38, # פעמים', "a finding's label, unknown ids dropped, long numbers masked " + L.lines[0].text);
-  ok(lookLines('{"items":[]}', R).why && lookLines("x", R).why === "reply is not JSON", "no usable label: no line");
+  ok(lookLines('{"items":[]}', R).why && lookLines("x", R).why.startsWith("reply is not JSON"), "no usable label: no line");
+  ok(lookLines('Here is my look:\n{"items":[{"id":"silent","label":"real","reason":"r"}]}', R).lines?.length === 1, "text before the JSON: still read");
   const reply = t => ({ messages: { create: async q => { reply.last = q; return { stop_reason: "end_turn", content: [{ type: "text", text: t }] }; } } });
   c = await zoneACause(reply('{"verdict":"source","platforms":["web","Android"],"from":9,"to":9}'), Q);
   ok(c.verdict === "source" && reply.last.model === MODEL && !/"hour"/.test(reply.last.messages[0].content) && /byHourPlatform/.test(reply.last.messages[0].content), "zone A: one call with the tables");

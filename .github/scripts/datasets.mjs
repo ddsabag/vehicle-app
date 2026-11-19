@@ -3,7 +3,8 @@ export const SAMPLE_PLATE = "38548003";
 // The plates a probe on GitHub may read (inspect.yml PLATES): the sample plate and the rule's example plates, nothing else. The run's
 // inputs, its log (the step env is printed at the top, PLATES included) and its output are public, and base64 or a hash of a plate is the
 // plate itself, so a reported car is reproduced with made-up register rows, never looked up by its plate here.
-export const EXAMPLE_PLATES = [SAMPLE_PLATE, "1234567", "7654321"];
+// 1234567 was dropped on 12.11.2026 (CEO full review): it is not a made-up plate
+export const EXAMPLE_PLATES = [SAMPLE_PLATE, "7654321"];
 export function probePlates(raw, fallback = SAMPLE_PLATE) {
   const text = String(raw || fallback), plates = text.split(",").map(s => s.replace(/\D/g, "")).filter(Boolean);
   if (/^\s*b64:/i.test(text) || plates.some(p => !EXAMPLE_PLATES.includes(p)))

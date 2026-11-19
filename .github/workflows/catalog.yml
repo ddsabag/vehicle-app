@@ -96,8 +96,8 @@ jobs:
           OUT: cat-out
           ANTHROPIC_API_KEY: ${{ vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}
           AI: ${{ vars.AI }}   # one switch for every Claude bot (claude.mjs gate; CEO review 12.11.2026)
-          AI_CAP_USD: ${{ vars.AI_CAP_USD }}
-          AI_GRANTS: ${{ vars.AI_GRANTS }}
+          AI_CAP_USD: ${{ secrets.AI_CAP_USD }}   # a secret, so the amount never shows in the public log (rule 11)
+          AI_GRANTS: ${{ secrets.AI_GRANTS }}
           # an API failure goes to the router (ai:names, ai:key when the key or the credit is the cause); a good call closes both
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

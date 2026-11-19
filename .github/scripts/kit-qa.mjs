@@ -21,7 +21,7 @@ export const MODEL = "claude-sonnet-5-5";
 export const KINDS = [...VR_KINDS, "badge", "plate"];
 export const MAX_IMAGES = 40;   // a cap on requests per run (a kit has about 15)
 const LEVELS = ["high", "medium", "low"];
-const DEMO = ["12-345-67", "1234567", "7654321"];
+const DEMO = ["76-543-21", "7654321"];   // the only demo plate (5.11: 12-345-67 is a real car)
 
 export const SYSTEM = `You are a meticulous visual QA reviewer for the marketing posts of לוחית (Luchit), an Israeli app that checks a car by its licence plate from the Ministry of Transport's open data. The posts are in Hebrew, right to left, made for Instagram, Facebook and TikTok: carousel slides and a dealer post (1080x1350), stories (1080x1920), a reel cover and frames from a 30-second reel (1080x1920).
 

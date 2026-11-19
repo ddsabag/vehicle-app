@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       plates:
-        description: "Example plates only (38548003, 1234567, 7654321); empty = the app's example plate. Never a real car's plate in any form (clear, base64, hash): the run log and inspect-output are PUBLIC. Anything else stops the run before any step prints it"
+        description: "Example plates only (38548003, 7654321); empty = the app's example plate. Never a real car's plate in any form (clear, base64, hash): the run log and inspect-output are PUBLIC. Anything else stops the run before any step prints it"
         default: ""
       script:
         description: "Script in .github/scripts"
@@ -31,7 +31,7 @@ jobs:
             const { probePlates } = await import(process.cwd() + "/.github/scripts/datasets.mjs");
             const raw = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, "utf8")).inputs?.plates || "";
             try { probePlates(raw); console.log("plates input: example plates only"); }
-            catch { console.log("::error::PLATES takes the example plates only (38548003, 1234567, 7654321). The value is not printed; run again without it."); process.exit(1); }'
+            catch { console.log("::error::PLATES takes the example plates only (38548003, 7654321). The value is not printed; run again without it."); process.exit(1); }'
       - name: Install a browser (site-* scripts open the live site)
         if: ${{ startsWith(inputs.script, 'site-') }}
         run: |

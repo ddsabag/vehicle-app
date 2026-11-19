@@ -22,7 +22,7 @@ import { fileURLToPath } from "node:url";
 import { client, batch, answer, usage } from "./claude.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-export const MODEL = "claude-opus-5-5", PROMPT_V = 3, MIN_CARS = 10;
+export const MODEL = "claude-opus-5-5", PROMPT_V = 4, MIN_CARS = 10;
 const PAGE_MAX = 36000, ROWS_MAX = 24000;   // characters of one car's page and rows in its prompt: a car's cost has a ceiling
 // the page's areas, the ids of the daily audit's GROUPS (site-data-truth.mjs) and of the router's truth labels
 export const AREAS = { identity: "פרטי הרכב", status: "סטטוס הרכב", test: "טסט", road: "עלייה לכביש", owners: "בעלויות", km: "ק״מ", recalls: "ריקולים",
@@ -102,8 +102,10 @@ export function rowsText(s) {
   return out.join("\n");
 }
 const cut = (t, n) => (t.length > n ? t.slice(0, n) + "\n[… cut here for length]" : t);
-export function prompt(s) {
-  return [`Car: ${s.car.maker} ${s.car.model} ${s.car.year} (register: ${s.primary || "?"}${(s.mains || []).length > 1 ? `; also in: ${s.mains.slice(1).join(", ")}` : ""}${s.cancelled ? "; off the road" : ""})`,
+// 18.11.2026: the date the page was read. Without it the model took the recall list's date for today and called two expired tests valid (c104, c105)
+const dmy = d => d.toISOString().slice(0, 10).split("-").reverse().join("/");
+export function prompt(s, now = new Date()) {
+  return [`Today (the day the page was read): ${dmy(now)}`, `Car: ${s.car.maker} ${s.car.model} ${s.car.year} (register: ${s.primary || "?"}${(s.mains || []).length > 1 ? `; also in: ${s.mains.slice(1).join(", ")}` : ""}${s.cancelled ? "; off the road" : ""})`,
     "", "== The page ==", cut(pageText(s), PAGE_MAX), "", "== The ministry's rows ==", cut(rowsText(s), ROWS_MAX), "", "== What the fixed checks found ==", ...((s.rules || []).length ? s.rules.map(l => "- " + l) : ["(none)"])].join("\n");
 }
 export const params = (s, effort = "medium") => ({ model: MODEL, max_tokens: 16000, output_config: { effort, format: { type: "json_schema", schema: SCHEMA } },
@@ -129,9 +131,11 @@ export function quoteCheck(f, s) {
 // In 11.2026 only (Dudu 1.11.2026 21:16 UTC: "את הבדיקה של ה800 רכבים נעשה רק במחזור הזה") the 18th and the 19th run twice a day, at most 200
 // cars each and as many as the credit left allows (plan()): four periods of their own ("2026-11-mid-18a" ... "-19b", before 11:00 UTC a,
 // after it b), so none is taken as already done.
+// Since 12.11.2026 every month does the same (Dudu 12.11 09:36 UTC: the $100 renews each cycle, "תנצל את כל ה100דולר כל חודש"): the
+// end-of-cycle runs on the 18th and the 19th take what the cycle has left above RESERVE; from 12.2026 only on a readable counter.
 export const BIG = "2026-11", BIG_DAYS = [18, 19];
 export const period = now => { const s = now.toISOString(), day = +s.slice(8, 10);
-  if (s.slice(0, 7) === BIG && BIG_DAYS.includes(day)) return `${BIG}-mid-${day}${+s.slice(11, 13) < 11 ? "a" : "b"}`;
+  if (BIG_DAYS.includes(day)) return `${s.slice(0, 7)}-mid-${day}${+s.slice(11, 13) < 11 ? "a" : "b"}`;
   return s.slice(0, 7) + (day >= 10 ? "-mid" : ""); };
 
 // the size of each of the four 11.2026 runs, from the credit really left: remaining() in ai-usage.mjs (ops; the grant Dudu read in the
@@ -139,12 +143,18 @@ export const period = now => { const s = now.toISOString(), day = +s.slice(8, 10
 // other bots; the rest is shared by the runs still to come at PER_CAR (about $0.04 a car at medium, measured), 200 a run at most (800 in
 // all). High only when the money clearly covers 200 a run at PER_CAR_HIGH. No readable counter: 100 a run (400 in all). Returns the
 // QUERIES of the run, or "" when nothing is left to spend. It never prints money: the repo is public; the log shows only cars and effort.
-export const RESERVE = 8, PER_CAR = 0.04, PER_CAR_HIGH = 0.08;
+export const RESERVE = 8, PER_CAR = 0.04, PER_CAR_HIGH = 0.08, UNCOUNTED = 18.4;
 export function plan(d, left) {
-  const m = /^2026-11-mid-(\d\d)([ab])$/.exec(d); if (!m) return null;
-  const runsLeft = (BIG_DAYS[1] - +m[1]) * 2 + (m[2] === "a" ? 2 : 1);
+  const m = /^(\d{4}-\d\d)-mid-(\d\d)([ab])$/.exec(d); if (!m) return null;
+  m.shift(); const ym = m.shift();
+  const runsLeft = (BIG_DAYS[1] - +m[0]) * 2 + (m[1] === "a" ? 2 : 1);
   const q = cars => cars < MIN_CARS ? "" : `n=${Math.round(cars * 0.75)} rare=${cars - Math.round(cars * 0.75)} max=${cars} minutes=150`;
-  if (typeof left !== "number" || Number.isNaN(left)) return q(100) + " effort=medium";
+  // no readable counter: 100 a run in 11.2026 (the grant Dudu read), and no run from 12.2026, so nothing is spent on a cycle nobody measured
+  if (typeof left !== "number" || Number.isNaN(left)) return ym === BIG ? q(100) + " effort=medium" : "";
+  // 18.11.2026 (API-credits thread): the counter missed spend this cycle (importer specs ~$5, about $1.3 a day uncounted; it read $44.36
+  // left on 17.11 against about $26 estimated), so the November runs take UNCOUNTED off what it says until Dudu reads the Console balance;
+  // a run cut off by an empty credit loses its answers, a smaller one does not
+  if (ym === BIG) left -= UNCOUNTED;
   const free = left - RESERVE; if (free <= 0) return "";
   if (free >= runsLeft * 200 * PER_CAR_HIGH) return q(200) + " effort=high";
   return (q(Math.min(200, Math.floor(free / PER_CAR / runsLeft))) + " effort=medium").replace(/^ effort=medium$/, "");
@@ -286,8 +296,10 @@ export async function run({ env = process.env, api, router, readCars, log = cons
     return done();
   }
   await settle(router, async () => { await router.resolve(["ai:audit"]); await router.resolve(["ai:key"]); });
-  if (miss.length) await tell(router, env, { level: "summary", key: `truth:deep:${areas.join("+")}`, text: [tag("info", "data"),
-    `הביקורת החודשית העמוקה קראה ${res.answered} רכבים פעמיים, בכללים וב-Claude, ומצאה ${miss.length === 1 ? "ממצא אחד" : `${miss.length} ממצאים`} שהבדיקה היומית לא תפסה: ${areas.map(a => AREAS[a]).join(", ")}. כל ממצא אומת מול הדף ומול נתוני משרד התחבורה.`,
+  // 12.11 (full review): a month with a high finding the rules missed is a day alert, so it is triaged within a day and not read ten days later
+  const hiN = miss.filter(f => f.severity === "high").length;
+  if (miss.length) await tell(router, env, { level: hiN ? "day" : "summary", key: `truth:deep:${areas.join("+")}`, text: [tag(hiN ? "today" : "info", "data"),
+    `הביקורת החודשית העמוקה קראה ${res.answered} רכבים פעמיים, בכללים וב-Claude, ומצאה ${miss.length === 1 ? "ממצא אחד" : `${miss.length} ממצאים`} שהבדיקה היומית לא תפסה: ${areas.map(a => AREAS[a]).join(", ")}. כל ממצא אומת מול הדף ומול נתוני משרד התחבורה.${hiN ? ` ${hiN === 1 ? "ממצא אחד חמור" : `${hiN} ממצאים חמורים`}, ולכן ההתראה היום ולא בסיכום.` : ""}`,
     "הפירוט, מוצפן ובלי מספרי רכב, בענף data-truth, ועובר לשרשור \"נתונים ואמינות\" כדי להפוך כל ממצא אמיתי לבדיקה יומית.", todo()].join("\n") });
   else await settle(router, () => router.resolve(["truth:deep:"]));   // a month with nothing the rules missed closes the earlier months' lines (told: "טופל")
   return done();
@@ -335,15 +347,15 @@ if (process.argv[1] && process.argv[1].endsWith("deep-audit.mjs") && process.arg
   ok(JSON.parse(Buffer.concat([dc.update(Buffer.from(e.data, "base64")), dc.final()]).toString("utf8")).a === "טויוטה" && !e.data.includes("טויוטה"), "encrypted with the public key (the shape seo-key/decrypt.mjs reads)");
   ok(period(new Date("2026-11-01T05:17:00Z")) === "2026-11" && period(new Date("2026-11-03T05:17:00Z")) === "2026-11" && period(new Date("2026-12-13T05:17:00Z")) === "2026-12-mid" && period(new Date("2026-12-14T23:00:00Z")) === "2026-12-mid", "period: the 1st-3rd are the month, the 13th-14th the extra run");
   ok(period(new Date("2026-11-18T05:17:00Z")) === "2026-11-mid-18a" && period(new Date("2026-11-18T11:17:00Z")) === "2026-11-mid-18b" && period(new Date("2026-11-19T05:17:00Z")) === "2026-11-mid-19a"
-    && period(new Date("2026-11-19T16:00:00Z")) === "2026-11-mid-19b" && period(new Date("2026-12-18T11:17:00Z")) === "2026-12-mid" && period(new Date("2026-11-13T05:17:00Z")) === "2026-11-mid", "period: 11.2026 only, four runs of their own on the 18th and the 19th");
-  ok(plan("2026-12-mid", 0) === null && plan("2026-11", 0) === null, "plan: only the four 11.2026 runs are sized");
+    && period(new Date("2026-11-19T16:00:00Z")) === "2026-11-mid-19b" && period(new Date("2026-12-18T11:17:00Z")) === "2026-12-mid-18b" && period(new Date("2026-11-13T05:17:00Z")) === "2026-11-mid", "period: every month, four runs of their own on the 18th and the 19th");
+  ok(plan("2026-12-mid", 0) === null && plan("2026-11", 0) === null, "plan: only the end-of-cycle runs are sized");
+  ok(plan("2026-12-mid-18a", 71.84) === "n=150 rare=50 max=200 minutes=150 effort=medium" && plan("2026-12-mid-18a", NaN) === "" && plan("2027-01-mid-19b", 3) === "", "plan: every cycle takes what is left; from 12.2026 no run without a readable counter");
   ok(plan("2026-11-mid-18a", NaN) === "n=75 rare=25 max=100 minutes=150 effort=medium", "plan: no readable counter = 100 a run (400 in all)");
-  ok(plan("2026-11-mid-18a", 71.84) === "n=150 rare=50 max=200 minutes=150 effort=medium" && plan("2026-11-mid-18b", 61.84) === "n=150 rare=50 max=200 minutes=150 effort=high", "plan: 200 a run at medium; high only when the money clearly covers it");
-  ok(plan("2026-11-mid-18a", 31.84) === "n=112 rare=37 max=149 minutes=150 effort=medium", "plan: less money, fewer cars at medium, shared by the 4 runs left");
-  ok(plan("2026-11-mid-19b", 21.84) === "n=150 rare=50 max=200 minutes=150 effort=medium" && plan("2026-11-mid-19b", 11.84) === "n=72 rare=24 max=96 minutes=150 effort=medium", "plan: the last run takes what is left, 200 at most");
-  ok(plan("2026-11-mid-19a", 8.34) === "" && plan("2026-11-mid-19a", 1.84) === "", "plan: nothing left above the reserve = no run");
+  ok(plan("2026-11-mid-18a", 44.36) === "n=84 rare=28 max=112 minutes=150 effort=medium" && plan("2026-11-mid-18a", 26) === "", "plan: in 11.2026 UNCOUNTED comes off the counter: about 112 a run with 4 to go");
+  ok(plan("2026-11-mid-19b", 40.24) === "n=150 rare=50 max=200 minutes=150 effort=medium" && plan("2026-11-mid-19b", 30.24) === "n=72 rare=24 max=96 minutes=150 effort=medium", "plan: the last run takes what is left, 200 at most");
+  ok(plan("2026-11-mid-19a", 26.74) === "" && plan("2026-11-mid-19a", 1.84) === "", "plan: nothing left above the reserve = no run");
   ok(plan("2026-11-mid-18a", -3) === "", "plan: an overspent counter = no run, never the 100-car fallback");
-  ok(plan("2026-11-mid-18b", 71.84).includes("max=200") && !/\$|usd/i.test(plan("2026-11-mid-18a", 41.84)), "plan: never more than 200 a run, never money");
+  ok(plan("2026-11-mid-18b", 91.84).includes("max=200") && !/\$|usd/i.test(plan("2026-11-mid-18a", 41.84)), "plan: never more than 200 a run, never money");
   ok(JSON.stringify(queries("n=500 minutes=3 effort=max dry=1 bogus=2")) === JSON.stringify({ n: 150, rare: 20, minutes: 5, wait: 180, effort: "medium", max: 120, dry: true }), "queries: clamped, unknown dropped");
   // whole runs: a fake audit writes the cars, a fake API answers by car
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "da-")), cars = n => async (q, dir) => { const d = path.join(dir, "cars"); fs.mkdirSync(d, { recursive: true });
@@ -372,8 +384,8 @@ if (process.argv[1] && process.argv[1].endsWith("deep-audit.mjs") && process.arg
   ok(res.findings.filter(f => f.id === "c001").length === 1 && res.unfounded.some(f => f.id === "c001" && f.area === "test"), "a finding with a real quote is kept; one whose page excerpt is wrong is unfounded");
   ok(res.findings.find(f => f.id === "c002").byRules && !res.findings.find(f => f.id === "c001").byRules, "a finding in an area the rules flagged on that car is marked as theirs");
   ok(sum.kept === 3 && sum.missedByRules === 1 && sum.low === 1 && sum.missedByArea.owners === 1 && !JSON.stringify(sum).includes("COROLLA") && !JSON.stringify(sum).includes("יד 2"), "the clear summary: counts only, no car and no quote");
-  ok(calls.some(c => c[0] === "alert" && c[1] === "summary" && c[2] === "truth:deep:owners") && calls.some(c => c[0] === "resolve" && c[1] === "ai:audit") && calls.some(c => c[0] === "resolve" && c[1] === "ai:key")
-    && !calls.some(c => c[0] === "resolve" && c[1] === "truth:deep:"), "a finding the rules missed: one quiet truth:deep line by area; the API's keys close");
+  ok(calls.some(c => c[0] === "alert" && c[1] === "day" && c[2] === "truth:deep:owners" && c[3].includes("ממצא אחד חמור")) && calls.some(c => c[0] === "resolve" && c[1] === "ai:audit") && calls.some(c => c[0] === "resolve" && c[1] === "ai:key")
+    && !calls.some(c => c[0] === "resolve" && c[1] === "truth:deep:"), "a high finding the rules missed: one truth:deep day line by area; the API's keys close");
   ok(res.tokens.input > 0 && res.tokens.output > 0 && !JSON.stringify(sum).includes("tokens") && !fs.readFileSync(path.join(tmp, "o1", "deep-summary.json"), "utf8").includes("input"), "the tokens are counted, in the encrypted file only");
   ok(res.review.includes("מה שהכללים לא תפסו") && res.review.includes("נפסלו") && sent.every(u => plateFree(u)), "the review lists what the rules missed and what was dropped; every prompt plate-free");
   calls.length = 0;
@@ -408,6 +420,7 @@ if (process.argv[1] && process.argv[1].endsWith("deep-audit.mjs") && process.arg
   ok(r.missed === 0 && calls.some(c => c[0] === "resolve" && c[1] === "truth:deep:") && !calls.some(c => c[0] === "alert"), "a clean month: the open truth:deep lines close, nothing is sent");
   // a car's prompt has a ceiling; the router has Hebrew for every area
   const big = car("c099", { page: { ...car("c099").page, tabs: { overview: "א ".repeat(60000), owners: "ב" } } });
+  ok(prompt(big, new Date("2026-11-18T05:17:00Z")).startsWith("Today (the day the page was read): 18/11/2026\n"), "the prompt says what day it is");
   ok(prompt(big).length < PAGE_MAX + ROWS_MAX + 3000 && prompt(big).includes("[… cut here for length]"), "one car's prompt is cut at its ceiling");
   try { const { label } = await import("./alert.mjs"); ok(Object.keys(AREAS).every(a => label("truth:deep:" + a).he.endsWith(": " + AREAS[a])) && label("ai:audit").he.endsWith("הביקורת החודשית העמוקה"), "the router names every area as this file does"); }
   catch (e) { ok(false, "alert.mjs import: " + e.message); }

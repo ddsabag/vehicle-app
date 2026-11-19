@@ -28,7 +28,9 @@ export const GROUPS = { page: "איתור הרכב", identity: "פרטי הרכ�
   recalls: "ריקולים", settlements: "הסדרי פשרה", tow: "גרירה", specs: "מפרט", mods: "שינויים ברכב", fee: "אגרת רישוי", price: "מחיר מחירון",
   value: "שווי", tag: "תג נכה", insight: "תובנות", counts: "ספירת רכבים", message: "הודעות" };
 // the partial-data message follows whether the ministry answered the app at that second; the model-year counts are monthly: files only
-export const SOFT = new Set(["message.partial_data", "counts.model_year_active"]);
+// 12.11: the full review's guards (F1, F2, F3, F7) count from today and alert only after the 22.11 release ships their fixes
+export const SOFT = new Set(["message.partial_data", "counts.model_year_active", "status.public_use", "buyer.no_red_flags", "buyer.no_red_flags_tag",
+  "stats.recall_rate_unknown", "recalls.pending_after_road", "recalls.pending_listed", "recalls.checked_unlisted"]);
 const ilDay = d => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(d);
 
 // anything that could be a plate or a VIN goes: masked plates (12xxx67), dashed plates, bare 7-8 digit runs, 17-character VINs

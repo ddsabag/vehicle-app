@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-60";   // shown in /live/data so the running version is visible
+const BUILD = "live-61";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -49,13 +49,17 @@ async function newToken(env) {
   if (!r.ok) throw new Error("google auth " + r.status);
   const tok = (await r.json()).access_token; gtoks[scope] = { tok, exp: Date.now() + 2900e3 }; return tok;
 }
-const realtime = async (env, body) => {
-  const r = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${env.GA_PROPERTY_ID}:runRealtimeReport`, { method: "POST", headers: { authorization: "Bearer " + await googleToken(env), "content-type": "application/json" }, body: JSON.stringify(body) });
+// every GA4 call gives up after GA_MS. On 13.11 Google answered many reports only after about a minute, with a 502 or a 429 (too many at once):
+// a Worker request keeps 6 connections open at a time, so the hung calls also held up the last-good answer's own read, and the screen stayed
+// on "loading" past the browser's 35 s. The timer counts from the call, so a call still waiting for a connection gives up too.
+const GA_MS = 20e3;
+const realtime = async (env, body, ms = GA_MS) => {
+  const r = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${env.GA_PROPERTY_ID}:runRealtimeReport`, { method: "POST", headers: { authorization: "Bearer " + await googleToken(env), "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(ms) });
   if (!r.ok) throw new Error("ga4 " + r.status + " " + (await r.text()).replace(/\s+/g, " ").slice(0, 120));
   return (await r.json()).rows || [];
 };
 const report = async (env, body) => {
-  const r = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${env.GA_PROPERTY_ID}:runReport`, { method: "POST", headers: { authorization: "Bearer " + await googleToken(env), "content-type": "application/json" }, body: JSON.stringify(body) });
+  const r = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${env.GA_PROPERTY_ID}:runReport`, { method: "POST", headers: { authorization: "Bearer " + await googleToken(env), "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(GA_MS) });
   if (!r.ok) throw new Error("ga4 report " + r.status + " " + (await r.text()).replace(/\s+/g, " ").slice(0, 120));
   return (await r.json()).rows || [];
 };
@@ -602,6 +606,14 @@ const G_PLAN = {
   installs_week: { from: ["2026-11-30", [30, 40, 50]], mar: [60, 90, 155], oct: [105, 210, 525] },
   google_clicks_week: { from: ["2026-11-30", [4, 5, 6]], mar: [22, 33, 57], oct: [95, 190, 475] } };
 const G_BAND = ["cons", "base", "opt"], G_BANDN = { cons: "הזהיר", base: "הבסיס", opt: "הגבוה" };
+// one-time re-anchors Dudu asked for, each applied once by its id and logged. 19.11.2026, Dudu in the CEO thread: "האם היעדים רציונליים?
+// אפשר לנתח אותם ולעדכן בהתאם לסטטוס?" The first anchors leaned on the launch week and the viral week, and the 90% floor kept them from
+// coming down. Car checks and installs: the anchor is the week 8-14.11 and the slope 5% a week until 31.3. On the first Sunday after the week
+// 15-21.11 closes, if its car checks are above the line, the checks anchor is the mean of the two weeks (anchored on 15.11). Open proposals to
+// lower these goals close. Not applied after `by` (the next month's anchor would already be set).
+const G_RE = [{ id: "re-1911", keys: ["checks", "installs"], w: "2026-11-08", rate: 1.05, until: G_MAR, by: "2026-12-05", two: { k: "checks", w: "2026-11-15", over: 1400 } }];
+// the 31.3 gate's decision lines for weekly car checks (strategy, autopilot-rules.md): at or above go on, under the second change course
+const G_GATEL = { checks: { go: 3000, turn: 1700 } };
 // t: growth (a weekly count), ratio (a share of something, x of n), line (a fixed decision line), health (a fixed outside bar), track (no goal)
 // lens 1: one of the 8 judged on the CEO lens. lag 1: judged a week late, once the data is whole (day 1 and day 7 returns, Search Console)
 const G_REC = [
@@ -610,7 +622,7 @@ const G_REC = [
   { k: "d1", t: "ratio", lens: 1, lag: 1, bench: 22.5, u: "pct", owner: "מוצר", name: "חזרה למחרת, משתמשים חדשים", src: "אנדרואיד: 20% עד 25% (AppsFlyer 2025, Adjust, Phiture); האמצע, 22.5%" },
   { k: "save1", t: "ratio", lens: 1, plus: 1, u: "pct", owner: "מוצר", name: "שמירת רכב ביום ההתקנה", src: "אין רף מקובל: השיא שלנו ועוד נקודה בחודש" },
   { k: "ret7x", t: "line", lens: 1, lag: 1, line: 3, u: "x", owner: "אסטרטגיה", name: "חזרה תוך 7 ימים: שומרים מול לא שומרים", src: "קו החלטה קבוע: פי 3 (תיק הרכב, אייפון)" },
-  { k: "share", t: "ratio", lens: 1, bench: 3, cnt: 1, u: "per100", owner: "מוצר", name: "שיתופים ל-100 בדיקות", src: "התוכנית: 3 ל-100 בדיקות" },
+  { k: "share", t: "ratio", lens: 1, bench: 3, cnt: 1, u: "per100", owner: "מוצר", name: "שיתופים ל-100 בדיקות", src: "התוכנית: 3 ל-100 בדיקות", dep: "תלוי בשינוי במוצר: בלי שינוי בדרך לשתף, היעד לא צפוי לזוז" },
   { k: "google", t: "growth", lens: 1, lag: 1, plan: "google_clicks_week", u: "n", owner: "חיפוש (SEO)", name: "קליקים מגוגל בשבוע", src: "צורת תוכנית החיפוש" },
   { k: "fail", t: "health", lens: 1, warn: 2, bad: 3, lower: 1, min: 100, u: "pct", owner: "נתונים", name: "בדיקות שנכשלו", src: "הכלל שלנו: עד 2%; התרחיש הזהיר של התוכנית: 3%" },
   { k: "crash", t: "health", warn: 1, bad: 1.09, lower: 1, min: 50, u: "pct", owner: "מוצר", name: "קריסות באפליקציה", src: "Google Play, Android vitals: 1.09%" },
@@ -618,7 +630,7 @@ const G_REC = [
   { k: "lcp", t: "health", warn: 2.5, bad: 4, lower: 1, u: "s", owner: "חיפוש (SEO)", name: "מהירות האתר (LCP)", src: "Core Web Vitals של גוגל: עד 2.5 שניות טוב, מעל 4 גרוע" },
   { k: "weberr", t: "health", warn: 1.5, bad: 3, lower: 1, cnt: 1, min: 100, u: "per100", owner: "מוצר", name: "שגיאות באתר ל-100 בדיקות", src: "הרמה שלנו לפני 1.38: 1.5" },
   { k: "slow", t: "health", warn: 10, bad: null, lower: 1, min: 100, u: "pct", owner: "נתונים", name: "בדיקות איטיות (מעל 5 שניות)", src: "הכלל שלנו: תשומת לב מעל 10%. בצד המקור, בלי ידית שלנו, לכן לעולם לא אדום" },
-  { k: "rating", t: "health", warn: 4.5, bad: 4.5, lower: 0, fixed: 1, u: "stars", owner: "מוצר", name: "דירוג ב-Play", src: "השער של 31.3: לפחות 4.5" },
+  { k: "rating", t: "health", warn: 4.5, bad: 4.5, lower: 0, fixed: 1, need: 60, u: "stars", owner: "מוצר", name: "דירוג ב-Play", src: "השער של 31.3: לפחות 4.5, עם 60 דירוגים (לבקשתך, 19.11)" },
   { k: "uninst", t: "track", u: "pct", owner: "מוצר", name: "הסרות מתוך התקנות", src: "מקבל יעד אחרי 4 שבועות של נתוני Play" },
   { k: "file", t: "track", u: "pct", owner: "מוצר", name: "\"תיק חי\" מתוך ההתקנות", src: "קו בסיס מ-22.11, יעד אחרי 4 שבועות" },
   { k: "leads", t: "track", u: "n", owner: "אסטרטגיה", name: "פניות עסקיות", src: "יעד רק כשמתחילה פנייה לסוחרים" },
@@ -651,11 +663,13 @@ function gVal(r, o) {
 const gHist = (st, r, w) => Object.keys(st.rows).sort().filter(x => x <= w && x >= G_LAUNCH && gVal(r, st.rows[x][r.k]) != null).map(x => [x, st.rows[x][r.k]]);
 // a share pooled over the last k weeks ending at w (each part summed)
 function gPool(st, r, w, k) { const H = gHist(st, r, w).filter(([x]) => gDays(x, w) < 7 * k); const o = {}; for (const [, v] of H) for (const f of ["x", "n", "xs", "ns", "xn", "nn"]) if (v[f] != null) o[f] = (o[f] || 0) + v[f]; return { o, weeks: H.map(([x]) => x) }; }
-// a growth goal's target for week w (its Sunday): the anchor times the plan's weekly growth for every week since the anchor's week
+// a growth goal's weekly growth on the week that ends on day e: a slope set by a re-anchor for the weeks that start by its end date, otherwise the plan's
+const gSlope = (g, r, e) => g && g.rate && gAdd(e, -6) <= (g.until || G_MAR) ? g.rate : gRate(r.plan, g && g.b, e);
+// a growth goal's target for week w (its Sunday): the anchor times the weekly growth for every week since the anchor's week
 function gTarget(g, r, w) {
   if (!g || g.a == null || !g.aw || w <= g.aw) return null;
   if (g.flat != null) return g.flat;
-  let t = g.a; for (let x = gAdd(g.aw, 7); x <= w; x = gAdd(x, 7)) t *= gRate(r.plan, g.b, gAdd(x, 6));
+  let t = g.a; for (let x = gAdd(g.aw, 7); x <= w; x = gAdd(x, 7)) t *= gSlope(g, r, gAdd(x, 6));
   return t;
 }
 // the week a metric judges on a Sunday J: the week that ended the day before, or the one before it for a lagged metric
@@ -689,6 +703,8 @@ function gJudge(st, r, J) {
       if (o.n != null) { if (r.cnt) { const [a, b] = gPois(o.x); lo = 100 * a / o.n; hi = 100 * b / o.n; } else { const [a, b] = gWilson(o.x, o.n); lo = 100 * a; hi = 100 * b; } }
       if (r.lower) s = v <= warn ? "ok" : r.bad == null || v <= r.bad ? "warn" : lo != null && lo <= r.bad ? "warn" : "bad";
       else s = v >= warn ? "ok" : "bad";
+      // a count to reach by the gate (the ratings): on a straight line from the launch; behind the line a good level is amber
+      if (r.need && o.c != null) { const pace = r.need * Math.min(1, gDays(G_LAUNCH, gAdd(w, 6)) / gDays(G_LAUNCH, G_GATE)); g.c = o.c; g.pace = gR(pace, 0); if (s === "ok" && o.c < pace) s = "warn"; }
     }
     tgt = warn;
   } else return;
@@ -698,7 +714,7 @@ function gJudge(st, r, J) {
 function gLearn(st, r, J) {
   const g = st.g[r.k]; if (!g || !g.j) return;
   const last = Object.keys(g.j).sort().slice(-4).map(w => g.j[w][2]), ok = last.filter(s => s === "ok").length, bad = last.filter(s => s === "bad").length;
-  if (r.t === "growth" && last.length === 4 && ok >= 3 && g.b !== "opt" && !g.nb) { g.nb = G_BAND[G_BAND.indexOf(g.b) + 1]; gLog(st, J, r.k, "band", "3 מתוך 4 השבועות האחרונים בירוק: מהחודש הבא השיפוע עולה לתרחיש " + G_BANDN[g.nb] + " של התוכנית"); }
+  if (r.t === "growth" && last.length === 4 && ok >= 3 && g.b !== "opt" && !g.nb && !(g.rate && J <= (g.until || G_MAR))) { g.nb = G_BAND[G_BAND.indexOf(g.b) + 1]; gLog(st, J, r.k, "band", "3 מתוך 4 השבועות האחרונים בירוק: מהחודש הבא השיפוע עולה לתרחיש " + G_BANDN[g.nb] + " של התוכנית"); }
   const red = last.length === 4 && bad >= 3;
   if (red && !g.red) { g.red = J; gLog(st, J, r.k, "red", "3 מתוך 4 השבועות האחרונים באדום: השרשור של " + r.owner + " מתבקש לבדוק אם הבעיה בתוכנית או ביעד"); }
   if (!red && g.red) delete g.red;
@@ -725,7 +741,7 @@ function gMonth(st, r, J) {
     }
     if (g.nb) { g.b = g.nb; delete g.nb; } else g.b ||= "base";
     Object.assign(g, { a, aw: w, aws: H.map(([x, o]) => [x, gR(gVal(r, o), 1)]), med: gR(med, 1), ps: J, why, flat: null });
-    gLog(st, J, r.k, first ? "set" : "month", "עוגן " + gR(a, 0) + " (" + why + "), שיפוע " + gR((gRate(r.plan, g.b, gAdd(J, 6)) - 1) * 100, 1) + "% בשבוע מהתרחיש " + G_BANDN[g.b] + " של התוכנית");
+    gLog(st, J, r.k, first ? "set" : "month", "עוגן " + gR(a, 0) + " (" + why + "), שיפוע " + gR((gSlope(g, r, gAdd(J, 6)) - 1) * 100, 1) + "% בשבוע" + (g.rate && J <= (g.until || G_MAR) ? " עד 31.3" : " מהתרחיש " + G_BANDN[g.b] + " של התוכנית"));
   } else if (r.t === "ratio") {
     const cur = gPool(st, r, w, 4); if (cur.weeks.length < 2) return;
     const cv = gVal(r, cur.o), H = gHist(st, r, w);
@@ -738,6 +754,40 @@ function gMonth(st, r, J) {
     gLog(st, J, r.k, first ? "set" : "month", "יעד " + gR(T, 2) + " (" + why + "; הנוכחי " + gR(cv, 2) + (r.bench != null ? ", הרף " + r.bench : "") + ")");
   }
 }
+// the one-time re-anchors (G_RE): step 1 sets the anchor on the week w once that week is whole and live goals exist; step 2, once the week
+// two.w is whole, moves the anchor of two.k to the mean of the two weeks if that week is above two.over. Each step runs once and is logged
+function gRe1(st, J, list) {
+  const done = st.re ||= {};
+  for (const R of list || []) {
+    if (done[R.id]) continue;
+    if (J > R.by) { done[R.id] = "skip " + J; continue; }
+    const row = st.rows[R.w]; if (!row || !R.keys.some(k => st.g[k] && st.g[k].a != null)) continue;
+    for (const k of R.keys) {
+      const r = G_BY[k], g = st.g[k], v = g && g.a != null ? gVal(r, row[k]) : null; if (v == null) continue;
+      Object.assign(g, { a: v, aw: R.w, aws: [[R.w, gR(v, 1)]], med: gR(v, 1), rate: R.rate, until: R.until, why: "עוגן חדש לבקשתך (19.11): השבוע של " + gDm(R.w) + ", בלי שבוע ההשקה והשבוע הוויראלי" });
+      delete g.nb; if (g.flat != null) { g.flat = null; g.flat = gR(gTarget(g, r, gSun(J)), 1); }
+      for (const p of st.props) if (p.k === k && p.st === "open") { p.st = "re"; p.ans = J; }
+      gLog(st, J, k, "re", "עוגן חדש לבקשתך: " + gR(v, 0) + " (השבוע של " + gDm(R.w) + "), שיפוע " + gR((R.rate - 1) * 100, 1) + "% בשבוע עד 31.3");
+    }
+    done[R.id] = J;
+  }
+}
+function gRe2(st, J, list) {
+  const done = st.re ||= {};
+  for (const R of list || []) {
+    const T = R.two, id = R.id + ":two"; if (!T || done[id] || !done[R.id] || /^skip/.test(done[R.id])) continue;
+    const row = st.rows[T.w], r = G_BY[T.k], g = st.g[T.k]; if (!row || !g) continue;
+    const v = gVal(r, row[T.k]), b = gVal(r, (st.rows[R.w] || {})[T.k]);
+    if (v != null && b != null && v > T.over && g.aw === R.w) {
+      const a = (b + v) / 2;
+      Object.assign(g, { a, aw: T.w, aws: [[R.w, gR(b, 1)], [T.w, gR(v, 1)]], med: gR(a, 1), why: "עוגן חדש לבקשתך (19.11): הממוצע של השבועות " + gDm(R.w) + " ו-" + gDm(T.w) + ", כי השני עבר את " + T.over });
+      if (g.flat != null) { g.flat = null; g.flat = gR(gTarget(g, r, gSun(J)), 1); }
+      gLog(st, J, T.k, "re", "השבוע של " + gDm(T.w) + " עבר את " + T.over + ": העוגן הוא הממוצע של שני השבועות, " + gR(a, 0));
+    } else if (v != null) gLog(st, J, T.k, "re", "השבוע של " + gDm(T.w) + " לא עבר את " + T.over + ": העוגן נשאר השבוע של " + gDm(R.w));
+    if (v != null) done[id] = J;
+  }
+}
+const gDm = d => Number(d.slice(8)) + "." + Number(d.slice(5, 7));
 function gPropose(st, r, J, from, to, why) {
   const id = "goal-" + r.k + "-" + J.replace(/-/g, "");
   if (st.props.some(p => p.id === id)) return;
@@ -763,7 +813,7 @@ function gForecast(st, r, J) {
 // one step: every Sunday from the last one done to today (a Sunday counts once the caller says its week is whole). mode "fixed" freezes the
 // goals (no new anchors, no band, no tightening; growth targets stay where they are) while judging goes on
 // upTo: the last Sunday to judge (default today); between Sundays the page passes the last judged one, so an answer or a switch is logged today
-function gTick(prev, rows, today, acts, mode, upTo) {
+function gTick(prev, rows, today, acts, mode, upTo, re = G_RE) {
   const st = prev && prev.v === 1 ? JSON.parse(JSON.stringify(prev)) : { v: 1, mode: "live", rows: {}, g: {}, props: [], log: [], last: null };
   for (const [w, o] of Object.entries(rows || {})) st.rows[w] = { ...(st.rows[w] || {}), ...o };
   const m = mode === "fixed" ? "fixed" : "live";
@@ -771,13 +821,16 @@ function gTick(prev, rows, today, acts, mode, upTo) {
   if (m === "live") for (const r of G_REC) if (r.t === "growth" && st.g[r.k] && st.g[r.k].flat != null) st.g[r.k].flat = null;
   gAnswers(st, acts, today);
   for (let J = st.last ? gAdd(st.last, 7) : G_START; J <= (upTo || today); J = gAdd(J, 7)) {
+    gRe1(st, J, re);                          // a re-anchor whose week is whole sets the goal before this Sunday judges
     for (const r of G_REC) gJudge(st, r, J);
+    gRe2(st, J, re);
     for (const r of G_REC) gLearn(st, r, J);
     if (st.mode === "live") for (const r of G_REC) if (r.t === "health") gTighten(st, r, J);
     if (J === G_START || (st.mode === "live" && gFirstSun(J))) for (const r of G_REC) gMonth(st, r, J);
     st.fc = { checks: gForecast(st, G_BY.checks, J), installs: gForecast(st, G_BY.installs, J) };
     st.last = J;
   }
+  if (st.last) { gRe1(st, today, re); gRe2(st, today, re); }   // between Sundays: a re-anchor that just arrived applies at once
   // rows older than a year are dropped (the judged history stays with each goal)
   for (const w of Object.keys(st.rows)) if (gDays(w, today) > 400) delete st.rows[w];
   return st;
@@ -785,13 +838,14 @@ function gTick(prev, rows, today, acts, mode, upTo) {
 // what the page gets: per goal its latest judged week, this week's target, the recipe and the last changes; open proposals; the log
 function gView(st, today) {
   if (!st) return null;
-  const cw = gSun(today), out = { mode: st.mode, last: st.last, start: G_START, oldUntil: G_OLD_UNTIL, gate: G_GATE, fc: st.fc || {}, props: st.props.filter(p => p.st === "open").map(p => ({ ...p, name: G_BY[p.k].name, u: G_BY[p.k].u })), log: st.log.slice(0, 40), items: [] };
+  const cw = gSun(today), out = { mode: st.mode, last: st.last, start: G_START, oldUntil: G_OLD_UNTIL, gate: G_GATE, gl: G_GATEL, fc: st.fc || {}, props: st.props.filter(p => p.st === "open").map(p => ({ ...p, name: G_BY[p.k].name, u: G_BY[p.k].u })), log: st.log.slice(0, 40), items: [] };
   for (const r of G_REC) {
     const g = st.g[r.k] || {}, js = Object.keys(g.j || {}).sort(), lw = js[js.length - 1] || null, lj = lw ? g.j[lw] : null;
     const now = r.t === "growth" ? gR(gTarget(g, r, cw), 1) : r.t === "ratio" ? gR(g.ps ? g.T : null, 2) : r.t === "line" ? r.line : r.t === "health" ? (g.warn ?? r.warn) : null;
     out.items.push({ k: r.k, t: r.t, lens: r.lens || 0, lag: r.lag || 0, u: r.u, name: r.name, owner: r.owner, src: r.src, bad: r.bad ?? null, lower: r.lower ?? null,
       wk: lw, v: lj ? lj[0] : null, tgt: lj ? lj[1] : null, s: lj ? lj[2] : r.t === "track" ? "ref" : "early", lo: lj ? lj[3] : null, hi: lj ? lj[4] : null, pooled: lj ? lj[5] : 0,
-      now, cw, a: g.a != null ? gR(g.a, 1) : null, aw: g.aw || null, aws: g.aws || null, med: g.med ?? null, b: g.b || null, nb: g.nb || null, rate: r.plan && g.b ? gR((gRate(r.plan, g.b, gAdd(cw, 6)) - 1) * 100, 1) : null,
+      now, cw, a: g.a != null ? gR(g.a, 1) : null, aw: g.aw || null, aws: g.aws || null, med: g.med ?? null, b: g.b || null, nb: g.nb || null, rate: r.plan && g.b ? gR((gSlope(g, r, gAdd(cw, 6)) - 1) * 100, 1) : null, fix: g.rate && cw <= (g.until || G_MAR) ? 1 : 0,
+      c: g.c ?? null, need: r.need ?? null, pace: g.pace ?? null, dep: r.dep || "",
       T: g.T != null ? gR(g.T, 2) : null, best: g.best != null ? gR(g.best, 2) : null, cur: g.cur ?? null, bench: r.bench ?? null, why: g.why || "", ps: g.ps || null, red: g.red || null,
       hist: js.slice(-8).map(w => [w, ...g.j[w].slice(0, 3)]),
       // a growth goal's target by week (8 weeks back, 4 ahead), for the tiles' charts and their target lines
@@ -874,7 +928,8 @@ async function goalsTick(env, opts = {}) {
   const [prev, acts, err] = await Promise.all([goalsGet(env), actsGet(env), env.ALERTS.get(GOALS_ERR, "json").catch(() => null)]);
   const mode = goalsMode(env, acts), weekDue = !!opts.week && J >= G_START && (!prev || !prev.last || prev.last < J) && (today > J || hour >= 9);
   const answered = prev && prev.props && prev.props.some(p => p.st === "open" && acts[p.id]), switched = prev && prev.mode !== mode;
-  if (!weekDue && !answered && !switched) return prev;
+  const reDue = !!(prev && prev.last && G_RE.some(R => !(prev.re || {})[R.id]));   // a re-anchor that arrived with a release applies at once
+  if (!weekDue && !answered && !switched && !reDue) return prev;
   if (weekDue && err && now - Date.parse(err.at || 0) < 1800e3) return prev;
   goalsBusy = true;
   try {
@@ -979,10 +1034,14 @@ async function rtKept(env, day) {
 let cache = null, cacheAt = 0, backoffUntil = 0;
 // who is on right now: the last 5 minutes (Dudu 2.11), the top line of the page. The page asks /live/now every 30 seconds on its own (the
 // rest of the page every minute), so this keeps its answer only 20 seconds, and after a Google quota error answers with the last one.
+// The page gives /live/now 15 s, so Google gets NOW_MS: a slow answer ends here, with the last count or a 502 the page passes over, before the
+// page gives up. With GA_MS (20 s) the page cut every /live/now while Google was slow, and Live watch read the cut requests as a stuck
+// screen (13.11 19:21 Israel, a false alarm: /live/data answered within 23 s).
+const NOW_MS = 10e3;
 let onl = null, onlAt = 0;
 async function onlineNow(env) {
   if (onl && (Date.now() - onlAt < 20e3 || Date.now() < backoffUntil)) return onl;
-  const rows = await realtime(env, { dimensions: [{ name: "platform" }], metrics: [{ name: "activeUsers" }], dimensionFilter: REAL, minuteRanges: [{ startMinutesAgo: 4, endMinutesAgo: 0 }] });
+  const rows = await realtime(env, { dimensions: [{ name: "platform" }], metrics: [{ name: "activeUsers" }], dimensionFilter: REAL, minuteRanges: [{ startMinutesAgo: 4, endMinutesAgo: 0 }] }, NOW_MS);
   const sum = k => rows.filter(r => r.dimensionValues[0].value === k).reduce((t, r) => t + Number(r.metricValues[0].value || 0), 0);
   onl = { app: sum("Android"), web: sum("web") }; onlAt = Date.now(); return onl;
 }
@@ -1163,7 +1222,7 @@ const GOALS={first:"2026-11",k:{weekly_checks:[[160,190,240],[190,240,330],[250,
  calib:{keys:["weekly_checks","installs_week"],end:"2026-11-01",lo:.5,hi:20}};   // the base week 26.10-1.11 sets the level of car checks and installs (Dudu 26.10): r = its actual / the plan's line on 1.11 (174 checks, 40 installs), 0.5 to 20. Not the launch week 19-25.10: its posts would set every later target (decided 20.10)
 const SUBMITTED="2026-10-17";      // production access requested in Play Console
 const PRO_MAU=2000;
-const N={car_lookup:"בדיקת רכב",car_save:"שמירת רכב ברשימה",share:"שיתוף (דוח רכב או השוואה)",compare_open:"השוואת רכבים",tab_view:"מעבר בין לשוניות",link_out:"לחיצה על קישור חיצוני",alerts_toggle:"הדלקה או כיבוי של התראות",alert_kind:"בחירת סוג התראה",upgrade_open:"פתיחת חלונית המנוי (PRO)",voice_search:"חיפוש בקול",bulk_check:"בדיקת כמה רכבים יחד",camera_scan:"סריקת לוחית במצלמה",buy_card_open:"פתיחת כרטיס בלשונית קנייה",settlement_shown:"הצגת הסדר פשרה",checklist_pdf:"הורדת רשימת בדיקה",doc_add:"הוספת מסמך לרכב",doc_exp:"תאריך תוקף למסמך (הוספה או שינוי)",doc_scan:"קריאת תאריך התוקף מהמסמך (בטלפון)",simple_view:"מעבר לתצוגה פשוטה",search_no_result:"חיפוש דגם בלי תוצאה",user_screenshot:"צילום מסך",first_open:"התקנה חדשה (פתיחה ראשונה)",lookup_repeat:"פתיחה חוזרת של רכב (רענון)",notif_open:"פתיחת התראה מהטלפון",notif_sent:"התראה שנשלחה לטלפון",web_hint_click:"לחיצה על הצעה להתקין מהאתר",web_install_click:"מעבר מהאתר להתקנה",calendar_reminder_click:"הוספת תזכורת ליומן",link_landing:"כניסה לאתר מקישור",link_open:"פתיחת קישור באפליקציה",web_visit:"כניסה לאתר",referral_open:"פתיחה ראשונה אחרי התקנה מקישור ששותף",share_open:"פתיחת חלון השיתוף",nav:"מעבר בתפריט התחתון",cars_mode:"החלפת תצוגה ברכבים שלי",alert_item:"לחיצה על פריט במסך ההתראות",road_docs:"פתיחת מסמכים לנסיעה",history_pdf:"הפקת דוח היסטוריה (PDF)",mine_set:"פתיחת תיק לרכב שלי",mine_unset:"ביטול סימון הרכב שלי",car_unsave:"הסרת רכב מהרכבים שלי",home_open:"פתיחה מהאייקון במסך הבית (אתר)",home_sheet:"הצעה באייפון להוסיף למסך הבית",first_save:"שמירת רכב ראשונה (ביום ההתקנה)",app_return:"חזרה לאפליקציה בשבוע הראשון",zombie_shown:"הצגת רכב שירד מהכביש וחזר",lookup_from_cache:"הצגת בדיקה שמורה (בלי חיבור)",buy_step_done:"סימון שלב ברשימת הקנייה",check_open:"פתיחת סעיף ברשימת הבדיקה",simple_more:"הרחבה בתצוגה הפשוטה",calendar_reminder_shown:"הצגת הצעה לתזכורת ביומן",car_nick:"כינוי לרכב",web_install_prompt:"הצגת הצעה להתקין (באתר)",svc_add:"רישום טיפול או קילומטראז' לרכב",svc_cal:"הטיפול הבא ליומן",trial_start:"התחלת ניסיון PRO",trial_end_shown:"הודעת סוף ניסיון PRO",upgrade_purchase_start:"התחלת רכישת PRO",update_prompt:"הצעה לעדכן גרסה",update_start:"התחלת עדכון גרסה",update_done:"התקנת עדכון גרסה",file_cta_shown:"הצגת השורה «פתיחת תיק» בסקירת הרכב",inspect_fake_door:"לחיצה על «לקבוע בדיקה במכון» (דלת מדומה)",inspect_fake_door_view:"הצגת «לקבוע בדיקה במכון» (דלת מדומה)",exp_expose:"הצגת נוסח בניסוי",js_error:"שגיאת קוד באתר או באפליקציה",lookup_abort:"בדיקה שבוטלה באמצע",lookup_failed:"בדיקה שנכשלה",lookup_slow:"בדיקה איטית (הופיעה הודעת המתנה)",lookup_timeout:"בדיקה שלא הסתיימה בזמן",app_exception:"קריסה של האפליקציה",newsletter_confirm:"אישור הרשמה למגזין",b2b_lead_submit:"פנייה עסקית מהאתר"};
+const N={car_lookup:"בדיקת רכב",storage_restored:"שחזור רכבים שמורים מהגיבוי",storage_lost:"רכבים שמורים לא נטענו (אין מקום)",car_save:"שמירת רכב ברשימה",share:"שיתוף (דוח רכב או השוואה)",compare_open:"השוואת רכבים",tab_view:"מעבר בין לשוניות",link_out:"לחיצה על קישור חיצוני",alerts_toggle:"הדלקה או כיבוי של התראות",alert_kind:"בחירת סוג התראה",upgrade_open:"פתיחת חלונית המנוי (PRO)",voice_search:"חיפוש בקול",bulk_check:"בדיקת כמה רכבים יחד",camera_scan:"סריקת לוחית במצלמה",buy_card_open:"פתיחת כרטיס בלשונית קנייה",settlement_shown:"הצגת הסדר פשרה",checklist_pdf:"הורדת רשימת בדיקה",doc_add:"הוספת מסמך לרכב",doc_exp:"תאריך תוקף למסמך (הוספה או שינוי)",doc_scan:"קריאת תאריך התוקף מהמסמך (בטלפון)",simple_view:"מעבר לתצוגה פשוטה",search_no_result:"חיפוש דגם בלי תוצאה",user_screenshot:"צילום מסך",first_open:"התקנה חדשה (פתיחה ראשונה)",lookup_repeat:"פתיחה חוזרת של רכב (רענון)",notif_open:"פתיחת התראה מהטלפון",notif_sent:"התראה שנשלחה לטלפון",web_hint_click:"לחיצה על הצעה להתקין מהאתר",web_install_click:"מעבר מהאתר להתקנה",calendar_reminder_click:"הוספת תזכורת ליומן",link_landing:"כניסה לאתר מקישור",link_open:"פתיחת קישור באפליקציה",web_visit:"כניסה לאתר",referral_open:"פתיחה ראשונה אחרי התקנה מקישור ששותף",share_open:"פתיחת חלון השיתוף",nav:"מעבר בתפריט התחתון",cars_mode:"החלפת תצוגה ברכבים שלי",alert_item:"לחיצה על פריט במסך ההתראות",road_docs:"פתיחת מסמכים לנסיעה",history_pdf:"הפקת דוח היסטוריה (PDF)",mine_set:"פתיחת תיק לרכב שלי",mine_unset:"ביטול סימון הרכב שלי",car_unsave:"הסרת רכב מהרכבים שלי",home_open:"פתיחה מהאייקון במסך הבית (אתר)",home_sheet:"הצעה באייפון להוסיף למסך הבית",first_save:"שמירת רכב ראשונה (ביום ההתקנה)",app_return:"חזרה לאפליקציה בשבוע הראשון",zombie_shown:"הצגת רכב שירד מהכביש וחזר",lookup_from_cache:"הצגת בדיקה שמורה (בלי חיבור)",buy_step_done:"סימון שלב ברשימת הקנייה",check_open:"פתיחת סעיף ברשימת הבדיקה",simple_more:"הרחבה בתצוגה הפשוטה",calendar_reminder_shown:"הצגת הצעה לתזכורת ביומן",car_nick:"כינוי לרכב",web_install_prompt:"הצגת הצעה להתקין (באתר)",svc_add:"רישום טיפול או קילומטראז' לרכב",svc_cal:"הטיפול הבא ליומן",trial_start:"התחלת ניסיון PRO",trial_end_shown:"הודעת סוף ניסיון PRO",upgrade_purchase_start:"התחלת רכישת PRO",update_prompt:"הצעה לעדכן גרסה",update_start:"התחלת עדכון גרסה",update_done:"התקנת עדכון גרסה",file_cta_shown:"הצגת השורה «פתיחת תיק» בסקירת הרכב",exp_expose:"הצגת נוסח בניסוי",js_error:"שגיאת קוד באתר או באפליקציה",lookup_abort:"בדיקה שבוטלה באמצע",lookup_failed:"בדיקה שנכשלה",lookup_slow:"בדיקה איטית (הופיעה הודעת המתנה)",lookup_timeout:"בדיקה שלא הסתיימה בזמן",app_exception:"קריסה של האפליקציה",newsletter_confirm:"אישור הרשמה למגזין",b2b_lead_submit:"פנייה עסקית מהאתר",inspect_fake_door:"לחיצה על «לקבוע בדיקה במכון» (דלת מדומה)",inspect_fake_door_view:"הצגת «לקבוע בדיקה במכון» (דלת מדומה)"};
 // events Google sends by itself: shown with this name and marked as automatic; any other name GA4 has that neither list knows is shown raw, marked new
 const AUTO={session_start:"פתיחה (אוטומטי)",user_engagement:"זמן שימוש (אוטומטי)",screen_view:"מעבר מסך באפליקציה (אוטומטי)",page_view:"צפייה בדף (אוטומטי)",first_visit:"כניסה ראשונה לאתר (אוטומטי)",app_remove:"הסרת האפליקציה (אוטומטי)",app_update:"עדכון האפליקציה (אוטומטי)",os_update:"עדכון מערכת בטלפון (אוטומטי)",app_clear_data:"ניקוי נתוני האפליקציה (אוטומטי)",firebase_campaign:"פתיחה מקמפיין (אוטומטי)",notification_receive:"קבלת התראה (אוטומטי)",notification_open:"פתיחת התראה (אוטומטי)",notification_dismiss:"סגירת התראה (אוטומטי)",notification_foreground:"התראה כשהאפליקציה פתוחה (אוטומטי)",screen_view_web:"מעבר מסך (אוטומטי)",scroll:"גלילה בדף (אוטומטי)",click:"לחיצה על קישור יוצא (אוטומטי)",form_start:"התחלת מילוי טופס (אוטומטי)",form_submit:"שליחת טופס (אוטומטי)",file_download:"הורדת קובץ (אוטומטי)",view_search_results:"תוצאות חיפוש באתר (אוטומטי)",video_start:"התחלת וידאו (אוטומטי)",in_app_purchase:"רכישה באפליקציה (אוטומטי)"};
 const KIND={source_down:"משרד התחבורה לא ענה",offline:"לא התקבלה תשובה (חיבור או זמן המתנה)",not_found:"מספר שלא קיים (הוקלד לא נכון)",net_err:"החיבור למאגרי משרד התחבורה נכשל",js_err:"תקלה בקוד שלנו בזמן הבדיקה","(not set)":"לא ידוע"};
@@ -1712,8 +1771,22 @@ async function goalsForPage(env) {
 }
 const DEADLINE = 25e3, LAST = "https://luchit.app/live/_last";
 let lastGood = null;
+// a new isolate starts from the data centre's copy of the last good answer: a part Google fails to send keeps its last numbers, as it already
+// does within one isolate (keep() and the quota fallback), and a late answer has something to show. The weekly and SEO parts check their own
+// window before they use it; the rest only from a copy of the same Israel day, since the daily parts carry no date of their own. 13.11: with
+// Google failing, a new isolate showed empty cards.
+async function seedFromCopy() {
+  if (lastGood || cache) return;
+  try {
+    const r = await caches.default.match(LAST), o = r ? await r.json() : null; if (!o) return;
+    if (!weekly && o.weekly) weekly = o.weekly; if (!seo && o.seo) seo = o.seo;
+    if (!o.at || ilDay(Date.parse(o.at)) !== ilDay(Date.now())) return;
+    lastGood = o; cache = o; if (!daily && o.daily) daily = o.daily;
+  } catch {}
+}
 async function liveData(env, ctx) {
   let timer, failed = false;
+  await seedFromCopy();
   const work = (async () => ({ ...(await collect(env)), flashes: (await getFlashes()).slice(0, 15), metrics: slimMetrics(await getMetrics()), auto: slimAuto(await getAuto()), cal: livePubs(slimCal(await getCal()), await getQueue(), queueOk), calDone: await calDone(env), acts: await actsGet(env), goals: await goalsForPage(env) }))();
   const late = new Promise(r => { timer = setTimeout(() => r(null), DEADLINE); });
   const d = await Promise.race([work.catch(() => { failed = true; return null; }), late]);
@@ -1723,6 +1796,9 @@ async function liveData(env, ctx) {
     ctx?.waitUntil?.(caches.default.put(LAST, new Response(JSON.stringify(d), { headers: { "content-type": "application/json", "cache-control": "max-age=172800" } })).catch(() => {}));
     return json(d);
   }
+  // late: the work goes on after this answer and, when it ends, becomes the last good answer, so the screen's next try (a minute later) has
+  // fresh numbers. Until 13.11 a late answer was thrown away, and while Google stayed slow no load ever got past "loading".
+  ctx?.waitUntil?.(work.then(x => { if (!x) return; lastGood = x; return caches.default.put(LAST, new Response(JSON.stringify(x), { headers: { "content-type": "application/json", "cache-control": "max-age=172800" } })); }).catch(() => {}));
   let keep = lastGood;
   if (!keep) try { const r = await caches.default.match(LAST); keep = r ? await r.json() : null; } catch {}
   return keep ? json({ ...keep, late: true }) : failed ? json({ error: "unavailable" }, 502) : json({ error: "timeout" }, 504);
@@ -1823,7 +1899,7 @@ const GOALS={first:"2026-11",k:{weekly_checks:[[160,190,240],[190,240,330],[250,
  from:{weekly_checks:["2026-10-25",170],google_clicks_week:["2026-10-14",0],pages_indexed:["2026-10-17",90],app_active_28d:["2026-10-18",23],subscribers_total:["2026-10-01",0]},
  calib:{keys:["weekly_checks","installs_week"],end:"2026-11-01",lo:.5,hi:20}};
 const SUBMITTED="2026-10-17",PRO_MAU=2000,QF="2026-10-21",QE="2026-11-22";
-const N={car_lookup:"בדיקת רכב",car_save:"שמירת רכב ברשימה",share:"שיתוף (דוח רכב או השוואה)",compare_open:"השוואת רכבים",tab_view:"מעבר בין לשוניות",link_out:"לחיצה על קישור חיצוני",alerts_toggle:"הדלקה או כיבוי של התראות",alert_kind:"בחירת סוג התראה",upgrade_open:"פתיחת חלונית המנוי (PRO)",voice_search:"חיפוש בקול",bulk_check:"בדיקת כמה רכבים יחד",camera_scan:"סריקת לוחית במצלמה",buy_card_open:"פתיחת כרטיס בלשונית קנייה",settlement_shown:"הצגת הסדר פשרה",checklist_pdf:"הורדת רשימת בדיקה",doc_add:"הוספת מסמך לרכב",doc_exp:"תאריך תוקף למסמך (הוספה או שינוי)",doc_scan:"קריאת תאריך התוקף מהמסמך (בטלפון)",simple_view:"מעבר לתצוגה פשוטה",search_no_result:"חיפוש דגם בלי תוצאה",user_screenshot:"צילום מסך",first_open:"התקנה חדשה (פתיחה ראשונה)",lookup_repeat:"פתיחה חוזרת של רכב (רענון)",notif_open:"פתיחת התראה מהטלפון",notif_sent:"התראה שנשלחה לטלפון",web_hint_click:"לחיצה על הצעה להתקין מהאתר",web_install_click:"מעבר מהאתר להתקנה",calendar_reminder_click:"הוספת תזכורת ליומן",link_landing:"כניסה לאתר מקישור",link_open:"פתיחת קישור באפליקציה",web_visit:"כניסה לאתר",referral_open:"פתיחה ראשונה אחרי התקנה מקישור ששותף",share_open:"פתיחת חלון השיתוף",nav:"מעבר בתפריט התחתון",cars_mode:"החלפת תצוגה ברכבים שלי",alert_item:"לחיצה על פריט במסך ההתראות",road_docs:"פתיחת מסמכים לנסיעה",history_pdf:"הפקת דוח היסטוריה (PDF)",mine_set:"פתיחת תיק לרכב שלי",mine_unset:"ביטול סימון הרכב שלי",car_unsave:"הסרת רכב מהרכבים שלי",home_open:"פתיחה מהאייקון במסך הבית (אתר)",home_sheet:"הצעה באייפון להוסיף למסך הבית",first_save:"שמירת רכב ראשונה (ביום ההתקנה)",app_return:"חזרה לאפליקציה בשבוע הראשון",zombie_shown:"הצגת רכב שירד מהכביש וחזר",lookup_from_cache:"הצגת בדיקה שמורה (בלי חיבור)",buy_step_done:"סימון שלב ברשימת הקנייה",check_open:"פתיחת סעיף ברשימת הבדיקה",simple_more:"הרחבה בתצוגה הפשוטה",calendar_reminder_shown:"הצגת הצעה לתזכורת ביומן",car_nick:"כינוי לרכב",web_install_prompt:"הצגת הצעה להתקין (באתר)",svc_add:"רישום טיפול או קילומטראז' לרכב",svc_cal:"הטיפול הבא ליומן",trial_start:"התחלת ניסיון PRO",trial_end_shown:"הודעת סוף ניסיון PRO",upgrade_purchase_start:"התחלת רכישת PRO",update_prompt:"הצעה לעדכן גרסה",update_start:"התחלת עדכון גרסה",update_done:"התקנת עדכון גרסה",file_cta_shown:"הצגת השורה «פתיחת תיק» בסקירת הרכב",inspect_fake_door:"לחיצה על «לקבוע בדיקה במכון» (דלת מדומה)",inspect_fake_door_view:"הצגת «לקבוע בדיקה במכון» (דלת מדומה)",exp_expose:"הצגת נוסח בניסוי",js_error:"שגיאת קוד באתר או באפליקציה",lookup_abort:"בדיקה שבוטלה באמצע",lookup_failed:"בדיקה שנכשלה",lookup_slow:"בדיקה איטית (הופיעה הודעת המתנה)",lookup_timeout:"בדיקה שלא הסתיימה בזמן",app_exception:"קריסה של האפליקציה",newsletter_confirm:"אישור הרשמה למגזין",b2b_lead_submit:"פנייה עסקית מהאתר"};
+const N={car_lookup:"בדיקת רכב",storage_restored:"שחזור רכבים שמורים מהגיבוי",storage_lost:"רכבים שמורים לא נטענו (אין מקום)",car_save:"שמירת רכב ברשימה",share:"שיתוף (דוח רכב או השוואה)",compare_open:"השוואת רכבים",tab_view:"מעבר בין לשוניות",link_out:"לחיצה על קישור חיצוני",alerts_toggle:"הדלקה או כיבוי של התראות",alert_kind:"בחירת סוג התראה",upgrade_open:"פתיחת חלונית המנוי (PRO)",voice_search:"חיפוש בקול",bulk_check:"בדיקת כמה רכבים יחד",camera_scan:"סריקת לוחית במצלמה",buy_card_open:"פתיחת כרטיס בלשונית קנייה",settlement_shown:"הצגת הסדר פשרה",checklist_pdf:"הורדת רשימת בדיקה",doc_add:"הוספת מסמך לרכב",doc_exp:"תאריך תוקף למסמך (הוספה או שינוי)",doc_scan:"קריאת תאריך התוקף מהמסמך (בטלפון)",simple_view:"מעבר לתצוגה פשוטה",search_no_result:"חיפוש דגם בלי תוצאה",user_screenshot:"צילום מסך",first_open:"התקנה חדשה (פתיחה ראשונה)",lookup_repeat:"פתיחה חוזרת של רכב (רענון)",notif_open:"פתיחת התראה מהטלפון",notif_sent:"התראה שנשלחה לטלפון",web_hint_click:"לחיצה על הצעה להתקין מהאתר",web_install_click:"מעבר מהאתר להתקנה",calendar_reminder_click:"הוספת תזכורת ליומן",link_landing:"כניסה לאתר מקישור",link_open:"פתיחת קישור באפליקציה",web_visit:"כניסה לאתר",referral_open:"פתיחה ראשונה אחרי התקנה מקישור ששותף",share_open:"פתיחת חלון השיתוף",nav:"מעבר בתפריט התחתון",cars_mode:"החלפת תצוגה ברכבים שלי",alert_item:"לחיצה על פריט במסך ההתראות",road_docs:"פתיחת מסמכים לנסיעה",history_pdf:"הפקת דוח היסטוריה (PDF)",mine_set:"פתיחת תיק לרכב שלי",mine_unset:"ביטול סימון הרכב שלי",car_unsave:"הסרת רכב מהרכבים שלי",home_open:"פתיחה מהאייקון במסך הבית (אתר)",home_sheet:"הצעה באייפון להוסיף למסך הבית",first_save:"שמירת רכב ראשונה (ביום ההתקנה)",app_return:"חזרה לאפליקציה בשבוע הראשון",zombie_shown:"הצגת רכב שירד מהכביש וחזר",lookup_from_cache:"הצגת בדיקה שמורה (בלי חיבור)",buy_step_done:"סימון שלב ברשימת הקנייה",check_open:"פתיחת סעיף ברשימת הבדיקה",simple_more:"הרחבה בתצוגה הפשוטה",calendar_reminder_shown:"הצגת הצעה לתזכורת ביומן",car_nick:"כינוי לרכב",web_install_prompt:"הצגת הצעה להתקין (באתר)",svc_add:"רישום טיפול או קילומטראז' לרכב",svc_cal:"הטיפול הבא ליומן",trial_start:"התחלת ניסיון PRO",trial_end_shown:"הודעת סוף ניסיון PRO",upgrade_purchase_start:"התחלת רכישת PRO",update_prompt:"הצעה לעדכן גרסה",update_start:"התחלת עדכון גרסה",update_done:"התקנת עדכון גרסה",file_cta_shown:"הצגת השורה «פתיחת תיק» בסקירת הרכב",exp_expose:"הצגת נוסח בניסוי",js_error:"שגיאת קוד באתר או באפליקציה",lookup_abort:"בדיקה שבוטלה באמצע",lookup_failed:"בדיקה שנכשלה",lookup_slow:"בדיקה איטית (הופיעה הודעת המתנה)",lookup_timeout:"בדיקה שלא הסתיימה בזמן",app_exception:"קריסה של האפליקציה",newsletter_confirm:"אישור הרשמה למגזין",b2b_lead_submit:"פנייה עסקית מהאתר",inspect_fake_door:"לחיצה על «לקבוע בדיקה במכון» (דלת מדומה)",inspect_fake_door_view:"הצגת «לקבוע בדיקה במכון» (דלת מדומה)"};
 const AUTO={session_start:"פתיחה (אוטומטי)",user_engagement:"זמן שימוש (אוטומטי)",screen_view:"מעבר מסך באפליקציה (אוטומטי)",page_view:"צפייה בדף (אוטומטי)",first_visit:"כניסה ראשונה לאתר (אוטומטי)",app_remove:"הסרת האפליקציה (אוטומטי)",app_update:"עדכון האפליקציה (אוטומטי)",os_update:"עדכון מערכת בטלפון (אוטומטי)",app_clear_data:"ניקוי נתוני האפליקציה (אוטומטי)",firebase_campaign:"פתיחה מקמפיין (אוטומטי)",notification_receive:"קבלת התראה (אוטומטי)",notification_open:"פתיחת התראה (אוטומטי)",notification_dismiss:"סגירת התראה (אוטומטי)",notification_foreground:"התראה כשהאפליקציה פתוחה (אוטומטי)",screen_view_web:"מעבר מסך (אוטומטי)",scroll:"גלילה בדף (אוטומטי)",click:"לחיצה על קישור יוצא (אוטומטי)",form_start:"התחלת מילוי טופס (אוטומטי)",form_submit:"שליחת טופס (אוטומטי)",file_download:"הורדת קובץ (אוטומטי)",view_search_results:"תוצאות חיפוש באתר (אוטומטי)",video_start:"התחלת וידאו (אוטומטי)",in_app_purchase:"רכישה באפליקציה (אוטומטי)"};
 const KIND={source_down:"משרד התחבורה לא ענה",offline:"לא התקבלה תשובה (חיבור או זמן המתנה)",not_found:"מספר שלא קיים (הוקלד לא נכון)",net_err:"החיבור למאגרי משרד התחבורה נכשל",js_err:"תקלה בקוד שלנו בזמן הבדיקה","(not set)":"לא ידוע"};
 const FK={data:"נתונים",infra:"תשתית",content:"תוכן",release:"שחרור",experiment:"ניסוי",reviews:"ביקורות"};
@@ -1994,7 +2070,7 @@ REG.shares={name:"שיתופים לכל 100 בדיקות",dept:"marketing",def:"
    if(rate==null)s="early";else if(cal)s="cal";else s=band(rate,GS,false,false)}
   const arr=sh?sh[0].web+sh[0].app:null,arrp=sh?sh[1].web+sh[1].app:null,Lp1=ge(E1,"car_lookup"),rp=Lp1>=100?ge(E1,"share")/Lp1*100:null;
   const rw=C.ENDS.map(e=>{const l=C.wsum("car_lookup",e),x=C.wsum("share",e);return l>=30&&x!=null?x/l*100:null});
-  return {s,v:rate,tt:GS?"היעד "+n1(GS[1]):"",big:!ev?"-":rate!=null?(rate>=10?n(rate):n1(rate)):n(Sw),unit:!ev||rate!=null?"":"שיתופים",dl:delta1(rate,rp),gl:rate!=null&&!cal?n(rate/GS[1]*100)+"% מהיעד ("+n1(GS[1])+")":"",gp:rate!=null?rate/GS[1]:0,gn:rate==null&&ev?"עוד מעט מדי בדיקות כדי לחשב: "+n(Sw)+" שיתופים מתוך "+n(Lw)+" בדיקות":rate!=null&&cal?"היעד "+n1(GS[1])+" לכל 100 בדיקות":"",
+  return {s,v:rate,tt:GS?"היעד "+n1(GS[1])+" · תלוי בשינוי במוצר":"",big:!ev?"-":rate!=null?(rate>=10?n(rate):n1(rate)):n(Sw),unit:!ev||rate!=null?"":"שיתופים",dl:delta1(rate,rp),gl:rate!=null&&!cal?n(rate/GS[1]*100)+"% מהיעד ("+n1(GS[1])+")":"",gp:rate!=null?rate/GS[1]:0,gn:rate==null&&ev?"עוד מעט מדי בדיקות כדי לחשב: "+n(Sw)+" שיתופים מתוך "+n(Lw)+" בדיקות":rate!=null&&cal?"היעד "+n1(GS[1])+" לכל 100 בדיקות":"",
    lines:[!ev?"גוגל אנליטיקס לא ענה":rate!=null?gtxt(GS):"","השבוע: <b>"+n(Sw)+"</b> שיתופים על "+n(Lw)+" בדיקות",sh?"נכנסו מקישור ששותף: <b>"+n(arr)+"</b>"+(arrp!=null?" (שבוע קודם "+n(arrp)+")":""):"",sh&&sh[0].inst?"התקינו את האפליקציה מקישור ששותף: <b>"+n(sh[0].inst)+"</b>":""],win:win||rng(W&&W.W),foot:"אפליקציה ואתר",
    chart:C.ENDS.length?bars(C.ENDS.map((e,i)=>({l:dm(e),v:rw[i]})),{fmt:n1}):"",
    att:{prio:4,ratio:rate!=null?rate/GS[1]:1,text:"שיתופים: "+n1(rate)+" לכל 100 בדיקות, היעד "+n1(GS[1]),short:s==="nodata"?"חסר נתון על שיתופים":"מעט שיתופים"},
@@ -2082,10 +2158,10 @@ REG.store={name:"Google Play",dept:"release",def:"האם אפשר להתקין �
   return {s:GP.s,w:GP.s==="ok"?"באוויר":GP.s==="bad"?"נדחתה":"",big:top?esc(top.name||""):d.play==="live"?"באוויר":"-",unit:top?(RS[top.state]||["מצב לא ידוע"])[0]:"",lines:[GP.txt,top?"לפי Play Console"+(RL.at?", נבדק ב-"+hm(RL.at):""):"",!top&&(d.play==="live"||!RL)?(pt?"דף החנות הציבורי נבדק ב-"+pt+".":"דף החנות הציבורי נבדק כל שעה."):"",d.play!=="live"&&!(top||RL)?"הבקשה הוגשה ב-"+dm(SUBMITTED)+". אישור Google מגיע במייל ובקונסול.":""],win:"עכשיו",foot:"מצב, לא זרם",
    att:{prio:0,ratio:0,text:"Google Play: הגרסה החדשה נדחתה בבדיקה של גוגל. הסיבה במייל ובקונסול",short:"גרסה חדשה נדחתה בבדיקה של גוגל",w:"נדחתה"},
    drill:[RL&&RL.list&&RL.list.length?{h:"גרסאות בקונסול",html:'<ul class="kv">'+RL.list.map(r=>kv(esc(r.name||"")+(r.code?' <small class="flat">('+n(r.code)+")</small>":""),(RS[r.state]||[esc(r.state||"")])[0])).join("")+"</ul>"}:null]}}};
-REG.rating={name:"דירוג בחנות",dept:"release",def:"הדירוג הממוצע ב-Google Play ומספר הדירוגים, מאז ההשקה.",how:"דוחות Google Play (באיחור של כמה ימים). תקין: 4.5 ומעלה; נשפט מ-5 דירוגים. אבן הדרך M3: 4.5 ומעלה עם 21 דירוגים.",src:"Google Play",owner:"מוצר ושחרורים",
- calc(C){const RA=C.d.rating&&C.d.rating.ok?C.d.rating:null,s=!RA?"nodata":RA.n<5?"early":RA.avg>=4.5?"ok":"warn",left=RA?Math.max(0,21-RA.n):21;
-  return {s,w:s==="warn"?"מתחת ל-4.5":"",tt:"היעד 4.5 ומעלה",v:RA?RA.avg:null,big:RA&&RA.avg!=null?n1(RA.avg):"-",unit:RA?"★ מתוך 5":"",gl:RA?n(Math.min(100,RA.n/21*100))+"% מהדרך ל-21 דירוגים":"",gp:RA?RA.n/21:0,
-   lines:[RA?"<b>"+n(RA.n)+"</b> דירוגים, "+n(RA.txt)+" מהם עם ביקורת כתובה":"עוד אין דירוגים בדוחות של Google Play. הם מתעדכנים פעם ביום, באיחור של כמה ימים.",RA?(left?"עד היעד של M3 (דירוג 4.5 ומעלה ו-21 דירוגים) חסרים עוד <b>"+n(left)+"</b>":"יש מספיק דירוגים ליעד של M3 (21)"):"",RA&&RA.own?"הממוצע מחושב מהביקורות":"",RA&&RA.last?"נתון אחרון מ-"+dm(RA.last):""],win:"מאז ההשקה",foot:"Google Play, באיחור של כמה ימים",
+REG.rating={name:"דירוג בחנות",dept:"release",def:"הדירוג הממוצע ב-Google Play ומספר הדירוגים, מאז ההשקה.",how:"דוחות Google Play (באיחור של כמה ימים). תקין: 4.5 ומעלה; נשפט מ-5 דירוגים. היעד של 31.3 (לבקשתך, 19.11): 4.5 ומעלה עם 60 דירוגים.",src:"Google Play",owner:"מוצר ושחרורים",
+ calc(C){const RA=C.d.rating&&C.d.rating.ok?C.d.rating:null,s=!RA?"nodata":RA.n<5?"early":RA.avg>=4.5?"ok":"warn",left=RA?Math.max(0,60-RA.n):60;
+  return {s,w:s==="warn"?"מתחת ל-4.5":"",tt:"היעד 4.5 ומעלה, 60 דירוגים עד 31.3",v:RA?RA.avg:null,big:RA&&RA.avg!=null?n1(RA.avg):"-",unit:RA?"★ מתוך 5":"",gl:RA?n(Math.min(100,RA.n/60*100))+"% מהדרך ל-60 דירוגים":"",gp:RA?RA.n/60:0,
+   lines:[RA?"<b>"+n(RA.n)+"</b> דירוגים, "+n(RA.txt)+" מהם עם ביקורת כתובה":"עוד אין דירוגים בדוחות של Google Play. הם מתעדכנים פעם ביום, באיחור של כמה ימים.",RA?(left?"עד היעד של 31.3 (דירוג 4.5 ומעלה ו-60 דירוגים) חסרים עוד <b>"+n(left)+"</b>":"יש מספיק דירוגים ליעד של 31.3 (60)"):"",RA&&RA.own?"הממוצע מחושב מהביקורות":"",RA&&RA.last?"נתון אחרון מ-"+dm(RA.last):""],win:"מאז ההשקה",foot:"Google Play, באיחור של כמה ימים",
    drill:[]}}};
 REG.crashes={name:"קריסות של האפליקציה",dept:"release",def:"כמה פעמים האפליקציה קרסה בשבוע, ובאיזה חלק מהמכשירים שפתחו אותה.",how:"גוגל אנליטיקס, האירוע app_exception: מכשירים שקרסו חלקי המכשירים שפתחו את האפליקציה בשבוע. תקין: עד 1% מהמכשירים; צהוב: עד 2%; אדום: מעל 2%. נשפט מ-50 מכשירים. אחרי שחרור גרסה שומר הקריסות משווה ל-7 הימים שלפניו.",src:"גוגל אנליטיקס",owner:"מוצר ושחרורים",
  calc(C){const ev=C.ev,E0=C.E0,E1=C.E1,ge=C.ge,A=C.W&&C.W.app,cr=ev?ge(E0,"app_exception"):null,cu=ev?ge(E0,"app_exception",1):null,crp=ev?ge(E1,"app_exception"):null,tot=A?A[0].totalUsers:null,rate=cu!=null&&tot?cu/tot*100:null;
@@ -2265,14 +2341,14 @@ function lgWhy(C,i){const L=C.LG,f=x=>gF(i.u,x),li=[];
  if(i.wk)li.push("<li><span>השבוע שנשפט"+(i.lag?", שבוע אחרי, כשהנתון שלם":"")+"<small>"+rng([i.wk,addD(i.wk,6)])+"</small></span><b>"+f(i.v)+(i.tgt!=null?" מול "+f(i.tgt):"")+" "+(i.tgt==null&&i.s==="cal"?chip("cal","לא נשפט, לפני היעד הראשון"):chip(i.s))+"</b></li>");
  if(i.lo!=null)li.push(kv("טווח הטעות (90%)",f(i.lo)+" עד "+f(i.hi),i.pooled?"נשפט על 4 שבועות יחד, כי בשבוע היו פחות מ-100":"כשהיעד בתוך הטווח הצבע צהוב, לא אדום"));
  let r="";
- if(i.t==="growth"&&i.a!=null)r="עוגן "+f(i.a)+": "+esc(i.why)+(i.aws?" ("+i.aws.map(x=>dm(x[0])+": "+f(x[1])).join(", ")+")":"")+". שיפוע "+n1(i.rate)+"% בשבוע, מהתרחיש "+(BANDN[i.b]||"")+" של התוכנית"+(i.nb?"; מהחודש הבא הוא עולה לתרחיש הגבוה":"")+". היעד לשבוע הזה: "+f(i.now)+".";
+ if(i.t==="growth"&&i.a!=null)r="עוגן "+f(i.a)+": "+esc(i.why)+(i.aws?" ("+i.aws.map(x=>dm(x[0])+": "+f(x[1])).join(", ")+")":"")+". שיפוע "+n1(i.rate)+"% בשבוע"+(i.fix?" עד 31.3, לבקשתך מ-19.11":", מהתרחיש "+(BANDN[i.b]||"")+" של התוכנית")+(i.nb?"; מהחודש הבא הוא עולה לתרחיש הגבוה":"")+". היעד לשבוע הזה: "+f(i.now)+".";
  else if(i.t==="ratio"&&i.T!=null)r="יעד החודש "+f(i.T)+": "+esc(i.why)+". הנוכחי "+f(i.cur)+(i.best!=null?", השיא שהוחזק "+f(i.best):"")+(i.bench!=null?", הרף "+f(i.bench):"")+".";
  else if(i.t==="line")r="קו החלטה קבוע: "+f(i.now)+".";
- else if(i.t==="health")r="קו האזהרה "+f(i.now)+(i.bad!=null&&i.bad!==i.now?", הרף "+f(i.bad):"")+". אחרי 8 שבועות עם מרווח של חצי מהרף, קו האזהרה זז חצי דרך לכיוון המצב בפועל, ואף פעם לא מתרופף לבד.";
+ else if(i.t==="health")r="קו האזהרה "+f(i.now)+(i.bad!=null&&i.bad!==i.now?", הרף "+f(i.bad):"")+(i.need?". ועוד "+n(i.need)+" דירוגים עד 31.3: עכשיו "+(i.c!=null?n(i.c):"-")+(i.pace!=null?", ובקו ישר מההשקה צריך כבר "+n(i.pace)+". דירוג טוב מתחת לקו הזה צהוב":"")+".":". אחרי 8 שבועות עם מרווח של חצי מהרף, קו האזהרה זז חצי דרך לכיוון המצב בפועל, ואף פעם לא מתרופף לבד.");
  else if(i.t==="track")r="מעקב בלי יעד.";
  else r="היעד ייקבע כשיהיו 2 שבועות שלמים של נתונים.";
  const lg=((L&&L.log)||[]).filter(x=>x.k===i.k).slice(0,3);
- return '<div class="lgw"><ul class="kv">'+li.join("")+"</ul><p class='help'>"+r+" מקור הרף: "+esc(i.src)+". אחראי: "+esc(i.owner)+".</p>"
+ return '<div class="lgw"><ul class="kv">'+li.join("")+"</ul>"+(i.dep?"<p class='note'>"+esc(i.dep)+".</p>":"")+"<p class='help'>"+r+" מקור הרף: "+esc(i.src)+". אחראי: "+esc(i.owner)+".</p>"
   +(i.red?"<p class='note' style='color:var(--bad)'>3 מתוך 4 השבועות האחרונים באדום: השרשור של "+esc(i.owner)+" מתבקש לבדוק אם הבעיה בתוכנית או ביעד.</p>":"")
   +(lg.length?'<ul class="kv">'+lg.map(x=>"<li><span>"+esc(x.txt)+"</span><b>"+dm(x.at)+"</b></li>").join("")+"</ul>":"")
   +(i.hist&&i.hist.length>1?'<p class="note">השבועות האחרונים: '+i.hist.map(h=>dm(h[0])+": "+f(h[1])+(h[2]!=null?" מול "+f(h[2])+" "+(ST[h[3]]||["",""])[1]:"")).join(" · ")+"</p>":"")+"</div>"}
@@ -2280,14 +2356,14 @@ function goalsMethod(C){const L=C.LG,GN=k=>{const i=lgItem(C,k);return i?i.name:
  if(!L||!L.last)return h+"</div>"+note("היעדים החיים עוד לא חושבו. עד אז היעדים הם של תוכנית השיווק.")+(L&&L.err?'<p class="note" title="'+esc(L.err)+'">הריצה האחרונה לא הצליחה, והיא תנסה שוב בעוד חצי שעה.</p>':"")+"</section>";
  h+="<small>"+esc((L.mode==="fixed"?"קבועים · ":"")+"נשפטו לאחרונה ב-"+dm(L.last))+"</small></div>";
  if(L.err)h+=note("החישוב של השבוע עוד לא הצליח, והוא ינסה שוב בעוד חצי שעה. עד אז מוצג השבוע הקודם.");
- const fc=L.fc||{},fl=["checks","installs"].map(k=>{const x=fc[k];return x?"בקצב של 4 השבועות האחרונים ("+(x.pace>0?"+":"")+n1(x.pace)+"% בשבוע), ב-31.3 נגיע לכ-"+n(x.x)+(k==="checks"?" בדיקות":" התקנות")+" בשבוע.":""}).filter(Boolean);
+ const fc=L.fc||{},GL=L.gl||{},fl=["checks","installs"].map(k=>{const x=fc[k],g=GL[k];return x?"בקצב של 4 השבועות האחרונים ("+(x.pace>0?"+":"")+n1(x.pace)+"% בשבוע), ב-31.3 נגיע לכ-"+n(x.x)+(k==="checks"?" בדיקות":" התקנות")+" בשבוע."+(g?" השער של 31.3: "+n(g.go)+" בדיקות בשבוע וממשיכים, מתחת ל-"+n(g.turn)+" משנים כיוון. בקצב הזה: "+(x.x>=g.go?"ממשיכים":x.x<g.turn?"משנים כיוון":"באמצע, בין שני הקווים")+".":""):""}).filter(Boolean);
  h+=note(fl.length?fl.join(" "):"התחזית לשער של 31.3 תופיע אחרי 4 שבועות שלמים.");
  const rest=L.items.filter(i=>(i.t==="track"||i.t==="health")&&i.v==null);
  if(rest.length)h+='<details><summary class="note" style="cursor:pointer">מדדים בלי יעד או עוד בלי נתון ('+n(rest.length)+')</summary><ul class="kv">'+rest.map(i=>kv(esc(i.name),esc(i.owner))).join("")+"</ul></details>";
  h+='<details><summary class="note" style="cursor:pointer">יומן היעדים ('+n((L.log||[]).length)+')</summary><ul class="kv">'+(L.log||[]).map(x=>"<li><span>"+esc(x.txt)+(x.k?"<small>"+esc(GN(x.k))+"</small>":"")+"</span><b>"+dm(x.at)+"</b></li>").join("")+"</ul></details>";
  const a=C.acts["goals-mode"],fx=a?/קבוע/.test(a.c):L.mode==="fixed";
  h+='<div class="btns gsw" style="display:flex;gap:8px">'+(fx?'<button type="button" class="btn sec" data-act="goals-mode" data-c="חיים">להחזיר את היעדים להתעדכן לבד</button><small class="note">היעדים קבועים: לא נקבע עוגן חדש, השיפוט ממשיך.</small>':'<button type="button" class="btn sec" data-act="goals-mode" data-c="קבועים">יעדים קבועים</button><small class="note">מקפיא את היעדים כמו שהם עכשיו. כל שינוי נרשם ביומן.</small>')+"</div>";
- return h+'<p class="note">הרמה מהנתונים שלנו (חציון 4 השבועות האחרונים), השיפוע מהתוכנית, ורפי הבריאות מבחוץ. נקבע פעם בחודש ונשפט כל יום ראשון. עולה לבד; הורדה רק באישור שלך, ב«מחכה לך». למה כל יעד הוא מה שהוא: בלחיצה על המספר.</p></section>'}
+ return h+'<p class="note">הרמה מהנתונים שלנו (חציון 4 השבועות האחרונים), השיפוע מהתוכנית (בבדיקות ובהתקנות 5% בשבוע עד 31.3, לבקשתך מ-19.11), ורפי הבריאות מבחוץ. נקבע פעם בחודש ונשפט כל יום ראשון. עולה לבד; הורדה רק באישור שלך, ב«מחכה לך». למה כל יעד הוא מה שהוא: בלחיצה על המספר.</p></section>'}
 function todo(C,scope){const d=C.d,Cl=d.cal,td=C.td,DN=["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"],days=x=>Math.round((Date.parse(x+"T12:00:00Z")-Date.parse(td+"T12:00:00Z"))/864e5);
  const when=o=>{if(!o.d)return "אפשר כבר עכשיו";const x=new Date(o.d+"T12:00:00Z"),k=days(o.d),s=x.getUTCDate()+"."+(x.getUTCMonth()+1);return (k===0?"היום":k===1?"מחר":k<0?"מ-"+s:"יום "+DN[x.getUTCDay()]+" "+s)+(o.t?" ב-"+o.t:"")};
  const gcal=o=>{const st=o.d.replace(/-/g,"")+(o.t?"T"+o.t.replace(":","")+"00":""),en=o.t?(()=>{const m=+o.t.slice(0,2)*60+ +o.t.slice(3)+30;return o.d.replace(/-/g,"")+"T"+String(Math.floor(m/60)%24).padStart(2,"0")+String(m%60).padStart(2,"0")+"00"})():addD(o.d,1).replace(/-/g,"");
@@ -2352,7 +2428,7 @@ function renderCeo(C){const V=verdict(C),t1=C.R.checks,w=S.w,T=todo(C,null),B=pu
 // "כל המספרים": the funnel, the sources, health, the publishing line, the divisions and how the targets are set
 const HREG={fail:1,crash:1,slow:1,rating:1};
 function lgRow(C,i){const f=x=>gF(i.u,x),hi=i.k==="rating";
- return '<div><span class="l"><b>'+esc(i.name)+"</b><small>"+[i.now!=null?"היעד "+(hi?f(i.now)+" ומעלה":"עד "+f(i.now)):"",i.wk?"שבוע "+rng([i.wk,addD(i.wk,6)]):""].filter(Boolean).join(" · ")+'</small></span><span class="r"><span class="v">'+f(i.v)+"</span>"+chip(i.s,i.s==="bad"?"לא ביעד":"")+"</span></div>"}
+ return '<div><span class="l"><b>'+esc(i.name)+"</b><small>"+[i.now!=null?"היעד "+(hi?f(i.now)+" ומעלה":"עד "+f(i.now)):"",i.need&&i.c!=null?n(i.c)+" מתוך "+n(i.need)+" דירוגים":"",i.dep?"תלוי בשינוי במוצר":"",i.wk?"שבוע "+rng([i.wk,addD(i.wk,6)]):""].filter(Boolean).join(" · ")+'</small></span><span class="r"><span class="v">'+f(i.v)+"</span>"+chip(i.s,i.s==="bad"?"לא ביעד":"")+"</span></div>"}
 function renderAll(C){const w=S.w,wr=rng(C.W&&C.W.W),LH=C.LG&&C.LG.items?C.LG.items.filter(i=>i.t==="health"&&i.v!=null&&!HREG[i.k]):[];
  let h='<section class="card"><div class="ch"><h2>המשפך השבועי</h2><small class="win">'+wr+"</small></div>"+funnel(C)+"</section>";
  h+='<section class="card"><div class="ch"><h2>מאיפה הגיעו הבדיקות באתר</h2><small class="win">'+wr+"</small></div>"+srcBars(C)+'<p class="note">הפירוט לפי רשת וקישור בשיווק ותוכן, באגף צמיחה.</p></section>';

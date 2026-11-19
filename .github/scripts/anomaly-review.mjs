@@ -10,10 +10,14 @@
 //   node anomaly-review.mjs <report dir> <out dir>      the review (ANTHROPIC_API_KEY from the step's env only)
 //   node anomaly-review.mjs --route <status.json>        the publish job (contents: write): a failed review is ai:anomalies (summary),
 //                                                       the key or the credit ai:key (day); a good review closes ai:anomalies and ai:key
+//   node anomaly-review.mjs --count <usage.json>         the publish job: adds the reply's API use to the cycle's total (ai-usage.mjs).
+//                                                       The review's job has no write token, so ask()'s own record() counts nothing
+//                                                       there; until 18.11.2026 the review's spend was never counted (ops' meter check).
 //   node anomaly-review.mjs --selftest                  offline: the input, the parse, the red safety rule, the fallbacks, the encryption
 import fs from "node:fs";
 import crypto from "node:crypto";
 import { client, ask, answer } from "./claude.mjs";
+import { lock, unlock, record } from "./ai-usage.mjs";
 
 // Opus 5.5 with adaptive thinking at effort high (credit package B, Dudu 1.11 21:16 UTC): the one weekly judgement that feeds the CEO file and
 // Dudu; about $0.50 a month. Thinking can't be turned off on Opus 5.5 and its default effort is medium, so effort is set here.
@@ -87,6 +91,10 @@ export async function run({ dir, out, env = process.env, api, now = new Date(), 
   const r = await ask(api, { model: MODEL, max_tokens: MAX_TOKENS, thinking: { type: "adaptive" }, output_config: { effort: EFFORT }, system: system(ctx),
     messages: [{ role: "user", content: "The week ending " + rep.week + ":\n" + JSON.stringify(rep.input) }] });
   if (r.error) { status.why = r.error.why; status.key = r.error.key; return done(); }
+  // a reply was paid for even when it turns out unusable: its usage leaves this job sealed with the API key (no number in the public
+  // artifact) for the publish job to count; only where ask() could not count it itself (no GITHUB_TOKEN here), so never twice
+  if (r.msg && r.msg.usage && env.ANTHROPIC_API_KEY && !env.GITHUB_TOKEN)
+    fs.writeFileSync(`${out}/usage.json`, JSON.stringify({ v: 1, s: lock({ model: MODEL, usage: r.msg.usage }, env.ANTHROPIC_API_KEY) }));
   const a = answer(r.msg);
   if (!a.text) { status.why = a.why; return done(); }
   const j = judge(a.text, rep.input);
@@ -94,6 +102,15 @@ export async function run({ dir, out, env = process.env, api, now = new Date(), 
   encryptTo(Buffer.from(JSON.stringify({ week: rep.week, generated: status.generated, model: MODEL, v: PROMPT_V, ...j }, null, 1)), `${out}/review.enc.json`, pem);
   Object.assign(status, { ok: true, flagged: j.flagged, why: j.hidden ? "a red anomaly was missing from the reply" : "" });
   return done();
+}
+
+// the publish job: the sealed usage into the cycle's total (record() never throws; the reason it gives carries no amount)
+export async function count(file, { env = process.env, rec = record } = {}) {
+  let j; try { j = JSON.parse(fs.readFileSync(file, "utf8")); } catch { return "no usage file"; }
+  const u = unlock(j && j.s, env.ANTHROPIC_API_KEY || "");
+  if (!u || !u.model || !u.usage) return "not counted (the usage could not be read with this key)";
+  const r = await rec(u.model, u.usage, { env });
+  return r && r.ok ? "counted" : "not counted (" + String(r && r.why || "no answer").slice(0, 60) + ")";
 }
 
 export async function route(status, router, env = process.env) {
@@ -110,6 +127,7 @@ export async function route(status, router, env = process.env) {
 if (process.argv[1] && process.argv[1].endsWith("anomaly-review.mjs")) {
   if (process.argv.includes("--selftest")) {
     let bad = 0; const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); if (!c) bad++; };
+    delete process.env.GITHUB_TOKEN; delete process.env.ANTHROPIC_API_KEY;   // offline: ask()'s own record() must never write a test reply
     const tmp = fs.mkdtempSync("/tmp/ar-"), dir = `${tmp}/in`, out = `${tmp}/out`; fs.mkdirSync(dir);
     const anomalies = [{ level: "red", title: "בדיקות איטיות מעל הסף", detail: "x", owner: "מדידה" }, { level: "yellow", title: "ירידה בשיעור השיתוף", detail: "y", owner: "מוצר" }];
     fs.writeFileSync(`${dir}/luchit-weekly-2026-10-31.json`, JSON.stringify({ insights: {}, data: { big: 1 }, analysis: { status: "red", anomalies, kpis: { health: [] }, makes: [1, 2], extra: { a: 1 } } }));
@@ -148,6 +166,22 @@ if (process.argv[1] && process.argv[1].endsWith("anomaly-review.mjs")) {
     ok(!s.ok && s.why === "reply is not JSON", "a reply that is not JSON: no review");
     s = await run({ dir, out, env: {}, pem: publicKey, context: "", log: quiet });
     ok(!s.ok && s.why === "no ANTHROPIC_API_KEY" && !s.key, "no key: no review, and the Sunday task does it as before");
+    ok(!fs.existsSync(`${out}/usage.json`), "replies with no usage: no usage file");
+    const used = { input_tokens: 5000, output_tokens: 7000 }, withUse = t => ({ messages: { create: async () => ({ stop_reason: "end_turn", content: [{ type: "text", text: t }], usage: used }) } });
+    s = await run({ dir, out, env: { ANTHROPIC_API_KEY: "k1" }, api: withUse(JSON.stringify(both)), pem: publicKey, context: "", log: quiet });
+    const uf = fs.readFileSync(`${out}/usage.json`, "utf8");
+    ok(s.ok && !/\d{3,}/.test(uf.replace(/"s":"[^"]*"/, "")) && JSON.stringify(unlock(JSON.parse(uf).s, "k1")) === JSON.stringify({ model: "claude-opus-5-5", usage: used }), "a paid reply: its usage leaves the job sealed with the key, no number in the clear");
+    const recs = [], rec = async (m, u, o) => { recs.push([m, u.output_tokens, o.env.ANTHROPIC_API_KEY]); return { ok: true }; };
+    ok(await count(`${out}/usage.json`, { env: { ANTHROPIC_API_KEY: "k1" }, rec }) === "counted" && recs.length === 1 && recs[0][0] === "claude-opus-5-5" && recs[0][1] === 7000, "the publish job counts it once, with the reply's model");
+    ok(await count(`${out}/usage.json`, { env: { ANTHROPIC_API_KEY: "other" }, rec }) === "not counted (the usage could not be read with this key)" && recs.length === 1, "another key: nothing counted");
+    ok(await count(`${out}/none.json`, { rec }) === "no usage file", "no file: says so");
+    ok(await count(`${out}/usage.json`, { env: { ANTHROPIC_API_KEY: "k1" }, rec: async () => ({ ok: false, why: "write 403" }) }) === "not counted (write 403)", "a refused write: says why");
+    fs.rmSync(`${out}/usage.json`);
+    s = await run({ dir, out, env: { ANTHROPIC_API_KEY: "k1" }, api: withUse("sorry"), pem: publicKey, context: "", log: quiet });
+    ok(!s.ok && fs.existsSync(`${out}/usage.json`), "an unusable reply was still paid for: counted too");
+    fs.rmSync(`${out}/usage.json`);
+    s = await run({ dir, out, env: { ANTHROPIC_API_KEY: "k1", GITHUB_TOKEN: "t" }, api: withUse(JSON.stringify(both)), pem: publicKey, context: "", log: quiet });
+    ok(s.ok && !fs.existsSync(`${out}/usage.json`), "a job with a token counts in ask() itself: no second count");
     const calls = [], router = { alert: async (lv, k) => { calls.push(lv + " " + k); }, resolve: async p => { calls.push("resolve " + p[0]); } };
     ok(await route({ ok: true }, router) === "closed" && calls.join() === "resolve ai:anomalies,resolve ai:key", "a good review closes its key and ai:key");
     calls.length = 0; ok(await route({ ok: false, why: "529 server" }, router) === "ai:anomalies" && calls.join() === "summary ai:anomalies", "a failed review: ai:anomalies, summary");
@@ -155,6 +189,8 @@ if (process.argv[1] && process.argv[1].endsWith("anomaly-review.mjs")) {
     calls.length = 0; ok(await route({ ok: false, why: "no ANTHROPIC_API_KEY" }, router) === "skipped" && !calls.length, "no key on purpose: nothing sent");
     fs.rmSync(tmp, { recursive: true });
     console.log(bad ? `${bad} failed` : "selftest ok"); process.exit(bad ? 1 : 0);
+  } else if (process.argv[2] === "--count") {
+    console.log("API use: " + await count(process.argv[3] || "out-review/usage.json"));
   } else if (process.argv[2] === "--route") {
     const st = (() => { try { return JSON.parse(fs.readFileSync(process.argv[3], "utf8")); } catch { return { ok: false, why: "no status (the review step did not run)" }; } })();
     console.log("router: " + await route(st, await import("./alert.mjs").catch(() => null)));
