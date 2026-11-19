@@ -1,7 +1,7 @@
 {
  "v": 1,
- "d": "2026-11-18",
- "seed": "20261118",
+ "d": "2026-11-19",
+ "seed": "20261119",
  "cars": 40,
  "sampled": 40,
  "mism": 4,
@@ -13,11 +13,11 @@
    0
   ],
   "buyer.no_red_flags_tag": [
-   15,
-   0
+   14,
+   1
   ],
   "fee.borrowed_note": [
-   25,
+   28,
    0
   ],
   "fee.licence": [
@@ -109,11 +109,11 @@
    0
   ],
   "owners.current_no_log": [
-   28,
+   27,
    0
   ],
   "owners.durations": [
-   8,
+   9,
    0
   ],
   "owners.first_owner": [
@@ -129,7 +129,7 @@
    0
   ],
   "owners.insight_company_now": [
-   8,
+   9,
    0
   ],
   "owners.insight_dealer_now": [
@@ -137,27 +137,27 @@
    0
   ],
   "owners.insight_lease": [
-   8,
+   9,
    0
   ],
   "owners.insight_new_dealer": [
-   8,
+   9,
    0
   ],
   "owners.insight_rental": [
-   8,
+   9,
    0
   ],
   "owners.insight_short_lease": [
-   8,
+   9,
    0
   ],
   "owners.insight_was_dealer": [
-   8,
+   9,
    0
   ],
   "owners.now_line": [
-   8,
+   9,
    0
   ],
   "owners.timeline": [
@@ -165,7 +165,7 @@
    0
   ],
   "price.borrowed_note": [
-   30,
+   32,
    0
   ],
   "price.list": [
@@ -177,27 +177,27 @@
    0
   ],
   "recalls.checked_unlisted": [
-   27,
-   3
+   25,
+   2
   ],
   "recalls.line_honest": [
-   33,
+   30,
    0
   ],
   "recalls.model_count": [
-   32,
+   34,
    0
   ],
   "recalls.model_extra": [
-   32,
+   34,
    0
   ],
   "recalls.model_fits": [
-   15,
+   11,
    0
   ],
   "recalls.model_missing": [
-   32,
+   33,
    0
   ],
   "recalls.open": [
@@ -208,16 +208,20 @@
    40,
    0
   ],
+  "recalls.open_date": [
+   1,
+   0
+  ],
   "recalls.pending_after_road": [
-   8,
+   9,
    1
   ],
   "recalls.pending_banner": [
-   32,
+   34,
    0
   ],
   "recalls.pending_listed": [
-   15,
+   11,
    0
   ],
   "recalls.tab_shown": [
@@ -225,15 +229,15 @@
    0
   ],
   "recalls.thin_check": [
-   40,
+   39,
    0
   ],
   "recalls.thin_line": [
-   23,
+   25,
    0
   ],
   "recalls.thin_rows": [
-   33,
+   30,
    0
   ],
   "road.first_date": [
@@ -341,7 +345,7 @@
    0
   ],
   "specs.wltp_note": [
-   17,
+   20,
    0
   ],
   "status.buy_checklist": [
@@ -369,7 +373,7 @@
    0
   ],
   "status.heavy_note": [
-   2,
+   1,
    0
   ],
   "status.hold_insight": [
@@ -392,8 +396,12 @@
    40,
    0
   ],
+  "status.public_use": [
+   1,
+   1
+  ],
   "tag.insight": [
-   18,
+   17,
    0
   ],
   "test.insight": [
@@ -433,49 +441,49 @@
    0
   ],
   "value.fallback": [
-   10,
+   8,
    0
   ],
   "value.labelled_estimate": [
-   30,
+   32,
    0
   ]
  },
  "list": [
   {
-   "id": "c003",
-   "field": "recalls.checked_unlisted",
-   "shown": "נבדק: אין ריקול פתוח ואין הסדר פשרה",
-   "expected": "the amber line: a recall of this year the per-car list cannot answer",
-   "evidence": "#12246 nolist build 2003-01-01..2008-12-31; #12014 nolist build 2003-01-01..2008-12-31; #11836 nolist build 2003-01-01..2008-12-31; #11688 nolist build 2003-01-01..2008-12-31",
-   "car": "מיצובישי יפן LANCER 2007",
-   "from": "active"
+   "id": "c034",
+   "field": "status.public_use",
+   "shown": "הטסט לא בתוקף | הרישיון מופקד",
+   "expected": "an insight that the car is in the public register (מונית)",
+   "evidence": "primary=active registers=active,public; public sug_rechev_nm=מונית owner=\"חברה\"",
+   "car": "מרצדס בנץ צרפת CITAN 2017",
+   "from": "public"
   },
   {
    "id": "c009",
    "field": "recalls.checked_unlisted",
    "shown": "נבדק: אין ריקול פתוח ואין הסדר פשרה",
    "expected": "the amber line: a recall of this year the per-car list cannot answer",
-   "evidence": "#12137 nolist build 2001-01-01..2013-12-31",
-   "car": "הונדה אנגליה CR-V 2013",
+   "evidence": "#13608 nolist build 2013-01-01..2016-12-31",
+   "car": "מזדה יפן CX-5 2013",
    "from": "active"
   },
   {
-   "id": "c015",
-   "field": "recalls.pending_after_road",
-   "shown": "[check with importer] #14429",
-   "expected": "(not pending: built after the car went on the road)",
-   "evidence": "build from 2020-01-01, on the road 2019-3",
-   "car": "אאודי גרמניה A3 SB E-TRON 2019",
-   "from": "active"
-  },
-  {
-   "id": "c025",
+   "id": "c010",
    "field": "recalls.checked_unlisted",
    "shown": "נבדק: אין ריקול פתוח ואין הסדר פשרה",
    "expected": "the amber line: a recall of this year the per-car list cannot answer",
-   "evidence": "#12137 nolist build 2001-01-01..2013-12-31",
-   "car": "הונדה יפן CIVIC 2007",
+   "evidence": "#12389 nolist build 2013-01-01..2014-12-31; #12026 nolist build 2014-01-01..2015-12-31; #11391 nolist build 2013-01-01..2014-08-01",
+   "car": "מיצובישי יפן OUTLANDER 2014",
+   "from": "active"
+  },
+  {
+   "id": "c018",
+   "field": "recalls.pending_after_road",
+   "shown": "[check with importer] #15936",
+   "expected": "(not pending: built after the car went on the road)",
+   "evidence": "build from 2023-01-01, on the road 2022-11",
+   "car": "טסלה סין MODEL 3 2022",
    "from": "active"
   }
  ],
