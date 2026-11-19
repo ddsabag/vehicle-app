@@ -1,0 +1,27 @@
+name: Red-team 19.11 read probe (one-off, probe-perf branch)
+# Read-only, 19.11.2026: the red-team read for the 21.11 talk (GA4, app 1.38.x since 5.11, per 100 checks).
+# The output is encrypted with .github/seo-data.pub.pem, so no business number is in the log or the branch in clear. Runs on a push to the
+# probe-perf branch only; output on the probe-rt1911-out branch.
+on:
+  push:
+    branches: [probe-perf]
+    paths: [".github/scripts/rt1911-probe.mjs", ".github/workflows/rt1911-probe.yml"]
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: node .github/scripts/rt1911-probe.mjs
+        env:
+          GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
+      - name: Publish on probe-rt1911-out (encrypted only)
+        run: |
+          cd out && git init -q && git checkout -q -b probe-rt1911-out && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Red-team 19.11 read (encrypted)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" probe-rt1911-out
