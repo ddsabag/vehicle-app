@@ -1,5 +1,5 @@
 {
- "at": "2026-11-19T18:21:46Z",
+ "at": "2026-11-19T19:21:51Z",
  "open": [],
  "items": [
   {
@@ -471,21 +471,16 @@
    "what": "ריל מהערכה השבועית",
    "src": "auto",
    "st": {
-    "facebook": "planned",
-    "instagram": "planned"
+    "facebook": "done",
+    "instagram": "done"
+   },
+   "link": {
+    "facebook": "https://www.facebook.com/reel/1195858472764191/",
+    "instagram": "https://www.instagram.com/reel/Df7u0hrgnvd/"
    },
    "q": [
     "2026-11-12/k6-reel"
    ]
-  },
-  {
-   "d": "2026-11-19",
-   "t": "20:30",
-   "ch": [
-    "tiktok"
-   ],
-   "what": "הריל עולה בטיקטוק (מתוזמן מראש)",
-   "src": "cowork"
   },
   {
    "d": "2026-11-20",
@@ -618,6 +613,15 @@
     "fb_groups"
    ],
    "what": "דודו מפרסם בקבוצות פייסבוק מהטלפון",
+   "src": "cowork"
+  },
+  {
+   "d": "2026-12-03",
+   "t": "20:30",
+   "ch": [
+    "tiktok"
+   ],
+   "what": "הריל עולה בטיקטוק (מתוזמן מראש)",
    "src": "cowork"
   }
  ]
