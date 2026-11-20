@@ -38,7 +38,7 @@ out.end = END;
 const f = (k, v) => ({ filter: { fieldName: k, stringFilter: { value: v } } }), inl = (k, v) => ({ filter: { fieldName: k, inListFilter: { values: v } } });
 const and = (...x) => ({ andGroup: { expressions: x } });
 const REAL = { orGroup: { expressions: [f("platform", "web"), f("countryId", "IL")] } };
-const APP = and(f("platform", "Android"), f("countryId", "IL")), V138 = inl("appVersion", ["1.38.0", "1.38.1", "1.38.2", "1.38.3", "1.38.4"]);
+const APP = and(f("platform", "Android"), f("countryId", "IL")), V138 = inl("appVersion", ["1.38.0", "1.38.1", "1.38.2", "1.38.3", "1.38.4", "1.38.5"]);
 const M = [{ name: "eventCount" }, { name: "totalUsers" }], PRO = inl("eventName", ["upgrade_open", "upgrade_purchase_start"]);
 const R1 = [{ startDate: "2026-10-26", endDate: END }];
 if (sa) {
