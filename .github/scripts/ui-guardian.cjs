@@ -67,7 +67,8 @@ const FIXTURES = [
   { name: "buy-expired", rec: { ...BASE, tokef_dt: iso(-30) }, buy: { transfer: /^bad:הטסט פג .*העברה באינטרנט לא אפשרית/ } },
   { name: "buy-tag", rec: BASE, sets: { "c8b9f9c8": [{ _id: 1, "MISPAR RECHEV": 12345678, "TAARICH HAFAKAT TAG": "20240115" }] }, buy: { transfer: /^bad:לרכב יש תג חניה לנכה/ } },
   { name: "buy-km-low", rec: { ...BASE, kilometer_test_aharon: 60000, mivchan_acharon_dt: iso(-365), misgeret: "JTDKB3FU503124417" }, buy: { km: [61000, "low"] } },
-  { name: "buy-import", rec: BASE, sets: { "03adc637": [{ _id: 1, mispar_rechev: 12345678, tozeret_nm: "טויוטה יפן", kinuy_mishari: "COROLLA", shnat_yitzur: 2021, sug_yevu: "יבוא אישי משומש", tozeret_cd: 1, degem_cd: 1 }] }, buy: { transfer: /^unk:רכב ביבוא אישי/ } },
+  { name: "buy-import", rec: BASE, sets: { "03adc637": [{ _id: 1, mispar_rechev: 12345678, tozeret_nm: "טויוטה יפן", kinuy_mishari: "COROLLA", shnat_yitzur: 2021, sug_yevu: "יבוא אישי משומש", tozeret_cd: 1, degem_cd: 1 }] }, buy: { transfer: /^unk:רכב ביבוא אישי/, noGauge: true } },
+  { name: "buy-ask-above", rec: BASE, model: { price: { mehir: 150000 }, modelRecalls: [] }, buy: { ask: [400000, "above", true] } },
 ];
 const TABS = contract.tabs.map((t) => t.id);
 const WIDTHS = process.env.UG_QUICK ? [390] : [320, 390];
@@ -212,7 +213,7 @@ async function runPage(browser, fx, theme, width) {
 
 async function buyChecks(page, fx, label, out) {
   const ex = fx.buy, shot = async (sel, name) => { if (!out) return; const el = await page.$(sel); if (el) await el.screenshot({ path: path.join(out, `${fx.name}-${name}.png`) }); };
-  if (out) await page.addStyleTag({ content: "#bnav,.skip{display:none!important}.chead,.tabs{position:static!important}" });   // the bottom bar and the sticky head would cover the card in its picture
+  if (out) await page.addStyleTag({ content: "#bnav,.skip,#toast{display:none!important}.chead,.tabs{position:static!important}" });   // the bottom bar and the sticky head would cover the card in its picture
   await page.click(".tabs [data-tab=buy]"); await page.waitForTimeout(300);
   await shot("#tabpanel .buyer-card", "stages");
   const b = await page.evaluate(() => ({ rows: transferCheck(current).map((r) => r.k + ":" + r.t), pub: transferCheck(current, true).map((r) => r.t), msg: sellerText(current), chips: document.querySelectorAll(".bchips [data-bstage]").length }));
@@ -236,6 +237,18 @@ async function buyChecks(page, fx, label, out) {
     await shot("#tabpanel section.card:has(.kmchk)", "km-check");
     await page.click("[data-bstage='1']"); await page.waitForTimeout(150);
   }
+  if (ex.ask) {
+    await page.fill("#askIn", String(ex.ask[0])); await page.click("[data-act=candSave]"); await page.waitForTimeout(250);
+    const g = await page.evaluate(() => { const e = document.querySelector(".bgauge"); return e ? { pos: e.dataset.pos || "", edge: !!e.querySelector(".pm-dot.edge"), vd: (document.querySelector(".bgauge + .vd") || {}).textContent || "" } : null; });
+    if (!g) fail(`[${label}] the price card has no gauge`);
+    else {
+      if (g.pos !== ex.ask[1]) fail(`[${label}] an asking price of ${ex.ask[0]} reads "${g.pos}", not "${ex.ask[1]}"`);
+      if (ex.ask[2] && !g.edge) fail(`[${label}] a price off the scale does not sit at its edge`);
+      if (/מציאה|עסקה טובה|מומלץ|יקר מדי/.test(g.vd)) fail(`[${label}] the price sentence judges the deal: ${g.vd}`);
+    }
+    await shot("#tabpanel section.card:has(.bgauge)", "price-gauge");
+  }
+  if (ex.noGauge && (await page.$(".bgauge"))) fail(`[${label}] a car with no list price shows a price gauge`);
 }
 
 // ---- the screens around the car page: each opens from the bottom bar (or a home tool), shows its own header, keeps the bar, never overflows

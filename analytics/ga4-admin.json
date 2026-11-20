@@ -44,7 +44,8 @@
     { "parameterName": "q", "description": "seller_msg: how many questions the message holds (buy spec 20.11)" },
     { "parameterName": "infocar", "description": "seller_msg: 1 when the message asks for the InfoCar report (buy spec 20.11)" },
     { "parameterName": "res", "description": "km_check: below_test, low, in, high or none; alert_ask: granted, denied or later (buy spec 20.11)" },
-    { "parameterName": "mismatch", "description": "match_check: 1 when something on the car does not match the registration (buy spec 20.11)" }
+    { "parameterName": "mismatch", "description": "match_check: 1 when something on the car does not match the registration (buy spec 20.11)" },
+    { "parameterName": "pos", "description": "ask_gauge: below, in or above the estimated range, never the price (buy spec 20.11)" }
   ],
   "keyEvents": [
     { "eventName": "upgrade_open", "countingMethod": "ONCE_PER_EVENT" },
