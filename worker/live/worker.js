@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-62";   // shown in /live/data so the running version is visible
+const BUILD = "live-63";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -1899,6 +1899,25 @@ html.v3 main.qm .todo .tag b{background:none;color:var(--link);padding:0;font-we
 html.v3 main.qm .card{border:0;border-top:1px solid var(--line);border-radius:0;padding:14px 0 0;margin-top:16px}
 html.v3 .foot{border-top:1px solid var(--line);padding-top:12px;margin-top:28px}
 html.v3 a:focus-visible,html.v3 button:focus-visible,html.v3 summary:focus-visible{outline:2px solid var(--link);outline-offset:2px;border-radius:4px}
+@media(min-width:900px){
+html.v3 .top{max-width:1180px;margin:0 auto;padding-top:20px}
+main.qm{max-width:1180px;padding-top:8px}
+.qhome{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"top top" "lead lead" "why why" "route route" "side wait";column-gap:56px}
+.qtop{grid-area:top}.qlead{grid-area:lead;font-size:32px;margin-bottom:10px}.qwhy{grid-area:why;font-size:17px;max-width:70ch;margin-bottom:28px}
+.qroute{grid-area:route;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px;margin:0 0 32px;padding-top:30px}
+.qroute::before{right:8px;left:8px;top:5px;bottom:auto;width:auto;height:2px}
+.qst{grid-template-columns:minmax(0,1fr);align-content:start;gap:8px;padding:16px 18px 14px;background:var(--soft);border-radius:14px}
+.qst::before{top:-30px;right:18px;margin-top:0}
+.qst:hover{background:var(--soft2)}
+.qst .nm{font-size:15px;font-weight:500}.qst .nm small{font-weight:400;font-size:13px;margin-top:2px}
+.qst .v{text-align:right;font-size:30px;font-weight:700}.qst .v small{font-size:14px;font-weight:500;margin-top:2px}
+.qst .qsp{width:100%;height:44px}.qst .qsp circle{display:none}
+.qside{grid-area:side;margin-top:0;align-self:start}.qrow{grid-template-columns:90px minmax(0,1fr) 10px;padding:14px 0}
+.qwait{grid-area:wait;margin-top:0;align-self:start;border-top:1px solid var(--line);padding-top:10px}.qwi{grid-template-columns:90px minmax(0,1fr)}
+.qstn{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);column-gap:64px;align-items:start}
+.qa{position:sticky;top:16px}.qa .qbig{font-size:64px}.qb .qsec:first-child{margin-top:44px}.qb>.qsubs:first-child,.qb>.qsec:first-child+.qsubs{margin-top:0}
+.qtasks{max-width:760px}
+}
 </style></head><body>
 <header class="top">
  <div class="brand"><span class="pl">לוחית</span><h1>מצב העסק</h1></div>
@@ -2536,7 +2555,7 @@ function lead(C){const h=M(C,"health"),a=w5(C,"check");
  const w="<b>"+n(cur)+"</b> בדיקות, "+qpc(c)+(down?" פחות":" יותר")+" משבוע שעבר."+(big?" "+cause(C,down):"");
  return {t,w}}
 function qspark(a){if(!a)return '<span class="qsp"></span>';const vs=a.map(o=>o.v),mx=Math.max.apply(null,vs),mn=Math.min.apply(null,vs),k=mx-mn||1,X=i=>2+i*60/(a.length-1),Y=v=>20-(v-mn)/k*17;
- return '<svg class="qsp" viewBox="0 0 64 24" aria-hidden="true"><polyline points="'+a.map((o,i)=>X(i).toFixed(1)+","+Y(o.v).toFixed(1)).join(" ")+'"/><circle cx="'+X(a.length-1).toFixed(1)+'" cy="'+Y(vs[vs.length-1]).toFixed(1)+'" r="2.4"/></svg>'}
+ return '<svg class="qsp" viewBox="0 0 64 24" preserveAspectRatio="none" aria-hidden="true"><polyline vector-effect="non-scaling-stroke" points="'+a.map((o,i)=>X(i).toFixed(1)+","+Y(o.v).toFixed(1)).join(" ")+'"/><circle cx="'+X(a.length-1).toFixed(1)+'" cy="'+Y(vs[vs.length-1]).toFixed(1)+'" r="2.4"/></svg>'}
 // five weeks as qbars, the goal of this week dashed (time runs left to right, as in every chart here)
 function qbars(g,a,goal){const fm=QS[g].per?f1:n,mx=Math.max.apply(null,a.map(o=>o.v).concat(goal?[goal]:[]))||1,bw=42,gp=(330-a.length*bw)/(a.length+1),Y=v=>114-v/mx*96;
  let h='<svg class="qch" viewBox="0 0 330 132" role="img" aria-label="'+esc(QS[g].name)+' בחמשת השבועות האחרונים">';
@@ -2562,21 +2581,22 @@ function qmine(C){const Cl=C.d.cal,td=C.td;if(!Cl)return null;
  return gp.concat([...(Cl.open||[]),...(Cl.items||[]).filter(o=>o.d>=td)].filter(o=>o.me&&o.id&&!C.done[o.id]&&!C.acts[o.id]).sort((x,y)=>(x.d||"0")+(x.t||"")<(y.d||"0")+(y.t||"")?-1:1))}
 function whenL(C,o){if(!o.d)return "עכשיו";const k=between(C.td,o.d);return (k<=0?"היום":k===1?"מחר":dm(o.d))+(o.t?" "+o.t:"")}
 function renderHome(C){const L=lead(C),my=qmine(C),wr=C.W&&C.W.W?rs(C.W.W):"";
- let h='<div class="qtop"><span>השבוע '+wr+"</span></div>";
+ let h='<div class="qhome"><div class="qtop"><span>השבוע '+wr+"</span></div>";
  h+='<p class="qlead">'+esc(L.t)+"</p>"+(L.w?'<p class="qwhy">'+L.w+"</p>":"");
  h+='<nav class="qroute" aria-label="המסלול של משתמש">'+ROUTE.map(g=>stRow(C,g)).join("")+"</nav>";
  h+='<div class="qside">'+sideRow(C,"health")+sideRow(C,"money")+"</div>";
  h+='<section class="qwait"><h2><span>מחכה לך</span>'+(my&&my.length?'<a href="'+href({v:"tasks",g:null,m:null})+'" data-v="tasks">הכול ('+n(my.length)+") ‹</a>":"")+"</h2>"
-  +(!my?'<p class="qnote">היומן עוד לא זמין.</p>':my.length?my.slice(0,3).map(o=>'<a class="qwi" href="'+href({v:"tasks",g:null,m:null})+'" data-v="tasks"><span class="t">'+whenL(C,o)+"</span><span>"+esc(o.what)+"</span></a>").join(""):'<p class="qnote">שום דבר לא מחכה לך.</p>')+"</section>";
+  +(!my?'<p class="qnote">היומן עוד לא זמין.</p>':my.length?my.slice(0,3).map(o=>'<a class="qwi" href="'+href({v:"tasks",g:null,m:null})+'" data-v="tasks"><span class="t">'+whenL(C,o)+"</span><span>"+esc(o.what)+"</span></a>").join(""):'<p class="qnote">שום דבר לא מחכה לך.</p>')+"</section></div>";
  return h}
 const qback='<a class="qback" href="?v=home" data-v="home">‹ חזרה</a>';
 function subRow(C,id){const r=M(C,id);if(!r)return "";const nm=ROWN[id]||r.name,un=r.unit&&nm.indexOf(r.unit)<0?r.unit:"";
  return '<a class="qsub s-'+qsc(r.s)+'" href="'+href({m:id})+'" data-m="'+id+'"><span class="l">'+esc(nm)+(r.tt&&r.tt!=="אין יעד"?"<small>"+esc(r.tt)+"</small>":"")+'</span><span class="r"><b>'+r.big+"</b>"+(un?"<small>"+esc(un)+"</small>":"")+'</span><i class="qdot"></i></a>'}
 function renderStation(C,g){const s=QS[g],r=M(C,s.key);if(!r)return qback+'<p class="qnote">אין נתון.</p>';const a=w5(C,g),x=chs(g,a,true),m=r.m,wr=C.W&&C.W.W?rs(C.W.W):"";
- let h=qback+'<p class="qdt">'+esc(s.name)+(wr?", בשבוע "+wr:"")+'</p><p class="qbig">'+r.big+(r.unit||s.u?"<small>"+esc(r.unit||s.u)+"</small>":"")+"</p>";
+ let h='<div class="qstn"><div class="qa">'+qback+'<p class="qdt">'+esc(s.name)+(wr?", בשבוע "+wr:"")+'</p><p class="qbig">'+r.big+(r.unit||s.u?"<small>"+esc(r.unit||s.u)+"</small>":"")+"</p>";
  const gl=r.gl||(r.tt&&r.tt!=="אין יעד"?esc(r.tt):"");
  h+='<p class="qchg">'+(x?'<span class="'+(x.up?"up":"dn")+'">'+x.t+".</span> ":"")+(gl?'<span class="mu">'+gl+".</span>":"")+"</p>";
  if(a)h+=qbars(g,a,r.tg||null);
+ h+='</div><div class="qb">';
  if(g==="check"){const R=srcRows(C);if(R){R.sort((p,q)=>p.d-q.d);h+='<h3 class="qsec">מאיפה באו הבדיקות, מול שבוע שעבר</h3><table class="qtb">'+R.map(o=>"<tr><td>"+o.nm[0]+'</td><td class="n">'+n(o.cur)+'</td><td class="d '+(o.d<0?"dn":o.d>0?"up":"mu")+'">'+(o.d>0?"+":o.d<0?"−":"")+n(Math.abs(o.d))+"</td></tr>").join("")+"</table>"}}
  const LH=g==="health"&&C.LG&&C.LG.items?C.LG.items.filter(i=>i.t==="health"&&i.v!=null&&!HREG[i.k]):[];
  h+='<h3 class="qsec">עוד כאן</h3><div class="qsubs">'+s.ids.map(id=>subRow(C,id)).join("")+(LH.length?'<div class="sb">'+LH.map(i=>lgRow(C,i)).join("")+"</div>":"")+"</div>";
@@ -2584,14 +2604,14 @@ function renderStation(C,g){const s=QS[g],r=M(C,s.key);if(!r)return qback+'<p cl
  const why=LGR[s.key]&&C.LG&&C.LG.last&&lgItem(C,LGR[s.key])?lgWhy(C,lgItem(C,LGR[s.key])):"";
  h+='<details class="qdet"><summary>מה סופרים'+(why?" ולמה זה היעד":"")+"</summary><p>"+esc(m.def)+"</p>"+(why?"<div>"+why+"</div>":"")+'<p class="qnote">המקור: '+esc(m.src)+". האחריות: "+esc(m.owner)+".</p></details>";
  if(g==="check")h+='<details class="qdet"><summary>איך נקבעים כל היעדים</summary>'+goalsMethod(C).replace('<section class="card" id="goals">','<div id="goals">').replace(/<\/section>$/,"</div>")+"</details>";
- return h}
+ return h+"</div></div>"}
 function renderTasks(C){const T=todo(C,null),Cl=C.d.cal,td=C.td;
- let h=qback+'<p class="qlead">מחכה לך</p>'+T.html;
+ let h='<div class="qtasks">'+qback+'<p class="qlead">מחכה לך</p>'+T.html;
  const it=Cl?(Cl.items||[]).filter(o=>!o.me&&o.d>=td&&o.d<=addD(td,14)&&!C.done[o.id]).sort((x,y)=>(x.d+(x.t||"99"))<(y.d+(y.t||"99"))?-1:1):[];
  if(it.length)h+='<details class="qdet"><summary>מה נעשה בלי לערב אותך, בשבועיים הקרובים ('+n(it.length)+')</summary><ul class="kv">'+it.map(o=>"<li><span>"+esc(o.what)+"<small>"+esc(o.owner||"")+'</small></span><b class="rt">'+whenL(C,o)+"</b></li>").join("")+"</ul></details>";
  const wk=(Cl&&Cl.weekly)||[];
  if(wk.length)h+='<details class="qdet"><summary>קבוע, כל שבוע ('+n(wk.length)+')</summary><ul class="kv">'+wk.map(o=>"<li><span>"+esc(o.what)+"<small>"+esc(o.owner||"")+'</small></span><b class="rt">'+esc(o.when)+"</b></li>").join("")+"</ul></details>";
- return h+pubCard(C)}
+ return h+pubCard(C)+"</div>"}
 // the state in the address: v = the lens (ceo, a division or a department), w = the window, m = an open metric
 const S={v:NEW?"home":"ceo",w:"week",m:null,g:null};
 function readURL(){const q=new URLSearchParams(location.search),v=q.get("v")||"",w=q.get("w")||"",m=q.get("m")||"",g=q.get("g")||"";
