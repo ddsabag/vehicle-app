@@ -66,6 +66,7 @@ const FIXTURES = [
   // a dashboard km far under the car's pace, an asking price above the range (the gauge's dot at its edge)
   { name: "buy-expired", rec: { ...BASE, tokef_dt: iso(-30) }, buy: { transfer: /^bad:הטסט פג .*העברה באינטרנט לא אפשרית/ } },
   { name: "buy-tag", rec: BASE, sets: { "c8b9f9c8": [{ _id: 1, "MISPAR RECHEV": 12345678, "TAARICH HAFAKAT TAG": "20240115" }] }, buy: { transfer: /^bad:לרכב יש תג חניה לנכה/ } },
+  { name: "buy-km-low", rec: { ...BASE, kilometer_test_aharon: 60000, mivchan_acharon_dt: iso(-365), misgeret: "JTDKB3FU503124417" }, buy: { km: [61000, "low"] } },
   { name: "buy-import", rec: BASE, sets: { "03adc637": [{ _id: 1, mispar_rechev: 12345678, tozeret_nm: "טויוטה יפן", kinuy_mishari: "COROLLA", shnat_yitzur: 2021, sug_yevu: "יבוא אישי משומש", tozeret_cd: 1, degem_cd: 1 }] }, buy: { transfer: /^unk:רכב ביבוא אישי/ } },
 ];
 const TABS = contract.tabs.map((t) => t.id);
@@ -211,6 +212,7 @@ async function runPage(browser, fx, theme, width) {
 
 async function buyChecks(page, fx, label, out) {
   const ex = fx.buy, shot = async (sel, name) => { if (!out) return; const el = await page.$(sel); if (el) await el.screenshot({ path: path.join(out, `${fx.name}-${name}.png`) }); };
+  if (out) await page.addStyleTag({ content: "#bnav,.skip{display:none!important}.chead,.tabs{position:static!important}" });   // the bottom bar and the sticky head would cover the card in its picture
   await page.click(".tabs [data-tab=buy]"); await page.waitForTimeout(300);
   await shot("#tabpanel .buyer-card", "stages");
   const b = await page.evaluate(() => ({ rows: transferCheck(current).map((r) => r.k + ":" + r.t), pub: transferCheck(current, true).map((r) => r.t), msg: sellerText(current), chips: document.querySelectorAll(".bchips [data-bstage]").length }));
@@ -222,6 +224,18 @@ async function buyChecks(page, fx, label, out) {
   if (!(await page.$("#smsg:not([hidden]) #smPrev"))) fail(`[${label}] the seller message did not open`);
   await shot("#tabpanel .buyer-card", "seller-msg");
   await page.click("[data-bm=msg]");
+  if (ex.km) {
+    await page.click("[data-bstage='2']"); await page.waitForTimeout(250);
+    await page.fill("#kmIn", String(ex.km[0])); await page.click("form[data-bkm] button"); await page.waitForTimeout(150);
+    const res = await page.$eval("#kmRes [data-res]", (e) => e.dataset.res).catch(() => "none shown");
+    if (res !== ex.km[1]) fail(`[${label}] the km check of ${ex.km[0]} reads "${res}", not "${ex.km[1]}"`);
+    if (!(await page.$("#mchk [data-bmatch]"))) fail(`[${label}] the check against the registration is missing beside the car`);
+    await page.click("#mchk [data-bmatch=color][data-v='0']"); await page.waitForTimeout(100);
+    if (!(await page.$("#mchk .vd.bad"))) fail(`[${label}] a colour marked as not matching does not say so`);
+    await page.click("#mchk [data-bmatch=color][data-v='0']");
+    await shot("#tabpanel section.card:has(.kmchk)", "km-check");
+    await page.click("[data-bstage='1']"); await page.waitForTimeout(150);
+  }
 }
 
 // ---- the screens around the car page: each opens from the bottom bar (or a home tool), shows its own header, keeps the bar, never overflows

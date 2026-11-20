@@ -577,6 +577,15 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .sm-q{list-style:none;margin:0;padding:0;display:grid}.sm-q label{display:flex;gap:10px;align-items:flex-start;min-height:44px;padding:6px 0;font-size:.9rem;cursor:pointer}.sm-q input{width:20px;height:20px;flex:none;margin:1px 0 0;accent-color:var(--t-green)}.sm-lu{border-top:1px solid var(--line);margin-top:4px;color:var(--muted)}
 .sm-prev{margin:0;padding:10px 12px;border-radius:12px;background:var(--soft);font-size:.85rem;white-space:pre-wrap;overflow-wrap:anywhere}
 .sm-acts{display:flex;flex-wrap:wrap;gap:8px}.sm-acts .link-btn{flex:1 1 auto;width:auto;justify-content:center;margin:0;white-space:nowrap}.sm-acts .wa-btn{margin:0}
+.kmchk,.mchk{margin:0 0 16px}.kmchk .qsec,.mchk .qsec{margin-top:0}.kmres{margin-top:10px}.kmres .vd{margin:8px 0 0}.kmres .note{margin-top:6px}
+.pm-tick{position:absolute;top:-4px;width:3px;height:14px;margin-inline-start:-1px;border-radius:2px;background:var(--fg)}
+.pm-dot.bad{background:var(--bad)}.pm-dot.warn{background:var(--t-amber)}.pm-dot.ok{background:var(--ok)}.pm-dot.info{background:var(--info)}
+.kml{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 12px;margin-top:8px;font-size:.85rem;color:var(--muted)}.kml b{color:var(--fg);font-variant-numeric:tabular-nums}
+.vd.warn{color:var(--warn);font-weight:700}.vd.info{color:var(--info);font-weight:700}.vd.unk{color:var(--muted);font-weight:600}
+.mrows{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:10px}.mrows li{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px;font-size:.9rem}
+.mrows .mt{flex:1 1 150px;min-width:0}.mrows small{display:block;font-size:.78rem;color:var(--muted)}
+.mseg{display:flex;gap:6px}.mseg button{display:inline-flex;align-items:center;gap:4px;min-height:40px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--fg);font:inherit;font-size:.85rem;font-weight:700}.mseg .i{width:14px;height:14px}
+.mseg button[data-v="1"][aria-pressed=true]{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}.mseg button[data-v="0"][aria-pressed=true]{background:var(--bad-bg);border-color:var(--bad);color:var(--bad)}
 .vd.ok{color:var(--ok);font-weight:700}.vd.bad{color:var(--bad);font-weight:700}.ft .g,.sum3 .g{color:var(--ok)}.ft .w,.sum3 .w{color:var(--warn)}.ft .r,.sum3 .r{color:var(--bad)}.ft td.g,.ft td.w,.ft td.r{font-weight:700}
 .sum3{display:flex;gap:6px;margin:10px 0}.sum3 div{flex:1;background:var(--soft);border-radius:10px;padding:6px;text-align:center;font-size:.85rem;color:var(--muted)}.sum3 b{display:block;font-size:1.3rem}
 .kinds{display:flex;flex-direction:column;gap:2px}.kinds label{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;font-size:.9rem;cursor:pointer}.kinds input[type=checkbox]{order:2;appearance:none;-webkit-appearance:none;flex:none;margin:0;width:44px;height:26px;border-radius:999px;background:#8a93a3;position:relative;transition:background .15s}.kinds input[type=checkbox]::after{content:"";position:absolute;top:3px;inset-inline-start:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}.kinds input[type=checkbox]:checked{background:var(--accent)}.kinds input[type=checkbox]:checked::after{transform:translateX(-18px)}.kinds input[type=checkbox]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}@media (prefers-reduced-motion:reduce){.kinds input[type=checkbox],.kinds input[type=checkbox]::after{transition:none}}.doc-add{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.doc-add .inp{flex:1 1 160px;min-width:0}
@@ -4512,6 +4521,84 @@ document.addEventListener("change", ev => {
   if (id === "_lu") m.lu = c.checked; else if (c.checked) m.off.delete(id); else m.off.add(id);
   const pv = $("#smPrev"); if (pv) pv.textContent = sellerText(current);
 });
+/* ---------- beside the car: the dashboard km and the registration (spec 3.5 ד, ה; decision 3, 20.11) ----------
+   The register holds one km reading per car, its last test's. Beside the dashboard it is the one check against a wound-back odometer the data
+   allows: the km shown against that reading and the car's own pace since (its km at the test over its years on the road; without one, the
+   model's typical km at the test over the same years). Expected today = the test's km + the pace x the years since, with a range of 50%-150%
+   of the drive expected since the test. A fact and a question, never "fraud". The typed km is kept for the car (buyin) and goes into the PDF. */
+function kmPace(D){
+  if (D.kmPerYear) return D.kmPerYear;
+  const c = msCohort(D), t = toDate(D.v.mivchan_acharon_dt), y = num(D.v.shnat_yitzur);
+  const yrs = c && c.km && t && y ? (t - new Date(y, 6, 1)) / (365.25 * 864e5) : 0;
+  return yrs >= 0.5 ? Math.round(c.km / yrs / 100) * 100 : null;
+}
+const mY = d => `${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+function kmJudge(D, km){
+  const base = D.km, t = toDate(D.v.mivchan_acharon_dt);
+  if (!base) return {res: "none", k: "unk", t: "אין במאגר קריאת ק״מ מטסט לרכב הזה, ולכן אי אפשר להשוות. מבקשים מהמוכר חשבוניות טיפול עם ק״מ."};
+  if (!km) return null;
+  const since = t ? Math.max(0, (Date.now() - t) / (365.25 * 864e5)) : 0, pace = kmPace(D), at = t ? " ב-" + mY(t) : "";
+  if (km < base - 500) return {res: "below_test", k: "bad", base, km, t: `הלוח מראה ${fmtN(km)} ק״מ, פחות מ-${fmtN(base)} שנרשמו בטסט${at}. לפעמים יש לזה הסבר, כמו החלפת לוח מחוונים, אבל מבקשים מסמך שמסביר את זה לפני שממשיכים.`,
+    ask: "הק״מ בלוח נמוך ממה שנרשם בטסט האחרון. יש מסמך שמסביר את זה, למשל החלפת לוח מחוונים?"};
+  // a test less than a month ago, or no pace to go by: the reading itself is the only yardstick
+  if (since < 1 / 12 || !pace) return {res: "in", k: "ok", base, km, t: since < 1 / 12 ? "הק״מ בלוח מתאים לטסט האחרון, שהיה לפני פחות מחודש." : `הק״מ בלוח לא נמוך מזה שנרשם בטסט${at}. אין קצב נסיעה של הרכב להשוואה, ולכן ההשוואה היא לטסט בלבד.`};
+  const drive = pace * since, lo = Math.round(base + drive * .5), hi = Math.round(base + drive * 1.5), o = {base, km, lo, hi, at};
+  if (km < lo) return {...o, res: "low", k: "warn", t: "הרכב נסע מאז הטסט הרבה פחות מהקצב הרגיל שלו. זה אפשרי (רכב שעמד), אבל שואלים למה, ובודקים מול חשבוניות.", ask: "הרכב נסע מעט מאז הטסט האחרון. הוא עמד תקופה? יש חשבוניות טיפול עם ק״מ?"};
+  if (km > hi) return {...o, res: "high", k: "info", t: `הרכב נוסע יותר מהרגיל: כ-${fmtN(Math.round((km - base) / Math.max(since, .25) / 1000) * 1000)} ק״מ בשנה. זה משפיע על המחיר ועל הטיפולים הקרובים.`};
+  return {...o, res: "in", k: "ok", t: "הק״מ בלוח מתאים לטסט האחרון ולקצב של הרכב."};
+}
+/* the result: the reading of the test, the range expected today and the dashboard, on one line (the lower values at the line's start, as the
+   price meter of "הרכבים שלי"), one sentence and the question for the seller */
+function kmResult(D, km, print){
+  const j = kmJudge(D, km); if (!j) return "";
+  const t = toDate(D.v.mivchan_acharon_dt), k = x => fmtN(Math.round(x / 1000));
+  let bar = "";
+  if (j.base && j.km && !print) {
+    const vals = [j.base, j.km, j.lo || j.base, j.hi || j.base], min = Math.min(...vals) * .97, max = Math.max(...vals) * 1.03, pos = v => ((v - min) / Math.max(max - min, 1) * 100).toFixed(1);
+    bar = `<span class="pm-bar kmbar" aria-hidden="true">${j.lo ? `<i class="pm-band" style="inset-inline-start:${pos(j.lo)}%;width:${(pos(j.hi) - pos(j.lo)).toFixed(1)}%"></i>` : ""}<i class="pm-tick" style="inset-inline-start:${pos(j.base)}%"></i><i class="pm-dot ${j.k}" style="inset-inline-start:calc(${pos(j.km)}% - 7px)"></i></span>
+      <span class="kml"><span>הלוח <b><bdi>${fmtN(j.km)}</bdi></b></span><span>טסט${t ? " " + mY(t).replace(/\/20/, "/") : ""}: <b><bdi>${fmtN(j.base)}</bdi></b></span>${j.lo ? `<span>צפוי היום <b><bdi>${k(j.lo)}–${k(j.hi)}</bdi></b> אלף</span>` : ""}</span>`;
+  }
+  return `<div class="kmres" data-res="${j.res}">${bar}<p class="vd ${j.k}">${print && j.km ? `הלוח הראה ${fmtN(j.km)} ק״מ (כפי שהקלדתם). ` : ""}${esc(j.t)}</p>${j.ask ? `<p class="note"><b>שאלה למוכר:</b> ${esc(j.ask)}</p>` : ""}</div>`;
+}
+function kmBlock(D, print){
+  const km = BUY.input(D.plate).km || null;
+  if (print) return `<div class="kmchk"><div class="qsec">ק״מ בלוח מול הטסט האחרון</div>${km || !D.km ? kmResult(D, km, true) : `<p class="note">☐ הק״מ בלוח: ____________ (בטסט האחרון: ${fmtN(D.km)})</p>`}</div>`;
+  return `<div class="kmchk"><div class="qsec">כמה ק״מ מראה הלוח?</div>${D.km ? `<form class="askrow" data-bkm><input class="inp" id="kmIn" inputmode="numeric" placeholder="למשל 104,300" value="${km ? fmtN(km) : ""}" aria-label="הק״מ בלוח המחוונים"><button type="submit" class="link-btn">${ico("search")}בדיקה</button></form>` : ""}
+    <div id="kmRes">${kmResult(D, km)}</div></div>`;
+}
+/* the car in front of the buyer is the car they checked: the last 4 characters of the chassis number (only 4, so it is a comparison and not
+   a copy), the colour and the fuel, each marked as it is on the car */
+function matchRows(D){
+  const vin = String(D.vin || "").replace(/[^A-Za-z0-9]/g, ""), rows = [];
+  if (vin.length >= 4) rows.push(["vin", "4 התווים האחרונים של מספר השלדה", vin.slice(-4).toUpperCase(), "מוטבעים על לוחית בבסיס השמשה הקדמית ועל עמוד הדלת"]);
+  if (!empty(D.v.tzeva_rechev)) rows.push(["color", "צבע", String(D.v.tzeva_rechev)]);
+  if (!empty(D.v.sug_delek_nm)) rows.push(["fuel", "דלק", String(D.v.sug_delek_nm)]);
+  return rows;
+}
+function matchBlock(D, print){
+  const rows = matchRows(D), m = BUY.input(D.plate).match || {}; if (!rows.length) return "";
+  const bad = rows.some(([id]) => m[id] === 0);
+  const seg = id => `<span class="mseg" role="group"><button type="button" data-bmatch="${id}" data-v="1" aria-pressed="${m[id] === 1}">${ico("check")}מתאים</button><button type="button" data-bmatch="${id}" data-v="0" aria-pressed="${m[id] === 0}">${ico("x")}לא מתאים</button></span>`;
+  return `<div class="mchk" id="mchk"><div class="qsec">מול הרישום</div><p class="note">משווים את מה שעל הרכב למה שרשום במאגר.</p>
+    <ul class="mrows">${rows.map(([id, k, v, hint]) => `<li><span class="mt">${print ? (m[id] === 1 ? "☑ " : m[id] === 0 ? "☒ " : "☐ ") : ""}${k}: <b><bdi>${esc(v)}</bdi></b>${hint ? `<small>${hint}</small>` : ""}</span>${print ? "" : seg(id)}</li>`).join("")}</ul>
+    ${bad ? `<p class="vd bad">משהו לא מתאים לרישום. לא ממשיכים בלי הסבר.</p>` : ""}</div>`;
+}
+document.addEventListener("submit", ev => {
+  if (!ev.target.matches("[data-bkm]") || !current) return;
+  ev.preventDefault();
+  const D = current, km = Number(digits($("#kmIn").value)) || null;
+  BUY.keep(D.plate, {km});
+  const j = kmJudge(D, km), el = $("#kmRes"); if (el) el.innerHTML = kmResult(D, km);
+  if (j) track("km_check", {res: j.res});   // the result only, never the km
+});
+document.addEventListener("click", ev => {
+  const b = ev.target.closest && ev.target.closest("[data-bmatch]"); if (!b || !current) return;
+  const D = current, m = {...(BUY.input(D.plate).match || {})}, id = b.dataset.bmatch, v = +b.dataset.v;
+  if (m[id] === v) delete m[id]; else m[id] = v;
+  BUY.keep(D.plate, {match: m});
+  const el = $("#mchk"); if (el) el.outerHTML = matchBlock(D);
+  track("match_check", {mismatch: Object.values(m).includes(0) ? 1 : 0});
+});
 /* the six steps' titles and bodies; print draws them for paper (the checklist PDF): links become lines to tick, and the search for a testing
    station a line of its own */
 function buySteps(D, print){
@@ -4546,6 +4633,7 @@ function buySteps(D, print){
 /* what a stage holds on top of its steps: the tools beside the car in the second, the whole transfer check and the door to the file in the fourth */
 function stageExtra(D, n, print){
   if (D.kind === "model" || !D.plate) return "";
+  if (n === 2) return kmBlock(D, print) + matchBlock(D, print);
   if (n === 4) return transferBlock(D, true, print);
   return "";
 }
