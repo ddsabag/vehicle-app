@@ -3,6 +3,10 @@
 //   GET  /api/confirm?e=<email>&x=<expiry>&t=<signature>      -> verifies the signature, adds the contact to the Brevo list, redirects to /magazine/?subscribed=1
 //   POST /api/waitlist   { name, company, type, interest, email, phone, notes, consent:true, website:"" } -> business waitlist (/business/): contact into Brevo list BREVO_B2B_LIST_ID,
 //                        a notification mail to NOTIFY_TO, and (optional) a cookie-less GA4 event b2b_lead_submit through the Measurement Protocol
+//   POST /api/business-key { name, company, type, size, email, phone, consent:true, website:"" } -> the dealer beta (strategy's dealer offer, Dudu 20.11.2026,
+//                        phase 1): the contact into the business list, and a signed dealer key LD1.<payload>.<sig> mailed to the address (never in the
+//                        answer, so the address is verified). Off (404) unless flags.json on the flags branch says "biz_signup": true.
+//                        Secret BIZ_SIGNING_KEY (Ed25519 private key, PKCS8 base64; Dudu pastes it, made by biz-keygen.mjs). Var BIZ_KEY_EXP (YYYY-MM-DD, default 2027-03-31).
 // A confirmed subscription also sends (optional) a cookie-less GA4 event newsletter_confirm, so /live can count subscribers.
 // Route: luchit.app/api/*   Secret: BREVO_KEY (also signs the links; CONFIRM_SECRET is used instead if you set it)   Vars: BREVO_LIST_ID, BREVO_B2B_LIST_ID, NOTIFY_TO
 // Optional for the GA4 event: GA_MEASUREMENT_ID (var, G-XXXXXXXX of a web data stream) and GA_API_SECRET (secret).
@@ -93,6 +97,84 @@ async function waitlist(req, env, ctx) {
   return json({ ok: true });
 }
 
+/* dealer key (phase 1 of the dealer offer). The key carries no name and no address: {id: 8 random chars, plan: "dealer", exp: days since
+   1970-01-01, v: 1}, Ed25519-signed; the app and the site check it offline with the public key. Kill switch: "biz_signup" in flags.json on
+   the flags branch (read through the edge cache for 5 minutes; unreadable = off). */
+const FLAGS_URL = "https://raw.githubusercontent.com/ddsabag/vehicle-app/flags/flags.json";
+const BIZ_SIZES = ["1-5", "6-20", "21-100", "100+"];
+async function bizOn() {
+  try { const r = await fetch(FLAGS_URL, { cf: { cacheTtl: 300, cacheEverything: true } }); return r.ok && (await r.json()).biz_signup === true; } catch { return false; }
+}
+const ID_ABC = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";   // no 0/O or 1/I: the id may be read out over the phone
+export async function dealerKey(pkcs8b64, expDay) {
+  const r = crypto.getRandomValues(new Uint8Array(8)), id = [...r].map(b => ID_ABC[b % 32]).join("");
+  const payload = b64u(new TextEncoder().encode(JSON.stringify({ id, plan: "dealer", exp: expDay, v: 1 })));
+  const der = Uint8Array.from(atob(pkcs8b64.trim()), c => c.charCodeAt(0));
+  const key = await crypto.subtle.importKey("pkcs8", der, { name: "Ed25519" }, false, ["sign"]);
+  const sig = b64u(await crypto.subtle.sign({ name: "Ed25519" }, key, new TextEncoder().encode("LD1." + payload)));
+  return { id, key: `LD1.${payload}.${sig}` };
+}
+const KEY_HTML = (key, until) => `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>לוחית לעסקים</title></head>
+<body dir="rtl" style="margin:0;padding:0;background:#f1f3f7"><table role="presentation" width="100%" dir="rtl" style="background:#f1f3f7"><tr><td align="center" style="padding:28px 12px">
+<table role="presentation" width="600" dir="rtl" style="width:100%;max-width:600px;background:#ffffff;border-radius:16px;border-top:5px solid #ffc400"><tr><td dir="rtl" align="right" style="padding:28px 32px;font-family:Assistant,'Segoe UI',Arial,Helvetica,sans-serif;color:#151a24;font-size:16px;line-height:1.75;text-align:right">
+<div style="font-size:22px;font-weight:800;margin-bottom:6px">לוחית לעסקים</div>
+<p style="margin:0 0 14px">זה קוד העסק שלכם. הוא פותח את כלי העסקים באתר ובאפליקציה, בחינם בתקופת הניסיון, עד ${until}.</p>
+<div dir="ltr" style="font-family:Consolas,Menlo,monospace;font-size:14px;background:#f1f3f7;border-radius:10px;padding:14px;word-break:break-all;text-align:left">${esc(key)}</div>
+<p style="margin:16px 0 6px"><b>שלושה צעדים:</b></p>
+<ol style="margin:0 0 14px;padding-right:20px"><li>מעתיקים את הקוד.</li><li>בלוחית, בהגדרות, בוחרים "קוד עסק".</li><li>מדביקים. מופיע "הקוד פעיל עד" עם התאריך.</li></ol>
+<p style="margin:0 0 6px">אפשר להשתמש בקוד בכמה מכשירים של העסק. לא רוצים להמשיך? לא צריך לעשות כלום: הקוד פשוט יפוג. לביטול מיידי או לכל שאלה: <a href="mailto:support@luchit.app" style="color:#2a56c6">support@luchit.app</a>.</p>
+<p style="margin:14px 0 0;color:#6a7384;font-size:13px">קיבלתם את המייל הזה כי נרשמתם לתוכנית העסקים של לוחית באתר luchit.app/business.</p>
+</td></tr></table></td></tr></table></body></html>`;
+
+async function businessKey(req, env, ctx) {
+  if (!(await bizOn())) return json({ error: "not found" }, 404);
+  if (req.method !== "POST") return json({ error: "method" }, 405);
+  if (req.headers.get("origin") !== ORIGIN) return json({ error: "forbidden" }, 403);
+  if (!(req.headers.get("content-type") || "").includes("application/json")) return json({ error: "type" }, 415);
+  let b; try { b = await req.json(); } catch { return json({ error: "bad request" }, 400); }
+  if (b.website) return json({ ok: true });                         // honeypot
+  if (b.consent !== true) return json({ error: "consent" }, 400);
+  const s = (v, max) => String(v ?? "").trim().slice(0, max);
+  const name = s(b.name, 80), company = s(b.company, 100), type = s(b.type, 40), size = s(b.size, 10), phone = s(b.phone, 20);
+  const email = s(b.email, 254).toLowerCase();
+  if (name.length < 2 || company.length < 2) return json({ error: "fields" }, 400);
+  if (!BIZ_TYPES.includes(type) || (size && !BIZ_SIZES.includes(size))) return json({ error: "choice" }, 400);
+  if (!EMAIL_RE.test(email) || (phone && !PHONE_RE.test(phone))) return json({ error: "contact" }, 400);
+  if (!env.BIZ_SIGNING_KEY) { console.log("business-key: no signing key"); return json({ error: "upstream" }, 502); }
+  const ipc = await slot("key-ip", ipOf(req), 3600), ipn = await count(ipc);
+  if (ipn >= LIMITS.ipHour) return tooMany();
+  const toc = await slot("key-to", email, 86400), ton = await count(toc);
+  if (ton >= LIMITS.toDay) { await bump(ipc, ipn, ctx); return json({ ok: true }); }   // the address already has its keys today: nothing new is sent
+  const allc = await slot("key-all", new Date().toISOString().slice(0, 10), 86400), alln = await count(allc);
+  if (alln >= LIMITS.leadDay) return tooMany();
+  const until = /^\d{4}-\d{2}-\d{2}$/.test(env.BIZ_KEY_EXP || "") ? env.BIZ_KEY_EXP : "2027-03-31";
+  const expDay = Math.floor(Date.parse(until + "T00:00:00Z") / 864e5);
+  let k; try { k = await dealerKey(env.BIZ_SIGNING_KEY, expDay); } catch (e) { console.log("business-key: sign failed"); return json({ error: "upstream" }, 502); }
+
+  // the key mail first: a contact without a key would look signed up while it has nothing; on a mail failure the user is told to try again
+  const [y, m, d] = until.split("-");
+  const mail = await brevo(env, "/smtp/email", { sender: { name: "לוחית לעסקים", email: "updates@luchit.app" }, to: [{ email }], replyTo: { email: "support@luchit.app" },
+    subject: "קוד העסק שלכם בלוחית", htmlContent: KEY_HTML(k.key, `${d}.${m}.${y}`) });
+  if (!mail.ok) { console.log("brevo key mail", mail.status, "upstream error"); return json({ error: "upstream" }, 502); }
+  await Promise.all([bump(ipc, ipn, ctx), bump(toc, ton, ctx), bump(allc, alln, ctx)]);
+
+  // best effort from here on: the key is already with the user. A new contact gets the form's details; an existing one is only added to the list
+  // (never overwritten, as in the waitlist). KEY_ID links the pseudonymous key id to the address in Brevo only.
+  try {
+    const list = Number(env.BREVO_B2B_LIST_ID);
+    const r = await brevo(env, "/contacts", { email, listIds: [list], updateEnabled: false,
+      attributes: { FIRSTNAME: name, COMPANY_NAME: company, BUSINESS_TYPE: type, BUSINESS_SIZE: size, PHONE: phone, SOURCE: "dealer-key", KEY_ID: k.id, CONSENT_AT: new Date().toISOString() } });
+    if (!r.ok) await brevo(env, `/contacts/lists/${list}/contacts/add`, { emails: [email] });
+  } catch (e) { console.log("business-key contact failed", String(e).slice(0, 200)); }
+  if (env.GA_MEASUREMENT_ID && env.GA_API_SECRET) {
+    try {
+      await fetch(`https://www.google-analytics.com/mp/collect?measurement_id=${encodeURIComponent(env.GA_MEASUREMENT_ID)}&api_secret=${encodeURIComponent(env.GA_API_SECRET)}`, { method: "POST",
+        body: JSON.stringify({ client_id: crypto.randomUUID(), events: [{ name: "biz_key_issued", params: { business_type: type, size: size || "none" } }] }) });
+    } catch (e) { console.log("ga failed", String(e).slice(0, 200)); }
+  }
+  return json({ ok: true });
+}
+
 /* web usage events (index.html track() on the site): forwarded to the GA4 web stream. Only listed event names, short text or number params,
    nothing that looks like a plate or an email; no IP or user agent is passed on. Without GA_MEASUREMENT_ID/GA_API_SECRET it answers 204 and does nothing. */
 const WEB_EVENTS = new Set(["car_lookup", "search_no_result", "share", "share_open", "tab_view", "compare_open", "link_landing", "web_visit", "web_hint_click", "web_install_prompt", "web_install_click",
@@ -145,6 +227,7 @@ const app = {
     }
 
     if (url.pathname === "/api/waitlist") return waitlist(req, env, ctx);
+    if (url.pathname === "/api/business-key") return businessKey(req, env, ctx);
 
     if (url.pathname !== "/api/subscribe") return json({ error: "not found" }, 404);
     if (req.method !== "POST") return json({ error: "method" }, 405);
