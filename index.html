@@ -1587,10 +1587,13 @@ async function modelRows(id, rec, signal){
     {tozeret_cd: num(rec.tozeret_cd), degem_cd: num(rec.degem_cd)},
     {tozeret_cd: String(rec.tozeret_cd).trim(), degem_cd: String(rec.degem_cd).trim()},
   ];
+  // no form answered at all: the list failed (the caller asks again and then says so), which is not the same as a model with no rows
+  let err = null, answered = false;
   for (const f of forms) {
-    try { const rows = await ds(id, f, 300, signal, "shnat_yitzur desc"); if (rows.length) return rows; }
-    catch (e) { if (e.name === "AbortError") throw e; }
+    try { const rows = await ds(id, f, 300, signal, "shnat_yitzur desc"); answered = true; if (rows.length) return rows; }
+    catch (e) { if (e.name === "AbortError") throw e; err = e; if (/timeout/.test(e.message)) break; /* a stalled server will not answer the other form either */ }
   }
+  if (!answered && err) throw err;
   return [];
 }
 function rankRows(rows, rec){
@@ -1972,8 +1975,9 @@ function driveType(D){
   const tech = String(D.w.technologiat_hanaa_nm || D.v.technologiat_hanaa_nm || "").toUpperCase();
   const reg = String(D.v.sug_delek_nm || ""), fuel = String(D.pick(D.v.sug_delek_nm, D.w.delek_nm) || "");
   if (fuelKind(D) === "ev" || tech.includes("חשמלי")) return {k: "ev", label: "חשמלי"};
-  if (/PLUG|פלאג|נטען/.test(tech) || /חשמל\//.test(reg)) return {k: "phev", label: "פלאג-אין"};
-  if (tech.includes("היברידי") || (!reg && /חשמל/.test(fuel))) return {k: "hybrid", label: "היברידי"};
+  // the model's technology decides when it is there: the register writes חשמל/בנזין for a regular hybrid too (data audit 19.11, CR-Z 2012)
+  if (/PLUG|פלאג|נטען/.test(tech) || (!tech && /חשמל\//.test(reg))) return {k: "phev", label: "פלאג-אין"};
+  if (tech.includes("היברידי") || (/חשמל/.test(fuel) && (!reg || /חשמל\//.test(reg)))) return {k: "hybrid", label: "היברידי"};
   if (/דיזל|סולר/.test(fuel)) return {k: "diesel", label: "דיזל"};
   if (/גפ"?מ|גז/.test(fuel)) return {k: "lpg", label: "גפ״מ"};
   return fuel ? {k: "petrol", label: "בנזין"} : null;
@@ -2037,7 +2041,7 @@ function costs(D){
     if (later) { const p = Math.round(later.pct / 2); adj.push([p, {rental: "היה בהמשך רכב השכרה", lease: "היה בהמשך רכב ליסינג", special: "היה בהמשך בשימוש ייעודי", company: "היה בהמשך רכב חברה"}[later.k]]); hist += p; }
     if (hist < -30) { adj.forEach(a => a[0] = Math.round(a[0] * 30 / -hist)); }
     const hands = handsOf(D);
-    if (hands > 1) adj.push([-Math.min(12, (hands - 1) * 3), `${D.ownersFloor ? "לפחות " : ""}יד ${HAND_ORD[hands] || hands}`]);
+    if (hands > 1) adj.push([-Math.min(12, (hands - 1) * 3), `${handsFloor(D) ? "לפחות " : ""}יד ${HAND_ORD[hands] || hands}`]);
     else if (hands === 1 && first.k === "private") adj.push([1, "יד ראשונה פרטית"]);
     if (D.km && D.kmYears) {
       const mc = msCohort(D), ageNow = new Date().getFullYear() - mc_y(D);
@@ -2463,7 +2467,7 @@ function recallFix(f, p){
 /* the car's names, read the same ways */
 function recallCar(v, w, p){
   const tech = String((w && w.technologiat_hanaa_nm) || v.technologiat_hanaa_nm || "").toUpperCase(), reg = String(v.sug_delek_nm || ""), fuelNm = String(reg || (w && w.delek_nm) || "").trim();
-  const drive = /חשמלי/.test(tech) || fuelNm === "חשמל" ? "ev" : /PLUG|פלאג|נטען/.test(tech) || /חשמל\//.test(reg) || /חשמל\//.test(fuelNm) ? "phev" : /היברידי/.test(tech) ? "hybrid" : tech || fuelNm ? "ice" : null;
+  const drive = /חשמלי/.test(tech) || fuelNm === "חשמל" ? "ev" : /PLUG|פלאג|נטען/.test(tech) || (!/היברידי/.test(tech) && (/חשמל\//.test(reg) || /חשמל\//.test(fuelNm))) ? "phev" : /היברידי/.test(tech) ? "hybrid" : tech || fuelNm ? "ice" : null;
   const fuel = drive === "ev" ? "electric" : /דיזל/.test(fuelNm) ? "diesel" : /בנזין/.test(fuelNm) ? "petrol" : null;
   const kin = String(v.kinuy_mishari || "").trim().toUpperCase();
   let s = kin; for (const [re, to] of CAR_ALIASES) s = s.replace(re, to);
@@ -2733,7 +2737,7 @@ async function catModelData(v, loadedOnly){
 /* Model-level data (specs, towing, counts, price list, recalls) for a maker + model code.
    useCat: read the static catalogue (models in the comparison); otherwise it is used only when its file is already in memory. */
 async function fetchModelData(v, signal, useCat){
-  let w = {}, towRow = null, zeroTow = false, counts = null, price = null, priceRows = [], modelRecalls = [], modelRecallsUnknown = false;
+  let w = {}, towRow = null, zeroTow = false, counts = null, price = null, priceRows = [], modelRecalls = [], modelRecallsUnknown = false, modelErr = false;
   if (!empty(v.tozeret_cd) && !empty(v.degem_cd)) {
     const fast = await catModelData(v, !useCat).catch(() => null);
     if (fast) return fast;
@@ -2748,10 +2752,14 @@ async function fetchModelData(v, signal, useCat){
       modelRecallsUnknown = true;
       return [];
     })();
+    // a model list that fails is asked once more, and one that fails again says so (modelErr): the page then tells that part of the data is
+    // missing instead of leaving the specs and the list price blank (data audit 14.11: ZOE 2017 once with no specs, price or tow, and no word)
+    const again = set => modelRows(set, v, signal).catch(e => { if (e && e.name === "AbortError") throw e; return modelRows(set, v, signal); })
+      .catch(e => { if (e && e.name === "AbortError") throw e; modelErr = true; reportErr("model_rows"); return []; });
     const [a, b, c, r] = await Promise.all([
-      modelRows(MODEL_SETS.wltp, v, signal).catch(() => []),
-      modelRows(MODEL_SETS.counts, v, signal).catch(() => []),
-      modelRows(MODEL_SETS.price, v, signal).catch(() => []),
+      again(MODEL_SETS.wltp),
+      again(MODEL_SETS.counts),
+      again(MODEL_SETS.price),
       recallsByMaker.catch(() => { modelRecallsUnknown = true; return []; }),
     ]);
     const ranked = rankRows(ofType(a, v), v);
@@ -2761,7 +2769,7 @@ async function fetchModelData(v, signal, useCat){
     priceRows = ofType(c, v); price = listPrice(priceRows, v);
     modelRecalls = modelRecallsOf(r, v, meta, w);
   }
-  return {w, towRow, zeroTow, counts, price, priceRows, modelRecalls, modelRecallsUnknown};
+  return {w, towRow, zeroTow, counts, price, priceRows, modelRecalls, modelRecallsUnknown, modelErr};
 }
 
 /* An empty ministry dataset answers "no rows" for every plate; tell that apart from a plate that does not exist */
@@ -2799,7 +2807,7 @@ function snapAll(){ try { return JSON.parse(localStorage.getItem(SNAP_KEY) || "{
 function snapPut(D){
   try {
     if (!D || D.kind === "model" || D.fromCache || D.offline || D.notFound || !isSaved(D.plate)) return;
-    if ((D.errs || []).some(s => s.role === "main")) return;   // keep the last complete copy (errs holds the datasets themselves, not their keys)
+    if ((D.errs || []).some(s => s.role === "main") || D.modelErr) return;   // keep the last complete copy (errs holds the datasets themselves, not their keys)
     const all = snapAll(), keep = new Set(store.get("savedVehicles").map(x => x.plate));
     all[D.plate] = {t: Date.now(), D};
     for (const k of Object.keys(all)) if (!keep.has(k)) delete all[k];
@@ -2928,7 +2936,7 @@ async function fetchVehicle(plate, signal, onProgress){
   if (res.import.rows[0] && empty(v.sug_yevu)) v.sug_yevu = res.import.rows[0].sug_yevu;   // the import kind is the plate's, like the pill (importKind)
   ["cont","tech"].forEach(k => res[k].rows[0] && fill(res[k].rows[0]));
 
-  const {w, towRow, zeroTow, counts, price, priceRows, modelRecalls, modelRecallsUnknown} = await fetchModelData(v, signal);
+  const {w, towRow, zeroTow, counts, price, priceRows, modelRecalls, modelRecallsUnknown, modelErr} = await fetchModelData(v, signal);
   const pick = (...vals) => vals.find(x => !empty(x));
   const own = orderOwners(res.owners.rows.filter(r => !empty(r.baalut)), v.baalut);
   const recalls = uniqRecalls(res.recall.rows).map(r => ({...r, detail: modelRecalls.find(m => String(m.RECALL_ID) === String(r.RECALL_ID)) || null}));
@@ -2961,7 +2969,7 @@ async function fetchVehicle(plate, signal, onProgress){
   const pubUse = mains[0] && mains[0].key === "active" && pub && sameCar(top, pub) && !(pubState(pub) || {}).gone ? String(pub.sug_rechev_nm || "").trim() || "רכב ציבורי" : null;
   const primary = ps ? {...mains[0], ...(ps.gone ? {status: "ירד מהכביש", tone: "bad"} : {status: ps.status, tone: "warn"})} : mains[0];
 
-  const D = {plate, v, w, towRow, zeroTow, tSrc, counts, price, priceRows, own, ownersFloor, recalls, modelRecalls: afterRoad(modelRecalls, onRoad), recallUnknown: !!res.recall.err, recallEmpty: !!res.recall.empty, ownMirror: !!res.ownMirror, modelRecallsUnknown, tag, dpf, primary, importKind: res.import.rows[0] ? String(res.import.rows[0].sug_yevu || "יבוא אישי").replace(/-/g, " · ") : null, errs, pick, make, model,
+  const D = {plate, v, w, modelErr: !!modelErr, towRow, zeroTow, tSrc, counts, price, priceRows, own, ownersFloor, recalls, modelRecalls: afterRoad(modelRecalls, onRoad), recallUnknown: !!res.recall.err, recallEmpty: !!res.recall.empty, ownMirror: !!res.ownMirror, modelRecallsUnknown, tag, dpf, primary, importKind: res.import.rows[0] ? String(res.import.rows[0].sug_yevu || "יבוא אישי").replace(/-/g, " · ") : null, errs, pick, make, model,
     title: (nm => [/^[A-Za-z]/.test(make) && nm.toUpperCase().startsWith(make.toUpperCase()) && !/^[A-Za-z]/i.test(nm.slice(make.length)) ? "" : make, nm].filter(Boolean).join(" "))(niceModel(model)) || "רכב " + fmtPlate(plate),
     sub: [v.shnat_yitzur, v.ramat_gimur, v.tzeva_rechev].filter(x => !empty(x)).join(" · "),   // the trim is the register's only: the model row may be another trim's
     vin: pick(v.misgeret, v.mispar_shilda, v.shilda), km, kmYears, kmPerYear,
@@ -3152,7 +3160,7 @@ async function lookup(raw){
   renderResult(); focusResult();
   if (added) snack(added === "new" ? "נוסף לרכבים שלי" : "הרכב כבר ברכבים שלי", added === "new" ? "ביטול" : "לרשימה", added === "new" ? () => undoAdd(D, mineWas) : () => navTo("cars", {via: "add"}), 6000);
   // exactly 8 params: the app bridge keeps the first 8 (MainActivity.logEvent) and the web Worker 10 with src+camp; a 9th silently drops the last
-  track(again ? "lookup_repeat" : "car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: D.errs && D.errs.length ? 1 : 0, role, ...lookupFacts(D)});
+  track(again ? "lookup_repeat" : "car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: (D.errs && D.errs.length) || D.modelErr ? 1 : 0, role, ...lookupFacts(D)});
   remember(plate, D.kind === "model" ? "" : D.title);
   window.scrollTo({top: 0});
   // "יש לכם כבר רכב? פתחו לו תיק" on home: the car checked next opens straight in its file (one step, like "+"), not on a page with one more button
@@ -3305,7 +3313,7 @@ function renderResult(){
   if (D.recallUnknown) html.push(`<div class="msg err"><b>מידע על ריקולים לא זמין כרגע.</b> ${D.recallEmpty ? "רשימת הריקולים של משרד התחבורה מתעדכנת כרגע" : "מאגר הריקולים של משרד התחבורה לא ענה"}, ולכן אי אפשר לדעת אם יש ריקול פתוח לרכב. אל תסיקו מכך שאין. נסו שוב ${D.recallEmpty ? "מאוחר יותר" : "בעוד דקה"}, או בדקו באתר היבואן.${D.kind !== "model" && !recTab ? `<div style="margin-top:10px">${importerBtn(D)}</div>` : ""}</div>`);
   // the simple view has its own "open recalls" row, so it gets the line only when the line asks for something
   else if (!recTab && (fr.length || !simpleOn())) html.push(checkLine(D, fr));
-  if (D.errs && D.errs.some(x => x.key !== "recall")) html.push(`<p class="msg">חלק ממאגרי משרד התחבורה לא ענו כרגע, והמידע על הרכב חלקי. נסו שוב בעוד דקה.</p>`);
+  if ((D.errs && D.errs.some(x => x.key !== "recall")) || D.modelErr) html.push(`<p class="msg">חלק ממאגרי משרד התחבורה לא ענו כרגע, והמידע על הרכב חלקי. נסו שוב בעוד דקה.</p>`);
   if (!window.AndroidApp && !IS_IOS) html.push(appBox(D));
   html.push(`</div><div class="mainc">`);
   const mine = isMine(D), recallCount = D.recalls.length, tabs = TABS.filter(([k]) => (k !== "recalls" || recTab) && k !== (mine ? "buy" : "file")).map(([k, t]) => [k, k === "recalls" ? recTab : t]);
@@ -3382,7 +3390,11 @@ function fmtSpan(m){
   return !r ? yr : r <= 2 ? `${yr} ו${mo}` : `${yr} ו-${mo}`;
 }
 /* the "hand": a dealer holding the car for resale is not a hand, so only the other records are counted */
-const handsOf = D => D.own.filter(r => !isDealerRec(r)).length;
+/* the register's current owner that the log does not have yet (a transfer newer than the log) is one more hand, and the count is then a
+   floor (data audit 19.11: a leasing car read "יד שנייה" with three owners in the log before it) */
+const handExtra = D => { if (!D.own.length || D.isCancelled) return false; const n = ownNow(D); return !n.inLog && !!n.kind && n.kind !== "dealer"; };
+const handsFloor = D => D.ownersFloor || handExtra(D);
+const handsOf = D => D.own.filter(r => !isDealerRec(r)).length + (handExtra(D) ? 1 : 0);
 // the register's owner of a car off the road is its last owner, not a current one (data thread's audit, 28.10)
 const ownNowKey = D => D.isCancelled ? "בעלות אחרונה" : "בעלות נוכחית";
 const HAND_ORD = ["", "ראשונה", "שנייה", "שלישית", "רביעית", "חמישית", "שישית", "שביעית", "שמינית", "תשיעית", "עשירית"];
@@ -3392,7 +3404,7 @@ const ownersLabel = D => {
   if (!n) return dealer && ownNow(D).kind === "dealer" ? "אצל סוחר" : "";   // not when the register says a dealer no longer holds it
   if (n === 1 && !isFirstHand(D)) return "יד אחת במאגר";   // the log may start after the first owner, or the first owner's type differs
   // a used personal import had owners abroad before it came: the hands counted here are its hands in Israel (data thread's audit, 28.10)
-  return `${D.ownersFloor ? "לפחות " : ""}יד ${HAND_ORD[n] || n}${usedImport(D.v) ? " בישראל" : ""}`;
+  return `${handsFloor(D) ? "לפחות " : ""}יד ${HAND_ORD[n] || n}${usedImport(D.v) ? " בישראל" : ""}`;
 };
 
 /* the technical register's change flags. A vehicle with no row there (two-wheelers and heavy vehicles, for example) was not checked for them,
@@ -7012,7 +7024,7 @@ function buyerCard(D){
   if (ownNow(D).kind === "rental") { flags.push(["warn", "הרכב רשום כעת על חברת השכרה"]); qs.push("כמה קילומטרים עשה הרכב בהשכרה, ויש תיעוד של כל הטיפולים?"); }
   if (D.tag && !reportBuild) flags.push(["warn", "יש לרכב תג חניה לנכה, שצריך להסיר לפני העברת בעלות"]);   // personal: on the screen only, never in a report
   // "no red flags" only when every register answered: a recall register that did not load hides open recalls
-  const none = !D.recallUnknown && !(D.errs || []).length ? "לא עלו דגלים אדומים בנתונים." : "לא כל הנתונים נטענו, ולכן אין סיכום דגלים.";
+  const none = !D.recallUnknown && !D.modelErr && !(D.errs || []).length ? "לא עלו דגלים אדומים בנתונים." : "לא כל הנתונים נטענו, ולכן אין סיכום דגלים.";
   const dtk = driveType(D);
   if (dtk && ["ev", "phev", "hybrid"].includes(dtk.k)) qs.unshift("עד מתי ועד כמה ק״מ יש אחריות יצרן על הסוללה?", "אפשר לעשות ביטוח לסוללה או להאריך את האחריות, ובכמה זה עולה?", ...(dtk.k === "hybrid" ? [] : ["יש דוח בדיקת בריאות סוללה?"]));
   if (PRO_LOCK && !isPro()) {
