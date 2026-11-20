@@ -1776,7 +1776,7 @@ async function liveData(env, ctx) {
 // the new screen (3.11.2026, spec in the measurement thread): one registry of metrics with their definitions, sources and owners, one status engine,
 // three lenses (CEO, division, department) and a drill-down panel, reading the same /live/data. Served at /live (and /live/v2) since Dudu's second "שחרר" of 3.11.2026; the old
 // page stays at /live/v1 for a while. String.raw keeps the page's backslashes as written; the page holds no backtick and no "${".
-const PAGE2 = String.raw`<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="color-scheme" content="light dark"><title>לוחית · מצב העסק</title><link rel="icon" href="https://luchit.app/icon-192.png">
+const PAGE2 = String.raw`<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="color-scheme" content="light dark"><title>לוחית · מצב העסק</title><link rel="icon" href="https://luchit.app/icon-192.png"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap">
 <style>
 :root{--bg:#F3F4F2;--card:#FFFFFF;--line:#E2E5E3;--fg:#1A1D21;--muted:#4A525C;--muted2:#5B6470;--soft:#F7F8F7;--soft2:#EEF0F2;--plate:#F6C945;--app:#2A78D6;--site:#EB6834;--aqua:#1BAF7A;--prev:#C9CDCB;--ok:#1B7F3B;--ok-bg:#E6F4EA;--warn:#8A5B00;--warn-bg:#FFF3D6;--bad:#A8271F;--bad-bg:#FBE9E7;--nt:#4A525C;--nt-bg:#EEF0F2;--link:#1A4F8A;--decide:#FFF8E1;--ink-on-plate:#1A1D21;--shade:rgba(26,29,33,.28)}
 @media(prefers-color-scheme:dark){:root{--bg:#0F1316;--card:#171C21;--line:#2A3139;--fg:#E8ECEF;--muted:#B6BEC7;--muted2:#A3ACB6;--soft:#1D2329;--soft2:#242B32;--plate:#F6C945;--app:#6FA3EE;--site:#F0865E;--aqua:#3FC495;--prev:#4A535C;--ok:#6FCB97;--ok-bg:#15281E;--warn:#E3A957;--warn-bg:#2B2316;--bad:#F2908A;--bad-bg:#2F1C1C;--nt:#B6BEC7;--nt-bg:#242B32;--link:#8FB4EC;--decide:#2A2612;--shade:rgba(0,0,0,.5)}}
@@ -1857,6 +1857,48 @@ details.gx>summary.ch{align-items:center}details.gx[open]>summary{margin-bottom:
 .hrow{display:flex;align-items:center;justify-content:space-between;gap:12px;text-decoration:none;color:inherit}.hrow .l{display:flex;flex-direction:column;gap:2px;min-width:0}.hrow .l b{font-size:15px}.hrow .l small{font-size:13px;color:var(--muted)}.hrow .lnk{margin:0;flex:none}
 .hv{font-weight:700;margin-inline-start:4px}.dd>summary{list-style:none;cursor:pointer}
 @media(prefers-reduced-motion:reduce){details.gx>summary h2::before,details.gx>summary h3::before{transition:none}}
+html.v3{--bg:#FFFFFF;--card:#FFFFFF;--line:#E4E7EB;--fg:#15202B;--muted:#5D6875;--muted2:#6B7682;--soft:#F4F6F9;--soft2:#EEF1F4;--prev:#C9CED5;--link:#1F5FAD;--ok:#1B7A4A;--ok-bg:#E5F3EC;--warn:#A65B00;--warn-bg:#FFF1DC;--bad:#B3261E;--bad-bg:#FCEAE8;--nt:#9AA3AD;--nt-bg:#EEF1F4;--decide:#F4F6F9;--fa:#8A94A0}
+@media(prefers-color-scheme:dark){html.v3{--bg:#11161C;--card:#11161C;--line:#242D38;--fg:#E7EBEF;--muted:#A0AAB5;--muted2:#8C97A3;--soft:#18202A;--soft2:#1E2731;--prev:#3A4552;--link:#79AEEE;--ok:#6CD29E;--ok-bg:#16291F;--warn:#F0B65C;--warn-bg:#2B2316;--bad:#FF8F85;--bad-bg:#301C1B;--nt:#6E7884;--nt-bg:#1E2731;--decide:#18202A;--fa:#77828E}}
+html.v3 body{font-family:Rubik,"Segoe UI",Arial,"Arial Hebrew",sans-serif;font-size:15px;line-height:1.5}
+html.v3 .top{background:var(--bg);border:0;padding:12px max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px));position:static}
+html.v3 .brand .pl{background:none;border:0;padding:0;font-size:17px;letter-spacing:0;color:var(--fg)}html.v3 .brand h1{display:none}
+main.qm{max-width:520px;gap:0;padding:6px max(16px,env(safe-area-inset-right,0px)) 40px max(16px,env(safe-area-inset-left,0px))}
+main.qm .up{color:var(--ok)}main.qm .dn{color:var(--bad)}main.qm .mu{color:var(--muted)}
+main.qm .s-bad{--c:var(--bad)}main.qm .s-ok{--c:var(--ok)}main.qm .s-warn{--c:var(--warn)}main.qm .s-nt{--c:var(--nt)}
+.qtop{font-size:13px;color:var(--fa);margin:0 0 10px}
+.qlead{font-size:23px;line-height:1.3;font-weight:700;margin:0 0 8px;text-wrap:balance}
+.qwhy{color:var(--muted);font-size:14.5px;margin:0 0 16px}.qwhy b{color:var(--fg);font-weight:500}
+.qroute{position:relative;margin:0 0 6px}.qroute::before{content:"";position:absolute;right:5px;top:22px;bottom:22px;width:2px;background:var(--nt);opacity:.45}
+.qst{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto 64px;align-items:center;gap:10px;padding:8px 22px 8px 0;text-decoration:none;color:inherit}
+.qst::before{content:"";position:absolute;right:0;top:50%;width:12px;height:12px;margin-top:-6px;border-radius:50%;background:var(--bg);border:2.5px solid var(--c);box-sizing:border-box}.qst.s-bad::before{background:var(--bad)}
+.qst .nm{font-size:14.5px;min-width:0}.qst .nm small{display:block;color:var(--fa);font-size:12.5px;line-height:1.3}
+.qst .v{text-align:left;font-weight:500;font-size:17px;line-height:1.2;white-space:nowrap}.qst .v small{display:block;font-weight:400;font-size:12px}.qst .v small.up,.qst .v small.dn,.qtb td.d{direction:ltr;unicode-bidi:isolate}
+.qsp{width:64px;height:24px;display:block}.qsp polyline{fill:none;stroke:var(--fa);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}.qsp circle{fill:var(--fg)}
+.qside{border-top:1px solid var(--line);margin-top:8px}
+.qrow{display:grid;grid-template-columns:76px minmax(0,1fr) 10px;gap:10px;align-items:baseline;padding:11px 0;border-bottom:1px solid var(--line);text-decoration:none;color:inherit;font-size:14.5px}
+.qrow .k{color:var(--muted)}.qrow .go{color:var(--fa)}
+.qdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:6px;vertical-align:1px;background:var(--c);flex:none}
+.qwait{margin-top:16px}.qwait h2{font-size:14px;font-weight:500;margin:0 0 4px;display:flex;justify-content:space-between;align-items:baseline}.qwait h2 a{font-weight:400;font-size:13.5px;text-decoration:none}
+.qwi{display:grid;grid-template-columns:76px minmax(0,1fr);gap:10px;padding:5px 0;font-size:14px;text-decoration:none;color:inherit}.qwi>span:last-child{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.qwi .t{color:var(--link);font-weight:500}
+.qback{display:inline-block;font-size:14px;margin:2px 0 12px;text-decoration:none}
+.qdt{font-size:14px;color:var(--muted);margin:0}
+.qbig{font-size:44px;font-weight:700;line-height:1.05;margin:2px 0 4px}.qbig small{font-size:15px;font-weight:400;color:var(--muted);margin-right:6px}
+.qchg{font-size:14.5px;margin:0 0 16px}
+.qch{width:100%;height:auto;display:block;margin:0 0 4px;direction:ltr}.qch rect{fill:var(--fa)}.qch rect.now{fill:var(--fg)}
+.qch text{font-size:11px;fill:var(--fa);font-family:inherit}.qch text.v{fill:var(--muted)}.qch text.in{fill:var(--bg)}.qch line{stroke:var(--bad);stroke-width:1.4;stroke-dasharray:4 3}
+.qnote{font-size:13.5px;color:var(--muted);margin:0}
+.qsec{font-size:14px;font-weight:500;margin:20px 0 4px}
+.qtb{width:100%;border-collapse:collapse;font-size:14px}.qtb td{padding:6px 0;border-bottom:1px solid var(--line)}.qtb td.n{text-align:left;width:56px}.qtb td.d{text-align:left;width:64px;font-size:13px;white-space:nowrap}
+.qsub{display:grid;grid-template-columns:minmax(0,1fr) auto 14px;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
+.qsub .l{font-size:14.5px;min-width:0}.qsub .l small{display:block;color:var(--fa);font-size:12.5px}.qsub .r{text-align:left;white-space:nowrap}.qsub .r b{font-weight:500;font-size:16px}.qsub .r small{display:block;font-size:12px;color:var(--muted)}
+.qsubs .sb>a,.qsubs .sb>div{border-top:0;border-bottom:1px solid var(--line)}.qsubs .chip{background:none;padding:0;font-weight:500}
+.qlnk{display:block;font-size:14px;margin:14px 0 0;text-decoration:none}
+.qdet{border-top:1px solid var(--line);margin-top:16px;padding-top:10px;font-size:13.5px;color:var(--muted)}.qdet>summary{cursor:pointer;color:var(--fg);font-weight:500;font-size:14px}.qdet p{margin:6px 0}.qdet .kv{margin-top:8px}
+html.v3 main.qm .todo{gap:0;margin-top:6px}html.v3 main.qm .todo li,html.v3 main.qm .todo li.dec{background:transparent;border-radius:0;border-bottom:1px solid var(--line);padding:12px 0}
+html.v3 main.qm .todo .tag b{background:none;color:var(--link);padding:0;font-weight:500}html.v3 main.qm .todo .what{font-weight:500}
+html.v3 main.qm .card{border:0;border-top:1px solid var(--line);border-radius:0;padding:14px 0 0;margin-top:16px}
+html.v3 .foot{border-top:1px solid var(--line);padding-top:12px;margin-top:28px}
+html.v3 a:focus-visible,html.v3 button:focus-visible,html.v3 summary:focus-visible{outline:2px solid var(--link);outline-offset:2px;border-radius:4px}
 </style></head><body>
 <header class="top">
  <div class="brand"><span class="pl">לוחית</span><h1>מצב העסק</h1></div>
@@ -1964,25 +2006,23 @@ const botDept=(f,g)=>BDEPT[f]||GDEPT[g]||"ops";
 const WIN={week:"שבוע",m28:"28 ימים",today:"היום"};
 
 // everything the metrics share, computed once per answer
-// the new layout (20.11.2026, Dudu: "מסובך לי מידי כל הדשבורד ... מפושטת יותר אך שלא יחסרו נתונים", then "לא רוצה כפילויות ... ועודף מידע"):
-// three screens (מצב, מספרים, משימות). The home screen shows five numbers once each; the other metrics sit under the number they explain,
-// a few only inside a drill. Every metric of REG stays reachable. /live/v2 keeps the layout before it (CEO lens, divisions, departments).
-const NEW=!/^\/live\/v2\/?$/.test(location.pathname);
-const GRP={check:{key:"checks",ids:["checksApp","siteChecks","visits","google","campChecks","organic"]},
- install:{key:"installs",ids:["installedNow","active28","save1","d1"]},
- ret:{key:"return7",ids:["saves"]},
- share:{key:"shares",ids:["shareOpen"]},
- health:{key:"health",ids:["slow","crashes","rating","bots","alerts24"]},
- biz:{key:null,name:"עסקים",ids:["leads","subs"]}},
- GO=["check","install","ret","share","health","biz"],KEYS=["checks","installs","return7","shares","health"],
- KIDS={google:["impressions","pages","googleChecks"],rating:["store"],bots:["auto"]},
- G2={marketing:"check",seo:"check",release:"ret",data:"health",ops:"health",strategy:"biz",growth:"check",product:"ret",business:"biz"},
- GW={bad:"יש מה לתקן",warn:"לשים לב",nodata:"חסר נתון",ok:"תקין",ref:"בלי יעד",early:"מוקדם לשפוט",cal:"עוד לא נשפט"},
- KN={checks:"בדיקות רכב",installs:"התקנות",return7:"שומרים שחוזרים",shares:"שיתופים ל-100 בדיקות",health:"השירות עובד"},
- KS={checks:"הבדיקות",installs:"ההתקנות",return7:"החזרה של שומרים",shares:"השיתוף",health:"תקינות השירות"},
- GOPEN=new Set();let gInit=false;
-const grpOf=id=>GO.find(g=>GRP[g].key===id||GRP[g].ids.indexOf(id)>=0)||GO.find(g=>GRP[g].ids.some(k=>(KIDS[k]||[]).indexOf(id)>=0))||null;
-const gName=g=>GRP[g].key?KN[GRP[g].key]:GRP[g].name;
+// the layout since 20.11.2026 (Dudu: "תתחיל מחדש, מ0, עם עיצוב נקי וחדש ולוגיקה חדשה. תסתכל על זה בעין ביקורתית וניהולית"):
+// the home screen says what moved this week and why, then the user's path in five stations, one line for the service and one for
+// income, and only what waits for Dudu. Each station opens its own screen; every metric of REG belongs to exactly one station there
+// and opens its drill. /live/v2 keeps the layout before it (CEO lens, divisions, departments).
+const NEW=!/^\/live\/v2\/?$/.test(location.pathname);if(NEW)document.documentElement.classList.add("v3");
+const QS={visit:{name:"מגיעים לאתר",key:"visits",ser:"web_visit",ids:["google","impressions","pages","googleChecks","campChecks","organic"]},
+ check:{name:"בודקים רכב",key:"checks",ser:"car_lookup",ids:["checksApp","siteChecks"]},
+ inst:{name:"מתקינים את האפליקציה",key:"installs",ser:"first_open",ids:["installedNow","active28"]},
+ ret:{name:"חוזרים למחרת",key:"d1",ids:["save1","saves","return7"],u:"מהמשתמשים החדשים"},
+ share:{name:"משתפים",key:"shares",ser:"share",per:"car_lookup",ids:["shareOpen"],gu:" ל-100 בדיקות",u:"ל-100 בדיקות"},
+ health:{name:"השירות",key:"health",ids:["slow","crashes","rating","store","bots","alerts24","auto"]},
+ money:{name:"הכנסה",key:"leads",ids:["subs"]}},
+ ROUTE=["visit","check","inst","ret","share"],
+ SRCN={app:["באפליקציה","מהאפליקציה"],facebook:["מפייסבוק","מפייסבוק"],ai:["מצ׳אטבוטים כמו ChatGPT","מצ׳אטבוטים"],direct:["ישירות לאתר","מכניסות ישירות לאתר"],google:["מגוגל","מגוגל"],whatsapp:["מווטסאפ","מווטסאפ"]},
+ G2={marketing:"check",seo:"visit",release:"ret",data:"health",ops:"health",strategy:"money",growth:"check",product:"ret",business:"money"},
+ GOPEN=new Set();
+const stOf=id=>Object.keys(QS).find(g=>QS[g].key===id||QS[g].ids.indexOf(id)>=0)||null;
 function ctx(d){
 const C={d};C.LG=d.goals||null;
 const W=C.W=d.weekly||null,ev=C.ev=W&&W.ev,E0=C.E0=ev?ev[0]:{},E1=C.E1=ev?ev[1]:{},E2=C.E2=ev?ev[2]:{};
@@ -2305,7 +2345,7 @@ function pubBoard(C){const P=(C.d.cal&&C.d.cal.pubs)||[],td=C.td,DN=["ראשון
   +'<p class="note">פייסבוק ואינסטגרם יוצאים מתור הפרסום האוטומטי, המגזין לפי התזמון שלו, וקבוצות הפייסבוק והטיקטוק ממשימות Cowork במחשב שלך.</p>';
  const prob=o=>{if(o.src!=="auto"||!past(o))return "";let r="";o.ch.forEach(c=>{const st=(o.st||{})[c]||"planned",x=st==="planned"?pend(o)[1]:(STL[st]||["",""])[1];if(x==="bad")r="bad";else if(x==="warn"&&r!=="bad")r="warn"});return r};
  return {html,short,fr,sum:ahead?n(ahead)+" ב-7 הימים הקרובים":"שום דבר ב-7 הימים הקרובים",nx,ahead,dl,CH,nbad:L.filter(o=>prob(o)==="bad").length,nlate:L.filter(o=>prob(o)==="warn").length}}
-let pubC=false;try{pubC=localStorage.getItem("lv-pubs-c")==="1"}catch(e){}
+let pubC=!/^\/live\/v2\/?$/.test(location.pathname);try{const v=localStorage.getItem("lv-pubs-c");if(v)pubC=v==="1"}catch(e){}   // folded by default since 20.11 (the layout of that day), as the viewer left it after
 const pubCard=C=>{const B=pubBoard(C);return '<section class="card" id="pubs"><div class="ch"><h2>לוח פרסומים</h2><span class="pch"><small>'+esc(B.sum)+'</small><button type="button" class="btn sec pcb" data-pubc aria-expanded="'+(pubC?"false":"true")+'">'+(pubC?"להציג הכול":"לצמצם")+"</button></span></div>"+(pubC?B.short:B.html)+(B.fr?'<p class="note">'+esc(B.fr)+"</p>":"")+"</section>"};
 // live goals (CEO spec 5.11.2026): the Worker sends d.goals (the engine's view); the plan's targets stay for the weeks before its first Sunday
 const LGK={weekly_checks:"checks",installs_week:"installs",google_clicks_week:"google",share_per_100:"share",failures_pct:"fail"},OLDK={checks:"weekly_checks",installs:"installs_week",google:"google_clicks_week",share:"share_per_100",fail:"failures_pct"};
@@ -2436,20 +2476,18 @@ function deptSec(C,dept,w){const P=DEPTS[dept],x=deptState(C,dept);
  return h+"</section>"}
 // the drill-down panel: the number, its change and goal, its history, its breakdown, and how it is defined and computed
 // the new layout's drill: the number, its goal and its weeks first; what explains it; the definitions folded at the end
-function openDrill2(C,id){const r=M(C,id);if(!r)return;const P=$("panel"),m=r.m,g=grpOf(id),G=g?GRP[g]:null;P.hidden=false;$("shade").hidden=false;document.body.style.overflow="hidden";
- const sec=(t,x)=>"<section><h3>"+t+"</h3>"+x+"</section>",kids=(KIDS[id]||[]).filter(k=>REG[k]),sub=G&&G.key===id?G.ids:[];
+function openDrill2(C,id){const r=M(C,id);if(!r)return;const P=$("panel"),m=r.m,g=stOf(id);P.hidden=false;$("shade").hidden=false;document.body.style.overflow="hidden";
+ const sec=(t,x)=>"<section><h3>"+t+"</h3>"+x+"</section>";
  let b=r.chart?sec("השבועות האחרונים",r.chart+'<div class="lg"><span><i class="sw app"></i>אפליקציה</span><span><i class="sw site"></i>אתר</span><span><i class="sw goal"></i>יעד</span></div>'):"";
  const gl1=r.gl&&!r.lines.some(l=>String(l).indexOf("מהיעד")>=0);
  b+=sec("המספר",'<ul class="kv">'+(r.dl?kv("מול השבוע הקודם",r.dl):"")+(gl1?kv("מול היעד",r.gl):r.gl?"":r.tt?kv("יעד",r.tt):r.gn?kv("יעד",r.gn):"")+r.lines.map(l=>"<li><span>"+l+"</span></li>").join("")+(r.foot?'<li><span class="note">'+r.foot+"</span></li>":"")+"</ul>");
  if(r.read)b+=sec("מה זה אומר","<p>"+r.read+"</p>");
- if(kids.length)b+=sec("עוד נתונים כאן",'<div class="sb">'+kids.map(k=>sbRow(C,k,S.w)).join("")+"</div>");
  if(id==="checks")b+=sec("המשפך השבועי",funnel(C))+sec("כל הפעולות באפליקציה ובאתר",usageTable(C));
  b+=(r.drill||[]).filter(Boolean).map(x=>sec(x.h,x.html)).join("");
  if(r.m28||r.today)b+=sec("בחלונות אחרים",'<ul class="kv">'+(r.m28?kv("28 ימים"+(r.m28.win?" ("+esc(r.m28.win)+")":""),r.m28.big+(r.m28.unit?" <small>"+r.m28.unit+"</small>":"")):"")+(r.today?kv("היום עד עכשיו",r.today.big+(r.today.unit?" <small>"+r.today.unit+"</small>":"")):"")+"</ul>");
- if(sub.length)b+='<section><a class="lnk" href="'+href({v:"nums",g,m:null})+'" data-g="'+g+'">כל הנתונים שמסבירים את המספר הזה ('+n(sub.length)+")</a></section>";
  const why=LGR[id]&&C.LG&&C.LG.last&&lgItem(C,LGR[id])?sec("למה היעד הזה",lgWhy(C,lgItem(C,LGR[id]))):"";
  b+='<details class="gx dd" data-gk="dd"'+(GOPEN.has("dd")?" open":"")+"><summary><h3>פרטים: "+(why?"למה היעד הזה, ":"")+"הגדרה, חישוב ואחראי</h3></summary>"+why+sec("הגדרה",'<p class="help">'+esc(m.def)+"</p>")+sec("איך מחושב",'<p class="help">'+esc(m.how)+"</p>")+'<section><ul class="kv">'+kv("מקור",esc(m.src))+kv("אחראי",esc(m.owner))+"</ul></section></details>";
- P.innerHTML='<div class="ph"><div class="r1"><div><h2>'+esc(r.name)+'</h2><span class="note">'+(g?esc(gName(g)):"")+'</span></div><button type="button" class="tbtn" data-close="1" aria-label="סגירה">✕ סגירה</button></div><div class="r2">'+chip(r.s,r.w)+'<span style="font-size:30px;font-weight:700">'+r.big+"</span>"+(r.unit?'<span class="note">'+r.unit+"</span>":"")+(r.win?'<span class="win">'+esc(r.win)+"</span>":"")+'</div></div><div class="pb">'+b+"</div>";
+ P.innerHTML='<div class="ph"><div class="r1"><div><h2>'+esc(r.name)+'</h2><span class="note">'+(g?esc(QS[g].name):"")+'</span></div><button type="button" class="tbtn" data-close="1" aria-label="סגירה">✕ סגירה</button></div><div class="r2">'+chip(r.s,r.w)+'<span style="font-size:30px;font-weight:700">'+r.big+"</span>"+(r.unit?'<span class="note">'+r.unit+"</span>":"")+(r.win?'<span class="win">'+esc(r.win)+"</span>":"")+'</div></div><div class="pb">'+b+"</div>";
  P.scrollTop=0;S.m=id;sync()}
 function openDrill(C,id){if(NEW)return openDrill2(C,id);const r=M(C,id);if(!r)return;const P=$("panel"),m=r.m;P.hidden=false;$("shade").hidden=false;document.body.style.overflow="hidden";
  P.innerHTML='<div class="ph"><div class="r1"><div><h2>'+esc(r.name)+'</h2><span class="note">'+(m.dept?DEPTS[m.dept].name+" · "+DIVS[DEPTS[m.dept].div].name:"המדד הראשי")+'</span></div><button type="button" class="tbtn" data-close="1" aria-label="סגירה">✕ סגירה</button></div><div class="r2">'+chip(r.s,r.w)+'<span style="font-size:30px;font-weight:700">'+r.big+"</span>"+(r.unit?'<span class="note">'+r.unit+"</span>":"")+(r.win?'<span class="win">'+esc(r.win)+"</span>":"")+"</div></div>"
@@ -2463,57 +2501,116 @@ function openDrill(C,id){if(NEW)return openDrill2(C,id);const r=M(C,id);if(!r)re
  P.scrollTop=0;S.m=id;sync()}
 function closeDrill(){$("panel").hidden=true;$("shade").hidden=true;document.body.style.overflow="";if(S.m){S.m=null;sync()}}
 
-// ---- the new layout's three screens
-function grpState(C,g){const G=GRP[g],rs=(G.key?[G.key]:[]).concat(G.ids).map(i=>M(C,i)).filter(Boolean),of=s=>rs.filter(r=>r.s===s),s=of("bad").length?"bad":of("warn").length?"warn":of("nodata").length?"nodata":of("ok").length?"ok":"ref";
- return {s,word:GW[s]}}
-// the home line: which of the five are under, on or near their goal, in words (the numbers are in the rows right below it)
-function hLine(C){const by=s=>KEYS.filter(k=>{const r=M(C,k);return r&&r.s===s}).map(k=>KS[k]),j=a=>a.length>1?a.slice(0,-1).join(", ")+" ו"+a[a.length-1]:a[0]||"";
- const b=by("bad"),w=by("warn"),o=by("ok");
- return [b.length?"מתחת ליעד: "+j(b)+".":"",w.length?"לשים לב: "+j(w)+".":"",o.length?"ביעד: "+j(o)+".":""].filter(Boolean).join(" ")||"אין עדיין יעדים שנשפטו השבוע."}
-function renderHome(C){const t1=C.R.checks||M(C,"checks"),T=todo(C,null,1),wr=rng(C.W&&C.W.W),vs=KEYS.some(k=>(M(C,k)||{}).s==="bad")?"bad":KEYS.some(k=>(M(C,k)||{}).s==="warn")?"warn":"ok";
- let h='<section class="card verdict s-'+vs+'"><p>'+esc(hLine(C))+"</p>"+(t1&&t1.cause?'<small class="cause">השינוי העיקרי מהשבוע הקודם: '+esc(t1.cause)+"</small>":"")+"</section>";
- h+='<section class="card"><div class="ch"><h2>השבוע</h2><small class="win">'+wr+'</small></div><div class="sb">'+KEYS.map(k=>sbRow(C,k,"week",KN[k])).join("")+"</div></section>";
- const nx=T.first;
- h+='<a class="card hrow" href="'+href({v:"tasks",m:null})+'" data-v="tasks"><span class="l"><b>'+(T.k?n(T.k)+(T.k===1?" מחכה לך":" מחכים לך"):"שום דבר לא מחכה לך")+"</b>"+(nx?"<small>הקרוב: "+esc(nx)+"</small>":"")+'</span><span class="r lnk">למשימות</span></a>';
+// ---- the layout's screens: home, a station, what waits for Dudu
+const qsc=s=>s==="bad"||s==="warn"||s==="ok"?s:"nt";
+const qpc=x=>Math.round(Math.abs(x)*100)+"%";
+const f1=x=>(Math.round(x*10)/10).toLocaleString("en-US");
+// five whole weeks of a station's series, the last one ending where the week of the metrics ends
+function w5(C,g){const s=QS[g];if(!s.ser||!C.end||!C.SR||!C.SR[s.ser])return null;const a=[];
+ for(let i=4;i>=0;i--){const e=addD(C.end,-7*i),x=C.wsum(s.ser,e),p=s.per?C.wsum(s.per,e):1;if(p)a.push({e,v:s.per?x/p*100:x})}
+ while(a.length>2&&!a[0].v)a.shift();return a.length>1?a:null}
+const chg=a=>a&&a.length>1&&a[a.length-2].v?(a[a.length-1].v-a[a.length-2].v)/a[a.length-2].v:null;
+function streak(a,down){let k=0;for(let i=a.length-1;i>0;i--){const c=(a[i].v-a[i-1].v)/(a[i-1].v||1);if(down?c<=-.05:c>=.05)k++;else break}return k}   // a week counts only when it moved 5% or more
+const qgt=(g,r)=>r.tt&&r.tt!=="אין יעד"?esc(r.tt.split(" · ")[0].replace(/^היעד /,"יעד ").replace(/ בשבוע$/,"").replace(/ ומעלה$/,""))+(QS[g].gu||""):"אין יעד";
+// a station's change from last week, short (the row) or as a sentence (its screen)
+function chs(g,a,long){const c=chg(a);if(c==null)return null;const s=QS[g],up=c>0;
+ if(s.per){const d=a[a.length-1].v-a[a.length-2].v;return {up,t:long?(up?"עלה ב-":"ירד ב-")+f1(Math.abs(d))+" משבוע שעבר":(up?"+":"−")+f1(Math.abs(d))}}
+ return {up,t:long?qpc(c)+(up?" יותר":" פחות")+" משבוע שעבר":(up?"+":"−")+qpc(c)}}
+// checks by where they came from, this week against the last (Analytics' source of each check, the app counted as one)
+function srcRows(C){const B=C.W&&C.W.bySource,SS=C.W&&C.W.srcSeen;if(!B||!B[0]||!B[1]||!SS||!SS[0]||!SS[1])return null;
+ const o={},ks=new Set(Object.keys(B[0]).concat(Object.keys(B[1])));
+ ks.forEach(k=>{const id=SRCN[k]?k:"rest",x=o[id]||(o[id]={k:id,cur:0,prev:0});x.cur+=B[0][k]?B[0][k][1]||0:0;x.prev+=B[1][k]?B[1][k][1]||0:0});
+ return Object.values(o).map(x=>Object.assign(x,{d:x.cur-x.prev,nm:x.k==="rest"?["משאר המקורות","משאר המקורות"]:SRCN[x.k]})).filter(x=>x.cur||x.prev)}
+function cause(C,down){const R=srcRows(C);if(!R)return "";const tot=R.reduce((s,x)=>s+x.d,0);if(!tot||(tot<0)!==down)return "";
+ const top=R.filter(x=>down?x.d<0:x.d>0).sort((x,y)=>down?x.d-y.d:y.d-x.d).slice(0,2),sum=top.reduce((s,x)=>s+x.d,0);if(!top.length)return "";
+ const part=x=>x.nm[1]+" ("+n(Math.abs(x.d))+(down?" פחות":" יותר")+")",most=Math.abs(sum)*2>=Math.abs(tot);
+ return most?"רוב "+(down?"הירידה":"העלייה")+" באה "+top.map(part).join(" ו")+".":(down?"הירידה":"העלייה")+" הגדולה ביותר באה "+part(top[0])+"."}
+// the first lines: what moved most this week and why (the service first when it fails)
+function lead(C){const h=M(C,"health"),a=w5(C,"check");
+ if(h&&h.s==="bad")return {t:"השירות לא עובד כמו שצריך.",w:"רק "+h.big+" מהבדיקות קיבלו תשובה"+(h.tt?", "+esc(h.tt.replace(/^היעד /,"היעד ").replace(/ ומעלה$/,"")):"")+"."};
+ if(!a)return {t:"עדיין אין מספיק שבועות כדי לראות כיוון.",w:""};
+ const c=chg(a),cur=a[a.length-1].v,ORD=["","","שני","שלישי","רביעי","חמישי","שישי","שביעי","שמיני"];
+ if(c==null)return {t:n(cur)+" בדיקות רכב השבוע.",w:""};
+ const big=Math.abs(c)>=.1,down=c<0,st=streak(a,down);
+ const t=!big?"מספר הבדיקות כמעט לא השתנה השבוע.":(down?"פחות":"יותר")+" אנשים בודקים רכב"+(st>=2?", שבוע "+(ORD[st]||n(st))+" ברצף.":" משבוע שעבר.");
+ const w="<b>"+n(cur)+"</b> בדיקות, "+qpc(c)+(down?" פחות":" יותר")+" משבוע שעבר."+(big?" "+cause(C,down):"");
+ return {t,w}}
+function qspark(a){if(!a)return '<span class="qsp"></span>';const vs=a.map(o=>o.v),mx=Math.max.apply(null,vs),mn=Math.min.apply(null,vs),k=mx-mn||1,X=i=>2+i*60/(a.length-1),Y=v=>20-(v-mn)/k*17;
+ return '<svg class="qsp" viewBox="0 0 64 24" aria-hidden="true"><polyline points="'+a.map((o,i)=>X(i).toFixed(1)+","+Y(o.v).toFixed(1)).join(" ")+'"/><circle cx="'+X(a.length-1).toFixed(1)+'" cy="'+Y(vs[vs.length-1]).toFixed(1)+'" r="2.4"/></svg>'}
+// five weeks as qbars, the goal of this week dashed (time runs left to right, as in every chart here)
+function qbars(g,a,goal){const fm=QS[g].per?f1:n,mx=Math.max.apply(null,a.map(o=>o.v).concat(goal?[goal]:[]))||1,bw=42,gp=(330-a.length*bw)/(a.length+1),Y=v=>114-v/mx*96;
+ let h='<svg class="qch" viewBox="0 0 330 132" role="img" aria-label="'+esc(QS[g].name)+' בחמשת השבועות האחרונים">';
+ if(goal)h+='<line x1="0" x2="330" y1="'+Y(goal).toFixed(1)+'" y2="'+Y(goal).toFixed(1)+'"/>';
+ a.forEach((o,i)=>{const x=gp+i*(bw+gp),y=Y(o.v),last=i===a.length-1,cx=(x+bw/2).toFixed(1),inside=last&&114-y>24;
+  h+='<rect'+(last?' class="now"':"")+' x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+bw+'" height="'+(114-y).toFixed(1)+'" rx="3"/>';
+  h+='<text class="'+(inside?"in":"v")+'" x="'+cx+'" y="'+(inside?y+16:y-5).toFixed(1)+'" text-anchor="middle">'+fm(o.v)+"</text>";
+  h+='<text x="'+cx+'" y="128" text-anchor="middle">'+(i?"":"עד ")+dm(o.e)+"</text>"});
+ return h+"</svg>"+(goal?'<p class="qnote">הקו המקווקו הוא היעד של השבוע, '+fm(goal)+".</p>":"")}
+// one station on the path: its number, its change from last week, five weeks, a dot for its goal
+function stRow(C,g){const s=QS[g],r=M(C,s.key);if(!r)return "";const a=w5(C,g),x=chs(g,a,false);
+ return '<a class="qst s-'+qsc(r.s)+'" href="'+href({v:"st",g,m:null})+'" data-st="'+g+'"><span class="nm">'+esc(s.name)+"<small>"+qgt(g,r)+'</small></span><span class="v">'+r.big
+  +(x?'<small class="'+(x.up?"up":"dn")+'">'+x.t+"</small>":s.u||r.unit?'<small class="mu">'+esc(s.u||r.unit)+"</small>":"")+"</span>"+qspark(a)+"</a>"}
+// the service and income lines: a dot for the worst of the station's numbers, and one sentence
+function worst(C,g){const rs=[QS[g].key].concat(QS[g].ids).map(i=>M(C,i)).filter(Boolean);return rs.find(r=>r.s==="bad")?"bad":rs.find(r=>r.s==="warn")?"warn":rs.find(r=>r.s==="ok")?"ok":"nt"}
+function sideRow(C,g){const r=M(C,QS[g].key);if(!r)return "";let t;
+ if(g==="health"){const b=QS.health.ids.map(i=>M(C,i)).filter(x=>x&&x.s==="bad");t=r.s==="ok"&&b.length?esc(ROWN[QS.health.ids.find(i=>M(C,i)===b[0])]||b[0].name)+": "+b[0].big:r.big+" "+esc(r.unit||"")+(r.tt?", "+qgt(g,r):"")}
+ else{const sb=M(C,"subs");t=r.v>0?n(r.v)+" פניות עסקיות השבוע":"עדיין אין פניות עסקיות"+(sb&&sb.v>0?", "+n(sb.v)+(sb.v===1?" נרשם":" נרשמים")+" למגזין":"")}
+ return '<a class="qrow s-'+worst(C,g)+'" href="'+href({v:"st",g,m:null})+'" data-st="'+g+'"><span class="k"><i class="qdot"></i>'+esc(QS[g].name)+"</span><span>"+t+'</span><span class="go">‹</span></a>'}
+// what waits for Dudu: his items from the board, the nearest first; an answered decision no longer waits
+function qmine(C){const Cl=C.d.cal,td=C.td;if(!Cl)return null;
+ const gp=(C.LG&&C.LG.props||[]).filter(p=>!C.acts[p.id]).map(p=>({id:p.id,d:"",what:"להחליט על היעד של «"+p.name+"»"}));
+ return gp.concat([...(Cl.open||[]),...(Cl.items||[]).filter(o=>o.d>=td)].filter(o=>o.me&&o.id&&!C.done[o.id]&&!C.acts[o.id]).sort((x,y)=>(x.d||"0")+(x.t||"")<(y.d||"0")+(y.t||"")?-1:1))}
+function whenL(C,o){if(!o.d)return "עכשיו";const k=between(C.td,o.d);return (k<=0?"היום":k===1?"מחר":dm(o.d))+(o.t?" "+o.t:"")}
+function renderHome(C){const L=lead(C),my=qmine(C),wr=C.W&&C.W.W?rs(C.W.W):"";
+ let h='<div class="qtop"><span>השבוע '+wr+"</span></div>";
+ h+='<p class="qlead">'+esc(L.t)+"</p>"+(L.w?'<p class="qwhy">'+L.w+"</p>":"");
+ h+='<nav class="qroute" aria-label="המסלול של משתמש">'+ROUTE.map(g=>stRow(C,g)).join("")+"</nav>";
+ h+='<div class="qside">'+sideRow(C,"health")+sideRow(C,"money")+"</div>";
+ h+='<section class="qwait"><h2><span>מחכה לך</span>'+(my&&my.length?'<a href="'+href({v:"tasks",g:null,m:null})+'" data-v="tasks">הכול ('+n(my.length)+") ‹</a>":"")+"</h2>"
+  +(!my?'<p class="qnote">היומן עוד לא זמין.</p>':my.length?my.slice(0,3).map(o=>'<a class="qwi" href="'+href({v:"tasks",g:null,m:null})+'" data-v="tasks"><span class="t">'+whenL(C,o)+"</span><span>"+esc(o.what)+"</span></a>").join(""):'<p class="qnote">שום דבר לא מחכה לך.</p>')+"</section>";
  return h}
-const gdet=(k,open,head,body)=>'<details class="gx" data-gk="'+k+'"'+(open?" open":"")+">"+head+body+"</details>";
-function renderNums(C){const w=S.w,LH=C.LG&&C.LG.items?C.LG.items.filter(i=>i.t==="health"&&i.v!=null&&!HREG[i.k]):[];
- if(!gInit){gInit=true;const wg=GO.find(g=>grpState(C,g).s==="bad")||GO.find(g=>grpState(C,g).s==="warn");if(S.g||wg)GOPEN.add(S.g||wg)}
- if(S.g)GOPEN.add(S.g);
- let h="";
- GO.forEach(g=>{const G=GRP[g],x=grpState(C,g),r=G.key?M(C,G.key):null,winOf2=r?winOf(r,w):null,k=G.ids.length+(g==="health"?LH.length:0);
-  const head='<summary class="ch"><h2>'+gName(g)+(r?' <span class="hv">'+winOf2.big+"</span>":"")+'</h2><span class="gs"><small>'+(G.key?"":"בלי יעד · ")+n(k)+(k===1?" נתון":" נתונים")+"</small>"+(G.key?chip(x.s,x.word):"")+"</span></summary>";
-  h+='<section class="card" id="g-'+g+'">'+gdet(g,GOPEN.has(g),head,'<div class="sb">'+G.ids.map(id=>sbRow(C,id,w)).join("")+(g==="health"?LH.map(i=>lgRow(C,i)).join(""):"")+"</div>"+(G.key?'<a class="lnk" href="'+href({m:G.key})+'" data-m="'+G.key+'">'+KN[G.key]+": הגרף, היעד ומה מסביר אותו</a>":""))+"</section>"});
- h+='<section class="card">'+gdet("goals",GOPEN.has("goals"),'<summary class="ch"><h2>איך נקבעים היעדים</h2><small>היעדים החיים ושערי 31.3</small></summary>',goalsMethod(C).replace('<section class="card" id="goals">','<div id="goals">').replace(/<\/section>$/,"</div>"))+"</section>";
+const qback='<a class="qback" href="?v=home" data-v="home">‹ חזרה</a>';
+function subRow(C,id){const r=M(C,id);if(!r)return "";const nm=ROWN[id]||r.name,un=r.unit&&nm.indexOf(r.unit)<0?r.unit:"";
+ return '<a class="qsub s-'+qsc(r.s)+'" href="'+href({m:id})+'" data-m="'+id+'"><span class="l">'+esc(nm)+(r.tt&&r.tt!=="אין יעד"?"<small>"+esc(r.tt)+"</small>":"")+'</span><span class="r"><b>'+r.big+"</b>"+(un?"<small>"+esc(un)+"</small>":"")+'</span><i class="qdot"></i></a>'}
+function renderStation(C,g){const s=QS[g],r=M(C,s.key);if(!r)return qback+'<p class="qnote">אין נתון.</p>';const a=w5(C,g),x=chs(g,a,true),m=r.m,wr=C.W&&C.W.W?rs(C.W.W):"";
+ let h=qback+'<p class="qdt">'+esc(s.name)+(wr?", בשבוע "+wr:"")+'</p><p class="qbig">'+r.big+(r.unit||s.u?"<small>"+esc(r.unit||s.u)+"</small>":"")+"</p>";
+ const gl=r.gl||(r.tt&&r.tt!=="אין יעד"?esc(r.tt):"");
+ h+='<p class="qchg">'+(x?'<span class="'+(x.up?"up":"dn")+'">'+x.t+".</span> ":"")+(gl?'<span class="mu">'+gl+".</span>":"")+"</p>";
+ if(a)h+=qbars(g,a,r.tg||null);
+ if(g==="check"){const R=srcRows(C);if(R){R.sort((p,q)=>p.d-q.d);h+='<h3 class="qsec">מאיפה באו הבדיקות, מול שבוע שעבר</h3><table class="qtb">'+R.map(o=>"<tr><td>"+o.nm[0]+'</td><td class="n">'+n(o.cur)+'</td><td class="d '+(o.d<0?"dn":o.d>0?"up":"mu")+'">'+(o.d>0?"+":o.d<0?"−":"")+n(Math.abs(o.d))+"</td></tr>").join("")+"</table>"}}
+ const LH=g==="health"&&C.LG&&C.LG.items?C.LG.items.filter(i=>i.t==="health"&&i.v!=null&&!HREG[i.k]):[];
+ h+='<h3 class="qsec">עוד כאן</h3><div class="qsubs">'+s.ids.map(id=>subRow(C,id)).join("")+(LH.length?'<div class="sb">'+LH.map(i=>lgRow(C,i)).join("")+"</div>":"")+"</div>";
+ h+='<a class="qlnk" href="'+href({m:s.key})+'" data-m="'+s.key+'">כל הנתונים על «'+esc(s.name)+"»</a>";
+ const why=LGR[s.key]&&C.LG&&C.LG.last&&lgItem(C,LGR[s.key])?lgWhy(C,lgItem(C,LGR[s.key])):"";
+ h+='<details class="qdet"><summary>מה סופרים'+(why?" ולמה זה היעד":"")+"</summary><p>"+esc(m.def)+"</p>"+(why?"<div>"+why+"</div>":"")+'<p class="qnote">המקור: '+esc(m.src)+". האחריות: "+esc(m.owner)+".</p></details>";
+ if(g==="check")h+='<details class="qdet"><summary>איך נקבעים כל היעדים</summary>'+goalsMethod(C).replace('<section class="card" id="goals">','<div id="goals">').replace(/<\/section>$/,"</div>")+"</details>";
  return h}
-function renderTasks(C){const T=todo(C,null),Cl=C.d.cal,td=C.td,DN=["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"];
- const wd=o=>{const k=between(td,o.d),x=new Date(o.d+"T12:00:00Z");return (k===0?"היום":k===1?"מחר":"יום "+DN[x.getUTCDay()]+" "+dm(o.d))+(o.t?" ב-"+o.t:"")};
- let h='<section class="card"><div class="ch"><h2>מחכה לך'+(T.k?" ("+n(T.k)+")":"")+"</h2>"+(T.k?"<small>"+esc(T.sum)+"</small>":"")+"</div>"+T.html+"</section>";
+function renderTasks(C){const T=todo(C,null),Cl=C.d.cal,td=C.td;
+ let h=qback+'<p class="qlead">מחכה לך</p>'+T.html;
  const it=Cl?(Cl.items||[]).filter(o=>!o.me&&o.d>=td&&o.d<=addD(td,14)&&!C.done[o.id]).sort((x,y)=>(x.d+(x.t||"99"))<(y.d+(y.t||"99"))?-1:1):[];
- h+='<section class="card"><div class="ch"><h2>בקרוב בפרויקט</h2><small>14 ימים, מה שרץ בלי שצריך אותך</small></div>'+(it.length?'<ul class="kv">'+it.map(o=>"<li><span>"+esc(o.what)+"<small>"+esc(o.owner||"")+'</small></span><b class="rt">'+wd(o)+"</b></li>").join("")+"</ul>":note(Cl?"אין דבר מתוכנן בשבועיים הקרובים.":"היומן עוד לא זמין."))+"</section>";
+ if(it.length)h+='<details class="qdet"><summary>מה נעשה בלי לערב אותך, בשבועיים הקרובים ('+n(it.length)+')</summary><ul class="kv">'+it.map(o=>"<li><span>"+esc(o.what)+"<small>"+esc(o.owner||"")+'</small></span><b class="rt">'+whenL(C,o)+"</b></li>").join("")+"</ul></details>";
  const wk=(Cl&&Cl.weekly)||[];
- if(wk.length)h+='<section class="card">'+gdet("weekly",GOPEN.has("weekly"),'<summary class="ch"><h2>קבוע, כל שבוע</h2><small>'+n(wk.length)+" שורות</small></summary>",'<ul class="kv">'+wk.map(o=>"<li><span>"+esc(o.what)+"<small>"+esc(o.owner||"")+'</small></span><b class="rt">'+esc(o.when)+"</b></li>").join("")+"</ul>")+"</section>";
+ if(wk.length)h+='<details class="qdet"><summary>קבוע, כל שבוע ('+n(wk.length)+')</summary><ul class="kv">'+wk.map(o=>"<li><span>"+esc(o.what)+"<small>"+esc(o.owner||"")+'</small></span><b class="rt">'+esc(o.when)+"</b></li>").join("")+"</ul></details>";
  return h+pubCard(C)}
 // the state in the address: v = the lens (ceo, a division or a department), w = the window, m = an open metric
 const S={v:NEW?"home":"ceo",w:"week",m:null,g:null};
 function readURL(){const q=new URLSearchParams(location.search),v=q.get("v")||"",w=q.get("w")||"",m=q.get("m")||"",g=q.get("g")||"";
- if(NEW){S.v=v==="nums"||v==="tasks"?v:v==="all"||G2[v]?"nums":"home";S.g=GRP[g]?g:G2[v]||null;S.w=WIN[w]?w:"week";S.m=REG[m]?m:null;return}
+ if(NEW){S.g=v==="st"&&QS[g]?g:G2[v]||null;S.v=S.g?"st":v==="tasks"?"tasks":"home";S.w="week";S.m=REG[m]?m:null;return}
  S.v=v==="ceo"||v==="all"||DIVS[v]||DEPTS[v]?v:"ceo";S.w=WIN[w]?w:"week";S.m=REG[m]?m:null}
-function href(o){const v=o.v||S.v,w=o.w||S.w,m=o.m!==undefined?o.m:S.m,g=NEW&&v==="nums"?(o.g!==undefined?o.g:S.g):null;return "?v="+v+"&w="+w+(g?"&g="+g:"")+(m?"&m="+m:"")}
+function href(o){const v=o.v||S.v,w=o.w||S.w,m=o.m!==undefined?o.m:S.m,g=NEW&&v==="st"?(o.g!==undefined?o.g:S.g):null;return NEW?"?v="+v+(g?"&g="+g:"")+(m?"&m="+m:""):"?v="+v+"&w="+w+(m?"&m="+m:"")}
 function sync(){try{history.replaceState(null,"",location.pathname+href({}))}catch(e){}}
+function push(){try{history.pushState(null,"",location.pathname+href({}))}catch(e){}}   // a new screen: the phone's back button returns to the one before
 const rs=w=>{const a=dm(w[0]),b=dm(w[1]),pa=a.split("."),pb=b.split(".");return pa[1]===pb[1]?pa[0]+"–"+b:a+"–"+b};
-function renderNav(C){if(NEW){const tk=C?todo(C,null).k:0;$("btm").className="btm k3";$("win").hidden=S.v!=="nums";
- $("btm").innerHTML=[["home","מצב"],["nums","מספרים"],["tasks","משימות"+(tk?" ("+n(tk)+")":"")]].map(x=>'<a href="'+href({v:x[0],m:null,g:null})+'" data-v="'+x[0]+'"'+(S.v===x[0]?' class="on" aria-current="page"':"")+">"+x[1]+"</a>").join("");
- const W=C&&C.W;$("win").innerHTML=[["week","שבוע"+(W&&W.W?" "+rs(W.W):"")],["m28","28 ימים"],["today","היום"]].map(x=>'<option value="'+x[0]+'"'+(S.w===x[0]?" selected":"")+">"+x[1]+"</option>").join("");return}
+function renderNav(C){if(NEW){$("btm").hidden=true;$("win").hidden=true;return}
  const dv=DEPTS[S.v]?DEPTS[S.v].div:S.v==="all"?"ceo":S.v,W=C&&C.W;
  $("btm").innerHTML=[["ceo","מנכ״ל"],["growth","צמיחה"],["product","מוצר"],["business","עסקים"]].map(x=>'<a href="'+href({v:x[0],m:null})+'" data-v="'+x[0]+'"'+(dv===x[0]?' class="on" aria-current="page"':"")+">"+x[1]+"</a>").join("");
  $("win").innerHTML=[["week","שבוע"+(W&&W.W?" "+rs(W.W):"")],["m28","28 ימים"],["today","היום"]].map(x=>'<option value="'+x[0]+'"'+(S.w===x[0]?" selected":"")+">"+x[1]+"</option>").join("")}
 let pendScroll=true;
 function render(){const d=window.LVD;if(!d)return;const C=ctx(d);window.LVC=C;renderNav(C);
- let h;try{h=NEW?(S.v==="nums"?renderNums(C):S.v==="tasks"?renderTasks(C):renderHome(C)):S.v==="ceo"?renderCeo(C):S.v==="all"?renderAll(C):renderDiv(C,DIVS[S.v]?S.v:DEPTS[S.v].div)}catch(e){h='<section class="card"><p>המסך לא הצליח להיבנות: '+esc(e&&e.message||e)+"</p></section>"}
- const L=C.LG;$("main").className=NEW||S.v==="ceo"||S.v==="all"?"narrow":"";
+ let h;try{h=NEW?(S.v==="st"?renderStation(C,S.g):S.v==="tasks"?renderTasks(C):renderHome(C)):S.v==="ceo"?renderCeo(C):S.v==="all"?renderAll(C):renderDiv(C,DIVS[S.v]?S.v:DEPTS[S.v].div)}catch(e){h='<section class="card"><p>המסך לא הצליח להיבנות: '+esc(e&&e.message||e)+"</p></section>"}
+ const L=C.LG;$("main").className=NEW?"narrow qm":S.v==="ceo"||S.v==="all"?"narrow":"";
  $("main").innerHTML=h+'<footer class="foot"><span>גרסה '+esc(d.build||"")+'</span><span>'+(d.at?"הנתונים מ-"+hm(d.at):"")+'</span><span>כל השעות בשעון ישראל. השבוע: 7 ימים עד אתמול. היעדים: '+(L&&L.start?"היעדים החיים, מ-"+dm(L.start):"תוכנית השיווק כפול שבוע הבסיס")+'.</span>'+(NEW?'<a href="/live/v2" rel="nofollow">המסך הקודם</a>':'<a href="/live/v1" rel="nofollow">המסך הקודם</a>')+'</footer>';
- if(pendScroll){pendScroll=false;const el=NEW?(S.v==="nums"&&S.g?$("g-"+S.g):null):DEPTS[S.v]?$("d-"+S.v):null;if(el)el.scrollIntoView({block:"start"})}
+ if(pendScroll){pendScroll=false;const el=!NEW&&DEPTS[S.v]?$("d-"+S.v):null;if(el)el.scrollIntoView({block:"start"})}
  if(S.m)openDrill(C,S.m)}
 async function go(){const meta=$("meta");try{const r=await fetch("/live/data",{cache:"no-store",signal:AbortSignal.timeout?AbortSignal.timeout(35e3):undefined});if(!r.ok)throw r.status;const d=await r.json();window.LVD=d;render();
  const tm=new Date(d.at).toLocaleTimeString("he-IL",{timeZone:"Asia/Jerusalem",hour:"2-digit",minute:"2-digit"});onl(d.online,d.stale,d.at);
@@ -2527,8 +2624,8 @@ async function post(url,body){const r=await fetch(url,{method:"POST",headers:{"c
 document.addEventListener("click",async e=>{const t=e.target;
  const m=t.closest("[data-m]");if(m){e.preventDefault();if(window.LVC)openDrill(window.LVC,m.getAttribute("data-m"));return}
  if(t.closest("[data-close]")||t===$("shade")){closeDrill();return}
- const gl=NEW&&t.closest("[data-g]");if(gl){e.preventDefault();if(!$("panel").hidden){$("panel").hidden=true;$("shade").hidden=true;document.body.style.overflow=""}S.v="nums";S.g=gl.getAttribute("data-g");GOPEN.add(S.g);S.m=null;sync();pendScroll=true;render();return}
- const v=t.closest("[data-v]");if(v&&NEW){e.preventDefault();const x=v.getAttribute("data-v");S.v=x==="nums"||x==="tasks"||x==="home"?x:G2[x]||x==="all"?"nums":"home";S.g=G2[x]||null;if(S.g)GOPEN.add(S.g);S.m=null;sync();pendScroll=!!S.g;render();if(!S.g)window.scrollTo(0,0);return}
+ const sl=NEW&&t.closest("[data-st]");if(sl){e.preventDefault();S.v="st";S.g=sl.getAttribute("data-st");S.m=null;push();render();window.scrollTo(0,0);return}
+ const v=t.closest("[data-v]");if(v&&NEW){e.preventDefault();if(!$("panel").hidden){$("panel").hidden=true;$("shade").hidden=true;document.body.style.overflow=""}const x=v.getAttribute("data-v");S.g=G2[x]||null;S.v=S.g?"st":x==="tasks"?"tasks":"home";S.m=null;push();render();window.scrollTo(0,0);return}
  if(v){e.preventDefault();S.v=v.getAttribute("data-v");S.m=null;sync();pendScroll=!!DEPTS[S.v];render();if(!DEPTS[S.v])window.scrollTo(0,0);return}
  const w=t.closest("[data-w]");if(w){S.w=w.getAttribute("data-w");sync();render();return}
  const pc=t.closest("[data-pubc]");if(pc){pubC=!pubC;try{localStorage.setItem("lv-pubs-c",pubC?"1":"0")}catch(err){}render();const P=$("pubs");if(P)P.scrollIntoView({block:"nearest"});return}
@@ -2537,7 +2634,7 @@ document.addEventListener("click",async e=>{const t=e.target;
   else{const id=b.getAttribute("data-act")||b.getAttribute("data-unact"),on=b.hasAttribute("data-act");const j=await post("/live/act",on?{id,c:b.getAttribute("data-c")}:{id,undo:true});actLocal[id]=on?(j.acts&&j.acts[id])||{c:b.getAttribute("data-c"),at:new Date().toISOString()}:0;if(window.LVD)window.LVD.acts=j.acts||window.LVD.acts}
   render()}
  catch(err){b.disabled=false;b.textContent="לא נשמר, נסו שוב";b.classList.add("sec")}});
-document.addEventListener("toggle",e=>{const d=e.target;if(d&&d.matches&&d.matches("details[data-gk]")){const k=d.getAttribute("data-gk");if(d.open)GOPEN.add(k);else{GOPEN.delete(k);if(S.g===k){S.g=null;sync()}}}},true);
+document.addEventListener("toggle",e=>{const d=e.target;if(d&&d.matches&&d.matches("details[data-gk]")){const k=d.getAttribute("data-gk");if(d.open)GOPEN.add(k);else{GOPEN.delete(k);}}},true);
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("panel").hidden)closeDrill()});
 document.addEventListener("change",e=>{if(e.target&&e.target.id==="win"){S.w=WIN[e.target.value]?e.target.value:"week";sync();render()}});
 let lastGo=Date.now();const tick=()=>{if(document.hidden)return;if(Date.now()-lastGo>=59e3){lastGo=Date.now();go()}else now()};
