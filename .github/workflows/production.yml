@@ -43,7 +43,7 @@ jobs:
     permissions:
       contents: write   # alert.mjs keeps its dedupe state on the alert-state branch
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/scripts/play-production.mjs
