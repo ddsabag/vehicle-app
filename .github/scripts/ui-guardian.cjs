@@ -69,6 +69,8 @@ const FIXTURES = [
   { name: "buy-km-low", rec: { ...BASE, kilometer_test_aharon: 60000, mivchan_acharon_dt: iso(-365), misgeret: "JTDKB3FU503124417" }, buy: { km: [61000, "low"] } },
   { name: "buy-import", rec: BASE, sets: { "03adc637": [{ _id: 1, mispar_rechev: 12345678, tozeret_nm: "טויוטה יפן", kinuy_mishari: "COROLLA", shnat_yitzur: 2021, sug_yevu: "יבוא אישי משומש", tozeret_cd: 1, degem_cd: 1 }] }, buy: { transfer: /^unk:רכב ביבוא אישי/, noGauge: true } },
   { name: "buy-bought", rec: BASE, buy: { bought: true } },
+  { name: "app-buy", rec: { ...BASE, tokef_dt: iso(-30) }, app: true, buy: { transfer: /^bad:הטסט פג/ } },
+  { name: "app-owner", rec: BASE, app: true, ls: { mine: '{"12345678":1}' } },
   { name: "buy-ask-above", rec: BASE, model: { price: { mehir: 150000 }, modelRecalls: [] }, buy: { ask: [400000, "above", true] } },
 ];
 const TABS = contract.tabs.map((t) => t.id);
@@ -99,6 +101,8 @@ async function runPage(browser, fx, theme, width) {
   });
   // model data the catalogue would give (the catalogue itself is not fetched in the run): fetchModelData is a page-level function
   if (fx.model) await ctx.addInitScript((m) => { addEventListener("DOMContentLoaded", () => { const f = window.fetchModelData; window.fetchModelData = async (...a) => ({ ...(await f(...a)), modelRecallsUnknown: false, ...m }); }); }, fx.model);
+  // fx.app: the page as the Android app runs it, with the bridge methods buy version 1 calls (alerts, the share menu) and a record of what they got
+  if (fx.app) await ctx.addInitScript(() => { const st = { alerts: false }; window.__app = { shared: [], alerts: [] }; window.AndroidApp = { setAlerts: (on) => { st.alerts = on; window.__app.alerts.push(on); }, alertsState: () => (st.alerts ? "on" : "off"), share: (t, x) => window.__app.shared.push(x), logEvent: () => {}, logError: () => {}, setTheme: () => {}, setBars: () => {}, systemDark: () => false, syncSaved: () => {}, savedCopy: () => "" }; });
   await ctx.addInitScript((ls) => { try { localStorage.setItem("analyticsOff", "1"); for (const [k, v] of Object.entries(ls)) localStorage.setItem(k, v); } catch {} }, { theme, ...(fx.ls || {}) });   // the app starts light whatever the phone says, so the dark run sets the choice
   const page = await ctx.newPage();
   const label = `${fx.name}/${theme}/${width}px`;
@@ -153,6 +157,7 @@ async function runPage(browser, fx, theme, width) {
   }
   // the buy tab of buy version 1 (buy-and-file spec 20.11): the transfer check, the seller message, the km check, the price gauge.
   // UG_BUY_OUT=<dir> also saves the stages, the message, the km check and the gauge of each fixture with fx.buy there, to look at
+  if (fx.app && fx.ls?.mine) await appFileChecks(page, label);
   if (fx.buy && !fx.ls?.mine) await buyChecks(page, fx, label, theme === "light" && width === 390 ? process.env.UG_BUY_OUT : "");
   await page.addStyleTag({ content: "*{animation:none!important;transition:none!important}" });
 
@@ -212,6 +217,16 @@ async function runPage(browser, fx, theme, width) {
   await ctx.close();
 }
 
+// item 3 of the file (Dudu 20.11): in the app, a car that is the owner's asks for the alerts with its test date, once, and the answer is kept
+async function appFileChecks(page, label) {
+  await page.click(".tabs [data-tab=file]"); await page.waitForTimeout(300);
+  const c = await page.evaluate(() => ({ tab: currentTab, ask: (document.querySelector("#tabpanel .cf-ask b") || {}).textContent || "" }));
+  if (c.tab !== "file" || !/^הטסט ב-\d{1,2}\.\d{1,2}\.\d{2}\. נזכיר שבועיים לפני\.$/.test(c.ask)) { fail(`[${label}] the owner's file does not ask for the alerts with the test date: ${JSON.stringify(c)}`); return; }
+  await page.click("#tabpanel .cf-ask [data-bm=askOn]"); await page.waitForTimeout(900);
+  const a = await page.evaluate(() => ({ on: window.__app.alerts, card: !!document.querySelector("#tabpanel .cf-ask"), kept: JSON.parse(localStorage.getItem("alertAsk") || "{}")[current.plate] }));
+  if (a.on.join() !== "true" || a.card || a.kept !== "granted") fail(`[${label}] "הפעלת תזכורות": ${JSON.stringify(a)}`);
+}
+
 async function buyChecks(page, fx, label, out) {
   const ex = fx.buy, shot = async (sel, name) => { if (!out) return; const el = await page.$(sel); if (el) await el.screenshot({ path: path.join(out, `${fx.name}-${name}.png`) }); };
   if (out) await page.addStyleTag({ content: "#bnav,.skip,#toast{display:none!important}.chead,.tabs{position:static!important}" });   // the bottom bar and the sticky head would cover the card in its picture
@@ -226,6 +241,7 @@ async function buyChecks(page, fx, label, out) {
   await page.click("[data-bm=msg]"); await page.waitForTimeout(150);
   if (!(await page.$("#smsg:not([hidden]) #smPrev"))) fail(`[${label}] the seller message did not open`);
   await shot("#tabpanel .buyer-card", "seller-msg");
+  if (fx.app) { await page.click("[data-bm=wa]"); const sh = await page.evaluate(() => window.__app.shared); if (sh.length !== 1 || !/^היי, ראיתי את המודעה/.test(sh[0])) fail(`[${label}] in the app the seller message did not reach the share menu: ${JSON.stringify(sh)}`); }
   await page.click("[data-bm=msg]");
   if (ex.km) {
     await page.click("[data-bstage='2']"); await page.waitForTimeout(250);
