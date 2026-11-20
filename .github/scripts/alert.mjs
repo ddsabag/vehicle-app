@@ -197,6 +197,7 @@ export const LABELS = {
   "ai:key":              { he: "מפתח ה-Claude API לא עובד או שהקרדיט נגמר, והבוטים ממשיכים בלעדיו", sect: "fail" },
   // ai-usage.mjs (ops 1.11): the bots' spend crossed 80% of this credit cycle (the grant to 20.11.2026, then monthly from the 20th; ai-usage.mjs GRANTS); news, not a fault
   "ai:spend":            { he: "הבוטים השתמשו ב-80% מקרדיט ה-Claude API של המחזור", sect: "fyi" },
+  "ai:spend95":          { he: "הבוטים השתמשו ב-95% מקרדיט ה-Claude API של המחזור", sect: "fyi" },   // data's credit plan, Dudu 20.11.2026 "כן, שחרר"
   // diff review (Dudu 1.11, credit package A): a review of a branch found a high point; product reads the report and decides, nothing waits on it
   "code":                { he: "בדיקת הקוד לפני שחרור מצאה נקודות לבדוק: {id}", sect: "fyi" },
   // exploratory walk (Dudu 1.11, credit package B): the week's walk on next noted something high; the QA thread checks it before anything changes
@@ -215,7 +216,7 @@ export const FAMILIES_IN_USE = [
   "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:wait", "prod:fail",
   "stl:update", "stl:stuck", "stl:review", "truth", "truth:fail", "truth:done", "truth:inv", "truth:inv-fail", "truth:deep", "truth:deep-fail", "live:stuck", "live:error", "pipe",
   "social:fail", "social:missed", "social:unsure", "social:held", "social:done", "social:remind", "social:check", "exp", "auto:done", "auto:revert", "auto:mode",
-  "relguard", "relguard:ok", "relguard:thin", "zonea", "ai", "ai:key", "ai:spend", "code", "walk", "ceo:report", "ceo:weekly",
+  "relguard", "relguard:ok", "relguard:thin", "zonea", "ai", "ai:key", "ai:spend", "ai:spend95", "code", "walk", "ceo:report", "ceo:weekly",
 ];
 
 const TODAY = ["loud", "silent", "none"];
