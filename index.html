@@ -558,6 +558,19 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .svc-list li.doc{flex-wrap:wrap}.svc-list li.doc>div{flex:1 1 0}.doc-exp{flex:1 1 100%;display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:0;font-size:.9rem;color:var(--muted)}.doc-exp label{display:flex;align-items:center;gap:8px;flex:0 0 auto;white-space:nowrap}.doc-exp .inp{flex:0 1 10rem;width:auto;min-width:0}.doc-exp .link-btn{width:auto;margin:0;padding:8px 12px;min-height:44px}.doc-exp small{flex-basis:100%;font-size:.8rem}.doc-exp.need .inp{border-color:var(--accent)}
 .askrow{display:flex;gap:8px;align-items:stretch}.askrow .inp{flex:1;min-width:0;font-family:var(--f-num)}.askrow .link-btn{width:auto;white-space:nowrap}
 .bflags,.bq{margin:0 0 10px;padding-inline-start:20px}.bflags li{font-weight:600}.bflags li.bad::marker{color:var(--bad)}.bflags li.warn::marker{color:var(--warn)}.bq li{margin:2px 0}
+/* the buy tab's stages and its transfer check (buy-and-file spec 20.11) */
+.bchips{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:0 0 12px}
+.bchips button{display:grid;justify-items:center;align-content:start;gap:4px;min-height:58px;padding:7px 2px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--muted);font:inherit;font-size:.78rem;font-weight:700;line-height:1.2;text-align:center}
+.bchips .bn{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--soft);color:var(--fg);font-size:.78rem}.bchips .bn .i{width:14px;height:14px}
+.bchips button[aria-pressed=true]{border-color:var(--t-green);color:var(--fg);background:var(--t-green-bg)}.bchips button[aria-pressed=true] .bn{background:var(--t-green);color:var(--card)}
+.bstage-h{margin:0 0 2px;font-size:1.05rem}.bmodel{margin:0 0 10px}
+.xfer{margin:12px 0 0;padding:12px;border-radius:12px;background:var(--soft)}.card .xfer:first-child,.bprog+.xfer{margin-top:0}.bprog+.xfer{margin-bottom:14px}
+.xfer .qsec{margin:0 0 4px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}.xfer .qsec small{font-size:.78rem;font-weight:700;color:var(--muted);white-space:nowrap}.xfer.fix .qsec small{color:var(--warn)}
+.xsum{margin:0 0 8px;font-size:.9rem}.xend{margin:10px 0 0}.xfer>.link-btn{margin-top:8px}
+.xrows{list-style:none;margin:0;padding:0;display:grid;gap:8px}.xrows li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:8px;font-size:.9rem;align-items:start}
+.xk{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;font-size:.78rem;font-weight:800;background:var(--card);color:var(--muted)}
+.xrows .ok .xk{color:var(--ok)}.xrows .bad .xk{color:var(--bad)}.xrows .warn .xk{color:var(--warn)}.xrows .info .xk{color:var(--info)}.xrows .bad{font-weight:600}
+.xrows .link-btn{margin-top:6px;width:auto}
 .vd.ok{color:var(--ok);font-weight:700}.vd.bad{color:var(--bad);font-weight:700}.ft .g,.sum3 .g{color:var(--ok)}.ft .w,.sum3 .w{color:var(--warn)}.ft .r,.sum3 .r{color:var(--bad)}.ft td.g,.ft td.w,.ft td.r{font-weight:700}
 .sum3{display:flex;gap:6px;margin:10px 0}.sum3 div{flex:1;background:var(--soft);border-radius:10px;padding:6px;text-align:center;font-size:.85rem;color:var(--muted)}.sum3 b{display:block;font-size:1.3rem}
 .kinds{display:flex;flex-direction:column;gap:2px}.kinds label{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;font-size:.9rem;cursor:pointer}.kinds input[type=checkbox]{order:2;appearance:none;-webkit-appearance:none;flex:none;margin:0;width:44px;height:26px;border-radius:999px;background:#8a93a3;position:relative;transition:background .15s}.kinds input[type=checkbox]::after{content:"";position:absolute;top:3px;inset-inline-start:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}.kinds input[type=checkbox]:checked{background:var(--accent)}.kinds input[type=checkbox]:checked::after{transform:translateX(-18px)}.kinds input[type=checkbox]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}@media (prefers-reduced-motion:reduce){.kinds input[type=checkbox],.kinds input[type=checkbox]::after{transition:none}}.doc-add{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.doc-add .inp{flex:1 1 160px;min-width:0}
@@ -4371,22 +4384,74 @@ function checksCard(D){
   return card(`מה נבדק (${rows.length} בדיקות)`, "check", "green", `<ul class="insights plain">${rows.join("")}</ul>
     <p class="note" style="margin:0"><b>מה אי אפשר לדעת ממאגרי משרד התחבורה:</b> שעבודים, תאונות, אובדן גמור וירידת ערך מביטוח, וגניבה. שעבוד, עבר ביטוחי (תביעות, אובדן גמור) וגניבה אפשר לבדוק בשלב הראשון ברשימה "לפני שקונים".</p>`);
 }
-function tabBuy(D){
-  const c = D.cost, html = [];
-  const paid = tier("ב-PRO ובחבילת הקנייה", buyerCard(D));
-  const entitled = !PRO_LOCK || isPro();
-  if (entitled) html.push(paid);
-  html.push(card("שווי משוער", "tag", "pink", (c.valueLow ?
-    `<div class="tow-grid"><div><div class="k">מחיר מחירון כחדש</div><div class="v">${fmtN(c.newPrice)}<span class="u">₪</span></div></div><div><div class="k">שווי היום (הערכה)</div><div class="v"><span dir="ltr" style="unicode-bidi:isolate;white-space:nowrap">${Math.round(c.valueLow / 1000)}–${Math.round(c.valueHigh / 1000)}</span><span class="u">אלף ₪</span></div></div></div>
-     ${priceFrom(D)}
-     <p class="note">הערכה בלבד. היא לא מביאה בחשבון את מצב הרכב, תאונות והביקוש לדגם.</p>` :
-    `<p style="margin:0">${D.isCancelled ? "הרכב ירד מהכביש, ולכן אין לו הערכת שווי." : D.importKind ? IMPORT_NO_PRICE + ", ולכן אין כאן מחיר מחירון והערכת שווי." : "אין במאגר מחיר מחירון לדגם הזה, ולכן אין הערכת שווי."}</p>`)));
-  html.push(checksCard(D));
-  const lk = (url, icon, text, copy) => `<button type="button" class="link-btn" data-url="${esc(url)}"${copy ? ` data-copyfirst="${D.plate}"` : ""}>${ico(icon)}${text}</button>`;
-  const ckKey = "buychk:" + D.plate; let ckDone = []; try { ckDone = JSON.parse(localStorage.getItem(ckKey) || "[]"); } catch {}
-  /* one row per step: its title always shows and its body opens on tap, so the six steps read as a plan on one screen; the next step to do
-     opens by itself, and a done step shows a tick instead of its number */
-  const next = [1, 2, 3, 4, 5, 6].find(n => !ckDone.includes(n));
+/* ---------- the buy tab in four stages (buy-and-file spec 20.11.2026, 3.2-3.5) ----------
+   A buyer opens the tab at home, beside the car and on the day of the deal, and needs only that moment's part. The six steps of 1.38 keep their
+   numbers in buychk:<plate> and a stage is done when its steps are: steps 1-2 are the first stage, 3 the second, 4-5 the third, 6 the fourth.
+   The stages are read from the steps, so a car marked before this version opens at its own stage and nothing is migrated. What the buyer types
+   (the dashboard km, the check against the registration) is kept beside it in buyin:<plate>. */
+const BUY_STAGES = [{n: 1, t: "לפני שנפגשים", steps: [1, 2]}, {n: 2, t: "ליד הרכב", steps: [3]}, {n: 3, t: "לפני שמשלמים", steps: [4, 5]}, {n: 4, t: "ביום ההעברה", steps: [6]}];
+const BUY = {
+  pick: {},            // the stage tapped on this visit, per car; without one the first stage not done opens
+  seen: new Set(),     // buy_stage {from: auto} and transfer_check: once per car per visit
+  msg: {},             // the seller message's choices on this visit, per car
+  done(p){ try { const a = JSON.parse(localStorage.getItem("buychk:" + p) || "[]"); return Array.isArray(a) ? a : []; } catch { return []; } },
+  input(p){ try { return JSON.parse(localStorage.getItem("buyin:" + p) || "{}") || {}; } catch { return {}; } },
+  keep(p, o){ try { localStorage.setItem("buyin:" + p, JSON.stringify({...BUY.input(p), ...o})); return true; } catch { return false; } },
+};
+const stageDone = (s, done) => s.steps.every(n => done.includes(n));
+function buyStage(D){
+  const done = BUY.done(D.plate), auto = (BUY_STAGES.find(s => !stageDone(s, done)) || BUY_STAGES[3]).n;
+  return {n: BUY.pick[D.plate] || auto, auto, done};
+}
+function stageChips(D, st){
+  if (reportBuild) return "";
+  return `<div class="bchips" role="group" aria-label="שלבי הקנייה">${BUY_STAGES.map(s => `<button type="button" data-bstage="${s.n}" aria-pressed="${s.n === st.n}"><span class="bn">${stageDone(s, st.done) ? ico("check") : s.n}</span>${s.t}</button>`).join("")}</div>`;
+}
+/* "אפשר להעביר בעלות?": a row for each thing that can stop the transfer on the day, from what the registers show (spec 3.5 ב). It never says the
+   transfer will go through: a lien, partners and heirs are seen only at the pledges registrar or the licensing office, so they are always rows of
+   their own. A register that did not answer gives "not checked now", never "fine". The disabled-parking tag is personal: on the screen only, never
+   in a report, a PDF or the shared picture (pub) */
+const XK = {ok: "✓", bad: "✗", warn: "!", unk: "?", info: "i"};
+function transferCheck(D, pub){
+  const rows = [], add = (k, t, o) => rows.push({k, t, ...o}), failed = key => (D.errs || []).some(s => s.key === key);
+  if (D.isCancelled) { add("bad", "הרכב ירד מהכביש. אי אפשר לקנות אותו כרכב לנסיעה.", {id: "off"}); return rows; }
+  const L = licOf(D);
+  if (L) add(L.k === "ok" ? "ok" : L.k === "bad" ? "bad" : "warn", L.k === "ok" ? licLine(L) : L.k === "bad" ? `הטסט פג ב-${L.date}. העברה באינטרנט לא אפשרית עם טסט שאינו בתוקף. מסדירים טסט לפני העסקה.`
+    : `${licLine(L)}. בודקים שהטסט בתוקף לפני העסקה: בלי טסט בתוקף אין העברה באינטרנט.`, {id: "test"});
+  if (!pub && !reportBuild) {
+    if (D.tag) add("bad", "לרכב יש תג חניה לנכה. העברה באינטרנט לא אפשרית עד שהבעלים מסיר את התג במשרד הרישוי.", {id: "tag"});
+    else if (failed("tag")) add("unk", "מאגר תגי החניה לנכה לא ענה עכשיו, ולכן תג לא נבדק.", {id: "tag", reg: 1});
+  }
+  const pr = pendingRecalls(D);
+  if (D.recallUnknown) add("unk", "מאגר הריקולים לא ענה עכשיו, ולכן ריקול פתוח לא נבדק.", {id: "recall", reg: 1});
+  else if (D.recalls.length) add("warn", "ריקול פתוח עלול לעכב את ההעברה ואת חידוש הרישיון. מבקשים מהמוכר אישור תיקון מהיבואן. התיקון בדרך כלל ללא עלות.", {id: "recall"});
+  else if (pr.length) add("warn", `${pendingWords(pr).line}. בודקים באתר היבואן לפני העסקה.`, {id: "recall"});
+  if (D.importKind) add("unk", "רכב ביבוא אישי. בררו במשרד הרישוי אם יש מגבלה על מכירה.", {id: "import"});
+  if (D.pubUse) add("info", "הרכב רשום גם כרכב ציבורי. בודקים מול המוכר שהרישום הוסב לפרטי.", {id: "public"});
+  add("unk", "שעבוד לא מופיע במאגרי משרד התחבורה. בודקים ברשם המשכונות, בחינם.", {id: "lien", link: ["https://www.gov.il/he/service/pawn_perusal", "lien", "בדיקה ברשם המשכונות"]});
+  add("unk", "רכב שרשום על כמה בעלים לא עובר באינטרנט. שואלים את המוכר ובודקים ברישיון הרכב.", {id: "partners"});
+  add("unk", "אם הבעלים נפטר, צריך לרשום קודם את היורשים.", {id: "heirs", late: 1});
+  return rows;
+}
+const xferFix = rows => rows.filter(r => r.k === "bad" || r.k === "warn").length;
+/* the summary and its rows: in the first stages the summary with what needs settling, on the day of the transfer every row (full). print: for the
+   checklist PDF, with no buttons and no tag */
+function transferBlock(D, full, print){
+  const rows = transferCheck(D, print), fix = xferFix(rows), regs = rows.filter(r => r.reg).length;
+  const sum = fix ? `${fix === 1 ? "יש דבר אחד להסדיר לפני העברה. בלעדיו" : `יש ${fix} דברים להסדיר לפני העברה. בלעדיהם`} ייתכן שלא תוכלו להעביר בעלות ביום העסקה.`
+    : regs ? "לא כל המאגרים ענו עכשיו, ולכן הבדיקה חלקית. שעבוד ושותפים נבדקים ברשם ובמשרד הרישוי."
+    : "לפי המאגרים, לא מצאנו חסם להעברה. שעבוד ושותפים נבדקים ברשם ובמשרד הרישוי.";
+  const shown = full ? rows : rows.filter(r => r.k === "bad" || r.k === "warn" || r.reg);
+  const link = r => r.link && !print ? `<button type="button" class="link-btn" data-url="${r.link[0]}" data-copyfirst="${D.plate}" data-tl="${r.link[1]}">${ico("search")}${r.link[2]}</button>` : "";
+  return `<div class="xfer${fix ? " fix" : ""}"><div class="qsec">אפשר להעביר בעלות?<small>${fix ? (fix === 1 ? "דבר אחד להסדיר" : `${fix} דברים להסדיר`) : regs ? "בדיקה חלקית" : "לא נמצא חסם"}</small></div>
+    <p class="xsum">${sum}</p>${shown.length ? `<ul class="xrows">${shown.map(r => `<li class="${r.k}"><span class="xk" aria-hidden="true">${XK[r.k]}</span><span>${esc(r.t)}${link(r)}</span></li>`).join("")}</ul>` : ""}
+    ${full ? `<p class="note xend"><b>משלמים רק במעמד העברת הבעלות.</b> דמי ההעברה מופיעים בדף האגרות של משרד התחבורה, שמתעדכן כל אפריל.</p>${print ? "" : `<button type="button" class="link-btn" data-url="${FEE_SOURCE}" data-tl="gov">${ico("doc")}דף האגרות של משרד התחבורה</button>`}` : ""}</div>`;
+}
+/* the six steps' titles and bodies; print draws them for paper (the checklist PDF): links become lines to tick, and the search for a testing
+   station a line of its own */
+function buySteps(D, print){
+  const plate = D.kind !== "model" && D.plate ? D.plate : "";
+  const lk = (url, icon, text, copy, tl) => print ? `<p class="note">☐ ${text.replace(/<[^>]+>/g, "")}</p>` : `<button type="button" class="link-btn" data-url="${esc(url)}"${copy && plate ? ` data-copyfirst="${plate}"` : ""}${tl ? ` data-tl="${tl}"` : ""}>${ico(icon)}${text}</button>`;
   // step 3 for what the vehicle is: an electric one has no engine to warm up and no exhaust, but a battery and a charging port, a plug-in has
   // both, and a two-wheeler has no air conditioner (data thread's audit, 28.10)
   const ev = fuelKind(D) === "ev", moto = !!D.primary && D.primary.key === "moto", plugIn = !ev && (driveType(D) || {}).k === "phev";
@@ -4395,42 +4460,77 @@ function tabBuy(D){
       "השוו את הטווח שמוצג בסוללה מלאה לטווח של הדגם כשהיה חדש, ושאלו אם נבדק מצב הסוללה במרכז שירות."]
     : [`הניעו את הרכב${moto ? "" : ", הפעילו מזגן"} ותנו לו לעבוד כמה דקות בזמן שאתם בודקים אותו מבחוץ.`, "בדקו בלוח המחוונים שהמנוע מתחמם ושומר על טמפרטורה תקינה.",
       "חפשו עשן לבן או אפור מהאגזוז, ונזילות מים או שמן תחת המנוע.", ...(plugIn ? [port] : [])];
-  const step = (n, title, body) => { const done = ckDone.includes(n); return `<li class="st"><span class="n${done ? " done" : ""}">${done ? ico("check") : n}</span><details class="bstep"${n === next ? " open" : ""}><summary><b>${title}</b></summary><div class="bs-body">${body}<button type="button" class="ck" data-ck="${n}" aria-pressed="${done}">${done ? "בוצע" : "סימון כבוצע"}</button></div></details></li>`; };
-  // a car off the road for good cannot be driven: no plan for buying it to drive, which ends with "start driving" (data thread's audit, 28.10)
-  if (D.isCancelled) html.push(card("לפני שקונים", "alert", "amber", `<p style="margin:0">הרכב ירד מהכביש ואינו יכול לנסוע, ולכן אין כאן שלבים לקניית רכב לנסיעה. אם מציעים לכם אותו כרכב לנסיעה, בררו במשרד הרישוי לפני שמשלמים.</p>`));
-  else html.push(card("לפני שקונים", "check", "green",
-    `<p class="bprog" id="bprog">${ckDone.length ? `בוצעו ${ckDone.length} מתוך 6 שלבים` : "סמנו שלבים תוך כדי, והסימון נשמר לרכב הזה"}</p><ol class="bsteps">
-     ${step(1, "בבית, לפני שנפגשים", `${lk("https://www.gov.il/he/service/pawn_perusal", "search", `בדיקת שעבוד<span class="lk-x"> ברשם המשכונות</span>`, true)}
-       ${lk("https://infocar.co.il/", "search", "בדיקת עבר ביטוחי (מרכז הסליקה של חברות הביטוח)", true)}
-       ${lk("https://www.gov.il/apps/police/stolencar/", "search", "בדיקה במאגר הרכבים הגנובים (משטרה)", true)}`)}
-     ${step(2, "המוכר והמסמכים", `<ul class="bq"><li>ודאו שמי שמציג את הרכב הוא הבעלים החוקי: שמו ומספר תעודת הזהות שלו מופיעים ברישיון הרכב העדכני. אם הוא מיופה כוח, כדאי לדבר גם עם הבעלים.</li><li>במכירה פרטית, מומלץ להיפגש בבית המוכר ובאור יום.</li><li>בעסקה עם סוחר, בקשו בכתב מסמכי רכישה ואחריות.</li></ul>`)}
-     ${step(3, "בפגישה עם הרכב", `<ul class="bq">${meet.map(t => `<li>${t}</li>`).join("")}</ul>`)}
-     ${step(4, "בדיקה במכון", `<div class="insp"><p class="note" style="margin:0 0 6px">מומלץ לבדוק במכון מורשה אחרי שהסכמתם על מחיר עם המוכר, וליידע מראש שתיקונים שיתגלו יקוזזו מהמחיר. סכמו מראש מי משלם על הבדיקה אם יתגלו תקלות קריטיות ${ev ? "בסוללה, במנוע" : "במנוע, בגיר"} או בשלדה. מכונים מתוך רשימת המוסכים המורשים של משרד התחבורה:</p>
+  // with a plate the registers' side of the transfer is checked above it, so the day's step is the order of the day; a model keeps the general list
+  const day = plate ? `<ol class="bq"><li>המוכר מתחיל את העברת הבעלות באזור האישי באתר משרד התחבורה, והקונה מאשר אותה.</li><li>משלמים במעמד ההעברה, לא לפני.</li><li>עושים ביטוח חובה לפני שנוסעים.</li><li>ביטול הביטוח של המוכר הוא באחריות המוכר.</li></ol>`
+    : `<p class="note">ייתכן שלא ניתן יהיה להעביר בעלות, ולכן הסדירו מראש:</p><ul class="bq"><li>טסט בתוקף.</li><li>ריקול פתוח שטופל.</li><li>הסרת שעבוד או עיקול מול הגורם המשעבד.</li><li>הסרת תג חניה לנכה, כשרשום, במשרד הרישוי.</li><li>רישום היורשים, אם הבעלים נפטר.</li></ul>`;
+  return {
+    1: ["בבית, לפני שנפגשים", `${lk("https://www.gov.il/he/service/pawn_perusal", "search", `בדיקת שעבוד<span class="lk-x"> ברשם המשכונות</span>`, true, "lien")}
+       ${lk("https://infocar.co.il/", "search", "בדיקת עבר ביטוחי (מרכז הסליקה של חברות הביטוח)", true, "infocar")}
+       ${lk("https://www.gov.il/apps/police/stolencar/", "search", "בדיקה במאגר הרכבים הגנובים (משטרה)", true, "police")}`],
+    2: ["המוכר והמסמכים", `<ul class="bq"><li>ודאו שמי שמציג את הרכב הוא הבעלים החוקי: שמו ומספר תעודת הזהות שלו מופיעים ברישיון הרכב העדכני. אם הוא מיופה כוח, כדאי לדבר גם עם הבעלים.</li><li>במכירה פרטית, מומלץ להיפגש בבית המוכר ובאור יום.</li><li>בעסקה עם סוחר, בקשו בכתב מסמכי רכישה ואחריות.</li></ul>`],
+    3: ["בפגישה עם הרכב", `<ul class="bq">${meet.map(t => `<li>${t}</li>`).join("")}</ul>`],
+    4: ["בדיקה במכון", print ? `<p class="note">☐ בדיקה במכון בדיקה מורשה, אחרי שהסכמתם על מחיר.</p>` : `<div class="insp"><p class="note" style="margin:0 0 6px">מומלץ לבדוק במכון מורשה אחרי שהסכמתם על מחיר עם המוכר, וליידע מראש שתיקונים שיתגלו יקוזזו מהמחיר. סכמו מראש מי משלם על הבדיקה אם יתגלו תקלות קריטיות ${ev ? "בסוללה, במנוע" : "במנוע, בגיר"} או בשלדה. מכונים מתוך רשימת המוסכים המורשים של משרד התחבורה:</p>
        <form class="msearch" data-insp><input id="inspCity" placeholder="עיר, למשל חולון" value="${esc(setting("inspCity", ""))}" aria-label="עיר"><button type="submit" class="go sm" aria-label="חיפוש">${ico("search")}</button></form>
-       <div id="inspRes" style="margin-top:10px"></div></div>`)}
-     ${step(5, "מה לשקלל במחיר", `<ul class="bq"><li><b>מצבר:</b> לרוב מחליפים אחרי 30 עד 36 חודשים. בדקו את גילו ואם הוא עדיין באחריות.</li><li><b>צמיגים:</b> בדקו מצב וגיל (התאריך מוטבע על הצמיג). בשימוש רגיל הם מחזיקים כ-40 עד 50 אלף ק״מ.</li><li><b>טסט קרוב:</b> חשבו אגרה, עלות טסט, הכנה ויום חופש.</li><li><b>טיפולים:</b> בקשו פירוט מהמוסך ובדקו שהתאריכים והק״מ הגיוניים מול המד. בררו מתי הטיפול הבא ומה עלותו.</li></ul>`)}
-     ${step(6, "לפני התשלום", `<p class="note">ייתכן שלא ניתן יהיה להעביר בעלות, ולכן הסדירו מראש:</p><ul class="bq"><li>טסט בתוקף.</li><li>ריקול פתוח שטופל.</li><li>הסרת שעבוד או עיקול מול הגורם המשעבד.</li><li>הסרת תג חניה לנכה, כשרשום, במשרד הרישוי.</li><li>רישום היורשים, אם הבעלים נפטר.</li></ul>
-       <p class="note"><b>אל תעבירו תשלום לפני שפעלתם לפי השלבים, ושלמו רק במעמד העברת הבעלות.</b></p>`)}
-     <li class="bsteps-end"><span class="n">${ico("check")}</span><div><b>אחרי העסקה</b><p class="note">בצעו העברת בעלות ועדכנו את הביטוח מיד, ורק אז התחילו לנהוג ברכב.</p>
-       ${lk("https://car.cma.gov.il/", "doc", `השוואת<span class="lk-x"> מחירי</span> ביטוח חובה`)}</div></li>
-     </ol>
-     <button type="button" class="link-btn" data-act="checklistPdf">${ico("doc")}הורדה או הדפסה של רשימת הבדיקות (PDF)</button>`));
+       <div id="inspRes" style="margin-top:10px"></div></div>`],
+    5: ["מה לשקלל במחיר", `<ul class="bq"><li><b>מצבר:</b> לרוב מחליפים אחרי 30 עד 36 חודשים. בדקו את גילו ואם הוא עדיין באחריות.</li><li><b>צמיגים:</b> בדקו מצב וגיל (התאריך מוטבע על הצמיג). בשימוש רגיל הם מחזיקים כ-40 עד 50 אלף ק״מ.</li><li><b>טסט קרוב:</b> חשבו אגרה, עלות טסט, הכנה ויום חופש.</li><li><b>טיפולים:</b> בקשו פירוט מהמוסך ובדקו שהתאריכים והק״מ הגיוניים מול המד. בררו מתי הטיפול הבא ומה עלותו.</li></ul>`],
+    6: ["לפני התשלום", `${day}<p class="note"><b>אל תעבירו תשלום לפני שפעלתם לפי השלבים, ושלמו רק במעמד העברת הבעלות.</b></p>`],
+    after: `<li class="bsteps-end"><span class="n">${ico("check")}</span><div><b>אחרי העסקה</b><p class="note">בצעו העברת בעלות ועדכנו את הביטוח מיד, ורק אז התחילו לנהוג ברכב.</p>
+       ${lk("https://car.cma.gov.il/", "doc", `השוואת<span class="lk-x"> מחירי</span> ביטוח חובה`)}</div></li>`,
+  };
+}
+/* what a stage holds on top of its steps: the tools beside the car in the second, the whole transfer check and the door to the file in the fourth */
+function stageExtra(D, n, print){
+  if (D.kind === "model" || !D.plate) return "";
+  if (n === 4) return transferBlock(D, true, print);
+  return "";
+}
+function stageCard(D, chips){
+  const st = buyStage(D), s = BUY_STAGES[st.n - 1], S = buySteps(D);
+  if (!reportBuild && D.plate && !BUY.seen.has("st:" + D.plate)) { BUY.seen.add("st:" + D.plate); track("buy_stage", {stage: st.n, from: "auto"}); }
+  const step = n => { const done = st.done.includes(n); return `<li class="st"><span class="n${done ? " done" : ""}">${done ? ico("check") : n}</span><details class="bstep"${done ? "" : " open"}><summary><b>${S[n][0]}</b></summary><div class="bs-body">${S[n][1]}<button type="button" class="ck" data-ck="${n}" aria-pressed="${done}">${done ? "בוצע" : "סימון כבוצע"}</button></div></details></li>`; };
+  const model = D.kind === "model" ? `<p class="note bmodel">רוצים בדיקה לרכב מסוים? מקלידים מספר רישוי, ומקבלים דגלים, שאלות ובדיקת העברה.</p>` : "";
+  return card("לפני שקונים", "check", "green", `${chips ? stageChips(D, st) : ""}${model}<h3 class="bstage-h">${s.n}. ${s.t}</h3>
+    <p class="bprog" id="bprog">${st.done.length ? `בוצעו ${st.done.length} מתוך 6 שלבים` : "סמנו שלבים תוך כדי, והסימון נשמר לרכב הזה"}</p>
+    ${stageExtra(D, s.n)}<ol class="bsteps">${s.steps.map(step).join("")}${s.n === 4 ? S.after : ""}</ol>
+    <button type="button" class="link-btn" data-act="checklistPdf">${ico("doc")}הורדה או הדפסה של רשימת הבדיקות (PDF)</button>`);
+}
+function tabBuy(D){
+  const c = D.cost, html = [];
+  const paid = tier("ב-PRO ובחבילת הקנייה", buyerCard(D));
+  const entitled = !PRO_LOCK || isPro();
+  if (entitled) html.push(paid);
+  // a car off the road for good cannot be driven: no price, no plan for buying it to drive, which ends with "start driving" (data thread's audit, 28.10),
+  // and the transfer check is its one red row
+  if (D.isCancelled) html.push(card("לפני שקונים", "alert", "amber", `<p style="margin:0">הרכב ירד מהכביש ואינו יכול לנסוע, ולכן אין כאן שלבים לקניית רכב לנסיעה. אם מציעים לכם אותו כרכב לנסיעה, בררו במשרד הרישוי לפני שמשלמים.</p>${transferBlock(D, true)}`));
+  else {
+    html.push(card("שווי משוער", "tag", "pink", (c.valueLow ?
+      `<div class="tow-grid"><div><div class="k">מחיר מחירון כחדש</div><div class="v">${fmtN(c.newPrice)}<span class="u">₪</span></div></div><div><div class="k">שווי היום (הערכה)</div><div class="v"><span dir="ltr" style="unicode-bidi:isolate;white-space:nowrap">${Math.round(c.valueLow / 1000)}–${Math.round(c.valueHigh / 1000)}</span><span class="u">אלף ₪</span></div></div></div>
+       ${priceFrom(D)}
+       <p class="note">הערכה בלבד. היא לא מביאה בחשבון את מצב הרכב, תאונות והביקוש לדגם.</p>` :
+      `<p style="margin:0">${D.isCancelled ? "הרכב ירד מהכביש, ולכן אין לו הערכת שווי." : D.importKind ? IMPORT_NO_PRICE + ", ולכן אין כאן מחיר מחירון והערכת שווי." : "אין במאגר מחיר מחירון לדגם הזה, ולכן אין הערכת שווי."}</p>`)));
+    // the stage chips sit in the buyer card; a model check has none, so they open the steps' card
+    html.push(stageCard(D, !(entitled && paid)));
+  }
+  html.push(checksCard(D));
   html.push(`<div id="mstat">${msCard(D)}</div>`);
   if (!D.isCancelled) html.push(buyService(D));
   if (!entitled) html.push(paid);
   return html.join("");
 }
-
+/* the buyer's own redraw of the tab (a stage, a step, a check): the page stays where it was */
+function buyRedraw(){ const y = window.scrollY; renderResult(); window.scrollTo(0, y); }
 document.addEventListener("click", ev => {
-  const b = ev.target.closest && ev.target.closest("[data-ck]"); if (!b || !current) return;
-  const key = "buychk:" + current.plate; let a = []; try { a = JSON.parse(localStorage.getItem(key) || "[]"); } catch {}
-  const n = +b.dataset.ck, on = !a.includes(n); a = on ? a.concat(n) : a.filter(x => x !== n);
-  try { localStorage.setItem(key, JSON.stringify(a)); } catch {}
-  b.setAttribute("aria-pressed", String(on)); b.textContent = on ? "בוצע" : "סימון כבוצע";
-  const num = b.closest("li") && b.closest("li").querySelector(".n"); if (num) { num.classList.toggle("done", on); num.innerHTML = on ? ico("check") : String(n); }
-  if (on) { const d = b.closest("details"), nx = document.querySelector(".bsteps .ck[aria-pressed=false]"); if (d && nx) { d.open = false; const nd = nx.closest("details"); nd.open = true; nd.querySelector("summary").focus(); } }
-  const p = $("#bprog"); if (p) p.textContent = a.length ? `בוצעו ${a.length} מתוך 6 שלבים` : "סמנו שלבים תוך כדי, והסימון נשמר לרכב הזה";
-  if (on) track("buy_step_done", {n});
+  const b = ev.target.closest && ev.target.closest("[data-ck],[data-bstage],[data-tl]"); if (!b || !current) return;
+  if (b.dataset.tl) { track("transfer_link", {to: b.dataset.tl}); return; }
+  const p = current.plate;
+  if (b.dataset.bstage) { const n = +b.dataset.bstage; if (buyStage(current).n === n) return; BUY.pick[p] = n; track("buy_stage", {stage: n, from: "tap"}); buyRedraw(); return; }
+  let a = BUY.done(p);
+  const n = +b.dataset.ck, on = !a.includes(n), s = BUY_STAGES.find(x => x.steps.includes(n)); a = on ? a.concat(n) : a.filter(x => x !== n);
+  try { localStorage.setItem("buychk:" + p, JSON.stringify(a)); } catch { toast("הסימון לא נשמר במכשיר הזה"); }
+  // a stage just done hands over to the next one not done, unless the buyer is looking back at an earlier one
+  if (on && stageDone(s, a) && BUY.pick[p] === s.n) delete BUY.pick[p];
+  if (on) track("buy_step_done", {n, stage: s.n});
+  buyRedraw();
 });
 /* pre-purchase inspection centres from the ministry's licensed-garage list, by city */
 const GARAGES = "bb68386a-a331-4bbc-b668-bba2766d517d";
@@ -5446,7 +5546,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.act === "bulkSave") { bulkSave(); return; }
   if (b.dataset.act === "bulkCsv") { bulkCsv(); return; }
   if (b.dataset.act === "bulkPdf") { bulkPdf(b); return; }
-  if (b.dataset.act === "checklistPdf") { track("checklist_pdf"); checklistPdf(b); return; }
+  if (b.dataset.act === "checklistPdf") { track("checklist_pdf", current ? {stage: buyStage(current).n} : {}); checklistPdf(b); return; }
   if (b.dataset.act === "proInfo" || b.dataset.act === "upgrade") { if (!PRO_LOCK) return; track("upgrade_open", {from: b.dataset.src || currentTab || "home"}); if (UPGRADE_UI) renderUpgrade(); else toast("זמין בקרוב"); return; }
   if (b.dataset.act === "mkCsv") { marketCsv(); return; }
   if (b.dataset.buy) { buyPlan(b.dataset.buy); return; }
@@ -7171,7 +7271,7 @@ function buyerCard(D){
   if (ownNow(D).kind === "rental") { flags.push(["warn", "הרכב רשום כעת על חברת השכרה"]); qs.push("כמה קילומטרים עשה הרכב בהשכרה, ויש תיעוד של כל הטיפולים?"); }
   if (D.tag && !reportBuild) flags.push(["warn", "יש לרכב תג חניה לנכה, שצריך להסיר לפני העברת בעלות"]);   // personal: on the screen only, never in a report
   // "no red flags" only when every register answered: a recall register that did not load hides open recalls
-  const none = !D.recallUnknown && !D.modelErr && !(D.errs || []).length ? "לא עלו דגלים אדומים בנתונים." : "לא כל הנתונים נטענו, ולכן אין סיכום דגלים.";
+  const none = !D.recallUnknown && !D.modelErr && !(D.errs || []).length ? "לא עלו דגלים אדומים בנתונים. זה לא מחליף בדיקה במכון." : "לא כל הנתונים נטענו, ולכן אין סיכום דגלים.";
   const dtk = driveType(D);
   if (dtk && ["ev", "phev", "hybrid"].includes(dtk.k)) qs.unshift("עד מתי ועד כמה ק״מ יש אחריות יצרן על הסוללה?", "אפשר לעשות ביטוח לסוללה או להאריך את האחריות, ובכמה זה עולה?", ...(dtk.k === "hybrid" ? [] : ["יש דוח בדיקת בריאות סוללה?"]));
   if (PRO_LOCK && !isPro()) {
@@ -7179,11 +7279,15 @@ function buyerCard(D){
     return `<div class="buyer-card">${card("ליווי קנייה", "bulb", "amber", `${top.length ? `<div class="qsec">כדאי לבדוק</div><ul class="bflags">${top.map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul>` : `<p style="margin:0 0 8px">${none}</p>`}<p class="note" style="margin:6px 0 8px">${more ? (more === 1 ? "יש עוד דגל אחד, " : `יש עוד ${more} דגלים, `) : ""}ושאלות למוכר נמצאים בחבילת קנייה.</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לפרטים על חבילת קנייה</button>`, `${PT("חבילת קנייה")}`)}</div>`;
   }
   const it = savedItem(D.plate), ask = it && it.ask || null, f = candFields(D), vd = askVerdict(ask, f.fair);
-  const body = `${flags.length ? `<div class="qsec">כדאי לבדוק</div><ul class="bflags">${flags.slice(0, 5).map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul>` : `<p style="margin:0 0 8px">${none}</p>`}
+  // the stages on top and the transfer summary under the questions: transfer_check once per car per visit, with how many rows need settling
+  const st = buyStage(D);
+  if (!reportBuild && !BUY.seen.has("tc:" + D.plate)) { const rows = transferCheck(D); BUY.seen.add("tc:" + D.plate); track("transfer_check", {red: xferFix(rows), unk: rows.filter(r => r.reg).length, stage: st.n}); }
+  const body = `${stageChips(D, st)}${flags.length ? `<div class="qsec">כדאי לבדוק</div><ul class="bflags">${flags.slice(0, 5).map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul>` : `<p style="margin:0 0 8px">${none}</p>`}
     ${qs.length ? `<div class="qsec">מה לשאול את המוכר על הרכב הזה</div><ul class="bq">${qs.slice(0, 6).map(q => `<li>${esc(q)}</li>`).join("")}</ul>` : ""}
     <div class="qsec" style="margin-top:10px">המחיר שהמוכר מבקש</div>
     <div class="askrow"><input class="inp" id="askIn" inputmode="numeric" placeholder="₪" value="${ask || ""}" aria-label="המחיר המבוקש"><button type="button" class="link-btn" data-act="candSave">${ico("star")}${it ? "עדכון" : "שמירה כמועמד"}</button></div>
-    ${vd ? `<p class="vd ${vd.k}" style="margin:6px 0 0">${esc(vd.t)}</p>` : ""}`;
+    ${vd ? `<p class="vd ${vd.k}" style="margin:6px 0 0">${esc(vd.t)}</p>` : ""}
+    ${transferBlock(D, false)}`;
   return `<div class="buyer-card">${card("ליווי קנייה", "bulb", "amber", body, `${PT("חבילת קנייה")}`)}</div>`
 }
 
@@ -7271,20 +7375,22 @@ function bulkCsv(){
   shareFile(new Blob([csv], {type: "text/csv"}), `Luchit-list-${new Date().toISOString().slice(0, 10)}.csv`, "רשימת רכבים");
 }
 /* the purchase checklist as a printable PDF; links become plain lines to tick off */
+/* the purchase checklist as a printable PDF: every stage, whichever is open on screen, with lines to tick off */
+function buyPrint(D){
+  const S = buySteps(D, true), done = D.plate ? BUY.done(D.plate) : [];
+  return BUY_STAGES.map(s => `<h3 class="rep-sec">${s.n}. ${s.t}</h3>${stageExtra(D, s.n, true)}<ol class="bsteps">${s.steps.map(n => `<li class="st"><span class="n${done.includes(n) ? " done" : ""}">${n}</span><div><b>${S[n][0]}${done.includes(n) ? " (בוצע)" : ""}</b>${S[n][1]}</div></li>`).join("")}</ol>`).join("");
+}
 async function checklistPdf(btn){
-  const src = $(".bsteps"); if (!src) return;
+  const D = current; if (!D) return;
   const old = btn.innerHTML; btn.disabled = true; btn.textContent = "מכין PDF…";
   try {
     await loadScript(LIBS.pdf);
-    const today = dmy(Date.now()), D = current;
-    const list = src.cloneNode(true);
-    list.querySelectorAll("details").forEach(d => d.setAttribute("open", ""));
-    list.querySelectorAll(".link-btn").forEach(x => { const p = document.createElement("p"); p.className = "note"; p.textContent = "☐ " + x.textContent.trim(); x.replaceWith(p); });
-    list.querySelectorAll(".insp").forEach(x => { const p = document.createElement("p"); p.className = "note"; p.textContent = "☐ בדיקה במכון בדיקה מורשה, אחרי שהסכמתם על מחיר."; x.replaceWith(p); });
+    const today = dmy(Date.now());
+    const list = document.createElement("div"); list.innerHTML = buyPrint(D);
     list.querySelectorAll("li li, .bq li").forEach(x => { x.insertAdjacentText("afterbegin", "☐ "); });
     list.querySelectorAll(".bq").forEach(u => { u.style.listStyle = "none"; u.style.paddingInlineStart = "0"; });
     const el = document.createElement("div"); el.className = "report pdf";
-    el.innerHTML = brandHead() + `<div class="rep-head"><b>רשימת בדיקה לקניית רכב משומש</b><span>${D ? fmtPlate(D.plate) + " · " : ""}${today}</span></div><section class="card">${list.outerHTML}</section><p class="rep-foot">רשימה כללית, ואינה ייעוץ משפטי. ${BRAND_FOOT}</p>`;
+    el.innerHTML = brandHead() + `<div class="rep-head"><b>רשימת בדיקה לקניית רכב משומש</b><span>${D.plate && D.kind !== "model" ? fmtPlate(D.plate) + " · " : ""}${today}</span></div><section class="card">${list.innerHTML}</section><p class="rep-foot">רשימה כללית, ואינה ייעוץ משפטי. ${BRAND_FOOT}</p>`;
     inlineIcons(el);
     const {canvas, breaks} = await captureEl(el, ".card, li, .rep-foot");
     const blob = await pdfFromCanvas(canvas, breaks, "לוחית · רשימת בדיקה לקניית רכב", today);
