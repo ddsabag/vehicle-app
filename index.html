@@ -1303,7 +1303,8 @@ const LAND = (() => { try {
 /* silent failures worth knowing about (a dataset that errors, a library that does not load): sent to Crashlytics as a non-fatal, tag only, never a plate */
 /* a JavaScript error nobody sees: counted (line number only, never the message, which could hold a plate), at most 5 per session */
 let jsErrN = 0;
-const jsErr = (where, line, file, col) => { if (jsErrN++ < 5) { try { const b = window.AndroidApp; if (b && b.logError && analyticsOn()) b.logError(("js_" + where + "_" + (line || 0)).slice(0, 60)); else track("js_error", {kind: where, line: line || 0, col: (col || 0) % 10000, colk: Math.floor((col || 0) / 10000), efile: errFile(file), uacl: UACL});   // the column in two parts: /api/e drops a number of 10000 or more (plate-sized), and the built app file is one long line } catch {} } };   // the web has no Crashlytics: the count goes to GA
+// the column goes in two parts (col, colk): /api/e drops a number of 10000 or more (plate-sized), and the built app file is one long line
+const jsErr = (where, line, file, col) => { if (jsErrN++ < 5) { try { const b = window.AndroidApp; if (b && b.logError && analyticsOn()) b.logError(("js_" + where + "_" + (line || 0)).slice(0, 60)); else track("js_error", {kind: where, line: line || 0, col: (col || 0) % 10000, colk: Math.floor((col || 0) / 10000), efile: errFile(file), uacl: UACL}); } catch {} } };   // the web has no Crashlytics: the count goes to GA
 // Facebook, Instagram and TikTok open links in their own in-app browser, which runs scripts of its own that land on these listeners too:
 // those count apart (kind "iab"), so the pipe canary watches our code only (22-23.10: all 10 web errors came from such visits, none on our pages)
 const UA = navigator.userAgent || "", WEBVIEW = /; wv\)/.test(UA) || (/iPhone|iPad|iPod/.test(UA) && !/Safari\//.test(UA));
