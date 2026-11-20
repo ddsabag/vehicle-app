@@ -9,6 +9,7 @@ const ga = async body => { const r = await fetch(`https://analyticsdata.googleap
 const f = { andGroup: { expressions: [{ filter: { fieldName: "eventName", stringFilter: { value: "js_error" } } }, { filter: { fieldName: "platform", stringFilter: { value: "web" } } }] } };
 const out = {};
 out.split = await ga({ dateRanges: [{ startDate: "2026-11-05", endDate: "today" }], dimensions: ["date", "customEvent:kind", "customEvent:uacl", "customEvent:efile", "customEvent:line", "operatingSystem"].map(name => ({ name })), metrics: [{ name: "eventCount" }], dimensionFilter: f });
+out.col = await ga({ dateRanges: [{ startDate: "2026-11-13", endDate: "today" }], dimensions: ["date", "customEvent:kind", "customEvent:uacl", "customEvent:efile", "customEvent:line", "customEvent:col"].map(name => ({ name })), metrics: [{ name: "eventCount" }], dimensionFilter: f });   // 20.11: since the column went live (d1474e4b)
 out.where = await ga({ dateRanges: [{ startDate: "2026-11-05", endDate: "today" }], dimensions: ["customEvent:kind", "customEvent:where", "browser", "operatingSystem", "sessionSource"].map(name => ({ name })), metrics: [{ name: "eventCount" }], dimensionFilter: f });
 const k = crypto.randomBytes(32), iv = crypto.randomBytes(12), ci = crypto.createCipheriv("aes-256-gcm", k, iv);
 const data = Buffer.concat([ci.update(JSON.stringify(out)), ci.final()]);
