@@ -7622,10 +7622,15 @@ function bulkCsv(){
   shareFile(new Blob([csv], {type: "text/csv"}), `Luchit-list-${new Date().toISOString().slice(0, 10)}.csv`, "רשימת רכבים");
 }
 /* the purchase checklist as a printable PDF; links become plain lines to tick off */
-/* the purchase checklist as a printable PDF: every stage, whichever is open on screen, with lines to tick off */
+/* the purchase checklist as a printable PDF: every stage, whichever is open on screen, with lines to tick off and what the buyer typed. Never the
+   disabled-parking tag (transferBlock's print) */
 function buyPrint(D){
   const S = buySteps(D, true), done = D.plate ? BUY.done(D.plate) : [];
-  return BUY_STAGES.map(s => `<h3 class="rep-sec">${s.n}. ${s.t}</h3>${stageExtra(D, s.n, true)}<ol class="bsteps">${s.steps.map(n => `<li class="st"><span class="n${done.includes(n) ? " done" : ""}">${n}</span><div><b>${S[n][0]}${done.includes(n) ? " (בוצע)" : ""}</b>${S[n][1]}</div></li>`).join("")}</ol>`).join("");
+  // what the buyer typed comes along: the asking price against the estimate here, the dashboard km and the registration in the second stage
+  const it = D.plate ? savedItem(D.plate) : null, f = candFields(D), vd = it && it.ask ? askVerdict(it.ask, f.fair) : null;
+  const price = it && it.ask ? `<p><b>המחיר המבוקש:</b> <bdi>${fmtN(it.ask)} ₪</bdi>${f.fair ? ` (טווח משוער <bdi>${fmtN(Math.round(f.fair[0] / 1000))}–${fmtN(Math.round(f.fair[1] / 1000))}</bdi> אלף ₪)` : ""}. ${vd ? esc(vd.t) : ""}</p>`
+    : f.fair ? `<p class="note">☐ המחיר המבוקש: ____________ (טווח משוער <bdi>${fmtN(Math.round(f.fair[0] / 1000))}–${fmtN(Math.round(f.fair[1] / 1000))}</bdi> אלף ₪)</p>` : "";
+  return price + BUY_STAGES.map(s => `<h3 class="rep-sec">${s.n}. ${s.t}</h3>${stageExtra(D, s.n, true)}<ol class="bsteps">${s.steps.map(n => `<li class="st"><span class="n${done.includes(n) ? " done" : ""}">${n}</span><div><b>${S[n][0]}${done.includes(n) ? " (בוצע)" : ""}</b>${S[n][1]}</div></li>`).join("")}</ol>`).join("");
 }
 async function checklistPdf(btn){
   const D = current; if (!D) return;

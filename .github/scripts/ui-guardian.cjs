@@ -220,6 +220,7 @@ async function buyChecks(page, fx, label, out) {
   const b = await page.evaluate(() => ({ rows: transferCheck(current).map((r) => r.k + ":" + r.t), pub: transferCheck(current, true).map((r) => r.t), msg: sellerText(current), chips: document.querySelectorAll(".bchips [data-bstage]").length }));
   if (b.chips !== 4) fail(`[${label}] the buy tab shows ${b.chips} stage chips, not 4`);
   if (ex.transfer && !b.rows.some((r) => ex.transfer.test(r))) fail(`[${label}] no transfer row matches ${ex.transfer}: ${b.rows.join(" | ")}`);
+  if (/תג חניה לנכה|לרכב יש תג/.test(await page.evaluate(() => buyPrint(current)))) fail(`[${label}] the disabled-parking tag reaches the checklist PDF`);
   if (b.pub.some((t) => /נכה/.test(t)) || /נכה/.test(b.msg)) fail(`[${label}] the disabled-parking tag reaches a report or the seller message`);
   if (/לוחית/.test(b.msg)) fail(`[${label}] the seller message names לוחית without the buyer ticking it`);
   await page.click("[data-bm=msg]"); await page.waitForTimeout(150);
@@ -235,6 +236,8 @@ async function buyChecks(page, fx, label, out) {
     await page.click("#mchk [data-bmatch=color][data-v='0']"); await page.waitForTimeout(100);
     if (!(await page.$("#mchk .vd.bad"))) fail(`[${label}] a colour marked as not matching does not say so`);
     await page.click("#mchk [data-bmatch=color][data-v='0']");
+    const pr = await page.evaluate(() => buyPrint(current));
+    if (!pr.includes(Number(ex.km[0]).toLocaleString("en-US"))) fail(`[${label}] the checklist PDF leaves out the dashboard km the buyer typed`);
     await shot("#tabpanel section.card:has(.kmchk)", "km-check");
     await page.click("[data-bstage='1']"); await page.waitForTimeout(150);
   }
