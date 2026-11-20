@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-64";   // shown in /live/data so the running version is visible
+const BUILD = "live-65";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -2407,7 +2407,7 @@ function goalsMethod(C){const L=C.LG,GN=k=>{const i=lgItem(C,k);return i?i.name:
  if(!L||!L.last)return h+"</div>"+note("היעדים החיים עוד לא חושבו. עד אז היעדים הם של תוכנית השיווק.")+(L&&L.err?'<p class="note" title="'+esc(L.err)+'">הריצה האחרונה לא הצליחה, והיא תנסה שוב בעוד חצי שעה.</p>':"")+"</section>";
  h+="<small>"+esc((L.mode==="fixed"?"קבועים · ":"")+"נשפטו לאחרונה ב-"+dm(L.last))+"</small></div>";
  if(L.err)h+=note("החישוב של השבוע עוד לא הצליח, והוא ינסה שוב בעוד חצי שעה. עד אז מוצג השבוע הקודם.");
- const fc=L.fc||{},GL=L.gl||{},fl=["checks","installs"].map(k=>{const x=fc[k],g=GL[k];return x?"בקצב של 4 השבועות האחרונים ("+(x.pace>0?"+":"")+n1(x.pace)+"% בשבוע), ב-31.3 נגיע לכ-"+n(x.x)+(k==="checks"?" בדיקות":" התקנות")+" בשבוע."+(g?" השער של 31.3: "+n(g.go)+" בדיקות בשבוע וממשיכים, מתחת ל-"+n(g.turn)+" משנים כיוון. בקצב הזה: "+(x.x>=g.go?"ממשיכים":x.x<g.turn?"משנים כיוון":"באמצע, בין שני הקווים")+".":""):""}).filter(Boolean);
+ const fc=L.fc||{},GL=L.gl||{},fl=["checks","installs"].map(k=>{const x=fc[k],g=GL[k];return x?"בקצב של 4 השבועות האחרונים ("+(x.pace>0?"+":"")+n1(x.pace)+"% בשבוע), ב-31.3 נגיע לכ-"+n(x.x)+(k==="checks"?" בדיקות":" התקנות")+" בשבוע."+(g?" השער של 31.3: "+n(g.go)+" בדיקות בשבוע וממשיכים, מתחת ל-"+n(g.turn)+" משנים כיוון, ובנוסף צריך שורת הכנסה חיה אחת ביעד החודשי שנקבע ב-20.11. בקצב הזה: "+(x.x>=g.go?"ממשיכים":x.x<g.turn?"משנים כיוון":"באמצע, בין שני הקווים")+".":""):""}).filter(Boolean);
  h+=note(fl.length?fl.join(" "):"התחזית לשער של 31.3 תופיע אחרי 4 שבועות שלמים.");
  const rest=L.items.filter(i=>(i.t==="track"||i.t==="health")&&i.v==null);
  if(rest.length)h+='<details><summary class="note" style="cursor:pointer">מדדים בלי יעד או עוד בלי נתון ('+n(rest.length)+')</summary><ul class="kv">'+rest.map(i=>kv(esc(i.name),esc(i.owner))).join("")+"</ul></details>";
@@ -2620,6 +2620,8 @@ function renderHomeT(C){const L=leadT(C);
  h+='<nav class="qroute" aria-label="המסלול של משתמש">'+ROUTE.map(g=>stRowT(C,g)).join("")+"</nav>";
  h+='<div class="qside">'+sideRowT(C,"health")+sideRowT(C,"money")+"</div>";
  return h+qwaitH(C,qmine(C))}
+// the 31.3 gate has a money part too (Dudu 20.11): one live revenue line at the monthly amount he set; the amount is kept off this public page's code
+const qgateM=()=>'<h3 class="qsec">השער של 31.3</h3><p class="qnote">כדי לעבור את השער צריך שני דברים: בדיקות רכב מעל קו ההמשך, ושורת הכנסה חיה אחת שמגיעה ליעד החודשי שקבעת ב-20.11. עכשיו עדיין אין שורת הכנסה חיה.</p>';
 const qback='<a class="qback" href="?v=home" data-v="home">‹ חזרה</a>';
 function subRow(C,id){const r=M(C,id);if(!r)return "";const nm=ROWN[id]||r.name,un=r.unit&&nm.indexOf(r.unit)<0?r.unit:"";
  return '<a class="qsub s-'+qsc(r.s)+'" href="'+href({m:id})+'" data-m="'+id+'"><span class="l">'+esc(nm)+(r.tt&&r.tt!=="אין יעד"?"<small>"+esc(r.tt)+"</small>":"")+'</span><span class="r"><b>'+r.big+"</b>"+(un?"<small>"+esc(un)+"</small>":"")+'</span><i class="qdot"></i></a>'}
@@ -2631,6 +2633,7 @@ function renderStation(C,g){const s=QS[g],r=M(C,s.key);if(!r)return qback+'<p cl
  if(a)h+=qbars(g,a,r.tg||null);
  h+='</div><div class="qb">';
  if(g==="check"){const R=srcRows(C);if(R){R.sort((p,q)=>p.d-q.d);h+='<h3 class="qsec">מאיפה באו הבדיקות, מול שבוע שעבר</h3><table class="qtb">'+R.map(o=>"<tr><td>"+o.nm[0]+'</td><td class="n">'+n(o.cur)+'</td><td class="d '+(o.d<0?"dn":o.d>0?"up":"mu")+'">'+(o.d>0?"+":o.d<0?"−":"")+n(Math.abs(o.d))+"</td></tr>").join("")+"</table>"}}
+ if(g==="money")h+=qgateM();
  const LH=g==="health"&&C.LG&&C.LG.items?C.LG.items.filter(i=>i.t==="health"&&i.v!=null&&!HREG[i.k]):[];
  h+='<h3 class="qsec">עוד כאן</h3><div class="qsubs">'+s.ids.map(id=>subRow(C,id)).join("")+(LH.length?'<div class="sb">'+LH.map(i=>lgRow(C,i)).join("")+"</div>":"")+"</div>";
  h+='<a class="qlnk" href="'+href({m:s.key})+'" data-m="'+s.key+'">כל הנתונים על «'+esc(s.name)+"»</a>";
@@ -2644,7 +2647,7 @@ function renderStationT(C,g){const s=QS[g],r=M(C,s.key),t=r.today,m=r.m;
  let h='<div class="qstn">'+qbk()+'<div class="qa"><p class="qdt">'+esc(s.name)+", היום עד "+asOf(C)+"</p>";
  if(t)h+='<p class="qbig">'+t.big+(t.unit?"<small>"+esc(t.unit)+"</small>":"")+'</p><ul class="qtl">'+t.lines.map(l=>"<li>"+l+"</li>").join("")+"</ul>";
  else h+='<p class="qnote" style="margin:10px 0 16px">את «'+esc(s.name)+'» סופרים רק לשבוע שלם. <a href="'+href({w:"week"})+'" data-w="week">לראות את השבוע</a></p>';
- h+='</div><div class="qb"><h3 class="qsec">עוד כאן</h3><div class="qsubs">'+s.ids.map(id=>subRowT(C,id)).join("")+"</div>";
+ h+='</div><div class="qb">'+(g==="money"?qgateM():"")+'<h3 class="qsec">עוד כאן</h3><div class="qsubs">'+s.ids.map(id=>subRowT(C,id)).join("")+"</div>";
  h+='<a class="qlnk" href="'+href({m:s.key})+'" data-m="'+s.key+'">כל הנתונים על «'+esc(s.name)+"»</a>";
  h+='<details class="qdet"><summary>מה סופרים</summary><p>'+esc(m.def)+'</p><p class="qnote">המקור: '+esc(m.src)+". האחריות: "+esc(m.owner)+".</p></details>";
  return h+"</div></div>"}
