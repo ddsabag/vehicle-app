@@ -51,7 +51,7 @@ r = await W.fetch(new Request("https://luchit.app/api/confirm?e=x&x=1&t=x"), env
     if (u.includes("raw.githubusercontent.com")) return flag === null ? new Response("", { status: 404 }) : new Response(JSON.stringify({ biz_signup: flag }));
     if (u.includes("api.brevo.com")) { sent.push([u.replace("https://api.brevo.com/v3", ""), JSON.parse(o.body || "{}")]); return new Response("{}", { status: u.endsWith("/smtp/email") && !mailOk ? 500 : 201 }); }
     return new Response("", { status: 204 }); };
-  const form = { name: "בדיקה", company: "עסק", type: "סוחר רכב", size: "1-5", email: "d@example.com", phone: "", consent: true, website: "" };
+  const form = { name: "בדיקה", company: "עסק", type: "סוחר רכב", size: "1-5", email: "d@example.com", phone: "", notes: "<b>צי של 30</b>", consent: true, website: "" };
   const bk = (body, ip = "4.4.4.4") => W.fetch(new Request("https://luchit.app/api/business-key", { method: "POST",
     headers: { origin: "https://luchit.app", "content-type": "application/json", "cf-connecting-ip": ip }, body: JSON.stringify(body) }), benv, {});
   r = await bk(form); ok(r.status === 404 && sent.length === 0, "business-key: biz_signup false = 404, nothing sent");
@@ -63,6 +63,8 @@ r = await W.fetch(new Request("https://luchit.app/api/confirm?e=x&x=1&t=x"), env
   ok(v && v.ok && v.exp === 20908 && /^[A-HJ-NP-Z2-9]{8}$/.test(v.id), "business-key: the key verifies offline, expires 31.3.2027, id of 8 readable characters");
   ok(!Buffer.from(key.split(".")[1], "base64").toString().includes("example"), "business-key: no address inside the key");
   const c = sent.find(x => x[0] === "/contacts"); ok(c && c[1].attributes.KEY_ID === v.id && c[1].updateEnabled === false && c[1].listIds[0] === 2, "business-key: contact into the business list with the key id, never overwritten");
+  const own = sent.filter(x => x[0] === "/smtp/email").find(x => x[1].to[0].email !== "d@example.com");
+  ok(c[1].attributes.NOTES === "<b>צי של 30</b>" && own && own[1].htmlContent.includes("&lt;b&gt;צי של 30") && !own[1].htmlContent.includes("LD1."), "business-key: notes saved in NOTES and in the owner's mail (escaped), the key not in that mail");
   ok((await verify(key, PUB, 20909)).why === "expired" && (await verify(key, PUB, 1, [v.id])).why === "revoked", "verify: expired and revoked");
   ok((await verify(key.slice(0, -3) + "AAA", PUB)).why === "signature" && (await verify("hello", PUB)).why === "format", "verify: wrong signature and malformed input");
   const other = crypto.generateKeyPairSync("ed25519").publicKey.export({ format: "der", type: "spki" }).subarray(-32).toString("base64");
@@ -72,7 +74,7 @@ r = await W.fetch(new Request("https://luchit.app/api/confirm?e=x&x=1&t=x"), env
   mailOk = false; sent = []; r = await bk({ ...form, email: "f@example.com" }, "5.5.5.5"); ok(r.status === 502 && !sent.some(x => x[0] === "/contacts"), "business-key: a Brevo mail failure = 502 (the page says try again), no contact saved");
   mailOk = true; store2.clear(); sent = [];
   for (let i = 0; i < 3; i++) await bk(form, "6.6.0." + i);
-  r = await bk(form, "6.6.1.1"); ok(r.status === 200 && sent.filter(x => x[0] === "/smtp/email").length === 3, "business-key: a fourth key to one address in a day: ok, nothing sent");
+  r = await bk(form, "6.6.1.1"); ok(r.status === 200 && sent.filter(x => x[0] === "/smtp/email" && x[1].to[0].email === "d@example.com").length === 3, "business-key: a fourth key to one address in a day: ok, nothing sent");
   store2.clear(); sent = [];
   for (let i = 0; i < 5; i++) await bk({ ...form, email: `k${i}@example.com` }, "7.7.0.1");
   r = await bk({ ...form, email: "k9@example.com" }, "7.7.0.1"); ok(r.status === 429, "business-key: a sixth from one IP in an hour: 429");

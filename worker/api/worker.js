@@ -3,7 +3,7 @@
 //   GET  /api/confirm?e=<email>&x=<expiry>&t=<signature>      -> verifies the signature, adds the contact to the Brevo list, redirects to /magazine/?subscribed=1
 //   POST /api/waitlist   { name, company, type, interest, email, phone, notes, consent:true, website:"" } -> business waitlist (/business/): contact into Brevo list BREVO_B2B_LIST_ID,
 //                        a notification mail to NOTIFY_TO, and (optional) a cookie-less GA4 event b2b_lead_submit through the Measurement Protocol
-//   POST /api/business-key { name, company, type, size, email, phone, consent:true, website:"" } -> the dealer beta (strategy's dealer offer, Dudu 20.11.2026,
+//   POST /api/business-key { name, company, type, size, email, phone, notes, consent:true, website:"" } -> the dealer beta (strategy's dealer offer, Dudu 20.11.2026,
 //                        phase 1): the contact into the business list, and a signed dealer key LD1.<payload>.<sig> mailed to the address (never in the
 //                        answer, so the address is verified). Off (404) unless flags.json on the flags branch says "biz_signup": true.
 //                        Secret BIZ_SIGNING_KEY (Ed25519 private key, PKCS8 base64; Dudu pastes it, made by biz-keygen.mjs). Var BIZ_KEY_EXP (YYYY-MM-DD, default 2027-03-31).
@@ -135,7 +135,7 @@ async function businessKey(req, env, ctx) {
   if (b.website) return json({ ok: true });                         // honeypot
   if (b.consent !== true) return json({ error: "consent" }, 400);
   const s = (v, max) => String(v ?? "").trim().slice(0, max);
-  const name = s(b.name, 80), company = s(b.company, 100), type = s(b.type, 40), size = s(b.size, 10), phone = s(b.phone, 20);
+  const name = s(b.name, 80), company = s(b.company, 100), type = s(b.type, 40), size = s(b.size, 10), phone = s(b.phone, 20), notes = s(b.notes, 600);
   const email = s(b.email, 254).toLowerCase();
   if (name.length < 2 || company.length < 2) return json({ error: "fields" }, 400);
   if (!BIZ_TYPES.includes(type) || (size && !BIZ_SIZES.includes(size))) return json({ error: "choice" }, 400);
@@ -158,14 +158,20 @@ async function businessKey(req, env, ctx) {
   if (!mail.ok) { console.log("brevo key mail", mail.status, "upstream error"); return json({ error: "upstream" }, 502); }
   await Promise.all([bump(ipc, ipn, ctx), bump(toc, ton, ctx), bump(allc, alln, ctx)]);
 
+  let existing = false;
   // best effort from here on: the key is already with the user. A new contact gets the form's details; an existing one is only added to the list
   // (never overwritten, as in the waitlist). KEY_ID links the pseudonymous key id to the address in Brevo only.
   try {
     const list = Number(env.BREVO_B2B_LIST_ID);
     const r = await brevo(env, "/contacts", { email, listIds: [list], updateEnabled: false,
-      attributes: { FIRSTNAME: name, COMPANY_NAME: company, BUSINESS_TYPE: type, BUSINESS_SIZE: size, PHONE: phone, SOURCE: "dealer-key", KEY_ID: k.id, CONSENT_AT: new Date().toISOString() } });
-    if (!r.ok) await brevo(env, `/contacts/lists/${list}/contacts/add`, { emails: [email] });
+      attributes: { FIRSTNAME: name, COMPANY_NAME: company, BUSINESS_TYPE: type, BUSINESS_SIZE: size, PHONE: phone, NOTES: notes, SOURCE: "dealer-key", KEY_ID: k.id, CONSENT_AT: new Date().toISOString() } });
+    if (!r.ok) { existing = true; await brevo(env, `/contacts/lists/${list}/contacts/add`, { emails: [email] }); }
   } catch (e) { console.log("business-key contact failed", String(e).slice(0, 200)); }
+  try {   // the owner hears of each sign-up, as with the waitlist (the key itself is not in this mail)
+    await brevo(env, "/smtp/email", { sender: { name: "לוחית", email: "updates@luchit.app" }, to: [{ email: env.NOTIFY_TO || "luchit.app.service@gmail.com" }], replyTo: { email },
+      subject: `קוד עסק חדש: ${type}`,
+      htmlContent: `<div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.7"><b>הרשמה חדשה לתוכנית העסקים (קוד נשלח)</b><br>${existing ? "<i>הכתובת כבר קיימת ב-Brevo: הפרטים כאן לא נשמרו שם ולא דרסו את הקיימים.</i><br>" : ""}שם: ${esc(name)}<br>עסק: ${esc(company)}<br>סוג: ${esc(type)}<br>גודל: ${esc(size) || "לא צוין"}<br>אימייל: ${esc(email)}<br>טלפון: ${esc(phone) || "לא צוין"}<br>מזהה הקוד: ${esc(k.id)}<br>הודעה: ${esc(notes) || "ללא"}</div>` });
+  } catch (e) { console.log("notify failed", String(e).slice(0, 200)); }
   if (env.GA_MEASUREMENT_ID && env.GA_API_SECRET) {
     try {
       await fetch(`https://www.google-analytics.com/mp/collect?measurement_id=${encodeURIComponent(env.GA_MEASUREMENT_ID)}&api_secret=${encodeURIComponent(env.GA_API_SECRET)}`, { method: "POST",
