@@ -47,7 +47,13 @@ for (const [key, v] of Object.entries(ms.m)) {
   }
   g.set(k, e);
 }
-const models = [...g.values()].sort((a, b) => b.total - a.total).slice(0, N);
+// a model that slips just below the top N keeps its page, so a URL Google already has does not turn into a 404;
+// .github/model-pages-keep.json "restore" brings back pages dropped before this rule
+const slugFor = m => (m.model.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "model") + "-" + m.cd;
+const prevSlugs = new Set(); try { for (const s of Object.values(JSON.parse(fs.readFileSync("model/slugs.json", "utf8")))) prevSlugs.add(s); } catch {}
+try { for (const s of JSON.parse(fs.readFileSync(".github/model-pages-keep.json", "utf8")).restore || []) prevSlugs.add(s); } catch {}
+const ranked = [...g.values()].sort((a, b) => b.total - a.total);
+const models = [...ranked.slice(0, N), ...ranked.slice(N, Math.round(N * 1.5)).filter(m => prevSlugs.has(slugFor(m)))];
 for (const m of models) m.label = brandLabel(m.make);
 const brandPath = l => brandPage(l, models.filter(o => o.label === l).length);   // brand pages from landing.mjs
 const withBrand = m => String(m.disp).toUpperCase().startsWith(String(m.label).toUpperCase() + " ") ? m.disp : `${m.label} ${m.disp}`;   // no "BYD BYD ATTO 2"   // display name; m.make stays the registry spelling for matching

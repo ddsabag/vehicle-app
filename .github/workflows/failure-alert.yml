@@ -120,8 +120,8 @@ jobs:
           BREVO_API_KEY: ${{ secrets.BREVO_API_KEY || secrets.BREVO_KEY }}   # the router's email path for a critical failure
           ANTHROPIC_API_KEY: ${{ vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}   # failure-cause.mjs: one Haiku line on the message, marked as a guess (credit package A8, Dudu 1.11)
           AI: ${{ vars.AI }}   # one switch for every Claude bot (claude.mjs gate; CEO review 12.11.2026)
-          AI_CAP_USD: ${{ vars.AI_CAP_USD }}
-          AI_GRANTS: ${{ vars.AI_GRANTS }}
+          AI_CAP_USD: ${{ secrets.AI_CAP_USD }}   # a secret, so the amount never shows in the public log (rule 11)
+          AI_GRANTS: ${{ secrets.AI_GRANTS }}
         run: |
           [ -n "$TELEGRAM_BOT_TOKEN" ] || { echo "no Telegram credentials"; exit 0; }
           # a slot run's name ends with its cron line ("Weekly analytics report (20 6 * * 0)": the backup clock's slot check, 3.11.2026). The
@@ -285,10 +285,13 @@ jobs:
             "Site smoke test"|"SEO daily digest"|"Magazine"|"Data truth")
               part=""; case "$TITLE" in "$WF ("*")") part=$TITLE;; esac
               prev=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$WORKFLOW_ID/runs?branch=main&status=completed&per_page=30" \
-                --jq '.workflow_runs[] | "\(.run_number)\t\(.conclusion)\t\(.id)\t\(.display_title)"' 2>/dev/null \
-                | awk -F'\t' -v part="$part" '{ sub(/ \([0-9*,\/-]+ [0-9*,\/-]+ [0-9*,\/-]+ [0-9*,\/-]+ [0-9*,\/-]+\)$/, "", $4) } $1 + 0 < ENVIRON["RUN_NUMBER"] + 0 && (part == "" || $4 == part) && ($2 == "failure" || $2 == "timed_out" || $2 == "cancelled") { print $3; exit }') || prev=""
+                --jq '.workflow_runs[] | "\(.run_number)\t\(.conclusion)\t\(.id)\t\(.display_title)\t\(.run_attempt)"' 2>/dev/null \
+                | awk -F'\t' -v part="$part" '{ sub(/ \([0-9*,\/-]+ [0-9*,\/-]+ [0-9*,\/-]+ [0-9*,\/-]+ [0-9*,\/-]+\)$/, "", $4) } (part == "" || $4 == part) && (($1 + 0 < ENVIRON["RUN_NUMBER"] + 0 && ($2 == "failure" || $2 == "timed_out" || $2 == "cancelled")) || ($1 + 0 <= ENVIRON["RUN_NUMBER"] + 0 && $2 == "success" && $5 + 0 > 1)) { print $3 "\t" $2 "\t" $5; exit }') || prev=""
+              # a failed run that was re-run green (19.11.2026: Data truth 44523062828) shows "success" now: its failed jobs are in the attempt before
               [ -n "$prev" ] || { echo "no earlier failed run found: nothing to close"; exit 0; }
-              failed=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$prev/jobs?per_page=100" \
+              IFS=$'\t' read -r prev pc pa <<<"$prev"; jobs="repos/$GITHUB_REPOSITORY/actions/runs/$prev/jobs"
+              [ "$pc" = success ] && jobs="repos/$GITHUB_REPOSITORY/actions/runs/$prev/attempts/$((pa - 1))/jobs"
+              failed=$(gh api "$jobs?per_page=100" \
                 --jq '.jobs[] | select((.steps | length) > 0 and (.conclusion == "failure" or .conclusion == "timed_out" or .conclusion == "cancelled")) | .name' 2>/dev/null) || exit 0
               passed=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" --jq '.jobs[] | select(.conclusion == "success") | .name' 2>/dev/null) || exit 0
               while IFS= read -r j; do
