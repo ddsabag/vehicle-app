@@ -66,12 +66,13 @@ const FIXTURES = [
   // a dashboard km far under the car's pace, an asking price above the range (the gauge's dot at its edge)
   { name: "buy-expired", rec: { ...BASE, tokef_dt: iso(-30) }, buy: { transfer: /^bad:הטסט פג .*העברה באינטרנט לא אפשרית/ } },
   { name: "buy-tag", rec: BASE, sets: { "c8b9f9c8": [{ _id: 1, "MISPAR RECHEV": 12345678, "TAARICH HAFAKAT TAG": "20240115" }] }, buy: { transfer: /^bad:לרכב יש תג חניה לנכה/ } },
-  { name: "buy-km-low", rec: { ...BASE, kilometer_test_aharon: 60000, mivchan_acharon_dt: iso(-365), misgeret: "JTDKB3FU503124417" }, buy: { km: [61000, "low"] } },
+  { name: "buy-km-low", rec: { ...BASE, kilometer_test_aharon: 60000, mivchan_acharon_dt: iso(-365), misgeret: "JTDKB3FU503124417" }, model: { price: { mehir: 150000 }, modelRecalls: [] }, buy: { km: [61000, "low"], ask: [400000, "above", true] } },
   { name: "buy-import", rec: BASE, sets: { "03adc637": [{ _id: 1, mispar_rechev: 12345678, tozeret_nm: "טויוטה יפן", kinuy_mishari: "COROLLA", shnat_yitzur: 2021, sug_yevu: "יבוא אישי משומש", tozeret_cd: 1, degem_cd: 1 }] }, buy: { transfer: /^unk:רכב ביבוא אישי/, noGauge: true } },
   { name: "buy-bought", rec: BASE, buy: { bought: true } },
   { name: "app-buy", rec: { ...BASE, tokef_dt: iso(-30) }, app: true, buy: { transfer: /^bad:הטסט פג/ } },
   { name: "app-owner", rec: BASE, app: true, ls: { mine: '{"12345678":1}' } },
-  { name: "buy-ask-above", rec: BASE, model: { price: { mehir: 150000 }, modelRecalls: [] }, buy: { ask: [400000, "above", true] } },
+  // a hybrid now with a rental company: its battery and rental questions, a dashboard under the test's km, and an asking price far over the range
+  { name: "buy-ask-above", rec: { ...BASE, baalut: "השכרה", sug_delek_nm: "חשמל/בנזין", kilometer_test_aharon: 112400, mivchan_acharon_dt: iso(-240), misgeret: "JTDKB3FU503124417" }, model: { price: { mehir: 150000 }, w: { technologiat_hanaa_nm: "היברידי רגיל" }, modelRecalls: [] }, buy: { ask: [109000, "above"], km: [104300, "below_test"] } },
 ];
 const TABS = contract.tabs.map((t) => t.id);
 const WIDTHS = process.env.UG_QUICK ? [390] : [320, 390];
@@ -272,6 +273,7 @@ async function buyChecks(page, fx, label, out) {
   // "קניתי אותו" at the end of the day of the transfer: the candidate becomes the owner's car and opens in its file
   if (ex.bought) {
     await page.click("[data-bstage='4']"); await page.waitForTimeout(200);
+    await shot("#tabpanel section.card:has(.bstage)", "transfer-day");
     const btn = await page.$(".bstage:not([hidden]) [data-cf=mine][data-from=bought]");
     if (!btn) fail(`[${label}] the day of the transfer has no "קניתי אותו"`);
     else {
