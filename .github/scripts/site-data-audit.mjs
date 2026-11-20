@@ -706,11 +706,21 @@ function compare(c, X, P) {
     const meta = X.catMeta, hz = meta && meta.recHz && meta.recHz.id ? meta.recHz : null, held = meta && Array.isArray(meta.recIn) ? new Set(meta.recIn.map(Number)) : null;
     const links = X.catRec && X.catRec.l || null, lk = linkKeyR(R);
     const reach = r => { if (!hz) return "?"; const id = N(r.RECALL_ID);
+      if (held && held.has(id)) return "listed";   // as the app since 22.11: the list holds every batch it names (spec item 3c)
       if (id > hz.id || (hz.from && id >= hz.from && !(hz.ids || []).includes(id))) return "fresh";
       if (!held || held.has(id)) return "listed";
       return N(r.SHNAT_RECALL) >= now.getFullYear() - ABSENT_YEARS ? "absent" : "nolist"; };
+    // as the app since 22.11 (spec item 3a, afterRoad in index.html): a recall of cars built after this one went on the road is of other years
+    const onRoadYM = (() => { const m = String(R.moed_aliya_lakvish || "").match(/^((?:19|20)\d{2})-(\d{1,2})/) || String(R.rishum_rishon_dt || "").match(/^((?:19|20)\d{2})-(\d{1,2})/);
+      return m ? {m: +m[1] * 12 + +m[2] - 1, y: +m[1]} : !isNaN(y) ? {m: y * 12, y} : null; })();
+    const buildFrom = x => { const s = String(x || "").trim(); let m;
+      if ((m = s.match(/^((?:19|20)\d{2})-(\d{1,2})/))) return {m: +m[1] * 12 + +m[2] - 1};
+      if ((m = s.match(/^(?:\d{1,2}[/.])?(\d{1,2})[/.]((?:19|20)\d{2})$/))) return {m: +m[2] * 12 + +m[1] - 1};
+      const yy = recYear(s); return yy ? {y: yy} : null; };
+    const lateBuild = r => { if (!onRoadYM) return false; const b = buildFrom(r.BUILD_BEGIN_A); return !!b && (b.m != null ? b.m > onRoadYM.m : b.y > onRoadYM.y); };
     const fitsOf = r => { const from = recYear(r.BUILD_BEGIN_A), to = recYear(r.BUILD_END_A), near = !isNaN(y) && !!from && !!to && (y === to + 1 || y === from - 1);
       if (links && links[r.RECALL_ID] && links[r.RECALL_ID][lk]) return {fits: true, near: false, byList: true};
+      if (lateBuild(r)) return {fits: false, near: false, afterRoad: true};
       return {fits: !isNaN(y) && from && to ? (y >= from && y <= to ? true : near ? null : false) : null, near}; };
     // what the app shows for one model recall: its card and its pill
     const expOf = r => { const f = fitsOf(r), k = reach(r), pending = knownOpen && f.fits !== false && (k === "fresh" || k === "absent");
