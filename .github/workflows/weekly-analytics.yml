@@ -55,7 +55,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           SLOT: ${{ github.event.schedule || inputs.schedule }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         if: steps.slot.outputs.done != '1'
         with:
           python-version: "3.12"
