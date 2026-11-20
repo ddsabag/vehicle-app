@@ -68,6 +68,7 @@ const FIXTURES = [
   { name: "buy-tag", rec: BASE, sets: { "c8b9f9c8": [{ _id: 1, "MISPAR RECHEV": 12345678, "TAARICH HAFAKAT TAG": "20240115" }] }, buy: { transfer: /^bad:לרכב יש תג חניה לנכה/ } },
   { name: "buy-km-low", rec: { ...BASE, kilometer_test_aharon: 60000, mivchan_acharon_dt: iso(-365), misgeret: "JTDKB3FU503124417" }, buy: { km: [61000, "low"] } },
   { name: "buy-import", rec: BASE, sets: { "03adc637": [{ _id: 1, mispar_rechev: 12345678, tozeret_nm: "טויוטה יפן", kinuy_mishari: "COROLLA", shnat_yitzur: 2021, sug_yevu: "יבוא אישי משומש", tozeret_cd: 1, degem_cd: 1 }] }, buy: { transfer: /^unk:רכב ביבוא אישי/, noGauge: true } },
+  { name: "buy-bought", rec: BASE, buy: { bought: true } },
   { name: "buy-ask-above", rec: BASE, model: { price: { mehir: 150000 }, modelRecalls: [] }, buy: { ask: [400000, "above", true] } },
 ];
 const TABS = contract.tabs.map((t) => t.id);
@@ -249,6 +250,18 @@ async function buyChecks(page, fx, label, out) {
     await shot("#tabpanel section.card:has(.bgauge)", "price-gauge");
   }
   if (ex.noGauge && (await page.$(".bgauge"))) fail(`[${label}] a car with no list price shows a price gauge`);
+  // "קניתי אותו" at the end of the day of the transfer: the candidate becomes the owner's car and opens in its file
+  if (ex.bought) {
+    await page.click("[data-bstage='4']"); await page.waitForTimeout(200);
+    const btn = await page.$(".bstage:not([hidden]) [data-cf=mine][data-from=bought]");
+    if (!btn) fail(`[${label}] the day of the transfer has no "קניתי אותו"`);
+    else {
+      await btn.click(); await page.waitForTimeout(400);
+      const f = await page.evaluate(() => ({ tab: currentTab, mine: isMine(current), buy: !!document.querySelector(".tabs [data-tab=buy]"), top: (document.querySelector("#tabpanel .cf-top") || {}).textContent || "" }));
+      if (f.tab !== "file" || !f.mine || f.buy) fail(`[${label}] "קניתי אותו" did not open the car's file: ${JSON.stringify(f)}`);
+      if (/הכול נשמר|לא אצלנו/.test(f.top)) fail(`[${label}] the file's storage line still promises more than is kept: ${f.top}`);
+    }
+  }
 }
 
 // ---- the screens around the car page: each opens from the bottom bar (or a home tool), shows its own header, keeps the bar, never overflows

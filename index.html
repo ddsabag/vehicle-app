@@ -563,7 +563,7 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .bchips button{display:grid;justify-items:center;align-content:start;gap:4px;min-height:58px;padding:7px 2px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--muted);font:inherit;font-size:.78rem;font-weight:700;line-height:1.2;text-align:center}
 .bchips .bn{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--soft);color:var(--fg);font-size:.78rem}.bchips .bn .i{width:14px;height:14px}
 .bchips button[aria-pressed=true]{border-color:var(--t-green);color:var(--fg);background:var(--t-green-bg)}.bchips button[aria-pressed=true] .bn{background:var(--t-green);color:var(--card)}
-.bstage[hidden]{display:none}.bstage-h{margin:0 0 10px;font-size:1.05rem}.bmodel{margin:0 0 10px}
+.bstage[hidden]{display:none}.cf-cta.bought{margin:14px 0 4px}.bstage-h{margin:0 0 10px;font-size:1.05rem}.bmodel{margin:0 0 10px}
 .xfer{margin:12px 0 0;padding:12px;border-radius:12px;background:var(--soft)}.card .xfer:first-child,.bprog+.xfer{margin-top:0}.bprog+.xfer{margin-bottom:14px}
 .xfer .qsec{margin:0 0 4px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}.xfer .qsec small{font-size:.78rem;font-weight:700;color:var(--muted);white-space:nowrap}.xfer.fix .qsec small{color:var(--warn)}
 .xsum{margin:0 0 8px;font-size:.9rem}.xend{margin:10px 0 0}.xfer>.link-btn{margin-top:8px}
@@ -4503,6 +4503,7 @@ function sellerQs(D){
   if (D.recalls.length) add("recall", "הריקול הפתוח על הרכב תוקן? אפשר לקבל אישור תיקון מהיבואן?");
   else if (pendingRecalls(D).length) add("recall", "הרכב נכלל בריקול לדגם? אם כן, הוא תוקן אצל היבואן?");
   if (ownNow(D).kind === "rental") add("rental", "כמה קילומטרים עשה הרכב בהשכרה, ויש תיעוד של כל הטיפולים?");
+  for (const m of modelQs(D)) add(m.id, m.seller);
   add("infocar", "אפשר לשלוח לי דוח עבר ביטוחי מ-InfoCar? מזמינים אותו באתר שלהם, ורק הבעלים יכול להזמין.");
   add("book", "יש ספר טיפולים או חשבוניות מהמוסך?");
   add("owner", "הרכב רשום רק עליך, ואין עליו שעבוד?");
@@ -4667,13 +4668,16 @@ function stageExtra(D, n, print){
   if (n === 4) return transferBlock(D, true, print);
   return "";
 }
+// the end of the fourth stage: the candidate becomes the owner's car and the tab turns into its file, with the test, recalls and history in it
+// (spec 3.5 ט). The buy marks stay saved and are not shown
+const boughtRow = D => fileOk(D) ? `<div class="cf-cta bought"><span><b>קניתם? מזל טוב.</b> פותחים לרכב תיק: מתי הטסט, ריקולים, וטיפולים, במקום אחד.</span><button type="button" class="link-btn" data-cf="mine" data-from="bought">${ico("car")}קניתי אותו</button></div>` : "";
 function stageCard(D, chips){
   const st = buyStage(D), S = buySteps(D);
   if (!reportBuild && D.plate && !BUY.seen.has("st:" + D.plate)) { BUY.seen.add("st:" + D.plate); track("buy_stage", {stage: st.n, from: "auto"}); }
   const step = n => { const done = st.done.includes(n); return `<li class="st"><span class="n${done ? " done" : ""}">${done ? ico("check") : n}</span><details class="bstep"${done ? "" : " open"}><summary><b>${S[n][0]}</b></summary><div class="bs-body">${S[n][1]}<button type="button" class="ck" data-ck="${n}" aria-pressed="${done}">${done ? "בוצע" : "סימון כבוצע"}</button></div></details></li>`; };
   const model = D.kind === "model" ? `<p class="note bmodel">רוצים בדיקה לרכב מסוים? מקלידים מספר רישוי, ומקבלים דגלים, שאלות ובדיקת העברה.</p>` : "";
   // every stage is drawn and the others are hidden: the plan keeps its six steps on the page (the site's data audit reads them), the buyer sees one stage
-  const stage = s => `<div class="bstage" data-stage="${s.n}"${s.n === st.n ? "" : " hidden"}><h3 class="bstage-h">${s.n}. ${s.t}</h3>${stageExtra(D, s.n)}<ol class="bsteps">${s.steps.map(step).join("")}${s.n === 4 ? S.after : ""}</ol></div>`;
+  const stage = s => `<div class="bstage" data-stage="${s.n}"${s.n === st.n ? "" : " hidden"}><h3 class="bstage-h">${s.n}. ${s.t}</h3>${stageExtra(D, s.n)}<ol class="bsteps">${s.steps.map(step).join("")}${s.n === 4 ? S.after : ""}</ol>${s.n === 4 ? boughtRow(D) : ""}</div>`;
   return card("לפני שקונים", "check", "green", `${chips ? stageChips(D, st) : ""}${model}
     <p class="bprog" id="bprog">${st.done.length ? `בוצעו ${st.done.length} מתוך 6 שלבים` : "סמנו שלבים תוך כדי, והסימון נשמר לרכב הזה"}</p>
     ${BUY_STAGES.map(stage).join("")}
@@ -7215,12 +7219,24 @@ function msPop(D){
   return t && t.n + t.c >= POP_MIN ? {n: t.n, c: t.c, pct: t.c / (t.n + t.c) * 100} : null;
 }
 const POP_MIN = 100;   // fewer cars than this: a percentage means nothing, show a dash
+/* green or red only beyond what chance and rounding explain: 10% of the average and, for the share off the road, two standard errors of a
+   cohort this size; the buyer card's model question reads the same rule */
+const msVs = (x, a, se = 0) => Math.abs(x - a) <= Math.max(a * .1, 2 * se) ? "" : x < a ? "ok" : "bad";
+/* questions no general list has: what is known about this model and year (buy spec 3.5 י), at most two, for the buyer card and the seller
+   message. Neutral to the importer ("ייתכן", no blame); the off-road share asks only when "איך הדגם הזה מחזיק" colours it red */
+function modelQs(D){
+  const q = [];
+  if (D.kind === "model" || D.isCancelled) return q;
+  if (settlementsFor(D).length) q.push({id: "stl", buyer: "ייתכן שהדגם נכלל בהסדר פשרה מול היבואן. שאלו את המוכר אם קיבל הודעה או טיפול במסגרתו.", seller: "קיבלת הודעה או טיפול במסגרת הסדר פשרה מול היבואן?"});
+  const c = msCohort(D), avg = c && msYearAvg(c.year), all = c ? c.n + c.c : 0;
+  if (avg && all && msVs(c.c / all, avg.off, Math.sqrt(avg.off * (1 - avg.off) / all)) === "bad") q.push({id: "crash", buyer: "מהשנתון הזה ירדו מהכביש יותר רכבים מהממוצע. שאלו על תאונות ותיקונים גדולים.", seller: "היו לרכב תאונות או תיקונים גדולים?"});
+  return q.slice(0, 2);
+}
 function msCard(D){
   const c = msCohort(D); if (!c) return "";
   const avg = msYearAvg(c.year), rows = [], pc = x => (x * 100).toFixed(x < .1 ? 1 : 0) + "%";
-  /* green or red only beyond what chance and rounding explain: 10% of the average and, for the share off the road, two standard errors of a
-     cohort this size (100 cars cannot tell 3% from 5%). In between there is no colour, and the row counts as the average */
-  const vs = (x, a, se = 0) => Math.abs(x - a) <= Math.max(a * .1, 2 * se) ? "" : x < a ? "ok" : "bad";
+  // 100 cars cannot tell 3% from 5%: in between there is no colour, and the row counts as the average
+  const vs = msVs;
   const all = c.n + c.c, off = c.c / all;
   rows.push(["רכבים שירדו מהכביש", pc(off), avg ? `בממוצע לשנתון: ${pc(avg.off)}` : "", avg ? vs(off, avg.off, Math.sqrt(avg.off * (1 - avg.off) / all)) : ""]);
   // this car's own km against the model's: in colour, but it says nothing about the model, so the verdict leaves it out
@@ -7460,11 +7476,12 @@ function buyerCard(D){
     const top = flags.slice(0, 2), more = Math.max(0, flags.length - 2);
     return `<div class="buyer-card">${card("ליווי קנייה", "bulb", "amber", `${top.length ? `<div class="qsec">כדאי לבדוק</div><ul class="bflags">${top.map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul>` : `<p style="margin:0 0 8px">${none}</p>`}<p class="note" style="margin:6px 0 8px">${more ? (more === 1 ? "יש עוד דגל אחד, " : `יש עוד ${more} דגלים, `) : ""}ושאלות למוכר נמצאים בחבילת קנייה.</p><button type="button" class="link-btn" data-act="upgrade">${ico("star")}לפרטים על חבילת קנייה</button>`, `${PT("חבילת קנייה")}`)}</div>`;
   }
+  const mq = modelQs(D).map(m => m.buyer);
   // the stages on top and the transfer summary under the questions: transfer_check once per car per visit, with how many rows need settling
   const st = buyStage(D);
   if (!reportBuild && !BUY.seen.has("tc:" + D.plate)) { const rows = transferCheck(D); BUY.seen.add("tc:" + D.plate); track("transfer_check", {red: xferFix(rows), unk: rows.filter(r => r.reg).length, stage: st.n}); }
   const body = `${stageChips(D, st)}${flags.length ? `<div class="qsec">כדאי לבדוק</div><ul class="bflags">${flags.slice(0, 5).map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join("")}</ul>` : `<p style="margin:0 0 8px">${none}</p>`}
-    ${qs.length ? `<div class="qsec">מה לשאול את המוכר על הרכב הזה</div><ul class="bq">${qs.slice(0, 6).map(q => `<li>${esc(q)}</li>`).join("")}</ul>` : ""}
+    ${qs.length || mq.length ? `<div class="qsec">מה לשאול את המוכר על הרכב הזה</div><ul class="bq">${[...qs.slice(0, 6), ...mq].map(q => `<li>${esc(q)}</li>`).join("")}</ul>` : ""}
     ${transferBlock(D, false)}
     <button type="button" class="link-btn wa-btn" data-bm="msg" aria-expanded="${sellerState(D.plate).open}" aria-controls="smsg">${ico("share")}שאלות למוכר בוואטסאפ</button>
     <div class="smsg" id="smsg"${sellerState(D.plate).open ? "" : " hidden"}>${sellerState(D.plate).open ? sellerSheet(D) : ""}</div>`;
