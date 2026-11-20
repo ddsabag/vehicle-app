@@ -62,6 +62,11 @@ const FIXTURES = [
   { name: "shared-recv", rec: BASE, query: "&s=wa", recv: true },
   // the share picture with a full set of spec tiles (engine model first)
   { name: "share-rich", rec: { ...BASE, degem_manoa: "2ZR-FXE" }, model: { w: { koah_sus: 122, nefah_manoa: 1798, automatic_ind: 1, hanaa_nm: "קדמית", mishkal_kolel: 1810, kosher_grira_im_blamim: 750 }, modelRecalls: [] }, expect: { specs: 6 } },
+  // buy version 1: an expired test names the test as a blocker, a disabled-parking tag stays on the screen, a personal import has no price gauge,
+  // a dashboard km far under the car's pace, an asking price above the range (the gauge's dot at its edge)
+  { name: "buy-expired", rec: { ...BASE, tokef_dt: iso(-30) }, buy: { transfer: /^bad:הטסט פג .*העברה באינטרנט לא אפשרית/ } },
+  { name: "buy-tag", rec: BASE, sets: { "c8b9f9c8": [{ _id: 1, "MISPAR RECHEV": 12345678, "TAARICH HAFAKAT TAG": "20240115" }] }, buy: { transfer: /^bad:לרכב יש תג חניה לנכה/ } },
+  { name: "buy-import", rec: BASE, sets: { "03adc637": [{ _id: 1, mispar_rechev: 12345678, tozeret_nm: "טויוטה יפן", kinuy_mishari: "COROLLA", shnat_yitzur: 2021, sug_yevu: "יבוא אישי משומש", tozeret_cd: 1, degem_cd: 1 }] }, buy: { transfer: /^unk:רכב ביבוא אישי/ } },
 ];
 const TABS = contract.tabs.map((t) => t.id);
 const WIDTHS = process.env.UG_QUICK ? [390] : [320, 390];
@@ -143,6 +148,9 @@ async function runPage(browser, fx, theme, width) {
     const rv = await page.evaluate(() => ({ top: (document.querySelector(".shared-top b") || {}).textContent || "", line: !!document.querySelector(".shared-top .kl"), form: !!document.querySelector(".sharebar form[data-recv] input"), install: !!document.querySelector(".sharebar [data-act=openapp], .sharebar [data-act=openplay]") }));
     if (!/קיבלתם בדיקה של/.test(rv.top) || !rv.line || !rv.form || rv.install) fail(`[${label}] the shared report: ${JSON.stringify(rv)} (want the "received" title with the found line, a plate field, no install button before the recipient's own check)`);
   }
+  // the buy tab of buy version 1 (buy-and-file spec 20.11): the transfer check, the seller message, the km check, the price gauge.
+  // UG_BUY_OUT=<dir> also saves the stages, the message, the km check and the gauge of each fixture with fx.buy there, to look at
+  if (fx.buy && !fx.ls?.mine) await buyChecks(page, fx, label, theme === "light" && width === 390 ? process.env.UG_BUY_OUT : "");
   await page.addStyleTag({ content: "*{animation:none!important;transition:none!important}" });
 
   // a car shows only the tabs that apply to it (the recalls tab only with an open recall or a settlement), so the run walks the tabs on screen;
@@ -199,6 +207,21 @@ async function runPage(browser, fx, theme, width) {
     }
   }
   await ctx.close();
+}
+
+async function buyChecks(page, fx, label, out) {
+  const ex = fx.buy, shot = async (sel, name) => { if (!out) return; const el = await page.$(sel); if (el) await el.screenshot({ path: path.join(out, `${fx.name}-${name}.png`) }); };
+  await page.click(".tabs [data-tab=buy]"); await page.waitForTimeout(300);
+  await shot("#tabpanel .buyer-card", "stages");
+  const b = await page.evaluate(() => ({ rows: transferCheck(current).map((r) => r.k + ":" + r.t), pub: transferCheck(current, true).map((r) => r.t), msg: sellerText(current), chips: document.querySelectorAll(".bchips [data-bstage]").length }));
+  if (b.chips !== 4) fail(`[${label}] the buy tab shows ${b.chips} stage chips, not 4`);
+  if (ex.transfer && !b.rows.some((r) => ex.transfer.test(r))) fail(`[${label}] no transfer row matches ${ex.transfer}: ${b.rows.join(" | ")}`);
+  if (b.pub.some((t) => /נכה/.test(t)) || /נכה/.test(b.msg)) fail(`[${label}] the disabled-parking tag reaches a report or the seller message`);
+  if (/לוחית/.test(b.msg)) fail(`[${label}] the seller message names לוחית without the buyer ticking it`);
+  await page.click("[data-bm=msg]"); await page.waitForTimeout(150);
+  if (!(await page.$("#smsg:not([hidden]) #smPrev"))) fail(`[${label}] the seller message did not open`);
+  await shot("#tabpanel .buyer-card", "seller-msg");
+  await page.click("[data-bm=msg]");
 }
 
 // ---- the screens around the car page: each opens from the bottom bar (or a home tool), shows its own header, keeps the bar, never overflows
@@ -278,7 +301,7 @@ function compareShots() {
   await new Promise((ok) => server.listen(0, "127.0.0.1", ok));
   let browser;
   try { browser = await chromium.launch(); } catch { browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM || "/opt/pw-browsers/chromium" }); }
-  for (const fx of FIXTURES) for (const theme of THEMES) for (const w of WIDTHS) await runPage(browser, fx, theme, w);
+  for (const fx of FIXTURES.filter((f) => !process.env.UG_ONLY || process.env.UG_ONLY.split(",").includes(f.name))) for (const theme of THEMES) for (const w of WIDTHS) await runPage(browser, fx, theme, w);
   for (const sc of SCREENS) for (const theme of THEMES) for (const w of WIDTHS) await runScreen(browser, sc, theme, w);
   await browser.close(); server.close();
 

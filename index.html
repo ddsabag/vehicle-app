@@ -571,6 +571,12 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .xk{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;font-size:.78rem;font-weight:800;background:var(--card);color:var(--muted)}
 .xrows .ok .xk{color:var(--ok)}.xrows .bad .xk{color:var(--bad)}.xrows .warn .xk{color:var(--warn)}.xrows .info .xk{color:var(--info)}.xrows .bad{font-weight:600}
 .xrows .link-btn{margin-top:6px;width:auto}
+.wa-btn{justify-content:center;margin-top:12px;background:var(--t-green-bg);border-color:var(--t-green);color:var(--t-green)}.wa-btn .i{color:inherit}
+.smsg{margin-top:10px;display:grid;gap:8px}.smsg[hidden]{display:none}
+.sm-g{display:flex;align-items:center;gap:6px;font-size:.9rem}.sm-g button{min-height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--fg);font:inherit;font-weight:700}.sm-g button[aria-pressed=true]{background:var(--fg);border-color:var(--fg);color:var(--bg)}
+.sm-q{list-style:none;margin:0;padding:0;display:grid}.sm-q label{display:flex;gap:10px;align-items:flex-start;min-height:44px;padding:6px 0;font-size:.9rem;cursor:pointer}.sm-q input{width:20px;height:20px;flex:none;margin:1px 0 0;accent-color:var(--t-green)}.sm-lu{border-top:1px solid var(--line);margin-top:4px;color:var(--muted)}
+.sm-prev{margin:0;padding:10px 12px;border-radius:12px;background:var(--soft);font-size:.85rem;white-space:pre-wrap;overflow-wrap:anywhere}
+.sm-acts{display:flex;flex-wrap:wrap;gap:8px}.sm-acts .link-btn{flex:1 1 auto;width:auto;justify-content:center;margin:0;white-space:nowrap}.sm-acts .wa-btn{margin:0}
 .vd.ok{color:var(--ok);font-weight:700}.vd.bad{color:var(--bad);font-weight:700}.ft .g,.sum3 .g{color:var(--ok)}.ft .w,.sum3 .w{color:var(--warn)}.ft .r,.sum3 .r{color:var(--bad)}.ft td.g,.ft td.w,.ft td.r{font-weight:700}
 .sum3{display:flex;gap:6px;margin:10px 0}.sum3 div{flex:1;background:var(--soft);border-radius:10px;padding:6px;text-align:center;font-size:.85rem;color:var(--muted)}.sum3 b{display:block;font-size:1.3rem}
 .kinds{display:flex;flex-direction:column;gap:2px}.kinds label{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;font-size:.9rem;cursor:pointer}.kinds input[type=checkbox]{order:2;appearance:none;-webkit-appearance:none;flex:none;margin:0;width:44px;height:26px;border-radius:999px;background:#8a93a3;position:relative;transition:background .15s}.kinds input[type=checkbox]::after{content:"";position:absolute;top:3px;inset-inline-start:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}.kinds input[type=checkbox]:checked{background:var(--accent)}.kinds input[type=checkbox]:checked::after{transform:translateX(-18px)}.kinds input[type=checkbox]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}@media (prefers-reduced-motion:reduce){.kinds input[type=checkbox],.kinds input[type=checkbox]::after{transition:none}}.doc-add{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.doc-add .inp{flex:1 1 160px;min-width:0}
@@ -4447,6 +4453,65 @@ function transferBlock(D, full, print){
     <p class="xsum">${sum}</p>${shown.length ? `<ul class="xrows">${shown.map(r => `<li class="${r.k}"><span class="xk" aria-hidden="true">${XK[r.k]}</span><span>${esc(r.t)}${link(r)}</span></li>`).join("")}</ul>` : ""}
     ${full ? `<p class="note xend"><b>משלמים רק במעמד העברת הבעלות.</b> דמי ההעברה מופיעים בדף האגרות של משרד התחבורה, שמתעדכן כל אפריל.</p>${print ? "" : `<button type="button" class="link-btn" data-url="${FEE_SOURCE}" data-tl="gov">${ico("doc")}דף האגרות של משרד התחבורה</button>`}` : ""}</div>`;
 }
+/* ---------- the ready message to the seller (spec 3.5 ג) ----------
+   The questions that fit this car, ticked in advance, and the report only the owner can order (InfoCar), sent before the buyer drives out.
+   Nothing about the disabled-parking tag goes in (it is personal), the seller's number is never asked or kept, and no line about לוחית is added
+   unless the buyer ticks it (Dudu 20.11, decision 4). In the app the phone's share menu takes it, on the web wa.me */
+function sellerQs(D){
+  const q = [], add = (id, t) => q.push({id, t}), dt = (driveType(D) || {}).k;
+  if (dt === "ev" || dt === "phev") add("bat", "יש דוח בדיקת בריאות סוללה? עד מתי ועד כמה ק״מ יש אחריות יצרן על הסוללה?");
+  else if (dt === "hybrid") add("bat", "עד מתי ועד כמה ק״מ יש אחריות יצרן על הסוללה?");
+  if (D.recalls.length) add("recall", "הריקול הפתוח על הרכב תוקן? אפשר לקבל אישור תיקון מהיבואן?");
+  else if (pendingRecalls(D).length) add("recall", "הרכב נכלל בריקול לדגם? אם כן, הוא תוקן אצל היבואן?");
+  if (ownNow(D).kind === "rental") add("rental", "כמה קילומטרים עשה הרכב בהשכרה, ויש תיעוד של כל הטיפולים?");
+  add("infocar", "אפשר לשלוח לי דוח עבר ביטוחי מ-InfoCar? מזמינים אותו באתר שלהם, ורק הבעלים יכול להזמין.");
+  add("book", "יש ספר טיפולים או חשבוניות מהמוסך?");
+  add("owner", "הרכב רשום רק עליך, ואין עליו שעבוד?");
+  add("insp", "אפשר לבדוק את הרכב במכון שאני אבחר?");
+  return q;
+}
+const sellerState = p => BUY.msg[p] || (BUY.msg[p] = {open: false, off: new Set(), lu: false});
+function sellerText(D){
+  const m = sellerState(D.plate), qs = sellerQs(D).filter(q => !m.off.has(q.id)), g = setting("sellerG", "");
+  const yr = empty(D.v.shnat_yitzur) || String(D.title).includes(String(D.v.shnat_yitzur)) ? "" : " " + D.v.shnat_yitzur;
+  const name = (/^[א-ת]/.test(D.title) ? "ה" : "ה-") + D.title + yr;
+  return [`היי, ראיתי את המודעה על ${name}. לפני שאני ${g === "f" ? "מגיעה" : g === "m" ? "מגיע" : "מגיע/ה"}, כמה שאלות:`, ...qs.map((q, i) => `${i + 1}. ${q.t}`), "מתי נוח להיפגש, באור יום?", ...(m.lu ? ["", "בדקתי את הרכב בלוחית: luchit.app"] : [])].join("\n");
+}
+function sellerSheet(D){
+  const m = sellerState(D.plate), g = setting("sellerG", ""), gb = (v, t) => `<button type="button" data-bm="g" data-g="${v}" aria-pressed="${g === v}">${t}</button>`;
+  return `<p class="note">מסמנים מה לשאול. אפשר לערוך בוואטסאפ לפני השליחה. המספר של המוכר לא נשאל ולא נשמר.</p>
+    <div class="sm-g" role="group" aria-label="איך לכתוב את ההודעה"><span>אני:</span>${gb("m", "מגיע")}${gb("f", "מגיעה")}</div>
+    <ul class="sm-q">${sellerQs(D).map(q => `<li><label><input type="checkbox" data-bq="${q.id}"${m.off.has(q.id) ? "" : " checked"}><span>${esc(q.t)}</span></label></li>`).join("")}
+      <li class="sm-lu"><label><input type="checkbox" data-bq="_lu"${m.lu ? " checked" : ""}><span>להוסיף בסוף: "בדקתי את הרכב בלוחית"</span></label></li></ul>
+    <p class="sm-prev" id="smPrev">${esc(sellerText(D))}</p>
+    <div class="sm-acts"><button type="button" class="link-btn wa-btn" data-bm="wa">${ico("share")}פתיחה בוואטסאפ</button><button type="button" class="link-btn" data-bm="copy">${ico("copy")}העתקת ההודעה</button></div>`;
+}
+const sellerParams = (D, act) => { const m = sellerState(D.plate), qs = sellerQs(D).filter(q => !m.off.has(q.id)); return {act, q: qs.length, infocar: qs.some(q => q.id === "infocar") ? 1 : 0}; };
+document.addEventListener("click", ev => {
+  const b = ev.target.closest && ev.target.closest("[data-bm]"); if (!b || !current) return;
+  const D = current, a = b.dataset.bm, m = sellerState(D.plate), box = $("#smsg");
+  if (a === "msg") {
+    m.open = !m.open; b.setAttribute("aria-expanded", String(m.open));
+    if (box) { box.hidden = !m.open; box.innerHTML = m.open ? sellerSheet(D) : ""; }
+    if (m.open) { track("seller_msg", sellerParams(D, "open")); if (box) box.scrollIntoView({block: "nearest", behavior: "smooth"}); }
+    return;
+  }
+  if (a === "g") { try { localStorage.setItem("sellerG", b.dataset.g); } catch { toast("הבחירה לא נשמרה במכשיר הזה"); } if (box) box.innerHTML = sellerSheet(D); return; }
+  if (a === "copy") { track("seller_msg", sellerParams(D, "copy")); copyText(sellerText(D), "ההודעה"); return; }
+  if (a === "wa") {
+    // "send" counts the open of WhatsApp or the share menu, never whether the message was sent
+    track("seller_msg", sellerParams(D, "send"));
+    const t = sellerText(D), br = bridge();
+    if (br && br.share) { try { br.share("הודעה למוכר", t); return; } catch { reportErr("seller_msg"); } }
+    openExternal("https://wa.me/?text=" + encodeURIComponent(t));
+  }
+});
+document.addEventListener("change", ev => {
+  const c = ev.target.closest && ev.target.closest("[data-bq]"); if (!c || !current) return;
+  const m = sellerState(current.plate), id = c.dataset.bq;
+  if (id === "_lu") m.lu = c.checked; else if (c.checked) m.off.delete(id); else m.off.add(id);
+  const pv = $("#smPrev"); if (pv) pv.textContent = sellerText(current);
+});
 /* the six steps' titles and bodies; print draws them for paper (the checklist PDF): links become lines to tick, and the search for a testing
    station a line of its own */
 function buySteps(D, print){
@@ -7287,7 +7352,9 @@ function buyerCard(D){
     <div class="qsec" style="margin-top:10px">המחיר שהמוכר מבקש</div>
     <div class="askrow"><input class="inp" id="askIn" inputmode="numeric" placeholder="₪" value="${ask || ""}" aria-label="המחיר המבוקש"><button type="button" class="link-btn" data-act="candSave">${ico("star")}${it ? "עדכון" : "שמירה כמועמד"}</button></div>
     ${vd ? `<p class="vd ${vd.k}" style="margin:6px 0 0">${esc(vd.t)}</p>` : ""}
-    ${transferBlock(D, false)}`;
+    ${transferBlock(D, false)}
+    <button type="button" class="link-btn wa-btn" data-bm="msg" aria-expanded="${sellerState(D.plate).open}" aria-controls="smsg">${ico("share")}שאלות למוכר בוואטסאפ</button>
+    <div class="smsg" id="smsg"${sellerState(D.plate).open ? "" : " hidden"}>${sellerState(D.plate).open ? sellerSheet(D) : ""}</div>`;
   return `<div class="buyer-card">${card("ליווי קנייה", "bulb", "amber", body, `${PT("חבילת קנייה")}`)}</div>`
 }
 
