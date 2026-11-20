@@ -101,6 +101,12 @@ const bodyOf = m => { if (!bodyMemo.has(m)) { const c = new Map(); for (const r 
 const RB = await recallBuilder({brandOf: n => brandLabel(cleanMake(String(n).replace(COUNTRY, "").replace(COUNTRY, "").trim())), fallbackMakers: cat.rows.map(r => ({n: r[0], m: [r[1]]}))});
 console.log(RB.build ? "recall sections: matcher from " + RB.kind : `::warning::pages: the model pages are built without their recall section (${RB.why})`);
 let recallPages = 0;
+// affiliate test (.github/affiliate.json): nothing renders until Dudu sets enabled and the program's link; test pages get one disclosed line, control pages none
+const AFF = (() => { try { return JSON.parse(fs.readFileSync(".github/affiliate.json", "utf8")); } catch { return {}; } })();
+const affOn = !!(AFF.enabled && AFF.link && AFF.link.includes("{q}")), affTest = new Set(AFF.test || []);
+const affA = (text, q, sub) => `<a href="${esc(AFF.link.replace("{q}", encodeURIComponent(q)).replace("{sub}", encodeURIComponent(sub)))}" rel="sponsored nofollow noopener" target="_blank">${esc(text)}</a>`;
+const affEn = m => { const k = Object.keys(AFF.brand_en || {}).find(b => m.label === b || m.make.startsWith(b)); return k ? AFF.brand_en[k] + " " : ""; };
+let affPages = 0;
 let magPosts = []; try { magPosts = JSON.parse(fs.readFileSync("magazine/posts.json", "utf8")); } catch {}
 // a short summary per model page, written by Claude from that page's own facts (model-answers.mjs); shown only while the facts it was
 // written from are still the page's facts (hash), so a figure in it never drifts from the table. MODEL_FACTS=<file> writes the facts out.
@@ -163,13 +169,14 @@ for (const m of models) {
     {"@type": "BreadcrumbList", itemListElement: [{"@type": "ListItem", position: 1, name: "לוחית", item: SITE}, {"@type": "ListItem", position: 2, name: "כל הדגמים", item: SITE + "model/"}, {"@type": "ListItem", position: 3, name}]},
     {"@type": "FAQPage", mainEntity: faq.map(([q, a]) => ({"@type": "Question", name: q, acceptedAnswer: {"@type": "Answer", text: a}}))}]};
   const peak = rows.reduce((a, b) => b.act > a.act ? b : a);
+  const affLine = affOn && affTest.has(slugOf(m)) ? (affPages++, `<p class="muted">${affA(`חיפוש מגבים, כיסויים ואביזרים ${/^[\u05d0-\u05ea]/.test(withBrand(m)) ? "ל" : "ל-"}${withBrand(m)} באליאקספרס`, `${affEn(m)}${m.disp} car accessories`, slugOf(m))}. ${esc(AFF.disclosure)} כדאי לוודא שהמוצר מתאים לשנתון ולגרסה לפני הקנייה.</p>`) : "";
   const body = `${head(title, desc, url)}<p class="muted"><a href="${SITE}">לוחית</a> › <a href="${SITE}model/">כל הדגמים</a> › ${brandPath(m.label) ? `<a href="${SITE}${brandPath(m.label)}">${esc(m.label)}</a>` : esc(m.label)}</p><h1>${esc(name)}</h1>
 <p>לפי מאגרי משרד התחבורה יש בישראל כ-${fmt(act)} רכבים פעילים מדגם ${esc(name)}${esc(alt)} ${yrs}.${bodies.length ? ` סוגי מרכב בקטלוג: ${bodies.map(esc).join(", ")}.` : ""} השנתון הנפוץ ביותר הוא ${peak.yr} (${fmt(peak.act)} רכבים).</p>
 ${answerHtml}<div class="card"><b>בדקו רכב מסוים</b><p class="muted" style="margin:6px 0 12px">הקלידו מספר רישוי וקבלו ריקולים, טסט, היסטוריית בעלויות ומחיר משוער, בחינם.</p><a class="cta" href="${SITE}">לבדיקה לפי מספר רישוי</a></div>
 <h2>רכבים פעילים וקילומטראז׳ לפי שנתון</h2><div class="wrap"><table><thead><tr><th>שנתון</th><th class="n">פעילים</th><th class="n">ירדו מהכביש</th><th class="n">ק״מ טיפוסי</th><th class="n">רשומות בעלות לרכב</th></tr></thead><tbody>
 ${rows.slice().reverse().map(r => `<tr><td>${r.yr}</td><td class="n">${fmt(r.act)}</td><td class="n">${fmt(r.off)}</td><td class="n">${r.km ? fmt(r.km) : "–"}</td><td class="n">${r.ow ? r.ow.toFixed(1) : "–"}</td></tr>`).join("\n")}
 </tbody></table></div><p class="muted">הק״מ הטיפוסי הוא הממוצע בטסט האחרון של רכבים מהשנתון, ומוצג רק כשיש מספיק נתונים. רשומות בעלות כוללות גם מעברים בין חברות ליסינג וסוחרים, ולכן אינן בהכרח מספר בעלים פרטיים. סה״כ ירדו מהכביש ${fmt(off)} רכבים מהדגם בשנתונים האלה.</p>
-${extra}${extra2}${stl.length ? `<h2>הסדרי פשרה שעשויים לחול על ${esc(name)}</h2><p class="muted">לפי הודעות היבואנים והעיתונות נכון ל-10/2026. הזכאות תלויה בשנתון, בגרסה ולפעמים במספר שלדה, והרשימה אינה מקיפה ואינה ייעוץ משפטי. לבדיקה לפי מספר רישוי השתמשו באפליקציה.</p>${stl.map(t => `<div class="card"><b>${esc(t.t)}</b> <span class="muted">${t.st === "ok" ? "אושר" : "ממתין לאישור בית המשפט"}</span><p style="margin:6px 0 0">${esc(t.b)}</p><p class="muted" style="margin:6px 0 0">${esc(t.cond)}</p></div>`).join("")}` : ""}<h2>לפני שקונים ${esc(name)}</h2><p>בדקו את הרכב הספציפי לפי מספר רישוי: ריקול פתוח, תוקף טסט, קילומטראז׳ לאורך השנים והיסטוריית בעלויות, והשוו למחיר ביד שנייה.</p>
+${extra}${extra2}${affLine}${stl.length ? `<h2>הסדרי פשרה שעשויים לחול על ${esc(name)}</h2><p class="muted">לפי הודעות היבואנים והעיתונות נכון ל-10/2026. הזכאות תלויה בשנתון, בגרסה ולפעמים במספר שלדה, והרשימה אינה מקיפה ואינה ייעוץ משפטי. לבדיקה לפי מספר רישוי השתמשו באפליקציה.</p>${stl.map(t => `<div class="card"><b>${esc(t.t)}</b> <span class="muted">${t.st === "ok" ? "אושר" : "ממתין לאישור בית המשפט"}</span><p style="margin:6px 0 0">${esc(t.b)}</p><p class="muted" style="margin:6px 0 0">${esc(t.cond)}</p></div>`).join("")}` : ""}<h2>לפני שקונים ${esc(name)}</h2><p>בדקו את הרכב הספציפי לפי מספר רישוי: ריקול פתוח, תוקף טסט, קילומטראז׳ לאורך השנים והיסטוריית בעלויות, והשוו למחיר ביד שנייה.</p>
 <p><a class="cta" href="${SITE}">בדיקת רכב בלוחית</a></p>${foot.replace("</body></html>", "" + `<script type="application/ld+json">${JSON.stringify(ld)}</script>` + "</body></html>")}`;
   fs.mkdirSync(`model/${slugOf(m)}`, {recursive: true}); fs.writeFileSync(`model/${slugOf(m)}/index.html`, body);
   urls.push(url); if (MOD) lastmod[url] = MOD; m.slug = slugOf(m); m.act = act; slugMap[m.make + "|" + m.model] = m.slug;
@@ -241,9 +248,45 @@ ${sections.map(([h, t]) => `<h2>${h}</h2>${t}`).join("")}
   fs.mkdirSync("guide/buy-used-car", {recursive: true}); fs.writeFileSync("guide/buy-used-car/index.html", body);
   urls.push(url);
 }
+// guide: before the annual test (linked from /check/test/); its shopping links are part of the affiliate test and render only when it is on
+{
+  const items = (AFF.guide_items || []).map(([he, q]) => affOn ? `${affA(he, q, "guide-before-test")} <span class="muted">(קישור שותפים)</span>` : esc(he));
+  const sections = [
+    ["שבוע לפני: מה בודקים לבד", `<p>רוב הכישלונות בטסט הם בדברים פשוטים שאפשר לבדוק בחניה בעשר דקות. כדאי לעבור על הרשימה עם עוד אדם, שיעמוד מאחורי הרכב כשאתם לוחצים על הבלם ומפעילים את האורות.</p><ul class="g">
+<li><b>אורות:</b> פנסים ראשיים (נמוך וגבוה), אורות בלימה, איתות בארבע הפינות, אורות אחורה ותאורת לוחית הרישוי. נורה שרופה היא סיבה נפוצה לחזרה למכון.</li>
+<li><b>צמיגים:</b> עומק חריצים מספיק, בלי סדקים, בליטות או חוטים גלויים, ולחץ אוויר לפי המדבקה בדלת הנהג. לא לשכוח את הגלגל הרזרבי אם יש.</li>
+<li><b>מגבים ומתז:</b> מגבים שמנקים בלי פסים, ומיכל נוזל מתז מלא.</li>
+<li><b>שמשה קדמית:</b> סדק בשדה הראייה של הנהג עלול להכשיל. אבן קטנה אפשר לפעמים לתקן במקום להחליף.</li>
+<li><b>צופר, חגורות ומראות:</b> צופר שעובד, חגורות שננעלות ונמשכות חזרה, ומראות שלמות.</li>
+<li><b>נורות אזהרה:</b> נורת מנוע, ABS או כרית אוויר שדולקת בלוח המחוונים שווה בדיקה במוסך לפני המכון.</li>
+<li><b>לוחיות רישוי:</b> נקיות, קריאות ומחוברות היטב, מלפנים ומאחור.</li></ul>`],
+    ["מה בודקים במכון הרישוי", `<p>במכון בודקים בין השאר את הבלמים, ההיגוי והמתלים, הפליטה מהמנוע, האורות, הצמיגים והשלדה, ומשווים את פרטי הרכב לרישום. אם משהו לא עובר, מקבלים רשימה של מה לתקן וחוזרים לבדיקה חוזרת.</p>`],
+    ["מה לסדר לפני שמגיעים", `<ul class="g"><li><b>ביטוח חובה בתוקף:</b> בלעדיו לא ניתן לחדש את רישיון הרכב.</li><li><b>אגרת הרישוי השנתית:</b> משלמים בנפרד מהטסט. <a href="${SITE}check/license-fee/">הערכת האגרה לפי מספר רישוי</a>.</li><li><b>ריקול פתוח:</b> ריקול שלא תוקן עלול למנוע בהמשך חידוש רישיון. <a href="${SITE}check/recall/">בדיקת ריקולים לפי מספר רישוי</a>, והתיקון עצמו נעשה בדרך כלל אצל היבואן בלי עלות.</li><li><b>רישיון הרכב:</b> כדאי להביא אותו, וגם לבדוק מראש עד מתי הוא בתוקף.</li></ul>`],
+    ["פריטים שכדאי להחזיק בבית", `<p>אלה הפריטים שנגמרים או נשחקים הכי מהר לפני טסט:</p><ul class="g">${items.map(i => `<li>${i}</li>`).join("")}</ul>${affOn ? `<p class="muted">${esc(AFF.disclosure)} חלקי בטיחות כמו בלמים וצמיגים כדאי לקנות ולהרכיב במוסך.</p>` : ""}`]
+  ];
+  const faq = [
+    ["מתי הטסט של הרכב שלי?", "מקלידים את מספר הרישוי בלוחית ורואים עד מתי רישיון הרכב בתוקף ומתי היה הטסט האחרון, לפי מאגר משרד התחבורה. באפליקציה אפשר לקבל תזכורת לפני המועד."],
+    ["כמה עולה טסט לרכב?", "המחיר נקבע במכון הרישוי ומשתנה לפי סוג הרכב, ולכן כדאי לברר מול המכון מראש. בנפרד משלמים את אגרת הרישוי השנתית."],
+    ["מה קורה אם הרכב לא עבר טסט?", "מקבלים מהמכון פירוט של הליקויים, מתקנים אותם וחוזרים לבדיקה חוזרת. כדאי לברר במכון לכמה זמן הבדיקה החוזרת תקפה."],
+    ["אפשר לנסוע ברכב שהרישיון שלו פג?", "נהיגה ברכב שרישיונו פג אסורה ועלולה לפגוע בכיסוי הביטוחי, ולכן כדאי לעשות את הטסט לפני תאריך הפקיעה."]
+  ];
+  const url = `${SITE}guide/before-test/`, title = "לפני טסט לרכב: רשימת בדיקה ומה לסדר מראש | לוחית";
+  const desc = "מה לבדוק לבד לפני הטסט השנתי (אורות, צמיגים, מגבים, שמשה), מה בודקים במכון הרישוי ומה לסדר מראש: ביטוח חובה, אגרה וריקולים פתוחים.";
+  const ld = {"@context": "https://schema.org", "@type": "FAQPage", mainEntity: faq.map(([q, a]) => ({"@type": "Question", name: q, acceptedAnswer: {"@type": "Answer", text: a}}))};
+  const body = `${head(title, desc, url, "website", "guide_page").replace("</style>", "ul.g{padding-inline-start:20px;margin:8px 0}ul.g li{margin:6px 0}</style>")}<p class="muted"><a href="${SITE}">לוחית</a> › מדריך</p><h1>לפני טסט לרכב: רשימת בדיקה</h1>
+<p>הטסט השנתי עובר בקלות יותר כשמגיעים מוכנים. כאן הדברים שכדאי לבדוק בעצמכם שבוע לפני, מה קורה במכון הרישוי ומה לסדר מראש כדי שהרישיון יתחדש בלי עיכוב.</p>
+<div class="card"><b>מתי הטסט שלכם?</b><p class="muted" style="margin:6px 0 12px">הקלידו מספר רישוי וראו עד מתי הרישיון בתוקף, מתי היה הטסט האחרון ואם יש ריקול פתוח, בחינם.</p><a class="cta" href="${SITE}check/test/">בדיקת תוקף טסט לפי מספר רישוי</a></div>
+${sections.map(([h, t]) => `<h2>${h}</h2>${t}`).join("")}
+<h2>שאלות נפוצות</h2>${faq.map(([q, a]) => `<div class="card"><b>${esc(q)}</b><p style="margin:6px 0 0">${esc(a)}</p></div>`).join("")}
+<p class="muted">הרשימה היא עזרה להכנה ואינה מחליפה את בדיקת מכון הרישוי או מוסך. <a href="${SITE}guide/buy-used-car/">מדריך לקנייה בטוחה של רכב יד שנייה</a></p>
+<p><a class="cta" href="${SITE}">בדיקת רכב בלוחית</a></p>${foot}<script type="application/ld+json">${JSON.stringify(ld)}</script>`;
+  fs.mkdirSync("guide/before-test", {recursive: true}); fs.writeFileSync("guide/before-test/index.html", body);
+  urls.push(url);
+}
 buildLanding({SITE, head, foot, esc, fmt, models, g, NAT, SETTLEMENTS, urls, lastmod, MOD, slugOf});
 // the monthly magazine (magazine.mjs) keeps its own pages; keep them in the sitemap
 try { const posts = JSON.parse(fs.readFileSync("magazine/posts.json", "utf8")); urls.push(SITE + "magazine/", ...posts.map(p => `${SITE}magazine/${p.slug}/`)); for (const p of posts) if (p.date) lastmod[`${SITE}magazine/${p.slug}/`] = p.date; if (posts[0] && posts[0].date) lastmod[SITE + "magazine/"] = posts[0].date; } catch {}
 fs.writeFileSync("sitemap.xml", `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(u => `  <url><loc>${u}</loc>${lastmod[u] ? `<lastmod>${lastmod[u]}</lastmod>` : ""}</url>`).join("\n")}\n</urlset>\n`);
 if (process.env.MODEL_FACTS) fs.writeFileSync(process.env.MODEL_FACTS, JSON.stringify(factsOut));
+if (affOn) console.log("affiliate line on model pages:", affPages);
 console.log("pages", models.length, "sitemap urls", urls.length, "with a recall section", recallPages, "with a summary", answerPages);
