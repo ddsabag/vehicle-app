@@ -459,6 +459,8 @@ button.cf-tile{cursor:pointer}
 .cf-more{justify-content:center}
 .cf-sum{color:var(--muted);font-size:.85rem;font-weight:500;margin-inline-start:auto;white-space:nowrap}
 .cf-sub{display:flex;align-items:center;gap:8px;margin:16px 0 6px;font-size:.9rem}.cf-sub:first-child{margin-top:0}
+.cf-ask{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;background:var(--info-bg);border-radius:14px;padding:12px 14px;font-size:.9rem}.cf-ask>div:first-child{flex:1 1 200px;min-width:0;display:grid;gap:2px}.cf-ask span{color:var(--muted)}
+.cf-ask-b{display:flex;align-items:center;gap:8px}.cf-ask-b .link-btn{width:auto;margin:0;background:var(--card)}.cf-ask-b .cf-not{margin:0;min-height:44px}.cf-ask-off{margin:0}
 .cf-cta{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--soft);border-radius:14px;padding:12px 14px;font-size:.9rem}
 .cf-cta span{flex:1 1 200px;min-width:0}.cf-cta .link-btn{width:auto;margin:0}
 .cf-not{align-self:center;background:none;border:0;color:var(--muted);font:inherit;font-size:.85rem;text-decoration:underline;min-height:44px;cursor:pointer}
@@ -1227,7 +1229,9 @@ const analyticsOn = () => { if (navigator.webdriver || BOT_UA.test(navigator.use
 /* wording experiments (run by the Experimenter workflow): each device keeps one random variant; experiments.json on the site may name a winner or switch an experiment off.
    Only texts are tested. Variant 0 is the control. Exposure and result events carry exp + exp_v so GA4 can compare the variants. */
 // share_label is retired (29.10.2026): the share button lost its text in the car header, so its exposure is no longer sent
-const EXPERIMENTS = {share_label: ["שיתוף", "שלח לחבר"]};
+// file_door (buy-and-file spec 20.11, 4.4): the row in the overview that opens the file, "a" what it does, "b" the reminders it brings. Only in
+// the app, where the reminders exist: the site always shows "a" and sends no exposure
+const EXPERIMENTS = {share_label: ["שיתוף", "שלח לחבר"], file_door: ["a", "b"]};
 const expCfg = () => { try { return JSON.parse(localStorage.getItem("exp_cfg") || "{}"); } catch { return {}; } };
 function expV(name){
   const c = expCfg()[name] || {}, n = EXPERIMENTS[name].length;
@@ -1909,7 +1913,7 @@ const docExpSave = a => { try { localStorage.setItem("docExp", JSON.stringify(a)
 const alertsSupported = () => !!(window.AndroidApp && window.AndroidApp.setAlerts);
 /* the phone's alerts are really on: not turned off here and not blocked in the phone's settings */
 const alertsOn = () => { try { return alertsSupported() && window.AndroidApp.alertsState() === "on"; } catch { return false; } };
-window.onAlertsPermission = ok => { toast(ok ? "ההתראות פועלות: נעדכן אתכם על ריקול חדש או טסט שעומד לפוג" : "ההתראות כבויות. אפשר להפעיל אותן במסך התראות."); syncAlertsSeg(); refreshView(); };
+window.onAlertsPermission = ok => { ALERT_ASK.done(ok ? "granted" : "denied"); toast(ok ? "ההתראות פועלות: נעדכן אתכם על ריקול חדש או טסט שעומד לפוג" : "ההתראות כבויות. אפשר להפעיל אותן במסך התראות."); syncAlertsSeg(); refreshView(); };
 function syncAlertsSeg(){
   const row = document.getElementById("alertsRow"); if (!row) return;
   row.hidden = !alertsSupported(); if (row.hidden) return;
@@ -3279,6 +3283,11 @@ const HERE = window.AndroidApp ? "בטלפון הזה" : "בדפדפן הזה";
    (their Google account, encrypted, never ours; privacy.html), so "only on this phone" would be untrue there. Documents are not backed up:
    their note keeps HERE */
 const KEPT = window.AndroidApp ? "אצלכם, לא אצלנו" : "רק בדפדפן הזה";
+/* the file's own line said honestly (spec 4.3, item 2 of 5.11): "הכול נשמר אצלכם" read as "nothing gets lost", while the documents are not in
+   the phone's backup. The cars, services and alerts come back from the person's Android backup, the documents do not yet; the site keeps it all
+   in this browser only */
+const KEPT_FILE = window.AndroidApp ? "בטלפון הזה" : "בדפדפן הזה בלבד";
+const KEPT_LINE = window.AndroidApp ? "נשמר בטלפון הזה. רכבים, טיפולים והתראות חוזרים מהגיבוי של Android. מסמכים עדיין לא, אז כדאי לשמור עותק שלהם גם במקום אחר." : "נשמר בדפדפן הזה בלבד. ניקוי הדפדפן מוחק את התיק.";
 /* iPhone and iPad: there is no app for them, so nothing points them at Google Play */
 const IS_IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
 /* Facebook, Instagram, TikTok, Telegram... open links in their own browser, where intent:// links and App Links do not work and files cannot be downloaded */
@@ -3737,6 +3746,15 @@ const DOC_EXP_CATS = ["רישיון רכב", "רישיון נהיגה", "ביט�
 const shortName = (n, max = 32) => { const a = [...String(n || "")]; return a.length <= max ? a.join("") : a.slice(0, max - 13).join("") + "…" + a.slice(-12).join(""); };
 // the line under a document's expiry: a reminder is a promise only the app keeps (the site has no notifications)
 const expHint = on => on ? (alertsSupported() ? "נשמר. נתריע חודש לפני." : "נשמר. התאריך מופיע ב\"מה הבא\".") : (alertsSupported() ? "לא חובה. עם תאריך נתריע חודש לפני." : "לא חובה. עם תאריך הוא יופיע ב\"מה הבא\".");
+/* 0 of 39 file owners added a document (spec 4.1): cf_doc_tap says whether people press the button, cf_doc_cancel whether they then close the
+   picker with no file. The picker's own cancel event where the WebView has it; elsewhere the page getting focus back with no file chosen */
+const DOC_TAP = {at: 0, cat: ""};
+function docTap(cat, from){
+  track("cf_doc_tap", {cat, from}); DOC_TAP.at = Date.now(); DOC_TAP.cat = cat;
+  addEventListener("focus", () => setTimeout(() => { if (DOC_TAP.at && Date.now() - DOC_TAP.at > 800) docCancel(); }, 600), {once: true});
+}
+function docCancel(){ if (!DOC_TAP.at) return; DOC_TAP.at = 0; track("cf_doc_cancel", {cat: DOC_TAP.cat}); }
+document.addEventListener("cancel", ev => { if (ev.target && ev.target.id === "docFile") docCancel(); }, true);
 async function docsAdd(files, plate, cat){ track("doc_add", {cat}); try { await docsAdd0(files, plate, cat); } catch { toast("לא הצלחנו לשמור את המסמך " + HERE.replace(" הזה", "")); } }
 async function docsAdd0(files, plate, cat){
   let n = (await DocDB.byPlate(plate)).length, added = 0, skipped = 0, locked = false; const ids = [];
@@ -3787,7 +3805,7 @@ function docViewer(blob, name){
 document.addEventListener("click", async ev => {
   const b = ev.target.closest("[data-doc]"); if (!b || !current) return;
   const a = b.dataset.doc;
-  if (a === "add") { const f = $("#docFile"); if (f) f.click(); return; }
+  if (a === "add") { const f = $("#docFile"); if (f) { docTap(($("#docCat") || {}).value || "אחר", "card"); f.click(); } return; }
   const rec = b.dataset.id ? await DocDB.get(+b.dataset.id).catch(() => null) : null; if (!rec) return;
   if (a === "open") { if (rec.type === "application/pdf") shareFile(rec.blob, rec.name, rec.cat); else docViewer(rec.blob, rec.name); }
   else if (a === "share") shareFile(rec.blob, rec.name, rec.cat);
@@ -3796,7 +3814,7 @@ document.addEventListener("click", async ev => {
 document.addEventListener("click", ev => { const b = ev.target.closest("[data-retry]"); if (b) run(b.dataset.retry); });
 // Footer links to our social pages: counted in /live as link_out {kind: "social", via: network}.
 document.addEventListener("click", ev => { const a = ev.target.closest("a[data-soc]"); if (a) track("link_out", {kind: "social", via: a.dataset.soc}); });
-document.addEventListener("change", ev => { const f = ev.target.closest("#docFile"); if (!f || !current) return; const files = [...f.files]; f.value = ""; if (files.length) docsAdd(files, current.plate, ($("#docCat") || {}).value || "אחר"); });
+document.addEventListener("change", ev => { const f = ev.target.closest("#docFile"); if (!f || !current) return; const files = [...f.files]; f.value = ""; DOC_TAP.at = 0; if (files.length) docsAdd(files, current.plate, ($("#docCat") || {}).value || "אחר"); });
 // a saved document's expiry, kept the moment it is chosen (the phone's picker has its own "set"); a year typed digit by digit on a computer
 // passes through 0002, 0020... and is skipped. The row is not drawn again, so typing goes on; the history, tiles and "מה הבא" are.
 document.addEventListener("change", async ev => {
@@ -3913,7 +3931,7 @@ function isMine(D){
 function setMine(D, on, from){
   const m = mineAll(); m[D.plate] = on ? 1 : 0;
   try { localStorage.setItem("mine", JSON.stringify(m)); } catch {} keep("mine", m);
-  track(on ? "mine_set" : "mine_unset", on ? {saved: isSaved(D.plate) ? 1 : 0, from: from || "overview"} : {saved: isSaved(D.plate) ? 1 : 0});
+  track(on ? "mine_set" : "mine_unset", on ? {saved: isSaved(D.plate) ? 1 : 0, from: from || "overview", ...(!from || from === "overview" ? doorTag() : {})} : {saved: isSaved(D.plate) ? 1 : 0});
 }
 /* a file can be opened for this car: never on a shared report, a model or a car off the road, nor when it is already the owner's */
 const fileOk = D => !!D && D.kind !== "model" && !!D.plate && !D.isCancelled && !reportBuild && !sharedHere(D) && !isMine(D);
@@ -3931,15 +3949,18 @@ const ctaSeen = new Set();
 function watchCta(p){
   if (ctaSeen.has(p) || !("IntersectionObserver" in window)) return;
   const el = document.querySelector(".cf-cta"); if (!el) return;
-  const io = new IntersectionObserver(es => { if (!es.some(x => x.isIntersecting)) return; io.disconnect(); if (ctaSeen.has(p)) return; ctaSeen.add(p); track("file_cta_shown", {from: "overview"}); }, {threshold: 0.6});
+  const io = new IntersectionObserver(es => { if (!es.some(x => x.isIntersecting)) return; io.disconnect(); if (ctaSeen.has(p)) return; ctaSeen.add(p); if (window.AndroidApp) expExpose("file_door"); track("file_cta_shown", {from: "overview", ...doorTag()}); }, {threshold: 0.6});
   io.observe(el);
 }
 /* the calm row in the overview, above the ownership history, that opens the file */
 function fileCta(D){
   if (!fileOk(D)) return "";
   setTimeout(() => { if (current === D) watchCta(D.plate); }, 0);
-  return `<div class="cf-cta"><span><b>זה הרכב שלכם?</b> פתחו לו תיק: מה הבא, טיפולים ומסמכים, במקום אחד שנשמר ${KEPT}.</span><button type="button" class="link-btn" data-cf="mine" data-from="overview">${ico("car")}פתיחת תיק</button></div>`;
+  const b = !!window.AndroidApp && expV("file_door") === 1;
+  return `<div class="cf-cta"><span><b>זה הרכב שלכם?</b> ${b ? "נזכיר לכם לפני הטסט, ונתריע על ריקול חדש. בלי הרשמה." : "פתחו לו תיק: מה הבא, טיפולים ומסמכים, במקום אחד."}</span><button type="button" class="link-btn" data-cf="mine" data-from="overview">${ico("car")}פתיחת תיק</button></div>`;
 }
+// the wording's variant on the row's events, in the app only (the site has one wording)
+const doorTag = () => window.AndroidApp ? expTag("file_door") : {};
 const RENEW_URL = "https://www.gov.il/he/service/car_licence_renewal";
 const ROAD_CATS = ["רישיון רכב", "ביטוח", "רישיון נהיגה"];
 const today0 = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); };
@@ -4076,13 +4097,42 @@ async function historyPdf(D, btn){
   } catch { toast("לא הצלחנו להכין את הקובץ. נסו שוב."); }
   finally { btn.disabled = false; btn.innerHTML = old; }
 }
+/* item 3 of the file spec, released early (Dudu 20.11): the alerts are asked for when a car becomes "הרכב שלי", once per car, with its real test
+   date. Until now the phone's prompt came once, at the first car ever saved, so an owner who had saved another car first was never asked.
+   alert_ask {from: mine, res} counts the answer: granted, denied (the phone refused) or later */
+const ALERT_ASK = {
+  pending: "",
+  all(){ try { return JSON.parse(localStorage.getItem("alertAsk") || "{}") || {}; } catch { return {}; } },
+  mark(p, res){ const m = ALERT_ASK.all(); m[p] = res; try { localStorage.setItem("alertAsk", JSON.stringify(m)); return true; } catch { return false; } },
+  done(res){ const p = ALERT_ASK.pending; if (!p) return; ALERT_ASK.pending = ""; ALERT_ASK.mark(p, res); track("alert_ask", {from: "mine", res}); },
+};
+const dDot = d => `${d.getDate()}.${d.getMonth() + 1}.${String(d.getFullYear()).slice(2)}`;
+function alertAsk(D){
+  if (reportBuild || !D.plate) return "";
+  const st = ALERT_ASK.all()[D.plate];
+  if (!alertsSupported()) return IS_IOS || st ? "" : `<div class="cf-ask"><div><b>תזכורות יש רק באפליקציה</b><span>שם נזכיר לפני הטסט ונתריע על ריקול חדש, בלי הרשמה.</span></div><div class="cf-ask-b"><button type="button" class="link-btn" data-url="${PLAY_URL}" data-hint="file_ask">${ico("bell")}לאפליקציה</button><button type="button" class="cf-not" data-bm="askLater">לא עכשיו</button></div></div>`;
+  if (alertsOn() || st === "granted" || st === "later") return "";
+  if (st === "denied") return `<p class="note cf-ask-off">התזכורות כבויות. אפשר להפעיל בהגדרות.</p>`;
+  const L = licOf(D), when = L && L.k === "ok" ? `הטסט ב-${dDot(L.ex)}. נזכיר שבועיים לפני.` : "נזכיר על ריקולים ועל הטיפול הבא.";
+  return `<div class="cf-ask"><div><b>${when}</b><span>${L && L.k === "ok" ? "וגם על ריקול חדש, אם ייפתח. " : ""}בלי הרשמה.</span></div><div class="cf-ask-b"><button type="button" class="link-btn" data-bm="askOn">${ico("bell")}הפעלת תזכורות</button><button type="button" class="cf-not" data-bm="askLater">לא עכשיו</button></div></div>`;
+}
+document.addEventListener("click", ev => {
+  const b = ev.target.closest && ev.target.closest("[data-bm=askOn],[data-bm=askLater]"); if (!b || !current) return;
+  const p = current.plate;
+  if (b.dataset.bm === "askLater") { ALERT_ASK.pending = alertsSupported() ? p : ""; if (ALERT_ASK.pending) ALERT_ASK.done("later"); else ALERT_ASK.mark(p, "later"); buyRedraw(); return; }
+  ALERT_ASK.pending = p;
+  try { window.AndroidApp.setAlerts(true); localStorage.setItem("alertsAsked", "1"); } catch { reportErr("alert_ask"); }
+  // a phone that allows notifications already (or an Android before 13) answers with no prompt: then the alerts are simply on
+  setTimeout(() => { if (ALERT_ASK.pending === p && alertsOn()) { ALERT_ASK.done("granted"); syncAlertsSeg(); buyRedraw(); } }, 700);
+});
 function tabFile(D){
   if (cfFor !== D.plate) { cfFor = D.plate; cfFilter = "all"; cfMore = false; cfDocs = []; }
   const info = serviceInfo(D);
   if (maintOk()) svcRemember(D, info);
   const n = maintOk() ? svcNext(svcOf(D.plate)) : null, est = n ? null : svcEst(D, info);
   const html = [];
-  html.push(`<div class="cf-top"><p>הכול נשמר ${KEPT}</p></div>`);   // the road documents open from the header's "מסמכים"
+  html.push(`<div class="cf-top"><p>${KEPT_LINE}</p></div>`);   // the road documents open from the header's "מסמכים"
+  html.push(alertAsk(D));
   html.push(fileTiles(D, n, est));
   html.push(fileNext(D, info, n, est));
   html.push(`<div class="cf-quick"><button type="button" ${maintOk() ? `data-cf="svc" aria-expanded="false"` : `data-act="proInfo"`}>${ico("wrench")}טיפול</button><button type="button" data-cf="doc">${ico("camera")}<span class="cfq-l">קבלה או מסמך</span><span class="cfq-s">מסמך</span></button><button type="button" ${maintOk() ? `data-cf="km" aria-expanded="false"` : `data-act="proInfo"`}>${ico("chart")}עדכון ק״מ</button></div>${maintOk() ? svcForm() : ""}`);
@@ -4129,12 +4179,12 @@ function openFile(D, from){
   if (!isSaved(D.plate)) {
     const on = toggleSaved(newSavedItem(D));
     if (on) { startTrial(); cohSaved("file"); track("car_save", {n: String(Math.min(store.get("savedVehicles").length, 4)) + (store.get("savedVehicles").length > 3 ? "+" : ""), from: "file"}); }
-    if (on && alertsSupported()) { let asked = false; try { asked = !!localStorage.getItem("alertsAsked"); localStorage.setItem("alertsAsked", "1"); } catch {} if (!asked) try { window.AndroidApp.setAlerts(true); } catch {} }
+    // the alerts are asked for at the top of the file, once per car and with its real test date (alertAsk), not by the phone's prompt alone
     if (on) homeSheetMaybe();
   }
   currentTab = "file"; renderResult(); focusResult();
   const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"});
-  toast("נפתח תיק לרכב. מה שתרשמו נשמר " + KEPT);
+  toast("נפתח תיק לרכב. מה שתרשמו נשמר " + KEPT_FILE);
 }
 $("#out").addEventListener("click", ev => {
   const b = ev.target.closest("[data-cf]"); if (!b || !current) return;
@@ -4153,7 +4203,7 @@ $("#out").addEventListener("click", ev => {
     if (!f.hidden) { f.scrollIntoView({block: "nearest", behavior: "smooth"}); const i = f.querySelector(a === "svc" ? "#svcType" : "#kmVal"); if (i) try { i.focus({preventScroll: true}); } catch {} }
     return;
   }
-  if (a === "doc" || a === "ins") { openDocsFold(a === "ins" ? "ביטוח" : DOC_CATS[0]); return; }
+  if (a === "doc" || a === "ins") { track("cf_doc_tap", {cat: a === "ins" ? "ביטוח" : DOC_CATS[0], from: "quick"}); openDocsFold(a === "ins" ? "ביטוח" : DOC_CATS[0]); return; }
   if (a === "road") { roadDocs(D); return; }
   if (a === "pdf") historyPdf(D, b);
 });
