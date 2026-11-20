@@ -521,8 +521,10 @@ function compare(c, X, P) {
   { const reg = String(R.sug_delek_nm || ""), Wd = [...W, ...W0], tech = vals(Wd, "technologiat_hanaa_nm").join(" ").toUpperCase(), fuel = reg || vals(Wd, "delek_nm").join(" ");
     const exp = new Set();
     if (/^חשמל$/.test(reg.trim()) || (!reg && /חשמל/.test(fuel) && !/בנזין|דיזל/.test(fuel))) exp.add("חשמלי");
-    else if (/חשמל\//.test(reg) || /PLUG|פלאג|נטען/.test(tech)) exp.add("פלאג-אין");
-    else if (/היברידי/.test(tech)) exp.add("היברידי");
+    // 22.11 (index.html driveType, product ce2109e1): the model's technology decides when it is there; the register writes חשמל/בנזין for a
+    // regular hybrid too (deep audit 19.11, CR-Z 2012), so that fuel means plug-in only when the model row names no technology
+    else if (/PLUG|פלאג|נטען/.test(tech) || (!tech.trim() && /חשמל\//.test(reg))) exp.add("פלאג-אין");
+    else if (/היברידי/.test(tech) || /חשמל\//.test(reg)) exp.add("היברידי");
     else if (/דיזל|סולר/.test(fuel)) exp.add("דיזל");
     else if (/גפ"?מ|גז/.test(fuel)) exp.add("גפ״מ");
     else if (fuel) exp.add("בנזין");
@@ -576,7 +578,7 @@ function compare(c, X, P) {
       const shown = `${!s3 ? "(no step 3)" : exh ? (port ? "plug-in" : "engine") : port && s3.includes("הטווח") ? "electric" : "?"}${s3.includes("מזגן") ? "" : ", no air conditioner"}${s4.includes("בסוללה, במנוע") ? ", battery at the inspection" : s4.includes("במנוע, בגיר") ? "" : ", step 4 ?"}`;
       // the app's fuelKind and driveType, on each row it can read as the car's model row
       const exps = [...new Set(Ws.map(w => { const f = String(pickE(R.sug_delek_nm, w.delek_nm) || ""), ev = f.includes("חשמל") && !f.includes("בנזין") && !f.includes("דיזל");
-        const tech = String(w.technologiat_hanaa_nm || R.technologiat_hanaa_nm || "").toUpperCase(), plug = !ev && !tech.includes("חשמלי") && (/PLUG|פלאג|נטען/.test(tech) || /חשמל\//.test(String(R.sug_delek_nm || "")));
+        const tech = String(w.technologiat_hanaa_nm || R.technologiat_hanaa_nm || "").toUpperCase(), plug = !ev && !tech.includes("חשמלי") && (/PLUG|פלאג|נטען/.test(tech) || (!/היברידי/.test(tech) && /חשמל\//.test(String(R.sug_delek_nm || ""))));   // a regular hybrid's חשמל/בנזין is not a plug-in (22.11)
         return `${ev ? "electric" : plug ? "plug-in" : "engine"}${X.primary === "moto" ? ", no air conditioner" : ""}${ev ? ", battery at the inspection" : ""}`; }))];
       if (st.length) check(c, "identity.buy_steps", exps.includes(shown), shown, exps.join(" or "), `fuel=${R.sug_delek_nm || ""} model fuel=${vals(Ws, "delek_nm").join("|")} tech=${vals(Ws, "technologiat_hanaa_nm").join("|") || R.technologiat_hanaa_nm || ""} ${regs}`); }
     const age = ins.filter(t => /^רכב בן \d+$/.test(t));
@@ -620,14 +622,16 @@ function compare(c, X, P) {
     const curK = regK !== "other" ? regK : last ? ownK(last.baalut) : "";
     const card = cardOf(P, "overview", /^היסטוריית בעלויות$/), mirror = P.head.ownMirror;
     const road = ym(R.moed_aliya_lakvish) || (isN(R.shnat_yitzur) ? new Date(N(R.shnat_yitzur), 0, 1) : null), floor = !road || road < new Date(2017, 0, 1);
-    const hands = own.filter(r => !DEALER.test(r.baalut)), n = hands.length, fo = String(R.mkoriut_nm || "").replace(/"/g, "").trim();
+    // 22.11 (index.html handExtra, product ce2109e1; deep audit 19.11 c035): a current owner the log does not hold yet is one more hand, "at least"
+    const extra = own.length > 0 && !cancelled && !inLog && !E(R.baalut) && regK !== "dealer";
+    const hands = own.filter(r => !DEALER.test(r.baalut)), n = hands.length + (extra ? 1 : 0), fo = String(R.mkoriut_nm || "").replace(/"/g, "").trim();
     // a used personal import's hands are its hands in Israel (index.html ownersLabel, 28.10)
     const inIL = /משומש/.test(String(R.mkoriut_nm || "") + String(R.sug_yevu || "")) ? " בישראל" : "";
     let exp = "";
     if (!n) exp = own.length && curK === "dealer" ? "אצל סוחר" : "";
-    else if (n === 1) exp = !floor && (!fo || kindOf(fo) === kindOf(hands[0].baalut)) ? "יד ראשונה" + inIL : "יד אחת במאגר";
-    else exp = `${floor ? "לפחות " : ""}יד ${ORD[n] || n}${inIL}`;
-    const ev = `log=${own.map(r => `${r.baalut}@${r.baalut_dt}`).join(">")} road=${R.moed_aliya_lakvish || ""} mkoriut=${fo}`;
+    else if (n === 1) exp = hands.length === 1 && !floor && (!fo || kindOf(fo) === kindOf(hands[0].baalut)) ? "יד ראשונה" + inIL : "יד אחת במאגר";
+    else exp = `${floor || extra ? "לפחות " : ""}יד ${ORD[n] || n}${inIL}`;
+    const ev = `log=${own.map(r => `${r.baalut}@${r.baalut_dt}`).join(">")} road=${R.moed_aliya_lakvish || ""} mkoriut=${fo}${extra ? ` +current "${R.baalut}" not in the log` : ""}`;
     if (mirror) NOTES.push(`${c.id}: ownership from the app's mirror (API returned no rows to the app); my API rows=${own.length}`);
     else {
       const shown = card ? card.count : "";
