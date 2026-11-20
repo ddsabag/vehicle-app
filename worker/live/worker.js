@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-63";   // shown in /live/data so the running version is visible
+const BUILD = "live-64";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -1899,6 +1899,16 @@ html.v3 main.qm .todo .tag b{background:none;color:var(--link);padding:0;font-we
 html.v3 main.qm .card{border:0;border-top:1px solid var(--line);border-radius:0;padding:14px 0 0;margin-top:16px}
 html.v3 .foot{border-top:1px solid var(--line);padding-top:12px;margin-top:28px}
 html.v3 a:focus-visible,html.v3 button:focus-visible,html.v3 summary:focus-visible{outline:2px solid var(--link);outline-offset:2px;border-radius:4px}
+.qtop{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.qseg{display:inline-flex;background:var(--soft2);border-radius:999px;padding:3px;gap:2px;flex:none}
+.qseg a{padding:6px 16px;border-radius:999px;font-size:14px;line-height:1.2;color:var(--muted);text-decoration:none}
+.qseg a[aria-current]{background:var(--bg);color:var(--fg);font-weight:500;box-shadow:0 0 0 1px var(--line)}
+.qseg a:focus-visible{outline:2px solid var(--link);outline-offset:1px}
+.qbk{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 12px}.qbk .qback{margin:0}
+.qfn{display:block;font-size:13px;color:var(--fa);margin-top:6px}
+.qtl{list-style:none;margin:0 0 16px;padding:0;font-size:14px;color:var(--muted)}.qtl li{padding:3px 0}.qtl b{color:var(--fg);font-weight:500}
+.qtd .qst .v small.mu{color:var(--muted)}
+@media(min-width:900px){.qstn>.qbk{grid-column:1/-1;margin-bottom:20px}.qstn .qb .qsec:first-child{margin-top:4px}}
 @media(min-width:900px){
 html.v3 .top{max-width:1180px;margin:0 auto;padding-top:20px}
 main.qm{max-width:1180px;padding-top:8px}
@@ -2580,19 +2590,42 @@ function qmine(C){const Cl=C.d.cal,td=C.td;if(!Cl)return null;
  const gp=(C.LG&&C.LG.props||[]).filter(p=>!C.acts[p.id]).map(p=>({id:p.id,d:"",what:"להחליט על היעד של «"+p.name+"»"}));
  return gp.concat([...(Cl.open||[]),...(Cl.items||[]).filter(o=>o.d>=td)].filter(o=>o.me&&o.id&&!C.done[o.id]&&!C.acts[o.id]).sort((x,y)=>(x.d||"0")+(x.t||"")<(y.d||"0")+(y.t||"")?-1:1))}
 function whenL(C,o){if(!o.d)return "עכשיו";const k=between(C.td,o.d);return (k<=0?"היום":k===1?"מחר":dm(o.d))+(o.t?" "+o.t:"")}
-function renderHome(C){const L=lead(C),my=qmine(C),wr=C.W&&C.W.W?rs(C.W.W):"";
- let h='<div class="qhome"><div class="qtop"><span>השבוע '+wr+"</span></div>";
+const TD=()=>S.w==="today";
+function qseg(){return '<div class="qseg" role="group" aria-label="איזו תקופה להציג">'+[["week","השבוע"],["today","היום"]].map(x=>'<a href="'+href({w:x[0]})+'" data-w="'+x[0]+'"'+(S.w===x[0]?' aria-current="true"':"")+">"+x[1]+"</a>").join("")+"</div>"}
+const NOTD=new Set(["siteChecks"]);   // its today is app and site together, so under the site's name it would mislead
+const tday=(C,id)=>{const r=M(C,id);return r&&r.today&&!NOTD.has(id)?r.today:null};
+const yday=t=>{const k=t&&t.lines.map(l=>/אתמול, יום שלם: <b>([^<]+)<\/b>/.exec(l)).find(Boolean);return k?k[1]:""};
+const asOf=C=>C.d&&C.d.at?hm(C.d.at):"";
+function leadT(C){const r=M(C,"checks"),t=tday(C,"checks");if(!t)return {t:"עדיין אין נתונים להיום.",w:""};
+ const y=yday(t),rt=t.lines.map(l=>/30 הדקות האחרונות: <b>([^<]+)<\/b>/.exec(l)).find(Boolean);
+ return {t:t.big+" בדיקות רכב היום, עד "+asOf(C)+".",w:(y?"אתמול, יום שלם: <b>"+y+"</b>.":"")+(rt?" ב-30 הדקות האחרונות: "+rt[1]+".":"")+'<span class="qfn">ההיום עוד לא נגמר, ולכן אין כאן השוואה ליעד. גוגל אנליטיקס מוסר את היום באיחור של כמה שעות, ועד אז הספירה היא בזמן אמת.</span>'}}
+// a station's row for today: the number so far and yesterday's full day; no goal, since a day is not judged against a week
+function stRowT(C,g){const s=QS[g],r=M(C,s.key);if(!r)return "";const t=tday(C,s.key),y=yday(t);
+ return '<a class="qst s-nt" href="'+href({v:"st",g,m:null})+'" data-st="'+g+'"><span class="nm">'+esc(s.name)+"<small>"+(t?y?"אתמול: "+y:esc(t.unit||s.u||""):"נספר רק לשבוע")+'</small></span><span class="v">'+(t?t.big:'<span class="mu">—</span>')
+  +(t&&t.unit&&y?'<small class="mu">'+esc(t.unit)+"</small>":"")+'</span><span class="qsp"></span></a>'}
+function sideRowT(C,g){const r=M(C,QS[g].key);if(!r)return "";const t=tday(C,QS[g].key);
+ return '<a class="qrow s-nt" href="'+href({v:"st",g,m:null})+'" data-st="'+g+'"><span class="k"><i class="qdot"></i>'+esc(QS[g].name)+"</span><span>"+(t?g==="health"&&t.big==="1"?"בדיקה אחת נכשלה היום":t.big+" "+esc(t.unit||""):'<span class="mu">נספר רק לשבוע</span>')+'</span><span class="go">‹</span></a>'}
+function renderHome(C){if(TD())return renderHomeT(C);const L=lead(C),my=qmine(C),wr=C.W&&C.W.W?rs(C.W.W):"";
+ let h='<div class="qhome"><div class="qtop"><span>שבוע '+wr+"</span>"+qseg()+"</div>";
  h+='<p class="qlead">'+esc(L.t)+"</p>"+(L.w?'<p class="qwhy">'+L.w+"</p>":"");
  h+='<nav class="qroute" aria-label="המסלול של משתמש">'+ROUTE.map(g=>stRow(C,g)).join("")+"</nav>";
  h+='<div class="qside">'+sideRow(C,"health")+sideRow(C,"money")+"</div>";
- h+='<section class="qwait"><h2><span>מחכה לך</span>'+(my&&my.length?'<a href="'+href({v:"tasks",g:null,m:null})+'" data-v="tasks">הכול ('+n(my.length)+") ‹</a>":"")+"</h2>"
-  +(!my?'<p class="qnote">היומן עוד לא זמין.</p>':my.length?my.slice(0,3).map(o=>'<a class="qwi" href="'+href({v:"tasks",g:null,m:null})+'" data-v="tasks"><span class="t">'+whenL(C,o)+"</span><span>"+esc(o.what)+"</span></a>").join(""):'<p class="qnote">שום דבר לא מחכה לך.</p>')+"</section></div>";
+ h+=qwaitH(C,my);
  return h}
+function qwaitH(C,my){return '<section class="qwait"><h2><span>מחכה לך</span>'+(my&&my.length?'<a href="'+href({v:"tasks",g:null,m:null})+'" data-v="tasks">הכול ('+n(my.length)+") ‹</a>":"")+"</h2>"
+  +(!my?'<p class="qnote">היומן עוד לא זמין.</p>':my.length?my.slice(0,3).map(o=>'<a class="qwi" href="'+href({v:"tasks",g:null,m:null})+'" data-v="tasks"><span class="t">'+whenL(C,o)+"</span><span>"+esc(o.what)+"</span></a>").join(""):'<p class="qnote">שום דבר לא מחכה לך.</p>')+"</section></div>"}
+function renderHomeT(C){const L=leadT(C);
+ let h='<div class="qhome qtd"><div class="qtop"><span>עד '+asOf(C)+"</span>"+qseg()+"</div>";
+ h+='<p class="qlead">'+L.t+"</p>"+(L.w?'<p class="qwhy">'+L.w+"</p>":"");
+ h+='<nav class="qroute" aria-label="המסלול של משתמש">'+ROUTE.map(g=>stRowT(C,g)).join("")+"</nav>";
+ h+='<div class="qside">'+sideRowT(C,"health")+sideRowT(C,"money")+"</div>";
+ return h+qwaitH(C,qmine(C))}
 const qback='<a class="qback" href="?v=home" data-v="home">‹ חזרה</a>';
 function subRow(C,id){const r=M(C,id);if(!r)return "";const nm=ROWN[id]||r.name,un=r.unit&&nm.indexOf(r.unit)<0?r.unit:"";
  return '<a class="qsub s-'+qsc(r.s)+'" href="'+href({m:id})+'" data-m="'+id+'"><span class="l">'+esc(nm)+(r.tt&&r.tt!=="אין יעד"?"<small>"+esc(r.tt)+"</small>":"")+'</span><span class="r"><b>'+r.big+"</b>"+(un?"<small>"+esc(un)+"</small>":"")+'</span><i class="qdot"></i></a>'}
-function renderStation(C,g){const s=QS[g],r=M(C,s.key);if(!r)return qback+'<p class="qnote">אין נתון.</p>';const a=w5(C,g),x=chs(g,a,true),m=r.m,wr=C.W&&C.W.W?rs(C.W.W):"";
- let h='<div class="qstn"><div class="qa">'+qback+'<p class="qdt">'+esc(s.name)+(wr?", בשבוע "+wr:"")+'</p><p class="qbig">'+r.big+(r.unit||s.u?"<small>"+esc(r.unit||s.u)+"</small>":"")+"</p>";
+const qbk=()=>'<div class="qbk">'+qback+qseg()+"</div>";
+function renderStation(C,g){const s=QS[g],r=M(C,s.key);if(!r)return qback+'<p class="qnote">אין נתון.</p>';if(TD())return renderStationT(C,g);const a=w5(C,g),x=chs(g,a,true),m=r.m,wr=C.W&&C.W.W?rs(C.W.W):"";
+ let h='<div class="qstn">'+qbk()+'<div class="qa"><p class="qdt">'+esc(s.name)+(wr?", בשבוע "+wr:"")+'</p><p class="qbig">'+r.big+(r.unit||s.u?"<small>"+esc(r.unit||s.u)+"</small>":"")+"</p>";
  const gl=r.gl||(r.tt&&r.tt!=="אין יעד"?esc(r.tt):"");
  h+='<p class="qchg">'+(x?'<span class="'+(x.up?"up":"dn")+'">'+x.t+".</span> ":"")+(gl?'<span class="mu">'+gl+".</span>":"")+"</p>";
  if(a)h+=qbars(g,a,r.tg||null);
@@ -2605,6 +2638,16 @@ function renderStation(C,g){const s=QS[g],r=M(C,s.key);if(!r)return qback+'<p cl
  h+='<details class="qdet"><summary>מה סופרים'+(why?" ולמה זה היעד":"")+"</summary><p>"+esc(m.def)+"</p>"+(why?"<div>"+why+"</div>":"")+'<p class="qnote">המקור: '+esc(m.src)+". האחריות: "+esc(m.owner)+".</p></details>";
  if(g==="check")h+='<details class="qdet"><summary>איך נקבעים כל היעדים</summary>'+goalsMethod(C).replace('<section class="card" id="goals">','<div id="goals">').replace(/<\/section>$/,"</div>")+"</details>";
  return h+"</div></div>"}
+function subRowT(C,id){const r=M(C,id);if(!r)return "";const t=tday(C,id),nm=ROWN[id]||r.name,v=t||r,un=v.unit&&nm.indexOf(v.unit)<0?v.unit:"";
+ return '<a class="qsub s-nt" href="'+href({m:id})+'" data-m="'+id+'"><span class="l">'+esc(nm)+'</span><span class="r"><b>'+v.big+"</b><small>"+(t?esc(un):"בשבוע"+(un?", "+esc(un):""))+'</small></span><i class="qdot"></i></a>'}
+function renderStationT(C,g){const s=QS[g],r=M(C,s.key),t=r.today,m=r.m;
+ let h='<div class="qstn">'+qbk()+'<div class="qa"><p class="qdt">'+esc(s.name)+", היום עד "+asOf(C)+"</p>";
+ if(t)h+='<p class="qbig">'+t.big+(t.unit?"<small>"+esc(t.unit)+"</small>":"")+'</p><ul class="qtl">'+t.lines.map(l=>"<li>"+l+"</li>").join("")+"</ul>";
+ else h+='<p class="qnote" style="margin:10px 0 16px">את «'+esc(s.name)+'» סופרים רק לשבוע שלם. <a href="'+href({w:"week"})+'" data-w="week">לראות את השבוע</a></p>';
+ h+='</div><div class="qb"><h3 class="qsec">עוד כאן</h3><div class="qsubs">'+s.ids.map(id=>subRowT(C,id)).join("")+"</div>";
+ h+='<a class="qlnk" href="'+href({m:s.key})+'" data-m="'+s.key+'">כל הנתונים על «'+esc(s.name)+"»</a>";
+ h+='<details class="qdet"><summary>מה סופרים</summary><p>'+esc(m.def)+'</p><p class="qnote">המקור: '+esc(m.src)+". האחריות: "+esc(m.owner)+".</p></details>";
+ return h+"</div></div>"}
 function renderTasks(C){const T=todo(C,null),Cl=C.d.cal,td=C.td;
  let h='<div class="qtasks">'+qback+'<p class="qlead">מחכה לך</p>'+T.html;
  const it=Cl?(Cl.items||[]).filter(o=>!o.me&&o.d>=td&&o.d<=addD(td,14)&&!C.done[o.id]).sort((x,y)=>(x.d+(x.t||"99"))<(y.d+(y.t||"99"))?-1:1):[];
@@ -2615,9 +2658,9 @@ function renderTasks(C){const T=todo(C,null),Cl=C.d.cal,td=C.td;
 // the state in the address: v = the lens (ceo, a division or a department), w = the window, m = an open metric
 const S={v:NEW?"home":"ceo",w:"week",m:null,g:null};
 function readURL(){const q=new URLSearchParams(location.search),v=q.get("v")||"",w=q.get("w")||"",m=q.get("m")||"",g=q.get("g")||"";
- if(NEW){S.g=v==="st"&&QS[g]?g:G2[v]||null;S.v=S.g?"st":v==="tasks"?"tasks":"home";S.w="week";S.m=REG[m]?m:null;return}
+ if(NEW){S.g=v==="st"&&QS[g]?g:G2[v]||null;S.v=S.g?"st":v==="tasks"?"tasks":"home";S.w=w==="today"?"today":"week";S.m=REG[m]?m:null;return}
  S.v=v==="ceo"||v==="all"||DIVS[v]||DEPTS[v]?v:"ceo";S.w=WIN[w]?w:"week";S.m=REG[m]?m:null}
-function href(o){const v=o.v||S.v,w=o.w||S.w,m=o.m!==undefined?o.m:S.m,g=NEW&&v==="st"?(o.g!==undefined?o.g:S.g):null;return NEW?"?v="+v+(g?"&g="+g:"")+(m?"&m="+m:""):"?v="+v+"&w="+w+(m?"&m="+m:"")}
+function href(o){const v=o.v||S.v,w=o.w||S.w,m=o.m!==undefined?o.m:S.m,g=NEW&&v==="st"?(o.g!==undefined?o.g:S.g):null;return NEW?"?v="+v+(g?"&g="+g:"")+(w==="today"&&v!=="tasks"?"&w=today":"")+(m?"&m="+m:""):"?v="+v+"&w="+w+(m?"&m="+m:"")}
 function sync(){try{history.replaceState(null,"",location.pathname+href({}))}catch(e){}}
 function push(){try{history.pushState(null,"",location.pathname+href({}))}catch(e){}}   // a new screen: the phone's back button returns to the one before
 const rs=w=>{const a=dm(w[0]),b=dm(w[1]),pa=a.split("."),pb=b.split(".");return pa[1]===pb[1]?pa[0]+"–"+b:a+"–"+b};
@@ -2644,6 +2687,7 @@ async function post(url,body){const r=await fetch(url,{method:"POST",headers:{"c
 document.addEventListener("click",async e=>{const t=e.target;
  const m=t.closest("[data-m]");if(m){e.preventDefault();if(window.LVC)openDrill(window.LVC,m.getAttribute("data-m"));return}
  if(t.closest("[data-close]")||t===$("shade")){closeDrill();return}
+ const sw=NEW&&t.closest("[data-w]");if(sw){e.preventDefault();S.w=sw.getAttribute("data-w")==="today"?"today":"week";sync();render();return}
  const sl=NEW&&t.closest("[data-st]");if(sl){e.preventDefault();S.v="st";S.g=sl.getAttribute("data-st");S.m=null;push();render();window.scrollTo(0,0);return}
  const v=t.closest("[data-v]");if(v&&NEW){e.preventDefault();if(!$("panel").hidden){$("panel").hidden=true;$("shade").hidden=true;document.body.style.overflow=""}const x=v.getAttribute("data-v");S.g=G2[x]||null;S.v=S.g?"st":x==="tasks"?"tasks":"home";S.m=null;push();render();window.scrollTo(0,0);return}
  if(v){e.preventDefault();S.v=v.getAttribute("data-v");S.m=null;sync();pendScroll=!!DEPTS[S.v];render();if(!DEPTS[S.v])window.scrollTo(0,0);return}
