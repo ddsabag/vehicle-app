@@ -333,6 +333,10 @@ footer{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:4px 24px;
 .webcta{display:block;width:100%;border:0;background:none;color:var(--muted);font:inherit;font-size:.85rem;text-align:center;padding:6px 8px;margin:0 0 6px;min-height:44px;cursor:pointer}.webcta b{color:var(--accent);font-weight:700}
 .apphint{display:flex;gap:10px;align-items:center;width:100%;border:0;text-align:start;background:var(--hint-bg);color:var(--fg);border-radius:12px;padding:10px 12px;font-size:.9rem;margin:0 0 10px;min-height:44px}
 .shared-top{display:flex;gap:9px;align-items:center;background:var(--info-bg);color:var(--info);border-radius:12px;padding:10px 12px;font-size:.9rem;margin:0 0 10px;line-height:1.4}
+.shared-top b,.shared-top .kl,.shared-top small{display:block}.shared-top .kl{color:var(--fg);font-weight:700;margin-top:2px}.shared-top .kl.bad{color:var(--bad)}.shared-top .kl.warn{color:var(--warn)}.shared-top small{font-size:.78rem;opacity:.85}
+.sb-check{display:flex;gap:8px}.sb-check .inp{flex:1;min-width:0;min-height:44px;font-size:1.05rem;font-weight:700;text-align:center}.sb-check .sb-btn{flex:0 0 auto}
+.recv-next{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin:0 0 10px}.recv-next>div{flex:1;min-width:180px}.recv-next b{display:block;font-size:.95rem}.recv-next small{color:var(--muted);font-size:.85rem}.recv-next .sb-btn{display:inline-flex;align-items:center;gap:6px}.recv-next .sb-btn .i{width:18px;height:18px}.recv-app{flex-basis:100%;font-size:.85rem;color:var(--accent);font-weight:600;min-height:44px;display:flex;align-items:center}
+@media print{.recv-next{display:none}}
 .sharebar{position:fixed;inset-inline:0;bottom:0;z-index:15;background:var(--card);border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(0,0,0,.08);padding:10px 14px calc(12px + env(safe-area-inset-bottom,0px))}
 .sb-in{display:flex;flex-wrap:wrap;align-items:center;gap:10px;max-width:760px;margin:0 auto}.sb-txt{flex:1;min-width:0}.sb-txt b{display:block;font-size:.95rem}.sb-txt small,.sb-sub{color:var(--muted);font-size:.78rem}.sb-sub{display:block;max-width:760px;margin:5px auto 0}
 .sb-btn{border:0;border-radius:12px;background:var(--fg);color:var(--card);font:inherit;font-weight:700;font-size:.9rem;padding:11px 14px;min-height:44px;white-space:nowrap;cursor:pointer}.sb-btn.alt{background:var(--soft);color:var(--fg)}
@@ -640,8 +644,9 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 #mres .row > svg.i use[href="#i-chev"]{}
 #mres .row .t{flex:1;min-width:0}
 .years{gap:8px}.years .chip{font-size:1rem;padding:8px 14px}
-.share-opts .row{padding:12px}
-.share-opts small{color:var(--muted);display:block;font-size:.85rem}
+.share-end{display:flex;gap:14px;align-items:center}.share-end .thumb{flex:0 0 auto;width:72px;aspect-ratio:4/5;border-radius:8px;background:var(--soft) center/cover no-repeat;box-shadow:0 2px 10px -4px rgba(20,30,50,.35)}
+.share-end b{display:block}.share-end p{margin:2px 0 8px;color:var(--muted)}
+.share-end .btn{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 18px;border:0;border-radius:12px;background:var(--accent);color:var(--accent-fg);font:inherit;font-weight:800}
 .badge-s{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;flex:0 0 auto;color:var(--tc);background:var(--tb)}
 .report{  --bg:#f2f4f8; --card:#ffffff; --fg:#151a24; --muted:#4a5465; --line:#e3e7ee; --soft:#f5f7fa;   --band:#ffffff; --band-fg:#151a24; --band-muted:#5d6676; --band-line:#d5dae3;   --plate:#f6c500; --plate-ink:#111; --il:#1d4ea8; --accent:#2457c5; --accent-fg:#ffffff;   --ok:#0d5f33; --ok-bg:#e1f4e8; --warn:#7d4300; --warn-bg:#fdf0d9; --bad:#9b1c12; --bad-bg:#fde6e3; --info:#1b46a8; --info-bg:#e5edfc;   /* topic colours */   --t-blue:#2f6fde; --t-blue-bg:#e7effd; --t-violet:#7a4fd6; --t-violet-bg:#f0eafc; --t-teal:#0f8a83; --t-teal-bg:#e0f4f2;   --t-amber:#c27400; --t-amber-bg:#fdf1dc; --t-red:#d0473b; --t-red-bg:#fdeae8; --t-slate:#52637d; --t-slate-bg:#eceff4;   --t-green:#22894a; --t-green-bg:#e3f4e9; --t-leaf:#5f8f1f; --t-leaf-bg:#eef5e2; --t-pink:#c2407e; --t-pink-bg:#fbe9f2;
   --f-body:Arial,"Noto Sans Hebrew","Noto Sans",sans-serif; --f-num:monospace; --shadow:none; --leaf-ink:#456a14; color-scheme:light;
@@ -1156,19 +1161,6 @@ body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)
     <div id="mquick"></div>
   </div>
 </div>
-<div class="sheet" id="shareSheet" hidden role="dialog" aria-modal="true" aria-labelledby="shareTitle">
-  <div class="sheet-in">
-    <div class="sheet-head"><h2 id="shareTitle">שיתוף הדוח</h2><button class="icon-btn" type="button" id="closeShare" aria-label="סגירה"><svg class="i"><use href="#i-x"/></svg></button></div>
-    <div class="list share-opts">
-      <button type="button" class="row" data-share="card"><span class="badge-s blue"><svg class="i"><use href="#i-image"/></svg></span><span class="t"><b>כרטיס סיכום</b><small>תמונה אחת עם מה שנמצא, לשליחה בוואטסאפ (מומלץ)</small></span></button>
-      <button type="button" class="row" data-share="image"><span class="badge-s slate"><svg class="i"><use href="#i-image"/></svg></span><span class="t"><b>צילום הדוח המלא</b><small>כפי שהוא על המסך, כולל כל הכרטיסים</small></span></button>
-      <button type="button" class="row" data-share="pdf"><span class="badge-s blue"><svg class="i"><use href="#i-doc"/></svg></span><span class="t"><b>קובץ PDF</b><small>דוח מלא: סקירה, ריקולים, עלויות ומפרט</small></span></button>
-      <button type="button" class="row" data-share="bizpdf" hidden><span class="badge-s violet"><svg class="i"><use href="#i-doc"/></svg></span><span class="t"><b>PDF ממותג (PRO עסקי)</b><small>עם פרטי העסק שלכם, בלי לוגו ובלי קישור של לוחית</small></span></button>
-      <button type="button" class="row" data-share="text"><span class="badge-s slate"><svg class="i"><use href="#i-copy"/></svg></span><span class="t"><b>טקסט</b><small>סיכום קצר בהודעה</small></span></button>
-    </div>
-    <p class="note">הדוח כולל את מספר הרישוי והיסטוריית סוגי הבעלות (בלי שמות). שתפו אותו רק עם מי שצריך.</p><p class="note" id="shareMsg" role="status"></p>
-  </div>
-</div>
 <div class="sheet" id="homeSheet" hidden role="dialog" aria-modal="true" aria-labelledby="homeTitle">
   <div class="sheet-in hs">
     <div class="sheet-head"><h2 id="homeTitle">לוחית במסך הבית</h2><button class="icon-btn" type="button" data-hs="x" aria-label="סגירה"><svg class="i"><use href="#i-x"/></svg></button></div>
@@ -1186,7 +1178,7 @@ body:has(.cfab) main{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px)
 <script>
 "use strict";
 /*! © 2026 Dudu Sabag. All rights reserved. */
-const APP_VERSION = "1.38.4";
+const APP_VERSION = "1.38.5";
 /* a phone whose page storage is still empty here is a new install (an app update keeps the storage): read before anything is stored */
 const FRESH = (() => { try { return localStorage.length === 0; } catch { return false; } })();
 const SITE = "https://luchit.app/";
@@ -1303,7 +1295,8 @@ const LAND = (() => { try {
 /* silent failures worth knowing about (a dataset that errors, a library that does not load): sent to Crashlytics as a non-fatal, tag only, never a plate */
 /* a JavaScript error nobody sees: counted (line number only, never the message, which could hold a plate), at most 5 per session */
 let jsErrN = 0;
-const jsErr = (where, line, file) => { if (jsErrN++ < 5) { try { const b = window.AndroidApp; if (b && b.logError && analyticsOn()) b.logError(("js_" + where + "_" + (line || 0)).slice(0, 60)); else track("js_error", {kind: where, line: line || 0, efile: errFile(file), uacl: UACL}); } catch {} } };   // the web has no Crashlytics: the count goes to GA
+// the column goes in two parts (col, colk): /api/e drops a number of 10000 or more (plate-sized), and the built app file is one long line
+const jsErr = (where, line, file, col) => { if (jsErrN++ < 5) { try { const b = window.AndroidApp; if (b && b.logError && analyticsOn()) b.logError(("js_" + where + "_" + (line || 0)).slice(0, 60)); else track("js_error", {kind: where, line: line || 0, col: (col || 0) % 10000, colk: Math.floor((col || 0) / 10000), efile: errFile(file), uacl: UACL}); } catch {} } };   // the web has no Crashlytics: the count goes to GA
 // Facebook, Instagram and TikTok open links in their own in-app browser, which runs scripts of its own that land on these listeners too:
 // those count apart (kind "iab"), so the pipe canary watches our code only (22-23.10: all 10 web errors came from such visits, none on our pages)
 const UA = navigator.userAgent || "", WEBVIEW = /; wv\)/.test(UA) || (/iPhone|iPad|iPod/.test(UA) && !/Safari\//.test(UA));
@@ -1315,12 +1308,13 @@ const IAB = /FBAN|FBAV|FB_IAB|FB4A|FBLC|Messenger|Orca-Android|Instagram|Bytedan
 const UACL = /FBLite|FBAN\/EMA/i.test(UA) ? "fb_lite" : /Messenger|Orca-Android/i.test(UA) ? "messenger" : /FBAN|FBAV|FB_IAB|FB4A/i.test(UA) ? "fb" : /Instagram/i.test(UA) ? "ig"
   : /BytedanceWebview|musical_ly/i.test(UA) ? "tiktok" : WEBVIEW ? (/Android/.test(UA) ? "and_wv" : "ios_wv") : /CriOS|FxiOS|EdgiOS/.test(UA) ? "ios_app" : /iPhone|iPad|iPod/.test(UA) ? "ios_safari"
   : /Android/.test(UA) ? "android" : "desktop";
-// where the failing script lives: this page ("own"), our other files ("site"), a library we load ("lib"), anything else ("x"), or no file
+// where the failing script lives: this page or its built app file /app.<hash>.js ("own", 12.11: the build moved the page's code there, so
+// "site, line 2" was our own code), our other files ("site"), a library we load ("lib"), anything else ("x"), or no file
 // given ("none": a script from another site the browser hides, or one injected into the page)
-const errFile = f => { try { if (!f) return "none"; const u = new URL(f, location.href); return u.href.split(/[?#]/)[0] === location.href.split(/[?#]/)[0] ? "own" : u.origin === location.origin ? "site" : /jsdelivr|cdnjs|unpkg/.test(u.hostname) ? "lib" : "x"; } catch { return "x"; } };
+const errFile = f => { try { if (!f) return "none"; const u = new URL(f, location.href); return u.href.split(/[?#]/)[0] === location.href.split(/[?#]/)[0] || (u.origin === location.origin && /^\/app\.[0-9a-f]+\.js$/.test(u.pathname)) ? "own" : u.origin === location.origin ? "site" : /jsdelivr|cdnjs|unpkg/.test(u.hostname) ? "lib" : "x"; } catch { return "x"; } };
 // a library's own worker (the OCR, the PDF reader) that could not download its file reaches here too: its caller handles that (the plate
 // reader's message, doc_scan kind fail), and it is the connection, not our code
-window.addEventListener("error", ev => { if (/^blob:/.test(ev && ev.filename || "")) return; jsErr(IAB ? "iab" : "err", ev && ev.lineno, ev && ev.filename); });
+window.addEventListener("error", ev => { if (/^blob:/.test(ev && ev.filename || "")) return; jsErr(IAB ? "iab" : "err", ev && ev.lineno, ev && ev.filename, ev && ev.colno); });
 window.addEventListener("unhandledrejection", () => jsErr(IAB ? "iab" : "rej", 0));
 /* the Android app tells the page when a screenshot of it was taken (Android 14+): counted with the screen it happened on, never the picture */
 window.onScreenshot = () => { try { track("user_screenshot", {tab: typeof inCompare !== "undefined" && inCompare ? "compare" : typeof current !== "undefined" && current ? (currentTab || "overview") : ({cars: "cars", alerts: "alerts", sub: "tool"})[document.body.dataset.screen] || "home"}); } catch {} };
@@ -1831,11 +1825,28 @@ function openExternal(url){
 let navReady = false;   // from the first syncNav (the page drawn), every change to the saved cars brings the bell's number up to date
 const store = {
   get(k){ try { return JSON.parse(localStorage.getItem(k) || "[]"); } catch { return []; } },
-  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} if (k === "savedVehicles") { syncSaved(v); if (navReady) syncNav(); } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} keep(k, v); if (k === "savedVehicles") { syncSaved(v); if (navReady) syncNav(); } },
 };
+/* a second copy of what the user built (saved cars and compares, the car file's marks and services, alert choices) in IndexedDB, because
+   localStorage can read as empty on a nearly full disk (12.11.2026). Written on every change; read once at start, and only fills a key
+   that reads empty while the copy has something. An empty value is not copied before that read, so a start-up with storage out of reach
+   cannot wipe the copy */
+const KEEP_KEYS = ["savedVehicles", "savedCompares", "mine", "svc", "alertPrefs"];
+const KEEP = {db: null, ready: false, thin: false};
+const keepEmpty = v => v == null || (Array.isArray(v) ? !v.length : typeof v === "object" && !Object.keys(v).length);
+const keepDb = () => KEEP.db || (KEEP.db = new Promise((ok, no) => { const r = indexedDB.open("luchitKeep", 1); r.onupgradeneeded = () => r.result.createObjectStore("kv"); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); }));
+function keep(k, v){
+  if (!window.indexedDB || !KEEP_KEYS.includes(k) || (!KEEP.ready && keepEmpty(v))) return;
+  keepDb().then(db => { const t = db.transaction("kv", "readwrite"); t.objectStore("kv").put(JSON.stringify(v), k); }).catch(() => null);   // no copy this time: the next change writes it
+}
 /* the app checks saved cars once a day for a new recall or a test about to expire */
+/* false when the page could not keep the saved cars it restored (no room on the phone): then nothing overwrites the app's own copy */
+/* had: this session saw saved cars. An empty list goes to the app's copy only after that (the user removed the last car), never at a start
+   that read none, which is what a disk out of reach looks like */
+const SAVED_GUARD = {ok: true, had: false};
 function syncSaved(list){
-  const b = window.AndroidApp; if (!b || !b.syncSaved) return;
+  const b = window.AndroidApp; if (!b || !b.syncSaved || !SAVED_GUARD.ok) return;
+  if ((list || []).length) SAVED_GUARD.had = true; else if (!SAVED_GUARD.had) return;
   try { b.syncSaved(JSON.stringify((list || []).map((x, i) => ({plate: x.plate, title: x.nick || x.title || "", alerts: alertSet().includes(x.plate), ext: plan() !== "free", svcDue: svcDue(x.plate), stlCar: x.stlCar || null, prefs: alertPrefs(), docs: docExpAll().filter(d => d.plate === x.plate).map(d => ({cat: d.cat, exp: d.exp}))})))); } catch {}
 }
 /* what to be alerted about: every kind is on by default and the user can switch each one off in settings */
@@ -1859,7 +1870,7 @@ function fillAlertKinds(){
 document.addEventListener("change", ev => {
   const c = ev.target.closest && ev.target.closest("[data-kind]"); if (!c) return;
   const pr = alertPrefs(); pr[c.dataset.kind] = c.checked; track("alert_kind", {kind: c.dataset.kind, on: c.checked ? 1 : 0});
-  try { localStorage.setItem("alertPrefs", JSON.stringify(pr)); } catch {}
+  try { localStorage.setItem("alertPrefs", JSON.stringify(pr)); } catch {} keep("alertPrefs", pr);
   syncSaved(store.get("savedVehicles"));
 });
 const docExpAll = () => { try { return JSON.parse(localStorage.getItem("docExp") || "[]"); } catch { return []; } };
@@ -1903,7 +1914,7 @@ function undoAdd(D, mineWas){
   const m = mineAll();
   if (m[D.plate] === 1 && mineWas !== 1) {
     if (mineWas === undefined) delete m[D.plate]; else m[D.plate] = mineWas;
-    try { localStorage.setItem("mine", JSON.stringify(m)); } catch {}
+    try { localStorage.setItem("mine", JSON.stringify(m)); } catch {} keep("mine", m);
     if (current === D && currentTab === "file") currentTab = "overview";
   }
   if (current === D) { const y = window.scrollY; renderResult(); window.scrollTo(0, y); } else refreshView();
@@ -3243,20 +3254,31 @@ const IS_IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (/Macintosh/.tes
 /* opened from the icon on the iPhone home screen: Safari without its bars. Its user agent has no "Safari/", so it is not an in-app browser */
 const IOS_HOME = IS_IOS && (navigator.standalone === true || matchMedia("(display-mode: standalone)").matches);
 const IN_APP_BROWSER = /FBAN|FBAV|FB_IAB|FBIOS|Instagram|Snapchat|TikTok|musical_ly|Bytedance|trill|ByteLocale|Telegram|LinkedInApp|Twitter|MicroMessenger|GSA\/|; wv\)/i.test(navigator.userAgent) || /\bLine\//.test(navigator.userAgent) || (IS_IOS && !/Safari\//.test(navigator.userAgent) && !IOS_HOME);
+/* A report someone sent (s= in the link, on the web). What the recipient needs: what was found, in a glance, and to check a car of their own
+   (share-loop spec 7.11). One main action, a plate field in the bar; the calendar reminder stays beside it, and the app is offered only after
+   the recipient's own first check (recvNext) */
 function sharedBar(D){
   const L = licOf(D), canCal = L && L.days > 0 && !IN_APP_BROWSER;   // a reminder only for an expiry still ahead
-  let main;
-  if (IS_ANDROID && IN_APP_BROWSER) {
-    // no intent:// in these browsers: straight to the store page (the car rides along in the install referrer), with a tip for the better way
-    main = `<div class="sb-txt"><b>עקבו אחרי הרכב הזה</b><small>התראה על ריקול חדש, טסט שמתקרב והעברת בעלות</small></div><div class="sb-btns"><button type="button" class="sb-btn" data-act="openplay" data-url="${esc(carLink(D.plate, "bar"))}">להורדה בחינם</button><button type="button" class="sb-btn alt" data-act="copylink">העתקת הקישור</button></div>`;
-  } else if (IS_ANDROID) {
-    const intent = `intent://luchit.app/?plate=${D.plate}&s=bar#Intent;scheme=https;package=com.ddsabag.pratirechev;S.browser_fallback_url=${encodeURIComponent(carLink(D.plate, "bar"))};end`;
-    main = `<div class="sb-txt"><b>עקבו אחרי הרכב הזה</b><small>התראה על ריקול חדש, טסט שמתקרב והעברת בעלות</small></div><button type="button" class="sb-btn" data-act="openapp" data-intent="${esc(intent)}">פתחו באפליקציה</button>`;
-  } else {
-    main = `<div class="sb-txt"><b>שומרים על הרכב הזה בעין</b><small>${canCal ? "הטסט בתוקף עד " + L.date : "בדקו רכב נוסף לפני שמחליטים"}</small></div><div class="sb-btns">` +
-      (canCal ? `<button type="button" class="sb-btn" data-act="barcal">📅 תזכורת טסט ביומן</button>` : "") + `<button type="button" class="sb-btn${canCal ? " alt" : ""}" data-act="another">בדיקת רכב נוסף</button>` + (IN_APP_BROWSER ? `<button type="button" class="sb-btn alt" data-act="copylink">העתקת הקישור</button>` : "") + `</div>`;
-  }
-  return `<div class="sharebar" role="region" aria-label="מעקב אחרי הרכב"><div class="sb-in${IS_ANDROID ? "" : " sb-col"}">${main}</div>${IS_ANDROID ? `<small class="sb-sub">${IN_APP_BROWSER ? "טיפ: ⋮ ואז \"פתח בדפדפן\" כדי שהאפליקציה תיפתח ישר על הרכב" : "חינם ב-Google Play · נפתח ישר על הרכב הזה"}</small>` : ""}</div><div class="sb-pad"></div>`;
+  const form = `<form class="sb-check" data-recv="1" role="search"><label class="sr-only" for="recvPlate">מספר רישוי של רכב אחר</label><input class="inp" id="recvPlate" inputmode="numeric" autocomplete="off" placeholder="76-543-21" dir="ltr" aria-describedby="recvHint"><button type="submit" class="sb-btn">לבדוק רכב אחר</button></form>`;
+  const alt = [canCal ? `<button type="button" class="sb-btn alt" data-act="barcal">📅 תזכורת טסט ביומן</button>` : "", IN_APP_BROWSER ? `<button type="button" class="sb-btn alt" data-act="copylink">העתקת הקישור</button>` : ""].join("");
+  return `<div class="sharebar" role="region" aria-label="בדיקת רכב נוסף"><div class="sb-in sb-col"><div class="sb-txt"><b>יש לכם רכב לבדוק?</b><small id="recvHint">מקלידים מספר רישוי ומקבלים את אותו דוח, בחינם</small></div>${form}${alt ? `<div class="sb-btns">${alt}</div>` : ""}</div></div><div class="sb-pad"></div>`;
+}
+/* the found line of a shared report: the one thing a recipient should see first, the same order as the card's rows */
+function keyLine(D){
+  if (D.isCancelled) return {k: "bad", t: "הרכב ירד מהכביש"};
+  if (D.recalls.length) return {k: "bad", t: D.recalls.length === 1 ? "יש לרכב ריקול פתוח" : `יש לרכב ${D.recalls.length} ריקולים פתוחים`};
+  const L = licOf(D); if (L && L.k === "bad") return {k: "bad", t: licLine(L)};
+  const bad = buildInsights(D).find(i => i.level === "bad" && !i.priv); if (bad) return {k: "bad", t: bad.title};
+  const pr = pendingRecalls(D); if (pr.length) return {k: "warn", t: pendingWords(pr).line};
+  const warn = buildInsights(D).find(i => i.level === "warn" && !i.priv); if (warn) return {k: "warn", t: warn.title};
+  return {k: "ok", t: D.recallUnknown ? (L ? licLine(L) : "לא עלו ממצאים חריגים") : "אין ריקול פתוח" + (L && L.k === "ok" ? " והטסט בתוקף" : "")};
+}
+/* after the recipient checked a car of their own from that bar: the next step is keeping it, and on Android the app, as a quiet second link */
+const RECV = {plate: ""};
+function recvNext(D){
+  if (window.AndroidApp || !RECV.plate || RECV.plate !== D.plate || D.kind === "model" || D.isCancelled) return "";
+  const saved = isSaved(D.plate);
+  return `<div class="recv-next" role="region" aria-label="הצעד הבא"><div><b>${saved ? "הרכב נשמר ברכבים שלי" : "רוצים לעקוב אחרי הרכב הזה?"}</b><small>${saved ? "הוא ייבדק שוב בכל פתיחה של לוחית" : "שמירה ברכבים שלי, ובכל פתיחה הוא נבדק שוב: ריקול חדש, טסט, העברת בעלות"}</small></div>${saved ? "" : `<button type="button" class="sb-btn" data-act="save" data-from="recv">${ico("star")}<span>שמירה</span></button>`}${IS_ANDROID ? `<a class="recv-app" href="${esc(carLink(D.plate, "next"))}">התראות לטלפון: האפליקציה בחינם ב-Google Play</a>` : ""}</div>`;
 }
 const sharedHere = D => !!(SHARED && D.plate === SHARED && D.kind !== "model");
 function renderResult(){
@@ -3277,7 +3299,8 @@ function renderResult(){
   if (D.tag) pills.push(`<span class="pill" data-priv>תג נכה</span>`);
   html.push(carHead(D));
   html.push(`<div class="side">`);
-  if (sharedHere(D)) html.push(`<div class="shared-top"><span aria-hidden="true">📩</span><span><b>דוח רכב שנשלח אליך</b> · נבדק עכשיו מול משרד התחבורה, מעודכן יותר מכל קובץ</span></div>`);
+  if (sharedHere(D)) { const kl = keyLine(D); html.push(`<div class="shared-top"><span aria-hidden="true">📩</span><span><b>קיבלתם בדיקה של <bdi>${esc(D.title)}</bdi> מלוחית</b><span class="kl ${kl.k}">${esc(kl.t)}</span><small>נבדק עכשיו מול משרד התחבורה, מעודכן יותר מכל קובץ</small></span></div>`); }
+  else { const rn = recvNext(D); if (rn) html.push(rn); }
   if (D.fromCache) html.push(`<div class="msg" role="status"><b>אין חיבור למשרד התחבורה, ולכן מוצגים נתונים שנשמרו ב-${esc(fmtDate(new Date(D.fromCache).toISOString()))}.</b> ייתכן שהם לא מעודכנים. <button type="button" class="link-btn" data-retry="${esc(D.plate)}">נסו שוב</button></div>`);
   // compare sits beside the car's name, where a card keeps its action: a fixed place that never wraps under the facts
   const cmpBtn = `<button type="button" class="id-cmp" data-act="compare" data-from="card" aria-label="השוואה">${ico("compare")}<span>השוואה</span></button>`;
@@ -3329,6 +3352,7 @@ function renderResult(){
   const ft = document.querySelector("body > footer"); if (ft) ft.hidden = !!window.AndroidApp;   // the website keeps its footer on every screen
   $("#out").innerHTML = html.join("");
   loadStatus();
+  if (D.kind !== "model") { warmShare(D); if (shareWarm && shareWarm.p) shareWarm.p.then(fillShareThumb, () => {}); }   // the picture a tap on "שיתוף" sends, drawn while the report is read
   // the sticky header (carHead) keeps the plate and model on screen, so any screenshot of this car says which car it is
   { const h = $("#chead"); if (h) { h.classList.toggle("sc", window.scrollY > 8); const t = h.querySelector(".mini-plate + b"); if (t && [t, ...t.querySelectorAll("span")].some(e => e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1)) t.hidden = true; } }   // a narrow phone shows the plate alone, never part of the name (each of its runs is cut, or goes out of sight, on its own: cutHtml); the name is right below it
 }
@@ -3537,7 +3561,7 @@ const svcAll = () => { try { return JSON.parse(localStorage.getItem("svc") || "{
 const svcOf = p => { const s = svcAll()[p]; return s && Array.isArray(s.log) ? s : {log: [], meta: null}; };
 // the newest entry of the service log (kept on the phone only), for the fleet table
 const svcLast = p => svcOf(p).log.filter(x => x.d && x.type !== SVC_KM).reduce((a, b) => !a || b.d > a.d ? b : a, null);
-function svcSave(p, s){ const all = svcAll(); all[p] = s; try { localStorage.setItem("svc", JSON.stringify(all)); } catch {} syncSaved(store.get("savedVehicles")); }
+function svcSave(p, s){ const all = svcAll(); all[p] = s; try { localStorage.setItem("svc", JSON.stringify(all)); } catch {} keep("svc", all); syncSaved(store.get("savedVehicles")); }
 const ymdOf = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + Math.round(n)); return x; };
 const dayDiff = (a, b) => Math.round((b - a) / 864e5);
@@ -3635,7 +3659,7 @@ const FREE_DOCS = 5, DOC_MAX_BYTES = 12 * 1048576;
 const docsOk = n => !PRO_LOCK || atLeast("pro") || n < FREE_DOCS;
 const DocDB = {
   db: null,
-  open(){ return this.db || (this.db = new Promise((ok, no) => { const r = indexedDB.open("luchitDocs", 1); r.onupgradeneeded = () => r.result.createObjectStore("docs", {keyPath: "id", autoIncrement: true}).createIndex("plate", "plate"); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); })); },
+  open(){ return this.db || (this.db = new Promise((ok, no) => { const r = indexedDB.open("luchitDocs", 1); r.onupgradeneeded = () => r.result.createObjectStore("docs", {keyPath: "id", autoIncrement: true}).createIndex("plate", "plate"); r.onsuccess = () => ok(r.result); r.onerror = () => { this.db = null; no(r.error); }; })); },   // a failed open is tried again next time (a full disk can be freed)
   async tx(mode, fn){ const db = await this.open(); return new Promise((ok, no) => { const t = db.transaction("docs", mode), st = t.objectStore("docs"), rq = fn(st); t.oncomplete = () => ok(rq && rq.result); t.onerror = () => no(t.error); t.onabort = () => no(t.error); }); },
   // Safari's private browsing keeps no file (Blob) in IndexedDB: there a document is kept as its bytes (buf), and docIn reads it back as a file
   async put(rec){ try { return await this.tx("readwrite", st => st.add(rec)); } catch (e) { if (!(rec.blob instanceof Blob)) throw e; const {blob, ...r} = rec, buf = await blob.arrayBuffer(); return this.tx("readwrite", st => st.add({...r, buf})); } },
@@ -3712,7 +3736,11 @@ function docsCard(D){
 async function fillDocs(){
   const el = document.getElementById("docList"); if (!el || !current) return;
   const D = current; let list = [];
-  try { list = (await DocDB.byPlate(D.plate)).sort((a, b) => b.at - a.at); } catch { el.innerHTML = `<p class="note">שמירת מסמכים לא זמינה במכשיר הזה.</p>`; return; }
+  try { list = (await DocDB.byPlate(D.plate)).sort((a, b) => b.at - a.at); } catch (e) {
+    // a nearly full disk closes IndexedDB for a while (emulator 12.11, Android 15): the documents are still there, so say so and do not say "unavailable"
+    const full = /full disk|quota|space/i.test(String(e && (e.message || e.name) || ""));
+    if (full) track("storage_lost", {n: 1, from: "docs"});
+    el.innerHTML = `<p class="note">${full ? "אין מספיק מקום פנוי בטלפון, ולכן המסמכים לא נטענו כרגע. הם לא נמחקו: פנו מקום ופתחו את התיק שוב." : "שמירת מסמכים לא זמינה במכשיר הזה."}</p>`; return; }
   if (current !== D || !el.isConnected) return;
   const kb = b => b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB";
   const exp = x => { if (!DOC_EXP_CATS.includes(x.cat)) return ""; const s = !x.exp && docScan.get(x.id) || {}, v = x.exp || (s.st === "found" ? s.d : "");
@@ -3853,7 +3881,7 @@ function isMine(D){
 }
 function setMine(D, on, from){
   const m = mineAll(); m[D.plate] = on ? 1 : 0;
-  try { localStorage.setItem("mine", JSON.stringify(m)); } catch {}
+  try { localStorage.setItem("mine", JSON.stringify(m)); } catch {} keep("mine", m);
   track(on ? "mine_set" : "mine_unset", on ? {saved: isSaved(D.plate) ? 1 : 0, from: from || "overview"} : {saved: isSaved(D.plate) ? 1 : 0});
 }
 /* a file can be opened for this car: never on a shared report, a model or a car off the road, nor when it is already the owner's */
@@ -4195,6 +4223,8 @@ function tabOverview(D){
   }
   html.push(card("שינויים ברכב", "wrench", "teal", modsCard(v)));
   html.push(...towHtml);
+  // the share at the end of the overview, with a small copy of the picture (not on the owner's own car, whose header holds "מסמכים")
+  if (D.plate && !isMine(D)) html.push(`<section class="card share-end"><span class="thumb" aria-hidden="true"></span><div><b>שולחים למישהו שמתלבט איתכם?</b><p>תמונה אחת עם מה שחשוב, וקישור לדוח.</p><button type="button" class="btn" data-act="share" data-from="end">${ico("share")}שיתוף</button></div></section>`);
   if (!evFirst) html.push(evCard);
   return html.join("");
 }
@@ -5439,8 +5469,8 @@ $("#out").addEventListener("click", ev => {
   if (!current) return;
   if (b.dataset.tab) { const again = currentTab === b.dataset.tab; currentTab = b.dataset.tab; if (!again) track("tab_view", {tab: b.dataset.tab, own: current && current.plate && isSaved(current.plate) ? 1 : 0, role: roleOf(current)}); renderResult(); focusResult(); $("#out").classList.add("rise"); setTimeout(() => $("#out").classList.remove("rise"), 300); const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"}); return; }
   const act = b.dataset.act;
-  if (act === "share") { track("share_open");   // the sheet opening; track("share") counts only a choice in it
-    $("#shareMsg").textContent = ""; $("[data-share=bizpdf]").hidden = !(PRO_LOCK && isBiz()); $("#shareSheet").hidden = false; shareWarm = {}; warmShare(); }
+  if (act === "share") { shareOne(b.dataset.from || "head"); return; }
+  if (act === "pdfReport" || act === "bizPdfReport") { closeCarMenu(); sharePdf(current, act === "bizPdfReport"); return; }
   if (act === "candSave") {
     const raw = digits(($("#askIn") || {}).value), ask = raw ? Number(raw) : null;
     if (!isSaved(current.plate) && toggleSaved(newSavedItem(current))) {   // a new save counts like the star's
@@ -5460,7 +5490,7 @@ $("#out").addEventListener("click", ev => {
   if (act === "save") {
     const on = toggleSaved(newSavedItem(current));
     if (on) { startTrial(); cohSaved(currentTab || "home"); }
-    track(on ? "car_save" : "car_unsave", {n: String(Math.min(store.get("savedVehicles").length, 4)) + (store.get("savedVehicles").length > 3 ? "+" : ""), from: currentTab || "home"});
+    track(on ? "car_save" : "car_unsave", {n: String(Math.min(store.get("savedVehicles").length, 4)) + (store.get("savedVehicles").length > 3 ? "+" : ""), from: b.dataset.from || currentTab || "home"});
     b.setAttribute("aria-pressed", String(on)); b.setAttribute("aria-label", on ? "נשמר ברכבים שלי" : "שמירה ברכבים שלי"); { const sp = b.querySelector("span"); if (sp) sp.textContent = on ? "נשמר" : "שמירה"; }
     toast(on ? "נשמר ברכבים שלי" : "הוסר מהרכבים שלי");
     { const y = window.scrollY; renderResult(); window.scrollTo(0, y); }
@@ -5520,6 +5550,7 @@ $("#compareSheet").addEventListener("click", ev => { if (ev.target.id === "compa
 const LIBS = {
   img: "https://cdn.jsdelivr.net/npm/html-to-image@1.11.13/dist/html-to-image.js",
   pdf: "lib/jspdf.umd.min.js",   // shipped with the app (same file as jspdf@2.5.2 on jsDelivr), so a PDF needs no download
+  qr: "lib/qrcode.js",           // qrcode-generator@1.4.4 (MIT), shipped with the app: the share picture's code to the live report, no network call
   ocr: "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js",
   pdfjs: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js",
 };
@@ -5529,8 +5560,8 @@ const OCR_PATHS = {
   corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1",
   langPath: "https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int",
 };
-const LIB_FALLBACK = {pdf: "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"};
-const LIB_SRI = {"img": "sha384-Tha/42qsYmpYmQ07pX+nJzkKumO0BzKJxK/uzVc7xyBQxVCUgQBhQIG8L7vXK+9C", "pdf": "sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/", "ocr": "sha384-GJqSu7vueQ9qN0E9yLPb3Wtpd7OrgK8KmYzC8T1IysG1bcvxvIO4qtYR/D3A991F", "pdfjs": "sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e"};
+const LIB_FALLBACK = {pdf: "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js", qr: "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"};
+const LIB_SRI = {"qr": "sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k", "img": "sha384-Tha/42qsYmpYmQ07pX+nJzkKumO0BzKJxK/uzVc7xyBQxVCUgQBhQIG8L7vXK+9C", "pdf": "sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/", "ocr": "sha384-GJqSu7vueQ9qN0E9yLPb3Wtpd7OrgK8KmYzC8T1IysG1bcvxvIO4qtYR/D3A991F", "pdfjs": "sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e"};
 const scriptCache = {};
 function loadScript(src){
   const k0 = Object.keys(LIBS).find(x => LIBS[x] === src), fb = k0 && LIB_FALLBACK[k0];
@@ -5819,6 +5850,9 @@ async function captureEl(el, breakSel, ratio = 2){
 }
 function canvasToBlob(c, type, q){ return new Promise((ok, fail) => c.toBlob(b => b ? ok(b) : fail(new Error("empty canvas")), type, q)); }
 function blobToBase64(b){ return new Promise((ok, fail) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = fail; r.readAsDataURL(b); }); }
+/* the sheet's main button: the card and its link in one WhatsApp message. The app hands both to WhatsApp (the share menu when it is not installed;
+   an app from before the bridge method gets the share menu). The web cannot pick the app: the phone's share menu with the card and the caption,
+   and where files cannot be shared (a computer, some in-app browsers) WhatsApp's own link with the caption alone */
 async function shareFile(blob, name, title, caption){
   const br = bridge();
   if (br && br.shareFileText && caption) { br.shareFileText(name, blob.type, await blobToBase64(blob), title, caption); return; }
@@ -5917,29 +5951,25 @@ async function shareComparePdf(btn){
   catch { toast("לא הצלחנו להכין את הקובץ. בדקו את החיבור לאינטרנט ונסו שוב."); }
   finally { btn.disabled = false; btn.innerHTML = old; }
 }
-/* what the user shared last time is prepared while the share sheet is open, so choosing it is usually instant */
-let shareWarm = {};
-const lastShare = () => { try { const k = localStorage.getItem("lastShare"); return k === "pdf" || k === "image" ? k : "card"; } catch { return "card"; } };
-const shareKey = kind => kind === "pdf" || kind === "card" ? [current && current.plate, kind].join("|") : [current && current.plate, "image", simpleOn(), currentTab, simpleMore].join("|");
-/* the finished file, so that choosing it only hands it over */
-async function prepShare(kind, D){
-  if (kind === "pdf") return await makePdf(D);
-  if (kind === "card") return await canvasToBlob((await drawShareCard(D)).canvas, "image/jpeg", 0.92);
-  const cap = await captureReport(D, false);
-  return await canvasToBlob(cap.canvas, "image/jpeg", 0.9);
+/* The share image is drawn once the report is on screen (idle time), so a tap on "שיתוף" only hands it to the phone's share menu */
+let shareWarm = null;
+const shareKey = D => [D.plate || D.title, D.fromCache || 0, D.recalls ? D.recalls.length : "", D.modelErr ? 1 : 0, kmlUnit() ? 1 : 0].join("|");
+function warmShare(D){
+  if (!D || (shareWarm && shareWarm.key === shareKey(D))) return;
+  const slot = shareWarm = {key: shareKey(D), p: null};
+  const run = () => { if (shareWarm !== slot || current !== D) return; slot.p = drawShareImage(D).then(c => canvasToBlob(c, "image/jpeg", 0.9)); slot.p.then(fillShareThumb, () => {}); };
+  (window.requestIdleCallback || (f => setTimeout(f, 400)))(run, {timeout: 2500});
 }
-function warmShare(){
-  const D = current; if (!D) return;
-  const kind = lastShare(), key = shareKey(kind), w = shareWarm[kind];
-  if (w && w.key === key) return;
-  // only what was shared last time is prepared, while the share sheet is open
-  const slot = shareWarm[kind] = {key, p: new Promise(r => setTimeout(r, 40)).then(() => shareWarm[kind] === slot ? prepShare(kind, D) : null)};
-  shareWarm[kind].p.catch(() => {});
+async function shareBlob(D){
+  const w = shareWarm;
+  if (w && w.key === shareKey(D) && w.p) { try { return await w.p; } catch {} }
+  return await canvasToBlob(await drawShareImage(D), "image/jpeg", 0.9);
 }
-async function warmFile(kind){
-  const w = shareWarm[kind]; delete shareWarm[kind];
-  if (w && w.key === shareKey(kind)) { try { return await w.p; } catch {} }
-  return null;
+/* the end-of-overview card shows a small copy of the picture that will be sent */
+function fillShareThumb(blob){
+  const t = document.querySelector(".share-end .thumb"); if (!t || !blob) return;
+  if (t.dataset.url) URL.revokeObjectURL(t.dataset.url);
+  const u = URL.createObjectURL(blob); t.dataset.url = u; t.style.backgroundImage = `url("${u}")`;
 }
 /* The shared picture is drawn straight on a canvas: a designed summary card in a few milliseconds. (Photographing the whole report through an SVG snapshot took
    several seconds on a phone; the full report is the PDF.) */
@@ -6025,45 +6055,162 @@ async function drawShareCard(D, opt = {}){
   f(21, 500); text("אינו מחליף נסח רישום או בדיקה במכון", R, FT + 160, "#9aa4b8");
   return {canvas: c, breaks: []};
 }
-async function doShare(kind){
-  track("share", {kind, ...expTag("share_label")});
-  const D = current; if (!D) return;
-  const msg = $("#shareMsg"), name = `Luchit-${D.plate}`;
-  if (kind === "text") { $("#shareSheet").hidden = true; shareText(D.title, summaryText(D), D.plate); return; }
-  const biz = kind === "bizpdf" ? bizProfile() : null;
-  if (biz && !biz.name) { msg.textContent = "כדי לקבל דוח ממותג, הוסיפו את פרטי העסק בהגדרות."; return; }
-  document.querySelectorAll("[data-share]").forEach(b => b.disabled = true);
-  msg.textContent = kind === "pdf" || kind === "bizpdf" ? "מכין קובץ PDF…" : kind === "card" ? "מכין כרטיס…" : "מכין תמונה…";
-  await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));   // let the "preparing" state paint before the heavy drawing starts
-  try {
-    const caption = `${D.title} · ${fmtPlate(D.plate)}\nהדוח המלא והמעודכן בלוחית:\n${shareLink(D.plate, kind === "card" ? "img" : kind === "image" ? "full" : kind)}`;
-    if (!biz) { try { localStorage.setItem("lastShare", kind === "pdf" ? "pdf" : kind === "image" ? "image" : "card"); } catch {} }
-    if (biz) await shareFile(await makePdf(D, biz), name + ".pdf", D.title);
-    else if (kind === "pdf") await shareFile((await warmFile("pdf")) || await makePdf(D), name + ".pdf", D.title, caption);
-    else if (kind === "card") {
-      let blob = await warmFile("card");
-      if (!blob) blob = await prepShare("card", D);
-      await shareFile(blob, name + ".jpg", D.title, caption);
-    } else {
-      // the screen's own report, painted straight onto a canvas; the summary card is only the fallback
-      let blob = await warmFile("image");
-      if (!blob) {
-        // JPEG encodes several times faster than PNG on a phone and chat apps recompress to JPEG anyway
-        try { const cap = await captureReport(D, false); blob = await canvasToBlob(cap.canvas, "image/jpeg", 0.9); }
-        catch (e) { reportErr("share_image"); blob = await canvasToBlob((await drawShareCard(D)).canvas, "image/jpeg", 0.9); }
-      }
-      await shareFile(blob, name + ".jpg", D.title, caption);
-    }
-    $("#shareSheet").hidden = true;
-  } catch (err) {
-    msg.textContent = "לא הצלחנו להכין את הקובץ. בדקו את החיבור לאינטרנט ונסו שוב.";
-  } finally { document.querySelectorAll("[data-share]").forEach(b => b.disabled = false); }
+/* What the share picture lists, in a fixed order: the test, open recalls, recalls that may include the car, the hands, changes, and the
+   worst flag the insights raise. Settlements stay in the report: their "ייתכן" reads as blame in a public feed. Personal insights never. */
+function shareRows(D){
+  const rows = [], add = (tone, t) => rows.push([tone, t]), L = licOf(D);
+  if (D.isCancelled) { add("bad", "הרכב ירד מהכביש"); return rows; }
+  if (L) add(L.k === "ok" ? "ok" : L.k === "bad" ? "bad" : "warn", licLine(L));
+  if (D.recallUnknown) add("warn", "מידע על ריקולים לא זמין כרגע"); else add(D.recalls.length ? "bad" : "ok", D.recalls.length ? (D.recalls.length === 1 ? "ריקול פתוח אחד" : `${D.recalls.length} ריקולים פתוחים`) : noOpenRecall(recallThin(D)));
+  const pr = pendingRecalls(D); if (pr.length) add("warn", pendingWords(pr).line);
+  if (D.own.length && ownersLabel(D)) add("info", ownersLabel(D));
+  const mods = modsOf(D.v); if (mods) add(mods.length ? "warn" : "ok", mods.length ? "נרשמו שינויים ברכב" : "לא נרשמו שינויי מבנה, צבע או גפ״מ");
+  const rank = {bad: 0, warn: 1}, flag = buildInsights(D).filter(i => (i.level === "bad" || i.level === "warn") && !i.priv && !/טסט|ריקול|הסדר/.test(i.title) && !rows.some(r => r[1] === i.title)).sort((a, b) => rank[a.level] - rank[b.level])[0];
+  if (flag) add(flag.level, flag.title);
+  return rows;
 }
-$("#shareSheet").addEventListener("click", ev => {
-  if (ev.target.id === "shareSheet") { ev.target.hidden = true; shareWarm = {}; return; }
-  const b = ev.target.closest("[data-share]"); if (b) doShare(b.dataset.share);
+/* the summary line above the rows: green only when every register answered (the buyer card's "no red flags" rule) */
+function shareVerdict(D, rows){
+  if (D.isCancelled) return ["bad", "הרכב ירד מהכביש"];
+  if (D.recallUnknown || D.modelErr || (D.errs || []).length) return ["warn", "חלק מהנתונים לא נטענו כרגע"];
+  const ok = rows.filter(r => r[0] === "ok").length, fl = rows.filter(r => r[0] === "bad" || r[0] === "warn").length, bad = rows.some(r => r[0] === "bad");
+  if (!fl) return ["ok", "לא עלו דגלים בבדיקה"];
+  return [bad ? "bad" : "warn", [ok ? `${ok} ${ok === 1 ? "בדיקה תקינה" : "בדיקות תקינות"}` : "", fl === 1 ? "דבר אחד לבדוק" : `${fl} דברים לבדוק`].filter(Boolean).join(" · ")];
+}
+/* six spec tiles, the ones car people ask about first (Dudu 20.11: the engine model, not the safety level); a missing one gives way to the next */
+function shareSpecs(D){
+  const v = D.v, w = D.w, pw = specPower(D), gear = empty(w.automatic_ind) ? "" : yes(w.automatic_ind) ? "אוטומטית" : "ידנית", tow = num(w.kosher_grira_im_blamim);
+  const all = [
+    ["דגם מנוע", empty(v.degem_manoa) ? "" : String(v.degem_manoa).trim(), true],
+    ["כוח", pw ? (pw.u ? `${fmtN(pw.v)} ${pw.u}` : String(pw.v)) : ""],
+    ["נפח מנוע", specCc(D) ? `${fmtN(specCc(D))} סמ״ק` : ""],
+    ["תיבה", gear],
+    ["צריכה (הערכה)", consumption(D)],
+    ["ק״מ בטסט", D.km ? fmtN(D.km) : ""],
+    ["הנעה", empty(specDrive(D)) ? "" : String(specDrive(D))],
+    ["גרירה עם בלמים", tow > 0 ? `${fmtN(tow)} ק״ג` : ""],
+    ["משקל כולל", specWeight(D) ? `${fmtN(specWeight(D))} ק״ג` : ""],
+  ];
+  return all.filter(t => t[1]).slice(0, 6);
+}
+/* The share picture (1080x1350, 4:5 for WhatsApp and the feed): the car, a summary line and up to five rows, six spec tiles, and a footer with a
+   code to the live report, because a picture forwarded on in WhatsApp loses the message it came with. Drawn on a canvas in milliseconds. */
+async function drawShareImage(D){
+  const W = 1080, H = 1350, P = 64, R = W - P, FH = 190, FT = H - FH;
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const x = c.getContext("2d"); x.direction = "rtl"; x.textBaseline = "alphabetic";
+  const FONT = '"Noto Sans Hebrew","Assistant","Segoe UI",Arial,sans-serif', f = (px, wt = 500) => { x.font = `${wt} ${px}px ${FONT}`; };
+  const rr = (X, Y, w, h, r, fill, stroke, lw) => { x.beginPath(); x.roundRect(X, Y, w, h, r); if (fill) { x.fillStyle = fill; x.fill(); } if (stroke) { x.lineWidth = lw || 2; x.strokeStyle = stroke; x.stroke(); } };
+  const wrap = (t, maxW) => { const out = []; let cur = ""; for (const w of String(t).split(" ")) { const n = cur ? cur + " " + w : w; if (x.measureText(n).width > maxW && cur) { out.push(cur); cur = w; } else cur = n; } if (cur) out.push(cur); return out; };
+  const text = (t, X, Y, color, align = "right") => { x.fillStyle = color; x.textAlign = align; x.fillText(t, X, Y); };
+  const fit = (t, maxW) => { let s = String(t); if (x.measureText(s).width <= maxW) return s; while (s.length > 1 && x.measureText(s + "…").width > maxW) s = s.slice(0, -1); return s + "…"; };
+  const INK = "#151a24", MUT = "#5d6676", TONE = {ok: "#2e7d4f", warn: "#b7791f", bad: "#b3261e", info: "#4a6fb5"}, TINT = {ok: ["#eaf6ef", "#1f5d39"], warn: ["#fdf3e1", "#7a4f0e"], bad: ["#fbeceb", "#8c1d17"]};
+  const qrP = (async () => { if (!D.plate) return null; await loadScript(LIBS.qr); const q = window.qrcode(0, "M"); q.addData(shareLink(D.plate, "qr")); q.make(); return q; })().catch(() => null);
+  x.fillStyle = "#fff"; x.fillRect(0, 0, W, H);
+  // brand and the day of the check
+  const logo = await loadLogo(); if (logo) x.drawImage(logo, R - 48, 48, 48, 48);
+  f(30, 800); text("לוחית", R - 62, 84, INK); const lw = x.measureText("לוחית").width; f(26, 500); text("· דוח רכב", R - 62 - lw - 10, 84, MUT);
+  f(25, 500); text(D.fromCache ? "נתונים שמורים מ-" + dmy(D.fromCache) : "נבדק " + dmy(new Date()), P, 84, MUT, "left");
+  // the car: title (up to two lines), year · drive · colour, and its plate
+  const v = D.v, dt = driveType(D), yr = empty(v.shnat_yitzur) ? "" : String(v.shnat_yitzur);
+  let fs = 76, lines; f(fs, 800); lines = wrap(D.title, W - 2 * P);
+  if (lines.length > 1) { fs = 64; f(fs, 800); lines = wrap(D.title, W - 2 * P).slice(0, 2); }
+  let y = 112; for (const l of lines) { y += Math.round(fs * 1.1); text(l, R, y, INK); }
+  const sub = [String(D.title).includes(yr) ? "" : yr, dt && dt.label, v.tzeva_rechev].filter(q => !empty(q)).join(" · ");
+  y += 70; f(36, 500); if (sub) text(fit(sub, W - 2 * P - 400), R, y, MUT);
+  if (D.plate) {
+    const pw = 352, ph = 78, py = y - 55;
+    rr(P, py, pw, ph, 14, "#f6c500", INK, 5); rr(P + 3, py + 3, 60, ph - 6, 11, "#1d4fa8"); f(22, 800); text("IL", P + 33, py + 49, "#fff", "center");
+    x.direction = "ltr"; f(52, 800); x.fillStyle = INK; x.textAlign = "center"; x.fillText(fmtPlate(D.plate), P + 60 + (pw - 60) / 2, py + 57); x.direction = "rtl";
+  }
+  // the summary line
+  const all = shareRows(D), [vt, vline] = shareVerdict(D, all), tint = TINT[vt] || TINT.warn;
+  y += 40; rr(P, y, W - 2 * P, 84, 20, tint[0]);
+  x.beginPath(); x.arc(R - 42, y + 42, 20, 0, 7); x.fillStyle = TONE[vt]; x.fill(); f(24, 800); text(vt === "ok" ? "✓" : "!", R - 42, y + 51, "#fff", "center");
+  f(36, 800); text(fit(vline, W - 2 * P - 100), R - 78, y + 55, tint[1]); y += 84 + 12;
+  // the rows: up to five, the flags first when they do not all fit, in the fixed order on the picture
+  const specs = shareSpecs(D), specH = specs.length ? 46 + Math.ceil(specs.length / 3) * 128 + 10 : 0, rowEnd = FT - 28 - specH;
+  const pick = all.length <= 5 ? all : all.map((r, i) => [r, i]).sort((a, b) => ({bad: 0, warn: 1, info: 3, ok: 2})[a[0][0]] - ({bad: 0, warn: 1, info: 3, ok: 2})[b[0][0]] || a[1] - b[1]).slice(0, 5).sort((a, b) => a[1] - b[1]).map(a => a[0]);
+  let shown = 0;
+  for (const [tone, t] of pick) {
+    f(33, 700); const ln = wrap(t, W - 2 * P - 64).slice(0, 2), h = 26 + ln.length * 42;
+    if (y + h > rowEnd - (shown < all.length - 1 ? 40 : 0)) break;
+    x.beginPath(); x.arc(R - 18, y + h / 2, 18, 0, 7); x.fillStyle = TONE[tone]; x.fill();
+    f(22, 800); text(tone === "ok" ? "✓" : tone === "info" ? "i" : "!", R - 18, y + h / 2 + 8, "#fff", "center");
+    f(33, 700); ln.forEach((l, k) => text(l, R - 54, y + 13 + 42 * (k + 1) - 9, INK));
+    y += h; x.fillStyle = "#eef0f4"; x.fillRect(P, y, W - 2 * P, 1); shown++;
+  }
+  if (shown < all.length) { f(26, 600); text(`ועוד ${all.length - shown} בדוח המלא`, R, y + 36, MUT); }
+  // the spec tiles, three a row
+  if (specs.length) {
+    let sy = Math.min(FT - 28 - specH, y + (shown < all.length ? 64 : 24)) + 34; f(25, 800); text("מפרט", R, sy, MUT); sy += 14;
+    const tw = (W - 2 * P - 2 * 16) / 3;
+    specs.forEach(([k, val, mono], i) => {
+      const X = R - tw * (i % 3 + 1) - 16 * (i % 3), Y = sy + Math.floor(i / 3) * 128;
+      rr(X, Y, tw, 114, 18, "#f4f6f9"); f(23, 600); text(k, X + tw - 20, Y + 38, MUT);
+      f(val.length > 11 ? 30 : 36, 800); if (mono) x.direction = "ltr"; text(fit(val, tw - 36), X + tw - 20, Y + 88, INK, "right"); x.direction = "rtl";
+    });
+  }
+  // footer: the live report one scan away
+  x.fillStyle = INK; x.fillRect(0, FT, W, FH);
+  const q = await qrP, qs = 140, qx = P, qy = FT + (FH - qs) / 2;
+  if (q) { rr(qx - 8, qy - 8, qs + 16, qs + 16, 14, "#fff"); const n = q.getModuleCount(), cell = qs / n; x.fillStyle = INK; for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) x.fillRect(qx + k * cell, qy + r * cell, Math.ceil(cell), Math.ceil(cell)); }
+  f(38, 800); text("הדוח המלא של הרכב הזה", R, FT + 76, "#fff");
+  f(27, 500); text(q ? "סורקים או נכנסים ל-luchit.app" : "luchit.app", R, FT + 120, "#c9d1e0");
+  f(22, 500); text("בדיקת רכב בחינם · מאגרי משרד התחבורה · אינו מחליף בדיקה במכון", R, FT + 158, "#9aa4b8");
+  return c;
+}
+/* One button, no choices (Dudu 20.11.2026): the summary picture and a short first-person message with the report link go straight to the phone's
+   share menu. share_open counts the tap, share {kind: img} a share the menu took. A browser that cannot share a file saves the picture and opens
+   WhatsApp with the message; Facebook's in-app browser cannot save one, so it gets the message alone. */
+async function shareOne(from){
+  const D = current; if (!D || shareOne.busy) return;
+  track("share_open", {from, ...(window.AndroidApp ? {src: "app"} : {})});   // the web adds the visit's src itself
+  shareOne.busy = true; const t = setTimeout(() => toast("מכינים את התמונה…"), 350);
+  try {
+    const blob = await shareBlob(D), name = `Luchit-${D.plate || "report"}.jpg`, caption = shareCaption(D), br = bridge();
+    clearTimeout(t);
+    if (br && (br.shareFileText || br.shareFile)) { await shareFile(blob, name, D.title, caption); track("share", {kind: "img", from}); return; }
+    const file = new File([blob], name, {type: blob.type});
+    if (navigator.canShare && navigator.canShare({files: [file]})) {
+      try { await navigator.share({files: [file], title: D.title, text: caption}); track("share", {kind: "img", from}); }
+      catch (err) { if (!err || err.name !== "AbortError") throw err; }
+      return;
+    }
+    if (!IN_APP_BROWSER) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000); }
+    openExternal("https://wa.me/?text=" + encodeURIComponent(caption));
+    track("share", {kind: "img", from, via: "wa_link"});
+  } catch (e) { clearTimeout(t); reportErr("share_image"); toast("לא הצלחנו להכין את התמונה. נסו שוב."); }
+  finally { shareOne.busy = false; }
+}
+/* "בדקתי את טויוטה קורולה 2021 בלוחית: טסט בתוקף, אין ריקול פתוח. הדוח המלא: <link>" */
+function shareCaption(D){
+  const yr = empty(D.v.shnat_yitzur) || String(D.title).includes(String(D.v.shnat_yitzur)) ? "" : " " + D.v.shnat_yitzur;
+  const top = shareRows(D).slice(0, 3).map(r => r[1]).join(", ");
+  return `בדקתי את ${D.title}${yr} בלוחית${top ? ": " + top : ""}.\nהדוח המלא: ${shareLink(D.plate, "img")}`;
+}
+/* the full report as a PDF, from the car's menu (it left the share button) */
+async function sharePdf(D, branded){
+  if (!D) return;
+  const biz = branded ? bizProfile() : null;
+  if (branded && !biz.name) { toast("כדי לקבל דוח ממותג, הוסיפו את פרטי העסק בהגדרות."); return; }
+  track("share", {kind: branded ? "bizpdf" : "pdf", from: "menu"});
+  const t = setTimeout(() => toast("מכינים קובץ PDF…"), 350);
+  try { await shareFile(await makePdf(D, biz || undefined), `Luchit-${D.plate}.pdf`, D.title, biz ? undefined : `${D.title}\nהדוח המלא והמעודכן בלוחית:\n${shareLink(D.plate, "pdf")}`); }
+  catch { toast("לא הצלחנו להכין את הקובץ. בדקו את החיבור לאינטרנט ונסו שוב."); }
+  finally { clearTimeout(t); }
+}
+/* the plate field in a shared report's bar: the recipient's own first check (shared_next_check, with the share's s=) */
+document.addEventListener("submit", ev => {
+  const f = ev.target.closest && ev.target.closest("form[data-recv]"); if (!f) return;
+  ev.preventDefault();
+  const inp = f.querySelector("input"), p = digits(inp.value).replace(/^0+(?=\d{5})/, "");
+  if (p.length < 5 || p.length > 8) { inp.setAttribute("aria-invalid", "true"); toast("מספר רישוי הוא 5 עד 8 ספרות"); inp.focus(); return; }
+  inp.removeAttribute("aria-invalid");
+  track("shared_next_check", {via: SHARE_VIA});
+  RECV.plate = p; lookup(p); scrollTo(0, 0);
 });
-$("#closeShare").addEventListener("click", () => { $("#shareSheet").hidden = true; shareWarm = {}; });
+document.addEventListener("click", ev => { if (ev.target.closest && ev.target.closest("a.recv-app")) track("web_install_click", {via: "share"}); });
 /* iPhone in Safari: once, after a car is saved, how to put לוחית on the home screen. There is no app for iPhone; from the icon the site opens
    without the browser's bars and checks the saved cars on opening (as "הרכבים שלי" says) */
 function homeSheetMaybe(){
@@ -6512,7 +6659,7 @@ function carHead(D){
   // the owner's own car: the road documents take the share button's place (sharing moves to the menu)
   return `<header class="chead" id="chead"><button type="button" class="ch-b back" data-act="back" aria-label="חזרה">${ico("back")}</button>
     <div class="ch-t">${car ? `<span class="mini-plate"><i></i>${fmtPlate(D.plate)}</span>` : ""}<b class="cut">${cutHtml(D.title)}</b></div>
-    ${mine ? `<button type="button" class="ch-doc" data-cf="road" aria-label="מסמכים לנסיעה">${ico("id")}<span class="ch-dt">מסמכים</span></button>` : `<button type="button" class="ch-b" data-act="share" aria-label="שיתוף הדוח">${ico("share")}<span class="ch-l">שיתוף</span></button>`}
+    ${mine ? `<button type="button" class="ch-doc" data-cf="road" aria-label="מסמכים לנסיעה">${ico("id")}<span class="ch-dt">מסמכים</span></button>` : `<button type="button" class="ch-b" data-act="share" data-from="${sharedHere(D) ? "recv" : "head"}" aria-label="שיתוף הדוח">${ico("share")}<span class="ch-l">שיתוף</span></button>`}
     ${car ? `<button type="button" class="ch-b star" data-act="save" aria-pressed="${saved}" aria-label="${saved ? "נשמר ברכבים שלי" : "שמירה ברכבים שלי"}">${ico("star")}<span class="ch-l">${saved ? "נשמר" : "שמירה"}</span></button>` : ""}
     <span class="ch-m"><button type="button" class="ch-b" data-act="cmenu" aria-label="עוד פעולות" aria-haspopup="menu" aria-expanded="false">${ico("more")}</button></span></header>`;
 }
@@ -6520,7 +6667,7 @@ function carMenu(b){
   const box = b.parentElement, open = box.querySelector(".ch-menu");
   if (open) { open.remove(); b.setAttribute("aria-expanded", "false"); return; }
   const D = current, saved = D.plate && D.kind !== "model" && savedItem(D.plate);
-  const items = [...(isMine(D) ? [["share", "שיתוף הדוח"]] : []), ["compare", "השוואה עם רכב אחר"], ...(fileOk(D) ? [["mineMenu", "זה הרכב שלי"]] : []), ["simple", simpleOn() ? "תצוגה מלאה" : "תצוגה פשוטה"], ...(saved ? [["nickCar", saved.nick ? "שינוי כינוי" : "הוספת כינוי"], ["unsaveCar", "הסרה מהרכבים שלי", "danger"]] : [])];
+  const items = [...(isMine(D) ? [["share", "שיתוף הדוח"]] : []), ["compare", "השוואה עם רכב אחר"], ...(fileOk(D) ? [["mineMenu", "זה הרכב שלי"]] : []), ["simple", simpleOn() ? "תצוגה מלאה" : "תצוגה פשוטה"], ...(D.plate ? [["pdfReport", "הורדת דוח PDF"]] : []), ...(D.plate && PRO_LOCK && isBiz() ? [["bizPdfReport", "PDF ממותג"]] : []), ...(saved ? [["nickCar", saved.nick ? "שינוי כינוי" : "הוספת כינוי"], ["unsaveCar", "הסרה מהרכבים שלי", "danger"]] : [])];
   box.insertAdjacentHTML("beforeend", `<div class="ch-menu" role="menu">${items.map(([a, t, c]) => `<button type="button" role="menuitem" data-act="${a}"${c ? ` class="${c}"` : ""}>${t}</button>`).join("")}</div>`);
   b.setAttribute("aria-expanded", "true");
   const f = box.querySelector(".ch-menu button"); if (f) f.focus();
@@ -7445,7 +7592,7 @@ $("#skipMain").addEventListener("click", e => { e.preventDefault(); const pl = $
 $("#closeSettings").addEventListener("click", () => { sheet.hidden = true; const g = $("#bnSet"); (g && g.getClientRects().length ? g : $("#openSettings")).focus(); });
 sheet.addEventListener("click", ev => { if (ev.target === sheet) sheet.hidden = true; });
 // Escape: the questions sheet first (it sits over settings); the compare picker closes as its X does (no comparison of one car left behind)
-document.addEventListener("keydown", ev => { if (ev.key === "Escape") { if (!helpSheet.hidden) { helpSheet.hidden = true; $("#openHelp").focus(); return; } const dv = document.querySelector(".doc-view"); if (dv) dv.click(); sheet.hidden = true; if (!$("#compareSheet").hidden) hideCmpSheet(); $("#shareSheet").hidden = true; $("#homeSheet").hidden = true; } });
+document.addEventListener("keydown", ev => { if (ev.key === "Escape") { if (!helpSheet.hidden) { helpSheet.hidden = true; $("#openHelp").focus(); return; } const dv = document.querySelector(".doc-view"); if (dv) dv.click(); sheet.hidden = true; if (!$("#compareSheet").hidden) hideCmpSheet(); $("#homeSheet").hidden = true; } });
 /* both deletes can be undone from the snack bar for a moment: the buttons sit in a list and one stray tap used to wipe the cars */
 $("#clearRecent").addEventListener("click", () => { const was = store.get("recentPlates"), names = localStorage.getItem("recentNames"); store.set("recentPlates", []); try { localStorage.removeItem("recentNames"); } catch {} refreshView(); snack("היסטוריית החיפושים נמחקה", "ביטול", () => { store.set("recentPlates", was); try { if (names) localStorage.setItem("recentNames", names); } catch {} refreshView(); }); });
 $("#clearSaved").addEventListener("click", () => { const was = store.get("savedVehicles"); if (!was.length) { toast("אין רכבים ברשימת הרכבים שלי"); return; } store.set("savedVehicles", []); refreshView(); snack("הרכבים שלי נמחקו", "ביטול", () => { store.set("savedVehicles", was); refreshView(); }); });
@@ -7535,7 +7682,7 @@ $(".brand h1").addEventListener("click", ev => { ev.preventDefault(); goHome(); 
 $("#homeBtn").addEventListener("click", goHome);
 // the checked line above the tabs: opened, calm or amber (checkLine)
 document.addEventListener("toggle", ev => { const d = ev.target; if (d.classList && d.classList.contains("ckl") && d.open) track("check_open", {kind: d.dataset.line}); }, true);
-window.appBack = () => { const dv = document.querySelector(".doc-view"); if (dv) { dv.click(); return true; } { const rs = $("#roadSheet"); if (rs) { rs.remove(); return true; } } if (document.querySelector(".ch-menu")) { closeCarMenu(); return true; } if (!helpSheet.hidden) { helpSheet.hidden = true; return true; } if (!sheet.hidden) { sheet.hidden = true; return true; } if (!$("#compareSheet").hidden) { if (mGroup) stepBack(); else hideCmpSheet(); return true; } if (!$("#shareSheet").hidden) { $("#shareSheet").hidden = true; return true; } if (inCompare) { closeCompare(); return true; } if (document.body.dataset.screen === "sub") { leaveTool(); return true; } if (document.body.dataset.screen === "cars" && carsSel) { carsSel = null; renderCars(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { leaveCar(); return true; } if (parked && parked.v !== view) { navTo(parked.v, {via: "back"}); return true; } if (!$("#homeMark")) { goHome(); return true; } return false; };
+window.appBack = () => { const dv = document.querySelector(".doc-view"); if (dv) { dv.click(); return true; } { const rs = $("#roadSheet"); if (rs) { rs.remove(); return true; } } if (document.querySelector(".ch-menu")) { closeCarMenu(); return true; } if (!helpSheet.hidden) { helpSheet.hidden = true; return true; } if (!sheet.hidden) { sheet.hidden = true; return true; } if (!$("#compareSheet").hidden) { if (mGroup) stepBack(); else hideCmpSheet(); return true; } if (inCompare) { closeCompare(); return true; } if (document.body.dataset.screen === "sub") { leaveTool(); return true; } if (document.body.dataset.screen === "cars" && carsSel) { carsSel = null; renderCars(); return true; } if (current && currentTab !== "overview") { currentTab = "overview"; renderResult(); return true; } if (current) { leaveCar(); return true; } if (parked && parked.v !== view) { navTo(parked.v, {via: "back"}); return true; } if (!$("#homeMark")) { goHome(); return true; } return false; };
 
 /* Text shared from another app (an ad, a message): find a plate number in it.
    Phone numbers, prices and mileage are skipped; a number next to the words רכב/רישוי/לוחית wins. */
@@ -7624,7 +7771,8 @@ window.onEntitlement = s => {
 function renderUpgrade(){
   if (land) setLand(false, false);
   current = null; inCompare = false; setScreen("sub");
-  try { const b = bridge(); if (b && b.billingInit) b.billingInit(); } catch {}
+  /* Play billing only while PRO is on sale: with PRO_LOCK off there are no products, and the billing library is never started (7.11.2026) */
+  if (PRO_LOCK) { try { const b = bridge(); if (b && b.billingInit) b.billingInit(); } catch {} }
   const p = plan(), e = entGet(), html = [];
   let st = "";
   if (PRO_LOCK) {
@@ -7671,7 +7819,48 @@ $("#planBtn").addEventListener("click", () => { sheet.hidden = true; if (PRO_LOC
 $("#bnPro").addEventListener("click", () => { if (!PRO_LOCK) return; track("upgrade_open", {from: "topbar"}); if (UPGRADE_UI) renderUpgrade(); });
 initEnt(); syncPlanUi();
 if (PRO_LOCK && UPGRADE_UI) { try { const b = bridge(); if (b && b.billingInit) b.billingInit(); } catch {} }
+/* a phone whose disk is nearly full can open the page with its stored data out of reach, and the saved cars read as none; the start-up sync
+   below then wrote that empty list over the app's own copy, and the cars were gone for good (Dudu 12.11.2026; emulator, Android 15, 150 MB free).
+   Now the app's copy is the truth when the page has no saved cars: they come back from it, or, when the page cannot write them, the copy is
+   left alone and the user is told to free room */
+(function savedRestore(){
+  const b = window.AndroidApp; if (!b || !b.savedCopy || store.get("savedVehicles").length) return;
+  const copy = (() => { try { return JSON.parse(b.savedCopy() || "[]"); } catch { return []; } })();
+  const items = (Array.isArray(copy) ? copy : []).filter(x => x && /^\d{5,8}$/.test(String(x.plate))).map(x => ({plate: String(x.plate), title: String(x.title || ""), sub: "", at: Date.now(), events: [], ...(x.alerts === false ? {alerts: false} : {})}));
+  if (!items.length) return;
+  const ok = (() => { try { localStorage.setItem("savedVehicles", JSON.stringify(items)); return JSON.parse(localStorage.getItem("savedVehicles") || "[]").length === items.length; } catch { return false; } })();
+  if (!ok) { SAVED_GUARD.ok = false; track("storage_lost", {n: items.length, from: "app"}); setTimeout(() => toast("אין מספיק מקום פנוי בטלפון, ולכן הרכבים השמורים לא נטענו. פנו מקום ופתחו את האפליקציה שוב."), 1500); return; }
+  KEEP.thin = true; track("storage_restored", {n: items.length, from: "app"});
+})();
 syncSaved(store.get("savedVehicles"));
+/* then the IndexedDB copy: a key that reads empty is filled from it; saved cars the app's copy brought back (plate and name only) get their
+   nickname, history and order from it. Nothing is ever removed here */
+(function keepRestore(){
+  if (!window.indexedDB) { KEEP.ready = true; return; }
+  const readAll = db => new Promise((ok, no) => { const out = {}, rq = db.transaction("kv").objectStore("kv").openCursor(); rq.onsuccess = () => { const c = rq.result; if (c) { out[c.key] = c.value; c.continue(); } else ok(out); }; rq.onerror = () => no(rq.error); });
+  keepDb().then(readAll).then(kv => {
+    let n = 0, lost = 0;
+    for (const k of KEEP_KEYS) {
+      let v; try { v = JSON.parse(kv[k] || "null"); } catch { continue; }
+      if (keepEmpty(v)) continue;
+      let now; try { now = JSON.parse(localStorage.getItem(k) || "null"); } catch { now = null; }
+      if (k === "savedVehicles" && KEEP.thin && Array.isArray(v) && Array.isArray(now)) {
+        const rich = new Map(v.filter(x => x && x.plate).map(x => [String(x.plate), x]));
+        const merged = [...v.filter(x => x && now.some(y => String(y.plate) === String(x.plate))), ...now.filter(y => !rich.has(String(y.plate)))];
+        if (JSON.stringify(merged) === JSON.stringify(now)) continue; v = merged;
+      } else if (!keepEmpty(now)) continue;
+      try { localStorage.setItem(k, JSON.stringify(v)); if (localStorage.getItem(k) == null) throw 0; n++; } catch { lost++; }
+    }
+    KEEP.ready = true;
+    // the first start of a version with the copy, and any write that missed it: what reads well now is copied
+    for (const k of KEEP_KEYS) { try { const raw = localStorage.getItem(k); if (raw && raw !== kv[k] && !keepEmpty(JSON.parse(raw))) keep(k, JSON.parse(raw)); } catch { continue; } }
+    if (lost) { if (!KEEP.thin) { SAVED_GUARD.ok = false; track("storage_lost", {n: lost, from: "keep"}); setTimeout(() => toast("אין מספיק מקום פנוי בטלפון, ולכן חלק מהנתונים השמורים לא נטענו. פנו מקום ופתחו את האפליקציה שוב."), 1500); } return; }
+    if (!n) return;
+    track("storage_restored", {n, from: "keep"});
+    syncSaved(store.get("savedVehicles")); if (navReady) syncNav();
+    if (typeof current !== "undefined" && current) { const y = window.scrollY; renderResult(); window.scrollTo(0, y); } else refreshView();
+  }).catch(() => { KEEP.ready = true; });
+})();
 try { if (window.AndroidApp && window.AndroidApp.setAnalytics) window.AndroidApp.setAnalytics(analyticsOn()); } catch {}
 /* web: Cloudflare Web Analytics (page views only, no cookies, no personal data); the token is added when the site is registered there */
 const CF_BEACON_TOKEN = '9bb0e756882c478a808d95596e0deade';

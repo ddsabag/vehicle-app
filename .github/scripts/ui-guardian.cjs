@@ -58,6 +58,10 @@ const FIXTURES = [
   { name: "hands-extra", rec: { ...BASE, baalut: "ליסינג" }, sets: { "bb2355dc": [{ _id: 1, mispar_rechev: 12345678, baalut: "החכר", baalut_dt: "201705" }, { _id: 2, mispar_rechev: 12345678, baalut: "פרטי", baalut_dt: "202001" }, { _id: 3, mispar_rechev: 12345678, baalut: "סוחר", baalut_dt: "202306" }] }, expect: { hands: /^לפחות יד שלישית/ } },
   { name: "regular-hybrid", rec: { ...BASE, sug_delek_nm: "חשמל/בנזין" }, model: { w: { technologiat_hanaa_nm: "היברידי רגיל" }, modelRecalls: [] }, expect: { drive: "היברידי" } },
   { name: "model-fails", rec: BASE, fail: ["142afde2", "39f455bf"], expect: { partial: true } },
+  // a report someone sent (s= on the web): what was found on top, and a plate field as the one main action (share-loop spec 7.11)
+  { name: "shared-recv", rec: BASE, query: "&s=wa", recv: true },
+  // the share picture with a full set of spec tiles (engine model first)
+  { name: "share-rich", rec: { ...BASE, degem_manoa: "2ZR-FXE" }, model: { w: { koah_sus: 122, nefah_manoa: 1798, automatic_ind: 1, hanaa_nm: "קדמית", mishkal_kolel: 1810, kosher_grira_im_blamim: 750 }, modelRecalls: [] }, expect: { specs: 6 } },
 ];
 const TABS = contract.tabs.map((t) => t.id);
 const WIDTHS = process.env.UG_QUICK ? [390] : [320, 390];
@@ -91,7 +95,7 @@ async function runPage(browser, fx, theme, width) {
   const page = await ctx.newPage();
   const label = `${fx.name}/${theme}/${width}px`;
   page.on("pageerror", (e) => fail(`[${label}] page error: ${e.message}`));
-  await page.goto(`http://127.0.0.1:${server.address().port}/?plate=12345678`);
+  await page.goto(`http://127.0.0.1:${server.address().port}/?plate=12345678${fx.query || ""}`);
   try { await page.waitForSelector(".tabs [role=tab]", { timeout: 15000 }); } catch { fail(`[${label}] the vehicle screen did not render`); await ctx.close(); return; }
   // a saved car opened while the ministry does not answer: the page draws its stored copy, dated
   if (fx.savedDaysAgo) await page.evaluate((d) => { current.fromCache = Date.now() - d * 864e5; renderResult(); }, fx.savedDaysAgo);
@@ -119,6 +123,25 @@ async function runPage(browser, fx, theme, width) {
     if (ex.drive && bc.drive !== ex.drive) fail(`[${label}] the drive type reads "${bc.drive}", not "${ex.drive}"`);
     if (ex.partial && !(bc.msg && bc.partial && !bc.none)) fail(`[${label}] a model list failed, and the page ${bc.msg ? "" : "does not say the data is partial"}${bc.none ? " says no red flags" : ""}`);
     if (ex.line && (!line || line.state !== ex.line)) fail(`[${label}] the checked line is "${line ? line.state : "missing"}", not "${ex.line}"`);
+  }
+  // one share button, no sheet (Dudu 20.11): the picture is drawn for every fixture, with tiles and no "clean" line while a register did not answer
+  {
+    // UG_SHARE_OUT=<dir> also saves each fixture's picture there, to look at
+    if (process.env.UG_SHARE_OUT && theme === "light" && width === 390) { const u = await page.evaluate(async () => (await drawShareImage(current)).toDataURL("image/png")).catch(() => ""); if (u) fs.writeFileSync(path.join(process.env.UG_SHARE_OUT, fx.name + ".png"), Buffer.from(u.split(",")[1], "base64")); }
+    const sh = await page.evaluate(async () => { const c = await drawShareImage(current), rows = shareRows(current), v = shareVerdict(current, rows); return { w: c.width, h: c.height, specs: shareSpecs(current).length, empty: shareSpecs(current).some((t) => !String(t[1]).trim()), verdict: v, sheet: !!document.querySelector("#shareSheet"), end: !!document.querySelector(".share-end [data-act=share]"), mine: isMine(current) }; }).catch((e) => ({ err: e.message }));
+    if (sh.err) fail(`[${label}] the share picture did not draw: ${sh.err}`);
+    else {
+      if (sh.w !== 1080 || sh.h !== 1350) fail(`[${label}] the share picture is ${sh.w}x${sh.h}, not 1080x1350`);
+      if (sh.empty) fail(`[${label}] the share picture has an empty spec tile`);
+      if (sh.sheet) fail(`[${label}] the old share sheet is still on the page`);
+      if ((fx.recallStatus || fx.listTotal === 0) && sh.verdict[0] === "ok") fail(`[${label}] the share picture reads "${sh.verdict[1]}" although the recall list did not answer`);
+      if (fx.expect && fx.expect.specs && sh.specs !== fx.expect.specs) fail(`[${label}] the share picture has ${sh.specs} spec tiles, not ${fx.expect.specs}`);
+      if (theme === "light" && width === 390) console.log(`  share [${fx.name}] ${sh.verdict.join(": ")}, ${sh.specs} tiles${sh.end ? ", end card" : ""}`);
+    }
+  }
+  if (fx.recv) {
+    const rv = await page.evaluate(() => ({ top: (document.querySelector(".shared-top b") || {}).textContent || "", line: !!document.querySelector(".shared-top .kl"), form: !!document.querySelector(".sharebar form[data-recv] input"), install: !!document.querySelector(".sharebar [data-act=openapp], .sharebar [data-act=openplay]") }));
+    if (!/קיבלתם בדיקה של/.test(rv.top) || !rv.line || !rv.form || rv.install) fail(`[${label}] the shared report: ${JSON.stringify(rv)} (want the "received" title with the found line, a plate field, no install button before the recipient's own check)`);
   }
   await page.addStyleTag({ content: "*{animation:none!important;transition:none!important}" });
 
