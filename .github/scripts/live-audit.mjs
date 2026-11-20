@@ -46,3 +46,4 @@ console.log("written, encrypted; parts with errors:", Object.keys(P).filter(k =>
 // run 2026-11-13: Dudu reports /live not loading; rebuild the answer to render it
 // run 2026-11-20: /live redesign, the current answer to render the page at phone size (Dudu 20.11 08:28 UTC)
 // run 2026-11-20 09:15: /live v3 released (live-62, Dudu "שחרר" 20.11 09:09 UTC), the answer from main after the deploy
+// run 2026-11-20 09:30: /live desktop layout released (live-63, Dudu "שחרר" 20.11 09:26 UTC)
