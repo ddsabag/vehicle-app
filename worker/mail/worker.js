@@ -223,7 +223,9 @@ const AI_SCHEMA = { type: "object", properties: { reply: { type: "string" } }, r
 const AI_BAN = /נתקן|נוסיף|נשפר|נפתור|בקרוב|בהקדם|בגרסה הבאה|בגרסה הקרובה|בעדכון הבא|בעדכון הקרוב|מבטיח|מומלץ|מומלצ|משתלם|מציאה/;
 export function redact(t) {   // what Claude may see of the mail
   return String(t).replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, "[מייל]").replace(/\b(?:https?:\/\/|www\.)\S+/gi, "[קישור]")
-    .replace(/\+?\d[\d\s().-]{7,}\d/g, m => (m.replace(/\D/g, "").length >= 9 ? "[טלפון]" : m)).replace(/\d{5,}|\d{2,3}-\d{2,3}-\d{2,3}/g, "[מספר]");
+    .replace(/\+?\d[\d\s().-]{7,}\d/g, m => (m.replace(/\D/g, "").length >= 9 ? "[טלפון]" : m)).replace(/\d{5,}|\d{2,3}-\d{2,3}-\d{2,3}/g, "[מספר]")
+    // a plate written with spaces, dots, slashes or dashes (76 543 21, 76.543.21, 12/345/67): 5 or more digits in groups of 2-3 (deep audit 21.11)
+    .replace(/(?<!\d)\d{2,3}(?:\s*[\s./-]\s*\d{2,3}){1,3}(?!\d)/g, m => (m.replace(/\D/g, "").length >= 5 ? "[מספר]" : m));
 }
 export function draftCheck(raw) {   // { text, why }: why is "" when the draft may be shown
   let t = String(raw ?? "").replace(/[​-‏‪-‮⁦-⁩﻿]/g, "").replace(/\r\n?/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
