@@ -1,0 +1,54 @@
+{
+ "v": 5,
+ "at": "2026-11-12T11:15:39.877Z",
+ "source": "app",
+ "run": "https://github.com/ddsabag/vehicle-app/actions/runs/43205940708",
+ "code": "e9113a93fa6f.1549b478ca94",
+ "mode": "batch",
+ "counts": {
+  "shots": 79,
+  "kept": 0,
+  "first": 79,
+  "second": 2,
+  "waitingFirst": 0,
+  "waitingSecond": 0,
+  "unsure": 32,
+  "errors": 0,
+  "findings": 1,
+  "new": 1,
+  "rejected": 1,
+  "misreads": 1
+ },
+ "month": {
+  "first": 542,
+  "second": 9,
+  "caps": {
+   "runFirst": 300,
+   "runSecond": 40,
+   "monthFirst": 4000,
+   "monthSecond": 400
+  }
+ },
+ "findings": [
+  {
+   "shot": "api35/360-f130__light__cars__tour-cars",
+   "kind": "cut_text",
+   "part": 1,
+   "where": "table header row of the car card, left-most column header",
+   "text": "טיפ אחו",
+   "what": "The header of the last column is meant to read \"טיפול אחרון\" but shows only \"טיפ\" and \"אחו\". The word is wrapped and cut at the card's left edge, so the letters are missing.",
+   "severity": "medium",
+   "since": "2026-11-12",
+   "new": true
+  }
+ ],
+ "pending": [],
+ "dropped": [
+  {
+   "shot": "api35/411-extra__entry__app-link",
+   "claim": "A system 'Pixel Launcher isn't responding' dialog covers most of the app screen. This is an Android system dialog, but it blocks the app content and is visibly ",
+   "why": "The dialog belongs to the Android system (Pixel Launcher), not to the app or website. It is an environment artifact and not a visual defect in the app. The app screen behind it looks intact."
+  }
+ ],
+ "errors": []
+}

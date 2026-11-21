@@ -1,0 +1,36 @@
+{
+ "v": 5,
+ "at": "2026-11-21T10:12:46.643Z",
+ "source": "ui",
+ "run": "https://github.com/ddsabag/vehicle-app/actions/runs/44891135059",
+ "code": "c34645fee199",
+ "mode": "batch",
+ "counts": {
+  "shots": 180,
+  "kept": 180,
+  "first": 0,
+  "second": 0,
+  "waitingFirst": 0,
+  "waitingSecond": 0,
+  "unsure": 51,
+  "errors": 0,
+  "findings": 0,
+  "new": 0,
+  "rejected": 0,
+  "misreads": 13
+ },
+ "month": {
+  "first": 1632,
+  "second": 9,
+  "caps": {
+   "runFirst": 300,
+   "runSecond": 40,
+   "monthFirst": 4000,
+   "monthSecond": 400
+  }
+ },
+ "findings": [],
+ "pending": [],
+ "dropped": [],
+ "errors": []
+}

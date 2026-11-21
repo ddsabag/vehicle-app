@@ -1,0 +1,87 @@
+{
+ "v": 5,
+ "at": "2026-11-21T08:51:49.803Z",
+ "source": "app",
+ "run": "https://github.com/ddsabag/vehicle-app/actions/runs/44886249998",
+ "code": "c34645fee199.0488b1df9f0e",
+ "mode": "batch",
+ "counts": {
+  "shots": 77,
+  "kept": 67,
+  "first": 10,
+  "second": 1,
+  "waitingFirst": 0,
+  "waitingSecond": 0,
+  "unsure": 26,
+  "errors": 0,
+  "findings": 4,
+  "new": 1,
+  "rejected": 1,
+  "misreads": 3
+ },
+ "month": {
+  "first": 970,
+  "second": 21,
+  "caps": {
+   "runFirst": 300,
+   "runSecond": 40,
+   "monthFirst": 4000,
+   "monthSecond": 400
+  }
+ },
+ "findings": [
+  {
+   "shot": "api31/360-f130__light__cars__tour-cars",
+   "kind": "cut_text",
+   "part": 1,
+   "where": "table header row of the car card, last column at the left edge",
+   "text": "טיפ אחו",
+   "what": "The last column header is split over two lines and reads \"טיפ\" / \"אחו\". It looks like a longer word (probably טיפול / אחזקה) is cut and its remaining letters are missing, so the column title cannot be read in full.",
+   "severity": "medium",
+   "since": "2026-11-09",
+   "new": false
+  },
+  {
+   "shot": "api31/360-f130__light__cars__tour-cars",
+   "kind": "layout",
+   "part": 1,
+   "where": "top of the car card, above the divider line and the table header",
+   "text": "",
+   "what": "A large empty white area sits at the top of the card, above the line and the table header, where a title or content would be expected.",
+   "severity": "low",
+   "since": "2026-11-17",
+   "new": false
+  },
+  {
+   "shot": "api35/360-f130__light__cars__tour-cars",
+   "kind": "cut_text",
+   "part": 1,
+   "where": "table header row of the car list card, last column at the left edge",
+   "text": "טיפ אחו",
+   "what": "The last column header is split over two lines and reads 'טיפ' / 'אחו'. The word looks like 'טיפול אחרון' or similar, and it is cut off at the column edge, so the full header is not readable.",
+   "severity": "medium",
+   "since": "2026-11-09",
+   "new": false
+  },
+  {
+   "shot": "api35/360-f130__light__cars__tour-cars",
+   "kind": "layout",
+   "part": 1,
+   "where": "top of the white car list card, above the divider line",
+   "text": "",
+   "what": "A large empty band sits at the top of the card, above the divider line and the table header, with no content in it. It looks like a missing title or toolbar.",
+   "severity": "low",
+   "since": "2026-11-21",
+   "new": true
+  }
+ ],
+ "pending": [],
+ "dropped": [
+  {
+   "shot": "api31/320-f130__dark__home-settings__tour-settings",
+   "claim": "The label 'לפי המכשיר' is wider than its segment and runs past the left edge of the grey pill, so its first letters sit outside the control's box and look clipp",
+   "why": "The word is complete and legible and sits inside the grey pill with a small margin, so there is no visible cut."
+  }
+ ],
+ "errors": []
+}

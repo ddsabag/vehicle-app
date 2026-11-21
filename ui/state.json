@@ -1,0 +1,2420 @@
+{
+ "v": 5,
+ "month": "2026-11",
+ "used": {
+  "first": 1632,
+  "second": 9
+ },
+ "shots": {
+  "checked-buy-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "checked-buy-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "checked-buy-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "checked-buy-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "checked-overview-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "checked-overview-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "checked-overview-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "checked-overview-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "checked-specs-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "checked-specs-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "checked-specs-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "checked-specs-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "ev-buy-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "ev-buy-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the car card's price row at the bottom of part 1 ('המחיר שהמוכר מבקש' card row), the two buttons below it",
+      "text": "שמירה כמועמד",
+      "what": "The 'שמירה כמועמד' card is cut at the bottom by the bottom navigation bar, which is fixed on screen; the content behind it is hidden, but this is a scrolling page, so it is not clearly a defect.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "typo",
+      "part": 1,
+      "where": "the buying tab's header area, the license plate chip at the top of part 1",
+      "text": "123-45-678",
+      "what": "The plate is shown in a yellow box with a blue bar on its left edge overlapping the first digit area; the blue bar sits inside the plate box over the number's start, slightly hiding the plate's leading digit edge.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "layout",
+      "part": 4,
+      "where": "the table of statistics in the 'איך הדגם הזה מחזיק' card, the first column cell 'במממוצע לשנתון: 3.6%'",
+      "text": "במוצע לשנתון: 3.6%",
+      "what": "The green average label wraps onto three lines with its parts split awkwardly ('במממוצע' / 'לשנתון:' / '3.6%'), making the cell look uneven and cramped compared with the neighbouring cells.",
+      "severity": "low",
+      "confidence": "medium"
+     },
+     {
+      "kind": "layout",
+      "part": 5,
+      "where": "the footer link grid, the 'דגמים נפוצים בישראל' cell in the third column",
+      "text": "דגמים נפוצים בישראל",
+      "what": "This footer cell wraps to two lines while the other cells in its row are single lines, so the row's rhythm looks uneven.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "ev-buy-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 4,
+      "where": "the statistics table under 'איך הדגם הזה מחזיק'",
+      "text": "במממוצע לשנתון: 3.6%",
+      "what": "The benchmark column is inconsistent: the first and third rows show a benchmark value and a percentage, but the second row (99,577) has no benchmark cell and its value sits in a different column, so the rows look misaligned.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ],
+    "misread": 1
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "ev-buy-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "other",
+      "part": 4,
+      "where": "the 'מרווחי טיפול מלאים' card, the button below its description",
+      "text": "להורדה מ-Google Play",
+      "what": "The download button uses a share icon (three connected dots) rather than a download or store icon, which looks mismatched for a Google Play download action.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "ev-overview-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "rtl",
+      "part": 1,
+      "where": "the car card's header, the plate badge at the top bar",
+      "text": "123-45-678",
+      "what": "The plate is shown with the yellow badge's blue Israeli strip on the left, which is normal; no defect here. (Not reported.)",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "typo",
+      "part": 1,
+      "where": "the 'who' sentence card near the bottom of part 1",
+      "text": "זה הרכב שלכם? פתחו לו תיק: מה הבא, טיפולים ומסמכים, במקום אחד שנשמר רק בדפדפן הזה.",
+      "what": "The sentence 'במקום אחד שנשמר רק בדפדפן הזה' is grammatically inconsistent with the rest in a way a reader may not notice; low confidence only, not a clear defect.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "layout",
+      "part": 2,
+      "where": "the footer link grid, the bottom-right column last item",
+      "text": "דגמים נפוצים בישראל",
+      "what": "The footer link wraps onto two lines while the other links in its row stay on one line, making the row look uneven.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "ev-overview-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "ev-overview-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "ev-overview-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "ev-specs-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "ev-specs-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "ev-specs-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "typo",
+      "part": 1,
+      "where": "the info bar under the title card, the text beside the info icon",
+      "text": "אין ריקול פתוח ברשימה לפי מספר רשימה",
+      "what": "The phrase 'מספר רשימה' looks wrong; the expected term is 'מספר רישוי' (licence number), which the site uses elsewhere. Low confidence, since the small text is hard to read with certainty.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "ev-specs-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "list-reloading-buy-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "list-reloading-buy-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "list-reloading-buy-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "rtl",
+      "part": 1,
+      "where": "the red recall card, the button below its text",
+      "text": "בדיקת ריקולים וקמפיינים באתר טויוטה ישראל",
+      "what": "The button's search icon sits on the left and the text is right-aligned, which is acceptable, but the button text wraps onto a second line leaving 'ישראל' alone; this is a minor wrap rather than a defect, so this entry is low confidence only.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "typo",
+      "part": 1,
+      "where": "the red recall card, first paragraph",
+      "text": "ריקולים",
+      "what": "The word is misspelled; the recall notice uses 'ריקולים' where the standard spelling is 'ריקולים' spelled with ק correctly only in some places; the header 'מידע על ריקולים לא זמין כרגע' elsewhere reads 'ריקולים' inconsistently with 'ריקולים' in part 2 ('ריקולים: מידע לא זמין כרגע'). Spelling is cons",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the buy tab card, the price input row at the bottom of part 1",
+      "text": "שמירה כמועמד",
+      "what": "The 'שמירה כמועמד' button and the price input are cut off by the bottom navigation bar, which is fixed; the row is partly hidden under it at the edge of part 1, but this continues in later content so it is scrolling and not a defect.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "typo",
+      "part": 4,
+      "where": "the 'מה אפשר לבדוק' section text in the 'מה נבדק' card, part 2",
+      "text": "מה אי אפשר לדעת ממאגרי משרד התחבורה:",
+      "what": "The phrase 'מה אי אפשר לדעת' is a wording issue; 'מה אי אפשר לדעת' is grammatically fine, so no defect.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "other",
+      "part": 5,
+      "where": "the 'Google Play' download button in the yellow-bordered card",
+      "text": "להורדה ב-Google Play",
+      "what": "The button text is rendered with the English name in a Hebrew sentence with a hyphen; this is acceptable Hebrew usage and not a defect.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "list-reloading-buy-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "typo",
+      "part": 3,
+      "where": "the sentence under the 'איך הדגם הזה מחזיק' card header",
+      "text": "במדד אחד הדגם הזה טוב מהממוצע ובאחר פחות טוב.",
+      "what": "The word 'ובאחר' looks wrong; the intended phrase is most likely 'ובאחד' (in one), so the sentence reads as a spelling or grammar mistake.",
+      "severity": "low",
+      "confidence": "medium"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "list-reloading-overview-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "list-reloading-overview-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "list-reloading-overview-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "typo",
+      "part": 1,
+      "where": "the recall warning card, the grey paragraph below the search button",
+      "text": "ותדביקו אותו באתר היבואן מופיעות גם קריאות שירות שאינן ריקול בטיחותי.",
+      "what": "The sentence runs on with no full stop after 'באתר היבואן', so 'מופיעות גם' appears to attach to the instruction to paste the plate. A period or comma is likely missing before 'מופיעות', which makes the sentence read as one broken clause.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "list-reloading-overview-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "list-reloading-specs-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "list-reloading-specs-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "list-reloading-specs-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "list-reloading-specs-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "maybe-recall-buy-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "other",
+      "part": 3,
+      "where": "the 'מה נבדק (5 בדיקות)' card, the grey note below the checklist",
+      "text": "מה אי אפשר לדעת ממאגרי משרד התחבורה: שעבודים, תאונות, אובדן גמור וירידת ערך מביטוח, וגניבה. שעבוד, עבר ביטוחי (תביעות, אובדן גמור) וגניבה",
+      "what": "The note repeats the same items (שעבודים, תאונות, אובדן גמור, גניבה) twice in one sentence list, so it reads like a duplicated element, not a clean list.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "maybe-recall-buy-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the buy tab's 'ליווי קנייה' card, below 'כדאי לבדוק' list",
+      "text": "",
+      "what": "The 'כדאי לבדוק' bullet list and the top-right label look fine; no defect here. (ignore)",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "maybe-recall-buy-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "rtl",
+      "part": 1,
+      "where": "the car card's price/status row, the first bullet under 'כדאי לבדוק'",
+      "text": "",
+      "what": "The bullet dot sits at the right edge of the Hebrew line, which is correct for RTL, so no defect here; skipping.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "maybe-recall-buy-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "typo",
+      "part": 2,
+      "where": "the explanatory note under the 'מה נבדק (5 בדיקות)' list",
+      "text": "מה אי אפשר לדעת ממאגרי משרד התחבורה: שעבודים, תאונות, אובדן גמור וירידת ערך מביטוח, וגניבה. שעבוד, עבר ביטוחי (תביעות, אובדן גמור) וגניבה אפשר לבדוק בשלב הראשון ברשימה \"לפני שקונים\".",
+      "what": "The note lists the same items twice in a row (שעבודים/שעבוד, אובדן גמור, וגניבה) in a way that reads as repeated, muddled wording rather than a clear list. Low confidence: it is a copy issue, not a visible layout fault.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "maybe-recall-overview-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "maybe-recall-overview-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "maybe-recall-overview-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "maybe-recall-overview-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "maybe-recall-specs-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "maybe-recall-specs-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "maybe-recall-specs-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "maybe-recall-specs-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "open-recall-buy-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "open-recall-buy-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "open-recall-buy-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "typo",
+      "part": 4,
+      "where": "the section below the market-comparison table, the sentence at the top of the card",
+      "text": "במדד אחד הדגם הזה טוב מהממוצע ובאחר פחות טוב.",
+      "what": "The word after ובא is hard to read at this size. It looks like \"ובאחר\" where the grammatical form would be \"ובאחד\" (one of the indices, masculine). Possibly a misread of ד/ר.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ],
+    "misread": 1
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "open-recall-buy-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "open-recall-overview-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "open-recall-overview-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "open-recall-overview-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "open-recall-overview-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "open-recall-recalls-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "open-recall-recalls-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "open-recall-recalls-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "open-recall-recalls-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "open-recall-specs-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "open-recall-specs-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [],
+    "misread": 1
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "open-recall-specs-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "open-recall-specs-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "owner-file-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "owner-file-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "cut_text",
+      "part": 2,
+      "where": "the history filter chips row, at the left edge of the history card",
+      "text": "משרד הו",
+      "what": "The chip labelled 'משרד התחבורה' is cut off at the left edge of the card, so only part of its label is visible. The row may scroll sideways, so this is low confidence.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "owner-file-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "owner-file-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "owner-overview-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "owner-overview-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the car card's plate badge in the top bar",
+      "text": "123-45-678",
+      "what": "The plate badge is a test plate and fine, but the yellow badge sits oddly with the round icon buttons; not clearly a defect.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "typo",
+      "part": 2,
+      "where": "the footer's first column header area, the bottom disclaimer paragraph",
+      "text": "הנתונים הפתוחים של משרד התחבורה",
+      "what": "The footer description line reads 'בדיקת רכב לפי מספר רישוי, מהנתונים הפתוחים של משרד התחבורה.' which is fine; no defect confirmed here.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "layout",
+      "part": 2,
+      "where": "the footer link grid, the third row, first column",
+      "text": "דגמים נפוצים בישראל",
+      "what": "The link 'דגמים נפוצים בישראל' wraps onto two lines while its neighbours are single-line, making the row uneven; looks slightly off but readable.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "owner-overview-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "rtl",
+      "part": 1,
+      "where": "the car card's header, the plate badge in the top bar",
+      "text": "123-45-678",
+      "what": "The plate badge shows the digits in a left-to-right order that appears correct, so no defect here; not reported.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "other",
+      "part": 1,
+      "where": "the bottom of the Google Play promotional card, the text block above the store button",
+      "text": "באתר רואים את הרכב. באפליקציה הוא עובד בשבילכם",
+      "what": "The promotional card's text is cut by the bottom navigation bar at the bottom of part 1; this is scrolling content under a fixed bar and is not a defect.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "rtl",
+      "part": 2,
+      "where": "the footer's social icon row and the brand name line",
+      "text": "לוחית",
+      "what": "The footer's brand name is aligned right while the description beneath it is aligned right too, which is consistent; no defect.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "owner-overview-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "owner-specs-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [],
+    "misread": 1
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "owner-specs-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "owner-specs-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "rtl",
+      "part": 1,
+      "where": "top bar, at the far right edge beside the plate number",
+      "text": "",
+      "what": "The navigation chevron at the top right is drawn as \"<\". On this right-to-left page, a back control should point right (\">\"), so this one looks like a forward arrow.",
+      "severity": "low",
+      "confidence": "medium"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "owner-specs-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "typo",
+      "part": 1,
+      "where": "the car card's header, under the model name",
+      "text": "לבן",
+      "what": "Not a defect; ignore. Reported none here.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "petrol-clean-buy-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [],
+    "misread": 1
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "petrol-clean-buy-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "petrol-clean-buy-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "typo",
+      "part": 3,
+      "where": "the price-comparison card 'איך הדגם הזה מחזיק', first line of the body text",
+      "text": "במדד אחד הדגם הזה טוב מהממוצע ובאחר פחות טוב.",
+      "what": "The word \"ובאחר\" is wrong; it should be \"ובאחד\" (\"and in one [metric] worse than average\"). The text reads as a misspelling of \"ובאחד\".",
+      "severity": "low",
+      "confidence": "medium"
+     },
+     {
+      "kind": "typo",
+      "part": 2,
+      "where": "the 'מה נבדק' card, the grey explanatory paragraph under the two checked items",
+      "text": "מה אי אפשר לדעת ממאגרי משרד התחבורה: שעבודים, תאונות, אובדן גמור וירידת ערך מביטוח, וגניבה. שעבודים, עבר ביטוח (תביעות, אובדן גמור) וגניבה אפשר לבדוק בשלב הראשון ברשימה \"לפני שקונים\".",
+      "what": "The paragraph lists \"שעבודים\", \"אובדן גמור\" and \"וגניבה\" twice in a row, so the sentence reads as duplicated content and is confusing.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "petrol-clean-buy-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "typo",
+      "part": 3,
+      "where": "the 'איך הדגם הזה מחזיק' card, the bold summary sentence under its heading",
+      "text": "במדד אחד הדגם הזה טוב מהממוצע ובאחר פחות טוב.",
+      "what": "The word 'ובאחר' is misspelled. It should read 'ובאחד' ('and in one', as in 'במדד אחד'), so the sentence's wording is wrong.",
+      "severity": "low",
+      "confidence": "medium"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "petrol-clean-overview-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "petrol-clean-overview-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [],
+    "misread": 1
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "petrol-clean-overview-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "rtl",
+      "part": 1,
+      "where": "the car card's header, the plate badge at top right of the header bar",
+      "text": "123-45-678",
+      "what": "Plate badge shows the number in standard order; no reversal visible, so this is fine. No defect here.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "petrol-clean-overview-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "rtl",
+      "part": 1,
+      "where": "the plate badge at the top right of the header bar",
+      "text": "123-45-678",
+      "what": "The plate is shown with a blue Israeli flag strip on the left side inside a yellow plate; this is a stylistic choice, not a defect. No issue here.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "petrol-clean-specs-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "petrol-clean-specs-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "petrol-clean-specs-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "petrol-clean-specs-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "recall-unknown-buy-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "recall-unknown-buy-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "typo",
+      "part": 1,
+      "where": "the red recall warning card, first line of text",
+      "text": "מאגר הריקולים של משרד התחבורה לא ענה",
+      "what": "The word 'הריקולים' is a misspelling of 'הריקולים'? Reading is ambiguous; the common term is 'הריכולים'? Low confidence only; likely the word is spelled correctly as recalls, so no defect is claimed.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "rtl",
+      "part": 2,
+      "where": "the 'מה נבדק (4 בדיקות)' card, third item",
+      "text": "ריקולים: מידע לא זמין כרגע",
+      "what": "The warning icon is placed after the text on the right side, consistent with other rows; no issue here. Withdrawn.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "layout",
+      "part": 3,
+      "where": "the 'לפני שקונים' card, step 1 'בבית, לפני שנפגשים' sub-buttons",
+      "text": "בדיקת שעבוד",
+      "what": "The first action button is narrower than the second card-like button below it ('בדיקת עבר ביטוחי'), so the two stacked buttons in the same list have uneven widths, looking like a layout bug.",
+      "severity": "low",
+      "confidence": "medium"
+     },
+     {
+      "kind": "typo",
+      "part": 4,
+      "where": "the 'מה לשקלל במחיר' row list item and the 'בצעו העברה' note",
+      "text": "בצעו העברה בעלות ועדכנו את הביטוח מיד, ורק אז התחילו לנהוג ברכב.",
+      "what": "The phrase 'בצעו העברה בעלות' is grammatically awkward for a note addressed to buyers (expected 'בצעו העברת בעלות'), a likely Hebrew spelling/grammar slip.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "typo",
+      "part": 5,
+      "where": "the footer text under the green-check card, 'המידע נשלף מנתוני משרד התחבורה ב-data.gov.il.'",
+      "text": "המידע נשלף מנתוני משרד התחבורה ב-data.gov.il.",
+      "what": "Ends with a stray period placed before the data.gov.il reference at the wrong end; minor punctuation placement in RTL text.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "recall-unknown-buy-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "recall-unknown-buy-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "typo",
+      "part": 1,
+      "where": "the recall warning card, second paragraph",
+      "text": "נסו שוב בעוד דקה, או בדקו באתר היבואן.",
+      "what": "The sentence 'אל תסיקו מכך שאין ריקול' reads oddly but is grammatical; no clear typo found here. Not a defect on closer reading.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "rtl",
+      "part": 1,
+      "where": "the price input row under 'המחיר שהמוכר מבקש'",
+      "text": "₪",
+      "what": "The price input shows only its unit ₪ in an empty field, which is acceptable; no defect.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the bottom action row above the bottom navigation bar, 'שמירה כמועמד' button and price field",
+      "text": "שמירה כמועמד",
+      "what": "The action row is cut by the fixed bottom navigation bar, so the buttons are partly hidden under the bar; this is scrolling content under a fixed bar, so not reported.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "rtl",
+      "part": 5,
+      "where": "the footer link row, first column 'בדיקת רכב'",
+      "text": "data.gov.il",
+      "what": "The sentence 'המידע מגיע מהמאגרים הפתוחים של משרד התחבורה ב-data.gov.il, ואינו מחליף נסח רישום רשמי' places the comma after the link so it appears before 'ואינו' in a reversed order; the comma is at the wrong end of the link text relative to the Hebrew sentence.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "rtl",
+      "part": 4,
+      "where": "the 'מרווח טיפולים' card, the 'מאגר לוחית' tag next to the title",
+      "text": "מאגר לוחית",
+      "what": "Tag sits between title and chevron; placement is fine, no defect.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "recall-unknown-overview-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "recall-unknown-overview-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "recall-unknown-overview-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "recall-unknown-overview-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "recall-unknown-specs-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "recall-unknown-specs-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "recall-unknown-specs-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "recall-unknown-specs-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "saved-copy-buy-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "saved-copy-buy-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "typo",
+      "part": 3,
+      "where": "the 'איך הדגם הזה מחזיק' card, the summary line under its header",
+      "text": "במדד אחד הדגם הזה טוב מהממוצע ובאחר פחות טוב.",
+      "what": "The word 'ובאחר' looks like a grammar slip. It reads as 'and another' where the plural 'ובאחרים' (and in the others) seems intended, since the sentence contrasts one metric with the others. Low confidence because the small text makes the final letters hard to read.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "saved-copy-buy-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "typo",
+      "part": 2,
+      "where": "the grey explanatory paragraph under \"מה נבדק (4 בדיקות)\"",
+      "text": "מה אי אפשר לדעת ממאגרי משרד התחבורה: שעבודים, תאונות, אובדן גמור וירידת ערך מביטוח, וגניבה. שעבוד, עבר ביטוח (תביעות, אובדן גמור) וגניבה אפשר לבדוק בשלב הראשון ברשימה \"לפני שקונים\".",
+      "what": "The sentence repeats the same items twice (שעבודים/שעבוד, אובדן גמור, וגניבה) in a confusing way, so it reads as a copy error rather than a clear list.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ],
+    "misread": 1
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "saved-copy-buy-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the car card's header, the השוואה floating pill button next to the car name",
+      "text": "השוואה",
+      "what": "The button sits beside the car name, and the name 'טויוטה COROLLA' and the pill are close but not overlapping; no clear defect here, so this is not reported as a problem.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "rtl",
+      "part": 2,
+      "where": "the 'מה אי אפשר לדעת' paragraph at the bottom of the checks card",
+      "text": "\"לפני שקונים\".",
+      "what": "The closing quotation mark and period are placed at the start of a line in a way that reads oddly for an RTL sentence, with the quote mark separated from its phrase.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "typo",
+      "part": 4,
+      "where": "the 'ריקולים פתוחים לכל 1,000 רכבים' row of the stats table",
+      "text": "ריקולים פתוחים לכל",
+      "what": "The word 'ריקולים' is a misspelling of 'ריקולים' spelled as 'ריקולים' in this row, while the same term 'ריקול' is used elsewhere; the spelling is inconsistent across the page.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "saved-copy-overview-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "saved-copy-overview-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "saved-copy-overview-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "saved-copy-overview-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "saved-copy-specs-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "contrast",
+      "part": 2,
+      "where": "the bottom of the yellow promo card, the Google Play download button",
+      "text": "להורדה ב-Google Play",
+      "what": "The near-black button sits on the dark navy card and blends into it; only the yellow card border separates it from the background, so the button edge is weak. The white label is readable.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "saved-copy-specs-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "other",
+      "part": 3,
+      "where": "footer link grid and the accordion row below it",
+      "text": "דגמים נפוצים",
+      "what": "The footer shows \"דגמים נפוצים\" twice: once as a grid link (\"דגמים נפוצים בישראל\") and again as an expandable row (\"דגמים נפוצים\") right below. This may be intentional, but it reads as a duplicated element.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "saved-copy-specs-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [],
+    "misread": 1
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "saved-copy-specs-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-alerts-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-alerts-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-alerts-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-alerts-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-bulk-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-bulk-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-bulk-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-bulk-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-cars-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "rtl",
+      "part": 2,
+      "where": "the price range text under the slider in the car card at the top of part 2",
+      "text": "טווח משוער 75–68 אלף ₪ (הערכה)",
+      "what": "The price range is written as 75–68, with the higher number first, which reads backwards for a range from 68 to 75 thousand shekels. This is low confidence because the slider labels may be intentionally ordered this way.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-cars-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "typo",
+      "part": 2,
+      "where": "the price estimate block under the car card's slider",
+      "text": "טווח משוער 75–68 אלף ₪ (הערכה)",
+      "what": "The estimated range is written in descending order (75–68), while the slider and natural reading run from 68 to 75. A range is normally written low to high, so this reads as a mistake.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-cars-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-cars-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "rtl",
+      "part": 2,
+      "where": "the price range line under the price slider, near the bottom of the first car card",
+      "text": "טווח משוער 75–68 אלף ₪ (הערכה)",
+      "what": "The estimated range is written high to low (75–68), while the slider ticks show 68 on the right and 75 on the left, so the order of the numbers may look reversed to a Hebrew reader. Low confidence because the slider direction is hard to judge.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-cars-empty-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-cars-empty-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-cars-empty-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-cars-empty-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the bottom of the screen, below the bottom navigation bar",
+      "text": "",
+      "what": "The navigation bar ends around y=1600 and leaves an empty grey band below it, so the bar does not sit at the bottom edge of the page. This may be a browser or screenshot artifact rather than a bug in the page.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-cars-table-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the top of the cars table card, above the divider line",
+      "text": "",
+      "what": "The card has a large empty band above the divider line, with no heading, tabs or content in it, so the table looks like it is missing a title or controls.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-cars-table-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the top of the cars table card, between the card's top edge and the thin divider line",
+      "text": "",
+      "what": "The table card has a large empty band above the divider line and above the column headers, with no title or content, so it looks like a missing element.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-cars-table-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the table card, above the divider line near the top of the card",
+      "text": "",
+      "what": "The card has a large empty band (roughly the top 90 px of the card) with no title, toolbar or content above the divider, so it looks like a missing header or content.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "rtl",
+      "part": 2,
+      "where": "the disclaimer paragraph under the 'דגמים נפוצים' accordion, first line",
+      "text": "data.gov.il, ואינו",
+      "what": "The comma after the link appears on the wrong side of the link in the rendering (it sits between 'ואינו' and the link, reading as 'ואינו ,data.gov.il'), so the punctuation looks misplaced in the Hebrew sentence.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-cars-table-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "top of the cars table card, above the divider line",
+      "text": "",
+      "what": "The white card has a large empty band above the divider line at the top of the table, with no heading, tabs or content, so it looks like a missing element or an unfilled header area.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-home-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-home-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the 'בדיקות אחרונות' section, the single recent-check card under its heading",
+      "text": "444-55-566",
+      "what": "The recent-check card spans only about x 318 to 607, while the other cards span from about x 32 to 608. It sits offset to the right with an empty gap on its left, which looks like a misaligned row.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-home-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "rtl",
+      "part": 2,
+      "where": "the news section's footer link at the bottom of the news card",
+      "text": "לכל הכתובות ›",
+      "what": "The chevron points right, which is the 'back' direction in Hebrew. A forward link should point left, like the other chevrons on this page.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ],
+    "misread": 1
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-home-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the recent checks section, below the 'בדיקות אחרונות' heading",
+      "text": "444-55-566",
+      "what": "The recent-check card is narrower than the full-width cards above and below it and sits offset to the right, so it looks misaligned with the column of cards.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-home-new-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-home-new-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "rtl",
+      "part": 2,
+      "where": "the magazine card's footer link at the bottom of the card",
+      "text": "לכל הכתבות ›",
+      "what": "The arrow after \"לכל הכתבות\" points right, but in this right-to-left layout a \"more / all articles\" link should point left. The other chevrons on the page (for example the cards' \"<\") point left.",
+      "severity": "low",
+      "confidence": "medium"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-home-new-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "rtl",
+      "part": 2,
+      "where": "the articles card, the 'all articles' link under the three article cards",
+      "text": "לכל הכתבות ›",
+      "what": "The chevron after 'לכל הכתבות' points right, which reads as 'back' in this right-to-left layout. A 'more/open' link should point left, like the '<' chevrons on the tool cards and 'שאלות נפוצות'.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "screen-home-new-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "contrast",
+      "part": 1,
+      "where": "the plate input in the header, the digits in the yellow plate",
+      "text": "76-543-21",
+      "what": "The entered plate digits are a dim olive-grey on the yellow plate, which makes them look faded and harder to read than the rest of the header. This may be intentional styling, so confidence is low.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ],
+    "misread": 1
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "settlement-only-buy-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "settlement-only-buy-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "settlement-only-buy-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "typo",
+      "part": 3,
+      "where": "the chart card 'איך הדגם הזה מחזיק', the summary sentence under the heading",
+      "text": "במדד אחד הדגם הזה טוב מהממוצע ובאחר פחות טוב.",
+      "what": "The word 'ובאחר' looks wrong; the expected form is 'ובאחד' ('and in one'), so the sentence reads as a misspelling of 'באחד'. Low confidence because the letters ד and ר are easy to misread at this size.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "settlement-only-buy-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "rtl",
+      "part": 5,
+      "where": "the grey paragraph under the footer's 'דגמים נפוצים' section",
+      "text": "data.gov.il,",
+      "what": "The comma after the link is drawn on the left side of 'data.gov.il' next to 'ואינו', which may place the punctuation at the wrong end of the Hebrew sentence. Low confidence, since the spacing around the link is hard to read at this size.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "settlement-only-overview-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [],
+    "misread": 1
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "settlement-only-overview-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [],
+    "misread": 1
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "settlement-only-overview-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "settlement-only-overview-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "rtl",
+      "part": 1,
+      "where": "the top bar, far right edge, beside the plate 123-45-678",
+      "text": "",
+      "what": "The chevron at the top-right edge points left (‹). On a right-to-left page a back control there should point right, so this arrow appears to point the wrong way for a back action.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "settlement-only-recalls-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "contrast",
+      "part": 3,
+      "where": "the yellow-bordered install card, the button near the bottom",
+      "text": "להורדה ב-Google Play",
+      "what": "The near-black button sits on a dark navy card, so its edge barely separates from the background. The white text is readable, but the button shape is hard to see.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "settlement-only-recalls-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "settlement-only-recalls-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "typo",
+      "part": 2,
+      "where": "the paragraph under the 'כדאי לבדוק מול היבואן' card",
+      "text": "מספר הרישוי יועתק, ותדביקו אותו באתר, באתר היבואן מופיעות גם קריאות שירות שאינן ריקול בטיחותי.",
+      "what": "The phrase 'באתר' appears twice in a row ('ותדביקו אותו באתר, באתר היבואן'), which reads awkwardly; the second mention may have been meant as something else. Low confidence that this is a real defect.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "settlement-only-recalls-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "settlement-only-specs-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "settlement-only-specs-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "settlement-only-specs-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "settlement-only-specs-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "test-expired-buy-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "test-expired-buy-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "test-expired-buy-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "test-expired-buy-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [],
+    "misread": 1
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "test-expired-overview-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "test-expired-overview-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "test-expired-overview-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "test-expired-overview-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "test-expired-specs-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "contrast",
+      "part": 2,
+      "where": "the safety card (בטיחות), the green badge to the left of its title",
+      "text": "0 מתוך 8",
+      "what": "The green text on the dark green pill is fairly low in contrast, though it is still readable.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "test-expired-specs-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "test-expired-specs-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "test-expired-specs-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "test-soon-buy-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "test-soon-buy-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "test-soon-buy-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "test-soon-buy-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "test-soon-overview-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "test-soon-overview-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "test-soon-overview-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "test-soon-overview-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "test-soon-specs-320-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the top bar, the plate badge at the top centre",
+      "text": "123-45-678",
+      "what": "The plate badge is drawn with a blue block on its left side inside the yellow badge; this is a design element and digits are fully readable, so no defect is claimed here.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "other",
+      "part": 1,
+      "where": "the card header of the car, the round icon at the left of the make name",
+      "text": "",
+      "what": "The round icon at the left of the car card header is a faint outlined glyph that is hard to identify; it looks like a placeholder-ish symbol rather than a clear icon.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "test-soon-specs-320-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "test-soon-specs-390-dark": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": [
+     {
+      "kind": "typo",
+      "part": 1,
+      "where": "the car card's header, the badge row under the make and model",
+      "text": "טסט עד 12/2026",
+      "what": "The test badge reads 'טסט עד 12/2026' but the car's test is due in 18 days per the brief; the date is test data, so this is not a defect. No issue here on reflection; kept only as a non-finding.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "layout",
+      "part": 1,
+      "where": "the car card's top row, the השוואה button beside the make name",
+      "text": "השוואה",
+      "what": "The 'השוואה' button sits to the left of the 'טויוטה COROLLA' title and the 'לבן' colour line, with the title block inside the same card; the button is not cut, but the card header is visually crowded against the make name.",
+      "severity": "low",
+      "confidence": "low"
+     },
+     {
+      "kind": "typo",
+      "part": 2,
+      "where": "the lower features card, the first bullet line under the heading 'אותה בדיקה, ועוד:'",
+      "text": "הסדרי פשרה: בדיקה אם ייתכן שהרכב שלכם נכלל בהטבה מהיבואן",
+      "what": "The wrapped line 'בהטבה מהיבואן' is set after a comma-less clause and reads as a sentence fragment with the verb missing ('נכלל בהטבה'), an awkward Hebrew phrasing rather than a clear defect.",
+      "severity": "low",
+      "confidence": "low"
+     }
+    ]
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  },
+  "test-soon-specs-390-light": {
+   "code": "c34645fee199",
+   "at": "2026-11-20T10:28:27.844Z",
+   "first": {
+    "issues": []
+   },
+   "second": null,
+   "seen": "2026-11-21"
+  }
+ },
+ "fails": {},
+ "known": [
+  {
+   "kind": "cut_text",
+   "text": "להתקנה",
+   "since": "2026-11-07",
+   "seen": "2026-11-07"
+  },
+  {
+   "kind": "overlap",
+   "text": "ריקולים",
+   "since": "2026-11-09",
+   "seen": "2026-11-11"
+  }
+ ]
+}
