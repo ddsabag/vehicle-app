@@ -141,7 +141,7 @@ main{max-width:680px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;d
 .blue{--tc:var(--t-blue);--tb:var(--t-blue-bg)} .violet{--tc:var(--t-violet);--tb:var(--t-violet-bg)} .teal{--tc:var(--t-teal);--tb:var(--t-teal-bg)}
 .amber{--tc:var(--t-amber);--tb:var(--t-amber-bg)} .red{--tc:var(--t-red);--tb:var(--t-red-bg)} .slate{--tc:var(--t-slate);--tb:var(--t-slate-bg)}
 .green{--tc:var(--t-green);--tb:var(--t-green-bg)} .leaf{--tc:var(--t-leaf);--tb:var(--t-leaf-bg)} .pink{--tc:var(--t-pink);--tb:var(--t-pink-bg)}
-.msg{background:var(--card);border-radius:16px;padding:16px;box-shadow:var(--shadow)}
+.msg{background:var(--card);border-radius:16px;padding:16px;box-shadow:var(--shadow)}.demo-note{background:var(--warn-bg);color:var(--warn);font-weight:700;text-align:center;padding:10px 14px;margin:10px 0}
 .msg.err{background:var(--bad-bg);color:var(--bad)}
 .note{font-size:.85rem;color:var(--muted);margin:0}
 .note a{display:inline-block;padding:14px 4px;margin:-14px 0}
@@ -1525,7 +1525,27 @@ const DRIVE_WORDS_RX = /(?<![A-Za-z0-9-])(?:PHEV|HEV|HYBRID|HSD|PLUG-IN)(?![A-Za
 const PROXY = "";
 let STALE_AT = 0;   // set when the proxy answered from its stored copy because the ministry was unreachable
 const DS_CACHE = new Map();   // identical queries (also while still in flight) are answered once: fewer requests, instant repeat lookups
+/* The home "נסו לדוגמה" car (rule 10, 21.11): 76-543-21 is in no register, so it is a built-in sample with fixed data. Any query for its plate
+   or its made-up model code (degem_cd 9901) is answered here and never reaches the ministry or our Worker; the page says it is a sample, it
+   cannot be saved or made "my car", it counts as demo_open instead of car_lookup, and its share picture and PDF say so too. */
+const DEMO_PLATE = "7654321", DEMO_NOTE = "רכב לדוגמה, הנתונים להמחשה";
+const isDemo = D => !!D && String(D.plate) === DEMO_PLATE;
+function demoRows(url){
+  let u; try { u = decodeURIComponent(url); } catch { return null; }
+  if (!u.includes(DEMO_PLATE) && !/"degem_cd":"?9901\b/.test(u) && !/"RECALL_ID":"?990001\b/.test(u)) return null;
+  const id = (u.match(/resource_id=([0-9a-f-]{36})/) || [])[1] || "";
+  const ago = d => { const x = new Date(); x.setDate(x.getDate() + d); return x.toISOString().slice(0, 10) + "T00:00:00"; };
+  const ym = d => { const x = new Date(); x.setMonth(x.getMonth() + d); return x.getFullYear() * 100 + x.getMonth() + 1; };
+  const model = {tozeret_cd: 481, degem_cd: 9901, tozeret_nm: "קיה סלובקיה", kinuy_mishari: "SPORTAGE", degem_nm: "QL", ramat_gimur: "LX", shnat_yitzur: 2017, merkav: "פנאי-שטח", mehir: 139900, automatic_ind: 1, delek_nm: "בנזין", nefah_manoa: 1591, technologiat_hanaa_nm: "רגיל"};
+  if (id.startsWith("053cea08")) return [{_id: 1, mispar_rechev: 7654321, tozeret_cd: 481, degem_cd: 9901, tozeret_nm: "קיה סלובקיה", kinuy_mishari: "SPORTAGE", degem_nm: "QL", ramat_gimur: "LX", shnat_yitzur: 2017, tzeva_rechev: "לבן", sug_delek_nm: "בנזין", nefach_manoa: 1591, tokef_dt: ago(210), moed_aliya_lakvish: "2017-05", baalut: "פרטי", mivchan_acharon_dt: ago(-150), kilometer_test_aharon: 98400, sug_degem: "P", ramat_eivzur_betihuty: 4, kvutzat_zihum: 11, mishkal_kolel: 2060, zmig_kidmi: "225/60R17", zmig_ahori: "225/60R17", degem_manoa: "G4FJ"}];
+  if (id.startsWith("56063a99")) return [{mispar_rechev: 7654321, kilometer_test_aharon: 98400, mkoriut_nm: "מקורי", rishum_rishon_dt: "2017-05", shnat_yitzur: 2017}];
+  if (id.startsWith("bb2355dc")) return [{mispar_rechev: 7654321, baalut_dt: 201705, baalut: "השכרה"}, {mispar_rechev: 7654321, baalut_dt: 201812, baalut: "פרטי"}, {mispar_rechev: 7654321, baalut_dt: ym(-26), baalut: "פרטי"}];
+  if (id.startsWith("36bf1404")) return [{MISPAR_RECHEV: 7654321, RECALL_ID: 990001, SUG_RECALL: "ריקול יצרן", SUG_TAKALA: "מערכת בלמים", TEUR_TAKALA: "דליפת נוזל בלמים ממשאבת ה-ABS, שעלולה להאריך את מרחק הבלימה (לדוגמה)", TAARICH_PTICHA: "2025-11-03"}];
+  if (id.startsWith("142afde2") || id.startsWith("39f455bf")) return [model];
+  return [];
+}
 function dsFetch(url){
+  { const demo = demoRows(url); if (demo) return Promise.resolve(demo); }
   const hit = DS_CACHE.get(url); if (hit && Date.now() - hit.t < 60000) return hit.p;
   const pr = (async () => {
     // a stalled mobile connection must not hang the lookup forever: give up after 15 s (the caller retries)
@@ -1926,6 +1946,7 @@ const alertSet = () => store.get("savedVehicles").filter(x => x.alerts !== false
 const trackedOk = p => alertSet().includes(p);
 const isSaved = p => store.get("savedVehicles").some(x => x.plate === p);
 function toggleSaved(item){
+  if (item && String(item.plate) === DEMO_PLATE) { toast("זה רכב לדוגמה. בודקים רכב אמיתי כדי לשמור אותו."); return false; }
   const list = store.get("savedVehicles");
   if (list.some(x => x.plate === item.plate)) { store.set("savedVehicles", list.filter(x => x.plate !== item.plate)); updateSavedBar(); return false; }
   if (list.length >= savedCap()) { toast(`הרשימה מלאה (${savedCap()} רכבים). הסירו רכב כדי להוסיף.`); return false; }
@@ -3202,12 +3223,12 @@ async function lookup(raw){
   current = D; currentTab = ot && ot.p === D.plate ? ot.t : "overview";
   const role = roleOf(D);   // who checked it, before "+" below (or the home file line) saves the car
   const mineWas = addIntent ? mineAll()[D.plate] : undefined, added = addIntent && D.plate && D.kind !== "model" ? addFromPlus(D) : null;
-  snapPut(D); savedSync(D);
+  if (!isDemo(D)) { snapPut(D); savedSync(D); }
   renderResult(); focusResult();
   if (added) snack(added === "new" ? "נוסף לרכבים שלי" : "הרכב כבר ברכבים שלי", added === "new" ? "ביטול" : "לרשימה", added === "new" ? () => undoAdd(D, mineWas) : () => navTo("cars", {via: "add"}), 6000);
   // exactly 8 params: the app bridge keeps the first 8 (MainActivity.logEvent) and the web Worker 10 with src+camp; a 9th silently drops the last
-  track(again ? "lookup_repeat" : "car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: (D.errs && D.errs.length) || D.modelErr ? 1 : 0, role, ...lookupFacts(D)});
-  remember(plate, D.kind === "model" ? "" : D.title);
+  if (isDemo(D)) track("demo_open"); else track(again ? "lookup_repeat" : "car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: (D.errs && D.errs.length) || D.modelErr ? 1 : 0, role, ...lookupFacts(D)});
+  if (!isDemo(D)) remember(plate, D.kind === "model" ? "" : D.title);
   window.scrollTo({top: 0});
   // "יש לכם כבר רכב? פתחו לו תיק" on home: the car checked next opens straight in its file (one step, like "+"), not on a page with one more button
   if (fileIntent && D.plate && D.kind !== "model") { fileIntent = false; if (fileOk(D)) openFile(D, "home"); else if (isMine(D)) { currentTab = "file"; renderResult(); } }
@@ -3338,6 +3359,7 @@ function renderResult(){
   if (!empty(v.shnat_yitzur)) facts[3] = `<span class="pill">${esc(v.shnat_yitzur)}</span>`;
   if (D.tag) pills.push(`<span class="pill" data-priv>תג נכה</span>`);
   html.push(carHead(D));
+  if (isDemo(D)) html.push(`<p class="msg demo-note" role="note">${DEMO_NOTE}</p>`);
   html.push(`<div class="side">`);
   if (sharedHere(D)) { const kl = keyLine(D); html.push(`<div class="shared-top"><span aria-hidden="true">📩</span><span><b>קיבלתם בדיקה של <bdi>${esc(D.title)}</bdi> מלוחית</b><span class="kl ${kl.k}">${esc(kl.t)}</span><small>נבדק עכשיו מול משרד התחבורה, מעודכן יותר מכל קובץ</small></span></div>`); }
   else { const rn = recvNext(D); if (rn) html.push(rn); }
@@ -3929,12 +3951,13 @@ function isMine(D){
   return m === 1 || (m !== 0 && hasFile(D.plate));
 }
 function setMine(D, on, from){
+  if (isDemo(D)) { toast("זה רכב לדוגמה. בודקים רכב אמיתי כדי לפתוח לו תיק."); return; }
   const m = mineAll(); m[D.plate] = on ? 1 : 0;
   try { localStorage.setItem("mine", JSON.stringify(m)); } catch {} keep("mine", m);
   track(on ? "mine_set" : "mine_unset", on ? {saved: isSaved(D.plate) ? 1 : 0, from: from || "overview", ...(!from || from === "overview" ? doorTag() : {})} : {saved: isSaved(D.plate) ? 1 : 0});
 }
 /* a file can be opened for this car: never on a shared report, a model or a car off the road, nor when it is already the owner's */
-const fileOk = D => !!D && D.kind !== "model" && !!D.plate && !D.isCancelled && !reportBuild && !sharedHere(D) && !isMine(D);
+const fileOk = D => !!D && !isDemo(D) && D.kind !== "model" && !!D.plate && !D.isCancelled && !reportBuild && !sharedHere(D) && !isMine(D);
 /* the home line "יש לכם כבר רכב?" leads to the plate field; the next car checked from there opens in its file, counted as from home */
 let fileIntent = false;
 /* "+" in "הרכבים שלי": the next car checked is added to the list (the snack bar can undo it), and its back arrow returns to the list */
@@ -5824,6 +5847,7 @@ $("#out").addEventListener("click", ev => {
   // from a car page the car on screen is the first one compared, so the picker adds the second (until 1.38 it started empty, and the car looked up was missing)
   if (act === "compare") { track("compare_open", {from: b.dataset.from || "menu"}); cmp = current && current.kind !== "fail" ? [current] : []; renderCompare(); openCompare("model"); }
   if (act === "save") {
+    if (isDemo(current)) { toast("זה רכב לדוגמה. בודקים רכב אמיתי כדי לשמור אותו."); return; }
     const on = toggleSaved(newSavedItem(current));
     if (on) { startTrial(); cohSaved(currentTab || "home"); }
     track(on ? "car_save" : "car_unsave", {n: String(Math.min(store.get("savedVehicles").length, 4)) + (store.get("savedVehicles").length > 3 ? "+" : ""), from: b.dataset.from || currentTab || "home"});
@@ -5919,7 +5943,7 @@ const TAB_FN = () => ({overview: tabOverview, buy: tabBuy, recalls: tabRecalls, 
 function buildReport(D, full, biz){
   const el = document.createElement("div"); el.className = "report";
   const today = D.fromCache ? "נתונים שמורים מ-" + dmy(D.fromCache) : dmy(Date.now());
-  const parts = [biz ? bizHead(biz) : brandHead(), `<div class="rep-head"><b>דוח רכב</b><span>${fmtPlate(D.plate)} · ${today}</span></div>`];
+  const parts = [biz ? bizHead(biz) : brandHead(), `<div class="rep-head"><b>דוח רכב</b><span>${fmtPlate(D.plate)} · ${today}${isDemo(D) ? " · " + DEMO_NOTE : ""}</span></div>`];
   const idc = $("#out .id-card"), banner = $("#out .alert-banner"), ck = $("#out details.ckl");
   if (idc) parts.push(idc.outerHTML);
   if (banner) parts.push(banner.outerHTML.replace(/^<button/, "<div").replace(/<\/button>$/, "</div>"));
@@ -6453,7 +6477,7 @@ async function drawShareImage(D){
   if (lines.length > 1) { fs = 64; f(fs, 800); lines = wrap(D.title, W - 2 * P).slice(0, 2); }
   let y = 112; for (const l of lines) { y += Math.round(fs * 1.1); text(l, R, y, INK); }
   const sub = [String(D.title).includes(yr) ? "" : yr, dt && dt.label, v.tzeva_rechev].filter(q => !empty(q)).join(" · ");
-  y += 70; f(36, 500); if (sub) text(fit(sub, W - 2 * P - 400), R, y, MUT);
+  y += 70; f(36, 500); { const s2 = isDemo(D) ? DEMO_NOTE : sub; if (s2) text(fit(s2, W - 2 * P - 400), R, y, isDemo(D) ? "#b3261e" : MUT); }
   if (D.plate) {
     const pw = 352, ph = 78, py = y - 55;
     rr(P, py, pw, ph, 14, "#f6c500", INK, 5); rr(P + 3, py + 3, 60, ph - 6, 11, "#1d4fa8"); f(22, 800); text("IL", P + 33, py + 49, "#fff", "center");
@@ -6524,6 +6548,7 @@ async function shareOne(from){
 function shareCaption(D){
   const yr = empty(D.v.shnat_yitzur) || String(D.title).includes(String(D.v.shnat_yitzur)) ? "" : " " + D.v.shnat_yitzur;
   const top = shareRows(D).slice(0, 3).map(r => r[1]).join(", ");
+  if (isDemo(D)) return `${DEMO_NOTE}: ${D.title} בלוחית.\nהדוח לדוגמה: ${shareLink(D.plate, "img")}`;
   return `בדקתי את ${D.title}${yr} בלוחית${top ? ": " + top : ""}.\nהדוח המלא: ${shareLink(D.plate, "img")}`;
 }
 /* the full report as a PDF, from the car's menu (it left the share button) */
@@ -7668,7 +7693,7 @@ async function bulkPdf(btn){
   finally { btn.disabled = false; btn.innerHTML = old; }
 }
 
-const EXAMPLE_PLATE = "38548003";
+const EXAMPLE_PLATE = DEMO_PLATE;   // the built-in sample car (demoRows), never a real plate
 /* the questions are written once, in the static <section id="faqSrc"> inside <main> (read by crawlers that do not run JavaScript, and by the
    FAQPage JSON-LD in the head; .github/scripts/faq-parity.mjs checks they match); read here before the first screen replaces it */
 const FAQ = [...document.querySelectorAll("#faqSrc details")].map(d => [d.querySelector("summary").innerHTML, d.querySelector("p").innerHTML]);
