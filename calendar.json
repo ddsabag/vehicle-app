@@ -1,5 +1,5 @@
 {
- "at": "2026-11-21T05:55:00Z",
+ "at": "2026-11-21T19:21:42Z",
  "open": [],
  "items": [
   {
@@ -461,27 +461,6 @@
   }
  ],
  "pubs": [
-  {
-   "d": "2026-11-19",
-   "t": "20:30",
-   "ch": [
-    "facebook",
-    "instagram"
-   ],
-   "what": "ריל מהערכה השבועית",
-   "src": "auto",
-   "st": {
-    "facebook": "done",
-    "instagram": "done"
-   },
-   "link": {
-    "facebook": "https://www.facebook.com/reel/1195858472764191/",
-    "instagram": "https://www.instagram.com/reel/Df7u0hrgnvd/"
-   },
-   "q": [
-    "2026-11-12/k6-reel"
-   ]
-  },
   {
    "d": "2026-11-22",
    "t": "08:30",
