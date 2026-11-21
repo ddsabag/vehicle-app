@@ -930,7 +930,8 @@ function compare(c, X, P) {
       const vt = (g.find(x => /^שווי (משוער )?היום/.test(x.k)) || {}).v || "";
       check(c, "value.labelled_estimate", /הערכה בלבד/.test(card.text) && /\d+–\d+/.test(vt), vt + " / " + (card.notes.slice(-1)[0] || "").slice(0, 40), "range + 'הערכה בלבד'", ""); }
     else { const want = cancelled ? "הרכב ירד מהכביש, ולכן אין לו הערכת שווי." : imp ? "מחירון היבואן הרשמי לא חל על רכב ביבוא אישי, ולכן אין כאן מחיר מחירון והערכת שווי." : "אין במאגר מחיר מחירון לדגם הזה, ולכן אין הערכת שווי.";
-      check(c, "value.fallback", sp(card.text) === want, sp(card.text).slice(0, 80), want, ""); } }
+      // since 1.39 the card also holds the asking-price field and the save button, so the sentence is read inside it
+      const vf = sp(card.text); check(c, "value.fallback", vf.includes(want) && !/\d+–\d+/.test(vf), vf.slice(Math.max(0, vf.indexOf("אין") - 10), Math.max(0, vf.indexOf("אין")) + 80) || vf.slice(0, 80), want, ""); } }
   // cars of this model and year on the road (modelstats, monthly) vs a live count of the active register
   { const ms = cardOf(P, "buy", /^איך הדגם הזה מחזיק$/), m = ms ? (ms.text.match(/\(([\d,]+) רכבים פעילים משנתון (\d{4})/) || null) : null;
     if (m && X.cohort != null) { const sh = N(m[1]); check(c, "counts.model_year_active", sh >= X.cohort * 0.85, sh, `>= ~${X.cohort} (active rows with kinuy_mishari="${R.kinuy_mishari}" and year ${y})`, "");
