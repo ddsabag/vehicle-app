@@ -1895,7 +1895,7 @@ function fillAnalytics(){
   row.hidden = !!(window.AndroidApp && !window.AndroidApp.logEvent); if (row.hidden) return;   // the web counts events too (/api/e), so the switch shows there as well
   $("#anaChk").checked = analyticsOn();
 }
-document.addEventListener("change", ev => { if (ev.target.id === "simpleChk") { try { localStorage.setItem("simpleView", ev.target.checked ? "1" : "0"); } catch {} if (current && !inCompare) renderResult(); return; } if (ev.target.id !== "anaChk") return; try { localStorage.setItem("analyticsOff", ev.target.checked ? "0" : "1"); } catch {} try { window.AndroidApp.setAnalytics(ev.target.checked); } catch {} });
+document.addEventListener("change", ev => { if (ev.target.id === "simpleChk") { try { localStorage.setItem("simpleView", ev.target.checked ? "1" : "0"); } catch {} track("simple_view", {on: ev.target.checked ? 1 : 0, from: "settings"}); if (current && !inCompare) renderResult(); return; } if (ev.target.id !== "anaChk") return; try { localStorage.setItem("analyticsOff", ev.target.checked ? "0" : "1"); } catch {} try { window.AndroidApp.setAnalytics(ev.target.checked); } catch {} });
 function fillAlertKinds(){
   const row = $("#kindsRow"); if (!row) return;
   row.hidden = !alertsSupported(); if (row.hidden) return;
@@ -5749,7 +5749,7 @@ $("#out").addEventListener("click", ev => {
   const h = ev.target.closest("[data-fold]"); if (h && !ev.target.closest("button")) { toggleFold(h); return; }
   const b = ev.target.closest("button"); if (!b) return;
   if (b.dataset.copy) { copyText(b.dataset.copy, b.dataset.label); return; }
-  if (b.dataset.act === "simple") { const want = !simpleOn(); try { localStorage.setItem("simpleView", want ? "1" : "0"); } catch {} track("simple_view", {on: simpleOn() ? 1 : 0}); renderResult(); return; }
+  if (b.dataset.act === "simple") { const want = !simpleOn(); try { localStorage.setItem("simpleView", want ? "1" : "0"); } catch {} track("simple_view", {on: simpleOn() ? 1 : 0, from: "menu"}); renderResult(); return; }
   if (b.dataset.act === "simpleMore") { simpleMore = !simpleMore; track("simple_more", {on: simpleMore ? 1 : 0}); renderResult(); return; }
   if (b.dataset.act === "openapp") { track("web_hint_click", {where: "share_bar"}); track("web_install_click", FT ? {via: FT.s} : {}); location.href = b.dataset.intent; return; }
   if (b.dataset.act === "openplay") { track("web_hint_click", {where: "share_bar_iab"}); track("web_install_click", FT ? {via: FT.s} : {}); location.href = b.dataset.url; return; }
@@ -7397,6 +7397,7 @@ function marketCsv(){
 }
 const inc2 = (o, k, n) => { o[k] = (o[k] || 0) + Number(n || 0); };
 async function openMarket(){
+  track("market_open");   // the red-team read had no count of market opens (19.11)
   setScreen("sub"); $("#out").innerHTML = toolHead("שוק הרכב") + `<section class="card"><div class="body"><p>טוען נתוני שוק…</p></div></section>`;
   try { renderMarket(await loadMarket()); window.scrollTo({top: 0}); }
   catch { $("#out").innerHTML = toolHead("שוק הרכב") + `<section class="card"><div class="body"><p>לא הצלחנו לטעון את נתוני השוק כרגע. נסו שוב מאוחר יותר.</p></div></section>`; }
