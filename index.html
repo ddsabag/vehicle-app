@@ -1526,18 +1526,19 @@ const PROXY = "";
 let STALE_AT = 0;   // set when the proxy answered from its stored copy because the ministry was unreachable
 const DS_CACHE = new Map();   // identical queries (also while still in flight) are answered once: fewer requests, instant repeat lookups
 /* The home "נסו לדוגמה" car (rule 10, 21.11): 76-543-21 is in no register, so it is a built-in sample with fixed data. Any query for its plate
-   or its made-up model code (degem_cd 9901) is answered here and never reaches the ministry or our Worker; the page says it is a sample, it
+   or its made-up model code (degem_cd 990001) is answered here and never reaches the ministry or our Worker; the page says it is a sample, it
    cannot be saved or made "my car", it counts as demo_open instead of car_lookup, and its share picture and PDF say so too. */
 const DEMO_PLATE = "7654321", DEMO_NOTE = "רכב לדוגמה, הנתונים להמחשה";
 const isDemo = D => !!D && String(D.plate) === DEMO_PLATE;
 function demoRows(url){
   let u; try { u = decodeURIComponent(url); } catch { return null; }
-  if (!u.includes(DEMO_PLATE) && !/"degem_cd":"?9901\b/.test(u) && !/"RECALL_ID":"?990001\b/.test(u)) return null;
+  // the plate as a whole number (an 8-digit plate holding these digits is a real car), and model and recall codes no register holds
+  if (!/(^|[^0-9])7654321([^0-9]|$)/.test(u) && !/"degem_cd":"?990001(?![0-9])/.test(u) && !/"RECALL_ID":"?990001(?![0-9])/.test(u)) return null;
   const id = (u.match(/resource_id=([0-9a-f-]{36})/) || [])[1] || "";
   const ago = d => { const x = new Date(); x.setDate(x.getDate() + d); return x.toISOString().slice(0, 10) + "T00:00:00"; };
   const ym = d => { const x = new Date(); x.setMonth(x.getMonth() + d); return x.getFullYear() * 100 + x.getMonth() + 1; };
-  const model = {tozeret_cd: 481, degem_cd: 9901, tozeret_nm: "קיה סלובקיה", kinuy_mishari: "SPORTAGE", degem_nm: "QL", ramat_gimur: "LX", shnat_yitzur: 2017, merkav: "פנאי-שטח", mehir: 139900, automatic_ind: 1, delek_nm: "בנזין", nefah_manoa: 1591, technologiat_hanaa_nm: "רגיל"};
-  if (id.startsWith("053cea08")) return [{_id: 1, mispar_rechev: 7654321, tozeret_cd: 481, degem_cd: 9901, tozeret_nm: "קיה סלובקיה", kinuy_mishari: "SPORTAGE", degem_nm: "QL", ramat_gimur: "LX", shnat_yitzur: 2017, tzeva_rechev: "לבן", sug_delek_nm: "בנזין", nefach_manoa: 1591, tokef_dt: ago(210), moed_aliya_lakvish: "2017-05", baalut: "פרטי", mivchan_acharon_dt: ago(-150), kilometer_test_aharon: 98400, sug_degem: "P", ramat_eivzur_betihuty: 4, kvutzat_zihum: 11, mishkal_kolel: 2060, zmig_kidmi: "225/60R17", zmig_ahori: "225/60R17", degem_manoa: "G4FJ"}];
+  const model = {tozeret_cd: 416, degem_cd: 990001, tozeret_nm: "קיה סלובקיה", kinuy_mishari: "SPORTAGE", degem_nm: "QL", ramat_gimur: "LX", shnat_yitzur: 2017, merkav: "פנאי-שטח", mehir: 139900, automatic_ind: 1, delek_nm: "בנזין", nefah_manoa: 1591, technologiat_hanaa_nm: "רגיל"};
+  if (id.startsWith("053cea08")) return [{_id: 1, mispar_rechev: 7654321, tozeret_cd: 416, degem_cd: 990001, tozeret_nm: "קיה סלובקיה", kinuy_mishari: "SPORTAGE", degem_nm: "QL", ramat_gimur: "LX", shnat_yitzur: 2017, tzeva_rechev: "לבן", sug_delek_nm: "בנזין", nefach_manoa: 1591, tokef_dt: ago(210), moed_aliya_lakvish: "2017-05", baalut: "פרטי", mivchan_acharon_dt: ago(-150), kilometer_test_aharon: 98400, sug_degem: "P", ramat_eivzur_betihuty: 4, kvutzat_zihum: 11, mishkal_kolel: 2060, zmig_kidmi: "225/60R17", zmig_ahori: "225/60R17", degem_manoa: "G4FJ"}];
   if (id.startsWith("56063a99")) return [{mispar_rechev: 7654321, kilometer_test_aharon: 98400, mkoriut_nm: "מקורי", rishum_rishon_dt: "2017-05", shnat_yitzur: 2017}];
   if (id.startsWith("bb2355dc")) return [{mispar_rechev: 7654321, baalut_dt: 201705, baalut: "השכרה"}, {mispar_rechev: 7654321, baalut_dt: 201812, baalut: "פרטי"}, {mispar_rechev: 7654321, baalut_dt: ym(-26), baalut: "פרטי"}];
   if (id.startsWith("36bf1404")) return [{MISPAR_RECHEV: 7654321, RECALL_ID: 990001, SUG_RECALL: "ריקול יצרן", SUG_TAKALA: "מערכת בלמים", TEUR_TAKALA: "דליפת נוזל בלמים ממשאבת ה-ABS, שעלולה להאריך את מרחק הבלימה (לדוגמה)", TAARICH_PTICHA: "2025-11-03"}];
@@ -2221,7 +2222,7 @@ function loadSettlements(){
 }
 const normS = t => String(t || "").toUpperCase().replace(/[^A-Z0-9א-ת]/g, "");
 function settlementsFor(D){
-  if (!D || !D.v || D.kind === "model" || D.isCancelled || D.importKind) return [];
+  if (!D || !D.v || isDemo(D) || D.kind === "model" || D.isCancelled || D.importKind) return [];
   const v = D.v, y = num(v.shnat_yitzur), now = new Date(), x = {mk: normS(makerOnly(D)), md: normS([v.kinuy_mishari, v.degem_nm].join(" "))};
   return SETTLEMENTS.filter(s => !(new Date(s.until + "T23:59:59") < now) && s.mk.test(x.mk) && (!s.md || s.md.test(x.md)) && (!s.y || y >= s.y[0] && y <= s.y[1]) && (!s.ok || s.ok(v, y, x)));
 }
@@ -2812,6 +2813,7 @@ async function fetchModelData(v, signal, useCat){
     // daily catalogue, which joins the two lists by brand name; no catalogue answer is "unknown", never "no recalls"
     let meta = null;
     const recallsByMaker = (async () => {
+      if (String(v.mispar_rechev) === DEMO_PLATE) return [];   // the sample car keeps only its own fixed data (no catalogue recalls)
       const cd = catCd(v.tozeret_cd); meta = await withTimeout(catMeta(), CAT_TIMEOUT).catch(() => null);
       if (meta && meta.rec && meta.makers[cd] && !meta.rec.includes(cd)) return [];   // a maker the catalogue knows, with no recall for its brand
       const rr = await catRecalls(cd);
