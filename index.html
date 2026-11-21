@@ -1533,7 +1533,7 @@ const isDemo = D => !!D && String(D.plate) === DEMO_PLATE;
 function demoRows(url){
   let u; try { u = decodeURIComponent(url); } catch { return null; }
   // the plate as a whole number (an 8-digit plate holding these digits is a real car), and model and recall codes no register holds
-  if (!/(^|[^0-9])7654321([^0-9]|$)/.test(u) && !/"degem_cd":"?990001(?![0-9])/.test(u) && !/"RECALL_ID":"?990001(?![0-9])/.test(u)) return null;
+  if (!/(^|[^0-9])0*7654321([^0-9]|$)/.test(u) && !/"degem_cd":"?990001(?![0-9])/.test(u) && !/"RECALL_ID":"?990001(?![0-9])/.test(u)) return null;
   const id = (u.match(/resource_id=([0-9a-f-]{36})/) || [])[1] || "";
   const ago = d => { const x = new Date(); x.setDate(x.getDate() + d); return x.toISOString().slice(0, 10) + "T00:00:00"; };
   const ym = d => { const x = new Date(); x.setMonth(x.getMonth() + d); return x.getFullYear() * 100 + x.getMonth() + 1; };
@@ -3229,7 +3229,7 @@ async function lookup(raw){
   renderResult(); focusResult();
   if (added) snack(added === "new" ? "נוסף לרכבים שלי" : "הרכב כבר ברכבים שלי", added === "new" ? "ביטול" : "לרשימה", added === "new" ? () => undoAdd(D, mineWas) : () => navTo("cars", {via: "add"}), 6000);
   // exactly 8 params: the app bridge keeps the first 8 (MainActivity.logEvent) and the web Worker 10 with src+camp; a 9th silently drops the last
-  if (isDemo(D)) track("demo_open"); else track(again ? "lookup_repeat" : "car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: (D.errs && D.errs.length) || D.modelErr ? 1 : 0, role, ...lookupFacts(D)});
+  if (isDemo(D)) track("demo_open", {from: "home"}); else track(again ? "lookup_repeat" : "car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: (D.errs && D.errs.length) || D.modelErr ? 1 : 0, role, ...lookupFacts(D)});
   if (!isDemo(D)) remember(plate, D.kind === "model" ? "" : D.title);
   window.scrollTo({top: 0});
   // "יש לכם כבר רכב? פתחו לו תיק" on home: the car checked next opens straight in its file (one step, like "+"), not on a page with one more button
@@ -5844,7 +5844,7 @@ $("#out").addEventListener("click", ev => {
     homeSheetMaybe();
   }
   if (act === "copy") copyText(summaryText(current), "הסיכום");
-  if (act === "calendar") { track("calendar_reminder_click", {where: window.AndroidApp ? "app" : "web"}); testReminder(current); }
+  if (act === "calendar") { if (!isDemo(current)) track("calendar_reminder_click", {where: window.AndroidApp ? "app" : "web"}); testReminder(current); }
   if (act === "fuelUnit") { try { localStorage.setItem("fuelUnit", kmlUnit() ? "l100" : "kml"); } catch {} syncUnit(); renderResult(); }
   // from a car page the car on screen is the first one compared, so the picker adds the second (until 1.38 it started empty, and the car looked up was missing)
   if (act === "compare") { track("compare_open", {from: b.dataset.from || "menu"}); cmp = current && current.kind !== "fail" ? [current] : []; renderCompare(); openCompare("model"); }
@@ -6594,7 +6594,7 @@ $("#homeSheet").addEventListener("click", ev => {
 const pushCoversTest = D => { try { return !!D.primary && D.primary.key === "active" && alertsSupported() && window.AndroidApp.alertsState() === "on" && isSaved(D.plate) && trackedOk(D.plate) && prefOn("test"); } catch { return false; } };
 const calSeen = new Set();
 function calendarBtn(D){
-  if (!reportBuild && !calSeen.has(D.plate)) { calSeen.add(D.plate); track("calendar_reminder_shown", {where: window.AndroidApp ? "app" : "web"}); }
+  if (!reportBuild && !isDemo(D) && !calSeen.has(D.plate)) { calSeen.add(D.plate); track("calendar_reminder_shown", {where: window.AndroidApp ? "app" : "web"}); }
   return `<button type="button" class="link-btn" data-act="calendar">${ico("clock")}תזכורת ביומן</button>`;
 }
 // the reminder's text: the action is renewing the licence (a new car renews by paying the fee, with no test; fee and test are possible from 60 days before)
