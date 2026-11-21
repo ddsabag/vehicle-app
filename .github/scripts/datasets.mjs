@@ -7,7 +7,8 @@ export const SAMPLE_PLATE = "38548003";
 export const EXAMPLE_PLATES = [SAMPLE_PLATE, "7654321"];
 export function probePlates(raw, fallback = SAMPLE_PLATE) {
   const text = String(raw || fallback), plates = text.split(",").map(s => s.replace(/\D/g, "")).filter(Boolean);
-  if (/^\s*b64:/i.test(text) || plates.some(p => !EXAMPLE_PLATES.includes(p)))
+  // only digits, dashes, commas and spaces: anything else (base64 or a hash with no digits at all, deep audit 21.11) is refused unread
+  if (/[^\d\s,-]/.test(text) || (text.trim() && !plates.length) || plates.some(p => !EXAMPLE_PLATES.includes(p)))
     throw new Error(`PLATES takes the example plates only (${EXAMPLE_PLATES.join(", ")}): this run's inputs, log and output are public, and base64 or a hash of a plate is the plate itself`);
   return plates;
 }
