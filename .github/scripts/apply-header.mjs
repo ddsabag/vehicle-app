@@ -16,7 +16,7 @@ for (const f of ["privacy.html", "terms/index.html", "accessibility/index.html",
   }
   fs.writeFileSync(f, s); h++;
 }
-const OLD = /form\.pf input\{flex:1;min-width:0;font:inherit;font-size:1\.1rem;[^}]*\}|form\.pf input\{flex:1;min-width:0;box-sizing:border-box;min-height:54px;[^}]*\}form\.pf input::placeholder\{[^}]*\}form\.pf input:focus-visible\{[^}]*\}/;
+const OLD = /form\.pf input\{flex:1;min-width:0;font:inherit;font-size:1\.1rem;[^}]*\}|form\.pf input\{flex:1;min-width:0;box-sizing:border-box;min-height:54px;[^}]*\}form\.pf input::placeholder\{[^}]*\}form\.pf input:focus-visible\{[^}]*\}(?:@media \(prefers-color-scheme:dark\)\{:root:not\(\[data-theme="light"\]\) form\.pf input:focus-visible\{[^}]*\}\}:root\[data-theme="dark"\] form\.pf input:focus-visible\{[^}]*\})?/;
 const walk = d => fs.readdirSync(d, {withFileTypes: true}).flatMap(e => e.isDirectory() ? (e.name === "node_modules" || e.name.startsWith(".") ? [] : walk(path.join(d, e.name))) : e.name.endsWith(".html") ? [path.join(d, e.name)] : []);
 for (const f of walk(".")) { const s = fs.readFileSync(f, "utf8"); if (OLD.test(s)) { fs.writeFileSync(f, s.replace(OLD, () => PF_INPUT)); p++; } }
 console.log("headers:", h, "plate fields:", p);

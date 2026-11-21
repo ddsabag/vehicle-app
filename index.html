@@ -1221,6 +1221,8 @@ const timeoutSignal = ms => { if (AbortSignal.timeout) return AbortSignal.timeou
 const PRO_LOCK = false;
 /* anonymous usage events (Firebase Analytics in the app, /api/e -> GA4 on the web): what people do, never a plate number or anything personal. The user can switch it off in settings.
    A model-search term goes out only when it looks like a model query: letters, digits, space, hyphen, at least 2 letters, under 5 digits of any script. */
+/* "he2", "en1", "mix3": the script and word count of a search with no result, never the words (21.11: free text can hold a name) */
+const termShape = t => { t = String(t || "").trim(); if (!t) return ""; const he = /[\u05d0-\u05ea]/.test(t), en = /[a-z]/i.test(t); return (he && en ? "mix" : he ? "he" : en ? "en" : "num") + Math.min(t.split(/\s+/).length, 4); };
 function safeTerm(t){ t = String(t || "").trim().toLowerCase().slice(0, 40); if (/[^a-z\u05d0-\u05ea0-9 \-]/.test(t) || (t.match(/[a-z\u05d0-\u05ea]/g) || []).length < 2 || t.replace(/[^0-9]/g, "").length >= 5) return ""; return t; }
 const simpleOn = () => { try { return localStorage.getItem("simpleView") === "1"; } catch { return false; } };
 /* automated browsers (test tools, Google's page checks, crawlers that run scripts) are not users: they never count */
@@ -1259,7 +1261,9 @@ function lookupFacts(D) {
 const appParams = p => { const o = {}; for (const [k, v] of Object.entries(p || {})) o[k] = typeof v === "boolean" ? (v ? "1" : "0") : typeof v === "number" ? String(v) : v; return o; };
 // the website offline: an event waits for the network instead of a sendBeacon that is lost on the way (the app's Firebase keeps its own queue)
 const trackQ = [];
-const track = (name, params) => { try { if (!analyticsOn()) return; const b = window.AndroidApp; if (b) { if (b.logEvent) b.logEvent(name, JSON.stringify(appParams(params))); return; }
+/* the built-in sample car is a demo, not a car: on its page only demo_open counts, so it never adds to a real funnel */
+const demoNow = () => { try { return isDemo(current) && document.body.dataset.screen === "car"; } catch { return false; } };
+const track = (name, params) => { try { if (name !== "demo_open" && demoNow()) return; if (!analyticsOn()) return; const b = window.AndroidApp; if (b) { if (b.logEvent) b.logEvent(name, JSON.stringify(appParams(params))); return; }
   if (document.prerendering) { document.addEventListener("prerenderingchange", () => track(name, params), {once: true}); return; }   // a page Chrome loaded ahead counts only once it is opened
   if (navigator.onLine === false) { if (trackQ.length < 30) trackQ.push([name, params]); return; }
   if (location.protocol === "https:" && navigator.sendBeacon) navigator.sendBeacon("/api/e", new Blob([JSON.stringify({n: name, p: {src: LAND, ...landCamp(), ...(params || {})}, cid: WEB_CID})], {type: "text/plain"})); } catch {} };
@@ -1934,7 +1938,7 @@ const docExpSave = a => { try { localStorage.setItem("docExp", JSON.stringify(a)
 const alertsSupported = () => !!(window.AndroidApp && window.AndroidApp.setAlerts);
 /* the phone's alerts are really on: not turned off here and not blocked in the phone's settings */
 const alertsOn = () => { try { return alertsSupported() && window.AndroidApp.alertsState() === "on"; } catch { return false; } };
-window.onAlertsPermission = ok => { ALERT_ASK.done(ok ? "granted" : "denied"); toast(ok ? "ההתראות פועלות: נעדכן אתכם על ריקול חדש או טסט שעומד לפוג" : "ההתראות כבויות. אפשר להפעיל אותן במסך התראות."); syncAlertsSeg(); refreshView(); };
+window.onAlertsPermission = ok => { ALERT_ASK.done(ok ? "granted" : "denied"); toast(ok ? "ההתראות פועלות: נעדכן אתכם על ריקול חדש או טסט שעומד לפוג" : "ההתראות כבויות. אפשר להפעיל אותן במסך התראות."); syncAlertsSeg(); refreshView(); if (current && document.body.dataset.screen === "car") buyRedraw(); };
 function syncAlertsSeg(){
   const row = document.getElementById("alertsRow"); if (!row) return;
   row.hidden = !alertsSupported(); if (row.hidden) return;
@@ -2823,7 +2827,8 @@ async function fetchModelData(v, signal, useCat){
     })();
     // a model list that fails is asked once more, and one that fails again says so (modelErr): the page then tells that part of the data is
     // missing instead of leaving the specs and the list price blank (data audit 14.11: ZOE 2017 once with no specs, price or tow, and no word)
-    const again = set => modelRows(set, v, signal).catch(e => { if (e && e.name === "AbortError") throw e; return modelRows(set, v, signal); })
+    // a stalled list (timeout) is not asked again: a second 15 s would pass the lookup's 30 s deadline and lose the whole car
+    const again = set => modelRows(set, v, signal).catch(e => { if (e && (e.name === "AbortError" || /timeout/.test(e.message))) throw e; return modelRows(set, v, signal); })
       .catch(e => { if (e && e.name === "AbortError") throw e; modelErr = true; reportErr("model_rows"); return []; });
     const [a, b, c, r] = await Promise.all([
       again(MODEL_SETS.wltp),
@@ -2969,7 +2974,7 @@ async function fetchVehicle(plate, signal, onProgress){
   })();
   await Promise.all([activeP, ...rest, rare]);
   if (recEmpty && await recEmpty) res.recall = {rows: [], err: "the per-car list is empty", empty: true};
-  if (!res.owners.rows.length) { const m = await ownMirror(plate, signal); if (m.length) { res.owners = {rows: m}; res.ownMirror = true; } }
+  if (!res.owners.rows.length) { const m = (await withTimeout(ownMirror(plate, signal), 8000)) || []; if (m.length) { res.owners = {rows: m}; res.ownMirror = true; } }
   res.zombie = await zombieP;
   // beside the active register's row the import and public registers add only the import kind and a hold: if one fails the car is partial, not a half-empty main record
   const errs = PLATE_SETS.filter(s => res[s.key].err).map(s => (s.key === "import" || s.key === "public") && res.active.rows.length ? {...s, role: "extra"} : s);
@@ -3334,7 +3339,8 @@ function keyLine(D){
   const bad = buildInsights(D).find(i => i.level === "bad" && !i.priv); if (bad) return {k: "bad", t: bad.title};
   const pr = pendingRecalls(D); if (pr.length) return {k: "warn", t: pendingWords(pr).line};
   const warn = buildInsights(D).find(i => i.level === "warn" && !i.priv); if (warn) return {k: "warn", t: warn.title};
-  return {k: "ok", t: D.recallUnknown ? (L ? licLine(L) : "לא עלו ממצאים חריגים") : "אין ריקול פתוח" + (L && L.k === "ok" ? " והטסט בתוקף" : "")};
+  if (D.recallUnknown || D.modelErr || D.modelRecallsUnknown || (D.errs || []).length) return {k: "warn", t: "חלק מהמאגרים לא ענו עכשיו, ולכן הבדיקה חלקית"};
+  return {k: "ok", t: "אין ריקול פתוח" + (L && L.k === "ok" ? " והטסט בתוקף" : "")};
 }
 /* after the recipient checked a car of their own from that bar: the next step is keeping it, and on Android the app, as a quiet second link */
 const RECV = {plate: ""};
@@ -3363,7 +3369,7 @@ function renderResult(){
   html.push(carHead(D));
   if (isDemo(D)) html.push(`<p class="msg demo-note" role="note">${DEMO_NOTE}</p>`);
   html.push(`<div class="side">`);
-  if (sharedHere(D)) { const kl = keyLine(D); html.push(`<div class="shared-top"><span aria-hidden="true">📩</span><span><b>קיבלתם בדיקה של <bdi>${esc(D.title)}</bdi> מלוחית</b><span class="kl ${kl.k}">${esc(kl.t)}</span><small>נבדק עכשיו מול משרד התחבורה, מעודכן יותר מכל קובץ</small></span></div>`); }
+  if (sharedHere(D)) { const kl = keyLine(D); html.push(`<div class="shared-top"><span aria-hidden="true">📩</span><span><b>קיבלתם בדיקה של <bdi>${esc(D.title)}</bdi> מלוחית</b><span class="kl ${kl.k}">${esc(kl.t)}</span><small>${D.fromCache ? "מוצגים נתונים שנשמרו ב-" + esc(dmy(D.fromCache)) : "נבדק עכשיו מול משרד התחבורה, מעודכן יותר מכל קובץ"}</small></span></div>`); }
   else { const rn = recvNext(D); if (rn) html.push(rn); }
   if (D.fromCache) html.push(`<div class="msg" role="status"><b>אין חיבור למשרד התחבורה, ולכן מוצגים נתונים שנשמרו ב-${esc(fmtDate(new Date(D.fromCache).toISOString()))}.</b> ייתכן שהם לא מעודכנים. <button type="button" class="link-btn" data-retry="${esc(D.plate)}">נסו שוב</button></div>`);
   // compare sits beside the car's name, where a card keeps its action: a fixed place that never wraps under the facts
@@ -4138,8 +4144,8 @@ function alertAsk(D){
   if (!alertsSupported()) return IS_IOS || st ? "" : `<div class="cf-ask"><div><b>תזכורות יש רק באפליקציה</b><span>שם נזכיר לפני הטסט ונתריע על ריקול חדש, בלי הרשמה.</span></div><div class="cf-ask-b"><button type="button" class="link-btn" data-url="${PLAY_URL}" data-hint="file_ask">${ico("bell")}לאפליקציה</button><button type="button" class="cf-not" data-bm="askLater">לא עכשיו</button></div></div>`;
   if (alertsOn() || st === "granted" || st === "later") return "";
   if (st === "denied") return `<p class="note cf-ask-off">התזכורות כבויות. אפשר להפעיל בהגדרות.</p>`;
-  const L = licOf(D), when = L && L.k === "ok" ? `הטסט ב-${dDot(L.ex)}. נזכיר שבועיים לפני.` : "נזכיר על ריקולים ועל הטיפול הבא.";
-  return `<div class="cf-ask"><div><b>${when}</b><span>${L && L.k === "ok" ? "וגם על ריקול חדש, אם ייפתח. " : ""}בלי הרשמה.</span></div><div class="cf-ask-b"><button type="button" class="link-btn" data-bm="askOn">${ico("bell")}הפעלת תזכורות</button><button type="button" class="cf-not" data-bm="askLater">לא עכשיו</button></div></div>`;
+  const L = licOf(D), tst = L && L.k === "ok" && D.primary && D.primary.key === "active", when = tst ? `הטסט ב-${dDot(L.ex)}. נזכיר חודש ושבוע לפני.` : "נתריע על ריקול חדש, אם ייפתח.";
+  return `<div class="cf-ask"><div><b>${when}</b><span>${tst ? "וגם על ריקול חדש, אם ייפתח. " : ""}בלי הרשמה.</span></div><div class="cf-ask-b"><button type="button" class="link-btn" data-bm="askOn">${ico("bell")}הפעלת תזכורות</button><button type="button" class="cf-not" data-bm="askLater">לא עכשיו</button></div></div>`;
 }
 document.addEventListener("click", ev => {
   const b = ev.target.closest && ev.target.closest("[data-bm=askOn],[data-bm=askLater]"); if (!b || !current) return;
@@ -4207,6 +4213,8 @@ function openFile(D, from){
     // the alerts are asked for at the top of the file, once per car and with its real test date (alertAsk), not by the phone's prompt alone
     if (on) homeSheetMaybe();
   }
+  // bought: the car is the owner's now, no longer a candidate with an asking price
+  if (from === "bought") { const list = store.get("savedVehicles"), it = list.find(x => x.plate === D.plate); if (it && it.ask) { delete it.ask; store.set("savedVehicles", list); } }
   currentTab = "file"; renderResult(); focusResult();
   const t = $(".tabs"); if (t) t.scrollIntoView({block: "start", behavior: "smooth"});
   toast("נפתח תיק לרכב. מה שתרשמו נשמר " + KEPT_FILE);
@@ -4228,7 +4236,7 @@ $("#out").addEventListener("click", ev => {
     if (!f.hidden) { f.scrollIntoView({block: "nearest", behavior: "smooth"}); const i = f.querySelector(a === "svc" ? "#svcType" : "#kmVal"); if (i) try { i.focus({preventScroll: true}); } catch {} }
     return;
   }
-  if (a === "doc" || a === "ins") { track("cf_doc_tap", {cat: a === "ins" ? "ביטוח" : DOC_CATS[0], from: "quick"}); openDocsFold(a === "ins" ? "ביטוח" : DOC_CATS[0]); return; }
+  if (a === "doc" || a === "ins") { openDocsFold(a === "ins" ? "ביטוח" : DOC_CATS[0]); return; }
   if (a === "road") { roadDocs(D); return; }
   if (a === "pdf") historyPdf(D, b);
 });
@@ -4538,6 +4546,7 @@ function transferCheck(D, pub){
   const L = licOf(D);
   if (L) add(L.k === "ok" ? "ok" : L.k === "bad" ? "bad" : "warn", L.k === "ok" ? licLine(L) : L.k === "bad" ? `הטסט פג ב-${L.date}. העברה באינטרנט לא אפשרית עם טסט שאינו בתוקף. מסדירים טסט לפני העסקה.`
     : `${licLine(L)}. בודקים שהטסט בתוקף לפני העסקה: בלי טסט בתוקף אין העברה באינטרנט.`, {id: "test"});
+  else add("unk", "תוקף הטסט לא מופיע במאגר לסוג הרכב הזה. בודקים ברישיון הרכב שהטסט בתוקף: בלי טסט בתוקף אין העברה באינטרנט.", {id: "test", reg: 1});
   if (!pub && !reportBuild) {
     if (D.tag) add("bad", "לרכב יש תג חניה לנכה. העברה באינטרנט לא אפשרית עד שהבעלים מסיר את התג במשרד הרישוי.", {id: "tag"});
     else if (failed("tag")) add("unk", "מאגר תגי החניה לנכה לא ענה עכשיו, ולכן תג לא נבדק.", {id: "tag", reg: 1});
@@ -4547,7 +4556,9 @@ function transferCheck(D, pub){
   else if (D.recalls.length) add("warn", "ריקול פתוח עלול לעכב את ההעברה ואת חידוש הרישיון. מבקשים מהמוכר אישור תיקון מהיבואן. התיקון בדרך כלל ללא עלות.", {id: "recall"});
   else if (pr.length) add("warn", `${pendingWords(pr).line}. בודקים באתר היבואן לפני העסקה.`, {id: "recall"});
   if (D.importKind) add("unk", "רכב ביבוא אישי. בררו במשרד הרישוי אם יש מגבלה על מכירה.", {id: "import", note: 1});
+  else if (failed("import")) add("unk", "מאגר היבוא האישי לא ענה עכשיו, ולכן יבוא אישי לא נבדק.", {id: "import", reg: 1});
   if (D.pubUse) add("info", "הרכב רשום גם כרכב ציבורי. בודקים מול המוכר שהרישום הוסב לפרטי.", {id: "public", note: 1});
+  else if (failed("public")) add("unk", "מאגר הרכב הציבורי לא ענה עכשיו, ולכן רישום ציבורי לא נבדק.", {id: "public", reg: 1});
   add("unk", "שעבוד לא מופיע במאגרי משרד התחבורה. בודקים ברשם המשכונות, בחינם.", {id: "lien", link: ["https://www.gov.il/he/service/pawn_perusal", "lien", "בדיקה ברשם המשכונות"]});
   add("unk", "רכב שרשום על כמה בעלים לא עובר באינטרנט. שואלים את המוכר ובודקים ברישיון הרכב.", {id: "partners"});
   add("unk", "אם הבעלים נפטר, צריך לרשום קודם את היורשים.", {id: "heirs", late: 1});
@@ -4559,6 +4570,7 @@ const xferFix = rows => rows.filter(r => r.k === "bad" || r.k === "warn").length
    checklist PDF, with no buttons and no tag */
 function transferBlock(D, full, print){
   const rows = transferCheck(D, print), fix = xferFix(rows), regs = rows.filter(r => r.reg).length;
+  if (D.isCancelled) return `<div class="xfer fix"><div class="qsec">אפשר להעביר בעלות?<small>הרכב ירד מהכביש</small></div><p class="xsum">${esc(rows[0].t)}</p></div>`;
   const sum = fix ? `${fix === 1 ? "יש דבר אחד להסדיר לפני העברה. בלעדיו" : `יש ${fix} דברים להסדיר לפני העברה. בלעדיהם`} ייתכן שלא תוכלו להעביר בעלות ביום העסקה.`
     : regs ? "לא כל המאגרים ענו עכשיו, ולכן הבדיקה חלקית. שעבוד ושותפים נבדקים ברשם ובמשרד הרישוי."
     : "לפי המאגרים, לא מצאנו חסם להעברה. שעבוד ושותפים נבדקים ברשם ובמשרד הרישוי.";
@@ -4779,7 +4791,16 @@ function tabBuy(D){
   return html.join("");
 }
 /* the buyer's own redraw of the tab (a stage, a step, a check): the page stays where it was */
-function buyRedraw(){ const y = window.scrollY; renderResult(); window.scrollTo(0, y); }
+/* a tap on the buy tab redraws the result: the pressed control (by its data marks) keeps the focus, and typed prices and km stay */
+function buyRedraw(){
+  const y = window.scrollY, a = document.activeElement, keep = {};
+  ["askIn", "kmIn"].forEach(id => { const el = document.getElementById(id); if (el && el.value) keep[id] = el.value; });
+  const sel = a && a !== document.body && a.attributes ? [...a.attributes].filter(t => /^data-(bstage|ck|bm|bmatch|v|g|act|cf)$/.test(t.name)).map(t => `[${t.name}="${CSS.escape(t.value)}"]`).join("") : "";
+  renderResult();
+  Object.keys(keep).forEach(id => { const el = document.getElementById(id); if (el && !el.value) el.value = keep[id]; });
+  const n = sel && document.querySelector("#out " + a.tagName.toLowerCase() + sel); if (n) { try { n.focus({preventScroll: true}); } catch {} }
+  window.scrollTo(0, y);
+}
 document.addEventListener("click", ev => {
   const b = ev.target.closest && ev.target.closest("[data-ck],[data-bstage],[data-tl]"); if (!b || !current) return;
   if (b.dataset.tl) { track("transfer_link", {to: b.dataset.tl}); return; }
@@ -5370,7 +5391,7 @@ const mqTerm = () => ($("#mq").value || "").trim().toLowerCase().slice(0, 40);
 function showGroups(){
   const msg = $("#compareMsg"), shown = mShowAll ? mGroups : mGroups.slice(0, MODEL_SHOWN), rest = mGroups.length - shown.length;
   clearTimeout(nrTimer);
-  if (!mGroups.length) { const term = mqTerm(), kind = mNote ? "budget" : "model"; nrTimer = setTimeout(() => { if (mGroups.length || mqTerm() !== term || nrLast === kind + term) return; nrLast = kind + term; track("search_no_result", {kind, term: safeTerm(term)}); }, 2500); }
+  if (!mGroups.length) { const term = mqTerm(), kind = mNote ? "budget" : "model"; nrTimer = setTimeout(() => { if (mGroups.length || mqTerm() !== term || nrLast === kind + term) return; nrLast = kind + term; track("search_no_result", {kind, term: termShape(term)}); /* the typed text itself is not sent (it can hold a name), only its shape */ }, 2500); }
   msg.textContent = mGroups.length ? (searchFuzzy && !mNote ? "לא נמצא בדיוק. אולי התכוונתם:" : "") : (mNote ? "לא נמצאו דגמים שמתאימים לתנאים. נסו תקציב גבוה יותר או פחות תנאים." : "לא נמצאו דגמים. נסו שם אחר, למשל שם הדגם באנגלית.");
   let lastMake = null;
   $("#mres").innerHTML = (mNote && mGroups.length ? `<div class="qsec" style="margin-top:0">${pl(mGroups.length, "דגם אחד", "דגמים")}: ${esc(mNote)}</div>` : "") + shown.map(x => (x.make !== lastMake ? (lastMake = x.make, `<div class="qsec">${esc(x.make)}</div>`) : "") + `<button type="button" class="row" data-mg="${mGroups.indexOf(x)}"><span class="t"><b>${esc(niceModel(x.model))}</b><small>${isFinite(x.from) ? (x.from === x.to ? x.from : `<span dir="ltr">${x.from}–${x.to}</span>`) : ""}${x.price ? ` · החל מ-${fmtN(x.price)} אלף ₪` : ""}</small></span>${ico("chev")}</button>`).join("")
@@ -5797,7 +5818,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.rm) { cmp.splice(+b.dataset.rm, 1); renderCompare(); return; }
   if (b.dataset.retryCmp) { retryCompare(+b.dataset.retryCmp); return; }
   if (b.dataset.sec) { const t = b.dataset.sec, y = window.scrollY; if (b.getAttribute("aria-expanded") === "true") cmpOpen.delete(t); else cmpOpen.add(t); renderCompare(); window.scrollTo(0, y); return; }
-  if (b.dataset.cmpsave) { const D = cmp[+b.dataset.cmpsave]; if (D && D.plate && D.kind !== "fail") { const on = toggleSaved(newSavedItem(D)); toast(on ? "נשמר ברכבים שלי" : "הוסר מהרכבים שלי"); const y = window.scrollY; renderCompare(); window.scrollTo(0, y); } return; }
+  if (b.dataset.cmpsave) { const D = cmp[+b.dataset.cmpsave]; if (D && D.plate && D.kind !== "fail") { const on = toggleSaved(newSavedItem(D)); if (on) { startTrial(); cohSaved("compare"); } { const L = store.get("savedVehicles").length; track(on ? "car_save" : "car_unsave", {n: String(Math.min(L, 4)) + (L > 3 ? "+" : ""), from: "compare"}); } toast(on ? "נשמר ברכבים שלי" : "הוסר מהרכבים שלי"); const y = window.scrollY; renderCompare(); window.scrollTo(0, y); } return; }
   if (b.dataset.act === "addCompare") { openCompare(); return; }
   if (b.dataset.act === "compareHome") { cmp = []; renderCompare(); openCompare("search"); return; }
   if (b.dataset.act === "market") { openMarket(); return; }
@@ -5838,6 +5859,7 @@ $("#out").addEventListener("click", ev => {
       startTrial(); cohSaved("buy_ask"); const L = store.get("savedVehicles").length; track("car_save", {n: String(Math.min(L, 4)) + (L > 3 ? "+" : ""), from: "buy_ask"});
     }
     const list = store.get("savedVehicles"), it = list.find(x => x.plate === current.plate);
+    if (!it) return;
     Object.assign(it, {ask, ...candFields(current)}); store.set("savedVehicles", list);
     { const v = askVerdict(ask, candFields(current).fair); if (v) track("ask_gauge", {pos: v.pos}); }   // where the price falls, never the price
     toast(ask ? "נשמר ברכבים שלי, בסינון לקנייה" : "נשמר ברכבים שלי");
@@ -6354,7 +6376,7 @@ async function drawShareCard(D, opt = {}){
   // header: brand on the right, date of the check on the left
   const logo = await loadLogo(); if (logo) x.drawImage(logo, R - 52, 56, 52, 52);
   f(32, 800); text("לוחית", R - 68, 94, INK); const lw = x.measureText("לוחית").width; f(28, 500); text("· דוח רכב", R - 68 - lw - 12, 94, MUT);
-  const nowD = new Date(), stamp = D.fromCache ? "נתונים שמורים מ-" + dmy(D.fromCache) : "נבדק " + dmy(nowD) + (cover ? " · " + nowD.toLocaleTimeString("he-IL", {hour: "2-digit", minute: "2-digit"}) : "");
+  const nowD = new Date(), stamp = isDemo(D) ? DEMO_NOTE : D.fromCache ? "נתונים שמורים מ-" + dmy(D.fromCache) : "נבדק " + dmy(nowD) + (cover ? " · " + nowD.toLocaleTimeString("he-IL", {hour: "2-digit", minute: "2-digit"}) : "");
   f(26, 500); text(stamp, P, 94, MUT, "left");
   // the car
   const v = D.v, yr = empty(v.shnat_yitzur) ? "" : String(v.shnat_yitzur);
@@ -6414,7 +6436,7 @@ async function drawShareCard(D, opt = {}){
   // footer: the live report one scan away
   x.fillStyle = INK; x.fillRect(0, FT, W, 190);
   f(36, 800); text(cover ? "לדוח המעודכן של הרכב הזה: luchit.app" : "הדוח המלא, מתעדכן בכל פתיחה", R, FT + 78, "#fff");
-  f(26, 500); text(cover ? (D.fromCache ? "הנתונים ממאגרי משרד התחבורה, מעותק שמור" : "הנתונים ממאגרי משרד התחבורה ונכונים לשעת ההפקה") : "luchit.app · מקור: מאגרי משרד התחבורה", R, FT + 124, "#c9d1e0");
+  f(26, 500); text(cover ? (isDemo(D) ? DEMO_NOTE : D.fromCache ? "הנתונים ממאגרי משרד התחבורה, מעותק שמור" : "הנתונים ממאגרי משרד התחבורה ונכונים לשעת ההפקה") : "luchit.app · מקור: מאגרי משרד התחבורה", R, FT + 124, "#c9d1e0");
   f(21, 500); text("אינו מחליף נסח רישום או בדיקה במכון", R, FT + 160, "#9aa4b8");
   return {canvas: c, breaks: []};
 }
@@ -6437,7 +6459,7 @@ function shareVerdict(D, rows){
   if (D.isCancelled) return ["bad", "הרכב ירד מהכביש"];
   if (D.recallUnknown || D.modelErr || (D.errs || []).length) return ["warn", "חלק מהנתונים לא נטענו כרגע"];
   const ok = rows.filter(r => r[0] === "ok").length, fl = rows.filter(r => r[0] === "bad" || r[0] === "warn").length, bad = rows.some(r => r[0] === "bad");
-  if (!fl) return ["ok", "לא עלו דגלים בבדיקה"];
+  if (!fl) return D.modelRecallsUnknown ? ["warn", "חלק מהנתונים לא נטענו כרגע"] : ["ok", "לא עלו דגלים בבדיקה"];   // the model's recall file did not load: not "clean"
   return [bad ? "bad" : "warn", [ok ? `${ok} ${ok === 1 ? "בדיקה תקינה" : "בדיקות תקינות"}` : "", fl === 1 ? "דבר אחד לבדוק" : `${fl} דברים לבדוק`].filter(Boolean).join(" · ")];
 }
 /* six spec tiles, the ones car people ask about first (Dudu 20.11: the engine model, not the safety level); a missing one gives way to the next */
@@ -7549,7 +7571,7 @@ function buyerCard(D){
   if (ownNow(D).kind === "rental") { flags.push(["warn", "הרכב רשום כעת על חברת השכרה"]); qs.push("כמה קילומטרים עשה הרכב בהשכרה, ויש תיעוד של כל הטיפולים?"); }
   if (D.tag && !reportBuild) flags.push(["warn", "יש לרכב תג חניה לנכה, שצריך להסיר לפני העברת בעלות"]);   // personal: on the screen only, never in a report
   // "no red flags" only when every register answered: a recall register that did not load hides open recalls
-  const none = !D.recallUnknown && !D.modelErr && !(D.errs || []).length ? "לא עלו דגלים אדומים בנתונים. זה לא מחליף בדיקה במכון." : "לא כל הנתונים נטענו, ולכן אין סיכום דגלים.";
+  const none = !D.recallUnknown && !D.modelErr && !D.modelRecallsUnknown && !(D.errs || []).length ? "לא עלו דגלים אדומים בנתונים. זה לא מחליף בדיקה במכון." : "לא כל הנתונים נטענו, ולכן אין סיכום דגלים.";
   const dtk = driveType(D);
   if (dtk && ["ev", "phev", "hybrid"].includes(dtk.k)) qs.unshift("עד מתי ועד כמה ק״מ יש אחריות יצרן על הסוללה?", "אפשר לעשות ביטוח לסוללה או להאריך את האחריות, ובכמה זה עולה?", ...(dtk.k === "hybrid" ? [] : ["יש דוח בדיקת בריאות סוללה?"]));
   if (PRO_LOCK && !isPro()) {
@@ -7638,10 +7660,11 @@ async function runBulk(btn){
 }
 function bulkSave(){
   const list = store.get("savedVehicles"), have = new Set(list.map(x => x.plate));
-  const add = Object.values(BULK_D).filter(D => !have.has(D.plate)).map(newSavedItem);
+  const add = Object.values(BULK_D).filter(D => !have.has(D.plate) && !isDemo(D)).map(newSavedItem);   // the sample car is never saved
   if (!add.length) { toast("כל הרכבים שנמצאו כבר שמורים אצלכם"); return; }
   const room = Math.max(0, savedCap() - list.length);
   store.set("savedVehicles", [...add.slice(0, room), ...list]); updateSavedBar();
+  if (room > 0) { startTrial(); cohSaved("bulk"); const L = store.get("savedVehicles").length; track("car_save", {n: String(Math.min(L, 4)) + (L > 3 ? "+" : ""), from: "bulk"}); }
   toast(add.length > room ? `נשמרו ${room} רכבים. הרשימה מוגבלת ל-${savedCap()} רכבים.` : add.length === 1 ? `רכב אחד נשמר ב"הרכבים שלי"` : `נשמרו ${add.length} רכבים ב"הרכבים שלי"`);
 }
 function bulkCsv(){

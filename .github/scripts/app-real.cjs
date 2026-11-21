@@ -384,7 +384,7 @@ async function journey(page, sc, state, J, theme) {
   // only meet the closed page, so the journey ends here and the main loop runs it again on a fresh start
   const closed = (e) => page.isClosed() || /has been closed/.test(String(e && e.message));
   try { await prepare(page, state, theme); } catch (e) { if (closed(e)) { disturbed.add("closed"); crashes(run, "load", true); return page; } add("block", "logic", run, "load", "could not load the state: " + e.message.split("\n")[0].slice(0, 120)); return; }
-  const c = { dev: { id: sc.id, w: sc.dp, h: 860 }, theme, state, app: true, ctx: null, net, page, plate: state === "many" ? "7654321" : "1234567", back: realBack, reopen };
+  const c = { dev: { id: sc.id, w: sc.dp, h: 860 }, theme, state, app: true, ctx: null, net, page, plate: state === "many" ? "4444444" : "1234567", back: realBack, reopen };
   [c.fullW, c.fullH] = await page.evaluate(() => [innerWidth, innerHeight]).catch(() => [0, 0]);
   const ui0 = sysUiPid(), seen = []; let prev = null;
   for (const [name, act, expect] of J.steps) {
@@ -451,7 +451,7 @@ const zoomOf = (page) => page.evaluate(() => { const s = document.createElement(
 const screenOf = (page) => page.evaluate(() => ({ screen: document.body.dataset.screen, sheet: [...document.querySelectorAll(".sheet:not([hidden]), #compareSheet:not([hidden])")].map((e) => e.id || e.className).join(","), car: ((document.querySelector("#chead .mini-plate") || {}).textContent || "").replace(/\D/g, ""), tab: typeof currentTab !== "undefined" ? currentTab : null, url: location.search + location.hash, msg: [...document.querySelectorAll("#out .msg")].map((m) => m.textContent).join(" | ").slice(0, 80) }));
 async function waitFor(page, ok, ms = 12000) { const t0 = Date.now(); let s; while (Date.now() - t0 < ms) { s = await screenOf(page).catch(() => null); if (s && ok(s)) return s; await sleep(400); } return s; }
 const said = (s) => (s ? `${s.screen}${s.sheet ? " " + s.sheet : ""}, car ${s.car || "-"}, tab ${s.tab}${s.msg ? `, "${s.msg}"` : ""}` : "no page");
-// in the owner's state: 1234567 is the user's own car (saved, with its file and an open recall), 7654321 a car seen in an ad
+// in the owner's state: 1234567 is the user's own car (saved, with its file and an open recall), 4444444 a car seen in an ad
 async function entries(page, sc) {
   const run = `entries/owner/${sc.id}/light`; cur.run = run; cur.step = "load";
   await prepare(page, "owner", "light");
@@ -472,8 +472,8 @@ async function entries(page, sc) {
   await warm("alert-test", `${flags} -d luchit://plate/1234567 --es plate 1234567 --es nkind test`, (s) => s.screen === "car" && s.car === "1234567" && s.tab === "file", "a tapped test alert should open the user's own car in its file");
   await warm("alert-owner", `${flags} -d luchit://plate/1234567 --es plate 1234567 --es nkind owner`, (s) => s.screen === "car" && s.car === "1234567" && s.tab === "overview", "a tapped owner alert should open the car on its overview");
   await warm("share-text", `-a android.intent.action.SEND -t text/plain --es android.intent.extra.TEXT 'למכירה טויוטה קורולה 2021 טלפון 050-0000000 מספר רכב 12-345-67'`, (s) => s.screen === "car" && s.car === "1234567", "an ad shared into the app should check its plate (not the phone number)");
-  await warm("app-link", `-a android.intent.action.VIEW -d 'https://luchit.app/?plate=7654321&s=wa'`, (s) => s.screen === "car" && s.car === "7654321", "a luchit.app link with a plate should open that car");
-  await warm("compare-link", `-a android.intent.action.VIEW -d 'https://luchit.app/?compare=1234567,7654321'`, (s) => /compare/i.test(s.sheet) || s.screen === "sub", "a luchit.app comparison link should open the comparison");
+  await warm("app-link", `-a android.intent.action.VIEW -d 'https://luchit.app/?plate=4444444&s=wa'`, (s) => s.screen === "car" && s.car === "4444444", "a luchit.app link with a plate should open that car");
+  await warm("compare-link", `-a android.intent.action.VIEW -d 'https://luchit.app/?compare=1234567,4444444'`, (s) => /compare/i.test(s.sheet) || s.screen === "sub", "a luchit.app comparison link should open the comparison");
   // a campaign link with the app open brings it to the front where it was (the page counts the visit; nothing else should move)
   cur.step = "campaign-link";
   sh(`am start -n ${ACT} -a android.intent.action.VIEW -d 'https://luchit.app/?utm_source=facebook&utm_campaign=market'`); await sleep(1500);

@@ -43,15 +43,15 @@ const server = http.createServer((req, res) => {
 const iso = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) + "T00:00:00"; };
 const day = (n) => iso(n).slice(0, 10);
 const CAR = { _id: 1, mispar_rechev: 1234567, tozeret_nm: "טויוטה יפן", kinuy_mishari: "COROLLA", degem_nm: "ZRE172", shnat_yitzur: 2021, tzeva_rechev: "לבן", sug_delek_nm: "בנזין", tokef_dt: iso(400), mivchan_acharon_dt: iso(-330), moed_aliya_lakvish: "2021-5", tozeret_cd: 1, degem_cd: 1, nefach_manoa: 1798, baalut: "פרטי" };
-const CAR2 = { ...CAR, _id: 2, mispar_rechev: 7654321, tozeret_nm: "מרצדס בנץ גרמניה", kinuy_mishari: "GLE 450 4MATIC COUPE AMG LINE PREMIUM PLUS", degem_nm: "GLE450-4MATIC-COUPE-X", tzeva_rechev: "אפור כהה מטלי פנינה", tozeret_cd: 9, shnat_yitzur: 2023 };
-const RECS = { 1234567: CAR, 7654321: CAR2 };
+const CAR2 = { ...CAR, _id: 2, mispar_rechev: 4444444, tozeret_nm: "מרצדס בנץ גרמניה", kinuy_mishari: "GLE 450 4MATIC COUPE AMG LINE PREMIUM PLUS", degem_nm: "GLE450-4MATIC-COUPE-X", tzeva_rechev: "אפור כהה מטלי פנינה", tozeret_cd: 9, shnat_yitzur: 2023 };
+const RECS = { 1234567: CAR, 4444444: CAR2 };
 // the ministry's per-car list of unfixed recalls: 1234567 has one open (16100, as the many-cars fixture keeps it), so its recalls tab is
 // walked and a tapped recall alert has a tab to open
 const OPEN_RECALLS = { 1234567: [{ _id: 1, MISPAR_RECHEV: 1234567, RECALL_ID: 16100, SUG_RECALL: "רגיל", TAARICH_PTICHA: iso(-200) }] };
 const S1 = { plate: "1234567", title: "טויוטה COROLLA", sub: "2021 · לבן", at: 1, reg: "active", tokef: day(400), mivchan: day(-330), recalls: 0, checked: 1, owners: 1, active: true, events: [], alerts: true, color: "לבן" };
 const MANY = [
   { plate: "1234567", title: "טויוטה COROLLA", sub: "2021", nick: "רכב המשפחה", at: 1, reg: "active", tokef: day(25), mivchan: day(-340), recalls: 1, recIds: "16100", checked: 1, owners: 1, active: true, events: [], alerts: true, color: "כסף מטלי" },
-  { plate: "7654321", title: "מרצדס בנץ GLE 450 4MATIC COUPE AMG LINE PREMIUM", sub: "2023", nick: "הרכב של העבודה עם שם ארוך מאוד שלא נגמר", at: 2, reg: "active", tokef: day(-12), mivchan: day(-377), recalls: 2, checked: 1, owners: 3, active: true, events: [], alerts: true, color: "אפור כהה מטלי פנינה" },
+  { plate: "4444444", title: "מרצדס בנץ GLE 450 4MATIC COUPE AMG LINE PREMIUM", sub: "2023", nick: "הרכב של העבודה עם שם ארוך מאוד שלא נגמר", at: 2, reg: "active", tokef: day(-12), mivchan: day(-377), recalls: 2, checked: 1, owners: 3, active: true, events: [], alerts: true, color: "אפור כהה מטלי פנינה" },
   // made-up plates in the pattern the still-screen guardian uses (ui-guardian.cjs), never a real car's
   ...[["11122233", "מאזדה CX-5", "אדום"], ["33344455", "סקודה OCTAVIA", "שחור"], ["55566677", "יונדאי IONIQ 5", "לבן"], ["88899900", "קיה SPORTAGE", "כחול"], ["22233344", "פולקסווגן GOLF", "אפור"], ["44455566", "הונדה CIVIC", "כסף"]]
     .map(([plate, title, color], i) => ({ plate, title, sub: String(2016 + i), at: 3 + i, reg: "active", tokef: day(60 + 40 * i), mivchan: day(-300 + 20 * i), recalls: 0, checked: 1, owners: 1 + (i % 3), active: true, events: [], alerts: true, color })),
@@ -75,7 +75,7 @@ const STATES = {
   empty: {},
   owner: { savedVehicles: JSON.stringify([S1]), recentPlates: '["1234567"]', ...OWNER },
   one: { savedVehicles: JSON.stringify([S1]), recentPlates: '["1234567"]' },
-  many: { savedVehicles: JSON.stringify(MANY), recentPlates: JSON.stringify(["7654321", "1234567", "11122233", "33344455", "55566677", "88899900"]) },
+  many: { savedVehicles: JSON.stringify(MANY), recentPlates: JSON.stringify(["4444444", "1234567", "11122233", "33344455", "55566677", "88899900"]) },
 };
 
 // the app's bridge as MainActivity defines it, so the app runs here call what the phone has (a share, the calendar, the voice search)
@@ -266,41 +266,41 @@ const JOURNEYS = [
     ["check", check(), isCar()],
     ["to-cars", nav("cars"), (m) => m.screen === "cars" || "cars"],
     ["plus", tap("#out [data-act=addCar]"), (m) => m.screen === "home" && !m.carOn && m.home && (m.plateVal || "") === "" && m.focus === "plate" || `"+" should open an empty, focused plate field; got screen ${m.screen}, car ${m.carPlate || "none"}, field "${m.plateVal}", focus ${m.focus}`],
-    ["check-2", check("7654321"), (m) => m.screen === "car" && m.carPlate === "7654321" && m.starOn && m.navCur === "cars" || `a car checked after "+" should be in הרכבים שלי (star ${m.starOn}, tab ${m.navCur}, screen ${m.screen} ${m.carPlate})`],
-    ["arrow", tap("#chead [data-act=back]"), (m) => m.screen === "cars" && m.listed.includes("7654321") || `the arrow after "+" should return to הרכבים שלי with the new car, got ${m.screen} [${m.listed.join(",")}]`],
+    ["check-2", check("4444444"), (m) => m.screen === "car" && m.carPlate === "4444444" && m.starOn && m.navCur === "cars" || `a car checked after "+" should be in הרכבים שלי (star ${m.starOn}, tab ${m.navCur}, screen ${m.screen} ${m.carPlate})`],
+    ["arrow", tap("#chead [data-act=back]"), (m) => m.screen === "cars" && m.listed.includes("4444444") || `the arrow after "+" should return to הרכבים שלי with the new car, got ${m.screen} [${m.listed.join(",")}]`],
   ] },
   // "ביטול" on the snack bar after "+": the car is not kept, and the list stays as it was
   { name: "plus-undo", once: true, steps: [
     ["to-cars", nav("cars"), (m) => m.screen === "cars" || "cars"],
     ["plus", tap("#out [data-act=addCar]"), (m) => m.screen === "home" && m.focus === "plate" || `"+": ${m.screen}, focus ${m.focus}`],
-    ["check", check("7654321"), (m) => m.screen === "car" && m.starOn && /נוסף/.test(m.snack) || `after "+" the car is saved and the snack bar offers ביטול (star ${m.starOn}, snack "${m.snack}")`],
-    ["undo", tap("#snack [data-s=go]"), (m) => m.screen === "car" && m.carPlate === "7654321" && !m.starOn && !m.snack || `ביטול should leave the car page with the car not saved (star ${m.starOn}, snack "${m.snack}", ${m.screen})`],
-    ["arrow", tap("#chead [data-act=back]"), (m) => m.screen === "cars" && !m.listed.includes("7654321") || `after ביטול the list should not have the car: ${m.screen} [${m.listed.join(",")}]`],
+    ["check", check("4444444"), (m) => m.screen === "car" && m.starOn && /נוסף/.test(m.snack) || `after "+" the car is saved and the snack bar offers ביטול (star ${m.starOn}, snack "${m.snack}")`],
+    ["undo", tap("#snack [data-s=go]"), (m) => m.screen === "car" && m.carPlate === "4444444" && !m.starOn && !m.snack || `ביטול should leave the car page with the car not saved (star ${m.starOn}, snack "${m.snack}", ${m.screen})`],
+    ["arrow", tap("#chead [data-act=back]"), (m) => m.screen === "cars" && !m.listed.includes("4444444") || `after ביטול the list should not have the car: ${m.screen} [${m.listed.join(",")}]`],
   ] },
   // "ביטול" after "+" when the car's file was opened in those seconds: the file goes too (a file belongs to a saved car)
   { name: "plus-undo-file", once: true, web: true, steps: [
     ["to-cars", nav("cars"), (m) => m.screen === "cars" || "cars"],
     ["plus", tap("#out [data-act=addCar]"), (m) => m.screen === "home" && m.focus === "plate" || `"+": ${m.screen}, focus ${m.focus}`],
-    ["check", check("7654321"), (m) => m.screen === "car" && m.starOn && /נוסף/.test(m.snack) || `after "+" the car is saved and the snack bar offers ביטול (star ${m.starOn}, snack "${m.snack}")`],
+    ["check", check("4444444"), (m) => m.screen === "car" && m.starOn && /נוסף/.test(m.snack) || `after "+" the car is saved and the snack bar offers ביטול (star ${m.starOn}, snack "${m.snack}")`],
     ["file", tap("#out [data-cf=mine]"), (m) => m.screen === "car" && m.tab === "file" && /נוסף/.test(m.snack) || `the file opened while the snack bar is up (tab ${m.tab}, snack "${m.snack}")`],
-    ["undo", tap("#snack [data-s=go]"), async (m, c) => { const mark = await c.page.evaluate(() => { try { return (JSON.parse(localStorage.getItem("mine") || "{}") || {})["7654321"]; } catch { return "?"; } });
+    ["undo", tap("#snack [data-s=go]"), async (m, c) => { const mark = await c.page.evaluate(() => { try { return (JSON.parse(localStorage.getItem("mine") || "{}") || {})["4444444"]; } catch { return "?"; } });
       return m.screen === "car" && !m.starOn && m.tab === "overview" && mark === undefined || `ביטול should take back the file opened since "+" too (star ${m.starOn}, tab ${m.tab}, mark ${mark})`; }],
   ] },
   // the iPhone's website, the first car saved: the sheet on putting לוחית on the home screen opens once, a tap beside it closes it, and
   // the page goes on (the other journeys start as a person who has seen it)
   { name: "home-sheet", only: "one", web: true, when: (c) => c.dev.ua === "phone", ls: { homeSheet: null }, steps: [
-    ["check", check("7654321"), isCar("7654321")],
+    ["check", check("4444444"), isCar("4444444")],
     ["save", async (p) => { await tap("#chead [data-act=save]")(p); await p.waitForSelector("#homeSheet", { state: "visible", timeout: 3000 }).catch(() => {}); },
       (m) => m.sheet === "homeSheet" && m.starOn || `the first car saved on an iPhone should open "לוחית במסך הבית" (sheet ${m.sheet}, star ${m.starOn})`],
     ["beside", async (p) => p.locator("#homeSheet").click({ position: { x: 20, y: 20 }, timeout: 4000 }), (m) => !m.sheet && m.screen === "car" || `a tap beside the sheet should close it, got ${m.sheet || "no sheet"} on ${m.screen}`],
-    ["cars", nav("cars"), (m) => m.screen === "cars" && m.listed.includes("7654321") || `after the sheet הרכבים שלי should list the saved car, got ${m.screen} [${m.listed.join(",")}]`],
-    ["once", async (p) => { await tap('#out [data-open="7654321"]')(p); await settle(p); await tap("#chead [data-act=save]")(p); await tap("#chead [data-act=save]")(p); await p.waitForTimeout(1500); },
-      (m) => !m.sheet && m.starOn && m.carPlate === "7654321" || `the sheet opens once: the car saved again got ${m.sheet || "no sheet"} (star ${m.starOn}, ${m.screen} ${m.carPlate})`],
+    ["cars", nav("cars"), (m) => m.screen === "cars" && m.listed.includes("4444444") || `after the sheet הרכבים שלי should list the saved car, got ${m.screen} [${m.listed.join(",")}]`],
+    ["once", async (p) => { await tap('#out [data-open="4444444"]')(p); await settle(p); await tap("#chead [data-act=save]")(p); await tap("#chead [data-act=save]")(p); await p.waitForTimeout(1500); },
+      (m) => !m.sheet && m.starOn && m.carPlate === "4444444" || `the sheet opens once: the car saved again got ${m.sheet || "no sheet"} (star ${m.starOn}, ${m.screen} ${m.carPlate})`],
   ] },
   // "יש לכם כבר רכב? פתחו לו תיק" on home: the car checked next opens straight in its file, saved, and the line is gone
   { name: "file-door", when: (c) => c.state === "one", steps: [
     ["door", tap("#out [data-act=fileHome]"), (m) => m.screen === "home" && m.focus === "plate" || `the home file line should lead to the plate field, got ${m.screen}, focus ${m.focus}`],
-    ["check", check("7654321"), (m) => m.screen === "car" && m.carPlate === "7654321" && m.tab === "file" && m.starOn || `a car checked from "פתחו לו תיק" should open in its file, saved (tab ${m.tab}, star ${m.starOn}, ${m.screen} ${m.carPlate})`],
+    ["check", check("4444444"), (m) => m.screen === "car" && m.carPlate === "4444444" && m.tab === "file" && m.starOn || `a car checked from "פתחו לו תיק" should open in its file, saved (tab ${m.tab}, star ${m.starOn}, ${m.screen} ${m.carPlate})`],
     ["home", nav("search"), (m) => m.screen === "home" && !m.fileDoor || `home after opening a file: ${m.screen}, the file line ${m.fileDoor ? "still there" : "gone"}`],
   ] },
   { name: "saved", when: (c) => c.state !== "empty", steps: [
@@ -387,11 +387,11 @@ const JOURNEYS = [
   { name: "offline", once: true, steps: [
     ["go-offline", async (p, c) => { c.net.offline = true; await c.ctx.setOffline(true); }, null],
     // a car not looked up in this session (one checked earlier is kept in memory and is shown, rightly, without the network)
-    ["check", check("7654321"), (m) => /אין חיבור לאינטרנט/.test(m.msg) && !m.loading || `offline check should say there is no connection, got "${m.msg.slice(0, 60)}" on ${m.screen}`],
+    ["check", check("4444444"), (m) => /אין חיבור לאינטרנט/.test(m.msg) && !m.loading || `offline check should say there is no connection, got "${m.msg.slice(0, 60)}" on ${m.screen}`],
     ["cars", nav("cars"), (m) => m.screen === "cars" || "cars"],
     ["search", nav("search"), (m) => m.screen === "home" && !/אין חיבור/.test(m.msg) || `search after an offline error: ${m.screen} "${m.msg.slice(0, 40)}"`],
     ["online", async (p, c) => { c.net.offline = false; await c.ctx.setOffline(false); }, null],
-    ["check-again", check("7654321"), isCar("7654321")],
+    ["check-again", check("4444444"), isCar("4444444")],
   ] },
   { name: "registry-500", once: true, gov: "500", steps: [
     ["check", check(), (m) => m.msg.length > 10 && !m.loading || `a registry error should show a message, got "${m.msg}" on ${m.screen}`],
@@ -430,20 +430,20 @@ const JOURNEYS = [
   // app: the ways the app hands the page something (here the browser stands in for MainActivity; app-real.cjs sends the same through
   // Android on an emulator): a tapped alert opens its car on the tab its kind belongs to, the launcher shortcuts, an ad shared into the
   // app (its price, mileage and phone number are not the plate), the voice search, an update offer
-  // (in the owner's state: 1234567 is the user's own car, with its file; 7654321 is someone else's car the user follows)
+  // (in the owner's state: 1234567 is the user's own car, with its file; 4444444 is someone else's car the user follows)
   { name: "from-app", app: true, only: "owner", steps: [
     ["alert-recall", async (p) => { await p.evaluate(() => window.openAlert("1234567", "recall")); await settle(p); }, (m) => m.screen === "car" && m.carPlate === "1234567" && m.tab === "recalls" || `a tapped recall alert should open 1234567 on its recalls tab, got ${m.screen} ${m.carPlate} tab ${m.tab}`],
     ["alert-test", async (p) => { await p.evaluate(() => window.openAlert("1234567", "test")); await settle(p); }, (m) => m.screen === "car" && m.carPlate === "1234567" && m.tab === "file" || `a tapped test alert should open the user's own car in its file, got ${m.screen} ${m.carPlate} tab ${m.tab}`],
-    ["alert-test-other", async (p) => { await p.evaluate(() => window.openAlert("7654321", "test")); await settle(p); }, (m) => m.screen === "car" && m.carPlate === "7654321" && m.tab === "overview" || `a tapped test alert of a car without a file should open its overview, got ${m.screen} ${m.carPlate} tab ${m.tab}`],
+    ["alert-test-other", async (p) => { await p.evaluate(() => window.openAlert("4444444", "test")); await settle(p); }, (m) => m.screen === "car" && m.carPlate === "4444444" && m.tab === "overview" || `a tapped test alert of a car without a file should open its overview, got ${m.screen} ${m.carPlate} tab ${m.tab}`],
     ["alert-owner", async (p) => { await p.evaluate(() => window.openAlert("1234567", "owner")); await settle(p); }, (m) => m.screen === "car" && m.carPlate === "1234567" && m.tab === "overview" || `a tapped owner alert should open 1234567 on its overview, got ${m.screen} ${m.carPlate} tab ${m.tab}`],
     ["shortcut-saved", (p) => p.evaluate(() => window.appAction("saved")), (m) => m.screen === "cars" && !m.sheet || `the shortcut הרכבים שלי should open הרכבים שלי, got ${m.screen} ${m.sheet || ""}`],
     ["shortcut-compare", (p) => p.evaluate(() => window.appAction("compare")), (m) => /compare/i.test(m.sheet || "") || m.screen === "sub" || `the shortcut השוואה should open the comparison, got ${m.screen} ${m.sheet || ""}`],
     ["compare-back", back, (m) => !/compare/i.test(m.sheet || "") && m.screen !== "sub" || `Back should close the comparison the shortcut opened, got ${m.screen} ${m.sheet || ""}`],
-    ["compare-link", async (p) => { await p.evaluate(() => window.loadCompareLink("1234567,7654321")); await p.waitForTimeout(600); }, (m) => m.screen === "sub" || `a luchit.app comparison link should open the comparison of both cars, got ${m.screen} ${m.sheet || ""}`],
+    ["compare-link", async (p) => { await p.evaluate(() => window.loadCompareLink("1234567,4444444")); await p.waitForTimeout(600); }, (m) => m.screen === "sub" || `a luchit.app comparison link should open the comparison of both cars, got ${m.screen} ${m.sheet || ""}`],
     ["compare-link-back", back, (m) => m.screen !== "sub" || `Back should leave the comparison a link opened, got ${m.screen}`],
     ["shared-ad", async (p) => { await p.evaluate(() => window.onSharedText('למכירה טויוטה קורולה 2021, 66,000 ק"מ, 89,000 ₪. טלפון 050-0000000. מספר רכב 12-345-67')); await settle(p); }, (m) => m.screen === "car" && m.carPlate === "1234567" || `an ad shared into the app should check its plate 12-345-67 (not the phone, the price or the mileage), got ${m.screen} ${m.carPlate}`],
     ["shared-none", (p) => p.evaluate(() => window.onSharedText("נתראה מחר בשמונה")), (m) => m.screen === "home" && !m.carOn || `a shared text without a plate should lead home with a note, got ${m.screen}`],
-    ["voice", async (p) => { await p.evaluate(() => window.onVoiceResult("שבע שש חמש ארבע שלוש שתיים אחת")); await settle(p); }, (m) => m.screen === "car" && m.carPlate === "7654321" || `the voice search heard 7654321 and should check it, got ${m.screen} ${m.carPlate}`],
+    ["voice", async (p) => { await p.evaluate(() => window.onVoiceResult("שבע שש חמש ארבע שלוש שתיים אחת")); await settle(p); }, (m) => m.screen === "car" && m.carPlate === "4444444" || `the voice search heard 4444444 and should check it, got ${m.screen} ${m.carPlate}`],
     ["update", (p) => p.evaluate(() => { try { localStorage.removeItem("updAsked"); } catch {} window.onUpdateState("available"); }), (m) => /גרסה חדשה/.test(m.snack) || `an available update should be offered on the snack bar, got "${m.snack}"`],
     ["home", nav("search"), (m) => m.screen === "home" && m.home || `home: ${m.screen}`],
   ] },
@@ -464,7 +464,7 @@ const JOURNEYS = [
   { name: "bar-field", web: true, once: true, devOnly: true, steps: [
     ["check", check(), isCar()],
     ["bar-field", async (p) => { await p.click("#bnPlate"); await p.waitForTimeout(150); }, (m) => !!m.nav && m.focus === "bnPlate" || `typing in the top bar's plate field hides the bar with the field in it (bar ${m.nav ? "shown" : "hidden"}, focus ${m.focus})`],
-    ["bar-check", async (p) => { await p.fill("#bnPlate", "7654321"); await p.press("#bnPlate", "Enter"); await settle(p); }, isCar("7654321")],
+    ["bar-check", async (p) => { await p.fill("#bnPlate", "4444444"); await p.press("#bnPlate", "Enter"); await settle(p); }, isCar("4444444")],
   ] },
 ];
 // the keyboard is open: the field has the focus and is in view with its button, and the bottom bar is out of the way
@@ -599,7 +599,7 @@ async function runJourney(browser, dev, theme, stateName, J) {
   await page.goto(`http://127.0.0.1:${server.address().port}/`);
   await page.waitForSelector("#homeMark", { state: "attached", timeout: 15000 }).catch(() => add("block", "logic", run, step, "home did not render"));
   await page.addStyleTag({ content: "*{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}" });
-  const c = { dev, theme, state: stateName, app, ctx, net, page, plate: stateName === "many" ? "7654321" : "1234567" };
+  const c = { dev, theme, state: stateName, app, ctx, net, page, plate: stateName === "many" ? "4444444" : "1234567" };
   const seen = [];   // per step: {step, screen, nav, col, vw}
   let prev = null;
   for (const [name, act, expect] of J.steps) {
@@ -700,7 +700,7 @@ async function runSweep(browser, dev, stateName, S) {
     await page.goto(`http://127.0.0.1:${server.address().port}/`);
     await page.waitForSelector("#homeMark", { state: "attached", timeout: 15000 });
     await page.addStyleTag({ content: "*{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}" });
-    const c = { dev, theme: "light", state: stateName, app, ctx, net, page, plate: stateName === "many" ? "7654321" : "1234567" };
+    const c = { dev, theme: "light", state: stateName, app, ctx, net, page, plate: stateName === "many" ? "4444444" : "1234567" };
     for (const act of S.steps) await act(page, c);
     await page.waitForTimeout(300);
     base = await measure(page);

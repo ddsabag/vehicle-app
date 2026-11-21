@@ -222,7 +222,7 @@ async function runPage(browser, fx, theme, width) {
 async function appFileChecks(page, label) {
   await page.click(".tabs [data-tab=file]"); await page.waitForTimeout(300);
   const c = await page.evaluate(() => ({ tab: currentTab, ask: (document.querySelector("#tabpanel .cf-ask b") || {}).textContent || "" }));
-  if (c.tab !== "file" || !/^הטסט ב-\d{1,2}\.\d{1,2}\.\d{2}\. נזכיר שבועיים לפני\.$/.test(c.ask)) { fail(`[${label}] the owner's file does not ask for the alerts with the test date: ${JSON.stringify(c)}`); return; }
+  if (c.tab !== "file" || !/^הטסט ב-\d{1,2}\.\d{1,2}\.\d{2}\. נזכיר חודש ושבוע לפני\.$/.test(c.ask)) { fail(`[${label}] the owner's file does not ask for the alerts with the test date: ${JSON.stringify(c)}`); return; }
   await page.click("#tabpanel .cf-ask [data-bm=askOn]"); await page.waitForTimeout(900);
   const a = await page.evaluate(() => ({ on: window.__app.alerts, card: !!document.querySelector("#tabpanel .cf-ask"), kept: JSON.parse(localStorage.getItem("alertAsk") || "{}")[current.plate] }));
   if (a.on.join() !== "true" || a.card || a.kept !== "granted") fail(`[${label}] "הפעלת תזכורות": ${JSON.stringify(a)}`);
