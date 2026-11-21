@@ -7,6 +7,8 @@ import {buildLanding, brandPage} from "./landing.mjs";
 import {recallBuilder} from "./model-recalls.mjs";
 import {factsHash} from "./model-answers.mjs";
 const N = Number(process.argv[2]) || 200, SITE = "https://luchit.app/";
+// how far the ministry's per-car recall list reaches (catalog-data meta.json recHz.d), shown with the open-recall rate
+const REC_HZ = (() => { try { const d = JSON.parse(fs.readFileSync((process.env.CAT_DIR || "cat-data") + "/meta.json", "utf8")).recHz?.d; return d ? String(d).slice(0, 10).split("-").reverse().join(".") : ""; } catch { return ""; } })();
 const ms = JSON.parse(fs.readFileSync("modelstats.json", "utf8")), cat = JSON.parse(fs.readFileSync("models.json", "utf8"));
 const COUNTRY = /\s+(יפן|בריטניה|אנגליה|צרפת|גרמניה|קוריאה|ד\. קוריאה|ספרד|צ'כיה|צכיה|טורקיה|סין|ארה"ב|ארהב|איטליה|תאילנד|הודו|מקסיקו|הונגריה|סלובקיה|פולין|רומניה|בלגיה|שבדיה|אוסטריה|פורטוגל|דרום אפריקה|ברזיל|קנדה|הולנד|סלובניה|רוסיה|מרוקו|אינדונזיה|מלזיה|טייוואן|ישראל|אפרי)\.?$/;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
@@ -39,11 +41,12 @@ for (const [key, v] of Object.entries(ms.m)) {
   if (v.total > e.big) { e.big = v.total; e.cd = cd; e.reg = v.name; e.disp = raw.toUpperCase().replace(/\s+/g, " ").split(" ").filter(x => !NOISE.has(x)).join(" ") || raw; }
   e.total += v.total;
   for (const [yr, a] of Object.entries(v.y)) {
-    const t = e.y[yr] || (e.y[yr] = {act: 0, off: 0, kmw: 0, kmn: 0, ow: 0, own: 0, rc: 0});
+    const t = e.y[yr] || (e.y[yr] = {act: 0, off: 0, kmw: 0, kmn: 0, ow: 0, own: 0, rc: 0, rcn: 0});
     t.act += a[0]; t.off += a[1];
     if (a[2]) { t.kmw += a[2] * a[0]; t.kmn += a[0]; }
     if (a[3]) { t.ow += a[3] * a[0]; t.own += a[0]; }
-    if (a[4]) t.rc += a[4] * a[0] / 1000;
+    // a[4]: active cars with an open (unfixed) recall per 1,000 active cars, from the per-car recall list; only years with 100+ active cars (data 21.11)
+    if (a[0] >= 100) { t.rcn += a[0]; if (a[4]) t.rc += a[4] * a[0] / 1000; }
   }
   g.set(k, e);
 }
@@ -121,7 +124,7 @@ for (const m of models) {
   const expOff = rows.reduce((s, r) => { const n = NAT[r.yr]; return s + (n && n.act + n.off ? (r.act + r.off) * n.off / (n.act + n.off) : 0); }, 0);
   const offRel = expOff >= 30 ? off / expOff : null, offPct = act + off ? off / (act + off) * 100 : 0;
   const kmRel = weighted(rows, r => r.km, n => n && n.kmn ? n.kmw / n.kmn : 0), owRel = weighted(rows, r => r.ow, n => n && n.own ? n.ow / n.own : 0);
-  const rc = years.reduce((s, y) => s + m.y[y].rc, 0), rcPer = act ? rc / act * 1000 : 0;
+  const rc = years.reduce((s, y) => s + m.y[y].rc, 0), rcn = years.reduce((s, y) => s + m.y[y].rcn, 0), rcPer = rcn ? rc / rcn * 1000 : 0;
   const dv = deliv.get(m.make.split(" ")[0] + "|" + m.model);
   let d12 = 0, p12 = 0; if (dv && lastKey) { d12 = sumRange(dv, ymAdd(lastKey, -11), lastKey); p12 = sumRange(dv, ymAdd(lastKey, -23), ymAdd(lastKey, -12)); }
   const prs = cr.filter(r => r[4] > 0 && r[3] >= Number(hi) - 1).map(r => r[4]);
@@ -132,14 +135,14 @@ for (const m of models) {
     offRel === null ? "" : `שיעור הירידה מהכביש הוא ${relText(offRel, "בשנתונים המקבילים")}. ההשוואה נעשית שנתון מול שנתון, כדי שדגם ותיק לא ייראה גרוע רק בגלל גילו.`,
     kmRel === null ? "" : `הק״מ הטיפוסי בטסט האחרון הוא ${relText(kmRel, "של רכבים מאותם שנתונים")}.`,
     owRel === null ? "" : `מספר רשומות הבעלות לרכב הוא ${relText(owRel, "בשנתונים המקבילים")}. הנתון כולל גם העברות בין חברות ליסינג וסוחרים.`,
-    rcPer >= 0.5 ? `לדגם יש כ-${rcPer.toFixed(0)} ריקולים רשומים לכל 1,000 רכבים פעילים (לפי מאגר הריקולים של משרד התחבורה, לפי התאמת דגם ושנתון).` : "",
+    rcPer >= 0.5 ? `כ-${rcPer.toFixed(0)} מכל 1,000 רכבים פעילים מהדגם עם ריקול פתוח שעדיין לא תוקן (לפי רשימת הריקולים לפי רכב של משרד התחבורה${REC_HZ ? `, עד ${REC_HZ}` : ""}).` : "",
     d12 >= 50 ? `מכירות רכב חדש: ${fmt(d12)} רכבים ב-12 החודשים שעד ${MKLAST.slice(4)}/${MKLAST.slice(0, 4)}${p12 >= 50 ? `, ${Math.abs(Math.round((d12 / p12 - 1) * 100)) < 3 ? "בלי שינוי משמעותי" : (d12 > p12 ? "עלייה" : "ירידה") + " של " + Math.abs(Math.round((d12 / p12 - 1) * 100)) + "%"} לעומת 12 החודשים שלפניהם` : ""}.` : "",
     prs.length && Number(hi) >= 2023 ? `מחירון משרד התחבורה לגרסאות עדכניות בקטלוג: ${Math.min(...prs) === Math.max(...prs) ? fmt(prs[0] * 1000) : fmt(Math.min(...prs) * 1000) + " עד " + fmt(Math.max(...prs) * 1000)} ₪ (${cr.length === 1 ? "גרסה אחת" : cr.length + " גרסאות"} בקטלוג בסך הכול).` : ""
   ].filter(Boolean);
   const af = {name, years: yrs, active: fmt(act), off_road: fmt(off), off_road_share: offPct.toFixed(1) + "%", peak_year: peakRow.yr, peak_year_active: fmt(peakRow.act),
     body_types: bodies, by_year: rows.slice().reverse().map(r => ({year: r.yr, active: fmt(r.act), off_road: fmt(r.off), ...(r.km ? {typical_km: fmt(r.km)} : {})})),
     ...(offRel === null ? {} : {off_road_rate_vs_same_years: relText(offRel, "בשנתונים המקבילים")}), ...(kmRel === null ? {} : {km_vs_same_years: relText(kmRel, "של רכבים מאותם שנתונים")}),
-    ...(owRel === null ? {} : {ownership_records_vs_same_years: relText(owRel, "בשנתונים המקבילים")}), ...(rcPer > 0 ? {recalls_per_1000_active: rcPer.toFixed(0)} : {}),
+    ...(owRel === null ? {} : {ownership_records_vs_same_years: relText(owRel, "בשנתונים המקבילים")}), ...(rcPer >= 0.5 ? {open_recall_cars_per_1000_active: rcPer.toFixed(0)} : {}),
     ...(d12 >= 50 ? {new_sales_12_months: fmt(d12), new_sales_until: `${MKLAST.slice(4)}/${MKLAST.slice(0, 4)}`, ...(p12 >= 50 ? {new_sales_change: Math.abs(Math.round((d12 / p12 - 1) * 100)) < 3 ? "בלי שינוי משמעותי" : (d12 > p12 ? "עלייה" : "ירידה") + " של " + Math.abs(Math.round((d12 / p12 - 1) * 100)) + "%"} : {})} : {}),
     ...(prs.length && Number(hi) >= 2023 ? {list_price_shekel: Math.min(...prs) === Math.max(...prs) ? fmt(prs[0] * 1000) : fmt(Math.min(...prs) * 1000) + " עד " + fmt(Math.max(...prs) * 1000)} : {})};
   factsOut[slugOf(m)] = af;

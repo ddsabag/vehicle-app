@@ -32,9 +32,9 @@ export function buildLanding(x) {
 
   // per-model figures used by several pages
   const stats = models.map(m => {
-    const ys = Object.entries(m.y); let act = 0, off = 0, rc = 0, exp = 0;
-    for (const [yr, t] of ys) { act += t.act; off += t.off; rc += t.rc; const n = NAT[yr]; if (n && n.act + n.off) exp += (t.act + t.off) * n.off / (n.act + n.off); }
-    return {m, act, off, rcPer: act ? rc / act * 1000 : 0, offRel: exp >= 30 ? off / exp : null};
+    const ys = Object.entries(m.y); let act = 0, off = 0, rc = 0, rcn = 0, exp = 0;
+    for (const [yr, t] of ys) { act += t.act; off += t.off; rc += t.rc; rcn += t.rcn; const n = NAT[yr]; if (n && n.act + n.off) exp += (t.act + t.off) * n.off / (n.act + n.off); }
+    return {m, act, off, rcPer: rcn ? rc / rcn * 1000 : 0, offRel: exp >= 30 ? off / exp : null};
   });
   // per-model figures for the data articles (magazine-data.mjs)
   fs.writeFileSync("model/stats.json", JSON.stringify({updated: MOD, models: stats.map(s => ({slug: slugOf(s.m), label: s.m.label, disp: s.m.disp, act: s.act, off: s.off, rcPer: Math.round(s.rcPer * 10) / 10, offRel: s.offRel === null ? null : Math.round(s.offRel * 100) / 100}))}));
@@ -54,7 +54,7 @@ export function buildLanding(x) {
       `<p>ריקול הוא קריאה של היצרן או היבואן לתקן תקלה שהתגלתה בסדרת רכבים. בלוחית מקלידים את מספר הרישוי ורואים אם רשום לרכב ריקול שעדיין לא טופל, מה הבעיה ואיך פונים ליבואן.</p>${form("בדיקת ריקול לפי מספר רישוי")}`,
       [["מה רואים בבדיקה", ul(["ריקולים פתוחים שרשומים לרכב במאגר הריקולים של משרד התחבורה.", "תיאור התקלה והתיקון כפי שהיבואן מסר.", "קישור לבדיקת הריקולים באתר היבואן, כשיש לו בדיקה כזו.", "באפליקציה: התראה כשנפתח ריקול חדש לרכב ששמרתם."])],
        ["מה עושים כשיש ריקול פתוח", `<p>ריקול הוא תיקון שהיבואן מבצע בדרך כלל ללא עלות, במרכז שירות מורשה. מתאמים תור מול היבואן ושומרים את אישור התיקון. ריקול שלא תוקן עלול למנוע בהמשך חידוש רישיון, ולכן כשקונים רכב יד שנייה כדאי לבקש מהמוכר לבצע אותו לפני העסקה או להתחשב בכך במחיר.</p>`],
-       ["הדגמים עם הכי הרבה ריקולים ביחס לגודל הצי", `<p>ריקולים רשומים לכל 1,000 רכבים פעילים, לדגמים עם לפחות 3,000 רכבים על הכביש. מספר גבוה אינו אומר שהרכב מסוכן: יבואן שמטפל בריקולים ביסודיות יופיע כאן יותר.</p>${table(["דגם", "ריקולים ל-1,000 רכבים", "רכבים פעילים"], top.map(s => [mlink(s.m), s.rcPer.toFixed(0), fmt(s.act)]))}`],
+       ["הדגמים עם הכי הרבה רכבים עם ריקול פתוח", `<p>כמה מכל 1,000 רכבים פעילים מהדגם עדיין עם ריקול פתוח שלא תוקן, לדגמים עם לפחות 3,000 רכבים על הכביש. מספר גבוה אינו אומר שהרכב מסוכן: לרוב הוא אומר שנפתח לדגם ריקול חדש והתיקונים במרכזי השירות עוד נמשכים.</p>${table(["דגם", "עם ריקול פתוח ל-1,000 רכבים", "רכבים פעילים"], top.map(s => [mlink(s.m), s.rcPer.toFixed(0), fmt(s.act)]))}`],
        ["מה הבדיקה לא מראה", "<p>ריקולים שהיבואן טרם דיווח עליהם למשרד התחבורה, ותיקונים שנעשו מחוץ לרשת השירות של היבואן. אם יש ספק, אפשר לפנות ליבואן עם מספר השלדה.</p>" + src],
        ["עוד בדיקות", others("recall").replace(/^<h2>[^<]*<\/h2>/, "")]],
       [["איך בודקים ריקול לפי מספר רכב?", "מקלידים את מספר הרישוי בלוחית ורואים את הריקולים הפתוחים שרשומים לרכב במאגר של משרד התחבורה. הבדיקה חינמית."],
@@ -158,8 +158,8 @@ export function buildLanding(x) {
   for (const [label, ms] of by) {
     const path = brandPage(label, ms.length); if (!path) continue;
     const all = [...g.values()].filter(e => brandLabel(e.make) === label);
-    let act = 0, off = 0, rc = 0, exp = 0; const years = {};
-    for (const e of all) for (const [yr, t] of Object.entries(e.y)) { act += t.act; off += t.off; rc += t.rc; years[yr] = (years[yr] || 0) + t.act; const n = NAT[yr]; if (n && n.act + n.off) exp += (t.act + t.off) * n.off / (n.act + n.off); }
+    let act = 0, off = 0, rc = 0, rcn = 0, exp = 0; const years = {};
+    for (const e of all) for (const [yr, t] of Object.entries(e.y)) { act += t.act; off += t.off; rc += t.rc; rcn += t.rcn; years[yr] = (years[yr] || 0) + t.act; const n = NAT[yr]; if (n && n.act + n.off) exp += (t.act + t.off) * n.off / (n.act + n.off); }
     const st = stats.filter(s => s.m.label === label).sort((a, b) => b.act - a.act);
     const offRel = exp >= 30 ? off / exp : null;
     const rel = r => { const d = Math.round((r - 1) * 100); return Math.abs(d) < 5 ? "בקירוב כמו הממוצע" : `${Math.abs(d)}% ${d < 0 ? "פחות" : "יותר"} מהממוצע`; };
@@ -170,8 +170,8 @@ export function buildLanding(x) {
     page(path, `${label} בישראל: דגמים, ריקולים ונתונים | לוחית`, `${label} בישראל לפי נתוני משרד התחבורה: ${fmt(act)} רכבים פעילים, הדגמים הנפוצים, ריקולים לכל 1,000 רכבים${stl.length ? " והסדרי פשרה פעילים" : ""}. בדיקת רכב לפי מספר רישוי.`,
       [["כל הדגמים", "model/"], [label]], `${label} בישראל`,
       `<p>לפי מאגרי משרד התחבורה יש בישראל כ-${fmt(act)} רכבים פעילים של ${esc(label)}. השנתון הנפוץ ביותר הוא ${peak[0]} (${fmt(peak[1])} רכבים).</p>${form(`בדיקת ${label} לפי מספר רישוי`)}`,
-      [[`הדגמים של ${label}`, table(["דגם", "רכבים פעילים", "ריקולים ל-1,000"], st.map(s => [mlink(s.m), fmt(s.act), s.rcPer >= 0.5 ? s.rcPer.toFixed(0) : "–"]))],
-       [`${label} במספרים`, ul([`${fmt(act)} רכבים פעילים ו-${fmt(off)} שירדו מהכביש.`, offRel === null ? "" : `שיעור הירידה מהכביש: ${rel(offRel)} בשנתונים המקבילים.`, act ? `כ-${(rc / act * 1000).toFixed(0)} ריקולים רשומים לכל 1,000 רכבים פעילים.` : ""].filter(Boolean))],
+      [[`הדגמים של ${label}`, table(["דגם", "רכבים פעילים", "עם ריקול פתוח ל-1,000"], st.map(s => [mlink(s.m), fmt(s.act), s.rcPer >= 0.5 ? s.rcPer.toFixed(0) : "–"]))],
+       [`${label} במספרים`, ul([`${fmt(act)} רכבים פעילים ו-${fmt(off)} שירדו מהכביש.`, offRel === null ? "" : `שיעור הירידה מהכביש: ${rel(offRel)} בשנתונים המקבילים.`, rcn && rc / rcn * 1000 >= 0.5 ? `כ-${(rc / rcn * 1000).toFixed(0)} מכל 1,000 רכבים פעילים עם ריקול פתוח שעדיין לא תוקן.` : ""].filter(Boolean))],
        ...(stl.length ? [[`הסדרי פשרה שעשויים לחול על ${label}`, stl.map(s => `<div class="card"><b>${esc(s.t)}</b> <span class="muted">${s.st === "ok" ? "אושר" : "ממתין לאישור בית המשפט"}</span><p style="margin:6px 0 0">${esc(s.b)}</p><p class="muted" style="margin:6px 0 0">${esc(s.cond)}</p></div>`).join("") + `<p><a href="${SITE}check/settlements/">כל הסדרי הפשרה</a></p>`]] : []),
        ["בדיקות לפי מספר רישוי", `<p>${TOPICS.map(([k, n]) => `<a href="${SITE}check/${k}/">${esc(n)}</a>`).join(" · ")}</p>`]],
       [[`כמה רכבים של ${label} יש בישראל?`, `לפי מאגרי משרד התחבורה כ-${fmt(act)} רכבים פעילים.`],
