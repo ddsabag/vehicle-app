@@ -17,7 +17,7 @@
 //   budget(now, env)               {cycle, cap, until, grant}: a grant's dollars from AI_GRANTS (null when the variable lacks it), else
 //                                  AI_CAP_USD (null when unset or not above 0: then open is false)
 //   open(now, env)                 true when a grant runs or AI_CAP_USD is set: the only times a bot may call Claude
-//   record(model, usage, opt)      add one reply to the total; at 80% of the cycle's cap the router gets ai:spend once a cycle
+//   record(model, usage, opt)      add one reply to the total; at 80% and 95% of the cycle's cap the router gets ai:spend and ai:spend95, once each a cycle
 //   remaining(opt)                 {cycle, used, cap, left, until} read back with the key (for a bot sizing a big run, e.g. data's last deep
 //                                  audit on 18.11), or null; never print it in a public log
 //   node ai-usage.mjs --selftest   offline
@@ -85,8 +85,11 @@ export function add(old, { usd, bot, now = new Date(), cap = 100, until = "" }) 
   t.cap = cap; t.until = until;
   const before = t.usd;
   t.usd = Math.round((t.usd + usd) * 1e6) / 1e6; t.calls++; t.by[bot] = Math.round(((t.by[bot] || 0) + usd) * 1e6) / 1e6; t.at = now.toISOString();
-  const crossed = cap > 0 && before < 0.8 * cap && t.usd >= 0.8 * cap && !t.told.includes(80) ? 80 : 0;
-  if (crossed) t.told.push(80);
+  // 95% first: one reply that crosses both tells only the higher line (and marks both told)
+  const over = p => cap > 0 && before < p / 100 * cap && t.usd >= p / 100 * cap && !t.told.includes(p);
+  const crossed = over(95) ? 95 : over(80) ? 80 : 0;
+  if (crossed === 95 && !t.told.includes(80)) t.told.push(80);
+  if (crossed) t.told.push(crossed);
   return { t, crossed, fresh: t.usd === Math.round(usd * 1e6) / 1e6 && t.calls === 1 };
 }
 
@@ -128,7 +131,7 @@ export async function record(model, u, { batch = false, env = process.env, fetch
         body: JSON.stringify({ message: "AI usage", branch: BRANCH, content: Buffer.from(body).toString("base64"), ...(sha ? { sha } : {}) }) });
       if (p.ok) {
         if (crossed) try { const r = await import("./alert.mjs");
-          await r.alert("day", "ai:spend", `💳 <b>קרדיט ה-Claude API: הבוטים השתמשו ב-80% מהקרדיט של המחזור</b>\nהמחזור נגמר ב-${ilDay(until)}. כשנגמר הקרדיט הבוטים ממשיכים בלי Claude, כמו לפני.`, "", { today: "loud" });
+          await r.alert("day", crossed === 95 ? "ai:spend95" : "ai:spend", `💳 <b>קרדיט ה-Claude API: הבוטים השתמשו ב-${crossed}% מהקרדיט של המחזור</b>\nהמחזור נגמר ב-${ilDay(until)}. כשנגמר הקרדיט הבוטים ממשיכים בלי Claude, כמו לפני.`, "", { today: "loud" });
         } catch { /* the threads still read the total */ }
         return { ok: true, crossed };
       }
@@ -172,6 +175,9 @@ if (process.argv[1] && process.argv[1].endsWith("ai-usage.mjs") && process.argv.
   r = add(r.t, { usd: 2, bot: "B", now: new Date("2026-12-03T00:00Z") });
   ok(r.crossed === 80 && r.t.usd === 81 && r.t.by.B === 2 && r.t.calls === 2, "crossing 80% tells once");
   r = add(r.t, { usd: 5, bot: "B", now: new Date("2026-12-04T00:00Z") }); ok(r.crossed === 0 && r.t.usd === 86, "not again in the same cycle");
+  r = add(r.t, { usd: 9, bot: "B", now: new Date("2026-12-05T00:00Z") }); ok(r.crossed === 95 && r.t.told.join() === "80,95", "crossing 95% tells once more");
+  r = add(r.t, { usd: 1, bot: "B", now: new Date("2026-12-05T01:00Z") }); ok(r.crossed === 0, "95% not again");
+  { const j = add(null, { usd: 96, bot: "B", now: new Date("2026-12-05T03:00Z") }); ok(j.crossed === 95 && j.t.told.join() === "80,95", "one reply past both lines tells 95% only"); }
   r = add(r.t, { usd: 1, bot: "A", now: new Date("2026-12-20T01:00Z") }); ok(r.t.cycle === "2026-12-20" && r.t.usd === 1 && r.t.told.length === 0, "a new cycle starts from zero");
   { const newer = { cycle: "g-2026-11-07", usd: 8.2, calls: 9, by: { A: 8.2 }, told: [] };
     const stale = add(JSON.parse(JSON.stringify(newer)), { usd: 0.5, bot: "B", now: new Date("2026-11-09T04:21Z") });
