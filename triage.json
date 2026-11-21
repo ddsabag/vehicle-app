@@ -1,0 +1,39 @@
+{
+ "at": "2026-11-21T14:31:56.713Z",
+ "clean": false,
+ "items": [
+  {
+   "key": "relguard:1.38.5-d7",
+   "level": "summary",
+   "src": "Release guard",
+   "last": "2026-11-21T12:45:48.972Z",
+   "link": "https://github.com/ddsabag/vehicle-app/actions/runs/44905466139"
+  }
+ ],
+ "failed": [],
+ "checks": {
+  "Alert daily": "success",
+  "Site smoke test": "success",
+  "Release guard": "success",
+  "Data truth": "success",
+  "Web watch": "success",
+  "App guardian (real app)": "success"
+ },
+ "posts": {},
+ "digest": {
+  "at": "2026-11-14T19:21:19.785Z",
+  "flag": false,
+  "forward": false
+ },
+ "row": "",
+ "note": {
+  "by": "claude-haiku-5-5",
+  "lines": [
+   {
+    "about": "Open router item relguard:1.38.5-d7 (Release guard summary, last 2026-11-21T12:45:48Z); the release guard check itself s",
+    "cause": "Unknown: the facts include no failure or log for this item, only a summary level",
+    "kind": "unknown"
+   }
+  ]
+ }
+}

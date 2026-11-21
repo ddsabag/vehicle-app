@@ -1,0 +1,46 @@
+{
+ "at": "2026-11-15T07:22:18.969Z",
+ "by": "claude-sonnet-5-5",
+ "suggestions": [
+  {
+   "about": "wf:App guardian (real app)",
+   "change": "Find and fix the root cause of the recurring ~03:30 failure, or add a bot retry that checks again before it posts. Alert only if the retry fails. Also merge the night, ring, fixed, quiet and deduped entries into one episode per day.",
+   "why": "It failed 2 of 7 runs, but the ledger shows night items on 11-10, 11-11, 11-13 and 11-15 plus a ring at 07:21 on almost every one of those mornings. The same problem rings him again and again, and it is fixed by itself each time. The 11-15 one is still open."
+  },
+  {
+   "about": "wf:App guardian (real app)",
+   "change": "Do not ring at 07:21 when the failure already has a night item and nothing has changed. Ring only if the check is still failing after a retry, or if it has been open longer than a set time.",
+   "why": "A ring follows the night item at 07:21 on 11-10, 11-11, 11-13 and 11-15. The 11-12 night item was fixed by 03:28 with no ring, so the ring adds nothing new."
+  },
+  {
+   "about": "truth:recalls and recalls",
+   "change": "Treat truth:recalls and recalls as one episode with one key. Send the day-level alert only if the fix fails.",
+   "why": "On 11-08 recalls was fixed at 11:30, truth:recalls was deduped at 11:58 and fixed at 20:42. It is the same episode reported on two keys."
+  },
+  {
+   "about": "zonea:slow:spell",
+   "change": "Keep it at summary and collapse it into one open episode that closes with a single fixed. Alternatively, find out why it keeps slowing down and fix that.",
+   "why": "It shows up on 11-09, 11-10, 11-11, 11-13, 11-14 and 11-15, mostly as quiet or deduped entries, and it is fixed and then returns each time. It never needs him."
+  },
+  {
+   "about": "social:done:* (day level)",
+   "change": "Lower these to summary, or merge them into one entry per post batch. Only a failed post should stay at day level.",
+   "why": "Every story, carousel, reel and post has its own day-level 'done' entry, and about 20 of them sit open since late October. They are just confirmations."
+  },
+  {
+   "about": "prod:sent / prod:live / prod:full / listing:done (open items)",
+   "change": "Auto-close these done notices when the next state arrives (sent then live then full), and drop them to summary. Close the old open ones from 10-25 to 11-07.",
+   "why": "About 12 of these are still open weeks later, although they only report that something finished, and nothing is waiting on him."
+  },
+  {
+   "about": "seo:daily, catalog:info, copy:*, stl:update:*",
+   "change": "Replace each daily key with one rolling entry per kind that is updated and closed when the next one arrives. Close the old open entries.",
+   "why": "seo:daily has been open since 11-04 and is queued every day. The copy, stl and catalog entries pile up with no action needed from him."
+  },
+  {
+   "about": "social:remind:2026-11-01-tiktok",
+   "change": "Have a bot post the TikTok upload, or if it needs a person, send it once as a single task. Do not keep it open.",
+   "why": "It has been open at day level since 11-02, which hands him a task a bot could do."
+  }
+ ]
+}
