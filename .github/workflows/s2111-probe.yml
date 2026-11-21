@@ -1,0 +1,27 @@
+name: Strategy talk probe 21.11 (probe-perf branch)
+# 21.11, strategy's ask for the talk: checks by day and platform, first_save/app_return by from, site visits by OS. Read-only; output
+# encrypted with .github/seo-data.pub.pem on branch probe-s2111-out.
+on:
+  push:
+    branches: [probe-perf]
+    paths: [".github/scripts/s2111-probe.mjs", ".github/workflows/s2111-probe.yml"]
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with: { node-version: 20 }
+      - run: node .github/scripts/s2111-probe.mjs
+        env:
+          GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      - name: Publish on probe-s2111-out (encrypted only)
+        run: |
+          cd out && git init -q && git checkout -q -b probe-s2111-out && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Strategy talk probe (encrypted)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" probe-s2111-out
