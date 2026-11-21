@@ -1541,7 +1541,7 @@ function demoRows(url){
   if (id.startsWith("053cea08")) return [{_id: 1, mispar_rechev: 7654321, tozeret_cd: 416, degem_cd: 990001, tozeret_nm: "קיה סלובקיה", kinuy_mishari: "SPORTAGE", degem_nm: "QL", ramat_gimur: "LX", shnat_yitzur: 2017, tzeva_rechev: "לבן", sug_delek_nm: "בנזין", nefach_manoa: 1591, tokef_dt: ago(210), moed_aliya_lakvish: "2017-05", baalut: "פרטי", mivchan_acharon_dt: ago(-150), kilometer_test_aharon: 98400, sug_degem: "P", ramat_eivzur_betihuty: 4, kvutzat_zihum: 11, mishkal_kolel: 2060, zmig_kidmi: "225/60R17", zmig_ahori: "225/60R17", degem_manoa: "G4FJ"}];
   if (id.startsWith("56063a99")) return [{mispar_rechev: 7654321, kilometer_test_aharon: 98400, mkoriut_nm: "מקורי", rishum_rishon_dt: "2017-05", shnat_yitzur: 2017}];
   if (id.startsWith("bb2355dc")) return [{mispar_rechev: 7654321, baalut_dt: 201705, baalut: "השכרה"}, {mispar_rechev: 7654321, baalut_dt: 201812, baalut: "פרטי"}, {mispar_rechev: 7654321, baalut_dt: ym(-26), baalut: "פרטי"}];
-  if (id.startsWith("36bf1404")) return [{MISPAR_RECHEV: 7654321, RECALL_ID: 990001, SUG_RECALL: "ריקול יצרן", SUG_TAKALA: "מערכת בלמים", TEUR_TAKALA: "דליפת נוזל בלמים ממשאבת ה-ABS, שעלולה להאריך את מרחק הבלימה (לדוגמה)", TAARICH_PTICHA: "2025-11-03"}];
+  if (id.startsWith("36bf1404")) return [{MISPAR_RECHEV: 7654321, RECALL_ID: 990001, SUG_RECALL: "ריקול יצרן", SUG_TAKALA: "לדוגמה", TEUR_TAKALA: "ריקול לדוגמה: כאן יופיע תיאור הריקול מהמאגר", TAARICH_PTICHA: "2025-11-03"}];
   if (id.startsWith("142afde2") || id.startsWith("39f455bf")) return [model];
   return [];
 }
@@ -4344,6 +4344,7 @@ const recRow = (D, r, pill) => `<li class="${r.fits === false ? "dim" : ""}">
 const pendPill = r => r.fits === true ? `<span class="pill warn">בשנת הייצור</span>` : r.near ? `<span class="pill">שנה סמוכה</span>` : "";
 /* the importer's own recall check (the plate, or the VIN where the importer asks for it, is copied first), else the ministry's search */
 function importerBtn(D){
+  if (isDemo(D)) return "";   // the sample car's recall is made up: no link to a real importer's site
   const imp = importerRecall(D), copy = D.plate ? (imp.vin ? D.vin || D.plate : D.plate) : "";
   return `<button type="button" class="link-btn" data-url="${esc(imp.url)}"${copy ? ` data-copyfirst="${esc(copy)}"` : ""}>${ico("search")}${imp.gov ? "חיפוש במאגר הריקולים של משרד התחבורה" : `בדיקת ריקולים וקמפיינים באתר ${esc(imp.name)}`}</button>
     <p class="note" style="margin:6px 0 0">${[copy && "מספר הרישוי יועתק, ותדביקו אותו באתר.", imp.gov ? `ל${esc(imp.name || "יבואן הזה")} לא מצאנו עמוד בדיקה לפי מספר רישוי, ובמאגר של משרד התחבורה מחפשים לפי יצרן ודגם.` : "באתר היבואן מופיעות גם קריאות שירות שאינן ריקול בטיחותי.", !imp.gov && imp.note && esc(imp.note)].filter(Boolean).join(" ")}</p>`;
