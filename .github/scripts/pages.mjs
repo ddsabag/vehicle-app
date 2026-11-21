@@ -132,7 +132,7 @@ for (const m of models) {
     offRel === null ? "" : `שיעור הירידה מהכביש הוא ${relText(offRel, "בשנתונים המקבילים")}. ההשוואה נעשית שנתון מול שנתון, כדי שדגם ותיק לא ייראה גרוע רק בגלל גילו.`,
     kmRel === null ? "" : `הק״מ הטיפוסי בטסט האחרון הוא ${relText(kmRel, "של רכבים מאותם שנתונים")}.`,
     owRel === null ? "" : `מספר רשומות הבעלות לרכב הוא ${relText(owRel, "בשנתונים המקבילים")}. הנתון כולל גם העברות בין חברות ליסינג וסוחרים.`,
-    rcPer > 0 ? `לדגם יש כ-${rcPer.toFixed(0)} ריקולים רשומים לכל 1,000 רכבים פעילים (לפי מאגר הריקולים של משרד התחבורה, לפי התאמת דגם ושנתון).` : "",
+    rcPer >= 0.5 ? `לדגם יש כ-${rcPer.toFixed(0)} ריקולים רשומים לכל 1,000 רכבים פעילים (לפי מאגר הריקולים של משרד התחבורה, לפי התאמת דגם ושנתון).` : "",
     d12 >= 50 ? `מכירות רכב חדש: ${fmt(d12)} רכבים ב-12 החודשים שעד ${MKLAST.slice(4)}/${MKLAST.slice(0, 4)}${p12 >= 50 ? `, ${Math.abs(Math.round((d12 / p12 - 1) * 100)) < 3 ? "בלי שינוי משמעותי" : (d12 > p12 ? "עלייה" : "ירידה") + " של " + Math.abs(Math.round((d12 / p12 - 1) * 100)) + "%"} לעומת 12 החודשים שלפניהם` : ""}.` : "",
     prs.length && Number(hi) >= 2023 ? `מחירון משרד התחבורה לגרסאות עדכניות בקטלוג: ${Math.min(...prs) === Math.max(...prs) ? fmt(prs[0] * 1000) : fmt(Math.min(...prs) * 1000) + " עד " + fmt(Math.max(...prs) * 1000)} ₪ (${cr.length === 1 ? "גרסה אחת" : cr.length + " גרסאות"} בקטלוג בסך הכול).` : ""
   ].filter(Boolean);
@@ -170,7 +170,7 @@ ${answerHtml}<div class="card"><b>בדקו רכב מסוים</b><p class="muted"
 ${rows.slice().reverse().map(r => `<tr><td>${r.yr}</td><td class="n">${fmt(r.act)}</td><td class="n">${fmt(r.off)}</td><td class="n">${r.km ? fmt(r.km) : "–"}</td><td class="n">${r.ow ? r.ow.toFixed(1) : "–"}</td></tr>`).join("\n")}
 </tbody></table></div><p class="muted">הק״מ הטיפוסי הוא הממוצע בטסט האחרון של רכבים מהשנתון, ומוצג רק כשיש מספיק נתונים. רשומות בעלות כוללות גם מעברים בין חברות ליסינג וסוחרים, ולכן אינן בהכרח מספר בעלים פרטיים. סה״כ ירדו מהכביש ${fmt(off)} רכבים מהדגם בשנתונים האלה.</p>
 ${extra}${extra2}${stl.length ? `<h2>הסדרי פשרה שעשויים לחול על ${esc(name)}</h2><p class="muted">לפי הודעות היבואנים והעיתונות נכון ל-10/2026. הזכאות תלויה בשנתון, בגרסה ולפעמים במספר שלדה, והרשימה אינה מקיפה ואינה ייעוץ משפטי. לבדיקה לפי מספר רישוי השתמשו באפליקציה.</p>${stl.map(t => `<div class="card"><b>${esc(t.t)}</b> <span class="muted">${t.st === "ok" ? "אושר" : "ממתין לאישור בית המשפט"}</span><p style="margin:6px 0 0">${esc(t.b)}</p><p class="muted" style="margin:6px 0 0">${esc(t.cond)}</p></div>`).join("")}` : ""}<h2>לפני שקונים ${esc(name)}</h2><p>בדקו את הרכב הספציפי לפי מספר רישוי: ריקול פתוח, תוקף טסט, קילומטראז׳ לאורך השנים והיסטוריית בעלויות, והשוו למחיר ביד שנייה.</p>
-<p><a class="cta" href="${SITE}">בדיקת רכב בלוחית</a></p>${foot.replace("</body></html>", "" + `<script type="application/ld+json">${JSON.stringify(ld)}</script>` + "</body></html>")}`;
+<p><a class="cta" href="${SITE}">בדיקת רכב בלוחית</a></p>${foot.replace("</body></html>", "" + `<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, "\\u003c")}</script>` + "</body></html>")}`;
   fs.mkdirSync(`model/${slugOf(m)}`, {recursive: true}); fs.writeFileSync(`model/${slugOf(m)}/index.html`, body);
   urls.push(url); if (MOD) lastmod[url] = MOD; m.slug = slugOf(m); m.act = act; slugMap[m.make + "|" + m.model] = m.slug;
 }
@@ -237,7 +237,7 @@ fs.writeFileSync("model/slugs.json", JSON.stringify(slugMap));
 <div class="card"><b>בדקו רכב עכשיו</b><p class="muted" style="margin:6px 0 12px">הקלידו מספר רישוי וקבלו ריקולים, טסט, בעלויות, שינויים והסדרי פשרה במסך אחד, בחינם.</p><a class="cta" href="${SITE}">לבדיקה לפי מספר רישוי</a></div>
 ${sections.map(([h, t]) => `<h2>${h}</h2>${t}`).join("")}
 <h2>שאלות נפוצות</h2>${faq.map(([q, a]) => `<div class="card"><b>${esc(q)}</b><p style="margin:6px 0 0">${esc(a)}</p></div>`).join("")}
-<p><a class="cta" href="${SITE}">בדיקת רכב בלוחית</a></p>${foot}<script type="application/ld+json">${JSON.stringify(ld)}</script>`;
+<p><a class="cta" href="${SITE}">בדיקת רכב בלוחית</a></p>${foot}<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, "\\u003c")}</script>`;
   fs.mkdirSync("guide/buy-used-car", {recursive: true}); fs.writeFileSync("guide/buy-used-car/index.html", body);
   urls.push(url);
 }
