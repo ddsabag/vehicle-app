@@ -41,3 +41,19 @@ export function siteFooter({ base = "/", disclaimer = DISCLAIMER, app = false } 
 <p class="ft-legal"><span class="ft-l">${disclaimer}</span><span>© ${year} לוחית</span></p>
 </footer>`;
 }
+
+// The site header, one source as the footer (review 12.11 F5: legal and business pages had no header, or a smaller one): the logo with the
+// name and the "לבדיקת רכב" button. pages.mjs and landing.mjs write the same markup; apply-header.mjs writes it into the pages kept by hand.
+// It brings its own style and colours (the pages' palettes differ), the same rules the generated pages carry in their heads.
+export const HEADER_CSS = `header.top{background:linear-gradient(180deg,#e2ecfd,#fff);border-bottom:1px solid #e3e7ee}header.top .in{max-width:720px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}header.top .brand{display:flex;align-items:center;gap:10px;color:#151a24;text-decoration:none}header.top img{border-radius:22%}header.top .nm{display:flex;flex-direction:column;line-height:1.15}header.top b{font-size:1.45rem;font-weight:800}header.top small{font-size:.78rem;font-weight:600;color:#5d6676}header.top .chk{display:inline-flex;align-items:center;min-height:44px;box-sizing:border-box;background:#2556c8;color:#fff;border-radius:10px;padding:9px 14px;font-weight:700;font-size:.9rem;text-decoration:none;white-space:nowrap}header.top a:focus-visible{outline:3px solid #2457c5;outline-offset:2px}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) header.top{background:linear-gradient(180deg,#182338,#121722);border-color:#2b3444}:root:not([data-theme="light"]) header.top .brand{color:#fff}:root:not([data-theme="light"]) header.top small{color:#8d98ad}:root:not([data-theme="light"]) header.top a:focus-visible{outline-color:#7ea3f2}}
+:root[data-theme="dark"] header.top{background:linear-gradient(180deg,#182338,#121722);border-color:#2b3444}:root[data-theme="dark"] header.top .brand{color:#fff}:root[data-theme="dark"] header.top small{color:#8d98ad}`;
+// style false: the generated pages, whose heads carry these rules (and the magazine's own colours after them)
+export function siteHeader({ base = "https://luchit.app/", style = true } = {}) {
+  return `${style ? `<style>${HEADER_CSS}</style>` : ""}<header class="top"><div class="in"><a class="brand" href="${base}"><img src="${base}icon-512.png" alt="" width="44" height="44"><span class="nm"><b>לוחית</b><small>בדיקת רכב לפי מספר רישוי</small></span></a><a class="chk" href="${base}">לבדיקת רכב</a></div></header>`;
+}
+
+// The plate field of the site's forms looks like the app's yellow plate, with the blue IL strip (review 12.11 F9). The strip is drawn in
+// the field's background, so the forms' markup stays as it is. It stays yellow in both themes, as the app's.
+const IL = "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="34" height="60" viewBox="0 0 34 60"><rect width="34" height="60" fill="#1d4ea8"/><text x="17" y="50" font-family="Arial,sans-serif" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">IL</text></svg>`).replace(/'/g, "%27");
+export const PF_INPUT = `form.pf input{flex:1;min-width:0;box-sizing:border-box;min-height:54px;font-family:inherit;font-size:1.35rem;font-weight:700;padding:6px 10px 6px 44px;border:3px solid #0b0b0b;border-radius:9px;background:#f6c500 url("${IL}") left center/34px 100% no-repeat;color:#111;direction:ltr;text-align:center;letter-spacing:.05em}form.pf input::placeholder{color:rgba(0,0,0,.42);font-size:1.05rem;font-weight:600}form.pf input:focus-visible{outline:3px solid #2457c5;outline-offset:2px}`;
