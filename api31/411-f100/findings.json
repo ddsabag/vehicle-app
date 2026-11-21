@@ -1,0 +1,72 @@
+[
+ {
+  "sev": "warn",
+  "kind": "wrap",
+  "run": "check/one/411-f100/light",
+  "step": "tab-buy",
+  "msg": "label on two lines on car: 1לפני שנפגשים · 2ליד הרכב · 3לפני שמשלמים · 4ביום ההעברה"
+ },
+ {
+  "sev": "warn",
+  "kind": "wrap",
+  "run": "check/one/411-f100/light",
+  "step": "tab-file",
+  "msg": "label on two lines on car: 1לפני שנפגשים · 2ליד הרכב · 3לפני שמשלמים · 4ביום ההעברה"
+ },
+ {
+  "sev": "block",
+  "kind": "logic",
+  "run": "plus/one/411-f100/light",
+  "step": "check-2",
+  "msg": "a car checked after \"+\" should be in הרכבים שלי (star false, tab cars, screen car 7654321)"
+ },
+ {
+  "sev": "block",
+  "kind": "logic",
+  "run": "plus/one/411-f100/light",
+  "step": "arrow",
+  "msg": "the arrow after \"+\" should return to הרכבים שלי with the new car, got cars [1234567]"
+ },
+ {
+  "sev": "block",
+  "kind": "logic",
+  "run": "plus-undo/one/411-f100/light",
+  "step": "check",
+  "msg": "after \"+\" the car is saved and the snack bar offers ביטול (star false, snack \"\")"
+ },
+ {
+  "sev": "block",
+  "kind": "logic",
+  "run": "plus-undo/one/411-f100/light",
+  "step": "undo",
+  "msg": "could not act: locator.click: Timeout 4000ms exceeded."
+ },
+ {
+  "sev": "block",
+  "kind": "logic",
+  "run": "file-door/one/411-f100/light",
+  "step": "check",
+  "msg": "a car checked from \"פתחו לו תיק\" should open in its file, saved (tab overview, star false, car 7654321)"
+ },
+ {
+  "sev": "block",
+  "kind": "logic",
+  "run": "file-door/one/411-f100/light",
+  "step": "home",
+  "msg": "home after opening a file: home, the file line still there"
+ },
+ {
+  "sev": "warn",
+  "kind": "wrap",
+  "run": "check/many/411-f100/dark",
+  "step": "tab-buy",
+  "msg": "label on two lines on car: 1לפני שנפגשים · 2ליד הרכב · 3לפני שמשלמים · 4ביום ההעברה"
+ },
+ {
+  "sev": "warn",
+  "kind": "wrap",
+  "run": "check/many/411-f100/dark",
+  "step": "tab-file",
+  "msg": "label on two lines on car: 1לפני שנפגשים · 2ליד הרכב · 3לפני שמשלמים · 4ביום ההעברה"
+ }
+]
