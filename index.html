@@ -573,7 +573,7 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .xk{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;font-size:.78rem;font-weight:800;background:var(--card);color:var(--muted)}
 .xrows .ok .xk{color:var(--ok)}.xrows .bad .xk{color:var(--bad)}.xrows .warn .xk{color:var(--warn)}.xrows .info .xk{color:var(--info)}.xrows .bad{font-weight:600}
 .xrows .link-btn{margin-top:6px;width:auto}.xfer .link-btn{background:var(--card)}
-.wa-btn{justify-content:center;margin-top:12px;background:var(--t-green-bg);border-color:var(--t-green);color:var(--t-green)}.wa-btn .i{color:inherit}
+.wa-btn{justify-content:center;margin-top:12px;background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}.wa-btn .i{color:inherit}
 .smsg{margin-top:10px;display:grid;gap:8px}.smsg[hidden]{display:none}
 .sm-g{display:flex;align-items:center;gap:6px;font-size:.9rem}.sm-g button{min-height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--fg);font:inherit;font-weight:700}.sm-g button[aria-pressed=true]{background:var(--fg);border-color:var(--fg);color:var(--bg)}
 .sm-q{list-style:none;margin:0;padding:0;display:grid}.sm-q label{display:flex;gap:10px;align-items:flex-start;min-height:44px;padding:6px 0;font-size:.9rem;cursor:pointer}.sm-q input{width:20px;height:20px;flex:none;margin:1px 0 0;accent-color:var(--t-green)}.sm-lu{border-top:1px solid var(--line);margin-top:4px;color:var(--muted)}
@@ -4305,7 +4305,7 @@ function tabOverview(D){
   html.push(card("שינויים ברכב", "wrench", "teal", modsCard(v)));
   html.push(...towHtml);
   // the share at the end of the overview, with a small copy of the picture (not on the owner's own car, whose header holds "מסמכים")
-  if (D.plate && !isMine(D)) html.push(`<section class="card share-end"><span class="thumb" aria-hidden="true"></span><div><b>שולחים למישהו שמתלבט איתכם?</b><p>תמונה אחת עם מה שחשוב, וקישור לדוח.</p><button type="button" class="btn" data-act="share" data-from="end">${ico("share")}שיתוף</button></div></section>`);
+  if (D.plate && !isMine(D) && !reportBuild) html.push(`<section class="card share-end"><span class="thumb" aria-hidden="true"></span><div><b>שולחים למישהו שמתלבט איתכם?</b><p>תמונה אחת עם מה שחשוב, וקישור לדוח.</p><button type="button" class="btn" data-act="share" data-from="end">${ico("share")}שיתוף</button></div></section>`);
   if (!evFirst) html.push(evCard);
   return html.join("");
 }
@@ -4622,10 +4622,10 @@ function kmJudge(D, km){
   if (km < base - 500) return {res: "below_test", k: "bad", base, km, t: `הלוח מראה ${fmtN(km)} ק״מ, פחות מ-${fmtN(base)} שנרשמו בטסט${at}. לפעמים יש לזה הסבר, כמו החלפת לוח מחוונים, אבל מבקשים מסמך שמסביר את זה לפני שממשיכים.`,
     ask: "הק״מ בלוח נמוך ממה שנרשם בטסט האחרון. יש מסמך שמסביר את זה, למשל החלפת לוח מחוונים?"};
   // a test less than a month ago, or no pace to go by: the reading itself is the only yardstick
-  if (since < 1 / 12 || !pace) return {res: "in", k: "ok", base, km, t: since < 1 / 12 ? "הק״מ בלוח מתאים לטסט האחרון, שהיה לפני פחות מחודש." : `הק״מ בלוח לא נמוך מזה שנרשם בטסט${at}. אין קצב נסיעה של הרכב להשוואה, ולכן ההשוואה היא לטסט בלבד.`};
+  if (!t || since < 1 / 12 || !pace) return {res: "in", k: "ok", base, km, t: t && since < 1 / 12 ? "הק״מ בלוח מתאים לטסט האחרון, שהיה לפני פחות מחודש." : `הק״מ בלוח לא נמוך מזה שנרשם בטסט${at}. אין קצב נסיעה של הרכב להשוואה, ולכן ההשוואה היא לטסט בלבד.`};
   const drive = pace * since, lo = Math.round(base + drive * .5), hi = Math.round(base + drive * 1.5), o = {base, km, lo, hi, at};
   if (km < lo) return {...o, res: "low", k: "warn", t: "הרכב נסע מאז הטסט הרבה פחות מהקצב הרגיל שלו. זה אפשרי (רכב שעמד), אבל שואלים למה, ובודקים מול חשבוניות.", ask: "הרכב נסע מעט מאז הטסט האחרון. הוא עמד תקופה? יש חשבוניות טיפול עם ק״מ?"};
-  if (km > hi) return {...o, res: "high", k: "info", t: `הרכב נוסע יותר מהרגיל: כ-${fmtN(Math.round((km - base) / Math.max(since, .25) / 1000) * 1000)} ק״מ בשנה. זה משפיע על המחיר ועל הטיפולים הקרובים.`};
+  if (km > hi) return {...o, res: "high", k: "info", t: `הרכב נוסע יותר מהרגיל: כ-${fmtN(Math.round((km - base) / Math.max(since, .25) / 1000) * 1000)} ק״מ בשנה (הערכה). זה משפיע על המחיר ועל הטיפולים הקרובים.`};
   return {...o, res: "in", k: "ok", t: "הק״מ בלוח מתאים לטסט האחרון ולקצב של הרכב."};
 }
 /* the result: the reading of the test, the range expected today and the dashboard, on one line (the lower values at the line's start, as the
@@ -4637,7 +4637,7 @@ function kmResult(D, km, print){
   if (j.base && j.km && !print) {
     const vals = [j.base, j.km, j.lo || j.base, j.hi || j.base], min = Math.min(...vals) * .97, max = Math.max(...vals) * 1.03, pos = v => ((v - min) / Math.max(max - min, 1) * 100).toFixed(1);
     bar = `<span class="pm-bar kmbar" aria-hidden="true">${j.lo ? `<i class="pm-band" style="inset-inline-start:${pos(j.lo)}%;width:${(pos(j.hi) - pos(j.lo)).toFixed(1)}%"></i>` : ""}<i class="pm-tick" style="inset-inline-start:${pos(j.base)}%"></i><i class="pm-dot ${j.k}" style="inset-inline-start:calc(${pos(j.km)}% - 7px)"></i></span>
-      <span class="kml"><span>הלוח <b><bdi>${fmtN(j.km)}</bdi></b></span><span>טסט${t ? " " + mY(t).replace(/\/20/, "/") : ""}: <b><bdi>${fmtN(j.base)}</bdi></b></span>${j.lo ? `<span>צפוי היום <b><bdi>${k(j.lo)}–${k(j.hi)}</bdi></b> אלף</span>` : ""}</span>`;
+      <span class="kml"><span>הלוח <b><bdi>${fmtN(j.km)}</bdi></b></span><span>טסט${t ? " " + mY(t).replace(/\/20/, "/") : ""}: <b><bdi>${fmtN(j.base)}</bdi></b></span>${j.lo ? `<span>צפוי היום (הערכה) <b><bdi>${k(j.lo)}–${k(j.hi)}</bdi></b> אלף</span>` : ""}</span>`;
   }
   return `<div class="kmres" data-res="${j.res}">${bar}<p class="vd ${j.k}">${print && j.km ? `הלוח הראה ${fmtN(j.km)} ק״מ (כפי שהקלדתם). ` : ""}${esc(j.t)}</p>${j.ask ? `<p class="note"><b>שאלה למוכר:</b> ${esc(j.ask)}</p>` : ""}</div>`;
 }
@@ -6289,11 +6289,11 @@ async function shareComparePdf(btn){
 }
 /* The share image is drawn once the report is on screen (idle time), so a tap on "שיתוף" only hands it to the phone's share menu */
 let shareWarm = null;
-const shareKey = D => [D.plate || D.title, D.fromCache || 0, D.recalls ? D.recalls.length : "", D.modelErr ? 1 : 0, kmlUnit() ? 1 : 0].join("|");
+const shareKey = D => [D.plate || D.title, D.fromCache || 0, D.recalls ? D.recalls.length : "", D.recallUnknown ? 1 : 0, (D.errs || []).length, D.modelErr ? 1 : 0, kmlUnit() ? 1 : 0].join("|");
 function warmShare(D){
   if (!D || (shareWarm && shareWarm.key === shareKey(D))) return;
   const slot = shareWarm = {key: shareKey(D), p: null};
-  const run = () => { if (shareWarm !== slot || current !== D) return; slot.p = drawShareImage(D).then(c => canvasToBlob(c, "image/jpeg", 0.9)); slot.p.then(fillShareThumb, () => {}); };
+  const run = () => { const C = current; if (shareWarm !== slot || !C || shareKey(C) !== slot.key) return; slot.p = drawShareImage(C).then(c => canvasToBlob(c, "image/jpeg", 0.9)); slot.p.then(fillShareThumb, () => {}); };
   (window.requestIdleCallback || (f => setTimeout(f, 400)))(run, {timeout: 2500});
 }
 async function shareBlob(D){
@@ -6441,7 +6441,7 @@ async function drawShareImage(D){
   const text = (t, X, Y, color, align = "right") => { x.fillStyle = color; x.textAlign = align; x.fillText(t, X, Y); };
   const fit = (t, maxW) => { let s = String(t); if (x.measureText(s).width <= maxW) return s; while (s.length > 1 && x.measureText(s + "…").width > maxW) s = s.slice(0, -1); return s + "…"; };
   const INK = "#151a24", MUT = "#5d6676", TONE = {ok: "#2e7d4f", warn: "#b7791f", bad: "#b3261e", info: "#4a6fb5"}, TINT = {ok: ["#eaf6ef", "#1f5d39"], warn: ["#fdf3e1", "#7a4f0e"], bad: ["#fbeceb", "#8c1d17"]};
-  const qrP = (async () => { if (!D.plate) return null; await loadScript(LIBS.qr); const q = window.qrcode(0, "M"); q.addData(shareLink(D.plate, "qr")); q.make(); return q; })().catch(() => null);
+  const qrP = Promise.race([(async () => { if (!D.plate) return null; await loadScript(LIBS.qr); const q = window.qrcode(0, "M"); q.addData(shareLink(D.plate, "qr")); q.make(); return q; })(), new Promise(ok => setTimeout(() => ok(null), 1500))]).catch(() => null);   // a stalled network draws the picture without the code
   x.fillStyle = "#fff"; x.fillRect(0, 0, W, H);
   // brand and the day of the check
   const logo = await loadLogo(); if (logo) x.drawImage(logo, R - 48, 48, 48, 48);
@@ -6509,9 +6509,10 @@ async function shareOne(from){
     if (br && (br.shareFileText || br.shareFile)) { await shareFile(blob, name, D.title, caption); track("share", {kind: "img", from}); return; }
     const file = new File([blob], name, {type: blob.type});
     if (navigator.canShare && navigator.canShare({files: [file]})) {
-      try { await navigator.share({files: [file], title: D.title, text: caption}); track("share", {kind: "img", from}); }
-      catch (err) { if (!err || err.name !== "AbortError") throw err; }
-      return;
+      let shared = false;
+      try { await navigator.share({files: [file], title: D.title, text: caption}); track("share", {kind: "img", from}); shared = true; }
+      catch (err) { if (err && err.name === "AbortError") return; }   // anything else (the tap's moment passed, a refused file): save and WhatsApp below
+      if (shared) return;
     }
     if (!IN_APP_BROWSER) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000); }
     openExternal("https://wa.me/?text=" + encodeURIComponent(caption));
