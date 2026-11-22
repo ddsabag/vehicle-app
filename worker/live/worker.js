@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-66";   // shown in /live/data so the running version is visible
+const BUILD = "live-67";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -18,7 +18,10 @@ async function verifyAccess(req, env) {
   const tok = req.headers.get("cf-access-jwt-assertion"); if (!tok) return false;
   const [h, p, s] = tok.split("."); if (!s) return false;
   const head = JSON.parse(new TextDecoder().decode(unb64u(h))), pay = JSON.parse(new TextDecoder().decode(unb64u(p)));
-  if (Date.now() - jwksAt > 3600e3 || !jwks) { jwks = (await (await fetch(`https://${env.ACCESS_TEAM_DOMAIN}/cdn-cgi/access/certs`, { signal: AbortSignal.timeout(10e3) })).json()).keys; jwksAt = Date.now(); }
+  const certs = async () => { jwks = (await (await fetch(`https://${env.ACCESS_TEAM_DOMAIN}/cdn-cgi/access/certs`, { signal: AbortSignal.timeout(10e3) })).json()).keys; jwksAt = Date.now(); };
+  if (Date.now() - jwksAt > 3600e3 || !jwks) await certs();
+  // Access rotates its signing keys: a kid not in the cached set fetches the keys again (at most once in 5 minutes), so a rotation is not a 403 for an hour
+  if (!jwks.some(k => k.kid === head.kid) && Date.now() - jwksAt > 300e3) await certs();
   const jwk = jwks.find(k => k.kid === head.kid); if (!jwk) return false;
   const key = await crypto.subtle.importKey("jwk", jwk, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
   const ok = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, unb64u(s), new TextEncoder().encode(h + "." + p));
@@ -58,10 +61,14 @@ const realtime = async (env, body, ms = GA_MS) => {
   if (!r.ok) throw new Error("ga4 " + r.status + " " + (await r.text()).replace(/\s+/g, " ").slice(0, 120));
   return (await r.json()).rows || [];
 };
+const CUT = new Set();
 const report = async (env, body) => {
   const r = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${env.GA_PROPERTY_ID}:runReport`, { method: "POST", headers: { authorization: "Bearer " + await googleToken(env), "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(GA_MS) });
   if (!r.ok) throw new Error("ga4 report " + r.status + " " + (await r.text()).replace(/\s+/g, " ").slice(0, 120));
-  return (await r.json()).rows || [];
+  const j = await r.json(), rows = j.rows || [];
+  // a report cut at its limit says so: rowCount is how many rows GA4 has, and the names of the cut report's dimensions go to CUT (no numbers)
+  if (+j.rowCount > rows.length) CUT.add((body.dimensions || []).map(d => d.name).join("+") + "@" + (body.limit || "default"));
+  return rows;
 };
 const cleanToken = t => String(t || "").replace(/^[\s"']*(bearer\s+)?/i, "").replace(/[\s"']+$/, "").replace(/[^\x21-\x7e]/g, "");   // pasted secrets often carry a newline, quotes or the word Bearer
 // "today" means the Israel calendar day (GA4 uses the property time zone; Cloudflare is queried with the same boundaries)
@@ -77,7 +84,7 @@ async function cfQuery(env, day, dim, limit, lastDay = day, order = "sum_visits_
   const dims = dim ? `dimensions{${dim}}` : "";
   const q = `query($acc:String!,$f:AccountRumPageloadEventsAdaptiveGroupsFilter_InputObject){viewer{accounts(filter:{accountTag:$acc}){rumPageloadEventsAdaptiveGroups(filter:$f,limit:${limit},orderBy:[${order}]){count sum{visits} ${dims}}}}}`;
   const f = { AND: [{ datetime_geq: ilStart(day), datetime_lt: ilStart(addDays(lastDay, 1)) }, { siteTag_in: CF_SITES }, { requestPath_notlike: "/live%" }, { userAgentBrowser_neq: "ChromeHeadless" }] };
-  const r = await fetch("https://api.cloudflare.com/client/v4/graphql", { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body: JSON.stringify({ query: q, variables: { acc: account, f } }) });
+  const r = await fetch("https://api.cloudflare.com/client/v4/graphql", { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body: JSON.stringify({ query: q, variables: { acc: account, f } }), signal: AbortSignal.timeout(SIDE_MS) });
   const j = await r.json().catch(() => null);
   if (!r.ok || !j || j.errors) throw new Error("cloudflare " + r.status + " " + JSON.stringify(j?.errors || j).slice(0, 140));
   return j?.data?.viewer?.accounts?.[0]?.rumPageloadEventsAdaptiveGroups || [];
@@ -102,6 +109,8 @@ const APP = { andGroup: { expressions: [{ filter: { fieldName: "platform", strin
 const keep = (fresh, prev, keys) => { const o = { ...fresh }; for (const k of keys) if (o[k] == null && prev && prev[k] != null) o[k] = prev[k]; return o; };
 let daily = null, dailyAt = 0, dailyTtl = 0;
 async function collectDaily(env) {
+  // "today" and "yesterday" are Israel days: a copy from before midnight is neither served nor kept for a failed part after it
+  if (daily && ilDay(dailyAt) !== ilDay(Date.now())) daily = null;
   if (daily && Date.now() - dailyAt < dailyTtl) return { ...daily, cached: true };
   const errors = {};
   const dr = [{ startDate: "today", endDate: "today" }, { startDate: "yesterday", endDate: "yesterday" }];
@@ -234,8 +243,10 @@ async function collectWeekly(env, today) {
   // without it is placed by estimate until the app sends it again: first_save fires only on the install day (its own date), and app_return is the
   // first opening on days 1 to 7, most often day 1 (its date minus one). The drawer marks such numbers as an estimate.
   const coh = {};
+  // app_return's kind is the install day as MM-DD: its year is the return's own year, or the one before when the month is later (a return on 3.1 of a 30.12 install)
+  const mdDay = (dt, k) => /^\d{8}$/.test(dt) ? (+k.slice(0, 2) > +dt.slice(4, 6) ? +dt.slice(0, 4) - 1 : dt.slice(0, 4)) + "-" + k : Q_FROM.slice(0, 5) + k;
   for (const r of ret || []) { const [dt, name, ver, nv, kind] = r.dimensionValues.map(x => x.value), c = Number(r.metricValues[0].value), md = /^\d\d-\d\d$/.test(kind || "");
-    const day = name === "first_open" ? iso8(dt) : md ? Q_FROM.slice(0, 5) + kind : /^\d{8}$/.test(dt) ? (name === "first_save" ? iso8(dt) : addDays(iso8(dt), -1)) : null;
+    const day = name === "first_open" ? iso8(dt) : md ? mdDay(dt, kind) : /^\d{8}$/.test(dt) ? (name === "first_save" ? iso8(dt) : addDays(iso8(dt), -1)) : null;
     if (!/^\d{4}-\d\d-\d\d$/.test(day || "")) continue; const o = coh[day] ||= [0, 0, 0, 0, 0];
     if (name !== "first_open" && !md) o[4] += c;
     if (name === "first_open") { if (v136(ver)) o[0] += c; } else if (name === "first_save") o[1] += c; else o[nv === "1" ? 2 : 3] += c; }
@@ -448,7 +459,7 @@ async function collectSeo(env, today) {
   if (seo && Date.now() - seoAt < seoTtl) return { ...seo, cached: true };
   const t = await googleToken(env), base = `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(SC)}`;
   const errors = {}, safe = (p, k) => p.catch(e => { errors[k] = String(e.message || e).slice(0, 160); return null; });
-  const q = async body => { const r = await fetch(base + "/searchAnalytics/query", { method: "POST", headers: { authorization: "Bearer " + t, "content-type": "application/json" }, body: JSON.stringify(body) }); if (!r.ok) throw new Error("search console " + r.status + " " + (await r.text()).replace(/\s+/g, " ").slice(0, 100)); return (await r.json()).rows || []; };
+  const q = async body => { const r = await fetch(base + "/searchAnalytics/query", { method: "POST", headers: { authorization: "Bearer " + t, "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(SIDE_MS) }); if (!r.ok) throw new Error("search console " + r.status + " " + (await r.text()).replace(/\s+/g, " ").slice(0, 100)); return (await r.json()).rows || []; };
   const end = addDays(today, -3), w1 = [addDays(end, -6), end], w0 = [addDays(end, -13), addDays(end, -7)], d28 = [addDays(end, -27), end];
   const win = w => ({ startDate: w[0], endDate: w[1] });
   const [cur, prev, days, queries, pages, sm] = await Promise.all([
@@ -509,7 +520,7 @@ const slimMetrics = m => { const x = m && m.index, b = m && m.bots;
 let metrics = null, metricsAt = 0;
 async function getMetrics() {
   if (metrics && Date.now() - metricsAt < 300e3) return metrics;
-  try { const r = await fetch("https://raw.githubusercontent.com/ddsabag/vehicle-app/flashes/metrics.json", { cf: { cacheTtl: 120 } }); metrics = r.ok ? await r.json() : (metrics || {}); } catch { metrics = metrics || {}; }
+  try { const r = await fetch("https://raw.githubusercontent.com/ddsabag/vehicle-app/flashes/metrics.json", { cf: { cacheTtl: 120 }, signal: AbortSignal.timeout(SIDE_MS) }); metrics = r.ok ? await r.json() : (metrics || {}); } catch { metrics = metrics || {}; }
   metricsAt = Date.now(); return metrics;
 }
 
@@ -847,7 +858,7 @@ async function goalRows(env, from, to, need, endDay) {
     safe(report(env, { dateRanges: [dr], dimensions: [{ name: "date" }], metrics: [{ name: "newUsers" }], dimensionFilter: APP, limit: 1000 }), "installs"),
     safe(report(env, { dateRanges: [dr], dimensions: [{ name: "date" }, { name: "eventName" }, { name: "appVersion" }, { name: "customEvent:n" }, { name: "customEvent:kind" }], metrics: [{ name: "eventCount" }],
       dimensionFilter: { andGroup: { expressions: [APP, ev(["first_open", "first_save", "app_return"])] } }, limit: 10000 }), "installs cohort"),
-    safe((async () => { const t = await googleToken(env), r = await fetch(`https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(SC)}/searchAnalytics/query`, { method: "POST", headers: { authorization: "Bearer " + t, "content-type": "application/json" }, body: JSON.stringify({ startDate: from, endDate: sat, dimensions: ["date"], rowLimit: 500 }) });
+    safe((async () => { const t = await googleToken(env), r = await fetch(`https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(SC)}/searchAnalytics/query`, { method: "POST", headers: { authorization: "Bearer " + t, "content-type": "application/json" }, body: JSON.stringify({ startDate: from, endDate: sat, dimensions: ["date"], rowLimit: 500 }), signal: AbortSignal.timeout(SIDE_MS) });
       if (!r.ok) throw new Error("search console " + r.status); return (await r.json()).rows || []; })(), "search console")]);
   const day = r => iso8(r.dimensionValues[0].value), num = r => Number(r.metricValues[0].value);
   if (evs) for (const r of evs) { const [, pf, nm] = r.dimensionValues.map(x => x.value), w = wk(day(r)), o = at(w), c = num(r);
@@ -892,7 +903,8 @@ let goalsBusy = false;
 // week true (the scheduled run): once a week, the rows of the last 5 whole weeks (older ones stay as they were), then the engine. Any run,
 // the page's included: a proposal answered or the switch moved is applied at once (no Google call, only KV)
 async function goalsTick(env, opts = {}) {
-  if (!env.ALERTS || goalsBusy) return null;
+  if (!env.ALERTS) return null;
+  if (goalsBusy) return goalsGet(env).catch(() => null);   // the weekly run is busy in this isolate: the page shows the last saved state, not none
   const now = Date.now(), today = ilDay(now), J = gSun(today), hour = ilHour(now);
   const [prev, acts, err] = await Promise.all([goalsGet(env), actsGet(env), env.ALERTS.get(GOALS_ERR, "json").catch(() => null)]);
   const mode = goalsMode(env, acts), weekDue = !!opts.week && J >= G_START && (!prev || !prev.last || prev.last < J) && (today > J || hour >= 9);
@@ -1024,7 +1036,7 @@ async function collect(env) {
   await googleToken(env).catch(() => {});
   // realtime: events, and active users by platform (the app's devices in Israel, and the site, where every opening of the page is its own "user")
   const [events, plats, online, vToday, vYday, dly, sc, wk, ps, rt, rty] = await Promise.all([
-    safe(realtime(env, { dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: REAL, limit: 40 }), "events"),
+    safe(realtime(env, { dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: REAL, limit: 250 }), "events"),
     safe(realtime(env, { dimensions: [{ name: "platform" }], metrics: [{ name: "activeUsers" }], dimensionFilter: REAL }), "platforms"),
     safe(onlineNow(env), "online"),
     safe(cfVisits(env, today), "visitsToday"), safe(cfVisits(env, yday), "visitsYesterday"), safe(collectDaily(env), "daily"), safe(collectSeo(env, today), "seo"),
@@ -1040,7 +1052,7 @@ async function collect(env) {
   const prev = cache || {};
   const plat = k => plats ? plats.filter(r => r.dimensionValues[0].value === k).reduce((t, r) => t + Number(r.metricValues[0].value || 0), 0) : (quota ? prev.activeUsers ?? null : null);
   const strip = o => { if (!o) return null; const { errors: _e, cached: _c, ...rest } = o; return rest; };
-  cache = { build: BUILD, errors: quota ? { ga4: "מכסת Google מלאה, מוצגים נתונים אחרונים ויתעדכנו בעוד כמה דקות", ...errors } : errors, stale: quota, at: quota && prev.at ? prev.at : new Date().toISOString(),
+  cache = { build: BUILD, cut: [...CUT], errors: quota ? { ga4: "מכסת Google מלאה, מוצגים נתונים אחרונים ויתעדכנו בעוד כמה דקות", ...errors } : errors, stale: quota, at: quota && prev.at ? prev.at : new Date().toISOString(),
     activeUsers: plat("Android"),
     online: online ?? (quota ? prev.online ?? null : null),
     events: events ? events.map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)]).sort((a, b) => b[1] - a[1]) : (quota ? prev.events ?? null : null),
@@ -1214,7 +1226,7 @@ const n1=x=>x==null||!isFinite(x)?"-":(Math.round(x*10)/10).toLocaleString("en-U
 // a source that did not answer in time is told in Hebrew; one that answered before keeps that answer and says so (26.10)
 const TOUT=/abort|timed? ?out/i,whyT=w=>TOUT.test(w||"")?"לא ענה בזמן. ייבדק שוב בעוד כמה דקות":(w||"");
 const stl=o=>o&&o.stale?"<b>הבדיקה האחרונה לא ענתה בזמן.</b> מוצג המידע הקודם"+(o.at?" מתאריך <bdi>"+new Date(o.at).toLocaleDateString("he-IL",{timeZone:"Asia/Jerusalem",day:"numeric",month:"numeric"})+"</bdi> בשעה <bdi>"+new Date(o.at).toLocaleTimeString("he-IL",{timeZone:"Asia/Jerusalem",hour:"2-digit",minute:"2-digit"})+"</bdi>":"")+". ":"";
-const esc=t=>String(t==null?"":t).replace(/[<>&"]/g,"");
+const esc=t=>String(t==null?"":t).replace(/[<>&"]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;"})[c]);
 // a page of the site by its Hebrew name, with its address under it
 const PGN=[[/^\\/$/,"דף הבית: בדיקת רכב"],[/^\\/magazine\\//,"מגזין"],[/^\\/model\\/$/,"כל הדגמים"],[/^\\/model\\//,"דף דגם"],[/^\\/check\\/$/,"כל הבדיקות"],[/^\\/check\\/recall\\//,"בדיקת ריקול"],[/^\\/check\\/settlements\\//,"הסדרי פשרה"],[/^\\/check\\/license-fee\\//,"אגרת רישוי"],[/^\\/check\\/owners\\//,"כמה ידיים היו לרכב"],[/^\\/check\\/test\\//,"מתי הטסט"],[/^\\/check\\/off-road\\//,"רכב שירד מהכביש"],[/^\\/check\\/value\\//,"שווי רכב"],[/^\\/business\\//,"לעסקים"],[/^\\/guide\\//,"מדריך"],[/^\\/go(\\/|$)/,"קישור מרשת חברתית"]];
 const PG=u=>{const p=String(u||"/").replace(/^https?:\\/\\/[^/]+/,"").replace(/[?#].*$/,"")||"/",m=PGN.find(x=>x[0].test(p));return '<span class="pg">'+(m?m[1]:"דף אחר")+'<small><bdi dir="ltr">'+esc(p)+"</bdi></small></span>"};
@@ -1690,7 +1702,7 @@ $("build").textContent="גרסה "+(d.build||"");
 }
 
 async function go(){const meta=$("meta");try{const r=await fetch("/live/data",{cache:"no-store",signal:AbortSignal.timeout?AbortSignal.timeout(35e3):undefined});if(!r.ok)throw r.status;const d=await r.json();window.lastD=d;render(d);
-const tm=new Date(d.at).toLocaleTimeString("he-IL",{timeZone:"Asia/Jerusalem",hour:"2-digit",minute:"2-digit"});
+const tz={timeZone:"Asia/Jerusalem"},tm=(new Date(d.at).toLocaleDateString("en-CA",tz)!==new Date().toLocaleDateString("en-CA",tz)?new Date(d.at).toLocaleDateString("he-IL",{...tz,day:"numeric",month:"numeric"})+" ":"")+new Date(d.at).toLocaleTimeString("he-IL",{...tz,hour:"2-digit",minute:"2-digit"});
 meta.className="meta"+(d.stale||d.late?" stale":"");meta.innerHTML='<span class="dot"></span>'+(d.late?"נתונים מ-"+tm+": השרת לא ענה בזמן, ננסה שוב בעוד דקה":d.stale?"נתונים ישנים מ-"+tm+", גוגל הגביל זמנית את מספר הבקשות":"עודכן "+tm)}
 catch(e){meta.className="meta stale";meta.innerHTML='<span class="dot"></span>'+(e===504?"השרת לא ענה בזמן, ננסה שוב בעוד דקה":"אין חיבור")+(window.lastD?". מוצגים הנתונים האחרונים":"")}}
 document.addEventListener("click",e=>{const a=e.target.closest("[data-open]");if(a){const el=$(a.dataset.open);if(el){e.preventDefault();el.open=true;el.scrollIntoView({behavior:"smooth",block:"start"});el.classList.remove("hit");void el.offsetWidth;el.classList.add("hit");setTimeout(()=>el.classList.remove("hit"),1800)}return}
@@ -1857,8 +1869,8 @@ details.gx>summary.ch{align-items:center}details.gx[open]>summary{margin-bottom:
 .hrow{display:flex;align-items:center;justify-content:space-between;gap:12px;text-decoration:none;color:inherit}.hrow .l{display:flex;flex-direction:column;gap:2px;min-width:0}.hrow .l b{font-size:15px}.hrow .l small{font-size:13px;color:var(--muted)}.hrow .lnk{margin:0;flex:none}
 .hv{font-weight:700;margin-inline-start:4px}.dd>summary{list-style:none;cursor:pointer}
 @media(prefers-reduced-motion:reduce){details.gx>summary h2::before,details.gx>summary h3::before{transition:none}}
-html.v3{--bg:#FFFFFF;--card:#FFFFFF;--line:#E4E7EB;--fg:#15202B;--muted:#5D6875;--muted2:#6B7682;--soft:#F4F6F9;--soft2:#EEF1F4;--prev:#C9CED5;--link:#1F5FAD;--ok:#1B7A4A;--ok-bg:#E5F3EC;--warn:#A65B00;--warn-bg:#FFF1DC;--bad:#B3261E;--bad-bg:#FCEAE8;--nt:#9AA3AD;--nt-bg:#EEF1F4;--decide:#F4F6F9;--fa:#8A94A0}
-@media(prefers-color-scheme:dark){html.v3{--bg:#11161C;--card:#11161C;--line:#242D38;--fg:#E7EBEF;--muted:#A0AAB5;--muted2:#8C97A3;--soft:#18202A;--soft2:#1E2731;--prev:#3A4552;--link:#79AEEE;--ok:#6CD29E;--ok-bg:#16291F;--warn:#F0B65C;--warn-bg:#2B2316;--bad:#FF8F85;--bad-bg:#301C1B;--nt:#6E7884;--nt-bg:#1E2731;--decide:#18202A;--fa:#77828E}}
+html.v3{--bg:#FFFFFF;--card:#FFFFFF;--line:#E4E7EB;--fg:#15202B;--muted:#5D6875;--muted2:#616C78;--soft:#F4F6F9;--soft2:#EEF1F4;--prev:#C9CED5;--link:#1F5FAD;--ok:#1B7A4A;--ok-bg:#E5F3EC;--warn:#A65B00;--warn-bg:#FFF1DC;--bad:#B3261E;--bad-bg:#FCEAE8;--nt:#616C78;--nt-bg:#EEF1F4;--decide:#F4F6F9;--fa:#616C78}
+@media(prefers-color-scheme:dark){html.v3{--bg:#11161C;--card:#11161C;--line:#242D38;--fg:#E7EBEF;--muted:#A0AAB5;--muted2:#8C97A3;--soft:#18202A;--soft2:#1E2731;--prev:#3A4552;--link:#79AEEE;--ok:#6CD29E;--ok-bg:#16291F;--warn:#F0B65C;--warn-bg:#2B2316;--bad:#FF8F85;--bad-bg:#301C1B;--nt:#8C97A3;--nt-bg:#1E2731;--decide:#18202A;--fa:#8C97A3}}
 html.v3 body{font-family:Rubik,"Segoe UI",Arial,"Arial Hebrew",sans-serif;font-size:15px;line-height:1.5}
 html.v3 .top{background:var(--bg);border:0;padding:12px max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px));position:static}
 html.v3 .brand .pl{background:none;border:0;padding:0;font-size:17px;letter-spacing:0;color:var(--fg)}html.v3 .brand h1{display:none}
@@ -1982,7 +1994,7 @@ const $=i=>document.getElementById(i);
 const n=x=>x==null||!isFinite(x)?"-":Math.round(x).toLocaleString("en-US");
 const n1=x=>x==null||!isFinite(x)?"-":(Math.round(x*10)/10).toLocaleString("en-US");
 const pc=x=>x==null||!isFinite(x)?"-":n1(x)+"%";
-const esc=t=>String(t==null?"":t).replace(/[<>&"]/g,"");
+const esc=t=>String(t==null?"":t).replace(/[<>&"]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;"})[c]);
 const TOUT=/abort|timed? ?out/i,whyT=w=>TOUT.test(w||"")?"לא ענה בזמן. ייבדק שוב בעוד כמה דקות":(w||"");
 const dm=s=>{const p=String(s).slice(0,10).split("-");return Number(p[2])+"."+Number(p[1])};
 const rng=w=>w?dm(w[0])+" עד "+dm(w[1]):"";
@@ -2517,7 +2529,7 @@ function openDrill2(C,id){const r=M(C,id);if(!r)return;const P=$("panel"),m=r.m,
  const why=LGR[id]&&C.LG&&C.LG.last&&lgItem(C,LGR[id])?sec("למה היעד הזה",lgWhy(C,lgItem(C,LGR[id]))):"";
  b+='<details class="gx dd" data-gk="dd"'+(GOPEN.has("dd")?" open":"")+"><summary><h3>פרטים: "+(why?"למה היעד הזה, ":"")+"הגדרה, חישוב ואחראי</h3></summary>"+why+sec("הגדרה",'<p class="help">'+esc(m.def)+"</p>")+sec("איך מחושב",'<p class="help">'+esc(m.how)+"</p>")+'<section><ul class="kv">'+kv("מקור",esc(m.src))+kv("אחראי",esc(m.owner))+"</ul></section></details>";
  P.innerHTML='<div class="ph"><div class="r1"><div><h2>'+esc(r.name)+'</h2><span class="note">'+(g?esc(QS[g].name):"")+'</span></div><button type="button" class="tbtn" data-close="1" aria-label="סגירה">✕ סגירה</button></div><div class="r2">'+chip(r.s,r.w)+'<span style="font-size:30px;font-weight:700">'+r.big+"</span>"+(r.unit?'<span class="note">'+r.unit+"</span>":"")+(r.win?'<span class="win">'+esc(r.win)+"</span>":"")+'</div></div><div class="pb">'+b+"</div>";
- P.scrollTop=0;S.m=id;sync()}
+ P.scrollTop=0;S.m=id;sync();drillFocus(P)}
 function openDrill(C,id){if(NEW)return openDrill2(C,id);const r=M(C,id);if(!r)return;const P=$("panel"),m=r.m;P.hidden=false;$("shade").hidden=false;document.body.style.overflow="hidden";
  P.innerHTML='<div class="ph"><div class="r1"><div><h2>'+esc(r.name)+'</h2><span class="note">'+(m.dept?DEPTS[m.dept].name+" · "+DIVS[DEPTS[m.dept].div].name:"המדד הראשי")+'</span></div><button type="button" class="tbtn" data-close="1" aria-label="סגירה">✕ סגירה</button></div><div class="r2">'+chip(r.s,r.w)+'<span style="font-size:30px;font-weight:700">'+r.big+"</span>"+(r.unit?'<span class="note">'+r.unit+"</span>":"")+(r.win?'<span class="win">'+esc(r.win)+"</span>":"")+"</div></div>"
  +'<div class="pb">'+(r.read?"<section><h3>מה זה אומר</h3><p>"+r.read+"</p></section>":"")
@@ -2527,8 +2539,10 @@ function openDrill(C,id){if(NEW)return openDrill2(C,id);const r=M(C,id);if(!r)re
  +(r.m28||r.today?'<section><h3>בחלונות אחרים</h3><ul class="kv">'+(r.m28?kv("28 ימים"+(r.m28.win?" ("+esc(r.m28.win)+")":""),r.m28.big+(r.m28.unit?" <small>"+r.m28.unit+"</small>":"")):"")+(r.today?kv("היום עד עכשיו",r.today.big+(r.today.unit?" <small>"+r.today.unit+"</small>":"")):"")+"</ul></section>":"")
  +(r.drill||[]).filter(Boolean).map(x=>"<section><h3>"+x.h+"</h3>"+x.html+"</section>").join("")
  +'<section><h3>הגדרה</h3><p class="help">'+esc(m.def)+'</p></section><section><h3>איך מחושב</h3><p class="help">'+esc(m.how)+'</p></section><section><ul class="kv">'+kv("מקור",esc(m.src))+kv("אחראי",esc(m.owner))+"</ul></section></div>";
- P.scrollTop=0;S.m=id;sync()}
-function closeDrill(){$("panel").hidden=true;$("shade").hidden=true;document.body.style.overflow="";if(S.m){S.m=null;sync()}}
+ P.scrollTop=0;S.m=id;sync();drillFocus(P)}
+// the panel is a modal dialog: focus moves into it when it opens and returns to what opened it when it closes
+let dFrom=null;function drillFocus(P){if(!P.contains(document.activeElement))dFrom=document.activeElement;const b=P.querySelector("[data-close]");try{(b||P).focus({preventScroll:true})}catch(e){}}
+function closeDrill(){$("panel").hidden=true;$("shade").hidden=true;document.body.style.overflow="";if(S.m){S.m=null;sync()}if(dFrom&&dFrom.isConnected)try{dFrom.focus({preventScroll:true})}catch(e){}dFrom=null}
 
 // ---- the layout's screens: home, a station, what waits for Dudu
 const qsc=s=>s==="bad"||s==="warn"||s==="ok"?s:"nt";
@@ -2688,10 +2702,11 @@ function renderTasks(C){const T=todo(C,null),Cl=C.d.cal,td=C.td;
  return h+pubCard(C)+"</div>"}
 // the state in the address: v = the lens (ceo, a division or a department), w = the window, m = an open metric
 const S={v:NEW?"home":"ceo",w:"week",m:null,g:null};
+const own=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
 function readURL(){const q=new URLSearchParams(location.search),v=q.get("v")||"",w=q.get("w")||"",m=q.get("m")||"",g=q.get("g")||"";
- if(NEW){S.g=v==="st"&&QS[g]?g:G2[v]||null;S.v=S.g?"st":v==="tasks"?"tasks":"home";S.w=w==="today"||w==="m28"?w:"week";S.m=REG[m]?m:null;return}
- S.v=v==="ceo"||v==="all"||DIVS[v]||DEPTS[v]?v:"ceo";S.w=WIN[w]?w:"week";S.m=REG[m]?m:null}
-function href(o){const v=o.v||S.v,w=o.w||S.w,m=o.m!==undefined?o.m:S.m,g=NEW&&v==="st"?(o.g!==undefined?o.g:S.g):null;return NEW?"?v="+v+(g?"&g="+g:"")+(w!=="week"&&v!=="tasks"?"&w="+w:"")+(m?"&m="+m:""):"?v="+v+"&w="+w+(m?"&m="+m:"")}
+ if(NEW){S.g=v==="st"&&own(QS,g)?g:own(G2,v)?G2[v]:null;S.v=S.g?"st":v==="tasks"?"tasks":"home";S.w=w==="today"||w==="m28"?w:"week";S.m=own(REG,m)?m:null;return}
+ S.v=v==="ceo"||v==="all"||own(DIVS,v)||own(DEPTS,v)?v:"ceo";S.w=own(WIN,w)?w:"week";S.m=own(REG,m)?m:null}
+function href(o){const v=o.v||S.v,w=o.w||S.w,m=o.m!==undefined?o.m:S.m,g=NEW&&v==="st"?(o.g!==undefined?o.g:S.g):null;return NEW?"?v="+v+(g?"&g="+g:"")+(w!=="week"?"&w="+w:"")+(m?"&m="+m:""):"?v="+v+"&w="+w+(m?"&m="+m:"")}
 function sync(){try{history.replaceState(null,"",location.pathname+href({}))}catch(e){}}
 function push(){try{history.pushState(null,"",location.pathname+href({}))}catch(e){}}   // a new screen: the phone's back button returns to the one before
 const rs=w=>{const a=dm(w[0]),b=dm(w[1]),pa=a.split("."),pb=b.split(".");return pa[1]===pb[1]?pa[0]+"–"+b:a+"–"+b};
@@ -2707,7 +2722,7 @@ function render(){const d=window.LVD;if(!d)return;const C=ctx(d);window.LVC=C;re
  if(pendScroll){pendScroll=false;const el=!NEW&&DEPTS[S.v]?$("d-"+S.v):null;if(el)el.scrollIntoView({block:"start"})}
  if(S.m)openDrill(C,S.m)}
 async function go(){const meta=$("meta");try{const r=await fetch("/live/data",{cache:"no-store",signal:AbortSignal.timeout?AbortSignal.timeout(35e3):undefined});if(!r.ok)throw r.status;const d=await r.json();window.LVD=d;render();
- const tm=new Date(d.at).toLocaleTimeString("he-IL",{timeZone:"Asia/Jerusalem",hour:"2-digit",minute:"2-digit"});onl(d.online,d.stale,d.at);
+ const tz={timeZone:"Asia/Jerusalem"},tm=(new Date(d.at).toLocaleDateString("en-CA",tz)!==new Date().toLocaleDateString("en-CA",tz)?new Date(d.at).toLocaleDateString("he-IL",{...tz,day:"numeric",month:"numeric"})+" ":"")+new Date(d.at).toLocaleTimeString("he-IL",{...tz,hour:"2-digit",minute:"2-digit"});onl(d.online,d.stale,d.at);
  meta.className="meta"+(d.stale||d.late?" stale":"");meta.innerHTML='<span class="dot"></span>'+(d.late?"נתונים מ-"+tm+": השרת לא ענה בזמן, ננסה שוב בעוד דקה":d.stale?"נתונים ישנים מ-"+tm+", גוגל הגביל זמנית את מספר הבקשות":'<span class="mw">עודכן </span>'+tm)}
  catch(e){meta.className="meta stale";meta.innerHTML='<span class="dot"></span>'+(e===504?"השרת לא ענה בזמן, ננסה שוב בעוד דקה":"אין חיבור")+(window.LVD?". מוצגים הנתונים האחרונים":"");if(!window.LVD)$("main").innerHTML='<section class="card"><p>הנתונים לא הגיעו. המסך ינסה שוב בעוד דקה.</p></section>'}}
 function onl(o,stale,at){const e=$("onl");if(!o)return;const k=(o.app||0)+(o.web||0);e.hidden=!(k>0);if(!k)return;const tm=at?new Date(at).toLocaleTimeString("he-IL",{timeZone:"Asia/Jerusalem",hour:"2-digit",minute:"2-digit"}):"";
@@ -2734,7 +2749,7 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("panel").hidden)
 document.addEventListener("change",e=>{if(e.target&&e.target.id==="win"){S.w=WIN[e.target.value]?e.target.value:"week";sync();render()}});
 let lastGo=Date.now();const tick=()=>{if(document.hidden)return;if(Date.now()-lastGo>=59e3){lastGo=Date.now();go()}else now()};
 readURL();go();setInterval(tick,30000);document.addEventListener("visibilitychange",()=>{if(!document.hidden){lastGo=Date.now();go()}});
-window.addEventListener("popstate",()=>{readURL();render()});
+window.addEventListener("popstate",()=>{readURL();if(!S.m&&!$("panel").hidden)closeDrill();render()});
 </script></body></html>
 `;
 export default {

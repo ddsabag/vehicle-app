@@ -81,6 +81,7 @@ function selftest() {
   const V = gView(s5, gAdd("2026-10-25", 70));
   ok(V.items.filter(i => i.lens).length === 8, "8 goals judged on the CEO lens");
   ok(V.items.every(i => i.name && i.owner && i.src), "every goal says what it is, who owns it and where its bar comes from");
+  ok(s5.log.length && s5.log.every(l => !/\d{3,}/.test(String(l.txt || ""))), "the log text carries no business number (the run counted 1000 a week; no number of 3 digits or more in the text)");
   reanchor();
   console.log(fails ? fails + " failed" : "selftest ok");
   if (fails) process.exit(1);
