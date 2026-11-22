@@ -2882,7 +2882,7 @@ function snapAll(){ try { return JSON.parse(localStorage.getItem(SNAP_KEY) || "{
 function snapPut(D){
   try {
     if (!D || D.kind === "model" || D.fromCache || D.offline || D.notFound || !isSaved(D.plate)) return;
-    if ((D.errs || []).some(s => s.role === "main") || D.modelErr) return;   // keep the last complete copy (errs holds the datasets themselves, not their keys)
+    if ((D.errs || []).some(s => s.role === "main" || s.key === "import") || D.modelErr) return;   // keep the last complete copy (a failed import register would read a personal import as official, data D5) (errs holds the datasets themselves, not their keys)
     const all = snapAll(), keep = new Set(store.get("savedVehicles").map(x => x.plate));
     all[D.plate] = {t: Date.now(), D};
     for (const k of Object.keys(all)) if (!keep.has(k)) delete all[k];
@@ -3219,7 +3219,7 @@ async function lookup(raw){
   const t0 = Date.now();
   const slowT = setTimeout(() => { if (!signal.aborted && $("#skl") && !$("#slowNote")) track("lookup_slow"); if (!signal.aborted && $("#skl") && !$("#slowNote")) out.insertAdjacentHTML("beforeend", `<p class="note" id="slowNote" role="status" style="text-align:center">בודקים, זה לוקח יותר מהרגיל. שרתי משרד התחבורה איטיים כרגע. <button type="button" class="link-btn" id="cancelLook">ביטול</button></p>`); const cb = $("#cancelLook"); if (cb) cb.addEventListener("click", () => { ctrl.abort(); goHome(); }); }, 5000);
   const side = Promise.race([Promise.all([loadModelStats().catch(() => null), loadService().catch(() => null), loadSettlements()]), new Promise(r => setTimeout(r, 1500))]);
-  let D;
+  let D; const hadStats = !!MSTATS;
   try { D = await fetchVehicle(plate, signal, () => {}); }
   catch (err) { if (err.name === "AbortError") { if (timedOut) { D = {plate, offline: true}; track("lookup_timeout"); } else { if (Date.now() - t0 > 1500) track("lookup_abort"); return; } } else throw err; }   // the user gave up on a slow lookup and typed another
   finally { if (ctrl && ctrl.signal === signal) $("#go").disabled = false; clearTimeout(slowT); clearTimeout(deadT); }
@@ -3227,6 +3227,8 @@ async function lookup(raw){
   if (signal.aborted && !timedOut) return;
   await side;
   if (signal.aborted && !timedOut) return;
+  // the value range reads the model statistics: when they arrived only after the car was built, compute it again, so one car shows one range on every open (data, D8)
+  if (!hadStats && MSTATS && D && D.v && D.cost && !D.offline && !D.notFound) { try { D.cost = costs(D); } catch {} }
   if (D.offline || (D.notFound && isSaved(plate))) { const sn = snapGet(plate); if (sn) { track("lookup_from_cache"); current = sn; currentTab = ot && ot.p === plate ? ot.t : "overview"; renderResult(); focusResult(); window.scrollTo({top: 0}); return; } }
   if (D.sourceDown) { out.innerHTML = `<div class="msg err edge" role="alert"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-wrench"/></svg></div>מאגר הרכבים של משרד התחבורה לא מחזיר נתונים כרגע, בלי קשר למספר שהקלדתם. זו תקלה אצל המשרד. נסו שוב מאוחר יותר.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; track("lookup_failed", {kind: "source_down", dur: durB}); return; }
   if (D.offline || D.notFound) track("lookup_failed", {kind: D.sourceDown ? "source_down" : D.offline ? "offline" : "not_found", dur: durB});
@@ -3346,7 +3348,7 @@ function keyLine(D){
   const pr = pendingRecalls(D); if (pr.length) return {k: "warn", t: pendingWords(pr).line};
   const warn = buildInsights(D).find(i => i.level === "warn" && !i.priv); if (warn) return {k: "warn", t: warn.title};
   if (D.recallUnknown || D.modelErr || D.modelRecallsUnknown || (D.errs || []).length) return {k: "warn", t: "חלק מהמאגרים לא ענו עכשיו, ולכן הבדיקה חלקית"};
-  return {k: "ok", t: "אין ריקול פתוח" + (L && L.k === "ok" ? " והטסט בתוקף" : "")};
+  return {k: "ok", t: (recallThin(D) ? noOpenRecall(true) : "אין ריקול פתוח") + (L && L.k === "ok" ? " והטסט בתוקף" : "")};   // a thin check says what the card says (data D6)
 }
 /* after the recipient checked a car of their own from that bar: the next step is keeping it, and on Android the app, as a quiet second link */
 const RECV = {plate: ""};
@@ -4467,14 +4469,16 @@ function tabRecalls(D){
    measured before it), kWh for an electric car; none for a
    plug-in, whose official figure weighs in its electric driving (PLUGIN_FUEL) */
 const consumption = D => { const c = D.cost || {}; return c.kind === "ev" && c.kwh100 ? `${c.kwh100} קוט״ש ל-100 ק״מ` : c.l100 ? (kmlUnit() ? `${(100 / c.l100).toFixed(1)} ק״מ לליטר` : `${c.l100.toFixed(1)} ל׳ ל-100 ק״מ`) : ""; };
-/* company-car taxable benefit (שווי שימוש): an official formula, so it is shown as is, without "(הערכה)" */
+/* company-car taxable benefit (שווי שימוש): the Tax Authority's formula on the list price, indexed approximately, so it is an estimate; the payslip
+   holds the binding figure (data thread's wording, deep audit D8, 22.11.2026) */
 function usageCard(D){
   const u = D.cost && D.cost.usage;
   if (!u) return D.kind === "model" || D.isCancelled ? "" : card("שווי שימוש (רכב צמוד)", "users", "teal",
     `<p style="margin:0">${D.importKind ? IMPORT_NO_PRICE + ", ולכן אין כאן חישוב של שווי השימוש." : "אין מספיק נתונים לחישוב שווי השימוש של הרכב הזה (החישוב כאן לרכב פרטי שעלה לכביש מ-2010)."}</p>`);
-  return card("שווי שימוש (רכב צמוד)", "users", "teal",
+  const pp = D.price, near = pp && pp.own === false && posN(pp.mehir) ? ` מחיר המחירון הוא של ${esc(rowAt(pp))} הקרוב, ולכן ייתכן פער.` : "";
+  return card("שווי שימוש (רכב צמוד, הערכה)", "users", "teal",
     `<div class="tow-grid"><div><div class="k">לחודש</div><div class="v">${fmtN(u.monthly)}<span class="u">₪</span></div></div><div><div class="k">לשנה</div><div class="v">${fmtN(u.monthly * 12)}<span class="u">₪</span></div></div></div>
-     <p class="note">${u.green ? `כולל הפחתה של ${fmtN(u.green[1])} ₪ לרכב ${u.green[0]}. ` : ""}זה הסכום שמתווסף למשכורת לצורך מס, לא המס עצמו.</p>`,
+     <p class="note">${u.green ? `כולל הפחתה של ${fmtN(u.green[1])} ₪ לרכב ${u.green[0]}. ` : ""}זה הסכום שמתווסף למשכורת לצורך מס, לא המס עצמו. חישוב לפי נוסחת רשות המסים, ממחיר המחירון בשנת העלייה לכביש וצמוד למדד. הסכום המחייב הוא זה שבתלוש השכר.${near}</p>`,
     `<span class="count">${fmtN(u.monthly)} ₪ לחודש</span>`);   // folded by default: the amount stays on the header
 }
 
@@ -4670,6 +4674,7 @@ function kmPace(D){
 const mY = d => `${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 function kmJudge(D, km){
   const base = D.km, t = toDate(D.v.mivchan_acharon_dt);
+  if (!base && (D.errs || []).some(s => s.key === "tech")) return {res: "none", k: "unk", t: "מאגר קריאות הק״מ לא ענה כרגע, ולכן אי אפשר להשוות. נסו שוב מאוחר יותר, ובינתיים מבקשים מהמוכר חשבוניות טיפול עם ק״מ."};   // data D3
   if (!base) return {res: "none", k: "unk", t: "אין במאגר קריאת ק״מ מטסט לרכב הזה, ולכן אי אפשר להשוות. מבקשים מהמוכר חשבוניות טיפול עם ק״מ."};
   if (!km) return null;
   const since = t ? Math.max(0, (Date.now() - t) / (365.25 * 864e5)) : 0, pace = kmPace(D), at = t ? " ב-" + mY(t) : "";
@@ -5724,9 +5729,10 @@ function renderCompare(){
     // a plug-in has neither (its official figure weighs in electric driving)
     ["צריכת אנרגיה (הערכה)", D => D.cost.plugIn ? "אין נתון לפלאג-אין" : D.cost.kwh100 ? `${D.cost.kwh100} קוט״ש ל-100 ק״מ` : D.cost.l100 ? (kmlUnit() ? `${Math.round(1000 / D.cost.l100) / 10} ק״מ לליטר` : `${Math.round(D.cost.l100 * 10) / 10} ל׳ ל-100 ק״מ`) : null, null, "", true],
     ["עלות אנרגיה ל-100 ק״מ (הערכה)", D => D.cost.fuelYear && D.cost.kmYear ? Math.round(D.cost.fuelYear / D.cost.kmYear * 1000) / 10 : null, "lo", "₪", true],
-    // the same mileage and fuel prices for every car, so how much more one costs a month holds better than either sum
-    [OK.some(D => D.cost.kind === "ev") ? "הפרש דלק או חשמל בחודש (הערכה)" : "הפרש דלק בחודש (הערכה)", D => {
-      const all = OK.map(x => x.cost.fuelYear).filter(x => x > 0), low = Math.min(...all), f = D.cost.fuelYear;
+    // the same mileage (AVG_KM_YEAR) and fuel prices for every car, so the gap is fuel use only and not how much each car was driven (data, D8 22.11)
+    [`${OK.some(D => D.cost.kind === "ev") ? "הפרש דלק או חשמל בחודש" : "הפרש דלק בחודש"} (הערכה, לפי ${fmtN(AVG_KM_YEAR)} ק״מ בשנה לכל רכב)`, D => {
+      const atAvg = x => x.cost.fuelYear > 0 && x.cost.kmYear > 0 ? x.cost.fuelYear / x.cost.kmYear * AVG_KM_YEAR : 0;
+      const all = OK.map(atAvg).filter(x => x > 0), low = Math.min(...all), f = atAvg(D);
       if (all.length < 2 || !(f > 0)) return null;
       const d = Math.round((f - low) / 12 / 10) * 10;
       return f === low ? "הזול ביותר" : d ? `${fmtN(d)} ₪ יותר` : "כמעט כמו הזול ביותר";
@@ -6947,10 +6953,12 @@ function savedSync(D){
   // the register and the test dates only from a full answer of the registers (a car off the road keeps the last dates, as in the daily check)
   if (D.primary && !(D.errs || []).some(s => s.role === "main")) { regSave(it, D.primary.key, add); if (!D.isCancelled) licSave(it, D.v, add); }
   // the settlement summary for the phone's daily check, from the same full answer (NaN is stored as null, so compare as JSON)
-  const sc = (D.errs || []).some(s => s.role === "main") ? undefined : JSON.stringify(stlCar(D)), scNew = sc !== undefined && sc !== JSON.stringify(it.stlCar === undefined ? null : it.stlCar);
+  const sc = (D.errs || []).some(s => s.role === "main" || s.key === "import") ? undefined : JSON.stringify(stlCar(D)), scNew = sc !== undefined && sc !== JSON.stringify(it.stlCar === undefined ? null : it.stlCar);
   if (scNew) it.stlCar = JSON.parse(sc);
   const colNew = !empty(D.v.tzeva_rechev) && it.color !== String(D.v.tzeva_rechev); if (colNew) it.color = String(D.v.tzeva_rechev);
-  if (savedSig(it) === was && !ev.length && !scNew && !colNew) return;
+  // the asking price is measured against today's range, as on the car page, not the one from the day it was typed (data, D8)
+  const nf = it.ask && !(D.errs || []).length && !D.modelErr ? candFields(D).fair : null, fairNew = !!nf && JSON.stringify(nf) !== JSON.stringify(it.fair || null); if (fairNew) it.fair = nf;
+  if (savedSig(it) === was && !ev.length && !scNew && !colNew && !fairNew) return;
   if (ev.length) it.events = [...ev, ...(it.events || [])].slice(0, 30);
   store.set("savedVehicles", list);
 }

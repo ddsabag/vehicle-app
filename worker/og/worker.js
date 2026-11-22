@@ -54,7 +54,8 @@ async function plateInfo(plate) {
     rows(RECALL, {MISPAR_RECHEV: Number(plate)}),
     rows(CANCELLED, {mispar_rechev: [plate, plate.padStart(7, "0"), plate.padStart(8, "0")]}),   // text column, zero-padded in old rows
   ]);
-  const v = (act && act[0]) || (can && can[0]); if (!v) return null;
+  if (act === null) return null;   // the active register did not answer: a cancelled row alone is not the car's state (data D9), so the generic preview
+  const v = act[0] || (can && can[0]); if (!v) return null;
   const cancelled = act !== null && !act[0] && !!(can && can[0]);   // only when the active register answered and does not list the car
   const lic = cancelled ? null : licKind(v.tokef_dt, v.mivchan_acharon_dt), nRec = rec ? rec.length : null;
   const recs = nRec ? (nRec === 1 ? ", ריקול פתוח" : `, ${nRec} ריקולים פתוחים`) : "";
