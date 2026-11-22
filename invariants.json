@@ -5,21 +5,21 @@
   {
    "id": "fresh",
    "he": "תאריכי הטסט במאגר לא מתעדכנים",
-   "value": 3,
+   "value": 2,
    "limit": "עד 3 ימים",
    "ok": true
   },
   {
    "id": "tests",
    "he": "נרשמו מעט מדי טסטים בשבוע האחרון",
-   "value": 0.75,
+   "value": 0.76,
    "limit": "לפחות מחצית מהקצב הרגיל",
    "ok": true
   },
   {
    "id": "renewal",
    "he": "רכבים רבים עברו טסט בלי חידוש רישיון במאגר",
-   "value": 1167,
+   "value": 1175,
    "limit": "עד 5,000",
    "ok": true
   },
@@ -48,7 +48,7 @@
    "id": "km",
    "he": "נתוני הק״מ בטסט חסרים",
    "value": {
-    "rows": 2513457,
+    "rows": 2513414,
     "share": 0.7
    },
    "limit": "לפחות 2 מיליון שורות, 60% עם ק״מ",
@@ -57,7 +57,7 @@
   {
    "id": "hook",
    "he": "וו גרירה רשום ברכבים שנתוני הדגם שלהם אוסרים גרירה",
-   "value": 457,
+   "value": 456,
    "limit": "עד 2,000",
    "ok": true
   },
@@ -98,13 +98,13 @@
   }
  ],
  "info": {
-  "activeCars": 4203746,
-  "testsPerDayLastWeek": 6339,
-  "testsPerDayUsual": 8502,
-  "publicCancelledForGood": 3346,
-  "motoInImport": 1823,
-  "heavyInPublic": 36402,
-  "carsWithOwnershipLog": 2503998,
-  "ownerTypeNotInLatestMonth": 2797
+  "activeCars": 4203161,
+  "testsPerDayLastWeek": 6495,
+  "testsPerDayUsual": 8503,
+  "publicCancelledForGood": 3334,
+  "motoInImport": 1822,
+  "heavyInPublic": 36400,
+  "carsWithOwnershipLog": 2503954,
+  "ownerTypeNotInLatestMonth": 2796
  }
 }
