@@ -82,7 +82,7 @@ async function waitlist(req, env, ctx) {
       subject: `ליד עסקי חדש: ${type}`,
       htmlContent: `<div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.7"><b>פנייה חדשה מרשימת ההמתנה העסקית</b><br>${existing ? "<i>הכתובת כבר קיימת ב-Brevo: הפרטים כאן לא נשמרו שם ולא דרסו את הקיימים.</i><br>" : ""}שם: ${esc(name)}<br>עסק: ${esc(company)}<br>סוג: ${esc(type)}<br>עניין: ${esc(interest) || "לא צוין"}<br>אימייל: ${esc(email)}<br>טלפון: ${esc(phone) || "לא צוין"}<br>הודעה: ${esc(notes) || "ללא"}</div>` });
   } catch (e) { console.log("notify failed", String(e).slice(0, 200)); }
-  if (env.GA_MEASUREMENT_ID && env.GA_API_SECRET) {
+  if (!existing && env.GA_MEASUREMENT_ID && env.GA_API_SECRET) {   // a second form from an address already in Brevo is not a new lead on /live (audit 22.11)
     try {
       await fetch(`https://www.google-analytics.com/mp/collect?measurement_id=${encodeURIComponent(env.GA_MEASUREMENT_ID)}&api_secret=${encodeURIComponent(env.GA_API_SECRET)}`, { method: "POST",
         body: JSON.stringify({ client_id: crypto.randomUUID(), events: [{ name: "b2b_lead_submit", params: { business_type: type, interest: interest || "none" } }] }) });
@@ -110,7 +110,8 @@ async function webEvent(req, env) {
     if (!/^[a-z_]{1,24}$/.test(k)) continue;
     if (typeof v === "number" && isFinite(v) && Math.abs(v) < 10000) params[k] = v;      // counts and flags only; a plate-sized number is dropped
     else if (typeof v === "boolean") params[k] = v ? 1 : 0;
-    else if (typeof v === "string" && !/@/.test(v) && v.replace(/[^0-9]/g, "").length < 5 && !/[\u0660-\u0669\u06F0-\u06F9]/.test(v)) params[k] = v.slice(0, 40);
+    // digits of any script count (\p{Nd}: Arabic-Indic, full-width and the rest), so a plate typed in another digit set is dropped too
+    else if (typeof v === "string" && !/@/.test(v) && v.replace(/\P{Nd}/gu, "").length < 5) params[k] = v.slice(0, 40);
   }
   const cid = /^\d{1,10}\.\d{1,10}$/.test(String(b.cid)) ? b.cid : crypto.randomUUID();
   try {
