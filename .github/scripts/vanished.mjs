@@ -46,7 +46,7 @@ export function sortRecs(buf, n) {
 // the comparison itself: last run's records, this run's plates, the other registers' plates, and the cars still gone
 export function compare({ prev, cur, elsewhere, vanished, today, prevDate }) {
   let left = 0, back = 0;
-  for (const p of Object.keys(vanished)) if (cur.has(Number(p))) { delete vanished[p]; back++; }
+  for (const p of Object.keys(vanished)) if (cur.has(Number(p)) || elsewhere.has(Number(p))) { delete vanished[p]; back++; }   // 22.11 audit: back on the road, or now in an inactive or cancel register (no longer "gone with no word")
   if (prev) for (let o = 0; o + REC <= prev.length; o += REC) {
     const p = prev.readUInt32LE(o);
     if (!p || cur.has(p) || elsewhere.has(p) || vanished[p]) continue;
@@ -96,7 +96,7 @@ async function run() {
   if (n < 3e6) throw new Error("active register too small (" + n + "), not trusting this run");
   // 2. the other registers, plates only: a car there left the road the usual way
   const elsewhere = new Set();
-  for (const id of [...INACTIVE, ...CANCEL]) log("other register rows " + await scan(id, "mispar_rechev", r => elsewhere.add(Number(r.mispar_rechev))));
+  for (const id of [...INACTIVE, ...CANCEL]) { const k = await scan(id, "mispar_rechev", r => elsewhere.add(Number(r.mispar_rechev))); log("other register rows " + k); if (!k) throw new Error(id + ": no rows read, not trusting this run"); }   // 22.11 audit: an empty read would make every car moved there look vanished
   // 3. compare and save
   const { left, back } = compare({ prev, cur, elsewhere, vanished, today, prevDate: last && last.date });
   const total = Object.keys(vanished).length;
@@ -127,6 +127,7 @@ function selftest() {
   ok(c.left === 1 && c.back === 1 && Object.keys(vanished).join() === "3000001" && vanished[3000001].seen === "2026-11-11" && vanished[3000001].rec.shnat_yitzur === 2025, "a car gone to no register is kept, one gone elsewhere is not, one back leaves the list");
   const c2 = compare({ prev: s, cur: new Set([1000002]), elsewhere: new Set([2000003]), vanished, today: "2026-11-18", prevDate: "2026-11-15" });
   ok(c2.left === 0 && vanished[3000001].gone === "2026-11-15", "a car already on the list keeps the date it vanished");
+  { const v3 = { 5: { gone: "x", seen: "y", rec: {} } }; const c3 = compare({ prev: null, cur: new Set(), elsewhere: new Set([5]), vanished: v3, today: "z" }); ok(!v3[5] && c3.back === 1, "a vanished car later found in an inactive or cancel register leaves the list"); }
   ok(compare({ prev: null, cur: new Set([1]), elsewhere: new Set(), vanished: {}, today: "x" }).left === 0, "no last run: a baseline, nothing vanished");
   console.log(bad ? `selftest: ${bad} failed` : "selftest ok"); process.exit(bad ? 1 : 0);
 }

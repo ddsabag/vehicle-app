@@ -77,7 +77,7 @@ console.log("months", Object.keys(months).length, "makers", Object.keys(makers).
 
 // 2. ownership and fuel of cars by production year (current registered owner type, a proxy for who bought)
 out.ownership = {}; out.fuel = {}; out.ownershipMakers = {}; out.aging = {}; out.agingMakers = {};
-for (const y of [2022, 2023, 2024, 2025, 2026]) {
+for (let y = 2022; y <= new Date().getUTCFullYear(); y++) {   // 22.11 audit: was capped at 2026
   const own = {}, fuel = {}, om = {}, ag = {}; let n = 0, late = 0, dealer = 0;
   try {
     await scan(ACTIVE, {filters: JSON.stringify({shnat_yitzur: y}), fields: "baalut,sug_delek_nm,tozeret_cd,tozeret_nm,moed_aliya_lakvish"}, rows => {
