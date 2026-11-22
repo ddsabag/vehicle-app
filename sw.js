@@ -3,7 +3,7 @@
    Bump SHELL with APP_VERSION at each release: the old cache is deleted on activate. */
 const SHELL = "luchit-shell-1.39.0";
 const DATA = "luchit-data-";   // the page's own catalogue cache (index.html cachedJson): never deleted here
-const PRECACHE = ["/", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/manifest.json", "/lib/fonts/assistant-hebrew-400-normal.woff2", "/lib/fonts/assistant-hebrew-700-normal.woff2", "/lib/fonts/assistant-latin-400-normal.woff2", "/lib/fonts/assistant-latin-700-normal.woff2", "/lib/fonts/ibm-plex-mono-latin-500-normal.woff2", "/lib/qrcode.js"];
+const PRECACHE = ["/", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/manifest.json", "/lib/fonts/assistant-hebrew-400-normal.woff2", "/lib/fonts/assistant-hebrew-700-normal.woff2", "/lib/fonts/assistant-latin-400-normal.woff2", "/lib/fonts/assistant-latin-700-normal.woff2", "/lib/fonts/ibm-plex-mono-latin-500-normal.woff2", "/lib/qrcode.js", "/lib/jspdf.umd.min.js"];   // jsPDF too: a saved car's PDF is made offline as well
 
 /* the published page loads its code from /app.<hash>.js (see .github/scripts/web-build.mjs): keep the script the cached page points at, so the shell also works offline */
 const APP_JS = /^\/app\.[0-9a-f]{10}\.js$/;
@@ -18,7 +18,9 @@ async function keepAppScript(c, res) {
 }
 self.addEventListener("install", e => {
   // the page is fetched fresh (not from the HTTP cache), and a shell whose app script could not be stored is not kept: a page without its code is worse than none
-  e.waitUntil(caches.open(SHELL).then(async c => { await c.addAll(PRECACHE.filter(p => p !== "/")); const res = await fetch("/", {cache: "reload"}); if (!res.ok) throw new Error("shell " + res.status); if (await keepAppScript(c, res.clone())) await c.put("/", res); }).then(() => self.skipWaiting()));
+  // every file is fetched past the HTTP cache too, so a changed lib is not stored stale under the page's new SRI; an install that could not keep
+  // the app script fails, and the old worker with its working offline shell stays (activate would delete it)
+  e.waitUntil(caches.open(SHELL).then(async c => { await c.addAll(PRECACHE.filter(p => p !== "/").map(p => new Request(p, {cache: "reload"}))); const res = await fetch("/", {cache: "reload"}); if (!res.ok) throw new Error("shell " + res.status); if (!(await keepAppScript(c, res.clone()))) throw new Error("shell script"); await c.put("/", res); }).then(() => self.skipWaiting()));
 });
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== SHELL && !k.startsWith(DATA)).map(k => caches.delete(k)))).then(() => self.clients.claim()));
@@ -37,7 +39,7 @@ self.addEventListener("fetch", e => {
       const hit = u.searchParams.get("r") === "1" ? null : await c.match("/");   // ?r=1 is the page's own reload after its script failed: network first, so a broken cached shell cannot loop
       const net = fetch("/").then(res => { if (res.ok) { const a = res.clone(), b = res.clone(); e.waitUntil(keepAppScript(c, b).then(ok => { if (ok) return c.put("/", a); })); } return res; }).catch(() => null);
       if (hit) { e.waitUntil(net); return hit; }
-      return (await net) || new Response("אין חיבור לאינטרנט", {status: 503, headers: {"Content-Type": "text/plain; charset=utf-8"}});
+      return (await net) || (await c.match("/")) || new Response("אין חיבור לאינטרנט", {status: 503, headers: {"Content-Type": "text/plain; charset=utf-8"}});
     }));
     return;
   }

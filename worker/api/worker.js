@@ -33,8 +33,9 @@ const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(
 
 const LIMITS = { ipHour: 5, toDay: 3, allDay: 150 };
 const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
-async function slot(kind, id, ttl) {   // a counter in the edge cache: { n } under a hashed key, kept for ttl seconds from its first use
-  const h = hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`luchit-rl|${kind}|${id}`)));
+async function slot(kind, id, ttl, env) {   // a counter in the edge cache: { n } under a keyed hash (HMAC with the Worker's secret, so an IP or e-mail cannot be found from the key by trying values), kept for ttl seconds from its first use
+  const secret = env && (env.CONFIRM_SECRET || env.BREVO_KEY), msg = new TextEncoder().encode(`luchit-rl|${kind}|${id}`);
+  const h = hex(secret ? await crypto.subtle.sign("HMAC", await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]), msg) : await crypto.subtle.digest("SHA-256", msg));
   return { key: new Request(`https://luchit.app/__rl/${kind}/${h}`), ttl };
 }
 async function count(c) { try { const r = await caches.default.match(c.key); return r ? (await r.json()).n || 0 : 0; } catch { return 0; } }
@@ -58,7 +59,7 @@ async function waitlist(req, env, ctx) {
   if (name.length < 2 || company.length < 2) return json({ error: "fields" }, 400);
   if (!BIZ_TYPES.includes(type) || (interest && !BIZ_INTERESTS.includes(interest))) return json({ error: "choice" }, 400);
   if (!EMAIL_RE.test(email) || (phone && !PHONE_RE.test(phone))) return json({ error: "contact" }, 400);
-  const ipc = await slot("lead-ip", ipOf(req), 3600), ipn = await count(ipc);
+  const ipc = await slot("lead-ip", ipOf(req), 3600, env), ipn = await count(ipc);
   if (ipn >= LIMITS.ipHour) return tooMany();
   await bump(ipc, ipn, ctx);
 
@@ -153,11 +154,11 @@ const app = {
     if (b.consent !== true) return json({ error: "consent" }, 400);   // the unticked checkbox must have been ticked
     const email = String(b.email || "").trim().toLowerCase();
     if (email.length > 254 || !EMAIL_RE.test(email)) return json({ error: "email" }, 400);
-    const ipc = await slot("sub-ip", ipOf(req), 3600), ipn = await count(ipc);
+    const ipc = await slot("sub-ip", ipOf(req), 3600, env), ipn = await count(ipc);
     if (ipn >= LIMITS.ipHour) return tooMany();
-    const toc = await slot("sub-to", email, 86400), ton = await count(toc);
+    const toc = await slot("sub-to", email, 86400, env), ton = await count(toc);
     if (ton >= LIMITS.toDay) { await bump(ipc, ipn, ctx); return json({ ok: true }); }   // the address already has its mails today: nothing new is sent
-    const allc = await slot("sub-all", new Date().toISOString().slice(0, 10), 86400), alln = await count(allc);
+    const allc = await slot("sub-all", new Date().toISOString().slice(0, 10), 86400, env), alln = await count(allc);
     if (alln >= LIMITS.allDay) return tooMany();
     await Promise.all([bump(ipc, ipn, ctx), bump(toc, ton, ctx), bump(allc, alln, ctx)]);
 

@@ -98,6 +98,9 @@ export default {
     if ((cmp && cmp.length < 4000) || (compare && compare.length < 400)) {
       const c = await cmpInfo(cmp || compare, !cmp);
       if (c) { title = `השוואת ${c.n} רכבים בלוחית`; desc = (c.names.some(n => n !== "רכב" && n !== "דגם") ? c.names.join(" מול ") + ". " : "") + "טסט, ריקולים, ק״מ ומפרט זה לצד זה, ממאגרי משרד התחבורה."; }
+    } else if (plate.replace(/^0+/, "") === "7654321") {   // the app's built-in sample car (DEMO_PLATE): no register holds it, so it is never looked up
+      title = "רכב לדוגמה · בדיקת רכב בלוחית";
+      desc = "דוח לדוגמה עם נתונים להמחשה. בודקים כל רכב לפי מספר רישוי: בעלויות, טסט, ריקולים וק״מ ממאגרי משרד התחבורה.";
     } else if (plate.length >= 5 && plate.length <= 8) {
       const p = await plateInfo(plate);
       if (p) {

@@ -562,7 +562,7 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .bflags,.bq{margin:0 0 10px;padding-inline-start:20px}.bflags li{font-weight:600}.bflags li.bad::marker{color:var(--bad)}.bflags li.warn::marker{color:var(--warn)}.bq li{margin:2px 0}
 /* the buy tab's stages and its transfer check (buy-and-file spec 20.11) */
 .bchips{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:0 0 12px}
-.bchips button{display:grid;justify-items:center;align-content:start;gap:4px;min-height:58px;padding:7px 2px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--muted);font:inherit;font-size:.78rem;font-weight:700;line-height:1.2;text-align:center}
+.bchips button{display:grid;justify-items:center;align-content:start;gap:4px;min-height:58px;padding:7px 2px;min-width:0;overflow-wrap:anywhere;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--muted);font:inherit;font-size:.78rem;font-weight:700;line-height:1.2;text-align:center}
 .bchips .bn{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--soft);color:var(--fg);font-size:.78rem}.bchips .bn .i{width:14px;height:14px}
 .bchips button[aria-pressed=true]{border-color:var(--t-green);color:var(--fg);background:var(--t-green-bg)}.bchips button[aria-pressed=true] .bn{background:var(--bn-on,var(--t-green));color:var(--card)}
 .bstage[hidden]{display:none}.cf-cta.bought{margin:14px 0 4px}.bstage-h{margin:0 0 10px;font-size:1.05rem}.bmodel{margin:0 0 10px}
@@ -1885,7 +1885,7 @@ function openExternal(url){
 let navReady = false;   // from the first syncNav (the page drawn), every change to the saved cars brings the bell's number up to date
 const store = {
   get(k){ try { return JSON.parse(localStorage.getItem(k) || "[]"); } catch { return []; } },
-  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} keep(k, v); if (k === "savedVehicles") { syncSaved(v); if (navReady) syncNav(); } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch { if (k === "savedVehicles") { toast("לא נשמר: אין מקום פנוי במכשיר"); return false; } } keep(k, v); if (k === "savedVehicles") { syncSaved(v); if (navReady) syncNav(); } return true; },   // a saved list that did not land is not kept or sent to the phone: the screen reads localStorage, and the next start would write the old list over the backup
 };
 /* a second copy of what the user built (saved cars and compares, the car file's marks and services, alert choices) in IndexedDB, because
    localStorage can read as empty on a nearly full disk (12.11.2026). Written on every change; read once at start, and only fills a key
@@ -1951,11 +1951,12 @@ const alertSet = () => store.get("savedVehicles").filter(x => x.alerts !== false
 const trackedOk = p => alertSet().includes(p);
 const isSaved = p => store.get("savedVehicles").some(x => x.plate === p);
 function toggleSaved(item){
-  if (item && String(item.plate) === DEMO_PLATE) { toast("זה רכב לדוגמה. בודקים רכב אמיתי כדי לשמור אותו."); return false; }
+  if (item && String(item.plate) === DEMO_PLATE) { toast("זה רכב לדוגמה. בודקים רכב אמיתי כדי לשמור אותו."); return null; }   // null: nothing changed, false: removed, true: saved
   const list = store.get("savedVehicles");
-  if (list.some(x => x.plate === item.plate)) { store.set("savedVehicles", list.filter(x => x.plate !== item.plate)); updateSavedBar(); return false; }
-  if (list.length >= savedCap()) { toast(`הרשימה מלאה (${savedCap()} רכבים). הסירו רכב כדי להוסיף.`); return false; }
-  store.set("savedVehicles", [item, ...list]); updateSavedBar(); if (current && current.plate === item.plate) snapPut(current); return true;
+  if (list.some(x => x.plate === item.plate)) { if (!store.set("savedVehicles", list.filter(x => x.plate !== item.plate))) return null; updateSavedBar(); return false; }
+  if (list.length >= savedCap()) { toast(`הרשימה מלאה (${savedCap()} רכבים). הסירו רכב כדי להוסיף.`); return null; }
+  if (!store.set("savedVehicles", [item, ...list])) return null;
+  updateSavedBar(); if (current && current.plate === item.plate) snapPut(current); return true;
 }
 /* a car checked after "+": saved like the star saves it (from "add"), and the bar's "הרכבים שלי" tab is the one it belongs to now */
 function addFromPlus(D){
@@ -2860,7 +2861,7 @@ const sourceEmpty = (signal, id) => sourceTotal(signal, id).then(t => t === null
 /* The per-car recall list answers 0 rows for every plate while the ministry reloads it overnight (status.mjs), and that must read as "unknown",
    never as "no open recall". A plate with no rows reads the list's own total: a list with rows is trusted for the next hour of the session,
    while an empty or unread answer is asked again by the next plate. A list well under the total status.json saw that day (a few hundred rows
-   leave it in a week) is still loading, and reads as empty too. true = the list is empty or loading right now. */
+   leave it in a week) is still loading, and reads as empty too. true = the list is empty, loading or its total unread right now. */
 let recEmptyP = null, recEmptyT = 0;
 function recallListEmpty(){
   if (recEmptyP && Date.now() - recEmptyT < 36e5) return recEmptyP;
@@ -2869,7 +2870,7 @@ function recallListEmpty(){
     const st = DATA_STATUS && DATA_STATUS.sets && DATA_STATUS.sets.recalls, ref = st && st.ok ? Number(st.total) || 0 : 0;
     const empty = t === 0 || (t > 0 && ref > 0 && t < ref * 0.9);
     if (t === null || empty) recEmptyT = 0;
-    return empty;
+    return t === null || empty;   // a total that could not be read is not proof of rows: unknown, like an empty list
   });
 }
 /* one row per recall: the per-car list could repeat a (plate, recall) pair (none on 20.10.2026), and SavedCheckWorker.java counts distinct ids */
@@ -2892,7 +2893,7 @@ function snapPut(D){
   } catch {}
 }
 function snapGet(plate){
-  const e = snapAll()[plate]; if (!e || !e.D) return null;
+  const e = snapAll()[plate]; if (!e || !e.D || !isSaved(plate)) return null;   // a car removed from "הרכבים שלי" does not open offline from its old copy (snapPut prunes it at the next save)
   const D = e.D; D.pick = (...vals) => vals.find(x => !empty(x)); D.fromCache = e.t; D.own = orderOwners(D.own || [], D.v && D.v.baalut); return D;
 }
 /* ---------- which register is the car ---------- */
@@ -3033,6 +3034,8 @@ async function fetchVehicle(plate, signal, onProgress){
   const {km, kmYears, kmPerYear} = kmAtTest(v);
   const onRoad = parseYM(v.moed_aliya_lakvish) || toDate(v.rishum_rishon_dt) || (isNum(v.shnat_yitzur) ? new Date(num(v.shnat_yitzur), 0, 1) : null);
   const ownersFloor = !onRoad || onRoad < new Date(2017, 0, 1); // the ownership log starts in January 2017
+  // the recall rule "built after the car was on the road" takes a real on-road month; with only the production year it takes December of that
+  // year, the latest the car can have been built, so a build from later that same year is not dropped as "after the road"
   // the public register's own state, when its row is the car's or lends it its licence date: a permanent cancellation reads like the cancel
   // registers, a temporary one (a deposit, the police) is a warning beside the car. Beside an active row of the same vehicle only a temporary
   // one counts (10/2026: 2,488 deposits and 69 removals by the police or the safety patrol; the active register is what says the car is on the road)
@@ -3043,7 +3046,7 @@ async function fetchVehicle(plate, signal, onProgress){
   const pubUse = mains[0] && mains[0].key === "active" && pub && sameCar(top, pub) && !(pubState(pub) || {}).gone ? String(pub.sug_rechev_nm || "").trim() || "רכב ציבורי" : null;
   const primary = ps ? {...mains[0], ...(ps.gone ? {status: "ירד מהכביש", tone: "bad"} : {status: ps.status, tone: "warn"})} : mains[0];
 
-  const D = {plate, v, w, modelErr: !!modelErr, towRow, zeroTow, tSrc, counts, price, priceRows, own, ownersFloor, recalls, modelRecalls: afterRoad(modelRecalls, onRoad), recallUnknown: !!res.recall.err, recallEmpty: !!res.recall.empty, ownMirror: !!res.ownMirror, modelRecallsUnknown, tag, dpf, primary, importKind: res.import.rows[0] ? String(res.import.rows[0].sug_yevu || "יבוא אישי").replace(/-/g, " · ") : null, errs, pick, make, model,
+  const D = {plate, v, w, modelErr: !!modelErr, towRow, zeroTow, tSrc, counts, price, priceRows, own, ownersFloor, recalls, modelRecalls: afterRoad(modelRecalls, parseYM(v.moed_aliya_lakvish) || toDate(v.rishum_rishon_dt) || (isNum(v.shnat_yitzur) ? new Date(num(v.shnat_yitzur), 11, 1) : null)), recallUnknown: !!res.recall.err, recallEmpty: !!res.recall.empty, ownMirror: !!res.ownMirror, modelRecallsUnknown, tag, dpf, primary, importKind: res.import.rows[0] ? String(res.import.rows[0].sug_yevu || "יבוא אישי").replace(/-/g, " · ") : null, errs, pick, make, model,
     title: (nm => [/^[A-Za-z]/.test(make) && nm.toUpperCase().startsWith(make.toUpperCase()) && !/^[A-Za-z]/i.test(nm.slice(make.length)) ? "" : make, nm].filter(Boolean).join(" "))(niceModel(model)) || "רכב " + fmtPlate(plate),
     sub: [v.shnat_yitzur, v.ramat_gimur, v.tzeva_rechev].filter(x => !empty(x)).join(" · "),   // the trim is the register's only: the model row may be another trim's
     vin: pick(v.misgeret, v.mispar_shilda, v.shilda), km, kmYears, kmPerYear,
@@ -3122,7 +3125,9 @@ function buildInsights(D){
   else if (past.some((t, i) => /סוחר|יבואן|מסחר/.test(t) && !(i === 0 && !held(0) && newAtFirst(D)))) add("info", "היה אצל סוחר", "בהיסטוריית הבעלות מופיע סוחר. זה נפוץ ברכב שנמכר בטרייד-אין או הועבר דרך מגרש, ואינו פגם בפני עצמו. שווה לשאול את המוכר מי היו הבעלים לפני ואחרי הסוחר ומה הסיבה.");
   else if (past.length && /סוחר|יבואן|מסחר/.test(past[0]) && !held(0) && newAtFirst(D)) add("info", "כנראה נמכר כיד 2, 0 ק״מ",
     `נרשם על סוחר רק ${forSpan(spans[0])} ואז עבר לבעלים הבאים, ולא נמכר בטרייד-אין. במחירונים הוא עשוי להיחשב כרכב שבעלותו הראשונה סוחר.`);
-  if (own.length > 1 && OWN_FLEET.includes(cur.kind)) add("info", "הרכב רשום כעת על חברה", "הבעלות הנוכחית על שם חברה, ולא אדם פרטי. אם המוכר מציג את עצמו כבעלים פרטי, בקשו הסבר והסדירו את העברת הבעלות מול החברה.");
+  // a car registered to a rental company right now is a flag on every surface (card, share picture, PDF, buyer card), not only in the buyer card
+  if (cur.kind === "rental" && !D.isCancelled) add("warn", "הרכב רשום כעת על חברת השכרה", "הבעלים הנוכחיים הם חברת השכרה. רכבי השכרה עוברים בין נהגים רבים.");
+  else if (own.length > 1 && OWN_FLEET.includes(cur.kind)) add("info", "הרכב רשום כעת על חברה", "הבעלות הנוכחית על שם חברה, ולא אדם פרטי. אם המוכר מציג את עצמו כבעלים פרטי, בקשו הסבר והסדירו את העברת הבעלות מול החברה.");
   if (own.length) {
     const last = parseYM(own[own.length - 1].baalut_dt);
     if (last && own.length > 1 && monthsBetween(last, now) < 6) add("info", "החליף בעלים לאחרונה", `העברת הבעלות האחרונה הייתה ב-${fmtDate(own[own.length - 1].baalut_dt)}.`);
@@ -3190,12 +3195,12 @@ const REPORT_TABS = [["overview","סקירה"],["buy","קנייה"],["recalls","
 const recTabOf = D => D.kind === "model" || D.recalls.length ? "ריקולים" : (D.isCancelled ? [] : settlementsFor(D)).length ? "הסדר פשרה" : "";
 
 /* a reload or Back that re-opens the car already on screen is not a new check: it is counted as lookup_repeat, so car_lookup stays one per check */
-let lookupAgain = false;
+let lookupAgain = false, demoVia = "";
 /* a plate of the wrong length: the field says so to a screen reader (aria-invalid, pointing at the message) until it is typed in again (accessibility review 12.11.2026) */
 function plateInvalid(){ const f = $("#plate"); if (!f) return; f.setAttribute("aria-invalid", "true"); f.setAttribute("aria-describedby", "plateErr"); f.addEventListener("input", () => { f.removeAttribute("aria-invalid"); f.removeAttribute("aria-describedby"); }, {once: true}); }
 async function lookup(raw){
   if (Date.now() - intentAt > INTENT_MS) dropIntents();
-  const again = lookupAgain; lookupAgain = false;
+  const again = lookupAgain, via = demoVia; lookupAgain = false; demoVia = "";
   parked = null;
   const ot = openTab; openTab = null;
   const plate = digits(raw).replace(/^0+(?=\d{5})/, "");
@@ -3234,7 +3239,8 @@ async function lookup(raw){
   renderResult(); focusResult();
   if (added) snack(added === "new" ? "נוסף לרכבים שלי" : "הרכב כבר ברכבים שלי", added === "new" ? "ביטול" : "לרשימה", added === "new" ? () => undoAdd(D, mineWas) : () => navTo("cars", {via: "add"}), 6000);
   // exactly 8 params: the app bridge keeps the first 8 (MainActivity.logEvent) and the web Worker 10 with src+camp; a 9th silently drops the last
-  if (isDemo(D)) track("demo_open", {from: "home"}); else track(again ? "lookup_repeat" : "car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: (D.errs && D.errs.length) || D.modelErr ? 1 : 0, role, ...lookupFacts(D)});
+  // the sample car counts once per open, like car_lookup (a reload or Back is not a new one), with where it was opened from
+  if (isDemo(D)) { if (!again) track("demo_open", {from: via || (SHARE_VIA !== "none" ? "link" : "typed")}); } else track(again ? "lookup_repeat" : "car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: (D.errs && D.errs.length) || D.modelErr ? 1 : 0, role, ...lookupFacts(D)});
   if (!isDemo(D)) remember(plate, D.kind === "model" ? "" : D.title);
   window.scrollTo({top: 0});
   // "יש לכם כבר רכב? פתחו לו תיק" on home: the car checked next opens straight in its file (one step, like "+"), not on a page with one more button
@@ -3371,7 +3377,7 @@ function renderResult(){
   html.push(`<div class="side">`);
   if (sharedHere(D)) { const kl = keyLine(D); html.push(`<div class="shared-top"><span aria-hidden="true">📩</span><span><b>קיבלתם בדיקה של <bdi>${esc(D.title)}</bdi> מלוחית</b><span class="kl ${kl.k}">${esc(kl.t)}</span><small>${D.fromCache ? "מוצגים נתונים שנשמרו ב-" + esc(dmy(D.fromCache)) : "נבדק עכשיו מול משרד התחבורה, מעודכן יותר מכל קובץ"}</small></span></div>`); }
   else { const rn = recvNext(D); if (rn) html.push(rn); }
-  if (D.fromCache) html.push(`<div class="msg" role="status"><b>אין חיבור למשרד התחבורה, ולכן מוצגים נתונים שנשמרו ב-${esc(fmtDate(new Date(D.fromCache).toISOString()))}.</b> ייתכן שהם לא מעודכנים. <button type="button" class="link-btn" data-retry="${esc(D.plate)}">נסו שוב</button></div>`);
+  if (D.fromCache) html.push(`<div class="msg" role="status"><b>אין חיבור למשרד התחבורה, ולכן מוצגים נתונים שנשמרו ב-${esc(dmy(D.fromCache))}.</b> ייתכן שהם לא מעודכנים. <button type="button" class="link-btn" data-retry="${esc(D.plate)}">נסו שוב</button></div>`);
   // compare sits beside the car's name, where a card keeps its action: a fixed place that never wraps under the facts
   const cmpBtn = `<button type="button" class="id-cmp" data-act="compare" data-from="card" aria-label="השוואה">${ico("compare")}<span>השוואה</span></button>`;
   // the name the owner gave a saved car, as "הרכבים שלי" shows it, above the model: the car opened from the list is recognised by it. It is
@@ -3631,7 +3637,7 @@ const svcAll = () => { try { return JSON.parse(localStorage.getItem("svc") || "{
 const svcOf = p => { const s = svcAll()[p]; return s && Array.isArray(s.log) ? s : {log: [], meta: null}; };
 // the newest entry of the service log (kept on the phone only), for the fleet table
 const svcLast = p => svcOf(p).log.filter(x => x.d && x.type !== SVC_KM).reduce((a, b) => !a || b.d > a.d ? b : a, null);
-function svcSave(p, s){ const all = svcAll(); all[p] = s; try { localStorage.setItem("svc", JSON.stringify(all)); } catch {} keep("svc", all); syncSaved(store.get("savedVehicles")); }
+function svcSave(p, s){ const all = svcAll(); all[p] = s; try { localStorage.setItem("svc", JSON.stringify(all)); } catch { toast("לא נשמר: אין מקום פנוי במכשיר"); return false; } keep("svc", all); syncSaved(store.get("savedVehicles")); return true; }
 const ymdOf = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + Math.round(n)); return x; };
 const dayDiff = (a, b) => Math.round((b - a) / 864e5);
@@ -3665,9 +3671,11 @@ function svcRemember(D, info){
 function svcCalendar(D, due){
   const ymd = x => `${x.getFullYear()}${String(x.getMonth() + 1).padStart(2, "0")}${String(x.getDate()).padStart(2, "0")}`;
   const next = addDays(due, 1), title = `טיפול לרכב ${fmtPlate(D.plate)} (${D.title})`, desc = "מועד משוער לטיפול הבא לפי הטיפולים שרשמתם והמרווח.";
-  const b = bridge();
+  const b = bridge(), web = `https://calendar.google.com/calendar/render?${new URLSearchParams({action: "TEMPLATE", text: title, details: desc, dates: `${ymd(due)}/${ymd(next)}`})}`;
+  // the app calls calendarFallback when the phone has no calendar app: it must be this service's, not a test reminder left from another car
+  window.calendarFallback = () => openExternal(web);
   if (b && b.addCalendar) { try { b.addCalendar(title, desc, ymd(due)); return; } catch {} }
-  openExternal(`https://calendar.google.com/calendar/render?${new URLSearchParams({action: "TEMPLATE", text: title, details: desc, dates: `${ymd(due)}/${ymd(next)}`})}`);
+  openExternal(web);
 }
 const BRAND_MANUAL = [
   {re: /יונדאי/, name: "יונדאי", url: "https://www.hyundaimotors.co.il/maintenance/"},
@@ -3827,10 +3835,12 @@ async function fillDocs(){
   el.innerHTML = list.length ? `<ul class="svc-list">${list.map(x => `<li class="doc" data-cat="${esc(x.cat)}"><div><b>${esc(x.cat)}</b><span title="${esc(x.name)}"><bdi>${esc(shortName(x.name))}</bdi></span><span>${esc(dmy(x.at))} · <bdi>${kb(x.size)}</bdi></span></div><span class="doc-acts"><button type="button" class="x" data-doc="open" data-id="${x.id}" aria-label="פתיחה">${ico(x.type === "application/pdf" ? "doc" : "image")}</button><button type="button" class="x" data-doc="share" data-id="${x.id}" aria-label="שיתוף">${ico("share")}</button><button type="button" class="x" data-doc="del" data-id="${x.id}" aria-label="מחיקה">${ico("trash")}</button></span>${exp(x)}</li>`).join("")}</ul>` : "";
 }
 function docViewer(blob, name){
-  const url = URL.createObjectURL(blob), el = document.createElement("div"); el.className = "doc-view";
+  const url = URL.createObjectURL(blob), el = document.createElement("div"), back = document.activeElement; el.className = "doc-view";
+  // a dialog: focus goes in to its close button and comes back to the button that opened it (Escape closes it, keydown below)
+  el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); el.setAttribute("aria-label", name || "מסמך");
   el.innerHTML = `<button type="button" class="x" aria-label="סגירה">${ico("x")}</button><img alt="${esc(name)}" src="${url}">`;
-  const close = () => { URL.revokeObjectURL(url); el.remove(); };
-  el.addEventListener("click", close); document.body.appendChild(el);
+  const close = () => { URL.revokeObjectURL(url); el.remove(); try { if (back && back.isConnected) back.focus(); } catch {} };
+  el.addEventListener("click", close); document.body.appendChild(el); el.querySelector(".x").focus();
 }
 document.addEventListener("click", async ev => {
   const b = ev.target.closest("[data-doc]"); if (!b || !current) return;
@@ -4142,6 +4152,7 @@ function alertAsk(D){
   if (reportBuild || !D.plate) return "";
   const st = ALERT_ASK.all()[D.plate];
   if (!alertsSupported()) return IS_IOS || st ? "" : `<div class="cf-ask"><div><b>תזכורות יש רק באפליקציה</b><span>שם נזכיר לפני הטסט ונתריע על ריקול חדש, בלי הרשמה.</span></div><div class="cf-ask-b"><button type="button" class="link-btn" data-url="${PLAY_URL}" data-hint="file_ask">${ico("bell")}לאפליקציה</button><button type="button" class="cf-not" data-bm="askLater">לא עכשיו</button></div></div>`;
+  if (!isSaved(D.plate)) return `<p class="note cf-ask-off">כדי לקבל תזכורות לרכב הזה, שומרים אותו ב"הרכבים שלי".</p>`;   // the phone checks only saved cars
   if (alertsOn() || st === "granted" || st === "later") return "";
   if (st === "denied") return `<p class="note cf-ask-off">התזכורות כבויות. אפשר להפעיל בהגדרות.</p>`;
   const L = licOf(D), tst = L && L.k === "ok" && D.primary && D.primary.key === "active", when = tst ? `הטסט ב-${dDot(L.ex)}. נזכיר חודש ושבוע לפני.` : "נתריע על ריקול חדש, אם ייפתח.";
@@ -4367,7 +4378,7 @@ function importerBtn(D){
 function checkLine(D, fr){
   if (D.kind === "model" || D.isCancelled || D.recallUnknown) return "";
   const stlOn = !D.importKind && SETTLEMENTS.length, pw = fr.length ? pendingWords(fr) : null, hz = perCarTo();
-  const saved = D.fromCache ? fmtDate(new Date(D.fromCache).toISOString()) : "";
+  const saved = D.fromCache ? dmy(D.fromCache) : "";
   const thin = recallThin(D), state = pw ? "warn" : saved ? "cached" : D.modelRecallsUnknown ? "partial" : thin ? "thin" : "ok";
   const noList = D.modelRecallsUnknown ? [] : modelRecallList(D).filter(r => r.fits !== false && !recallPending(r) && r.reach === "nolist");
   // a recall of the production year with no car list: the data cannot say "checked", only the importer can (data truth 11/2026: airbags, timing chain)
@@ -4491,8 +4502,10 @@ function checksCard(D){
    and one sentence in neutral words only (under, inside, over; "bargain" and "recommended" were shelved for good, Dudu 15.10). The scale runs
    from 70% of the range's low end to 130% of its high end; a price outside it sits at the edge, with an arrow. The lower values at the line's
    start, as the price meter of "הרכבים שלי" */
+/* the asking-price scale both meters draw on (the buy tab's gauge and the card in "הרכבים שלי"), so one price sits at one point in both */
+const askScale = ([lo, hi]) => { const span = Math.max(hi - lo, 1); return [lo - span * .7, hi + span * .7]; };
 function askGauge(ask, fair){
-  const [lo, hi] = fair, min = lo * .7, max = hi * 1.3, pos = v => Math.max(0, Math.min(100, (v - min) / (max - min) * 100)).toFixed(1), k = x => fmtN(Math.round(x / 1000));
+  const [lo, hi] = fair, [min, max] = askScale(fair), pos = v => Math.max(0, Math.min(100, (v - min) / (max - min) * 100)).toFixed(1), k = x => fmtN(Math.round(x / 1000));
   const vd = askVerdict(ask, fair), edge = ask && (ask < min || ask > max) ? (ask > max ? "hi" : "lo") : "";
   return `<div class="pmeter bgauge" role="img" aria-label="טווח משוער ${k(lo)} עד ${k(hi)} אלף ₪${vd ? `. ${vd.s}` : ""}"${vd ? ` data-pos="${vd.pos}"` : ""}>
     <span class="pm-bar"><i class="pm-band" style="inset-inline-start:${pos(lo)}%;width:${(pos(hi) - pos(lo)).toFixed(1)}%"></i>${ask ? `<i class="pm-dot${edge ? " edge " + edge : ""}" style="inset-inline-start:calc(${pos(ask)}% - 7px)"></i>` : ""}</span>
@@ -4518,6 +4531,8 @@ function priceCard(D){
    The stages are read from the steps, so a car marked before this version opens at its own stage and nothing is migrated. What the buyer types
    (the dashboard km, the check against the registration) is kept beside it in buyin:<plate>. */
 const BUY_STAGES = [{n: 1, t: "לפני שנפגשים", steps: [1, 2]}, {n: 2, t: "ליד הרכב", steps: [3]}, {n: 3, t: "לפני שמשלמים", steps: [4, 5]}, {n: 4, t: "ביום ההעברה", steps: [6]}];
+/* the key of a car's buy marks: its plate, or for a model check (no plate) the model and year, so two models never share one set (buychk:null) */
+const buyId = D => D.plate || (D.v ? "m" + [D.v.tozeret_cd, D.v.degem_cd, D.v.shnat_yitzur].join("-") : "m");
 const BUY = {
   pick: {},            // the stage tapped on this visit, per car; without one the first stage not done opens
   seen: new Set(),     // buy_stage {from: auto} and transfer_check: once per car per visit
@@ -4528,8 +4543,8 @@ const BUY = {
 };
 const stageDone = (s, done) => s.steps.every(n => done.includes(n));
 function buyStage(D){
-  const done = BUY.done(D.plate), auto = (BUY_STAGES.find(s => !stageDone(s, done)) || BUY_STAGES[3]).n;
-  return {n: BUY.pick[D.plate] || auto, auto, done};
+  const done = BUY.done(buyId(D)), auto = (BUY_STAGES.find(s => !stageDone(s, done)) || BUY_STAGES[3]).n;
+  return {n: BUY.pick[buyId(D)] || auto, auto, done};
 }
 function stageChips(D, st){
   if (reportBuild) return "";
@@ -4681,7 +4696,7 @@ function kmResult(D, km, print){
   return `<div class="kmres" data-res="${j.res}">${bar}<p class="vd ${j.k}">${print && j.km ? `הלוח הראה ${fmtN(j.km)} ק״מ (כפי שהקלדתם). ` : ""}${esc(j.t)}</p>${j.ask ? `<p class="note"><b>שאלה למוכר:</b> ${esc(j.ask)}</p>` : ""}</div>`;
 }
 function kmBlock(D, print){
-  const km = BUY.input(D.plate).km || null;
+  const km = BUY.input(buyId(D)).km || null;
   if (print) return `<div class="kmchk"><div class="qsec">ק״מ בלוח מול הטסט האחרון</div>${km || !D.km ? kmResult(D, km, true) : `<p class="note">☐ הק״מ בלוח: ____________ (בטסט האחרון: ${fmtN(D.km)})</p>`}</div>`;
   return `<div class="kmchk"><div class="qsec">כמה ק״מ מראה הלוח?</div>${D.km ? `<form class="askrow" data-bkm><input class="inp" id="kmIn" inputmode="numeric" placeholder="למשל 104,300" value="${km ? fmtN(km) : ""}" aria-label="הק״מ בלוח המחוונים"><button type="submit" class="link-btn">${ico("search")}בדיקה</button></form>` : ""}
     <div id="kmRes" role="status">${kmResult(D, km)}</div></div>`;
@@ -4690,13 +4705,13 @@ function kmBlock(D, print){
    a copy), the colour and the fuel, each marked as it is on the car */
 function matchRows(D){
   const vin = String(D.vin || "").replace(/[^A-Za-z0-9]/g, ""), rows = [];
-  if (vin.length >= 4) rows.push(["vin", "4 התווים האחרונים של מספר השלדה", vin.slice(-4).toUpperCase(), "מוטבעים על לוחית בבסיס השמשה הקדמית ועל עמוד הדלת"]);
+  if (vin.length >= 4) rows.push(["vin", "4 התווים האחרונים של מספר השלדה", vin.slice(-4).toUpperCase(), D.primary && D.primary.key === "moto" ? "מוטבעים על השלדה, בדרך כלל ליד ראש ההיגוי" : D.primary && D.primary.key === "heavy" ? "מוטבעים על השלדה ועל לוחית היצרן ברכב" : "מוטבעים על לוחית בבסיס השמשה הקדמית ועל עמוד הדלת"]);   // a two-wheeler has no windscreen base or door pillar
   if (!empty(D.v.tzeva_rechev)) rows.push(["color", "צבע", String(D.v.tzeva_rechev)]);
   if (!empty(D.v.sug_delek_nm)) rows.push(["fuel", "דלק", String(D.v.sug_delek_nm)]);
   return rows;
 }
 function matchBlock(D, print){
-  const rows = matchRows(D), m = BUY.input(D.plate).match || {}; if (!rows.length) return "";
+  const rows = matchRows(D), m = BUY.input(buyId(D)).match || {}; if (!rows.length) return "";
   const bad = rows.some(([id]) => m[id] === 0);
   const seg = id => `<span class="mseg" role="group" aria-labelledby="mt-${id}"><button type="button" data-bmatch="${id}" data-v="1" aria-pressed="${m[id] === 1}">${ico("check")}מתאים</button><button type="button" data-bmatch="${id}" data-v="0" aria-pressed="${m[id] === 0}">${ico("x")}לא מתאים</button></span>`;
   return `<div class="mchk" id="mchk"><div class="qsec">מול הרישום</div><p class="note">משווים את מה שעל הרכב למה שרשום במאגר.</p>
@@ -4707,15 +4722,15 @@ document.addEventListener("submit", ev => {
   if (!ev.target.matches("[data-bkm]") || !current) return;
   ev.preventDefault();
   const D = current, km = Number(digits($("#kmIn").value)) || null;
-  BUY.keep(D.plate, {km});
+  BUY.keep(buyId(D), {km});
   const j = kmJudge(D, km), el = $("#kmRes"); if (el) el.innerHTML = kmResult(D, km);
   if (j) track("km_check", {res: j.res});   // the result only, never the km
 });
 document.addEventListener("click", ev => {
   const b = ev.target.closest && ev.target.closest("[data-bmatch]"); if (!b || !current) return;
-  const D = current, m = {...(BUY.input(D.plate).match || {})}, id = b.dataset.bmatch, v = +b.dataset.v;
+  const D = current, m = {...(BUY.input(buyId(D)).match || {})}, id = b.dataset.bmatch, v = +b.dataset.v;
   if (m[id] === v) delete m[id]; else m[id] = v;
-  BUY.keep(D.plate, {match: m});
+  BUY.keep(buyId(D), {match: m});
   const el = $("#mchk"); if (el) el.outerHTML = matchBlock(D);
   track("match_check", {mismatch: Object.values(m).includes(0) ? 1 : 0});
 });
@@ -4744,7 +4759,7 @@ function buySteps(D, print){
     4: ["בדיקה במכון", print ? `<p class="note">☐ בדיקה במכון בדיקה מורשה, אחרי שהסכמתם על מחיר.</p>` : `<div class="insp"><p class="note" style="margin:0 0 6px">מומלץ לבדוק במכון מורשה אחרי שהסכמתם על מחיר עם המוכר, וליידע מראש שתיקונים שיתגלו יקוזזו מהמחיר. סכמו מראש מי משלם על הבדיקה אם יתגלו תקלות קריטיות ${ev ? "בסוללה, במנוע" : "במנוע, בגיר"} או בשלדה. מכונים מתוך רשימת המוסכים המורשים של משרד התחבורה:</p>
        <form class="msearch" data-insp><input id="inspCity" placeholder="עיר, למשל חולון" value="${esc(setting("inspCity", ""))}" aria-label="עיר"><button type="submit" class="go sm" aria-label="חיפוש">${ico("search")}</button></form>
        <div id="inspRes" style="margin-top:10px"></div></div>`],
-    5: ["מה לשקלל במחיר", `<ul class="bq"><li><b>מצבר:</b> לרוב מחליפים אחרי 30 עד 36 חודשים. בדקו את גילו ואם הוא עדיין באחריות.</li><li><b>צמיגים:</b> בדקו מצב וגיל (התאריך מוטבע על הצמיג). בשימוש רגיל הם מחזיקים כ-40 עד 50 אלף ק״מ.</li><li><b>טסט קרוב:</b> חשבו אגרה, עלות טסט, הכנה ויום חופש.</li><li><b>טיפולים:</b> בקשו פירוט מהמוסך ובדקו שהתאריכים והק״מ הגיוניים מול המד. בררו מתי הטיפול הבא ומה עלותו.</li></ul>`],
+    5: ["מה לשקלל במחיר", `<ul class="bq"><li><b>מצבר:</b> לרוב מחליפים אחרי 30 עד 36 חודשים. בדקו את גילו ואם הוא עדיין באחריות.</li><li><b>צמיגים:</b> בדקו מצב וגיל (התאריך מוטבע על הצמיג). ${D.primary && (D.primary.key === "moto" || D.primary.key === "heavy") ? "" : "בשימוש רגיל הם מחזיקים כ-40 עד 50 אלף ק״מ."}</li><li><b>טסט קרוב:</b> חשבו אגרה, עלות טסט, הכנה ויום חופש.</li><li><b>טיפולים:</b> בקשו פירוט מהמוסך ובדקו שהתאריכים והק״מ הגיוניים מול המד. בררו מתי הטיפול הבא ומה עלותו.</li></ul>`],
     6: ["לפני התשלום", `${day}<p class="note"><b>אל תעבירו תשלום לפני שפעלתם לפי השלבים, ושלמו רק במעמד העברת הבעלות.</b></p>`],
     after: `<li class="bsteps-end"><span class="n">${ico("check")}</span><div><b>אחרי העסקה</b><p class="note">בצעו העברת בעלות ועדכנו את הביטוח מיד, ורק אז התחילו לנהוג ברכב.</p>
        ${lk("https://car.cma.gov.il/", "doc", `השוואת<span class="lk-x"> מחירי</span> ביטוח חובה`)}</div></li>`,
@@ -4768,7 +4783,7 @@ function stageCard(D, chips){
   // every stage is drawn and the others are hidden: the plan keeps its six steps on the page (the site's data audit reads them), the buyer sees one stage
   const stage = s => `<div class="bstage" data-stage="${s.n}"${s.n === st.n ? "" : " hidden"}><h3 class="bstage-h">${s.n}. ${s.t}</h3>${stageExtra(D, s.n)}<ol class="bsteps">${s.steps.map(step).join("")}${s.n === 4 ? S.after : ""}</ol>${s.n === 4 ? boughtRow(D) : ""}</div>`;
   return card("לפני שקונים", "check", "green", `${chips ? stageChips(D, st) : ""}${model}
-    <p class="bprog" id="bprog">${st.done.length ? `בוצעו ${st.done.length} מתוך 6 שלבים` : "סמנו שלבים תוך כדי, והסימון נשמר לרכב הזה"}</p>
+    <p class="bprog" id="bprog">${st.done.length ? `בוצעו ${st.done.length} מתוך 6 צעדים` : "סמנו שלבים תוך כדי, והסימון נשמר לרכב הזה"}</p>
     ${BUY_STAGES.map(stage).join("")}
     <button type="button" class="link-btn" data-act="checklistPdf">${ico("doc")}הורדה או הדפסה של רשימת הבדיקות (PDF)</button>`);
 }
@@ -4805,7 +4820,7 @@ function buyRedraw(){
 document.addEventListener("click", ev => {
   const b = ev.target.closest && ev.target.closest("[data-ck],[data-bstage],[data-tl]"); if (!b || !current) return;
   if (b.dataset.tl) { track("transfer_link", {to: b.dataset.tl}); return; }
-  const p = current.plate;
+  const p = buyId(current);
   if (b.dataset.bstage) { const n = +b.dataset.bstage; if (buyStage(current).n === n) return; BUY.pick[p] = n; track("buy_stage", {stage: n, from: "tap"}); buyRedraw(); return; }
   let a = BUY.done(p);
   const n = +b.dataset.ck, on = !a.includes(n), s = BUY_STAGES.find(x => x.steps.includes(n)); a = on ? a.concat(n) : a.filter(x => x !== n);
@@ -4824,15 +4839,16 @@ async function findInspection(city){
   try { localStorage.setItem("inspCity", city); } catch {}
   out.innerHTML = `<p class="note">מחפשים…</p>`;
   const words = searchWords(city);
-  let rows = await dsSearch(GARAGES, words, {miktzoa: "בדיקות-רכב )קניה ומכירה)"}, 50).catch(() => []);
-  if (!rows.length) rows = (await dsSearch(GARAGES, words.concat("בדיקות"), null, 100).catch(() => [])).filter(r => /בדיק/.test(r.miktzoa || "") && /קני|מכיר/.test(r.miktzoa || ""));
+  let failed = false; const miss = () => { failed = true; return []; };
+  let rows = await dsSearch(GARAGES, words, {miktzoa: "בדיקות-רכב )קניה ומכירה)"}, 50).catch(miss);
+  if (!rows.length) rows = (await dsSearch(GARAGES, words.concat("בדיקות"), null, 100).catch(miss)).filter(r => /בדיק/.test(r.miktzoa || "") && /קני|מכיר/.test(r.miktzoa || ""));
   const want = city.replace(/[-\s]/g, "");
   rows = rows.filter(r => String(r.yishuv || "").replace(/[-\s]/g, "").includes(want) || !r.yishuv);
   const seen = new Set(); rows = rows.filter(r => { const k = r.mispar_mosah || r.shem_mosah; if (seen.has(k)) return false; seen.add(k); return true; });
   out.innerHTML = rows.length ? `<div class="list">${rows.slice(0, 15).map(r => {
       const tel = String(r.telephone || "").replace(/[^\d+]/g, "");
       return `<div class="row"><span class="t"><b>${esc(r.shem_mosah || "מכון בדיקה")}</b><small>${esc([r.ktovet, r.yishuv].filter(x => !empty(x)).join(", "))}</small></span>${tel.length >= 9 ? `<button type="button" class="copy-btn" data-url="tel:${tel}">${ico("phone")}חיוג</button>` : ""}</div>`;
-    }).join("")}</div>` : `<p class="note">לא מצאנו מכון בדיקה ב${esc(city)}. נסו עיר קרובה או שם אחר לעיר (למשל "תל אביב יפו").</p>`;
+    }).join("")}</div>` : failed ? `<p class="note">החיפוש לא הצליח כרגע. בדקו את החיבור ונסו שוב.</p>` : `<p class="note">לא מצאנו מכון בדיקה ב${esc(city)}. נסו עיר קרובה או שם אחר לעיר (למשל "תל אביב יפו").</p>`;
 }
 document.addEventListener("submit", ev => { if (ev.target.matches("[data-insp]")) { ev.preventDefault(); findInspection($("#inspCity").value); } });
 
@@ -5725,7 +5741,7 @@ function renderCompare(){
     ...(anyCar ? [anyModel ? "הרכב הספציפי (לא לדגמים)" : "הרכב הספציפי",
       ["ק״מ בטסט האחרון", D => D.km, "lo", "", false, true],
       ["ק״מ לשנה", D => D.kmPerYear, "lo", "", false, true],
-      ["יד (ללא סוחרים)", D => handsOf(D) || null, "lo", "", false, true],
+      ["יד (ללא סוחרים)", D => handsFloor(D) && handsOf(D) ? `לפחות ${handsOf(D)}` : handsOf(D) || null, "lo", "", false, true],   // a floor ("לפחות") is text, so it never wins the row
       ["ריקולים פתוחים", D => D.recallUnknown ? "לא זמין כרגע" : D.recalls.length, "lo", "", false, true],   // a query that failed is unknown: never 0, never the best
       ["טסט בתוקף עד", D => { const L = licOf(D); return !L ? "" : L.k === "ok" ? L.date : licLine(L); }, null, "", false, true],
       ["בעלות ראשונה", D => firstOwner(D.v) || "", null, "", false, true]] : []),
@@ -5809,7 +5825,7 @@ $("#out").addEventListener("click", ev => {
     if (b.dataset.hint) track("web_hint_click", {where: b.dataset.hint});
     track("link_out", {kind: (b.dataset.copyfirst ? "importer" : "other")}); openExternal(b.dataset.url); return;
   }
-  if (b.dataset.open) { run(b.dataset.open); return; }
+  if (b.dataset.open) { demoVia = b.closest(".try") ? "home" : "list"; run(b.dataset.open); return; }
   if (b.dataset.bell) { const list = store.get("savedVehicles"), it = list.find(x => x.plate === b.dataset.bell); // the switch as drawn: on only for a car inside the plan's alert slots
     const on = !!it && it.alerts !== false && (!PRO_LOCK || trackedOk(it.plate));
     if (it && !on && list.filter(x => x.alerts !== false).length >= alertCap()) { toast(`התראות ליותר מ-${alertCap()} רכבים זמינות בחבילה גבוהה יותר`); return; } if (it) { it.alerts = !on; track("alerts_toggle", {on: it.alerts !== false ? "1" : "0"}); store.set("savedVehicles", list); toast(it.alerts === false ? "ההתראות לרכב הזה כבויות" : "תקבלו התראות על הרכב הזה"); refreshView(); } return; }
@@ -5819,7 +5835,7 @@ $("#out").addEventListener("click", ev => {
   if (b.dataset.rm) { cmp.splice(+b.dataset.rm, 1); renderCompare(); return; }
   if (b.dataset.retryCmp) { retryCompare(+b.dataset.retryCmp); return; }
   if (b.dataset.sec) { const t = b.dataset.sec, y = window.scrollY; if (b.getAttribute("aria-expanded") === "true") cmpOpen.delete(t); else cmpOpen.add(t); renderCompare(); window.scrollTo(0, y); return; }
-  if (b.dataset.cmpsave) { const D = cmp[+b.dataset.cmpsave]; if (D && D.plate && D.kind !== "fail") { const on = toggleSaved(newSavedItem(D)); if (on) { startTrial(); cohSaved("compare"); } { const L = store.get("savedVehicles").length; track(on ? "car_save" : "car_unsave", {n: String(Math.min(L, 4)) + (L > 3 ? "+" : ""), from: "compare"}); } toast(on ? "נשמר ברכבים שלי" : "הוסר מהרכבים שלי"); const y = window.scrollY; renderCompare(); window.scrollTo(0, y); } return; }
+  if (b.dataset.cmpsave) { const D = cmp[+b.dataset.cmpsave]; if (D && D.plate && D.kind !== "fail") { const on = toggleSaved(newSavedItem(D)); if (on === null) return; if (on) { startTrial(); cohSaved("compare"); } { const L = store.get("savedVehicles").length; track(on ? "car_save" : "car_unsave", {n: String(Math.min(L, 4)) + (L > 3 ? "+" : ""), from: "compare"}); } toast(on ? "נשמר ברכבים שלי" : "הוסר מהרכבים שלי"); const y = window.scrollY; renderCompare(); window.scrollTo(0, y); } return; }
   if (b.dataset.act === "addCompare") { openCompare(); return; }
   if (b.dataset.act === "compareHome") { cmp = []; renderCompare(); openCompare("search"); return; }
   if (b.dataset.act === "market") { openMarket(); return; }
@@ -5874,7 +5890,7 @@ $("#out").addEventListener("click", ev => {
   if (act === "compare") { track("compare_open", {from: b.dataset.from || "menu"}); cmp = current && current.kind !== "fail" ? [current] : []; renderCompare(); openCompare("model"); }
   if (act === "save") {
     if (isDemo(current)) { toast("זה רכב לדוגמה. בודקים רכב אמיתי כדי לשמור אותו."); return; }
-    const on = toggleSaved(newSavedItem(current));
+    const on = toggleSaved(newSavedItem(current)); if (on === null) return;   // a full list or a failed write already said so: no car_unsave, no "removed"
     if (on) { startTrial(); cohSaved(currentTab || "home"); }
     track(on ? "car_save" : "car_unsave", {n: String(Math.min(store.get("savedVehicles").length, 4)) + (store.get("savedVehicles").length > 3 ? "+" : ""), from: b.dataset.from || currentTab || "home"});
     b.setAttribute("aria-pressed", String(on)); b.setAttribute("aria-label", on ? "נשמר ברכבים שלי" : "שמירה ברכבים שלי"); { const sp = b.querySelector("span"); if (sp) sp.textContent = on ? "נשמר" : "שמירה"; }
@@ -6426,7 +6442,7 @@ async function drawShareCard(D, opt = {}){
   if (shown < rows.length) { f(26, 500); text(`ועוד ${rows.length - shown} ממצאים בדוח המלא`, R, y + 38, MUT); y += 46; }
   if (tiles.length && !D.isCancelled) {
     y += 26; const tw = (W - 2 * P - 18 * (tiles.length - 1)) / tiles.length;
-    tiles.forEach(([k, val], i) => { const X = R - tw * (i + 1) - 18 * i; rr(X, y, tw, tileH, 20, "#f5f7fa"); f(24, 600); text(k, X + tw - 22, y + 40, MUT); f(tiles.length > 2 ? 36 : 44, 800); x.direction = "ltr"; text(val, X + tw - 22, y + 94, INK, "right"); x.direction = "rtl"; });
+    tiles.forEach(([k, val], i) => { const X = R - tw * (i + 1) - 18 * i; rr(X, y, tw, tileH, 20, "#f5f7fa"); f(24, 600); text(k, X + tw - 22, y + 40, MUT); f(tiles.length > 2 ? 36 : 44, 800); x.direction = /[\u0590-\u05ff]/.test(val) ? "rtl" : "ltr"; text(val, X + tw - 22, y + 94, INK, "right"); x.direction = "rtl"; });
     y += tileH;
   }
   f(24, 500);
@@ -6596,7 +6612,7 @@ document.addEventListener("submit", ev => {
   if (p.length < 5 || p.length > 8) { inp.setAttribute("aria-invalid", "true"); toast("מספר רישוי הוא 5 עד 8 ספרות"); inp.focus(); return; }
   inp.removeAttribute("aria-invalid");
   track("shared_next_check", {via: SHARE_VIA});
-  RECV.plate = p; lookup(p); scrollTo(0, 0);
+  RECV.plate = p; run(p); scrollTo(0, 0);   // run(): a lookup that throws still ends in a message and lookup_failed
 });
 document.addEventListener("click", ev => { if (ev.target.closest && ev.target.closest("a.recv-app")) track("web_install_click", {via: "share"}); });
 /* iPhone in Safari: once, after a car is saved, how to put לוחית on the home screen. There is no app for iPhone; from the icon the site opens
@@ -7089,7 +7105,7 @@ function testMeter(L){
 }
 /* the asking price on the estimated range: the one question a buyer has about a shortlisted car */
 function priceMeter(s){
-  const [lo, hi] = s.fair, span = Math.max(hi - lo, 1), min = lo - span * .7, max = hi + span * .7, pos = v => Math.max(0, Math.min(100, (v - min) / (max - min) * 100)), k = x => fmtN(Math.round(x / 1000)), vd = askVerdict(s.ask, s.fair);
+  const [lo, hi] = s.fair, [min, max] = askScale(s.fair), pos = v => Math.max(0, Math.min(100, (v - min) / (max - min) * 100)), k = x => fmtN(Math.round(x / 1000)), vd = askVerdict(s.ask, s.fair);
   return `<span class="pmeter"><span class="tm-r"><b>מבוקש ${k(s.ask)} אלף ₪</b><span>${vd ? esc(vd.s) : ""}</span></span>
     <span class="pm-bar" aria-hidden="true"><i class="pm-band" style="inset-inline-start:${pos(lo).toFixed(1)}%;width:${(pos(hi) - pos(lo)).toFixed(1)}%"></i><i class="pm-dot" style="inset-inline-start:calc(${pos(s.ask).toFixed(1)}% - 7px)"></i></span>
     <span class="pm-lbl" aria-hidden="true"><span style="inset-inline-start:calc(${pos(lo).toFixed(1)}% - 8px)">${k(lo)}</span><span style="inset-inline-start:calc(${pos(hi).toFixed(1)}% - 10px)">${k(hi)}</span></span>
@@ -7195,7 +7211,9 @@ function renderAlerts(){
   const all = store.get("savedVehicles"), items = alertItems(), html = [];
   html.push(`<header class="vhead"><h2 class="vh-t" id="alertsHead" tabindex="-1">התראות</h2><p class="vh-s">${!all.length ? "ריקולים וטסט של הרכבים ששמרתם" : alertsSupported() ? "מה דורש פעולה, ועל מה תקבלו התראה לטלפון" : "מה דורש פעולה ברכבים ששמרתם"}</p></header>`);
   if (!all.length) html.push(emptyCard("אין עדיין רכבים לעקוב אחריהם", "bell", "blue", `<p style="margin:0 0 10px">מוסיפים רכב לפי מספר הרישוי שלו, או בכוכב שבראש הדוח של רכב שבודקים, ומכאן רואים ריקול פתוח וטסט שמתקרב${alertsSupported() ? ", ומקבלים התראה לטלפון" : ""}.</p><button type="button" class="link-btn" data-act="addCar">${ico("plus")}הוספת רכב</button>`));
-  else if (!items.length) html.push(`<div class="allok"><span class="ai">${ico("check")}</span><div><b>הכול תקין</b><br><small style="color:var(--muted)">אין ריקול פתוח ואין טסט בחודש הקרוב.${alertsOn() ? " נתריע כשמשהו ישתנה." : ""}</small></div></div>`);
+  // "all fine" only when every car's recalls and test are known: a car saved while the recall list was down, or with no test date, is not "no recall, no test"
+  else if (!items.length) { const unk = all.some(s => s.active !== false && (s.recalls === undefined || !licSaved(s)));
+    html.push(`<div class="allok"><span class="ai">${ico("check")}</span><div><b>${unk ? "אין התראות כרגע" : "הכול תקין"}</b><br><small style="color:var(--muted)">${unk ? "לחלק מהרכבים אין עדיין מידע מלא על ריקולים או טסט." : "אין ריקול פתוח ואין טסט בחודש הקרוב."}${alertsOn() ? " נתריע כשמשהו ישתנה." : ""}</small></div></div>`); }
   else html.push(`<div class="aitems">${items.map((x, i) => `<div class="aitem ${x.lv}"><span class="ai">${ico(x.go === "cal" ? "clock" : "alert")}</span><div class="t"><b>${esc(x.t)}</b><small>${esc(x.b)}</small>
       <div class="acts"><button type="button" class="ap" data-open="${x.s.plate}" aria-label="פתיחת הרכב ${fmtPlate(x.s.plate)}"><span class="mini-plate"><i></i>${fmtPlate(x.s.plate)}</span></button><button type="button" class="ago" data-aitem="${i}">${x.g || "פרטים"}</button></div></div></div>`).join("")}</div>`);
   // what changed lately: the daily check's log of each car, the last two weeks
@@ -7534,7 +7552,7 @@ async function retryCompare(i){
 const savedItem = p => store.get("savedVehicles").find(x => x.plate === p);
 /* a nickname of the owner's choice ("הרכב של אמא"): shown instead of the model name in "הרכבים שלי", the fleet tables and the phone's alerts */
 const NICK_MAX = 24;
-const OWNER_KEYS = ["nick", "alerts", "ask"];   // set by the owner on a saved car, never by a check
+const OWNER_KEYS = ["nick", "alerts", "ask", "fair"];   // set by the owner on a saved car, never by a check ("fair" is saved with the asking price, candSave)
 function nickEdit(b){
   const p = b.dataset.nick, it = savedItem(p); if (!it) return;
   const f = document.createElement("span"); f.className = "sv-nickf";
@@ -7569,7 +7587,7 @@ function buyerCard(D){
   if (D.recalls.length) { flags.push(["bad", D.recalls.length === 1 ? "ריקול פתוח" : `${D.recalls.length} ריקולים פתוחים`]); qs.push("האם הריקול תוקן? כדאי לבקש אישור תיקון מהיבואן."); }
   const pr = pendingRecalls(D); if (pr.length) { const pw = pendingWords(pr); flags.push(["warn", pw.line]); qs.push(pw.ask); }
   for (const i of buildInsights(D)) if (i.level === "bad" || i.level === "warn") flags.push([i.level, i.title]);
-  if (ownNow(D).kind === "rental") { flags.push(["warn", "הרכב רשום כעת על חברת השכרה"]); qs.push("כמה קילומטרים עשה הרכב בהשכרה, ויש תיעוד של כל הטיפולים?"); }
+  if (ownNow(D).kind === "rental") { qs.push("כמה קילומטרים עשה הרכב בהשכרה, ויש תיעוד של כל הטיפולים?"); }
   if (D.tag && !reportBuild) flags.push(["warn", "יש לרכב תג חניה לנכה, שצריך להסיר לפני העברת בעלות"]);   // personal: on the screen only, never in a report
   // "no red flags" only when every register answered: a recall register that did not load hides open recalls
   const none = !D.recallUnknown && !D.modelErr && !D.modelRecallsUnknown && !(D.errs || []).length ? "לא עלו דגלים אדומים בנתונים. זה לא מחליף בדיקה במכון." : "לא כל הנתונים נטענו, ולכן אין סיכום דגלים.";
@@ -7679,7 +7697,7 @@ function bulkCsv(){
 /* the purchase checklist as a printable PDF: every stage, whichever is open on screen, with lines to tick off and what the buyer typed. Never the
    disabled-parking tag (transferBlock's print) */
 function buyPrint(D){
-  const S = buySteps(D, true), done = D.plate ? BUY.done(D.plate) : [];
+  const S = buySteps(D, true), done = BUY.done(buyId(D));
   // what the buyer typed comes along: the asking price against the estimate here, the dashboard km and the registration in the second stage
   const it = D.plate ? savedItem(D.plate) : null, f = candFields(D), vd = it && it.ask ? askVerdict(it.ask, f.fair) : null;
   const price = it && it.ask ? `<p><b>המחיר המבוקש:</b> <bdi>${fmtN(it.ask)} ₪</bdi>${f.fair ? ` (טווח משוער <bdi>${fmtN(Math.round(f.fair[0] / 1000))}–${fmtN(Math.round(f.fair[1] / 1000))}</bdi> אלף ₪, הערכה בלבד)` : ""}. ${vd ? esc(vd.t) : ""}</p>`
@@ -8341,17 +8359,17 @@ $("#out").addEventListener("click", ev => {
     if (!d || isNaN(new Date(d))) { toast("בחרו תאריך"); return; }
     if (!(km > 0)) { toast("הקלידו את הק״מ שבמד המרחק"); return; }
     const s = svcOf(p); s.log.push({id: Date.now(), d, km, type: SVC_KM, cost: 0, note: ""});
-    s.log = s.log.slice(-200); svcSave(p, s); renderResult(); toast("הק״מ נשמר בתיק");
+    s.log = s.log.slice(-200); if (!svcSave(p, s)) return; renderResult(); toast("הק״מ נשמר בתיק");
     track("svc_add", {kind: "km", n: s.log.length, km: 1, cost: 0});
     return;
   }
   if (a === "cal") { const n = svcNext(svcOf(p)); if (n && n.due) { track("svc_cal"); svcCalendar(current, n.due); } return; }
-  if (a === "del") { if (!confirm("למחוק את הרשומה מהתיק?")) return; const s = svcOf(p); s.log = s.log.filter(x => String(x.id) !== b.dataset.id); svcSave(p, s); renderResult(); toast("נמחק מהתיק"); return; }
+  if (a === "del") { if (!confirm("למחוק את הרשומה מהתיק?")) return; const s = svcOf(p); s.log = s.log.filter(x => String(x.id) !== b.dataset.id); if (!svcSave(p, s)) return; renderResult(); toast("נמחק מהתיק"); return; }
   if (a === "save") {
     const d = $("#svcDate").value, km = Math.round(Number($("#svcKm").value) || 0), cost = Math.round((Number($("#svcCost").value) || 0) * 100) / 100;
     if (!d || isNaN(new Date(d))) { toast("בחרו תאריך לטיפול"); return; }
     const s = svcOf(p); s.log.push({id: Date.now(), d, km: km > 0 ? km : 0, type: $("#svcType").value, cost: cost > 0 ? cost : 0, note: $("#svcNote").value.trim().slice(0, 80)});
-    s.log = s.log.slice(-200); svcSave(p, s); renderResult(); toast("הטיפול נשמר בתיק");
+    s.log = s.log.slice(-200); if (!svcSave(p, s)) return; renderResult(); toast("הטיפול נשמר בתיק");
     const t = s.log[s.log.length - 1]; track("svc_add", {kind: SVC_KEYS[SVC_TYPES.indexOf(t.type)] || "other", n: s.log.length, km: t.km > 0 ? 1 : 0, cost: t.cost > 0 ? 1 : 0});
   }
 });

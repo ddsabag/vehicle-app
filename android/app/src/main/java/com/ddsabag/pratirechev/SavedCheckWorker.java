@@ -188,7 +188,7 @@ public class SavedCheckWorker extends Worker {
         if (due == null || due.length() < 10) return;
         Date end = new SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(due.substring(0, 10));
         if (end == null) return;
-        long days = TimeUnit.MILLISECONDS.toDays(end.getTime() - startOfToday());
+        long days = Math.round((end.getTime() - startOfToday()) / 86400000.0);   // rounded like checkTest: a 23-hour DST day is still a day
         int stage;
         if (days <= -7 && days >= -14) stage = -7;
         else if (days >= 0 && days <= 7) stage = 7;
@@ -403,7 +403,7 @@ public class SavedCheckWorker extends Worker {
             if (exp.length() < 10) continue;
             Date end = new SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(exp.substring(0, 10));
             if (end == null) continue;
-            long days = TimeUnit.MILLISECONDS.toDays(end.getTime() - startOfToday());
+            long days = Math.round((end.getTime() - startOfToday()) / 86400000.0);   // rounded like checkTest: a 23-hour DST day is still a day
             int stage;
             if (days < 0 && days >= -3) stage = -1;
             else if (days == 0) stage = 0;
@@ -607,7 +607,11 @@ public class SavedCheckWorker extends Worker {
                 .setContentText(text)
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
                 .setContentIntent(pi)
-                .setAutoCancel(true);
+                .setAutoCancel(true)
+                // on a locked screen: no plate and no nickname, only that a saved car has news
+                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                .setPublicVersion(new NotificationCompat.Builder(c, CHANNEL).setSmallIcon(R.drawable.ic_notify).setColor(0xFFFFC400)
+                        .setContentTitle("עדכון לרכב שמור").setContentText("פתחו את לוחית לפרטים").build());
         if (!budget(c) || !NotificationManagerCompat.from(c).areNotificationsEnabled()) return false;   // at most 4 a week, and a blocked notification does not spend the budget
         try {
             NotificationManagerCompat.from(c).notify(id, b.build());

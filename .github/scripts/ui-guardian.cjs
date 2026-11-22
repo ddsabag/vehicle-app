@@ -70,7 +70,7 @@ const FIXTURES = [
   { name: "buy-import", rec: BASE, sets: { "03adc637": [{ _id: 1, mispar_rechev: 12345678, tozeret_nm: "טויוטה יפן", kinuy_mishari: "COROLLA", shnat_yitzur: 2021, sug_yevu: "יבוא אישי משומש", tozeret_cd: 1, degem_cd: 1 }] }, buy: { transfer: /^unk:רכב ביבוא אישי/, noGauge: true } },
   { name: "buy-bought", rec: BASE, buy: { bought: true } },
   { name: "app-buy", rec: { ...BASE, tokef_dt: iso(-30) }, app: true, buy: { transfer: /^bad:הטסט פג/ } },
-  { name: "app-owner", rec: BASE, app: true, ls: { mine: '{"12345678":1}' } },
+  { name: "app-owner", rec: BASE, app: true, ls: { mine: '{"12345678":1}', savedVehicles: JSON.stringify([{ plate: "12345678", title: "רכב", at: 1, reg: "active", checked: 1, active: true, events: [] }]) } },   // the phone checks saved cars only: the file asks for alerts on a saved car (an unsaved one says to save it)
   // a hybrid now with a rental company: its battery and rental questions, a dashboard under the test's km, and an asking price far over the range
   { name: "buy-ask-above", rec: { ...BASE, baalut: "השכרה", sug_delek_nm: "חשמל/בנזין", kilometer_test_aharon: 112400, mivchan_acharon_dt: iso(-240), misgeret: "JTDKB3FU503124417" }, model: { price: { mehir: 150000 }, w: { technologiat_hanaa_nm: "היברידי רגיל" }, modelRecalls: [] }, buy: { ask: [109000, "above"], km: [104300, "below_test"] } },
 ];
