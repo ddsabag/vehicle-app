@@ -7762,7 +7762,7 @@ function renderHome(){
   if (!window.AndroidApp && !IS_IOS) html.push(`<button type="button" class="webcta" data-url="${playWeb("home_top")}" data-hint="home-top">באפליקציה: התראות על ריקול וטסט · <b><bdi>Google Play</bdi></b></button>`);
   if (!saved.length && !recent.length) html.push(`<section class="hero"><h2>לפני שקונים רכב, בודקים אותו כאן</h2><p>מספר רישוי אחד: ריקולים, בעלים, ק״מ ומחיר משוער, בשניות.</p>
     <div class="try"><span>רוצים לראות איך זה נראה?</span><button type="button" class="chip" data-open="${EXAMPLE_PLATE}">נסו לדוגמה <bdi dir="ltr">${fmtPlate(EXAMPLE_PLATE)}</bdi></button></div>
-    <ol class="how"><li><b>מקלידים מספר רישוי</b>${window.AndroidApp ? " או מצלמים את הלוחית" : ""}.</li><li><b>מקבלים תמונה מלאה</b> מנתוני משרד התחבורה: ריקולים והסדרי פשרה, טסט, בעלויות ומחיר משוער.</li><li><b>שומרים ומשתפים</b>, ${IS_IOS && !window.AndroidApp ? "ומוסיפים ליומן תזכורת לפני שהטסט פג." : "ומקבלים התראה על ריקול חדש או טסט שעומד לפוג."}</li></ol></section>`);
+    <ol class="how"><li><b>מקלידים מספר רישוי</b>${window.AndroidApp ? " או מצלמים את הלוחית" : ""}.</li><li><b>מקבלים תמונה מלאה</b> מנתוני משרד התחבורה: ריקולים והסדרי פשרה, טסט, בעלויות ומחיר משוער.</li><li><b>שומרים ומשתפים</b>, ${window.AndroidApp ? "ומקבלים התראה על ריקול חדש או טסט שעומד לפוג." : IS_IOS ? "ומוסיפים ליומן תזכורת לפני שהטסט פג." : "ובאפליקציה מקבלים התראה על ריקול חדש או טסט שעומד לפוג."}</li></ol></section>`);
   const pn = planNotice(); if (pn) html.push(pn);
   // what needs attention on a saved car opens "התראות", and counts what the bell on "התראות" counts (one item per issue); the cars themselves live in "הרכבים שלי"
   const items = alertItems(), mine = saved.length === 1 ? "ברכב שלכם" : "ברכבים שלכם";
