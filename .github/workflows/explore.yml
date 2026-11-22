@@ -37,7 +37,7 @@ jobs:
     steps:
       # GitHub's scheduler runs late since 1.11.2026 and the backup clock then starts the walk by hand: whichever run of the slot comes
       # second does nothing, so a walk (a Claude call) never runs twice (ops's .github/scripts/slot-done.mjs, sparse: the script alone)
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { path: slot, sparse-checkout: .github/scripts/slot-done.mjs, sparse-checkout-cone-mode: false }
       - name: Slot check
         id: slot
@@ -48,10 +48,10 @@ jobs:
       # the page walked is next's (or the branch asked for); the scripts that walk it are this workflow's own, so a next that lags behind
       # main still walks with the current bot
       - if: ${{ steps.slot.outputs.done != '1' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with: { ref: "${{ inputs.ref || 'next' }}", path: page }
       - if: ${{ steps.slot.outputs.done != '1' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with: { path: bot }
       - if: ${{ steps.slot.outputs.done != '1' }}
         uses: actions/setup-node@v7
