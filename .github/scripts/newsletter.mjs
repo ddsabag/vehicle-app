@@ -7,6 +7,10 @@ import { msg } from "./tg-text.mjs";
 const MODE = process.env.MODE || "preview", KEY = process.env.BREVO_KEY, LIST = Number(process.env.BREVO_LIST_ID);
 const posts = JSON.parse(fs.readFileSync("magazine/posts.json", "utf8"));
 const post = posts.find(p => /^\d{4}-\d{2}$/.test(p.slug)) || posts[0];   // the monthly issue (slug YYYY-MM); a weekly data article can be newer
+// the campaign tag: the site keeps a topic of [a-z0-9_] and /api/e drops any text with 5 digits or more, so "2026-11" (cleaned to 202611)
+// never reached GA4 (audit 22.11.2026). "mag_nov26" keeps the month with 2 digits.
+const MON = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+const camp = (m => m ? `mag_${MON[+m[2] - 1]}${m[1].slice(2)}` : String(post.slug).toLowerCase().replace(/[^a-z0-9_]/g, "").replace(/\d{5,}/g, "").slice(0, 24) || "mag")(/^(\d{4})-(\d{2})$/.exec(post.slug));
 if (!post) { console.log("no posts"); process.exit(0); }
 const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const lead = (post.lead || "").length > 280 ? post.lead.slice(0, 280).replace(/[^.\s][^.]*$/, "").trim() || post.lead.slice(0, 280) : post.lead;
@@ -16,10 +20,10 @@ const html = fs.readFileSync("email/newsletter.html", "utf8")
   .replaceAll("[[MONTH]]", esc(post.month))
   .replaceAll("[[TITLE]]", esc(post.title))
   .replaceAll("[[LEAD]]", esc(lead))
-  .replaceAll("[[PLAY_URL]]", `https://play.google.com/store/apps/details?id=com.ddsabag.pratirechev&referrer=${encodeURIComponent(`utm_source=newsletter&utm_medium=email&utm_campaign=${post.slug}`)}`)
-  .replaceAll("[[URL]]", `https://luchit.app/magazine/${post.slug}/?utm_source=newsletter&utm_medium=email&utm_campaign=${post.slug}`)
+  .replaceAll("[[PLAY_URL]]", `https://play.google.com/store/apps/details?id=com.ddsabag.pratirechev&referrer=${encodeURIComponent(`utm_source=newsletter&utm_medium=email&utm_campaign=${camp}`)}`)
+  .replaceAll("[[URL]]", `https://luchit.app/magazine/${post.slug}/?utm_source=newsletter&utm_medium=email&utm_campaign=${camp}`)
   // the logo and "luchit.app" in the text lead to the home page: tagged too, so the dashboard counts those visits under the newsletter
-  .replaceAll('href="https://luchit.app/"', `href="https://luchit.app/?utm_source=newsletter&amp;utm_medium=email&amp;utm_campaign=${post.slug}"`);
+  .replaceAll('href="https://luchit.app/"', `href="https://luchit.app/?utm_source=newsletter&amp;utm_medium=email&amp;utm_campaign=${camp}"`);
 fs.mkdirSync("out", { recursive: true }); fs.writeFileSync("out/newsletter.html", html);
 console.log(`rendered newsletter for ${post.slug}: ${post.title}`);
 if (MODE === "preview") process.exit(0);
