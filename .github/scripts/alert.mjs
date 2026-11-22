@@ -267,7 +267,7 @@ export function validKey(k) {
   if (typeof k !== "string" || k.length > 120 || k.includes("@")) return false;
   if (!/^[a-z][a-z0-9-]*(:[A-Za-z0-9 ()._+\-]{1,80}){0,3}$/.test(k)) return false;
   return k.split(":").every(s => (/^[0-9a-f]{7,16}$/i.test(s) && /[a-f]/i.test(s)) ||   // a hash or short sha (at least one letter: an all-digit run is a number)
-    !/\d{5,}/.test(s.replace(ISO_DATE, "-").replace(/(\d)[ ()._+\-]+(?=\d)/g, "$1")));    // no 5+ digit run, separators ignored (12-345-67, 050 123 4567, 12.500)
+    !/\d{5,}/.test(s.replace(ISO_DATE, "-").replace(/(\d)[ ()._+\-]+(?=\d)/g, "$1")));    // no 5+ digit run, separators ignored (76-543-21, 050 123 4567, 12.500)
 }
 const ISO_DATE = /(?<!\d)20\d\d-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?(?!\d)/g;   // 2026-10 and 2026-10-18 in keys like mag:pub:2026-10-18-x
 const decoded = u => { try { return decodeURIComponent(u); } catch { return "@"; } };   // undecodable counts as unsafe
@@ -935,7 +935,7 @@ async function selftest() {
     }
     for (const d of [{ DRY: "1" }, { DRY_RUN: "1" }]) await fm("dry " + Object.keys(d)[0], { env: d }, x => x.legacy === 1 && x.m.calls.length === 0);
     await fm("no Telegram token", { env: { TELEGRAM_BOT_TOKEN: "" } }, x => x.legacy === 1 && x.m.calls.length === 0);
-    await fm("invalid key", { key: "plate:12-345-67" }, x => x.legacy === 1 && x.m.calls.length === 0 && x.out[0] === "alert <invalid-key> -> legacy");
+    await fm("invalid key", { key: "plate:76-543-21" }, x => x.legacy === 1 && x.m.calls.length === 0 && x.out[0] === "alert <invalid-key> -> legacy");
     await fm("missing branch is created as an orphan", { branch: false }, x => x.legacy === 0 && x.m.calls.includes("POST /repos/o/r/git/refs") && x.st.items["guard:core:a1b2c3d4"].sent);
     for (const [name, o] of [["shadow", { env: { ALERT_ROUTE: "" } }], ["gate not met", { level: "summary", state: { v: 1, items: {}, hb: {}, log: [] } }], ["unrouted dry", { env: { DRY: "1" } }]]) {
       let thrown = null;
@@ -1023,7 +1023,7 @@ async function selftest() {
       const m = net({ state: { v: 1, items: {}, hb: gates(DAY), log: [] } }), texts = [];
       let seed = 7; const rnd = k => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed % k; };
       const pick = a => a[rnd(a.length)];
-      const bits = ["dudu.sabag@example.co.il", "12-345-67", "123-45-678", "050-1234567", "+972-52-765-4321", "4815162342", "₪12,500", "שלום", "הרכב",
+      const bits = ["dudu.sabag@example.co.il", "76-543-21", "123-45-678", "050-1234567", "+972-52-765-4321", "4815162342", "₪12,500", "שלום", "הרכב",
         "<b>חשוב</b>", "a&amp;b", "Toyota Corolla 2019", "ת.ז. 012345678", "https://evil.example/x?u=1", "קילומטראז' 154,321"];
       const keys = () => pick(["wf:Data guard", "smoke:home+lookup", "infra:site", "guard:core:" + h12(rnd(1e6)).slice(0, 8), "review:" + h12(rnd(1e6)),
         "catalog:" + h12(rnd(9)), "mag:fail:2026-10", "seo:daily", "seo-auto:blocked:" + h12(rnd(50)).slice(0, 7), "mention:" + h12(rnd(5)), "meta:uptime"]);
@@ -1063,9 +1063,9 @@ async function selftest() {
     }
 
     // keys and labels
-    for (const k of ["plate:12-345-67", "plate:123-45-678", "plate:1234567", "x:12345", "user:dudu@example.com", "phone:050-1234567", "Bad:x",
+    for (const k of ["plate:76-543-21", "plate:123-45-678", "plate:7654321", "x:12345", "user:dudu@example.com", "phone:050-1234567", "Bad:x",
       "x:" + "a".repeat(81), "a:b:c:d:e", "x:" + "ab ".repeat(39) + ":" + "c".repeat(40), "", "x:<b>", "num:+972-50-123-4567",
-      "x:050-123-4567", "x:052-765-4321", "x:050 123 4567", "x:12.345.67", "x:12 345 67", "x:12_345_67", "x:123.45.678", "x:12.500", "x:1 234 567",
+      "x:050-123-4567", "x:052-765-4321", "x:050 123 4567", "x:12.345.67", "x:76 543 21", "x:76_543_21", "x:123.45.678", "x:12.500", "x:1 234 567",
       "x:2026-10-1234567", "x:(050)1234567"]) ok(!validKey(k), "validKey rejects " + k);
     for (const k of ["wf:Web deploy (build)", "seo-auto:blocked:a1b2c3d", "catalog:" + h12("x"), "mag:fail:2026-10", "guard:core:1a2b3c4d", "smoke:home+lookup",
       "infra:quota-cf+site", "checker:data-health", "mag:pub:2026-10-18-new-cars", "infra-branches:2026-10", "x:v1.2.3"]) ok(validKey(k), "validKey accepts " + k);
@@ -1130,7 +1130,7 @@ async function selftest() {
     ok(c.code === 0 && c.last === "ALERT_LEGACY" && c.m.state().log.at(-1).a === "failed", "cli: Telegram failed -> ALERT_LEGACY");
     c = await runCli(["send", "summary", "catalog:" + h12("x"), "--today", "loud", "--plain", "--text", "x"]);
     ok(c.code === 0 && c.last === "ALERT_DONE queued 1", "cli: queued");
-    c = await runCli(["send", "day", "plate:12-345-67", "--today", "loud", "--text", "x"]);
+    c = await runCli(["send", "day", "plate:76-543-21", "--today", "loud", "--text", "x"]);
     ok(c.code === 0 && c.last === "ALERT_LEGACY", "cli: invalid key -> ALERT_LEGACY");
     for (const argv of [["send", "day"], ["send", "bogus", "k:x", "--today", "loud", "--text", "x"], ["send", "day", "k:x", "--today", "maybe", "--text", "x"],
       ["send", "day", "k:x", "--today", "loud"], ["send", "day", "k:x", "--today", "loud", "--text", "x", "--file", "f"], ["frob"], ["wf"], ["send", "day", "k:x", "--bogus"],

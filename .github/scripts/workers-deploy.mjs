@@ -628,9 +628,15 @@ async function newestVersion(w) {
 async function rollback(ctx, w, prev) {
   const body = { strategy: "percentage", versions: [{ version_id: prev, percentage: 100 }], annotations: { "workers/message": `ship-tail rollback of ${ctx.sha}` } };
   const S = `${acct()}/workers/scripts/${w.name}/deployments`;
-  let r = await cf("POST", S, body);
-  if (!r.ok && r.codes.includes(ROLLBACK_SECRETS_CHANGED)) r = await cf("POST", S + "?force=true", body);
-  return r.ok;
+  // up to 3 tries a few seconds apart: one Cloudflare hiccup must not leave a failed version live and page Dudu as "rollback failed"
+  let force = false;
+  for (let i = 0; i < 3; i++) {
+    if (i) await IO.sleep(5000 * i);
+    let r = await cf("POST", S + (force ? "?force=true" : ""), body);
+    if (!r.ok && !force && r.codes.includes(ROLLBACK_SECRETS_CHANGED)) { force = true; r = await cf("POST", S + "?force=true", body); }
+    if (r.ok) return true;
+  }
+  return false;
 }
 // the same version deployed again with the marker "ship-tail verified <sha>": traffic does not change, and a run that stops between
 // the deploy and here leaves the version unmarked, so the next run checks that Worker again (readLive: unverified)
@@ -1148,7 +1154,7 @@ async function selftest() {
         secrets: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"] });
       mk("luchit-live", file("worker/live/worker.js"));
       for (const n2 of o.make || []) mk(n2, file(`worker/${n2.replace("luchit-", "")}/worker.js`), { sub: { enabled: true, previews_enabled: false } });
-      const st = { S, kv: [...(o.kv || [])], calls: [], deploys: [], secretPuts: [], dryRuns: [], tg: [], probes: 0, bad: new Set(o.bad || []), rollbackErr: o.rollbackErr || 0, lag: {}, lagFrom: {}, goodLeft: {}, ...o.state };
+      const st = { S, kv: [...(o.kv || [])], calls: [], deploys: [], secretPuts: [], dryRuns: [], tg: [], probes: 0, bad: new Set(o.bad || []), rollbackErr: o.rollbackErr || 0, rollback503: o.rollback503 || 0, lag: {}, lagFrom: {}, goodLeft: {}, ...o.state };
       (o.tweak || (() => {}))(S);
       const J = (result, status = 200, extra = {}) => new Response(JSON.stringify({ success: status < 400, errors: status < 400 ? [] : [{ code: extra.code || 10000 }], result, ...extra.info && { result_info: extra.info } }), { status, headers: { "content-type": "application/json" } });
       st.fetch = async (u, init = {}) => {
@@ -1197,6 +1203,7 @@ async function selftest() {
           if (rest.startsWith("/deployments") && method === "POST") {
             const b = JSON.parse(init.body);
             if (st.rollbackErr && !rest.includes("force=true")) { st.rollbackErr--; return J(null, 400, { code: 10220 }); }
+            if (st.rollback503 && !/^ship-tail verified /.test(b.annotations?.["workers/message"] || "")) { st.rollback503--; return J(null, 503); }
             x.active = b.versions; x.depAnn = b.annotations;
             if (/^ship-tail verified /.test(b.annotations?.["workers/message"] || "")) st.marks = (st.marks || 0) + 1; else st.rollbacks = (st.rollbacks || 0) + 1;
             return J({ id: "dr" });
@@ -1455,6 +1462,8 @@ async function selftest() {
     noSecrets(r, "rollback");
     r = await runWith({ bad: ["luchit-api"], rollbackErr: 1, env: { WORKERS: "api" } });
     ok(r.w("api").action === "rolled-back" && writes(r.st).some(c => c.includes("/deployments?force=true")), "rollback retries with force after a secrets-changed refusal");
+    r = await runWith({ bad: ["luchit-api"], rollback503: 2, env: { WORKERS: "api" } });
+    ok(r.w("api").action === "rolled-back", "rollback: two Cloudflare 503s, the third try brings the previous version back");
     r = await runWith({ bad: ["luchit-uptime"], env: { WORKERS: "uptime" } });
     ok(r.w("uptime").action === "failed" && r.alerts.length === 1 && r.alerts[0].level === "critical" && /אין גרסה קודמת/.test(r.alerts[0].text) && r.st.secretPuts.length === 0, "new Worker failing its probe: no rollback, no secrets, loud alert");
     // secrets in the after job: a put that fails is a day alert; a secret version that fails its check goes back to the checked code version

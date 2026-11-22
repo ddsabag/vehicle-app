@@ -103,7 +103,10 @@ export async function remaining({ env = process.env, fetcher = fetch, now = new 
     if (g.status === 404) return { cycle: b.cycle, used: 0, cap: b.cap, left: b.cap, until: b.until };   // cap null (no amount set): left null
     if (!g.ok) return null;
     const t = unlock(JSON.parse(Buffer.from((await g.json()).content, "base64").toString("utf8")).s, key);
-    const used = t && t.cycle === b.cycle ? t.usd : 0;
+    // a counter that exists but will not open (a new ANTHROPIC_API_KEY, a damaged file) is unknown, never "nothing spent": a bot sizing a
+    // big run on it would plan the whole cap (deep audit 22.11.2026); null sends it to its smallest plan
+    if (!t) return null;
+    const used = t.cycle === b.cycle ? t.usd : 0;
     return { cycle: b.cycle, used, cap: b.cap, left: b.cap === null ? null : Math.round((b.cap - used) * 100) / 100, until: b.until };
   } catch { return null; }
 }
@@ -201,6 +204,7 @@ if (process.argv[1] && process.argv[1].endsWith("ai-usage.mjs") && process.argv.
   x = await record("claude-haiku-5-5", { input_tokens: 1000 }, { env, fetcher: fake, now: NOW }); ok(x.ok && unlock(JSON.parse(files.f).s, "sk-test").calls === 2, "the next reply adds to it");
   const left = await remaining({ env, fetcher: fake, now: NOW });
   ok(left && left.cycle === "g-2026-11-01" && left.cap === 70 && left.left === Math.round((70 - left.used) * 100) / 100 && left.used > 0, "remaining reads the cycle back " + JSON.stringify(left));
+  ok(await remaining({ env: { ...env, ANTHROPIC_API_KEY: "another-key" }, fetcher: fake, now: NOW }) === null, "a counter that will not open with this key: unknown (null), not nothing spent");
   ok(await remaining({ env: {}, fetcher: fake }) === null && (await remaining({ env, fetcher: fake, now: new Date("2026-11-25T00:00Z") })).used === 0, "no key: null; a new cycle: nothing used yet");
   { const e2 = { ...env }; delete e2.AI_GRANTS; const r2 = await remaining({ env: e2, fetcher: fake, now: NOW }); ok(r2 && r2.cap === null && r2.left === null && r2.used > 0, "no amount set: remaining says left null (deep audit takes its safe size)"); }
   ok((await record("claude-haiku-5-5", { input_tokens: 1 }, { env: {}, fetcher: fake })).ok === false, "no token or key: not counted, no throw");
