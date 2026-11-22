@@ -158,6 +158,10 @@ async function runPage(browser, fx, theme, width) {
   }
   // the buy tab of buy version 1 (buy-and-file spec 20.11): the transfer check, the seller message, the km check, the price gauge.
   // UG_BUY_OUT=<dir> also saves the stages, the message, the km check and the gauge of each fixture with fx.buy there, to look at
+  // a focusin whose target is not an element (the document, the window: desktop browsers and extensions send them) must not throw
+  // (web js_error 20-21.11: the sheets' focus keeper called closest() on it); a throw shows as a page error above
+  await page.evaluate(() => { document.dispatchEvent(new FocusEvent("focusin", { bubbles: true })); window.dispatchEvent(new FocusEvent("focusin")); });
+  await page.waitForTimeout(50);
   if (fx.app && fx.ls?.mine) await appFileChecks(page, label);
   if (fx.buy && !fx.ls?.mine) await buyChecks(page, fx, label, theme === "light" && width === 390 ? process.env.UG_BUY_OUT : "");
   await page.addStyleTag({ content: "*{animation:none!important;transition:none!important}" });
