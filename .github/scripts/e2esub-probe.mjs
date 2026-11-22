@@ -10,8 +10,12 @@ if (!fs.existsSync(linkFile)) {
   console.log("stage 1: /api/subscribe", r.status, (await r.text()).slice(0, 80));
   process.exit(r.ok ? 0 : 1);
 }
-const link = fs.readFileSync(linkFile, "utf8").trim();
-if (!link.startsWith(SITE + "/api/confirm?e=" + encodeURIComponent(TO))) { console.log("stage 2: the file is not this test's link"); process.exit(1); }
+let link = fs.readFileSync(linkFile, "utf8").trim();
+if (/^https:\/\/[a-z0-9.-]+\.sendibt2\.com\/tr\/cl\//.test(link)) {   // Brevo wraps the button in its click tracker: one hop to our link
+  const t = await fetch(link, { redirect: "manual", headers: { "user-agent": "Mozilla/5.0 (luchit e2e)" } });
+  console.log("stage 2: click tracker", t.status); link = t.headers.get("location") || "";
+}
+if (!link.startsWith(SITE + "/api/confirm?e=" + encodeURIComponent(TO))) { console.log("stage 2: the link is not this test's confirm link"); process.exit(1); }
 const r = await fetch(link, { redirect: "manual", headers: { "user-agent": "Mozilla/5.0 (luchit e2e)" } });
 console.log("stage 2: confirm", r.status, "->", (r.headers.get("location") || "").replace(/^https:\/\/luchit\.app/, ""));
 const h = { "api-key": process.env.BREVO_KEY, accept: "application/json", "content-type": "application/json" };
