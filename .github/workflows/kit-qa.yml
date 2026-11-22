@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       kit:
-        description: "The kit folder on branch social-queue (kits/<this>), such as 2026-11-05; empty: the newest kit without a report"
+        description: "The kit folder on branch social-queue (kits/<this>), such as 2026-11-05; empty: the newest kit, if it has no report yet"
         required: false
         type: string
       schedule:
@@ -50,10 +50,23 @@ jobs:
           case "$KIT" in ""|[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;; *) echo "::error::kit is a date such as 2026-11-05"; exit 1 ;; esac
           for i in 1 2 3 4; do git fetch -q --depth=1 origin social-queue && break; [ $i = 4 ] && exit 1; sleep $((i * 5)); done
           Q=$(git rev-parse FETCH_HEAD)
-          DONE=""; if git fetch -q --depth=1 origin kit-draft-out 2>/dev/null; then DONE=$(git ls-tree --name-only FETCH_HEAD | sed -n 's/^qa-//p'); fi
           if [ -z "$KIT" ]; then
-            KIT=$(git ls-tree --name-only "$Q" kits/ | sed 's|kits/||' | sort -r | while read k; do echo "$DONE" | grep -qx "$k" || { echo "$k"; break; }; done)
-            [ -n "$KIT" ] || { echo "::notice::every queued kit has a report: nothing to look at"; exit 0; }
+            # the fallback looks only at the newest queued kit: older kits have gone out already (deep audit 22.11.2026)
+            KIT=$(git ls-tree --name-only "$Q" kits/ | sed 's|kits/||' | sort -r | sed -n 1p)
+            [ -n "$KIT" ] || { echo "::notice::no kit on social-queue: nothing to look at"; exit 0; }
+            # the picked folder name goes into later run lines: only a date is passed on (deep audit 22.11.2026)
+            case "$KIT" in [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;; *) echo "::error::social-queue holds a kit folder that is not a date"; exit 1 ;; esac
+            # its report, if any, is on kit-draft-out; when that branch exists but cannot be read, skip rather than pay for a second look
+            R=0; git ls-remote --exit-code --heads origin kit-draft-out > /dev/null 2>&1 || R=$?
+            DONE=""
+            if [ "$R" = 0 ]; then
+              for i in 1 2 3; do
+                if git fetch -q --depth=1 origin kit-draft-out 2>/dev/null; then DONE=$(git ls-tree --name-only FETCH_HEAD | sed -n 's/^qa-//p'); break; fi
+                [ $i = 3 ] && { echo "::notice::branch kit-draft-out could not be read: skips rather than look at kit $KIT twice"; exit 0; }
+                sleep $((i * 5))
+              done
+            elif [ "$R" != 2 ]; then echo "::notice::could not ask GitHub for branch kit-draft-out: skips rather than look at kit $KIT twice"; exit 0; fi
+            if echo "$DONE" | grep -qx "$KIT"; then echo "::notice::the newest kit ($KIT) already has a report: nothing to look at"; exit 0; fi
           fi
           git ls-tree --name-only "$Q" "kits/$KIT/" | grep -q . || { echo "::notice::no kits/$KIT on social-queue: skips"; exit 0; }
           mkdir -p kit && git archive "$Q" "kits/$KIT" | tar -x -C kit
