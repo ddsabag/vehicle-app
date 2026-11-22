@@ -58,6 +58,12 @@ for (const [l, lm] of locs.map(x => [x[1], x[2]])) { if (!exists(l)) E("sitemap.
 for (const f of pages) if (!set.has(urlOf(f)) && !/^(404|google)/.test(f)) E(f, "page not in sitemap.xml");
 // orphans
 for (const f of pages) { const u = urlOf(f); if (u !== SITE && !(inbound.get(u) || []).size) E(f, "orphan page (no inbound link)"); }
+// affiliate links (audit D19): none while .github/affiliate.json is off, and never one without its disclosure on the same page
+{ let aff = {}; try { aff = JSON.parse(fs.readFileSync(".github/affiliate.json", "utf8")); } catch {}
+  const on = aff.enabled === true;
+  for (const f of pages) { const s = fs.readFileSync(f, "utf8"), spon = /rel="[^"]*\bsponsored\b/.test(s) || /aliexpress\.|s\.click\.ali/i.test(s);
+    if (spon && !on) E(f, "affiliate link while affiliate.json is off");
+    else if (spon && !s.includes("קישור שותפים")) E(f, "affiliate link without its disclosure"); } }
 // robots
 const rb = fs.readFileSync("robots.txt", "utf8");
 if (!/Sitemap:\s*https:\/\/luchit\.app\/sitemap\.xml/.test(rb)) E("robots.txt", "no Sitemap line");

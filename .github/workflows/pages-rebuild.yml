@@ -1,0 +1,41 @@
+name: Model pages rebuild
+# By hand only (audit D18, 22.11.2026): rebuilds the static pages that pages.mjs and landing.mjs write (model, brand, check, guide, sitemap, 404)
+# from main as it is, runs seo-check, and commits them to main. No article, no Claude call, no Telegram. Its main use is the affiliate kill:
+# set enabled to false in .github/affiliate.json on main, then run this, and the line is gone at once instead of on the next 6th.
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+concurrency:
+  group: main-writer
+  cancel-in-progress: false
+jobs:
+  rebuild:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+      - name: Recall lists for the model pages
+        run: |
+          git fetch -q --depth 1 origin catalog-data && mkdir -p cat-data && git archive FETCH_HEAD r meta.json | tar -x -C cat-data \
+            || echo "::warning::catalog-data could not be read: the model pages are built without their recall section"
+      - name: Build, check and commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node .github/scripts/pages.mjs
+          node .github/scripts/seo-check.mjs
+          paths=(sitemap.xml model brand check guide 404.html)
+          if [ -z "$(git status --porcelain "${paths[@]}")" ]; then echo "nothing changed"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${paths[@]}"
+          git commit -m "Model pages rebuild (by hand)"
+          git push origin HEAD:main || { git pull --rebase -q origin main && git push origin HEAD:main; }
+          gh api -X POST "repos/$GITHUB_REPOSITORY/pages/builds" >/dev/null 2>&1 || true

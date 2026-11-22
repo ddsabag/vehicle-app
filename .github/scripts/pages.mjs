@@ -103,7 +103,8 @@ console.log(RB.build ? "recall sections: matcher from " + RB.kind : `::warning::
 let recallPages = 0;
 // affiliate test (.github/affiliate.json): nothing renders until Dudu sets enabled and the program's link; test pages get one disclosed line, control pages none
 const AFF = (() => { try { return JSON.parse(fs.readFileSync(".github/affiliate.json", "utf8")); } catch { return {}; } })();
-const affOn = !!(AFF.enabled && AFF.link && AFF.link.includes("{q}")), affTest = new Set(AFF.test || []);
+const affOn = !!(AFF.enabled === true && typeof AFF.link === "string" && AFF.link.includes("{q}") && typeof AFF.disclosure === "string" && AFF.disclosure.includes("קישור שותפים")),   // never a sponsored link without its disclosure (audit D19)
+      affTest = new Set(AFF.test || []);
 const affA = (text, q, sub) => `<a href="${esc(AFF.link.replace("{q}", encodeURIComponent(q)).replace("{sub}", encodeURIComponent(sub)))}" rel="sponsored nofollow noopener" target="_blank">${esc(text)}</a>`;
 const affEn = m => { const k = Object.keys(AFF.brand_en || {}).find(b => m.label === b || m.make.startsWith(b)); return k ? AFF.brand_en[k] + " " : ""; };
 let affPages = 0;
