@@ -3,7 +3,7 @@
 // no causal wording. One article per type per modelstats refresh (slug = type-YYYY-MM of the refresh), so it never repeats.
 // run: node .github/scripts/magazine-data.mjs recalls|offroad|newmodels [2026Q2]   (newmodels: a closed calendar quarter, default the latest; PREVIEW=1 writes out/<slug>.html only)
 import fs from "node:fs";
-import {siteFooter} from "./site-footer.mjs";
+import {siteFooter, siteHeader, HEADER_CSS} from "./site-footer.mjs";
 import {byNewest} from "./posts-order.mjs";
 const TYPE = process.argv[2], SITE = "https://luchit.app/";
 if (!["recalls", "offroad", "newmodels"].includes(TYPE)) { console.error("type must be recalls, offroad or newmodels"); process.exit(1); }
@@ -70,15 +70,16 @@ const val = m => TYPE === "recalls" ? m.rcPer : m.offRel;
 
 // ---- shared page shell (same head/css as the monthly article)
 const pagesSrc = fs.readFileSync(".github/scripts/pages.mjs", "utf8"), magSrc = fs.readFileSync(".github/scripts/magazine.mjs", "utf8");
-const css = (() => { const base = pagesSrc.match(/const css = `([\s\S]*?)`;/)[1]; const extra = magSrc.match(/const css = [\s\S]*?\+ `([\s\S]*?)` \+ subCss \+ `([\s\S]*?)`;/); const sub = magSrc.match(/const subCss = `([\s\S]*?)`;/)[1]; return base + extra[1] + sub + extra[2]; })();
-const head = new Function("esc", "css", "SITE", `const PLAY = ${JSON.stringify("https://play.google.com/store/apps/details?id=com.ddsabag.pratirechev&referrer=" + encodeURIComponent("utm_source=luchit.app&utm_medium=web&utm_campaign=magazine"))};\n` + pagesSrc.match(/const head = [\s\S]*?\n/)[0] + "\nreturn head;")(esc, css, SITE);
+const css = (() => { const base = pagesSrc.match(/const css = `([\s\S]*?)`;/)[1].replace("${HEADER_CSS}", () => HEADER_CSS); const extra = magSrc.match(/const css = [\s\S]*?\+ `([\s\S]*?)` \+ subCss \+ `([\s\S]*?)`;/); const sub = magSrc.match(/const subCss = `([\s\S]*?)`;/)[1]; return base + extra[1] + sub + extra[2]; })();
+const head = new Function("esc", "css", "SITE", "siteHeader", `const PLAY = ${JSON.stringify("https://play.google.com/store/apps/details?id=com.ddsabag.pratirechev&referrer=" + encodeURIComponent("utm_source=luchit.app&utm_medium=web&utm_campaign=magazine"))};\n` + pagesSrc.match(/const head = [\s\S]*?\n/)[0] + "\nreturn head;")(esc, css, SITE, siteHeader);
 const foot = `<script src="/lib/cfb.js" defer></script></main>${siteFooter({base: SITE, disclaimer: "מערכת לוחית. הנתונים מגיעים ממאגרים פתוחים של משרד התחבורה ב-data.gov.il, והאתר אינו קשור למשרד התחבורה."})}</body></html>`;
 const url = `${SITE}magazine/${slug}/`, desc = lead.length <= 200 ? lead : lead.slice(0, 200).replace(/[^.:]*$/, "") || lead.slice(0, 200);
 const prPlain = t => esc(t).replace(/(\d+)%/g, "$1 אחוזים");
+const ldPlain = s => String(s).replace(/(\d+)%/g, "$1 אחוזים");   // the visible FAQ words (prPlain without the HTML escaping)
 const ldTag = o => `<script type="application/ld+json">${JSON.stringify(o).replace(/</g, "\\u003c")}</script>`;
 const crumbLd = items => ({"@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: items.map(([name, item], i) => ({"@type": "ListItem", position: i + 1, name, ...(item ? {item} : {})}))});
-const ld = {"@context": "https://schema.org", "@type": "Article", headline: title, datePublished: published, dateModified: published, inLanguage: "he", author: {"@type": "Organization", name: "מערכת לוחית", url: SITE}, publisher: {"@type": "Organization", name: "לוחית", url: SITE, logo: {"@type": "ImageObject", url: SITE + "icon-512.png"}}, mainEntityOfPage: url};
-const faqLd = {"@context": "https://schema.org", "@type": "FAQPage", mainEntity: faq.map(([q, a]) => ({"@type": "Question", name: q, acceptedAnswer: {"@type": "Answer", text: a}}))};
+const ld = {"@context": "https://schema.org", "@type": "Article", headline: title, image: [SITE + "og.png"], datePublished: published, dateModified: published, inLanguage: "he", author: {"@type": "Organization", name: "מערכת לוחית", url: SITE}, publisher: {"@type": "Organization", name: "לוחית", url: SITE, logo: {"@type": "ImageObject", url: SITE + "icon-512.png"}}, mainEntityOfPage: url};
+const faqLd = {"@context": "https://schema.org", "@type": "FAQPage", mainEntity: faq.map(([q, a]) => ({"@type": "Question", name: ldPlain(q), acceptedAnswer: {"@type": "Answer", text: ldPlain(a)}}))};
 const bars = rows.map((m, i) => `<div class="rk"><i>${i + 1}</i><div><a href="${SITE}model/${m.slug}/">${esc(nameOf(m))}</a><span class="bar" style="width:${Math.max(4, Math.round(val(m) / max * 100))}%"></span></div><span>${fmtVal(m)}</span></div>`).join("");
 const body = `${head(title + " | לוחית", desc, url, "article").replace("</head>", ldTag(ld) + ldTag(faqLd) + ldTag(crumbLd([["לוחית", SITE], ["מגזין", SITE + "magazine/"], [title]])) + "</head>")}<p class="muted"><a href="${SITE}">לוחית</a> › <a href="${SITE}magazine/">מגזין</a></p><p><span class="tag">${esc(tag)}</span> <span class="muted">${esc(label)}</span></p><h1>${prPlain(title)}</h1>
 <div class="card tldr"><b>בקצרה</b><ul>${tldr.map(t => `<li>${prPlain(t)}</li>`).join("")}</ul></div>

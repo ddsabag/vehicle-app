@@ -39,7 +39,7 @@ for (const f of pages) {
     let j; try { j = JSON.parse(m[1]); } catch (e) { E(f, "invalid JSON-LD: " + e.message); continue; }
     for (const n of Array.isArray(j) ? j : j["@graph"] || [j]) {
       if (!n["@type"]) E(f, "JSON-LD node without @type");
-      if (n["@type"] === "FAQPage" && !(n.mainEntity || []).every(q => q.name && q.acceptedAnswer && q.acceptedAnswer.text)) E(f, "FAQPage malformed");
+      if (n["@type"] === "FAQPage" && !((n.mainEntity || []).length && n.mainEntity.every(q => q.name && q.acceptedAnswer && q.acceptedAnswer.text))) E(f, "FAQPage malformed (or empty)");
       if (n["@type"] === "Article" && !(n.headline && n.datePublished)) E(f, "Article missing headline/datePublished");
       if (n["@type"] === "BreadcrumbList" && !(n.itemListElement || []).every((x, i) => x.position === i + 1 && x.name)) E(f, "BreadcrumbList malformed");
     }
@@ -62,6 +62,12 @@ for (const u of noindex) if (set.has(u)) E("sitemap.xml", `noindex page listed $
 if (set.size !== locs.length) E("sitemap.xml", "duplicate url");
 // orphans
 for (const f of pages) { const u = urlOf(f); if (u !== SITE && !(inbound.get(u) || []).size) E(f, "orphan page (no inbound link)"); }
+// reachable from the home page through internal links: a group of pages that link only to each other is cut off too
+{ const out = new Map(); for (const [to, from] of inbound) for (const s of from) (out.get(s) || out.set(s, new Set()).get(s)).add(to);
+  const home = new Set([...fs.readFileSync("index.html", "utf8").matchAll(/<a\b[^>]*?href="([^"#]+)/g)].map(m => norm(m[1])).filter(Boolean));   // the app shell's own links (its footer, header and menus)
+  out.set(SITE, new Set([...(out.get(SITE) || []), ...home]));
+  const seen = new Set([SITE]), q = [SITE]; while (q.length) for (const n of out.get(q.shift()) || []) if (!seen.has(n)) { seen.add(n); q.push(n); }
+  for (const f of pages) { const u = urlOf(f); if (!noindex.has(u) && !/^(404|google)/.test(f) && (inbound.get(u) || []).size && !seen.has(u)) E(f, "not reachable from the home page"); } }
 // robots
 const rb = fs.readFileSync("robots.txt", "utf8");
 if (!/Sitemap:\s*https:\/\/luchit\.app\/sitemap\.xml/.test(rb)) E("robots.txt", "no Sitemap line");
