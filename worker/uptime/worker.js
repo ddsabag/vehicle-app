@@ -224,7 +224,7 @@ async function tgCheck(env) {
 const CLOCK = [
   // social publish: "every" = checked on each 10-minute tick, not only on the hourly pass, and started when no run of its own began in the
   // last 14 min. Its slots are at :00, :15 and :30 Israel time, and the hourly pass at :21 put a :30 post up 51 min late (measurement 8.11.2026)
-  { wf: "social-publish.yml", he: "פרסום ברשתות", utc: [5, 20], every: 14, inputs: { mode: "run" } },            // slots every 15 min 04:04-19:49
+  { wf: "social-publish.yml", he: "פרסום ברשתות", utc: [5, 22], every: 14, inputs: { mode: "run" } },            // slots every 15 min 04:04-21:49
   // live watch: gap under an hour, so the hourly pass starts it every hour while GitHub skips it (with 75 a start at :21 held the next pass
   // and it ran every 2 h; /live's boards waited, measurement 5.11.2026). A run of GitHub's own in the last 50 min still counts
   { wf: "live-watch.yml", he: "מעקב הדשבורד", utc: [0, 24], gap: 50, inputs: { dry_run: "false" } },             // :12 and :42

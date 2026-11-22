@@ -334,7 +334,8 @@ ok(h.status === 200 && h.j.tick === null && h.j.armed.home === false, "/health w
   ok(names("2026-11-02T06:50:00Z", "2026-11-01T06:52:00Z").startsWith("social-publish.yml,live-watch.yml,alert-daily.yml,"), "08:50 local, heartbeat from yesterday: the morning is due; reviews not before 07 UTC " + names("2026-11-02T06:50:00Z", "2026-11-01T06:52:00Z"));
   ok(names("2026-11-02T06:40:00Z", "2026-11-01T06:52:00Z").includes("alert-daily") === false, "08:40 local: the morning is not due yet");
   ok(names("2026-11-02T06:50:00Z", "2026-11-02T06:10:00Z").includes("alert-daily") === false, "today's heartbeat: the morning is done");
-  ok(names("2026-11-02T20:30:00Z", "2026-11-01T06:52:00Z") === "live-watch.yml", "22:30 local: no morning at night, no posts or daily bots after 20 UTC");
+  ok(names("2026-11-02T22:30:00Z", "2026-11-01T06:52:00Z") === "live-watch.yml", "00:30 local: no morning at night, no posts or daily bots after 22 UTC");
+  ok(names("2026-11-02T20:30:00Z", "2026-11-01T06:52:00Z") === "social-publish.yml,live-watch.yml", "22:30 local: posts until 22 UTC, no morning or daily bots " + names("2026-11-02T20:30:00Z", "2026-11-01T06:52:00Z"));
   ok(names("2026-11-02T12:00:00Z", "2026-11-02T06:10:00Z").split(",").length === 4 + 12 + 3, "Monday midday after the morning: four frequent, twelve daily by the hours and the three Monday ones " + names("2026-11-02T12:00:00Z", "2026-11-02T06:10:00Z"));
   ok(!names("2026-11-02T08:30:00Z", "2026-11-02T06:10:00Z").includes("web-watch") && names("2026-11-02T09:30:00Z", "2026-11-02T06:10:00Z").includes("web-watch"), "a daily bot waits about an hour after its slot");
 }
@@ -509,8 +510,8 @@ ok(gh.calls.length === 0, "10 min later: seen 10 min ago, no read");
 x = await tick(env, T("2026-11-08T17:41:00Z"));
 ok(JSON.stringify(gh.sent) === JSON.stringify([["social-publish.yml", { ref: "main", inputs: { mode: "run" } }]]), "20 min later, between hourly passes: only social publish is started " + JSON.stringify(gh.sent));
 ok(!gh.calls.some(c => !/social-publish/.test(c)), "and only its runs are read " + JSON.stringify(gh.calls));
-gh.calls = []; gh.sent = []; gh.runs["social-publish.yml"] = "2026-11-08T21:00:00Z";
-x = await tick(env, T("2026-11-08T21:31:00Z"));
-ok(!gh.sent.some(a => a[0] === "social-publish.yml"), "outside its hours (05-20 UTC): not started");
+gh.calls = []; gh.sent = []; gh.runs["social-publish.yml"] = "2026-11-08T22:00:00Z";
+x = await tick(env, T("2026-11-08T22:31:00Z"));
+ok(!gh.sent.some(a => a[0] === "social-publish.yml"), "outside its hours (05-22 UTC): not started");
 log(bad ? `uptime test: ${bad} of ${n} checks FAILED` : `uptime test ok (${n} checks)`);
 process.exit(bad ? 1 : 0);
