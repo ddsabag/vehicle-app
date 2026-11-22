@@ -284,7 +284,7 @@ export function label(key) {
   if (!f && /^magazine-/.test(key)) return { he: "ניוזלטר המגזין נשלח או מחכה ב-Brevo", sect: "fyi" };   // newsletter.mjs keys its campaign name
   if (!f) return { he: "התראה: " + key, sect: "fyi" };
   const L = LABELS[f], id0 = String(key).split(":").slice(f.split(":").length).join(":"), id = f === "wf" ? botHe(id0) : id0;
-  return { he: L.he.replace("{ids}", id.split("+").map(x => (L.ids && L.ids[x]) || x).join(", ")).replace("{id}", id), sect: L.sect, ...(L.done ? { done: true } : {}) };
+  return { he: (id ? L.he : L.he.replace(/: \{ids\}$/, "")).replace("{ids}", id.split("+").map(x => (L.ids && L.ids[x]) || x).join(", ")).replace("{id}", id), sect: L.sect, ...(L.done ? { done: true } : {}) };
 }
 // one log entry; he/sc = the key's fixed headline and section (never the caller's text), so /live can list what reached Telegram
 const logEntry = (t, k, lv, a, td, sh) => { const L = label(k); return { t, k, lv, a, td, sh, he: L.he, sc: L.sect }; };
@@ -1089,7 +1089,7 @@ async function selftest() {
       && label("ai:key").he.startsWith("מפתח ה-Claude API") && label("ai:key").sect === "fail" && validKey("ai:key") && validKey("ai:recalls"),
       "Claude API labels: one per bot, the key's own");
     ok(label("truth:deep:owners+km").he === "הביקורת החודשית העמוקה מצאה ממצאים שהבדיקה היומית לא תפסה: בעלויות, ק״מ" && label("truth:deep:km").sect === "fyi"
-      && label("truth:deep:km").done === true && label("truth:deep-fail").sect === "fail" && label("ai:audit").he.endsWith("הביקורת החודשית העמוקה"),
+      && label("truth:deep:km").done === true && label("truth:deep").he === "הביקורת החודשית העמוקה מצאה ממצאים שהבדיקה היומית לא תפסה" && label("truth:deep-fail").sect === "fail" && label("ai:audit").he.endsWith("הביקורת החודשית העמוקה"),
       "the monthly deep audit: news by area, told when a clean month closes it; too few cars is a failure");
     const used = scanKeys(ROOT), missing = used.filter(k => !FAMILIES_IN_USE.some(f => f === k || f.startsWith(k + ":") || k.startsWith(f + ":")));
     ok(missing.length === 0, "call-site keys missing from FAMILIES_IN_USE: " + missing.join(", "));
