@@ -54,6 +54,8 @@ jobs:
           if [ -z "$KIT" ]; then
             KIT=$(git ls-tree --name-only "$Q" kits/ | sed 's|kits/||' | sort -r | while read k; do echo "$DONE" | grep -qx "$k" || { echo "$k"; break; }; done)
             [ -n "$KIT" ] || { echo "::notice::every queued kit has a report: nothing to look at"; exit 0; }
+            # the picked folder name goes into later run lines: only a date is passed on (deep audit 22.11.2026)
+            case "$KIT" in [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;; *) echo "::error::social-queue holds a kit folder that is not a date"; exit 1 ;; esac
           fi
           git ls-tree --name-only "$Q" "kits/$KIT/" | grep -q . || { echo "::notice::no kits/$KIT on social-queue: skips"; exit 0; }
           mkdir -p kit && git archive "$Q" "kits/$KIT" | tar -x -C kit
