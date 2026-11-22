@@ -21,6 +21,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import * as claude from "./claude.mjs";
+import { maskPlates } from "./kit-qa.mjs";   // a lint snippet that quotes a plate goes to the public branch masked (deep audit 22.11.2026)
 
 export const MODEL = "claude-opus-5-5";
 export const FIX_ROUNDS = 3;
@@ -33,17 +34,23 @@ const IO = { env: process.env, out: s => process.stdout.write(s + "\n"), claude,
 const J = s => { try { return JSON.parse(s); } catch { return null; } };
 const readJ = f => { try { return J(fs.readFileSync(f, "utf8")); } catch { return null; } };
 const ilDate = t => new Date(t).toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" });
+const ilHour = t => +new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Jerusalem", hour: "2-digit", hourCycle: "h23" }).format(new Date(t));
 
+// the Thursday of the coming kit run (10:22 Israel); a Wednesday run that GitHub starts after Israel midnight drafts for this morning's kit
 export function nextThursday(now = Date.now()) {
+  const today = ilDate(now);
+  if (new Date(today + "T12:00:00Z").getUTCDay() === 4 && ilHour(now) < 10) return today;
   for (let d = 1; d <= 7; d++) { const s = ilDate(now + d * 864e5); if (new Date(s + "T12:00:00Z").getUTCDay() === 4) return s; }
   return ilDate(now + 864e5);
 }
 
-// the week's slots, exactly as RUNBOOK step 3 reads rotation.json
+// the week's slots, exactly as RUNBOOK step 3 reads rotation.json: since kit 7 a kit is one reel and one Sunday BUYER post (Dudu 12.11.2026,
+// "ריל אחד ופוסט אחד"); the post keeps the kit.json key "dealer" and the file dealer-post.png (renderer and lint names), not the old B2B slot
+export const BUYER = "לפני שקונים רכב יד 2";
 export function slots(rot) {
   const o = rot.order, c = rot.cursor, reel = o[c % o.length];
-  return { kit: rot.last_kit + 1, reel, carousel: o[(c + 1) % o.length], stories: reel === "Community" ? "Trust & Safety" : "Community",
-    dealer: { pillar: "B2B utility", angle: rot.dealer_angles[rot.dealer_angle_cursor % rot.dealer_angles.length] },
+  return { kit: rot.last_kit + 1, reel,
+    dealer: { pillar: "Buyer post", audience: BUYER, angle: rot.dealer_angles[rot.dealer_angle_cursor % rot.dealer_angles.length] },
     last: (rot.history || []).slice(-3) };
 }
 
@@ -59,11 +66,11 @@ const PREFACE = `You draft the weekly content kit of לוחית (an Israeli app:
 
 const CONTRACT = `Answer with one JSON object and nothing else:
 {"pain": "the week's pain point, a few Hebrew words", "pain_why": "one paragraph (English) on why it works on Israelis this week",
- "picks": {"reel": {"pillar", "idea", "title"}, "carousel": {...}, "stories": {...}, "dealer": {"pillar", "angle", "idea", "title"}},
+ "picks": {"reel": {"pillar", "idea", "title"}, "dealer": {"pillar", "angle", "idea", "title"}},   (a kit is one reel and one Sunday post; no carousel, no stories)
  "facts": [{"idea": "<idea id>", "index": <index in that idea's facts>}],   (every fact any number in your copy rests on, nothing else)
- "kit": { kit.json in exactly the last kit's format (carousel, stories, dealer; same templates and fields), with "kit" and "date" },
+ "kit": { kit.json in exactly the last kit's format: "kit", "date" and "dealer" only. "dealer" is the Sunday post for private used-car BUYERS, never for dealers: "audience": "${BUYER}", no "pro" },
  "reel": {"title", "pillar", "lines": [{"vo": "voice-over line", "screen": "on-screen text or empty", "visual": "what is shown (English)"}]},   (about 30 seconds: 6-9 lines)
- "captions": {"reel": {"body", "hashtags", "topic"}, "carousel": {...}, "dealer": {...}, "stories": {"topic"}},
+ "captions": {"reel": {"body", "hashtags", "topic"}, "dealer": {"body", "hashtags", "topic"}},
  "notes": ["anything the reviewer must check, in English: a caution you followed, a version a feature needs, a doubt"]}`;
 
 export function request({ runbook, rot, ideas, last, date }) {
@@ -117,21 +124,22 @@ function lint(factory, dir, repo) {
   return J(out);
 }
 
-function md({ draft, date, kit, bad, left, rounds, model }) {
+function md({ draft, date, kit, bad, left, rounds, model, stopped }) {
   const p = draft.picks || {}, line = k => p[k] ? `- ${k}: ${p[k].pillar || ""}${p[k].angle ? ` (${p[k].angle})` : ""}: ${p[k].title || ""} [${p[k].idea || ""}]` : "";
   return [`# טיוטת ערכה ${kit} ליום חמישי ${date}`, "",
     `Draft by ${model} the night before. Review every line; the Thursday run renders, films, lints the whole kit and decides.`, "",
-    `## Pain`, draft.pain || "", "", draft.pain_why || "", "", `## Picks`, ...["reel", "carousel", "stories", "dealer"].map(line).filter(Boolean), "",
-    `## Lint (copy only)`, left.length ? `${left.length} copy violations left after ${rounds} fix rounds:` : `Clean after ${rounds} fix round(s).`,
-    ...left.map(v => `- ${v.rule} · ${v.file}${v.line ? ":" + v.line : ""}: ${v.en}${v.snippet ? ` (${v.snippet})` : ""}`),
+    `## Pain`, draft.pain || "", "", draft.pain_why || "", "", `## Picks`, ...["reel", "dealer"].map(line).filter(Boolean), "",
+    `## Lint (copy only)`, ...(stopped ? [`The next fix round stopped (${stopped}): this is the draft of round ${rounds}, kept as it was.`] : []),
+    left.length ? `${left.length} copy violations left after ${rounds} fix rounds:` : `Clean after ${rounds} fix round(s).`,
+    ...left.map(v => `- ${v.rule} · ${v.file}${v.line ? ":" + v.line : ""}: ${maskPlates(v.en)}${v.snippet ? ` (${maskPlates(v.snippet)})` : ""}`),
     ...(bad.length ? ["", `Facts cited that are not in ideas.json (dropped): ${bad.join(", ")}`] : []), "",
     `## Notes`, ...(draft.notes || []).map(n => `- ${n}`), ""].join("\n");
 }
 
-async function tell(kind, why) {
+async function tell(kind, why, kept = false) {
   let router, tg; try { router = await IO.router(); tg = await IO.tg(); } catch { return; }
   if (kind === "key") await router.alert("day", "ai:key", tg.msg({ kind: "today", area: "bots", title: "מפתח ה-Claude API לא עובד או שהקרדיט נגמר",
-    text: "טיוטת הערכה השבועית לא נכתבה, והערכה של יום חמישי תיכתב כרגיל.", what: "להדביק מחדש את המפתח או להחליט על הקרדיט", raw: why }));
+    text: kept ? "טיוטת הערכה השבועית נשמרה בלי סבב התיקון האחרון." : "טיוטת הערכה השבועית לא נכתבה, והערכה של יום חמישי תיכתב כרגיל.", what: "להדביק מחדש את המפתח או להחליט על הקרדיט", raw: why }));
   else if (kind === "fail") await router.alert("summary", "ai:kitdraft", tg.msg({ kind: "info", area: "marketing", title: "טיוטת הערכה השבועית לא נכתבה",
     text: "הערכה של יום חמישי תיכתב כרגיל, בלי טיוטה.", raw: why }));
   else await router.resolve(["ai:kitdraft", "ai:key"]);
@@ -156,12 +164,15 @@ export async function main(o) {
   const lastDir = cf("examples/last-kit"), last = { kit: readJ(path.join(lastDir, "kit.json")), autopost: readJ(path.join(lastDir, "autopost.json")) };
   const req = request({ runbook, rot, ideas, last, date }), kit = slots(rot).kit, dir = path.join(o.out, `draft-${date}`);
   const msgs = req.messages;
-  let draft = null, left = [], bad = [], rounds = 0;
+  let draft = null, left = [], bad = [], rounds = 0, stopped = "", keyFail = "";
   for (let round = 0; round <= FIX_ROUNDS; round++) {
     const r = await IO.claude.ask(api, { ...req, messages: msgs });
+    // a fix round that fails keeps the draft already on disk (deep audit 22.11.2026: it used to throw a finished draft away)
+    if (r.error && draft) { stopped = `the API failed: ${r.error.why}`; if (r.error.key) keyFail = r.error.why; break; }
     if (r.error) { await tell(r.error.key ? "key" : "fail", r.error.why); say(`::warning title=Kit draft::the API failed (${r.error.why}): no draft this week`); return 0; }
     const a = IO.claude.answer(r.msg), p = a.text ? parse(a.text) : { why: a.why };
     if (!p.draft) {
+      if (draft && (round === FIX_ROUNDS || !a.text)) { stopped = `no usable answer: ${p.why}`; break; }
       if (round === FIX_ROUNDS || !a.text) { await tell("fail", p.why); say(`::warning title=Kit draft::${p.why}: no draft this week`); return 0; }
       msgs.push({ role: "assistant", content: a.text }, { role: "user", content: `${p.why}. Answer again with the whole JSON object only.` });
       continue;
@@ -175,8 +186,9 @@ export async function main(o) {
     if (!left.length || round === FIX_ROUNDS) break;
     msgs.push({ role: "assistant", content: a.text }, { role: "user", content: `The kit lint found these copy violations (file, rule, what, snippet):\n${left.map(v => `- ${v.file}${v.line ? ":" + v.line : ""} · ${v.rule}: ${v.en}${v.detail ? " · " + v.detail : ""}${v.snippet ? " · «" + v.snippet + "»" : ""}`).join("\n")}\nFix each one (do not just delete content the kit needs) and answer the whole JSON object again.` });
   }
-  fs.writeFileSync(path.join(dir, "draft.md"), md({ draft, date, kit, bad, left, rounds, model: MODEL }));
-  await tell("ok");
+  fs.writeFileSync(path.join(dir, "draft.md"), md({ draft, date, kit, bad, left, rounds, model: MODEL, stopped }));
+  await tell(keyFail ? "key" : "ok", keyFail, true);
+  if (stopped) say(`::warning title=Kit draft::a fix round stopped (${stopped}): the draft of round ${rounds} is kept`);
   say(`::notice title=Kit draft::kit ${kit} for ${date}: ${left.length ? left.length + " copy violations left" : "lint clean (copy)"} after ${rounds} fix round(s)`);
   summary(`### Kit draft\n\nKit ${kit} for Thursday ${date}: ${left.length ? left.length + " copy violations left" : "copy lint clean"}, ${rounds} fix round(s).\n`);
   if (env.GITHUB_OUTPUT) fs.appendFileSync(env.GITHUB_OUTPUT, `wrote=1\ndir=draft-${date}\n`);
@@ -189,9 +201,10 @@ async function selftest() {
   const os = await import("node:os"), tmp = fs.mkdtempSync(path.join(os.tmpdir(), "kd-"));
   ok(nextThursday(Date.parse("2026-11-04T20:40:00Z")) === "2026-11-05", "Wednesday night -> the next day's Thursday");
   ok(nextThursday(Date.parse("2026-11-05T12:00:00Z")) === "2026-11-12", "on a Thursday -> the next week's");
+  ok(nextThursday(Date.parse("2026-11-04T22:30:00Z")) === "2026-11-05" && nextThursday(Date.parse("2026-11-05T06:30:00Z")) === "2026-11-05", "a late Wednesday run after Israel midnight -> this morning's Thursday");
   const rot = { order: ["Trust & Safety", "Efficiency/compare", "Community", "B2B utility"], cursor: 2, last_kit: 3, dealer_angles: ["a", "b", "c", "d"], dealer_angle_cursor: 3, history: [{ recall_max_id: 5 }] };
   const s = slots(rot);
-  ok(s.kit === 4 && s.reel === "Community" && s.carousel === "B2B utility" && s.stories === "Trust & Safety" && s.dealer.angle === "d", "slots follow RUNBOOK step 3");
+  ok(s.kit === 4 && s.reel === "Community" && s.dealer.angle === "d" && s.dealer.audience === BUYER && !("carousel" in s) && !("stories" in s) && !/B2B/.test(JSON.stringify(s)), "slots follow RUNBOOK step 3: one reel and one Sunday buyer post");
   ok(parse("```json\n{\"kit\":{},\"reel\":{},\"captions\":{},\"facts\":[],\"picks\":{}}\n```").draft, "a fenced JSON answer parses");
   ok(parse("no").why && parse('{"kit":{}}').why === "the answer has no reel", "a broken answer says why");
   const ideas = { repo: { commit: "abc" }, ideas: [{ id: "x", facts: [{ text: "f0", value: 1 }, { text: "f1", value: 2 }] }] };
@@ -200,6 +213,7 @@ async function selftest() {
   ok(copyViolations({ violations: [{ rule: "extension-prompt", file: "." }, { rule: "banned", file: "/x/draft-1/captions.json" }, { rule: "banned", file: "src/kit.html" }] }).length === 1, "only the draft's own copy violations count");
   const r = request({ runbook: "RB", rot, ideas, last: {}, date: "2026-11-05" });
   ok(r.model === MODEL && r.output_config.effort === "medium" && r.system[0].cache_control && r.system[0].text.includes("RB") && !("temperature" in r), "one Opus request at medium effort, the RUNBOOK cached");
+  ok(!/"carousel"|"stories"|B2B/.test(r.messages[0].content[0].text) && r.messages[0].content[0].text.includes(BUYER), "the request asks for a reel and a buyer post only");
   // a whole run on a fake factory and a fake API: the first answer has a lint violation, the second is clean
   const F = path.join(tmp, "f"); fs.mkdirSync(path.join(F, "examples/last-kit"), { recursive: true });
   fs.writeFileSync(path.join(F, "RUNBOOK.md"), "rules"); fs.writeFileSync(path.join(F, "rotation.json"), JSON.stringify(rot));
@@ -224,6 +238,21 @@ async function selftest() {
   ok(JSON.parse(fs.readFileSync(path.join(d, "kit.json"))).kit === 4 && JSON.parse(fs.readFileSync(path.join(d, "facts.json"))).facts[0].text === "f0", "kit.json and facts.json written");
   ok(/Clean after 1 fix round/.test(fs.readFileSync(path.join(d, "draft.md"), "utf8")), "draft.md says the copy lint is clean");
   ok(told.includes("resolve ai:kitdraft+ai:key"), "a good run closes ai:kitdraft and ai:key");
+  // a fix round that fails keeps the draft of the round before, and the lint snippet that quotes a plate is masked in draft.md
+  told.length = 0; calls.length = 0;
+  answers[0] = { ...answers[0], captions: { reel: { body: "מנצח" } } };
+  const run2 = IO.run;
+  IO.run = (cmd, args) => { if (!args[0].endsWith("ideas.mjs")) { const e = new Error("1"); e.stdout = JSON.stringify({ violations: [{ rule: "plate", file: "captions.json", line: 1, en: "a plate that is not the demo plate", snippet: "12-345-67" }] }); throw e; } return run2(cmd, args); };
+  IO.claude.ask = async (_, p) => { calls.push(p); return calls.length === 1 ? { msg: { stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify(answers[0]) }] } } : { error: { why: "529 server", key: false } }; };
+  await main({ factory: F, repo: tmp, out: path.join(tmp, "o6"), date: "2026-11-05" });
+  const d6 = path.join(tmp, "o6", "draft-2026-11-05"), m6 = fs.existsSync(path.join(d6, "draft.md")) ? fs.readFileSync(path.join(d6, "draft.md"), "utf8") : "";
+  ok(calls.length === 2 && fs.existsSync(path.join(d6, "kit.json")) && /fix round stopped \(the API failed: 529 server\): this is the draft of round 0/.test(m6), "a failed fix round keeps the draft");
+  ok(/12-xxx-xx/.test(m6) && !/345-67/.test(m6) && told.includes("resolve ai:kitdraft+ai:key"), "the plate in a lint snippet is masked; the kept draft is a good run");
+  told.length = 0; calls.length = 0;
+  IO.claude.ask = async (_, p) => { calls.push(p); return calls.length === 1 ? { msg: { stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify(answers[0]) }] } } : { error: { why: "402 billing", key: true } }; };
+  await main({ factory: F, repo: tmp, out: path.join(tmp, "o7"), date: "2026-11-05" });
+  ok(fs.existsSync(path.join(tmp, "o7", "draft-2026-11-05", "draft.md")) && told[0] === "day ai:key" && !told.some(t => /^resolve/.test(t)), "a spent credit in a fix round: the draft is kept and ai:key is raised, not closed");
+  IO.run = run2;
   // an API error: no draft, the router hears it, the run stays green
   told.length = 0; calls.length = 0;
   IO.claude.ask = async () => ({ error: { why: "402 billing", key: true } });
