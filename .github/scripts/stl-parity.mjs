@@ -24,7 +24,7 @@ const file = process.argv[2] || path.join(ROOT, "settlements.json");
 const items = JSON.parse(fs.readFileSync(file, "utf8")).items;
 const list = items.map(stlCompile).filter(Boolean);
 // settlementsFor in index.html itself, on a car without the page around it (the compiled file stands for the page's SETTLEMENTS)
-const settlementsFor = new Function("SETTLEMENTS", "normS", "num", "makerOnly", grab(/(function settlementsFor\(D\)\{[\s\S]*?\n\})\n/, "settlementsFor") + "\nreturn settlementsFor;")(list, normS, num, makerOnly);
+const settlementsFor = new Function("SETTLEMENTS", "normS", "num", "makerOnly", "isDemo", grab(/(function settlementsFor\(D\)\{[\s\S]*?\n\})\n/, "settlementsFor") + "\nreturn settlementsFor;")(list, normS, num, makerOnly, () => false);
 const pageMatch = D => settlementsFor(D).map(s => s.id);
 
 // cars: each catalogue model in each year from a year before its range to a year after, two variants per year (a fixed pseudo-random pick)
