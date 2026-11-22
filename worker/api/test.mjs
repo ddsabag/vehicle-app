@@ -36,4 +36,21 @@ r = await post("/api/subscribe", { email: "x@example.com", consent: true, websit
 globalThis.caches = { default: { match: async () => { throw new Error("down"); }, put: async () => { throw new Error("down"); } } };
 r = await sub("c@example.com", "6.6.6.6"); ok(r.status === 200 && mails() === 6, "a cache that cannot be read lets the signup through, as before");
 r = await W.fetch(new Request("https://luchit.app/api/confirm?e=x&x=1&t=x"), env, {}); ok(r.status === 302 && /subscribed=expired/.test(r.headers.get("location")), "the confirm link check is unchanged");
+// audit 22.11.2026: a repeated business form is not a second lead; /api/e drops a plate in any digit script
+{ const ga = [], store3 = new Map(); let dup = false;
+  globalThis.caches = { default: { match: async k => (store3.has(k.url) ? new Response(store3.get(k.url)) : undefined), put: async (k, r) => { store3.set(k.url, await r.text()); } } };
+  globalThis.fetch = async (u, o = {}) => { u = String(u);
+    if (u.includes("google-analytics.com")) { ga.push(JSON.parse(o.body)); return new Response("", { status: 204 }); }
+    if (u.endsWith("/contacts") && dup) return new Response(JSON.stringify({ code: "duplicate_parameter" }), { status: 400 });
+    return new Response("{}", { status: 201 }); };
+  const genv = { ...env, GA_MEASUREMENT_ID: "G-X", GA_API_SECRET: "s" };
+  const lead2 = ip => W.fetch(new Request("https://luchit.app/api/waitlist", { method: "POST", headers: { origin: "https://luchit.app", "content-type": "application/json", "cf-connecting-ip": ip },
+    body: JSON.stringify({ name: "בדיקה", company: "עסק", type: "אחר", interest: "", email: "g@example.com", phone: "", notes: "", consent: true, website: "" }) }), genv, {});
+  r = await lead2("9.9.9.1"); ok(r.status === 200 && ga.filter(e => e.events[0].name === "b2b_lead_submit").length === 1, "a new business lead: one b2b_lead_submit");
+  dup = true; r = await lead2("9.9.9.2"); ok(r.status === 200 && ga.filter(e => e.events[0].name === "b2b_lead_submit").length === 1, "the same address again: saved to the list, no second b2b_lead_submit");
+  const ev = p => W.fetch(new Request("https://luchit.app/api/e", { method: "POST", headers: { origin: "https://luchit.app", "sec-fetch-site": "same-origin", "content-type": "application/json", "user-agent": "Mozilla/5.0" },
+    body: JSON.stringify({ n: "tab_view", p }) }), genv, {});
+  ga.length = 0; await ev({ a: "７６５４３２１", b: "٧٦٥٤٣٢١", c: "७६५४३२१", d: "buy", e: "76-543-21", f: "1.39" });
+  const pp = ga[0] && ga[0].events[0].params;
+  ok(pp && !("a" in pp) && !("b" in pp) && !("c" in pp) && !("e" in pp) && pp.d === "buy" && pp.f === "1.39", "/api/e: a plate in full-width, Arabic-Indic or Devanagari digits is dropped, short text kept"); }
 console.log(bad ? `api test: ${bad} of ${n} checks FAILED` : `api test ok (${n} checks)`); process.exit(bad ? 1 : 0);

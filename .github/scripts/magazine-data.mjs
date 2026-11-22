@@ -3,7 +3,7 @@
 // no causal wording. One article per type per modelstats refresh (slug = type-YYYY-MM of the refresh), so it never repeats.
 // run: node .github/scripts/magazine-data.mjs recalls|offroad|newmodels [2026Q2]   (newmodels: a closed calendar quarter, default the latest; PREVIEW=1 writes out/<slug>.html only)
 import fs from "node:fs";
-import {siteFooter} from "./site-footer.mjs";
+import {siteFooter, siteHeader} from "./site-footer.mjs";
 import {byNewest} from "./posts-order.mjs";
 const TYPE = process.argv[2], SITE = "https://luchit.app/";
 if (!["recalls", "offroad", "newmodels"].includes(TYPE)) { console.error("type must be recalls, offroad or newmodels"); process.exit(1); }
@@ -71,7 +71,7 @@ const val = m => TYPE === "recalls" ? m.rcPer : m.offRel;
 // ---- shared page shell (same head/css as the monthly article)
 const pagesSrc = fs.readFileSync(".github/scripts/pages.mjs", "utf8"), magSrc = fs.readFileSync(".github/scripts/magazine.mjs", "utf8");
 const css = (() => { const base = pagesSrc.match(/const css = `([\s\S]*?)`;/)[1]; const extra = magSrc.match(/const css = [\s\S]*?\+ `([\s\S]*?)` \+ subCss \+ `([\s\S]*?)`;/); const sub = magSrc.match(/const subCss = `([\s\S]*?)`;/)[1]; return base + extra[1] + sub + extra[2]; })();
-const head = new Function("esc", "css", "SITE", `const PLAY = ${JSON.stringify("https://play.google.com/store/apps/details?id=com.ddsabag.pratirechev&referrer=" + encodeURIComponent("utm_source=luchit.app&utm_medium=web&utm_campaign=magazine"))};\n` + pagesSrc.match(/const head = [\s\S]*?\n/)[0] + "\nreturn head;")(esc, css, SITE);
+const head = new Function("esc", "css", "SITE", "siteHeader", `const PLAY = ${JSON.stringify("https://play.google.com/store/apps/details?id=com.ddsabag.pratirechev&referrer=" + encodeURIComponent("utm_source=luchit.app&utm_medium=web&utm_campaign=magazine"))};\n` + pagesSrc.match(/const head = [\s\S]*?\n/)[0] + "\nreturn head;")(esc, css, SITE, siteHeader);
 const foot = `<script src="/lib/cfb.js" defer></script></main>${siteFooter({base: SITE, disclaimer: "מערכת לוחית. הנתונים מגיעים ממאגרים פתוחים של משרד התחבורה ב-data.gov.il, והאתר אינו קשור למשרד התחבורה."})}</body></html>`;
 const url = `${SITE}magazine/${slug}/`, desc = lead.length <= 200 ? lead : lead.slice(0, 200).replace(/[^.:]*$/, "") || lead.slice(0, 200);
 const prPlain = t => esc(t).replace(/(\d+)%/g, "$1 אחוזים");

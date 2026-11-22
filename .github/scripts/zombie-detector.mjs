@@ -1,6 +1,6 @@
 // "Back on the road" detector: finds plates that left the Ministry of Transport's active register and later came back
 // (a red flag worth asking about: a total-loss car rebuilt, a long deposit, a re-registration).
-// Monthly on a GitHub runner. State lives on the zombie-data branch (checked out into DIR):
+// Monthly on a GitHub runner. DIR holds (zombie.yml): state/ from a private Actions cache since 22.11.2026 (rule 10), the rest from the zombie-data branch:
 //   state/active.u32.gz  sorted plates of the active register at the last snapshot
 //   state/gone.bin.gz    plates that left it: [plate u32][month u16][via u8] (via: i = moved to an inactive register, c = to a final-cancel register, n = to none of them)
 //   z/XXX.txt            the flagged plates, by last three digits: "plate|goneYYYYMM|backYYYYMM|via" (backYYYYMM 0 = back before our first snapshot)

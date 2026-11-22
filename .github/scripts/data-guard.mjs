@@ -17,12 +17,12 @@ const BASELINE_URL = "https://raw.githubusercontent.com/ddsabag/vehicle-app/guar
 
 // Columns the code reads, per dataset (index.html lookups plus market.mjs, modelstats.mjs, own-build.mjs). Extra datasets the monthly builders use are listed with their own columns.
 const USED = {
-  "053cea08-09bc-40ec-8f7a-156f0677aff3": ["mispar_rechev", "tozeret_cd", "tozeret_nm", "kinuy_mishari", "degem_cd", "shnat_yitzur", "baalut", "moed_aliya_lakvish", "tokef_dt", "sug_delek_nm"],
+  "053cea08-09bc-40ec-8f7a-156f0677aff3": ["mispar_rechev", "tozeret_cd", "tozeret_nm", "kinuy_mishari", "degem_cd", "shnat_yitzur", "baalut", "moed_aliya_lakvish", "tokef_dt", "sug_delek_nm", "mivchan_acharon_dt", "sug_degem", "ramat_gimur", "tzeva_rechev", "misgeret"],   // 22.11 audit: + the columns the car page reads
   "56063a99-8a3e-4ff4-912e-5966c0279bad": ["mispar_rechev", "kilometer_test_aharon", "mkoriut_nm", "rishum_rishon_dt"],
   "bb2355dc-9ec7-4f06-9c3f-3344672171da": ["mispar_rechev", "baalut_dt", "baalut"],
   "36bf1404-0be4-49d2-82dc-2f1ead4a8b93": ["MISPAR_RECHEV"],
   "2c33523f-87aa-44ec-a736-edbb0a82975e": ["TOZAR_TEUR", "RECALL_ID", "DEGEM"],
-  "142afde2-6228-49f9-8a29-9b6c3a0cbe40": ["tozeret_cd", "degem_cd", "shnat_yitzur", "merkav", "kosher_grira_im_blamim", "kosher_grira_bli_blamim"],
+  "142afde2-6228-49f9-8a29-9b6c3a0cbe40": ["tozeret_cd", "degem_cd", "shnat_yitzur", "merkav", "kosher_grira_im_blamim", "kosher_grira_bli_blamim", "kvuzat_agra_cd", "technologiat_hanaa_nm", "CO2_WLTP", "delek_nm", "sug_degem", "ramat_gimur"],
 };
 const EXTRA = [
   { key: "deliveries", id: "602ac32d-19c0-4b41-88e0-e3ce8a7e80b7", title: "מסירות רכבים חדשים", impact: "סטטיסטיקות השוק והתגיות החודשיות לא יתעדכנו", use: ["sgira_month", "tozeret_cd", "degem_cd", "tozeret_nm", "kinuy_mishari", "car_num", "sug_degem"] },
@@ -119,7 +119,8 @@ async function main() {
   const now = {};
   for (const d of DATASETS) { try { now[d.key] = await columns(d.id); } catch (e) { console.log(d.key, "unreadable:", e.message); } }
   let baseline = null, freshBaseline = false;
-  try { baseline = await fetchJson(BASELINE_URL, 1); } catch { freshBaseline = true; }
+  // 22.11 audit: only a missing file (404) is a first run; a timeout or a 5xx must not let today's schema replace the baseline
+  try { baseline = await fetchJson(BASELINE_URL, 3); } catch (e) { if (/HTTP 404/.test(String(e && e.message))) freshBaseline = true; else throw new Error("baseline unreadable (" + (e && e.message) + "), not comparing and not saving"); }
   const findings = compare(DATASETS, now, baseline);
   const breaking = findings.filter(f => f.level === "breaking"), warn = findings.filter(f => f.level === "warn");
   fs.mkdirSync("out", { recursive: true });
