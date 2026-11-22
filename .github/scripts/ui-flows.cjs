@@ -82,7 +82,9 @@ const STATES = {
 // and nothing the phone lacks; the presses that reach outside the page count as an effect for the sweep, the bookkeeping ones do not
 const BRIDGE = (() => { try { const j = fs.readFileSync(path.join(ROOT, "android/app/src/main/java/com/ddsabag/pratirechev/MainActivity.java"), "utf8"); return [...j.matchAll(/@JavascriptInterface\s+public\s+[\w<>[\]]+\s+(\w+)\s*\(/g)].map((m) => m[1]); } catch { return ["alertsState", "setAlerts", "askReview", "checkUpdate", "logEvent", "setAnalytics", "setLandscape", "syncSaved"]; } })();
 // the bookkeeping calls: the page reports, or asks the phone, without a press doing anything (setBars follows every change of screen)
-const QUIET_BRIDGE = ["logEvent", "logError", "setAnalytics", "syncSaved", "checkUpdate", "setTheme", "setBars", "systemDark", "billingInit", "alertsState"];
+const QUIET_BRIDGE = ["logEvent", "logError", "setAnalytics", "syncSaved", "checkUpdate", "setTheme", "setBars", "systemDark", "alertsState"];
+// the consumer plans are retired (PRO_LOCK false, decision a): a run in which the page starts billing or a purchase is blocking, not bookkeeping
+const BILLING_BRIDGE = /^(?:billingInit|purchase)/;
 const UA = {
   app: "Mozilla/5.0 (Linux; Android 14; Pixel 8 Build/AP2A; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/129.0.0.0 Mobile Safari/537.36",
   phone: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1",
@@ -621,6 +623,8 @@ async function runJourney(browser, dev, theme, stateName, J) {
     seen.push({ step: name, screen: m.screen, sheet: m.sheet, nav: m.nav, col: m.col, title: m.title, y: m.y, vw: m.vw });
     if (SHOTS) await page.screenshot({ path: path.join(OUT, "shots", `${run.replace(/\//g, "__")}__${name}.png`) }).catch(() => {});
   }
+  { const bill = app ? (await page.evaluate(() => window.__calls || []).catch(() => [])).filter((n) => BILLING_BRIDGE.test(n)) : [];
+    if (bill.length) add("block", "logic", run, step, `the page called the billing bridge (${[...new Set(bill)].join(", ")}) while the consumer plans are retired`); }
   judgeRun(run, seen, dev.w);
   await ctx.close();
 }
