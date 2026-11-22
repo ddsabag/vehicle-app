@@ -115,6 +115,17 @@ async function tell(kind, why) {
   else await router.resolve(["ai:kitqa", "ai:key"]);
 }
 
+// an iron-rule finding (a plate that is not an example plate, a missing or broken Play badge) goes to the router (family kitqa, ops added it
+// 22.11.2026 for the deep audit's M33): the posts still go out on their own, so the marketing thread must hear it before they do
+async function tellRules(kit, rules, looked) {
+  let router, tg; try { router = await IO.router(); tg = await IO.tg(); } catch { return; }
+  const uniq = a => a.filter((x, i) => a.indexOf(x) === i);
+  if (rules.length) await router.alert("summary", `kitqa:${kit}`, tg.msg({ kind: "info", area: "marketing", title: "הבדיקה הוויזואלית מצאה בעיה בכלל ברזל בערכה השבועית",
+    text: `${uniq(rules.map(f => f.kind === "plate" ? "לוחית רישוי" : "תג Google Play")).join(" ו")} ב-${uniq(rules.map(f => f.image)).join(", ")}. הפוסטים עדיין בתור.`,
+    what: "שרשור השיווק בודק את התמונה, ומתקן או מוציא את הפוסט מהתור", raw: rules.map(f => `${f.image}: ${clip(f.what, 120)}`).join(" | ") }));
+  else if (looked) await router.resolve([`kitqa:${kit}`]);
+}
+
 export async function main(o) {
   const env = IO.env, say = IO.out, summary = t => { if (env.GITHUB_STEP_SUMMARY) fs.appendFileSync(env.GITHUB_STEP_SUMMARY, t + "\n"); };
   const stop = t => { say(`::notice title=Kit visual QA::skipped: ${t}`); summary(`### Kit visual QA\n\nSkipped: ${t}.\n`); return 0; };
@@ -143,10 +154,11 @@ export async function main(o) {
   if (keyFail) await tell("key", keyFail);
   else if (failed.length * 5 >= imgs.length) await tell("fail", lastWhy || "no answer");
   else await tell("ok");
+  const rules = findings.filter(ruleBreak);
+  await tellRules(kit, rules, !keyFail && failed.length * 5 < imgs.length);
   for (const f of findings.slice(0, 10)) say(`::${ruleBreak(f) ? "warning" : "notice"} title=Kit visual QA: ${f.kind} (${f.severity})::${f.image}, ${clip(f.where, 80)}: ${clip(f.what, 200)}`);
   // an iron-rule finding stays report-only (it never stops a post: Dudu's design, 1.11), but it is the one finding that must not wait for the
-  // marketing thread to open the report: a warning on the run and a line at the top of the summary (deep audit 22.11.2026)
-  const rules = findings.filter(ruleBreak);
+  // marketing thread to open the report: the router (above), a warning on the run and a line at the top of the summary (deep audit 22.11.2026)
   if (rules.length) summary(`> **Iron rule (${rules.map(f => f.kind).filter((k, i, a) => a.indexOf(k) === i).join(", ")})** in ${rules.map(f => f.image).filter((k, i, a) => a.indexOf(k) === i).join(", ")}: pull the post from social-queue or fix it before it goes out.\n`);
   summary(`### Kit visual QA (${kit}): ${findings.length} findings\n\n${results.length} images, ${notes.length} low-confidence notes${failed.length ? `, ${failed.length} not looked at` : ""}. Report: branch kit-draft-out, qa-${kit}/report.md.\n`);
   if (env.GITHUB_OUTPUT) fs.appendFileSync(env.GITHUB_OUTPUT, "wrote=1\n");
@@ -179,8 +191,9 @@ async function selftest() {
   IO.claude = { ...claude, client: async e => e.ANTHROPIC_API_KEY ? { api: {}, why: "" } : { api: null, why: "no ANTHROPIC_API_KEY" },
     ask: async (_, p) => ({ msg: { stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify({ issues: /Story/.test(p.messages[0].content[1].text) ? [{ kind: "cut_text", part: 1, where: "top", text: "בודקים", what: "cut", severity: "high", confidence: "high" }]
       : /dealer post/.test(p.messages[0].content[1].text) ? [{ kind: "plate", part: 1, where: "the card", text: "12-345-67", what: "a real-looking plate 12-345-67", severity: "high", confidence: "high" }] : [] }) }] } }) };
-  IO.router = async () => ({ alert: async (lv, k) => told.push(`${lv} ${k}`), resolve: async p => told.push("resolve " + p.join("+")) });
-  IO.tg = async () => ({ msg: o => o.title });
+  const texts = [];
+  IO.router = async () => ({ alert: async (lv, k, t) => { told.push(`${lv} ${k}`); texts.push(t); }, resolve: async p => told.push("resolve " + p.join("+")) });
+  IO.tg = async () => ({ msg: o => JSON.stringify(o) });
   const out = path.join(tmp, "out");
   ok(await main({ kit, out }) === 0, "a run is green");
   const rep = J(fs.readFileSync(path.join(out, "report.json"), "utf8"));
@@ -189,6 +202,12 @@ async function selftest() {
   ok(!/345-67/.test(repMd + JSON.stringify(rep) + said.join("\n")) && /12-xxx-xx/.test(repMd), "a real plate never reaches the public report or the log");
   ok(said.some(t => /^::warning title=Kit visual QA: plate \(high\)::dealer-post\.png/.test(t)) && said.some(t => /^::notice title=Kit visual QA: cut_text/.test(t)), "an iron-rule finding is a warning on the run; the rest are notices");
   ok(told.includes("resolve ai:kitqa+ai:key") && !/\d{3,}.*token|\$/.test(fs.readFileSync(path.join(out, "report.md"), "utf8")), "a good run closes the alerts; no cost in the report");
+  ok(told.includes("summary kitqa:2026-11-05") && !told.includes("resolve kitqa:2026-11-05"), "an iron-rule finding raises kitqa:<kit> (summary) and does not close it");
+  ok(texts.length && texts.every(t => !/345-67/.test(t)) && texts.some(t => /dealer-post\.png/.test(t) && /לוחית רישוי/.test(t)), "the alert names the image and the rule, with no real plate");
+  const ask0 = IO.claude.ask; told.length = 0;
+  IO.claude.ask = async () => ({ msg: { stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify({ issues: [] }) }] } });
+  await main({ kit, out: path.join(tmp, "o1b") }); ok(told.includes("resolve kitqa:2026-11-05"), "a clean look closes that kit's kitqa alert");
+  IO.claude.ask = ask0;
   told.length = 0; IO.claude.ask = async () => ({ error: { why: "402 billing", key: true } });
   await main({ kit, out: path.join(tmp, "o2") }); ok(told[0] === "day ai:key", "a spent credit: ai:key (day)");
   told.length = 0; IO.claude.ask = async () => ({ error: { why: "529 server", key: false } });
