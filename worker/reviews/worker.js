@@ -47,6 +47,7 @@ const RX = {
 };
 const APP = /אפליקצי|יישומון|\bapp\b|application/i;
 const NEG = /רמאי|עקץ|עוקץ|(?<![א-ת])נוכל(?:ים|ת)?(?![א-ת])|שיקר|שקר|הסתיר|הונא|רימה|\bscam|\blied\b|\bliar|cheat|fraud|rip-?off/i;
+const PRICE_BAD = new RegExp(`${HE("יקר(?:ה|ים)?")}|החזר כספי|זיכוי|חויבתי|חייבו|גבו (?:ממני|כסף)|\\bexpensive|overpriced|refund|\\bcharged\\b|too much`, "i");
 function classify(text, stars) {
   const t = String(text || "");
   if (RX.crash.test(t) && APP.test(t)) return "crash";   // the app itself failed, even when a seller is mentioned
@@ -54,7 +55,7 @@ function classify(text, stars) {
   if (RX.crash.test(t)) return "crash";
   if (RX.data.test(t)) return "data";   // before bug: "שגיאה בשנת הייצור", "data error"
   if (RX.bug.test(t)) return "crash";
-  if (RX.price.test(t)) return "price";
+  if (RX.price.test(t) && (stars <= 3 || PRICE_BAD.test(t))) return "price";   // a happy review that says "בלי תשלום" or "worth the money" is praise (strategy audit 22.11)
   if (RX.feature.test(t)) return "feature";
   if (stars >= 4 || (stars === 3 && RX.praise.test(t))) return "praise";
   return "other";

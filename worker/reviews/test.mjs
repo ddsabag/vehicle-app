@@ -102,7 +102,7 @@ const CASES = [
   ["crash", 3, "Doesn't work on my Galaxy, keeps freezing"], ["data", 2, "חסר מידע על מספר ידיים ברכב שלי"], ["data", 3, "הנתונים לא מעודכנים, הטסט מופיע מלפני שנה"],
   ["data", 2, "The mileage is wrong and the owner history is missing"], ["data", 1, "לא מצא את הרכב שלי בכלל"],
   ["feature", 4, "אפליקציה טובה, אשמח אם תוסיפו מצב כהה"], ["feature", 5, "Great app, please add an iPhone version"],
-  ["price", 2, "יקר מדי, למה צריך לשלם על PRO?"], ["price", 1, "Subscription is too expensive for what you get"], ["price", 3, "המנוי לא שווה את הכסף"],
+  ["price", 2, "יקר מדי, למה צריך לשלם על PRO?"], ["price", 1, "Subscription is too expensive for what you get"], ["price", 3, "המנוי לא שווה את הכסף"], ["praise", 5, "מעולה, בלי תשלום ובלי פרסומות"], ["praise", 5, "worth the money, great app"], ["price", 5, "אחלה אבל המנוי יקר"], ["price", 4, "Good app, but I want a refund for PRO"],
   ["praise", 5, "אחלה אפליקציה, עזרה לי לבדוק רכב לפני קנייה ממוכר"], ["praise", 5, "Excellent and very useful, thanks!"], ["praise", 4, "טובה מאוד"], ["praise", 3, "מעולה, פשוטה ונוחה"],
   ["dealer", 1, "הסוחר במגרש שיקר לי והרכב היה אחרי תאונה"], ["dealer", 2, "המוכר הסתיר שהרכב היה ליסינג"], ["dealer", 1, "The dealer lied to me about the car"],
   ["dealer", 5, "היבואן רימה אותי, טוב שיש את האפליקציה"], ["other", 1, "גרוע"], ["other", 2, "meh"], ["other", 3, "סבבה"],
