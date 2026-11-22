@@ -5,7 +5,7 @@
 //   MAGAZINE_DRY=1: the comparison run (magazine.yml, part ai-test): writes out/magazine-ai/<slug>.json with the template and Claude's draft
 //   side by side, and no site file. Its output holds token counts, so the workflow seals it before it leaves the run.
 import fs from "node:fs";
-import {siteFooter} from "./site-footer.mjs";
+import {siteFooter, siteHeader} from "./site-footer.mjs";
 import {brandLabel} from "./brands.mjs";
 import {prose, FORBIDDEN_WORDS, misplaced} from "./magazine-ai.mjs";
 import {build as marketIntel, loadNormModel} from "./market-intel.mjs";
@@ -95,7 +95,7 @@ main h1{font-size:1.9rem;line-height:1.2;text-wrap:balance;margin:10px 0 18px}ma
 .rk .bar{background:#9aa0a8;height:6px}.rk:first-child .bar{background:var(--plate)}.rk{padding:10px 0}`;
 const headOf = pages => pages.match(/const head = [\s\S]*?\n/)[0];
 const pagesSrc = fs.readFileSync(".github/scripts/pages.mjs", "utf8");
-const head = new Function("esc", "css", "SITE", `const PLAY = ${JSON.stringify("https://play.google.com/store/apps/details?id=com.ddsabag.pratirechev&referrer=" + encodeURIComponent("utm_source=luchit.app&utm_medium=web&utm_campaign=magazine"))};\n` + headOf(pagesSrc) + "\nreturn head;")(esc, css, SITE);
+const head = new Function("esc", "css", "SITE", "siteHeader", `const PLAY = ${JSON.stringify("https://play.google.com/store/apps/details?id=com.ddsabag.pratirechev&referrer=" + encodeURIComponent("utm_source=luchit.app&utm_medium=web&utm_campaign=magazine"))};\n` + headOf(pagesSrc) + "\nreturn head;")(esc, css, SITE, siteHeader);
 const foot = `<script src="/lib/cfb.js" defer></script></main>${siteFooter({base: SITE, disclaimer: "מערכת לוחית. הנתונים מגיעים ממאגרים פתוחים של משרד התחבורה ב-data.gov.il, והאתר אינו קשור למשרד התחבורה."})}</body></html>`;
 
 let slugs = {}; try { slugs = JSON.parse(fs.readFileSync("model/slugs.json", "utf8")); } catch {}
