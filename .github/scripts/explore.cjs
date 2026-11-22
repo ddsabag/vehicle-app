@@ -20,11 +20,11 @@ const PRICE = [2, 10];   // $ per million tokens (cache write 1.25x, read 0.1x),
 // three walks a week, each a person with a purpose; the page and the state are ui-flows.cjs's (states: empty, one, many, owner)
 const WALKS_DEF = {
   buyer: { dev: { w: 390, h: 844, ua: "phone" }, theme: "light", state: "one",
-    who: "Someone about to buy a used car, on an iPhone, in a hurry. They check 1234567, read every tab of the car, compare it with 7654321, and try what a person really types: a plate with dashes or spaces, letters, too few digits, a plate that does not exist (for example 1111111), and then go back and forth between screens." },
+    who: "Someone about to buy a used car, on an iPhone, in a hurry. They check 1234567, read every tab of the car, compare it with 4444444, and try what a person really types: a plate with dashes or spaces, letters, too few digits, a plate that does not exist (for example 1111111), and then go back and forth between screens." },
   owner: { dev: { w: 360, h: 780, ua: "app" }, theme: "dark", state: "many",
     who: "A car owner with many saved cars and long names, in the Android app, dark mode, on a small phone. They give a car a nickname, open its file, add a service, look at the alerts, change settings (look, text size if offered, alerts), remove a car and add it back, and use Back a lot." },
   visitor: { dev: { w: 1280, h: 800, ua: "desk" }, theme: "light", state: "empty",
-    who: "A first visitor to the website on a desktop. They read the home page, check 7654321, open the footer pages (privacy, terms, about, FAQ if there are), the tools and compare, and look for how to get the app." },
+    who: "A first visitor to the website on a desktop. They read the home page, check 4444444, open the footer pages (privacy, terms, about, FAQ if there are), the tools and compare, and look for how to get the app." },
 };
 
 const IO = { env: process.env, out: (s) => process.stdout.write(s + "\n"), now: () => Date.now(), claude: () => import("./claude.mjs"), router: () => import("./alert.mjs"),
@@ -34,7 +34,7 @@ const clip = (s, n) => { s = String(s || "").replace(/\s+/g, " ").trim(); return
 
 const SYSTEM = `You test לוחית (luchit.app), an Israeli car-check app in Hebrew (right to left): a person types a licence plate and sees the Ministry of Transport's open data about the car (registration, yearly test, owners, recalls, prices). The same page is the website and, inside an Android WebView, the app.
 
-You use the page through tools, like a person: look (a screenshot and a numbered list of what can be pressed or typed into), tap, type, key, scroll. Act as the person described, and also wander off the obvious path: that is your job, the scripted tests already walk the obvious one. The data is a test mock: only the example plates 1234567 and 7654321 (and the saved cars' plates) have a car; any other plate answers "not found", which is right. Nothing you do leaves the machine.
+You use the page through tools, like a person: look (a screenshot and a numbered list of what can be pressed or typed into), tap, type, key, scroll. Act as the person described, and also wander off the obvious path: that is your job, the scripted tests already walk the obvious one. The data is a test mock: only the example plates 1234567 and 4444444 (and the saved cars' plates) have a car; any other plate answers "not found", which is right. Nothing you do leaves the machine.
 
 Write a note (the note tool) for each thing a person would see as wrong: something broken (a control that does nothing, a crash, an endless spinner, a wrong screen), text cut off or overlapping, right-to-left mistakes (an English car name cut at its start, digits in the wrong order), a Hebrew typo or a confusing sentence, unreadable contrast (dark mode most of all), a layout that breaks, data shown in a way that says more than it knows, or a step that is hard to understand. Do not note: the test data itself, a plate that is "not found" when it should be, the cookie of the mock, things you are not fairly sure of. One note per problem, at the screen where you see it, right after you see it. Then go on.
 
@@ -56,7 +56,7 @@ const TOOLS = [
   { name: "finish", description: "End the walk.", input_schema: { type: "object", properties: { summary: { type: "string" } }, required: ["summary"], additionalProperties: false } },
 ];
 
-// ui-flows' many-cars state gives 7654321 two saved recalls that its registry mock does not have (made for the layout, not the data);
+// ui-flows' many-cars state gives 4444444 two saved recalls that its registry mock does not have (made for the layout, not the data);
 // a walk opens the car's file and reads that as a contradiction (2.11), so the walk's saved cars carry the mock's own counts
 function consistent(ls) {
   const cars = J(ls && ls.savedVehicles);
@@ -290,7 +290,7 @@ async function selftest() {
   ok(/1 notes, 1 high/.test(md) && /\(buyer-1\.png\)/.test(md) && /\(2026-11-02\/buyer-1\.png\)/.test(latest) && fs.existsSync(path.join(out, "2026-11-02", "buyer-1.png")), "the report, its screenshot, latest.md pointing into the day");
   { const rj = J(fs.readFileSync(path.join(out, "2026-11-02", "report.json"), "utf8"));
     ok(rj[0].log.length === 6 && /^1 look/.test(rj[0].log[0]) && /tap .*ERROR/.test(rj[0].log[3]), "report.json keeps the step log, errors marked"); }
-  { const c = consistent({ savedVehicles: JSON.stringify([{ plate: "1234567", recalls: 1, recIds: "16100" }, { plate: "7654321", recalls: 2 }]) }), v = J(c.savedVehicles);
+  { const c = consistent({ savedVehicles: JSON.stringify([{ plate: "1234567", recalls: 1, recIds: "16100" }, { plate: "4444444", recalls: 2 }]) }), v = J(c.savedVehicles);
     ok(v[0].recalls === 1 && v[1].recalls === 0 && consistent({}).savedVehicles === undefined, "the saved cars' recall counts follow the registry mock"); }
   ok(told.join() === "summary walk:2026-11-02,resolve ai:walk+ai:key", "a high note tells the router; a good walk closes ai:walk and ai:key");
   ok(!/usd|\$|input_tokens|cacheRead/i.test(md + fs.readFileSync(path.join(out, "state.json"), "utf8")), "public files: no dollars and no tokens");
@@ -310,7 +310,7 @@ async function selftest() {
   { const s = J(fs.readFileSync(path.join(out, "state.json"), "utf8")); s.walks = WALKS; fs.writeFileSync(path.join(out, "state.json"), JSON.stringify(s)); }
   logs.length = 0; calls = []; ok(await run({ out, walks: "buyer" }) === 0 && !calls.length && /walks are used/.test(logs.at(-1)), "the month's cap");
   ok(Object.values(WALKS_DEF).every((d) => ["empty", "one", "many", "owner"].includes(d.state)) && TOOLS.map((t) => t.name).join() === "look,tap,type,key,scroll,note,finish", "walks use ui-flows' states; the tools");
-  ok(!/\b\d{7,8}\b/.test(Object.values(WALKS_DEF).map((d) => d.who).join(" ").replace(/1234567|7654321|1111111/g, "")), "the walks name only the example plates");
+  ok(!/\b\d{7,8}\b/.test(Object.values(WALKS_DEF).map((d) => d.who).join(" ").replace(/1234567|4444444|1111111/g, "")), "the walks name only the example plates");
   fs.rmSync(tmp, { recursive: true, force: true });
   print(bad ? `selftest: ${bad} failed` : "selftest: all passed");
   return bad ? 1 : 0;

@@ -922,7 +922,7 @@ function compare(c, X, P) {
     if (n) check(c, "fee.borrowed_note", exps.some(e => e ? n.includes(e + ",") : !n.includes(B)), n.includes(B) ? n.slice(n.indexOf(B), n.indexOf(B) + 70) : "(the fee's own model row)", exps.map(e => e || "(the fee's own model row)").join(" or "),
       `car ${R.sug_degem || ""}/${R.shnat_yitzur || ""}/${sp(R.ramat_gimur)}; first model row ${W0.map(w => `${w.sug_degem || ""}/${w.shnat_yitzur || ""}/${sp(w.ramat_gimur)}`).join(" | ")}`); }
   // list price and the value estimate: none for a personal import or a car off the road
-  { const card = cardOf(P, "buy", /^שווי משוער$/) || {grid: [], notes: [], text: ""}, g = card.grid, sh = N(dig((g.find(x => x.k === "מחיר מחירון כחדש") || {}).v));
+  { const card = cardOf(P, "buy", /^(שווי משוער|המחיר)$/) || {grid: [], notes: [], text: ""}, g = card.grid, sh = N(dig((g.find(x => x.k === "מחיר מחירון כחדש") || {}).v));
     const cand = imp || cancelled || isNaN(N(R.shnat_yitzur)) ? [] : priceMine(ofTypeR(X.price || [], R), R), ex = [...new Set(cand.map(x => N(x.r.mehir)))];
     check(c, "price.list", ex.length ? ex.includes(sh) : !sh, sh || "(none)", ex.join(" / ") || (imp ? "(none: a personal import)" : cancelled ? "(none: off the road)" : "(none)"), `price rows for model=${(X.price || []).length}, years=${[...new Set((X.price || []).map(r => r.shnat_yitzur))].sort().join(",")}`);
     if (sh) { const note = card.notes.some(t => /^מחיר המחירון לפי/.test(t)), expN = [...new Set(cand.filter(x => N(x.r.mehir) === sh).map(x => !x.own))];

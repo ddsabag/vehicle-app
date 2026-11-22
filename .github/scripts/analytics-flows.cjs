@@ -152,7 +152,7 @@ async function walk(browser, dev, st, J, o = {}) {
     else await page.waitForSelector("#homeMark", { state: "attached", timeout: 15000 });
     await page.addStyleTag({ content: "*{animation:none!important;transition:none!important;scroll-behavior:auto!important}" });
     steps.push({ step: "load", ev: await flush() });
-    const c = { dev, theme: "light", state: st, app, ctx, net, page, plate: st === "many" ? "7654321" : "1234567" };
+    const c = { dev, theme: "light", state: st, app, ctx, net, page, plate: st === "many" ? "4444444" : "1234567" };
     for (const [name, act, expect] of J.steps) {
       cur.step = name;
       if (act) { try { await act(page, c); } catch (e) { off = off || name; } }
@@ -244,7 +244,7 @@ const SWITCH_OFF = { name: "switch-off", steps: [
 // arrivals on the website by a link: the visit is counted by how it came, and the plate in the address never goes with it
 const ARRIVALS = [
   { query: "?plate=1234567", ev: "link_landing", has: { kind: "plate" } },
-  { query: "?cmp=1234567,7654321", ev: "link_landing", has: { kind: "cmp" } },
+  { query: "?cmp=1234567,4444444", ev: "link_landing", has: { kind: "cmp" } },
   { query: "?utm_source=facebook&utm_medium=social&utm_campaign=market", ev: "link_landing", has: { kind: "campaign", via: "facebook" } },
   // a car checked on a campaign visit: car_lookup's fullest form on the website (src and camp before its 8), at the 10 the endpoint keeps
   { query: "?utm_source=facebook&utm_campaign=market", ev: "link_landing", has: { kind: "campaign" }, steps: [["check", UF.check(), UF.isCar()]] },

@@ -24,6 +24,8 @@
     "from_cache": "lookup_from_cache",
     "share": "share",
     "share_open": "share_open",
+    "market_open": "market_open",
+    "demo_open": "demo_open",
     "compare": "compare_open",
     "save": "car_save",
     "tab": "tab_view",
