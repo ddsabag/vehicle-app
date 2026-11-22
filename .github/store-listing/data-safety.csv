@@ -12,7 +12,7 @@ PSL_ACCOUNT_DELETION_URL,,,MAYBE_REQUIRED,יש להוסיף קישור שבאמ�
 PSL_SUPPORT_DATA_DELETION_BY_USER,DATA_DELETION_YES,true,SINGLE_CHOICE,האם למשתמשים יש אפשרות לבקש שהנתונים שלהם יימחקו? / כן
 PSL_SUPPORT_DATA_DELETION_BY_USER,DATA_DELETION_NO,,SINGLE_CHOICE,האם למשתמשים יש אפשרות לבקש שהנתונים שלהם יימחקו? / לא
 PSL_SUPPORT_DATA_DELETION_BY_USER,DATA_DELETION_NO_AUTO_DELETED,,SINGLE_CHOICE,"האם למשתמשים יש אפשרות לבקש שהנתונים שלהם יימחקו? / לא, אבל נתוני המשתמשים נמחקים באופן אוטומטי תוך 90 ימים"
-PSL_DATA_DELETION_URL,,,MAYBE_REQUIRED,כתובת URL למחיקת הנתונים
+PSL_DATA_DELETION_URL,,https://luchit.app/privacy.html,MAYBE_REQUIRED,כתובת URL למחיקת הנתונים
 PSL_DATA_COLLECTION_COMPLIES_FAMILY_POLICY,,,OPTIONAL,"יש להשיב לשאלה הזו רק אם ציינת שקבוצת הגיל של האפליקציה שלך כוללת ילדים, או אם הצטרפת לתוכנית 'לכל המשפחה'. אם אחד מהתנאים הנ""ל מתקיימים, עליך לפעול בהתאם למדיניות למשפחות של Google Play (https://support.google.com/googleplay/android-developer/answer/9893335). רוצה להודיע למשתמשים על ההתחייבות הזו בסעיף אבטחת הנתונים בדף האפליקציה בחנות?"
 PSL_INDEPENDENTLY_VALIDATED,,,OPTIONAL,"האם האפליקציה שלך עברה בהצלחה בדיקת אבטחה עצמאית, בהתאם למסגרת Mobile Application Security Assessment (MASA)? יש להשיב 'כן' רק אם הביקורת מנוהלת בניהול תקין."
 PSL_UPI_BADGE_OPT_IN,,,OPTIONAL,רוצה להציג את התג הזה בדף האפליקציה בחנות?
