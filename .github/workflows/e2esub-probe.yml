@@ -1,0 +1,22 @@
+name: Magazine sign-up end-to-end (one-off, probe-perf branch)
+# 22.11.2026: one sign-up to our own service mailbox (+e2e alias), then the confirm link and a read-back from Brevo; the contact is marked
+# SOURCE=test. Runs on a push to the probe-perf branch only.
+on:
+  push:
+    branches: [probe-perf]
+    paths: [".github/scripts/e2esub-probe.mjs", ".github/workflows/e2esub-probe.yml", ".github/e2e-link.txt"]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: node .github/scripts/e2esub-probe.mjs
+        env:
+          BREVO_KEY: ${{ secrets.BREVO_KEY || secrets.BREVO_API_KEY }}
+          BREVO_LIST_ID: ${{ vars.BREVO_LIST_ID }}
