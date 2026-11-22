@@ -3,8 +3,8 @@
 //   GET  /api/confirm?e=<email>&x=<expiry>&t=<signature>      -> verifies the signature, adds the contact to the Brevo list, redirects to /magazine/?subscribed=1
 //   POST /api/waitlist   { name, company, type, interest, email, phone, notes, consent:true, website:"" } -> business waitlist (/business/): contact into Brevo list BREVO_B2B_LIST_ID,
 //                        a notification mail to NOTIFY_TO, and (optional) a cookie-less GA4 event b2b_lead_submit through the Measurement Protocol
-//   POST /api/business-key { name, company, type, size, email, phone, notes, consent:true, website:"" } -> the dealer beta (strategy's dealer offer, Dudu 20.11.2026,
-//                        phase 1): the contact into the business list, and a signed dealer key LD1.<payload>.<sig> mailed to the address (never in the
+//   POST /api/business-key { name, company, type, size, email, phone, notes, consent:true, marketing?:true, website:"" } -> the dealer beta (strategy's dealer offer, Dudu 20.11.2026,
+//                        phase 1): a contact (no list), and a signed dealer key LD1.<payload>.<sig> mailed to the address (never in the
 //                        answer, so the address is verified). Off (404) unless flags.json on the flags branch says "biz_signup": true.
 //                        Secret BIZ_SIGNING_KEY (Ed25519 private key, PKCS8 base64; Dudu pastes it, made by biz-keygen.mjs). Var BIZ_KEY_EXP (YYYY-MM-DD, default 2027-03-31).
 // A confirmed subscription also sends (optional) a cookie-less GA4 event newsletter_confirm, so /live can count subscribers.
@@ -23,9 +23,9 @@ const redirect = v => new Response(null, { status: 302, headers: { location: `${
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@.]+(\.[^\s@.]+)+$/;
 
 const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-async function sign(env, email, exp) {
+async function sign(env, email, exp, kind = "confirm") {   // kind keeps a magazine link from opening the business opt-in
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(env.CONFIRM_SECRET || env.BREVO_KEY), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  return b64u(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`confirm|${email}|${exp}`)));
+  return b64u(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${kind}|${email}|${exp}`)));
 }
 const eq = (a, b) => { if (a.length !== b.length) return false; let d = 0; for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i); return d === 0; };   // constant time
 const brevo = (env, path, body) => fetch("https://api.brevo.com/v3" + path, { method: "POST", headers: { "api-key": env.BREVO_KEY, "content-type": "application/json", accept: "application/json" }, body: JSON.stringify(body) });
@@ -105,16 +105,19 @@ const BIZ_SIZES = ["1-5", "6-20", "21-100", "100+"];
 async function bizOn() {
   try { const r = await fetch(FLAGS_URL, { cf: { cacheTtl: 300, cacheEverything: true } }); return r.ok && (await r.json()).biz_signup === true; } catch { return false; }
 }
-const ID_ABC = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";   // no 0/O or 1/I: the id may be read out over the phone
+// lower-case letters only, the format the app and the site check (/^[a-z]{8}$/), and no digits, so /api/e never drops it as plate-like;
+// no i, l or o: the id may be read out over the phone. 23 letters: bytes from 230 up are drawn again, so every letter is equally likely
+const ID_ABC = "abcdefghjkmnpqrstuvwxyz";
 export async function dealerKey(pkcs8b64, expDay) {
-  const r = crypto.getRandomValues(new Uint8Array(8)), id = [...r].map(b => ID_ABC[b % 32]).join("");
+  let id = "";
+  while (id.length < 8) for (const b of crypto.getRandomValues(new Uint8Array(16))) if (b < 230 && id.length < 8) id += ID_ABC[b % 23];
   const payload = b64u(new TextEncoder().encode(JSON.stringify({ id, plan: "dealer", exp: expDay, v: 1 })));
   const der = Uint8Array.from(atob(pkcs8b64.trim()), c => c.charCodeAt(0));
   const key = await crypto.subtle.importKey("pkcs8", der, { name: "Ed25519" }, false, ["sign"]);
   const sig = b64u(await crypto.subtle.sign({ name: "Ed25519" }, key, new TextEncoder().encode("LD1." + payload)));
   return { id, key: `LD1.${payload}.${sig}` };
 }
-const KEY_HTML = (key, until) => `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>לוחית לעסקים</title></head>
+const KEY_HTML = (key, until, optin) => `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>לוחית לעסקים</title></head>
 <body dir="rtl" style="margin:0;padding:0;background:#f1f3f7"><table role="presentation" width="100%" dir="rtl" style="background:#f1f3f7"><tr><td align="center" style="padding:28px 12px">
 <table role="presentation" width="600" dir="rtl" style="width:100%;max-width:600px;background:#ffffff;border-radius:16px;border-top:5px solid #ffc400"><tr><td dir="rtl" align="right" style="padding:28px 32px;font-family:Assistant,'Segoe UI',Arial,Helvetica,sans-serif;color:#151a24;font-size:16px;line-height:1.75;text-align:right">
 <div style="font-size:22px;font-weight:800;margin-bottom:6px">לוחית לעסקים</div>
@@ -123,7 +126,8 @@ const KEY_HTML = (key, until) => `<!doctype html><html lang="he" dir="rtl"><head
 <p style="margin:16px 0 6px"><b>שלושה צעדים:</b></p>
 <ol style="margin:0 0 14px;padding-right:20px"><li>מעתיקים את הקוד.</li><li>בלוחית, בהגדרות, בוחרים "קוד עסק".</li><li>מדביקים. מופיע "הקוד פעיל עד" עם התאריך.</li></ol>
 <p style="margin:0 0 6px">אפשר להשתמש בקוד בכמה מכשירים של העסק. לא רוצים להמשיך? לא צריך לעשות כלום: הקוד פשוט יפוג. לביטול מיידי או לכל שאלה: <a href="mailto:support@luchit.app" style="color:#2a56c6">support@luchit.app</a>.</p>
-<p style="margin:14px 0 0;color:#6a7384;font-size:13px">קיבלתם את המייל הזה כי נרשמתם לתוכנית העסקים של לוחית באתר luchit.app/business.</p>
+${optin ? `<p style="margin:16px 0 6px">ביקשתם לקבל גם עדכונים לעסקים. כדי לאשר, לחצו כאן: <a href="${esc(optin)}" style="color:#2a56c6;font-weight:700">אישור קבלת עדכונים</a>. בלי אישור לא נשלח לכם עדכונים.</p>` : ""}
+<p style="margin:14px 0 0;color:#6a7384;font-size:13px">קיבלתם את המייל הזה כי נרשמתם לתוכנית העסקים של לוחית באתר luchit.app/business. לא נרשמתם? אפשר להתעלם מהמייל.</p>
 </td></tr></table></td></tr></table></body></html>`;
 
 async function businessKey(req, env, ctx) {
@@ -151,10 +155,14 @@ async function businessKey(req, env, ctx) {
   const expDay = Math.floor(Date.parse(until + "T00:00:00Z") / 864e5);
   let k; try { k = await dealerKey(env.BIZ_SIGNING_KEY, expDay); } catch (e) { console.log("business-key: sign failed"); return json({ error: "upstream" }, 502); }
 
+  // updates to the business are a separate, unticked opt-in (b.marketing, Communications Law 30A; strategy audit 22.11.2026): the key mail then
+  // carries a signed link, and only that click puts the address on the business list with CONSENT_AT. The required box covers the key only.
+  const xexp = Date.now() + TTL_MS;
+  const optin = b.marketing === true ? `${ORIGIN}/api/confirm-b2b?e=${encodeURIComponent(email)}&x=${xexp}&t=${await sign(env, email, xexp, "b2b")}` : "";
   // the key mail first: a contact without a key would look signed up while it has nothing; on a mail failure the user is told to try again
   const [y, m, d] = until.split("-");
   const mail = await brevo(env, "/smtp/email", { sender: { name: "לוחית לעסקים", email: "updates@luchit.app" }, to: [{ email }], replyTo: { email: "support@luchit.app" },
-    subject: "קוד העסק שלכם בלוחית", htmlContent: KEY_HTML(k.key, `${d}.${m}.${y}`) });
+    subject: "קוד העסק שלכם בלוחית", htmlContent: KEY_HTML(k.key, `${d}.${m}.${y}`, optin) });
   if (!mail.ok) { console.log("brevo key mail", mail.status, "upstream error"); return json({ error: "upstream" }, 502); }
   await Promise.all([bump(ipc, ipn, ctx), bump(toc, ton, ctx), bump(allc, alln, ctx)]);
 
@@ -162,10 +170,10 @@ async function businessKey(req, env, ctx) {
   // best effort from here on: the key is already with the user. A new contact gets the form's details; an existing one is only added to the list
   // (never overwritten, as in the waitlist). KEY_ID links the pseudonymous key id to the address in Brevo only.
   try {
-    const list = Number(env.BREVO_B2B_LIST_ID);
-    const r = await brevo(env, "/contacts", { email, listIds: [list], updateEnabled: false,
-      attributes: { FIRSTNAME: name, COMPANY_NAME: company, BUSINESS_TYPE: type, BUSINESS_SIZE: size, PHONE: phone, NOTES: notes, SOURCE: "dealer-key", KEY_ID: k.id, CONSENT_AT: new Date().toISOString() } });
-    if (!r.ok) { existing = true; await brevo(env, `/contacts/lists/${list}/contacts/add`, { emails: [email] }); }
+    // no list and no CONSENT_AT here: the contact only links the key id to the address (support, cancelling a key)
+    const r = await brevo(env, "/contacts", { email, updateEnabled: false,
+      attributes: { FIRSTNAME: name, COMPANY_NAME: company, BUSINESS_TYPE: type, BUSINESS_SIZE: size, PHONE: phone, NOTES: notes, SOURCE: "dealer-key", KEY_ID: k.id } });
+    if (!r.ok) existing = true;
   } catch (e) { console.log("business-key contact failed", String(e).slice(0, 200)); }
   try {   // the owner hears of each sign-up, as with the waitlist (the key itself is not in this mail)
     await brevo(env, "/smtp/email", { sender: { name: "לוחית", email: "updates@luchit.app" }, to: [{ email: env.NOTIFY_TO || "luchit.app.service@gmail.com" }], replyTo: { email },
@@ -230,6 +238,15 @@ const app = {
         } catch (e) { console.log("ga failed", String(e).slice(0, 200)); }
       }
       return redirect("1");
+    }
+
+    if (url.pathname === "/api/confirm-b2b" && req.method === "GET") {   // the business-updates opt-in link from the key mail
+      const email = (url.searchParams.get("e") || "").toLowerCase(), exp = Number(url.searchParams.get("x")), t = url.searchParams.get("t") || "";
+      const to = v => new Response(null, { status: 302, headers: { location: `${ORIGIN}/business/?updates=${v}`, "cache-control": "no-store" } });
+      if (!EMAIL_RE.test(email) || !(exp > Date.now()) || !eq(t, await sign(env, email, exp, "b2b"))) return to("expired");
+      const r = await brevo(env, "/contacts", { email, listIds: [Number(env.BREVO_B2B_LIST_ID)], updateEnabled: true, attributes: { CONSENT_AT: new Date().toISOString() } });
+      if (!r.ok) { console.log("brevo contacts", r.status, "upstream error"); return to("error"); }
+      return to("1");
     }
 
     if (url.pathname === "/api/waitlist") return waitlist(req, env, ctx);

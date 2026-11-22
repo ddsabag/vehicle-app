@@ -60,11 +60,25 @@ r = await W.fetch(new Request("https://luchit.app/api/confirm?e=x&x=1&t=x"), env
   const m = sent.find(x => x[0] === "/smtp/email"), key = m && (/LD1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/.exec(m[1].htmlContent) || [])[0];
   ok(r.status === 200 && body.ok === true && !JSON.stringify(body).includes("LD1") && m && m[1].to[0].email === "d@example.com", "business-key: on = the key goes by mail only");
   const v = key && await verify(key, PUB, Math.floor(Date.parse("2026-12-01") / 864e5));
-  ok(v && v.ok && v.exp === 20908 && /^[A-HJ-NP-Z2-9]{8}$/.test(v.id), "business-key: the key verifies offline, expires 31.3.2027, id of 8 readable characters");
+  ok(v && v.ok && v.exp === 20908 && /^[a-z]{8}$/.test(v.id) && !/[ilo]/.test(v.id), "business-key: the key verifies offline, expires 31.3.2027, id of 8 lower-case letters (the app's format, no i/l/o)");
   ok(!Buffer.from(key.split(".")[1], "base64").toString().includes("example"), "business-key: no address inside the key");
-  const c = sent.find(x => x[0] === "/contacts"); ok(c && c[1].attributes.KEY_ID === v.id && c[1].updateEnabled === false && c[1].listIds[0] === 2, "business-key: contact into the business list with the key id, never overwritten");
+  const c = sent.find(x => x[0] === "/contacts"); ok(c && c[1].attributes.KEY_ID === v.id && c[1].updateEnabled === false && !c[1].listIds && !c[1].attributes.CONSENT_AT, "business-key: a contact with the key id, never overwritten, on no list and with no consent stamp");
+  ok(!m[1].htmlContent.includes("confirm-b2b") && m[1].htmlContent.includes("לא נרשמתם? אפשר להתעלם"), "business-key: no opt-in asked = no updates link; the mail says what to do if you did not sign up");
   const own = sent.filter(x => x[0] === "/smtp/email").find(x => x[1].to[0].email !== "d@example.com");
   ok(c[1].attributes.NOTES === "<b>צי של 30</b>" && own && own[1].htmlContent.includes("&lt;b&gt;צי של 30") && !own[1].htmlContent.includes("LD1."), "business-key: notes saved in NOTES and in the owner's mail (escaped), the key not in that mail");
+  { const M = await import("data:text/javascript," + encodeURIComponent(src)), ids = new Set(); let allOk = true;
+    for (let i = 0; i < 300; i++) { const { id } = await M.dealerKey(benv.BIZ_SIGNING_KEY, 1); if (!/^[a-z]{8}$/.test(id) || /[ilo]/.test(id)) allOk = false; ids.add(id); }
+    ok(allOk && ids.size === 300, "business-key: 300 ids, all lower-case letters and all different"); }
+  sent = []; r = await bk({ ...form, email: "o@example.com", marketing: true }, "4.4.9.9");
+  const om = sent.find(x => x[0] === "/smtp/email" && x[1].to[0].email === "o@example.com"), link = om && (/https:\/\/luchit\.app\/api\/confirm-b2b\?[^"]+/.exec(om[1].htmlContent) || [])[0];
+  ok(r.status === 200 && link && !sent.some(x => x[0] === "/contacts" && x[1].listIds), "business-key: opt-in ticked = the key mail carries a signed updates link, still no list");
+  const cb = u => W.fetch(new Request(u.replaceAll("&amp;", "&")), benv, {});
+  sent = []; r = await cb(link);
+  const lc = sent.find(x => x[0] === "/contacts");
+  ok(r.status === 302 && r.headers.get("location").endsWith("/business/?updates=1") && lc && lc[1].listIds[0] === 2 && lc[1].attributes.CONSENT_AT && Object.keys(lc[1].attributes).length === 1, "confirm-b2b: the click puts the address on the business list with CONSENT_AT only");
+  sent = []; r = await cb(link.replace(/t=[^&]+/, "t=AAAA")); ok(r.headers.get("location").endsWith("updates=expired") && sent.length === 0, "confirm-b2b: a bad signature does nothing");
+  const mag = new URL(link); const mlink = `https://luchit.app/api/confirm?e=${mag.searchParams.get("e")}&x=${mag.searchParams.get("x")}&t=${mag.searchParams.get("t")}`;
+  sent = []; r = await cb(mlink); ok(r.headers.get("location").endsWith("subscribed=expired") && sent.length === 0, "confirm-b2b: its token does not open the magazine confirm");
   ok((await verify(key, PUB, 20909)).why === "expired" && (await verify(key, PUB, 1, [v.id])).why === "revoked", "verify: expired and revoked");
   ok((await verify(key.slice(0, -3) + "AAA", PUB)).why === "signature" && (await verify("hello", PUB)).why === "format", "verify: wrong signature and malformed input");
   const other = crypto.generateKeyPairSync("ed25519").publicKey.export({ format: "der", type: "spki" }).subarray(-32).toString("base64");
