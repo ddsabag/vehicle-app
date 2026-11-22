@@ -512,5 +512,20 @@ ok(!gh.calls.some(c => !/social-publish/.test(c)), "and only its runs are read "
 gh.calls = []; gh.sent = []; gh.runs["social-publish.yml"] = "2026-11-08T21:00:00Z";
 x = await tick(env, T("2026-11-08T21:31:00Z"));
 ok(!gh.sent.some(a => a[0] === "social-publish.yml"), "outside its hours (05-20 UTC): not started");
+// every scheduled workflow has a backup-clock entry or a reason it has none (ops deep-audit verification 22.11.2026): a new scheduled bot
+// must be a choice here, not forgotten
+{ const NO_BACKUP = {
+    "ministry-pulse.yml": "every 30 minutes: a skipped run is followed by the next one",
+    "seo-daily.yml": "a digest; a late or missing one is noticed by SEO daily's own checks",
+    "seo-publish.yml": "publishes content: a second start could publish twice; its owner (SEO) decides",
+    "vanished.yml": "data's twice-weekly detector; owner to decide",
+    "web-deploy.yml": "a scheduled rebuild; every push deploys anyway",
+  };
+  const i = src.indexOf("const CLOCK = ["), blk = src.slice(i, src.indexOf("\n];", i)), inClock = new Set([...blk.matchAll(/wf:\s*"([^"]+)"/g)].map(x => x[1]));
+  const dir = new URL("../../.github/workflows/", import.meta.url), sched = fs.readdirSync(dir).filter(f => /^\s*schedule:/m.test(fs.readFileSync(new URL(f, dir), "utf8")));
+  const missing = sched.filter(f => !inClock.has(f) && !NO_BACKUP[f]);
+  ok(!missing.length, "every scheduled workflow is in CLOCK or in NO_BACKUP" + (missing.length ? ": " + missing.join(", ") : ""));
+  const gone = [...inClock].filter(f => !sched.includes(f)).concat(Object.keys(NO_BACKUP).filter(f => !sched.includes(f)));
+  ok(!gone.length, "CLOCK and NO_BACKUP name only scheduled workflows that exist" + (gone.length ? ": " + gone.join(", ") : "")); }
 log(bad ? `uptime test: ${bad} of ${n} checks FAILED` : `uptime test ok (${n} checks)`);
 process.exit(bad ? 1 : 0);

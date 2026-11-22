@@ -128,18 +128,24 @@ async function shareCheck() {
     const loc = r.headers.get("location") || "";
     if (r.status !== 302 || !loc.includes("utm_source=whatsapp")) out.push({ id: "go", title: "קישורי הקמפיין (פוסטים וביו)", detail: "קישור קמפיין לוואטסאפ לא הפנה כמו שצריך.", impact: "קישורי הקמפיין לא ייפתחו או לא ייספרו לפי מקור. כנראה תקלה בשירות התצוגה המקדימה.", raw: `/go/wa HTTP ${r.status}${loc ? " -> " + loc.slice(0, 80) : ""}, expected 302 with utm_source=whatsapp, Worker luchit-og` });
   } catch (e) { out.push({ id: "go", title: "קישורי הקמפיין (פוסטים וביו)", detail: `הבקשה נכשלה: ${he(e.message)}.`, impact: "קישורי הקמפיין לא ייפתחו.", raw: `/go/wa: ${e.message.slice(0, 80)}` }); }
-  // once a day: a car link names the car (the preview's own 2.5 s ministry budget), with the app's public example plate
+  // once a day: a car link names the car (the preview's own 2.5 s ministry budget)
   if (process.env.GITHUB_EVENT_NAME !== "push") try {
-    const html = await get(SITE).then(x => x.t), ex = (html.match(/const EXAMPLE_PLATE = "(\d+)"/) || [])[1];
-    if (ex) { const { t } = await get(SITE + "?plate=" + ex + st, { headers: { "user-agent": WA } }); if (!ogTitle(t).includes(" · ")) out.push({ id: "carlink", ministry: true, title: "תצוגה מקדימה של קישור לרכב", detail: "קישור לרכב הדוגמה קיבל כותרת כללית במקום שם הרכב.", impact: "רכב שנשלח בוואטסאפ יופיע בלי שם ובלי מצב הטסט. ייתכן שמשרד התחבורה איטי כרגע; אם זה חוזר מחר, זו תקלה בשירות התצוגה המקדימה.", raw: `og:title "${ogTitle(t).slice(0, 60)}", Worker luchit-og` }); }
+    // the app's example is now the built-in sample car, which the preview cannot name: a car from the register instead (product audit 22.11)
+    const ex = await registerPlate();
+    if (ex) { const { t } = await get(SITE + "?plate=" + ex + st, { headers: { "user-agent": WA } }); if (!ogTitle(t).includes(" · ")) out.push({ id: "carlink", ministry: true, title: "תצוגה מקדימה של קישור לרכב", detail: "קישור לרכב מהמאגר קיבל כותרת כללית במקום שם הרכב.", impact: "רכב שנשלח בוואטסאפ יופיע בלי שם ובלי מצב הטסט. ייתכן שמשרד התחבורה איטי כרגע; אם זה חוזר מחר, זו תקלה בשירות התצוגה המקדימה.", raw: `og:title "${ogTitle(t).slice(0, 60)}", Worker luchit-og` }); }
   } catch (e) { console.log("car preview not checked:", e.message.slice(0, 80)); }
   return out;
 }
 
 // ---- 2. a real lookup in a real browser, with a plate taken from the ministry's active register
-async function lookupCheck() {
+// a car from the ministry's active register, read at run time and never written down (the code keeps only the built-in sample car)
+async function registerPlate() {
   let plate = "38548003";
   try { const { t } = await get("https://data.gov.il/api/3/action/datastore_search?resource_id=053cea08-09bc-40ec-8f7a-156f0677aff3&limit=1&offset=500&filters=" + encodeURIComponent(JSON.stringify({ shnat_yitzur: 2018 }))); const p = JSON.parse(t).result.records[0].mispar_rechev; if (p) plate = String(p); } catch {}
+  return plate;
+}
+async function lookupCheck() {
+  const plate = await registerPlate();
   const { chromium } = await import("playwright");
   const b = await chromium.launch(); const errs = [];
   try {
