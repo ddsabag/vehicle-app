@@ -22,6 +22,11 @@ const ilToday = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jerusal
 // the last whole Sunday-to-Saturday week: on Sunday it ended yesterday
 const lastSat = d => { const w = new Date(d + "T12:00:00Z").getUTCDay(); return addD(d, -((w + 1) % 7 || 7)); };
 const END = E.KPI_END || lastSat(ilToday);
+// a given end must be a Saturday whose week is over (the Sunday after it in Israel), or the week is not a whole Sunday-to-Saturday week
+if (new Date(END + "T12:00:00Z").getUTCDay() !== 6 || END > lastSat(ilToday)) { console.log("KPI_END must be a Saturday of a week that is over"); process.exit(1); }
+// GA4 finishes a day some hours after it ends: on the Sunday right after the week, before 09:00 Israel, the Saturday may still be short
+const ilHour = +new Date().toLocaleString("en-GB", { timeZone: "Asia/Jerusalem", hour: "2-digit", hour12: false });
+const FRESH = ilToday === addD(END, 1) && ilHour < 9;
 
 // the screen's targets: GOALS and goal() as the page has them (pure lines of the page script, read from the same file)
 function screenGoals(src) {
@@ -42,8 +47,12 @@ async function pressOf(env, report, cfQuery) {
   const rows = await report(env, { dateRanges: dr, dimensions: [{ name: "sessionSource" }, { name: "platform" }, { name: "eventName" }], metrics: [{ name: "eventCount" }, { name: "totalUsers" }],
     dimensionFilter: { andGroup: { expressions: [has("sessionSource"), { filter: { fieldName: "eventName", inListFilter: { values: ["session_start", "web_visit", "car_lookup", "car_save", "share"] } } }] } }, limit: 200 });
   const ev = {}, sources = new Set();
-  for (const r of rows) { const [src, pf, en] = r.dimensionValues.map(x => x.value), [n, u] = r.metricValues.map(x => +x.value), k = pf.toLowerCase() + "." + en;
-    sources.add(src); ev[k] = ev[k] || [0, 0]; ev[k][0] += n; ev[k][1] += u; }
+  for (const r of rows) { const [src, pf, en] = r.dimensionValues.map(x => x.value), [n] = r.metricValues.map(x => +x.value), k = pf.toLowerCase() + "." + en;
+    sources.add(src); ev[k] = ev[k] || [0, 0]; ev[k][0] += n; }
+  // users once each: a reader who came by two of the site's addresses (www., m.) is one user, so totalUsers is read without the source split
+  const users = await report(env, { dateRanges: dr, dimensions: [{ name: "platform" }, { name: "eventName" }], metrics: [{ name: "totalUsers" }],
+    dimensionFilter: { andGroup: { expressions: [has("sessionSource"), { filter: { fieldName: "eventName", inListFilter: { values: ["session_start", "web_visit", "car_lookup", "car_save", "share"] } } }] } }, limit: 50 });
+  for (const r of users) { const [pf, en] = r.dimensionValues.map(x => x.value), k = pf.toLowerCase() + "." + en; ev[k] = ev[k] || [0, 0]; ev[k][1] = +r.metricValues[0].value; }
   const inst = await report(env, { dateRanges: dr, dimensions: [{ name: "firstUserSource" }], metrics: [{ name: "newUsers" }],
     dimensionFilter: { andGroup: { expressions: [{ filter: { fieldName: "platform", stringFilter: { value: "Android" } } }, has("firstUserSource")] } } });
   // the article's fixed links (go/press?c=queenoftheroad, 15.11): the site's own campaign field, landings and the checks of those visits
@@ -168,6 +177,7 @@ const FIELDS = {
 function kpis(d, S) {
   const W = d.weekly || null, ev = W && W.ev, E0 = ev ? ev[0] : null, E1 = ev ? ev[1] : null, ge = (o, k, i) => o && o[k] ? o[k][i || 0] : 0;
   const end = W ? W.end : null, prevEnd = end ? S.addD(end, -7) : null, cal = !end || end < S.CAL_END, days = W && W.days, notes = {};
+  if (FRESH) notes.maturity = "הקריאה רצה ביום ראשון לפני 09:00: גוגל אנליטיקס אולי עוד לא סיים את יום שבת, והשבוע עלול להיות חסר.";
   const week = e => { if (!days) return null; let s = 0; for (let i = 0; i < 7; i++) s += days[S.addD(e, -i)] || 0; return s; };
   const wsum = (k, e) => { const o = W && W.series && W.series[k]; if (!o) return null; let s = 0; for (let i = 0; i < 7; i++) s += o[S.addD(e, -i)] || 0; return s; };
   const dm = x => +x.slice(8, 10) + "." + +x.slice(5, 7), r1 = x => x == null || !isFinite(x) ? null : Math.round(x * 10) / 10, rg = g => g ? { base: r1(g[1]), range: [r1(g[0]), r1(g[2])] } : null;
@@ -216,8 +226,11 @@ function kpis(d, S) {
         savers: Sv, savers_returned: R1, savers_rate_pct: Sv ? r1(R1 / Sv * 100) : null, non_savers: N0, non_savers_returned: R0, non_savers_rate_pct: N0 ? r1(R0 / N0 * 100) : null, estimated: Est }; };
     const c0 = end ? cohort(S.addD(end, -13), S.addD(end, -7)) : null, c1 = end ? cohort(S.addD(end, -20), S.addD(end, -14)) : null;
     // the car file reopen rule (Dudu 8.11 via the CEO thread): savers return in 7 days at x1.5 or more of non-savers, over the last 4 install weeks pooled
-    const p4 = end ? cohort(S.addD(end, -34), S.addD(end, -7)) : null, x = p4 && p4.savers_rate_pct != null && p4.non_savers_rate_pct ? r1(p4.savers_rate_pct / p4.non_savers_rate_pct * 100) / 100 : null;
-    out.return_7d = { week: c0, prev: c1, pooled_4w: p4 ? { ...p4, ratio_x: x, reopen_line_x: 1.5, meets_line: x == null ? null : x >= 1.5 } : null };
+    const p4 = end ? cohort(S.addD(end, -34), S.addD(end, -7)) : null, rs = p4 && p4.savers ? p4.savers_returned / p4.savers : null, rn = p4 && p4.non_savers ? p4.non_savers_returned / p4.non_savers : null;
+    // from the counts, not the rounded percentages; no non-saver returned: no ratio, and the line is met when any saver returned
+    const x = rs != null && rn ? Math.round(rs / rn * 100) / 100 : null, meets = rs == null || rn == null ? null : rn ? x >= 1.5 : rs > 0;
+    out.return_7d = { week: c0, prev: c1, pooled_4w: p4 ? { ...p4, ratio_x: x, reopen_line_x: 1.5, meets_line: meets } : null };
+    if (p4 && rn === 0) notes.return_7d_ratio = "אף אחד ממי שלא שמר רכב לא חזר בארבעת השבועות, ולכן אין יחס: הקו נחשב כעומד אם חזר לפחות אחד מהשומרים.";
     if (p4 && p4.installs_from > S.addD(end, -34)) notes.return_7d_pooled = "ארבעת השבועות המאוחדים מתחילים ב-21.10 (1.36), ולכן הם קצרים מ-4 שבועות עד 18.11.";
     if (!C) notes.return_7d = "גוגל אנליטיקס לא ענה על חזרות.";
     else { if (!c0) notes.return_7d = "עוד אין שבוע התקנות שעברו עליו 7 ימים: החזרה נמדדת מהתקנות של 21.10 ואילך (1.36), וכל יום התקנות נספר שבוע אחריו.";
