@@ -8,7 +8,7 @@
 // Private by design: the cars are drawn with a random seed that is never printed or kept; no plate, VIN or engine number reaches a prompt
 // (deepClean, used by the snapshot); the full results are encrypted with .github/seo-data.pub.pem (deep-audit.enc.json on the branch
 // data-truth; the project's seo-key/decrypt.mjs reads it); in the clear only counts (deep-summary.json). The router hears one quiet line:
-// truth:deep:<areas> (news, for the data thread to turn into rules; Dudu does nothing) when confirmed findings the rules missed exist,
+// truth:deep (one key, the areas in the text; news, for the data thread to turn into rules; Dudu does nothing) when confirmed findings the rules missed exist,
 // truth:deep-fail when too few cars could be read, ai:audit when the API failed (ai:key when the key or the credit is the cause); a good
 // month closes what is its own. Nothing here logs a plate, a cost or a token count.
 //   env   QUERIES="n=80 rare=20 minutes=140 wait=180 effort=medium max=120 dry=1"   OUT=<dir> (default out)
@@ -208,7 +208,7 @@ function review(res) {
     ...(res.failed.length ? ["## לא נענו", "", ...res.failed.map(f => `- ${f.id} · ${f.why}`), ""] : [])].join("\n");
 }
 
-// the router (alert.mjs): ai:audit / ai:key for the API, truth:deep-fail for too few cars, truth:deep:<areas> for findings the rules missed.
+// the router (alert.mjs): ai:audit / ai:key for the API, truth:deep-fail for too few cars, truth:deep for findings the rules missed.
 // Each key is written out at its call site, where alert.mjs's selftest finds it ({ level, key } and router.resolve(["..."]))
 async function tell(router, env, { level, key, text }) {
   if (!router) return;
@@ -298,10 +298,12 @@ export async function run({ env = process.env, api, router, readCars, log = cons
   await settle(router, async () => { await router.resolve(["ai:audit"]); await router.resolve(["ai:key"]); });
   // 12.11 (full review): a month with a high finding the rules missed is a day alert, so it is triaged within a day and not read ten days later
   const hiN = miss.filter(f => f.severity === "high").length;
-  if (miss.length) await tell(router, env, { level: hiN ? "day" : "summary", key: `truth:deep:${areas.join("+")}`, text: [tag(hiN ? "today" : "info", "data"),
+  // 22.11 (noise review): one stable key, the areas in the text. The old per-area keys (truth:deep:<areas>) fold into it, closed untold
+  if (miss.length) await settle(router, () => router.resolve(["truth:deep:"], { tell: false }));
+  if (miss.length) await tell(router, env, { level: hiN ? "day" : "summary", key: "truth:deep", text: [tag(hiN ? "today" : "info", "data"),
     `הביקורת החודשית העמוקה קראה ${res.answered} רכבים פעמיים, בכללים וב-Claude, ומצאה ${miss.length === 1 ? "ממצא אחד" : `${miss.length} ממצאים`} שהבדיקה היומית לא תפסה: ${areas.map(a => AREAS[a]).join(", ")}. כל ממצא אומת מול הדף ומול נתוני משרד התחבורה.${hiN ? ` ${hiN === 1 ? "ממצא אחד חמור" : `${hiN} ממצאים חמורים`}, ולכן ההתראה היום ולא בסיכום.` : ""}`,
     "הפירוט, מוצפן ובלי מספרי רכב, בענף data-truth, ועובר לשרשור \"נתונים ואמינות\" כדי להפוך כל ממצא אמיתי לבדיקה יומית.", todo()].join("\n") });
-  else await settle(router, () => router.resolve(["truth:deep:"]));   // a month with nothing the rules missed closes the earlier months' lines (told: "טופל")
+  else await settle(router, () => router.resolve(["truth:deep"]));   // a clean month closes the open line and any old per-area one (told: "טופל"); truth:deep-fail was closed above
   return done();
 }
 
@@ -375,7 +377,7 @@ if (process.argv[1] && process.argv[1].endsWith("deep-audit.mjs") && process.arg
     retrieve: async id => ({ id, processing_status: "ended" }),
     results: async () => (async function* () { for (const r of fake.reqs) { const x = reply(r.custom_id, r.params.messages[0].content); yield { custom_id: r.custom_id, result: x.ok ? { type: "succeeded", message: x.msg } : { type: "errored", error: { type: "error", error: { type: "invalid_request_error" } } } }; } })(),
     cancel: async () => {} } } });
-  const calls = [], router = { alert: async (lv, key, text) => { calls.push(["alert", lv, key, text]); return { delivered: true }; }, resolve: async p => { calls.push(["resolve", p[0]]); return 0; } };
+  const calls = [], router = { alert: async (lv, key, text) => { calls.push(["alert", lv, key, text]); return { delivered: true }; }, resolve: async (p, o) => { calls.push(["resolve", p[0], o ? o.tell : undefined]); return 0; } };
   const quiet = () => {}, dec = f => { const x = JSON.parse(fs.readFileSync(f, "utf8")), kk = crypto.privateDecrypt({ key: privateKey, padding: crypto.constants.RSA_PKCS1_OAEP_PADDING, oaepHash: "sha256" }, Buffer.from(x.ek, "base64"));
     const dd = crypto.createDecipheriv("aes-256-gcm", kk, Buffer.from(x.iv, "base64")); dd.setAuthTag(Buffer.from(x.tag, "base64")); return JSON.parse(Buffer.concat([dd.update(Buffer.from(x.data, "base64")), dd.final()]).toString("utf8")); };
   let r = await run({ env: { OUT: path.join(tmp, "o1"), QUERIES: "wait=0" }, api: fake(), router, readCars: cars(12), log: quiet, pem: publicKey, now: new Date("2026-11-01T05:00:00Z") });
@@ -384,8 +386,8 @@ if (process.argv[1] && process.argv[1].endsWith("deep-audit.mjs") && process.arg
   ok(res.findings.filter(f => f.id === "c001").length === 1 && res.unfounded.some(f => f.id === "c001" && f.area === "test"), "a finding with a real quote is kept; one whose page excerpt is wrong is unfounded");
   ok(res.findings.find(f => f.id === "c002").byRules && !res.findings.find(f => f.id === "c001").byRules, "a finding in an area the rules flagged on that car is marked as theirs");
   ok(sum.kept === 3 && sum.missedByRules === 1 && sum.low === 1 && sum.missedByArea.owners === 1 && !JSON.stringify(sum).includes("COROLLA") && !JSON.stringify(sum).includes("יד 2"), "the clear summary: counts only, no car and no quote");
-  ok(calls.some(c => c[0] === "alert" && c[1] === "day" && c[2] === "truth:deep:owners" && c[3].includes("ממצא אחד חמור")) && calls.some(c => c[0] === "resolve" && c[1] === "ai:audit") && calls.some(c => c[0] === "resolve" && c[1] === "ai:key")
-    && !calls.some(c => c[0] === "resolve" && c[1] === "truth:deep:"), "a high finding the rules missed: one truth:deep day line by area; the API's keys close");
+  ok(calls.some(c => c[0] === "alert" && c[1] === "day" && c[2] === "truth:deep" && c[3].includes("ממצא אחד חמור") && c[3].includes("בעלויות")) && calls.some(c => c[0] === "resolve" && c[1] === "ai:audit") && calls.some(c => c[0] === "resolve" && c[1] === "ai:key")
+    && calls.some(c => c[0] === "resolve" && c[1] === "truth:deep:" && c[2] === false) && !calls.some(c => c[0] === "resolve" && c[1] === "truth:deep"), "a high finding the rules missed: one stable truth:deep day line naming the area, old per-area lines fold in untold; the API's keys close");
   ok(res.tokens.input > 0 && res.tokens.output > 0 && !JSON.stringify(sum).includes("tokens") && !fs.readFileSync(path.join(tmp, "o1", "deep-summary.json"), "utf8").includes("input"), "the tokens are counted, in the encrypted file only");
   ok(res.review.includes("מה שהכללים לא תפסו") && res.review.includes("נפסלו") && sent.every(u => plateFree(u)), "the review lists what the rules missed and what was dropped; every prompt plate-free");
   calls.length = 0;
@@ -417,7 +419,7 @@ if (process.argv[1] && process.argv[1].endsWith("deep-audit.mjs") && process.arg
   calls.length = 0;
   const cleanCars = async (q, dir) => { const g = await cars(12)(q, dir); for (const f of ["c001.json", "c004.json"]) fs.rmSync(path.join(g.dir, f)); return g; };
   r = await run({ env: { OUT: path.join(tmp, "o8"), QUERIES: "wait=0" }, api: fake(), router, readCars: cleanCars, log: quiet, pem: publicKey });
-  ok(r.missed === 0 && calls.some(c => c[0] === "resolve" && c[1] === "truth:deep:") && !calls.some(c => c[0] === "alert"), "a clean month: the open truth:deep lines close, nothing is sent");
+  ok(r.missed === 0 && calls.some(c => c[0] === "resolve" && c[1] === "truth:deep") && !calls.some(c => c[0] === "alert"), "a clean month: the open truth:deep lines close, nothing is sent");
   // a car's prompt has a ceiling; the router has Hebrew for every area
   const big = car("c099", { page: { ...car("c099").page, tabs: { overview: "א ".repeat(60000), owners: "ב" } } });
   ok(prompt(big, new Date("2026-11-18T05:17:00Z")).startsWith("Today (the day the page was read): 18/11/2026\n"), "the prompt says what day it is");
