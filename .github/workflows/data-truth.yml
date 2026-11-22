@@ -13,7 +13,7 @@ run-name: Data truth${{ (github.event.schedule || inputs.schedule) && format(' (
 #  deep (monthly):      deep-audit.mjs (Claude API use #7, Dudu 28.10.2026): the same audit on about 100 cars drawn with a seed nobody sees,
 #                       then Claude reads each car's page against its rows in one Message Batch. Findings the fixed rules missed are
 #                       candidates for new rules. Only counts in the clear (deep-summary.json); the findings encrypted (deep-audit.enc.json).
-#                       The router hears truth:deep:<areas> (news for the data thread), truth:deep-fail, ai:audit or ai:key. Never red over
+#                       The router hears truth:deep (one key, the areas in the text; news for the data thread), truth:deep-fail, ai:audit or ai:key. Never red over
 #                       the API. The 2nd and the 3rd are retries that end at once when the month's audit is done.
 on:
   schedule:
