@@ -1,71 +1,71 @@
 {
  "v": 1,
- "d": "2026-11-21",
+ "d": "2026-11-22",
  "seed": "20261122",
- "cars": 36,
- "sampled": 36,
+ "cars": 40,
+ "sampled": 40,
  "mism": 0,
  "skipped": 0,
  "refused": 0,
  "fields": {
   "buyer.no_red_flags": [
-   33,
+   37,
    0
   ],
   "buyer.no_red_flags_tag": [
-   11,
+   15,
    0
   ],
   "fee.borrowed_note": [
-   26,
+   27,
    0
   ],
   "fee.licence": [
-   36,
+   40,
    0
   ],
   "identity.buy_steps": [
-   33,
+   37,
    0
   ],
   "identity.colour": [
-   36,
+   40,
    0
   ],
   "identity.drive_pill": [
-   36,
+   40,
    0
   ],
   "identity.engine_cc": [
-   36,
+   40,
    0
   ],
   "identity.fuel": [
-   36,
+   40,
    0
   ],
   "identity.make": [
-   36,
+   40,
    0
   ],
   "identity.model": [
-   36,
+   40,
    0
   ],
   "identity.title_make": [
-   36,
+   40,
    0
   ],
   "identity.trim": [
-   36,
+   40,
    0
   ],
   "identity.vin": [
-   36,
+   40,
    0
   ],
   "identity.year": [
-   36,
+   40,
    0
   ],
   "insight.age_cancelled": [
@@ -73,39 +73,39 @@
    0
   ],
   "insight.safety_low": [
-   36,
+   40,
    0
   ],
   "km.last_test": [
-   36,
+   40,
    0
   ],
   "km.per_year": [
-   36,
+   40,
    0
   ],
   "message.partial_data": [
-   36,
+   40,
    0
   ],
   "mods.checks_line": [
-   36,
+   40,
    0
   ],
   "mods.gapam_ind": [
-   36,
+   40,
    0
   ],
   "mods.shinui_mivne_ind": [
-   36,
+   40,
    0
   ],
   "mods.shinui_zmig_ind": [
-   36,
+   40,
    0
   ],
   "mods.shnui_zeva_ind": [
-   36,
+   40,
    0
   ],
   "owners.current_no_log": [
@@ -117,15 +117,15 @@
    0
   ],
   "owners.first_owner": [
-   36,
+   40,
    0
   ],
   "owners.hands": [
-   36,
+   40,
    0
   ],
   "owners.hands_pill": [
-   36,
+   40,
    0
   ],
   "owners.insight_company_now": [
@@ -133,7 +133,7 @@
    0
   ],
   "owners.insight_dealer_now": [
-   36,
+   40,
    0
   ],
   "owners.insight_lease": [
@@ -161,91 +161,91 @@
    0
   ],
   "owners.timeline": [
-   36,
+   40,
    0
   ],
   "price.borrowed_note": [
-   30,
-   0
-  ],
-  "price.list": [
-   36,
-   0
-  ],
-  "recalls.check_line": [
-   36,
-   0
-  ],
-  "recalls.checked_unlisted": [
-   25,
-   0
-  ],
-  "recalls.line_honest": [
-   28,
-   0
-  ],
-  "recalls.model_count": [
-   33,
-   0
-  ],
-  "recalls.model_extra": [
-   33,
-   0
-  ],
-  "recalls.model_fits": [
-   18,
-   0
-  ],
-  "recalls.model_missing": [
    31,
    0
   ],
-  "recalls.open": [
-   36,
+  "price.list": [
+   40,
    0
   ],
-  "recalls.open_banner": [
-   36,
+  "recalls.check_line": [
+   40,
    0
   ],
-  "recalls.pending_after_road": [
-   16,
+  "recalls.checked_unlisted": [
+   29,
    0
   ],
-  "recalls.pending_banner": [
+  "recalls.line_honest": [
+   35,
+   0
+  ],
+  "recalls.model_count": [
+   34,
+   0
+  ],
+  "recalls.model_extra": [
+   34,
+   0
+  ],
+  "recalls.model_fits": [
+   15,
+   0
+  ],
+  "recalls.model_missing": [
    33,
    0
   ],
+  "recalls.open": [
+   40,
+   0
+  ],
+  "recalls.open_banner": [
+   40,
+   0
+  ],
+  "recalls.pending_after_road": [
+   12,
+   0
+  ],
+  "recalls.pending_banner": [
+   34,
+   0
+  ],
   "recalls.pending_listed": [
-   18,
+   15,
    0
   ],
   "recalls.tab_shown": [
-   36,
+   40,
    0
   ],
   "recalls.thin_check": [
-   36,
+   40,
    0
   ],
   "recalls.thin_line": [
-   22,
+   27,
    0
   ],
   "recalls.thin_rows": [
-   28,
+   35,
    0
   ],
   "road.first_date": [
-   36,
+   40,
    0
   ],
   "road.first_registration": [
-   36,
+   40,
    0
   ],
   "settlements.consistent": [
-   36,
+   40,
    0
   ],
   "settlements.import_line": [
@@ -257,99 +257,99 @@
    0
   ],
   "specs.axles": [
-   36,
+   40,
    0
   ],
   "specs.borrowed_note": [
-   36,
+   40,
    0
   ],
   "specs.co2": [
-   36,
+   40,
    0
   ],
   "specs.dpf": [
-   36,
+   40,
    0
   ],
   "specs.drive": [
-   36,
+   40,
    0
   ],
   "specs.engine_model": [
-   36,
+   40,
    0
   ],
   "specs.gearbox": [
-   36,
+   40,
    0
   ],
   "specs.importer": [
-   36,
+   40,
    0
   ],
   "specs.load": [
-   36,
+   40,
    0
   ],
   "specs.merkav": [
-   36,
+   40,
    0
   ],
   "specs.mispar_dlatot": [
-   36,
+   40,
    0
   ],
   "specs.mispar_kariot_avir": [
-   36,
+   40,
    0
   ],
   "specs.pollution_group": [
-   36,
+   40,
    0
   ],
   "specs.power": [
-   36,
+   40,
    0
   ],
   "specs.safety_level": [
-   36,
+   40,
    0
   ],
   "specs.seats": [
-   36,
+   40,
    0
   ],
   "specs.tyre_front": [
-   36,
+   40,
    0
   ],
   "specs.tyre_rear": [
-   36,
+   40,
    0
   ],
   "specs.vehicle_type": [
-   36,
+   40,
    0
   ],
   "specs.weight_own": [
-   36,
+   40,
    0
   ],
   "specs.weight_total": [
-   36,
+   40,
    0
   ],
   "specs.wltp_note": [
-   16,
+   20,
    0
   ],
   "status.buy_checklist": [
-   36,
+   40,
    0
   ],
   "status.buy_plan": [
-   33,
+   37,
    0
   ],
   "status.cancel_date": [
@@ -357,7 +357,7 @@
    0
   ],
   "status.cancel_pill": [
-   36,
+   40,
    0
   ],
   "status.cancel_reason": [
@@ -368,16 +368,20 @@
    3,
    0
   ],
+  "status.heavy_note": [
+   2,
+   0
+  ],
   "status.hold_insight": [
-   36,
+   40,
    0
   ],
   "status.hold_pill": [
-   36,
+   40,
    0
   ],
   "status.import_pill": [
-   36,
+   40,
    0
   ],
   "status.import_type": [
@@ -385,55 +389,55 @@
    0
   ],
   "status.inactive_pill": [
-   36,
+   40,
    0
   ],
   "tag.insight": [
-   14,
+   18,
    0
   ],
   "test.insight": [
-   36,
+   40,
    0
   ],
   "test.last": [
-   36,
+   40,
    0
   ],
   "test.no_dates_note": [
-   36,
+   40,
    0
   ],
   "test.no_tokef_note": [
-   36,
+   40,
    0
   ],
   "test.pill": [
-   36,
+   40,
    0
   ],
   "test.valid_until": [
-   36,
+   40,
    0
   ],
   "tow.hook": [
-   25,
+   26,
    0
   ],
   "tow.limits": [
-   36,
+   40,
    0
   ],
   "tow.year_note": [
-   36,
+   40,
    0
   ],
   "value.fallback": [
-   6,
+   9,
    0
   ],
   "value.labelled_estimate": [
-   30,
+   31,
    0
   ]
  },
