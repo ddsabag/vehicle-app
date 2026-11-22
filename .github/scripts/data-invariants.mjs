@@ -81,6 +81,7 @@ async function scanLive(id, fields, onRows) {
       break;
     }
   }
+  if (!total) throw new Error(`${id}: the read returned no rows (the ministry reloads registers overnight), not checking an empty register`);   // 22.11 audit: 0 rows read as "0 problems"
   return total;
 }
 
