@@ -173,7 +173,15 @@ async function businessKey(req, env, ctx) {
     // no list and no CONSENT_AT here: the contact only links the key id to the address (support, cancelling a key)
     const r = await brevo(env, "/contacts", { email, updateEnabled: false,
       attributes: { FIRSTNAME: name, COMPANY_NAME: company, BUSINESS_TYPE: type, BUSINESS_SIZE: size, PHONE: phone, NOTES: notes, SOURCE: "dealer-key", KEY_ID: k.id } });
-    if (!r.ok) existing = true;
+    if (!r.ok) {
+      // the address is already in Brevo: its details are never overwritten, but the key id is appended to KEY_ID (comma list, newest last,
+      // at most 10), so every key stays linked to its address for support, cancelling and the pilot read (strategy audit 22.11.2026, D17)
+      existing = true;
+      const at = "https://api.brevo.com/v3/contacts/" + encodeURIComponent(email), H = { "api-key": env.BREVO_KEY, "content-type": "application/json", accept: "application/json" };
+      const g = await fetch(at, { headers: H }), old = g.ok ? String((await g.json()).attributes?.KEY_ID || "") : "";
+      const ids = [...old.split(",").map(x => x.trim()).filter(x => /^[a-z]{8}$/.test(x)), k.id].slice(-10).join(",");
+      await fetch(at, { method: "PUT", headers: H, body: JSON.stringify({ attributes: { KEY_ID: ids } }) });
+    }
   } catch (e) { console.log("business-key contact failed", String(e).slice(0, 200)); }
   try {   // the owner hears of each sign-up, as with the waitlist (the key itself is not in this mail)
     await brevo(env, "/smtp/email", { sender: { name: "לוחית", email: "updates@luchit.app" }, to: [{ email: env.NOTIFY_TO || "luchit.app.service@gmail.com" }], replyTo: { email },

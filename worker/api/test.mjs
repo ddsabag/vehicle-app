@@ -46,10 +46,13 @@ r = await W.fetch(new Request("https://luchit.app/api/confirm?e=x&x=1&t=x"), env
   const PUB = publicKey.export({ format: "der", type: "spki" }).subarray(-32).toString("base64");
   const benv = { ...env, BIZ_SIGNING_KEY: privateKey.export({ format: "der", type: "pkcs8" }).toString("base64") };
   const store2 = new Map(); globalThis.caches = { default: { match: async k => (store2.has(k.url) ? new Response(store2.get(k.url)) : undefined), put: async (k, r) => { store2.set(k.url, await r.text()); } } };
-  let flag = false, mailOk = true; sent = [];
+  let flag = false, mailOk = true, dupContact = false; sent = [];
   globalThis.fetch = async (u, o = {}) => { u = String(u);
     if (u.includes("raw.githubusercontent.com")) return flag === null ? new Response("", { status: 404 }) : new Response(JSON.stringify({ biz_signup: flag }));
-    if (u.includes("api.brevo.com")) { sent.push([u.replace("https://api.brevo.com/v3", ""), JSON.parse(o.body || "{}")]); return new Response("{}", { status: u.endsWith("/smtp/email") && !mailOk ? 500 : 201 }); }
+    if (u.includes("api.brevo.com")) { sent.push([u.replace("https://api.brevo.com/v3", ""), JSON.parse(o.body || "{}"), o.method || "GET"]);
+      if (dupContact && u.endsWith("/contacts")) return new Response(JSON.stringify({ code: "duplicate_parameter" }), { status: 400 });
+      if (dupContact && /\/contacts\/[^/]+$/.test(u) && !o.method) return new Response(JSON.stringify({ attributes: { KEY_ID: "abcdefgh" } }), { status: 200 });
+      return new Response("{}", { status: u.endsWith("/smtp/email") && !mailOk ? 500 : 201 }); }
     return new Response("", { status: 204 }); };
   const form = { name: "בדיקה", company: "עסק", type: "סוחר רכב", size: "1-5", email: "d@example.com", phone: "", notes: "<b>צי של 30</b>", consent: true, website: "" };
   const bk = (body, ip = "4.4.4.4") => W.fetch(new Request("https://luchit.app/api/business-key", { method: "POST",
@@ -79,6 +82,10 @@ r = await W.fetch(new Request("https://luchit.app/api/confirm?e=x&x=1&t=x"), env
   sent = []; r = await cb(link.replace(/t=[^&]+/, "t=AAAA")); ok(r.headers.get("location").endsWith("updates=expired") && sent.length === 0, "confirm-b2b: a bad signature does nothing");
   const mag = new URL(link); const mlink = `https://luchit.app/api/confirm?e=${mag.searchParams.get("e")}&x=${mag.searchParams.get("x")}&t=${mag.searchParams.get("t")}`;
   sent = []; r = await cb(mlink); ok(r.headers.get("location").endsWith("subscribed=expired") && sent.length === 0, "confirm-b2b: its token does not open the magazine confirm");
+  dupContact = true; sent = []; r = await bk({ ...form, email: "e@example.com" }, "4.4.8.8"); dupContact = false;
+  { const put = sent.find(x => x[2] === "PUT"), km = sent.find(x => x[0] === "/smtp/email" && x[1].to[0].email === "e@example.com");
+    const nid = km && JSON.parse(Buffer.from(/LD1\.([A-Za-z0-9_-]+)\./.exec(km[1].htmlContent)[1], "base64").toString()).id;
+    ok(r.status === 200 && put && put[1].attributes.KEY_ID === "abcdefgh," + nid && Object.keys(put[1].attributes).length === 1, "business-key: an address already in Brevo keeps its details and gets the new key id appended to KEY_ID"); }
   ok((await verify(key, PUB, 20909)).why === "expired" && (await verify(key, PUB, 1, [v.id])).why === "revoked", "verify: expired and revoked");
   ok((await verify(key.slice(0, -3) + "AAA", PUB)).why === "signature" && (await verify("hello", PUB)).why === "format", "verify: wrong signature and malformed input");
   const other = crypto.generateKeyPairSync("ed25519").publicKey.export({ format: "der", type: "spki" }).subarray(-32).toString("base64");
