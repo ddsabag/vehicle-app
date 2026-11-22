@@ -21,7 +21,7 @@ export const MODEL = "claude-sonnet-5-5";
 export const KINDS = [...VR_KINDS, "badge", "plate"];
 export const MAX_IMAGES = 40;   // a cap on requests per run (a kit has about 15)
 const LEVELS = ["high", "medium", "low"];
-const DEMO = ["76-543-21", "7654321"];   // the only demo plate (5.11: 12-345-67 is a real car)
+const DEMO = ["76-543-21", "7654321", "44-444-44", "4444444"];   // the demo plate and the second example car (product; 5.11: 12-3xx-xx is a real car)
 
 // The model quotes on-screen text exactly, so a real plate it finds would land in the public report and the public Actions log (deep audit
 // 22.11.2026). Every plate-like number that is not the demo plate keeps its first two digits: "12-xxx-xx", "12xxxxx"; the image shows the rest.
@@ -170,7 +170,8 @@ async function selftest() {
   ok(r.model === MODEL && r.output_config.effort === "medium" && r.output_config.format.schema === SCHEMA && r.system[0].cache_control && r.messages[0].content[0].source.media_type === "image/png", "one Sonnet request per image, medium effort, the schema, a cached instruction");
   const s = sortOut([{ name: "a", issues: [{ kind: "typo", severity: "low", confidence: "high" }, { kind: "badge", severity: "high", confidence: "medium" }, { kind: "rtl", severity: "high", confidence: "low" }] }]);
   ok(s.findings.length === 2 && s.findings[0].kind === "badge" && s.notes.length === 1, "low confidence is a note; findings by severity");
-  ok(maskPlates("12-345-67 ו-1234567 ליד 76-543-21 ו-7654321, 2026-11-05, 98,400 ק״מ") === "12-xxx-xx ו-12xxxxx ליד 76-543-21 ו-7654321, 2026-11-05, 98,400 ק״מ", "a plate that is not the demo plate is masked; the demo plate, dates and numbers stay");
+  ok(maskPlates("12-345-67 ו-1234567 ליד 76-543-21, 7654321 ו-44-444-44, 2026-11-05, 98,400 ק״מ") === "12-xxx-xx ו-12xxxxx ליד 76-543-21, 7654321 ו-44-444-44, 2026-11-05, 98,400 ק״מ", "a plate that is not an example plate is masked; the example plates, dates and numbers stay");
+  ok(SYSTEM.includes("44-444-44"), "the second example car is not reported as a plate defect");
   ok(sortOut([{ name: "a", issues: [{ kind: "plate", where: "card 12-345-67", text: "12-345-67", what: "plate 1234567", severity: "high", confidence: "high" }] }]).findings.every(f => !/345|234567/.test(f.where + f.text + f.what)), "findings carry masked plates only");
   // a whole run on a fake API
   const told = [], said = [];
