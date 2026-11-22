@@ -168,6 +168,7 @@ export const LABELS = {
   "social:done":         { he: "עלה תוכן חדש בפייסבוק או באינסטגרם", sect: "none" },
   "social:remind":       { he: "תזכורת: לתזמן את תוכן השבוע בטיקטוק", sect: "wait" },
   "social:check":        { he: "החיבור לפייסבוק ולאינסטגרם נבדק", sect: "none" },
+  "kitqa":               { he: "הבדיקה הוויזואלית מצאה בערכה השבועית בעיה בכלל ברזל (לוחית רישוי או תג Google Play)", sect: "fail" },   // kit-qa.mjs (marketing, M33)
   "exp":                 { he: "ניסוי הסתיים, והוריאנט המנצח נשמר: {ids}", sect: "fyi" },   // analytics/experiments.py (Experimenter)
   // autopilot (strategy/autopilot-rules.md, Dudu 25.10): key auto:<what>:<zone>. done = level "summary", today "silent" ("✅ בוצע · <area>");
   // revert = level "day", loud (the one loud message of safety limit 5); mode = the kill switch ("עצור אוטומציה" / "הפעל אוטומציה"), silent
@@ -215,7 +216,7 @@ export const FAMILIES_IN_USE = [
   "ship:done", "ship:notes", "ship:fail", "ship:dry", "listing:done", "listing:dry", "listing:fail",
   "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:wait", "prod:fail",
   "stl:update", "stl:stuck", "stl:review", "truth", "truth:fail", "truth:done", "truth:inv", "truth:inv-fail", "truth:deep", "truth:deep-fail", "live:stuck", "live:error", "pipe",
-  "social:fail", "social:missed", "social:unsure", "social:held", "social:done", "social:remind", "social:check", "exp", "auto:done", "auto:revert", "auto:mode",
+  "social:fail", "social:missed", "social:unsure", "social:held", "social:done", "social:remind", "social:check", "kitqa", "exp", "auto:done", "auto:revert", "auto:mode",
   "relguard", "relguard:ok", "relguard:thin", "zonea", "ai", "ai:key", "ai:spend", "ai:spend95", "code", "walk", "ceo:report", "ceo:weekly",
 ];
 
@@ -227,7 +228,7 @@ const TELL_MS = 72 * 36e5, LEDGER_MS = 864e5, LEDGER_CAP = 12;   // an outcome i
 // the tag line's area of a key (tg-text.mjs AREAS), by its first segment
 const AREA = { wf: "בוטים", meta: "בוטים", auto: "בוטים", smoke: "אתר", infra: "אתר", expiry: "אתר", workers: "אתר", webwatch: "אתר",
   guard: "נתונים", ministry: "נתונים", checker: "נתונים", truth: "נתונים", stl: "נתונים", catalog: "נתונים", recalls: "נתונים",
-  seo: "SEO", "seo-auto": "SEO", mag: "SEO", mention: "שיווק", comp: "שיווק", copy: "אפליקציה", notes: "חנות Google Play", social: "שיווק", review: "ביקורות", review3: "ביקורות", reviews: "ביקורות",
+  seo: "SEO", "seo-auto": "SEO", mag: "SEO", mention: "שיווק", comp: "שיווק", copy: "אפליקציה", notes: "חנות Google Play", social: "שיווק", kitqa: "שיווק", review: "ביקורות", review3: "ביקורות", reviews: "ביקורות",
   vitals: "אפליקציה", watch: "אפליקציה", ship: "חנות Google Play", listing: "חנות Google Play", safety: "חנות Google Play", prod: "חנות Google Play",
   live: "מדידה", pipe: "מדידה", relguard: "מדידה", zonea: "מדידה", weekly: "מדידה", exp: "מדידה" };
 const areaOf = key => AREA[String(key).split(":")[0]] || "בוטים";
