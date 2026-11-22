@@ -342,7 +342,7 @@ async function readPage(plate) {
     await page.waitForFunction(() => document.querySelector("#out .id-card") || document.querySelector("#out .msg.edge"), null, {timeout: 50000});
     net.ms = Date.now() - net.t0;
     const edge = await page.evaluate(() => { const m = document.querySelector("#out .msg.edge"); return m ? m.textContent.replace(/\s+/g, " ").trim() : ""; });
-    if (edge) return {edge: edge.replace(/\d[\d-]{5,}/g, "<plate>"), perr, net};
+    if (edge) return {edge: edge.replace(/\d[\d-]{3,}/g, "<plate>"), perr, net};   // 22.11 audit: 5-digit plates too (was 6+ characters)
     await page.waitForTimeout(1200);
     const head = await page.evaluate(() => {
       const T = el => (el ? el.textContent : "").replace(/\s+/g, " ").trim(), o = document.querySelector("#out");
@@ -621,7 +621,7 @@ function compare(c, X, P) {
     const regK = ownK(R.baalut), last = own[own.length - 1], inLog = !!last && (regK === "other" || sameOwnK(regK, ownK(last.baalut)));
     const curK = regK !== "other" ? regK : last ? ownK(last.baalut) : "";
     const card = cardOf(P, "overview", /^היסטוריית בעלויות$/), mirror = P.head.ownMirror;
-    const road = ym(R.moed_aliya_lakvish) || (isN(R.shnat_yitzur) ? new Date(N(R.shnat_yitzur), 0, 1) : null), floor = !road || road < new Date(2017, 0, 1);
+    const road = ym(R.moed_aliya_lakvish) || ym(R.rishum_rishon_dt) || (isN(R.shnat_yitzur) ? new Date(N(R.shnat_yitzur), 0, 1) : null), floor = !road || road < new Date(2017, 0, 1);   // as the app (onRoad: the first registration before the year)
     // 22.11 (index.html handExtra, product ce2109e1; deep audit 19.11 c035): a current owner the log does not hold yet is one more hand, "at least"
     const extra = own.length > 0 && !cancelled && !inLog && !E(R.baalut) && regK !== "dealer";
     const hands = own.filter(r => !DEALER.test(r.baalut)), n = hands.length + (extra ? 1 : 0), fo = String(R.mkoriut_nm || "").replace(/"/g, "").trim();
@@ -990,6 +990,8 @@ for (const c of order) {
   if (blip(P)) { console.log(`  ${c.id}: the app could not reach the ministry (${P.net.failed} of ${P.net.n} requests failed in the browser); opening it again in 30s`); cool(30000); P = await readPage(c.plate); }
   let X; try { X = await raw(c); } catch (e) { console.log(`CASE ${c.id} ${mask(c.plate)} raw read failed: ${e.message}`); continue; }
   if (blip(P) && X.primary) { infra.push(c.id); console.log(`CASE ${c.id} ${mask(c.plate)} skipped: the app could not reach the ministry twice (${P.net.failed} of ${P.net.n} requests failed in the browser), while my reads did`); continue; }
+  // 22.11 audit: my own register reads failed and found no car: an outage on both sides, not "the app says not found, and so do I"
+  if (!X.primary && Object.keys(X.errs).length) { infra.push(c.id); console.log(`CASE ${c.id} ${mask(c.plate)} skipped: my reads failed too (${Object.keys(X.errs).join(", ")})`); continue; }
   if (P.net.bad.length) { infra.push(c.id); cool(60000); console.log(`CASE ${c.id} ${mask(c.plate)} skipped: the ministry refused ${P.net.bad.length} of the app's requests again`); continue; }
   const R = X.R;
   if (P.edge) { const ln = `CASE ${c.id} ${mask(c.plate)} ${X.primary || "-"} page: ${P.edge.slice(0, 90)} | after ${Math.round(P.net.ms / 1000)}s, app requests=${P.net.n} failed-in-browser=${P.net.failed} | in my reads: ${Object.entries(X.sets).filter(([, r]) => r.length).map(([k]) => k).join(",") || "nothing"} errs: ${Object.keys(X.errs).join(",") || "-"}`; console.log(ln);

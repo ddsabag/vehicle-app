@@ -29,6 +29,19 @@ const J = s => { try { return JSON.parse(s); } catch { return null; } };
 export const pack = o => Buffer.from(JSON.stringify(o)).toString("base64url");
 class Fail extends Error { constructor(code, why, next = "", status = 0) { super(why); this.code = code; this.why = why; this.next = next; this.status = status; } }
 
+// the argument text of every track( call in the page, by balanced parentheses outside strings (a call's params may hold objects, spreads and ternaries)
+export function trackArgs(src) {
+  const out = [];
+  for (const m of src.matchAll(/\btrack\(/g)) {
+    let i = m.index + m[0].length, depth = 1, q = "";
+    for (; i < src.length && depth; i++) { const c = src[i];
+      if (q) { if (c === "\\") i++; else if (c === q) q = ""; continue; }
+      if (c === '"' || c === "'" || c === "`") q = c; else if (c === "(") depth++; else if (c === ")") depth--; }
+    out.push(src.slice(m.index + m[0].length, i - 1));
+  }
+  return out;
+}
+
 // ---- config ----
 const NAME = /^[A-Za-z][A-Za-z0-9_]{0,39}$/;   // GA4 parameter and event names
 export function loadConfig(text) {
@@ -43,6 +56,7 @@ export function loadConfig(text) {
     if (!/^[A-Za-z][A-Za-z0-9_ ]{0,81}$/.test(d.displayName)) errs.push("bad displayName " + d.displayName);
     if (d.scope !== "EVENT") errs.push(`${d.parameterName}: only EVENT scope is handled here`);
   }
+  if (dims.length > 50) errs.push(`${dims.length} custom dimensions: a GA4 property holds at most 50 event-scoped ones`);
   for (const k of keys) {
     if (!NAME.test(k.eventName || "")) errs.push("bad eventName " + k.eventName);
     if (!["ONCE_PER_EVENT", "ONCE_PER_SESSION"].includes(k.countingMethod)) errs.push(`${k.eventName}: bad countingMethod`);
@@ -362,15 +376,16 @@ async function selftest() {
     // from WEB_EVENTS is dropped by worker/api without a word, a parameter name outside [a-z_] is dropped there too, and a report that asks GA4
     // for a parameter it has no dimension for gets a 400 for the whole query. Runs in alert-check and in ui-guardian (every index.html change).
     const api = read("worker/api/worker.js"), webEv = new Set([...((api.match(/WEB_EVENTS = new Set\(\[([^\]]+)\]/) || [])[1] || "").matchAll(/"([a-z_0-9]+)"/g)].map(m => m[1]));
-    const APP_ONLY = ["app_return", "first_save", "update_prompt", "update_start", "update_done", "storage_restored", "storage_lost", "alert_ask"];   // sent only where window.AndroidApp is (install cohort, in-app update, the file's alerts ask)
+    const APP_ONLY = ["app_return", "first_save", "update_prompt", "update_start", "update_done", "storage_restored", "alert_ask"];   // storage_lost is also a web event (documents in the browser, 22.11); these are sent only where window.AndroidApp is (install cohort, in-app update, the file's alerts ask)
     const sentEv = new Set([...html.matchAll(/\btrack\(([^,)]*)/g)].flatMap(m => [...m[1].matchAll(/"([a-z_0-9]+)"/g)].map(x => x[1])));
     ok(webEv.size >= 30 && sentEv.size >= 30, `contract: read ${webEv.size} WEB_EVENTS and ${sentEv.size} events index.html sends`);
     for (const e of sentEv) ok(webEv.has(e) || APP_ONLY.includes(e), `contract: index.html sends ${e}; add it to WEB_EVENTS in worker/api/worker.js (or to APP_ONLY here if only the app sends it)`);
     for (const e of APP_ONLY) ok(sentEv.has(e) && !webEv.has(e), `contract: APP_ONLY ${e} is still sent and is not a web event`);
-    const keys = [...html.matchAll(/\btrack\([^,)]*,\s*\{([^{}]*)\}/g)].flatMap(m => [...m[1].matchAll(/(?:^|,)\s*([A-Za-z_$][\w$]*)\s*:/g)].map(x => x[1]));
+    const keys = trackArgs(html).map(a => a.replace(/\(\{[^{}]*\}\)\[/g, "(")).flatMap(a => [...a.matchAll(/[{,]\s*([A-Za-z_$][\w$]*)\s*:/g)].map(x => x[1]));   // every track() call's whole argument text, nested objects and ternaries included
     ok(keys.length >= 40, `contract: read ${keys.length} parameter names`);
     for (const k of new Set(keys)) ok(/^[a-z_]{1,24}$/.test(k), `contract: parameter ${k} fits worker/api's [a-z_]{1,24}, or the web drops it`);
-    const readers = fs.readdirSync(new URL("analytics/", root)).filter(f => f.endsWith(".py")).map(f => read("analytics/" + f)).join("\n") + read("worker/live/worker.js");
+    const readers = fs.readdirSync(new URL("analytics/", root)).filter(f => f.endsWith(".py")).map(f => read("analytics/" + f)).join("\n") + read("worker/live/worker.js")
+      + fs.readdirSync(new URL(".github/scripts/", root)).filter(f => /\.(mjs|cjs)$/.test(f)).map(f => read(".github/scripts/" + f)).join("\n");   // the probes and bots that ask GA4 too
     const readP = new Set([...readers.matchAll(/customEvent:([A-Za-z_]+)/g), ...readers.matchAll(/by_param\([^,()]+,\s*"([a-z_]+)"/g)].map(m => m[1]));
     ok(readP.size >= 6, `contract: read ${readP.size} parameters the reports ask for`);
     for (const p of readP) ok(real.dims.some(d => d.parameterName === p), `contract: a report reads ${p}; register it in analytics/ga4-admin.json`);
@@ -385,6 +400,9 @@ async function selftest() {
     for (const e of [...sentEv, ...nativeEv]) ok(named.has(e), `contract: ${e} is sent; give it a Hebrew name in N in worker/live/worker.js, so /live shows it by name`);
     const NO_DIM = [];   // parameters kept out of GA4 on purpose: none since 5.11 (js_error's line is registered, so a spike names its line)
     for (const k of new Set(keys)) ok(real.dims.some(d => d.parameterName === k) || NO_DIM.includes(k), `contract: index.html sends parameter ${k}; register it in analytics/ga4-admin.json (or add it to NO_DIM here)`);
+
+    ok(loadConfig(JSON.stringify({ property: "123456", customDimensions: Array.from({ length: 51 }, (_, i) => ({ parameterName: "p" + i })) })).errs.some(e => /at most 50/.test(e)), "config: a 51st custom dimension is refused (GA4 holds 50 event-scoped ones)");
+    ok(trackArgs('track("a", {x: f(1), ...(c ? {y: 2} : {})}); track("b")').join("|") === '"a", {x: f(1), ...(c ? {y: 2} : {})}|"b"', "track() arguments are read whole");
 
     // secrets never printed
     for (const [o, env] of [[{}, {}], [{ fail: { create: [403] } }, {}], [{ fail: { token: [400] } }, {}], [{}, { MODE: "dry" }]]) {
