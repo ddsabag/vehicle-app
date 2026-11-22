@@ -12,6 +12,7 @@ import tls from "node:tls";
 import { flash } from "./flash.mjs";
 import { ministryDown } from "./datasets.mjs";
 import { msg, heError } from "./tg-text.mjs";
+import { judgeFlags } from "./flags-check.mjs";
 import { PAGES as FORM_PAGES, judge as formJudge, apiCheck as formApi } from "./form-check.mjs";
 const SITE = (process.env.SITE || "https://luchit.app/").replace(/\/?$/, "/"), HOST = new URL(SITE).hostname;
 const DRY = process.env.DRY_RUN === "1", sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -96,11 +97,21 @@ async function pagesCheck() {
   catch (e) { out.push({ id: "sitemap", title: "מפת האתר", detail: `מפת האתר לא נפתחה: ${he(e.message)}.`, impact: "גוגל לא יאנדקס את הדפים.", raw: `sitemap.xml: ${String(e.message).slice(0, 100)}` }); }
   out.push(...await shareCheck());
   out.push(...await formsCheck());
+  out.push(...await flagsCheck());
   return out;
 }
 
 // ---- 1c. the forms (form-check.mjs, 7.11.2026: the magazine page refused every address with an "s" for two weeks and only the form's presence
 // was checked): each page's own address check against real and broken addresses, and the API Worker's refusals. No mail is sent.
+// ---- 1d. flags.json on the flags branch (strategy audit 22.11.2026, D16): the site and the API Worker read it and treat any error as
+// "all off", so a bad comma would switch a feature off unseen. No file = no flags (fine); a file must be an object of known keys, true/false.
+async function flagsCheck() {
+  try {
+    const r = await fetch("https://raw.githubusercontent.com/ddsabag/vehicle-app/flags/flags.json?st=" + Date.now(), { signal: AbortSignal.timeout(20000) });
+    const why = judgeFlags(r.status, await r.text());
+    return why ? [{ id: "flags", title: "קובץ הדגלים (flags.json)", detail: why + ".", impact: "האתר והשרת קוראים קובץ שגוי כ\"הכול כבוי\", ולכן תכונה שהודלקה כבתה בלי שאף אחד יודע.", raw: why.slice(0, 120) }] : [];
+  } catch (e) { console.log("flags not checked:", e.message.slice(0, 80)); return []; }
+}
 async function formsCheck() {
   const bad = [];
   for (const p of FORM_PAGES) {

@@ -137,6 +137,8 @@ jobs:
         run: node worker/api/test.mjs
       - name: Forms check self-test (each page's address check, the API refusals; Site smoke test runs it live)
         run: node .github/scripts/form-check.mjs --selftest
+      - name: Flags check self-test (the flags.json judge that Site smoke test runs live)
+        run: node .github/scripts/flags-check.mjs selftest
       - name: Reviews Worker test
         run: node worker/reviews/test.mjs
       - name: Workers deploy self-test
