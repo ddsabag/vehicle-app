@@ -4474,7 +4474,7 @@ function checksCard(D){
   const v = D.v, L = licOf(D), rows = [];
   const row = (ok, t) => rows.push(`<li class="ins ${ok ? "ok" : "warn"}">${ico(ok ? "check" : "alert")}<div><b>${esc(t)}</b></div></li>`);
   const off = D.primary && /^inactive/.test(D.primary.key);   // found only in the inactive registers: not "active", as the insights already say
-  row(!D.isCancelled && !off && !D.hold, D.isCancelled ? "הרכב ירד מהכביש" : off ? "הרכב רשום כלא פעיל" : D.hold ? D.hold.status : "הרכב פעיל ולא בוטל");
+  row(!D.isCancelled && !off && !D.hold && !!D.primary, D.isCancelled ? "הרכב ירד מהכביש" : off ? "הרכב רשום כלא פעיל" : D.hold ? D.hold.status : !D.primary ? "הרכב לא מופיע כרגע במאגר הרכבים הפעילים" : "הרכב פעיל ולא בוטל");
   if (L) row(L.k === "ok", licLine(L));
   if (D.recallUnknown) row(false, "ריקולים: מידע לא זמין כרגע"); else row(!D.recalls.length, D.recalls.length ? `${pl(D.recalls.length, "ריקול פתוח אחד", "ריקולים פתוחים")}` : noOpenRecall(recallThin(D)));
   const pr = pendingRecalls(D); if (pr.length) row(false, pendingWords(pr).line);
@@ -4547,6 +4547,7 @@ function transferCheck(D, pub){
   if (L) add(L.k === "ok" ? "ok" : L.k === "bad" ? "bad" : "warn", L.k === "ok" ? licLine(L) : L.k === "bad" ? `הטסט פג ב-${L.date}. העברה באינטרנט לא אפשרית עם טסט שאינו בתוקף. מסדירים טסט לפני העסקה.`
     : `${licLine(L)}. בודקים שהטסט בתוקף לפני העסקה: בלי טסט בתוקף אין העברה באינטרנט.`, {id: "test"});
   else add("unk", "תוקף הטסט לא מופיע במאגר לסוג הרכב הזה. בודקים ברישיון הרכב שהטסט בתוקף: בלי טסט בתוקף אין העברה באינטרנט.", {id: "test", reg: 1});
+  if (D.hold) add("warn", `${D.hold.status}. בודקים במשרד הרישוי לפני העסקה.`, {id: "hold"});
   if (!pub && !reportBuild) {
     if (D.tag) add("bad", "לרכב יש תג חניה לנכה. העברה באינטרנט לא אפשרית עד שהבעלים מסיר את התג במשרד הרישוי.", {id: "tag"});
     else if (failed("tag")) add("unk", "מאגר תגי החניה לנכה לא ענה עכשיו, ולכן תג לא נבדק.", {id: "tag", reg: 1});
