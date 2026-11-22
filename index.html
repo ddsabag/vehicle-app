@@ -63,7 +63,7 @@
   /* topic colours */
   --t-blue:#2f6fde; --t-blue-bg:#e7effd; --t-violet:#7a4fd6; --t-violet-bg:#f0eafc; --t-teal:#0f8a83; --t-teal-bg:#e0f4f2;
   --t-amber:#c27400; --t-amber-bg:#fdf1dc; --t-red:#d0473b; --t-red-bg:#fdeae8; --t-slate:#52637d; --t-slate-bg:#eceff4;
-  --t-green:#22894a; --t-green-bg:#e3f4e9; --t-leaf:#5f8f1f; --t-leaf-bg:#eef5e2; --t-pink:#c2407e; --t-pink-bg:#fbe9f2;
+  --t-green:#22894a;--bn-on:#1e7a42; --t-green-bg:#e3f4e9; --t-leaf:#5f8f1f; --t-leaf-bg:#eef5e2; --t-pink:#c2407e; --t-pink-bg:#fbe9f2;
   --f-body:"Assistant",system-ui,"Segoe UI",Arial,sans-serif;
   --f-num:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
   --shadow:0 1px 2px rgba(20,30,50,.06),0 2px 8px rgba(20,30,50,.04); --leaf-ink:#456a14;
@@ -564,7 +564,7 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .bchips{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:0 0 12px}
 .bchips button{display:grid;justify-items:center;align-content:start;gap:4px;min-height:58px;padding:7px 2px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--muted);font:inherit;font-size:.78rem;font-weight:700;line-height:1.2;text-align:center}
 .bchips .bn{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--soft);color:var(--fg);font-size:.78rem}.bchips .bn .i{width:14px;height:14px}
-.bchips button[aria-pressed=true]{border-color:var(--t-green);color:var(--fg);background:var(--t-green-bg)}.bchips button[aria-pressed=true] .bn{background:var(--t-green);color:var(--card)}
+.bchips button[aria-pressed=true]{border-color:var(--t-green);color:var(--fg);background:var(--t-green-bg)}.bchips button[aria-pressed=true] .bn{background:var(--bn-on,var(--t-green));color:var(--card)}
 .bstage[hidden]{display:none}.cf-cta.bought{margin:14px 0 4px}.bstage-h{margin:0 0 10px;font-size:1.05rem}.bmodel{margin:0 0 10px}
 .xfer{margin:12px 0 0;padding:12px;border-radius:12px;background:var(--soft)}.card .xfer:first-child,.bprog+.xfer{margin-top:0}.bprog+.xfer{margin-bottom:14px}
 .xfer .qsec{margin:0 0 4px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}.xfer .qsec small{font-size:.78rem;font-weight:700;color:var(--muted);white-space:nowrap}.xfer.fix .qsec small{color:var(--warn)}
@@ -681,7 +681,7 @@ textarea.inp{font-family:var(--f-num);min-height:110px;resize:vertical}
 .share-end b{display:block}.share-end p{margin:2px 0 8px;color:var(--muted)}
 .share-end .btn{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 18px;border:0;border-radius:12px;background:var(--accent);color:var(--accent-fg);font:inherit;font-weight:800}
 .badge-s{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;flex:0 0 auto;color:var(--tc);background:var(--tb)}
-.report{  --bg:#f2f4f8; --card:#ffffff; --fg:#151a24; --muted:#4a5465; --line:#e3e7ee; --soft:#f5f7fa;   --band:#ffffff; --band-fg:#151a24; --band-muted:#5d6676; --band-line:#d5dae3;   --plate:#f6c500; --plate-ink:#111; --il:#1d4ea8; --accent:#2457c5; --accent-fg:#ffffff;   --ok:#0d5f33; --ok-bg:#e1f4e8; --warn:#7d4300; --warn-bg:#fdf0d9; --bad:#9b1c12; --bad-bg:#fde6e3; --info:#1b46a8; --info-bg:#e5edfc;   /* topic colours */   --t-blue:#2f6fde; --t-blue-bg:#e7effd; --t-violet:#7a4fd6; --t-violet-bg:#f0eafc; --t-teal:#0f8a83; --t-teal-bg:#e0f4f2;   --t-amber:#c27400; --t-amber-bg:#fdf1dc; --t-red:#d0473b; --t-red-bg:#fdeae8; --t-slate:#52637d; --t-slate-bg:#eceff4;   --t-green:#22894a; --t-green-bg:#e3f4e9; --t-leaf:#5f8f1f; --t-leaf-bg:#eef5e2; --t-pink:#c2407e; --t-pink-bg:#fbe9f2;
+.report{  --bg:#f2f4f8; --card:#ffffff; --fg:#151a24; --muted:#4a5465; --line:#e3e7ee; --soft:#f5f7fa;   --band:#ffffff; --band-fg:#151a24; --band-muted:#5d6676; --band-line:#d5dae3;   --plate:#f6c500; --plate-ink:#111; --il:#1d4ea8; --accent:#2457c5; --accent-fg:#ffffff;   --ok:#0d5f33; --ok-bg:#e1f4e8; --warn:#7d4300; --warn-bg:#fdf0d9; --bad:#9b1c12; --bad-bg:#fde6e3; --info:#1b46a8; --info-bg:#e5edfc;   /* topic colours */   --t-blue:#2f6fde; --t-blue-bg:#e7effd; --t-violet:#7a4fd6; --t-violet-bg:#f0eafc; --t-teal:#0f8a83; --t-teal-bg:#e0f4f2;   --t-amber:#c27400; --t-amber-bg:#fdf1dc; --t-red:#d0473b; --t-red-bg:#fdeae8; --t-slate:#52637d; --t-slate-bg:#eceff4;   --t-green:#22894a;--bn-on:#1e7a42; --t-green-bg:#e3f4e9; --t-leaf:#5f8f1f; --t-leaf-bg:#eef5e2; --t-pink:#c2407e; --t-pink-bg:#fbe9f2;
   --f-body:Arial,"Noto Sans Hebrew","Noto Sans",sans-serif; --f-num:monospace; --shadow:none; --leaf-ink:#456a14; color-scheme:light;
   position:fixed;left:-10000px;top:0;width:430px;background:var(--bg);color:var(--fg);font:16px/1.5 var(--f-body);padding:16px;display:flex;flex-direction:column;gap:12px}
 /* the snapshot cannot carry web fonts, so the report is laid out in system fonts: what is measured is what gets drawn */
@@ -3117,7 +3117,7 @@ function buildInsights(D){
         `נרשם על חברת ליסינג רק ${forSpan(spans[i])}${i === 0 ? " ואז עבר לבעלים הבאים" : ", אז הק״מ כנראה כמו ברכב פרטי"}. במחירונים הוא עדיין נחשב רכב ליסינג, וזה מוריד מהמחיר.`); }
   }
   // the register names the current owner also for a car the log does not cover (the log has no cars that went on the road before 2017)
-  if (cur.kind === "dealer") add("warn", "הרכב רשום כעת על סוחר", "המוכר כנראה סוחר רכבים: ייתכן שהמחיר כולל מרווח של הסוחר. בעסקה עם סוחר חלות עליו חובות גילוי לפי החוק. בקשו מסמכים בכתב ובררו מי היו הבעלים הקודמים.");
+  if (cur.kind === "dealer") add("info", "הרכב רשום כעת על סוחר", "המוכר הוא כנראה סוחר רכבים. בעסקה עם סוחר חלות עליו חובות גילוי לפי החוק, ולפעמים היא כוללת אחריות. מבקשים את המסמכים בכתב.");
   // a dealer as the very first owner for a short while delivered the car new (the log starts with the car's first month on the road): not a trade-in
   else if (past.some((t, i) => /סוחר|יבואן|מסחר/.test(t) && !(i === 0 && !held(0) && newAtFirst(D)))) add("info", "היה אצל סוחר", "בהיסטוריית הבעלות מופיע סוחר. זה נפוץ ברכב שנמכר בטרייד-אין או הועבר דרך מגרש, ואינו פגם בפני עצמו. שווה לשאול את המוכר מי היו הבעלים לפני ואחרי הסוחר ומה הסיבה.");
   else if (past.length && /סוחר|יבואן|מסחר/.test(past[0]) && !held(0) && newAtFirst(D)) add("info", "כנראה נמכר כיד 2, 0 ק״מ",
@@ -4497,7 +4497,7 @@ function askGauge(ask, fair){
   return `<div class="pmeter bgauge" role="img" aria-label="טווח משוער ${k(lo)} עד ${k(hi)} אלף ₪${vd ? `. ${vd.s}` : ""}"${vd ? ` data-pos="${vd.pos}"` : ""}>
     <span class="pm-bar"><i class="pm-band" style="inset-inline-start:${pos(lo)}%;width:${(pos(hi) - pos(lo)).toFixed(1)}%"></i>${ask ? `<i class="pm-dot${edge ? " edge " + edge : ""}" style="inset-inline-start:calc(${pos(ask)}% - 7px)"></i>` : ""}</span>
     <span class="pm-lbl" aria-hidden="true"><span style="inset-inline-start:calc(${pos(lo)}% - 10px)">${k(lo)}</span><span style="inset-inline-start:calc(${pos(hi)}% - 10px)">${k(hi)}</span></span>
-    <small>${ask ? "" : "מקלידים את המחיר המבוקש, ונראה איפה הוא נופל. "}טווח משוער באלפי ₪</small></div>`;
+    <small>${ask ? "" : "מקלידים את המחיר המבוקש, ונראה איפה הוא נופל. "}טווח משוער באלפי ₪ (הערכה)</small></div>`;
 }
 function priceCard(D){
   const c = D.cost, f = candFields(D), plate = D.kind !== "model" && D.plate && !reportBuild ? D.plate : "";
@@ -4684,7 +4684,7 @@ function kmBlock(D, print){
   const km = BUY.input(D.plate).km || null;
   if (print) return `<div class="kmchk"><div class="qsec">ק״מ בלוח מול הטסט האחרון</div>${km || !D.km ? kmResult(D, km, true) : `<p class="note">☐ הק״מ בלוח: ____________ (בטסט האחרון: ${fmtN(D.km)})</p>`}</div>`;
   return `<div class="kmchk"><div class="qsec">כמה ק״מ מראה הלוח?</div>${D.km ? `<form class="askrow" data-bkm><input class="inp" id="kmIn" inputmode="numeric" placeholder="למשל 104,300" value="${km ? fmtN(km) : ""}" aria-label="הק״מ בלוח המחוונים"><button type="submit" class="link-btn">${ico("search")}בדיקה</button></form>` : ""}
-    <div id="kmRes">${kmResult(D, km)}</div></div>`;
+    <div id="kmRes" role="status">${kmResult(D, km)}</div></div>`;
 }
 /* the car in front of the buyer is the car they checked: the last 4 characters of the chassis number (only 4, so it is a comparison and not
    a copy), the colour and the fuel, each marked as it is on the car */
@@ -4698,9 +4698,9 @@ function matchRows(D){
 function matchBlock(D, print){
   const rows = matchRows(D), m = BUY.input(D.plate).match || {}; if (!rows.length) return "";
   const bad = rows.some(([id]) => m[id] === 0);
-  const seg = id => `<span class="mseg" role="group"><button type="button" data-bmatch="${id}" data-v="1" aria-pressed="${m[id] === 1}">${ico("check")}מתאים</button><button type="button" data-bmatch="${id}" data-v="0" aria-pressed="${m[id] === 0}">${ico("x")}לא מתאים</button></span>`;
+  const seg = id => `<span class="mseg" role="group" aria-labelledby="mt-${id}"><button type="button" data-bmatch="${id}" data-v="1" aria-pressed="${m[id] === 1}">${ico("check")}מתאים</button><button type="button" data-bmatch="${id}" data-v="0" aria-pressed="${m[id] === 0}">${ico("x")}לא מתאים</button></span>`;
   return `<div class="mchk" id="mchk"><div class="qsec">מול הרישום</div><p class="note">משווים את מה שעל הרכב למה שרשום במאגר.</p>
-    <ul class="mrows">${rows.map(([id, k, v, hint]) => `<li><span class="mt">${print ? (m[id] === 1 ? "☑ " : m[id] === 0 ? "☒ " : "☐ ") : ""}${k}: <b><bdi>${esc(v)}</bdi></b>${hint ? `<small>${hint}</small>` : ""}</span>${print ? "" : seg(id)}</li>`).join("")}</ul>
+    <ul class="mrows">${rows.map(([id, k, v, hint]) => `<li><span class="mt" id="mt-${id}">${print ? (m[id] === 1 ? "☑ " : m[id] === 0 ? "☒ " : "☐ ") : ""}${k}: <b><bdi>${esc(v)}</bdi></b>${hint ? `<small>${hint}</small>` : ""}</span>${print ? "" : seg(id)}</li>`).join("")}</ul>
     ${bad ? `<p class="vd bad">משהו לא מתאים לרישום. לא ממשיכים בלי הסבר.</p>` : ""}</div>`;
 }
 document.addEventListener("submit", ev => {
@@ -7682,8 +7682,8 @@ function buyPrint(D){
   const S = buySteps(D, true), done = D.plate ? BUY.done(D.plate) : [];
   // what the buyer typed comes along: the asking price against the estimate here, the dashboard km and the registration in the second stage
   const it = D.plate ? savedItem(D.plate) : null, f = candFields(D), vd = it && it.ask ? askVerdict(it.ask, f.fair) : null;
-  const price = it && it.ask ? `<p><b>המחיר המבוקש:</b> <bdi>${fmtN(it.ask)} ₪</bdi>${f.fair ? ` (טווח משוער <bdi>${fmtN(Math.round(f.fair[0] / 1000))}–${fmtN(Math.round(f.fair[1] / 1000))}</bdi> אלף ₪)` : ""}. ${vd ? esc(vd.t) : ""}</p>`
-    : f.fair ? `<p class="note">☐ המחיר המבוקש: ____________ (טווח משוער <bdi>${fmtN(Math.round(f.fair[0] / 1000))}–${fmtN(Math.round(f.fair[1] / 1000))}</bdi> אלף ₪)</p>` : "";
+  const price = it && it.ask ? `<p><b>המחיר המבוקש:</b> <bdi>${fmtN(it.ask)} ₪</bdi>${f.fair ? ` (טווח משוער <bdi>${fmtN(Math.round(f.fair[0] / 1000))}–${fmtN(Math.round(f.fair[1] / 1000))}</bdi> אלף ₪, הערכה בלבד)` : ""}. ${vd ? esc(vd.t) : ""}</p>`
+    : f.fair ? `<p class="note">☐ המחיר המבוקש: ____________ (טווח משוער <bdi>${fmtN(Math.round(f.fair[0] / 1000))}–${fmtN(Math.round(f.fair[1] / 1000))}</bdi> אלף ₪, הערכה בלבד)</p>` : "";
   return price + BUY_STAGES.map(s => `<h3 class="rep-sec">${s.n}. ${s.t}</h3>${stageExtra(D, s.n, true)}<ol class="bsteps">${s.steps.map(n => `<li class="st"><span class="n${done.includes(n) ? " done" : ""}">${n}</span><div><b>${S[n][0]}${done.includes(n) ? " (בוצע)" : ""}</b>${S[n][1]}</div></li>`).join("")}</ol>`).join("");
 }
 async function checklistPdf(btn){
