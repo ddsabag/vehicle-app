@@ -1,0 +1,8 @@
+img 200 20562 SRI ok
+ocr 200 66695 SRI ok
+pdfjs 200 320004 SRI ok
+fallback pdf 200 365730 SRI ok
+fallback qr 200 56694 SRI ok
+lang eng.traineddata.gz 200
+lang eng.traineddata 404
+own jspdf 200
