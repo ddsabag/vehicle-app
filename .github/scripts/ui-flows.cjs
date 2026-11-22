@@ -443,7 +443,7 @@ const JOURNEYS = [
     ["compare-link-back", back, (m) => m.screen !== "sub" || `Back should leave the comparison a link opened, got ${m.screen}`],
     ["shared-ad", async (p) => { await p.evaluate(() => window.onSharedText('למכירה טויוטה קורולה 2021, 66,000 ק"מ, 89,000 ₪. טלפון 050-0000000. מספר רכב 12-345-67')); await settle(p); }, (m) => m.screen === "car" && m.carPlate === "1234567" || `an ad shared into the app should check its plate 12-345-67 (not the phone, the price or the mileage), got ${m.screen} ${m.carPlate}`],
     ["shared-none", (p) => p.evaluate(() => window.onSharedText("נתראה מחר בשמונה")), (m) => m.screen === "home" && !m.carOn || `a shared text without a plate should lead home with a note, got ${m.screen}`],
-    ["voice", async (p) => { await p.evaluate(() => window.onVoiceResult("שבע שש חמש ארבע שלוש שתיים אחת")); await settle(p); }, (m) => m.screen === "car" && m.carPlate === "4444444" || `the voice search heard 4444444 and should check it, got ${m.screen} ${m.carPlate}`],
+    ["voice", async (p) => { await p.evaluate(() => window.onVoiceResult("ארבע ארבע ארבע ארבע ארבע ארבע ארבע")); await settle(p); }, (m) => m.screen === "car" && m.carPlate === "4444444" || `the voice search heard 4444444 and should check it, got ${m.screen} ${m.carPlate}`],
     ["update", (p) => p.evaluate(() => { try { localStorage.removeItem("updAsked"); } catch {} window.onUpdateState("available"); }), (m) => /גרסה חדשה/.test(m.snack) || `an available update should be offered on the snack bar, got "${m.snack}"`],
     ["home", nav("search"), (m) => m.screen === "home" && m.home || `home: ${m.screen}`],
   ] },
