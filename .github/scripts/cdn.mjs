@@ -10,7 +10,7 @@ for (const m of libs.matchAll(/(\w+):\s*"(https:[^"]+)"/g)) {
 }
 // the fallback copies load with the same SRI as their main copy (loadScriptOnce in index.html): a fallback whose bytes differ would fail too
 const fbm = t.match(/const LIB_FALLBACK = (\{.*?\});/);
-if (fbm) for (const [k, u] of Object.entries(JSON.parse(fbm[1]))) {
+if (fbm) for (const [, k, u] of fbm[1].matchAll(/(\w+):\s*"(https:[^"]+)"/g)) {   // a JS object literal (unquoted keys), read like LIBS
   const r = await fetch(u); const b = Buffer.from(await r.arrayBuffer());
   const h = "sha384-" + crypto.createHash("sha384").update(b).digest("base64");
   console.log("fallback", k, r.status, b.length, sri[k] ? (sri[k] === h ? "SRI ok" : "SRI MISMATCH " + h) : "no sri");
