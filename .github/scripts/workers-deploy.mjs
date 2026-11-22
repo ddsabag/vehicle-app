@@ -430,9 +430,11 @@ async function kvFind(ctx) {
 
 // the dashboard-edit check: blob hash -> commit for every version of the file reachable from ref ("HEAD" = main's history, "--all" = any
 // branch), after CRLF/trailing-newline normalisation
+// --full-history: plain git log follows one TREESAME parent through a merge, so a version that main reached by a merge (the live code at
+// 898bfd0 after the 1.39 release merge, 22.11.2026) was missed and the deploy refused it as "not on main"
 function history(rel, ref) {
   const blobs = new Map();
-  for (const c of git(["log", ref, "--format=%H", "--", rel]).out.split("\n").filter(Boolean)) {
+  for (const c of git(["log", ref, "--full-history", "--format=%H", "--", rel]).out.split("\n").filter(Boolean)) {
     const b = git(["rev-parse", "--verify", "-q", `${c}:${rel}`]).out.trim();
     if (b && !blobs.has(b)) blobs.set(b, c);
   }
