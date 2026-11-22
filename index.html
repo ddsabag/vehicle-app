@@ -7966,7 +7966,7 @@ $("#out").addEventListener("keydown", ev => {
 /* Dialogs: while one is open the page behind it is inert, Tab stays inside it, focus moves in on open and back to the opener on close. */
 (() => {
   const sheets = [...document.querySelectorAll(".sheet[role=dialog]")]; let opener = null, openNow = null, lastOut = null;
-  document.addEventListener("focusin", ev => { if (!ev.target.closest(".sheet")) lastOut = ev.target; });
+  document.addEventListener("focusin", ev => { const t = ev.target; if (!t || !t.closest) return; if (!t.closest(".sheet")) lastOut = t; });   // a focusin on the document or window (desktop browsers, extensions) has no closest(): web js_error 20-21.11
   const FOC = 'button:not([disabled]),a[href],input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
   const focusables = d => [...d.querySelectorAll(FOC)].filter(e => !e.closest("[hidden]") && e.getClientRects().length);
   const sync = () => {
