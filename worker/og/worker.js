@@ -5,18 +5,19 @@
 
 /* Short source links (marketing plan decision 1, 2026-10-19): luchit.app/go/<code> answers a 302 to the home page with the channel's
    campaign tags, so a bio link or a post is counted by source (GA4 session source, the page's link_landing event, the Play referrer).
-   Optional ?c=<topic> becomes utm_campaign (letters and _ only, as the page keeps them). Sources are letters only, at most 12. */
+   Optional ?c=<topic> becomes utm_campaign (letters, digits and _ only, as lib/cfb.js keeps them). Sources are letters only, at most 12;
+   punctuation pasted after the code (/go/fb. or /go/fb)) is ignored, and an unknown code goes to the home page. */
 const GO = {
   tiktok: ["tiktok", "social", "bio"], ig: ["instagram", "social", "bio"], fb: ["facebook", "social", "post"], li: ["linkedin", "social", "post"],
   yt: ["youtube", "social", "bio"], wa: ["whatsapp", "social", "message"], mail: ["newsletter", "email", "magazine"],
   press: ["press", "referral", "article"], qr: ["qr", "print", "qr"], dealer: ["dealer", "referral", "dealer"],
 };
 function goLink(u) {
-  const m = u.pathname.toLowerCase().match(/^\/go(?:\/([a-z]*))?\/?$/);
+  const m = u.pathname.toLowerCase().match(/^\/go(?:\/([a-z]*)[^a-z/]*)?\/?$/);
   if (!m) return null;
-  const g = GO[m[1] || ""];
+  const g = Object.hasOwn(GO, m[1] || "") ? GO[m[1]] : null;
   if (!g) return new Response(null, {status: 302, headers: {location: u.origin + "/", "cache-control": "no-store"}});
-  const c = (u.searchParams.get("c") || "").toLowerCase().replace(/[^a-z_]/g, "").slice(0, 24) || g[2];
+  const c = (u.searchParams.get("c") || "").toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 24) || g[2];
   const to = `${u.origin}/?utm_source=${g[0]}&utm_medium=${g[1]}&utm_campaign=${c}`;
   return new Response(null, {status: 302, headers: {location: to, "cache-control": "no-store"}});
 }
