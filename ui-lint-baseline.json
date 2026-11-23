@@ -6,8 +6,8 @@
   "fontSizesPx": 0,
   "inlineStyleColors": 1,
   "unregisteredCards": 0,
-  "rawFetchOutsideApi": 11,
-  "emptyCatches": 141,
+  "rawFetchOutsideApi": 0,
+  "emptyCatches": 133,
   "topLevelLets": 51,
   "mixedFieldsNoBdi": 24
 }
