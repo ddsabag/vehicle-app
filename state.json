@@ -504,6 +504,22 @@
    "id": "18104895287650187",
    "link": "https://www.instagram.com/p/DgCL1rhlalD/",
    "at": "2026-11-22T06:41:32.669Z"
+  },
+  "2026-11-19/k7-seller-msg/facebook": {
+   "tries": 1,
+   "last": "2026-11-23T18:41:23.554Z",
+   "status": "done",
+   "id": "1424085817452110_122114675343516900",
+   "link": "https://www.facebook.com/1424085817452110_122114675343516900",
+   "at": "2026-11-23T18:41:28.158Z"
+  },
+  "2026-11-19/k7-seller-msg/instagram": {
+   "tries": 1,
+   "last": "2026-11-23T18:41:28.391Z",
+   "status": "done",
+   "id": "18199118071401870",
+   "link": "https://www.instagram.com/p/DgGDDyDj4qD/",
+   "at": "2026-11-23T18:41:48.106Z"
   }
  },
  "ig": {
