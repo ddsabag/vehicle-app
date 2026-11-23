@@ -1525,6 +1525,8 @@ const DRIVE_WORDS_HE = {HEV: "היברידי", HYBRID: "היברידי", HSD: "�
 const DRIVE_WORDS_RX = /(?<![A-Za-z0-9-])(?:PHEV|HEV|HYBRID|HSD|PLUG-IN)(?![A-Za-z0-9-])/gi;
 
 /* ---------- API ---------- */
+/* remote switches for tests (flags branch, flags.json): anything missing or unreadable counts as off */
+const loadFlags = () => fetch("https://raw.githubusercontent.com/ddsabag/vehicle-app/flags/flags.json", {cache: "no-cache"}).then(r => r.ok ? r.json() : {}).then(j => j && typeof j === "object" ? j : {}).catch(() => ({}));
 /* Optional caching proxy (worker/ in this repo). Empty = every phone talks to data.gov.il directly. When set and it fails, the phone falls back to direct. */
 const PROXY = "";
 let STALE_AT = 0;   // set when the proxy answered from its stored copy because the ministry was unreachable
@@ -4353,6 +4355,7 @@ function tabOverview(D){
   // the share at the end of the overview, with a small copy of the picture (not on the owner's own car, whose header holds "מסמכים")
   if (D.plate && !isMine(D) && !reportBuild) html.push(`<section class="card share-end"><span class="thumb" aria-hidden="true"></span><div><b>שולחים למישהו שמתלבט איתכם?</b><p>תמונה אחת עם מה שחשוב, וקישור לדוח.</p><button type="button" class="btn" data-act="share" data-from="end">${ico("share")}שיתוף</button></div></section>`);
   if (!evFirst) html.push(evCard);
+  html.push(fdBox(D, "result"));
   return html.join("");
 }
 
@@ -4762,7 +4765,7 @@ function buySteps(D, print){
     2: ["המוכר והמסמכים", `<ul class="bq"><li>ודאו שמי שמציג את הרכב הוא הבעלים החוקי: שמו ומספר תעודת הזהות שלו מופיעים ברישיון הרכב העדכני. אם הוא מיופה כוח, כדאי לדבר גם עם הבעלים.</li><li>במכירה פרטית, מומלץ להיפגש בבית המוכר ובאור יום.</li><li>בעסקה עם סוחר, בקשו בכתב מסמכי רכישה ואחריות.</li></ul>`],
     3: ["בפגישה עם הרכב", `<ul class="bq">${meet.map(t => `<li>${t}</li>`).join("")}</ul>`],
     4: ["בדיקה במכון", print ? `<p class="note">☐ בדיקה במכון בדיקה מורשה, אחרי שהסכמתם על מחיר.</p>` : `<div class="insp"><p class="note" style="margin:0 0 6px">מומלץ לבדוק במכון מורשה אחרי שהסכמתם על מחיר עם המוכר, וליידע מראש שתיקונים שיתגלו יקוזזו מהמחיר. סכמו מראש מי משלם על הבדיקה אם יתגלו תקלות קריטיות ${ev ? "בסוללה, במנוע" : "במנוע, בגיר"} או בשלדה. מכונים מתוך רשימת המוסכים המורשים של משרד התחבורה:</p>
-       <form class="msearch" data-insp><input id="inspCity" placeholder="עיר, למשל חולון" value="${esc(setting("inspCity", ""))}" aria-label="עיר"><button type="submit" class="go sm" aria-label="חיפוש">${ico("search")}</button></form>
+       ${fdBox(D, "institutes")}<form class="msearch" data-insp><input id="inspCity" placeholder="עיר, למשל חולון" value="${esc(setting("inspCity", ""))}" aria-label="עיר"><button type="submit" class="go sm" aria-label="חיפוש">${ico("search")}</button></form>
        <div id="inspRes" style="margin-top:10px"></div></div>`],
     5: ["מה לשקלל במחיר", `<ul class="bq"><li><b>מצבר:</b> לרוב מחליפים אחרי 30 עד 36 חודשים. בדקו את גילו ואם הוא עדיין באחריות.</li><li><b>צמיגים:</b> בדקו מצב וגיל (התאריך מוטבע על הצמיג). ${D.primary && (D.primary.key === "moto" || D.primary.key === "heavy") ? "" : "בשימוש רגיל הם מחזיקים כ-40 עד 50 אלף ק״מ."}</li><li><b>טסט קרוב:</b> חשבו אגרה, עלות טסט, הכנה ויום חופש.</li><li><b>טיפולים:</b> בקשו פירוט מהמוסך ובדקו שהתאריכים והק״מ הגיוניים מול המד. בררו מתי הטיפול הבא ומה עלותו.</li></ul>`],
     6: ["לפני התשלום", `${day}<p class="note"><b>אל תעבירו תשלום לפני שפעלתם לפי השלבים, ושלמו רק במעמד העברת הבעלות.</b></p>`],
@@ -4856,6 +4859,36 @@ async function findInspection(city){
     }).join("")}</div>` : failed ? `<p class="note">החיפוש לא הצליח כרגע. בדקו את החיבור ונסו שוב.</p>` : `<p class="note">לא מצאנו מכון בדיקה ב${esc(city)}. נסו עיר קרובה או שם אחר לעיר (למשל "תל אביב יפו").</p>`;
 }
 document.addEventListener("submit", ev => { if (ev.target.matches("[data-insp]")) { ev.preventDefault(); findInspection($("#inspCity").value); } });
+/* fake-door test (after the freeze): would buyers book an inspection through us? A button that says "soon" and counts taps per place.
+   Off unless the remote switch (flags branch, flags.json) says on, so it can be stopped without a version; no form, nothing personal kept.
+   Never in a report (PDF, D4); the status line is in the box from the start, so "בקרוב" is read when it is written (D15) */
+const FLAGS = {};
+loadFlags().then(j => Object.assign(FLAGS, j));
+const fdOn = D => FLAGS.inspect_fake_door === true && !reportBuild && !!D && !!D.plate && D.kind !== "model" && !D.isCancelled && roleOf(D) !== "owner";
+const fdSeen = new Set(), fdDone = new Set();
+function fdBox(D, place){
+  if (!fdOn(D)) return "";
+  const k = D.plate + ":" + place, done = fdDone.has(k), soon = place === "result" ? "בקרוב. בינתיים אפשר לבחור מכון מהרשימה בלשונית \"קנייה\"." : "בקרוב. בינתיים אפשר לבחור מכון מהרשימה.";
+  setTimeout(() => { if (current !== D || !("IntersectionObserver" in window)) return; const el = document.querySelector(`.fd[data-place="${place}"]`); if (!el || fdSeen.has(k)) return;
+    const io = new IntersectionObserver(es => { if (!es.some(x => x.isIntersecting)) return; io.disconnect(); if (fdSeen.has(k)) return; fdSeen.add(k); track("inspect_fake_door_view", {place, role: roleOf(D)}); }, {threshold: 0.6}); io.observe(el); }, 0);
+  return `<div class="cf-cta fd" data-place="${place}"><span>${done ? "" : `<b>רוצים שמכון יבדוק את הרכב הזה?</b>`}<span class="fd-st" role="status">${done ? soon : ""}</span></span>${done ? (place === "result" ? `<button type="button" class="link-btn" data-fdgo="1">${ico("search")}לרשימת המכונים</button>` : "") : `<button type="button" class="link-btn" data-fd="${place}">${ico("check")}לקבוע בדיקה במכון לרכב הזה</button>`}</div>`;
+}
+document.addEventListener("click", ev => {
+  const go = ev.target.closest && ev.target.closest("[data-fdgo]");
+  // "לרשימת המכונים": the buy tab at stage 3, where the inspection centres are, with the city field ready (D3)
+  if (go && current) { BUY.pick[buyId(current)] = 3; if (currentTab !== "buy") track("tab_view", {tab: "buy", own: current.plate && isSaved(current.plate) ? 1 : 0, role: roleOf(current)}); currentTab = "buy"; renderResult(); setTimeout(() => { const f = $("#inspCity"); if (f) { f.scrollIntoView({block: "center"}); f.focus(); } }, 0); return; }
+  const b = ev.target.closest && ev.target.closest("[data-fd]"); if (!b || !current) return;
+  const place = b.dataset.fd, box = b.closest(".fd"), k = current.plate + ":" + place;
+  track("inspect_fake_door", {place, role: roleOf(current)}); fdDone.add(k);
+  if (!box) return;
+  const html = fdBox(current, place), tmp = document.createElement("div"); tmp.innerHTML = html;
+  const st = box.querySelector(".fd-st"), q = box.querySelector("b");
+  if (q) q.remove();
+  if (st) st.textContent = tmp.querySelector(".fd-st").textContent;   // the live region already on the page speaks the new text
+  const nb = tmp.querySelector("[data-fdgo]"); if (nb) b.replaceWith(nb); else b.remove();
+  // focus is not lost with the removed button: to "לרשימת המכונים" on the result, to the city field in the buy tab
+  const f = nb || $("#inspCity"); if (f) f.focus();
+});
 
 /* every system the model data speaks about, with a tick when it is fitted and a dash when it is not; unknown ones are left out */
 function chkList(w, map){
