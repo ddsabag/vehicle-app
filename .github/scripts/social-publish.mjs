@@ -618,8 +618,10 @@ export async function run(qdir) {
   const UP = { image: "עלה פוסט", carousel: "עלתה קרוסלה", reel: "עלה סרטון (ריל)", story: "עלה סטורי" };
   for (const id of [...new Set(posted.map(p => `${p.k.name}/${p.it.id}`))]) {
     const ps = posted.filter(p => `${p.k.name}/${p.it.id}` === id), { k, it } = ps[0];
-    await tell("day", `social:done:${k.name}-${it.id}-${ps.map(p => p.t).join("+")}`,
+    const dk = `social:done:${k.name}-${it.id}-${ps.map(p => p.t).join("+")}`;
+    await tell("day", dk,
       msg({ kind: "done", area: "marketing", title: `${UP[it.type]} (${esc(it.id)})`, text: ps.map(p => `${NAMES[p.t]}: ${esc(p.link)}`).join("\n") }), "", "silent", "self");
+    await closeAlerts([dk], { told: true });   // a note with nothing left to do: closed at once, so it does not stay open in the ledger (noise review 22.11)
   }
   IO.log(`published ${published}, recorded ${done}`);
   return { published, summary };
@@ -702,6 +704,7 @@ async function selftest() {
   let r = await run(tmp);
   ck(r.published === 2, `first run publishes the dealer post twice (FB + IG), got ${r.published}`);
   ck(logs.filter(l => l.includes("[tell day social:done:2026-10-22-dealer-facebook+instagram] (self)") && l.includes("עלה פוסט (dealer)") && l.includes("פייסבוק: https://") && l.includes("אינסטגרם: https://")).length === 1, "one Telegram line for the item, with both links");
+  ck(logs.filter(l => l.includes("[closed social:done:2026-10-22-dealer-facebook+instagram (told)]")).length === 1, "the done note is closed at once, with no second message");
   ck(logs.some(l => l.includes("[tell day social:remind:2026-10-22-tiktok]") && l.includes("פרומפט הטיקטוק")) && st()["2026-10-22/tiktok/telegram"]?.status === "done", "the TikTok reminder goes out once at its time");
   ck(calls.includes("GET /go/fb"), "the link in the Facebook caption was checked before the post");
   ck(st()["2026-10-22/dealer/facebook"].status === "done" && st()["2026-10-22/dealer/instagram"].status === "done", "dealer post marked done on both");

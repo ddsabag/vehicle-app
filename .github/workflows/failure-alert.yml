@@ -284,12 +284,23 @@ jobs:
           case "$WF" in
             "Site smoke test"|"SEO daily digest"|"Magazine"|"Data truth")
               part=""; case "$TITLE" in "$WF ("*")") part=$TITLE;; esac
-              prev=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$WORKFLOW_ID/runs?branch=main&status=completed&per_page=30" \
-                --jq '.workflow_runs[] | "\(.run_number)\t\(.conclusion)\t\(.id)\t\(.display_title)"' 2>/dev/null \
-                | awk -F'\t' -v part="$part" '{ sub(/ \([0-9*,\/-]+ [0-9*,\/-]+ [0-9*,\/-]+ [0-9*,\/-]+ [0-9*,\/-]+\)$/, "", $4) } $1 + 0 < ENVIRON["RUN_NUMBER"] + 0 && (part == "" || $4 == part) && ($2 == "failure" || $2 == "timed_out" || $2 == "cancelled") { print $3; exit }') || prev=""
-              [ -n "$prev" ] || { echo "no earlier failed run found: nothing to close"; exit 0; }
-              failed=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$prev/jobs?per_page=100" \
-                --jq '.jobs[] | select((.steps | length) > 0 and (.conclusion == "failure" or .conclusion == "timed_out" or .conclusion == "cancelled")) | .name' 2>/dev/null) || exit 0
+              # the runs to prove (newest first, of this part): every run re-run green (success, attempt > 1; this one included) down to and with
+              # the newest earlier failed run. A re-run green shows "success" now, so its failed jobs are in the attempt before (19.11.2026: Data
+              # truth 44523062828); the failed run under it still needs its own jobs (deep audit 21.11: a re-run must not hide an older failure)
+              rows=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$WORKFLOW_ID/runs?branch=main&status=completed&per_page=30" \
+                --jq '.workflow_runs[] | "\(.run_number)\t\(.conclusion)\t\(.id)\t\(.display_title)\t\(.run_attempt)"' 2>/dev/null \
+                | awk -F'\t' -v part="$part" '{ sub(/ \([0-9*,\/-]+ [0-9*,\/-]+ [0-9*,\/-]+ [0-9*,\/-]+ [0-9*,\/-]+\)$/, "", $4) } part != "" && $4 != part { next }
+                  $1 + 0 <= ENVIRON["RUN_NUMBER"] + 0 && $2 == "success" && $5 + 0 > 1 { print $3 "\t" $2 "\t" $5; next }
+                  $1 + 0 < ENVIRON["RUN_NUMBER"] + 0 && ($2 == "failure" || $2 == "timed_out" || $2 == "cancelled") { print $3 "\t" $2 "\t" $5; exit }') || rows=""
+              [ -n "$rows" ] || { echo "no earlier failed run found: nothing to close"; exit 0; }
+              failed=""
+              while IFS=$'\t' read -r prev pc pa; do
+                [ -n "$prev" ] || continue
+                jobs="repos/$GITHUB_REPOSITORY/actions/runs/$prev/jobs"; [ "$pc" = success ] && jobs="repos/$GITHUB_REPOSITORY/actions/runs/$prev/attempts/$((pa - 1))/jobs"
+                f=$(gh api "$jobs?per_page=100" \
+                  --jq '.jobs[] | select((.steps | length) > 0 and (.conclusion == "failure" or .conclusion == "timed_out" or .conclusion == "cancelled")) | .name' 2>/dev/null) || exit 0
+                failed=$(printf '%s\n%s' "$failed" "$f")
+              done <<<"$rows"
               passed=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" --jq '.jobs[] | select(.conclusion == "success") | .name' 2>/dev/null) || exit 0
               while IFS= read -r j; do
                 if [ -n "$j" ] && ! grep -qxF -- "$j" <<<"$passed"; then echo "the job that failed did not run here: the failure stays open"; exit 0; fi

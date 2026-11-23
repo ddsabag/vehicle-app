@@ -198,7 +198,9 @@ public class MainActivity extends Activity {
                     android.content.ClipData d = cm == null ? null : cm.getPrimaryClip();
                     if (d == null || d.getItemCount() == 0) return "";
                     CharSequence t = d.getItemAt(0).coerceToText(MainActivity.this);
-                    return t == null ? "" : t.toString();
+                    // only the plate the page is looking for leaves the clipboard (same pattern as #pastePlate), never the rest of it (codes, passwords)
+                    java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\d[\\d\\s-]{4,12}\\d").matcher(t == null ? "" : t);
+                    return m.find() ? m.group() : (t == null || t.length() == 0 ? "" : "-");
                 } catch (Exception e) { return ""; }
             }
 
@@ -517,14 +519,15 @@ public class MainActivity extends Activity {
         String plate = plateFrom(getIntent());
         String nk = kindFrom(getIntent());
         if (savedInstanceState == null) notifOpened(getIntent());
-        if (plate != null) {
+        // after process death Android rebuilds the activity from its first intent: restore the page instead of replaying the link or the notification
+        if (plate != null && savedInstanceState == null) {
             webView.loadUrl(START_URL + (nk != null ? "?nk=" + nk : "") + "#" + plate);
         } else if (savedInstanceState != null) {
             if (webView.restoreState(savedInstanceState) == null) webView.loadUrl(START_URL);   // a restore that fails must not leave a white screen
         } else {
             webView.loadUrl(START_URL);
         }
-        handleIncoming(getIntent());
+        if (savedInstanceState == null) handleIncoming(getIntent());   // a shared link, text or photo is handled once, not again on a restore (link_open counted twice)
         checkInstallReferrer();
     }
 

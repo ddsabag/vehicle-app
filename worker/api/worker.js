@@ -33,8 +33,9 @@ const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(
 
 const LIMITS = { ipHour: 5, toDay: 3, allDay: 150 };
 const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
-async function slot(kind, id, ttl) {   // a counter in the edge cache: { n } under a hashed key, kept for ttl seconds from its first use
-  const h = hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`luchit-rl|${kind}|${id}`)));
+async function slot(kind, id, ttl, env) {   // a counter in the edge cache: { n } under a keyed hash (HMAC with the Worker's secret, so an IP or e-mail cannot be found from the key by trying values), kept for ttl seconds from its first use
+  const secret = env && (env.CONFIRM_SECRET || env.BREVO_KEY), msg = new TextEncoder().encode(`luchit-rl|${kind}|${id}`);
+  const h = hex(secret ? await crypto.subtle.sign("HMAC", await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]), msg) : await crypto.subtle.digest("SHA-256", msg));
   return { key: new Request(`https://luchit.app/__rl/${kind}/${h}`), ttl };
 }
 async function count(c) { try { const r = await caches.default.match(c.key); return r ? (await r.json()).n || 0 : 0; } catch { return 0; } }
@@ -58,7 +59,7 @@ async function waitlist(req, env, ctx) {
   if (name.length < 2 || company.length < 2) return json({ error: "fields" }, 400);
   if (!BIZ_TYPES.includes(type) || (interest && !BIZ_INTERESTS.includes(interest))) return json({ error: "choice" }, 400);
   if (!EMAIL_RE.test(email) || (phone && !PHONE_RE.test(phone))) return json({ error: "contact" }, 400);
-  const ipc = await slot("lead-ip", ipOf(req), 3600), ipn = await count(ipc);
+  const ipc = await slot("lead-ip", ipOf(req), 3600, env), ipn = await count(ipc);
   if (ipn >= LIMITS.ipHour) return tooMany();
   await bump(ipc, ipn, ctx);
 
@@ -82,7 +83,7 @@ async function waitlist(req, env, ctx) {
       subject: `ליד עסקי חדש: ${type}`,
       htmlContent: `<div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.7"><b>פנייה חדשה מרשימת ההמתנה העסקית</b><br>${existing ? "<i>הכתובת כבר קיימת ב-Brevo: הפרטים כאן לא נשמרו שם ולא דרסו את הקיימים.</i><br>" : ""}שם: ${esc(name)}<br>עסק: ${esc(company)}<br>סוג: ${esc(type)}<br>עניין: ${esc(interest) || "לא צוין"}<br>אימייל: ${esc(email)}<br>טלפון: ${esc(phone) || "לא צוין"}<br>הודעה: ${esc(notes) || "ללא"}</div>` });
   } catch (e) { console.log("notify failed", String(e).slice(0, 200)); }
-  if (env.GA_MEASUREMENT_ID && env.GA_API_SECRET) {
+  if (!existing && env.GA_MEASUREMENT_ID && env.GA_API_SECRET) {   // a second form from an address already in Brevo is not a new lead on /live (audit 22.11)
     try {
       await fetch(`https://www.google-analytics.com/mp/collect?measurement_id=${encodeURIComponent(env.GA_MEASUREMENT_ID)}&api_secret=${encodeURIComponent(env.GA_API_SECRET)}`, { method: "POST",
         body: JSON.stringify({ client_id: crypto.randomUUID(), events: [{ name: "b2b_lead_submit", params: { business_type: type, interest: interest || "none" } }] }) });
@@ -93,10 +94,10 @@ async function waitlist(req, env, ctx) {
 
 /* web usage events (index.html track() on the site): forwarded to the GA4 web stream. Only listed event names, short text or number params,
    nothing that looks like a plate or an email; no IP or user agent is passed on. Without GA_MEASUREMENT_ID/GA_API_SECRET it answers 204 and does nothing. */
-const WEB_EVENTS = new Set(["car_lookup", "search_no_result", "share", "share_open", "tab_view", "compare_open", "link_landing", "web_visit", "web_hint_click", "web_install_prompt", "web_install_click",
-  "link_out", "checklist_pdf", "simple_view", "lookup_failed", "lookup_timeout", "lookup_slow", "settlement_shown", "buy_step_done", "calendar_reminder_shown", "calendar_reminder_click", "exp_expose",
+const WEB_EVENTS = new Set(["storage_lost", "car_lookup", "search_no_result", "share", "share_open", "shared_next_check", "tab_view", "compare_open", "link_landing", "web_visit", "web_hint_click", "web_install_prompt", "web_install_click",
+  "link_out", "checklist_pdf", "simple_view", "market_open", "demo_open", "lookup_failed", "lookup_timeout", "lookup_slow", "settlement_shown", "buy_step_done", "calendar_reminder_shown", "calendar_reminder_click", "exp_expose",
   "upgrade_open", "buy_card_open", "camera_scan", "lookup_abort", "lookup_from_cache", "car_save", "car_unsave", "voice_search", "bulk_check", "zombie_shown", "simple_more", "alerts_toggle", "alert_kind", "doc_add", "doc_exp", "doc_scan", "trial_start", "trial_end_shown", "upgrade_purchase_start", "user_screenshot", "link_open", "lookup_repeat", "car_nick", "svc_add", "svc_cal", "check_open", "js_error",
-  "mine_set", "mine_unset", "road_docs", "history_pdf", "nav", "cars_mode", "alert_item", "home_sheet", "home_open", "file_cta_shown", "inspect_fake_door", "inspect_fake_door_view"]);
+  "mine_set", "mine_unset", "road_docs", "history_pdf", "nav", "cars_mode", "alert_item", "home_sheet", "home_open", "file_cta_shown", "buy_stage", "transfer_check", "transfer_link", "seller_msg", "km_check", "match_check", "ask_gauge", "cf_doc_tap", "cf_doc_cancel", "inspect_fake_door", "inspect_fake_door_view"]);
 async function webEvent(req, env) {
   if (req.method !== "POST" || req.headers.get("origin") !== ORIGIN) return new Response(null, { status: 204 });
   if (/(?:^|[^a-z])bot\b|[a-z]bot\/|crawl|spider|slurp|lighthouse|headlesschrome|pagespeed|inspectiontool|adsbot|storebot|googleother|pagerenderer/i.test(req.headers.get("user-agent") || "")) return new Response(null, { status: 204 });   // automated browsers are not users (as BOT_UA in index.html)
@@ -110,7 +111,8 @@ async function webEvent(req, env) {
     if (!/^[a-z_]{1,24}$/.test(k)) continue;
     if (typeof v === "number" && isFinite(v) && Math.abs(v) < 10000) params[k] = v;      // counts and flags only; a plate-sized number is dropped
     else if (typeof v === "boolean") params[k] = v ? 1 : 0;
-    else if (typeof v === "string" && !/@/.test(v) && v.replace(/[^0-9]/g, "").length < 5 && !/[\u0660-\u0669\u06F0-\u06F9]/.test(v)) params[k] = v.slice(0, 40);
+    // digits of any script count (\p{Nd}: Arabic-Indic, full-width and the rest), so a plate typed in another digit set is dropped too
+    else if (typeof v === "string" && !/@/.test(v) && v.replace(/\P{Nd}/gu, "").length < 5) params[k] = v.slice(0, 40);
   }
   const cid = /^\d{1,10}\.\d{1,10}$/.test(String(b.cid)) ? b.cid : crypto.randomUUID();
   try {
@@ -153,11 +155,11 @@ const app = {
     if (b.consent !== true) return json({ error: "consent" }, 400);   // the unticked checkbox must have been ticked
     const email = String(b.email || "").trim().toLowerCase();
     if (email.length > 254 || !EMAIL_RE.test(email)) return json({ error: "email" }, 400);
-    const ipc = await slot("sub-ip", ipOf(req), 3600), ipn = await count(ipc);
+    const ipc = await slot("sub-ip", ipOf(req), 3600, env), ipn = await count(ipc);
     if (ipn >= LIMITS.ipHour) return tooMany();
-    const toc = await slot("sub-to", email, 86400), ton = await count(toc);
+    const toc = await slot("sub-to", email, 86400, env), ton = await count(toc);
     if (ton >= LIMITS.toDay) { await bump(ipc, ipn, ctx); return json({ ok: true }); }   // the address already has its mails today: nothing new is sent
-    const allc = await slot("sub-all", new Date().toISOString().slice(0, 10), 86400), alln = await count(allc);
+    const allc = await slot("sub-all", new Date().toISOString().slice(0, 10), 86400, env), alln = await count(allc);
     if (alln >= LIMITS.allDay) return tooMany();
     await Promise.all([bump(ipc, ipn, ctx), bump(toc, ton, ctx), bump(allc, alln, ctx)]);
 

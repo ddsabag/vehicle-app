@@ -13,7 +13,7 @@ run-name: Data truth${{ (github.event.schedule || inputs.schedule) && format(' (
 #  deep (monthly):      deep-audit.mjs (Claude API use #7, Dudu 28.10.2026): the same audit on about 100 cars drawn with a seed nobody sees,
 #                       then Claude reads each car's page against its rows in one Message Batch. Findings the fixed rules missed are
 #                       candidates for new rules. Only counts in the clear (deep-summary.json); the findings encrypted (deep-audit.enc.json).
-#                       The router hears truth:deep:<areas> (news for the data thread), truth:deep-fail, ai:audit or ai:key. Never red over
+#                       The router hears truth:deep (one key, the areas in the text; news for the data thread), truth:deep-fail, ai:audit or ai:key. Never red over
 #                       the API. The 2nd and the 3rd are retries that end at once when the month's audit is done.
 on:
   schedule:
@@ -154,7 +154,8 @@ jobs:
         env:
           OUT: out
           # the extra run on the 18th: about 200 cars (the most the reading allows), before the credit cycle ends on the 20th
-          QUERIES: ${{ inputs.queries || (((github.event.schedule || inputs.schedule) == '17 5 18-19 * *' || (github.event.schedule || inputs.schedule) == '17 11 18-19 * *') && 'n=150 rare=50 max=200 minutes=150') || '' }}
+          # the 1st's run: 200 cars since 20.11.2026 (Dudu "כן, שחרר" on the credit plan for 20.11-20.12; was 100)
+          QUERIES: ${{ inputs.queries || (((github.event.schedule || inputs.schedule) == '17 5 18-19 * *' || (github.event.schedule || inputs.schedule) == '17 11 18-19 * *' || (github.event.schedule || inputs.schedule) == '17 5 1-3 * *') && 'n=150 rare=50 max=200 minutes=150') || '' }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           ANTHROPIC_API_KEY: ${{ vars.AI != 'off' && secrets.ANTHROPIC_API_KEY || '' }}
           AI: ${{ vars.AI }}   # one switch for every Claude bot (claude.mjs gate; CEO review 12.11.2026)

@@ -26,11 +26,10 @@ export const KEEP_DAYS = 120, MIN_CARS = 10;
 // field family -> the words the alert uses (also the ids of the "truth" label in alert.mjs)
 export const GROUPS = { page: "איתור הרכב", identity: "פרטי הרכב", status: "סטטוס הרכב", test: "טסט", road: "עלייה לכביש", owners: "בעלויות", km: "ק״מ",
   recalls: "ריקולים", settlements: "הסדרי פשרה", tow: "גרירה", specs: "מפרט", mods: "שינויים ברכב", fee: "אגרת רישוי", price: "מחיר מחירון",
-  value: "שווי", tag: "תג נכה", insight: "תובנות", counts: "ספירת רכבים", message: "הודעות" };
+  value: "שווי", tag: "תג נכה", insight: "תובנות", counts: "ספירת רכבים", message: "הודעות", buyer: "סיכום לקונה", stats: "נתוני הדגם" };
 // the partial-data message follows whether the ministry answered the app at that second; the model-year counts are monthly: files only
-// 12.11: the full review's guards (F1, F2, F3, F7) count from today and alert only after the 22.11 release ships their fixes
-export const SOFT = new Set(["message.partial_data", "counts.model_year_active", "status.public_use", "buyer.no_red_flags", "buyer.no_red_flags_tag",
-  "stats.recall_rate_unknown", "recalls.pending_after_road", "recalls.pending_listed", "recalls.checked_unlisted"]);
+// 12.11: the full review's guards (F1, F2, F3, F7) counted soft until the 22.11 release shipped their fixes; hard since that release
+export const SOFT = new Set(["message.partial_data", "counts.model_year_active"]);
 const ilDay = d => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(d);
 
 // anything that could be a plate or a VIN goes: masked plates (12xxx67), dashed plates, bare 7-8 digit runs, 17-character VINs

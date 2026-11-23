@@ -14,8 +14,8 @@
     { "parameterName": "term", "description": "search_no_result: the cleaned search term (weekly report)" },
     { "parameterName": "tab", "description": "tab_view, user_screenshot: which tab (weekly report)" },
     { "parameterName": "own", "description": "tab_view: 1 when the car viewed is saved, so the tab read of 22.11 splits owners from buyers" },
-    { "parameterName": "from", "description": "upgrade_open, car_save, update_prompt, compare_open (card, menu, cars from 1.38): where it was opened from (weekly report, 5.11 read)" },
-    { "parameterName": "via", "description": "link_landing: share or campaign source (/live)" },
+    { "parameterName": "from", "description": "upgrade_open, car_save, update_prompt, compare_open (card, menu, cars from 1.38), share_open and share (head, end: the card at the end of the overview, recv: a report someone sent; share kind pdf from menu; product 12.11 and 20.11), simple_view (menu, settings: the checkbox; 21.11): where it was opened from (weekly report, 5.11 read)" },
+    { "parameterName": "via", "description": "link_landing, shared_next_check: share or campaign source (/live)" },
     { "parameterName": "exp", "description": "exp_expose, share: experiment name (Experimenter)" },
     { "parameterName": "exp_v", "description": "exp_expose, share: experiment variant (Experimenter)" },
     { "parameterName": "n", "description": "car_save, buy_step_done, settlement_shown: a small count" },
@@ -37,7 +37,16 @@
     { "parameterName": "cost", "description": "svc_add: the entry carries a cost (1) or not (0)" },
     { "parameterName": "camp", "description": "every web event of a visit that came by a tagged link: its topic (utm_campaign, ?c= of /go/ links) (/live sources, per post)" },
     { "parameterName": "line", "description": "js_error (web): the line number where the error was thrown, a number only, never the message (measurement 5.11)" },
-    { "parameterName": "col", "description": "js_error (web): the column where the error was thrown, a number only; the built app file is one long line, so the column finds the code (product 12.11)" }
+    { "parameterName": "col", "description": "js_error (web): the column where the error was thrown, modulo 10000 (with colk: column = colk*10000 + col); the built app file is one long line (product 12.11, split 20.11)" },
+    { "parameterName": "colk", "description": "js_error (web): the column where the error was thrown, in tens of thousands (column = colk*10000 + col), because /api/e drops a number of 10000 or more (product 20.11)" },
+    { "parameterName": "stage", "description": "buy_stage, buy_step_done, transfer_check, checklist_pdf: the buy stage 1-4 (buy spec 20.11)" },
+    { "parameterName": "red", "description": "transfer_check: rows to settle before the transfer, a count (buy spec 20.11)" },
+    { "parameterName": "unk", "description": "transfer_check: registers that did not answer, a count (buy spec 20.11)" },
+    { "parameterName": "q", "description": "seller_msg: how many questions the message holds (buy spec 20.11)" },
+    { "parameterName": "infocar", "description": "seller_msg: 1 when the message asks for the InfoCar report (buy spec 20.11)" },
+    { "parameterName": "res", "description": "km_check: below_test, low, in, high or none; alert_ask: granted, denied or later (buy spec 20.11)" },
+    { "parameterName": "mismatch", "description": "match_check: 1 when something on the car does not match the registration (buy spec 20.11)" },
+    { "parameterName": "pos", "description": "ask_gauge: below, in or above the estimated range, never the price (buy spec 20.11)" }
   ],
   "keyEvents": [
     { "eventName": "upgrade_open", "countingMethod": "ONCE_PER_EVENT" },

@@ -152,7 +152,7 @@ async function walk(browser, dev, st, J, o = {}) {
     else await page.waitForSelector("#homeMark", { state: "attached", timeout: 15000 });
     await page.addStyleTag({ content: "*{animation:none!important;transition:none!important;scroll-behavior:auto!important}" });
     steps.push({ step: "load", ev: await flush() });
-    const c = { dev, theme: "light", state: st, app, ctx, net, page, plate: st === "many" ? "7654321" : "1234567" };
+    const c = { dev, theme: "light", state: st, app, ctx, net, page, plate: st === "many" ? "4444444" : "1234567" };
     for (const [name, act, expect] of J.steps) {
       cur.step = name;
       if (act) { try { await act(page, c); } catch (e) { off = off || name; } }
@@ -216,6 +216,8 @@ function readers() {
   for (const m of live.matchAll(/\b(?:only|web)\("([a-z_0-9]+)"\)/g)) names.add(m[1]);
   for (const m of live.matchAll(/\b(?:any\(|RT_KEYS\s*=\s*|fieldName:\s*"eventName",\s*inListFilter:\s*\{\s*values:\s*)\[([^\]]*)\]/g)) for (const x of m[1].matchAll(/"([a-z_0-9]+)"/g)) names.add(x[1]);
   for (const m of live.matchAll(/fieldName:\s*"eventName",\s*stringFilter:\s*\{\s*value:\s*"([a-z_0-9]+)"/g)) names.add(m[1]);
+  for (const m of live.matchAll(/\bev\(\[([^\]]*)\]/g)) for (const x of m[1].matchAll(/"([a-z_0-9]+)"/g)) names.add(x[1]);   // the goals engine and the weekly parts
+  try { for (const v of Object.values(JSON.parse(read("analytics/config.json")).events || {})) if (/^[a-z_0-9]+$/.test(v)) names.add(v); } catch {}   // the weekly report (analytics/run.py)
   for (const m of py.matchAll(/["']eventName["']\s*,\s*["']([a-z_0-9]+)["']/g)) names.add(m[1]);
   for (const m of py.matchAll(/\bevent\s*=\s*["']([a-z_0-9]+)["']/g)) names.add(m[1]);
   return names;
@@ -227,8 +229,8 @@ function senders() {
   for (const m of java.matchAll(/track\('([a-z_0-9]+)'/g)) s.add(m[1]);
   for (const m of java.matchAll(/logUsage\([^,()]+,\s*"([a-z_0-9]+)"/g)) s.add(m[1]);
   for (const m of read("worker/api/worker.js").matchAll(/\bname:\s*"([a-z_0-9]+)"/g)) s.add(m[1]);
-  // GA4's own: collected by Firebase in the app and by GA4 itself, never sent by our code
-  for (const e of ["first_open", "first_visit", "session_start", "user_engagement", "page_view", "screen_view", "app_remove", "app_update", "os_update", "app_clear_data", "in_app_purchase", "notification_open", "notification_receive", "notification_dismiss", "notification_foreground"]) s.add(e);
+  // GA4's own: collected by Firebase in the app (app_exception: Crashlytics logs it on a crash) and by GA4 itself, never sent by our code
+  for (const e of ["app_exception", "first_open", "first_visit", "session_start", "user_engagement", "page_view", "screen_view", "app_remove", "app_update", "os_update", "app_clear_data", "in_app_purchase", "notification_open", "notification_receive", "notification_dismiss", "notification_foreground"]) s.add(e);
   return s;
 }
 
@@ -245,7 +247,7 @@ const SWITCH_OFF = { name: "switch-off", steps: [
 // arrivals on the website by a link: the visit is counted by how it came, and the plate in the address never goes with it
 const ARRIVALS = [
   { query: "?plate=1234567", ev: "link_landing", has: { kind: "plate" } },
-  { query: "?cmp=1234567,7654321", ev: "link_landing", has: { kind: "cmp" } },
+  { query: "?cmp=1234567,4444444", ev: "link_landing", has: { kind: "cmp" } },
   { query: "?utm_source=facebook&utm_medium=social&utm_campaign=market", ev: "link_landing", has: { kind: "campaign", via: "facebook" } },
   // a car checked on a campaign visit: car_lookup's fullest form on the website (src and camp before its 8), at the 10 the endpoint keeps
   { query: "?utm_source=facebook&utm_campaign=market", ev: "link_landing", has: { kind: "campaign" }, steps: [["check", UF.check(), UF.isCar()]] },

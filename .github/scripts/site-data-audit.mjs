@@ -342,7 +342,7 @@ async function readPage(plate) {
     await page.waitForFunction(() => document.querySelector("#out .id-card") || document.querySelector("#out .msg.edge"), null, {timeout: 50000});
     net.ms = Date.now() - net.t0;
     const edge = await page.evaluate(() => { const m = document.querySelector("#out .msg.edge"); return m ? m.textContent.replace(/\s+/g, " ").trim() : ""; });
-    if (edge) return {edge: edge.replace(/\d[\d-]{5,}/g, "<plate>"), perr, net};
+    if (edge) return {edge: edge.replace(/\d[\d-]{3,}/g, "<plate>"), perr, net};   // 22.11 audit: 5-digit plates too (was 6+ characters)
     await page.waitForTimeout(1200);
     const head = await page.evaluate(() => {
       const T = el => (el ? el.textContent : "").replace(/\s+/g, " ").trim(), o = document.querySelector("#out");
@@ -521,8 +521,10 @@ function compare(c, X, P) {
   { const reg = String(R.sug_delek_nm || ""), Wd = [...W, ...W0], tech = vals(Wd, "technologiat_hanaa_nm").join(" ").toUpperCase(), fuel = reg || vals(Wd, "delek_nm").join(" ");
     const exp = new Set();
     if (/^חשמל$/.test(reg.trim()) || (!reg && /חשמל/.test(fuel) && !/בנזין|דיזל/.test(fuel))) exp.add("חשמלי");
-    else if (/חשמל\//.test(reg) || /PLUG|פלאג|נטען/.test(tech)) exp.add("פלאג-אין");
-    else if (/היברידי/.test(tech)) exp.add("היברידי");
+    // 22.11 (index.html driveType, product ce2109e1): the model's technology decides when it is there; the register writes חשמל/בנזין for a
+    // regular hybrid too (deep audit 19.11, CR-Z 2012), so that fuel means plug-in only when the model row names no technology
+    else if (/PLUG|פלאג|נטען/.test(tech) || (!tech.trim() && /חשמל\//.test(reg))) exp.add("פלאג-אין");
+    else if (/היברידי/.test(tech) || /חשמל\//.test(reg)) exp.add("היברידי");
     else if (/דיזל|סולר/.test(fuel)) exp.add("דיזל");
     else if (/גפ"?מ|גז/.test(fuel)) exp.add("גפ״מ");
     else if (fuel) exp.add("בנזין");
@@ -576,7 +578,7 @@ function compare(c, X, P) {
       const shown = `${!s3 ? "(no step 3)" : exh ? (port ? "plug-in" : "engine") : port && s3.includes("הטווח") ? "electric" : "?"}${s3.includes("מזגן") ? "" : ", no air conditioner"}${s4.includes("בסוללה, במנוע") ? ", battery at the inspection" : s4.includes("במנוע, בגיר") ? "" : ", step 4 ?"}`;
       // the app's fuelKind and driveType, on each row it can read as the car's model row
       const exps = [...new Set(Ws.map(w => { const f = String(pickE(R.sug_delek_nm, w.delek_nm) || ""), ev = f.includes("חשמל") && !f.includes("בנזין") && !f.includes("דיזל");
-        const tech = String(w.technologiat_hanaa_nm || R.technologiat_hanaa_nm || "").toUpperCase(), plug = !ev && !tech.includes("חשמלי") && (/PLUG|פלאג|נטען/.test(tech) || /חשמל\//.test(String(R.sug_delek_nm || "")));
+        const tech = String(w.technologiat_hanaa_nm || R.technologiat_hanaa_nm || "").toUpperCase(), plug = !ev && !tech.includes("חשמלי") && (/PLUG|פלאג|נטען/.test(tech) || (!/היברידי/.test(tech) && /חשמל\//.test(String(R.sug_delek_nm || ""))));   // a regular hybrid's חשמל/בנזין is not a plug-in (22.11)
         return `${ev ? "electric" : plug ? "plug-in" : "engine"}${X.primary === "moto" ? ", no air conditioner" : ""}${ev ? ", battery at the inspection" : ""}`; }))];
       if (st.length) check(c, "identity.buy_steps", exps.includes(shown), shown, exps.join(" or "), `fuel=${R.sug_delek_nm || ""} model fuel=${vals(Ws, "delek_nm").join("|")} tech=${vals(Ws, "technologiat_hanaa_nm").join("|") || R.technologiat_hanaa_nm || ""} ${regs}`); }
     const age = ins.filter(t => /^רכב בן \d+$/.test(t));
@@ -619,15 +621,17 @@ function compare(c, X, P) {
     const regK = ownK(R.baalut), last = own[own.length - 1], inLog = !!last && (regK === "other" || sameOwnK(regK, ownK(last.baalut)));
     const curK = regK !== "other" ? regK : last ? ownK(last.baalut) : "";
     const card = cardOf(P, "overview", /^היסטוריית בעלויות$/), mirror = P.head.ownMirror;
-    const road = ym(R.moed_aliya_lakvish) || (isN(R.shnat_yitzur) ? new Date(N(R.shnat_yitzur), 0, 1) : null), floor = !road || road < new Date(2017, 0, 1);
-    const hands = own.filter(r => !DEALER.test(r.baalut)), n = hands.length, fo = String(R.mkoriut_nm || "").replace(/"/g, "").trim();
+    const road = ym(R.moed_aliya_lakvish) || ym(R.rishum_rishon_dt) || (isN(R.shnat_yitzur) ? new Date(N(R.shnat_yitzur), 0, 1) : null), floor = !road || road < new Date(2017, 0, 1);   // as the app (onRoad: the first registration before the year)
+    // 22.11 (index.html handExtra, product ce2109e1; deep audit 19.11 c035): a current owner the log does not hold yet is one more hand, "at least"
+    const extra = own.length > 0 && !cancelled && !inLog && !E(R.baalut) && regK !== "dealer";
+    const hands = own.filter(r => !DEALER.test(r.baalut)), n = hands.length + (extra ? 1 : 0), fo = String(R.mkoriut_nm || "").replace(/"/g, "").trim();
     // a used personal import's hands are its hands in Israel (index.html ownersLabel, 28.10)
     const inIL = /משומש/.test(String(R.mkoriut_nm || "") + String(R.sug_yevu || "")) ? " בישראל" : "";
     let exp = "";
     if (!n) exp = own.length && curK === "dealer" ? "אצל סוחר" : "";
-    else if (n === 1) exp = !floor && (!fo || kindOf(fo) === kindOf(hands[0].baalut)) ? "יד ראשונה" + inIL : "יד אחת במאגר";
-    else exp = `${floor ? "לפחות " : ""}יד ${ORD[n] || n}${inIL}`;
-    const ev = `log=${own.map(r => `${r.baalut}@${r.baalut_dt}`).join(">")} road=${R.moed_aliya_lakvish || ""} mkoriut=${fo}`;
+    else if (n === 1) exp = hands.length === 1 && !floor && (!fo || kindOf(fo) === kindOf(hands[0].baalut)) ? "יד ראשונה" + inIL : "יד אחת במאגר";
+    else exp = `${floor || extra ? "לפחות " : ""}יד ${ORD[n] || n}${inIL}`;
+    const ev = `log=${own.map(r => `${r.baalut}@${r.baalut_dt}`).join(">")} road=${R.moed_aliya_lakvish || ""} mkoriut=${fo}${extra ? ` +current "${R.baalut}" not in the log` : ""}`;
     if (mirror) NOTES.push(`${c.id}: ownership from the app's mirror (API returned no rows to the app); my API rows=${own.length}`);
     else {
       const shown = card ? card.count : "";
@@ -702,11 +706,21 @@ function compare(c, X, P) {
     const meta = X.catMeta, hz = meta && meta.recHz && meta.recHz.id ? meta.recHz : null, held = meta && Array.isArray(meta.recIn) ? new Set(meta.recIn.map(Number)) : null;
     const links = X.catRec && X.catRec.l || null, lk = linkKeyR(R);
     const reach = r => { if (!hz) return "?"; const id = N(r.RECALL_ID);
+      if (held && held.has(id)) return "listed";   // as the app since 22.11: the list holds every batch it names (spec item 3c)
       if (id > hz.id || (hz.from && id >= hz.from && !(hz.ids || []).includes(id))) return "fresh";
       if (!held || held.has(id)) return "listed";
       return N(r.SHNAT_RECALL) >= now.getFullYear() - ABSENT_YEARS ? "absent" : "nolist"; };
+    // as the app since 22.11 (spec item 3a, afterRoad in index.html): a recall of cars built after this one went on the road is of other years
+    const onRoadYM = (() => { const m = String(R.moed_aliya_lakvish || "").match(/^((?:19|20)\d{2})-(\d{1,2})/) || String(R.rishum_rishon_dt || "").match(/^((?:19|20)\d{2})-(\d{1,2})/);
+      return m ? {m: +m[1] * 12 + +m[2] - 1, y: +m[1]} : !isNaN(y) ? {m: y * 12, y} : null; })();
+    const buildFrom = x => { const s = String(x || "").trim(); let m;
+      if ((m = s.match(/^((?:19|20)\d{2})-(\d{1,2})/))) return {m: +m[1] * 12 + +m[2] - 1};
+      if ((m = s.match(/^(?:\d{1,2}[/.])?(\d{1,2})[/.]((?:19|20)\d{2})$/))) return {m: +m[2] * 12 + +m[1] - 1};
+      const yy = recYear(s); return yy ? {y: yy} : null; };
+    const lateBuild = r => { if (!onRoadYM) return false; const b = buildFrom(r.BUILD_BEGIN_A); return !!b && (b.m != null ? b.m > onRoadYM.m : b.y > onRoadYM.y); };
     const fitsOf = r => { const from = recYear(r.BUILD_BEGIN_A), to = recYear(r.BUILD_END_A), near = !isNaN(y) && !!from && !!to && (y === to + 1 || y === from - 1);
       if (links && links[r.RECALL_ID] && links[r.RECALL_ID][lk]) return {fits: true, near: false, byList: true};
+      if (lateBuild(r)) return {fits: false, near: false, afterRoad: true};
       return {fits: !isNaN(y) && from && to ? (y >= from && y <= to ? true : near ? null : false) : null, near}; };
     // what the app shows for one model recall: its card and its pill
     const expOf = r => { const f = fitsOf(r), k = reach(r), pending = knownOpen && f.fits !== false && (k === "fresh" || k === "absent");
@@ -908,7 +922,7 @@ function compare(c, X, P) {
     if (n) check(c, "fee.borrowed_note", exps.some(e => e ? n.includes(e + ",") : !n.includes(B)), n.includes(B) ? n.slice(n.indexOf(B), n.indexOf(B) + 70) : "(the fee's own model row)", exps.map(e => e || "(the fee's own model row)").join(" or "),
       `car ${R.sug_degem || ""}/${R.shnat_yitzur || ""}/${sp(R.ramat_gimur)}; first model row ${W0.map(w => `${w.sug_degem || ""}/${w.shnat_yitzur || ""}/${sp(w.ramat_gimur)}`).join(" | ")}`); }
   // list price and the value estimate: none for a personal import or a car off the road
-  { const card = cardOf(P, "buy", /^שווי משוער$/) || {grid: [], notes: [], text: ""}, g = card.grid, sh = N(dig((g.find(x => x.k === "מחיר מחירון כחדש") || {}).v));
+  { const card = cardOf(P, "buy", /^(שווי משוער|המחיר)$/) || {grid: [], notes: [], text: ""}, g = card.grid, sh = N(dig((g.find(x => x.k === "מחיר מחירון כחדש") || {}).v));
     const cand = imp || cancelled || isNaN(N(R.shnat_yitzur)) ? [] : priceMine(ofTypeR(X.price || [], R), R), ex = [...new Set(cand.map(x => N(x.r.mehir)))];
     check(c, "price.list", ex.length ? ex.includes(sh) : !sh, sh || "(none)", ex.join(" / ") || (imp ? "(none: a personal import)" : cancelled ? "(none: off the road)" : "(none)"), `price rows for model=${(X.price || []).length}, years=${[...new Set((X.price || []).map(r => r.shnat_yitzur))].sort().join(",")}`);
     if (sh) { const note = card.notes.some(t => /^מחיר המחירון לפי/.test(t)), expN = [...new Set(cand.filter(x => N(x.r.mehir) === sh).map(x => !x.own))];
@@ -916,7 +930,8 @@ function compare(c, X, P) {
       const vt = (g.find(x => /^שווי (משוער )?היום/.test(x.k)) || {}).v || "";
       check(c, "value.labelled_estimate", /הערכה בלבד/.test(card.text) && /\d+–\d+/.test(vt), vt + " / " + (card.notes.slice(-1)[0] || "").slice(0, 40), "range + 'הערכה בלבד'", ""); }
     else { const want = cancelled ? "הרכב ירד מהכביש, ולכן אין לו הערכת שווי." : imp ? "מחירון היבואן הרשמי לא חל על רכב ביבוא אישי, ולכן אין כאן מחיר מחירון והערכת שווי." : "אין במאגר מחיר מחירון לדגם הזה, ולכן אין הערכת שווי.";
-      check(c, "value.fallback", sp(card.text) === want, sp(card.text).slice(0, 80), want, ""); } }
+      // since 1.39 the card also holds the asking-price field and the save button, so the sentence is read inside it; a car off the road has no price card
+      const vf = sp(card.text); check(c, "value.fallback", (cancelled && !vf) || (vf.includes(want) && !/\d+–\d+/.test(vf)), vf.slice(Math.max(0, vf.indexOf("אין") - 10), Math.max(0, vf.indexOf("אין")) + 80) || vf.slice(0, 80), want, ""); } }
   // cars of this model and year on the road (modelstats, monthly) vs a live count of the active register
   { const ms = cardOf(P, "buy", /^איך הדגם הזה מחזיק$/), m = ms ? (ms.text.match(/\(([\d,]+) רכבים פעילים משנתון (\d{4})/) || null) : null;
     if (m && X.cohort != null) { const sh = N(m[1]); check(c, "counts.model_year_active", sh >= X.cohort * 0.85, sh, `>= ~${X.cohort} (active rows with kinuy_mishari="${R.kinuy_mishari}" and year ${y})`, "");
@@ -975,6 +990,8 @@ for (const c of order) {
   if (blip(P)) { console.log(`  ${c.id}: the app could not reach the ministry (${P.net.failed} of ${P.net.n} requests failed in the browser); opening it again in 30s`); cool(30000); P = await readPage(c.plate); }
   let X; try { X = await raw(c); } catch (e) { console.log(`CASE ${c.id} ${mask(c.plate)} raw read failed: ${e.message}`); continue; }
   if (blip(P) && X.primary) { infra.push(c.id); console.log(`CASE ${c.id} ${mask(c.plate)} skipped: the app could not reach the ministry twice (${P.net.failed} of ${P.net.n} requests failed in the browser), while my reads did`); continue; }
+  // 22.11 audit: my own register reads failed and found no car: an outage on both sides, not "the app says not found, and so do I"
+  if (!X.primary && Object.keys(X.errs).length) { infra.push(c.id); console.log(`CASE ${c.id} ${mask(c.plate)} skipped: my reads failed too (${Object.keys(X.errs).join(", ")})`); continue; }
   if (P.net.bad.length) { infra.push(c.id); cool(60000); console.log(`CASE ${c.id} ${mask(c.plate)} skipped: the ministry refused ${P.net.bad.length} of the app's requests again`); continue; }
   const R = X.R;
   if (P.edge) { const ln = `CASE ${c.id} ${mask(c.plate)} ${X.primary || "-"} page: ${P.edge.slice(0, 90)} | after ${Math.round(P.net.ms / 1000)}s, app requests=${P.net.n} failed-in-browser=${P.net.failed} | in my reads: ${Object.entries(X.sets).filter(([, r]) => r.length).map(([k]) => k).join(",") || "nothing"} errs: ${Object.keys(X.errs).join(",") || "-"}`; console.log(ln);

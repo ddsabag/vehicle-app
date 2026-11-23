@@ -213,6 +213,11 @@ for (const [re, what, ok] of NEW_JS) for (const m of js.matchAll(re)) {
   if (!ok || !ok(l)) block(`index.html: ${what} is missing in older engines and throws there: "${l.trim().slice(0, 90)}"`);
 }
 
+// the consumer offer was retired (decision a, 21.11.2026): its code stays dormant behind PRO_LOCK, so turning it on, or an ad script in the page,
+// is a product decision for Dudu and never a side effect of a merge
+if (!/^const PRO_LOCK = false;/m.test(html)) block("index.html: PRO_LOCK is no longer false: the retired consumer plans would show. Only with Dudu's decision, and change this check with it");
+if (/adsbygoogle|googlesyndication|doubleclick\.net/.test(html)) block("index.html: an ad script is in the page: לוחית has no ads (terms, store listing)");
+
 for (const m of out.block) console.log(`::error::[app wiring] ${m}`);
 for (const m of out.warn) console.log(`::warning::[app wiring] ${m}`);
 console.log(`app wiring: ${Object.keys(bridge).length} bridge methods, ${uses.length} uses in the page, ${called.size} page functions the app calls, ${out.block.length} broken, ${out.warn.length} warnings`);

@@ -1,16 +1,40 @@
 name: Back-on-road detector
 # Monthly: compares the active register with last month's snapshot and keeps the plates that left the road and came back,
 # as small shards on the zombie-data branch (the app reads only the shard for the plate it shows).
+# Since 22.11.2026 (Dudu "אני מאשר", constitution rule 10): the snapshots (state/: every active plate, and the plates that left) live in an
+# Actions cache, private to the repository, as vanished.yml does; the public branch keeps only z/ (what the app reads) and meta.json (counts).
+# A cache that is not read for 7 days is dropped, so a weekly run only reads it back (keep-alive); the first run after this change takes
+# state/ from the branch one last time.
 on:
   schedule:
     # 07:07 UTC (10:07 Israel summer time, 09:07 winter; off the full hour, when GitHub delays or drops the most scheduled runs): a failure alert never comes at night, and the heavy pull stays clear of the
     # 04:00-04:30 data.gov.il latency checks (data health, data guard, infra watch)
     - cron: "7 7 3 * *"
+    - cron: "27 5 * * 1"   # Monday 05:27 UTC: keep-alive only (reads the cache back, changes nothing)
   workflow_dispatch:
+    inputs:
+      move_only:
+        description: "Only move the snapshots from the branch to the cache and republish the branch without them (no detection run)"
+        type: boolean
+        default: false
 permissions:
   contents: write
+  actions: write
+concurrency: zombie
 jobs:
+  keepalive:
+    if: github.event.schedule == '27 5 * * 1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Read the snapshot cache back, so it is not dropped
+        uses: actions/cache/restore@v4
+        with:
+          path: zombie-state
+          key: zombie-state-keepalive-${{ github.run_id }}
+          restore-keys: zombie-state-
   detect:
+    if: github.event.schedule != '27 5 * * 1'
     runs-on: ubuntu-24.04
     timeout-minutes: 150
     steps:
@@ -18,15 +42,36 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - name: Load last month's state
+      - name: Load last month's shards
         run: |
           git clone -q --depth 1 --branch zombie-data "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" zombie-out || mkdir -p zombie-out
           rm -rf zombie-out/.git
-      - run: node --max-old-space-size=6144 .github/scripts/zombie-detector.mjs
+      - name: Load last month's snapshots (private cache)
+        uses: actions/cache/restore@v4
+        with:
+          path: zombie-state
+          key: zombie-state-${{ github.run_id }}
+          restore-keys: zombie-state-
+      - name: Put the snapshots in place
+        run: |
+          if [ -d zombie-state/state ]; then rm -rf zombie-out/state && cp -r zombie-state/state zombie-out/state && echo "snapshots from the cache"
+          elif [ -d zombie-out/state ]; then echo "::notice::snapshots from the branch (the last time: from now on they stay in the cache)"
+          else echo "::warning::no snapshots in the cache or on the branch: this run records a new baseline"; fi
+      - if: ${{ !inputs.move_only }}
+        run: node --max-old-space-size=6144 .github/scripts/zombie-detector.mjs
         env:
           DIR: zombie-out
-      - name: Publish on the zombie-data branch
+      - name: Move the snapshots out of what is published
+        run: rm -rf zombie-state && mkdir -p zombie-state && mv zombie-out/state zombie-state/state && ls zombie-state/state
+      - name: Keep the snapshots for next month (private cache)
+        uses: actions/cache/save@v4
+        with:
+          path: zombie-state
+          key: zombie-state-${{ github.run_id }}
+      - name: Publish the shards on the zombie-data branch
         run: |
+          test ! -e zombie-out/state
+          msg="Back-on-road snapshot $(date -u +%F)"; [ "${{ inputs.move_only }}" = "true" ] && msg="Back-on-road shards only (snapshots moved to the private cache) $(date -u +%F)"
           cd zombie-out && git init -q && git checkout -q -b zombie-data && git add -A
-          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Back-on-road snapshot $(date -u +%F)"
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "$msg"
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" zombie-data

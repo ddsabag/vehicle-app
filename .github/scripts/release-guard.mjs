@@ -71,6 +71,8 @@ export function zoneACloses(A) {
 }
 // a version with every guardrail in range closes its own findings; "-d" keeps 1.38 from closing 1.38.2's
 export const relguardCloses = R => (R.state === "ok" && R.vn ? [`relguard:${R.vn}-d`] : []);
+// A newer version took over: every open item of the version before it (findings, ok and thin notes) has no read left to close it (22.11: 1.38.5-d7 stayed open after 1.39).
+export const relguardStale = R => (R && R.vn && R.prev && R.prev !== R.vn ? [`relguard:${R.prev}-d`, `relguard:ok:${R.prev}-`, `relguard:thin:${R.prev}-`] : []);
 // A finding is one version and one day. Once a thread checked it and closed it, a later run of the same day must not open it again: GitHub starts
 // its schedule hours late, after the backup clock's run, and on 12.11 its 12:51 UTC run reopened relguard:1.38.4-d7, closed by hand at 07:44.
 export const closedBefore = (s, key) => !!(s && s.items && s.items[key] && !s.items[key].open && s.items[key].out);
@@ -261,6 +263,9 @@ async function main() {
     else if (shut.length) { const router = IO.router || await import("./alert.mjs"); if (await router.resolve(shut)) IO.out(`zone A ${yd}: open alert closed (${shut.join(" ")})`); }
   }
   const R = judge(S, today);
+  const stale = live ? relguardStale(R) : [];
+  if (stale.length && dry) IO.out("dry, would close " + stale.join(" "));
+  else if (stale.length) { const router = IO.router || await import("./alert.mjs"); if (await router.resolve(stale, { tell: false })) IO.out(`release guard: items of ${R.prev} closed, ${R.vn} took over`); }
   IO.out(`release guard ${today}: ${R.state}${R.vn ? ` ${R.vn} from ${R.d0}, day ${R.day} vs ${R.prev || "-"}` : ""}${R.stats?.fresh?.length ? `, new save paths: ${R.stats.fresh.join(" ")}` : ""}${R.findings?.length ? `, findings: ${R.findings.map(f => f.id).join(", ")}` : ""}`);
   if (!["find", "ok", "thin"].includes(R.state)) return 0;
   let N = {};
@@ -278,6 +283,7 @@ async function main() {
   }
   await router.alert(R.state === "find" ? LEVEL.find : LEVEL.ok, key, t, E.RUN_URL || "", { today: R.state === "find" ? "silent" : "none" });
   if (shut.length && await router.resolve(shut)) IO.out(`release guard: open finding closed (${shut.join(" ")})`);
+  if (R.state !== "find" && live && await router.resolve([key], { tell: false })) IO.out(`release guard: ${key} noted and closed`);   // an ok or thin note is news, not a problem: it must not stay open in the ledger
   return 0;
 }
 
@@ -377,6 +383,8 @@ async function selftest() {
   { const S0 = { items: { "relguard:1.38.4-d7": { open: false, out: "fixed" }, "relguard:1.38.4-d3": { open: true }, "relguard:1.38.4-d1": { open: false } } };
     ok(closedBefore(S0, "relguard:1.38.4-d7") && !closedBefore(S0, "relguard:1.38.4-d3") && !closedBefore(S0, "relguard:1.38.4-d1") && !closedBefore(S0, "relguard:1.38.5-d1") && !closedBefore(null, "relguard:1.38.4-d7"),
       "a finding closed after a check stays closed for a later run of the same day; open, never closed or unknown ones are raised as before"); }
+  ok(relguardStale({ vn: "1.39.0", prev: "1.38.5" }).join() === "relguard:1.38.5-d,relguard:ok:1.38.5-,relguard:thin:1.38.5-" && relguardStale({ vn: "1.39.0", prev: null }).length === 0 && relguardStale({ vn: "1.39.0", prev: "1.39.0" }).length === 0 && "relguard:1.38.5-d7".startsWith("relguard:1.38.5-d") && !"relguard:1.38.50-d1".startsWith("relguard:1.38.5-d"),
+    "relguardStale closes the version before, never the current one");
   ok(relguardCloses(judge(mk({ cmp38: 0 }), "2026-10-30")).length === 0 && relguardCloses(judge(thin, "2026-10-30")).length === 0 && relguardCloses(judge(mk(), "2026-10-31")).length === 0,
     "a finding, a thin day or a day between checks closes nothing");
   const ZQ = zoneAQueries("2026-10-25");

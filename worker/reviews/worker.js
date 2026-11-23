@@ -59,7 +59,7 @@ function classify(text, stars) {
   if (stars >= 4 || (stars === 3 && RX.praise.test(t))) return "praise";
   return "other";
 }
-// 7-8 digit plates as written in Israel: 1234567, 12345678, 12-345-67, 123-45-678; separator = any whitespace (also a non-breaking space)
+// 7-8 digit plates as written in Israel: 7654321, 12345678, 76-543-21, 123-45-678; separator = any whitespace (also a non-breaking space)
 // or - – — . / _ with optional spaces around it. Not part of a longer digit run; exempt only after a phone prefix (050-1234567, 03 1234567).
 const SEP = String.raw`(?:\s*[-–—./_]\s*|\s+)`;
 const PLATE = new RegExp(String.raw`(?<!(?<!\d)0\d{1,2}${SEP}?)(?<!\d)(?:\d{7,8}|\d{2}${SEP}\d{3}${SEP}\d{2}|\d{3}${SEP}\d{2}${SEP}\d{3})(?!\d)`);

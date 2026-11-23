@@ -164,12 +164,16 @@ if (process.argv[2] === "selftest") {
     const cf = async p => { const r = await fetch("https://api.cloudflare.com/client/v4/accounts/" + acc + p, { headers: { authorization: "Bearer " + tok }, signal: AbortSignal.timeout(15e3) }); return r; };
     const ns = await (await cf("/storage/kv/namespaces?per_page=100")).json(), id = ((ns && ns.result) || []).find(x => x.title === "luchit-alerts")?.id;
     if (!id) throw new Error("namespace luchit-alerts not found");
-    const r = await cf("/storage/kv/namespaces/" + id + "/values/lv:cal:done"), done = r.status === 404 ? {} : await r.json();
+    const r = await cf("/storage/kv/namespaces/" + id + "/values/lv:cal:done");
+    if (!r.ok && r.status !== 404) throw new Error("Cloudflare KV answered " + r.status + " for the calendar marks");   // an error body is not the marks
+    const done = r.status === 404 ? {} : await r.json();
     const ids = Object.keys(done || {}).filter(k => /^[a-z0-9-]{1,60}$/.test(k)).sort();
     console.log("calendar done marks:", ids.length ? ids.join(", ") : "none");
     if (process.env.DRY !== "1") console.log((await putMetric("calDone", { at: new Date().toISOString(), ids })) ? "calendar marks written" : "calendar marks not written");
     // the decisions Dudu answered on /live (KV lv:act), copied to metrics.json "acts" so the done-marks task can relay each answer to the thread that owns the item
-    const ra = await cf("/storage/kv/namespaces/" + id + "/values/lv:act"), acts = ra.status === 404 ? {} : await ra.json();
+    const ra = await cf("/storage/kv/namespaces/" + id + "/values/lv:act");
+    if (!ra.ok && ra.status !== 404) throw new Error("Cloudflare KV answered " + ra.status + " for the decisions");
+    const acts = ra.status === 404 ? {} : await ra.json();
     const items = Object.fromEntries(Object.entries(acts || {}).filter(([k, v]) => /^[a-z0-9-]{1,60}$/.test(k) && v && typeof v === "object").map(([k, v]) => [k, { c: String(v.c || "").slice(0, 40), at: String(v.at || "").slice(0, 24) }]));
     console.log("decisions answered:", Object.keys(items).length ? Object.keys(items).join(", ") : "none");
     if (process.env.DRY !== "1") console.log((await putMetric("acts", { at: new Date().toISOString(), items })) ? "decisions written" : "decisions not written");

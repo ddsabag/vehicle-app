@@ -5,18 +5,19 @@
 
 /* Short source links (marketing plan decision 1, 2026-10-19): luchit.app/go/<code> answers a 302 to the home page with the channel's
    campaign tags, so a bio link or a post is counted by source (GA4 session source, the page's link_landing event, the Play referrer).
-   Optional ?c=<topic> becomes utm_campaign (letters and _ only, as the page keeps them). Sources are letters only, at most 12. */
+   Optional ?c=<topic> becomes utm_campaign (letters, digits and _ only, as lib/cfb.js keeps them). Sources are letters only, at most 12;
+   punctuation pasted after the code (/go/fb. or /go/fb)) is ignored, and an unknown code goes to the home page. */
 const GO = {
   tiktok: ["tiktok", "social", "bio"], ig: ["instagram", "social", "bio"], fb: ["facebook", "social", "post"], li: ["linkedin", "social", "post"],
   yt: ["youtube", "social", "bio"], wa: ["whatsapp", "social", "message"], mail: ["newsletter", "email", "magazine"],
   press: ["press", "referral", "article"], qr: ["qr", "print", "qr"], dealer: ["dealer", "referral", "dealer"],
 };
 function goLink(u) {
-  const m = u.pathname.toLowerCase().match(/^\/go(?:\/([a-z]*))?\/?$/);
+  const m = u.pathname.toLowerCase().match(/^\/go(?:\/([a-z]*)[^a-z/]*)?\/?$/);
   if (!m) return null;
-  const g = GO[m[1] || ""];
+  const g = Object.hasOwn(GO, m[1] || "") ? GO[m[1]] : null;
   if (!g) return new Response(null, {status: 302, headers: {location: u.origin + "/", "cache-control": "no-store"}});
-  const c = (u.searchParams.get("c") || "").toLowerCase().replace(/[^a-z_]/g, "").slice(0, 24) || g[2];
+  const c = (u.searchParams.get("c") || "").toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 24) || g[2];
   const to = `${u.origin}/?utm_source=${g[0]}&utm_medium=${g[1]}&utm_campaign=${c}`;
   return new Response(null, {status: 302, headers: {location: to, "cache-control": "no-store"}});
 }
@@ -54,7 +55,8 @@ async function plateInfo(plate) {
     rows(RECALL, {MISPAR_RECHEV: Number(plate)}),
     rows(CANCELLED, {mispar_rechev: [plate, plate.padStart(7, "0"), plate.padStart(8, "0")]}),   // text column, zero-padded in old rows
   ]);
-  const v = (act && act[0]) || (can && can[0]); if (!v) return null;
+  if (act === null) return null;   // the active register did not answer: a cancelled row alone is not the car's state (data D9), so the generic preview
+  const v = act[0] || (can && can[0]); if (!v) return null;
   const cancelled = act !== null && !act[0] && !!(can && can[0]);   // only when the active register answered and does not list the car
   const lic = cancelled ? null : licKind(v.tokef_dt, v.mivchan_acharon_dt), nRec = rec ? rec.length : null;
   const recs = nRec ? (nRec === 1 ? ", ריקול פתוח" : `, ${nRec} ריקולים פתוחים`) : "";
@@ -98,6 +100,9 @@ export default {
     if ((cmp && cmp.length < 4000) || (compare && compare.length < 400)) {
       const c = await cmpInfo(cmp || compare, !cmp);
       if (c) { title = `השוואת ${c.n} רכבים בלוחית`; desc = (c.names.some(n => n !== "רכב" && n !== "דגם") ? c.names.join(" מול ") + ". " : "") + "טסט, ריקולים, ק״מ ומפרט זה לצד זה, ממאגרי משרד התחבורה."; }
+    } else if (plate.replace(/^0+/, "") === "7654321") {   // the app's built-in sample car (DEMO_PLATE): no register holds it, so it is never looked up
+      title = "רכב לדוגמה · בדיקת רכב בלוחית";
+      desc = "דוח לדוגמה עם נתונים להמחשה. בודקים כל רכב לפי מספר רישוי: בעלויות, טסט, ריקולים וק״מ ממאגרי משרד התחבורה.";
     } else if (plate.length >= 5 && plate.length <= 8) {
       const p = await plateInfo(plate);
       if (p) {

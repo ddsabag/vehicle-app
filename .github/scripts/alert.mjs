@@ -143,7 +143,7 @@ export const LABELS = {
   "truth":               { he: "בדיקת הנתונים היומית מצאה פער מול משרד התחבורה: {ids}", sect: "fail",   // site-data-truth.mjs (Data truth); ids = its GROUPS
                            ids: { page: "איתור הרכב", identity: "פרטי הרכב", status: "סטטוס הרכב", test: "טסט", road: "עלייה לכביש", owners: "בעלויות", km: "ק״מ",
                                   recalls: "ריקולים", settlements: "הסדרי פשרה", tow: "גרירה", specs: "מפרט", mods: "שינויים ברכב", fee: "אגרת רישוי",
-                                  price: "מחיר מחירון", value: "שווי", tag: "תג נכה", insight: "תובנות", counts: "ספירת רכבים", message: "הודעות" } },
+                                  price: "מחיר מחירון", value: "שווי", tag: "תג נכה", insight: "תובנות", counts: "ספירת רכבים", message: "הודעות", buyer: "סיכום לקונה", stats: "נתוני הדגם" } },
   "truth:fail":          { he: "בדיקת הנתונים היומית לא הצליחה לקרוא מספיק רכבים", sect: "fail" },
   "truth:inv-fail":      { he: "הבדיקה השבועית של מאגרי משרד התחבורה לא הצליחה לקרוא אותם", sect: "fail" },   // data-invariants.mjs: its own key, so a clean daily run does not close it
   "truth:done":          { he: "✅ בוצע · פער בבדיקת הנתונים היומית כבר לא חוזר", sect: "fyi" },   // site-data-truth.mjs: a clean run closes the open truth items
@@ -168,6 +168,7 @@ export const LABELS = {
   "social:done":         { he: "עלה תוכן חדש בפייסבוק או באינסטגרם", sect: "none" },
   "social:remind":       { he: "תזכורת: לתזמן את תוכן השבוע בטיקטוק", sect: "wait" },
   "social:check":        { he: "החיבור לפייסבוק ולאינסטגרם נבדק", sect: "none" },
+  "kitqa":               { he: "הבדיקה הוויזואלית מצאה בערכה השבועית בעיה בכלל ברזל (לוחית רישוי או תג Google Play)", sect: "fail" },   // kit-qa.mjs (marketing, M33)
   "exp":                 { he: "ניסוי הסתיים, והוריאנט המנצח נשמר: {ids}", sect: "fyi" },   // analytics/experiments.py (Experimenter)
   // autopilot (strategy/autopilot-rules.md, Dudu 25.10): key auto:<what>:<zone>. done = level "summary", today "silent" ("✅ בוצע · <area>");
   // revert = level "day", loud (the one loud message of safety limit 5); mode = the kill switch ("עצור אוטומציה" / "הפעל אוטומציה"), silent
@@ -197,6 +198,7 @@ export const LABELS = {
   "ai:key":              { he: "מפתח ה-Claude API לא עובד או שהקרדיט נגמר, והבוטים ממשיכים בלעדיו", sect: "fail" },
   // ai-usage.mjs (ops 1.11): the bots' spend crossed 80% of this credit cycle (the grant to 20.11.2026, then monthly from the 20th; ai-usage.mjs GRANTS); news, not a fault
   "ai:spend":            { he: "הבוטים השתמשו ב-80% מקרדיט ה-Claude API של המחזור", sect: "fyi" },
+  "ai:spend95":          { he: "הבוטים השתמשו ב-95% מקרדיט ה-Claude API של המחזור", sect: "fyi" },   // data's credit plan, Dudu 20.11.2026 "כן, שחרר"
   // diff review (Dudu 1.11, credit package A): a review of a branch found a high point; product reads the report and decides, nothing waits on it
   "code":                { he: "בדיקת הקוד לפני שחרור מצאה נקודות לבדוק: {id}", sect: "fyi" },
   // exploratory walk (Dudu 1.11, credit package B): the week's walk on next noted something high; the QA thread checks it before anything changes
@@ -214,8 +216,8 @@ export const FAMILIES_IN_USE = [
   "ship:done", "ship:notes", "ship:fail", "ship:dry", "listing:done", "listing:dry", "listing:fail",
   "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:wait", "prod:fail",
   "stl:update", "stl:stuck", "stl:review", "truth", "truth:fail", "truth:done", "truth:inv", "truth:inv-fail", "truth:deep", "truth:deep-fail", "live:stuck", "live:error", "pipe",
-  "social:fail", "social:missed", "social:unsure", "social:held", "social:done", "social:remind", "social:check", "exp", "auto:done", "auto:revert", "auto:mode",
-  "relguard", "relguard:ok", "relguard:thin", "zonea", "ai", "ai:key", "ai:spend", "code", "walk", "ceo:report", "ceo:weekly",
+  "social:fail", "social:missed", "social:unsure", "social:held", "social:done", "social:remind", "social:check", "kitqa", "exp", "auto:done", "auto:revert", "auto:mode",
+  "relguard", "relguard:ok", "relguard:thin", "zonea", "ai", "ai:key", "ai:spend", "ai:spend95", "code", "walk", "ceo:report", "ceo:weekly",
 ];
 
 const TODAY = ["loud", "silent", "none"];
@@ -226,7 +228,7 @@ const TELL_MS = 72 * 36e5, LEDGER_MS = 864e5, LEDGER_CAP = 12;   // an outcome i
 // the tag line's area of a key (tg-text.mjs AREAS), by its first segment
 const AREA = { wf: "בוטים", meta: "בוטים", auto: "בוטים", smoke: "אתר", infra: "אתר", expiry: "אתר", workers: "אתר", webwatch: "אתר",
   guard: "נתונים", ministry: "נתונים", checker: "נתונים", truth: "נתונים", stl: "נתונים", catalog: "נתונים", recalls: "נתונים",
-  seo: "SEO", "seo-auto": "SEO", mag: "SEO", mention: "שיווק", comp: "שיווק", copy: "אפליקציה", notes: "חנות Google Play", social: "שיווק", review: "ביקורות", review3: "ביקורות", reviews: "ביקורות",
+  seo: "SEO", "seo-auto": "SEO", mag: "SEO", mention: "שיווק", comp: "שיווק", copy: "אפליקציה", notes: "חנות Google Play", social: "שיווק", kitqa: "שיווק", review: "ביקורות", review3: "ביקורות", reviews: "ביקורות",
   vitals: "אפליקציה", watch: "אפליקציה", ship: "חנות Google Play", listing: "חנות Google Play", safety: "חנות Google Play", prod: "חנות Google Play",
   live: "מדידה", pipe: "מדידה", relguard: "מדידה", zonea: "מדידה", weekly: "מדידה", exp: "מדידה" };
 const areaOf = key => AREA[String(key).split(":")[0]] || "בוטים";
@@ -266,7 +268,7 @@ export function validKey(k) {
   if (typeof k !== "string" || k.length > 120 || k.includes("@")) return false;
   if (!/^[a-z][a-z0-9-]*(:[A-Za-z0-9 ()._+\-]{1,80}){0,3}$/.test(k)) return false;
   return k.split(":").every(s => (/^[0-9a-f]{7,16}$/i.test(s) && /[a-f]/i.test(s)) ||   // a hash or short sha (at least one letter: an all-digit run is a number)
-    !/\d{5,}/.test(s.replace(ISO_DATE, "-").replace(/(\d)[ ()._+\-]+(?=\d)/g, "$1")));    // no 5+ digit run, separators ignored (12-345-67, 050 123 4567, 12.500)
+    !/\d{5,}/.test(s.replace(ISO_DATE, "-").replace(/(\d)[ ()._+\-]+(?=\d)/g, "$1")));    // no 5+ digit run, separators ignored (76-543-21, 050 123 4567, 12.500)
 }
 const ISO_DATE = /(?<!\d)20\d\d-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?(?!\d)/g;   // 2026-10 and 2026-10-18 in keys like mag:pub:2026-10-18-x
 const decoded = u => { try { return decodeURIComponent(u); } catch { return "@"; } };   // undecodable counts as unsafe
@@ -283,7 +285,7 @@ export function label(key) {
   if (!f && /^magazine-/.test(key)) return { he: "ניוזלטר המגזין נשלח או מחכה ב-Brevo", sect: "fyi" };   // newsletter.mjs keys its campaign name
   if (!f) return { he: "התראה: " + key, sect: "fyi" };
   const L = LABELS[f], id0 = String(key).split(":").slice(f.split(":").length).join(":"), id = f === "wf" ? botHe(id0) : id0;
-  return { he: L.he.replace("{ids}", id.split("+").map(x => (L.ids && L.ids[x]) || x).join(", ")).replace("{id}", id), sect: L.sect, ...(L.done ? { done: true } : {}) };
+  return { he: (id ? L.he : L.he.replace(/: \{ids\}$/, "")).replace("{ids}", id.split("+").map(x => (L.ids && L.ids[x]) || x).join(", ")).replace("{id}", id), sect: L.sect, ...(L.done ? { done: true } : {}) };
 }
 // one log entry; he/sc = the key's fixed headline and section (never the caller's text), so /live can list what reached Telegram
 const logEntry = (t, k, lv, a, td, sh) => { const L = label(k); return { t, k, lv, a, td, sh, he: L.he, sc: L.sect }; };
@@ -934,7 +936,7 @@ async function selftest() {
     }
     for (const d of [{ DRY: "1" }, { DRY_RUN: "1" }]) await fm("dry " + Object.keys(d)[0], { env: d }, x => x.legacy === 1 && x.m.calls.length === 0);
     await fm("no Telegram token", { env: { TELEGRAM_BOT_TOKEN: "" } }, x => x.legacy === 1 && x.m.calls.length === 0);
-    await fm("invalid key", { key: "plate:12-345-67" }, x => x.legacy === 1 && x.m.calls.length === 0 && x.out[0] === "alert <invalid-key> -> legacy");
+    await fm("invalid key", { key: "plate:76-543-21" }, x => x.legacy === 1 && x.m.calls.length === 0 && x.out[0] === "alert <invalid-key> -> legacy");
     await fm("missing branch is created as an orphan", { branch: false }, x => x.legacy === 0 && x.m.calls.includes("POST /repos/o/r/git/refs") && x.st.items["guard:core:a1b2c3d4"].sent);
     for (const [name, o] of [["shadow", { env: { ALERT_ROUTE: "" } }], ["gate not met", { level: "summary", state: { v: 1, items: {}, hb: {}, log: [] } }], ["unrouted dry", { env: { DRY: "1" } }]]) {
       let thrown = null;
@@ -1022,7 +1024,7 @@ async function selftest() {
       const m = net({ state: { v: 1, items: {}, hb: gates(DAY), log: [] } }), texts = [];
       let seed = 7; const rnd = k => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed % k; };
       const pick = a => a[rnd(a.length)];
-      const bits = ["dudu.sabag@example.co.il", "12-345-67", "123-45-678", "050-1234567", "+972-52-765-4321", "4815162342", "₪12,500", "שלום", "הרכב",
+      const bits = ["dudu.sabag@example.co.il", "76-543-21", "123-45-678", "050-1234567", "+972-52-765-4321", "4815162342", "₪12,500", "שלום", "הרכב",
         "<b>חשוב</b>", "a&amp;b", "Toyota Corolla 2019", "ת.ז. 012345678", "https://evil.example/x?u=1", "קילומטראז' 154,321"];
       const keys = () => pick(["wf:Data guard", "smoke:home+lookup", "infra:site", "guard:core:" + h12(rnd(1e6)).slice(0, 8), "review:" + h12(rnd(1e6)),
         "catalog:" + h12(rnd(9)), "mag:fail:2026-10", "seo:daily", "seo-auto:blocked:" + h12(rnd(50)).slice(0, 7), "mention:" + h12(rnd(5)), "meta:uptime"]);
@@ -1062,16 +1064,16 @@ async function selftest() {
     }
 
     // keys and labels
-    for (const k of ["plate:12-345-67", "plate:123-45-678", "plate:1234567", "x:12345", "user:dudu@example.com", "phone:050-1234567", "Bad:x",
+    for (const k of ["plate:76-543-21", "plate:123-45-678", "plate:7654321", "x:12345", "user:dudu@example.com", "phone:050-1234567", "Bad:x",
       "x:" + "a".repeat(81), "a:b:c:d:e", "x:" + "ab ".repeat(39) + ":" + "c".repeat(40), "", "x:<b>", "num:+972-50-123-4567",
-      "x:050-123-4567", "x:052-765-4321", "x:050 123 4567", "x:12.345.67", "x:12 345 67", "x:12_345_67", "x:123.45.678", "x:12.500", "x:1 234 567",
+      "x:050-123-4567", "x:052-765-4321", "x:050 123 4567", "x:12.345.67", "x:76 543 21", "x:76_543_21", "x:123.45.678", "x:12.500", "x:1 234 567",
       "x:2026-10-1234567", "x:(050)1234567"]) ok(!validKey(k), "validKey rejects " + k);
     for (const k of ["wf:Web deploy (build)", "seo-auto:blocked:a1b2c3d", "catalog:" + h12("x"), "mag:fail:2026-10", "guard:core:1a2b3c4d", "smoke:home+lookup",
       "infra:quota-cf+site", "checker:data-health", "mag:pub:2026-10-18-new-cars", "infra-branches:2026-10", "x:v1.2.3"]) ok(validKey(k), "validKey accepts " + k);
     for (const f of FAMILIES_IN_USE) ok(family(f) !== null, "label for family " + f);
     for (const [f, ids] of [["smoke", "home lookup magazine applinks privacy model sitemap cert domain certcheck"], ["expiry", "cert domain certcheck"],
       ["infra", "site api sitemap quota-cf quota-brevo"], ["vitals", "crash anr"], ["listing:fail", "access files play"], ["prod:fail", "access promote auto"], ["safety:fail", "access files play"],
-      ["truth", "page identity status test road owners km recalls settlements tow specs mods fee price value tag insight counts message"],
+      ["truth", "page identity status test road owners km recalls settlements tow specs mods fee price value tag insight counts message buyer stats"],
       ["truth:inv", "fresh tests renewal dates reuse owners km hook price wltp recalls pubcancel lend"], ["pipe", "web app errors ga"],
       ["truth:deep", "identity status test road owners km recalls settlements tow specs mods fee price value insight message other"],
       ["ai", "themes triage advisor recalls shots names mag comp anomalies stl stlrev audit cause mail noise ceo-read guard kitdraft kitqa diff walk"]]) {   // every id a call site can put in the key (spec 10.1) has Hebrew
@@ -1088,7 +1090,7 @@ async function selftest() {
       && label("ai:key").he.startsWith("מפתח ה-Claude API") && label("ai:key").sect === "fail" && validKey("ai:key") && validKey("ai:recalls"),
       "Claude API labels: one per bot, the key's own");
     ok(label("truth:deep:owners+km").he === "הביקורת החודשית העמוקה מצאה ממצאים שהבדיקה היומית לא תפסה: בעלויות, ק״מ" && label("truth:deep:km").sect === "fyi"
-      && label("truth:deep:km").done === true && label("truth:deep-fail").sect === "fail" && label("ai:audit").he.endsWith("הביקורת החודשית העמוקה"),
+      && label("truth:deep:km").done === true && label("truth:deep").he === "הביקורת החודשית העמוקה מצאה ממצאים שהבדיקה היומית לא תפסה" && label("truth:deep-fail").sect === "fail" && label("ai:audit").he.endsWith("הביקורת החודשית העמוקה"),
       "the monthly deep audit: news by area, told when a clean month closes it; too few cars is a failure");
     const used = scanKeys(ROOT), missing = used.filter(k => !FAMILIES_IN_USE.some(f => f === k || f.startsWith(k + ":") || k.startsWith(f + ":")));
     ok(missing.length === 0, "call-site keys missing from FAMILIES_IN_USE: " + missing.join(", "));
@@ -1129,7 +1131,7 @@ async function selftest() {
     ok(c.code === 0 && c.last === "ALERT_LEGACY" && c.m.state().log.at(-1).a === "failed", "cli: Telegram failed -> ALERT_LEGACY");
     c = await runCli(["send", "summary", "catalog:" + h12("x"), "--today", "loud", "--plain", "--text", "x"]);
     ok(c.code === 0 && c.last === "ALERT_DONE queued 1", "cli: queued");
-    c = await runCli(["send", "day", "plate:12-345-67", "--today", "loud", "--text", "x"]);
+    c = await runCli(["send", "day", "plate:76-543-21", "--today", "loud", "--text", "x"]);
     ok(c.code === 0 && c.last === "ALERT_LEGACY", "cli: invalid key -> ALERT_LEGACY");
     for (const argv of [["send", "day"], ["send", "bogus", "k:x", "--today", "loud", "--text", "x"], ["send", "day", "k:x", "--today", "maybe", "--text", "x"],
       ["send", "day", "k:x", "--today", "loud"], ["send", "day", "k:x", "--today", "loud", "--text", "x", "--file", "f"], ["frob"], ["wf"], ["send", "day", "k:x", "--bogus"],

@@ -124,9 +124,9 @@ for (const [k, t] of Object.entries(W.TEMPLATES)) {
   ok(W.chars(t) <= 350 && t.trim().endsWith("צוות לוחית") && !W.PLATE.test(t) && !BANNED.test(t) && !W.invalid(t), `template ${k}: ${W.chars(t)} chars, signed, clean`);
 }
 ok(Object.keys(W.TEMPLATES).sort().join() === "crash,data,dealer,feature,other,praise,price", "one template per class");
-for (const p of ["1234567", "12345678", "12-345-67", "123-45-678", "12 345 67", "123.45.678", "רכב 8212345 נבדק", "12–345–67",
-  "דגם 2019 12-345-67", "שנת 2021 1234567", "רכב מס' 1 12345678", "12 - 345 - 67", "12/345/67", "12—345—67", "12\u00a0345\u00a067", "12_345_67",
-  "1234567 3 פעמים", "12345678 2"]) ok(W.PLATE.test(p) && W.invalid(p + "\nצוות לוחית").includes("מספר רכב"), "plate " + JSON.stringify(p));
+for (const p of ["7654321", "12345678", "76-543-21", "123-45-678", "76 543 21", "123.45.678", "רכב 8212345 נבדק", "76–543–21",
+  "דגם 2019 76-543-21", "שנת 2021 7654321", "רכב מס' 1 12345678", "76 - 543 - 21", "76/543/21", "76—543—21", "76\u00a0543\u00a021", "76_543_21",
+  "7654321 3 פעמים", "12345678 2"]) ok(W.PLATE.test(p) && W.invalid(p + "\nצוות לוחית").includes("מספר רכב"), "plate " + JSON.stringify(p));
 for (const p of ["2020-2024", "050-1234567", "0501234567", "03-1234567", "054 1234567", "1.32.1", "120,000 ק\"מ", "123456", "123456789", "12.10.2026", "1,234,567"])
   ok(!W.PLATE.test(p), "not a plate " + p);
 
@@ -149,7 +149,7 @@ ok(calls.length === 0, "22:05 Israel is night");
 // ---- 5. a tick: loud 1-2, silent 3-5, skips answered, KV writes ----
 reset();
 reviews = [review("gp:one", 1, "האפליקציה קורסת <b>תמיד</b> & לא נפתחת", { ts: 1 }), review("gp:two", 2, "המוכר שיקר לי", { ts: 2 }), review("gp:three", 3, "סבבה", { ts: 3 }),
-  review("gp:five", 5, "מעולה! 12-345-67", { ts: 4 }), review("gp:done", 1, "גרוע", { ts: 5, answered: true }), review("gp:empty", 1, "  ", { ts: 6 })];
+  review("gp:five", 5, "מעולה! 76-543-21", { ts: 4 }), review("gp:done", 1, "גרוע", { ts: 5, answered: true }), review("gp:empty", 1, "  ", { ts: 6 })];
 await tick();
 let c = cards();
 ok(c.length === 4, "4 cards (answered and empty skipped): " + c.length);
@@ -207,7 +207,7 @@ const answer = text => post({ message: { message_id: 900 + qid++, chat: { id: +C
 p0 = puts;
 await answer("א".repeat(351));
 ok(sent().at(-1).text.includes("ארוך מדי") && puts === p0, "too long edit refused, nothing stored");
-await answer("תודה, נבדוק את רכב 12-345-67");
+await answer("תודה, נבדוק את רכב 76-543-21");
 ok(sent().at(-1).text.includes("מספר רכב") && puts === p0, "plate in edit refused");
 await answer("   ");
 ok(sent().at(-1).text.includes("ריק") && puts === p0, "empty edit refused");
@@ -375,7 +375,7 @@ for (const [why, t] of [["digits", inA("נשמח לעזור תוך 2 ימים")]
   ["words", inA("הרכב הזה ממש מציאה")], ["words", inA("רכב מומלץ ומשתלם")], ["words", inA("אנחנו מבטיחים לבדוק")], ["words", inA("מצטערים שהסוחר שיקר לכם")],
   ["words", inA("מצטערים על המוכר ושהסתיר מכם את זה")], ["words", inA("הסוחרים האלה רמאים")], ["contact", inA("כתבו גם ל-help@example.com")], ["contact", inA("עוד ב-luchit.app/help")],
   ["contact", inA("מידע נוסף ב-www.gov.il")], ["language", "Thanks for the review, we are sorry about the crash and would love to hear more about it" + S], ["language", "תודה רבה" + S],
-  ["invalid", "א".repeat(345)], ["invalid", "⬇️ טיוטת התשובה ⬇️ " + A + S], ["invalid", ""], ["invalid", "  \n "], ["invalid", inA("רכב 12-345-67")],
+  ["invalid", "א".repeat(345)], ["invalid", "⬇️ טיוטת התשובה ⬇️ " + A + S], ["invalid", ""], ["invalid", "  \n "], ["invalid", inA("רכב 76-543-21")],
   ["signature", "תודה, צוות לוחית, נשמח לשמוע עוד מכם ב-support@luchit.app ותודה שכתבתם" + S], ["template", W.TEMPLATES.crash]])
   ok(W.aiCheck(t, "crash").why === why, `aiCheck ${why}: ${JSON.stringify(t.slice(-40))} -> ${W.aiCheck(t, "crash").why || "passes"}`);
 ok(W.aiCheck("תודה, ממליצים לבדוק כל רכב גם במכון בדיקה מורשה. נוכל לעזור אם תכתבו ל-support@luchit.app" + S, "dealer").why === "", "advice to check a car, and נוכל = we can: allowed");

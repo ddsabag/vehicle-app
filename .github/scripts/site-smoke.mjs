@@ -12,6 +12,7 @@ import tls from "node:tls";
 import { flash } from "./flash.mjs";
 import { ministryDown } from "./datasets.mjs";
 import { msg, heError } from "./tg-text.mjs";
+import { judgeFlags } from "./flags-check.mjs";
 import { PAGES as FORM_PAGES, judge as formJudge, apiCheck as formApi } from "./form-check.mjs";
 const SITE = (process.env.SITE || "https://luchit.app/").replace(/\/?$/, "/"), HOST = new URL(SITE).hostname;
 const DRY = process.env.DRY_RUN === "1", sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -96,11 +97,21 @@ async function pagesCheck() {
   catch (e) { out.push({ id: "sitemap", title: "מפת האתר", detail: `מפת האתר לא נפתחה: ${he(e.message)}.`, impact: "גוגל לא יאנדקס את הדפים.", raw: `sitemap.xml: ${String(e.message).slice(0, 100)}` }); }
   out.push(...await shareCheck());
   out.push(...await formsCheck());
+  out.push(...await flagsCheck());
   return out;
 }
 
 // ---- 1c. the forms (form-check.mjs, 7.11.2026: the magazine page refused every address with an "s" for two weeks and only the form's presence
 // was checked): each page's own address check against real and broken addresses, and the API Worker's refusals. No mail is sent.
+// ---- 1d. flags.json on the flags branch (strategy audit 22.11.2026, D16): the site and the API Worker read it and treat any error as
+// "all off", so a bad comma would switch a feature off unseen. No file = no flags (fine); a file must be an object of known keys, true/false.
+async function flagsCheck() {
+  try {
+    const r = await fetch("https://raw.githubusercontent.com/ddsabag/vehicle-app/flags/flags.json?st=" + Date.now(), { signal: AbortSignal.timeout(20000) });
+    const why = judgeFlags(r.status, await r.text());
+    return why ? [{ id: "flags", title: "קובץ הדגלים (flags.json)", detail: why + ".", impact: "האתר והשרת קוראים קובץ שגוי כ\"הכול כבוי\", ולכן תכונה שהודלקה כבתה בלי שאף אחד יודע.", raw: why.slice(0, 120) }] : [];
+  } catch (e) { console.log("flags not checked:", e.message.slice(0, 80)); return []; }
+}
 async function formsCheck() {
   const bad = [];
   for (const p of FORM_PAGES) {
@@ -128,18 +139,24 @@ async function shareCheck() {
     const loc = r.headers.get("location") || "";
     if (r.status !== 302 || !loc.includes("utm_source=whatsapp")) out.push({ id: "go", title: "קישורי הקמפיין (פוסטים וביו)", detail: "קישור קמפיין לוואטסאפ לא הפנה כמו שצריך.", impact: "קישורי הקמפיין לא ייפתחו או לא ייספרו לפי מקור. כנראה תקלה בשירות התצוגה המקדימה.", raw: `/go/wa HTTP ${r.status}${loc ? " -> " + loc.slice(0, 80) : ""}, expected 302 with utm_source=whatsapp, Worker luchit-og` });
   } catch (e) { out.push({ id: "go", title: "קישורי הקמפיין (פוסטים וביו)", detail: `הבקשה נכשלה: ${he(e.message)}.`, impact: "קישורי הקמפיין לא ייפתחו.", raw: `/go/wa: ${e.message.slice(0, 80)}` }); }
-  // once a day: a car link names the car (the preview's own 2.5 s ministry budget), with the app's public example plate
+  // once a day: a car link names the car (the preview's own 2.5 s ministry budget)
   if (process.env.GITHUB_EVENT_NAME !== "push") try {
-    const html = await get(SITE).then(x => x.t), ex = (html.match(/const EXAMPLE_PLATE = "(\d+)"/) || [])[1];
-    if (ex) { const { t } = await get(SITE + "?plate=" + ex + st, { headers: { "user-agent": WA } }); if (!ogTitle(t).includes(" · ")) out.push({ id: "carlink", ministry: true, title: "תצוגה מקדימה של קישור לרכב", detail: "קישור לרכב הדוגמה קיבל כותרת כללית במקום שם הרכב.", impact: "רכב שנשלח בוואטסאפ יופיע בלי שם ובלי מצב הטסט. ייתכן שמשרד התחבורה איטי כרגע; אם זה חוזר מחר, זו תקלה בשירות התצוגה המקדימה.", raw: `og:title "${ogTitle(t).slice(0, 60)}", Worker luchit-og` }); }
+    // the app's example is now the built-in sample car, which the preview cannot name: a car from the register instead (product audit 22.11)
+    const ex = await registerPlate();
+    if (ex) { const { t } = await get(SITE + "?plate=" + ex + st, { headers: { "user-agent": WA } }); if (!ogTitle(t).includes(" · ")) out.push({ id: "carlink", ministry: true, title: "תצוגה מקדימה של קישור לרכב", detail: "קישור לרכב מהמאגר קיבל כותרת כללית במקום שם הרכב.", impact: "רכב שנשלח בוואטסאפ יופיע בלי שם ובלי מצב הטסט. ייתכן שמשרד התחבורה איטי כרגע; אם זה חוזר מחר, זו תקלה בשירות התצוגה המקדימה.", raw: `og:title "${ogTitle(t).slice(0, 60)}", Worker luchit-og` }); }
   } catch (e) { console.log("car preview not checked:", e.message.slice(0, 80)); }
   return out;
 }
 
 // ---- 2. a real lookup in a real browser, with a plate taken from the ministry's active register
-async function lookupCheck() {
+// a car from the ministry's active register, read at run time and never written down (the code keeps only the built-in sample car)
+async function registerPlate() {
   let plate = "38548003";
   try { const { t } = await get("https://data.gov.il/api/3/action/datastore_search?resource_id=053cea08-09bc-40ec-8f7a-156f0677aff3&limit=1&offset=500&filters=" + encodeURIComponent(JSON.stringify({ shnat_yitzur: 2018 }))); const p = JSON.parse(t).result.records[0].mispar_rechev; if (p) plate = String(p); } catch {}
+  return plate;
+}
+async function lookupCheck() {
+  const plate = await registerPlate();
   const { chromium } = await import("playwright");
   const b = await chromium.launch(); const errs = [];
   try {
