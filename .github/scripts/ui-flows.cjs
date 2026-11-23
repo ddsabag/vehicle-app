@@ -349,6 +349,17 @@ const JOURNEYS = [
   // with its expiry, the look and the fuel settings, and in the app an alert kind and the car's alerts switched off. Then the page opens
   // again (reloaded here; on the emulator, c.reopen: the app goes to the background and is stopped, as a swipe in the recent apps does,
   // then started) and each of them must be back in its place, with nothing left loading
+  // the inspection fake door with its switch on (strategy D5): the tap is read out, focus is not lost, and the list opens at stage 3 with the city field ready
+  { name: "fake-door", only: "one", web: true, flags: { inspect_fake_door: true }, when: (c) => KEEPS_ON.includes(c.dev.id), steps: [
+    ["check", async (p, c) => { await check()(p, c); await p.waitForTimeout(600); }, isCar()],
+    ["door", async (p) => { const b = p.locator('[data-fd="result"]'); await b.scrollIntoViewIfNeeded(); await b.focus(); await b.click(); },
+      async (m, c) => { const r = await c.page.evaluate(() => { const st = document.querySelector('.fd[data-place="result"] .fd-st'); const a = document.activeElement; return { st: st ? st.textContent : "", role: st && st.getAttribute("role"), focus: a && a.matches && a.matches("[data-fdgo]") }; });
+        return /בקרוב/.test(r.st) && r.role === "status" && r.focus || `the fake door should say "בקרוב" in its status line and move focus to "לרשימת המכונים", got ${JSON.stringify(r)}`; }],
+    ["to-list", tap("[data-fdgo]"), async (m, c) => { const r = await c.page.evaluate(() => ({ f: document.activeElement && document.activeElement.id, st: document.querySelector(".bchips [aria-pressed=true]") && document.querySelector(".bchips [aria-pressed=true]").textContent })); return m.tab === "buy" && r.f === "inspCity" || `"לרשימת המכונים" should open the buy tab at stage 3 with the city field focused, got tab ${m.tab}, focus ${r.f}, stage ${r.st}`; }],
+    ["door-buy", async (p) => { const b = p.locator('[data-fd="institutes"]'); await b.focus(); await b.click(); },
+      async (m, c) => { const r = await c.page.evaluate(() => ({ st: (document.querySelector('.fd[data-place="institutes"] .fd-st') || {}).textContent || "", f: document.activeElement && document.activeElement.id })); return /בקרוב/.test(r.st) && r.f === "inspCity" || `the buy tab's door should say "בקרוב" and keep focus on the city field, got ${JSON.stringify(r)}`; }],
+    ["pdf-free", async () => {}, async (m, c) => { const n = await c.page.evaluate(() => { try { reportBuild = true; const h = tabOverview(current) + tabBuy(current); return (h.match(/data-fd=/g) || []).length; } catch (e) { return "err " + e.message; } finally { reportBuild = false; } }); return n === 0 || `a report (reportBuild) must carry no fake door, found ${n}`; }],
+  ] },
   { name: "keeps", only: "one", when: (c) => KEEPS_ON.includes(c.dev.id), steps: [
     ["check", check(), isCar()],
     ["nick", async (p) => { await p.click("#chead [data-act=cmenu]"); await p.click(".ch-menu [data-act=nickCar]"); await p.fill("#nickBar input", KEEP.nick); await p.press("#nickBar input", "Enter"); },
@@ -558,6 +569,8 @@ async function openCtx(browser, dev, theme, stateName, J) {
     const close = ctx.close.bind(ctx); ctx.close = async () => { await close(); fs.rmSync(dir, { recursive: true, force: true }); };
   } else ctx = await browser.newContext(opts);
   await ctx.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (r) => r.abort());
+  // a journey's remote switches (flags branch, flags.json); without J.flags the file is unreachable and every switch is off, as on a failed fetch
+  if (J && J.flags) await ctx.route(/raw\.githubusercontent\.com\/ddsabag\/vehicle-app\/flags\/flags\.json/, (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(J.flags) }));
   const net = { offline: false };   // a mocked answer would still arrive with the context offline, so the mock stops answering too
   await ctx.route(/data\.gov\.il/, (r) => (net.offline ? r.abort("internetdisconnected") : govRoute(r, J && J.gov)));
   await ctx.addInitScript(({ ls, app, bridge, quiet }) => {

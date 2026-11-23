@@ -99,7 +99,7 @@ const OWN_HOSTS = /^(luchit\.app|appassets\.androidplatform\.net|data\.gov\.il)$
 // the other addresses the page may call, and why: each one is a data flow the privacy policy and Play's Data safety form must cover, so a
 // new one blocks until it is listed here with its reason (and the policy checked)
 const KNOWN_HOSTS = {
-  "raw.githubusercontent.com": "the repository's data branches: ownership history and cars back on the road by the plate's last 3 digits only, the model catalogue, the data status",
+  "raw.githubusercontent.com": "the repository's data branches: ownership history and cars back on the road by the plate's last 3 digits only, the model catalogue, the data status, the remote test switches (flags)",
   "static.cloudflareinsights.com": "Cloudflare Web Analytics on the website, loaded only with analytics on (no cookies)",
   "cdn.jsdelivr.net": "the readers that run on the phone: the plate photo, a document's expiry date (tesseract.js, pdf.js) and the shared image; only the library files come down, nothing of the user's goes up (privacy.html: צילום לוחית, תיק הרכב, מידע נוסף שנטען)",
 };
@@ -206,7 +206,8 @@ const ONLY_APP = { app_return: "the app opened again after a day", first_save: "
 ONLY_WEB.home_sheet = "on an iPhone, once after a car is saved: how to put the website on the home screen (no app for iPhone)";
 // and impressions that depend on the platform's state or on what fits on the screen, so either side may send them at another step
 const SOMETIMES = { calendar_reminder_shown: "the calendar button: always on the website, in the app only when the phone's own alert will not cover the test",
-  file_cta_shown: "counted when 60% of the file's invitation is on the screen, which depends on the layout above it" };
+  file_cta_shown: "counted when 60% of the file's invitation is on the screen, which depends on the layout above it",
+  inspect_fake_door_view: "the inspection fake-door test: shown only while the remote switch is on, when 60% of it is on the screen" };
 
 // ---- what the dashboard and the reports read, and what sends it: the page, the app's own code, worker/api, or GA4 itself
 function readers() {
