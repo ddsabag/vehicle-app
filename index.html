@@ -1246,7 +1246,8 @@ const expTag = name => ({exp: name, exp_v: String(expV(name))});
 const expSeen = new Set();
 function expExpose(name){ if (expSeen.has(name)) return; expSeen.add(name); track("exp_expose", expTag(name)); }
 async function loadExperiments(){
-  try { const r = await fetch(SITE + "experiments.json", {cache: "no-cache"}); if (r.ok) { const j = await r.json(); if (j && typeof j === "object") localStorage.setItem("exp_cfg", JSON.stringify(j)); } } catch {}
+  const j = await fetchExperimentsConfig();
+  if (j && typeof j === "object") try { localStorage.setItem("exp_cfg", JSON.stringify(j)); } catch {}
 }
 setTimeout(loadExperiments, 4000);
 // anonymous facts about what kind of car was looked up (brand, model, fuel), never the plate or anything that identifies a person
@@ -1763,6 +1764,51 @@ function hookField(v){
 }
 const hasTow = r => r && (isNum(r.kosher_grira_im_blamim) && num(r.kosher_grira_im_blamim) > 0 || isNum(r.kosher_grira_bli_blamim) && num(r.kosher_grira_bli_blamim) > 0);
 
+/* ---------- services for our own files and the ministry's count and search ----------
+   Every network request outside dsFetch, ownMirror and zombieLookup is one of these named calls (ui-lint counts any fetch() outside this section).
+   The file readers revalidate (cache: no-cache) and answer null when the file cannot be read or parsed, so a missing file never breaks a page. */
+// one of our JSON files: the parsed file, or null
+async function fetchFreshJson(url){
+  try { const r = await fetch(url, {cache: "no-cache"}); return r.ok ? await r.json() : null; } catch { return null; }
+}
+// the same as text, for cachedJson, which stores the exact text it checked: the text, or null
+async function fetchFreshText(url){
+  try { const r = await fetch(url, {cache: "no-cache"}); return r.ok ? await r.text() : null; } catch { return null; }
+}
+// the A/B test settings the site publishes (experiments.json)
+function fetchExperimentsConfig(){ return fetchFreshJson(SITE + "experiments.json"); }
+// this month's petrol and diesel prices (fuel.json, fuel.mjs)
+function fetchFuelPrices(){ return fetchFreshJson(SITE + "fuel.json"); }
+// which ministry registers answered today (status.mjs, data-status branch)
+function fetchDataStatus(){ return fetchFreshJson("https://raw.githubusercontent.com/ddsabag/vehicle-app/data-status/status.json"); }
+// the importers' service intervals, plain (service.json); only the app carries it
+function fetchServiceTable(){ return fetchFreshJson("service.json"); }
+// the same table sealed for release builds (service.bin, seal-service.mjs): the bytes, or null
+async function fetchSealedServiceTable(){
+  try { const r = await fetch("service.bin", {cache: "no-cache"}); return r.ok ? new Uint8Array(await r.arrayBuffer()) : null; } catch { return null; }
+}
+// the latest magazine articles (magazine/posts.json, built monthly): the list, [] when the file is missing; throws when offline
+async function fetchMagazinePosts(){
+  const r = await fetch("magazine/posts.json"); return r.ok ? r.json() : [];
+}
+// a picture shared into the app arrives as a data: URL; throws when it cannot be decoded
+async function blobFromDataUrl(dataUrl){ return (await fetch(dataUrl)).blob(); }
+/* An empty ministry dataset answers "no rows" for every plate; tell that apart from a plate that does not exist */
+async function sourceTotal(signal, id = PLATE_SETS[0].id){
+  try {
+    const r = await fetch(`${API}?resource_id=${id}&limit=0`, {signal: signal || timeoutSignal(10000)});
+    if (!r.ok) return null;
+    const j = await r.json();
+    const n = j && j.success ? Number(j.result && j.result.total) : NaN;
+    return Number.isFinite(n) ? n : null;
+  } catch (e) { if (e.name === "AbortError") throw e; return null; }
+}
+// the ministry's full-text search (dsSearch's tries): the parsed answer; throws on a network error or a page that is not JSON
+async function fetchCkanSearch(params, signal){
+  const r = await fetch(`${API}?${new URLSearchParams(params)}`, {signal, headers: {Accept: "application/json"}});
+  return r.json();
+}
+
 
 
 /* ---------- small UI helpers ---------- */
@@ -2012,8 +2058,7 @@ function showFuelDefaults(){
 }
 async function loadFuel(){
   try {
-    const r = await fetch(SITE + "fuel.json", {cache: "no-cache"}); if (!r.ok) return;
-    const j = await r.json(); if (!(j.petrol95 > 0)) return;
+    const j = await fetchFuelPrices(); if (!j || !(j.petrol95 > 0)) return;
     const changed = !fuelLive || fuelLive.petrol95 !== j.petrol95 || fuelLive.diesel !== j.diesel || fuelLive.month !== j.month;
     fuelLive = j; try { localStorage.setItem("fuelLive", JSON.stringify(j)); } catch {}
     showFuelDefaults();
@@ -2847,16 +2892,7 @@ async function fetchModelData(v, signal, useCat){
   return {w, towRow, zeroTow, counts, price, priceRows, modelRecalls, modelRecallsUnknown, modelErr};
 }
 
-/* An empty ministry dataset answers "no rows" for every plate; tell that apart from a plate that does not exist */
-async function sourceTotal(signal, id = PLATE_SETS[0].id){
-  try {
-    const r = await fetch(`${API}?resource_id=${id}&limit=0`, {signal: signal || timeoutSignal(10000)});
-    if (!r.ok) return null;
-    const j = await r.json();
-    const n = j && j.success ? Number(j.result && j.result.total) : NaN;
-    return Number.isFinite(n) ? n : null;
-  } catch (e) { if (e.name === "AbortError") throw e; return null; }
-}
+/* An empty ministry dataset answers "no rows" for every plate; sourceTotal (API section) tells that apart from a plate that does not exist */
 const sourceEmpty = (signal, id) => sourceTotal(signal, id).then(t => t === null ? null : t === 0);
 /* The per-car recall list answers 0 rows for every plate while the ministry reloads it overnight (status.mjs), and that must read as "unknown",
    never as "no open recall". A plate with no rows reads the list's own total: a list with rows is trusted for the next hour of the session,
@@ -3305,8 +3341,7 @@ function srcFoot(){
 async function loadStatus(){
   if (DATA_STATUS) return;
   try {
-    const r = await fetch("https://raw.githubusercontent.com/ddsabag/vehicle-app/data-status/status.json", {cache: "no-cache"});
-    if (!r.ok) return; DATA_STATUS = await r.json();
+    const j = await fetchDataStatus(); if (!j) return; DATA_STATUS = j;
     const el = $("#srcFoot"); if (el) el.outerHTML = srcFoot();
   } catch {}
 }
@@ -3549,14 +3584,12 @@ function loadService(){
   if (SERVICE) return Promise.resolve(SERVICE);
   if (!window.AndroidApp) return Promise.resolve(null);   // the table is private and only the app carries it: the site asks for nothing (it got two 404s per car page)
   return svP || (svP = (async () => {
-    for (const u of ["service.json"]) {
-      try { const r = await fetch(u, {cache: "no-cache"}); if (r.ok) { const j = await r.json(); if (j && j.rows) return SERVICE = j; } } catch {}
-    }
+    { const j = await fetchServiceTable(); if (j && j.rows) return SERVICE = j; }
     // release builds carry the table sealed (service.bin) with its key written into the page at build time (seal-service.mjs)
     if (SVK[0] !== "_" && window.crypto && crypto.subtle) try {   // the slot is still "__SVK__" outside release builds; base64 never starts with "_"
-      const r = await fetch("service.bin", {cache: "no-cache"});
-      if (r.ok) {
-        const b = new Uint8Array(await r.arrayBuffer()), raw = Uint8Array.from(atob(SVK), ch => ch.charCodeAt(0));
+      const b = await fetchSealedServiceTable();
+      if (b) {
+        const raw = Uint8Array.from(atob(SVK), ch => ch.charCodeAt(0));
         const k = await crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["decrypt"]);
         const j = JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name: "AES-GCM", iv: b.slice(0, 12)}, k, b.slice(12))));
         if (j && j.rows) return SERVICE = j;
@@ -4976,7 +5009,7 @@ async function cachedJson(urls, onFresh, maxAge){
   const stale = cache ? await (async () => { for (const u of urls) { const h = await cache.match(u).catch(() => null); if (h) return {u, txt: await h.text()}; } return null; })() : null;
   const fresh = (async () => {
     for (const u of urls) {
-      try { const r = await fetch(u, {cache: "no-cache"}); if (!r.ok) continue; const txt = await r.text(); JSON.parse(txt); if (cache) cache.put(u, new Response(txt, {headers: {"Content-Type": "application/json"}})).catch(() => {}); return {u, txt}; } catch {}   // a 200 that is not JSON (an error page) never replaces a good copy
+      try { const txt = await fetchFreshText(u); if (txt === null) continue; JSON.parse(txt); if (cache) cache.put(u, new Response(txt, {headers: {"Content-Type": "application/json"}})).catch(() => {}); return {u, txt}; } catch {}   // a 200 that is not JSON (an error page) never replaces a good copy
     }
     return null;
   })();
@@ -5167,8 +5200,7 @@ async function dsSearch(id, words, filters, limit, signal){
     const ctl = new AbortController(), onAb = () => ctl.abort(); if (signal) signal.addEventListener("abort", onAb);
     const tm = setTimeout(() => ctl.abort(), 15000);   // a hung server ends in a clear message, not "מחפשים…" forever
     try {
-      const r = await fetch(`${API}?${new URLSearchParams({...base, ...t})}`, {signal: ctl.signal, headers: {Accept: "application/json"}});
-      const j = await r.json();
+      const j = await fetchCkanSearch({...base, ...t}, ctl.signal);
       if (j.success) answered = true;
       if (j.success && j.result.records.length) return j.result.records;
     } catch (err) { if (err.name === "AbortError" && signal && signal.aborted) throw err; }
@@ -7389,7 +7421,7 @@ let MARKET = null, MK = {mode: "year", sel: null};
 async function loadMarket(){
   if (MARKET) return MARKET;
   for (const u of [SITE + "market.json", "market.json"]) {
-    try { const r = await fetch(u, {cache: "no-cache"}); if (r.ok) return MARKET = await r.json(); } catch {}
+    const j = await fetchFreshJson(u); if (j) return MARKET = j;
   }
   throw new Error("market");
 }
@@ -7836,7 +7868,7 @@ function homeRail(saved){
 /* card height = 134px + 76px per article shown (measured); the count seen last time is remembered, one article on a first visit */
 function mgzHeight(){ let n = 1; try { n = Math.min(3, Math.max(1, parseInt(localStorage.getItem("mgzN"), 10) || 1)); } catch {} return 134 + 76 * n; }
 function loadMagazine(){
-  fetch("magazine/posts.json").then(r => r.ok ? r.json() : []).then(list => {
+  fetchMagazinePosts().then(list => {
     const box = $("#mgz"); if (!box) return;
     if (!Array.isArray(list) || !list.length) { box.remove(); return; }
     try { localStorage.setItem("mgzN", String(Math.min(3, list.length))); } catch {}
@@ -8142,7 +8174,7 @@ window.onSharedText = text => {
 };
 window.onSharedImage = async dataUrl => {
   renderHome();
-  try { const blob = await (await fetch(dataUrl)).blob(); plateFromPhoto(blob); } catch { toast("לא הצלחנו לפתוח את התמונה"); }
+  try { const blob = await blobFromDataUrl(dataUrl); plateFromPhoto(blob); } catch { toast("לא הצלחנו לפתוח את התמונה"); }
 };
 /* launcher shortcuts */
 window.appAction = what => {
