@@ -2704,7 +2704,7 @@ const CAT_MAX_AGE = 2;   // days: an older stored copy of the meta or of a maker
 const withTimeout = (p, ms) => Promise.race([p, new Promise(r => setTimeout(() => r(null), ms))]);
 let catMetaP = null, catMetaV = null; const CAT_ROWS = new Map(), CAT_REC = new Map(), CAT_LINKS = new Map();
 function catMeta(){
-  return catMetaP || (catMetaP = cachedJson([CAT_BASE + "meta.json"], null, CAT_MAX_AGE).catch(() => null).then(j => { const ok = j && j.makers ? j : null; if (!ok) catMetaP = null; else catMetaV = ok; return ok; }));
+  return catMetaP || (catMetaP = cachedJson([CAT_BASE + "meta.json"], nj => { if (nj && nj.makers) catMetaV = nj; }, CAT_MAX_AGE).catch(() => null).then(j => { const ok = j && j.makers ? j : null; if (!ok) catMetaP = null; else catMetaV = ok; return ok; }));
 }
 const catCd = cd => String(num(cd) || String(cd || "").trim());
 const catFile = (url, key, map) => { if (!map.has(key)) map.set(key, withTimeout(cachedJson([url]).catch(() => null), CAT_TIMEOUT).then(j => { if (!j) map.delete(key); return j; })); return map.get(key); };
@@ -2751,6 +2751,8 @@ const modelRecallsOf = (rows, v, meta, w) => markReach(learnedRecalls(rows, CAT_
    is included", never "not open on this car". The catalogue writes the current reach daily (meta.recHz, recall-percar.mjs); REC_HZ is the one of 19.10.2026. */
 const REC_HZ = {id: 16576, d: "2026-04-14", from: 16426, max: 16821, ids: [16426, 16436, 16437, 16438, 16439, 16440, 16447, 16452, 16460, 16462, 16463, 16464, 16465, 16467, 16468, 16469, 16471, 16474, 16484, 16485, 16499, 16502, 16506, 16511, 16512, 16513, 16515, 16518, 16530, 16531, 16543, 16544, 16551, 16552, 16573, 16574, 16575, 16576]};
 const recallHz = meta => meta && meta.recHz && meta.recHz.id ? meta.recHz : REC_HZ;
+// the date shown to the user comes only from the loaded catalogue meta: with no meta, no date (REC_HZ is a stale fallback for the logic only)
+const recallHzShown = () => catMetaV && catMetaV.recHz && catMetaV.recHz.id ? catMetaV.recHz : null;
 /* The list also lacks many recalls altogether, old ones too: 35-65% of every year's recalls on 20.10.2026 (all fixed, no Israeli cars, or never published:
    the data cannot tell which). The catalogue lists the recalls it holds (meta.recIn, catalog-build.mjs), and this is the one place that decides what the
    list can say about a plate that is not in it, for one model recall:
@@ -2809,7 +2811,7 @@ function pendingWords(pr){
   };
 }
 /* "no open recall" names how far the per-car list reaches while it lags the recall list (in 10/2026: recalls opened up to 14.4.2026) */
-const perCarTo = () => { const hz = recallHz(catMetaV); return hz.max > hz.id && hz.d ? fmtDate(hz.d) : ""; };
+const perCarTo = () => { const hz = recallHzShown(); return hz && hz.max > hz.id && hz.d ? fmtDate(hz.d) : ""; };
 /* where the per-car list is the only recall check: a vehicle with no model code in its register (two-wheelers, heavy vehicles, a car known
    only from the import register) never had its model's recalls read, and a personal import is not always in an official importer's recall
    (the insights say both). There the lines say what the list showed, never "נבדק" (data thread's audit, 28.10) */
@@ -4487,7 +4489,7 @@ function tabRecalls(D){
   if (car && D.importKind) row("info", "הרכב יובא ביבוא אישי, ולכן לא נבדק מול הסדרי הפשרה. ההסדרים חלים על רכבים שיובאו דרך היבואן הרשמי.");
   else if (car && !stl.length) row(SETTLEMENTS.length, SETTLEMENTS.length ? "לא נמצא הסדר פשרה מוכר לדגם ולשנתון" : "רשימת הסדרי הפשרה לא נטענה כרגע");
   const above = D.recalls.length || stl.length || check;
-  const src = [plateView && (hz.max > hz.id ? `ריקולים פתוחים: לפי רשימת משרד התחבורה, שכוללת כרגע ריקולים שנפתחו עד ${esc(fmtDate(hz.d))}.` : "ריקולים פתוחים: לפי רשימת משרד התחבורה."),
+  const src = [plateView && (perCarTo() ? `ריקולים פתוחים: רשימת משרד התחבורה לפי מספר רישוי מתעדכנת באיחור, וכוללת כרגע ריקולים שנפתחו עד ${esc(perCarTo())}. ריקולים חדשים יותר מופיעים כאן לפי הדגם.` : "ריקולים פתוחים: לפי רשימת משרד התחבורה."),
     car && !D.importKind && !stl.length && stlActive() && `הסדרי פשרה: נבדקו מול ${stlActive()} הסדרים פעילים, לפי הודעות היבואנים והעיתונות (עודכן ב-${stlAsOf()}). הרשימה אינה מקיפה.`].filter(Boolean);
   if (rows.length || src.length) html.push(card(above ? "בדקנו גם" : `מה נבדק (${rows.length === 1 ? "בדיקה אחת" : rows.length + " בדיקות"})`, "check", rows.some(r => r.includes("ins warn")) ? "amber" : "green",
     `${rows.length ? `<ul class="insights plain">${rows.join("")}</ul>` : ""}${src.length ? `<p class="note">${src.join("<br>")}</p>` : ""}${D.recalls.length || check ? "" : btn}`));
@@ -7438,7 +7440,7 @@ function msCard(D){
   // the rate counts the per-car list, which runs only to its horizon: no rate when the list did not answer for this car, or for a year still built
   // after it (data truth 11/2026: 0.0 for a 2025 model a new recall covers whole), and otherwise it says how far the list runs
   const hz = recallHz(catMetaV), hzY = recallYear(hz.d);
-  if (avg && !D.recallUnknown && !(hzY && c.year >= hzY)) rows.push(["ריקולים פתוחים לכל 1,000 רכבים", c.rec.toFixed(c.rec < 10 ? 1 : 0), `בממוצע לשנתון: ${avg.rec.toFixed(avg.rec < 10 ? 1 : 0)}${hz.d ? `, לפי ריקולים שנפתחו עד ${fmtDate(hz.d)}` : ""}`, vs(c.rec, avg.rec)]);
+  if (avg && !D.recallUnknown && !(hzY && c.year >= hzY)) rows.push(["ריקולים פתוחים לכל 1,000 רכבים", c.rec.toFixed(c.rec < 10 ? 1 : 0), `בממוצע לשנתון: ${avg.rec.toFixed(avg.rec < 10 ? 1 : 0)}${recallHzShown() && hz.d ? `, לפי ריקולים שנפתחו עד ${fmtDate(hz.d)}` : ""}`, vs(c.rec, avg.rec)]);
   const model = rows.filter(r => !r[4]), good = model.filter(r => r[3] === "ok").length, bad = model.filter(r => r[3] === "bad").length;
   const verdict = !avg ? "" : good && bad ? "במדד אחד הדגם הזה טוב מהממוצע ובאחר פחות טוב."
     : good ? (good === model.length ? "הדגם הזה, בשנתון הזה, טוב מהממוצע בכל המדדים." : "בסך הכול הדגם הזה טוב מהממוצע.")
