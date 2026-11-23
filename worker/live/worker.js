@@ -2090,11 +2090,13 @@ const QS={visit:{name:"מגיעים לאתר",key:"visits",ser:"web_visit",ids:[
  ret:{name:"חוזרים למחרת",key:"d1",ids:["save1","saves","return7"],u:"מהמשתמשים החדשים"},
  share:{name:"משתפים",key:"shares",ser:"share",per:"car_lookup",ids:["shareOpen"],gu:" ל-100 בדיקות",u:"ל-100 בדיקות"},
  health:{name:"השירות",key:"health",ids:["slow","crashes","rating","store","bots","alerts24","auto"]},
- money:{name:"הכנסה",key:"leads",ids:["subs"]}},
+ money:{name:"הכנסה",key:"leads",ids:["subs","inspectDoor"]}},
  ROUTE=["visit","check","inst","ret","share"],
  SRCN={app:["באפליקציה","מהאפליקציה"],facebook:["מפייסבוק","מפייסבוק"],ai:["מצ׳אטבוטים כמו ChatGPT","מצ׳אטבוטים"],direct:["ישירות לאתר","מכניסות ישירות לאתר"],google:["מגוגל","מגוגל"],whatsapp:["מווטסאפ","מווטסאפ"]},
  G2={marketing:"check",seo:"visit",release:"ret",data:"health",ops:"health",strategy:"money",growth:"check",product:"ret",business:"money"},
  GOPEN=new Set();
+// the fake door line shows from its first view only (C.fdOn)
+const sIds=(C,g)=>QS[g].ids.filter(id=>id!=="inspectDoor"||C.fdOn);
 const stOf=id=>Object.keys(QS).find(g=>QS[g].key===id||QS[g].ids.indexOf(id)>=0)||null;
 function ctx(d){
 const C={d};C.LG=d.goals||null;
@@ -2646,7 +2648,7 @@ function stRow(C,g){const s=QS[g],r=M(C,s.key);if(!r)return "";const a=w5(C,g),x
  return '<a class="qst s-'+qsc(r.s)+'" href="'+href({v:"st",g,m:null})+'" data-st="'+g+'"><span class="nm">'+esc(s.name)+"<small>"+qgt(g,r)+'</small></span><span class="v">'+r.big
   +(x?'<small class="'+(x.up?"up":"dn")+'">'+x.t+"</small>":s.u||r.unit?'<small class="mu">'+esc(s.u||r.unit)+"</small>":"")+"</span>"+qspark(a)+"</a>"}
 // the service and income lines: a dot for the worst of the station's numbers, and one sentence
-function worst(C,g){const rs=[QS[g].key].concat(QS[g].ids).map(i=>M(C,i)).filter(Boolean);return rs.find(r=>r.s==="bad")?"bad":rs.find(r=>r.s==="warn")?"warn":rs.find(r=>r.s==="ok")?"ok":"nt"}
+function worst(C,g){const rs=[QS[g].key].concat(sIds(C,g)).map(i=>M(C,i)).filter(Boolean);return rs.find(r=>r.s==="bad")?"bad":rs.find(r=>r.s==="warn")?"warn":rs.find(r=>r.s==="ok")?"ok":"nt"}
 function sideRow(C,g){const r=M(C,QS[g].key);if(!r)return "";let t;
  if(g==="health"){const b=QS.health.ids.map(i=>M(C,i)).filter(x=>x&&x.s==="bad");t=r.s==="ok"&&b.length?esc(ROWN[QS.health.ids.find(i=>M(C,i)===b[0])]||b[0].name)+": "+b[0].big:r.big+" "+esc(r.unit||"")+(r.tt?", "+qgt(g,r):"")}
  else{const sb=M(C,"subs");t=r.v>0?n(r.v)+" פניות עסקיות השבוע":"עדיין אין פניות עסקיות"+(sb&&sb.v>0?", "+n(sb.v)+(sb.v===1?" נרשם":" נרשמים")+" למגזין":"")}
@@ -2720,7 +2722,7 @@ function renderStation(C,g){const s=QS[g],r=M(C,s.key);if(!r)return qback+'<p cl
  if(g==="check"){const R=srcRows(C);if(R){R.sort((p,q)=>p.d-q.d);h+='<h3 class="qsec">מאיפה באו הבדיקות, מול שבוע שעבר</h3><table class="qtb">'+R.map(o=>"<tr><td>"+o.nm[0]+'</td><td class="n">'+n(o.cur)+'</td><td class="d '+(o.d<0?"dn":o.d>0?"up":"mu")+'">'+(o.d>0?"+":o.d<0?"−":"")+n(Math.abs(o.d))+"</td></tr>").join("")+"</table>"}}
  if(g==="money")h+=qgateM();
  const LH=g==="health"&&C.LG&&C.LG.items?C.LG.items.filter(i=>i.t==="health"&&i.v!=null&&!HREG[i.k]):[];
- h+='<h3 class="qsec">עוד כאן</h3><div class="qsubs">'+s.ids.map(id=>subRow(C,id)).join("")+(LH.length?'<div class="sb">'+LH.map(i=>lgRow(C,i)).join("")+"</div>":"")+"</div>";
+ h+='<h3 class="qsec">עוד כאן</h3><div class="qsubs">'+sIds(C,g).map(id=>subRow(C,id)).join("")+(LH.length?'<div class="sb">'+LH.map(i=>lgRow(C,i)).join("")+"</div>":"")+"</div>";
  h+='<a class="qlnk" href="'+href({m:s.key})+'" data-m="'+s.key+'">כל הנתונים על «'+esc(s.name)+"»</a>";
  const why=LGR[s.key]&&C.LG&&C.LG.last&&lgItem(C,LGR[s.key])?lgWhy(C,lgItem(C,LGR[s.key])):"";
  h+='<details class="qdet"><summary>מה סופרים'+(why?" ולמה זה היעד":"")+"</summary><p>"+esc(m.def)+"</p>"+(why?"<div>"+why+"</div>":"")+'<p class="qnote">המקור: '+esc(m.src)+". האחריות: "+esc(m.owner)+".</p></details>";
@@ -2733,7 +2735,7 @@ function renderStationM(C,g){const s=QS[g],r=M(C,s.key),t=tmo(C,s.key),m=r.m,a=t
  if(t){h+='<p class="qbig">'+t.big+(t.unit||s.u?"<small>"+esc(t.unit||s.u)+"</small>":"")+'</p><ul class="qtl">'+t.lines.map(l=>"<li>"+esc(l)+"</li>").join("")+"</ul>";
   if(a)h+=qbars(g,a,null)+'<p class="qnote">ארבעת השבועות שבתוך החודש.</p>'}
  else h+='<p class="qnote" style="margin:10px 0 16px">את «'+esc(s.name)+'» סופרים רק לשבוע שלם. <a href="'+href({w:"week"})+'" data-w="week">לראות את השבוע</a></p>';
- h+='</div><div class="qb">'+(g==="money"?qgateM():"")+'<h3 class="qsec">עוד כאן</h3><div class="qsubs">'+s.ids.map(id=>subRowT(C,id)).join("")+"</div>";
+ h+='</div><div class="qb">'+(g==="money"?qgateM():"")+'<h3 class="qsec">עוד כאן</h3><div class="qsubs">'+sIds(C,g).map(id=>subRowT(C,id)).join("")+"</div>";
  h+='<a class="qlnk" href="'+href({m:s.key})+'" data-m="'+s.key+'">כל הנתונים על «'+esc(s.name)+"»</a>";
  h+='<details class="qdet"><summary>מה סופרים</summary><p>'+esc(m.def)+'</p><p class="qnote">המקור: '+esc(m.src)+". האחריות: "+esc(m.owner)+".</p></details>";
  return h+"</div></div>"}
@@ -2741,7 +2743,7 @@ function renderStationT(C,g){const s=QS[g],r=M(C,s.key),t=r.today,m=r.m;
  let h='<div class="qstn">'+qbk()+'<div class="qa"><p class="qdt">'+esc(s.name)+", היום עד "+asOf(C)+"</p>";
  if(t)h+='<p class="qbig">'+t.big+(t.unit?"<small>"+esc(t.unit)+"</small>":"")+'</p><ul class="qtl">'+t.lines.map(l=>"<li>"+l+"</li>").join("")+"</ul>";
  else h+='<p class="qnote" style="margin:10px 0 16px">את «'+esc(s.name)+'» סופרים רק לשבוע שלם. <a href="'+href({w:"week"})+'" data-w="week">לראות את השבוע</a></p>';
- h+='</div><div class="qb">'+(g==="money"?qgateM():"")+'<h3 class="qsec">עוד כאן</h3><div class="qsubs">'+s.ids.map(id=>subRowT(C,id)).join("")+"</div>";
+ h+='</div><div class="qb">'+(g==="money"?qgateM():"")+'<h3 class="qsec">עוד כאן</h3><div class="qsubs">'+sIds(C,g).map(id=>subRowT(C,id)).join("")+"</div>";
  h+='<a class="qlnk" href="'+href({m:s.key})+'" data-m="'+s.key+'">כל הנתונים על «'+esc(s.name)+"»</a>";
  h+='<details class="qdet"><summary>מה סופרים</summary><p>'+esc(m.def)+'</p><p class="qnote">המקור: '+esc(m.src)+". האחריות: "+esc(m.owner)+".</p></details>";
  return h+"</div></div>"}
