@@ -4863,7 +4863,8 @@ document.addEventListener("submit", ev => { if (ev.target.matches("[data-insp]")
    Off unless the remote switch (flags branch, flags.json) says on, so it can be stopped without a version; no form, nothing personal kept.
    Never in a report (PDF, D4); the status line is in the box from the start, so "בקרוב" is read when it is written (D15) */
 const FLAGS = {};
-loadFlags().then(j => Object.assign(FLAGS, j));
+// a car drawn before the switch arrived gets its door now (same scroll), so the read's denominator does not hold cars that never saw it
+loadFlags().then(j => { Object.assign(FLAGS, j); if (FLAGS.inspect_fake_door === true && current && !inCompare && document.body.dataset.screen === "car" && fdOn(current) && !document.querySelector(".fd")) { const y = window.scrollY; renderResult(); window.scrollTo({top: y}); } });
 const fdOn = D => FLAGS.inspect_fake_door === true && !reportBuild && !!D && !!D.plate && D.kind !== "model" && !D.isCancelled && roleOf(D) !== "owner";
 const fdSeen = new Set(), fdDone = new Set();
 function fdBox(D, place){
