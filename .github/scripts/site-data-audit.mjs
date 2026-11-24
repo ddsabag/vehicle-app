@@ -712,7 +712,7 @@ function compare(c, X, P) {
       return N(r.SHNAT_RECALL) >= now.getFullYear() - ABSENT_YEARS ? "absent" : "nolist"; };
     // as the app since 22.11 (spec item 3a, afterRoad in index.html): a recall of cars built after this one went on the road is of other years
     const onRoadYM = (() => { const m = String(R.moed_aliya_lakvish || "").match(/^((?:19|20)\d{2})-(\d{1,2})/) || String(R.rishum_rishon_dt || "").match(/^((?:19|20)\d{2})-(\d{1,2})/);
-      return m ? {m: +m[1] * 12 + +m[2] - 1, y: +m[1]} : !isNaN(y) ? {m: y * 12, y} : null; })();
+      return m ? {m: +m[1] * 12 + +m[2] - 1, y: +m[1]} : !isNaN(y) ? {m: y * 12 + 11, y} : null; })();   // as the app (index.html onRoad): with only the production year, December of it
     const buildFrom = x => { const s = String(x || "").trim(); let m;
       if ((m = s.match(/^((?:19|20)\d{2})-(\d{1,2})/))) return {m: +m[1] * 12 + +m[2] - 1};
       if ((m = s.match(/^(?:\d{1,2}[/.])?(\d{1,2})[/.]((?:19|20)\d{2})$/))) return {m: +m[2] * 12 + +m[1] - 1};
