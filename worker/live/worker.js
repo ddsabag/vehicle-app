@@ -8,7 +8,7 @@
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];
 const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-const BUILD = "live-68";   // shown in /live/data so the running version is visible
+const BUILD = "live-69";   // shown in /live/data so the running version is visible
 const HEAD = { "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...HEAD, "content-type": "application/json; charset=utf-8" } });
 
@@ -70,6 +70,42 @@ const report = async (env, body) => {
   if (+j.rowCount > rows.length) CUT.add((body.dimensions || []).map(d => d.name).join("+") + "@" + (body.limit || "default"));
   return rows;
 };
+// GA4 funnels (v1alpha): the saver return windows. A breakdown takes 15 values at most (install weeks here)
+const funnel = async (env, body) => {
+  const r = await fetch(`https://analyticsdata.googleapis.com/v1alpha/properties/${env.GA_PROPERTY_ID}:runFunnelReport`, { method: "POST", headers: { authorization: "Bearer " + await googleToken(env), "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(GA_MS) });
+  if (!r.ok) throw new Error("ga4 funnel " + r.status + " " + (await r.text()).replace(/\s+/g, " ").slice(0, 120));
+  return ((await r.json()).funnelTable || {}).rows || [];
+};
+// Return of savers and non-savers within 7, 30 and 60 days (CEO save plan, 24.11; strategy: the same install cohorts for every window, only
+// cohorts old enough for it). Savers start at first_save (install day, from 1.36 = 21.10); non-savers at a car check by a new device that never
+// saved (a check, not first_open: first_open sits in the install session, so a "new session" after it counted almost everyone). "Back" = a new
+// session within the window. By ISO install week; a week counts in a window when its last day plus the window is at most the report's end.
+// Asked once a day (six funnels), the last good answer kept for the same end.
+let retWin = null, retWinAt = 0;
+const RW_FROM = "2026-10-21", RW = [7, 30, 60];
+function isoMon(yw) { const y = +yw.slice(0, 4), w = +yw.slice(4), j4 = new Date(Date.UTC(y, 0, 4)), d = (j4.getUTCDay() + 6) % 7; return new Date(j4.getTime() + ((w - 1) * 7 - d) * 864e5).toISOString().slice(0, 10); }
+function rwSum(rows, end, days) {
+  const o = { n: 0, back: 0, weeks: 0 };
+  for (const r of rows || []) { const v = r.dimensionValues.map(x => x.value), wk = v[v.length - 1], step = v[0]; if (!/^\d{6}$/.test(wk)) continue;
+    if (addDays(isoMon(wk), 6 + days) > end) continue; const c = Number(r.metricValues[0].value);
+    if (step.startsWith("1.")) { o.n += c; o.weeks++; } else if (step.startsWith("2.")) o.back += c; }
+  return o;
+}
+async function retWindows(env, end) {
+  if (retWin && retWin.end === end && Date.now() - retWinAt < 864e5) return retWin;
+  const app = { funnelFieldFilter: { fieldName: "platform", stringFilter: { value: "Android" } } }, BD = { breakdownDimension: { name: "isoYearIsoWeek" }, limit: 15 };
+  const steps = (first, d) => [{ name: "start", filterExpression: { andGroup: { expressions: [{ funnelEventFilter: { eventName: first } }, app] } } },
+    { name: "back", isDirectlyFollowedBy: false, withinDurationFromPriorStep: d * 864e2 + "s", filterExpression: { funnelEventFilter: { eventName: "session_start" } } }];
+  const se = n => ({ segmentEventFilter: { eventName: n } }), C = x => ({ andConditionGroups: [{ conditionScoping: "USER_CRITERIA_ACROSS_ALL_SESSIONS", segmentFilterExpression: se(x) }] });
+  const never = { name: "never_saved", userSegment: { userInclusionCriteria: C("first_open"), exclusion: { userExclusionDuration: "USER_EXCLUSION_PERMANENT", userExclusionCriteria: C("car_save") } } };
+  const R = [{ startDate: RW_FROM, endDate: end }], out = { end };
+  for (const d of RW) {
+    const [s, ns] = await Promise.all([funnel(env, { dateRanges: R, funnel: { isOpenFunnel: false, steps: steps("first_save", d) }, funnelBreakdown: BD }),
+      funnel(env, { dateRanges: R, funnel: { isOpenFunnel: false, steps: steps("car_lookup", d) }, segments: [never], funnelBreakdown: BD })]);
+    out[d] = { s: rwSum(s, end, d), ns: rwSum(ns, end, d) };
+  }
+  retWin = out; retWinAt = Date.now(); return out;
+}
 const cleanToken = t => String(t || "").replace(/^[\s"']*(bearer\s+)?/i, "").replace(/[\s"']+$/, "").replace(/[^\x21-\x7e]/g, "");   // pasted secrets often carry a newline, quotes or the word Bearer
 // "today" means the Israel calendar day (GA4 uses the property time zone; Cloudflare is queried with the same boundaries)
 const ilDay = t => new Date(t).toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" });
@@ -235,6 +271,12 @@ async function collectWeekly(env, today) {
     // every event by day and by platform over the 28 days, for the drill-down of each action in the usage drawer (site or app, day by day) and the weekly funnel
     safe(report(env, { dateRanges: [dr(M)], dimensions: [{ name: "date" }, { name: "platform" }, { name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: REAL, limit: 10000 }), "ga4 events by day"),
     end >= FD_FROM ? safe(fdRead(env, end), "ga4 fake door") : null]);
+  // the save plan (CEO 24.11): saves and undos by door, app and site, with checks for the rate; alerts sent and opened by kind, four ISO weeks
+  // (kind "test" is the alerts' own test and is left out); the saver return windows
+  const [sdr, ntf, rw] = await Promise.all([
+    safe(report(env, { dateRanges: [dr(W), dr(P)], dimensions: [{ name: "platform" }, { name: "eventName" }, { name: "customEvent:from" }], metrics: [{ name: "eventCount" }], dimensionFilter: withReal(any(["car_save", "car_unsave", "car_lookup"])), limit: 1000 }), "ga4 save doors"),
+    safe(report(env, { dateRanges: [{ startDate: addDays(end, -27), endDate: end }], dimensions: [{ name: "isoYearIsoWeek" }, { name: "eventName" }, { name: "customEvent:kind" }], metrics: [{ name: "eventCount" }, { name: "totalUsers" }], dimensionFilter: withReal(any(["notif_sent", "notif_open"])), limit: 500 }), "ga4 alerts"),
+    end >= RW_FROM ? safe(retWindows(env, end), "ga4 return windows") : null]);
   const ri = r => { const v = r.dimensionValues[r.dimensionValues.length - 1].value; return /^date_range_\d$/.test(v) ? Number(v.slice(-1)) : 0; };
   const ev = [{}, {}, {}];
   for (const r of evs || []) ev[ri(r)][r.dimensionValues[0].value] = [Number(r.metricValues[0].value), Number(r.metricValues[1].value)];
@@ -300,11 +342,21 @@ async function collectWeekly(env, today) {
   // { event: { a: [28 days in the app], w: [28 days on the site] } }, oldest first: the week shown is the last 7 days, the week before the 7 before them
   const ed = {};
   for (const r of e28 || []) { const [dt, pf, name] = r.dimensionValues.map(x => x.value), i = Math.round((Date.parse(iso8(dt) + "T12:00:00Z") - Date.parse(M[0] + "T12:00:00Z")) / 864e5); if (!(i >= 0 && i <= 27)) continue; (ed[name] ||= { a: Array(28).fill(0), w: Array(28).fill(0) })[pf === "web" ? "w" : "a"][i] += Number(r.metricValues[0].value); }
-  const fresh = { errors, end, W, P, M, CW, ev: evs ? ev : null, fails: fails ? fk : null, shared: links ? shared : null, social: links ? social : null,
+  // { app|web: [this week, week before] of { checks, save: { door: n }, unsave: { door: n } } }; door: star (the star or a tab's save button),
+  // file, recv, buy_ask, plus ("+"), compare, other (bulk, anything unknown)
+  const DOOR = { file: "file", recv: "recv", buy_ask: "buy_ask", add: "plus", compare: "compare", bulk: "other", "(not set)": "other", "": "other" };
+  const sdoor = sdr ? { app: [0, 1].map(() => ({ checks: 0, save: {}, unsave: {} })), web: [0, 1].map(() => ({ checks: 0, save: {}, unsave: {} })) } : null;
+  for (const r of sdr || []) { const [pf, nm, fr] = r.dimensionValues.map(x => x.value), o = sdoor[pf === "web" ? "web" : "app"][ri(r)], c = Number(r.metricValues[0].value);
+    if (nm === "car_lookup") o.checks += c; else { const k = DOOR[fr] || "star", t = nm === "car_save" ? o.save : o.unsave; t[k] = (t[k] || 0) + c; } }
+  // { kind: { ISO week: [sent, opened, devices sent to] } }
+  const alerts = ntf ? {} : null;
+  for (const r of ntf || []) { const [wk, nm, kd] = r.dimensionValues.map(x => x.value); if (kd === "test") continue; const o = ((alerts[kd || "(not set)"] ||= {})[wk] ||= [0, 0, 0]);
+    if (nm === "notif_sent") { o[0] += Number(r.metricValues[0].value); o[2] += Number(r.metricValues[1].value); } else o[1] += Number(r.metricValues[0].value); }
+  const fresh = { errors, end, W, P, M, CW, sdoor, alerts, retWin: rw, ev: evs ? ev : null, fails: fails ? fk : null, shared: links ? shared : null, social: links ? social : null,
     days: hist ? hd.car_lookup : null, series: hist ? hd : null,
     app: app ? appU : null, savers: saveU ? Object.fromEntries(saveU.filter(r => ri(r) === 0).map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)])) : null, saversP: saveU ? Object.fromEntries(saveU.filter(r => ri(r) === 1).map(r => [r.dimensionValues[0].value, Number(r.metricValues[0].value)])) : null, money: money ? { leads: Math.max(0, (m.b2b_lead_submit || 0) - testsOf("b2b_lead_submit", "2026-10-01")), subscribers: Math.max(0, (m.newsletter_confirm || 0) - testsOf("newsletter_confirm", "2026-10-01")) } : null, sources: src, pages, bySource: bySrc ? bs : null, srcSeen: bySrc ? srcSeen : null, byCamp: bySrc ? bc : null, coh: ret ? coh : null, appSrc: appS ? aSrc : null, appOpen: appC ? aOpen : null, dur: durs ? dur : null, door: door ? dr8 : null, e28: e28 ? ed : null, fd: end >= FD_FROM ? fd || { error: true } : null };
   // the last good numbers stand in for a part that failed, but only for the same week (a new week starts clean)
-  weekly = keep(fresh, weekly && weekly.end === end ? weekly : null, ["ev", "fails", "shared", "social", "days", "series", "app", "savers", "money", "sources", "pages", "bySource", "srcSeen", "byCamp", "coh", "appSrc", "appOpen", "dur", "door", "saversP", "e28"]);
+  weekly = keep(fresh, weekly && weekly.end === end ? weekly : null, ["ev", "fails", "shared", "social", "days", "series", "app", "savers", "money", "sources", "pages", "bySource", "srcSeen", "byCamp", "coh", "appSrc", "appOpen", "dur", "door", "saversP", "e28", "sdoor", "alerts", "retWin"]);
   // a Google part that failed is asked again after a minute; Cloudflare alone after five, so its failure does not re-run the Google queries every minute
   weeklyAt = Date.now(); weeklyTtl = Object.keys(errors).some(k => k.startsWith("ga4")) ? 60e3 : Object.keys(errors).length ? 300e3 : 900e3; return weekly;
 }
@@ -2087,7 +2139,7 @@ const NEW=!/^\/live\/v2\/?$/.test(location.pathname);if(NEW)document.documentEle
 const QS={visit:{name:"מגיעים לאתר",key:"visits",ser:"web_visit",ids:["google","impressions","pages","googleChecks","campChecks","organic"]},
  check:{name:"בודקים רכב",key:"checks",ser:"car_lookup",ids:["checksApp","siteChecks"]},
  inst:{name:"מתקינים את האפליקציה",key:"installs",ser:"first_open",ids:["installedNow","active28"]},
- ret:{name:"חוזרים למחרת",key:"d1",ids:["save1","saves","return7"],u:"מהמשתמשים החדשים"},
+ ret:{name:"חוזרים למחרת",key:"d1",ids:["save1","saves","return7","saveDoor","alerts","retWin"],u:"מהמשתמשים החדשים"},
  share:{name:"משתפים",key:"shares",ser:"share",per:"car_lookup",ids:["shareOpen"],gu:" ל-100 בדיקות",u:"ל-100 בדיקות"},
  health:{name:"השירות",key:"health",ids:["slow","crashes","rating","store","bots","alerts24","auto"]},
  money:{name:"הכנסה",key:"leads",ids:["subs","inspectDoor"]}},
@@ -2304,6 +2356,21 @@ REG.return7={name:"רכב שמור מחזיר אנשים?",dept:"release",def:"�
   else{s="warn";w="פחות מפי 3";r="השמירה לא מחזירה מספיק: אם זה יישאר כך, מפסיקים לדחוף התקנות, ולוחית היא כלי אתר לשימוש חד-פעמי."}
   return {s,w,v:x,big:x==null?"-":x===Infinity?"∞":"פי "+n1(x),unit:x==null?"":x>=1?"שומרים חוזרים יותר":"שומרים חוזרים פחות",tt:"היעד פי 3",read:r,lines:[r1!=null?"חזרו: <b>"+pc(r1)+"</b> ממי ששמרו, <b>"+pc(r0)+"</b> ממי שלא":"",s==="early"||s==="wait"?"":"הסף: פי 3"],win:"התקנות מ-"+dm(QF)+(mat?" עד "+dm(mat):""),foot:"עד 22.11, אחרת 6.12",
    drill:[s==="wait"||!Cq?null:{h:"המספרים",html:'<ul class="kv">'+kv("התקנות חדשות מ-1.36",n(I),"מ-"+dm(QF)+" עד "+(end?dm(end):"-")+", בישראל")+kv("שמרו רכב ביום ההתקנה",n(Sv)+(I?' <small class="flat">('+pc(Sv/I*100)+")</small>":""),"אחוז השומרים מתוך המתקינים")+kv("חזרו בתוך 7 ימים, מי ששמר",N1?n(R1)+" מתוך "+n(N1)+' <small class="flat">('+pc(r1)+")</small>":"-","התקנות שעבר עליהן שבוע שלם"+(mat&&mat>=QF?" (עד "+dm(mat)+")":""))+kv("חזרו בתוך 7 ימים, מי שלא שמר",N0?n(R0)+" מתוך "+n(N0)+' <small class="flat">('+pc(r0)+")</small>":"-","")+kv("פי כמה חוזרים מי ששמרו",x==null?"-":x===Infinity?"רק הם חזרו":"פי "+n1(x),"הסף: פי 3")+"</ul>"+(Est?note("הערכה: האפליקציה לא שולחת כרגע את יום ההתקנה, ולכן "+n(Est)+" שמירות וחזרות שויכו לפי התאריך שלהן."):"")}]}}};
+// the save plan (CEO 24.11.2026): saves by door per 100 checks, alerts by kind, and saver return at 7, 30 and 60 days. Context rows: no goal,
+// no colour judgement; numbers show from the first answer (strategy: x1.5 at 30 days stands beside the 7-day line, the line itself unchanged)
+const DOOR_HE={star:"הכוכב",file:"תיק הרכב",recv:"אחרי הבדיקה",buy_ask:"שאלת הקנייה",plus:"«+»",compare:"השוואה",other:"אחר"};
+REG.saveDoor={name:"שמירות לפי דלת",dept:"release",def:"כמה שמירות רכב יש לכל 100 בדיקות, לפי הכפתור שממנו שמרו, באפליקציה ובאתר. לידן: איזה חלק מהשמירות בוטל.",how:"גוגל אנליטיקס: car_save ו-car_unsave לפי from, חלקי car_lookup, 7 ימים עד אתמול. הכוכב כולל את כפתור השמירה של כל לשונית.",src:"גוגל אנליטיקס",owner:"מדידה",
+ calc(C){const D=C.W&&C.W.sdoor;if(!D)return {s:"nodata",big:"-",lines:["אין נתון מגוגל אנליטיקס"]};const sum=o=>Object.values(o).reduce((a,b)=>a+b,0),per=(o,i)=>o[i].checks?sum(o[i].save)/o[i].checks*100:null;
+  const a=per(D.app,0),w=per(D.web,0),ap=per(D.app,1),row=(pf,he)=>{const o=D[pf][0],t=sum(o.save);return t?he+": "+Object.keys(o.save).sort((x,y)=>o.save[y]-o.save[x]).map(k=>DOOR_HE[k]+" <b>"+n1(o.save[k]/(o.checks||1)*100)+"</b>").join(", ")+" לכל 100 בדיקות; בוטלו "+pc(sum(o.unsave)/t*100):he+": אין שמירות"};
+  return {s:"ok",v:a,big:a!=null?n1(a):"-",unit:"שמירות לכל 100 בדיקות באפליקציה",dl:delta1(a,ap),lines:[row("app","אפליקציה"),row("web","אתר")+(w!=null?" (סך "+n1(w)+")":"")],win:rng(C.W.W),foot:"שורת הקשר, בלי יעד"}}};
+REG.alerts={name:"התראות שנשלחו ונפתחו",dept:"release",def:"כמה התראות נשלחו לרכבים שמורים בכל שבוע, לפי סוג, וכמה מהן נפתחו.",how:"גוגל אנליטיקס: notif_sent ו-notif_open לפי kind, ארבעה שבועות; התראות בדיקה (test) לא נספרות. באפליקציה בלבד, ממכשירים שלא כיבו את הסטטיסטיקה.",src:"גוגל אנליטיקס",owner:"מדידה",
+ calc(C){const A=C.W&&C.W.alerts;if(!A)return {s:"nodata",big:"-",lines:["אין נתון מגוגל אנליטיקס"]};let S=0,O=0;const L=[];
+  for(const k of Object.keys(A).sort()){let s=0,o=0;for(const wk in A[k]){s+=A[k][wk][0];o+=A[k][wk][1]}S+=s;O+=o;L.push(esc(k)+": <b>"+n(s)+"</b> נשלחו, "+n(o)+" נפתחו"+(s?" ("+pc(o/s*100)+")":""))}
+  return {s:S?"ok":"early",big:S?pc(O/S*100):"-",unit:S?"מההתראות נפתחו":"עוד לא נשלחו התראות",lines:L.length?L:["אין התראות בארבעת השבועות"],win:"ארבעה שבועות עד "+(C.end?dm(C.end):"-"),foot:"שורת הקשר, בלי יעד"}}};
+REG.retWin={name:"שומרים מול לא שומרים: חזרה ב-7, 30 ו-60 יום",dept:"release",def:"פי כמה חוזרים מי ששמרו רכב ביום ההתקנה, לעומת מכשירים חדשים שבדקו רכב ולא שמרו, בתוך 7, 30 ו-60 יום. כל חלון נספר רק על שבועות התקנה שעבר עליהם החלון כולו.",how:"גוגל אנליטיקס, משפך: מ-first_save (שומרים) או מבדיקת רכב של מכשיר חדש שלא שמר, אל ביקור חדש בתוך החלון; לפי שבוע התקנה, מ-21.10. נשאל פעם ביום. הקו של תיק הרכב (פי 1.5) לא משתנה כאן.",src:"גוגל אנליטיקס",owner:"מדידה",
+ calc(C){const R=C.W&&C.W.retWin;if(!R)return {s:"nodata",big:"-",lines:["אין נתון מגוגל אנליטיקס"]};const x=d=>{const o=R[d];if(!o||!o.s.n||!o.ns.n)return null;const a=o.s.back/o.s.n,b=o.ns.back/o.ns.n;return b>0?a/b:null};
+  const L=[7,30,60].map(d=>{const o=R[d];if(!o||!o.s.n)return d+" יום: עוד אין שבוע התקנה שעבר עליו החלון";const v=x(d);return d+" יום: "+(v!=null?"פי <b>"+n1(v)+"</b>":"-")+" (שמרו "+n(o.s.n)+", מהם חזרו "+n(o.s.back)+"; לא שמרו "+n(o.ns.n)+", מהם חזרו "+n(o.ns.back)+")"});
+  const v30=x(30);return {s:v30!=null?"ok":"early",v:v30,big:v30!=null?"פי "+n1(v30):"-",unit:"ב-30 יום",tt:"קו תיק הרכב: פי 1.5",lines:L,win:"התקנות מ-"+dm("2026-10-21"),foot:"שורת הקשר, בלי יעד"}}};
 // live goals that only the server computes (day-1 return, a save on install day): the week it last judged and the target now
 function lgReg(k){return C=>{const i=lgItem(C,k);if(!i)return {s:"nodata",lines:["היעדים החיים עוד לא חושבו"]};const f=x=>gF(i.u,x),wk=i.wk?[i.wk,addD(i.wk,6)]:null;
  return {s:i.v==null?"nodata":i.tgt==null&&i.s==="cal"?"cal":i.s,v:i.v,big:f(i.v),tt:i.T!=null?"היעד "+f(i.T):i.now!=null?"היעד "+f(i.now):"",gl:i.tgt!=null?"באותו שבוע: "+f(i.v)+" מול "+f(i.tgt):"",
