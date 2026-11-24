@@ -10,9 +10,9 @@ const f = { andGroup: { expressions: [{ filter: { fieldName: "eventName", string
 const out = {}, g = b => ga(b).catch(e => ({ error: String(e.message || e).slice(0, 300) }));
 const ev = n => ({ filter: { fieldName: "eventName", stringFilter: { value: n } } }), any = v => ({ filter: { fieldName: "eventName", inListFilter: { values: v } } });
 const W = [{ startDate: "2026-11-16", endDate: "2026-11-22" }, { startDate: "2026-11-09", endDate: "2026-11-15" }];
-out.door = await g({ dateRanges: W, dimensions: ["platform", "eventName", "customEvent:from"].map(name => ({ name })), metrics: [{ name: "eventCount" }, { name: "totalUsers" }], dimensionFilter: any(["car_save", "car_unsave"]) });
-out.checks = await g({ dateRanges: W, dimensions: [{ name: "platform" }], metrics: [{ name: "eventCount" }], dimensionFilter: ev("car_lookup") });
-out.notif = await g({ dateRanges: [{ startDate: "2026-10-26", endDate: "2026-11-22" }], dimensions: ["isoYearIsoWeek", "eventName", "customEvent:kind"].map(name => ({ name })), metrics: [{ name: "eventCount" }, { name: "totalUsers" }], dimensionFilter: any(["notif_sent", "notif_open"]) });
+if (0) out.door = await g({ dateRanges: W, dimensions: ["platform", "eventName", "customEvent:from"].map(name => ({ name })), metrics: [{ name: "eventCount" }, { name: "totalUsers" }], dimensionFilter: any(["car_save", "car_unsave"]) });
+if (0) out.checks = await g({ dateRanges: W, dimensions: [{ name: "platform" }], metrics: [{ name: "eventCount" }], dimensionFilter: ev("car_lookup") });
+if (0) out.notif = await g({ dateRanges: [{ startDate: "2026-10-26", endDate: "2026-11-22" }], dimensions: ["isoYearIsoWeek", "eventName", "customEvent:kind"].map(name => ({ name })), metrics: [{ name: "eventCount" }, { name: "totalUsers" }], dimensionFilter: any(["notif_sent", "notif_open"]) });
 const fun = async body => { const r = await fetch(`https://analyticsdata.googleapis.com/v1alpha/properties/${PROP}:runFunnelReport`, { method: "POST", headers: { authorization: "Bearer " + T, "content-type": "application/json" }, body: JSON.stringify(body) });
   const t = await r.text(); if (!r.ok) return { error: r.status + " " + t.slice(0, 300) }; const j = JSON.parse(t); return { table: j.funnelTable, viz: undefined }; };
 const app = { funnelFieldFilter: { fieldName: "platform", stringFilter: { value: "Android" } } };
@@ -21,8 +21,8 @@ const steps = (first, s) => [{ name: "start", filterExpression: { andGroup: { ex
 const se = n => ({ segmentEventFilter: { eventName: n } });
 const seg = (name, inc, exc) => ({ name, userSegment: { userInclusionCriteria: { andConditionGroups: [{ conditionScoping: "USER_CRITERIA_ACROSS_ALL_SESSIONS", segmentFilterExpression: se(inc) }] },
   ...(exc ? { exclusion: { userExclusionDuration: "USER_EXCLUSION_PERMANENT", userExclusionCriteria: { andConditionGroups: [{ conditionScoping: "USER_CRITERIA_ACROSS_ALL_SESSIONS", segmentFilterExpression: se(exc) }] } } } : {}) } });
-const R = [{ startDate: "2026-10-21", endDate: "2026-11-22" }], BD = { breakdownDimension: { name: "date" }, limit: 100 };
-for (const [k, s] of [["d30", 2592000], ["d60", 5184000]]) {
+const R = [{ startDate: "2026-10-21", endDate: "2026-11-22" }], BD = { breakdownDimension: { name: "isoYearIsoWeek" }, limit: 15 };
+for (const [k, s] of [["d7", 604800], ["d30", 2592000], ["d60", 5184000]]) {
   out["sav_" + k] = await fun({ dateRanges: R, funnel: { isOpenFunnel: false, steps: steps("first_save", s) }, funnelBreakdown: BD });
   out["non_" + k] = await fun({ dateRanges: R, funnel: { isOpenFunnel: false, steps: steps("first_open", s) }, segments: [seg("never_saved", "first_open", "car_save")], funnelBreakdown: BD });
 }
