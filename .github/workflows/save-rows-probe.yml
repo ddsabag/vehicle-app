@@ -1,7 +1,7 @@
-name: js_error split probe (one-off)
+name: save rows probe (one-off)
 on:
   push:
-    branches: [probe/jserr-split]
+    branches: [probe/save-rows]
 permissions:
   contents: read
 jobs:
@@ -12,6 +12,6 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 20
-      - run: node .github/scripts/jserr-probe.mjs
+      - run: node .github/scripts/save-rows-probe.mjs
         env:
           GA_SERVICE_ACCOUNT_JSON: ${{ secrets.GA_SERVICE_ACCOUNT_JSON }}
