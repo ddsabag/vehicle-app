@@ -295,6 +295,19 @@ function kpis(d, S) {
       notes.press_queenoftheroad = "התקנות מהכתבה כמעט לא נמדדות: כפתור ההורדה באתר מסמן את המקור luchit.app, כך שקורא שהגיע לאתר ואז התקין נספר כאתר. app_installs_tagged סופר רק התקנות שהמקור שלהן נשאר queenoftheroad. מי שהגיע משיתוף של הכתבה בפייסבוק נספר כפייסבוק, לא כאן."
         + (P.cf_visits && P.cf_visits.error ? " Cloudflare לא ענה: " + P.cf_visits.error : ""); } }
 
+  // 12. the save plan (CEO 24.11): saves by door per 100 checks (app, site) with the undo share; alerts by kind and week; saver vs non-saver
+  // return at 7, 30 and 60 days on install weeks old enough for each window (strategy 24.11). Present once main has live-69; absent before.
+  { const D = W && W.sdoor, A = W && W.alerts, R = W && W.retWin, sum = o => Object.values(o || {}).reduce((x, y) => x + y, 0), rr = x => x == null ? null : Math.round(x * 10) / 10;
+    if (D) { const pf = (o, i) => ({ checks: o[i].checks, saves: sum(o[i].save), per_100_checks: o[i].checks ? rr(sum(o[i].save) / o[i].checks * 100) : null,
+        by_door_per_100: Object.fromEntries(Object.entries(o[i].save).map(([k, v]) => [k, o[i].checks ? rr(v / o[i].checks * 100) : null])), unsave_share_pct: sum(o[i].save) ? rr(sum(o[i].unsave) / sum(o[i].save) * 100) : null });
+      out.save_doors = { app: { week: pf(D.app, 0), prev: pf(D.app, 1) }, web: { week: pf(D.web, 0), prev: pf(D.web, 1) } }; }
+    else notes.save_doors = "שמירות לפי דלת עוד לא נמדדות: הן נכנסות עם live-69 על main.";
+    if (A) out.alerts = Object.fromEntries(Object.entries(A).map(([k, wk]) => [k, Object.fromEntries(Object.entries(wk).map(([w, v]) => [w, { sent: v[0], opened: v[1], devices: v[2], opens_per_sent: v[0] ? Math.round(v[1] / v[0] * 100) / 100 : null }]))]));
+    if (R) { const x = o => o.s.n && o.ns.n && o.ns.back ? Math.round((o.s.back / o.s.n) / (o.ns.back / o.ns.n) * 100) / 100 : null;
+      out.return_windows = Object.fromEntries([7, 30, 60].map(d => ["d" + d, R[d] ? { savers: R[d].s.n, savers_back: R[d].s.back, non_savers: R[d].ns.n, non_savers_back: R[d].ns.back, install_weeks: R[d].s.weeks, ratio_x: x(R[d]) } : null]));
+      out.return_windows.reopen_line_x_30d = 1.5;
+      notes.return_windows = "משפך: מ-first_save או מבדיקה של מכשיר חדש שלא שמר, אל ביקור חדש בתוך החלון; רק שבועות התקנה שעבר עליהם החלון כולו. השיטה שונה מ-return_7d (app_return), ולכן היחס ב-7 ימים כאן הוא ההשוואה הישירה ל-30 ול-60."; } }
+
   // 11. Google Play's own acquisition split (CEO 12.11, Sunday step 2d)
   { const Q = d.playSrc;
     if (Q && Q.error) notes.play_sources = "הקריאה של מקורות ההתקנות מ-Google Play נכשלה: " + Q.error;
