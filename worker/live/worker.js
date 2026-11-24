@@ -273,10 +273,13 @@ async function collectWeekly(env, today) {
     end >= FD_FROM ? safe(fdRead(env, end), "ga4 fake door") : null]);
   // the save plan (CEO 24.11): saves and undos by door, app and site, with checks for the rate; alerts sent and opened by kind, four ISO weeks
   // (kind "test" is the alerts' own test and is left out); the saver return windows
-  const [sdr, ntf, rw] = await Promise.all([
+  const [sdr, ntf, rw, sak] = await Promise.all([
     safe(report(env, { dateRanges: [dr(W), dr(P)], dimensions: [{ name: "platform" }, { name: "eventName" }, { name: "customEvent:from" }], metrics: [{ name: "eventCount" }], dimensionFilter: withReal(any(["car_save", "car_unsave", "car_lookup"])), limit: 1000 }), "ga4 save doors"),
     safe(report(env, { dateRanges: [{ startDate: addDays(end, -27), endDate: end }], dimensions: [{ name: "isoYearIsoWeek" }, { name: "eventName" }, { name: "customEvent:kind" }], metrics: [{ name: "eventCount" }, { name: "totalUsers" }], dimensionFilter: withReal(any(["notif_sent", "notif_open"])), limit: 500 }), "ga4 alerts"),
-    end >= RW_FROM ? safe(retWindows(env, end), "ga4 return windows") : null]);
+    end >= RW_FROM ? safe(retWindows(env, end), "ga4 return windows") : null,
+    // Android browsers after a save: the line «תזכורות יש רק באפליקציה» (web_hint_click where save_ask, product/save-word) against web saves there
+    safe(report(env, { dateRanges: [dr(W), dr(P)], dimensions: [{ name: "eventName" }, { name: "customEvent:where" }], metrics: [{ name: "eventCount" }],
+      dimensionFilter: withReal({ andGroup: { expressions: [any(["car_save", "web_hint_click"]), { filter: { fieldName: "platform", stringFilter: { value: "web" } } }, { filter: { fieldName: "operatingSystem", stringFilter: { value: "Android" } } }] } }), limit: 100 }), "ga4 save ask")]);
   const ri = r => { const v = r.dimensionValues[r.dimensionValues.length - 1].value; return /^date_range_\d$/.test(v) ? Number(v.slice(-1)) : 0; };
   const ev = [{}, {}, {}];
   for (const r of evs || []) ev[ri(r)][r.dimensionValues[0].value] = [Number(r.metricValues[0].value), Number(r.metricValues[1].value)];
@@ -348,6 +351,10 @@ async function collectWeekly(env, today) {
   const sdoor = sdr ? { app: [0, 1].map(() => ({ checks: 0, save: {}, unsave: {} })), web: [0, 1].map(() => ({ checks: 0, save: {}, unsave: {} })) } : null;
   for (const r of sdr || []) { const [pf, nm, fr] = r.dimensionValues.map(x => x.value), o = sdoor[pf === "web" ? "web" : "app"][ri(r)], c = Number(r.metricValues[0].value);
     if (nm === "car_lookup") o.checks += c; else { const k = DOOR[fr] || "star", t = nm === "car_save" ? o.save : o.unsave; t[k] = (t[k] || 0) + c; } }
+  // { saves, ask } of Android browsers, this week [0] and the week before [1]
+  if (sdoor && sak) sdoor.androidWeb = [0, 1].map(() => ({ saves: 0, ask: 0 }));
+  for (const r of sak || []) { const [nm, wh] = r.dimensionValues.map(x => x.value), o = sdoor && sdoor.androidWeb && sdoor.androidWeb[ri(r)]; if (!o) break;
+    if (nm === "car_save") o.saves += Number(r.metricValues[0].value); else if (wh === "save_ask") o.ask += Number(r.metricValues[0].value); }
   // { kind: { ISO week: [sent, opened, devices sent to] } }
   const alerts = ntf ? {} : null;
   for (const r of ntf || []) { const [wk, nm, kd] = r.dimensionValues.map(x => x.value); if (kd === "test") continue; const o = ((alerts[kd || "(not set)"] ||= {})[wk] ||= [0, 0, 0]);
@@ -2362,7 +2369,7 @@ const DOOR_HE={star:"הכוכב",file:"תיק הרכב",recv:"אחרי הבדי�
 REG.saveDoor={name:"שמירות לפי דלת",dept:"release",def:"כמה שמירות רכב יש לכל 100 בדיקות, לפי הכפתור שממנו שמרו, באפליקציה ובאתר. לידן: איזה חלק מהשמירות בוטל.",how:"גוגל אנליטיקס: car_save ו-car_unsave לפי from, חלקי car_lookup, 7 ימים עד אתמול. הכוכב כולל את כפתור השמירה של כל לשונית.",src:"גוגל אנליטיקס",owner:"מדידה",
  calc(C){const D=C.W&&C.W.sdoor;if(!D)return {s:"nodata",big:"-",lines:["אין נתון מגוגל אנליטיקס"]};const sum=o=>Object.values(o).reduce((a,b)=>a+b,0),per=(o,i)=>o[i].checks?sum(o[i].save)/o[i].checks*100:null;
   const a=per(D.app,0),w=per(D.web,0),ap=per(D.app,1),row=(pf,he)=>{const o=D[pf][0],t=sum(o.save);return t?he+": "+Object.keys(o.save).sort((x,y)=>o.save[y]-o.save[x]).map(k=>DOOR_HE[k]+" <b>"+n1(o.save[k]/(o.checks||1)*100)+"</b>").join(", ")+" לכל 100 בדיקות; בוטלו "+pc(sum(o.unsave)/t*100):he+": אין שמירות"};
-  return {s:"ok",v:a,big:a!=null?n1(a):"-",unit:"שמירות לכל 100 בדיקות באפליקציה",dl:delta1(a,ap),lines:[row("app","אפליקציה"),row("web","אתר")+(w!=null?" (סך "+n1(w)+")":"")],win:rng(C.W.W),foot:"שורת הקשר, בלי יעד"}}};
+  return {s:"ok",v:a,big:a!=null?n1(a):"-",unit:"שמירות לכל 100 בדיקות באפליקציה",dl:delta1(a,ap),lines:[row("app","אפליקציה"),row("web","אתר")+(w!=null?" (סך "+n1(w)+")":""),D.androidWeb&&D.androidWeb[0].saves?"אתר באנדרואיד: <b>"+n(D.androidWeb[0].ask)+"</b> לחצו «לאפליקציה» אחרי שמירה, מתוך "+n(D.androidWeb[0].saves)+" שמירות":""],win:rng(C.W.W),foot:"שורת הקשר, בלי יעד"}}};
 REG.alerts={name:"התראות שנשלחו ונפתחו",dept:"release",def:"כמה התראות נשלחו לרכבים שמורים בכל שבוע, לפי סוג, וכמה מהן נפתחו.",how:"גוגל אנליטיקס: notif_sent ו-notif_open לפי kind, ארבעה שבועות; התראות בדיקה (test) לא נספרות. באפליקציה בלבד, ממכשירים שלא כיבו את הסטטיסטיקה.",src:"גוגל אנליטיקס",owner:"מדידה",
  calc(C){const A=C.W&&C.W.alerts;if(!A)return {s:"nodata",big:"-",lines:["אין נתון מגוגל אנליטיקס"]};let S=0,O=0;const L=[];
   for(const k of Object.keys(A).sort()){let s=0,o=0;for(const wk in A[k]){s+=A[k][wk][0];o+=A[k][wk][1]}S+=s;O+=o;L.push(esc(k)+": <b>"+n(s)+"</b> נשלחו, "+n(o)+" נפתחו"+(s?" ("+pc(o/s*100)+")":""))}
