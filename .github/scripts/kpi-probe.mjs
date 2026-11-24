@@ -300,7 +300,8 @@ function kpis(d, S) {
   { const D = W && W.sdoor, A = W && W.alerts, R = W && W.retWin, sum = o => Object.values(o || {}).reduce((x, y) => x + y, 0), rr = x => x == null ? null : Math.round(x * 10) / 10;
     if (D) { const pf = (o, i) => ({ checks: o[i].checks, saves: sum(o[i].save), per_100_checks: o[i].checks ? rr(sum(o[i].save) / o[i].checks * 100) : null,
         by_door_per_100: Object.fromEntries(Object.entries(o[i].save).map(([k, v]) => [k, o[i].checks ? rr(v / o[i].checks * 100) : null])), unsave_share_pct: sum(o[i].save) ? rr(sum(o[i].unsave) / sum(o[i].save) * 100) : null });
-      out.save_doors = { app: { week: pf(D.app, 0), prev: pf(D.app, 1) }, web: { week: pf(D.web, 0), prev: pf(D.web, 1) } }; }
+      out.save_doors = { app: { week: pf(D.app, 0), prev: pf(D.app, 1) }, web: { week: pf(D.web, 0), prev: pf(D.web, 1) },
+        android_web: D.androidWeb ? D.androidWeb.map(o => ({ saves: o.saves, save_ask_clicks: o.ask, per_save: o.saves ? Math.round(o.ask / o.saves * 100) / 100 : null })) : null }; }
     else notes.save_doors = "שמירות לפי דלת עוד לא נמדדות: הן נכנסות עם live-69 על main.";
     if (A) out.alerts = Object.fromEntries(Object.entries(A).map(([k, wk]) => [k, Object.fromEntries(Object.entries(wk).map(([w, v]) => [w, { sent: v[0], opened: v[1], devices: v[2], opens_per_sent: v[0] ? Math.round(v[1] / v[0] * 100) / 100 : null }]))]));
     if (R) { const x = o => o.s.n && o.ns.n && o.ns.back ? Math.round((o.s.back / o.s.n) / (o.ns.back / o.ns.n) * 100) / 100 : null;
