@@ -206,6 +206,10 @@ export const LABELS = {
   // ceo-notify.yml (ops, Dudu 1.11.2026 22:38 UTC via the CEO thread): the CEO page has a new monthly report or weekly review; key ceo:<kind>:<date>
   "ceo:report":          { he: "הדוח החודשי של המנכ\"ל מוכן", sect: "fyi" },
   "ceo:weekly":          { he: "הסקירה השבועית של המנכ\"ל מוכנה", sect: "fyi" },
+  // km-history.mjs (data, 24.11.2026): the private odometer archive, a step of vanished.yml
+  "km:token":            { he: "ארכיון הק\"מ: אין גישה למאגר הפרטי (הטוקן חסר או פג)", sect: "wait" },
+  "km:fail":             { he: "ארכיון הק\"מ לא נשמר בריצה הזאת", sect: "fail" },
+  "km:done":             { he: "✅ בוצע · ארכיון הק\"מ התחיל", sect: "fyi" },
 };
 // key stems of every call site (spec 10.1, GitHub side); the selftest checks each has a real label and that the call sites use no other
 export const FAMILIES_IN_USE = [
@@ -217,7 +221,7 @@ export const FAMILIES_IN_USE = [
   "watch:new", "watch:error", "safety:done", "safety:fail", "prod:sent", "prod:live", "prod:full", "prod:halt", "prod:stop", "prod:wait", "prod:fail",
   "stl:update", "stl:stuck", "stl:review", "truth", "truth:fail", "truth:done", "truth:inv", "truth:inv-fail", "truth:deep", "truth:deep-fail", "live:stuck", "live:error", "pipe",
   "social:fail", "social:missed", "social:unsure", "social:held", "social:done", "social:remind", "social:check", "kitqa", "exp", "auto:done", "auto:revert", "auto:mode",
-  "relguard", "relguard:ok", "relguard:thin", "zonea", "ai", "ai:key", "ai:spend", "ai:spend95", "code", "walk", "ceo:report", "ceo:weekly",
+  "relguard", "relguard:ok", "relguard:thin", "zonea", "ai", "ai:key", "ai:spend", "ai:spend95", "code", "walk", "ceo:report", "ceo:weekly", "km:token", "km:fail", "km:done",
 ];
 
 const TODAY = ["loud", "silent", "none"];
@@ -227,7 +231,7 @@ const QUIET_NOTE = "\n\n🔕 נשלח בשקט כי לא צריך אותך כר�
 const TELL_MS = 72 * 36e5, LEDGER_MS = 864e5, LEDGER_CAP = 12;   // an outcome is told for a problem seen in the last 72 h; the ledger covers 24 h
 // the tag line's area of a key (tg-text.mjs AREAS), by its first segment
 const AREA = { wf: "בוטים", meta: "בוטים", auto: "בוטים", smoke: "אתר", infra: "אתר", expiry: "אתר", workers: "אתר", webwatch: "אתר",
-  guard: "נתונים", ministry: "נתונים", checker: "נתונים", truth: "נתונים", stl: "נתונים", catalog: "נתונים", recalls: "נתונים",
+  guard: "נתונים", ministry: "נתונים", checker: "נתונים", truth: "נתונים", km: "נתונים", stl: "נתונים", catalog: "נתונים", recalls: "נתונים",
   seo: "SEO", "seo-auto": "SEO", mag: "SEO", mention: "שיווק", comp: "שיווק", copy: "אפליקציה", notes: "חנות Google Play", social: "שיווק", kitqa: "שיווק", review: "ביקורות", review3: "ביקורות", reviews: "ביקורות",
   vitals: "אפליקציה", watch: "אפליקציה", ship: "חנות Google Play", listing: "חנות Google Play", safety: "חנות Google Play", prod: "חנות Google Play",
   live: "מדידה", pipe: "מדידה", relguard: "מדידה", zonea: "מדידה", weekly: "מדידה", exp: "מדידה" };
