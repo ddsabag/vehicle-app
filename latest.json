@@ -4,7 +4,7 @@
  "seed": "20261124",
  "cars": 40,
  "sampled": 40,
- "mism": 1,
+ "mism": 0,
  "skipped": 0,
  "refused": 0,
  "fields": {
@@ -194,7 +194,7 @@
   ],
   "recalls.model_fits": [
    23,
-   1
+   0
   ],
   "recalls.model_missing": [
    31,
@@ -441,16 +441,6 @@
    0
   ]
  },
- "list": [
-  {
-   "id": "c001",
-   "field": "recalls.model_fits",
-   "shown": "[check with importer] בשנת הייצור",
-   "expected": "שנים אחרות (dim)",
-   "evidence": "#15191 build 2005-04-01..2012-10-30 year=2005 fits=false reach=absent knownOpen=true",
-   "car": "ב מ וו גרמניה 318I VALVE 2005",
-   "from": "active"
-  }
- ],
+ "list": [],
  "auditExit": 0
 }
