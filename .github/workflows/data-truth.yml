@@ -55,7 +55,7 @@ jobs:
       group: data-truth-publish   # the daily and the weekly job commit to the same branch, one at a time (the deep job's hours do not hold them)
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 20
@@ -86,7 +86,7 @@ jobs:
       group: data-truth-publish
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 20
@@ -115,7 +115,7 @@ jobs:
       contents: write   # the data-truth branch
       actions: read     # slot-done.mjs reads this workflow's runs
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # GitHub's scheduler runs late or not at all since 1.11.2026, and the backup clock then starts this run by hand: the later of the two
       # finds the earlier here and ends (slot-done.mjs, ops; never fails: done=0)
       - name: This slot run already?

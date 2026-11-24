@@ -52,7 +52,7 @@ jobs:
       sha: ${{ steps.live.outputs.sha || steps.prev.outputs.sha }}     # the commit this run builds (and deploys)
       prev: ${{ steps.live.outputs.prev || steps.prev.outputs.prev }}  # the commit luchit.app served before it, for IndexNow
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: main
       # Bot and cron runs usually find main unchanged: skip when luchit.app already serves this commit (build.txt, written below).
@@ -134,7 +134,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.build.outputs.sha || github.sha }}
           fetch-depth: 0

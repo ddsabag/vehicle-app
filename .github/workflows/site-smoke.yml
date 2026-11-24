@@ -36,7 +36,7 @@ jobs:
     outputs:
       report: ${{ steps.watch.outputs.report }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with: { node-version: 20 }
       - name: Check the Worker and the quotas
@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-24.04   # Playwright 1.49.1 predates Ubuntu 26.04 (ubuntu-latest from November 2026)
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with: { node-version: 20 }
       - name: Install browser
