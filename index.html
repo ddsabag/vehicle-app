@@ -863,6 +863,9 @@ body[data-screen=car] main,body[data-screen=sub] main,body[data-screen=cars] mai
 /* share keeps its word on phones too: with the icon alone (1.38) the share sheet opened in 0.7% of checks against 2.0% with the word (1.37); a 320px header keeps the icon so the plate has its room */
 .chead .ch-b[data-act=share]:has(.ch-l){width:auto;padding:0 10px 0 8px;gap:4px;display:inline-flex;align-items:center;font-weight:700;font-size:.85rem}.chead .ch-b[data-act=share] .ch-l{display:inline}
 @media (max-width:359px){.chead .ch-b[data-act=share]:has(.ch-l){width:44px;padding:0;justify-content:center}.chead .ch-b[data-act=share] .ch-l{display:none}}
+/* save keeps its word on the website's phone header too (CEO plan 24.11: the word brought share back in 1.38.4); the app's bundled page keeps the star alone until its next version */
+html.web .chead .ch-b.star:has(.ch-l){width:auto;padding:0 10px 0 8px;gap:4px;display:inline-flex;align-items:center;font-weight:700;font-size:.85rem}html.web .chead .ch-b.star .ch-l{display:inline}
+@media (max-width:359px){html.web .chead .ch-b.star:has(.ch-l){width:44px;padding:0;justify-content:center}html.web .chead .ch-b.star .ch-l{display:none}}
 .ch-doc{flex:0 0 auto;height:40px;margin-inline:4px;padding:0 12px 0 10px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--accent);font-weight:800;font-size:.9rem;display:inline-flex;align-items:center;gap:6px}.ch-doc svg.i{width:18px;height:18px}
 @media (max-width:359px){.ch-doc{padding:0 11px}.ch-doc .ch-dt{display:none}}   /* 320px: the plate keeps its room next to back, star and more */
 .ch-m{position:relative;flex:0 0 auto}
@@ -4182,15 +4185,16 @@ async function historyPdf(D, btn){
    alert_ask {from: mine, res} counts the answer: granted, denied (the phone refused) or later */
 const ALERT_ASK = {
   pending: "",
+  star: "",   // the plate just saved on an Android browser: its overview shows the file's "reminders are in the app" line
   all(){ try { return JSON.parse(localStorage.getItem("alertAsk") || "{}") || {}; } catch { return {}; } },
   mark(p, res){ const m = ALERT_ASK.all(); m[p] = res; try { localStorage.setItem("alertAsk", JSON.stringify(m)); return true; } catch { return false; } },
   done(res){ const p = ALERT_ASK.pending; if (!p) return; ALERT_ASK.pending = ""; ALERT_ASK.mark(p, res); track("alert_ask", {from: "mine", res}); },
 };
 const dDot = d => `${d.getDate()}.${d.getMonth() + 1}.${String(d.getFullYear()).slice(2)}`;
-function alertAsk(D){
+function alertAsk(D, hint = "file_ask"){
   if (reportBuild || !D.plate) return "";
   const st = ALERT_ASK.all()[D.plate];
-  if (!alertsSupported()) return IS_IOS || st ? "" : `<div class="cf-ask"><div><b>תזכורות יש רק באפליקציה</b><span>שם נזכיר לפני הטסט ונתריע על ריקול חדש, בלי הרשמה.</span></div><div class="cf-ask-b"><button type="button" class="link-btn" data-url="${PLAY_URL}" data-hint="file_ask">${ico("bell")}לאפליקציה</button><button type="button" class="cf-not" data-bm="askLater">לא עכשיו</button></div></div>`;
+  if (!alertsSupported()) return IS_IOS || st ? "" : `<div class="cf-ask"><div><b>תזכורות יש רק באפליקציה</b><span>שם נזכיר לפני הטסט ונתריע על ריקול חדש, בלי הרשמה.</span></div><div class="cf-ask-b"><button type="button" class="link-btn" data-url="${PLAY_URL}" data-hint="${hint}">${ico("bell")}לאפליקציה</button><button type="button" class="cf-not" data-bm="askLater">לא עכשיו</button></div></div>`;
   if (!isSaved(D.plate)) return `<p class="note cf-ask-off">כדי לקבל תזכורות לרכב הזה, שומרים אותו ב"הרכבים שלי".</p>`;   // the phone checks only saved cars
   if (alertsOn() || st === "granted" || st === "later") return "";
   if (st === "denied") return `<p class="note cf-ask-off">התזכורות כבויות. אפשר להפעיל בהגדרות.</p>`;
@@ -4315,6 +4319,7 @@ function zombieCard(D){
 function tabOverview(D){
   const v = D.v, w = D.w, html = [];
   html.push(zombieCard(D));
+  if (ALERT_ASK.star && ALERT_ASK.star === D.plate && isSaved(D.plate)) html.push(alertAsk(D, "save_ask"));   // an Android browser right after a save: reminders live in the app
   // the settlement banner above already says this; the card in the recalls tab has the details
   const ins = buildInsights(D).filter(i => i.title !== "ייתכן שמגיעה לכם הטבה מהסדר פשרה");
   if (ins.length) {
@@ -5969,6 +5974,7 @@ $("#out").addEventListener("click", ev => {
     track(on ? "car_save" : "car_unsave", {n: String(Math.min(store.get("savedVehicles").length, 4)) + (store.get("savedVehicles").length > 3 ? "+" : ""), from: b.dataset.from || currentTab || "home"});
     b.setAttribute("aria-pressed", String(on)); b.setAttribute("aria-label", on ? "נשמר ברכבים שלי" : "שמירה ברכבים שלי"); { const sp = b.querySelector("span"); if (sp) sp.textContent = on ? "נשמר" : "שמירה"; }
     toast(on ? "נשמר ברכבים שלי" : "הוסר מהרכבים שלי");
+    ALERT_ASK.star = on && IS_ANDROID && !window.AndroidApp && !alertsSupported() ? current.plate : "";
     { const y = window.scrollY; renderResult(); window.scrollTo(0, y); }
     if (on && alertsSupported()) { let asked = false; try { asked = !!localStorage.getItem("alertsAsked"); localStorage.setItem("alertsAsked", "1"); } catch {} if (!asked) try { window.AndroidApp.setAlerts(true); } catch {} }
     if (on) homeSheetMaybe();
