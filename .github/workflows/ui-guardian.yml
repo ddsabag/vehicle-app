@@ -50,7 +50,7 @@ jobs:
             echo "::warning::installing the browsers took over 8 minutes or failed (a slow Ubuntu mirror?): once more from archive.ubuntu.com"
             sudo pkill -x apt-get || true
             for i in $(seq 90); do pgrep -x 'apt-get|dpkg' >/dev/null || break; sleep 2; done
-            sudo sed -i 's#azure\.archive\.ubuntu\.com#archive.ubuntu.com#g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null || true
+            sudo sed -i 's#[a-z0-9.-]*\.archive\.ubuntu\.com#archive.ubuntu.com#g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null || true
             sudo dpkg --configure -a || true
             timeout 900 npx playwright install --with-deps chromium webkit
           fi
