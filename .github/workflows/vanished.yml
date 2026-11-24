@@ -2,10 +2,17 @@ name: Vanished cars
 # Twice a week: cars that left the active register without moving to an inactive or final-cancel register, with the last details the register
 # showed (vanished.mjs). The state lives in an Actions cache (private to the repository); the vanished-data branch gets the list encrypted and
 # counts only. Nothing reaches users (freeze to 22.11).
+# Since 24.11 the same run keeps the odometer archive (km-history.mjs): every car's test km, written only to the PRIVATE repository
+# ddsabag/luchit-history with the HISTORY_TOKEN secret; the log prints counts only. km_dry reads and counts and writes nothing anywhere.
 on:
   schedule:
     - cron: "37 6 * * 0,3"   # Sunday and Wednesday 06:37 UTC: off the full hour, clear of the 04:00-04:30 latency checks; the cache is read every 3-4 days, inside its 7-day life
   workflow_dispatch:
+    inputs:
+      km_dry:
+        description: "Km archive dry run only: read and count, write nothing (no vanished run, no cache, no branch, no private repo)"
+        type: boolean
+        default: false
 permissions:
   contents: write
   actions: write
@@ -20,22 +27,52 @@ jobs:
         with:
           node-version: 22
       - run: node .github/scripts/vanished.mjs selftest
+      - run: node .github/scripts/km-history.mjs selftest
       - name: Load the last run's state
         uses: actions/cache/restore@v4
         with:
           path: vanished-state
           key: vanished-state-${{ github.run_id }}
           restore-keys: vanished-state-
-      - run: node --max-old-space-size=6144 .github/scripts/vanished.mjs
+      - if: ${{ !inputs.km_dry }}
+        run: node --max-old-space-size=6144 .github/scripts/vanished.mjs
         env:
           DIR: vanished-state
           OUT: vanished-out
+      - name: Km archive dry run (writes nothing)
+        if: ${{ inputs.km_dry }}
+        run: node --max-old-space-size=6144 .github/scripts/km-history.mjs
+        env:
+          DIR: vanished-state
+          KM_DRY: "1"
+      - name: Km archive in the private repository
+        if: ${{ !inputs.km_dry }}
+        env:
+          HISTORY_TOKEN: ${{ secrets.HISTORY_TOKEN }}
+          DIR: vanished-state
+          REPO: km-repo
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        # never fails the job: the vanished state and branch below are saved either way, and the router tells what happened
+        run: |
+          if [ -z "$HISTORY_TOKEN" ] || ! git clone -q --depth 1 "https://x-access-token:${HISTORY_TOKEN}@github.com/ddsabag/luchit-history.git" km-repo 2>/dev/null; then
+            node .github/scripts/km-history.mjs tell token; exit 0
+          fi
+          if node --max-old-space-size=6144 .github/scripts/km-history.mjs \
+             && git -C km-repo add -A \
+             && { git -C km-repo diff --cached --quiet || { git -C km-repo -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Km readings $(date -u +%F)" && git -C km-repo push -q origin HEAD:main; }; }; then
+            if [ -f km-note.txt ]; then node .github/scripts/km-history.mjs tell done; else node .github/scripts/km-history.mjs resolve; fi
+          else
+            rm -f vanished-state/km-last.json   # the cache shortcut may now be ahead of the repository: the next run replays the repository
+            node .github/scripts/km-history.mjs tell fail
+          fi
       - name: Keep the state for the next run
+        if: ${{ !inputs.km_dry }}
         uses: actions/cache/save@v4
         with:
           path: vanished-state
           key: vanished-state-${{ github.run_id }}
       - name: Publish the encrypted list on the vanished-data branch
+        if: ${{ !inputs.km_dry }}
         run: |
           cd vanished-out && git init -q && git checkout -q -b vanished-data && git add -A
           git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Vanished cars $(date -u +%F)"
