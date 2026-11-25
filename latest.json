@@ -177,11 +177,11 @@
    0
   ],
   "recalls.checked_unlisted": [
-   27,
+   28,
    0
   ],
   "recalls.line_honest": [
-   32,
+   33,
    0
   ],
   "recalls.model_count": [
@@ -193,7 +193,7 @@
    0
   ],
   "recalls.model_fits": [
-   14,
+   16,
    0
   ],
   "recalls.model_missing": [
@@ -209,7 +209,7 @@
    0
   ],
   "recalls.pending_after_road": [
-   5,
+   7,
    0
   ],
   "recalls.pending_banner": [
@@ -217,7 +217,7 @@
    0
   ],
   "recalls.pending_listed": [
-   14,
+   16,
    0
   ],
   "recalls.tab_shown": [
@@ -233,7 +233,7 @@
    0
   ],
   "recalls.thin_rows": [
-   32,
+   33,
    0
   ],
   "road.first_date": [
