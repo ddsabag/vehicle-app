@@ -1,4 +1,4 @@
-// One-off (7.11.2026, again 12.11 from 5.11): web js_error 24.10 to today split by kind, uacl, efile, line, operating system and day. Encrypted output (business numbers).
+// One-off (7.11.2026, again 12.11 from 5.11; 25.11 ops: the 24.11 canary alarm): web js_error 24.10 to today split by kind, uacl, efile, line, operating system and day. Encrypted output (business numbers).
 import crypto from "node:crypto"; import fs from "node:fs";
 const PROP = "557990379", sa = JSON.parse(process.env.GA_SERVICE_ACCOUNT_JSON);
 const b64 = b => Buffer.from(b).toString("base64url"), now = Math.floor(Date.now() / 1000), head = b64(JSON.stringify({ alg: "RS256", typ: "JWT" }));
@@ -9,18 +9,13 @@ const ga = async body => { const r = await fetch(`https://analyticsdata.googleap
 const f = { andGroup: { expressions: [{ filter: { fieldName: "eventName", stringFilter: { value: "js_error" } } }, { filter: { fieldName: "platform", stringFilter: { value: "web" } } }] } };
 const out = {}, g = b => ga(b).catch(e => ({ error: String(e.message || e).slice(0, 200) }));
 const web = { filter: { fieldName: "platform", stringFilter: { value: "web" } } }, ev = n => ({ filter: { fieldName: "eventName", stringFilter: { value: n } } });
-const D = [{ startDate: "2026-11-15", endDate: "yesterday" }];
-// (A) web js_error and web sessions by date and hour (22.11 from 09:00 UTC = 11:00 Israel, the property's zone), and the own-file line/col rows
-out.err = await g({ dateRanges: D, dimensions: ["date", "hour", "customEvent:kind", "customEvent:efile"].map(name => ({ name })), metrics: [{ name: "eventCount" }], dimensionFilter: f });
-out.sess = await g({ dateRanges: D, dimensions: ["date", "hour"].map(name => ({ name })), metrics: [{ name: "sessions" }], dimensionFilter: web });
-out.sessV = await g({ dateRanges: D, dimensions: ["date", "hour"].map(name => ({ name })), metrics: [{ name: "eventCount" }], dimensionFilter: { andGroup: { expressions: [web, ev("web_visit")] } } });
-out.own = await g({ dateRanges: [{ startDate: "2026-11-21", endDate: "yesterday" }], dimensions: ["date", "hour", "customEvent:line", "customEvent:col", "customEvent:colk"].map(name => ({ name })), metrics: [{ name: "eventCount" }], dimensionFilter: { andGroup: { expressions: [...f.andGroup.expressions, { filter: { fieldName: "customEvent:efile", stringFilter: { value: "own" } } }] } } });
-// (B) the shares of 22.11: by version, platform, hour, browser and the car kind; then opens of shared links and arrivals by src=share
-const d22 = [{ startDate: "2026-11-22", endDate: "2026-11-22" }];
-out.share = await g({ dateRanges: d22, dimensions: ["hour", "platform", "appVersion", "deviceModel", "browser", "customEvent:from", "customEvent:kind"].map(name => ({ name })), metrics: [{ name: "eventCount" }, { name: "totalUsers" }], dimensionFilter: ev("share") });
-out.after = await g({ dateRanges: [{ startDate: "2026-11-22", endDate: "yesterday" }], dimensions: ["date", "hour", "platform", "eventName", "customEvent:src"].map(name => ({ name })), metrics: [{ name: "eventCount" }],
-  dimensionFilter: { orGroup: { expressions: [ev("share_open"), ev("shared_next_check"), { andGroup: { expressions: [ev("web_visit"), { filter: { fieldName: "customEvent:src", stringFilter: { value: "share" } } }] } }] } } });
-out.demo = await g({ dateRanges: d22, dimensions: ["hour", "platform", "eventName"].map(name => ({ name })), metrics: [{ name: "eventCount" }], dimensionFilter: { orGroup: { expressions: [ev("demo_open"), ev("share")] } } });
+const D = [{ startDate: "2026-11-17", endDate: "yesterday" }], Y = [{ startDate: "2026-11-23", endDate: "yesterday" }];
+// 25.11 (ops): the canary counted 10 web code errors on 24.11 against a median of 0. Which ones, from where, since when
+out.daily = await g({ dateRanges: D, dimensions: ["date", "customEvent:kind", "customEvent:efile", "customEvent:uacl"].map(name => ({ name })), metrics: [{ name: "eventCount" }, { name: "totalUsers" }], dimensionFilter: f });
+out.lines = await g({ dateRanges: Y, dimensions: ["date", "hour", "customEvent:kind", "customEvent:efile", "customEvent:line", "customEvent:col", "customEvent:colk"].map(name => ({ name })), metrics: [{ name: "eventCount" }], dimensionFilter: f });
+out.where = await g({ dateRanges: Y, dimensions: ["date", "hour", "browser", "operatingSystemWithVersion", "deviceCategory", "pagePath", "customEvent:src"].map(name => ({ name })), metrics: [{ name: "eventCount" }, { name: "totalUsers" }], dimensionFilter: f });
+out.sess = await g({ dateRanges: D, dimensions: ["date"].map(name => ({ name })), metrics: [{ name: "sessions" }, { name: "totalUsers" }], dimensionFilter: web });
+out.lf = await g({ dateRanges: D, dimensions: ["date", "platform", "customEvent:kind"].map(name => ({ name })), metrics: [{ name: "eventCount" }], dimensionFilter: ev("lookup_failed") });
 const k = crypto.randomBytes(32), iv = crypto.randomBytes(12), ci = crypto.createCipheriv("aes-256-gcm", k, iv);
 const data = Buffer.concat([ci.update(JSON.stringify(out)), ci.final()]);
 const ek = crypto.publicEncrypt({ key: fs.readFileSync(".github/seo-data.pub.pem", "utf8"), padding: crypto.constants.RSA_PKCS1_OAEP_PADDING, oaepHash: "sha256" }, k);

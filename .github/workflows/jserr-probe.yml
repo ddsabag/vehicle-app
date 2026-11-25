@@ -1,7 +1,7 @@
 name: js_error split probe (one-off)
 on:
   push:
-    branches: [probe/jserr-split]
+    branches: [ops/err2411-probe]
 permissions:
   contents: read
 jobs:
