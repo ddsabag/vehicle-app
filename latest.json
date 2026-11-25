@@ -1,7 +1,7 @@
 {
  "v": 1,
- "d": "2026-11-24",
- "seed": "20261124",
+ "d": "2026-11-25",
+ "seed": "20261125",
  "cars": 40,
  "sampled": 40,
  "mism": 0,
@@ -9,15 +9,15 @@
  "refused": 0,
  "fields": {
   "buyer.no_red_flags": [
-   37,
+   36,
    0
   ],
   "buyer.no_red_flags_tag": [
-   15,
+   14,
    0
   ],
   "fee.borrowed_note": [
-   26,
+   27,
    0
   ],
   "fee.licence": [
@@ -25,7 +25,7 @@
    0
   ],
   "identity.buy_steps": [
-   37,
+   36,
    0
   ],
   "identity.colour": [
@@ -69,7 +69,7 @@
    0
   ],
   "insight.age_cancelled": [
-   3,
+   4,
    0
   ],
   "insight.safety_low": [
@@ -109,11 +109,11 @@
    0
   ],
   "owners.current_no_log": [
-   25,
+   27,
    0
   ],
   "owners.durations": [
-   10,
+   9,
    0
   ],
   "owners.first_owner": [
@@ -129,7 +129,7 @@
    0
   ],
   "owners.insight_company_now": [
-   10,
+   9,
    0
   ],
   "owners.insight_dealer_now": [
@@ -137,27 +137,27 @@
    0
   ],
   "owners.insight_lease": [
-   10,
+   9,
    0
   ],
   "owners.insight_new_dealer": [
-   10,
+   9,
    0
   ],
   "owners.insight_rental": [
-   10,
+   9,
    0
   ],
   "owners.insight_short_lease": [
-   10,
+   9,
    0
   ],
   "owners.insight_was_dealer": [
-   10,
+   9,
    0
   ],
   "owners.now_line": [
-   10,
+   9,
    0
   ],
   "owners.timeline": [
@@ -177,27 +177,27 @@
    0
   ],
   "recalls.checked_unlisted": [
-   28,
+   27,
    0
   ],
   "recalls.line_honest": [
-   34,
+   32,
    0
   ],
   "recalls.model_count": [
-   32,
+   33,
    0
   ],
   "recalls.model_extra": [
-   32,
+   33,
    0
   ],
   "recalls.model_fits": [
-   23,
+   14,
    0
   ],
   "recalls.model_missing": [
-   31,
+   33,
    0
   ],
   "recalls.open": [
@@ -209,15 +209,15 @@
    0
   ],
   "recalls.pending_after_road": [
-   13,
+   5,
    0
   ],
   "recalls.pending_banner": [
-   32,
+   33,
    0
   ],
   "recalls.pending_listed": [
-   23,
+   14,
    0
   ],
   "recalls.tab_shown": [
@@ -233,7 +233,7 @@
    0
   ],
   "recalls.thin_rows": [
-   34,
+   32,
    0
   ],
   "road.first_date": [
@@ -249,7 +249,7 @@
    0
   ],
   "settlements.import_line": [
-   2,
+   1,
    0
   ],
   "settlements.scope": [
@@ -341,7 +341,7 @@
    0
   ],
   "specs.wltp_note": [
-   20,
+   18,
    0
   ],
   "status.buy_checklist": [
@@ -349,11 +349,11 @@
    0
   ],
   "status.buy_plan": [
-   37,
+   36,
    0
   ],
   "status.cancel_date": [
-   3,
+   4,
    0
   ],
   "status.cancel_pill": [
@@ -361,11 +361,11 @@
    0
   ],
   "status.cancel_reason": [
-   3,
+   4,
    0
   ],
   "status.cancelled_buy": [
-   3,
+   4,
    0
   ],
   "status.heavy_note": [
@@ -385,7 +385,7 @@
    0
   ],
   "status.import_type": [
-   2,
+   1,
    0
   ],
   "status.inactive_pill": [
@@ -421,7 +421,7 @@
    0
   ],
   "tow.hook": [
-   27,
+   25,
    0
   ],
   "tow.limits": [
