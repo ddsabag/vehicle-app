@@ -3,7 +3,9 @@
 //   web     the site had real visits (Cloudflare, at least WEB_VISITS) but GA4 got no car check from the web (worker/api dropped them, or track broke)
 //   app     the app had new installs (first_open, at least APP_INSTALLS) but GA4 got no car check from the app
 //   errors  code errors (js_error, and lookup_failed of kind js_err) at least ERR_MIN and at least ERR_X times the median of the 7 days before;
-//           js_error of kind "iab" (scripts of the Facebook / Instagram / TikTok in-app browser, not ours) does not count
+//           js_error of kind "iab" (scripts of the Facebook / Instagram / TikTok in-app browser, not ours) does not count; and from at least
+//           ERR_USERS visitors in one row (25.11: two Safari visitors from Google threw the page's cap of 5 each = 10 errors, while every other
+//           visitor of the day saw none: one visitor's browser or extension, not a break)
 //   ga      GA4 has no event at all for yesterday while Cloudflare counted real visits
 // A source that does not answer leaves its checks unknown (never a made-up 0). The repo's logs are public, so this prints states only and never
 // a count; the counts go to Telegram, through the alert router (key pipe:<ids>).
@@ -14,7 +16,7 @@ import fs from "node:fs";
 import crypto from "node:crypto";
 import { msg } from "./tg-text.mjs";
 
-export const WEB_VISITS = 50, APP_INSTALLS = 3, ERR_MIN = 5, ERR_X = 3;
+export const WEB_VISITS = 50, APP_INSTALLS = 3, ERR_MIN = 5, ERR_X = 3, ERR_USERS = 3;
 const CF_SITES = ["03eb6fb7a75440649781d7a00b29c4ff", "5c0a33a14f5f4201b25fd680a29ae723"];   // as seo-daily.mjs: both site tags, no /live, no headless
 const EVENTS = ["car_lookup", "first_open", "js_error", "lookup_failed"];
 const IAB = new Set(["facebook", "instagram", "tiktok"]);   // customEvent:src of a visit opened inside that app
@@ -45,7 +47,7 @@ export async function readGa(env = IO.env) {
   try {
     const tok = await gaToken(sa);
     if (!tok) return null;
-    const body = { dateRanges: [{ startDate: "8daysAgo", endDate: "yesterday" }], metrics: [{ name: "eventCount" }], limit: 2000,
+    const body = { dateRanges: [{ startDate: "8daysAgo", endDate: "yesterday" }], metrics: [{ name: "eventCount" }, { name: "totalUsers" }], limit: 2000,
       dimensions: [{ name: "date" }, { name: "platform" }, { name: "eventName" }, { name: "customEvent:kind" }, { name: "customEvent:src" }],
       dimensionFilter: { filter: { fieldName: "eventName", inListFilter: { values: EVENTS } } } };
     const r = await IO.fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${PROPERTY}:runReport`, { method: "POST",
@@ -53,7 +55,7 @@ export async function readGa(env = IO.env) {
     const j = J(await r.text());
     if (!r.ok || !j) return null;
     return (j.rows || []).map(x => { const [d, platform, ev, kind, src] = x.dimensionValues.map(v => v.value);
-      return { day: `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`, platform: platform.toLowerCase(), ev, kind, src: String(src || "").toLowerCase(), n: +x.metricValues[0].value || 0 }; });
+      return { day: `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`, platform: platform.toLowerCase(), ev, kind, src: String(src || "").toLowerCase(), n: +x.metricValues[0].value || 0, u: x.metricValues[1] ? +x.metricValues[1].value || 0 : undefined }; });
   } catch { return null; }
 }
 
@@ -81,7 +83,10 @@ export function judge(rows, visits, day) {
   const any = sum(day, () => true), webLook = lookups("web"), appLook = lookups("android"), installs = sum(day, r => r.ev === "first_open" && r.platform === "android");
   // errors from inside the Facebook, Instagram and TikTok apps' browsers are their noise, not ours (24-25.10): by the GA source until 1.38,
   // and by the site's own kind "iab" from 1.38 on
-  const errs = d => sum(d, r => ((r.ev === "js_error" && r.kind !== "iab") || (r.ev === "lookup_failed" && r.kind === "js_err")) && !IAB.has(r.src));
+  const isErr = r => ((r.ev === "js_error" && r.kind !== "iab") || (r.ev === "lookup_failed" && r.kind === "js_err")) && !IAB.has(r.src);
+  const errs = d => sum(d, isErr);
+  // the most visitors behind one error row of the day (users do not add up across rows); a row without a user count counts as many
+  const errUsers = rows.filter(r => r.day === day && r.n > 0 && isErr(r)).reduce((m, r) => Math.max(m, r.u === undefined ? Infinity : r.u), 0);
   if (visits !== null) {
     state.ga = any === 0 && visits >= WEB_VISITS ? "alarm" : "ok";
     if (state.ga === "alarm") alarms.push({ id: "ga", text: `Google Analytics לא קיבל אף אירוע, לא מהאתר ולא מהאפליקציה, למרות ${visits} כניסות לאתר.` });
@@ -94,7 +99,7 @@ export function judge(rows, visits, day) {
     state.app = appLook === 0 && installs >= APP_INSTALLS ? "alarm" : "ok";
     if (state.app === "alarm") alarms.push({ id: "app", text: `באפליקציה נספרו 0 בדיקות רכב, למרות ${installs} התקנות חדשות. כנראה המדידה מהאפליקציה לא עוברת.` });
     const base = median([1, 2, 3, 4, 5, 6, 7].map(k => errs(addDays(day, -k)))), y = errs(day);
-    state.errors = y >= ERR_MIN && y >= ERR_X * base ? "alarm" : "ok";
+    state.errors = y >= ERR_MIN && y >= ERR_X * base && errUsers >= ERR_USERS ? "alarm" : "ok";
     if (state.errors === "alarm") alarms.push({ id: "errors", text: `באתר נרשמו ${y} שגיאות קוד אתמול, ובדרך כלל ${base}. ייתכן שמשהו שעלה לאחרונה נשבר.` });
   }
   return { state, alarms };
@@ -129,7 +134,7 @@ export async function main() {
 async function selftest() {
   const fails = [], ok = (c, m) => { if (!c) fails.push(m); };
   const D = "2026-10-21", day = k => addDays(D, -k);
-  const rowsOf = (spec) => Object.entries(spec).flatMap(([k, list]) => list.map(([platform, ev, n, kind = "(not set)"]) => ({ day: day(+k), platform, ev, kind, n })));
+  const rowsOf = (spec) => Object.entries(spec).flatMap(([k, list]) => list.map(([platform, ev, n, kind = "(not set)", u]) => ({ day: day(+k), platform, ev, kind, n, ...(u === undefined ? {} : { u }) })));
   const week = k => [["web", "car_lookup", 300, "car"], ["android", "car_lookup", 500, "car"], ["android", "first_open", 20], ["web", "js_error", k % 3, "run"], ["android", "lookup_failed", 2, "net_err"]];
   const normal = { 0: week(0), 1: week(1), 2: week(2), 3: week(3), 4: week(4), 5: week(5), 6: week(6), 7: week(7) };
   let v = judge(rowsOf(normal), 900, D);
@@ -154,6 +159,10 @@ async function selftest() {
   ok(v.state.errors === "ok", "network failures are not code errors");
   v = judge(rowsOf({ ...normal, 0: [...week(0), ["web", "js_error", 40, "run"]] }).map(r => (r.ev === "js_error" && r.n === 40 ? { ...r, src: "facebook" } : r)), 900, D);
   ok(v.state.errors === "ok", "errors inside the Facebook app's browser are not counted");
+  v = judge(rowsOf({ ...normal, 0: [...week(0), ["web", "js_error", 8, "err", 2], ["web", "js_error", 2, "err", 2]] }), 900, D);
+  ok(v.state.errors === "ok", "10 errors from two visitors (5 each, the page's cap): one visitor's browser, not a break");
+  v = judge(rowsOf({ ...normal, 0: [...week(0), ["web", "js_error", 8, "err", 2], ["web", "js_error", 6, "run", 4]] }), 900, D);
+  ok(v.state.errors === "alarm", "errors from 4 visitors in one row: alarm");
   v = judge(rowsOf({ ...normal, 0: [...week(0), ["web", "js_error", 4, "run"]] }), 900, D);
   ok(v.state.errors === "ok", "4 errors over a median of 1: under ERR_MIN");
   const busy = Object.fromEntries(Object.entries(normal).map(([k, l]) => [k, [...l, ["web", "js_error", 10, "run"]]]));
@@ -169,7 +178,7 @@ async function selftest() {
   // the whole run with mocked services: prints states only, never a count; the alert carries the counts
   const saved = { ...IO }, printed = [], sent = [];
   const SA = { client_email: "canary@x.iam.gserviceaccount.com", private_key: crypto.generateKeyPairSync("rsa", { modulusLength: 1024 }).privateKey.export({ type: "pkcs8", format: "pem" }) };
-  const gaRows = rows => ({ rows: rows.map(r => ({ dimensionValues: [r.day.replace(/-/g, ""), r.platform === "android" ? "Android" : "web", r.ev, r.kind].map(value => ({ value })), metricValues: [{ value: String(r.n) }] })) });
+  const gaRows = rows => ({ rows: rows.map(r => ({ dimensionValues: [r.day.replace(/-/g, ""), r.platform === "android" ? "Android" : "web", r.ev, r.kind].map(value => ({ value })), metricValues: [{ value: String(r.n) }, ...(r.u === undefined ? [] : [{ value: String(r.u) }])] })) });
   const resolved = [];
   const runWith = async (rows, visits, env = {}) => {
     printed.length = 0; sent.length = 0; resolved.length = 0;
