@@ -520,6 +520,22 @@
    "id": "18199118071401870",
    "link": "https://www.instagram.com/p/DgGDDyDj4qD/",
    "at": "2026-11-23T18:41:48.106Z"
+  },
+  "2026-11-19/k7-reel/facebook": {
+   "tries": 1,
+   "last": "2026-11-26T18:41:11.682Z",
+   "status": "done",
+   "id": "1103429339360829",
+   "link": "https://www.facebook.com/reel/1103429339360829/",
+   "at": "2026-11-26T18:41:35.273Z"
+  },
+  "2026-11-19/k7-reel/instagram": {
+   "tries": 1,
+   "last": "2026-11-26T18:41:35.505Z",
+   "status": "done",
+   "id": "18117632777157649",
+   "link": "https://www.instagram.com/reel/DgNxdhHMu8e/",
+   "at": "2026-11-26T18:42:36.745Z"
   }
  },
  "ig": {
