@@ -228,6 +228,9 @@ const CLOCK = [
   // live watch: gap under an hour, so the hourly pass starts it every hour while GitHub skips it (with 75 a start at :21 held the next pass
   // and it ran every 2 h; /live's boards waited, measurement 5.11.2026). A run of GitHub's own in the last 50 min still counts
   { wf: "live-watch.yml", he: "מעקב הדשבורד", utc: [0, 24], gap: 50, inputs: { dry_run: "false" } },             // :12 and :42
+  // ministry pulse (data's watch on the ministry's answers, :11 and :41): GitHub started 14 of its 240 runs 21-26.11 (data thread 27.11),
+  // so the hourly pass starts it when no run of its own began in the last 50 min, as live watch: at least once an hour
+  { wf: "ministry-pulse.yml", he: "דופק משרד התחבורה", utc: [0, 24], gap: 50, inputs: {} },
   { wf: "reviews-monitor.yml", he: "ביקורות בחנות", utc: [7, 20], gap: 330, inputs: { dry_run: "false" } },       // 06:15, 11:15, 17:15
   { wf: "release-watch.yml", he: "מעקב הגרסה בחנות", utc: [8, 20], gap: 330, inputs: { mode: "on" } },            // 06:40, 11:40, 17:40
   { wf: "alert-daily.yml", he: "סיכום הבוקר", morning: [845, 2200], gap: 60, inputs: { dry_run: "false" } },      // 05:05 / 06:05 (08:05 local)

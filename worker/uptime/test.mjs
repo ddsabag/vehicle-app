@@ -38,7 +38,8 @@ globalThis.fetch = async (u, o = {}) => {
     if (m && m[2] === "dispatches") { gh.sent.push([m[1], JSON.parse(o.body)]); return new Response(null, { status: 204 }); }
     // gh.runs[wf] = a created_at (one scheduled run) or a list of runs; the created>= filter as GitHub applies it, newest first
     const since = Date.parse(decodeURIComponent((u.match(/[?&]created=([^&]+)/) || [])[1] || "").replace(/^>=/, "")) || 0;
-    const t = m && gh.runs[m[1]], list = (Array.isArray(t) ? t : t ? [{ created_at: t }] : []).map(r => ({ event: "schedule", conclusion: "success", ...r }));
+    // ministry pulse (in the clock since 27.11) ran on time unless a test sets its runs: the older checks keep their lists
+    const t = m && (m[1] === "ministry-pulse.yml" && !(m[1] in gh.runs) ? new Date(since).toISOString() : gh.runs[m[1]]), list = (Array.isArray(t) ? t : t ? [{ created_at: t }] : []).map(r => ({ event: "schedule", conclusion: "success", ...r }));
     ok(!m || /[?&]branch=main&/.test(u) && since > 0, "a runs read is on main, since a cut-off " + u);
     return new Response(JSON.stringify({ workflow_runs: list.filter(r => Date.parse(r.created_at) >= since).sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)) }));
   }
@@ -330,12 +331,12 @@ ok(h.status === 200 && h.j.tick === null && h.j.armed.home === false, "/health w
 {
   const { clockDue } = await import("data:text/javascript," + encodeURIComponent(src));
   const names = (t, hbT) => clockDue(T(t), hbT ? T(hbT) : null).map(c => c.wf).join();
-  ok(names("2026-11-02T03:00:00Z") === "live-watch.yml,app-guardian.yml", "03:00 UTC: the dashboard watch and the app guardian " + names("2026-11-02T03:00:00Z"));
-  ok(names("2026-11-02T06:50:00Z", "2026-11-01T06:52:00Z").startsWith("social-publish.yml,live-watch.yml,alert-daily.yml,"), "08:50 local, heartbeat from yesterday: the morning is due; reviews not before 07 UTC " + names("2026-11-02T06:50:00Z", "2026-11-01T06:52:00Z"));
+  ok(names("2026-11-02T03:00:00Z") === "live-watch.yml,ministry-pulse.yml,app-guardian.yml", "03:00 UTC: the dashboard watch and the app guardian " + names("2026-11-02T03:00:00Z"));
+  ok(names("2026-11-02T06:50:00Z", "2026-11-01T06:52:00Z").startsWith("social-publish.yml,live-watch.yml,ministry-pulse.yml,alert-daily.yml,"), "08:50 local, heartbeat from yesterday: the morning is due; reviews not before 07 UTC " + names("2026-11-02T06:50:00Z", "2026-11-01T06:52:00Z"));
   ok(names("2026-11-02T06:40:00Z", "2026-11-01T06:52:00Z").includes("alert-daily") === false, "08:40 local: the morning is not due yet");
   ok(names("2026-11-02T06:50:00Z", "2026-11-02T06:10:00Z").includes("alert-daily") === false, "today's heartbeat: the morning is done");
-  ok(names("2026-11-02T20:30:00Z", "2026-11-01T06:52:00Z") === "live-watch.yml", "22:30 local: no morning at night, no posts or daily bots after 20 UTC");
-  ok(names("2026-11-02T12:00:00Z", "2026-11-02T06:10:00Z").split(",").length === 4 + 12 + 3, "Monday midday after the morning: four frequent, twelve daily by the hours and the three Monday ones " + names("2026-11-02T12:00:00Z", "2026-11-02T06:10:00Z"));
+  ok(names("2026-11-02T20:30:00Z", "2026-11-01T06:52:00Z") === "live-watch.yml,ministry-pulse.yml", "22:30 local: no morning at night, no posts or daily bots after 20 UTC");
+  ok(names("2026-11-02T12:00:00Z", "2026-11-02T06:10:00Z").split(",").length === 5 + 12 + 3, "Monday midday after the morning: five frequent, twelve daily by the hours and the three Monday ones " + names("2026-11-02T12:00:00Z", "2026-11-02T06:10:00Z"));
   ok(!names("2026-11-02T08:30:00Z", "2026-11-02T06:10:00Z").includes("web-watch") && names("2026-11-02T09:30:00Z", "2026-11-02T06:10:00Z").includes("web-watch"), "a daily bot waits about an hour after its slot");
 }
 reset(); gh = { runs: {}, calls: [], sent: [], status: 0 };
@@ -498,6 +499,14 @@ env = PAGE(); env.ALERT_ROUTE = "all"; env.GH_DISPATCH_TOKEN = "GHTOKEN";
 gh.calls = []; gh.sent = []; gh.runs = { ...ranAll("2026-11-05T12:20:00Z"), "live-watch.yml": "2026-11-05T12:42:00Z" };   // GitHub's own :42 run
 x = await tick(env, T("2026-11-05T13:21:00Z"));
 ok(!gh.sent.some(a => a[0] === "live-watch.yml"), "GitHub's run 39 min ago counts: not started");
+env = PAGE(); env.ALERT_ROUTE = "all"; env.GH_DISPATCH_TOKEN = "GHTOKEN";
+gh.calls = []; gh.sent = []; gh.runs = { ...ranAll("2026-11-05T12:20:00Z"), "ministry-pulse.yml": "2026-11-05T09:11:00Z" };   // GitHub skipped the pulse for hours
+x = await tick(env, T("2026-11-05T13:21:00Z"));
+ok(gh.sent.some(a => a[0] === "ministry-pulse.yml" && JSON.stringify(a[1]) === '{"ref":"main","inputs":{}}'), "ministry pulse skipped for hours: started on main " + JSON.stringify(gh.sent.map(a => a[0])));
+gh.calls = []; gh.sent = []; gh.runs = { ...ranAll("2026-11-05T12:20:00Z"), "ministry-pulse.yml": "2026-11-05T13:11:00Z" };   // GitHub's own :11 run
+env = PAGE(); env.ALERT_ROUTE = "all"; env.GH_DISPATCH_TOKEN = "GHTOKEN";
+x = await tick(env, T("2026-11-05T13:21:00Z"));
+ok(!gh.sent.some(a => a[0] === "ministry-pulse.yml"), "the pulse's own run 10 min ago counts: not started");
 // 8.11.2026: social publish is read on every 10-minute tick (its slots are at :00/:15/:30 Israel; the hourly pass at :21 was 51 min late)
 env = PAGE(); env.ALERT_ROUTE = "all"; env.GH_DISPATCH_TOKEN = "GHTOKEN";
 gh.calls = []; gh.sent = []; gh.runs = { ...ranAll("2026-11-08T17:20:00Z"), "social-publish.yml": "2026-11-08T17:21:00Z" };
@@ -515,7 +524,6 @@ ok(!gh.sent.some(a => a[0] === "social-publish.yml"), "outside its hours (05-20 
 // every scheduled workflow has a backup-clock entry or a reason it has none (ops deep-audit verification 22.11.2026): a new scheduled bot
 // must be a choice here, not forgotten
 { const NO_BACKUP = {
-    "ministry-pulse.yml": "every 30 minutes: a skipped run is followed by the next one",
     "seo-daily.yml": "a digest; a late or missing one is noticed by SEO daily's own checks",
     "seo-publish.yml": "publishes content: a second start could publish twice; its owner (SEO) decides",
     "vanished.yml": "data's twice-weekly detector; owner to decide",
