@@ -1552,12 +1552,12 @@ function demoRows(url){
   if (id.startsWith("142afde2") || id.startsWith("39f455bf")) return [model];
   return [];
 }
-function dsFetch(url){
+function dsFetch(url, tmo = 15000){
   { const demo = demoRows(url); if (demo) return Promise.resolve(demo); }
   const hit = DS_CACHE.get(url); if (hit && Date.now() - hit.t < 60000) return hit.p;
   const pr = (async () => {
     // a stalled mobile connection must not hang the lookup forever: give up after 15 s (the caller retries)
-    const tc = new AbortController(), tt = setTimeout(() => tc.abort(), 15000);
+    const tc = new AbortController(), tt = setTimeout(() => tc.abort(), tmo);
     let j;
     try {
       let r = null;
@@ -1576,12 +1576,12 @@ function dsFetch(url){
   pr.catch(() => { if (DS_CACHE.get(url) && DS_CACHE.get(url).p === pr) DS_CACHE.delete(url); });
   return pr;
 }
-async function ds(resource_id, filters, limit, signal, sort){
+async function ds(resource_id, filters, limit, signal, sort, tmo){
   const p = new URLSearchParams({resource_id, filters: JSON.stringify(filters), limit: String(limit || 100)});
   if (sort) p.set("sort", sort);
   if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
   // the shared request keeps running for other callers, but this caller stops waiting the moment it is cancelled
-  const pend = dsFetch(`${API}?${p}`);
+  const pend = dsFetch(`${API}?${p}`, tmo);
   const rows = signal ? await Promise.race([pend, new Promise((_, rej) => signal.addEventListener("abort", () => rej(new DOMException("Aborted", "AbortError")), {once: true}))]) : await pend;
   if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
   return rows;
@@ -1591,17 +1591,20 @@ async function ds(resource_id, filters, limit, signal, sort){
    types on 20.10.2026: on 12 random cars the number form and the padded forms never found a row the plain form missed, while asking them one
    after the other cost one or two more round trips whenever a car has no row in a register, which is most cars in most registers (6 of the 12
    asked the ownership register three times in a row, and that register finished last) */
-async function byPlate(set, plate, signal){
+async function byPlate(set, plate, signal, critical){
   const field = set.field || "mispar_rechev";
   const forms = set.pad ? [plate, plate.padStart(7,"0"), plate.padStart(8,"0")] : [plate];
-  let lastErr = null, ok = false;
+  let lastErr = null, ok = false, att = 0;
+  // the register that decides whether there is a car (active, or a rare main one when active has none) gets one more try after a stall: 60% of the failed
+  // checks (12.10-26.11) were one request hung until the abort. A first abort at 10 s and a second try of 12 s stay inside the check's 30 s deadline
   forms: for (const v of [...new Set(forms)]) {
     for (let attempt = 0; attempt < 2; attempt++) {
-      try { const rows = await ds(set.id, {[field]: v}, 100, signal); ok = true; if (rows.length) return rows; break; }
-      catch (e) { if (e.name === "AbortError") throw e; lastErr = e; if (/timeout/.test(e.message)) break forms; /* a stalled server will not answer the next form either */ if (/HTTP 4\d\d/.test(e.message)) break; /* a stalled request is one attempt, not two; a 4xx answer will not change on a retry */ if (attempt === 0) await new Promise(r => setTimeout(r, 700)); }
+      att++;
+      try { const rows = await ds(set.id, {[field]: v}, 100, signal, undefined, critical ? (attempt ? 12000 : 10000) : 15000); ok = true; if (rows.length) return rows; break; }
+      catch (e) { if (e.name === "AbortError") throw e; lastErr = e; if (/timeout/.test(e.message) && !(critical && attempt === 0)) break forms; /* a stalled server will not answer the next form either */ if (/HTTP 4\d\d/.test(e.message)) break; /* a 4xx answer will not change on a retry */ if (attempt === 0 && !/timeout/.test(e.message)) await new Promise(r => setTimeout(r, 700)); }
     }
   }
-  if (!ok && lastErr) throw lastErr;
+  if (!ok && lastErr) { lastErr.att = att; throw lastErr; }
   return [];
 }
 /* The ministry's ownership-history datastore sometimes answers with nothing for every plate. A daily copy of the
@@ -2988,6 +2991,10 @@ function kmAtTest(v){
   const start = used ? born : road || born, years = start && t > start ? monthsBetween(start, t) / 12 : 0;
   return years >= 0.5 ? {km, kmYears: years, kmPerYear: Math.round(km / years / 100) * 100} : {...none, km};
 }
+/* why a check ended offline, in one short lookup_failed param (GA4 has room for few more dimensions): reason|register|online|attempts,
+   e.g. "timeout|active|1|2". The reason is the kind of failure only, never a message */
+const failReason = m => /timeout/.test(m || "") ? "timeout" : /HTTP 5\d\d/.test(m || "") ? "http5" : /HTTP 4\d\d/.test(m || "") ? "http4" : /JSON|Unexpected token|Unexpected end/i.test(m || "") ? "json" : /CKAN/.test(m || "") ? "ckan" : "net";
+const failWhy = (res, key) => { const r = (key && key !== "all" && res[key]) || res.active || {}; return `${failReason(r.err)}|${key || "main"}|${navigator.onLine === false ? 0 : 1}|${r.att || 1}`; };
 /* ---------- fetch one vehicle ---------- */
 async function fetchVehicle(plate, signal, onProgress){
   const res = {}; let done = 0, recEmpty = null;
@@ -2996,8 +3003,8 @@ async function fetchVehicle(plate, signal, onProgress){
   // instead of 16. The personal-import and public registers are always asked: only they say that a car in the active register is a personal import (877 cars
   // in 10/2026), or has its licence deposited or was taken off the road by the police (about 2,550 taxis and other public vehicles, pubState)
   const one = async s => {
-    try { res[s.key] = {rows: await byPlate(s, plate, signal)}; }
-    catch (err) { if (err.name === "AbortError") throw err; res[s.key] = {rows: [], err: err.message}; }
+    try { res[s.key] = {rows: await byPlate(s, plate, signal, s.role === "main" && s.key !== "import" && s.key !== "public")}; }
+    catch (err) { if (err.name === "AbortError") throw err; res[s.key] = {rows: [], err: err.message, att: err.att || 1}; }
     if (onProgress) onProgress(++done / (PLATE_SETS.length + 1));
     if (s.key === "recall" && !res.recall.err && !res.recall.rows.length) recEmpty = recallListEmpty();   // the list's own total, asked alongside the other registers
     // the model data needs only the maker and model codes of the first vehicle record: start it now (same requests, shared through DS_CACHE) instead of after every dataset has answered
@@ -3025,12 +3032,12 @@ async function fetchVehicle(plate, signal, onProgress){
   // maker tested after that cancellation, both with a licence still valid): the import row is the car
   { const c = mains[0] && /^cancel/.test(mains[0].key) && res[mains[0].key].rows[0], im = res.import.rows[0], t = im && toDate(im.mivchan_acharon_dt), b = c && toDate(c.bitul_dt);
     if (c && im && sameNum(c, im, "tozeret_cd") && t && b && t > b) mains = [PLATE_SETS.find(s => s.key === "import"), ...mains.filter(s => s.key !== "import")]; }
-  if (errs.length === PLATE_SETS.filter(s => !res[s.key].skip).length) return {plate, offline: true};   // every register asked failed: no connection
+  if (errs.length === PLATE_SETS.filter(s => !res[s.key].skip).length) return {plate, offline: true, why: failWhy(res, "all")};   // every register asked failed: no connection
   errs.forEach(s => reportErr("dataset_" + s.key));
   // the active register says whether the car is on the road: without its answer an inactive or cancelled row (the same plate can be in both,
   // zombie-detector.mjs) is not the car. Offline, so a saved car opens from its last full copy
-  if (res.active.err) return {plate, offline: true};
-  if (!mains.length && PLATE_SETS.some(s => s.role === "main" && res[s.key].err)) return {plate, offline: true};   // a main register failed: never render (or snapshot) a half-empty car
+  if (res.active.err) return {plate, offline: true, why: failWhy(res, "active")};
+  if (!mains.length && PLATE_SETS.some(s => s.role === "main" && res[s.key].err)) return {plate, offline: true, why: failWhy(res, (PLATE_SETS.find(s => s.role === "main" && res[s.key].err) || {}).key)};   // a main register failed: never render (or snapshot) a half-empty car
   if (!mains.length && !extras.length) {
     const se = await sourceEmpty(signal);
     if (se !== false) { reportErr(se ? "dataset_empty_active" : "dataset_probe_failed"); return {plate, offline: true, sourceDown: true}; }
@@ -3261,7 +3268,7 @@ async function lookup(raw){
   const side = Promise.race([Promise.all([loadModelStats().catch(() => null), loadService().catch(() => null), loadSettlements()]), new Promise(r => setTimeout(r, 1500))]);
   let D; const hadStats = !!MSTATS;
   try { D = await fetchVehicle(plate, signal, () => {}); }
-  catch (err) { if (err.name === "AbortError") { if (timedOut) { D = {plate, offline: true}; track("lookup_timeout"); } else { if (Date.now() - t0 > 1500) track("lookup_abort"); return; } } else throw err; }   // the user gave up on a slow lookup and typed another
+  catch (err) { if (err.name === "AbortError") { if (timedOut) { D = {plate, offline: true, why: `deadline|check|${navigator.onLine === false ? 0 : 1}|0`}; track("lookup_timeout"); } else { if (Date.now() - t0 > 1500) track("lookup_abort"); return; } } else throw err; }   // the user gave up on a slow lookup and typed another
   finally { if (ctrl && ctrl.signal === signal) $("#go").disabled = false; clearTimeout(slowT); clearTimeout(deadT); }
   const dur = Date.now() - t0, durB = dur < 2000 ? "lt2" : dur < 5000 ? "2to5" : dur < 10000 ? "5to10" : "gt10";
   if (signal.aborted && !timedOut) return;
@@ -3271,8 +3278,11 @@ async function lookup(raw){
   if (!hadStats && MSTATS && D && D.v && D.cost && !D.offline && !D.notFound) { try { D.cost = costs(D); } catch {} }
   if (D.offline || (D.notFound && isSaved(plate))) { const sn = snapGet(plate); if (sn) { track("lookup_from_cache"); current = sn; currentTab = ot && ot.p === plate ? ot.t : "overview"; renderResult(); focusResult(); window.scrollTo({top: 0}); return; } }
   if (D.sourceDown) { out.innerHTML = `<div class="msg err edge" role="alert"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-wrench"/></svg></div>מאגר הרכבים של משרד התחבורה לא מחזיר נתונים כרגע, בלי קשר למספר שהקלדתם. זו תקלה אצל המשרד. נסו שוב מאוחר יותר.</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; track("lookup_failed", {kind: "source_down", dur: durB}); return; }
-  if (D.offline || D.notFound) track("lookup_failed", {kind: D.sourceDown ? "source_down" : D.offline ? "offline" : "not_found", dur: durB});
-  if (D.offline) { out.innerHTML = `<div class="msg err edge" role="alert"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-globe"/></svg></div>${navigator.onLine === false ? "אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב." : "מאגרי משרד התחבורה לא עונים כרגע (תקלה או עומס אצל המשרד, לא אצלכם). נסו שוב בעוד כמה דקות."}</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`; return; }
+  if (D.offline || D.notFound) track("lookup_failed", {kind: D.sourceDown ? "source_down" : D.offline ? "offline" : "not_found", dur: durB, ...(D.offline && D.why ? {why: D.why} : {})});
+  if (D.offline) { out.innerHTML = `<div class="msg err edge" role="alert"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-globe"/></svg></div>${navigator.onLine === false ? "אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב." : "מאגרי משרד התחבורה לא עונים כרגע (תקלה או עומס אצל המשרד, לא אצלכם). נסו שוב בעוד כמה דקות."}</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`;
+    // a fast failure (refused, or no network) or a phone that says it is offline: check again once by itself when the connection is back, while this message is still shown
+    if (dur < 2000 || navigator.onLine === false) window.addEventListener("online", () => { const b = out.querySelector(`[data-retry="${plate}"]`); if (b && document.contains(b)) { track("lookup_auto_retry"); b.click(); } }, {once: true});
+    return; }
   if (D.notFound) { out.innerHTML = `<div class="msg edge" role="alert"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-search"/></svg></div>לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.<p class="note" style="margin:8px 0 0">בדקנו את כל מאגרי משרד התחבורה, כולל רכבים שירדו מהכביש, דו-גלגלי ויבוא אישי. רכב שעלה לכביש בימים האחרונים יופיע אחרי העדכון הבא של המאגר.</p></div>`; return; }
   current = D; currentTab = ot && ot.p === D.plate ? ot.t : "overview";
   const role = roleOf(D);   // who checked it, before "+" below (or the home file line) saves the car
