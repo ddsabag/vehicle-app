@@ -35,7 +35,9 @@ import fs from "node:fs";
 import { msg } from "./tg-text.mjs";
 
 export const MIN_USERS = 10, MIN_CHECKS = 100, DAYS = [1, 3, 7], BASE_DAYS = 14, COMPARE_FROM = "1.38";
-export const ZA = { minChecks: 50, failPct: 10, slowPct: 10 };
+export const ZA = { minChecks: 50, failPct: 10, slowPct: 10, failUsers: 5 };
+// fail is judged by people too (CEO 27.11, the 26.11 spell: one phone with no network retried 8 times in an hour): over failPct of the checks,
+// over failPct of the people who checked, and at least failUsers people with a technical failure. A day without user counts falls back to checks.
 // Dudu is not needed for a breach or a finding (autopilot rules: route to the owner, Dudu only if needed; the one loud message of the autopilot
 // is auto:revert), and both messages say so. Level summary with a problem label is the router's quiet message, sent once per episode, with
 // the morning ledger telling how it ended; level day would ring in daytime (27.10: the first zone A breach would have rung for nothing to do).
@@ -45,20 +47,25 @@ const realOnly = name => ({ andGroup: { expressions: [{ filter: { fieldName: "ev
 export function zoneAQueries(day) {
   const dateRanges = [{ startDate: day, endDate: day }];
   return {
-    za_ev: { dateRanges, dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }], dimensionFilter: { andGroup: { expressions: [{ filter: { fieldName: "eventName", inListFilter: { values: ["car_lookup", "lookup_failed"] } } }, REAL] } }, limit: 10 },
-    za_fail: { dateRanges, dimensions: [{ name: "customEvent:kind" }], metrics: [{ name: "eventCount" }], dimensionFilter: realOnly("lookup_failed"), limit: 20 },
+    za_ev: { dateRanges, dimensions: [{ name: "eventName" }], metrics: [{ name: "eventCount" }, { name: "totalUsers" }], dimensionFilter: { andGroup: { expressions: [{ filter: { fieldName: "eventName", inListFilter: { values: ["car_lookup", "lookup_failed"] } } }, REAL] } }, limit: 10 },
+    za_fail: { dateRanges, dimensions: [{ name: "customEvent:kind" }], metrics: [{ name: "eventCount" }, { name: "totalUsers" }], dimensionFilter: realOnly("lookup_failed"), limit: 20 },
     za_dur: { dateRanges, dimensions: [{ name: "customEvent:dur" }], metrics: [{ name: "eventCount" }], dimensionFilter: realOnly("car_lookup"), limit: 20 },
   };
 }
-// Z = { za_ev: [[name, n]], za_fail: [[kind, n]], za_dur: [[bucket, n]] }
+// Z = { za_ev: [[name, n, users]], za_fail: [[kind, n, users]], za_dur: [[bucket, n]] } (users may be missing: then only checks are judged)
 export function zoneA(Z) {
   const g = (rows, k) => rows.filter(r => r[0] === k).reduce((a, r) => a + r[1], 0);
+  const gu = (rows, k) => rows.filter(r => r[0] === k).reduce((a, r) => a + (Number(r[2]) || 0), 0);
   const checks = g(Z.za_ev, "car_lookup") + g(Z.za_ev, "lookup_failed");
   const tech = ["source_down", "offline", "net_err", "js_err"].reduce((a, k) => a + g(Z.za_fail, k), 0);
   const durAll = ["lt2", "2to5", "5to10", "gt10"].reduce((a, k) => a + g(Z.za_dur, k), 0), slow = g(Z.za_dur, "5to10") + g(Z.za_dur, "gt10");
-  const R = { checks, timed: durAll, failPct: checks ? r1(tech / checks * 100) : 0, slowPct: durAll ? r1(slow / durAll * 100) : 0, breach: [] };
+  // people: those who checked (the larger of the two events' users: GA4 users do not add across events) and those with a technical failure
+  // (summed over kinds, so a person counted under two kinds counts twice: the safe side for an alarm)
+  const users = Math.max(gu(Z.za_ev, "car_lookup"), gu(Z.za_ev, "lookup_failed")), failUsers = ["source_down", "offline", "net_err", "js_err"].reduce((a, k) => a + gu(Z.za_fail, k), 0);
+  const R = { checks, timed: durAll, failPct: checks ? r1(tech / checks * 100) : 0, slowPct: durAll ? r1(slow / durAll * 100) : 0, users, failUsers,
+    failUserPct: users ? r1(Math.min(failUsers, users) / users * 100) : 0, breach: [] };
   if (checks < ZA.minChecks) return { ...R, state: "thin" };
-  if (R.failPct > ZA.failPct) R.breach.push("fail");
+  if (R.failPct > ZA.failPct && (!users || (R.failUserPct > ZA.failPct && failUsers >= ZA.failUsers))) R.breach.push("fail");
   if (durAll >= ZA.minChecks && R.slowPct > ZA.slowPct) R.breach.push("slow");
   return { ...R, state: R.breach.length ? "breach" : "ok" };
 }
@@ -371,6 +378,12 @@ async function selftest() {
   A = za({ car_lookup: 170, lookup_failed: 30 }, { source_down: 22, not_found: 8 }, { lt2: 100, "2to5": 40, "5to10": 20, gt10: 10 });
   ok(A.state === "breach" && A.breach.join() === "fail,slow" && A.failPct === 11, "zone A: typos (not_found) are not failures, 22 technical of 200 is 11% " + JSON.stringify(A));
   ok(za({ car_lookup: 30, lookup_failed: 15 }, { offline: 15 }, { gt10: 30 }).state === "thin", "zone A under 50 checks: not judged");
+  { const zu = (ev, fl) => zoneA({ za_ev: ev, za_fail: fl, za_dur: [["lt2", 100]] });
+    ok(zu([["car_lookup", 120, 80], ["lookup_failed", 20, 6]], [["offline", 16, 5], ["not_found", 4, 2]]).breach.length === 0, "26.11: one phone retrying offline (16 fails, 5 people of 80) is not a fail breach");
+    ok(zu([["car_lookup", 120, 80], ["lookup_failed", 20, 15]], [["source_down", 16, 12]]).breach.join() === "fail", "the source down for 12 people of 80 is a breach");
+    ok(zu([["car_lookup", 40, 30], ["lookup_failed", 20, 4]], [["source_down", 16, 4]]).breach.length === 0, "under 5 people with a failure: no breach");
+    const nu = zu([["car_lookup", 120], ["lookup_failed", 20]], [["offline", 16]]);
+    ok(nu.breach.join() === "fail" && nu.users === 0, "no user counts: judged by checks as before"); }
   ok(zoneAText(A, "2026-10-25").includes("25.10") && zoneAText(A, "2026-10-25").includes("יותר מדי כשלים ויותר מדי בדיקות איטיות"), "zone A message " + zoneAText(A, "2026-10-25"));
   // what a day back in range closes: zone A by kind, a version by its own findings
   ok(zoneACloses(za({ car_lookup: 190, lookup_failed: 10 }, { source_down: 5 }, { lt2: 150, "2to5": 30, "5to10": 8, gt10: 2 })).join() === "zonea:", "zone A clean day closes every zonea: item");
