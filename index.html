@@ -1531,6 +1531,7 @@ const loadFlags = () => fetch("https://raw.githubusercontent.com/ddsabag/vehicle
 /* Optional caching proxy (worker/ in this repo). Empty = every phone talks to data.gov.il directly. When set and it fails, the phone falls back to direct. */
 const PROXY = "";
 let STALE_AT = 0;   // set when the proxy answered from its stored copy because the ministry was unreachable
+const AUTO_RETRY = new Set();   // plates whose "check again" waits for the browser's online event
 const DS_CACHE = new Map();   // identical queries (also while still in flight) are answered once: fewer requests, instant repeat lookups
 /* The home "נסו לדוגמה" car (rule 10, 21.11): 76-543-21 is in no register, so it is a built-in sample with fixed data. Any query for its plate
    or its made-up model code (degem_cd 990001) is answered here and never reaches the ministry or our Worker; the page says it is a sample, it
@@ -1591,17 +1592,40 @@ async function ds(resource_id, filters, limit, signal, sort, tmo){
    types on 20.10.2026: on 12 random cars the number form and the padded forms never found a row the plain form missed, while asking them one
    after the other cost one or two more round trips whenever a car has no row in a register, which is most cars in most registers (6 of the 12
    asked the ownership register three times in a row, and that register finished last) */
+/* The register that decides whether there is a car (active, or a rare main one when active has none) is asked with a hedge: most
+   failed checks were one request hung until the abort. The first request keeps its 15 s; if it has not answered by 9 s (or failed fast, not 4xx), one
+   more identical query goes out (limit 101, so it bypasses DS_CACHE) and runs until about 25 s from the start, inside the check's 30 s deadline. The
+   first answer wins, so a slow success is never turned into a failure, and the extra request lands only on slow or failed ones */
+function hedge(ask){
+  return new Promise((res, rej) => {
+    const t0 = Date.now();
+    let pending = 0, done = false, second = false, tm = 0;
+    const end = () => { done = true; clearTimeout(tm); };
+    const settle = pr => { pending++; pr.then(rows => { if (!done) { end(); res({rows, att: second ? 2 : 1}); } }, e => {
+      if (done) return;
+      if (e.name === "AbortError") { end(); return rej(e); }
+      pending--;
+      if (!second && !/HTTP 4\d\d/.test(e.message)) { clearTimeout(tm); tm = setTimeout(go, 700); return; }   // a 4xx answer will not change on a retry
+      if (!pending) { end(); e.att = second ? 2 : 1; rej(e); }
+    }); };
+    const go = () => { if (done || second) return; second = true; settle(ask(101, Math.max(8000, 25000 - (Date.now() - t0)))); };
+    settle(ask(100, 15000));
+    tm = setTimeout(go, 9000);
+  });
+}
 async function byPlate(set, plate, signal, critical){
   const field = set.field || "mispar_rechev";
   const forms = set.pad ? [plate, plate.padStart(7,"0"), plate.padStart(8,"0")] : [plate];
   let lastErr = null, ok = false, att = 0;
-  // the register that decides whether there is a car (active, or a rare main one when active has none) gets one more try after a stall: 60% of the failed
-  // checks (12.10-26.11) were one request hung until the abort. A first abort at 10 s and a second try of 12 s stay inside the check's 30 s deadline
   forms: for (const v of [...new Set(forms)]) {
+    if (critical) {
+      try { const r = await hedge((lim, tmo) => ds(set.id, {[field]: v}, lim, signal, undefined, tmo)); att += r.att; ok = true; if (r.rows.length) return r.rows; continue; }
+      catch (e) { if (e.name === "AbortError") throw e; att += e.att || 1; lastErr = e; if (/timeout/.test(e.message)) break; continue; }
+    }
     for (let attempt = 0; attempt < 2; attempt++) {
       att++;
-      try { const rows = await ds(set.id, {[field]: v}, 100, signal, undefined, critical ? (attempt ? 12000 : 10000) : 15000); ok = true; if (rows.length) return rows; break; }
-      catch (e) { if (e.name === "AbortError") throw e; lastErr = e; if (/timeout/.test(e.message) && !(critical && attempt === 0)) break forms; /* a stalled server will not answer the next form either */ if (/HTTP 4\d\d/.test(e.message)) break; /* a 4xx answer will not change on a retry */ if (attempt === 0 && !/timeout/.test(e.message)) await new Promise(r => setTimeout(r, 700)); }
+      try { const rows = await ds(set.id, {[field]: v}, 100, signal); ok = true; if (rows.length) return rows; break; }
+      catch (e) { if (e.name === "AbortError") throw e; lastErr = e; if (/timeout/.test(e.message)) break forms; /* a stalled server will not answer the next form either */ if (/HTTP 4\d\d/.test(e.message)) break; /* a 4xx answer will not change on a retry */ if (attempt === 0) await new Promise(r => setTimeout(r, 700)); }
     }
   }
   if (!ok && lastErr) { lastErr.att = att; throw lastErr; }
@@ -3281,7 +3305,7 @@ async function lookup(raw){
   if (D.offline || D.notFound) track("lookup_failed", {kind: D.sourceDown ? "source_down" : D.offline ? "offline" : "not_found", dur: durB, ...(D.offline && D.why ? {why: D.why} : {})});
   if (D.offline) { out.innerHTML = `<div class="msg err edge" role="alert"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-globe"/></svg></div>${navigator.onLine === false ? "אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב." : "מאגרי משרד התחבורה לא עונים כרגע (תקלה או עומס אצל המשרד, לא אצלכם). נסו שוב בעוד כמה דקות."}</div><button type="button" class="link-btn" data-retry="${plate}">נסו שוב</button>`;
     // a fast failure (refused, or no network) or a phone that says it is offline: check again once by itself when the connection is back, while this message is still shown
-    if (dur < 2000 || navigator.onLine === false) window.addEventListener("online", () => { const b = out.querySelector(`[data-retry="${plate}"]`); if (b && document.contains(b)) { track("lookup_auto_retry"); b.click(); } }, {once: true});
+    if ((dur < 2000 || navigator.onLine === false) && !AUTO_RETRY.has(plate)) { AUTO_RETRY.add(plate); window.addEventListener("online", () => { AUTO_RETRY.delete(plate); const b = out.querySelector(`[data-retry="${plate}"]`); if (b && document.contains(b)) { track("lookup_auto_retry"); b.click(); } }, {once: true}); }   // one armed retry per plate: two failures of the same plate while offline press the button once
     return; }
   if (D.notFound) { out.innerHTML = `<div class="msg edge" role="alert"><div class="edge-i" aria-hidden="true"><svg class="i"><use href="#i-search"/></svg></div>לא נמצא רכב עם המספר <span class="mono">${fmtPlate(plate)}</span>. בדקו שהמספר הוקלד נכון.<p class="note" style="margin:8px 0 0">בדקנו את כל מאגרי משרד התחבורה, כולל רכבים שירדו מהכביש, דו-גלגלי ויבוא אישי. רכב שעלה לכביש בימים האחרונים יופיע אחרי העדכון הבא של המאגר.</p></div>`; return; }
   current = D; currentTab = ot && ot.p === D.plate ? ot.t : "overview";
