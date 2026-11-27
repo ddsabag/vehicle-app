@@ -19,7 +19,7 @@ const CLASSES = [
   { key: "idea", icon: "💡", label: "הצעה לשיפור", re: /רעיון|רעיונות|הצע(ה|ות) (ל)?שיפור|לשיפור|כדאי להוסיף|אפשר להוסיף|תוסיפו|להוסיף (אופציה|אפשרות)|אשמח אם (תוסיפו|יהיה|תהיה)|feature request|suggestion|would be (nice|great|helpful) (to|if)/i,
     not: /טעות|שגוי|לא נכו[ןנ]|לא תוא[םמ]|לא מדויק|wrong|incorrect|mistake/i },   // an error report that also suggests something stays "data"
   { key: "data", icon: "🟡", label: "טעות בנתוני רכב", re: /טעות|שגוי|לא נכו[ןנ]|לא תוא[םמ]|לא מדויק|נתון|מספר רישוי|מספר יד|ידיים|ריקול|טסט|wrong|incorrect|mistake/i },
-  { key: "biz", icon: "🔵", label: "שיתוף פעולה או עיתונות", re: /שיתוף פעולה|פרסום|חסות|עיתונא|כתבה|כתב ב|ראיון|partnership|sponsor|press|advertis/i },
+  { key: "biz", icon: "🔵", label: "שיתוף פעולה או עיתונות", re: /שיתוף פעולה|פרסום|חסות|עיתונא|כתבה|כתב ב|ראיון|partnership|sponsor|\bpress\b|\badvertis/i },   // \b: "impressive", "express" are not the press (27.11)
 ];
 
 function decodeWords(s) {   // RFC 2047 encoded words in a header
@@ -279,7 +279,16 @@ export default {
         const d = await mailDraft(env, cls.key, subject, text);
         if (d) body += `\n\n✍️ טיוטת תשובה (Claude, לבדוק לפני ששולחים מהג'ימייל):\n<pre>${esc(d)}</pre>`;
       }
-      await alert(env, bulk ? "silent" : LEVEL[cls.key] || "summary", "mail:" + (bulk ? "bulk" : cls.key), body, "", { legacy });
+      // the same mail again (the same Message-ID within 2 days: a sending server's retry after our forward failed, 27.11 suspect): Gmail
+      // gets it, Telegram does not tell it twice. KV trouble never holds a mail back
+      const mid = (message.headers.get("message-id") || "").trim().slice(0, 300), seen = mid && env.ALERTS ? "mid:" + mid : "";
+      let repeat = false;
+      if (seen) try { repeat = !!(await within(env.ALERTS.get(seen))); } catch { /* told again at worst */ }
+      if (repeat) console.log("mail repeat: the same Message-ID within 2 days, no second message");
+      else {
+        await alert(env, bulk ? "silent" : LEVEL[cls.key] || "summary", "mail:" + (bulk ? "bulk" : cls.key), body, "", { legacy });
+        if (seen) try { await within(env.ALERTS.put(seen, "1", { expirationTtl: 172800 })); } catch { /* a retry may tell it again */ }
+      }
     } catch (e) {
       console.log("mail error", String(e).slice(0, 200));
       if (body && !tried) await legacy();   // the router broke before any send: today's message
