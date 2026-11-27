@@ -40,6 +40,7 @@
     { "parameterName": "col", "description": "js_error (web): the column where the error was thrown, modulo 10000 (with colk: column = colk*10000 + col); the built app file is one long line (product 12.11, split 20.11)" },
     { "parameterName": "colk", "description": "js_error (web): the column where the error was thrown, in tens of thousands (column = colk*10000 + col), because /api/e drops a number of 10000 or more (product 20.11)" },
     { "parameterName": "why", "description": "lookup_failed (offline): why the check failed, reason|register|online|attempts, e.g. timeout|active|1|2; reason is timeout, http5, http4, json, ckan, net or deadline, never a message (product 27.11)" },
+    { "parameterName": "hedge", "description": "car_lookup: the extra request to the main register answered the check: t = the first had already timed out (a sure save), w = the first was still waiting (a possible save), r = the retry after a fast failure (not a save); empty = the first answered (product 27.11)" },
     { "parameterName": "stage", "description": "buy_stage, buy_step_done, transfer_check, checklist_pdf: the buy stage 1-4 (buy spec 20.11)" },
     { "parameterName": "red", "description": "transfer_check: rows to settle before the transfer, a count (buy spec 20.11)" },
     { "parameterName": "unk", "description": "transfer_check: registers that did not answer, a count (buy spec 20.11)" },

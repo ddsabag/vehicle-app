@@ -1599,27 +1599,30 @@ async function ds(resource_id, filters, limit, signal, sort, tmo){
 function hedge(ask){
   return new Promise((res, rej) => {
     const t0 = Date.now();
-    let pending = 0, done = false, second = false, tm = 0;
+    let pending = 0, done = false, second = false, tm = 0, first = "wait", why = "";   // first: wait | timeout | failed
     const end = () => { done = true; clearTimeout(tm); };
-    const settle = pr => { pending++; pr.then(rows => { if (!done) { end(); res({rows, att: second ? 2 : 1}); } }, e => {
+    // kind marks a check the extra request answered: t = the first had already timed out (the old code failed these), w = the first was still
+    // waiting (a possible save), r = the retry after a fast failure (the old code retried these too)
+    const settle = (pr, n) => { pending++; pr.then(rows => { if (!done) { end(); res({rows, att: second ? 2 : 1, kind: n === 2 ? why || (first === "timeout" ? "t" : "w") : ""}); } }, e => {
+      if (n === 1) first = /timeout/.test(e.message) ? "timeout" : "failed";
       if (done) return;
       if (e.name === "AbortError") { end(); return rej(e); }
       pending--;
-      if (!second && !/HTTP 4\d\d/.test(e.message)) { clearTimeout(tm); tm = setTimeout(go, 700); return; }   // a 4xx answer will not change on a retry
+      if (!second && !/HTTP 4\d\d/.test(e.message)) { clearTimeout(tm); why = "r"; tm = setTimeout(go, 700); return; }   // a 4xx answer will not change on a retry
       if (!pending) { end(); e.att = second ? 2 : 1; rej(e); }
     }); };
-    const go = () => { if (done || second) return; second = true; settle(ask(101, Math.max(8000, 25000 - (Date.now() - t0)))); };
-    settle(ask(100, 15000));
+    const go = () => { if (done || second) return; second = true; settle(ask(101, Math.max(8000, 25000 - (Date.now() - t0))), 2); };
+    settle(ask(100, 15000), 1);
     tm = setTimeout(go, 9000);
   });
 }
-async function byPlate(set, plate, signal, critical){
+async function byPlate(set, plate, signal, critical, meta){
   const field = set.field || "mispar_rechev";
   const forms = set.pad ? [plate, plate.padStart(7,"0"), plate.padStart(8,"0")] : [plate];
   let lastErr = null, ok = false, att = 0;
   forms: for (const v of [...new Set(forms)]) {
     if (critical) {
-      try { const r = await hedge((lim, tmo) => ds(set.id, {[field]: v}, lim, signal, undefined, tmo)); att += r.att; ok = true; if (r.rows.length) return r.rows; continue; }
+      try { const r = await hedge((lim, tmo) => ds(set.id, {[field]: v}, lim, signal, undefined, tmo)); att += r.att; ok = true; if (r.kind && meta) meta.hedge = r.kind; if (r.rows.length) return r.rows; continue; }
       catch (e) { if (e.name === "AbortError") throw e; att += e.att || 1; lastErr = e; if (/timeout/.test(e.message)) break; continue; }
     }
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -3027,7 +3030,8 @@ async function fetchVehicle(plate, signal, onProgress){
   // instead of 16. The personal-import and public registers are always asked: only they say that a car in the active register is a personal import (877 cars
   // in 10/2026), or has its licence deposited or was taken off the road by the police (about 2,550 taxis and other public vehicles, pubState)
   const one = async s => {
-    try { res[s.key] = {rows: await byPlate(s, plate, signal, s.role === "main" && s.key !== "import" && s.key !== "public")}; }
+    const m = {};
+    try { res[s.key] = {rows: await byPlate(s, plate, signal, s.role === "main" && s.key !== "import" && s.key !== "public", m), hedge: m.hedge || ""}; }
     catch (err) { if (err.name === "AbortError") throw err; res[s.key] = {rows: [], err: err.message, att: err.att || 1}; }
     if (onProgress) onProgress(++done / (PLATE_SETS.length + 1));
     if (s.key === "recall" && !res.recall.err && !res.recall.rows.length) recEmpty = recallListEmpty();   // the list's own total, asked alongside the other registers
@@ -3123,6 +3127,7 @@ async function fetchVehicle(plate, signal, onProgress){
     vin: pick(v.misgeret, v.mispar_shilda, v.shilda), km, kmYears, kmPerYear,
     isCancelled: off, hold, pubUse, datesFrom};
   D.zombie = D.isCancelled ? null : res.zombie;
+  D.hedge = (PLATE_SETS.map(s => res[s.key] && res[s.key].hedge).filter(Boolean).sort((a, b) => "twr".indexOf(a) - "twr".indexOf(b)))[0] || "";   // the check the hedge answered (car_lookup hedge)
   D.cost = costs(D);
   return D;
 }
@@ -3316,7 +3321,7 @@ async function lookup(raw){
   if (added) snack(added === "new" ? "נוסף לרכבים שלי" : "הרכב כבר ברכבים שלי", added === "new" ? "ביטול" : "לרשימה", added === "new" ? () => undoAdd(D, mineWas) : () => navTo("cars", {via: "add"}), 6000);
   // exactly 8 params: the app bridge keeps the first 8 (MainActivity.logEvent) and the web Worker 10 with src+camp; a 9th silently drops the last
   // the sample car counts once per open, like car_lookup (a reload or Back is not a new one), with where it was opened from
-  if (isDemo(D)) { if (!again) track("demo_open", {from: via || (SHARE_VIA !== "none" ? "link" : "typed")}); } else track(again ? "lookup_repeat" : "car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: (D.errs && D.errs.length) || D.modelErr ? 1 : 0, role, ...lookupFacts(D)});
+  if (isDemo(D)) { if (!again) track("demo_open", {from: via || (SHARE_VIA !== "none" ? "link" : "typed")}); } else track(again ? "lookup_repeat" : "car_lookup", {kind: D.kind === "model" ? "model" : D.isCancelled ? "cancelled" : "car", recalls: D.recalls ? Math.min(D.recalls.length, 5) : 0, dur: durB, partial: (D.errs && D.errs.length) || D.modelErr ? 1 : 0, role, ...(D.hedge ? {hedge: D.hedge} : {}), ...lookupFacts(D)});
   if (!isDemo(D)) remember(plate, D.kind === "model" ? "" : D.title);
   window.scrollTo({top: 0});
   // "יש לכם כבר רכב? פתחו לו תיק" on home: the car checked next opens straight in its file (one step, like "+"), not on a page with one more button
