@@ -1,0 +1,46 @@
+{
+ "at": "2026-11-22T07:22:20.809Z",
+ "by": "claude-sonnet-5-5",
+ "suggestions": [
+  {
+   "about": "truth:deep:* (keys list failing sections)",
+   "change": "Make the key stable (e.g. truth:deep) and list the failing sections in the body, so one episode is one key. Send at summary level and raise to day only if a section fails 2 days in a row.",
+   "why": "Four different keys on 11-18 and 11-19 (4 loud alerts) were the same ongoing episode, and all four are still open."
+  },
+  {
+   "about": "social:done:*",
+   "change": "Lower to summary and auto-close the key when the post is done. Send one line per batch, not one per story, carousel or reel.",
+   "why": "These are completion notes with nothing for Dudu to do. About 20 of them have stayed open for weeks at day level. The 11-17 batch gave 3 separate alerts within one minute."
+  },
+  {
+   "about": "open ledger items older than a week (copy:*, stl:update:*, mag:pub:*, prod:sent:",
+   "change": "Auto-close an info item once it has been in the morning ledger one day. Alert again only if a real state change occurs.",
+   "why": "Items open since 11-01 to 11-12 sit there with no change. They add clutter and hide real open problems."
+  },
+  {
+   "about": "relguard:ok:*",
+   "change": "Do not keep these as open items. Log them and close them on creation.",
+   "why": "They are silent OK notices, yet relguard:ok:1.38.5-d1 and -d3 are still listed as open."
+  },
+  {
+   "about": "seo:daily",
+   "change": "Replace with a single rolling item updated each day, or close it daily. Alert only on a failure or a change.",
+   "why": "It was queued every day this week and has been open since 11-04 with nothing changing."
+  },
+  {
+   "about": "wf:Data truth and truth:value",
+   "change": "Merge the workflow failure and the truth:value alert into one episode key. Auto-close when the next run passes.",
+   "why": "wf:Data truth went loud on 11-19 and is still open. truth:value went night, loud and then fixed on 11-22, so the two are probably the same data problem."
+  },
+  {
+   "about": "wf:Web deploy (build) and wf:Android build",
+   "change": "Lower the first failure to day, or hold the alert for 5 minutes and send it only if no rerun succeeds. Keep critical for repeated failure.",
+   "why": "Both failed at 08:34 on 11-20 and were fixed within 3 minutes, but the web deploy rang critical. Web deploy failed 1 of 41 runs and Android 1 of 3."
+  },
+  {
+   "about": "zonea:slow:spell",
+   "change": "Raise the slow threshold or alert only when it stays slow for several runs. Send the fix as one line.",
+   "why": "It repeated on 11-16, 11-17, 11-18 and 11-19 (once or twice a day), was deduped each time, and was finally fixed on 11-19."
+  }
+ ]
+}
