@@ -1,7 +1,7 @@
 {
  "v": 1,
- "d": "2026-11-27",
- "seed": "20261127",
+ "d": "2026-11-28",
+ "seed": "20261128",
  "cars": 40,
  "sampled": 40,
  "mism": 0,
@@ -9,7 +9,7 @@
  "refused": 0,
  "fields": {
   "buyer.no_red_flags": [
-   36,
+   37,
    0
   ],
   "buyer.no_red_flags_tag": [
@@ -17,7 +17,7 @@
    0
   ],
   "fee.borrowed_note": [
-   26,
+   28,
    0
   ],
   "fee.licence": [
@@ -25,7 +25,7 @@
    0
   ],
   "identity.buy_steps": [
-   36,
+   37,
    0
   ],
   "identity.colour": [
@@ -69,7 +69,7 @@
    0
   ],
   "insight.age_cancelled": [
-   4,
+   3,
    0
   ],
   "insight.safety_low": [
@@ -109,7 +109,7 @@
    0
   ],
   "owners.current_no_log": [
-   27,
+   26,
    0
   ],
   "owners.durations": [
@@ -177,27 +177,27 @@
    0
   ],
   "recalls.checked_unlisted": [
-   30,
+   28,
    0
   ],
   "recalls.line_honest": [
-   35,
+   32,
    0
   ],
   "recalls.model_count": [
-   33,
+   35,
    0
   ],
   "recalls.model_extra": [
-   33,
+   35,
    0
   ],
   "recalls.model_fits": [
-   21,
+   5,
    0
   ],
   "recalls.model_missing": [
-   32,
+   33,
    0
   ],
   "recalls.open": [
@@ -208,16 +208,20 @@
    40,
    0
   ],
+  "recalls.open_date": [
+   1,
+   0
+  ],
   "recalls.pending_after_road": [
-   14,
+   5,
    0
   ],
   "recalls.pending_banner": [
-   33,
+   35,
    0
   ],
   "recalls.pending_listed": [
-   21,
+   5,
    0
   ],
   "recalls.tab_shown": [
@@ -225,15 +229,15 @@
    0
   ],
   "recalls.thin_check": [
-   40,
+   39,
    0
   ],
   "recalls.thin_line": [
-   28,
+   30,
    0
   ],
   "recalls.thin_rows": [
-   35,
+   32,
    0
   ],
   "road.first_date": [
@@ -249,7 +253,7 @@
    0
   ],
   "settlements.import_line": [
-   1,
+   2,
    0
   ],
   "settlements.scope": [
@@ -341,7 +345,7 @@
    0
   ],
   "specs.wltp_note": [
-   19,
+   21,
    0
   ],
   "status.buy_checklist": [
@@ -349,11 +353,11 @@
    0
   ],
   "status.buy_plan": [
-   36,
+   37,
    0
   ],
   "status.cancel_date": [
-   4,
+   3,
    0
   ],
   "status.cancel_pill": [
@@ -361,11 +365,11 @@
    0
   ],
   "status.cancel_reason": [
-   4,
+   3,
    0
   ],
   "status.cancelled_buy": [
-   4,
+   3,
    0
   ],
   "status.heavy_note": [
@@ -385,15 +389,19 @@
    0
   ],
   "status.import_type": [
-   1,
+   2,
    0
   ],
   "status.inactive_pill": [
    40,
    0
   ],
+  "status.public_use": [
+   1,
+   0
+  ],
   "tag.insight": [
-   18,
+   17,
    0
   ],
   "test.insight": [
@@ -421,7 +429,7 @@
    0
   ],
   "tow.hook": [
-   24,
+   23,
    0
   ],
   "tow.limits": [
