@@ -1,0 +1,16 @@
+[
+ {
+  "sev": "warn",
+  "kind": "wrap",
+  "run": "check/one/320-f130/dark",
+  "step": "tab-buy",
+  "msg": "label on two lines on car: 1לפני שנפגשים · 2ליד הרכב · 3לפני שמשלמים · 4ביום ההעברה"
+ },
+ {
+  "sev": "warn",
+  "kind": "wrap",
+  "run": "check/one/320-f130/dark",
+  "step": "tab-file",
+  "msg": "label on two lines on car: 1לפני שנפגשים · 2ליד הרכב · 3לפני שמשלמים · 4ביום ההעברה"
+ }
+]

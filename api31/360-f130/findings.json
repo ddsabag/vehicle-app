@@ -1,0 +1,16 @@
+[
+ {
+  "sev": "warn",
+  "kind": "wrap",
+  "run": "check/many/360-f130/light",
+  "step": "tab-buy",
+  "msg": "label on two lines on car: 1לפני שנפגשים · 2ליד הרכב · 3לפני שמשלמים · 4ביום ההעברה"
+ },
+ {
+  "sev": "warn",
+  "kind": "wrap",
+  "run": "check/many/360-f130/light",
+  "step": "tab-file",
+  "msg": "label on two lines on car: 1לפני שנפגשים · 2ליד הרכב · 3לפני שמשלמים · 4ביום ההעברה"
+ }
+]
