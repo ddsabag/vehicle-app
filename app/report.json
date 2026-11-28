@@ -1,0 +1,81 @@
+{
+ "v": 5,
+ "at": "2026-11-28T09:32:20.358Z",
+ "source": "app",
+ "run": "https://github.com/ddsabag/vehicle-app/actions/runs/46130365245",
+ "code": "d93c6d1a67df.7aa856ca94cf",
+ "mode": "batch",
+ "counts": {
+  "shots": 78,
+  "kept": 49,
+  "first": 29,
+  "second": 2,
+  "waitingFirst": 0,
+  "waitingSecond": 0,
+  "unsure": 25,
+  "errors": 0,
+  "findings": 3,
+  "new": 2,
+  "rejected": 2,
+  "misreads": 3
+ },
+ "month": {
+  "first": 1289,
+  "second": 35,
+  "caps": {
+   "runFirst": 300,
+   "runSecond": 40,
+   "monthFirst": 4000,
+   "monthSecond": 400
+  }
+ },
+ "findings": [
+  {
+   "shot": "api31/360-f130__light__cars__tour-cars",
+   "kind": "layout",
+   "part": 1,
+   "where": "top of the white card above the table header, empty area before the divider line",
+   "text": "",
+   "what": "A large empty block sits at the top of the card above the divider and the table header, where there is no content.",
+   "severity": "low",
+   "since": "2026-11-28",
+   "new": true
+  },
+  {
+   "shot": "api35/360-f130__light__cars__tour-cars",
+   "kind": "cut_text",
+   "part": 1,
+   "where": "the table header of the car card, leftmost column header, at the left edge of the card",
+   "text": "טיפ אחו",
+   "what": "The header is cut: it shows only \"טיפ\" over \"אחו\", while the full word should read \"טיפול אחרון\". Letters are missing at the end of both lines, so the column title cannot be read.",
+   "severity": "medium",
+   "since": "2026-11-09",
+   "new": false
+  },
+  {
+   "shot": "api35/360-f130__light__cars__tour-cars",
+   "kind": "layout",
+   "part": 1,
+   "where": "top of the white table card, between the card's top edge and the divider line above the column headers",
+   "text": "",
+   "what": "A large empty band at the top of the card, with only a thin divider line and no title or content, looks like missing content.",
+   "severity": "low",
+   "since": "2026-11-28",
+   "new": true
+  }
+ ],
+ "pending": [],
+ "dropped": [
+  {
+   "shot": "api31/360-f130__light__cars__tour-cars",
+   "claim": "The last column header, which should read \"טיפול אחרון\", is clipped at the left edge of the card and wraps into two broken fragments, so the word is partly hidd",
+   "why": "The text is clipped at the left edge of the card: the letters 'ול' and 'ר' are missing, so the header reads 'טיפ' and 'אחו' instead of 'טיפול אחרון'. The table runs past the card's edge. At 130% font "
+  },
+  {
+   "shot": "api31/411-extra__auto-light",
+   "claim": "The footer sentence ends at \"ואינו מחליף\" with no object, and the line sits right against the bottom navigation bar. The rest of the sentence looks cut off, hid",
+   "why": "The sentence continues below the visible area and is partly hidden by the bottom navigation bar. That is ordinary scrolling content under a fixed bar, not a defect, and the visible line's letters are "
+  }
+ ],
+ "errors": []
+}

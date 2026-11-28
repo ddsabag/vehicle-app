@@ -1,0 +1,81 @@
+{
+ "v": 5,
+ "at": "2026-11-22T05:18:36.373Z",
+ "source": "app",
+ "run": "https://github.com/ddsabag/vehicle-app/actions/runs/44988276484",
+ "code": "2e393a90a88f.2aef413c98e1",
+ "mode": "batch",
+ "counts": {
+  "shots": 78,
+  "kept": 0,
+  "first": 78,
+  "second": 2,
+  "waitingFirst": 0,
+  "waitingSecond": 0,
+  "unsure": 27,
+  "errors": 0,
+  "findings": 4,
+  "new": 2,
+  "rejected": 0,
+  "misreads": 2
+ },
+ "month": {
+  "first": 620,
+  "second": 11,
+  "caps": {
+   "runFirst": 300,
+   "runSecond": 40,
+   "monthFirst": 4000,
+   "monthSecond": 400
+  }
+ },
+ "findings": [
+  {
+   "shot": "api31/360-f130__light__cars__tour-cars",
+   "kind": "cut_text",
+   "part": 1,
+   "where": "the table header of the cars card, the last column at the far left edge",
+   "text": "טיפ אחו",
+   "what": "The last column header is broken into \"טיפ\" and \"אחו\", two lines of a longer word. Its second line is not a whole word, and it sits at the left edge of the card, so the header looks cut off.",
+   "severity": "medium",
+   "since": "2026-11-12",
+   "new": false
+  },
+  {
+   "shot": "api31/360-f130__light__cars__tour-cars",
+   "kind": "layout",
+   "part": 1,
+   "where": "the top of the white cars card, above the divider line",
+   "text": "",
+   "what": "A large empty band sits at the top of the card, above the divider and the table header, with no title or content.",
+   "severity": "low",
+   "since": "2026-11-22",
+   "new": true
+  },
+  {
+   "shot": "api35/360-f130__light__cars__tour-cars",
+   "kind": "cut_text",
+   "part": 1,
+   "where": "table header row, last column at the left edge of the white card",
+   "text": "טיפ אחו",
+   "what": "The last column header is cut off at the left edge of its column. It shows 'טיפ' on the first line and 'אחו' on the second, instead of a complete 'טיפול אחרון'. The final letters are missing, so the header is incomplete.",
+   "severity": "medium",
+   "since": "2026-11-12",
+   "new": false
+  },
+  {
+   "shot": "api35/360-f130__light__cars__tour-cars",
+   "kind": "layout",
+   "part": 1,
+   "where": "top of the white card, above the divider line and the table header",
+   "text": "",
+   "what": "A large empty area sits at the top of the card, above the divider line, where a title or controls would be expected. It looks like missing content.",
+   "severity": "low",
+   "since": "2026-11-22",
+   "new": true
+  }
+ ],
+ "pending": [],
+ "dropped": [],
+ "errors": []
+}

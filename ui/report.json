@@ -1,0 +1,79 @@
+{
+ "v": 5,
+ "at": "2026-11-28T10:53:41.587Z",
+ "source": "ui",
+ "run": "https://github.com/ddsabag/vehicle-app/actions/runs/46134899064",
+ "code": "d93c6d1a67df",
+ "mode": "batch",
+ "counts": {
+  "shots": 384,
+  "kept": 382,
+  "first": 2,
+  "second": 0,
+  "waitingFirst": 0,
+  "waitingSecond": 0,
+  "unsure": 122,
+  "errors": 0,
+  "findings": 1,
+  "new": 0,
+  "rejected": 6,
+  "misreads": 25
+ },
+ "month": {
+  "first": 2649,
+  "second": 21,
+  "caps": {
+   "runFirst": 300,
+   "runSecond": 40,
+   "monthFirst": 4000,
+   "monthSecond": 400
+  }
+ },
+ "findings": [
+  {
+   "shot": "rental-now-buy-390-dark",
+   "kind": "typo",
+   "part": 4,
+   "where": "the bold paragraph under the 'איך הדגם הזה מחזיק' heading",
+   "text": "במדד אחד הדגם הזה טוב מהממוצע ובאחר פחות טוב.",
+   "what": "The sentence reads \"ובאחר פחות טוב\"; the word should be \"ובאחד\" (\"and in one less good\"), or \"ובאחר\" is a misspelling of \"ובאחד\".",
+   "severity": "medium",
+   "since": "2026-11-24",
+   "new": false
+  }
+ ],
+ "pending": [],
+ "dropped": [
+  {
+   "shot": "buy-ask-above-buy-320-dark",
+   "claim": "The white saved-to-my-cars toast covers the bullet below it, so the start of that question (ending in \"על הסטוריה\") is hidden behind the toast.",
+   "why": "A fixed bar or toast drawn over content that scrolls under it is not a defect. The hidden line shows in full once the page scrolls, and the next part continues the list."
+  },
+  {
+   "shot": "buy-km-low-overview-320-dark",
+   "claim": "The toast message sits on top of the card's date value below 'טסט אחרון', hiding most of its digits so only '25' shows. The text under the toast is not readable",
+   "why": "The toast is a temporary floating message drawn over content that scrolls under it. It is not a layout defect, so it is not reported."
+  },
+  {
+   "shot": "buy-km-low-overview-390-dark",
+   "claim": "The toast \"נשמר ברכבים שלי, בסינון לקנייה\" sits on top of the registration details. It covers the label starting \"עלה לכבי…\" and part of the date beneath it, wh",
+   "why": "The toast is a temporary floating notification drawn over content that scrolls beneath it, so covering the card is expected and not a defect."
+  },
+  {
+   "shot": "buy-km-low-overview-390-light",
+   "claim": "A toast message 'נשמר ברכבים שלי, בסינון לקנייה' sits over the 'עלה לכביש' row and covers the start of its date value, so the date reads '05/2021' with its firs",
+   "why": "The toast is a transient floating notification drawn over scrolling content, which is expected behaviour. It is not a layout defect, and the row is not permanently hidden."
+  },
+  {
+   "shot": "buy-km-low-overview-390-light",
+   "claim": "The date value is partly covered by the toast, so the leading digits are hidden.",
+   "why": "Duplicate of claim 1. The toast floats over the content, so the date is covered, not clipped by its own box."
+  },
+  {
+   "shot": "buy-km-low-specs-390-dark",
+   "claim": "The toast message 'נשמר ברכבים שלי, בסינון לקנייה' sits on top of the card below the 'מנוע והנעה' card and covers its header text and icon, so the card's title ",
+   "why": "The toast is a temporary floating message drawn over content that scrolls beneath it. That is expected, so it is not a defect."
+  }
+ ],
+ "errors": []
+}

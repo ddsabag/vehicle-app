@@ -1,0 +1,57 @@
+{
+ "v": 5,
+ "at": "2026-11-22T05:40:28.066Z",
+ "source": "ui",
+ "run": "https://github.com/ddsabag/vehicle-app/actions/runs/44988276560",
+ "code": "2e393a90a88f",
+ "mode": "batch",
+ "counts": {
+  "shots": 384,
+  "kept": 0,
+  "first": 300,
+  "second": 4,
+  "waitingFirst": 84,
+  "waitingSecond": 0,
+  "unsure": 144,
+  "errors": 0,
+  "findings": 0,
+  "new": 0,
+  "rejected": 4,
+  "misreads": 35
+ },
+ "month": {
+  "first": 1920,
+  "second": 10,
+  "caps": {
+   "runFirst": 300,
+   "runSecond": 40,
+   "monthFirst": 4000,
+   "monthSecond": 400
+  }
+ },
+ "findings": [],
+ "pending": [],
+ "dropped": [
+  {
+   "shot": "buy-ask-above-overview-320-dark",
+   "claim": "The toast message is drawn over the lower half of both stat cards, hiding their figures (the values under 'ממוצע לשנה' and 'ק״מ בטסט האחרון' are partly covered ",
+   "why": "The toast is a transient floating message, fixed to the screen and drawn over content that scrolls under it. That is expected behaviour and not a defect."
+  },
+  {
+   "shot": "buy-ask-above-specs-390-dark",
+   "claim": "A toast message 'נשמר ברכבים שלי, בסינון לקנייה' sits on top of the engine displacement value and the 'חשמל/בנזין' value, covering the text of the card behind i",
+   "why": "The toast is a temporary floating message fixed to the screen, drawn over content that scrolls under it. That is expected behaviour and not a defect."
+  },
+  {
+   "shot": "buy-km-low-overview-320-dark",
+   "claim": "The toast message is drawn over the 'טסט אחרון' date value in the רישוי וטסט card, hiding most of the date digits beneath it.",
+   "why": "The toast is a temporary message fixed to the screen, drawn over content that scrolls under it. The date is shown in full further down the page (05/2021 at the top of part 2), so this is not a defect."
+  },
+  {
+   "shot": "buy-km-low-overview-390-dark",
+   "claim": "The toast 'נשמר ברכבים שלי, בסינון לקנייה' is drawn over the 'עלה לכבי...' label and the date below it, so the label and the date '...05/2021' are partly hidden",
+   "why": "The toast is a transient floating notification, fixed to the screen and drawn over scrolling content. Content hidden under such a bar is not a defect."
+  }
+ ],
+ "errors": []
+}
