@@ -193,7 +193,7 @@
    0
   ],
   "recalls.model_fits": [
-   5,
+   7,
    0
   ],
   "recalls.model_missing": [
@@ -209,11 +209,11 @@
    0
   ],
   "recalls.open_date": [
-   1,
+   2,
    0
   ],
   "recalls.pending_after_road": [
-   5,
+   7,
    0
   ],
   "recalls.pending_banner": [
@@ -221,7 +221,7 @@
    0
   ],
   "recalls.pending_listed": [
-   5,
+   7,
    0
   ],
   "recalls.tab_shown": [
@@ -229,7 +229,7 @@
    0
   ],
   "recalls.thin_check": [
-   39,
+   38,
    0
   ],
   "recalls.thin_line": [
